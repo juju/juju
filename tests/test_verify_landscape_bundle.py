@@ -1,12 +1,12 @@
 from mock import (
     patch,
-)
+    )
 
+from fakejuju import fake_juju_client
 import tests
-from tests.test_jujupy import fake_juju_client
 from verify_landscape_bundle import(
     assess_landscape_bundle,
-)
+    )
 
 
 class TestVerifyLandscapeBundle(tests.TestCase):

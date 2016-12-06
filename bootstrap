@@ -25,9 +25,11 @@ def main():
     env = client.env
     if args.name is not None:
         env.set_model_name(args.name)
+    new_config = {}
     for option in args.option:
         key, value = option.split('=', 1)
-        env.config[key] = value
+        new_config[key] = value
+    env.update_config(new_config)
     bootstrap_from_env(get_juju_home(), client)
 
 

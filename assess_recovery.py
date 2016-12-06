@@ -13,6 +13,7 @@ import sys
 from deploy_stack import (
     BootstrapManager,
     deploy_dummy_stack,
+    get_remote_machines,
     get_token_from_status,
     wait_for_state_server_to_shutdown,
 )
@@ -41,6 +42,10 @@ running_instance_pattern = re.compile('\["([^"]+)"\]')
 log = logging.getLogger("assess_recovery")
 
 
+class HARecoveryError(Exception):
+    """The controllers failed to respond."""
+
+
 def check_token(client, token):
     for ignored in until_timeout(300):
         found = get_token_from_status(client)
@@ -64,6 +69,36 @@ def show_controller(client):
     log.info('Controller is:\n{}'.format(controller_info))
 
 
+def enable_ha(bs_manager, controller_client):
+    """Enable HA and wait for the controllers to be ready."""
+    controller_client.enable_ha()
+    controller_client.wait_for_ha()
+    show_controller(controller_client)
+    remote_machines = get_remote_machines(
+        controller_client, bs_manager.known_hosts)
+    bs_manager.known_hosts = remote_machines
+
+
+def assess_ha_recovery(bs_manager, client):
+    """Verify that the client can talk to a controller.
+
+
+    The controller is given 5 minutes to respond to the client's request.
+    Another possibly 5 minutes is given to return a sensible status.
+    """
+    # Juju commands will hang when the controller is down, so ensure the
+    # call is interrupted and raise HARecoveryError. The controller
+    # might return an error, but it still has
+    try:
+        client.juju('status', (), check=True, timeout=300)
+        client.get_status(300)
+    except CalledProcessError:
+        raise HARecoveryError()
+    bs_manager.has_controller = True
+    log.info("HA recovered from leader failure.")
+    log.info("PASS")
+
+
 def restore_present_state_server(controller_client, backup_file):
     """juju-restore won't restore when the state-server is still present."""
     try:
@@ -78,7 +113,7 @@ def restore_present_state_server(controller_client, backup_file):
             "juju-restore restored to an operational state-serve")
 
 
-def delete_controller_members(client, leader_only=False):
+def delete_controller_members(bs_manager, client, leader_only=False):
     """Delete controller members.
 
     The all members are delete by default. The followers are deleted before the
@@ -94,7 +129,7 @@ def delete_controller_members(client, leader_only=False):
     deleted_machines = []
     for machine in members:
         instance_id = machine.info.get('instance-id')
-        if client.env.config['type'] == 'azure':
+        if client.env.provider == 'azure':
             instance_id = convert_to_azure_ids(client, [instance_id])[0]
         host = machine.info.get('dns-name')
         log.info("Instrumenting node failure for member {}: {} at {}".format(
@@ -103,10 +138,17 @@ def delete_controller_members(client, leader_only=False):
         wait_for_state_server_to_shutdown(
             host, client, instance_id, timeout=120)
         deleted_machines.append(machine.machine_id)
+    log.info("Deleted {}".format(deleted_machines))
+    # Do not gather data about the deleted controller.
+    if not leader_only:
+        bs_manager.has_controller = False
+    for m_id in deleted_machines:
+        if bs_manager.known_hosts.get(m_id):
+            del bs_manager.known_hosts[m_id]
     return deleted_machines
 
 
-def restore_missing_state_server(client, controller_client, backup_file,
+def restore_missing_state_server(bs_manager, controller_client, backup_file,
                                  check_controller=True):
     """juju-restore creates a replacement state-server for the services."""
     log.info("Starting restore.")
@@ -119,12 +161,13 @@ def restore_missing_state_server(client, controller_client, backup_file,
         raise LoggedException(e)
     if check_controller:
         controller_client.wait_for_started(600)
-    show_controller(client)
-    client.set_config('dummy-source', {'token': 'Two'})
-    client.wait_for_started()
-    client.wait_for_workloads()
-    check_token(client, 'Two')
-    log.info("%s restored", client.env.environment)
+    show_controller(bs_manager.client)
+    bs_manager.has_controller = True
+    bs_manager.client.set_config('dummy-source', {'token': 'Two'})
+    bs_manager.client.wait_for_started()
+    bs_manager.client.wait_for_workloads()
+    check_token(bs_manager.client, 'Two')
+    log.info("%s restored", bs_manager.client.env.environment)
     log.info("PASS")
 
 
@@ -151,7 +194,9 @@ def detect_bootstrap_machine(bs_manager):
     try:
         yield
     except Exception as e:
-        bs_manager.known_hosts['0'] = parse_new_state_server_from_error(e)
+        address = parse_new_state_server_from_error(e)
+        if address is not None:
+            bs_manager.known_hosts['0'] = address
         raise
 
 
@@ -164,8 +209,7 @@ def assess_recovery(bs_manager, strategy, charm_series):
     log.info("Test started.")
     controller_client = client.get_controller_client()
     if strategy in ('ha', 'ha-backup'):
-        controller_client.enable_ha()
-        controller_client.wait_for_ha()
+        enable_ha(bs_manager, controller_client)
     if strategy in ('ha-backup', 'backup'):
         backup_file = controller_client.backup()
         restore_present_state_server(controller_client, backup_file)
@@ -173,20 +217,15 @@ def assess_recovery(bs_manager, strategy, charm_series):
         leader_only = True
     else:
         leader_only = False
-    deleted_machine_ids = delete_controller_members(
-        controller_client, leader_only=leader_only)
-    log.info("Deleted {}".format(deleted_machine_ids))
-    for m_id in deleted_machine_ids:
-        if bs_manager.known_hosts.get(m_id):
-            del bs_manager.known_hosts[m_id]
+    delete_controller_members(
+        bs_manager, controller_client, leader_only=leader_only)
     if strategy == 'ha':
-        client.get_status(600)
-        log.info("HA recovered from leader failure.")
-        log.info("PASS")
+        assess_ha_recovery(bs_manager, client)
     else:
         check_controller = strategy != 'ha-backup'
-        restore_missing_state_server(client, controller_client, backup_file,
-                                     check_controller=check_controller)
+        restore_missing_state_server(
+            bs_manager, controller_client, backup_file,
+            check_controller=check_controller)
     log.info("Test complete.")
 
 

@@ -8,13 +8,15 @@ cover:
 	python -m coverage report
 clean:
 	find . -name '*.pyc' -delete
+
 apt-update:
 	sudo apt-get -qq update
-juju-ci-tools.common_0.1.3-0_all.deb: apt-update
+juju-ci-tools.common_0.1.4-0_all.deb: apt-update
+	find . -name '*.deb' -delete
 	sudo apt-get install -y equivs
 	equivs-build juju-ci-tools-common
-install-deps: juju-ci-tools.common_0.1.3-0_all.deb apt-update
-	sudo dpkg -i juju-ci-tools.common_0.1.3-0_all.deb || true
+install-deps: juju-ci-tools.common_0.1.4-0_all.deb apt-update
+	sudo dpkg -i juju-ci-tools.common_0.1.4-0_all.deb || true
 	sudo apt-get install -y -f
 	./pipdeps.py install
 name=NAMEHERE

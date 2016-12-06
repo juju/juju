@@ -1,19 +1,23 @@
 """Tests for assess_TEMPLATE module."""
 
 import logging
-from mock import Mock, patch
 import StringIO
+
+from mock import (
+    Mock,
+    patch,
+    )
 
 from assess_TEMPLATE import (
     assess_TEMPLATE,
     parse_args,
     main,
-)
+    )
+from fakejuju import fake_juju_client
 from tests import (
     parse_error,
     TestCase,
-)
-from tests.test_jujupy import fake_juju_client
+    )
 
 
 class TestParseArgs(TestCase):
@@ -46,12 +50,13 @@ class TestMain(TestCase):
             with patch("assess_TEMPLATE.BootstrapManager.booted_context",
                        autospec=True) as mock_bc:
                 with patch('deploy_stack.client_from_config',
-                           return_value=client) as mock_c:
+                           return_value=client) as mock_cfc:
                     with patch("assess_TEMPLATE.assess_TEMPLATE",
                                autospec=True) as mock_assess:
                         main(argv)
         mock_cl.assert_called_once_with(logging.DEBUG)
-        mock_c.assert_called_once_with('an-env', "/bin/juju", debug=False)
+        mock_cfc.assert_called_once_with('an-env', "/bin/juju", debug=False,
+                                         soft_deadline=None)
         self.assertEqual(mock_bc.call_count, 1)
         mock_assess.assert_called_once_with(client)
 

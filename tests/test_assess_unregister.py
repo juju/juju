@@ -5,17 +5,17 @@ from mock import (
     Mock,
     call,
     patch,
-)
+    )
 import StringIO
 import subprocess
 from textwrap import dedent
 
 import assess_unregister as a_unreg
+from fakejuju import fake_juju_client
 from tests import (
     parse_error,
     TestCase,
-)
-from tests.test_jujupy import fake_juju_client
+    )
 from utility import JujuAssertionError
 
 

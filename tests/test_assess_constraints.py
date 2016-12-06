@@ -25,6 +25,7 @@ from assess_constraints import (
     mem_to_int,
     INSTANCE_TYPES,
     )
+from fakejuju import fake_juju_client
 from jujupy import (
     Status,
     )
@@ -32,7 +33,6 @@ from tests import (
     parse_error,
     TestCase,
     )
-from tests.test_jujupy import fake_juju_client
 from utility import (
     JujuAssertionError,
     temp_dir,
@@ -186,7 +186,12 @@ class TestAssess(TestCase):
         # allows assertions to be made about calls.  Mocks and the fake client
         # can also be used separately.
         """Mock a client and the deploy function."""
-        fake_client = Mock(wraps=fake_juju_client())
+        fake_client = fake_juju_client()
+        env = fake_client.env
+        fake_client = Mock(wraps=fake_client)
+        # force the real env, because attribute access on a wrapped one is
+        # weird.
+        fake_client.env = env
         fake_client.bootstrap()
         with patch('jujupy.EnvJujuClient.deploy',
                    autospec=True) as deploy_mock:
@@ -281,7 +286,7 @@ class TestAssess(TestCase):
                             Constraints(instance_type='baz')]
         expected_calls = ['instance-type=bar', 'instance-type=baz']
         with self.prepare_deploy_mock() as (fake_client, deploy_mock):
-            fake_provider = fake_client.env.config.get('type')
+            fake_provider = fake_client.env.provider
             with self.patch_instance_spec(fake_provider):
                 for constraints in constraints_list:
                     assess_constraints_deploy(fake_client, constraints,
@@ -292,7 +297,7 @@ class TestAssess(TestCase):
     def test_instance_type_constraints(self):
         assert_constraints_calls = ['instance-type=bar', 'instance-type=baz']
         with self.prepare_deploy_mock() as (fake_client, deploy_mock):
-            fake_provider = fake_client.env.config.get('type')
+            fake_provider = fake_client.env.provider
             with self.patch_instance_spec(fake_provider) as spec_mock:
                 assess_instance_type_constraints(fake_client)
         constraints_calls = self.gather_constraint_args(deploy_mock)
@@ -301,7 +306,7 @@ class TestAssess(TestCase):
 
     def test_instance_type_constraints_fail(self):
         with self.prepare_deploy_mock() as (fake_client, deploy_mock):
-            fake_provider = fake_client.env.config.get('type')
+            fake_provider = fake_client.env.provider
             with self.patch_instance_spec(fake_provider, False):
                 with self.assertRaisesRegexp(
                         JujuAssertionError,

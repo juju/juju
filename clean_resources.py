@@ -22,15 +22,14 @@ def get_regions(args, env):
     if args.all_regions:
         return [region.name for region in filter(
                 lambda x: '-gov-' not in x.name, regions())]
-    return [env.config['region']]
+    return [env.get_region()]
 
 
 def clean(args):
     env = SimpleEnvironment.from_config(args.env)
     selected_regions = get_regions(args, env)
     for region in selected_regions:
-        with AWSAccount.manager_from_config(
-                env.config, region=region) as substrate:
+        with AWSAccount.from_boot_config(env, region=region) as substrate:
             logging.info('Cleaning resources in {}.'.format(substrate.region))
             all_groups = dict(substrate.iter_security_groups())
             instance_groups = dict(substrate.iter_instance_security_groups())

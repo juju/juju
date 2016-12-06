@@ -40,6 +40,10 @@ def noop_context():
 
 @contextmanager
 def scoped_environ(new_environ=None):
+    """Save the current environment and restore it when the context is exited.
+
+    :param new_environ: If provided and not None, the key/value pairs of the
+    iterable are used to create a new environment in the context."""
     old_environ = dict(os.environ)
     try:
         if new_environ is not None:
@@ -322,7 +326,16 @@ def _to_deadline(timeout):
     return datetime.utcnow() + timedelta(seconds=int(timeout))
 
 
-def add_basic_testing_arguments(parser, using_jes=False, deadline=True):
+def add_arg_juju_bin(parser):
+    parser.add_argument('juju_bin', nargs='?',
+                        help='Full path to the Juju binary. By default, this'
+                        ' will use $GOPATH/bin/juju or /usr/bin/juju in that'
+                        ' order.',
+                        default=_generate_default_binary())
+
+
+def add_basic_testing_arguments(parser, using_jes=False, deadline=True,
+                                env=True):
     """Returns the parser loaded with basic testing arguments.
 
     The basic testing arguments, used in conjuction with boot_context ensures
@@ -348,15 +361,12 @@ def add_basic_testing_arguments(parser, using_jes=False, deadline=True):
     """
 
     # Optional postional arguments
-    parser.add_argument(
-        'env', nargs='?',
-        help='The juju environment to base the temp test environment on.',
-        default='lxd')
-    parser.add_argument('juju_bin', nargs='?',
-                        help='Full path to the Juju binary. By default, this'
-                        ' will use $GOPATH/bin/juju or /usr/bin/juju in that'
-                        ' order.',
-                        default=_generate_default_binary())
+    if env:
+        parser.add_argument(
+            'env', nargs='?',
+            help='The juju environment to base the temp test environment on.',
+            default='lxd')
+    add_arg_juju_bin(parser)
     parser.add_argument('logs', nargs='?', type=_clean_dir,
                         help='A directory in which to store logs. By default,'
                         ' this will use the current directory',
@@ -408,6 +418,16 @@ def configure_logging(log_level):
         datefmt='%Y-%m-%d %H:%M:%S')
 
 
+@contextmanager
+def skip_on_missing_file():
+    """Skip to the end of block if a missing file exception is raised."""
+    try:
+        yield
+    except (IOError, OSError) as e:
+        if e.errno != errno.ENOENT:
+            raise
+
+
 def ensure_dir(path):
     try:
         os.mkdir(path)
@@ -417,11 +437,8 @@ def ensure_dir(path):
 
 
 def ensure_deleted(path):
-    try:
+    with skip_on_missing_file():
         os.unlink(path)
-    except OSError as e:
-        if e.errno != errno.ENOENT:
-            raise
 
 
 def get_candidates_path(root_dir):
@@ -489,14 +506,6 @@ def run_command(command, dry_run=False, verbose=False):
             print_now(output)
 
 
-def wait_for_removed_services(client, charm):
-    """Timeout until the remove process ends"""
-    for ignored in until_timeout(60):
-        status = client.get_status()
-        if charm not in status.get_applications():
-            break
-
-
 def unqualified_model_name(model_name):
     """Return the model name with the owner qualifier stripped if present."""
     return model_name.split('/', 1)[-1]
@@ -514,3 +523,33 @@ def qualified_model_name(model_name, owner_name):
             'qualified model name {} with owner not matching {}'.format(
                 model_name, owner_name))
     return '{}/{}'.format(owner_name, parts[-1])
+
+
+def get_unit_ipaddress(client, unit_name):
+    status = client.get_status()
+    return status.get_unit(unit_name)['public-address']
+
+
+def log_and_wrap_exception(logger, exc):
+    """Record exc details to logger and return wrapped in LoggedException."""
+    logger.exception(exc)
+    stdout = getattr(exc, 'output', None)
+    stderr = getattr(exc, 'stderr', None)
+    if stdout or stderr:
+        logger.info('Output from exception:\nstdout:\n%s\nstderr:\n%s',
+                    stdout, stderr)
+    return LoggedException(exc)
+
+
+@contextmanager
+def logged_exception(logger):
+    """\
+    Record exceptions in managed context to logger and reraise LoggedException.
+
+    Note that BaseException classes like SystemExit, GeneratorExit and
+    LoggedException itself are not wrapped, except for KeyboardInterrupt.
+    """
+    try:
+        yield
+    except (Exception, KeyboardInterrupt) as e:
+        raise log_and_wrap_exception(logger, e)

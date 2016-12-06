@@ -9,14 +9,14 @@ from assess_jes_deploy import (
     env_token,
     hosted_environment,
     jes_setup,
-)
+    )
+from fakejuju import fake_juju_client
 from jujupy import (
     EnvJujuClient25,
     JUJU_DEV_FEATURE_FLAGS,
     SimpleEnvironment,
-)
+    )
 import tests
-from tests.test_jujupy import fake_juju_client
 
 
 class TestJES(tests.FakeHomeTestCase):
@@ -31,7 +31,6 @@ class TestJES(tests.FakeHomeTestCase):
         client = self.client_class(
             SimpleEnvironment.from_config('baz'),
             '1.25-foobar', 'path')
-        client.enable_feature('jes')
         return client
 
     @patch('assess_jes_deploy.get_random_string', autospec=True)
@@ -42,7 +41,7 @@ class TestJES(tests.FakeHomeTestCase):
     def test_set_jes_flag(self):
         client = self.mock_client()
         env = client._shell_environ()
-        self.assertTrue('jes' in env[JUJU_DEV_FEATURE_FLAGS].split(","))
+        self.assertNotIn('jes', env.get(JUJU_DEV_FEATURE_FLAGS, '').split(","))
 
     @patch('assess_jes_deploy.print_now', autospec=True)
     @patch('assess_jes_deploy.get_random_string', autospec=True)

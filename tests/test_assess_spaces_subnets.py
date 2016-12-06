@@ -222,7 +222,6 @@ class JujuMockTestCase(TestCase):
             patch.object(self.client, 'juju', self.juju_mock.juju),
             patch.object(self.client, 'get_status', self.juju_mock.get_status),
             patch.object(self.client, 'juju_async', self.juju_mock.juju_async),
-            patch.object(self.client, 'wait_for', nil_func),
             patch.object(self.client, 'wait_for_started',
                          self.juju_mock.get_status),
             patch.object(self.client, 'get_juju_output', self.juju_mock.juju),

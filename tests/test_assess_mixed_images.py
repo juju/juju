@@ -5,19 +5,19 @@ import logging
 from mock import (
     call,
     patch
-)
+    )
 import StringIO
 
 from assess_mixed_images import (
     assess_mixed_images,
     parse_args,
     main,
-)
+    )
+from fakejuju import fake_juju_client
 from tests import (
     parse_error,
     TestCase,
-)
-from tests.test_jujupy import fake_juju_client
+    )
 
 
 class TestParseArgs(TestCase):

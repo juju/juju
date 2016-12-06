@@ -7,8 +7,9 @@ from jujuci import (
     Credentials,
     )
 from build_juju import (
+    ARTIFACT_GLOBS,
     build_juju,
-    get_script,
+    get_crossbuild_script,
     main,
 )
 from utility import temp_dir
@@ -52,27 +53,23 @@ class JujuBuildTestCase(TestCase):
         self.assertEqual(
             {'archive': False, 'dry_run': True, 'verbose': True},
             ga_mock.call_args[1])
-        crossbuild = get_script()
+        crossbuild = get_crossbuild_script()
         self.assertEqual(
             ([crossbuild, 'win-client', '-b', '~/crossbuild',
               'juju-core_1.2.3.tar.gz'], ),
             rc_mock.call_args[0])
         self.assertEqual(
             {'dry_run': True, 'verbose': True}, rc_mock.call_args[1])
-        globs = [
-            'juju-setup-*.exe', 'juju-*-win2012-amd64.tgz',
-            'juju-*-osx.tar.gz', 'juju-*-centos7-amd64.tgz',
-            'juju-*-centos7.tar.gz']
-        self.assertEqual((work_dir, globs), aa_mock.call_args[0])
+        self.assertEqual((work_dir, ARTIFACT_GLOBS), aa_mock.call_args[0])
         self.assertEqual(
             {'dry_run': True, 'verbose': True}, aa_mock.call_args[1])
 
-    def test_get_script(self):
+    def test_get_crossbuild_script(self):
         self.assertEqual(
             '/foo/juju-release-tools/crossbuild.py',
-            get_script('/foo/juju-release-tools'))
+            get_crossbuild_script('/foo/juju-release-tools'))
         parent_dir = os.path.realpath(
             os.path.join(__file__, '..', '..', '..'))
         self.assertEqual(
             os.path.join(parent_dir, 'juju-release-tools', 'crossbuild.py'),
-            get_script())
+            get_crossbuild_script())

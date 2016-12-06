@@ -3,7 +3,7 @@ Priority: optional
 Standards-Version: 3.9.2
 
 Package: juju-ci-tools.common
-Version: 0.1.3-0
+Version: 0.1.4-0
 Depends: charm,
          distro-info-data,
          euca2ools,
@@ -25,9 +25,10 @@ Depends: charm,
          simplestreams,
          uvtool,
          uvtool-libvirt
-Recommends: juju-quickstart,
+Recommends: juju-2.0,
+            juju-quickstart,
             juju-deployer,
             juju-local
 Architecture: all
 Description: juju-ci-tools-common
- A metapackage providing the dependencies for juju-reports
+ A metapackage providing the dependencies for juju-ci-tools

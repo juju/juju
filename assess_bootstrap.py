@@ -8,7 +8,6 @@ import sys
 
 from deploy_stack import (
     BootstrapManager,
-    tear_down,
     )
 from jujupy import (
     get_machine_dns_name,
@@ -32,7 +31,7 @@ def thin_booted_context(bs_manager, **kwargs):
     client = bs_manager.client
     with bs_manager.top_context() as machines:
         with bs_manager.bootstrap_context(machines):
-            tear_down(client, client.is_jes_enabled())
+            client.kill_controller()
             client.bootstrap(**kwargs)
         with bs_manager.runtime_context(machines):
             yield client
@@ -64,7 +63,7 @@ def assess_metadata(bs_manager, local_source):
     client = bs_manager.client
     # This disconnects from the metadata source, as INVALID_URL is different.
     # agent-metadata-url | tools-metadata-url
-    client.env.config['agent-metadata-url'] = INVALID_URL
+    client.env.update_config({'agent-metadata-url': INVALID_URL})
     with prepare_temp_metadata(client, local_source) as metadata_dir:
         log.info('Metadata written to: {}'.format(metadata_dir))
         with thin_booted_context(bs_manager,
@@ -80,15 +79,20 @@ def get_controller_address(client):
     return get_machine_dns_name(client, "0")
 
 
+def get_controller_hostname(client):
+    """Get the hostname of the controller for this model."""
+    controller_client = client.get_controller_client()
+    name = controller_client.run(['hostname'], machines=['0'], use_json=False)
+    return name.strip()
+
+
 def assess_to(bs_manager, to):
     """Assess bootstraping with the --to option."""
     if to is None:
         raise ValueError('--to not given when testing to')
     with thin_booted_context(bs_manager, to=to) as client:
         log.info('To {} bootstrap successful.'.format(to))
-        # This might be needed:
-        # client.juju('switch', 'controller', include_e=False)
-        addr = get_controller_address(client)
+        addr = get_controller_hostname(client)
     if addr != to:
         raise JujuAssertionError('Not bootstrapped to the correct address.')
 

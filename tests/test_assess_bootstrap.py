@@ -11,6 +11,7 @@ from assess_bootstrap import (
     assess_metadata,
     assess_to,
     get_controller_address,
+    get_controller_hostname,
     INVALID_URL,
     parse_args,
     prepare_metadata,
@@ -43,6 +44,7 @@ class TestThinBootedContext(TestCase):
         client = Mock()
         client.attach_mock(Mock(), 'bootstrap')
         client.attack_mock(Mock(return_value=jes_enabled), 'is_jes_enabled')
+        client.attack_mock(Mock(), 'kill_controller')
         bs_manager = Mock()
         bs_manager.attach_mock(client, 'client')
         bs_manager.attack_mock(Mock(), 'tear_down')
@@ -63,23 +65,20 @@ class TestThinBootedContext(TestCase):
 
     def test_thin_booted_context(self):
         bs_manager = self.make_bs_manager_mock()
-        with patch('assess_bootstrap.tear_down',
-                   autospec=True) as (tear_down_mock):
-            with thin_booted_context(bs_manager):
-                pass
-        tear_down_mock.assert_called_once_with(
-            bs_manager.client, bs_manager.client.is_jes_enabled())
+        with thin_booted_context(bs_manager):
+            pass
         bs_manager.top_context.assert_called_once_with()
         bs_manager.bootstrap_context.assert_called_once_with('machines')
         bs_manager.runtime_context.assert_called_once_with('machines')
+        bs_manager.client.kill_controller.assert_called_once_with()
         bs_manager.client.bootstrap.assert_called_once_with()
 
     def test_thin_booted_context_kwargs(self):
         bs_manager = self.make_bs_manager_mock(True)
-        with patch('assess_bootstrap.tear_down', autospec=True):
-            with thin_booted_context(bs_manager, alpha='foo', beta='bar'):
-                bs_manager.client.bootstrap.assert_called_once_with(
-                    alpha='foo', beta='bar')
+        with thin_booted_context(bs_manager, alpha='foo', beta='bar'):
+            pass
+        bs_manager.client.bootstrap.assert_called_once_with(
+            alpha='foo', beta='bar')
 
 
 class TestParseArgs(TestCase):
@@ -266,14 +265,14 @@ class TestAssessMetadata(FakeHomeTestCase):
 
     def get_url(self, bs_manager):
         """Wrap up the agent-metadata-url as model-config data."""
-        url = bs_manager.client.env.config['agent-metadata-url']
+        url = bs_manager.client.env.get_option('agent-metadata-url')
         return {'agent-metadata-url': {'value': url}}
 
     def test_assess_metadata(self):
         def check(myself, metadata_source=None):
-            self.assertEqual(self.target_dict, myself.env.config)
+            self.assertEqual(self.target_dict, myself.env._config)
             self.assertIsNotNone(metadata_source)
-        with extended_bootstrap_cxt('2.0-rc1'):
+        with extended_bootstrap_cxt('2.0.0'):
             with patch('jujupy.EnvJujuClient.bootstrap', side_effect=check,
                        autospec=True):
                 args = parse_args(['metadata', 'bar', '/foo'])
@@ -286,9 +285,9 @@ class TestAssessMetadata(FakeHomeTestCase):
 
     def test_assess_metadata_local_source(self):
         def check(myself, metadata_source=None):
-            self.assertEqual(self.target_dict, myself.env.config)
+            self.assertEqual(self.target_dict, myself.env._config)
             self.assertEqual('agents', metadata_source)
-        with extended_bootstrap_cxt('2.0-rc1'):
+        with extended_bootstrap_cxt('2.0.0'):
             with patch('jujupy.EnvJujuClient.bootstrap', side_effect=check,
                        autospec=True):
                 args = parse_args(['metadata', 'bar', '/foo'])
@@ -300,7 +299,7 @@ class TestAssessMetadata(FakeHomeTestCase):
                     assess_metadata(bs_manager, 'agents')
 
     def test_assess_metadata_valid_url(self):
-        with extended_bootstrap_cxt('2.0-rc1'):
+        with extended_bootstrap_cxt('2.0.0'):
             with patch('jujupy.EnvJujuClient.bootstrap', autospec=True):
                 args = parse_args(['metadata', 'bar', '/foo'])
                 args.temp_env_name = 'qux'
@@ -322,18 +321,32 @@ class TestAssessTo(FakeHomeTestCase):
                    autospec=True):
             self.assertEqual('255.1.1.0', get_controller_address(client))
 
+    def test_get_controller_hostname(self):
+        controller_client = Mock(wraps=fake_juju_client())
+        client = Mock(wraps=fake_juju_client())
+        with patch.object(client, 'get_controller_client',
+                          return_value=controller_client):
+            with patch.object(controller_client, 'run',
+                              return_value=' maas-node-x\n') as run_mock:
+                self.assertEqual('maas-node-x',
+                                 get_controller_hostname(client))
+        run_mock.assert_called_once_with(['hostname'], machines=['0'],
+                                         use_json=False)
+
     def test_assess_to(self):
+        DEST = 'test-host'
+
         def check(myself, to):
             self.assertEqual({'name': 'qux', 'type': 'foo'},
-                             myself.env.config)
-            self.assertEqual('255.1.1.0', to)
-        with extended_bootstrap_cxt('2.0-rc1'):
+                             myself.env._config)
+            self.assertEqual(DEST, to)
+        with extended_bootstrap_cxt('2.0.0'):
             with patch('jujupy.EnvJujuClient.bootstrap', side_effect=check,
                        autospec=True):
-                with patch('assess_bootstrap.get_controller_address',
-                           return_value='255.1.1.0', autospec=True):
+                with patch('assess_bootstrap.get_controller_hostname',
+                           return_value=DEST, autospec=True):
                     args = parse_args(['to', 'bar', '/foo',
-                                       '--to', '255.1.1.0'])
+                                       '--to', DEST])
                     args.temp_env_name = 'qux'
                     bs_manager = BootstrapManager.from_args(args)
                     assess_to(bs_manager, args.to)
@@ -343,7 +356,7 @@ class TestAssessTo(FakeHomeTestCase):
             assess_to('bs_manager', None)
 
     def test_assess_to_fails(self):
-        with extended_bootstrap_cxt('2.0-rc1'):
+        with extended_bootstrap_cxt('2.0.0'):
             with patch('jujupy.EnvJujuClient.bootstrap', autospec=True):
                 with patch('assess_bootstrap.get_controller_address',
                            return_value='255.1.1.0', autospec=True):

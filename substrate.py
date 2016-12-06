@@ -1,7 +1,6 @@
 from contextlib import (
     contextmanager,
 )
-from copy import deepcopy
 import json
 import logging
 import os
@@ -12,7 +11,7 @@ import urlparse
 from boto import ec2
 from boto.exception import EC2ResponseError
 
-import get_ami
+import gce
 from jujuconfig import (
     get_euca_env,
     translate_to_env,
@@ -50,21 +49,20 @@ def terminate_instances(env, instance_ids):
     if len(instance_ids) == 0:
         log.info("No instances to delete.")
         return
-    provider_type = env.config.get('type')
+    provider_type = env.provider
     environ = dict(os.environ)
     if provider_type == 'ec2':
-        environ.update(get_euca_env(env.config))
+        environ.update(get_euca_env(env.make_config_copy()))
         command_args = ['euca-terminate-instances'] + instance_ids
     elif provider_type in ('openstack', 'rackspace'):
-        environ.update(translate_to_env(env.config))
+        environ.update(translate_to_env(env.make_config_copy()))
         command_args = ['nova', 'delete'] + instance_ids
     elif provider_type == 'maas':
-        with maas_account_from_config(env.config) as substrate:
+        with maas_account_from_boot_config(env) as substrate:
             substrate.terminate_instances(instance_ids)
         return
     else:
-        with make_substrate_manager(env.config,
-                                    env.get_cloud_credentials()) as substrate:
+        with make_substrate_manager(env) as substrate:
             if substrate is None:
                 raise ValueError(
                     "This test does not support the %s provider"
@@ -79,8 +77,9 @@ class AWSAccount:
 
     @classmethod
     @contextmanager
-    def manager_from_config(cls, config, region=None):
-        """Create an AWSAccount from a juju environment dict."""
+    def from_boot_config(cls, boot_config, region=None):
+        """Create an AWSAccount from a SimpleEnvironment or JujuData."""
+        config = get_config(boot_config)
         euca_environ = get_euca_env(config)
         if region is None:
             region = config["region"]
@@ -171,8 +170,9 @@ class OpenStackAccount:
 
     @classmethod
     @contextmanager
-    def manager_from_config(cls, config):
-        """Create an OpenStackAccount from a juju environment dict."""
+    def from_boot_config(cls, boot_config):
+        """Create an OpenStackAccount from a SimpleEnvironment or JujuData."""
+        config = get_config(boot_config)
         yield cls(
             config['username'], config['password'], config['tenant-name'],
             config['auth-url'], config['region'])
@@ -227,14 +227,15 @@ class JoyentAccount:
 
     @classmethod
     @contextmanager
-    def manager_from_config(cls, config):
+    def from_boot_config(cls, boot_config):
         """Create a ContextManager for a JoyentAccount.
 
-         Using a juju environment dict, the private key is written to a
-         tmp file. Then, the Joyent client is inited with the path to the
+         Using a SimpleEnvironment or JujuData, the private key is written to
+         a tmp file. Then, the Joyent client is inited with the path to the
          tmp key. The key is removed when done.
          """
         from joyent import Client
+        config = get_config(boot_config)
         with temp_dir() as key_dir:
             key_path = os.path.join(key_dir, 'joyent.key')
             open(key_path, 'w').write(config['private-key'])
@@ -286,9 +287,46 @@ def convert_to_azure_ids(client, instance_ids):
         # Juju 1.x reports the true vm instance-id.
         return instance_ids
     else:
-        with AzureARMAccount.manager_from_config(
-                client.env.config) as substrate:
+        with AzureARMAccount.from_boot_config(
+                client.env) as substrate:
             return substrate.convert_to_azure_ids(client, instance_ids)
+
+
+class GCEAccount:
+    """Represent an Google Compute Engine Account."""
+
+    def __init__(self, client):
+        """Constructor.
+
+        :param client: An instance of apache libcloud GCEClient retrieved
+            via gce.get_client.
+        """
+        self.client = client
+
+    @classmethod
+    @contextmanager
+    def from_boot_config(cls, boot_config):
+        """A context manager for a GCE account.
+
+        This creates a temporary cert file from the private-key.
+        """
+        config = get_config(boot_config)
+        with temp_dir() as cert_dir:
+            cert_file = os.path.join(cert_dir, 'gce.pem')
+            open(cert_file, 'w').write(config['private-key'])
+            client = gce.get_client(
+                config['client-email'], cert_file,
+                config['project-id'])
+            yield cls(client)
+
+    def terminate_instances(self, instance_ids):
+        """Terminate the specified instances."""
+        for instance_id in instance_ids:
+            # Pass old_age=0 to mean delete now.
+            count = gce.delete_instances(self.client, instance_id, old_age=0)
+            if count != 1:
+                raise Exception('Failed to delete {}: deleted {}'.format(
+                    instance_id, count))
 
 
 class AzureARMAccount:
@@ -303,12 +341,13 @@ class AzureARMAccount:
 
     @classmethod
     @contextmanager
-    def manager_from_config(cls, config):
+    def from_boot_config(cls, boot_config):
         """A context manager for a Azure RM account.
 
-        In the case of the Juju 1x, the ARM keys must be in the env's config.
-        subscription_id is the same. The PEM for the SMS is ignored.
+        In the case of the Juju 1x, the ARM keys must be in the boot_config's
+        config.  subscription_id is the same. The PEM for the SMS is ignored.
         """
+        config = get_config(boot_config)
         arm_client = winazurearm.ARMClient(
             config['subscription-id'], config['application-id'],
             config['application-password'], config['tenant-id'])
@@ -354,13 +393,14 @@ class AzureAccount:
 
     @classmethod
     @contextmanager
-    def manager_from_config(cls, config):
+    def from_boot_config(cls, boot_config):
         """A context manager for a AzureAccount.
 
         It writes the certificate to a temp file because the Azure client
         library requires it, then deletes the temp file when done.
         """
         from azure.servicemanagement import ServiceManagementService
+        config = get_config(boot_config)
         with temp_dir() as cert_dir:
             cert_file = os.path.join(cert_dir, 'azure.pem')
             open(cert_file, 'w').write(config['management-certificate'])
@@ -440,6 +480,8 @@ class MAASAccount:
 
     _API_PATH = 'api/2.0/'
 
+    STATUS_READY = 4
+
     SUBNET_CONNECTION_MODES = frozenset(('AUTO', 'DHCP', 'STATIC', 'LINK_UP'))
 
     def __init__(self, profile, url, oauth):
@@ -493,6 +535,10 @@ class MAASAccount:
                if v['ip_addresses']}
         return ips
 
+    def machines(self):
+        """Return list of all machines."""
+        return self._maas(self.profile, 'machines', 'read')
+
     def fabrics(self):
         """Return list of all fabrics."""
         return self._maas(self.profile, 'fabrics', 'read')
@@ -537,6 +583,22 @@ class MAASAccount:
     def interfaces(self, system_id):
         """Return list of interfaces belonging to node with given system_id."""
         return self._maas(self.profile, 'interfaces', 'read', system_id)
+
+    def interface_update(self, system_id, interface_id, name=None,
+                         mac_address=None, tags=None, vlan_id=None):
+        """Update fields of existing interface on node with given system_id."""
+        args = [
+            self.profile, 'interface', 'update', system_id, str(interface_id),
+        ]
+        if name is not None:
+            args.append('name=' + name)
+        if mac_address is not None:
+            args.append('mac_address=' + mac_address)
+        if tags is not None:
+            args.append('tags=' + tags)
+        if vlan_id is not None:
+            args.append('vlan=' + str(vlan_id))
+        return self._maas(*args)
 
     def interface_create_vlan(self, system_id, parent, vlan_id):
         """Create a vlan interface on machine with given system_id."""
@@ -627,13 +689,14 @@ class MAAS1Account(MAASAccount):
 
 
 @contextmanager
-def maas_account_from_config(config):
+def maas_account_from_boot_config(env):
     """Create a ContextManager for either a MAASAccount or a MAAS1Account.
 
     As it's not possible to tell from the maas config which version of the api
     to use, try 2.0 and if that fails on login fallback to 1.0 instead.
     """
-    args = (config['name'], config['maas-server'], config['maas-oauth'])
+    maas_oauth = env.get_cloud_credentials()['maas-oauth']
+    args = (env.get_option('name'), env.get_option('maas-server'), maas_oauth)
     manager = MAASAccount(*args)
     try:
         manager.login()
@@ -653,8 +716,9 @@ class LXDAccount:
 
     @classmethod
     @contextmanager
-    def manager_from_config(cls, config):
+    def from_boot_config(cls, boot_config):
         """Create a ContextManager for a LXDAccount."""
+        config = get_config(boot_config)
         remote = config.get('region', None)
         yield cls(remote=remote)
 
@@ -667,22 +731,29 @@ class LXDAccount:
             subprocess.check_call(['lxc', 'delete', '--force', instance_id])
 
 
+def get_config(boot_config):
+    config = boot_config.make_config_copy()
+    if boot_config.provider not in ('lxd', 'manual'):
+        config.update(boot_config.get_cloud_credentials())
+    return config
+
+
 @contextmanager
-def make_substrate_manager(config, credentials):
+def make_substrate_manager(boot_config):
     """A ContextManager that returns an Account for the config's substrate.
 
     Returns None if the substrate is not supported.
     """
-    config = deepcopy(config)
-    config.update(credentials)
+    config = get_config(boot_config)
     substrate_factory = {
-        'ec2': AWSAccount.manager_from_config,
-        'openstack': OpenStackAccount.manager_from_config,
-        'rackspace': OpenStackAccount.manager_from_config,
-        'joyent': JoyentAccount.manager_from_config,
-        'azure': AzureAccount.manager_from_config,
-        'azure-arm': AzureARMAccount.manager_from_config,
-        'lxd': LXDAccount.manager_from_config,
+        'ec2': AWSAccount.from_boot_config,
+        'openstack': OpenStackAccount.from_boot_config,
+        'rackspace': OpenStackAccount.from_boot_config,
+        'joyent': JoyentAccount.from_boot_config,
+        'azure': AzureAccount.from_boot_config,
+        'azure-arm': AzureARMAccount.from_boot_config,
+        'lxd': LXDAccount.from_boot_config,
+        'gce': GCEAccount.from_boot_config,
     }
     substrate_type = config['type']
     if substrate_type == 'azure' and 'application-id' in config:
@@ -691,7 +762,7 @@ def make_substrate_manager(config, credentials):
     if factory is None:
         yield None
     else:
-        with factory(config) as substrate:
+        with factory(boot_config) as substrate:
             yield substrate
 
 
@@ -774,37 +845,6 @@ def parse_euca(euca_output):
         yield fields[1], fields[3]
 
 
-def run_instances(count, job_name, series, region=None):
-    """create a number of instances in ec2 and tag them.
-
-    :param count: The number of instances to create.
-    :param job_name: The name of job that owns the instances (used as a tag).
-    :param series: The series to run in the instance.
-        If None, Precise will be used.
-    """
-    if series is None:
-        series = 'precise'
-    environ = dict(os.environ)
-    ami = get_ami.query_ami(series, "amd64", region=region)
-    command = [
-        'euca-run-instances', '-k', 'id_rsa', '-n', '%d' % count,
-        '-t', 'm3.large', '-g', 'manual-juju-test', ami]
-    run_output = subprocess.check_output(command, env=environ).strip()
-    machine_ids = dict(parse_euca(run_output)).keys()
-    for remaining in until_timeout(300):
-        try:
-            names = dict(describe_instances(machine_ids, env=environ))
-            if '' not in names.values():
-                subprocess.check_call(
-                    ['euca-create-tags', '--tag', 'job_name=%s' % job_name] +
-                    machine_ids, env=environ)
-                return names.items()
-        except subprocess.CalledProcessError:
-            subprocess.call(['euca-terminate-instances'] + machine_ids)
-            raise
-        sleep(1)
-
-
 def describe_instances(instances=None, running=False, job_name=None,
                        env=None):
     command = ['euca-describe-instances']
@@ -816,6 +856,20 @@ def describe_instances(instances=None, running=False, job_name=None,
         command.extend(instances)
     log.info(' '.join(command))
     return parse_euca(subprocess.check_output(command, env=env))
+
+
+def has_nova_instance(boot_config, instance_id):
+    """Return True if the instance-id is present.  False otherwise.
+
+    This implementation was extracted from wait_for_state_server_to_shutdown.
+    It can be fooled into thinking that the instance-id is present when it is
+    not, but should be reliable for determining that the instance-id is not
+    present.
+    """
+    environ = dict(os.environ)
+    environ.update(translate_to_env(boot_config.make_config_copy()))
+    output = subprocess.check_output(['nova', 'list'], env=environ)
+    return bool(instance_id in output)
 
 
 def get_job_instances(job_name):
@@ -832,11 +886,11 @@ def destroy_job_instances(job_name):
 
 def resolve_remote_dns_names(env, remote_machines):
     """Update addresses of given remote_machines as needed by providers."""
-    if env.config['type'] != 'maas':
+    if env.provider != 'maas':
         # Only MAAS requires special handling at prsent.
         return
     # MAAS hostnames are not resolvable, but we can adapt them to IPs.
-    with maas_account_from_config(env.config) as account:
+    with maas_account_from_boot_config(env) as account:
         allocated_ips = account.get_allocated_ips()
     for remote in remote_machines:
         if remote.get_address() in allocated_ips:

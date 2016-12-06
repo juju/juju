@@ -209,7 +209,8 @@ class IndustrialTest:
         new_client = client_from_config(env, new_juju_path, debug=debug)
         new_client.env.set_model_name(env + '-new')
         if new_agent_url is not None:
-            new_client.env.config['tools-metadata-url'] = new_agent_url
+            new_client.env.update_config(
+                {'tools-metadata-url': new_agent_url})
         uniquify_local(new_client.env)
         return cls(old_client, new_client, stage_attempts)
 
@@ -530,10 +531,7 @@ def make_substrate_manager(client, required_attrs):
     If the substrate cannot be made, or does not have the required attributes,
     return None.  Otherwise, return the substrate.
     """
-    with real_make_substrate_manager(
-            client.env.config,
-            client.env.get_cloud_credentials(),
-            ) as substrate:
+    with real_make_substrate_manager(client.env) as substrate:
         if substrate is not None:
             for attr in required_attrs:
                 if getattr(substrate, attr, None) is None:
@@ -728,14 +726,14 @@ class DeployManyAttempt(SteppedStageAttempt):
                 application = 'ubuntu{}x{}'.format(machine_name, container)
                 # Work around bug #1540900: juju deploy ignores model
                 # default-series
-                series = client.env.config['default-series']
+                series = client.env.get_option('default-series')
                 client.deploy('ubuntu', service=application, to=target,
                               series=series)
                 application_names.append(application)
         timeout_start = datetime.now()
         yield results
         # Joyent needs longer to deploy so many containers (bug #1624384).
-        if client.env.config['type'] == 'joyent':
+        if client.env.provider == 'joyent':
             deploy_many_timeout = 3000
         else:
             deploy_many_timeout = 1200
@@ -765,7 +763,7 @@ class DeployManyAttempt(SteppedStageAttempt):
         yield results
         for machine_name in machine_names:
             client.juju('remove-machine', (machine_name,))
-        if client.env.config['type'] == 'azure':
+        if client.env.provider == 'azure':
             # Azure takes a minimum of 5 minutes per machine to delete.
             remove_timeout = 600 * len(machine_names)
         else:

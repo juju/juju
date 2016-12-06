@@ -14,6 +14,12 @@ except ImportError:
 log = logging.getLogger("perf_graphing")
 
 
+class GraphPeriod:
+    """This relates to the RRA index in the RRD file."""
+    hours = '0'
+    day = '3'
+
+
 class GraphDefaults:
     height = '600'
     width = '800'
@@ -60,6 +66,10 @@ class MongoStatsData:
 
 class SourceFileNotFound(Exception):
     """Indicate when an expected metrics data file does not exist."""
+
+
+class NoDataPresent(Exception):
+    """Indicate when an no data is found in a metrics log file."""
 
 
 def value_to_bytes(amount):
@@ -186,7 +196,7 @@ def mongodb_memory_graph(start, end, rrd_path, output_file):
             '-w', '800',
             '-h', '600',
             '-n', 'DEFAULT:0:Bitstream Vera Sans',
-            '-v', 'Queries',
+            '-v', 'Memory',
             '--alt-autoscale-max',
             '-t', 'MongoDB Memory Usage',
             'DEF:vsize_avg={}:vsize:AVERAGE'.format(rrd_file),
@@ -213,7 +223,7 @@ def cpu_graph(start, end, rrd_path, output_file):
             '-n', GraphDefaults.font,
             '-v', 'Jiffies',
             '--alt-autoscale-max',
-            '-t', 'CPU Average',
+            '-t', 'CPU Aggregated Max',
             '-u', '100',
             '-r',
             'DEF:idle_avg={}/cpu-idle.rrd:value:AVERAGE'.format(rrd_path),
@@ -283,8 +293,11 @@ def get_mongodb_stat_data(stats_file):
                 details[MongoStats.vsize],
                 details[MongoStats.res],
             ))
-    first_timestamp = data_lines[0].timestamp
-    final_timestamp = data_lines[-1].timestamp
+    try:
+        first_timestamp = data_lines[0].timestamp
+        final_timestamp = data_lines[-1].timestamp
+    except IndexError:
+        raise NoDataPresent('No data found in mongodb log.')
     return first_timestamp, final_timestamp, data_lines
 
 

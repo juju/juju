@@ -9,16 +9,16 @@ import sys
 
 from assess_min_version import (
     JujuAssertionError
-)
+    )
 from deploy_stack import (
     BootstrapManager,
     deploy_dummy_stack,
-)
+    )
+from jujupy import EnvJujuClient1X
 from utility import (
     add_basic_testing_arguments,
     configure_logging,
-    wait_for_removed_services,
-)
+    )
 
 
 __metaclass__ = type
@@ -27,19 +27,33 @@ __metaclass__ = type
 log = logging.getLogger("assess_block")
 
 
-class DisableCommandTypes:
-    destroy_mode = 'destroy-model'
-    remove_object = 'remove-object'
-    all = 'all'
-
-
-def make_block_list(disabled_commands):
+def make_block_list(client, disabled_commands):
     """Return a manually made list of blocks and their status
 
-    :param disabled_commands: list of DisableCommandTypes elements to include
-      in simulated output.
-
+    :param client: The client whose rules will be used.
+    :param disabled_commands: list of client.command_set_* elements to
+        include in simulated output.
     """
+    if isinstance(client, EnvJujuClient1X):
+        blocks = []
+        commands = [
+            client.command_set_destroy_model,
+            client.command_set_remove_object,
+            client.command_set_all]
+        for command in commands:
+            if command in disabled_commands:
+                blocks.append({
+                    'message': '',
+                    'enabled': True,
+                    'block': command
+                    })
+            else:
+                blocks.append({
+                    'enabled': False,
+                    'block': command
+                    })
+        return blocks
+
     if not disabled_commands:
         return []
 
@@ -69,7 +83,8 @@ def assess_block_destroy_model(client, charm_series):
     """
     client.disable_command(client.destroy_model_command)
     block_list = client.list_disabled_commands()
-    if block_list != make_block_list([DisableCommandTypes.destroy_mode]):
+    if block_list != make_block_list(
+            client, [client.command_set_destroy_model]):
         raise JujuAssertionError(block_list)
     test_disabled(
         client, client.destroy_model_command,
@@ -85,9 +100,10 @@ def assess_block_remove_object(client, charm_series):
     objects can be added and related, but they
     cannot be removed or the model/environment deleted.
     """
-    client.disable_command(DisableCommandTypes.remove_object)
+    client.disable_command(client.command_set_remove_object)
     block_list = client.list_disabled_commands()
-    if block_list != make_block_list([DisableCommandTypes.remove_object]):
+    if block_list != make_block_list(
+            client, [client.command_set_remove_object]):
         raise JujuAssertionError(block_list)
     test_disabled(
         client, client.destroy_model_command,
@@ -102,21 +118,21 @@ def assess_block_remove_object(client, charm_series):
 def assess_block_all_changes(client, charm_series):
     """Test Block Functionality: block all-changes"""
     client.juju('remove-relation', ('dummy-source', 'dummy-sink'))
-    client.disable_command(DisableCommandTypes.all)
+    client.disable_command(client.command_set_all)
     block_list = client.list_disabled_commands()
-    if block_list != make_block_list([DisableCommandTypes.all]):
+    if block_list != make_block_list(client, [client.command_set_all]):
         raise JujuAssertionError(block_list)
     test_disabled(client, 'add-relation', ('dummy-source', 'dummy-sink'))
     test_disabled(client, 'unexpose', ('dummy-sink',))
     test_disabled(client, 'remove-service', 'dummy-sink')
-    client.enable_command(DisableCommandTypes.all)
+    client.enable_command(client.command_set_all)
     client.juju('unexpose', ('dummy-sink',))
-    client.disable_command(DisableCommandTypes.all)
+    client.disable_command(client.command_set_all)
     test_disabled(client, 'expose', ('dummy-sink',))
-    client.enable_command(DisableCommandTypes.all)
+    client.enable_command(client.command_set_all)
     client.remove_service('dummy-sink')
-    wait_for_removed_services(client, 'dummy-sink')
-    client.disable_command(DisableCommandTypes.all)
+    client.wait_for_started()
+    client.disable_command(client.command_set_all)
     test_disabled(client, 'deploy', ('dummy-sink',))
     test_disabled(
         client, client.destroy_model_command,
@@ -128,30 +144,34 @@ def assess_unblock(client, type):
     unblock destroy-model/remove-object/all-changes."""
     client.enable_command(type)
     block_list = client.list_disabled_commands()
-    if block_list != make_block_list([]):
+    if block_list != make_block_list(client, []):
         raise JujuAssertionError(block_list)
     if type == client.destroy_model_command:
         client.remove_service('dummy-source')
-        wait_for_removed_services(client, 'dummy-source')
+        client.wait_for_started()
         client.remove_service('dummy-sink')
-        wait_for_removed_services(client, 'dummy-sink')
+        client.wait_for_started()
 
 
 def assess_block(client, charm_series):
     """Test Block Functionality:
     block/unblock destroy-model/remove-object/all-changes.
     """
+    log.info('Test started')
     block_list = client.list_disabled_commands()
     client.wait_for_started()
-    expected_none_blocked = make_block_list([])
+    expected_none_blocked = make_block_list(client, [])
     if block_list != expected_none_blocked:
-        raise JujuAssertionError(block_list)
+        log.error('Controller is not in the expected starting state')
+        raise JujuAssertionError(
+            'Expected {}\nFound {}'.format(expected_none_blocked, block_list))
     assess_block_destroy_model(client, charm_series)
     assess_unblock(client, client.destroy_model_command)
     assess_block_remove_object(client, charm_series)
-    assess_unblock(client, DisableCommandTypes.remove_object)
+    assess_unblock(client, client.command_set_remove_object)
     assess_block_all_changes(client, charm_series)
-    assess_unblock(client, DisableCommandTypes.all)
+    assess_unblock(client, client.command_set_all)
+    log.info('Test PASS')
 
 
 def parse_args(argv):

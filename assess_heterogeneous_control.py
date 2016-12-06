@@ -55,7 +55,7 @@ def get_clients(initial, other, base_env, debug, agent_url):
         initial_client = client_from_config(base_env, initial, debug=debug)
         environment = initial_client.env
     if agent_url is None:
-        environment.config.pop('tools-metadata-url', None)
+        environment.discard_option('tools-metadata-url')
     other_client = initial_client.clone_path_cls(other)
     # System juju is assumed to be released and the best choice for tearing
     # down environments reliably.  (For example, 1.18.x cannot tear down
@@ -238,7 +238,7 @@ def check_series(client,  machine='0', series=None):
     if series:
         expected_codename = series
     else:
-        expected_codename = client.env.config['default-series']
+        expected_codename = client.env.get_option('default-series')
     if codename != expected_codename:
         raise AssertionError(
             'Series is {}, not {}'.format(codename, expected_codename))

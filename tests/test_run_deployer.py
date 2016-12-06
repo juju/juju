@@ -11,12 +11,13 @@ from mock import (
     call,
     Mock,
     patch,
-)
+    )
 
 from jujupy import (
     EnvJujuClient,
     JujuData,
     )
+from fakejuju import fake_juju_client
 from run_deployer import (
     apply_condition,
     assess_deployer,
@@ -27,7 +28,6 @@ from run_deployer import (
     parse_args,
     )
 import tests
-from tests.test_jujupy import fake_juju_client
 
 
 class TestParseArgs(tests.TestCase):

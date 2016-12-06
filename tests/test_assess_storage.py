@@ -20,6 +20,7 @@ from assess_storage import (
     storage_list_expected_6,
     storage_pool_details,
 )
+from jujupy import JujuData
 from tests import (
     parse_error,
     TestCase,
@@ -151,7 +152,7 @@ class TestAssess(TestCase):
         mock_client.series = 'trusty'
         mock_client.version = '2.0'
         mock_client.is_juju1x.return_value = False
-        mock_client.env = Mock(config={'type': 'ec2'})
+        mock_client.env = JujuData('foo', {'type': 'ec2'}, 'data')
         expected_pool = dict(AWS_DEFAULT_STORAGE_POOL_DETAILS)
         expected_pool.update(storage_pool_details)
         mock_client.list_storage_pool.side_effect = [

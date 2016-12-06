@@ -35,15 +35,14 @@ from jujucharm import (
 from jujuconfig import (
     get_jenv_path,
     get_juju_home,
-    translate_to_env,
 )
 from jujupy import (
     client_from_config,
     get_local_root,
     get_machine_dns_name,
     jes_home_path,
+    NoProvider,
     SimpleEnvironment,
-    tear_down,
     temp_bootstrap_env,
 )
 from remote import (
@@ -53,9 +52,9 @@ from remote import (
 )
 from substrate import (
     destroy_job_instances,
+    has_nova_instance,
     LIBVIRT_DOMAIN_RUNNING,
     resolve_remote_dns_names,
-    run_instances,
     start_libvirt_domain,
     stop_libvirt_domain,
     verify_libvirt_domain,
@@ -65,6 +64,7 @@ from utility import (
     configure_logging,
     ensure_deleted,
     ensure_dir,
+    logged_exception,
     LoggedException,
     PortTimeoutError,
     print_now,
@@ -78,7 +78,7 @@ __metaclass__ = type
 
 def destroy_environment(client, instance_tag):
     client.destroy_environment()
-    if (client.env.config['type'] == 'manual' and
+    if (client.env.provider == 'manual' and
             'AWS_ACCESS_KEY' in os.environ):
         destroy_job_instances(instance_tag)
 
@@ -342,6 +342,7 @@ def copy_remote_logs(remote, directory):
             '/var/log/syslog',
             '/var/log/mongodb/mongodb.log',
             '/etc/network/interfaces',
+            '/etc/environment',
             '/home/ubuntu/ifconfig.log',
         ]
 
@@ -376,7 +377,8 @@ def copy_remote_logs(remote, directory):
 
 
 def assess_juju_run(client):
-    responses = client.run(('uname',), ['dummy-source', 'dummy-sink'])
+    responses = client.run(('uname',),
+                           applications=['dummy-source', 'dummy-sink'])
     for machine in responses:
         if machine.get('ReturnCode', 0) != 0:
             raise ValueError('juju run on machine %s returned %d: %s' % (
@@ -393,14 +395,31 @@ def assess_upgrade(old_client, juju_path):
     all_clients = _get_clients_to_upgrade(old_client, juju_path)
 
     # all clients have the same provider type, work this out once.
-    if all_clients[0].env.config['type'] == 'maas':
+    if all_clients[0].env.provider == 'maas':
         timeout = 1200
     else:
         timeout = 600
 
     for client in all_clients:
+        logging.info('Upgrading {}'.format(client.env.environment))
         upgrade_juju(client)
         client.wait_for_version(client.get_matching_agent_version(), timeout)
+        logging.info('Agents upgraded in {}'.format(client.env.environment))
+        client.show_status()
+        logging.info('Waiting for model {}'.format(client.env.environment))
+        # While the agents are upgraded, the controller/model may still be
+        # upgrading. We are only certain that the upgrade as is complete
+        # when we can list models.
+        for ignore in until_timeout(600):
+            try:
+                client.list_models()
+                break
+            except subprocess.CalledProcessError:
+                pass
+        # The upgrade will trigger the charm hooks. We want the charms to
+        # return to active state to know they accepted the upgrade.
+        client.wait_for_workloads()
+        logging.info('Upgraded model {}'.format(client.env.environment))
 
 
 def _get_clients_to_upgrade(old_client, juju_path):
@@ -436,6 +455,11 @@ def deploy_job_parse_args(argv=None):
                         help='Deploy and run Chaos Monkey in the background.')
     parser.add_argument('--jes', action='store_true',
                         help='Use JES to control environments.')
+    parser.add_argument(
+        '--controller-host', help=(
+            'Host with a controller to use.  If supplied, SSO_EMAIL and'
+            ' SSO_PASSWORD environment variables will be used for oauth'
+            ' authentication.'))
     return parser.parse_args(argv)
 
 
@@ -457,16 +481,18 @@ def update_env(env, new_env_name, series=None, bootstrap_host=None,
                agent_url=None, agent_stream=None, region=None):
     # Rename to the new name.
     env.set_model_name(new_env_name)
+    new_config = {}
     if series is not None:
-        env.config['default-series'] = series
+        new_config['default-series'] = series
     if bootstrap_host is not None:
-        env.config['bootstrap-host'] = bootstrap_host
+        new_config['bootstrap-host'] = bootstrap_host
     if agent_url is not None:
-        env.config['tools-metadata-url'] = agent_url
+        new_config['tools-metadata-url'] = agent_url
     if agent_stream is not None:
-        env.config['agent-stream'] = agent_stream
+        new_config['agent-stream'] = agent_stream
+    env.update_config(new_config)
     if region is not None:
-        env.config['region'] = region
+        env.set_region(region)
 
 
 @contextmanager
@@ -478,6 +504,94 @@ def temp_juju_home(client, new_home):
         yield
     finally:
         client.env.juju_home = old_home
+
+
+def make_controller_strategy(client, tear_down_client, controller_host):
+    if controller_host is None:
+        return CreateController(client, tear_down_client)
+    else:
+        return PublicController(
+            controller_host, os.environ['SSO_EMAIL'],
+            os.environ['SSO_PASSWORD'], client, tear_down_client)
+
+
+class CreateController:
+    """A Controller strategy where the controller is created.
+
+    Intended for use with BootstrapManager.
+    """
+
+    def __init__(self, client, tear_down_client):
+        self.client = client
+        self.tear_down_client = tear_down_client
+
+    def prepare(self):
+        """Prepare client for use by killing the existing controller."""
+        self.tear_down_client.kill_controller()
+
+    def create_initial_model(self, upload_tools, series, boot_kwargs):
+        """Create the initial model by bootstrapping."""
+        self.client.bootstrap(
+            upload_tools=upload_tools, bootstrap_series=series,
+            **boot_kwargs)
+
+    def get_hosts(self):
+        """Provide the controller host."""
+        host = get_machine_dns_name(
+            self.client.get_controller_client(), '0')
+        if host is None:
+            raise ValueError('Could not get machine 0 host')
+        return {'0': host}
+
+    def tear_down(self, has_controller):
+        """Tear down via client.tear_down."""
+        if has_controller:
+            self.tear_down_client.tear_down()
+        else:
+            self.tear_down_client.kill_controller(check=True)
+
+
+class PublicController:
+    """A controller strategy where the controller is public.
+
+    The user registers with the controller, and adds the initial model.
+    """
+    def __init__(self, controller_host, email, password, client,
+                 tear_down_client):
+        self.controller_host = controller_host
+        self.email = email
+        self.password = password
+        self.client = client
+        self.tear_down_client = tear_down_client
+
+    def prepare(self):
+        """Prepare by destroying the model and unregistering if possible."""
+        try:
+            self.tear_down(True)
+        except subprocess.CalledProcessError:
+            # Assume that any error tearing down means that there was nothing
+            # to tear down.
+            pass
+
+    def create_initial_model(self, upload_tools, series, boot_kwargs):
+        """Register controller and add model."""
+        self.client.register_host(
+            self.controller_host, self.email, self.password)
+        self.client.env.controller.explicit_region = True
+        self.client.add_model(self.client.env)
+
+    def get_hosts(self):
+        """There are no user-owned controller hosts, so no-op."""
+        return {}
+
+    def tear_down(self, has_controller):
+        """Remove the current model and clean up the controller."""
+        try:
+            self.tear_down_client.destroy_model()
+        finally:
+            controller = self.tear_down_client.env.controller.name
+            self.tear_down_client.juju('unregister', ('-y', controller),
+                                       include_e=False)
 
 
 class BootstrapManager:
@@ -510,14 +624,12 @@ class BootstrapManager:
 
     def __init__(self, temp_env_name, client, tear_down_client, bootstrap_host,
                  machines, series, agent_url, agent_stream, region, log_dir,
-                 keep_env, permanent, jes_enabled):
+                 keep_env, permanent, jes_enabled, controller_strategy=None):
         """Constructor.
 
         Please see see `BootstrapManager` for argument descriptions.
         """
         self.temp_env_name = temp_env_name
-        self.client = client
-        self.tear_down_client = tear_down_client
         self.bootstrap_host = bootstrap_host
         self.machines = machines
         self.series = series
@@ -534,6 +646,18 @@ class BootstrapManager:
         self.known_hosts = {}
         if bootstrap_host is not None:
             self.known_hosts['0'] = bootstrap_host
+        if controller_strategy is None:
+            controller_strategy = CreateController(client, tear_down_client)
+        self.controller_strategy = controller_strategy
+        self.has_controller = False
+
+    @property
+    def client(self):
+        return self.controller_strategy.client
+
+    @property
+    def tear_down_client(self):
+        return self.controller_strategy.tear_down_client
 
     @classmethod
     def _generate_default_clean_dir(cls, temp_env_name):
@@ -568,6 +692,10 @@ class BootstrapManager:
             client = client_from_config(args.env, args.juju_bin,
                                         debug=args.debug,
                                         soft_deadline=args.deadline)
+        return cls.from_client(args, client)
+
+    @classmethod
+    def from_client(cls, args, client):
         jes_enabled = client.is_jes_enabled()
         return cls(
             args.temp_env_name, client, client, args.bootstrap_host,
@@ -580,7 +708,7 @@ class BootstrapManager:
         """Handle starting/stopping MAAS machines."""
         running_domains = dict()
         try:
-            if self.client.env.config['type'] == 'maas' and self.machines:
+            if self.client.env.provider == 'maas' and self.machines:
                 for machine in self.machines:
                     name, URI = machine.split('@')
                     # Record already running domains, so we can warn that
@@ -600,7 +728,7 @@ class BootstrapManager:
             else:
                 yield self.machines
         finally:
-            if self.client.env.config['type'] == 'maas' and not self.keep_env:
+            if self.client.env.provider == 'maas' and not self.keep_env:
                 logging.info("Waiting for destroy-environment to complete")
                 time.sleep(90)
                 for machine, running in running_domains.items():
@@ -614,47 +742,17 @@ class BootstrapManager:
                     status_msg = stop_libvirt_domain(URI, name)
                     logging.info("%s" % status_msg)
 
-    @contextmanager
-    def aws_machines(self):
-        """Handle starting/stopping AWS machines.
-
-        Machines are deliberately killed by tag so that any stray machines
-        from previous runs will be killed.
-        """
-        if (
-                self.client.env.config['type'] != 'manual' or
-                self.bootstrap_host is not None):
-            yield []
-            return
-        try:
-            instances = run_instances(
-                3, self.temp_env_name, self.series, region=self.region)
-            new_bootstrap_host = instances[0][1]
-            self.known_hosts['0'] = new_bootstrap_host
-            yield [i[1] for i in instances[1:]]
-        finally:
-            if self.keep_env:
-                return
-            destroy_job_instances(self.temp_env_name)
-
     def tear_down(self, try_jes=False):
-        if self.tear_down_client == self.client:
-            jes_enabled = self.jes_enabled
-        else:
-            jes_enabled = self.tear_down_client.is_jes_enabled()
+        """Tear down the client using tear_down_client.
+
+        Attempts to use the soft method destroy_controller, if that fails
+        it will use the hard kill_controller.
+
+        :param try_jes: Ignored."""
         if self.tear_down_client.env is not self.client.env:
             raise AssertionError('Tear down client needs same env!')
-        tear_down(self.tear_down_client, jes_enabled, try_jes=try_jes)
-
-    def _log_and_wrap_exception(self, exc):
-        logging.exception(exc)
-        stdout = getattr(exc, 'output', None)
-        stderr = getattr(exc, 'stderr', None)
-        if stdout or stderr:
-            logging.info(
-                'Output from exception:\nstdout:\n%s\nstderr:\n%s',
-                stdout, stderr)
-        return LoggedException(exc)
+        self.controller_strategy.tear_down(self.has_controller)
+        self.has_controller = False
 
     @contextmanager
     def bootstrap_context(self, machines, omit_config=None):
@@ -680,7 +778,7 @@ class BootstrapManager:
         if os.path.isfile(jenv_path):
             # An existing .jenv implies JES was not used, because when JES is
             # enabled, cache.yaml is enabled.
-            self.tear_down(try_jes=False)
+            self.tear_down_client.kill_controller()
             torn_down = True
         else:
             jes_home = jes_home_path(
@@ -690,14 +788,15 @@ class BootstrapManager:
                 if os.path.isfile(cache_path):
                     # An existing .jenv implies JES was used, because when JES
                     # is enabled, cache.yaml is enabled.
-                    self.tear_down(try_jes=True)
+                    self.controller_strategy.prepare()
                     torn_down = True
         ensure_deleted(jenv_path)
         with temp_bootstrap_env(self.client.env.juju_home, self.client,
                                 permanent=self.permanent, set_home=False):
             with self.handle_bootstrap_exceptions():
                 if not torn_down:
-                    self.tear_down(try_jes=True)
+                    self.controller_strategy.prepare()
+                self.has_controller = True
                 yield
 
     @contextmanager
@@ -737,13 +836,11 @@ class BootstrapManager:
         Tear down.  (self.keep_env is ignored.)
         """
         try:
-            try:
-                yield
             # If an exception is raised that indicates an error, log it
             # before tearing down so that the error is closely tied to
             # the failed operation.
-            except Exception as e:
-                raise self._log_and_wrap_exception(e)
+            with logged_exception(logging):
+                yield
         except:
             # If run from a windows machine may not have ssh to get
             # logs
@@ -754,7 +851,7 @@ class BootstrapManager:
                                                      series=self.series)
                         copy_remote_logs(remote, self.log_dir)
                         archive_logs(self.log_dir)
-                    self.tear_down()
+                    self.controller_strategy.prepare()
             raise
 
     @contextmanager
@@ -765,35 +862,32 @@ class BootstrapManager:
         control is yielded.
         """
         try:
-            try:
+            with logged_exception(logging):
                 if len(self.known_hosts) == 0:
-                    host = get_machine_dns_name(
-                        self.client.get_controller_client(), '0')
-                    if host is None:
-                        raise ValueError('Could not get machine 0 host')
-                    self.known_hosts['0'] = host
+                    self.known_hosts.update(
+                        self.controller_strategy.get_hosts())
                 if addable_machines is not None:
                     self.client.add_ssh_machines(addable_machines)
                 yield
-            # avoid logging GeneratorExit
-            except GeneratorExit:
-                raise
-            except BaseException as e:
-                raise self._log_and_wrap_exception(e)
         except:
-            safe_print_status(self.client)
+            if self.has_controller:
+                safe_print_status(self.client)
+            else:
+                logging.info("Client lost controller, not calling status.")
             raise
         else:
-            with self.client.ignore_soft_deadline():
-                self.client.list_controllers()
-                self.client.list_models()
-                for m_client in self.client.iter_model_clients():
-                    m_client.show_status()
+            if self.has_controller:
+                with self.client.ignore_soft_deadline():
+                    self.client.list_controllers()
+                    self.client.list_models()
+                    for m_client in self.client.iter_model_clients():
+                        m_client.show_status()
         finally:
             with self.client.ignore_soft_deadline():
                 with self.tear_down_client.ignore_soft_deadline():
                     try:
-                        self.dump_all_logs()
+                        if self.has_controller:
+                            self.dump_all_logs()
                     except KeyboardInterrupt:
                         pass
                     if not self.keep_env:
@@ -803,7 +897,7 @@ class BootstrapManager:
     def _should_dump(self):
         return not isinstance(self.client._backend, FakeBackend)
 
-    def dump_all_logs(self):
+    def dump_all_logs(self, patch_dir=None):
         """Dump logs for all models in the bootstrapped controller."""
         # This is accurate because we bootstrapped self.client.  It might not
         # be accurate for a model created by create_environment.
@@ -845,14 +939,13 @@ class BootstrapManager:
     def top_context(self):
         """Context for running all juju operations in."""
         with self.maas_machines() as machines:
-            with self.aws_machines() as new_machines:
-                try:
-                    yield machines + new_machines
-                finally:
-                    # This is not done in dump_all_logs because it should be
-                    # done after tear down.
-                    if self.log_dir is not None:
-                        dump_juju_timings(self.client, self.log_dir)
+            try:
+                yield machines
+            finally:
+                # This is not done in dump_all_logs because it should be
+                # done after tear down.
+                if self.log_dir is not None:
+                    dump_juju_timings(self.client, self.log_dir)
 
     @contextmanager
     def booted_context(self, upload_tools, **kwargs):
@@ -875,10 +968,8 @@ class BootstrapManager:
             with self.top_context() as machines:
                 with self.bootstrap_context(
                         machines, omit_config=self.client.bootstrap_replaces):
-                    self.client.bootstrap(
-                        upload_tools=upload_tools,
-                        bootstrap_series=self.series,
-                        **kwargs)
+                    self.controller_strategy.create_initial_model(
+                        upload_tools, self.series, kwargs)
                 with self.runtime_context(machines):
                     self.client.list_controllers()
                     self.client.list_models()
@@ -958,10 +1049,13 @@ def _deploy_job(args, charm_series, series):
     if args.jes and not client.is_jes_enabled():
         client.enable_jes()
     jes_enabled = client.is_jes_enabled()
+    controller_strategy = make_controller_strategy(client, client,
+                                                   args.controller_host)
     bs_manager = BootstrapManager(
         args.temp_env_name, client, client, args.bootstrap_host, args.machine,
         series, args.agent_url, args.agent_stream, args.region, args.logs,
-        args.keep_env, permanent=jes_enabled, jes_enabled=jes_enabled)
+        args.keep_env, permanent=jes_enabled, jes_enabled=jes_enabled,
+        controller_strategy=controller_strategy)
     with bs_manager.booted_context(args.upload_tools):
         if sys.platform in ('win32', 'darwin'):
             # The win and osx client tests only verify the client
@@ -1002,15 +1096,15 @@ def wait_for_state_server_to_shutdown(host, client, instance_id, timeout=60):
     print_now("Waiting for port to close on %s" % host)
     wait_for_port(host, 17070, closed=True, timeout=timeout)
     print_now("Closed.")
-    provider_type = client.env.config.get('type')
+    try:
+        provider_type = client.env.provider
+    except NoProvider:
+        provider_type = None
     if provider_type == 'openstack':
-        environ = dict(os.environ)
-        environ.update(translate_to_env(client.env.config))
         for ignored in until_timeout(300):
-            output = subprocess.check_output(['nova', 'list'], env=environ)
-            if instance_id not in output:
+            if not has_nova_instance(client.env, instance_id):
                 print_now('{} was removed from nova list'.format(instance_id))
                 break
         else:
             raise Exception(
-                '{} was not deleted:\n{}'.format(instance_id, output))
+                '{} was not deleted:'.format(instance_id))

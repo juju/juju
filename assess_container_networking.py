@@ -57,21 +57,7 @@ def parse_args(argv=None):
         '--machine-type',
         help='Which virtual machine/container type to test. Defaults to all.',
         choices=[KVM_MACHINE, LXC_MACHINE, LXD_MACHINE])
-    parser.add_argument(
-        '--clean-environment', action='store_true', help=dedent("""\
-        Attempts to re-use an existing environment rather than destroying it
-        and creating a new one.
-
-        On launch, if an environment exists, clean out services and machines
-        from it rather than destroying it. If an environment doesn't exist,
-        create one and use it.
-
-        At termination, clean out services and machines from the environment
-        rather than destroying it."""))
     args = parser.parse_args(argv)
-    # Passing --clean-environment implies --keep-env
-    if args.clean_environment:
-        args.keep_env = True
     return args
 
 
@@ -97,55 +83,6 @@ def ssh(client, machine, cmd):
                 back_off *= 2
             else:
                 raise
-
-
-def clean_environment(client, services_only=False):
-    """Remove all the services and, optionally, machines from an environment.
-
-    Use as an alternative to destroying an environment and creating a new one
-    to save a bit of time.
-
-    :param client: a Juju client
-    """
-    # A short timeout is used for get_status here because if we don't get a
-    # response from  get_status quickly then the environment almost
-    # certainly doesn't exist or needs recreating.
-    try:
-        status = client.get_status(5)
-    except Exception as e:
-        # TODO(gz): get_status should return a more specific error type.
-        log.info("Could not clean existing env: %s", e)
-        return False
-
-    for service in status.get_applications():
-        client.remove_service(service)
-
-    if not services_only:
-        # First remove all containers; we can't remove a machine that is
-        # hosting containers.
-        for m, _ in status.iter_machines(containers=True, machines=False):
-            client.juju('remove-machine', m)
-
-        client.wait_for('containers', 'none')
-
-        for m, _ in status.iter_machines(containers=False, machines=True):
-            if m != '0':
-                try:
-                    client.juju('remove-machine', m)
-                except subprocess.CalledProcessError:
-                    # Sometimes this fails because while we have asked Juju
-                    # to remove a container and it says that it has, when we
-                    # ask it to remove the host Juju thinks it still has
-                    # containers on it. Normally a small pause and trying
-                    # again is all that is needed to resolve this issue.
-                    time.sleep(2)
-                    client.wait_for_started()
-                    client.juju('remove-machine', m)
-
-        client.wait_for('machines-not-0', 'none')
-
-    client.wait_for_started()
-    return True
 
 
 def make_machines(client, container_types):
@@ -251,7 +188,9 @@ def assess_network_traffic(client, targets):
 def private_address(client, host):
     default_route = ssh(client, host, 'ip -4 -o route list 0/0')
     log.info("Default route from {}: {}".format(host, default_route))
-    route_match = re.search(r'([\w-]+)\s*$', default_route)
+    # Match the device that is the word after 'dev'. eg.
+    # default via 10.0.30.1 dev br-eth1 onlink'
+    route_match = re.search(r'\sdev\s([\w-]+)', default_route)
     if route_match is None:
         raise JujuAssertionError(
             "Failed to find device in {}".format(default_route))
@@ -428,34 +367,19 @@ def assess_container_networking(client, types):
     log.info("PASS")
 
 
-class _CleanedContext:
-
-    def __init__(self, client):
-        self.client = client
-        self.return_code = None
-
-
 @contextlib.contextmanager
 def cleaned_bootstrap_context(bs_manager, args):
-    ctx = _CleanedContext(bs_manager.client)
-    client = ctx.client
+    client = bs_manager.client
     # TODO(gz): Having to manipulate client env state here to get the temp env
     #           is ugly, would ideally be captured in an explicit scope.
     update_env(client.env, bs_manager.temp_env_name, series=bs_manager.series,
                agent_url=bs_manager.agent_url,
                agent_stream=bs_manager.agent_stream, region=bs_manager.region)
     with bs_manager.top_context() as machines:
-        bootstrap_required = True
-        if args.clean_environment and clean_environment(client):
-            bootstrap_required = False
-        if bootstrap_required:
-            with bs_manager.bootstrap_context(machines):
-                client.bootstrap(args.upload_tools)
+        with bs_manager.bootstrap_context(machines):
+            client.bootstrap(args.upload_tools)
         with bs_manager.runtime_context(machines):
-            yield ctx
-        ctx.return_code = 0
-        if args.clean_environment and not clean_environment(client):
-            ctx.return_code = 1
+            yield
 
 
 def _get_container_types(client, machine_type):
@@ -484,9 +408,9 @@ def main(argv=None):
     bs_manager = BootstrapManager.from_args(args)
     client = bs_manager.client
     machine_types = _get_container_types(client, args.machine_type)
-    with cleaned_bootstrap_context(bs_manager, args) as ctx:
+    with cleaned_bootstrap_context(bs_manager, args):
         assess_container_networking(bs_manager.client, machine_types)
-    return ctx.return_code
+    return 0
 
 
 if __name__ == '__main__':

@@ -15,6 +15,7 @@ from mock import (
     patch,
     )
 
+from fakejuju import fake_juju_client
 from jujuconfig import (
     get_euca_env,
     translate_to_env,
@@ -31,25 +32,30 @@ from substrate import (
     convert_to_azure_ids,
     describe_instances,
     destroy_job_instances,
+    GCEAccount,
+    get_config,
     get_job_instances,
     get_libvirt_domstate,
+    has_nova_instance,
     JoyentAccount,
     LXDAccount,
     make_substrate_manager,
     MAASAccount,
     MAAS1Account,
-    maas_account_from_config,
+    maas_account_from_boot_config,
     OpenStackAccount,
     parse_euca,
-    run_instances,
     start_libvirt_domain,
     StillProvisioning,
     stop_libvirt_domain,
     terminate_instances,
     verify_libvirt_domain,
     )
-from tests import TestCase
-from tests.test_jujupy import fake_juju_client
+from tests import (
+    FakeHomeTestCase,
+    TestCase,
+    )
+import test_gce
 from tests.test_winazurearm import (
     fake_init_services,
     ResourceGroup,
@@ -83,6 +89,24 @@ def get_maas_env():
         })
 
 
+def get_maas_boot_config():
+    cloud_name = 'mymaas'
+    boot_config = JujuData('mas', {
+        'type': 'maas',
+        'maas-server': 'http://10.0.10.10/MAAS/',
+        'name': 'mas'
+        }, juju_home='')
+    boot_config.clouds = {'clouds': {cloud_name: {
+        'name': cloud_name,
+        'type': boot_config.provider,
+        'endpoint': boot_config.get_option('maas-server'),
+        }}}
+    boot_config.credentials = {'credentials': {cloud_name: {'credentials': {
+        'maas-oauth': 'a:password:string',
+        }}}}
+    return boot_config
+
+
 def get_openstack_env():
     return SimpleEnvironment('foo', {
         'type': 'openstack',
@@ -107,7 +131,7 @@ def get_rax_env():
 
 def get_aws_environ(env):
     environ = dict(os.environ)
-    environ.update(get_euca_env(env.config))
+    environ.update(get_euca_env(env.make_config_copy()))
     return environ
 
 
@@ -201,7 +225,7 @@ class TestTerminateInstances(TestCase):
         with patch('subprocess.check_call') as cc_mock:
             terminate_instances(env, ['foo', 'bar'])
         environ = dict(os.environ)
-        environ.update(translate_to_env(env.config))
+        environ.update(translate_to_env(env.make_config_copy()))
         cc_mock.assert_called_with(
             ['nova', 'delete', 'foo', 'bar'], env=environ)
         self.assertEqual(
@@ -222,7 +246,7 @@ class TestTerminateInstances(TestCase):
         with patch('subprocess.check_call') as cc_mock:
             terminate_instances(env, ['foo', 'bar'])
         environ = dict(os.environ)
-        environ.update(translate_to_env(env.config))
+        environ.update(translate_to_env(env.make_config_copy()))
         cc_mock.assert_called_with(
             ['nova', 'delete', 'foo', 'bar'], env=environ)
         self.assertEqual(
@@ -259,12 +283,13 @@ class TestTerminateInstances(TestCase):
 
 class TestAWSAccount(TestCase):
 
-    def test_manager_from_config(self):
-        with AWSAccount.manager_from_config({
+    def test_from_boot_config(self):
+        with AWSAccount.from_boot_config(SimpleEnvironment('foo', {
+                'type': 'aws',
                 'access-key': 'skeleton',
                 'region': 'france',
                 'secret-key': 'hoover',
-                }) as aws:
+                })) as aws:
             self.assertEqual(aws.euca_environ, {
                 'AWS_ACCESS_KEY': 'skeleton',
                 'AWS_SECRET_KEY': 'hoover',
@@ -289,7 +314,7 @@ class TestAWSAccount(TestCase):
         client.get_all_security_groups.return_value = list(make_group())
         with patch('substrate.ec2.connect_to_region',
                    return_value=client) as ctr_mock:
-            with AWSAccount.manager_from_config(get_aws_env().config) as aws:
+            with AWSAccount.from_boot_config(get_aws_env()) as aws:
                 groups = list(aws.iter_security_groups())
         self.assertEqual(groups, [
             ('foo-id', 'foo'), ('foobar-id', 'foobar'), ('baz-id', 'baz')])
@@ -312,7 +337,7 @@ class TestAWSAccount(TestCase):
         client.get_all_instances.return_value = instances
         with patch('substrate.ec2.connect_to_region',
                    return_value=client) as ctr_mock:
-            with AWSAccount.manager_from_config(get_aws_env().config) as aws:
+            with AWSAccount.from_boot_config(get_aws_env()) as aws:
                 groups = list(aws.iter_instance_security_groups())
         self.assertEqual(
             groups, [('foo', 'bar'), ('baz', 'qux'), ('quxx-id', 'quxx')])
@@ -333,7 +358,7 @@ class TestAWSAccount(TestCase):
         client.get_all_instances.return_value = instances
         with patch('substrate.ec2.connect_to_region',
                    return_value=client) as ctr_mock:
-            with AWSAccount.manager_from_config(get_aws_env().config) as aws:
+            with AWSAccount.from_boot_config(get_aws_env()) as aws:
                     list(aws.iter_instance_security_groups(['abc', 'def']))
         client.get_all_instances.assert_called_once_with(
             instance_ids=['abc', 'def'])
@@ -344,7 +369,7 @@ class TestAWSAccount(TestCase):
         client.delete_security_group.return_value = True
         with patch('substrate.ec2.connect_to_region',
                    return_value=client) as ctr_mock:
-            with AWSAccount.manager_from_config(get_aws_env().config) as aws:
+            with AWSAccount.from_boot_config(get_aws_env()) as aws:
                 failures = aws.destroy_security_groups(
                     ['foo', 'foobar', 'baz'])
         calls = [call(name='foo'), call(name='foobar'), call(name='baz')]
@@ -357,7 +382,7 @@ class TestAWSAccount(TestCase):
         client.delete_security_group.return_value = False
         with patch('substrate.ec2.connect_to_region',
                    return_value=client) as ctr_mock:
-            with AWSAccount.manager_from_config(get_aws_env().config) as aws:
+            with AWSAccount.from_boot_config(get_aws_env()) as aws:
                 failures = aws.destroy_security_groups(
                     ['foo', 'foobar', 'baz'])
         self.assertEqual(failures, ['foo', 'foobar', 'baz'])
@@ -369,7 +394,7 @@ class TestAWSAccount(TestCase):
         client.get_all_network_interfaces.return_value = return_value
         with patch('substrate.ec2.connect_to_region',
                    return_value=client) as ctr_mock:
-            with AWSAccount.manager_from_config(get_aws_env().config) as aws:
+            with AWSAccount.from_boot_config(get_aws_env()) as aws:
                 yield aws
         self.assert_ec2_connection_call(ctr_mock)
 
@@ -431,6 +456,10 @@ def get_os_config():
         'tenant-name': 'baz', 'auth-url': 'qux', 'region': 'quxx'}
 
 
+def get_os_boot_config():
+    return SimpleEnvironment('foo', get_os_config())
+
+
 def make_os_security_groups(names, non_juju=()):
     groups = []
     for name in names:
@@ -452,8 +481,9 @@ def make_os_security_group_instance(names):
 
 class TestOpenstackAccount(TestCase):
 
-    def test_manager_from_config(self):
-        with OpenStackAccount.manager_from_config(get_os_config()) as account:
+    def test_from_boot_config(self):
+        with OpenStackAccount.from_boot_config(
+                get_os_boot_config()) as account:
             self.assertEqual(account._username, 'foo')
             self.assertEqual(account._password, 'bar')
             self.assertEqual(account._tenant_name, 'baz')
@@ -461,7 +491,8 @@ class TestOpenstackAccount(TestCase):
             self.assertEqual(account._region_name, 'quxx')
 
     def test_get_client(self):
-        with OpenStackAccount.manager_from_config(get_os_config()) as account:
+        with OpenStackAccount.from_boot_config(
+                get_os_boot_config()) as account:
             with patch('novaclient.client.Client') as ncc_mock:
                 account.get_client()
         ncc_mock.assert_called_once_with(
@@ -469,7 +500,8 @@ class TestOpenstackAccount(TestCase):
             service_type='compute', insecure=False)
 
     def test_iter_security_groups(self):
-        with OpenStackAccount.manager_from_config(get_os_config()) as account:
+        with OpenStackAccount.from_boot_config(
+                get_os_boot_config()) as account:
             with patch.object(account, 'get_client') as gc_mock:
                 client = gc_mock.return_value
                 groups = make_os_security_groups(['foo', 'bar', 'baz'])
@@ -479,7 +511,8 @@ class TestOpenstackAccount(TestCase):
                 ('foo-id', 'foo'), ('bar-id', 'bar'), ('baz-id', 'baz')])
 
     def test_iter_security_groups_non_juju(self):
-        with OpenStackAccount.manager_from_config(get_os_config()) as account:
+        with OpenStackAccount.from_boot_config(
+                get_os_boot_config()) as account:
             with patch.object(account, 'get_client') as gc_mock:
                 client = gc_mock.return_value
                 groups = make_os_security_groups(
@@ -489,7 +522,8 @@ class TestOpenstackAccount(TestCase):
             self.assertEqual(list(result), [('bar-id', 'bar')])
 
     def test_iter_instance_security_groups(self):
-        with OpenStackAccount.manager_from_config(get_os_config()) as account:
+        with OpenStackAccount.from_boot_config(
+                get_os_boot_config()) as account:
             with patch.object(account, 'get_client') as gc_mock:
                 client = gc_mock.return_value
                 instance = MagicMock(security_groups=[{'name': 'foo'}])
@@ -500,7 +534,8 @@ class TestOpenstackAccount(TestCase):
             self.assertEqual(list(result), [('foo-id', 'foo')])
 
     def test_iter_instance_security_groups_instance_ids(self):
-        with OpenStackAccount.manager_from_config(get_os_config()) as account:
+        with OpenStackAccount.from_boot_config(
+                get_os_boot_config()) as account:
             with patch.object(account, 'get_client') as gc_mock:
                 client = gc_mock.return_value
                 foo_bar = make_os_security_group_instance(['foo', 'bar'])
@@ -525,8 +560,9 @@ def get_joyent_config():
 
 class TestJoyentAccount(TestCase):
 
-    def test_manager_from_config(self):
-        with JoyentAccount.manager_from_config(get_joyent_config()) as account:
+    def test_from_boot_config(self):
+        boot_config = SimpleEnvironment('foo', get_joyent_config())
+        with JoyentAccount.from_boot_config(boot_config) as account:
             self.assertEqual(
                 open(account.client.key_path).read(), 'key\abc\n')
         self.assertFalse(os.path.exists(account.client.key_path))
@@ -588,12 +624,12 @@ def get_lxd_config():
 
 class TestLXDAccount(TestCase):
 
-    def test_manager_from_config(self):
-        config = get_lxd_config()
-        with LXDAccount.manager_from_config(config) as account:
+    def test_from_boot_config(self):
+        boot_config = SimpleEnvironment('foo', get_lxd_config())
+        with LXDAccount.from_boot_config(boot_config) as account:
             self.assertIsNone(account.remote)
-        config['region'] = 'lxd-server'
-        with LXDAccount.manager_from_config(config) as account:
+        boot_config.set_region('lxd-server')
+        with LXDAccount.from_boot_config(boot_config) as account:
             self.assertEqual('lxd-server', account.remote)
 
     def test_terminate_instances(self):
@@ -613,6 +649,52 @@ class TestLXDAccount(TestCase):
             [call(['lxc', 'stop', '--force', 'asdf']),
              call(['lxc', 'delete', '--force', 'lxd-server:asdf'])],
             cc_mock.mock_calls)
+
+
+def get_gce_config():
+    return {
+        'type': 'gce',
+        'client-email': 'me@serviceaccount.google.com',
+        'private-key': 'KEY',
+        'project-id': 'test-project',
+    }
+
+
+class TestGCEAccount(FakeHomeTestCase):
+
+    def test_from_boot_config(self):
+        boot_config = JujuData('foo', get_gce_config())
+        boot_config.credentials['credentials'] = {'google': {'baz': {}}}
+        client = test_gce.make_fake_client()
+        with patch('gce.get_client', return_value=client) as gc_mock:
+            with GCEAccount.from_boot_config(boot_config) as account:
+                self.assertIs(client, account.client)
+                args = gc_mock.call_args[0]
+                self.assertEqual('me@serviceaccount.google.com', args[0])
+                self.assertEqual('test-project', args[2])
+                with open(args[1], 'r') as kf:
+                    key = kf.read()
+                self.assertEqual('KEY', key)
+
+    def test_terminate_instances(self):
+        client = test_gce.make_fake_client()
+        account = GCEAccount(client)
+        with patch('gce.delete_instances',
+                   autospec=True, return_value=1) as di_mock:
+            account.terminate_instances(['juju-1', 'juju-2'])
+        self.assertEqual(
+            [call(client, 'juju-1', old_age=0),
+             call(client, 'juju-2', old_age=0)],
+            di_mock.mock_calls)
+
+    def test_terminate_instances_exception(self):
+        client = test_gce.make_fake_client()
+        account = GCEAccount(client)
+        with patch('gce.delete_instances',
+                   autospec=True, return_value=0) as di_mock:
+            with self.assertRaises(Exception):
+                account.terminate_instances(['juju-1', 'juju-2'])
+        di_mock.assert_called_once_with(client, 'juju-1', old_age=0)
 
 
 def make_sms(instance_ids):
@@ -641,10 +723,12 @@ def make_sms(instance_ids):
 
 class TestAzureAccount(TestCase):
 
-    def test_manager_from_config(self):
-        config = {'management-subscription-id': 'fooasdfbar',
+    def test_from_boot_config(self):
+        config = {'type': 'azure',
+                  'management-subscription-id': 'fooasdfbar',
                   'management-certificate': 'ab\ncd\n'}
-        with AzureAccount.manager_from_config(config) as substrate:
+        boot_config = SimpleEnvironment('foo', config)
+        with AzureAccount.from_boot_config(boot_config) as substrate:
             self.assertEqual(substrate.service_client.subscription_id,
                              'fooasdfbar')
             self.assertEqual(open(substrate.service_client.cert_file).read(),
@@ -703,9 +787,9 @@ class TestAzureARMAccount(TestCase):
 
     @patch('winazurearm.ARMClient.init_services',
            autospec=True, side_effect=fake_init_services)
-    def test_manager_from_config(self, is_mock):
-        config = get_azure_config()
-        with AzureARMAccount.manager_from_config(config) as substrate:
+    def test_from_boot_config(self, is_mock):
+        boot_config = SimpleEnvironment('foo', get_azure_config())
+        with AzureARMAccount.from_boot_config(boot_config) as substrate:
             self.assertEqual(
                 substrate.arm_client.subscription_id, 'subscription-id')
             self.assertEqual(substrate.arm_client.client_id, 'application-id')
@@ -762,6 +846,7 @@ class TestAzureARMAccount(TestCase):
            autospec=True, side_effect=fake_init_services)
     def test_convert_to_azure_ids_function(self, is_mock):
         env = JujuData('controller', get_azure_config(), juju_home='data')
+        env.credentials['credentials'] = {'azure': {'credentials': {}}}
         client = fake_juju_client(env=env)
         arm_client = ARMClient(
             'subscription-id', 'application-id', 'application-password',
@@ -801,6 +886,7 @@ class TestAzureARMAccount(TestCase):
            autospec=True, side_effect=fake_init_services)
     def test_convert_to_azure_ids_function_bug_1586089_fixed(self, is_mock):
         env = JujuData('controller', get_azure_config(), juju_home='data')
+        env.credentials['credentials'] = {'azure': {'credentials': {}}}
         client = fake_juju_client(env=env, version='2.1')
         with patch.object(client, 'get_models') as gm_mock:
             with patch('winazurearm.list_resources') as lr_mock:
@@ -814,9 +900,12 @@ class TestMAASAccount(TestCase):
 
     def get_account(self):
         """Give a MAASAccount for testing."""
-        config = get_maas_env().config
+        boot_config = get_maas_env()
         return MAASAccount(
-            config['name'], config['maas-server'], config['maas-oauth'])
+            boot_config.get_option('name'),
+            boot_config.get_option('maas-server'),
+            boot_config.get_option('maas-oauth'),
+            )
 
     @patch('subprocess.check_call', autospec=True)
     def test_login(self, cc_mock):
@@ -876,6 +965,14 @@ class TestMAASAccount(TestCase):
         co_mock.assert_called_once_with(
             ('maas', 'mas', 'machines', 'list-allocated'))
         self.assertEqual({}, ips)
+
+    def test_machines(self):
+        account = self.get_account()
+        with patch('subprocess.check_output', autospec=True,
+                   return_value='[]') as co_mock:
+            machines = account.machines()
+        co_mock.assert_called_once_with(('maas', 'mas', 'machines', 'read'))
+        self.assertEqual([], machines)
 
     def test_fabrics(self):
         account = self.get_account()
@@ -966,6 +1063,16 @@ class TestMAASAccount(TestCase):
         co_mock.assert_called_once_with((
             'maas', 'mas', 'interfaces', 'read', 'node-xyz'))
         self.assertEqual([], interfaces)
+
+    def test_interface_update(self):
+        account = self.get_account()
+        with patch('subprocess.check_output', autospec=True,
+                   return_value='{"id": 10}') as co_mock:
+            interface = account.interface_update('node-xyz', 10, vlan_id=5000)
+        co_mock.assert_called_once_with((
+            'maas', 'mas', 'interface', 'update', 'node-xyz', '10',
+            'vlan=5000'))
+        self.assertEqual({'id': 10}, interface)
 
     def test_interface_create_vlan(self):
         account = self.get_account()
@@ -1090,9 +1197,12 @@ class TestMAAS1Account(TestCase):
 
     def get_account(self):
         """Give a MAAS1Account for testing."""
-        config = get_maas_env().config
+        boot_config = get_maas_env()
         return MAAS1Account(
-            config['name'], config['maas-server'], config['maas-oauth'])
+            boot_config.get_option('name'),
+            boot_config.get_option('maas-server'),
+            boot_config.get_option('maas-oauth'),
+            )
 
     @patch('subprocess.check_call', autospec=True)
     def test_login(self, cc_mock):
@@ -1157,9 +1267,9 @@ class TestMAAS1Account(TestCase):
 class TestMAASAccountFromConfig(TestCase):
 
     def test_login_succeeds(self):
-        config = get_maas_env().config
+        boot_config = get_maas_env()
         with patch('subprocess.check_call', autospec=True) as cc_mock:
-            with maas_account_from_config(config) as maas:
+            with maas_account_from_boot_config(boot_config) as maas:
                 self.assertIs(type(maas), MAASAccount)
                 self.assertEqual(maas.profile, 'mas')
                 self.assertEqual(maas.url, 'http://10.0.10.10/MAAS/api/2.0/')
@@ -1173,11 +1283,11 @@ class TestMAASAccountFromConfig(TestCase):
         cc_mock.assert_called_once_with(['maas', 'logout', 'mas'])
 
     def test_login_fallback(self):
-        config = get_maas_env().config
+        boot_config = get_maas_env()
         login_error = CalledProcessError(1, ['maas', 'login'])
         with patch('subprocess.check_call', autospec=True,
                    side_effect=[login_error, None, None]) as cc_mock:
-            with maas_account_from_config(config) as maas:
+            with maas_account_from_boot_config(boot_config) as maas:
                 self.assertIs(type(maas), MAAS1Account)
                 self.assertEqual(maas.profile, 'mas')
                 self.assertEqual(maas.url, 'http://10.0.10.10/MAAS/api/1.0/')
@@ -1199,12 +1309,12 @@ class TestMAASAccountFromConfig(TestCase):
             'INFO Could not login with MAAS 2.0 API, trying 1.0\n')
 
     def test_login_both_fail(self):
-        config = get_maas_env().config
+        boot_config = get_maas_env()
         login_error = CalledProcessError(1, ['maas', 'login'])
         with patch('subprocess.check_call', autospec=True,
                    side_effect=login_error) as cc_mock:
             with self.assertRaises(CalledProcessError) as ctx:
-                with maas_account_from_config(config):
+                with maas_account_from_boot_config(boot_config):
                     self.fail('Should never get manager with failed login')
         self.assertIs(ctx.exception, login_error)
         self.assertEquals(cc_mock.call_args_list, [
@@ -1219,12 +1329,28 @@ class TestMAASAccountFromConfig(TestCase):
             self.log_stream.getvalue(),
             'INFO Could not login with MAAS 2.0 API, trying 1.0\n')
 
+    def test_login_uses_cloud_credentials(self):
+        boot_config = get_maas_boot_config()
+        with patch('subprocess.check_call', autospec=True) as cc_mock:
+            with maas_account_from_boot_config(boot_config) as maas:
+                self.assertIs(type(maas), MAASAccount)
+                self.assertEqual(maas.profile, 'mas')
+                self.assertEqual(maas.url, 'http://10.0.10.10/MAAS/api/2.0/')
+                self.assertEqual(maas.oauth, 'a:password:string')
+                # The login call has happened on context manager enter, reset
+                # the mock after to verify the logout call.
+                cc_mock.assert_called_once_with([
+                    'maas', 'login', 'mas', 'http://10.0.10.10/MAAS/api/2.0/',
+                    'a:password:string'])
+                cc_mock.reset_mock()
+        cc_mock.assert_called_once_with(['maas', 'logout', 'mas'])
 
-class TestMakeSubstrateManager(TestCase):
+
+class TestMakeSubstrateManager(FakeHomeTestCase):
 
     def test_make_substrate_manager_aws(self):
-        aws_env = get_aws_env()
-        with make_substrate_manager(aws_env.config, aws_env.config) as aws:
+        boot_config = get_aws_env()
+        with make_substrate_manager(boot_config) as aws:
             self.assertIs(type(aws), AWSAccount)
             self.assertEqual(aws.euca_environ, {
                 'AWS_ACCESS_KEY': 'skeleton-key',
@@ -1236,8 +1362,8 @@ class TestMakeSubstrateManager(TestCase):
             self.assertEqual(aws.region, 'ca-west')
 
     def test_make_substrate_manager_openstack(self):
-        config = get_os_config()
-        with make_substrate_manager(config, config) as account:
+        boot_config = get_os_boot_config()
+        with make_substrate_manager(boot_config) as account:
             self.assertIs(type(account), OpenStackAccount)
             self.assertEqual(account._username, 'foo')
             self.assertEqual(account._password, 'bar')
@@ -1248,7 +1374,8 @@ class TestMakeSubstrateManager(TestCase):
     def test_make_substrate_manager_rackspace(self):
         config = get_os_config()
         config['type'] = 'rackspace'
-        with make_substrate_manager(config, config) as account:
+        boot_config = SimpleEnvironment('foo', config)
+        with make_substrate_manager(boot_config) as account:
             self.assertIs(type(account), OpenStackAccount)
             self.assertEqual(account._username, 'foo')
             self.assertEqual(account._password, 'bar')
@@ -1257,19 +1384,19 @@ class TestMakeSubstrateManager(TestCase):
             self.assertEqual(account._region_name, 'quxx')
 
     def test_make_substrate_manager_joyent(self):
-        config = get_joyent_config()
-        with make_substrate_manager(config, config) as account:
+        boot_config = SimpleEnvironment('foo', get_joyent_config())
+        with make_substrate_manager(boot_config) as account:
             self.assertEqual(account.client.sdc_url, 'http://example.org/sdc')
             self.assertEqual(account.client.account, 'user@manta.org')
             self.assertEqual(account.client.key_id, 'key-id@manta.org')
 
     def test_make_substrate_manager_azure(self):
-        config = {
+        boot_config = SimpleEnvironment('foo', {
             'type': 'azure',
             'management-subscription-id': 'fooasdfbar',
             'management-certificate': 'ab\ncd\n'
-            }
-        with make_substrate_manager(config, config) as substrate:
+            })
+        with make_substrate_manager(boot_config) as substrate:
             self.assertIs(type(substrate), AzureAccount)
             self.assertEqual(substrate.service_client.subscription_id,
                              'fooasdfbar')
@@ -1280,8 +1407,8 @@ class TestMakeSubstrateManager(TestCase):
     @patch('winazurearm.ARMClient.init_services',
            autospec=True, side_effect=fake_init_services)
     def test_make_substrate_manager_azure_arm(self, is_mock):
-        config = get_azure_config()
-        with make_substrate_manager(config, config) as substrate:
+        boot_config = SimpleEnvironment('foo', get_azure_config())
+        with make_substrate_manager(boot_config) as substrate:
             self.assertEqual(
                 substrate.arm_client.subscription_id, 'subscription-id')
             self.assertEqual(
@@ -1291,11 +1418,37 @@ class TestMakeSubstrateManager(TestCase):
             self.assertEqual(substrate.arm_client.tenant, 'tenant-id')
             is_mock.assert_called_once_with(substrate.arm_client)
 
+    def test_make_substrate_manager_gce(self):
+        boot_config = JujuData('foo', get_gce_config())
+        boot_config.credentials['credentials'] = {'google': {'baz': {}}}
+        client = test_gce.make_fake_client()
+        with patch('gce.get_client',
+                   autospec=True, return_value=client) as gc_mock:
+            with make_substrate_manager(boot_config) as account:
+                self.assertIs(client, account.client)
+        args = gc_mock.call_args[0]
+        self.assertEqual('me@serviceaccount.google.com', args[0])
+        self.assertIsTrue(args[1].endswith('gce.pem'))
+        self.assertEqual('test-project', args[2])
+
     def test_make_substrate_manager_other(self):
         config = get_os_config()
         config['type'] = 'other'
-        with make_substrate_manager(config, config) as account:
+        boot_config = SimpleEnvironment('foo', config)
+        with make_substrate_manager(boot_config) as account:
             self.assertIs(account, None)
+
+    def test_get_config_lxd(self):
+        boot_config = get_lxd_config()
+        env = JujuData('foo', boot_config)
+        config = get_config(env)
+        self.assertEqual(boot_config, config)
+
+    def test_get_config_manual(self):
+        boot_config = {'type': 'manual'}
+        env = JujuData('foo', boot_config)
+        config = get_config(env)
+        self.assertEqual(boot_config, config)
 
 
 class TestLibvirt(TestCase):
@@ -1357,6 +1510,38 @@ class TestLibvirt(TestCase):
         self.assertFalse(rval)
 
 
+class TestHasNovaInstance(TestCase):
+
+    def run_has_nova_instance(self, return_value=''):
+        boot_config = JujuData('foo', {
+            'type': 'openstack',
+            'region': 'lcy05',
+            'username': 'steve',
+            'password': 'password1',
+            'tenant-name': 'steven',
+            'auth-url': 'http://example.org',
+            }, 'home')
+        with patch('subprocess.check_output', autospec=True,
+                   return_value=return_value) as co_mock:
+            result = has_nova_instance(boot_config, 'i-255')
+        environ = dict(os.environ)
+        environ.update({
+            'OS_AUTH_URL': 'http://example.org',
+            'OS_USERNAME': 'steve',
+            'OS_PASSWORD': 'password1',
+            'OS_REGION_NAME': 'lcy05',
+            'OS_TENANT_NAME': 'steven',
+            })
+        co_mock.assert_called_once_with(['nova', 'list'], env=environ)
+        return result
+
+    def test_has_nova_instance_false(self):
+        self.assertIs(False, self.run_has_nova_instance())
+
+    def test_has_nova_instance_true(self):
+        self.assertIs(True, self.run_has_nova_instance('i-255'))
+
+
 class EucaTestCase(TestCase):
 
     def test_get_job_instances_none(self):
@@ -1398,73 +1583,6 @@ class EucaTestCase(TestCase):
         description = parse_euca(euca_data)
         self.assertEqual(
             [('i-foo', 'bar-0'), ('i-baz', 'bar-1')], [d for d in description])
-
-    def test_run_instances_without_series(self):
-        euca_data = dedent("""
-            header
-            INSTANCE\ti-foo\tblah\tbar-0
-            INSTANCE\ti-baz\tblah\tbar-1
-        """)
-        description = [('i-foo', 'bar-0'), ('i-baz', 'bar-1')]
-        ami = "ami-atest"
-        with patch('subprocess.check_output',
-                   return_value=euca_data, autospec=True) as co_mock:
-            with patch('subprocess.check_call', autospec=True) as cc_mock:
-                with patch('substrate.describe_instances',
-                           return_value=description, autospec=True) as di_mock:
-                    with patch('get_ami.query_ami',
-                               return_value=ami, autospec=True) as qa_mock:
-                        run_instances(2, 'qux', None)
-        co_mock.assert_called_once_with(
-            ['euca-run-instances', '-k', 'id_rsa', '-n', '2',
-             '-t', 'm3.large', '-g', 'manual-juju-test', ami],
-            env=os.environ)
-        cc_mock.assert_called_once_with(
-            ['euca-create-tags', '--tag', 'job_name=qux', 'i-foo', 'i-baz'],
-            env=os.environ)
-        di_mock.assert_called_once_with(['i-foo', 'i-baz'], env=os.environ)
-        qa_mock.assert_called_once_with('precise', 'amd64', region=None)
-
-    @patch('get_ami.query_ami', autospec=True)
-    @patch('substrate.describe_instances', autospec=True)
-    @patch('subprocess.check_call', autospec=True)
-    @patch('subprocess.check_output', autospec=True)
-    def test_run_instances_with_series(self,
-                                       co_mock, cc_mock, di_mock, qa_mock):
-        co_mock.return_value = dedent("""
-            header
-            INSTANCE\ti-foo\tblah\tbar-0
-            INSTANCE\ti-baz\tblah\tbar-1
-            """)
-        di_mock.return_value = [('i-foo', 'bar-0'), ('i-baz', 'bar-1')]
-        qa_mock.return_value = "ami-atest"
-        run_instances(2, 'qux', 'wily')
-        qa_mock.assert_called_once_with('wily', 'amd64', region=None)
-
-    def test_run_instances_tagging_failed(self):
-        euca_data = 'INSTANCE\ti-foo\tblah\tbar-0'
-        description = [('i-foo', 'bar-0')]
-        with patch('subprocess.check_output',
-                   return_value=euca_data, autospec=True):
-            with patch('subprocess.check_call', autospec=True,
-                       side_effect=CalledProcessError('', '')):
-                with patch('substrate.describe_instances',
-                           return_value=description, autospec=True):
-                    with patch('subprocess.call', autospec=True) as c_mock:
-                        with self.assertRaises(CalledProcessError):
-                            run_instances(1, 'qux', 'trusty')
-        c_mock.assert_called_with(['euca-terminate-instances', 'i-foo'])
-
-    def test_run_instances_describe_failed(self):
-        euca_data = 'INSTANCE\ti-foo\tblah\tbar-0'
-        with patch('subprocess.check_output',
-                   return_value=euca_data, autospec=True):
-            with patch('substrate.describe_instances',
-                       side_effect=CalledProcessError('', '')):
-                with patch('subprocess.call', autospec=True) as c_mock:
-                    with self.assertRaises(CalledProcessError):
-                        run_instances(1, 'qux', 'trusty')
-        c_mock.assert_called_with(['euca-terminate-instances', 'i-foo'])
 
     def test_destroy_job_instances_none(self):
         with patch('substrate.get_job_instances',
