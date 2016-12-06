@@ -195,7 +195,7 @@ func (s *serviceSuite) TestCompatibleSettingsParsing(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `unknown option "yummy"`)
 }
 
-func (s *serviceSuite) TestServiceDeployWithStorage(c *gc.C) {
+func (s *serviceSuite) TestApplicationDeployWithStorage(c *gc.C) {
 	curl, ch := s.UploadCharm(c, "utopic/storage-block-10", "storage-block")
 	err := application.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{
 		URL: curl.String(),
@@ -250,7 +250,7 @@ func (s *serviceSuite) TestMinJujuVersionTooHigh(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta(match))
 }
 
-func (s *serviceSuite) TestServiceDeployWithInvalidStoragePool(c *gc.C) {
+func (s *serviceSuite) TestApplicationDeployWithInvalidStoragePool(c *gc.C) {
 	curl, _ := s.UploadCharm(c, "utopic/storage-block-0", "storage-block")
 	err := application.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{
 		URL: curl.String(),
@@ -280,7 +280,7 @@ func (s *serviceSuite) TestServiceDeployWithInvalidStoragePool(c *gc.C) {
 	c.Assert(results.Results[0].Error, gc.ErrorMatches, `.* pool "foo" not found`)
 }
 
-func (s *serviceSuite) TestServiceDeployDefaultFilesystemStorage(c *gc.C) {
+func (s *serviceSuite) TestApplicationDeployDefaultFilesystemStorage(c *gc.C) {
 	curl, ch := s.UploadCharm(c, "trusty/storage-filesystem-1", "storage-filesystem")
 	err := application.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{
 		URL: curl.String(),
@@ -312,7 +312,7 @@ func (s *serviceSuite) TestServiceDeployDefaultFilesystemStorage(c *gc.C) {
 	})
 }
 
-func (s *serviceSuite) TestServiceDeploy(c *gc.C) {
+func (s *serviceSuite) TestApplicationDeploy(c *gc.C) {
 	curl, ch := s.UploadCharm(c, "precise/dummy-42", "dummy")
 	err := application.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{
 		URL: curl.String(),
@@ -341,7 +341,7 @@ func (s *serviceSuite) TestServiceDeploy(c *gc.C) {
 	c.Assert(units, gc.HasLen, 1)
 }
 
-func (s *serviceSuite) TestServiceDeployWithInvalidPlacement(c *gc.C) {
+func (s *serviceSuite) TestApplicationDeployWithInvalidPlacement(c *gc.C) {
 	curl, _ := s.UploadCharm(c, "precise/dummy-42", "dummy")
 	err := application.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{
 		URL: curl.String(),
@@ -1019,7 +1019,7 @@ func (s *serviceSuite) TestBlockChangesServiceDeployPrincipal(c *gc.C) {
 	s.assertServiceDeployPrincipalBlocked(c, "TestBlockChangesServiceDeployPrincipal", curl, cons)
 }
 
-func (s *serviceSuite) TestServiceDeploySubordinate(c *gc.C) {
+func (s *serviceSuite) TestApplicationDeploySubordinate(c *gc.C) {
 	curl, ch := s.UploadCharm(c, "utopic/logging-47", "logging")
 	err := application.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{
 		URL: curl.String(),
@@ -1048,7 +1048,7 @@ func (s *serviceSuite) TestServiceDeploySubordinate(c *gc.C) {
 	c.Assert(units, gc.HasLen, 0)
 }
 
-func (s *serviceSuite) TestServiceDeployConfig(c *gc.C) {
+func (s *serviceSuite) TestApplicationDeployConfig(c *gc.C) {
 	curl, _ := s.UploadCharm(c, "precise/dummy-0", "dummy")
 	err := application.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{
 		URL: curl.String(),
@@ -1072,7 +1072,7 @@ func (s *serviceSuite) TestServiceDeployConfig(c *gc.C) {
 	c.Assert(settings, gc.DeepEquals, charm.Settings{"username": "fred"})
 }
 
-func (s *serviceSuite) TestServiceDeployConfigError(c *gc.C) {
+func (s *serviceSuite) TestApplicationDeployConfigError(c *gc.C) {
 	// TODO(fwereade): test Config/ConfigYAML handling directly on srvClient.
 	// Can't be done cleanly until it's extracted similarly to Machiner.
 	curl, _ := s.UploadCharm(c, "precise/dummy-0", "dummy")
@@ -1094,7 +1094,77 @@ func (s *serviceSuite) TestServiceDeployConfigError(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
-func (s *serviceSuite) TestServiceDeployToMachine(c *gc.C) {
+func (s *serviceSuite) TestApplicationDeployConstraints(c *gc.C) {
+	curl, _ := s.UploadCharm(c, "precise/dummy-0", "dummy")
+	err := application.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{
+		URL: curl.String(),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	cons, err := constraints.Parse("mem=4096", "cores=2")
+	c.Assert(err, jc.ErrorIsNil)
+	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
+		Applications: []params.ApplicationDeploy{{
+			CharmURL:        curl.String(),
+			ApplicationName: "application-name",
+			NumUnits:        1,
+			Constraints:     cons,
+		}}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Error, gc.IsNil)
+
+	application, err := s.State.Application("application-name")
+	c.Assert(err, jc.ErrorIsNil)
+	obtained, err := application.Constraints()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(obtained, gc.DeepEquals, cons)
+}
+
+func (s *serviceSuite) TestApplicationDeployConstraintsString(c *gc.C) {
+	curl, _ := s.UploadCharm(c, "precise/dummy-0", "dummy")
+	err := application.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{
+		URL: curl.String(),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	constString := "mem=4096 cores=2"
+	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
+		Applications: []params.ApplicationDeploy{{
+			CharmURL:          curl.String(),
+			ApplicationName:   "application-name",
+			NumUnits:          1,
+			ConstraintsString: constString,
+		}}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Error, gc.IsNil)
+
+	application, err := s.State.Application("application-name")
+	c.Assert(err, jc.ErrorIsNil)
+	obtained, err := application.Constraints()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(obtained, gc.DeepEquals, constraints.MustParse(constString))
+}
+
+func (s *serviceSuite) TestApplicationDeployConstraintsStringError(c *gc.C) {
+	curl, _ := s.UploadCharm(c, "precise/dummy-0", "dummy")
+	err := application.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{
+		URL: curl.String(),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
+		Applications: []params.ApplicationDeploy{{
+			CharmURL:          curl.String(),
+			ApplicationName:   "application-name",
+			NumUnits:          1,
+			Constraints:       constraints.MustParse("mem=4096"),
+			ConstraintsString: "bad wolf",
+		}}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Error, gc.ErrorMatches, `cannot parse constraints string: malformed constraint "bad"`)
+}
+
+func (s *serviceSuite) TestApplicationDeployToMachine(c *gc.C) {
 	curl, ch := s.UploadCharm(c, "precise/dummy-0", "dummy")
 	err := application.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{
 		URL: curl.String(),
@@ -1136,7 +1206,7 @@ func (s *serviceSuite) TestServiceDeployToMachine(c *gc.C) {
 	c.Assert(mid, gc.Equals, machine.Id())
 }
 
-func (s *serviceSuite) TestServiceDeployToMachineNotFound(c *gc.C) {
+func (s *serviceSuite) TestApplicationDeployToMachineNotFound(c *gc.C) {
 	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
 			CharmURL:        "cs:precise/application-name-1",
@@ -1195,7 +1265,7 @@ func (s *serviceSuite) checkClientServiceUpdateSetCharm(c *gc.C, forceCharmURL b
 	c.Assert(force, gc.Equals, forceCharmURL)
 }
 
-func (s *serviceSuite) TestServiceUpdateSetCharm(c *gc.C) {
+func (s *serviceSuite) TestApplicationUpdateSetCharm(c *gc.C) {
 	s.checkClientServiceUpdateSetCharm(c, false)
 }
 
@@ -1232,7 +1302,7 @@ func (s *serviceSuite) TestBlockChangeServiceUpdate(c *gc.C) {
 	s.AssertBlocked(c, err, "TestBlockChangeServiceUpdate")
 }
 
-func (s *serviceSuite) TestServiceUpdateForceSetCharm(c *gc.C) {
+func (s *serviceSuite) TestApplicationUpdateForceSetCharm(c *gc.C) {
 	s.checkClientServiceUpdateSetCharm(c, true)
 }
 
@@ -1262,7 +1332,7 @@ func (s *serviceSuite) TestBlockServiceUpdateForced(c *gc.C) {
 	c.Assert(force, jc.IsTrue)
 }
 
-func (s *serviceSuite) TestServiceUpdateSetCharmNotFound(c *gc.C) {
+func (s *serviceSuite) TestApplicationUpdateSetCharmNotFound(c *gc.C) {
 	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	args := params.ApplicationUpdate{
 		ApplicationName: "wordpress",
@@ -1272,7 +1342,7 @@ func (s *serviceSuite) TestServiceUpdateSetCharmNotFound(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, `charm "cs:precise/wordpress-999999" not found`)
 }
 
-func (s *serviceSuite) TestServiceUpdateSetMinUnits(c *gc.C) {
+func (s *serviceSuite) TestApplicationUpdateSetMinUnits(c *gc.C) {
 	application := s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
 
 	// Set minimum units for the application.
@@ -1289,7 +1359,7 @@ func (s *serviceSuite) TestServiceUpdateSetMinUnits(c *gc.C) {
 	c.Assert(application.MinUnits(), gc.Equals, minUnits)
 }
 
-func (s *serviceSuite) TestServiceUpdateSetMinUnitsError(c *gc.C) {
+func (s *serviceSuite) TestApplicationUpdateSetMinUnitsError(c *gc.C) {
 	application := s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
 
 	// Set a negative minimum number of units for the application.
@@ -1307,7 +1377,7 @@ func (s *serviceSuite) TestServiceUpdateSetMinUnitsError(c *gc.C) {
 	c.Assert(application.MinUnits(), gc.Equals, 0)
 }
 
-func (s *serviceSuite) TestServiceUpdateSetSettingsStrings(c *gc.C) {
+func (s *serviceSuite) TestApplicationUpdateSetSettingsStrings(c *gc.C) {
 	application := s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
 
 	// Update settings for the application.
@@ -1325,7 +1395,7 @@ func (s *serviceSuite) TestServiceUpdateSetSettingsStrings(c *gc.C) {
 	c.Assert(obtained, gc.DeepEquals, expected)
 }
 
-func (s *serviceSuite) TestServiceUpdateSetSettingsYAML(c *gc.C) {
+func (s *serviceSuite) TestApplicationUpdateSetSettingsYAML(c *gc.C) {
 	application := s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
 
 	// Update settings for the application.
@@ -1361,7 +1431,7 @@ func (s *serviceSuite) TestClientServiceUpdateSetSettingsGetYAML(c *gc.C) {
 	c.Assert(obtained, gc.DeepEquals, expected)
 }
 
-func (s *serviceSuite) TestServiceUpdateSetConstraints(c *gc.C) {
+func (s *serviceSuite) TestApplicationUpdateSetConstraints(c *gc.C) {
 	application := s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
 
 	// Update constraints for the application.
@@ -1380,7 +1450,35 @@ func (s *serviceSuite) TestServiceUpdateSetConstraints(c *gc.C) {
 	c.Assert(obtained, gc.DeepEquals, cons)
 }
 
-func (s *serviceSuite) TestServiceUpdateAllParams(c *gc.C) {
+func (s *serviceSuite) TestApplicationUpdateSetConstraintsString(c *gc.C) {
+	application := s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
+
+	// Update constraints for the application.
+	consString := "mem=4096 cores=2"
+	args := params.ApplicationUpdate{
+		ApplicationName:   "dummy",
+		ConstraintsString: consString,
+	}
+	err := s.applicationAPI.Update(args)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Ensure the constraints have been correctly updated.
+	obtained, err := application.Constraints()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(obtained, gc.DeepEquals, constraints.MustParse(consString))
+}
+
+func (s *serviceSuite) TestApplicationUpdateSetConstraintsStringError(c *gc.C) {
+	s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
+	args := params.ApplicationUpdate{
+		ApplicationName:   "dummy",
+		ConstraintsString: "bad wolf",
+	}
+	err := s.applicationAPI.Update(args)
+	c.Assert(err, gc.ErrorMatches, `cannot parse constraints string: malformed constraint "bad"`)
+}
+
+func (s *serviceSuite) TestApplicationUpdateAllParams(c *gc.C) {
 	s.deployServiceForUpdateTests(c)
 	curl, _ := s.UploadCharm(c, "precise/wordpress-3", "wordpress")
 	err := application.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{
@@ -1390,16 +1488,18 @@ func (s *serviceSuite) TestServiceUpdateAllParams(c *gc.C) {
 
 	// Update all the service attributes.
 	minUnits := 3
+	consString := "mem=1024 cores=4"
 	cons, err := constraints.Parse("mem=4096", "cores=2")
 	c.Assert(err, jc.ErrorIsNil)
 	args := params.ApplicationUpdate{
-		ApplicationName: "application",
-		CharmURL:        curl.String(),
-		ForceCharmURL:   true,
-		MinUnits:        &minUnits,
-		SettingsStrings: map[string]string{"blog-title": "string-title"},
-		SettingsYAML:    "application:\n  blog-title: yaml-title\n",
-		Constraints:     &cons,
+		ApplicationName:   "application",
+		CharmURL:          curl.String(),
+		ForceCharmURL:     true,
+		MinUnits:          &minUnits,
+		SettingsStrings:   map[string]string{"blog-title": "string-title"},
+		SettingsYAML:      "application:\n  blog-title: yaml-title\n",
+		Constraints:       &cons,
+		ConstraintsString: consString,
 	}
 	err = s.applicationAPI.Update(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1424,13 +1524,14 @@ func (s *serviceSuite) TestServiceUpdateAllParams(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtainedSettings, gc.DeepEquals, expectedSettings)
 
-	// Check the constraints.
+	// Check the constraints: also ensure the string constraints take
+	// precedence over constraint.Value ones.
 	obtainedConstraints, err := application.Constraints()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(obtainedConstraints, gc.DeepEquals, cons)
+	c.Assert(obtainedConstraints, gc.DeepEquals, constraints.MustParse(consString))
 }
 
-func (s *serviceSuite) TestServiceUpdateNoParams(c *gc.C) {
+func (s *serviceSuite) TestApplicationUpdateNoParams(c *gc.C) {
 	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 
 	// Calling Update with no parameters set is a no-op.
@@ -1439,12 +1540,12 @@ func (s *serviceSuite) TestServiceUpdateNoParams(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *serviceSuite) TestServiceUpdateNoService(c *gc.C) {
+func (s *serviceSuite) TestApplicationUpdateNoService(c *gc.C) {
 	err := s.applicationAPI.Update(params.ApplicationUpdate{})
 	c.Assert(err, gc.ErrorMatches, `"" is not a valid application name`)
 }
 
-func (s *serviceSuite) TestServiceUpdateInvalidService(c *gc.C) {
+func (s *serviceSuite) TestApplicationUpdateInvalidService(c *gc.C) {
 	args := params.ApplicationUpdate{ApplicationName: "no-such-service"}
 	err := s.applicationAPI.Update(args)
 	c.Assert(err, gc.ErrorMatches, `application "no-such-service" not found`)

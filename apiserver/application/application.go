@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/apiserver/crossmodel"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/constraints"
 	jujucrossmodel "github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
@@ -214,6 +215,11 @@ func deployApplication(
 		return errors.Trace(err)
 	}
 
+	cons, err := getConstraints(&args.Constraints, args.ConstraintsString)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	channel := csparams.Channel(args.Channel)
 
 	_, err = jjj.DeployApplication(backend,
@@ -224,7 +230,7 @@ func deployApplication(
 			Channel:          channel,
 			NumUnits:         args.NumUnits,
 			ConfigSettings:   settings,
-			Constraints:      args.Constraints,
+			Constraints:      *cons,
 			Placement:        args.Placement,
 			Storage:          args.Storage,
 			EndpointBindings: args.EndpointBindings,
@@ -334,10 +340,25 @@ func (api *API) Update(args params.ApplicationUpdate) error {
 		}
 	}
 	// Update application's constraints.
-	if args.Constraints != nil {
-		return app.SetConstraints(*args.Constraints)
+	cons, err := getConstraints(args.Constraints, args.ConstraintsString)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if cons != nil {
+		return app.SetConstraints(*cons)
 	}
 	return nil
+}
+
+func getConstraints(value *constraints.Value, str string) (*constraints.Value, error) {
+	if str == "" {
+		return value, nil
+	}
+	v, err := constraints.Parse(str)
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot parse constraints string")
+	}
+	return &v, nil
 }
 
 // SetCharm sets the charm for a given for the application.
