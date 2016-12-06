@@ -5597,6 +5597,10 @@ class TestStatusItem(TestCase):
 
 class TestStatus(FakeHomeTestCase):
 
+    def test_model_name(self):
+        status = Status({'model': {'name': 'bar'}}, '')
+        self.assertEqual('bar', status.model_name)
+
     def test_iter_machines_no_containers(self):
         status = Status({
             'machines': {
@@ -6437,6 +6441,10 @@ class TestStatus(FakeHomeTestCase):
 
 
 class TestStatus1X(FakeHomeTestCase):
+
+    def test_model_name(self):
+        status = Status1X({'environment': 'bar'}, '')
+        self.assertEqual('bar', status.model_name)
 
     def test_get_applications_gets_services(self):
         status = Status1X({

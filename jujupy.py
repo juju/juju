@@ -782,6 +782,10 @@ class Status:
             status_yaml = yaml.safe_load(text)
         return cls(status_yaml, text)
 
+    @property
+    def model_name(self):
+        return self.status['model']['name']
+
     def get_applications(self):
         return self.status.get('applications', {})
 
@@ -953,6 +957,10 @@ class Status:
 
 
 class Status1X(Status):
+
+    @property
+    def model_name(self):
+        return self.status['environment']
 
     def get_applications(self):
         return self.status.get('services', {})
