@@ -1305,6 +1305,22 @@ class WaitMachineNotPresent:
                         self.machine)
 
 
+class WaitVersion:
+
+    def __init__(self, target_version):
+        self.target_version = target_version
+
+    def iter_blocking_state(self, status):
+        for version, agents in status.get_agent_versions().items():
+            if version == self.target_version:
+                continue
+            for agent in agents:
+                yield agent, version
+
+    def do_raise(self, status):
+        raise VersionsNotUpdated('foo', status.model_name)
+
+
 class EnvJujuClient:
     """Wraps calls to a juju instance, associated with a single model.
 
@@ -2082,15 +2098,8 @@ class EnvJujuClient:
             reporter, status_to_subordinate_states, AgentsNotStarted,
             timeout=timeout, start=start)
 
-    def wait_for_version(self, version, timeout=300, start=None):
-        def status_to_version(status):
-            versions = status.get_agent_versions()
-            if versions.keys() == [version]:
-                return None
-            return versions
-        reporter = GroupReporter(sys.stdout, version)
-        self._wait_for_status(reporter, status_to_version, VersionsNotUpdated,
-                              timeout=timeout, start=start)
+    def wait_for_version(self, version, timeout=300):
+        self.wait_for([WaitVersion(version)], timeout=timeout)
 
     def list_models(self):
         """List the models registered with the current controller."""
