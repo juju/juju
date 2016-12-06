@@ -523,22 +523,6 @@ class TestClientFromConfig(ClientTest):
 
 class TestWaitMachineNotPresent(ClientTest):
 
-    def test_is_satisfied(self):
-        not_present = WaitMachineNotPresent('0')
-        client = fake_juju_client()
-        client.bootstrap()
-        self.assertIs(not_present.is_satisfied(client.get_status()), True)
-        client.juju('add-machine', ())
-        self.assertIs(not_present.is_satisfied(client.get_status()), False)
-        client.juju('remove-machine', ('0'))
-        self.assertIs(not_present.is_satisfied(client.get_status()), True)
-
-    def test_do_raise(self):
-        not_present = WaitMachineNotPresent('0')
-        with self.assertRaisesRegexp(
-                Exception, 'Timed out waiting for machine removal 0'):
-            not_present.do_raise()
-
     def test_iter_blocking_state(self):
         not_present = WaitMachineNotPresent('0')
         client = fake_juju_client()
@@ -552,6 +536,12 @@ class TestWaitMachineNotPresent(ClientTest):
         client.juju('remove-machine', ('0'))
         self.assertItemsEqual(
             [], not_present.iter_blocking_state(client.get_status()))
+
+    def test_do_raise(self):
+        not_present = WaitMachineNotPresent('0')
+        with self.assertRaisesRegexp(
+                Exception, 'Timed out waiting for machine removal 0'):
+            not_present.do_raise()
 
 
 class TestEnvJujuClient(ClientTest):
@@ -2531,9 +2521,6 @@ class TestEnvJujuClient(ClientTest):
 
         class NeverSatisfiedException(Exception):
             pass
-
-        def is_satisfied(self, ignored):
-            return False
 
         def iter_blocking_state(self, ignored):
             yield ('global state', 'unsatisfied')

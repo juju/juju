@@ -1287,9 +1287,6 @@ class WaitMachineNotPresent:
     def __init__(self, machine):
         self.machine = machine
 
-    def is_satisfied(self, status):
-        return bool(len(list(self.iter_blocking_state(status))) == 0)
-
     def iter_blocking_state(self, status):
         for machine, info in status.iter_machines():
             if machine == self.machine:
@@ -2291,7 +2288,6 @@ class EnvJujuClient:
         try:
             for status in self.status_until(timeout):
                 status.raise_highest_error(ignore_recoverable=True)
-                pending = []
                 for condition in conditions:
                     states = {}
                     for item, state in condition.iter_blocking_state(status):
