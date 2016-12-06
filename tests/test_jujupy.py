@@ -2552,7 +2552,7 @@ class TestEnvJujuClient(ClientTest):
         with patch.object(GroupReporter, '_write', autospec=True,
                           side_effect=lambda _, s: writes.append(s)):
             client.wait_for([mock_wait])
-        self.assertEqual('still-present: 0 ..', ''.join(writes))
+        self.assertEqual('still-present: 0 ..\n', ''.join(writes))
 
     def test_wait_for_quiet(self):
         client = fake_juju_client()

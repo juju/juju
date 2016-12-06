@@ -2300,6 +2300,8 @@ class EnvJujuClient:
                 status.raise_highest_error(ignore_recoverable=False)
         except StatusTimeout:
             pass
+        finally:
+            reporter.finish()
         conditions[0].do_raise()
 
     def get_matching_agent_version(self, no_build=False):
