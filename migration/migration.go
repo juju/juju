@@ -86,12 +86,14 @@ type ToolsUploader interface {
 	UploadTools(io.ReadSeeker, version.Binary, ...string) (tools.List, error)
 }
 
-// XXX
+// ResourceDownloader defines the interface for downloading resources
+// from the source controller during a migration.
 type ResourceDownloader interface {
 	OpenResource(string, string) (io.ReadCloser, error)
 }
 
-// XXX
+// ResourceUploader defines the interface for uploading resources into
+// the target controller during a migration.
 type ResourceUploader interface {
 	UploadResource(resource.Resource, io.ReadSeeker) error
 }
@@ -127,7 +129,12 @@ func (c *UploadBinariesConfig) Validate() error {
 	if c.ToolsUploader == nil {
 		return errors.NotValidf("missing ToolsUploader")
 	}
-	// XXX validate ResourceDownloader & Uploader
+	if c.ResourceDownloader == nil {
+		return errors.NotValidf("missing ResourceDownloader")
+	}
+	if c.ResourceUploader == nil {
+		return errors.NotValidf("missing ResourceUploader")
+	}
 	return nil
 }
 
@@ -224,7 +231,6 @@ func uploadTools(config UploadBinariesConfig) error {
 	return nil
 }
 
-// XXX tests
 func uploadResources(config UploadBinariesConfig) error {
 	for _, res := range config.Resources {
 		err := uploadAppResource(config, res.ApplicationRevision)
