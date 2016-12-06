@@ -618,7 +618,7 @@ func (srv *Server) serveConn(wsConn *websocket.Conn, modelUUID string, apiObserv
 		defer func() {
 			err := srv.statePool.Release(resolvedModelUUID)
 			if err != nil {
-				logger.Errorf("error releasing %v back into the state pool:", err)
+				logger.Errorf("error releasing %v back into the state pool: %v", resolvedModelUUID, err)
 			}
 		}()
 		h, err = newAPIHandler(srv, st, conn, modelUUID, host)
