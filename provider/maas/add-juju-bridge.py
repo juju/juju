@@ -370,8 +370,8 @@ def print_stanzas(stanzas, stream=sys.stdout):
             print(file=stream)
 
 
-def shell_cmd(s, verbose=True, exit_on_error=False, dryrun=False):
-    if dryrun:
+def shell_cmd(s, verbose=True, exit_on_error=False, dry_run=False):
+    if dry_run:
         print(s)
         return
     if verbose:
@@ -393,7 +393,7 @@ def arg_parser():
     parser.add_argument('--one-time-backup', help='A one time backup of filename', action='store_true', default=True, required=False)
     parser.add_argument('--activate', help='activate new configuration', action='store_true', default=False, required=False)
     parser.add_argument('--interfaces-to-bridge', help="interfaces to bridge; space delimited", type=str, required=True)
-    parser.add_argument('--dryrun', help="dry run, no activation", action='store_true', default=False, required=False)
+    parser.add_argument('--dry-run', help="dry run, no activation", action='store_true', default=False, required=False)
     parser.add_argument('--bridge-name', help="bridge name", type=str, required=False)
     parser.add_argument('filename', help="interfaces(5) based filename")
     return parser
@@ -427,7 +427,7 @@ def main(args):
         print("already bridged, or nothing to do.")
         exit(0)
 
-    if not args.dryrun and args.one_time_backup:
+    if not args.dry_run and args.one_time_backup:
         backup_file = "{}-before-add-juju-bridge".format(args.filename)
         if not os.path.isfile(backup_file):
             shutil.copy2(args.filename, backup_file)
@@ -435,13 +435,13 @@ def main(args):
     ifquery = "$(ifquery --interfaces={} --exclude=lo --list)".format(args.filename)
 
     print("**** Original configuration")
-    shell_cmd("cat {}".format(args.filename), dryrun=args.dryrun)
-    shell_cmd("ifconfig -a", dryrun=args.dryrun)
-    shell_cmd("ifdown --exclude=lo --interfaces={} {}".format(args.filename, ifquery), dryrun=args.dryrun)
+    shell_cmd("cat {}".format(args.filename), dry_run=args.dry_run)
+    shell_cmd("ifconfig -a", dry_run=args.dry_run)
+    shell_cmd("ifdown --exclude=lo --interfaces={} {}".format(args.filename, ifquery), dry_run=args.dry_run)
 
     print("**** Activating new configuration")
 
-    if not args.dryrun:
+    if not args.dry_run:
         with open(args.filename, 'w') as f:
             print_stanzas(stanzas, f)
             f.close()
@@ -458,15 +458,15 @@ def main(args):
         if s.is_logical_interface and s.iface.is_bonded:
             print("working around https://bugs.launchpad.net/ubuntu/+source/ifenslave/+bug/1269921")
             print("working around https://bugs.launchpad.net/juju-core/+bug/1594855")
-            shell_cmd("sleep 3", dryrun=args.dryrun)
+            shell_cmd("sleep 3", dry_run=args.dry_run)
             break
 
-    shell_cmd("cat {}".format(args.filename), dryrun=args.dryrun)
-    shell_cmd("ifup --exclude=lo --interfaces={} {}".format(args.filename, ifquery), dryrun=args.dryrun)
-    shell_cmd("ip link show up", dryrun=args.dryrun)
-    shell_cmd("ifconfig -a", dryrun=args.dryrun)
-    shell_cmd("ip route show", dryrun=args.dryrun)
-    shell_cmd("brctl show", dryrun=args.dryrun)
+    shell_cmd("cat {}".format(args.filename), dry_run=args.dry_run)
+    shell_cmd("ifup --exclude=lo --interfaces={} {}".format(args.filename, ifquery), dry_run=args.dry_run)
+    shell_cmd("ip link show up", dry_run=args.dry_run)
+    shell_cmd("ifconfig -a", dry_run=args.dry_run)
+    shell_cmd("ip route show", dry_run=args.dry_run)
+    shell_cmd("brctl show", dry_run=args.dry_run)
 
 # This script re-renders an interfaces(5) file to add a bridge to
 # either all active interfaces, or a specific interface.

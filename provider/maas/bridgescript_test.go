@@ -202,7 +202,7 @@ func (s *bridgeConfigSuite) runScriptWithActivationAndDryRun(c *gc.C, pythonBina
 		bridgePrefix = fmt.Sprintf("--bridge-prefix=%q", bridgePrefix)
 	}
 
-	script := fmt.Sprintf("%q %q --activate --dryrun %s %s --interfaces-to-bridge=%q",
+	script := fmt.Sprintf("%q %q --activate --dry-run %s %s --interfaces-to-bridge=%q",
 		pythonBinary, s.testPythonScript, bridgePrefix, s.testConfigPath, strings.Join(interfacesToBridge, " "))
 	c.Log(script)
 	result, err := exec.RunCommands(exec.RunParams{Commands: script})
