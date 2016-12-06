@@ -14,12 +14,20 @@ const bridgeScriptPython = `#!/usr/bin/env python
 #
 
 from __future__ import print_function
+
 import argparse
 import os
 import re
 import shutil
 import subprocess
 import sys
+
+# StringIO: accommodate Python2 & Python3
+
+try:
+    from StringIO import StringIO
+except ImportError:
+    from io import StringIO
 
 # These options are to be removed from a sub-interface and applied to
 # the new bridged interface.
@@ -368,31 +376,21 @@ def print_stanzas(stanzas, stream=sys.stdout):
             print(file=stream)
 
 
-def shell_cmd(s):
-    p = subprocess.Popen(s, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    out, err = p.communicate()
-    return [out, err, p.returncode]
-
-
-def print_shell_cmd(s, verbose=True, exit_on_error=False):
+def shell_cmd(s, verbose=True, exit_on_error=False, dry_run=False):
+    if dry_run:
+        print(s)
+        return
     if verbose:
         print(s)
-    out, err, retcode = shell_cmd(s)
+    p = subprocess.Popen(s, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    out, err = p.communicate()
     if out and len(out) > 0:
         print(out.decode().rstrip('\n'))
     if err and len(err) > 0:
         print(err.decode().rstrip('\n'))
     if exit_on_error and retcode != 0:
         exit(1)
-
-
-def check_shell_cmd(s, verbose=False):
-    if verbose:
-        print(s)
-    output = subprocess.check_output(s, shell=True, stderr=subprocess.STDOUT).strip().decode("utf-8")
-    if verbose:
-        print(output.rstrip('\n'))
-    return output
+    return p.returncode
 
 
 def arg_parser():
@@ -401,6 +399,7 @@ def arg_parser():
     parser.add_argument('--one-time-backup', help='A one time backup of filename', action='store_true', default=True, required=False)
     parser.add_argument('--activate', help='activate new configuration', action='store_true', default=False, required=False)
     parser.add_argument('--interfaces-to-bridge', help="interfaces to bridge; space delimited", type=str, required=True)
+    parser.add_argument('--dry-run', help="dry run, no activation", action='store_true', default=False, required=False)
     parser.add_argument('--bridge-name', help="bridge name", type=str, required=False)
     parser.add_argument('filename', help="interfaces(5) based filename")
     return parser
@@ -424,7 +423,17 @@ def main(args):
         print_stanzas(stanzas)
         exit(0)
 
-    if args.one_time_backup:
+    # Dump stanzas to cur/new in-memory strings
+    cur = StringIO()
+    new = StringIO()
+    print_stanzas(stanzas, new)
+    print_stanzas(parser.stanzas(), cur)
+
+    if cur.getvalue() == new.getvalue():
+        print("already bridged, or nothing to do.")
+        exit(0)
+
+    if not args.dry_run and args.one_time_backup:
         backup_file = "{}-before-add-juju-bridge".format(args.filename)
         if not os.path.isfile(backup_file):
             shutil.copy2(args.filename, backup_file)
@@ -432,15 +441,16 @@ def main(args):
     ifquery = "$(ifquery --interfaces={} --exclude=lo --list)".format(args.filename)
 
     print("**** Original configuration")
-    print_shell_cmd("cat {}".format(args.filename))
-    print_shell_cmd("ifconfig -a")
-    print_shell_cmd("ifdown --exclude=lo --interfaces={} {}".format(args.filename, ifquery))
+    shell_cmd("cat {}".format(args.filename), dry_run=args.dry_run)
+    shell_cmd("ifconfig -a", dry_run=args.dry_run)
+    shell_cmd("ifdown --exclude=lo --interfaces={} {}".format(args.filename, ifquery), dry_run=args.dry_run)
 
     print("**** Activating new configuration")
 
-    with open(args.filename, 'w') as f:
-        print_stanzas(stanzas, f)
-        f.close()
+    if not args.dry_run:
+        with open(args.filename, 'w') as f:
+            print_stanzas(stanzas, f)
+            f.close()
 
     # On configurations that have bonds in 802.3ad mode there is a
     # race condition betweeen an immediate ifdown then ifup.
@@ -454,15 +464,15 @@ def main(args):
         if s.is_logical_interface and s.iface.is_bonded:
             print("working around https://bugs.launchpad.net/ubuntu/+source/ifenslave/+bug/1269921")
             print("working around https://bugs.launchpad.net/juju-core/+bug/1594855")
-            print_shell_cmd("sleep 3")
+            shell_cmd("sleep 3", dry_run=args.dry_run)
             break
 
-    print_shell_cmd("cat {}".format(args.filename))
-    print_shell_cmd("ifup --exclude=lo --interfaces={} {}".format(args.filename, ifquery))
-    print_shell_cmd("ip link show up")
-    print_shell_cmd("ifconfig -a")
-    print_shell_cmd("ip route show")
-    print_shell_cmd("brctl show")
+    shell_cmd("cat {}".format(args.filename), dry_run=args.dry_run)
+    shell_cmd("ifup --exclude=lo --interfaces={} {}".format(args.filename, ifquery), dry_run=args.dry_run)
+    shell_cmd("ip link show up", dry_run=args.dry_run)
+    shell_cmd("ifconfig -a", dry_run=args.dry_run)
+    shell_cmd("ip route show", dry_run=args.dry_run)
+    shell_cmd("brctl show", dry_run=args.dry_run)
 
 # This script re-renders an interfaces(5) file to add a bridge to
 # either all active interfaces, or a specific interface.
