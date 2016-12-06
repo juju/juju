@@ -51,19 +51,27 @@ type ProvisionMachineArgs struct {
 	// ubuntu user's ~/.ssh/authorized_keys.
 	AuthorizedKeys string
 
-	// WKeys winrm keys that contains, CACert, ClientCert, ClientKey
-	WKeys *winrm.X509
-
-	// WClient client for interacting with windows machines
-	WClient WinrmClientAPI
+	// WinRM contains keys and client interface api with the remote windows machine
+	WinRM WinRMArgs
 
 	*params.UpdateBehavior
+}
+
+// WinRMArgs used for providing special context
+// on how we interface with the windows machine
+type WinRMArgs struct {
+	// Keys that contains CACert, ClientCert, ClientKey
+	Keys *winrm.X509
+
+	// Client for interacting with windows machines
+	Client WinrmClientAPI
 }
 
 // WinrmClientAPI minimal interface for winrm windows machines interactions
 type WinrmClientAPI interface {
 	Ping() error
 	Run(cmd string, stdout, stderr io.Writer) error
+	Password() string
 }
 
 // ProvisioningClientAPI defines the methods that are needed for the manual

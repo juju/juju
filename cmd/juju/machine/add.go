@@ -386,7 +386,7 @@ func (c *addCommand) tryManualProvision(client AddMachineAPI, config *config.Con
 		return errors.Annotatef(err, "connot load/create x509 client certs for winrm connection")
 	}
 	if err = cert.LoadCACert(filepath.Join(base, "winrmcacert.crt")); err != nil {
-		logger.Infof("Skipping winrm CA validation")
+		logger.Infof("cannot not find any CA cert to load")
 	}
 
 	cfg := winrm.ClientConfig{
@@ -400,13 +400,16 @@ func (c *addCommand) tryManualProvision(client AddMachineAPI, config *config.Con
 
 	caCert := cert.CACert()
 	if caCert == nil {
+		logger.Infof("Skipping winrm CA validation")
 		cfg.Insecure = true
+
 	} else {
 		cfg.CACert = caCert
 	}
 
-	args.WKeys = cert
-	args.WClient, err = winrm.NewClient(cfg)
+	args.WinRM = manual.WinRMArgs{}
+	args.WinRM.Keys = cert
+	args.WinRM.Client, err = winrm.NewClient(cfg)
 	if err != nil {
 		return errors.Annotatef(err, "cannot create secure winrm client conn")
 	}

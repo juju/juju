@@ -10,12 +10,9 @@ import (
 
 	"github.com/juju/juju/environs/manual"
 	"github.com/juju/juju/environs/manual/winrmprovisioner"
-	"github.com/juju/juju/juju/testing"
 )
 
-type winrmprovisionerSuite struct {
-	testing.JujuConnSuite
-}
+type winrmprovisionerSuite struct{}
 
 var _ = gc.Suite(&winrmprovisionerSuite{})
 
@@ -26,24 +23,26 @@ func (w *winrmprovisionerSuite) TestInitAdministratorError(c *gc.C) {
 		User:   "Administrator",
 		Stdout: &stdout,
 		Stderr: &stderr,
-		WClient: &fakeWinRM{
-			fakePing: func() error {
-				return nil
+		WinRM: manual.WinRMArgs{
+			Client: &fakeWinRM{
+				fakePing: func() error {
+					return nil
+				},
 			},
 		},
 	}
 
-	err := winrmprovisioner.InitAdministratorUser(args)
+	err := winrmprovisioner.InitAdministratorUser(&args)
 	c.Assert(err, gc.IsNil)
 
-	args.WClient = &fakeWinRM{
+	args.WinRM.Client = &fakeWinRM{
 		fakePing: func() error {
 			return fmt.Errorf("Ping Error")
 		},
 	}
 
 	// this should return to ioctl device error
-	err = winrmprovisioner.InitAdministratorUser(args)
+	err = winrmprovisioner.InitAdministratorUser(&args)
 	c.Assert(err, gc.NotNil)
 }
 
@@ -55,7 +54,6 @@ func (w *winrmprovisionerSuite) TestDetectSeriesAndHardwareCharacteristics(c *gc
 
 	fakeCli := &fakeWinRM{
 		fakeRun: func(cmd string, stdout, stderr io.Writer) error {
-			c.Assert((len(cmd) > 0), gc.Equals, true)
 			fmt.Fprintf(stdout, "amd64\r\n")
 			fmt.Fprintf(stdout, "16\r\n")
 			fmt.Fprintf(stdout, "win2012r2\r\n")
@@ -66,9 +64,8 @@ func (w *winrmprovisionerSuite) TestDetectSeriesAndHardwareCharacteristics(c *gc
 
 	hc, ser, err := winrmprovisioner.DetectSeriesAndHardwareCharacteristics(winrmListenerAddr, fakeCli)
 	c.Assert(err, gc.IsNil)
-	c.Assert((len(ser) > 0), gc.Equals, true)
 	c.Assert(hc, gc.NotNil)
-	c.Assert(ser, jc.DeepEquals, series)
+	c.Assert(ser, gc.Equals, series)
 	c.Assert(*hc.Arch, jc.DeepEquals, arch)
 	c.Assert(*hc.Mem, jc.DeepEquals, mem)
 	c.Assert(*hc.CpuCores, jc.DeepEquals, cores)

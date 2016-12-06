@@ -120,16 +120,16 @@ func newDetectHardwareScript() (string, error) {
 // InitAdministratorUser will initially attempt to login as
 // the Administrator user using the secure client
 // only if this is false then this will make a new attempt with the unsecure http client.
-func InitAdministratorUser(args manual.ProvisionMachineArgs) error {
-	logger.Infof("Trying WinRM secure client as user %s on %s", args.Host, args.User)
-	err := args.WClient.Ping()
+func InitAdministratorUser(args *manual.ProvisionMachineArgs) error {
+	logger.Infof("Trying https client as user %s on %s", args.Host, args.User)
+	err := args.WinRM.Client.Ping()
 	if err == nil {
-		logger.Infof("WinRM https connection is enabled on the host %s with user", args.Host, args.User)
+		logger.Infof("Https connection is enabled on the host %s with user", args.Host, args.User)
 		return nil
 	}
 
-	logger.Debugf("Secure authentication is not enabled on the host %s with user %s", args.Host, args.User)
-	if args.WClient, err = winrm.NewClient(winrm.ClientConfig{
+	logger.Debugf("Https client authentication is not enabled on the host %s with user %s", args.Host, args.User)
+	if args.WinRM.Client, err = winrm.NewClient(winrm.ClientConfig{
 		User:     args.User,
 		Host:     args.Host,
 		Timeout:  25 * time.Second,
@@ -139,14 +139,77 @@ func InitAdministratorUser(args manual.ProvisionMachineArgs) error {
 		return errors.Annotatef(err, "cannot create a new http winrm client ")
 	}
 
-	logger.Infof("Trying WinRM unseclire client as user %s on %s", args.Host, args.User)
-	err = args.WClient.Ping()
-	if err == nil {
-		logger.Infof("WinRM normal http connection is enabled on the host %s", args.Host)
+	logger.Infof("Trying http client as user %s on %s", args.Host, args.User)
+	if err = args.WinRM.Client.Ping(); err != nil {
+		logger.Debugf("WinRM unsecure listener is not enabled on %s", args.Host)
+		return errors.Annotatef(err, "cannot provision, because all winrm default connections failed")
+	}
+
+	defClient := args.WinRM.Client
+	logger.Infof("Trying to enable https client certificate authenticaion")
+	if args.WinRM.Client, err = enableCertAuth(args); err != nil {
+		logger.Infof("Cannot enable client auth cert authentication for winrm")
+		logger.Infof("Reverting back to usecure client interaction")
+		args.WinRM.Client = defClient
 		return nil
 	}
-	logger.Debugf("Normal authentication is not enabled on the host %s with user %s", args.Host, args.User)
-	return errors.Annotatef(err, "cannot provision, because all winrm default connections failed")
+
+	logger.Infof("Client certs are installed and setup on the %s with user %s", args.Host, args.User)
+	err = args.WinRM.Client.Ping()
+	if err == nil {
+		return nil
+	}
+
+	logger.Infof("Winrm https connection is broken, can't retrive a response")
+	logger.Infof("Reverting back to usecure client interactions")
+	args.WinRM.Client = defClient
+
+	return nil
+
+}
+
+// enableCertAuth enables https cert auth interactions
+// with the winrm listener and returns the client
+func enableCertAuth(args *manual.ProvisionMachineArgs) (manual.WinrmClientAPI, error) {
+	var stderr bytes.Buffer
+	pass := args.WinRM.Client.Password()
+
+	scripts, err := bindInitScripts(pass, args.WinRM.Keys)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	for _, script := range scripts {
+		err = args.WinRM.Client.Run(script, args.Stdout, &stderr)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if stderr.Len() > 0 {
+			return nil, errors.Errorf(
+				"encountered error executing cert auth script: %s",
+				stderr.String(),
+			)
+		}
+	}
+
+	cfg := winrm.ClientConfig{
+		User:    args.User,
+		Host:    args.Host,
+		Key:     args.WinRM.Keys.ClientKey(),
+		Cert:    args.WinRM.Keys.ClientCert(),
+		Timeout: 25 * time.Second,
+		Secure:  true,
+	}
+
+	caCert := args.WinRM.Keys.CACert()
+	if caCert == nil {
+		logger.Infof("Skipping winrm CA validation")
+		cfg.Insecure = true
+	} else {
+		cfg.CACert = caCert
+	}
+
+	return winrm.NewClient(cfg)
 }
 
 // bindInitScripts creates a series of scripts in a standard
@@ -154,11 +217,12 @@ func InitAdministratorUser(args manual.ProvisionMachineArgs) error {
 // we are doing this instead of one big script because winrm supports
 // just 8192 length commands. We know we have an amount of prefixed scripts
 // that we want to bind for the init process so create an array of scripts
-func bindInitScripts(pass string, keys *winrm.X509) ([3]string, error) {
+func bindInitScripts(pass string, keys *winrm.X509) ([]string, error) {
 	var (
-		err     error
-		scripts [3]string
+		err error
 	)
+
+	scripts := make([]string, 3, 3)
 
 	if len(pass) == 0 {
 		return scripts, fmt.Errorf("The password is empty, provide a valid password to enable https interactions")
@@ -166,23 +230,23 @@ func bindInitScripts(pass string, keys *winrm.X509) ([3]string, error) {
 
 	scripts[0], err = shell.NewPSEncodedCommand(setFiles)
 	if err != nil {
-		return scripts, err
+		return nil, err
 	}
 
 	scripts[1] = fmt.Sprintf(setFilesContent, string(keys.ClientCert()))
 
 	scripts[1], err = shell.NewPSEncodedCommand(scripts[1])
 	if err != nil {
-		return scripts, err
+		return nil, err
 	}
 
 	scripts[2] = fmt.Sprintf(setConnWinrm, pass)
 	scripts[2], err = shell.NewPSEncodedCommand(scripts[2])
 	if err != nil {
-		return scripts, err
+		return nil, err
 	}
 
-	return scripts, nil
+	return nil, nil
 }
 
 // setFiles powershell script that will manage and create the conf folder and files
@@ -251,8 +315,7 @@ func gatherMachineParams(hostname string, cli manual.WinrmClientAPI) (*params.Ad
 
 	provisioned, err := checkProvisioned(hostname, cli)
 	if err != nil {
-		err = fmt.Errorf("error checking is provisioned: %v", err)
-		return nil, err
+		return nil, errors.Annotatef(err, "cannot decide if the machine is provisioned")
 	}
 	if provisioned {
 		return nil, manual.ErrProvisioned
@@ -270,7 +333,7 @@ func gatherMachineParams(hostname string, cli manual.WinrmClientAPI) (*params.Ad
 	// if it isn't one that the environment provider knows about.
 
 	instanceId := instance.Id(manual.ManualInstancePrefix + hostname)
-	nonce := fmt.Sprintf("%s:%s", instanceId, uuid.String())
+	nonce := fmt.Sprintf("%s:%s", instanceId, uuid)
 	machineParams := &params.AddMachineParams{
 		Series:                  series,
 		HardwareCharacteristics: hc,
@@ -285,7 +348,7 @@ func gatherMachineParams(hostname string, cli manual.WinrmClientAPI) (*params.Ad
 // checkProvisioned checks if the machine is already provisioned or not.
 // if it's already provisioned it will return true
 func checkProvisioned(host string, cli manual.WinrmClientAPI) (bool, error) {
-	logger.Infof("Checking if %s windows machine is already provisioned", host)
+	logger.Tracef("Checking if %s windows machine is already provisioned", host)
 	var stdout, stderr bytes.Buffer
 
 	// run the command trough winrm
@@ -302,7 +365,7 @@ func checkProvisioned(host string, cli manual.WinrmClientAPI) (bool, error) {
 
 	provisioned := strings.Contains(stdout.String(), "Yes")
 	if stderr.Len() != 0 {
-		err = fmt.Errorf("%v (%v)", err, strings.TrimSpace(stderr.String()))
+		err = errors.Annotatef(err, "%v (%v)", err, strings.TrimSpace(stderr.String()))
 	}
 
 	// if the script said yes
@@ -406,10 +469,10 @@ var RunProvisionScript = runProvisionScript
 func runProvisionScript(script string, cli manual.WinrmClientAPI, stdin, stderr io.Writer) (err error) {
 	script64 := base64.StdEncoding.EncodeToString([]byte(script))
 	input := bytes.NewBufferString(script64) // make new buffer out of script
-	// will make sure to buffer the entire script
+	// we must make sure to buffer the entire script
 	// in a sequential write fashion first into a script
-	// decouple the provisioning script into little 512 bytes chunks
-	// we will use this in order to append into a .ps1 file.
+	// decouple the provisioning script into little 1024 byte chunks
+	// we are doing this in order to append into a .ps1 file.
 	var buf [1024]byte
 
 	// if the file dosen't exist ,create it

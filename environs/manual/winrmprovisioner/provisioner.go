@@ -27,15 +27,15 @@ func ProvisionMachine(args manual.ProvisionMachineArgs) (machineId string, err e
 		}
 	}()
 
-	if err = InitAdministratorUser(args); err != nil {
-		return machineId, errors.Annotatef(err,
-			"Cannot provision machine beacuse no WinRM http/https standard",
-			"listener is enabled for user %q, on host %q", args.User, args.Host)
+	if err = InitAdministratorUser(&args); err != nil {
+		return "", errors.Annotatef(err,
+			"Cannot provision machine beacuse no WinRM http/https standard listener is enabled for user %q, on host %q",
+			args.User, args.Host)
 	}
 
-	machineParams, err := gatherMachineParams(args.Host, args.WClient)
+	machineParams, err := gatherMachineParams(args.Host, args.WinRM.Client)
 	if err != nil {
-		return machineId, err
+		return "", err
 	}
 
 	machineId, err = manual.RecordMachineInState(args.Client, *machineParams)
@@ -50,14 +50,13 @@ func ProvisionMachine(args manual.ProvisionMachineArgs) (machineId string, err e
 	})
 
 	if err != nil {
-		logger.Errorf("Cannot obtain provisioning script")
 		return "", err
 	}
 
 	// Finally, provision the machine agent.
-	err = runProvisionScript(provisioningScript, args.WClient, args.Stdout, args.Stderr)
+	err = runProvisionScript(provisioningScript, args.WinRM.Client, args.Stdout, args.Stderr)
 	if err != nil {
-		return machineId, err
+		return "", err
 	}
 
 	logger.Infof("Provisioned machine %v", machineId)

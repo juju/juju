@@ -401,21 +401,16 @@ func (c *Client) ProvisioningScript(args params.ProvisioningScriptParams) (param
 			"cannot decide which provisioning script to generate based on this series %q", icfg.Series))
 	}
 
-	switch osSeries {
-	case os.Windows:
-		result.Script, err = winrmprovisioner.ProvisioningScript(icfg)
-		if err != nil {
-			return result, common.ServerError(errors.Annotate(
-				err, "getting provisioning script",
-			))
-		}
-	default:
-		result.Script, err = sshprovisioner.ProvisioningScript(icfg)
-		if err != nil {
-			return result, common.ServerError(errors.Annotate(
-				err, "getting provisioning script",
-			))
-		}
+	getProvisioningScript := sshprovisioner.ProvisioningScript
+	if osSeries == os.Windows {
+		getProvisioningScript = winrmprovisioner.ProvisioningScript
+	}
+
+	result.Script, err = getProvisioningScript(icfg)
+	if err != nil {
+		return result, common.ServerError(errors.Annotate(
+			err, "getting provisioning script",
+		))
 	}
 
 	return result, nil
