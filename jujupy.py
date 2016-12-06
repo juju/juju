@@ -1281,61 +1281,6 @@ def client_from_config(config, juju_path, debug=False, soft_deadline=None):
                         soft_deadline=soft_deadline)
 
 
-class WaitForSearch:
-    """Wait for a something (thing) matching none/all/some machines.
-
-    Examples:
-      WaitForSearch('containers', 'all')
-      This will wait for a container to appear on all machines.
-
-      WaitForSearch('machines-not-0', 'none')
-      This will wait for all machines other than 0 to be removed.
-
-    :ivar thing: string, either 'containers' or 'not-machine-0'
-    :ivar search_type: string containing none, some or all
-    """
-
-    def __init__(self, thing, search_type):
-        self.thing = thing
-        self.search_type = search_type
-
-    def is_satisfied(self, status):
-        hit = False
-        miss = False
-
-        for machine, details in status.status['machines'].iteritems():
-            if self.thing == 'containers':
-                if 'containers' in details:
-                    hit = True
-                else:
-                    miss = True
-
-            elif self.thing == 'machines-not-0':
-                if machine != '0':
-                    hit = True
-                else:
-                    miss = True
-
-            else:
-                raise ValueError("Unrecognised thing to wait for: %s",
-                                 self.thing)
-
-        if self.search_type == 'none':
-            if not hit:
-                return True
-        elif self.search_type == 'some':
-            if hit:
-                return True
-        elif self.search_type == 'all':
-            if not miss:
-                return True
-        else:
-            return False
-
-    def do_raise(self):
-        raise Exception("Timed out waiting for %s" % self.thing)
-
-
 class WaitMachineNotPresent:
     """Condition satisfied when a given machine is not present."""
 
