@@ -82,6 +82,14 @@ class CrossBuildTestCase(TestCase):
         self.assertEqual(('bar.1.2.3.tar.gz', './foo'), args)
         self.assertEqual({'dry_run': False, 'verbose': False}, kwargs)
 
+    def test_main_ubuntu_agent(self):
+        with patch('crossbuild.build_ubuntu_agent') as mock:
+            main(['ubuntu-agent', '--build-dir', './foo',
+                  '--goarch', 's390x', 'bar.1.2.3.tar.gz'])
+        mock.assert_called_once_with(
+            'bar.1.2.3.tar.gz', './foo', 's390x',
+            dry_run=False, verbose=False)
+
     def test_go_build(self):
         with patch('crossbuild.run_command') as mock:
             go_build(

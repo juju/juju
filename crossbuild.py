@@ -350,7 +350,7 @@ def main(argv):
             build_centos(
                 args.tarball_path, args.build_dir,
                 dry_run=args.dry_run, verbose=args.verbose)
-        elif args.command == 'ubuntu':
+        elif args.command == 'ubuntu-agent':
             build_ubuntu_agent(
                 args.tarball_path, args.build_dir, args.goarch,
                 dry_run=args.dry_run, verbose=args.verbose)
