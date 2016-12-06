@@ -18,6 +18,7 @@ import (
 	"github.com/bmizerany/pat"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/pubsub"
 	"github.com/juju/utils"
 	"github.com/juju/utils/clock"
 	"golang.org/x/crypto/acme"
@@ -61,6 +62,7 @@ type Server struct {
 	modelUUID         string
 	authCtxt          *authContext
 	lastConnectionID  uint64
+	centralHub        *pubsub.StructuredHub
 	newObserver       observer.ObserverFactory
 	connCount         int64
 	certChanged       <-chan params.StateServingInfo
@@ -93,6 +95,7 @@ type ServerConfig struct {
 	DataDir     string
 	LogDir      string
 	Validator   LoginValidator
+	Hub         *pubsub.StructuredHub
 	CertChanged <-chan params.StateServingInfo
 
 	// AutocertDNSName holds the DNS name for which
@@ -120,6 +123,9 @@ type ServerConfig struct {
 }
 
 func (c *ServerConfig) Validate() error {
+	if c.Hub == nil {
+		return errors.NotValidf("missing Hub")
+	}
 	if c.Clock == nil {
 		return errors.NotValidf("missing Clock")
 	}
@@ -182,6 +188,7 @@ func newServer(s *state.State, lis net.Listener, cfg ServerConfig) (_ *Server, e
 		adminAPIFactories: map[int]adminAPIFactory{
 			3: newAdminAPIV3,
 		},
+		centralHub:       cfg.Hub,
 		certChanged:      cfg.CertChanged,
 		allowModelAccess: cfg.AllowModelAccess,
 	}
@@ -369,7 +376,13 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 	mainAPIHandler := srv.trackRequests(http.HandlerFunc(srv.apiHandler))
 	logStreamHandler := srv.trackRequests(newLogStreamEndpointHandler(strictCtxt))
 	debugLogHandler := srv.trackRequests(newDebugLogDBHandler(httpCtxt))
+	pubsubHandler := srv.trackRequests(newPubSubHandler(httpCtxt, srv.centralHub))
 
+	// This handler is model specific even though it only ever makes sense
+	// for a controller because the API caller that is handed to the worker
+	// that is forwarding the messages between controllers is bound to the
+	// /model/:modeluuid namespace.
+	add("/model/:modeluuid/pubsub", pubsubHandler)
 	add("/model/:modeluuid/logstream", logStreamHandler)
 	add("/model/:modeluuid/log", debugLogHandler)
 

@@ -8,6 +8,7 @@ import (
 	"net"
 	"time"
 
+	"github.com/juju/pubsub"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
@@ -212,6 +213,7 @@ func (s *legacySuite) TestAPIServerCanShutdownWithOutstandingNext(c *gc.C) {
 		Cert:        testing.ServerCert,
 		Key:         testing.ServerKey,
 		Tag:         names.NewMachineTag("0"),
+		Hub:         pubsub.NewStructuredHub(nil),
 		DataDir:     c.MkDir(),
 		LogDir:      c.MkDir(),
 		NewObserver: func() observer.Observer { return &fakeobserver.Instance{} },

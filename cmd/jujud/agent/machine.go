@@ -17,13 +17,8 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"github.com/juju/juju/api"
-	apiagent "github.com/juju/juju/api/agent"
-	"github.com/juju/juju/api/base"
-	apimachiner "github.com/juju/juju/api/machiner"
-	"github.com/juju/juju/controller"
-	"github.com/juju/juju/mongo/txnmetrics"
 	"github.com/juju/loggo"
+	"github.com/juju/pubsub"
 	"github.com/juju/replicaset"
 	"github.com/juju/utils"
 	"github.com/juju/utils/clock"
@@ -42,7 +37,11 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/tools"
+	"github.com/juju/juju/api"
+	apiagent "github.com/juju/juju/api/agent"
+	"github.com/juju/juju/api/base"
 	apideployer "github.com/juju/juju/api/deployer"
+	apimachiner "github.com/juju/juju/api/machiner"
 	"github.com/juju/juju/api/metricsmanager"
 	apiprovisioner "github.com/juju/juju/api/provisioner"
 	"github.com/juju/juju/apiserver"
@@ -57,12 +56,15 @@ import (
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/container/kvm"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/instance"
 	jujunames "github.com/juju/juju/juju/names"
 	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/mongo/txnmetrics"
+	"github.com/juju/juju/pubsub/centralhub"
 	"github.com/juju/juju/service"
 	"github.com/juju/juju/service/common"
 	"github.com/juju/juju/state"
@@ -342,6 +344,10 @@ type MachineAgent struct {
 	newIntrospectionSocketName func(names.Tag) string
 	prometheusRegistry         *prometheus.Registry
 	txnmetricsCollector        *txnmetrics.Collector
+
+	// Only API servers have hubs. This is temporary until the apiserver and
+	// peergrouper have manifolds.
+	centralHub *pubsub.StructuredHub
 }
 
 // IsRestorePreparing returns bool representing if we are in restore mode
@@ -440,6 +446,10 @@ func (a *MachineAgent) Run(*cmd.Context) error {
 		// This isn't fatal, just annoying.
 		logger.Errorf("failed to write profile funcs: %v", err)
 	}
+
+	// When the API server and peergrouper have manifolds, they can
+	// have dependencies on a central hub worker.
+	a.centralHub = centralhub.New(a.Tag().(names.MachineTag))
 
 	// Before doing anything else, we need to make sure the certificate generated for
 	// use by mongo to validate controller connections is correct. This needs to be done
@@ -1170,6 +1180,7 @@ func (a *MachineAgent) newAPIserverWorker(st *state.State, certChanged chan para
 		DataDir:          dataDir,
 		LogDir:           logDir,
 		Validator:        a.limitLogins,
+		Hub:              a.centralHub,
 		CertChanged:      certChanged,
 		AutocertURL:      controllerConfig.AutocertURL(),
 		AutocertDNSName:  controllerConfig.AutocertDNSName(),
