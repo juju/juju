@@ -1278,6 +1278,8 @@ class TestEnvJujuClient(ClientTest):
     @staticmethod
     def make_status_yaml(key, machine_value, unit_value):
         return dedent("""\
+            model:
+              name: foo
             machines:
               "0":
                 {0}: {1}
@@ -3968,6 +3970,7 @@ class TestEnvJujuClient1X(ClientTest):
     @staticmethod
     def make_status_yaml(key, machine_value, unit_value):
         return dedent("""\
+            environment: foo
             machines:
               "0":
                 {0}: {1}
@@ -6226,6 +6229,7 @@ class TestStatus(FakeHomeTestCase):
         status = Status.from_text(text)
         self.assertEqual(status.status_text, text)
         self.assertEqual(status.status, {
+            'model': {'name': 'foo'},
             'machines': {'0': {'agent-state': 'pending'}},
             'applications': {'jenkins': {'units': {'jenkins/0': {
                 'agent-state': 'horsefeathers'}}}}
