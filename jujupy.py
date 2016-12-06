@@ -1259,7 +1259,10 @@ def client_from_config(config, juju_path, debug=False, soft_deadline=None):
     """
     version = EnvJujuClient.get_version(juju_path)
     client_class = get_client_class(str(version))
-    env = client_class.config_class.from_config(config)
+    if config is None:
+        env = client_class.config_class('', {})
+    else:
+        env = client_class.config_class.from_config(config)
     if juju_path is None:
         full_path = EnvJujuClient.get_full_path()
     else:
