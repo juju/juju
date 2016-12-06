@@ -1,0 +1,13 @@
+diff --git a/gopkg.in/mgo.v2/txn/flusher.go b/gopkg.in/mgo.v2/txn/flusher.go
+index f640a43..03b56ba 100644
+--- a/gopkg.in/mgo.v2/txn/flusher.go
++++ b/gopkg.in/mgo.v2/txn/flusher.go
+@@ -691,7 +691,7 @@ func (f *flusher) checkpoint(t *transaction, revnos []int64) error {
+ 		f.debugf("Ready to apply %s. Saving revnos %v: LOST RACE", t, debugRevnos)
+ 		return f.reload(t)
+ 	}
+-	return nil
++	return err
+ }
+ 
+ func (f *flusher) apply(t *transaction, pull map[bson.ObjectId]*transaction) error {
