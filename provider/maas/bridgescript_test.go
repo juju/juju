@@ -73,7 +73,9 @@ func (s *bridgeConfigSuite) assertScript(c *gc.C, initialConfig, expectedConfig,
 	}
 }
 
-func (s *bridgeConfigSuite) assertScriptWithActivationAndDryRun(c *gc.C, initialConfig string, expectedConfig []string, bridgePrefix string, interfacesToBridge []string) {
+func (s *bridgeConfigSuite) assertScriptWithActivationAndDryRun(c *gc.C, isBonded, isAlreadyBridged bool, initialConfig, bridgePrefix string, interfacesToBridge []string) {
+	expectedConfig := s.dryRunExpectedOutputHelper(isBonded, isAlreadyBridged, bridgePrefix, interfacesToBridge)
+
 	for i, python := range s.pythonVersions {
 		c.Logf("test #%v using %s", i, python)
 		err := ioutil.WriteFile(s.testConfigPath, []byte(strings.TrimSuffix(initialConfig, "\n")), 0644)
@@ -209,7 +211,7 @@ func (s *bridgeConfigSuite) runScriptWithActivationAndDryRun(c *gc.C, pythonBina
 	c.Assert(err, jc.ErrorIsNil, gc.Commentf("script failed unexpectedly"))
 	stdout := strings.Split(string(result.Stdout), "\n")
 	stderr := strings.Split(string(result.Stderr), "\n")
-	output = make([]string, 0, len(stdout)+len(stderr)+1)
+	output = make([]string, 0, len(stdout)+len(stderr))
 	for _, s := range stdout {
 		s = strings.Trim(s, "\n")
 		if s != "" {
@@ -227,58 +229,57 @@ func (s *bridgeConfigSuite) runScriptWithActivationAndDryRun(c *gc.C, pythonBina
 
 func (s *bridgeConfigSuite) dryRunExpectedOutputHelper(isBonded, isAlreadyBridged bool, bridgePrefix string, interfacesToBridge []string) []string {
 	output := make([]string, 0)
-	output = append(output, "**** Original configuration")
-	output = append(output, fmt.Sprintf("cat %s", s.testConfigPath))
-	output = append(output, "ifconfig -a")
-	output = append(output, fmt.Sprintf("ifdown --exclude=lo --interfaces=%[1]s $(ifquery --interfaces=%[1]s --exclude=lo --list)", s.testConfigPath))
-	output = append(output, "**** Activating new configuration")
-	if isBonded {
-		output = append(output, "working around https://bugs.launchpad.net/ubuntu/+source/ifenslave/+bug/1269921")
-		output = append(output, "working around https://bugs.launchpad.net/juju-core/+bug/1594855")
-		output = append(output, "sleep 3")
+	if isAlreadyBridged {
+		output = append(output, "already bridged, or nothing to do.")
+	} else {
+		output = append(output, "**** Original configuration")
+		output = append(output, fmt.Sprintf("cat %s", s.testConfigPath))
+		output = append(output, "ifconfig -a")
+		output = append(output, fmt.Sprintf("ifdown --exclude=lo --interfaces=%[1]s $(ifquery --interfaces=%[1]s --exclude=lo --list)", s.testConfigPath))
+		output = append(output, "**** Activating new configuration")
+		if isBonded {
+			output = append(output, "working around https://bugs.launchpad.net/ubuntu/+source/ifenslave/+bug/1269921")
+			output = append(output, "working around https://bugs.launchpad.net/juju-core/+bug/1594855")
+			output = append(output, "sleep 3")
+		}
+		output = append(output, fmt.Sprintf("cat %s", s.testConfigPath))
+		output = append(output, fmt.Sprintf("ifup --exclude=lo --interfaces=%[1]s $(ifquery --interfaces=%[1]s --exclude=lo --list)", s.testConfigPath))
+		output = append(output, "ip link show up")
+		output = append(output, "ifconfig -a")
+		output = append(output, "ip route show")
+		output = append(output, "brctl show")
 	}
-	output = append(output, fmt.Sprintf("cat %s", s.testConfigPath))
-	output = append(output, fmt.Sprintf("ifup --exclude=lo --interfaces=%[1]s $(ifquery --interfaces=%[1]s --exclude=lo --list)", s.testConfigPath))
-	output = append(output, "ip link show up")
-	output = append(output, "ifconfig -a")
-	output = append(output, "ip route show")
-	output = append(output, "brctl show")
 	return output
 }
 
 func (s *bridgeConfigSuite) TestBridgeScriptWithoutBondedInterfaceSingle(c *gc.C) {
 	bridgePrefix := "TestBridgeScriptWithoutBondedInterfaceSingle"
 	interfacesToBridge := []string{"eth0"}
-	expectedOutput := s.dryRunExpectedOutputHelper(false, false, bridgePrefix, interfacesToBridge)
-	s.assertScriptWithActivationAndDryRun(c, networkDHCPInitial, expectedOutput, bridgePrefix, interfacesToBridge)
+	s.assertScriptWithActivationAndDryRun(c, false, false, networkDHCPInitial, bridgePrefix, interfacesToBridge)
 }
 
 func (s *bridgeConfigSuite) TestBridgeScriptWithoutBondedInterfaceMultiple(c *gc.C) {
 	bridgePrefix := "TestBridgeScriptWithoutBondedInterfaceMultiple"
 	interfacesToBridge := []string{"eth0", "eth1"}
-	expectedOutput := s.dryRunExpectedOutputHelper(false, false, bridgePrefix, interfacesToBridge)
-	s.assertScriptWithActivationAndDryRun(c, networkDHCPInitial, expectedOutput, bridgePrefix, interfacesToBridge)
+	s.assertScriptWithActivationAndDryRun(c, false, false, networkDHCPInitial, bridgePrefix, interfacesToBridge)
 }
 
 func (s *bridgeConfigSuite) TestBridgeScriptWithBondedInterfaceSingle(c *gc.C) {
 	bridgePrefix := "TestBridgeScriptWithBondedInterfaceSingle"
 	interfacesToBridge := []string{"bond0"}
-	expectedOutput := s.dryRunExpectedOutputHelper(true, false, bridgePrefix, interfacesToBridge)
-	s.assertScriptWithActivationAndDryRun(c, networkDHCPWithBondInitial, expectedOutput, bridgePrefix, interfacesToBridge)
+	s.assertScriptWithActivationAndDryRun(c, true, false, networkDHCPWithBondInitial, bridgePrefix, interfacesToBridge)
 }
 
 func (s *bridgeConfigSuite) TestBridgeScriptWithBondedInterfaceMultiple(c *gc.C) {
 	bridgePrefix := "TestBridgeScriptWithBondedInterfaceMultiple"
 	interfacesToBridge := []string{"bond0", "bond1"}
-	expectedOutput := s.dryRunExpectedOutputHelper(true, false, bridgePrefix, interfacesToBridge)
-	s.assertScriptWithActivationAndDryRun(c, networkDHCPWithBondInitial, expectedOutput, bridgePrefix, interfacesToBridge)
+	s.assertScriptWithActivationAndDryRun(c, true, false, networkDHCPWithBondInitial, bridgePrefix, interfacesToBridge)
 }
 
 func (s *bridgeConfigSuite) TestBridgeScriptWithBondedInterfaceAlreadyBridged(c *gc.C) {
 	bridgePrefix := "TestBridgeScriptWithBondedInterfaceAlreadyBridged"
 	interfacesToBridge := []string{"br-eth1"}
-	expectedOutput := []string{"already bridged, or nothing to do."}
-	s.assertScriptWithActivationAndDryRun(c, networkPartiallyBridgedInitial, expectedOutput, bridgePrefix, interfacesToBridge)
+	s.assertScriptWithActivationAndDryRun(c, false, true, networkPartiallyBridgedInitial, bridgePrefix, interfacesToBridge)
 }
 
 // The rest of the file contains various forms of network config for
