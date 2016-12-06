@@ -1292,7 +1292,7 @@ class WaitMachineNotPresent:
             if machine == self.machine:
                 yield machine, 'still-present'
 
-    def do_raise(self):
+    def do_raise(self, status):
         raise Exception("Timed out waiting for machine removal %s" %
                         self.machine)
 
@@ -2285,6 +2285,7 @@ class EnvJujuClient:
         if len(conditions) == 0:
             return self.get_status()
         reporter = GroupReporter(sys.stdout, 'started')
+        status = None
         try:
             for status in self.status_until(timeout):
                 status.raise_highest_error(ignore_recoverable=True)
@@ -2299,10 +2300,11 @@ class EnvJujuClient:
             else:
                 status.raise_highest_error(ignore_recoverable=False)
         except StatusTimeout:
-            pass
+            if status is None:
+                raise
         finally:
             reporter.finish()
-        conditions[0].do_raise()
+        conditions[0].do_raise(status)
 
     def get_matching_agent_version(self, no_build=False):
         # strip the series and srch from the built version.

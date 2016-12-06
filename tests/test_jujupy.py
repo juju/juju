@@ -541,7 +541,7 @@ class TestWaitMachineNotPresent(ClientTest):
         not_present = WaitMachineNotPresent('0')
         with self.assertRaisesRegexp(
                 Exception, 'Timed out waiting for machine removal 0'):
-            not_present.do_raise()
+            not_present.do_raise(None)
 
 
 class TestEnvJujuClient(ClientTest):
@@ -2511,7 +2511,7 @@ class TestEnvJujuClient(ClientTest):
         })
         client = EnvJujuClient(JujuData('local'), None, None)
         with patch.object(client, 'get_juju_output', return_value=value), \
-            patch('jujupy.until_timeout', lambda x: range(0)), \
+            patch('jujupy.until_timeout', lambda x, start=None: range(1)), \
             self.assertRaisesRegexp(
                 Exception,
                 'Timed out waiting for machine removal 1'):
@@ -2525,7 +2525,7 @@ class TestEnvJujuClient(ClientTest):
         def iter_blocking_state(self, ignored):
             yield ('global state', 'unsatisfied')
 
-        def do_raise(self):
+        def do_raise(self, status):
             raise self.NeverSatisfiedException()
 
     def test_wait_timeout(self):
@@ -4495,7 +4495,7 @@ class TestEnvJujuClient1X(ClientTest):
         })
         client = EnvJujuClient1X(SimpleEnvironment('local'), None, None)
         with patch.object(client, 'get_juju_output', return_value=value), \
-            patch('jujupy.until_timeout', lambda x: range(0)), \
+            patch('jujupy.until_timeout', lambda x, start=None: range(1)), \
             self.assertRaisesRegexp(
                 Exception,
                 'Timed out waiting for machine removal 1'):
