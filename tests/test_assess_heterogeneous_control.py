@@ -75,7 +75,7 @@ class TestGetClients(TestCase):
                                                        True, 'quxx')
         self.assertEqual(initial.env, other.env)
         self.assertEqual(initial.env, released.env)
-        self.assertNotIn('tools-metadata-url', initial.env.config)
+        self.assertNotIn('tools-metadata-url', initial.env._config)
         self.assertEqual(initial.full_path, os.path.abspath('foo'))
         self.assertEqual(other.full_path, os.path.abspath('bar'))
         self.assertEqual(released.full_path, '/usr/bun/juju')
@@ -113,7 +113,7 @@ class TestGetClients(TestCase):
             with patch('subprocess.check_output', return_value='1.18.73'):
                 initial, other, released = get_clients('foo', 'bar', 'baz',
                                                        True, None)
-        self.assertTrue('tools-metadata-url' not in initial.env.config)
+        self.assertTrue('tools-metadata-url' not in initial.env._config)
 
 
 class TestAssessHeterogeneous(TestCase):

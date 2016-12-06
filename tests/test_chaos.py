@@ -10,7 +10,7 @@ import unittest
 from mock import (
     call,
     patch,
-)
+    )
 import yaml
 
 from chaos import (
@@ -22,9 +22,9 @@ from jujupy import (
     JujuData,
     )
 from remote import SSHRemote
-from tests import FakeHomeTestCase
-from test_jujupy import (
+from tests import (
     assert_juju_call,
+    FakeHomeTestCase,
     )
 
 

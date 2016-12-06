@@ -1,6 +1,6 @@
 from argparse import Namespace
 from mock import (
-    MagicMock,
+    call,
     patch,
 )
 
@@ -31,7 +31,8 @@ class CleanResources(TestCase):
 
     def test_get_regions(self):
         class FakeEnv:
-            config = {'region': 'foo'}
+            def get_region(self):
+                return 'foo'
         args = Namespace(all_regions=False)
         env = FakeEnv()
         regions = get_regions(args, env)
@@ -55,15 +56,19 @@ class CleanResources(TestCase):
 
     def asses_clean(self, all_region, call_count):
         args = Namespace(env='foo', verbose=0, all_regions=all_region)
-        clean_resources.AWSAccount = MagicMock(spec=['manager_from_config'])
-        with patch('clean_resources.SimpleEnvironment.from_config',
-                   return_value=get_aws_env()) as cr_mock:
-            clean(args)
+        env = get_aws_env()
+        with patch.object(clean_resources.AWSAccount,
+                          'from_boot_config') as fbc_mock:
+            with patch('clean_resources.SimpleEnvironment.from_config',
+                       return_value=env) as cr_mock:
+                clean(args)
         self.assertEqual(
-            clean_resources.AWSAccount.manager_from_config.call_count,
+            fbc_mock.call_count,
             call_count)
-        mfc_mock = clean_resources.AWSAccount.manager_from_config.return_value
-        ctx_mock = mfc_mock.__enter__.return_value
+        regions = get_regions(args, env)
+        calls = [call(cr_mock.return_value, region=r) for r in regions]
+        self.assertEqual(fbc_mock.call_args_list, calls)
+        ctx_mock = fbc_mock.return_value.__enter__.return_value
         self.assertEqual(ctx_mock.iter_security_groups.call_count, call_count)
         self.assertEqual(
             ctx_mock.iter_instance_security_groups.call_count, call_count)

@@ -9,6 +9,7 @@ from collections import (
     namedtuple,
     )
 from contextlib import contextmanager
+import glob
 import itertools
 import json
 import logging
@@ -27,6 +28,7 @@ from utility import (
     add_basic_testing_arguments,
     configure_logging,
     ensure_dir,
+    scoped_environ,
     temp_dir,
     )
 
@@ -77,7 +79,7 @@ def assess_autoload_credentials(args):
     client = client_from_config(args.env, args.juju_bin, False)
     client.env.load_yaml()
     real_credential_details = client_credentials_to_details(client)
-    provider = client.env.config['type']
+    provider = client.env.provider
 
     for scenario_name, scenario_setup in test_scenarios[provider]:
         log.info('* Starting test scenario: {}'.format(scenario_name))
@@ -96,7 +98,7 @@ def assess_autoload_credentials(args):
 
 def client_credentials_to_details(client):
     """Convert the credentials in the client to details."""
-    provider = client.env.config['type']
+    provider = client.env.provider
     log.info("provider: {}".format(provider))
     cloud_name = client.env.get_cloud()
     log.info("cloud_name: {}".format(cloud_name))
@@ -106,6 +108,7 @@ def client_credentials_to_details(client):
                 'access_key': credentials['access-key'],
                 }
     if 'gce' == provider:
+        gce_prepare_for_load()
         return {'client_id': credentials['client-id'],
                 'client_email': credentials['client-email'],
                 'private_key': credentials['private-key'],
@@ -114,9 +117,18 @@ def client_credentials_to_details(client):
         os_cloud = client.env.clouds['clouds'][cloud_name]
         return {'os_tenant_name': credentials['tenant-name'],
                 'os_password': credentials['password'],
-                'os_region_name': client.env.config['region'],
+                'os_region_name': client.env.get_region(),
                 'os_auth_url': os_cloud['endpoint'],
                 }
+
+
+@contextmanager
+def fake_juju_data():
+    with scoped_environ():
+        with temp_dir() as temp:
+            os.environ['JUJU_HOME'] = temp
+            os.environ['JUJU_DATA'] = temp
+            yield
 
 
 @contextmanager
@@ -127,7 +139,8 @@ def begin_autoload_test(client_base):
         tmp_scratch_dir = tempfile.mkdtemp(dir=tmp_dir)
         client.env.juju_home = tmp_juju_home
         client.env.load_yaml()
-        yield client, tmp_scratch_dir
+        with fake_juju_data():
+            yield client, tmp_scratch_dir
 
 
 def ensure_autoload_credentials_stores_details(client_base, cloud_details_fn):
@@ -207,7 +220,7 @@ def autoload_and_bootstrap(bs_manager, upload_tools, real_credentials,
         bs_manager.client.env.juju_home = client_na.env.juju_home
         bs_manager.tear_down_client.env.juju_home = client_na.env.juju_home
         # Openstack needs the real username.
-        user = client_na.env.config.get('username', 'testing-user')
+        user = client_na.env.get_option('username', 'testing-user')
         cloud_details = cloud_details_fn(
             user, tmp_scratch_dir, bs_manager.client, real_credentials)
         # Reset the client's credentials before autoload.
@@ -367,7 +380,7 @@ def aws_credential_dict_generator():
 def openstack_envvar_test_details(
         user, tmp_dir, client, credential_details=None):
     if credential_details is None:
-        region = client.env.config['region']
+        region = client.env.get_region()
         log.info(
             'Generating credential_details for openstack {}'.format(region))
         credential_details = openstack_credential_dict_generator(region)
@@ -392,7 +405,7 @@ def get_openstack_envvar_changes(user, credential_details):
 def openstack_directory_test_details(user, tmp_dir, client,
                                      credential_details=None):
     if credential_details is None:
-        region = client.env.config['region']
+        region = client.env.get_region()
         log.info(
             'Generating credential_details for openstack {}'.format(region))
         credential_details = openstack_credential_dict_generator(region)
@@ -451,7 +464,7 @@ def ensure_openstack_personal_cloud_exists(client):
         'testing-openstack': {
             'type': 'openstack',
             'auth-types': ['userpass'],
-            'endpoint': client.env.config['auth-url'],
+            'endpoint': client.env.get_option('auth-url'),
             'regions': regions
             }
         }
@@ -484,6 +497,19 @@ def openstack_credential_dict_generator(region):
         os_password=creds,
         os_auth_url='https://keystone.example.com:443/v2.0/',
         os_region_name=region)
+
+
+# Just figuring this part out, likely will change/move.
+def gce_prepare_for_load():
+    GCE_AC = 'GOOGLE_APPLICATION_CREDENTIALS'
+    if GCE_AC not in os.environ:
+        juju_home = os.environ['JUJU_HOME']
+        file_names = glob.glob(os.path.join(juju_home, 'gce-*.json'))
+        if 1 != len(file_names):
+            raise RuntimeError('Found {} candidate goodle credential files,'
+                               ' requires 1.'.format(len(file_names)))
+        os.environ[GCE_AC] = file_names[0]
+    log.info('{}={}'.format(GCE_AC, os.environ[GCE_AC]))
 
 
 def gce_envvar_with_file_test_details(user, tmp_dir, client,

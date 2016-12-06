@@ -226,13 +226,13 @@ class TestMakeClientFromArgs(TestCase):
                            autospec=True, return_value='controller'):
                     with patch('jujupy.EnvJujuClient.juju',
                                autospec=True, return_value=''):
-                        with patch('assess_log_rotation.tear_down',
-                                   autospec=True, return_value='') as td_func:
+                        with patch('jujupy.EnvJujuClient.kill_controller',
+                                   autospec=True) as kill_func:
                             with patch.object(JujuData, 'load_yaml'):
-                                yield td_func
+                                yield kill_func
 
     def test_defaults(self):
-        with self.make_client_cxt() as td_func:
+        with self.make_client_cxt() as kill_func:
             client = make_client_from_args(Namespace(
                 juju_bin='', debug=False, env='foo', temp_env_name='bar',
                 agent_url=None, agent_stream=None, series=None, region=None,
@@ -240,4 +240,4 @@ class TestMakeClientFromArgs(TestCase):
                 ))
         self.assertIsInstance(client, EnvJujuClient)
         self.assertIn('/jes-homes/bar', client.env.juju_home)
-        td_func.assert_called_once_with(client, True)
+        kill_func.assert_called_once_with(client)

@@ -1,12 +1,13 @@
 from argparse import (
     ArgumentParser,
     Namespace,
-)
+    )
 from datetime import (
     datetime,
     timedelta,
     )
 from contextlib import contextmanager
+import errno
 import json
 import logging
 import os
@@ -17,12 +18,13 @@ import warnings
 
 from mock import (
     call,
+    Mock,
     patch,
     )
 
 from tests import (
     TestCase,
-)
+    )
 from utility import (
     add_basic_testing_arguments,
     as_literal_address,
@@ -34,9 +36,13 @@ from utility import (
     get_deb_arch,
     get_winrm_certs,
     is_ipv6_address,
+    log_and_wrap_exception,
+    logged_exception,
+    LoggedException,
     quote,
     run_command,
     scoped_environ,
+    skip_on_missing_file,
     split_address_port,
     temp_dir,
     until_timeout,
@@ -542,6 +548,37 @@ class TestAddBasicTestingArguments(TestCase):
             args = parser.parse_args(cmd_line)
         self.assertEqual(now + timedelta(seconds=300), args.deadline)
 
+    def test_no_env(self):
+        cmd_line = ['/foo/juju', '/tmp/logs', 'testtest']
+        parser = add_basic_testing_arguments(ArgumentParser(), env=False)
+        args = parser.parse_args(cmd_line)
+        expected = Namespace(
+            agent_url=None, debug=False, temp_env_name='testtest',
+            juju_bin='/foo/juju', logs='/tmp/logs', series=None,
+            verbose=logging.INFO, agent_stream=None, keep_env=False,
+            upload_tools=False, bootstrap_host=None, machine=[], region=None,
+            deadline=None)
+        self.assertEqual(args, expected)
+
+
+class TestSkipOnMissingFile(TestCase):
+
+    def test_skip_on_missing_file(self):
+        """Test if skip_on_missing_file hides the proper exceptions."""
+        with skip_on_missing_file():
+            raise OSError(errno.ENOENT, 'should be hidden')
+        with skip_on_missing_file():
+            raise IOError(errno.ENOENT, 'should be hidden')
+
+    def test_skip_on_missing_file_except(self):
+        """Test if skip_on_missing_file ignores other types of exceptions."""
+        with self.assertRaises(RuntimeError):
+            with skip_on_missing_file():
+                raise RuntimeError(errno.ENOENT, 'pass through')
+        with self.assertRaises(IOError):
+            with skip_on_missing_file():
+                raise IOError(errno.EEXIST, 'pass through')
+
 
 class TestRunCommand(TestCase):
 
@@ -693,3 +730,90 @@ class TestQualifiedModelName(TestCase):
             qualified_model_name('admin/default', 'admin'),
             'admin/default'
         )
+
+
+class TestLogAndWrapException(TestCase):
+
+    def test_exception(self):
+        mock_logger = Mock(spec=['exception'])
+        err = Exception('an error')
+        wrapped = log_and_wrap_exception(mock_logger, err)
+        self.assertIs(wrapped.exception, err)
+        mock_logger.exception.assert_called_once_with(err)
+
+    def test_has_stdout(self):
+        mock_logger = Mock(spec=['exception', 'info'])
+        err = Exception('another error')
+        err.output = 'stdout text'
+        wrapped = log_and_wrap_exception(mock_logger, err)
+        self.assertIs(wrapped.exception, err)
+        mock_logger.exception.assert_called_once_with(err)
+        mock_logger.info.assert_called_once_with(
+            'Output from exception:\nstdout:\n%s\nstderr:\n%s', 'stdout text',
+            None)
+
+    def test_has_stderr(self):
+        mock_logger = Mock(spec=['exception', 'info'])
+        err = Exception('another error')
+        err.stderr = 'stderr text'
+        wrapped = log_and_wrap_exception(mock_logger, err)
+        self.assertIs(wrapped.exception, err)
+        mock_logger.exception.assert_called_once_with(err)
+        mock_logger.info.assert_called_once_with(
+            'Output from exception:\nstdout:\n%s\nstderr:\n%s', None,
+            'stderr text')
+
+
+class TestLoggedException(TestCase):
+
+    def test_no_error_no_log(self):
+        mock_logger = Mock(spec_set=[])
+        with logged_exception(mock_logger):
+            pass
+
+    def test_exception_logged_and_wrapped(self):
+        mock_logger = Mock(spec=['exception'])
+        err = Exception('some error')
+        with self.assertRaises(LoggedException) as ctx:
+            with logged_exception(mock_logger):
+                raise err
+        self.assertIs(ctx.exception.exception, err)
+        mock_logger.exception.assert_called_once_with(err)
+
+    def test_exception_logged_once(self):
+        mock_logger = Mock(spec=['exception'])
+        err = Exception('another error')
+        with self.assertRaises(LoggedException) as ctx:
+            with logged_exception(mock_logger):
+                with logged_exception(mock_logger):
+                    raise err
+        self.assertIs(ctx.exception.exception, err)
+        mock_logger.exception.assert_called_once_with(err)
+
+    def test_generator_exit_not_wrapped(self):
+        mock_logger = Mock(spec_set=[])
+        with self.assertRaises(GeneratorExit):
+            with logged_exception(mock_logger):
+                raise GeneratorExit
+
+    def test_keyboard_interrupt_wrapped(self):
+        mock_logger = Mock(spec=['exception'])
+        err = KeyboardInterrupt()
+        with self.assertRaises(LoggedException) as ctx:
+            with logged_exception(mock_logger):
+                raise err
+        self.assertIs(ctx.exception.exception, err)
+        mock_logger.exception.assert_called_once_with(err)
+
+    def test_output_logged(self):
+        mock_logger = Mock(spec=['exception', 'info'])
+        err = Exception('some error')
+        err.output = 'some output'
+        with self.assertRaises(LoggedException) as ctx:
+            with logged_exception(mock_logger):
+                raise err
+        self.assertIs(ctx.exception.exception, err)
+        mock_logger.exception.assert_called_once_with(err)
+        mock_logger.info.assert_called_once_with(
+            'Output from exception:\nstdout:\n%s\nstderr:\n%s', 'some output',
+            None)

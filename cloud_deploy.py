@@ -32,7 +32,7 @@ def deploy_stack(environment, debug, machines, deploy_charm):
     """
     client = client_from_config(environment, None, debug=debug)
     running_domains = dict()
-    if client.env.config['type'] == 'maas':
+    if client.env.provider == 'maas':
         # Split the hypervisor_URI and machine name
         for machine in machines:
             name, URI = machine.split('@')
@@ -59,7 +59,7 @@ def deploy_stack(environment, debug, machines, deploy_charm):
                 client.get_status()
             client.wait_for_started()
             if deploy_charm:
-                series = client.env.config.get('default-series', 'trusty')
+                series = client.env.get_option('default-series', 'trusty')
                 charm_path = local_charm_path(
                     'dummy-source', juju_ver=client.version, series=series)
                 client.deploy(charm_path, series=series)
@@ -70,7 +70,7 @@ def deploy_stack(environment, debug, machines, deploy_charm):
             raise
     finally:
         client.destroy_environment()
-        if client.env.config['type'] == 'maas':
+        if client.env.provider == 'maas':
             sleep(90)
             for machine, running in running_domains.items():
                 name, URI = machine.split('@')

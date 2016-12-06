@@ -1,3 +1,4 @@
+apache-libcloud>=1.3.0
 # azure uses == because the newer version break API
 azure==2.0.0rc3
 azure-batch==0.30.0rc3

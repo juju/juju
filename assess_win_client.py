@@ -35,7 +35,7 @@ def win_test(script_dir, address, juju_home, revision_build):
         'deploy_stack.py', 'deploy_job.py', 'fakejuju.py', 'jujupy.py',
         'jujuconfig.py', 'remote.py', 'substrate.py', 'utility.py',
         'get_ami.py', 'chaos.py', 'timeout.py', 'jujucharm.py',
-        'winazurearm.py',
+        'winazurearm.py', 'gce.py',
         ]]
     ci.extend([install_file, 'run-file'])
     with open('foo.yaml', 'w') as config:

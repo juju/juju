@@ -2,8 +2,8 @@
 from argparse import ArgumentParser
 import json
 
-from jujuconfig import describe_substrate
 from jujupy import (
+    describe_substrate,
     EnvJujuClient,
     SimpleEnvironment,
     )
@@ -40,7 +40,7 @@ def make_metadata(buildvars_path, env_name):
             },
         'environment': {
             'name': env_name,
-            'substrate': describe_substrate(env.config)
+            'substrate': describe_substrate(env)
             },
         }
     return metadata

@@ -41,7 +41,7 @@ class TestJES(tests.FakeHomeTestCase):
     def test_set_jes_flag(self):
         client = self.mock_client()
         env = client._shell_environ()
-        self.assertIsFalse('jes' in env[JUJU_DEV_FEATURE_FLAGS].split(","))
+        self.assertNotIn('jes', env.get(JUJU_DEV_FEATURE_FLAGS, '').split(","))
 
     @patch('assess_jes_deploy.print_now', autospec=True)
     @patch('assess_jes_deploy.get_random_string', autospec=True)

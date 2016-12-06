@@ -6,8 +6,10 @@ from hashlib import sha512
 from itertools import count
 import json
 import logging
+import re
 import subprocess
 
+import pexpect
 import yaml
 
 from jujupy import (
@@ -96,6 +98,22 @@ class FakeControllerState:
         self.models[default_model.name] = default_model
         return default_model
 
+    def register(self, name, email, password, twofa):
+        self.name = name
+        self.add_user_perms('jrandom@external', 'write')
+        self.users['jrandom@external'].update(
+            {'email': email, 'password': password, '2fa': twofa})
+        self.state = 'registered'
+
+    def destroy(self, kill=False):
+        for model in self.models.values():
+            model.destroy_model()
+        self.models.clear()
+        if kill:
+            self.state = 'controller-killed'
+        else:
+            self.state = 'controller-destroyed'
+
 
 class FakeEnvironmentState:
     """A Fake environment state that can be used by multiple FakeBackends."""
@@ -156,7 +174,15 @@ class FakeEnvironmentState:
         for containers in self.containers.values():
             containers.discard(container_id)
 
-    def remove_machine(self, machine_id):
+    def remove_machine(self, machine_id, force=False):
+        if not force:
+            for units, unit_id, loop_machine_id in self.iter_unit_machines():
+                if loop_machine_id != machine_id:
+                    continue
+                logging.error(
+                    'no machines were destroyed: machine {} has unit "{}"'
+                    ' assigned'.format(machine_id, unit_id))
+                raise subprocess.CalledProcessError(1, 'machine assigned.')
         self.machines.remove(machine_id)
         self.containers.pop(machine_id, None)
 
@@ -168,10 +194,6 @@ class FakeEnvironmentState:
         self._clear()
         self.controller.state = 'destroyed'
         return 0
-
-    def kill_controller(self):
-        self._clear()
-        self.controller.state = 'controller-killed'
 
     def destroy_model(self):
         del self.controller.models[self.name]
@@ -206,13 +228,20 @@ class FakeEnvironmentState:
             ('{}/{}'.format(service_name, str(len(machines))),
              self.add_machine()))
 
-    def remove_unit(self, to_remove):
+    def iter_unit_machines(self):
         for units in self.services.values():
             for unit_id, machine_id in units:
-                if unit_id == to_remove:
-                    self.remove_machine(machine_id)
-                    units.remove((unit_id, machine_id))
-                    break
+                yield units, unit_id, machine_id
+
+    def remove_unit(self, to_remove):
+        for units, unit_id, machine_id in self.iter_unit_machines():
+            if unit_id == to_remove:
+                units.remove((unit_id, machine_id))
+                self.remove_machine(machine_id)
+                break
+        else:
+            raise subprocess.CalledProcessError(
+                1, 'juju remove-unit {}'.format(unit_id))
 
     def destroy_service(self, service_name):
         for unit, machine_id in self.services.pop(service_name):
@@ -296,6 +325,7 @@ class FakeExpectChild:
         self.extra_env = extra_env
         self.last_expect = None
         self.exitstatus = None
+        self.match = None
 
     def expect(self, line):
         self.last_expect = line
@@ -343,6 +373,147 @@ class AutoloadCredentials(FakeExpectChild):
         return False
 
 
+class PromptingExpectChild(FakeExpectChild):
+
+    def __init__(self, backend, juju_home, extra_env, prompts):
+        super(PromptingExpectChild, self).__init__(backend, juju_home,
+                                                   extra_env)
+        self.prompts = iter(prompts)
+        self.values = {}
+        self.lines = []
+
+    def expect(self, regex):
+        try:
+            prompt = self.prompts.next()
+        except StopIteration:
+            if regex is not pexpect.EOF:
+                raise
+            self.close()
+            return
+        if regex is pexpect.EOF:
+            raise ValueError('Expected EOF. got "{}"'.format(prompt))
+        super(PromptingExpectChild, self).expect(regex)
+        regex_match = re.search(regex, prompt)
+        if regex_match is None:
+            raise ValueError(
+                'Regular expression did not match prompt.  Regex: "{}",'
+                ' prompt "{}"'.format(regex, prompt))
+        self.match = regex_match
+
+    def sendline(self, line=''):
+        full_match = self.match.group(0)
+        self.values[full_match] = line.rstrip()
+        self.lines.append((full_match, line))
+
+
+class RegisterHost(PromptingExpectChild):
+
+    def __init__(self, backend, juju_home, extra_env):
+        super(RegisterHost, self).__init__(backend, juju_home, extra_env, [
+            'E-Mail:',
+            'Password:',
+            'Two-factor auth (Enter for none):',
+            'Enter a name for this controller:',
+        ])
+
+    def close(self):
+        self.backend.controller_state.register(
+            self.values['Enter a name for this controller:'],
+            self.values['E-Mail:'],
+            self.values['Password:'],
+            self.values['Two-factor auth (Enter for none):'],
+            )
+        super(RegisterHost, self).close()
+
+
+class AddCloud(PromptingExpectChild):
+
+    NAME = 'Enter a name for the cloud:'
+
+    REGION_NAME = 'Enter region name:'
+
+    TYPE = 'Select cloud type:'
+
+    AUTH = 'Select one or more auth types separated by commas:'
+
+    API_ENDPOINT = 'Enter the API endpoint url:'
+
+    CLOUD_ENDPOINT = 'Enter the API endpoint url for the cloud:'
+
+    REGION_ENDPOINT = 'Enter the API endpoint url for the region:'
+
+    HOST = "Enter the controller's hostname or IP address:"
+
+    ANOTHER_REGION = 'Enter another region? (Y/n):'
+
+    def __init__(self, backend, juju_home, extra_env):
+        super(AddCloud, self).__init__(
+            backend, juju_home, extra_env, self.iter_prompts())
+
+    def iter_prompts(self):
+        while True:
+            yield self.TYPE
+            if self.values[self.TYPE] != 'bogus':
+                break
+        while True:
+            yield self.NAME
+            if '/' not in self.values[self.NAME]:
+                break
+        if self.values[self.TYPE] == 'maas':
+            yield self.API_ENDPOINT
+        elif self.values[self.TYPE] == 'manual':
+            yield self.HOST
+        elif self.values[self.TYPE] == 'openstack':
+            yield self.CLOUD_ENDPOINT
+            while True:
+                yield self.AUTH
+                if 'invalid' not in self.values[self.AUTH]:
+                    break
+            while self.values.get(self.ANOTHER_REGION) != 'n':
+                yield self.REGION_NAME
+                yield self.REGION_ENDPOINT
+                yield self.ANOTHER_REGION
+        if self.values['Select cloud type:'] == 'vsphere':
+            yield self.CLOUD_ENDPOINT
+            while self.values.get(self.ANOTHER_REGION) != 'n':
+                yield self.REGION_NAME
+                yield self.ANOTHER_REGION
+
+    def close(self):
+        cloud = {
+            'type': self.values[self.TYPE],
+        }
+        if cloud['type'] == 'maas':
+            cloud.update({'endpoint': self.values[self.API_ENDPOINT]})
+        if cloud['type'] == 'manual':
+            cloud.update({'endpoint': self.values[self.HOST]})
+        if cloud['type'] == 'openstack':
+            regions = {}
+            for match, line in self.lines:
+                if match == self.REGION_NAME:
+                    cur_region = {}
+                    regions[line] = cur_region
+                if match == self.REGION_ENDPOINT:
+                    cur_region['endpoint'] = line
+            cloud.update({
+                'endpoint': self.values[self.CLOUD_ENDPOINT],
+                'auth-types': self.values[self.AUTH].split(','),
+                'regions': regions
+                })
+        if cloud['type'] == 'vsphere':
+            regions = {}
+            for match, line in self.lines:
+                if match == self.REGION_NAME:
+                    cur_region = {}
+                    regions[line] = cur_region
+            cloud.update({
+                'endpoint': self.values[self.CLOUD_ENDPOINT],
+                'regions': regions,
+                })
+        self.backend.clouds[self.values[self.NAME]] = cloud
+        self.backend.clouds[self.values[self.NAME]] = cloud
+
+
 class FakeBackend:
     """A fake juju backend for tests.
 
@@ -367,6 +538,7 @@ class FakeBackend:
         self.log = logging.getLogger('jujupy')
         self._past_deadline = past_deadline
         self._ignore_soft_deadline = False
+        self.clouds = {}
 
     def clone(self, full_path=None, version=None, debug=None,
               feature_flags=None):
@@ -611,7 +783,7 @@ class FakeBackend:
                 if '/' in machine_id:
                     model_state.remove_container(machine_id)
                 else:
-                    model_state.remove_machine(machine_id)
+                    model_state.remove_machine(machine_id, parsed.force)
             if command == 'quickstart':
                 parser = ArgumentParser()
                 parser.add_argument('--constraints')
@@ -624,17 +796,23 @@ class FakeBackend:
         else:
             if command == 'bootstrap':
                 self.bootstrap(args)
+            if command == 'destroy-controller':
+                if self.controller_state.state not in ('bootstrapped',
+                                                       'created'):
+                    raise subprocess.CalledProcessError(1, 'Not bootstrapped.')
+                self.controller_state.destroy()
             if command == 'kill-controller':
                 if self.controller_state.state == 'not-bootstrapped':
                     return
-                model = args[0]
-                model_state = self.controller_state.models[model]
-                model_state.kill_controller()
+                self.controller_state.destroy(kill=True)
             if command == 'destroy-model':
                 if not self.is_feature_enabled('jes'):
                     raise JESNotSupported()
                 model = args[0]
-                model_state = self.controller_state.models[model]
+                try:
+                    model_state = self.controller_state.models[model]
+                except KeyError:
+                    raise subprocess.CalledProcessError(1, 'No such model')
                 model_state.destroy_model()
             if command == 'enable-ha':
                 parser = ArgumentParser()
@@ -651,7 +829,9 @@ class FakeBackend:
                 parser = ArgumentParser()
                 parser.add_argument('-c', '--controller')
                 parser.add_argument('--config')
+                parser.add_argument('--credential')
                 parser.add_argument('model_name')
+                parser.add_argument('cloud-region', nargs='?')
                 parsed = parser.parse_args(args)
                 self.controller_state.add_model(parsed.model_name)
             if command == 'revoke':
@@ -750,6 +930,10 @@ class FakeBackend:
                timeout=None, extra_env=None):
         if command == 'autoload-credentials':
             return AutoloadCredentials(self, juju_home, extra_env)
+        if command == 'register':
+            return RegisterHost(self, juju_home, extra_env)
+        elif command == 'add-cloud':
+            return AddCloud(self, juju_home, extra_env)
         else:
             return FakeExpectChild(self, juju_home, extra_env)
 
@@ -823,7 +1007,7 @@ def fake_juju_client_optional_jes(env=None, full_path=None, debug=False,
         _backend.set_feature('jes', jes_enabled)
     client = fake_juju_client(env, full_path, debug, version, _backend,
                               cls=FakeJujuClientOptionalJES)
-    client.used_feature_flags = frozenset(['address-allocation', 'jes'])
+    client.used_feature_flags = frozenset(['jes'])
     return client
 
 

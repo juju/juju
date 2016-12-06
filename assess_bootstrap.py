@@ -8,7 +8,6 @@ import sys
 
 from deploy_stack import (
     BootstrapManager,
-    tear_down,
     )
 from jujupy import (
     get_machine_dns_name,
@@ -32,7 +31,7 @@ def thin_booted_context(bs_manager, **kwargs):
     client = bs_manager.client
     with bs_manager.top_context() as machines:
         with bs_manager.bootstrap_context(machines):
-            tear_down(client, client.is_jes_enabled())
+            client.kill_controller()
             client.bootstrap(**kwargs)
         with bs_manager.runtime_context(machines):
             yield client
@@ -64,7 +63,7 @@ def assess_metadata(bs_manager, local_source):
     client = bs_manager.client
     # This disconnects from the metadata source, as INVALID_URL is different.
     # agent-metadata-url | tools-metadata-url
-    client.env.config['agent-metadata-url'] = INVALID_URL
+    client.env.update_config({'agent-metadata-url': INVALID_URL})
     with prepare_temp_metadata(client, local_source) as metadata_dir:
         log.info('Metadata written to: {}'.format(metadata_dir))
         with thin_booted_context(bs_manager,

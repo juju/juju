@@ -23,7 +23,14 @@ DEFAULT_JUJU_RELEASE_TOOLS = os.path.realpath(
     os.path.join(__file__, '..', '..', 'juju-release-tools'))
 
 
-def get_script(juju_release_tools=None):
+ARTIFACT_GLOBS = [
+    'juju-setup-*.exe', 'juju-*-win2012-amd64.tgz', 'juju-*-osx.tar.gz',
+    'juju-*-centos7-amd64.tgz', 'juju-*-centos7.tar.gz',
+    'juju-*-ubuntu-*.tgz',
+    ]
+
+
+def get_crossbuild_script(juju_release_tools=None):
     """Return the full path to the crossbuild script.
 
     The juju-release-tools dir is assumed to be a sibling of the juju-ci-tools
@@ -50,14 +57,12 @@ def build_juju(credentials, product, workspace_dir, build,
         credentials, BUILD_REVISION, build, 'juju-core_*.tar.gz',
         workspace_dir, archive=False, dry_run=dry_run, verbose=verbose)
     tar_artifact = artifacts[0]
-    crossbuild = get_script(juju_release_tools)
+    crossbuild = get_crossbuild_script(juju_release_tools)
     command = [
         crossbuild, product, '-b', '~/crossbuild', tar_artifact.file_name]
     run_command(command, dry_run=dry_run, verbose=verbose)
-    globs = [
-        'juju-setup-*.exe', 'juju-*-win2012-amd64.tgz', 'juju-*-osx.tar.gz',
-        'juju-*-centos7-amd64.tgz', 'juju-*-centos7.tar.gz']
-    add_artifacts(workspace_dir, globs, dry_run=dry_run, verbose=verbose)
+    add_artifacts(workspace_dir, ARTIFACT_GLOBS, dry_run=dry_run,
+                  verbose=verbose)
 
 
 def parse_args(args=None):
@@ -77,7 +82,8 @@ def parse_args(args=None):
         help='The path to the juju-release-tools dir, default: %s' %
               DEFAULT_JUJU_RELEASE_TOOLS)
     parser.add_argument(
-        'product', choices=['win-client', 'win-agent', 'osx-client', 'centos'],
+        'product', choices=['win-client', 'win-agent', 'osx-client', 'centos',
+                            'ubuntu-agent'],
         help='the kind of juju to make and package.')
     parser.add_argument(
         'workspace',  help='The path to the workspace to build in.')
