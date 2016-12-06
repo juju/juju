@@ -26,15 +26,11 @@ import (
 	jujuversion "github.com/juju/juju/version"
 )
 
-type httpClient interface {
-	HTTPClient() (*httprequest.Client, error)
-}
-
 // NewClient returns a new Client based on an existing API connection.
 func NewClient(caller base.APICaller) *Client {
 	return &Client{
 		caller:            base.NewFacadeCaller(caller, "MigrationTarget"),
-		httpClientFactory: caller,
+		httpClientFactory: caller.HTTPClient,
 	}
 }
 
@@ -43,7 +39,7 @@ func NewClient(caller base.APICaller) *Client {
 // controller during a migration.
 type Client struct {
 	caller            base.FacadeCaller
-	httpClientFactory httpClient
+	httpClientFactory func() (*httprequest.Client, error)
 }
 
 func (c *Client) Prechecks(model coremigration.ModelInfo) error {
@@ -110,8 +106,7 @@ func (c *Client) UploadTools(modelUUID string, r io.ReadSeeker, vers version.Bin
 	return resp.ToolsList, nil
 }
 
-// XXX needs tests
-// XXX
+// UploadResource uploads a migration to the resource migration endpoint.
 func (c *Client) UploadResource(modelUUID string, res resource.Resource, r io.ReadSeeker) error {
 	args := url.Values{}
 	args.Add("application", res.ApplicationID)
@@ -139,7 +134,7 @@ func (c *Client) httpPost(modelUUID string, content io.ReadSeeker, endpoint, con
 	req.Header.Set(params.MigrationModelHTTPHeader, modelUUID)
 
 	// The returned httpClient sets the base url to /model/<uuid> if it can.
-	httpClient, err := c.httpClientFactory.HTTPClient()
+	httpClient, err := c.httpClientFactory()
 	if err != nil {
 		return errors.Trace(err)
 	}
