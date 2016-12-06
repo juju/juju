@@ -90,7 +90,6 @@ from jujupy import (
     UnitError,
     UpgradeMongoNotSupported,
     VersionNotTestedError,
-    WaitForSearch,
     WaitMachineNotPresent,
     )
 from tests import (
@@ -2497,7 +2496,7 @@ class TestEnvJujuClient(ClientTest):
         })
         client = EnvJujuClient(JujuData('local'), None, None)
         with patch.object(client, 'get_juju_output', return_value=value):
-            client.wait_for([WaitForSearch('machines-not-0', 'none')])
+            client.wait_for([WaitMachineNotPresent('1')])
 
     def test_wait_just_machine_0_timeout(self):
         value = yaml.safe_dump({
@@ -2511,8 +2510,8 @@ class TestEnvJujuClient(ClientTest):
             patch('jujupy.until_timeout', lambda x: range(0)), \
             self.assertRaisesRegexp(
                 Exception,
-                'Timed out waiting for machines-not-0'):
-            client.wait_for([WaitForSearch('machines-not-0', 'none')])
+                'Timed out waiting for machine removal 1'):
+            client.wait_for([WaitMachineNotPresent('1')])
 
     class NeverSatisfied:
 
@@ -4449,7 +4448,7 @@ class TestEnvJujuClient1X(ClientTest):
         })
         client = EnvJujuClient1X(SimpleEnvironment('local'), None, None)
         with patch.object(client, 'get_juju_output', return_value=value):
-            client.wait_for([WaitForSearch('machines-not-0', 'none')])
+            client.wait_for([WaitMachineNotPresent('1')])
 
     def test_wait_just_machine_0_timeout(self):
         value = yaml.safe_dump({
@@ -4463,8 +4462,8 @@ class TestEnvJujuClient1X(ClientTest):
             patch('jujupy.until_timeout', lambda x: range(0)), \
             self.assertRaisesRegexp(
                 Exception,
-                'Timed out waiting for machines-not-0'):
-            client.wait_for([WaitForSearch('machines-not-0', 'none')])
+                'Timed out waiting for machine removal 1'):
+            client.wait_for([WaitMachineNotPresent('1')])
 
     def test_set_model_constraints(self):
         client = EnvJujuClient1X(SimpleEnvironment('bar', {}), None, '/foo')
