@@ -17,7 +17,7 @@ from assess_user_grant_revoke import User
 from deploy_stack import (
     BootstrapManager,
     get_random_string
-)
+    )
 from jujucharm import local_charm_path
 from remote import remote_from_address
 from utility import (
@@ -28,7 +28,7 @@ from utility import (
     get_unit_ipaddress,
     temp_dir,
     until_timeout,
-)
+    )
 
 
 __metaclass__ = type
@@ -233,12 +233,12 @@ def ensure_api_login_redirects(source_client, dest_client):
     # Check file for details.
     assert_data_file_lists_correct_controller_for_model(
         migrated_model_client,
-        expected_controller=dest_client.controller.name)
+        expected_controller=dest_client.env.controller.name)
 
 
 def assert_data_file_lists_correct_controller_for_model(
         client, expected_controller):
-    models_path = os.path.join(client, 'models.yaml')
+    models_path = os.path.join(client.env.juju_home, 'models.yaml')
     with open(models_path, 'rt') as f:
         models_data = yaml.safe_load(f)
 

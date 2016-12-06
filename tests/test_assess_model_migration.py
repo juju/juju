@@ -3,18 +3,28 @@
 import argparse
 from contextlib import contextmanager
 import logging
-from mock import call, Mock, patch
 import os
 import StringIO
 from subprocess import CalledProcessError
 from textwrap import dedent
 
+from mock import (
+    call,
+    Mock,
+    patch,
+    )
+import yaml
+
 import assess_model_migration as amm
+from assess_model_migration import (
+    assert_data_file_lists_correct_controller_for_model,
+    assert_model_has_correct_controller_uuid,
+    )
 from assess_user_grant_revoke import User
 from deploy_stack import (
     BootstrapManager,
     get_random_string,
-)
+    )
 from fakejuju import fake_juju_client
 from jujupy import (
     EnvJujuClient,
@@ -26,13 +36,13 @@ from tests import (
     FakeHomeTestCase,
     parse_error,
     TestCase,
-)
+    )
 from utility import (
     JujuAssertionError,
     noop_context,
     temp_dir,
     until_timeout,
-)
+    )
 
 
 class TestParseArgs(TestCase):
@@ -454,6 +464,75 @@ class TestWaitForModel(TestCase):
                     autospec=True, return_value=controller_client):
                 with self.assertRaises(SoftDeadlineExceeded):
                     amm.wait_for_model(client, 'TestModelName')
+
+
+class TestEnsureApiLoginRedirects(FakeHomeTestCase):
+
+    def test_ensure_api_login_redirects(self):
+        patch_assert_data = patch.object(amm,
+            'assert_data_file_lists_correct_controller_for_model')
+        patch_assert_uuid = patch.object(amm,
+            'assert_model_has_correct_uuid_fails')
+        with patch('logging.Logger.info', autospec=True) as info_mock:
+            with patch('jujupy.EnvJujuClient.show_model', autospec=True,
+                       side_effect=['first-call', 'second-call'],
+                       ) as show_model_mock:
+                pass
+
+    def fake_home_juju_client(self):
+        env = JujuData('name', {'type': 'foo', 'default-series': 'angsty',
+                                'region': 'bar'}, juju_home=self.juju_home)
+        return fake_juju_client(env=env)
+
+    # This is assuming that models.yaml contains what the test assumes it
+    # does. A bold assumption, but for now that is what I got.
+    def create_models_yaml(self, client, controllers_to_models):
+        data = dict([(controller, {'models': models})
+                     for (controller, models)
+                     in controllers_to_models.items()])
+        with open(os.path.join(client.env.juju_home, 'models.yaml'), 'w',
+                  ) as models_yaml:
+            yaml.safe_dump({'controllers': data}, models_yaml)
+
+    def test_assert_data_file_lists_correct_controller_for_model(self):
+        client = self.fake_home_juju_client()
+        self.create_models_yaml(client, {'testing': [client.env.environment]})
+        assert_data_file_lists_correct_controller_for_model(client, 'testing')
+
+    def test_assert_data_file_lists_correct_controller_for_model_fails(self):
+        client = self.fake_home_juju_client()
+        self.create_models_yaml(client, {'testing': ['not-the-client-name']})
+        with self.assertRaises(JujuAssertionError):
+            assert_data_file_lists_correct_controller_for_model(
+                client, 'testing')
+
+    def patch_uuid_client(self, client, uuid_model, uuid_controller):
+        def get_juju_output(command, *args, **kwargs):
+            m_name = client.env.environment
+            c_name = client.env.controller.name
+            if 'show-model' == command:
+                return yaml.safe_dump({
+                    m_name: {'controller-uuid': uuid_model}})
+            elif 'show-controller' == command:
+                return yaml.safe_dump({
+                    c_name: {'details': {'uuid': uuid_controller}}})
+            else:
+                raise Exception(
+                    'get_juju_output mock does not handle ' + command)
+
+        return patch.object(client, 'get_juju_output', get_juju_output)
+
+    def test_assert_model_has_correct_controller_uuid(self):
+        client = fake_juju_client()
+        with self.patch_uuid_client(client, '12345', '12345'):
+            assert_model_has_correct_controller_uuid(client)
+
+    def test_assert_model_has_correct_controller_uuid_fails(self):
+        client = fake_juju_client()
+        with self.patch_uuid_client(client, '12345', 'ABCDE'):
+            with self.assertRaises(JujuAssertionError):
+                assert_model_has_correct_controller_uuid(client)
+
 
 
 class TestDeployMongodbToNewModel(TestCase):
