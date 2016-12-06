@@ -246,19 +246,23 @@ type RemoteEntityIdResults struct {
 // RemoteRelation describes the current state of a cross-model relation from
 // the perspective of the local model.
 type RemoteRelation struct {
-	Id   RemoteEntityId `json:"id"`
-	Life Life           `json:"life"`
+	Life               Life           `json:"life"`
+	Id                 int            `json:"id"`
+	Key                string         `json:"key"`
+	LocalEndpoint      RemoteEndpoint `json:"local-endpoint"`
+	RemoteEndpointName string         `json:"remote-endpoint-name"`
 }
 
 // RemoteRelationResult holds a remote relation and an error.
 type RemoteRelationResult struct {
-	Result *RemoteRelation `json:"result,omitempty"`
 	Error  *Error          `json:"error,omitempty"`
+	Result *RemoteRelation `json:"result,omitempty"`
 }
 
-// RemoteRelationResults holds a set of remote relation results.
+// RemoteRelationResults holds the result of an API call that returns
+// information about multiple remote relations.
 type RemoteRelationResults struct {
-	Results []RemoteRelationResult `json:"results,omitempty"`
+	Results []RemoteRelationResult `json:"results"`
 }
 
 // RemoteApplication describes the current state of an application involved in a cross-
@@ -275,6 +279,10 @@ type RemoteApplication struct {
 
 	// ModelUUID is the UUId of the model hosting the application.
 	ModelUUID string `json:"model-uuid"`
+
+	// Registered returns the application is created
+	// from a registration operation by a consuming model.
+	Registered bool `json:"registered"`
 }
 
 // RemoteApplicationResult holds a remote application and an error.

@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
@@ -137,24 +138,49 @@ func (api *RemoteRelationsAPI) RelationUnitSettings(relationUnits params.Relatio
 
 // Relations returns information about the cross-model relations with the specified keys
 // in the local model.
-func (api *RemoteRelationsAPI) Relations(entities params.Entities) (params.RelationResults, error) {
-	results := params.RelationResults{
-		Results: make([]params.RelationResult, len(entities.Entities)),
+func (api *RemoteRelationsAPI) Relations(entities params.Entities) (params.RemoteRelationResults, error) {
+	results := params.RemoteRelationResults{
+		Results: make([]params.RemoteRelationResult, len(entities.Entities)),
 	}
-	one := func(entity params.Entity) (params.RelationResult, error) {
+	one := func(entity params.Entity) (*params.RemoteRelation, error) {
 		tag, err := names.ParseRelationTag(entity.Tag)
 		if err != nil {
-			return params.RelationResult{}, errors.Trace(err)
+			return nil, errors.Trace(err)
 		}
 		rel, err := api.st.KeyRelation(tag.Id())
 		if err != nil {
-			return params.RelationResult{}, errors.Trace(err)
+			return nil, errors.Trace(err)
 		}
-		return params.RelationResult{
+		result := &params.RemoteRelation{
 			Id:   rel.Id(),
 			Life: params.Life(rel.Life().String()),
 			Key:  tag.Id(),
-		}, nil
+		}
+		for _, ep := range rel.Endpoints() {
+			// Try looking up the info for the remote application.
+			_, err := api.st.RemoteApplication(ep.ApplicationName)
+			if err != nil && !errors.IsNotFound(err) {
+				return nil, errors.Trace(err)
+			} else if err == nil {
+				result.RemoteEndpointName = ep.Name
+				continue
+			}
+			// Try looking up the info for the local application.
+			_, err = api.st.Application(ep.ApplicationName)
+			if err != nil && !errors.IsNotFound(err) {
+				return nil, errors.Trace(err)
+			} else if err == nil {
+				result.LocalEndpoint = params.RemoteEndpoint{
+					Name:      ep.Name,
+					Interface: ep.Interface,
+					Role:      ep.Role,
+					Scope:     ep.Scope,
+					Limit:     ep.Limit,
+				}
+				continue
+			}
+		}
+		return result, nil
 	}
 	for i, entity := range entities.Entities {
 		remoteRelation, err := one(entity)
@@ -162,7 +188,7 @@ func (api *RemoteRelationsAPI) Relations(entities params.Entities) (params.Relat
 			results.Results[i].Error = common.ServerError(err)
 			continue
 		}
-		results.Results[i] = remoteRelation
+		results.Results[i].Result = remoteRelation
 	}
 	return results, nil
 }
@@ -187,10 +213,11 @@ func (api *RemoteRelationsAPI) RemoteApplications(entities params.Entities) (par
 			return nil, errors.Trace(err)
 		}
 		return &params.RemoteApplication{
-			Name:      remoteApp.Name(),
-			Life:      params.Life(remoteApp.Life().String()),
-			Status:    status.Status.String(),
-			ModelUUID: remoteApp.SourceModel().Id(),
+			Name:       remoteApp.Name(),
+			Life:       params.Life(remoteApp.Life().String()),
+			Status:     status.Status.String(),
+			ModelUUID:  remoteApp.SourceModel().Id(),
+			Registered: remoteApp.Registered(),
 		}, nil
 	}
 	for i, entity := range entities.Entities {
@@ -316,8 +343,20 @@ func (api *RemoteRelationsAPI) registerRemoteRelation(relation params.RegisterRe
 	// TODO(wallyworld) - do this as a transaction so the result is atomic
 	// Perform some initial validation - is the local application alive?
 
-	// TODO(wallyworld) - look up local name from offered name
+	// The name the consuming side knows the application by is not necessarily
+	// what it has been deployed as locally.
 	localApplicationName := relation.OfferedApplicationName
+	appOffer, err := api.st.ListOffers(crossmodel.OfferedApplicationFilter{ApplicationName: relation.OfferedApplicationName})
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if len(appOffer) == 0 {
+		// TODO(wallyworld) - we don't yet record the offer
+		// return errors.NotFoundf("offered application %q", relation.OfferedApplicationName)
+	} else {
+		// TODO(wallyworld) - charm name should be service name
+		localApplicationName = appOffer[0].CharmName
+	}
 
 	localApp, err := api.st.Application(localApplicationName)
 	if err != nil {
@@ -364,6 +403,7 @@ func (api *RemoteRelationsAPI) registerRemoteRelation(relation params.RegisterRe
 		SourceModel: names.NewModelTag(relation.ApplicationId.ModelUUID),
 		Token:       relation.ApplicationId.Token,
 		Endpoints:   []charm.Relation{remoteEndpoint.Relation},
+		Registered:  true,
 	})
 	// If it already exists, that's fine.
 	if err != nil && !errors.IsAlreadyExists(err) {

@@ -81,5 +81,5 @@ type publisherCloser struct {
 }
 
 func (p *publisherCloser) Close() error {
-	return p.Close()
+	return p.conn.Close()
 }
