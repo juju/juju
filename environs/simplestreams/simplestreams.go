@@ -343,7 +343,7 @@ const (
 	MirrorFormat  = "mirrors:1.0"
 )
 
-type appendMatchingFunc func(DataSource, []interface{}, map[string]interface{}, LookupConstraint) ([]interface{}, error)
+type AppendMatchingFunc func(DataSource, []interface{}, map[string]interface{}, LookupConstraint) ([]interface{}, error)
 
 // ValueParams contains the information required to pull out from the metadata structs of a particular type.
 type ValueParams struct {
@@ -352,7 +352,7 @@ type ValueParams struct {
 	// The key to use when looking for content mirrors.
 	MirrorContentId string
 	// A function used to filter and return records of a given type.
-	FilterFunc appendMatchingFunc
+	FilterFunc AppendMatchingFunc
 	// An struct representing the type of records to return.
 	ValueTemplate interface{}
 }
@@ -999,7 +999,7 @@ func (indexRef *IndexReference) getLatestMetadataWithFormat(cons LookupConstrain
 }
 
 // GetLatestMetadata extracts and returns the metadata records matching the given criteria.
-func GetLatestMetadata(metadata *CloudMetadata, cons LookupConstraint, source DataSource, filterFunc appendMatchingFunc) ([]interface{}, error) {
+func GetLatestMetadata(metadata *CloudMetadata, cons LookupConstraint, source DataSource, filterFunc AppendMatchingFunc) ([]interface{}, error) {
 	prodIds, err := cons.ProductIds()
 	if err != nil {
 		return nil, err

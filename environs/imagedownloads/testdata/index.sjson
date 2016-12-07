@@ -1,0 +1,565 @@
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA512
+
+{
+ "index": {
+  "com.ubuntu.cloud:released:joyent": {
+   "updated": "Tue, 01 Nov 2016 14:14:08 +0000", 
+   "clouds": [
+    {
+     "region": "eu-ams-1", 
+     "endpoint": "https://eu-ams-1.api.joyentcloud.com"
+    }, 
+    {
+     "region": "us-sw-1", 
+     "endpoint": "https://us-sw-1.api.joyentcloud.com"
+    }, 
+    {
+     "region": "us-east-3", 
+     "endpoint": "https://us-east-3.api.joyentcloud.com"
+    }, 
+    {
+     "region": "us-east-2", 
+     "endpoint": "https://us-east-2.api.joyentcloud.com"
+    }, 
+    {
+     "region": "us-east-1", 
+     "endpoint": "https://us-east-1.api.joyentcloud.com"
+    }, 
+    {
+     "region": "us-west-1", 
+     "endpoint": "https://us-west-1.api.joyentcloud.com"
+    }
+   ], 
+   "cloudname": "joyent", 
+   "datatype": "image-ids", 
+   "format": "products:1.0", 
+   "products": [
+    "com.ubuntu.cloud:server:13.10:amd64", 
+    "com.ubuntu.cloud:server:15.10:amd64", 
+    "com.ubuntu.cloud:server:13.04:amd64", 
+    "com.ubuntu.cloud:server:16.04:amd64", 
+    "com.ubuntu.cloud:server:15.04:amd64", 
+    "com.ubuntu.cloud:server:16.10:amd64", 
+    "com.ubuntu.cloud:server:14.04:amd64", 
+    "com.ubuntu.cloud:server:12.04:amd64", 
+    "com.ubuntu.cloud:server:14.10:amd64"
+   ], 
+   "path": "streams/v1/com.ubuntu.cloud:released:joyent.sjson"
+  }, 
+  "com.ubuntu.cloud:released:download": {
+   "datatype": "image-downloads", 
+   "path": "streams/v1/com.ubuntu.cloud:released:download.sjson", 
+   "updated": "Fri, 04 Nov 2016 03:33:58 +0000", 
+   "products": [
+    "com.ubuntu.cloud:server:15.04:arm64", 
+    "com.ubuntu.cloud:server:13.04:amd64", 
+    "com.ubuntu.cloud:server:15.04:ppc64el", 
+    "com.ubuntu.cloud:server:14.04:i386", 
+    "com.ubuntu.cloud:server:15.04:amd64", 
+    "com.ubuntu.cloud:server:10.04:amd64", 
+    "com.ubuntu.cloud:server:16.10:s390x", 
+    "com.ubuntu.cloud:server:14.10:arm64", 
+    "com.ubuntu.cloud:server:14.04:amd64", 
+    "com.ubuntu.cloud:server:16.04:ppc64el", 
+    "com.ubuntu.cloud:server:15.10:armhf", 
+    "com.ubuntu.cloud:server:15.10:i386", 
+    "com.ubuntu.cloud:server:15.10:arm64", 
+    "com.ubuntu.cloud:server:13.10:amd64", 
+    "com.ubuntu.cloud:server:12.10:i386", 
+    "com.ubuntu.cloud:server:14.04:armhf", 
+    "com.ubuntu.cloud:server:16.10:powerpc", 
+    "com.ubuntu.cloud:server:16.10:amd64", 
+    "com.ubuntu.cloud:server:12.10:amd64", 
+    "com.ubuntu.cloud:server:13.04:i386", 
+    "com.ubuntu.cloud:server:14.10:ppc64el", 
+    "com.ubuntu.cloud:server:16.04:powerpc", 
+    "com.ubuntu.cloud:server:16.10:i386", 
+    "com.ubuntu.cloud:server:15.10:ppc64el", 
+    "com.ubuntu.cloud:server:12.04:i386", 
+    "com.ubuntu.cloud:server:16.10:arm64", 
+    "com.ubuntu.cloud:server:13.10:i386", 
+    "com.ubuntu.cloud:server:16.10:armhf", 
+    "com.ubuntu.cloud:server:12.04:armhf", 
+    "com.ubuntu.cloud:server:14.10:armhf", 
+    "com.ubuntu.cloud:server:13.04:armhf", 
+    "com.ubuntu.cloud:server:11.10:amd64", 
+    "com.ubuntu.cloud:server:11.10:armel", 
+    "com.ubuntu.cloud:server:16.04:armhf", 
+    "com.ubuntu.cloud:server:14.10:i386", 
+    "com.ubuntu.cloud:server:15.10:amd64", 
+    "com.ubuntu.cloud:server:12.10:armhf", 
+    "com.ubuntu.cloud:server:15.04:armhf", 
+    "com.ubuntu.cloud:server:16.10:ppc64el", 
+    "com.ubuntu.cloud:server:13.10:armhf", 
+    "com.ubuntu.cloud:server:14.04:arm64", 
+    "com.ubuntu.cloud:server:16.04:s390x", 
+    "com.ubuntu.cloud:server:16.04:amd64", 
+    "com.ubuntu.cloud:server:10.04:i386", 
+    "com.ubuntu.cloud:server:15.04:i386", 
+    "com.ubuntu.cloud:server:16.04:arm64", 
+    "com.ubuntu.cloud:server:14.04:ppc64el", 
+    "com.ubuntu.cloud:server:12.04:amd64", 
+    "com.ubuntu.cloud:server:16.04:i386", 
+    "com.ubuntu.cloud:server:11.10:i386", 
+    "com.ubuntu.cloud:server:14.10:amd64"
+   ], 
+   "format": "products:1.0"
+  }, 
+  "com.ubuntu.cloud:released:rax": {
+   "updated": "Fri, 04 Nov 2016 03:12:05 +0000", 
+   "clouds": [
+    {
+     "region": "IAD", 
+     "endpoint": "https://identity.api.rackspacecloud.com/v2.0/"
+    }, 
+    {
+     "region": "DFW", 
+     "endpoint": "https://identity.api.rackspacecloud.com/v2.0/"
+    }, 
+    {
+     "region": "SYD", 
+     "endpoint": "https://identity.api.rackspacecloud.com/v2.0/"
+    }, 
+    {
+     "region": "HKG", 
+     "endpoint": "https://identity.api.rackspacecloud.com/v2.0/"
+    }, 
+    {
+     "region": "ORD", 
+     "endpoint": "https://identity.api.rackspacecloud.com/v2.0/"
+    }
+   ], 
+   "cloudname": "rax", 
+   "datatype": "image-ids", 
+   "format": "products:1.0", 
+   "products": [
+    "com.ubuntu.cloud:server:12.04:amd64", 
+    "com.ubuntu.cloud:server:14.04:amd64", 
+    "com.ubuntu.cloud:server:16.04:amd64"
+   ], 
+   "path": "streams/v1/com.ubuntu.cloud:released:rax.sjson"
+  }, 
+  "com.brightbox:official": {
+   "updated": "Thu, 03 Nov 2016 07:58:46 +0000", 
+   "clouds": [
+    {
+     "region": "gb1", 
+     "endpoint": "https://api.gb1.brightbox.com"
+    }
+   ], 
+   "cloudname": "brightbox", 
+   "datatype": "image-ids", 
+   "format": "products:1.0", 
+   "products": [
+    "com.ubuntu.cloud:server:16.10:i386", 
+    "com.ubuntu.cloud:server:12.04:i386", 
+    "com.ubuntu.cloud:server:14.04:i386", 
+    "com.ubuntu.cloud.snappy:core:rolling:edge:amd64", 
+    "com.ubuntu.cloud:server:16.04:amd64", 
+    "com.ubuntu.cloud:server:16.10:amd64", 
+    "com.ubuntu.cloud:server:14.04:amd64", 
+    "com.ubuntu.cloud:server:12.04:amd64", 
+    "com.ubuntu.cloud:server:16.04:i386"
+   ], 
+   "path": "streams/v1/com.brightbox:official.sjson"
+  }, 
+  "com.ubuntu.cloud:released:hpcloud": {
+   "updated": "Fri, 17 Jul 2015 23:16:55 +0000", 
+   "clouds": [
+    {
+     "region": "region-b.geo-1", 
+     "endpoint": "https://region-b.geo-1.identity.hpcloudsvc.com:35357/v2.0/"
+    }, 
+    {
+     "region": "region-a.geo-1", 
+     "endpoint": "https://region-a.geo-1.identity.hpcloudsvc.com:35357/v2.0/"
+    }
+   ], 
+   "cloudname": "hpcloud", 
+   "datatype": "image-ids", 
+   "format": "products:1.0", 
+   "products": [
+    "com.ubuntu.cloud:server:12.04:amd64", 
+    "com.ubuntu.cloud:server:14.04:amd64", 
+    "com.ubuntu.cloud:server:12.10:amd64", 
+    "com.ubuntu.cloud:server:15.04:amd64", 
+    "com.ubuntu.cloud:server:14.10:amd64"
+   ], 
+   "path": "streams/v1/com.ubuntu.cloud:released:hpcloud.sjson"
+  }, 
+  "com.ubuntu.cloud:released:azure": {
+   "updated": "Tue, 01 Nov 2016 18:54:59 +0000", 
+   "clouds": [
+    {
+     "region": "East US 2", 
+     "endpoint": "https://management.core.windows.net/"
+    }, 
+    {
+     "region": "UK South 2", 
+     "endpoint": "https://management.core.windows.net/"
+    }, 
+    {
+     "region": "Central India", 
+     "endpoint": "https://management.core.windows.net/"
+    }, 
+    {
+     "region": "Central US", 
+     "endpoint": "https://management.core.windows.net/"
+    }, 
+    {
+     "region": "West US", 
+     "endpoint": "https://management.core.windows.net/"
+    }, 
+    {
+     "region": "UK North", 
+     "endpoint": "https://management.core.windows.net/"
+    }, 
+    {
+     "region": "Australia East", 
+     "endpoint": "https://management.core.windows.net/"
+    }, 
+    {
+     "region": "North Central US", 
+     "endpoint": "https://management.core.windows.net/"
+    }, 
+    {
+     "region": "South India", 
+     "endpoint": "https://management.core.windows.net/"
+    }, 
+    {
+     "region": "Korea Central", 
+     "endpoint": "https://management.core.windows.net/"
+    }, 
+    {
+     "region": "Korea South", 
+     "endpoint": "https://management.core.windows.net/"
+    }, 
+    {
+     "region": "South Central US", 
+     "endpoint": "https://management.core.windows.net/"
+    }, 
+    {
+     "region": "East US", 
+     "endpoint": "https://management.core.windows.net/"
+    }, 
+    {
+     "region": "China East", 
+     "endpoint": "https://management.core.chinacloudapi.cn/"
+    }, 
+    {
+     "region": "Central US EUAP", 
+     "endpoint": "https://management.core.windows.net/"
+    }, 
+    {
+     "region": "Canada Central", 
+     "endpoint": "https://management.core.windows.net/"
+    }, 
+    {
+     "region": "Brazil South", 
+     "endpoint": "https://management.core.windows.net/"
+    }, 
+    {
+     "region": "West Europe", 
+     "endpoint": "https://management.core.windows.net/"
+    }, 
+    {
+     "region": "Canada East", 
+     "endpoint": "https://management.core.windows.net/"
+    }, 
+    {
+     "region": "West India", 
+     "endpoint": "https://management.core.windows.net/"
+    }, 
+    {
+     "region": "East US 2 EUAP", 
+     "endpoint": "https://management.core.windows.net/"
+    }, 
+    {
+     "region": "Japan West", 
+     "endpoint": "https://management.core.windows.net/"
+    }, 
+    {
+     "region": "East Asia", 
+     "endpoint": "https://management.core.windows.net/"
+    }, 
+    {
+     "region": "Southeast Asia", 
+     "endpoint": "https://management.core.windows.net/"
+    }, 
+    {
+     "region": "Australia Southeast", 
+     "endpoint": "https://management.core.windows.net/"
+    }, 
+    {
+     "region": "UK South", 
+     "endpoint": "https://management.core.windows.net/"
+    }, 
+    {
+     "region": "West US 2", 
+     "endpoint": "https://management.core.windows.net/"
+    }, 
+    {
+     "region": "China North", 
+     "endpoint": "https://management.core.chinacloudapi.cn/"
+    }, 
+    {
+     "region": "North Europe", 
+     "endpoint": "https://management.core.windows.net/"
+    }, 
+    {
+     "region": "UK West", 
+     "endpoint": "https://management.core.windows.net/"
+    }, 
+    {
+     "region": "Japan East", 
+     "endpoint": "https://management.core.windows.net/"
+    }, 
+    {
+     "region": "West Central US", 
+     "endpoint": "https://management.core.windows.net/"
+    }
+   ], 
+   "cloudname": "azure", 
+   "datatype": "image-ids", 
+   "format": "products:1.0", 
+   "products": [
+    "com.ubuntu.cloud:server:12.04:amd64", 
+    "com.ubuntu.cloud:server:14.04:amd64", 
+    "com.ubuntu.cloud:server:16.04:amd64", 
+    "com.ubuntu.cloud:server:14.10:amd64", 
+    "com.ubuntu.cloud:server:16.10:amd64"
+   ], 
+   "path": "streams/v1/com.ubuntu.cloud:released:azure.sjson"
+  }, 
+  "com.ubuntu.cloud:released:aws-govcloud": {
+   "updated": "Sat, 22 Oct 2016 19:05:46 +0000", 
+   "clouds": [
+    {
+     "region": "us-gov-west-1", 
+     "endpoint": "https://ec2.us-gov-west-1.amazonaws-govcloud.com"
+    }
+   ], 
+   "cloudname": "aws-govcloud", 
+   "datatype": "image-ids", 
+   "format": "products:1.0", 
+   "products": [
+    "com.ubuntu.cloud:server:13.10:amd64", 
+    "com.ubuntu.cloud:server:15.10:amd64", 
+    "com.ubuntu.cloud:server:12.04:i386", 
+    "com.ubuntu.cloud:server:14.04:i386", 
+    "com.ubuntu.cloud:server:16.04:amd64", 
+    "com.ubuntu.cloud:server:13.10:i386", 
+    "com.ubuntu.cloud:server:10.04:amd64", 
+    "com.ubuntu.cloud:server:14.04:amd64", 
+    "com.ubuntu.cloud:server:10.04:i386", 
+    "com.ubuntu.cloud:server:12.04:amd64", 
+    "com.ubuntu.cloud:server:14.10:amd64", 
+    "com.ubuntu.cloud:server:14.10:i386"
+   ], 
+   "path": "streams/v1/com.ubuntu.cloud:released:aws-govcloud.sjson"
+  }, 
+  "com.ubuntu.cloud:released:gce": {
+   "updated": "Thu, 20 Oct 2016 21:34:58 +0000", 
+   "clouds": [
+    {
+     "region": "asia-east1", 
+     "endpoint": "https://www.googleapis.com"
+    }, 
+    {
+     "region": "europe-west1", 
+     "endpoint": "https://www.googleapis.com"
+    }, 
+    {
+     "region": "us-east1", 
+     "endpoint": "https://www.googleapis.com"
+    }, 
+    {
+     "region": "us-central1", 
+     "endpoint": "https://www.googleapis.com"
+    }, 
+    {
+     "region": "us-west1", 
+     "endpoint": "https://www.googleapis.com"
+    }, 
+    {
+     "region": "asia-northeast1", 
+     "endpoint": "https://www.googleapis.com"
+    }
+   ], 
+   "cloudname": "gce", 
+   "datatype": "image-ids", 
+   "format": "products:1.0", 
+   "products": [
+    "com.ubuntu.cloud:server:15.10:amd64", 
+    "com.ubuntu.cloud:server:16.04:amd64", 
+    "com.ubuntu.cloud:server:15.04:amd64", 
+    "com.ubuntu.cloud:server:16.10:amd64", 
+    "com.ubuntu.cloud:server:14.04:amd64", 
+    "com.ubuntu.cloud:server:12.04:amd64", 
+    "com.ubuntu.cloud:server:14.10:amd64"
+   ], 
+   "path": "streams/v1/com.ubuntu.cloud:released:gce.sjson"
+  }, 
+  "com.ubuntu.cloud:released:cloudsigma": {
+   "updated": "Fri, 04 Nov 2016 03:09:55 +0000", 
+   "clouds": [
+    {
+     "region": "zrh", 
+     "endpoint": "https://zrh.cloudsigma.com/"
+    }, 
+    {
+     "region": "mia", 
+     "endpoint": "https://mia.cloudsigma.com/"
+    }, 
+    {
+     "region": "sjc", 
+     "endpoint": "https://sjc.cloudsigma.com/"
+    }, 
+    {
+     "region": "wdc", 
+     "endpoint": "https://wdc.cloudsigma.com/"
+    }
+   ], 
+   "cloudname": "cloudsigma", 
+   "datatype": "image-ids", 
+   "format": "products:1.0", 
+   "products": [
+    "com.ubuntu.cloud:server:15.10:amd64", 
+    "com.ubuntu.cloud:server:16.04:amd64", 
+    "com.ubuntu.cloud:server:15.04:amd64", 
+    "com.ubuntu.cloud:server:14.04:amd64", 
+    "com.ubuntu.cloud:server:12.04:amd64", 
+    "com.ubuntu.cloud:server:14.10:amd64"
+   ], 
+   "path": "streams/v1/com.ubuntu.cloud:released:cloudsigma.sjson"
+  }, 
+  "com.ubuntu.cloud:released:aws": {
+   "updated": "Fri, 04 Nov 2016 03:34:00 +0000", 
+   "clouds": [
+    {
+     "region": "ap-south-1", 
+     "endpoint": "https://ec2.ap-south-1.amazonaws.com"
+    }, 
+    {
+     "region": "us-east-1", 
+     "endpoint": "https://ec2.us-east-1.amazonaws.com"
+    }, 
+    {
+     "region": "ap-northeast-1", 
+     "endpoint": "https://ec2.ap-northeast-1.amazonaws.com"
+    }, 
+    {
+     "region": "eu-west-1", 
+     "endpoint": "https://ec2.eu-west-1.amazonaws.com"
+    }, 
+    {
+     "region": "ap-northeast-2", 
+     "endpoint": "https://ec2.ap-northeast-2.amazonaws.com"
+    }, 
+    {
+     "region": "ap-southeast-1", 
+     "endpoint": "https://ec2.ap-southeast-1.amazonaws.com"
+    }, 
+    {
+     "region": "ap-southeast-2", 
+     "endpoint": "https://ec2.ap-southeast-2.amazonaws.com"
+    }, 
+    {
+     "region": "us-west-2", 
+     "endpoint": "https://ec2.us-west-2.amazonaws.com"
+    }, 
+    {
+     "region": "us-west-1", 
+     "endpoint": "https://ec2.us-west-1.amazonaws.com"
+    }, 
+    {
+     "region": "eu-central-1", 
+     "endpoint": "https://ec2.eu-central-1.amazonaws.com"
+    }, 
+    {
+     "region": "sa-east-1", 
+     "endpoint": "https://ec2.sa-east-1.amazonaws.com"
+    }, 
+    {
+     "region": "us-east-2", 
+     "endpoint": "https://ec2.us-east-2.amazonaws.com"
+    }
+   ], 
+   "cloudname": "aws", 
+   "datatype": "image-ids", 
+   "format": "products:1.0", 
+   "products": [
+    "com.ubuntu.cloud:server:13.10:amd64", 
+    "com.ubuntu.cloud:server:15.10:amd64", 
+    "com.ubuntu.cloud:server:13.04:amd64", 
+    "com.ubuntu.cloud:server:12.10:i386", 
+    "com.ubuntu.cloud:server:12.04:i386", 
+    "com.ubuntu.cloud:server:14.04:i386", 
+    "com.ubuntu.cloud:server:16.04:amd64", 
+    "com.ubuntu.cloud:server:13.10:i386", 
+    "com.ubuntu.cloud:server:10.04:amd64", 
+    "com.ubuntu.cloud:server:15.04:amd64", 
+    "com.ubuntu.cloud:server:10.04:i386", 
+    "com.ubuntu.cloud:server:14.04:amd64", 
+    "com.ubuntu.cloud:server:12.10:amd64", 
+    "com.ubuntu.cloud:server:13.04:i386", 
+    "com.ubuntu.cloud:server:15.04:i386", 
+    "com.ubuntu.cloud:server:11.10:amd64", 
+    "com.ubuntu.cloud:server:11.10:i386", 
+    "com.ubuntu.cloud:server:12.04:amd64", 
+    "com.ubuntu.cloud:server:16.10:amd64", 
+    "com.ubuntu.cloud:server:14.10:amd64", 
+    "com.ubuntu.cloud:server:14.10:i386"
+   ], 
+   "path": "streams/v1/com.ubuntu.cloud:released:aws.sjson"
+  }, 
+  "com.ubuntu.cloud:released:aws-cn": {
+   "updated": "Sun, 23 Oct 2016 05:54:30 +0000", 
+   "clouds": [
+    {
+     "region": "cn-north-1", 
+     "endpoint": "https://ec2.cn-north-1.amazonaws.com.cn"
+    }
+   ], 
+   "cloudname": "aws-cn", 
+   "datatype": "image-ids", 
+   "format": "products:1.0", 
+   "products": [
+    "com.ubuntu.cloud:server:13.10:amd64", 
+    "com.ubuntu.cloud:server:15.10:amd64", 
+    "com.ubuntu.cloud:server:12.04:i386", 
+    "com.ubuntu.cloud:server:14.04:i386", 
+    "com.ubuntu.cloud:server:16.04:amd64", 
+    "com.ubuntu.cloud:server:13.10:i386", 
+    "com.ubuntu.cloud:server:10.04:amd64", 
+    "com.ubuntu.cloud:server:15.04:amd64", 
+    "com.ubuntu.cloud:server:14.04:amd64", 
+    "com.ubuntu.cloud:server:10.04:i386", 
+    "com.ubuntu.cloud:server:12.04:amd64", 
+    "com.ubuntu.cloud:server:14.10:amd64", 
+    "com.ubuntu.cloud:server:14.10:i386"
+   ], 
+   "path": "streams/v1/com.ubuntu.cloud:released:aws-cn.sjson"
+  }
+ }, 
+ "updated": "Fri, 04 Nov 2016 03:34:01 +0000", 
+ "format": "index:1.0"
+}
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.11 (GNU/Linux)
+
+iQIcBAEBCgAGBQJYHAGrAAoJEH/z9AhHbPEAxhkQALWTEuYrUq70LfdnBZJOSHfh
+anXXFSbe5RPCumgtAoP/JDUWEjYvkIUCQEhD6dKuywDCxbxtPziA46tOXOOKGdVD
+7yf/H7WEYt33l3N//C8OPgOnZaLsA2poietu00KDUlgAWhdzMtb6WAx7g7Zl8bpR
+L+uvpwMVZqG972Z/zkE/+7yuRsDsANI+YZga5lXc9PUVn1ArjdKW19jTefkQxcqU
+qDHXJszzFFURjwXTvTe4TnwCuIHl2sbySiMQcDAUkwehseeKs9O3Ji7CGk9yh25Y
+jG/+DFgzDTyENtgX7+iH69uhOSjyXRDXjPIoKP/yjmdVAXStZdAVeqUV/v1VtV3E
+N0CsnBKdyvCs7znrNT/Hx4zDVbBJEUS3gwPiuBcTd27XWzEnNJazYyyDW2u97+QU
+1QW7rpMk0OP0MuZdyqK+OJsNjsg9L0QRAe7ndbt7yHYfkiqDQlinsdGvWvB+PGJZ
+kSk3wSZMiKwyHpQaQUmn0CFRKYSingyhUCbW/9O88E3gYSYeJ1KuY1m12dSWzluO
+R7rirhiUoMjrv6I86cN52ttKe6iOdiP4PSXkIpA6PMY2w3eJ7Ocyv6QTUVCXmIzG
+EZMUsepxLU9H3WfRaaVHHyX10suPrqpbG2ukFC/342QsVc6+mJCdONbwb45rmuMf
+xyS4aQGHHSDBhVBG7eUy
+=WWCZ
+-----END PGP SIGNATURE-----

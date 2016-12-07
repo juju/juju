@@ -4,15 +4,14 @@
 package kvm_test
 
 import (
-	"fmt"
 	"runtime"
-	"strings"
 
-	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/container/kvm"
+	"github.com/juju/juju/environs/imagedownloads"
+	"github.com/juju/juju/environs/simplestreams"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -32,29 +31,52 @@ func (s *LibVertSuite) SetUpTest(c *gc.C) {
 	}
 }
 
+type testSyncParams struct {
+	arch, series, ftype string
+	srcFunc             func() simplestreams.DataSource
+	onevalErr           error
+	success             bool
+}
+
+func (p testSyncParams) One() (*imagedownloads.Metadata, error) {
+	if p.success {
+		return &imagedownloads.Metadata{
+			Arch:    p.arch,
+			Release: p.series,
+		}, nil
+
+	}
+	return nil, p.onevalErr
+}
+
+func (p testSyncParams) sourceURL() (string, error) {
+	return p.srcFunc().URL("")
+}
+
 // Test that the call to SyncImages utilizes the defined source
 func (s *LibVertSuite) TestSyncImagesUtilizesSimpleStreamsSource(c *gc.C) {
-
-	const simpStreamsBinName = "uvt-simplestreams-libvirt"
-	testing.PatchExecutableAsEchoArgs(c, s, simpStreamsBinName)
 
 	const (
 		series = "mocked-series"
 		arch   = "mocked-arch"
 		source = "mocked-url"
 	)
-	err := kvm.SyncImages(series, arch, source)
+	p := testSyncParams{
+		arch:    arch,
+		series:  series,
+		srcFunc: func() simplestreams.DataSource { return imagedownloads.NewDataSource(source) },
+		success: true,
+	}
+	err := kvm.Sync(p, fakeUpdater{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	expectedArgs := strings.Split(
-		fmt.Sprintf(
-			"sync arch=%s release=%s --source=%s",
-			arch,
-			series,
-			source,
-		),
-		" ",
-	)
+	url, err := p.sourceURL()
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(url, jc.DeepEquals, source+"/")
 
-	testing.AssertEchoArgs(c, simpStreamsBinName, expectedArgs...)
+	res, err := p.One()
+	c.Check(err, jc.ErrorIsNil)
+
+	c.Check(res.Arch, jc.DeepEquals, arch)
+	c.Check(res.Release, jc.DeepEquals, series)
 }
