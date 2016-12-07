@@ -352,7 +352,7 @@ class TestWaitForMigration(TestCase):
             status:
                 current: available
                 since: 4 minutes ago
-    """)
+        """)
 
     migration_status_yaml = dedent("""\
         name:
@@ -470,30 +470,35 @@ class TestWaitForModel(TestCase):
 class TestEnsureApiLoginRedirects(FakeHomeTestCase):
 
     def test_ensure_api_login_redirects(self):
-        patch_assert_data = patch.object(amm,
-            'assert_data_file_lists_correct_controller_for_model')
-        patch_assert_uuid = patch.object(amm,
-            'assert_model_has_correct_controller_uuid')
-        client1 = fake_juju_client()
-        client2 = fake_juju_client()
+        def named_fake_juju_client(name):
+            env = JujuData(name, {'name': name, 'type': 'foo'})
+            return fake_juju_client(env=env)
+
+        patch_assert_data = patch.object(
+            amm, 'assert_data_file_lists_correct_controller_for_model')
+        patch_assert_uuid = patch.object(
+            amm, 'assert_model_has_correct_controller_uuid')
+        client1 = named_fake_juju_client('source')
+        client2 = named_fake_juju_client('target')
+        client3 = named_fake_juju_client('dest')
         model_details_list = [
             {client.env.environment: {'controller-uuid': uuid}}
             for (client, uuid)
-            in [(client1, '12345'), (client2, 'ABCDE')]]
-        with patch('logging.Logger.info', autospec=True) as info_mock:
+            in [(client1, '12345'), (client3, 'ABCDE')]]
+        with patch('logging.Logger.info', autospec=True):
             with patch('jujupy.EnvJujuClient.show_model', autospec=True,
                        side_effect=model_details_list) as show_model_mock:
-                with patch.object(amm, 'migrate_model_to_controller'):
+                with patch.object(amm, 'migrate_model_to_controller',
+                                  return_value=client3):
                     with patch_assert_data, patch_assert_uuid:
                         ensure_api_login_redirects(client1, client2)
+        show_model_mock.assert_has_calls([call(client1), call(client3)])
 
     def fake_home_juju_client(self):
         env = JujuData('name', {'type': 'foo', 'default-series': 'angsty',
                                 'region': 'bar'}, juju_home=self.juju_home)
         return fake_juju_client(env=env)
 
-    # This is assuming that models.yaml contains what the test assumes it
-    # does. A bold assumption, but for now that is what I got.
     def create_models_yaml(self, client, controllers_to_models):
         data = dict([(controller, {'models': models})
                      for (controller, models)
@@ -540,7 +545,6 @@ class TestEnsureApiLoginRedirects(FakeHomeTestCase):
         with self.patch_uuid_client(client, '12345', 'ABCDE'):
             with self.assertRaises(JujuAssertionError):
                 assert_model_has_correct_controller_uuid(client)
-
 
 
 class TestDeployMongodbToNewModel(TestCase):
