@@ -4,6 +4,7 @@
 package remoterelations
 
 import (
+	"io"
 	"sync"
 
 	"github.com/juju/errors"
@@ -18,15 +19,28 @@ import (
 
 var logger = loggo.GetLogger("juju.worker.remoterelations")
 
-// RemoteRelationsFacade exposes remote relation functionality to a worker.
-type RemoteRelationsFacade interface {
-	// ExportEntities allocates unique, remote entity IDs for the
-	// given entities in the local model.
-	ExportEntities([]names.Tag) ([]params.RemoteEntityIdResult, error)
+// RemoteRelationChangePublisherCloser implements RemoteRelationChangePublisher
+// and add a Close() method.
+type RemoteRelationChangePublisherCloser interface {
+	io.Closer
+	RemoteRelationChangePublisher
+}
 
+// RemoteRelationChangePublisher instances publish local relation changes to the
+// model hosting the remote application involved in the relation
+type RemoteRelationChangePublisher interface {
 	// PublishLocalRelationChange publishes local relation changes to the
 	// model hosting the remote application involved in the relation.
 	PublishLocalRelationChange(params.RemoteRelationChangeEvent) error
+}
+
+// RemoteRelationsFacade exposes remote relation functionality to a worker.
+type RemoteRelationsFacade interface {
+	RemoteRelationChangePublisher
+
+	// ExportEntities allocates unique, remote entity IDs for the
+	// given entities in the local model.
+	ExportEntities([]names.Tag) ([]params.RemoteEntityIdResult, error)
 
 	// RelationUnitSettings returns the relation unit settings for the
 	// given relation units in the local model.
@@ -57,7 +71,8 @@ type RemoteRelationsFacade interface {
 
 // Config defines the operation of a Worker.
 type Config struct {
-	RelationsFacade RemoteRelationsFacade
+	RelationsFacade          RemoteRelationsFacade
+	NewPublisherForModelFunc func(modelUUID string) (RemoteRelationChangePublisherCloser, error)
 }
 
 // Validate returns an error if config cannot drive a Worker.
@@ -130,6 +145,9 @@ func (w *Worker) loop() (err error) {
 			if !ok {
 				return errors.New("change channel closed")
 			}
+			if len(applicationIds) == 0 {
+				continue
+			}
 			err = w.handleApplicationChanges(applicationIds)
 			if err != nil {
 				return err
@@ -179,6 +197,7 @@ func (w *Worker) handleApplicationChanges(applicationIds []string) error {
 		appWorker, err := newRemoteApplicationWorker(
 			relationsWatcher,
 			result.Result.ModelUUID,
+			w.config.NewPublisherForModelFunc,
 			w.config.RelationsFacade,
 			&w.exportMutex,
 		)
@@ -211,8 +230,9 @@ type remoteApplicationWorker struct {
 	modelUUID        string // uuid of the model hosting the remote application
 	relationChanges  chan params.RemoteRelationChangeEvent
 
-	exportMutex *sync.Mutex
-	facade      RemoteRelationsFacade
+	exportMutex              *sync.Mutex
+	facade                   RemoteRelationsFacade
+	newPublisherForModelFunc func(modelUUID string) (RemoteRelationChangePublisherCloser, error)
 }
 
 type relation struct {
@@ -223,15 +243,17 @@ type relation struct {
 func newRemoteApplicationWorker(
 	relationsWatcher watcher.StringsWatcher,
 	modelUUID string,
+	newPublisherForModelFunc func(modelUUID string) (RemoteRelationChangePublisherCloser, error),
 	facade RemoteRelationsFacade,
 	exportMutex *sync.Mutex,
 ) (worker.Worker, error) {
 	w := &remoteApplicationWorker{
-		relationsWatcher: relationsWatcher,
-		modelUUID:        modelUUID,
-		relationChanges:  make(chan params.RemoteRelationChangeEvent),
-		facade:           facade,
-		exportMutex:      exportMutex,
+		relationsWatcher:         relationsWatcher,
+		modelUUID:                modelUUID,
+		relationChanges:          make(chan params.RemoteRelationChangeEvent),
+		facade:                   facade,
+		exportMutex:              exportMutex,
+		newPublisherForModelFunc: newPublisherForModelFunc,
 	}
 	err := catacomb.Invoke(catacomb.Plan{
 		Site: &w.catacomb,
@@ -252,6 +274,12 @@ func (w *remoteApplicationWorker) Wait() error {
 }
 
 func (w *remoteApplicationWorker) loop() error {
+	publisher, err := w.newPublisherForModelFunc(w.modelUUID)
+	if err != nil {
+		return errors.Annotate(err, "opening publisher to remote model")
+	}
+	defer publisher.Close()
+
 	relations := make(map[string]*relation)
 	for {
 		select {
@@ -275,8 +303,7 @@ func (w *remoteApplicationWorker) loop() error {
 			}
 		case change := <-w.relationChanges:
 			logger.Debugf("relation units changed: %#v", change)
-			// TODO(Wallyworld) - use w.modelUUID to get facade on target model.
-			if err := w.facade.PublishLocalRelationChange(change); err != nil {
+			if err := publisher.PublishLocalRelationChange(change); err != nil {
 				return errors.Annotate(err, "publishing relation change to remote model")
 			}
 		}

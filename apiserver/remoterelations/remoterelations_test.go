@@ -8,6 +8,7 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver"
@@ -300,7 +301,7 @@ func (s *remoteRelationsSuite) xTestWatchRemoteApplicationRelationUnitRemovedRac
 }
 
 func (s *remoteRelationsSuite) TestPublishLocalRelationsChange(c *gc.C) {
-	_, err := s.api.PublishLocalRelationsChange(params.RemoteRelationsChanges{})
+	_, err := s.api.PublishLocalRelationChange(params.RemoteRelationsChanges{})
 	c.Assert(err, jc.Satisfies, errors.IsNotImplemented)
 }
 
@@ -494,7 +495,7 @@ func (s *remoteRelationsSuite) TestRemoteApplications(c *gc.C) {
 	})
 }
 
-func (s *remoteRelationsSuite) TestRemoteRelations(c *gc.C) {
+func (s *remoteRelationsSuite) TestRelations(c *gc.C) {
 	djangoRelationUnit := newMockRelationUnit()
 	djangoRelationUnit.settings["key"] = "value"
 	db2Relation := newMockRelation(123)
@@ -510,4 +511,44 @@ func (s *remoteRelationsSuite) TestRemoteRelations(c *gc.C) {
 	s.st.CheckCalls(c, []testing.StubCall{
 		{"KeyRelation", []interface{}{"db2:db django:db"}},
 	})
+}
+
+func (s *remoteRelationsSuite) assertRegisterRemoteRelations(c *gc.C) {
+	app := newMockApplication("offeredapp")
+	app.eps = []state.Endpoint{{
+		ApplicationName: "offeredapp",
+		Relation:        charm.Relation{Name: "local"},
+	}}
+	s.st.applications["offeredapp"] = app
+	result, err := s.api.RegisterRemoteRelations(params.RegisterRemoteRelations{
+		Relations: []params.RegisterRemoteRelation{{
+			ApplicationId:          params.RemoteEntityId{ModelUUID: "model-uuid", Token: "app-token"},
+			RelationId:             params.RemoteEntityId{ModelUUID: "model-uuid", Token: "rel-token"},
+			RemoteEndpoint:         params.RemoteEndpoint{Name: "remote"},
+			OfferedApplicationName: "offeredapp",
+			LocalEndpointName:      "local",
+		}}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(result.Results, jc.DeepEquals, []params.ErrorResult{{}})
+	expectedRemoteApp := s.st.remoteApplications["remote-apptoken"]
+	expectedRemoteApp.Stub = testing.Stub{} // don't care about api calls
+	c.Check(expectedRemoteApp, jc.DeepEquals, &mockRemoteApplication{
+		name: "remote-apptoken",
+		eps:  []charm.Relation{{Name: "remote"}},
+	})
+	expectedRel := s.st.relations["offeredapp:local remote-apptoken:remote"]
+	expectedRel.Stub = testing.Stub{} // don't care about api calls
+	c.Check(expectedRel, jc.DeepEquals, &mockRelation{key: "offeredapp:local remote-apptoken:remote"})
+	c.Check(s.st.remoteEntities, gc.HasLen, 2)
+	c.Check(s.st.remoteEntities["remote-apptoken"], gc.Equals, "app-token")
+	c.Check(s.st.remoteEntities["offeredapp:local remote-apptoken:remote"], gc.Equals, "rel-token")
+}
+
+func (s *remoteRelationsSuite) TestRegisterRemoteRelations(c *gc.C) {
+	s.assertRegisterRemoteRelations(c)
+}
+
+func (s *remoteRelationsSuite) TestRegisterRemoteRelationsIdempotent(c *gc.C) {
+	s.assertRegisterRemoteRelations(c)
+	s.assertRegisterRemoteRelations(c)
 }

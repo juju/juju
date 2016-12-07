@@ -4,8 +4,11 @@
 package remoterelations_test
 
 import (
+	"fmt"
+
 	"github.com/juju/errors"
 	"github.com/juju/testing"
+	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/tomb.v1"
 
@@ -23,7 +26,7 @@ type mockState struct {
 	applications                 map[string]*mockApplication
 	remoteApplicationsWatcher    *mockStringsWatcher
 	applicationRelationsWatchers map[string]*mockStringsWatcher
-	exportedEntities             map[string]string
+	remoteEntities               map[string]string
 }
 
 func newMockState() *mockState {
@@ -33,7 +36,7 @@ func newMockState() *mockState {
 		applications:                 make(map[string]*mockApplication),
 		remoteApplicationsWatcher:    newMockStringsWatcher(),
 		applicationRelationsWatchers: make(map[string]*mockStringsWatcher),
-		exportedEntities:             make(map[string]string),
+		remoteEntities:               make(map[string]string),
 	}
 }
 
@@ -41,16 +44,48 @@ func (st *mockState) ModelUUID() string {
 	return coretesting.ModelTag.Id()
 }
 
+func (st *mockState) AddRelation(eps ...state.Endpoint) (remoterelations.Relation, error) {
+	rel := &mockRelation{
+		key: fmt.Sprintf("%v:%v %v:%v", eps[0].ApplicationName, eps[0].Name, eps[1].ApplicationName, eps[1].Name)}
+	st.relations[rel.key] = rel
+	return rel, nil
+}
+
+func (st *mockState) EndpointsRelation(eps ...state.Endpoint) (remoterelations.Relation, error) {
+	rel := &mockRelation{
+		key: fmt.Sprintf("%v:%v %v:%v", eps[0].ApplicationName, eps[0].Name, eps[1].ApplicationName, eps[1].Name)}
+	st.relations[rel.key] = rel
+	return rel, nil
+}
+
+func (st *mockState) AddRemoteApplication(params state.AddRemoteApplicationParams) (remoterelations.RemoteApplication, error) {
+	app := &mockRemoteApplication{name: params.Name, eps: params.Endpoints}
+	st.remoteApplications[params.Name] = app
+	return app, nil
+}
+
+func (st *mockState) ImportRemoteEntity(sourceModel names.ModelTag, entity names.Tag, token string) error {
+	st.MethodCall(st, "ImportRemoteEntity", sourceModel, entity, token)
+	if err := st.NextErr(); err != nil {
+		return err
+	}
+	if _, ok := st.remoteEntities[entity.Id()]; ok {
+		return errors.AlreadyExistsf(entity.Id())
+	}
+	st.remoteEntities[entity.Id()] = token
+	return nil
+}
+
 func (st *mockState) ExportLocalEntity(entity names.Tag) (string, error) {
 	st.MethodCall(st, "ExportLocalEntity", entity)
 	if err := st.NextErr(); err != nil {
 		return "", err
 	}
-	if token, ok := st.exportedEntities[entity.Id()]; ok {
+	if token, ok := st.remoteEntities[entity.Id()]; ok {
 		return token, errors.AlreadyExistsf(entity.Id())
 	}
 	token := "token-" + entity.Id()
-	st.exportedEntities[entity.Id()] = token
+	st.remoteEntities[entity.Id()] = token
 	return token, nil
 }
 
@@ -139,6 +174,7 @@ func (st *mockState) WatchRemoteApplicationRelations(applicationName string) (st
 type mockRelation struct {
 	testing.Stub
 	id                    int
+	key                   string
 	life                  state.Life
 	units                 map[string]remoterelations.RelationUnit
 	endpoints             []state.Endpoint
@@ -157,6 +193,11 @@ func newMockRelation(id int) *mockRelation {
 func (r *mockRelation) Id() int {
 	r.MethodCall(r, "Id")
 	return r.id
+}
+
+func (r *mockRelation) Tag() names.Tag {
+	r.MethodCall(r, "Tag")
+	return names.NewRelationTag(r.key)
 }
 
 func (r *mockRelation) Life() state.Life {
@@ -216,6 +257,7 @@ type mockRemoteApplication struct {
 	url    string
 	life   state.Life
 	status status.Status
+	eps    []charm.Relation
 }
 
 func newMockRemoteApplication(name, url string) *mockRemoteApplication {
@@ -227,6 +269,11 @@ func newMockRemoteApplication(name, url string) *mockRemoteApplication {
 func (r *mockRemoteApplication) Name() string {
 	r.MethodCall(r, "Name")
 	return r.name
+}
+
+func (r *mockRemoteApplication) Tag() names.Tag {
+	r.MethodCall(r, "Tag")
+	return names.NewApplicationTag(r.name)
 }
 
 func (r *mockRemoteApplication) Life() state.Life {
@@ -258,6 +305,7 @@ type mockApplication struct {
 	testing.Stub
 	name string
 	life state.Life
+	eps  []state.Endpoint
 }
 
 func newMockApplication(name string) *mockApplication {
@@ -266,14 +314,24 @@ func newMockApplication(name string) *mockApplication {
 	}
 }
 
-func (r *mockApplication) Name() string {
-	r.MethodCall(r, "Name")
-	return r.name
+func (a *mockApplication) Name() string {
+	a.MethodCall(a, "Name")
+	return a.name
 }
 
-func (r *mockApplication) Life() state.Life {
-	r.MethodCall(r, "Life")
-	return r.life
+func (a *mockApplication) Tag() names.Tag {
+	a.MethodCall(a, "Tag")
+	return names.NewApplicationTag(a.name)
+}
+
+func (a *mockApplication) Endpoints() ([]state.Endpoint, error) {
+	a.MethodCall(a, "Endpoints")
+	return a.eps, nil
+}
+
+func (a *mockApplication) Life() state.Life {
+	a.MethodCall(a, "Life")
+	return a.life
 }
 
 type mockWatcher struct {

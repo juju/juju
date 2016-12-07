@@ -2511,7 +2511,7 @@ func (s *serviceSuite) TestAddAlreadyAddedRelation(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	// And try to add it again.
 	_, err = s.applicationAPI.AddRelation(params.AddRelation{Endpoints: endpoints})
-	c.Assert(err, gc.ErrorMatches, `cannot add relation "wordpress:db mysql:server": relation already exists`)
+	c.Assert(err, gc.ErrorMatches, `cannot add relation "wordpress:db mysql:server": relation wordpress:db mysql:server already exists`)
 }
 
 type mockApplicationOffersFactory struct {
@@ -2581,7 +2581,7 @@ func (s *serviceSuite) TestAlreadyAddedRemoteRelation(c *gc.C) {
 
 	// And try to add it again.
 	_, err := s.applicationAPI.AddRelation(params.AddRelation{endpoints})
-	c.Assert(err, gc.ErrorMatches, `cannot add relation "wordpress:db hosted-mysql:server": relation already exists`)
+	c.Assert(err, gc.ErrorMatches, `cannot add relation "wordpress:db hosted-mysql:server": relation wordpress:db hosted-mysql:server already exists`)
 }
 
 func (s *serviceSuite) TestRemoteRelationInvalidEndpoint(c *gc.C) {
