@@ -89,7 +89,7 @@ type Facade interface {
 	// associated with the API connection.
 	Export() (coremigration.SerializedModel, error)
 
-	// XXX
+	// OpenResource downloads a single resource for an application.
 	OpenResource(string, string) (io.ReadCloser, error)
 
 	// Reap removes all documents of the model associated with the API
@@ -120,8 +120,7 @@ type Config struct {
 	UploadBinaries  func(migration.UploadBinariesConfig) error
 	CharmDownloader migration.CharmDownloader
 	ToolsDownloader migration.ToolsDownloader
-	// XXX ResourceDownloader
-	Clock clock.Clock
+	Clock           clock.Clock
 }
 
 // Validate returns an error if config cannot drive a Worker.
