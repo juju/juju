@@ -73,6 +73,9 @@ def run_command(command, env=None, dry_run=False, verbose=False):
 def go_build(package, goroot, gopath, goarch, goos,
              dry_run=False, verbose=False):
     """Build and install a go package."""
+    if goarch == 'ppc64el':
+        # The debian/juju ppc64el arch is called ppc64 by Go.
+        goarch = 'ppc64'
     env = dict(os.environ)
     env['GOROOT'] = goroot
     env['GOPATH'] = gopath
