@@ -188,6 +188,7 @@ func (api *API) Export() (params.SerializedModel, error) {
 	serialized.Bytes = bytes
 	serialized.Charms = getUsedCharms(model)
 	serialized.Tools = getUsedTools(model)
+	serialized.Resources = getUsedResources(model)
 	return serialized, nil
 }
 
@@ -307,5 +308,42 @@ func addToolsVersionForMachine(machine description.Machine, usedVersions map[ver
 	usedVersions[tools.Version()] = true
 	for _, container := range machine.Containers() {
 		addToolsVersionForMachine(container, usedVersions)
+	}
+}
+
+func getUsedResources(model description.Model) []params.SerializedModelResource {
+	var out []params.SerializedModelResource
+	for _, app := range model.Applications() {
+		for _, resource := range app.Resources() {
+			out = append(out, resourceToSerialized(app.Name(), resource))
+		}
+	}
+	return out
+}
+
+func resourceToSerialized(app string, desc description.Resource) params.SerializedModelResource {
+	return params.SerializedModelResource{
+		Application:         app,
+		Name:                desc.Name(),
+		ApplicationRevision: revisionToSerialized(desc.ApplicationRevision()),
+		CharmStoreRevision:  revisionToSerialized(desc.CharmStoreRevision()),
+		// TODO(menn0) - unit revisions
+	}
+}
+
+func revisionToSerialized(rr description.ResourceRevision) params.SerializedModelResourceRevision {
+	if rr == nil {
+		return params.SerializedModelResourceRevision{}
+	}
+	return params.SerializedModelResourceRevision{
+		Revision:       rr.Revision(),
+		Type:           rr.Type(),
+		Path:           rr.Path(),
+		Description:    rr.Description(),
+		Origin:         rr.Origin(),
+		FingerprintHex: rr.FingerprintHex(),
+		Size:           rr.Size(),
+		Timestamp:      rr.Timestamp(),
+		Username:       rr.Username(),
 	}
 }

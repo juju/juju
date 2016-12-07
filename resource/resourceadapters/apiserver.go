@@ -39,9 +39,10 @@ func NewPublicFacade(st *corestate.State, _ facade.Resources, authorizer facade.
 	return facade, nil
 }
 
-// NewUploadHandler returns a new HTTP handler for the given args.
-func NewUploadHandler(args apihttp.NewHandlerArgs) http.Handler {
-	return server.NewLegacyHTTPHandler(
+// NewApplicationHandler returns a new HTTP handler for application
+// level resource uploads and downloads.
+func NewApplicationHandler(args apihttp.NewHandlerArgs) http.Handler {
+	return server.NewHTTPHandler(
 		func(req *http.Request) (server.DataStore, names.Tag, error) {
 			st, entity, err := args.Connect(req)
 			if err != nil {
@@ -62,8 +63,8 @@ func NewDownloadHandler(args apihttp.NewHandlerArgs) http.Handler {
 	extractor := &httpDownloadRequestExtractor{
 		connect: args.Connect,
 	}
-	deps := internalserver.NewLegacyHTTPHandlerDeps(extractor)
-	return internalserver.NewLegacyHTTPHandler(deps)
+	deps := internalserver.NewHTTPHandlerDeps(extractor)
+	return internalserver.NewHTTPHandler(deps)
 }
 
 // stateConnector exposes ways to connect to Juju's state.

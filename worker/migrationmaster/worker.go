@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	coremigration "github.com/juju/juju/core/migration"
 	"github.com/juju/juju/migration"
+	"github.com/juju/juju/resource"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker/catacomb"
@@ -87,6 +88,9 @@ type Facade interface {
 	// Export returns a serialized representation of the model
 	// associated with the API connection.
 	Export() (coremigration.SerializedModel, error)
+
+	// OpenResource downloads a single resource for an application.
+	OpenResource(string, string) (io.ReadCloser, error)
 
 	// Reap removes all documents of the model associated with the API
 	// connection.
@@ -370,6 +374,11 @@ func (w *uploadWrapper) UploadCharm(curl *charm.URL, content io.ReadSeeker) (*ch
 	return w.client.UploadCharm(w.modelUUID, curl, content)
 }
 
+// UploadResource prepends the model UUID to the args passed to the migration client.
+func (w *uploadWrapper) UploadResource(res resource.Resource, content io.ReadSeeker) error {
+	return w.client.UploadResource(w.modelUUID, res, content)
+}
+
 func (w *Worker) transferModel(targetInfo coremigration.TargetInfo, modelUUID string) error {
 	w.setInfoStatus("exporting model")
 	serialized, err := w.config.Facade.Export()
@@ -395,11 +404,16 @@ func (w *Worker) transferModel(targetInfo coremigration.TargetInfo, modelUUID st
 		Charms:          serialized.Charms,
 		CharmDownloader: w.config.CharmDownloader,
 		CharmUploader:   wrapper,
+
 		Tools:           serialized.Tools,
 		ToolsDownloader: w.config.ToolsDownloader,
 		ToolsUploader:   wrapper,
+
+		Resources:          serialized.Resources,
+		ResourceDownloader: w.config.Facade,
+		ResourceUploader:   wrapper,
 	})
-	return errors.Annotate(err, "failed migration binaries")
+	return errors.Annotate(err, "failed to migrate binaries")
 }
 
 func (w *Worker) doVALIDATION(status coremigration.MigrationStatus) (coremigration.Phase, error) {

@@ -6,6 +6,8 @@ package server_test
 import (
 	"encoding/json"
 	"fmt"
+	"io"
+	"io/ioutil"
 	"net/http"
 	"strconv"
 	"strings"
@@ -21,19 +23,21 @@ import (
 	"github.com/juju/juju/resource/api/server"
 )
 
-type LegacyHTTPHandlerSuite struct {
+const downloadContent = "body"
+
+type HTTPHandlerSuite struct {
 	BaseSuite
 
-	username string
-	req      *http.Request
-	header   http.Header
-	resp     *stubHTTPResponseWriter
-	result   *api.UploadResult
+	username     string
+	req          *http.Request
+	header       http.Header
+	resp         *stubHTTPResponseWriter
+	uploadResult *api.UploadResult
 }
 
-var _ = gc.Suite(&LegacyHTTPHandlerSuite{})
+var _ = gc.Suite(&HTTPHandlerSuite{})
 
-func (s *LegacyHTTPHandlerSuite) SetUpTest(c *gc.C) {
+func (s *HTTPHandlerSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	method := "..."
@@ -48,10 +52,10 @@ func (s *LegacyHTTPHandlerSuite) SetUpTest(c *gc.C) {
 		stub:         s.stub,
 		returnHeader: s.header,
 	}
-	s.result = &api.UploadResult{}
+	s.uploadResult = &api.UploadResult{}
 }
 
-func (s *LegacyHTTPHandlerSuite) connect(req *http.Request) (server.DataStore, names.Tag, error) {
+func (s *HTTPHandlerSuite) connect(req *http.Request) (server.DataStore, names.Tag, error) {
 	s.stub.AddCall("Connect", req)
 	if err := s.stub.NextErr(); err != nil {
 		return nil, nil, errors.Trace(err)
@@ -61,23 +65,35 @@ func (s *LegacyHTTPHandlerSuite) connect(req *http.Request) (server.DataStore, n
 	return s.data, tag, nil
 }
 
-func (s *LegacyHTTPHandlerSuite) handleUpload(username string, st server.DataStore, req *http.Request) (*api.UploadResult, error) {
+func (s *HTTPHandlerSuite) handleDownload(st server.DataStore, req *http.Request) (io.ReadCloser, int64, error) {
+	s.stub.AddCall("HandleDownload", st, req)
+	if err := s.stub.NextErr(); err != nil {
+		return nil, 0, errors.Trace(err)
+	}
+
+	reader := ioutil.NopCloser(strings.NewReader(downloadContent))
+	return reader, int64(len(downloadContent)), nil
+}
+
+func (s *HTTPHandlerSuite) handleUpload(username string, st server.DataStore, req *http.Request) (*api.UploadResult, error) {
 	s.stub.AddCall("HandleUpload", username, st, req)
 	if err := s.stub.NextErr(); err != nil {
 		return nil, errors.Trace(err)
 	}
-
-	return s.result, nil
+	return s.uploadResult, nil
 }
 
-func (s *LegacyHTTPHandlerSuite) TestServeHTTPConnectFailure(c *gc.C) {
+func (s *HTTPHandlerSuite) copyRequest() *http.Request {
+	copy := *s.req
+	return &copy
+}
+
+func (s *HTTPHandlerSuite) TestServeHTTPConnectFailure(c *gc.C) {
 	s.username = "youknowwho"
-	handler := server.LegacyHTTPHandler{
-		Connect:      s.connect,
-		HandleUpload: s.handleUpload,
+	handler := server.HTTPHandler{
+		Connect: s.connect,
 	}
-	copied := *s.req
-	req := &copied
+	req := s.copyRequest()
 	failure, expected := apiFailure(c, "<failure>", "")
 	s.stub.SetErrors(failure)
 
@@ -100,15 +116,13 @@ func (s *LegacyHTTPHandlerSuite) TestServeHTTPConnectFailure(c *gc.C) {
 	})
 }
 
-func (s *LegacyHTTPHandlerSuite) TestServeHTTPUnsupportedMethod(c *gc.C) {
+func (s *HTTPHandlerSuite) TestServeHTTPUnsupportedMethod(c *gc.C) {
 	s.username = "youknowwho"
-	handler := server.LegacyHTTPHandler{
-		Connect:      s.connect,
-		HandleUpload: s.handleUpload,
+	handler := server.HTTPHandler{
+		Connect: s.connect,
 	}
 	s.req.Method = "POST"
-	copied := *s.req
-	req := &copied
+	req := s.copyRequest()
 	_, expected := apiFailure(c, `unsupported method: "POST"`, params.CodeMethodNotAllowed)
 
 	handler.ServeHTTP(s.resp, req)
@@ -130,18 +144,41 @@ func (s *LegacyHTTPHandlerSuite) TestServeHTTPUnsupportedMethod(c *gc.C) {
 	})
 }
 
-func (s *LegacyHTTPHandlerSuite) TestServeHTTPPutSuccess(c *gc.C) {
-	s.result.Resource.Name = "spam"
-	expected, err := json.Marshal(s.result)
+func (s *HTTPHandlerSuite) TestServeHTTPGetSuccess(c *gc.C) {
+	handler := server.HTTPHandler{
+		Connect:        s.connect,
+		HandleDownload: s.handleDownload,
+	}
+	s.req.Method = "GET"
+	req := s.copyRequest()
+
+	handler.ServeHTTP(s.resp, req)
+
+	s.stub.CheckCalls(c, []testing.StubCall{
+		{"Connect", []interface{}{req}},
+		{"HandleDownload", []interface{}{s.data, req}},
+		{"Header", []interface{}{}},
+		{"WriteHeader", []interface{}{http.StatusOK}},
+		{"Write", []interface{}{downloadContent}},
+	})
+	c.Check(req, jc.DeepEquals, s.req) // did not change
+	c.Check(s.header, jc.DeepEquals, http.Header{
+		"Content-Type":   []string{"application/octet-stream"},
+		"Content-Length": []string{fmt.Sprint(len(downloadContent))},
+	})
+}
+
+func (s *HTTPHandlerSuite) TestServeHTTPPutSuccess(c *gc.C) {
+	s.uploadResult.Resource.Name = "spam"
+	expected, err := json.Marshal(s.uploadResult)
 	c.Assert(err, jc.ErrorIsNil)
 	s.username = "youknowwho"
-	handler := server.LegacyHTTPHandler{
+	handler := server.HTTPHandler{
 		Connect:      s.connect,
 		HandleUpload: s.handleUpload,
 	}
 	s.req.Method = "PUT"
-	copied := *s.req
-	req := &copied
+	req := s.copyRequest()
 
 	handler.ServeHTTP(s.resp, req)
 
@@ -164,15 +201,14 @@ func (s *LegacyHTTPHandlerSuite) TestServeHTTPPutSuccess(c *gc.C) {
 	})
 }
 
-func (s *LegacyHTTPHandlerSuite) TestServeHTTPPutHandleUploadFailure(c *gc.C) {
+func (s *HTTPHandlerSuite) TestServeHTTPPutHandleUploadFailure(c *gc.C) {
 	s.username = "youknowwho"
-	handler := server.LegacyHTTPHandler{
+	handler := server.HTTPHandler{
 		Connect:      s.connect,
 		HandleUpload: s.handleUpload,
 	}
 	s.req.Method = "PUT"
-	copied := *s.req
-	req := &copied
+	req := s.copyRequest()
 	failure, expected := apiFailure(c, "<failure>", "")
 	s.stub.SetErrors(nil, failure)
 

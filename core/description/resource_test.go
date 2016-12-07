@@ -100,6 +100,12 @@ func (s *ResourceSuite) TestNew(c *gc.C) {
 	c.Check(csRev.Username(), gc.Equals, "")
 }
 
+func (s *ResourceSuite) TestNilRevisions(c *gc.C) {
+	r := newResource(ResourceArgs{"z"})
+	c.Check(r.ApplicationRevision(), gc.IsNil)
+	c.Check(r.CharmStoreRevision(), gc.IsNil)
+}
+
 func (s *ResourceSuite) TestMinimalValid(c *gc.C) {
 	r := minimalResource()
 	c.Assert(r.Validate(), jc.ErrorIsNil)
@@ -136,21 +142,6 @@ func (s *ResourceSuite) TestValidateMissingApplicationRev(c *gc.C) {
 
 func (s *ResourceSuite) TestRoundTrip(c *gc.C) {
 	rIn := minimalResource()
-	rOut := s.exportImport(c, rIn)
-	c.Assert(rOut, jc.DeepEquals, rIn)
-}
-
-func (s *ResourceSuite) TestRoundTripWithCharmStoreRev(c *gc.C) {
-	rIn := minimalResource()
-	rIn.SetCharmStoreRevision(ResourceRevisionArgs{
-		Revision:       4,
-		Type:           "file",
-		Path:           "file.tar.gz",
-		Description:    "description",
-		Origin:         "store",
-		FingerprintHex: "bbbbbbbb",
-		Size:           222,
-	})
 	rOut := s.exportImport(c, rIn)
 	c.Assert(rOut, jc.DeepEquals, rIn)
 }

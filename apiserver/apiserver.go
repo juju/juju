@@ -427,6 +427,12 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 			stateAuthFunc: httpCtxt.stateForMigrationImporting,
 		},
 	)
+	add("/migrate/resources",
+		&resourceUploadHandler{
+			ctxt:          httpCtxt,
+			stateAuthFunc: httpCtxt.stateForMigrationImporting,
+		},
+	)
 	add("/model/:modeluuid/tools/:version",
 		&toolsDownloadHandler{
 			ctxt: httpCtxt,
@@ -516,27 +522,11 @@ func (srv *Server) newHandlerArgs(spec apihttp.HandlerConstraints) apihttp.NewHa
 		strictValidation:    spec.StrictValidation,
 		controllerModelOnly: spec.ControllerModelOnly,
 	}
-
-	var args apihttp.NewHandlerArgs
-	switch spec.AuthKind {
-	case names.UserTagKind:
-		args.Connect = ctxt.stateAndEntityForRequestAuthenticatedUser
-	case names.UnitTagKind:
-		args.Connect = ctxt.stateForRequestAuthenticatedAgent
-	case "":
-		logger.Tracef(`no access level specified; proceeding with "unauthenticated"`)
-		args.Connect = func(req *http.Request) (*state.State, state.Entity, error) {
-			st, err := ctxt.stateForRequestUnauthenticated(req)
-			return st, nil, err
-		}
-	default:
-		logger.Infof(`unrecognized access level %q; proceeding with "unauthenticated"`, spec.AuthKind)
-		args.Connect = func(req *http.Request) (*state.State, state.Entity, error) {
-			st, err := ctxt.stateForRequestUnauthenticated(req)
-			return st, nil, err
-		}
+	return apihttp.NewHandlerArgs{
+		Connect: func(req *http.Request) (*state.State, state.Entity, error) {
+			return ctxt.stateForRequestAuthenticatedTag(req, spec.AuthKinds...)
+		},
 	}
-	return args
 }
 
 // trackRequests wraps a http.Handler, incrementing and decrementing

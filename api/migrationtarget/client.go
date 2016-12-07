@@ -21,19 +21,16 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
 	coremigration "github.com/juju/juju/core/migration"
+	"github.com/juju/juju/resource"
 	"github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
 )
-
-type httpClient interface {
-	HTTPClient() (*httprequest.Client, error)
-}
 
 // NewClient returns a new Client based on an existing API connection.
 func NewClient(caller base.APICaller) *Client {
 	return &Client{
 		caller:            base.NewFacadeCaller(caller, "MigrationTarget"),
-		httpClientFactory: caller,
+		httpClientFactory: caller.HTTPClient,
 	}
 }
 
@@ -42,7 +39,7 @@ func NewClient(caller base.APICaller) *Client {
 // controller during a migration.
 type Client struct {
 	caller            base.FacadeCaller
-	httpClientFactory httpClient
+	httpClientFactory func() (*httprequest.Client, error)
 }
 
 func (c *Client) Prechecks(model coremigration.ModelInfo) error {
@@ -109,6 +106,25 @@ func (c *Client) UploadTools(modelUUID string, r io.ReadSeeker, vers version.Bin
 	return resp.ToolsList, nil
 }
 
+// UploadResource uploads a migration to the resource migration endpoint.
+func (c *Client) UploadResource(modelUUID string, res resource.Resource, r io.ReadSeeker) error {
+	args := url.Values{}
+	args.Add("application", res.ApplicationID)
+	args.Add("user", res.Username)
+	args.Add("name", res.Name)
+	args.Add("type", res.Type.String())
+	args.Add("path", res.Path)
+	args.Add("description", res.Description)
+	args.Add("origin", res.Origin.String())
+	args.Add("revision", fmt.Sprintf("%d", res.Revision))
+	args.Add("size", fmt.Sprintf("%d", res.Size))
+	args.Add("fingerprint", res.Fingerprint.Hex())
+	uri := "/migrate/resources?" + args.Encode()
+	contentType := "application/octet-stream"
+	err := c.httpPost(modelUUID, r, uri, contentType, nil)
+	return errors.Trace(err)
+}
+
 func (c *Client) httpPost(modelUUID string, content io.ReadSeeker, endpoint, contentType string, response interface{}) error {
 	req, err := http.NewRequest("POST", endpoint, nil)
 	if err != nil {
@@ -118,7 +134,7 @@ func (c *Client) httpPost(modelUUID string, content io.ReadSeeker, endpoint, con
 	req.Header.Set(params.MigrationModelHTTPHeader, modelUUID)
 
 	// The returned httpClient sets the base url to /model/<uuid> if it can.
-	httpClient, err := c.httpClientFactory.HTTPClient()
+	httpClient, err := c.httpClientFactory()
 	if err != nil {
 		return errors.Trace(err)
 	}

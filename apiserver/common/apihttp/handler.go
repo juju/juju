@@ -20,11 +20,11 @@ type NewHandlerArgs struct {
 // HandlerConstraints describes conditions under which a handler
 // may operate.
 type HandlerConstraints struct {
-	// AuthKind defines the kind of authenticated "user" that the
+	// AuthKinds defines the kinds of authenticated "user" that the
 	// handler supports. This correlates directly to entities, as
-	// identified by tag kinds (e.g. names.UserTagKind). The empty
-	// string indicates support for unauthenticated requests.
-	AuthKind string
+	// identified by tag kinds (e.g. names.UserTagKind). An empty list
+	// will block all authentication.
+	AuthKinds []string
 
 	// StrictValidation is the value that will be used for the handler's
 	// httpContext (see apiserver/httpcontext.go).

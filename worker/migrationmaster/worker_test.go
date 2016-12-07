@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	coremigration "github.com/juju/juju/core/migration"
 	"github.com/juju/juju/migration"
+	"github.com/juju/juju/resource/resourcetesting"
 	coretesting "github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/watcher"
@@ -193,6 +194,10 @@ func (s *Suite) makeStatus(phase coremigration.Phase) coremigration.MigrationSta
 }
 
 func (s *Suite) TestSuccessfulMigration(c *gc.C) {
+	s.facade.exportedResources = []coremigration.SerializedModelResource{{
+		ApplicationRevision: resourcetesting.NewResource(c, nil, "blob", "app", "").Resource,
+	}}
+
 	s.facade.queueStatus(s.makeStatus(coremigration.QUIESCE))
 	s.facade.queueMinionReports(makeMinionReports(coremigration.QUIESCE))
 	s.facade.queueMinionReports(makeMinionReports(coremigration.VALIDATION))
@@ -226,6 +231,8 @@ func (s *Suite) TestSuccessfulMigration(c *gc.C) {
 					version.MustParseBinary("2.1.0-trusty-amd64"): "/tools/0",
 				},
 				fakeToolsDownloader,
+				s.facade.exportedResources,
+				s.facade,
 			}},
 			apiCloseCall, // for target controller
 			{"facade.SetPhase", []interface{}{coremigration.VALIDATION}},
@@ -1018,6 +1025,8 @@ type stubMasterFacade struct {
 	minionReportsWatchErr error
 	minionReports         []coremigration.MinionReports
 	minionReportsErr      error
+
+	exportedResources []coremigration.SerializedModelResource
 }
 
 func (f *stubMasterFacade) triggerWatcher() {
@@ -1118,6 +1127,7 @@ func (f *stubMasterFacade) Export() (coremigration.SerializedModel, error) {
 		Tools: map[version.Binary]string{
 			version.MustParseBinary("2.1.0-trusty-amd64"): "/tools/0",
 		},
+		Resources: f.exportedResources,
 	}, nil
 }
 
@@ -1239,6 +1249,8 @@ func makeStubUploadBinaries(stub *jujutesting.Stub) func(migration.UploadBinarie
 			config.CharmDownloader,
 			config.Tools,
 			config.ToolsDownloader,
+			config.Resources,
+			config.ResourceDownloader,
 		)
 		return nil
 	}
