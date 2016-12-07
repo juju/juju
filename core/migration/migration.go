@@ -7,9 +7,10 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/juju/resource"
 	"github.com/juju/version"
 	"gopkg.in/juju/names.v2"
+
+	"github.com/juju/juju/resource"
 )
 
 // MigrationStatus returns the details for a migration as needed by
