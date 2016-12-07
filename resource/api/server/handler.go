@@ -29,8 +29,6 @@ type HTTPHandler struct {
 	HandleUpload func(username string, st DataStore, req *http.Request) (*api.UploadResult, error)
 }
 
-// TODO(ericsnow) Can username be extracted from the request?
-
 // NewHTTPHandler creates a new http.Handler for the application
 // resources endpoint.
 func NewHTTPHandler(connect func(*http.Request) (DataStore, names.Tag, error)) *HTTPHandler {
