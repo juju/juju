@@ -8,8 +8,12 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/juju/loggo"
+	"github.com/juju/pubsub"
 	"github.com/juju/replicaset"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/clock"
 	"github.com/juju/utils/voyeur"
 	gc "gopkg.in/check.v1"
 
@@ -17,6 +21,7 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/workertest"
 )
 
@@ -62,12 +67,14 @@ func DoTestForIPv4AndIPv6(t func(ipVersion TestIPVersion)) {
 
 type workerSuite struct {
 	coretesting.BaseSuite
+	clock *testing.Clock
 }
 
 var _ = gc.Suite(&workerSuite{})
 
 func (s *workerSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
+	s.clock = testing.NewClock(time.Now())
 }
 
 // InitState initializes the fake state with a single
@@ -107,10 +114,17 @@ func ExpectedAPIHostPorts(n int, ipVersion TestIPVersion) [][]network.HostPort {
 	return servers
 }
 
+func (s *workerSuite) waitAdvance(c *gc.C, d time.Duration) {
+	select {
+	case <-s.clock.Alarms():
+	case <-time.After(coretesting.ShortWait):
+		c.Fatal("worker didn't call clock.After")
+	}
+	s.clock.Advance(d)
+}
+
 func (s *workerSuite) TestSetsAndUpdatesMembers(c *gc.C) {
 	DoTestForIPv4AndIPv6(func(ipVersion TestIPVersion) {
-		s.PatchValue(&pollInterval, 5*time.Millisecond)
-
 		st := NewFakeState()
 		InitState(c, st, 3, ipVersion)
 
@@ -119,9 +133,7 @@ func (s *workerSuite) TestSetsAndUpdatesMembers(c *gc.C) {
 		assertMembers(c, memberWatcher.Value(), mkMembers("0v", ipVersion))
 
 		logger.Infof("starting worker")
-		w, err := newWorker(st, noPublisher{}, false)
-		c.Assert(err, jc.ErrorIsNil)
-		defer workertest.CleanKill(c, w)
+		s.newNoPublishWorker(c, st)
 
 		// Wait for the worker to set the initial members.
 		mustNext(c, memberWatcher)
@@ -130,6 +142,7 @@ func (s *workerSuite) TestSetsAndUpdatesMembers(c *gc.C) {
 		// Update the status of the new members
 		// and check that they become voting.
 		c.Logf("updating new member status")
+		s.waitAdvance(c, pollInterval)
 		st.session.setStatus(mkStatuses("0p 1s 2s", ipVersion))
 		mustNext(c, memberWatcher)
 		assertMembers(c, memberWatcher.Value(), mkMembers("0v 1v 2v", ipVersion))
@@ -209,7 +222,7 @@ func (s *workerSuite) TestHasVoteMaintainedEvenWhenReplicaSetFails(c *gc.C) {
 		mustNext(c, memberWatcher)
 		assertMembers(c, memberWatcher.Value(), mkMembers("0v 1v 2v 3", ipVersion))
 
-		w, err := newWorker(st, noPublisher{}, false)
+		w, err := newNoPublishWorker(st, s.clock)
 		c.Assert(err, jc.ErrorIsNil)
 		done := make(chan error)
 		go func() {
@@ -232,9 +245,7 @@ func (s *workerSuite) TestHasVoteMaintainedEvenWhenReplicaSetFails(c *gc.C) {
 		// Start the worker again - although the membership should
 		// not change, the HasVote status should be updated correctly.
 		st.errors.resetErrors()
-		w, err = newWorker(st, noPublisher{}, false)
-		c.Assert(err, jc.ErrorIsNil)
-		defer workertest.CleanKill(c, w)
+		w = s.newNoPublishWorker(c, st)
 
 		// Watch all the machines for changes, so we can check
 		// their has-vote status without polling.
@@ -284,9 +295,7 @@ func (s *workerSuite) TestAddressChange(c *gc.C) {
 		assertMembers(c, memberWatcher.Value(), mkMembers("0v", ipVersion))
 
 		logger.Infof("starting worker")
-		w, err := newWorker(st, noPublisher{}, false)
-		c.Assert(err, jc.ErrorIsNil)
-		defer workertest.CleanKill(c, w)
+		s.newNoPublishWorker(c, st)
 
 		// Wait for the worker to set the initial members.
 		mustNext(c, memberWatcher)
@@ -304,15 +313,17 @@ func (s *workerSuite) TestAddressChange(c *gc.C) {
 }
 
 var fatalErrorsTests = []struct {
-	errPattern string
-	err        error
-	expectErr  string
+	errPattern   string
+	err          error
+	expectErr    string
+	advanceCount int
 }{{
 	errPattern: "State.ControllerInfo",
 	expectErr:  "cannot get controller info: sample",
 }, {
-	errPattern: "Machine.SetHasVote 11 true",
-	expectErr:  `cannot set HasVote added: cannot set voting status of "11" to true: sample`,
+	errPattern:   "Machine.SetHasVote 11 true",
+	expectErr:    `cannot set HasVote added: cannot set voting status of "11" to true: sample`,
+	advanceCount: 2,
 }, {
 	errPattern: "Session.CurrentStatus",
 	expectErr:  "cannot get peergrouper info: cannot get replica set status: sample",
@@ -331,13 +342,17 @@ func (s *workerSuite) TestFatalErrors(c *gc.C) {
 	DoTestForIPv4AndIPv6(func(ipVersion TestIPVersion) {
 		s.PatchValue(&pollInterval, 5*time.Millisecond)
 		for i, testCase := range fatalErrorsTests {
-			c.Logf("test %d: %s -> %s", i, testCase.errPattern, testCase.expectErr)
+			c.Logf("\n(%s) test %d: %s -> %s", ipVersion.version, i, testCase.errPattern, testCase.expectErr)
 			st := NewFakeState()
 			st.session.InstantlyReady = true
 			InitState(c, st, 3, ipVersion)
 			st.errors.setErrorFor(testCase.errPattern, errors.New("sample"))
-			w, err := newWorker(st, noPublisher{}, false)
+			s.clock = testing.NewClock(time.Now())
+			w, err := newNoPublishWorker(st, s.clock)
 			c.Assert(err, jc.ErrorIsNil)
+			for j := 0; j < testCase.advanceCount; j++ {
+				s.waitAdvance(c, pollInterval)
+			}
 			done := make(chan error)
 			go func() {
 				done <- w.Wait()
@@ -345,7 +360,7 @@ func (s *workerSuite) TestFatalErrors(c *gc.C) {
 			select {
 			case err := <-done:
 				c.Assert(err, gc.ErrorMatches, testCase.expectErr)
-			case <-time.After(coretesting.LongWait):
+			case <-time.After(time.Second):
 				c.Fatalf("timed out waiting for error")
 			}
 		}
@@ -359,23 +374,27 @@ func (s *workerSuite) TestSetMembersErrorIsNotFatal(c *gc.C) {
 		st := NewFakeState()
 		InitState(c, st, 3, ipVersion)
 		st.session.setStatus(mkStatuses("0p 1s 2s", ipVersion))
-		var setCount voyeur.Value
+		called := make(chan error)
+		setErr := errors.New("sample")
 		st.errors.setErrorFuncFor("Session.Set", func() error {
-			setCount.Set(true)
-			return errors.New("sample")
+			called <- setErr
+			return setErr
 		})
-		s.PatchValue(&initialRetryInterval, 10*time.Microsecond)
-		s.PatchValue(&maxRetryInterval, coretesting.ShortWait/4)
 
-		w, err := newWorker(st, noPublisher{}, false)
-		c.Assert(err, jc.ErrorIsNil)
-		defer workertest.CleanKill(c, w)
+		s.newNoPublishWorker(c, st)
 
-		// See that the worker is retrying.
-		setCountW := setCount.Watch()
-		mustNext(c, setCountW)
-		mustNext(c, setCountW)
-		mustNext(c, setCountW)
+		// Just watch three error retries
+		retryInterval := initialRetryInterval
+		for i := 0; i < 3; i++ {
+			s.waitAdvance(c, retryInterval)
+			retryInterval = scaleRetry(retryInterval)
+			select {
+			case err := <-called:
+				c.Check(err, gc.Equals, setErr)
+			case <-time.After(coretesting.LongWait):
+				c.Fatalf("timed out waiting for loop #%d", i)
+			}
+		}
 	})
 }
 
@@ -395,9 +414,7 @@ func (s *workerSuite) TestControllersArePublished(c *gc.C) {
 
 		st := NewFakeState()
 		InitState(c, st, 3, ipVersion)
-		w, err := newWorker(st, PublisherFunc(publish), false)
-		c.Assert(err, jc.ErrorIsNil)
-		defer workertest.CleanKill(c, w)
+		s.newPublishWorker(c, st, PublisherFunc(publish))
 
 		select {
 		case servers := <-publishCh:
@@ -465,7 +482,7 @@ func mongoSpaceTestCommonSetup(c *gc.C, ipVersion TestIPVersion, noSpaces bool) 
 }
 
 func startWorkerSupportingSpaces(c *gc.C, st *fakeState, ipVersion TestIPVersion) *pgWorker {
-	w, err := newWorker(st, noPublisher{}, true)
+	w, err := newWorker(st, clock.WallClock, noPublisher{}, true, &hub{})
 	c.Assert(err, jc.ErrorIsNil)
 	return w.(*pgWorker)
 }
@@ -596,8 +613,7 @@ func (s *workerSuite) TestMongoSpaceNotCalculatedWhenSpacesNotSupported(c *gc.C)
 		st.SetMongoSpaceState(state.MongoSpaceUnknown)
 
 		// Start a worker that doesn't support spaces
-		w, err := newWorker(st, noPublisher{}, false)
-		c.Assert(err, jc.ErrorIsNil)
+		w := s.newNoPublishWorker(c, st)
 		runWorkerUntilMongoStateIs(c, st, w.(*pgWorker), state.MongoSpaceUnsupported)
 
 		// Only space one has all three servers in it
@@ -607,15 +623,13 @@ func (s *workerSuite) TestMongoSpaceNotCalculatedWhenSpacesNotSupported(c *gc.C)
 }
 
 func (s *workerSuite) TestWorkerRetriesOnPublishError(c *gc.C) {
+	logger.SetLogLevel(loggo.TRACE)
 	DoTestForIPv4AndIPv6(func(ipVersion TestIPVersion) {
-		s.PatchValue(&pollInterval, coretesting.LongWait+time.Second)
-		s.PatchValue(&initialRetryInterval, 5*time.Millisecond)
-		s.PatchValue(&maxRetryInterval, initialRetryInterval)
-
 		publishCh := make(chan [][]network.HostPort, 100)
 
 		count := 0
 		publish := func(apiServers [][]network.HostPort, instanceIds []instance.Id) error {
+			c.Logf("** publish call: count=%d", count)
 			publishCh <- apiServers
 			count++
 			if count <= 3 {
@@ -626,11 +640,11 @@ func (s *workerSuite) TestWorkerRetriesOnPublishError(c *gc.C) {
 		st := NewFakeState()
 		InitState(c, st, 3, ipVersion)
 
-		w, err := newWorker(st, PublisherFunc(publish), false)
-		c.Assert(err, jc.ErrorIsNil)
-		defer workertest.CleanKill(c, w)
-
+		s.newPublishWorker(c, st, PublisherFunc(publish))
+		retryInterval := initialRetryInterval
 		for i := 0; i < 4; i++ {
+			s.waitAdvance(c, retryInterval)
+			retryInterval = scaleRetry(retryInterval)
 			select {
 			case servers := <-publishCh:
 				AssertAPIHostPorts(c, servers, ExpectedAPIHostPorts(3, ipVersion))
@@ -661,9 +675,7 @@ func (s *workerSuite) TestWorkerPublishesInstanceIds(c *gc.C) {
 		st := NewFakeState()
 		InitState(c, st, 3, ipVersion)
 
-		w, err := newWorker(st, PublisherFunc(publish), false)
-		c.Assert(err, jc.ErrorIsNil)
-		defer workertest.CleanKill(c, w)
+		s.newPublishWorker(c, st, PublisherFunc(publish))
 
 		select {
 		case instanceIds := <-publishCh:
@@ -702,4 +714,41 @@ type noPublisher struct{}
 
 func (noPublisher) publishAPIServers(apiServers [][]network.HostPort, instanceIds []instance.Id) error {
 	return nil
+}
+
+type hub struct {
+	topics []pubsub.Topic
+	datas  []interface{}
+}
+
+func (h *hub) Publish(topic pubsub.Topic, data interface{}) (<-chan struct{}, error) {
+	h.topics = append(h.topics, topic)
+	h.datas = append(h.datas, data)
+	closed := make(chan struct{})
+	close(closed)
+	return closed, nil
+}
+
+func (s *workerSuite) newNoPublishWorker(c *gc.C, st stateInterface) worker.Worker {
+	// We create a new clock for the worker so we can wait on alarms even when
+	// a single test tests both ipv4 and 6 so is creating two workers.
+	s.clock = testing.NewClock(time.Now())
+	w, err := newNoPublishWorker(st, s.clock)
+	c.Assert(err, jc.ErrorIsNil)
+	s.AddCleanup(func(c *gc.C) { workertest.CleanKill(c, w) })
+	return w
+}
+
+func (s *workerSuite) newPublishWorker(c *gc.C, st stateInterface, pub publisherInterface) worker.Worker {
+	// We create a new clock for the worker so we can wait on alarms even when
+	// a single test tests both ipv4 and 6 so is creating two workers.
+	s.clock = testing.NewClock(time.Now())
+	w, err := newWorker(st, s.clock, pub, false, &hub{})
+	c.Assert(err, jc.ErrorIsNil)
+	s.AddCleanup(func(c *gc.C) { workertest.CleanKill(c, w) })
+	return w
+}
+
+func newNoPublishWorker(st stateInterface, clock clock.Clock) (worker.Worker, error) {
+	return newWorker(st, clock, noPublisher{}, false, &hub{})
 }
