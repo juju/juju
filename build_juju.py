@@ -64,7 +64,7 @@ def build_juju(credentials, product, workspace_dir, build,
     tarfile = get_juju_tarfile(credentials, build, workspace_dir)
     crossbuild = get_crossbuild_script(juju_release_tools)
     command = [crossbuild, '-b', '~/crossbuild']
-    if goarch:
+    if product == 'ubuntu-agent' and goarch:
         command.extend(['--goarch', goarch])
     command.extend([product, tarfile])
     run_command(command, dry_run=dry_run, verbose=verbose)
@@ -112,7 +112,7 @@ def main(argv):
     try:
         build_juju(
             args.config, args.product, args.workspace, args.build,
-            juju_release_tools=args.juju_release_tools,
+            juju_release_tools=args.juju_release_tools, goarch=args.goarch,
             dry_run=args.dry_run, verbose=args.verbose)
     except Exception as e:
         print(e)

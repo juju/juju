@@ -22,7 +22,7 @@ class JujuBuildTestCase(TestCase):
             main(['-d', '-v', '-b', '1234', 'win-client', './foo'])
             s3cfg = os.path.join(os.environ.get('JUJU_HOME'), 'juju-qa.s3cfg')
             mock.assert_called_once_with(
-                s3cfg, 'win-client', './foo', '1234',
+                s3cfg, 'win-client', './foo', '1234', goarch=None,
                 dry_run=True, juju_release_tools=None, verbose=True)
 
     def test_main_options_with_arch(self):
@@ -31,7 +31,7 @@ class JujuBuildTestCase(TestCase):
                   'ubuntu-agent', './foo'])
             s3cfg = os.path.join(os.environ.get('JUJU_HOME'), 'juju-qa.s3cfg')
             mock.assert_called_once_with(
-                s3cfg, 'ubuntu-agent', './foo', '1234',
+                s3cfg, 'ubuntu-agent', './foo', '1234', goarch='s390x',
                 dry_run=True, juju_release_tools=None, verbose=True)
 
     def test_build_juju(self):
@@ -57,7 +57,7 @@ class JujuBuildTestCase(TestCase):
         aa_mock.assert_called_once_with(
             work_dir, ARTIFACT_GLOBS, dry_run=True, verbose=True)
 
-    def test_build_juju_with_goarch(self):
+    def test_build_juju_with_goarch_ubuntu_agent(self):
         with temp_dir() as base_dir:
             work_dir = os.path.join(base_dir, 'workspace')
             with patch('build_juju.setup_workspace', autospec=True):
@@ -73,6 +73,25 @@ class JujuBuildTestCase(TestCase):
         rc_mock.assert_called_once_with(
             [crossbuild, '-b', '~/crossbuild', '--goarch', 's390x',
              'ubuntu-agent', 'juju-core_1.2.3.tar.gz'],
+            dry_run=True, verbose=True)
+
+    def test_build_juju_with_goarch_non_ubuntu_agent(self):
+        # GOARCH is never set when the product is not ubuntu-agent
+        with temp_dir() as base_dir:
+            work_dir = os.path.join(base_dir, 'workspace')
+            with patch('build_juju.setup_workspace', autospec=True):
+                with patch('build_juju.get_juju_tarfile',
+                           return_value='juju-core_1.2.3.tar.gz',
+                           autospec=True):
+                    with patch('build_juju.run_command') as rc_mock:
+                        with patch('build_juju.add_artifacts', autospec=True):
+                            build_juju(
+                                's3cfg', 'win-client', work_dir, '1234',
+                                goarch='s390x', dry_run=True, verbose=True)
+        crossbuild = get_crossbuild_script()
+        rc_mock.assert_called_once_with(
+            [crossbuild, '-b', '~/crossbuild',
+             'win-client', 'juju-core_1.2.3.tar.gz'],
             dry_run=True, verbose=True)
 
     def test_get_crossbuild_script(self):
