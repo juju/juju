@@ -581,3 +581,37 @@ func (s *storageMockSuite) TestAddToUnitFacadeCallError(c *gc.C) {
 	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
 	c.Assert(found, gc.HasLen, 0)
 }
+
+func (s *storageMockSuite) TestDestroy(c *gc.C) {
+	volumeTag := names.NewVolumeTag("0")
+	filesystemTag := names.NewFilesystemTag("1/2")
+
+	apiCaller := basetesting.APICallerFunc(
+		func(objType string,
+			version int,
+			id, request string,
+			a, result interface{},
+		) error {
+			c.Check(objType, gc.Equals, "Storage")
+			c.Check(id, gc.Equals, "")
+			c.Check(request, gc.Equals, "Destroy")
+			c.Check(a, jc.DeepEquals, params.Entities{[]params.Entity{
+				{"volume-0"},
+				{"filesystem-1-2"},
+			}})
+			c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+			results := result.(*params.ErrorResults)
+			results.Results = []params.ErrorResult{
+				{},
+				{Error: &params.Error{Message: "foo"}},
+			}
+			return nil
+		},
+	)
+	client := storage.NewClient(apiCaller)
+	results, err := client.Destroy([]names.Tag{volumeTag, filesystemTag})
+	c.Check(err, jc.ErrorIsNil)
+	c.Assert(results, gc.HasLen, 2)
+	c.Assert(results[0].Error, gc.IsNil)
+	c.Assert(results[1].Error, jc.DeepEquals, &params.Error{Message: "foo"})
+}

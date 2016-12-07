@@ -317,3 +317,20 @@ func (s *storageSuite) TestShowStorageInvalidId(c *gc.C) {
 	c.Assert(found.Results, gc.HasLen, 1)
 	s.assertInstanceInfoError(c, found.Results[0], params.StorageDetailsResult{}, `"foo" is not a valid tag`)
 }
+
+func (s *storageSuite) TestDestroy(c *gc.C) {
+	results, err := s.api.Destroy(params.Entities{Entities: []params.Entity{
+		{Tag: "storage-foo-0"},
+		{Tag: "volume-0"},
+		{Tag: "filesystem-1-2"},
+		{Tag: "machine-0"},
+	}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 4)
+	c.Assert(results.Results, jc.DeepEquals, []params.ErrorResult{
+		{Error: &params.Error{Message: "cannae do it"}},
+		{},
+		{},
+		{Error: &params.Error{Message: `tag kind "machine" not valid`}},
+	})
+}

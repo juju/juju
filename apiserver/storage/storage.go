@@ -709,3 +709,40 @@ func (a *API) AddToUnit(args params.StoragesAddParams) (params.ErrorResults, err
 	}
 	return params.ErrorResults{Results: result}, nil
 }
+
+// Destroy sets the specified storage entities to Dying, unless they are
+// already Dying or Dead.
+func (a *API) Destroy(args params.Entities) (params.ErrorResults, error) {
+	if err := a.checkCanWrite(); err != nil {
+		return params.ErrorResults{}, errors.Trace(err)
+	}
+
+	blockChecker := common.NewBlockChecker(a.storage)
+	if err := blockChecker.DestroyAllowed(); err != nil {
+		return params.ErrorResults{}, errors.Trace(err)
+	}
+
+	result := make([]params.ErrorResult, len(args.Entities))
+	for i, one := range args.Entities {
+		tag, err := names.ParseTag(one.Tag)
+		if err != nil {
+			result[i].Error = common.ServerError(err)
+			continue
+		}
+
+		switch tag := tag.(type) {
+		case names.FilesystemTag:
+			err = a.storage.DestroyFilesystem(tag)
+		case names.StorageTag:
+			err = a.storage.DestroyStorageInstance(tag)
+		case names.VolumeTag:
+			err = a.storage.DestroyVolume(tag)
+		default:
+			err = errors.NotValidf("tag kind %q", tag.Kind())
+		}
+		if err != nil {
+			result[i].Error = common.ServerError(err)
+		}
+	}
+	return params.ErrorResults{result}, nil
+}

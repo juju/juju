@@ -113,6 +113,15 @@ type storageAccess interface {
 
 	// GetBlockForType is required to block operations.
 	GetBlockForType(t state.BlockType) (state.Block, bool, error)
+
+	// DestroyFilesystem destroys the filesystem with the specified tag.
+	DestroyFilesystem(names.FilesystemTag) error
+
+	// DestroyVolume destroys the volume with the specified tag.
+	DestroyVolume(names.VolumeTag) error
+
+	// DestroyStorageInstance destroys the storage instance with the specified tag.
+	DestroyStorageInstance(names.StorageTag) error
 }
 
 var getState = func(st *state.State) storageAccess {
