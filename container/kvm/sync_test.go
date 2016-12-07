@@ -1,5 +1,6 @@
 // Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
+
 package kvm_test
 
 import (
@@ -8,16 +9,17 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/errors"
-	. "github.com/juju/juju/container/kvm"
 	"github.com/juju/juju/environs/imagedownloads"
 	jc "github.com/juju/testing/checkers"
+
+	. "github.com/juju/juju/container/kvm"
 )
 
 // cacheSuite is gocheck boilerplate.
 type cacheSuite struct{}
 
 // _ is gocheck boilerplate.
-var _ = gc.Suite(cacheSuite{})
+var _ = gc.Suite(&cacheSuite{})
 
 func (cacheSuite) TestSyncOnerErrors(c *gc.C) {
 	o := fakeParams{FakeData: nil, Err: errors.New("oner failed")}

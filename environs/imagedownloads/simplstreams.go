@@ -1,17 +1,20 @@
-// Package imagedownloads implements image-downloads metadata from
-// simplestreams.
 // Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
+
 package imagedownloads
 
 import (
+	"fmt"
 	"net/url"
 	"sort"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils"
+	"github.com/juju/utils/arch"
+	"github.com/juju/utils/series"
+
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
-	"github.com/juju/utils"
 )
 
 func init() {
@@ -54,6 +57,9 @@ func newDataSourceFunc(baseURL string) func() simplestreams.DataSource {
 type Metadata struct {
 	Arch string `json:"arch,omitempty"`
 	// For testing.
+	// TODO(ro) 2016-12-07 BaseURL was jammed on to allow for testing in
+	// juju/container/kvm/sync_internal_test. Refactor to pass it in rather
+	// than setting it on an otherwise unecessecarily exported member.
 	BaseURL string `json:"-"`
 	Release string `json:"release,omitempty"`
 	Version string `json:"version,omitempty"`
@@ -82,7 +88,7 @@ func Fetch(
 	cons *imagemetadata.ImageConstraint,
 	ff simplestreams.AppendMatchingFunc) ([]*Metadata, *simplestreams.ResolveInfo, error) {
 	if ff == nil {
-		ff = filter("")
+		ff = Filter("")
 	}
 	params := simplestreams.GetMetadataParams{
 		StreamsVersion:   imagemetadata.StreamsVersionV1,
@@ -108,22 +114,46 @@ func Fetch(
 	return md, resolveInfo, nil
 }
 
+func validateArgs(arch, release, ftype string) error {
+	bad := map[string]string{}
+
+	if !validArches[arch] {
+		bad[arch] = fmt.Sprintf("arch=%q", arch)
+	}
+
+	validSeries := false
+	for _, supported := range series.SupportedSeries() {
+		if release == supported {
+			validSeries = true
+			break
+		}
+	}
+	if !validSeries {
+		bad[release] = fmt.Sprintf("series=%q", release)
+	}
+
+	if !validFTypes[ftype] {
+		bad[ftype] = fmt.Sprintf("ftype=%q", ftype)
+	}
+
+	if len(bad) > 0 {
+		errMsg := "invalid parameters supplied"
+		for _, k := range []string{arch, release, ftype} {
+			if v, ok := bad[k]; ok {
+				errMsg += fmt.Sprintf(" %s", v)
+			}
+		}
+		return errors.New(errMsg)
+	}
+	return nil
+}
+
 // One gets Metadata for one content download item -- the most recent of
 // 'series', for architecture, 'arch', of the format 'ftype'. 'src' exists to
 // pass in a data source for testing.
-func One(arch, series, ftype string, src func() simplestreams.DataSource) (*Metadata, error) {
-	if arch == "" {
-		return nil, errors.Errorf("%q is not a valid arch", arch)
-	}
-	// Do we validate this here or elsewhere? Incoming args should already be
-	// validated, ideally. Belt ans suspenders can't hurt, just check they
-	// aren't empty.
-	if series == "" {
-		return nil, errors.Errorf("%q is not a valid series", series)
-	}
-	// ftype isn't validated elsewhere, so we do it here.
-	if !validFTypes[ftype] {
-		return nil, errors.Errorf("%q is not a valid file type", ftype)
+func One(arch, release, ftype string, src func() simplestreams.DataSource) (*Metadata, error) {
+	if err := validateArgs(arch, release, ftype); err != nil {
+		return nil, errors.Trace(err)
 	}
 	if src == nil {
 		src = DefaultSource
@@ -132,11 +162,11 @@ func One(arch, series, ftype string, src func() simplestreams.DataSource) (*Meta
 	limit := &imagemetadata.ImageConstraint{
 		simplestreams.LookupParams{
 			Arches: []string{arch},
-			Series: []string{series},
+			Series: []string{release},
 		},
 	}
 
-	md, _, err := Fetch(ds, limit, filter(ftype))
+	md, _, err := Fetch(ds, limit, Filter(ftype))
 	if err != nil {
 		// It doesn't appear that arch is vetted anywhere else so we can wind
 		// up with empty results if someone requests any arch with valid series
@@ -144,11 +174,11 @@ func One(arch, series, ftype string, src func() simplestreams.DataSource) (*Meta
 		return nil, errors.Trace(err)
 	}
 	if len(md) < 1 {
-		return nil, errors.Errorf("no results for %q, %q, %q", arch, series, ftype)
+		return nil, errors.Errorf("no results for %q, %q, %q", arch, release, ftype)
 	}
 	if len(md) > 1 {
 		// Should not be possible.
-		return nil, errors.Errorf("got %d results xpected 1 for %q, %q, %q", len(md), arch, series, ftype)
+		return nil, errors.Errorf("got %d results xpected 1 for %q, %q, %q", len(md), arch, release, ftype)
 	}
 	return md[0], nil
 }
@@ -166,10 +196,17 @@ var validFTypes = map[string]bool{
 	"uefi1.img":   true,
 }
 
-// filter collects only matching products. Series and Arch are filtered by
+// validArches are the arches we support running kvm containers on.
+var validArches = map[string]bool{
+	arch.AMD64:   true,
+	arch.ARM64:   true,
+	arch.PPC64EL: true,
+}
+
+// Filter collects only matching products. Series and Arch are filtered by
 // imagemetadata.ImageConstraints. So this really only let's us filter on a
 // file type.
-func filter(ftype string) simplestreams.AppendMatchingFunc {
+func Filter(ftype string) simplestreams.AppendMatchingFunc {
 	return func(source simplestreams.DataSource, matchingImages []interface{},
 		images map[string]interface{}, cons simplestreams.LookupConstraint) ([]interface{}, error) {
 

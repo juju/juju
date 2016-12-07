@@ -14,10 +14,11 @@ import (
 	"path/filepath"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils/series"
+
 	"github.com/juju/juju/environs/imagedownloads"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/juju/paths"
-	"github.com/juju/utils/series"
 )
 
 const (
@@ -38,7 +39,7 @@ type SyncParams struct {
 	srcFunc             func() simplestreams.DataSource
 }
 
-// One implemnets Oner.
+// One implements Oner.
 func (p SyncParams) One() (*imagedownloads.Metadata, error) {
 	if err := p.exists(); err != nil {
 		return nil, errors.Trace(err)
@@ -70,10 +71,10 @@ type Fetcher interface {
 }
 
 type fetcher struct {
-	md     *imagedownloads.Metadata
-	req    *http.Request
-	client *http.Client
-	image  *Image
+	metadata *imagedownloads.Metadata
+	req      *http.Request
+	client   *http.Client
+	image    *Image
 }
 
 // Fetch implements Fetcher. It fetches the image file from simplestreams and
@@ -90,7 +91,7 @@ func (f *fetcher) Fetch() error {
 			"got %d fetching image %q", resp.StatusCode, path.Base(
 				f.req.URL.String()))
 	}
-	err = f.image.write(resp.Body, f.md)
+	err = f.image.write(resp.Body, f.metadata)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -127,12 +128,6 @@ type Image struct {
 	FilePath string
 	tmpFile  *os.File
 	runFunc  func(string, ...string) (string, error)
-}
-
-// Type returns the type of container this image is for. This is required by
-// for imagestorage.Metadata in the imagestorage.Storage.AddImage method call.
-func (i *Image) Type() string {
-	return "kmv"
 }
 
 // write saves the stream to disk and updates the metadata file.
@@ -196,7 +191,7 @@ func newDefaultFetcher(md *imagedownloads.Metadata, pathfinder func(string) (str
 		return nil, errors.Trace(err)
 	}
 	client := &http.Client{}
-	return &fetcher{md: md, image: i, client: client, req: req}, nil
+	return &fetcher{metadata: md, image: i, client: client, req: req}, nil
 }
 
 func newImage(md *imagedownloads.Metadata, pathfinder func(string) (string, error)) (*Image, error) {

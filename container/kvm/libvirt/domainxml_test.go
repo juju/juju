@@ -1,3 +1,6 @@
+// Copyright 2016 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package libvirt_test
 
 import (
@@ -5,15 +8,16 @@ import (
 
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/errors"
+
 	. "github.com/juju/juju/container/kvm/libvirt"
 	jc "github.com/juju/testing/checkers"
-	"github.com/pkg/errors"
 )
 
 // gocheck boilerplate.
 type domainXMLSuite struct{}
 
-var _ = gc.Suite(domainXMLSuite{})
+var _ = gc.Suite(&domainXMLSuite{})
 
 var wantDomainStr = `
 <domain type="kvm">

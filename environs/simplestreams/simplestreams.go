@@ -343,6 +343,9 @@ const (
 	MirrorFormat  = "mirrors:1.0"
 )
 
+// AppendMatchingFunc is the filter function signature used in our simple
+// streams parsing code. It collects matching items from a DataSource in the
+// returned interface slice.
 type AppendMatchingFunc func(DataSource, []interface{}, map[string]interface{}, LookupConstraint) ([]interface{}, error)
 
 // ValueParams contains the information required to pull out from the metadata structs of a particular type.

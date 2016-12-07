@@ -44,7 +44,6 @@ func (p testSyncParams) One() (*imagedownloads.Metadata, error) {
 			Arch:    p.arch,
 			Release: p.series,
 		}, nil
-
 	}
 	return nil, p.onevalErr
 }

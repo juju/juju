@@ -1,5 +1,6 @@
 // Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
+
 package kvm
 
 import (
@@ -19,14 +20,14 @@ import (
 	jc "github.com/juju/testing/checkers"
 )
 
-// internalCacheSuite is gocheck boilerplate.
-type internalCacheSuite struct{}
+// cacheInternalSuite is gocheck boilerplate.
+type cacheInternalSuite struct{}
 
-var _ = gc.Suite(internalCacheSuite{})
+var _ = gc.Suite(&cacheInternalSuite{})
 
 const imageContents = "fake img file"
 
-func (internalCacheSuite) TestFetcher(c *gc.C) {
+func (cacheInternalSuite) TestFetcher(c *gc.C) {
 	ts := newTestServer()
 	defer ts.Close()
 
@@ -66,7 +67,7 @@ func (internalCacheSuite) TestFetcher(c *gc.C) {
 
 }
 
-func (internalCacheSuite) TestFetcherInvalidSHA(c *gc.C) {
+func (cacheInternalSuite) TestFetcherInvalidSHA(c *gc.C) {
 	ts := newTestServer()
 	defer ts.Close()
 
@@ -93,7 +94,7 @@ func (internalCacheSuite) TestFetcherInvalidSHA(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "hash sum mismatch for /tmp/.*/juju-kvm-.*")
 }
 
-func (internalCacheSuite) TestFetcherNotFound(c *gc.C) {
+func (cacheInternalSuite) TestFetcherNotFound(c *gc.C) {
 	ts := newTestServer()
 	defer ts.Close()
 

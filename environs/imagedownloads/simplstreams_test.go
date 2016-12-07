@@ -1,6 +1,7 @@
 // Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
-package imagedownloads
+
+package imagedownloads_test
 
 import (
 	"fmt"
@@ -8,25 +9,32 @@ import (
 	"net/http/httptest"
 	"strings"
 
+	gc "gopkg.in/check.v1"
+
+	"github.com/juju/testing"
+
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
-	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+
+	. "github.com/juju/juju/environs/imagedownloads"
 )
 
 type Suite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(Suite{})
+var _ = gc.Suite(&Suite{})
 
 func newTestDataSource(s string) simplestreams.DataSource {
 	return NewDataSource(s + "/" + imagemetadata.ReleasedImagesPath)
 }
 
 func newTestDataSourceFunc(s string) func() simplestreams.DataSource {
-	return newDataSourceFunc(s + "/releases/")
+	f := func() simplestreams.DataSource {
+		return NewDataSource(s + "/releases/")
+	}
+	return f
 }
 
 func (Suite) TestNewSignedImagesSource(c *gc.C) {
@@ -95,7 +103,7 @@ func (Suite) TestFetchOneWithFilter(c *gc.C) {
 			Arches: []string{"ppc64el"},
 			Series: []string{"xenial"},
 		}}
-	got, resolveInfo, err := Fetch(tds, constraints, filter("disk1.img"))
+	got, resolveInfo, err := Fetch(tds, constraints, Filter("disk1.img"))
 	c.Check(resolveInfo.Signed, jc.IsTrue)
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(len(got), jc.DeepEquals, 1)
@@ -118,7 +126,7 @@ func (Suite) TestFetchManyWithFilter(c *gc.C) {
 			Arches: []string{"amd64", "arm64", "ppc64el"},
 			Series: []string{"xenial"},
 		}}
-	got, resolveInfo, err := Fetch(tds, constraints, filter("disk1.img"))
+	got, resolveInfo, err := Fetch(tds, constraints, Filter("disk1.img"))
 	c.Check(resolveInfo.Signed, jc.IsTrue)
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(len(got), jc.DeepEquals, 3)
@@ -186,12 +194,13 @@ func (Suite) TestOneErrors(c *gc.C) {
 	table := []struct {
 		description, arch, series, ftype, errorMatch string
 	}{
-		{"empty arch", "", "xenial", "disk1.img", `"" is not a valid arch`},
-		{"invalid arch", "<F7>", "xenial", "disk1.img", `no results for "<F7>", "xenial", "disk1.img"`},
-		{"empty series", "arm64", "", "disk1.imag", `"" is not a valid series`},
-		{"invalid series", "amd64", "rusty", "disk1.img", `unknown version for series: "rusty"`},
-		{"empty ftype", "ppc64el", "xenial", "", `"" is not a valid file type`},
-		{"invalid file type", "amd64", "trusty", "tragedy", `"tragedy" is not a valid file type`},
+		{"empty arch", "", "xenial", "disk1.img", `invalid parameters supplied arch=""`},
+		{"invalid arch", "<F7>", "xenial", "disk1.img", `invalid parameters supplied arch="<F7>"`},
+		{"empty series", "arm64", "", "disk1.img", `invalid parameters supplied series=""`},
+		{"invalid series", "amd64", "rusty", "disk1.img", `invalid parameters supplied series="rusty"`},
+		{"empty ftype", "ppc64el", "xenial", "", `invalid parameters supplied ftype=""`},
+		{"invalid file type", "amd64", "trusty", "tragedy", `invalid parameters supplied ftype="tragedy"`},
+		{"all wrong", "a", "t", "y", `invalid parameters supplied arch="a" series="t" ftype="y"`},
 	}
 	ts := httptest.NewServer(&sstreamsHandler{})
 	defer ts.Close()

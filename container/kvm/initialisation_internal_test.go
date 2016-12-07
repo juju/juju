@@ -14,7 +14,7 @@ import (
 // gocheck boilerplate.
 type initialisationInternalSuite struct{}
 
-var _ = gc.Suite(initialisationInternalSuite{})
+var _ = gc.Suite(&initialisationInternalSuite{})
 
 func (initialisationInternalSuite) TestCreatePool(c *gc.C) {
 	pathfinder := func(s string) (string, error) {

@@ -1,3 +1,6 @@
+// Copyright 2016 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package libvirt
 
 import (
@@ -9,7 +12,7 @@ import (
 // gocheck boilerplate.
 type domainXMLInternalSuite struct{}
 
-var _ = gc.Suite(domainXMLInternalSuite{})
+var _ = gc.Suite(&domainXMLInternalSuite{})
 
 func (domainXMLInternalSuite) TestDeviceID(c *gc.C) {
 	table := []struct {
