@@ -20,9 +20,19 @@ class JujuBuildTestCase(TestCase):
     def test_main_options(self):
         with patch('build_juju.build_juju', autospec=True) as mock:
             main(['-d', '-v', '-b', '1234', 'win-client', './foo'])
-            args, kwargs = mock.call_args
-            self.assertTrue(kwargs['dry_run'])
-            self.assertTrue(kwargs['verbose'])
+            s3cfg = os.path.join(os.environ.get('JUJU_HOME'), 'juju-qa.s3cfg')
+            mock.assert_called_once_with(
+                s3cfg, 'win-client', './foo', '1234',
+                dry_run=True, juju_release_tools=None, verbose=True)
+
+    def test_main_options_with_arch(self):
+        with patch('build_juju.build_juju', autospec=True) as mock:
+            main(['-d', '-v', '-b', '1234', '-a', 's390x',
+                  'ubuntu-agent', './foo'])
+            s3cfg = os.path.join(os.environ.get('JUJU_HOME'), 'juju-qa.s3cfg')
+            mock.assert_called_once_with(
+                s3cfg, 'ubuntu-agent', './foo', '1234',
+                dry_run=True, juju_release_tools=None, verbose=True)
 
     def test_build_juju(self):
         with temp_dir() as base_dir:

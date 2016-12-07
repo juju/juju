@@ -90,6 +90,9 @@ def parse_args(args=None):
         help=('s3cmd config file for credentials.  Default to '
               'juju-qa.s3cfg in juju home.'))
     parser.add_argument(
+        '-a', '--goarch', default=os.environ.get('GOARCH', None),
+        help=('The GOARCH. Defaults to GOARCH in the env.'))
+    parser.add_argument(
         'product', choices=['win-client', 'win-agent', 'osx-client', 'centos',
                             'ubuntu-agent'],
         help='the kind of juju to make and package.')
