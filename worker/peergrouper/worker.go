@@ -336,12 +336,15 @@ func inStrings(t string, ss []string) bool {
 }
 
 func (w *pgWorker) apiPublishInfo() ([][]network.HostPort, []instance.Id, error) {
-	details := apiserver.Details{LocalOnly: true}
+	details := apiserver.Details{
+		Servers:   make(map[string]apiserver.APIServer),
+		LocalOnly: true,
+	}
 	servers := make([][]network.HostPort, 0, len(w.machineTrackers))
 	instanceIds := make([]instance.Id, 0, len(w.machineTrackers))
 	for _, m := range w.machineTrackers {
 		hostPorts := m.APIHostPorts()
-		server := apiserver.APIServer{Id: m.Id()}
+		server := apiserver.APIServer{ID: m.Id()}
 		if len(hostPorts) == 0 {
 			continue
 		}
@@ -355,7 +358,7 @@ func (w *pgWorker) apiPublishInfo() ([][]network.HostPort, []instance.Id, error)
 		}
 		instanceIds = append(instanceIds, instanceId)
 		servers = append(servers, m.APIHostPorts())
-		details.Servers = append(details.Servers, server)
+		details.Servers[server.ID] = server
 	}
 	w.hub.Publish(apiserver.DetailsTopic, details)
 	return servers, instanceIds, nil

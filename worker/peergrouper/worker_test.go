@@ -19,6 +19,7 @@ import (
 
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/pubsub/apiserver"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker"
@@ -222,7 +223,7 @@ func (s *workerSuite) TestHasVoteMaintainedEvenWhenReplicaSetFails(c *gc.C) {
 		mustNext(c, memberWatcher)
 		assertMembers(c, memberWatcher.Value(), mkMembers("0v 1v 2v 3", ipVersion))
 
-		w, err := newNoPublishWorker(st, s.clock)
+		w, err := newNoPublishWorker(st, s.clock, &noOpHub{})
 		c.Assert(err, jc.ErrorIsNil)
 		done := make(chan error)
 		go func() {
@@ -348,7 +349,7 @@ func (s *workerSuite) TestFatalErrors(c *gc.C) {
 			InitState(c, st, 3, ipVersion)
 			st.errors.setErrorFor(testCase.errPattern, errors.New("sample"))
 			s.clock = testing.NewClock(time.Now())
-			w, err := newNoPublishWorker(st, s.clock)
+			w, err := newNoPublishWorker(st, s.clock, &noOpHub{})
 			c.Assert(err, jc.ErrorIsNil)
 			for j := 0; j < testCase.advanceCount; j++ {
 				s.waitAdvance(c, pollInterval)
@@ -360,7 +361,7 @@ func (s *workerSuite) TestFatalErrors(c *gc.C) {
 			select {
 			case err := <-done:
 				c.Assert(err, gc.ErrorMatches, testCase.expectErr)
-			case <-time.After(time.Second):
+			case <-time.After(coretesting.LongWait):
 				c.Fatalf("timed out waiting for error")
 			}
 		}
@@ -438,6 +439,39 @@ func (s *workerSuite) TestControllersArePublished(c *gc.C) {
 	})
 }
 
+func (s *workerSuite) TestControllersArePublishedOverHub(c *gc.C) {
+	st := NewFakeState()
+	InitState(c, st, 3, testIPv4)
+	hub := pubsub.NewStructuredHub(nil)
+	event := make(chan apiserver.Details)
+	_, err := hub.Subscribe(apiserver.DetailsTopic, func(topic pubsub.Topic, data apiserver.Details, err error) {
+		c.Check(err, jc.ErrorIsNil)
+		event <- data
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	w, err := newNoPublishWorker(st, s.clock, hub)
+	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.CleanKill(c, w)
+
+	expected := apiserver.Details{
+		Servers: map[string]apiserver.APIServer{
+			"10": apiserver.APIServer{ID: "10", Addresses: []string{"0.1.2.10:5678"}},
+			"11": apiserver.APIServer{ID: "11", Addresses: []string{"0.1.2.11:5678"}},
+			"12": apiserver.APIServer{ID: "12", Addresses: []string{"0.1.2.12:5678"}},
+		},
+		LocalOnly: true,
+	}
+
+	select {
+	case obtained := <-event:
+		c.Assert(obtained, jc.DeepEquals, expected)
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timed out waiting for event")
+	}
+
+}
+
 func hostPortInSpace(address, spaceName string) network.HostPort {
 	netAddress := network.Address{
 		Value:     address,
@@ -482,7 +516,7 @@ func mongoSpaceTestCommonSetup(c *gc.C, ipVersion TestIPVersion, noSpaces bool) 
 }
 
 func startWorkerSupportingSpaces(c *gc.C, st *fakeState, ipVersion TestIPVersion) *pgWorker {
-	w, err := newWorker(st, clock.WallClock, noPublisher{}, true, &hub{})
+	w, err := newWorker(st, clock.WallClock, noPublisher{}, true, &noOpHub{})
 	c.Assert(err, jc.ErrorIsNil)
 	return w.(*pgWorker)
 }
@@ -716,24 +750,17 @@ func (noPublisher) publishAPIServers(apiServers [][]network.HostPort, instanceId
 	return nil
 }
 
-type hub struct {
-	topics []pubsub.Topic
-	datas  []interface{}
-}
+type noOpHub struct{}
 
-func (h *hub) Publish(topic pubsub.Topic, data interface{}) (<-chan struct{}, error) {
-	h.topics = append(h.topics, topic)
-	h.datas = append(h.datas, data)
-	closed := make(chan struct{})
-	close(closed)
-	return closed, nil
+func (h *noOpHub) Publish(topic pubsub.Topic, data interface{}) (<-chan struct{}, error) {
+	return nil, nil
 }
 
 func (s *workerSuite) newNoPublishWorker(c *gc.C, st stateInterface) worker.Worker {
 	// We create a new clock for the worker so we can wait on alarms even when
 	// a single test tests both ipv4 and 6 so is creating two workers.
 	s.clock = testing.NewClock(time.Now())
-	w, err := newNoPublishWorker(st, s.clock)
+	w, err := newNoPublishWorker(st, s.clock, &noOpHub{})
 	c.Assert(err, jc.ErrorIsNil)
 	s.AddCleanup(func(c *gc.C) { workertest.CleanKill(c, w) })
 	return w
@@ -743,12 +770,12 @@ func (s *workerSuite) newPublishWorker(c *gc.C, st stateInterface, pub publisher
 	// We create a new clock for the worker so we can wait on alarms even when
 	// a single test tests both ipv4 and 6 so is creating two workers.
 	s.clock = testing.NewClock(time.Now())
-	w, err := newWorker(st, s.clock, pub, false, &hub{})
+	w, err := newWorker(st, s.clock, pub, false, &noOpHub{})
 	c.Assert(err, jc.ErrorIsNil)
 	s.AddCleanup(func(c *gc.C) { workertest.CleanKill(c, w) })
 	return w
 }
 
-func newNoPublishWorker(st stateInterface, clock clock.Clock) (worker.Worker, error) {
-	return newWorker(st, clock, noPublisher{}, false, &hub{})
+func newNoPublishWorker(st stateInterface, clock clock.Clock, hub Hub) (worker.Worker, error) {
+	return newWorker(st, clock, noPublisher{}, false, hub)
 }
