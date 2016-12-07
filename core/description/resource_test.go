@@ -102,8 +102,8 @@ func (s *ResourceSuite) TestNew(c *gc.C) {
 
 func (s *ResourceSuite) TestNilRevisions(c *gc.C) {
 	r := newResource(ResourceArgs{"z"})
-	c.Check(r.ApplicationRevision(), gc.Equals, nil)
-	c.Check(r.CharmStoreRevision(), gc.Equals, nil)
+	c.Check(r.ApplicationRevision(), gc.IsNil)
+	c.Check(r.CharmStoreRevision(), gc.IsNil)
 }
 
 func (s *ResourceSuite) TestMinimalValid(c *gc.C) {
