@@ -541,7 +541,7 @@ class TestWaitMachineNotPresent(ClientTest):
         not_present = WaitMachineNotPresent('0')
         with self.assertRaisesRegexp(
                 Exception, 'Timed out waiting for machine removal 0'):
-            not_present.do_raise(None)
+            not_present.do_raise('', None)
 
 
 class TestEnvJujuClient(ClientTest):
@@ -2527,7 +2527,7 @@ class TestEnvJujuClient(ClientTest):
         def iter_blocking_state(self, ignored):
             yield ('global state', 'unsatisfied')
 
-        def do_raise(self, status):
+        def do_raise(self, model_name, status):
             raise self.NeverSatisfiedException()
 
     def test_wait_timeout(self):
