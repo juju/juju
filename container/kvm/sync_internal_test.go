@@ -12,9 +12,11 @@ import (
 	"strings"
 	"time"
 
+	gc "gopkg.in/check.v1"
+
+	"github.com/juju/errors"
 	"github.com/juju/juju/environs/imagedownloads"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 )
 
 // internalCacheSuite is gocheck boilerplate.
@@ -24,21 +26,8 @@ var _ = gc.Suite(internalCacheSuite{})
 
 const imageContents = "fake img file"
 
-func (internalCacheSuite) TestUpdater(c *gc.C) {
-	mtime := time.Unix(1000, 0).UTC()
-	imageFile := &fakeFileInfo{
-		basename: "series-image.img",
-		modtime:  mtime,
-		contents: imageContents,
-	}
-	fs := fakeFS{
-		"/": &fakeFileInfo{
-			dir:  true,
-			ents: []*fakeFileInfo{imageFile},
-		},
-		"/server.img": imageFile,
-	}
-	ts := httptest.NewServer(http.FileServer(fs))
+func (internalCacheSuite) TestFetcher(c *gc.C) {
+	ts := newTestServer()
 	defer ts.Close()
 
 	md := newTestMetadata(ts.URL)
@@ -56,81 +45,114 @@ func (internalCacheSuite) TestUpdater(c *gc.C) {
 		}
 	}()
 
-	updater, err := newDefaultUpdater(md, pathfinder)
+	fetcher, err := newDefaultFetcher(md, pathfinder)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Test 200 returns reader, nil
-	err = updater.Update()
+	// setup a fake command runner.
+	stub := runStub{}
+	fetcher.image.runFunc = stub.run
+
+	err = fetcher.Fetch()
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Test 304 returns nil,nil and that mtimes don't change.
-	finfo, err := os.Stat(tmpdir + "/kvm/images/" + md.Path)
-	if err != nil {
-		c.Fatalf("failed to stat expected file: %s", err.Error())
-	}
-	pinfo, err := os.Stat(tmpdir + "/kvm/metadata/" + md.Path)
-	if err != nil {
-		c.Fatalf("failed to stat expected file: %s", err.Error())
-	}
+	_, err = fetcher.image.tmpFile.Seek(0, io.SeekStart)
+	c.Assert(err, jc.ErrorIsNil)
+	b, err := ioutil.ReadAll(fetcher.image.tmpFile)
+	c.Assert(string(b), gc.Equals, imageContents)
 
-	updater, err = newDefaultUpdater(md, pathfinder)
-	err = updater.Update()
+	// Check that our call was made as expected.
+	c.Assert(stub.Calls(), gc.HasLen, 1)
+	c.Assert(stub.Calls()[0], gc.Matches, "qemu-img convert -f qcow2 -O qcow2 .*/juju-kvm-server.img-.* .*/guests/spammy-archless-backing-file.qcow")
+
+}
+
+func (internalCacheSuite) TestFetcherInvalidSHA(c *gc.C) {
+	ts := newTestServer()
+	defer ts.Close()
+
+	md := newTestMetadata(ts.URL)
+	md.SHA256 = "invalid"
+
+	tmpdir, pathfinder, ok := newTmpdir()
+	if !ok {
+		c.Fatal("failed to setup temp dir in test")
+	}
+	defer func() {
+		err := os.RemoveAll(tmpdir)
+		if err != nil {
+			c.Errorf("got error %q when removing tmpdir %q",
+				err.Error(),
+				tmpdir)
+		}
+	}()
+
+	fetcher, err := newDefaultFetcher(md, pathfinder)
 	c.Assert(err, jc.ErrorIsNil)
 
-	finfo2, err := os.Stat(tmpdir + "/kvm/images/" + md.Path)
-	if err != nil {
-		c.Fatalf("failed to stat expected file: %s", err.Error())
+	err = fetcher.Fetch()
+	c.Assert(err, gc.ErrorMatches, "hash sum mismatch for /tmp/.*/juju-kvm-.*")
+}
+
+func (internalCacheSuite) TestFetcherNotFound(c *gc.C) {
+	ts := newTestServer()
+	defer ts.Close()
+
+	md := newTestMetadata(ts.URL)
+	md.Path = "not-there"
+
+	tmpdir, pathfinder, ok := newTmpdir()
+	if !ok {
+		c.Fatal("failed to setup temp dir in test")
 	}
-	pinfo2, err := os.Stat(tmpdir + "/kvm/metadata/" + md.Path)
-	if err != nil {
-		c.Fatalf("failed to stat expected file: %s", err.Error())
-	}
+	defer func() {
+		err := os.RemoveAll(tmpdir)
+		if err != nil {
+			c.Errorf("got error %q when removing tmpdir %q",
+				err.Error(),
+				tmpdir)
+		}
+	}()
 
-	c.Check(finfo.ModTime(), jc.DeepEquals, finfo2.ModTime())
-	c.Check(pinfo.ModTime(), jc.DeepEquals, pinfo2.ModTime())
-
-	// Test setting the time forward on the upstream image to test updating an
-	// existing image. Also ensure the mtime on the files changes.
-	time.Sleep(7 * time.Millisecond) // need enough time to flush the changes to disk.
-
-	imageFile.modtime = imageFile.modtime.Add(1 * time.Hour)
-	updater, err = newDefaultUpdater(md, pathfinder)
-	updater.fileCache.ModTime = mtime.Format(http.TimeFormat)
-	err = updater.Update()
+	fetcher, err := newDefaultFetcher(md, pathfinder)
 	c.Assert(err, jc.ErrorIsNil)
 
-	finfo2, err = os.Stat(tmpdir + "/kvm/images/" + md.Path)
-	if err != nil {
-		c.Fatalf("failed to stat expected file: %s", err.Error())
-	}
-	pinfo2, err = os.Stat(tmpdir + "/kvm/metadata/" + md.Path)
-	if err != nil {
-		c.Fatalf("failed to stat expected file: %s", err.Error())
-	}
-	c.Check(finfo2.ModTime().Sub(finfo.ModTime()), jc.GreaterThan, 0)
-	c.Check(pinfo2.ModTime().Sub(pinfo.ModTime()), jc.GreaterThan, 0)
-
-	// anything else (404, dns issue, etc...)  should return nil, err
-	md.Path = "notthere"
-	updater, err = newDefaultUpdater(md, pathfinder)
-	err = updater.Update()
-	c.Assert(err, gc.ErrorMatches, `got "404 Not Found" fetching kvm image URL "http.*/notthere"`)
+	err = fetcher.Fetch()
+	c.Check(errors.IsNotFound(err), jc.IsTrue)
+	c.Assert(err, gc.ErrorMatches, `got 404 fetching image "not-there" not found`)
 }
 
 func newTestMetadata(base string) *imagedownloads.Metadata {
 	return &imagedownloads.Metadata{
-		Arch:    "test-arch",
-		Release: "test-release",
-		Version: "test-version",
-		FType:   "test-ftype",
-		SHA256:  "test-sha256",
+		Arch:    "archless",
+		Release: "spammy",
+		Version: "version",
+		FType:   "ftype",
+		SHA256:  "5e8467e6732923e74de52ef60134ba747aeeb283812c60f69b67f4f79aca1475",
 		Path:    "server.img",
 		Size:    int64(len(imageContents)),
 		BaseURL: base,
 	}
 }
 
-// newTmpdir creates a tmpdir and returns pathfinder func that returns the tmpdir.
+func newTestServer() *httptest.Server {
+	mtime := time.Unix(1000, 0).UTC()
+	imageFile := &fakeFileInfo{
+		basename: "series-image.img",
+		modtime:  mtime,
+		contents: imageContents,
+	}
+	fs := fakeFS{
+		"/": &fakeFileInfo{
+			dir:  true,
+			ents: []*fakeFileInfo{imageFile},
+		},
+		"/server.img": imageFile,
+	}
+	return httptest.NewServer(http.FileServer(fs))
+}
+
+// newTmpdir creates a tmpdir and returns pathfinder func that returns the
+// tmpdir.
 func newTmpdir() (string, func(string) (string, error), bool) {
 	td, err := ioutil.TempDir("", "juju-test-kvm-internalSuite")
 	if err != nil {

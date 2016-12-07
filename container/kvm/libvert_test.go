@@ -67,7 +67,7 @@ func (s *LibVertSuite) TestSyncImagesUtilizesSimpleStreamsSource(c *gc.C) {
 		srcFunc: func() simplestreams.DataSource { return imagedownloads.NewDataSource(source) },
 		success: true,
 	}
-	err := kvm.Sync(p, fakeUpdater{})
+	err := kvm.Sync(p, fakeFetcher{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	url, err := p.sourceURL()

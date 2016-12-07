@@ -7,10 +7,10 @@ import (
 
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/errors"
 	. "github.com/juju/juju/container/kvm"
 	"github.com/juju/juju/environs/imagedownloads"
 	jc "github.com/juju/testing/checkers"
-	"github.com/pkg/errors"
 )
 
 // cacheSuite is gocheck boilerplate.
@@ -21,21 +21,30 @@ var _ = gc.Suite(cacheSuite{})
 
 func (cacheSuite) TestSyncOnerErrors(c *gc.C) {
 	o := fakeParams{FakeData: nil, Err: errors.New("oner failed")}
-	u := fakeUpdater{}
+	u := fakeFetcher{}
 	got := Sync(o, u)
 	c.Assert(got, gc.ErrorMatches, "oner failed")
 }
 
+func (cacheSuite) TestSyncOnerExists(c *gc.C) {
+	o := fakeParams{
+		FakeData: nil,
+		Err:      errors.AlreadyExistsf("exists")}
+	u := fakeFetcher{}
+	got := Sync(o, u)
+	c.Assert(got, jc.ErrorIsNil)
+}
+
 func (cacheSuite) TestSyncUpdaterErrors(c *gc.C) {
 	o := fakeParams{FakeData: &imagedownloads.Metadata{}, Err: nil}
-	u := fakeUpdater{Err: errors.New("updater failed")}
+	u := fakeFetcher{Err: errors.New("updater failed")}
 	got := Sync(o, u)
 	c.Assert(got, gc.ErrorMatches, "updater failed")
 }
 
 func (cacheSuite) TestSyncSucceeds(c *gc.C) {
 	o := fakeParams{FakeData: &imagedownloads.Metadata{}}
-	u := fakeUpdater{}
+	u := fakeFetcher{}
 	got := Sync(o, u)
 	c.Assert(got, jc.ErrorIsNil)
 }
@@ -52,7 +61,7 @@ func (f fakeParams) One() (*imagedownloads.Metadata, error) {
 	return f.FakeData, nil
 }
 
-type fakeUpdater struct {
+type fakeFetcher struct {
 	md        *imagedownloads.Metadata
 	fileCache *Image
 	req       *http.Request
@@ -61,7 +70,7 @@ type fakeUpdater struct {
 	Err error
 }
 
-func (f fakeUpdater) Update() error {
+func (f fakeFetcher) Fetch() error {
 	if f.Err != nil {
 		return f.Err
 	}

@@ -184,7 +184,7 @@ func (manager *containerManager) CreateContainer(
 func (manager *containerManager) IsInitialized() bool {
 	requiredBinaries := []string{
 		"virsh",
-		"qemu-img",
+		"qemu-utils",
 	}
 	for _, bin := range requiredBinaries {
 		if _, err := exec.LookPath(bin); err != nil {
