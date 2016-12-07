@@ -259,6 +259,10 @@ func (c *Client) MinionReports() (migration.MinionReports, error) {
 	return out, nil
 }
 
+// StreamModelLog takes a starting time and returns a channel that
+// will yield the logs on or after that time - these are the logs that
+// need to be transferred to the target after the migration is
+// successful.
 func (c *Client) StreamModelLog(start time.Time) (<-chan common.LogMessage, error) {
 	return common.StreamDebugLog(c.caller.RawAPICaller(), common.DebugLogParams{
 		Replay:    true,
