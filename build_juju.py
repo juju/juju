@@ -50,7 +50,8 @@ def get_juju_tarfile(s3cfg_path, build, workspace_dir):
 
 
 def build_juju(credentials, product, workspace_dir, build,
-               juju_release_tools=None, dry_run=False, verbose=False):
+               juju_release_tools=None, goarch=None,
+               dry_run=False, verbose=False):
     """Build the juju product from a Juju CI build-revision in a workspace.
 
     The product is passed to juju-release-tools/crossbuild.py. The options
@@ -62,7 +63,9 @@ def build_juju(credentials, product, workspace_dir, build,
     setup_workspace(workspace_dir, dry_run=dry_run, verbose=verbose)
     tarfile = get_juju_tarfile(credentials, build, workspace_dir)
     crossbuild = get_crossbuild_script(juju_release_tools)
-    command = [crossbuild, product, '-b', '~/crossbuild', tarfile]
+    command = [crossbuild, '-b', '~/crossbuild', product, tarfile]
+    if goarch:
+        command.extend(['--goarch', goarch])
     run_command(command, dry_run=dry_run, verbose=verbose)
     add_artifacts(workspace_dir, ARTIFACT_GLOBS, dry_run=dry_run,
                   verbose=verbose)
