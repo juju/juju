@@ -242,12 +242,13 @@ touch %s
 # If jujud is running, we then wait for a while for it to stop.
 stopped=0
 if pkill -%d jujud; then
-    for i in ` + "`seq 1 30`" + `; do
+    for i in {1..30}; do
         if pgrep jujud > /dev/null ; then
             sleep 1
         else
             echo "jujud stopped"
             stopped=1
+            logger --id jujud stopped on attempt $i
             break
         fi
     done
@@ -256,7 +257,10 @@ if [ $stopped -ne 1 ]; then
     # If jujud didn't stop nicely, we kill it hard here.
     %spkill -9 jujud
     service %s stop
+    logger --id killed jujud and stopped %s
 fi
+apt-get -y purge juju-mongo*
+apt-get -y autoremove
 rm -f /etc/init/juju*
 rm -f /etc/systemd/system{,/multi-user.target.wants}/juju*
 rm -fr %s %s
@@ -282,6 +286,7 @@ exit 0
 		)),
 		terminationworker.TerminationSignal,
 		diagnostics,
+		mongo.ServiceName,
 		mongo.ServiceName,
 		utils.ShQuote(agent.DefaultPaths.DataDir),
 		utils.ShQuote(agent.DefaultPaths.LogDir),
