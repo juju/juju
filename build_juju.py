@@ -63,10 +63,10 @@ def build_juju(credentials, product, workspace_dir, build,
     setup_workspace(workspace_dir, dry_run=dry_run, verbose=verbose)
     tarfile = get_juju_tarfile(credentials, build, workspace_dir)
     crossbuild = get_crossbuild_script(juju_release_tools)
-    command = [crossbuild, '-b', '~/crossbuild']
+    command = [crossbuild, '-b', '~/crossbuild', product]
     if product == 'ubuntu-agent' and goarch:
         command.extend(['--goarch', goarch])
-    command.extend([product, tarfile])
+    command.append(tarfile)
     run_command(command, dry_run=dry_run, verbose=verbose)
     add_artifacts(workspace_dir, ARTIFACT_GLOBS, dry_run=dry_run,
                   verbose=verbose)

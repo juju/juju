@@ -71,8 +71,8 @@ class JujuBuildTestCase(TestCase):
                                 goarch='s390x', dry_run=True, verbose=True)
         crossbuild = get_crossbuild_script()
         rc_mock.assert_called_once_with(
-            [crossbuild, '-b', '~/crossbuild', '--goarch', 's390x',
-             'ubuntu-agent', 'juju-core_1.2.3.tar.gz'],
+            [crossbuild, '-b', '~/crossbuild', 'ubuntu-agent',
+             '--goarch', 's390x', 'juju-core_1.2.3.tar.gz'],
             dry_run=True, verbose=True)
 
     def test_build_juju_with_goarch_non_ubuntu_agent(self):
