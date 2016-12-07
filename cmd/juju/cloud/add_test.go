@@ -13,7 +13,7 @@ import (
 	"github.com/juju/loggo"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/pkg/errors"
+	"github.com/juju/errors"
 	gc "gopkg.in/check.v1"
 
 	cloudfile "github.com/juju/juju/cloud"
