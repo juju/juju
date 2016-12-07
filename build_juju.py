@@ -63,7 +63,7 @@ def build_juju(credentials, product, workspace_dir, build,
     setup_workspace(workspace_dir, dry_run=dry_run, verbose=verbose)
     tarfile = get_juju_tarfile(credentials, build, workspace_dir)
     crossbuild = get_crossbuild_script(juju_release_tools)
-    command = [crossbuild, '-b', '~/crossbuild', product]
+    command = [crossbuild, product, '-b', '~/crossbuild']
     if product == 'ubuntu-agent' and goarch:
         command.extend(['--goarch', goarch])
     command.append(tarfile)

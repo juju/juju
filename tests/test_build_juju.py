@@ -52,7 +52,7 @@ class JujuBuildTestCase(TestCase):
         gt_mock.assert_called_once_with('s3cfg', '1234', work_dir)
         crossbuild = get_crossbuild_script()
         rc_mock.assert_called_once_with(
-            [crossbuild, '-b', '~/crossbuild', 'win-client',
+            [crossbuild, 'win-client', '-b', '~/crossbuild',
              'juju-core_1.2.3.tar.gz'], dry_run=True, verbose=True)
         aa_mock.assert_called_once_with(
             work_dir, ARTIFACT_GLOBS, dry_run=True, verbose=True)
@@ -71,7 +71,7 @@ class JujuBuildTestCase(TestCase):
                                 goarch='s390x', dry_run=True, verbose=True)
         crossbuild = get_crossbuild_script()
         rc_mock.assert_called_once_with(
-            [crossbuild, '-b', '~/crossbuild', 'ubuntu-agent',
+            [crossbuild, 'ubuntu-agent', '-b', '~/crossbuild',
              '--goarch', 's390x', 'juju-core_1.2.3.tar.gz'],
             dry_run=True, verbose=True)
 
@@ -90,8 +90,8 @@ class JujuBuildTestCase(TestCase):
                                 goarch='s390x', dry_run=True, verbose=True)
         crossbuild = get_crossbuild_script()
         rc_mock.assert_called_once_with(
-            [crossbuild, '-b', '~/crossbuild',
-             'win-client', 'juju-core_1.2.3.tar.gz'],
+            [crossbuild, 'win-client', '-b', '~/crossbuild',
+             'juju-core_1.2.3.tar.gz'],
             dry_run=True, verbose=True)
 
     def test_get_crossbuild_script(self):
