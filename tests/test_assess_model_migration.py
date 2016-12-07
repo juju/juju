@@ -19,6 +19,7 @@ import assess_model_migration as amm
 from assess_model_migration import (
     assert_data_file_lists_correct_controller_for_model,
     assert_model_has_correct_controller_uuid,
+    ensure_api_login_redirects,
     )
 from assess_user_grant_revoke import User
 from deploy_stack import (
@@ -472,12 +473,19 @@ class TestEnsureApiLoginRedirects(FakeHomeTestCase):
         patch_assert_data = patch.object(amm,
             'assert_data_file_lists_correct_controller_for_model')
         patch_assert_uuid = patch.object(amm,
-            'assert_model_has_correct_uuid_fails')
+            'assert_model_has_correct_controller_uuid')
+        client1 = fake_juju_client()
+        client2 = fake_juju_client()
+        model_details_list = [
+            {client.env.environment: {'controller-uuid': uuid}}
+            for (client, uuid)
+            in [(client1, '12345'), (client2, 'ABCDE')]]
         with patch('logging.Logger.info', autospec=True) as info_mock:
             with patch('jujupy.EnvJujuClient.show_model', autospec=True,
-                       side_effect=['first-call', 'second-call'],
-                       ) as show_model_mock:
-                pass
+                       side_effect=model_details_list) as show_model_mock:
+                with patch.object(amm, 'migrate_model_to_controller'):
+                    with patch_assert_data, patch_assert_uuid:
+                        ensure_api_login_redirects(client1, client2)
 
     def fake_home_juju_client(self):
         env = JujuData('name', {'type': 'foo', 'default-series': 'angsty',
