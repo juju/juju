@@ -74,8 +74,8 @@ def go_build(package, goroot, gopath, goarch, goos,
              dry_run=False, verbose=False):
     """Build and install a go package."""
     if goarch == 'ppc64el':
-        # The debian/juju ppc64el arch is called ppc64 by Go.
-        goarch = 'ppc64'
+        # The debian/juju ppc64el arch is called ppc64le by Go.
+        goarch = 'ppc64le'
     env = dict(os.environ)
     env['GOROOT'] = goroot
     env['GOPATH'] = gopath

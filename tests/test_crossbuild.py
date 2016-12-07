@@ -105,15 +105,15 @@ class CrossBuildTestCase(TestCase):
         self.assertEqual('386', env['GOARCH'])
         self.assertEqual('windows', env['GOOS'])
 
-    def test_go_build_ppc64el(self):
-        # Juju arch ppc64el is called ppc64 in GOARCH.
+    def test_go_build_ppc64le(self):
+        # Juju arch ppc64le is called ppc64 in GOARCH.
         with patch('crossbuild.run_command') as mock:
             go_build(
                 './...', './foo', './bar.1.2', 'ppc64el', 'linux',
                 verbose=True, dry_run=True)
         args, kwargs = mock.call_args
         env = kwargs['env']
-        self.assertEqual('ppc64', env['GOARCH'])
+        self.assertEqual('ppc64le', env['GOARCH'])
 
     def test_run_command(self):
         with patch('subprocess.call', autospec=True, return_value=0) as mock:
