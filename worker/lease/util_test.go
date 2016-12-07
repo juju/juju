@@ -12,6 +12,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/lease"
+	coretesting "github.com/juju/juju/testing"
 )
 
 // Secretary implements lease.Secretary for testing purposes.
@@ -69,14 +70,14 @@ func NewClient(leases map[string]lease.Info, expect []call) *Client {
 
 // Wait will return when all expected calls have been made, or fail the test
 // if they don't happen within a second. (You control the clock; your tests
-// should pass in *way* less than a second of wall-clock time.)
+// should pass in *way* less than 10 seconds of wall-clock time.)
 func (client *Client) Wait(c *gc.C) {
 	select {
 	case <-client.done:
 		if client.failed != "" {
 			c.Fatalf(client.failed)
 		}
-	case <-time.After(time.Second):
+	case <-time.After(coretesting.LongWait):
 		c.Fatalf("Client test took way too long")
 	}
 }
