@@ -239,24 +239,24 @@ func (s *remoteRelationsSuite) TestRemoteRelationsChangedNotifies(c *gc.C) {
 	}
 
 	expected := []jujutesting.StubCall{
-		{"ExportEntities", []interface{}{
-			[]names.Tag{names.NewUnitTag("unit/1"), names.NewUnitTag("unit/2")}}},
 		{"RelationUnitSettings", []interface{}{
 			[]params.RelationUnit{{
 				Relation: "relation-db2.db#django.db",
 				Unit:     "unit-unit-1"}}}},
 		{"PublishLocalRelationChange", []interface{}{
 			params.RemoteRelationChangeEvent{
+				Life: params.Alive,
+				ApplicationId: params.RemoteEntityId{
+					ModelUUID: "model-uuid",
+					Token:     "token-db2"},
 				RelationId: params.RemoteEntityId{
 					ModelUUID: "model-uuid",
 					Token:     "token-db2:db django:db"},
 				ChangedUnits: []params.RemoteRelationUnitChange{{
-					UnitId:   params.RemoteEntityId{ModelUUID: "model-uuid", Token: "token-unit/1"},
+					UnitId:   1,
 					Settings: map[string]interface{}{"foo": "bar"},
 				}},
-				DepartedUnits: []params.RemoteEntityId{{
-					ModelUUID: "model-uuid", Token: "token-unit/2",
-				}},
+				DepartedUnits: []int{2},
 			},
 		}},
 	}
@@ -269,7 +269,7 @@ func (s *remoteRelationsSuite) TestRemoteRelationsChangedError(c *gc.C) {
 	defer workertest.CheckKill(c, w)
 	s.stub.ResetCalls()
 
-	s.stub.SetErrors(nil, errors.New("failed"))
+	s.stub.SetErrors(errors.New("failed"))
 	unitsWatcher, _ := s.relationsFacade.relationsUnitsWatcher("db2:db django:db")
 	unitsWatcher.changes <- watcher.RelationUnitsChange{
 		Departed: []string{"unit/1"},
@@ -316,6 +316,7 @@ func (s *remoteRelationsSuite) TestRegisteredApplicationNotRegistered(c *gc.C) {
 
 	expected = []jujutesting.StubCall{
 		{"Relations", []interface{}{[]string{"db2:db django:db"}}},
+		{"GetToken", []interface{}{"remote-model-uuid", names.NewRelationTag("db2:db django:db")}},
 		{"WatchLocalRelationUnits", []interface{}{"db2:db django:db"}},
 	}
 	s.waitForStubCalls(c, expected)

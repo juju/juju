@@ -122,6 +122,14 @@ func (m *mockRelationsFacade) ExportEntities(entities []names.Tag) ([]params.Rem
 	return result, nil
 }
 
+func (m *mockRelationsFacade) GetToken(modelUUID string, entity names.Tag) (string, error) {
+	m.stub.MethodCall(m, "GetToken", modelUUID, entity)
+	if err := m.stub.NextErr(); err != nil {
+		return "", err
+	}
+	return "token-" + entity.Id(), nil
+}
+
 func (m *mockRelationsFacade) RelationUnitSettings(relationUnits []params.RelationUnit) ([]params.SettingsResult, error) {
 	m.stub.MethodCall(m, "RelationUnitSettings", relationUnits)
 	if err := m.stub.NextErr(); err != nil {

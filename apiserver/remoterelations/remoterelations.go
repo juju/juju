@@ -4,6 +4,7 @@
 package remoterelations
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/juju/errors"
@@ -83,6 +84,31 @@ func (api *RemoteRelationsAPI) ExportEntities(entities params.Entities) (params.
 			ModelUUID: api.st.ModelUUID(),
 			Token:     token,
 		}
+	}
+	return results, nil
+}
+
+// GetToken returns the token associated with the entity with the given tag for the current model.
+func (api *RemoteRelationsAPI) GetTokens(args params.GetTokenArgs) (params.StringResults, error) {
+	results := params.StringResults{
+		Results: make([]params.StringResult, len(args.Args)),
+	}
+	for i, arg := range args.Args {
+		entityTag, err := names.ParseTag(arg.Tag)
+		if err != nil {
+			results.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		modelTag, err := names.ParseModelTag(arg.ModelTag)
+		if err != nil {
+			results.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		token, err := api.st.GetToken(modelTag, entityTag)
+		if err != nil {
+			results.Results[i].Error = common.ServerError(err)
+		}
+		results.Results[i].Result = token
 	}
 	return results, nil
 }
@@ -319,7 +345,118 @@ func (api *RemoteRelationsAPI) ConsumeRemoteApplicationChange(
 func (api *RemoteRelationsAPI) PublishLocalRelationChange(
 	changes params.RemoteRelationsChanges,
 ) (params.ErrorResults, error) {
-	return params.ErrorResults{}, errors.NotImplementedf("PublishLocalRelationChange")
+	results := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(changes.Changes)),
+	}
+	for i, change := range changes.Changes {
+		if err := api.publishRelationChange(change); err != nil {
+			results.Results[i].Error = common.ServerError(err)
+			continue
+		}
+	}
+	return results, nil
+}
+
+func (api *RemoteRelationsAPI) publishRelationChange(change params.RemoteRelationChangeEvent) error {
+	logger.Debugf("publish into model %v change: %+v", api.st.ModelUUID(), change)
+
+	relationTag, err := api.getRemoteEntityTag(change.RelationId)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	logger.Debugf("relation tag for remote id %+v is %v", change.RelationId, relationTag)
+
+	// Ensure the relation exists.
+	rel, err := api.st.KeyRelation(relationTag.Id())
+	if errors.IsNotFound(err) {
+		if change.Life != params.Alive {
+			return nil
+		}
+	}
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	// If the remote model has destroyed the relation,
+	// do it here also.
+	if change.Life != params.Alive {
+		if err := rel.Destroy(); err != nil {
+			return errors.Trace(err)
+		}
+	}
+
+	// Look up the application on the remote side of this relation
+	// ie from the model which published this change.
+	// TODO(wallyworld) - we want to look up via a token but we need to
+	// change RegisterRelation to return the app id from the other model.
+	//applicationTag, err := api.getRemoteEntityTag(change.ApplicationId)
+	//if err != nil {
+	//	return errors.Trace(err)
+	//}
+	//logger.Warningf("application tag for remote id %+v is %v", change.ApplicationId, applicationTag)
+	var applicationTag names.Tag
+	for _, ep := range rel.Endpoints() {
+		app, err := api.st.RemoteApplication(ep.ApplicationName)
+		if err == nil {
+			applicationTag = app.Tag()
+			break
+		}
+		if !errors.IsNotFound(err) {
+			return errors.Trace(err)
+		}
+	}
+	// TODO(wallyworld) - deal with remote application being removed
+	if applicationTag == nil {
+		logger.Infof("no remote application found for %v", relationTag.Id())
+		return nil
+	}
+	logger.Debugf("remote applocation for changed relation %v is %v", relationTag.Id(), applicationTag.Id())
+
+	for _, id := range change.DepartedUnits {
+		unitTag := names.NewUnitTag(fmt.Sprintf("%s/%d", applicationTag.Id(), id))
+		logger.Debugf("unit %v has departed relation %v", unitTag.Id(), relationTag.Id())
+		ru, err := rel.RemoteUnit(unitTag.Id())
+		if err != nil {
+			return errors.Trace(err)
+		}
+		logger.Debugf("%s leaving scope", unitTag.Id())
+		if err := ru.LeaveScope(); err != nil {
+			return errors.Trace(err)
+		}
+	}
+
+	for _, change := range change.ChangedUnits {
+		unitTag := names.NewUnitTag(fmt.Sprintf("%s/%d", applicationTag.Id(), change.UnitId))
+		logger.Debugf("changed unit tag for remote id %v is %v", change.UnitId, unitTag)
+		ru, err := rel.RemoteUnit(unitTag.Id())
+		if err != nil {
+			return errors.Trace(err)
+		}
+		inScope, err := ru.InScope()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		settings := make(map[string]interface{})
+		for k, v := range change.Settings {
+			settings[k] = v
+		}
+		if !inScope {
+			logger.Debugf("%s entering scope (%v)", unitTag.Id(), settings)
+			err = ru.EnterScope(settings)
+		} else {
+			logger.Debugf("%s updated settings (%v)", unitTag.Id(), settings)
+			err = ru.ReplaceSettings(settings)
+		}
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return nil
+}
+
+func (api *RemoteRelationsAPI) getRemoteEntityTag(id params.RemoteEntityId) (names.Tag, error) {
+	modelTag := names.NewModelTag(id.ModelUUID)
+	return api.st.GetRemoteEntity(modelTag, id.Token)
 }
 
 // RegisterRemoteRelations sets up the local model to participate
@@ -340,6 +477,7 @@ func (api *RemoteRelationsAPI) RegisterRemoteRelations(
 }
 
 func (api *RemoteRelationsAPI) registerRemoteRelation(relation params.RegisterRemoteRelation) error {
+	logger.Debugf("register remote relation %+v", relation)
 	// TODO(wallyworld) - do this as a transaction so the result is atomic
 	// Perform some initial validation - is the local application alive?
 
@@ -411,27 +549,33 @@ func (api *RemoteRelationsAPI) registerRemoteRelation(relation params.RegisterRe
 	}
 	logger.Debugf("added remote application %v to local model", uniqueRemoteApplicationName)
 
-	// Now add the relation.
-	_, err = api.st.AddRelation(*localEndpoint, remoteEndpoint)
-	// Again, if it already exists, that's fine.
-	if err != nil && !errors.IsAlreadyExists(err) {
-		return errors.Annotate(err, "adding remote relation")
-	}
+	// Now add the relation if it doesn't already exist.
 	localRel, err := api.st.EndpointsRelation(*localEndpoint, remoteEndpoint)
-	if err != nil {
+	if err != nil && !errors.IsNotFound(err) {
 		return errors.Trace(err)
 	}
-	logger.Debugf("added remote relation %v to local environment", localRel.Id())
+	if err != nil {
+		localRel, err = api.st.AddRelation(*localEndpoint, remoteEndpoint)
+		// Again, if it already exists, that's fine.
+		if err != nil && !errors.IsAlreadyExists(err) {
+			return errors.Annotate(err, "adding remote relation")
+		}
+		logger.Debugf("added relation %v to model %v", localRel.Tag().Id(), api.st.ModelUUID())
+	}
 
 	// Ensure we have references recorded.
+	logger.Debugf("importing remote application and relation into model %v", api.st.ModelUUID())
+	logger.Debugf("remote model is %v", remoteModelTag.Id())
 	err = api.st.ImportRemoteEntity(remoteModelTag, names.NewApplicationTag(uniqueRemoteApplicationName), relation.ApplicationId.Token)
 	if err != nil && !errors.IsAlreadyExists(err) {
 		return errors.Annotatef(err, "importing remote application %v to local model", uniqueRemoteApplicationName)
 	}
+	logger.Debugf("application token %v exported for %v", relation.ApplicationId.Token, uniqueRemoteApplicationName)
 	err = api.st.ImportRemoteEntity(remoteModelTag, localRel.Tag(), relation.RelationId.Token)
 	if err != nil && !errors.IsAlreadyExists(err) {
 		return errors.Annotatef(err, "importing remote relation %v to local model", localRel.Tag().Id())
 	}
+	logger.Debugf("relation token %v exported for %v ", relation.RelationId.Token, localRel.Tag().Id())
 	return nil
 }
 

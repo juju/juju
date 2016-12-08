@@ -27,7 +27,7 @@ type mockState struct {
 	applications                 map[string]*mockApplication
 	remoteApplicationsWatcher    *mockStringsWatcher
 	applicationRelationsWatchers map[string]*mockStringsWatcher
-	remoteEntities               map[string]string
+	remoteEntities               map[names.Tag]string
 }
 
 func newMockState() *mockState {
@@ -37,7 +37,7 @@ func newMockState() *mockState {
 		applications:                 make(map[string]*mockApplication),
 		remoteApplicationsWatcher:    newMockStringsWatcher(),
 		applicationRelationsWatchers: make(map[string]*mockStringsWatcher),
-		remoteEntities:               make(map[string]string),
+		remoteEntities:               make(map[names.Tag]string),
 	}
 }
 
@@ -78,10 +78,10 @@ func (st *mockState) ImportRemoteEntity(sourceModel names.ModelTag, entity names
 	if err := st.NextErr(); err != nil {
 		return err
 	}
-	if _, ok := st.remoteEntities[entity.Id()]; ok {
+	if _, ok := st.remoteEntities[entity]; ok {
 		return errors.AlreadyExistsf(entity.Id())
 	}
-	st.remoteEntities[entity.Id()] = token
+	st.remoteEntities[entity] = token
 	return nil
 }
 
@@ -90,11 +90,11 @@ func (st *mockState) ExportLocalEntity(entity names.Tag) (string, error) {
 	if err := st.NextErr(); err != nil {
 		return "", err
 	}
-	if token, ok := st.remoteEntities[entity.Id()]; ok {
+	if token, ok := st.remoteEntities[entity]; ok {
 		return token, errors.AlreadyExistsf(entity.Id())
 	}
 	token := "token-" + entity.Id()
-	st.remoteEntities[entity.Id()] = token
+	st.remoteEntities[entity] = token
 	return token, nil
 }
 
@@ -103,7 +103,12 @@ func (st *mockState) GetRemoteEntity(sourceModel names.ModelTag, token string) (
 	if err := st.NextErr(); err != nil {
 		return nil, err
 	}
-	return nil, errors.NotImplementedf("GetRemoteEntity")
+	for e, t := range st.remoteEntities {
+		if t == token {
+			return e, nil
+		}
+	}
+	return nil, errors.NotFoundf("token %v", token)
 }
 
 func (st *mockState) GetToken(sourceModel names.ModelTag, entity names.Tag) (string, error) {
@@ -111,7 +116,7 @@ func (st *mockState) GetToken(sourceModel names.ModelTag, entity names.Tag) (str
 	if err := st.NextErr(); err != nil {
 		return "", err
 	}
-	return "", errors.NotImplementedf("GetToken")
+	return "token-" + entity.String(), nil
 }
 
 func (st *mockState) KeyRelation(key string) (remoterelations.Relation, error) {
