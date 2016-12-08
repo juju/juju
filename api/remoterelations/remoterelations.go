@@ -118,12 +118,12 @@ func (c *Client) RelationUnitSettings(relationUnits []params.RelationUnit) ([]pa
 
 // Relations returns information about the cross-model relations with the specified keys
 // in the local model.
-func (c *Client) Relations(keys []string) ([]params.RelationResult, error) {
+func (c *Client) Relations(keys []string) ([]params.RemoteRelationResult, error) {
 	args := params.Entities{Entities: make([]params.Entity, len(keys))}
 	for i, key := range keys {
 		args.Entities[i].Tag = names.NewRelationTag(key).String()
 	}
-	var results params.RelationResults
+	var results params.RemoteRelationResults
 	err := c.facade.FacadeCall("Relations", args, &results)
 	if err != nil {
 		return nil, errors.Trace(err)

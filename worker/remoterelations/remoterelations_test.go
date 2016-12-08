@@ -62,17 +62,19 @@ func (s *remoteRelationsSuite) assertRemoteApplicationWorkers(c *gc.C) worker.Wo
 	// Checks that the main worker loop responds to remote application events
 	// by starting relevant relation watchers.
 	s.relationsFacade.remoteApplications["db2"] = newMockRemoteApplication("db2", "db2url")
-	s.relationsFacade.remoteApplications["django"] = newMockRemoteApplication("django", "djangourl")
-	applicationNames := []string{"db2", "django"}
+	s.relationsFacade.remoteApplications["mysql"] = newMockRemoteApplication("mysql", "mysqlurl")
+	applicationNames := []string{"db2", "mysql"}
 	s.relationsFacade.remoteApplicationsWatcher.changes <- applicationNames
 
 	w, err := remoterelations.New(s.config)
 	c.Assert(err, jc.ErrorIsNil)
 	expected := []jujutesting.StubCall{
 		{"WatchRemoteApplications", nil},
-		{"RemoteApplications", []interface{}{[]string{"db2", "django"}}},
+		{"RemoteApplications", []interface{}{[]string{"db2", "mysql"}}},
+		{"ExportEntities", []interface{}{[]names.Tag{names.NewApplicationTag("db2")}}},
 		{"WatchRemoteApplicationRelations", []interface{}{"db2"}},
-		{"WatchRemoteApplicationRelations", []interface{}{"django"}},
+		{"ExportEntities", []interface{}{[]names.Tag{names.NewApplicationTag("mysql")}}},
+		{"WatchRemoteApplicationRelations", []interface{}{"mysql"}},
 	}
 	s.waitForStubCalls(c, expected)
 	for _, app := range applicationNames {
@@ -90,7 +92,7 @@ func (s *remoteRelationsSuite) TestRemoteApplicationWorkers(c *gc.C) {
 	workertest.CleanKill(c, w)
 
 	// Check that relation watchers are stopped with the worker.
-	applicationNames := []string{"db2", "django"}
+	applicationNames := []string{"db2", "mysql"}
 	for _, app := range applicationNames {
 		w, ok := s.relationsFacade.remoteApplicationRelationsWatcher(app)
 		c.Check(ok, jc.IsTrue)
@@ -105,17 +107,17 @@ func (s *remoteRelationsSuite) TestRemoteApplicationRemoved(c *gc.C) {
 	defer workertest.CleanKill(c, w)
 	s.stub.ResetCalls()
 
-	relWatcher, _ := s.relationsFacade.removeApplication("django")
-	s.relationsFacade.remoteApplicationsWatcher.changes <- []string{"django"}
+	relWatcher, _ := s.relationsFacade.removeApplication("mysql")
+	s.relationsFacade.remoteApplicationsWatcher.changes <- []string{"mysql"}
 	for a := coretesting.LongAttempt.Start(); a.Next(); {
-		_, ok := s.relationsFacade.remoteApplicationRelationsWatcher("django")
+		_, ok := s.relationsFacade.remoteApplicationRelationsWatcher("mysql")
 		if !ok {
 			break
 		}
 	}
 	c.Check(relWatcher.killed(), jc.IsTrue)
 	expected := []jujutesting.StubCall{
-		{"RemoteApplications", []interface{}{[]string{"django"}}},
+		{"RemoteApplications", []interface{}{[]string{"mysql"}}},
 		{"Close", nil},
 	}
 	s.waitForStubCalls(c, expected)
@@ -126,13 +128,38 @@ func (s *remoteRelationsSuite) assertRemoteRelationsWorkers(c *gc.C) worker.Work
 	w := s.assertRemoteApplicationWorkers(c)
 	s.stub.ResetCalls()
 
-	relWatcher, _ := s.relationsFacade.remoteApplicationRelationsWatcher("django")
+	s.relationsFacade.relationsEndpoints["db2:db django:db"] = &relationEndpointInfo{
+		localApplicationName: "django",
+		localEndpoint: params.RemoteEndpoint{
+			Name:      "db2",
+			Role:      "requires",
+			Interface: "db2",
+			Limit:     1,
+			Scope:     "global",
+		},
+		remoteEndpointName: "data",
+	}
+
+	relWatcher, _ := s.relationsFacade.remoteApplicationRelationsWatcher("db2")
 	relWatcher.changes <- []string{"db2:db django:db"}
 
 	expected := []jujutesting.StubCall{
 		{"Relations", []interface{}{[]string{"db2:db django:db"}}},
-		{"WatchLocalRelationUnits", []interface{}{"db2:db django:db"}},
 		{"ExportEntities", []interface{}{[]names.Tag{names.NewRelationTag("db2:db django:db")}}},
+		{"RegisterRemoteRelation", []interface{}{params.RegisterRemoteRelation{
+			ApplicationId: params.RemoteEntityId{ModelUUID: "model-uuid", Token: "token-db2"},
+			RelationId:    params.RemoteEntityId{ModelUUID: "model-uuid", Token: "token-db2:db django:db"},
+			RemoteEndpoint: params.RemoteEndpoint{
+				Name:      "db2",
+				Role:      "requires",
+				Interface: "db2",
+				Limit:     1,
+				Scope:     "global",
+			},
+			OfferedApplicationName: "db2",
+			LocalEndpointName:      "data",
+		}}},
+		{"WatchLocalRelationUnits", []interface{}{"db2:db django:db"}},
 	}
 	s.waitForStubCalls(c, expected)
 
@@ -162,7 +189,7 @@ func (s *remoteRelationsSuite) TestRemoteRelationsDead(c *gc.C) {
 	s.stub.ResetCalls()
 
 	unitsWatcher, _ := s.relationsFacade.updateRelationLife("db2:db django:db", params.Dead)
-	relWatcher, _ := s.relationsFacade.remoteApplicationRelationsWatcher("django")
+	relWatcher, _ := s.relationsFacade.remoteApplicationRelationsWatcher("db2")
 	relWatcher.changes <- []string{"db2:db django:db"}
 	for a := coretesting.LongAttempt.Start(); a.Next(); {
 		_, ok := s.relationsFacade.relationsUnitsWatcher("db2:db django:db")
@@ -185,7 +212,7 @@ func (s *remoteRelationsSuite) TestRemoteRelationsRemoved(c *gc.C) {
 	s.stub.ResetCalls()
 
 	unitsWatcher, _ := s.relationsFacade.removeRelation("db2:db django:db")
-	relWatcher, _ := s.relationsFacade.remoteApplicationRelationsWatcher("django")
+	relWatcher, _ := s.relationsFacade.remoteApplicationRelationsWatcher("db2")
 	relWatcher.changes <- []string{"db2:db django:db"}
 	for a := coretesting.LongAttempt.Start(); a.Next(); {
 		_, ok := s.relationsFacade.relationsUnitsWatcher("db2:db django:db")
@@ -249,4 +276,47 @@ func (s *remoteRelationsSuite) TestRemoteRelationsChangedError(c *gc.C) {
 	}
 	err := workertest.CheckKilled(c, w)
 	c.Assert(err, gc.ErrorMatches, "publishing relation change to remote model: failed")
+}
+
+func (s *remoteRelationsSuite) TestRegisteredApplicationNotRegistered(c *gc.C) {
+	s.relationsFacade.relations["db2:db django:db"] = newMockRelation(123)
+	db2app := newMockRemoteApplication("db2", "db2url")
+	db2app.registered = true
+	s.relationsFacade.remoteApplications["db2"] = db2app
+	applicationNames := []string{"db2"}
+	s.relationsFacade.remoteApplicationsWatcher.changes <- applicationNames
+
+	w, err := remoterelations.New(s.config)
+	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.CleanKill(c, w)
+
+	expected := []jujutesting.StubCall{
+		{"WatchRemoteApplications", nil},
+		{"RemoteApplications", []interface{}{[]string{"db2"}}},
+		{"ExportEntities", []interface{}{[]names.Tag{names.NewApplicationTag("db2")}}},
+		{"WatchRemoteApplicationRelations", []interface{}{"db2"}},
+	}
+	s.waitForStubCalls(c, expected)
+	s.stub.ResetCalls()
+
+	s.relationsFacade.relationsEndpoints["db2:db django:db"] = &relationEndpointInfo{
+		localApplicationName: "django",
+		localEndpoint: params.RemoteEndpoint{
+			Name:      "db2",
+			Role:      "requires",
+			Interface: "db2",
+			Limit:     1,
+			Scope:     "global",
+		},
+		remoteEndpointName: "data",
+	}
+
+	relWatcher, _ := s.relationsFacade.remoteApplicationRelationsWatcher("db2")
+	relWatcher.changes <- []string{"db2:db django:db"}
+
+	expected = []jujutesting.StubCall{
+		{"Relations", []interface{}{[]string{"db2:db django:db"}}},
+		{"WatchLocalRelationUnits", []interface{}{"db2:db django:db"}},
+	}
+	s.waitForStubCalls(c, expected)
 }

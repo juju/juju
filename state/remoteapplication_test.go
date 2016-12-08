@@ -264,10 +264,23 @@ func (s *remoteApplicationSuite) TestAddRemoteApplication(c *gc.C) {
 		Name: "foo", URL: "local:/u/me/foo", SourceModel: s.State.ModelTag()})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(foo.Name(), gc.Equals, "foo")
+	c.Assert(foo.Registered(), jc.IsFalse)
 	foo, err = s.State.RemoteApplication("foo")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(foo.Name(), gc.Equals, "foo")
+	c.Assert(foo.Registered(), jc.IsFalse)
 	c.Assert(foo.SourceModel().Id(), gc.Equals, s.State.ModelTag().Id())
+}
+
+func (s *remoteApplicationSuite) TestAddRemoteApplicationRegistered(c *gc.C) {
+	foo, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name: "foo", URL: "local:/u/me/foo", SourceModel: s.State.ModelTag(), Registered: true})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(foo.Registered(), jc.IsTrue)
+	foo, err = s.State.RemoteApplication("foo")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(foo.Name(), gc.Equals, "foo")
+	c.Assert(foo.Registered(), jc.IsTrue)
 }
 
 func (s *remoteApplicationSuite) TestAddRemoteRelationWrongScope(c *gc.C) {

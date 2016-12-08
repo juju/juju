@@ -36,6 +36,7 @@ type remoteApplicationDoc struct {
 	Endpoints       []remoteEndpointDoc `bson:"endpoints"`
 	Life            Life                `bson:"life"`
 	RelationCount   int                 `bson:"relationcount"`
+	Registered      bool                `bson:"registered"`
 }
 
 // remoteEndpointDoc represents the internal state of a remote application endpoint in MongoDB.
@@ -74,6 +75,12 @@ func (s *RemoteApplication) IsRemote() bool {
 // SourceModel returns the tag of the model to which the application belongs.
 func (s *RemoteApplication) SourceModel() names.ModelTag {
 	return names.NewModelTag(s.doc.SourceModelUUID)
+}
+
+// Registered returns the application is created
+// from a registration operation by a consuming model.
+func (s *RemoteApplication) Registered() bool {
+	return s.doc.Registered
 }
 
 // Name returns the application name.
@@ -324,6 +331,10 @@ type AddRemoteApplicationParams struct {
 
 	// Endpoints describes the endpoints that the remote application implements.
 	Endpoints []charm.Relation
+
+	// Registered is true when a remote application is created as a result
+	// of a registration operation from a remote model.
+	Registered bool
 }
 
 // Validate returns an error if there's a problem with the
@@ -369,6 +380,7 @@ func (st *State) AddRemoteApplication(args AddRemoteApplicationParams) (_ *Remot
 		SourceModelUUID: args.SourceModel.Id(),
 		URL:             args.URL,
 		Life:            Alive,
+		Registered:      args.Registered,
 	}
 	eps := make([]remoteEndpointDoc, len(args.Endpoints))
 	for i, ep := range args.Endpoints {

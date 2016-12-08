@@ -243,9 +243,9 @@ func (s *remoteRelationsSuite) TestRelations(c *gc.C) {
 		c.Check(id, gc.Equals, "")
 		c.Check(request, gc.Equals, "Relations")
 		c.Check(arg, gc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "relation-foo.db#bar.db"}}})
-		c.Assert(result, gc.FitsTypeOf, &params.RelationResults{})
-		*(result.(*params.RelationResults)) = params.RelationResults{
-			Results: []params.RelationResult{{
+		c.Assert(result, gc.FitsTypeOf, &params.RemoteRelationResults{})
+		*(result.(*params.RemoteRelationResults)) = params.RemoteRelationResults{
+			Results: []params.RemoteRelationResult{{
 				Error: &params.Error{Message: "FAIL"},
 			}},
 		}
@@ -262,8 +262,8 @@ func (s *remoteRelationsSuite) TestRelations(c *gc.C) {
 
 func (s *remoteRelationsSuite) TestRelationsResultsCount(c *gc.C) {
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		*(result.(*params.RelationResults)) = params.RelationResults{
-			Results: []params.RelationResult{
+		*(result.(*params.RemoteRelationResults)) = params.RemoteRelationResults{
+			Results: []params.RemoteRelationResult{
 				{Error: &params.Error{Message: "FAIL"}},
 				{Error: &params.Error{Message: "FAIL"}},
 			},

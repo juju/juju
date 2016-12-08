@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/remoterelations"
+	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/status"
 	coretesting "github.com/juju/juju/testing"
@@ -40,6 +41,14 @@ func newMockState() *mockState {
 	}
 }
 
+func (st *mockState) ListOffers(filter ...crossmodel.OfferedApplicationFilter) ([]crossmodel.OfferedApplication, error) {
+	result := make([]crossmodel.OfferedApplication, len(filter))
+	for i, f := range filter {
+		result[i] = crossmodel.OfferedApplication{CharmName: "application-" + f.ApplicationName}
+	}
+	return result, nil
+}
+
 func (st *mockState) ModelUUID() string {
 	return coretesting.ModelTag.Id()
 }
@@ -59,7 +68,7 @@ func (st *mockState) EndpointsRelation(eps ...state.Endpoint) (remoterelations.R
 }
 
 func (st *mockState) AddRemoteApplication(params state.AddRemoteApplicationParams) (remoterelations.RemoteApplication, error) {
-	app := &mockRemoteApplication{name: params.Name, eps: params.Endpoints}
+	app := &mockRemoteApplication{name: params.Name, eps: params.Endpoints, registered: params.Registered}
 	st.remoteApplications[params.Name] = app
 	return app, nil
 }
@@ -253,11 +262,12 @@ func (r *mockRelation) WatchUnits(applicationName string) (state.RelationUnitsWa
 
 type mockRemoteApplication struct {
 	testing.Stub
-	name   string
-	url    string
-	life   state.Life
-	status status.Status
-	eps    []charm.Relation
+	name       string
+	url        string
+	life       state.Life
+	status     status.Status
+	eps        []charm.Relation
+	registered bool
 }
 
 func newMockRemoteApplication(name, url string) *mockRemoteApplication {
@@ -274,6 +284,11 @@ func (r *mockRemoteApplication) Name() string {
 func (r *mockRemoteApplication) Tag() names.Tag {
 	r.MethodCall(r, "Tag")
 	return names.NewApplicationTag(r.name)
+}
+
+func (r *mockRemoteApplication) Registered() bool {
+	r.MethodCall(r, "Registered")
+	return r.registered
 }
 
 func (r *mockRemoteApplication) Life() state.Life {

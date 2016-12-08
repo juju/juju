@@ -7,6 +7,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/errors"
+	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/status"
 )
@@ -66,6 +67,9 @@ type RemoteRelationsState interface {
 	// GetToken returns the token associated with the entity with the given tag
 	// and model.
 	GetToken(names.ModelTag, names.Tag) (string, error)
+
+	// ListOffers returns the application offers matching any one of the filter terms.
+	ListOffers(filter ...crossmodel.OfferedApplicationFilter) ([]crossmodel.OfferedApplication, error)
 }
 
 // Relation provides access a relation in global state.
@@ -137,6 +141,10 @@ type RemoteApplication interface {
 	// SourceModel returns the tag of the model hosting the remote application.
 	SourceModel() names.ModelTag
 
+	// Registered returns the application is created
+	// from a registration operation by a consuming model.
+	Registered() bool
+
 	// URL returns the remote application URL, at which it is offered.
 	URL() (string, bool)
 
@@ -158,6 +166,11 @@ type Application interface {
 
 type stateShim struct {
 	*state.State
+}
+
+func (st stateShim) ListOffers(filter ...crossmodel.OfferedApplicationFilter) ([]crossmodel.OfferedApplication, error) {
+	oa := state.NewOfferedApplications(st.State)
+	return oa.ListOffers(filter...)
 }
 
 func (st stateShim) ExportLocalEntity(entity names.Tag) (string, error) {
