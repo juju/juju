@@ -60,6 +60,20 @@ class ModelDefault:
         for key, value in model_kvp.items():
             return ModelDefault(key, value)
 
+    def to_dict(self):
+        return {self.model_key: self.defaults}
+
+    @staticmethod
+    def assemble(model_key, default, controller=None, regions=None):
+        defaults = {'default': default}
+        if controller:
+            defaults['controller'] = controller
+        if regions:
+            defaults['regions'] = [
+                {'name': region, 'value': region_default}
+                for (region, region_default) in regions.items()]
+        return ModelDefault(model_key, defaults)
+
     @property
     def default(self):
         return self.defaults.get('default')
@@ -72,6 +86,19 @@ class ModelDefault:
         for current_region in self.defaults.get('regions', []):
             if current_region['name'] == region:
                 return current_region['value']
+
+    def __eq__(self, other):
+        return (self.model_key == other.model_key and
+                self.defaults == other.defaults)
+
+    def __ne__(self, other):
+        return (self.model_key != other.model_key or
+                self.defaults != other.defaults)
+
+    def __repr__(self):
+        # return 'ModelDefault({!r})'.format(self.to_dict())
+        return 'ModelDefault({!r}, {!r})'.format(self.model_key,
+                                                 self.defaults)
 
 
 # All three might be made part of JujuEnvClient
@@ -96,8 +123,8 @@ def _format_cloud_region(cloud=None, region=None):
 def get_model_defaults(client, model_key, cloud=None, region=None):
     cloud_region = _format_cloud_region(cloud, region)
     gjo_args = ('--format', 'yaml') + cloud_region + (model_key,)
-    raw_yaml = client.get_juju_output('model-defaults', gjo_args)
-    return yaml.safe_load(raw_yaml)
+    raw_yaml = client.get_juju_output('model-defaults', *gjo_args)
+    return ModelDefault.from_dict(yaml.safe_load(raw_yaml))
 
 
 def set_model_defaults(client, model_key, value, cloud=None, region=None):
@@ -113,47 +140,42 @@ def unset_model_defaults(client, model_key, cloud=None, region=None):
                 cloud_region + ('--reset', model_key))
 
 
-def get_true_default(client, model_key, cloud=None, region=None):
-    defaults = get_model_defaults(client, model_key, cloud, region)
-    return defaults[model_key]['default']
+def assert_model_defaults_equal(msg, lhs, rhs):
+    if (lhs != rhs):
+        raise JujuAssertionError(msg, lhs, rhs)
 
 
 def assess_model_defaults_controller(client, model_key, value):
-    default = get_true_default(client, model_key)
-    if ({model_key: {'default': default}} !=
-            get_model_defaults(client, model_key)):
-        raise JujuAssertionError(
-            'model-defaults format does not match expected.')
+    base_line = get_model_defaults(client, model_key)
+    default = base_line.default
+
     set_model_defaults(client, model_key, value)
-    if ({model_key: {'default': default, 'controller': value}} !=
-            get_model_defaults(client, model_key)):
-        raise JujuAssertionError(
-            'model-defaults: Mismatch on setting controller.')
+    assert_model_defaults_equal(
+        'model-defaults: Mismatch on setting controller.',
+        ModelDefault.assemble(model_key, default, value),
+        get_model_defaults(client, model_key))
+
     unset_model_defaults(client, model_key)
-    if ({model_key: {'default': default}} !=
-            get_model_defaults(client, model_key)):
-        raise JujuAssertionError(
-            'model-defaults: Mismatch after resetting controller.')
+    assert_model_defaults_equal(
+        'model-defaults: Mismatch after resetting controller.',
+        base_line, get_model_defaults(client, model_key))
 
 
 def assess_model_defaults_region(client, model_key, value,
                                  cloud=None, region=None):
-    default = get_true_default(client, model_key, cloud, region)
-    if ({model_key: {'default': default}} !=
-            get_model_defaults(client, model_key, cloud, region)):
-        raise JujuAssertionError(
-            'model-defaults format does not match expected.')
+    base_line = get_model_defaults(client, model_key, cloud, region)
+    default = base_line.default
+
     set_model_defaults(client, model_key, value, cloud, region)
-    if ({model_key: {'default': default,
-                     'region': [{'name': region, 'value': value}]}} !=
-            get_model_defaults(client, model_key, cloud, region)):
-        raise JujuAssertionError(
-            'model-defaults: Mismatch on setting region.')
+    assert_model_defaults_equal(
+        'model-defaults: Mismatch on setting region.',
+        ModelDefault.assemble(model_key, default, None, {region: value}),
+        get_model_defaults(client, model_key, cloud, region))
+
     unset_model_defaults(client, model_key, cloud, region)
-    if ({model_key: {'default': default}} !=
-            get_model_defaults(client, model_key, cloud, region)):
-        raise JujuAssertionError(
-            'model-defaults: Mismatch after resetting region.')
+    assert_model_defaults_equal(
+        'model-defaults: Mismatch after resetting controller.',
+        base_line, get_model_defaults(client, model_key, cloud, region))
 
 
 def assess_model_defaults(client):

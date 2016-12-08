@@ -7,17 +7,49 @@ from mock import (
     Mock,
     patch,
     )
+import yaml
 
 from assess_model_defaults import (
     assess_model_defaults,
-    parse_args,
+    assess_model_defaults_controller,
+    get_model_defaults,
     main,
+    ModelDefault,
+    parse_args,
+    set_model_defaults,
+    unset_model_defaults,
     )
 from fakejuju import fake_juju_client
 from tests import (
     parse_error,
     TestCase,
     )
+
+
+class FakeJujuModelDefaults:
+
+    def __init__(self, defaults=None):
+        self.model_defaults = {}
+        if defaults is not None:
+            for (key, value) in defaults.items():
+                self.model_defaults[key] = {'default': value}
+
+    test_mode_example = {
+        'test-mode': {
+            'default': False,  # Was false, not sure why it was unquoted.
+            'controller': 'true',
+            'regions': [{'name': 'localhost', 'value': 'true'}]
+            }
+        }
+
+    def get_model_defaults(self, model_key):
+        return ModelDefault(model_key, self.model_defaults[model_key])
+
+    def set_model_defaults(self, model_key, value):
+        self.model_defaults[model_key]['controller'] = value
+
+    def unset_model_defaults(self, model_key):
+        del self.model_defaults[model_key]
 
 
 class TestParseArgs(TestCase):
@@ -60,7 +92,56 @@ class TestMain(TestCase):
         mock_assess.assert_called_once_with(client)
 
 
-class TestAssess(TestCase):
+class TestJujuWrappers(TestCase):
+
+    def test_get_model_defaults(self):
+        raw_yaml = yaml.safe_dump({'some-key': {'default': 'black'}})
+        client = fake_juju_client()
+        with patch.object(client, 'get_juju_output', autospec=True,
+                          return_value=raw_yaml) as output_mock:
+            retval = get_model_defaults(client, 'some-key')
+        self.assertEqual(ModelDefault('some-key', {'default': 'black'}),
+                         retval)
+        output_mock.assert_called_once_with(
+            'model-defaults', '--format', 'yaml', 'some-key')
+
+    def test_set_model_defaults(self):
+        client = fake_juju_client()
+        with patch.object(client, 'juju', autospec=True) as juju_mock:
+            set_model_defaults(client, 'some-key', 'white')
+        juju_mock.assert_called_once_with(
+            'model-defaults', ('some-key=white',))
+
+    def test_unset_model_defaults(self):
+        client = fake_juju_client()
+        with patch.object(client, 'juju', autospec=True) as juju_mock:
+            unset_model_defaults(client, 'some-key')
+        juju_mock.assert_called_once_with(
+            'model-defaults', ('--reset', 'some-key'))
+
+
+class TestAssessModelDefaults(TestCase):
+
+    def test_model_defaults_controller(self):
+        client = FakeJujuModelDefaults({'some-key': 'black'})
+        with patch('assess_model_defaults.get_model_defaults',
+                   side_effect=lambda client, key:
+                       client.get_model_defaults(key),
+                   autospec=True) as get_mock:
+            with patch('assess_model_defaults.set_model_defaults',
+                       side_effect=lambda client, key, value:
+                           client.set_model_defaults(key, value),
+                       autospec=True) as set_mock:
+                with patch('assess_model_defaults.unset_model_defaults',
+                           autospec=True) as unset_mock:
+                    assess_model_defaults_controller(
+                        client, 'some-key', 'yellow')
+        self.assertEqual(3, get_mock.call_count)
+        set_mock.assert_called_once_with(client, 'some-key', 'yellow')
+        unset_mock.assert_called_once_with(client, 'some-key')
+
+    # def test_model_defaults_region(self):
+    #     Add cloud & region arguments to the fake.
 
     def test_model_defaults(self):
         # Using fake_client means that deploy and get_status have plausible
