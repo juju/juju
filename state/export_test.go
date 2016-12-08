@@ -289,7 +289,7 @@ func CheckUserExists(st *State, name string) (bool, error) {
 	return st.checkUserExists(name)
 }
 
-func WatcherMergeIds(st *State, changeset *[]string, updates map[interface{}]bool, idconv func(string) string) error {
+func WatcherMergeIds(st *State, changeset *[]string, updates map[interface{}]bool, idconv func(string) (string, error)) error {
 	return mergeIds(st, changeset, updates, idconv)
 }
 
@@ -466,7 +466,15 @@ func IsManagerMachineError(err error) bool {
 	return errors.Cause(err) == managerMachineError
 }
 
-var ActionNotificationIdToActionId = actionNotificationIdToActionId
+func MakeActionIdConverter(st *State) func(string) (string, error) {
+	return func(id string) (string, error) {
+		id, err := st.strictLocalID(id)
+		if err != nil {
+			return "", errors.Trace(err)
+		}
+		return actionNotificationIdToActionId(id), err
+	}
+}
 
 func UpdateModelUserLastConnection(st *State, e permission.UserAccess, when time.Time) error {
 	return st.updateLastModelConnection(e.UserTag, when)
