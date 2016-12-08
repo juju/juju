@@ -149,12 +149,12 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 		}
 
 		updateStatus := newTimedStatusUpdater(ctx, api, controllerEnviron.Config().UUID(), clock.WallClock)
-		ctrStatus, modelsStatus := updateStatus(0)
+		envStatus := updateStatus(0)
 		if !c.destroyModels {
-			if err := c.checkNoAliveHostedModels(ctx, modelsStatus); err != nil {
+			if err := c.checkNoAliveHostedModels(ctx, envStatus.models); err != nil {
 				return errors.Trace(err)
 			}
-			if hasHostedModels && !hasUnDeadModels(modelsStatus) {
+			if hasHostedModels && !hasUnDeadModels(envStatus.models) {
 				// When we called DestroyController before, we were
 				// informed that there were hosted models remaining.
 				// When we checked just now, there were none. We should
@@ -165,10 +165,12 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 
 		// Even if we've not just requested for hosted models to be destroyed,
 		// there may be some being destroyed already. We need to wait for them.
+		// Check for both undead models and live machines, as machines may be
+		// in the controller model.
 		ctx.Infof("Waiting for hosted model resources to be reclaimed")
-		for ; hasUnDeadModels(modelsStatus); ctrStatus, modelsStatus = updateStatus(2 * time.Second) {
-			ctx.Infof(fmtCtrStatus(ctrStatus))
-			for _, model := range modelsStatus {
+		for ; hasUnreclaimedResources(envStatus); envStatus = updateStatus(2 * time.Second) {
+			ctx.Infof(fmtCtrStatus(envStatus.controller))
+			for _, model := range envStatus.models {
 				ctx.Verbosef(fmtModelStatus(model))
 			}
 		}
