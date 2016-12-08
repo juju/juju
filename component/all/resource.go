@@ -4,7 +4,6 @@
 package all
 
 import (
-	"io"
 	"os"
 	"reflect"
 
@@ -229,16 +228,6 @@ type resourcesUnitDataStore struct {
 // ListResources implements resource/api/private/server.UnitDataStore.
 func (ds *resourcesUnitDataStore) ListResources() (resource.ServiceResources, error) {
 	return ds.resources.ListResources(ds.unit.ApplicationName())
-}
-
-// GetResource implements resource/api/private/server.UnitDataStore.
-func (ds *resourcesUnitDataStore) GetResource(name string) (resource.Resource, error) {
-	return ds.resources.GetResource(ds.unit.ApplicationName(), name)
-}
-
-// OpenResource implements resource/api/private/server.UnitDataStore.
-func (ds *resourcesUnitDataStore) OpenResource(name string) (resource.Resource, io.ReadCloser, error) {
-	return ds.resources.OpenResourceForUniter(ds.unit, name)
 }
 
 func (r resources) newHookContextFacade(st *corestate.State, unit *corestate.Unit) (interface{}, error) {
