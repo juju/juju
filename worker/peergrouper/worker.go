@@ -112,7 +112,7 @@ type pgWorker struct {
 
 	providerSupportsSpaces bool
 
-	// hub is the central hub of the apiserver, and is used to pusblish the
+	// hub is the central hub of the apiserver, and is used to publish the
 	// details of the api servers.
 	hub Hub
 }
