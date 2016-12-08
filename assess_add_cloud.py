@@ -23,7 +23,36 @@ from utility import (
     )
 
 
-CloudSpec = namedtuple('CloudSpec', ['label', 'name', 'config', 'exception'])
+class CloudMismatch(JujuAssertionError):
+
+    def __init__(self):
+        super(CloudMismatch, self).__init__('Cloud mismatch')
+
+
+class NameMismatch(JujuAssertionError):
+
+    def __init__(self):
+        super(NameMismatch, self).__init__('Name mismatch')
+
+
+class NotRaised(Exception):
+
+    def __init__(self):
+        msg = 'Expected exception not raised: {}'.format(
+            cloud_spec.exception)
+        super(NotRaised, self).__init__(msg)
+
+
+CloudSpec = namedtuple('CloudSpec', ['label', 'name', 'config', 'exception',
+    'xfail_bug'])
+
+
+def cloud_spec(label, name, config, exception=None, xfail_bug=None):
+    return CloudSpec(label, name, config, exception, xfail_bug)
+
+
+def xfail(spec, bug, xfail_exception):
+    return CloudSpec(spec.label, spec.name, spec.config, xfail_exception, bug)
 
 
 def assess_cloud(client, cloud_name, example_cloud):
@@ -35,32 +64,33 @@ def assess_cloud(client, cloud_name, example_cloud):
     if len(clouds['clouds']) == 0:
         raise JujuAssertionError('Clouds missing!')
     if clouds['clouds'].keys() != [cloud_name]:
-        raise JujuAssertionError('Name mismatch')
+        raise NameMismatch()
     if clouds['clouds'][cloud_name] != example_cloud:
         sys.stderr.write('\nExpected:\n')
         yaml.dump(example_cloud, sys.stderr)
         sys.stderr.write('\nActual:\n')
         yaml.dump(clouds['clouds'][cloud_name], sys.stderr)
-        raise JujuAssertionError('Cloud mismatch')
+        raise CloudMismatch()
 
 
 def iter_clouds(clouds):
-    yield CloudSpec('bogus-type', 'bogus-type', {'type': 'bogus'},
+    yield cloud_spec('bogus-type', 'bogus-type', {'type': 'bogus'},
                     exception=TypeNotAccepted)
     for cloud_name, cloud in clouds.items():
-        yield CloudSpec(cloud_name, cloud_name, cloud, exception=None)
+        yield cloud_spec(cloud_name, cloud_name, cloud, exception=None)
 
     for cloud_name, cloud in clouds.items():
-        yield CloudSpec('long-name-{}'.format(cloud_name), 'A' * 4096, cloud,
-                        exception=None)
-        yield CloudSpec('invalid-name-{}'.format(cloud_name), 'invalid/name',
-                        cloud, exception=NameNotAccepted)
+        yield xfail(cloud_spec('long-name-{}'.format(cloud_name), 'A' * 4096,
+                               cloud, NameNotAccepted), 1641970, NameMismatch)
+        yield xfail(
+            cloud_spec('invalid-name-{}'.format(cloud_name), 'invalid/name',
+                       cloud, NameNotAccepted), 1649181, None)
 
         if cloud['type'] not in ('maas', 'manual', 'vsphere'):
             variant = deepcopy(cloud)
             variant_name = 'bogus-auth-{}'.format(cloud_name)
             variant['auth-types'] = ['asdf']
-            yield CloudSpec(variant_name, cloud_name, variant,
+            yield cloud_spec(variant_name, cloud_name, variant,
                             AuthNotAccepted)
 
         if 'endpoint' in cloud:
@@ -70,7 +100,8 @@ def iter_clouds(clouds):
                 for region in variant['regions'].values():
                     region['endpoint'] = variant['endpoint']
             variant_name = 'long-endpoint-{}'.format(cloud_name)
-            yield CloudSpec(variant_name, cloud_name, variant, exception=None)
+            yield xfail(cloud_spec(variant_name, cloud_name, variant),
+                        1641970, CloudMismatch)
 
         for region_name in cloud.get('regions', {}).keys():
             if cloud['type'] == 'vsphere':
@@ -80,36 +111,41 @@ def iter_clouds(clouds):
             region['endpoint'] = 'A' * 4096
             variant_name = 'long-endpoint-{}-{}'.format(cloud_name,
                                                         region_name)
-            yield CloudSpec(variant_name, cloud_name, variant,
-                            exception=None)
+            yield xfail(cloud_spec(variant_name, cloud_name, variant,
+                                   exception=None), 1641970, CloudMismatch)
+
 
 
 def assess_all_clouds(client, clouds):
     succeeded = set()
+    xfail = {}
     failed = set()
     client.env.load_yaml()
-    for cloud_label, cloud_name, cloud, expected in iter_clouds(clouds):
-        sys.stdout.write('Testing {}.\n'.format(cloud_label))
+    for cloud_spec in iter_clouds(clouds):
+        sys.stdout.write('Testing {}.\n'.format(cloud_spec.label))
         try:
-            if expected is None:
-                assess_cloud(client, cloud_name, cloud)
+            if cloud_spec.exception is None:
+                assess_cloud(client, cloud_spec.name, cloud_spec.config)
             else:
                 try:
-                    assess_cloud(client, cloud_name, cloud)
-                except expected:
+                    assess_cloud(client, cloud_spec.name, cloud_spec.config)
+                except cloud_spec.exception:
                     pass
                 else:
-                    raise Exception(
-                        'Expected exception not raised: {}'.format(expected))
+                    raise NotRaised(cloud_spec.exception)
         except Exception as e:
             logging.exception(e)
-            failed.add(cloud_label)
+            failed.add(cloud_spec.label)
         else:
-            succeeded.add(cloud_label)
+            if cloud_spec.xfail_bug is not None:
+                xfail.setdefault(
+                    cloud_spec.xfail_bug, set()).add(cloud_spec.label)
+            else:
+                succeeded.add(cloud_spec.label)
         finally:
             client.env.clouds = {'clouds': {}}
             client.env.dump_yaml(client.env.juju_home, {})
-    return succeeded, failed
+    return succeeded, xfail, failed
 
 
 def write_status(status, tests):
@@ -140,8 +176,10 @@ def main():
     with temp_dir() as juju_home:
         env = JujuData('foo', config=None, juju_home=juju_home)
         client = client_class(env, version, juju_bin)
-        succeeded, failed = assess_all_clouds(client, clouds)
+        succeeded, xfail, failed = assess_all_clouds(client, clouds)
     write_status('Succeeded', succeeded)
+    for bug, failures in sorted(xfail.items()):
+        write_status('Expected fail (bug #{})'.format(bug), failures)
     write_status('Failed', failed)
     if len(failed) > 0:
         return 1
