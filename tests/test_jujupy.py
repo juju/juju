@@ -541,7 +541,7 @@ class TestWaitMachineNotPresent(ClientTest):
         not_present = WaitMachineNotPresent('0')
         with self.assertRaisesRegexp(
                 Exception, 'Timed out waiting for machine removal 0'):
-            not_present.do_raise()
+            not_present.do_raise('', None)
 
 
 class TestEnvJujuClient(ClientTest):
@@ -1278,6 +1278,8 @@ class TestEnvJujuClient(ClientTest):
     @staticmethod
     def make_status_yaml(key, machine_value, unit_value):
         return dedent("""\
+            model:
+              name: foo
             machines:
               "0":
                 {0}: {1}
@@ -2511,7 +2513,7 @@ class TestEnvJujuClient(ClientTest):
         })
         client = EnvJujuClient(JujuData('local'), None, None)
         with patch.object(client, 'get_juju_output', return_value=value), \
-            patch('jujupy.until_timeout', lambda x: range(0)), \
+            patch('jujupy.until_timeout', lambda x, start=None: range(1)), \
             self.assertRaisesRegexp(
                 Exception,
                 'Timed out waiting for machine removal 1'):
@@ -2525,7 +2527,7 @@ class TestEnvJujuClient(ClientTest):
         def iter_blocking_state(self, ignored):
             yield ('global state', 'unsatisfied')
 
-        def do_raise(self):
+        def do_raise(self, model_name, status):
             raise self.NeverSatisfiedException()
 
     def test_wait_timeout(self):
@@ -3968,6 +3970,7 @@ class TestEnvJujuClient1X(ClientTest):
     @staticmethod
     def make_status_yaml(key, machine_value, unit_value):
         return dedent("""\
+            environment: foo
             machines:
               "0":
                 {0}: {1}
@@ -4495,7 +4498,7 @@ class TestEnvJujuClient1X(ClientTest):
         })
         client = EnvJujuClient1X(SimpleEnvironment('local'), None, None)
         with patch.object(client, 'get_juju_output', return_value=value), \
-            patch('jujupy.until_timeout', lambda x: range(0)), \
+            patch('jujupy.until_timeout', lambda x, start=None: range(1)), \
             self.assertRaisesRegexp(
                 Exception,
                 'Timed out waiting for machine removal 1'):
@@ -5597,6 +5600,10 @@ class TestStatusItem(TestCase):
 
 class TestStatus(FakeHomeTestCase):
 
+    def test_model_name(self):
+        status = Status({'model': {'name': 'bar'}}, '')
+        self.assertEqual('bar', status.model_name)
+
     def test_iter_machines_no_containers(self):
         status = Status({
             'machines': {
@@ -6222,6 +6229,7 @@ class TestStatus(FakeHomeTestCase):
         status = Status.from_text(text)
         self.assertEqual(status.status_text, text)
         self.assertEqual(status.status, {
+            'model': {'name': 'foo'},
             'machines': {'0': {'agent-state': 'pending'}},
             'applications': {'jenkins': {'units': {'jenkins/0': {
                 'agent-state': 'horsefeathers'}}}}
@@ -6437,6 +6445,10 @@ class TestStatus(FakeHomeTestCase):
 
 
 class TestStatus1X(FakeHomeTestCase):
+
+    def test_model_name(self):
+        status = Status1X({'environment': 'bar'}, '')
+        self.assertEqual('bar', status.model_name)
 
     def test_get_applications_gets_services(self):
         status = Status1X({

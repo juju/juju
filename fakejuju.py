@@ -278,7 +278,11 @@ class FakeEnvironmentState:
                 'relations': self.relations.get(service, {}),
                 'exposed': service in self.exposed,
                 }
-        return {'machines': machines, 'applications': services}
+        return {
+            'machines': machines,
+            'applications': services,
+            'model': {'name': self.name},
+            }
 
     def add_ssh_key(self, keys_to_add):
         errors = []
