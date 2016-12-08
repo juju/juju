@@ -84,6 +84,26 @@ func (c *Client) ExportEntities(tags []names.Tag) ([]params.RemoteEntityIdResult
 	return results.Results, nil
 }
 
+// GetToken returns the token associated with the entity with the given tag for the specified model.
+func (c *Client) GetToken(sourceModelUUID string, tag names.Tag) (string, error) {
+	args := params.GetTokenArgs{Args: []params.GetTokenArg{
+		{ModelTag: names.NewModelTag(sourceModelUUID).String(), Tag: tag.String()}},
+	}
+	var results params.StringResults
+	err := c.facade.FacadeCall("GetTokens", args, &results)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	if len(results.Results) != 1 {
+		return "", errors.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return "", errors.Trace(result.Error)
+	}
+	return result.Result, nil
+}
+
 // RegisterRemoteRelation sets up the local model to participate in the specified relation.
 func (c *Client) RegisterRemoteRelation(rel params.RegisterRemoteRelation) error {
 	args := params.RegisterRemoteRelations{Relations: []params.RegisterRemoteRelation{rel}}

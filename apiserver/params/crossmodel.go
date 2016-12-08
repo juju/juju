@@ -285,6 +285,20 @@ type RemoteApplication struct {
 	Registered bool `json:"registered"`
 }
 
+// GetTokenArgs holds the arguments to a GetTokens API call.
+type GetTokenArgs struct {
+	Args []GetTokenArg
+}
+
+// GetTokenArg holds the model and entity for which we want a token.
+type GetTokenArg struct {
+	// ModelTag is the tag of the model hosting the entity.
+	ModelTag string `json:"model-tag"`
+
+	// Tag is the tag of the entity for which we want the token.
+	Tag string `json:"tag"`
+}
+
 // RemoteApplicationResult holds a remote application and an error.
 type RemoteApplicationResult struct {
 	Result *RemoteApplication `json:"result,omitempty"`
@@ -385,7 +399,7 @@ type RemoteRelationChange struct {
 // which has occurred in a remote model.
 type RemoteRelationUnitChange struct {
 	// UnitId uniquely identifies the remote unit.
-	UnitId RemoteEntityId `json:"unit-id"`
+	UnitId int `json:"unit-id"`
 
 	// Settings is the current settings for the relation unit.
 	Settings map[string]interface{} `json:"settings,omitempty"`
@@ -400,12 +414,15 @@ type RemoteRelationChangeEvent struct {
 	// Life is the current lifecycle state of the relation.
 	Life Life `json:"life"`
 
+	// ApplicationId is the application id on the remote model.
+	ApplicationId RemoteEntityId `json:"application-id"`
+
 	// ChangedUnits maps unit tokens to relation unit changes.
 	ChangedUnits []RemoteRelationUnitChange `json:"changed-units,omitempty"`
 
-	// DepartedUnits contains the remote ids of units that have departed
+	// DepartedUnits contains the ids of units that have departed
 	// the relation since the last change.
-	DepartedUnits []RemoteEntityId `json:"departed-units,omitempty"`
+	DepartedUnits []int `json:"departed-units,omitempty"`
 }
 
 // RegisterRemoteRelation holds attributes used to register a remote relation.

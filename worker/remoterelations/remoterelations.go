@@ -5,6 +5,8 @@ package remoterelations
 
 import (
 	"io"
+	"strconv"
+	"strings"
 	"sync"
 
 	"github.com/juju/errors"
@@ -45,6 +47,10 @@ type RemoteRelationsFacade interface {
 	// ExportEntities allocates unique, remote entity IDs for the
 	// given entities in the local model.
 	ExportEntities([]names.Tag) ([]params.RemoteEntityIdResult, error)
+
+	// GetToken returns the token associated with the entity with the given tag
+	// for the specified model.
+	GetToken(string, names.Tag) (string, error)
 
 	// RelationUnitSettings returns the relation unit settings for the
 	// given relation units in the local model.
@@ -158,6 +164,7 @@ func (w *Worker) loop() (err error) {
 }
 
 func (w *Worker) handleApplicationChanges(applicationIds []string) error {
+	// TODO(wallyworld) - watcher should not give empty events
 	if len(applicationIds) == 0 {
 		return nil
 	}
@@ -381,15 +388,25 @@ func (w *remoteApplicationWorker) relationChanged(
 		}
 		// Nothing to do, we have previously started the watcher.
 		return nil
-	} else if !w.registered {
-		// We have not seen the relation before, make
-		// sure it is registered on the remote side.
-		w.relationInfo.localEndpoint = remoteRelation.LocalEndpoint
-		w.relationInfo.remoteEndpointName = remoteRelation.RemoteEndpointName
-		var err error
-		remoteRelationId, err = w.registerRemoteRelation(relationTag, publisher)
-		if err != nil {
-			return errors.Trace(err)
+	} else {
+		if w.registered {
+			// We are on the offering side and the relation has been registered,
+			// so look up the token to use when communicating status.
+			token, err := w.facade.GetToken(w.modelUUID, relationTag)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			remoteRelationId = params.RemoteEntityId{ModelUUID: w.modelUUID, Token: token}
+		} else {
+			// We have not seen the relation before, make
+			// sure it is registered on the offering side.
+			w.relationInfo.localEndpoint = remoteRelation.LocalEndpoint
+			w.relationInfo.remoteEndpointName = remoteRelation.RemoteEndpointName
+			var err error
+			remoteRelationId, err = w.registerRemoteRelation(relationTag, publisher)
+			if err != nil {
+				return errors.Trace(err)
+			}
 		}
 	}
 
@@ -402,6 +419,7 @@ func (w *remoteApplicationWorker) relationChanged(
 		}
 		relationUnitsWatcher, err := newRelationUnitsWatcher(
 			relationTag,
+			w.relationInfo.applicationId,
 			remoteRelationId,
 			localRelationUnitsWatcher,
 			w.relationChanges,
@@ -426,6 +444,7 @@ func (w *remoteApplicationWorker) relationChanged(
 func (w *remoteApplicationWorker) registerRemoteRelation(
 	relationTag names.Tag, publisher RemoteRelationChangePublisher,
 ) (params.RemoteEntityId, error) {
+	logger.Debugf("register remote relation %v", relationTag.Id())
 	// Ensure the relation is exported first up.
 	results, err := w.facade.ExportEntities([]names.Tag{relationTag})
 	if err != nil {
@@ -460,6 +479,7 @@ type relationUnitsWatcher struct {
 	ruw         watcher.RelationUnitsWatcher
 	changes     chan<- params.RemoteRelationChangeEvent
 
+	applicationId    params.RemoteEntityId
 	remoteRelationId params.RemoteEntityId
 	remoteUnitIds    map[string]params.RemoteEntityId
 
@@ -469,6 +489,7 @@ type relationUnitsWatcher struct {
 
 func newRelationUnitsWatcher(
 	relationTag names.RelationTag,
+	applicationId params.RemoteEntityId,
 	remoteRelationId params.RemoteEntityId,
 	ruw watcher.RelationUnitsWatcher,
 	changes chan<- params.RemoteRelationChangeEvent,
@@ -478,6 +499,7 @@ func newRelationUnitsWatcher(
 ) (*relationUnitsWatcher, error) {
 	w := &relationUnitsWatcher{
 		relationTag:      relationTag,
+		applicationId:    applicationId,
 		remoteRelationId: remoteRelationId,
 		ruw:              ruw,
 		changes:          changes,
@@ -515,7 +537,7 @@ func (w *relationUnitsWatcher) loop() error {
 				// We are dying.
 				continue
 			}
-			logger.Debugf("relation units changed: %#v", change)
+			logger.Debugf("relation units changed for %v: %#v", w.relationTag, change)
 			if evt, err := w.relationUnitsChangeEvent(change); err != nil {
 				return errors.Trace(err)
 			} else {
@@ -543,17 +565,31 @@ func (w *relationUnitsWatcher) relationUnitsChangeEvent(
 	for name := range change.Changed {
 		changedUnitNames = append(changedUnitNames, name)
 	}
-	unitNamesToExport := append(changedUnitNames, change.Departed...)
-	remoteIds, err := w.ensureUnitsExported(unitNamesToExport)
-	if err != nil {
-		return nil, errors.Annotate(err, "exporting units")
+
+	// unitNum parses a unit name and extracts the unit number.
+	unitNum := func(unitName string) (int, error) {
+		parts := strings.Split(unitName, "/")
+		if len(parts) < 2 {
+			return -1, errors.NotValidf("unit name %v", unitName)
+		}
+		return strconv.Atoi(parts[1])
 	}
 
 	// Construct the event to send to the remote model.
 	event := &params.RemoteRelationChangeEvent{
 		RelationId:    w.remoteRelationId,
-		DepartedUnits: remoteIds[len(changedUnitNames):],
+		Life:          params.Alive,
+		ApplicationId: w.applicationId,
+		DepartedUnits: make([]int, len(change.Departed)),
 	}
+	for i, u := range change.Departed {
+		num, err := unitNum(u)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		event.DepartedUnits[i] = num
+	}
+
 	if len(change.Changed) > 0 {
 		// For changed units, we publish the current settings values.
 		relationUnits := make([]params.RelationUnit, len(change.Changed))
@@ -573,9 +609,12 @@ func (w *relationUnitsWatcher) relationUnitsChangeEvent(
 			}
 		}
 		for i, result := range results {
-			remoteId := remoteIds[i]
+			num, err := unitNum(changedUnitNames[i])
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
 			change := params.RemoteRelationUnitChange{
-				UnitId:   remoteId,
+				UnitId:   num,
 				Settings: make(map[string]interface{}),
 			}
 			for k, v := range result.Settings {
@@ -585,34 +624,4 @@ func (w *relationUnitsWatcher) relationUnitsChangeEvent(
 		}
 	}
 	return event, nil
-}
-
-func (w *relationUnitsWatcher) ensureUnitsExported(unitNames []string) ([]params.RemoteEntityId, error) {
-	w.exportMutex.Lock()
-	defer w.exportMutex.Unlock()
-
-	var maybeUnexported []names.Tag
-	for _, name := range unitNames {
-		if _, ok := w.remoteUnitIds[name]; !ok {
-			maybeUnexported = append(maybeUnexported, names.NewUnitTag(name))
-		}
-	}
-	if len(maybeUnexported) > 0 {
-		logger.Debugf("exporting units: %v", maybeUnexported)
-		results, err := w.facade.ExportEntities(maybeUnexported)
-		if err != nil {
-			return nil, errors.Annotate(err, "exporting units")
-		}
-		for i, result := range results {
-			if result.Error != nil && !params.IsCodeAlreadyExists(result.Error) {
-				return nil, errors.Annotatef(result.Error, "exporting unit %q", maybeUnexported[i].Id())
-			}
-			w.remoteUnitIds[maybeUnexported[i].Id()] = *result.Result
-		}
-	}
-	results := make([]params.RemoteEntityId, len(unitNames))
-	for i, name := range unitNames {
-		results[i] = w.remoteUnitIds[name]
-	}
-	return results, nil
 }

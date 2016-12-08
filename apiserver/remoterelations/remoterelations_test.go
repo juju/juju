@@ -4,7 +4,6 @@
 package remoterelations_test
 
 import (
-	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -301,8 +300,50 @@ func (s *remoteRelationsSuite) xTestWatchRemoteApplicationRelationUnitRemovedRac
 }
 
 func (s *remoteRelationsSuite) TestPublishLocalRelationsChange(c *gc.C) {
-	_, err := s.api.PublishLocalRelationChange(params.RemoteRelationsChanges{})
-	c.Assert(err, jc.Satisfies, errors.IsNotImplemented)
+	s.st.remoteApplications["db2"] = newMockRemoteApplication("db2", "db2url")
+	rel := newMockRelation(1)
+	rel.endpoints = []state.Endpoint{
+		{ApplicationName: "db2"},
+	}
+	ru1 := newMockRelationUnit()
+	ru2 := newMockRelationUnit()
+	rel.units["db2/1"] = ru1
+	rel.units["db2/2"] = ru2
+	s.st.relations["db2:db django:db"] = rel
+	s.st.remoteEntities[names.NewRelationTag("db2:db django:db")] = "token-db2:db django:db"
+	results, err := s.api.PublishLocalRelationChange(params.RemoteRelationsChanges{
+		Changes: []params.RemoteRelationChangeEvent{
+			{
+				Life: params.Alive,
+				ApplicationId: params.RemoteEntityId{
+					ModelUUID: "uuid",
+					Token:     "token-db2"},
+				RelationId: params.RemoteEntityId{
+					ModelUUID: "uuid",
+					Token:     "token-db2:db django:db"},
+				ChangedUnits: []params.RemoteRelationUnitChange{{
+					UnitId:   1,
+					Settings: map[string]interface{}{"foo": "bar"},
+				}},
+				DepartedUnits: []int{2},
+			},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = results.Combine()
+	c.Assert(err, jc.ErrorIsNil)
+	s.st.CheckCalls(c, []testing.StubCall{
+		{"GetRemoteEntity", []interface{}{names.NewModelTag("uuid"), "token-db2:db django:db"}},
+		{"KeyRelation", []interface{}{"db2:db django:db"}},
+		{"RemoteApplication", []interface{}{"db2"}},
+	})
+	ru1.CheckCalls(c, []testing.StubCall{
+		{"InScope", []interface{}{}},
+		{"EnterScope", []interface{}{map[string]interface{}{"foo": "bar"}}},
+	})
+	ru2.CheckCalls(c, []testing.StubCall{
+		{"LeaveScope", []interface{}{}},
+	})
 }
 
 func (s *remoteRelationsSuite) TestConsumeRemoveApplicationChange(c *gc.C) {
@@ -468,6 +509,18 @@ func (s *remoteRelationsSuite) TestExportEntitiesTwice(c *gc.C) {
 	})
 }
 
+func (s *remoteRelationsSuite) TestGetTokens(c *gc.C) {
+	s.st.applications["django"] = newMockApplication("django")
+	result, err := s.api.GetTokens(params.GetTokenArgs{
+		Args: []params.GetTokenArg{{ModelTag: coretesting.ModelTag.String(), Tag: "application-django"}}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Results, gc.HasLen, 1)
+	c.Assert(result.Results[0], jc.DeepEquals, params.StringResult{Result: "token-application-django"})
+	s.st.CheckCalls(c, []testing.StubCall{
+		{"GetToken", []interface{}{coretesting.ModelTag, names.NewApplicationTag("django")}},
+	})
+}
+
 func (s *remoteRelationsSuite) TestRelationUnitSettings(c *gc.C) {
 	djangoRelationUnit := newMockRelationUnit()
 	djangoRelationUnit.settings["key"] = "value"
@@ -578,8 +631,8 @@ func (s *remoteRelationsSuite) assertRegisterRemoteRelations(c *gc.C) {
 	expectedRel.Stub = testing.Stub{} // don't care about api calls
 	c.Check(expectedRel, jc.DeepEquals, &mockRelation{key: "application-offeredapp:local remote-apptoken:remote"})
 	c.Check(s.st.remoteEntities, gc.HasLen, 2)
-	c.Check(s.st.remoteEntities["remote-apptoken"], gc.Equals, "app-token")
-	c.Check(s.st.remoteEntities["application-offeredapp:local remote-apptoken:remote"], gc.Equals, "rel-token")
+	c.Check(s.st.remoteEntities[names.NewApplicationTag("remote-apptoken")], gc.Equals, "app-token")
+	c.Check(s.st.remoteEntities[names.NewRelationTag("application-offeredapp:local remote-apptoken:remote")], gc.Equals, "rel-token")
 }
 
 func (s *remoteRelationsSuite) TestRegisterRemoteRelations(c *gc.C) {
