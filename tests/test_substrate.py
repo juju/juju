@@ -873,7 +873,8 @@ class TestAzureARMAccount(TestCase):
             arm_client, glob='juju-controller-model-bar', recursive=True)
 
     def test_convert_to_azure_ids_function_1x_client(self):
-        env = SimpleEnvironment('foo', config=get_azure_config())
+        env = SimpleEnvironment('foo', config=get_azure_config(),
+                                juju_home='foo')
         client = fake_juju_client(env=env, version='1.2', cls=EnvJujuClient1X)
         with patch.object(client, 'get_models') as gm_mock:
             with patch('winazurearm.list_resources') as lr_mock:

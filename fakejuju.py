@@ -973,17 +973,16 @@ class FakeBackendOptionalJES(FakeBackend):
 
 
 def fake_juju_client(env=None, full_path=None, debug=False, version='2.0.0',
-                     _backend=None, cls=EnvJujuClient):
+                     _backend=None, cls=EnvJujuClient, juju_home=None):
+    if juju_home is None:
+        juju_home = 'foo' if env is None else env.juju_home
     if env is None:
         env = JujuData('name', {
             'type': 'foo',
             'default-series': 'angsty',
             'region': 'bar',
-            }, juju_home='foo')
+            }, juju_home=juju_home)
         env.credentials = {'credentials': {'foo': {'creds': {}}}}
-    juju_home = env.juju_home
-    if juju_home is None:
-        juju_home = 'foo'
     if _backend is None:
         backend_state = FakeControllerState()
         _backend = FakeBackend(
