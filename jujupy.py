@@ -2604,6 +2604,19 @@ class EnvJujuClient:
         return self.get_juju_output('list-clouds', '--format',
                                     format, include_e=False)
 
+    def generate_tool(self, tool_path):
+        return self.juju("metadata ", ("generate-tools", "-d", tool_path),
+                         include_e=False)
+
+    def add_cloud(self, cloud_name, cloud_file):
+        return self.juju('add-cloud', ("--replace", cloud_name, cloud_file),
+                         include_e=False)
+
+    def add_credential(self, cloud_name, cred_file):
+        return self.juju('add-credential',
+                         ("--replace", cloud_name, "-f", cred_file),
+                         include_e=False)
+
     def add_cloud_interactive(self, cloud_name, cloud):
         child = self.expect('add-cloud', include_e=False)
         try:
