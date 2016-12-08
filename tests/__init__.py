@@ -5,12 +5,20 @@ import datetime
 import errno
 import logging
 import os
-import StringIO
+import io
+try:
+    from StringIO import StringIO
+except ImportError:
+    from io import StringIO
 import subprocess
+import sys
 from tempfile import NamedTemporaryFile
 import unittest
 
-from mock import patch
+try:
+    from mock import patch
+except ImportError:
+    from unittest.mock import patch
 import yaml
 
 import utility
@@ -18,7 +26,10 @@ import utility
 
 @contextmanager
 def stdout_guard():
-    stdout = StringIO.StringIO()
+    if isinstance(sys.stdout, io.TextIOWrapper):
+        stdout = io.StringIO()
+    else:
+        stdout = io.BytesIO()
     with patch('sys.stdout', stdout):
         yield
     if stdout.getvalue() != '':
@@ -103,7 +114,7 @@ def setup_test_logging(testcase, level=None):
     log = logging.getLogger()
     testcase.addCleanup(setattr, log, 'handlers', log.handlers)
     log.handlers = []
-    testcase.log_stream = StringIO.StringIO()
+    testcase.log_stream = StringIO()
     handler = logging.StreamHandler(testcase.log_stream)
     handler.setFormatter(logging.Formatter("%(levelname)s %(message)s"))
     log.addHandler(handler)
@@ -118,7 +129,10 @@ setup_test_logging.__test__ = False
 
 @contextmanager
 def parse_error(test_case):
-    stderr = StringIO.StringIO()
+    if isinstance(sys.stdout, io.TextIOWrapper):
+        stderr = io.StringIO()
+    else:
+        stderr = io.BytesIO()
     with test_case.assertRaises(SystemExit):
         with patch('sys.stderr', stderr):
             yield stderr

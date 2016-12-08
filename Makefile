@@ -1,8 +1,10 @@
 p=test*.py
+py3="assess_model_change_watcher.py"
 test:
 	TMPDIR=/tmp python -m unittest discover -vv ./tests -p "$(p)"
 lint:
-	flake8 $$(find -name '*.py') --builtins xrange,basestring
+	python3 -m flake8 --builtins xrange,basestring $(py3)
+	flake8 $$(find -name '*.py') --builtins xrange,basestring --exclude $(py3)
 cover:
 	python -m coverage run --source="./" --omit "./tests/*" -m unittest discover -vv ./tests
 	python -m coverage report

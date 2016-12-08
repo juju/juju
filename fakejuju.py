@@ -22,15 +22,6 @@ from jujupy import (
 __metaclass__ = type
 
 
-def check_juju_output(func):
-    def wrapper(*args, **kwargs):
-        result = func(*args, **kwargs)
-        if 'service' in result:
-            raise AssertionError('Result contained service')
-        return result
-    return wrapper
-
-
 class ControllerOperation(Exception):
 
     def __init__(self, operation):
@@ -146,7 +137,7 @@ class FakeEnvironmentState:
 
     def add_machine(self, host_name=None, machine_id=None):
         if machine_id is None:
-            machine_id = str(self.machine_id_iter.next())
+            machine_id = str(next(self.machine_id_iter))
         self.machines.add(machine_id)
         if host_name is None:
             host_name = '{}.example.com'.format(machine_id)
@@ -732,13 +723,18 @@ class FakeBackend:
         if model is not None:
             full_args.extend(['-m', model])
         full_args.extend(args)
-        self.log.log(level, ' '.join(full_args))
+        self.log.log(level, u' '.join(full_args))
 
     def juju(self, command, args, used_feature_flags,
              juju_home, model=None, check=True, timeout=None, extra_env=None):
         if 'service' in command:
             raise Exception('Command names must not contain "service".')
-        if isinstance(args, basestring):
+        # Python 2 and 3 compatibility
+        try:
+            argtype = basestring
+        except NameError:
+            argtype = str
+        if isinstance(args, argtype):
             args = (args,)
         self._log_command(command, args, model)
         if model is not None:
@@ -867,7 +863,6 @@ class FakeBackend:
         self.juju(command, args, used_feature_flags,
                   juju_home, model, timeout=timeout)
 
-    @check_juju_output
     def get_juju_output(self, command, args, used_feature_flags, juju_home,
                         model=None, timeout=None, user_name=None,
                         merge_stderr=False):
@@ -910,7 +905,7 @@ class FakeBackend:
                 status_dict = model_state.get_status_dict()
                 # Parsing JSON is much faster than parsing YAML, and JSON is a
                 # subset of YAML, so emit JSON.
-                return json.dumps(status_dict)
+                return json.dumps(status_dict).encode('utf-8')
             if command == 'create-backup':
                 self.controller_state.require_controller('backup', model)
                 return 'juju-backup-0.tar.gz'
