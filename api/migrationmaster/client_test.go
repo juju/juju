@@ -5,8 +5,11 @@ package migrationmaster_test
 
 import (
 	"encoding/json"
+	"io"
+	"io/ioutil"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/juju/errors"
@@ -316,20 +319,39 @@ func (s *ClientSuite) TestExportError(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "blam")
 }
 
-func (s *ClientSuite) TestOpenResource(c *gc.C) {
+const resourceContent = "resourceful"
+
+func setupFakeHTTP() (*migrationmaster.Client, *fakeDoer) {
 	doer := &fakeDoer{
-		response: &http.Response{StatusCode: 200},
+		response: &http.Response{
+			StatusCode: 200,
+			Body:       ioutil.NopCloser(strings.NewReader(resourceContent)),
+		},
 	}
 	caller := &fakeHTTPCaller{
 		httpClient: &httprequest.Client{
 			Doer: doer,
 		},
 	}
-	client := migrationmaster.NewClient(caller, nil)
-	_, err := client.OpenResource("app", "blob")
+	return migrationmaster.NewClient(caller, nil), doer
+}
+
+func (s *ClientSuite) TestOpenResource(c *gc.C) {
+	client, doer := setupFakeHTTP()
+	r, err := client.OpenResource("app", "blob")
 	c.Assert(err, jc.ErrorIsNil)
+	checkReader(c, r, "resourceful")
 	c.Check(doer.method, gc.Equals, "GET")
 	c.Check(doer.url, gc.Equals, "/applications/app/resources/blob")
+}
+
+func (s *ClientSuite) TestOpenUnitResource(c *gc.C) {
+	client, doer := setupFakeHTTP()
+	r, err := client.OpenUnitResource("app/2", "blob")
+	c.Assert(err, jc.ErrorIsNil)
+	checkReader(c, r, "resourceful")
+	c.Check(doer.method, gc.Equals, "GET")
+	c.Check(doer.url, gc.Equals, "/units/unit-app-2/resources/blob") // Yuck
 }
 
 func (s *ClientSuite) TestReap(c *gc.C) {
@@ -538,4 +560,10 @@ func (d *fakeDoer) Do(req *http.Request) (*http.Response, error) {
 	d.method = req.Method
 	d.url = req.URL.String()
 	return d.response, nil
+}
+
+func checkReader(c *gc.C, r io.Reader, expected string) {
+	actual, err := ioutil.ReadAll(r)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(string(actual), gc.Equals, expected)
 }

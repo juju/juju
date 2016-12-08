@@ -192,11 +192,34 @@ func (c *Client) Export() (migration.SerializedModel, error) {
 
 // OpenResource downloads the named resource for an application.
 func (c *Client) OpenResource(application, name string) (io.ReadCloser, error) {
+	uri := fmt.Sprintf("/applications/%s/resources/%s", application, name)
+	r, err := c.openResource(uri)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return r, nil
+}
+
+// OpenUnitResource downloads the named resource for a specific
+// unit. The revision of a resource in use by a unit might be
+// different from the application.
+func (c *Client) OpenUnitResource(unit, name string) (io.ReadCloser, error) {
+	// It's awful that the unit tag string is part of the URL but
+	// what's done is done and it's too hard to change now.
+	unitTag := names.NewUnitTag(unit)
+	uri := fmt.Sprintf("/units/%s/resources/%s", unitTag.String(), name)
+	r, err := c.openResource(uri)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return r, nil
+}
+
+func (c *Client) openResource(uri string) (io.ReadCloser, error) {
 	httpClient, err := c.httpClientFactory()
 	if err != nil {
 		return nil, errors.Annotate(err, "unable to create HTTP client")
 	}
-	uri := fmt.Sprintf("/applications/%s/resources/%s", application, name)
 	var resp *http.Response
 	if err := httpClient.Get(uri, &resp); err != nil {
 		return nil, errors.Annotate(err, "unable to retrieve resource")
