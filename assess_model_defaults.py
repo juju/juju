@@ -26,60 +26,6 @@ __metaclass__ = type
 log = logging.getLogger('assess_model_defaults')
 
 
-# I am removing this: the constructor was the only real advantage over a dict
-#     so I'm making a function to create the dict and using that instead.
-class ModelDefault:
-
-    def __init__(self, model_key, defaults):
-        self.model_key = model_key
-        self.defaults = defaults
-
-    # Assuming one in the dictionary.
-    @staticmethod
-    def from_dict(model_kvp):
-        for key, value in model_kvp.items():
-            return ModelDefault(key, value)
-
-    def to_dict(self):
-        return {self.model_key: self.defaults}
-
-    @staticmethod
-    def assemble(model_key, default, controller=None, regions=None):
-        defaults = {'default': default}
-        if controller:
-            defaults['controller'] = controller
-        if regions:
-            defaults['regions'] = [
-                {'name': region, 'value': region_default}
-                for (region, region_default) in regions.items()]
-        return ModelDefault(model_key, defaults)
-
-    @property
-    def default(self):
-        return self.defaults.get('default')
-
-    @property
-    def controller(self):
-        return self.defaults.get('controller')
-
-    def region(self, region):
-        for current_region in self.defaults.get('regions', []):
-            if current_region['name'] == region:
-                return current_region['value']
-
-    def __eq__(self, other):
-        return (self.model_key == other.model_key and
-                self.defaults == other.defaults)
-
-    def __ne__(self, other):
-        return (self.model_key != other.model_key or
-                self.defaults != other.defaults)
-
-    def __repr__(self):
-        return 'ModelDefault({!r}, {!r})'.format(self.model_key,
-                                                 self.defaults)
-
-
 def assemble_model_default(model_key, default, controller=None, regions=None):
     # Ordering in the regions argument is lost.
     defaults = {'default': default}
@@ -89,8 +35,7 @@ def assemble_model_default(model_key, default, controller=None, regions=None):
         defaults['regions'] = [
            {'name': region, 'value': region_default}
            for (region, region_default) in regions.items()]
-    return ModelDefault(model_key, defaults)
-    # => {model_key: defaults}
+    return {model_key: defaults}
 
 
 # The next four functions are slated be attached to the client.
@@ -109,7 +54,7 @@ def get_model_defaults(client, model_key, cloud=None, region=None):
     cloud_region = _format_cloud_region(cloud, region)
     gjo_args = ('--format', 'yaml') + cloud_region + (model_key,)
     raw_yaml = client.get_juju_output('model-defaults', *gjo_args)
-    return ModelDefault.from_dict(yaml.safe_load(raw_yaml))
+    return yaml.safe_load(raw_yaml)
 
 
 def set_model_defaults(client, model_key, value, cloud=None, region=None):
@@ -140,7 +85,7 @@ def assert_key_returns_to_base_line(client, model_key):
 
 def assess_model_defaults_controller(client, model_key, value):
     base_line = get_model_defaults(client, model_key)
-    default = base_line.default
+    default = base_line[model_key]['default']
 
     set_model_defaults(client, model_key, value)
     juju_assert_equal(
@@ -157,7 +102,7 @@ def assess_model_defaults_controller(client, model_key, value):
 def assess_model_defaults_region(client, model_key, value,
                                  cloud=None, region=None):
     base_line = get_model_defaults(client, model_key, cloud, region)
-    default = base_line.default
+    default = base_line[model_key]['default']
 
     set_model_defaults(client, model_key, value, cloud, region)
     juju_assert_equal(

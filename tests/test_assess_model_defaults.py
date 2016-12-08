@@ -17,7 +17,6 @@ from assess_model_defaults import (
     get_model_defaults,
     juju_assert_equal,
     main,
-    ModelDefault,
     parse_args,
     set_model_defaults,
     unset_model_defaults,
@@ -49,8 +48,7 @@ class FakeJujuModelDefaults:
         }
 
     def get_model_defaults(self, model_key, cloud=None, region=None):
-        return ModelDefault(
-            model_key, deepcopy(self.model_defaults[model_key]))
+        return {model_key: deepcopy(self.model_defaults[model_key])}
 
     def set_model_defaults(self, model_key, value, cloud=None, region=None):
         if cloud is None and region is None:
@@ -114,15 +112,15 @@ class TestMain(TestCase):
 class TestAssembleModelDefault(TestCase):
 
     def test_assemble_model_default(self):
-        self.assertEqual(ModelDefault('test-mode', {'default': False}),
+        self.assertEqual({'test-mode': {'default': False}},
                          assemble_model_default('test-mode', False))
         self.assertEqual(
-            ModelDefault('test-mode', {'default': False, 'controller': True}),
+            {'test-mode': {'default': False, 'controller': True}},
             assemble_model_default('test-mode', False, True))
         self.assertEqual(
-            ModelDefault('test-mode', {'default': False, 'regions': [
+            {'test-mode': {'default': False, 'regions': [
                 {'name': 'fakeregion', 'value': True},
-                {'name': 'localhost', 'value': True}]}),
+                {'name': 'localhost', 'value': True}]}},
             assemble_model_default('test-mode', False, None,
                                    {'localhost': True, 'fakeregion': True}))
 
