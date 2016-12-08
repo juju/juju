@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker"
@@ -19,6 +20,11 @@ var logger = loggo.GetLogger("juju.workers.modelworkermanager")
 // Backend defines the State functionality used by the manager worker.
 type Backend interface {
 	WatchModels() state.StringsWatcher
+	GetModel(names.ModelTag) (BackendModel, error)
+}
+
+type BackendModel interface {
+	MigrationMode() state.MigrationMode
 }
 
 // NewWorkerFunc should return a worker responsible for running
@@ -108,6 +114,20 @@ func (m *modelWorkerManager) loop() error {
 				return errors.New("changes stopped")
 			}
 			for _, modelUUID := range uuids {
+				model, err := m.config.Backend.GetModel(names.NewModelTag(modelUUID))
+				if errors.IsNotFound(err) {
+					continue
+				}
+				if err != nil {
+					return errors.Trace(err)
+				}
+				if model.MigrationMode() == state.MigrationModeImporting {
+					// Ignore this model until it's activated - we
+					// never want to run workers for an importing
+					// model.
+					// https://bugs.launchpad.net/juju/+bug/1646310
+					continue
+				}
 				if err := m.ensure(m.config.ControllerUUID, modelUUID); err != nil {
 					return errors.Trace(err)
 				}
