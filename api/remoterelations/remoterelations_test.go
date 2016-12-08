@@ -127,32 +127,6 @@ func (s *remoteRelationsSuite) TestPublishLocalRelationChange(c *gc.C) {
 	c.Check(callCount, gc.Equals, 1)
 }
 
-func (s *remoteRelationsSuite) TestConsumeRemoteApplicationChange(c *gc.C) {
-	var callCount int
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Check(objType, gc.Equals, "RemoteRelations")
-		c.Check(version, gc.Equals, 0)
-		c.Check(id, gc.Equals, "")
-		c.Check(request, gc.Equals, "ConsumeRemoteApplicationChange")
-		c.Check(arg, gc.DeepEquals, params.RemoteApplicationChanges{
-			Changes: []params.RemoteApplicationChange{{ApplicationTag: names.NewApplicationTag("foo").String()}},
-		})
-		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
-		*(result.(*params.ErrorResults)) = params.ErrorResults{
-			Results: []params.ErrorResult{{
-				Error: &params.Error{Message: "FAIL"},
-			}},
-		}
-		callCount++
-		return nil
-	})
-	client := remoterelations.NewClient(apiCaller)
-	err := client.ConsumeRemoteApplicationChange(params.RemoteApplicationChange{
-		ApplicationTag: names.NewApplicationTag("foo").String()})
-	c.Check(err, gc.ErrorMatches, "FAIL")
-	c.Check(callCount, gc.Equals, 1)
-}
-
 func (s *remoteRelationsSuite) TestExportEntities(c *gc.C) {
 	var callCount int
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {

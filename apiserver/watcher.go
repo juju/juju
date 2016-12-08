@@ -44,10 +44,6 @@ func init() {
 		reflect.TypeOf((*srvRemoteApplicationWatcher)(nil)),
 	)
 	common.RegisterFacade(
-		"RemoteRelationsWatcher", 1, newRemoteRelationsWatcher,
-		reflect.TypeOf((*srvRemoteRelationsWatcher)(nil)),
-	)
-	common.RegisterFacade(
 		"RelationUnitsWatcher", 1, newRelationUnitsWatcher,
 		reflect.TypeOf((*srvRelationUnitsWatcher)(nil)),
 	)
@@ -267,6 +263,7 @@ func (w *srvRelationUnitsWatcher) Next() (params.RelationUnitsWatchResult, error
 // srvRemoteApplicationWatcher will sends changes to relations a service
 // is involved in, including changes to the units involved in those
 // relations, and their settings.
+// TODO(wallyworld) - we may not need this watcher
 type srvRemoteApplicationWatcher struct {
 	watcherCommon
 	watcher state.RemoteApplicationWatcher
@@ -304,59 +301,6 @@ func (w *srvRemoteApplicationWatcher) Next() (params.RemoteApplicationWatchResul
 		err = common.ErrStoppedWatcher
 	}
 	return params.RemoteApplicationWatchResult{}, err
-}
-
-// srvRemoteRelationsWatcher defines the API wrapping a RemoteRelationsWatcher.
-// This watcher notifies about:
-//  - addition and removal of relations of relations to remote applications
-//  - lifecycle changes to relations of relations to remote applications
-//  - settings of relation units changing
-//  - units departing the relation (joining is implicit in seeing new settings)
-type srvRemoteRelationsWatcher struct {
-	watcherCommon
-	watcher state.RemoteRelationsWatcher
-}
-
-// RemoteRelationsWatcher is a watcher that reports on changes to relations
-// and relation units related to those relations for a specified service.
-type RemoteRelationsWatcher interface {
-	Changes() <-chan params.RemoteRelationsChange
-	Err() error
-	Stop() error
-}
-
-func newRemoteRelationsWatcher(context facade.Context) (facade.Facade, error) {
-	id := context.ID()
-	resources := context.Resources()
-	auth := context.Auth()
-
-	if !auth.AuthModelManager() {
-		return nil, common.ErrPerm
-	}
-	watcher, ok := resources.Get(id).(state.RemoteRelationsWatcher)
-	if !ok {
-		return nil, common.ErrUnknownWatcher
-	}
-	return &srvRemoteRelationsWatcher{
-		watcherCommon: newWatcherCommon(context),
-		watcher:       watcher,
-	}, nil
-}
-
-// Next returns when a change has occured to an entity of the
-// collection being watched since the most recent call to Next
-// or the Watch call that created the srvRemoteRelationsWatcher.
-func (w *srvRemoteRelationsWatcher) Next() (params.RemoteRelationsWatchResult, error) {
-	if changes, ok := <-w.watcher.Changes(); ok {
-		return params.RemoteRelationsWatchResult{
-			Change: &changes,
-		}, nil
-	}
-	err := w.watcher.Err()
-	if err == nil {
-		err = common.ErrStoppedWatcher
-	}
-	return params.RemoteRelationsWatchResult{}, err
 }
 
 // srvMachineStorageIdsWatcher defines the API wrapping a state.StringsWatcher

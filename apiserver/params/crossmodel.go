@@ -310,20 +310,6 @@ type RemoteApplicationResults struct {
 	Results []RemoteApplicationResult `json:"results,omitempty"`
 }
 
-// RemoteRelationsWatchResult holds a RemoteRelationsWatcher id,
-// changes and an error (if any).
-type RemoteRelationsWatchResult struct {
-	RemoteRelationsWatcherId string
-	Change                   *RemoteRelationsChange `json:"change,omitempty"`
-	Error                    *Error                 `json:"error,omitempty"`
-}
-
-// RemoteRelationsWatchResults holds the results for any API call which ends
-// up returning a list of RemoteRelationsWatchers.
-type RemoteRelationsWatchResults struct {
-	Results []RemoteRelationsWatchResult `json:"results"`
-}
-
 // RemoteApplicationWatchResult holds a RemoteApplicationWatcher id,
 // changes and an error (if any).
 type RemoteApplicationWatchResult struct {
@@ -346,8 +332,6 @@ type RemoteApplicationChange struct {
 	// Life is the current lifecycle state of the application.
 	Life Life `json:"life"`
 
-	// Relations are the relations which have changed.
-	Relations RemoteRelationsChange `json:"relations"`
 	// TODO(wallyworld) - status etc
 }
 
@@ -355,22 +339,6 @@ type RemoteApplicationChange struct {
 // applications.
 type RemoteApplicationChanges struct {
 	Changes []RemoteApplicationChange `json:"changes,omitempty"`
-}
-
-// RemoteRelationsChange describes changes to the relations that a remote
-// service is involved in.
-type RemoteRelationsChange struct {
-	// Initial indicates whether or not this is an initial, complete
-	// representation of all relations involving a service. If Initial
-	// is true, then RemovedRelations will be empty.
-	Initial bool `json:"initial"`
-
-	// ChangedRelations contains relation changes.
-	ChangedRelations []RemoteRelationChange `json:"changed,omitempty"`
-
-	// RemovedRelations contains the IDs corresponding to
-	// relations removed since the last change.
-	RemovedRelations []int `json:"removed,omitempty"`
 }
 
 // RemoteRelationsChanges holds a set of RemoteRelationsChange structures.
@@ -386,13 +354,6 @@ type RemoteRelationChange struct {
 
 	// Life is the current lifecycle state of the relation.
 	Life Life `json:"life"`
-
-	// ChangedUnits maps unit names to relation unit changes.
-	ChangedUnits map[string]RemoteRelationUnitChange `json:"changed-units,omitempty"`
-
-	// DepartedUnits contains the names of units that have departed
-	// the relation since the last change.
-	DepartedUnits []string `json:"departed-units,omitempty"`
 }
 
 // RemoteRelationUnitChange describes a relation unit change

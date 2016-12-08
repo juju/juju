@@ -47,26 +47,6 @@ func (c *Client) PublishLocalRelationChange(change params.RemoteRelationChangeEv
 	return nil
 }
 
-// ConsumeRemoteApplicationChange consumes remote changes to applications into the local model.
-func (c *Client) ConsumeRemoteApplicationChange(change params.RemoteApplicationChange) error {
-	args := params.RemoteApplicationChanges{
-		Changes: []params.RemoteApplicationChange{change},
-	}
-	var results params.ErrorResults
-	err := c.facade.FacadeCall("ConsumeRemoteApplicationChange", args, &results)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if len(results.Results) != 1 {
-		return errors.Errorf("expected 1 result, got %d", len(results.Results))
-	}
-	result := results.Results[0]
-	if result.Error != nil {
-		return errors.Trace(result.Error)
-	}
-	return nil
-}
-
 // ExportEntities allocates unique, remote entity IDs for the given entities in the local model.
 func (c *Client) ExportEntities(tags []names.Tag) ([]params.RemoteEntityIdResult, error) {
 	args := params.Entities{Entities: make([]params.Entity, len(tags))}
