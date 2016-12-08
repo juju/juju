@@ -26,7 +26,8 @@ __metaclass__ = type
 log = logging.getLogger('assess_model_defaults')
 
 
-# I might not actually use this, it is just part of my thought process.
+# I am removing this: the constructor was the only real advantage over a dict
+#     so I'm making a function to create the dict and using that instead.
 class ModelDefault:
 
     def __init__(self, model_key, defaults):
@@ -79,13 +80,20 @@ class ModelDefault:
                                                  self.defaults)
 
 
-# All three might be made part of JujuEnvClient
-# maybe even beside get/set/unset_env_option
-# ... Should this become part of assess_model_config_tree.py?
-def model_defaults(client):
-    client.get_juju_output('model-defaults', ())
+def assemble_model_default(model_key, default, controller=None, regions=None):
+    # Ordering in the regions argument is lost.
+    defaults = {'default': default}
+    if controller:
+        defaults['controller'] = controller
+    if regions:
+        defaults['regions'] = [
+           {'name': region, 'value': region_default}
+           for (region, region_default) in regions.items()]
+    return ModelDefault(model_key, defaults)
+    # => {model_key: defaults}
 
 
+# The next four functions are slated be attached to the client.
 def _format_cloud_region(cloud=None, region=None):
     if cloud and region:
         return ('{}/{}'.format(cloud, region),)
@@ -97,7 +105,6 @@ def _format_cloud_region(cloud=None, region=None):
         return ()
 
 
-# def get_model_defaults(client, model_key, cloud_region=None):
 def get_model_defaults(client, model_key, cloud=None, region=None):
     cloud_region = _format_cloud_region(cloud, region)
     gjo_args = ('--format', 'yaml') + cloud_region + (model_key,)
@@ -111,7 +118,6 @@ def set_model_defaults(client, model_key, value, cloud=None, region=None):
                 cloud_region + ('{}={}'.format(model_key, value),))
 
 
-# Produces output (of post-reset information).
 def unset_model_defaults(client, model_key, cloud=None, region=None):
     cloud_region = _format_cloud_region(cloud, region)
     client.juju('model-defaults',
@@ -138,7 +144,7 @@ def assess_model_defaults_controller(client, model_key, value):
 
     set_model_defaults(client, model_key, value)
     juju_assert_equal(
-        ModelDefault.assemble(model_key, default, value),
+        assemble_model_default(model_key, default, value),
         get_model_defaults(client, model_key),
         'model-defaults: Mismatch on setting controller.')
 
@@ -156,7 +162,7 @@ def assess_model_defaults_region(client, model_key, value,
     set_model_defaults(client, model_key, value, cloud, region)
     juju_assert_equal(
         'model-defaults: Mismatch on setting region.',
-        ModelDefault.assemble(model_key, default, None, {region: value}),
+        assemble_model_default(model_key, default, None, {region: value}),
         get_model_defaults(client, model_key, cloud, region))
 
     unset_model_defaults(client, model_key, cloud, region)

@@ -11,6 +11,7 @@ from mock import (
 import yaml
 
 from assess_model_defaults import (
+    assemble_model_default,
     assess_model_defaults,
     assess_model_defaults_controller,
     get_model_defaults,
@@ -110,6 +111,22 @@ class TestMain(TestCase):
         mock_assess.assert_called_once_with(client)
 
 
+class TestAssembleModelDefault(TestCase):
+
+    def test_assemble_model_default(self):
+        self.assertEqual(ModelDefault('test-mode', {'default': False}),
+                         assemble_model_default('test-mode', False))
+        self.assertEqual(
+            ModelDefault('test-mode', {'default': False, 'controller': True}),
+            assemble_model_default('test-mode', False, True))
+        self.assertEqual(
+            ModelDefault('test-mode', {'default': False, 'regions': [
+                {'name': 'fakeregion', 'value': True},
+                {'name': 'localhost', 'value': True}]}),
+            assemble_model_default('test-mode', False, None,
+                                   {'localhost': True, 'fakeregion': True}))
+
+
 class TestJujuWrappers(TestCase):
 
     def test_get_model_defaults(self):
@@ -118,8 +135,7 @@ class TestJujuWrappers(TestCase):
         with patch.object(client, 'get_juju_output', autospec=True,
                           return_value=raw_yaml) as output_mock:
             retval = get_model_defaults(client, 'some-key')
-        self.assertEqual(ModelDefault('some-key', {'default': 'black'}),
-                         retval)
+        self.assertEqual(assemble_model_default('some-key', 'black'), retval)
         output_mock.assert_called_once_with(
             'model-defaults', '--format', 'yaml', 'some-key')
 
