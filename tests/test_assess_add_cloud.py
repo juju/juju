@@ -11,7 +11,6 @@ from mock import (
 from fakejuju import fake_juju_client
 from jujupy import (
     AuthNotAccepted,
-    JujuData,
     NameNotAccepted,
     TypeNotAccepted,
     )
@@ -26,18 +25,11 @@ from tests import FakeHomeTestCase
 from utility import JujuAssertionError
 
 
-class TestCase(FakeHomeTestCase):
-
-    def make_fake_juju_client(self):
-        env = JujuData('foo', juju_home=self.juju_home)
-        return fake_juju_client(env=env)
-
-
-class TestAssessCloud(TestCase):
+class TestAssessCloud(FakeHomeTestCase):
 
     @contextmanager
     def cloud_client(self, clouds):
-        client = self.make_fake_juju_client()
+        client = fake_juju_client(juju_home=self.juju_home)
         client.env.load_yaml()
 
         def dump(cloud_name, cloud):
@@ -93,7 +85,7 @@ def make_long_endpoint(spec, regions=False):
                      exception=None)
 
 
-class TestIterClouds(TestCase):
+class TestIterClouds(FakeHomeTestCase):
 
     bogus_type = CloudSpec('bogus-type', 'bogus-type', {'type': 'bogus'},
                            exception=TypeNotAccepted)
@@ -158,10 +150,10 @@ class TestIterClouds(TestCase):
             ], iter_clouds({'foo': config}))
 
 
-class TestAssessAllClouds(TestCase):
+class TestAssessAllClouds(FakeHomeTestCase):
 
     def test_assess_all_clouds(self):
-        client = self.make_fake_juju_client()
+        client = fake_juju_client(juju_home=self.juju_home)
         clouds = {'a': {'type': 'foo'}, 'b': {'type': 'bar'}}
         exception = Exception()
         with patch('assess_add_cloud.assess_cloud',
@@ -177,7 +169,7 @@ class TestAssessAllClouds(TestCase):
         self.assertEqual(exception_mock.mock_calls, [call(exception)] * 7)
 
 
-class TestWriteStatus(TestCase):
+class TestWriteStatus(FakeHomeTestCase):
 
     def do_write(self, status, items):
         stdout = StringIO()
