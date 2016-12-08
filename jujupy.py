@@ -2306,14 +2306,14 @@ class EnvJujuClient:
         try:
             for status in self.status_until(timeout):
                 status.raise_highest_error(ignore_recoverable=True)
+                states = {}
                 for condition in conditions:
-                    states = {}
                     for item, state in condition.iter_blocking_state(status):
                         states.setdefault(state, []).append(item)
                     if len(states) == 0:
                         return
-                    if not quiet:
-                        reporter.update(states)
+                if not quiet:
+                    reporter.update(states)
             else:
                 status.raise_highest_error(ignore_recoverable=False)
         except StatusTimeout:
