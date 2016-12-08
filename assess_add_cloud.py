@@ -24,18 +24,21 @@ from utility import (
 
 
 class CloudMismatch(JujuAssertionError):
+    """The clouds did not match in some way."""
 
     def __init__(self):
         super(CloudMismatch, self).__init__('Cloud mismatch')
 
 
 class NameMismatch(JujuAssertionError):
+    """The cloud names did not match."""
 
     def __init__(self):
         super(NameMismatch, self).__init__('Name mismatch')
 
 
 class NotRaised(Exception):
+    """An expected exception was not raised."""
 
     def __init__(self):
         msg = 'Expected exception not raised: {}'.format(
@@ -43,19 +46,36 @@ class NotRaised(Exception):
         super(NotRaised, self).__init__(msg)
 
 
-CloudSpec = namedtuple('CloudSpec', ['label', 'name', 'config', 'exception',
-    'xfail_bug'])
+CloudSpec = namedtuple('CloudSpec', [
+    'label', 'name', 'config', 'exception', 'xfail_bug'])
 
 
 def cloud_spec(label, name, config, exception=None, xfail_bug=None):
+    """Generate a CloudSpec, with defaults.
+
+    :param label: The label to display in test results.
+    :param name: The name to use for the cloud.
+    :param config: The cloud-config.
+    :param exception: The exception that is expected to be raised (if any).
+    :param xfail_bug: If this CloudSpec represents an expected failure, the
+        bug number.
+    """
     return CloudSpec(label, name, config, exception, xfail_bug)
 
 
 def xfail(spec, bug, xfail_exception):
+    """Return a variant of a CloudSpec that is expected to fail."""
     return CloudSpec(spec.label, spec.name, spec.config, xfail_exception, bug)
 
 
 def assess_cloud(client, cloud_name, example_cloud):
+    """Assess interactively adding a cloud.
+
+    Will raise an exception
+    - If no clouds are present after interactive add-cloud.
+    - If the resulting cloud name doesn't match the supplied cloud-name.
+    - If the cloud data doesn't match the supplied cloud data.
+    """
     clouds = client.env.read_clouds()
     if len(clouds['clouds']) > 0:
         raise AssertionError('Clouds already present!')
@@ -74,10 +94,11 @@ def assess_cloud(client, cloud_name, example_cloud):
 
 
 def iter_clouds(clouds):
+    """Iterate through CloudSpecs."""
     yield cloud_spec('bogus-type', 'bogus-type', {'type': 'bogus'},
-                    exception=TypeNotAccepted)
+                     exception=TypeNotAccepted)
     for cloud_name, cloud in clouds.items():
-        yield cloud_spec(cloud_name, cloud_name, cloud, exception=None)
+        yield cloud_spec(cloud_name, cloud_name, cloud)
 
     for cloud_name, cloud in clouds.items():
         yield xfail(cloud_spec('long-name-{}'.format(cloud_name), 'A' * 4096,
@@ -91,7 +112,7 @@ def iter_clouds(clouds):
             variant_name = 'bogus-auth-{}'.format(cloud_name)
             variant['auth-types'] = ['asdf']
             yield cloud_spec(variant_name, cloud_name, variant,
-                            AuthNotAccepted)
+                             AuthNotAccepted)
 
         if 'endpoint' in cloud:
             variant = deepcopy(cloud)
@@ -113,7 +134,6 @@ def iter_clouds(clouds):
                                                         region_name)
             yield xfail(cloud_spec(variant_name, cloud_name, variant,
                                    exception=None), 1641970, CloudMismatch)
-
 
 
 def assess_all_clouds(client, clouds):
