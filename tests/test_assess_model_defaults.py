@@ -1,5 +1,6 @@
 """Tests for assess_model_defaults module."""
 
+from copy import deepcopy
 import logging
 import StringIO
 
@@ -13,6 +14,7 @@ from assess_model_defaults import (
     assess_model_defaults,
     assess_model_defaults_controller,
     get_model_defaults,
+    juju_assert_equal,
     main,
     ModelDefault,
     parse_args,
@@ -23,6 +25,9 @@ from fakejuju import fake_juju_client
 from tests import (
     parse_error,
     TestCase,
+    )
+from utility import (
+    JujuAssertionError,
     )
 
 
@@ -42,14 +47,15 @@ class FakeJujuModelDefaults:
             }
         }
 
-    def get_model_defaults(self, model_key):
-        return ModelDefault(model_key, self.model_defaults[model_key])
+    def get_model_defaults(self, model_key, cloud=None, region=None):
+        return ModelDefault(
+            model_key, deepcopy(self.model_defaults[model_key]))
 
-    def set_model_defaults(self, model_key, value):
+    def set_model_defaults(self, model_key, value, cloud=None, region=None):
         self.model_defaults[model_key]['controller'] = value
 
-    def unset_model_defaults(self, model_key):
-        del self.model_defaults[model_key]
+    def unset_model_defaults(self, model_key, cloud=None, region=None):
+        del self.model_defaults[model_key]['controller']
 
 
 class TestParseArgs(TestCase):
@@ -120,6 +126,15 @@ class TestJujuWrappers(TestCase):
             'model-defaults', ('--reset', 'some-key'))
 
 
+class TestAssert(TestCase):
+
+    def test_juju_assert_equal(self):
+        juju_assert_equal(0, 0, 'should-pass')
+        with self.assertRaises(JujuAssertionError) as exc:
+            juju_assert_equal(0, 1, 'should-fail')
+        self.assertEqual(exc.exception.args, ('should-fail', 0, 1))
+
+
 class TestAssessModelDefaults(TestCase):
 
     def test_model_defaults_controller(self):
@@ -133,6 +148,8 @@ class TestAssessModelDefaults(TestCase):
                            client.set_model_defaults(key, value),
                        autospec=True) as set_mock:
                 with patch('assess_model_defaults.unset_model_defaults',
+                           side_effect=lambda client, key:
+                               client.unset_model_defaults(key),
                            autospec=True) as unset_mock:
                     assess_model_defaults_controller(
                         client, 'some-key', 'yellow')

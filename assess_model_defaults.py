@@ -4,6 +4,7 @@
 from __future__ import print_function
 
 import argparse
+from contextlib import contextmanager
 import logging
 import sys
 
@@ -23,28 +24,6 @@ __metaclass__ = type
 
 
 log = logging.getLogger('assess_model_defaults')
-
-
-class FakeBackend:
-
-    model_defaults = {}
-
-    test_mode_example = {
-        'test-mode': {
-            'default': False,  # Was false, not sure why it was unquoted.
-            'controller': 'true',
-            'regions': [{'name': 'localhost', 'value': 'true'}]
-            }
-        }
-
-    def get_model_defaults(client, model_key):
-        return {model_key: model_defaults[model_key]}
-
-    def set_model_defaults(client, model_key, value):
-        model_defaults[model_key] = value
-
-    def unset_model_defaults(client, model_key):
-        del model_defaults[model_key]
 
 
 # I might not actually use this, it is just part of my thought process.
@@ -140,9 +119,18 @@ def unset_model_defaults(client, model_key, cloud=None, region=None):
                 cloud_region + ('--reset', model_key))
 
 
-def assert_model_defaults_equal(msg, lhs, rhs):
+def juju_assert_equal(lhs, rhs, msg):
     if (lhs != rhs):
         raise JujuAssertionError(msg, lhs, rhs)
+
+
+@contextmanager
+def assert_key_returns_to_base_line(client, model_key):
+    base_line = get_model_defaults(client, model_key)
+    yield base_line
+    juju_assert_equal(
+        base_line, get_model_defaults(client, model_key),
+        'Defaults for {} did not return to base line.'.format(model_key))
 
 
 def assess_model_defaults_controller(client, model_key, value):
@@ -150,15 +138,15 @@ def assess_model_defaults_controller(client, model_key, value):
     default = base_line.default
 
     set_model_defaults(client, model_key, value)
-    assert_model_defaults_equal(
-        'model-defaults: Mismatch on setting controller.',
+    juju_assert_equal(
         ModelDefault.assemble(model_key, default, value),
-        get_model_defaults(client, model_key))
+        get_model_defaults(client, model_key),
+        'model-defaults: Mismatch on setting controller.')
 
     unset_model_defaults(client, model_key)
-    assert_model_defaults_equal(
-        'model-defaults: Mismatch after resetting controller.',
-        base_line, get_model_defaults(client, model_key))
+    juju_assert_equal(
+        base_line, get_model_defaults(client, model_key),
+        'model-defaults: Mismatch after resetting controller.')
 
 
 def assess_model_defaults_region(client, model_key, value,
@@ -167,13 +155,13 @@ def assess_model_defaults_region(client, model_key, value,
     default = base_line.default
 
     set_model_defaults(client, model_key, value, cloud, region)
-    assert_model_defaults_equal(
+    juju_assert_equal(
         'model-defaults: Mismatch on setting region.',
         ModelDefault.assemble(model_key, default, None, {region: value}),
         get_model_defaults(client, model_key, cloud, region))
 
     unset_model_defaults(client, model_key, cloud, region)
-    assert_model_defaults_equal(
+    juju_assert_equal(
         'model-defaults: Mismatch after resetting controller.',
         base_line, get_model_defaults(client, model_key, cloud, region))
 
