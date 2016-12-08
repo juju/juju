@@ -66,7 +66,11 @@ ITEM_NAMES = {
 
 # Thorough investigation has not found an equivalent for these in the
 # Azure-ARM image repository.
-EXPECTED_MISSING = frozenset({('12.04.2-LTS', '12.04.201212180')})
+EXPECTED_MISSING = frozenset({
+    ('12.04.2-LTS', '12.04.201212180'),
+    ('16.04.0-LTS','16.04.201611220'),
+    ('16.04.0-LTS', '16.04.201611300'),
+    })
 
 
 class MissingImage(Exception):
