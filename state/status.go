@@ -101,7 +101,6 @@ type setStatusParams struct {
 // setStatus inteprets the supplied params as documented on the type.
 func setStatus(st *State, params setStatusParams) (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot set status")
-
 	doc := statusDoc{
 		Status:     params.status,
 		StatusInfo: params.message,
@@ -111,7 +110,10 @@ func setStatus(st *State, params setStatusParams) (err error) {
 	probablyUpdateStatusHistory(st, params.globalKey, doc)
 
 	// Set the authoritative status document, or fail trying.
-	buildTxn := updateStatusSource(st, params.globalKey, doc)
+
+	var buildTxn jujutxn.TransactionSource = func(int) ([]txn.Op, error) {
+		return statusSetOps(st, doc, params.globalKey)
+	}
 	if params.token != nil {
 		buildTxn = buildTxnWithLeadership(buildTxn, params.token)
 	}
@@ -122,24 +124,19 @@ func setStatus(st *State, params setStatusParams) (err error) {
 	return errors.Trace(err)
 }
 
-// updateStatusSource returns a transaction source that builds the operations
-// necessary to set the supplied status (and to fail safely if leaked and
-// executed late, so as not to overwrite more recent documents).
-func updateStatusSource(st *State, globalKey string, doc statusDoc) jujutxn.TransactionSource {
+func statusSetOps(st *State, doc statusDoc, globalKey string) ([]txn.Op, error) {
 	update := bson.D{{"$set", &doc}}
-	return func(_ int) ([]txn.Op, error) {
-		txnRevno, err := st.readTxnRevno(statusesC, globalKey)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		assert := bson.D{{"txn-revno", txnRevno}}
-		return []txn.Op{{
-			C:      statusesC,
-			Id:     globalKey,
-			Assert: assert,
-			Update: update,
-		}}, nil
+	txnRevno, err := st.readTxnRevno(statusesC, globalKey)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
+	assert := bson.D{{"txn-revno", txnRevno}}
+	return []txn.Op{{
+		C:      statusesC,
+		Id:     globalKey,
+		Assert: assert,
+		Update: update,
+	}}, nil
 }
 
 // createStatusOp returns the operation needed to create the given status

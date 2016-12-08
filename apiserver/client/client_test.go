@@ -405,6 +405,7 @@ func clearSinceTimes(status *params.FullStatus) {
 		machine.InstanceStatus.Since = nil
 		status.Machines[id] = machine
 	}
+	status.Model.ModelStatus.Since = nil
 }
 
 func (s *clientSuite) TestClientStatus(c *gc.C) {

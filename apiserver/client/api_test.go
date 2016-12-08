@@ -172,6 +172,10 @@ var scenarioStatus = &params.FullStatus{
 		CloudTag:    "cloud-dummy",
 		CloudRegion: "dummy-region",
 		Version:     "1.2.3",
+		ModelStatus: params.DetailedStatus{
+			Status: "available",
+			Data:   map[string]interface{}{},
+		},
 	},
 	Machines: map[string]params.MachineStatus{
 		"0": {
