@@ -494,11 +494,6 @@ class TestEnsureApiLoginRedirects(FakeHomeTestCase):
                         ensure_api_login_redirects(client1, client2)
         show_model_mock.assert_has_calls([call(client1), call(client3)])
 
-    def fake_home_juju_client(self):
-        env = JujuData('name', {'type': 'foo', 'default-series': 'angsty',
-                                'region': 'bar'}, juju_home=self.juju_home)
-        return fake_juju_client(env=env)
-
     def create_models_yaml(self, client, controllers_to_models):
         data = dict([(controller, {'models': models})
                      for (controller, models)
@@ -508,12 +503,12 @@ class TestEnsureApiLoginRedirects(FakeHomeTestCase):
             yaml.safe_dump({'controllers': data}, models_yaml)
 
     def test_assert_data_file_lists_correct_controller_for_model(self):
-        client = self.fake_home_juju_client()
+        client = fake_juju_client(juju_home=self.juju_home)
         self.create_models_yaml(client, {'testing': [client.env.environment]})
         assert_data_file_lists_correct_controller_for_model(client, 'testing')
 
     def test_assert_data_file_lists_correct_controller_for_model_fails(self):
-        client = self.fake_home_juju_client()
+        client = fake_juju_client(juju_home=self.juju_home)
         self.create_models_yaml(client, {'testing': ['not-the-client-name']})
         with self.assertRaises(JujuAssertionError):
             assert_data_file_lists_correct_controller_for_model(
