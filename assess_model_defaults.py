@@ -75,7 +75,6 @@ class ModelDefault:
                 self.defaults != other.defaults)
 
     def __repr__(self):
-        # return 'ModelDefault({!r})'.format(self.to_dict())
         return 'ModelDefault({!r}, {!r})'.format(self.model_key,
                                                  self.defaults)
 
@@ -167,14 +166,12 @@ def assess_model_defaults_region(client, model_key, value,
 
 
 def assess_model_defaults(client):
-    # Deploy charms, there are several under ./repository
-    client.deploy('local:trusty/my-charm')
-    # Wait for the deployment to finish.
-    client.wait_for_started()
-    log.info("TO-DO: Add log line about any test")
-    # TODO: Add specific functional testing actions here.
-    # Test on controller
-    # Test on region
+    log.info('Checking controller model-defaults.')
+    assess_model_defaults_controller(
+        client, 'automatically-retry-hooks', False)
+    log.info('Checking region model-defaults.')
+    assess_model_defaults_region(
+        client, 'default-series', 'trusty', 'localhost', 'localhost')
     # Test on different region?
 
 
@@ -182,9 +179,7 @@ def parse_args(argv):
     """Parse all arguments."""
     parser = argparse.ArgumentParser(
         description='Assess the model-defaults command.')
-    # TODO: Add additional positional arguments.
     add_basic_testing_arguments(parser)
-    # TODO: Add additional optional arguments.
     return parser.parse_args(argv)
 
 
