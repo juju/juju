@@ -1065,6 +1065,70 @@ func (m *Machine) Units() (units []*Unit, err error) {
 	return units, nil
 }
 
+// XXX(jam): 2016-12-09 These are just copied from
+// provider/maas/constraints.go, but they should be tied to machine
+// constraints, *not* tied to provider/maas constraints.
+// convertSpacesFromConstraints extracts spaces from constraints and converts
+// them to two lists of positive and negative spaces.
+func convertSpacesFromConstraints(spaces *[]string) ([]string, []string) {
+	if spaces == nil || len(*spaces) == 0 {
+		return nil, nil
+	}
+	return parseDelimitedValues(*spaces)
+}
+
+// parseDelimitedValues parses a slice of raw values coming from constraints
+// (Tags or Spaces). The result is split into two slices - positives and
+// negatives (prefixed with "^"). Empty values are ignored.
+func parseDelimitedValues(rawValues []string) (positives, negatives []string) {
+	for _, value := range rawValues {
+		if value == "" || value == "^" {
+			// Neither of these cases should happen in practise, as constraints
+			// are validated before setting them and empty names for spaces or
+			// tags are not allowed.
+			continue
+		}
+		if strings.HasPrefix(value, "^") {
+			negatives = append(negatives, strings.TrimPrefix(value, "^"))
+		} else {
+			positives = append(positives, value)
+		}
+	}
+	return positives, negatives
+}
+
+// AllSpaces returns the name of all spaces that this machine needs access to.
+// This is the combined value of all of the direct constraints for the machine,
+// as well as the spaces listed for all bindings of units being deployed to
+// that machine.
+func (m *Machine) AllSpaces() (set.Strings, error) {
+	spaces := set.NewStrings()
+	units, err := m.Units()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	constraints, err := m.Constraints()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	positiveSpaces, _ := convertSpacesFromConstraints(constraints.Spaces)
+	// XXX(jam): what to do about negativeSpaces ?
+	for _, space := range positiveSpaces {
+		spaces.Add(space)
+	}
+	for _, unit := range units {
+		app, err := unit.Application()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		endpointBindings, err := app.EndpointBindings()
+		for _, space := range endpointBindings {
+			spaces.Add(space)
+		}
+	}
+	return spaces, nil
+}
+
 // SetProvisioned sets the provider specific machine id, nonce and also metadata for
 // this machine. Once set, the instance id cannot be changed.
 //
