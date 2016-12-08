@@ -31,7 +31,7 @@ class FakeBackend:
 
     test_mode_example = {
         'test-mode': {
-            'default': False, # Was false, not sure why it was unquoted.
+            'default': False,  # Was false, not sure why it was unquoted.
             'controller': 'true',
             'regions': [{'name': 'localhost', 'value': 'true'}]
             }
@@ -92,23 +92,26 @@ def _format_cloud_region(cloud=None, region=None):
         return ()
 
 
+# def get_model_defaults(client, model_key, cloud_region=None):
 def get_model_defaults(client, model_key, cloud=None, region=None):
-#def get_model_defaults(client, model_key, cloud_region=None):
     cloud_region = _format_cloud_region(cloud, region)
     gjo_args = ('--format', 'yaml') + cloud_region + (model_key,)
     raw_yaml = client.get_juju_output('model-defaults', gjo_args)
-    return yaml.safe_load(ram_yaml)
+    return yaml.safe_load(raw_yaml)
 
 
-def set_model_defaults(client, model_key, value):
-    client.juju('model-defaults', _format_cloud_region(cloud, region) +
-                                  ('{}={}'.format(model_key, value),))
+def set_model_defaults(client, model_key, value, cloud=None, region=None):
+    cloud_region = _format_cloud_region(cloud, region)
+    client.juju('model-defaults',
+                cloud_region + ('{}={}'.format(model_key, value),))
 
 
 # Produces output (of post-reset information).
-def unset_model_defaults(client, model_key):
-    client.juju('model-defaults', _format_cloud_region(cloud, region) +
-                                  ('--reset', model_key))
+def unset_model_defaults(client, model_key, cloud=None, region=None):
+    cloud_region = _format_cloud_region(cloud, region)
+    client.juju('model-defaults',
+                cloud_region + ('--reset', model_key))
+
 
 def get_true_default(client, model_key, cloud=None, region=None):
     defaults = get_model_defaults(client, model_key, cloud, region)
@@ -131,7 +134,6 @@ def assess_model_defaults_controller(client, model_key, value):
             get_model_defaults(client, model_key)):
         raise JujuAssertionError(
             'model-defaults: Mismatch after resetting controller.')
-
 
 
 def assess_model_defaults_region(client, model_key, value,
