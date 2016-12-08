@@ -111,9 +111,6 @@ func (s *watcherSuite) TestRemoteApplicationWatcher(c *gc.C) {
 	ch <- params.RemoteApplicationChange{
 		ApplicationTag: names.NewApplicationTag("foo").String(),
 		Life:           params.Life("alive"),
-		Relations: params.RemoteRelationsChange{
-			RemovedRelations: []int{1, 2, 3},
-		},
 	}
 	facade := s.getFacade(c, "RemoteApplicationWatcher", 1, id, nopDispose).(remoteApplicationWatcher)
 	result, err := facade.Next()
@@ -123,9 +120,6 @@ func (s *watcherSuite) TestRemoteApplicationWatcher(c *gc.C) {
 		Change: &params.RemoteApplicationChange{
 			ApplicationTag: names.NewApplicationTag("foo").String(),
 			Life:           params.Life("alive"),
-			Relations: params.RemoteRelationsChange{
-				RemovedRelations: []int{1, 2, 3},
-			},
 		},
 	})
 }
@@ -144,55 +138,6 @@ func (w *fakeRemoteApplicationWatcher) Changes() <-chan params.RemoteApplication
 }
 
 func (w *fakeRemoteApplicationWatcher) Stop() error {
-	return nil
-}
-
-func (s *watcherSuite) TestRemoteRelationsWatcher(c *gc.C) {
-	ch := make(chan params.RemoteRelationsChange, 1)
-	id := s.resources.Register(&fakeRemoteRelationsWatcher{ch: ch})
-	s.authorizer.EnvironManager = true
-
-	ch <- params.RemoteRelationsChange{
-		RemovedRelations: []int{1, 2, 3},
-	}
-	facade := s.getFacade(c, "RemoteRelationsWatcher", 1, id, nopDispose).(remoteRelationsWatcher)
-	result, err := facade.Next()
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Assert(result, jc.DeepEquals, params.RemoteRelationsWatchResult{
-		Change: &params.RemoteRelationsChange{
-			RemovedRelations: []int{1, 2, 3},
-		},
-	})
-}
-
-func (s *watcherSuite) TestStopDiscards(c *gc.C) {
-	id := s.resources.Register(&fakeRemoteRelationsWatcher{})
-	s.authorizer.EnvironManager = true
-	var disposed bool
-	facade := s.getFacade(c, "RemoteRelationsWatcher", 1, id, func() {
-		disposed = true
-	}).(remoteRelationsWatcher)
-	err := facade.Stop()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(disposed, jc.IsTrue)
-}
-
-type remoteRelationsWatcher interface {
-	Next() (params.RemoteRelationsWatchResult, error)
-	Stop() error
-}
-
-type fakeRemoteRelationsWatcher struct {
-	state.RemoteRelationsWatcher
-	ch chan params.RemoteRelationsChange
-}
-
-func (w *fakeRemoteRelationsWatcher) Changes() <-chan params.RemoteRelationsChange {
-	return w.ch
-}
-
-func (w *fakeRemoteRelationsWatcher) Stop() error {
 	return nil
 }
 

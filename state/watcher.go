@@ -84,14 +84,6 @@ type RelationUnitsWatcher interface {
 	Changes() <-chan params.RelationUnitsChange
 }
 
-// RemoteRelationsWatcher is a watcher that reports on changes to relations
-// and relation units related to those relations for a specified application.
-type RemoteRelationsWatcher interface {
-	Watcher
-
-	Changes() <-chan params.RemoteRelationsChange
-}
-
 // RemoteApplicationWatcher is a watcher that reports on remote changes to the
 // lifecycle, status, relations and relation units for a specified remote
 // application.
