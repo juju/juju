@@ -6,10 +6,6 @@ from hashlib import sha512
 from itertools import count
 import json
 import logging
-try:
-    from past.builtins import basestring
-except ImportError:
-    pass
 import re
 import subprocess
 
@@ -101,7 +97,7 @@ class FakeControllerState:
         self.state = 'registered'
 
     def destroy(self, kill=False):
-        for model in list(self.models.values()):
+        for model in self.models.values():
             model.destroy_model()
         self.models.clear()
         if kill:
@@ -729,7 +725,12 @@ class FakeBackend:
              juju_home, model=None, check=True, timeout=None, extra_env=None):
         if 'service' in command:
             raise Exception('Command names must not contain "service".')
-        if isinstance(args, basestring):
+        # Python 2 and 3 compatibility
+        try:
+            argtype = basestring
+        except NameError:
+            argtype = str
+        if isinstance(args, argtype):
             args = (args,)
         self._log_command(command, args, model)
         if model is not None:

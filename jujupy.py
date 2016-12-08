@@ -17,10 +17,6 @@ from itertools import chain
 import json
 import logging
 import os
-try:
-    from past.builtins import basestring
-except ImportError:
-    pass
 import re
 import shutil
 import subprocess
@@ -1109,9 +1105,14 @@ class Juju2Backend:
             prefix = get_timeout_prefix(timeout, self._timeout_path)
         logging = '--debug' if self.debug else '--show-log'
 
+        # Python 2 and 3 compatibility
+        try:
+            argtype = basestring
+        except NameError:
+            argtype = str
         # If args is a string, make it a tuple. This makes writing commands
         # with one argument a bit nicer.
-        if isinstance(args, basestring):
+        if isinstance(args, argtype):
             args = (args,)
         # we split the command here so that the caller can control where the -m
         # model flag goes.  Everything in the command string is put before the

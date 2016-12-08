@@ -21,7 +21,6 @@ from utility import (
     )
 
 
-__metaclass__ = type
 log = logging.getLogger("assess_model_change_watcher")
 TOKEN = "1234asdf"
 
