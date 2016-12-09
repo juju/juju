@@ -81,14 +81,19 @@ type httpDownloadRequestExtractor struct {
 // NewResourceOpener returns a new resource.Opener for the given
 // HTTP request.
 func (ex *httpDownloadRequestExtractor) NewResourceOpener(req *http.Request) (resource.Opener, error) {
-	st, ent, err := ex.connect(req)
+	st, _, err := ex.connect(req)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	unit, ok := ent.(*corestate.Unit)
-	if !ok {
-		logger.Errorf("unexpected type: %T", ent)
-		return nil, errors.Errorf("unexpected type: %T", ent)
+
+	unitTagStr := req.URL.Query().Get(":unit")
+	unitTag, err := names.ParseUnitTag(unitTagStr)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	unit, err := st.Unit(unitTag.Id())
+	if err != nil {
+		return nil, errors.Annotate(err, "loading unit")
 	}
 
 	resources, err := st.Resources()
@@ -99,7 +104,7 @@ func (ex *httpDownloadRequestExtractor) NewResourceOpener(req *http.Request) (re
 	opener := &resourceOpener{
 		st:     st,
 		res:    resources,
-		userID: unit.Tag(),
+		userID: unitTag,
 		unit:   unit,
 	}
 	return opener, nil
