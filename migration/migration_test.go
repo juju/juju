@@ -116,9 +116,10 @@ func (s *ImportSuite) TestUploadBinariesConfigValidate(c *gc.C) {
 func (s *ImportSuite) TestBinariesMigration(c *gc.C) {
 	downloader := &fakeDownloader{}
 	uploader := &fakeUploader{
-		charms:    make(map[string]string),
-		tools:     make(map[version.Binary]string),
-		resources: make(map[string]string),
+		charms:        make(map[string]string),
+		tools:         make(map[version.Binary]string),
+		resources:     make(map[string]string),
+		unitResources: make(map[string]string),
 	}
 
 	toolsMap := map[version.Binary]string{
@@ -126,12 +127,15 @@ func (s *ImportSuite) TestBinariesMigration(c *gc.C) {
 		version.MustParseBinary("2.0.0-xenial-amd64"): "/tools/1",
 	}
 
+	app0Res := resourcetesting.NewResource(c, nil, "blob0", "app0", "blob0").Resource
+	app1Res := resourcetesting.NewResource(c, nil, "blob1", "app1", "blob1").Resource
+	app1UnitRes := app1Res
+	app1UnitRes.Revision = 1
 	resources := []coremigration.SerializedModelResource{
+		{ApplicationRevision: app0Res},
 		{
-			ApplicationRevision: resourcetesting.NewResource(c, nil, "blob0", "app0", "blob0").Resource,
-		},
-		{
-			ApplicationRevision: resourcetesting.NewResource(c, nil, "blob1", "app1", "blob1").Resource,
+			ApplicationRevision: app1Res,
+			UnitRevisions:       map[string]resource.Resource{"app1/99": app1UnitRes},
 		},
 	}
 
@@ -167,10 +171,14 @@ func (s *ImportSuite) TestBinariesMigration(c *gc.C) {
 	c.Assert(downloader.resources, jc.SameContents, []string{
 		"app0/blob0",
 		"app1/blob1",
+		"app1/99/blob1",
 	})
 	c.Assert(uploader.resources, jc.DeepEquals, map[string]string{
 		"app0/blob0": "blob0",
 		"app1/blob1": "blob1",
+	})
+	c.Assert(uploader.unitResources, jc.DeepEquals, map[string]string{
+		"app1/99/blob1": "blob1",
 	})
 }
 
@@ -202,10 +210,17 @@ func (d *fakeDownloader) OpenResource(app, name string) (io.ReadCloser, error) {
 	return ioutil.NopCloser(bytes.NewReader([]byte(name))), nil
 }
 
+func (d *fakeDownloader) OpenUnitResource(unit, name string) (io.ReadCloser, error) {
+	d.resources = append(d.resources, unit+"/"+name)
+	// Use the resource name as the content.
+	return ioutil.NopCloser(bytes.NewReader([]byte(name))), nil
+}
+
 type fakeUploader struct {
-	tools     map[version.Binary]string
-	charms    map[string]string
-	resources map[string]string
+	tools         map[version.Binary]string
+	charms        map[string]string
+	resources     map[string]string
+	unitResources map[string]string
 }
 
 func (f *fakeUploader) UploadTools(r io.ReadSeeker, v version.Binary, _ ...string) (tools.List, error) {
@@ -233,6 +248,15 @@ func (f *fakeUploader) UploadResource(res resource.Resource, r io.ReadSeeker) er
 		return errors.Trace(err)
 	}
 	f.resources[res.ApplicationID+"/"+res.Name] = string(body)
+	return nil
+}
+
+func (f *fakeUploader) UploadUnitResource(unit string, res resource.Resource, r io.ReadSeeker) error {
+	body, err := ioutil.ReadAll(r)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	f.unitResources[unit+"/"+res.Name] = string(body)
 	return nil
 }
 
