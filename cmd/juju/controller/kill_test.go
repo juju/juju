@@ -161,7 +161,17 @@ func (s *KillSuite) TestKillWaitForModels_ActuallyWaits(c *gc.C) {
 }
 
 func (s *KillSuite) TestKillWaitForModels_WaitsForControllerMachines(c *gc.C) {
-	s.resetAPIModels(c)
+	s.api.allModels = nil
+	s.api.envStatus = map[string]base.ModelStatus{}
+	s.addModel("controller", base.ModelStatus{
+		UUID:               test1UUID,
+		Life:               string(params.Alive),
+		Owner:              "admin",
+		TotalMachineCount:  3,
+		HostedMachineCount: 2,
+	})
+	s.clock.Advance(5 * time.Second)
+
 	wrapped, inner := s.newKillCommandBoth()
 	err := coretesting.InitCommand(wrapped, []string{"test1", "--timeout=1m"})
 	c.Assert(err, jc.ErrorIsNil)
@@ -173,12 +183,6 @@ func (s *KillSuite) TestKillWaitForModels_WaitsForControllerMachines(c *gc.C) {
 		result <- err
 	}()
 
-	s.setModelStatus(base.ModelStatus{
-		UUID:               test1UUID,
-		Life:               string(params.Dying),
-		Owner:              "admin",
-		HostedMachineCount: 2,
-	})
 	s.syncClockAlarm(c)
 	s.setModelStatus(base.ModelStatus{
 		UUID:               test1UUID,
@@ -187,6 +191,7 @@ func (s *KillSuite) TestKillWaitForModels_WaitsForControllerMachines(c *gc.C) {
 		HostedMachineCount: 1,
 	})
 	s.clock.Advance(5 * time.Second)
+
 	s.syncClockAlarm(c)
 	s.setModelStatus(base.ModelStatus{
 		UUID:               test1UUID,
