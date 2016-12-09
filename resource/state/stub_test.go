@@ -181,14 +181,6 @@ func (s *stubStagedResource) Activate() error {
 	return nil
 }
 
-func (s *stubStagedResource) ActivateWithoutVersionInc() error {
-	s.stub.AddCall("ActivateWithoutVersionInc")
-	if err := s.stub.NextErr(); err != nil {
-		return errors.Trace(err)
-	}
-	return nil
-}
-
 type stubStorage struct {
 	stub *testing.Stub
 
