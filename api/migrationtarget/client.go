@@ -110,19 +110,19 @@ func (c *Client) UploadTools(modelUUID string, r io.ReadSeeker, vers version.Bin
 func (c *Client) UploadResource(modelUUID string, res resource.Resource, r io.ReadSeeker) error {
 	args := makeResourceArgs(res)
 	args.Add("application", res.ApplicationID)
-	err := c.resourceUpload(modelUUID, args, r)
+	err := c.resourcePost(modelUUID, args, r)
 	return errors.Trace(err)
 }
 
-// UploadUnitResource uploads a unit resource to the resource migration endpoint.
-func (c *Client) UploadUnitResource(modelUUID, unit string, res resource.Resource, r io.ReadSeeker) error {
+// SetUnitResource sets the metadata for a particular unit resource.
+func (c *Client) SetUnitResource(modelUUID, unit string, res resource.Resource) error {
 	args := makeResourceArgs(res)
 	args.Add("unit", unit)
-	err := c.resourceUpload(modelUUID, args, r)
+	err := c.resourcePost(modelUUID, args, strings.NewReader(""))
 	return errors.Trace(err)
 }
 
-func (c *Client) resourceUpload(modelUUID string, args url.Values, r io.ReadSeeker) error {
+func (c *Client) resourcePost(modelUUID string, args url.Values, r io.ReadSeeker) error {
 	uri := "/migrate/resources?" + args.Encode()
 	contentType := "application/octet-stream"
 	err := c.httpPost(modelUUID, r, uri, contentType, nil)

@@ -207,7 +207,7 @@ func (s *ClientSuite) TestUploadResource(c *gc.C) {
 	c.Assert(doer.body, gc.Equals, resourceBody)
 }
 
-func (s *ClientSuite) TestUploadUnitResource(c *gc.C) {
+func (s *ClientSuite) TestSetUnitResource(c *gc.C) {
 	const resourceBody = "resourceful"
 	doer := newFakeDoer(c, "")
 	caller := &fakeHTTPCaller{
@@ -221,12 +221,12 @@ func (s *ClientSuite) TestUploadUnitResource(c *gc.C) {
 	res.Size = 123
 	res.Username = "bob"
 	res.Fingerprint = fp
-	err := client.UploadUnitResource("uuid", "app/0", res, strings.NewReader(resourceBody))
+	err := client.SetUnitResource("uuid", "app/0", res)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(doer.method, gc.Equals, "POST")
 	expectedURL := fmt.Sprintf("/migrate/resources?description=blob+description&fingerprint=%s&name=blob&origin=upload&path=blob.tgz&revision=2&size=123&type=file&unit=app%%2F0&user=bob", fp.Hex())
 	c.Assert(doer.url, gc.Equals, expectedURL)
-	c.Assert(doer.body, gc.Equals, resourceBody)
+	c.Assert(doer.body, gc.Equals, "")
 }
 
 func (s *ClientSuite) AssertModelCall(c *gc.C, stub *jujutesting.Stub, tag names.ModelTag, call string, err error, expectError bool) {
