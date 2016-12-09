@@ -170,7 +170,6 @@ func (s *stubStagedResource) Unstage() error {
 	if err := s.stub.NextErr(); err != nil {
 		return errors.Trace(err)
 	}
-
 	return nil
 }
 
@@ -179,7 +178,14 @@ func (s *stubStagedResource) Activate() error {
 	if err := s.stub.NextErr(); err != nil {
 		return errors.Trace(err)
 	}
+	return nil
+}
 
+func (s *stubStagedResource) ActivateWithoutVersionInc() error {
+	s.stub.AddCall("ActivateWithoutVersionInc")
+	if err := s.stub.NextErr(); err != nil {
+		return errors.Trace(err)
+	}
 	return nil
 }
 

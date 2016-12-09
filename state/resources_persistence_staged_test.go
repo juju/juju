@@ -186,3 +186,28 @@ func (s *StagedResourceSuite) TestActivateExists(c *gc.C) {
 		Remove: true,
 	}})
 }
+
+func (s *StagedResourceSuite) TestActivateWithoutVersionInc(c *gc.C) {
+	staged, doc := s.newStagedResource(c, "a-application", "spam")
+	ignoredErr := errors.New("<never reached>")
+	s.stub.SetErrors(nil, nil, nil, nil, nil, ignoredErr)
+
+	err := staged.ActivateWithoutVersionInc()
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.stub.CheckCallNames(c, "Run", "ApplicationExistsOps", "RunTransaction")
+	s.stub.CheckCall(c, 2, "RunTransaction", []txn.Op{{
+		C:      "resources",
+		Id:     "resource#a-application/spam",
+		Assert: txn.DocMissing,
+		Insert: &doc,
+	}, {
+		C:      "application",
+		Id:     "a-application",
+		Assert: txn.DocExists,
+	}, {
+		C:      "resources",
+		Id:     "resource#a-application/spam#staged",
+		Remove: true,
+	}})
+}
