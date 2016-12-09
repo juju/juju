@@ -139,14 +139,7 @@ func (s *resourceUploadSuite) makeUploadArgs(c *gc.C) url.Values {
 }
 
 func (s *resourceUploadSuite) TestUpload(c *gc.C) {
-	q := s.makeUploadArgs(c)
-	resp := s.authRequest(c, httpRequestParams{
-		method:      "POST",
-		url:         s.resourcesURI(c, q.Encode()),
-		contentType: "application/octet-stream",
-		body:        strings.NewReader(content),
-	})
-	outResp := s.assertResponse(c, resp, http.StatusOK)
+	outResp := s.uploadAppResource(c)
 	c.Check(outResp.ID, gc.Not(gc.Equals), "")
 	c.Check(outResp.Timestamp.IsZero(), jc.IsFalse)
 
@@ -162,10 +155,13 @@ func (s *resourceUploadSuite) TestUpload(c *gc.C) {
 }
 
 func (s *resourceUploadSuite) TestUnitUpload(c *gc.C) {
+	// Upload application resource first. A unit resource can't be
+	// uploaded without the application resource being there first.
+	s.uploadAppResource(c)
+
 	q := s.makeUploadArgs(c)
 	q.Del("application")
 	q.Set("unit", s.unit.Name())
-
 	resp := s.authRequest(c, httpRequestParams{
 		method:      "POST",
 		url:         s.resourcesURI(c, q.Encode()),
@@ -175,16 +171,17 @@ func (s *resourceUploadSuite) TestUnitUpload(c *gc.C) {
 	outResp := s.assertResponse(c, resp, http.StatusOK)
 	c.Check(outResp.ID, gc.Not(gc.Equals), "")
 	c.Check(outResp.Timestamp.IsZero(), jc.IsFalse)
+}
 
-	rSt, err := s.importingState.Resources()
-	c.Assert(err, jc.ErrorIsNil)
-	res, reader, err := rSt.OpenResourceForUniter(s.unit, "bin")
-	c.Assert(err, jc.ErrorIsNil)
-	defer reader.Close()
-	readContent, err := ioutil.ReadAll(reader)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(readContent), gc.Equals, content)
-	c.Assert(res.ID, gc.Equals, outResp.ID)
+func (s *resourceUploadSuite) uploadAppResource(c *gc.C) params.ResourceUploadResult {
+	q := s.makeUploadArgs(c)
+	resp := s.authRequest(c, httpRequestParams{
+		method:      "POST",
+		url:         s.resourcesURI(c, q.Encode()),
+		contentType: "application/octet-stream",
+		body:        strings.NewReader(content),
+	})
+	return s.assertResponse(c, resp, http.StatusOK)
 }
 
 func (s *resourceUploadSuite) TestArgValidation(c *gc.C) {

@@ -4,6 +4,7 @@
 package apiserver
 
 import (
+	"io"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -77,15 +78,21 @@ func (h *resourceUploadHandler) processPost(r *http.Request, st *state.State) (r
 		return empty, errors.Trace(err)
 	}
 
-	setter := rSt.SetResource
-	if isUnit {
-		setter = rSt.SetUnitResource
-	}
-	outRes, err := setter(target, userID, res, r.Body)
+	outRes, err := setResource(isUnit, target, userID, res, r.Body, rSt)
 	if err != nil {
 		return empty, errors.Annotate(err, "resource upload failed")
 	}
 	return outRes, nil
+}
+
+func setResource(isUnit bool, target, user string, res charmresource.Resource, r io.Reader, rSt state.Resources) (
+	resource.Resource, error,
+) {
+	if isUnit {
+		return rSt.SetUnitResource(target, user, res)
+	}
+	return rSt.SetResource(target, user, res, r)
+
 }
 
 func getUploadTarget(query url.Values) (string, bool, error) {
