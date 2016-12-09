@@ -102,7 +102,7 @@ class TestParseArgs(TestCase):
 
     def test_parse_args_region(self):
         args = parse_args(['base', 'foo', 'bar', '--region', 'foo'])
-        self.assertEqual(args.region, 'foo')
+        self.assertEqual(args.region, list(['foo']))
 
     def test_parse_args_temp_env_name(self):
         args = parse_args(['base', 'fee', 'fi', 'foe', 'fum'])

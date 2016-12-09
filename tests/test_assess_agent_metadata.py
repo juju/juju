@@ -45,11 +45,6 @@ class TestParseArgs(TestCase):
         self.assertEqual("", fake_stderr.getvalue())
         self.assertNotIn("TODO", fake_stdout.getvalue())
 
-    def test_parse_args_agent_metadata_url(self):
-        args = parse_args(['base', 'foo', 'bar',
-                           '--agent-metadata-url', AGENT_METADATA_URL])
-        self.assertEqual(args.agent_metadata_url, AGENT_METADATA_URL)
-
 
 class TestAssess(TestCase):
     def test_assess_check_metadata(self):
@@ -58,7 +53,7 @@ class TestAssess(TestCase):
         mock_client = Mock(spec=["get_model_config"])
         mock_client.get_model_config.return_value = \
             {'agent-metadata-url': {'value': AGENT_METADATA_URL}}
-        assess_check_metadata(args, mock_client)
+        assess_check_metadata(args.agent_metadata_url, mock_client)
 
     def test_assess_check_metadata_invalid(self):
         args = parse_args(['metadata', 'bars', '/foo'])

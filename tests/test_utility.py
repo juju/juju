@@ -491,7 +491,7 @@ class TestAddBasicTestingArguments(TestCase):
                     'vivid']
         parser = add_basic_testing_arguments(ArgumentParser())
         args = parser.parse_args(cmd_line)
-        self.assertEqual(args.series, 'vivid')
+        self.assertEqual(args.series, list(['vivid']))
 
     def test_upload_tools(self):
         cmd_line = ['local', '/foo/juju', '/tmp/logs', 'testtest',
@@ -535,7 +535,7 @@ class TestAddBasicTestingArguments(TestCase):
                     '--region', 'foo-bar']
         parser = add_basic_testing_arguments(ArgumentParser())
         args = parser.parse_args(cmd_line)
-        self.assertEqual('foo-bar', args.region)
+        self.assertEqual(list(['foo-bar']), args.region)
 
     def test_deadline(self):
         now = datetime(2012, 11, 10, 9, 8, 7)

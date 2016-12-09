@@ -384,12 +384,13 @@ def add_basic_testing_arguments(parser, using_jes=False, deadline=True,
     parser.add_argument('--verbose', action='store_const',
                         default=logging.INFO, const=logging.DEBUG,
                         help='Verbose test harness output.')
-    parser.add_argument('--region', help='Override environment region.')
+    parser.add_argument('--region', nargs='*',
+                        help='Override environment region.')
     parser.add_argument('--agent-url', action='store', default=None,
                         help='URL for retrieving agent binaries.')
     parser.add_argument('--agent-stream', action='store', default=None,
                         help='Stream for retrieving agent binaries.')
-    parser.add_argument('--series', action='store', default=None,
+    parser.add_argument('--series', nargs='*', action='store', default=None,
                         help='Name of the Ubuntu series to use.')
     if not using_jes:
         parser.add_argument('--upload-tools', action='store_true',
