@@ -62,10 +62,11 @@ func (h *resourceUploadHandler) processPost(r *http.Request, st *state.State) (r
 	var empty resource.Resource
 	query := r.URL.Query()
 
-	applicationID := query.Get("application")
-	if applicationID == "" {
-		return empty, errors.BadRequestf("missing application")
+	target, isUnit, err := getUploadTarget(query)
+	if err != nil {
+		return empty, errors.Trace(err)
 	}
+
 	userID := query.Get("user") // Is allowed to be blank
 	res, err := queryToResource(query)
 	if err != nil {
@@ -75,11 +76,31 @@ func (h *resourceUploadHandler) processPost(r *http.Request, st *state.State) (r
 	if err != nil {
 		return empty, errors.Trace(err)
 	}
-	outRes, err := rSt.SetResource(applicationID, userID, res, r.Body)
+
+	setter := rSt.SetResource
+	if isUnit {
+		setter = rSt.SetUnitResource
+	}
+	outRes, err := setter(target, userID, res, r.Body)
 	if err != nil {
 		return empty, errors.Annotate(err, "resource upload failed")
 	}
 	return outRes, nil
+}
+
+func getUploadTarget(query url.Values) (string, bool, error) {
+	appName := query.Get("application")
+	unitName := query.Get("unit")
+	switch {
+	case appName == "" && unitName == "":
+		return "", false, errors.BadRequestf("missing application/unit")
+	case appName != "" && unitName != "":
+		return "", false, errors.BadRequestf("application and unit can't be set at the same time")
+	case appName != "":
+		return appName, false, nil
+	default:
+		return unitName, true, nil
+	}
 }
 
 func queryToResource(query url.Values) (charmresource.Resource, error) {
