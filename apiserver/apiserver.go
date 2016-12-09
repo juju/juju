@@ -736,7 +736,7 @@ func serverError(err error) error {
 }
 
 func (srv *Server) processModelRemovals() error {
-	w := srv.state.WatchModels()
+	w := srv.state.WatchModelLives()
 	defer w.Stop()
 	for {
 		select {

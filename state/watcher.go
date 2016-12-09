@@ -214,9 +214,22 @@ func collFactory(st *State, collName string) func() (mongo.Collection, func()) {
 	}
 }
 
-// WatchModels returns a StringsWatcher that notifies of changes
-// to the lifecycles of all models.
+// WatchModels returns a StringsWatcher that notifies of changes to
+// any models. If a model is removed this *won't* signal that the
+// model has gone away - it's based on a collectionWatcher which omits
+// these events.
 func (st *State) WatchModels() StringsWatcher {
+	return newcollectionWatcher(st, colWCfg{
+		col:    modelsC,
+		global: true,
+	})
+}
+
+// WatchModelLives returns a StringsWatcher that notifies of changes
+// to any model life values. The most important difference between
+// this and WatchModels is that this will signal one last time if a
+// model is removed.
+func (st *State) WatchModelLives() StringsWatcher {
 	return newLifecycleWatcher(st, modelsC, nil, nil, nil)
 }
 
@@ -1957,23 +1970,34 @@ type colWCfg struct {
 	col    string
 	filter func(interface{}) bool
 	idconv func(string) string
+
+	// If global is true the watcher won't be limited to this model.
+	global bool
 }
 
 // newcollectionWatcher starts and returns a new StringsWatcher configured
 // with the given collection and filter function
 func newcollectionWatcher(st *State, cfg colWCfg) StringsWatcher {
-	// Always ensure that there is at least filtering on the
-	// model in place.
-	backstop := isLocalID(st)
-	if cfg.filter == nil {
-		cfg.filter = backstop
-	} else {
-		innerFilter := cfg.filter
-		cfg.filter = func(id interface{}) bool {
-			if !backstop(id) {
-				return false
+	if cfg.global {
+		if cfg.filter == nil {
+			cfg.filter = func(x interface{}) bool {
+				return true
 			}
-			return innerFilter(id)
+		}
+	} else {
+		// Always ensure that there is at least filtering on the
+		// model in place.
+		backstop := isLocalID(st)
+		if cfg.filter == nil {
+			cfg.filter = backstop
+		} else {
+			innerFilter := cfg.filter
+			cfg.filter = func(id interface{}) bool {
+				if !backstop(id) {
+					return false
+				}
+				return innerFilter(id)
+			}
 		}
 	}
 
@@ -2080,7 +2104,10 @@ func (w *collectionWatcher) initial() ([]string, error) {
 	iter := coll.Find(nil).Iter()
 	for iter.Next(&doc) {
 		if w.filter == nil || w.filter(doc.DocId) {
-			id := w.st.localID(doc.DocId)
+			id := doc.DocId
+			if !w.colWCfg.global {
+				id = w.st.localID(id)
+			}
 			if w.idconv != nil {
 				id = w.idconv(id)
 			}
@@ -2099,25 +2126,35 @@ func (w *collectionWatcher) initial() ([]string, error) {
 // Additionally, mergeIds strips the model UUID prefix from the id
 // before emitting it through the watcher.
 func (w *collectionWatcher) mergeIds(changes *[]string, updates map[interface{}]bool) error {
-	return mergeIds(w.st, changes, updates, w.idconv)
+	return mergeIds(w.st, changes, updates, w.convertId)
 }
 
-func mergeIds(st modelBackend, changes *[]string, updates map[interface{}]bool, idconv func(string) string) error {
+func (w *collectionWatcher) convertId(id string) (string, error) {
+	if !w.colWCfg.global {
+		// Strip off the env UUID prefix.
+		// We only expect ids for a single model.
+		var err error
+		id, err = w.st.strictLocalID(id)
+		if err != nil {
+			return "", errors.Trace(err)
+		}
+	}
+	if w.idconv != nil {
+		id = w.idconv(id)
+	}
+	return id, nil
+}
+
+func mergeIds(st modelBackend, changes *[]string, updates map[interface{}]bool, idconv func(string) (string, error)) error {
 	for val, idExists := range updates {
 		id, ok := val.(string)
 		if !ok {
 			return errors.Errorf("id is not of type string, got %T", val)
 		}
 
-		// Strip off the env UUID prefix. We only expect ids for a
-		// single model.
-		id, err := st.strictLocalID(id)
+		id, err := idconv(id)
 		if err != nil {
 			return errors.Annotatef(err, "collection watcher")
-		}
-
-		if idconv != nil {
-			id = idconv(id)
 		}
 
 		chIx, idAlreadyInChangeset := indexOf(id, *changes)

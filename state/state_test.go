@@ -2000,7 +2000,7 @@ func (s *StateSuite) TestWatchModelsBulkEvents(c *gc.C) {
 
 func (s *StateSuite) TestWatchModelsLifecycle(c *gc.C) {
 	// Initial event reports the controller model.
-	w := s.State.WatchModels()
+	w := s.State.WatchModelLives()
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewStringsWatcherC(c, s.State, w)
 	wc.AssertChange(s.State.ModelUUID())
