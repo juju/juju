@@ -8,21 +8,16 @@ from mock import (
     Mock,
     patch,
     )
-import yaml
 
 from assess_model_defaults import (
     assemble_model_default,
     assess_model_defaults,
     assess_model_defaults_controller,
     assess_model_defaults_region,
-    get_model_defaults,
     juju_assert_equal,
     main,
     parse_args,
-    set_model_defaults,
-    unset_model_defaults,
     )
-from fakejuju import fake_juju_client
 from tests import (
     parse_error,
     TestCase,
@@ -121,33 +116,6 @@ class TestAssembleModelDefault(TestCase):
                                    {'localhost': True, 'fakeregion': True}))
 
 
-class TestJujuWrappers(TestCase):
-
-    def test_get_model_defaults(self):
-        raw_yaml = yaml.safe_dump({'some-key': {'default': 'black'}})
-        client = fake_juju_client()
-        with patch.object(client, 'get_juju_output', autospec=True,
-                          return_value=raw_yaml) as output_mock:
-            retval = get_model_defaults(client, 'some-key')
-        self.assertEqual(assemble_model_default('some-key', 'black'), retval)
-        output_mock.assert_called_once_with(
-            'model-defaults', '--format', 'yaml', 'some-key')
-
-    def test_set_model_defaults(self):
-        client = fake_juju_client()
-        with patch.object(client, 'juju', autospec=True) as juju_mock:
-            set_model_defaults(client, 'some-key', 'white')
-        juju_mock.assert_called_once_with(
-            'model-defaults', ('some-key=white',))
-
-    def test_unset_model_defaults(self):
-        client = fake_juju_client()
-        with patch.object(client, 'juju', autospec=True) as juju_mock:
-            unset_model_defaults(client, 'some-key')
-        juju_mock.assert_called_once_with(
-            'model-defaults', ('--reset', 'some-key'))
-
-
 class TestAssert(TestCase):
 
     def test_juju_assert_equal(self):
@@ -160,49 +128,23 @@ class TestAssert(TestCase):
 class TestAssessModelDefaults(TestCase):
 
     def test_model_defaults_controller(self):
-        client = FakeJujuModelDefaults({'some-key': 'black'})
-        with patch('assess_model_defaults.get_model_defaults',
-                   side_effect=lambda client, key:
-                       client.get_model_defaults(key),
-                   autospec=True) as get_mock:
-            with patch('assess_model_defaults.set_model_defaults',
-                       side_effect=lambda client, key, value:
-                           client.set_model_defaults(key, value),
-                       autospec=True) as set_mock:
-                with patch('assess_model_defaults.unset_model_defaults',
-                           side_effect=lambda client, key:
-                               client.unset_model_defaults(key),
-                           autospec=True) as unset_mock:
-                    assess_model_defaults_controller(
-                        client, 'some-key', 'yellow')
-        self.assertEqual(3, get_mock.call_count)
-        set_mock.assert_called_once_with(client, 'some-key', 'yellow')
-        unset_mock.assert_called_once_with(client, 'some-key')
+        client = Mock(wraps=FakeJujuModelDefaults({'some-key': 'black'}))
+        assess_model_defaults_controller(client, 'some-key', 'yellow')
+        self.assertEqual(3, client.get_model_defaults.call_count)
+        client.set_model_defaults.assert_called_once_with(
+            'some-key', 'yellow')
+        client.unset_model_defaults.assert_called_once_with(
+            'some-key')
 
     def test_model_defaults_region(self):
-        client = FakeJujuModelDefaults({'some-key': 'black'})
-        with patch('assess_model_defaults.get_model_defaults',
-                   side_effect=lambda client, key, cloud=None, region=None:
-                       client.get_model_defaults(key, cloud, region),
-                   autospec=True) as get_mock:
-            with patch('assess_model_defaults.set_model_defaults',
-                       side_effect=lambda client, key, value,
-                       cloud=None, region=None:
-                           client.set_model_defaults(key, value,
-                                                     cloud, region),
-                       autospec=True) as set_mock:
-                with patch('assess_model_defaults.unset_model_defaults',
-                           side_effect=lambda client, key,
-                           cloud=None, region=None:
-                               client.unset_model_defaults(key, cloud, region),
-                           autospec=True) as unset_mock:
-                    assess_model_defaults_region(
-                        client, 'some-key', 'yellow', 'localhost', 'localhost')
-        self.assertEqual(3, get_mock.call_count)
-        set_mock.assert_called_once_with(
+        client = Mock(wraps=FakeJujuModelDefaults({'some-key': 'black'}))
+        assess_model_defaults_region(
             client, 'some-key', 'yellow', 'localhost', 'localhost')
-        unset_mock.assert_called_once_with(
-            client, 'some-key', 'localhost', 'localhost')
+        self.assertEqual(3, client.get_model_defaults.call_count)
+        client.set_model_defaults.assert_called_once_with(
+            'some-key', 'yellow', 'localhost', 'localhost')
+        client.unset_model_defaults.assert_called_once_with(
+            'some-key', 'localhost', 'localhost')
 
     def test_model_defaults(self):
         fake_client = FakeJujuModelDefaults()

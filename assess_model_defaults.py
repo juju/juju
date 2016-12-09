@@ -4,11 +4,8 @@
 from __future__ import print_function
 
 import argparse
-from contextlib import contextmanager
 import logging
 import sys
-
-import yaml
 
 from deploy_stack import (
     BootstrapManager,
@@ -38,72 +35,41 @@ def assemble_model_default(model_key, default, controller=None, regions=None):
     return {model_key: defaults}
 
 
-# The next four functions are slated be attached to the client.
-def _format_cloud_region(cloud=None, region=None):
-    if cloud and region:
-        return ('{}/{}'.format(cloud, region),)
-    elif region:
-        return (region,)
-    elif cloud:
-        raise ValueError('The cloud must be followed by a region.')
-    else:
-        return ()
-
-
-def get_model_defaults(client, model_key, cloud=None, region=None):
-    cloud_region = _format_cloud_region(cloud, region)
-    gjo_args = ('--format', 'yaml') + cloud_region + (model_key,)
-    raw_yaml = client.get_juju_output('model-defaults', *gjo_args)
-    return yaml.safe_load(raw_yaml)
-
-
-def set_model_defaults(client, model_key, value, cloud=None, region=None):
-    cloud_region = _format_cloud_region(cloud, region)
-    client.juju('model-defaults',
-                cloud_region + ('{}={}'.format(model_key, value),))
-
-
-def unset_model_defaults(client, model_key, cloud=None, region=None):
-    cloud_region = _format_cloud_region(cloud, region)
-    client.juju('model-defaults',
-                cloud_region + ('--reset', model_key))
-
-
 def juju_assert_equal(lhs, rhs, msg):
     if (lhs != rhs):
         raise JujuAssertionError(msg, lhs, rhs)
 
 
 def assess_model_defaults_controller(client, model_key, value):
-    base_line = get_model_defaults(client, model_key)
+    base_line = client.get_model_defaults(model_key)
     default = base_line[model_key]['default']
 
-    set_model_defaults(client, model_key, value)
+    client.set_model_defaults(model_key, value)
     juju_assert_equal(
         assemble_model_default(model_key, default, value),
-        get_model_defaults(client, model_key),
+        client.get_model_defaults(model_key),
         'model-defaults: Mismatch on setting controller.')
 
-    unset_model_defaults(client, model_key)
+    client.unset_model_defaults(model_key)
     juju_assert_equal(
-        base_line, get_model_defaults(client, model_key),
+        base_line, client.get_model_defaults(model_key),
         'model-defaults: Mismatch after resetting controller.')
 
 
 def assess_model_defaults_region(client, model_key, value,
                                  cloud=None, region=None):
-    base_line = get_model_defaults(client, model_key, cloud, region)
+    base_line = client.get_model_defaults(model_key, cloud, region)
     default = base_line[model_key]['default']
 
-    set_model_defaults(client, model_key, value, cloud, region)
+    client.set_model_defaults(model_key, value, cloud, region)
     juju_assert_equal(
         assemble_model_default(model_key, default, None, {region: value}),
-        get_model_defaults(client, model_key, cloud, region),
+        client.get_model_defaults(model_key, cloud, region),
         'model-defaults: Mismatch on setting region.')
 
-    unset_model_defaults(client, model_key, cloud, region)
+    client.unset_model_defaults(model_key, cloud, region)
     juju_assert_equal(
-        base_line, get_model_defaults(client, model_key, cloud, region),
+        base_line, client.get_model_defaults(model_key, cloud, region),
         'model-defaults: Mismatch after resetting controller.')
 
 
