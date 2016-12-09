@@ -90,14 +90,13 @@ type ToolsUploader interface {
 // from the source controller during a migration.
 type ResourceDownloader interface {
 	OpenResource(string, string) (io.ReadCloser, error)
-	OpenUnitResource(string, string) (io.ReadCloser, error)
 }
 
 // ResourceUploader defines the interface for uploading resources into
 // the target controller during a migration.
 type ResourceUploader interface {
 	UploadResource(resource.Resource, io.ReadSeeker) error
-	UploadUnitResource(string, resource.Resource, io.ReadSeeker) error
+	SetUnitResource(string, resource.Resource) error
 }
 
 // UploadBinariesConfig provides all the configuration that the
@@ -240,8 +239,8 @@ func uploadResources(config UploadBinariesConfig) error {
 			return errors.Trace(err)
 		}
 		for unitName, unitRev := range res.UnitRevisions {
-			if err := uploadUnitResource(config, unitName, unitRev); err != nil {
-				return errors.Trace(err)
+			if err := config.ResourceUploader.SetUnitResource(unitName, unitRev); err != nil {
+				return errors.Annotate(err, "cannot set unit resource")
 			}
 		}
 		// Each config.Resources element also contains a
@@ -270,29 +269,6 @@ func uploadAppResource(config UploadBinariesConfig, rev resource.Resource) error
 
 	if err := config.ResourceUploader.UploadResource(rev, content); err != nil {
 		return errors.Annotate(err, "cannot upload resource")
-	}
-	return nil
-}
-
-func uploadUnitResource(config UploadBinariesConfig, unitName string, rev resource.Resource) error {
-	logger.Debugf("opening unit resource for %s: %s", unitName, rev.Name)
-	reader, err := config.ResourceDownloader.OpenUnitResource(unitName, rev.Name)
-	if err != nil {
-		return errors.Annotate(err, "cannot open resource")
-	}
-	defer reader.Close()
-
-	// TODO(menn0) - validate that the downloaded revision matches
-	// the expected metadata. Check revision and fingerprint.
-
-	content, cleanup, err := streamThroughTempFile(reader)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	defer cleanup()
-
-	if err := config.ResourceUploader.UploadUnitResource(unitName, rev, content); err != nil {
-		return errors.Annotate(err, "cannot upload unit resource")
 	}
 	return nil
 }
