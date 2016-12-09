@@ -210,9 +210,7 @@ func (r resources) registerHookContextFacade() {
 func (r resources) registerUnitDownloadEndpoint() {
 	common.RegisterAPIModelEndpoint(privateapi.HTTPEndpointPattern, apihttp.HandlerSpec{
 		Constraints: apihttp.HandlerConstraints{
-			// Machines are allowed too so that unit resources can be
-			// retrieved for model migrations.
-			AuthKinds:           []string{names.UnitTagKind, names.MachineTagKind},
+			AuthKinds:           []string{names.UnitTagKind},
 			StrictValidation:    true,
 			ControllerModelOnly: false,
 		},
