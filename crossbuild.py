@@ -245,6 +245,23 @@ def build_centos(tarball_path, build_dir, dry_run=False, verbose=False):
             dry_run=dry_run, verbose=verbose)
 
 
+def build_ubuntu_agent(tarball_path, build_dir, goarch,
+                       dry_run=False, verbose=False):
+    """Build an ubuntu juju agent from a tarball."""
+    cwd = os.getcwd()
+    agent_package = os.path.join(JUJU_PACKAGE_PATH, 'cmd', 'jujud')
+    goroot = os.path.join(build_dir, 'golang-%s' % GOLANG_VERSION)
+    with go_tarball(tarball_path) as (gopath, version):
+        # This command always executes in a tmp dir, it does not make changes.
+        go_build(
+            agent_package, goroot, gopath, goarch, 'linux',
+            dry_run=False, verbose=verbose)
+        built_agent_path = os.path.join(gopath, 'bin', 'jujud')
+        make_agent_tarball(
+            'ubuntu', built_agent_path, version, cwd,
+            dry_run=dry_run, verbose=verbose)
+
+
 def parse_args(args=None):
     """Return the argument parser for this program."""
     parser = ArgumentParser(
@@ -275,7 +292,7 @@ def parse_args(args=None):
     parser_win_agent = subparsers.add_parser(
         'win-agent', help='Build an amd64 windows juju agent.')
     parser_win_agent.add_argument(
-        '-b', '--build-dir', default='~/crossbuild',
+        '-b', '--build-dir', default='$HOME/crossbuild',
         help='The path cross build dir.')
     parser_win_agent.add_argument(
         'tarball_path', help='The path to the juju source tarball.')
@@ -294,6 +311,17 @@ def parse_args(args=None):
         '-b', '--build-dir', default='$HOME/crossbuild',
         help='The path cross build dir.')
     parser_centos.add_argument(
+        'tarball_path', help='The path to the juju source tarball.')
+    # ./crossbuild ubuntu-agent juju-core-1.2.3.tar.gz
+    parser_ubuntu = subparsers.add_parser(
+        'ubuntu-agent', help='Build an ubuntu juju agent.')
+    parser_ubuntu.add_argument(
+        '--goarch', default='amd64',
+        help='The GOARCH to build. Environment: $GOARCH.')
+    parser_ubuntu.add_argument(
+        '-b', '--build-dir', default='$HOME/crossbuild',
+        help='The path cross build dir.')
+    parser_ubuntu.add_argument(
         'tarball_path', help='The path to the juju source tarball.')
     return parser.parse_args(args)
 
@@ -321,6 +349,10 @@ def main(argv):
         elif args.command == 'centos':
             build_centos(
                 args.tarball_path, args.build_dir,
+                dry_run=args.dry_run, verbose=args.verbose)
+        elif args.command == 'ubuntu-agent':
+            build_ubuntu_agent(
+                args.tarball_path, args.build_dir, args.goarch,
                 dry_run=args.dry_run, verbose=args.verbose)
     except Exception as e:
         print(e)

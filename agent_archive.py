@@ -12,7 +12,7 @@ import traceback
 
 
 # The S3 container and path to add to and get from.
-S3_CONTAINER = 's3://juju-qa-data/agent-archive'
+S3_CONTAINER_DEFAULT = 's3://juju-qa-data/agent-archive'
 # The set of agents to make.
 AGENT_TEMPLATES = (
     'juju-{}-centos7-amd64.tgz',
@@ -26,12 +26,15 @@ AGENT_TEMPLATES = (
     'juju-{}-win8-amd64.tgz',
     'juju-{}-win81-amd64.tgz',
     'juju-{}-win10-amd64.tgz',
-)
-# The versions of agent that may or will exist. The agents will
-# always start with juju, the series will start with "win" and the
-# arch is always amd64.
-AGENT_VERSION_PATTERN = re.compile('juju-(.+)-(win|centos)[^-]+-amd64.tgz')
-AGENT_OS_PATTERN = re.compile('juju-.+-(win|centos)[^-]+-amd64.tgz')
+    'juju-{}-ubuntu-amd64.tgz',
+    'juju-{}-ubuntu-arm64.tgz',
+    'juju-{}-ubuntu-ppc64el.tgz',
+    'juju-{}-ubuntu-s390x.tgz',
+    )
+
+
+AGENT_PATTERN = re.compile(
+    'juju-(.+)-(win|centos|ubuntu)[^-]*-(amd64|arm64|ppc64el|s390x)\.tgz')
 
 
 def run(args, config=None, verbose=False, dry_run=False):
@@ -52,17 +55,24 @@ def run(args, config=None, verbose=False, dry_run=False):
 
 def get_source_agent_version(source_agent):
     """Parse the version from the source agent's file name."""
-    match = AGENT_VERSION_PATTERN.match(source_agent)
+    match = AGENT_PATTERN.match(source_agent)
     if match:
         return match.group(1)
     return None
 
 
 def get_source_agent_os(source_agent):
-    match = AGENT_OS_PATTERN.match(source_agent)
+    match = AGENT_PATTERN.match(source_agent)
     if match:
-        return match.group(1)
+        return match.group(2)
     raise ValueError('The unknown OS version: %s' % source_agent)
+
+
+def get_source_agent_arch(source_agent):
+    match = AGENT_PATTERN.match(source_agent)
+    if match:
+        return match.group(3)
+    raise ValueError('Invalid arch in agent: ' + source_agent)
 
 
 def get_input(prompt):
@@ -70,7 +80,7 @@ def get_input(prompt):
 
     Wrap deprecated raw_input for testing.
     """
-    return raw_input(prompt)  # pyflakes:ignore
+    return raw_input(prompt)  # NOQA
 
 
 def listing_to_files(listing):
@@ -82,7 +92,7 @@ def listing_to_files(listing):
     return agents
 
 
-def is_new_version(source_path, config, verbose=False):
+def is_new_version(source_path, config, s3_container, verbose=False):
     """Return True when the version is new, else False.
 
     :raises: ValueError if the version exists and is different.
@@ -91,7 +101,7 @@ def is_new_version(source_path, config, verbose=False):
     if verbose:
         print('Checking that %s does not already exist.' % source_path)
     source_agent = os.path.basename(source_path)
-    agent_path = '%s/%s' % (S3_CONTAINER, source_agent)
+    agent_path = '%s/%s' % (s3_container, source_agent)
     existing_version = run(
         ['ls', '--list-md5', agent_path], config=config, verbose=verbose)
     if not existing_version:
@@ -128,22 +138,23 @@ def add_agents(args):
         raise ValueError(
             '%s does not match an expected version.' % source_agent)
     source_path = os.path.abspath(os.path.expanduser(args.source_agent))
-    if not is_new_version(source_path, args.config, verbose=args.verbose):
+    if not is_new_version(source_path, args.config, args.s3_container,
+                          verbose=args.verbose):
         if args.verbose:
             print("Nothing to do.")
         return
     # The fastest way to put the files in place is to upload the source_agent
     # then use the s3cmd cp to make remote versions.
     if args.verbose:
-        print('Uploading %s to %s' % (source_agent, S3_CONTAINER))
-    remote_source = '%s/%s' % (S3_CONTAINER, source_agent)
+        print('Uploading %s to %s' % (source_agent, args.s3_container))
+    remote_source = '%s/%s' % (args.s3_container, source_agent)
     run(['put', source_path, remote_source],
         config=args.config, dry_run=args.dry_run, verbose=args.verbose)
     agent_versions.remove(source_agent)
     os_name = get_source_agent_os(source_agent)
     agent_versions = [a for a in agent_versions if os_name in a]
     for agent_version in agent_versions:
-        destination = '%s/%s' % (S3_CONTAINER, agent_version)
+        destination = '%s/%s' % (args.s3_container, agent_version)
         if args.verbose:
             print('Copying %s to %s' % (remote_source, destination))
         run(['cp', remote_source, destination],
@@ -153,7 +164,7 @@ def add_agents(args):
 def get_agents(args):
     """Download agents matching a version to a destination path."""
     version = args.version
-    agent_glob = '%s/juju-%s*' % (S3_CONTAINER, version)
+    agent_glob = '%s/juju-%s*' % (args.s3_container, version)
     destination = os.path.abspath(os.path.expanduser(args.destination))
     output = run(
         ['get', agent_glob, destination],
@@ -169,7 +180,7 @@ def delete_agents(args):
     matches the expected operation.
     """
     version = args.version
-    agent_glob = '%s/juju-%s*' % (S3_CONTAINER, version)
+    agent_glob = '%s/juju-%s*' % (args.s3_container, version)
     existing_versions = run(
         ['ls', agent_glob], config=args.config, verbose=args.verbose)
     if args.verbose:
@@ -201,6 +212,9 @@ def parse_args(args=None):
     parser.add_argument(
         '-c', '--config', action='store', default=None,
         help='The S3 config file.')
+    parser.add_argument(
+        '-s', '--s3-container', action='store', default=S3_CONTAINER_DEFAULT,
+        help='The S3 container to act on.')
     subparsers = parser.add_subparsers(help='sub-command help')
     # add juju-1.21.0-win2012-amd64.tgz
     parser_add = subparsers.add_parser(
