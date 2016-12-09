@@ -340,9 +340,18 @@ func convertAppResource(in params.SerializedModelResource) (migration.Serialized
 	if err != nil {
 		return empty, errors.Annotate(err, "charmstore revision")
 	}
+	unitRevs := make(map[string]resource.Resource)
+	for unitName, inUnitRev := range in.UnitRevisions {
+		unitRev, err := convertResourceRevision(in.Application, in.Name, inUnitRev)
+		if err != nil {
+			return empty, errors.Annotate(err, "unit revision")
+		}
+		unitRevs[unitName] = unitRev
+	}
 	return migration.SerializedModelResource{
 		ApplicationRevision: appRev,
 		CharmStoreRevision:  csRev,
+		UnitRevisions:       unitRevs,
 	}, nil
 }
 

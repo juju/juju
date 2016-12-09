@@ -58,11 +58,11 @@ type SerializedModel struct {
 }
 
 // SerializedModelResource defines the resource revisions for a
-// specific application resource.
+// specific application and its units.
 type SerializedModelResource struct {
 	ApplicationRevision resource.Resource
 	CharmStoreRevision  resource.Resource
-	// TODO(menn0) - unit revisions
+	UnitRevisions       map[string]resource.Resource
 }
 
 // ModelInfo is used to report basic details about a model.

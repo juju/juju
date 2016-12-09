@@ -216,9 +216,11 @@ func (s *ClientSuite) TestExport(c *gc.C) {
 	fpHash := charmresource.NewFingerprintHash()
 	appFp := fpHash.Fingerprint()
 	csFp := fpHash.Fingerprint()
+	unitFp := fpHash.Fingerprint()
 
 	appTs := time.Now()
 	csTs := appTs.Add(time.Hour)
+	unitTs := appTs.Add(time.Hour)
 
 	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		stub.AddCall(objType+"."+request, id, arg)
@@ -254,6 +256,19 @@ func (s *ClientSuite) TestExport(c *gc.C) {
 					Size:           321,
 					Timestamp:      csTs,
 					Username:       "xena",
+				},
+				UnitRevisions: map[string]params.SerializedModelResourceRevision{
+					"fooapp/0": params.SerializedModelResourceRevision{
+						Revision:       1,
+						Type:           "file",
+						Path:           "blink.tar.gz",
+						Description:    "bo knows",
+						Origin:         "store",
+						FingerprintHex: unitFp.Hex(),
+						Size:           222,
+						Timestamp:      unitTs,
+						Username:       "bambam",
+					},
 				},
 			}},
 		}
@@ -305,6 +320,25 @@ func (s *ClientSuite) TestExport(c *gc.C) {
 				ApplicationID: "fooapp",
 				Username:      "xena",
 				Timestamp:     csTs,
+			},
+			UnitRevisions: map[string]resource.Resource{
+				"fooapp/0": resource.Resource{
+					Resource: charmresource.Resource{
+						Meta: charmresource.Meta{
+							Name:        "bin",
+							Type:        charmresource.TypeFile,
+							Path:        "blink.tar.gz",
+							Description: "bo knows",
+						},
+						Origin:      charmresource.OriginStore,
+						Revision:    1,
+						Fingerprint: unitFp,
+						Size:        222,
+					},
+					ApplicationID: "fooapp",
+					Username:      "bambam",
+					Timestamp:     unitTs,
+				},
 			},
 		}},
 	})
