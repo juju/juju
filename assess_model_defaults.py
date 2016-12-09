@@ -33,8 +33,8 @@ def assemble_model_default(model_key, default, controller=None, regions=None):
         defaults['controller'] = controller
     if regions:
         defaults['regions'] = [
-           {'name': region, 'value': region_default}
-           for (region, region_default) in regions.items()]
+            {'name': region, 'value': region_default}
+            for (region, region_default) in regions.items()]
     return {model_key: defaults}
 
 
@@ -106,14 +106,14 @@ def assess_model_defaults_region(client, model_key, value,
 
     set_model_defaults(client, model_key, value, cloud, region)
     juju_assert_equal(
-        'model-defaults: Mismatch on setting region.',
         assemble_model_default(model_key, default, None, {region: value}),
-        get_model_defaults(client, model_key, cloud, region))
+        get_model_defaults(client, model_key, cloud, region),
+        'model-defaults: Mismatch on setting region.')
 
     unset_model_defaults(client, model_key, cloud, region)
     juju_assert_equal(
-        'model-defaults: Mismatch after resetting controller.',
-        base_line, get_model_defaults(client, model_key, cloud, region))
+        base_line, get_model_defaults(client, model_key, cloud, region),
+        'model-defaults: Mismatch after resetting controller.')
 
 
 def assess_model_defaults(client):

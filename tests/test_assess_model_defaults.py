@@ -14,6 +14,7 @@ from assess_model_defaults import (
     assemble_model_default,
     assess_model_defaults,
     assess_model_defaults_controller,
+    assess_model_defaults_region,
     get_model_defaults,
     juju_assert_equal,
     main,
@@ -63,8 +64,11 @@ class FakeJujuModelDefaults:
         else:
             for index, element in enumerate(
                     self.model_defaults[model_key]['regions']):
-                if element['value'] == region:
+                if element['name'] == region:
                     self.model_defaults[model_key]['regions'].pop(index)
+                    break
+            else:
+                raise KeyError(region)
             if not self.model_defaults[model_key]['regions']:
                 del self.model_defaults[model_key]['regions']
 
@@ -216,23 +220,26 @@ class TestAssessModelDefaults(TestCase):
         client = FakeJujuModelDefaults({'some-key': 'black'})
         with patch('assess_model_defaults.get_model_defaults',
                    side_effect=lambda client, key, cloud=None, region=None:
-                       client.get_model_defaults(key),
+                       client.get_model_defaults(key, cloud, region),
                    autospec=True) as get_mock:
             with patch('assess_model_defaults.set_model_defaults',
                        side_effect=lambda client, key, value,
                        cloud=None, region=None:
-                           client.set_model_defaults(key, value),
+                           client.set_model_defaults(key, value,
+                                                     cloud, region),
                        autospec=True) as set_mock:
                 with patch('assess_model_defaults.unset_model_defaults',
                            side_effect=lambda client, key,
                            cloud=None, region=None:
-                               client.unset_model_defaults(key),
+                               client.unset_model_defaults(key, cloud, region),
                            autospec=True) as unset_mock:
-                    assess_model_defaults_controller(
-                        client, 'some-key', 'yellow')
+                    assess_model_defaults_region(
+                        client, 'some-key', 'yellow', 'localhost', 'localhost')
         self.assertEqual(3, get_mock.call_count)
-        set_mock.assert_called_once_with(client, 'some-key', 'yellow')
-        unset_mock.assert_called_once_with(client, 'some-key')
+        set_mock.assert_called_once_with(
+            client, 'some-key', 'yellow', 'localhost', 'localhost')
+        unset_mock.assert_called_once_with(
+            client, 'some-key', 'localhost', 'localhost')
 
     def test_model_defaults(self):
         # Using fake_client means that deploy and get_status have plausible
