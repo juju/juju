@@ -980,7 +980,7 @@ func (a *MachineAgent) startStateWorkers(st *state.State) (worker.Worker, error)
 					return nil, errors.Annotate(err, "getting environ from state")
 				}
 				supportsSpaces := environs.SupportsSpaces(env)
-				w, err := peergrouperNew(st, supportsSpaces)
+				w, err := peergrouperNew(st, clock.WallClock, supportsSpaces, a.centralHub)
 				if err != nil {
 					return nil, errors.Annotate(err, "cannot start peergrouper worker")
 				}
