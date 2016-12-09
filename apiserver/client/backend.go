@@ -42,6 +42,7 @@ type Backend interface {
 	AllApplications() ([]*state.Application, error)
 	AllRemoteApplications() ([]*state.RemoteApplication, error)
 	AllMachines() ([]*state.Machine, error)
+	AllModels() ([]*state.Model, error)
 	AllRelations() ([]*state.Relation, error)
 	Annotations(state.GlobalEntity) (map[string]string, error)
 	APIHostPorts() ([][]network.HostPort, error)
@@ -52,6 +53,7 @@ type Backend interface {
 	FindEntity(names.Tag) (state.Entity, error)
 	ForModel(tag names.ModelTag) (*state.State, error)
 	InferEndpoints(...string) ([]state.Endpoint, error)
+	IsController() bool
 	LatestMigration() (state.ModelMigration, error)
 	LatestPlaceholderCharm(*charm.URL) (*state.Charm, error)
 	Machine(string) (*state.Machine, error)
