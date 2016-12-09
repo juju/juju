@@ -2096,7 +2096,10 @@ func (w *collectionWatcher) initial() ([]string, error) {
 	iter := coll.Find(nil).Iter()
 	for iter.Next(&doc) {
 		if w.filter == nil || w.filter(doc.DocId) {
-			id := w.st.localID(doc.DocId)
+			id := doc.DocId
+			if !w.colWCfg.global {
+				id = w.st.localID(id)
+			}
 			if w.idconv != nil {
 				id = w.idconv(id)
 			}
@@ -2119,10 +2122,8 @@ func (w *collectionWatcher) mergeIds(changes *[]string, updates map[interface{}]
 }
 
 func (w *collectionWatcher) convertId(id string) (string, error) {
-	// Strip off the env UUID prefix.
-	if w.colWCfg.global {
-		id = w.st.localID(id)
-	} else {
+	if !w.colWCfg.global {
+		// Strip off the env UUID prefix.
 		// We only expect ids for a single model.
 		var err error
 		id, err = w.st.strictLocalID(id)
