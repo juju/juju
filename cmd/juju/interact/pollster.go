@@ -22,9 +22,10 @@ import (
 // Pollster is used to ask multiple questions of the user using a standard
 // formatting.
 type Pollster struct {
-	scanner *bufio.Scanner
-	out     io.Writer
-	errOut  io.Writer
+	VerifyURLs VerifyFunc
+	scanner    *bufio.Scanner
+	out        io.Writer
+	errOut     io.Writer
 }
 
 // New returns a Pollster that wraps the given reader and writer.
@@ -393,7 +394,11 @@ func (p *Pollster) queryOneSchema(schema *jsonschema.Schema) (interface{}, error
 		// anything
 		a, err = p.Enter(schema.Singular)
 	case jsonschema.FormatURI:
-		a, err = p.EnterVerify(schema.Singular, uriVerify)
+		if p.VerifyURLs == nil {
+			a, err = p.EnterVerify(schema.Singular, uriVerify)
+		} else {
+			a, err = p.EnterVerify(schema.Singular, p.VerifyURLs)
+		}
 	default:
 		// TODO(natefinch): support more formats
 		return nil, errors.Errorf("unsupported format type: %q", schema.Format)

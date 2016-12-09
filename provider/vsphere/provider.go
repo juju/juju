@@ -6,6 +6,8 @@
 package vsphere
 
 import (
+	"net/url"
+
 	"github.com/juju/errors"
 	"github.com/juju/jsonschema"
 	"github.com/juju/loggo"
@@ -63,6 +65,13 @@ var cloudSchema = &jsonschema.Schema{
 // CloudSchema returns the schema for adding new clouds of this type.
 func (p environProvider) CloudSchema() *jsonschema.Schema {
 	return cloudSchema
+}
+
+// Ping tests the connection to the cloud, to verify the endpoint is valid.
+func (p environProvider) Ping(endpoint string) error {
+	// a stub for now until we get a real implementation.
+	_, err := url.Parse(endpoint)
+	return errors.Trace(err)
 }
 
 // PrepareConfig implements environs.EnvironProvider.

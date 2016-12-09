@@ -95,13 +95,9 @@ func (s *providerSuite) SetUpSuite(c *gc.C) {
 
 func (s *providerSuite) SetUpTest(c *gc.C) {
 	s.baseProviderSuite.SetUpTest(c)
-	mockCapabilities := func(*gomaasapi.MAASObject, string) (set.Strings, error) {
-		return set.NewStrings("network-deployment-ubuntu"), nil
-	}
 	mockGetController := func(string, string) (gomaasapi.Controller, error) {
 		return nil, gomaasapi.NewUnsupportedVersionError("oops")
 	}
-	s.PatchValue(&GetCapabilities, mockCapabilities)
 	s.PatchValue(&GetMAAS2Controller, mockGetController)
 	// Creating a space ensures that the spaces endpoint won't 404.
 	s.testMAASObject.TestServer.NewSpace(spaceJSON(gomaasapi.CreateSpace{Name: "space-0"}))
@@ -142,7 +138,9 @@ func (suite *providerSuite) makeEnviron() *maasEnviron {
 	if err != nil {
 		panic(err)
 	}
-	env, err := NewEnviron(cloud, cfg)
+	env, err := NewEnviron(cloud, cfg, func(client *gomaasapi.MAASObject, serverURL string) (set.Strings, error) {
+		return set.NewStrings("network-deployment-ubuntu"), nil
+	})
 	if err != nil {
 		panic(err)
 	}

@@ -181,7 +181,7 @@ func (e *manualEnviron) verifyBootstrapHost() error {
 func (e *manualEnviron) SetConfig(cfg *config.Config) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	_, err := manualProvider{}.validate(cfg, e.cfg.Config)
+	_, err := ManualProvider{}.validate(cfg, e.cfg.Config)
 	if err != nil {
 		return err
 	}
@@ -357,7 +357,7 @@ func (e *manualEnviron) Ports() ([]network.PortRange, error) {
 }
 
 func (*manualEnviron) Provider() environs.EnvironProvider {
-	return manualProvider{}
+	return ManualProvider{}
 }
 
 func isRunningController() bool {

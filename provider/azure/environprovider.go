@@ -104,6 +104,11 @@ func (p azureEnvironProvider) CloudSchema() *jsonschema.Schema {
 	return nil
 }
 
+// Ping tests the connection to the cloud, to verify the endpoint is valid.
+func (p azureEnvironProvider) Ping(endpoint string) error {
+	return errors.NotImplementedf("Ping")
+}
+
 // PrepareConfig is part of the EnvironProvider interface.
 func (prov *azureEnvironProvider) PrepareConfig(args environs.PrepareConfigParams) (*config.Config, error) {
 	if err := validateCloudSpec(args.Cloud); err != nil {

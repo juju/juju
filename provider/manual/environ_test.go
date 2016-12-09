@@ -26,7 +26,7 @@ type baseEnvironSuite struct {
 
 func (s *baseEnvironSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
-	env, err := manualProvider{}.Open(environs.OpenParams{
+	env, err := ManualProvider{}.Open(environs.OpenParams{
 		Cloud:  CloudSpec(),
 		Config: MinimalConfig(c),
 	})

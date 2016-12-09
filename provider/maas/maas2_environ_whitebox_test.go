@@ -60,7 +60,7 @@ func (suite *maas2EnvironSuite) getEnvWithServer(c *gc.C) (*maasEnviron, error) 
 	attrs := coretesting.FakeConfig().Merge(maasEnvAttrs)
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
-	return NewEnviron(cloud, cfg)
+	return NewEnviron(cloud, cfg, nil)
 }
 
 func (suite *maas2EnvironSuite) TestNewEnvironWithController(c *gc.C) {
