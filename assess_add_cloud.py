@@ -64,7 +64,11 @@ def cloud_spec(label, name, config, exception=None, xfail_bug=None):
 
 
 def xfail(spec, bug, xfail_exception):
-    """Return a variant of a CloudSpec that is expected to fail."""
+    """Return a variant of a CloudSpec that is expected to fail.
+
+    Wrapping the original spec improves maintainability, because the xfail can
+    be removed to restore the original value.
+    """
     return CloudSpec(spec.label, spec.name, spec.config, xfail_exception, bug)
 
 
