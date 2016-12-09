@@ -379,15 +379,6 @@ func (s *ClientSuite) TestOpenResource(c *gc.C) {
 	c.Check(doer.url, gc.Equals, "/applications/app/resources/blob")
 }
 
-func (s *ClientSuite) TestOpenUnitResource(c *gc.C) {
-	client, doer := setupFakeHTTP()
-	r, err := client.OpenUnitResource("app/2", "blob")
-	c.Assert(err, jc.ErrorIsNil)
-	checkReader(c, r, "resourceful")
-	c.Check(doer.method, gc.Equals, "GET")
-	c.Check(doer.url, gc.Equals, "/units/unit-app-2/resources/blob") // Yuck
-}
-
 func (s *ClientSuite) TestReap(c *gc.C) {
 	var stub jujutesting.Stub
 	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
