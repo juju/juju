@@ -350,26 +350,18 @@ func (s *ResourceSuite) TestSetUnitResource(c *gc.C) {
 	expected := newUploadResource(c, "spam", "spamspamspam")
 	expected.Timestamp = s.timestamp
 	chRes := expected.Resource
-	hash := chRes.Fingerprint.String()
-	path := "application-a-application/resources/spam"
-	file := &stubReader{stub: s.stub}
 	st := NewState(s.raw)
 	st.currentTimestamp = s.now
 	s.stub.ResetCalls()
 
-	res, err := st.SetUnitResource("a-application/0", "a-user", chRes, file)
+	res, err := st.SetUnitResource("a-application/0", "a-user", chRes)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c,
 		"currentTimestamp",
-		"StageResource",
-		"PutAndCheckHash",
-		"ActivateWithoutVersionInc",
 		"SetUnitResource",
 	)
-	s.stub.CheckCall(c, 1, "StageResource", expected, path)
-	s.stub.CheckCall(c, 2, "PutAndCheckHash", path, file, res.Size, hash)
-	s.stub.CheckCall(c, 4, "SetUnitResource", "a-application/0", res)
+	s.stub.CheckCall(c, 1, "SetUnitResource", "a-application/0", res)
 	c.Check(res, jc.DeepEquals, resource.Resource{
 		Resource:      chRes,
 		ID:            "a-application/" + res.Name,

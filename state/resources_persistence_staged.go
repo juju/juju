@@ -65,17 +65,6 @@ func (staged StagedResource) Unstage() error {
 
 // Activate makes the staged resource the active resource.
 func (staged StagedResource) Activate() error {
-	return errors.Trace(staged.activate(true))
-}
-
-// ActivateWithoutVersionInc makes a staged resource active without
-// incrementing CharmModifiedVersion. This is useful for settings
-// resources for a unit during model migrations.
-func (staged StagedResource) ActivateWithoutVersionInc() error {
-	return errors.Trace(staged.activate(false))
-}
-
-func (staged StagedResource) activate(incVersion bool) error {
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		// This is an "upsert".
 		var ops []txn.Op
@@ -97,7 +86,7 @@ func (staged StagedResource) activate(incVersion bool) error {
 		// If we are changing the bytes for a resource, we increment the
 		// CharmModifiedVersion on the service, since resources are integral to
 		// the high level "version" of the charm.
-		if incVersion && staged.stored.PendingID == "" {
+		if staged.stored.PendingID == "" {
 			hasNewBytes, err := staged.hasNewBytes()
 			if err != nil {
 				logger.Errorf("can't read existing resource during activate: %v", errors.Details(err))
