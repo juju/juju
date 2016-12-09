@@ -16,6 +16,8 @@ from simplestreams.json2streams import (
 from simplestreams import mirrors
 from simplestreams import util
 
+from build_package import juju_series
+
 
 CANONICAL = 'Canonical'
 MS_VSTUDIO = 'MicrosoftVisualStudio'
@@ -230,7 +232,8 @@ def make_spec_items(client, full_spec, locations):
                             endpoint)
 
 
-def make_item(version_name, urn_version, full_spec, location_name, endpoint):
+def make_item(version_name, urn_version, full_spec, location_name, endpoint,
+              stream='released', item_version=None):
     """Make a simplestreams Item for a version.
 
     Version name is the simplestreams version_name.
@@ -243,8 +246,10 @@ def make_item(version_name, urn_version, full_spec, location_name, endpoint):
     """
     URN = ':'.join(full_spec[1:] + (urn_version,))
     product_name = 'com.ubuntu.cloud:server:{}:amd64'.format(full_spec[0])
+    if item_version is None:
+        item_version = full_spec[0]
     return Item(
-        'com.ubuntu.cloud:released:azure',
+        'com.ubuntu.cloud:{}:azure'.format(stream),
         product_name,
         version_name, ITEM_NAMES[location_name], {
             'arch': 'amd64',
@@ -254,7 +259,7 @@ def make_item(version_name, urn_version, full_spec, location_name, endpoint):
             'label': 'release',
             'endpoint': endpoint,
             'release': full_spec[0],
-            'version': full_spec[0],
+            'version': item_version,
             }
         )
 
@@ -296,15 +301,46 @@ def make_azure_items(all_credentials):
     sub_client = SubscriptionClient(credentials)
     client = ComputeManagementClient(credentials, subscription_id)
     locations = sub_client.subscriptions.list_locations(subscription_id)
-    ci_items = ItemList.items_from_url(
-        'http://cloud-images.ubuntu.com/releases/streams/v1')
-    items, unknown_locations = convert_cloud_images_items(
-        client, locations, ci_items)
-    sys.stderr.write('Unknown locations: {}\n'.format(', '.join(
-        sorted(unknown_locations))))
+    items = find_ubuntu_items(client, locations)
     items.extend(find_spec_items(client, locations))
     return items
 
+def find_ubuntu_items(client, locations):
+    """Make simplestreams Items for existing Azure images.
+
+    All versions of all images matching IMAGE_SPEC will be returned.
+
+    all_credentials is a dict of credentials in the credentials.yaml
+    structure, used to create Azure credentials.
+    """
+    items = []
+    for location in locations:
+        skus = client.virtual_machine_images.list_skus(
+            location.name, CANONICAL, UBUNTU_SERVER)
+        for sku in skus:
+            match = re.match(r'(\d\d\.\d\d)(\.\d+)?-?(.*)', sku.name)
+            if match is None:
+                logging.warning('Skipping {}'.format(sku.name))
+                continue
+            tag = match.group(3)
+            if tag in ('DAILY', 'DAILY-LTS'):
+                stream = 'daily'
+            elif tag in ('', 'LTS'):
+                stream = 'released'
+            else:
+                print sku.name
+                continue
+            minor_version = match.group(1)
+            try:
+                full_spec = (
+                    juju_series.get_name(minor_version), CANONICAL,
+                    UBUNTU_SERVER, sku.name)
+            except KeyError:
+                continue
+            items.append(make_item(sku.name, 'latest', full_spec,
+                                   location.name, client.config.base_url,
+                                   item_version=minor_version, stream=stream))
+    return items
 
 def find_spec_items(client, locations):
     """Make simplestreams Items for existing Azure images.
