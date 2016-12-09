@@ -21,6 +21,12 @@ from jujupy import (
 
 __metaclass__ = type
 
+# Python 2 and 3 compatibility
+try:
+    argtype = basestring
+except NameError:
+    argtype = str
+
 
 class ControllerOperation(Exception):
 
@@ -97,7 +103,7 @@ class FakeControllerState:
         self.state = 'registered'
 
     def destroy(self, kill=False):
-        for model in self.models.values():
+        for model in list(self.models.values()):
             model.destroy_model()
         self.models.clear()
         if kill:
@@ -729,11 +735,7 @@ class FakeBackend:
              juju_home, model=None, check=True, timeout=None, extra_env=None):
         if 'service' in command:
             raise Exception('Command names must not contain "service".')
-        # Python 2 and 3 compatibility
-        try:
-            argtype = basestring
-        except NameError:
-            argtype = str
+
         if isinstance(args, argtype):
             args = (args,)
         self._log_command(command, args, model)

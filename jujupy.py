@@ -55,6 +55,12 @@ from utility import (
 
 __metaclass__ = type
 
+# Python 2 and 3 compatibility
+try:
+    argtype = basestring
+except NameError:
+    argtype = str
+
 AGENTS_READY = set(['started', 'idle'])
 WIN_JUJU_CMD = os.path.join('\\', 'Progra~2', 'Juju', 'juju.exe')
 
@@ -1127,11 +1133,6 @@ class Juju2Backend:
             prefix = get_timeout_prefix(timeout, self._timeout_path)
         logging = '--debug' if self.debug else '--show-log'
 
-        # Python 2 and 3 compatibility
-        try:
-            argtype = basestring
-        except NameError:
-            argtype = str
         # If args is a string, make it a tuple. This makes writing commands
         # with one argument a bit nicer.
         if isinstance(args, argtype):
