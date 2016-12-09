@@ -2687,7 +2687,7 @@ class TestEnvJujuClient(ClientTest):
             retval = client.get_model_defaults('some-key')
         self.assertEqual(data, retval)
         output_mock.assert_called_once_with(
-            'model-defaults', '--format', 'yaml', 'some-key')
+            'model-defaults', '--format', 'yaml', 'some-key', include_e=False)
 
     def test_get_model_defaults_cloud_region(self):
         raw_yaml = yaml.safe_dump({'some-key': {'default': 'red'}})
@@ -2696,35 +2696,38 @@ class TestEnvJujuClient(ClientTest):
                           return_value=raw_yaml) as output_mock:
             client.get_model_defaults('some-key', region='us-east-1')
         output_mock.assert_called_once_with(
-            'model-defaults', '--format', 'yaml', 'us-east-1', 'some-key')
+            'model-defaults', '--format', 'yaml', 'us-east-1', 'some-key',
+            include_e=False)
 
     def test_set_model_defaults(self):
         client = fake_juju_client()
         with patch.object(client, 'juju', autospec=True) as juju_mock:
             client.set_model_defaults('some-key', 'white')
         juju_mock.assert_called_once_with(
-            'model-defaults', ('some-key=white',))
+            'model-defaults', ('some-key=white',), include_e=False)
 
     def test_set_model_defaults_cloud_region(self):
         client = fake_juju_client()
         with patch.object(client, 'juju', autospec=True) as juju_mock:
             client.set_model_defaults('some-key', 'white', region='us-east-1')
         juju_mock.assert_called_once_with(
-            'model-defaults', ('us-east-1', 'some-key=white',))
+            'model-defaults', ('us-east-1', 'some-key=white',),
+            include_e=False)
 
     def test_unset_model_defaults(self):
         client = fake_juju_client()
         with patch.object(client, 'juju', autospec=True) as juju_mock:
             client.unset_model_defaults('some-key')
         juju_mock.assert_called_once_with(
-            'model-defaults', ('--reset', 'some-key'))
+            'model-defaults', ('--reset', 'some-key'), include_e=False)
 
     def test_unset_model_defaults_cloud_region(self):
         client = fake_juju_client()
         with patch.object(client, 'juju', autospec=True) as juju_mock:
             client.unset_model_defaults('some-key', region='us-east-1')
         juju_mock.assert_called_once_with(
-            'model-defaults', ('us-east-1', '--reset', 'some-key'))
+            'model-defaults', ('us-east-1', '--reset', 'some-key'),
+            include_e=False)
 
     def test_set_testing_agent_metadata_url(self):
         env = JujuData(None, {'type': 'foo'})

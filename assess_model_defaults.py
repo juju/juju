@@ -24,11 +24,12 @@ log = logging.getLogger('assess_model_defaults')
 
 
 def assemble_model_default(model_key, default, controller=None, regions=None):
+    """Create a dict that contrains the formatted model-defaults data."""
     # Ordering in the regions argument is lost.
     defaults = {'default': default}
-    if controller:
+    if controller is not None:
         defaults['controller'] = controller
-    if regions:
+    if regions is not None:
         defaults['regions'] = [
             {'name': region, 'value': region_default}
             for (region, region_default) in regions.items()]
@@ -41,12 +42,13 @@ def juju_assert_equal(lhs, rhs, msg):
 
 
 def assess_model_defaults_controller(client, model_key, value):
+    """Check the setting and unsetting of the controller field."""
     base_line = client.get_model_defaults(model_key)
     default = base_line[model_key]['default']
 
     client.set_model_defaults(model_key, value)
     juju_assert_equal(
-        assemble_model_default(model_key, default, value),
+        assemble_model_default(model_key, default, str(value)),
         client.get_model_defaults(model_key),
         'model-defaults: Mismatch on setting controller.')
 
@@ -58,19 +60,20 @@ def assess_model_defaults_controller(client, model_key, value):
 
 def assess_model_defaults_region(client, model_key, value,
                                  cloud=None, region=None):
-    base_line = client.get_model_defaults(model_key, cloud, region)
+    """Check the setting and unsetting of a region field."""
+    base_line = client.get_model_defaults(model_key)
     default = base_line[model_key]['default']
 
     client.set_model_defaults(model_key, value, cloud, region)
     juju_assert_equal(
-        assemble_model_default(model_key, default, None, {region: value}),
-        client.get_model_defaults(model_key, cloud, region),
+        assemble_model_default(model_key, default, None, {region: str(value)}),
+        client.get_model_defaults(model_key),
         'model-defaults: Mismatch on setting region.')
 
     client.unset_model_defaults(model_key, cloud, region)
     juju_assert_equal(
-        base_line, client.get_model_defaults(model_key, cloud, region),
-        'model-defaults: Mismatch after resetting controller.')
+        base_line, client.get_model_defaults(model_key),
+        'model-defaults: Mismatch after resetting region.')
 
 
 def assess_model_defaults(client):
@@ -79,7 +82,7 @@ def assess_model_defaults(client):
         client, 'automatically-retry-hooks', False)
     log.info('Checking region model-defaults.')
     assess_model_defaults_region(
-        client, 'default-series', 'trusty', 'localhost', 'localhost')
+        client, 'default-series', 'trusty', region='localhost')
     # Test on different region?
 
 

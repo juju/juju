@@ -1834,6 +1834,7 @@ class EnvJujuClient:
 
     @staticmethod
     def _format_cloud_region(cloud=None, region=None):
+        """Return the [[cloud/]region] in a tupple."""
         if cloud and region:
             return ('{}/{}'.format(cloud, region),)
         elif region:
@@ -1844,20 +1845,33 @@ class EnvJujuClient:
             return ()
 
     def get_model_defaults(client, model_key, cloud=None, region=None):
+        """Return a dict with information on model-defaults for model-key.
+
+        Giving cloud/region acts as a filter."""
         cloud_region = client._format_cloud_region(cloud, region)
         gjo_args = ('--format', 'yaml') + cloud_region + (model_key,)
-        raw_yaml = client.get_juju_output('model-defaults', *gjo_args)
+        raw_yaml = client.get_juju_output('model-defaults', *gjo_args,
+                                          include_e=False)
         return yaml.safe_load(raw_yaml)
 
     def set_model_defaults(client, model_key, value, cloud=None, region=None):
+        """Set a model-defaults entry for model_key to value.
+
+        Giving cloud/region sets the default for that region, otherwise the
+        controller default is set."""
         cloud_region = client._format_cloud_region(cloud, region)
         client.juju('model-defaults',
-                    cloud_region + ('{}={}'.format(model_key, value),))
+                    cloud_region + ('{}={}'.format(model_key, value),),
+                    include_e=False)
 
     def unset_model_defaults(client, model_key, cloud=None, region=None):
+        """Unset a model-defaults entry for model_key.
+
+        Giving cloud/region unsets the default for that region, otherwise the
+        controller default is unset."""
         cloud_region = client._format_cloud_region(cloud, region)
         client.juju('model-defaults',
-                    cloud_region + ('--reset', model_key))
+                    cloud_region + ('--reset', model_key), include_e=False)
 
     def get_agent_metadata_url(self):
         return self.get_env_option(self.agent_metadata_url)

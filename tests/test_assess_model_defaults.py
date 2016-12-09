@@ -5,6 +5,7 @@ import logging
 import StringIO
 
 from mock import (
+    call,
     Mock,
     patch,
     )
@@ -114,6 +115,10 @@ class TestAssembleModelDefault(TestCase):
                 {'name': 'localhost', 'value': True}]}},
             assemble_model_default('test-mode', False, None,
                                    {'localhost': True, 'fakeregion': True}))
+        self.assertEqual(
+            {'automatically-retry-hooks':
+                {'default': True, 'controller': False}},
+            assemble_model_default('automatically-retry-hooks', True, False))
 
 
 class TestAssert(TestCase):
@@ -131,6 +136,7 @@ class TestAssessModelDefaults(TestCase):
         client = Mock(wraps=FakeJujuModelDefaults({'some-key': 'black'}))
         assess_model_defaults_controller(client, 'some-key', 'yellow')
         self.assertEqual(3, client.get_model_defaults.call_count)
+        client.get_model_defaults.assert_has_calls([call('some-key')] * 3)
         client.set_model_defaults.assert_called_once_with(
             'some-key', 'yellow')
         client.unset_model_defaults.assert_called_once_with(
@@ -141,6 +147,7 @@ class TestAssessModelDefaults(TestCase):
         assess_model_defaults_region(
             client, 'some-key', 'yellow', 'localhost', 'localhost')
         self.assertEqual(3, client.get_model_defaults.call_count)
+        client.get_model_defaults.assert_has_calls([call('some-key')] * 3)
         client.set_model_defaults.assert_called_once_with(
             'some-key', 'yellow', 'localhost', 'localhost')
         client.unset_model_defaults.assert_called_once_with(
@@ -156,4 +163,4 @@ class TestAssessModelDefaults(TestCase):
         assess_controller_mock.assert_called_once_with(
             fake_client, 'automatically-retry-hooks', False)
         assess_region_mock.assert_called_once_with(
-            fake_client, 'default-series', 'trusty', 'localhost', 'localhost')
+            fake_client, 'default-series', 'trusty', region='localhost')
