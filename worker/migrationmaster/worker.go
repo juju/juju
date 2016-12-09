@@ -92,9 +92,6 @@ type Facade interface {
 	// OpenResource downloads a single resource for an application.
 	OpenResource(string, string) (io.ReadCloser, error)
 
-	// OpenUnitResource downloads a single resource for a unit.
-	OpenUnitResource(string, string) (io.ReadCloser, error)
-
 	// Reap removes all documents of the model associated with the API
 	// connection.
 	Reap() error
@@ -382,9 +379,9 @@ func (w *uploadWrapper) UploadResource(res resource.Resource, content io.ReadSee
 	return w.client.UploadResource(w.modelUUID, res, content)
 }
 
-// UploadUnitResource prepends the model UUID to the args passed to the migration client.
-func (w *uploadWrapper) UploadUnitResource(unitName string, res resource.Resource, content io.ReadSeeker) error {
-	return w.client.UploadUnitResource(w.modelUUID, unitName, res, content)
+// SetUnitResource prepends the model UUID to the args passed to the migration client.
+func (w *uploadWrapper) SetUnitResource(unitName string, res resource.Resource) error {
+	return w.client.SetUnitResource(w.modelUUID, unitName, res)
 }
 
 func (w *Worker) transferModel(targetInfo coremigration.TargetInfo, modelUUID string) error {
