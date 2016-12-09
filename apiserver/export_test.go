@@ -120,6 +120,13 @@ func TestingUpgradingRoot(st *state.State) rpc.Root {
 	return restrictRoot(r, upgradeMethodsOnly)
 }
 
+// TestingMigratingRoot returns a resricted srvRoot in a migration
+// scenario.
+func TestingMigratingRoot(st *state.State) rpc.Root {
+	r := TestingAPIRoot(st)
+	return restrictRoot(r, migrationClientMethodsOnly)
+}
+
 // TestingControllerOnlyRoot returns a restricted srvRoot as if
 // logged in to the root of the API path.
 func TestingControllerOnlyRoot() rpc.Root {

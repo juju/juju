@@ -13,6 +13,9 @@ import (
 // UpgradeInProgressError signifies an upgrade is in progress.
 var UpgradeInProgressError = errors.New(CodeUpgradeInProgress)
 
+// MigrationInProgressError signifies a migration is in progress.
+var MigrationInProgressError = errors.New(CodeMigrationInProgress)
+
 // Error is the type of error returned by any call to the state API.
 type Error struct {
 	Message string     `json:"message"`
@@ -79,6 +82,7 @@ const (
 	CodeNotImplemented            = "not implemented" // asserted to match rpc.codeNotImplemented in rpc/rpc_test.go
 	CodeAlreadyExists             = "already exists"
 	CodeUpgradeInProgress         = "upgrade in progress"
+	CodeMigrationInProgress       = "model migration in progress"
 	CodeActionNotAvailable        = "action no longer available"
 	CodeOperationBlocked          = "operation is blocked"
 	CodeLeadershipClaimDenied     = "leadership claim denied"
