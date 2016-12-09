@@ -19,6 +19,7 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/cert"
+	"github.com/juju/utils/clock"
 	"github.com/juju/utils/series"
 	"github.com/juju/utils/set"
 	"github.com/juju/utils/ssh"
@@ -60,6 +61,7 @@ import (
 	"github.com/juju/juju/worker/machiner"
 	"github.com/juju/juju/worker/migrationmaster"
 	"github.com/juju/juju/worker/mongoupgrader"
+	"github.com/juju/juju/worker/peergrouper"
 	"github.com/juju/juju/worker/storageprovisioner"
 	"github.com/juju/juju/worker/upgrader"
 	"github.com/juju/juju/worker/workertest"
@@ -420,7 +422,7 @@ func (s *MachineSuite) TestManageModelRunsInstancePoller(c *gc.C) {
 
 func (s *MachineSuite) TestManageModelRunsPeergrouper(c *gc.C) {
 	started := newSignal()
-	s.AgentSuite.PatchValue(&peergrouperNew, func(st *state.State, _ bool) (worker.Worker, error) {
+	s.AgentSuite.PatchValue(&peergrouperNew, func(st *state.State, _ clock.Clock, _ bool, _ peergrouper.Hub) (worker.Worker, error) {
 		c.Check(st, gc.NotNil)
 		started.trigger()
 		return newDummyWorker(), nil
