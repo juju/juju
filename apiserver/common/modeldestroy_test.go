@@ -141,6 +141,20 @@ func (s *destroyModelSuite) TestDestroyModel(c *gc.C) {
 	c.Assert(model.Life(), gc.Not(gc.Equals), state.Alive)
 }
 
+func (s *destroyModelSuite) TestDestroyImportingModel(c *gc.C) {
+	modelSt := s.Factory.MakeModel(c, nil)
+	defer modelSt.Close()
+
+	model, err := modelSt.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = model.SetMigrationMode(state.MigrationModeImporting)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = common.DestroyModel(s.modelManager, model.ModelTag())
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func assertLife(c *gc.C, entity state.Living, life state.Life) {
 	err := entity.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
