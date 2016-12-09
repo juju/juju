@@ -94,10 +94,11 @@ type SerializedModelTools struct {
 // SerializedModelResource holds the details for a single resource for
 // an application in a serialized model.
 type SerializedModelResource struct {
-	Application         string                          `json:"application"`
-	Name                string                          `json:"name"`
-	ApplicationRevision SerializedModelResourceRevision `json:"application-revision"`
-	CharmStoreRevision  SerializedModelResourceRevision `json:"charmstore-revision"`
+	Application         string                                     `json:"application"`
+	Name                string                                     `json:"name"`
+	ApplicationRevision SerializedModelResourceRevision            `json:"application-revision"`
+	CharmStoreRevision  SerializedModelResourceRevision            `json:"charmstore-revision"`
+	UnitRevisions       map[string]SerializedModelResourceRevision `json:"unit-revisions"`
 }
 
 // SerializedModelResourceRevision holds the details for a single
