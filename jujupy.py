@@ -1832,6 +1832,33 @@ class EnvJujuClient:
         """Unset the value of the option in the environment."""
         return self.juju('model-config', ('--reset', option,))
 
+    @staticmethod
+    def _format_cloud_region(cloud=None, region=None):
+        if cloud and region:
+            return ('{}/{}'.format(cloud, region),)
+        elif region:
+            return (region,)
+        elif cloud:
+            raise ValueError('The cloud must be followed by a region.')
+        else:
+            return ()
+
+    def get_model_defaults(client, model_key, cloud=None, region=None):
+        cloud_region = client._format_cloud_region(cloud, region)
+        gjo_args = ('--format', 'yaml') + cloud_region + (model_key,)
+        raw_yaml = client.get_juju_output('model-defaults', *gjo_args)
+        return yaml.safe_load(raw_yaml)
+
+    def set_model_defaults(client, model_key, value, cloud=None, region=None):
+        cloud_region = client._format_cloud_region(cloud, region)
+        client.juju('model-defaults',
+                    cloud_region + ('{}={}'.format(model_key, value),))
+
+    def unset_model_defaults(client, model_key, cloud=None, region=None):
+        cloud_region = client._format_cloud_region(cloud, region)
+        client.juju('model-defaults',
+                    cloud_region + ('--reset', model_key))
+
     def get_agent_metadata_url(self):
         return self.get_env_option(self.agent_metadata_url)
 
