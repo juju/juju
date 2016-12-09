@@ -505,6 +505,20 @@ func (c *Client) SetModelAgentVersion(args params.SetModelAgentVersion) error {
 	if err := environs.CheckProviderAPI(env); err != nil {
 		return err
 	}
+	// If this is the controller model, also check to make sure that there are
+	// no running migrations.  All models should have migration mode of None.
+	if c.api.stateAccessor.IsController() {
+		models, err := c.api.stateAccessor.AllModels()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		for _, model := range models {
+			if mode := model.MigrationMode(); mode != state.MigrationModeNone {
+				return errors.Errorf("model \"%s/%s\" is %s, upgrade blocked", model.Owner().Name(), model.Name(), mode)
+			}
+		}
+	}
+
 	return c.api.stateAccessor.SetModelAgentVersion(args.Version)
 }
 
