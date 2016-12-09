@@ -8,10 +8,10 @@ import (
 	"io"
 	"strings"
 
+	"github.com/juju/errors"
 	"github.com/juju/jsonschema"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/errors"
 	gc "gopkg.in/check.v1"
 )
 
