@@ -74,6 +74,11 @@ type StagedResource interface {
 
 	// Activate makes the staged resource the active resource.
 	Activate() error
+
+	// ActivateWithoutVersionInc is as per Activate but without
+	// incrementing the charm modified version (primarily for
+	// migrations).
+	ActivateWithoutVersionInc() error
 }
 
 type rawState interface {
@@ -180,6 +185,61 @@ func (st resourceState) SetResource(applicationID, userID string, chRes charmres
 	if err != nil {
 		return res, errors.Trace(err)
 	}
+	return res, nil
+}
+
+// SetUnitResource stores a resource for a specific unit. This is
+// primarily useful for model migrations. See OpenResourceForUniter
+// for the way unit resources are set in normal operation.
+func (st resourceState) SetUnitResource(unitName, userID string, chRes charmresource.Resource, r io.Reader) (_ resource.Resource, outErr error) {
+	logger.Tracef("adding resource %q for unit %q", chRes.Name, unitName)
+	var empty resource.Resource
+
+	applicationID, err := names.UnitApplication(unitName)
+	if err != nil {
+		return empty, errors.Trace(err)
+	}
+
+	id := newResourceID(applicationID, chRes.Name)
+
+	res := resource.Resource{
+		Resource:      chRes,
+		ID:            id,
+		ApplicationID: applicationID,
+	}
+	res.Username = userID
+	res.Timestamp = st.currentTimestamp()
+	if err := res.Validate(); err != nil {
+		return empty, errors.Annotate(err, "bad resource metadata")
+	}
+
+	storagePath := storagePath(res.Name, res.ApplicationID, res.PendingID)
+	staged, err := st.persist.StageResource(res, storagePath)
+	if err != nil {
+		return empty, errors.Trace(err)
+	}
+
+	defer func() {
+		if outErr != nil {
+			if err := staged.Unstage(); err != nil {
+				logger.Errorf("could not unstage unit resource %q (unit %q): %v", res.Name, unitName, err)
+			}
+		}
+	}()
+
+	hash := res.Fingerprint.String()
+	if err := st.storage.PutAndCheckHash(storagePath, r, res.Size, hash); err != nil {
+		return empty, errors.Trace(err)
+	}
+
+	if err := staged.ActivateWithoutVersionInc(); err != nil {
+		return empty, errors.Trace(err)
+	}
+
+	if err := st.persist.SetUnitResource(unitName, res); err != nil {
+		return empty, errors.Trace(err)
+	}
+
 	return res, nil
 }
 

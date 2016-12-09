@@ -346,6 +346,39 @@ func (s *ResourceSuite) TestSetResourceSetFailureExtra(c *gc.C) {
 	s.stub.CheckCall(c, 4, "Remove", path)
 }
 
+func (s *ResourceSuite) TestSetUnitResource(c *gc.C) {
+	expected := newUploadResource(c, "spam", "spamspamspam")
+	expected.Timestamp = s.timestamp
+	chRes := expected.Resource
+	hash := chRes.Fingerprint.String()
+	path := "application-a-application/resources/spam"
+	file := &stubReader{stub: s.stub}
+	st := NewState(s.raw)
+	st.currentTimestamp = s.now
+	s.stub.ResetCalls()
+
+	res, err := st.SetUnitResource("a-application/0", "a-user", chRes, file)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.stub.CheckCallNames(c,
+		"currentTimestamp",
+		"StageResource",
+		"PutAndCheckHash",
+		"ActivateWithoutVersionInc",
+		"SetUnitResource",
+	)
+	s.stub.CheckCall(c, 1, "StageResource", expected, path)
+	s.stub.CheckCall(c, 2, "PutAndCheckHash", path, file, res.Size, hash)
+	s.stub.CheckCall(c, 4, "SetUnitResource", "a-application/0", res)
+	c.Check(res, jc.DeepEquals, resource.Resource{
+		Resource:      chRes,
+		ID:            "a-application/" + res.Name,
+		ApplicationID: "a-application",
+		Username:      "a-user",
+		Timestamp:     s.timestamp,
+	})
+}
+
 func (s *ResourceSuite) TestUpdatePendingResourceOkay(c *gc.C) {
 	expected := newUploadResource(c, "spam", "spamspamspam")
 	expected.PendingID = "some-unique-id"
