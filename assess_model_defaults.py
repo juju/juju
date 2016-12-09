@@ -74,15 +74,6 @@ def juju_assert_equal(lhs, rhs, msg):
         raise JujuAssertionError(msg, lhs, rhs)
 
 
-@contextmanager
-def assert_key_returns_to_base_line(client, model_key):
-    base_line = get_model_defaults(client, model_key)
-    yield base_line
-    juju_assert_equal(
-        base_line, get_model_defaults(client, model_key),
-        'Defaults for {} did not return to base line.'.format(model_key))
-
-
 def assess_model_defaults_controller(client, model_key, value):
     base_line = get_model_defaults(client, model_key)
     default = base_line[model_key]['default']

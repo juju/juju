@@ -40,14 +40,6 @@ class FakeJujuModelDefaults:
             for (key, value) in defaults.items():
                 self.model_defaults[key] = {'default': value}
 
-    test_mode_example = {
-        'test-mode': {
-            'default': False,  # Was false, not sure why it was unquoted.
-            'controller': 'true',
-            'regions': [{'name': 'localhost', 'value': 'true'}]
-            }
-        }
-
     def get_model_defaults(self, model_key, cloud=None, region=None):
         return {model_key: deepcopy(self.model_defaults[model_key])}
 
@@ -59,18 +51,18 @@ class FakeJujuModelDefaults:
                 'name': region, 'value': value})
 
     def unset_model_defaults(self, model_key, cloud=None, region=None):
+        key_defaults = self.model_defaults[model_key]
         if cloud is None and region is None:
-            del self.model_defaults[model_key]['controller']
+            del key_defaults['controller']
         else:
-            for index, element in enumerate(
-                    self.model_defaults[model_key]['regions']):
+            for index, element in enumerate(key_defaults['regions']):
                 if element['name'] == region:
-                    self.model_defaults[model_key]['regions'].pop(index)
+                    key_defaults['regions'].pop(index)
                     break
             else:
                 raise KeyError(region)
-            if not self.model_defaults[model_key]['regions']:
-                del self.model_defaults[model_key]['regions']
+            if not key_defaults['regions']:
+                del key_defaults['regions']
 
 
 class TestParseArgs(TestCase):
@@ -167,35 +159,6 @@ class TestAssert(TestCase):
 
 class TestAssessModelDefaults(TestCase):
 
-    # Note: I paused this when I realized it would be extra once the
-    # functions became client methods.
-    @staticmethod
-    def patch_all_model_defaults():
-        def fake_get(client, key, cloud=None, region=None):
-            return client.get_model_defaults(key, cloud, region)
-
-        def fake_set(client, key, value, cloud=None, region=None):
-            return client.set_model_defaults(key, value, cloud, region)
-
-        def fake_unset(client, key, cloud=None, region=None):
-            return client.unset_model_defaults(key, cloud, region)
-
-        with patch('assess_model_defaults.get_model_defaults',
-                   side_effect=lambda client, key, cloud=None, region=None:
-                       client.get_model_defaults(key),
-                   autospec=True) as get_mock:
-            with patch('assess_model_defaults.set_model_defaults',
-                       side_effect=lambda client, key, value,
-                       cloud=None, region=None:
-                           client.set_model_defaults(key, value),
-                       autospec=True) as set_mock:
-                with patch('assess_model_defaults.unset_model_defaults',
-                           side_effect=lambda client, key,
-                           cloud=None, region=None:
-                               client.unset_model_defaults(key),
-                           autospec=True) as unset_mock:
-                    yield (get_mock, set_mock, unset_mock)
-
     def test_model_defaults_controller(self):
         client = FakeJujuModelDefaults({'some-key': 'black'})
         with patch('assess_model_defaults.get_model_defaults',
@@ -242,10 +205,6 @@ class TestAssessModelDefaults(TestCase):
             client, 'some-key', 'localhost', 'localhost')
 
     def test_model_defaults(self):
-        # Using fake_client means that deploy and get_status have plausible
-        # results.  Wrapping it in a Mock causes every call to be recorded, and
-        # allows assertions to be made about calls.  Mocks and the fake client
-        # can also be used separately.
         fake_client = FakeJujuModelDefaults()
         with patch('assess_model_defaults.assess_model_defaults_controller',
                    autospec=True) as assess_controller_mock:
