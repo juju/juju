@@ -1,6 +1,9 @@
 // Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
+// +build linux
+// +build amd64 arm64 ppc64el
+
 package libvirt
 
 import (
@@ -17,7 +20,9 @@ import (
 
 // DiskInfo is an interface to allow callers to pass DiskInfo in domainParams.
 type DiskInfo interface {
+	// Source is the path to the disk image.
 	Source() string
+	// Driver is the type of disk, qcow, vkmd, raw, etc...
 	Driver() string
 }
 
@@ -29,18 +34,18 @@ type InterfaceInfo interface {
 }
 
 type domainParams interface {
-	CPUCores() uint64
+	CPUs() uint64
 	DiskInfo() []DiskInfo
-	Hostname() string
-	Interfaces() []InterfaceInfo
-	Memory() uint64
-	Validate() error
+	Host() string
+	NetworkInfo() []InterfaceInfo
+	RAM() uint64
+	ValidateDomainParams() error
 }
 
 // NewDomain returns a guest domain suitable for unmarshaling (as XML) onto the
 // target host.
 func NewDomain(p domainParams) (Domain, error) {
-	if err := p.Validate(); err != nil {
+	if err := p.ValidateDomainParams(); err != nil {
 		return Domain{}, errors.Trace(err)
 	}
 
@@ -66,12 +71,24 @@ func NewDomain(p domainParams) (Domain, error) {
 				Model: "pci-root",
 			},
 		},
+		Serial: Serial{
+			Type: "pty",
+			Source: SerialSource{
+				Path: "/dev/pts/2",
+			},
+			Target: SerialTarget{
+				Port: 0,
+			},
+		},
 		Console: []Console{
 			Console{
-				Type: "stdio",
-				Target: &ConsoleTarget{
-					Type: "serial",
+				Type: "pty",
+				TTY:  "/dev/pts/2",
+				Target: ConsoleTarget{
 					Port: 0,
+				},
+				Source: ConsoleSource{
+					Path: "/dev/pts/2",
 				},
 			},
 		},
@@ -103,10 +120,10 @@ func NewDomain(p domainParams) (Domain, error) {
 				Function: "0x0"},
 		},
 		Interface:     []Interface{},
-		Name:          p.Hostname(),
-		VCPU:          p.CPUCores(),
-		CurrentMemory: Memory{Unit: "MiB", Text: p.Memory()},
-		Memory:        Memory{Unit: "MiB", Text: p.Memory()},
+		Name:          p.Host(),
+		VCPU:          p.CPUs(),
+		CurrentMemory: Memory{Unit: "MiB", Text: p.RAM()},
+		Memory:        Memory{Unit: "MiB", Text: p.RAM()},
 	}
 	for i, diskInfo := range p.DiskInfo() {
 		devID, err := deviceID(i)
@@ -135,7 +152,7 @@ func NewDomain(p domainParams) (Domain, error) {
 				"unsupported disk type %q", diskInfo.Driver())
 		}
 	}
-	for _, iface := range p.Interfaces() {
+	for _, iface := range p.NetworkInfo() {
 		d.Interface = append(d.Interface, Interface{
 			Type:   "bridge",
 			MAC:    InterfaceMAC{Address: iface.MAC()},
@@ -166,6 +183,7 @@ type Domain struct {
 	OS            OS           `xml:"os"`
 	Features      Features     `xml:"features"`
 	Controller    []Controller `xml:"devices>controller"`
+	Serial        Serial       `xml:"devices>serial,omitempty"`
 	Console       []Console    `xml:"devices>console"`
 	Input         []Input      `xml:"devices>input"`
 	Graphics      Graphics     `xml:"devices>graphics"`
@@ -217,14 +235,46 @@ type Address struct {
 // Console is static. We generate a default value for it.
 // See: https://libvirt.org/formatdomain.html#elementsConsole
 type Console struct {
-	Type   string         `xml:"type,attr"`
-	Target *ConsoleTarget `xml:"target"`
+	Type   string        `xml:"type,attr"`
+	TTY    string        `xml:"tty,attr,omitempty"`
+	Source ConsoleSource `xml:"source,omitempty"`
+	Target ConsoleTarget `xml:"target,omitempty"`
 }
 
 // ConsoleTarget is static. We generate a default value for it.
+// See: Console
 type ConsoleTarget struct {
-	Type string `xml:"type,attr"`
+	Type string `xml:"type,attr,omitempty"`
 	Port int    `xml:"port,attr"`
+	Path string `xml:"path,attr,omitempty"`
+}
+
+// ConsoleSource is static. We generate a default value for it.
+// See: Console
+type ConsoleSource struct {
+	Path string `xml:"path,attr,omitempty"`
+}
+
+// Serial is static. This was added specifially to create a functional console
+// for troubleshooting vms as they boot. You can attach to this console with
+// `virsh console <domainName>`.
+// See: https://libvirt.org/formatdomain.html#elementsConsole
+type Serial struct {
+	Type   string       `xml:"type,attr"`
+	Source SerialSource `xml:"source"`
+	Target SerialTarget `xml:"target"`
+}
+
+// SerialSource is static. We generate a default value for it.
+// See: Serial
+type SerialSource struct {
+	Path string `xml:"path,attr"`
+}
+
+// SerialTarget is static. We generate a default value for it.
+// See: Serial
+type SerialTarget struct {
+	Port int `xml:"port,attr"`
 }
 
 // Input is static. We generate default values for keyboard and mouse.

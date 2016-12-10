@@ -1,6 +1,9 @@
 // Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
+// +build linux
+// +build amd64 arm64 ppc64el
+
 package kvm
 
 import (
@@ -17,17 +20,20 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/juju/environs/imagedownloads"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 )
 
 // cacheInternalSuite is gocheck boilerplate.
-type cacheInternalSuite struct{}
+type syncInternalSuite struct {
+	testing.IsolationSuite
+}
 
-var _ = gc.Suite(&cacheInternalSuite{})
+var _ = gc.Suite(&syncInternalSuite{})
 
 const imageContents = "fake img file"
 
-func (cacheInternalSuite) TestFetcher(c *gc.C) {
+func (syncInternalSuite) TestFetcher(c *gc.C) {
 	ts := newTestServer()
 	defer ts.Close()
 
@@ -51,23 +57,57 @@ func (cacheInternalSuite) TestFetcher(c *gc.C) {
 
 	// setup a fake command runner.
 	stub := runStub{}
-	fetcher.image.runFunc = stub.run
+	fetcher.image.runCmd = stub.Run
 
 	err = fetcher.Fetch()
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = fetcher.image.tmpFile.Seek(0, io.SeekStart)
-	c.Assert(err, jc.ErrorIsNil)
-	b, err := ioutil.ReadAll(fetcher.image.tmpFile)
-	c.Assert(string(b), gc.Equals, imageContents)
+	_, err = os.Stat(fetcher.image.tmpFile.Name())
+	c.Check(os.IsNotExist(err), jc.IsTrue)
 
 	// Check that our call was made as expected.
 	c.Assert(stub.Calls(), gc.HasLen, 1)
-	c.Assert(stub.Calls()[0], gc.Matches, "qemu-img convert -f qcow2 -O qcow2 .*/juju-kvm-server.img-.* .*/guests/spammy-archless-backing-file.qcow")
+	c.Assert(stub.Calls()[0], gc.Matches, "qemu-img convert -f qcow2 .*/juju-kvm-server.img-.* .*/guests/spammy-archless-backing-file.qcow")
 
 }
 
-func (cacheInternalSuite) TestFetcherInvalidSHA(c *gc.C) {
+func (syncInternalSuite) TestFetcherWriteFails(c *gc.C) {
+	ts := newTestServer()
+	defer ts.Close()
+
+	md := newTestMetadata(ts.URL)
+
+	tmpdir, pathfinder, ok := newTmpdir()
+	if !ok {
+		c.Fatal("failed to setup temp dir in test")
+	}
+	defer func() {
+		err := os.RemoveAll(tmpdir)
+		if err != nil {
+			c.Errorf("got error %q when removing tmpdir %q",
+				err.Error(),
+				tmpdir)
+		}
+	}()
+
+	fetcher, err := newDefaultFetcher(md, pathfinder)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// setup a fake command runner.
+	stub := runStub{err: errors.Errorf("boom")}
+	fetcher.image.runCmd = stub.Run
+
+	// Make sure we got the error.
+	err = fetcher.Fetch()
+	c.Assert(err, gc.ErrorMatches, "boom")
+
+	// Check that our call was made as expected.
+	c.Assert(stub.Calls(), gc.HasLen, 1)
+	c.Assert(stub.Calls()[0], gc.Matches, "qemu-img convert -f qcow2 .*/juju-kvm-server.img-.* .*/guests/spammy-archless-backing-file.qcow")
+
+}
+
+func (syncInternalSuite) TestFetcherInvalidSHA(c *gc.C) {
 	ts := newTestServer()
 	defer ts.Close()
 
@@ -91,10 +131,10 @@ func (cacheInternalSuite) TestFetcherInvalidSHA(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = fetcher.Fetch()
-	c.Assert(err, gc.ErrorMatches, "hash sum mismatch for /tmp/.*/juju-kvm-.*")
+	c.Assert(err, gc.ErrorMatches, "hash sum mismatch for /tmp/juju-kvm-.*")
 }
 
-func (cacheInternalSuite) TestFetcherNotFound(c *gc.C) {
+func (syncInternalSuite) TestFetcherNotFound(c *gc.C) {
 	ts := newTestServer()
 	defer ts.Close()
 

@@ -1,6 +1,9 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
+// +build linux
+// +build amd64 arm64 ppc64el
+
 package kvm
 
 type containerFactory struct {
@@ -24,7 +27,7 @@ func isRunning(value string) *bool {
 }
 
 func (factory *containerFactory) List() (result []Container, err error) {
-	machines, err := ListMachines()
+	machines, err := ListMachines(run)
 	if err != nil {
 		return nil, err
 	}

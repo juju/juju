@@ -11,8 +11,17 @@ import (
 )
 
 func Test(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("KVM is currently not supported on windows")
+	if runtime.GOOS != "linux" || !supportedArch() {
+		t.Skip("KVM is currently only supported on linux architecures amd64, arm64, and ppc64el")
 	}
 	gc.TestingT(t)
+}
+
+func supportedArch() bool {
+	for _, arch := range []string{"amd64", "arm64", "ppc64el"} {
+		if runtime.GOARCH == arch {
+			return true
+		}
+	}
+	return false
 }

@@ -1,6 +1,9 @@
 // Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
+// +build linux
+// +build amd64 arm64 ppc64el
+
 package kvm
 
 import (
@@ -48,26 +51,28 @@ func (p SyncParams) One() (*imagedownloads.Metadata, error) {
 }
 
 func (p SyncParams) exists() error {
-	fname := backingFileName(p.arch, p.series)
+	fname := backingFileName(p.series, p.arch)
 	baseDir, err := paths.DataDir(series.HostSeries())
 	if err != nil {
 		return errors.Trace(err)
 	}
-	path := filepath.Join(baseDir, guestDir, fname)
+	path := filepath.Join(baseDir, kvm, guestDir, fname)
+
 	if _, err := os.Stat(path); err == nil {
-		return errors.AlreadyExistsf("%q %q image for exists", p.arch, p.series)
+		return errors.AlreadyExistsf("%q %q image for exists at %q", p.series, p.arch, path)
 	}
 	return nil
 }
 
-// Validate that our local type fulfull their implementations.
+// Validate that our types fulfull their implementations.
 var _ Oner = (*SyncParams)(nil)
 var _ Fetcher = (*fetcher)(nil)
 
-// Updater is an interface to permit faking input in tests. The default
+// Fetcher is an interface to permit faking input in tests. The default
 // implementation is updater, defined in this file.
 type Fetcher interface {
 	Fetch() error
+	Close()
 }
 
 type fetcher struct {
@@ -78,13 +83,20 @@ type fetcher struct {
 }
 
 // Fetch implements Fetcher. It fetches the image file from simplestreams and
-// delegates write it out and creating the qcow3 backing file to Image.write.
+// delegates writing it out and creating the qcow3 backing file to Image.write.
 func (f *fetcher) Fetch() error {
 	resp, err := f.client.Do(f.req)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	defer resp.Body.Close()
+
+	defer func() {
+		err = resp.Body.Close()
+		if err != nil {
+			logger.Debugf("failed defer %q", errors.Trace(err))
+		}
+	}()
+
 	if resp.StatusCode != 200 {
 		f.image.cleanup()
 		return errors.NotFoundf(
@@ -96,6 +108,11 @@ func (f *fetcher) Fetch() error {
 		return errors.Trace(err)
 	}
 	return nil
+}
+
+// Close calls images cleanup method for deferred closing of the image tmpFile.
+func (f *fetcher) Close() {
+	f.image.cleanup()
 }
 
 // Sync updates the local cached images by reading the simplestreams data and
@@ -115,6 +132,7 @@ func Sync(o Oner, f Fetcher) error {
 		if err != nil {
 			return errors.Trace(err)
 		}
+		defer f.Close()
 	}
 	err = f.Fetch()
 	if err != nil {
@@ -127,27 +145,40 @@ func Sync(o Oner, f Fetcher) error {
 type Image struct {
 	FilePath string
 	tmpFile  *os.File
-	runFunc  func(string, ...string) (string, error)
+	runCmd   runFunc
 }
 
 // write saves the stream to disk and updates the metadata file.
 func (i *Image) write(r io.Reader, md *imagedownloads.Metadata) error {
+	tmpPath := i.tmpFile.Name()
+	defer func() {
+		err := i.tmpFile.Close()
+		if err != nil {
+			logger.Errorf("failed to close %q %s", tmpPath, err)
+		}
+		err = os.Remove(tmpPath)
+		if err != nil {
+			logger.Errorf("failed to remove %q after use %s", tmpPath, err)
+		}
+
+	}()
+
 	hash := sha256.New()
 	_, err := io.Copy(io.MultiWriter(i.tmpFile, hash), r)
 	if err != nil {
 		i.cleanup()
 		return errors.Trace(err)
 	}
+
 	result := fmt.Sprintf("%x", hash.Sum(nil))
 	if result != md.SHA256 {
 		i.cleanup()
 		return errors.Errorf(
 			"hash sum mismatch for %s: %s != %s", i.tmpFile.Name(), result, md.SHA256)
 	}
-	tmpPath := i.tmpFile.Name()
-	// err:= i.tmpFile.Close()
-	output, err := i.runFunc(
-		"qemu-img", "convert", "-f", "qcow2", "-O", "qcow2", tmpPath, i.FilePath)
+
+	output, err := i.runCmd(
+		"qemu-img", "convert", "-f", "qcow2", tmpPath, i.FilePath)
 	fmt.Println(output)
 	if err != nil {
 		i.cleanupAll()
@@ -205,6 +236,7 @@ func newImage(md *imagedownloads.Metadata, pathfinder func(string) (string, erro
 		return nil, errors.Trace(err)
 	}
 
+	// Closing this is deferred in Image.write.
 	fh, err := ioutil.TempFile("", fmt.Sprintf("juju-kvm-%s-", path.Base(dlURL.String())))
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -212,12 +244,13 @@ func newImage(md *imagedownloads.Metadata, pathfinder func(string) (string, erro
 
 	return &Image{
 		FilePath: filepath.Join(
-			baseDir, guestDir, backingFileName(md.Arch, md.Release)),
+			baseDir, kvm, guestDir, backingFileName(md.Release, md.Arch)),
 		tmpFile: fh,
-		runFunc: run,
+		runCmd:  run,
 	}, nil
 }
 
-func backingFileName(arch, series string) string {
+func backingFileName(series, arch string) string {
+	// TODO(ro) validate series and arch to be sure they are in the right order.
 	return fmt.Sprintf("%s-%s-backing-file.qcow", series, arch)
 }

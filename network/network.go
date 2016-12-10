@@ -304,17 +304,17 @@ func (i *InterfaceInfo) CIDRAddress() string {
 }
 
 // MAC returns the MacAddress member value.
-func (i *InterfaceInfo) MAC() string {
+func (i InterfaceInfo) MAC() string {
 	return i.MACAddress
 }
 
 // DeviceName returns the InterfaceName member value.
-func (i *InterfaceInfo) DeviceName() string {
+func (i InterfaceInfo) DeviceName() string {
 	return i.InterfaceName
 }
 
 // ParentDeviceName returns the ParentInterfaceNAme member value.
-func (i *InterfaceInfo) ParentDeviceName() string {
+func (i InterfaceInfo) ParentDeviceName() string {
 	return i.ParentInterfaceName
 }
 

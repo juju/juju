@@ -1,6 +1,9 @@
 // Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
+// +build linux
+// +build amd64 arm64 ppc64el
+
 package libvirt_test
 
 import (
@@ -34,8 +37,13 @@ var wantDomainStr = `
             <address type="pci" domain="0x0000" bus="0x00" slot="0x01" function="0x2"></address>
         </controller>
         <controller type="pci" index="0" model="pci-root"></controller>
-        <console type="stdio">
-            <target type="serial" port="0"></target>
+        <serial type="pty">
+            <source path="/dev/pts/2"></source>
+            <target port="0"></target>
+        </serial>
+        <console type="pty" tty="/dev/pts/2">
+            <source path="/dev/pts/2"></source>
+            <target port="0"></target>
         </console>
         <input type="mouse" bus="ps2"></input>
         <input type="keyboard" bus="ps2"></input>
@@ -102,12 +110,12 @@ type dummyParams struct {
 	memory    uint64
 }
 
-func (p dummyParams) DiskInfo() []DiskInfo        { return p.diskInfo }
-func (p dummyParams) Interfaces() []InterfaceInfo { return p.ifaceInfo }
-func (p dummyParams) Hostname() string            { return p.hostname }
-func (p dummyParams) CPUCores() uint64            { return p.cpuCores }
-func (p dummyParams) Memory() uint64              { return p.memory }
-func (p dummyParams) Validate() error             { return p.err }
+func (p dummyParams) DiskInfo() []DiskInfo         { return p.diskInfo }
+func (p dummyParams) NetworkInfo() []InterfaceInfo { return p.ifaceInfo }
+func (p dummyParams) Host() string                 { return p.hostname }
+func (p dummyParams) CPUs() uint64                 { return p.cpuCores }
+func (p dummyParams) RAM() uint64                  { return p.memory }
+func (p dummyParams) ValidateDomainParams() error  { return p.err }
 
 type dummyDisk struct {
 	source string

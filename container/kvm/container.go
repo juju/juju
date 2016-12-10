@@ -1,6 +1,9 @@
 // Copyright 2013-2106 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
+// +build linux
+// +build amd64 arm64 ppc64el
+
 package kvm
 
 import (
@@ -9,9 +12,9 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/container"
+	"github.com/juju/juju/container/kvm/libvirt"
 	"github.com/juju/juju/environs/imagedownloads"
 	"github.com/juju/juju/environs/simplestreams"
-	"github.com/juju/juju/network"
 )
 
 type kvmContainer struct {
@@ -21,6 +24,9 @@ type kvmContainer struct {
 	// this allows for checking when we don't know, but using a
 	// value if we already know it (like in the list situation).
 	started *bool
+
+	pathfinder func(string) (string, error)
+	runCmd     runFunc
 }
 
 var _ Container = (*kvmContainer)(nil)
@@ -42,16 +48,21 @@ func (c *kvmContainer) Start(params StartParams) error {
 		ftype:   FType,
 		srcFunc: srcFunc,
 	}
-	logger.Debugf("Synchronise images for %s %s %s", sp.arch, sp.series, params.ImageDownloadURL)
+	logger.Debugf("synchronise images for %s %s %s", sp.arch, sp.series, params.ImageDownloadURL)
 	if err := Sync(sp, nil); err != nil {
-		return err
+		if !errors.IsAlreadyExists(err) {
+			return errors.Trace(err)
+		}
+		logger.Debugf("image already cached %s", err)
 	}
 	var bridge string
-	var interfaces []network.InterfaceInfo
+	var interfaces []libvirt.InterfaceInfo
 	if params.Network != nil {
 		if params.Network.NetworkType == container.BridgeNetwork {
 			bridge = params.Network.Device
-			interfaces = params.Network.Interfaces
+			for _, iface := range params.Network.Interfaces {
+				interfaces = append(interfaces, iface)
+			}
 		} else {
 			err := errors.New("Non-bridge network devices not yet supported")
 			logger.Infof(err.Error())
@@ -74,7 +85,7 @@ func (c *kvmContainer) Start(params StartParams) error {
 	}
 
 	logger.Debugf("Set machine %s to autostart", c.name)
-	return AutostartMachine(c.name)
+	return AutostartMachine(c.name, run)
 }
 
 func (c *kvmContainer) Stop() error {
@@ -84,15 +95,16 @@ func (c *kvmContainer) Stop() error {
 	}
 	// Make started state unknown again.
 	c.started = nil
-	logger.Debugf("Stop %s", c.name)
-	return DestroyMachine(c.name)
+	logger.Debugf("Stop %s", c)
+
+	return DestroyMachine(c)
 }
 
 func (c *kvmContainer) IsRunning() bool {
 	if c.started != nil {
 		return *c.started
 	}
-	machines, err := ListMachines()
+	machines, err := ListMachines(run)
 	if err != nil {
 		return false
 	}
