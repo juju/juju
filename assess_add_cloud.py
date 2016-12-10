@@ -141,6 +141,12 @@ def iter_clouds(clouds):
 
 
 def assess_all_clouds(client, cloud_specs):
+    """Test all the supplied cloud_specs and return the results.
+
+    Returns a tuple of succeeded, expected_failed, and failed.
+    succeeded and failed are sets of cloud labels.  expected_failed is a dict
+    linking a given bug to its associated failures.
+    """
     succeeded = set()
     xfailed = {}
     failed = set()

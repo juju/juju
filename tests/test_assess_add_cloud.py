@@ -209,7 +209,7 @@ class TestAssessAllClouds(TestCase):
 
     def test_xfail(self):
         cloud_specs = [xfail(cloud_spec('label1', 'name1', {'config': '1'}),
-            27, TypeNotAccepted)]
+                             27, TypeNotAccepted)]
         client = self.make_fake_juju_client()
         with patch('assess_add_cloud.assess_cloud',
                    side_effect=TypeNotAccepted):
