@@ -37,6 +37,14 @@ class TestCase(FakeHomeTestCase):
         return fake_juju_client(env=env)
 
 
+class TestCloudSpec(TestCase):
+
+    def test_cloud_spec(self):
+        self.assertEqual(
+                CloudSpec('label1', 'name1', {'config': '1'}, None, None),
+                cloud_spec('label1', 'name1', {'config': '1'}))
+
+
 class TestXFail(TestCase):
 
     def test_xfail(self):
