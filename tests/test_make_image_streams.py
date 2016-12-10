@@ -355,15 +355,16 @@ class TestWriteItemStreams(TestCase):
                 'version': 'centos7',
                 'release': 'centos7',
                 'os': 'centos',
-                'id': 'qux',
                 'versions': {'20010203': {
                     'items': {
                         'usww1he': {
+                            'id': 'qux',
                             'region': 'us-west-1',
                             'root_store': 'ebs',
                             'virt': 'hvm',
                             },
                         'usee1he': {
+                            'id': 'qux',
                             'region': 'us-east-1',
                             'root_store': 'ebs',
                             'virt': 'hvm',

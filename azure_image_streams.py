@@ -1,6 +1,5 @@
 import logging
 import re
-import sys
 
 # Tested on Azure 2.0 rc5 API
 from azure.common.credentials import ServicePrincipalCredentials
@@ -76,7 +75,7 @@ def logger():
 # Azure-ARM image repository.
 EXPECTED_MISSING = frozenset({
     ('12.04.2-LTS', '12.04.201212180'),
-    ('16.04.0-LTS','16.04.201611220'),
+    ('16.04.0-LTS', '16.04.201611220'),
     ('16.04.0-LTS', '16.04.201611300'),
     })
 

@@ -287,7 +287,11 @@ def mock_compute_client(versions):
     client = Mock(spec=['config', 'virtual_machine_images'])
     client.virtual_machine_images.list.return_value = [
         mock_version(v) for v in versions]
+    client.virtual_machine_images.list_skus.return_value = [
+        mock_sku('12.04.2-LTS'),
+        ]
     client.config.base_url = 'http://example.com/arm'
+
     return client
 
 
@@ -301,6 +305,12 @@ def mock_location(name, display_name):
     location = Mock(display_name=display_name)
     location.name = name
     return location
+
+
+def mock_sku(name):
+    sku = Mock()
+    sku.name = name
+    return sku
 
 
 def make_expected(client, versions, specs):
@@ -351,16 +361,18 @@ class TestMakeAzureItems(TestCase):
         expected_calls, expected_items = make_expected(client, ['3'],
                                                        IMAGE_SPEC)
         location = mock_location('canadaeast', 'Canada East')
-        old_item, spec, expected_item = make_item_expected(
-            region=location.display_name, endpoint=client.config.base_url)
-        expected_items.insert(0, expected_item)
-        with self.mai_cxt(location, client, [old_item]):
+        expected_items.insert(
+            0, make_item('12.04.2-LTS', 'latest', (
+                '12.04', CANONICAL, UBUNTU_SERVER, '12.04.2-LTS'
+                ), 'canadaeast', client.config.base_url, release='precise'))
+        with self.mai_cxt(location, client, []):
             items = make_azure_items(all_credentials)
         self.assertEqual(expected_items, items)
 
     def test_make_azure_items_no_ubuntu(self):
         all_credentials = make_all_credentials()
         client = mock_compute_client(['3'])
+        client.virtual_machine_images.list_skus.return_value = []
         expected_calls, expected_items = make_expected(client, ['3'],
                                                        IMAGE_SPEC)
         location = mock_location('canadaeast', 'Canada East')

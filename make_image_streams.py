@@ -5,6 +5,7 @@ from argparse import ArgumentParser
 from copy import deepcopy
 from datetime import datetime
 import logging
+# Done early to prevent Simplestreams from messing with the log configuration.
 logging.basicConfig(level=logging.INFO)
 import os
 import sys
