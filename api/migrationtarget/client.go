@@ -106,10 +106,31 @@ func (c *Client) UploadTools(modelUUID string, r io.ReadSeeker, vers version.Bin
 	return resp.ToolsList, nil
 }
 
-// UploadResource uploads a migration to the resource migration endpoint.
+// UploadResource uploads a resource to the migration endpoint.
 func (c *Client) UploadResource(modelUUID string, res resource.Resource, r io.ReadSeeker) error {
-	args := url.Values{}
+	args := makeResourceArgs(res)
 	args.Add("application", res.ApplicationID)
+	err := c.resourcePost(modelUUID, args, r)
+	return errors.Trace(err)
+}
+
+// SetUnitResource sets the metadata for a particular unit resource.
+func (c *Client) SetUnitResource(modelUUID, unit string, res resource.Resource) error {
+	args := makeResourceArgs(res)
+	args.Add("unit", unit)
+	err := c.resourcePost(modelUUID, args, strings.NewReader(""))
+	return errors.Trace(err)
+}
+
+func (c *Client) resourcePost(modelUUID string, args url.Values, r io.ReadSeeker) error {
+	uri := "/migrate/resources?" + args.Encode()
+	contentType := "application/octet-stream"
+	err := c.httpPost(modelUUID, r, uri, contentType, nil)
+	return errors.Trace(err)
+}
+
+func makeResourceArgs(res resource.Resource) url.Values {
+	args := url.Values{}
 	args.Add("user", res.Username)
 	args.Add("name", res.Name)
 	args.Add("type", res.Type.String())
@@ -119,10 +140,7 @@ func (c *Client) UploadResource(modelUUID string, res resource.Resource, r io.Re
 	args.Add("revision", fmt.Sprintf("%d", res.Revision))
 	args.Add("size", fmt.Sprintf("%d", res.Size))
 	args.Add("fingerprint", res.Fingerprint.Hex())
-	uri := "/migrate/resources?" + args.Encode()
-	contentType := "application/octet-stream"
-	err := c.httpPost(modelUUID, r, uri, contentType, nil)
-	return errors.Trace(err)
+	return args
 }
 
 func (c *Client) httpPost(modelUUID string, content io.ReadSeeker, endpoint, contentType string, response interface{}) error {

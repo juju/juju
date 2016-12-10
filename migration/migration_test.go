@@ -126,12 +126,15 @@ func (s *ImportSuite) TestBinariesMigration(c *gc.C) {
 		version.MustParseBinary("2.0.0-xenial-amd64"): "/tools/1",
 	}
 
+	app0Res := resourcetesting.NewResource(c, nil, "blob0", "app0", "blob0").Resource
+	app1Res := resourcetesting.NewResource(c, nil, "blob1", "app1", "blob1").Resource
+	app1UnitRes := app1Res
+	app1UnitRes.Revision = 1
 	resources := []coremigration.SerializedModelResource{
+		{ApplicationRevision: app0Res},
 		{
-			ApplicationRevision: resourcetesting.NewResource(c, nil, "blob0", "app0", "blob0").Resource,
-		},
-		{
-			ApplicationRevision: resourcetesting.NewResource(c, nil, "blob1", "app1", "blob1").Resource,
+			ApplicationRevision: app1Res,
+			UnitRevisions:       map[string]resource.Resource{"app1/99": app1UnitRes},
 		},
 	}
 
@@ -172,6 +175,7 @@ func (s *ImportSuite) TestBinariesMigration(c *gc.C) {
 		"app0/blob0": "blob0",
 		"app1/blob1": "blob1",
 	})
+	c.Assert(uploader.unitResources, jc.SameContents, []string{"app1/99-blob1"})
 }
 
 type fakeDownloader struct {
@@ -203,9 +207,10 @@ func (d *fakeDownloader) OpenResource(app, name string) (io.ReadCloser, error) {
 }
 
 type fakeUploader struct {
-	tools     map[version.Binary]string
-	charms    map[string]string
-	resources map[string]string
+	tools         map[version.Binary]string
+	charms        map[string]string
+	resources     map[string]string
+	unitResources []string
 }
 
 func (f *fakeUploader) UploadTools(r io.ReadSeeker, v version.Binary, _ ...string) (tools.List, error) {
@@ -233,6 +238,11 @@ func (f *fakeUploader) UploadResource(res resource.Resource, r io.ReadSeeker) er
 		return errors.Trace(err)
 	}
 	f.resources[res.ApplicationID+"/"+res.Name] = string(body)
+	return nil
+}
+
+func (f *fakeUploader) SetUnitResource(unit string, res resource.Resource) error {
+	f.unitResources = append(f.unitResources, unit+"-"+res.Name)
 	return nil
 }
 

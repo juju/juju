@@ -77,7 +77,7 @@ func (staged StagedResource) Activate() error {
 			return nil, errors.New("setting the resource failed")
 		}
 		if staged.stored.PendingID == "" {
-			// Only non-pending resources must have an existing service.
+			// Only non-pending resources must have an existing application.
 			ops = append(ops, staged.base.ApplicationExistsOps(staged.stored.ApplicationID)...)
 		}
 		// No matter what, we always remove any staging.
@@ -97,7 +97,6 @@ func (staged StagedResource) Activate() error {
 				ops = append(ops, incOps...)
 			}
 		}
-		logger.Debugf("activate ops: %#v", ops)
 		return ops, nil
 	}
 	if err := staged.base.Run(buildTxn); err != nil {

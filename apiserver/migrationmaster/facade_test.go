@@ -199,10 +199,11 @@ func (s *Suite) TestExport(c *gc.C) {
 		CharmURL: "cs:foo-0",
 	})
 
-	const tools = "2.0.0-xenial-amd64"
+	const tools0 = "2.0.0-xenial-amd64"
+	const tools1 = "2.0.1-xenial-amd64"
 	m := s.model.AddMachine(description.MachineArgs{Id: names.NewMachineTag("9")})
 	m.SetTools(description.AgentToolsArgs{
-		Version: version.MustParseBinary(tools),
+		Version: version.MustParseBinary(tools1),
 	})
 
 	res := app.AddResource(description.ResourceArgs{"bin"})
@@ -229,6 +230,28 @@ func (s *Suite) TestExport(c *gc.C) {
 		Username:       "xena",
 	})
 
+	unit := app.AddUnit(description.UnitArgs{
+		Tag: names.NewUnitTag("foo/0"),
+	})
+	unit.SetTools(description.AgentToolsArgs{
+		Version: version.MustParseBinary(tools0),
+	})
+	unitRes := unit.AddResource(description.UnitResourceArgs{
+		Name: "bin",
+		RevisionArgs: description.ResourceRevisionArgs{
+			Revision:       1,
+			Type:           "file",
+			Path:           "bin.tar.gz",
+			Description:    "nose knows",
+			Origin:         "upload",
+			FingerprintHex: "beef",
+			Size:           222,
+			Timestamp:      time.Now(),
+			Username:       "bambam",
+		},
+	})
+	unitRev := unitRes.Revision()
+
 	api := s.mustMakeAPI(c)
 	serialized, err := api.Export()
 	c.Assert(err, jc.ErrorIsNil)
@@ -239,8 +262,9 @@ func (s *Suite) TestExport(c *gc.C) {
 	c.Check(string(serialized.Bytes), jc.Contains, jujuversion.Current.String())
 
 	c.Check(serialized.Charms, gc.DeepEquals, []string{"cs:foo-0"})
-	c.Check(serialized.Tools, gc.DeepEquals, []params.SerializedModelTools{
-		{tools, "/tools/" + tools},
+	c.Check(serialized.Tools, jc.SameContents, []params.SerializedModelTools{
+		{tools0, "/tools/" + tools0},
+		{tools1, "/tools/" + tools1},
 	})
 	c.Check(serialized.Resources, gc.DeepEquals, []params.SerializedModelResource{{
 		Application: "foo",
@@ -266,6 +290,19 @@ func (s *Suite) TestExport(c *gc.C) {
 			Size:           csRev.Size(),
 			Timestamp:      csRev.Timestamp(),
 			Username:       csRev.Username(),
+		},
+		UnitRevisions: map[string]params.SerializedModelResourceRevision{
+			"foo/0": params.SerializedModelResourceRevision{
+				Revision:       unitRev.Revision(),
+				Type:           unitRev.Type(),
+				Path:           unitRev.Path(),
+				Description:    unitRev.Description(),
+				Origin:         unitRev.Origin(),
+				FingerprintHex: unitRev.FingerprintHex(),
+				Size:           unitRev.Size(),
+				Timestamp:      unitRev.Timestamp(),
+				Username:       unitRev.Username(),
+			},
 		},
 	}})
 

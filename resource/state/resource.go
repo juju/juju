@@ -183,6 +183,34 @@ func (st resourceState) SetResource(applicationID, userID string, chRes charmres
 	return res, nil
 }
 
+// SetUnitResource sets the resource metadata for a specific unit.
+func (st resourceState) SetUnitResource(unitName, userID string, chRes charmresource.Resource) (_ resource.Resource, outErr error) {
+	logger.Tracef("adding resource %q for unit %q", chRes.Name, unitName)
+	var empty resource.Resource
+
+	applicationID, err := names.UnitApplication(unitName)
+	if err != nil {
+		return empty, errors.Trace(err)
+	}
+
+	res := resource.Resource{
+		Resource:      chRes,
+		ID:            newResourceID(applicationID, chRes.Name),
+		ApplicationID: applicationID,
+	}
+	res.Username = userID
+	res.Timestamp = st.currentTimestamp()
+	if err := res.Validate(); err != nil {
+		return empty, errors.Annotate(err, "bad resource metadata")
+	}
+
+	if err := st.persist.SetUnitResource(unitName, res); err != nil {
+		return empty, errors.Trace(err)
+	}
+
+	return res, nil
+}
+
 // AddPendingResource stores the resource in the Juju model.
 func (st resourceState) AddPendingResource(applicationID, userID string, chRes charmresource.Resource, r io.Reader) (pendingID string, err error) {
 	pendingID, err = st.newPendingID()

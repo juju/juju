@@ -196,6 +196,7 @@ func (c *Client) OpenResource(application, name string) (io.ReadCloser, error) {
 	if err != nil {
 		return nil, errors.Annotate(err, "unable to create HTTP client")
 	}
+
 	uri := fmt.Sprintf("/applications/%s/resources/%s", application, name)
 	var resp *http.Response
 	if err := httpClient.Get(uri, &resp); err != nil {
@@ -317,9 +318,18 @@ func convertAppResource(in params.SerializedModelResource) (migration.Serialized
 	if err != nil {
 		return empty, errors.Annotate(err, "charmstore revision")
 	}
+	unitRevs := make(map[string]resource.Resource)
+	for unitName, inUnitRev := range in.UnitRevisions {
+		unitRev, err := convertResourceRevision(in.Application, in.Name, inUnitRev)
+		if err != nil {
+			return empty, errors.Annotate(err, "unit revision")
+		}
+		unitRevs[unitName] = unitRev
+	}
 	return migration.SerializedModelResource{
 		ApplicationRevision: appRev,
 		CharmStoreRevision:  csRev,
+		UnitRevisions:       unitRevs,
 	}, nil
 }
 
