@@ -78,7 +78,14 @@ func (h *resourceUploadHandler) processPost(r *http.Request, st *state.State) (r
 		return empty, errors.Trace(err)
 	}
 
-	outRes, err := setResource(isUnit, target, userID, res, r.Body, rSt)
+	reader := r.Body
+
+	// Don't associate content with a placeholder resource.
+	if isPlaceholder(query) {
+		reader = nil
+	}
+
+	outRes, err := setResource(isUnit, target, userID, res, reader, rSt)
 	if err != nil {
 		return empty, errors.Annotate(err, "resource upload failed")
 	}
@@ -92,7 +99,10 @@ func setResource(isUnit bool, target, user string, res charmresource.Resource, r
 		return rSt.SetUnitResource(target, user, res)
 	}
 	return rSt.SetResource(target, user, res, r)
+}
 
+func isPlaceholder(query url.Values) bool {
+	return query.Get("timestamp") == ""
 }
 
 func getUploadTarget(query url.Values) (string, bool, error) {
