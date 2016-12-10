@@ -192,19 +192,34 @@ class TestAssessAllClouds(TestCase):
     def test_assess_all_clouds(self):
         client = self.make_fake_juju_client()
         clouds = {'a': {'type': 'foo'}, 'b': {'type': 'bar'}}
+        cloud_specs = iter_clouds(clouds)
         exception = Exception()
         with patch('assess_add_cloud.assess_cloud',
                    side_effect=[TypeNotAccepted(), None] + [exception] * 7):
             with patch('sys.stdout'):
                 with patch('logging.exception') as exception_mock:
                     succeeded, xfail, failed = assess_all_clouds(client,
-                                                                 clouds)
+                                                                 cloud_specs)
         self.assertEqual({'bogus-type', 'a'}, succeeded)
         self.assertEqual({
             'b', 'bogus-auth-a', 'bogus-auth-b', 'invalid-name-a',
             'invalid-name-b', 'long-name-a', 'long-name-b'},
             failed)
         self.assertEqual(exception_mock.mock_calls, [call(exception)] * 7)
+
+    def test_xfail(self):
+        cloud_specs = [xfail(cloud_spec('label1', 'name1', {'config': '1'}),
+            27, TypeNotAccepted)]
+        client = self.make_fake_juju_client()
+        with patch('assess_add_cloud.assess_cloud',
+                   side_effect=TypeNotAccepted):
+            with patch('logging.exception') as exception_mock:
+                with patch('sys.stdout'):
+                    succeeded, xfailed, failed = assess_all_clouds(client,
+                                                                   cloud_specs)
+        self.assertEqual(set(), failed)
+        self.assertEqual({27: {'label1'}}, xfailed)
+        self.assertEqual(0, exception_mock.call_count)
 
 
 class TestWriteStatus(TestCase):

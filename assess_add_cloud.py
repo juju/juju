@@ -140,12 +140,12 @@ def iter_clouds(clouds):
                                    exception=None), 1641970, CloudMismatch)
 
 
-def assess_all_clouds(client, clouds):
+def assess_all_clouds(client, cloud_specs):
     succeeded = set()
-    xfail = {}
+    xfailed = {}
     failed = set()
     client.env.load_yaml()
-    for cloud_spec in iter_clouds(clouds):
+    for cloud_spec in cloud_specs:
         sys.stdout.write('Testing {}.\n'.format(cloud_spec.label))
         try:
             if cloud_spec.exception is None:
@@ -162,14 +162,14 @@ def assess_all_clouds(client, clouds):
             failed.add(cloud_spec.label)
         else:
             if cloud_spec.xfail_bug is not None:
-                xfail.setdefault(
+                xfailed.setdefault(
                     cloud_spec.xfail_bug, set()).add(cloud_spec.label)
             else:
                 succeeded.add(cloud_spec.label)
         finally:
             client.env.clouds = {'clouds': {}}
             client.env.dump_yaml(client.env.juju_home, {})
-    return succeeded, xfail, failed
+    return succeeded, xfailed, failed
 
 
 def write_status(status, tests):
@@ -197,12 +197,13 @@ def main():
         logging.warn('This test does not support old jujus.')
     with open(args.example_clouds) as f:
         clouds = yaml.safe_load(f)['clouds']
+    cloud_specs = iter_clouds(clouds)
     with temp_dir() as juju_home:
         env = JujuData('foo', config=None, juju_home=juju_home)
         client = client_class(env, version, juju_bin)
-        succeeded, xfail, failed = assess_all_clouds(client, clouds)
+        succeeded, xfailed, failed = assess_all_clouds(client, cloud_specs)
     write_status('Succeeded', succeeded)
-    for bug, failures in sorted(xfail.items()):
+    for bug, failures in sorted(xfailed.items()):
         write_status('Expected fail (bug #{})'.format(bug), failures)
     write_status('Failed', failed)
     if len(failed) > 0:
