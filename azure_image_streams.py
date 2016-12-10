@@ -26,10 +26,12 @@ UBUNTU_SERVER = 'UbuntuServer'
 WINDOWS = 'Windows'
 WINDOWS_SERVER = 'WindowsServer'
 IMAGE_SPEC = [
-    ('win81', MS_VSTUDIO, WINDOWS, '8.1-Enterprise-N'),
-    ('win10', MS_VSTUDIO, WINDOWS, '10-Enterprise-N'),
+    ('win81', MS_VSTUDIO, WINDOWS, 'Win8.1-Ent-N'),
+    ('win10', MS_VSTUDIO, WINDOWS, 'Windows-10-N-x64'),
     ('win2012', MS_SERVER, WINDOWS_SERVER, '2012-Datacenter'),
     ('win2012r2', MS_SERVER, WINDOWS_SERVER, '2012-R2-Datacenter'),
+    ('win2016', MS_SERVER, WINDOWS_SERVER, '2016-Datacenter'),
+    ('win2016nano', MS_SERVER, WINDOWS_SERVER, '2016-Nano-Server'),
     ('centos7', 'OpenLogic', 'CentOS', '7.1'),
 ]
 
@@ -64,6 +66,10 @@ ITEM_NAMES = {
     "westus2": "usww2i3",
     "westus": "usww1i3",
 }
+
+
+def logger():
+    return logging.getLogger('azure_image_streams')
 
 
 # Thorough investigation has not found an equivalent for these in the
@@ -208,14 +214,14 @@ def make_spec_items(client, full_spec, locations):
     spec = full_spec[1:]
     location_versions = {}
     for location in locations:
-        logging.info('Retrieving image data in {}'.format(
+        logger().debug('Retrieving image data in {}'.format(
             location.display_name))
         try:
             versions = client.virtual_machine_images.list(location.name,
                                                           *spec)
         except CloudError:
             template = 'Could not find {} {} {} in {location}'
-            logging.warning(template.format(
+            logger().warning(template.format(
                 *spec, location=location.display_name))
             continue
         for version in versions:
@@ -233,7 +239,7 @@ def make_spec_items(client, full_spec, locations):
 
 
 def make_item(version_name, urn_version, full_spec, location_name, endpoint,
-              stream='released', item_version=None):
+              stream='released', item_version=None, release=None):
     """Make a simplestreams Item for a version.
 
     Version name is the simplestreams version_name.
@@ -246,6 +252,8 @@ def make_item(version_name, urn_version, full_spec, location_name, endpoint,
     """
     URN = ':'.join(full_spec[1:] + (urn_version,))
     product_name = 'com.ubuntu.cloud:server:{}:amd64'.format(full_spec[0])
+    if release is None:
+        release = full_spec[0]
     if item_version is None:
         item_version = full_spec[0]
     return Item(
@@ -258,7 +266,7 @@ def make_item(version_name, urn_version, full_spec, location_name, endpoint,
             'id': URN,
             'label': 'release',
             'endpoint': endpoint,
-            'release': full_spec[0],
+            'release': release,
             'version': item_version,
             }
         )
@@ -305,6 +313,7 @@ def make_azure_items(all_credentials):
     items.extend(find_spec_items(client, locations))
     return items
 
+
 def find_ubuntu_items(client, locations):
     """Make simplestreams Items for existing Azure images.
 
@@ -320,7 +329,7 @@ def find_ubuntu_items(client, locations):
         for sku in skus:
             match = re.match(r'(\d\d\.\d\d)(\.\d+)?-?(.*)', sku.name)
             if match is None:
-                logging.warning('Skipping {}'.format(sku.name))
+                logger().info('Skipping {}'.format(sku.name))
                 continue
             tag = match.group(3)
             if tag in ('DAILY', 'DAILY-LTS'):
@@ -328,19 +337,20 @@ def find_ubuntu_items(client, locations):
             elif tag in ('', 'LTS'):
                 stream = 'released'
             else:
-                print sku.name
+                logger().info('Skipping {}'.format(sku.name))
                 continue
             minor_version = match.group(1)
             try:
-                full_spec = (
-                    juju_series.get_name(minor_version), CANONICAL,
-                    UBUNTU_SERVER, sku.name)
+                release = juju_series.get_name(minor_version)
             except KeyError:
+                logger().warning("Can't find name for {}".format(release))
                 continue
+            full_spec = (minor_version, CANONICAL, UBUNTU_SERVER, sku.name)
             items.append(make_item(sku.name, 'latest', full_spec,
                                    location.name, client.config.base_url,
-                                   item_version=minor_version, stream=stream))
+                                   stream=stream, release=release))
     return items
+
 
 def find_spec_items(client, locations):
     """Make simplestreams Items for existing Azure images.
