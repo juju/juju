@@ -19,6 +19,7 @@ from azure_image_streams import (
     MissingImage,
     make_item,
     make_azure_items,
+    make_ubuntu_item,
     parse_id,
     UBUNTU_SERVER,
     UnexpectedImage,
@@ -379,3 +380,54 @@ class TestMakeAzureItems(TestCase):
         with self.mai_cxt(location, client, []):
             items = make_azure_items(all_credentials)
         self.assertEqual(expected_items, items)
+
+
+class TestMakeUbuntuItem(TestCase):
+
+    def make_item(self, full_version='12.04.5-LTS', daily=False):
+        stream = 'daily' if daily else 'released'
+        return make_item(full_version, 'latest', (
+            '12.04', CANONICAL, UBUNTU_SERVER, full_version,
+            ), 'canadaeast', 'http://example.com', release='precise',
+            stream=stream)
+
+    def test_make_ubuntu_item(self):
+        item = make_ubuntu_item('http://example.com', 'canadaeast',
+                                '12.04.5-LTS')
+        self.assertEqual(item, self.make_item())
+
+    def test_no_lts(self):
+        item = make_ubuntu_item('http://example.com', 'canadaeast',
+                                '12.04.5')
+        self.assertEqual(item, self.make_item('12.04.5'))
+
+    def test_daily(self):
+        item = make_ubuntu_item('http://example.com', 'canadaeast',
+                                '12.04.5-DAILY')
+        self.assertEqual(item.content_id, 'com.ubuntu.cloud:daily:azure')
+
+    def test_daily_lts(self):
+        item = make_ubuntu_item('http://example.com', 'canadaeast',
+                                '12.04.5-DAILY-LTS')
+        self.assertEqual(item.content_id, 'com.ubuntu.cloud:daily:azure')
+
+    def test_unknown_tag(self):
+        item = make_ubuntu_item('http://example.com', 'canadaeast',
+                                '12.04.5-FOOBAR')
+        self.assertIs(item, None)
+
+    def test_not_a_version(self):
+        item = make_ubuntu_item('http://example.com', 'canadaeast',
+                                '12.q.5')
+        self.assertIs(item, None)
+
+    def test_xenial(self):
+        item = make_ubuntu_item('http://example.com', 'canadaeast',
+                                '16.04.5-LTS')
+        self.assertEqual('xenial', item.data['release'])
+
+    def test_version(self):
+        item = make_ubuntu_item('http://example.com', 'canadaeast',
+                                '16.04.5-LTS')
+        self.assertEqual('16.04', item.data['version'])
+        self.assertIn(':16.04:', item.product_name)

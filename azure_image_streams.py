@@ -313,6 +313,30 @@ def make_azure_items(all_credentials):
     return items
 
 
+def make_ubuntu_item(endpoint, location_name, sku_name):
+    match = re.match(r'(\d\d\.\d\d)(\.\d+)?-?(.*)', sku_name)
+    if match is None:
+        logger().info('Skipping {}'.format(sku_name))
+        return None
+    tag = match.group(3)
+    if tag in ('DAILY', 'DAILY-LTS'):
+        stream = 'daily'
+    elif tag in ('', 'LTS'):
+        stream = 'released'
+    else:
+        logger().info('Skipping {}'.format(sku_name))
+        return None
+    minor_version = match.group(1)
+    try:
+        release = juju_series.get_name(minor_version)
+    except KeyError:
+        logger().warning("Can't find name for {}".format(release))
+        return None
+    full_spec = (minor_version, CANONICAL, UBUNTU_SERVER, sku_name)
+    return make_item(sku_name, 'latest', full_spec, location_name,
+                           endpoint, stream=stream, release=release)
+
+
 def find_ubuntu_items(client, locations):
     """Make simplestreams Items for existing Azure images.
 
@@ -326,28 +350,11 @@ def find_ubuntu_items(client, locations):
         skus = client.virtual_machine_images.list_skus(
             location.name, CANONICAL, UBUNTU_SERVER)
         for sku in skus:
-            match = re.match(r'(\d\d\.\d\d)(\.\d+)?-?(.*)', sku.name)
-            if match is None:
-                logger().info('Skipping {}'.format(sku.name))
+            item = make_ubuntu_item(client.config.base_url, location.name,
+                                    sku.name)
+            if item is None:
                 continue
-            tag = match.group(3)
-            if tag in ('DAILY', 'DAILY-LTS'):
-                stream = 'daily'
-            elif tag in ('', 'LTS'):
-                stream = 'released'
-            else:
-                logger().info('Skipping {}'.format(sku.name))
-                continue
-            minor_version = match.group(1)
-            try:
-                release = juju_series.get_name(minor_version)
-            except KeyError:
-                logger().warning("Can't find name for {}".format(release))
-                continue
-            full_spec = (minor_version, CANONICAL, UBUNTU_SERVER, sku.name)
-            items.append(make_item(sku.name, 'latest', full_spec,
-                                   location.name, client.config.base_url,
-                                   stream=stream, release=release))
+            items.append(item)
     return items
 
 
