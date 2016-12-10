@@ -13,6 +13,7 @@ from azure_image_streams import (
     CANONICAL,
     convert_cloud_images_items,
     convert_item_to_arm,
+    find_ubuntu_items,
     get_azure_credentials,
     IMAGE_SPEC,
     make_spec_items,
@@ -431,3 +432,20 @@ class TestMakeUbuntuItem(TestCase):
                                 '16.04.5-LTS')
         self.assertEqual('16.04', item.data['version'])
         self.assertIn(':16.04:', item.product_name)
+
+
+class TestFindUbuntuItems(TestCase):
+
+    def test_find_ubuntu_items(self):
+        sku = Mock()
+        sku.name = '16.04.3-LTS'
+        bad_sku = Mock()
+        bad_sku.name = '16.0q.3-LTS'
+        client = Mock()
+        client.virtual_machine_images.list_skus.return_value = [sku, bad_sku]
+        client.config.base_url = 'http://example.com'
+        location = Mock()
+        location.name = 'canadaeast'
+        items = find_ubuntu_items(client, [location])
+        self.assertEqual(items, [make_ubuntu_item(
+            'http://example.com', 'canadaeast', '16.04.3-LTS')])

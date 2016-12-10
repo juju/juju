@@ -334,7 +334,7 @@ def make_ubuntu_item(endpoint, location_name, sku_name):
         return None
     full_spec = (minor_version, CANONICAL, UBUNTU_SERVER, sku_name)
     return make_item(sku_name, 'latest', full_spec, location_name,
-                           endpoint, stream=stream, release=release)
+                     endpoint, stream=stream, release=release)
 
 
 def find_ubuntu_items(client, locations):
