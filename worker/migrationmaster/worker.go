@@ -379,6 +379,11 @@ func (w *uploadWrapper) UploadResource(res resource.Resource, content io.ReadSee
 	return w.client.UploadResource(w.modelUUID, res, content)
 }
 
+// SetPlaceholderResource prepends the model UUID to the args passed to the migration client.
+func (w *uploadWrapper) SetPlaceholderResource(res resource.Resource) error {
+	return w.client.SetPlaceholderResource(w.modelUUID, res)
+}
+
 // SetUnitResource prepends the model UUID to the args passed to the migration client.
 func (w *uploadWrapper) SetUnitResource(unitName string, res resource.Resource) error {
 	return w.client.SetUnitResource(w.modelUUID, unitName, res)
