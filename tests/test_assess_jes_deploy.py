@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 from argparse import Namespace
 from mock import (
     patch,
@@ -19,11 +21,16 @@ from jujupy import (
 import tests
 
 
+def patch_local(target, **kwargs):
+    # kwargs.setdefault('autospec', True)
+    return patch('assess_jes_deploy.' + target, **kwargs)
+
+
 class TestJES(tests.FakeHomeTestCase):
 
     client_class = EnvJujuClient25
 
-    @patch('assess_jes_deploy.get_random_string', autospec=True)
+    @patch_local('get_random_string', autospec=True)
     @patch('jujupy.SimpleEnvironment.from_config')
     def mock_client(self, from_config_func, get_random_string_func):
         from_config_func.return_value = SimpleEnvironment('baz', {})
@@ -33,7 +40,7 @@ class TestJES(tests.FakeHomeTestCase):
             '1.25-foobar', 'path')
         return client
 
-    @patch('assess_jes_deploy.get_random_string', autospec=True)
+    @patch_local('get_random_string', autospec=True)
     def test_env_token(self, get_random_string_func):
         get_random_string_func.return_value = 'fakeran'
         self.assertEqual(env_token('env1'), 'env1fakeran')
@@ -43,10 +50,10 @@ class TestJES(tests.FakeHomeTestCase):
         env = client._shell_environ()
         self.assertNotIn('jes', env.get(JUJU_DEV_FEATURE_FLAGS, '').split(","))
 
-    @patch('assess_jes_deploy.print_now', autospec=True)
-    @patch('assess_jes_deploy.get_random_string', autospec=True)
+    @patch_local('print_now', autospec=True)
+    @patch_local('get_random_string', autospec=True)
     @patch('jujupy.EnvJujuClient.juju', autospec=True)
-    @patch('assess_jes_deploy.check_token', autospec=True)
+    @patch_local('check_token', autospec=True)
     def test_check_services(
             self,
             check_token_func,
@@ -66,9 +73,9 @@ class TestJES(tests.FakeHomeTestCase):
 
     @patch('jujupy.EnvJujuClient.get_full_path')
     @patch('jujupy.EnvJujuClient.add_ssh_machines', autospec=True)
-    @patch('assess_jes_deploy.boot_context', autospec=True)
-    @patch('assess_jes_deploy.configure_logging', autospec=True)
-    @patch('assess_jes_deploy.client_from_config')
+    @patch_local('boot_context', autospec=True)
+    @patch_local('configure_logging', autospec=True)
+    @patch_local('client_from_config', autospec=True)
     def test_jes_setup(
             self,
             by_version_func,

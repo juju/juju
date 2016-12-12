@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+"""Assess multimodel support."""
 
 from argparse import ArgumentParser
 from contextlib import contextmanager
@@ -22,7 +23,7 @@ from utility import (
     add_basic_testing_arguments,
     ensure_dir,
     print_now,
-)
+    )
 
 
 def test_jes_deploy(client, charm_series, log_dir, base_env):
