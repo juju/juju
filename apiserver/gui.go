@@ -205,7 +205,7 @@ func guiVersionAndHash(st *state.State, storage binarystorage.Storage) (vers, ha
 // uncompressGUI uncompresses the tar.bz2 Juju GUI archive provided in r.
 // The sourceDir directory included in the tar archive is copied to targetDir.
 func uncompressGUI(r io.Reader, sourceDir, targetDir string) error {
-	tempDir, err := ioutil.TempDir("", "gui")
+	tempDir, err := ioutil.TempDir(filepath.Join(targetDir, ".."), "gui")
 	if err != nil {
 		return errors.Annotate(err, "cannot create Juju GUI temporary directory")
 	}
