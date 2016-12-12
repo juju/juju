@@ -1,6 +1,6 @@
 from contextlib import (
     contextmanager,
-)
+    )
 import json
 import logging
 import os
@@ -9,7 +9,7 @@ from time import sleep
 try:
     import urlparse
 except ImportError:
-    import urllib.parse as parser
+    import urllib.parse as urlparse
 from boto import ec2
 from boto.exception import EC2ResponseError
 
@@ -17,14 +17,14 @@ import gce
 from jujuconfig import (
     get_euca_env,
     translate_to_env,
-)
+    )
 from jujupy import (
     EnvJujuClient1X
-)
+    )
 from utility import (
     temp_dir,
     until_timeout,
-)
+    )
 import winazurearm
 
 
