@@ -101,7 +101,7 @@ class FakeHomeTestCase(TestCase):
         :param data_dict: A dictionary of data, which is used to overwrite
             the data in public-clouds.yaml, or None, in which case the file
             is removed."""
-        dest_file = os.path.join(self.home_dir, '.juju/public-clouds.yaml')
+        dest_file = os.path.join(self.juju_home, 'public-clouds.yaml')
         if data_dict is None:
             with utility.skip_on_missing_file():
                 os.remove(dest_file)
@@ -193,12 +193,9 @@ def observable_temp_file():
                 with patch.object(temp_file, '__exit__'):
                     yield temp_file
     finally:
-        try:
+        # File may have already been deleted, e.g. by temp_yaml_file.
+        with utility.skip_on_missing():
             os.unlink(temporary_file.name)
-        except OSError as e:
-            # File may have already been deleted, e.g. by temp_yaml_file.
-            if e.errno != errno.ENOENT:
-                raise
 
 
 @contextmanager
