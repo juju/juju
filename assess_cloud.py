@@ -76,7 +76,9 @@ def assess_cloud_provisioning(bs_manager):
     charms.
 
     It tests "trusty" and "win2012r2" as representative series on Azure.  It
-    does not test CentOS, because that is known-broken at the moment.
+    does not test CentOS, because that is known-broken at the moment.  It
+    tests "trusty" rather than "xenial" because "xenial" will be used for
+    bootstrap by default.
     """
     client = bs_manager.client
     with bs_manager.booted_context(upload_tools=False):
