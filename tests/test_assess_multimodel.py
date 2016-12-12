@@ -23,7 +23,6 @@ import tests
 
 
 def patch_local(target, **kwargs):
-    kwargs.setdefault('autospec', True)
     return patch('assess_multimodel.' + target, **kwargs)
 
 
@@ -32,7 +31,7 @@ class TestMultiModel(tests.FakeHomeTestCase):
     client_class = EnvJujuClient25
 
     @patch_local('get_random_string', autospec=True)
-    @patch('jujupy.SimpleEnvironment.from_config')
+    @patch('jujupy.SimpleEnvironment.from_config', autospec=True)
     def mock_client(self, from_config_func, get_random_string_func):
         from_config_func.return_value = SimpleEnvironment('baz', {})
         get_random_string_func.return_value = 'fakeran'
@@ -50,10 +49,10 @@ class TestMultiModel(tests.FakeHomeTestCase):
         env = client._shell_environ()
         self.assertNotIn('jes', env.get(JUJU_DEV_FEATURE_FLAGS, '').split(","))
 
-    @patch_local('print_now')
-    @patch_local('get_random_string')
+    @patch_local('print_now', autospec=True)
+    @patch_local('get_random_string', autospec=True)
     @patch('jujupy.EnvJujuClient.juju', autospec=True)
-    @patch_local('check_token')
+    @patch_local('check_token', autospec=True)
     def test_check_services(
             self,
             check_token_func,
@@ -73,9 +72,9 @@ class TestMultiModel(tests.FakeHomeTestCase):
 
     @patch('jujupy.EnvJujuClient.get_full_path', autospec=True)
     @patch('jujupy.EnvJujuClient.add_ssh_machines', autospec=True)
-    @patch_local('boot_context')
-    @patch_local('configure_logging')
-    @patch_local('client_from_config')
+    @patch_local('boot_context', autospec=True)
+    @patch_local('configure_logging', autospec=True)
+    @patch_local('client_from_config', autospec=True)
     def test_multimodel_setup(
             self,
             by_version_func,
