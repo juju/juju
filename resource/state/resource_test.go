@@ -129,6 +129,20 @@ func (s *ResourceSuite) TestListResourcesError(c *gc.C) {
 	s.stub.CheckCallNames(c, "ListResources", "VerifyService")
 }
 
+func (s *ResourceSuite) TestListPendingResources(c *gc.C) {
+	resources := newUploadResources(c, "spam", "eggs")
+	s.persist.ReturnListPendingResources = resources
+	st := NewState(s.raw)
+	s.stub.ResetCalls()
+
+	outResources, err := st.ListPendingResources("a-application")
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(outResources, jc.DeepEquals, resources)
+	s.stub.CheckCallNames(c, "ListPendingResources")
+	s.stub.CheckCall(c, 0, "ListPendingResources", "a-application")
+}
+
 func (s *ResourceSuite) TestGetPendingResource(c *gc.C) {
 	resources := newUploadResources(c, "spam", "eggs")
 	resources[0].PendingID = "some-unique-id"

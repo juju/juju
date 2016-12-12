@@ -138,6 +138,16 @@ func (st resourceState) ListResources(applicationID string) (resource.ServiceRes
 	return resources, nil
 }
 
+// ListPendinglResources returns the resource data for the given
+// application ID for pending resources only.
+func (st resourceState) ListPendingResources(applicationID string) ([]resource.Resource, error) {
+	resources, err := st.persist.ListPendingResources(applicationID)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return resources, err
+}
+
 // GetResource returns the resource data for the identified resource.
 func (st resourceState) GetResource(applicationID, name string) (resource.Resource, error) {
 	id := newResourceID(applicationID, name)
