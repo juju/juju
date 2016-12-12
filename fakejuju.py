@@ -642,6 +642,7 @@ class FakeBackend:
         parser = ArgumentParser()
         parser.add_argument('host_placement', nargs='*')
         parser.add_argument('-n', type=int, dest='count', default='1')
+        parser.add_argument('--series')
         parsed = parser.parse_args(args)
         if len(parsed.host_placement) == 1:
             split = parsed.host_placement[0].split(':')

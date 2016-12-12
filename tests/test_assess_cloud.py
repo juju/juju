@@ -9,6 +9,7 @@ from mock import (
 from assess_cloud import (
     assess_cloud_combined,
     assess_cloud_kill_controller,
+    assess_cloud_provisioning,
     client_from_args,
     parse_args,
     )
@@ -89,6 +90,31 @@ class TestAssessCloudKillController(FakeHomeTestCase):
             backend_call(
                 client, 'kill-controller', ('foo', '-y'), timeout=600,
                 check=True),
+            ], any_order=True)
+
+
+class TestAssessCloudProvisioning(FakeHomeTestCase):
+
+    def test_assess_cloud_provisioning(self):
+        with mocked_bs_manager(self.juju_home) as (bs_manager, config_file):
+            assess_cloud_provisioning(bs_manager)
+            client = bs_manager.client
+            juju_wrapper = client._backend.juju
+        juju_wrapper.assert_has_calls([
+            backend_call(
+                client, 'bootstrap', (
+                    '--constraints', 'mem=2G', 'foo/bar', 'foo', '--config',
+                    config_file.name, '--default-model', 'foo',
+                    '--agent-version', client.version)),
+            backend_call(client, 'add-machine', ('--series', 'win2012r2'),
+                         'foo:foo'),
+            backend_call(client, 'add-machine', ('--series', 'trusty'),
+                         'foo:foo'),
+            backend_call(client, 'remove-machine', ('0',), 'foo:foo'),
+            backend_call(client, 'remove-machine', ('1',), 'foo:foo'),
+            backend_call(
+                client, 'destroy-controller',
+                ('foo', '-y', '--destroy-all-models'), timeout=600),
             ], any_order=True)
 
 

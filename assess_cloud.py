@@ -68,6 +68,24 @@ def assess_cloud_combined(bs_manager):
                                       for n in new_machines])
 
 
+def assess_cloud_provisioning(bs_manager):
+    """Assess several operations on a cloud.
+
+    This tests bootstrap, deploy, remove-unit and destroy-controller.
+    """
+    client = bs_manager.client
+    with bs_manager.booted_context(upload_tools=False):
+        old_status = client.get_status()
+        client.juju('add-machine', ('--series', 'win2012r2'))
+        client.juju('add-machine', ('--series', 'trusty'))
+        new_status = client.wait_for_started()
+        new_machines = [k for k, v in new_status.iter_new_machines(old_status)]
+        for machine in new_machines:
+            client.juju('remove-machine', (machine,))
+        new_status = client.wait_for([WaitMachineNotPresent(n)
+                                      for n in new_machines], timeout=600)
+
+
 def assess_cloud_kill_controller(bs_manager):
     client = bs_manager.client
     with bs_manager.booted_context(upload_tools=False):
