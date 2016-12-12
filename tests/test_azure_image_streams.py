@@ -13,12 +13,14 @@ from azure_image_streams import (
     CANONICAL,
     convert_cloud_images_items,
     convert_item_to_arm,
+    find_ubuntu_items,
     get_azure_credentials,
     IMAGE_SPEC,
     make_spec_items,
     MissingImage,
     make_item,
     make_azure_items,
+    make_ubuntu_item,
     parse_id,
     UBUNTU_SERVER,
     UnexpectedImage,
@@ -252,7 +254,7 @@ class TestMakeItem(TestCase):
         item = self.make_item()
         self.assertEqual(Item(
             'com.ubuntu.cloud:released:azure',
-            'com.ubuntu.cloud:windows:win95:amd64',
+            'com.ubuntu.cloud:server:win95:amd64',
             '1',
             'caee1i3', {
                 'arch': 'amd64',
@@ -262,6 +264,7 @@ class TestMakeItem(TestCase):
                 'label': 'release',
                 'endpoint': 'http://example.org',
                 'release': 'win95',
+                'version': 'win95',
             }), item)
 
     def test_make_item_centos(self):
@@ -278,6 +281,7 @@ class TestMakeItem(TestCase):
                 'label': 'release',
                 'endpoint': 'http://example.org',
                 'release': 'centos7',
+                'version': 'centos7',
             }), item)
 
 
@@ -285,7 +289,11 @@ def mock_compute_client(versions):
     client = Mock(spec=['config', 'virtual_machine_images'])
     client.virtual_machine_images.list.return_value = [
         mock_version(v) for v in versions]
+    client.virtual_machine_images.list_skus.return_value = [
+        mock_sku('12.04.2-LTS'),
+        ]
     client.config.base_url = 'http://example.com/arm'
+
     return client
 
 
@@ -299,6 +307,12 @@ def mock_location(name, display_name):
     location = Mock(display_name=display_name)
     location.name = name
     return location
+
+
+def mock_sku(name):
+    sku = Mock()
+    sku.name = name
+    return sku
 
 
 def make_expected(client, versions, specs):
@@ -349,19 +363,89 @@ class TestMakeAzureItems(TestCase):
         expected_calls, expected_items = make_expected(client, ['3'],
                                                        IMAGE_SPEC)
         location = mock_location('canadaeast', 'Canada East')
-        old_item, spec, expected_item = make_item_expected(
-            region=location.display_name, endpoint=client.config.base_url)
-        expected_items.insert(0, expected_item)
-        with self.mai_cxt(location, client, [old_item]):
+        expected_items.insert(
+            0, make_item('12.04.2-LTS', 'latest', (
+                '12.04', CANONICAL, UBUNTU_SERVER, '12.04.2-LTS'
+                ), 'canadaeast', client.config.base_url, release='precise'))
+        with self.mai_cxt(location, client, []):
             items = make_azure_items(all_credentials)
         self.assertEqual(expected_items, items)
 
     def test_make_azure_items_no_ubuntu(self):
         all_credentials = make_all_credentials()
         client = mock_compute_client(['3'])
+        client.virtual_machine_images.list_skus.return_value = []
         expected_calls, expected_items = make_expected(client, ['3'],
                                                        IMAGE_SPEC)
         location = mock_location('canadaeast', 'Canada East')
         with self.mai_cxt(location, client, []):
             items = make_azure_items(all_credentials)
         self.assertEqual(expected_items, items)
+
+
+class TestMakeUbuntuItem(TestCase):
+
+    def make_item(self, full_version='12.04.5-LTS', daily=False):
+        stream = 'daily' if daily else 'released'
+        return make_item(full_version, 'latest', (
+            '12.04', CANONICAL, UBUNTU_SERVER, full_version,
+            ), 'canadaeast', 'http://example.com', release='precise',
+            stream=stream)
+
+    def test_make_ubuntu_item(self):
+        item = make_ubuntu_item('http://example.com', 'canadaeast',
+                                '12.04.5-LTS')
+        self.assertEqual(item, self.make_item())
+
+    def test_no_lts(self):
+        item = make_ubuntu_item('http://example.com', 'canadaeast',
+                                '12.04.5')
+        self.assertEqual(item, self.make_item('12.04.5'))
+
+    def test_daily(self):
+        item = make_ubuntu_item('http://example.com', 'canadaeast',
+                                '12.04.5-DAILY')
+        self.assertEqual(item.content_id, 'com.ubuntu.cloud:daily:azure')
+
+    def test_daily_lts(self):
+        item = make_ubuntu_item('http://example.com', 'canadaeast',
+                                '12.04.5-DAILY-LTS')
+        self.assertEqual(item.content_id, 'com.ubuntu.cloud:daily:azure')
+
+    def test_unknown_tag(self):
+        item = make_ubuntu_item('http://example.com', 'canadaeast',
+                                '12.04.5-FOOBAR')
+        self.assertIs(item, None)
+
+    def test_not_a_version(self):
+        item = make_ubuntu_item('http://example.com', 'canadaeast',
+                                '12.q.5')
+        self.assertIs(item, None)
+
+    def test_xenial(self):
+        item = make_ubuntu_item('http://example.com', 'canadaeast',
+                                '16.04.5-LTS')
+        self.assertEqual('xenial', item.data['release'])
+
+    def test_version(self):
+        item = make_ubuntu_item('http://example.com', 'canadaeast',
+                                '16.04.5-LTS')
+        self.assertEqual('16.04', item.data['version'])
+        self.assertIn(':16.04:', item.product_name)
+
+
+class TestFindUbuntuItems(TestCase):
+
+    def test_find_ubuntu_items(self):
+        sku = Mock()
+        sku.name = '16.04.3-LTS'
+        bad_sku = Mock()
+        bad_sku.name = '16.0q.3-LTS'
+        client = Mock()
+        client.virtual_machine_images.list_skus.return_value = [sku, bad_sku]
+        client.config.base_url = 'http://example.com'
+        location = Mock()
+        location.name = 'canadaeast'
+        items = find_ubuntu_items(client, [location])
+        self.assertEqual(items, [make_ubuntu_item(
+            'http://example.com', 'canadaeast', '16.04.3-LTS')])

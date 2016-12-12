@@ -1,6 +1,5 @@
 import logging
 import re
-import sys
 
 # Tested on Azure 2.0 rc5 API
 from azure.common.credentials import ServicePrincipalCredentials
@@ -16,6 +15,8 @@ from simplestreams.json2streams import (
 from simplestreams import mirrors
 from simplestreams import util
 
+from build_package import juju_series
+
 
 CANONICAL = 'Canonical'
 MS_VSTUDIO = 'MicrosoftVisualStudio'
@@ -24,10 +25,12 @@ UBUNTU_SERVER = 'UbuntuServer'
 WINDOWS = 'Windows'
 WINDOWS_SERVER = 'WindowsServer'
 IMAGE_SPEC = [
-    ('win81', MS_VSTUDIO, WINDOWS, '8.1-Enterprise-N'),
-    ('win10', MS_VSTUDIO, WINDOWS, '10-Enterprise-N'),
+    ('win81', MS_VSTUDIO, WINDOWS, 'Win8.1-Ent-N'),
+    ('win10', MS_VSTUDIO, WINDOWS, 'Windows-10-N-x64'),
     ('win2012', MS_SERVER, WINDOWS_SERVER, '2012-Datacenter'),
     ('win2012r2', MS_SERVER, WINDOWS_SERVER, '2012-R2-Datacenter'),
+    ('win2016', MS_SERVER, WINDOWS_SERVER, '2016-Datacenter'),
+    ('win2016nano', MS_SERVER, WINDOWS_SERVER, '2016-Nano-Server'),
     ('centos7', 'OpenLogic', 'CentOS', '7.1'),
 ]
 
@@ -53,7 +56,9 @@ ITEM_NAMES = {
     "southeastasia": "asse1i3",
     "southindia": "inss1i3",
     "uknorth": "gbnn1i3",
+    "uksouth": "gbss1i3",
     "uksouth2": "gbss2i3",
+    "ukwest": "gbww1i3",
     "westcentralus": "uswc1i3",
     "westeurope": "euww1i3",
     "westindia": "inww1i3",
@@ -62,9 +67,17 @@ ITEM_NAMES = {
 }
 
 
+def logger():
+    return logging.getLogger('azure_image_streams')
+
+
 # Thorough investigation has not found an equivalent for these in the
 # Azure-ARM image repository.
-EXPECTED_MISSING = frozenset({('12.04.2-LTS', '12.04.201212180')})
+EXPECTED_MISSING = frozenset({
+    ('12.04.2-LTS', '12.04.201212180'),
+    ('16.04.0-LTS', '16.04.201611220'),
+    ('16.04.0-LTS', '16.04.201611300'),
+    })
 
 
 class MissingImage(Exception):
@@ -200,14 +213,14 @@ def make_spec_items(client, full_spec, locations):
     spec = full_spec[1:]
     location_versions = {}
     for location in locations:
-        logging.info('Retrieving image data in {}'.format(
+        logger().debug('Retrieving image data in {}'.format(
             location.display_name))
         try:
             versions = client.virtual_machine_images.list(location.name,
                                                           *spec)
         except CloudError:
             template = 'Could not find {} {} {} in {location}'
-            logging.warning(template.format(
+            logger().warning(template.format(
                 *spec, location=location.display_name))
             continue
         for version in versions:
@@ -224,7 +237,8 @@ def make_spec_items(client, full_spec, locations):
                             endpoint)
 
 
-def make_item(version_name, urn_version, full_spec, location_name, endpoint):
+def make_item(version_name, urn_version, full_spec, location_name, endpoint,
+              stream='released', item_version=None, release=None):
     """Make a simplestreams Item for a version.
 
     Version name is the simplestreams version_name.
@@ -236,12 +250,13 @@ def make_item(version_name, urn_version, full_spec, location_name, endpoint):
     The item_name is looked up from ITEM_NAMES.
     """
     URN = ':'.join(full_spec[1:] + (urn_version,))
-    pn_template = (
-        'com.ubuntu.cloud:server:{}:amd64' if full_spec[2] == 'CentOS'
-        else 'com.ubuntu.cloud:windows:{}:amd64')
-    product_name = pn_template.format(full_spec[0])
+    product_name = 'com.ubuntu.cloud:server:{}:amd64'.format(full_spec[0])
+    if release is None:
+        release = full_spec[0]
+    if item_version is None:
+        item_version = full_spec[0]
     return Item(
-        'com.ubuntu.cloud:released:azure',
+        'com.ubuntu.cloud:{}:azure'.format(stream),
         product_name,
         version_name, ITEM_NAMES[location_name], {
             'arch': 'amd64',
@@ -250,7 +265,8 @@ def make_item(version_name, urn_version, full_spec, location_name, endpoint):
             'id': URN,
             'label': 'release',
             'endpoint': endpoint,
-            'release': full_spec[0],
+            'release': release,
+            'version': item_version,
             }
         )
 
@@ -292,13 +308,53 @@ def make_azure_items(all_credentials):
     sub_client = SubscriptionClient(credentials)
     client = ComputeManagementClient(credentials, subscription_id)
     locations = sub_client.subscriptions.list_locations(subscription_id)
-    ci_items = ItemList.items_from_url(
-        'http://cloud-images.ubuntu.com/releases/streams/v1')
-    items, unknown_locations = convert_cloud_images_items(
-        client, locations, ci_items)
-    sys.stderr.write('Unknown locations: {}\n'.format(', '.join(
-        sorted(unknown_locations))))
+    items = find_ubuntu_items(client, locations)
     items.extend(find_spec_items(client, locations))
+    return items
+
+
+def make_ubuntu_item(endpoint, location_name, sku_name):
+    match = re.match(r'(\d\d\.\d\d)(\.\d+)?-?(.*)', sku_name)
+    if match is None:
+        logger().info('Skipping {}'.format(sku_name))
+        return None
+    tag = match.group(3)
+    if tag in ('DAILY', 'DAILY-LTS'):
+        stream = 'daily'
+    elif tag in ('', 'LTS'):
+        stream = 'released'
+    else:
+        logger().info('Skipping {}'.format(sku_name))
+        return None
+    minor_version = match.group(1)
+    try:
+        release = juju_series.get_name(minor_version)
+    except KeyError:
+        logger().warning("Can't find name for {}".format(release))
+        return None
+    full_spec = (minor_version, CANONICAL, UBUNTU_SERVER, sku_name)
+    return make_item(sku_name, 'latest', full_spec, location_name,
+                     endpoint, stream=stream, release=release)
+
+
+def find_ubuntu_items(client, locations):
+    """Make simplestreams Items for existing Azure images.
+
+    All versions of all images matching IMAGE_SPEC will be returned.
+
+    all_credentials is a dict of credentials in the credentials.yaml
+    structure, used to create Azure credentials.
+    """
+    items = []
+    for location in locations:
+        skus = client.virtual_machine_images.list_skus(
+            location.name, CANONICAL, UBUNTU_SERVER)
+        for sku in skus:
+            item = make_ubuntu_item(client.config.base_url, location.name,
+                                    sku.name)
+            if item is None:
+                continue
+            items.append(item)
     return items
 
 

@@ -4,6 +4,9 @@ from __future__ import print_function
 from argparse import ArgumentParser
 from copy import deepcopy
 from datetime import datetime
+import logging
+# Done early to prevent Simplestreams from messing with the log configuration.
+logging.basicConfig(level=logging.INFO)
 import os
 import sys
 from textwrap import dedent
@@ -22,6 +25,8 @@ from simplestreams.json2streams import (
     )
 from simplestreams import util
 
+log = logging.getLogger(
+    "requests.packages.urllib3.connectionpool").setLevel(logging.WARNING)
 
 AWS = 'aws'
 AZURE = 'azure'
@@ -215,7 +220,7 @@ def write_item_streams(items, out_dir):
     data = {'updated': updated, 'datatype': 'image-ids'}
     trees = items2content_trees(items, data)
     write_juju_streams(out_dir, trees, updated, [
-        'path', 'sha256', 'md5', 'size', 'virt', 'root_store'])
+        'path', 'sha256', 'md5', 'size', 'virt', 'root_store', 'id'])
 
 
 def write_juju_streams(out_d, trees, updated, sticky):
