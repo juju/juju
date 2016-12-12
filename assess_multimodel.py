@@ -26,7 +26,7 @@ from utility import (
     )
 
 
-def test_jes_deploy(client, charm_series, log_dir, base_env):
+def assess_multimodel_deploy(client, charm_series, log_dir, base_env):
     """Deploy the dummy stack in two hosted environments."""
     # deploy into system env
     deploy_dummy_stack(client, charm_series)
@@ -43,7 +43,7 @@ def test_jes_deploy(client, charm_series, log_dir, base_env):
 
 
 @contextmanager
-def jes_setup(args):
+def multimodel_setup(args):
     """
     Sets up the juju client and its environment.
 
@@ -109,8 +109,8 @@ def main():
     parser = ArgumentParser()
     add_basic_testing_arguments(parser, using_jes=True, deadline=True)
     args = parser.parse_args()
-    with jes_setup(args) as (client, charm_series, base_env):
-        test_jes_deploy(client, charm_series, args.logs, base_env)
+    with multimodel_setup(args) as (client, charm_series, base_env):
+        assess_multimodel_deploy(client, charm_series, args.logs, base_env)
 
 
 if __name__ == '__main__':
