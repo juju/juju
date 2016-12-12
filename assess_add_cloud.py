@@ -109,7 +109,7 @@ def iter_clouds(clouds):
                                cloud, NameNotAccepted), 1641970, NameMismatch)
         yield xfail(
             cloud_spec('invalid-name-{}'.format(cloud_name), 'invalid/name',
-                       cloud, NameNotAccepted), 1649181, None)
+                       cloud, NameNotAccepted), 1641981, None)
 
         if cloud['type'] not in ('maas', 'manual', 'vsphere'):
             variant = deepcopy(cloud)
