@@ -31,7 +31,7 @@ class TestMultiModel(tests.FakeHomeTestCase):
     client_class = EnvJujuClient25
 
     @patch_local('get_random_string', autospec=True)
-    @patch('jujupy.SimpleEnvironment.from_config', autospec=True)
+    @patch('jujupy.SimpleEnvironment.from_config')
     def mock_client(self, from_config_func, get_random_string_func):
         from_config_func.return_value = SimpleEnvironment('baz', {})
         get_random_string_func.return_value = 'fakeran'
