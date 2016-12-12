@@ -8,7 +8,6 @@ import (
 	"testing"
 
 	"github.com/juju/errors"
-	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
@@ -71,8 +70,9 @@ func (s Suite) TestHandle(c *gc.C) {
 	_, err := conv.SetUp()
 	c.Assert(err, gc.IsNil)
 	err = conv.Handle(nil)
-	c.Assert(err, gc.IsNil)
-	c.Assert(a.didRestart, jc.IsTrue)
+	// Since machine has multiwatcher.JobManageEnviron, we expect an error
+	// which will get agent to restart.
+	c.Assert(err.Error(), gc.Equals, "bounce agent to pick up new jobs")
 }
 
 func (s Suite) TestHandleNoManageEnviron(c *gc.C) {
@@ -87,7 +87,6 @@ func (s Suite) TestHandleNoManageEnviron(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = conv.Handle(nil)
 	c.Assert(err, gc.IsNil)
-	c.Assert(a.didRestart, jc.IsFalse)
 }
 
 func (Suite) TestHandleJobsError(c *gc.C) {
@@ -103,13 +102,11 @@ func (Suite) TestHandleJobsError(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = conv.Handle(nil)
 	c.Assert(errors.Cause(err), gc.Equals, m.jobsErr)
-	c.Assert(a.didRestart, jc.IsFalse)
 }
 
 func (s Suite) TestHandleRestartError(c *gc.C) {
 	a := &fakeAgent{
-		tag:        names.NewMachineTag("1"),
-		restartErr: errors.New("foo"),
+		tag: names.NewMachineTag("1"),
 	}
 	jobs := []multiwatcher.MachineJob{multiwatcher.JobHostUnits, multiwatcher.JobManageModel}
 	m := &fakeMachine{
@@ -120,9 +117,5 @@ func (s Suite) TestHandleRestartError(c *gc.C) {
 	_, err := conv.SetUp()
 	c.Assert(err, gc.IsNil)
 	err = conv.Handle(nil)
-	c.Assert(errors.Cause(err), gc.Equals, a.restartErr)
-
-	// We set this to true whenver the function is called, even though we're
-	// returning an error from it.
-	c.Assert(a.didRestart, jc.IsTrue)
+	c.Assert(err.Error(), gc.Equals, "bounce agent to pick up new jobs")
 }
