@@ -6,8 +6,10 @@ import logging
 import os
 import subprocess
 from time import sleep
-import urlparse
-
+try:
+    import urlparse
+except ImportError:
+    import urllib.parse as parser
 from boto import ec2
 from boto.exception import EC2ResponseError
 

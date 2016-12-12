@@ -55,6 +55,12 @@ from utility import (
 
 __metaclass__ = type
 
+# Python 2 and 3 compatibility
+try:
+    argtype = basestring
+except NameError:
+    argtype = str
+
 AGENTS_READY = set(['started', 'idle'])
 WIN_JUJU_CMD = os.path.join('\\', 'Progra~2', 'Juju', 'juju.exe')
 
@@ -251,11 +257,11 @@ class VotingNotEnabled(StatusNotMet):
 
 
 @contextmanager
-def temp_yaml_file(yaml_dict):
+def temp_yaml_file(yaml_dict, encoding="utf-8"):
     temp_file = NamedTemporaryFile(suffix='.yaml', delete=False)
     try:
         with temp_file:
-            yaml.safe_dump(yaml_dict, temp_file)
+            yaml.safe_dump(yaml_dict, temp_file, encoding=encoding)
         yield temp_file.name
     finally:
         os.unlink(temp_file.name)
@@ -1129,7 +1135,7 @@ class Juju2Backend:
 
         # If args is a string, make it a tuple. This makes writing commands
         # with one argument a bit nicer.
-        if isinstance(args, basestring):
+        if isinstance(args, argtype):
             args = (args,)
         # we split the command here so that the caller can control where the -m
         # model flag goes.  Everything in the command string is put before the
@@ -1276,7 +1282,7 @@ def client_from_config(config, juju_path, debug=False, soft_deadline=None):
         enforced.
     """
     version = EnvJujuClient.get_version(juju_path)
-    client_class = get_client_class(version)
+    client_class = get_client_class(str(version))
     if config is None:
         env = client_class.config_class('', {})
     else:
@@ -1385,7 +1391,8 @@ class EnvJujuClient:
         """
         if juju_path is None:
             juju_path = 'juju'
-        return subprocess.check_output((juju_path, '--version')).strip()
+        version = subprocess.check_output((juju_path, '--version')).strip()
+        return version.decode("utf-8")
 
     def check_timeouts(self):
         return self._backend._check_timeouts()
@@ -1799,7 +1806,7 @@ class EnvJujuClient:
                 return self.status_class.from_text(
                     self.get_juju_output(
                         self._show_status, '--format', 'yaml',
-                        controller=controller))
+                        controller=controller).decode('utf-8'))
             except subprocess.CalledProcessError:
                 pass
         raise StatusTimeout(

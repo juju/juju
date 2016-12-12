@@ -21,14 +21,11 @@ from jujupy import (
 
 __metaclass__ = type
 
-
-def check_juju_output(func):
-    def wrapper(*args, **kwargs):
-        result = func(*args, **kwargs)
-        if 'service' in result:
-            raise AssertionError('Result contained service')
-        return result
-    return wrapper
+# Python 2 and 3 compatibility
+try:
+    argtype = basestring
+except NameError:
+    argtype = str
 
 
 class ControllerOperation(Exception):
@@ -106,7 +103,7 @@ class FakeControllerState:
         self.state = 'registered'
 
     def destroy(self, kill=False):
-        for model in self.models.values():
+        for model in list(self.models.values()):
             model.destroy_model()
         self.models.clear()
         if kill:
@@ -146,7 +143,7 @@ class FakeEnvironmentState:
 
     def add_machine(self, host_name=None, machine_id=None):
         if machine_id is None:
-            machine_id = str(self.machine_id_iter.next())
+            machine_id = str(next(self.machine_id_iter))
         self.machines.add(machine_id)
         if host_name is None:
             host_name = '{}.example.com'.format(machine_id)
@@ -732,13 +729,14 @@ class FakeBackend:
         if model is not None:
             full_args.extend(['-m', model])
         full_args.extend(args)
-        self.log.log(level, ' '.join(full_args))
+        self.log.log(level, u' '.join(full_args))
 
     def juju(self, command, args, used_feature_flags,
              juju_home, model=None, check=True, timeout=None, extra_env=None):
         if 'service' in command:
             raise Exception('Command names must not contain "service".')
-        if isinstance(args, basestring):
+
+        if isinstance(args, argtype):
             args = (args,)
         self._log_command(command, args, model)
         if model is not None:
@@ -867,7 +865,6 @@ class FakeBackend:
         self.juju(command, args, used_feature_flags,
                   juju_home, model, timeout=timeout)
 
-    @check_juju_output
     def get_juju_output(self, command, args, used_feature_flags, juju_home,
                         model=None, timeout=None, user_name=None,
                         merge_stderr=False):
@@ -910,7 +907,7 @@ class FakeBackend:
                 status_dict = model_state.get_status_dict()
                 # Parsing JSON is much faster than parsing YAML, and JSON is a
                 # subset of YAML, so emit JSON.
-                return json.dumps(status_dict)
+                return json.dumps(status_dict).encode('utf-8')
             if command == 'create-backup':
                 self.controller_state.require_controller('backup', model)
                 return 'juju-backup-0.tar.gz'
@@ -977,17 +974,19 @@ class FakeBackendOptionalJES(FakeBackend):
 
 
 def fake_juju_client(env=None, full_path=None, debug=False, version='2.0.0',
-                     _backend=None, cls=EnvJujuClient):
+                     _backend=None, cls=EnvJujuClient, juju_home=None):
+    if juju_home is None:
+        if env is None or env.juju_home is None:
+            juju_home = 'foo'
+        else:
+            juju_home = env.juju_home
     if env is None:
         env = JujuData('name', {
             'type': 'foo',
             'default-series': 'angsty',
             'region': 'bar',
-            }, juju_home='foo')
+            }, juju_home=juju_home)
         env.credentials = {'credentials': {'foo': {'creds': {}}}}
-    juju_home = env.juju_home
-    if juju_home is None:
-        juju_home = 'foo'
     if _backend is None:
         backend_state = FakeControllerState()
         _backend = FakeBackend(

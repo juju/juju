@@ -1,7 +1,8 @@
 from contextlib import contextmanager
 from copy import deepcopy
-from textwrap import dedent
 from StringIO import StringIO
+from textwrap import dedent
+from unittest import TestCase
 
 from mock import (
     call,
@@ -11,7 +12,6 @@ from mock import (
 from fakejuju import fake_juju_client
 from jujupy import (
     AuthNotAccepted,
-    JujuData,
     NameNotAccepted,
     TypeNotAccepted,
     )
@@ -28,13 +28,6 @@ from assess_add_cloud import (
     )
 from tests import FakeHomeTestCase
 from utility import JujuAssertionError
-
-
-class TestCase(FakeHomeTestCase):
-
-    def make_fake_juju_client(self):
-        env = JujuData('foo', juju_home=self.juju_home)
-        return fake_juju_client(env=env)
 
 
 class TestCloudSpec(TestCase):
@@ -54,11 +47,11 @@ class TestXFail(TestCase):
             'label', 'name', {'config': 'value'}, 'qux', 'baz'))
 
 
-class TestAssessCloud(TestCase):
+class TestAssessCloud(FakeHomeTestCase):
 
     @contextmanager
     def cloud_client(self, clouds):
-        client = self.make_fake_juju_client()
+        client = fake_juju_client(juju_home=self.juju_home)
         client.env.load_yaml()
 
         def dump(cloud_name, cloud):
@@ -113,7 +106,7 @@ def make_long_endpoint(spec, regions=False):
     return cloud_spec('long-endpoint-{}'.format(spec.name), spec.name, config)
 
 
-class TestIterClouds(TestCase):
+class TestIterClouds(FakeHomeTestCase):
 
     bogus_type = cloud_spec('bogus-type', 'bogus-type', {'type': 'bogus'},
                             exception=TypeNotAccepted)
@@ -187,10 +180,10 @@ class TestIterClouds(TestCase):
             ], iter_clouds({'foo': config}))
 
 
-class TestAssessAllClouds(TestCase):
+class TestAssessAllClouds(FakeHomeTestCase):
 
     def test_assess_all_clouds(self):
-        client = self.make_fake_juju_client()
+        client = fake_juju_client(juju_home=self.juju_home)
         clouds = {'a': {'type': 'foo'}, 'b': {'type': 'bar'}}
         cloud_specs = iter_clouds(clouds)
         exception = Exception()
@@ -210,7 +203,7 @@ class TestAssessAllClouds(TestCase):
     def test_xfail(self):
         cloud_specs = [xfail(cloud_spec('label1', 'name1', {'config': '1'}),
                              27, TypeNotAccepted)]
-        client = self.make_fake_juju_client()
+        client = fake_juju_client(juju_home=self.juju_home)
         with patch('assess_add_cloud.assess_cloud',
                    side_effect=TypeNotAccepted):
             with patch('logging.exception') as exception_mock:
@@ -222,7 +215,7 @@ class TestAssessAllClouds(TestCase):
         self.assertEqual(0, exception_mock.call_count)
 
 
-class TestWriteStatus(TestCase):
+class TestWriteStatus(FakeHomeTestCase):
 
     def do_write(self, status, items):
         stdout = StringIO()
