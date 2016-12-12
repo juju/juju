@@ -37,8 +37,23 @@ def assemble_model_default(model_key, default, controller=None, regions=None):
 
 
 def juju_assert_equal(lhs, rhs, msg):
-    if (lhs != rhs):
+    if lhs != rhs:
         raise JujuAssertionError(msg, lhs, rhs)
+
+
+def get_new_model_config(client, region=None, model_name=None):
+    """Create a new model, get it's config and then destroy it.
+
+    :param client: Client to use create the new model on.
+    :param region: If given and not None, create the new model in that region
+        otherwise create it in the client region.
+    :param model_name: Name of the new model.
+    """
+    model_name = model_name or 'temp-model'
+    new_model = client.add_model(client.env.clone(model_name))
+    config_data = new_model.get_model_config()
+    new_model.destroy_model()
+    return config_data
 
 
 def assess_model_defaults_controller(client, model_key, value):
@@ -76,14 +91,16 @@ def assess_model_defaults_region(client, model_key, value,
         'model-defaults: Mismatch after resetting region.')
 
 
-def assess_model_defaults(client):
+def assess_model_defaults(client, other_region):
     log.info('Checking controller model-defaults.')
     assess_model_defaults_controller(
         client, 'automatically-retry-hooks', False)
     log.info('Checking region model-defaults.')
     assess_model_defaults_region(
         client, 'default-series', 'trusty', region='localhost')
-    # Test on different region?
+    if other_region is not None:
+        pass
+        # Test on a region not different the one the client is on.
 
 
 def parse_args(argv):
@@ -91,15 +108,18 @@ def parse_args(argv):
     parser = argparse.ArgumentParser(
         description='Assess the model-defaults command.')
     add_basic_testing_arguments(parser)
+    parser.add_argument('--other-region',
+                        help='Set the model default for a different region.')
     return parser.parse_args(argv)
 
 
+# Somewhere I think we should check that region != other_region.
 def main(argv=None):
     args = parse_args(argv)
     configure_logging(args.verbose)
     bs_manager = BootstrapManager.from_args(args)
     with bs_manager.booted_context(args.upload_tools):
-        assess_model_defaults(bs_manager.client)
+        assess_model_defaults(bs_manager.client, args.other_region)
     return 0
 
 
