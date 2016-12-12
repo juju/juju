@@ -206,3 +206,21 @@ class TestParseArgs(TestCase):
             args = parse_args(['kill-controller', 'foo', 'bar', 'baz', log_dir,
                                'qux', '--config', 'quxx'])
         self.assertEqual('quxx', args.config)
+
+    def test_parse_args_provisioning(self):
+        with temp_dir() as log_dir:
+            args = parse_args(['provisioning', 'foo', 'bar', 'baz', log_dir,
+                               'qux'])
+        self.assertEqual(args, Namespace(
+            agent_stream=None, agent_url=None, bootstrap_host=None,
+            cloud='bar', clouds_file='foo', deadline=None, debug=False,
+            juju_bin='baz', keep_env=False, logs=log_dir, machine=[],
+            region=None, series=None, temp_env_name='qux', upload_tools=False,
+            verbose=logging.INFO, test='provisioning', config=None,
+            ))
+
+    def test_parse_args_provisioning_config(self):
+        with temp_dir() as log_dir:
+            args = parse_args(['provisioning', 'foo', 'bar', 'baz', log_dir,
+                               'qux', '--config', 'quxx'])
+        self.assertEqual('quxx', args.config)

@@ -106,7 +106,7 @@ def parse_args(args):
         cloud to test.
         """))
     subparsers = parser.add_subparsers(dest='test')
-    for test in ['combined', 'kill-controller']:
+    for test in ['combined', 'kill-controller', 'provisioning']:
         subparser = subparsers.add_parser(test)
         subparser.add_argument('clouds_file',
                                help='A clouds.yaml file to use for testing.')
@@ -123,6 +123,8 @@ def main():
     bs_manager = BootstrapManager.from_client(args, client)
     if args.test == 'combined':
         assess_cloud_combined(bs_manager)
+    if args.test == 'provisioning':
+        assess_cloud_provisioning(bs_manager)
     else:
         assess_cloud_kill_controller(bs_manager)
 
