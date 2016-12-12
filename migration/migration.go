@@ -96,6 +96,7 @@ type ResourceDownloader interface {
 // the target controller during a migration.
 type ResourceUploader interface {
 	UploadResource(resource.Resource, io.ReadSeeker) error
+	SetPlaceholderResource(resource.Resource) error
 	SetUnitResource(string, resource.Resource) error
 }
 
@@ -234,9 +235,16 @@ func uploadTools(config UploadBinariesConfig) error {
 
 func uploadResources(config UploadBinariesConfig) error {
 	for _, res := range config.Resources {
-		err := uploadAppResource(config, res.ApplicationRevision)
-		if err != nil {
-			return errors.Trace(err)
+		if res.ApplicationRevision.IsPlaceholder() {
+			err := config.ResourceUploader.SetPlaceholderResource(res.ApplicationRevision)
+			if err != nil {
+				return errors.Annotate(err, "cannot set placeholder resource")
+			}
+		} else {
+			err := uploadAppResource(config, res.ApplicationRevision)
+			if err != nil {
+				return errors.Trace(err)
+			}
 		}
 		for unitName, unitRev := range res.UnitRevisions {
 			if err := config.ResourceUploader.SetUnitResource(unitName, unitRev); err != nil {

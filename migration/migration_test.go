@@ -130,12 +130,14 @@ func (s *ImportSuite) TestBinariesMigration(c *gc.C) {
 	app1Res := resourcetesting.NewResource(c, nil, "blob1", "app1", "blob1").Resource
 	app1UnitRes := app1Res
 	app1UnitRes.Revision = 1
+	app2Res := resourcetesting.NewPlaceholderResource(c, "blob2", "app2")
 	resources := []coremigration.SerializedModelResource{
 		{ApplicationRevision: app0Res},
 		{
 			ApplicationRevision: app1Res,
 			UnitRevisions:       map[string]resource.Resource{"app1/99": app1UnitRes},
 		},
+		{ApplicationRevision: app2Res},
 	}
 
 	config := migration.UploadBinariesConfig{
@@ -174,6 +176,7 @@ func (s *ImportSuite) TestBinariesMigration(c *gc.C) {
 	c.Assert(uploader.resources, jc.DeepEquals, map[string]string{
 		"app0/blob0": "blob0",
 		"app1/blob1": "blob1",
+		"app2/blob2": "<placeholder>",
 	})
 	c.Assert(uploader.unitResources, jc.SameContents, []string{"app1/99-blob1"})
 }
@@ -238,6 +241,11 @@ func (f *fakeUploader) UploadResource(res resource.Resource, r io.ReadSeeker) er
 		return errors.Trace(err)
 	}
 	f.resources[res.ApplicationID+"/"+res.Name] = string(body)
+	return nil
+}
+
+func (f *fakeUploader) SetPlaceholderResource(res resource.Resource) error {
+	f.resources[res.ApplicationID+"/"+res.Name] = "<placeholder>"
 	return nil
 }
 
