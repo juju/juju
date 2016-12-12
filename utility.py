@@ -88,6 +88,9 @@ class until_timeout:
     def now():
         return datetime.now()
 
+    def __next__(self):
+        self.next()
+
     def next(self):
         elapsed = self.now() - self.start
         remaining = self.timeout - elapsed.total_seconds()
@@ -190,7 +193,7 @@ def wait_for_port(host, port, closed=False, timeout=30):
             else:
                 continue
         conn = socket.socket(*addrinfo[0][:3])
-        conn.settimeout(max(remaining, 5))
+        conn.settimeout(max(remaining or 0, 5))
         try:
             conn.connect(sockaddr)
         except socket.timeout:
