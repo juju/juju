@@ -2990,6 +2990,15 @@ class EnvJujuClient1X(EnvJujuClientRC):
         """Unset the value of the option in the environment."""
         return self.juju('set-env', ('{}='.format(option),))
 
+    def get_model_defaults(self, model_key, cloud=None, region=None):
+        log.info('No model-defaults stored for client (attempted get).')
+
+    def set_model_defaults(self, model_key, value, cloud=None, region=None):
+        log.info('No model-defaults stored for client (attempted set).')
+
+    def unset_model_defaults(self, model_key, cloud=None, region=None):
+        log.info('No model-defaults stored for client (attempted unset).')
+
     def _cmd_model(self, include_e, controller):
         if controller:
             return self.get_controller_model_name()

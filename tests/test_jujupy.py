@@ -4611,6 +4611,27 @@ class TestEnvJujuClient1X(ClientTest):
             ('juju', '--show-log', 'set-env', '-e', 'foo',
              'tools-metadata-url='))
 
+    @contextmanager
+    def run_model_defaults_test(self, operation_name):
+        env = SimpleEnvironment('foo', {'type': 'local'})
+        client = EnvJujuClient1X(env, '1.23-series-arch', None)
+        yield client
+        self.assertEqual('INFO No model-defaults stored for client '
+                         '(attempted {}).\n'.format(operation_name),
+                         self.log_stream.getvalue())
+
+    def test_get_model_defaults(self):
+        with self.run_model_defaults_test('get') as client:
+            client.get_model_defaults('some-key')
+
+    def test_set_model_defaults(self):
+        with self.run_model_defaults_test('set') as client:
+            client.set_model_defaults('some-key', 'some-value')
+
+    def test_unset_model_defaults(self):
+        with self.run_model_defaults_test('unset') as client:
+            client.unset_model_defaults('some-key')
+
     def test_set_testing_agent_metadata_url(self):
         env = SimpleEnvironment(None, {'type': 'foo'})
         client = EnvJujuClient1X(env, None, None)
