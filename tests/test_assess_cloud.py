@@ -98,7 +98,8 @@ class TestClientFromArgs(FakeHomeTestCase):
         with temp_yaml_file({}) as clouds_file:
             args = Namespace(
                 juju_bin='/usr/bin/juju', clouds_file=clouds_file,
-                cloud='mycloud', region=None, debug=False, deadline=None)
+                cloud='mycloud', region=None, debug=False, deadline=None,
+                config=None)
             with patch.object(EnvJujuClient.config_class,
                               'from_cloud_region') as fcr_mock:
                 with patch.object(EnvJujuClient, 'get_version',
@@ -115,7 +116,7 @@ class TestClientFromArgs(FakeHomeTestCase):
         with temp_yaml_file({}) as clouds_file:
             args = Namespace(
                 juju_bin='FAKE', clouds_file=clouds_file, cloud='mycloud',
-                region=None, debug=False, deadline=None)
+                region=None, debug=False, deadline=None, config=None)
             with patch.object(EnvJujuClient.config_class,
                               'from_cloud_region') as fcr_mock:
                 client = client_from_args(args)
@@ -125,6 +126,21 @@ class TestClientFromArgs(FakeHomeTestCase):
         self.assertIs(type(client._backend), FakeBackend)
         self.assertEqual(client.version, '2.0.0')
         self.assertIs(client.env, fcr_mock.return_value)
+
+    def test_config(self):
+        with temp_yaml_file({}) as clouds_file:
+            with temp_yaml_file({'foo': 'bar'}) as config_file:
+                args = Namespace(
+                    juju_bin='/usr/bin/juju', clouds_file=clouds_file,
+                    cloud='mycloud', region=None, debug=False, deadline=None,
+                    config=config_file)
+                with patch.object(EnvJujuClient.config_class,
+                                  'from_cloud_region') as fcr_mock:
+                    with patch.object(EnvJujuClient, 'get_version',
+                                      return_value='2.0.x'):
+                        client_from_args(args)
+        fcr_mock.assert_called_once_with('mycloud', None, {'foo': 'bar'}, {},
+                                         self.juju_home)
 
 
 class TestParseArgs(TestCase):

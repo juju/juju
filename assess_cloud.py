@@ -41,8 +41,13 @@ def client_from_args(args):
     juju_home = get_juju_home()
     with open(args.clouds_file) as f:
         clouds = yaml.safe_load(f)
+    if args.config is None:
+        config = {}
+    else:
+        with open(args.config) as f:
+            config = yaml.safe_load(f)
     juju_data = client_class.config_class.from_cloud_region(
-        args.cloud, args.region, {}, clouds, juju_home)
+        args.cloud, args.region, config, clouds, juju_home)
     return client_class(juju_data, version, args.juju_bin, debug=args.debug,
                         soft_deadline=args.deadline, _backend=backend)
 
