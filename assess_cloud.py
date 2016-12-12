@@ -69,9 +69,14 @@ def assess_cloud_combined(bs_manager):
 
 
 def assess_cloud_provisioning(bs_manager):
-    """Assess several operations on a cloud.
+    """Assess provisioning operations on a cloud.
 
-    This tests bootstrap, deploy, remove-unit and destroy-controller.
+    This was created for testing Azure streams.  It tests bootstrap,
+    add-machine, remove-machine and destroy-controller.  It does not test
+    charms.
+
+    It tests "trusty" and "win2012r2" as representative series on Azure.  It
+    does not test CentOS, because that is known-broken at the moment.
     """
     client = bs_manager.client
     with bs_manager.booted_context(upload_tools=False):
