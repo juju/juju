@@ -138,8 +138,14 @@ class TestParseArgs(TestCase):
             cloud='bar', clouds_file='foo', deadline=None, debug=False,
             juju_bin='baz', keep_env=False, logs=log_dir, machine=[],
             region=None, series=None, temp_env_name='qux', upload_tools=False,
-            verbose=logging.INFO, test='combined'
+            verbose=logging.INFO, test='combined', config=None,
             ))
+
+    def test_parse_args_combined_config(self):
+        with temp_dir() as log_dir:
+            args = parse_args(['combined', 'foo', 'bar', 'baz', log_dir,
+                               'qux', '--config', 'quxx'])
+        self.assertEqual('quxx', args.config)
 
     def test_parse_args_kill_controller(self):
         with temp_dir() as log_dir:
@@ -150,5 +156,11 @@ class TestParseArgs(TestCase):
             cloud='bar', clouds_file='foo', deadline=None, debug=False,
             juju_bin='baz', keep_env=False, logs=log_dir, machine=[],
             region=None, series=None, temp_env_name='qux', upload_tools=False,
-            verbose=logging.INFO, test='kill-controller'
+            verbose=logging.INFO, test='kill-controller', config=None,
             ))
+
+    def test_parse_args_kill_controller_config(self):
+        with temp_dir() as log_dir:
+            args = parse_args(['kill-controller', 'foo', 'bar', 'baz', log_dir,
+                               'qux', '--config', 'quxx'])
+        self.assertEqual('quxx', args.config)

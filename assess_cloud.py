@@ -89,6 +89,7 @@ def parse_args(args):
                                help='A clouds.yaml file to use for testing.')
         subparser.add_argument('cloud', help='Specific cloud to test.')
         add_basic_testing_arguments(subparser, env=False)
+        subparser.add_argument('--config')
     return parser.parse_args(args)
 
 
