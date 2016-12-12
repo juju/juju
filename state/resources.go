@@ -19,6 +19,10 @@ type Resources interface {
 	// ListResources returns the list of resources for the given application.
 	ListResources(applicationID string) (resource.ServiceResources, error)
 
+	// ListPendingResources returns the list of pending resources for
+	// the given application.
+	ListPendingResources(applicationID string) ([]resource.Resource, error)
+
 	// AddPendingResource adds the resource to the data store in a
 	// "pending" state. It will stay pending (and unavailable) until
 	// it is resolved. The returned ID is used to identify the pending
