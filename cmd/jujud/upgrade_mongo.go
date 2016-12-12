@@ -17,11 +17,11 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/replicaset"
-	"github.com/juju/retry"
 	"github.com/juju/utils"
 	"github.com/juju/utils/clock"
 	"github.com/juju/utils/fs"
 	"github.com/juju/utils/packaging/manager"
+	"github.com/juju/utils/retry"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
@@ -42,10 +42,9 @@ func createTempDir() (string, error) {
 	return ioutil.TempDir("", "")
 }
 
-var defaultCallArgs = retry.CallArgs{
-	Attempts: 60,
-	Delay:    time.Second,
-	Clock:    clock.WallClock,
+var retryStrategy = retry.Regular{
+	Min:   60,
+	Delay: time.Second,
 }
 
 // NewUpgradeMongoCommand returns a new UpgradeMongo command initialized with
@@ -63,7 +62,6 @@ func NewUpgradeMongoCommand() *UpgradeMongoCommand {
 		fsCopy:               fs.Copy,
 		osGetenv:             os.Getenv,
 
-		callArgs:                    defaultCallArgs,
 		mongoStart:                  mongo.StartService,
 		mongoStop:                   mongo.StopService,
 		mongoRestart:                mongo.ReStartService,
@@ -93,7 +91,7 @@ type mgoDb interface {
 	Run(interface{}, interface{}) error
 }
 
-type dialAndLogger func(*mongo.MongoInfo, retry.CallArgs) (mgoSession, mgoDb, error)
+type dialAndLogger func(*mongo.MongoInfo, clock.Clock) (mgoSession, mgoDb, error)
 
 type requisitesSatisfier func(string) error
 
@@ -120,7 +118,6 @@ type UpgradeMongoCommand struct {
 	members        string
 
 	// utils used by this struct.
-	callArgs             retry.CallArgs
 	stat                 statFunc
 	remove               removeFunc
 	mkdir                mkdirFunc
@@ -131,6 +128,7 @@ type UpgradeMongoCommand struct {
 	discoverService      discoverService
 	fsCopy               fsCopyFunc
 	osGetenv             osGetenv
+	clock                clock.Clock
 
 	// mongo related utils.
 	mongoStart                  mongoService
@@ -287,7 +285,7 @@ func (u *UpgradeMongoCommand) replicaRemove() error {
 		return errors.New("cannot get mongo info from agent config to resume HA")
 	}
 
-	session, _, err := u.dialAndLogin(info, u.callArgs)
+	session, _, err := u.dialAndLogin(info, u.clock)
 	if err != nil {
 		return errors.Annotate(err, "error dialing mongo to resume HA")
 	}
@@ -317,7 +315,7 @@ func (u *UpgradeMongoCommand) replicaAdd() error {
 		return errors.New("cannot get mongo info from agent config to resume HA")
 	}
 
-	session, _, err := u.dialAndLogin(info, u.callArgs)
+	session, _, err := u.dialAndLogin(info, u.clock)
 	if err != nil {
 		return errors.Annotate(err, "error dialing mongo to resume HA")
 	}
@@ -399,7 +397,7 @@ func (u *UpgradeMongoCommand) maybeUpgrade24to26(dataDir string) error {
 		return errors.New("cannot get mongo info from agent config")
 	}
 
-	session, db, err := u.dialAndLogin(info, u.callArgs)
+	session, db, err := u.dialAndLogin(info, u.clock)
 	if err != nil {
 		return errors.Annotate(err, "error dialing mongo to upgrade auth schema")
 	}
@@ -546,21 +544,19 @@ func (u *UpgradeMongoCommand) maybeUpgrade26to3x(dataDir string) error {
 
 // dialAndLogin returns a mongo session logged in as a user with administrative
 // privileges
-func dialAndLogin(mongoInfo *mongo.MongoInfo, callArgs retry.CallArgs) (mgoSession, mgoDb, error) {
-	var session *mgo.Session
+func dialAndLogin(mongoInfo *mongo.MongoInfo, clock clock.Clock) (mgoSession, mgoDb, error) {
 	opts := mongo.DefaultDialOpts()
-	callArgs.Func = func() error {
-		// Try to connect, retry a few times until the db comes up.
+	// Try to connect, retry a few times until the db comes up.
+	var session *mgo.Session
+	for a := retryStrategy.Start(clock, nil); a.Next(); {
 		var err error
 		session, err = mongo.DialWithInfo(mongoInfo.Info, opts)
 		if err == nil {
-			return nil
+			break
 		}
-		logger.Errorf("cannot open mongo connection: %v", err)
-		return err
-	}
-	if err := retry.Call(callArgs); err != nil {
-		return nil, nil, errors.Annotate(err, "error dialing mongo to resume HA")
+		if !a.HasNext() {
+			return nil, nil, errors.Annotate(err, "error dialing mongo to resume HA")
+		}
 	}
 	admin := session.DB("admin")
 	if mongoInfo.Tag != nil {
@@ -640,7 +636,7 @@ func satisfyPrerequisites(operatingsystem string) error {
 
 func mongoDumpCall(
 	runCommand utilsRun, tmpDir, mongoPath, adminPassword, migrationName string,
-	statePort int, callArgs retry.CallArgs,
+	statePort int, clock clock.Clock,
 ) (string, error) {
 	mongodump := filepath.Join(mongoPath, "mongodump")
 	dumpParams := []string{
@@ -651,29 +647,25 @@ func mongoDumpCall(
 		"--host", "localhost",
 		"--out", filepath.Join(tmpDir, fmt.Sprintf("migrateTo%sdump", migrationName)),
 	}
-	var out string
-	callArgs.Func = func() error {
-		var err error
-		out, err = runCommand(mongodump, dumpParams...)
+	for a := retryStrategy.Start(clock, nil); a.Next(); {
+		out, err := runCommand(mongodump, dumpParams...)
 		if err == nil {
-			return nil
+			return out, nil
 		}
-		logger.Errorf("cannot dump db %v: %s", err, out)
-		return err
+		logger.Errorf("db dump attempt failed: %v (%s)", err, out)
+		if !a.HasNext() {
+			return out, errors.Annotate(err, "cannot dump mongo db: attempt count exceeded")
+		}
 	}
-	if err := retry.Call(callArgs); err != nil {
-		logger.Errorf(out)
-		return out, errors.Annotate(err, "cannot dump mongo db")
-	}
-	return out, nil
+	panic("unreachable")
 }
 
 func (u *UpgradeMongoCommand) mongoDump(mongoPath, adminPassword, migrationName string, statePort int) (string, error) {
-	return mongoDumpCall(u.runCommand, u.tmpDir, mongoPath, adminPassword, migrationName, statePort, u.callArgs)
+	return mongoDumpCall(u.runCommand, u.tmpDir, mongoPath, adminPassword, migrationName, statePort, u.clock)
 }
 
 func mongoRestoreCall(runCommand utilsRun, tmpDir, mongoPath, adminPassword, migrationName string,
-	dbs []string, statePort int, invalidSSL bool, batchSize int, callArgs retry.CallArgs) error {
+	dbs []string, statePort int, invalidSSL bool, batchSize int, clock clock.Clock) error {
 	mongorestore := filepath.Join(mongoPath, "mongorestore")
 	restoreParams := []string{
 		"--ssl",
@@ -690,41 +682,32 @@ func mongoRestoreCall(runCommand utilsRun, tmpDir, mongoPath, adminPassword, mig
 	if adminPassword != "" {
 		restoreParams = append(restoreParams, "-u", "admin", "-p", adminPassword)
 	}
-	var out string
 	if len(dbs) == 0 || dbs == nil {
 		restoreParams = append(restoreParams, filepath.Join(tmpDir, fmt.Sprintf("migrateTo%sdump", migrationName)))
-		restoreCallArgs := callArgs
-		restoreCallArgs.Func = func() error {
-			var err error
-			out, err = runCommand(mongorestore, restoreParams...)
+		for a := retryStrategy.Start(clock, nil); a.Next(); {
+			out, err := runCommand(mongorestore, restoreParams...)
 			if err == nil {
-				return nil
+				break
 			}
-			logger.Errorf("cannot restore %v: %s", err, out)
-			return err
-		}
-		if err := retry.Call(restoreCallArgs); err != nil {
-			err := errors.Annotatef(err, "cannot restore dbs got: %s", out)
-			logger.Errorf("%#v", err)
-			return err
+			logger.Errorf("restore attempt failed: %v (got %s)", err, out)
+			if !a.HasNext() {
+				return errors.Annotatef(err, "cannot restore dbs got: %s: attempt count exceeded", out)
+			}
 		}
 	}
 	for i := range dbs {
 		restoreDbParams := append(restoreParams,
 			fmt.Sprintf("--db=%s", dbs[i]),
 			filepath.Join(tmpDir, fmt.Sprintf("migrateTo%sdump", migrationName), dbs[i]))
-		restoreCallArgs := callArgs
-		restoreCallArgs.Func = func() error {
-			var err error
-			out, err = runCommand(mongorestore, restoreDbParams...)
+		for a := retryStrategy.Start(clock, nil); a.Next(); {
+			out, err := runCommand(mongorestore, restoreDbParams...)
 			if err == nil {
-				return nil
+				break
 			}
-			logger.Errorf("cannot restore db %q: %v: got %s", dbs[i], err, out)
-			return err
-		}
-		if err := retry.Call(restoreCallArgs); err != nil {
-			return errors.Annotatef(err, "cannot restore db %q got: %s", dbs[i], out)
+			logger.Errorf("restore attempt for db %q failed: %v; got %s", dbs[i], err, out)
+			if !a.HasNext() {
+				return errors.Annotatef(err, "cannot restore db %q got: %s", dbs[i], out)
+			}
 		}
 		logger.Infof("Succesfully restored db %q", dbs[i])
 	}
@@ -734,7 +717,7 @@ func mongoRestoreCall(runCommand utilsRun, tmpDir, mongoPath, adminPassword, mig
 func (u *UpgradeMongoCommand) mongoRestore(mongoPath, adminPassword, migrationName string, dbs []string, statePort int, invalidSSL bool, batchSize int) error {
 	return mongoRestoreCall(
 		u.runCommand, u.tmpDir, mongoPath, adminPassword, migrationName, dbs,
-		statePort, invalidSSL, batchSize, u.callArgs,
+		statePort, invalidSSL, batchSize, u.clock,
 	)
 }
 

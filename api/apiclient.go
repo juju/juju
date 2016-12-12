@@ -18,10 +18,10 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/retry"
 	"github.com/juju/utils"
 	"github.com/juju/utils/clock"
 	"github.com/juju/utils/parallel"
+	"github.com/juju/utils/retry"
 	"github.com/juju/version"
 	"golang.org/x/net/websocket"
 	"gopkg.in/juju/names.v2"
@@ -572,37 +572,35 @@ type hasErrorCode interface {
 	ErrorCode() string
 }
 
+var apiCallStrategy = retry.LimitTime(10*time.Second,
+	retry.Exponential{
+		Initial:  100 * time.Millisecond,
+		MaxDelay: 1500 * time.Millisecond,
+		Factor:   2,
+	},
+)
+
 // APICall places a call to the remote machine.
 //
 // This fills out the rpc.Request on the given facade, version for a given
 // object id, and the specific RPC method. It marshalls the Arguments, and will
 // unmarshall the result into the response object that is supplied.
 func (s *state) APICall(facade string, version int, id, method string, args, response interface{}) error {
-	retrySpec := retry.CallArgs{
-		Func: func() error {
-			return s.client.Call(rpc.Request{
-				Type:    facade,
-				Version: version,
-				Id:      id,
-				Action:  method,
-			}, args, response)
-		},
-		IsFatalError: func(err error) bool {
-			err = errors.Cause(err)
-			ec, ok := err.(hasErrorCode)
-			if !ok {
-				return true
-			}
-			return ec.ErrorCode() != params.CodeRetry
-		},
-		Delay:       100 * time.Millisecond,
-		MaxDelay:    1500 * time.Millisecond,
-		MaxDuration: 10 * time.Second,
-		BackoffFunc: retry.DoubleDelay,
-		Clock:       s.clock,
+	for a := retry.Start(apiCallStrategy, s.clock, nil); a.Next(); {
+		err := s.client.Call(rpc.Request{
+			Type:    facade,
+			Version: version,
+			Id:      id,
+			Action:  method,
+		}, args, response)
+		if params.ErrCode(err) != params.CodeRetry {
+			return errors.Trace(err)
+		}
+		if !a.HasNext() {
+			return errors.Annotatef(err, "too many retries")
+		}
 	}
-	err := retry.Call(retrySpec)
-	return errors.Trace(err)
+	panic("unreachable")
 }
 
 func (s *state) Close() error {

@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/retry"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/clock"
@@ -368,8 +367,7 @@ func (s *apiclientSuite) TestAPICallRetriesLimit(c *gc.C) {
 	})
 
 	err := conn.APICall("facade", 1, "id", "method", nil, nil)
-	c.Check(err, jc.Satisfies, retry.IsDurationExceeded)
-	c.Check(err, gc.ErrorMatches, `.*hmm... \(retry\)`)
+	c.Check(err, gc.ErrorMatches, `too many retries: .*hmm... \(retry\)`)
 	c.Check(clock.waits, jc.DeepEquals, []time.Duration{
 		100 * time.Millisecond,
 		200 * time.Millisecond,

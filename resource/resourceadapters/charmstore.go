@@ -8,8 +8,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/retry"
-	"github.com/juju/utils/clock"
+	"github.com/juju/utils/retry"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 	"gopkg.in/juju/names.v2"
 
@@ -71,57 +70,32 @@ func (cs *charmstoreOpener) NewClient() (*CSRetryClient, error) {
 // retries GetResource() calls.
 type CSRetryClient struct {
 	charmstore.Client
-	retryArgs retry.CallArgs
 }
 
 func newCSRetryClient(client charmstore.Client) *CSRetryClient {
-	retryArgs := retry.CallArgs{
-		// The only error that stops the retry loop should be "not found".
-		IsFatalError: errors.IsNotFound,
-		// We want to retry until the charm store either gives us the
-		// resource (and we cache it) or the resource isn't found in the
-		// charm store.
-		Attempts: -1, // retry forever...
-		// A one minute gives enough time for potential connection
-		// issues to sort themselves out without making the caller wait
-		// for an exceptional amount of time.
-		Delay: 1 * time.Minute,
-		Clock: clock.WallClock,
-	}
 	return &CSRetryClient{
-		Client:    client,
-		retryArgs: retryArgs,
+		Client: client,
 	}
+}
+
+var retryStrategy = retry.Regular{
+	Delay: 1 * time.Minute,
+	Total: 5 * time.Hour,
 }
 
 // GetResource returns a reader for the resource's data.
 func (client CSRetryClient) GetResource(req charmstore.ResourceRequest) (charmstore.ResourceData, error) {
-	args := client.retryArgs // a copy
-
-	var data charmstore.ResourceData
-	args.Func = func() error {
-		var err error
-		data, err = client.Client.GetResource(req)
-		if err != nil {
-			return errors.Trace(err)
+	i := 0
+	for a := retryStrategy.Start(nil, nil); a.Next(); {
+		data, err := client.Client.GetResource(req)
+		if err == nil || errors.IsNotFound(err) {
+			return data, errors.Trace(err)
 		}
-		return nil
-	}
-
-	var lastErr error
-	args.NotifyFunc = func(err error, i int) {
-		// Remember the error we're hiding and then retry!
+		if !a.HasNext() {
+			return charmstore.ResourceData{}, errors.Annotatef(err, "failed after retrying")
+		}
+		i++
 		logger.Debugf("(attempt %d) retrying resource download from charm store due to error: %v", i, err)
-		lastErr = err
 	}
-
-	err := retry.Call(args)
-	if retry.IsAttemptsExceeded(err) {
-		return data, errors.Annotate(lastErr, "failed after retrying")
-	}
-	if err != nil {
-		return data, errors.Trace(err)
-	}
-
-	return data, nil
+	panic("unreachable")
 }

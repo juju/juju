@@ -14,7 +14,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/replicaset"
-	"github.com/juju/retry"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
@@ -62,10 +61,10 @@ func (mock *mockClock) AfterFunc(d time.Duration, f func()) clock.Timer {
 	panic("unexpected call to AfterFunc")
 }
 
-func retryCallArgs() retry.CallArgs {
-	args := defaultCallArgs
-	args.Clock = &mockClock{}
-	return args
+func newMockClock() clock.Clock {
+	return &mockClock{
+		now: time.Now(),
+	}
 }
 
 var _ = gc.Suite(&UpgradeMongoSuite{})
@@ -151,8 +150,7 @@ func (s *UpgradeMongoSuite) TestRemoveOldDb(c *gc.C) {
 
 func (s *UpgradeMongoSuite) TestMongoDump(c *gc.C) {
 	command := fakeRunCommand{}
-	callArgs := retryCallArgs()
-	out, err := mongoDumpCall(command.runCommand, "/fake/tmp/dir", "/fake/mongo/path", "adminpass", "aMigrationName", 1234, callArgs)
+	out, err := mongoDumpCall(command.runCommand, "/fake/tmp/dir", "/fake/mongo/path", "adminpass", "aMigrationName", 1234, newMockClock())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(out, gc.Equals, "")
 	c.Assert(command.ranCommands, gc.HasLen, 1)
@@ -161,8 +159,7 @@ func (s *UpgradeMongoSuite) TestMongoDump(c *gc.C) {
 
 func (s *UpgradeMongoSuite) TestMongoDumpRetries(c *gc.C) {
 	command := fakeRunCommand{}
-	callArgs := retryCallArgs()
-	out, err := mongoDumpCall(command.runCommandFail, "/fake/tmp/dir", "/fake/mongo/path", "", "aMigrationName", 1234, callArgs)
+	out, err := mongoDumpCall(command.runCommandFail, "/fake/tmp/dir", "/fake/mongo/path", "", "aMigrationName", 1234, newMockClock())
 	c.Assert(err, gc.ErrorMatches, "cannot dump mongo db: attempt count exceeded: a generic error")
 	c.Assert(out, gc.Equals, "this failed")
 	c.Assert(command.ranCommands, gc.HasLen, 60)
@@ -174,8 +171,7 @@ func (s *UpgradeMongoSuite) TestMongoDumpRetries(c *gc.C) {
 
 func (s *UpgradeMongoSuite) TestMongoRestore(c *gc.C) {
 	command := fakeRunCommand{}
-	callArgs := retryCallArgs()
-	err := mongoRestoreCall(command.runCommand, "/fake/tmp/dir", "/fake/mongo/path", "adminpass", "aMigrationName", []string{}, 1234, true, 100, callArgs)
+	err := mongoRestoreCall(command.runCommand, "/fake/tmp/dir", "/fake/mongo/path", "adminpass", "aMigrationName", []string{}, 1234, true, 100, newMockClock())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(command.ranCommands, gc.HasLen, 1)
 	c.Assert(command.ranCommands[0], gc.DeepEquals, []string{"/fake/mongo/path/mongorestore", "--ssl", "--port", "1234", "--host", "localhost", "--sslAllowInvalidCertificates", "--batchSize", "100", "-u", "admin", "-p", "adminpass", "/fake/tmp/dir/migrateToaMigrationNamedump"})
@@ -183,8 +179,7 @@ func (s *UpgradeMongoSuite) TestMongoRestore(c *gc.C) {
 
 func (s *UpgradeMongoSuite) TestMongoRestoreWithoutAdmin(c *gc.C) {
 	command := fakeRunCommand{}
-	callArgs := retryCallArgs()
-	err := mongoRestoreCall(command.runCommand, "/fake/tmp/dir", "/fake/mongo/path", "", "aMigrationName", []string{}, 1234, false, 0, callArgs)
+	err := mongoRestoreCall(command.runCommand, "/fake/tmp/dir", "/fake/mongo/path", "", "aMigrationName", []string{}, 1234, false, 0, newMockClock())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(command.ranCommands, gc.HasLen, 1)
 	c.Assert(command.ranCommands[0], gc.DeepEquals, []string{"/fake/mongo/path/mongorestore", "--ssl", "--port", "1234", "--host", "localhost", "/fake/tmp/dir/migrateToaMigrationNamedump"})
@@ -192,8 +187,7 @@ func (s *UpgradeMongoSuite) TestMongoRestoreWithoutAdmin(c *gc.C) {
 
 func (s *UpgradeMongoSuite) TestMongoRestoreWithDBs(c *gc.C) {
 	command := fakeRunCommand{}
-	callArgs := retryCallArgs()
-	err := mongoRestoreCall(command.runCommand, "/fake/tmp/dir", "/fake/mongo/path", "adminpass", "aMigrationName", []string{"onedb", "twodb"}, 1234, false, 0, callArgs)
+	err := mongoRestoreCall(command.runCommand, "/fake/tmp/dir", "/fake/mongo/path", "adminpass", "aMigrationName", []string{"onedb", "twodb"}, 1234, false, 0, newMockClock())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(command.ranCommands, gc.HasLen, 2)
 	c.Assert(command.ranCommands[0], gc.DeepEquals, []string{"/fake/mongo/path/mongorestore", "--ssl", "--port", "1234", "--host", "localhost", "-u", "admin", "-p", "adminpass", "--db=onedb", "/fake/tmp/dir/migrateToaMigrationNamedump/onedb"})
@@ -202,8 +196,7 @@ func (s *UpgradeMongoSuite) TestMongoRestoreWithDBs(c *gc.C) {
 
 func (s *UpgradeMongoSuite) TestMongoRestoreRetries(c *gc.C) {
 	command := fakeRunCommand{}
-	callArgs := retryCallArgs()
-	err := mongoRestoreCall(command.runCommandFail, "/fake/tmp/dir", "/fake/mongo/path", "", "aMigrationName", []string{}, 1234, false, 0, callArgs)
+	err := mongoRestoreCall(command.runCommandFail, "/fake/tmp/dir", "/fake/mongo/path", "", "aMigrationName", []string{}, 1234, false, 0, newMockClock())
 	c.Assert(err, gc.ErrorMatches, "cannot restore dbs got: this failed: attempt count exceeded: a generic error")
 	c.Assert(command.ranCommands, gc.HasLen, 60)
 	for i := range command.ranCommands {
@@ -231,7 +224,7 @@ func (f *fakeMgoDb) Run(action interface{}, res interface{}) error {
 	return nil
 }
 
-func (f *fakeRunCommand) dialAndLogin(*mongo.MongoInfo, retry.CallArgs) (mgoSession, mgoDb, error) {
+func (f *fakeRunCommand) dialAndLogin(*mongo.MongoInfo, clock.Clock) (mgoSession, mgoDb, error) {
 	f.ranCommands = append(f.ranCommands, []string{"DialAndlogin"})
 	return f.mgoSession, f.mgoDb, nil
 }
@@ -414,13 +407,12 @@ func (s *UpgradeMongoCommandSuite) TestRun(c *gc.C) {
 	testAgentConfig := agent.ConfigPath(testDir, names.NewMachineTag("0"))
 	s.createFakeAgentConf(c, testDir, mongo.Mongo24)
 
-	callArgs := retryCallArgs()
 	upgradeMongoCommand := &UpgradeMongoCommand{
 		machineTag:     "0",
 		series:         "vivid",
 		configFilePath: testAgentConfig,
 		tmpDir:         "/fake/temp/dir",
-		callArgs:       callArgs,
+		clock:          newMockClock(),
 
 		stat:                 command.stat,
 		remove:               command.remove,
@@ -501,13 +493,12 @@ func (s *UpgradeMongoCommandSuite) TestRunRollback(c *gc.C) {
 	testAgentConfig := agent.ConfigPath(tempDir, names.NewMachineTag("0"))
 	s.createFakeAgentConf(c, tempDir, mongo.Mongo24)
 
-	callArgs := retryCallArgs()
 	upgradeMongoCommand := &UpgradeMongoCommand{
 		machineTag:     "0",
 		series:         "vivid",
 		configFilePath: testAgentConfig,
 		tmpDir:         "/fake/temp/dir",
-		callArgs:       callArgs,
+		clock:          newMockClock(),
 
 		stat:                 command.stat,
 		remove:               command.remove,
@@ -577,13 +568,12 @@ func (s *UpgradeMongoCommandSuite) TestRunContinuesWhereLeft(c *gc.C) {
 	testAgentConfig := agent.ConfigPath(testDir, names.NewMachineTag("0"))
 	s.createFakeAgentConf(c, testDir, mongo.Mongo26)
 
-	callArgs := retryCallArgs()
 	upgradeMongoCommand := &UpgradeMongoCommand{
 		machineTag:     "0",
 		series:         "vivid",
 		configFilePath: testAgentConfig,
 		tmpDir:         "/fake/temp/dir",
-		callArgs:       callArgs,
+		clock:          newMockClock(),
 
 		stat:                 command.stat,
 		remove:               command.remove,
