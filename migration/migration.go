@@ -96,6 +96,7 @@ type ResourceDownloader interface {
 // the target controller during a migration.
 type ResourceUploader interface {
 	UploadResource(resource.Resource, io.ReadSeeker) error
+	SetUnitResource(string, resource.Resource) error
 }
 
 // UploadBinariesConfig provides all the configuration that the
@@ -237,8 +238,14 @@ func uploadResources(config UploadBinariesConfig) error {
 		if err != nil {
 			return errors.Trace(err)
 		}
-		// TODO(menn0) - charmstore revision
-		// TODO(menn0) - unit revisions
+		for unitName, unitRev := range res.UnitRevisions {
+			if err := config.ResourceUploader.SetUnitResource(unitName, unitRev); err != nil {
+				return errors.Annotate(err, "cannot set unit resource")
+			}
+		}
+		// Each config.Resources element also contains a
+		// CharmStoreRevision field. This isn't especially important
+		// to migrate so is skipped for now.
 	}
 	return nil
 }

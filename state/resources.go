@@ -34,6 +34,9 @@ type Resources interface {
 	// SetResource adds the resource to blob storage and updates the metadata.
 	SetResource(applicationID, userID string, res charmresource.Resource, r io.Reader) (resource.Resource, error)
 
+	// SetUnitResource sets the resource metadata for a specific unit.
+	SetUnitResource(unitName, userID string, res charmresource.Resource) (resource.Resource, error)
+
 	// UpdatePendingResource adds the resource to blob storage and updates the metadata.
 	UpdatePendingResource(applicationID, pendingID, userID string, res charmresource.Resource, r io.Reader) (resource.Resource, error)
 

@@ -26,6 +26,7 @@ import (
 type resourceUploadSuite struct {
 	authHTTPSuite
 	appName        string
+	unit           *state.Unit
 	importingState *state.State
 	importingModel *state.Model
 }
@@ -54,6 +55,10 @@ func (s *resourceUploadSuite) SetUpTest(c *gc.C) {
 	newFactory := factory.NewFactory(s.importingState)
 	app := newFactory.MakeApplication(c, nil)
 	s.appName = app.Name()
+
+	s.unit = newFactory.MakeUnit(c, &factory.UnitParams{
+		Application: app,
+	})
 
 	err = s.importingModel.SetMigrationMode(state.MigrationModeImporting)
 	c.Assert(err, jc.ErrorIsNil)
@@ -105,7 +110,7 @@ func (s *resourceUploadSuite) TestPOSTRequiresUserAuth(c *gc.C) {
 
 	// Now try a user login.
 	resp = s.authRequest(c, httpRequestParams{method: "POST", url: s.resourcesURI(c, "")})
-	s.assertErrorResponse(c, resp, http.StatusBadRequest, "missing application")
+	s.assertErrorResponse(c, resp, http.StatusBadRequest, "missing application/unit")
 }
 
 func (s *resourceUploadSuite) TestRejectsInvalidModel(c *gc.C) {
@@ -134,14 +139,7 @@ func (s *resourceUploadSuite) makeUploadArgs(c *gc.C) url.Values {
 }
 
 func (s *resourceUploadSuite) TestUpload(c *gc.C) {
-	q := s.makeUploadArgs(c)
-	resp := s.authRequest(c, httpRequestParams{
-		method:      "POST",
-		url:         s.resourcesURI(c, q.Encode()),
-		contentType: "application/octet-stream",
-		body:        strings.NewReader(content),
-	})
-	outResp := s.assertResponse(c, resp, http.StatusOK)
+	outResp := s.uploadAppResource(c)
 	c.Check(outResp.ID, gc.Not(gc.Equals), "")
 	c.Check(outResp.Timestamp.IsZero(), jc.IsFalse)
 
@@ -156,6 +154,36 @@ func (s *resourceUploadSuite) TestUpload(c *gc.C) {
 	c.Assert(res.ID, gc.Equals, outResp.ID)
 }
 
+func (s *resourceUploadSuite) TestUnitUpload(c *gc.C) {
+	// Upload application resource first. A unit resource can't be
+	// uploaded without the application resource being there first.
+	s.uploadAppResource(c)
+
+	q := s.makeUploadArgs(c)
+	q.Del("application")
+	q.Set("unit", s.unit.Name())
+	resp := s.authRequest(c, httpRequestParams{
+		method:      "POST",
+		url:         s.resourcesURI(c, q.Encode()),
+		contentType: "application/octet-stream",
+		body:        strings.NewReader(content),
+	})
+	outResp := s.assertResponse(c, resp, http.StatusOK)
+	c.Check(outResp.ID, gc.Not(gc.Equals), "")
+	c.Check(outResp.Timestamp.IsZero(), jc.IsFalse)
+}
+
+func (s *resourceUploadSuite) uploadAppResource(c *gc.C) params.ResourceUploadResult {
+	q := s.makeUploadArgs(c)
+	resp := s.authRequest(c, httpRequestParams{
+		method:      "POST",
+		url:         s.resourcesURI(c, q.Encode()),
+		contentType: "application/octet-stream",
+		body:        strings.NewReader(content),
+	})
+	return s.assertResponse(c, resp, http.StatusOK)
+}
+
 func (s *resourceUploadSuite) TestArgValidation(c *gc.C) {
 	checkBadRequest := func(q url.Values, expected string) {
 		resp := s.authRequest(c, httpRequestParams{
@@ -167,7 +195,11 @@ func (s *resourceUploadSuite) TestArgValidation(c *gc.C) {
 
 	q := s.makeUploadArgs(c)
 	q.Del("application")
-	checkBadRequest(q, "missing application")
+	checkBadRequest(q, "missing application/unit")
+
+	q = s.makeUploadArgs(c)
+	q.Set("unit", "some/0")
+	checkBadRequest(q, "application and unit can't be set at the same time")
 
 	q = s.makeUploadArgs(c)
 	q.Del("name")

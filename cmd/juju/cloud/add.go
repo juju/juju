@@ -68,7 +68,7 @@ type AddCloudCommand struct {
 	CloudFile string
 
 	cloudMetadataStore CloudMetadataStore
-	
+
 	// Ping contains the logic for pinging a cloud endpoint to know whether or
 	// not it really has a valid cloud of the same type as the provider.  By
 	// default it just calls the correct provider's Ping method.

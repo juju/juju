@@ -5,8 +5,11 @@ package migrationmaster_test
 
 import (
 	"encoding/json"
+	"io"
+	"io/ioutil"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/juju/errors"
@@ -213,9 +216,11 @@ func (s *ClientSuite) TestExport(c *gc.C) {
 	fpHash := charmresource.NewFingerprintHash()
 	appFp := fpHash.Fingerprint()
 	csFp := fpHash.Fingerprint()
+	unitFp := fpHash.Fingerprint()
 
 	appTs := time.Now()
 	csTs := appTs.Add(time.Hour)
+	unitTs := appTs.Add(time.Hour)
 
 	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		stub.AddCall(objType+"."+request, id, arg)
@@ -251,6 +256,19 @@ func (s *ClientSuite) TestExport(c *gc.C) {
 					Size:           321,
 					Timestamp:      csTs,
 					Username:       "xena",
+				},
+				UnitRevisions: map[string]params.SerializedModelResourceRevision{
+					"fooapp/0": params.SerializedModelResourceRevision{
+						Revision:       1,
+						Type:           "file",
+						Path:           "blink.tar.gz",
+						Description:    "bo knows",
+						Origin:         "store",
+						FingerprintHex: unitFp.Hex(),
+						Size:           222,
+						Timestamp:      unitTs,
+						Username:       "bambam",
+					},
 				},
 			}},
 		}
@@ -303,6 +321,25 @@ func (s *ClientSuite) TestExport(c *gc.C) {
 				Username:      "xena",
 				Timestamp:     csTs,
 			},
+			UnitRevisions: map[string]resource.Resource{
+				"fooapp/0": resource.Resource{
+					Resource: charmresource.Resource{
+						Meta: charmresource.Meta{
+							Name:        "bin",
+							Type:        charmresource.TypeFile,
+							Path:        "blink.tar.gz",
+							Description: "bo knows",
+						},
+						Origin:      charmresource.OriginStore,
+						Revision:    1,
+						Fingerprint: unitFp,
+						Size:        222,
+					},
+					ApplicationID: "fooapp",
+					Username:      "bambam",
+					Timestamp:     unitTs,
+				},
+			},
 		}},
 	})
 }
@@ -316,18 +353,28 @@ func (s *ClientSuite) TestExportError(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "blam")
 }
 
-func (s *ClientSuite) TestOpenResource(c *gc.C) {
+const resourceContent = "resourceful"
+
+func setupFakeHTTP() (*migrationmaster.Client, *fakeDoer) {
 	doer := &fakeDoer{
-		response: &http.Response{StatusCode: 200},
+		response: &http.Response{
+			StatusCode: 200,
+			Body:       ioutil.NopCloser(strings.NewReader(resourceContent)),
+		},
 	}
 	caller := &fakeHTTPCaller{
 		httpClient: &httprequest.Client{
 			Doer: doer,
 		},
 	}
-	client := migrationmaster.NewClient(caller, nil)
-	_, err := client.OpenResource("app", "blob")
+	return migrationmaster.NewClient(caller, nil), doer
+}
+
+func (s *ClientSuite) TestOpenResource(c *gc.C) {
+	client, doer := setupFakeHTTP()
+	r, err := client.OpenResource("app", "blob")
 	c.Assert(err, jc.ErrorIsNil)
+	checkReader(c, r, "resourceful")
 	c.Check(doer.method, gc.Equals, "GET")
 	c.Check(doer.url, gc.Equals, "/applications/app/resources/blob")
 }
@@ -538,4 +585,10 @@ func (d *fakeDoer) Do(req *http.Request) (*http.Response, error) {
 	d.method = req.Method
 	d.url = req.URL.String()
 	return d.response, nil
+}
+
+func checkReader(c *gc.C, r io.Reader, expected string) {
+	actual, err := ioutil.ReadAll(r)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(string(actual), gc.Equals, expected)
 }
