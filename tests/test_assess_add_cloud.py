@@ -127,7 +127,7 @@ class TestIterClouds(TestCase):
             xfail(cloud_spec('long-name-foo', 'A' * 4096, cloud), 1641970,
                   NameMismatch),
             xfail(cloud_spec('invalid-name-foo', 'invalid/name', cloud,
-                             exception=NameNotAccepted), 1649181, None),
+                             exception=NameNotAccepted), 1641981, None),
             xfail(make_long_endpoint(spec), 1641970, CloudMismatch),
             ], iter_clouds({'foo': cloud}))
 
@@ -141,7 +141,7 @@ class TestIterClouds(TestCase):
         self.assertItemsEqual([
             self.bogus_type, spec,
             xfail(cloud_spec('invalid-name-foo', 'invalid/name', cloud,
-                             exception=NameNotAccepted), 1649181, None),
+                             exception=NameNotAccepted), 1641981, None),
             xfail(cloud_spec('long-name-foo', 'A' * 4096, cloud,
                              exception=None), 1641970, NameMismatch),
             xfail(make_long_endpoint(spec, regions=True),
@@ -157,7 +157,7 @@ class TestIterClouds(TestCase):
         self.assertItemsEqual([
             self.bogus_type, spec,
             xfail(cloud_spec('invalid-name-foo', 'invalid/name', cloud,
-                             exception=NameNotAccepted), 1649181, None),
+                             exception=NameNotAccepted), 1641981, None),
             xfail(cloud_spec('long-name-foo', 'A' * 4096, cloud,
                              exception=None), 1641970, NameMismatch),
             xfail(make_long_endpoint(spec), 1641970, CloudMismatch),
@@ -169,7 +169,7 @@ class TestIterClouds(TestCase):
         spec = cloud_spec('foo', 'foo', config, exception=None)
         invalid_name = xfail(
             cloud_spec('invalid-name-foo', 'invalid/name', config,
-                       exception=NameNotAccepted), 1649181, None)
+                       exception=NameNotAccepted), 1641981, None)
         long_name = xfail(
             cloud_spec('long-name-foo', 'A' * 4096, config, exception=None),
             1641970, NameMismatch)
