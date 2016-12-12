@@ -2,7 +2,6 @@
 
 from contextlib import contextmanager
 import datetime
-import errno
 import logging
 import os
 import io
@@ -194,7 +193,7 @@ def observable_temp_file():
                     yield temp_file
     finally:
         # File may have already been deleted, e.g. by temp_yaml_file.
-        with utility.skip_on_missing():
+        with utility.skip_on_missing_file():
             os.unlink(temporary_file.name)
 
 
