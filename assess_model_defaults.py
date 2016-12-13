@@ -49,8 +49,12 @@ def get_new_model_config(client, region=None, model_name=None):
         otherwise create it in the client region.
     :param model_name: Name of the new model.
     """
-    model_name = model_name or 'temp-model'
-    new_model = client.add_model(client.env.clone(model_name))
+    if model_name is None:
+        model_name = 'temp-model'
+    new_env = client.env.clone(model_name)
+    if region is not None:
+        new_env.set_region(region)
+    new_model = client.add_model(new_env)
     config_data = new_model.get_model_config()
     new_model.destroy_model()
     return config_data
@@ -99,7 +103,9 @@ def assess_model_defaults(client, other_region):
     assess_model_defaults_region(
         client, 'default-series', 'trusty', region='localhost')
     if other_region is not None:
-        pass
+        log.info('Checking other region model-defaults.')
+        assess_model_defaults_region(
+            client, 'default-series', 'trusty', region=other_region)
         # Test on a region not different the one the client is on.
 
 

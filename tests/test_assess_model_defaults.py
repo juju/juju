@@ -15,6 +15,7 @@ from assess_model_defaults import (
     assess_model_defaults,
     assess_model_defaults_controller,
     assess_model_defaults_region,
+    get_new_model_config,
     juju_assert_equal,
     main,
     parse_args,
@@ -98,7 +99,7 @@ class TestMain(TestCase):
         mock_cfc.assert_called_once_with('an-env', "/bin/juju", debug=False,
                                          soft_deadline=None)
         self.assertEqual(mock_bc.call_count, 1)
-        mock_assess.assert_called_once_with(client)
+        mock_assess.assert_called_once_with(client, None)
 
 
 class TestAssembleModelDefault(TestCase):
@@ -125,9 +126,23 @@ class TestAssert(TestCase):
 
     def test_juju_assert_equal(self):
         juju_assert_equal(0, 0, 'should-pass')
-        with self.assertRaises(JujuAssertionError) as exc:
+        with self.assertRaises(JujuAssertionError) as context:
             juju_assert_equal(0, 1, 'should-fail')
-        self.assertEqual(exc.exception.args, ('should-fail', 0, 1))
+        self.assertEqual(context.exception.args, ('should-fail', 0, 1))
+
+
+class TestGetNewModelConfig(TestCase):
+
+    def test_get_new_model_config(self):
+        mock_client = Mock()
+        mock_env = Mock()
+        mock_model = Mock()
+        mock_client.env.attach_mock(Mock(return_value=mock_env), 'clone')
+        mock_client.attach_mock(Mock(return_value=mock_model), 'add_model')
+        mock_model.attach_mock(Mock(return_value='<model_config>'),
+                               'get_model_config')
+        config = get_new_model_config(mock_client)
+        self.assertEqual('<model_config>', config)
 
 
 class TestAssessModelDefaults(TestCase):
@@ -159,7 +174,7 @@ class TestAssessModelDefaults(TestCase):
                    autospec=True) as assess_controller_mock:
             with patch('assess_model_defaults.assess_model_defaults_region',
                        autospec=True) as assess_region_mock:
-                assess_model_defaults(fake_client)
+                assess_model_defaults(fake_client, None)
         assess_controller_mock.assert_called_once_with(
             fake_client, 'automatically-retry-hooks', False)
         assess_region_mock.assert_called_once_with(
