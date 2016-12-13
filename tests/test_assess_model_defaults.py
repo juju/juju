@@ -1,5 +1,6 @@
 """Tests for assess_model_defaults module."""
 
+from contextlib import contextmanager
 from copy import deepcopy
 import logging
 import StringIO
@@ -133,16 +134,38 @@ class TestAssert(TestCase):
 
 class TestGetNewModelConfig(TestCase):
 
-    def test_get_new_model_config(self):
-        mock_client = Mock()
-        mock_env = Mock()
-        mock_model = Mock()
+    @contextmanager
+    def wrap_new_model_test(self):
+        (mock_client, mock_env, mock_model) = (Mock(), Mock(), Mock())
         mock_client.env.attach_mock(Mock(return_value=mock_env), 'clone')
         mock_client.attach_mock(Mock(return_value=mock_model), 'add_model')
         mock_model.attach_mock(Mock(return_value='<model_config>'),
                                'get_model_config')
-        config = get_new_model_config(mock_client)
-        self.assertEqual('<model_config>', config)
+        yield (mock_client, mock_env, mock_model)
+        mock_client.add_model.assert_called_once_with(mock_env)
+        mock_model.get_model_config.assert_called_once_with()
+        mock_model.destroy_model.assert_called_once_with()
+
+    def test_get_new_model_config_defaults(self):
+        with self.wrap_new_model_test() as (client, env, model):
+            config = get_new_model_config(client)
+            client.env.clone.assert_called_once_with('temp-model')
+            self.assertFalse(env.set_region.called)
+            self.assertEqual('<model_config>', config)
+
+    def test_get_new_model_config_region(self):
+        with self.wrap_new_model_test() as (client, env, model):
+            config = get_new_model_config(client, 'region')
+            client.env.clone.assert_called_once_with('temp-model')
+            env.set_region.assert_called_once_with('region')
+            self.assertEqual('<model_config>', config)
+
+    def test_get_new_model_config_model_name(self):
+        with self.wrap_new_model_test() as (client, env, model):
+            config = get_new_model_config(client, model_name='diff-name')
+            client.env.clone.assert_called_once_with('diff-name')
+            self.assertFalse(env.set_region.called)
+            self.assertEqual('<model_config>', config)
 
 
 class TestAssessModelDefaults(TestCase):
