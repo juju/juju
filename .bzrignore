@@ -5,3 +5,4 @@
 /repository
 ./.coverage
 
+assess_check_openstack.py

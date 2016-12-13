@@ -13,7 +13,7 @@ from __future__ import print_function
 import argparse
 import logging
 import sys
-from ast import literal_eval
+import json
 
 from assess_agent_metadata import (
     verify_deployed_tool,
@@ -50,33 +50,39 @@ log = logging.getLogger("assess_sync_agent_metadata")
 
 
 def verify_deployed_charm(charm_app, client):
-    remote = remote_from_unit(client, "{0}/0".format(charm_app))
-    if not remote:
-        JujuAssertionError('Failed during remote connection')
+    """
+        Verfiy the deployed charm to make sure it used the same
+        juju tool of the controller by verifying the sha256 sum
 
-    output = remote.cat("/var/lib/juju/tools/machine-0/downloaded-tools.txt")
-    if not output:
-        JujuAssertionError('Unbale to perform remote cat')
+    :param charm_app: The app name that need to be verified
+    :param client: The client environment where the app is deployed
+    :return:
+    """
+    try:
+    	remote = remote_from_unit(client, "{0}/0".format(charm_app))
+        output = remote.cat(
+            "/var/lib/juju/tools/machine-0/downloaded-tools.txt")
+    except Exception as e:
+        raise JujuAssertionError(
+            'Unable to perform remote cmd: {}'.format(e))
 
-    output_ = literal_eval(output)
+    output_ = json.loads(output)
     _, controller_sha256 = get_controller_url_and_sha256(client)
     if not controller_sha256:
-        JujuAssertionError('Unbale to get controller url and sha256')
+        raise JujuAssertionError('Unable to get controller url and sha256')
 
     if output_['sha256'] != controller_sha256:
-        JujuAssertionError('Error, mismatch agent-metadata-url')
+        raise JujuAssertionError('Error, mismatch agent-metadata-url')
 
-    log.info("Charm verfication done successfully")
-    return
+    log.info("Charm verification done successfully")
 
 
-def assess_deploy_charm(client):
+def deploy_charm_and_verify(client):
     charm_app = "dummy-sink"
     charm_source = local_charm_path(
         charm=charm_app, juju_ver=client.version)
     client.deploy(charm_source)
     verify_deployed_charm(charm_app, client)
-    return
 
 
 def assess_sync_bootstrap(args, agent_stream="release"):
@@ -98,8 +104,7 @@ def assess_sync_bootstrap(args, agent_stream="release"):
             log.info('Metadata bootstrap successful.')
             assess_check_metadata(agent_dir, client)
             verify_deployed_tool(agent_dir, client)
-            assess_deploy_charm(client)
-    return
+            deploy_charm_and_verify(client)
 
 
 def parse_args(argv):
@@ -118,8 +123,10 @@ def main(argv=None):
     args = parse_args(argv)
     configure_logging(args.verbose)
 
+    # Do sync boostrap  with release
     assess_sync_bootstrap(args)
 
+    # Do  sync boostrap with develop
     assess_sync_bootstrap(agent_stream="devel")
     return 0
 

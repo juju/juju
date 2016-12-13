@@ -2604,37 +2604,6 @@ class EnvJujuClient:
         return self.get_juju_output('list-clouds', '--format',
                                     format, include_e=False)
 
-    def validate_tools(self, region, endpoint, dest, series="xenial",
-                       stream="released", provider="ec2", format='json'):
-        return self.get_juju_output("metadata", "validate-tools",
-                                    "-d", dest,
-                                    "-r", region,
-                                    "-s", series,
-                                    "--stream", stream,
-                                    "-u", endpoint,
-                                    "-p", provider,
-                                    "--format", format, include_e=False)
-
-    def validate_images(self, region, endpoint, dest, series="xenial",
-                        provider="ec2", format='json'):
-        return self.get_juju_output("metadata", "validate-images",
-                                    "-p", provider,
-                                    "-s", series,
-                                    "-r", region,
-                                    "-d", dest,
-                                    "-u", endpoint,
-                                    "--format", format, include_e=False)
-
-    def generate_image(self, image, arch, series, region, endpoint, dest):
-        return self.juju("metadata", ("generate-image",
-                                      "-a", arch,
-                                      "-i", image,
-                                      "-r", region,
-                                      "-s", series,
-                                      "-u", endpoint,
-                                      "-d", dest),
-                         include_e=False)
-
     def generate_tool(self, dest, stream="released"):
         return self.juju("metadata ", ("generate-tools",
                                        "-d", dest,

@@ -1,27 +1,25 @@
 #!/usr/bin/env python
 """
-Juju agent-metadata-url validation on passing as an argument during
-juju bootstrap
+ Juju agent-metadata-url validation on passing as an argument during
+ juju bootstrap
 
-Juju agent-metadata-url validation using cloud definition yaml file to
-verify that agent-metadata-url specified in the yaml file is applied
-while running juju boostrap command.
+ Juju agent-metadata-url validation using cloud definition yaml file to
+ verify that agent-metadata-url specified in the yaml file is applied
+ while running juju boostrap command.
 
-Usage: python assess_agent_metadata.py --agent-file=/path/to/juju-*.tgz
+ Usage: python assess_agent_metadata.py --agent-file=/path/to/juju-*.tgz
 
-Example: python assess_agent_metadata.py
+ Example: python assess_agent_metadata.py
                 --agent-file=/home/juju/juju-2.0.1-xenial-amd64.tgz
 """
 
 from __future__ import print_function
 
 from argparse import ArgumentParser
-from ast import literal_eval
 from contextlib import contextmanager
 from hashlib import sha256
 from shutil import rmtree
 from textwrap import dedent
-from time import sleep
 
 import io
 import logging
@@ -29,6 +27,7 @@ import os
 import subprocess
 import sys
 import yaml
+import json
 
 from deploy_stack import (
     BootstrapManager,
@@ -41,8 +40,8 @@ from utility import (
     temp_dir,
 )
 
-JUJU_TOOL_PATH = "/tools/released/"
-JUJU_STREAM_PATH = "/tools/streams/"
+JUJU_TOOL_PATH = "tools/released/"
+JUJU_STREAM_PATH = "tools/streams/"
 
 test_cloud_yaml = "testCloud.yaml"
 test_cloud_name = "testCloud"
@@ -55,7 +54,7 @@ def get_sha256_sum(filename):
         with open(filename, 'rb') as infile:
             return sha256(infile.read()).hexdigest()
     except Exception as e:
-        logging.exception(e)
+        raise JujuAssertionError('Exception raised: {}'.format(e))
 
 
 def assess_check_cloud(client, cloud_name, example_cloud):
@@ -66,10 +65,6 @@ def assess_check_cloud(client, cloud_name, example_cloud):
         raise JujuAssertionError(
             'Name mismatch and Cloud {} missing'.format(cloud_name))
     if clouds['clouds'][cloud_name] != example_cloud:
-        sys.stderr.write('\nExpected:\n')
-        yaml.dump(example_cloud, sys.stderr)
-        sys.stderr.write('\nActual:\n')
-        yaml.dump(clouds['clouds'][cloud_name], sys.stderr)
         raise JujuAssertionError('Cloud mismatch')
 
 
@@ -81,10 +76,10 @@ def iter_clouds(clouds):
 def get_local_url_and_sha256(agent_dir, controller_url):
     """
     Get the agent URL (local file location: file:///)
-    and SHA256 of the image-file passed
+    and SHA256 of the agent-file passed
     """
-    controller_agent_file = os.path.basename(controller_url)
-    local_url = agent_dir + JUJU_TOOL_PATH + controller_agent_file
+    local_url = os.path.join(agent_dir,
+                             JUJU_TOOL_PATH, os.path.basename(controller_url))
 
     if not os.path.isfile(local_url):
         raise JujuAssertionError(
@@ -97,18 +92,18 @@ def get_local_url_and_sha256(agent_dir, controller_url):
 
 def get_controller_url_and_sha256(client):
     """
-    Get the agent url and sha256 of the controller.
+    Get the agent url and sha256 of the controller launched.
     """
     controller_client = client.get_controller_client()
     try:
         output = controller_client.run(
             ['cat /var/lib/juju/tools/machine-0/downloaded-tools.txt'],
             machines=['0'])
-        output_ = literal_eval(output[0]['Stdout'])
+        output_ = json.loads(output[0]['Stdout'])
         if (output_['url']) and (output_['sha256']):
                 return [output_['url'], output_['sha256']]
     except Exception as e:
-        logging.exception(e)
+        raise JujuAssertionError("Execption raised: {}". format(e))
 
 
 def assess_check_metadata(agent_dir, client):
@@ -124,17 +119,11 @@ def verify_deployed_tool(agent_dir, client):
     controller_url, controller_sha256 = \
         get_controller_url_and_sha256(client)
 
-    if not controller_url and controller_sha256:
-        raise JujuAssertionError('Failed to get controller URL and SHA256')
-
     log.info("controller_url: {} and controller_sha256: {}"
              .format(controller_url, controller_sha256))
 
     local_url_sha256 = get_local_url_and_sha256(
         agent_dir, controller_url)
-
-    if not local_url_sha256:
-        raise JujuAssertionError('Failed to get local URL and SHA256')
 
     log.info("local_url: {} and local_sha256: {}"
              .format(local_url_sha256["URL"], local_url_sha256["SHA256"]))
@@ -150,24 +139,22 @@ def verify_deployed_tool(agent_dir, client):
             (local_url_sha256["SHA256"], controller_sha256))
 
 
-def access_metadata(args):
+def assess_metadata(args):
     bs_manager = BootstrapManager.from_args(args)
     client = bs_manager.client
     client.env.update_config({'agent-metadata-url': args.agent_dir})
     log.info('bootstrap to use --agent_metadata_url={}'.
              format(args.agent_dir))
     client.generate_tool(args.agent_dir)
-    try:
-        with bs_manager.booted_context(args.upload_tools):
-            log.info('Metadata bootstrap successful.')
-            assess_check_metadata(args.agent_dir, client)
-            verify_deployed_tool(args.agent_dir, client)
-            log.info("Successfully deployed and verified agent-metadata-url")
-    except Exception as e:
-        logging.exception(e)
+
+    with bs_manager.booted_context(args.upload_tools):
+        log.info('Metadata bootstrap successful.')
+        assess_check_metadata(args.agent_dir, client)
+        verify_deployed_tool(args.agent_dir, client)
+        log.info("Successfully deployed and verified agent-metadata-url")
 
 
-def do_add_cloud(args, clouds):
+def add_cloud(args, clouds):
     for cloud_name, cloud in iter_clouds(clouds):
         bs_manager = BootstrapManager.from_args(args)
         client = bs_manager.client
@@ -194,12 +181,12 @@ def create_add_cloud_yaml_file(agent_metadata_url):
         logging.exception(e)
 
 
-def access_add_cloud(args):
+def assess_add_cloud(args):
     create_add_cloud_yaml_file(args.agent_dir)
     try:
         with open(test_cloud_yaml) as f:
             clouds = yaml.safe_load(f)['clouds']
-            do_add_cloud(args, clouds)
+            add_cloud(args, clouds)
     except Exception as e:
         logging.exception(e)
 
@@ -207,7 +194,7 @@ def access_add_cloud(args):
         os.remove(test_cloud_yaml)
 
 
-def append_empty_string(src, dst):
+def change_tgz_sha256_sum(src, dst):
     """
         Append empty string to the tgz file so that the SHA256 sum of the file
         get modified. We use this to make sure that controller deployed on
@@ -218,7 +205,7 @@ def append_empty_string(src, dst):
     :return: None
     """
     if not src.endswith(".tgz"):
-        pass
+        raise JujuAssertionError("requires tgz file in {}".format(src))
     try:
         command = "cat {}  <(echo -n ''| gzip)> {}".format(src, dst)
         subprocess.Popen(command, shell=True, executable='/bin/bash')
@@ -236,8 +223,8 @@ def make_unique_tool(args):
     :param args:
     :return: None
     """
-    juju_tool_src = args.agent_dir + JUJU_TOOL_PATH
-    juju_stream_dst = args.agent_dir + JUJU_STREAM_PATH
+    juju_tool_src = os.path.join(args.agent_dir, JUJU_TOOL_PATH)
+    juju_stream_dst = os.path.join(args.agent_dir, JUJU_STREAM_PATH)
     try:
         if not os.path.exists(juju_tool_src):
             os.makedirs(juju_tool_src)
@@ -245,15 +232,17 @@ def make_unique_tool(args):
         if not os.path.exists(juju_stream_dst):
             os.makedirs(juju_stream_dst)
 
-        append_empty_string(args.agent_file,
-                            juju_tool_src + os.path.basename(args.agent_file))
-        # sleep for a while to avoid broken pipe error
-        sleep(2)
+        change_tgz_sha256_sum(args.agent_file,
+                              os.path.join(juju_tool_src,
+                                           os.path.basename(args.agent_file)))
         yield juju_tool_src
     except Exception as e:
-        logging.exception(e)
+        raise JujuAssertionError("failed on make_unique_tool {}".format(e))
     finally:
-        rmtree(args.agent_dir)
+        if os.path.exists(juju_tool_src):
+            rmtree(juju_tool_src)
+        if os.path.exists(juju_stream_dst):
+            rmtree(juju_stream_dst)
 
 
 def parse_args(argv):
@@ -263,7 +252,7 @@ def parse_args(argv):
 
     add_basic_testing_arguments(parser)
 
-    parser.add_argument('--agent-file',
+    parser.add_argument('--agent-file', required=True,
                         action='store', default=None,
                         help='agent file to be used during bootstrap.')
 
@@ -284,7 +273,7 @@ def main(argv=None):
     """
     with temp_dir() as args.agent_dir:
         with make_unique_tool(args):
-            access_metadata(args)
+            assess_metadata(args)
 
     """
         This test case will perform juju bootstrap on add-cloud.
@@ -294,7 +283,7 @@ def main(argv=None):
 
     with temp_dir() as args.agent_dir:
         with make_unique_tool(args):
-            access_add_cloud(args)
+            assess_add_cloud(args)
 
     return 0
 
