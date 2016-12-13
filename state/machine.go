@@ -1097,11 +1097,11 @@ func parseDelimitedValues(rawValues []string) (positives, negatives []string) {
 	return positives, negatives
 }
 
-// AllSpaces returns the name of all spaces that this machine needs access to.
-// This is the combined value of all of the direct constraints for the machine,
-// as well as the spaces listed for all bindings of units being deployed to
-// that machine.
-func (m *Machine) AllSpaces() (set.Strings, error) {
+// DesiredSpaces returns the name of all spaces that this machine needs
+// access to.  This is the combined value of all of the direct constraints
+// for the machine, as well as the spaces listed for all bindings of units
+// being deployed to that machine.
+func (m *Machine) DesiredSpaces() (set.Strings, error) {
 	spaces := set.NewStrings()
 	units, err := m.Units()
 	if err != nil {
