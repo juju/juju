@@ -12,6 +12,7 @@ from jujupy import (
     AuthNotAccepted,
     EnvJujuClient,
     get_client_class,
+    InvalidEndpoint,
     JujuData,
     NameNotAccepted,
     TypeNotAccepted,
@@ -125,8 +126,11 @@ def iter_clouds(clouds):
                 for region in variant['regions'].values():
                     region['endpoint'] = variant['endpoint']
             variant_name = 'long-endpoint-{}'.format(cloud_name)
-            yield xfail(cloud_spec(variant_name, cloud_name, variant),
-                        1641970, CloudMismatch)
+            spec = cloud_spec(variant_name, cloud_name, variant,
+                              InvalidEndpoint)
+            if variant['type'] == 'vsphere':
+                spec = xfail(spec, 1641970, CloudMismatch)
+            yield spec
 
         for region_name in cloud.get('regions', {}).keys():
             if cloud['type'] == 'vsphere':
@@ -136,8 +140,8 @@ def iter_clouds(clouds):
             region['endpoint'] = 'A' * 4096
             variant_name = 'long-endpoint-{}-{}'.format(cloud_name,
                                                         region_name)
-            yield xfail(cloud_spec(variant_name, cloud_name, variant,
-                                   exception=None), 1641970, CloudMismatch)
+            yield cloud_spec(variant_name, cloud_name, variant,
+                             InvalidEndpoint)
 
 
 def assess_all_clouds(client, cloud_specs):

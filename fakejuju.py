@@ -383,23 +383,31 @@ class PromptingExpectChild(FakeExpectChild):
         self.values = {}
         self.lines = []
 
-    def expect(self, regex):
+    def expect(self, pattern):
+        if type(pattern) is not list:
+            pattern = [pattern]
         try:
             prompt = self.prompts.next()
         except StopIteration:
-            if regex is not pexpect.EOF:
+            if pexpect.EOF not in pattern:
                 raise
             self.close()
             return
-        if regex is pexpect.EOF:
-            raise ValueError('Expected EOF. got "{}"'.format(prompt))
+        for regex in pattern:
+            if regex is pexpect.EOF:
+                continue
+            regex_match = re.search(regex, prompt)
+            if regex_match is not None:
+                self.match = regex_match
+                break
+        else:
+            if pexpect.EOF in pattern:
+                raise ValueError('Expected EOF. got "{}"'.format(prompt))
+            else:
+                raise ValueError(
+                    'Regular expression did not match prompt.  Regex: "{}",'
+                    ' prompt "{}"'.format(pattern, prompt))
         super(PromptingExpectChild, self).expect(regex)
-        regex_match = re.search(regex, prompt)
-        if regex_match is None:
-            raise ValueError(
-                'Regular expression did not match prompt.  Regex: "{}",'
-                ' prompt "{}"'.format(regex, prompt))
-        self.match = regex_match
 
     def sendline(self, line=''):
         full_match = self.match.group(0)
@@ -429,7 +437,13 @@ class RegisterHost(PromptingExpectChild):
 
 class AddCloud(PromptingExpectChild):
 
-    NAME = 'Enter a name for the cloud:'
+    @property
+    def provider(self):
+        return self.values[self.TYPE]
+
+    @property
+    def name_prompt(self):
+        return 'Enter a name for your {} cloud:'.format(self.provider)
 
     REGION_NAME = 'Enter region name:'
 
@@ -447,6 +461,21 @@ class AddCloud(PromptingExpectChild):
 
     ANOTHER_REGION = 'Enter another region? (Y/n):'
 
+    def cant_validate(self, endpoint):
+        if self.provider in ('openstack', 'maas'):
+            if self.provider == 'openstack':
+                server_type = 'Openstack'
+                reprompt = self.CLOUD_ENDPOINT
+            else:
+                server_type = 'MAAS'
+                reprompt = self.API_ENDPOINT
+            msg = 'No {} server running at {}'.format(server_type, endpoint)
+        elif self.provider == 'manual':
+            msg = 'ssh: Could not resolve hostname {}'.format(endpoint)
+            reprompt = self.HOST
+        return "Can't validate endpoint: {}\n{}".format(
+            msg, reprompt)
+
     def __init__(self, backend, juju_home, extra_env):
         super(AddCloud, self).__init__(
             backend, juju_home, extra_env, self.iter_prompts())
@@ -457,15 +486,24 @@ class AddCloud(PromptingExpectChild):
             if self.values[self.TYPE] != 'bogus':
                 break
         while True:
-            yield self.NAME
-            if '/' not in self.values[self.NAME]:
+            yield self.name_prompt
+            if '/' not in self.values[self.name_prompt]:
                 break
         if self.values[self.TYPE] == 'maas':
             yield self.API_ENDPOINT
+            endpoint = self.values[self.API_ENDPOINT]
+            while len(endpoint) > 1000:
+                yield self.cant_validate(endpoint)
         elif self.values[self.TYPE] == 'manual':
             yield self.HOST
+            endpoint = self.values[self.HOST]
+            while len(endpoint) > 1000:
+                yield self.cant_validate(endpoint)
         elif self.values[self.TYPE] == 'openstack':
             yield self.CLOUD_ENDPOINT
+            endpoint = self.values[self.CLOUD_ENDPOINT]
+            while len(endpoint) > 1000:
+                yield self.cant_validate(endpoint)
             while True:
                 yield self.AUTH
                 if 'invalid' not in self.values[self.AUTH]:
@@ -473,6 +511,9 @@ class AddCloud(PromptingExpectChild):
             while self.values.get(self.ANOTHER_REGION) != 'n':
                 yield self.REGION_NAME
                 yield self.REGION_ENDPOINT
+                endpoint = self.values[self.REGION_ENDPOINT]
+                if len(endpoint) > 1000:
+                    yield self.cant_validate(endpoint)
                 yield self.ANOTHER_REGION
         if self.values['Select cloud type:'] == 'vsphere':
             yield self.CLOUD_ENDPOINT
@@ -511,8 +552,7 @@ class AddCloud(PromptingExpectChild):
                 'endpoint': self.values[self.CLOUD_ENDPOINT],
                 'regions': regions,
                 })
-        self.backend.clouds[self.values[self.NAME]] = cloud
-        self.backend.clouds[self.values[self.NAME]] = cloud
+        self.backend.clouds[self.values[self.name_prompt]] = cloud
 
 
 class FakeBackend:

@@ -59,6 +59,7 @@ from jujupy import (
     HookFailedError,
     IncompatibleConfigClass,
     InstallError,
+    InvalidEndpoint,
     jes_home_path,
     JESNotSupported,
     Juju1XBackend,
@@ -3426,11 +3427,26 @@ class TestEnvJujuClient(ClientTest):
         client.add_cloud_interactive('foo', clouds['foo'])
         self.assertEqual(client._backend.clouds, clouds)
 
+    def test_add_cloud_interactive_maas_invalid_endpoint(self):
+        client = fake_juju_client()
+        clouds = {'foo': {
+            'type': 'maas',
+            'endpoint': 'B' * 4000,
+            }}
+        with self.assertRaises(InvalidEndpoint):
+            client.add_cloud_interactive('foo', clouds['foo'])
+
     def test_add_cloud_interactive_manual(self):
         client = fake_juju_client()
         clouds = {'foo': {'type': 'manual', 'endpoint': '127.100.100.1'}}
         client.add_cloud_interactive('foo', clouds['foo'])
         self.assertEqual(client._backend.clouds, clouds)
+
+    def test_add_cloud_interactive_manual_invalid_endpoint(self):
+        client = fake_juju_client()
+        clouds = {'foo': {'type': 'manual', 'endpoint': 'B' * 4000}}
+        with self.assertRaises(InvalidEndpoint):
+            client.add_cloud_interactive('foo', clouds['foo'])
 
     def get_openstack_clouds(self):
         return {'foo': {
@@ -3448,6 +3464,20 @@ class TestEnvJujuClient(ClientTest):
         clouds = self.get_openstack_clouds()
         client.add_cloud_interactive('foo', clouds['foo'])
         self.assertEqual(client._backend.clouds, clouds)
+
+    def test_add_cloud_interactive_openstack_invalid_endpoint(self):
+        client = fake_juju_client()
+        clouds = self.get_openstack_clouds()
+        clouds['foo']['endpoint'] = 'B' * 4000
+        with self.assertRaises(InvalidEndpoint):
+            client.add_cloud_interactive('foo', clouds['foo'])
+
+    def test_add_cloud_interactive_openstack_invalid_region_endpoint(self):
+        client = fake_juju_client()
+        clouds = self.get_openstack_clouds()
+        clouds['foo']['regions']['harvey']['endpoint'] = 'B' * 4000
+        with self.assertRaises(InvalidEndpoint):
+            client.add_cloud_interactive('foo', clouds['foo'])
 
     def test_add_cloud_interactive_openstack_invalid_auth(self):
         client = fake_juju_client()
