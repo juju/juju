@@ -116,6 +116,10 @@ class NameNotAccepted(Exception):
     """Raised when the provided name was not accepted."""
 
 
+class InvalidEndpoint(Exception):
+    """Raised when the provided endpoint was deemed invalid."""
+
+
 class AuthNotAccepted(Exception):
     """Raised when the provided auth was not accepted."""
 
@@ -2676,7 +2680,8 @@ class EnvJujuClient:
             child.logfile = sys.stdout
             child.expect('Select cloud type:')
             child.sendline(cloud['type'])
-            child.expect('(Enter a name for the cloud:)|(Select cloud type:)')
+            child.expect('(Enter a name for your .* cloud:)|'
+                         '(Select cloud type:)')
             if child.match.group(2) is not None:
                 raise TypeNotAccepted('Cloud type not accepted.')
             child.sendline(cloud_name)
@@ -2686,7 +2691,7 @@ class EnvJujuClient:
             if cloud['type'] == 'manual':
                 child.expect(
                     "(Enter the controller's hostname or IP address:)|"
-                    "(Enter a name for the cloud:)")
+                    "(Enter a name for your .* cloud:)")
                 if child.match.group(2) is not None:
                     raise NameNotAccepted('Cloud name not accepted.')
                 child.sendline(cloud['endpoint'])
@@ -2694,7 +2699,10 @@ class EnvJujuClient:
                 child.expect('Enter the API endpoint url for the cloud:')
                 child.sendline(cloud['endpoint'])
                 child.expect(
-                    'Select one or more auth types separated by commas:')
+                    "(Select one or more auth types separated by commas:)|"
+                    "(Can't validate endpoint)")
+                if child.match.group(2) is not None:
+                    raise InvalidEndpoint()
                 child.sendline(','.join(cloud['auth-types']))
                 for num, (name, values) in enumerate(cloud['regions'].items()):
                     child.expect(
@@ -2705,7 +2713,10 @@ class EnvJujuClient:
                     child.sendline(name)
                     child.expect('Enter the API endpoint url for the region:')
                     child.sendline(values['endpoint'])
-                    child.expect('Enter another region\? \(Y/n\):')
+                    child.expect("(Enter another region\? \(Y/n\):)|"
+                                 "(Can't validate endpoint)")
+                    if child.match.group(2) is not None:
+                        raise InvalidEndpoint()
                     if num + 1 < len(cloud['regions']):
                         child.sendline('y')
                     else:
@@ -2722,7 +2733,10 @@ class EnvJujuClient:
                     else:
                         child.sendline('n')
 
-            child.expect(pexpect.EOF)
+            child.expect([pexpect.EOF, "Can't validate endpoint"])
+            if child.match != pexpect.EOF:
+                if child.match.group(0) == "Can't validate endpoint":
+                    raise InvalidEndpoint()
         except pexpect.TIMEOUT:
             raise Exception(
                 'Adding cloud failed: pexpect session timed out')

@@ -12,6 +12,7 @@ from mock import (
 from fakejuju import fake_juju_client
 from jujupy import (
     AuthNotAccepted,
+    InvalidEndpoint,
     NameNotAccepted,
     TypeNotAccepted,
     )
@@ -103,7 +104,8 @@ def make_long_endpoint(spec, regions=False):
     if regions:
         for region in config['regions'].values():
             region['endpoint'] = 'A' * 4096
-    return cloud_spec('long-endpoint-{}'.format(spec.name), spec.name, config)
+    return cloud_spec('long-endpoint-{}'.format(spec.name), spec.name, config,
+                      InvalidEndpoint)
 
 
 class TestIterClouds(FakeHomeTestCase):
@@ -121,7 +123,7 @@ class TestIterClouds(FakeHomeTestCase):
                   NameMismatch),
             xfail(cloud_spec('invalid-name-foo', 'invalid/name', cloud,
                              exception=NameNotAccepted), 1641981, None),
-            xfail(make_long_endpoint(spec), 1641970, CloudMismatch),
+            make_long_endpoint(spec),
             ], iter_clouds({'foo': cloud}))
 
     def test_vsphere(self):
@@ -153,7 +155,7 @@ class TestIterClouds(FakeHomeTestCase):
                              exception=NameNotAccepted), 1641981, None),
             xfail(cloud_spec('long-name-foo', 'A' * 4096, cloud,
                              exception=None), 1641970, NameMismatch),
-            xfail(make_long_endpoint(spec), 1641970, CloudMismatch),
+            make_long_endpoint(spec),
             ], iter_clouds({'foo': cloud}))
 
     def test_openstack(self):
@@ -166,9 +168,8 @@ class TestIterClouds(FakeHomeTestCase):
         long_name = xfail(
             cloud_spec('long-name-foo', 'A' * 4096, config, exception=None),
             1641970, NameMismatch)
-        long_region = xfail(
-            cloud_spec('long-endpoint-foo-bar', 'foo', deepcopy(config),
-                       exception=None), 1641970, CloudMismatch)
+        long_region = cloud_spec(
+            'long-endpoint-foo-bar', 'foo', deepcopy(config), InvalidEndpoint)
         long_region.config['regions']['bar']['endpoint'] = 'A' * 4096
         bogus_auth = cloud_spec('bogus-auth-foo', 'foo',
                                 deepcopy(config), exception=AuthNotAccepted)
@@ -176,7 +177,7 @@ class TestIterClouds(FakeHomeTestCase):
         self.assertItemsEqual([
             self.bogus_type, spec, invalid_name, long_name, long_region,
             bogus_auth,
-            xfail(make_long_endpoint(spec), 1641970, CloudMismatch),
+            make_long_endpoint(spec),
             ], iter_clouds({'foo': config}))
 
 
