@@ -196,14 +196,16 @@ func (c *killCommand) WaitForModels(ctx *cmd.Context, api destroyControllerAPI, 
 	thirtySeconds := (time.Second * 30)
 	updateStatus := newTimedStatusUpdater(ctx, api, uuid, c.clock)
 
-	ctrStatus, modelsStatus := updateStatus(0)
-	lastStatus := ctrStatus
+	envStatus := updateStatus(0)
+	lastStatus := envStatus.controller
 	lastChange := c.clock.Now().Truncate(time.Second)
 	deadline := lastChange.Add(c.timeout)
-	for ; hasUnDeadModels(modelsStatus) && (deadline.After(c.clock.Now())); ctrStatus, modelsStatus = updateStatus(5 * time.Second) {
+	// Check for both undead models and live machines, as machines may be
+	// in the controller model.
+	for ; hasUnreclaimedResources(envStatus) && (deadline.After(c.clock.Now())); envStatus = updateStatus(5 * time.Second) {
 		now := c.clock.Now().Truncate(time.Second)
-		if ctrStatus != lastStatus {
-			lastStatus = ctrStatus
+		if envStatus.controller != lastStatus {
+			lastStatus = envStatus.controller
 			lastChange = now
 			deadline = lastChange.Add(c.timeout)
 		}
@@ -215,12 +217,12 @@ func (c *killCommand) WaitForModels(ctx *cmd.Context, api destroyControllerAPI, 
 		if timeSinceLastChange > thirtySeconds || timeUntilDestruction < thirtySeconds {
 			warning = fmt.Sprintf(", will kill machines directly in %s", timeUntilDestruction)
 		}
-		ctx.Infof("%s%s", fmtCtrStatus(ctrStatus), warning)
-		for _, modelStatus := range modelsStatus {
+		ctx.Infof("%s%s", fmtCtrStatus(envStatus.controller), warning)
+		for _, modelStatus := range envStatus.models {
 			ctx.Verbosef(fmtModelStatus(modelStatus))
 		}
 	}
-	if hasUnDeadModels(modelsStatus) {
+	if hasUnreclaimedResources(envStatus) {
 		return errors.New("timed out")
 	} else {
 		ctx.Infof("All hosted models reclaimed, cleaning up controller machines")
