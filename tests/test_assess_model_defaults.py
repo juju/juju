@@ -32,11 +32,12 @@ from utility import (
 
 class FakeJujuModelDefaults:
 
-    def __init__(self, defaults=None):
+    def __init__(self, defaults=None, region=None):
         self.model_defaults = {}
         if defaults is not None:
             for (key, value) in defaults.items():
                 self.model_defaults[key] = {'default': value}
+        self.region = region
 
     def get_model_defaults(self, model_key, cloud=None, region=None):
         return {model_key: deepcopy(self.model_defaults[model_key])}
@@ -61,6 +62,9 @@ class FakeJujuModelDefaults:
                 raise KeyError(region)
             if not key_defaults['regions']:
                 del key_defaults['regions']
+
+    def get_region(self):
+        return self.region
 
 
 class TestParseArgs(TestCase):
@@ -172,19 +176,27 @@ class TestAssessModelDefaults(TestCase):
 
     def test_model_defaults_controller(self):
         client = Mock(wraps=FakeJujuModelDefaults({'some-key': 'black'}))
-        assess_model_defaults_controller(client, 'some-key', 'yellow')
-        self.assertEqual(3, client.get_model_defaults.call_count)
+        with patch('assess_model_defaults.get_new_model_config',
+                   return_value={'some-key': {'value': 'yellow'}},
+                   autospec=True) as get_config_mock:
+            assess_model_defaults_controller(client, 'some-key', 'yellow')
+        get_config_mock.assert_called_once_with(client, None)
+        self.assertEqual(4, client.get_model_defaults.call_count)
         client.get_model_defaults.assert_has_calls([call('some-key')] * 3)
         client.set_model_defaults.assert_called_once_with(
-            'some-key', 'yellow')
+            'some-key', 'yellow', None, None)
         client.unset_model_defaults.assert_called_once_with(
-            'some-key')
+            'some-key', None, None)
 
     def test_model_defaults_region(self):
         client = Mock(wraps=FakeJujuModelDefaults({'some-key': 'black'}))
-        assess_model_defaults_region(
-            client, 'some-key', 'yellow', 'localhost', 'localhost')
-        self.assertEqual(3, client.get_model_defaults.call_count)
+        with patch('assess_model_defaults.get_new_model_config',
+                   return_value={'some-key': {'value': 'yellow'}},
+                   autospec=True) as get_config_mock:
+            assess_model_defaults_region(
+                client, 'some-key', 'yellow', 'localhost', 'localhost')
+        get_config_mock.assert_called_once_with(client, None)
+        self.assertEqual(4, client.get_model_defaults.call_count)
         client.get_model_defaults.assert_has_calls([call('some-key')] * 3)
         client.set_model_defaults.assert_called_once_with(
             'some-key', 'yellow', 'localhost', 'localhost')
@@ -192,7 +204,7 @@ class TestAssessModelDefaults(TestCase):
             'some-key', 'localhost', 'localhost')
 
     def test_model_defaults(self):
-        fake_client = FakeJujuModelDefaults()
+        fake_client = FakeJujuModelDefaults(region='localhost')
         with patch('assess_model_defaults.assess_model_defaults_controller',
                    autospec=True) as assess_controller_mock:
             with patch('assess_model_defaults.assess_model_defaults_region',
