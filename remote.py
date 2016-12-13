@@ -111,7 +111,13 @@ class _Remote:
 
 
 def _default_is_command_error(err):
-    """Whether to treat error as issue with remote command."""
+    """
+    Whether to treat error as issue with remote command rather than ssh.
+
+    This is a conservative default, remote commands may return a variety of
+    other return codes. However, as the fallback to local ssh binary will
+    repeat the command, those problems will be exposed later anyway.
+    """
     return err.returncode == 1
 
 
@@ -134,7 +140,18 @@ class SSHRemote(_Remote):
     timeout = 120
 
     def run(self, command_args, is_command_error=_default_is_command_error):
-        """Run a command on the remote machine."""
+        """
+        Run a command on the remote machine.
+
+        The command_args param is a string or list of arguments to be invoked
+        on the remote machine. A string must be given if special shell
+        characters are used.
+
+        The is_command_error param is a function that takes an instance of
+        CalledProcessError and returns whether that error comes from the
+        command being run rather than ssh itself. This can be used to skip the
+        fallback to native ssh behaviour when running commands that may fail.
+        """
         if isinstance(command_args, types.StringTypes):
             command_args = [command_args]
         if self.use_juju_ssh:
@@ -250,6 +267,7 @@ class WinRmRemote(_Remote):
     def __init__(self, *args, **kwargs):
         super(WinRmRemote, self).__init__(*args, **kwargs)
         self._ensure_address()
+        self.use_juju_ssh = False
         self.certs = utility.get_winrm_certs()
         self.session = _SSLSession(self.address, self.certs)
 

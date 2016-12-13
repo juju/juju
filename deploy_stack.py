@@ -170,19 +170,14 @@ def check_token(client, token, timeout=120):
         if remote.is_windows():
             result = get_token_from_status(client)
             if not result:
-                try:
-                    result = remote.cat("%ProgramData%\\dummy-sink\\token")
-                except winrm.exceptions.WinRMTransportError as e:
-                    logging.warning(
-                        "Skipping token check because of: {}".format(str(e)))
-                    return
+                result = _get_token(remote, "%ProgramData%\\dummy-sink\\token")
         else:
             result = _get_token(remote)
         if result == token:
             logging.info("Token matches expected %r", result)
             return
         if time.time() - start > timeout:
-            if not remote.is_windows() and remote.use_juju_ssh and _can_run_ssh():
+            if remote.use_juju_ssh and _can_run_ssh():
                 # 'juju ssh' didn't error, but try raw ssh to verify
                 # the result is the same.
                 remote.get_address()
