@@ -14,7 +14,6 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
-	"github.com/juju/juju/container"
 	"github.com/juju/juju/network"
 )
 
@@ -996,33 +995,33 @@ func (m *Machine) SetDevicesAddressesIdempotently(devicesAddresses []LinkLayerDe
 // containerMachine, setting each device linked to the corresponding
 // BridgeDevice of the host machine m.
 func (m *Machine) SetContainerLinkLayerDevices(containerMachine *Machine) error {
-	allDevices, err := m.AllLinkLayerDevices()
+	containerSpaces, err := containerMachine.AllSpaces()
 	if err != nil {
-		return errors.Annotate(err, "cannot get host machine devices")
+		return err
+	}
+	// XXX(jam): 2016-12-13 We should do something useful if
+	// len(containerSpaces) == 0
+	devicesPerSpace, err := m.LinkLayerDevicesForSpaces(containerSpaces.Values())
+	if err != nil {
+		return err
 	}
 
 	bridgeDevicesByName := make(map[string]*LinkLayerDevice)
-	bridgeDeviceNames := make([]string, 0, len(allDevices))
+	bridgeDeviceNames := make([]string, 0)
 
-	for _, hostDevice := range allDevices {
-		deviceType, name := hostDevice.Type(), hostDevice.Name()
-		// Since the default bridges (for each container type) are
-		// machine-local, and there's neither a way (at least not yet) nor any
-		// point in allocating addresses from the (machine-local) subnets
-		// configured on those bridges, we need to ignore them below.
-		if deviceType == BridgeDevice {
-			switch name {
-			case container.DefaultLxdBridge, container.DefaultKvmBridge:
-				logger.Debugf("skipping host bridge %q", name)
-				continue
+	for _, hostDevices := range devicesPerSpace {
+		for _, hostDevice := range hostDevices {
+			deviceType, name := hostDevice.Type(), hostDevice.Name()
+			if deviceType == BridgeDevice {
+				bridgeDevicesByName[name] = hostDevice
+				bridgeDeviceNames = append(bridgeDeviceNames, name)
 			}
-			bridgeDevicesByName[name] = hostDevice
-			bridgeDeviceNames = append(bridgeDeviceNames, name)
 		}
 	}
 
 	sortedBridgeDeviceNames := network.NaturallySortDeviceNames(bridgeDeviceNames...)
-	logger.Debugf("using host machine %q bridge devices: %v", m.Id(), sortedBridgeDeviceNames)
+	logger.Debugf("for container %q using host machine %q bridge devices: %v",
+		containerMachine.Id(), m.Id(), sortedBridgeDeviceNames)
 	containerDevicesArgs := make([]LinkLayerDeviceArgs, len(bridgeDeviceNames))
 
 	for i, hostBridgeName := range sortedBridgeDeviceNames {
