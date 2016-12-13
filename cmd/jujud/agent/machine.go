@@ -520,6 +520,7 @@ func (a *MachineAgent) makeEngineCreator(previousAgentVersion version.Number) fu
 			Clock:                clock.WallClock,
 			ValidateMigration:    a.validateMigration,
 			PrometheusRegisterer: a.prometheusRegistry,
+			CentralHub:           a.centralHub,
 		})
 		if err := dependency.Install(engine, manifolds); err != nil {
 			if err := worker.Stop(engine); err != nil {
