@@ -3,6 +3,8 @@ import abc
 import logging
 import os
 import subprocess
+import sys
+import types
 import zlib
 
 import winrm
@@ -108,6 +110,16 @@ class _Remote:
         self.address = unit['public-address']
 
 
+def _default_is_command_error(err):
+    """Whether to treat error as issue with remote command."""
+    return err.returncode == 1
+
+
+def _no_platform_ssh():
+    """True if no openssh binary is available on this platform."""
+    return sys.platform == "win32"
+
+
 class SSHRemote(_Remote):
     """SSHRemote represents a juju machine to access using ssh."""
 
@@ -121,22 +133,31 @@ class SSHRemote(_Remote):
     # Limit each operation over SSH to 2 minutes by default
     timeout = 120
 
-    def run(self, command):
+    def run(self, command_args, is_command_error=_default_is_command_error):
         """Run a command on the remote machine."""
+        if isinstance(command_args, types.StringTypes):
+            command_args = [command_args]
         if self.use_juju_ssh:
             logging.debug('juju ssh {}'.format(self.unit))
             try:
-                return self.client.get_juju_output("ssh", self.unit, command,
-                                                   timeout=self.timeout)
+                return self.client.get_juju_output(
+                    "ssh", self.unit, *command_args, timeout=self.timeout)
             except subprocess.CalledProcessError as e:
-                logging.warning("juju ssh to {!r} failed, returncode: {}"
-                                " output: {!r}".format(self.unit, e.returncode,
-                                                       e.output))
+                logging.warning(
+                    "juju ssh to {!r} failed, returncode: {} output: {!r}"
+                    " stderr: {!r}".format(
+                        self.unit, e.returncode, e.output,
+                        getattr(e, "stderr", None)))
+                # Don't fallback to calling ssh directly if command really
+                # failed or if there is likely to be no usable ssh client.
+                if is_command_error(e) or _no_platform_ssh():
+                    raise
                 self.use_juju_ssh = False
             self._ensure_address()
         args = ["ssh"]
         args.extend(self._ssh_opts)
-        args.extend([self.address, command])
+        args.append(self.address)
+        args.extend(command_args)
         logging.debug(' '.join(utility.quote(i) for i in args))
         return self._run_subprocess(args)
 
@@ -156,7 +177,7 @@ class SSHRemote(_Remote):
 
         Tildes and environment variables in the form $TMP will be expanded.
         """
-        return self.run("cat " + utility.quote(filename))
+        return self.run(["cat", filename])
 
     def _run_subprocess(self, command):
         if self.timeout:
