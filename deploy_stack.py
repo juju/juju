@@ -1060,10 +1060,6 @@ def _deploy_job(args, charm_series, series):
         args.keep_env, permanent=jes_enabled, jes_enabled=jes_enabled,
         controller_strategy=controller_strategy)
     with bs_manager.booted_context(args.upload_tools):
-        if sys.platform in ('win32', 'darwin'):
-            # The win and osx client tests only verify the client
-            # can bootstrap and call the state-server.
-            return
         if args.with_chaos > 0:
             manager = background_chaos(args.temp_env_name, client,
                                        args.logs, args.with_chaos)
@@ -1074,7 +1070,9 @@ def _deploy_job(args, charm_series, series):
         with manager:
             deploy_dummy_stack(client, charm_series)
         assess_juju_relations(client)
-        skip_juju_run = charm_series.startswith(("centos", "win"))
+        skip_juju_run = (
+            (client.version < "2" and sys.platform in ("win32", "darwin"))
+            or charm_series.startswith(("centos", "win")))
         if not skip_juju_run:
             assess_juju_run(client)
         if args.upgrade:
