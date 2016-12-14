@@ -77,7 +77,7 @@ def assess_model_defaults_case(client, model_key, value, expected_default,
                       'Mismatch after resetting model-default.')
 
 
-def assess_model_defaults_controller(client, model_key, value):
+def assess_model_defaults_no_region(client, model_key, value):
     """Check the setting and unsetting of the controller field."""
     default = client.get_model_defaults(model_key)[model_key]['default']
     assess_model_defaults_case(
@@ -97,11 +97,13 @@ def assess_model_defaults_region(client, model_key, value,
 
 def assess_model_defaults(client, other_region):
     log.info('Checking controller model-defaults.')
-    assess_model_defaults_controller(
+    assess_model_defaults_no_region(
         client, 'automatically-retry-hooks', False)
-    log.info('Checking region model-defaults.')
-    assess_model_defaults_region(
-        client, 'default-series', 'trusty', region=client.env.get_region())
+    region = client.env.get_region()
+    if region is not None:
+        log.info('Checking region model-defaults.')
+        assess_model_defaults_region(
+            client, 'default-series', 'trusty', region=region)
     if other_region is not None:
         log.info('Checking other region model-defaults.')
         assess_model_defaults_region(
@@ -124,7 +126,7 @@ def main(argv=None):
     bs_manager = BootstrapManager.from_args(args)
     if (args.other_region is not None and
             args.other_region == bs_manager.client.env.get_region()):
-        raise JujuAssertionError('Other region is a repeat of region.')
+        raise ValueError('Other region is a repeat of region.')
     with bs_manager.booted_context(args.upload_tools):
         assess_model_defaults(bs_manager.client, args.other_region)
     return 0

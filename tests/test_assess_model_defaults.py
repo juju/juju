@@ -14,7 +14,7 @@ from mock import (
 from assess_model_defaults import (
     assemble_model_default,
     assess_model_defaults,
-    assess_model_defaults_controller,
+    assess_model_defaults_no_region,
     assess_model_defaults_region,
     get_new_model_config,
     juju_assert_equal,
@@ -180,12 +180,12 @@ class TestGetNewModelConfig(TestCase):
 
 class TestAssessModelDefaults(TestCase):
 
-    def test_model_defaults_controller(self):
+    def test_model_defaults_no_region(self):
         client = Mock(wraps=FakeJujuModelDefaults({'some-key': 'black'}))
         with patch('assess_model_defaults.get_new_model_config',
                    return_value={'some-key': {'value': 'yellow'}},
                    autospec=True) as get_config_mock:
-            assess_model_defaults_controller(client, 'some-key', 'yellow')
+            assess_model_defaults_no_region(client, 'some-key', 'yellow')
         get_config_mock.assert_called_once_with(client, None)
         self.assertEqual(4, client.get_model_defaults.call_count)
         client.get_model_defaults.assert_has_calls([call('some-key')] * 3)
@@ -201,7 +201,7 @@ class TestAssessModelDefaults(TestCase):
                    autospec=True) as get_config_mock:
             assess_model_defaults_region(
                 client, 'some-key', 'yellow', 'localhost', 'localhost')
-        get_config_mock.assert_called_once_with(client, None)
+        get_config_mock.assert_called_once_with(client, 'localhost')
         self.assertEqual(4, client.get_model_defaults.call_count)
         client.get_model_defaults.assert_has_calls([call('some-key')] * 3)
         client.set_model_defaults.assert_called_once_with(
@@ -211,12 +211,12 @@ class TestAssessModelDefaults(TestCase):
 
     def test_model_defaults(self):
         fake_client = FakeJujuModelDefaults(region='localhost')
-        with patch('assess_model_defaults.assess_model_defaults_controller',
-                   autospec=True) as assess_controller_mock:
+        with patch('assess_model_defaults.assess_model_defaults_no_region',
+                   autospec=True) as assess_no_region_mock:
             with patch('assess_model_defaults.assess_model_defaults_region',
                        autospec=True) as assess_region_mock:
                 assess_model_defaults(fake_client, None)
-        assess_controller_mock.assert_called_once_with(
+        assess_no_region_mock.assert_called_once_with(
             fake_client, 'automatically-retry-hooks', False)
         assess_region_mock.assert_called_once_with(
             fake_client, 'default-series', 'trusty', region='localhost')
