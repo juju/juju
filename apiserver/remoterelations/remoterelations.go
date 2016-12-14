@@ -60,6 +60,30 @@ func NewRemoteRelationsAPI(
 	}, nil
 }
 
+// ImportRemoteEntities adds entities to the remote entities collection with the specified opaque tokens.
+func (api *RemoteRelationsAPI) ImportRemoteEntities(args params.ImportEntityArgs) (params.ErrorResults, error) {
+	results := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.Args)),
+	}
+	for i, arg := range args.Args {
+		err := api.importRemoteEntity(arg)
+		results.Results[i].Error = common.ServerError(err)
+	}
+	return results, nil
+}
+
+func (api *RemoteRelationsAPI) importRemoteEntity(arg params.ImportEntityArg) error {
+	entityTag, err := names.ParseTag(arg.Tag)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	modelTag, err := names.ParseModelTag(arg.ModelTag)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return api.st.ImportRemoteEntity(modelTag, entityTag, arg.Token)
+}
+
 // ExportEntities allocates unique, remote entity IDs for the given entities in the local model.
 func (api *RemoteRelationsAPI) ExportEntities(entities params.Entities) (params.RemoteEntityIdResults, error) {
 	results := params.RemoteEntityIdResults{
@@ -194,7 +218,8 @@ func (api *RemoteRelationsAPI) Relations(entities params.Entities) (params.Remot
 			if err != nil && !errors.IsNotFound(err) {
 				return nil, errors.Trace(err)
 			} else if err == nil {
-				result.LocalEndpoint = params.RemoteEndpoint{
+				result.ApplicationName = ep.ApplicationName
+				result.Endpoint = params.RemoteEndpoint{
 					Name:      ep.Name,
 					Interface: ep.Interface,
 					Role:      ep.Role,
@@ -302,24 +327,11 @@ func (api *RemoteRelationsAPI) publishRelationChange(change params.RemoteRelatio
 
 	// Look up the application on the remote side of this relation
 	// ie from the model which published this change.
-	// TODO(wallyworld) - we want to look up via a token but we need to
-	// change RegisterRelation to return the app id from the other model.
-	//applicationTag, err := api.getRemoteEntityTag(change.ApplicationId)
-	//if err != nil {
-	//	return errors.Trace(err)
-	//}
-	//logger.Warningf("application tag for remote id %+v is %v", change.ApplicationId, applicationTag)
-	var applicationTag names.Tag
-	for _, ep := range rel.Endpoints() {
-		app, err := api.st.RemoteApplication(ep.ApplicationName)
-		if err == nil {
-			applicationTag = app.Tag()
-			break
-		}
-		if !errors.IsNotFound(err) {
-			return errors.Trace(err)
-		}
+	applicationTag, err := api.getRemoteEntityTag(change.ApplicationId)
+	if err != nil {
+		return errors.Trace(err)
 	}
+	logger.Debugf("application tag for remote id %+v is %v", change.ApplicationId, applicationTag)
 	// TODO(wallyworld) - deal with remote application being removed
 	if applicationTag == nil {
 		logger.Infof("no remote application found for %v", relationTag.Id())
@@ -378,20 +390,22 @@ func (api *RemoteRelationsAPI) getRemoteEntityTag(id params.RemoteEntityId) (nam
 // in the specified relations. This operation is idempotent.
 func (api *RemoteRelationsAPI) RegisterRemoteRelations(
 	relations params.RegisterRemoteRelations,
-) (params.ErrorResults, error) {
-	results := params.ErrorResults{
-		Results: make([]params.ErrorResult, len(relations.Relations)),
+) (params.RemoteEntityIdResults, error) {
+	results := params.RemoteEntityIdResults{
+		Results: make([]params.RemoteEntityIdResult, len(relations.Relations)),
 	}
 	for i, relation := range relations.Relations {
-		if err := api.registerRemoteRelation(relation); err != nil {
+		if id, err := api.registerRemoteRelation(relation); err != nil {
 			results.Results[i].Error = common.ServerError(err)
 			continue
+		} else {
+			results.Results[i].Result = id
 		}
 	}
 	return results, nil
 }
 
-func (api *RemoteRelationsAPI) registerRemoteRelation(relation params.RegisterRemoteRelation) error {
+func (api *RemoteRelationsAPI) registerRemoteRelation(relation params.RegisterRemoteRelation) (*params.RemoteEntityId, error) {
 	logger.Debugf("register remote relation %+v", relation)
 	// TODO(wallyworld) - do this as a transaction so the result is atomic
 	// Perform some initial validation - is the local application alive?
@@ -401,7 +415,7 @@ func (api *RemoteRelationsAPI) registerRemoteRelation(relation params.RegisterRe
 	localApplicationName := relation.OfferedApplicationName
 	appOffer, err := api.st.ListOffers(crossmodel.OfferedApplicationFilter{ApplicationName: relation.OfferedApplicationName})
 	if err != nil {
-		return errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 	if len(appOffer) == 0 {
 		// TODO(wallyworld) - we don't yet record the offer
@@ -413,14 +427,14 @@ func (api *RemoteRelationsAPI) registerRemoteRelation(relation params.RegisterRe
 
 	localApp, err := api.st.Application(localApplicationName)
 	if err != nil {
-		return errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 	if localApp.Life() != state.Alive {
-		return errors.NotFoundf("application %v", localApplicationName)
+		return nil, errors.NotFoundf("application %v", localApplicationName)
 	}
 	eps, err := localApp.Endpoints()
 	if err != nil {
-		return errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 
 	// Does the requested local endpoint exist?
@@ -432,7 +446,7 @@ func (api *RemoteRelationsAPI) registerRemoteRelation(relation params.RegisterRe
 		}
 	}
 	if localEndpoint == nil {
-		return errors.NotFoundf("relation endpoint %v", relation.LocalEndpointName)
+		return nil, errors.NotFoundf("relation endpoint %v", relation.LocalEndpointName)
 	}
 
 	// Add the remote application reference. We construct a unique, opaque application name based on the
@@ -460,38 +474,46 @@ func (api *RemoteRelationsAPI) registerRemoteRelation(relation params.RegisterRe
 	})
 	// If it already exists, that's fine.
 	if err != nil && !errors.IsAlreadyExists(err) {
-		return errors.Annotatef(err, "adding remote application %v", uniqueRemoteApplicationName)
+		return nil, errors.Annotatef(err, "adding remote application %v", uniqueRemoteApplicationName)
 	}
-	logger.Debugf("added remote application %v to local model", uniqueRemoteApplicationName)
+	logger.Debugf("added remote application %v to local model with token %v", uniqueRemoteApplicationName, relation.ApplicationId.Token)
 
 	// Now add the relation if it doesn't already exist.
 	localRel, err := api.st.EndpointsRelation(*localEndpoint, remoteEndpoint)
 	if err != nil && !errors.IsNotFound(err) {
-		return errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 	if err != nil {
 		localRel, err = api.st.AddRelation(*localEndpoint, remoteEndpoint)
 		// Again, if it already exists, that's fine.
 		if err != nil && !errors.IsAlreadyExists(err) {
-			return errors.Annotate(err, "adding remote relation")
+			return nil, errors.Annotate(err, "adding remote relation")
 		}
 		logger.Debugf("added relation %v to model %v", localRel.Tag().Id(), api.st.ModelUUID())
 	}
 
 	// Ensure we have references recorded.
-	logger.Debugf("importing remote application and relation into model %v", api.st.ModelUUID())
+	logger.Debugf("importing remote relation into model %v", api.st.ModelUUID())
 	logger.Debugf("remote model is %v", remoteModelTag.Id())
-	err = api.st.ImportRemoteEntity(remoteModelTag, names.NewApplicationTag(uniqueRemoteApplicationName), relation.ApplicationId.Token)
-	if err != nil && !errors.IsAlreadyExists(err) {
-		return errors.Annotatef(err, "importing remote application %v to local model", uniqueRemoteApplicationName)
-	}
-	logger.Debugf("application token %v exported for %v", relation.ApplicationId.Token, uniqueRemoteApplicationName)
+
 	err = api.st.ImportRemoteEntity(remoteModelTag, localRel.Tag(), relation.RelationId.Token)
 	if err != nil && !errors.IsAlreadyExists(err) {
-		return errors.Annotatef(err, "importing remote relation %v to local model", localRel.Tag().Id())
+		return nil, errors.Annotatef(err, "importing remote relation %v to local model", localRel.Tag().Id())
 	}
 	logger.Debugf("relation token %v exported for %v ", relation.RelationId.Token, localRel.Tag().Id())
-	return nil
+
+	// Export the local application from this model so we can tell the caller what the remote id is.
+	// NB we need to export the application last so that everything else is in place when the worker is
+	// woken up by the watcher.
+	token, err := api.st.ExportLocalEntity(names.NewApplicationTag(localApp.Name()))
+	if err != nil && !errors.IsAlreadyExists(err) {
+		return nil, errors.Annotatef(err, "exporting local application %v", localApp.Name())
+	}
+	logger.Debugf("local application %v from model %v exported with token %v ", localApp.Name(), api.st.ModelUUID(), token)
+	return &params.RemoteEntityId{
+		ModelUUID: api.st.ModelUUID(),
+		Token:     token,
+	}, nil
 }
 
 // WatchRemoteApplications starts a strings watcher that notifies of the addition,

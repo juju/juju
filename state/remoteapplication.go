@@ -401,9 +401,6 @@ func (st *State) AddRemoteApplication(args AddRemoteApplicationParams) (_ *Remot
 		Updated:    time.Now().UnixNano(),
 	}
 
-	importRemoteEntityOps := st.RemoteEntities().importRemoteEntityOps(
-		args.SourceModel, app.Tag(), args.Token,
-	)
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		// If we've tried once already and failed, check that
 		// model may have been destroyed.
@@ -438,7 +435,13 @@ func (st *State) AddRemoteApplication(args AddRemoteApplicationParams) (_ *Remot
 				Assert: txn.DocMissing,
 			},
 		}
-		ops = append(ops, importRemoteEntityOps...)
+		// If we know the token, import it.
+		if args.Token != "" {
+			importRemoteEntityOps := st.RemoteEntities().importRemoteEntityOps(
+				args.SourceModel, app.Tag(), args.Token,
+			)
+			ops = append(ops, importRemoteEntityOps...)
+		}
 		return ops, nil
 	}
 	if err = st.run(buildTxn); err != nil {

@@ -47,6 +47,27 @@ func (c *Client) PublishLocalRelationChange(change params.RemoteRelationChangeEv
 	return nil
 }
 
+// ImportRemoteEntity adds an entity to the remote entities collection
+// with the specified opaque token.
+func (c *Client) ImportRemoteEntity(sourceModelUUID string, entity names.Tag, token string) error {
+	args := params.ImportEntityArgs{Args: []params.ImportEntityArg{
+		{ModelTag: names.NewModelTag(sourceModelUUID).String(), Tag: entity.String(), Token: token}},
+	}
+	var results params.ErrorResults
+	err := c.facade.FacadeCall("ImportRemoteEntities", args, &results)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if len(results.Results) != 1 {
+		return errors.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return errors.Trace(result.Error)
+	}
+	return nil
+}
+
 // ExportEntities allocates unique, remote entity IDs for the given entities in the local model.
 func (c *Client) ExportEntities(tags []names.Tag) ([]params.RemoteEntityIdResult, error) {
 	args := params.Entities{Entities: make([]params.Entity, len(tags))}
@@ -84,22 +105,18 @@ func (c *Client) GetToken(sourceModelUUID string, tag names.Tag) (string, error)
 	return result.Result, nil
 }
 
-// RegisterRemoteRelation sets up the local model to participate in the specified relation.
-func (c *Client) RegisterRemoteRelation(rel params.RegisterRemoteRelation) error {
-	args := params.RegisterRemoteRelations{Relations: []params.RegisterRemoteRelation{rel}}
-	var results params.ErrorResults
+// RegisterRemoteRelations sets up the local model to participate in the specified relations.
+func (c *Client) RegisterRemoteRelations(relations ...params.RegisterRemoteRelation) ([]params.RemoteEntityIdResult, error) {
+	args := params.RegisterRemoteRelations{Relations: relations}
+	var results params.RemoteEntityIdResults
 	err := c.facade.FacadeCall("RegisterRemoteRelations", args, &results)
 	if err != nil {
-		return errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
-	if len(results.Results) != 1 {
-		return errors.Errorf("expected 1 result, got %d", len(results.Results))
+	if len(results.Results) != len(relations) {
+		return nil, errors.Errorf("expected %d result(s), got %d", len(relations), len(results.Results))
 	}
-	result := results.Results[0]
-	if result.Error != nil {
-		return errors.Trace(result.Error)
-	}
-	return nil
+	return results.Results, nil
 }
 
 // RelationUnitSettings returns the relation unit settings for the given relation units in the local model.

@@ -112,6 +112,9 @@ func (r *RemoteEntities) ExportLocalEntity(entity names.Tag) (string, error) {
 func (r *RemoteEntities) ImportRemoteEntity(
 	sourceModel names.ModelTag, entity names.Tag, token string,
 ) error {
+	if token == "" {
+		return errors.NotValidf("empty token for %v in model %v", entity.Id(), sourceModel.Id())
+	}
 	ops := r.importRemoteEntityOps(sourceModel, entity, token)
 	err := r.st.runTransaction(ops)
 	if err == txn.ErrAborted {

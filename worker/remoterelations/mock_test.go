@@ -122,6 +122,14 @@ func (m *mockRelationsFacade) ExportEntities(entities []names.Tag) ([]params.Rem
 	return result, nil
 }
 
+func (m *mockRelationsFacade) ImportRemoteEntity(sourceModelUUID string, entity names.Tag, token string) error {
+	m.stub.MethodCall(m, "ImportRemoteEntity", sourceModelUUID, entity, token)
+	if err := m.stub.NextErr(); err != nil {
+		return err
+	}
+	return nil
+}
+
 func (m *mockRelationsFacade) GetToken(modelUUID string, entity names.Tag) (string, error) {
 	m.stub.MethodCall(m, "GetToken", modelUUID, entity)
 	if err := m.stub.NextErr(); err != nil {
@@ -152,12 +160,19 @@ func (m *mockRelationsFacade) PublishLocalRelationChange(change params.RemoteRel
 	return nil
 }
 
-func (m *mockRelationsFacade) RegisterRemoteRelation(rel params.RegisterRemoteRelation) error {
-	m.stub.MethodCall(m, "RegisterRemoteRelation", rel)
+func (m *mockRelationsFacade) RegisterRemoteRelations(relations ...params.RegisterRemoteRelation) ([]params.RemoteEntityIdResult, error) {
+	m.stub.MethodCall(m, "RegisterRemoteRelations", relations)
 	if err := m.stub.NextErr(); err != nil {
-		return err
+		return nil, err
 	}
-	return nil
+	result := make([]params.RemoteEntityIdResult, len(relations))
+	for i, rel := range relations {
+		result[i].Result = &params.RemoteEntityId{
+			ModelUUID: "source-model-uuid",
+			Token:     "token-" + rel.OfferedApplicationName,
+		}
+	}
+	return result, nil
 }
 
 func (m *mockRelationsFacade) RemoteApplications(names []string) ([]params.RemoteApplicationResult, error) {
@@ -210,7 +225,8 @@ func (m *mockRelationsFacade) Relations(keys []string) ([]params.RemoteRelationR
 			}
 			if epInfo, ok := m.relationsEndpoints[key]; ok {
 				result[i].Result.RemoteEndpointName = epInfo.remoteEndpointName
-				result[i].Result.LocalEndpoint = epInfo.localEndpoint
+				result[i].Result.Endpoint = epInfo.localEndpoint
+				result[i].Result.ApplicationName = epInfo.localApplicationName
 			}
 		} else {
 			result[i].Error = common.ServerError(errors.NotFoundf(key))
