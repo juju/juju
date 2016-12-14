@@ -19,7 +19,7 @@ import (
 
 type APICalls interface {
 	ContainerConfig() (params.ContainerConfig, error)
-	PrepareContainerInterfaceInfo(names.MachineTag) ([]network.InterfaceInfo, error)
+	PrepareContainerInterfaceInfo(names.MachineTag) ([]network.InterfaceInfo, []network.DeviceToBridge, error)
 	GetContainerInterfaceInfo(names.MachineTag) ([]network.InterfaceInfo, error)
 	ReleaseContainerAddresses(names.MachineTag) error
 }
@@ -49,6 +49,9 @@ func prepareOrGetContainerInterfaceInfo(
 	maintain := !allocateOrMaintain
 
 	if maintain {
+		// TODO(jam): 2016-12-14 The function is called
+		// 'prepareOrGet', but the only time we would handle the 'Get'
+		// side, we explicitly abort. Something seems wrong.
 		log.Debugf("not running maintenance for machine %q", machineID)
 		return nil, nil
 	}
@@ -56,11 +59,11 @@ func prepareOrGetContainerInterfaceInfo(
 	log.Debugf("using multi-bridge networking for container %q", machineID)
 
 	containerTag := names.NewMachineTag(machineID)
-	preparedInfo, err := api.PrepareContainerInterfaceInfo(containerTag)
+	preparedInfo, devicesToBridge, err := api.PrepareContainerInterfaceInfo(containerTag)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	log.Tracef("PrepareContainerInterfaceInfo returned %+v", preparedInfo)
+	log.Tracef("PrepareContainerInterfaceInfo returned %+v %+v", preparedInfo, devicesToBridge)
 
 	return preparedInfo, nil
 }

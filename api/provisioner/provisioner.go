@@ -170,14 +170,15 @@ func (st *State) ReleaseContainerAddresses(containerTag names.MachineTag) (err e
 
 // PrepareContainerInterfaceInfo allocates an address and returns information to
 // configure networking for a container. It accepts container tags as arguments.
-func (st *State) PrepareContainerInterfaceInfo(containerTag names.MachineTag) ([]network.InterfaceInfo, error) {
+func (st *State) PrepareContainerInterfaceInfo(containerTag names.MachineTag) ([]network.InterfaceInfo, []network.DeviceToBridge, error) {
 	return st.prepareOrGetContainerInterfaceInfo(containerTag, true)
 }
 
 // GetContainerInterfaceInfo returns information to configure networking
 // for a container. It accepts container tags as arguments.
 func (st *State) GetContainerInterfaceInfo(containerTag names.MachineTag) ([]network.InterfaceInfo, error) {
-	return st.prepareOrGetContainerInterfaceInfo(containerTag, false)
+	interfaceInfo, _, err := st.prepareOrGetContainerInterfaceInfo(containerTag, false)
+	return interfaceInfo, err
 }
 
 // prepareOrGetContainerInterfaceInfo returns the necessary information to
@@ -189,7 +190,7 @@ func (st *State) GetContainerInterfaceInfo(containerTag names.MachineTag) ([]net
 // InterfaceConfig.
 func (st *State) prepareOrGetContainerInterfaceInfo(
 	containerTag names.MachineTag, allocateNewAddress bool) (
-	[]network.InterfaceInfo, error) {
+	[]network.InterfaceInfo, []network.DeviceToBridge, error) {
 	var result params.MachineNetworkConfigResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: containerTag.String()}},
@@ -201,16 +202,31 @@ func (st *State) prepareOrGetContainerInterfaceInfo(
 		facadeName = "GetContainerInterfaceInfo"
 	}
 	if err := st.facade.FacadeCall(facadeName, args, &result); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if len(result.Results) != 1 {
-		return nil, errors.Errorf("expected 1 result, got %d", len(result.Results))
+		return nil, nil, errors.Errorf("expected 1 result, got %d", len(result.Results))
 	}
 	if err := result.Results[0].Error; err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	ifaceInfo := make([]network.InterfaceInfo, len(result.Results[0].Config))
-	for i, cfg := range result.Results[0].Config {
+	machineConf := result.Results[0]
+	toBridge := []network.DeviceToBridge{}
+	if allocateNewAddress {
+		toBridge = make([]network.DeviceToBridge, len(machineConf.DevicesToBridge))
+		for i, devToBridge := range machineConf.DevicesToBridge {
+			toBridge[i].DeviceName = devToBridge.HostDeviceName
+			toBridge[i].BridgeName = devToBridge.BridgeName
+		}
+	} else {
+		// XXX(jam): Assert that DeviceToBridge is empty
+		if len(machineConf.DevicesToBridge) != 0 {
+			return nil, nil, errors.Errorf("GetContainerInterfaceInfo should never return new devices to bridge, got: %v",
+				machineConf.DevicesToBridge)
+		}
+	}
+	ifaceInfo := make([]network.InterfaceInfo, len(machineConf.Config))
+	for i, cfg := range machineConf.Config {
 		ifaceInfo[i] = network.InterfaceInfo{
 			DeviceIndex:         cfg.DeviceIndex,
 			MACAddress:          cfg.MACAddress,
@@ -234,5 +250,5 @@ func (st *State) prepareOrGetContainerInterfaceInfo(
 			GatewayAddress:      network.NewAddress(cfg.GatewayAddress),
 		}
 	}
-	return ifaceInfo, nil
+	return ifaceInfo, toBridge, nil
 }

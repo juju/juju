@@ -132,10 +132,11 @@ type NetworkConfig struct {
 	GatewayAddress string `json:"gateway-address,omitempty"`
 }
 
-// NetworkConfigs holds the network configuration for multiple networks
-type NetworkConfigs struct {
-	Results []NetworkConfig `json:"results"`
-	Errors  []error         `json:"errors,omitempty"`
+// DeviceBridgeInfo lists the host device and the expected bridge to be
+// created.
+type DeviceBridgeInfo struct {
+	HostDeviceName string `json:host-device-name`
+	BridgeName     string `json:bridge-name`
 }
 
 // ProviderInterfaceInfoResults holds the results of a
@@ -443,7 +444,7 @@ type UnitNetworkConfigResult struct {
 	Config []NetworkConfig `json:"info"`
 }
 
-// UnitNetworkConfigResults holds network configuration for multiple machines.
+// UnitNetworkConfigResults holds network configuration for multiple units.
 type UnitNetworkConfigResults struct {
 	Results []UnitNetworkConfigResult `json:"results"`
 }
@@ -454,6 +455,11 @@ type MachineNetworkConfigResult struct {
 
 	// Tagged to Info due to compatibility reasons.
 	Config []NetworkConfig `json:"info"`
+
+	// DevicesToBridge lists the host devices we need to be bridged for the
+	// container to have correct Config. This should be empty for any
+	// top level machine.
+	DevicesToBridge []DeviceBridgeInfo `json:"devices-to-bridge"`
 }
 
 // MachineNetworkConfigResults holds network configuration for multiple machines.
