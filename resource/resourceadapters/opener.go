@@ -19,10 +19,17 @@ type resourceOpener struct {
 	res    corestate.Resources
 	userID names.Tag
 	unit   *corestate.Unit
+	closer func() error
 }
 
 // OpenResource implements server.ResourceOpener.
-func (ro *resourceOpener) OpenResource(name string) (resource.Opened, error) {
+func (ro *resourceOpener) OpenResource(name string) (o resource.Opened, err error) {
+	defer func() {
+		if err != nil {
+			ro.closer()
+		}
+	}()
+
 	if ro.unit == nil {
 		return resource.Opened{}, errors.Errorf("missing unit")
 	}
@@ -62,6 +69,7 @@ func (ro *resourceOpener) OpenResource(name string) (resource.Opened, error) {
 	opened := resource.Opened{
 		Resource:   res,
 		ReadCloser: reader,
+		Closer:     ro.closer,
 	}
 	return opened, nil
 }

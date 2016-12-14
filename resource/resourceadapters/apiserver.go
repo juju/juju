@@ -48,14 +48,15 @@ func NewApplicationHandler(args apihttp.NewHandlerArgs) http.Handler {
 			if err != nil {
 				return nil, nil, nil, errors.Trace(err)
 			}
-			resources, err := st.Resources()
-			if err != nil {
-				return nil, nil, nil, errors.Trace(err)
-			}
-
 			closer := func() error {
 				return args.Release(st)
 			}
+			resources, err := st.Resources()
+			if err != nil {
+				closer()
+				return nil, nil, nil, errors.Trace(err)
+			}
+
 			return resources, closer, entity.Tag(), nil
 		},
 	)
@@ -65,6 +66,7 @@ func NewApplicationHandler(args apihttp.NewHandlerArgs) http.Handler {
 func NewDownloadHandler(args apihttp.NewHandlerArgs) http.Handler {
 	extractor := &httpDownloadRequestExtractor{
 		connect: args.Connect,
+		release: args.Release,
 	}
 	deps := internalserver.NewHTTPHandlerDeps(extractor)
 	return internalserver.NewHTTPHandler(deps)
@@ -79,15 +81,26 @@ type stateConnector interface {
 // handle a resource download HTTP request.
 type httpDownloadRequestExtractor struct {
 	connect func(*http.Request) (*corestate.State, corestate.Entity, error)
+	release func(*corestate.State) error
 }
 
 // NewResourceOpener returns a new resource.Opener for the given
 // HTTP request.
-func (ex *httpDownloadRequestExtractor) NewResourceOpener(req *http.Request) (resource.Opener, error) {
+func (ex *httpDownloadRequestExtractor) NewResourceOpener(req *http.Request) (opener resource.Opener, err error) {
 	st, _, err := ex.connect(req)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
+	closer := func() error {
+		return ex.release(st)
+	}
+
+	defer func() {
+		if err != nil {
+			closer()
+		}
+	}()
 
 	unitTagStr := req.URL.Query().Get(":unit")
 	unitTag, err := names.ParseUnitTag(unitTagStr)
@@ -104,11 +117,12 @@ func (ex *httpDownloadRequestExtractor) NewResourceOpener(req *http.Request) (re
 		return nil, errors.Trace(err)
 	}
 
-	opener := &resourceOpener{
+	opener = &resourceOpener{
 		st:     st,
 		res:    resources,
 		userID: unitTag,
 		unit:   unit,
+		closer: closer,
 	}
 	return opener, nil
 }
