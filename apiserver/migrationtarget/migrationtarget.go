@@ -70,10 +70,11 @@ func (api *API) Prechecks(model params.MigrationModelInfo) error {
 	return migration.TargetPrecheck(
 		migration.PrecheckShim(api.state),
 		coremigration.ModelInfo{
-			UUID:         model.UUID,
-			Name:         model.Name,
-			Owner:        ownerTag,
-			AgentVersion: model.AgentVersion,
+			UUID:                   model.UUID,
+			Name:                   model.Name,
+			Owner:                  ownerTag,
+			AgentVersion:           model.AgentVersion,
+			ControllerAgentVersion: model.ControllerAgentVersion,
 		},
 	)
 }
