@@ -47,10 +47,14 @@ func (s *remoteRelationsSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *remoteRelationsSuite) waitForStubCalls(c *gc.C, expected []jujutesting.StubCall) {
+func (s *remoteRelationsSuite) waitForWorkerStubCalls(c *gc.C, expected []jujutesting.StubCall) {
+	waitForStubCalls(c, s.stub, expected)
+}
+
+func waitForStubCalls(c *gc.C, stub *jujutesting.Stub, expected []jujutesting.StubCall) {
 	var calls []jujutesting.StubCall
 	for a := coretesting.LongAttempt.Start(); a.Next(); {
-		calls = s.stub.Calls()
+		calls = stub.Calls()
 		if reflect.DeepEqual(calls, expected) {
 			return
 		}
@@ -76,12 +80,12 @@ func (s *remoteRelationsSuite) assertRemoteApplicationWorkers(c *gc.C) worker.Wo
 		{"ExportEntities", []interface{}{[]names.Tag{names.NewApplicationTag("mysql")}}},
 		{"WatchRemoteApplicationRelations", []interface{}{"mysql"}},
 	}
-	s.waitForStubCalls(c, expected)
+	s.waitForWorkerStubCalls(c, expected)
 	for _, app := range applicationNames {
 		w, ok := s.relationsFacade.remoteApplicationRelationsWatcher(app)
 		c.Check(ok, jc.IsTrue)
-		w.CheckCalls(c, []jujutesting.StubCall{
-			{"Changes", []interface{}{}},
+		waitForStubCalls(c, &w.Stub, []jujutesting.StubCall{
+			{"Changes", nil},
 		})
 	}
 	return w
@@ -120,7 +124,7 @@ func (s *remoteRelationsSuite) TestRemoteApplicationRemoved(c *gc.C) {
 		{"RemoteApplications", []interface{}{[]string{"mysql"}}},
 		{"Close", nil},
 	}
-	s.waitForStubCalls(c, expected)
+	s.waitForWorkerStubCalls(c, expected)
 }
 
 func (s *remoteRelationsSuite) assertRemoteRelationsWorkers(c *gc.C) worker.Worker {
@@ -161,12 +165,12 @@ func (s *remoteRelationsSuite) assertRemoteRelationsWorkers(c *gc.C) worker.Work
 		}}},
 		{"WatchLocalRelationUnits", []interface{}{"db2:db django:db"}},
 	}
-	s.waitForStubCalls(c, expected)
+	s.waitForWorkerStubCalls(c, expected)
 
 	unitWatcher, ok := s.relationsFacade.relationsUnitsWatcher("db2:db django:db")
 	c.Check(ok, jc.IsTrue)
-	unitWatcher.CheckCalls(c, []jujutesting.StubCall{
-		{"Changes", []interface{}{}},
+	waitForStubCalls(c, &unitWatcher.Stub, []jujutesting.StubCall{
+		{"Changes", nil},
 	})
 	return w
 }
@@ -201,7 +205,7 @@ func (s *remoteRelationsSuite) TestRemoteRelationsDead(c *gc.C) {
 	expected := []jujutesting.StubCall{
 		{"Relations", []interface{}{[]string{"db2:db django:db"}}},
 	}
-	s.waitForStubCalls(c, expected)
+	s.waitForWorkerStubCalls(c, expected)
 }
 
 func (s *remoteRelationsSuite) TestRemoteRelationsRemoved(c *gc.C) {
@@ -224,7 +228,7 @@ func (s *remoteRelationsSuite) TestRemoteRelationsRemoved(c *gc.C) {
 	expected := []jujutesting.StubCall{
 		{"Relations", []interface{}{[]string{"db2:db django:db"}}},
 	}
-	s.waitForStubCalls(c, expected)
+	s.waitForWorkerStubCalls(c, expected)
 }
 
 func (s *remoteRelationsSuite) TestRemoteRelationsChangedNotifies(c *gc.C) {
@@ -260,7 +264,7 @@ func (s *remoteRelationsSuite) TestRemoteRelationsChangedNotifies(c *gc.C) {
 			},
 		}},
 	}
-	s.waitForStubCalls(c, expected)
+	s.waitForWorkerStubCalls(c, expected)
 }
 
 func (s *remoteRelationsSuite) TestRemoteRelationsChangedError(c *gc.C) {
@@ -296,7 +300,7 @@ func (s *remoteRelationsSuite) TestRegisteredApplicationNotRegistered(c *gc.C) {
 		{"ExportEntities", []interface{}{[]names.Tag{names.NewApplicationTag("db2")}}},
 		{"WatchRemoteApplicationRelations", []interface{}{"db2"}},
 	}
-	s.waitForStubCalls(c, expected)
+	s.waitForWorkerStubCalls(c, expected)
 	s.stub.ResetCalls()
 
 	s.relationsFacade.relationsEndpoints["db2:db django:db"] = &relationEndpointInfo{
@@ -318,5 +322,5 @@ func (s *remoteRelationsSuite) TestRegisteredApplicationNotRegistered(c *gc.C) {
 		{"Relations", []interface{}{[]string{"db2:db django:db"}}},
 		{"WatchLocalRelationUnits", []interface{}{"db2:db django:db"}},
 	}
-	s.waitForStubCalls(c, expected)
+	s.waitForWorkerStubCalls(c, expected)
 }
