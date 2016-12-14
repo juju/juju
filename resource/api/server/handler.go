@@ -12,12 +12,16 @@ import (
 	"github.com/juju/juju/resource/api"
 )
 
-// LegacyHTTPHandler is the HTTP handler for the resources endpoint. We
-// use it rather having a separate handler for each HTTP method since
+// Closer is a function that should be called to indicate that the
+// datastore is finished with and can be closed.
+type Closer func() error
+
+// LegacyHTTPHandler is the HTTP handler for the resources endpoint. We use
+// it rather having a separate handler for each HTTP method since
 // registered API handlers must handle *all* HTTP methods currently.
 type LegacyHTTPHandler struct {
 	// Connect opens a connection to state resources.
-	Connect func(*http.Request) (DataStore, names.Tag, error)
+	Connect func(*http.Request) (DataStore, Closer, names.Tag, error)
 
 	// HandleUpload provides the upload functionality.
 	HandleUpload func(username string, st DataStore, req *http.Request) (*api.UploadResult, error)
@@ -26,7 +30,7 @@ type LegacyHTTPHandler struct {
 // TODO(ericsnow) Can username be extracted from the request?
 
 // NewLegacyHTTPHandler creates a new http.Handler for the resources endpoint.
-func NewLegacyHTTPHandler(connect func(*http.Request) (DataStore, names.Tag, error)) *LegacyHTTPHandler {
+func NewLegacyHTTPHandler(connect func(*http.Request) (DataStore, Closer, names.Tag, error)) *LegacyHTTPHandler {
 	return &LegacyHTTPHandler{
 		Connect: connect,
 		HandleUpload: func(username string, st DataStore, req *http.Request) (*api.UploadResult, error) {
@@ -41,11 +45,12 @@ func NewLegacyHTTPHandler(connect func(*http.Request) (DataStore, names.Tag, err
 
 // ServeHTTP implements http.Handler.
 func (h *LegacyHTTPHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
-	st, tag, err := h.Connect(req)
+	st, closer, tag, err := h.Connect(req)
 	if err != nil {
 		api.SendHTTPError(resp, err)
 		return
 	}
+	defer closer()
 
 	var username string
 	switch tag := tag.(type) {
