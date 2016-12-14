@@ -103,14 +103,23 @@ def iter_clouds(clouds):
     yield cloud_spec('bogus-type', 'bogus-type', {'type': 'bogus'},
                      exception=TypeNotAccepted)
     for cloud_name, cloud in clouds.items():
-        yield cloud_spec(cloud_name, cloud_name, cloud)
+        spec = cloud_spec(cloud_name, cloud_name, cloud)
+        if cloud['type'] == 'manual':
+            spec = xfail(spec, 1649721, InvalidEndpoint)
+        yield spec
 
     for cloud_name, cloud in clouds.items():
-        yield xfail(cloud_spec('long-name-{}'.format(cloud_name), 'A' * 4096,
-                               cloud, NameNotAccepted), 1641970, NameMismatch)
-        yield xfail(
+        spec = xfail(cloud_spec('long-name-{}'.format(cloud_name), 'A' * 4096,
+                                cloud, NameNotAccepted), 1641970, NameMismatch)
+        if cloud['type'] == 'manual':
+            spec = xfail(spec, 1649721, InvalidEndpoint)
+        yield spec
+        spec = xfail(
             cloud_spec('invalid-name-{}'.format(cloud_name), 'invalid/name',
                        cloud, NameNotAccepted), 1641981, None)
+        if cloud['type'] == 'manual':
+            spec = xfail(spec, 1649721, InvalidEndpoint)
+        yield spec
 
         if cloud['type'] not in ('maas', 'manual', 'vsphere'):
             variant = deepcopy(cloud)
