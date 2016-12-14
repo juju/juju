@@ -655,7 +655,7 @@ func (s *ActionSuite) TestMergeIds(c *gc.C) {
 		expected := sliceify("", test.expected)
 
 		c.Log(fmt.Sprintf("test number %d %#v", ix, test))
-		err := state.WatcherMergeIds(s.State, &changes, updates, state.ActionNotificationIdToActionId)
+		err := state.WatcherMergeIds(s.State, &changes, updates, state.MakeActionIdConverter(s.State))
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(changes, jc.SameContents, expected)
 	}
@@ -675,7 +675,7 @@ func (s *ActionSuite) TestMergeIdsErrors(c *gc.C) {
 	for _, test := range tests {
 		changes, updates := []string{}, map[interface{}]bool{}
 		updates[test.key] = true
-		err := state.WatcherMergeIds(s.State, &changes, updates, state.ActionNotificationIdToActionId)
+		err := state.WatcherMergeIds(s.State, &changes, updates, state.MakeActionIdConverter(s.State))
 		c.Assert(err, gc.ErrorMatches, "id is not of type string, got "+test.name)
 	}
 }
