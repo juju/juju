@@ -14,6 +14,8 @@ import (
 	"github.com/juju/juju/cloud"
 	coremigration "github.com/juju/juju/core/migration"
 	"github.com/juju/juju/migration"
+	"github.com/juju/juju/resource"
+	"github.com/juju/juju/resource/resourcetesting"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/testing"
@@ -67,6 +69,22 @@ func (*SourcePrecheckSuite) TestCharmUpgrades(c *gc.C) {
 	}
 	err := migration.SourcePrecheck(backend)
 	c.Assert(err, gc.ErrorMatches, "unit spanner/1 is upgrading")
+}
+
+func (*SourcePrecheckSuite) TestPendingResources(c *gc.C) {
+	backend := newHappyBackend()
+	backend.pendingResources = []resource.Resource{
+		resourcetesting.NewResource(c, nil, "blob", "foo", "body").Resource,
+	}
+	err := migration.SourcePrecheck(backend)
+	c.Assert(err, gc.ErrorMatches, `resource "blob" is pending for application foo`)
+}
+
+func (*SourcePrecheckSuite) TestPendingResourcesError(c *gc.C) {
+	backend := newHappyBackend()
+	backend.pendingResourcesErr = errors.New("blam")
+	err := migration.SourcePrecheck(backend)
+	c.Assert(err, gc.ErrorMatches, `checking resources: blam`)
 }
 
 func (*SourcePrecheckSuite) TestImportingModel(c *gc.C) {
@@ -573,6 +591,9 @@ type fakeBackend struct {
 	credentials    cloud.Credential
 	credentialsErr error
 
+	pendingResources    []resource.Resource
+	pendingResourcesErr error
+
 	controllerBackend *fakeBackend
 }
 
@@ -615,6 +636,10 @@ func (b *fakeBackend) AllMachines() ([]migration.PrecheckMachine, error) {
 func (b *fakeBackend) AllApplications() ([]migration.PrecheckApplication, error) {
 	return b.apps, b.allAppsErr
 
+}
+
+func (b *fakeBackend) ListPendingResources(app string) ([]resource.Resource, error) {
+	return b.pendingResources, b.pendingResourcesErr
 }
 
 func (b *fakeBackend) ControllerBackend() (migration.PrecheckBackendCloser, error) {

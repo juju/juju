@@ -490,7 +490,11 @@ func (c *ControllerAPI) ModifyControllerAccess(args params.ModifyControllerAcces
 
 var runMigrationPrechecks = func(st *state.State, targetInfo coremigration.TargetInfo) error {
 	// Check model and source controller.
-	if err := migration.SourcePrecheck(migration.PrecheckShim(st)); err != nil {
+	backend, err := migration.PrecheckShim(st)
+	if err != nil {
+		return errors.Annotate(err, "creating backend")
+	}
+	if err := migration.SourcePrecheck(backend); err != nil {
 		return errors.Annotate(err, "source prechecks failed")
 	}
 
