@@ -596,15 +596,15 @@ func ResourceStoragePath(c *gc.C, st *State, id string) string {
 func IsBlobStored(c *gc.C, st *State, storagePath string) bool {
 	stor := storage.NewStorage(st.ModelUUID(), st.MongoSession())
 	r, _, err := stor.Get(storagePath)
-	if err == nil {
-		r.Close()
-		return true
-	} else if errors.IsNotFound(err) {
-		return false
-	} else {
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return false
+		}
 		c.Fatalf("Get failed: %v", err)
 		return false
 	}
+	r.Close()
+	return true
 }
 
 // AssertNoCleanups checks that there are no cleanups scheduled of a
