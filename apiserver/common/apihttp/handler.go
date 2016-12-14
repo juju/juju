@@ -15,6 +15,10 @@ type NewHandlerArgs struct {
 	// Connect is the function that is used to connect to Juju's state
 	// for the given HTTP request.
 	Connect func(*http.Request) (*state.State, state.Entity, error)
+
+	// Release indicates that the state is finished with and should be
+	// closed.
+	Release func(*state.State) error
 }
 
 // HandlerConstraints describes conditions under which a handler
