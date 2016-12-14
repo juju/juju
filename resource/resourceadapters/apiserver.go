@@ -43,17 +43,20 @@ func NewPublicFacade(st *corestate.State, _ facade.Resources, authorizer facade.
 // level resource uploads and downloads.
 func NewApplicationHandler(args apihttp.NewHandlerArgs) http.Handler {
 	return server.NewHTTPHandler(
-		func(req *http.Request) (server.DataStore, names.Tag, error) {
+		func(req *http.Request) (server.DataStore, server.Closer, names.Tag, error) {
 			st, entity, err := args.Connect(req)
 			if err != nil {
-				return nil, nil, errors.Trace(err)
+				return nil, nil, nil, errors.Trace(err)
 			}
 			resources, err := st.Resources()
 			if err != nil {
-				return nil, nil, errors.Trace(err)
+				return nil, nil, nil, errors.Trace(err)
 			}
 
-			return resources, entity.Tag(), nil
+			closer := func() error {
+				return args.Release(st)
+			}
+			return resources, closer, entity.Tag(), nil
 		},
 	)
 }

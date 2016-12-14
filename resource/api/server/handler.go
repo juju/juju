@@ -15,12 +15,16 @@ import (
 	"github.com/juju/juju/resource/api"
 )
 
+// Closer is a function that should be called to indicate that the
+// datastore is finished with and can be closed.
+type Closer func() error
+
 // HTTPHandler is the HTTP handler for the resources endpoint. We use
 // it rather having a separate handler for each HTTP method since
 // registered API handlers must handle *all* HTTP methods currently.
 type HTTPHandler struct {
 	// Connect opens a connection to state resources.
-	Connect func(*http.Request) (DataStore, names.Tag, error)
+	Connect func(*http.Request) (DataStore, Closer, names.Tag, error)
 
 	// HandleDownload provides the download functionality.
 	HandleDownload func(st DataStore, req *http.Request) (io.ReadCloser, int64, error)
@@ -31,7 +35,7 @@ type HTTPHandler struct {
 
 // NewHTTPHandler creates a new http.Handler for the application
 // resources endpoint.
-func NewHTTPHandler(connect func(*http.Request) (DataStore, names.Tag, error)) *HTTPHandler {
+func NewHTTPHandler(connect func(*http.Request) (DataStore, Closer, names.Tag, error)) *HTTPHandler {
 	return &HTTPHandler{
 		Connect: connect,
 		HandleDownload: func(st DataStore, req *http.Request) (io.ReadCloser, int64, error) {
@@ -52,11 +56,12 @@ func NewHTTPHandler(connect func(*http.Request) (DataStore, names.Tag, error)) *
 
 // ServeHTTP implements http.Handler.
 func (h *HTTPHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
-	st, tag, err := h.Connect(req)
+	st, closer, tag, err := h.Connect(req)
 	if err != nil {
 		api.SendHTTPError(resp, err)
 		return
 	}
+	defer closer()
 
 	switch req.Method {
 	case "GET":

@@ -526,6 +526,9 @@ func (srv *Server) newHandlerArgs(spec apihttp.HandlerConstraints) apihttp.NewHa
 		Connect: func(req *http.Request) (*state.State, state.Entity, error) {
 			return ctxt.stateForRequestAuthenticatedTag(req, spec.AuthKinds...)
 		},
+		Release: func(st *state.State) error {
+			return ctxt.release(st)
+		},
 	}
 }
 
