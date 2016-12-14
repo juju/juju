@@ -27,7 +27,7 @@ def win_test(script_dir, address, juju_home, revision_build):
             mkdir logs
             python ci\\\\deploy_job.py parallel-win-client \
                 'c:\\Program Files (x86)\\Juju\\juju.exe' \
-                logs win-client-deploy --series xenial \
+                logs win-client-deploy --series xenial --use-charmstore \
                 --agent-stream revision-build-{revision_build}
             """.format(revision_build=revision_build)))
 
