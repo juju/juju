@@ -55,14 +55,18 @@ func (s *HTTPHandlerSuite) SetUpTest(c *gc.C) {
 	s.uploadResult = &api.UploadResult{}
 }
 
-func (s *HTTPHandlerSuite) connect(req *http.Request) (server.DataStore, names.Tag, error) {
+func (s *HTTPHandlerSuite) connect(req *http.Request) (server.DataStore, server.Closer, names.Tag, error) {
 	s.stub.AddCall("Connect", req)
 	if err := s.stub.NextErr(); err != nil {
-		return nil, nil, errors.Trace(err)
+		return nil, nil, nil, errors.Trace(err)
 	}
 
+	closer := func() error {
+		s.stub.AddCall("Close")
+		return s.stub.NextErr()
+	}
 	tag := names.NewUserTag(s.username)
-	return s.data, tag, nil
+	return s.data, closer, tag, nil
 }
 
 func (s *HTTPHandlerSuite) handleDownload(st server.DataStore, req *http.Request) (io.ReadCloser, int64, error) {
@@ -133,6 +137,7 @@ func (s *HTTPHandlerSuite) TestServeHTTPUnsupportedMethod(c *gc.C) {
 		"Header",
 		"WriteHeader",
 		"Write",
+		"Close",
 	)
 	s.stub.CheckCall(c, 0, "Connect", req)
 	s.stub.CheckCall(c, 3, "WriteHeader", http.StatusMethodNotAllowed)
@@ -160,6 +165,7 @@ func (s *HTTPHandlerSuite) TestServeHTTPGetSuccess(c *gc.C) {
 		{"Header", []interface{}{}},
 		{"WriteHeader", []interface{}{http.StatusOK}},
 		{"Write", []interface{}{downloadContent}},
+		{"Close", nil},
 	})
 	c.Check(req, jc.DeepEquals, s.req) // did not change
 	c.Check(s.header, jc.DeepEquals, http.Header{
@@ -189,6 +195,7 @@ func (s *HTTPHandlerSuite) TestServeHTTPPutSuccess(c *gc.C) {
 		"Header",
 		"WriteHeader",
 		"Write",
+		"Close",
 	)
 	s.stub.CheckCall(c, 0, "Connect", req)
 	s.stub.CheckCall(c, 1, "HandleUpload", "youknowwho", s.data, req)
@@ -221,6 +228,7 @@ func (s *HTTPHandlerSuite) TestServeHTTPPutHandleUploadFailure(c *gc.C) {
 		"Header",
 		"WriteHeader",
 		"Write",
+		"Close",
 	)
 	s.stub.CheckCall(c, 0, "Connect", req)
 	s.stub.CheckCall(c, 1, "HandleUpload", "youknowwho", s.data, req)
