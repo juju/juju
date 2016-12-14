@@ -67,10 +67,11 @@ type SerializedModelResource struct {
 
 // ModelInfo is used to report basic details about a model.
 type ModelInfo struct {
-	UUID         string
-	Owner        names.UserTag
-	Name         string
-	AgentVersion version.Number
+	UUID                   string
+	Owner                  names.UserTag
+	Name                   string
+	AgentVersion           version.Number
+	ControllerAgentVersion version.Number
 }
 
 func (i *ModelInfo) Validate() error {
