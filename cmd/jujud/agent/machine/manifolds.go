@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/pubsub"
 	"github.com/juju/utils/proxy"
 	"github.com/juju/utils/voyeur"
 	"github.com/prometheus/client_golang/prometheus"
@@ -25,6 +26,7 @@ import (
 	"github.com/juju/juju/worker/apicaller"
 	"github.com/juju/juju/worker/apiconfigwatcher"
 	"github.com/juju/juju/worker/authenticationworker"
+	"github.com/juju/juju/worker/centralhub"
 	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/deployer"
 	"github.com/juju/juju/worker/diskmanager"
@@ -131,6 +133,9 @@ type ManifoldsConfig struct {
 	// PrometheusRegisterer is a prometheus.Registerer that may be used
 	// by workers to register Prometheus metric collectors.
 	PrometheusRegisterer prometheus.Registerer
+
+	// CentralHub is the primary hub that exists in the apiserver.
+	CentralHub *pubsub.StructuredHub
 }
 
 // Manifolds returns a set of co-configured manifolds covering the
@@ -185,6 +190,17 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		stateConfigWatcherName: stateconfigwatcher.Manifold(stateconfigwatcher.ManifoldConfig{
 			AgentName:          agentName,
 			AgentConfigChanged: config.AgentConfigChanged,
+		}),
+
+		// The centralhub manifold watches the state config to make sure it
+		// only starts for machines that are api servers. Currently the hub is
+		// passed in as config, but when the apiserver and peergrouper are
+		// updated to use the dependency engine, the centralhub manifold
+		// should also take the agentName so the worker can get the machine ID
+		// for the creation of the hub.
+		centralHubName: centralhub.Manifold(centralhub.ManifoldConfig{
+			StateConfigWatcherName: stateConfigWatcherName,
+			Hub: config.CentralHub,
 		}),
 
 		// The state manifold creates a *state.State and makes it
@@ -481,6 +497,7 @@ const (
 	stateWorkersName       = "unconverted-state-workers"
 	apiCallerName          = "api-caller"
 	apiConfigWatcherName   = "api-config-watcher"
+	centralHubName         = "central-hub"
 
 	upgraderName         = "upgrader"
 	upgradeStepsName     = "upgrade-steps-runner"
