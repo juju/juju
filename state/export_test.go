@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/mongo/utils"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/permission"
+	"github.com/juju/juju/state/storage"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/version"
@@ -579,4 +580,29 @@ func PrimeUnitStatusHistory(
 // to allow inspection in tests.
 func GetInternalWorkers(st *State) worker.Worker {
 	return st.workers
+}
+
+// ResourceStoragePath returns the path used to store resource content
+// in the managed blob store, given the resource ID.
+func ResourceStoragePath(c *gc.C, st *State, id string) string {
+	p := NewResourcePersistence(st.newPersistence())
+	_, storagePath, err := p.GetResource(id)
+	c.Assert(err, jc.ErrorIsNil)
+	return storagePath
+}
+
+// IsBlobStored returns true if a given storage path is in used in the
+// managed blob store.
+func IsBlobStored(c *gc.C, st *State, storagePath string) bool {
+	stor := storage.NewStorage(st.ModelUUID(), st.MongoSession())
+	r, _, err := stor.Get(storagePath)
+	if err == nil {
+		r.Close()
+		return true
+	} else if errors.IsNotFound(err) {
+		return false
+	} else {
+		c.Fatalf("Get failed: %v", err)
+		return false
+	}
 }
