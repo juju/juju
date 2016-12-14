@@ -101,12 +101,11 @@ def assess_model_defaults(client, other_region):
         client, 'automatically-retry-hooks', False)
     log.info('Checking region model-defaults.')
     assess_model_defaults_region(
-        client, 'default-series', 'trusty', region=client.get_region())
+        client, 'default-series', 'trusty', region=client.env.get_region())
     if other_region is not None:
         log.info('Checking other region model-defaults.')
         assess_model_defaults_region(
             client, 'default-series', 'trusty', region=other_region)
-        # Test on a region not different the one the client is on.
 
 
 def parse_args(argv):
@@ -119,11 +118,13 @@ def parse_args(argv):
     return parser.parse_args(argv)
 
 
-# Somewhere I think we should check that region != other_region.
 def main(argv=None):
     args = parse_args(argv)
     configure_logging(args.verbose)
     bs_manager = BootstrapManager.from_args(args)
+    if (args.other_region is not None and
+            args.other_region == bs_manager.client.env.get_region()):
+        raise JujuAssertionError('Other region is a repeat of region.')
     with bs_manager.booted_context(args.upload_tools):
         assess_model_defaults(bs_manager.client, args.other_region)
     return 0

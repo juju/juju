@@ -30,6 +30,15 @@ from utility import (
     )
 
 
+class FakeEnvModelDefaults:
+
+    def __init__(self, region=None):
+        self._region = region
+
+    def get_region(self):
+        return self._region
+
+
 class FakeJujuModelDefaults:
 
     def __init__(self, defaults=None, region=None):
@@ -37,7 +46,7 @@ class FakeJujuModelDefaults:
         if defaults is not None:
             for (key, value) in defaults.items():
                 self.model_defaults[key] = {'default': value}
-        self.region = region
+        self.env = FakeEnvModelDefaults(region)
 
     def get_model_defaults(self, model_key, cloud=None, region=None):
         return {model_key: deepcopy(self.model_defaults[model_key])}
@@ -62,9 +71,6 @@ class FakeJujuModelDefaults:
                 raise KeyError(region)
             if not key_defaults['regions']:
                 del key_defaults['regions']
-
-    def get_region(self):
-        return self.region
 
 
 class TestParseArgs(TestCase):
