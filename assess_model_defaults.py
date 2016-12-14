@@ -61,14 +61,14 @@ def get_new_model_config(client, region=None, model_name=None):
 
 
 def assess_model_defaults_case(client, model_key, value, expected_default,
-                               cloud=None, region=None, other_region=None):
+                               cloud=None, region=None):
     """Check the setting and unsetting of a region field."""
     base_line = client.get_model_defaults(model_key)
 
     client.set_model_defaults(model_key, value, cloud, region)
     juju_assert_equal(expected_default, client.get_model_defaults(model_key),
                       'Mismatch after setting model-default.')
-    config = get_new_model_config(client, region=other_region)
+    config = get_new_model_config(client, region)
     juju_assert_equal(value, config[model_key]['value'],
                       'New model did not use the default.')
 
