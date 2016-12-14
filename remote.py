@@ -143,6 +143,10 @@ class SSHRemote(_Remote):
         """
         Run a command on the remote machine.
 
+        If the remote instance has a juju unit run will default to using the
+        juju ssh command. Otherwise, or if that fails, it will fall back to
+        using ssh directly.
+
         The command_args param is a string or list of arguments to be invoked
         on the remote machine. A string must be given if special shell
         characters are used.
