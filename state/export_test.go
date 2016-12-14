@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/mongo/utils"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/permission"
+	"github.com/juju/juju/state/storage"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/version"
@@ -579,4 +580,44 @@ func PrimeUnitStatusHistory(
 // to allow inspection in tests.
 func GetInternalWorkers(st *State) worker.Worker {
 	return st.workers
+}
+
+// ResourceStoragePath returns the path used to store resource content
+// in the managed blob store, given the resource ID.
+func ResourceStoragePath(c *gc.C, st *State, id string) string {
+	p := NewResourcePersistence(st.newPersistence())
+	_, storagePath, err := p.GetResource(id)
+	c.Assert(err, jc.ErrorIsNil)
+	return storagePath
+}
+
+// IsBlobStored returns true if a given storage path is in used in the
+// managed blob store.
+func IsBlobStored(c *gc.C, st *State, storagePath string) bool {
+	stor := storage.NewStorage(st.ModelUUID(), st.MongoSession())
+	r, _, err := stor.Get(storagePath)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return false
+		}
+		c.Fatalf("Get failed: %v", err)
+		return false
+	}
+	r.Close()
+	return true
+}
+
+// AssertNoCleanups checks that there are no cleanups scheduled of a
+// given kind.
+func AssertNoCleanups(c *gc.C, st *State, kind cleanupKind) {
+	var docs []cleanupDoc
+	cleanups, closer := st.getCollection(cleanupsC)
+	defer closer()
+	err := cleanups.Find(nil).All(&docs)
+	c.Assert(err, jc.ErrorIsNil)
+	for _, doc := range docs {
+		if doc.Kind == kind {
+			c.Fatalf("found cleanup of kind %q", kind)
+		}
+	}
 }
