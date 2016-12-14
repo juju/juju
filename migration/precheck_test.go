@@ -323,12 +323,73 @@ func (s *TargetPrecheckSuite) TestSuccess(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *TargetPrecheckSuite) TestVersionLessThanSource(c *gc.C) {
+func (s *TargetPrecheckSuite) TestModelVersionAheadOfTarget(c *gc.C) {
 	backend := newFakeBackend()
-	s.modelInfo.AgentVersion = version.MustParse("1.2.4")
+
+	sourceVersion := backendVersion
+	sourceVersion.Patch++
+	s.modelInfo.AgentVersion = sourceVersion
+
 	err := migration.TargetPrecheck(backend, s.modelInfo)
 	c.Assert(err.Error(), gc.Equals,
 		`model has higher version than target controller (1.2.4 > 1.2.3)`)
+}
+
+func (s *TargetPrecheckSuite) TestSourceControllerMajorAhead(c *gc.C) {
+	backend := newFakeBackend()
+
+	sourceVersion := backendVersion
+	sourceVersion.Major++
+	sourceVersion.Minor = 0
+	sourceVersion.Patch = 0
+	s.modelInfo.ControllerAgentVersion = sourceVersion
+
+	err := migration.TargetPrecheck(backend, s.modelInfo)
+	c.Assert(err.Error(), gc.Equals,
+		`source controller has higher version than target controller (2.0.0 > 1.2.3)`)
+}
+
+func (s *TargetPrecheckSuite) TestSourceControllerMinorAhead(c *gc.C) {
+	backend := newFakeBackend()
+
+	sourceVersion := backendVersion
+	sourceVersion.Minor++
+	sourceVersion.Patch = 0
+	s.modelInfo.ControllerAgentVersion = sourceVersion
+
+	err := migration.TargetPrecheck(backend, s.modelInfo)
+	c.Assert(err.Error(), gc.Equals,
+		`source controller has higher version than target controller (1.3.0 > 1.2.3)`)
+}
+
+func (s *TargetPrecheckSuite) TestSourceControllerPatchAhead(c *gc.C) {
+	backend := newFakeBackend()
+
+	sourceVersion := backendVersion
+	sourceVersion.Patch++
+	s.modelInfo.ControllerAgentVersion = sourceVersion
+
+	c.Assert(migration.TargetPrecheck(backend, s.modelInfo), jc.ErrorIsNil)
+}
+
+func (s *TargetPrecheckSuite) TestSourceControllerBuildAhead(c *gc.C) {
+	backend := newFakeBackend()
+
+	sourceVersion := backendVersion
+	sourceVersion.Build++
+	s.modelInfo.ControllerAgentVersion = sourceVersion
+
+	c.Assert(migration.TargetPrecheck(backend, s.modelInfo), jc.ErrorIsNil)
+}
+
+func (s *TargetPrecheckSuite) TestSourceControllerTagMismatch(c *gc.C) {
+	backend := newFakeBackend()
+
+	sourceVersion := backendVersion
+	sourceVersion.Tag = "alpha"
+	s.modelInfo.ControllerAgentVersion = sourceVersion
+
+	c.Assert(migration.TargetPrecheck(backend, s.modelInfo), jc.ErrorIsNil)
 }
 
 func (s *TargetPrecheckSuite) TestDying(c *gc.C) {
