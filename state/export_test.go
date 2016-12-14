@@ -606,3 +606,18 @@ func IsBlobStored(c *gc.C, st *State, storagePath string) bool {
 		return false
 	}
 }
+
+// AssertNoCleanups checks that there are no cleanups scheduled of a
+// given kind.
+func AssertNoCleanups(c *gc.C, st *State, kind cleanupKind) {
+	var docs []cleanupDoc
+	cleanups, closer := st.getCollection(cleanupsC)
+	defer closer()
+	err := cleanups.Find(nil).All(&docs)
+	c.Assert(err, jc.ErrorIsNil)
+	for _, doc := range docs {
+		if doc.Kind == kind {
+			c.Fatalf("found cleanup of kind %q", kind)
+		}
+	}
+}

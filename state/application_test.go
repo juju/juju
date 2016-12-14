@@ -1839,6 +1839,25 @@ func (s *ApplicationSuite) TestDestroyQueuesResourcesCleanup(c *gc.C) {
 	c.Assert(state.IsBlobStored(c, s.State, storagePath), jc.IsFalse)
 }
 
+func (s *ApplicationSuite) TestDestroyWithPlaceholderResources(c *gc.C) {
+	s.assertNoCleanup(c)
+
+	// Add a placeholder resource to the application.
+	rSt, err := s.State.Resources()
+	c.Assert(err, jc.ErrorIsNil)
+	res := resourcetesting.NewPlaceholderResource(c, "blob", s.mysql.Name())
+	outRes, err := rSt.SetResource(s.mysql.Name(), "user", res.Resource, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(outRes.IsPlaceholder(), jc.IsTrue)
+
+	// Detroy the application.
+	err = s.mysql.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// No cleanup required for placeholder resources.
+	state.AssertNoCleanups(c, s.State, state.CleanupKindResourceBlob)
+}
+
 func (s *ApplicationSuite) TestReadUnitWithChangingState(c *gc.C) {
 	// Check that reading a unit after removing the service
 	// fails nicely.
