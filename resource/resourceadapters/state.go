@@ -103,6 +103,11 @@ func NewResourcePersistence(persist corestate.Persistence) corestate.ResourcesPe
 
 // CleanUpBlob is a cleanup handler that will be used in state cleanup.
 func CleanUpBlob(st *corestate.State, persist corestate.Persistence, storagePath string) error {
+	// Ignore attempts to clean up a placeholder resource.
+	if storagePath == "" {
+		return nil
+	}
+
 	// TODO(ericsnow) Move this to state.RemoveResource().
 	storage := persist.NewStorage()
 	return storage.Remove(storagePath)
