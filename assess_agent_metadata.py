@@ -20,6 +20,7 @@ from contextlib import contextmanager
 from hashlib import sha256
 from shutil import rmtree
 from textwrap import dedent
+from tempfile import mkdtemp
 
 import io
 import logging
@@ -37,7 +38,6 @@ from utility import (
     add_basic_testing_arguments,
     configure_logging,
     JujuAssertionError,
-    temp_dir,
 )
 
 JUJU_TOOL_PATH = "tools/released/"
@@ -50,22 +50,28 @@ log = logging.getLogger("assess_agent_metadata")
 
 
 def get_sha256_sum(filename):
-    try:
-        with open(filename, 'rb') as infile:
-            return sha256(infile.read()).hexdigest()
-    except Exception as e:
-        raise JujuAssertionError('Exception raised: {}'.format(e))
+    """
+    Get SHA256 sum of the given filename
+    :param filename: The filename
+    """
+    with open(filename, 'rb') as infile:
+        return sha256(infile.read()).hexdigest()
 
 
-def assess_check_cloud(client, cloud_name, example_cloud):
+def assert_cloud_details_are_correct(client, cloud_name, example_cloud):
+    """
+    Check juju add-cloud is performed succesffuly and it is available
+    in the juju client.
+    :param client: The juju client
+    :param cloud_name: The name of the cloud added
+    :param example_cloud: The content of the cloud
+    """
     clouds = client.env.read_clouds()
-    if len(clouds['clouds']) == 0:
-        raise JujuAssertionError('Clouds missing!')
-    if cloud_name not in clouds['clouds'].keys():
-        raise JujuAssertionError(
-            'Name mismatch and Cloud {} missing'.format(cloud_name))
-    if clouds['clouds'][cloud_name] != example_cloud:
-        raise JujuAssertionError('Cloud mismatch')
+    try:
+        if clouds['clouds'][cloud_name] != example_cloud:
+            raise JujuAssertionError('Cloud mismatch')
+    except KeyError:
+        raise JujuAssertionError('Cloud missing {}'.format(cloud_name))
 
 
 def iter_clouds(clouds):
@@ -75,38 +81,38 @@ def iter_clouds(clouds):
 
 def get_local_url_and_sha256(agent_dir, controller_url):
     """
-    Get the agent URL (local file location: file:///)
-    and SHA256 of the agent-file passed
+    Get the agent URL (local file location: file:///) and SHA256
+    of the agent-file passed
+    :param agent_dir: The top level directory location of agent file.
+    :param controller_url: The controller used agent file url
     """
     local_url = os.path.join(agent_dir,
                              JUJU_TOOL_PATH, os.path.basename(controller_url))
-
-    if not os.path.isfile(local_url):
-        raise JujuAssertionError(
-            "File not found {}".format(local_url))
-
-    local_sha256 = get_sha256_sum(local_url)
+    local_sha256 = get_sha256_sum(local_url).format(local_url)
     local_url = "file://" + local_url
     return dict(URL=local_url, SHA256=local_sha256)
 
 
 def get_controller_url_and_sha256(client):
     """
-    Get the agent url and sha256 of the controller launched.
+    Get the agent url and sha256 of the launched client
+    :param client: Juju client
     """
     controller_client = client.get_controller_client()
-    try:
-        output = controller_client.run(
-            ['cat /var/lib/juju/tools/machine-0/downloaded-tools.txt'],
-            machines=['0'])
-        output_ = json.loads(output[0]['Stdout'])
-        if (output_['url']) and (output_['sha256']):
-                return [output_['url'], output_['sha256']]
-    except Exception as e:
-        raise JujuAssertionError("Execption raised: {}". format(e))
+    output = controller_client.run(
+        ['cat /var/lib/juju/tools/machine-0/downloaded-tools.txt'],
+        machines=['0'])
+    output_ = json.loads(output[0]['Stdout'])
+    if (output_['url']) and (output_['sha256']):
+        return [output_['url'], output_['sha256']]
 
 
-def assess_check_metadata(agent_dir, client):
+def assert_metadata_are_correct(agent_dir, client):
+    """
+    Verfiy the client agent-metadata-url uses the specfied option
+    :param agent_dir: The top level directory location of agent file.
+    :param client: Juju client
+    """
     data = client.get_model_config()
     if agent_dir != data['agent-metadata-url']['value']:
         raise JujuAssertionError('Error, mismatch agent-metadata-url')
@@ -116,17 +122,23 @@ def assess_check_metadata(agent_dir, client):
 
 
 def verify_deployed_tool(agent_dir, client):
+    """
+    Verify the bootstraped controller make use of the the specified
+    agent-metadata-url.
+    :param agent_dir:  The top level directory location of agent file.
+    :param client: Juju client
+    """
     controller_url, controller_sha256 = \
         get_controller_url_and_sha256(client)
 
-    log.info("controller_url: {} and controller_sha256: {}"
-             .format(controller_url, controller_sha256))
+    log.debug("controller_url: {} and controller_sha256: {}".
+              format(controller_url, controller_sha256))
 
     local_url_sha256 = get_local_url_and_sha256(
         agent_dir, controller_url)
 
-    log.info("local_url: {} and local_sha256: {}"
-             .format(local_url_sha256["URL"], local_url_sha256["SHA256"]))
+    log.debug("local_url: {} and local_sha256: {}".
+              format(local_url_sha256["URL"], local_url_sha256["SHA256"]))
 
     if local_url_sha256["URL"] != controller_url:
         raise JujuAssertionError(
@@ -139,70 +151,86 @@ def verify_deployed_tool(agent_dir, client):
             (local_url_sha256["SHA256"], controller_sha256))
 
 
-def assess_metadata(args):
+def assess_metadata(args, agent_dir):
+    """
+    Bootstrap juju controller with agent-metadata-url option
+    and verify that bootstraped controller make use of specified
+    agent-metadata-url option.
+    :param args: Parsed command line arguments
+    :param agent_dir: The top level directory location of agent file.
+    """
     bs_manager = BootstrapManager.from_args(args)
     client = bs_manager.client
-    client.env.update_config({'agent-metadata-url': args.agent_dir})
+    client.env.update_config({'agent-metadata-url': agent_dir})
     log.info('bootstrap to use --agent_metadata_url={}'.
-             format(args.agent_dir))
-    client.generate_tool(args.agent_dir)
+             format(agent_dir))
+    client.generate_tool(agent_dir)
 
     with bs_manager.booted_context(args.upload_tools):
         log.info('Metadata bootstrap successful.')
-        assess_check_metadata(args.agent_dir, client)
-        verify_deployed_tool(args.agent_dir, client)
+        assert_metadata_are_correct(agent_dir, client)
+        verify_deployed_tool(agent_dir, client)
         log.info("Successfully deployed and verified agent-metadata-url")
 
 
-def add_cloud(args, clouds):
+def _assess_add_cloud(args, agent_dir, clouds):
+    """
+    Perform juju add-cloud using the yaml file and then bootstrap
+    the environment on the created cloud and make sure that it make
+    use of agent-metadata-url specified in yaml file.
+    :param args: Parsed command line arguments
+    :param agent_dir: The top level directory location of agent file.
+    :param clouds: The clouds that needs to be bootstraped.
+    """
     for cloud_name, cloud in iter_clouds(clouds):
         bs_manager = BootstrapManager.from_args(args)
         client = bs_manager.client
         client.add_cloud(cloud_name, test_cloud_yaml)
-        assess_check_cloud(client, cloud_name, cloud)
+        assert_cloud_details_are_correct(client, cloud_name, cloud)
         with bs_manager.booted_context(args.upload_tools):
             log.info('Metadata bootstrap successful.')
-            verify_deployed_tool(args.agent_dir, client)
+            verify_deployed_tool(agent_dir, client)
             log.info("Successfully deployed and verified add-cloud")
 
 
 def create_add_cloud_yaml_file(agent_metadata_url):
-    testCloud_yaml_data = dedent("""\
+    """
+    Create a yaml file to perform juju add-cloud
+    with agent-metadata-url option
+    :param agent_metadata_url: The file location of agent-metadata-url
+    """
+    test_cloud_yaml_data = dedent("""\
         clouds:
             {0}:
                 type: lxd
                 config:
                      agent-metadata-url: file://{1}
         """).format(test_cloud_name, agent_metadata_url)
-    try:
-        with io.FileIO(test_cloud_yaml, "w") as infile:
-            infile.write(testCloud_yaml_data)
-    except Exception as e:
-        logging.exception(e)
+    with io.FileIO(test_cloud_yaml, "w") as infile:
+        infile.write(test_cloud_yaml_data)
 
 
-def assess_add_cloud(args):
-    create_add_cloud_yaml_file(args.agent_dir)
-    try:
-        with open(test_cloud_yaml) as f:
-            clouds = yaml.safe_load(f)['clouds']
-            add_cloud(args, clouds)
-    except Exception as e:
-        logging.exception(e)
-
-    if os.path.isfile(test_cloud_yaml):
-        os.remove(test_cloud_yaml)
+def assess_add_cloud(args, agent_dir):
+    """
+    Perform juju add-cloud by creating a yaml file for cloud
+    with agent-metadata-url option and bootstrap.
+    :param args: Parsed command line arguments
+    :param agent_dir: he top level directory location of agent file.
+    """
+    create_add_cloud_yaml_file(agent_dir)
+    with open(test_cloud_yaml) as f:
+        clouds = yaml.safe_load(f)['clouds']
+        _assess_add_cloud(args, agent_dir, clouds)
+    os.remove(test_cloud_yaml)
 
 
 def change_tgz_sha256_sum(src, dst):
     """
-        Append empty string to the tgz file so that the SHA256 sum of the file
-        get modified. We use this to make sure that controller deployed on
-        bootstrap used of the changed tgz file.
-
+    Append empty string to the tgz file so that the SHA256 sum of the file
+    get modified. We use this to make sure that controller deployed on
+    bootstrap used of the changed tgz file.
     :param src: The source tgz file
     :param dst: The destination tgz file
-    :return: None
     """
     if not src.endswith(".tgz"):
         raise JujuAssertionError("requires tgz file in {}".format(src))
@@ -215,16 +243,15 @@ def change_tgz_sha256_sum(src, dst):
 
 
 @contextmanager
-def make_unique_tool(args):
+def make_unique_tool(agent_file):
     """
-        Create a tool directory for juju agent tools and stream and invoke
-        append_empty_string function for the agent-file passed.
-
-    :param args:
-    :return: None
+    Create a tool directory for juju agent tools and stream and invoke
+    append_empty_string function for the agent-file passed.
+    :param agent_file:
     """
-    juju_tool_src = os.path.join(args.agent_dir, JUJU_TOOL_PATH)
-    juju_stream_dst = os.path.join(args.agent_dir, JUJU_STREAM_PATH)
+    agent_dir = mkdtemp()
+    juju_tool_src = os.path.join(agent_dir, JUJU_TOOL_PATH)
+    juju_stream_dst = os.path.join(agent_dir, JUJU_STREAM_PATH)
     try:
         if not os.path.exists(juju_tool_src):
             os.makedirs(juju_tool_src)
@@ -232,17 +259,16 @@ def make_unique_tool(args):
         if not os.path.exists(juju_stream_dst):
             os.makedirs(juju_stream_dst)
 
-        change_tgz_sha256_sum(args.agent_file,
+        change_tgz_sha256_sum(agent_file,
                               os.path.join(juju_tool_src,
-                                           os.path.basename(args.agent_file)))
-        yield juju_tool_src
+                                           os.path.basename(agent_file)))
+        log.debug("Created agent directory to perform bootstrap".
+                  format(agent_dir))
+        yield agent_dir
     except Exception as e:
         raise JujuAssertionError("failed on make_unique_tool {}".format(e))
     finally:
-        if os.path.exists(juju_tool_src):
-            rmtree(juju_tool_src)
-        if os.path.exists(juju_stream_dst):
-            rmtree(juju_stream_dst)
+        rmtree(agent_dir)
 
 
 def parse_args(argv):
@@ -265,25 +291,20 @@ def main(argv=None):
 
     if not os.path.isfile(args.agent_file):
         raise JujuAssertionError(
-            "Unable to find image-file {}".format(args.agent_file))
+            "Unable to find juju agent file {}".format(args.agent_file))
 
-    """
-        This test case will do juju bootstrap with agent-metadata-url
-        option.
-    """
-    with temp_dir() as args.agent_dir:
-        with make_unique_tool(args):
-            assess_metadata(args)
+    # This test case will do juju bootstrap with agent-metadata-url
+    # option.
 
-    """
-        This test case will perform juju bootstrap on add-cloud.
-        The add-cloud yaml file will define the agent-metadata-url
-        option.
-    """
+    with make_unique_tool(args.agent_file) as agent_dir:
+        assess_metadata(args, agent_dir)
 
-    with temp_dir() as args.agent_dir:
-        with make_unique_tool(args):
-            assess_add_cloud(args)
+    # This test case will perform juju bootstrap after performing juju
+    # add-cloud. The cloud yaml file will define the agent-metadata-url
+    # option.
+
+    with make_unique_tool(args.agent_file) as agent_dir:
+        assess_add_cloud(args, agent_dir)
 
     return 0
 

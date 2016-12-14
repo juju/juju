@@ -4,7 +4,7 @@ from mock import (
     )
 
 from assess_agent_metadata import (
-    assess_check_metadata,
+    assert_metadata_are_correct,
     get_controller_url_and_sha256,
     verify_deployed_tool,
     parse_args,
@@ -45,7 +45,7 @@ class TestAssess(TestCase):
         mock_client = Mock(spec=["get_model_config"])
         mock_client.get_model_config.return_value = \
             {'agent-metadata-url': {'value': AGENT_METADATA_URL}}
-        assess_check_metadata(args.agent_dir, mock_client)
+        assert_metadata_are_correct(args.agent_dir, mock_client)
 
     def test_assess_check_metadata_invalid(self):
         args = parse_args(['metadata', 'bars', '/foo',
@@ -55,7 +55,7 @@ class TestAssess(TestCase):
         mock_client.get_model_config.return_value = \
             {'agent-metadata-url': {'value': "INVALID"}}
         with self.assertRaises(JujuAssertionError):
-            assess_check_metadata(args, mock_client)
+            assert_metadata_are_correct(args, mock_client)
 
     def test_get_controller_url_and_sha256(self):
         expected_sha256 = SAMPLE_SHA256

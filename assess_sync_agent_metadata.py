@@ -17,7 +17,7 @@ import json
 
 from assess_agent_metadata import (
     verify_deployed_tool,
-    assess_check_metadata,
+    assert_metadata_are_correct,
     get_controller_url_and_sha256,
 )
 
@@ -51,25 +51,18 @@ log = logging.getLogger("assess_sync_agent_metadata")
 
 def verify_deployed_charm(charm_app, client):
     """
-        Verfiy the deployed charm to make sure it used the same
-        juju tool of the controller by verifying the sha256 sum
-
+    Verfiy the deployed charm, to make sure it used the same
+    juju tool of the controller by verifying the sha256 sum
     :param charm_app: The app name that need to be verified
-    :param client: The client environment where the app is deployed
+    :param client: juju client
     :return:
     """
-    try:
-    	remote = remote_from_unit(client, "{0}/0".format(charm_app))
-        output = remote.cat(
-            "/var/lib/juju/tools/machine-0/downloaded-tools.txt")
-    except Exception as e:
-        raise JujuAssertionError(
-            'Unable to perform remote cmd: {}'.format(e))
+    remote = remote_from_unit(client, "{0}/0".format(charm_app))
+    output = remote.cat(
+        "/var/lib/juju/tools/machine-0/downloaded-tools.txt")
 
     output_ = json.loads(output)
     _, controller_sha256 = get_controller_url_and_sha256(client)
-    if not controller_sha256:
-        raise JujuAssertionError('Unable to get controller url and sha256')
 
     if output_['sha256'] != controller_sha256:
         raise JujuAssertionError('Error, mismatch agent-metadata-url')
@@ -78,6 +71,12 @@ def verify_deployed_charm(charm_app, client):
 
 
 def deploy_charm_and_verify(client):
+    """
+    Deploy dummy charm from local repository and
+    verify it uses the specified agent-metadata-url option
+    :param client: juju client
+    :return:
+    """
     charm_app = "dummy-sink"
     charm_source = local_charm_path(
         charm=charm_app, juju_ver=client.version)
@@ -87,8 +86,11 @@ def deploy_charm_and_verify(client):
 
 def assess_sync_bootstrap(args, agent_stream="release"):
     """
-        Do sync-tool and then perform juju bootstrap with
-        metadata_source and agent-metadata-url option.
+    Do sync-tool and then perform juju bootstrap with
+    metadata_source and agent-metadata-url option.
+    :param args: Parsed command line arguments
+    :param agent_stream: Which stream to use? release or develop
+    :return:
     """
     bs_manager = BootstrapManager.from_args(args)
     client = bs_manager.client
@@ -102,7 +104,7 @@ def assess_sync_bootstrap(args, agent_stream="release"):
         with thin_booted_context(bs_manager,
                                  metadata_source=agent_dir):
             log.info('Metadata bootstrap successful.')
-            assess_check_metadata(agent_dir, client)
+            assert_metadata_are_correct(agent_dir, client)
             verify_deployed_tool(agent_dir, client)
             deploy_charm_and_verify(client)
 

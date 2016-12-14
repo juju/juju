@@ -2604,9 +2604,9 @@ class EnvJujuClient:
         return self.get_juju_output('list-clouds', '--format',
                                     format, include_e=False)
 
-    def generate_tool(self, dest, stream="released"):
+    def generate_tool(self, source_dir, stream="released"):
         return self.juju("metadata ", ("generate-tools",
-                                       "-d", dest,
+                                       "-d", source_dir,
                                        "--stream", stream),
                          include_e=False)
 
