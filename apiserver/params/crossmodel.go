@@ -249,7 +249,8 @@ type RemoteRelation struct {
 	Life               Life           `json:"life"`
 	Id                 int            `json:"id"`
 	Key                string         `json:"key"`
-	LocalEndpoint      RemoteEndpoint `json:"local-endpoint"`
+	ApplicationName    string         `json:"application-name"`
+	Endpoint           RemoteEndpoint `json:"endpoint"`
 	RemoteEndpointName string         `json:"remote-endpoint-name"`
 }
 
@@ -297,6 +298,23 @@ type GetTokenArg struct {
 
 	// Tag is the tag of the entity for which we want the token.
 	Tag string `json:"tag"`
+}
+
+// ImportEntityArgs holds the arguments to an ImportRemoteEntity API call.
+type ImportEntityArgs struct {
+	Args []ImportEntityArg
+}
+
+// ImportEntityArg holds the model, entity and token to be imported.
+type ImportEntityArg struct {
+	// ModelTag is the tag of the model hosting the entity.
+	ModelTag string `json:"model-tag"`
+
+	// Tag is the tag of the entity for which are importing the token.
+	Tag string `json:"tag"`
+
+	// Token is the token of the entity to be imported.
+	Token string `json:"token"`
 }
 
 // RemoteApplicationResult holds a remote application and an error.

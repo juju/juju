@@ -157,6 +157,9 @@ type RemoteApplication interface {
 
 // Application represents the state of a application hosted in the local model.
 type Application interface {
+	// Name is the name of the application.
+	Name() string
+
 	// Life returns the lifecycle state of the application.
 	Life() state.Life
 

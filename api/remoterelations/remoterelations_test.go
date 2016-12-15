@@ -287,7 +287,7 @@ func (s *remoteRelationsSuite) TestRemoteApplicationsResultsCount(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, `expected 1 result\(s\), got 2`)
 }
 
-func (s *remoteRelationsSuite) TestRegisterRemoteRelation(c *gc.C) {
+func (s *remoteRelationsSuite) TestRegisterRemoteRelations(c *gc.C) {
 	var callCount int
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Check(objType, gc.Equals, "RemoteRelations")
@@ -296,9 +296,9 @@ func (s *remoteRelationsSuite) TestRegisterRemoteRelation(c *gc.C) {
 		c.Check(request, gc.Equals, "RegisterRemoteRelations")
 		c.Check(arg, gc.DeepEquals, params.RegisterRemoteRelations{
 			Relations: []params.RegisterRemoteRelation{{OfferedApplicationName: "offeredapp"}}})
-		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
-		*(result.(*params.ErrorResults)) = params.ErrorResults{
-			Results: []params.ErrorResult{{
+		c.Assert(result, gc.FitsTypeOf, &params.RemoteEntityIdResults{})
+		*(result.(*params.RemoteEntityIdResults)) = params.RemoteEntityIdResults{
+			Results: []params.RemoteEntityIdResult{{
 				Error: &params.Error{Message: "FAIL"},
 			}},
 		}
@@ -306,15 +306,17 @@ func (s *remoteRelationsSuite) TestRegisterRemoteRelation(c *gc.C) {
 		return nil
 	})
 	client := remoterelations.NewClient(apiCaller)
-	err := client.RegisterRemoteRelation(params.RegisterRemoteRelation{OfferedApplicationName: "offeredapp"})
-	c.Check(err, gc.ErrorMatches, "FAIL")
+	result, err := client.RegisterRemoteRelations(params.RegisterRemoteRelation{OfferedApplicationName: "offeredapp"})
+	c.Check(err, jc.ErrorIsNil)
+	c.Assert(result, gc.HasLen, 1)
+	c.Check(result[0].Error, gc.ErrorMatches, "FAIL")
 	c.Check(callCount, gc.Equals, 1)
 }
 
 func (s *remoteRelationsSuite) TestRegisterRemoteRelationCount(c *gc.C) {
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		*(result.(*params.ErrorResults)) = params.ErrorResults{
-			Results: []params.ErrorResult{
+		*(result.(*params.RemoteEntityIdResults)) = params.RemoteEntityIdResults{
+			Results: []params.RemoteEntityIdResult{
 				{Error: &params.Error{Message: "FAIL"}},
 				{Error: &params.Error{Message: "FAIL"}},
 			},
@@ -322,8 +324,8 @@ func (s *remoteRelationsSuite) TestRegisterRemoteRelationCount(c *gc.C) {
 		return nil
 	})
 	client := remoterelations.NewClient(apiCaller)
-	err := client.RegisterRemoteRelation(params.RegisterRemoteRelation{})
-	c.Check(err, gc.ErrorMatches, `expected 1 result, got 2`)
+	_, err := client.RegisterRemoteRelations(params.RegisterRemoteRelation{})
+	c.Check(err, gc.ErrorMatches, `expected 1 result\(s\), got 2`)
 }
 
 func (s *remoteRelationsSuite) TestGetToken(c *gc.C) {
@@ -362,5 +364,44 @@ func (s *remoteRelationsSuite) TestGetTokenCount(c *gc.C) {
 	})
 	client := remoterelations.NewClient(apiCaller)
 	_, err := client.GetToken(coretesting.ModelTag.Id(), names.NewApplicationTag("app"))
+	c.Check(err, gc.ErrorMatches, `expected 1 result, got 2`)
+}
+
+func (s *remoteRelationsSuite) TestImportRemoteEntity(c *gc.C) {
+	var callCount int
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "RemoteRelations")
+		c.Check(version, gc.Equals, 0)
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, "ImportRemoteEntities")
+		c.Check(arg, gc.DeepEquals, params.ImportEntityArgs{
+			Args: []params.ImportEntityArg{{ModelTag: coretesting.ModelTag.String(), Tag: "application-app", Token: "token"}}})
+		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+		*(result.(*params.ErrorResults)) = params.ErrorResults{
+			Results: []params.ErrorResult{{
+				Error: &params.Error{Message: "FAIL"},
+			}},
+		}
+		callCount++
+		return nil
+	})
+	client := remoterelations.NewClient(apiCaller)
+	err := client.ImportRemoteEntity(coretesting.ModelTag.Id(), names.NewApplicationTag("app"), "token")
+	c.Check(err, gc.ErrorMatches, "FAIL")
+	c.Check(callCount, gc.Equals, 1)
+}
+
+func (s *remoteRelationsSuite) TestImportRemoteEntityCount(c *gc.C) {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		*(result.(*params.ErrorResults)) = params.ErrorResults{
+			Results: []params.ErrorResult{
+				{Error: &params.Error{Message: "FAIL"}},
+				{Error: &params.Error{Message: "FAIL"}},
+			},
+		}
+		return nil
+	})
+	client := remoterelations.NewClient(apiCaller)
+	err := client.ImportRemoteEntity(coretesting.ModelTag.Id(), names.NewApplicationTag("app"), "token")
 	c.Check(err, gc.ErrorMatches, `expected 1 result, got 2`)
 }

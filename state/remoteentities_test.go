@@ -94,3 +94,10 @@ func (s *RemoteEntitiesSuite) TestImportRemoteEntity(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(entity, gc.Equals, expected)
 }
+
+func (s *RemoteEntitiesSuite) TestImportRemoteEntityEmptyToken(c *gc.C) {
+	re := s.State.RemoteEntities()
+	entity := names.NewApplicationTag("mysql")
+	err := re.ImportRemoteEntity(s.State.ModelTag(), entity, "")
+	c.Assert(err, jc.Satisfies, errors.IsNotValid)
+}

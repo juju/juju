@@ -40,6 +40,7 @@ func (s *remoteRelationsSuite) SetUpTest(c *gc.C) {
 	s.stub = new(jujutesting.Stub)
 	s.relationsFacade = newMockRelationsFacade(s.stub)
 	s.config = remoterelations.Config{
+		ModelUUID:       "local-model-uuid",
 		RelationsFacade: s.relationsFacade,
 		NewPublisherForModelFunc: func(modelUUID string) (remoterelations.RemoteRelationChangePublisherCloser, error) {
 			return s.relationsFacade, nil
@@ -75,9 +76,7 @@ func (s *remoteRelationsSuite) assertRemoteApplicationWorkers(c *gc.C) worker.Wo
 	expected := []jujutesting.StubCall{
 		{"WatchRemoteApplications", nil},
 		{"RemoteApplications", []interface{}{[]string{"db2", "mysql"}}},
-		{"ExportEntities", []interface{}{[]names.Tag{names.NewApplicationTag("db2")}}},
 		{"WatchRemoteApplicationRelations", []interface{}{"db2"}},
-		{"ExportEntities", []interface{}{[]names.Tag{names.NewApplicationTag("mysql")}}},
 		{"WatchRemoteApplicationRelations", []interface{}{"mysql"}},
 	}
 	s.waitForWorkerStubCalls(c, expected)
@@ -149,9 +148,10 @@ func (s *remoteRelationsSuite) assertRemoteRelationsWorkers(c *gc.C) worker.Work
 
 	expected := []jujutesting.StubCall{
 		{"Relations", []interface{}{[]string{"db2:db django:db"}}},
-		{"ExportEntities", []interface{}{[]names.Tag{names.NewRelationTag("db2:db django:db")}}},
-		{"RegisterRemoteRelation", []interface{}{params.RegisterRemoteRelation{
-			ApplicationId: params.RemoteEntityId{ModelUUID: "model-uuid", Token: "token-db2"},
+		{"ExportEntities", []interface{}{
+			[]names.Tag{names.NewApplicationTag("django"), names.NewRelationTag("db2:db django:db")}}},
+		{"RegisterRemoteRelations", []interface{}{[]params.RegisterRemoteRelation{{
+			ApplicationId: params.RemoteEntityId{ModelUUID: "model-uuid", Token: "token-django"},
 			RelationId:    params.RemoteEntityId{ModelUUID: "model-uuid", Token: "token-db2:db django:db"},
 			RemoteEndpoint: params.RemoteEndpoint{
 				Name:      "db2",
@@ -162,7 +162,8 @@ func (s *remoteRelationsSuite) assertRemoteRelationsWorkers(c *gc.C) worker.Work
 			},
 			OfferedApplicationName: "db2",
 			LocalEndpointName:      "data",
-		}}},
+		}}}},
+		{"ImportRemoteEntity", []interface{}{"source-model-uuid", names.NewApplicationTag("db2"), "token-db2"}},
 		{"WatchLocalRelationUnits", []interface{}{"db2:db django:db"}},
 	}
 	s.waitForWorkerStubCalls(c, expected)
@@ -252,7 +253,7 @@ func (s *remoteRelationsSuite) TestRemoteRelationsChangedNotifies(c *gc.C) {
 				Life: params.Alive,
 				ApplicationId: params.RemoteEntityId{
 					ModelUUID: "model-uuid",
-					Token:     "token-db2"},
+					Token:     "token-django"},
 				RelationId: params.RemoteEntityId{
 					ModelUUID: "model-uuid",
 					Token:     "token-db2:db django:db"},
@@ -279,7 +280,7 @@ func (s *remoteRelationsSuite) TestRemoteRelationsChangedError(c *gc.C) {
 		Departed: []string{"unit/1"},
 	}
 	err := workertest.CheckKilled(c, w)
-	c.Assert(err, gc.ErrorMatches, "publishing relation change to remote model: failed")
+	c.Assert(err, gc.ErrorMatches, "publishing relation change .* to remote model .*: failed")
 }
 
 func (s *remoteRelationsSuite) TestRegisteredApplicationNotRegistered(c *gc.C) {
@@ -297,7 +298,6 @@ func (s *remoteRelationsSuite) TestRegisteredApplicationNotRegistered(c *gc.C) {
 	expected := []jujutesting.StubCall{
 		{"WatchRemoteApplications", nil},
 		{"RemoteApplications", []interface{}{[]string{"db2"}}},
-		{"ExportEntities", []interface{}{[]names.Tag{names.NewApplicationTag("db2")}}},
 		{"WatchRemoteApplicationRelations", []interface{}{"db2"}},
 	}
 	s.waitForWorkerStubCalls(c, expected)
@@ -321,6 +321,7 @@ func (s *remoteRelationsSuite) TestRegisteredApplicationNotRegistered(c *gc.C) {
 	expected = []jujutesting.StubCall{
 		{"Relations", []interface{}{[]string{"db2:db django:db"}}},
 		{"GetToken", []interface{}{"remote-model-uuid", names.NewRelationTag("db2:db django:db")}},
+		{"GetToken", []interface{}{"local-model-uuid", names.NewApplicationTag("django")}},
 		{"WatchLocalRelationUnits", []interface{}{"db2:db django:db"}},
 	}
 	s.waitForWorkerStubCalls(c, expected)

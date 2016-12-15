@@ -67,6 +67,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		return nil, errors.Trace(err)
 	}
 	w, err := config.NewWorker(Config{
+		ModelUUID:                agent.CurrentConfig().Model().Id(),
 		RelationsFacade:          facade,
 		NewPublisherForModelFunc: relationChangePublisherForModelFunc(apiConnForModelFunc),
 	})

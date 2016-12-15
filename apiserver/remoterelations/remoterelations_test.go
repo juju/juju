@@ -93,6 +93,7 @@ func (s *remoteRelationsSuite) TestWatchRemoteApplicationRelations(c *gc.C) {
 
 func (s *remoteRelationsSuite) TestPublishLocalRelationsChange(c *gc.C) {
 	s.st.remoteApplications["db2"] = newMockRemoteApplication("db2", "db2url")
+	s.st.remoteEntities[names.NewApplicationTag("db2")] = "token-db2"
 	rel := newMockRelation(1)
 	rel.endpoints = []state.Endpoint{
 		{ApplicationName: "db2"},
@@ -127,7 +128,7 @@ func (s *remoteRelationsSuite) TestPublishLocalRelationsChange(c *gc.C) {
 	s.st.CheckCalls(c, []testing.StubCall{
 		{"GetRemoteEntity", []interface{}{names.NewModelTag("uuid"), "token-db2:db django:db"}},
 		{"KeyRelation", []interface{}{"db2:db django:db"}},
-		{"RemoteApplication", []interface{}{"db2"}},
+		{"GetRemoteEntity", []interface{}{names.NewModelTag("uuid"), "token-db2"}},
 	})
 	ru1.CheckCalls(c, []testing.StubCall{
 		{"InScope", []interface{}{}},
@@ -190,6 +191,39 @@ func (s *remoteRelationsSuite) TestWatchLocalRelationUnits(c *gc.C) {
 	djangoRelation.CheckCalls(c, []testing.StubCall{
 		{"Endpoints", []interface{}{}},
 		{"WatchUnits", []interface{}{"django"}},
+	})
+}
+
+func (s *remoteRelationsSuite) TestImportRemoteEntities(c *gc.C) {
+	result, err := s.api.ImportRemoteEntities(params.ImportEntityArgs{
+		Args: []params.ImportEntityArg{
+			{ModelTag: coretesting.ModelTag.String(), Tag: "application-django", Token: "token"},
+		}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Results, gc.HasLen, 1)
+	c.Assert(result.Results[0], jc.DeepEquals, params.ErrorResult{})
+	s.st.CheckCalls(c, []testing.StubCall{
+		{"ImportRemoteEntity", []interface{}{coretesting.ModelTag, names.ApplicationTag{Name: "django"}, "token"}},
+	})
+}
+
+func (s *remoteRelationsSuite) TestImportRemoteEntitiesTwice(c *gc.C) {
+	_, err := s.api.ImportRemoteEntities(params.ImportEntityArgs{
+		Args: []params.ImportEntityArg{
+			{ModelTag: coretesting.ModelTag.String(), Tag: "application-django", Token: "token"},
+		}})
+	c.Assert(err, jc.ErrorIsNil)
+	result, err := s.api.ImportRemoteEntities(params.ImportEntityArgs{
+		Args: []params.ImportEntityArg{
+			{ModelTag: coretesting.ModelTag.String(), Tag: "application-django", Token: "token"},
+		}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Results, gc.HasLen, 1)
+	c.Assert(result.Results[0].Error, gc.NotNil)
+	c.Assert(result.Results[0].Error.Code, gc.Equals, params.CodeAlreadyExists)
+	s.st.CheckCalls(c, []testing.StubCall{
+		{"ImportRemoteEntity", []interface{}{coretesting.ModelTag, names.ApplicationTag{Name: "django"}, "token"}},
+		{"ImportRemoteEntity", []interface{}{coretesting.ModelTag, names.ApplicationTag{Name: "django"}, "token"}},
 	})
 }
 
@@ -301,7 +335,8 @@ func (s *remoteRelationsSuite) TestRelations(c *gc.C) {
 			Life:               "alive",
 			Key:                "db2:db django:db",
 			RemoteEndpointName: "data",
-			LocalEndpoint: params.RemoteEndpoint{
+			ApplicationName:    "django",
+			Endpoint: params.RemoteEndpoint{
 				Name:      "db",
 				Role:      "provides",
 				Interface: "db2",
@@ -333,7 +368,9 @@ func (s *remoteRelationsSuite) assertRegisterRemoteRelations(c *gc.C) {
 			LocalEndpointName:      "local",
 		}}})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(result.Results, jc.DeepEquals, []params.ErrorResult{{}})
+	c.Check(result.Results, jc.DeepEquals, []params.RemoteEntityIdResult{
+		{Result: &params.RemoteEntityId{ModelUUID: coretesting.ModelTag.Id(), Token: "token-application-offeredapp"}},
+	})
 	expectedRemoteApp := s.st.remoteApplications["remote-apptoken"]
 	expectedRemoteApp.Stub = testing.Stub{} // don't care about api calls
 	c.Check(expectedRemoteApp, jc.DeepEquals, &mockRemoteApplication{
@@ -345,7 +382,7 @@ func (s *remoteRelationsSuite) assertRegisterRemoteRelations(c *gc.C) {
 	expectedRel.Stub = testing.Stub{} // don't care about api calls
 	c.Check(expectedRel, jc.DeepEquals, &mockRelation{key: "application-offeredapp:local remote-apptoken:remote"})
 	c.Check(s.st.remoteEntities, gc.HasLen, 2)
-	c.Check(s.st.remoteEntities[names.NewApplicationTag("remote-apptoken")], gc.Equals, "app-token")
+	c.Check(s.st.remoteEntities[names.NewApplicationTag("application-offeredapp")], gc.Equals, "token-application-offeredapp")
 	c.Check(s.st.remoteEntities[names.NewRelationTag("application-offeredapp:local remote-apptoken:remote")], gc.Equals, "rel-token")
 }
 
