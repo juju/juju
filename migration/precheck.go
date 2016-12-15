@@ -176,6 +176,11 @@ func TargetPrecheck(backend PrecheckBackend, modelInfo coremigration.ModelInfo) 
 			modelInfo.AgentVersion, controllerVersion)
 	}
 
+	if !controllerVersionCompatible(modelInfo.ControllerAgentVersion, controllerVersion) {
+		return errors.Errorf("source controller has higher version than target controller (%s > %s)",
+			modelInfo.ControllerAgentVersion, controllerVersion)
+	}
+
 	if err := checkController(backend); err != nil {
 		return errors.Trace(err)
 	}
@@ -198,6 +203,23 @@ func TargetPrecheck(backend PrecheckBackend, modelInfo coremigration.ModelInfo) 
 	}
 
 	return nil
+}
+
+func controllerVersionCompatible(sourceVersion, targetVersion version.Number) bool {
+	// Compare source controller version to target controller version, only
+	// considering major and minor version numbers. Downgrades between
+	// patch, build releases for a given major.minor release are
+	// ok. Tag differences are ok too.
+	sourceVersion = versionToMajMin(sourceVersion)
+	targetVersion = versionToMajMin(targetVersion)
+	return sourceVersion.Compare(targetVersion) <= 0
+}
+
+func versionToMajMin(ver version.Number) version.Number {
+	ver.Patch = 0
+	ver.Build = 0
+	ver.Tag = ""
+	return ver
 }
 
 func checkController(backend PrecheckBackend) error {

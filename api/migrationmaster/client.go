@@ -143,10 +143,11 @@ func (c *Client) ModelInfo() (migration.ModelInfo, error) {
 		return migration.ModelInfo{}, errors.Trace(err)
 	}
 	return migration.ModelInfo{
-		UUID:         info.UUID,
-		Name:         info.Name,
-		Owner:        owner,
-		AgentVersion: info.AgentVersion,
+		UUID:                   info.UUID,
+		Name:                   info.Name,
+		Owner:                  owner,
+		AgentVersion:           info.AgentVersion,
+		ControllerAgentVersion: info.ControllerAgentVersion,
 	}, nil
 }
 
