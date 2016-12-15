@@ -1001,7 +1001,9 @@ func (m *Machine) SetDevicesAddressesIdempotently(devicesAddresses []LinkLayerDe
 
 // SetContainerLinkLayerDevices sets the link-layer devices of the given
 // containerMachine, setting each device linked to the corresponding
-// BridgeDevice of the host machine m.
+// BridgeDevice of the host machine. It also records when one of the
+// desired spaces is available on the host machine, but not currently
+// bridged.
 func (m *Machine) SetContainerLinkLayerDevices(containerMachine *Machine) error {
 	containerSpaces, err := containerMachine.AllSpaces()
 	if err != nil {
