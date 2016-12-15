@@ -237,7 +237,7 @@ class TestAssertModelMigratedSuccessfully(TestCase):
                     autospec=True) as m_emif:
                 amm.assert_model_migrated_successfully(client, 'test')
         client.wait_for_workloads.assert_called_once_with()
-        m_tdmiu.assert_called_once_with(client, 'simple-server.')
+        m_tdmiu.assert_called_once_with(client, None)
         m_emif.assert_called_once_with(client, 'test')
 
     def test_assert_model_migrated_successfully_explicit_values(self):
