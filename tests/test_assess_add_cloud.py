@@ -137,9 +137,9 @@ class TestIterClouds(FakeHomeTestCase):
         self.assertItemsEqual([
             self.bogus_type, spec,
             xfail(cloud_spec('long-name-foo', 'A' * 4096, cloud),
-                        1641970, NameMismatch),
+                  1641970, NameMismatch),
             xfail(cloud_spec('invalid-name-foo', 'invalid/name', cloud,
-                        exception=NameNotAccepted), 1641981, None),
+                             exception=NameNotAccepted), 1641981, None),
             make_long_endpoint(spec, endpoint_validation=False)],
                 iter_clouds({'foo': cloud}, endpoint_validation=False))
 
@@ -157,7 +157,7 @@ class TestIterClouds(FakeHomeTestCase):
             xfail(cloud_spec('long-name-foo', 'A' * 4096, cloud,
                              exception=None), 1641970, NameMismatch),
             xfail(make_long_endpoint(spec, regions=True,
-                endpoint_validation=True),
+                                     endpoint_validation=True),
                   1641970, CloudMismatch),
             ], iter_clouds({'foo': cloud}, endpoint_validation=True))
 
