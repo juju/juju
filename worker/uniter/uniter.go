@@ -73,6 +73,7 @@ type Uniter struct {
 	operationFactory     operation.Factory
 	operationExecutor    operation.Executor
 	newOperationExecutor NewExecutorFunc
+	translateResolverErr func(error) error
 
 	leadershipTracker leadership.Tracker
 	charmDirGuard     fortress.Guard
@@ -114,6 +115,7 @@ type UniterParams struct {
 	UpdateStatusSignal   func() <-chan time.Time
 	HookRetryStrategy    params.RetryStrategy
 	NewOperationExecutor NewExecutorFunc
+	TranslateResolverErr func(error) error
 	Clock                clock.Clock
 	// TODO (mattyw, wallyworld, fwereade) Having the observer here make this approach a bit more legitimate, but it isn't.
 	// the observer is only a stop gap to be used in tests. A better approach would be to have the uniter tests start hooks
@@ -127,6 +129,11 @@ type NewExecutorFunc func(string, func() (*corecharm.URL, error), func() (mutex.
 // a charm on behalf of the unit with the given unitTag, by executing
 // hooks and operations provoked by changes in st.
 func NewUniter(uniterParams *UniterParams) (*Uniter, error) {
+	translateResolverErr := uniterParams.TranslateResolverErr
+	if translateResolverErr == nil {
+		translateResolverErr = func(err error) error { return err }
+	}
+
 	u := &Uniter{
 		st:                   uniterParams.UniterFacade,
 		paths:                NewPaths(uniterParams.DataDir, uniterParams.UnitTag),
@@ -136,6 +143,7 @@ func NewUniter(uniterParams *UniterParams) (*Uniter, error) {
 		updateStatusAt:       uniterParams.UpdateStatusSignal,
 		hookRetryStrategy:    uniterParams.HookRetryStrategy,
 		newOperationExecutor: uniterParams.NewOperationExecutor,
+		translateResolverErr: translateResolverErr,
 		observer:             uniterParams.Observer,
 		clock:                uniterParams.Clock,
 		downloader:           uniterParams.Downloader,
@@ -311,6 +319,9 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 				OnIdle:        onIdle,
 				CharmDirGuard: u.charmDirGuard,
 			}, &localState)
+
+			err = u.translateResolverErr(err)
+
 			switch cause := errors.Cause(err); cause {
 			case nil:
 				// Loop back around.
