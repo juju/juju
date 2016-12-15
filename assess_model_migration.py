@@ -223,15 +223,12 @@ def ensure_migration_including_resources_succeeds(source_client, dest_client):
       - Migrate that model to the other environment
         - Ensure it's operating as expected
         - Add a new unit to the application to ensure the model is functional
-    # veebers: this isn't the case yet.
       - Migrate the model back to the original environment
         - Note: Test for lp:1607457, lp:1641824
         - Ensure it's operating as expected
         - Add a new unit to the application to ensure the model is functional
 
     """
-    # veebers: ensure_migrating_to_target_and_back_to_source_succeeds covered
-    # here.
     resource_contents = get_random_string()
     test_model, application = deploy_simple_server_to_new_model(
         source_client, 'example-model-resource', resource_contents)
@@ -240,8 +237,10 @@ def ensure_migration_including_resources_succeeds(source_client, dest_client):
     assert_model_migrated_successfully(
         migration_target_client, application, resource_contents)
 
-    # Migrate back and ensure it succeeded.
-    # veebers: needed.
+    migrate_back_client = migrate_model_to_controller(
+        migration_target_client, source_client)
+    assert_model_migrated_successfully(
+        migrate_back_client, application, resource_contents)
 
     migration_target_client.remove_service(application)
     log.info('SUCCESS: resources migrated')
