@@ -43,10 +43,12 @@ def assess_multimodel_deploy(client, charm_series, log_dir, base_env):
 
 
 def assess_destroy_current(client):
+    model_name = client.model_name
     new_model = client.add_model('delete-me')
     new_model.switch('delete-me')
     new_model.destroy_model()
     new_model.show_controller()
+    client.switch(model_name)
 
 
 @contextmanager
@@ -123,6 +125,7 @@ def main():
     args = parse_args()
     with multimodel_setup(args) as (client, charm_series, base_env):
         assess_multimodel_deploy(client, charm_series, args.logs, base_env)
+        assess_destroy_current(client)
 
 
 if __name__ == '__main__':
