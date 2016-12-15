@@ -17,12 +17,10 @@ import json
 
 from assess_agent_metadata import (
     verify_deployed_tool,
-    assert_metadata_are_correct,
     get_controller_url_and_sha256,
 )
 
 from assess_bootstrap import (
-    thin_booted_context,
     prepare_temp_metadata,
     )
 
@@ -95,16 +93,12 @@ def assess_sync_bootstrap(args, agent_stream="release"):
     bs_manager = BootstrapManager.from_args(args)
     client = bs_manager.client
 
-    with prepare_temp_metadata(client, args.agent_dir) \
-            as agent_dir:
-        client.env.update_config(
-            {'agent-metadata-url': agent_dir,
-             'agent-stream:': agent_stream})
+    with prepare_temp_metadata(client, args.agent_dir) as agent_dir:
+        client.env.update_config({'agent-stream:': agent_stream})
         log.info('Metadata written to: {}'.format(agent_dir))
-        with thin_booted_context(bs_manager,
-                                 metadata_source=agent_dir):
+        client.bootstrap(metadata_source=agent_dir)
+        with bs_manager.booted_context(args.upload_tools):
             log.info('Metadata bootstrap successful.')
-            assert_metadata_are_correct(agent_dir, client)
             verify_deployed_tool(agent_dir, client)
             deploy_charm_and_verify(client)
 
