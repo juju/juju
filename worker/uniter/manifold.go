@@ -29,6 +29,7 @@ type ManifoldConfig struct {
 	LeadershipTrackerName string
 	CharmDirName          string
 	HookRetryStrategyName string
+	TranslateResolverErr  func(error) error
 }
 
 // Manifold returns a dependency manifold that runs a uniter worker,
@@ -98,6 +99,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				UpdateStatusSignal:   NewUpdateStatusTimer(),
 				HookRetryStrategy:    hookRetryStrategy,
 				NewOperationExecutor: operation.NewExecutor,
+				TranslateResolverErr: config.TranslateResolverErr,
 				Clock:                manifoldConfig.Clock,
 			})
 			if err != nil {
