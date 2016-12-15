@@ -306,8 +306,8 @@ func (m *fakeModelMigration) Id() string {
 	return "id"
 }
 
-func (m *fakeModelMigration) Attempt() (int, error) {
-	return 2, nil
+func (m *fakeModelMigration) Attempt() int {
+	return 2
 }
 
 func (m *fakeModelMigration) Phase() (migration.Phase, error) {
