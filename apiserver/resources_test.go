@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -135,11 +136,12 @@ func (s *resourceUploadSuite) makeUploadArgs(c *gc.C) url.Values {
 	q.Add("revision", "3")
 	q.Add("size", fmt.Sprint(len(content)))
 	q.Add("fingerprint", fp.Hex())
+	q.Add("timestamp", fmt.Sprint(time.Now().UnixNano()))
 	return q
 }
 
 func (s *resourceUploadSuite) TestUpload(c *gc.C) {
-	outResp := s.uploadAppResource(c)
+	outResp := s.uploadAppResource(c, nil)
 	c.Check(outResp.ID, gc.Not(gc.Equals), "")
 	c.Check(outResp.Timestamp.IsZero(), jc.IsFalse)
 
@@ -157,7 +159,7 @@ func (s *resourceUploadSuite) TestUpload(c *gc.C) {
 func (s *resourceUploadSuite) TestUnitUpload(c *gc.C) {
 	// Upload application resource first. A unit resource can't be
 	// uploaded without the application resource being there first.
-	s.uploadAppResource(c)
+	s.uploadAppResource(c, nil)
 
 	q := s.makeUploadArgs(c)
 	q.Del("application")
@@ -173,11 +175,31 @@ func (s *resourceUploadSuite) TestUnitUpload(c *gc.C) {
 	c.Check(outResp.Timestamp.IsZero(), jc.IsFalse)
 }
 
-func (s *resourceUploadSuite) uploadAppResource(c *gc.C) params.ResourceUploadResult {
-	q := s.makeUploadArgs(c)
+func (s *resourceUploadSuite) TestPlaceholder(c *gc.C) {
+	query := s.makeUploadArgs(c)
+	query.Del("timestamp") // No timestamp means placeholder
+	outResp := s.uploadAppResource(c, &query)
+	c.Check(outResp.ID, gc.Not(gc.Equals), "")
+	c.Check(outResp.Timestamp.IsZero(), jc.IsTrue)
+
+	rSt, err := s.importingState.Resources()
+	c.Assert(err, jc.ErrorIsNil)
+	res, err := rSt.GetResource(s.appName, "bin")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(res.IsPlaceholder(), jc.IsTrue)
+	c.Check(res.ApplicationID, gc.Equals, s.appName)
+	c.Check(res.Name, gc.Equals, "bin")
+	c.Check(res.Size, gc.Equals, int64(len(content)))
+}
+
+func (s *resourceUploadSuite) uploadAppResource(c *gc.C, query *url.Values) params.ResourceUploadResult {
+	if query == nil {
+		q := s.makeUploadArgs(c)
+		query = &q
+	}
 	resp := s.authRequest(c, httpRequestParams{
 		method:      "POST",
-		url:         s.resourcesURI(c, q.Encode()),
+		url:         s.resourcesURI(c, query.Encode()),
 		contentType: "application/octet-stream",
 		body:        strings.NewReader(content),
 	})

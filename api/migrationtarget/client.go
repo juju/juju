@@ -114,16 +114,27 @@ func (c *Client) UploadResource(modelUUID string, res resource.Resource, r io.Re
 	return errors.Trace(err)
 }
 
+// SetPlaceholderResource sets the metadata for a placeholder resource.
+func (c *Client) SetPlaceholderResource(modelUUID string, res resource.Resource) error {
+	args := makeResourceArgs(res)
+	args.Add("application", res.ApplicationID)
+	err := c.resourcePost(modelUUID, args, nil)
+	return errors.Trace(err)
+}
+
 // SetUnitResource sets the metadata for a particular unit resource.
 func (c *Client) SetUnitResource(modelUUID, unit string, res resource.Resource) error {
 	args := makeResourceArgs(res)
 	args.Add("unit", unit)
-	err := c.resourcePost(modelUUID, args, strings.NewReader(""))
+	err := c.resourcePost(modelUUID, args, nil)
 	return errors.Trace(err)
 }
 
 func (c *Client) resourcePost(modelUUID string, args url.Values, r io.ReadSeeker) error {
 	uri := "/migrate/resources?" + args.Encode()
+	if r == nil {
+		r = strings.NewReader("")
+	}
 	contentType := "application/octet-stream"
 	err := c.httpPost(modelUUID, r, uri, contentType, nil)
 	return errors.Trace(err)
@@ -131,7 +142,6 @@ func (c *Client) resourcePost(modelUUID string, args url.Values, r io.ReadSeeker
 
 func makeResourceArgs(res resource.Resource) url.Values {
 	args := url.Values{}
-	args.Add("user", res.Username)
 	args.Add("name", res.Name)
 	args.Add("type", res.Type.String())
 	args.Add("path", res.Path)
@@ -140,6 +150,12 @@ func makeResourceArgs(res resource.Resource) url.Values {
 	args.Add("revision", fmt.Sprintf("%d", res.Revision))
 	args.Add("size", fmt.Sprintf("%d", res.Size))
 	args.Add("fingerprint", res.Fingerprint.Hex())
+	if res.Username != "" {
+		args.Add("user", res.Username)
+	}
+	if !res.IsPlaceholder() {
+		args.Add("timestamp", fmt.Sprint(res.Timestamp.UnixNano()))
+	}
 	return args
 }
 
