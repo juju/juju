@@ -52,28 +52,10 @@ fi
 # Print a summary for the jenkins job description.
 $SCRIPTS/s3ci.py get-summary $REVISION_BUILD $JOB_NAME
 
-# Get the pristine tarfile and unpack it to build a tainted testing juju.
-JUJU_ARCHIVE=$($SCRIPTS/s3ci.py get --config $S3_CONFIG $REVISION_BUILD build-revision juju-core_.*.tar.gz)
-tar -xf $JUJU_ARCHIVE
-JUJU_DIR=$(basename $JUJU_ARCHIVE .tar.gz)
-export GOPATH=$WORKSPACE/$JUJU_DIR
-JUJU_PACKAGE=$GOPATH/src/github.com/juju/juju
-CHARM_PACKAGE=$GOPATH/src/github.com/juju/charm
-# Add the charm package to the tree.
-go get github.com/juju/charm/...
-
-# If tree must be tampered with, then let it be us who do it to ensure
-# we understand what is not being tested.
-CSCLIENT="$GOPATH/src/gopkg.in/juju/charmrepo.v2-unstable/csclient/csclient.go"
-API_URL=$(echo $STORE_URL | sed -e "s,//,//api.,")
-SERVER_PATTERN="s,https://api.jujucharms.com,$API_URL,"
-sed -i -e "$SERVER_PATTERN" $CSCLIENT
-for PACKAGE in $JUJU_PACKAGE $CHARM_PACKAGE; do
-    cd $PACKAGE
-    go install ./...
-done
+# Get the built version of juju that we want to test with.
+JUJU_SOURCE=$($SCRIPTS/s3ci.py get-juju-bin --config $S3_CONFIG $REVISION_BUILD ./)
+JUJU_SOURCE_BINARY=$(readlink -f $JUJU_SOURCE)
 cd $WORKSPACE
-ls $GOPATH/bin
 
 # Get the releases Juju GUI.
 GUI_URL=$(sstream-query http://streams.canonical.com/juju/gui/streams/v1/index.json --output-format="%(item_url)s" | head -1)
@@ -105,19 +87,19 @@ make
 
 # Do not reveal credentials.
 echo "devenv/bin/uitest --driver phantom \
-    -c lxd \
+    -c google \
     --gui-archive $WORKSPACE/$GUI_ARCHIVE \
-    --gopath $GOPATH \
     --credentials <SECRET> \
     --admin <SECRET> \
     --url $STORE_URL" \
+     --juju $JUJU_SOURCE_BINARY \
     "$SUITE"
 set +x
 devenv/bin/uitest --driver phantom \
     -c google \
     --gui-archive $WORKSPACE/$GUI_ARCHIVE \
-    --gopath $GOPATH \
     --credentials $STORE_CREDENTIALS \
     --admin $STORE_ADMIN \
     --url $STORE_URL \
+    --juju $JUJU_SOURCE_BINARY \
     "$SUITE"
