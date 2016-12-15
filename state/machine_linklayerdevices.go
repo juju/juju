@@ -1026,16 +1026,23 @@ func (m *Machine) SetContainerLinkLayerDevices(containerMachine *Machine) error 
 
 	bridgeDevicesByName := make(map[string]*LinkLayerDevice)
 	bridgeDeviceNames := make([]string, 0)
+	topHostDevicesBySpace := make(map[string][]*LinkLayerDevice)
 
-	for _, hostDevices := range devicesPerSpace {
+	for spaceName, hostDevices := range devicesPerSpace {
 		for _, hostDevice := range hostDevices {
 			deviceType, name := hostDevice.Type(), hostDevice.Name()
 			if deviceType == BridgeDevice {
 				bridgeDevicesByName[name] = hostDevice
 				bridgeDeviceNames = append(bridgeDeviceNames, name)
+			} else if hostDevice.ParentName() == "" {
+				// Devices without a parent could be put on a bridge
+				topHostDevicesBySpace[spaceName] = append(
+					topHostDevicesBySpace[spaceName], hostDevice)
 			}
 		}
 	}
+	// for spaceName, hostDevices := range topHostDevicesBySpace {
+	// }
 
 	sortedBridgeDeviceNames := network.NaturallySortDeviceNames(bridgeDeviceNames...)
 	logger.Debugf("for container %q using host machine %q bridge devices: %v",

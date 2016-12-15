@@ -636,10 +636,14 @@ func (s *linkLayerDevicesStateSuite) TestMachineRemoveAllLinkLayerDevicesNoError
 }
 
 func (s *linkLayerDevicesStateSuite) setupMachineWithOneNIC(c *gc.C) {
-	_, err := s.State.AddSubnet(state.SubnetInfo{
+	_, err := s.State.AddSpace("default", "default", nil, true)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddSubnet(state.SubnetInfo{
 		CIDR:      "10.0.0.0/24",
 		SpaceName: "default",
 	})
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddSpace("dmz", "dmz", nil, true)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddSubnet(state.SubnetInfo{
 		CIDR:      "10.10.0.0/24",
@@ -1498,6 +1502,65 @@ func (s *linkLayerDevicesStateSuite) TestSetContainerLinkLayerDeviceNotAllSpaces
 	c.Check(containerDevice.ParentName(), gc.Equals, `m#0#d#br-eth0`)
 }
 
+func (s *linkLayerDevicesStateSuite) TestSetContainerLinkLayerMultipleDevicesNotBridged(c *gc.C) {
+	// Space 'default' has a NIC, but no bridge
+	// Add another NIC to it, also with no bridge
+	s.setupMachineWithOneNIC(c)
+	err := s.machine.SetLinkLayerDevices(
+		state.LinkLayerDeviceArgs{
+			Name:       "ens2",
+			Type:       state.EthernetDevice,
+			MACAddress: "11:23:45:67:89:ab:cd:ef",
+			IsUp:       true,
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddSubnet(state.SubnetInfo{
+		CIDR:      "10.0.10.0/24",
+		SpaceName: "default",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.machine.SetDevicesAddresses(
+		state.LinkLayerDeviceAddress{
+			DeviceName:   "ens2",
+			CIDRAddress:  "10.0.10.21/24",
+			ConfigMethod: state.StaticAddress,
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	s.addContainerMachine(c)
+	s.assertNoDevicesOnMachine(c, s.containerMachine)
+	err = s.containerMachine.SetConstraints(constraints.Value{
+		Spaces: &[]string{"default"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.machine.SetContainerLinkLayerDevices(s.containerMachine)
+	c.Assert(err, jc.ErrorIsNil)
+
+	containerDevices, err := s.containerMachine.AllLinkLayerDevices()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(containerDevices, gc.HasLen, 2)
+
+	dev := containerDevices[0]
+	c.Check(dev.Name(), gc.Matches, "eth0")
+	c.Check(dev.Type(), gc.Equals, state.EthernetDevice)
+	c.Check(dev.MTU(), gc.Equals, uint(0)) // inherited from the parent device.
+	c.Check(dev.MACAddress(), gc.Matches, "00:16:3e(:[0-9a-f]{2}){3}")
+	c.Check(dev.IsUp(), jc.IsTrue)
+	c.Check(dev.IsAutoStart(), jc.IsTrue)
+	c.Check(dev.ParentName(), gc.Equals, `m#0#d#br-eth0`)
+
+	dev = containerDevices[1]
+	c.Check(dev.Name(), gc.Matches, "eth1")
+	c.Check(dev.Type(), gc.Equals, state.EthernetDevice)
+	c.Check(dev.MTU(), gc.Equals, uint(0)) // inherited from the parent device.
+	c.Check(dev.MACAddress(), gc.Matches, "00:16:3e(:[0-9a-f]{2}){3}")
+	c.Check(dev.IsUp(), jc.IsTrue)
+	c.Check(dev.IsAutoStart(), jc.IsTrue)
+	c.Check(dev.ParentName(), gc.Equals, `m#0#d#br-ens2`)
+}
+
 func (s *linkLayerDevicesStateSuite) TestSetContainerLinkLayerDevicesCorrectlyPaired(c *gc.C) {
 	// The device names chosen and the order are very explicit. We
 	// need to ensure that we have a list that does not sort well
@@ -1572,6 +1635,10 @@ func (s *linkLayerDevicesStateSuite) TestSetContainerLinkLayerDevicesCorrectlyPa
 	c.Assert(err, jc.ErrorIsNil)
 	s.addContainerMachine(c)
 	s.assertNoDevicesOnMachine(c, s.containerMachine)
+	err = s.containerMachine.SetConstraints(constraints.Value{
+		Spaces: &[]string{"default"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
 
 
 	err = s.machine.SetContainerLinkLayerDevices(s.containerMachine)
