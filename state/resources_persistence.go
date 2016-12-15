@@ -393,7 +393,9 @@ func (p ResourcePersistence) NewRemoveResourcesOps(applicationID string) ([]txn.
 
 	ops := newRemoveResourcesOps(docs)
 	for _, doc := range docs {
-		ops = append(ops, p.base.NewCleanupOp(CleanupKindResourceBlob, doc.StoragePath))
+		if doc.StoragePath != "" { // Don't schedule cleanups for placeholder resources.
+			ops = append(ops, p.base.NewCleanupOp(CleanupKindResourceBlob, doc.StoragePath))
+		}
 	}
 	return ops, nil
 }
