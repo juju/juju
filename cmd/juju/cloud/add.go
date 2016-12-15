@@ -67,12 +67,12 @@ type AddCloudCommand struct {
 	// CloudFile is the name of the cloud YAML file.
 	CloudFile string
 
-	cloudMetadataStore CloudMetadataStore
-
 	// Ping contains the logic for pinging a cloud endpoint to know whether or
 	// not it really has a valid cloud of the same type as the provider.  By
 	// default it just calls the correct provider's Ping method.
 	Ping func(p environs.EnvironProvider, endpoint string) error
+
+	cloudMetadataStore CloudMetadataStore
 }
 
 // NewAddCloudCommand returns a command to add cloud information.
@@ -101,6 +101,7 @@ func (c *AddCloudCommand) Info() *cmd.Info {
 func (c *AddCloudCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.CommandBase.SetFlags(f)
 	f.BoolVar(&c.Replace, "replace", false, "Overwrite any existing cloud information")
+	f.StringVar(&c.CloudFile, "f", "", "The path to a cloud definition file")
 }
 
 // Init populates the command with the args from the command line.
@@ -109,6 +110,9 @@ func (c *AddCloudCommand) Init(args []string) (err error) {
 		c.Cloud = args[0]
 	}
 	if len(args) > 1 {
+		if c.CloudFile != args[1] && c.CloudFile != "" {
+			return errors.BadRequestf("cannot specify cloud file with flag and argument")
+		}
 		c.CloudFile = args[1]
 	}
 	if len(args) > 2 {
@@ -151,7 +155,7 @@ func (c *AddCloudCommand) runInteractive(ctxt *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	name, err := queryName(c.cloudMetadataStore, cloudType, pollster)
+	name, err := queryName(c.cloudMetadataStore, c.Cloud, cloudType, pollster)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -193,6 +197,7 @@ func (c *AddCloudCommand) runInteractive(ctxt *cmd.Context) error {
 
 func queryName(
 	cloudMetadataStore CloudMetadataStore,
+	cloudName string,
 	cloudType string,
 	pollster *interact.Pollster,
 ) (string, error) {
@@ -206,31 +211,35 @@ func queryName(
 	}
 
 	for {
-		name, err := pollster.Enter(fmt.Sprintf("a name for your %s cloud", cloudType))
-		if err != nil {
-			return "", errors.Trace(err)
+		if cloudName == "" {
+			name, err := pollster.Enter(fmt.Sprintf("a name for your %s cloud", cloudType))
+			if err != nil {
+				return "", errors.Trace(err)
+			}
+			cloudName = name
 		}
-		if _, ok := personal[name]; ok {
-			override, err := pollster.YN(fmt.Sprintf("A cloud named %q already exists. Do you want to replace that definition", name), false)
+		if _, ok := personal[cloudName]; ok {
+			override, err := pollster.YN(fmt.Sprintf("A cloud named %q already exists. Do you want to replace that definition", cloudName), false)
 			if err != nil {
 				return "", errors.Trace(err)
 			}
 			if override {
-				return name, nil
+				return cloudName, nil
 			}
 			// else, ask again
+			cloudName = ""
 			continue
 		}
-		msg := nameExists(name, public)
+		msg := nameExists(cloudName, public)
 		if msg == "" {
-			return name, nil
+			return cloudName, nil
 		}
 		override, err := pollster.YN(msg+", do you want to override that definition", false)
 		if err != nil {
 			return "", errors.Trace(err)
 		}
 		if override {
-			return name, nil
+			return cloudName, nil
 		}
 		// else, ask again
 	}
