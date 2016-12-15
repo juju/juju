@@ -162,7 +162,7 @@ func New(config Config) (*Worker, error) {
 	// controller logged against the model. Until then, distinguish
 	// the logs from different migrationmaster insteads using the
 	// model UUID suffix.
-	loggerName := "juju.worker.migrationmaster:" + config.ModelUUID[len(config.ModelUUID)-6:]
+	loggerName := "juju.worker.migrationmaster." + config.ModelUUID[len(config.ModelUUID)-6:]
 	logger := loggo.GetLogger(loggerName)
 
 	w := &Worker{
@@ -557,7 +557,8 @@ func (w *Worker) doREAP() (coremigration.Phase, error) {
 	w.setInfoStatus("successful, removing model from source controller")
 	err := w.config.Facade.Reap()
 	if err != nil {
-		return coremigration.REAPFAILED, errors.Trace(err)
+		w.setErrorStatus("removing exported model failed: %s", err.Error())
+		return coremigration.REAPFAILED, nil
 	}
 	return coremigration.DONE, nil
 }
