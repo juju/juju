@@ -118,13 +118,13 @@ class TestIterClouds(FakeHomeTestCase):
         cloud = {'type': 'manual', 'endpoint': 'http://example.com'}
         spec = cloud_spec('foo', 'foo', cloud)
         self.assertItemsEqual([
-            self.bogus_type, spec,
-            xfail(cloud_spec('long-name-foo', 'A' * 4096, cloud), 1641970,
-                  NameMismatch),
-            xfail(cloud_spec('invalid-name-foo', 'invalid/name', cloud,
-                             exception=NameNotAccepted), 1641981, None),
-            make_long_endpoint(spec),
-            ], iter_clouds({'foo': cloud}))
+            self.bogus_type, xfail(spec, 1649721, InvalidEndpoint),
+            xfail(xfail(cloud_spec('long-name-foo', 'A' * 4096, cloud),
+                        1641970, NameMismatch), 1649721, InvalidEndpoint),
+            xfail(xfail(cloud_spec('invalid-name-foo', 'invalid/name', cloud,
+                        exception=NameNotAccepted), 1641981, None),
+                  1649721, InvalidEndpoint),
+            make_long_endpoint(spec)], iter_clouds({'foo': cloud}))
 
     def test_vsphere(self):
         cloud = {
