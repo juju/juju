@@ -997,14 +997,22 @@ func (m *Machine) SetDevicesAddressesIdempotently(devicesAddresses []LinkLayerDe
 func (m *Machine) SetContainerLinkLayerDevices(containerMachine *Machine) error {
 	containerSpaces, err := containerMachine.AllSpaces()
 	if err != nil {
-		return err
+		logger.Errorf("SetContainerLinkLayerDevices(%q) got error looking for container spaces: %v",
+			containerMachine.Id(), err)
+		return errors.Trace(err)
 	}
+	logger.Tracef("for container %q, found desired spaces: %v",
+		containerMachine.Id(), containerSpaces)
 	// XXX(jam): 2016-12-13 We should do something useful if
 	// len(containerSpaces) == 0
 	devicesPerSpace, err := m.LinkLayerDevicesForSpaces(containerSpaces.Values())
 	if err != nil {
-		return err
+		logger.Errorf("SetContainerLinkLayerDevices(%q) got error looking for host spaces: %v",
+			containerMachine.Id(), err)
+		return errors.Trace(err)
 	}
+	logger.Tracef("for container %q, found host devices spaces: %s",
+		containerMachine.Id(), devicesPerSpace)
 
 	bridgeDevicesByName := make(map[string]*LinkLayerDevice)
 	bridgeDeviceNames := make([]string, 0)
