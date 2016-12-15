@@ -382,7 +382,7 @@ def ensure_model_logs_are_migrated(source_client, dest_client):
     log.info('Attempting migration process')
     migrated_model = migrate_model_to_controller(new_model_client, dest_client)
     after_migration_logs = migrated_model.get_juju_output(
-        'debug-log', '--no-tail', '-l', 'DEBUG')
+        'debug-log', '--no-tail', '--replay', '-l', 'DEBUG')
     if before_migration_logs not in after_migration_logs:
         raise JujuAssertionError('Logs failed to be migrated.')
     log.info('SUCCESS: logs migrated.')
