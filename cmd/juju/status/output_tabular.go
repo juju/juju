@@ -271,8 +271,8 @@ func fromMeterStatusColor(msColor string) *ansiterm.Context {
 func getModelMessage(model modelStatus) string {
 	// Select the most important message about the model (if any).
 	switch {
-	case model.Migration != "":
-		return "migrating: " + model.Migration
+	case model.Status.Message != "":
+		return model.Status.Message
 	case model.AvailableVersion != "":
 		return "upgrade available: " + model.AvailableVersion
 	default:

@@ -164,6 +164,10 @@ var (
 		"cloud":      "dummy",
 		"region":     "dummy-region",
 		"version":    "1.2.3",
+		"model-status": M{
+			"current": "available",
+			"since":   "01 Apr 15 01:23+10:00",
+		},
 	}
 
 	machine0 = M{
@@ -2432,6 +2436,10 @@ var statusTests = []testCase{
 					"region":            "dummy-region",
 					"version":           "1.2.3",
 					"upgrade-available": "1.2.4",
+					"model-status": M{
+						"current": "available",
+						"since":   "01 Apr 15 01:23+10:00",
+					},
 				},
 				"machines":     M{},
 				"applications": M{},
@@ -3418,7 +3426,11 @@ func (s *StatusSuite) TestMigrationInProgress(c *gc.C) {
 			"cloud":      "dummy",
 			"region":     "dummy-region",
 			"version":    "1.2.3",
-			"migration":  "foo bar",
+			"model-status": M{
+				"current": "busy",
+				"since":   "01 Apr 15 01:23+10:00",
+				"message": "migrating: foo bar",
+			},
 		},
 		"machines":     M{},
 		"applications": M{},
@@ -3428,6 +3440,8 @@ func (s *StatusSuite) TestMigrationInProgress(c *gc.C) {
 		code, stdout, stderr := runStatus(c, "-m", "hosted", "--format", format.name)
 		c.Check(code, gc.Equals, 0)
 		c.Assert(stderr, gc.HasLen, 0, gc.Commentf("status failed: %s", stderr))
+
+		stdout = substituteFakeSinceTime(c, stdout, false)
 
 		// Roundtrip expected through format so that types will match.
 		buf, err := format.marshal(expected)
@@ -4079,6 +4093,9 @@ func (s *StatusSuite) TestFilterToContainer(c *gc.C) {
 		"  cloud: dummy\n" +
 		"  region: dummy-region\n" +
 		"  version: 1.2.3\n" +
+		"  model-status:\n" +
+		"    current: available\n" +
+		"    since: 01 Apr 15 01:23+10:00\n" +
 		"machines:\n" +
 		"  \"0\":\n" +
 		"    juju-status:\n" +
@@ -4374,6 +4391,10 @@ var statusTimeTest = test(
 				"cloud":      "dummy",
 				"region":     "dummy-region",
 				"version":    "1.2.3",
+				"model-status": M{
+					"current": "available",
+					"since":   "01 Apr 15 01:23+10:00",
+				},
 			},
 			"machines": M{
 				"0": machine0,

@@ -20,6 +20,7 @@ import (
 
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/status"
 )
 
 // This file contains functionality for managing the state documents
@@ -317,7 +318,11 @@ func (mig *modelMigration) SetPhase(nextPhase migration.Phase) error {
 		nextDoc.SuccessTime = now
 		update["success-time"] = now
 	}
-	var ops []txn.Op
+
+	ops, err := migStatusHistoryAndOps(mig.st, nextPhase, now, mig.StatusMessage())
+	if err != nil {
+		return errors.Trace(err)
+	}
 
 	// If the migration aborted, make the model active again.
 	if nextPhase == migration.ABORTDONE {
@@ -362,14 +367,52 @@ func (mig *modelMigration) SetPhase(nextPhase migration.Phase) error {
 	return nil
 }
 
+// migStatusHistoryAndOps sets the model's status history and returns ops for
+// setting model status according to the phase and message.
+func migStatusHistoryAndOps(st *State, phase migration.Phase, now int64, msg string) ([]txn.Op, error) {
+	model, err := st.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	globalKey := model.globalKey()
+	modelStatus := status.Busy
+	if phase.IsTerminal() {
+		modelStatus = status.Available
+	}
+	if msg != "" {
+		msg = "migrating: " + msg
+	}
+	doc := statusDoc{
+		Status:     modelStatus,
+		StatusInfo: msg,
+		Updated:    now,
+	}
+	ops, err := statusSetOps(st, doc, globalKey)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	probablyUpdateStatusHistory(st, globalKey, doc)
+	return ops, nil
+}
+
 // SetStatusMessage implements ModelMigration.
 func (mig *modelMigration) SetStatusMessage(text string) error {
-	ops := []txn.Op{{
+	phase, err := mig.Phase()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	ops, err := migStatusHistoryAndOps(mig.st, phase, mig.st.clock.Now().UnixNano(), text)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	ops = append(ops, txn.Op{
 		C:      migrationsStatusC,
 		Id:     mig.statusDoc.Id,
 		Update: bson.M{"$set": bson.M{"status-message": text}},
 		Assert: txn.DocExists,
-	}}
+	})
 	if err := mig.st.runTransaction(ops); err != nil {
 		return errors.Annotate(err, "failed to set migration status")
 	}
@@ -592,6 +635,13 @@ func (st *State) CreateMigration(spec MigrationSpec) (ModelMigration, error) {
 	modelUUID := st.ModelUUID()
 	var doc modelMigDoc
 	var statusDoc modelMigStatusDoc
+
+	msg := "starting"
+	ops, err := migStatusHistoryAndOps(st, migration.QUIESCE, now, msg)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	buildTxn := func(int) ([]txn.Op, error) {
 		model, err := st.Model()
 		if err != nil {
@@ -630,14 +680,16 @@ func (st *State) CreateMigration(spec MigrationSpec) (ModelMigration, error) {
 			TargetPassword:   spec.TargetInfo.Password,
 			TargetMacaroons:  macsJSON,
 		}
+
 		statusDoc = modelMigStatusDoc{
 			Id:               id,
 			StartTime:        now,
 			Phase:            migration.QUIESCE.String(),
 			PhaseChangedTime: now,
-			StatusMessage:    "starting",
+			StatusMessage:    msg,
 		}
-		return []txn.Op{{
+
+		ops := append(ops, []txn.Op{{
 			C:      migrationsC,
 			Id:     doc.Id,
 			Assert: txn.DocMissing,
@@ -660,7 +712,8 @@ func (st *State) CreateMigration(spec MigrationSpec) (ModelMigration, error) {
 				"migration-mode": MigrationModeExporting,
 			}},
 		}, model.assertActiveOp(),
-		}, nil
+		}...)
+		return ops, nil
 	}
 	if err := st.run(buildTxn); err != nil {
 		return nil, errors.Annotate(err, "failed to create migration")

@@ -571,7 +571,11 @@ func PrimeUnitStatusHistory(
 		StatusData: data,
 		Updated:    clock.Now().UnixNano(),
 	}
-	buildTxn := updateStatusSource(unit.st, globalKey, doc)
+
+	var buildTxn jujutxn.TransactionSource = func(int) ([]txn.Op, error) {
+		return statusSetOps(unit.st, doc, globalKey)
+	}
+
 	err := unit.st.run(buildTxn)
 	c.Assert(err, jc.ErrorIsNil)
 }
