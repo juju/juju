@@ -1024,25 +1024,52 @@ func (m *Machine) SetContainerLinkLayerDevices(containerMachine *Machine) error 
 	logger.Tracef("for container %q, found host devices spaces: %s",
 		containerMachine.Id(), devicesPerSpace)
 
-	bridgeDevicesByName := make(map[string]*LinkLayerDevice)
+	devicesByName := make(map[string]*LinkLayerDevice)
 	bridgeDeviceNames := make([]string, 0)
 	topHostDevicesBySpace := make(map[string][]*LinkLayerDevice)
 
+	found := set.NewStrings()
 	for spaceName, hostDevices := range devicesPerSpace {
 		for _, hostDevice := range hostDevices {
 			deviceType, name := hostDevice.Type(), hostDevice.Name()
 			if deviceType == BridgeDevice {
-				bridgeDevicesByName[name] = hostDevice
+				devicesByName[name] = hostDevice
 				bridgeDeviceNames = append(bridgeDeviceNames, name)
+				found.Add(spaceName)
 			} else if hostDevice.ParentName() == "" {
 				// Devices without a parent could be put on a bridge
 				topHostDevicesBySpace[spaceName] = append(
 					topHostDevicesBySpace[spaceName], hostDevice)
+				devicesByName[name] = hostDevice
 			}
 		}
 	}
-	// for spaceName, hostDevices := range topHostDevicesBySpace {
-	// }
+	needed := make([]network.DeviceToBridge, 0)
+	notFound := containerSpaces.Difference(found)
+	if !notFound.IsEmpty() {
+		logger.Debugf("did not find bridge devices for container %q in spaces %v",
+			containerMachine.Id(), notFound.SortedValues())
+		for _, spaceName := range notFound.Values() {
+			hostDevices, ok := topHostDevicesBySpace[spaceName]
+			if ok {
+				for _, hostDevice := range hostDevices {
+					// This should be an externally defined mapping
+					bridgeName := fmt.Sprintf("br-%s", hostDevice.Name())
+					needed = append(needed, network.DeviceToBridge{
+						DeviceName: hostDevice.Name(),
+						BridgeName: bridgeName,
+					})
+					bridgeDeviceNames = append(bridgeDeviceNames,
+						bridgeName)
+					// XXX: Fake BridgeDevice objects so that we can give an MTU and globalKey
+				}
+			} else {
+				// XXX: this machine doesn't have something we can use
+				return errors.Errorf("for container %q, could not find host device for space %q",
+					containerMachine.Id(), spaceName)
+			}
+		}
+	}
 
 	sortedBridgeDeviceNames := network.NaturallySortDeviceNames(bridgeDeviceNames...)
 	logger.Debugf("for container %q using host machine %q bridge devices: %v",
@@ -1050,7 +1077,7 @@ func (m *Machine) SetContainerLinkLayerDevices(containerMachine *Machine) error 
 	containerDevicesArgs := make([]LinkLayerDeviceArgs, len(bridgeDeviceNames))
 
 	for i, hostBridgeName := range sortedBridgeDeviceNames {
-		hostBridge := bridgeDevicesByName[hostBridgeName]
+		hostBridge := devicesByName[hostBridgeName]
 		containerDevicesArgs[i] = LinkLayerDeviceArgs{
 			Name:        fmt.Sprintf("eth%d", i),
 			Type:        EthernetDevice,
