@@ -45,6 +45,7 @@ func (h *toolsDownloadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		}
 		return
 	}
+	defer h.ctxt.release(st)
 
 	switch r.Method {
 	case "GET":
@@ -76,6 +77,7 @@ func (h *toolsUploadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
+	defer h.ctxt.release(st)
 
 	switch r.Method {
 	case "POST":

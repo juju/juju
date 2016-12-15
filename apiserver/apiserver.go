@@ -475,7 +475,11 @@ func (srv *Server) newHandlerArgs(spec apihttp.HandlerConstraints) apihttp.NewHa
 		controllerModelOnly: spec.ControllerModelOnly,
 	}
 
-	var args apihttp.NewHandlerArgs
+	args := apihttp.NewHandlerArgs{
+		Release: func(st *state.State) error {
+			return ctxt.release(st)
+		},
+	}
 	switch spec.AuthKind {
 	case names.UserTagKind:
 		args.Connect = ctxt.stateForRequestAuthenticatedUser

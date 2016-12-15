@@ -51,14 +51,18 @@ func (s *LegacyHTTPHandlerSuite) SetUpTest(c *gc.C) {
 	s.result = &api.UploadResult{}
 }
 
-func (s *LegacyHTTPHandlerSuite) connect(req *http.Request) (server.DataStore, names.Tag, error) {
+func (s *LegacyHTTPHandlerSuite) connect(req *http.Request) (server.DataStore, server.Closer, names.Tag, error) {
 	s.stub.AddCall("Connect", req)
 	if err := s.stub.NextErr(); err != nil {
-		return nil, nil, errors.Trace(err)
+		return nil, nil, nil, errors.Trace(err)
 	}
 
+	closer := func() error {
+		s.stub.AddCall("Close")
+		return s.stub.NextErr()
+	}
 	tag := names.NewUserTag(s.username)
-	return s.data, tag, nil
+	return s.data, closer, tag, nil
 }
 
 func (s *LegacyHTTPHandlerSuite) handleUpload(username string, st server.DataStore, req *http.Request) (*api.UploadResult, error) {
@@ -119,6 +123,7 @@ func (s *LegacyHTTPHandlerSuite) TestServeHTTPUnsupportedMethod(c *gc.C) {
 		"Header",
 		"WriteHeader",
 		"Write",
+		"Close",
 	)
 	s.stub.CheckCall(c, 0, "Connect", req)
 	s.stub.CheckCall(c, 3, "WriteHeader", http.StatusMethodNotAllowed)
@@ -152,6 +157,7 @@ func (s *LegacyHTTPHandlerSuite) TestServeHTTPPutSuccess(c *gc.C) {
 		"Header",
 		"WriteHeader",
 		"Write",
+		"Close",
 	)
 	s.stub.CheckCall(c, 0, "Connect", req)
 	s.stub.CheckCall(c, 1, "HandleUpload", "youknowwho", s.data, req)
@@ -185,6 +191,7 @@ func (s *LegacyHTTPHandlerSuite) TestServeHTTPPutHandleUploadFailure(c *gc.C) {
 		"Header",
 		"WriteHeader",
 		"Write",
+		"Close",
 	)
 	s.stub.CheckCall(c, 0, "Connect", req)
 	s.stub.CheckCall(c, 1, "HandleUpload", "youknowwho", s.data, req)

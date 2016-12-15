@@ -80,6 +80,8 @@ func (h *debugLogHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 				socket.sendError(err)
 				return
 			}
+			defer h.ctxt.release(st)
+
 			params, err := readDebugLogParams(req.URL.Query())
 			if err != nil {
 				socket.sendError(err)
