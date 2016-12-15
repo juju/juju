@@ -86,10 +86,11 @@ func (s *Suite) importModel(c *gc.C, api *migrationtarget.API) names.ModelTag {
 func (s *Suite) TestPrechecks(c *gc.C) {
 	api := s.mustNewAPI(c)
 	args := params.MigrationModelInfo{
-		UUID:         "uuid",
-		Name:         "some-model",
-		OwnerTag:     names.NewUserTag("someone").String(),
-		AgentVersion: s.controllerVersion(c),
+		UUID:                   "uuid",
+		Name:                   "some-model",
+		OwnerTag:               names.NewUserTag("someone").String(),
+		AgentVersion:           s.controllerVersion(c),
+		ControllerAgentVersion: s.controllerVersion(c),
 	}
 	err := api.Prechecks(args)
 	c.Assert(err, jc.ErrorIsNil)

@@ -519,16 +519,31 @@ func makeModelInfo(st *state.State) (coremigration.ModelInfo, error) {
 	if err != nil {
 		return empty, errors.Trace(err)
 	}
+
+	// Retrieve agent version for the model.
 	conf, err := st.ModelConfig()
 	if err != nil {
 		return empty, errors.Trace(err)
 	}
 	agentVersion, _ := conf.AgentVersion()
+
+	// Retrieve agent version for the controller.
+	controllerModel, err := st.ControllerModel()
+	if err != nil {
+		return empty, errors.Trace(err)
+	}
+	controllerConfig, err := controllerModel.Config()
+	if err != nil {
+		return empty, errors.Trace(err)
+	}
+	controllerVersion, _ := controllerConfig.AgentVersion()
+
 	return coremigration.ModelInfo{
-		UUID:         model.UUID(),
-		Name:         model.Name(),
-		Owner:        model.Owner(),
-		AgentVersion: agentVersion,
+		UUID:                   model.UUID(),
+		Name:                   model.Name(),
+		Owner:                  model.Owner(),
+		AgentVersion:           agentVersion,
+		ControllerAgentVersion: controllerVersion,
 	}, nil
 }
 
