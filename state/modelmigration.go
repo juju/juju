@@ -6,7 +6,6 @@ package state
 import (
 	"encoding/json"
 	"fmt"
-	"strconv"
 	"strings"
 	"time"
 
@@ -41,7 +40,7 @@ type ModelMigration interface {
 
 	// Attempt returns the migration attempt identifier. This
 	// increments for each migration attempt for the model.
-	Attempt() (int, error)
+	Attempt() int
 
 	// StartTime returns the time when the migration was started.
 	StartTime() time.Time
@@ -127,6 +126,9 @@ type modelMigDoc struct {
 
 	// The UUID of the model being migrated.
 	ModelUUID string `bson:"model-uuid"`
+
+	// The attempt number of the model migration for this model.
+	Attempt int `bson:"attempt"`
 
 	// InitiatedBy holds the username of the user that triggered the
 	// migration. It should be in "user@domain" format.
@@ -223,13 +225,8 @@ func (mig *modelMigration) ExternalControl() bool {
 }
 
 // Attempt implements ModelMigration.
-func (mig *modelMigration) Attempt() (int, error) {
-	attempt, err := strconv.Atoi(mig.st.localID(mig.doc.Id))
-	if err != nil {
-		// This really shouldn't happen.
-		return -1, errors.Errorf("invalid migration id: %v", mig.doc.Id)
-	}
-	return attempt, nil
+func (mig *modelMigration) Attempt() int {
+	return mig.doc.Attempt
 }
 
 // StartTime implements ModelMigration.
@@ -669,15 +666,16 @@ func (st *State) CreateMigration(spec MigrationSpec) (ModelMigration, error) {
 			return nil, errors.Trace(err)
 		}
 
-		seq, err := st.sequence("modelmigration")
+		attempt, err := st.sequence("modelmigration")
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 
-		id := fmt.Sprintf("%s:%d", modelUUID, seq)
+		id := fmt.Sprintf("%s:%d", modelUUID, attempt)
 		doc = modelMigDoc{
 			Id:               id,
 			ModelUUID:        modelUUID,
+			Attempt:          attempt,
 			InitiatedBy:      spec.InitiatedBy.Id(),
 			ExternalControl:  spec.ExternalControl,
 			TargetController: spec.TargetInfo.ControllerTag.Id(),
@@ -772,7 +770,7 @@ func (st *State) LatestMigration() (ModelMigration, error) {
 	migColl, closer := st.getCollection(migrationsC)
 	defer closer()
 	query := migColl.Find(bson.M{"model-uuid": st.ModelUUID()})
-	query = query.Sort("-_id").Limit(1)
+	query = query.Sort("-attempt").Limit(1)
 	mig, err := st.migrationFromQuery(query)
 	if err != nil {
 		return nil, errors.Trace(err)

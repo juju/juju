@@ -284,10 +284,10 @@ func (s *MigrationSuite) TestGetsLatestAttempt(c *gc.C) {
 	}
 }
 
-func (s *MigrationSuite) TestLatestMigrationPreviousMigration(c *gc.C) {
+func (s *MigrationSuite) TestLatestMigrationWithPrevious(c *gc.C) {
 	// Check the scenario of a model having been migrated away and
-	// then migrated back. The previous migration shouldn't be
-	// reported by LatestMigration.
+	// then migrated back several times. The previous migrations
+	// shouldn't be reported by LatestMigration.
 
 	// Make it appear as if the model has been successfully
 	// migrated. Don't actually remove model documents to simulate it
@@ -300,24 +300,29 @@ func (s *MigrationSuite) TestLatestMigrationPreviousMigration(c *gc.C) {
 		migration.REAP,
 		migration.DONE,
 	}
-	mig, err := s.State2.CreateMigration(s.stdSpec)
-	c.Assert(err, jc.ErrorIsNil)
-	for _, phase := range phases {
-		c.Assert(mig.SetPhase(phase), jc.ErrorIsNil)
+	for i := 0; i < 10; i++ {
+		mig, err := s.State2.CreateMigration(s.stdSpec)
+		c.Assert(err, jc.ErrorIsNil)
+		for _, phase := range phases {
+			c.Assert(mig.SetPhase(phase), jc.ErrorIsNil)
+		}
+		state.ResetMigrationMode(c, s.State2)
 	}
-	state.ResetMigrationMode(c, s.State2)
 
 	// Previous migration shouldn't be reported.
-	_, err = s.State2.LatestMigration()
+	_, err := s.State2.LatestMigration()
 	c.Check(errors.IsNotFound(err), jc.IsTrue)
 
 	// Start a new migration attempt, which should be reported.
-	mig2, err := s.State2.CreateMigration(s.stdSpec)
+	migNext, err := s.State2.CreateMigration(s.stdSpec)
 	c.Assert(err, jc.ErrorIsNil)
 
-	mig2b, err := s.State2.LatestMigration()
+	migNextb, err := s.State2.LatestMigration()
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(mig2b.Id(), gc.Equals, mig2.Id())
+	c.Check(migNextb.Id(), gc.Equals, migNext.Id())
+	phase, err := migNextb.Phase()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(phase, gc.Equals, migration.QUIESCE)
 }
 
 func (s *MigrationSuite) TestMigration(c *gc.C) {
@@ -816,7 +821,5 @@ func isMigrationActive(c *gc.C, st *state.State) bool {
 
 func checkIdAndAttempt(c *gc.C, mig state.ModelMigration, expected int) {
 	c.Check(mig.Id(), gc.Equals, fmt.Sprintf("%s:%d", mig.ModelUUID(), expected))
-	attempt, err := mig.Attempt()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(attempt, gc.Equals, expected)
+	c.Check(mig.Attempt(), gc.Equals, expected)
 }

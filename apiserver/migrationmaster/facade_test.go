@@ -478,10 +478,6 @@ func (m *stubMigration) PhaseChangedTime() time.Time {
 	return time.Date(2016, 6, 22, 16, 38, 0, 0, time.UTC)
 }
 
-func (m *stubMigration) Attempt() (int, error) {
-	return 1, nil
-}
-
 func (m *stubMigration) ModelUUID() string {
 	return modelUUID
 }
