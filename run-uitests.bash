@@ -56,6 +56,7 @@ $SCRIPTS/s3ci.py get-summary $REVISION_BUILD $JOB_NAME
 JUJU_ARCHIVE=$($SCRIPTS/s3ci.py get --config $S3_CONFIG $REVISION_BUILD build-revision juju-core_.*.tar.gz)
 tar -xf $JUJU_ARCHIVE
 JUJU_DIR=$(basename $JUJU_ARCHIVE .tar.gz)
+JUJU_SOURCE=$JUJU_DIR/bin/juju
 export GOPATH=$WORKSPACE/$JUJU_DIR
 JUJU_PACKAGE=$GOPATH/src/github.com/juju/juju
 CHARM_PACKAGE=$GOPATH/src/github.com/juju/charm
@@ -110,7 +111,8 @@ echo "devenv/bin/uitest --driver phantom \
     --gopath $GOPATH \
     --credentials <SECRET> \
     --admin <SECRET> \
-    --url $STORE_URL" \
+    --url $STORE_URL \
+    --juju $JUJU_SOURCE" \
     "$SUITE"
 set +x
 devenv/bin/uitest --driver phantom \
@@ -120,4 +122,5 @@ devenv/bin/uitest --driver phantom \
     --credentials $STORE_CREDENTIALS \
     --admin $STORE_ADMIN \
     --url $STORE_URL \
+    --juju $JUJU_SOURCE \
     "$SUITE"
