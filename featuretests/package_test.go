@@ -14,12 +14,18 @@ import (
 	gc "gopkg.in/check.v1"
 
 	jujucmd "github.com/juju/juju/cmd/juju/commands"
+	"github.com/juju/juju/component/all"
 	coretesting "github.com/juju/juju/testing"
 )
 
 var runFeatureTests = flag.Bool("featuretests", true, "Run long-running feature tests.")
 
 func init() {
+	// Required for anything requiring components (e.g. resources).
+	if err := all.RegisterForServer(); err != nil {
+		panic(err)
+	}
+
 	flag.Parse()
 
 	if *runFeatureTests == false {
@@ -44,6 +50,9 @@ func init() {
 	gc.Suite(&undertakerSuite{})
 	gc.Suite(&upgradeSuite{})
 	gc.Suite(&CmdRelationSuite{})
+	gc.Suite(&remoteRelationsSuite{})
+	gc.Suite(&crossmodelSuite{})
+	gc.Suite(&cmdAddCloudInteractiveSuite{})
 
 	// TODO (anastasiamac 2016-07-19) Bug#1603585
 	// These tests cannot run on windows - they require a bootstrapped controller.

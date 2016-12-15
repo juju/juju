@@ -7,15 +7,22 @@
 package application
 
 import (
+	"regexp"
+
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/utils/featureflag"
 	"gopkg.in/juju/charm.v6-unstable"
 	csparams "gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
+	"gopkg.in/juju/names.v2"
 	goyaml "gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/crossmodel"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
+	jujucrossmodel "github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
 	jjj "github.com/juju/juju/juju"
 	"github.com/juju/juju/permission"
@@ -30,19 +37,23 @@ var (
 )
 
 func init() {
+	// TODO - version 1 is required for the legacy deployer,
+	// remove when deploy is updated.
 	common.RegisterStandardFacade("Application", 1, newAPI)
 
-	// Facade version 2 adds support for the ConfigSettings
-	// and StorageConstraints fields in SetCharm.
 	common.RegisterStandardFacade("Application", 2, newAPI)
+
+	// Version 3 adds support for cross model relations.
+	common.RegisterStandardFacade("Application", 3, newAPI)
 }
 
 // API implements the application interface and is the concrete
 // implementation of the api end point.
 type API struct {
-	backend    Backend
-	authorizer facade.Authorizer
-	check      BlockChecker
+	backend                     Backend
+	applicationOffersAPIFactory crossmodel.ApplicationOffersAPIFactory
+	authorizer                  facade.Authorizer
+	check                       BlockChecker
 
 	// TODO(axw) stateCharm only exists because I ran out
 	// of time unwinding all of the tendrils of state. We
@@ -62,6 +73,7 @@ func newAPI(
 	return NewAPI(
 		backend,
 		authorizer,
+		resources,
 		blockChecker,
 		stateCharm,
 	)
@@ -71,15 +83,18 @@ func newAPI(
 func NewAPI(
 	backend Backend,
 	authorizer facade.Authorizer,
+	resources facade.Resources,
 	blockChecker BlockChecker,
 	stateCharm func(Charm) *state.Charm,
 ) (*API, error) {
 	if !authorizer.AuthClient() {
 		return nil, common.ErrPerm
 	}
+	apiFactory := resources.Get("applicationOffersApiFactory").(crossmodel.ApplicationOffersAPIFactory)
 	return &API{
-		backend:    backend,
-		authorizer: authorizer,
+		backend:                     backend,
+		authorizer:                  authorizer,
+		applicationOffersAPIFactory: apiFactory,
 		check:      blockChecker,
 		stateCharm: stateCharm,
 	}, nil
@@ -686,6 +701,10 @@ func (api *API) SetConstraints(args params.SetConstraints) error {
 	return app.SetConstraints(args.Constraints)
 }
 
+// applicationUrlEndpointParse is used to split an application url and optional
+// relation name into url and relation name.
+var applicationUrlEndpointParse = regexp.MustCompile("(?P<url>.*/[^:]*)(:(?P<relname>.*))?")
+
 // AddRelation adds a relation between the specified endpoints and returns the relation info.
 func (api *API) AddRelation(args params.AddRelation) (params.AddRelationResults, error) {
 	if err := api.checkCanWrite(); err != nil {
@@ -694,7 +713,46 @@ func (api *API) AddRelation(args params.AddRelation) (params.AddRelationResults,
 	if err := api.check.ChangeAllowed(); err != nil {
 		return params.AddRelationResults{}, errors.Trace(err)
 	}
-	inEps, err := api.backend.InferEndpoints(args.Endpoints...)
+
+	endpoints := make([]string, len(args.Endpoints))
+	// We may have a remote application passed in as the endpoint spec.
+	// We'll iterate the endpoints to check.
+	for i, ep := range args.Endpoints {
+		endpoints[i] = ep
+
+		// If cross model relations not enabled, ignore remote endpoints.
+		if !featureflag.Enabled(feature.CrossModelRelations) {
+			continue
+		}
+
+		// If the endpoint is not remote, skip it.
+		// We first need to strip off any relation name
+		// which may have been appended to the URL, then
+		// we try parsing the URL.
+		possibleURL := applicationUrlEndpointParse.ReplaceAllString(ep, "$url")
+		relName := applicationUrlEndpointParse.ReplaceAllString(ep, "$relname")
+
+		// If the URL parses, we need to look up the remote application
+		// details and save to state.
+		url, err := jujucrossmodel.ParseApplicationURL(possibleURL)
+		if err != nil {
+			// Not a URL.
+			continue
+		}
+		// Save the remote application details into state.
+		rs, err := saveRemoteApplication(api.backend, api.applicationOffersAPIFactory, *url)
+		if err != nil {
+			return params.AddRelationResults{}, errors.Trace(err)
+		}
+		// The endpoint is named after the remote application name,
+		// not the application name from the URL.
+		endpoints[i] = rs.Name()
+		if relName != "" {
+			endpoints[i] = rs.Name() + ":" + relName
+		}
+	}
+
+	inEps, err := api.backend.InferEndpoints(endpoints...)
 	if err != nil {
 		return params.AddRelationResults{}, errors.Trace(err)
 	}
@@ -718,6 +776,80 @@ func (api *API) AddRelation(args params.AddRelation) (params.AddRelationResults,
 		}
 	}
 	return params.AddRelationResults{Endpoints: outEps}, nil
+}
+
+// saveRemoteApplication takes a remote application URL and retrieves the details of the service from
+// the relevant application directory. These details are saved to the state model so relations to
+// the remote application can be created.
+func saveRemoteApplication(
+	backend Backend, apiFactory crossmodel.ApplicationOffersAPIFactory, url jujucrossmodel.ApplicationURL,
+) (*state.RemoteApplication, error) {
+	offersAPI, err := apiFactory.ApplicationOffers(url.Directory)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	offers, err := offersAPI.ListOffers(params.OfferFilters{
+		Directory: url.Directory,
+		Filters: []params.OfferFilter{
+			{
+				ApplicationURL: url.String(),
+			},
+		},
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if offers.Error != nil {
+		return nil, errors.Trace(offers.Error)
+	}
+	// The offers query succeeded but there were no offers matching the URL.
+	if len(offers.Offers) == 0 {
+		return nil, errors.NotFoundf("application offer %q", url.String())
+	}
+
+	// Create a remote application entry in the model for the consumed service.
+	offer := offers.Offers[0]
+	sourceModelTag, err := names.ParseModelTag(offer.SourceModelTag)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	remoteApp, err := backend.RemoteApplication(url.ApplicationName)
+	if err != nil && !errors.IsNotFound(err) {
+		return nil, errors.Trace(err)
+	}
+	if err == nil {
+		// TODO (wallyworld) - update service if it exists already with any additional endpoints
+		return remoteApp, nil
+	}
+	remoteEps := make([]charm.Relation, len(offer.Endpoints))
+	for j, ep := range offer.Endpoints {
+		remoteEps[j] = charm.Relation{
+			Name:      ep.Name,
+			Role:      ep.Role,
+			Interface: ep.Interface,
+			Limit:     ep.Limit,
+			Scope:     ep.Scope,
+		}
+	}
+	remoteApp, err = backend.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name:        url.ApplicationName,
+		URL:         url.String(),
+		SourceModel: sourceModelTag,
+		Endpoints:   remoteEps,
+	})
+	if err != nil {
+		if !errors.IsAlreadyExists(err) {
+			return nil, errors.Trace(err)
+		}
+		// Remote application didn't exist but now there's a clash
+		// trying to save it. It could be a local application with the
+		// same name or a remote application with the same name but we
+		// have no idea whether endpoints are compatible or not.
+		// Best just to error.
+		return nil, errors.Annotatef(err, "saving endpoints for application at URL %q", url.String())
+	}
+	return remoteApp, nil
 }
 
 // DestroyRelation removes the relation between the specified endpoints.

@@ -7,17 +7,18 @@ import (
 	"fmt"
 	"net"
 	"strings"
+	"time"
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/testing"
+	coretesting "github.com/juju/juju/testing"
 )
 
 type HostPortSuite struct {
-	testing.BaseSuite
+	coretesting.BaseSuite
 }
 
 var _ = gc.Suite(&HostPortSuite{})
@@ -399,43 +400,6 @@ func (*HostPortSuite) TestNetAddrAndString(c *gc.C) {
 	}
 }
 
-func (s *HostPortSuite) TestDropDuplicatedHostPorts(c *gc.C) {
-	hps := s.makeHostPorts()
-	noDups := network.DropDuplicatedHostPorts(hps)
-	c.Assert(noDups, gc.Not(gc.HasLen), len(hps))
-	c.Assert(noDups, jc.DeepEquals, append(
-		network.NewHostPorts(1234,
-			"127.0.0.1",
-			"localhost",
-			"example.com",
-			"127.0.1.1",
-			"example.org",
-			"2001:db8::2",
-			"169.254.1.1",
-			"example.net",
-			"invalid host",
-			"fd00::22",
-			"2001:db8::1",
-			"169.254.1.2",
-			"ff01::22",
-			"0.1.2.0",
-			"10.0.0.1",
-			"::1",
-			"fc00::1",
-			"fe80::2",
-			"172.16.0.1",
-			"8.8.8.8",
-			"7.8.8.8",
-		),
-		network.NewHostPorts(9999,
-			"127.0.0.1",   // machine-local
-			"10.0.0.1",    // cloud-local
-			"2001:db8::1", // public
-			"fe80::2",     // link-local
-		)...,
-	))
-}
-
 func (s *HostPortSuite) TestHostPortsToStrings(c *gc.C) {
 	hps := s.makeHostPorts()
 	strHPs := network.HostPortsToStrings(hps)
@@ -509,4 +473,93 @@ func (*HostPortSuite) makeHostPorts() []network.HostPort {
 			"fe80::2",     // link-local
 		)...,
 	)
+}
+
+func (s *HostPortSuite) TestUniqueHostPortsSimpleInput(c *gc.C) {
+	input := network.NewHostPorts(1234, "127.0.0.1", "::1")
+	expected := input
+
+	results := network.UniqueHostPorts(input)
+	c.Assert(results, jc.DeepEquals, expected)
+}
+
+func (s *HostPortSuite) TestUniqueHostPortsOnlyDuplicates(c *gc.C) {
+	input := s.manyHostPorts(c, 10000, nil) // use IANA reserved port
+	expected := input[0:1]
+
+	results := network.UniqueHostPorts(input)
+	c.Assert(results, jc.DeepEquals, expected)
+}
+
+func (s *HostPortSuite) TestUniqueHostPortsHugeUniqueInput(c *gc.C) {
+	input := s.manyHostPorts(c, maxTCPPort, func(port int) string {
+		return fmt.Sprintf("127.1.0.1:%d", port)
+	})
+	expected := input
+
+	results := network.UniqueHostPorts(input)
+	c.Assert(results, jc.DeepEquals, expected)
+}
+
+func (s *HostPortSuite) TestReachableHostPortAllUnreachable(c *gc.C) {
+	dialer := &net.Dialer{Timeout: 100 * time.Millisecond}
+	unreachableHPs := s.manyHostPorts(c, maxTCPPort, nil) // use IANA reserved port
+	timeout := 300 * time.Millisecond
+
+	best, err := network.ReachableHostPort(unreachableHPs, dialer, timeout)
+	c.Check(err, gc.ErrorMatches, "cannot connect to any address: .*")
+	c.Check(best, gc.Equals, network.HostPort{})
+}
+
+func (s *HostPortSuite) TestReachableHostPortRealDial(c *gc.C) {
+	fakeHostPort := network.NewHostPorts(1234, "127.0.0.1")[0]
+	hostPorts := []network.HostPort{
+		fakeHostPort,
+		testTCPServer(c),
+	}
+	timeout := 300 * time.Millisecond
+
+	dialer := &net.Dialer{Timeout: 100 * time.Millisecond}
+	best, err := network.ReachableHostPort(hostPorts, dialer, timeout)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(best, jc.DeepEquals, hostPorts[1]) // the only real listener
+}
+
+const maxTCPPort = 65535
+
+func (s *HostPortSuite) manyHostPorts(c *gc.C, count int, addressFunc func(index int) string) []network.HostPort {
+	if addressFunc == nil {
+		addressFunc = func(_ int) string {
+			return "127.0.0.1:49151" // all use the same IANA reserved port.
+		}
+	}
+
+	results := make([]network.HostPort, count)
+	for i := range results {
+		hostPort, err := network.ParseHostPort(addressFunc(i))
+		c.Assert(err, jc.ErrorIsNil)
+		results[i] = *hostPort
+	}
+	return results
+}
+
+func testTCPServer(c *gc.C) network.HostPort {
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	c.Assert(err, jc.ErrorIsNil)
+
+	listenAddress := listener.Addr().String()
+	hostPort, err := network.ParseHostPort(listenAddress)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Logf("listening on %q", hostPort)
+
+	go func() {
+		conn, _ := listener.Accept()
+		if conn != nil {
+			c.Logf("accepted connection on %q from %s", hostPort, conn.RemoteAddr())
+			conn.Close()
+		}
+		listener.Close()
+	}()
+
+	return *hostPort
 }

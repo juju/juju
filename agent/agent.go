@@ -47,10 +47,10 @@ const (
 
 // These are base values used for the corresponding defaults.
 var (
-	logDir          = paths.MustSucceed(paths.LogDir(series.HostSeries()))
-	dataDir         = paths.MustSucceed(paths.DataDir(series.HostSeries()))
-	confDir         = paths.MustSucceed(paths.ConfDir(series.HostSeries()))
-	metricsSpoolDir = paths.MustSucceed(paths.MetricsSpoolDir(series.HostSeries()))
+	logDir          = paths.MustSucceed(paths.LogDir(series.MustHostSeries()))
+	dataDir         = paths.MustSucceed(paths.DataDir(series.MustHostSeries()))
+	confDir         = paths.MustSucceed(paths.ConfDir(series.MustHostSeries()))
+	metricsSpoolDir = paths.MustSucceed(paths.MetricsSpoolDir(series.MustHostSeries()))
 )
 
 // Agent exposes the agent's configuration to other components. This
@@ -744,6 +744,9 @@ func (c *configInternal) APIInfo() (*api.Info, bool) {
 	addrs := c.apiDetails.addresses
 	if isController {
 		port := servingInfo.APIPort
+		// TODO(macgreagoir) IPv6. Ubuntu still always provides IPv4
+		// loopback, and when/if this changes localhost should resolve
+		// to IPv6 loopback in any case (lp:1644009). Review.
 		localAPIAddr := net.JoinHostPort("localhost", strconv.Itoa(port))
 		addrInAddrs := false
 		for _, addr := range addrs {
@@ -772,7 +775,10 @@ func (c *configInternal) MongoInfo() (info *mongo.MongoInfo, ok bool) {
 	if !ok {
 		return nil, false
 	}
-	addr := net.JoinHostPort("127.0.0.1", strconv.Itoa(ssi.StatePort))
+	// TODO(macgreagoir) IPv6. Ubuntu still always provides IPv4 loopback,
+	// and when/if this changes localhost should resolve to IPv6 loopback
+	// in any case (lp:1644009). Review.
+	addr := net.JoinHostPort("localhost", strconv.Itoa(ssi.StatePort))
 	return &mongo.MongoInfo{
 		Info: mongo.Info{
 			Addrs:  []string{addr},

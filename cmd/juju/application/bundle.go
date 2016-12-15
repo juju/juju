@@ -868,7 +868,7 @@ func (h *bundleHandler) upgradeCharm(
 func isErrServiceExists(err error) bool {
 	// TODO frankban (bug 1495952): do this check using the cause rather than
 	// the string when a specific cause is available.
-	return strings.HasSuffix(err.Error(), "application already exists")
+	return params.IsCodeAlreadyExists(err) || strings.HasSuffix(err.Error(), "application already exists")
 }
 
 // isErrRelationExists reports whether the given error has been generated
@@ -876,5 +876,5 @@ func isErrServiceExists(err error) bool {
 func isErrRelationExists(err error) bool {
 	// TODO frankban (bug 1495952): do this check using the cause rather than
 	// the string when a specific cause is available.
-	return strings.HasSuffix(err.Error(), "relation already exists")
+	return params.IsCodeAlreadyExists(err) || strings.HasSuffix(err.Error(), "relation already exists")
 }

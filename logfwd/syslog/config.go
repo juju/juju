@@ -9,7 +9,7 @@ import (
 	"net"
 
 	"github.com/juju/errors"
-	"github.com/juju/juju/cert"
+	"github.com/juju/utils/cert"
 )
 
 // RawConfig holds the raw configuration data for a connection to a

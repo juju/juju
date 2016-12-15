@@ -12,9 +12,11 @@ import (
 	"time"
 
 	"github.com/juju/loggo"
+	"github.com/juju/pubsub"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"github.com/juju/utils/cert"
 	"github.com/juju/utils/clock"
 	"golang.org/x/net/websocket"
 	gc "gopkg.in/check.v1"
@@ -30,12 +32,12 @@ import (
 	"github.com/juju/juju/apiserver/observer"
 	"github.com/juju/juju/apiserver/observer/fakeobserver"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cert"
 	"github.com/juju/juju/controller"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/permission"
+	"github.com/juju/juju/pubsub/centralhub"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/presence"
 	coretesting "github.com/juju/juju/testing"
@@ -198,7 +200,13 @@ func (s *serverSuite) TestNewServerDoesNotAccessState(c *gc.C) {
 		Timeout:       5 * time.Second,
 		SocketTimeout: 5 * time.Second,
 	}
-	st, err := state.Open(s.State.ModelTag(), s.State.ControllerTag(), mongoInfo, dialOpts, nil)
+	st, err := state.Open(state.OpenParams{
+		Clock:              clock.WallClock,
+		ControllerTag:      s.State.ControllerTag(),
+		ControllerModelTag: s.State.ModelTag(),
+		MongoInfo:          mongoInfo,
+		MongoDialOpts:      dialOpts,
+	})
 	c.Assert(err, gc.IsNil)
 	defer st.Close()
 
@@ -464,7 +472,7 @@ func (s *serverSuite) TestAPIHandlerHasPermissionLogin(c *gc.C) {
 	apiserver.AssertHasPermission(c, handler, permission.SuperuserAccess, ctag, false)
 }
 
-func (s *serverSuite) TestAPIHandlerHasPermissionAdmodel(c *gc.C) {
+func (s *serverSuite) TestAPIHandlerHasPermissionAddmodel(c *gc.C) {
 	u, ctag := s.bootstrapHasPermissionTest(c)
 	user := u.UserTag()
 
@@ -510,6 +518,7 @@ func (s *serverSuite) TestAPIHandlerConnectedModel(c *gc.C) {
 	otherState := s.Factory.MakeModel(c, nil)
 	defer otherState.Close()
 	handler, _ := apiserver.TestingAPIHandler(c, s.State, otherState)
+	defer handler.Kill()
 	c.Check(handler.ConnectedModel(), gc.Equals, otherState.ModelUUID())
 }
 
@@ -599,12 +608,15 @@ func (s *serverSuite) checkAPIHandlerTeardown(c *gc.C, srvSt, st *state.State) {
 
 // defaultServerConfig returns the default configuration for starting a test server.
 func defaultServerConfig(c *gc.C) apiserver.ServerConfig {
+	fakeOrigin := names.NewMachineTag("0")
+	hub := centralhub.New(fakeOrigin)
 	return apiserver.ServerConfig{
 		Clock:       clock.WallClock,
 		Cert:        coretesting.ServerCert,
 		Key:         coretesting.ServerKey,
 		Tag:         names.NewMachineTag("0"),
 		LogDir:      c.MkDir(),
+		Hub:         hub,
 		NewObserver: func() observer.Observer { return &fakeobserver.Instance{} },
 		AutocertURL: "https://0.1.2.3/no-autocert-here",
 	}
@@ -619,6 +631,12 @@ func defaultServerConfig(c *gc.C) apiserver.ServerConfig {
 // that's been started.
 func newServer(c *gc.C, st *state.State) (*api.Info, *apiserver.Server) {
 	return newServerWithConfig(c, st, defaultServerConfig(c))
+}
+
+func newServerWithHub(c *gc.C, st *state.State, hub *pubsub.StructuredHub) (*api.Info, *apiserver.Server) {
+	cfg := defaultServerConfig(c)
+	cfg.Hub = hub
+	return newServerWithConfig(c, st, cfg)
 }
 
 // newServerWithConfig is like newServer except that the entire

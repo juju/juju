@@ -30,6 +30,7 @@ import (
 //   - Units: Displays total #, and then # in each state.
 //   - Applications: Displays total #, their names, and how many of each
 //     are exposed.
+//   - RemoteApplications: Displays total #, their names and URLs.
 func FormatSummary(writer io.Writer, value interface{}) error {
 	fs, valueConverted := value.(formattedStatus)
 	if !valueConverted {
@@ -60,6 +61,13 @@ func FormatSummary(writer io.Writer, value interface{}) error {
 	for _, svcName := range utils.SortStringsNaturally(stringKeysFromMap(svcExposure)) {
 		s := svcExposure[svcName]
 		p(svcName, fmt.Sprintf("%d/%d\texposed", s[true], s[true]+s[false]))
+	}
+	p(" ")
+
+	p("# Remote:", fmt.Sprintf("(%d)", len(fs.RemoteApplications)))
+	for _, svcName := range utils.SortStringsNaturally(stringKeysFromMap(fs.RemoteApplications)) {
+		s := fs.RemoteApplications[svcName]
+		p(svcName, "", s.ApplicationURL)
 	}
 	f.tw.Flush()
 

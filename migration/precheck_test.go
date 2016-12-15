@@ -11,8 +11,11 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/cloud"
 	coremigration "github.com/juju/juju/core/migration"
 	"github.com/juju/juju/migration"
+	"github.com/juju/juju/resource"
+	"github.com/juju/juju/resource/resourcetesting"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/testing"
@@ -66,6 +69,22 @@ func (*SourcePrecheckSuite) TestCharmUpgrades(c *gc.C) {
 	}
 	err := migration.SourcePrecheck(backend)
 	c.Assert(err, gc.ErrorMatches, "unit spanner/1 is upgrading")
+}
+
+func (*SourcePrecheckSuite) TestPendingResources(c *gc.C) {
+	backend := newHappyBackend()
+	backend.pendingResources = []resource.Resource{
+		resourcetesting.NewResource(c, nil, "blob", "foo", "body").Resource,
+	}
+	err := migration.SourcePrecheck(backend)
+	c.Assert(err, gc.ErrorMatches, `resource "blob" is pending for application foo`)
+}
+
+func (*SourcePrecheckSuite) TestPendingResourcesError(c *gc.C) {
+	backend := newHappyBackend()
+	backend.pendingResourcesErr = errors.New("blam")
+	err := migration.SourcePrecheck(backend)
+	c.Assert(err, gc.ErrorMatches, `checking resources: blam`)
 }
 
 func (*SourcePrecheckSuite) TestImportingModel(c *gc.C) {
@@ -199,6 +218,21 @@ func (s *SourcePrecheckSuite) TestDeadUnit(c *gc.C) {
 	c.Assert(err.Error(), gc.Equals, "unit foo/0 is dead")
 }
 
+func (s *SourcePrecheckSuite) TestUnitExecuting(c *gc.C) {
+	backend := &fakeBackend{
+		apps: []migration.PrecheckApplication{
+			&fakeApp{
+				name: "foo",
+				units: []migration.PrecheckUnit{
+					&fakeUnit{name: "foo/0", agentStatus: status.Executing},
+				},
+			},
+		},
+	}
+	err := migration.SourcePrecheck(backend)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *SourcePrecheckSuite) TestUnitNotIdle(c *gc.C) {
 	backend := &fakeBackend{
 		apps: []migration.PrecheckApplication{
@@ -211,7 +245,7 @@ func (s *SourcePrecheckSuite) TestUnitNotIdle(c *gc.C) {
 		},
 	}
 	err := migration.SourcePrecheck(backend)
-	c.Assert(err.Error(), gc.Equals, "unit foo/0 not idle (failed)")
+	c.Assert(err.Error(), gc.Equals, "unit foo/0 not idle or executing (failed)")
 }
 
 func (s *SourcePrecheckSuite) TestUnitLost(c *gc.C) {
@@ -226,7 +260,7 @@ func (s *SourcePrecheckSuite) TestUnitLost(c *gc.C) {
 		},
 	}
 	err := migration.SourcePrecheck(backend)
-	c.Assert(err.Error(), gc.Equals, "unit foo/0 not idle (lost)")
+	c.Assert(err.Error(), gc.Equals, "unit foo/0 not idle or executing (lost)")
 }
 
 func (*SourcePrecheckSuite) TestDyingControllerModel(c *gc.C) {
@@ -554,7 +588,17 @@ type fakeBackend struct {
 	apps       []migration.PrecheckApplication
 	allAppsErr error
 
+	credentials    cloud.Credential
+	credentialsErr error
+
+	pendingResources    []resource.Resource
+	pendingResourcesErr error
+
 	controllerBackend *fakeBackend
+}
+
+func (b *fakeBackend) Close() error {
+	return nil
 }
 
 func (b *fakeBackend) Model() (migration.PrecheckModel, error) {
@@ -581,6 +625,10 @@ func (b *fakeBackend) IsMigrationActive(string) (bool, error) {
 	return b.migrationActive, b.migrationActiveErr
 }
 
+func (b *fakeBackend) CloudCredential(tag names.CloudCredentialTag) (cloud.Credential, error) {
+	return b.credentials, b.credentialsErr
+}
+
 func (b *fakeBackend) AllMachines() ([]migration.PrecheckMachine, error) {
 	return b.machines, b.allMachinesErr
 }
@@ -590,7 +638,11 @@ func (b *fakeBackend) AllApplications() ([]migration.PrecheckApplication, error)
 
 }
 
-func (b *fakeBackend) ControllerBackend() (migration.PrecheckBackend, error) {
+func (b *fakeBackend) ListPendingResources(app string) ([]resource.Resource, error) {
+	return b.pendingResources, b.pendingResourcesErr
+}
+
+func (b *fakeBackend) ControllerBackend() (migration.PrecheckBackendCloser, error) {
 	if b.controllerBackend == nil {
 		return b, nil
 	}
@@ -603,6 +655,7 @@ type fakeModel struct {
 	owner         names.UserTag
 	life          state.Life
 	migrationMode state.MigrationMode
+	credential    string
 }
 
 func (m *fakeModel) UUID() string {
@@ -623,6 +676,13 @@ func (m *fakeModel) Life() state.Life {
 
 func (m *fakeModel) MigrationMode() state.MigrationMode {
 	return m.migrationMode
+}
+
+func (m *fakeModel) CloudCredential() (names.CloudCredentialTag, bool) {
+	if names.IsValidCloudCredential(m.credential) {
+		return names.NewCloudCredentialTag(m.credential), true
+	}
+	return names.CloudCredentialTag{}, false
 }
 
 type fakeMachine struct {

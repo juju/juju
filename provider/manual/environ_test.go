@@ -14,7 +14,7 @@ import (
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/manual"
+	"github.com/juju/juju/environs/manual/sshprovisioner"
 	"github.com/juju/juju/instance"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -26,7 +26,7 @@ type baseEnvironSuite struct {
 
 func (s *baseEnvironSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
-	env, err := manualProvider{}.Open(environs.OpenParams{
+	env, err := ManualProvider{}.Open(environs.OpenParams{
 		Cloud:  CloudSpec(),
 		Config: MinimalConfig(c),
 	})
@@ -87,12 +87,13 @@ touch '/var/lib/juju/uninstall-agent'
 # If jujud is running, we then wait for a while for it to stop.
 stopped=0
 if pkill -6 jujud; then
-    for i in `+"`seq 1 30`"+`; do
+    for i in {1..30}; do
         if pgrep jujud > /dev/null ; then
             sleep 1
         else
             echo "jujud stopped"
             stopped=1
+            logger --id jujud stopped on attempt $i
             break
         fi
     done
@@ -101,9 +102,12 @@ if [ $stopped -ne 1 ]; then
     # If jujud didn't stop nicely, we kill it hard here.
     pkill -9 jujud
     service juju-db stop
+    logger --id killed jujud and stopped juju-db
 fi
+apt-get -y purge juju-mongo*
+apt-get -y autoremove
 rm -f /etc/init/juju*
-rm -f /etc/systemd/system/juju*
+rm -f /etc/systemd/system{,/multi-user.target.wants}/juju*
 rm -fr '/var/lib/juju' '/var/log/juju'
 exit 0
 `)
@@ -138,7 +142,7 @@ func (s *environSuite) TestSupportsNetworking(c *gc.C) {
 }
 
 func (s *environSuite) TestConstraintsValidator(c *gc.C) {
-	s.PatchValue(&manual.DetectSeriesAndHardwareCharacteristics,
+	s.PatchValue(&sshprovisioner.DetectSeriesAndHardwareCharacteristics,
 		func(string) (instance.HardwareCharacteristics, string, error) {
 			amd64 := "amd64"
 			return instance.HardwareCharacteristics{

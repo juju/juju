@@ -348,7 +348,7 @@ func DefaultNetworkConfigSource() NetworkConfigSource {
 //   the ParentInterfaceName will be populated with the name of the bridge.
 // * ConfigType fields will be set to ConfigManual when no address is detected,
 //   or ConfigStatic when it is.
-// * TODO: any IPv6 addresses found will be ignored and treated as empty ATM.
+// * TODO: IPv6 link-local addresses will be ignored and treated as empty ATM.
 //
 // Result entries will be grouped by InterfaceName, in the same order they are
 // returned by the given source.
@@ -479,10 +479,9 @@ func interfaceAddressToNetworkConfig(interfaceName, configType string, address n
 			ipNet = &net.IPNet{IP: ip}
 		}
 	}
-	if ip.To4() == nil {
-		logger.Debugf("skipping observed IPv6 address %q on %q: not fully supported yet", ip, interfaceName)
-		// TODO(dimitern): Treat IPv6 addresses as empty until we can handle
-		// them reliably.
+	if ip.To4() == nil && ip.IsLinkLocalUnicast() {
+		// TODO(macgreagoir) IPv6. Skip link-local for now until we decide how to handle them.
+		logger.Debugf("skipping observed IPv6 link-local address %q on %q", ip, interfaceName)
 		return config, nil
 	}
 

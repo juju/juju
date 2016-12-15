@@ -52,6 +52,12 @@ func minimalApplicationMap() map[interface{}]interface{} {
 			"leader": true,
 		},
 		"metrics-creds": "c2Vrcml0", // base64 encoded
+		"resources": map[interface{}]interface{}{
+			"version": 1,
+			"resources": []interface{}{
+				minimalResourceMap(),
+			},
+		},
 		"units": map[interface{}]interface{}{
 			"version": 1,
 			"units": []interface{}{
@@ -71,6 +77,7 @@ func minimalApplication(args ...ApplicationArgs) *application {
 	u.SetAgentStatus(minimalStatusArgs())
 	u.SetWorkloadStatus(minimalStatusArgs())
 	u.SetTools(minimalAgentToolsArgs())
+	s.setResources([]*resource{minimalResource()})
 	return s
 }
 
@@ -112,6 +119,9 @@ func (s *ApplicationSerializationSuite) TestNewApplication(c *gc.C) {
 		ForceCharm:           true,
 		Exposed:              true,
 		MinUnits:             42, // no judgement is made by the migration code
+		EndpointBindings: map[string]string{
+			"rel-name": "some-space",
+		},
 		Settings: map[string]interface{}{
 			"key": "value",
 		},
@@ -133,6 +143,7 @@ func (s *ApplicationSerializationSuite) TestNewApplication(c *gc.C) {
 	c.Assert(application.ForceCharm(), jc.IsTrue)
 	c.Assert(application.Exposed(), jc.IsTrue)
 	c.Assert(application.MinUnits(), gc.Equals, 42)
+	c.Assert(application.EndpointBindings(), jc.DeepEquals, args.EndpointBindings)
 	c.Assert(application.Settings(), jc.DeepEquals, args.Settings)
 	c.Assert(application.Leader(), gc.Equals, "magic/1")
 	c.Assert(application.LeadershipSettings(), jc.DeepEquals, args.LeadershipSettings)
@@ -177,6 +188,17 @@ func (s *ApplicationSerializationSuite) TestParsingSerializedData(c *gc.C) {
 	svc := minimalApplication()
 	application := s.exportImport(c, svc)
 	c.Assert(application, jc.DeepEquals, svc)
+}
+
+func (s *ApplicationSerializationSuite) TestEndpointBindings(c *gc.C) {
+	args := minimalApplicationArgs()
+	args.EndpointBindings = map[string]string{
+		"rel-name": "some-space",
+		"other":    "other-space",
+	}
+	initial := minimalApplication(args)
+	application := s.exportImport(c, initial)
+	c.Assert(application.EndpointBindings(), jc.DeepEquals, args.EndpointBindings)
 }
 
 func (s *ApplicationSerializationSuite) TestAnnotations(c *gc.C) {
@@ -237,4 +259,11 @@ func (s *ApplicationSerializationSuite) TestLeaderValid(c *gc.C) {
 
 	err := application.Validate()
 	c.Assert(err, gc.ErrorMatches, `missing unit for leader "ubuntu/1" not valid`)
+}
+
+func (s *ApplicationSerializationSuite) TestResourcesAreValidated(c *gc.C) {
+	application := minimalApplication()
+	application.AddResource(ResourceArgs{Name: "foo"})
+	err := application.Validate()
+	c.Assert(err, gc.ErrorMatches, `resource foo: no application revision set`)
 }

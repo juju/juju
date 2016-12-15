@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"path"
 	"regexp"
 	"strconv"
 	"strings"
@@ -31,6 +32,7 @@ import (
 	"github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/state/multiwatcher"
@@ -59,7 +61,6 @@ const statusPollInterval = 5 * time.Second
 var (
 	ReleaseNodes         = releaseNodes
 	DeploymentStatusCall = deploymentStatusCall
-	GetCapabilities      = getCapabilities
 	GetMAAS2Controller   = getMAAS2Controller
 )
 
@@ -101,15 +102,27 @@ type maasEnviron struct {
 
 	// apiVersion tells us if we are using the MAAS 1.0 or 2.0 api.
 	apiVersion string
+
+	// GetCapabilities is a function that connects to MAAS to return its set of
+	// capabilities.
+	GetCapabilities MaasCapabilities
 }
 
 var _ environs.Environ = (*maasEnviron)(nil)
 
-func NewEnviron(cloud environs.CloudSpec, cfg *config.Config) (*maasEnviron, error) {
+// MaasCapabilities represents a function that gets the capabilities of a MAAS
+// installation.
+type MaasCapabilities func(client *gomaasapi.MAASObject, serverURL string) (set.Strings, error)
+
+func NewEnviron(cloud environs.CloudSpec, cfg *config.Config, getCaps MaasCapabilities) (*maasEnviron, error) {
+	if getCaps == nil {
+		getCaps = getCapabilities
+	}
 	env := &maasEnviron{
-		name:  cfg.Name(),
-		uuid:  cfg.UUID(),
-		cloud: cloud,
+		name:            cfg.Name(),
+		uuid:            cfg.UUID(),
+		cloud:           cloud,
+		GetCapabilities: getCaps,
 	}
 	err := env.SetConfig(cfg)
 	if err != nil {
@@ -278,7 +291,7 @@ func (env *maasEnviron) SetConfig(cfg *config.Config) error {
 			return errors.Trace(err)
 		}
 		env.maasClientUnlocked = gomaasapi.NewMAAS(*authClient)
-		caps, err := GetCapabilities(env.maasClientUnlocked, maasServer)
+		caps, err := env.GetCapabilities(env.maasClientUnlocked, maasServer)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -612,25 +625,29 @@ func getCapabilities(client *gomaasapi.MAASObject, serverURL string) (set.String
 	for a := shortAttempt.Start(); a.Next(); {
 		version := client.GetSubObject("version/")
 		result, err = version.CallGet("", nil)
-		if err != nil {
-			if err, ok := errors.Cause(err).(gomaasapi.ServerError); ok && err.StatusCode == 404 {
-				message := "could not connect to MAAS controller - check the endpoint is correct"
-				trimmedURL := strings.TrimRight(serverURL, "/")
-				if !strings.HasSuffix(trimmedURL, "/MAAS") {
-					message += " (it normally ends with /MAAS)"
-				}
-				return caps, errors.NewNotSupported(nil, message)
-			}
-		} else {
+		if err == nil {
 			break
+		}
+		if err, ok := errors.Cause(err).(gomaasapi.ServerError); ok && err.StatusCode == 404 {
+			logger.Debugf("Failed attempting to get capabilities from maas endpoint %q: %v", serverURL, err)
+
+			message := "could not connect to MAAS controller - check the endpoint is correct"
+			trimmedURL := strings.TrimRight(serverURL, "/")
+			if !strings.HasSuffix(trimmedURL, "/MAAS") {
+				message += " (it normally ends with /MAAS)"
+			}
+			return caps, errors.NewNotSupported(nil, message)
 		}
 	}
 	if err != nil {
+		logger.Debugf("Can't connect to maas server at endpoint %q: %v", serverURL, err)
 		return caps, err
 	}
 	info, err := result.GetMap()
 	if err != nil {
-		return caps, err
+		logger.Debugf("Invalid data returned from maas endpoint %q: %v", serverURL, err)
+		// invalid data of some sort, probably not a MAAS server.
+		return caps, errors.New("failed to get expected data from server")
 	}
 	capsObj, ok := info["capabilities"]
 	if !ok {
@@ -638,12 +655,14 @@ func getCapabilities(client *gomaasapi.MAASObject, serverURL string) (set.String
 	}
 	items, err := capsObj.GetArray()
 	if err != nil {
-		return caps, err
+		logger.Debugf("Invalid data returned from maas endpoint %q: %v", serverURL, err)
+		return caps, errors.New("failed to get expected data from server")
 	}
 	for _, item := range items {
 		val, err := item.GetString()
 		if err != nil {
-			return set.NewStrings(), err
+			logger.Debugf("Invalid data returned from maas endpoint %q: %v", serverURL, err)
+			return set.NewStrings(), errors.New("failed to get expected data from server")
 		}
 		caps.Add(val)
 	}
@@ -1318,9 +1337,10 @@ func (environ *maasEnviron) selectNode2(args selectNodeArgs) (maasInstance, erro
 	return inst, nil
 }
 
-// setupJujuNetworking returns a string representing the script to run
-// in order to prepare the Juju-specific networking config on a node.
-func setupJujuNetworking(interfacesToBridge []string) string {
+// bridgeScriptWrapperForCloudInit returns a string representing the script
+// to run in order to prepare the Juju-specific networking config on a
+// node during cloud-init.
+func bridgeScriptWrapperForCloudInit(bridgeScriptPath string, interfacesToBridge []string) string {
 	// For ubuntu series < xenial we prefer python2 over python3
 	// as we don't want to invalidate lots of testing against
 	// known cloud-image contents. A summary of Ubuntu releases
@@ -1337,8 +1357,6 @@ func setupJujuNetworking(interfacesToBridge []string) string {
 	// going forward:  python 3 only
 
 	return fmt.Sprintf(`
-trap 'rm -f %[1]q' EXIT
-
 if [ -x /usr/bin/python2 ]; then
     juju_networking_preferred_python_binary=/usr/bin/python2
 elif [ -x /usr/bin/python3 ]; then
@@ -1373,10 +1391,6 @@ fi`,
 	)
 }
 
-func renderEtcNetworkInterfacesScript(interfacesToBridge ...string) string {
-	return setupJujuNetworking(interfacesToBridge)
-}
-
 // newCloudinitConfig creates a cloudinit.Config structure suitable as a base
 // for initialising a MAAS node.
 func (environ *maasEnviron) newCloudinitConfig(hostname, forSeries string, interfacesToBridge []string) (cloudinit.CloudConfig, error) {
@@ -1409,9 +1423,15 @@ func (environ *maasEnviron) newCloudinitConfig(hostname, forSeries string, inter
 			)
 			break
 		}
+
+		bridgeScriptPath, err := bridgeScriptPathForSeries(forSeries)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
 		cloudcfg.AddPackage("bridge-utils")
 		cloudcfg.AddBootTextFile(bridgeScriptPath, bridgeScriptPython, 0755)
-		cloudcfg.AddScripts(setupJujuNetworking(interfacesToBridge))
+		cloudcfg.AddScripts(bridgeScriptWrapperForCloudInit(bridgeScriptPath, interfacesToBridge))
 	}
 	return cloudcfg, nil
 }
@@ -2413,4 +2433,12 @@ func (env *maasEnviron) releaseContainerAddresses2(macAddresses []string) error 
 		}
 	}
 	return nil
+}
+
+func bridgeScriptPathForSeries(series string) (string, error) {
+	dataDir, err := paths.DataDir(series)
+	if err != nil {
+		return "", err
+	}
+	return path.Join(dataDir, bridgeScriptName), nil
 }

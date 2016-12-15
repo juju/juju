@@ -847,6 +847,96 @@ func (m *Machine) AllAddresses() ([]*Address, error) {
 	return allAddresses, nil
 }
 
+// AllNetworkAddresses returns the result of AllAddresses(), but transformed to
+// []network.Address.
+func (m *Machine) AllNetworkAddresses() ([]network.Address, error) {
+	stateAddresses, err := m.AllAddresses()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	networkAddresses := make([]network.Address, len(stateAddresses))
+	for i := range stateAddresses {
+		networkAddresses[i] = stateAddresses[i].NetworkAddress()
+	}
+	// TODO(jam): 20161130 NetworkAddress object has a SpaceName attribute.
+	// However, we are not filling in that information here.
+	return networkAddresses, nil
+}
+
+// deviceMapToSortedList takes a map from device name to LinkLayerDevice
+// object, and returns the list of LinkLayerDevice object using
+// NaturallySortDeviceNames
+func deviceMapToSortedList(deviceMap map[string]*LinkLayerDevice) []*LinkLayerDevice {
+	names := make([]string, 0, len(deviceMap))
+	for name, _ := range deviceMap {
+		// name must == device.Name()
+		names = append(names, name)
+	}
+	sortedNames := network.NaturallySortDeviceNames(names...)
+	result := make([]*LinkLayerDevice, len(sortedNames))
+	for i, name := range sortedNames {
+		result[i] = deviceMap[name]
+	}
+	return result
+}
+
+// LinkLayerDevicesForSpaces takes a list of spaces, and returns the devices on
+// this machine that are in that space.
+func (m *Machine) LinkLayerDevicesForSpaces(spaces []string) (map[string][]*LinkLayerDevice, error) {
+	addresses, err := m.AllAddresses()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	requestedSpaces := set.NewStrings(spaces...)
+	spaceToDevices := make(map[string]map[string]*LinkLayerDevice, 0)
+	// TODO(jam): 2016-12-08 We look up each subnet one-by-one, and then look
+	// up each Link-Layer-Device one-by-one, it feels like we should
+	// 'aggregate all subnet CIDR' and then grab them in one pass, and then
+	// filter them to find the link layer devices we care about, and ask for
+	// them in a single pass again.
+	// Further, we should be tracking this more by Layer 2 connections, rather
+	// than requiring CIDR. Eventually we want to get rid of host network
+	// devices from having an IP address at all, so that only the containers
+	// have Layer 3 addresses.
+	for _, addr := range addresses {
+		subnet, err := addr.Subnet()
+		if err != nil {
+			if errors.IsNotFound(err) {
+				// We record all addresses that we find on the
+				// machine. However, some devices may have IP
+				// addresses that are not in known subnets or spaces.
+				// (loopback devices aren't in a space, arbitrary
+				// application based addresses, etc.)
+				continue
+			}
+			// We don't understand the error, so error out for now
+			return nil, errors.Trace(err)
+		}
+		spaceName := subnet.SpaceName()
+		if !requestedSpaces.Contains(spaceName) {
+			continue
+		}
+		device, err := addr.Device()
+		if err != nil {
+			// XXX should we be omitting all other good records because this one was bad?
+			return nil, errors.Trace(err)
+		}
+		spaceInfo, ok := spaceToDevices[spaceName]
+		if !ok {
+			spaceInfo = make(map[string]*LinkLayerDevice)
+			spaceToDevices[spaceName] = spaceInfo
+		}
+		// TODO(jam): handle seeing a device with the same name twice?
+		spaceInfo[device.Name()] = device
+	}
+	result := make(map[string][]*LinkLayerDevice, len(spaceToDevices))
+	for spaceName, deviceMap := range spaceToDevices {
+		result[spaceName] = deviceMapToSortedList(deviceMap)
+	}
+	return result, nil
+}
+
 // SetParentLinkLayerDevicesBeforeTheirChildren splits the given devicesArgs
 // into multiple sets of args and calls SetLinkLayerDevices() for each set, such
 // that child devices are set only after their parents.

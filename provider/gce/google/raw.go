@@ -357,3 +357,13 @@ func (rc *rawConn) waitOperation(projectID string, op *compute.Operation, attemp
 	logger.Infof("GCE operation %q finished", op.Name)
 	return nil
 }
+
+// ListMachineTypes returns a list of machines available in the project and zone provided.
+func (rc *rawConn) ListMachineTypes(projectID, zone string) (*compute.MachineTypeList, error) {
+	op := rc.MachineTypes.List(projectID, zone)
+	machines, err := op.Do()
+	if err != nil {
+		return nil, errors.Annotatef(err, "listing machine types for project %q and zone %q", projectID, zone)
+	}
+	return machines, nil
+}

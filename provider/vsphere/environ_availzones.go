@@ -7,7 +7,7 @@ package vsphere
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/govmomi/vim25/mo"
+	"github.com/vmware/govmomi/vim25/mo"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"

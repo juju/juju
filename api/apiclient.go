@@ -44,6 +44,9 @@ const PingPeriod = 1 * time.Minute
 // consider it to have failed.
 const pingTimeout = 30 * time.Second
 
+// modelRoot is the prefix that all model API paths begin with.
+const modelRoot = "/model/"
+
 var logger = loggo.GetLogger("juju.api")
 
 type rpcConnection interface {
@@ -277,6 +280,34 @@ func (t *hostSwitchingTransport) RoundTrip(req *http.Request) (*http.Response, e
 
 // ConnectStream implements StreamConnector.ConnectStream.
 func (st *state) ConnectStream(path string, attrs url.Values) (base.Stream, error) {
+	path, err := apiPath(st.modelTag, path)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	conn, err := st.connectStreamWithRetry(path, attrs, nil)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return conn, nil
+}
+
+// ConnectControllerStream creates a stream connection to an API path
+// that isn't prefixed with /model/uuid.
+func (st *state) ConnectControllerStream(path string, attrs url.Values, headers http.Header) (base.Stream, error) {
+	if !strings.HasPrefix(path, "/") {
+		return nil, errors.Errorf("path %q is not absolute", path)
+	}
+	if strings.HasPrefix(path, modelRoot) {
+		return nil, errors.Errorf("path %q is model-specific", path)
+	}
+	conn, err := st.connectStreamWithRetry(path, attrs, headers)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return conn, nil
+}
+
+func (st *state) connectStreamWithRetry(path string, attrs url.Values, headers http.Header) (base.Stream, error) {
 	if !st.isLoggedIn() {
 		return nil, errors.New("cannot use ConnectStream without logging in")
 	}
@@ -286,7 +317,7 @@ func (st *state) ConnectStream(path string, attrs url.Values) (base.Stream, erro
 	// error, the response will contain a macaroon that, when discharged,
 	// may allow access, so we discharge it (using bakery.Client.HandleError)
 	// and try the request again.
-	conn, err := st.connectStream(path, attrs)
+	conn, err := st.connectStream(path, attrs, headers)
 	if err == nil {
 		return conn, err
 	}
@@ -297,7 +328,7 @@ func (st *state) ConnectStream(path string, attrs url.Values) (base.Stream, erro
 		return nil, errors.Trace(err)
 	}
 	// Try again with the discharged macaroon.
-	conn, err = st.connectStream(path, attrs)
+	conn, err = st.connectStream(path, attrs, headers)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -307,17 +338,16 @@ func (st *state) ConnectStream(path string, attrs url.Values) (base.Stream, erro
 // connectStream is the internal version of ConnectStream. It differs from
 // ConnectStream only in that it will not retry the connection if it encounters
 // discharge-required error.
-func (st *state) connectStream(path string, attrs url.Values) (base.Stream, error) {
-	path, err := apiPath(st.modelTag, path)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
+func (st *state) connectStream(path string, attrs url.Values, extraHeaders http.Header) (base.Stream, error) {
 	target := url.URL{
 		Scheme:   "wss",
 		Host:     st.addr,
 		Path:     path,
 		RawQuery: attrs.Encode(),
 	}
+	// TODO(macgreagoir) IPv6. Ubuntu still always provides IPv4 loopback,
+	// and when/if this changes localhost should resolve to IPv6 loopback
+	// in any case (lp:1644009). Review.
 	cfg, err := websocket.NewConfig(target.String(), "http://localhost/")
 	if st.tag != "" {
 		cfg.Header = utils.BasicAuthHeader(st.tag, st.password)
@@ -328,6 +358,11 @@ func (st *state) connectStream(path string, attrs url.Values) (base.Stream, erro
 	// Add any cookies because they will not be sent to websocket
 	// connections by default.
 	st.addCookiesToHeader(cfg.Header)
+	for header, values := range extraHeaders {
+		for _, value := range values {
+			cfg.Header.Add(header, value)
+		}
+	}
 
 	cfg.TlsConfig = st.tlsConfig
 	connection, err := websocketDialConfig(cfg)
@@ -411,7 +446,7 @@ func apiPath(modelTag names.ModelTag, path string) (string, error) {
 	if modelUUID == "" {
 		return path, nil
 	}
-	return "/model/" + modelUUID + path, nil
+	return modelRoot + modelUUID + path, nil
 }
 
 // tagToString returns the value of a tag's String method, or "" if the tag is nil.
@@ -520,6 +555,11 @@ func newWebsocketDialer(cfg *websocket.Config, opts DialOpts) func(<-chan struct
 		Total: opts.Timeout,
 		Delay: opts.RetryDelay,
 	}
+
+	if openAttempt.Min == 0 && openAttempt.Delay > 0 {
+		openAttempt.Min = int(openAttempt.Total / openAttempt.Delay)
+	}
+
 	return func(stop <-chan struct{}) (io.Closer, error) {
 		for a := openAttempt.Start(); a.Next(); {
 			select {
@@ -532,11 +572,15 @@ func newWebsocketDialer(cfg *websocket.Config, opts DialOpts) func(<-chan struct
 			if err == nil {
 				return conn, nil
 			}
-			if !a.HasNext() || isX509Error(err) {
-				// We won't reconnect when there's an X509 error
-				// because we're not going to succeed if we retry
-				// in that case.
-				logger.Infof("error dialing %q: %v", cfg.Location, err)
+			if isX509Error(err) {
+				// We won't reconnect when there's an X509
+				// error because we're not going to succeed if
+				// we retry in that case.
+				logger.Errorf("certificate error dialing %q: %v", cfg.Location, err)
+				return nil, errors.Annotatef(err, "X509 certficate error on API")
+			}
+			if !a.HasNext() {
+				logger.Errorf("error dialing %q: %v", cfg.Location, err)
 				return nil, errors.Annotatef(err, "unable to connect to API")
 			}
 		}

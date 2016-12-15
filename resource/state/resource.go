@@ -138,6 +138,16 @@ func (st resourceState) ListResources(applicationID string) (resource.ServiceRes
 	return resources, nil
 }
 
+// ListPendinglResources returns the resource data for the given
+// application ID for pending resources only.
+func (st resourceState) ListPendingResources(applicationID string) ([]resource.Resource, error) {
+	resources, err := st.persist.ListPendingResources(applicationID)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return resources, err
+}
+
 // GetResource returns the resource data for the identified resource.
 func (st resourceState) GetResource(applicationID, name string) (resource.Resource, error) {
 	id := newResourceID(applicationID, name)
@@ -180,6 +190,34 @@ func (st resourceState) SetResource(applicationID, userID string, chRes charmres
 	if err != nil {
 		return res, errors.Trace(err)
 	}
+	return res, nil
+}
+
+// SetUnitResource sets the resource metadata for a specific unit.
+func (st resourceState) SetUnitResource(unitName, userID string, chRes charmresource.Resource) (_ resource.Resource, outErr error) {
+	logger.Tracef("adding resource %q for unit %q", chRes.Name, unitName)
+	var empty resource.Resource
+
+	applicationID, err := names.UnitApplication(unitName)
+	if err != nil {
+		return empty, errors.Trace(err)
+	}
+
+	res := resource.Resource{
+		Resource:      chRes,
+		ID:            newResourceID(applicationID, chRes.Name),
+		ApplicationID: applicationID,
+	}
+	res.Username = userID
+	res.Timestamp = st.currentTimestamp()
+	if err := res.Validate(); err != nil {
+		return empty, errors.Annotate(err, "bad resource metadata")
+	}
+
+	if err := st.persist.SetUnitResource(unitName, res); err != nil {
+		return empty, errors.Trace(err)
+	}
+
 	return res, nil
 }
 

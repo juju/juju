@@ -5,12 +5,15 @@ package commands
 
 import (
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
 
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/set"
 	"github.com/juju/utils/ssh"
 	gc "gopkg.in/check.v1"
 
@@ -42,8 +45,12 @@ type argsSpec struct {
 	knownHosts string
 
 	// args specifies any other command line arguments expected. This
-	// includes the SSH/SCP targets.
+	// includes the SSH/SCP targets. Ignored if argsMatch is set as well.
 	args string
+
+	// argsMatch is like args, but instead of a literal string it's interpreted
+	// as a regular expression. When argsMatch is set, args is ignored.
+	argsMatch string
 }
 
 func (s *argsSpec) check(c *gc.C, output string) {
@@ -85,8 +92,14 @@ func (s *argsSpec) check(c *gc.C, output string) {
 		c.Check(actualKnownHosts, gc.Matches, s.expectedKnownHosts())
 	}
 
+	if s.argsMatch != "" {
+		expect(s.argsMatch)
+	} else {
+		expect(regexp.QuoteMeta(s.args))
+	}
+
 	// Check the command line matches what is expected.
-	pattern := "^" + strings.Join(expected, " ") + " " + regexp.QuoteMeta(s.args) + "$"
+	pattern := "^" + strings.Join(expected, " ") + "$"
 	c.Check(actualCommandLine, gc.Matches, pattern)
 }
 
@@ -102,6 +115,7 @@ type SSHCommonSuite struct {
 	testing.JujuConnSuite
 	knownHostsDir string
 	binDir        string
+	hostDialer    network.Dialer
 }
 
 // Commands to patch
@@ -126,10 +140,36 @@ var fakecommand = `#!/bin/bash
 }| tee $0.args
 `
 
+type dialerFunc func(address string) error
+
+type fakeDialer struct {
+	dialWith dialerFunc
+}
+
+func (f *fakeDialer) Dial(network, address string) (net.Conn, error) {
+	if f.dialWith == nil {
+		return &fakeConn{}, nil
+	}
+
+	err := f.dialWith(address)
+	if err != nil {
+		return nil, err
+	}
+
+	return &fakeConn{}, nil
+}
+
+type fakeConn struct {
+	net.Conn
+}
+
+func (f *fakeConn) Close() error { return nil }
+
 func (s *SSHCommonSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	ssh.ClearClientKeys()
 	s.PatchValue(&getJujuExecutable, func() (string, error) { return "juju", nil })
+	s.setForceAPIv1(false)
 
 	s.binDir = c.MkDir()
 	s.PatchEnvPathPrepend(s.binDir)
@@ -146,14 +186,43 @@ func (s *SSHCommonSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(&ssh.DefaultClient, client)
 }
 
+func (s *SSHCommonSuite) setForceAPIv1(enabled bool) {
+	if enabled {
+		os.Setenv(jujuSSHClientForceAPIv1, "1")
+	} else {
+		os.Unsetenv(jujuSSHClientForceAPIv1)
+	}
+}
+
+func (s *SSHCommonSuite) setHostDialerFunc(dialWith dialerFunc) {
+	s.hostDialer = &fakeDialer{dialWith: dialWith}
+}
+
+func dialerFuncFor(allowedAddresses ...string) dialerFunc {
+	allowedSet := set.NewStrings(allowedAddresses...)
+
+	return func(address string) error {
+		if strings.HasSuffix(address, ":22") {
+			address, _, _ = net.SplitHostPort(address)
+		}
+		if allowedSet.Contains(address) {
+			return nil
+		}
+		return errors.Errorf("not dialing %q", address)
+	}
+}
+
 func (s *SSHCommonSuite) setupModel(c *gc.C) {
 	// Add machine-0 with a mysql service and mysql/0 unit
 	u := s.Factory.MakeUnit(c, nil)
 
-	// Set addresses and keys for machine-0
+	// Set both the preferred public and private addresses for machine-0, add a
+	// couple of link-layer devices (loopback and ethernet) with addresses, and
+	// the ssh keys.
 	m := s.getMachineForUnit(c, u)
 	s.setAddresses(c, m)
 	s.setKeys(c, m)
+	s.setLinkLayerDevicesAddresses(c, m)
 
 	// machine-1 has no public host keys available.
 	m1 := s.Factory.MakeMachine(c, nil)
@@ -183,6 +252,30 @@ func (s *SSHCommonSuite) setAddresses(c *gc.C, m *state.Machine) {
 		network.ScopeCloudLocal,
 	)
 	err := m.SetProviderAddresses(addrPub, addrPriv)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *SSHCommonSuite) setLinkLayerDevicesAddresses(c *gc.C, m *state.Machine) {
+	devicesArgs := []state.LinkLayerDeviceArgs{{
+		Name: "lo",
+		Type: state.LoopbackDevice,
+	}, {
+		Name: "eth0",
+		Type: state.EthernetDevice,
+	}}
+	err := m.SetLinkLayerDevices(devicesArgs...)
+	c.Assert(err, jc.ErrorIsNil)
+
+	addressesArgs := []state.LinkLayerDeviceAddress{{
+		DeviceName:   "lo",
+		CIDRAddress:  "127.0.0.1/8", // will be filtered
+		ConfigMethod: state.LoopbackAddress,
+	}, {
+		DeviceName:   "eth0",
+		CIDRAddress:  "0.1.2.3/24", // needs the be a valid CIDR
+		ConfigMethod: state.StaticAddress,
+	}}
+	err = m.SetDevicesAddresses(addressesArgs...)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

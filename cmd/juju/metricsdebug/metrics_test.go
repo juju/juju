@@ -54,17 +54,44 @@ func (s *metricsSuite) SetUpTest(c *gc.C) {
 	})
 }
 
-func (s *metricsSuite) TestDefaultTabulatFormat(c *gc.C) {
+func (s *metricsSuite) TestSort(c *gc.C) {
 	s.client.metrics = []params.MetricResult{{
 		Unit:  "unit-metered-0",
-		Key:   "pings",
+		Key:   "c-s",
 		Value: "5.0",
-		Time:  time.Date(2016, 8, 22, 12, 02, 03, 0, time.UTC),
+		Time:  time.Date(2016, 8, 22, 12, 02, 04, 0, time.UTC),
 	}, {
+		Unit:  "unit-metered-0",
+		Key:   "b-s",
+		Value: "10.0",
+		Time:  time.Date(2016, 8, 22, 12, 02, 04, 0, time.UTC),
+	}, {
+		Unit:  "unit-metered-0",
+		Key:   "a-s",
+		Value: "15.0",
+		Time:  time.Date(2016, 8, 22, 12, 02, 04, 0, time.UTC),
+	}}
+	ctx, err := coretesting.RunCommand(c, metricsdebug.New(), "metered/0")
+	c.Assert(err, jc.ErrorIsNil)
+	s.client.CheckCall(c, 0, "GetMetrics", []string{"unit-metered-0"})
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `UNIT          	           TIMESTAMP	METRIC	VALUE
+unit-metered-0	2016-08-22T12:02:04Z	   a-s	 15.0
+unit-metered-0	2016-08-22T12:02:04Z	   b-s	 10.0
+unit-metered-0	2016-08-22T12:02:04Z	   c-s	  5.0
+`)
+}
+
+func (s *metricsSuite) TestDefaultTabulatFormat(c *gc.C) {
+	s.client.metrics = []params.MetricResult{{
 		Unit:  "unit-metered-0",
 		Key:   "pongs",
 		Value: "15.0",
 		Time:  time.Date(2016, 8, 22, 12, 02, 04, 0, time.UTC),
+	}, {
+		Unit:  "unit-metered-0",
+		Key:   "pings",
+		Value: "5.0",
+		Time:  time.Date(2016, 8, 22, 12, 02, 03, 0, time.UTC),
 	}}
 	ctx, err := coretesting.RunCommand(c, metricsdebug.New(), "metered/0")
 	c.Assert(err, jc.ErrorIsNil)

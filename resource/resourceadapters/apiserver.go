@@ -39,20 +39,25 @@ func NewPublicFacade(st *corestate.State, _ facade.Resources, authorizer facade.
 	return facade, nil
 }
 
-// NewUploadHandler returns a new HTTP handler for the given args.
-func NewUploadHandler(args apihttp.NewHandlerArgs) http.Handler {
-	return server.NewLegacyHTTPHandler(
-		func(req *http.Request) (server.DataStore, names.Tag, error) {
+// NewApplicationHandler returns a new HTTP handler for application
+// level resource uploads and downloads.
+func NewApplicationHandler(args apihttp.NewHandlerArgs) http.Handler {
+	return server.NewHTTPHandler(
+		func(req *http.Request) (server.DataStore, server.Closer, names.Tag, error) {
 			st, entity, err := args.Connect(req)
 			if err != nil {
-				return nil, nil, errors.Trace(err)
+				return nil, nil, nil, errors.Trace(err)
+			}
+			closer := func() error {
+				return args.Release(st)
 			}
 			resources, err := st.Resources()
 			if err != nil {
-				return nil, nil, errors.Trace(err)
+				closer()
+				return nil, nil, nil, errors.Trace(err)
 			}
 
-			return resources, entity.Tag(), nil
+			return resources, closer, entity.Tag(), nil
 		},
 	)
 }
@@ -61,9 +66,10 @@ func NewUploadHandler(args apihttp.NewHandlerArgs) http.Handler {
 func NewDownloadHandler(args apihttp.NewHandlerArgs) http.Handler {
 	extractor := &httpDownloadRequestExtractor{
 		connect: args.Connect,
+		release: args.Release,
 	}
-	deps := internalserver.NewLegacyHTTPHandlerDeps(extractor)
-	return internalserver.NewLegacyHTTPHandler(deps)
+	deps := internalserver.NewHTTPHandlerDeps(extractor)
+	return internalserver.NewHTTPHandler(deps)
 }
 
 // stateConnector exposes ways to connect to Juju's state.
@@ -75,19 +81,35 @@ type stateConnector interface {
 // handle a resource download HTTP request.
 type httpDownloadRequestExtractor struct {
 	connect func(*http.Request) (*corestate.State, corestate.Entity, error)
+	release func(*corestate.State) error
 }
 
 // NewResourceOpener returns a new resource.Opener for the given
 // HTTP request.
-func (ex *httpDownloadRequestExtractor) NewResourceOpener(req *http.Request) (resource.Opener, error) {
-	st, ent, err := ex.connect(req)
+func (ex *httpDownloadRequestExtractor) NewResourceOpener(req *http.Request) (opener resource.Opener, err error) {
+	st, _, err := ex.connect(req)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	unit, ok := ent.(*corestate.Unit)
-	if !ok {
-		logger.Errorf("unexpected type: %T", ent)
-		return nil, errors.Errorf("unexpected type: %T", ent)
+
+	closer := func() error {
+		return ex.release(st)
+	}
+
+	defer func() {
+		if err != nil {
+			closer()
+		}
+	}()
+
+	unitTagStr := req.URL.Query().Get(":unit")
+	unitTag, err := names.ParseUnitTag(unitTagStr)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	unit, err := st.Unit(unitTag.Id())
+	if err != nil {
+		return nil, errors.Annotate(err, "loading unit")
 	}
 
 	resources, err := st.Resources()
@@ -95,11 +117,12 @@ func (ex *httpDownloadRequestExtractor) NewResourceOpener(req *http.Request) (re
 		return nil, errors.Trace(err)
 	}
 
-	opener := &resourceOpener{
+	opener = &resourceOpener{
 		st:     st,
 		res:    resources,
-		userID: unit.Tag(),
+		userID: unitTag,
 		unit:   unit,
+		closer: closer,
 	}
 	return opener, nil
 }

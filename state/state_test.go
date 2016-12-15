@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"sort"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/juju/errors"
@@ -29,6 +30,7 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
@@ -139,7 +141,13 @@ func (s *StateSuite) TestStrictLocalIDWithNoPrefix(c *gc.C) {
 func (s *StateSuite) TestDialAgain(c *gc.C) {
 	// Ensure idempotent operations on Dial are working fine.
 	for i := 0; i < 2; i++ {
-		st, err := state.Open(s.modelTag, s.State.ControllerTag(), statetesting.NewMongoInfo(), mongotest.DialOpts(), nil)
+		st, err := state.Open(state.OpenParams{
+			Clock:              clock.WallClock,
+			ControllerTag:      s.State.ControllerTag(),
+			ControllerModelTag: s.modelTag,
+			MongoInfo:          statetesting.NewMongoInfo(),
+			MongoDialOpts:      mongotest.DialOpts(),
+		})
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(st.Close(), gc.IsNil)
 	}
@@ -148,7 +156,13 @@ func (s *StateSuite) TestDialAgain(c *gc.C) {
 func (s *StateSuite) TestOpenRequiresExtantModelTag(c *gc.C) {
 	uuid := utils.MustNewUUID()
 	tag := names.NewModelTag(uuid.String())
-	st, err := state.Open(tag, s.State.ControllerTag(), statetesting.NewMongoInfo(), mongotest.DialOpts(), nil)
+	st, err := state.Open(state.OpenParams{
+		Clock:              clock.WallClock,
+		ControllerTag:      s.State.ControllerTag(),
+		ControllerModelTag: tag,
+		MongoInfo:          statetesting.NewMongoInfo(),
+		MongoDialOpts:      mongotest.DialOpts(),
+	})
 	if !c.Check(st, gc.IsNil) {
 		c.Check(st.Close(), jc.ErrorIsNil)
 	}
@@ -157,7 +171,13 @@ func (s *StateSuite) TestOpenRequiresExtantModelTag(c *gc.C) {
 }
 
 func (s *StateSuite) TestOpenSetsModelTag(c *gc.C) {
-	st, err := state.Open(s.modelTag, s.State.ControllerTag(), statetesting.NewMongoInfo(), mongotest.DialOpts(), nil)
+	st, err := state.Open(state.OpenParams{
+		Clock:              clock.WallClock,
+		ControllerTag:      s.State.ControllerTag(),
+		ControllerModelTag: s.modelTag,
+		MongoInfo:          statetesting.NewMongoInfo(),
+		MongoDialOpts:      mongotest.DialOpts(),
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 
@@ -374,6 +394,15 @@ func (s *MultiEnvStateSuite) TestWatchTwoEnvironments(c *gc.C) {
 				f.MakeApplication(c, nil)
 			},
 		}, {
+			about: "remote applications",
+			getWatcher: func(st *state.State) interface{} {
+				return st.WatchRemoteApplications()
+			},
+			triggerEvent: func(st *state.State) {
+				st.AddRemoteApplication(state.AddRemoteApplicationParams{
+					Name: "db2", URL: "local:/u/ibm/db2", SourceModel: s.State.ModelTag()})
+			},
+		}, {
 			about: "relations",
 			getWatcher: func(st *state.State) interface{} {
 				f := factory.NewFactory(st)
@@ -550,6 +579,24 @@ func (s *MultiEnvStateSuite) TestWatchTwoEnvironments(c *gc.C) {
 				wordpress, err := st.Application("wordpress")
 				c.Assert(err, jc.ErrorIsNil)
 				err = wordpress.SetMinUnits(2)
+				c.Assert(err, jc.ErrorIsNil)
+			},
+		}, {
+			about: "offered applications",
+			getWatcher: func(st *state.State) interface{} {
+				return st.WatchOfferedApplications()
+			},
+			setUpState: func(st *state.State) bool {
+				offeredApplications := state.NewOfferedApplications(st)
+				offeredApplications.AddOffer(crossmodel.OfferedApplication{
+					ApplicationName: "mysql",
+					ApplicationURL:  "local:/u/me/mysql",
+				})
+				return false
+			},
+			triggerEvent: func(st *state.State) {
+				offeredApplications := state.NewOfferedApplications(st)
+				err := offeredApplications.SetOfferRegistered("local:/u/me/mysql", false)
 				c.Assert(err, jc.ErrorIsNil)
 			},
 		},
@@ -1397,7 +1444,49 @@ func (s *StateSuite) TestAddServiceEnvironmentMigrating(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `cannot add application "s1": model "testenv" is being migrated`)
 }
 
-func (s *StateSuite) TestAddServiceEnvironmentDyingAfterInitial(c *gc.C) {
+func (s *StateSuite) TestAddApplicationSameRemoteExists(c *gc.C) {
+	charm := s.AddTestingCharm(c, "dummy")
+	_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name: "s1", URL: "local:/u/me/dummy", SourceModel: s.State.ModelTag()})
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddApplication(state.AddApplicationArgs{Name: "s1", Charm: charm})
+	c.Assert(err, gc.ErrorMatches, `cannot add application "s1": remote application with same name already exists`)
+}
+
+func (s *StateSuite) TestAddApplicationRemotedAddedAfterInitial(c *gc.C) {
+	charm := s.AddTestingCharm(c, "dummy")
+	// Check that a application with a name conflict cannot be added if
+	// there is no conflict initially but a remote application is added
+	// before the transaction is run.
+	defer state.SetBeforeHooks(c, s.State, func() {
+		_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+			Name: "s1", URL: "local:/u/me/s1", SourceModel: s.State.ModelTag()})
+		c.Assert(err, jc.ErrorIsNil)
+	}).Check()
+	_, err := s.State.AddApplication(state.AddApplicationArgs{Name: "s1", Charm: charm})
+	c.Assert(err, gc.ErrorMatches, `cannot add application "s1": remote application with same name already exists`)
+}
+
+func (s *StateSuite) TestAddApplicationSameLocalExists(c *gc.C) {
+	charm := s.AddTestingCharm(c, "dummy")
+	s.AddTestingService(c, "s0", charm)
+	_, err := s.State.AddApplication(state.AddApplicationArgs{Name: "s0", Charm: charm})
+	c.Assert(err, gc.ErrorMatches, `cannot add application "s0": application already exists`)
+}
+
+func (s *StateSuite) TestAddApplicationLocalAddedAfterInitial(c *gc.C) {
+	charm := s.AddTestingCharm(c, "dummy")
+	// Check that a service with a name conflict cannot be added if
+	// there is no conflict initially but a local service is added
+	// before the transaction is run.
+	defer state.SetBeforeHooks(c, s.State, func() {
+		s.AddTestingService(c, "s1", charm)
+	}).Check()
+	_, err := s.State.AddApplication(state.AddApplicationArgs{Name: "s1", Charm: charm})
+	c.Assert(err, gc.ErrorMatches, `cannot add application "s1": application already exists`)
+}
+
+func (s *StateSuite) TestAddApplicationEnvironmentDyingAfterInitial(c *gc.C) {
 	charm := s.AddTestingCharm(c, "dummy")
 	s.AddTestingService(c, "s0", charm)
 	env, err := s.State.Model()
@@ -1412,7 +1501,7 @@ func (s *StateSuite) TestAddServiceEnvironmentDyingAfterInitial(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `cannot add application "s1": model "testenv" is no longer alive`)
 }
 
-func (s *StateSuite) TestServiceNotFound(c *gc.C) {
+func (s *StateSuite) TestApplicationNotFound(c *gc.C) {
 	_, err := s.State.Application("bummer")
 	c.Assert(err, gc.ErrorMatches, `application "bummer" not found`)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
@@ -1911,7 +2000,7 @@ func (s *StateSuite) TestWatchModelsBulkEvents(c *gc.C) {
 
 func (s *StateSuite) TestWatchModelsLifecycle(c *gc.C) {
 	// Initial event reports the controller model.
-	w := s.State.WatchModels()
+	w := s.State.WatchModelLives()
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewStringsWatcherC(c, s.State, w)
 	wc.AssertChange(s.State.ModelUUID())
@@ -2551,6 +2640,113 @@ func (s *StateSuite) TestRemoveExportingModelDocsExporting(c *gc.C) {
 	c.Assert(state.HostedModelCount(c, s.State), gc.Equals, 0)
 }
 
+func (s *StateSuite) TestRemoveExportingModelDocsRemovesLogs(c *gc.C) {
+	st := s.Factory.MakeModel(c, nil)
+	defer st.Close()
+
+	model, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	err = model.SetMigrationMode(state.MigrationModeExporting)
+	c.Assert(err, jc.ErrorIsNil)
+
+	writeLogs(c, st, 5)
+	writeLogs(c, s.State, 5)
+
+	err = st.RemoveExportingModelDocs()
+	c.Assert(err, jc.ErrorIsNil)
+
+	assertLogCount(c, s.State, 5)
+	assertLogCount(c, st, 0)
+}
+
+func (s *StateSuite) TestRemoveImportingModelDocsRemovesLogs(c *gc.C) {
+	st := s.Factory.MakeModel(c, nil)
+	defer st.Close()
+
+	model, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	err = model.SetMigrationMode(state.MigrationModeImporting)
+	c.Assert(err, jc.ErrorIsNil)
+
+	writeLogs(c, st, 5)
+	writeLogs(c, s.State, 5)
+
+	err = st.RemoveImportingModelDocs()
+	c.Assert(err, jc.ErrorIsNil)
+
+	assertLogCount(c, s.State, 5)
+	assertLogCount(c, st, 0)
+}
+
+func (s *StateSuite) TestRemoveAllModelDocsRemovesLogs(c *gc.C) {
+	st := s.Factory.MakeModel(c, nil)
+	defer st.Close()
+
+	err := state.SetModelLifeDead(st, st.ModelUUID())
+	c.Assert(err, jc.ErrorIsNil)
+
+	writeLogs(c, st, 5)
+	writeLogs(c, s.State, 5)
+
+	err = st.RemoveAllModelDocs()
+	c.Assert(err, jc.ErrorIsNil)
+
+	assertLogCount(c, s.State, 5)
+	assertLogCount(c, st, 0)
+}
+
+func (s *StateSuite) TestRemoveExportingModelDocsRemovesLogTrackers(c *gc.C) {
+	st := s.Factory.MakeModel(c, nil)
+	defer st.Close()
+
+	model, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	err = model.SetMigrationMode(state.MigrationModeExporting)
+	c.Assert(err, jc.ErrorIsNil)
+
+	t1 := state.NewLastSentLogTracker(st, model.UUID(), "go-away")
+	defer t1.Close()
+	t2 := state.NewLastSentLogTracker(st, s.State.ModelUUID(), "stay")
+	defer t2.Close()
+
+	c.Assert(t1.Set(100, 100), jc.ErrorIsNil)
+	c.Assert(t2.Set(100, 100), jc.ErrorIsNil)
+
+	err = st.RemoveExportingModelDocs()
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, _, err = t1.Get()
+	c.Check(errors.Cause(err), gc.Equals, state.ErrNeverForwarded)
+
+	id, count, err := t2.Get()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(id, gc.Equals, int64(100))
+	c.Check(count, gc.Equals, int64(100))
+}
+
+func writeLogs(c *gc.C, st *state.State, n int) {
+	dbLogger := state.NewDbLogger(st)
+	defer dbLogger.Close()
+	for i := 0; i < n; i++ {
+		err := dbLogger.Log(
+			time.Now(),
+			"van occupanther",
+			"chasing after deer",
+			"in a log house",
+			loggo.INFO,
+			"why are your fingers like that of a hedge in winter?",
+		)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+}
+
+func assertLogCount(c *gc.C, st *state.State, expected int) {
+	logColl := st.MongoSession().DB("logs").C("logs")
+	actual, err := logColl.Find(bson.M{"e": st.ModelUUID()}).Count()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(actual, gc.Equals, expected)
+}
+
 type attrs map[string]interface{}
 
 func (s *StateSuite) TestWatchForModelConfigChanges(c *gc.C) {
@@ -2634,7 +2830,13 @@ func (s *StateSuite) TestAddAndGetEquivalence(c *gc.C) {
 }
 
 func tryOpenState(modelTag names.ModelTag, controllerTag names.ControllerTag, info *mongo.MongoInfo) error {
-	st, err := state.Open(modelTag, controllerTag, info, mongotest.DialOpts(), nil)
+	st, err := state.Open(state.OpenParams{
+		Clock:              clock.WallClock,
+		ControllerTag:      controllerTag,
+		ControllerModelTag: modelTag,
+		MongoInfo:          info,
+		MongoDialOpts:      mongotest.DialOpts(),
+	})
 	if err == nil {
 		err = st.Close()
 	}
@@ -2661,9 +2863,15 @@ func (s *StateSuite) TestOpenWithoutSetMongoPassword(c *gc.C) {
 func (s *StateSuite) TestOpenBadAddress(c *gc.C) {
 	info := statetesting.NewMongoInfo()
 	info.Addrs = []string{"0.1.2.3:1234"}
-	st, err := state.Open(testing.ModelTag, testing.ControllerTag, info, mongo.DialOpts{
-		Timeout: 1 * time.Millisecond,
-	}, nil)
+	st, err := state.Open(state.OpenParams{
+		Clock:              clock.WallClock,
+		ControllerTag:      testing.ControllerTag,
+		ControllerModelTag: testing.ModelTag,
+		MongoInfo:          info,
+		MongoDialOpts: mongo.DialOpts{
+			Timeout: 1 * time.Millisecond,
+		},
+	})
 	if err == nil {
 		st.Close()
 	}
@@ -2677,9 +2885,16 @@ func (s *StateSuite) TestOpenDelaysRetryBadAddress(c *gc.C) {
 	info.Addrs = []string{"0.1.2.3:1234"}
 
 	t0 := time.Now()
-	st, err := state.Open(testing.ModelTag, testing.ControllerTag, info, mongo.DialOpts{
-		Timeout: 1 * time.Millisecond,
-	}, nil)
+	st, err := state.Open(state.OpenParams{
+		Clock:              clock.WallClock,
+		ControllerTag:      testing.ControllerTag,
+		ControllerModelTag: testing.ModelTag,
+		MongoInfo:          info,
+		MongoDialOpts: mongo.DialOpts{
+			Timeout: 1 * time.Millisecond,
+		},
+	})
+
 	if err == nil {
 		st.Close()
 	}
@@ -3061,6 +3276,66 @@ func (s *StateSuite) TestWatchMinUnitsDiesOnStateClose(c *gc.C) {
 	})
 }
 
+func (s *StateSuite) TestWatchOfferedApplications(c *gc.C) {
+	// Check initial event.
+	w := s.State.WatchOfferedApplications()
+	defer statetesting.AssertStop(c, w)
+	wc := statetesting.NewStringsWatcherC(c, s.State, w)
+	wc.AssertChange()
+	wc.AssertNoChange()
+
+	// Add a new offered application; a single change should occur.
+	offers := state.NewOfferedApplications(s.State)
+	offer := crossmodel.OfferedApplication{
+		ApplicationName: "service",
+		ApplicationURL:  "local:/u/me/service",
+		Registered:      true,
+	}
+	err := offers.AddOffer(offer)
+	wc.AssertChange("local:/u/me/service")
+	wc.AssertNoChange()
+
+	// Set the registered value; expect one change.
+	err = offers.SetOfferRegistered("local:/u/me/service", false)
+	c.Assert(err, jc.ErrorIsNil)
+	offer.Registered = false
+	wc.AssertChange("local:/u/me/service")
+	wc.AssertNoChange()
+
+	// Insert a new offer2 and set registered value; expect 2 changes.
+	offer2 := crossmodel.OfferedApplication{
+		ApplicationName: "service2",
+		ApplicationURL:  "local:/u/me/service2",
+		Registered:      true,
+	}
+	err = offers.AddOffer(offer2)
+	c.Assert(err, jc.ErrorIsNil)
+	err = offers.SetOfferRegistered("local:/u/me/service", true)
+	offer.Registered = true
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChange("local:/u/me/service2", "local:/u/me/service")
+
+	// Update endpoints and registered value; expect 2 changes.
+	err = offers.UpdateOffer("local:/u/me/service2", map[string]string{"foo": "bar"})
+	c.Assert(err, jc.ErrorIsNil)
+	err = offers.SetOfferRegistered("local:/u/me/service", false)
+	offer.Registered = true
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChange("local:/u/me/service2", "local:/u/me/service")
+
+	// Stop watcher, check closed.
+	statetesting.AssertStop(c, w)
+	wc.AssertClosed()
+}
+
+func (s *StateSuite) TestWatchOfferedApplicationsDiesOnStateClose(c *gc.C) {
+	testWatcherDiesWhenStateCloses(c, s.modelTag, s.State.ControllerTag(), func(c *gc.C, st *state.State) waiter {
+		w := st.WatchOfferedApplications()
+		<-w.Changes()
+		return w
+	})
+}
+
 func (s *StateSuite) TestNestingLevel(c *gc.C) {
 	c.Assert(state.NestingLevel("0"), gc.Equals, 0)
 	c.Assert(state.NestingLevel("0/lxd/1"), gc.Equals, 1)
@@ -3239,7 +3514,7 @@ func (s *StateSuite) TestSetEnvironAgentVersionOnOtherEnviron(c *gc.C) {
 	current := version.MustParseBinary("1.24.7-trusty-amd64")
 	s.PatchValue(&jujuversion.Current, current.Number)
 	s.PatchValue(&arch.HostArch, func() string { return current.Arch })
-	s.PatchValue(&series.HostSeries, func() string { return current.Series })
+	s.PatchValue(&series.MustHostSeries, func() string { return current.Series })
 
 	otherSt := s.Factory.MakeModel(c, nil)
 	defer otherSt.Close()
@@ -3348,7 +3623,13 @@ type waiter interface {
 // interact with the closed state, causing it to return an
 // unexpected error (often "Closed explictly").
 func testWatcherDiesWhenStateCloses(c *gc.C, modelTag names.ModelTag, controllerTag names.ControllerTag, startWatcher func(c *gc.C, st *state.State) waiter) {
-	st, err := state.Open(modelTag, controllerTag, statetesting.NewMongoInfo(), mongotest.DialOpts(), nil)
+	st, err := state.Open(state.OpenParams{
+		Clock:              clock.WallClock,
+		ControllerTag:      controllerTag,
+		ControllerModelTag: modelTag,
+		MongoInfo:          statetesting.NewMongoInfo(),
+		MongoDialOpts:      mongotest.DialOpts(),
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	watcher := startWatcher(c, st)
 	err = st.Close()
@@ -3386,7 +3667,13 @@ func (s *StateSuite) TestReopenWithNoMachines(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info, jc.DeepEquals, expected)
 
-	st, err := state.Open(s.modelTag, s.State.ControllerTag(), statetesting.NewMongoInfo(), mongotest.DialOpts(), nil)
+	st, err := state.Open(state.OpenParams{
+		Clock:              clock.WallClock,
+		ControllerTag:      s.State.ControllerTag(),
+		ControllerModelTag: s.modelTag,
+		MongoInfo:          statetesting.NewMongoInfo(),
+		MongoDialOpts:      mongotest.DialOpts(),
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 
@@ -4105,6 +4392,56 @@ func (s *StateSuite) TestSetMongoSpaceStateErrorOnInvalidStates(c *gc.C) {
 	info, err := s.State.ControllerInfo()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info.MongoSpaceState, gc.Equals, state.MongoSpaceUnknown)
+}
+
+func (s *StateSuite) TestRunTransactionObserver(c *gc.C) {
+	type args struct {
+		dbName    string
+		modelUUID string
+		ops       []mgotxn.Op
+		err       error
+	}
+	var mu sync.Mutex
+	var recordedCalls []args
+	getCalls := func() []args {
+		mu.Lock()
+		defer mu.Unlock()
+		return recordedCalls[:]
+	}
+
+	st, err := state.Open(state.OpenParams{
+		Clock:              clock.WallClock,
+		ControllerTag:      s.State.ControllerTag(),
+		ControllerModelTag: s.modelTag,
+		MongoInfo:          statetesting.NewMongoInfo(),
+		MongoDialOpts:      mongotest.DialOpts(),
+		RunTransactionObserver: func(dbName, modelUUID string, ops []mgotxn.Op, err error) {
+			mu.Lock()
+			defer mu.Unlock()
+			recordedCalls = append(recordedCalls, args{
+				dbName:    dbName,
+				modelUUID: modelUUID,
+				ops:       ops,
+				err:       err,
+			})
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	defer st.Close()
+
+	c.Assert(getCalls(), gc.HasLen, 0)
+
+	err = st.SetModelConstraints(constraints.Value{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	calls := getCalls()
+	c.Assert(calls, gc.HasLen, 1)
+	c.Assert(calls[0].dbName, gc.Equals, "juju")
+	c.Assert(calls[0].modelUUID, gc.Equals, s.modelTag.Id())
+	c.Assert(calls[0].err, gc.IsNil)
+	c.Assert(calls[0].ops, gc.HasLen, 1)
+	c.Assert(calls[0].ops[0].C, gc.Equals, "constraints")
+	c.Assert(calls[0].ops[0].Update, gc.NotNil)
 }
 
 type SetAdminMongoPasswordSuite struct {

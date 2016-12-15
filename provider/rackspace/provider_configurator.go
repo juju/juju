@@ -40,5 +40,6 @@ func (c *rackspaceConfigurator) GetConfigDefaults() schema.Defaults {
 		"use-floating-ip":      false,
 		"use-default-secgroup": false,
 		"network":              "",
+		"external-network":     "",
 	}
 }

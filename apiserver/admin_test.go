@@ -1143,3 +1143,23 @@ func (s *migrationSuite) TestImportingModel(c *gc.C) {
 	_, err = apimachiner.NewState(machineConn).Machine(m.MachineTag())
 	c.Check(err, jc.ErrorIsNil)
 }
+
+func (s *migrationSuite) TestExportingModel(c *gc.C) {
+	model, err := s.State.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	err = model.SetMigrationMode(state.MigrationModeExporting)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Users should be able to log in but RPC requests should fail.
+	info := s.APIInfo(c)
+	userConn := s.OpenAPIAs(c, info.Tag, info.Password)
+	defer userConn.Close()
+
+	// Status is fine.
+	_, err = userConn.Client().Status(nil)
+	c.Check(err, jc.ErrorIsNil)
+
+	// Modifying commands like destroy machines are not.
+	err = userConn.Client().DestroyMachines("42")
+	c.Check(err, gc.ErrorMatches, "model migration in progress")
+}

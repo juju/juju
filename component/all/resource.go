@@ -4,7 +4,6 @@
 package all
 
 import (
-	"io"
 	"os"
 	"reflect"
 
@@ -22,7 +21,7 @@ import (
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/api"
 	"github.com/juju/juju/resource/api/client"
-	internalapi "github.com/juju/juju/resource/api/private"
+	privateapi "github.com/juju/juju/resource/api/private"
 	internalclient "github.com/juju/juju/resource/api/private/client"
 	internalserver "github.com/juju/juju/resource/api/private/server"
 	"github.com/juju/juju/resource/api/server"
@@ -75,11 +74,11 @@ func (r resources) registerPublicFacade() {
 
 	common.RegisterAPIModelEndpoint(api.HTTPEndpointPattern, apihttp.HandlerSpec{
 		Constraints: apihttp.HandlerConstraints{
-			AuthKind:            names.UserTagKind,
+			AuthKinds:           []string{names.UserTagKind, names.MachineTagKind},
 			StrictValidation:    true,
 			ControllerModelOnly: false,
 		},
-		NewHandler: resourceadapters.NewUploadHandler,
+		NewHandler: resourceadapters.NewApplicationHandler,
 	})
 }
 
@@ -174,6 +173,7 @@ func (r resources) registerHookContext() {
 
 	r.registerHookContextCommands()
 	r.registerHookContextFacade()
+	r.registerUnitDownloadEndpoint()
 }
 
 func (r resources) registerHookContextCommands() {
@@ -205,9 +205,12 @@ func (r resources) registerHookContextFacade() {
 		reflect.TypeOf(&internalserver.UnitFacade{}),
 	)
 
-	common.RegisterAPIModelEndpoint(internalapi.HTTPEndpointPattern, apihttp.HandlerSpec{
+}
+
+func (r resources) registerUnitDownloadEndpoint() {
+	common.RegisterAPIModelEndpoint(privateapi.HTTPEndpointPattern, apihttp.HandlerSpec{
 		Constraints: apihttp.HandlerConstraints{
-			AuthKind:            names.UnitTagKind,
+			AuthKinds:           []string{names.UnitTagKind},
 			StrictValidation:    true,
 			ControllerModelOnly: false,
 		},
@@ -225,16 +228,6 @@ type resourcesUnitDataStore struct {
 // ListResources implements resource/api/private/server.UnitDataStore.
 func (ds *resourcesUnitDataStore) ListResources() (resource.ServiceResources, error) {
 	return ds.resources.ListResources(ds.unit.ApplicationName())
-}
-
-// GetResource implements resource/api/private/server.UnitDataStore.
-func (ds *resourcesUnitDataStore) GetResource(name string) (resource.Resource, error) {
-	return ds.resources.GetResource(ds.unit.ApplicationName(), name)
-}
-
-// OpenResource implements resource/api/private/server.UnitDataStore.
-func (ds *resourcesUnitDataStore) OpenResource(name string) (resource.Resource, io.ReadCloser, error) {
-	return ds.resources.OpenResourceForUniter(ds.unit, name)
 }
 
 func (r resources) newHookContextFacade(st *corestate.State, unit *corestate.Unit) (interface{}, error) {

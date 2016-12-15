@@ -22,11 +22,13 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
+	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/mongo/utils"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/permission"
+	"github.com/juju/juju/state/storage"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/version"
@@ -93,6 +95,14 @@ func newRunnerForHooks(st *State) jujutxn.Runner {
 	runner := jujutxn.NewRunner(jujutxn.RunnerParams{Database: db.raw})
 	db.runner = runner
 	return runner
+}
+
+func OfferAtURL(sd crossmodel.ApplicationDirectory, url string) (*applicationOfferDoc, error) {
+	return sd.(*applicationDirectory).offerAtURL(url)
+}
+
+func MakeApplicationOfferDoc(sd crossmodel.ApplicationDirectory, url string, offer crossmodel.ApplicationOffer) applicationOfferDoc {
+	return sd.(*applicationDirectory).makeApplicationOfferDoc(offer)
 }
 
 // SetPolicy updates the State's policy field to the
@@ -280,7 +290,7 @@ func CheckUserExists(st *State, name string) (bool, error) {
 	return st.checkUserExists(name)
 }
 
-func WatcherMergeIds(st *State, changeset *[]string, updates map[interface{}]bool, idconv func(string) string) error {
+func WatcherMergeIds(st *State, changeset *[]string, updates map[interface{}]bool, idconv func(string) (string, error)) error {
 	return mergeIds(st, changeset, updates, idconv)
 }
 
@@ -457,7 +467,15 @@ func IsManagerMachineError(err error) bool {
 	return errors.Cause(err) == managerMachineError
 }
 
-var ActionNotificationIdToActionId = actionNotificationIdToActionId
+func MakeActionIdConverter(st *State) func(string) (string, error) {
+	return func(id string) (string, error) {
+		id, err := st.strictLocalID(id)
+		if err != nil {
+			return "", errors.Trace(err)
+		}
+		return actionNotificationIdToActionId(id), err
+	}
+}
 
 func UpdateModelUserLastConnection(st *State, e permission.UserAccess, when time.Time) error {
 	return st.updateLastModelConnection(e.UserTag, when)
@@ -562,4 +580,44 @@ func PrimeUnitStatusHistory(
 // to allow inspection in tests.
 func GetInternalWorkers(st *State) worker.Worker {
 	return st.workers
+}
+
+// ResourceStoragePath returns the path used to store resource content
+// in the managed blob store, given the resource ID.
+func ResourceStoragePath(c *gc.C, st *State, id string) string {
+	p := NewResourcePersistence(st.newPersistence())
+	_, storagePath, err := p.GetResource(id)
+	c.Assert(err, jc.ErrorIsNil)
+	return storagePath
+}
+
+// IsBlobStored returns true if a given storage path is in used in the
+// managed blob store.
+func IsBlobStored(c *gc.C, st *State, storagePath string) bool {
+	stor := storage.NewStorage(st.ModelUUID(), st.MongoSession())
+	r, _, err := stor.Get(storagePath)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return false
+		}
+		c.Fatalf("Get failed: %v", err)
+		return false
+	}
+	r.Close()
+	return true
+}
+
+// AssertNoCleanups checks that there are no cleanups scheduled of a
+// given kind.
+func AssertNoCleanups(c *gc.C, st *State, kind cleanupKind) {
+	var docs []cleanupDoc
+	cleanups, closer := st.getCollection(cleanupsC)
+	defer closer()
+	err := cleanups.Find(nil).All(&docs)
+	c.Assert(err, jc.ErrorIsNil)
+	for _, doc := range docs {
+		if doc.Kind == kind {
+			c.Fatalf("found cleanup of kind %q", kind)
+		}
+	}
 }

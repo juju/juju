@@ -314,7 +314,7 @@ func (s *UpgradeJujuSuite) TestUpgradeJuju(c *gc.C) {
 		current := version.MustParseBinary(test.currentVersion)
 		s.PatchValue(&jujuversion.Current, current.Number)
 		s.PatchValue(&arch.HostArch, func() string { return current.Arch })
-		s.PatchValue(&series.HostSeries, func() string { return current.Series })
+		s.PatchValue(&series.MustHostSeries, func() string { return current.Series })
 		com := newUpgradeJujuCommand(test.upgradeMap)
 		if err := coretesting.InitCommand(com, test.args); err != nil {
 			if test.expectInitErr != "" {
@@ -381,7 +381,7 @@ func (s *UpgradeJujuSuite) checkToolsUploaded(c *gc.C, vers version.Binary, agen
 	expectContent := version.Binary{
 		Number: agentVersion,
 		Arch:   arch.HostArch(),
-		Series: series.HostSeries(),
+		Series: series.MustHostSeries(),
 	}
 	checkToolsContent(c, data, "jujud contents "+expectContent.String())
 }
@@ -448,7 +448,7 @@ func (s *UpgradeJujuSuite) TestUpgradeJujuWithRealUpload(c *gc.C) {
 	vers := version.Binary{
 		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
-		Series: series.HostSeries(),
+		Series: series.MustHostSeries(),
 	}
 	vers.Build = 1
 	s.checkToolsUploaded(c, vers, vers.Number)
@@ -620,7 +620,7 @@ func (s *UpgradeJujuSuite) setUpEnvAndTools(c *gc.C, currentVersion string, agen
 	current := version.MustParseBinary(currentVersion)
 	s.PatchValue(&jujuversion.Current, current.Number)
 	s.PatchValue(&arch.HostArch, func() string { return current.Arch })
-	s.PatchValue(&series.HostSeries, func() string { return current.Series })
+	s.PatchValue(&series.MustHostSeries, func() string { return current.Series })
 
 	toolsDir := c.MkDir()
 	updateAttrs := map[string]interface{}{
@@ -885,7 +885,7 @@ func NewFakeUpgradeJujuAPI(c *gc.C, st *state.State) *fakeUpgradeJujuAPI {
 	nextVersion := version.Binary{
 		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
-		Series: series.HostSeries(),
+		Series: series.MustHostSeries(),
 	}
 	nextVersion.Minor++
 	return &fakeUpgradeJujuAPI{

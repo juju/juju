@@ -978,6 +978,8 @@ func (s *TypesSuite) TestGetObservedNetworkConfigLoopbackInfrerred(c *gc.C) {
 		ConfigType:    "loopback", // since it is a loopback
 	}, {
 		DeviceIndex:   1,
+		CIDR:          "::1/128",
+		Address:       "::1",
 		MTU:           65536,
 		InterfaceName: "lo",
 		InterfaceType: "loopback",

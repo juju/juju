@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/manual"
+	"github.com/juju/juju/environs/manual/sshprovisioner"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/names"
@@ -41,8 +42,7 @@ const (
 )
 
 var (
-	logger                 = loggo.GetLogger("juju.provider.manual")
-	manualCheckProvisioned = manual.CheckProvisioned
+	logger = loggo.GetLogger("juju.provider.manual")
 )
 
 type manualEnviron struct {
@@ -102,7 +102,7 @@ func (e *manualEnviron) Create(environs.CreateParams) error {
 
 // Bootstrap is part of the Environ interface.
 func (e *manualEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) (*environs.BootstrapResult, error) {
-	provisioned, err := manualCheckProvisioned(e.host)
+	provisioned, err := sshprovisioner.CheckProvisioned(e.host)
 	if err != nil {
 		return nil, errors.Annotate(err, "failed to check provisioned status")
 	}
@@ -181,7 +181,7 @@ func (e *manualEnviron) verifyBootstrapHost() error {
 func (e *manualEnviron) SetConfig(cfg *config.Config) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	_, err := manualProvider{}.validate(cfg, e.cfg.Config)
+	_, err := ManualProvider{}.validate(cfg, e.cfg.Config)
 	if err != nil {
 		return err
 	}
@@ -242,12 +242,13 @@ touch %s
 # If jujud is running, we then wait for a while for it to stop.
 stopped=0
 if pkill -%d jujud; then
-    for i in ` + "`seq 1 30`" + `; do
+    for i in {1..30}; do
         if pgrep jujud > /dev/null ; then
             sleep 1
         else
             echo "jujud stopped"
             stopped=1
+            logger --id jujud stopped on attempt $i
             break
         fi
     done
@@ -256,9 +257,12 @@ if [ $stopped -ne 1 ]; then
     # If jujud didn't stop nicely, we kill it hard here.
     %spkill -9 jujud
     service %s stop
+    logger --id killed jujud and stopped %s
 fi
+apt-get -y purge juju-mongo*
+apt-get -y autoremove
 rm -f /etc/init/juju*
-rm -f /etc/systemd/system/juju*
+rm -f /etc/systemd/system{,/multi-user.target.wants}/juju*
 rm -fr %s %s
 exit 0
 `
@@ -282,6 +286,7 @@ exit 0
 		)),
 		terminationworker.TerminationSignal,
 		diagnostics,
+		mongo.ServiceName,
 		mongo.ServiceName,
 		utils.ShQuote(agent.DefaultPaths.DataDir),
 		utils.ShQuote(agent.DefaultPaths.LogDir),
@@ -331,7 +336,7 @@ func (e *manualEnviron) seriesAndHardwareCharacteristics() (_ *instance.Hardware
 	if e.hw != nil {
 		return e.hw, e.series, nil
 	}
-	hw, series, err := manual.DetectSeriesAndHardwareCharacteristics(e.host)
+	hw, series, err := sshprovisioner.DetectSeriesAndHardwareCharacteristics(e.host)
 	if err != nil {
 		return nil, "", errors.Trace(err)
 	}
@@ -352,7 +357,7 @@ func (e *manualEnviron) Ports() ([]network.PortRange, error) {
 }
 
 func (*manualEnviron) Provider() environs.EnvironProvider {
-	return manualProvider{}
+	return ManualProvider{}
 }
 
 func isRunningController() bool {

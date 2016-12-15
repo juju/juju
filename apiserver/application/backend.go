@@ -19,6 +19,8 @@ import (
 type Backend interface {
 	Application(string) (Application, error)
 	AddApplication(state.AddApplicationArgs) (*state.Application, error)
+	RemoteApplication(name string) (*state.RemoteApplication, error)
+	AddRemoteApplication(args state.AddRemoteApplicationParams) (*state.RemoteApplication, error)
 	AddRelation(...state.Endpoint) (Relation, error)
 	AssignUnit(*state.Unit, state.AssignmentPolicy) error
 	AssignUnitWithPlacement(*state.Unit, *instance.Placement) error

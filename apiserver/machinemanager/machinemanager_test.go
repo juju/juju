@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/apiserver/machinemanager"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
@@ -153,6 +154,26 @@ func (st *mockState) AddMachineInsideNewMachine(template, parentTemplate state.M
 
 func (st *mockState) AddMachineInsideMachine(template state.MachineTemplate, parentId string, containerType instance.ContainerType) (*state.Machine, error) {
 	panic("not implemented")
+}
+
+func (st *mockState) Clouds() (map[names.CloudTag]cloud.Cloud, error) {
+	return nil, nil
+}
+
+func (st *mockState) CloudCredentials(user names.UserTag, cloudName string) (map[string]cloud.Credential, error) {
+	return nil, nil
+}
+
+func (st *mockState) CloudCredential(tag names.CloudCredentialTag) (cloud.Credential, error) {
+	return cloud.Credential{}, nil
+}
+
+func (st *mockState) Cloud(string) (cloud.Cloud, error) {
+	return cloud.Cloud{}, nil
+}
+
+func (st *mockState) GetModel(t names.ModelTag) (machinemanager.Model, error) {
+	return &mockModel{}, nil
 }
 
 type mockBlock struct {

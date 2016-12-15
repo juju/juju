@@ -6,6 +6,7 @@ package azure
 import (
 	"github.com/Azure/go-autorest/autorest"
 	"github.com/juju/errors"
+	"github.com/juju/jsonschema"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/clock"
 
@@ -95,6 +96,17 @@ func (prov *azureEnvironProvider) Open(args environs.OpenParams) (environs.Envir
 		return nil, errors.Annotate(err, "opening model")
 	}
 	return environ, nil
+}
+
+// CloudSchema returns the schema used to validate input for add-cloud.  Since
+// this provider does not support custom clouds, this always returns nil.
+func (p azureEnvironProvider) CloudSchema() *jsonschema.Schema {
+	return nil
+}
+
+// Ping tests the connection to the cloud, to verify the endpoint is valid.
+func (p azureEnvironProvider) Ping(endpoint string) error {
+	return errors.NotImplementedf("Ping")
 }
 
 // PrepareConfig is part of the EnvironProvider interface.

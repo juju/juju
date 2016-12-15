@@ -143,7 +143,7 @@ func (s *statusSetterSuite) TestBulk(c *gc.C) {
 
 type serviceStatusSetterSuite struct {
 	statusBaseSuite
-	setter *common.ServiceStatusSetter
+	setter *common.ApplicationStatusSetter
 }
 
 var _ = gc.Suite(&serviceStatusSetterSuite{})

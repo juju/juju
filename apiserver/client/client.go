@@ -17,7 +17,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/manual"
+	"github.com/juju/juju/environs/manual/sshprovisioner"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/permission"
@@ -374,7 +374,6 @@ func (c *Client) ProvisioningScript(args params.ProvisioningScriptParams) (param
 			err, "getting instance config",
 		))
 	}
-
 	// Until DisablePackageCommands is retired, for backwards
 	// compatibility, we must respect the client's request and
 	// override any model settings the user may have specified.
@@ -393,12 +392,13 @@ func (c *Client) ProvisioningScript(args params.ProvisioningScriptParams) (param
 		icfg.EnableOSRefreshUpdate = cfg.EnableOSRefreshUpdate()
 	}
 
-	result.Script, err = manual.ProvisioningScript(icfg)
+	result.Script, err = sshprovisioner.ProvisioningScript(icfg)
 	if err != nil {
 		return result, common.ServerError(errors.Annotate(
 			err, "getting provisioning script",
 		))
 	}
+
 	return result, nil
 }
 
@@ -505,6 +505,20 @@ func (c *Client) SetModelAgentVersion(args params.SetModelAgentVersion) error {
 	if err := environs.CheckProviderAPI(env); err != nil {
 		return err
 	}
+	// If this is the controller model, also check to make sure that there are
+	// no running migrations.  All models should have migration mode of None.
+	if c.api.stateAccessor.IsController() {
+		models, err := c.api.stateAccessor.AllModels()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		for _, model := range models {
+			if mode := model.MigrationMode(); mode != state.MigrationModeNone {
+				return errors.Errorf("model \"%s/%s\" is %s, upgrade blocked", model.Owner().Name(), model.Name(), mode)
+			}
+		}
+	}
+
 	return c.api.stateAccessor.SetModelAgentVersion(args.Version)
 }
 

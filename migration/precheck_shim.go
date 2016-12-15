@@ -7,18 +7,27 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/version"
 
+	"github.com/juju/juju/resource"
 	"github.com/juju/juju/state"
 )
 
 // PrecheckShim wraps a *state.State to implement PrecheckBackend.
-func PrecheckShim(st *state.State) PrecheckBackend {
-	return &precheckShim{st}
+func PrecheckShim(st *state.State) (PrecheckBackend, error) {
+	rSt, err := st.Resources()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &precheckShim{
+		State:       st,
+		resourcesSt: rSt,
+	}, nil
 }
 
 // precheckShim is untested, but is simple enough to be verified by
 // inspection.
 type precheckShim struct {
 	*state.State
+	resourcesSt state.Resources
 }
 
 // Model implements PrecheckBackend.
@@ -87,8 +96,17 @@ func (s *precheckShim) AllApplications() ([]PrecheckApplication, error) {
 	return out, nil
 }
 
+// ListPendingResources implements PrecheckBackend.
+func (s *precheckShim) ListPendingResources(app string) ([]resource.Resource, error) {
+	resources, err := s.resourcesSt.ListPendingResources(app)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return resources, nil
+}
+
 // ControllerBackend implements PrecheckBackend.
-func (s *precheckShim) ControllerBackend() (PrecheckBackend, error) {
+func (s *precheckShim) ControllerBackend() (PrecheckBackendCloser, error) {
 	model, err := s.State.ControllerModel()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -97,7 +115,15 @@ func (s *precheckShim) ControllerBackend() (PrecheckBackend, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return PrecheckShim(st), nil
+	rSt, err := st.Resources()
+	if err != nil {
+		st.Close()
+		return nil, errors.Trace(err)
+	}
+	return &precheckShim{
+		State:       st,
+		resourcesSt: rSt,
+	}, nil
 }
 
 // precheckAppShim implements PrecheckApplication.

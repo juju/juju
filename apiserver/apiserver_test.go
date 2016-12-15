@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/observer"
 	"github.com/juju/juju/apiserver/observer/fakeobserver"
+	"github.com/juju/juju/pubsub/centralhub"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
@@ -40,12 +41,14 @@ func (s *apiserverBaseSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *apiserverBaseSuite) sampleConfig(c *gc.C) apiserver.ServerConfig {
+	machineTag := names.NewMachineTag("0")
 	return apiserver.ServerConfig{
 		Clock:       clock.WallClock,
 		Cert:        coretesting.ServerCert,
 		Key:         coretesting.ServerKey,
-		Tag:         names.NewMachineTag("0"),
+		Tag:         machineTag,
 		LogDir:      c.MkDir(),
+		Hub:         centralhub.New(machineTag),
 		NewObserver: func() observer.Observer { return &fakeobserver.Instance{} },
 		AutocertURL: "https://0.1.2.3/no-autocert-here",
 	}

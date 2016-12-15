@@ -80,7 +80,7 @@ func (r *Relation) toCharmRelation(cr multiwatcher.CharmRelation) charm.Relation
 func (r *Relation) Endpoint() (*Endpoint, error) {
 	// NOTE: This differs from state.Relation.Endpoint(), because when
 	// talking to the API, there's already an authenticated entity - the
-	// unit, and we can find out its service name.
+	// unit, and we can find out its application name.
 	result, err := r.st.relation(r.tag, r.st.unitTag)
 	if err != nil {
 		return nil, err

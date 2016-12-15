@@ -256,9 +256,13 @@ func initBootstrapMachine(c agent.ConfigSetter, st *state.State, args Initialize
 	if args.BootstrapMachineHardwareCharacteristics != nil {
 		hardware = *args.BootstrapMachineHardwareCharacteristics
 	}
+	hostSeries, err := series.HostSeries()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	m, err := st.AddOneMachine(state.MachineTemplate{
 		Addresses:               args.BootstrapMachineAddresses,
-		Series:                  series.HostSeries(),
+		Series:                  hostSeries,
 		Nonce:                   agent.BootstrapNonce,
 		Constraints:             args.BootstrapMachineConstraints,
 		InstanceId:              args.BootstrapMachineInstanceId,
@@ -266,7 +270,7 @@ func initBootstrapMachine(c agent.ConfigSetter, st *state.State, args Initialize
 		Jobs: jobs,
 	})
 	if err != nil {
-		return nil, errors.Errorf("cannot create bootstrap machine in state: %v", err)
+		return nil, errors.Annotate(err, "cannot create bootstrap machine in state")
 	}
 	if m.Id() != agent.BootstrapMachineId {
 		return nil, errors.Errorf("bootstrap machine expected id 0, got %q", m.Id())

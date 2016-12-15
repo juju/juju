@@ -4,6 +4,8 @@
 package testing
 
 import (
+	"strings"
+
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/permission"
@@ -54,9 +56,6 @@ func (fa FakeAuthorizer) GetAuthTag() names.Tag {
 func (fa FakeAuthorizer) HasPermission(operation permission.Access, target names.Tag) (bool, error) {
 	if fa.Tag.Kind() == names.UserTagKind {
 		ut := fa.Tag.(names.UserTag)
-		if ut.Name() == "admin" {
-			return true, nil
-		}
 		emptyTag := names.UserTag{}
 		if fa.AdminTag != emptyTag && ut == fa.AdminTag {
 			return true, nil
@@ -64,9 +63,54 @@ func (fa FakeAuthorizer) HasPermission(operation permission.Access, target names
 		if operation == permission.WriteAccess && ut == fa.HasWriteTag {
 			return true, nil
 		}
-		return false, nil
+
+		uTag := fa.Tag.(names.UserTag)
+		return nameBasedHasPermission(uTag.Name(), operation, target), nil
 	}
-	return true, nil
+	return false, nil
+}
+
+// nameBasedHasPermission provides a way for tests to fake the expected outcomes of the
+// authentication.
+// setting permissionname as the name that user will always have the given permission.
+// setting permissionnamemodeltagstring as the name will make that user have the given
+// permission only in that model.
+func nameBasedHasPermission(name string, operation permission.Access, target names.Tag) bool {
+	var perm permission.Access
+	switch {
+	case strings.HasPrefix(name, string(permission.SuperuserAccess)):
+		return operation == permission.SuperuserAccess
+	case strings.HasPrefix(name, string(permission.AddModelAccess)):
+		return operation == permission.AddModelAccess
+	case strings.HasPrefix(name, string(permission.LoginAccess)):
+		return operation == permission.LoginAccess
+	case strings.HasPrefix(name, string(permission.AdminAccess)):
+		perm = permission.AdminAccess
+	case strings.HasPrefix(name, string(permission.WriteAccess)):
+		perm = permission.WriteAccess
+	case strings.HasPrefix(name, string(permission.ReadAccess)):
+		perm = permission.ReadAccess
+	default:
+		return false
+	}
+	name = name[len(perm):]
+	if len(name) == 0 && perm == permission.AdminAccess {
+		return true
+	}
+	if len(name) == 0 {
+		return operation == perm
+	}
+	if target.Kind() != names.ModelTagKind {
+		return false
+	}
+	if names.IsValidModel(name) {
+		newTarget, err := names.ParseModelTag(name)
+		if err != nil {
+			return false
+		}
+		return operation == perm && newTarget == target.(names.ModelTag)
+	}
+	return false
 }
 
 // ConnectedModel returns the UUID of the model the current client is
@@ -75,7 +119,7 @@ func (fa FakeAuthorizer) ConnectedModel() string {
 	return fa.ModelUUID
 }
 
-// HasPermission returns true if the passed user is admin or has a name equal to
+// UserHasPermission returns true if the passed user is admin or has a name equal to
 // the pre-set admin tag.
 func (fa FakeAuthorizer) UserHasPermission(user names.UserTag, operation permission.Access, target names.Tag) (bool, error) {
 	if user.Name() == "admin" {

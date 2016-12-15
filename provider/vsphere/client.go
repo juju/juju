@@ -11,12 +11,12 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/govmomi"
-	"github.com/juju/govmomi/find"
-	"github.com/juju/govmomi/list"
-	"github.com/juju/govmomi/object"
-	"github.com/juju/govmomi/property"
-	"github.com/juju/govmomi/vim25/mo"
+	"github.com/vmware/govmomi"
+	"github.com/vmware/govmomi/find"
+	"github.com/vmware/govmomi/list"
+	"github.com/vmware/govmomi/object"
+	"github.com/vmware/govmomi/property"
+	"github.com/vmware/govmomi/vim25/mo"
 	"golang.org/x/net/context"
 
 	"github.com/juju/juju/environs"
@@ -33,48 +33,60 @@ const (
 )
 
 type client struct {
-	connection *govmomi.Client
-	datacenter *object.Datacenter
-	finder     *find.Finder
-	recurser   *list.Recurser
+	connectionURL *url.URL
+	cloud         environs.CloudSpec
 }
 
-var newClient = func(cloud environs.CloudSpec) (*client, error) {
+var newConnection = func(url *url.URL) (*govmomi.Client, func() error, error) {
+	conn, err := govmomi.NewClient(context.TODO(), url, true)
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+	logout := func() error {
+		return conn.Logout(context.TODO())
+	}
 
-	credAttrs := cloud.Credential.Attributes()
+	return conn, logout, nil
+
+}
+
+func (c *client) connection() (*govmomi.Client, func() error, error) {
+	return newConnection(c.connectionURL)
+}
+
+func (c *client) recurser(conn *govmomi.Client) *list.Recurser {
+	return &list.Recurser{
+		Collector: property.DefaultCollector(conn.Client),
+		All:       true,
+	}
+}
+
+func (c *client) finder(conn *govmomi.Client) (*find.Finder, *object.Datacenter, error) {
+	finder := find.NewFinder(conn.Client, true)
+	datacenter, err := finder.Datacenter(context.TODO(), c.cloud.Region)
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+	finder.SetDatacenter(datacenter)
+	return finder, datacenter, nil
+}
+
+var newClient = func(cloudSpec environs.CloudSpec) (*client, error) {
+
+	credAttrs := cloudSpec.Credential.Attributes()
 	username := credAttrs[credAttrUser]
 	password := credAttrs[credAttrPassword]
 	connURL := &url.URL{
 		Scheme: "https",
 		User:   url.UserPassword(username, password),
-		Host:   cloud.Endpoint,
+		Host:   cloudSpec.Endpoint,
 		Path:   "/sdk",
 	}
 
-	connection, err := newConnection(connURL)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	finder := find.NewFinder(connection.Client, true)
-	datacenter, err := finder.Datacenter(context.TODO(), cloud.Region)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	finder.SetDatacenter(datacenter)
-	recurser := &list.Recurser{
-		Collector: property.DefaultCollector(connection.Client),
-		All:       true,
-	}
 	return &client{
-		connection: connection,
-		datacenter: datacenter,
-		finder:     finder,
-		recurser:   recurser,
+		connectionURL: connURL,
+		cloud:         cloudSpec,
 	}, nil
-}
-
-var newConnection = func(url *url.URL) (*govmomi.Client, error) {
-	return govmomi.NewClient(context.TODO(), url, true)
 }
 
 type instanceSpec struct {
@@ -91,7 +103,16 @@ type instanceSpec struct {
 
 // CreateInstance create new vm in vsphere and run it
 func (c *client) CreateInstance(ecfg *environConfig, spec *instanceSpec) (*mo.VirtualMachine, error) {
-	manager := &ovaImportManager{client: c}
+	conn, closer, err := c.connection()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	defer closer()
+
+	manager := &ovaImportManager{
+		client:         conn,
+		providerClient: c,
+	}
 	vm, err := manager.importOva(ecfg, spec)
 	if err != nil {
 		return nil, errors.Annotatef(err, "Failed to import OVA file")
@@ -120,7 +141,8 @@ func (c *client) CreateInstance(ecfg *environConfig, spec *instanceSpec) (*mo.Vi
 		}
 	}
 	var res mo.VirtualMachine
-	err = c.connection.RetrieveOne(context.TODO(), *taskInfo.Entity, nil, &res)
+
+	err = conn.RetrieveOne(context.TODO(), *taskInfo.Entity, nil, &res)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -131,8 +153,18 @@ func (c *client) CreateInstance(ecfg *environConfig, spec *instanceSpec) (*mo.Vi
 func (c *client) RemoveInstances(ids ...string) error {
 	var lastError error
 	tasks := make([]*object.Task, 0, len(ids))
+	conn, closer, err := c.connection()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defer closer()
+	finder, _, err := c.finder(conn)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	for _, id := range ids {
-		vm, err := c.finder.VirtualMachine(context.TODO(), id)
+		vm, err := finder.VirtualMachine(context.TODO(), id)
 		if err != nil {
 			lastError = err
 			logger.Errorf(err.Error())
@@ -168,16 +200,27 @@ func (c *client) RemoveInstances(ids ...string) error {
 
 // Instances return list of all vms in the system, that match naming convention
 func (c *client) Instances(prefix string) ([]*mo.VirtualMachine, error) {
-	items, err := c.finder.VirtualMachineList(context.TODO(), "*")
+	conn, closer, err := c.connection()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	defer closer()
+	finder, _, err := c.finder(conn)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	items, err := finder.VirtualMachineList(context.TODO(), "*")
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	var vms []*mo.VirtualMachine
 	vms = make([]*mo.VirtualMachine, 0, len(vms))
+
 	for _, item := range items {
 		var vm mo.VirtualMachine
-		err = c.connection.RetrieveOne(context.TODO(), item.Reference(), nil, &vm)
+
+		err = conn.RetrieveOne(context.TODO(), item.Reference(), nil, &vm)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -191,7 +234,7 @@ func (c *client) Instances(prefix string) ([]*mo.VirtualMachine, error) {
 
 // Refresh refreshes the virtual machine
 func (c *client) Refresh(v *mo.VirtualMachine) error {
-	vm, err := c.getVm(v.Name)
+	vm, err := c.vm(v.Name)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -199,13 +242,24 @@ func (c *client) Refresh(v *mo.VirtualMachine) error {
 	return nil
 }
 
-func (c *client) getVm(name string) (*mo.VirtualMachine, error) {
-	item, err := c.finder.VirtualMachine(context.TODO(), name)
+func (c *client) vm(name string) (*mo.VirtualMachine, error) {
+	conn, closer, err := c.connection()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	defer closer()
+	finder, _, err := c.finder(conn)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	item, err := finder.VirtualMachine(context.TODO(), name)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	var vm mo.VirtualMachine
-	err = c.connection.RetrieveOne(context.TODO(), item.Reference(), nil, &vm)
+
+	err = conn.RetrieveOne(context.TODO(), item.Reference(), nil, &vm)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -214,14 +268,25 @@ func (c *client) getVm(name string) (*mo.VirtualMachine, error) {
 
 //AvailabilityZones retuns list of all root compute resources in the system
 func (c *client) AvailabilityZones() ([]*mo.ComputeResource, error) {
-	folders, err := c.datacenter.Folders(context.TODO())
+	conn, closer, err := c.connection()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	defer closer()
+	_, datacenter, err := c.finder(conn)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	folders, err := datacenter.Folders(context.TODO())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	root := list.Element{
 		Object: folders.HostFolder,
 	}
-	es, err := c.recurser.Recurse(context.TODO(), root, []string{"*"})
+
+	es, err := c.recurser(conn).Recurse(context.TODO(), root, []string{"*"})
 	if err != nil {
 		return nil, err
 	}
@@ -240,7 +305,7 @@ func (c *client) AvailabilityZones() ([]*mo.ComputeResource, error) {
 }
 
 func (c *client) GetNetworkInterfaces(inst instance.Id, ecfg *environConfig) ([]network.InterfaceInfo, error) {
-	vm, err := c.getVm(string(inst))
+	vm, err := c.vm(string(inst))
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -254,7 +319,7 @@ func (c *client) GetNetworkInterfaces(inst instance.Id, ecfg *environConfig) ([]
 			ipScope = network.ScopePublic
 		}
 		res = append(res, network.InterfaceInfo{
-			DeviceIndex:      net.DeviceConfigId,
+			DeviceIndex:      int(net.DeviceConfigId),
 			MACAddress:       net.MacAddress,
 			Disabled:         !net.Connected,
 			ProviderId:       network.Id(fmt.Sprintf("net-device%d", net.DeviceConfigId)),
@@ -271,7 +336,7 @@ func (c *client) Subnets(inst instance.Id, ids []network.Id) ([]network.SubnetIn
 	if len(ids) == 0 {
 		return nil, errors.Errorf("subnetIds must not be empty")
 	}
-	vm, err := c.getVm(string(inst))
+	vm, err := c.vm(string(inst))
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

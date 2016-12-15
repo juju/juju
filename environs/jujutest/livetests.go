@@ -798,7 +798,7 @@ func (t *LiveTests) TestBootstrapWithDefaultSeries(c *gc.C) {
 	current := version.Binary{
 		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
-		Series: series.HostSeries(),
+		Series: series.MustHostSeries(),
 	}
 	other := current
 	other.Series = "quantal"

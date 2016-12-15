@@ -93,7 +93,7 @@ func (s *apiAddresserSuite) TestCACert(c *gc.C) {
 	c.Assert(string(result.Result), gc.Equals, "a cert")
 }
 
-func (s *apiAddresserSuite) TestEnvironUUID(c *gc.C) {
+func (s *apiAddresserSuite) TestModelUUID(c *gc.C) {
 	result := s.addresser.ModelUUID()
 	c.Assert(string(result.Result), gc.Equals, "the environ uuid")
 }

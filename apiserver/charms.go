@@ -74,23 +74,30 @@ func (h *CharmsHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 // charmsHandler handles charm upload through HTTPS in the API server.
 type charmsHandler struct {
-	ctxt    httpContext
-	dataDir string
+	ctxt          httpContext
+	dataDir       string
+	stateAuthFunc func(*http.Request) (*state.State, error)
 }
 
 // bundleContentSenderFunc functions are responsible for sending a
 // response related to a charm bundle.
 type bundleContentSenderFunc func(w http.ResponseWriter, r *http.Request, bundle *charm.CharmArchive) error
 
+func (h *charmsHandler) ServeUnsupported(w http.ResponseWriter, r *http.Request) error {
+	return errors.Trace(emitUnsupportedMethodErr(r.Method))
+}
+
 func (h *charmsHandler) ServePost(w http.ResponseWriter, r *http.Request) error {
 	if r.Method != "POST" {
 		return errors.Trace(emitUnsupportedMethodErr(r.Method))
 	}
 
-	st, _, err := h.ctxt.stateForRequestAuthenticatedUser(r)
+	st, err := h.stateAuthFunc(r)
 	if err != nil {
 		return errors.Trace(err)
 	}
+	defer h.ctxt.release(st)
+
 	// Add a charm to the store provider.
 	charmURL, err := h.processPost(r, st)
 	if err != nil {
@@ -108,6 +115,8 @@ func (h *charmsHandler) ServeGet(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
+	defer h.ctxt.release(st)
+
 	// Retrieve or list charm files.
 	// Requires "url" (charm URL) and an optional "file" (the path to the
 	// charm file) to be included in the query. Optionally also receives an
@@ -271,12 +280,13 @@ func (h *charmsHandler) processPost(r *http.Request, st *state.State) (*charm.UR
 		Revision: archive.Revision(),
 		Series:   series,
 	}
-	if schema == "local" {
+	switch schema {
+	case "local":
 		curl, err = st.PrepareLocalCharmUpload(curl)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-	} else {
+	case "cs":
 		// "cs:" charms may only be uploaded into models which are
 		// being imported during model migrations. There's currently
 		// no other time where it makes sense to accept charm store
@@ -286,6 +296,10 @@ func (h *charmsHandler) processPost(r *http.Request, st *state.State) (*charm.UR
 		} else if !isImporting {
 			return nil, errors.New("cs charms may only be uploaded during model migration import")
 		}
+
+		// Use the user argument if provided (users only make sense
+		// with cs: charms.
+		curl.User = query.Get("user")
 
 		// If a revision argument is provided, it takes precedence
 		// over the revision in the charm archive. This is required to
@@ -301,6 +315,8 @@ func (h *charmsHandler) processPost(r *http.Request, st *state.State) (*charm.UR
 		if _, err := st.PrepareStoreCharmUpload(curl); err != nil {
 			return nil, errors.Trace(err)
 		}
+	default:
+		return nil, errors.Errorf("unsupported schema %q", schema)
 	}
 
 	// Now we need to repackage it with the reserved URL, upload it to

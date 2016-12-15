@@ -9,12 +9,14 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils/featureflag"
 	"github.com/juju/utils/set"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
@@ -169,9 +171,15 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 	var noStatus params.FullStatus
 	var context statusContext
 	var err error
-	if context.services, context.units, context.latestCharms, err =
+	if context.applications, context.units, context.latestCharms, err =
 		fetchAllApplicationsAndUnits(c.api.stateAccessor, len(args.Patterns) <= 0); err != nil {
-		return noStatus, errors.Annotate(err, "could not fetch services and units")
+		return noStatus, errors.Annotate(err, "could not fetch applications and units")
+	}
+	if featureflag.Enabled(feature.CrossModelRelations) {
+		if context.remoteApplications, err =
+			fetchRemoteApplications(c.api.stateAccessor); err != nil {
+			return noStatus, errors.Annotate(err, "could not fetch remote applications")
+		}
 	}
 	if context.machines, err = fetchMachines(c.api.stateAccessor, nil); err != nil {
 		return noStatus, errors.Annotate(err, "could not fetch machines")
@@ -179,13 +187,14 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 	if context.relations, err = fetchRelations(c.api.stateAccessor); err != nil {
 		return noStatus, errors.Annotate(err, "could not fetch relations")
 	}
-	if len(context.services) > 0 {
+	if len(context.applications) > 0 {
 		if context.leaders, err = c.api.stateAccessor.ApplicationLeaders(); err != nil {
 			return noStatus, errors.Annotate(err, " could not fetch leaders")
 		}
 	}
 
-	logger.Debugf("Applications: %v", context.services)
+	logger.Debugf("Applications: %v", context.applications)
+	logger.Debugf("Remote applications: %v", context.remoteApplications)
 
 	if len(args.Patterns) > 0 {
 		predicate := BuildPredicateFor(args.Patterns)
@@ -239,17 +248,19 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 			}
 		}
 
-		// Filter services
-		for svcName, svc := range context.services {
+		// Filter applications
+		for svcName, svc := range context.applications {
 			if matchedSvcs.Contains(svcName) {
-				// There are matched units for this service.
+				// There are matched units for this application.
 				continue
 			} else if matches, err := predicate(svc); err != nil {
 				return noStatus, errors.Annotate(err, "could not filter applications")
 			} else if !matches {
-				delete(context.services, svcName)
+				delete(context.applications, svcName)
 			}
 		}
+
+		// TODO(wallyworld) - filter remote applications
 
 		// Filter machines
 		for status, machineList := range context.machines {
@@ -278,10 +289,11 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 		return noStatus, errors.Annotate(err, "cannot determine model status")
 	}
 	return params.FullStatus{
-		Model:        modelStatus,
-		Machines:     processMachines(context.machines),
-		Applications: context.processApplications(),
-		Relations:    context.processRelations(),
+		Model:              modelStatus,
+		Machines:           processMachines(context.machines),
+		Applications:       context.processApplications(),
+		RemoteApplications: context.processRemoteApplications(),
+		Relations:          context.processRelations(),
 	}, nil
 }
 
@@ -351,12 +363,14 @@ type statusContext struct {
 	// machines: top-level machine id -> list of machines nested in
 	// this machine.
 	machines map[string][]*state.Machine
-	// services: service name -> service
-	services     map[string]*state.Application
-	relations    map[string][]*state.Relation
-	units        map[string]map[string]*state.Unit
-	latestCharms map[charm.URL]*state.Charm
-	leaders      map[string]string
+	// applications: application name -> application
+	applications map[string]*state.Application
+	// remote applications: application name -> application
+	remoteApplications map[string]*state.RemoteApplication
+	relations          map[string][]*state.Relation
+	units              map[string]map[string]*state.Unit
+	latestCharms       map[charm.URL]*state.Charm
+	leaders            map[string]string
 }
 
 // fetchMachines returns a map from top level machine id to machines, where machines[0] is the host
@@ -391,32 +405,32 @@ func fetchMachines(st Backend, machineIds set.Strings) (map[string][]*state.Mach
 	return v, nil
 }
 
-// fetchAllApplicationsAndUnits returns a map from service name to service,
-// a map from service name to unit name to unit, and a map from base charm URL to latest URL.
+// fetchAllApplicationsAndUnits returns a map from application name to application,
+// a map from application name to unit name to unit, and a map from base charm URL to latest URL.
 func fetchAllApplicationsAndUnits(
 	st Backend,
 	matchAny bool,
 ) (map[string]*state.Application, map[string]map[string]*state.Unit, map[charm.URL]*state.Charm, error) {
 
-	svcMap := make(map[string]*state.Application)
+	appMap := make(map[string]*state.Application)
 	unitMap := make(map[string]map[string]*state.Unit)
 	latestCharms := make(map[charm.URL]*state.Charm)
-	services, err := st.AllApplications()
+	applications, err := st.AllApplications()
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	for _, s := range services {
+	for _, s := range applications {
 		units, err := s.AllUnits()
 		if err != nil {
 			return nil, nil, nil, err
 		}
-		svcUnitMap := make(map[string]*state.Unit)
+		appUnitMap := make(map[string]*state.Unit)
 		for _, u := range units {
-			svcUnitMap[u.Name()] = u
+			appUnitMap[u.Name()] = u
 		}
-		if matchAny || len(svcUnitMap) > 0 {
-			unitMap[s.Name()] = svcUnitMap
-			svcMap[s.Name()] = s
+		if matchAny || len(appUnitMap) > 0 {
+			unitMap[s.Name()] = appUnitMap
+			appMap[s.Name()] = s
 			// Record the base URL for the application's charm so that
 			// the latest store revision can be looked up.
 			charmURL, _ := s.CharmURL()
@@ -436,15 +450,31 @@ func fetchAllApplicationsAndUnits(
 		latestCharms[baseURL] = ch
 	}
 
-	return svcMap, unitMap, latestCharms, nil
+	return appMap, unitMap, latestCharms, nil
 }
 
-// fetchRelations returns a map of all relations keyed by service name.
+// fetchRemoteApplications returns a map from application name to remote application.
+func fetchRemoteApplications(st Backend) (map[string]*state.RemoteApplication, error) {
+	appMap := make(map[string]*state.RemoteApplication)
+	applications, err := st.AllRemoteApplications()
+	if err != nil {
+		return nil, err
+	}
+	for _, a := range applications {
+		if _, ok := a.URL(); !ok {
+			continue
+		}
+		appMap[a.Name()] = a
+	}
+	return appMap, nil
+}
+
+// fetchRelations returns a map of all relations keyed by application name.
 //
-// This structure is useful for processServiceRelations() which needs
-// to have the relations for each service. Reading them once here
+// This structure is useful for processApplicationRelations() which needs
+// to have the relations for each application. Reading them once here
 // avoids the repeated DB hits to retrieve the relations for each
-// service that used to happen in processServiceRelations().
+// application that used to happen in processApplicationRelations().
 func fetchRelations(st Backend) (map[string][]*state.Relation, error) {
 	relations, err := st.AllRelations()
 	if err != nil {
@@ -604,15 +634,15 @@ func (context *statusContext) getAllRelations() []*state.Relation {
 }
 
 func (context *statusContext) isSubordinate(ep *state.Endpoint) bool {
-	service := context.services[ep.ApplicationName]
-	if service == nil {
+	application := context.applications[ep.ApplicationName]
+	if application == nil {
 		return false
 	}
-	return isSubordinate(ep, service)
+	return isSubordinate(ep, application)
 }
 
-func isSubordinate(ep *state.Endpoint, service *state.Application) bool {
-	return ep.Scope == charm.ScopeContainer && !service.IsPrincipal()
+func isSubordinate(ep *state.Endpoint, application *state.Application) bool {
+	return ep.Scope == charm.ScopeContainer && !application.IsPrincipal()
 }
 
 // paramsJobsFromJobs converts state jobs to params jobs.
@@ -625,42 +655,42 @@ func paramsJobsFromJobs(jobs []state.MachineJob) []multiwatcher.MachineJob {
 }
 
 func (context *statusContext) processApplications() map[string]params.ApplicationStatus {
-	servicesMap := make(map[string]params.ApplicationStatus)
-	for _, s := range context.services {
-		servicesMap[s.Name()] = context.processApplication(s)
+	applicationsMap := make(map[string]params.ApplicationStatus)
+	for _, s := range context.applications {
+		applicationsMap[s.Name()] = context.processApplication(s)
 	}
-	return servicesMap
+	return applicationsMap
 }
 
-func (context *statusContext) processApplication(service *state.Application) params.ApplicationStatus {
-	serviceCharm, _, err := service.Charm()
+func (context *statusContext) processApplication(application *state.Application) params.ApplicationStatus {
+	applicationCharm, _, err := application.Charm()
 	if err != nil {
 		return params.ApplicationStatus{Err: common.ServerError(err)}
 	}
 
 	var processedStatus = params.ApplicationStatus{
-		Charm:   serviceCharm.URL().String(),
-		Series:  service.Series(),
-		Exposed: service.IsExposed(),
-		Life:    processLife(service),
+		Charm:   applicationCharm.URL().String(),
+		Series:  application.Series(),
+		Exposed: application.IsExposed(),
+		Life:    processLife(application),
 	}
 
-	if latestCharm, ok := context.latestCharms[*serviceCharm.URL().WithRevision(-1)]; ok && latestCharm != nil {
-		if latestCharm.Revision() > serviceCharm.URL().Revision {
+	if latestCharm, ok := context.latestCharms[*applicationCharm.URL().WithRevision(-1)]; ok && latestCharm != nil {
+		if latestCharm.Revision() > applicationCharm.URL().Revision {
 			processedStatus.CanUpgradeTo = latestCharm.String()
 		}
 	}
 
-	processedStatus.Relations, processedStatus.SubordinateTo, err = context.processServiceRelations(service)
+	processedStatus.Relations, processedStatus.SubordinateTo, err = context.processApplicationRelations(application)
 	if err != nil {
 		processedStatus.Err = common.ServerError(err)
 		return processedStatus
 	}
-	units := context.units[service.Name()]
-	if service.IsPrincipal() {
-		processedStatus.Units = context.processUnits(units, serviceCharm.URL().String())
+	units := context.units[application.Name()]
+	if application.IsPrincipal() {
+		processedStatus.Units = context.processUnits(units, applicationCharm.URL().String())
 	}
-	applicationStatus, err := service.Status()
+	applicationStatus, err := application.Status()
 	if err != nil {
 		processedStatus.Err = common.ServerError(err)
 		return processedStatus
@@ -670,9 +700,9 @@ func (context *statusContext) processApplication(service *state.Application) par
 	processedStatus.Status.Data = applicationStatus.Data
 	processedStatus.Status.Since = applicationStatus.Since
 
-	metrics := serviceCharm.Metrics()
+	metrics := applicationCharm.Metrics()
 	planRequired := metrics != nil && metrics.Plan != nil && metrics.Plan.Required
-	if planRequired || len(service.MetricCredentials()) > 0 {
+	if planRequired || len(application.MetricCredentials()) > 0 {
 		processedStatus.MeterStatuses = context.processUnitMeterStatuses(units)
 	}
 
@@ -701,6 +731,42 @@ func (context *statusContext) processApplication(service *state.Application) par
 	return processedStatus
 }
 
+func (context *statusContext) processRemoteApplications() map[string]params.RemoteApplicationStatus {
+	applicationsMap := make(map[string]params.RemoteApplicationStatus)
+	for _, s := range context.remoteApplications {
+		applicationsMap[s.Name()] = context.processRemoteApplication(s)
+	}
+	return applicationsMap
+}
+
+func (context *statusContext) processRemoteApplication(application *state.RemoteApplication) (status params.RemoteApplicationStatus) {
+	status.ApplicationURL, _ = application.URL()
+	status.ApplicationName = application.Name()
+	eps, err := application.Endpoints()
+	if err != nil {
+		status.Err = err
+		return
+	}
+	status.Endpoints = make([]params.RemoteEndpoint, len(eps))
+	for i, ep := range eps {
+		status.Endpoints[i] = params.RemoteEndpoint{
+			Name:      ep.Name,
+			Interface: ep.Interface,
+			Role:      ep.Role,
+		}
+	}
+	status.Life = processLife(application)
+
+	status.Relations, err = context.processRemoteApplicationRelations(application)
+	if err != nil {
+		status.Err = err
+		return
+	}
+	applicationStatus, err := application.Status()
+	populateStatusFromStatusInfoAndErr(&status.Status, applicationStatus, err)
+	return status
+}
+
 func isColorStatus(code state.MeterStatusCode) bool {
 	return code == state.MeterGreen || code == state.MeterAmber || code == state.MeterRed
 }
@@ -722,15 +788,15 @@ func (context *statusContext) processUnitMeterStatuses(units map[string]*state.U
 	return nil
 }
 
-func (context *statusContext) processUnits(units map[string]*state.Unit, serviceCharm string) map[string]params.UnitStatus {
+func (context *statusContext) processUnits(units map[string]*state.Unit, applicationCharm string) map[string]params.UnitStatus {
 	unitsMap := make(map[string]params.UnitStatus)
 	for _, unit := range units {
-		unitsMap[unit.Name()] = context.processUnit(unit, serviceCharm)
+		unitsMap[unit.Name()] = context.processUnit(unit, applicationCharm)
 	}
 	return unitsMap
 }
 
-func (context *statusContext) processUnit(unit *state.Unit, serviceCharm string) params.UnitStatus {
+func (context *statusContext) processUnit(unit *state.Unit, applicationCharm string) params.UnitStatus {
 	var result params.UnitStatus
 	addr, err := unit.PublicAddress()
 	if err != nil {
@@ -748,7 +814,7 @@ func (context *statusContext) processUnit(unit *state.Unit, serviceCharm string)
 		result.Machine, _ = unit.AssignedMachineId()
 	}
 	curl, _ := unit.CharmURL()
-	if serviceCharm != "" && curl != nil && curl.String() != serviceCharm {
+	if applicationCharm != "" && curl != nil && curl.String() != applicationCharm {
 		result.Charm = curl.String()
 	}
 	workloadVersion, err := unit.WorkloadVersion()
@@ -766,7 +832,7 @@ func (context *statusContext) processUnit(unit *state.Unit, serviceCharm string)
 			subUnit := context.unitByName(name)
 			// subUnit may be nil if subordinate was filtered out.
 			if subUnit != nil {
-				result.Subordinates[name] = context.processUnit(subUnit, serviceCharm)
+				result.Subordinates[name] = context.processUnit(subUnit, applicationCharm)
 			}
 		}
 	}
@@ -777,36 +843,60 @@ func (context *statusContext) processUnit(unit *state.Unit, serviceCharm string)
 }
 
 func (context *statusContext) unitByName(name string) *state.Unit {
-	serviceName := strings.Split(name, "/")[0]
-	return context.units[serviceName][name]
+	applicationName := strings.Split(name, "/")[0]
+	return context.units[applicationName][name]
 }
 
-func (context *statusContext) processServiceRelations(service *state.Application) (related map[string][]string, subord []string, err error) {
+func (context *statusContext) processApplicationRelations(application *state.Application) (related map[string][]string, subord []string, err error) {
 	subordSet := make(set.Strings)
 	related = make(map[string][]string)
-	relations := context.relations[service.Name()]
+	relations := context.relations[application.Name()]
 	for _, relation := range relations {
-		ep, err := relation.Endpoint(service.Name())
+		ep, err := relation.Endpoint(application.Name())
 		if err != nil {
 			return nil, nil, err
 		}
 		relationName := ep.Relation.Name
-		eps, err := relation.RelatedEndpoints(service.Name())
+		eps, err := relation.RelatedEndpoints(application.Name())
 		if err != nil {
 			return nil, nil, err
 		}
 		for _, ep := range eps {
-			if isSubordinate(&ep, service) {
+			if isSubordinate(&ep, application) {
 				subordSet.Add(ep.ApplicationName)
 			}
 			related[relationName] = append(related[relationName], ep.ApplicationName)
 		}
 	}
-	for relationName, serviceNames := range related {
-		sn := set.NewStrings(serviceNames...)
+	for relationName, applicationNames := range related {
+		sn := set.NewStrings(applicationNames...)
 		related[relationName] = sn.SortedValues()
 	}
 	return related, subordSet.SortedValues(), nil
+}
+
+func (context *statusContext) processRemoteApplicationRelations(application *state.RemoteApplication) (related map[string][]string, err error) {
+	related = make(map[string][]string)
+	relations := context.relations[application.Name()]
+	for _, relation := range relations {
+		ep, err := relation.Endpoint(application.Name())
+		if err != nil {
+			return nil, err
+		}
+		relationName := ep.Relation.Name
+		eps, err := relation.RelatedEndpoints(application.Name())
+		if err != nil {
+			return nil, err
+		}
+		for _, ep := range eps {
+			related[relationName] = append(related[relationName], ep.ApplicationName)
+		}
+	}
+	for relationName, applicationNames := range related {
+		sn := set.NewStrings(applicationNames...)
+		related[relationName] = sn.SortedValues()
+	}
+	return related, nil
 }
 
 type lifer interface {

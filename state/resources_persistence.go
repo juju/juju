@@ -384,7 +384,7 @@ func (p ResourcePersistence) NewRemoveUnitResourcesOps(unitID string) ([]txn.Op,
 }
 
 // NewRemoveResourcesOps returns mgo transaction operations that
-// remove all the service's resources from state.
+// remove all the applications's resources from state.
 func (p ResourcePersistence) NewRemoveResourcesOps(applicationID string) ([]txn.Op, error) {
 	docs, err := p.resources(applicationID)
 	if err != nil {
@@ -393,7 +393,9 @@ func (p ResourcePersistence) NewRemoveResourcesOps(applicationID string) ([]txn.
 
 	ops := newRemoveResourcesOps(docs)
 	for _, doc := range docs {
-		ops = append(ops, p.base.NewCleanupOp(CleanupKindResourceBlob, doc.StoragePath))
+		if doc.StoragePath != "" { // Don't schedule cleanups for placeholder resources.
+			ops = append(ops, p.base.NewCleanupOp(CleanupKindResourceBlob, doc.StoragePath))
+		}
 	}
 	return ops, nil
 }

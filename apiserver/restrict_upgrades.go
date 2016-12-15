@@ -40,6 +40,8 @@ var allowedMethodsDuringUpgrades = map[string]set.Strings{
 	"SSHClient": set.NewStrings( // allow all SSH client related calls
 		"PublicAddress",
 		"PrivateAddress",
+		"BestAPIVersion",
+		"AllAddresses",
 		"PublicKeys",
 		"Proxy",
 	),

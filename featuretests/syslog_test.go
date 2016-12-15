@@ -16,12 +16,12 @@ import (
 	"github.com/juju/rfc/rfc5424/rfc5424test"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/cert"
 	"github.com/juju/utils/os"
 	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/cert"
 	agentcmd "github.com/juju/juju/cmd/jujud/agent"
 	"github.com/juju/juju/cmd/jujud/agent/agenttest"
 	"github.com/juju/juju/state"
@@ -34,7 +34,7 @@ import (
 
 type syslogSuite struct {
 	agenttest.AgentSuite
-	logsCh          logsender.LogRecordCh
+	logger          *logsender.BufferedLogWriter
 	received        chan rfc5424test.Message
 	fakeEnsureMongo *agenttest.FakeEnsureMongo
 }
@@ -100,7 +100,7 @@ func (s *syslogSuite) SetUpTest(c *gc.C) {
 	if runtime.GOOS != "linux" {
 		c.Skip(fmt.Sprintf("this test requires a controller, therefore does not support %q", runtime.GOOS))
 	}
-	currentSeries := series.HostSeries()
+	currentSeries := series.MustHostSeries()
 	osFromSeries, err := series.GetOSFromSeries(currentSeries)
 	c.Assert(err, jc.ErrorIsNil)
 	if osFromSeries != os.Ubuntu {
@@ -127,7 +127,7 @@ func (s *syslogSuite) SetUpTest(c *gc.C) {
 	}, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.logsCh, err = logsender.InstallBufferedLogWriter(1000)
+	s.logger, err = logsender.InstallBufferedLogWriter(1000)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -143,7 +143,7 @@ func (s *syslogSuite) newRecord(msg string) *logsender.LogRecord {
 
 func (s *syslogSuite) sendRecord(c *gc.C, rec *logsender.LogRecord) {
 	select {
-	case s.logsCh <- rec:
+	case s.logger.Logs() <- rec:
 	case <-time.After(coretesting.LongWait):
 		c.Fatal(`timed out "sending" message`)
 	}
@@ -201,15 +201,21 @@ func (s *syslogSuite) TestLogRecordForwarded(c *gc.C) {
 	agentConf := agentcmd.NewAgentConf(s.DataDir())
 	agentConf.ReadConfig(m.Tag().String())
 
-	machineAgentFactory := agentcmd.MachineAgentFactoryFn(agentConf, s.logsCh, c.MkDir())
-	a := machineAgentFactory(m.Id())
+	machineAgentFactory := agentcmd.MachineAgentFactoryFn(
+		agentConf,
+		s.logger,
+		agentcmd.DefaultIntrospectionSocketName,
+		c.MkDir(),
+	)
+	a, err := machineAgentFactory(m.Id())
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Ensure there's no logs to begin with.
 	// Start the agent.
 	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
 	defer a.Stop()
 
-	err := s.State.UpdateModelConfig(map[string]interface{}{
+	err = s.State.UpdateModelConfig(map[string]interface{}{
 		"logforward-enabled": true,
 	}, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -228,8 +234,14 @@ func (s *syslogSuite) TestConfigChange(c *gc.C) {
 	agentConf := agentcmd.NewAgentConf(s.DataDir())
 	agentConf.ReadConfig(m.Tag().String())
 
-	machineAgentFactory := agentcmd.MachineAgentFactoryFn(agentConf, s.logsCh, c.MkDir())
-	a := machineAgentFactory(m.Id())
+	machineAgentFactory := agentcmd.MachineAgentFactoryFn(
+		agentConf,
+		s.logger,
+		agentcmd.DefaultIntrospectionSocketName,
+		c.MkDir(),
+	)
+	a, err := machineAgentFactory(m.Id())
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Ensure there's no logs to begin with.
 	// Start the agent.
@@ -240,7 +252,7 @@ func (s *syslogSuite) TestConfigChange(c *gc.C) {
 	received := make(chan rfc5424test.Message)
 	addr := s.createSyslogServer(c, received, done)
 
-	err := s.State.UpdateModelConfig(map[string]interface{}{
+	err = s.State.UpdateModelConfig(map[string]interface{}{
 		"logforward-enabled": true,
 		"syslog-host":        addr,
 		"syslog-ca-cert":     coretesting.CACert,

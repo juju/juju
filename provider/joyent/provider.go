@@ -11,6 +11,7 @@ import (
 	"github.com/joyent/gosdc/cloudapi"
 	"github.com/joyent/gosign/auth"
 	"github.com/juju/errors"
+	"github.com/juju/jsonschema"
 	"github.com/juju/loggo"
 
 	"github.com/juju/juju/cloud"
@@ -45,6 +46,17 @@ var providerInstance = joyentProvider{}
 var _ environs.EnvironProvider = providerInstance
 
 var _ simplestreams.HasRegion = (*joyentEnviron)(nil)
+
+// CloudSchema returns the schema used to validate input for add-cloud.  Since
+// this provider does not support custom clouds, this always returns nil.
+func (p joyentProvider) CloudSchema() *jsonschema.Schema {
+	return nil
+}
+
+// Ping tests the connection to the cloud, to verify the endpoint is valid.
+func (p joyentProvider) Ping(endpoint string) error {
+	return errors.NotImplementedf("Ping")
+}
 
 // PrepareConfig is part of the EnvironProvider interface.
 func (p joyentProvider) PrepareConfig(args environs.PrepareConfigParams) (*config.Config, error) {

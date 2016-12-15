@@ -29,6 +29,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/jsonschema"
 	"github.com/juju/loggo"
 	"github.com/juju/retry"
 	"github.com/juju/schema"
@@ -56,6 +57,7 @@ import (
 	"github.com/juju/juju/mongo/mongotest"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
+	"github.com/juju/juju/pubsub/centralhub"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/stateenvirons"
@@ -613,6 +615,17 @@ func (p *environProvider) Open(args environs.OpenParams) (environs.Environ, erro
 	return env, nil
 }
 
+// CloudSchema returns the schema used to validate input for add-cloud.  Since
+// this provider does not support custom clouds, this always returns nil.
+func (p environProvider) CloudSchema() *jsonschema.Schema {
+	return nil
+}
+
+// Ping tests the connection to the cloud, to verify the endpoint is valid.
+func (p environProvider) Ping(endpoint string) error {
+	return errors.NotImplementedf("Ping")
+}
+
 // PrepareConfig is specified in the EnvironProvider interface.
 func (p *environProvider) PrepareConfig(args environs.PrepareConfigParams) (*config.Config, error) {
 	if _, err := dummy.newConfig(args.Config); err != nil {
@@ -802,14 +815,16 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 
 			estate.apiStatePool = state.NewStatePool(st)
 
+			machineTag := names.NewMachineTag("0")
 			estate.apiServer, err = apiserver.NewServer(st, estate.apiListener, apiserver.ServerConfig{
 				Clock:       clock.WallClock,
 				Cert:        testing.ServerCert,
 				Key:         testing.ServerKey,
-				Tag:         names.NewMachineTag("0"),
+				Tag:         machineTag,
 				DataDir:     DataDir,
 				LogDir:      LogDir,
 				StatePool:   estate.apiStatePool,
+				Hub:         centralhub.New(machineTag),
 				NewObserver: func() observer.Observer { return &fakeobserver.Instance{} },
 				// Should never be used but prevent external access just in case.
 				AutocertURL: "https://0.1.2.3/no-autocert-here",
@@ -974,7 +989,9 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 	series := args.Tools.OneSeries()
 
 	idString := fmt.Sprintf("%s-%d", e.name, estate.maxId)
-	addrs := network.NewAddresses(idString+".dns", "127.0.0.1")
+	// Add the addresses we want to see in the machine doc. This means both
+	// IPv4 and IPv6 loopback, as well as the DNS name.
+	addrs := network.NewAddresses(idString+".dns", "127.0.0.1", "::1")
 	logger.Debugf("StartInstance addresses: %v", addrs)
 	i := &dummyInstance{
 		id:           instance.Id(idString),

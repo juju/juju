@@ -176,7 +176,6 @@ func (s *ClientSuite) TestGetResource(c *gc.C) {
 	s.wrapper.ReturnGetResource = csclient.ResourceData{
 		ReadCloser: rc,
 		Hash:       fp.String(),
-		Size:       4,
 	}
 	apiRes := params.Resource{
 		Name:        "name",

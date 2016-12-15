@@ -60,14 +60,18 @@ func (sf *statusFormatter) format() (formattedStatus, error) {
 			AvailableVersion: sf.status.Model.AvailableVersion,
 			Migration:        sf.status.Model.Migration,
 		},
-		Machines:     make(map[string]machineStatus),
-		Applications: make(map[string]applicationStatus),
+		Machines:           make(map[string]machineStatus),
+		Applications:       make(map[string]applicationStatus),
+		RemoteApplications: make(map[string]remoteApplicationStatus),
 	}
 	for k, m := range sf.status.Machines {
 		out.Machines[k] = sf.formatMachine(m)
 	}
 	for sn, s := range sf.status.Applications {
 		out.Applications[sn] = sf.formatApplication(sn, s)
+	}
+	for sn, s := range sf.status.RemoteApplications {
+		out.RemoteApplications[sn] = sf.formatRemoteApplication(sn, s)
 	}
 	return out, nil
 }
@@ -161,7 +165,7 @@ func (sf *statusFormatter) formatApplication(name string, application params.App
 		CanUpgradeTo:  application.CanUpgradeTo,
 		SubordinateTo: application.SubordinateTo,
 		Units:         make(map[string]unitStatus),
-		StatusInfo:    sf.getServiceStatusInfo(application),
+		StatusInfo:    sf.getApplicationStatusInfo(application),
 		Version:       application.WorkloadVersion,
 	}
 	for k, m := range application.Units {
@@ -175,16 +179,48 @@ func (sf *statusFormatter) formatApplication(name string, application params.App
 	return out
 }
 
-func (sf *statusFormatter) getServiceStatusInfo(service params.ApplicationStatus) statusInfoContents {
+func (sf *statusFormatter) formatRemoteApplication(name string, application params.RemoteApplicationStatus) remoteApplicationStatus {
+	out := remoteApplicationStatus{
+		Err:            application.Err,
+		ApplicationURL: application.ApplicationURL,
+		Life:           application.Life,
+		Relations:      application.Relations,
+		StatusInfo:     sf.getRemoteApplicationStatusInfo(application),
+	}
+	out.Endpoints = make(map[string]remoteEndpoint)
+	for _, ep := range application.Endpoints {
+		out.Endpoints[ep.Name] = remoteEndpoint{
+			Interface: ep.Interface,
+			Role:      string(ep.Role),
+		}
+	}
+	return out
+}
+
+func (sf *statusFormatter) getApplicationStatusInfo(application params.ApplicationStatus) statusInfoContents {
 	// TODO(perrito66) add status validation.
 	info := statusInfoContents{
-		Err:     service.Status.Err,
-		Current: status.Status(service.Status.Status),
-		Message: service.Status.Info,
-		Version: service.Status.Version,
+		Err:     application.Status.Err,
+		Current: status.Status(application.Status.Status),
+		Message: application.Status.Info,
+		Version: application.Status.Version,
 	}
-	if service.Status.Since != nil {
-		info.Since = common.FormatTime(service.Status.Since, sf.isoTime)
+	if application.Status.Since != nil {
+		info.Since = common.FormatTime(application.Status.Since, sf.isoTime)
+	}
+	return info
+}
+
+func (sf *statusFormatter) getRemoteApplicationStatusInfo(application params.RemoteApplicationStatus) statusInfoContents {
+	// TODO(perrito66) add status validation.
+	info := statusInfoContents{
+		Err:     application.Status.Err,
+		Current: status.Status(application.Status.Status),
+		Message: application.Status.Info,
+		Version: application.Status.Version,
+	}
+	if application.Status.Since != nil {
+		info.Since = common.FormatTime(application.Status.Since, sf.isoTime)
 	}
 	return info
 }

@@ -14,6 +14,7 @@ import (
 	"github.com/juju/cmd"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
+	"github.com/juju/utils/clock"
 	"github.com/juju/utils/series"
 	"github.com/juju/utils/set"
 	"github.com/juju/version"
@@ -42,6 +43,7 @@ import (
 	"github.com/juju/juju/worker/authenticationworker"
 	"github.com/juju/juju/worker/deployer"
 	"github.com/juju/juju/worker/logsender"
+	"github.com/juju/juju/worker/peergrouper"
 	"github.com/juju/juju/worker/singular"
 )
 
@@ -89,7 +91,7 @@ func (s *commonMachineSuite) SetUpTest(c *gc.C) {
 
 	s.singularRecord = newSingularRunnerRecord()
 	s.AgentSuite.PatchValue(&newSingularRunner, s.singularRecord.newSingularRunner)
-	s.AgentSuite.PatchValue(&peergrouperNew, func(*state.State, bool) (worker.Worker, error) {
+	s.AgentSuite.PatchValue(&peergrouperNew, func(*state.State, clock.Clock, bool, peergrouper.Hub) (worker.Worker, error) {
 		return newDummyWorker(), nil
 	})
 
@@ -132,7 +134,7 @@ func (s *commonMachineSuite) primeAgent(c *gc.C, jobs ...state.MachineJob) (m *s
 	vers := version.Binary{
 		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
-		Series: series.HostSeries(),
+		Series: series.MustHostSeries(),
 	}
 	return s.primeAgentVersion(c, vers, jobs...)
 }
@@ -193,16 +195,17 @@ func (s *commonMachineSuite) configureMachine(c *gc.C, machineId string, vers ve
 
 func NewTestMachineAgentFactory(
 	agentConfWriter AgentConfigWriter,
-	bufferedLogs logsender.LogRecordCh,
+	bufferedLogger *logsender.BufferedLogWriter,
 	rootDir string,
-) func(string) *MachineAgent {
-	return func(machineId string) *MachineAgent {
+) func(string) (*MachineAgent, error) {
+	return func(machineId string) (*MachineAgent, error) {
 		return NewMachineAgent(
 			machineId,
 			agentConfWriter,
-			bufferedLogs,
+			bufferedLogger,
 			worker.NewRunner(cmdutil.IsFatal, cmdutil.MoreImportant, worker.RestartDelay),
 			&mockLoopDeviceManager{},
+			DefaultIntrospectionSocketName,
 			rootDir,
 		)
 	}
@@ -212,8 +215,17 @@ func NewTestMachineAgentFactory(
 func (s *commonMachineSuite) newAgent(c *gc.C, m *state.Machine) *MachineAgent {
 	agentConf := agentConf{dataDir: s.DataDir()}
 	agentConf.ReadConfig(names.NewMachineTag(m.Id()).String())
-	machineAgentFactory := NewTestMachineAgentFactory(&agentConf, nil, c.MkDir())
-	return machineAgentFactory(m.Id())
+	logger := s.newBufferedLogWriter()
+	machineAgentFactory := NewTestMachineAgentFactory(&agentConf, logger, c.MkDir())
+	machineAgent, err := machineAgentFactory(m.Id())
+	c.Assert(err, jc.ErrorIsNil)
+	return machineAgent
+}
+
+func (s *commonMachineSuite) newBufferedLogWriter() *logsender.BufferedLogWriter {
+	logger := logsender.NewBufferedLogWriter(1024)
+	s.AddCleanup(func(*gc.C) { logger.Close() })
+	return logger
 }
 
 func patchDeployContext(c *gc.C, st *state.State) (*fakeContext, func()) {

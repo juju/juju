@@ -5,22 +5,29 @@ package migrationmaster
 
 import (
 	"fmt"
+	"io"
 	"strings"
 	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/clock"
+	"github.com/juju/version"
+	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/api/migrationtarget"
 	"github.com/juju/juju/apiserver/params"
 	coremigration "github.com/juju/juju/core/migration"
 	"github.com/juju/juju/migration"
+	"github.com/juju/juju/resource"
+	"github.com/juju/juju/tools"
 	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker/catacomb"
 	"github.com/juju/juju/worker/fortress"
+	"github.com/juju/juju/wrench"
 )
 
 var (
@@ -33,6 +40,11 @@ var (
 	// server. The migrationmaster should not be restarted again in
 	// this case.
 	ErrMigrated = errors.New("model has migrated")
+
+	// utcZero matches the deserialised zero times coming back from
+	// MigrationTarget.LatestLogTime, because they have a non-nil
+	// location.
+	utcZero = time.Time{}.In(time.UTC)
 )
 
 const (
@@ -41,10 +53,11 @@ const (
 	// phase.
 	maxMinionWait = 15 * time.Minute
 
-	// minionWaitLogInterval is the time between progress update
-	// messages, while the migrationmaster is waiting for reports from
-	// minions.
-	minionWaitLogInterval = 30 * time.Second
+	// progressUpdateInterval is the time between progress update
+	// messages. It's used while the migrationmaster is waiting for
+	// reports from minions and while it's transferring log messages
+	// to the newly-migrated model.
+	progressUpdateInterval = 30 * time.Second
 )
 
 // Facade exposes controller functionality to a Worker.
@@ -76,6 +89,9 @@ type Facade interface {
 	// associated with the API connection.
 	Export() (coremigration.SerializedModel, error)
 
+	// OpenResource downloads a single resource for an application.
+	OpenResource(string, string) (io.ReadCloser, error)
+
 	// Reap removes all documents of the model associated with the API
 	// connection.
 	Reap() error
@@ -87,6 +103,12 @@ type Facade interface {
 	// MinionReports returns details of the reports made by migration
 	// minions to the controller for the current migration phase.
 	MinionReports() (coremigration.MinionReports, error)
+
+	// StreamModelLog takes a starting time and returns a channel that
+	// will yield the logs on or after that time - these are the logs
+	// that need to be transferred to the target after the migration
+	// is successful.
+	StreamModelLog(time.Time) (<-chan common.LogMessage, error)
 }
 
 // Config defines the operation of a Worker.
@@ -207,7 +229,7 @@ func (w *Worker) run() error {
 		case coremigration.SUCCESS:
 			phase, err = w.doSUCCESS(status)
 		case coremigration.LOGTRANSFER:
-			phase, err = w.doLOGTRANSFER()
+			phase, err = w.doLOGTRANSFER(status.TargetInfo, status.ModelUUID)
 		case coremigration.REAP:
 			phase, err = w.doREAP()
 		case coremigration.ABORT:
@@ -337,6 +359,36 @@ func (w *Worker) doIMPORT(targetInfo coremigration.TargetInfo, modelUUID string)
 	return coremigration.VALIDATION, nil
 }
 
+type uploadWrapper struct {
+	client    *migrationtarget.Client
+	modelUUID string
+}
+
+// UploadTools prepends the model UUID to the args passed to the migration client.
+func (w *uploadWrapper) UploadTools(r io.ReadSeeker, vers version.Binary, additionalSeries ...string) (tools.List, error) {
+	return w.client.UploadTools(w.modelUUID, r, vers, additionalSeries...)
+}
+
+// UploadCharm prepends the model UUID to the args passed to the migration client.
+func (w *uploadWrapper) UploadCharm(curl *charm.URL, content io.ReadSeeker) (*charm.URL, error) {
+	return w.client.UploadCharm(w.modelUUID, curl, content)
+}
+
+// UploadResource prepends the model UUID to the args passed to the migration client.
+func (w *uploadWrapper) UploadResource(res resource.Resource, content io.ReadSeeker) error {
+	return w.client.UploadResource(w.modelUUID, res, content)
+}
+
+// SetPlaceholderResource prepends the model UUID to the args passed to the migration client.
+func (w *uploadWrapper) SetPlaceholderResource(res resource.Resource) error {
+	return w.client.SetPlaceholderResource(w.modelUUID, res)
+}
+
+// SetUnitResource prepends the model UUID to the args passed to the migration client.
+func (w *uploadWrapper) SetUnitResource(unitName string, res resource.Resource) error {
+	return w.client.SetUnitResource(w.modelUUID, unitName, res)
+}
+
 func (w *Worker) transferModel(targetInfo coremigration.TargetInfo, modelUUID string) error {
 	w.setInfoStatus("exporting model")
 	serialized, err := w.config.Facade.Export()
@@ -357,21 +409,21 @@ func (w *Worker) transferModel(targetInfo coremigration.TargetInfo, modelUUID st
 	}
 
 	w.setInfoStatus("uploading model binaries into target controller")
-	targetModelConn, err := w.openAPIConnForModel(targetInfo, modelUUID)
-	if err != nil {
-		return errors.Annotate(err, "failed to open connection to target model")
-	}
-	defer targetModelConn.Close()
-	targetModelClient := targetModelConn.Client()
+	wrapper := &uploadWrapper{targetClient, modelUUID}
 	err = w.config.UploadBinaries(migration.UploadBinariesConfig{
 		Charms:          serialized.Charms,
 		CharmDownloader: w.config.CharmDownloader,
-		CharmUploader:   targetModelClient,
+		CharmUploader:   wrapper,
+
 		Tools:           serialized.Tools,
 		ToolsDownloader: w.config.ToolsDownloader,
-		ToolsUploader:   targetModelClient,
+		ToolsUploader:   wrapper,
+
+		Resources:          serialized.Resources,
+		ResourceDownloader: w.config.Facade,
+		ResourceUploader:   wrapper,
 	})
-	return errors.Annotate(err, "failed migration binaries")
+	return errors.Annotate(err, "failed to migrate binaries")
 }
 
 func (w *Worker) doVALIDATION(status coremigration.MigrationStatus) (coremigration.Phase, error) {
@@ -418,10 +470,87 @@ func (w *Worker) doSUCCESS(status coremigration.MigrationStatus) (coremigration.
 	return coremigration.LOGTRANSFER, nil
 }
 
-func (w *Worker) doLOGTRANSFER() (coremigration.Phase, error) {
-	// TODO(mjs) - To be implemented.
-	// w.setInfoStatus("successful: transferring logs to target controller")
+func (w *Worker) doLOGTRANSFER(targetInfo coremigration.TargetInfo, modelUUID string) (coremigration.Phase, error) {
+	err := w.transferLogs(targetInfo, modelUUID)
+	if err != nil {
+		return coremigration.UNKNOWN, errors.Trace(err)
+	}
 	return coremigration.REAP, nil
+}
+
+func (w *Worker) transferLogs(targetInfo coremigration.TargetInfo, modelUUID string) error {
+	sent := 0
+	reportProgress := func(finished bool, sent int) {
+		verb := "transferring"
+		if finished {
+			verb = "transferred"
+		}
+		w.setInfoStatus("successful, %s logs to target controller (%d sent)", verb, sent)
+	}
+	reportProgress(false, sent)
+
+	conn, err := w.openAPIConn(targetInfo)
+	if err != nil {
+		return errors.Annotate(err, "connecting to target API")
+	}
+	targetClient := migrationtarget.NewClient(conn)
+	latestLogTime, err := targetClient.LatestLogTime(modelUUID)
+	if err != nil {
+		return errors.Annotate(err, "getting log start time")
+	}
+
+	if latestLogTime != utcZero {
+		w.logger.Debugf("log transfer was interrupted - restarting from %s", latestLogTime)
+	}
+
+	throwWrench := latestLogTime == utcZero && wrench.IsActive("migrationmaster", "die-after-500-log-messages")
+
+	logSource, err := w.config.Facade.StreamModelLog(latestLogTime)
+	if err != nil {
+		return errors.Annotate(err, "opening source log stream")
+	}
+
+	logTarget, err := targetClient.OpenLogTransferStream(modelUUID)
+	if err != nil {
+		return errors.Annotate(err, "opening target log stream")
+	}
+	defer logTarget.Close()
+
+	clk := w.config.Clock
+	logProgress := clk.After(progressUpdateInterval)
+
+	for {
+		select {
+		case <-w.catacomb.Dying():
+			return w.catacomb.ErrDying()
+		case msg, ok := <-logSource:
+			if !ok {
+				// The channel's been closed, we're finished!
+				reportProgress(true, sent)
+				return nil
+			}
+			err := logTarget.WriteJSON(params.LogRecord{
+				Entity:   msg.Entity,
+				Time:     msg.Timestamp,
+				Module:   msg.Module,
+				Location: msg.Location,
+				Level:    msg.Severity,
+				Message:  msg.Message,
+			})
+			if err != nil {
+				return errors.Trace(err)
+			}
+			sent++
+
+			if throwWrench && sent == 500 {
+				// Simulate a connection drop to test restartability.
+				return errors.New("wrench in the works")
+			}
+		case <-logProgress:
+			reportProgress(false, sent)
+			logProgress = clk.After(progressUpdateInterval)
+		}
+	}
 }
 
 func (w *Worker) doREAP() (coremigration.Phase, error) {
@@ -556,7 +685,7 @@ func (w *Worker) waitForMinions(
 		return false, errors.Trace(err)
 	}
 
-	logProgress := clk.After(minionWaitLogInterval)
+	logProgress := clk.After(progressUpdateInterval)
 
 	var reports coremigration.MinionReports
 	for {
@@ -600,7 +729,7 @@ func (w *Worker) waitForMinions(
 
 		case <-logProgress:
 			w.setInfoStatus("%s, %s", infoPrefix, formatMinionWaitUpdate(reports))
-			logProgress = clk.After(minionWaitLogInterval)
+			logProgress = clk.After(progressUpdateInterval)
 		}
 	}
 }

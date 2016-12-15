@@ -29,7 +29,8 @@ import (
 
 // toolsHandler handles tool upload through HTTPS in the API server.
 type toolsUploadHandler struct {
-	ctxt httpContext
+	ctxt          httpContext
+	stateAuthFunc func(*http.Request) (*state.State, error)
 }
 
 // toolsHandler handles tool download through HTTPS in the API server.
@@ -45,6 +46,7 @@ func (h *toolsDownloadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		}
 		return
 	}
+	defer h.ctxt.release(st)
 
 	switch r.Method {
 	case "GET":
@@ -69,13 +71,14 @@ func (h *toolsDownloadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 func (h *toolsUploadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Validate before authenticate because the authentication is dependent
 	// on the state connection that is determined during the validation.
-	st, _, err := h.ctxt.stateForRequestAuthenticatedUser(r)
+	st, err := h.stateAuthFunc(r)
 	if err != nil {
 		if err := sendError(w, err); err != nil {
 			logger.Errorf("%v", err)
 		}
 		return
 	}
+	defer h.ctxt.release(st)
 
 	switch r.Method {
 	case "POST":

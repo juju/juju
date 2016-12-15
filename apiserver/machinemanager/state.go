@@ -4,6 +4,7 @@
 package machinemanager
 
 import (
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
@@ -18,6 +19,12 @@ type stateInterface interface {
 	AddOneMachine(template state.MachineTemplate) (*state.Machine, error)
 	AddMachineInsideNewMachine(template, parentTemplate state.MachineTemplate, containerType instance.ContainerType) (*state.Machine, error)
 	AddMachineInsideMachine(template state.MachineTemplate, parentId string, containerType instance.ContainerType) (*state.Machine, error)
+
+	GetModel(names.ModelTag) (Model, error)
+	Cloud(string) (cloud.Cloud, error)
+	Clouds() (map[names.CloudTag]cloud.Cloud, error)
+	CloudCredentials(user names.UserTag, cloudName string) (map[string]cloud.Credential, error)
+	CloudCredential(tag names.CloudCredentialTag) (cloud.Credential, error)
 }
 
 type stateShim struct {
@@ -49,4 +56,21 @@ func (s stateShim) AddMachineInsideNewMachine(template, parentTemplate state.Mac
 
 func (s stateShim) AddMachineInsideMachine(template state.MachineTemplate, parentId string, containerType instance.ContainerType) (*state.Machine, error) {
 	return s.State.AddMachineInsideMachine(template, parentId, containerType)
+}
+
+func (s stateShim) GetModel(tag names.ModelTag) (Model, error) {
+	m, err := s.State.GetModel(tag)
+	if err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+type Model interface {
+	Cloud() string
+	CloudCredential() (names.CloudCredentialTag, bool)
+	CloudRegion() string
+	ModelTag() names.ModelTag
+
+	Config() (*config.Config, error)
 }

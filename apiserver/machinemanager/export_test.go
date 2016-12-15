@@ -3,7 +3,10 @@
 
 package machinemanager
 
-import "github.com/juju/juju/state"
+import (
+	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/state"
+)
 
 type StateInterface stateInterface
 
@@ -16,3 +19,12 @@ func PatchState(p Patcher, st StateInterface) {
 		return st
 	})
 }
+
+func NewMachineManagerTestingAPI(st stateInterface, authorizer facade.Authorizer) MachineManagerAPI {
+	return MachineManagerAPI{
+		st:         st,
+		authorizer: authorizer,
+	}
+}
+
+var InstanceTypes = instanceTypes

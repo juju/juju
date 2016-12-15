@@ -13,6 +13,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils/featureflag"
 	"github.com/juju/utils/voyeur"
+	"github.com/prometheus/client_golang/prometheus"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/natefinch/lumberjack.v2"
 	"gopkg.in/tomb.v1"
@@ -44,7 +45,7 @@ type UnitAgent struct {
 	configChangedVal *voyeur.Value
 	UnitName         string
 	runner           worker.Runner
-	bufferedLogs     logsender.LogRecordCh
+	bufferedLogger   *logsender.BufferedLogWriter
 	setupLogging     func(agent.Config) error
 	logToStdErr      bool
 	ctx              *cmd.Context
@@ -54,17 +55,24 @@ type UnitAgent struct {
 	// longer any immediately pending agent upgrades.
 	// Channel used as a selectable bool (closed means true).
 	initialUpgradeCheckComplete chan struct{}
+
+	prometheusRegistry *prometheus.Registry
 }
 
 // NewUnitAgent creates a new UnitAgent value properly initialized.
-func NewUnitAgent(ctx *cmd.Context, bufferedLogs logsender.LogRecordCh) *UnitAgent {
+func NewUnitAgent(ctx *cmd.Context, bufferedLogger *logsender.BufferedLogWriter) (*UnitAgent, error) {
+	prometheusRegistry, err := newPrometheusRegistry()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	return &UnitAgent{
 		AgentConf:        NewAgentConf(""),
 		configChangedVal: voyeur.NewValue(true),
 		ctx:              ctx,
 		initialUpgradeCheckComplete: make(chan struct{}),
-		bufferedLogs:                bufferedLogs,
-	}
+		bufferedLogger:              bufferedLogger,
+		prometheusRegistry:          prometheusRegistry,
+	}, nil
 }
 
 // Info returns usage information for the command.
@@ -138,11 +146,12 @@ func (a *UnitAgent) Run(ctx *cmd.Context) error {
 // APIWorkers returns a dependency.Engine running the unit agent's responsibilities.
 func (a *UnitAgent) APIWorkers() (worker.Worker, error) {
 	manifolds := unitManifolds(unit.ManifoldsConfig{
-		Agent:               agent.APIHostPortsSetter{a},
-		LogSource:           a.bufferedLogs,
-		LeadershipGuarantee: 30 * time.Second,
-		AgentConfigChanged:  a.configChangedVal,
-		ValidateMigration:   a.validateMigration,
+		Agent:                agent.APIHostPortsSetter{a},
+		LogSource:            a.bufferedLogger.Logs(),
+		LeadershipGuarantee:  30 * time.Second,
+		AgentConfigChanged:   a.configChangedVal,
+		ValidateMigration:    a.validateMigration,
+		PrometheusRegisterer: a.prometheusRegistry,
 	})
 
 	config := dependency.EngineConfig{
@@ -162,9 +171,11 @@ func (a *UnitAgent) APIWorkers() (worker.Worker, error) {
 		return nil, err
 	}
 	if err := startIntrospection(introspectionConfig{
-		Agent:      a,
-		Engine:     engine,
-		WorkerFunc: introspection.NewWorker,
+		Agent:              a,
+		Engine:             engine,
+		NewSocketName:      DefaultIntrospectionSocketName,
+		PrometheusGatherer: a.prometheusRegistry,
+		WorkerFunc:         introspection.NewWorker,
 	}); err != nil {
 		// If the introspection worker failed to start, we just log error
 		// but continue. It is very unlikely to happen in the real world

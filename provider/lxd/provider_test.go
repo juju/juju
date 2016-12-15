@@ -24,7 +24,7 @@ import (
 // backported to wily... so we have this:|
 // TODO(redir): Remove after wiley or in yakkety.
 func skipIfWily(c *gc.C) {
-	if series.HostSeries() == "wily" {
+	if series.MustHostSeries() == "wily" {
 		cfg, _ := lxdclient.Config{}.WithDefaults()
 		_, err := lxdclient.Connect(cfg, false)
 		// We try to create a client here. On wily this should fail, because
@@ -126,15 +126,4 @@ func (s *ProviderFunctionalSuite) TestPrepareConfigUnsupportedAuthType(c *gc.C) 
 		},
 	})
 	c.Assert(err, gc.ErrorMatches, `validating cloud spec: "certificate" auth-type not supported`)
-}
-
-func (s *ProviderFunctionalSuite) TestPrepareConfigNonEmptyEndpoint(c *gc.C) {
-	_, err := s.provider.PrepareConfig(environs.PrepareConfigParams{
-		Cloud: environs.CloudSpec{
-			Type:     "lxd",
-			Name:     "remotehost",
-			Endpoint: "1.2.3.4",
-		},
-	})
-	c.Assert(err, gc.ErrorMatches, `validating cloud spec: non-empty endpoint "1.2.3.4" not valid`)
 }

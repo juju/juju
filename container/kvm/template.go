@@ -36,8 +36,8 @@ var kvmTemplate = `
     </console>
     <input type='mouse' bus='ps2'/>
     <input type='keyboard' bus='ps2'/>
-    <graphics type='vnc' port='-1' autoport='yes' listen='127.0.0.1'>
-      <listen type='address' address='127.0.0.1'/>
+    <graphics type='vnc' port='-1' autoport='yes' listen='localhost'>
+      <listen type='address' address='localhost'/>
     </graphics>
     <video>
       <model type='cirrus' vram='9216' heads='1'/>

@@ -634,6 +634,291 @@ func (s *linkLayerDevicesStateSuite) TestMachineRemoveAllLinkLayerDevicesNoError
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *linkLayerDevicesStateSuite) setupMachineWithOneNIC(c *gc.C) {
+	_, err := s.State.AddSubnet(state.SubnetInfo{
+		CIDR:      "10.0.0.0/24",
+		SpaceName: "default",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddSubnet(state.SubnetInfo{
+		CIDR:      "10.10.0.0/24",
+		SpaceName: "dmz",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.machine.SetLinkLayerDevices(
+		state.LinkLayerDeviceArgs{
+			Name:       "eth0",
+			Type:       state.EthernetDevice,
+			MACAddress: "01:23:45:67:89:ab:cd:ef",
+			IsUp:       true,
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.machine.SetDevicesAddresses(
+		state.LinkLayerDeviceAddress{
+			DeviceName:   "eth0",
+			CIDRAddress:  "10.0.0.20/24",
+			ConfigMethod: state.StaticAddress,
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *linkLayerDevicesStateSuite) setupMachineWithOneNICAndBridge(c *gc.C) {
+	_, err := s.State.AddSubnet(state.SubnetInfo{
+		CIDR:      "10.0.0.0/24",
+		SpaceName: "default",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddSubnet(state.SubnetInfo{
+		CIDR:      "10.10.0.0/24",
+		SpaceName: "dmz",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.machine.SetLinkLayerDevices(
+		state.LinkLayerDeviceArgs{
+			Name:       "br-eth0",
+			Type:       state.BridgeDevice,
+			ParentName: "",
+			MACAddress: "01:23:45:67:89:ab:cd:ef", // Same as primary device
+			IsUp:       true,
+		},
+	)
+	err = s.machine.SetLinkLayerDevices(
+		state.LinkLayerDeviceArgs{
+			Name:       "eth0",
+			Type:       state.EthernetDevice,
+			MACAddress: "01:23:45:67:89:ab:cd:ef",
+			ParentName: "br-eth0",
+			IsUp:       true,
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.machine.SetDevicesAddresses(
+		state.LinkLayerDeviceAddress{
+			DeviceName:   "br-eth0",
+			CIDRAddress:  "10.0.0.20/24",
+			ConfigMethod: state.StaticAddress,
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *linkLayerDevicesStateSuite) TestLinkLayerDevicesForSpaces(c *gc.C) {
+	s.setupMachineWithOneNICAndBridge(c)
+	res, err := s.machine.LinkLayerDevicesForSpaces([]string{"default"})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(res, gc.HasLen, 1)
+	devices, ok := res["default"]
+	c.Check(ok, jc.IsTrue)
+	// TODO(jam): 2016-12-13 Eventually we should probably notice that 'eth0'
+	// *is* part of the right space, possibly just because its parent device
+	// is in the space
+	c.Check(devices, gc.HasLen, 1)
+	c.Check(devices[0].Name(), gc.Equals, "br-eth0")
+	c.Check(devices[0].Type(), gc.Equals, state.BridgeDevice)
+}
+
+func (s *linkLayerDevicesStateSuite) TestLinkLayerDevicesForSpacesNoSuchSpace(c *gc.C) {
+	s.setupMachineWithOneNICAndBridge(c)
+	res, err := s.machine.LinkLayerDevicesForSpaces([]string{"dmz"})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(res, gc.HasLen, 0)
+}
+
+func (s *linkLayerDevicesStateSuite) TestLinkLayerDevicesForSpacesNoBridge(c *gc.C) {
+	s.setupMachineWithOneNIC(c)
+	res, err := s.machine.LinkLayerDevicesForSpaces([]string{"default"})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(res, gc.HasLen, 1)
+	devices, ok := res["default"]
+	c.Check(ok, jc.IsTrue)
+	c.Check(devices, gc.HasLen, 1)
+	c.Check(devices[0].Name(), gc.Equals, "eth0")
+	c.Check(devices[0].Type(), gc.Equals, state.EthernetDevice)
+}
+
+func (s *linkLayerDevicesStateSuite) TestLinkLayerDevicesForSpacesMultipleSpaces(c *gc.C) {
+	s.setupMachineWithOneNICAndBridge(c)
+	// Now add a NIC in the dmz space, but without a bridge
+	err := s.machine.SetLinkLayerDevices(
+		state.LinkLayerDeviceArgs{
+			Name:       "eth1",
+			Type:       state.EthernetDevice,
+			MACAddress: "11:23:45:67:89:ab:cd:ef",
+			IsUp:       true,
+		},
+	)
+	err = s.machine.SetDevicesAddresses(
+		state.LinkLayerDeviceAddress{
+			DeviceName:   "eth1",
+			CIDRAddress:  "10.10.0.20/24",
+			ConfigMethod: state.StaticAddress,
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	res, err := s.machine.LinkLayerDevicesForSpaces([]string{"default", "dmz"})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(res, gc.HasLen, 2)
+	defaultDevices, ok := res["default"]
+	c.Check(ok, jc.IsTrue)
+	c.Check(defaultDevices, gc.HasLen, 1)
+	c.Check(defaultDevices[0].Name(), gc.Equals, "br-eth0")
+	dmzDevices, ok := res["dmz"]
+	c.Check(ok, jc.IsTrue)
+	c.Check(dmzDevices, gc.HasLen, 1)
+	c.Check(dmzDevices[0].Name(), gc.Equals, "eth1")
+}
+
+func (s *linkLayerDevicesStateSuite) TestLinkLayerDevicesForSpacesWithExtraAddresses(c *gc.C) {
+	s.setupMachineWithOneNICAndBridge(c)
+	// When we poll the machine, we include any IP addresses that we
+	// find. One of them is always the loopback, but we could find any
+	// other addresses that someone created on the machine that we
+	// don't know what they are.
+	// Now add a NIC in the dmz space, but without a bridge
+	err := s.machine.SetLinkLayerDevices(
+		[]state.LinkLayerDeviceArgs{{
+			Name:       "lo",
+			Type:       state.LoopbackDevice,
+			MACAddress: "99:23:45:67:89:ab:cd:ef",
+			IsUp:       true,
+		}, {
+			Name:       "eth1",
+			Type:       state.EthernetDevice,
+			MACAddress: "11:23:45:67:89:ab:cd:ef",
+			IsUp:       true,
+		}}...
+	)
+	err = s.machine.SetDevicesAddresses(
+		[]state.LinkLayerDeviceAddress{{
+			DeviceName:   "eth1",
+			// Not one of the subnets we know about
+			CIDRAddress:  "172.99.0.20/24",
+			ConfigMethod: state.StaticAddress,
+		}, {
+			DeviceName:   "lo",
+			CIDRAddress:  "127.0.0.1/24",
+			ConfigMethod: state.StaticAddress,
+		}}...
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	res, err := s.machine.LinkLayerDevicesForSpaces([]string{"default"})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(res, gc.HasLen, 1)
+	defaultDevices, ok := res["default"]
+	c.Check(ok, jc.IsTrue)
+	c.Check(defaultDevices, gc.HasLen, 1)
+	c.Check(defaultDevices[0].Name(), gc.Equals, "br-eth0")
+}
+
+func (s *linkLayerDevicesStateSuite) TestLinkLayerDevicesForSpacesSortOrder(c *gc.C) {
+	s.setupMachineWithOneNICAndBridge(c)
+	// Add more devices to the "default" space, to make sure the result comes
+	// back in NaturallySorted order
+	devices := []state.LinkLayerDeviceArgs{{
+		Name:       "eth1",
+		Type:       state.EthernetDevice,
+		MACAddress: "11:23:45:67:89:ab:cd:ef",
+		ParentName: "br-eth1",
+		IsUp:       true,
+	}, {
+		Name:       "br-eth1",
+		Type:       state.BridgeDevice,
+		MACAddress: "11:23:45:67:89:ab:cd:ef",
+		IsUp:       true,
+	}, {
+		Name:       "eth1.1",
+		Type:       state.EthernetDevice,
+		MACAddress: "22:23:45:67:89:ab:cd:ef",
+		ParentName: "br-eth1.1",
+		IsUp:       true,
+	}, {
+		Name:       "br-eth1.1",
+		Type:       state.BridgeDevice,
+		MACAddress: "22:23:45:67:89:ab:cd:ef",
+		IsUp:       true,
+	}, {
+		Name:       "eth1:1",
+		Type:       state.EthernetDevice,
+		MACAddress: "32:23:45:67:89:ab:cd:ef",
+		ParentName: "br-eth1:1",
+		IsUp:       true,
+	}, {
+		Name:       "br-eth1:1",
+		Type:       state.BridgeDevice,
+		MACAddress: "32:23:45:67:89:ab:cd:ef",
+		IsUp:       true,
+	}, {
+		Name:       "eth10",
+		Type:       state.EthernetDevice,
+		MACAddress: "42:23:45:67:89:ab:cd:ef",
+		ParentName: "br-eth10",
+		IsUp:       true,
+	}, {
+		Name:       "br-eth10",
+		Type:       state.BridgeDevice,
+		MACAddress: "42:23:45:67:89:ab:cd:ef",
+		IsUp:       true,
+	}, {
+		Name:       "eth10.2",
+		Type:       state.EthernetDevice,
+		MACAddress: "52:23:45:67:89:ab:cd:ef",
+		ParentName: "br-eth10.2",
+		IsUp:       true,
+	}, {
+		Name:       "br-eth10.2",
+		Type:       state.BridgeDevice,
+		MACAddress: "52:23:45:67:89:ab:cd:ef",
+		IsUp:       true,
+	}, {
+		Name:       "eth2",
+		Type:       state.EthernetDevice,
+		MACAddress: "61:23:45:67:89:ab:cd:ef",
+		IsUp:       true,
+	}, {
+		Name:       "eth20",
+		Type:       state.EthernetDevice,
+		MACAddress: "61:23:45:67:89:ab:cd:ef",
+		IsUp:       true,
+	}, {
+		Name:       "eth3",
+		Type:       state.EthernetDevice,
+		MACAddress: "61:23:45:67:89:ab:cd:ef",
+		IsUp:       true,
+	}}
+	err := s.machine.SetParentLinkLayerDevicesBeforeTheirChildren(devices)
+	c.Assert(err, jc.ErrorIsNil)
+	addresses := make([]state.LinkLayerDeviceAddress, 0, len(devices))
+	for i, device := range devices {
+		if device.ParentName != "" {
+			// Devices *on* the bridge do not end up with IP addresses, only
+			// the Bridge device has an address.
+			continue
+		}
+		addresses = append(addresses, state.LinkLayerDeviceAddress{
+			DeviceName:   device.Name,
+			CIDRAddress:  fmt.Sprintf("10.0.0.1%02d/24", i),
+			ConfigMethod: state.StaticAddress,
+		})
+	}
+	err = s.machine.SetDevicesAddresses(addresses...)
+	c.Assert(err, jc.ErrorIsNil)
+	res, err := s.machine.LinkLayerDevicesForSpaces([]string{"default"})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(res, gc.HasLen, 1)
+	defaultDevices, ok := res["default"]
+	c.Check(ok, jc.IsTrue)
+	names := make([]string, 0, len(defaultDevices))
+	for _, dev := range defaultDevices {
+		names = append(names, dev.Name())
+	}
+	c.Check(names, gc.DeepEquals, []string{
+		"br-eth0", "br-eth1", "br-eth1.1", "br-eth1:1", "br-eth10", "br-eth10.2",
+		"eth2", "eth3", "eth20",
+	})
+}
+
 func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesWithLightStateChurn(c *gc.C) {
 	childArgs, churnHook := s.prepareSetLinkLayerDevicesWithStateChurn(c)
 	defer state.SetTestHooks(c, s.State, churnHook).Check()

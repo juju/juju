@@ -5,14 +5,21 @@ package migrationmaster_test
 
 import (
 	"encoding/json"
+	"io"
+	"io/ioutil"
+	"net/http"
+	"net/url"
+	"strings"
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/httprequest"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
+	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon.v1"
 
@@ -21,6 +28,7 @@ import (
 	"github.com/juju/juju/api/migrationmaster"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/migration"
+	"github.com/juju/juju/resource"
 	"github.com/juju/juju/watcher"
 )
 
@@ -46,7 +54,6 @@ func (s *ClientSuite) TestWatch(c *gc.C) {
 		return expectWatch
 	}
 	client := migrationmaster.NewClient(apiCaller, newWatcher)
-
 	w, err := client.Watch()
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(w, gc.Equals, expectWatch)
@@ -95,7 +102,6 @@ func (s *ClientSuite) TestMigrationStatus(c *gc.C) {
 		return nil
 	})
 	client := migrationmaster.NewClient(apiCaller, nil)
-
 	status, err := client.MigrationStatus()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status, gc.DeepEquals, migration.MigrationStatus{
@@ -206,6 +212,16 @@ func (s *ClientSuite) TestPrechecks(c *gc.C) {
 
 func (s *ClientSuite) TestExport(c *gc.C) {
 	var stub jujutesting.Stub
+
+	fpHash := charmresource.NewFingerprintHash()
+	appFp := fpHash.Fingerprint()
+	csFp := fpHash.Fingerprint()
+	unitFp := fpHash.Fingerprint()
+
+	appTs := time.Now()
+	csTs := appTs.Add(time.Hour)
+	unitTs := appTs.Add(time.Hour)
+
 	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		stub.AddCall(objType+"."+request, id, arg)
 		out := result.(*params.SerializedModel)
@@ -215,6 +231,45 @@ func (s *ClientSuite) TestExport(c *gc.C) {
 			Tools: []params.SerializedModelTools{{
 				Version: "2.0.0-trusty-amd64",
 				URI:     "/tools/0",
+			}},
+			Resources: []params.SerializedModelResource{{
+				Application: "fooapp",
+				Name:        "bin",
+				ApplicationRevision: params.SerializedModelResourceRevision{
+					Revision:       2,
+					Type:           "file",
+					Path:           "bin.tar.gz",
+					Description:    "who knows",
+					Origin:         "upload",
+					FingerprintHex: appFp.Hex(),
+					Size:           123,
+					Timestamp:      appTs,
+					Username:       "bob",
+				},
+				CharmStoreRevision: params.SerializedModelResourceRevision{
+					Revision:       3,
+					Type:           "file",
+					Path:           "fink.tar.gz",
+					Description:    "knows who",
+					Origin:         "store",
+					FingerprintHex: csFp.Hex(),
+					Size:           321,
+					Timestamp:      csTs,
+					Username:       "xena",
+				},
+				UnitRevisions: map[string]params.SerializedModelResourceRevision{
+					"fooapp/0": params.SerializedModelResourceRevision{
+						Revision:       1,
+						Type:           "file",
+						Path:           "blink.tar.gz",
+						Description:    "bo knows",
+						Origin:         "store",
+						FingerprintHex: unitFp.Hex(),
+						Size:           222,
+						Timestamp:      unitTs,
+						Username:       "bambam",
+					},
+				},
 			}},
 		}
 		return nil
@@ -231,6 +286,61 @@ func (s *ClientSuite) TestExport(c *gc.C) {
 		Tools: map[version.Binary]string{
 			version.MustParseBinary("2.0.0-trusty-amd64"): "/tools/0",
 		},
+		Resources: []migration.SerializedModelResource{{
+			ApplicationRevision: resource.Resource{
+				Resource: charmresource.Resource{
+					Meta: charmresource.Meta{
+						Name:        "bin",
+						Type:        charmresource.TypeFile,
+						Path:        "bin.tar.gz",
+						Description: "who knows",
+					},
+					Origin:      charmresource.OriginUpload,
+					Revision:    2,
+					Fingerprint: appFp,
+					Size:        123,
+				},
+				ApplicationID: "fooapp",
+				Username:      "bob",
+				Timestamp:     appTs,
+			},
+			CharmStoreRevision: resource.Resource{
+				Resource: charmresource.Resource{
+					Meta: charmresource.Meta{
+						Name:        "bin",
+						Type:        charmresource.TypeFile,
+						Path:        "fink.tar.gz",
+						Description: "knows who",
+					},
+					Origin:      charmresource.OriginStore,
+					Revision:    3,
+					Fingerprint: csFp,
+					Size:        321,
+				},
+				ApplicationID: "fooapp",
+				Username:      "xena",
+				Timestamp:     csTs,
+			},
+			UnitRevisions: map[string]resource.Resource{
+				"fooapp/0": resource.Resource{
+					Resource: charmresource.Resource{
+						Meta: charmresource.Meta{
+							Name:        "bin",
+							Type:        charmresource.TypeFile,
+							Path:        "blink.tar.gz",
+							Description: "bo knows",
+						},
+						Origin:      charmresource.OriginStore,
+						Revision:    1,
+						Fingerprint: unitFp,
+						Size:        222,
+					},
+					ApplicationID: "fooapp",
+					Username:      "bambam",
+					Timestamp:     unitTs,
+				},
+			},
+		}},
 	})
 }
 
@@ -241,6 +351,32 @@ func (s *ClientSuite) TestExportError(c *gc.C) {
 	client := migrationmaster.NewClient(apiCaller, nil)
 	_, err := client.Export()
 	c.Assert(err, gc.ErrorMatches, "blam")
+}
+
+const resourceContent = "resourceful"
+
+func setupFakeHTTP() (*migrationmaster.Client, *fakeDoer) {
+	doer := &fakeDoer{
+		response: &http.Response{
+			StatusCode: 200,
+			Body:       ioutil.NopCloser(strings.NewReader(resourceContent)),
+		},
+	}
+	caller := &fakeHTTPCaller{
+		httpClient: &httprequest.Client{
+			Doer: doer,
+		},
+	}
+	return migrationmaster.NewClient(caller, nil), doer
+}
+
+func (s *ClientSuite) TestOpenResource(c *gc.C) {
+	client, doer := setupFakeHTTP()
+	r, err := client.OpenResource("app", "blob")
+	c.Assert(err, jc.ErrorIsNil)
+	checkReader(c, r, "resourceful")
+	c.Check(doer.method, gc.Equals, "GET")
+	c.Check(doer.url, gc.Equals, "/applications/app/resources/blob")
 }
 
 func (s *ClientSuite) TestReap(c *gc.C) {
@@ -283,7 +419,6 @@ func (s *ClientSuite) TestWatchMinionReports(c *gc.C) {
 		return expectWatch
 	}
 	client := migrationmaster.NewClient(apiCaller, newWatcher)
-
 	w, err := client.WatchMinionReports()
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(w, gc.Equals, expectWatch)
@@ -388,4 +523,72 @@ func (s *ClientSuite) TestMinionReportsBadFailedTag(c *gc.C) {
 	client := migrationmaster.NewClient(apiCaller, nil)
 	_, err := client.MinionReports()
 	c.Assert(err, gc.ErrorMatches, `processing failed agents: "dave" is not a valid tag`)
+}
+
+func (s *ClientSuite) TestStreamModelLogs(c *gc.C) {
+	caller := fakeConnector{path: new(string), attrs: &url.Values{}}
+	client := migrationmaster.NewClient(caller, nil)
+	stream, err := client.StreamModelLog(time.Date(2016, 12, 2, 10, 24, 1, 1000000, time.UTC))
+	c.Assert(stream, gc.IsNil)
+	c.Assert(err, gc.ErrorMatches, "colonel abrams")
+
+	c.Assert(*caller.path, gc.Equals, "/log")
+	c.Assert(*caller.attrs, gc.DeepEquals, url.Values{
+		"replay":        {"true"},
+		"noTail":        {"true"},
+		"startTime":     {"2016-12-02T10:24:01.001Z"},
+		"includeEntity": nil,
+		"includeModule": nil,
+		"excludeEntity": nil,
+		"excludeModule": nil,
+	})
+}
+
+type fakeConnector struct {
+	base.APICaller
+
+	path  *string
+	attrs *url.Values
+}
+
+func (fakeConnector) BestFacadeVersion(string) int {
+	return 0
+}
+
+func (c fakeConnector) ConnectStream(path string, attrs url.Values) (base.Stream, error) {
+	*c.path = path
+	*c.attrs = attrs
+	return nil, errors.New("colonel abrams")
+}
+
+type fakeHTTPCaller struct {
+	base.APICaller
+	httpClient *httprequest.Client
+	err        error
+}
+
+func (fakeHTTPCaller) BestFacadeVersion(string) int {
+	return 0
+}
+
+func (c fakeHTTPCaller) HTTPClient() (*httprequest.Client, error) {
+	return c.httpClient, c.err
+}
+
+type fakeDoer struct {
+	response *http.Response
+	method   string
+	url      string
+}
+
+func (d *fakeDoer) Do(req *http.Request) (*http.Response, error) {
+	d.method = req.Method
+	d.url = req.URL.String()
+	return d.response, nil
+}
+
+func checkReader(c *gc.C, r io.Reader, expected string) {
+	actual, err := ioutil.ReadAll(r)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(string(actual), gc.Equals, expected)
 }
