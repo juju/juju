@@ -56,3 +56,16 @@ type Abort <-chan struct{}
 
 // ErrAborted is used to confirm clean termination of a blocking operation.
 var ErrAborted = errors.New("fortress operation aborted")
+
+// ErrShutdown is used to report that the fortress worker is shutting down.
+var ErrShutdown = errors.New("fortress worker shutting down")
+
+// IsFortressError returns true if the error provided is fortress related.
+func IsFortressError(err error) bool {
+	switch errors.Cause(err) {
+	case ErrAborted, ErrShutdown:
+		return true
+	default:
+		return false
+	}
+}

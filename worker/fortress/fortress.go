@@ -6,7 +6,6 @@ package fortress
 import (
 	"sync"
 
-	"github.com/juju/errors"
 	"gopkg.in/tomb.v1"
 )
 
@@ -57,7 +56,7 @@ func (f *fortress) Visit(visit Visit, abort Abort) error {
 	result := make(chan error)
 	select {
 	case <-f.tomb.Dying():
-		return errors.New("fortress worker shutting down")
+		return ErrShutdown
 	case <-abort:
 		return ErrAborted
 	case f.guestTickets <- guestTicket{visit, result}:
@@ -70,7 +69,7 @@ func (f *fortress) allowGuests(allowGuests bool, abort Abort) error {
 	result := make(chan error)
 	select {
 	case <-f.tomb.Dying():
-		return errors.New("fortress worker shutting down")
+		return ErrShutdown
 	case f.guardTickets <- guardTicket{allowGuests, abort, result}:
 		return <-result
 	}

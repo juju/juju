@@ -218,6 +218,9 @@ func (s *Suite) TestSuccessfulMigration(c *gc.C) {
 		[]jujutesting.StubCall{
 			{"facade.WatchMinionReports", nil},
 			{"facade.MinionReports", nil},
+		},
+		prechecksCalls,
+		[]jujutesting.StubCall{
 			{"facade.SetPhase", []interface{}{coremigration.IMPORT}},
 
 			//IMPORT
