@@ -305,8 +305,10 @@ func (w *Worker) setStatus(message string) error {
 }
 
 func (w *Worker) doQUIESCE(status coremigration.MigrationStatus) (coremigration.Phase, error) {
-	err := w.prechecks(status)
-	if err != nil {
+	// Run prechecks before waiting for minions to report back. This
+	// short-circuits the long timeout in the case of an agent being
+	// down.
+	if err := w.prechecks(status); err != nil {
 		w.setErrorStatus(err.Error())
 		return coremigration.ABORT, nil
 	}
@@ -316,6 +318,12 @@ func (w *Worker) doQUIESCE(status coremigration.MigrationStatus) (coremigration.
 		return coremigration.UNKNOWN, errors.Trace(err)
 	}
 	if !ok {
+		return coremigration.ABORT, nil
+	}
+
+	// Now that the model is stable, run the prechecks again.
+	if err := w.prechecks(status); err != nil {
+		w.setErrorStatus(err.Error())
 		return coremigration.ABORT, nil
 	}
 
