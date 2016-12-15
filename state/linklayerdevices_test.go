@@ -770,6 +770,48 @@ func (s *linkLayerDevicesStateSuite) TestLinkLayerDevicesForSpacesMultipleSpaces
 	c.Check(dmzDevices[0].Name(), gc.Equals, "eth1")
 }
 
+func (s *linkLayerDevicesStateSuite) TestLinkLayerDevicesForSpacesWithExtraAddresses(c *gc.C) {
+	s.setupMachineWithOneNICAndBridge(c)
+	// When we poll the machine, we include any IP addresses that we
+	// find. One of them is always the loopback, but we could find any
+	// other addresses that someone created on the machine that we
+	// don't know what they are.
+	// Now add a NIC in the dmz space, but without a bridge
+	err := s.machine.SetLinkLayerDevices(
+		[]state.LinkLayerDeviceArgs{{
+			Name:       "lo",
+			Type:       state.LoopbackDevice,
+			MACAddress: "99:23:45:67:89:ab:cd:ef",
+			IsUp:       true,
+		}, {
+			Name:       "eth1",
+			Type:       state.EthernetDevice,
+			MACAddress: "11:23:45:67:89:ab:cd:ef",
+			IsUp:       true,
+		}}...
+	)
+	err = s.machine.SetDevicesAddresses(
+		[]state.LinkLayerDeviceAddress{{
+			DeviceName:   "eth1",
+			// Not one of the subnets we know about
+			CIDRAddress:  "172.99.0.20/24",
+			ConfigMethod: state.StaticAddress,
+		}, {
+			DeviceName:   "lo",
+			CIDRAddress:  "127.0.0.1/24",
+			ConfigMethod: state.StaticAddress,
+		}}...
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	res, err := s.machine.LinkLayerDevicesForSpaces([]string{"default"})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(res, gc.HasLen, 1)
+	defaultDevices, ok := res["default"]
+	c.Check(ok, jc.IsTrue)
+	c.Check(defaultDevices, gc.HasLen, 1)
+	c.Check(defaultDevices[0].Name(), gc.Equals, "br-eth0")
+}
+
 func (s *linkLayerDevicesStateSuite) TestLinkLayerDevicesForSpacesSortOrder(c *gc.C) {
 	s.setupMachineWithOneNICAndBridge(c)
 	// Add more devices to the "default" space, to make sure the result comes
