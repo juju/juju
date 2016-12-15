@@ -666,10 +666,14 @@ func (s *linkLayerDevicesStateSuite) setupMachineWithOneNIC(c *gc.C) {
 }
 
 func (s *linkLayerDevicesStateSuite) setupMachineWithOneNICAndBridge(c *gc.C) {
-	_, err := s.State.AddSubnet(state.SubnetInfo{
+	_, err := s.State.AddSpace("default", "default", nil, true)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddSubnet(state.SubnetInfo{
 		CIDR:      "10.0.0.0/24",
 		SpaceName: "default",
 	})
+	c.Assert(err, jc.ErrorIsNil)
+	_, err := s.State.AddSpace("dmz", "dmz", nil, true)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddSubnet(state.SubnetInfo{
 		CIDR:      "10.10.0.0/24",
@@ -1494,7 +1498,7 @@ func (s *linkLayerDevicesStateSuite) TestSetContainerLinkLayerDeviceNotAllSpaces
 	c.Check(containerDevice.ParentName(), gc.Equals, `m#0#d#br-eth0`)
 }
 
-func (s *linkLayerDevicesStateSuite) DONTTestSetContainerLinkLayerDevicesCorrectlyPaired(c *gc.C) {
+func (s *linkLayerDevicesStateSuite) TestSetContainerLinkLayerDevicesCorrectlyPaired(c *gc.C) {
 	// The device names chosen and the order are very explicit. We
 	// need to ensure that we have a list that does not sort well
 	// alphabetically. This is because SetParentLinkLayerDevices()
@@ -1531,6 +1535,17 @@ func (s *linkLayerDevicesStateSuite) DONTTestSetContainerLinkLayerDevicesCorrect
 			Name: "br-eth3",
 			Type: state.BridgeDevice,
 		},
+	}
+	// Put each of those bridges into a different subnet that is part
+	// of the same space.
+	_, err := s.State.AddSpace("default", "default", nil, true)
+	c.Assert(err, jc.ErrorIsNil)
+
+	addressesArgs := []state.LinkLayerDeviceArgs{}
+	for i, devArg := range devicesArgs {
+		subnet := i*10+1
+		subnetCIDR := fmt.Sprintf("10.%d.0.0/24", subnet)
+		_, err = s.State.AddSubnet
 	}
 
 	expectedParents := []string{
