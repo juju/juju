@@ -89,7 +89,7 @@ def assess_sync_bootstrap(args, agent_stream="release"):
     Do sync-tool and then perform juju bootstrap with
     metadata_source and agent-metadata-url option.
     :param args: Parsed command line arguments
-    :param agent_stream: Which stream to use? release or develop
+    :param agent_stream: choice of release or develop
     :return:
     """
     bs_manager = BootstrapManager.from_args(args)
@@ -125,11 +125,8 @@ def main(argv=None):
     args = parse_args(argv)
     configure_logging(args.verbose)
 
-    # Do sync boostrap  with release
-    assess_sync_bootstrap(args)
-
-    # Do  sync boostrap with develop
-    assess_sync_bootstrap(agent_stream="devel")
+    assess_sync_bootstrap(args, agent_stream="release")
+    assess_sync_bootstrap(args, agent_stream="devel")
     return 0
 
 
