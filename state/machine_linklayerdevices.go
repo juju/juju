@@ -901,7 +901,15 @@ func (m *Machine) LinkLayerDevicesForSpaces(spaces []string) (map[string][]*Link
 	for _, addr := range addresses {
 		subnet, err := addr.Subnet()
 		if err != nil {
-			// XXX should we be omitting all other good records because this one was bad?
+			if errors.IsNotFound(err) {
+				// We record all addresses that we find on the
+				// machine. However, some devices may have IP
+				// addresses that are not in known subnets or spaces.
+				// (loopback devices aren't in a space, arbitrary
+				// application based addresses, etc.)
+				continue
+			}
+			// We don't understand the error, so error out for now
 			return nil, errors.Trace(err)
 		}
 		spaceName := subnet.SpaceName()
