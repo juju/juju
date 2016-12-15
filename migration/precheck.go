@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/cloud"
 	coremigration "github.com/juju/juju/core/migration"
+	"github.com/juju/juju/resource"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/tools"
@@ -32,6 +33,7 @@ type PrecheckBackend interface {
 	AllApplications() ([]PrecheckApplication, error)
 	ControllerBackend() (PrecheckBackendCloser, error)
 	CloudCredential(tag names.CloudCredentialTag) (cloud.Credential, error)
+	ListPendingResources(string) ([]resource.Resource, error)
 }
 
 // PrecheckBackendCloser adds the Close method to the standard
@@ -274,6 +276,15 @@ func checkApplications(backend PrecheckBackend) error {
 		err := checkUnits(app, modelVersion)
 		if err != nil {
 			return errors.Trace(err)
+		}
+
+		resources, err := backend.ListPendingResources(app.Name())
+		if err != nil {
+			return errors.Annotate(err, "checking resources")
+		}
+		if len(resources) > 0 {
+			resName := resources[0].Name
+			return errors.Errorf("resource %q is pending for application %s", resName, app.Name())
 		}
 	}
 	return nil

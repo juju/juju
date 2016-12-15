@@ -384,7 +384,7 @@ func (p ResourcePersistence) NewRemoveUnitResourcesOps(unitID string) ([]txn.Op,
 }
 
 // NewRemoveResourcesOps returns mgo transaction operations that
-// remove all the service's resources from state.
+// remove all the applications's resources from state.
 func (p ResourcePersistence) NewRemoveResourcesOps(applicationID string) ([]txn.Op, error) {
 	docs, err := p.resources(applicationID)
 	if err != nil {
