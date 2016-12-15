@@ -673,7 +673,7 @@ func (s *linkLayerDevicesStateSuite) setupMachineWithOneNICAndBridge(c *gc.C) {
 		SpaceName: "default",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	_, err := s.State.AddSpace("dmz", "dmz", nil, true)
+	_, err = s.State.AddSpace("dmz", "dmz", nil, true)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddSubnet(state.SubnetInfo{
 		CIDR:      "10.10.0.0/24",
@@ -1541,11 +1541,19 @@ func (s *linkLayerDevicesStateSuite) TestSetContainerLinkLayerDevicesCorrectlyPa
 	_, err := s.State.AddSpace("default", "default", nil, true)
 	c.Assert(err, jc.ErrorIsNil)
 
-	addressesArgs := []state.LinkLayerDeviceArgs{}
+	devAddresses := make([]state.LinkLayerDeviceAddress, len(devicesArgs))
 	for i, devArg := range devicesArgs {
 		subnet := i*10+1
 		subnetCIDR := fmt.Sprintf("10.%d.0.0/24", subnet)
-		_, err = s.State.AddSubnet
+		_, err = s.State.AddSubnet(state.SubnetInfo{
+			CIDR: subnetCIDR,
+			SpaceName: "default",
+		})
+		devAddresses[i] = state.LinkLayerDeviceAddress{
+			DeviceName:   devArg.Name,
+			CIDRAddress:  fmt.Sprintf("10.%d.0.10/24", subnet),
+			ConfigMethod: state.StaticAddress,
+		}
 	}
 
 	expectedParents := []string{
@@ -1558,10 +1566,13 @@ func (s *linkLayerDevicesStateSuite) TestSetContainerLinkLayerDevicesCorrectlyPa
 		"br-eth10.100",
 	}
 
-	err := s.machine.SetParentLinkLayerDevicesBeforeTheirChildren(devicesArgs[:])
+	err = s.machine.SetParentLinkLayerDevicesBeforeTheirChildren(devicesArgs[:])
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.machine.SetDevicesAddresses(devAddresses...)
 	c.Assert(err, jc.ErrorIsNil)
 	s.addContainerMachine(c)
 	s.assertNoDevicesOnMachine(c, s.containerMachine)
+
 
 	err = s.machine.SetContainerLinkLayerDevices(s.containerMachine)
 	c.Assert(err, jc.ErrorIsNil)
