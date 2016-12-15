@@ -23,6 +23,7 @@ import subprocess
 import sys
 from tempfile import NamedTemporaryFile
 import time
+import types
 
 from dateutil.parser import parse as datetime_parse
 from dateutil import tz
@@ -1638,7 +1639,11 @@ class EnvJujuClient:
     def add_model(self, env):
         """Add a model to this model's controller and return its client.
 
-        :param env: Class representing the new model/environment."""
+        :param env: Either a class representing the new model/environment
+            or the name of the new model/environment which will then be
+            otherwise identical to the current model/environment."""
+        if isinstance(env, types.StringTypes):
+            env = self.env.clone(env)
         model_client = self.clone(env)
         with model_client._bootstrap_config() as config_file:
             self._add_model(env.environment, config_file)

@@ -971,6 +971,16 @@ class TestEnvJujuClient(ClientTest):
             '--config', config_file.name),
             frozenset({'migration'}), 'foo', None, True, None, None)
 
+    def test_add_model_by_name(self):
+        client = fake_juju_client()
+        client.bootstrap()
+        with patch.object(client._backend, 'juju') as juju_mock:
+            with observable_temp_file() as config_file:
+                client.add_model('new-model')
+        juju_mock.assert_called_once_with('add-model', (
+            '-c', 'name', 'new-model', '--config', config_file.name),
+            frozenset({'migration'}), 'foo', None, True, None, None)
+
     def test_destroy_environment(self):
         env = JujuData('foo')
         client = EnvJujuClient(env, None, None)
