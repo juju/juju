@@ -1641,7 +1641,7 @@ class EnvJujuClient:
         :param env: Either a class representing the new model/environment
             or the name of the new model/environment which will then be
             otherwise identical to the current model/environment."""
-        if isinstance(env, str):
+        if not isinstance(env, SimpleEnvironment):
             env = self.env.clone(env)
         model_client = self.clone(env)
         with model_client._bootstrap_config() as config_file:
