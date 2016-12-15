@@ -43,9 +43,7 @@ def assess_multimodel_deploy(client, charm_series, log_dir, base_env):
 
 
 def assess_destroy_current(client):
-    env = client.env.clone(model_name='delete-me')
-    env.set_model_name('delete-me')
-    new_model = client.add_model(env)
+    new_model = client.add_model('delete-me')
     new_model.switch('delete-me')
     new_model.destroy_model()
     new_model.show_controller()
