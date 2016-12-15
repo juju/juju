@@ -141,10 +141,13 @@ def wait_for_migrating(client, timeout=60):
                 ))
 
 
-def assert_deployed_charm_is_responding(client, expected_ouput):
+def assert_deployed_charm_is_responding(client, expected_output=None):
     """Ensure that the deployed simple-server charm is still responding."""
+    # Set default value if needed.
+    if expected_output is None:
+        expected_output = 'simple-server.'
     ipaddress = get_unit_ipaddress(client, 'simple-resource-http/0')
-    if expected_ouput != get_server_response(ipaddress):
+    if expected_output != get_server_response(ipaddress):
         raise JujuAssertionError('Server charm is not responding as expected.')
 
 
@@ -287,7 +290,7 @@ def ensure_migration_including_resources_succeeds(source_client, dest_client):
 
 
 def assert_model_migrated_successfully(
-        client, application, resource_contents='simple-server.'):
+        client, application, resource_contents=None):
     client.wait_for_workloads()
     assert_deployed_charm_is_responding(client, resource_contents)
     ensure_model_is_functional(client, application)
