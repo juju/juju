@@ -103,6 +103,8 @@ def make_logs(log_dir):
 
 class DeployStackTestCase(FakeHomeTestCase):
 
+    log_level = logging.DEBUG
+
     def test_destroy_environment(self):
         client = EnvJujuClient1X(
             SimpleEnvironment('foo', {'type': 'local'}), '1.234-76', None)
@@ -391,8 +393,8 @@ class DeployStackTestCase(FakeHomeTestCase):
         client = EnvJujuClient(env, None, None)
         remote = MagicMock(spec=['cat', 'is_windows'])
         remote.is_windows.return_value = True
-        remote.cat.side_effect = winrm.exceptions.WinRMTransportError(
-            'a', 'oops')
+        error = winrm.exceptions.WinRMTransportError('a', 'oops')
+        remote.cat.side_effect = error
         status = Status.from_text("""\
             applications:
               dummy-sink:
@@ -405,17 +407,14 @@ class DeployStackTestCase(FakeHomeTestCase):
                    return_value=remote):
             with patch.object(client, 'get_status', autospec=True,
                               return_value=status):
-                check_token(client, 'token', timeout=0)
-        # application-status did not have the token, winrm did.
+                with self.assertRaises(type(error)) as ctx:
+                    check_token(client, 'token', timeout=0)
+        self.assertIs(ctx.exception, error)
         remote.cat.assert_called_once_with('%ProgramData%\\dummy-sink\\token')
         self.assertEqual(
             ['INFO Waiting for applications to reach ready.',
-             'INFO Retrieving token.',
-             'WARNING Skipping token check because of: '
-                '500 WinRMTransport. oops'],
+             'INFO Retrieving token.'],
             self.log_stream.getvalue().splitlines())
-
-    log_level = logging.DEBUG
 
 
 class DumpEnvLogsTestCase(FakeHomeTestCase):

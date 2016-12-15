@@ -151,7 +151,7 @@ class TestRemote(tests.FakeHomeTestCase):
             with patch.object(client, "get_juju_output") as mock_gjo:
                 mock_gjo.side_effect = error
                 with self.assertRaises(subprocess.CalledProcessError) as c:
-                    output = remote.run("cat /a/file")
+                    remote.run("cat /a/file")
         self.assertIs(c.exception, error)
         mock_gjo.assert_called_once_with("ssh", unit, "cat /a/file",
                                          timeout=120)
@@ -172,7 +172,7 @@ class TestRemote(tests.FakeHomeTestCase):
                 with patch("remote._no_platform_ssh", autospec=True,
                            return_value=True) as mock_nps:
                     with self.assertRaises(subprocess.CalledProcessError) as c:
-                        output = remote.run("cat /a/file")
+                        remote.run("cat /a/file")
         self.assertIs(c.exception, error)
         mock_gjo.assert_called_once_with("ssh", unit, "cat /a/file",
                                          timeout=120)
