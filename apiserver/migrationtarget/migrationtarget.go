@@ -137,8 +137,9 @@ func (api *API) Abort(args params.ModelArgs) error {
 	return st.RemoveImportingModelDocs()
 }
 
-// Activate sets the migration mode of the model to "active". It is an error to
-// attempt to Abort a model that has a migration mode other than importing.
+// Activate sets the migration mode of the model to "none", meaning it
+// is ready for use. It is an error to attempt to Abort a model that
+// has a migration mode other than importing.
 func (api *API) Activate(args params.ModelArgs) error {
 	model, err := api.getImportingModel(args)
 	if err != nil {
