@@ -47,6 +47,7 @@ def assess_model_migration(bs1, bs2, args):
             dest_client = bs2.client
             ensure_migration_including_resources_succeeds(
                 source_client, dest_client)
+            ensure_model_logs_are_migrated(source_client, dest_client)
             with temp_dir() as temp:
                 ensure_migrating_with_insufficient_user_permissions_fails(
                     source_client, dest_client, temp)
@@ -59,7 +60,6 @@ def assess_model_migration(bs1, bs2, args):
                         source_client, dest_client, temp)
 
             if args.use_develop:
-                ensure_model_logs_are_migrated(source_client, dest_client)
                 ensure_migration_rolls_back_on_failure(
                     source_client, dest_client)
                 ensure_api_login_redirects(source_client, dest_client)
