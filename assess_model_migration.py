@@ -155,48 +155,6 @@ def get_server_response(ipaddress):
     return urlopen('http://{}'.format(ipaddress)).read().rstrip()
 
 
-# def test_deployed_mongo_is_up(client):
-#     """Ensure the mongo service is running as expected."""
-#     try:
-#         output = client.get_juju_output(
-#             'run', '--unit', 'mongodb/0', 'mongo --eval "db.getMongo()"')
-#         if 'connecting to: test' in output:
-#             return
-#     except CalledProcessError as e:
-#         # Pass through to assertion error
-#         log.error('Mongodb check command failed: {}'.format(e))
-#     raise AssertionError('Mongo db is not in an expected state.')
-
-
-# def ensure_able_to_migrate_model_between_controllers(
-#         source_client, dest_client):
-#     """Test simple migration of a model to another controller.
-
-#     Ensure that migration a model that has an application deployed upon it is
-#     able to continue it's operation after the migration process.
-
-#     Given 2 bootstrapped environments:
-#       - Deploy an application with a resource
-#         - ensure it's operating as expected
-#       - Migrate that model to the other environment
-#         - Ensure it's operating as expected
-#         - Add a new unit to the application to ensure the model is functional
-#       - Migrate the model back to the original environment
-#         - Note: Test for lp:1607457
-#         - Ensure it's operating as expected
-#         - Add a new unit to the application to ensure the model is functional
-#     """
-#     application = 'mongodb'
-#     test_model = deploy_mongodb_to_new_model(
-#         source_client, model_name='example-model')
-#     log.info('Initiating migration process')
-#     migration_target_client = migrate_model_to_controller(
-#         test_model, dest_client)
-#     assert_model_migrated_successfully(migration_target_client, application)
-#     migration_target_client.remove_service(application)
-#     log.info('SUCCESS: model migrated.')
-
-
 def ensure_api_login_redirects(source_client, dest_client):
     """Login attempts must get transparently redirected to the new controller.
     """
@@ -323,31 +281,6 @@ def ensure_superuser_can_migrate_other_user_models(
     migration_client.wait_for_started()
 
 
-# def ensure_migrating_to_target_and_back_to_source_succeeds(
-#         source_client, dest_client):
-#     """Test migration from source to target and back again.
-
-#     Almost a duplicate of 'ensure_able_to_migrate_model_between_controllers'
-#     except adds the extra step of migrating the model back to the original
-#     controller.
-
-#     Note: Test for lp:1641824
-#     """
-#     application = 'mongodb'
-#     test_model = deploy_mongodb_to_new_model(
-#         source_client, model_name='example-model')
-#     log.info('Initiating migration process')
-#     migration_target_client = migrate_model_to_controller(
-#         test_model, dest_client)
-#     assert_model_migrated_successfully(migration_target_client, application)
-#     # Ensure migration works back to the original controller as per lp:1641824
-#     re_migrate_client = migrate_model_to_controller(
-#         migration_target_client, source_client)
-#     assert_model_migrated_successfully(re_migrate_client, application)
-#     re_migrate_client.remove_service(application)
-#     log.info('SUCCESS: model migrated back to source.')
-
-
 def deploy_simple_server_to_new_model(
         client, model_name, resource_contents=None):
     new_model = client.add_model(client.env.clone(model_name))
@@ -462,9 +395,6 @@ def ensure_migration_rolls_back_on_failure(source_client, dest_client):
     the migration must roll back and continue to be available on the source
     controller.
     """
-    # application = 'mongodb'
-    # test_model = deploy_mongodb_to_new_model(
-    #     source_client, model_name='rollmeback')
     test_model, application = deploy_simple_server_to_new_model(
         source_client, 'rollmeback')
     test_model.controller_juju(
@@ -480,7 +410,6 @@ def ensure_migration_rolls_back_on_failure(source_client, dest_client):
         wait_for_model(test_model, test_model.env.environment)
         test_model.wait_for_started()
         assert_deployed_charm_is_responding(test_model)
-        # test_deployed_mongo_is_up(test_model)
         ensure_model_is_functional(test_model, application)
     test_model.remove_service(application)
     log.info('SUCCESS: migration rolled back.')
