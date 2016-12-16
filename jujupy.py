@@ -2795,6 +2795,13 @@ class EnvJujuClient:
             return self.juju('sync-tools', ('--local-dir', local_dir),
                              include_e=False)
 
+    def switch(self, model=None, controller=None):
+        """Switch between models."""
+        args = [x for x in [controller, model] if x]
+        if not args:
+            raise ValueError('No target to switch to has been given.')
+        self.juju('switch', (':'.join(args),), include_e=False)
+
 
 class EnvJujuClientRC(EnvJujuClient):
 

@@ -3633,6 +3633,20 @@ class TestEnvJujuClient(ClientTest):
         mock.assert_called_once_with('sync-tools', ('--local-dir', '/agents'),
                                      include_e=False)
 
+    def test_switch(self):
+        def run_switch_test(expect, model=None, controller=None):
+            client = EnvJujuClient(JujuData('foo'), None, None)
+            with patch.object(client, 'juju', autospec=True) as mock:
+                client.switch(model=model, controller=controller)
+            mock.assert_called_once_with('switch', (expect,), include_e=False)
+        run_switch_test('default', 'default')
+        run_switch_test('other', controller='other')
+        run_switch_test('other:default', 'default', 'other')
+
+    def test_switch_no_target(self):
+        client = EnvJujuClient(JujuData('foo'), None, None)
+        self.assertRaises(ValueError, client.switch)
+
 
 class TestEnvJujuClientRC(ClientTest):
 
