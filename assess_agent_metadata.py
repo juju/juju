@@ -150,7 +150,9 @@ def assess_metadata(args, agent_dir):
     """
     bs_manager = BootstrapManager.from_args(args)
     client = bs_manager.client
-    client.env.update_config({'agent-metadata-url': args.agent_file})
+    agent_metadata_url = os.path.join(agent_dir, JUJU_TOOL_PATH,
+                                      os.path.basename(args.agent_file))
+    client.env.update_config({'agent-metadata-url': agent_metadata_url})
     log.info('bootstrap to use --agent_metadata_url={}'.format(
         args.agent_file))
     client.generate_tool(agent_dir)
@@ -172,13 +174,16 @@ def assess_add_cloud(args, agent_dir):
     test_cloud_yaml_file = "testCloud.yaml"
     cloud_name = "testCloud"
 
+    agent_metadata_url = os.path.join(agent_dir, JUJU_TOOL_PATH,
+                                      os.path.basename(args.agent_file))
+
     test_cloud_yaml_data = dedent("""\
             clouds:
                 {0}:
                     type: lxd
                     config:
                          agent-metadata-url: file://{1}
-            """).format(cloud_name, args.agent_file)
+            """).format(cloud_name, agent_metadata_url)
 
     with open(test_cloud_yaml_file, "w") as infile:
         infile.write(test_cloud_yaml_data)
