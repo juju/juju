@@ -154,12 +154,12 @@ def assess_metadata(args, agent_dir):
                                       os.path.basename(args.agent_file))
     client.env.update_config({'agent-metadata-url': agent_metadata_url})
     log.info('bootstrap to use --agent_metadata_url={}'.format(
-        args.agent_file))
+        agent_metadata_url))
     client.generate_tool(agent_dir)
 
     with bs_manager.booted_context(args.upload_tools):
         log.info('Metadata bootstrap successful.')
-        assert_metadata_are_correct(args.agent_file, client)
+        assert_metadata_are_correct(agent_metadata_url, client)
         verify_deployed_tool(agent_dir, client)
         log.info("Successfully deployed and verified agent-metadata-url")
 
