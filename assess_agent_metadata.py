@@ -39,7 +39,6 @@ from utility import (
 )
 
 JUJU_TOOL_PATH = "tools/released/"
-JUJU_STREAM_PATH = "tools/streams/"
 
 
 log = logging.getLogger("assess_agent_metadata")
@@ -150,8 +149,7 @@ def assess_metadata(args, agent_dir):
     """
     bs_manager = BootstrapManager.from_args(args)
     client = bs_manager.client
-    agent_metadata_url = os.path.join(agent_dir, JUJU_TOOL_PATH,
-                                      os.path.basename(args.agent_file))
+    agent_metadata_url = os.path.join(agent_dir, JUJU_TOOL_PATH.split('/')[0])
     client.env.update_config({'agent-metadata-url': agent_metadata_url})
     log.info('bootstrap to use --agent_metadata_url={}'.format(
         agent_metadata_url))
@@ -174,9 +172,7 @@ def assess_add_cloud(args, agent_dir):
     test_cloud_yaml_file = "testCloud.yaml"
     cloud_name = "testCloud"
 
-    agent_metadata_url = os.path.join(agent_dir, JUJU_TOOL_PATH,
-                                      os.path.basename(args.agent_file))
-
+    agent_metadata_url = os.path.join(agent_dir, JUJU_TOOL_PATH.split('/')[0])
     test_cloud_yaml_data = dedent("""\
             clouds:
                 {0}:
@@ -229,13 +225,9 @@ def make_unique_tool(agent_file):
     """
     with temp_dir() as agent_dir:
         juju_tool_src = os.path.join(agent_dir, JUJU_TOOL_PATH)
-        juju_stream_dst = os.path.join(agent_dir, JUJU_STREAM_PATH)
         try:
             if not os.path.exists(juju_tool_src):
                 os.makedirs(juju_tool_src)
-
-            if not os.path.exists(juju_stream_dst):
-                os.makedirs(juju_stream_dst)
 
             change_tgz_sha256_sum(agent_file,
                                   os.path.join(juju_tool_src,
