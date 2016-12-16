@@ -79,6 +79,7 @@ def deploy_charm_and_verify(client):
     charm_source = local_charm_path(
         charm=charm_app, juju_ver=client.version)
     client.deploy(charm_source)
+    client.wait_for_started()
     verify_deployed_charm(charm_app, client)
 
 

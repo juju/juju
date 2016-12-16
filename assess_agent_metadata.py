@@ -18,13 +18,11 @@ from __future__ import print_function
 from argparse import ArgumentParser
 from contextlib import contextmanager
 from hashlib import sha256
-from textwrap import dedent
 
 import logging
 import os
 import subprocess
 import sys
-import yaml
 import json
 
 from deploy_stack import (
@@ -36,6 +34,10 @@ from utility import (
     configure_logging,
     JujuAssertionError,
     temp_dir,
+)
+
+from jujupy import (
+    temp_yaml_file,
 )
 
 JUJU_TOOL_PATH = "tools/released/"
@@ -169,33 +171,25 @@ def assess_add_cloud(args, agent_dir):
     :param args: Parsed command line arguments
     :param agent_dir: The top level directory location of agent file.
     """
-    test_cloud_yaml_file = "testCloud.yaml"
     cloud_name = "testCloud"
-
     agent_metadata_url = os.path.join(agent_dir, JUJU_TOOL_PATH.split('/')[0])
-    test_cloud_yaml_data = dedent("""\
-            clouds:
-                {0}:
-                    type: lxd
-                    config:
-                         agent-metadata-url: file://{1}
-            """).format(cloud_name, agent_metadata_url)
 
-    with open(test_cloud_yaml_file, "w") as infile:
-        infile.write(test_cloud_yaml_data)
+    test_cloud_data = {'clouds': {'{0}'.format(
+        cloud_name): {'type': 'lxd',
+                      'config': {'agent-metadata-url': 'file://{}'.format(
+                          agent_metadata_url)}}}}
 
     bs_manager = BootstrapManager.from_args(args)
     client = bs_manager.client
-    client.add_cloud(cloud_name, test_cloud_yaml_file)
-    clouds = yaml.safe_load(test_cloud_yaml_data)['clouds']
-    assert_cloud_details_are_correct(client, cloud_name,
-                                     clouds[cloud_name])
+    with temp_yaml_file(test_cloud_data) as add_cloud_file:
+        client.add_cloud(cloud_name, add_cloud_file)
+        clouds = test_cloud_data['clouds'][cloud_name]
+        assert_cloud_details_are_correct(client, cloud_name, clouds)
+
     with bs_manager.booted_context(args.upload_tools):
         log.info('Metadata bootstrap successful.')
         verify_deployed_tool(agent_dir, client)
         log.info("Successfully deployed and verified add-cloud")
-
-    os.remove(test_cloud_yaml_file)
 
 
 def change_tgz_sha256_sum(src, dst):
@@ -207,13 +201,14 @@ def change_tgz_sha256_sum(src, dst):
     :param dst: The destination tgz file
     """
     if not src.endswith(".tgz"):
-        raise JujuAssertionError("requires tgz file in {}".format(src))
+        raise Exception("{} is not tgz file".format(src))
     try:
+        import pdb
+        pdb.set_trace()
         command = "cat {}  <(echo -n ''| gzip)> {}".format(src, dst)
         subprocess.Popen(command, shell=True, executable='/bin/bash')
     except subprocess.CalledProcessError as e:
-        raise JujuAssertionError(
-            "Failed to change tool file {} - {}". format(src, e))
+        raise Exception("Failed to create a tool file {} - {}". format(src, e))
 
 
 @contextmanager
@@ -225,18 +220,13 @@ def make_unique_tool(agent_file):
     """
     with temp_dir() as agent_dir:
         juju_tool_src = os.path.join(agent_dir, JUJU_TOOL_PATH)
-        try:
-            if not os.path.exists(juju_tool_src):
-                os.makedirs(juju_tool_src)
-
-            change_tgz_sha256_sum(agent_file,
-                                  os.path.join(juju_tool_src,
-                                               os.path.basename(agent_file)))
-            log.debug("Created agent directory to perform bootstrap".format(
-                agent_dir))
-            yield agent_dir
-        except Exception as e:
-            raise JujuAssertionError("failed on make_unique_tool {}".format(e))
+        os.makedirs(juju_tool_src)
+        change_tgz_sha256_sum(agent_file,
+                              os.path.join(juju_tool_src,
+                                           os.path.basename(agent_file)))
+        log.debug("Created agent directory to perform bootstrap".format(
+            agent_dir))
+        yield agent_dir
 
 
 def parse_args(argv):
@@ -258,8 +248,8 @@ def main(argv=None):
     configure_logging(args.verbose)
 
     if not os.path.isfile(args.agent_file):
-        raise JujuAssertionError(
-            "Unable to find juju agent file {}".format(args.agent_file))
+        raise Exception(
+           "Unable to find juju agent file {}".format(args.agent_file))
 
     with make_unique_tool(args.agent_file) as agent_dir:
         assess_metadata(args, agent_dir)
