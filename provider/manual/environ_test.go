@@ -84,26 +84,36 @@ func (s *environSuite) TestDestroyController(c *gc.C) {
 		c.Assert(stdin, gc.Equals, `
 set -x
 touch '/var/lib/juju/uninstall-agent'
-# If jujud is running, we then wait for a while for it to stop.
+
 stopped=0
-if pkill -6 jujud; then
+function wait_for_jujud {
+    # Give jujud a chance to stop after pkill.
     for i in {1..30}; do
         if pgrep jujud > /dev/null ; then
             sleep 1
         else
-            echo "jujud stopped"
+            echo jujud stopped
             stopped=1
             logger --id jujud stopped on attempt $i
             break
         fi
     done
-fi
-if [ $stopped -ne 1 ]; then
+}
+
+# There might be no jujud at all (for example, after a failed deployment) so
+# don't require pkill to succeed before checking jujud is dead.
+pkill -6 jujud
+wait_for_jujud
+
+[[ $stopped -ne 1 ]] && {
     # If jujud didn't stop nicely, we kill it hard here.
-    pkill -9 jujud
-    service juju-db stop
-    logger --id killed jujud and stopped juju-db
-fi
+    pkill -9 jujud && wait_for_jujud
+}
+[[ $stopped -ne 1 ]] && {
+    echo jujud removal failed
+    exit 1
+}
+service juju-db stop && logger --id stopped juju-db
 apt-get -y purge juju-mongo*
 apt-get -y autoremove
 rm -f /etc/init/juju*
