@@ -76,8 +76,7 @@ def ensure_multiple_models_forward_messages(
     """
     enable_log_forwarding(dummy)
 
-    model1 = dummy.add_model(
-        dummy.env.clone('{}-{}'.format(dummy.env.environment, 'model1')))
+    model1 = dummy.add_model('{}-{}'.format(dummy.env.environment, 'model1'))
 
     charm_path = local_charm_path(
         charm='dummy-source', juju_ver=model1.version)
