@@ -42,6 +42,15 @@ def assess_multimodel_deploy(client, charm_series, log_dir, base_env):
             check_services(env2_client)
 
 
+def assess_destroy_current(client):
+    model_name = client.model_name
+    new_model = client.add_model('delete-me')
+    new_model.switch('delete-me')
+    new_model.destroy_model()
+    new_model.show_controller()
+    client.switch(model_name)
+
+
 @contextmanager
 def multimodel_setup(args):
     """
@@ -105,12 +114,18 @@ def check_services(client):
     check_token(client, token)
 
 
-def main():
+def parse_args(argv=None):
+    """Parse all arguments."""
     parser = ArgumentParser()
     add_basic_testing_arguments(parser, using_jes=True, deadline=True)
-    args = parser.parse_args()
+    return parser.parse_args(argv)
+
+
+def main():
+    args = parse_args()
     with multimodel_setup(args) as (client, charm_series, base_env):
         assess_multimodel_deploy(client, charm_series, args.logs, base_env)
+        assess_destroy_current(client)
 
 
 if __name__ == '__main__':

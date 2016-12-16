@@ -1,13 +1,16 @@
 #!/usr/bin/env python
 
 from argparse import Namespace
+from contextlib import contextmanager
 import os
 
 from mock import (
+    Mock,
     patch,
     )
 
 from assess_multimodel import (
+    assess_destroy_current,
     check_services,
     env_token,
     hosted_environment,
@@ -127,6 +130,23 @@ class TestMultiModel(tests.FakeHomeTestCase):
                         client, charm_previx, base_env):
                     self.assertEqual(1, client.is_jes_enabled.call_count)
                     self.assertEqual(1, client.enable_jes.call_count)
+
+
+class TestDestroyCurrent(tests.TestCase):
+
+    @contextmanager
+    def prepare(self):
+        (mock_client, mock_model) = (Mock(), Mock())
+        mock_client.attach_mock(Mock(return_value=mock_model), 'add_model')
+        yield (mock_client, mock_model)
+
+    def test_destroy_current(self):
+        with self.prepare() as (client, model):
+            assess_destroy_current(client)
+        client.add_model.assert_called_once_with('delete-me')
+        model.switch.assert_called_once_with('delete-me')
+        model.destroy_model.assert_called_once_with()
+        model.show_controller.assert_called_once_with()
 
 
 class TestHostedEnvironment(tests.FakeHomeTestCase):

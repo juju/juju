@@ -4,7 +4,6 @@ import logging
 import os
 import subprocess
 import sys
-import types
 import zlib
 
 import winrm
@@ -156,7 +155,7 @@ class SSHRemote(_Remote):
         command being run rather than ssh itself. This can be used to skip the
         fallback to native ssh behaviour when running commands that may fail.
         """
-        if isinstance(command_args, types.StringTypes):
+        if not isinstance(command_args, (list, tuple)):
             command_args = [command_args]
         if self.use_juju_ssh:
             logging.debug('juju ssh {}'.format(self.unit))
