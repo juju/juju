@@ -91,7 +91,7 @@ def env_token(env_name):
 @contextmanager
 def hosted_environment(system_client, log_dir, suffix):
     env_name = '{}-{}'.format(system_client.env.environment, suffix)
-    client = system_client.add_model(system_client.env.clone(env_name))
+    client = system_client.add_model(env_name)
     try:
         yield client
     except:
