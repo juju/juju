@@ -463,19 +463,21 @@ func (*addSuite) TestInteractiveExistingNameNoOverride(c *gc.C) {
 	err := testing.InitCommand(command, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
+	var out bytes.Buffer
 	ctx := &cmd.Context{
-		Stdout: ioutil.Discard,
+		Stdout: &out,
 		Stderr: ioutil.Discard,
 		Stdin: strings.NewReader("" +
 			/* Select cloud type: */ "manual\n" +
 			/* Enter a name for the cloud: */ "homestack" + "\n" +
-			/* Do you want to replace that definition? (y/N): */ "n" + "\n" +
+			/* Do you want to replace that definition? (y/N): */ "n\n" +
 			/* Enter a name for the cloud: */ "homestack2" + "\n" +
 			/* Enter the controller's hostname or IP address: */ "192.168.1.6" + "\n",
 		),
 	}
 
 	err = command.Run(ctx)
+	c.Log(out.String())
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(numCallsToWrite(), gc.Equals, 1)
@@ -499,7 +501,48 @@ func (*addSuite) TestInteractiveAddCloud_PromptForNameIsCorrect(c *gc.C) {
 	// Running the command will return an error because we only give
 	// enough input to get to the prompt we care about checking. This
 	// test ignores this error.
-	command.Run(ctx)
+	err := command.Run(ctx)
+	c.Assert(errors.Cause(err), gc.Equals, io.EOF)
 
 	c.Check(out.String(), gc.Matches, "(?s).+Enter a name for your manual cloud: .*")
+}
+
+func (*addSuite) TestSpecifyingCloudFileThroughFlag_CorrectlySetsMemberVar(c *gc.C) {
+	command := cloud.NewAddCloudCommand(nil)
+	runCmd := func() {
+		testing.RunCommand(c, command, "garage-maas", "-f", "fake.yaml")
+	}
+	c.Assert(runCmd, gc.PanicMatches, "runtime error: invalid memory address or nil pointer dereference")
+	c.Check(command.CloudFile, gc.Equals, "fake.yaml")
+}
+
+func (*addSuite) TestSpecifyingCloudFileThroughFlagAndArgument_Errors(c *gc.C) {
+	command := cloud.NewAddCloudCommand(nil)
+	_, err := testing.RunCommand(c, command, "garage-maas", "-f", "fake.yaml", "foo.yaml")
+	c.Check(err, gc.ErrorMatches, "cannot specify cloud file with flag and argument")
+}
+
+func (*addSuite) TestSpecifyCloudName_ProvidedNamedUtilizedDuringInteractive(c *gc.C) {
+	fake := newFakeCloudMetadataStore()
+	fake.Call("PublicCloudMetadata", []string(nil)).Returns(map[string]cloudfile.Cloud{}, false, nil)
+	fake.Call("PersonalCloudMetadata").Returns(homestackMetadata(), nil)
+	command := cloud.NewAddCloudCommand(fake)
+	command.Cloud = "foo-name"
+
+	var out bytes.Buffer
+	ctx := &cmd.Context{
+		Stdout: &out,
+		Stderr: ioutil.Discard,
+		Stdin: strings.NewReader("" +
+			/* Select cloud type: */ "manual\n" +
+			/* Enter the controller's hostname or IP address: */ "192.168.1.6" + "\n",
+		),
+	}
+
+	// Running the command will return an error because we only give
+	// enough input to get to the prompt we care about checking. This
+	// test ignores this error.
+	err := command.Run(ctx)
+	c.Assert(errors.Cause(err), gc.Equals, io.EOF)
+	c.Check(out.String(), gc.Not(gc.Matches), "(?s).+Enter a name for your manual cloud:.*")
 }
