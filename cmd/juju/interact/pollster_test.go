@@ -184,6 +184,78 @@ func (PollsterSuite) TestEnterEmpty(c *gc.C) {
 	c.Assert(squash(w.String()), jc.Contains, "Enter your name: Enter your name: ")
 }
 
+func (PollsterSuite) TestEnterVerify(c *gc.C) {
+	r := strings.NewReader("Bill Smith")
+	w := &bytes.Buffer{}
+	p := New(r, w, w)
+	verify := func(s string) (ok bool, errmsg string, err error) {
+		if s == "Bill Smith" {
+			return true, "", nil
+		}
+		return false, "not bill!", nil
+	}
+	a, err := p.EnterVerify("your name", verify)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(a, gc.Equals, "Bill Smith")
+	c.Assert(w.String(), gc.Equals, "Enter your name: \n")
+}
+
+func (PollsterSuite) TestEnterVerifyBad(c *gc.C) {
+	r := strings.NewReader("Will Smithy\nBill Smith")
+	w := &bytes.Buffer{}
+	p := New(r, w, w)
+	verify := func(s string) (ok bool, errmsg string, err error) {
+		if s == "Bill Smith" {
+			return true, "", nil
+		}
+		return false, "not bill!", nil
+	}
+	a, err := p.EnterVerify("your name", verify)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(a, gc.Equals, "Bill Smith")
+	c.Assert(squash(w.String()), gc.Equals, "Enter your name: not bill!Enter your name: ")
+}
+
+func (PollsterSuite) TestEnterDefaultNonEmpty(c *gc.C) {
+	r := strings.NewReader("Bill Smith")
+	w := &bytes.Buffer{}
+	p := New(r, w, w)
+	a, err := p.EnterDefault("your name", "John")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(a, gc.Equals, "Bill Smith")
+	c.Assert(w.String(), gc.Equals, "Enter your name [John]: \n")
+}
+
+func (PollsterSuite) TestEnterDefaultEmpty(c *gc.C) {
+	r := strings.NewReader("\n")
+	w := &bytes.Buffer{}
+	p := New(r, w, w)
+	a, err := p.EnterDefault("your name", "John")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(a, gc.Equals, "John")
+	// We should re-query without any error on empty input.
+	c.Assert(squash(w.String()), jc.Contains, "Enter your name [John]: ")
+}
+
+func (PollsterSuite) TestEnterVerifyDefaultEmpty(c *gc.C) {
+	r := strings.NewReader("\n")
+	w := &bytes.Buffer{}
+	p := New(r, w, w)
+	// note that the verification does not accept empty string, but the default
+	// should still work
+	verify := func(s string) (ok bool, errmsg string, err error) {
+		if s == "Bill Smith" {
+			return true, "", nil
+		}
+		return false, "not bill!", nil
+	}
+	a, err := p.EnterVerifyDefault("your name", verify, "John")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(a, gc.Equals, "John")
+	// We should re-query without any error on empty input.
+	c.Assert(squash(w.String()), jc.Contains, "Enter your name [John]: ")
+}
+
 func (PollsterSuite) TestYNDefaultFalse(c *gc.C) {
 	r := strings.NewReader("Y")
 	w := &bytes.Buffer{}
@@ -261,6 +333,58 @@ func (PollsterSuite) TestQueryStringSchema(c *gc.C) {
 	c.Check(ok, jc.IsTrue)
 	c.Check(s, gc.Equals, "wat")
 	c.Assert(w.String(), jc.Contains, "Enter region:")
+}
+
+func (PollsterSuite) TestQueryStringSchemaWithDefault(c *gc.C) {
+	schema := &jsonschema.Schema{
+		Singular: "region",
+		Type:     []jsonschema.Type{jsonschema.StringType},
+		Default:  "foo",
+	}
+	r := strings.NewReader("\n")
+	w := &bytes.Buffer{}
+	p := New(r, w, w)
+	v, err := p.QuerySchema(schema)
+	c.Assert(err, jc.ErrorIsNil)
+	s, ok := v.(string)
+	c.Check(ok, jc.IsTrue)
+	c.Check(s, gc.Equals, "foo")
+	c.Assert(w.String(), jc.Contains, "Enter region [foo]:")
+}
+
+func (PollsterSuite) TestQueryStringSchemaWithUnusedDefault(c *gc.C) {
+	schema := &jsonschema.Schema{
+		Singular: "region",
+		Type:     []jsonschema.Type{jsonschema.StringType},
+		Default:  "foo",
+	}
+	r := strings.NewReader("bar\n")
+	w := &bytes.Buffer{}
+	p := New(r, w, w)
+	v, err := p.QuerySchema(schema)
+	c.Assert(err, jc.ErrorIsNil)
+	s, ok := v.(string)
+	c.Check(ok, jc.IsTrue)
+	c.Check(s, gc.Equals, "bar")
+	c.Assert(w.String(), jc.Contains, "Enter region [foo]:")
+}
+
+func (PollsterSuite) TestQueryStringSchemaWithPromptDefault(c *gc.C) {
+	schema := &jsonschema.Schema{
+		Singular:      "region",
+		Type:          []jsonschema.Type{jsonschema.StringType},
+		Default:       "foo",
+		PromptDefault: "not foo",
+	}
+	r := strings.NewReader("\n")
+	w := &bytes.Buffer{}
+	p := New(r, w, w)
+	v, err := p.QuerySchema(schema)
+	c.Assert(err, jc.ErrorIsNil)
+	s, ok := v.(string)
+	c.Check(ok, jc.IsTrue)
+	c.Check(s, gc.Equals, "foo")
+	c.Check(w.String(), jc.Contains, "Enter region [not foo]:")
 }
 
 func (PollsterSuite) TestQueryURISchema(c *gc.C) {
