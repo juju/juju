@@ -203,8 +203,6 @@ def change_tgz_sha256_sum(src, dst):
     if not src.endswith(".tgz"):
         raise Exception("{} is not tgz file".format(src))
     try:
-        import pdb
-        pdb.set_trace()
         command = "cat {}  <(echo -n ''| gzip)> {}".format(src, dst)
         subprocess.Popen(command, shell=True, executable='/bin/bash')
     except subprocess.CalledProcessError as e:
