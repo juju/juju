@@ -1385,7 +1385,6 @@ func (t *localServerSuite) TestInstanceInformation(c *gc.C) {
 	env := t.prepareEnviron(c)
 	types, err := env.InstanceTypes(constraints.Value{})
 	c.Assert(err, jc.ErrorIsNil)
-	fmt.Printf("instance types: %d", len(types.InstanceTypes))
 	c.Check(types.InstanceTypes, gc.HasLen, 45)
 
 	cons := constraints.MustParse("mem=4G")
