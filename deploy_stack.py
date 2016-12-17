@@ -628,7 +628,8 @@ class BootstrapManager:
 
     def __init__(self, temp_env_name, client, tear_down_client, bootstrap_host,
                  machines, series, agent_url, agent_stream, region, log_dir,
-                 keep_env, permanent, jes_enabled, controller_strategy=None):
+                 keep_env, permanent, jes_enabled, controller_strategy=None,
+                 logged_exception_exit=True):
         """Constructor.
 
         Please see see `BootstrapManager` for argument descriptions.
@@ -653,6 +654,7 @@ class BootstrapManager:
         if controller_strategy is None:
             controller_strategy = CreateController(client, tear_down_client)
         self.controller_strategy = controller_strategy
+        self.logged_exception_exit = logged_exception_exit
         self.has_controller = False
 
     @property
@@ -981,7 +983,9 @@ class BootstrapManager:
                         m_client.show_status()
                     yield machines
         except LoggedException:
-            sys.exit(1)
+            if self.logged_exception_exit:
+                sys.exit(1)
+            raise
 
     @contextmanager
     def existing_booted_context(self, upload_tools, **kwargs):

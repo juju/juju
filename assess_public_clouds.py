@@ -44,7 +44,8 @@ def prepare_cloud(config, region, client, log_dir):
     bs_manager = BootstrapManager(
         env_name, client, client, bootstrap_host=None, machines=[],
         series=None, agent_url=None, agent_stream=None, region=region,
-        log_dir=logging_dir, keep_env=False, permanent=True, jes_enabled=True)
+        log_dir=logging_dir, keep_env=False, permanent=True, jes_enabled=True,
+        logged_exception_exit=False)
     assess_cloud_combined(bs_manager)
 
 
