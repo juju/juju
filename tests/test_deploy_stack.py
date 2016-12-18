@@ -1983,7 +1983,8 @@ class TestBootstrapManager(FakeHomeTestCase):
                 with bs_manager.runtime_context([]):
                     raise ValueError
 
-    def test_booted_context_handles_logged_exception(self):
+    @contextmanager
+    def logged_exception_bs_manager(self):
         client = fake_juju_client()
         with temp_dir() as root:
             log_dir = os.path.join(root, 'log-dir')
@@ -1995,7 +1996,19 @@ class TestBootstrapManager(FakeHomeTestCase):
             juju_home = os.path.join(root, 'juju-home')
             os.mkdir(juju_home)
             client.env.juju_home = juju_home
+            yield bs_manager
+
+    def test_booted_context_handles_logged_exception(self):
+        with self.logged_exception_bs_manager() as bs_manager:
             with self.assertRaises(SystemExit):
+                with patch.object(bs_manager, 'dump_all_logs'):
+                    with bs_manager.booted_context(False):
+                        raise LoggedException()
+
+    def test_booted_context_raises_logged_exception(self):
+        with self.logged_exception_bs_manager() as bs_manager:
+            bs_manager.logged_exception_exit = False
+            with self.assertRaises(LoggedException):
                 with patch.object(bs_manager, 'dump_all_logs'):
                     with bs_manager.booted_context(False):
                         raise LoggedException()
