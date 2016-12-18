@@ -636,10 +636,14 @@ func (s *linkLayerDevicesStateSuite) TestMachineRemoveAllLinkLayerDevicesNoError
 }
 
 func (s *linkLayerDevicesStateSuite) setupMachineWithOneNIC(c *gc.C) {
-	_, err := s.State.AddSubnet(state.SubnetInfo{
+	_, err := s.State.AddSpace("default", "default", nil, true)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddSubnet(state.SubnetInfo{
 		CIDR:      "10.0.0.0/24",
 		SpaceName: "default",
 	})
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddSpace("dmz", "dmz", nil, true)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddSubnet(state.SubnetInfo{
 		CIDR:      "10.10.0.0/24",
@@ -1572,6 +1576,10 @@ func (s *linkLayerDevicesStateSuite) TestSetContainerLinkLayerDevicesCorrectlyPa
 	c.Assert(err, jc.ErrorIsNil)
 	s.addContainerMachine(c)
 	s.assertNoDevicesOnMachine(c, s.containerMachine)
+	err = s.containerMachine.SetConstraints(constraints.Value{
+		Spaces: &[]string{"default"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
 
 
 	err = s.machine.SetContainerLinkLayerDevices(s.containerMachine)
