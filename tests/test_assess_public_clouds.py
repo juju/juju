@@ -17,9 +17,9 @@ from assess_public_clouds import (
     default_log_dir,
     iter_cloud_regions,
     main,
+    make_bootstrap_manager,
     make_logging_dir,
     parse_args,
-    prepare_cloud,
     yaml_file_load,
     )
 from deploy_stack import BootstrapManager
@@ -128,16 +128,16 @@ class TestHelpers(TestCase):
         self.assertFalse(clean_dir_mock.called)
 
 
-class TestPrepareCloud(FakeHomeTestCase):
+class TestMakeBootstrapManager(FakeHomeTestCase):
 
-    def test_prepare_cloud(self):
+    def test_make_bootstrap_manager(self):
         client = fake_juju_client()
         bs_manager = Mock()
         with patch_local('make_logging_dir', autospec=True,
                          side_effect=os.path.join):
             with patch_local('assess_cloud_combined', autospec=True):
-                bs_manager = prepare_cloud('config', 'region', client,
-                                           'log_dir')
+                bs_manager = make_bootstrap_manager('config', 'region', client,
+                                                    'log_dir')
         self.assertEqual(bs_manager.temp_env_name, 'boot-cpc-foo-region')
         self.assertIs(bs_manager.client, client)
         self.assertIs(bs_manager.tear_down_client, client)
@@ -198,21 +198,21 @@ class TestBootstrapCloudRegions(FakeHomeTestCase):
         args = Namespace(start=start, debug=True, deadline=None,
                          juju_bin='juju', logs='/tmp/log')
         fake_client = fake_juju_client()
-        expect_calls = [call('foo.config', 'foo', fake_client, '/tmp/log'),
-                        call('bar.config', 'bar', fake_client, '/tmp/log')]
+        expect_values = [('foo.config', 'foo'),
+                         ('bar.config', 'bar')]
         with self.patch_for_test(cloud_regions, fake_client, error) as (
                 iter_mock, bootstrap_mock, info_mock):
             errors = list(bootstrap_cloud_regions(pc_key, cred_key, args))
 
         iter_mock.assert_called_once_with(pc_key, cred_key)
-        for num, expected in enumerate(expect_calls[start:]):
+        for num, (config, region) in enumerate(expect_values[start:]):
             acc_call = bootstrap_mock.mock_calls[num]
             name, args, kwargs = acc_call
             self.assertEqual({}, kwargs)
             (bs_manager,) = args
             self.assertIsInstance(bs_manager, BootstrapManager)
-            self.assertEqual(bs_manager.region, expected[1][1])
-            self.assertEqual(bs_manager.log_dir, expected[1][0])
+            self.assertEqual(bs_manager.region, region)
+            self.assertEqual(bs_manager.log_dir, config)
         self.assertEqual(len(cloud_regions) - start, info_mock.call_count)
         if error is None:
             self.assertEqual([], errors)
