@@ -635,7 +635,9 @@ func (s *linkLayerDevicesStateSuite) TestMachineRemoveAllLinkLayerDevicesNoError
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *linkLayerDevicesStateSuite) setupMachineWithOneNIC(c *gc.C) {
+// setupTwoSpaces creates a 'default' and a 'dmz' space, each with a single
+// registered subnet. 10.0.0.0/24 for 'default', and '10.10.0.0/24' for 'dmz'
+func (s *linkLayerDevicesStateSuite) setupTwoSpaces(c *gc.C) {
 	_, err := s.State.AddSpace("default", "default", nil, true)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddSubnet(state.SubnetInfo{
@@ -650,7 +652,11 @@ func (s *linkLayerDevicesStateSuite) setupMachineWithOneNIC(c *gc.C) {
 		SpaceName: "dmz",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.machine.SetLinkLayerDevices(
+}
+
+func (s *linkLayerDevicesStateSuite) setupMachineWithOneNIC(c *gc.C) {
+	s.setupTwoSpaces(c)
+	err := s.machine.SetLinkLayerDevices(
 		state.LinkLayerDeviceArgs{
 			Name:       "eth0",
 			Type:       state.EthernetDevice,
@@ -670,21 +676,8 @@ func (s *linkLayerDevicesStateSuite) setupMachineWithOneNIC(c *gc.C) {
 }
 
 func (s *linkLayerDevicesStateSuite) setupMachineWithOneNICAndBridge(c *gc.C) {
-	_, err := s.State.AddSpace("default", "default", nil, true)
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.AddSubnet(state.SubnetInfo{
-		CIDR:      "10.0.0.0/24",
-		SpaceName: "default",
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.AddSpace("dmz", "dmz", nil, true)
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.AddSubnet(state.SubnetInfo{
-		CIDR:      "10.10.0.0/24",
-		SpaceName: "dmz",
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.machine.SetLinkLayerDevices(
+	s.setupTwoSpaces(c)
+	err := s.machine.SetLinkLayerDevices(
 		state.LinkLayerDeviceArgs{
 			Name:       "br-eth0",
 			Type:       state.BridgeDevice,
@@ -714,21 +707,8 @@ func (s *linkLayerDevicesStateSuite) setupMachineWithOneNICAndBridge(c *gc.C) {
 }
 
 func (s *linkLayerDevicesStateSuite) setupMachineInTwoSpaces(c *gc.C) {
-	_, err := s.State.AddSpace("default", "default", nil, true)
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.AddSubnet(state.SubnetInfo{
-		CIDR:      "10.0.0.0/24",
-		SpaceName: "default",
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.AddSpace("dmz", "dmz", nil, true)
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.AddSubnet(state.SubnetInfo{
-		CIDR:      "10.10.0.0/24",
-		SpaceName: "dmz",
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.machine.SetLinkLayerDevices(
+	s.setupTwoSpaces(c)
+	err := s.machine.SetLinkLayerDevices(
 		state.LinkLayerDeviceArgs{
 			Name:       "br-ens33",
 			Type:       state.BridgeDevice,
@@ -1385,123 +1365,6 @@ func (s *linkLayerDevicesStateSuite) testMachineSetParentLinkLayerDevicesBeforeT
 	}
 }
 
-func (s *linkLayerDevicesStateSuite) TestSetContainerLinkLayerDeviceConstraintsBindOnlyOne(c *gc.C) {
-	s.setupMachineInTwoSpaces(c)
-	s.addContainerMachine(c)
-	s.assertNoDevicesOnMachine(c, s.containerMachine)
-	err := s.containerMachine.SetConstraints(constraints.Value{
-		Spaces: &[]string{"dmz"},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	spaces, err := s.containerMachine.AllSpaces()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(spaces.SortedValues(), gc.DeepEquals, []string{"dmz"})
-
-	err = s.machine.SetContainerLinkLayerDevices(s.containerMachine)
-	c.Assert(err, jc.ErrorIsNil)
-
-	containerDevices, err := s.containerMachine.AllLinkLayerDevices()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(containerDevices, gc.HasLen, 1)
-
-	containerDevice := containerDevices[0]
-	c.Check(containerDevice.Name(), gc.Matches, "eth0")
-	c.Check(containerDevice.Type(), gc.Equals, state.EthernetDevice)
-	c.Check(containerDevice.MTU(), gc.Equals, uint(0)) // inherited from the parent device.
-	c.Check(containerDevice.MACAddress(), gc.Matches, "00:16:3e(:[0-9a-f]{2}){3}")
-	c.Check(containerDevice.IsUp(), jc.IsTrue)
-	c.Check(containerDevice.IsAutoStart(), jc.IsTrue)
-	// br-ens0p10 on the host machine is in space dmz, while br-ens33 is in space defalut
-	c.Check(containerDevice.ParentName(), gc.Equals, `m#0#d#br-ens0p10`)
-}
-
-func (s *linkLayerDevicesStateSuite) TestSetContainerLinkLayerDeviceUnitBindingBindOnlyOne(c *gc.C) {
-	s.setupMachineInTwoSpaces(c)
-	s.addContainerMachine(c)
-	s.assertNoDevicesOnMachine(c, s.containerMachine)
-	svc := s.AddTestingServiceWithBindings(c, "mysql",
-		s.AddTestingCharm(c, "mysql"), map[string]string{"server": "default"})
-	unit, err := svc.AddUnit()
-	c.Assert(err, jc.ErrorIsNil)
-	err = unit.AssignToMachine(s.containerMachine)
-	c.Assert(err, jc.ErrorIsNil)
-	spaces, err := s.containerMachine.AllSpaces()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(spaces.SortedValues(), gc.DeepEquals, []string{"default"})
-
-	err = s.machine.SetContainerLinkLayerDevices(s.containerMachine)
-	c.Assert(err, jc.ErrorIsNil)
-
-	containerDevices, err := s.containerMachine.AllLinkLayerDevices()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(containerDevices, gc.HasLen, 1)
-
-	containerDevice := containerDevices[0]
-	c.Check(containerDevice.Name(), gc.Matches, "eth0")
-	c.Check(containerDevice.Type(), gc.Equals, state.EthernetDevice)
-	c.Check(containerDevice.MTU(), gc.Equals, uint(0)) // inherited from the parent device.
-	c.Check(containerDevice.MACAddress(), gc.Matches, "00:16:3e(:[0-9a-f]{2}){3}")
-	c.Check(containerDevice.IsUp(), jc.IsTrue)
-	c.Check(containerDevice.IsAutoStart(), jc.IsTrue)
-	// br-ens0p10 on the host machine is in space dmz, while br-ens33 is in space defalut
-	c.Check(containerDevice.ParentName(), gc.Equals, `m#0#d#br-ens33`)
-}
-
-func (s *linkLayerDevicesStateSuite) TestSetContainerLinkLayerDeviceOneSpace(c *gc.C) {
-	s.setupMachineWithOneNICAndBridge(c)
-	s.addContainerMachine(c)
-	s.assertNoDevicesOnMachine(c, s.containerMachine)
-
-	// XXX(jam): 2016-012-13 With no other information, how do we know what
-	// spaces to put the container in?
-	err := s.machine.SetContainerLinkLayerDevices(s.containerMachine)
-	c.Assert(err, jc.ErrorIsNil)
-
-	containerDevices, err := s.containerMachine.AllLinkLayerDevices()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(containerDevices, gc.HasLen, 0)
-	c.Skip("known failure, we don't handle containers no bindings and no constraints")
-	// Ideally we would get a single container device that matches to
-	// the 'default' space.
-	c.Assert(containerDevices, gc.HasLen, 1)
-
-	containerDevice := containerDevices[0]
-	c.Check(containerDevice.Name(), gc.Matches, "eth0")
-	c.Check(containerDevice.Type(), gc.Equals, state.EthernetDevice)
-	c.Check(containerDevice.MTU(), gc.Equals, uint(0)) // inherited from the parent device.
-	c.Check(containerDevice.MACAddress(), gc.Matches, "00:16:3e(:[0-9a-f]{2}){3}")
-	c.Check(containerDevice.IsUp(), jc.IsTrue)
-	c.Check(containerDevice.IsAutoStart(), jc.IsTrue)
-	c.Check(containerDevice.ParentName(), gc.Equals, `m#0#d#br-bond0`)
-}
-
-func (s *linkLayerDevicesStateSuite) TestSetContainerLinkLayerDeviceNotAllSpaces(c *gc.C) {
-	s.setupMachineInTwoSpaces(c)
-	s.addContainerMachine(c)
-	s.assertNoDevicesOnMachine(c, s.containerMachine)
-
-	// TODO: Set a Default space somewhere?
-	// XXX(jam): 2016-012-13 With no other information, how do we know what
-	// spaces to put the container in?
-	err := s.machine.SetContainerLinkLayerDevices(s.containerMachine)
-	c.Assert(err, jc.ErrorIsNil)
-
-	containerDevices, err := s.containerMachine.AllLinkLayerDevices()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(containerDevices, gc.HasLen, 0)
-	c.Skip("known failure, we don't handle containers no bindings and no constraints")
-	c.Assert(containerDevices, gc.HasLen, 1)
-
-	containerDevice := containerDevices[0]
-	c.Check(containerDevice.Name(), gc.Matches, "eth0")
-	c.Check(containerDevice.Type(), gc.Equals, state.EthernetDevice)
-	c.Check(containerDevice.MTU(), gc.Equals, uint(0)) // inherited from the parent device.
-	c.Check(containerDevice.MACAddress(), gc.Matches, "00:16:3e(:[0-9a-f]{2}){3}")
-	c.Check(containerDevice.IsUp(), jc.IsTrue)
-	c.Check(containerDevice.IsAutoStart(), jc.IsTrue)
-	c.Check(containerDevice.ParentName(), gc.Equals, `m#0#d#br-eth0`)
-}
-
 func (s *linkLayerDevicesStateSuite) TestSetContainerLinkLayerDevicesCorrectlyPaired(c *gc.C) {
 	// The device names chosen and the order are very explicit. We
 	// need to ensure that we have a list that does not sort well
@@ -1597,6 +1460,133 @@ func (s *linkLayerDevicesStateSuite) TestSetContainerLinkLayerDevicesCorrectlyPa
 		c.Check(containerDevice.IsAutoStart(), jc.IsTrue)
 		c.Check(containerDevice.ParentName(), gc.Equals, fmt.Sprintf("m#0#d#%s", expectedParents[i]))
 	}
+}
+
+func (s *linkLayerDevicesStateSuite) TestSetContainerLinkLayerDeviceConstraintsBindOnlyOne(c *gc.C) {
+	s.setupMachineInTwoSpaces(c)
+	s.addContainerMachine(c)
+	s.assertNoDevicesOnMachine(c, s.containerMachine)
+	err := s.containerMachine.SetConstraints(constraints.Value{
+		Spaces: &[]string{"dmz"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	spaces, err := s.containerMachine.DesiredSpaces()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(spaces.SortedValues(), gc.DeepEquals, []string{"dmz"})
+
+	err = s.machine.SetContainerLinkLayerDevices(s.containerMachine)
+	c.Assert(err, jc.ErrorIsNil)
+
+	containerDevices, err := s.containerMachine.AllLinkLayerDevices()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(containerDevices, gc.HasLen, 1)
+
+	containerDevice := containerDevices[0]
+	c.Check(containerDevice.Name(), gc.Matches, "eth0")
+	c.Check(containerDevice.Type(), gc.Equals, state.EthernetDevice)
+	c.Check(containerDevice.MTU(), gc.Equals, uint(0)) // inherited from the parent device.
+	c.Check(containerDevice.MACAddress(), gc.Matches, "00:16:3e(:[0-9a-f]{2}){3}")
+	c.Check(containerDevice.IsUp(), jc.IsTrue)
+	c.Check(containerDevice.IsAutoStart(), jc.IsTrue)
+	// br-ens0p10 on the host machine is in space dmz, while br-ens33 is in space defalut
+	c.Check(containerDevice.ParentName(), gc.Equals, `m#0#d#br-ens0p10`)
+}
+
+func (s *linkLayerDevicesStateSuite) TestSetContainerLinkLayerDeviceUnitBindingBindOnlyOne(c *gc.C) {
+	s.setupMachineInTwoSpaces(c)
+	s.addContainerMachine(c)
+	s.assertNoDevicesOnMachine(c, s.containerMachine)
+	svc := s.AddTestingServiceWithBindings(c, "mysql",
+		s.AddTestingCharm(c, "mysql"), map[string]string{"server": "default"})
+	unit, err := svc.AddUnit()
+	c.Assert(err, jc.ErrorIsNil)
+	err = unit.AssignToMachine(s.containerMachine)
+	c.Assert(err, jc.ErrorIsNil)
+	spaces, err := s.containerMachine.DesiredSpaces()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(spaces.SortedValues(), gc.DeepEquals, []string{"default"})
+
+	err = s.machine.SetContainerLinkLayerDevices(s.containerMachine)
+	c.Assert(err, jc.ErrorIsNil)
+
+	containerDevices, err := s.containerMachine.AllLinkLayerDevices()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(containerDevices, gc.HasLen, 1)
+
+	containerDevice := containerDevices[0]
+	c.Check(containerDevice.Name(), gc.Matches, "eth0")
+	c.Check(containerDevice.Type(), gc.Equals, state.EthernetDevice)
+	c.Check(containerDevice.MTU(), gc.Equals, uint(0)) // inherited from the parent device.
+	c.Check(containerDevice.MACAddress(), gc.Matches, "00:16:3e(:[0-9a-f]{2}){3}")
+	c.Check(containerDevice.IsUp(), jc.IsTrue)
+	c.Check(containerDevice.IsAutoStart(), jc.IsTrue)
+	// br-ens0p10 on the host machine is in space dmz, while br-ens33 is in space defalut
+	c.Check(containerDevice.ParentName(), gc.Equals, `m#0#d#br-ens33`)
+}
+
+func (s *linkLayerDevicesStateSuite) TestSetContainerLinkLayerDeviceHostOneSpace(c *gc.C) {
+	s.setupMachineWithOneNICAndBridge(c)
+	// We change the machine to be in 'dmz' instead of 'default', but it is
+	// still in a single space. Adding a container to a machine that is in a
+	// single space puts that container into the same space.
+	err := s.machine.SetDevicesAddresses(
+		state.LinkLayerDeviceAddress{
+			DeviceName: "br-eth0",
+			// In the DMZ subnet
+			CIDRAddress:  "10.10.0.20/24",
+			ConfigMethod: state.StaticAddress,
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	s.addContainerMachine(c)
+	s.assertNoDevicesOnMachine(c, s.containerMachine)
+
+	err = s.machine.SetContainerLinkLayerDevices(s.containerMachine)
+	c.Assert(err, jc.ErrorIsNil)
+
+	containerDevices, err := s.containerMachine.AllLinkLayerDevices()
+	c.Assert(err, jc.ErrorIsNil)
+	// c.Assert(containerDevices, gc.HasLen, 0)
+	// c.Skip("known failure, we don't handle containers no bindings and no constraints")
+	// Ideally we would get a single container device that matches to
+	// the 'default' space.
+	c.Assert(containerDevices, gc.HasLen, 1)
+
+	containerDevice := containerDevices[0]
+	c.Check(containerDevice.Name(), gc.Matches, "eth0")
+	c.Check(containerDevice.Type(), gc.Equals, state.EthernetDevice)
+	c.Check(containerDevice.MTU(), gc.Equals, uint(0)) // inherited from the parent device.
+	c.Check(containerDevice.MACAddress(), gc.Matches, "00:16:3e(:[0-9a-f]{2}){3}")
+	c.Check(containerDevice.IsUp(), jc.IsTrue)
+	c.Check(containerDevice.IsAutoStart(), jc.IsTrue)
+	c.Check(containerDevice.ParentName(), gc.Equals, `m#0#d#br-eth0`)
+}
+
+func (s *linkLayerDevicesStateSuite) TestSetContainerLinkLayerDeviceNotAllSpaces(c *gc.C) {
+	s.setupMachineInTwoSpaces(c)
+	s.addContainerMachine(c)
+	s.assertNoDevicesOnMachine(c, s.containerMachine)
+
+	// TODO: Set a Default space somewhere?
+	// XXX(jam): 2016-012-13 With no other information, how do we know what
+	// spaces to put the container in?
+	err := s.machine.SetContainerLinkLayerDevices(s.containerMachine)
+	c.Assert(err, jc.ErrorIsNil)
+
+	containerDevices, err := s.containerMachine.AllLinkLayerDevices()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(containerDevices, gc.HasLen, 0)
+	c.Skip("known failure, we don't handle containers no bindings and no constraints")
+	c.Assert(containerDevices, gc.HasLen, 1)
+
+	containerDevice := containerDevices[0]
+	c.Check(containerDevice.Name(), gc.Matches, "eth0")
+	c.Check(containerDevice.Type(), gc.Equals, state.EthernetDevice)
+	c.Check(containerDevice.MTU(), gc.Equals, uint(0)) // inherited from the parent device.
+	c.Check(containerDevice.MACAddress(), gc.Matches, "00:16:3e(:[0-9a-f]{2}){3}")
+	c.Check(containerDevice.IsUp(), jc.IsTrue)
+	c.Check(containerDevice.IsAutoStart(), jc.IsTrue)
+	c.Check(containerDevice.ParentName(), gc.Equals, `m#0#d#br-eth0`)
 }
 
 // TODO(jam): 2016-12-13 Test what happens when you have a machine that has 2

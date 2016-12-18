@@ -846,6 +846,35 @@ func (m *Machine) AllAddresses() ([]*Address, error) {
 	return allAddresses, nil
 }
 
+// AllSpaces returns the set of addresses that this machine is actively
+// connected to.
+func (m *Machine) AllSpaces() (set.Strings, error) {
+	// TODO(jam): 2016-12-18 This should evolve to look at the
+	// LinkLayerDevices directly, instead of using the Addresses the devices
+	// are in to link back to spaces.
+	spaces := set.NewStrings()
+	addresses, err := m.AllAddresses()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	for _, address := range addresses {
+		subnet, err := address.Subnet()
+		if err != nil {
+			if errors.IsNotFound(err) {
+				// We don't know what this subnet is, so it can't be a space. It
+				// might just be the loopback device.
+				continue
+			}
+			return nil, errors.Trace(err)
+		}
+		spaceName := subnet.SpaceName()
+		if spaceName != "" {
+			spaces.Add(spaceName)
+		}
+	}
+	return spaces, nil
+}
+
 // AllNetworkAddresses returns the result of AllAddresses(), but transformed to
 // []network.Address.
 func (m *Machine) AllNetworkAddresses() ([]network.Address, error) {
@@ -1005,23 +1034,41 @@ func (m *Machine) SetDevicesAddressesIdempotently(devicesAddresses []LinkLayerDe
 // desired spaces is available on the host machine, but not currently
 // bridged.
 func (m *Machine) SetContainerLinkLayerDevices(containerMachine *Machine) error {
-	containerSpaces, err := containerMachine.AllSpaces()
+	containerSpaces, err := containerMachine.DesiredSpaces()
 	if err != nil {
 		logger.Errorf("SetContainerLinkLayerDevices(%q) got error looking for container spaces: %v",
 			containerMachine.Id(), err)
 		return errors.Trace(err)
 	}
-	logger.Tracef("for container %q, found desired spaces: %v",
+	logger.Debugf("for container %q, found desired spaces: %v",
 		containerMachine.Id(), containerSpaces)
 	// XXX(jam): 2016-12-13 We should do something useful if
 	// len(containerSpaces) == 0
+	if len(containerSpaces) == 0 {
+		// We have determined that the container doesn't have any useful
+		// constraints set on it. So lets see if we can come up with
+		// something useful.
+		// First, check to see if the host machine is in a single space.
+		// TODO(jam): 2016-12-18 DesiredSpaces() returns the list of spaces that
+		// a machine is *supposed* to be in, but not necessarily the spaces
+		// that it is *actually* in, we should probably have a different call.
+		hostSpaces, err := m.DesiredSpaces()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		logger.Debugf("container %q not qualified to a space, host machine %q is using spaces %v",
+			containerMachine.Id(), m.Id(), hostSpaces.Values())
+		if len(hostSpaces) == 1 {
+			containerSpaces = hostSpaces
+		}
+	}
 	devicesPerSpace, err := m.LinkLayerDevicesForSpaces(containerSpaces.Values())
 	if err != nil {
 		logger.Errorf("SetContainerLinkLayerDevices(%q) got error looking for host spaces: %v",
 			containerMachine.Id(), err)
 		return errors.Trace(err)
 	}
-	logger.Tracef("for container %q, found host devices spaces: %s",
+	logger.Debugf("for container %q, found host devices spaces: %s",
 		containerMachine.Id(), devicesPerSpace)
 
 	bridgeDevicesByName := make(map[string]*LinkLayerDevice)
