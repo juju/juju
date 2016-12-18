@@ -22,6 +22,7 @@ from assess_public_clouds import (
     prepare_cloud,
     yaml_file_load,
     )
+from deploy_stack import BootstrapManager
 from fakejuju import (
     fake_juju_client,
     )
@@ -134,16 +135,23 @@ class TestPrepareCloud(FakeHomeTestCase):
         bs_manager = Mock()
         with patch_local('make_logging_dir', autospec=True,
                          side_effect=os.path.join):
-            with patch_local('BootstrapManager', autospec=True,
-                             return_value=bs_manager) as bsm_mock:
-                with patch_local('assess_cloud_combined', autospec=True):
-                    prepare_cloud('config', 'region', client, 'log_dir')
-        self.assertEqual(1, bsm_mock.call_count)
-        bsm_mock.assert_called_once_with(
-            'boot-cpc-foo-region', client, client, bootstrap_host=None,
-            machines=[], series=None, agent_url=None, agent_stream=None,
-            region='region', log_dir='log_dir/config/region', keep_env=False,
-            permanent=True, jes_enabled=True)
+            with patch_local('assess_cloud_combined', autospec=True):
+                bs_manager = prepare_cloud('config', 'region', client,
+                                           'log_dir')
+        self.assertEqual(bs_manager.temp_env_name, 'boot-cpc-foo-region')
+        self.assertIs(bs_manager.client, client)
+        self.assertIs(bs_manager.tear_down_client, client)
+        self.assertIs(bs_manager.bootstrap_host, None)
+        self.assertEqual(bs_manager.machines, [])
+        self.assertIs(bs_manager.series, None)
+        self.assertIs(bs_manager.agent_url, None)
+        self.assertIs(bs_manager.agent_stream, None)
+        self.assertEqual(bs_manager.region, 'region')
+        self.assertEqual(bs_manager.log_dir, 'log_dir/config/region')
+        self.assertIs(bs_manager.keep_env, False)
+        self.assertIs(bs_manager.permanent, True)
+        self.assertIs(bs_manager.jes_enabled, True)
+        self.assertIs(bs_manager.logged_exception_exit, False)
 
 
 class TestIterCloudRegions(TestCase):
@@ -174,12 +182,14 @@ class TestBootstrapCloudRegions(FakeHomeTestCase):
         """Handles all the patching for testing bootstrap_cloud_regions."""
         with patch_local('iter_cloud_regions', autospec=True,
                          return_value=cloud_regions) as iter_mock:
-            with patch_local('prepare_cloud', autospec=True,
+            with patch_local('assess_cloud_combined', autospec=True,
                              side_effect=error) as bootstrap_mock:
                 with patch_local('client_from_config', autospec=True,
                                  return_value=client):
                     with patch('logging.info', autospec=True) as info_mock:
-                        yield (iter_mock, bootstrap_mock, info_mock)
+                        with patch_local('make_logging_dir', autospec=True,
+                                         side_effect=lambda x, y, z: y):
+                            yield (iter_mock, bootstrap_mock, info_mock)
 
     def run_test_bootstrap_cloud_regions(self, start=0, error=None):
         pc_key = 'public_clouds'
@@ -195,7 +205,14 @@ class TestBootstrapCloudRegions(FakeHomeTestCase):
             errors = list(bootstrap_cloud_regions(pc_key, cred_key, args))
 
         iter_mock.assert_called_once_with(pc_key, cred_key)
-        bootstrap_mock.assert_has_calls(expect_calls[start:])
+        for num, expected in enumerate(expect_calls[start:]):
+            acc_call = bootstrap_mock.mock_calls[num]
+            name, args, kwargs = acc_call
+            self.assertEqual({}, kwargs)
+            (bs_manager,) = args
+            self.assertIsInstance(bs_manager, BootstrapManager)
+            self.assertEqual(bs_manager.region, expected[1][1])
+            self.assertEqual(bs_manager.log_dir, expected[1][0])
         self.assertEqual(len(cloud_regions) - start, info_mock.call_count)
         if error is None:
             self.assertEqual([], errors)

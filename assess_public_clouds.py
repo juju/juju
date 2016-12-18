@@ -46,7 +46,7 @@ def prepare_cloud(config, region, client, log_dir):
         series=None, agent_url=None, agent_stream=None, region=region,
         log_dir=logging_dir, keep_env=False, permanent=True, jes_enabled=True,
         logged_exception_exit=False)
-    assess_cloud_combined(bs_manager)
+    return bs_manager
 
 
 def iter_cloud_regions(public_clouds, credentials):
@@ -78,7 +78,8 @@ def bootstrap_cloud_regions(public_clouds, credentials, args):
         try:
             client = client_from_config(
                 config, args.juju_bin, args.debug, args.deadline)
-            prepare_cloud(config, region, client, args.logs)
+            bs_manager = prepare_cloud(config, region, client, args.logs)
+            assess_cloud_combined(bs_manager)
         except LoggedException as error:
             yield config, region, error.exception
         except Exception as error:
