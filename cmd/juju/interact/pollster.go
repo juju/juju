@@ -29,7 +29,7 @@ type Pollster struct {
 	scanner    *bufio.Scanner
 	out        io.Writer
 	errOut     io.Writer
-	in      io.Reader
+	in         io.Reader
 }
 
 // New returns a Pollster that wraps the given reader and writer.

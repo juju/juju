@@ -852,11 +852,11 @@ func (s *linkLayerDevicesStateSuite) TestLinkLayerDevicesForSpacesWithExtraAddre
 			Type:       state.EthernetDevice,
 			MACAddress: "11:23:45:67:89:ab:cd:ef",
 			IsUp:       true,
-		}}...
+		}}...,
 	)
 	err = s.machine.SetDevicesAddresses(
 		[]state.LinkLayerDeviceAddress{{
-			DeviceName:   "eth1",
+			DeviceName: "eth1",
 			// Not one of the subnets we know about
 			CIDRAddress:  "172.99.0.20/24",
 			ConfigMethod: state.StaticAddress,
@@ -864,7 +864,7 @@ func (s *linkLayerDevicesStateSuite) TestLinkLayerDevicesForSpacesWithExtraAddre
 			DeviceName:   "lo",
 			CIDRAddress:  "127.0.0.1/24",
 			ConfigMethod: state.StaticAddress,
-		}}...
+		}}...,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	res, err := s.machine.LinkLayerDevicesForSpaces([]string{"default"})
@@ -1547,10 +1547,10 @@ func (s *linkLayerDevicesStateSuite) TestSetContainerLinkLayerDevicesCorrectlyPa
 
 	devAddresses := make([]state.LinkLayerDeviceAddress, len(devicesArgs))
 	for i, devArg := range devicesArgs {
-		subnet := i*10+1
+		subnet := i*10 + 1
 		subnetCIDR := fmt.Sprintf("10.%d.0.0/24", subnet)
 		_, err = s.State.AddSubnet(state.SubnetInfo{
-			CIDR: subnetCIDR,
+			CIDR:      subnetCIDR,
 			SpaceName: "default",
 		})
 		devAddresses[i] = state.LinkLayerDeviceAddress{
@@ -1580,7 +1580,6 @@ func (s *linkLayerDevicesStateSuite) TestSetContainerLinkLayerDevicesCorrectlyPa
 		Spaces: &[]string{"default"},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-
 
 	err = s.machine.SetContainerLinkLayerDevices(s.containerMachine)
 	c.Assert(err, jc.ErrorIsNil)
