@@ -1318,6 +1318,9 @@ class ConditionList(BaseCondition):
             for item, state in condition.iter_blocking_state(status):
                 yield item, state
 
+    def do_raise(self, model_name, status):
+        self._conditions[0].do_raise(model_name, status)
+
 
 class WaitMachineNotPresent(BaseCondition):
     """Condition satisfied when a given machine is not present."""
@@ -2375,18 +2378,17 @@ class EnvJujuClient:
         """
         if len(conditions) == 0:
             return self.get_status()
-        timeout = max(c.timeout for c in conditions)
+        condition = ConditionList(conditions)
         reporter = GroupReporter(sys.stdout, 'started')
         status = None
         try:
-            for status in self.status_until(timeout):
+            for status in self.status_until(condition.timeout):
                 status.raise_highest_error(ignore_recoverable=True)
                 states = {}
-                for condition in conditions:
-                    for item, state in condition.iter_blocking_state(status):
-                        states.setdefault(state, []).append(item)
-                    if len(states) == 0:
-                        return
+                for item, state in condition.iter_blocking_state(status):
+                    states.setdefault(state, []).append(item)
+                if len(states) == 0:
+                    return
                 if not quiet:
                     reporter.update(states)
             else:
@@ -2395,7 +2397,7 @@ class EnvJujuClient:
             pass
         finally:
             reporter.finish()
-        conditions[0].do_raise(self.model_name, status)
+        condition.do_raise(self.model_name, status)
 
     def get_matching_agent_version(self, no_build=False):
         # strip the series and srch from the built version.
