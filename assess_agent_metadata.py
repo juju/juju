@@ -40,10 +40,15 @@ from jujupy import (
     temp_yaml_file,
 )
 
-JUJU_TOOL_PATH = "tools/released/"
+RELEASE_TOOL_PATH = "tools/release/"
+DEVEL_TOOL_PATH = "tools/devel/"
 
 
 log = logging.getLogger("assess_agent_metadata")
+
+
+def get_stream_path(agent_stream="release"):
+    return RELEASE_TOOL_PATH if agent_stream == "release" else DEVEL_TOOL_PATH
 
 
 def get_sha256_sum(filename):
@@ -71,15 +76,18 @@ def assert_cloud_details_are_correct(client, cloud_name, example_cloud):
         raise JujuAssertionError('Cloud missing {}'.format(cloud_name))
 
 
-def get_local_url_and_sha256(agent_dir, controller_url):
+def get_local_url_and_sha256(agent_dir, controller_url,
+                             agent_stream="release"):
     """
     Get the agent URL (local file location: file:///) and SHA256
     of the agent-file passed
     :param agent_dir: The top level directory location of agent file.
     :param controller_url: The controller used agent file url
+    :param agent_stream: The agent stream to use
     """
-    local_url = os.path.join(agent_dir,
-                             JUJU_TOOL_PATH, os.path.basename(controller_url))
+    local_url = os.path.join(agent_dir, get_stream_path(agent_stream),
+                             os.path.basename(controller_url))
+
     local_sha256 = get_sha256_sum(local_url)
     local_file_path = "file://" + local_url
     return [local_file_path, local_sha256]
@@ -112,12 +120,13 @@ def assert_metadata_are_correct(agent_metadata_url, client):
              .format(data['agent-metadata-url']['value']))
 
 
-def verify_deployed_tool(agent_dir, client):
+def verify_deployed_tool(agent_dir, client, agent_stream="release"):
     """
     Verify the bootstraped controller make use of the the specified
     agent-metadata-url.
     :param agent_dir:  The top level directory location of agent file.
     :param client: Juju client
+    :param agent_stream: The agent stream to use
     """
     controller_url, controller_sha256 = get_controller_url_and_sha256(client)
 
@@ -125,7 +134,7 @@ def verify_deployed_tool(agent_dir, client):
                controller_url, controller_sha256))
 
     local_url, local_sha256 = get_local_url_and_sha256(
-        agent_dir, controller_url)
+        agent_dir, controller_url, agent_stream)
 
     log.debug("local_url: {} and local_sha256: {}".format(
         local_url, local_sha256))
@@ -149,13 +158,16 @@ def assess_metadata(args, agent_dir):
     :param args: Parsed command line arguments
     :param agent_dir: The top level directory location of agent file.
     """
+    stream = "release" if args.agent_stream == "release" else "devel"
     bs_manager = BootstrapManager.from_args(args)
     client = bs_manager.client
-    agent_metadata_url = os.path.join(agent_dir, JUJU_TOOL_PATH.split('/')[0])
-    client.env.update_config({'agent-metadata-url': agent_metadata_url})
+    agent_metadata_url = os.path.join(agent_dir,
+                                      get_stream_path(stream).split('/')[0])
+    client.env.update_config({'agent-metadata-url': agent_metadata_url,
+                              'agent-stream': stream})
     log.info('bootstrap to use --agent_metadata_url={}'.format(
         agent_metadata_url))
-    client.generate_tool(agent_dir)
+    client.generate_tool(agent_dir, stream)
 
     with bs_manager.booted_context(args.upload_tools):
         log.info('Metadata bootstrap successful.')
@@ -172,7 +184,8 @@ def assess_add_cloud(args, agent_dir):
     :param agent_dir: The top level directory location of agent file.
     """
     cloud_name = "testCloud"
-    agent_metadata_url = os.path.join(agent_dir, JUJU_TOOL_PATH.split('/')[0])
+    agent_metadata_url = os.path.join(agent_dir,
+                                      get_stream_path().split('/')[0])
 
     test_cloud_data = {'clouds': {'{0}'.format(
         cloud_name): {'type': 'lxd',
@@ -210,14 +223,15 @@ def change_tgz_sha256_sum(src, dst):
 
 
 @contextmanager
-def make_unique_tool(agent_file):
+def make_unique_tool(agent_file, agent_stream="release"):
     """
     Create a tool directory for juju agent tools and stream and invoke
     append_empty_string function for the agent-file passed.
-    :param agent_file:
+    :param agent_file: The agent file to use
+    :param agent_stream: The agent stream to use
     """
     with temp_dir() as agent_dir:
-        juju_tool_src = os.path.join(agent_dir, JUJU_TOOL_PATH)
+        juju_tool_src = os.path.join(agent_dir, get_stream_path(agent_stream))
         os.makedirs(juju_tool_src)
         change_tgz_sha256_sum(agent_file,
                               os.path.join(juju_tool_src,
@@ -249,10 +263,16 @@ def main(argv=None):
         raise Exception(
            "Unable to find juju agent file {}".format(args.agent_file))
 
-    with make_unique_tool(args.agent_file) as agent_dir:
+    try:
+        args.agent_stream = "release" if args.agent_stream.startswith("releas") \
+            else "devel"
+    except AttributeError:
+        args.agent_stream = "release"
+
+    with make_unique_tool(args.agent_file, args.agent_stream) as agent_dir:
         assess_metadata(args, agent_dir)
 
-    with make_unique_tool(args.agent_file) as agent_dir:
+    with make_unique_tool(args.agent_file, args.agent_stream) as agent_dir:
         assess_add_cloud(args, agent_dir)
 
     return 0

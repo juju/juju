@@ -100,7 +100,7 @@ def assess_sync_bootstrap(args, agent_stream="release"):
         with bs_manager.booted_context(args.upload_tools,
                                        metadata_source=agent_dir):
             log.info('Metadata bootstrap successful.')
-            verify_deployed_tool(agent_dir, client)
+            verify_deployed_tool(agent_dir, client, agent_stream)
             deploy_charm_and_verify(client)
 
 
