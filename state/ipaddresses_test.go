@@ -325,6 +325,8 @@ func resetSubnet(c *gc.C, st *state.State, subnetInfo state.SubnetInfo) {
 	// XXX(jam): We should add mutation operations instead of this ugly hack
 	subnet, err := st.Subnet(subnetInfo.CIDR)
 	c.Assert(err, jc.ErrorIsNil)
+	err = subnet.EnsureDead()
+	c.Assert(err, jc.ErrorIsNil)
 	err = subnet.Remove()
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = st.AddSubnet(subnetInfo)
@@ -337,11 +339,6 @@ func (s *ipAddressesStateSuite) TestAllSpacesOneSpace(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	resetSubnet(c, s.State, state.SubnetInfo{
 		CIDR:      "10.20.0.0/16",
-		SpaceName: "default",
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	resetSubnet(c, s.State, state.SubnetInfo{
-		CIDR:      "10.20.100.0/16",
 		SpaceName: "default",
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -365,18 +362,13 @@ func (s *ipAddressesStateSuite) TestAllSpacesMultiSpace(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	resetSubnet(c, s.State, state.SubnetInfo{
-		CIDR:      "10.20.100.0/16",
-		SpaceName: "dmz",
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	resetSubnet(c, s.State, state.SubnetInfo{
 		CIDR:      "fc00::/64",
-		SpaceName: "db-ipv6",
+		SpaceName: "dmz-ipv6",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	spaces, err := s.machine.AllSpaces()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(spaces.SortedValues(), gc.DeepEquals, []string{"db-ipv6", "default", "dmz"})
+	c.Check(spaces.SortedValues(), gc.DeepEquals, []string{"default", "dmz-ipv6"})
 }
 
 func (s *ipAddressesStateSuite) TestAllSpacesIgnoresEmptySpaceNames(c *gc.C) {
