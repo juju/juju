@@ -1069,7 +1069,7 @@ func (m *Machine) SetContainerLinkLayerDevices(containerMachine *Machine) error 
 		return errors.Trace(err)
 	}
 	logger.Debugf("for container %q, found desired spaces: %v",
-		containerMachine.Id(), containerSpaces)
+		containerMachine.Id(), containerSpaces.SortedValues())
 	if len(containerSpaces) == 0 {
 		// We have determined that the container doesn't have any useful
 		// constraints set on it. So lets see if we can come up with
@@ -1088,17 +1088,27 @@ func (m *Machine) SetContainerLinkLayerDevices(containerMachine *Machine) error 
 	logger.Debugf("for container %q, found host devices spaces: %s",
 		containerMachine.Id(), devicesPerSpace)
 
+	spacesFound := set.NewStrings()
 	bridgeDevicesByName := make(map[string]*LinkLayerDevice)
 	bridgeDeviceNames := make([]string, 0)
 
-	for _, hostDevices := range devicesPerSpace {
+	for spaceName, hostDevices := range devicesPerSpace {
 		for _, hostDevice := range hostDevices {
 			deviceType, name := hostDevice.Type(), hostDevice.Name()
 			if deviceType == BridgeDevice {
 				bridgeDevicesByName[name] = hostDevice
 				bridgeDeviceNames = append(bridgeDeviceNames, name)
+				spacesFound.Add(spaceName)
 			}
 		}
+	}
+	missingSpace := containerSpaces.Difference(spacesFound)
+	if len(missingSpace) > 0 {
+		logger.Debugf("container %q wants spaces %v could not find bridges for %v",
+			containerMachine.Id(), containerSpaces.SortedValues(),
+			missingSpace.SortedValues())
+		return errors.Errorf("unable to find host bridge for spaces %v for container %q",
+			missingSpace.SortedValues(), containerMachine.Id())
 	}
 
 	sortedBridgeDeviceNames := network.NaturallySortDeviceNames(bridgeDeviceNames...)

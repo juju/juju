@@ -1396,7 +1396,7 @@ func (s *linkLayerDevicesStateSuite) TestSetContainerLinkLayerDevicesCorrectlyPa
 	}
 }
 
-func (s *linkLayerDevicesStateSuite) TestSetContainerLinkLayerDeviceConstraintsBindOnlyOne(c *gc.C) {
+func (s *linkLayerDevicesStateSuite) TestSetContainerLinkLayerDevicesConstraintsBindOnlyOne(c *gc.C) {
 	s.setupMachineInTwoSpaces(c)
 	s.addContainerMachine(c)
 	s.assertNoDevicesOnMachine(c, s.containerMachine)
@@ -1426,7 +1426,7 @@ func (s *linkLayerDevicesStateSuite) TestSetContainerLinkLayerDeviceConstraintsB
 	c.Check(containerDevice.ParentName(), gc.Equals, `m#0#d#br-ens0p10`)
 }
 
-func (s *linkLayerDevicesStateSuite) TestSetContainerLinkLayerDeviceUnitBindingBindOnlyOne(c *gc.C) {
+func (s *linkLayerDevicesStateSuite) TestSetContainerLinkLayerDevicesUnitBindingBindOnlyOne(c *gc.C) {
 	s.setupMachineInTwoSpaces(c)
 	s.addContainerMachine(c)
 	s.assertNoDevicesOnMachine(c, s.containerMachine)
@@ -1458,7 +1458,7 @@ func (s *linkLayerDevicesStateSuite) TestSetContainerLinkLayerDeviceUnitBindingB
 	c.Check(containerDevice.ParentName(), gc.Equals, `m#0#d#br-ens33`)
 }
 
-func (s *linkLayerDevicesStateSuite) TestSetContainerLinkLayerDeviceHostOneSpace(c *gc.C) {
+func (s *linkLayerDevicesStateSuite) TestSetContainerLinkLayerDevicesHostOneSpace(c *gc.C) {
 	s.setupMachineWithOneNICAndBridge(c)
 	// We change the machine to be in 'dmz' instead of 'default', but it is
 	// still in a single space. Adding a container to a machine that is in a
@@ -1498,7 +1498,7 @@ func (s *linkLayerDevicesStateSuite) TestSetContainerLinkLayerDeviceHostOneSpace
 	c.Check(containerDevice.ParentName(), gc.Equals, `m#0#d#br-eth0`)
 }
 
-func (s *linkLayerDevicesStateSuite) TestSetContainerLinkLayerDeviceDefaultSpace(c *gc.C) {
+func (s *linkLayerDevicesStateSuite) TestSetContainerLinkLayerDevicesDefaultSpace(c *gc.C) {
 	// The host machine is in both 'default' and 'dmz', and the container is
 	// not requested to be in any particular space. But because we have
 	// access to the 'default' space, we go ahead and use that for the
@@ -1525,7 +1525,66 @@ func (s *linkLayerDevicesStateSuite) TestSetContainerLinkLayerDeviceDefaultSpace
 	c.Check(containerDevice.ParentName(), gc.Equals, `m#0#d#br-ens33`)
 }
 
-func (s *linkLayerDevicesStateSuite) TestSetContainerLinkLayerDeviceNoValidSpace(c *gc.C) {
+func (s *linkLayerDevicesStateSuite) TestSetContainerLinkLayerDevicesNoValidSpace(c *gc.C) {
+	// The host machine will be in 2 spaces, but neither one is 'default',
+	// thus we are unable to find a valid space to put the container in.
+	s.setupMachineWithOneNICAndBridge(c)
+	// We change br-eth0 to be in 'dmz' instead of 'default'
+	err := s.machine.RemoveAllAddresses()
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.machine.SetDevicesAddresses(
+		state.LinkLayerDeviceAddress{
+			DeviceName: "br-eth0",
+			// In the DMZ subnet
+			CIDRAddress:  "10.10.0.20/24",
+			ConfigMethod: state.StaticAddress,
+		},
+	)
+	// Second bridge is in the 'db' space
+	s.createSpaceAndSubnet(c, "db", "10.20.0.0/24")
+	s.createNICAndBridgeWithIP(c, s.machine, "ens4", "br-ens4", "10.20.0.10/24")
+	s.addContainerMachine(c)
+	s.assertNoDevicesOnMachine(c, s.containerMachine)
+
+	err = s.machine.SetContainerLinkLayerDevices(s.containerMachine)
+	c.Assert(err, gc.ErrorMatches, `no obvious space for container "0/lxd/0", host machine has spaces: .*`)
+
+	s.assertNoDevicesOnMachine(c, s.containerMachine)
+}
+
+func (s *linkLayerDevicesStateSuite) TestSetContainerLinkLayerDevicesMismatchConstraints(c *gc.C) {
+	// Machine is in 'default' but container wants to be in 'dmz'
+	s.setupMachineWithOneNICAndBridge(c)
+	s.addContainerMachine(c)
+	s.assertNoDevicesOnMachine(c, s.containerMachine)
+	err := s.containerMachine.SetConstraints(constraints.Value{
+		Spaces: &[]string{"dmz"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.machine.SetContainerLinkLayerDevices(s.containerMachine)
+	c.Assert(err.Error(), gc.Equals, `unable to find host bridge for spaces [dmz] for container "0/lxd/0"`)
+
+	s.assertNoDevicesOnMachine(c, s.containerMachine)
+}
+
+func (s *linkLayerDevicesStateSuite) TestSetContainerLinkLayerDevicesMissingBridge(c *gc.C) {
+	// Machine is in 'default' and 'dmz' but doesn't have a bridge for 'dmz'
+	s.setupMachineWithOneNICAndBridge(c)
+	s.createNICWithIP(c, s.machine, "ens5", "10.20.0.10/24")
+	s.addContainerMachine(c)
+	s.assertNoDevicesOnMachine(c, s.containerMachine)
+	err := s.containerMachine.SetConstraints(constraints.Value{
+		Spaces: &[]string{"dmz"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	// TODO(jam): 2016-12-19 Eventually this should not be an error.
+	err = s.machine.SetContainerLinkLayerDevices(s.containerMachine)
+	c.Assert(err.Error(), gc.Equals, `unable to find host bridge for spaces [dmz] for container "0/lxd/0"`)
+
+	s.assertNoDevicesOnMachine(c, s.containerMachine)
+}
+
+func (s *linkLayerDevicesStateSuite) TestSetContainerLinkLayerDevices(c *gc.C) {
 	// The host machine will be in 2 spaces, but neither one is 'default',
 	// thus we are unable to find a valid space to put the container in.
 	s.setupMachineWithOneNICAndBridge(c)
