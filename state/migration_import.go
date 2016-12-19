@@ -610,7 +610,19 @@ func (i *importer) makeAddresses(addrs []description.Address) []address {
 
 func (i *importer) applications() error {
 	i.logger.Debugf("importing applications")
-	for _, s := range i.model.Applications() {
+
+	// Ensure we import principal applications first, so that
+	// subordinate units can refer to the principal ones.
+	var principals, subordinates []description.Application
+	for _, app := range i.model.Applications() {
+		if app.Subordinate() {
+			subordinates = append(subordinates, app)
+		} else {
+			principals = append(principals, app)
+		}
+	}
+
+	for _, s := range append(principals, subordinates...) {
 		if err := i.application(s); err != nil {
 			i.logger.Errorf("error importing application %s: %s", s.Name(), err)
 			return errors.Annotate(err, s.Name())
