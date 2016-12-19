@@ -103,12 +103,14 @@ function wait_for_jujud {
 
 # There might be no jujud at all (for example, after a failed deployment) so
 # don't require pkill to succeed before looking for a jujud process.
-pkill -6 jujud
+# SIGABRT not SIGTERM, as abort lets the worker know it should uninstall itself,
+# rather than terminate normally.
+pkill -SIGABRT jujud
 wait_for_jujud
 
 [[ $stopped -ne 1 ]] && {
     # If jujud didn't stop nicely, we kill it hard here.
-    pkill -9 jujud && wait_for_jujud
+    pkill -SIGKILL jujud && wait_for_jujud
 }
 [[ $stopped -ne 1 ]] && {
     echo jujud removal failed

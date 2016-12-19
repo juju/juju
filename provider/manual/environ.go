@@ -11,7 +11,6 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
-	"syscall"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -33,7 +32,6 @@ import (
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
-	"github.com/juju/juju/worker/terminationworker"
 )
 
 const (
@@ -259,24 +257,26 @@ function wait_for_jujud {
 
 # There might be no jujud at all (for example, after a failed deployment) so
 # don't require pkill to succeed before looking for a jujud process.
-pkill -%[2]d jujud
+# SIGABRT not SIGTERM, as abort lets the worker know it should uninstall itself,
+# rather than terminate normally.
+pkill -SIGABRT jujud
 wait_for_jujud
 
 [[ $stopped -ne 1 ]] && {
     # If jujud didn't stop nicely, we kill it hard here.
-    %[3]spkill -%[4]d jujud && wait_for_jujud
+    %[2]spkill -SIGKILL jujud && wait_for_jujud
 }
 [[ $stopped -ne 1 ]] && {
     echo jujud removal failed
     logger --id $(ps -o pid,cmd,state -p $(pgrep jujud) | awk 'NR != 1 {printf("Process %%d (%%s) has state %%s\n", $1, $2, $3)}')
     exit 1
 }
-service %[5]s stop && logger --id stopped %[5]s
+service %[3]s stop && logger --id stopped %[3]s
 apt-get -y purge juju-mongo*
 apt-get -y autoremove
 rm -f /etc/init/juju*
 rm -f /etc/systemd/system{,/multi-user.target.wants}/juju*
-rm -fr %[6]s %[7]s
+rm -fr %[4]s %[5]s
 exit 0
 `
 	var diagnostics string
@@ -297,9 +297,7 @@ exit 0
 			agent.DefaultPaths.DataDir,
 			agent.UninstallFile,
 		)),
-		terminationworker.TerminationSignal,
 		diagnostics,
-		syscall.SIGKILL,
 		mongo.ServiceName,
 		utils.ShQuote(agent.DefaultPaths.DataDir),
 		utils.ShQuote(agent.DefaultPaths.LogDir),
