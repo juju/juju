@@ -120,7 +120,7 @@ def main(argv=None):
     args = parse_args(argv)
     configure_logging(args.verbose)
 
-    assess_sync_bootstrap(args, agent_stream="release")
+    #assess_sync_bootstrap(args, agent_stream="release")
     assess_sync_bootstrap(args, agent_stream="devel")
     return 0
 
