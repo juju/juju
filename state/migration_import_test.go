@@ -389,6 +389,71 @@ func (s *MigrationImportSuite) TestApplicationLeaders(c *gc.C) {
 	})
 }
 
+func (s *MigrationImportSuite) TestApplicationsSubordinatesAfter(c *gc.C) {
+	// Test for https://bugs.launchpad.net/juju/+bug/1650249
+	subordinate := s.Factory.MakeApplication(c, &factory.ApplicationParams{
+		Charm: s.Factory.MakeCharm(c, &factory.CharmParams{Name: "logging"}),
+	})
+
+	principal := s.Factory.MakeApplication(c, &factory.ApplicationParams{
+		Charm: s.Factory.MakeCharm(c, &factory.CharmParams{Name: "mysql"}),
+	})
+	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Application: principal})
+
+	sEndpoint, err := subordinate.Endpoint("info")
+	c.Assert(err, jc.ErrorIsNil)
+	pEndpoint, err := principal.Endpoint("juju-info")
+	c.Assert(err, jc.ErrorIsNil)
+	relation := s.Factory.MakeRelation(c, &factory.RelationParams{
+		Endpoints: []state.Endpoint{sEndpoint, pEndpoint},
+	})
+
+	ru, err := relation.Unit(unit)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Ensure the subordinate unit is created.
+	err = ru.EnterScope(nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	tools, err := unit.AgentTools()
+	c.Assert(err, jc.ErrorIsNil)
+
+	sUnits, err := subordinate.AllUnits()
+	for _, u := range sUnits {
+		// For some reason the EnterScope call doesn't set up the
+		// version or enter the scope for the subordinate unit on the
+		// other side of the relation.
+		err := u.SetAgentVersion(tools.Version)
+		c.Assert(err, jc.ErrorIsNil)
+		ru, err := relation.Unit(u)
+		c.Assert(err, jc.ErrorIsNil)
+		err = ru.EnterScope(nil)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
+	out, err := s.State.Export()
+	c.Assert(err, jc.ErrorIsNil)
+
+	apps := out.Applications()
+	c.Assert(len(apps), gc.Equals, 2)
+
+	// This test is only valid if the subordinate logging application
+	// comes first in the model output.
+	if apps[0].Name() != "logging" {
+		out = &swapModel{out, c}
+	}
+
+	uuid := utils.MustNewUUID().String()
+	in := newModel(out, uuid, "new")
+
+	_, newSt, err := s.State.Import(in)
+	c.Assert(err, jc.ErrorIsNil)
+	// add the cleanup here to close the model.
+	s.AddCleanup(func(c *gc.C) {
+		c.Check(newSt.Close(), jc.ErrorIsNil)
+	})
+}
+
 func (s *MigrationImportSuite) TestUnits(c *gc.C) {
 	s.assertUnitsMigrated(c, constraints.MustParse("arch=amd64 mem=8G"))
 }
@@ -1042,4 +1107,18 @@ func (m *mockModel) Config() map[string]interface{} {
 	c["uuid"] = m.uuid
 	c["name"] = m.name
 	return c
+}
+
+// swapModel will swap the order of the applications appearing in the
+// model.
+type swapModel struct {
+	description.Model
+	c *gc.C
+}
+
+func (m swapModel) Applications() []description.Application {
+	values := m.Model.Applications()
+	m.c.Assert(len(values), gc.Equals, 2)
+	values[0], values[1] = values[1], values[0]
+	return values
 }
