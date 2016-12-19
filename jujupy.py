@@ -1299,8 +1299,9 @@ def client_from_config(config, juju_path, debug=False, soft_deadline=None):
 
 class BaseCondition:
 
-    def __init__(self, timeout=300):
+    def __init__(self, timeout=300, already_satisfied=False):
         self.timeout = timeout
+        self.already_satisfied = already_satisfied
 
 
 class ConditionList(BaseCondition):
@@ -1310,7 +1311,8 @@ class ConditionList(BaseCondition):
             timeout = 300
         else:
             timeout = max(c.timeout for c in conditions)
-        super(ConditionList, self).__init__(timeout)
+        already_satisfied = all(c.already_satisfied for c in conditions)
+        super(ConditionList, self).__init__(timeout, already_satisfied)
         self._conditions = conditions
 
     def iter_blocking_state(self, status):
@@ -2176,7 +2178,7 @@ class EnvJujuClient:
             timeout=timeout, start=start)
 
     def wait_for_version(self, version, timeout=300):
-        self.wait_for([WaitVersion(version, timeout)])
+        self.wait_for(WaitVersion(version, timeout))
 
     def list_models(self):
         """List the models registered with the current controller."""
@@ -2370,15 +2372,14 @@ class EnvJujuClient:
         self._wait_for_status(reporter, status_to_workloads, WorkloadsNotReady,
                               timeout=timeout, start=start)
 
-    def wait_for(self, conditions, quiet=False):
+    def wait_for(self, condition, quiet=False):
         """Wait until the supplied conditions are satisfied.
 
         The supplied conditions must be an iterable of objects like
         WaitMachineNotPresent.
         """
-        if len(conditions) == 0:
+        if condition.already_satisfied:
             return self.get_status()
-        condition = ConditionList(conditions)
         reporter = GroupReporter(sys.stdout, 'started')
         status = None
         try:

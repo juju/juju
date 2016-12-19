@@ -68,8 +68,9 @@ def assess_cloud_combined(bs_manager):
             timeout = 1200
         else:
             timeout = 300
-        new_status = client.wait_for([WaitMachineNotPresent(n, timeout)
-                                      for n in new_machines])
+        new_status = client.wait_for(
+            ConditionList([WaitMachineNotPresent(n, timeout)
+                           for n in new_machines]))
 
 
 def assess_cloud_provisioning(bs_manager):
@@ -93,8 +94,9 @@ def assess_cloud_provisioning(bs_manager):
         new_machines = [k for k, v in new_status.iter_new_machines(old_status)]
         for machine in new_machines:
             client.juju('remove-machine', (machine,))
-        new_status = client.wait_for([WaitMachineNotPresent(n, timeout=600)
-                                      for n in new_machines])
+        new_status = client.wait_for(
+            ConditionList([WaitMachineNotPresent(n, timeout=600)
+                           for n in new_machines]))
 
 
 def assess_cloud_kill_controller(bs_manager):
