@@ -82,12 +82,13 @@ func (s *environSuite) TestDestroyController(c *gc.C) {
 		c.Assert(host, gc.Equals, "ubuntu@hostname")
 		c.Assert(command, gc.DeepEquals, []string{"sudo", "/bin/bash"})
 		c.Assert(stdin, gc.Equals, `
+# Signal the jujud process to stop, then check it has done so before cleaning-up
+# after it.
 set -x
 touch '/var/lib/juju/uninstall-agent'
 
 stopped=0
 function wait_for_jujud {
-    # Give jujud a chance to stop after pkill.
     for i in {1..30}; do
         if pgrep jujud > /dev/null ; then
             sleep 1
@@ -101,7 +102,7 @@ function wait_for_jujud {
 }
 
 # There might be no jujud at all (for example, after a failed deployment) so
-# don't require pkill to succeed before checking jujud is dead.
+# don't require pkill to succeed before looking for a jujud process.
 pkill -6 jujud
 wait_for_jujud
 

@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"syscall"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -237,12 +238,13 @@ func (e *manualEnviron) Destroy() error {
 // DestroyController implements the Environ interface.
 func (e *manualEnviron) DestroyController(controllerUUID string) error {
 	script := `
+# Signal the jujud process to stop, then check it has done so before cleaning-up
+# after it.
 set -x
-touch %s
+touch %[1]s
 
 stopped=0
 function wait_for_jujud {
-    # Give jujud a chance to stop after pkill.
     for i in {1..30}; do
         if pgrep jujud > /dev/null ; then
             sleep 1
@@ -256,24 +258,24 @@ function wait_for_jujud {
 }
 
 # There might be no jujud at all (for example, after a failed deployment) so
-# don't require pkill to succeed before checking jujud is dead.
-pkill -%d jujud
+# don't require pkill to succeed before looking for a jujud process.
+pkill -%[2]d jujud
 wait_for_jujud
 
 [[ $stopped -ne 1 ]] && {
     # If jujud didn't stop nicely, we kill it hard here.
-    %spkill -9 jujud && wait_for_jujud
+    %[3]spkill -%[4]d jujud && wait_for_jujud
 }
 [[ $stopped -ne 1 ]] && {
     echo jujud removal failed
     exit 1
 }
-service %s stop && logger --id stopped %s
+service %[5]s stop && logger --id stopped %[5]s
 apt-get -y purge juju-mongo*
 apt-get -y autoremove
 rm -f /etc/init/juju*
 rm -f /etc/systemd/system{,/multi-user.target.wants}/juju*
-rm -fr %s %s
+rm -fr %[6]s %[7]s
 exit 0
 `
 	var diagnostics string
@@ -296,7 +298,7 @@ exit 0
 		)),
 		terminationworker.TerminationSignal,
 		diagnostics,
-		mongo.ServiceName,
+		syscall.SIGKILL,
 		mongo.ServiceName,
 		utils.ShQuote(agent.DefaultPaths.DataDir),
 		utils.ShQuote(agent.DefaultPaths.LogDir),
