@@ -97,8 +97,8 @@ def assess_sync_bootstrap(args, agent_stream="release"):
     with prepare_temp_metadata(client, args.agent_dir) as agent_dir:
         client.env.update_config({'agent-stream:': agent_stream})
         log.info('Metadata written to: {}'.format(agent_dir))
-        client.bootstrap(metadata_source=agent_dir)
-        with bs_manager.booted_context(args.upload_tools):
+        with bs_manager.booted_context(args.upload_tools,
+                                       metadata_source=agent_dir):
             log.info('Metadata bootstrap successful.')
             verify_deployed_tool(agent_dir, client)
             deploy_charm_and_verify(client)
