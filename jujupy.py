@@ -1303,6 +1303,22 @@ class BaseCondition:
         self.timeout = timeout
 
 
+class ConditionList(BaseCondition):
+
+    def __init__(self, conditions):
+        if len(conditions) == 0:
+            timeout = 300
+        else:
+            timeout = max(c.timeout for c in conditions)
+        super(ConditionList, self).__init__(timeout)
+        self._conditions = conditions
+
+    def iter_blocking_state(self, status):
+        for condition in self._conditions:
+            for item, state in condition.iter_blocking_state(status):
+                yield item, state
+
+
 class WaitMachineNotPresent(BaseCondition):
     """Condition satisfied when a given machine is not present."""
 

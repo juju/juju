@@ -42,6 +42,7 @@ from jujupy import (
     BootstrapMismatch,
     CannotConnectEnv,
     client_from_config,
+    ConditionList,
     Controller,
     describe_substrate,
     EnvJujuClient,
@@ -530,6 +531,26 @@ class TestBaseCondition(ClientTest):
         self.assertEqual(300, condition.timeout)
         condition = BaseCondition(600)
         self.assertEqual(600, condition.timeout)
+
+
+class TestConditionList(ClientTest):
+
+    def test_uses_max_timeout(self):
+        conditions = ConditionList([Mock(timeout=300), Mock(timeout=400)])
+        self.assertEqual(400, conditions.timeout)
+
+    def test_empty_timeout(self):
+        conditions = ConditionList([])
+        self.assertEqual(300, conditions.timeout)
+
+    def test_iter_blocking_state(self):
+        mock_ab = Mock()
+        mock_ab.iter_blocking_state.return_value = [('a', 'b')]
+        mock_cd = Mock()
+        mock_cd.iter_blocking_state.return_value = [('c', 'd')]
+        conditions = ConditionList([mock_ab, mock_cd])
+        self.assertEqual([('a', 'b'), ('c', 'd')],
+                         list(conditions.iter_blocking_state(None)))
 
 
 class TestWaitMachineNotPresent(ClientTest):
