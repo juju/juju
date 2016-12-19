@@ -389,6 +389,37 @@ func (s *upgradesSuite) TestDropOldIndexWhenNoIndex(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *upgradesSuite) TestAddMigrationAttempt(c *gc.C) {
+	coll, closer := s.state.getRawCollection(migrationsC)
+	defer closer()
+
+	err := coll.Insert(
+		bson.M{"_id": "uuid:1"},
+		bson.M{"_id": "uuid:11"},
+		bson.M{
+			"_id":     "uuid:2",
+			"attempt": 2,
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	expected := []bson.M{
+		bson.M{
+			"_id":     "uuid:1",
+			"attempt": 1,
+		},
+		bson.M{
+			"_id":     "uuid:11",
+			"attempt": 11,
+		},
+		bson.M{
+			"_id":     "uuid:2",
+			"attempt": 2,
+		},
+	}
+	s.assertUpgradedData(c, AddMigrationAttempt, coll, expected)
+}
+
 func hasIndex(coll *mgo.Collection, key []string) (bool, error) {
 	indexes, err := coll.Indexes()
 	if err != nil {

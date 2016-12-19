@@ -4,6 +4,7 @@
 package state
 
 import (
+	"strconv"
 	"strings"
 
 	"github.com/juju/errors"
@@ -237,4 +238,57 @@ func DropOldLogIndex(st *State) error {
 		}
 	}
 	return errors.Trace(err)
+}
+
+// AddMigrationAttempt adds an "attempt" field to migration documents
+// which are missing one.
+func AddMigrationAttempt(st *State) error {
+	coll, closer := st.getRawCollection(migrationsC)
+	defer closer()
+
+	query := coll.Find(bson.M{"attempt": bson.M{"$exists": false}})
+	query = query.Select(bson.M{"_id": 1})
+	iter := query.Iter()
+	defer iter.Close()
+	var ops []txn.Op
+	var doc bson.M
+	for iter.Next(&doc) {
+		id := doc["_id"]
+		attempt, err := extractMigrationAttempt(id)
+		if err != nil {
+			logger.Warningf("%s (skipping)", err)
+			continue
+		}
+
+		ops = append(ops, txn.Op{
+			C:      migrationsC,
+			Id:     id,
+			Assert: txn.DocExists,
+			Update: bson.D{{"$set", bson.D{{"attempt", attempt}}}},
+		})
+	}
+	if err := iter.Err(); err != nil {
+		return errors.Annotate(err, "iterating migrations")
+	}
+
+	return errors.Trace(st.runRawTransaction(ops))
+}
+
+func extractMigrationAttempt(id interface{}) (int, error) {
+	idStr, ok := id.(string)
+	if !ok {
+		return 0, errors.Errorf("invalid migration doc id type: %v", id)
+	}
+
+	_, attemptStr, ok := splitDocID(idStr)
+	if !ok {
+		return 0, errors.Errorf("invalid migration doc id: %v", id)
+	}
+
+	attempt, err := strconv.Atoi(attemptStr)
+	if err != nil {
+		return 0, errors.Errorf("invalid migration attempt number: %v", id)
+	}
+
+	return attempt, nil
 }
