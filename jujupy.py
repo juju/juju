@@ -1297,10 +1297,17 @@ def client_from_config(config, juju_path, debug=False, soft_deadline=None):
                         soft_deadline=soft_deadline)
 
 
-class WaitMachineNotPresent:
+class BaseCondition:
+
+    def __init__(self, timeout=300):
+        self.timeout = timeout
+
+
+class WaitMachineNotPresent(BaseCondition):
     """Condition satisfied when a given machine is not present."""
 
-    def __init__(self, machine):
+    def __init__(self, machine, timeout=300):
+        super(WaitMachineNotPresent, self).__init__(timeout)
         self.machine = machine
 
     def iter_blocking_state(self, status):
@@ -1313,9 +1320,10 @@ class WaitMachineNotPresent:
                         self.machine)
 
 
-class WaitVersion:
+class WaitVersion(BaseCondition):
 
-    def __init__(self, target_version):
+    def __init__(self, target_version, timeout=300):
+        super(WaitVersion, self).__init__(timeout)
         self.target_version = target_version
 
     def iter_blocking_state(self, status):
@@ -2149,7 +2157,7 @@ class EnvJujuClient:
             timeout=timeout, start=start)
 
     def wait_for_version(self, version, timeout=300):
-        self.wait_for([WaitVersion(version)], timeout=timeout)
+        self.wait_for([WaitVersion(version, timeout)])
 
     def list_models(self):
         """List the models registered with the current controller."""
@@ -2343,7 +2351,7 @@ class EnvJujuClient:
         self._wait_for_status(reporter, status_to_workloads, WorkloadsNotReady,
                               timeout=timeout, start=start)
 
-    def wait_for(self, conditions, timeout=300, quiet=False):
+    def wait_for(self, conditions, quiet=False):
         """Wait until the supplied conditions are satisfied.
 
         The supplied conditions must be an iterable of objects like
@@ -2351,6 +2359,7 @@ class EnvJujuClient:
         """
         if len(conditions) == 0:
             return self.get_status()
+        timeout = max(c.timeout for c in conditions)
         reporter = GroupReporter(sys.stdout, 'started')
         status = None
         try:

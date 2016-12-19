@@ -38,6 +38,7 @@ from jujupy import (
     AgentError,
     AgentUnresolvedError,
     AppError,
+    BaseCondition,
     BootstrapMismatch,
     CannotConnectEnv,
     client_from_config,
@@ -520,6 +521,15 @@ class TestClientFromConfig(ClientTest):
                 client = client_from_config(
                     'foo', 'foo/bar/qux', soft_deadline=deadline)
         self.assertEqual(client._backend.soft_deadline, deadline)
+
+
+class TestBaseCondition(ClientTest):
+
+    def test_timeout(self):
+        condition = BaseCondition()
+        self.assertEqual(300, condition.timeout)
+        condition = BaseCondition(600)
+        self.assertEqual(600, condition.timeout)
 
 
 class TestWaitMachineNotPresent(ClientTest):
@@ -2522,6 +2532,8 @@ class TestEnvJujuClient(ClientTest):
 
     class NeverSatisfied:
 
+        timeout = 1234
+
         class NeverSatisfiedException(Exception):
             pass
 
@@ -2534,17 +2546,17 @@ class TestEnvJujuClient(ClientTest):
     def test_wait_timeout(self):
         client = fake_juju_client()
         client.bootstrap()
-
         never_satisfied = self.NeverSatisfied()
         with self.assertRaises(never_satisfied.NeverSatisfiedException):
-            with patch.object(client, 'status_until', lambda timeout: iter(
-                    [Status({}, '')])):
+            with patch.object(client, 'status_until', return_value=iter(
+                    [Status({}, '')])) as mock_su:
                 client.wait_for([never_satisfied], quiet=True)
+        mock_su.assert_called_once_with(1234)
 
     def test_wait_for_emits_output(self):
         client = fake_juju_client()
         client.bootstrap()
-        mock_wait = Mock()
+        mock_wait = Mock(timeout=300)
         mock_wait.iter_blocking_state.side_effect = [
             [('0', 'still-present')],
             [('0', 'still-present')],
@@ -2560,7 +2572,7 @@ class TestEnvJujuClient(ClientTest):
     def test_wait_for_quiet(self):
         client = fake_juju_client()
         client.bootstrap()
-        mock_wait = Mock()
+        mock_wait = Mock(timeout=300)
         mock_wait.iter_blocking_state.side_effect = [
             [('0', 'still-present')],
             [('0', 'still-present')],
