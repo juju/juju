@@ -17,6 +17,11 @@ import (
 	"github.com/juju/juju/network"
 )
 
+// defaultSpaceName is the name of the default space to assign containers.
+// Currently hard-coded to 'default', we may consider making this a model
+// config
+const defaultSpaceName = "default"
+
 // LinkLayerDevice returns the link-layer device matching the given name. An
 // error satisfying errors.IsNotFound() is returned when no such device exists
 // on the machine.
@@ -1028,6 +1033,29 @@ func (m *Machine) SetDevicesAddressesIdempotently(devicesAddresses []LinkLayerDe
 	return nil
 }
 
+// inferContainerSpaces tries to find a valid space for the container to be
+// on. This should only be used when the container itself doesn't have any
+// valid constraints on what spaces it should be in.
+// If this machine is in a single space, then that space is used. Else, if
+// the machine has the default space, then that space is used.
+// If neither of those conditions is true, then we return an error.
+func (m *Machine) inferContainerSpaces(containerId, defaultSpaceName string) (set.Strings, error) {
+	hostSpaces, err := m.DesiredSpaces()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	logger.Debugf("container %q not qualified to a space, host machine %q is using spaces %v",
+		containerId, m.Id(), hostSpaces.Values())
+	if len(hostSpaces) == 1 {
+		return hostSpaces, nil
+	}
+	if hostSpaces.Contains(defaultSpaceName) {
+		return set.NewStrings(defaultSpaceName), nil
+	}
+	return nil, errors.Errorf("no obvious space for container %q, host machine has spaces: %v",
+		containerId, hostSpaces.SortedValues())
+}
+
 // SetContainerLinkLayerDevices sets the link-layer devices of the given
 // containerMachine, setting each device linked to the corresponding
 // BridgeDevice of the host machine. It also records when one of the
@@ -1042,24 +1070,13 @@ func (m *Machine) SetContainerLinkLayerDevices(containerMachine *Machine) error 
 	}
 	logger.Debugf("for container %q, found desired spaces: %v",
 		containerMachine.Id(), containerSpaces)
-	// XXX(jam): 2016-12-13 We should do something useful if
-	// len(containerSpaces) == 0
 	if len(containerSpaces) == 0 {
 		// We have determined that the container doesn't have any useful
 		// constraints set on it. So lets see if we can come up with
 		// something useful.
-		// First, check to see if the host machine is in a single space.
-		// TODO(jam): 2016-12-18 DesiredSpaces() returns the list of spaces that
-		// a machine is *supposed* to be in, but not necessarily the spaces
-		// that it is *actually* in, we should probably have a different call.
-		hostSpaces, err := m.DesiredSpaces()
+		containerSpaces, err = m.inferContainerSpaces(containerMachine.Id(), defaultSpaceName)
 		if err != nil {
 			return errors.Trace(err)
-		}
-		logger.Debugf("container %q not qualified to a space, host machine %q is using spaces %v",
-			containerMachine.Id(), m.Id(), hostSpaces.Values())
-		if len(hostSpaces) == 1 {
-			containerSpaces = hostSpaces
 		}
 	}
 	devicesPerSpace, err := m.LinkLayerDevicesForSpaces(containerSpaces.Values())
