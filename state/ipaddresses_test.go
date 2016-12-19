@@ -313,7 +313,8 @@ func (s *ipAddressesStateSuite) TestMachineRemoveAlsoRemoveAllAddresses(c *gc.C)
 }
 
 func (s *ipAddressesStateSuite) TestAllSpacesHandlesUnknownSubnets(c *gc.C) {
-	s.addTwoDevicesWithTwoAddressesEach(c)
+	// This is not one of the registered subnets
+	s.addNamedDeviceWithAddresses(c, "eth0", "172.12.0.10/24")
 	spaces, err := s.machine.AllSpaces()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(spaces.SortedValues(), gc.DeepEquals, []string{})

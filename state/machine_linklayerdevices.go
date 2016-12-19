@@ -1040,7 +1040,7 @@ func (m *Machine) SetDevicesAddressesIdempotently(devicesAddresses []LinkLayerDe
 // the machine has the default space, then that space is used.
 // If neither of those conditions is true, then we return an error.
 func (m *Machine) inferContainerSpaces(containerId, defaultSpaceName string) (set.Strings, error) {
-	hostSpaces, err := m.DesiredSpaces()
+	hostSpaces, err := m.AllSpaces()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

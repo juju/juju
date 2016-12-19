@@ -1463,7 +1463,9 @@ func (s *linkLayerDevicesStateSuite) TestSetContainerLinkLayerDeviceHostOneSpace
 	// We change the machine to be in 'dmz' instead of 'default', but it is
 	// still in a single space. Adding a container to a machine that is in a
 	// single space puts that container into the same space.
-	err := s.machine.SetDevicesAddresses(
+	err := s.machine.RemoveAllAddresses()
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.machine.SetDevicesAddresses(
 		state.LinkLayerDeviceAddress{
 			DeviceName: "br-eth0",
 			// In the DMZ subnet
@@ -1519,8 +1521,8 @@ func (s *linkLayerDevicesStateSuite) TestSetContainerLinkLayerDeviceDefaultSpace
 	c.Check(containerDevice.MACAddress(), gc.Matches, "00:16:3e(:[0-9a-f]{2}){3}")
 	c.Check(containerDevice.IsUp(), jc.IsTrue)
 	c.Check(containerDevice.IsAutoStart(), jc.IsTrue)
-	// br-eth0 is the one in 'default' space
-	c.Check(containerDevice.ParentName(), gc.Equals, `m#0#d#br-eth0`)
+	// br-ens33 is the one in 'default' space
+	c.Check(containerDevice.ParentName(), gc.Equals, `m#0#d#br-ens33`)
 }
 
 func (s *linkLayerDevicesStateSuite) TestSetContainerLinkLayerDeviceNoValidSpace(c *gc.C) {
@@ -1528,7 +1530,9 @@ func (s *linkLayerDevicesStateSuite) TestSetContainerLinkLayerDeviceNoValidSpace
 	// thus we are unable to find a valid space to put the container in.
 	s.setupMachineWithOneNICAndBridge(c)
 	// We change br-eth0 to be in 'dmz' instead of 'default'
-	err := s.machine.SetDevicesAddresses(
+	err := s.machine.RemoveAllAddresses()
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.machine.SetDevicesAddresses(
 		state.LinkLayerDeviceAddress{
 			DeviceName: "br-eth0",
 			// In the DMZ subnet
@@ -1543,9 +1547,9 @@ func (s *linkLayerDevicesStateSuite) TestSetContainerLinkLayerDeviceNoValidSpace
 	s.assertNoDevicesOnMachine(c, s.containerMachine)
 
 	err = s.machine.SetContainerLinkLayerDevices(s.containerMachine)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, gc.ErrorMatches, `no obvious space for container "0/lxd/0", host machine has spaces: .*`)
 
 	containerDevices, err := s.containerMachine.AllLinkLayerDevices()
-	c.Assert(err, gc.ErrorMatches, `no obvious space for container "0/lxd/0", host machine has spaces .*`)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(containerDevices, gc.HasLen, 0)
 }
