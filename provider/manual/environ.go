@@ -268,6 +268,7 @@ wait_for_jujud
 }
 [[ $stopped -ne 1 ]] && {
     echo jujud removal failed
+    logger --id $(ps -o pid,cmd,state -p $(pgrep jujud) | awk 'NR != 1 {printf("Process %%d (%%s) has state %%s\n", $1, $2, $3)}')
     exit 1
 }
 service %[5]s stop && logger --id stopped %[5]s
