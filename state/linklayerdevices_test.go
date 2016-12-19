@@ -658,7 +658,6 @@ func (s *linkLayerDevicesStateSuite) setupMachineWithOneNIC(c *gc.C) {
 	s.createNICWithIP(c, s.machine, "eth0", "10.0.0.20/24")
 }
 
-
 func (s *linkLayerDevicesStateSuite) createNICWithIP(c *gc.C, machine *state.Machine, deviceName, cidrAddress string) {
 	err := machine.SetLinkLayerDevices(
 		state.LinkLayerDeviceArgs{
