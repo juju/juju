@@ -90,13 +90,12 @@ def assess_sync_bootstrap(args, agent_stream):
     metadata_source and agent-metadata-url option.
     :param args: Parsed command line arguments
     :param agent_stream: choice of release or develop
-    :return:
     """
     bs_manager = BootstrapManager.from_args(args)
     client = bs_manager.client
 
-    with prepare_temp_metadata(client, agent_stream, args.agent_dir)\
-            as agent_dir:
+    with prepare_temp_metadata(
+            client, agent_stream, args.agent_dir) as agent_dir:
         client.env.update_config({'agent-stream:': agent_stream})
         log.info('Metadata written to: {}'.format(agent_dir))
         log.info("Directory contents {} with stream {}".format(
@@ -126,8 +125,8 @@ def main(argv=None):
     args = parse_args(argv)
     configure_logging(args.verbose)
 
-    assess_sync_bootstrap(args, agent_stream="release")
-    #assess_sync_bootstrap(args, agent_stream="devel")
+    #assess_sync_bootstrap(args, agent_stream="release")
+    assess_sync_bootstrap(args, agent_stream="devel")
     return 0
 
 
