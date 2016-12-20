@@ -185,11 +185,13 @@ def assess_add_cloud(args, agent_dir):
     agent_metadata_url = os.path.join(agent_dir, "tools/")
 
     test_cloud_data = {'clouds': {'testCloud': {'type': 'lxd', 'config': {
-        'agent-metadata-url': 'file://{}'.format(agent_metadata_url)}}}}
+        'agent-metadata-url': 'file://{}'.format(agent_metadata_url),
+        'agent-stream': args.agent_stream}}}}
+    log.info(test_cloud_data)
 
     bs_manager = BootstrapManager.from_args(args)
-
     client = bs_manager.client
+
     with temp_yaml_file(test_cloud_data) as add_cloud_file:
         client.add_cloud(cloud_name, add_cloud_file)
         clouds = test_cloud_data['clouds'][cloud_name]
@@ -278,8 +280,8 @@ def main(argv=None):
 
     args.agent_stream = args.agent_stream if args.agent_stream else 'testing'
 
-    with make_unique_tool(args.agent_file, args.agent_stream) as agent_dir:
-        assess_metadata(args, agent_dir)
+    # with make_unique_tool(args.agent_file, args.agent_stream) as agent_dir:
+    #    assess_metadata(args, agent_dir)
 
     with make_unique_tool(args.agent_file, args.agent_stream) as agent_dir:
         assess_add_cloud(args, agent_dir)
