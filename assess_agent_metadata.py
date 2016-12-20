@@ -168,6 +168,9 @@ def assess_metadata(args, agent_dir):
     log.info('bootstrap to use --agent_metadata_url={}'.format(
         agent_metadata_url))
     client.generate_tool(agent_dir, stream)
+    log.info("Directory contents {} with stream {}".format(
+        agent_dir), args.agent_stream)
+    list_files(agent_dir)
 
     with bs_manager.booted_context(args.upload_tools):
         log.info('Metadata bootstrap successful.')
@@ -199,6 +202,8 @@ def assess_add_cloud(args, agent_dir):
         clouds = test_cloud_data['clouds'][cloud_name]
         assert_cloud_details_are_correct(client, cloud_name, clouds)
 
+    client.generate_tool(agent_dir, "release")
+    list_files(agent_dir)
     with bs_manager.booted_context(args.upload_tools):
         log.info('Metadata bootstrap successful.')
         verify_deployed_tool(agent_dir, client)
@@ -220,6 +225,16 @@ def change_tgz_sha256_sum(src, dst):
         subprocess.Popen(command, shell=True, executable='/bin/bash')
     except subprocess.CalledProcessError as e:
         raise Exception("Failed to create a tool file {} - {}". format(src, e))
+
+
+def list_files(startpath):
+    for root, dirs, files in os.walk(startpath):
+        level = root.replace(startpath, '').count(os.sep)
+        indent = ' ' * 4 * (level)
+        print('{}{}/'.format(indent, os.path.basename(root)))
+        subindent = ' ' * 4 * (level + 1)
+        for f in files:
+            print('{}{}'.format(subindent, f))
 
 
 @contextmanager
