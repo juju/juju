@@ -47,7 +47,7 @@ DEVEL_TOOL_PATH = "tools/devel/"
 log = logging.getLogger("assess_agent_metadata")
 
 
-def get_stream_path(agent_stream="release"):
+def get_stream_path(agent_stream):
     return RELEASE_TOOL_PATH if agent_stream == "release" else DEVEL_TOOL_PATH
 
 
@@ -187,8 +187,8 @@ def assess_add_cloud(args, agent_dir):
     :param agent_dir: The top level directory location of agent file.
     """
     cloud_name = "testCloud"
-    agent_metadata_url = os.path.join(agent_dir,
-                                      get_stream_path().split('/')[0])
+    agent_metadata_url = os.path.join(agent_dir, get_stream_path(
+        args.agent_stream).split('/')[0])
 
     test_cloud_data = {'clouds': {'{0}'.format(
         cloud_name): {'type': 'lxd',
