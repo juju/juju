@@ -95,7 +95,7 @@ def assess_sync_bootstrap(args, agent_stream):
     bs_manager = BootstrapManager.from_args(args)
     client = bs_manager.client
 
-    with prepare_temp_metadata(client, args.agent_dir, agent_stream)\
+    with prepare_temp_metadata(client, agent_stream, args.agent_dir)\
             as agent_dir:
         client.env.update_config({'agent-stream:': agent_stream})
         log.info('Metadata written to: {}'.format(agent_dir))
@@ -127,7 +127,7 @@ def main(argv=None):
     configure_logging(args.verbose)
 
     assess_sync_bootstrap(args, agent_stream="release")
-    assess_sync_bootstrap(args, agent_stream="devel")
+    #assess_sync_bootstrap(args, agent_stream="devel")
     return 0
 
 

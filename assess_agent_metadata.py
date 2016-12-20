@@ -76,7 +76,7 @@ def get_local_url_and_sha256(agent_dir, controller_url,
     of the agent-file passed
     :param agent_dir: The top level directory location of agent file.
     :param controller_url: The controller used agent file url
-    :param agent_stream: The agent stream to use
+    :param agent_stream: The agent stream
     """
     local_url = os.path.join(agent_dir, "tools/{}".format(agent_stream),
                              os.path.basename(controller_url))
@@ -123,13 +123,13 @@ def verify_deployed_tool(agent_dir, client, agent_stream):
     """
     controller_url, controller_sha256 = get_controller_url_and_sha256(client)
 
-    log.debug("controller_url: {} and controller_sha256: {}".format(
+    log.info("controller_url: {} and controller_sha256: {}".format(
                controller_url, controller_sha256))
 
     local_url, local_sha256 = get_local_url_and_sha256(
         agent_dir, controller_url, agent_stream)
 
-    log.debug("local_url: {} and local_sha256: {}".format(
+    log.info("local_url: {} and local_sha256: {}".format(
         local_url, local_sha256))
 
     if local_url != controller_url:
@@ -280,8 +280,8 @@ def main(argv=None):
 
     args.agent_stream = args.agent_stream if args.agent_stream else 'testing'
 
-    # with make_unique_tool(args.agent_file, args.agent_stream) as agent_dir:
-    #    assess_metadata(args, agent_dir)
+    with make_unique_tool(args.agent_file, args.agent_stream) as agent_dir:
+        assess_metadata(args, agent_dir)
 
     with make_unique_tool(args.agent_file, args.agent_stream) as agent_dir:
         assess_add_cloud(args, agent_dir)
