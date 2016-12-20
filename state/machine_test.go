@@ -748,26 +748,26 @@ func (s *MachineSuite) TestMachineInstanceIdBlank(c *gc.C) {
 	c.Assert(string(iid), gc.Equals, "")
 }
 
-func (s *MachineSuite) TestAllSpacesNone(c *gc.C) {
+func (s *MachineSuite) TestDesiredSpacesNone(c *gc.C) {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
-	spaces, err := machine.AllSpaces()
+	spaces, err := machine.DesiredSpaces()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(spaces.SortedValues(), gc.DeepEquals, []string{})
 }
 
-func (s *MachineSuite) TestAllSpacesSimpleConstraints(c *gc.C) {
+func (s *MachineSuite) TestDesiredSpacesSimpleConstraints(c *gc.C) {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.SetConstraints(constraints.Value{
 		Spaces: &[]string{"foo", "bar", "^baz"},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	spaces, err := machine.AllSpaces()
+	spaces, err := machine.DesiredSpaces()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(spaces.SortedValues(), gc.DeepEquals, []string{"bar", "foo"})
 }
 
-func (s *MachineSuite) TestAllSpacesEndpoints(c *gc.C) {
+func (s *MachineSuite) TestDesiredSpacesEndpoints(c *gc.C) {
 	_, err := s.State.AddSpace("db", "", nil, true)
 	c.Assert(err, jc.ErrorIsNil)
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
@@ -778,12 +778,12 @@ func (s *MachineSuite) TestAllSpacesEndpoints(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = unit.AssignToMachine(machine)
 	c.Assert(err, jc.ErrorIsNil)
-	spaces, err := machine.AllSpaces()
+	spaces, err := machine.DesiredSpaces()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(spaces.SortedValues(), gc.DeepEquals, []string{"db"})
 }
 
-func (s *MachineSuite) TestAllSpacesEndpointsAndConstraints(c *gc.C) {
+func (s *MachineSuite) TestDesiredSpacesEndpointsAndConstraints(c *gc.C) {
 	_, err := s.State.AddSpace("foo", "", nil, true)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddSpace("db", "", nil, true)
@@ -800,7 +800,7 @@ func (s *MachineSuite) TestAllSpacesEndpointsAndConstraints(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = unit.AssignToMachine(machine)
 	c.Assert(err, jc.ErrorIsNil)
-	spaces, err := machine.AllSpaces()
+	spaces, err := machine.DesiredSpaces()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(spaces.SortedValues(), gc.DeepEquals, []string{"db", "foo"})
 }
