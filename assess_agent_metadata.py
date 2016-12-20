@@ -77,7 +77,7 @@ def assert_cloud_details_are_correct(client, cloud_name, example_cloud):
 
 
 def get_local_url_and_sha256(agent_dir, controller_url,
-                             agent_stream="release"):
+                             agent_stream):
     """
     Get the agent URL (local file location: file:///) and SHA256
     of the agent-file passed
@@ -120,7 +120,7 @@ def assert_metadata_are_correct(agent_metadata_url, client):
              .format(data['agent-metadata-url']['value']))
 
 
-def verify_deployed_tool(agent_dir, client, agent_stream="release"):
+def verify_deployed_tool(agent_dir, client, agent_stream):
     """
     Verify the bootstraped controller make use of the the specified
     agent-metadata-url.
@@ -175,7 +175,7 @@ def assess_metadata(args, agent_dir):
     with bs_manager.booted_context(args.upload_tools):
         log.info('Metadata bootstrap successful.')
         assert_metadata_are_correct(agent_metadata_url, client)
-        verify_deployed_tool(agent_dir, client)
+        verify_deployed_tool(agent_dir, client, stream)
         log.info("Successfully deployed and verified agent-metadata-url")
 
 
