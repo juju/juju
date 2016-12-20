@@ -19,7 +19,7 @@ import (
 
 type APICalls interface {
 	ContainerConfig() (params.ContainerConfig, error)
-	PrepareContainerInterfaceInfo(names.MachineTag) ([]network.InterfaceInfo, []network.DeviceToBridge, error)
+	PrepareContainerInterfaceInfo(names.MachineTag) ([]network.InterfaceInfo, error)
 	GetContainerInterfaceInfo(names.MachineTag) ([]network.InterfaceInfo, error)
 	ReleaseContainerAddresses(names.MachineTag) error
 }
@@ -59,7 +59,7 @@ func prepareOrGetContainerInterfaceInfo(
 	log.Debugf("using multi-bridge networking for container %q", machineID)
 
 	containerTag := names.NewMachineTag(machineID)
-	preparedInfo, devicesToBridge, err := api.PrepareContainerInterfaceInfo(containerTag)
+	preparedInfo, err := api.PrepareContainerInterfaceInfo(containerTag)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

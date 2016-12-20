@@ -455,11 +455,6 @@ type MachineNetworkConfigResult struct {
 
 	// Tagged to Info due to compatibility reasons.
 	Config []NetworkConfig `json:"info"`
-
-	// DevicesToBridge lists the host devices we need to be bridged for the
-	// container to have correct Config. This should be empty for any
-	// top level machine.
-	DevicesToBridge []DeviceBridgeInfo `json:"devices-to-bridge"`
 }
 
 // MachineNetworkConfigResults holds network configuration for multiple machines.
