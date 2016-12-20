@@ -72,6 +72,7 @@ func init() {
 	environs.RegisterProvider("no-cloud-regions", noCloudRegionsProvider{dummyProvider})
 	environs.RegisterProvider("no-credentials", noCredentialsProvider{})
 	environs.RegisterProvider("many-credentials", manyCredentialsProvider{dummyProvider})
+	environs.RegisterProvider("default-cloud-name", defaultCloudNameProvider{})
 }
 
 func (s *BootstrapSuite) SetUpSuite(c *gc.C) {
@@ -1378,6 +1379,24 @@ func (s *BootstrapSuite) TestBootstrapProviderDetectNoRegions(c *gc.C) {
 	})
 }
 
+func (s *BootstrapSuite) TestBootstrapProviderUsesDefaultCloudName(c *gc.C) {
+	s.patchVersionAndSeries(c, "xenial")
+
+	var prepareParams bootstrap.PrepareParams
+	s.PatchValue(&bootstrapPrepare, func(
+		ctx environs.BootstrapContext,
+		stor jujuclient.ClientStore,
+		params bootstrap.PrepareParams,
+	) (environs.Environ, error) {
+		prepareParams = params
+		return nil, errors.New("mock-prepare")
+	})
+
+	_, err := coretesting.RunCommand(c, s.newBootstrapCommand(), "default-cloud-name", "ctrl")
+	c.Assert(err, gc.ErrorMatches, "mock-prepare")
+	c.Assert(prepareParams.Cloud.Name, gc.Equals, "mykonos")
+}
+
 func (s *BootstrapSuite) TestBootstrapProviderCaseInsensitiveRegionCheck(c *gc.C) {
 	s.patchVersionAndSeries(c, "raring")
 
@@ -1759,6 +1778,10 @@ func (fake *fakeBootstrapFuncs) CloudRegionDetector(environs.EnvironProvider) (e
 	return detector, true
 }
 
+func (fake *fakeBootstrapFuncs) DefaultCloudName(environs.EnvironProvider) (string, bool) {
+	return "", false
+}
+
 type noCloudRegionDetectionProvider struct {
 	environs.EnvironProvider
 }
@@ -1816,4 +1839,20 @@ type cloudRegionDetectorFunc func() ([]cloud.Region, error)
 
 func (c cloudRegionDetectorFunc) DetectRegions() ([]cloud.Region, error) {
 	return c()
+}
+
+type defaultCloudNameProvider struct {
+	manyCredentialsProvider
+}
+
+func (defaultCloudNameProvider) DefaultCloudName() string {
+	return "mykonos"
+}
+
+func (defaultCloudNameProvider) DetectCredentials() (*cloud.CloudCredential, error) {
+	return &cloud.CloudCredential{
+		AuthCredentials: map[string]cloud.Credential{
+			"one": cloud.NewCredential("one", nil),
+		},
+	}, nil
 }
