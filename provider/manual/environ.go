@@ -32,7 +32,6 @@ import (
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
-	"github.com/juju/juju/worker/terminationworker"
 )
 
 const (
@@ -237,33 +236,47 @@ func (e *manualEnviron) Destroy() error {
 // DestroyController implements the Environ interface.
 func (e *manualEnviron) DestroyController(controllerUUID string) error {
 	script := `
+# Signal the jujud process to stop, then check it has done so before cleaning-up
+# after it.
 set -x
-touch %s
-# If jujud is running, we then wait for a while for it to stop.
+touch %[1]s
+
 stopped=0
-if pkill -%d jujud; then
+function wait_for_jujud {
     for i in {1..30}; do
         if pgrep jujud > /dev/null ; then
             sleep 1
         else
-            echo "jujud stopped"
+            echo jujud stopped
             stopped=1
             logger --id jujud stopped on attempt $i
             break
         fi
     done
-fi
-if [ $stopped -ne 1 ]; then
+}
+
+# There might be no jujud at all (for example, after a failed deployment) so
+# don't require pkill to succeed before looking for a jujud process.
+# SIGABRT not SIGTERM, as abort lets the worker know it should uninstall itself,
+# rather than terminate normally.
+pkill -SIGABRT jujud
+wait_for_jujud
+
+[[ $stopped -ne 1 ]] && {
     # If jujud didn't stop nicely, we kill it hard here.
-    %spkill -9 jujud
-    service %s stop
-    logger --id killed jujud and stopped %s
-fi
+    %[2]spkill -SIGKILL jujud && wait_for_jujud
+}
+[[ $stopped -ne 1 ]] && {
+    echo jujud removal failed
+    logger --id $(ps -o pid,cmd,state -p $(pgrep jujud) | awk 'NR != 1 {printf("Process %%d (%%s) has state %%s\n", $1, $2, $3)}')
+    exit 1
+}
+service %[3]s stop && logger --id stopped %[3]s
 apt-get -y purge juju-mongo*
 apt-get -y autoremove
 rm -f /etc/init/juju*
 rm -f /etc/systemd/system{,/multi-user.target.wants}/juju*
-rm -fr %s %s
+rm -fr %[4]s %[5]s
 exit 0
 `
 	var diagnostics string
@@ -284,9 +297,7 @@ exit 0
 			agent.DefaultPaths.DataDir,
 			agent.UninstallFile,
 		)),
-		terminationworker.TerminationSignal,
 		diagnostics,
-		mongo.ServiceName,
 		mongo.ServiceName,
 		utils.ShQuote(agent.DefaultPaths.DataDir),
 		utils.ShQuote(agent.DefaultPaths.LogDir),
