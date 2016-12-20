@@ -156,6 +156,12 @@ func (p *Pollster) EnterPassword(valueName string) (string, error) {
 	return p.Enter(valueName)
 }
 
+// EnterDefault requests that the user enter a value.  Any value is accepted.
+// An empty string is treated as defVal.
+func (p *Pollster) EnterDefault(valueName, defVal string) (string, error) {
+	return p.EnterVerifyDefault(valueName, nil, defVal)
+}
+
 // VerifyFunc is a type that determines whether a value entered by the user is
 // acceptable or not.  If it returns an error, the calling func will return an
 // error, and the other return values are ignored.  If ok is true, the value is
@@ -176,6 +182,30 @@ func (p *Pollster) EnterVerify(valueName string, verify VerifyFunc) (string, err
 // even an empty string.
 func (p *Pollster) EnterOptional(valueName string) (string, error) {
 	return QueryVerify("Enter "+valueName+" (optional): ", p.scanner, p.out, p.errOut, nil)
+}
+
+// EnterVerifyDefault requests that the user enter a value.  Values failing to
+// verify will be rejected with the error message returned by verify.  An empty
+// string will be accepted as the default value even if it would fail
+// verification.
+func (p *Pollster) EnterVerifyDefault(valueName string, verify VerifyFunc, defVal string) (string, error) {
+	var verifyDefault VerifyFunc
+	if verify != nil {
+		verifyDefault = func(s string) (ok bool, errmsg string, err error) {
+			if s == "" {
+				return true, "", nil
+			}
+			return verify(s)
+		}
+	}
+	s, err := QueryVerify("Enter "+valueName+" ["+defVal+"]: ", p.scanner, p.out, p.errOut, verifyDefault)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	if s == "" {
+		return defVal, nil
+	}
+	return s, nil
 }
 
 // YN queries the user with a yes no question q (which should not include a
@@ -368,7 +398,7 @@ func (p *Pollster) queryAdditionalProps(vals map[string]interface{}, schema *jso
 	// to enter any at all.
 	for {
 		// We assume that the name of the schema is the name of the object the
-		// schema describes, and for additional properties the proeperty name
+		// schema describes, and for additional properties the property name
 		// (i.e. map key) is the "name" of the thing.
 		name, err := p.EnterVerify(schema.Singular+" name", verifyName)
 		if err != nil {
@@ -409,22 +439,43 @@ func (p *Pollster) queryOneSchema(schema *jsonschema.Schema) (interface{}, error
 	if len(schema.Enum) > 1 {
 		return p.selectOne(schema)
 	}
-	var a string
-	var err error
+	var verify VerifyFunc
 	switch schema.Format {
 	case "":
-		// anything
-		a, err = p.Enter(schema.Singular)
+		// verify stays nil
 	case jsonschema.FormatURI:
-		if p.VerifyURLs == nil {
-			a, err = p.EnterVerify(schema.Singular, uriVerify)
+		if p.VerifyURLs != nil {
+			verify = p.VerifyURLs
 		} else {
-			a, err = p.EnterVerify(schema.Singular, p.VerifyURLs)
+			verify = uriVerify
 		}
 	default:
 		// TODO(natefinch): support more formats
 		return nil, errors.Errorf("unsupported format type: %q", schema.Format)
 	}
+
+	if schema.Default == nil {
+		a, err := p.EnterVerify(schema.Singular, verify)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return convert(a, schema.Type[0])
+	}
+
+	var def string
+	if schema.PromptDefault != nil {
+		def = fmt.Sprintf("%v", schema.PromptDefault)
+	} else {
+		def = fmt.Sprintf("%v", schema.Default)
+	}
+	a, err := p.EnterVerifyDefault(schema.Singular, verify, def)
+
+	// If we set a prompt default, that'll get returned as the value,
+	// but it's not the actual value that is the default, so fix that.
+	if err == nil && a == def && schema.PromptDefault != nil {
+		a = fmt.Sprintf("%v", schema.Default)
+	}
+
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

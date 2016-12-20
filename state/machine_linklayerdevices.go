@@ -1162,13 +1162,9 @@ func (m *Machine) SetContainerLinkLayerDevices(containerMachine *Machine) error 
 	logger.Debugf("for container %q, found host devices spaces: %s",
 		containerMachine.Id(), devicesPerSpace)
 
-	devicesByName := make(map[string]interface{
-		MTU() uint
-		globalKey() string
-	})
 	spacesFound := set.NewStrings()
+	devicesByName := make(map[string]*LinkLayerDevice)
 	bridgeDeviceNames := make([]string, 0)
-	topHostDevicesBySpace := make(map[string][]*LinkLayerDevice)
 
 	for spaceName, hostDevices := range devicesPerSpace {
 		for _, hostDevice := range hostDevices {
@@ -1177,16 +1173,12 @@ func (m *Machine) SetContainerLinkLayerDevices(containerMachine *Machine) error 
 				devicesByName[name] = hostDevice
 				bridgeDeviceNames = append(bridgeDeviceNames, name)
 				spacesFound.Add(spaceName)
-			} else if hostDevice.ParentName() == "" {
-				// Devices without a parent could be put on a bridge
-				topHostDevicesBySpace[spaceName] = append(
-					topHostDevicesBySpace[spaceName], hostDevice)
 			}
 		}
 	}
 	missingSpace := containerSpaces.Difference(spacesFound)
 	if len(missingSpace) > 0 {
-		logger.Debugf("container %q wants spaces %v could not find bridge for %v",
+		logger.Debugf("container %q wants spaces %v could not find bridges for %v",
 			containerMachine.Id(), containerSpaces.SortedValues(),
 			missingSpace.SortedValues())
 		return errors.Errorf("unable to find host bridge for spaces %v for container %q",
