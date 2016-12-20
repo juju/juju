@@ -163,13 +163,15 @@ def assess_metadata(args, agent_dir):
         agent_dir, args.agent_stream))
     list_files(agent_dir)
 
-    with temp_dir() as juju_home:
-        bs_manager.log_dir = os.path.join(juju_home, 'assess_metadata')
-        with bs_manager.booted_context(args.upload_tools):
-            log.info('Metadata bootstrap successful.')
-            assert_metadata_are_correct(agent_metadata_url, client)
-            verify_deployed_tool(agent_dir, client, args.agent_stream)
-            log.info("Successfully deployed and verified agent-metadata-url")
+    log_dir = os.path.join(bs_manager.log_dir, 'assess_metadata')
+    os.mkdir(log_dir)
+    bs_manager.log_dir = log_dir
+
+    with bs_manager.booted_context(args.upload_tools):
+        log.info('Metadata bootstrap successful.')
+        assert_metadata_are_correct(agent_metadata_url, client)
+        verify_deployed_tool(agent_dir, client, args.agent_stream)
+        log.info("Successfully deployed and verified agent-metadata-url")
 
 
 def assess_add_cloud(args, agent_dir):
@@ -186,20 +188,22 @@ def assess_add_cloud(args, agent_dir):
         'agent-metadata-url': 'file://{}'.format(agent_metadata_url)}}}}
 
     bs_manager = BootstrapManager.from_args(args)
-    with temp_dir() as juju_home:
-        bs_manager.log_dir = os.path.join(juju_home, 'assess_add_cloud')
-        client = bs_manager.client
-        with temp_yaml_file(test_cloud_data) as add_cloud_file:
-            client.add_cloud(cloud_name, add_cloud_file)
-            clouds = test_cloud_data['clouds'][cloud_name]
-            assert_cloud_details_are_correct(client, cloud_name, clouds)
 
-        client.generate_tool(agent_dir, args.agent_stream)
-        list_files(agent_dir)
-        with bs_manager.booted_context(args.upload_tools):
-            log.info('Metadata bootstrap successful.')
-            verify_deployed_tool(agent_dir, client, args.agent_stream)
-            log.info("Successfully deployed and verified add-cloud")
+    client = bs_manager.client
+    with temp_yaml_file(test_cloud_data) as add_cloud_file:
+        client.add_cloud(cloud_name, add_cloud_file)
+        clouds = test_cloud_data['clouds'][cloud_name]
+        assert_cloud_details_are_correct(client, cloud_name, clouds)
+
+    client.generate_tool(agent_dir, args.agent_stream)
+    list_files(agent_dir)
+    log_dir = os.path.join(bs_manager.log_dir, 'assess_add_cloud')
+    os.mkdir(log_dir)
+    bs_manager.log_dir = log_dir
+    with bs_manager.booted_context(args.upload_tools):
+        log.info('Metadata bootstrap successful.')
+        verify_deployed_tool(agent_dir, client, args.agent_stream)
+        log.info("Successfully deployed and verified add-cloud")
 
 
 def clone_tgz_file_and_change_shasum(original_tgz_file, new_tgz_file):
