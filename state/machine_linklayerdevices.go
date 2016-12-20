@@ -851,7 +851,7 @@ func (m *Machine) AllAddresses() ([]*Address, error) {
 	return allAddresses, nil
 }
 
-// AllSpaces returns the set of addresses that this machine is actively
+// AllSpaces returns the set of spaces that this machine is actively
 // connected to.
 func (m *Machine) AllSpaces() (set.Strings, error) {
 	// TODO(jam): 2016-12-18 This should evolve to look at the
