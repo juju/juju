@@ -43,28 +43,29 @@ def assess_base_bootstrap(bs_manager):
         log.info('Environment successfully bootstrapped.')
 
 
-def prepare_metadata(client, local_dir):
+def prepare_metadata(client, stream, local_dir):
     """Fill the given directory with metadata using sync_tools."""
-    client.sync_tools(local_dir)
+    client.sync_tools(stream, local_dir)
 
 
 @contextmanager
-def prepare_temp_metadata(client, source_dir=None):
+def prepare_temp_metadata(client, stream, source_dir=None):
     """Fill a temporary directory with metadata using sync_tools."""
     if source_dir is not None:
         yield source_dir
     else:
         with temp_dir() as md_dir:
-            prepare_metadata(client, md_dir)
+            prepare_metadata(client, stream, md_dir)
             yield md_dir
 
 
-def assess_metadata(bs_manager, local_source):
+def assess_metadata(bs_manager, agent_stream, local_source):
     client = bs_manager.client
     # This disconnects from the metadata source, as INVALID_URL is different.
     # agent-metadata-url | tools-metadata-url
     client.env.update_config({'agent-metadata-url': INVALID_URL})
-    with prepare_temp_metadata(client, local_source) as metadata_dir:
+    with prepare_temp_metadata(client, agent_stream, local_source)\
+            as metadata_dir:
         log.info('Metadata written to: {}'.format(metadata_dir))
         with thin_booted_context(bs_manager,
                                  metadata_source=metadata_dir):
@@ -102,7 +103,7 @@ def assess_bootstrap(args):
     if 'base' == args.part:
         assess_base_bootstrap(bs_manager)
     elif 'metadata' == args.part:
-        assess_metadata(bs_manager, args.local_metadata_source)
+        assess_metadata(bs_manager, args.agent_stream, args.local_metadata_source)
     elif 'to' == args.part:
         assess_to(bs_manager, args.to)
 
@@ -129,6 +130,7 @@ def parse_args(argv=None):
 def main(argv=None):
     args = parse_args(argv)
     configure_logging(args.verbose)
+    args.agent_stream = args.agent_stream if args.agent_stream else 'testing'
     assess_bootstrap(args)
     return 0
 

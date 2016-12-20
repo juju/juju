@@ -128,16 +128,16 @@ class TestPrepareMetadata(TestCase):
         client = fake_juju_client()
         with patch.object(client, 'sync_tools') as sync_mock:
             with temp_dir() as metadata_dir:
-                prepare_metadata(client, metadata_dir)
-        sync_mock.assert_called_once_with(metadata_dir)
+                prepare_metadata(client, "testing", metadata_dir)
+        sync_mock.assert_called_once_with("testing", metadata_dir)
 
     def test_prepare_temp_metadata(self):
         client = fake_juju_client()
         with patch('assess_bootstrap.prepare_metadata',
                    autospec=True) as prepare_mock:
-            with prepare_temp_metadata(client) as metadata_dir:
+            with prepare_temp_metadata(client, "testing") as metadata_dir:
                 pass
-        prepare_mock.assert_called_once_with(client, metadata_dir)
+        prepare_mock.assert_called_once_with(client, "testing", metadata_dir)
 
     def test_prepare_temp_metadata_source(self):
         client = fake_juju_client()
@@ -145,7 +145,7 @@ class TestPrepareMetadata(TestCase):
                    autospec=True) as prepare_mock:
             with temp_dir() as source_dir:
                 with prepare_temp_metadata(
-                        client, source_dir) as metadata_dir:
+                        client, "testing", source_dir) as metadata_dir:
                     pass
         self.assertEqual(source_dir, metadata_dir)
         self.assertEqual(0, prepare_mock.call_count)
@@ -281,7 +281,7 @@ class TestAssessMetadata(FakeHomeTestCase):
                 with patch.object(
                         bs_manager.client, 'get_model_config',
                         side_effect=lambda: self.get_url(bs_manager)):
-                    assess_metadata(bs_manager, None)
+                    assess_metadata(bs_manager, "testing", None)
 
     def test_assess_metadata_local_source(self):
         def check(myself, metadata_source=None):
@@ -296,7 +296,7 @@ class TestAssessMetadata(FakeHomeTestCase):
                 with patch.object(
                         bs_manager.client, 'get_model_config',
                         side_effect=lambda: self.get_url(bs_manager)):
-                    assess_metadata(bs_manager, 'agents')
+                    assess_metadata(bs_manager, "testing", 'agents')
 
     def test_assess_metadata_valid_url(self):
         with extended_bootstrap_cxt('2.0.0'):
@@ -309,7 +309,7 @@ class TestAssessMetadata(FakeHomeTestCase):
                         return_value={'agent-metadata-url':
                                       {'value': 'example.com/valid'}}):
                     with self.assertRaises(JujuAssertionError):
-                        assess_metadata(bs_manager, None)
+                        assess_metadata(bs_manager, "testing", None)
 
 
 class TestAssessTo(FakeHomeTestCase):

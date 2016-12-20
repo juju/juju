@@ -40,15 +40,8 @@ from jujupy import (
     temp_yaml_file,
 )
 
-RELEASE_TOOL_PATH = "tools/release/"
-DEVEL_TOOL_PATH = "tools/devel/"
-
 
 log = logging.getLogger("assess_agent_metadata")
-
-
-def get_stream_path(agent_stream):
-    return RELEASE_TOOL_PATH if agent_stream == "release" else DEVEL_TOOL_PATH
 
 
 def get_sha256_sum(filename):
@@ -85,7 +78,7 @@ def get_local_url_and_sha256(agent_dir, controller_url,
     :param controller_url: The controller used agent file url
     :param agent_stream: The agent stream to use
     """
-    local_url = os.path.join(agent_dir, get_stream_path(agent_stream),
+    local_url = os.path.join(agent_dir, "tools/{}".format(agent_stream),
                              os.path.basename(controller_url))
 
     local_sha256 = get_sha256_sum(local_url)
@@ -126,7 +119,7 @@ def verify_deployed_tool(agent_dir, client, agent_stream):
     agent-metadata-url.
     :param agent_dir:  The top level directory location of agent file.
     :param client: Juju client
-    :param agent_stream: The agent stream to use
+    :param agent_stream: The agent stream
     """
     controller_url, controller_sha256 = get_controller_url_and_sha256(client)
 
@@ -158,25 +151,25 @@ def assess_metadata(args, agent_dir):
     :param args: Parsed command line arguments
     :param agent_dir: The top level directory location of agent file.
     """
-    stream = "release" if args.agent_stream == "release" else "devel"
     bs_manager = BootstrapManager.from_args(args)
     client = bs_manager.client
-    agent_metadata_url = os.path.join(agent_dir,
-                                      get_stream_path(stream).split('/')[0])
+    agent_metadata_url = os.path.join(agent_dir, "tools/")
     client.env.update_config({'agent-metadata-url': agent_metadata_url,
-                              'agent-stream': stream})
+                              'agent-stream': args.agent_stream})
     log.info('bootstrap to use --agent_metadata_url={}'.format(
         agent_metadata_url))
-    client.generate_tool(agent_dir, stream)
+    client.generate_tool(agent_dir, args.agent_stream)
     log.info("Directory contents {} with stream {}".format(
         agent_dir, args.agent_stream))
     list_files(agent_dir)
 
-    with bs_manager.booted_context(args.upload_tools):
-        log.info('Metadata bootstrap successful.')
-        assert_metadata_are_correct(agent_metadata_url, client)
-        verify_deployed_tool(agent_dir, client, stream)
-        log.info("Successfully deployed and verified agent-metadata-url")
+    with temp_dir() as juju_home:
+        bs_manager.log_dir = os.path.join(juju_home, 'assess_metadata')
+        with bs_manager.booted_context(args.upload_tools):
+            log.info('Metadata bootstrap successful.')
+            assert_metadata_are_correct(agent_metadata_url, client)
+            verify_deployed_tool(agent_dir, client, args.agent_stream)
+            log.info("Successfully deployed and verified agent-metadata-url")
 
 
 def assess_add_cloud(args, agent_dir):
@@ -187,44 +180,46 @@ def assess_add_cloud(args, agent_dir):
     :param agent_dir: The top level directory location of agent file.
     """
     cloud_name = "testCloud"
-    agent_metadata_url = os.path.join(agent_dir, get_stream_path(
-        args.agent_stream).split('/')[0])
+    agent_metadata_url = os.path.join(agent_dir, "tools/")
 
-    test_cloud_data = {'clouds': {'{0}'.format(
-        cloud_name): {'type': 'lxd',
-                      'config': {'agent-metadata-url': 'file://{}'.format(
-                          agent_metadata_url)}}}}
+    test_cloud_data = {'clouds': {'testCloud': {'type': 'lxd', 'config': {
+        'agent-metadata-url': 'file://{}'.format(agent_metadata_url)}}}}
 
     bs_manager = BootstrapManager.from_args(args)
-    client = bs_manager.client
-    with temp_yaml_file(test_cloud_data) as add_cloud_file:
-        client.add_cloud(cloud_name, add_cloud_file)
-        clouds = test_cloud_data['clouds'][cloud_name]
-        assert_cloud_details_are_correct(client, cloud_name, clouds)
+    with temp_dir() as juju_home:
+        bs_manager.log_dir = os.path.join(juju_home, 'assess_add_cloud')
+        client = bs_manager.client
+        with temp_yaml_file(test_cloud_data) as add_cloud_file:
+            client.add_cloud(cloud_name, add_cloud_file)
+            clouds = test_cloud_data['clouds'][cloud_name]
+            assert_cloud_details_are_correct(client, cloud_name, clouds)
 
-    client.generate_tool(agent_dir, args.agent_stream)
-    list_files(agent_dir)
-    with bs_manager.booted_context(args.upload_tools):
-        log.info('Metadata bootstrap successful.')
-        verify_deployed_tool(agent_dir, client, args.agent_stream)
-        log.info("Successfully deployed and verified add-cloud")
+        client.generate_tool(agent_dir, args.agent_stream)
+        list_files(agent_dir)
+        with bs_manager.booted_context(args.upload_tools):
+            log.info('Metadata bootstrap successful.')
+            verify_deployed_tool(agent_dir, client, args.agent_stream)
+            log.info("Successfully deployed and verified add-cloud")
 
 
-def change_tgz_sha256_sum(src, dst):
+def clone_tgz_file_and_change_shasum(original_tgz_file, new_tgz_file):
     """
-    Append empty string to the tgz file so that the SHA256 sum of the file
-    get modified. We use this to make sure that controller deployed on
-    bootstrap used of the changed tgz file.
-    :param src: The source tgz file
-    :param dst: The destination tgz file
+    Create a new tgz file from the original tgz file and then add empty file
+    to it so that the sha256 sum of the new tgz file will be different from that
+    of original tgz file. We use this to make sure that controller deployed on
+    bootstrap used of the new tgz file.
+    :param original_tgz_file: The source tgz file
+    :param new_tgz_file: The destination tgz file
     """
-    if not src.endswith(".tgz"):
-        raise Exception("{} is not tgz file".format(src))
+    if not original_tgz_file.endswith(".tgz"):
+        raise Exception("{} is not tgz file".format(original_tgz_file))
     try:
-        command = "cat {}  <(echo -n ''| gzip)> {}".format(src, dst)
+        command = "cat {}  <(echo -n ''| gzip)> {}".format(
+            original_tgz_file, new_tgz_file)
         subprocess.Popen(command, shell=True, executable='/bin/bash')
     except subprocess.CalledProcessError as e:
-        raise Exception("Failed to create a tool file {} - {}". format(src, e))
+        raise Exception("Failed to create a tool file {} - {}".format(
+            original_tgz_file, e))
 
 
 def list_files(startpath):
@@ -238,19 +233,19 @@ def list_files(startpath):
 
 
 @contextmanager
-def make_unique_tool(agent_file, agent_stream="release"):
+def make_unique_tool(agent_file, agent_stream):
     """
     Create a tool directory for juju agent tools and stream and invoke
-    append_empty_string function for the agent-file passed.
+    clone_tgz_file_and_change_shasum function for the agent-file passed.
     :param agent_file: The agent file to use
     :param agent_stream: The agent stream to use
     """
     with temp_dir() as agent_dir:
-        juju_tool_src = os.path.join(agent_dir, get_stream_path(agent_stream))
+        juju_tool_src = os.path.join(agent_dir, "tools/{}".format(
+            agent_stream))
         os.makedirs(juju_tool_src)
-        change_tgz_sha256_sum(agent_file,
-                              os.path.join(juju_tool_src,
-                                           os.path.basename(agent_file)))
+        clone_tgz_file_and_change_shasum(agent_file, os.path.join(
+            juju_tool_src, os.path.basename(agent_file)))
         log.debug("Created agent directory to perform bootstrap".format(
             agent_dir))
         yield agent_dir
@@ -263,8 +258,7 @@ def parse_args(argv):
 
     add_basic_testing_arguments(parser)
 
-    parser.add_argument('--agent-file', required=True,
-                        action='store', default=None,
+    parser.add_argument('--agent-file', required=True, action='store',
                         help='agent file to be used during bootstrap.')
 
     return parser.parse_args(argv)
@@ -278,11 +272,7 @@ def main(argv=None):
         raise Exception(
            "Unable to find juju agent file {}".format(args.agent_file))
 
-    try:
-        args.agent_stream = "release" if args.agent_stream.startswith("releas") \
-            else "devel"
-    except AttributeError:
-        args.agent_stream = "release"
+    args.agent_stream = args.agent_stream if args.agent_stream else 'testing'
 
     with make_unique_tool(args.agent_file, args.agent_stream) as agent_dir:
         assess_metadata(args, agent_dir)

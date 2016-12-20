@@ -101,7 +101,7 @@ class TestAssess(TestCase):
                    return_value=[controller_url, SAMPLE_SHA256]):
             with patch('assess_agent_metadata.get_controller_url_and_sha256',
                        return_value=[controller_url, SAMPLE_SHA256]):
-                verify_deployed_tool("/tmp", mock_client)
+                verify_deployed_tool("/tmp", mock_client, "testing")
 
     def test_verify_deployed_tool_invalid_sha256(self):
         mock_client = Mock()
@@ -111,7 +111,7 @@ class TestAssess(TestCase):
             with patch('assess_agent_metadata.get_controller_url_and_sha256',
                        return_value=[controller_url, "INVALID_SHA256"]):
                 with self.assertRaises(JujuAssertionError):
-                    verify_deployed_tool("/tmp", mock_client)
+                    verify_deployed_tool("/tmp", mock_client, "testing")
 
     def test_verify_deployed_tool_empty_local(self):
         mock_client = Mock()
@@ -121,7 +121,7 @@ class TestAssess(TestCase):
             with patch('assess_agent_metadata.get_controller_url_and_sha256',
                        return_value=[controller_url, "INVALID_SHA256"]):
                 with self.assertRaises(JujuAssertionError):
-                    verify_deployed_tool("/tmp", mock_client)
+                    verify_deployed_tool("/tmp", mock_client, "testing")
 
     def test_verify_deployed_tool_empty_controller(self):
         mock_client = Mock()
@@ -130,7 +130,7 @@ class TestAssess(TestCase):
             with patch('assess_agent_metadata.get_controller_url_and_sha256',
                        return_value=[None, None]):
                 with self.assertRaises(JujuAssertionError):
-                    verify_deployed_tool("/tmp", mock_client)
+                    verify_deployed_tool("/tmp", mock_client, "testing")
 
     def test_verify_deployed_tool_invalid_url(self):
         mock_client = Mock()
@@ -139,4 +139,4 @@ class TestAssess(TestCase):
             with patch('assess_agent_metadata.get_controller_url_and_sha256',
                        return_value=["file:///INVALID_URL", SAMPLE_SHA256]):
                 with self.assertRaises(JujuAssertionError):
-                    verify_deployed_tool("/tmp", mock_client)
+                    verify_deployed_tool("/tmp", mock_client, "testing")
