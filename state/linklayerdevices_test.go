@@ -1421,7 +1421,7 @@ func (s *linkLayerDevicesStateSuite) TestSetContainerLinkLayerDevicesConstraints
 	c.Check(containerDevice.MACAddress(), gc.Matches, "00:16:3e(:[0-9a-f]{2}){3}")
 	c.Check(containerDevice.IsUp(), jc.IsTrue)
 	c.Check(containerDevice.IsAutoStart(), jc.IsTrue)
-	// br-ens0p10 on the host machine is in space dmz, while br-ens33 is in space defalut
+	// br-ens0p10 on the host machine is in space dmz, while br-ens33 is in space default
 	c.Check(containerDevice.ParentName(), gc.Equals, `m#0#d#br-ens0p10`)
 }
 
@@ -1453,7 +1453,7 @@ func (s *linkLayerDevicesStateSuite) TestSetContainerLinkLayerDevicesUnitBinding
 	c.Check(containerDevice.MACAddress(), gc.Matches, "00:16:3e(:[0-9a-f]{2}){3}")
 	c.Check(containerDevice.IsUp(), jc.IsTrue)
 	c.Check(containerDevice.IsAutoStart(), jc.IsTrue)
-	// br-ens0p10 on the host machine is in space dmz, while br-ens33 is in space defalut
+	// br-ens0p10 on the host machine is in space dmz, while br-ens33 is in space default
 	c.Check(containerDevice.ParentName(), gc.Equals, `m#0#d#br-ens33`)
 }
 
