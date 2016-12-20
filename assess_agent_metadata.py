@@ -202,11 +202,11 @@ def assess_add_cloud(args, agent_dir):
         clouds = test_cloud_data['clouds'][cloud_name]
         assert_cloud_details_are_correct(client, cloud_name, clouds)
 
-    client.generate_tool(agent_dir, "release")
+    client.generate_tool(agent_dir, args.agent_stream)
     list_files(agent_dir)
     with bs_manager.booted_context(args.upload_tools):
         log.info('Metadata bootstrap successful.')
-        verify_deployed_tool(agent_dir, client)
+        verify_deployed_tool(agent_dir, client, args.agent_stream)
         log.info("Successfully deployed and verified add-cloud")
 
 
