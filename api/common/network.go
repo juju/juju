@@ -7,10 +7,13 @@ import (
 	"net"
 
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/network"
 )
+
+var logger = loggo.GetLogger("juju.api.common")
 
 // NetworkConfigSource defines the necessary calls to obtain the network
 // configuration of a machine.
@@ -74,7 +77,7 @@ func DefaultNetworkConfigSource() NetworkConfigSource {
 // Result entries will be grouped by InterfaceName, in the same order they are
 // returned by the given source.
 func GetObservedNetworkConfig(source NetworkConfigSource) ([]params.NetworkConfig, error) {
-	//	logger.Tracef("discovering observed machine network config...")
+	logger.Tracef("discovering observed machine network config...")
 
 	interfaces, err := source.Interfaces()
 	if err != nil {
@@ -112,7 +115,7 @@ func GetObservedNetworkConfig(source NetworkConfigSource) ([]params.NetworkConfi
 		}
 
 		if len(addrs) == 0 {
-			//			logger.Infof("no addresses observed on interface %q", nic.Name)
+			logger.Infof("no addresses observed on interface %q", nic.Name)
 			nameToConfigs[nic.Name] = append(nameToConfigs[nic.Name], nicConfig)
 			continue
 		}
@@ -138,7 +141,7 @@ func GetObservedNetworkConfig(source NetworkConfigSource) ([]params.NetworkConfi
 	for _, name := range namesOrder {
 		observedConfig = append(observedConfig, nameToConfigs[name]...)
 	}
-	//	logger.Tracef("observed network config: %+v", observedConfig)
+	logger.Tracef("observed network config: %+v", observedConfig)
 	return observedConfig, nil
 }
 
@@ -193,7 +196,7 @@ func interfaceAddressToNetworkConfig(interfaceName, configType string, address n
 
 	ip, ipNet, err := net.ParseCIDR(cidrAddress)
 	if err != nil {
-		//		logger.Infof("cannot parse %q on interface %q as CIDR, trying as IP address: %v", cidrAddress, interfaceName, err)
+		logger.Infof("cannot parse %q on interface %q as CIDR, trying as IP address: %v", cidrAddress, interfaceName, err)
 		if ip = net.ParseIP(cidrAddress); ip == nil {
 			return config, errors.Errorf("cannot parse IP address %q on interface %q", cidrAddress, interfaceName)
 		} else {
@@ -202,7 +205,7 @@ func interfaceAddressToNetworkConfig(interfaceName, configType string, address n
 	}
 	if ip.To4() == nil && ip.IsLinkLocalUnicast() {
 		// TODO(macgreagoir) IPv6. Skip link-local for now until we decide how to handle them.
-		//		logger.Debugf("skipping observed IPv6 link-local address %q on %q", ip, interfaceName)
+		logger.Debugf("skipping observed IPv6 link-local address %q on %q", ip, interfaceName)
 		return config, nil
 	}
 
