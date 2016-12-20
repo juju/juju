@@ -321,7 +321,10 @@ func (s *statusUnitTestSuite) TestMigrationInProgress(c *gc.C) {
 	checkMigStatus := func(expected string) {
 		status, err := client.Status(nil)
 		c.Assert(err, jc.ErrorIsNil)
-		c.Check(status.Model.Migration, gc.Equals, expected)
+		if expected != "" {
+			expected = "migrating: " + expected
+		}
+		c.Check(status.Model.ModelStatus.Info, gc.Equals, expected)
 	}
 
 	// Migration status should be empty when no migration is happening.

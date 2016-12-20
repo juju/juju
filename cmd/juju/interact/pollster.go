@@ -10,9 +10,12 @@ import (
 	"html/template"
 	"io"
 	"net/url"
+	"os"
 	"sort"
 	"strconv"
 	"strings"
+
+	"golang.org/x/crypto/ssh/terminal"
 
 	"github.com/juju/errors"
 	"github.com/juju/jsonschema"
@@ -26,14 +29,16 @@ type Pollster struct {
 	scanner    *bufio.Scanner
 	out        io.Writer
 	errOut     io.Writer
+	in         io.Reader
 }
 
 // New returns a Pollster that wraps the given reader and writer.
 func New(in io.Reader, out, errOut io.Writer) *Pollster {
 	return &Pollster{
-		scanner: bufio.NewScanner(in),
+		scanner: bufio.NewScanner(byteAtATimeReader{in}),
 		out:     out,
 		errOut:  errOut,
+		in:      in,
 	}
 }
 
@@ -129,7 +134,26 @@ func (p *Pollster) MultiSelect(l MultiList) ([]string, error) {
 // Enter requests that the user enter a value.  Any value except an empty string
 // is accepted.
 func (p *Pollster) Enter(valueName string) (string, error) {
-	return p.EnterVerify(valueName, nil)
+	return p.EnterVerify(valueName, func(s string) (ok bool, msg string, err error) {
+		return s != "", "", nil
+	})
+}
+
+// EnterPassword works like Enter except that if the pollster's input wraps a
+// terminal, the user's input will be read without local echo.
+func (p *Pollster) EnterPassword(valueName string) (string, error) {
+	if f, ok := p.in.(*os.File); ok && terminal.IsTerminal(int(f.Fd())) {
+		defer fmt.Fprint(p.out, "\n\n")
+		if _, err := fmt.Fprintf(p.out, "Enter "+valueName+": "); err != nil {
+			return "", errors.Trace(err)
+		}
+		value, err := terminal.ReadPassword(int(f.Fd()))
+		if err != nil {
+			return "", errors.Trace(err)
+		}
+		return string(value), nil
+	}
+	return p.Enter(valueName)
 }
 
 // VerifyFunc is a type that determines whether a value entered by the user is
@@ -141,19 +165,17 @@ func (p *Pollster) Enter(valueName string) (string, error) {
 // user.
 type VerifyFunc func(s string) (ok bool, errmsg string, err error)
 
-// EnterVerify requests that the user enter a value.  Values failing to verify will be
-// rejected with the error message returned by verify.
+// EnterVerify requests that the user enter a value.  Values failing to verify
+// will be rejected with the error message returned by verify.  A nil verify
+// function will accept any value (even an empty string).
 func (p *Pollster) EnterVerify(valueName string, verify VerifyFunc) (string, error) {
-	for {
-		s, err := QueryVerify("Enter "+valueName+": ", p.scanner, p.out, p.errOut, verify)
-		if err != nil {
-			return "", errors.Trace(err)
-		}
-		if s != "" {
-			return s, nil
-		}
-		// retry if we get an empty value, no need to print out an error.
-	}
+	return QueryVerify("Enter "+valueName+": ", p.scanner, p.out, p.errOut, verify)
+}
+
+// EnterOptional requests that the user enter a value.  It accepts any value,
+// even an empty string.
+func (p *Pollster) EnterOptional(valueName string) (string, error) {
+	return QueryVerify("Enter "+valueName+" (optional): ", p.scanner, p.out, p.errOut, nil)
 }
 
 // YN queries the user with a yes no question q (which should not include a
@@ -520,4 +542,16 @@ func convert(s string, t jsonschema.Type) (interface{}, error) {
 	default:
 		return nil, errors.Errorf("don't know how to convert value %q of type %q", s, t)
 	}
+}
+
+// byteAtATimeReader causes all reads to return a single byte.  This prevents
+// things line bufio.scanner from reading past the end of a line, which can
+// cause problems when we do wacky things like reading directly from the
+// terminal for password style prompts.
+type byteAtATimeReader struct {
+	io.Reader
+}
+
+func (r byteAtATimeReader) Read(out []byte) (int, error) {
+	return r.Reader.Read(out[:1])
 }

@@ -54,20 +54,23 @@ func (s *ClientSuite) TestPrechecks(c *gc.C) {
 
 	ownerTag := names.NewUserTag("owner")
 	vers := version.MustParse("1.2.3")
+	controllerVers := version.MustParse("1.2.5")
 
 	err := client.Prechecks(coremigration.ModelInfo{
-		UUID:         "uuid",
-		Owner:        ownerTag,
-		Name:         "name",
-		AgentVersion: vers,
+		UUID:                   "uuid",
+		Owner:                  ownerTag,
+		Name:                   "name",
+		AgentVersion:           vers,
+		ControllerAgentVersion: controllerVers,
 	})
 	c.Assert(err, gc.ErrorMatches, "boom")
 
 	expectedArg := params.MigrationModelInfo{
-		UUID:         "uuid",
-		Name:         "name",
-		OwnerTag:     ownerTag.String(),
-		AgentVersion: vers,
+		UUID:                   "uuid",
+		Name:                   "name",
+		OwnerTag:               ownerTag.String(),
+		AgentVersion:           vers,
+		ControllerAgentVersion: controllerVers,
 	}
 	stub.CheckCalls(c, []jujutesting.StubCall{
 		{"MigrationTarget.Prechecks", []interface{}{"", expectedArg}},

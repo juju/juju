@@ -122,7 +122,7 @@ func (s *InitialiserSuite) TestNoSeriesPackages(c *gc.C) {
 	})
 }
 
-func (s *InitialiserSuite) TestLXDInitZFS(c *gc.C) {
+func (s *InitialiserSuite) TestLXDInit(c *gc.C) {
 	// Patch df so it always returns 100GB
 	df100 := func(path string) (uint64, error) {
 		return 100 * 1024 * 1024 * 1024, nil
@@ -133,8 +133,7 @@ func (s *InitialiserSuite) TestLXDInitZFS(c *gc.C) {
 	err := container.Initialise()
 	c.Assert(err, jc.ErrorIsNil)
 
-	testing.AssertEchoArgs(c, "lxd", "init", "--auto", "--storage-backend",
-		"zfs", "--storage-pool", "lxd", "--storage-create-loop", "90")
+	testing.AssertEchoArgs(c, "lxd", "init", "--auto")
 }
 
 type mockConfigSetter struct {

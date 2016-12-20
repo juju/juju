@@ -31,10 +31,6 @@ var requiredPackages = []string{
 	"lxd",
 }
 
-var xenialPackages = []string{
-	"zfsutils-linux",
-}
-
 type containerInitialiser struct {
 	series string
 }
@@ -68,7 +64,14 @@ func (ci *containerInitialiser) Initialise() error {
 	// Well... this will need to change soon once we are passed 17.04 as who
 	// knows what the series name will be.
 	if ci.series >= "xenial" {
-		configureZFS()
+		output, err := exec.Command(
+			"lxd",
+			"init",
+			"--auto",
+		).CombinedOutput()
+		if err != nil {
+			return errors.Annotate(err, "while running lxd init --auto: "+string(output))
+		}
 	}
 
 	return nil
@@ -133,32 +136,6 @@ var df = func(path string) (uint64, error) {
 		return 0, err
 	}
 	return uint64(statfs.Bsize) * statfs.Bfree, nil
-}
-
-var configureZFS = func() {
-	/* create a pool that will occupy 90% of the free disk space
-	   (sparse, so it won't actually fill that immediately)
-	*/
-
-	// Find 90% of the free disk space
-	freeBytes, err := df("/")
-	if err != nil {
-		logger.Errorf("configuring zfs failed - unable to find file system size: %s", err)
-	}
-	GigaBytesToUse := freeBytes * 9 / (10 * 1024 * 1024 * 1024)
-
-	output, err := exec.Command(
-		"lxd",
-		"init",
-		"--auto",
-		"--storage-backend", "zfs",
-		"--storage-pool", "lxd",
-		"--storage-create-loop", fmt.Sprintf("%d", GigaBytesToUse),
-	).CombinedOutput()
-
-	if err != nil {
-		logger.Errorf("configuring zfs failed with %s: %s", err, string(output))
-	}
 }
 
 var configureLXDBridge = func() error {
@@ -296,12 +273,6 @@ func ensureDependencies(series string) error {
 
 		if err := pacman.Install(pkg); err != nil {
 			return err
-		}
-	}
-
-	if series >= "xenial" {
-		for _, pack := range xenialPackages {
-			pacman.Install(fmt.Sprintf("--no-install-recommends %s", pack))
 		}
 	}
 
