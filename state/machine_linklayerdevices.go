@@ -1109,19 +1109,20 @@ func (m *Machine) FindMissingBridgesForContainer(containerMachine *Machine) ([]n
 		// Nothing to do, just return success
 		return nil, nil
 	}
-	// XXX(jam): handle when there are 2 host devices for the same space and
-	// neither is bridged. We want to return only the 'first' one
 	hostDeviceNamesToBridge := make([]string, 0)
 	for _, spaceName := range notFound.Values() {
 		hostDeviceNames := make([]string, 0)
 		for _, hostDevice := range devicesPerSpace[spaceName] {
-			// if hostDevice.ParentName() != "" {
-			// 	continue
-			// }
+			if hostDevice.ParentName() != "" {
+				continue
+			}
 			hostDeviceNames = append(hostDeviceNames, hostDevice.Name())
 			spacesFound.Add(spaceName)
 		}
 		if len(hostDeviceNames) > 0 {
+			// This should already be sorted from LinkLayerDevicesForSpaces
+			// but sorting to be sure we stably pick the host device
+			hostDeviceNames = network.NaturallySortDeviceNames(hostDeviceNames...)
 			hostDeviceNamesToBridge = append(hostDeviceNamesToBridge, hostDeviceNames[0])
 		}
 	}
@@ -1132,7 +1133,7 @@ func (m *Machine) FindMissingBridgesForContainer(containerMachine *Machine) ([]n
 			m.Id(), notFound.SortedValues())
 	}
 	hostToBridge := make([]network.DeviceToBridge, 0, len(hostDeviceNamesToBridge))
-	for _, hostName := range hostDeviceNamesToBridge {
+	for _, hostName := range network.NaturallySortDeviceNames(hostDeviceNamesToBridge...) {
 		hostToBridge = append(hostToBridge, network.DeviceToBridge{
 			DeviceName: hostName,
 			// Should be an indirection/policy being passed in here
