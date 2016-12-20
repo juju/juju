@@ -18,6 +18,7 @@ import json
 from assess_agent_metadata import (
     verify_deployed_tool,
     get_controller_url_and_sha256,
+    list_files,
 )
 
 from assess_bootstrap import (
@@ -83,7 +84,7 @@ def deploy_charm_and_verify(client):
     verify_deployed_charm(charm_app, client)
 
 
-def assess_sync_bootstrap(args, agent_stream="release"):
+def assess_sync_bootstrap(args, agent_stream):
     """
     Do sync-tool and then perform juju bootstrap with
     metadata_source and agent-metadata-url option.
@@ -97,6 +98,9 @@ def assess_sync_bootstrap(args, agent_stream="release"):
     with prepare_temp_metadata(client, args.agent_dir) as agent_dir:
         client.env.update_config({'agent-stream:': agent_stream})
         log.info('Metadata written to: {}'.format(agent_dir))
+        log.info("Directory contents {} with stream {}".format(
+            agent_dir, agent_stream))
+        list_files(agent_dir)
         with bs_manager.booted_context(args.upload_tools,
                                        metadata_source=agent_dir):
             log.info('Metadata bootstrap successful.')
