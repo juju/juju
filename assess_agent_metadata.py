@@ -169,7 +169,7 @@ def assess_metadata(args, agent_dir):
         agent_metadata_url))
     client.generate_tool(agent_dir, stream)
     log.info("Directory contents {} with stream {}".format(
-        agent_dir), args.agent_stream)
+        agent_dir, args.agent_stream))
     list_files(agent_dir)
 
     with bs_manager.booted_context(args.upload_tools):
