@@ -673,3 +673,48 @@ func (s *provisionerSuite) testFindTools(c *gc.C, matchArch bool, apiError, logi
 		c.Assert(apiList, jc.SameContents, toolsList)
 	}
 }
+
+func (s *provisionerSuite) TestHostChangesForContainers(c *gc.C) {
+	// Create a machine, put it in "default" space with a single NIC. Create
+	// a container that is also in the "default" space, and request the
+	// HostChangesForContainer to see that it wants to bridge that NIC
+	_, err := s.State.AddSpace("default", network.Id("default"), nil, true)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddSubnet(state.SubnetInfo{
+		CIDR:      "10.0.0.0/24",
+		SpaceName: "default",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.machine.SetLinkLayerDevices(
+		state.LinkLayerDeviceArgs{
+			Name:       "ens3",
+			Type:       state.EthernetDevice,
+			ParentName: "",
+			IsUp:       true,
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.machine.SetDevicesAddresses(
+		state.LinkLayerDeviceAddress{
+			DeviceName:   "ens3",
+			CIDRAddress:  "10.0.0.10/24",
+			ConfigMethod: state.StaticAddress,
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	containerTemplate := state.MachineTemplate{
+		Series: "quantal",
+		Jobs:   []state.MachineJob{state.JobHostUnits},
+	}
+	container, err := s.State.AddMachineInsideMachine(containerTemplate, s.machine.Id(), instance.LXD)
+	c.Assert(err, jc.ErrorIsNil)
+
+	changes, err := s.provisioner.HostChangesForContainers(container.MachineTag())
+	c.Assert(err, gc.ErrorMatches, "dummy provider network config not supported")
+	c.Skip("can't test without network support")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(changes, gc.DeepEquals, []network.DeviceToBridge{{
+		BridgeName: "br-ens3",
+		DeviceName: "ens3",
+	}})
+}

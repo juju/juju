@@ -194,13 +194,13 @@ func (st *State) prepareOrGetContainerInterfaceInfo(
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: containerTag.String()}},
 	}
-	facadeName := ""
+	methodName := ""
 	if allocateNewAddress {
-		facadeName = "PrepareContainerInterfaceInfo"
+		methodName = "PrepareContainerInterfaceInfo"
 	} else {
-		facadeName = "GetContainerInterfaceInfo"
+		methodName = "GetContainerInterfaceInfo"
 	}
-	if err := st.facade.FacadeCall(facadeName, args, &result); err != nil {
+	if err := st.facade.FacadeCall(methodName, args, &result); err != nil {
 		return nil, err
 	}
 	if len(result.Results) != 1 {
@@ -236,4 +236,27 @@ func (st *State) prepareOrGetContainerInterfaceInfo(
 		}
 	}
 	return ifaceInfo, nil
+}
+
+func (st *State) HostChangesForContainers(containerTag names.MachineTag) ([]network.DeviceToBridge, error) {
+	var result params.HostNetworkChangeResults
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: containerTag.String()}},
+	}
+	if err := st.facade.FacadeCall("HostChangesForContainers", args, &result); err != nil {
+		return nil, err
+	}
+	if len(result.Results) != 1 {
+		return nil, errors.Errorf("expected 1 result, got %d", len(result.Results))
+	}
+	if err := result.Results[0].Error; err != nil {
+		return nil, err
+	}
+	newBridges := result.Results[0].NewBridges
+	res := make([]network.DeviceToBridge, len(newBridges))
+	for i, bridgeInfo := range newBridges {
+		res[i].BridgeName = bridgeInfo.BridgeName
+		res[i].DeviceName = bridgeInfo.HostDeviceName
+	}
+	return res, nil
 }
