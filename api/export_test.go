@@ -9,6 +9,8 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/utils/clock"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/macaroon-bakery.v1/httpbakery"
+	"gopkg.in/macaroon.v1"
 )
 
 var (
@@ -113,4 +115,12 @@ func (f *resultCaller) RawAPICaller() base.APICaller {
 func IsMinVersionError(err error) bool {
 	_, ok := errors.Cause(err).(minJujuVersionErr)
 	return ok
+}
+
+func ExtractMacaroons(conn Connection) ([]macaroon.Slice, error) {
+	st, ok := conn.(*state)
+	if !ok {
+		return nil, errors.Errorf("conn must be a real connection")
+	}
+	return httpbakery.MacaroonsForURL(st.bakeryClient.Client.Jar, st.cookieURL), nil
 }
