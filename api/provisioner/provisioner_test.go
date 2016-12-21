@@ -710,7 +710,7 @@ func (s *provisionerSuite) TestHostChangesForContainer(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	changes, err := s.provisioner.HostChangesForContainer(container.MachineTag())
-	c.Assert(err, gc.ErrorMatches, "dummy provider network config not supported")
+	c.Assert(err, gc.ErrorMatches, "dummy provider network config not supported.*")
 	c.Skip("can't test without network support")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(changes, gc.DeepEquals, []network.DeviceToBridge{{
