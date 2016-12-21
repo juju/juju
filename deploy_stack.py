@@ -1073,8 +1073,8 @@ def _deploy_job(args, charm_series, series):
             deploy_dummy_stack(client, charm_series, args.use_charmstore)
         assess_juju_relations(client)
         skip_juju_run = (
-            (client.version < "2" and sys.platform in ("win32", "darwin"))
-            or charm_series.startswith(("centos", "win")))
+            (client.version < "2" and sys.platform in ("win32", "darwin")) or
+            charm_series.startswith(("centos", "win")))
         if not skip_juju_run:
             assess_juju_run(client)
         if args.upgrade:

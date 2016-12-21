@@ -1638,7 +1638,11 @@ class EnvJujuClient:
     def add_model(self, env):
         """Add a model to this model's controller and return its client.
 
-        :param env: Class representing the new model/environment."""
+        :param env: Either a class representing the new model/environment
+            or the name of the new model/environment which will then be
+            otherwise identical to the current model/environment."""
+        if not isinstance(env, SimpleEnvironment):
+            env = self.env.clone(env)
         model_client = self.clone(env)
         with model_client._bootstrap_config() as config_file:
             self._add_model(env.environment, config_file)
@@ -2790,6 +2794,13 @@ class EnvJujuClient:
         else:
             return self.juju('sync-tools', ('--local-dir', local_dir),
                              include_e=False)
+
+    def switch(self, model=None, controller=None):
+        """Switch between models."""
+        args = [x for x in [controller, model] if x]
+        if not args:
+            raise ValueError('No target to switch to has been given.')
+        self.juju('switch', (':'.join(args),), include_e=False)
 
 
 class EnvJujuClientRC(EnvJujuClient):

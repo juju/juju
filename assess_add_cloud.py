@@ -4,6 +4,7 @@ from argparse import ArgumentParser
 from collections import namedtuple
 from copy import deepcopy
 import logging
+import re
 import sys
 
 import yaml
@@ -98,19 +99,28 @@ def assess_cloud(client, cloud_name, example_cloud):
         raise CloudMismatch()
 
 
-def iter_clouds(clouds):
+def iter_clouds(clouds, endpoint_validation):
     """Iterate through CloudSpecs."""
     yield cloud_spec('bogus-type', 'bogus-type', {'type': 'bogus'},
                      exception=TypeNotAccepted)
     for cloud_name, cloud in clouds.items():
-        yield cloud_spec(cloud_name, cloud_name, cloud)
+        spec = cloud_spec(cloud_name, cloud_name, cloud)
+        if cloud['type'] == 'manual' and endpoint_validation:
+            spec = xfail(spec, 1649721, InvalidEndpoint)
+        yield spec
 
     for cloud_name, cloud in clouds.items():
-        yield xfail(cloud_spec('long-name-{}'.format(cloud_name), 'A' * 4096,
-                               cloud, NameNotAccepted), 1641970, NameMismatch)
-        yield xfail(
+        spec = xfail(cloud_spec('long-name-{}'.format(cloud_name), 'A' * 4096,
+                                cloud, NameNotAccepted), 1641970, NameMismatch)
+        if cloud['type'] == 'manual' and endpoint_validation:
+            spec = xfail(spec, 1649721, InvalidEndpoint)
+        yield spec
+        spec = xfail(
             cloud_spec('invalid-name-{}'.format(cloud_name), 'invalid/name',
                        cloud, NameNotAccepted), 1641981, None)
+        if cloud['type'] == 'manual' and endpoint_validation:
+            spec = xfail(spec, 1649721, InvalidEndpoint)
+        yield spec
 
         if cloud['type'] not in ('maas', 'manual', 'vsphere'):
             variant = deepcopy(cloud)
@@ -128,7 +138,7 @@ def iter_clouds(clouds):
             variant_name = 'long-endpoint-{}'.format(cloud_name)
             spec = cloud_spec(variant_name, cloud_name, variant,
                               InvalidEndpoint)
-            if variant['type'] == 'vsphere':
+            if variant['type'] == 'vsphere' or not endpoint_validation:
                 spec = xfail(spec, 1641970, CloudMismatch)
             yield spec
 
@@ -140,8 +150,11 @@ def iter_clouds(clouds):
             region['endpoint'] = 'A' * 4096
             variant_name = 'long-endpoint-{}-{}'.format(cloud_name,
                                                         region_name)
-            yield cloud_spec(variant_name, cloud_name, variant,
-                             InvalidEndpoint)
+            spec = cloud_spec(variant_name, cloud_name, variant,
+                              InvalidEndpoint)
+            if not endpoint_validation:
+                spec = xfail(spec, 1641970, CloudMismatch)
+            yield spec
 
 
 def assess_all_clouds(client, cloud_specs):
@@ -207,7 +220,8 @@ def main():
         logging.warn('This test does not support old jujus.')
     with open(args.example_clouds) as f:
         clouds = yaml.safe_load(f)['clouds']
-    cloud_specs = iter_clouds(clouds)
+    endpoint_validation = bool(not re.match('2\.1[^\d]', version))
+    cloud_specs = iter_clouds(clouds, endpoint_validation)
     with temp_dir() as juju_home:
         env = JujuData('foo', config=None, juju_home=juju_home)
         client = client_class(env, version, juju_bin)
