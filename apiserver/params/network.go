@@ -135,8 +135,8 @@ type NetworkConfig struct {
 // DeviceBridgeInfo lists the host device and the expected bridge to be
 // created.
 type DeviceBridgeInfo struct {
-	HostDeviceName string `json:host-device-name`
-	BridgeName     string `json:bridge-name`
+	HostDeviceName string `json:"host-device-name"`
+	BridgeName     string `json:"bridge-name"`
 }
 
 // ProviderInterfaceInfoResults holds the results of a
