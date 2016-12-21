@@ -710,6 +710,10 @@ def tmp_ctx():
     yield '/tmp/dir'
 
 
+def patch_amm(target):
+    return patch.object(amm, target, autospec=True)
+
+
 class TestAssessModelMigration(TestCase):
 
     def test_runs_develop_tests_when_requested(self):
@@ -720,9 +724,6 @@ class TestAssessModelMigration(TestCase):
         bs2 = Mock()
         bs1.booted_context.return_value = noop_context()
         bs2.existing_booted_context.return_value = noop_context()
-
-        def patch_amm(target):
-            return patch.object(amm, target, autospec=True)
 
         patch_between = patch_amm(
             'ensure_migration_including_resources_succeeds')
@@ -768,30 +769,29 @@ class TestAssessModelMigration(TestCase):
         bs1.booted_context.return_value = noop_context()
         bs2.existing_booted_context.return_value = noop_context()
 
-        with patch.object(
-                amm,
-                'ensure_migrating_with_insufficient_user_permissions_fails',
-                autospec=True) as m_user:
-            with patch.object(
-                    amm,
-                    'ensure_migrating_with_superuser_user_permissions_succeeds',  # NOQA
-                    autospec=True) as m_super:
-                with patch.object(
-                        amm,
-                        'ensure_migration_including_resources_succeeds',
-                        autospec=True) as m_between:
-                    with patch.object(
-                            amm,
-                            'ensure_migration_rolls_back_on_failure',
-                            autospec=True) as m_rollback:
-                        with patch.object(
-                                amm, 'temp_dir',
-                                autospec=True, return_value=tmp_ctx()):
-                            amm.assess_model_migration(bs1, bs2, args)
+        patch_user = patch_amm(
+            'ensure_migrating_with_insufficient_user_permissions_fails')
+        patch_super = patch_amm(
+            'ensure_migrating_with_superuser_user_permissions_succeeds')
+        patch_between = patch_amm(
+            'ensure_migration_including_resources_succeeds')
+        patch_rollback = patch_amm('ensure_migration_rolls_back_on_failure')
+        patch_logs = patch_amm('ensure_model_logs_are_migrated')
+
+        with patch_user as m_user:
+            with patch_super as m_super:
+                with patch_between as m_between:
+                    with patch_rollback as m_rollback:
+                        with patch_logs as m_logs:
+                            with patch.object(
+                                    amm, 'temp_dir',
+                                    autospec=True, return_value=tmp_ctx()):
+                                amm.assess_model_migration(bs1, bs2, args)
         source_client = bs1.client
         dest_client = bs2.client
         m_user.assert_called_once_with(source_client, dest_client, '/tmp/dir')
         m_super.assert_called_once_with(source_client, dest_client, '/tmp/dir')
         m_between.assert_called_once_with(source_client, dest_client)
+        m_logs.assert_called_once_with(source_client, dest_client)
 
         self.assertEqual(m_rollback.call_count, 0)
