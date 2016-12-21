@@ -320,6 +320,17 @@ type ProviderInterfaceInfo struct {
 	MACAddress string
 }
 
+// DeviceToBridge gives the information about a particular device that
+// should be bridged.
+type DeviceToBridge struct {
+	// DeviceName is the name of the device on the machine that should
+	// be bridged.
+	DeviceName string
+
+	// BridgeName is the name of the bride that we want created.
+	BridgeName string
+}
+
 // LXCNetDefaultConfig is the location of the default network config
 // of the lxc package. It's exported to allow cross-package testing.
 var LXCNetDefaultConfig = "/etc/default/lxc-net"
@@ -458,5 +469,7 @@ func filterLXDAddresses(addresses []Address) []Address {
 func FilterBridgeAddresses(addresses []Address) []Address {
 	addresses = filterLXCAddresses(addresses)
 	addresses = filterLXDAddresses(addresses)
+	// TODO(jam): 2016-12-14 We should also be filtering Docker based
+	// addresses, or any other 'local only' bridge addresses.
 	return addresses
 }
