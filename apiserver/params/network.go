@@ -462,6 +462,21 @@ type MachineNetworkConfigResults struct {
 	Results []MachineNetworkConfigResult `json:"results"`
 }
 
+// HostNetworkChange holds the information about how a host machine should be
+// modified to prepare for a container.
+type HostNetworkChange struct {
+	Error *Error `json:"error,omitempty"`
+
+	// NewBridges lists the bridges that need to be created and what host
+	// device they should be connected to.
+	NewBridges []DeviceBridgeInfo `json:"new-bridges"`
+}
+
+// HostNetworkChangeResults holds the network changes that are necessary for multiple containers to be created.
+type HostNetworkChangeResults struct {
+	Results []HostNetworkChange `json:"results"`
+}
+
 // MachinePortsParams holds the arguments for making a
 // FirewallerAPIV1.GetMachinePorts() API call.
 type MachinePortsParams struct {

@@ -1062,8 +1062,6 @@ func (m *Machine) inferContainerSpaces(containerId, defaultSpaceName string) (se
 func (m *Machine) determineContainerSpaces(containerMachine *Machine) (set.Strings, error) {
 	containerSpaces, err := containerMachine.DesiredSpaces()
 	if err != nil {
-		logger.Errorf("SetContainerLinkLayerDevices(%q) got error looking for container spaces: %v",
-			containerMachine.Id(), err)
 		return nil, errors.Trace(err)
 	}
 	logger.Debugf("for container %q, found desired spaces: %v",
@@ -1092,7 +1090,7 @@ func (m *Machine) FindMissingBridgesForContainer(containerMachine *Machine) ([]n
 	}
 	devicesPerSpace, err := m.LinkLayerDevicesForSpaces(containerSpaces.Values())
 	if err != nil {
-		logger.Errorf("SetContainerLinkLayerDevices(%q) got error looking for host spaces: %v",
+		logger.Errorf("FindMissingBridgesForContainer(%q) got error looking for host spaces: %v",
 			containerMachine.Id(), err)
 		return nil, errors.Trace(err)
 	}
