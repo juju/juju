@@ -69,6 +69,27 @@ func (s *environBrokerSuite) fakeAvailabilityZonesAllocations() {
 	s.PatchValue(&vsphere.AvailabilityZoneAllocations, fakeAZAllocations)
 }
 
+type fakeAZ struct {
+	name string
+}
+
+func (f fakeAZ) Name() string {
+	return f.name
+}
+
+func (f fakeAZ) Available() bool {
+	return true
+}
+func (s *environBrokerSuite) fakeAllAvailabilityZones() {
+
+	fakeAllAZ := func(env common.ZonedEnviron) ([]common.AvailabilityZone, error) {
+		return []common.AvailabilityZone{
+			fakeAZ{name: "z1"},
+		}, nil
+	}
+	s.PatchValue(&vsphere.AllAvailabilityZones, fakeAllAZ)
+}
+
 func (s *environBrokerSuite) CreateStartInstanceArgs(c *gc.C) environs.StartInstanceParams {
 	tools := []*coretools.Tools{{
 		Version: version.Binary{Arch: arch.AMD64, Series: "trusty"},
@@ -97,6 +118,7 @@ func (s *environBrokerSuite) CreateStartInstanceArgs(c *gc.C) environs.StartInst
 func (s *environBrokerSuite) TestStartInstance(c *gc.C) {
 	s.PrepareStartInstanceFakesForNewImplementation(c)
 	s.fakeAvailabilityZonesAllocations()
+	s.fakeAllAvailabilityZones()
 	startInstArgs := s.CreateStartInstanceArgs(c)
 	_, err := s.Env.StartInstance(startInstArgs)
 
@@ -130,6 +152,7 @@ func (s *environBrokerSuite) TestStartInstanceFilterToolByArch(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.fakeAvailabilityZonesAllocations()
+	s.fakeAllAvailabilityZones()
 	res, err := s.Env.StartInstance(startInstArgs)
 
 	c.Assert(err, jc.ErrorIsNil)
@@ -140,6 +163,7 @@ func (s *environBrokerSuite) TestStartInstanceFilterToolByArch(c *gc.C) {
 func (s *environBrokerSuite) TestStartInstanceDefaultConstraintsApplied(c *gc.C) {
 	s.PrepareStartInstanceFakesForNewImplementation(c)
 	s.fakeAvailabilityZonesAllocations()
+	s.fakeAllAvailabilityZones()
 	startInstArgs := s.CreateStartInstanceArgs(c)
 	res, err := s.Env.StartInstance(startInstArgs)
 
@@ -153,6 +177,7 @@ func (s *environBrokerSuite) TestStartInstanceDefaultConstraintsApplied(c *gc.C)
 func (s *environBrokerSuite) TestStartInstanceCustomConstraintsApplied(c *gc.C) {
 	s.PrepareStartInstanceFakesForNewImplementation(c)
 	s.fakeAvailabilityZonesAllocations()
+	s.fakeAllAvailabilityZones()
 	startInstArgs := s.CreateStartInstanceArgs(c)
 	cpuCores := uint64(4)
 	startInstArgs.Constraints.CpuCores = &cpuCores
@@ -184,6 +209,7 @@ func (s *environBrokerSuite) TestStartInstanceCallsFinishMachineConfig(c *gc.C) 
 
 func (s *environBrokerSuite) TestStartInstanceDefaultDiskSizeIsUsedForSmallConstraintValue(c *gc.C) {
 	s.fakeAvailabilityZonesAllocations()
+	s.fakeAllAvailabilityZones()
 	s.PrepareStartInstanceFakesForNewImplementation(c)
 	startInstArgs := s.CreateStartInstanceArgs(c)
 	rootDisk := uint64(1000)
@@ -252,6 +278,14 @@ func (s *environBrokerSuite) TestStartInstanceTriesToCreateInstanceInAllAvailabi
 		}, nil
 	}
 	s.PatchValue(&vsphere.AvailabilityZoneAllocations, fakeAZAllocations)
+
+	fakeAllAZ := func(env common.ZonedEnviron) ([]common.AvailabilityZone, error) {
+		return []common.AvailabilityZone{
+			fakeAZ{name: "z1"},
+			fakeAZ{name: "z2"},
+		}, nil
+	}
+	s.PatchValue(&vsphere.AllAvailabilityZones, fakeAllAZ)
 
 	client.SetPropertyProxyHandler("FakeDatacenter", vsphere.RetrieveDatacenterProperties)
 	client.SetProxyHandler("CreateImportSpec", func(req, res soap.HasFault) {
