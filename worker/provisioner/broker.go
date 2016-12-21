@@ -63,7 +63,7 @@ func prepareOrGetContainerInterfaceInfo(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	log.Tracef("PrepareContainerInterfaceInfo returned %+v %+v", preparedInfo, devicesToBridge)
+	log.Tracef("PrepareContainerInterfaceInfo returned %+v", preparedInfo)
 
 	return preparedInfo, nil
 }
