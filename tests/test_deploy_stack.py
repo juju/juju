@@ -44,7 +44,6 @@ from deploy_stack import (
     _get_clients_to_upgrade,
     iter_remote_machines,
     get_remote_machines,
-    GET_TOKEN_SCRIPT,
     make_controller_strategy,
     PublicController,
     safe_print_status,
@@ -103,6 +102,8 @@ def make_logs(log_dir):
 
 
 class DeployStackTestCase(FakeHomeTestCase):
+
+    log_level = logging.DEBUG
 
     def test_destroy_environment(self):
         client = EnvJujuClient1X(
@@ -248,12 +249,12 @@ class DeployStackTestCase(FakeHomeTestCase):
         remote = SSHRemote(client, 'unit', None, series='xenial')
         with patch('deploy_stack.remote_from_unit', autospec=True,
                    return_value=remote):
-            with patch.object(remote, 'run', autospec=True,
-                              return_value='token') as rr_mock:
+            with patch.object(remote, 'cat', autospec=True,
+                              return_value='token') as rc_mock:
                 with patch.object(client, 'get_status', autospec=True,
                                   return_value=status):
                     check_token(client, 'token', timeout=0)
-        rr_mock.assert_called_once_with(GET_TOKEN_SCRIPT)
+        rc_mock.assert_called_once_with('/var/run/dummy-sink/token')
         self.assertTrue(remote.use_juju_ssh)
         self.assertEqual(
             ['INFO Waiting for applications to reach ready.',
@@ -275,10 +276,11 @@ class DeployStackTestCase(FakeHomeTestCase):
 
             """)
         remote = SSHRemote(client, 'unit', None, series='xenial')
+        error = subprocess.CalledProcessError(1, 'ssh', '')
         with patch('deploy_stack.remote_from_unit', autospec=True,
                    return_value=remote):
-            with patch.object(remote, 'run', autospec=True,
-                              return_value='') as rr_mock:
+            with patch.object(remote, 'cat', autospec=True,
+                              side_effect=error) as rc_mock:
                 with patch.object(remote, 'get_address',
                                   autospec=True) as ga_mock:
                     with patch.object(client, 'get_status', autospec=True,
@@ -286,8 +288,7 @@ class DeployStackTestCase(FakeHomeTestCase):
                         with self.assertRaisesRegexp(ValueError,
                                                      "Token is ''"):
                             check_token(client, 'token', timeout=0)
-        self.assertEqual(2, rr_mock.call_count)
-        rr_mock.assert_called_with(GET_TOKEN_SCRIPT)
+        self.assertEqual(2, rc_mock.call_count)
         ga_mock.assert_called_once_with()
         self.assertFalse(remote.use_juju_ssh)
         self.assertEqual(
@@ -309,10 +310,11 @@ class DeployStackTestCase(FakeHomeTestCase):
 
             """)
         remote = SSHRemote(client, 'unit', None, series='xenial')
+        error = subprocess.CalledProcessError(1, 'ssh', '')
         with patch('deploy_stack.remote_from_unit', autospec=True,
                    return_value=remote):
-            with patch.object(remote, 'run', autospec=True,
-                              side_effect=['', 'token']) as rr_mock:
+            with patch.object(remote, 'cat', autospec=True,
+                              side_effect=[error, 'token']) as rc_mock:
                 with patch.object(remote, 'get_address',
                                   autospec=True) as ga_mock:
                     with patch.object(client, 'get_status', autospec=True,
@@ -320,8 +322,8 @@ class DeployStackTestCase(FakeHomeTestCase):
                         with self.assertRaisesRegexp(ValueError,
                                                      "Token is 'token'"):
                             check_token(client, 'token', timeout=0)
-        self.assertEqual(2, rr_mock.call_count)
-        rr_mock.assert_called_with(GET_TOKEN_SCRIPT)
+        self.assertEqual(2, rc_mock.call_count)
+        rc_mock.assert_called_with('/var/run/dummy-sink/token')
         ga_mock.assert_called_once_with()
         self.assertFalse(remote.use_juju_ssh)
         self.assertEqual(
@@ -391,8 +393,8 @@ class DeployStackTestCase(FakeHomeTestCase):
         client = EnvJujuClient(env, None, None)
         remote = MagicMock(spec=['cat', 'is_windows'])
         remote.is_windows.return_value = True
-        remote.cat.side_effect = winrm.exceptions.WinRMTransportError(
-            'a', 'oops')
+        error = winrm.exceptions.WinRMTransportError('a', 'oops')
+        remote.cat.side_effect = error
         status = Status.from_text("""\
             applications:
               dummy-sink:
@@ -405,17 +407,14 @@ class DeployStackTestCase(FakeHomeTestCase):
                    return_value=remote):
             with patch.object(client, 'get_status', autospec=True,
                               return_value=status):
-                check_token(client, 'token', timeout=0)
-        # application-status did not have the token, winrm did.
+                with self.assertRaises(type(error)) as ctx:
+                    check_token(client, 'token', timeout=0)
+        self.assertIs(ctx.exception, error)
         remote.cat.assert_called_once_with('%ProgramData%\\dummy-sink\\token')
         self.assertEqual(
             ['INFO Waiting for applications to reach ready.',
-             'INFO Retrieving token.',
-             'WARNING Skipping token check because of: '
-                '500 WinRMTransport. oops'],
+             'INFO Retrieving token.'],
             self.log_stream.getvalue().splitlines())
-
-    log_level = logging.DEBUG
 
 
 class DumpEnvLogsTestCase(FakeHomeTestCase):
@@ -886,6 +885,16 @@ class TestDeployDummyStack(FakeHomeTestCase):
             call('/tmp/repo/charms-win/dummy-sink', series='win2012hvr2')]
         self.assertEqual(dp_mock.mock_calls, calls)
 
+    def test_deploy_dummy_stack_charmstore(self):
+        client = fake_juju_client()
+        client.bootstrap()
+        with patch.object(client, 'deploy', autospec=True) as dp_mock:
+            deploy_dummy_stack(client, 'xenial', use_charmstore=True)
+        calls = [
+            call('cs:~juju-qa/dummy-source', series='xenial'),
+            call('cs:~juju-qa/dummy-sink', series='xenial')]
+        self.assertEqual(dp_mock.mock_calls, calls)
+
     def test_deploy_dummy_stack(self):
         env = JujuData('foo', {'type': 'nonlocal'})
         client = EnvJujuClient(env, '2.0.0', '/foo/juju')
@@ -899,9 +908,10 @@ class TestDeployDummyStack(FakeHomeTestCase):
         })
 
         def output(*args, **kwargs):
+            token_file = '/var/run/dummy-sink/token'
             output = {
                 ('show-status', '--format', 'yaml'): status,
-                ('ssh', 'dummy-sink/0', GET_TOKEN_SCRIPT): 'fake-token',
+                ('ssh', 'dummy-sink/0', 'cat', token_file): 'fake-token',
             }
             return output[args]
 
@@ -1049,7 +1059,7 @@ class TestDeployJob(FakeHomeTestCase):
             series='trusty', debug=False, agent_url=None, agent_stream=None,
             keep_env=False, upload_tools=False, with_chaos=1, jes=False,
             region=None, verbose=False, upgrade=False, deadline=None,
-            controller_host=None,
+            controller_host=None, use_charmstore=False,
         )
         with self.ds_cxt():
             with patch('deploy_stack.background_chaos',
@@ -1073,7 +1083,7 @@ class TestDeployJob(FakeHomeTestCase):
             series='trusty', debug=False, agent_url=None, agent_stream=None,
             keep_env=False, upload_tools=False, with_chaos=0, jes=False,
             region=None, verbose=False, upgrade=False, deadline=None,
-            controller_host=None,
+            controller_host=None, use_charmstore=False,
         )
         with self.ds_cxt():
             with patch('deploy_stack.background_chaos',
@@ -1092,7 +1102,7 @@ class TestDeployJob(FakeHomeTestCase):
             series='trusty', debug=False, agent_url=None, agent_stream=None,
             keep_env=False, upload_tools=False, with_chaos=0, jes=False,
             region='region-foo', verbose=False, upgrade=False, deadline=None,
-            controller_host=None,
+            controller_host=None, use_charmstore=False,
         )
         with self.ds_cxt() as (client, bm_mock):
             with patch('deploy_stack.assess_juju_relations',
@@ -1115,7 +1125,7 @@ class TestDeployJob(FakeHomeTestCase):
             charm_prefix=None, bootstrap_host=None, machine=None, logs=None,
             debug=None, juju_bin=None, agent_url=None, agent_stream=None,
             keep_env=None, upload_tools=None, with_chaos=None, jes=None,
-            region=None, verbose=None)
+            region=None, verbose=None, use_charmstore=False)
         with patch('deploy_stack.deploy_job_parse_args', return_value=args,
                    autospec=True):
             with patch('deploy_stack._deploy_job', autospec=True) as ds_mock:
@@ -1128,7 +1138,7 @@ class TestDeployJob(FakeHomeTestCase):
             charm_prefix=None, bootstrap_host=None, machine=None, logs=None,
             debug=None, juju_bin=None, agent_url=None, agent_stream=None,
             keep_env=None, upload_tools=None, with_chaos=None, jes=None,
-            region=None, verbose=None)
+            region=None, verbose=None, use_charmstore=False)
         with patch('deploy_stack.deploy_job_parse_args', return_value=args,
                    autospec=True):
             with patch('deploy_stack._deploy_job', autospec=True) as ds_mock:
@@ -1691,6 +1701,16 @@ class TestBootstrapManager(FakeHomeTestCase):
             None, False, False, False)
         with patch.object(client, 'kill_controller'):
             with bs_manager.bootstrap_context([]):
+                self.assertIsTrue(bs_manager.has_controller)
+        self.assertIsTrue(bs_manager.has_controller)
+
+    def test_existing_bootstrap_context_sets_has_controller(self):
+        client = self.make_client()
+        bs_manager = BootstrapManager(
+            'foobar', client, client, None, [], None, None, None, None,
+            None, False, False, False)
+        with patch.object(client, 'kill_controller'):
+            with bs_manager.existing_bootstrap_context([]):
                 self.assertIsTrue(bs_manager.has_controller)
         self.assertIsTrue(bs_manager.has_controller)
 
@@ -2478,6 +2498,7 @@ class TestDeployJobParseArgs(FakeHomeTestCase):
             region=None,
             deadline=None,
             controller_host=None,
+            use_charmstore=False,
         ))
 
     def test_upload_tools(self):
@@ -2494,6 +2515,11 @@ class TestDeployJobParseArgs(FakeHomeTestCase):
         args = deploy_job_parse_args(
             ['foo', 'bar/juju', 'baz', 'qux', '--jes'])
         self.assertIs(args.jes, True)
+
+    def test_use_charmstore(self):
+        args = deploy_job_parse_args(
+            ['foo', 'bar/juju', 'baz', 'qux', '--use-charmstore'])
+        self.assertIs(args.use_charmstore, True)
 
 
 class TestWaitForStateServerToShutdown(FakeHomeTestCase):

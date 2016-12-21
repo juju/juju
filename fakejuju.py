@@ -917,8 +917,8 @@ class FakeBackend:
                 if ':' in model:
                     model = model.split(':')[1]
                 model_state = self.controller_state.models[model]
-            from deploy_stack import GET_TOKEN_SCRIPT
-            if (command, args) == ('ssh', ('dummy-sink/0', GET_TOKEN_SCRIPT)):
+            sink_cat = ('dummy-sink/0', 'cat', '/var/run/dummy-sink/token')
+            if (command, args) == ('ssh', sink_cat):
                 return model_state.token
             if (command, args) == ('ssh', ('0', 'lsb_release', '-c')):
                 return 'Codename:\t{}\n'.format(
