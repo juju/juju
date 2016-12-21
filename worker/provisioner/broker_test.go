@@ -87,12 +87,12 @@ func (f *fakeAPI) ContainerConfig() (params.ContainerConfig, error) {
 	return f.fakeContainerConfig, nil
 }
 
-func (f *fakeAPI) PrepareContainerInterfaceInfo(tag names.MachineTag) ([]network.InterfaceInfo, []network.DeviceToBridge, error) {
+func (f *fakeAPI) PrepareContainerInterfaceInfo(tag names.MachineTag) ([]network.InterfaceInfo, error) {
 	f.MethodCall(f, "PrepareContainerInterfaceInfo", tag)
 	if err := f.NextErr(); err != nil {
-		return nil, nil, err
+		return nil, err
 	}
-	return []network.InterfaceInfo{f.fakeInterfaceInfo}, nil, nil
+	return []network.InterfaceInfo{f.fakeInterfaceInfo}, nil
 }
 
 func (f *fakeAPI) GetContainerInterfaceInfo(tag names.MachineTag) ([]network.InterfaceInfo, error) {
