@@ -674,7 +674,7 @@ func (s *provisionerSuite) testFindTools(c *gc.C, matchArch bool, apiError, logi
 	}
 }
 
-func (s *provisionerSuite) TestHostChangesForContainers(c *gc.C) {
+func (s *provisionerSuite) TestHostChangesForContainer(c *gc.C) {
 	// Create a machine, put it in "default" space with a single NIC. Create
 	// a container that is also in the "default" space, and request the
 	// HostChangesForContainer to see that it wants to bridge that NIC
@@ -709,7 +709,7 @@ func (s *provisionerSuite) TestHostChangesForContainers(c *gc.C) {
 	container, err := s.State.AddMachineInsideMachine(containerTemplate, s.machine.Id(), instance.LXD)
 	c.Assert(err, jc.ErrorIsNil)
 
-	changes, err := s.provisioner.HostChangesForContainers(container.MachineTag())
+	changes, err := s.provisioner.HostChangesForContainer(container.MachineTag())
 	c.Assert(err, gc.ErrorMatches, "dummy provider network config not supported")
 	c.Skip("can't test without network support")
 	c.Assert(err, jc.ErrorIsNil)

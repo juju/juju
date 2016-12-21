@@ -800,7 +800,7 @@ func (ctx *hostChangesContext) ProcessOneContainer(netEnv environs.NetworkingEnv
 			ctx.result.Results[idx].NewBridges,
 			params.DeviceBridgeInfo{
 				HostDeviceName: bridgeInfo.DeviceName,
-				BridgeName: bridgeInfo.BridgeName,
+				BridgeName:     bridgeInfo.BridgeName,
 			})
 	}
 	return nil

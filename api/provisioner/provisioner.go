@@ -238,7 +238,7 @@ func (st *State) prepareOrGetContainerInterfaceInfo(
 	return ifaceInfo, nil
 }
 
-func (st *State) HostChangesForContainers(containerTag names.MachineTag) ([]network.DeviceToBridge, error) {
+func (st *State) HostChangesForContainer(containerTag names.MachineTag) ([]network.DeviceToBridge, error) {
 	var result params.HostNetworkChangeResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: containerTag.String()}},
