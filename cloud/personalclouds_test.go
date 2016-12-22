@@ -95,6 +95,7 @@ func (s *personalCloudSuite) TestReadUserSpecifiedClouds(c *gc.C) {
 func (s *personalCloudSuite) assertPersonalClouds(c *gc.C, clouds map[string]cloud.Cloud) {
 	c.Assert(clouds, jc.DeepEquals, map[string]cloud.Cloud{
 		"homestack": cloud.Cloud{
+			Name:        "homestack",
 			Type:        "openstack",
 			Description: "Openstack Cloud",
 			AuthTypes:   []cloud.AuthType{"userpass", "access-key"},
@@ -104,6 +105,7 @@ func (s *personalCloudSuite) assertPersonalClouds(c *gc.C, clouds map[string]clo
 			},
 		},
 		"azurestack": cloud.Cloud{
+			Name:             "azurestack",
 			Type:             "azure",
 			Description:      "Microsoft Azure",
 			AuthTypes:        []cloud.AuthType{"userpass"},
