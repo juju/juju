@@ -4,6 +4,7 @@
 package provisioner_test
 
 import (
+	"errors"
 	"io/ioutil"
 	"net"
 	"path/filepath"
@@ -209,4 +210,25 @@ func callMaintainInstance(c *gc.C, s patcher, broker environs.InstanceBroker, ma
 		StatusCallback: makeNoOpStatusCallback(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+type fakeBridger struct {
+	errorMessage string
+	returnError  bool
+}
+
+var _ network.Bridger = (*fakeBridger)(nil)
+
+func newFakeBridger(returnsError bool, errorMessage string) *fakeBridger {
+	return &fakeBridger{
+		returnError:  returnsError,
+		errorMessage: errorMessage,
+	}
+}
+
+func (f *fakeBridger) Bridge(deviceNames []string) error {
+	if f.returnError {
+		return errors.New(f.errorMessage)
+	}
+	return nil
 }

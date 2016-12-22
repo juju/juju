@@ -35,7 +35,6 @@ type lxdBrokerSuite struct {
 	agentConfig agent.ConfigSetterWriter
 	api         *fakeAPI
 	manager     *fakeContainerManager
-	bridgeError error
 }
 
 var _ = gc.Suite(&lxdBrokerSuite{})
@@ -65,8 +64,7 @@ func (s *lxdBrokerSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = NewFakeAPI()
 	s.manager = &fakeContainerManager{}
-	s.bridgeError = nil
-	s.broker, err = provisioner.NewLxdBroker(newLXDFakeBridger(s), "machine-1", s.api, s.manager, s.agentConfig)
+	s.broker, err = provisioner.NewLxdBroker(newFakeBridger(false, ""), "machine-1", s.api, s.manager, s.agentConfig)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -252,20 +250,4 @@ func (m *fakeContainerManager) IsInitialized() bool {
 	m.MethodCall(m, "IsInitialized")
 	m.PopNoErr()
 	return true
-}
-
-type lxdFakeBridger struct {
-	suite *lxdBrokerSuite
-}
-
-var _ network.Bridger = (*lxdFakeBridger)(nil)
-
-func newLXDFakeBridger(s *lxdBrokerSuite) *lxdFakeBridger {
-	return &lxdFakeBridger{
-		suite: s,
-	}
-}
-
-func (f *lxdFakeBridger) Bridge(deviceNames []string) error {
-	return f.suite.bridgeError
 }

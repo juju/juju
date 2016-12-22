@@ -43,7 +43,6 @@ type kvmBrokerSuite struct {
 	broker      environs.InstanceBroker
 	agentConfig agent.Config
 	api         *fakeAPI
-	bridgeError error
 }
 
 var _ = gc.Suite(&kvmBrokerSuite{})
@@ -91,9 +90,7 @@ func (s *kvmBrokerSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = NewFakeAPI()
 	managerConfig := container.ManagerConfig{container.ConfigModelUUID: coretesting.ModelTag.Id()}
-	s.bridgeError = nil
-	bridger := newKVMFakeBridger(s, nil)
-	s.broker, err = provisioner.NewKvmBroker(bridger, "machine-1", s.api, s.agentConfig, managerConfig)
+	s.broker, err = provisioner.NewKvmBroker(newFakeBridger(false, ""), "machine-1", s.api, s.agentConfig, managerConfig)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -298,8 +295,7 @@ func (s *kvmBrokerSuite) TestStartInstancePopulatesFallbackNetworkInfo(c *gc.C) 
 type kvmProvisionerSuite struct {
 	CommonProvisionerSuite
 	kvmSuite
-	events      chan mock.Event
-	bridgeError error
+	events chan mock.Event
 }
 
 var _ = gc.Suite(&kvmProvisionerSuite{})
@@ -323,7 +319,6 @@ func (s *kvmProvisionerSuite) SetUpTest(c *gc.C) {
 
 	s.events = make(chan mock.Event, 25)
 	s.ContainerFactory.AddListener(s.events)
-	s.bridgeError = nil
 }
 
 func (s *kvmProvisionerSuite) nextEvent(c *gc.C) mock.Event {
@@ -372,8 +367,7 @@ func (s *kvmProvisionerSuite) newKvmProvisioner(c *gc.C) provisioner.Provisioner
 	machineTag := names.NewMachineTag("0")
 	agentConfig := s.AgentConfigForTag(c, machineTag)
 	managerConfig := container.ManagerConfig{container.ConfigModelUUID: coretesting.ModelTag.Id()}
-	bridger := newKVMFakeBridger(nil, s)
-	broker, err := provisioner.NewKvmBroker(bridger, "machine-0", s.provisioner, agentConfig, managerConfig)
+	broker, err := provisioner.NewKvmBroker(newFakeBridger(false, ""), "machine-0", s.provisioner, agentConfig, managerConfig)
 	c.Assert(err, jc.ErrorIsNil)
 	toolsFinder := (*provisioner.GetToolsFinder)(s.provisioner)
 	w, err := provisioner.NewContainerProvisioner(instance.KVM, s.provisioner, agentConfig, broker, toolsFinder)
@@ -448,23 +442,4 @@ func (s *kvmProvisionerSuite) TestKVMProvisionerObservesConfigChanges(c *gc.C) {
 type kvmFakeBridger struct {
 	brokerSuite      *kvmBrokerSuite
 	provisionerSuite *kvmProvisionerSuite
-}
-
-var _ network.Bridger = (*kvmFakeBridger)(nil)
-
-func newKVMFakeBridger(b *kvmBrokerSuite, p *kvmProvisionerSuite) *kvmFakeBridger {
-	return &kvmFakeBridger{
-		brokerSuite:      b,
-		provisionerSuite: p,
-	}
-}
-
-func (f *kvmFakeBridger) Bridge(deviceNames []string) error {
-	if f.brokerSuite != nil {
-		return f.brokerSuite.bridgeError
-	}
-	if f.provisionerSuite != nil {
-		return f.provisionerSuite.bridgeError
-	}
-	return nil
 }
