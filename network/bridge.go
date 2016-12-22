@@ -5,7 +5,6 @@ package network
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"strings"
 	"time"
@@ -15,19 +14,22 @@ import (
 	"github.com/juju/utils/exec"
 )
 
-type BridgerConfig struct {
-	Clock        clock.Clock
-	Timeout      time.Duration
-	BridgePrefix string
-	InputFile    string
-}
-
 type Bridger interface {
 	Bridge(deviceNames []string) error
 }
 
+type ScriptResult struct {
+	Stdout   []byte
+	Stderr   []byte
+	Code     int
+	TimedOut bool
+}
+
 type etcNetworkInterfacesBridger struct {
-	cfg BridgerConfig
+	Clock        clock.Clock
+	Timeout      time.Duration
+	BridgePrefix string
+	Filename     string
 }
 
 var _ Bridger = (*etcNetworkInterfacesBridger)(nil)
@@ -61,35 +63,48 @@ func bestPythonVersion() string {
 	return ""
 }
 
-func writePythonScript(content string, perms os.FileMode) (string, error) {
-	tmpfile, err := ioutil.TempFile("", "add-bridge")
-
-	if err != nil {
-		return "", errors.Trace(err)
+func (b *etcNetworkInterfacesBridger) Bridge(deviceNames []string) error {
+	args := make([]string, 0, 4)
+	args = append(args, fmt.Sprintf("--interfaces-to-bridge=%q", deviceNames))
+	args = append(args, fmt.Sprintf("--activate"))
+	if b.BridgePrefix != "" {
+		args = append(args, fmt.Sprintf("--bridge-prefix=%s", b.BridgePrefix))
 	}
+	args = append(args, b.Filename)
+	cmd := fmt.Sprintf(`
+%s - %s <<'EOF'
+%s
+EOF
+`,
+		bestPythonVersion(),
+		strings.Join(args, " "),
+		BridgeScriptPythonContent)
 
-	if err := tmpfile.Close(); err != nil {
-		os.Remove(tmpfile.Name())
-		return "", errors.Trace(err)
+	result, err := RunCommand(cmd, os.Environ(), b.Clock, b.Timeout)
+	logger.Infof("bridgescript result=%v, timeout=%v", result.Code, result.TimedOut)
+	if result.Code != 0 {
+		logger.Errorf("bridgescript stdout\n%s\n", result.Stdout)
+		logger.Errorf("bridgescript stderr\n%s\n", result.Stderr)
 	}
-
-	if err := ioutil.WriteFile(tmpfile.Name(), []byte(content), perms); err != nil {
-		os.Remove(tmpfile.Name())
-		return "", errors.Trace(err)
+	if result.TimedOut {
+		return errors.Errorf("bridgescript timed out after %v", b.Timeout)
 	}
-
-	if err := os.Chmod(tmpfile.Name(), 0755); err != nil {
-		os.Remove(tmpfile.Name())
-		return "", errors.Trace(err)
-	}
-
-	return tmpfile.Name(), nil
+	return err
 }
 
-func runCommandWithTimeout(command string, timeout time.Duration, clock clock.Clock) (*exec.ExecResponse, error) {
+func NewEtcNetworkInterfacesBridger(clock clock.Clock, timeout time.Duration, bridgePrefix, filename string) Bridger {
+	return &etcNetworkInterfacesBridger{
+		Clock:        clock,
+		Timeout:      timeout,
+		BridgePrefix: bridgePrefix,
+		Filename:     filename,
+	}
+}
+
+func RunCommand(command string, environ []string, clock clock.Clock, timeout time.Duration) (*ScriptResult, error) {
 	cmd := exec.RunParams{
 		Commands:    command,
-		Environment: os.Environ(),
+		Environment: environ,
 		Clock:       clock,
 	}
 
@@ -99,60 +114,23 @@ func runCommandWithTimeout(command string, timeout time.Duration, clock clock.Cl
 	}
 
 	var cancel chan struct{}
+	timedOut := false
+
 	if timeout != 0 {
 		cancel = make(chan struct{})
 		go func() {
 			<-clock.After(timeout)
+			timedOut = true
 			close(cancel)
 		}()
 	}
 
-	return cmd.WaitWithCancel(cancel)
-}
+	result, err := cmd.WaitWithCancel(cancel)
 
-func (b *etcNetworkInterfacesBridger) Bridge(deviceNames []string) error {
-	pythonVersion := bestPythonVersion()
-	if pythonVersion == "" {
-		return errors.New("no Python installation found")
-	}
-
-	content := fmt.Sprintf("#!%s\n%s\n", pythonVersion, BridgeScriptPythonContent)
-	tmpfile, err := writePythonScript(content, 0755)
-
-	if err != nil {
-		return errors.Annotatef(err, "failed to write bridgescript")
-	}
-
-	defer os.Remove(tmpfile)
-
-	command := fmt.Sprintf("%s %q --activate --bridge-prefix=%q --interfaces-to-bridge=%q %q",
-		pythonVersion, tmpfile, b.cfg.BridgePrefix, strings.Join(deviceNames, " "), b.cfg.InputFile)
-
-	logger.Infof("running %q with timeout=%v", command, b.cfg.Timeout)
-
-	result, err := runCommandWithTimeout(command, time.Duration(b.cfg.Timeout), b.cfg.Clock)
-
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	logger.Infof("bridgescript result=%v", result.Code)
-
-	if result.Code != 0 {
-		logger.Errorf("bridgescript stdout\n%s\n", result.Stdout)
-		logger.Errorf("bridgescript stderr\n%s\n", result.Stderr)
-	}
-
-	return err
-}
-
-func NewEtcNetworkInterfacesBridger(clock clock.Clock, timeout time.Duration, bridgePrefix, filename string) Bridger {
-	return &etcNetworkInterfacesBridger{
-		cfg: BridgerConfig{
-			Clock:        clock,
-			Timeout:      timeout,
-			BridgePrefix: bridgePrefix,
-			InputFile:    filename,
-		},
-	}
+	return &ScriptResult{
+		Stdout:   result.Stdout,
+		Stderr:   result.Stderr,
+		Code:     result.Code,
+		TimedOut: timedOut,
+	}, nil
 }
