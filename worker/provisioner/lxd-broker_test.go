@@ -255,7 +255,6 @@ func (m *fakeContainerManager) IsInitialized() bool {
 }
 
 type lxdFakeBridger struct {
-	cfg   network.BridgerConfig
 	suite *lxdBrokerSuite
 }
 
@@ -264,9 +263,6 @@ var _ network.Bridger = (*lxdFakeBridger)(nil)
 func newLXDFakeBridger(s *lxdBrokerSuite) *lxdFakeBridger {
 	return &lxdFakeBridger{
 		suite: s,
-		cfg: network.BridgerConfig{
-			Clock: gitjujutesting.NewClock(coretesting.ZeroTime()),
-		},
 	}
 }
 

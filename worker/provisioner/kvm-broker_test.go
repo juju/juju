@@ -448,7 +448,6 @@ func (s *kvmProvisionerSuite) TestKVMProvisionerObservesConfigChanges(c *gc.C) {
 type kvmFakeBridger struct {
 	brokerSuite      *kvmBrokerSuite
 	provisionerSuite *kvmProvisionerSuite
-	cfg              network.BridgerConfig
 }
 
 var _ network.Bridger = (*kvmFakeBridger)(nil)
@@ -457,9 +456,6 @@ func newKVMFakeBridger(b *kvmBrokerSuite, p *kvmProvisionerSuite) *kvmFakeBridge
 	return &kvmFakeBridger{
 		brokerSuite:      b,
 		provisionerSuite: p,
-		cfg: network.BridgerConfig{
-			Clock: gitjujutesting.NewClock(coretesting.ZeroTime()),
-		},
 	}
 }
 
