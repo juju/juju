@@ -18,7 +18,6 @@ import json
 from assess_agent_metadata import (
     verify_deployed_tool,
     get_controller_url_and_sha256,
-    list_files,
 )
 
 from assess_bootstrap import (
@@ -98,9 +97,6 @@ def assess_sync_bootstrap(args, agent_stream):
             client, agent_stream, args.agent_dir) as agent_dir:
         client.env.update_config({'agent-stream:': agent_stream})
         log.info('Metadata written to: {}'.format(agent_dir))
-        log.info("Directory contents {} with stream {}".format(
-            agent_dir, agent_stream))
-        list_files(agent_dir)
 
         with bs_manager.booted_context(args.upload_tools,
                                        metadata_source=agent_dir):
@@ -125,7 +121,6 @@ def main(argv=None):
     args = parse_args(argv)
     configure_logging(args.verbose)
 
-    # assess_sync_bootstrap(args, agent_stream="release")
     assess_sync_bootstrap(args, agent_stream="devel")
     return 0
 
