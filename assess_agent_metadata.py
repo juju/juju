@@ -123,13 +123,13 @@ def verify_deployed_tool(agent_dir, client, agent_stream):
     """
     controller_url, controller_sha256 = get_controller_url_and_sha256(client)
 
-    log.info("controller_url: {} and controller_sha256: {}".format(
+    log.debug("controller_url: {} and controller_sha256: {}".format(
                controller_url, controller_sha256))
 
     local_url, local_sha256 = get_local_url_and_sha256(
         agent_dir, controller_url, agent_stream)
 
-    log.info("local_url: {} and local_sha256: {}".format(
+    log.debug("local_url: {} and local_sha256: {}".format(
         local_url, local_sha256))
 
     if local_url != controller_url:
@@ -154,8 +154,14 @@ def assess_metadata(args, agent_dir):
     bs_manager = BootstrapManager.from_args(args)
     client = bs_manager.client
     agent_metadata_url = os.path.join(agent_dir, "tools/")
-    client.env.update_config({'agent-metadata-url': agent_metadata_url,
-                              'agent-stream': args.agent_stream})
+
+    client.env.discard_option('tools-metadata-url')
+    client.env.update_config(
+        {
+            'agent-metadata-url': agent_metadata_url,
+            'agent-stream': args.agent_stream
+        }
+    )
     log.info('bootstrap to use --agent_metadata_url={}'.format(
         agent_metadata_url))
     client.generate_tool(agent_dir, args.agent_stream)
@@ -185,10 +191,10 @@ def assess_add_cloud(args, agent_dir):
     bs_manager = BootstrapManager.from_args(args)
     client = bs_manager.client
     agent_metadata_url = os.path.join(agent_dir, "tools/")
-    
+
     cloud_name = client.env.get_cloud()
-    # Remove the metadata url from the config (note the name, is for historic
-    # reasons)
+    # Remove the tool metadata url from the config (note the name, is
+    # for historic reasons)
     client.env.discard_option('tools-metadata-url')
     cloud_details = {
         'clouds': {
@@ -196,7 +202,8 @@ def assess_add_cloud(args, agent_dir):
                 'type': client.env.provider,
                 'regions': {client.env.get_region(): {}},
                 'config': {
-                    'agent-metadata-url': 'file://{}'.format(agent_metadata_url),
+                    'agent-metadata-url': 'file://{}'.format(
+                        agent_metadata_url),
                     'agent-stream': args.agent_stream,
                 }
             }
@@ -205,14 +212,15 @@ def assess_add_cloud(args, agent_dir):
 
     with temp_yaml_file(cloud_details) as new_cloud:
         client.add_cloud(cloud_name, new_cloud)
-        # Need to make sure we've refreshed any cache that we might have (as this
-        # gets written to file during the bootstrap process.
+        # Need to make sure we've refreshed any cache that we might have (as
+        # this gets written to file during the bootstrap process.
         client.env.load_yaml()
         clouds = cloud_details['clouds'][cloud_name]
         assert_cloud_details_are_correct(client, cloud_name, clouds)
 
     client.generate_tool(agent_dir, args.agent_stream)
     list_files(agent_dir)
+
     log_dir = os.path.join(bs_manager.log_dir, 'assess_add_cloud')
     os.mkdir(log_dir)
     bs_manager.log_dir = log_dir
@@ -225,9 +233,9 @@ def assess_add_cloud(args, agent_dir):
 def clone_tgz_file_and_change_shasum(original_tgz_file, new_tgz_file):
     """
     Create a new tgz file from the original tgz file and then add empty file
-    to it so that the sha256 sum of the new tgz file will be different from that
-    of original tgz file. We use this to make sure that controller deployed on
-    bootstrap used of the new tgz file.
+    to it so that the sha256 sum of the new tgz file will be different from
+    that of original tgz file. We use this to make sure that controller
+    deployed on bootstrap used of the new tgz file.
     :param original_tgz_file: The source tgz file
     :param new_tgz_file: The destination tgz file
     """
@@ -294,8 +302,8 @@ def main(argv=None):
 
     args.agent_stream = args.agent_stream if args.agent_stream else 'testing'
 
-    #with make_unique_tool(args.agent_file, args.agent_stream) as agent_dir:
-    #    assess_metadata(args, agent_dir)
+    with make_unique_tool(args.agent_file, args.agent_stream) as agent_dir:
+        assess_metadata(args, agent_dir)
 
     with make_unique_tool(args.agent_file, args.agent_stream) as agent_dir:
         assess_add_cloud(args, agent_dir)

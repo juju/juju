@@ -103,7 +103,8 @@ def assess_bootstrap(args):
     if 'base' == args.part:
         assess_base_bootstrap(bs_manager)
     elif 'metadata' == args.part:
-        assess_metadata(bs_manager, args.agent_stream, args.local_metadata_source)
+        assess_metadata(bs_manager, args.agent_stream,
+                        args.local_metadata_source)
     elif 'to' == args.part:
         assess_to(bs_manager, args.to)
 
