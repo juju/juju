@@ -367,8 +367,10 @@ func (t toolsFinderFunc) FindTools(v version.Number, series string, arch string)
 func getContainerInstance() (cont []ContainerInstance, err error) {
 	cont = []ContainerInstance{
 		{instance.KVM, [][]string{
+			{"genisoimage"},
 			{"libvirt-bin"},
 			{"qemu-utils"},
+			{"qemu-kvm"},
 		}},
 	}
 	return cont, nil
