@@ -65,7 +65,7 @@ func (s *containerProvisionerSuite) TestPrepareContainerInterfaceInfoPermission(
 	// Only machine 0 can have it's containers updated.
 	results, err := aProvisioner.PrepareContainerInterfaceInfo(args)
 	c.Assert(err, gc.ErrorMatches, "dummy provider network config not supported")
-	c.Skip("dummy provider needs networking interface")
+	c.Skip("dummy provider needs networking https://pad.lv/1651974")
 	// Overall request is ok
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -113,7 +113,7 @@ func (s *containerProvisionerSuite) TestHostChangesForContainersPermission(c *gc
 	// Only machine 0 can have it's containers updated.
 	results, err := aProvisioner.HostChangesForContainers(args)
 	c.Assert(err, gc.ErrorMatches, "dummy provider network config not supported")
-	c.Skip("dummy provider needs networking interface")
+	c.Skip("dummy provider needs networking https://pad.lv/1651974")
 	// Overall request is ok
 	c.Assert(err, jc.ErrorIsNil)
 
