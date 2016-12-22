@@ -100,6 +100,18 @@ func createPool(pathfinder func(string) (string, error), runCmd runFunc, chownFu
 	if err = autostartPool(runCmd); err != nil {
 		return errors.Trace(err)
 	}
+
+	// We have to set ownership of the guest pool directory after running virsh
+	// commands above, because it appears that the libvirt-bin version that
+	// ships with trusty sets the ownership of the pool directory to the user
+	// running the commands -- root in our case. Which causes container
+	// initialization to fail as we couldn't write volumes to the pool. We
+	// write them as libvirt-qemu:kvm so that libvirt -- which runs as that
+	// user -- can read them to boot the domains.
+	if err = chownFunc(poolDir); err != nil {
+		return errors.Trace(err)
+	}
+
 	return nil
 }
 
@@ -126,16 +138,6 @@ func definePool(dir string, runCmd runFunc, chownFunc func(string) error) error 
 	}
 	logger.Debugf("pool-define-as ouput %s", output)
 
-	// We have to set ownership of the guest pool directory after running virsh
-	// define-pool-as, because it appears that the libvirt-bin version that
-	// ships with trusty sets the ownership of the pool directory to the user
-	// running the command -- root in our case. Which causes continer
-	// initialization to fail as we couldn't write volumes to the pool. We
-	// write them as libvirt-qemu:kvm so that libvirt -- which runs as that
-	// user -- can read them to boot the domains.
-	if err = chownFunc(dir); err != nil {
-		return errors.Trace(err)
-	}
 	return nil
 }
 
