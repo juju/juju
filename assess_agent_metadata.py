@@ -181,20 +181,34 @@ def assess_add_cloud(args, agent_dir):
     :param args: Parsed command line arguments
     :param agent_dir: The top level directory location of agent file.
     """
-    cloud_name = "testCloud"
-    agent_metadata_url = os.path.join(agent_dir, "tools/")
-
-    test_cloud_data = {'clouds': {'testCloud': {'type': 'lxd', 'config': {
-        'agent-metadata-url': 'file://{}'.format(agent_metadata_url),
-        'agent-stream': args.agent_stream}}}}
-    log.info(test_cloud_data)
 
     bs_manager = BootstrapManager.from_args(args)
     client = bs_manager.client
+    agent_metadata_url = os.path.join(agent_dir, "tools/")
+    
+    cloud_name = client.env.get_cloud()
+    # Remove the metadata url from the config (note the name, is for historic
+    # reasons)
+    client.env.discard_option('tools-metadata-url')
+    cloud_details = {
+        'clouds': {
+            cloud_name: {
+                'type': client.env.provider,
+                'regions': {client.env.get_region(): {}},
+                'config': {
+                    'agent-metadata-url': 'file://{}'.format(agent_metadata_url),
+                    'agent-stream': args.agent_stream,
+                }
+            }
+        }
+    }
 
-    with temp_yaml_file(test_cloud_data) as add_cloud_file:
-        client.add_cloud(cloud_name, add_cloud_file)
-        clouds = test_cloud_data['clouds'][cloud_name]
+    with temp_yaml_file(cloud_details) as new_cloud:
+        client.add_cloud(cloud_name, new_cloud)
+        # Need to make sure we've refreshed any cache that we might have (as this
+        # gets written to file during the bootstrap process.
+        client.env.load_yaml()
+        clouds = cloud_details['clouds'][cloud_name]
         assert_cloud_details_are_correct(client, cloud_name, clouds)
 
     client.generate_tool(agent_dir, args.agent_stream)
@@ -280,8 +294,8 @@ def main(argv=None):
 
     args.agent_stream = args.agent_stream if args.agent_stream else 'testing'
 
-    with make_unique_tool(args.agent_file, args.agent_stream) as agent_dir:
-        assess_metadata(args, agent_dir)
+    #with make_unique_tool(args.agent_file, args.agent_stream) as agent_dir:
+    #    assess_metadata(args, agent_dir)
 
     with make_unique_tool(args.agent_file, args.agent_stream) as agent_dir:
         assess_add_cloud(args, agent_dir)
