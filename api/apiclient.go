@@ -349,6 +349,9 @@ func (st *state) connectStream(path string, attrs url.Values, extraHeaders http.
 	// and when/if this changes localhost should resolve to IPv6 loopback
 	// in any case (lp:1644009). Review.
 	cfg, err := websocket.NewConfig(target.String(), "http://localhost/")
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	if st.tag != "" {
 		cfg.Header = utils.BasicAuthHeader(st.tag, st.password)
 	}
@@ -357,7 +360,10 @@ func (st *state) connectStream(path string, attrs url.Values, extraHeaders http.
 	}
 	// Add any cookies because they will not be sent to websocket
 	// connections by default.
-	st.addCookiesToHeader(cfg.Header)
+	err = st.addCookiesToHeader(cfg.Header)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	for header, values := range extraHeaders {
 		for _, value := range values {
 			cfg.Header.Add(header, value)
@@ -401,7 +407,7 @@ func readInitialStreamError(conn io.Reader) error {
 // addCookiesToHeader adds any cookies associated with the
 // API host to the given header. This is necessary because
 // otherwise cookies are not sent to websocket endpoints.
-func (st *state) addCookiesToHeader(h http.Header) {
+func (st *state) addCookiesToHeader(h http.Header) error {
 	// net/http only allows adding cookies to a request,
 	// but when it sends a request to a non-http endpoint,
 	// it doesn't add the cookies, so make a request, starting
@@ -414,6 +420,20 @@ func (st *state) addCookiesToHeader(h http.Header) {
 	for _, c := range cookies {
 		req.AddCookie(c)
 	}
+	if len(cookies) == 0 && len(st.macaroons) > 0 {
+		// These macaroons must have been added directly rather than
+		// obtained from a request. Add them. (For example in the
+		// logtransfer connection for a migration.)
+		// See https://bugs.launchpad.net/juju/+bug/1650451
+		for _, macaroon := range st.macaroons {
+			cookie, err := httpbakery.NewCookie(macaroon)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			req.AddCookie(cookie)
+		}
+	}
+	return nil
 }
 
 // apiEndpoint returns a URL that refers to the given API slash-prefixed

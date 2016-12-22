@@ -42,6 +42,7 @@ type MacaroonSuite struct {
 }
 
 func (s *MacaroonSuite) SetUpTest(c *gc.C) {
+	s.DischargerLogin = nil
 	s.discharger = bakerytest.NewDischarger(nil, func(req *http.Request, cond, arg string) ([]checkers.Caveat, error) {
 		if cond != "is-authenticated-user" {
 			return nil, errors.New("unknown caveat")
