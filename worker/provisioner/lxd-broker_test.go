@@ -31,7 +31,6 @@ import (
 
 type lxdBrokerSuite struct {
 	coretesting.BaseSuite
-	//	broker      environs.InstanceBroker
 	agentConfig agent.ConfigSetterWriter
 	api         *fakeAPI
 	manager     *fakeContainerManager
