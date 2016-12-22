@@ -42,7 +42,7 @@ func (c *kvmContainer) Start(params StartParams) error {
 			return imagedownloads.NewDataSource(params.ImageDownloadURL)
 		}
 	}
-	sp := SyncParams{
+	sp := syncParams{
 		arch:    params.Arch,
 		series:  params.Series,
 		ftype:   FType,

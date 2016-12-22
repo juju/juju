@@ -13,13 +13,16 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/juju/environs/imagedownloads"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 
 	. "github.com/juju/juju/container/kvm"
 )
 
 // cacheSuite is gocheck boilerplate.
-type cacheSuite struct{}
+type cacheSuite struct {
+	testing.IsolationSuite
+}
 
 // _ is gocheck boilerplate.
 var _ = gc.Suite(&cacheSuite{})

@@ -13,11 +13,14 @@ import (
 
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 )
 
 // gocheck boilerplate.
-type initialisationInternalSuite struct{}
+type initialisationInternalSuite struct {
+	testing.IsolationSuite
+}
 
 var _ = gc.Suite(&initialisationInternalSuite{})
 

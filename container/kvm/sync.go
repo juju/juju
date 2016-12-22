@@ -36,21 +36,21 @@ type Oner interface {
 }
 
 // SyncParams conveys the information necessary for calling imagedownloads.One.
-type SyncParams struct {
+type syncParams struct {
 	arch, series, ftype string
 	pathfinder          func(string) (string, error)
 	srcFunc             func() simplestreams.DataSource
 }
 
 // One implements Oner.
-func (p SyncParams) One() (*imagedownloads.Metadata, error) {
+func (p syncParams) One() (*imagedownloads.Metadata, error) {
 	if err := p.exists(); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return imagedownloads.One(p.arch, p.series, p.ftype, p.srcFunc)
 }
 
-func (p SyncParams) exists() error {
+func (p syncParams) exists() error {
 	fname := backingFileName(p.series, p.arch)
 	baseDir, err := paths.DataDir(series.HostSeries())
 	if err != nil {
@@ -65,7 +65,7 @@ func (p SyncParams) exists() error {
 }
 
 // Validate that our types fulfull their implementations.
-var _ Oner = (*SyncParams)(nil)
+var _ Oner = (*syncParams)(nil)
 var _ Fetcher = (*fetcher)(nil)
 
 // Fetcher is an interface to permit faking input in tests. The default

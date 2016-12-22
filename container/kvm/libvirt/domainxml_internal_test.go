@@ -9,11 +9,14 @@ package libvirt
 import (
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 )
 
 // gocheck boilerplate.
-type domainXMLInternalSuite struct{}
+type domainXMLInternalSuite struct {
+	testing.IsolationSuite
+}
 
 var _ = gc.Suite(&domainXMLInternalSuite{})
 
