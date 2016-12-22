@@ -15,6 +15,8 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/api/common"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/container"
@@ -33,6 +35,7 @@ type lxdBrokerSuite struct {
 	agentConfig agent.ConfigSetterWriter
 	api         *fakeAPI
 	manager     *fakeContainerManager
+	bridgeError error
 }
 
 var _ = gc.Suite(&lxdBrokerSuite{})
@@ -62,19 +65,89 @@ func (s *lxdBrokerSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = NewFakeAPI()
 	s.manager = &fakeContainerManager{}
-	s.broker, err = provisioner.NewLxdBroker(s.api, s.manager, s.agentConfig)
+	s.bridgeError = nil
+	s.broker, err = provisioner.NewLxdBroker(newLXDFakeBridger(s), "machine-1", s.api, s.manager, s.agentConfig)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *lxdBrokerSuite) startInstance(c *gc.C, machineId string) *environs.StartInstanceResult {
+func (s *lxdBrokerSuite) startInstance(c *gc.C, machineId string) (*environs.StartInstanceResult, error) {
 	return callStartInstance(c, s, s.broker, machineId)
 }
 
-func (s *lxdBrokerSuite) TestStartInstance(c *gc.C) {
+func (s *lxdBrokerSuite) TestStartInstanceGetObservedNetworkConfigFails(c *gc.C) {
+	s.PatchValue(provisioner.GetObservedNetworkConfig, func(_ common.NetworkConfigSource) ([]params.NetworkConfig, error) {
+		return nil, errors.New("TestStartInstanceWithHostNetworkChanges no network")
+	})
+
+	machineId := "1/lxd/0"
+	_, err := s.startInstance(c, machineId)
+	c.Check(err, gc.ErrorMatches, ".*TestStartInstanceWithHostNetworkChanges no network")
+
+	s.api.CheckCalls(c, []gitjujutesting.StubCall{{
+		FuncName: "ContainerConfig",
+	}, {
+		FuncName: "HostChangesForContainer",
+		Args:     []interface{}{names.NewMachineTag("1-lxd-0")},
+	}})
+}
+
+func (s *lxdBrokerSuite) TestStartInstanceWithoutHostNetworkChanges(c *gc.C) {
+	s.PatchValue(provisioner.GetObservedNetworkConfig, func(_ common.NetworkConfigSource) ([]params.NetworkConfig, error) {
+		return nil, nil
+	})
 	machineId := "1/lxd/0"
 	s.startInstance(c, machineId)
 	s.api.CheckCalls(c, []gitjujutesting.StubCall{{
 		FuncName: "ContainerConfig",
+	}, {
+		FuncName: "HostChangesForContainer",
+		Args:     []interface{}{names.NewMachineTag("1-lxd-0")},
+	}, {
+		FuncName: "PrepareContainerInterfaceInfo",
+		Args:     []interface{}{names.NewMachineTag("1-lxd-0")},
+	}})
+	s.manager.CheckCallNames(c, "CreateContainer")
+	call := s.manager.Calls()[0]
+	c.Assert(call.Args[0], gc.FitsTypeOf, &instancecfg.InstanceConfig{})
+	instanceConfig := call.Args[0].(*instancecfg.InstanceConfig)
+	c.Assert(instanceConfig.ToolsList(), gc.HasLen, 1)
+	c.Assert(instanceConfig.ToolsList().Arches(), jc.DeepEquals, []string{"amd64"})
+}
+
+func (s *lxdBrokerSuite) TestStartInstanceWithHostNetworkChanges(c *gc.C) {
+	observedNetworkConfig := []params.NetworkConfig{
+		params.NetworkConfig{
+			DeviceIndex:    0,
+			MACAddress:     "aa:bb:cc:dd:ee:ff",
+			CIDR:           "0.1.2.3/24",
+			InterfaceName:  "dummy0",
+			Disabled:       false,
+			NoAutoStart:    false,
+			Address:        "0.1.2.3",
+			GatewayAddress: "0.1.2.1",
+		},
+	}
+
+	s.PatchValue(provisioner.GetObservedNetworkConfig, func(_ common.NetworkConfigSource) ([]params.NetworkConfig, error) {
+		return observedNetworkConfig, nil
+	})
+
+	machineId := "1/lxd/0"
+	s.startInstance(c, machineId)
+
+	s.api.CheckCalls(c, []gitjujutesting.StubCall{{
+		FuncName: "ContainerConfig",
+	}, {
+		FuncName: "HostChangesForContainer",
+		Args: []interface{}{
+			names.NewMachineTag("1-lxd-0"),
+		},
+	}, {
+		FuncName: "SetHostMachineNetworkConfig",
+		Args: []interface{}{
+			"machine-1",
+			observedNetworkConfig,
+		},
 	}, {
 		FuncName: "PrepareContainerInterfaceInfo",
 		Args:     []interface{}{names.NewMachineTag("1-lxd-0")},
@@ -90,7 +163,8 @@ func (s *lxdBrokerSuite) TestStartInstance(c *gc.C) {
 func (s *lxdBrokerSuite) TestStartInstancePopulatesNetworkInfo(c *gc.C) {
 	patchResolvConf(s, c)
 
-	result := s.startInstance(c, "1/lxd/0")
+	result, err := s.startInstance(c, "1/lxd/0")
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.NetworkInfo, gc.HasLen, 1)
 	iface := result.NetworkInfo[0]
 	c.Assert(iface, jc.DeepEquals, network.InterfaceInfo{
@@ -107,13 +181,19 @@ func (s *lxdBrokerSuite) TestStartInstancePopulatesNetworkInfo(c *gc.C) {
 }
 
 func (s *lxdBrokerSuite) TestStartInstancePopulatesFallbackNetworkInfo(c *gc.C) {
+	s.PatchValue(provisioner.GetObservedNetworkConfig, func(_ common.NetworkConfigSource) ([]params.NetworkConfig, error) {
+		return nil, nil
+	})
+
 	patchResolvConf(s, c)
 
 	s.api.SetErrors(
 		nil, // ContainerConfig succeeds
+		nil, // HostChangesForContainer succeeds
 		errors.NotSupportedf("container address allocation"),
 	)
-	result := s.startInstance(c, "1/lxd/0")
+	result, err := s.startInstance(c, "1/lxd/0")
+	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(result.NetworkInfo, jc.DeepEquals, []network.InterfaceInfo{{
 		DeviceIndex:         0,
@@ -172,4 +252,24 @@ func (m *fakeContainerManager) IsInitialized() bool {
 	m.MethodCall(m, "IsInitialized")
 	m.PopNoErr()
 	return true
+}
+
+type lxdFakeBridger struct {
+	cfg   network.BridgerConfig
+	suite *lxdBrokerSuite
+}
+
+var _ network.Bridger = (*lxdFakeBridger)(nil)
+
+func newLXDFakeBridger(s *lxdBrokerSuite) *lxdFakeBridger {
+	return &lxdFakeBridger{
+		suite: s,
+		cfg: network.BridgerConfig{
+			Clock: gitjujutesting.NewClock(coretesting.ZeroTime()),
+		},
+	}
+}
+
+func (f *lxdFakeBridger) Bridge(deviceNames []string) error {
+	return f.suite.bridgeError
 }

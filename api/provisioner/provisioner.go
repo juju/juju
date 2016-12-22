@@ -238,6 +238,20 @@ func (st *State) prepareOrGetContainerInterfaceInfo(
 	return ifaceInfo, nil
 }
 
+// SetHostMachineNetworkConfig sets the network configuration of the
+// machine with netConfig
+func (st *State) SetHostMachineNetworkConfig(hostMachineID string, netConfig []params.NetworkConfig) error {
+	args := params.SetMachineNetworkConfig{
+		Tag:    hostMachineID,
+		Config: netConfig,
+	}
+	err := st.facade.FacadeCall("SetHostMachineNetworkConfig", args, nil)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
 func (st *State) HostChangesForContainer(containerTag names.MachineTag) ([]network.DeviceToBridge, error) {
 	var result params.HostNetworkChangeResults
 	args := params.Entities{

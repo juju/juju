@@ -11,9 +11,7 @@ import (
 )
 
 var (
-	ShortAttempt                    = &shortAttempt
-	BridgeScriptWrapperForCloudInit = bridgeScriptWrapperForCloudInit
-	BridgeScriptPathForSeries       = bridgeScriptPathForSeries
+	ShortAttempt = &shortAttempt
 )
 
 func GetMAASClient(env environs.Environ) *gomaasapi.MAASObject {

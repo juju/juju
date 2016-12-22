@@ -46,6 +46,8 @@ type fakeAPI struct {
 
 	fakeContainerConfig params.ContainerConfig
 	fakeInterfaceInfo   network.InterfaceInfo
+	fakeDeviceToBridge  network.DeviceToBridge
+	fakeBridger         network.Bridger
 }
 
 var _ provisioner.APICalls = (*fakeAPI)(nil)
@@ -62,6 +64,11 @@ var fakeInterfaceInfo network.InterfaceInfo = network.InterfaceInfo{
 	// by patchResolvConf(). See LP bug http://pad.lv/1575940 for more info.
 	DNSServers:       network.NewAddresses("ns1.dummy"),
 	DNSSearchDomains: nil,
+}
+
+var fakeDeviceToBridge network.DeviceToBridge = network.DeviceToBridge{
+	DeviceName: "dummy0",
+	BridgeName: "br-dummy0",
 }
 
 var fakeContainerConfig = params.ContainerConfig{
@@ -109,6 +116,22 @@ func (f *fakeAPI) ReleaseContainerAddresses(tag names.MachineTag) error {
 		return err
 	}
 	return nil
+}
+
+func (f *fakeAPI) SetHostMachineNetworkConfig(hostMachineID string, netConfig []params.NetworkConfig) error {
+	f.MethodCall(f, "SetHostMachineNetworkConfig", hostMachineID, netConfig)
+	if err := f.NextErr(); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (f *fakeAPI) HostChangesForContainer(machineID names.MachineTag) ([]network.DeviceToBridge, error) {
+	f.MethodCall(f, "HostChangesForContainer", machineID)
+	if err := f.NextErr(); err != nil {
+		return nil, err
+	}
+	return []network.DeviceToBridge{f.fakeDeviceToBridge}, nil
 }
 
 type patcher interface {
@@ -169,15 +192,13 @@ func makeNoOpStatusCallback() func(settableStatus status.Status, info string, da
 	}
 }
 
-func callStartInstance(c *gc.C, s patcher, broker environs.InstanceBroker, machineId string) *environs.StartInstanceResult {
-	result, err := broker.StartInstance(environs.StartInstanceParams{
+func callStartInstance(c *gc.C, s patcher, broker environs.InstanceBroker, machineId string) (*environs.StartInstanceResult, error) {
+	return broker.StartInstance(environs.StartInstanceParams{
 		Constraints:    constraints.Value{},
 		Tools:          makePossibleTools(),
 		InstanceConfig: makeInstanceConfig(c, s, machineId),
 		StatusCallback: makeNoOpStatusCallback(),
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	return result
 }
 
 func callMaintainInstance(c *gc.C, s patcher, broker environs.InstanceBroker, machineId string) {
