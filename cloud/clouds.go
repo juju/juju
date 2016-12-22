@@ -83,6 +83,9 @@ type RegionConfig map[string]Attrs
 
 // Cloud is a cloud definition.
 type Cloud struct {
+	// Name of the cloud.
+	Name string
+
 	// Type is the type of cloud, eg ec2, openstack etc.
 	// This is one of the provider names registered with
 	// environs.RegisterProvider.
@@ -192,6 +195,7 @@ const DefaultLXD = "localhost"
 // BuiltInClouds work out of the box.
 var BuiltInClouds = map[string]Cloud{
 	DefaultLXD: {
+		Name:        DefaultLXD,
 		Type:        lxdnames.ProviderType,
 		AuthTypes:   []AuthType{EmptyAuthType},
 		Regions:     []Region{{Name: lxdnames.DefaultRegion}},
@@ -299,6 +303,7 @@ func ParseCloudMetadata(data []byte) (map[string]Cloud, error) {
 	clouds := make(map[string]Cloud)
 	for name, cloud := range metadata.Clouds {
 		details := cloudFromInternal(cloud)
+		details.Name = name
 		if details.Description == "" {
 			var ok bool
 			if details.Description, ok = defaultCloudDescription[name]; !ok {
