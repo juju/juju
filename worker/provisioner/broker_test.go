@@ -226,6 +226,13 @@ func newFakeBridger(returnsError bool, errorMessage string) *fakeBridger {
 	}
 }
 
+func newFakeBridgerNeverErrors() *fakeBridger {
+	return &fakeBridger{
+		returnError:  false,
+		errorMessage: "",
+	}
+}
+
 func (f *fakeBridger) Bridge(deviceNames []string) error {
 	if f.returnError {
 		return errors.New(f.errorMessage)

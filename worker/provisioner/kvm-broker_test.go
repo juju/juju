@@ -40,9 +40,9 @@ type kvmSuite struct {
 
 type kvmBrokerSuite struct {
 	kvmSuite
-	broker      environs.InstanceBroker
-	agentConfig agent.Config
-	api         *fakeAPI
+	agentConfig   agent.Config
+	api           *fakeAPI
+	managerConfig map[string]string
 }
 
 var _ = gc.Suite(&kvmBrokerSuite{})
@@ -89,25 +89,29 @@ func (s *kvmBrokerSuite) SetUpTest(c *gc.C) {
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = NewFakeAPI()
+}
+
+func (s *kvmBrokerSuite) startInstance(c *gc.C, broker environs.InstanceBroker, machineId string) (*environs.StartInstanceResult, error) {
+	return callStartInstance(c, s, broker, machineId)
+}
+
+func (s *kvmBrokerSuite) newKVMBroker(c *gc.C, bridger network.Bridger) (environs.InstanceBroker, error) {
 	managerConfig := container.ManagerConfig{container.ConfigModelUUID: coretesting.ModelTag.Id()}
-	s.broker, err = provisioner.NewKvmBroker(newFakeBridger(false, ""), "machine-1", s.api, s.agentConfig, managerConfig)
-	c.Assert(err, jc.ErrorIsNil)
+	return provisioner.NewKvmBroker(bridger, "machine-1", s.api, s.agentConfig, managerConfig)
 }
 
-func (s *kvmBrokerSuite) startInstance(c *gc.C, machineId string) (*environs.StartInstanceResult, error) {
-	return callStartInstance(c, s, s.broker, machineId)
-}
-
-func (s *kvmBrokerSuite) maintainInstance(c *gc.C, machineId string) {
-	callMaintainInstance(c, s, s.broker, machineId)
+func (s *kvmBrokerSuite) maintainInstance(c *gc.C, broker environs.InstanceBroker, machineId string) {
+	callMaintainInstance(c, s, broker, machineId)
 }
 
 func (s *kvmBrokerSuite) TestStartInstanceGetObservedNetworkConfigFails(c *gc.C) {
+	broker, brokerErr := s.newKVMBroker(c, newFakeBridgerNeverErrors())
+	c.Assert(brokerErr, jc.ErrorIsNil)
 	s.PatchValue(provisioner.GetObservedNetworkConfig, func(_ common.NetworkConfigSource) ([]params.NetworkConfig, error) {
 		return nil, errors.New("TestStartInstanceObservedNetworkConfigFails no network")
 	})
 	machineId := "1/kvm/0"
-	_, err := s.startInstance(c, machineId)
+	_, err := s.startInstance(c, broker, machineId)
 	c.Check(err, gc.ErrorMatches, ".*TestStartInstanceObservedNetworkConfigFails no network")
 	s.api.CheckCalls(c, []gitjujutesting.StubCall{{
 		FuncName: "ContainerConfig",
@@ -118,11 +122,13 @@ func (s *kvmBrokerSuite) TestStartInstanceGetObservedNetworkConfigFails(c *gc.C)
 }
 
 func (s *kvmBrokerSuite) TestStartInstanceWithoutNetworkChanges(c *gc.C) {
+	broker, brokerErr := s.newKVMBroker(c, newFakeBridgerNeverErrors())
+	c.Assert(brokerErr, jc.ErrorIsNil)
 	s.PatchValue(provisioner.GetObservedNetworkConfig, func(_ common.NetworkConfigSource) ([]params.NetworkConfig, error) {
 		return nil, nil
 	})
 	machineId := "1/kvm/0"
-	result, err := s.startInstance(c, machineId)
+	result, err := s.startInstance(c, broker, machineId)
 	c.Assert(err, jc.ErrorIsNil)
 	s.api.CheckCalls(c, []gitjujutesting.StubCall{{
 		FuncName: "ContainerConfig",
@@ -134,10 +140,13 @@ func (s *kvmBrokerSuite) TestStartInstanceWithoutNetworkChanges(c *gc.C) {
 		Args:     []interface{}{names.NewMachineTag("1-kvm-0")},
 	}})
 	c.Assert(result.Instance.Id(), gc.Equals, instance.Id("juju-06f00d-1-kvm-0"))
-	s.assertResults(c, result)
+	s.assertResults(c, broker, result)
 }
 
 func (s *kvmBrokerSuite) TestStartInstanceWithHostNetworkChanges(c *gc.C) {
+	broker, brokerErr := s.newKVMBroker(c, newFakeBridgerNeverErrors())
+	c.Assert(brokerErr, jc.ErrorIsNil)
+
 	observedNetworkConfig := []params.NetworkConfig{
 		params.NetworkConfig{
 			DeviceIndex:    0,
@@ -156,7 +165,7 @@ func (s *kvmBrokerSuite) TestStartInstanceWithHostNetworkChanges(c *gc.C) {
 	})
 
 	machineId := "1/kvm/0"
-	result, err := s.startInstance(c, machineId)
+	result, err := s.startInstance(c, broker, machineId)
 	c.Assert(err, jc.ErrorIsNil)
 	s.api.CheckCalls(c, []gitjujutesting.StubCall{{
 		FuncName: "ContainerConfig",
@@ -176,64 +185,73 @@ func (s *kvmBrokerSuite) TestStartInstanceWithHostNetworkChanges(c *gc.C) {
 		Args:     []interface{}{names.NewMachineTag("1-kvm-0")},
 	}})
 	c.Assert(result.Instance.Id(), gc.Equals, instance.Id("juju-06f00d-1-kvm-0"))
-	s.assertResults(c, result)
+	s.assertResults(c, broker, result)
 }
 
 func (s *kvmBrokerSuite) TestMaintainInstanceAddress(c *gc.C) {
+	broker, brokerErr := s.newKVMBroker(c, newFakeBridgerNeverErrors())
+	c.Assert(brokerErr, jc.ErrorIsNil)
+
 	machineId := "1/kvm/0"
-	result, err := s.startInstance(c, machineId)
+	result, err := s.startInstance(c, broker, machineId)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.api.ResetCalls()
 
-	s.maintainInstance(c, machineId)
+	s.maintainInstance(c, broker, machineId)
 	s.api.CheckCalls(c, []gitjujutesting.StubCall{})
 	c.Assert(result.Instance.Id(), gc.Equals, instance.Id("juju-06f00d-1-kvm-0"))
-	s.assertResults(c, result)
+	s.assertResults(c, broker, result)
 }
 
 func (s *kvmBrokerSuite) TestStopInstance(c *gc.C) {
-	result0, err0 := s.startInstance(c, "1/kvm/0")
+	broker, brokerErr := s.newKVMBroker(c, newFakeBridgerNeverErrors())
+	c.Assert(brokerErr, jc.ErrorIsNil)
+
+	result0, err0 := s.startInstance(c, broker, "1/kvm/0")
 	c.Assert(err0, jc.ErrorIsNil)
 
-	result1, err1 := s.startInstance(c, "1/kvm/1")
+	result1, err1 := s.startInstance(c, broker, "1/kvm/1")
 	c.Assert(err1, jc.ErrorIsNil)
 
-	result2, err2 := s.startInstance(c, "1/kvm/2")
+	result2, err2 := s.startInstance(c, broker, "1/kvm/2")
 	c.Assert(err2, jc.ErrorIsNil)
 
-	err := s.broker.StopInstances(result0.Instance.Id())
+	err := broker.StopInstances(result0.Instance.Id())
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertResults(c, result1, result2)
+	s.assertResults(c, broker, result1, result2)
 	c.Assert(s.kvmContainerDir(result0), jc.DoesNotExist)
 	c.Assert(s.kvmRemovedContainerDir(result0), jc.IsDirectory)
 
-	err = s.broker.StopInstances(result1.Instance.Id(), result2.Instance.Id())
+	err = broker.StopInstances(result1.Instance.Id(), result2.Instance.Id())
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertNoResults(c)
+	s.assertNoResults(c, broker)
 }
 
 func (s *kvmBrokerSuite) TestAllInstances(c *gc.C) {
-	result0, err0 := s.startInstance(c, "1/kvm/0")
+	broker, brokerErr := s.newKVMBroker(c, newFakeBridgerNeverErrors())
+	c.Assert(brokerErr, jc.ErrorIsNil)
+
+	result0, err0 := s.startInstance(c, broker, "1/kvm/0")
 	c.Assert(err0, jc.ErrorIsNil)
 
-	result1, err1 := s.startInstance(c, "1/kvm/1")
+	result1, err1 := s.startInstance(c, broker, "1/kvm/1")
 	c.Assert(err1, jc.ErrorIsNil)
-	s.assertResults(c, result0, result1)
+	s.assertResults(c, broker, result0, result1)
 
-	err := s.broker.StopInstances(result1.Instance.Id())
+	err := broker.StopInstances(result1.Instance.Id())
 	c.Assert(err, jc.ErrorIsNil)
-	result2, err2 := s.startInstance(c, "1/kvm/2")
+	result2, err2 := s.startInstance(c, broker, "1/kvm/2")
 	c.Assert(err2, jc.ErrorIsNil)
-	s.assertResults(c, result0, result2)
+	s.assertResults(c, broker, result0, result2)
 }
 
-func (s *kvmBrokerSuite) assertResults(c *gc.C, results ...*environs.StartInstanceResult) {
-	assertInstancesStarted(c, s.broker, results...)
+func (s *kvmBrokerSuite) assertResults(c *gc.C, broker environs.InstanceBroker, results ...*environs.StartInstanceResult) {
+	assertInstancesStarted(c, broker, results...)
 }
 
-func (s *kvmBrokerSuite) assertNoResults(c *gc.C) {
-	s.assertResults(c)
+func (s *kvmBrokerSuite) assertNoResults(c *gc.C, broker environs.InstanceBroker) {
+	s.assertResults(c, broker)
 }
 
 func (s *kvmBrokerSuite) kvmContainerDir(result *environs.StartInstanceResult) string {
@@ -247,9 +265,12 @@ func (s *kvmBrokerSuite) kvmRemovedContainerDir(result *environs.StartInstanceRe
 }
 
 func (s *kvmBrokerSuite) TestStartInstancePopulatesNetworkInfo(c *gc.C) {
+	broker, brokerErr := s.newKVMBroker(c, newFakeBridgerNeverErrors())
+	c.Assert(brokerErr, jc.ErrorIsNil)
+
 	patchResolvConf(s, c)
 
-	result, err := s.startInstance(c, "1/kvm/42")
+	result, err := s.startInstance(c, broker, "1/kvm/42")
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(result.NetworkInfo, gc.HasLen, 1)
@@ -268,6 +289,9 @@ func (s *kvmBrokerSuite) TestStartInstancePopulatesNetworkInfo(c *gc.C) {
 }
 
 func (s *kvmBrokerSuite) TestStartInstancePopulatesFallbackNetworkInfo(c *gc.C) {
+	broker, brokerErr := s.newKVMBroker(c, newFakeBridgerNeverErrors())
+	c.Assert(brokerErr, jc.ErrorIsNil)
+
 	s.PatchValue(provisioner.GetObservedNetworkConfig, func(_ common.NetworkConfigSource) ([]params.NetworkConfig, error) {
 		return nil, nil
 	})
@@ -278,7 +302,7 @@ func (s *kvmBrokerSuite) TestStartInstancePopulatesFallbackNetworkInfo(c *gc.C) 
 		nil, // HostChangesForContainer succeeds
 		errors.NotSupportedf("container address allocation"),
 	)
-	result, err := s.startInstance(c, "1/kvm/2")
+	result, err := s.startInstance(c, broker, "1/kvm/2")
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(result.NetworkInfo, jc.DeepEquals, []network.InterfaceInfo{{
@@ -367,8 +391,8 @@ func (s *kvmProvisionerSuite) newKvmProvisioner(c *gc.C) provisioner.Provisioner
 	machineTag := names.NewMachineTag("0")
 	agentConfig := s.AgentConfigForTag(c, machineTag)
 	managerConfig := container.ManagerConfig{container.ConfigModelUUID: coretesting.ModelTag.Id()}
-	broker, err := provisioner.NewKvmBroker(newFakeBridger(false, ""), "machine-0", s.provisioner, agentConfig, managerConfig)
-	c.Assert(err, jc.ErrorIsNil)
+	broker, brokerErr := provisioner.NewKvmBroker(newFakeBridgerNeverErrors(), "machine-0", s.provisioner, agentConfig, managerConfig)
+	c.Assert(brokerErr, jc.ErrorIsNil)
 	toolsFinder := (*provisioner.GetToolsFinder)(s.provisioner)
 	w, err := provisioner.NewContainerProvisioner(instance.KVM, s.provisioner, agentConfig, broker, toolsFinder)
 	c.Assert(err, jc.ErrorIsNil)
