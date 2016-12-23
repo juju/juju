@@ -50,8 +50,8 @@ var wantDomainStr = `
         </console>
         <input type="mouse" bus="ps2"></input>
         <input type="keyboard" bus="ps2"></input>
-        <graphics type="vnc" port="-1" autoport="yes" listen="127.0.0.1">
-            <listen type="address" address="127.0.0.1"></listen>
+        <graphics type="vnc" port="-1" autoport="yes" listen="localhost">
+            <listen type="address" address="localhost"></listen>
         </graphics>
         <video>
             <model type="cirrus" vram="9216" heads="1"></model>

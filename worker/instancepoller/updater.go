@@ -201,6 +201,9 @@ func machineLoop(context machineContext, m machine, lifeChanged <-chan struct{},
 				// We have no addresses or not started - poll increasingly rarely
 				// until we do.
 				pollInterval = time.Duration(float64(pollInterval) * ShortPollBackoff)
+				if pollInterval > LongPoll {
+					pollInterval = LongPoll
+				}
 			}
 		}
 		return nil

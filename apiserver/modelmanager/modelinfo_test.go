@@ -199,6 +199,7 @@ func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
 		{"LastModelConnection", []interface{}{names.NewLocalUserTag("charlotte")}},
 		{"LastModelConnection", []interface{}{names.NewLocalUserTag("mary")}},
 		{"AllMachines", nil},
+		{"LatestMigration", nil},
 		{"Close", nil},
 	})
 	s.st.model.CheckCalls(c, []gitjujutesting.StubCall{
@@ -284,6 +285,52 @@ func (s *modelInfoSuite) TestModelInfoErrorNoAccess(c *gc.C) {
 	s.testModelInfoError(c, coretesting.ModelTag.String(), `permission denied`)
 }
 
+func (s *modelInfoSuite) TestRunningMigration(c *gc.C) {
+	start := time.Now().Add(-20 * time.Minute)
+	s.st.migration = &mockMigration{
+		status: "computing optimal bin packing",
+		start:  start,
+	}
+
+	results, err := s.modelmanager.ModelInfo(params.Entities{
+		Entities: []params.Entity{{coretesting.ModelTag.String()}},
+	})
+
+	c.Assert(err, jc.ErrorIsNil)
+	migrationResult := results.Results[0].Result.Migration
+	c.Assert(migrationResult.Status, gc.Equals, "computing optimal bin packing")
+	c.Assert(*migrationResult.Start, gc.Equals, start)
+	c.Assert(migrationResult.End, gc.IsNil)
+}
+
+func (s *modelInfoSuite) TestFailedMigration(c *gc.C) {
+	start := time.Now().Add(-20 * time.Minute)
+	end := time.Now().Add(-10 * time.Minute)
+	s.st.migration = &mockMigration{
+		status: "couldn't realign alternate time frames",
+		start:  start,
+		end:    end,
+	}
+
+	results, err := s.modelmanager.ModelInfo(params.Entities{
+		Entities: []params.Entity{{coretesting.ModelTag.String()}},
+	})
+
+	c.Assert(err, jc.ErrorIsNil)
+	migrationResult := results.Results[0].Result.Migration
+	c.Assert(migrationResult.Status, gc.Equals, "couldn't realign alternate time frames")
+	c.Assert(*migrationResult.Start, gc.Equals, start)
+	c.Assert(*migrationResult.End, gc.Equals, end)
+}
+
+func (s *modelInfoSuite) TestNoMigration(c *gc.C) {
+	results, err := s.modelmanager.ModelInfo(params.Entities{
+		Entities: []params.Entity{{coretesting.ModelTag.String()}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results[0].Result.Migration, gc.IsNil)
+}
+
 func (s *modelInfoSuite) testModelInfoError(c *gc.C, modelTag, expectedErr string) {
 	results, err := s.modelmanager.ModelInfo(params.Entities{
 		Entities: []params.Entity{{modelTag}},
@@ -320,6 +367,7 @@ type mockState struct {
 	cfgDefaults     config.ModelDefaultAttributes
 	blockMsg        string
 	block           state.BlockType
+	migration       *mockMigration
 }
 
 type fakeModelDescription struct {
@@ -473,6 +521,16 @@ func (st *mockState) RemoveModelUser(tag names.UserTag) error {
 
 func (st *mockState) UserAccess(tag names.UserTag, target names.Tag) (permission.UserAccess, error) {
 	st.MethodCall(st, "ModelUser", tag, target)
+	for _, user := range st.users {
+		if user.UserTag != tag {
+			continue
+		}
+		nextErr := st.NextErr()
+		if nextErr != nil {
+			return permission.UserAccess{}, nextErr
+		}
+		return user, nil
+	}
 	return permission.UserAccess{}, st.NextErr()
 }
 
@@ -545,6 +603,16 @@ func (st *mockState) DumpAll() (map[string]interface{}, error) {
 	return map[string]interface{}{
 		"models": "lots of data",
 	}, st.NextErr()
+}
+
+func (st *mockState) LatestMigration() (state.ModelMigration, error) {
+	st.MethodCall(st, "LatestMigration")
+	if st.migration == nil {
+		// Handle nil->notfound directly here rather than having to
+		// count errors.
+		return nil, errors.NotFoundf("")
+	}
+	return st.migration, st.NextErr()
 }
 
 type mockBlock struct {
@@ -698,4 +766,24 @@ type mockModelUser struct {
 	displayName    string
 	lastConnection time.Time
 	access         permission.Access
+}
+
+type mockMigration struct {
+	state.ModelMigration
+
+	status string
+	start  time.Time
+	end    time.Time
+}
+
+func (m *mockMigration) StatusMessage() string {
+	return m.status
+}
+
+func (m *mockMigration) StartTime() time.Time {
+	return m.start
+}
+
+func (m *mockMigration) EndTime() time.Time {
+	return m.end
 }

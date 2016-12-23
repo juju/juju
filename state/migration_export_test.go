@@ -4,6 +4,8 @@
 package state_test
 
 import (
+	"bytes"
+	"io/ioutil"
 	"math/rand"
 	"time"
 
@@ -11,6 +13,7 @@ import (
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
+	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/constraints"
@@ -19,6 +22,8 @@ import (
 	"github.com/juju/juju/payload"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/provider/dummy"
+	"github.com/juju/juju/resource"
+	"github.com/juju/juju/resource/resourcetesting"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/cloudimagemetadata"
 	"github.com/juju/juju/status"
@@ -484,6 +489,26 @@ func (s *MigrationExportSuite) TestUnitsOpenPorts(c *gc.C) {
 	opened := port.OpenPorts()
 	c.Assert(opened, gc.HasLen, 1)
 	c.Assert(opened[0].UnitName(), gc.Equals, unit.Name())
+}
+
+func (s *MigrationExportSuite) TestEndpointBindings(c *gc.C) {
+	s.Factory.MakeSpace(c, &factory.SpaceParams{
+		Name: "one", ProviderID: network.Id("provider"), IsPublic: true})
+	state.AddTestingServiceWithBindings(
+		c, s.State, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"),
+		map[string]string{"db": "one"})
+
+	model, err := s.State.Export()
+	c.Assert(err, jc.ErrorIsNil)
+
+	apps := model.Applications()
+	c.Assert(apps, gc.HasLen, 1)
+	wordpress := apps[0]
+
+	bindings := wordpress.EndpointBindings()
+	// There are empty values for every charm endpoint, but we only care about the
+	// db endpoint.
+	c.Assert(bindings["db"], gc.Equals, "one")
 }
 
 func (s *MigrationExportSuite) TestRelations(c *gc.C) {
@@ -989,4 +1014,109 @@ func (s *MigrationExportSuite) TestPayloads(c *gc.C) {
 	c.Check(payload.RawID(), gc.Equals, original.ID)
 	c.Check(payload.State(), gc.Equals, original.Status)
 	c.Check(payload.Labels(), jc.DeepEquals, original.Labels)
+}
+
+func (s *MigrationExportSuite) TestResources(c *gc.C) {
+	app := s.Factory.MakeApplication(c, nil)
+	unit1 := s.Factory.MakeUnit(c, &factory.UnitParams{
+		Application: app,
+	})
+	unit2 := s.Factory.MakeUnit(c, &factory.UnitParams{
+		Application: app,
+	})
+
+	st, err := s.State.Resources()
+	c.Assert(err, jc.ErrorIsNil)
+
+	setUnitResource := func(u *state.Unit) {
+		_, reader, err := st.OpenResourceForUniter(u, "spam")
+		c.Assert(err, jc.ErrorIsNil)
+		defer reader.Close()
+		_, err = ioutil.ReadAll(reader) // Need to read the content to set the resource for the unit.
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
+	const body = "ham"
+	const bodySize = int64(len(body))
+
+	// Initially set revision 1 for the application.
+	res1 := s.newResource(c, app.Name(), "spam", 1, body)
+	res1, err = st.SetResource(app.Name(), res1.Username, res1.Resource, bytes.NewBufferString(body))
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Unit 1 gets revision 1.
+	setUnitResource(unit1)
+
+	// Now set revision 2 for the application.
+	res2 := s.newResource(c, app.Name(), "spam", 2, body)
+	res2, err = st.SetResource(app.Name(), res2.Username, res2.Resource, bytes.NewBufferString(body))
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Unit 2 gets revision 2.
+	setUnitResource(unit2)
+
+	// Revision 3 is in the charmstore.
+	res3 := resourcetesting.NewCharmResource(c, "spam", body)
+	res3.Revision = 3
+	err = st.SetCharmStoreResources(app.Name(), []charmresource.Resource{res3}, time.Now())
+	c.Assert(err, jc.ErrorIsNil)
+
+	model, err := s.State.Export()
+	c.Assert(err, jc.ErrorIsNil)
+
+	applications := model.Applications()
+	c.Assert(applications, gc.HasLen, 1)
+	exApp := applications[0]
+
+	exResources := exApp.Resources()
+	c.Assert(exResources, gc.HasLen, 1)
+
+	exResource := exResources[0]
+	c.Check(exResource.Name(), gc.Equals, "spam")
+
+	checkExRevBase := func(exRev description.ResourceRevision, res charmresource.Resource) {
+		c.Check(exRev.Revision(), gc.Equals, res.Revision)
+		c.Check(exRev.Type(), gc.Equals, res.Type.String())
+		c.Check(exRev.Path(), gc.Equals, res.Path)
+		c.Check(exRev.Description(), gc.Equals, res.Description)
+		c.Check(exRev.Origin(), gc.Equals, res.Origin.String())
+		c.Check(exRev.FingerprintHex(), gc.Equals, res.Fingerprint.Hex())
+		c.Check(exRev.Size(), gc.Equals, bodySize)
+	}
+
+	checkExRev := func(exRev description.ResourceRevision, res resource.Resource) {
+		checkExRevBase(exRev, res.Resource)
+		c.Check(exRev.Timestamp().UTC(), gc.Equals, truncateDBTime(res.Timestamp))
+		c.Check(exRev.Username(), gc.Equals, res.Username)
+	}
+
+	checkExRev(exResource.ApplicationRevision(), res2)
+
+	csRev := exResource.CharmStoreRevision()
+	checkExRevBase(csRev, res3)
+	// These shouldn't be set for charmstore only revisions.
+	c.Check(csRev.Timestamp(), gc.Equals, time.Time{})
+	c.Check(csRev.Username(), gc.Equals, "")
+
+	// Units
+	units := exApp.Units()
+	c.Assert(units, gc.HasLen, 2)
+
+	checkUnitRes := func(exUnit description.Unit, unit *state.Unit, res resource.Resource) {
+		c.Assert(exUnit.Name(), gc.Equals, unit.Name())
+		exResources := exUnit.Resources()
+		c.Assert(exResources, gc.HasLen, 1)
+		exRes := exResources[0]
+		c.Check(exRes.Name(), gc.Equals, "spam")
+		checkExRev(exRes.Revision(), res)
+	}
+	checkUnitRes(units[0], unit1, res1)
+	checkUnitRes(units[1], unit2, res2)
+}
+
+func (s *MigrationExportSuite) newResource(c *gc.C, appName, name string, revision int, body string) resource.Resource {
+	opened := resourcetesting.NewResource(c, nil, name, appName, body)
+	res := opened.Resource
+	res.Revision = revision
+	return res
 }

@@ -269,7 +269,154 @@ const exampleInterfaceSetJSON = `
 		"type": "vlan",
 		"children": [],
 		"resource_uri": "/MAAS/api/1.0/nodes/node-18489434-9eb0-11e5-bdef-00163e40c3b6/interfaces/152/"
-	}
+	},
+        {
+                "name": "ens3",
+                "parents": [],
+                "children": [
+                    "br-ens3"
+                ],
+                "vlan": {
+                    "name": "untagged",
+                    "fabric": "fabric-0",
+                    "id": 5001,
+                    "dhcp_on": true,
+                    "vid": 0,
+                    "primary_rack": "ed4rre",
+                    "resource_uri": "/MAAS/api/2.0/vlans/5001/",
+                    "mtu": 1500,
+                    "secondary_rack": null,
+                    "external_dhcp": null
+                },
+                "resource_uri": "/MAAS/api/2.0/nodes/hreab3/interfaces/10/",
+                "effective_mtu": 1500,
+                "mac_address": "52:54:00:08:24:2d",
+                "discovered": [
+                    {
+                        "subnet": {
+                            "name": "192.168.20.0/24",
+                            "rdns_mode": 2,
+                            "allow_proxy": true,
+                            "gateway_ip": "192.168.20.2",
+                            "active_discovery": true,
+                            "vlan": {
+                                "name": "untagged",
+                                "fabric": "fabric-0",
+                                "id": 5001,
+                                "dhcp_on": true,
+                                "vid": 0,
+                                "primary_rack": "ed4rre",
+                                "resource_uri": "/MAAS/api/2.0/vlans/5001/",
+                                "mtu": 1500,
+                                "secondary_rack": null,
+                                "external_dhcp": null
+                            },
+                            "id": 4,
+                            "resource_uri": "/MAAS/api/2.0/subnets/4/",
+                            "space": "space-0",
+                            "cidr": "192.168.20.0/24",
+                            "dns_servers": []
+                        },
+                        "ip_address": "192.168.20.192"
+                    }
+                ],
+                "links": [],
+                "type": "physical",
+                "id": 10,
+                "tags": [],
+                "enabled": true,
+                "params": {}
+        },
+        {
+                "name": "br-ens3",
+                "parents": [
+                    "ens3"
+                ],
+                "children": [],
+                "vlan": {
+                    "name": "untagged",
+                    "fabric": "fabric-0",
+                    "id": 5001,
+                    "dhcp_on": true,
+                    "vid": 0,
+                    "primary_rack": "ed4rre",
+                    "resource_uri": "/MAAS/api/2.0/vlans/5001/",
+                    "mtu": 1500,
+                    "secondary_rack": null,
+                    "external_dhcp": null
+                },
+                "resource_uri": "/MAAS/api/2.0/nodes/hreab3/interfaces/30/",
+                "effective_mtu": 1500,
+                "mac_address": "52:54:00:08:24:2d",
+                "discovered": [
+                    {
+                        "subnet": {
+                            "name": "192.168.20.0/24",
+                            "rdns_mode": 2,
+                            "allow_proxy": true,
+                            "gateway_ip": "192.168.20.2",
+                            "active_discovery": true,
+                            "vlan": {
+                                "name": "untagged",
+                                "fabric": "fabric-0",
+                                "id": 5001,
+                                "dhcp_on": true,
+                                "vid": 0,
+                                "primary_rack": "ed4rre",
+                                "resource_uri": "/MAAS/api/2.0/vlans/5001/",
+                                "mtu": 1500,
+                                "secondary_rack": null,
+                                "external_dhcp": null
+                            },
+                            "id": 4,
+                            "resource_uri": "/MAAS/api/2.0/subnets/4/",
+                            "space": "space-0",
+                            "cidr": "192.168.20.0/24",
+                            "dns_servers": []
+                        },
+                        "ip_address": "192.168.20.192"
+                    }
+                ],
+                "links": [
+                    {
+                        "mode": "dhcp",
+                        "id": 1931,
+                        "ip_address": "192.168.20.192",
+                        "subnet": {
+                            "name": "192.168.20.0/24",
+                            "rdns_mode": 2,
+                            "allow_proxy": true,
+                            "gateway_ip": "192.168.20.2",
+                            "active_discovery": true,
+                            "vlan": {
+                                "name": "untagged",
+                                "fabric": "fabric-0",
+                                "id": 5001,
+                                "dhcp_on": true,
+                                "vid": 0,
+                                "primary_rack": "ed4rre",
+                                "resource_uri": "/MAAS/api/2.0/vlans/5001/",
+                                "mtu": 1500,
+                                "secondary_rack": null,
+                                "external_dhcp": null
+                            },
+                            "id": 4,
+                            "resource_uri": "/MAAS/api/2.0/subnets/4/",
+                            "space": "space-0",
+                            "cidr": "192.168.20.0/24",
+                            "dns_servers": []
+                        }
+                    }
+                ],
+                "type": "bridge",
+                "id": 30,
+                "tags": [],
+                "enabled": true,
+                "params": {
+                    "bridge_stp": false,
+                    "bridge_fd": 15
+                }
+        }
 ]`
 
 var exampleParsedInterfaceSetJSON = []network.InterfaceInfo{{
@@ -376,6 +523,47 @@ var exampleParsedInterfaceSetJSON = []network.InterfaceInfo{{
 	DNSSearchDomains:    nil,
 	MTU:                 1500,
 	GatewayAddress:      newAddressOnSpaceWithId("storage", network.Id("3"), "10.250.19.2"),
+}, {
+	DeviceIndex:         4,
+	MACAddress:          "52:54:00:08:24:2d",
+	CIDR:                "",
+	ProviderId:          "10",
+	ProviderSubnetId:    "",
+	AvailabilityZones:   nil,
+	VLANTag:             0,
+	ProviderVLANId:      "",
+	ProviderSpaceId:     "",
+	InterfaceName:       "ens3",
+	ParentInterfaceName: "",
+	InterfaceType:       "ethernet",
+	Disabled:            false,
+	NoAutoStart:         false,
+	ConfigType:          "",
+	DNSServers:          nil,
+	DNSSearchDomains:    nil,
+	MTU:                 0,
+}, {
+	DeviceIndex:         5,
+	MACAddress:          "52:54:00:08:24:2d",
+	CIDR:                "192.168.20.0/24",
+	ProviderId:          "30",
+	ProviderSubnetId:    "4",
+	AvailabilityZones:   nil,
+	VLANTag:             0,
+	ProviderVLANId:      "5001",
+	ProviderAddressId:   "1931",
+	ProviderSpaceId:     "4",
+	InterfaceName:       "br-ens3",
+	ParentInterfaceName: "ens3",
+	InterfaceType:       "bridge",
+	Disabled:            false,
+	NoAutoStart:         false,
+	ConfigType:          "dhcp",
+	Address:             newAddressOnSpaceWithId("space-0", network.Id("4"), "192.168.20.192"),
+	DNSServers:          nil,
+	DNSSearchDomains:    nil,
+	MTU:                 1500,
+	GatewayAddress:      newAddressOnSpaceWithId("space-0", network.Id("4"), "192.168.20.2"),
 }}
 
 func (s *interfacesSuite) TestParseInterfacesNoJSON(c *gc.C) {
@@ -399,6 +587,15 @@ func (s *interfacesSuite) TestParseInterfacesExampleJSON(c *gc.C) {
 		MTU:         1500,
 		Fabric:      "managed",
 		ResourceURI: "/MAAS/api/1.0/vlans/5001/",
+	}
+
+	vlan20 := maasVLAN{
+		ID:          5001,
+		Name:        "untagged",
+		VID:         0,
+		MTU:         1500,
+		Fabric:      "fabric-0",
+		ResourceURI: "/MAAS/api/2.0/vlans/5001/",
 	}
 
 	vlan50 := maasVLAN{
@@ -539,6 +736,44 @@ func (s *interfacesSuite) TestParseInterfacesExampleJSON(c *gc.C) {
 		Parents:     []string{"eth0"},
 		Children:    []string{},
 		ResourceURI: "/MAAS/api/1.0/nodes/node-18489434-9eb0-11e5-bdef-00163e40c3b6/interfaces/152/",
+	}, {
+		ID:          10,
+		Name:        "ens3",
+		Type:        "physical",
+		Enabled:     true,
+		MACAddress:  "52:54:00:08:24:2d",
+		VLAN:        vlan20,
+		EffectveMTU: 1500,
+		Links:       []maasInterfaceLink{},
+		Parents:     []string{},
+		Children:    []string{"br-ens3"},
+		ResourceURI: "/MAAS/api/2.0/nodes/hreab3/interfaces/10/",
+	}, {
+		ID:          30,
+		Name:        "br-ens3",
+		Type:        "bridge",
+		Enabled:     true,
+		MACAddress:  "52:54:00:08:24:2d",
+		VLAN:        vlan20,
+		EffectveMTU: 1500,
+		Links: []maasInterfaceLink{{
+			ID: 1931,
+			Subnet: &maasSubnet{
+				ID:          4,
+				Name:        "192.168.20.0/24",
+				Space:       "space-0",
+				VLAN:        vlan20,
+				GatewayIP:   "192.168.20.2",
+				DNSServers:  []string{},
+				CIDR:        "192.168.20.0/24",
+				ResourceURI: "/MAAS/api/2.0/subnets/4/",
+			},
+			IPAddress: "192.168.20.192",
+			Mode:      "dhcp",
+		}},
+		Parents:     []string{"ens3"},
+		Children:    []string{},
+		ResourceURI: "/MAAS/api/2.0/nodes/hreab3/interfaces/30/",
 	}}
 
 	result, err := parseInterfaces([]byte(exampleInterfaceSetJSON))
@@ -555,6 +790,7 @@ func (s *interfacesSuite) TestMAASObjectNetworkInterfaces(c *gc.C) {
 	subnetsMap := make(map[string]network.Id)
 	subnetsMap["10.250.19.0/24"] = network.Id("3")
 	subnetsMap["192.168.1.0/24"] = network.Id("0")
+	subnetsMap["192.168.20.0/24"] = network.Id("4")
 
 	infos, err := maasObjectNetworkInterfaces(&obj, subnetsMap)
 	c.Assert(err, jc.ErrorIsNil)
@@ -576,7 +812,7 @@ func (s *interfacesSuite) TestInstanceConfiguredInterfaceNamesWithExampleMAAS1In
 	inst := &maas1Instance{maasObject: &obj}
 	names, err := instanceConfiguredInterfaceNames(notUsingMAAS2, inst, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(names, jc.DeepEquals, []string{"eth0", "eth0:1", "eth0.50", "eth0.100", "eth0.250"})
+	c.Check(names, jc.DeepEquals, []string{"eth0", "eth0:1", "eth0.50", "eth0.100", "eth0.250", "br-ens3"})
 }
 
 func (s *interfacesSuite) TestInstanceConfiguredNamesWithoutInterfaceSetMAAS1(c *gc.C) {

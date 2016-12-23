@@ -160,7 +160,7 @@ func (s *CommonProvisionerSuite) SetUpTest(c *gc.C) {
 	current := version.Binary{
 		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
-		Series: series.HostSeries(),
+		Series: series.MustHostSeries(),
 	}
 	err = machine.SetAgentVersion(current)
 	c.Assert(err, jc.ErrorIsNil)
@@ -474,7 +474,7 @@ func (s *ProvisionerSuite) TestPossibleTools(c *gc.C) {
 	// agent-version in the environ config.
 	currentVersion := version.MustParseBinary("1.2.3-quantal-arm64")
 	s.PatchValue(&arch.HostArch, func() string { return currentVersion.Arch })
-	s.PatchValue(&series.HostSeries, func() string { return currentVersion.Series })
+	s.PatchValue(&series.MustHostSeries, func() string { return currentVersion.Series })
 	s.PatchValue(&jujuversion.Current, currentVersion.Number)
 
 	// Upload some plausible matches, and some that should be filtered out.

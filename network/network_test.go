@@ -180,7 +180,7 @@ LXC_BRIDGE="ignored"`[1:])
 
 func (s *NetworkSuite) TestNoAddressError(c *gc.C) {
 	err := network.NoAddressError("fake")
-	c.Assert(err, gc.ErrorMatches, "no fake address")
+	c.Assert(err, gc.ErrorMatches, `no fake address\(es\)`)
 	c.Assert(network.IsNoAddressError(err), jc.IsTrue)
 	c.Assert(network.IsNoAddressError(errors.New("address found")), jc.IsFalse)
 }

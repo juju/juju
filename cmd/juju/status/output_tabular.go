@@ -17,6 +17,7 @@ import (
 	"gopkg.in/juju/charm.v6-unstable/hooks"
 
 	"github.com/juju/juju/cmd/output"
+	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/status"
 )
@@ -117,6 +118,31 @@ func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
 	p(header...)
 	p(values...)
 
+	if len(fs.RemoteApplications) > 0 {
+		outputHeaders("SAAS name", "Status", "Store", "URL", "Interfaces")
+		for _, svcName := range utils.SortStringsNaturally(stringKeysFromMap(fs.RemoteApplications)) {
+			svc := fs.RemoteApplications[svcName]
+			var store, urlPath string
+			url, err := crossmodel.ParseApplicationURL(svc.ApplicationURL)
+			if err == nil {
+				store = url.Directory
+				urlPath = url.Path()
+			} else {
+				// This is not expected.
+				logger.Errorf("invalid application URL %q: %v", svc.ApplicationURL, err)
+				store = "unknown"
+				urlPath = svc.ApplicationURL
+			}
+			interfaces := make([]string, len(svc.Endpoints))
+			for i, name := range utils.SortStringsNaturally(stringKeysFromMap(svc.Endpoints)) {
+				ep := svc.Endpoints[name]
+				interfaces[i] = fmt.Sprintf("%s:%s", ep.Interface, name)
+			}
+			p(svcName, svc.StatusInfo.Current, store, urlPath, strings.Join(interfaces, ", "))
+		}
+		tw.Flush()
+	}
+
 	units := make(map[string]unitStatus)
 	metering := false
 	relations := newRelationFormatter()
@@ -204,7 +230,11 @@ func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
 		for _, name := range utils.SortStringsNaturally(stringKeysFromMap(units)) {
 			u := units[name]
 			if u.MeterStatus != nil {
-				p(name, u.MeterStatus.Color, u.MeterStatus.Message)
+				w.Print(name)
+				outputColor := fromMeterStatusColor(u.MeterStatus.Color)
+				w.PrintColor(outputColor, u.MeterStatus.Color)
+				w.PrintColor(outputColor, u.MeterStatus.Message)
+				w.Println()
 			}
 		}
 	}
@@ -226,11 +256,23 @@ func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
 	return nil
 }
 
+func fromMeterStatusColor(msColor string) *ansiterm.Context {
+	switch msColor {
+	case "green":
+		return output.GoodHighlight
+	case "amber":
+		return output.WarningHighlight
+	case "red":
+		return output.ErrorHighlight
+	}
+	return nil
+}
+
 func getModelMessage(model modelStatus) string {
 	// Select the most important message about the model (if any).
 	switch {
-	case model.Migration != "":
-		return "migrating: " + model.Migration
+	case model.Status.Message != "":
+		return model.Status.Message
 	case model.AvailableVersion != "":
 		return "upgrade available: " + model.AvailableVersion
 	default:

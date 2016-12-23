@@ -1,4 +1,5 @@
-// Copyright 2014 Canonical Ltd.
+// Copyright 2016 Canonical Ltd.
+// Copyright 2016 Cloudbase Solutions SRL
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package manual_test
@@ -6,12 +7,12 @@ package manual_test
 import (
 	"errors"
 
+	"github.com/juju/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs/manual"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/testing"
 )
 
 const (

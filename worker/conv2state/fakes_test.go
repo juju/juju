@@ -53,14 +53,7 @@ func (fakeWatcher) Wait() error {
 }
 
 type fakeAgent struct {
-	tag        names.Tag
-	restartErr error
-	didRestart bool
-}
-
-func (f *fakeAgent) Restart() error {
-	f.didRestart = true
-	return f.restartErr
+	tag names.Tag
 }
 
 func (f fakeAgent) Tag() names.Tag {

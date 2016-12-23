@@ -91,7 +91,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 }
 
 func errorFilter(err error) error {
-	switch err {
+	switch errors.Cause(err) {
 	case ErrMigrated:
 		// If the model has migrated, the migrationmaster should no
 		// longer be running.

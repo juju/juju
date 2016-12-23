@@ -29,10 +29,10 @@ type noAddress struct {
 }
 
 // NoAddressError returns an error which satisfies IsNoAddressError(). The given
-// addressKind specifies what kind of address is missing, usually "private" or
-// "public".
+// addressKind specifies what kind of address(es) is(are) missing, usually
+// "private" or "public".
 func NoAddressError(addressKind string) error {
-	newErr := errors.NewErr("no %s address", addressKind)
+	newErr := errors.NewErr("no %s address(es)", addressKind)
 	newErr.SetLocation(1)
 	return &noAddress{newErr}
 }

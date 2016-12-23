@@ -140,6 +140,7 @@ func (gr *guiRouter) ensureFiles(req *http.Request) (rootDir string, hash string
 	if err != nil {
 		return "", "", errors.Annotate(err, "cannot open state")
 	}
+	defer gr.ctxt.release(st)
 	storage, err := st.GUIStorage()
 	if err != nil {
 		return "", "", errors.Annotate(err, "cannot open GUI storage")
@@ -204,7 +205,7 @@ func guiVersionAndHash(st *state.State, storage binarystorage.Storage) (vers, ha
 // uncompressGUI uncompresses the tar.bz2 Juju GUI archive provided in r.
 // The sourceDir directory included in the tar archive is copied to targetDir.
 func uncompressGUI(r io.Reader, sourceDir, targetDir string) error {
-	tempDir, err := ioutil.TempDir("", "gui")
+	tempDir, err := ioutil.TempDir(filepath.Join(targetDir, ".."), "gui")
 	if err != nil {
 		return errors.Annotate(err, "cannot create Juju GUI temporary directory")
 	}
@@ -418,6 +419,7 @@ func (h *guiArchiveHandler) handleGet(w http.ResponseWriter, req *http.Request) 
 	if err != nil {
 		return errors.Annotate(err, "cannot open state")
 	}
+	defer h.ctxt.release(st)
 	storage, err := st.GUIStorage()
 	if err != nil {
 		return errors.Annotate(err, "cannot open GUI storage")
@@ -481,10 +483,11 @@ func (h *guiArchiveHandler) handlePost(w http.ResponseWriter, req *http.Request)
 	}
 
 	// Open the GUI archive storage.
-	st, _, err := h.ctxt.stateForRequestAuthenticatedUser(req)
+	st, err := h.ctxt.stateForRequestAuthenticatedUser(req)
 	if err != nil {
 		return errors.Annotate(err, "cannot open state")
 	}
+	defer h.ctxt.release(st)
 	storage, err := st.GUIStorage()
 	if err != nil {
 		return errors.Annotate(err, "cannot open GUI storage")
@@ -556,10 +559,11 @@ func (h *guiVersionHandler) handlePut(w http.ResponseWriter, req *http.Request) 
 	}
 
 	// Authenticate the request and retrieve the Juju state.
-	st, _, err := h.ctxt.stateForRequestAuthenticatedUser(req)
+	st, err := h.ctxt.stateForRequestAuthenticatedUser(req)
 	if err != nil {
 		return errors.Annotate(err, "cannot open state")
 	}
+	defer h.ctxt.release(st)
 
 	var selected params.GUIVersionRequest
 	decoder := json.NewDecoder(req.Body)

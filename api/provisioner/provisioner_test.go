@@ -633,7 +633,7 @@ func (s *provisionerSuite) testFindTools(c *gc.C, matchArch bool, apiError, logi
 	current := version.Binary{
 		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
-		Series: series.HostSeries(),
+		Series: series.MustHostSeries(),
 	}
 	var toolsList = coretools.List{&coretools.Tools{Version: current}}
 	var called bool
@@ -649,7 +649,7 @@ func (s *provisionerSuite) testFindTools(c *gc.C, matchArch bool, apiError, logi
 		c.Assert(request, gc.Equals, "FindTools")
 		expected := params.FindToolsParams{
 			Number:       jujuversion.Current,
-			Series:       series.HostSeries(),
+			Series:       series.MustHostSeries(),
 			Arch:         a,
 			MinorVersion: -1,
 			MajorVersion: -1,
@@ -662,7 +662,7 @@ func (s *provisionerSuite) testFindTools(c *gc.C, matchArch bool, apiError, logi
 		}
 		return apiError
 	})
-	apiList, err := s.provisioner.FindTools(jujuversion.Current, series.HostSeries(), a)
+	apiList, err := s.provisioner.FindTools(jujuversion.Current, series.MustHostSeries(), a)
 	c.Assert(called, jc.IsTrue)
 	if apiError != nil {
 		c.Assert(err, gc.Equals, apiError)

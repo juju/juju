@@ -125,7 +125,7 @@ func (s *MainSuite) TestRunMain(c *gc.C) {
 		out: version.Binary{
 			Number: jujuversion.Current,
 			Arch:   arch.HostArch(),
-			Series: series.HostSeries(),
+			Series: series.MustHostSeries(),
 		}.String() + "\n",
 	}} {
 		c.Logf("test %d: %s", i, t.summary)
@@ -167,7 +167,7 @@ func (s *MainSuite) TestFirstRun2xFrom1xOnUbuntu(c *gc.C) {
 
 	// Code should only run on ubuntu series, so patch out the series for
 	// when non-ubuntu OSes run this test.
-	s.PatchValue(&series.HostSeries, func() string { return "trusty" })
+	s.PatchValue(&series.MustHostSeries, func() string { return "trusty" })
 
 	argChan := make(chan []string, 1)
 
@@ -203,9 +203,11 @@ func (s *MainSuite) TestFirstRun2xFrom1xOnUbuntu(c *gc.C) {
 
 	c.Check(code, gc.Equals, 0)
 	c.Check(string(stderr), gc.Equals, fmt.Sprintf(`
-    Welcome to Juju %s. If you meant to use Juju 1.25.0 you can continue using it
-    with the command juju-1 e.g. 'juju-1 switch'.
+Welcome to Juju %s. 
     See https://jujucharms.com/docs/stable/introducing-2 for more details.
+
+If you want to use Juju 1.25.0, run 'juju' commands as 'juju-1'. For example, 'juju-1 bootstrap'.
+   See https://jujucharms.com/docs/stable/juju-coexist for installation details. 
 
 Since Juju 2 is being run for the first time, downloading latest cloud information.`[1:]+"\n", jujuversion.Current))
 	checkVersionOutput(c, string(stdout))
@@ -213,7 +215,7 @@ Since Juju 2 is being run for the first time, downloading latest cloud informati
 
 func (s *MainSuite) TestFirstRun2xFrom1xNotUbuntu(c *gc.C) {
 	// Code should only run on ubuntu series, so pretend to be something else.
-	s.PatchValue(&series.HostSeries, func() string { return "win8" })
+	s.PatchValue(&series.MustHostSeries, func() string { return "win8" })
 
 	argChan := make(chan []string, 1)
 
@@ -253,7 +255,7 @@ Since Juju 2 is being run for the first time, downloading latest cloud informati
 func (s *MainSuite) TestNoWarn1xWith2xData(c *gc.C) {
 	// Code should only rnu on ubuntu series, so patch out the series for
 	// when non-ubuntu OSes run this test.
-	s.PatchValue(&series.HostSeries, func() string { return "trusty" })
+	s.PatchValue(&series.MustHostSeries, func() string { return "trusty" })
 
 	argChan := make(chan []string, 1)
 
@@ -286,7 +288,7 @@ func (s *MainSuite) TestNoWarn1xWith2xData(c *gc.C) {
 func (s *MainSuite) TestNoWarnWithNo1xOr2xData(c *gc.C) {
 	// Code should only rnu on ubuntu series, so patch out the series for
 	// when non-ubuntu OSes run this test.
-	s.PatchValue(&series.HostSeries, func() string { return "trusty" })
+	s.PatchValue(&series.MustHostSeries, func() string { return "trusty" })
 
 	argChan := make(chan []string, 1)
 	// we shouldn't actually be running anything, but if we do, this will
@@ -368,7 +370,7 @@ func checkVersionOutput(c *gc.C, output string) {
 	ver := version.Binary{
 		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
-		Series: series.HostSeries(),
+		Series: series.MustHostSeries(),
 	}
 
 	c.Check(output, gc.Equals, ver.String()+"\n")
@@ -462,6 +464,7 @@ var commandNames = []string{
 	"logout",
 	"machines",
 	"metrics",
+	"migrate",
 	"model-config",
 	"model-defaults",
 	"models",
@@ -528,11 +531,15 @@ var commandNames = []string{
 }
 
 // devFeatures are feature flags that impact registration of commands.
-var devFeatures = []string{feature.Migration}
+var devFeatures = []string{feature.CrossModelRelations}
 
 // These are the commands that are behind the `devFeatures`.
 var commandNamesBehindFlags = set.NewStrings(
-	"migrate",
+	"find-endpoints",
+	"list-offers",
+	"offer",
+	"offers",
+	"show-endpoints",
 )
 
 func (s *MainSuite) TestHelpCommands(c *gc.C) {

@@ -11,7 +11,7 @@ import (
 )
 
 var (
-	ManualProvisioner = &manualProvisioner
+	SSHProvisioner = &sshProvisioner
 )
 
 type AddCommand struct {

@@ -25,6 +25,8 @@ import (
 	"github.com/juju/juju/apiserver/application"
 	"github.com/juju/juju/apiserver/common"
 	commontesting "github.com/juju/juju/apiserver/common/testing"
+	"github.com/juju/juju/apiserver/crossmodel"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/constraints"
@@ -35,6 +37,7 @@ import (
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testcharms"
+	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 	jujuversion "github.com/juju/juju/version"
 )
@@ -44,9 +47,10 @@ type serviceSuite struct {
 	apiservertesting.CharmStoreSuite
 	commontesting.BlockHelper
 
-	applicationAPI *application.API
-	application    *state.Application
-	authorizer     apiservertesting.FakeAuthorizer
+	applicationAPI   *application.API
+	application      *state.Application
+	authorizer       apiservertesting.FakeAuthorizer
+	offersApiFactory *mockApplicationOffersFactory
 }
 
 var _ = gc.Suite(&serviceSuite{})
@@ -74,10 +78,13 @@ func (s *serviceSuite) SetUpTest(c *gc.C) {
 		Tag: s.AdminUserTag(c),
 	}
 	var err error
+	s.offersApiFactory = &mockApplicationOffersFactory{}
+	resources := common.NewResources()
+	resources.RegisterNamed("applicationOffersApiFactory", s.offersApiFactory)
 	backend := application.NewStateBackend(s.State)
 	blockChecker := common.NewBlockChecker(s.State)
 	s.applicationAPI, err = application.NewAPI(
-		backend, s.authorizer, blockChecker,
+		backend, s.authorizer, resources, blockChecker,
 		application.CharmToStateCharm,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1622,7 +1629,7 @@ var clientAddServiceUnitsTests = []struct {
 		to:       "0",
 	},
 	{
-		about:   "unknown service name",
+		about:   "unknown application name",
 		service: "unknown-service",
 		err:     `application "unknown-service" not found`,
 	},
@@ -1853,7 +1860,7 @@ var serviceExposeTests = []struct {
 	exposed bool
 }{
 	{
-		about:   "unknown service name",
+		about:   "unknown application name",
 		service: "unknown-service",
 		err:     `application "unknown-service" not found`,
 	},
@@ -1918,7 +1925,7 @@ var serviceUnexposeTests = []struct {
 	expected bool
 }{
 	{
-		about:   "unknown service name",
+		about:   "unknown application name",
 		service: "unknown-service",
 		err:     `application "unknown-service" not found`,
 	},
@@ -2006,7 +2013,7 @@ var serviceDestroyTests = []struct {
 	err     string
 }{
 	{
-		about:   "unknown service name",
+		about:   "unknown application name",
 		service: "unknown-service",
 		err:     `application "unknown-service" not found`,
 	},
@@ -2059,10 +2066,10 @@ func (s *serviceSuite) TestBlockServiceDestroy(c *gc.C) {
 	s.BlockRemoveObject(c, "TestBlockServiceDestroy")
 	err := s.applicationAPI.Destroy(params.ApplicationDestroy{"dummy-service"})
 	s.AssertBlocked(c, err, "TestBlockServiceDestroy")
-	// Tests may have invalid service names.
+	// Tests may have invalid application names.
 	application, err := s.State.Application("dummy-service")
 	if err == nil {
-		// For valid service names, check that service is alive :-)
+		// For valid application names, check that service is alive :-)
 		assertLife(c, application, state.Alive)
 	}
 }
@@ -2393,7 +2400,7 @@ func (s *serviceSuite) TestClientGetServiceConstraints(c *gc.C) {
 	c.Assert(result.Constraints, gc.DeepEquals, cons)
 }
 
-func (s *serviceSuite) checkEndpoints(c *gc.C, endpoints map[string]params.CharmRelation) {
+func (s *serviceSuite) checkEndpoints(c *gc.C, mysqlAppName string, endpoints map[string]params.CharmRelation) {
 	c.Assert(endpoints["wordpress"], gc.DeepEquals, params.CharmRelation{
 		Name:      "db",
 		Role:      "requirer",
@@ -2402,7 +2409,7 @@ func (s *serviceSuite) checkEndpoints(c *gc.C, endpoints map[string]params.Charm
 		Limit:     1,
 		Scope:     "global",
 	})
-	c.Assert(endpoints["mysql"], gc.DeepEquals, params.CharmRelation{
+	c.Assert(endpoints[mysqlAppName], gc.DeepEquals, params.CharmRelation{
 		Name:      "server",
 		Role:      "provider",
 		Interface: "mysql",
@@ -2425,7 +2432,6 @@ func (s *serviceSuite) assertAddRelation(c *gc.C, endpoints []string) {
 	s.setupRelationScenario(c)
 	res, err := s.applicationAPI.AddRelation(params.AddRelation{Endpoints: endpoints})
 	c.Assert(err, jc.ErrorIsNil)
-	s.checkEndpoints(c, res.Endpoints)
 	// Show that the relation was added.
 	wpSvc, err := s.State.Application("wordpress")
 	c.Assert(err, jc.ErrorIsNil)
@@ -2433,9 +2439,20 @@ func (s *serviceSuite) assertAddRelation(c *gc.C, endpoints []string) {
 	// There are 2 relations - the logging-wordpress one set up in the
 	// scenario and the one created in this test.
 	c.Assert(len(rels), gc.Equals, 2)
-	mySvc, err := s.State.Application("mysql")
+
+	// We may be related to a local application or a remote.
+	var mySqlApplication state.ApplicationEntity
+	mySqlApplication, err = s.State.RemoteApplication("hosted-mysql")
+	if errors.IsNotFound(err) {
+		mySqlApplication, err = s.State.Application("mysql")
+		c.Assert(err, jc.ErrorIsNil)
+		s.checkEndpoints(c, "mysql", res.Endpoints)
+	} else {
+		c.Assert(err, jc.ErrorIsNil)
+		s.checkEndpoints(c, "hosted-mysql", res.Endpoints)
+	}
 	c.Assert(err, jc.ErrorIsNil)
-	rels, err = mySvc.Relations()
+	rels, err = mySqlApplication.Relations()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(rels), gc.Equals, 1)
 }
@@ -2494,7 +2511,114 @@ func (s *serviceSuite) TestAddAlreadyAddedRelation(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	// And try to add it again.
 	_, err = s.applicationAPI.AddRelation(params.AddRelation{Endpoints: endpoints})
-	c.Assert(err, gc.ErrorMatches, `cannot add relation "wordpress:db mysql:server": relation already exists`)
+	c.Assert(err, gc.ErrorMatches, `cannot add relation "wordpress:db mysql:server": relation wordpress:db mysql:server already exists`)
+}
+
+type mockApplicationOffersFactory struct {
+	facade.Resource
+	offers []params.ApplicationOffer
+}
+
+type mockApplicationOffersAPI struct {
+	crossmodel.ApplicationOffersAPI
+	offers []params.ApplicationOffer
+}
+
+func (m *mockApplicationOffersFactory) ApplicationOffers(directory string) (crossmodel.ApplicationOffersAPI, error) {
+	return &mockApplicationOffersAPI{
+		offers: m.offers,
+	}, nil
+}
+
+func (m *mockApplicationOffersAPI) ListOffers(filters params.OfferFilters) (params.ApplicationOfferResults, error) {
+	return params.ApplicationOfferResults{
+		Offers: m.offers,
+	}, nil
+}
+
+func remoteOffers() []params.ApplicationOffer {
+	return []params.ApplicationOffer{
+		{
+			ApplicationURL:  "local:/u/me/prod/hosted-mysql",
+			ApplicationName: "mysqlremote",
+			SourceModelTag:  coretesting.ModelTag.String(),
+			Endpoints: []params.RemoteEndpoint{
+				{
+					Name:      "server",
+					Role:      "provider",
+					Interface: "mysql",
+					Scope:     "global",
+				},
+			},
+		},
+	}
+}
+
+func (s *serviceSuite) TestSuccessfullyAddRemoteRelation(c *gc.C) {
+	s.offersApiFactory.offers = remoteOffers()
+	endpoints := []string{"wordpress", "local:/u/me/prod/hosted-mysql"}
+	s.assertAddRelation(c, endpoints)
+}
+
+func (s *serviceSuite) TestSuccessfullyAddRemoteRelationWithRelName(c *gc.C) {
+	s.offersApiFactory.offers = remoteOffers()
+	endpoints := []string{"wordpress", "local:/u/me/prod/hosted-mysql:server"}
+	s.assertAddRelation(c, endpoints)
+}
+
+func (s *serviceSuite) TestAddRemoteRelationOnlyOneEndpoint(c *gc.C) {
+	s.offersApiFactory.offers = remoteOffers()
+	endpoints := []string{"local:/u/me/prod/hosted-mysql"}
+	_, err := s.applicationAPI.AddRelation(params.AddRelation{endpoints})
+	c.Assert(err, gc.ErrorMatches, "no relations found")
+}
+
+func (s *serviceSuite) TestAlreadyAddedRemoteRelation(c *gc.C) {
+	s.offersApiFactory.offers = remoteOffers()
+	// Add a relation between wordpress and mysql.
+	endpoints := []string{"wordpress", "local:/u/me/prod/hosted-mysql"}
+	s.assertAddRelation(c, endpoints)
+
+	// And try to add it again.
+	_, err := s.applicationAPI.AddRelation(params.AddRelation{endpoints})
+	c.Assert(err, gc.ErrorMatches, `cannot add relation "wordpress:db hosted-mysql:server": relation wordpress:db hosted-mysql:server already exists`)
+}
+
+func (s *serviceSuite) TestRemoteRelationInvalidEndpoint(c *gc.C) {
+	s.offersApiFactory.offers = remoteOffers()
+	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	endpoints := []string{"wordpress", "local:/u/me/prod/hosted-mysql:nope"}
+	_, err := s.applicationAPI.AddRelation(params.AddRelation{endpoints})
+	c.Assert(err, gc.ErrorMatches, `remote application "hosted-mysql" has no "nope" relation`)
+}
+
+func (s *serviceSuite) TestRemoteRelationNoMatchingEndpoint(c *gc.C) {
+	s.offersApiFactory.offers = []params.ApplicationOffer{
+		{
+			ApplicationURL:  "local:/u/me/prod/hosted-mysql",
+			ApplicationName: "mysqlremote",
+			SourceModelTag:  coretesting.ModelTag.String(),
+			Endpoints: []params.RemoteEndpoint{
+				{
+					Name:      "admin",
+					Role:      "provider",
+					Interface: "admin",
+					Scope:     "global",
+				},
+			},
+		},
+	}
+	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	endpoints := []string{"wordpress", "local:/u/me/prod/hosted-mysql"}
+	_, err := s.applicationAPI.AddRelation(params.AddRelation{endpoints})
+	c.Assert(err, gc.ErrorMatches, "no relations found")
+}
+
+func (s *serviceSuite) TestRemoteRelationServiceNotFound(c *gc.C) {
+	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	endpoints := []string{"wordpress", "local:/u/me/prod/unknown"}
+	_, err := s.applicationAPI.AddRelation(params.AddRelation{endpoints})
+	c.Assert(err, gc.ErrorMatches, `application offer "local:/u/me/prod/unknown" not found`)
 }
 
 func (s *serviceSuite) setupDestroyRelationScenario(c *gc.C, endpoints []string) *state.Relation {

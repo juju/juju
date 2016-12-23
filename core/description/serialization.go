@@ -4,6 +4,8 @@
 package description
 
 import (
+	"time"
+
 	"github.com/juju/errors"
 	"github.com/juju/schema"
 )
@@ -77,4 +79,27 @@ func convertToMapOfMaps(field interface{}) map[string]map[string]interface{} {
 		result[key] = value.(map[string]interface{})
 	}
 	return result
+}
+
+// fieldToTimePtr looks for a field with the given name and converts
+// it to a Time.Time, returning a pointer to it. If the field doesn't
+// exist, nil is returned. This is useful for handling optional time
+// fields.
+func fieldToTimePtr(fields map[string]interface{}, name string) *time.Time {
+	if raw, exists := fields[name]; exists {
+		t := raw.(time.Time).UTC()
+		return &t
+	}
+	return nil
+}
+
+// timePtr takes a time.Time and returns a pointer to a time.Time of
+// the same (UTC) value. Nil is returned if the time is the time zero
+// value. This is useful for handling optional time values.
+func timePtr(t time.Time) *time.Time {
+	if t.IsZero() {
+		return nil
+	}
+	t = t.UTC()
+	return &t
 }

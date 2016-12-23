@@ -48,6 +48,7 @@ import (
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
+	"github.com/juju/juju/provider/openstack"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
@@ -89,7 +90,7 @@ func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 	// override this.
 	s.PatchValue(&jujuversion.Current, v100p64.Number)
 	s.PatchValue(&arch.HostArch, func() string { return v100p64.Arch })
-	s.PatchValue(&series.HostSeries, func() string { return v100p64.Series })
+	s.PatchValue(&series.MustHostSeries, func() string { return v100p64.Series })
 	s.PatchValue(&jujuos.HostOS, func() jujuos.OSType { return jujuos.Ubuntu })
 
 	// Set up a local source with tools.
@@ -175,7 +176,7 @@ type bootstrapTest struct {
 
 func (s *BootstrapSuite) patchVersionAndSeries(c *gc.C, hostSeries string) {
 	resetJujuXDGDataHome(c)
-	s.PatchValue(&series.HostSeries, func() string { return hostSeries })
+	s.PatchValue(&series.MustHostSeries, func() string { return hostSeries })
 	s.patchVersion(c)
 }
 
@@ -203,7 +204,7 @@ func (s *BootstrapSuite) run(c *gc.C, test bootstrapTest) testing.Restorer {
 		bootstrapVersion = version.MustParseBinary(useVersion)
 		restore = restore.Add(testing.PatchValue(&jujuversion.Current, bootstrapVersion.Number))
 		restore = restore.Add(testing.PatchValue(&arch.HostArch, func() string { return bootstrapVersion.Arch }))
-		restore = restore.Add(testing.PatchValue(&series.HostSeries, func() string { return bootstrapVersion.Series }))
+		restore = restore.Add(testing.PatchValue(&series.MustHostSeries, func() string { return bootstrapVersion.Series }))
 		bootstrapVersion.Build = 1
 		if test.upload != "" {
 			uploadVers := version.MustParseBinary(test.upload)
@@ -249,6 +250,10 @@ func (s *BootstrapSuite) run(c *gc.C, test bootstrapTest) testing.Restorer {
 	c.Check(opBootstrap.Args.ModelConstraints, gc.DeepEquals, test.constraints)
 	if test.bootstrapConstraints == (constraints.Value{}) {
 		test.bootstrapConstraints = test.constraints
+	}
+	if test.bootstrapConstraints.Mem == nil {
+		mem := uint64(3584)
+		test.bootstrapConstraints.Mem = &mem
 	}
 	c.Check(opBootstrap.Args.BootstrapConstraints, gc.DeepEquals, test.bootstrapConstraints)
 	c.Check(opBootstrap.Args.Placement, gc.Equals, test.placement)
@@ -588,6 +593,149 @@ func (s *BootstrapSuite) TestBootstrapDefaultConfigStripsInheritedAttributes(c *
 	c.Assert(ok, jc.IsFalse)
 	_, ok = bootstrap.args.HostedModelConfig["agent-version"]
 	c.Assert(ok, jc.IsFalse)
+}
+
+// checkConfigs runs bootstrapCmd.getBootstrapConfigs and checks the returned configs match
+// the expected values passed in the expect parameter.
+func checkConfigs(
+	c *gc.C,
+	bootstrapCmd bootstrapCommand,
+	key string,
+	ctx *cmd.Context, cloud *cloud.Cloud, provider environs.EnvironProvider,
+	expect map[string]map[string]interface{}) {
+
+	configs, err := bootstrapCmd.bootstrapConfigs(ctx, cloud, provider)
+
+	c.Assert(err, jc.ErrorIsNil)
+
+	checkConfigEntryMatches(c, configs.bootstrapModel, key, "bootstrapModelConfig", expect)
+	checkConfigEntryMatches(c, configs.inheritedControllerAttrs, key, "inheritedControllerAttrs", expect)
+	checkConfigEntryMatches(c, configs.userConfigAttrs, key, "userConfigAttrs", expect)
+
+	_, ok := configs.controller[key]
+	c.Check(ok, jc.IsFalse)
+}
+
+// checkConfigEntryMatches tests that a keys existence and indexed value in configMap
+// matches those in expect[name].
+func checkConfigEntryMatches(c *gc.C, configMap map[string]interface{}, key, name string, expect map[string]map[string]interface{}) {
+	v, ok := configMap[key]
+	expected_config, expected_config_ok := expect[name]
+	c.Assert(expected_config_ok, jc.IsTrue)
+	v_expect, ok_expect := expected_config[key]
+
+	c.Logf("checkConfigEntryMatches %v %v", name, key)
+	c.Check(ok, gc.Equals, ok_expect)
+	c.Check(v, gc.Equals, v_expect)
+}
+
+func (s *BootstrapSuite) TestBootstrapAttributesInheritedOverDefaults(c *gc.C) {
+	/* Test that defaults are overwritten by inherited attributes by setting
+	   the inherited attribute enable-os-upgrade to true in the cloud
+	   config and ensure that it ends up as true in the model config. */
+	s.patchVersionAndSeries(c, "raring")
+
+	bootstrapCmd := bootstrapCommand{}
+	ctx := coretesting.Context(c)
+
+	// The OpenStack provider has a default of "use-floating-ip": false, so we
+	// use that to test against.
+	env := &openstack.Environ{}
+	provider := env.Provider()
+
+	// First test that use-floating-ip defaults to false
+	testCloud, err := cloud.CloudByName("dummy-cloud")
+	c.Assert(err, jc.ErrorIsNil)
+
+	key := "use-floating-ip"
+	checkConfigs(c, bootstrapCmd, key, ctx, testCloud, provider, map[string]map[string]interface{}{
+		"bootstrapModelConfig":     {key: false},
+		"inheritedControllerAttrs": {},
+		"userConfigAttrs":          {},
+	})
+
+	// Second test that use-floating-ip in the cloud config overwrites the
+	// provider default of false with true
+	testCloud, err = cloud.CloudByName("dummy-cloud-with-config")
+	c.Assert(err, jc.ErrorIsNil)
+
+	checkConfigs(c, bootstrapCmd, key, ctx, testCloud, provider, map[string]map[string]interface{}{
+		"bootstrapModelConfig":     {key: true},
+		"inheritedControllerAttrs": {key: true},
+		"userConfigAttrs":          {},
+	})
+}
+
+func (s *BootstrapSuite) TestBootstrapAttributesCLIOverDefaults(c *gc.C) {
+	/* Test that defaults are overwritten by CLI passed attributes by setting
+	   the inherited attribute enable-os-upgrade to true in the cloud
+	   config and ensure that it ends up as true in the model config. */
+	s.patchVersionAndSeries(c, "raring")
+
+	bootstrapCmd := bootstrapCommand{}
+	ctx := coretesting.Context(c)
+
+	// The OpenStack provider has a default of "use-floating-ip": false, so we
+	// use that to test against.
+	env := &openstack.Environ{}
+	provider := env.Provider()
+
+	// First test that use-floating-ip defaults to false
+	testCloud, err := cloud.CloudByName("dummy-cloud")
+	c.Assert(err, jc.ErrorIsNil)
+
+	key := "use-floating-ip"
+	checkConfigs(c, bootstrapCmd, key, ctx, testCloud, provider, map[string]map[string]interface{}{
+		"bootstrapModelConfig":     {key: false},
+		"inheritedControllerAttrs": {},
+		"userConfigAttrs":          {},
+	})
+
+	// Second test that use-floating-ip passed on the command line overwrites the
+	// provider default of false with true
+	bootstrapCmd.config.Set("use-floating-ip=true")
+	checkConfigs(c, bootstrapCmd, key, ctx, testCloud, provider, map[string]map[string]interface{}{
+		"bootstrapModelConfig":     {key: true},
+		"inheritedControllerAttrs": {},
+		"userConfigAttrs":          {key: true},
+	})
+}
+
+func (s *BootstrapSuite) TestBootstrapAttributesCLIOverInherited(c *gc.C) {
+	/* Test that defaults are overwritten by CLI passed attributes by setting
+	   the inherited attribute enable-os-upgrade to true in the cloud
+	   config and ensure that it ends up as true in the model config. */
+	s.patchVersionAndSeries(c, "raring")
+
+	bootstrapCmd := bootstrapCommand{}
+	ctx := coretesting.Context(c)
+
+	// The OpenStack provider has a default of "use-floating-ip": false, so we
+	// use that to test against.
+	env := &openstack.Environ{}
+	provider := env.Provider()
+
+	// First test that use-floating-ip defaults to false
+	testCloud, err := cloud.CloudByName("dummy-cloud")
+	c.Assert(err, jc.ErrorIsNil)
+
+	key := "use-floating-ip"
+	checkConfigs(c, bootstrapCmd, key, ctx, testCloud, provider, map[string]map[string]interface{}{
+		"bootstrapModelConfig":     {key: false},
+		"inheritedControllerAttrs": {},
+		"userConfigAttrs":          {},
+	})
+
+	// Second test that use-floating-ip passed on the command line overwrites the
+	// inherited attribute
+	testCloud, err = cloud.CloudByName("dummy-cloud-with-config")
+	c.Assert(err, jc.ErrorIsNil)
+	bootstrapCmd.config.Set("use-floating-ip=false")
+	checkConfigs(c, bootstrapCmd, key, ctx, testCloud, provider, map[string]map[string]interface{}{
+		"bootstrapModelConfig":     {key: false},
+		"inheritedControllerAttrs": {key: true},
+		"userConfigAttrs":          {key: false},
+	})
 }
 
 func (s *BootstrapSuite) TestBootstrapWithGUI(c *gc.C) {
@@ -948,7 +1096,7 @@ func (s *BootstrapSuite) setupAutoUploadTest(c *gc.C, vers, ser string) {
 	// Set the current version to be something for which there are no tools
 	// so we can test that an upload is forced.
 	s.PatchValue(&jujuversion.Current, version.MustParse(vers))
-	s.PatchValue(&series.HostSeries, func() string { return ser })
+	s.PatchValue(&series.MustHostSeries, func() string { return ser })
 
 	// Create home with dummy provider and remove all
 	// of its envtools.
@@ -956,7 +1104,7 @@ func (s *BootstrapSuite) setupAutoUploadTest(c *gc.C, vers, ser string) {
 }
 
 func (s *BootstrapSuite) TestAutoUploadAfterFailedSync(c *gc.C) {
-	s.PatchValue(&series.HostSeries, func() string { return series.LatestLts() })
+	s.PatchValue(&series.MustHostSeries, func() string { return series.LatestLts() })
 	s.setupAutoUploadTest(c, "1.7.3", "quantal")
 	// Run command and check for that upload has been run for tools matching
 	// the current juju version.
@@ -1399,6 +1547,7 @@ func (s *BootstrapSuite) TestBootstrapPrintCloudRegions(c *gc.C) {
 	c.Assert(coretesting.Stdout(ctx), jc.DeepEquals, `
 Showing regions for aws:
 us-east-1
+us-east-2
 us-west-1
 us-west-2
 eu-west-1
@@ -1532,6 +1681,7 @@ clouds:
         config:
             broken: Bootstrap
             controller: not-a-bool
+            use-floating-ip: true
     many-credentials-no-auth-types:
         type: many-credentials
 `[1:]), 0644)

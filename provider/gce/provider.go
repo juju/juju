@@ -5,6 +5,7 @@ package gce
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/jsonschema"
 	"github.com/juju/schema"
 	"gopkg.in/juju/environschema.v1"
 
@@ -26,6 +27,17 @@ func (environProvider) Open(args environs.OpenParams) (environs.Environ, error) 
 	}
 	env, err := newEnviron(args.Cloud, args.Config)
 	return env, errors.Trace(err)
+}
+
+// CloudSchema returns the schema used to validate input for add-cloud.  Since
+// this provider does not support custom clouds, this always returns nil.
+func (p environProvider) CloudSchema() *jsonschema.Schema {
+	return nil
+}
+
+// Ping tests the connection to the cloud, to verify the endpoint is valid.
+func (p environProvider) Ping(endpoint string) error {
+	return errors.NotImplementedf("Ping")
 }
 
 // PrepareConfig implements environs.EnvironProvider.

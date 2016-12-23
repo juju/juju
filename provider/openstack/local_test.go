@@ -8,13 +8,12 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"net/http"
-	"net/http/httptest"
 	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
 
 	jujuerrors "github.com/juju/errors"
 	gitjujutesting "github.com/juju/testing"
@@ -27,9 +26,10 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/goose.v1/client"
 	"gopkg.in/goose.v1/identity"
+	"gopkg.in/goose.v1/neutron"
 	"gopkg.in/goose.v1/nova"
 	"gopkg.in/goose.v1/testservices/hook"
-	"gopkg.in/goose.v1/testservices/identityservice"
+	"gopkg.in/goose.v1/testservices/neutronservice"
 	"gopkg.in/goose.v1/testservices/novaservice"
 	"gopkg.in/goose.v1/testservices/openstackservice"
 
@@ -105,32 +105,23 @@ func registerLocalTests() {
 
 // localServer is used to spin up a local Openstack service double.
 type localServer struct {
-	Server          *httptest.Server
-	Mux             *http.ServeMux
-	oldHandler      http.Handler
+	Openstack       *openstackservice.Openstack
 	Nova            *novaservice.Nova
+	Neutron         *neutronservice.Neutron
 	restoreTimeouts func()
 	UseTLS          bool
 }
 
-type newOpenstackFunc func(*http.ServeMux, *identity.Credentials, identity.AuthMode) *novaservice.Nova
+type newOpenstackFunc func(*identity.Credentials, identity.AuthMode, bool) (*novaservice.Nova, *neutronservice.Neutron, []string)
 
 func (s *localServer) start(
 	c *gc.C, cred *identity.Credentials, newOpenstackFunc newOpenstackFunc,
 ) {
-	// Set up the HTTP server.
-	if s.UseTLS {
-		s.Server = httptest.NewTLSServer(nil)
-	} else {
-		s.Server = httptest.NewServer(nil)
+	var logMsg []string
+	s.Nova, s.Neutron, logMsg = newOpenstackFunc(cred, identity.AuthUserPass, s.UseTLS)
+	for _, msg := range logMsg {
+		c.Logf("%v", msg)
 	}
-	c.Assert(s.Server, gc.NotNil)
-	s.oldHandler = s.Server.Config.Handler
-	s.Mux = http.NewServeMux()
-	s.Server.Config.Handler = s.Mux
-	cred.URL = s.Server.URL
-	c.Logf("Started service at: %v", s.Server.URL)
-	s.Nova = newOpenstackFunc(s.Mux, cred, identity.AuthUserPass)
 	s.restoreTimeouts = envtesting.PatchAttemptStrategies(openstack.ShortAttempt, openstack.StorageAttempt)
 	s.Nova.SetAvailabilityZones(
 		nova.AvailabilityZone{Name: "test-unavailable"},
@@ -144,9 +135,11 @@ func (s *localServer) start(
 }
 
 func (s *localServer) stop() {
-	s.Mux = nil
-	s.Server.Config.Handler = s.oldHandler
-	s.Server.Close()
+	if s.Openstack != nil {
+		s.Openstack.Stop()
+	} else if s.Nova != nil {
+		s.Nova.Stop()
+	}
 	s.restoreTimeouts()
 }
 
@@ -235,7 +228,7 @@ func (s *localServerSuite) SetUpTest(c *gc.C) {
 	cl := client.NewClient(s.cred, identity.AuthUserPass, nil)
 	err := cl.Authenticate()
 	c.Assert(err, jc.ErrorIsNil)
-	containerURL, err := cl.MakeServiceURL("object-store", nil)
+	containerURL, err := cl.MakeServiceURL("object-store", "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	s.TestConfig = s.TestConfig.Merge(coretesting.Attrs{
 		"agent-metadata-url": containerURL + "/juju-dist-test/tools",
@@ -297,7 +290,7 @@ func (s *localServerSuite) TestStartStop(c *gc.C) {
 func (s *localServerSuite) TestBootstrapFailsWhenPublicIPError(c *gc.C) {
 	coretesting.SkipIfPPC64EL(c, "lp:1425242")
 
-	cleanup := s.srv.Nova.RegisterControlPoint(
+	cleanup := s.srv.Neutron.RegisterControlPoint(
 		"addFloatingIP",
 		func(sc hook.ServiceControl, args ...interface{}) error {
 			return fmt.Errorf("failed on purpose")
@@ -375,7 +368,7 @@ func (s *localServerSuite) TestAddressesWithoutPublicIP(c *gc.C) {
 // bootstrapping and starting an instance should occur without any attempt to
 // allocate a public address.
 func (s *localServerSuite) TestStartInstanceWithoutPublicIP(c *gc.C) {
-	cleanup := s.srv.Nova.RegisterControlPoint(
+	cleanup := s.srv.Neutron.RegisterControlPoint(
 		"addFloatingIP",
 		func(sc hook.ServiceControl, args ...interface{}) error {
 			return fmt.Errorf("add floating IP should not have been called")
@@ -436,8 +429,23 @@ func (s *localServerSuite) TestInstanceName(c *gc.C) {
 
 func (s *localServerSuite) TestStartInstanceNetwork(c *gc.C) {
 	cfg, err := s.env.Config().Apply(coretesting.Attrs{
-		// A label that corresponds to a nova test service network
+		// A label that corresponds to a neutron test service network
 		"network": "net",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.env.SetConfig(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+
+	inst, _ := testing.AssertStartInstance(c, s.env, s.ControllerUUID, "100")
+	err = s.env.StopInstances(inst.Id())
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *localServerSuite) TestStartInstanceExternalNetwork(c *gc.C) {
+	cfg, err := s.env.Config().Apply(coretesting.Attrs{
+		// A label that corresponds to a neutron test service external network
+		"external-network": "ext-net",
+		"use-floating-ip":  true,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.env.SetConfig(cfg)
@@ -450,7 +458,7 @@ func (s *localServerSuite) TestStartInstanceNetwork(c *gc.C) {
 
 func (s *localServerSuite) TestStartInstanceNetworkUnknownLabel(c *gc.C) {
 	cfg, err := s.env.Config().Apply(coretesting.Attrs{
-		// A label that has no related network in the nova test service
+		// A label that has no related network in the neutron test service
 		"network": "no-network-with-this-label",
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -459,7 +467,22 @@ func (s *localServerSuite) TestStartInstanceNetworkUnknownLabel(c *gc.C) {
 
 	inst, _, _, err := testing.StartInstance(s.env, s.ControllerUUID, "100")
 	c.Check(inst, gc.IsNil)
-	c.Assert(err, gc.ErrorMatches, "No networks exist with label .*")
+	c.Assert(err, gc.ErrorMatches, "no networks exist with label .*")
+}
+
+func (s *localServerSuite) TestStartInstanceExternalNetworkUnknownLabel(c *gc.C) {
+	cfg, err := s.env.Config().Apply(coretesting.Attrs{
+		// A label that has no related network in the neutron test service
+		"external-network": "no-network-with-this-label",
+		"use-floating-ip":  true,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.env.SetConfig(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+
+	inst, _, _, err := testing.StartInstance(s.env, s.ControllerUUID, "100")
+	err = s.env.StopInstances(inst.Id())
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *localServerSuite) TestStartInstanceNetworkUnknownId(c *gc.C) {
@@ -480,8 +503,8 @@ func (s *localServerSuite) TestStartInstanceNetworkUnknownId(c *gc.C) {
 }
 
 func assertSecurityGroups(c *gc.C, env environs.Environ, expected []string) {
-	novaClient := openstack.GetNovaClient(env)
-	groups, err := novaClient.ListSecurityGroups()
+	neutronClient := openstack.GetNeutronClient(env)
+	groups, err := neutronClient.ListSecurityGroupsV2()
 	c.Assert(err, jc.ErrorIsNil)
 	for _, name := range expected {
 		found := false
@@ -548,7 +571,7 @@ func (s *localServerSuite) TestStopInstanceSecurityGroupNotDeleted(c *gc.C) {
 	coretesting.SkipIfPPC64EL(c, "lp:1425242")
 
 	// Force an error when a security group is deleted.
-	cleanup := s.srv.Nova.RegisterControlPoint(
+	cleanup := s.srv.Neutron.RegisterControlPoint(
 		"removeSecurityGroup",
 		func(sc hook.ServiceControl, args ...interface{}) error {
 			return fmt.Errorf("failed on purpose")
@@ -564,6 +587,12 @@ func (s *localServerSuite) TestStopInstanceSecurityGroupNotDeleted(c *gc.C) {
 		fmt.Sprintf("juju-%v-%v-%v", s.ControllerUUID, modelUUID, instanceName),
 	}
 	assertSecurityGroups(c, env, allSecurityGroups)
+
+	// Make time advance in zero time
+	clk := gitjujutesting.NewClock(time.Time{})
+	clock := gitjujutesting.AutoAdvancingClock{clk, clk.Advance}
+	env.(*openstack.Environ).SetClock(&clock)
+
 	err := env.StopInstances(inst.Id())
 	c.Assert(err, jc.ErrorIsNil)
 	assertSecurityGroups(c, env, allSecurityGroups)
@@ -723,7 +752,7 @@ func (s *localServerSuite) TestAllInstancesFloatingIP(c *gc.C) {
 	insts, err := env.AllInstances()
 	c.Assert(err, jc.ErrorIsNil)
 	for _, inst := range insts {
-		c.Assert(openstack.InstanceFloatingIP(inst).IP, gc.Equals, fmt.Sprintf("10.0.0.%v", inst.Id()))
+		c.Assert(*openstack.InstanceFloatingIP(inst), gc.Equals, fmt.Sprintf("10.0.0.%v", inst.Id()))
 	}
 }
 
@@ -761,7 +790,7 @@ func (s *localServerSuite) assertInstancesGathering(c *gc.C, withFloatingIP bool
 			if ids[j] != "" {
 				c.Assert(inst.Id(), gc.Equals, ids[j])
 				if withFloatingIP {
-					c.Assert(openstack.InstanceFloatingIP(inst).IP, gc.Equals, fmt.Sprintf("10.0.0.%v", inst.Id()))
+					c.Assert(*openstack.InstanceFloatingIP(inst), gc.Equals, fmt.Sprintf("10.0.0.%v", inst.Id()))
 				} else {
 					c.Assert(openstack.InstanceFloatingIP(inst), gc.IsNil)
 				}
@@ -930,7 +959,7 @@ func (s *localServerSuite) TestGetImageMetadataSources(c *gc.C) {
 }
 
 func (s *localServerSuite) TestGetImageMetadataSourcesNoProductStreams(c *gc.C) {
-	s.PatchValue(openstack.MakeServiceURL, func(client.AuthenticatingClient, string, []string) (string, error) {
+	s.PatchValue(openstack.MakeServiceURL, func(client.AuthenticatingClient, string, string, []string) (string, error) {
 		return "", errors.New("cannae do it captain")
 	})
 	env := s.Open(c, s.env.Config())
@@ -1168,19 +1197,28 @@ func (s *localServerSuite) TestImageMetadataSourceOrder(c *gc.C) {
 // TestEnsureGroup checks that when creating a duplicate security group, the existing group is
 // returned and the existing rules have been left as is.
 func (s *localServerSuite) TestEnsureGroup(c *gc.C) {
-	rule := []nova.RuleInfo{
+	rule := []neutron.RuleInfoV2{
 		{
-			IPProtocol: "tcp",
-			FromPort:   22,
-			ToPort:     22,
+			Direction:    "ingress",
+			IPProtocol:   "tcp",
+			PortRangeMin: 22,
+			PortRangeMax: 22,
 		},
 	}
 
-	assertRule := func(group nova.SecurityGroup) {
-		c.Check(len(group.Rules), gc.Equals, 1)
-		c.Check(*group.Rules[0].IPProtocol, gc.Equals, "tcp")
-		c.Check(*group.Rules[0].FromPort, gc.Equals, 22)
-		c.Check(*group.Rules[0].ToPort, gc.Equals, 22)
+	assertRule := func(group neutron.SecurityGroupV2) {
+		c.Check(len(group.Rules), gc.Equals, 3)
+		for _, r := range group.Rules {
+			// Ignore the 2 default egress rules for each new
+			// security group created by Neutron
+			if r.Direction == "egress" {
+				continue
+			}
+			c.Check(r.Direction, gc.Equals, "ingress")
+			c.Check(*r.IPProtocol, gc.Equals, "tcp")
+			c.Check(*r.PortRangeMin, gc.Equals, 22)
+			c.Check(*r.PortRangeMax, gc.Equals, 22)
+		}
 	}
 
 	group, err := openstack.EnsureGroup(s.env, "test group", rule)
@@ -1189,14 +1227,7 @@ func (s *localServerSuite) TestEnsureGroup(c *gc.C) {
 	assertRule(group)
 	id := group.Id
 	// Do it again and check that the existing group is returned.
-	anotherRule := []nova.RuleInfo{
-		{
-			IPProtocol: "tcp",
-			FromPort:   1,
-			ToPort:     65535,
-		},
-	}
-	group, err = openstack.EnsureGroup(s.env, "test group", anotherRule)
+	group, err = openstack.EnsureGroup(s.env, "test group", rule)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(group.Id, gc.Equals, id)
 	c.Assert(group.Name, gc.Equals, "test group")
@@ -1233,7 +1264,7 @@ func (s *localHTTPSServerSuite) createConfigAttrs(c *gc.C) map[string]interface{
 	cl := client.NewNonValidatingClient(s.cred, identity.AuthUserPass, nil)
 	err := cl.Authenticate()
 	c.Assert(err, jc.ErrorIsNil)
-	containerURL, err := cl.MakeServiceURL("object-store", nil)
+	containerURL, err := cl.MakeServiceURL("object-store", "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(containerURL[:8], gc.Equals, "https://")
 	attrs["agent-metadata-url"] = containerURL + "/juju-dist-test/tools"
@@ -1497,7 +1528,7 @@ func (s *localServerSuite) TestResolveNetworkNotPresent(c *gc.C) {
 	var notPresentNetwork = "no-network-with-this-label"
 	networkId, err := openstack.ResolveNetwork(s.env, notPresentNetwork)
 	c.Check(networkId, gc.Equals, "")
-	c.Assert(err, gc.ErrorMatches, `No networks exist with label "no-network-with-this-label"`)
+	c.Assert(err, gc.ErrorMatches, `no networks exist with label "no-network-with-this-label"`)
 }
 
 // TODO(gz): TestResolveNetworkMultipleMatching when can inject new networks
@@ -1921,28 +1952,18 @@ func (s *noSwiftSuite) TestBootstrap(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func newFullOpenstackService(mux *http.ServeMux, cred *identity.Credentials, auth identity.AuthMode) *novaservice.Nova {
-	service := openstackservice.New(cred, auth)
-	service.SetupHTTP(mux)
-	return service.Nova
+func newFullOpenstackService(cred *identity.Credentials, auth identity.AuthMode, useTSL bool) (*novaservice.Nova, *neutronservice.Neutron, []string) {
+	service, logMsg := openstackservice.New(cred, auth, useTSL)
+	service.UseNeutronNetworking()
+	service.SetupHTTP(nil)
+	return service.Nova, service.Neutron, logMsg
 }
 
-func newNovaOnlyOpenstackService(mux *http.ServeMux, cred *identity.Credentials, auth identity.AuthMode) *novaservice.Nova {
-	var identityService, fallbackService identityservice.IdentityService
-	if auth == identity.AuthKeyPair {
-		identityService = identityservice.NewKeyPair()
-	} else {
-		identityService = identityservice.NewUserPass()
-		fallbackService = identityservice.NewV3UserPass()
-	}
-	userInfo := identityService.AddUser(cred.User, cred.Secrets, cred.TenantName)
-	if cred.TenantName == "" {
-		panic("Openstack service double requires a tenant to be specified.")
-	}
-	novaService := novaservice.New(cred.URL, "v2", userInfo.TenantId, cred.Region, identityService, fallbackService)
-	identityService.SetupHTTP(mux)
-	novaService.SetupHTTP(mux)
-	return novaService
+func newNovaOnlyOpenstackService(cred *identity.Credentials, auth identity.AuthMode, useTSL bool) (*novaservice.Nova, *neutronservice.Neutron, []string) {
+	service, logMsg := openstackservice.NewNoSwift(cred, auth, useTSL)
+	service.UseNeutronNetworking()
+	service.SetupHTTP(nil)
+	return service.Nova, service.Neutron, logMsg
 }
 
 func bootstrapEnv(c *gc.C, env environs.Environ) error {

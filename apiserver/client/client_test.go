@@ -28,7 +28,7 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/manual"
+	"github.com/juju/juju/environs/manual/sshprovisioner"
 	toolstesting "github.com/juju/juju/environs/tools/testing"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
@@ -58,27 +58,29 @@ func (s *serverSuite) SetUpTest(c *gc.C) {
 		"authorized-keys": coretesting.FakeAuthKeys,
 	}
 	s.baseSuite.SetUpTest(c)
+	s.client = s.clientForState(c, s.State)
+}
 
-	var err error
+func (s *serverSuite) clientForState(c *gc.C, st *state.State) *client.Client {
 	auth := testing.FakeAuthorizer{
 		Tag:            s.AdminUserTag(c),
 		EnvironManager: true,
 	}
-	urlGetter := common.NewToolsURLGetter(s.State.ModelUUID(), s.State)
-	configGetter := stateenvirons.EnvironConfigGetter{s.State}
-	statusSetter := common.NewStatusSetter(s.State, common.AuthAlways())
-	toolsFinder := common.NewToolsFinder(configGetter, s.State, urlGetter)
+	urlGetter := common.NewToolsURLGetter(st.ModelUUID(), st)
+	configGetter := stateenvirons.EnvironConfigGetter{st}
+	statusSetter := common.NewStatusSetter(st, common.AuthAlways())
+	toolsFinder := common.NewToolsFinder(configGetter, st, urlGetter)
 	s.newEnviron = func() (environs.Environ, error) {
 		return environs.GetEnviron(configGetter, environs.New)
 	}
 	newEnviron := func() (environs.Environ, error) {
 		return s.newEnviron()
 	}
-	blockChecker := common.NewBlockChecker(s.State)
-	modelConfigAPI, err := modelconfig.NewModelConfigAPI(s.State, auth)
+	blockChecker := common.NewBlockChecker(st)
+	modelConfigAPI, err := modelconfig.NewModelConfigAPI(st, auth)
 	c.Assert(err, jc.ErrorIsNil)
-	s.client, err = client.NewClient(
-		client.NewStateBackend(s.State),
+	apiserverClient, err := client.NewClient(
+		client.NewStateBackend(st),
 		modelConfigAPI,
 		common.NewResources(),
 		auth,
@@ -88,6 +90,7 @@ func (s *serverSuite) SetUpTest(c *gc.C) {
 		blockChecker,
 	)
 	c.Assert(err, jc.ErrorIsNil)
+	return apiserverClient
 }
 
 func (s *serverSuite) setAgentPresence(c *gc.C, machineId string) *presence.Pinger {
@@ -212,18 +215,75 @@ func (s *serverSuite) makeLocalModelUser(c *gc.C, username, displayname string) 
 	return modelUser
 }
 
+func (s *serverSuite) assertModelVersion(c *gc.C, st *state.State, expected string) {
+	modelConfig, err := st.ModelConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	agentVersion, found := modelConfig.AllAttrs()["agent-version"]
+	c.Assert(found, jc.IsTrue)
+	c.Assert(agentVersion, gc.Equals, expected)
+}
+
 func (s *serverSuite) TestSetEnvironAgentVersion(c *gc.C) {
 	args := params.SetModelAgentVersion{
 		Version: version.MustParse("9.8.7"),
 	}
 	err := s.client.SetModelAgentVersion(args)
 	c.Assert(err, jc.ErrorIsNil)
+	s.assertModelVersion(c, s.State, "9.8.7")
+}
 
-	modelConfig, err := s.State.ModelConfig()
+func (s *serverSuite) makeMigratingModel(c *gc.C, name string, mode state.MigrationMode) {
+	otherSt := s.Factory.MakeModel(c, &factory.ModelParams{
+		Name:  name,
+		Owner: names.NewUserTag("some-user"),
+	})
+	defer otherSt.Close()
+	model, err := otherSt.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	agentVersion, found := modelConfig.AllAttrs()["agent-version"]
-	c.Assert(found, jc.IsTrue)
-	c.Assert(agentVersion, gc.Equals, "9.8.7")
+	err = model.SetMigrationMode(mode)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *serverSuite) TestControllerModelSetEnvironAgentVersionBlockedByImportingModel(c *gc.C) {
+	s.Factory.MakeUser(c, &factory.UserParams{Name: "some-user"})
+	s.makeMigratingModel(c, "to-migrate", state.MigrationModeImporting)
+	args := params.SetModelAgentVersion{
+		Version: version.MustParse("9.8.7"),
+	}
+	err := s.client.SetModelAgentVersion(args)
+	c.Assert(err, gc.ErrorMatches, `model "some-user/to-migrate" is importing, upgrade blocked`)
+}
+
+func (s *serverSuite) TestControllerModelSetEnvironAgentVersionBlockedByExportingModel(c *gc.C) {
+	s.Factory.MakeUser(c, &factory.UserParams{Name: "some-user"})
+	s.makeMigratingModel(c, "to-migrate", state.MigrationModeExporting)
+	args := params.SetModelAgentVersion{
+		Version: version.MustParse("9.8.7"),
+	}
+	err := s.client.SetModelAgentVersion(args)
+	c.Assert(err, gc.ErrorMatches, `model "some-user/to-migrate" is exporting, upgrade blocked`)
+}
+
+func (s *serverSuite) TestUserModelSetEnvironAgentVersionNotAffectedByMigration(c *gc.C) {
+	s.Factory.MakeUser(c, &factory.UserParams{Name: "some-user"})
+	otherSt := s.Factory.MakeModel(c, nil)
+	defer otherSt.Close()
+
+	s.makeMigratingModel(c, "exporting-model", state.MigrationModeExporting)
+	s.makeMigratingModel(c, "importing-model", state.MigrationModeImporting)
+	args := params.SetModelAgentVersion{
+		Version: version.MustParse("2.0.4"),
+	}
+	client := s.clientForState(c, otherSt)
+
+	s.newEnviron = func() (environs.Environ, error) {
+		return &mockEnviron{}, nil
+	}
+
+	err := client.SetModelAgentVersion(args)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.assertModelVersion(c, otherSt, "2.0.4")
 }
 
 type mockEnviron struct {
@@ -405,6 +465,7 @@ func clearSinceTimes(status *params.FullStatus) {
 		machine.InstanceStatus.Since = nil
 		status.Machines[id] = machine
 	}
+	status.Model.ModelStatus.Since = nil
 }
 
 func (s *clientSuite) TestClientStatus(c *gc.C) {
@@ -681,9 +742,9 @@ func (s *clientSuite) TestClientPublicAddressErrors(c *gc.C) {
 	_, err := s.APIState.Client().PublicAddress("wordpress")
 	c.Assert(err, gc.ErrorMatches, `unknown unit or machine "wordpress"`)
 	_, err = s.APIState.Client().PublicAddress("0")
-	c.Assert(err, gc.ErrorMatches, `error fetching address for machine "0": no public address`)
+	c.Assert(err, gc.ErrorMatches, `error fetching address for machine "0": no public address\(es\)`)
 	_, err = s.APIState.Client().PublicAddress("wordpress/0")
-	c.Assert(err, gc.ErrorMatches, `error fetching address for unit "wordpress/0": no public address`)
+	c.Assert(err, gc.ErrorMatches, `error fetching address for unit "wordpress/0": no public address\(es\)`)
 }
 
 func (s *clientSuite) TestClientPublicAddressMachine(c *gc.C) {
@@ -723,9 +784,9 @@ func (s *clientSuite) TestClientPrivateAddressErrors(c *gc.C) {
 	_, err := s.APIState.Client().PrivateAddress("wordpress")
 	c.Assert(err, gc.ErrorMatches, `unknown unit or machine "wordpress"`)
 	_, err = s.APIState.Client().PrivateAddress("0")
-	c.Assert(err, gc.ErrorMatches, `error fetching address for machine "0": no private address`)
+	c.Assert(err, gc.ErrorMatches, `error fetching address for machine "0": no private address\(es\)`)
 	_, err = s.APIState.Client().PrivateAddress("wordpress/0")
-	c.Assert(err, gc.ErrorMatches, `error fetching address for unit "wordpress/0": no private address`)
+	c.Assert(err, gc.ErrorMatches, `error fetching address for unit "wordpress/0": no private address\(es\)`)
 }
 
 func (s *clientSuite) TestClientPrivateAddress(c *gc.C) {
@@ -1050,7 +1111,7 @@ func (s *clientSuite) TestProvisioningScript(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	icfg, err := client.InstanceConfig(s.State, machineId, apiParams.Nonce, "")
 	c.Assert(err, jc.ErrorIsNil)
-	provisioningScript, err := manual.ProvisioningScript(icfg)
+	provisioningScript, err := sshprovisioner.ProvisioningScript(icfg)
 	c.Assert(err, jc.ErrorIsNil)
 	// ProvisioningScript internally calls MachineConfig,
 	// which allocates a new, random password. Everything

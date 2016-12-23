@@ -52,7 +52,7 @@ func (p syncParams) One() (*imagedownloads.Metadata, error) {
 
 func (p syncParams) exists() error {
 	fname := backingFileName(p.series, p.arch)
-	baseDir, err := paths.DataDir(series.HostSeries())
+	baseDir, err := paths.DataDir(series.MustHostSeries())
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -231,7 +231,7 @@ func newImage(md *imagedownloads.Metadata, pathfinder func(string) (string, erro
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	baseDir, err := pathfinder(series.HostSeries())
+	baseDir, err := pathfinder(series.MustHostSeries())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

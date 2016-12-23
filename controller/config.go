@@ -10,6 +10,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/schema"
 	"github.com/juju/utils"
+	utilscert "github.com/juju/utils/cert"
 	"gopkg.in/macaroon-bakery.v1/bakery"
 
 	"github.com/juju/juju/cert"
@@ -272,7 +273,7 @@ func Validate(c Config) error {
 	if !caCertOK {
 		return errors.Errorf("missing CA certificate")
 	}
-	if _, err := cert.ParseCert(caCert); err != nil {
+	if _, err := utilscert.ParseCert(caCert); err != nil {
 		return errors.Annotate(err, "bad CA certificate in configuration")
 	}
 

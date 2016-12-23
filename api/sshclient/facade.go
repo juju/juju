@@ -39,6 +39,27 @@ func (facade *Facade) PrivateAddress(target string) (string, error) {
 	return addr, errors.Trace(err)
 }
 
+// AllAddresses returns all addresses for the SSH target provided. The target
+// may be provided as a machine ID or unit name.
+func (facade *Facade) AllAddresses(target string) ([]string, error) {
+	entities, err := targetToEntities(target)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	var out params.SSHAddressesResults
+	err = facade.caller.FacadeCall("AllAddresses", entities, &out)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if len(out.Results) != 1 {
+		return nil, countError(len(out.Results))
+	}
+	if err := out.Results[0].Error; err != nil {
+		return nil, errors.Trace(err)
+	}
+	return out.Results[0].Addresses, nil
+}
+
 func (facade *Facade) addressCall(callName, target string) (string, error) {
 	entities, err := targetToEntities(target)
 	if err != nil {

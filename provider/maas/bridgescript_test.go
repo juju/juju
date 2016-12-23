@@ -67,9 +67,23 @@ func (s *bridgeConfigSuite) assertScript(c *gc.C, initialConfig, expectedConfig,
 		err := ioutil.WriteFile(s.testConfigPath, []byte(strings.TrimSuffix(initialConfig, "\n")), 0644)
 		c.Check(err, jc.ErrorIsNil)
 		// Run the script and verify the modified config.
-		output, retcode := s.runScript(c, python, s.testConfigPath, bridgePrefix, bridgeName, interfaceToBridge)
+		output, retcode := s.runScriptWithoutActivation(c, python, s.testConfigPath, bridgePrefix, bridgeName, interfaceToBridge)
 		c.Check(retcode, gc.Equals, 0)
 		c.Check(strings.Trim(output, "\n"), gc.Equals, expectedConfig, gc.Commentf("initial was:\n%s", initialConfig))
+	}
+}
+
+func (s *bridgeConfigSuite) assertScriptWithActivationAndDryRun(c *gc.C, isBonded, isAlreadyBridged bool, initialConfig, bridgePrefix string, interfacesToBridge []string) {
+	expectedConfig := s.dryRunExpectedOutputHelper(isBonded, isAlreadyBridged, bridgePrefix, interfacesToBridge)
+
+	for i, python := range s.pythonVersions {
+		c.Logf("test #%v using %s", i, python)
+		err := ioutil.WriteFile(s.testConfigPath, []byte(strings.TrimSuffix(initialConfig, "\n")), 0644)
+		c.Check(err, jc.ErrorIsNil)
+		output, retcode := s.runScriptWithActivationAndDryRun(c, python, bridgePrefix, interfacesToBridge)
+		c.Check(retcode, gc.Equals, 0)
+		c.Check(len(output), gc.Equals, len(expectedConfig))
+		c.Check(output, gc.DeepEquals, expectedConfig)
 	}
 }
 
@@ -88,7 +102,7 @@ func (s *bridgeConfigSuite) assertScriptWithoutPrefix(c *gc.C, initial, expected
 func (s *bridgeConfigSuite) TestBridgeScriptWithUndefinedArgs(c *gc.C) {
 	for i, python := range s.pythonVersions {
 		c.Logf("test #%v using %s", i, python)
-		_, code := s.runScript(c, python, "", "", "", "")
+		_, code := s.runScriptWithoutActivation(c, python, "", "", "", "")
 		c.Check(code, gc.Equals, 2)
 	}
 }
@@ -143,7 +157,7 @@ func (s *bridgeConfigSuite) TestBridgeScriptWithDefaultPrefixTransformation(c *g
 func (s *bridgeConfigSuite) TestBridgeScriptInterfaceNameArgumentRequired(c *gc.C) {
 	for i, python := range s.pythonVersions {
 		c.Logf("test #%v using %s", i, python)
-		output, code := s.runScript(c, python, "# no content", "", "juju-br0", "")
+		output, code := s.runScriptWithoutActivation(c, python, "# no content", "", "juju-br0", "")
 		c.Check(code, gc.Equals, 2)
 		// We match very lazily here to isolate ourselves from
 		// the different formatting of argparse error messages
@@ -160,7 +174,7 @@ func (s *bridgeConfigSuite) TestBridgeScriptMatchingExistingSpecificIface2(c *gc
 	s.assertScriptWithoutPrefix(c, networkLP1532167Initial, networkLP1532167Expected, "juju-br0", "bond0")
 }
 
-func (s *bridgeConfigSuite) runScript(c *gc.C, pythonBinary, configFile, bridgePrefix, bridgeName, interfaceToBridge string) (output string, exitCode int) {
+func (s *bridgeConfigSuite) runScriptWithoutActivation(c *gc.C, pythonBinary, configFile, bridgePrefix, bridgeName, interfaceToBridge string) (output string, exitCode int) {
 	if bridgePrefix != "" {
 		bridgePrefix = fmt.Sprintf("--bridge-prefix=%q", bridgePrefix)
 	}
@@ -183,6 +197,89 @@ func (s *bridgeConfigSuite) runScript(c *gc.C, pythonBinary, configFile, bridgeP
 		return stdout + "\n" + stderr, result.Code
 	}
 	return stdout, result.Code
+}
+
+func (s *bridgeConfigSuite) runScriptWithActivationAndDryRun(c *gc.C, pythonBinary, bridgePrefix string, interfacesToBridge []string) (output []string, exitCode int) {
+	if bridgePrefix != "" {
+		bridgePrefix = fmt.Sprintf("--bridge-prefix=%q", bridgePrefix)
+	}
+
+	script := fmt.Sprintf("%q %q --activate --dry-run %s %s --interfaces-to-bridge=%q",
+		pythonBinary, s.testPythonScript, bridgePrefix, s.testConfigPath, strings.Join(interfacesToBridge, " "))
+	c.Log(script)
+	result, err := exec.RunCommands(exec.RunParams{Commands: script})
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf("script failed unexpectedly"))
+	stdout := strings.Split(string(result.Stdout), "\n")
+	stderr := strings.Split(string(result.Stderr), "\n")
+	output = make([]string, 0, len(stdout)+len(stderr))
+	for _, s := range stdout {
+		s = strings.Trim(s, "\n")
+		if s != "" {
+			output = append(output, s)
+		}
+	}
+	for _, s := range stderr {
+		s = strings.Trim(s, "\n")
+		if s != "" {
+			output = append(output, s)
+		}
+	}
+	return output, result.Code
+}
+
+func (s *bridgeConfigSuite) dryRunExpectedOutputHelper(isBonded, isAlreadyBridged bool, bridgePrefix string, interfacesToBridge []string) []string {
+	output := make([]string, 0)
+	if isAlreadyBridged {
+		output = append(output, "already bridged, or nothing to do.")
+	} else {
+		output = append(output, "**** Original configuration")
+		output = append(output, fmt.Sprintf("cat %s", s.testConfigPath))
+		output = append(output, "ifconfig -a")
+		output = append(output, fmt.Sprintf("ifdown --exclude=lo --interfaces=%[1]s $(ifquery --interfaces=%[1]s --exclude=lo --list)", s.testConfigPath))
+		output = append(output, "**** Activating new configuration")
+		if isBonded {
+			output = append(output, "working around https://bugs.launchpad.net/ubuntu/+source/ifenslave/+bug/1269921")
+			output = append(output, "working around https://bugs.launchpad.net/juju-core/+bug/1594855")
+			output = append(output, "sleep 3")
+		}
+		output = append(output, fmt.Sprintf("cat %s", s.testConfigPath))
+		output = append(output, fmt.Sprintf("ifup --exclude=lo --interfaces=%[1]s $(ifquery --interfaces=%[1]s --exclude=lo --list)", s.testConfigPath))
+		output = append(output, "ip link show up")
+		output = append(output, "ifconfig -a")
+		output = append(output, "ip route show")
+		output = append(output, "brctl show")
+	}
+	return output
+}
+
+func (s *bridgeConfigSuite) TestBridgeScriptWithoutBondedInterfaceSingle(c *gc.C) {
+	bridgePrefix := "TestBridgeScriptWithoutBondedInterfaceSingle"
+	interfacesToBridge := []string{"eth0"}
+	s.assertScriptWithActivationAndDryRun(c, false, false, networkDHCPInitial, bridgePrefix, interfacesToBridge)
+}
+
+func (s *bridgeConfigSuite) TestBridgeScriptWithoutBondedInterfaceMultiple(c *gc.C) {
+	bridgePrefix := "TestBridgeScriptWithoutBondedInterfaceMultiple"
+	interfacesToBridge := []string{"eth0", "eth1"}
+	s.assertScriptWithActivationAndDryRun(c, false, false, networkDHCPInitial, bridgePrefix, interfacesToBridge)
+}
+
+func (s *bridgeConfigSuite) TestBridgeScriptWithBondedInterfaceSingle(c *gc.C) {
+	bridgePrefix := "TestBridgeScriptWithBondedInterfaceSingle"
+	interfacesToBridge := []string{"bond0"}
+	s.assertScriptWithActivationAndDryRun(c, true, false, networkDHCPWithBondInitial, bridgePrefix, interfacesToBridge)
+}
+
+func (s *bridgeConfigSuite) TestBridgeScriptWithBondedInterfaceMultiple(c *gc.C) {
+	bridgePrefix := "TestBridgeScriptWithBondedInterfaceMultiple"
+	interfacesToBridge := []string{"bond0", "bond1"}
+	s.assertScriptWithActivationAndDryRun(c, true, false, networkDHCPWithBondInitial, bridgePrefix, interfacesToBridge)
+}
+
+func (s *bridgeConfigSuite) TestBridgeScriptWithBondedInterfaceAlreadyBridged(c *gc.C) {
+	bridgePrefix := "TestBridgeScriptWithBondedInterfaceAlreadyBridged"
+	interfacesToBridge := []string{"br-eth1"}
+	s.assertScriptWithActivationAndDryRun(c, false, true, networkPartiallyBridgedInitial, bridgePrefix, interfacesToBridge)
 }
 
 // The rest of the file contains various forms of network config for

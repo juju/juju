@@ -160,6 +160,61 @@ func (s *KillSuite) TestKillWaitForModels_ActuallyWaits(c *gc.C) {
 	c.Assert(coretesting.Stderr(ctx), gc.Equals, expect)
 }
 
+func (s *KillSuite) TestKillWaitForModels_WaitsForControllerMachines(c *gc.C) {
+	s.api.allModels = nil
+	s.api.envStatus = map[string]base.ModelStatus{}
+	s.addModel("controller", base.ModelStatus{
+		UUID:               test1UUID,
+		Life:               string(params.Alive),
+		Owner:              "admin",
+		TotalMachineCount:  3,
+		HostedMachineCount: 2,
+	})
+	s.clock.Advance(5 * time.Second)
+
+	wrapped, inner := s.newKillCommandBoth()
+	err := coretesting.InitCommand(wrapped, []string{"test1", "--timeout=1m"})
+	c.Assert(err, jc.ErrorIsNil)
+
+	ctx := coretesting.Context(c)
+	result := make(chan error)
+	go func() {
+		err := controller.KillWaitForModels(inner, ctx, s.api, test1UUID)
+		result <- err
+	}()
+
+	s.syncClockAlarm(c)
+	s.setModelStatus(base.ModelStatus{
+		UUID:               test1UUID,
+		Life:               string(params.Dying),
+		Owner:              "admin",
+		HostedMachineCount: 1,
+	})
+	s.clock.Advance(5 * time.Second)
+
+	s.syncClockAlarm(c)
+	s.setModelStatus(base.ModelStatus{
+		UUID:               test1UUID,
+		Life:               string(params.Dying),
+		Owner:              "admin",
+		HostedMachineCount: 0,
+	})
+	s.clock.Advance(5 * time.Second)
+
+	select {
+	case err := <-result:
+		c.Assert(err, jc.ErrorIsNil)
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out waiting for result")
+	}
+	expect := "" +
+		"Waiting on 0 model, 2 machines\n" +
+		"Waiting on 0 model, 1 machine\n" +
+		"All hosted models reclaimed, cleaning up controller machines\n"
+
+	c.Assert(coretesting.Stderr(ctx), gc.Equals, expect)
+}
+
 func (s *KillSuite) TestKillWaitForModels_TimeoutResetsWithChange(c *gc.C) {
 	s.resetAPIModels(c)
 	s.addModel("model-1", base.ModelStatus{

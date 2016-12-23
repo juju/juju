@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
@@ -125,9 +126,16 @@ func (s *baseSuite) tryOpenState(c *gc.C, e apiAuthenticator, password string) e
 	stateInfo := s.MongoInfo(c)
 	stateInfo.Tag = e.Tag()
 	stateInfo.Password = password
-	st, err := state.Open(s.State.ModelTag(), s.State.ControllerTag(), stateInfo, mongo.DialOpts{
-		Timeout: 25 * time.Millisecond,
-	}, nil)
+	st, err := state.Open(state.OpenParams{
+		Clock:              clock.WallClock,
+		ControllerTag:      s.State.ControllerTag(),
+		ControllerModelTag: s.State.ModelTag(),
+		MongoInfo:          stateInfo,
+		MongoDialOpts: mongo.DialOpts{
+			Timeout: 25 * time.Millisecond,
+		},
+	})
+
 	if err == nil {
 		st.Close()
 	}
@@ -164,6 +172,10 @@ var scenarioStatus = &params.FullStatus{
 		CloudTag:    "cloud-dummy",
 		CloudRegion: "dummy-region",
 		Version:     "1.2.3",
+		ModelStatus: params.DetailedStatus{
+			Status: "available",
+			Data:   map[string]interface{}{},
+		},
 	},
 	Machines: map[string]params.MachineStatus{
 		"0": {
@@ -218,6 +230,7 @@ var scenarioStatus = &params.FullStatus{
 			WantsVote:  false,
 		},
 	},
+	RemoteApplications: map[string]params.RemoteApplicationStatus{},
 	Applications: map[string]params.ApplicationStatus{
 		"logging": {
 			Charm:  "local:quantal/logging-1",

@@ -18,6 +18,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
+	"github.com/juju/utils/cert"
+	"github.com/juju/utils/clock"
 	"github.com/juju/utils/series"
 	"github.com/juju/utils/set"
 	"github.com/juju/utils/ssh"
@@ -35,7 +37,6 @@ import (
 	"github.com/juju/juju/api/imagemetadata"
 	apimachiner "github.com/juju/juju/api/machiner"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cert"
 	"github.com/juju/juju/cmd/jujud/agent/model"
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/environs"
@@ -60,6 +61,7 @@ import (
 	"github.com/juju/juju/worker/machiner"
 	"github.com/juju/juju/worker/migrationmaster"
 	"github.com/juju/juju/worker/mongoupgrader"
+	"github.com/juju/juju/worker/peergrouper"
 	"github.com/juju/juju/worker/storageprovisioner"
 	"github.com/juju/juju/worker/upgrader"
 	"github.com/juju/juju/worker/workertest"
@@ -100,9 +102,10 @@ func (s *MachineSuite) TestParseUnknown(c *gc.C) {
 func (s *MachineSuite) TestParseSuccess(c *gc.C) {
 	create := func() (cmd.Command, AgentConf) {
 		agentConf := agentConf{dataDir: s.DataDir()}
+		logger := s.newBufferedLogWriter()
 		a := NewMachineAgentCmd(
 			nil,
-			NewTestMachineAgentFactory(&agentConf, nil, c.MkDir()),
+			NewTestMachineAgentFactory(&agentConf, logger, c.MkDir()),
 			&agentConf,
 			&agentConf,
 		)
@@ -124,10 +127,11 @@ func (s *MachineSuite) TestRunInvalidMachineId(c *gc.C) {
 func (s *MachineSuite) TestUseLumberjack(c *gc.C) {
 	ctx := cmdtesting.Context(c)
 	agentConf := FakeAgentConfig{}
+	logger := s.newBufferedLogWriter()
 
 	a := NewMachineAgentCmd(
 		ctx,
-		NewTestMachineAgentFactory(&agentConf, nil, c.MkDir()),
+		NewTestMachineAgentFactory(&agentConf, logger, c.MkDir()),
 		agentConf,
 		agentConf,
 	)
@@ -148,10 +152,11 @@ func (s *MachineSuite) TestUseLumberjack(c *gc.C) {
 func (s *MachineSuite) TestDontUseLumberjack(c *gc.C) {
 	ctx := cmdtesting.Context(c)
 	agentConf := FakeAgentConfig{}
+	logger := s.newBufferedLogWriter()
 
 	a := NewMachineAgentCmd(
 		ctx,
-		NewTestMachineAgentFactory(&agentConf, nil, c.MkDir()),
+		NewTestMachineAgentFactory(&agentConf, logger, c.MkDir()),
 		agentConf,
 		agentConf,
 	)
@@ -417,7 +422,7 @@ func (s *MachineSuite) TestManageModelRunsInstancePoller(c *gc.C) {
 
 func (s *MachineSuite) TestManageModelRunsPeergrouper(c *gc.C) {
 	started := newSignal()
-	s.AgentSuite.PatchValue(&peergrouperNew, func(st *state.State, _ bool) (worker.Worker, error) {
+	s.AgentSuite.PatchValue(&peergrouperNew, func(st *state.State, _ clock.Clock, _ bool, _ peergrouper.Hub) (worker.Worker, error) {
 		c.Check(st, gc.NotNil)
 		started.trigger()
 		return newDummyWorker(), nil
@@ -511,7 +516,7 @@ func (s *MachineSuite) testUpgradeRequest(c *gc.C, agent runner, tag string, cur
 	newVers := version.Binary{
 		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
-		Series: series.HostSeries(),
+		Series: series.MustHostSeries(),
 	}
 	newVers.Patch++
 	newTools := envtesting.AssertUploadFakeToolsVersions(
@@ -642,7 +647,7 @@ func (s *MachineSuite) assertAgentSetsToolsVersion(c *gc.C, job state.MachineJob
 	vers := version.Binary{
 		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
-		Series: series.HostSeries(),
+		Series: series.MustHostSeries(),
 	}
 	vers.Minor++
 	m, _, _ := s.primeAgentVersion(c, vers, job)
@@ -1184,7 +1189,7 @@ func (s *MachineSuite) TestMachineAgentIgnoreAddressesContainer(c *gc.C) {
 	vers := version.Binary{
 		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
-		Series: series.HostSeries(),
+		Series: series.MustHostSeries(),
 	}
 	s.primeAgentWithMachine(c, m, vers)
 	a := s.newAgent(c, m)

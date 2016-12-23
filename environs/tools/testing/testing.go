@@ -47,7 +47,7 @@ func GetMockBundleTools(c *gc.C, expectedForceVersion *version.Number) tools.Bun
 		vers := version.Binary{
 			Number: jujuversion.Current,
 			Arch:   arch.HostArch(),
-			Series: series.HostSeries(),
+			Series: series.MustHostSeries(),
 		}
 		sha256Hash := fmt.Sprintf("%x", sha256.New().Sum(nil))
 		return vers, sha256Hash, nil
@@ -61,7 +61,7 @@ func GetMockBuildTools(c *gc.C) sync.BuildAgentTarballFunc {
 		vers := version.Binary{
 			Number: jujuversion.Current,
 			Arch:   arch.HostArch(),
-			Series: series.HostSeries(),
+			Series: series.MustHostSeries(),
 		}
 		if forceVersion != nil {
 			vers.Number = *forceVersion

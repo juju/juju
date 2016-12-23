@@ -265,7 +265,15 @@ func (st *State) NewModel(args ModelArgs) (_ *Model, _ *State, err error) {
 
 	uuid := args.Config.UUID()
 	session := st.session.Copy()
-	newSt, err := newState(names.NewModelTag(uuid), controllerInfo.ModelTag, session, st.mongoInfo, st.newPolicy, st.clock)
+	newSt, err := newState(
+		names.NewModelTag(uuid),
+		controllerInfo.ModelTag,
+		session,
+		st.mongoInfo,
+		st.newPolicy,
+		st.clock,
+		st.runTransactionObserver,
+	)
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "could not create state for new model")
 	}
@@ -909,7 +917,7 @@ func removeModelMachineRefOp(st *State, machineId string) txn.Op {
 	}
 }
 
-func addModelServiceRefOp(st *State, applicationname string) txn.Op {
+func addModelApplicationRefOp(st *State, applicationname string) txn.Op {
 	return txn.Op{
 		C:      modelEntityRefsC,
 		Id:     st.ModelUUID(),
@@ -918,7 +926,7 @@ func addModelServiceRefOp(st *State, applicationname string) txn.Op {
 	}
 }
 
-func removeModelServiceRefOp(st *State, applicationname string) txn.Op {
+func removeModelApplicationRefOp(st *State, applicationname string) txn.Op {
 	return txn.Op{
 		C:      modelEntityRefsC,
 		Id:     st.ModelUUID(),

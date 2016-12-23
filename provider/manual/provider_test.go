@@ -122,3 +122,12 @@ func (s *providerSuite) TestDefaultsCanBeOverriden(c *gc.C) {
 	c.Check(validCfg.EnableOSRefreshUpdate(), jc.IsTrue)
 	c.Check(validCfg.EnableOSUpgrade(), jc.IsTrue)
 }
+
+func (s *providerSuite) TestSchema(c *gc.C) {
+	vals := map[string]interface{}{"endpoint": "http://foo.com/bar"}
+
+	p, err := environs.Provider("manual")
+	c.Assert(err, jc.ErrorIsNil)
+	err = p.CloudSchema().Validate(vals)
+	c.Assert(err, jc.ErrorIsNil)
+}

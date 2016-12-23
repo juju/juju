@@ -15,7 +15,6 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 )
 
@@ -39,6 +38,10 @@ func init() {
 	common.RegisterFacade(
 		"StringsWatcher", 1, newStringsWatcher,
 		reflect.TypeOf((*srvStringsWatcher)(nil)),
+	)
+	common.RegisterFacade(
+		"RemoteApplicationWatcher", 1, newRemoteApplicationWatcher,
+		reflect.TypeOf((*srvRemoteApplicationWatcher)(nil)),
 	)
 	common.RegisterFacade(
 		"RelationUnitsWatcher", 1, newRelationUnitsWatcher,
@@ -69,14 +72,18 @@ func NewAllWatcher(context facade.Context) (facade.Facade, error) {
 	auth := context.Auth()
 	resources := context.Resources()
 
-	// HasPermission should not be replaced by auth.AuthClient() even if, at first sight, they seem
-	// equivalent because this allows us to remove login permission for a user
-	// (a permission that is given by default).
-	isAuthorized, err := auth.HasPermission(permission.LoginAccess, context.State().ControllerTag())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if !isAuthorized {
+	if !auth.AuthClient() {
+		// Note that we don't need to check specific permissions
+		// here, as the AllWatcher can only do anything if the
+		// watcher resource has already been created, so we can
+		// rely on the permission check there to ensure that
+		// this facade can't do anything it shouldn't be allowed
+		// to.
+		//
+		// This is useful because the AllWatcher is reused for
+		// both the WatchAll (requires model access rights) and
+		// the WatchAllModels (requring controller superuser
+		// rights) API calls.
 		return nil, common.ErrPerm
 	}
 	watcher, ok := resources.Get(id).(*state.Multiwatcher)
@@ -84,10 +91,29 @@ func NewAllWatcher(context facade.Context) (facade.Facade, error) {
 		return nil, common.ErrUnknownWatcher
 	}
 	return &SrvAllWatcher{
-		watcher:   watcher,
-		id:        id,
-		resources: resources,
+		watcherCommon: newWatcherCommon(context),
+		watcher:       watcher,
 	}, nil
+}
+
+type watcherCommon struct {
+	id        string
+	resources facade.Resources
+	dispose   func()
+}
+
+func newWatcherCommon(context facade.Context) watcherCommon {
+	return watcherCommon{
+		context.ID(),
+		context.Resources(),
+		context.Dispose,
+	}
+}
+
+// Stop stops the watcher.
+func (w *watcherCommon) Stop() error {
+	w.dispose()
+	return w.resources.Stop(w.id)
 }
 
 // SrvAllWatcher defines the API methods on a state.Multiwatcher.
@@ -95,9 +121,8 @@ func NewAllWatcher(context facade.Context) (facade.Facade, error) {
 // current set of watchers, stored in resources. It is used by both
 // the AllWatcher and AllModelWatcher facades.
 type SrvAllWatcher struct {
-	watcher   *state.Multiwatcher
-	id        string
-	resources facade.Resources
+	watcherCommon
+	watcher *state.Multiwatcher
 }
 
 func (aw *SrvAllWatcher) Next() (params.AllWatcherNextResults, error) {
@@ -107,16 +132,11 @@ func (aw *SrvAllWatcher) Next() (params.AllWatcherNextResults, error) {
 	}, err
 }
 
-func (w *SrvAllWatcher) Stop() error {
-	return w.resources.Stop(w.id)
-}
-
 // srvNotifyWatcher defines the API access to methods on a state.NotifyWatcher.
 // Each client has its own current set of watchers, stored in resources.
 type srvNotifyWatcher struct {
-	watcher   state.NotifyWatcher
-	id        string
-	resources facade.Resources
+	watcherCommon
+	watcher state.NotifyWatcher
 }
 
 func isAgent(auth facade.Authorizer) bool {
@@ -136,9 +156,8 @@ func newNotifyWatcher(context facade.Context) (facade.Facade, error) {
 		return nil, common.ErrUnknownWatcher
 	}
 	return &srvNotifyWatcher{
-		watcher:   watcher,
-		id:        id,
-		resources: resources,
+		watcherCommon: newWatcherCommon(context),
+		watcher:       watcher,
 	}, nil
 }
 
@@ -156,19 +175,13 @@ func (w *srvNotifyWatcher) Next() error {
 	return err
 }
 
-// Stop stops the watcher.
-func (w *srvNotifyWatcher) Stop() error {
-	return w.resources.Stop(w.id)
-}
-
 // srvStringsWatcher defines the API for methods on a state.StringsWatcher.
 // Each client has its own current set of watchers, stored in resources.
 // srvStringsWatcher notifies about changes for all entities of a given kind,
 // sending the changes as a list of strings.
 type srvStringsWatcher struct {
-	watcher   state.StringsWatcher
-	id        string
-	resources facade.Resources
+	watcherCommon
+	watcher state.StringsWatcher
 }
 
 func newStringsWatcher(context facade.Context) (facade.Facade, error) {
@@ -184,9 +197,8 @@ func newStringsWatcher(context facade.Context) (facade.Facade, error) {
 		return nil, common.ErrUnknownWatcher
 	}
 	return &srvStringsWatcher{
-		watcher:   watcher,
-		id:        id,
-		resources: resources,
+		watcherCommon: newWatcherCommon(context),
+		watcher:       watcher,
 	}, nil
 }
 
@@ -206,18 +218,12 @@ func (w *srvStringsWatcher) Next() (params.StringsWatchResult, error) {
 	return params.StringsWatchResult{}, err
 }
 
-// Stop stops the watcher.
-func (w *srvStringsWatcher) Stop() error {
-	return w.resources.Stop(w.id)
-}
-
 // srvRelationUnitsWatcher defines the API wrapping a state.RelationUnitsWatcher.
 // It notifies about units entering and leaving the scope of a RelationUnit,
 // and changes to the settings of those units known to have entered.
 type srvRelationUnitsWatcher struct {
-	watcher   state.RelationUnitsWatcher
-	id        string
-	resources facade.Resources
+	watcherCommon
+	watcher state.RelationUnitsWatcher
 }
 
 func newRelationUnitsWatcher(context facade.Context) (facade.Facade, error) {
@@ -233,9 +239,8 @@ func newRelationUnitsWatcher(context facade.Context) (facade.Facade, error) {
 		return nil, common.ErrUnknownWatcher
 	}
 	return &srvRelationUnitsWatcher{
-		watcher:   watcher,
-		id:        id,
-		resources: resources,
+		watcherCommon: newWatcherCommon(context),
+		watcher:       watcher,
 	}, nil
 }
 
@@ -255,9 +260,47 @@ func (w *srvRelationUnitsWatcher) Next() (params.RelationUnitsWatchResult, error
 	return params.RelationUnitsWatchResult{}, err
 }
 
-// Stop stops the watcher.
-func (w *srvRelationUnitsWatcher) Stop() error {
-	return w.resources.Stop(w.id)
+// srvRemoteApplicationWatcher will sends changes to relations a service
+// is involved in, including changes to the units involved in those
+// relations, and their settings.
+// TODO(wallyworld) - we may not need this watcher
+type srvRemoteApplicationWatcher struct {
+	watcherCommon
+	watcher state.RemoteApplicationWatcher
+}
+
+func newRemoteApplicationWatcher(context facade.Context) (facade.Facade, error) {
+	id := context.ID()
+	resources := context.Resources()
+	auth := context.Auth()
+
+	if !auth.AuthModelManager() {
+		return nil, common.ErrPerm
+	}
+	watcher, ok := resources.Get(id).(state.RemoteApplicationWatcher)
+	if !ok {
+		return nil, common.ErrUnknownWatcher
+	}
+	return &srvRemoteApplicationWatcher{
+		watcherCommon: newWatcherCommon(context),
+		watcher:       watcher,
+	}, nil
+}
+
+// Next returns when a change has occured to an entity of the
+// collection being watched since the most recent call to Next
+// or the Watch call that created the srvRemoteApplicationWatcher.
+func (w *srvRemoteApplicationWatcher) Next() (params.RemoteApplicationWatchResult, error) {
+	if change, ok := <-w.watcher.Changes(); ok {
+		return params.RemoteApplicationWatchResult{
+			Change: &change,
+		}, nil
+	}
+	err := w.watcher.Err()
+	if err == nil {
+		err = common.ErrStoppedWatcher
+	}
+	return params.RemoteApplicationWatchResult{}, err
 }
 
 // srvMachineStorageIdsWatcher defines the API wrapping a state.StringsWatcher
@@ -268,40 +311,32 @@ func (w *srvRelationUnitsWatcher) Stop() error {
 // could do with some deduplication of logic, and I don't want to add to that
 // spaghetti right now.
 type srvMachineStorageIdsWatcher struct {
-	watcher   state.StringsWatcher
-	id        string
-	resources facade.Resources
-	parser    func([]string) ([]params.MachineStorageId, error)
+	watcherCommon
+	watcher state.StringsWatcher
+	parser  func([]string) ([]params.MachineStorageId, error)
 }
 
 func newVolumeAttachmentsWatcher(context facade.Context) (facade.Facade, error) {
-	id := context.ID()
-	auth := context.Auth()
-	resources := context.Resources()
-	st := context.State()
-
 	return newMachineStorageIdsWatcher(
-		st, resources, auth, id, storagecommon.ParseVolumeAttachmentIds,
+		context,
+		storagecommon.ParseVolumeAttachmentIds,
 	)
 }
 
 func newFilesystemAttachmentsWatcher(context facade.Context) (facade.Facade, error) {
-	id := context.ID()
-	auth := context.Auth()
-	resources := context.Resources()
-	st := context.State()
 	return newMachineStorageIdsWatcher(
-		st, resources, auth, id, storagecommon.ParseFilesystemAttachmentIds,
+		context,
+		storagecommon.ParseFilesystemAttachmentIds,
 	)
 }
 
 func newMachineStorageIdsWatcher(
-	st *state.State,
-	resources facade.Resources,
-	auth facade.Authorizer,
-	id string,
+	context facade.Context,
 	parser func([]string) ([]params.MachineStorageId, error),
 ) (facade.Facade, error) {
+	id := context.ID()
+	auth := context.Auth()
+	resources := context.Resources()
 	if !isAgent(auth) {
 		return nil, common.ErrPerm
 	}
@@ -309,7 +344,11 @@ func newMachineStorageIdsWatcher(
 	if !ok {
 		return nil, common.ErrUnknownWatcher
 	}
-	return &srvMachineStorageIdsWatcher{watcher, id, resources, parser}, nil
+	return &srvMachineStorageIdsWatcher{
+		watcherCommon: newWatcherCommon(context),
+		watcher:       watcher,
+		parser:        parser,
+	}, nil
 }
 
 // Next returns when a change has occured to an entity of the
@@ -332,11 +371,6 @@ func (w *srvMachineStorageIdsWatcher) Next() (params.MachineStorageIdsWatchResul
 	return params.MachineStorageIdsWatchResult{}, err
 }
 
-// Stop stops the watcher.
-func (w *srvMachineStorageIdsWatcher) Stop() error {
-	return w.resources.Stop(w.id)
-}
-
 // EntitiesWatcher defines an interface based on the StringsWatcher
 // but also providing a method for the mapping of the received
 // strings to the tags of the according entities.
@@ -355,9 +389,8 @@ type EntitiesWatcher interface {
 // sending the changes as a list of strings, which could be transformed
 // from state entity ids to their corresponding entity tags.
 type srvEntitiesWatcher struct {
-	resources facade.Resources
-	id        string
-	watcher   EntitiesWatcher
+	watcherCommon
+	watcher EntitiesWatcher
 }
 
 func newEntitiesWatcher(context facade.Context) (facade.Facade, error) {
@@ -373,9 +406,8 @@ func newEntitiesWatcher(context facade.Context) (facade.Facade, error) {
 		return nil, common.ErrUnknownWatcher
 	}
 	return &srvEntitiesWatcher{
-		resources: resources,
-		id:        id,
-		watcher:   watcher,
+		watcherCommon: newWatcherCommon(context),
+		watcher:       watcher,
 	}, nil
 }
 
@@ -399,11 +431,6 @@ func (w *srvEntitiesWatcher) Next() (params.EntitiesWatchResult, error) {
 	return params.EntitiesWatchResult{}, err
 }
 
-// Stop stops the watcher.
-func (w *srvEntitiesWatcher) Stop() error {
-	return w.resources.Stop(w.id)
-}
-
 var getMigrationBackend = func(st *state.State) migrationBackend {
 	return st
 }
@@ -422,7 +449,7 @@ func newMigrationStatusWatcher(context facade.Context) (facade.Facade, error) {
 	resources := context.Resources()
 	st := context.State()
 
-	if !(auth.AuthMachineAgent() || auth.AuthUnitAgent()) {
+	if !isAgent(auth) {
 		return nil, common.ErrPerm
 	}
 	w, ok := resources.Get(id).(state.NotifyWatcher)
@@ -430,18 +457,16 @@ func newMigrationStatusWatcher(context facade.Context) (facade.Facade, error) {
 		return nil, common.ErrUnknownWatcher
 	}
 	return &srvMigrationStatusWatcher{
-		watcher:   w,
-		id:        id,
-		resources: resources,
-		st:        getMigrationBackend(st),
+		watcherCommon: newWatcherCommon(context),
+		watcher:       w,
+		st:            getMigrationBackend(st),
 	}, nil
 }
 
 type srvMigrationStatusWatcher struct {
-	watcher   state.NotifyWatcher
-	id        string
-	resources facade.Resources
-	st        migrationBackend
+	watcherCommon
+	watcher state.NotifyWatcher
+	st      migrationBackend
 }
 
 // Next returns when the status for a model migration for the
@@ -515,11 +540,6 @@ func (w *srvMigrationStatusWatcher) getLocalHostPorts() ([]string, error) {
 		}
 	}
 	return out, nil
-}
-
-// Stop stops the watcher.
-func (w *srvMigrationStatusWatcher) Stop() error {
-	return w.resources.Stop(w.id)
 }
 
 // This is a shim to avoid the need to use a working State into the

@@ -9,6 +9,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 )
@@ -219,4 +220,21 @@ func stripLocalFromFields(st *State, collName string, fields ...string) ([]txn.O
 		return nil, errors.Trace(err)
 	}
 	return ops, nil
+}
+
+func DropOldLogIndex(st *State) error {
+	// If the log collection still has the old e,t index, remove it.
+	key := []string{"e", "t"}
+	db := st.MongoSession().DB(logsDB)
+	collection := db.C(logsC)
+	err := collection.DropIndex(key...)
+	if err == nil {
+		return nil
+	}
+	if queryErr, ok := err.(*mgo.QueryError); ok {
+		if strings.HasPrefix(queryErr.Message, "index not found") {
+			return nil
+		}
+	}
+	return errors.Trace(err)
 }

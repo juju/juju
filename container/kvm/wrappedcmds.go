@@ -292,7 +292,7 @@ func ListMachines(runCmd runFunc) (map[string]string, error) {
 // guestPath returns the path to the guest directory from the given
 // pathfinder.
 func guestPath(pathfinder func(string) (string, error)) (string, error) {
-	baseDir, err := pathfinder(series.HostSeries())
+	baseDir, err := pathfinder(series.MustHostSeries())
 	if err != nil {
 		return "", errors.Trace(err)
 	}

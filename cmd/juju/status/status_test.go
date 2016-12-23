@@ -164,6 +164,10 @@ var (
 		"cloud":      "dummy",
 		"region":     "dummy-region",
 		"version":    "1.2.3",
+		"model-status": M{
+			"current": "available",
+			"since":   "01 Apr 15 01:23+10:00",
+		},
 	}
 
 	machine0 = M{
@@ -2432,6 +2436,10 @@ var statusTests = []testCase{
 					"region":            "dummy-region",
 					"version":           "1.2.3",
 					"upgrade-available": "1.2.4",
+					"model-status": M{
+						"current": "available",
+						"since":   "01 Apr 15 01:23+10:00",
+					},
 				},
 				"machines":     M{},
 				"applications": M{},
@@ -2633,6 +2641,82 @@ var statusTests = []testCase{
 					},
 				},
 				"applications": M{},
+			},
+		},
+	),
+	test( // 23
+		"a remote application",
+		addMachine{machineId: "0", job: state.JobManageModel},
+		setAddresses{"0", network.NewAddresses("10.0.0.1")},
+		startAliveMachine{"0"},
+		setMachineStatus{"0", status.Started, ""},
+		addMachine{machineId: "1", job: state.JobHostUnits},
+		setAddresses{"1", network.NewAddresses("10.0.1.1")},
+		startAliveMachine{"1"},
+		setMachineStatus{"1", status.Started, ""},
+
+		addCharm{"wordpress"},
+		addService{name: "wordpress", charm: "wordpress"},
+		addAliveUnit{"wordpress", "1"},
+
+		addCharm{"mysql"},
+		addRemoteApplication{name: "hosted-mysql", url: "local:/u/me/mysql", charm: "mysql", endpoints: []string{"server"}},
+		relateServices{"wordpress", "hosted-mysql"},
+
+		expect{
+			"a remote application",
+			M{
+				"model": model,
+				"machines": M{
+					"0": machine0,
+					"1": machine1,
+				},
+				"application-endpoints": M{
+					"hosted-mysql": M{
+						"url": "local:/u/me/mysql",
+						"endpoints": M{
+							"server": M{
+								"interface": "mysql",
+								"role":      "provider",
+							},
+						},
+						"application-status": M{
+							"current": "unknown",
+							"message": "waiting for remote connection",
+							"since":   "01 Apr 15 01:23+10:00",
+						},
+						"relations": M{
+							"server": L{"wordpress"},
+						},
+					},
+				},
+				"applications": M{
+					"wordpress": wordpressCharm(M{
+						"application-status": M{
+							"current": "waiting",
+							"message": "waiting for machine",
+							"since":   "01 Apr 15 01:23+10:00",
+						},
+						"relations": M{
+							"db": L{"hosted-mysql"},
+						},
+						"units": M{
+							"wordpress/0": M{
+								"machine": "1",
+								"workload-status": M{
+									"current": "waiting",
+									"message": "waiting for machine",
+									"since":   "01 Apr 15 01:23+10:00",
+								},
+								"juju-status": M{
+									"current": "allocating",
+									"since":   "01 Apr 15 01:23+10:00",
+								},
+								"public-address": "10.0.1.1",
+							},
+						},
+					}),
+				},
 			},
 		},
 	),
@@ -2899,6 +2983,34 @@ func (as addService) step(c *gc.C, ctx *context) {
 		err = svc.SetConstraints(as.cons)
 		c.Assert(err, jc.ErrorIsNil)
 	}
+}
+
+type addRemoteApplication struct {
+	name      string
+	url       string
+	charm     string
+	endpoints []string
+}
+
+func (as addRemoteApplication) step(c *gc.C, ctx *context) {
+	ch, ok := ctx.charms[as.charm]
+	c.Assert(ok, jc.IsTrue)
+	var endpoints []charm.Relation
+	for _, ep := range as.endpoints {
+		r, ok := ch.Meta().Requires[ep]
+		if !ok {
+			r, ok = ch.Meta().Provides[ep]
+		}
+		c.Assert(ok, jc.IsTrue)
+		endpoints = append(endpoints, r)
+	}
+	_, err := ctx.st.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name:        as.name,
+		URL:         as.url,
+		SourceModel: coretesting.ModelTag,
+		Endpoints:   endpoints,
+	})
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 type setServiceExposed struct {
@@ -3314,7 +3426,11 @@ func (s *StatusSuite) TestMigrationInProgress(c *gc.C) {
 			"cloud":      "dummy",
 			"region":     "dummy-region",
 			"version":    "1.2.3",
-			"migration":  "foo bar",
+			"model-status": M{
+				"current": "busy",
+				"since":   "01 Apr 15 01:23+10:00",
+				"message": "migrating: foo bar",
+			},
 		},
 		"machines":     M{},
 		"applications": M{},
@@ -3324,6 +3440,8 @@ func (s *StatusSuite) TestMigrationInProgress(c *gc.C) {
 		code, stdout, stderr := runStatus(c, "-m", "hosted", "--format", format.name)
 		c.Check(code, gc.Equals, 0)
 		c.Assert(stderr, gc.HasLen, 0, gc.Commentf("status failed: %s", stderr))
+
+		stdout = substituteFakeSinceTime(c, stdout, false)
 
 		// Roundtrip expected through format so that types will match.
 		buf, err := format.marshal(expected)
@@ -3439,6 +3557,8 @@ func (s *StatusSuite) TestStatusWithFormatSummary(c *gc.C) {
 		addCharm{"wordpress"},
 		addCharm{"mysql"},
 		addCharm{"logging"},
+		addCharm{"riak"},
+		addRemoteApplication{name: "hosted-riak", url: "local:/u/me/riak", charm: "riak", endpoints: []string{"endpoint"}},
 		addService{name: "wordpress", charm: "wordpress"},
 		setServiceExposed{"wordpress", true},
 		addMachine{machineId: "1", job: state.JobHostUnits},
@@ -3489,6 +3609,9 @@ Running on subnets:  127.0.0.1/8, 10.0.0.2/8
           logging  1/1  exposed
             mysql  1/1  exposed
         wordpress  1/1  exposed
+                 
+        # Remote:  (1)
+      hosted-riak       local:/u/me/riak
 
 `[1:])
 }
@@ -3581,6 +3704,8 @@ func (s *StatusSuite) prepareTabularData(c *gc.C) *context {
 		addCharm{"wordpress"},
 		addCharm{"mysql"},
 		addCharm{"logging"},
+		addCharm{"riak"},
+		addRemoteApplication{name: "hosted-riak", url: "local:/u/me/riak", charm: "riak", endpoints: []string{"endpoint"}},
 		addService{name: "wordpress", charm: "wordpress"},
 		setServiceExposed{"wordpress", true},
 		addMachine{machineId: "1", job: state.JobHostUnits},
@@ -3641,6 +3766,9 @@ func (s *StatusSuite) testStatusWithFormatTabular(c *gc.C, useFeatureFlag bool) 
 	expected := `
 Model       Controller  Cloud/Region        Version  Notes
 controller  kontroll    dummy/dummy-region  1.2.3    upgrade available: 1.2.4
+
+SAAS name    Status   Store  URL        Interfaces
+hosted-riak  unknown  local  u/me/riak  http:endpoint
 
 App        Version          Status       Scale  Charm      Store       Rev  OS      Notes
 logging    a bit too lo...  error            2  logging    jujucharms    1  ubuntu  exposed
@@ -3799,23 +3927,22 @@ func (s *StatusSuite) TestFormatTabularMetering(c *gc.C) {
 	out := &bytes.Buffer{}
 	err := FormatTabular(out, false, status)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(out.String(), gc.Equals, `
-Model  Controller  Cloud/Region  Version
-                                 
-
-App  Version  Status  Scale  Charm  Store  Rev  OS  Notes
-foo                     0/2                  0      
-
-Unit   Workload  Agent  Machine  Public address  Ports  Message
-foo/0                                                   
-foo/1                                                   
-
-Meter  Status   Message
-foo/0  strange  warning: stable strangelets
-foo/1  up       things are looking up
-
-Machine  State  DNS  Inst id  Series  AZ
-`[1:])
+	c.Assert(out.String(), gc.Equals, ""+
+		"Model  Controller  Cloud/Region  Version\n"+
+		"                                 \n"+
+		"\n"+
+		"App  Version  Status  Scale  Charm  Store  Rev  OS  Notes\n"+
+		"foo                     0/2                  0      \n"+
+		"\n"+
+		"Unit   Workload  Agent  Machine  Public address  Ports  Message\n"+
+		"foo/0                                                   \n"+
+		"foo/1                                                   \n"+
+		"\n"+
+		"Meter  Status   Message\n"+
+		"foo/0  strange  warning: stable strangelets  \n"+
+		"foo/1  up       things are looking up        \n"+
+		"\n"+
+		"Machine  State  DNS  Inst id  Series  AZ\n")
 }
 
 //
@@ -3966,6 +4093,9 @@ func (s *StatusSuite) TestFilterToContainer(c *gc.C) {
 		"  cloud: dummy\n" +
 		"  region: dummy-region\n" +
 		"  version: 1.2.3\n" +
+		"  model-status:\n" +
+		"    current: available\n" +
+		"    since: 01 Apr 15 01:23+10:00\n" +
 		"machines:\n" +
 		"  \"0\":\n" +
 		"    juju-status:\n" +
@@ -4261,6 +4391,10 @@ var statusTimeTest = test(
 				"cloud":      "dummy",
 				"region":     "dummy-region",
 				"version":    "1.2.3",
+				"model-status": M{
+					"current": "available",
+					"since":   "01 Apr 15 01:23+10:00",
+				},
 			},
 			"machines": M{
 				"0": machine0,
@@ -4340,7 +4474,8 @@ func (s *StatusSuite) TestFormatProvisioningError(c *gc.C) {
 				Containers: map[string]machineStatus{},
 			},
 		},
-		Applications: map[string]applicationStatus{},
+		Applications:       map[string]applicationStatus{},
+		RemoteApplications: map[string]remoteApplicationStatus{},
 	})
 }
 

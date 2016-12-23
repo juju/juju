@@ -36,9 +36,10 @@ func NewCharmResource(c *gc.C, name, content string) charmresource.Resource {
 	c.Assert(err, jc.ErrorIsNil)
 	res := charmresource.Resource{
 		Meta: charmresource.Meta{
-			Name: name,
-			Type: charmresource.TypeFile,
-			Path: name + ".tgz",
+			Name:        name,
+			Type:        charmresource.TypeFile,
+			Path:        name + ".tgz",
+			Description: name + " description",
 		},
 		Origin:      charmresource.OriginUpload,
 		Revision:    0,

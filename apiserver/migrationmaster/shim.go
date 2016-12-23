@@ -19,7 +19,11 @@ func newAPIForRegistration(
 	resources facade.Resources,
 	authorizer facade.Authorizer,
 ) (*API, error) {
-	return NewAPI(&backendShim{st}, migration.PrecheckShim(st), resources, authorizer)
+	precheckBackend, err := migration.PrecheckShim(st)
+	if err != nil {
+		return nil, errors.Annotate(err, "creating precheck backend")
+	}
+	return NewAPI(&backendShim{st}, precheckBackend, resources, authorizer)
 }
 
 // backendShim wraps a *state.State to implement Backend. It is

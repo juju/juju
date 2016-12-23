@@ -88,7 +88,10 @@ func connectFallback(
 	// atom in a func currently seems to be less treacherous
 	// than the alternatives.
 	var tryConnect = func() {
-		conn, err = apiOpen(info, api.DialOpts{})
+		conn, err = apiOpen(info, api.DialOpts{
+			Timeout:    time.Second,
+			RetryDelay: 200 * time.Millisecond,
+		})
 	}
 
 	didFallback = info.Password == ""

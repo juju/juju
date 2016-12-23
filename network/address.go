@@ -169,7 +169,7 @@ func NewAddressOnSpace(spaceName string, value string) Address {
 	return addr
 }
 
-// NewAddresses is a convenience function to create addresses from a a variable
+// NewAddresses is a convenience function to create addresses from a variable
 // number of string arguments.
 func NewAddresses(inAddresses ...string) (outAddresses []Address) {
 	outAddresses = make([]Address, len(inAddresses))
@@ -333,6 +333,20 @@ func SelectMongoHostPortsBySpaces(hostPorts []HostPort, spaces []SpaceName) ([]s
 		)
 	}
 	return HostPortsToStrings(filteredHostPorts), ok
+}
+
+// HostPortsHasIPv4Address returns true if the passed slice of HostPort
+// contains an IPv4 address that is not just a machine-local address.
+func HostPortsHasIPv4Address(hostPorts []HostPort) bool {
+	for _, hp := range hostPorts {
+		logger.Tracef("found Address of Value %q, Type %q and Scope %q",
+			hp.Address.Value, hp.Address.Type, hp.Address.Scope)
+		if hp.Address.Type == "ipv4" &&
+			hp.Address.Scope != ScopeMachineLocal {
+			return true
+		}
+	}
+	return false
 }
 
 func SelectMongoHostPortsByScope(hostPorts []HostPort, machineLocal bool) []string {

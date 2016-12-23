@@ -8,10 +8,12 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"strings"
 	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/utils/series"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/agent"
@@ -21,6 +23,8 @@ import (
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/container/factory"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/service"
+	"github.com/juju/juju/service/common"
 )
 
 var logger = loggo.GetLogger("juju.cmd.jujud.reboot")
@@ -70,12 +74,47 @@ func (r *Reboot) ExecuteReboot(action params.RebootAction) error {
 		return errors.Trace(err)
 	}
 
+	// Stop all units before issuing a reboot. During a reboot, the machine agent
+	// will attempt to hold the execution lock until the reboot happens. However, since
+	// the old file based locking method has been replaced with semaphores (Windows), and
+	// sockets (Linux), if the machine agent is killed by the init system during shutdown,
+	// before the unit agents, the lock is released and unit agents start running hooks.
+	// When they in turn are killed, the hook is thrown into error state. If automatic retries
+	// are disabled, the hook remains in error state.
+	if err := r.stopDeployedUnits(); err != nil {
+		return errors.Trace(err)
+	}
+
 	if err := scheduleAction(action, rebootAfter); err != nil {
 		return errors.Trace(err)
 	}
 
 	err := r.st.ClearReboot()
 	return errors.Trace(err)
+}
+
+func (r *Reboot) stopDeployedUnits() error {
+	osVersion, err := series.HostSeries()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	services, err := service.ListServices()
+	if err != nil {
+		return err
+	}
+	for _, svcName := range services {
+		if strings.HasPrefix(svcName, `jujud-unit-`) {
+			svc, err := service.NewService(svcName, common.Conf{}, osVersion)
+			if err != nil {
+				return err
+			}
+			logger.Debugf("Stopping unit agent: %q", svcName)
+			if err = svc.Stop(); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 func (r *Reboot) runningContainers() ([]instance.Instance, error) {

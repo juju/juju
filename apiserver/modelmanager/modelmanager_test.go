@@ -39,7 +39,16 @@ import (
 	"github.com/juju/juju/testing/factory"
 )
 
-type modelManagerBaseSuite struct {
+func createArgs(owner names.UserTag) params.ModelCreateArgs {
+	return params.ModelCreateArgs{
+		Name:     "test-model",
+		OwnerTag: owner.String(),
+		Config: map[string]interface{}{
+			"authorized-keys": "ssh-key",
+			// And to make it a valid dummy config
+			"controller": false,
+		},
+	}
 }
 
 type modelManagerSuite struct {
@@ -75,7 +84,7 @@ func (s *modelManagerSuite) SetUpTest(c *gc.C) {
 			names.NewCloudTag("some-cloud"): dummyCloud,
 		},
 		controllerModel: &mockModel{
-			owner: names.NewUserTag("admin@local"),
+			owner: names.NewUserTag("admin"),
 			life:  state.Alive,
 			cfg:   cfg,
 			status: status.StatusInfo{
@@ -86,12 +95,16 @@ func (s *modelManagerSuite) SetUpTest(c *gc.C) {
 				userName: "admin",
 				access:   permission.AdminAccess,
 			}, {
+				userName: "add-model",
+				access:   permission.AdminAccess,
+			}, {
+
 				userName: "otheruser",
 				access:   permission.WriteAccess,
 			}},
 		},
 		model: &mockModel{
-			owner: names.NewUserTag("admin@local"),
+			owner: names.NewUserTag("admin"),
 			life:  state.Alive,
 			tag:   coretesting.ModelTag,
 			cfg:   cfg,
@@ -103,6 +116,10 @@ func (s *modelManagerSuite) SetUpTest(c *gc.C) {
 				userName: "admin",
 				access:   permission.AdminAccess,
 			}, {
+				userName: "add-model",
+				access:   permission.AdminAccess,
+			}, {
+
 				userName: "otheruser",
 				access:   permission.WriteAccess,
 			}},
@@ -124,7 +141,7 @@ func (s *modelManagerSuite) SetUpTest(c *gc.C) {
 		},
 	}
 	s.authoriser = apiservertesting.FakeAuthorizer{
-		Tag: names.NewUserTag("admin@local"),
+		Tag: names.NewUserTag("admin"),
 	}
 	api, err := modelmanager.NewModelManagerAPI(s.st, nil, s.authoriser)
 	c.Assert(err, jc.ErrorIsNil)
@@ -178,7 +195,9 @@ func (s *modelManagerSuite) TestCreateModelArgs(c *gc.C) {
 		"ControllerConfig",
 		"LastModelConnection",
 		"LastModelConnection",
+		"LastModelConnection",
 		"AllMachines",
+		"LatestMigration",
 		"Close",
 		"Close",
 	)
@@ -207,7 +226,7 @@ func (s *modelManagerSuite) TestCreateModelArgs(c *gc.C) {
 	newModelArgs.StorageProviderRegistry = nil
 
 	c.Assert(newModelArgs, jc.DeepEquals, state.ModelArgs{
-		Owner:       names.NewUserTag("admin@local"),
+		Owner:       names.NewUserTag("admin"),
 		CloudName:   "some-cloud",
 		CloudRegion: "qux",
 		CloudCredential: names.NewCloudCredentialTag(
@@ -428,14 +447,14 @@ func (s *modelManagerSuite) TestUnsetModelDefaultsMissing(c *gc.C) {
 }
 
 func (s *modelManagerSuite) TestModelDefaultsAsNormalUser(c *gc.C) {
-	s.setAPIUser(c, names.NewUserTag("charlie@local"))
+	s.setAPIUser(c, names.NewUserTag("charlie"))
 	got, err := s.api.ModelDefaults()
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 	c.Assert(got, gc.DeepEquals, params.ModelDefaultsResult{})
 }
 
 func (s *modelManagerSuite) TestSetModelDefaultsAsNormalUser(c *gc.C) {
-	s.setAPIUser(c, names.NewUserTag("charlie@local"))
+	s.setAPIUser(c, names.NewUserTag("charlie"))
 	got, err := s.api.SetModelDefaults(params.SetModelDefaults{
 		Config: []params.ModelDefaultValues{{
 			Config: map[string]interface{}{
@@ -450,14 +469,14 @@ func (s *modelManagerSuite) TestSetModelDefaultsAsNormalUser(c *gc.C) {
 					Code:    "unauthorized access"}}}})
 
 	// Make sure it didn't change.
-	s.setAPIUser(c, names.NewUserTag("admin@local"))
+	s.setAPIUser(c, names.NewUserTag("admin"))
 	cfg, err := s.api.ModelDefaults()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg.Config["ftp-proxy"].Controller, gc.IsNil)
 }
 
 func (s *modelManagerSuite) TestUnsetModelDefaultsAsNormalUser(c *gc.C) {
-	s.setAPIUser(c, names.NewUserTag("charlie@local"))
+	s.setAPIUser(c, names.NewUserTag("charlie"))
 	got, err := s.api.UnsetModelDefaults(params.UnsetModelDefaults{
 		Keys: []params.ModelUnsetKeys{{
 			Keys: []string{"attr2"}}}})
@@ -468,7 +487,7 @@ func (s *modelManagerSuite) TestUnsetModelDefaultsAsNormalUser(c *gc.C) {
 				Error: nil}}})
 
 	// Make sure it didn't change.
-	s.setAPIUser(c, names.NewUserTag("admin@local"))
+	s.setAPIUser(c, names.NewUserTag("admin"))
 	cfg, err := s.api.ModelDefaults()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg.Config["attr2"].Controller.(string), gc.Equals, "val3")
@@ -590,6 +609,45 @@ func (s *modelManagerSuite) TestDumpModelsDBUsers(c *gc.C) {
 	}
 }
 
+func (s *modelManagerSuite) TestAddModelCanCreateModel(c *gc.C) {
+	addModelUser := names.NewUserTag("add-model")
+	userAccess := permission.UserAccess{
+		UserID:      addModelUser.Id(),
+		UserTag:     addModelUser,
+		Object:      s.st.ControllerTag(),
+		Access:      permission.AddModelAccess,
+		CreatedBy:   names.NewUserTag("admin"),
+		DisplayName: addModelUser.Name(),
+		UserName:    addModelUser.Name(),
+	}
+	s.st.users = []permission.UserAccess{userAccess}
+	_, err := s.st.UserAccess(addModelUser, s.st.ControllerTag())
+	c.Assert(err, jc.ErrorIsNil)
+	s.setAPIUser(c, addModelUser)
+	_, err = s.api.CreateModel(createArgs(addModelUser))
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *modelManagerSuite) TestAddModelCantCreateModelForSomeoneElse(c *gc.C) {
+	addModelUser := names.NewUserTag("add-model")
+	userAccess := permission.UserAccess{
+		UserID:      addModelUser.Id(),
+		UserTag:     addModelUser,
+		Object:      s.st.ControllerTag(),
+		Access:      permission.AddModelAccess,
+		CreatedBy:   names.NewUserTag("admin"),
+		DisplayName: addModelUser.Name(),
+		UserName:    addModelUser.Name(),
+	}
+	s.st.users = []permission.UserAccess{userAccess}
+	_, err := s.st.UserAccess(addModelUser, s.st.ControllerTag())
+	c.Assert(err, jc.ErrorIsNil)
+	s.setAPIUser(c, addModelUser)
+	nonAdminUser := names.NewUserTag("non-admin")
+	_, err = s.api.CreateModel(createArgs(nonAdminUser))
+	c.Assert(err, gc.ErrorMatches, "\"add-model\" permission does not permit creation of models for different owners: permission denied")
+}
+
 // modelManagerStateSuite contains end-to-end tests.
 // Prefer adding tests to modelManagerSuite above.
 type modelManagerStateSuite struct {
@@ -647,28 +705,16 @@ func (s *modelManagerStateSuite) TestNewAPIRefusesNonClient(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
-func (s *modelManagerStateSuite) createArgs(c *gc.C, owner names.UserTag) params.ModelCreateArgs {
-	return params.ModelCreateArgs{
-		Name:     "test-model",
-		OwnerTag: owner.String(),
-		Config: map[string]interface{}{
-			"authorized-keys": "ssh-key",
-			// And to make it a valid dummy config
-			"controller": false,
-		},
-	}
-}
-
 func (s *modelManagerStateSuite) createArgsForVersion(c *gc.C, owner names.UserTag, ver interface{}) params.ModelCreateArgs {
-	params := s.createArgs(c, owner)
+	params := createArgs(owner)
 	params.Config["agent-version"] = ver
 	return params
 }
 
 func (s *modelManagerStateSuite) TestUserCanCreateModel(c *gc.C) {
-	owner := names.NewUserTag("admin@local")
+	owner := names.NewUserTag("admin")
 	s.setAPIUser(c, owner)
-	model, err := s.modelmanager.CreateModel(s.createArgs(c, owner))
+	model, err := s.modelmanager.CreateModel(createArgs(owner))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(model.OwnerTag, gc.Equals, owner.String())
 	c.Assert(model.Name, gc.Equals, "test-model")
@@ -677,7 +723,7 @@ func (s *modelManagerStateSuite) TestUserCanCreateModel(c *gc.C) {
 func (s *modelManagerStateSuite) TestAdminCanCreateModelForSomeoneElse(c *gc.C) {
 	s.setAPIUser(c, s.AdminUserTag(c))
 	owner := names.NewUserTag("external@remote")
-	model, err := s.modelmanager.CreateModel(s.createArgs(c, owner))
+	model, err := s.modelmanager.CreateModel(createArgs(owner))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(model.OwnerTag, gc.Equals, owner.String())
 	c.Assert(model.Name, gc.Equals, "test-model")
@@ -697,21 +743,21 @@ func (s *modelManagerStateSuite) TestAdminCanCreateModelForSomeoneElse(c *gc.C) 
 func (s *modelManagerStateSuite) TestNonAdminCannotCreateModelForSomeoneElse(c *gc.C) {
 	s.setAPIUser(c, names.NewUserTag("non-admin@remote"))
 	owner := names.NewUserTag("external@remote")
-	_, err := s.modelmanager.CreateModel(s.createArgs(c, owner))
+	_, err := s.modelmanager.CreateModel(createArgs(owner))
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
 func (s *modelManagerStateSuite) TestNonAdminCannotCreateModelForSelf(c *gc.C) {
 	owner := names.NewUserTag("non-admin@remote")
 	s.setAPIUser(c, owner)
-	_, err := s.modelmanager.CreateModel(s.createArgs(c, owner))
+	_, err := s.modelmanager.CreateModel(createArgs(owner))
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
 func (s *modelManagerStateSuite) TestCreateModelValidatesConfig(c *gc.C) {
 	admin := s.AdminUserTag(c)
 	s.setAPIUser(c, admin)
-	args := s.createArgs(c, admin)
+	args := createArgs(admin)
 	args.Config["controller"] = "maybe"
 	_, err := s.modelmanager.CreateModel(args)
 	c.Assert(err, gc.ErrorMatches,
@@ -720,7 +766,7 @@ func (s *modelManagerStateSuite) TestCreateModelValidatesConfig(c *gc.C) {
 }
 
 func (s *modelManagerStateSuite) TestCreateModelBadConfig(c *gc.C) {
-	owner := names.NewUserTag("admin@local")
+	owner := names.NewUserTag("admin")
 	s.setAPIUser(c, owner)
 	for i, test := range []struct {
 		key      string
@@ -738,7 +784,7 @@ func (s *modelManagerStateSuite) TestCreateModelBadConfig(c *gc.C) {
 		},
 	} {
 		c.Logf("%d: %s", i, test.key)
-		args := s.createArgs(c, owner)
+		args := createArgs(owner)
 		args.Config[test.key] = test.value
 		_, err := s.modelmanager.CreateModel(args)
 		c.Assert(err, gc.ErrorMatches, test.errMatch)
@@ -804,7 +850,7 @@ func (s *modelManagerStateSuite) TestListModelsForSelfLocalUser(c *gc.C) {
 	// When the user's credentials cache stores the simple name, but the
 	// api server converts it to a fully qualified name.
 	user := names.NewUserTag("local-user")
-	s.setAPIUser(c, names.NewUserTag("local-user@local"))
+	s.setAPIUser(c, names.NewUserTag("local-user"))
 	result, err := s.modelmanager.ListModels(params.Entity{Tag: user.String()})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.UserModels, gc.HasLen, 0)
@@ -860,9 +906,9 @@ func (s *modelManagerStateSuite) TestDestroyOwnModel(c *gc.C) {
 	// TODO(perrito666) this test is not valid until we have
 	// proper controller permission since the only users that
 	// can create models are controller admins.
-	owner := names.NewUserTag("admin@local")
+	owner := names.NewUserTag("admin")
 	s.setAPIUser(c, owner)
-	m, err := s.modelmanager.CreateModel(s.createArgs(c, owner))
+	m, err := s.modelmanager.CreateModel(createArgs(owner))
 	c.Assert(err, jc.ErrorIsNil)
 	st, err := s.State.ForModel(names.NewModelTag(m.UUID))
 	c.Assert(err, jc.ErrorIsNil)
@@ -888,9 +934,9 @@ func (s *modelManagerStateSuite) TestDestroyOwnModel(c *gc.C) {
 func (s *modelManagerStateSuite) TestAdminDestroysOtherModel(c *gc.C) {
 	// TODO(perrito666) Both users are admins in this case, this tesst is of dubious
 	// usefulness until proper controller permissions are in place.
-	owner := names.NewUserTag("admin@local")
+	owner := names.NewUserTag("admin")
 	s.setAPIUser(c, owner)
-	m, err := s.modelmanager.CreateModel(s.createArgs(c, owner))
+	m, err := s.modelmanager.CreateModel(createArgs(owner))
 	c.Assert(err, jc.ErrorIsNil)
 	st, err := s.State.ForModel(names.NewModelTag(m.UUID))
 	c.Assert(err, jc.ErrorIsNil)
@@ -918,9 +964,9 @@ func (s *modelManagerStateSuite) TestAdminDestroysOtherModel(c *gc.C) {
 }
 
 func (s *modelManagerStateSuite) TestDestroyModelErrors(c *gc.C) {
-	owner := names.NewUserTag("admin@local")
+	owner := names.NewUserTag("admin")
 	s.setAPIUser(c, owner)
-	m, err := s.modelmanager.CreateModel(s.createArgs(c, owner))
+	m, err := s.modelmanager.CreateModel(createArgs(owner))
 	c.Assert(err, jc.ErrorIsNil)
 	st, err := s.State.ForModel(names.NewModelTag(m.UUID))
 	c.Assert(err, jc.ErrorIsNil)
@@ -1210,7 +1256,7 @@ func (s *modelManagerStateSuite) TestGrantModelInvalidUserTag(c *gc.C) {
 		tag:      "machine-0",
 		validTag: true,
 	}, {
-		tag:      "user@local",
+		tag:      "user",
 		validTag: false,
 	}, {
 		tag:      "user-Mua^h^h^h^arh",

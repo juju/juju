@@ -16,8 +16,12 @@ import (
 
 // Resources describes the state functionality for resources.
 type Resources interface {
-	// ListResources returns the list of resources for the given service.
+	// ListResources returns the list of resources for the given application.
 	ListResources(applicationID string) (resource.ServiceResources, error)
+
+	// ListPendingResources returns the list of pending resources for
+	// the given application.
+	ListPendingResources(applicationID string) ([]resource.Resource, error)
 
 	// AddPendingResource adds the resource to the data store in a
 	// "pending" state. It will stay pending (and unavailable) until
@@ -33,6 +37,9 @@ type Resources interface {
 
 	// SetResource adds the resource to blob storage and updates the metadata.
 	SetResource(applicationID, userID string, res charmresource.Resource, r io.Reader) (resource.Resource, error)
+
+	// SetUnitResource sets the resource metadata for a specific unit.
+	SetUnitResource(unitName, userID string, res charmresource.Resource) (resource.Resource, error)
 
 	// UpdatePendingResource adds the resource to blob storage and updates the metadata.
 	UpdatePendingResource(applicationID, pendingID, userID string, res charmresource.Resource, r io.Reader) (resource.Resource, error)

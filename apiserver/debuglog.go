@@ -9,10 +9,12 @@ import (
 	"net/url"
 	"strconv"
 	"syscall"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"golang.org/x/net/websocket"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
@@ -72,14 +74,13 @@ func (h *debugLogHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			socket := &debugLogSocketImpl{conn}
 			defer conn.Close()
 
-			// Validate before authenticate because the authentication is
-			// dependent on the state connection that is determined during the
-			// validation.
-			st, _, err := h.ctxt.stateForRequestAuthenticatedUser(req)
+			st, _, err := h.ctxt.stateForRequestAuthenticatedTag(req, names.MachineTagKind, names.UserTagKind)
 			if err != nil {
 				socket.sendError(err)
 				return
 			}
+			defer h.ctxt.release(st)
+
 			params, err := readDebugLogParams(req.URL.Query())
 			if err != nil {
 				socket.sendError(err)
@@ -144,6 +145,7 @@ func (s *debugLogSocketImpl) sendLogRecord(record *params.LogMessage) error {
 
 // debugLogParams contains the parsed debuglog API request parameters.
 type debugLogParams struct {
+	startTime     time.Time
 	maxLines      uint
 	fromTheStart  bool
 	noTail        bool
@@ -198,6 +200,14 @@ func readDebugLogParams(queryMap url.Values) (*debugLogParams, error) {
 				value, loggo.TRACE, loggo.DEBUG, loggo.INFO, loggo.WARNING, loggo.ERROR)
 		}
 		params.filterLevel = level
+	}
+
+	if value := queryMap.Get("startTime"); value != "" {
+		startTime, err := time.Parse(time.RFC3339Nano, value)
+		if err != nil {
+			return nil, errors.Errorf("start time %q is not a valid time in RFC3339 format", value)
+		}
+		params.startTime = startTime
 	}
 
 	params.includeEntity = queryMap["includeEntity"]

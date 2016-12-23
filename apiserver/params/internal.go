@@ -722,3 +722,16 @@ type LogMessage struct {
 	Location  string    `json:"loc"`
 	Message   string    `json:"msg"`
 }
+
+// ResourceUploadResult is used to return some details about an
+// uploaded resource.
+type ResourceUploadResult struct {
+	// Error will contain details about a failed upload attempt.
+	Error *Error `json:"error,omitempty"`
+
+	// ID uniquely identifies a resource-application pair within the model.
+	ID string `json:"id"`
+
+	// Timestamp indicates when the resource was added to the model.
+	Timestamp time.Time `json:"timestamp"`
+}

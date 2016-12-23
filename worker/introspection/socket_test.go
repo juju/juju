@@ -15,6 +15,7 @@ import (
 
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/prometheus/client_golang/prometheus"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/worker"
@@ -40,7 +41,8 @@ func (s *suite) TestStartStop(c *gc.C) {
 	}
 
 	w, err := introspection.NewWorker(introspection.Config{
-		SocketName: "introspection-test",
+		SocketName:         "introspection-test",
+		PrometheusGatherer: prometheus.NewRegistry(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	workertest.CheckKill(c, w)
@@ -52,6 +54,7 @@ type introspectionSuite struct {
 	name     string
 	worker   worker.Worker
 	reporter introspection.DepEngineReporter
+	gatherer prometheus.Gatherer
 }
 
 var _ = gc.Suite(&introspectionSuite{})
@@ -63,14 +66,16 @@ func (s *introspectionSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.reporter = nil
 	s.worker = nil
+	s.gatherer = newPrometheusGatherer()
 	s.startWorker(c)
 }
 
 func (s *introspectionSuite) startWorker(c *gc.C) {
 	s.name = fmt.Sprintf("introspection-test-%d", os.Getpid())
 	w, err := introspection.NewWorker(introspection.Config{
-		SocketName: s.name,
-		Reporter:   s.reporter,
+		SocketName:         s.name,
+		Reporter:           s.reporter,
+		PrometheusGatherer: s.gatherer,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.worker = w
@@ -127,6 +132,14 @@ func (s *introspectionSuite) TestEngineReporter(c *gc.C) {
 	matches(c, buf, "working: true")
 }
 
+func (s *introspectionSuite) TestPrometheusMetrics(c *gc.C) {
+	buf := s.call(c, "/metrics")
+	c.Assert(buf, gc.NotNil)
+	matches(c, buf, "# HELP tau Tau")
+	matches(c, buf, "# TYPE tau counter")
+	matches(c, buf, "tau 6.283185")
+}
+
 // matches fails if regex is not found in the contents of b.
 // b is expected to be the response from the pprof http server, and will
 // contain some HTTP preamble that should be ignored.
@@ -149,4 +162,12 @@ type reporter struct {
 
 func (r *reporter) Report() map[string]interface{} {
 	return r.values
+}
+
+func newPrometheusGatherer() prometheus.Gatherer {
+	counter := prometheus.NewCounter(prometheus.CounterOpts{Name: "tau", Help: "Tau."})
+	counter.Add(6.283185)
+	r := prometheus.NewPedanticRegistry()
+	r.MustRegister(counter)
+	return r
 }

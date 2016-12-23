@@ -14,6 +14,8 @@ clouds:
     regions:
       us-east-1:
         endpoint: https://ec2.us-east-1.amazonaws.com
+      us-east-2:
+        endpoint: https://ec2.us-east-2.amazonaws.com
       us-west-1:
         endpoint: https://ec2.us-west-1.amazonaws.com
       us-west-2:

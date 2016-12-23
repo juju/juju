@@ -37,8 +37,8 @@ type SpaceReader interface {
 	Name() string
 }
 
-func (st *stateShim) Space(name string) (SpaceReader, error) {
-	return st.Space(name)
+func (s *stateShim) Space(name string) (SpaceReader, error) {
+	return s.State.Space(name)
 }
 
 func (s *stateShim) MongoSession() mongoSession {

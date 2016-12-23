@@ -13,7 +13,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/goose.v1/client"
 	"gopkg.in/goose.v1/identity"
-	"gopkg.in/goose.v1/nova"
+	"gopkg.in/goose.v1/neutron"
 
 	"github.com/juju/juju/environs/jujutest"
 	"github.com/juju/juju/environs/storage"
@@ -88,7 +88,7 @@ func (t *LiveTests) SetUpSuite(c *gc.C) {
 	cl := client.NewClient(t.cred, identity.AuthUserPass, nil)
 	err := cl.Authenticate()
 	c.Assert(err, jc.ErrorIsNil)
-	containerURL, err := cl.MakeServiceURL("object-store", nil)
+	containerURL, err := cl.MakeServiceURL("object-store", "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	t.TestConfig = t.TestConfig.Merge(coretesting.Attrs{
 		"agent-metadata-url": containerURL + "/juju-dist-test/tools",
@@ -129,17 +129,19 @@ func (t *LiveTests) TearDownTest(c *gc.C) {
 
 func (t *LiveTests) TestEnsureGroupSetsGroupId(c *gc.C) {
 	t.PrepareOnce(c)
-	rules := []nova.RuleInfo{
+	rules := []neutron.RuleInfoV2{
 		{ // First group explicitly asks for all services
-			IPProtocol: "tcp",
-			FromPort:   22,
-			ToPort:     22,
-			Cidr:       "0.0.0.0/0",
+			Direction:      "ingress",
+			IPProtocol:     "tcp",
+			PortRangeMin:   22,
+			PortRangeMax:   22,
+			RemoteIPPrefix: "0.0.0.0/0",
 		},
 		{ // Second group should only allow access from within the group
-			IPProtocol: "tcp",
-			FromPort:   1,
-			ToPort:     65535,
+			Direction:    "ingress",
+			IPProtocol:   "tcp",
+			PortRangeMin: 1,
+			PortRangeMax: 65535,
 		},
 	}
 	groupName := "juju-test-group-" + randomName()
@@ -151,19 +153,18 @@ func (t *LiveTests) TestEnsureGroupSetsGroupId(c *gc.C) {
 	defer cleanup()
 	group, err := openstack.EnsureGroup(t.Env, groupName, rules)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(group.Rules, gc.HasLen, 2)
-	c.Check(*group.Rules[0].IPProtocol, gc.Equals, "tcp")
-	c.Check(*group.Rules[0].FromPort, gc.Equals, 22)
-	c.Check(*group.Rules[0].ToPort, gc.Equals, 22)
-	c.Check(group.Rules[0].IPRange["cidr"], gc.Equals, "0.0.0.0/0")
-	c.Check(group.Rules[0].Group.Name, gc.Equals, "")
-	c.Check(group.Rules[0].Group.TenantId, gc.Equals, "")
-	c.Check(*group.Rules[1].IPProtocol, gc.Equals, "tcp")
-	c.Check(*group.Rules[1].FromPort, gc.Equals, 1)
-	c.Check(*group.Rules[1].ToPort, gc.Equals, 65535)
-	c.Check(group.Rules[1].IPRange, gc.HasLen, 0)
-	c.Check(group.Rules[1].Group.Name, gc.Equals, groupName)
-	c.Check(group.Rules[1].Group.TenantId, gc.Equals, group.TenantId)
+	// 2 rules created + 2 default neutron rules = 4
+	c.Check(group.Rules, gc.HasLen, 4)
+	c.Check(group.Rules[2].Direction, gc.Equals, "ingress")
+	c.Check(*group.Rules[2].IPProtocol, gc.Equals, "tcp")
+	c.Check(*group.Rules[2].PortRangeMin, gc.Equals, 22)
+	c.Check(*group.Rules[2].PortRangeMax, gc.Equals, 22)
+	c.Check(group.Rules[2].ParentGroupId, gc.Equals, group.Id)
+	c.Check(group.Rules[3].Direction, gc.Equals, "ingress")
+	c.Check(*group.Rules[3].IPProtocol, gc.Equals, "tcp")
+	c.Check(*group.Rules[3].PortRangeMin, gc.Equals, 1)
+	c.Check(*group.Rules[3].PortRangeMax, gc.Equals, 65535)
+	c.Check(group.Rules[3].ParentGroupId, gc.Equals, group.Id)
 }
 
 func (t *LiveTests) TestSetupGlobalGroupExposesCorrectPorts(c *gc.C) {
@@ -185,22 +186,40 @@ func (t *LiveTests) TestSetupGlobalGroupExposesCorrectPorts(c *gc.C) {
 	// that *aren't* hosting the controller.
 	stringRules := make([]string, 0, len(group.Rules))
 	for _, rule := range group.Rules {
-		ruleStr := fmt.Sprintf("%s %d %d %q %q",
+		// Skip the default Security Group Rules created by Neutron
+		if rule.Direction == "egress" {
+			continue
+		}
+		var minInt int
+		if rule.PortRangeMin != nil {
+			minInt = *rule.PortRangeMin
+		}
+		var maxInt int
+		if rule.PortRangeMax != nil {
+			maxInt = *rule.PortRangeMax
+		}
+		ruleStr := fmt.Sprintf("%s %s %d %d %s %s %s",
+			rule.Direction,
 			*rule.IPProtocol,
-			*rule.FromPort,
-			*rule.ToPort,
-			rule.IPRange["cidr"],
-			rule.Group.Name,
+			minInt, maxInt,
+			rule.RemoteIPPrefix,
+			rule.EthernetType,
+			rule.ParentGroupId,
 		)
 		stringRules = append(stringRules, ruleStr)
 	}
 	// We don't care about the ordering, so we sort the result, and compare it.
 	expectedRules := []string{
-		`tcp 22 22 "0.0.0.0/0" ""`,
-		fmt.Sprintf(`tcp %d %d "0.0.0.0/0" ""`, apiPort, apiPort),
-		fmt.Sprintf(`tcp 1 65535 "" "%s"`, groupName),
-		fmt.Sprintf(`udp 1 65535 "" "%s"`, groupName),
-		fmt.Sprintf(`icmp -1 -1 "" "%s"`, groupName),
+		fmt.Sprintf(`ingress tcp 22 22 ::/0 IPv6 %s`, group.Id),
+		fmt.Sprintf(`ingress tcp 22 22 0.0.0.0/0 IPv4 %s`, group.Id),
+		fmt.Sprintf(`ingress tcp %d %d ::/0 IPv6 %s`, apiPort, apiPort, group.Id),
+		fmt.Sprintf(`ingress tcp %d %d 0.0.0.0/0 IPv4 %s`, apiPort, apiPort, group.Id),
+		fmt.Sprintf(`ingress tcp 1 65535  IPv6 %s`, group.Id),
+		fmt.Sprintf(`ingress tcp 1 65535  IPv4 %s`, group.Id),
+		fmt.Sprintf(`ingress udp 1 65535  IPv6 %s`, group.Id),
+		fmt.Sprintf(`ingress udp 1 65535  IPv4 %s`, group.Id),
+		fmt.Sprintf(`ingress icmp 0 0  IPv6 %s`, group.Id),
+		fmt.Sprintf(`ingress icmp 0 0  IPv4 %s`, group.Id),
 	}
 	sort.Strings(stringRules)
 	sort.Strings(expectedRules)

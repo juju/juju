@@ -236,3 +236,21 @@ type Action interface {
 	// and end state of the action.
 	Finish(results ActionResults) (Action, error)
 }
+
+// ApplicationEntity represents a local or remote application.
+type ApplicationEntity interface {
+	// Life returns the life status of the application.
+	Life() Life
+
+	// IsRemote returns true if the application is remote (hosted in a different model).
+	IsRemote() bool
+
+	// Endpoints returns the application's currently available relation endpoints.
+	Endpoints() ([]Endpoint, error)
+
+	// Endpoint returns the relation endpoint with the supplied name, if it exists.
+	Endpoint(relationName string) (Endpoint, error)
+
+	// Relations returns a Relation for every relation the application is in.
+	Relations() (relations []*Relation, err error)
+}

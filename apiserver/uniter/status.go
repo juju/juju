@@ -16,8 +16,8 @@ type StatusAPI struct {
 	agentSetter   *common.StatusSetter
 	unitSetter    *common.StatusSetter
 	unitGetter    *common.StatusGetter
-	serviceSetter *common.ServiceStatusSetter
-	serviceGetter *common.ServiceStatusGetter
+	serviceSetter *common.ApplicationStatusSetter
+	serviceGetter *common.ApplicationStatusGetter
 	getCanModify  common.GetAuthFunc
 }
 
@@ -28,7 +28,7 @@ func NewStatusAPI(st *state.State, getCanModify common.GetAuthFunc) *StatusAPI {
 	unitSetter := common.NewStatusSetter(st, getCanModify)
 	unitGetter := common.NewStatusGetter(st, getCanModify)
 	serviceSetter := common.NewServiceStatusSetter(st, getCanModify)
-	serviceGetter := common.NewServiceStatusGetter(st, getCanModify)
+	serviceGetter := common.NewApplicationStatusGetter(st, getCanModify)
 	agentSetter := common.NewStatusSetter(&common.UnitAgentFinder{st}, getCanModify)
 	return &StatusAPI{
 		agentSetter:   agentSetter,

@@ -21,6 +21,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
+	"github.com/juju/utils/clock"
 	"github.com/juju/utils/series"
 	"github.com/juju/utils/set"
 	"github.com/juju/version"
@@ -123,7 +124,7 @@ func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 	current := version.Binary{
 		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
-		Series: series.HostSeries(),
+		Series: series.MustHostSeries(),
 	}
 	toolsDir := filepath.FromSlash(agenttools.SharedToolsDir(s.dataDir, current))
 	err := os.MkdirAll(toolsDir, 0755)
@@ -253,13 +254,20 @@ func (s *BootstrapSuite) TestGUIArchiveSuccess(c *gc.C) {
 	}})
 
 	// Retrieve the state so that it is possible to access the GUI storage.
-	st, err := state.Open(testing.ModelTag, testing.ControllerTag, &mongo.MongoInfo{
-		Info: mongo.Info{
-			Addrs:  []string{gitjujutesting.MgoServer.Addr()},
-			CACert: testing.CACert,
+	st, err := state.Open(state.OpenParams{
+		Clock:              clock.WallClock,
+		ControllerTag:      testing.ControllerTag,
+		ControllerModelTag: testing.ModelTag,
+		MongoInfo: &mongo.MongoInfo{
+			Info: mongo.Info{
+				Addrs:  []string{gitjujutesting.MgoServer.Addr()},
+				CACert: testing.CACert,
+			},
+			Password: testPassword,
 		},
-		Password: testPassword,
-	}, mongotest.DialOpts(), nil)
+		MongoDialOpts: mongotest.DialOpts(),
+	})
+
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 
@@ -355,21 +363,33 @@ func (s *BootstrapSuite) TestInitializeEnvironment(c *gc.C) {
 	servingInfo.SystemIdentity = ""
 	expect := cmdutil.ParamsStateServingInfoToStateStateServingInfo(expectInfo)
 	c.Assert(servingInfo, jc.DeepEquals, expect)
-	expectDialAddrs := []string{fmt.Sprintf("127.0.0.1:%d", expectInfo.StatePort)}
+	expectDialAddrs := []string{fmt.Sprintf("localhost:%d", expectInfo.StatePort)}
 	gotDialAddrs := s.fakeEnsureMongo.InitiateParams.DialInfo.Addrs
 	c.Assert(gotDialAddrs, gc.DeepEquals, expectDialAddrs)
 
-	c.Assert(s.fakeEnsureMongo.InitiateParams.MemberHostPort, gc.Equals, expectDialAddrs[0])
+	// TODO(macgreagoir) IPv6. This MemberHostPort check assumes a loopback
+	// address returned by mongo.SelectPeerAddress(), not the 'localhost'
+	// name we use for IPv4 and IPv6 compatibility. Replace it with
+	// something potentially useful, a loopback:port match, in the meantime.
+	// c.Assert(s.fakeEnsureMongo.InitiateParams.MemberHostPort, gc.Equals, expectDialAddrs[0])
+	c.Assert(s.fakeEnsureMongo.InitiateParams.MemberHostPort, gc.Matches, fmt.Sprintf("(127.0.0.1|::1):%d$", expectInfo.StatePort))
 	c.Assert(s.fakeEnsureMongo.InitiateParams.User, gc.Equals, "")
 	c.Assert(s.fakeEnsureMongo.InitiateParams.Password, gc.Equals, "")
 
-	st, err := state.Open(testing.ModelTag, testing.ControllerTag, &mongo.MongoInfo{
-		Info: mongo.Info{
-			Addrs:  []string{gitjujutesting.MgoServer.Addr()},
-			CACert: testing.CACert,
+	st, err := state.Open(state.OpenParams{
+		Clock:              clock.WallClock,
+		ControllerTag:      testing.ControllerTag,
+		ControllerModelTag: testing.ModelTag,
+		MongoInfo: &mongo.MongoInfo{
+			Info: mongo.Info{
+				Addrs:  []string{gitjujutesting.MgoServer.Addr()},
+				CACert: testing.CACert,
+			},
+			Password: testPassword,
 		},
-		Password: testPassword,
-	}, mongotest.DialOpts(), nil)
+		MongoDialOpts: mongotest.DialOpts(),
+	})
+
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 	machines, err := st.AllMachines()
@@ -416,13 +436,20 @@ func (s *BootstrapSuite) TestInitializeEnvironmentToolsNotFound(c *gc.C) {
 	err = cmd.Run(nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	st, err := state.Open(testing.ModelTag, testing.ControllerTag, &mongo.MongoInfo{
-		Info: mongo.Info{
-			Addrs:  []string{gitjujutesting.MgoServer.Addr()},
-			CACert: testing.CACert,
+	st, err := state.Open(state.OpenParams{
+		Clock:              clock.WallClock,
+		ControllerTag:      testing.ControllerTag,
+		ControllerModelTag: testing.ModelTag,
+		MongoInfo: &mongo.MongoInfo{
+			Info: mongo.Info{
+				Addrs:  []string{gitjujutesting.MgoServer.Addr()},
+				CACert: testing.CACert,
+			},
+			Password: testPassword,
 		},
-		Password: testPassword,
-	}, mongotest.DialOpts(), nil)
+		MongoDialOpts: mongotest.DialOpts(),
+	})
+
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 
@@ -443,13 +470,20 @@ func (s *BootstrapSuite) TestSetConstraints(c *gc.C) {
 	err = cmd.Run(nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	st, err := state.Open(testing.ModelTag, testing.ControllerTag, &mongo.MongoInfo{
-		Info: mongo.Info{
-			Addrs:  []string{gitjujutesting.MgoServer.Addr()},
-			CACert: testing.CACert,
+	st, err := state.Open(state.OpenParams{
+		Clock:              clock.WallClock,
+		ControllerTag:      testing.ControllerTag,
+		ControllerModelTag: testing.ModelTag,
+		MongoInfo: &mongo.MongoInfo{
+			Info: mongo.Info{
+				Addrs:  []string{gitjujutesting.MgoServer.Addr()},
+				CACert: testing.CACert,
+			},
+			Password: testPassword,
 		},
-		Password: testPassword,
-	}, mongotest.DialOpts(), nil)
+		MongoDialOpts: mongotest.DialOpts(),
+	})
+
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 
@@ -479,13 +513,20 @@ func (s *BootstrapSuite) TestDefaultMachineJobs(c *gc.C) {
 	err = cmd.Run(nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	st, err := state.Open(testing.ModelTag, testing.ControllerTag, &mongo.MongoInfo{
-		Info: mongo.Info{
-			Addrs:  []string{gitjujutesting.MgoServer.Addr()},
-			CACert: testing.CACert,
+	st, err := state.Open(state.OpenParams{
+		Clock:              clock.WallClock,
+		ControllerTag:      testing.ControllerTag,
+		ControllerModelTag: testing.ModelTag,
+		MongoInfo: &mongo.MongoInfo{
+			Info: mongo.Info{
+				Addrs:  []string{gitjujutesting.MgoServer.Addr()},
+				CACert: testing.CACert,
+			},
+			Password: testPassword,
 		},
-		Password: testPassword,
-	}, mongotest.DialOpts(), nil)
+		MongoDialOpts: mongotest.DialOpts(),
+	})
+
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 	m, err := st.Machine("0")
@@ -500,13 +541,20 @@ func (s *BootstrapSuite) TestConfiguredMachineJobs(c *gc.C) {
 	err = cmd.Run(nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	st, err := state.Open(testing.ModelTag, testing.ControllerTag, &mongo.MongoInfo{
-		Info: mongo.Info{
-			Addrs:  []string{gitjujutesting.MgoServer.Addr()},
-			CACert: testing.CACert,
+	st, err := state.Open(state.OpenParams{
+		Clock:              clock.WallClock,
+		ControllerTag:      testing.ControllerTag,
+		ControllerModelTag: testing.ModelTag,
+		MongoInfo: &mongo.MongoInfo{
+			Info: mongo.Info{
+				Addrs:  []string{gitjujutesting.MgoServer.Addr()},
+				CACert: testing.CACert,
+			},
+			Password: testPassword,
 		},
-		Password: testPassword,
-	}, mongotest.DialOpts(), nil)
+		MongoDialOpts: mongotest.DialOpts(),
+	})
+
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 	m, err := st.Machine("0")
@@ -530,7 +578,13 @@ func (s *BootstrapSuite) TestInitialPassword(c *gc.C) {
 
 	// Check we can log in to mongo as admin.
 	info.Tag, info.Password = nil, testPassword
-	st, err := state.Open(testing.ModelTag, testing.ControllerTag, info, mongotest.DialOpts(), nil)
+	st, err := state.Open(state.OpenParams{
+		Clock:              clock.WallClock,
+		ControllerTag:      testing.ControllerTag,
+		ControllerModelTag: testing.ModelTag,
+		MongoInfo:          info,
+		MongoDialOpts:      mongotest.DialOpts(),
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 
@@ -557,7 +611,13 @@ func (s *BootstrapSuite) TestInitialPassword(c *gc.C) {
 
 	stateinfo, ok := machineConf1.MongoInfo()
 	c.Assert(ok, jc.IsTrue)
-	st, err = state.Open(testing.ModelTag, testing.ControllerTag, stateinfo, mongotest.DialOpts(), nil)
+	st, err = state.Open(state.OpenParams{
+		Clock:              clock.WallClock,
+		ControllerTag:      testing.ControllerTag,
+		ControllerModelTag: testing.ModelTag,
+		MongoInfo:          stateinfo,
+		MongoDialOpts:      mongotest.DialOpts(),
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 
@@ -659,7 +719,7 @@ func (s *BootstrapSuite) TestUploadedToolsMetadata(c *gc.C) {
 		Version: version.Binary{
 			Number: jujuversion.Current,
 			Arch:   arch.HostArch(),
-			Series: series.HostSeries(),
+			Series: series.MustHostSeries(),
 		},
 		URL: "file:///does/not/matter",
 	})
@@ -683,13 +743,20 @@ func (s *BootstrapSuite) testToolsMetadata(c *gc.C, exploded bool) {
 	// The tools should have been added to tools storage, and
 	// exploded into each of the supported series of
 	// the same operating system if the tools were uploaded.
-	st, err := state.Open(testing.ModelTag, testing.ControllerTag, &mongo.MongoInfo{
-		Info: mongo.Info{
-			Addrs:  []string{gitjujutesting.MgoServer.Addr()},
-			CACert: testing.CACert,
+	st, err := state.Open(state.OpenParams{
+		Clock:              clock.WallClock,
+		ControllerTag:      testing.ControllerTag,
+		ControllerModelTag: testing.ModelTag,
+		MongoInfo: &mongo.MongoInfo{
+			Info: mongo.Info{
+				Addrs:  []string{gitjujutesting.MgoServer.Addr()},
+				CACert: testing.CACert,
+			},
+			Password: testPassword,
 		},
-		Password: testPassword,
-	}, mongotest.DialOpts(), nil)
+		MongoDialOpts: mongotest.DialOpts(),
+	})
+
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 	expectedSeries := make(set.Strings)
@@ -697,14 +764,14 @@ func (s *BootstrapSuite) testToolsMetadata(c *gc.C, exploded bool) {
 		for _, ser := range series.SupportedSeries() {
 			os, err := series.GetOSFromSeries(ser)
 			c.Assert(err, jc.ErrorIsNil)
-			hostos, err := series.GetOSFromSeries(series.HostSeries())
+			hostos, err := series.GetOSFromSeries(series.MustHostSeries())
 			c.Assert(err, jc.ErrorIsNil)
 			if os == hostos {
 				expectedSeries.Add(ser)
 			}
 		}
 	} else {
-		expectedSeries.Add(series.HostSeries())
+		expectedSeries.Add(series.MustHostSeries())
 	}
 
 	storage, err := st.ToolsStorage()
@@ -732,13 +799,20 @@ func createImageMetadata() []*imagemetadata.ImageMetadata {
 }
 
 func assertWrittenToState(c *gc.C, metadata cloudimagemetadata.Metadata) {
-	st, err := state.Open(testing.ModelTag, testing.ControllerTag, &mongo.MongoInfo{
-		Info: mongo.Info{
-			Addrs:  []string{gitjujutesting.MgoServer.Addr()},
-			CACert: testing.CACert,
+	st, err := state.Open(state.OpenParams{
+		Clock:              clock.WallClock,
+		ControllerTag:      testing.ControllerTag,
+		ControllerModelTag: testing.ModelTag,
+		MongoInfo: &mongo.MongoInfo{
+			Info: mongo.Info{
+				Addrs:  []string{gitjujutesting.MgoServer.Addr()},
+				CACert: testing.CACert,
+			},
+			Password: testPassword,
 		},
-		Password: testPassword,
-	}, mongotest.DialOpts(), nil)
+		MongoDialOpts: mongotest.DialOpts(),
+	})
+
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 

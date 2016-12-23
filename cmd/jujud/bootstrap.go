@@ -153,10 +153,14 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		// tools can actually be found, or else bootstrap won't complete.
 		stream := envtools.PreferredStream(&desiredVersion, args.ControllerModelConfig.Development(), args.ControllerModelConfig.AgentStream())
 		logger.Infof("newer tools requested, looking for %v in stream %v", desiredVersion, stream)
+		hostSeries, err := series.HostSeries()
+		if err != nil {
+			return errors.Trace(err)
+		}
 		filter := tools.Filter{
 			Number: desiredVersion,
 			Arch:   arch.HostArch(),
-			Series: series.HostSeries(),
+			Series: hostSeries,
 		}
 		_, toolsErr := envtools.FindTools(env, -1, -1, stream, filter)
 		if toolsErr == nil {
@@ -323,8 +327,11 @@ func (c *BootstrapCommand) startMongo(addrs []network.Address, agentConfig agent
 	// Use localhost to dial the mongo server, because it's running in
 	// auth mode and will refuse to perform any operations unless
 	// we dial that address.
+	// TODO(macgreagoir) IPv6. Ubuntu still always provides IPv4 loopback,
+	// and when/if this changes localhost should resolve to IPv6 loopback
+	// in any case (lp:1644009). Review.
 	dialInfo.Addrs = []string{
-		net.JoinHostPort("127.0.0.1", fmt.Sprint(servingInfo.StatePort)),
+		net.JoinHostPort("localhost", fmt.Sprint(servingInfo.StatePort)),
 	}
 
 	logger.Debugf("calling ensureMongoServer")
@@ -359,10 +366,14 @@ func (c *BootstrapCommand) populateTools(st *state.State, env environs.Environ) 
 	agentConfig := c.CurrentConfig()
 	dataDir := agentConfig.DataDir()
 
+	hostSeries, err := series.HostSeries()
+	if err != nil {
+		return errors.Trace(err)
+	}
 	current := version.Binary{
 		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
-		Series: series.HostSeries(),
+		Series: hostSeries,
 	}
 	tools, err := agenttools.ReadTools(dataDir, current)
 	if err != nil {

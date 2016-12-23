@@ -13,6 +13,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/tools/lxdclient"
 )
 
@@ -21,6 +22,7 @@ type environRawSuite struct {
 	testing.Stub
 	readFile   readFileFunc
 	runCommand runCommandFunc
+	spec       environs.CloudSpec
 }
 
 var _ = gc.Suite(&environRawSuite{})
@@ -42,10 +44,14 @@ func (s *environRawSuite) SetUpTest(c *gc.C) {
 		}
 		return "default via 10.0.8.1 dev eth0", nil
 	}
+	s.spec = environs.CloudSpec{
+		Type: "lxd",
+		Name: "localhost",
+	}
 }
 
 func (s *environRawSuite) TestGetRemoteConfig(c *gc.C) {
-	cfg, err := getRemoteConfig(s.readFile, s.runCommand)
+	cfg, err := getRemoteConfig(s.readFile, s.runCommand, s.spec)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg, jc.DeepEquals, &lxdclient.Config{
 		Remote: lxdclient.Remote{
@@ -69,7 +75,7 @@ func (s *environRawSuite) TestGetRemoteConfig(c *gc.C) {
 
 func (s *environRawSuite) TestGetRemoteConfigFileNotExist(c *gc.C) {
 	s.SetErrors(os.ErrNotExist)
-	_, err := getRemoteConfig(s.readFile, s.runCommand)
+	_, err := getRemoteConfig(s.readFile, s.runCommand, s.spec)
 	// os.IsNotExist is translated to errors.IsNotFound
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	c.Assert(err, gc.ErrorMatches, "reading client certificate: /etc/juju/lxd-client.crt not found")
@@ -77,7 +83,7 @@ func (s *environRawSuite) TestGetRemoteConfigFileNotExist(c *gc.C) {
 
 func (s *environRawSuite) TestGetRemoteConfigFileError(c *gc.C) {
 	s.SetErrors(nil, errors.New("i/o error"))
-	_, err := getRemoteConfig(s.readFile, s.runCommand)
+	_, err := getRemoteConfig(s.readFile, s.runCommand, s.spec)
 	c.Assert(err, gc.ErrorMatches, "reading client key: i/o error")
 }
 
@@ -85,13 +91,32 @@ func (s *environRawSuite) TestGetRemoteConfigIPRouteFormatError(c *gc.C) {
 	s.runCommand = func(string, ...string) (string, error) {
 		return "this is not the prefix you're looking for", nil
 	}
-	_, err := getRemoteConfig(s.readFile, s.runCommand)
+	_, err := getRemoteConfig(s.readFile, s.runCommand, s.spec)
 	c.Assert(err, gc.ErrorMatches,
 		`getting gateway address: unexpected output from "ip route": this is not the prefix you're looking for`)
 }
 
 func (s *environRawSuite) TestGetRemoteConfigIPRouteCommandError(c *gc.C) {
 	s.SetErrors(nil, nil, nil, errors.New("buh bow"))
-	_, err := getRemoteConfig(s.readFile, s.runCommand)
+	_, err := getRemoteConfig(s.readFile, s.runCommand, s.spec)
 	c.Assert(err, gc.ErrorMatches, `getting gateway address: buh bow`)
+}
+
+func (s *environRawSuite) TestGetRemoteConfigWithEndpoint(c *gc.C) {
+	spec := s.spec
+	spec.Endpoint = "1.2.3.4"
+	cfg, err := getRemoteConfig(s.readFile, s.runCommand, spec)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cfg, jc.DeepEquals, &lxdclient.Config{
+		Remote: lxdclient.Remote{
+			Name:     "remote",
+			Host:     "1.2.3.4",
+			Protocol: "lxd",
+			Cert: &lxdclient.Cert{
+				CertPEM: []byte("content:/etc/juju/lxd-client.crt"),
+				KeyPEM:  []byte("content:/etc/juju/lxd-client.key"),
+			},
+			ServerPEMCert: "content:/etc/juju/lxd-server.crt",
+		},
+	})
 }

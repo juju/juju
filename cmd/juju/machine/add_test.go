@@ -134,7 +134,7 @@ func (s *AddMachineSuite) TestAddMachineUnauthorizedMentionsJujuGrant(c *gc.C) {
 }
 
 func (s *AddMachineSuite) TestSSHPlacement(c *gc.C) {
-	s.PatchValue(machine.ManualProvisioner, func(args manual.ProvisionMachineArgs) (string, error) {
+	s.PatchValue(machine.SSHProvisioner, func(args manual.ProvisionMachineArgs) (string, error) {
 		return "42", nil
 	})
 	context, err := s.run(c, "ssh:10.1.2.3")
@@ -143,7 +143,7 @@ func (s *AddMachineSuite) TestSSHPlacement(c *gc.C) {
 }
 
 func (s *AddMachineSuite) TestSSHPlacementError(c *gc.C) {
-	s.PatchValue(machine.ManualProvisioner, func(args manual.ProvisionMachineArgs) (string, error) {
+	s.PatchValue(machine.SSHProvisioner, func(args manual.ProvisionMachineArgs) (string, error) {
 		return "", errors.New("failed to initialize warp core")
 	})
 	context, err := s.run(c, "ssh:10.1.2.3")

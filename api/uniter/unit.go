@@ -211,7 +211,7 @@ func (u *Unit) ConfigSettings() (charm.Settings, error) {
 	return charm.Settings(result.Settings), nil
 }
 
-// ApplicationName returns the service name.
+// ApplicationName returns the application name.
 func (u *Unit) ApplicationName() string {
 	application, err := names.UnitApplication(u.Name())
 	if err != nil {

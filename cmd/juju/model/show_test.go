@@ -58,6 +58,8 @@ func (s *ShowCommandSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	lastConnection := time.Date(2015, 3, 20, 0, 0, 0, 0, time.UTC)
 	statusSince := time.Date(2016, 4, 5, 0, 0, 0, 0, time.UTC)
+	migrationStart := time.Date(2016, 4, 6, 0, 10, 0, 0, time.UTC)
+	migrationEnd := time.Date(2016, 4, 7, 0, 0, 15, 0, time.UTC)
 
 	users := []params.ModelUserInfo{{
 		UserName:       "admin",
@@ -85,6 +87,11 @@ func (s *ShowCommandSuite) SetUpTest(c *gc.C) {
 			Since:  &statusSince,
 		},
 		Users: users,
+		Migration: &params.ModelMigrationStatus{
+			Status: "obfuscating Quigley matrix",
+			Start:  &migrationStart,
+			End:    &migrationEnd,
+		},
 	}
 
 	s.expectedOutput = attrs{
@@ -99,8 +106,11 @@ func (s *ShowCommandSuite) SetUpTest(c *gc.C) {
 			"type":            "openstack",
 			"life":            "alive",
 			"status": attrs{
-				"current": "active",
-				"since":   "2016-04-05",
+				"current":         "active",
+				"since":           "2016-04-05",
+				"migration":       "obfuscating Quigley matrix",
+				"migration-start": "2016-04-06",
+				"migration-end":   "2016-04-07",
 			},
 			"users": attrs{
 				"admin": attrs{

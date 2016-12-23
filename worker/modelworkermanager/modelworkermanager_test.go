@@ -10,6 +10,7 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/tomb.v1"
 
 	"github.com/juju/juju/state"
@@ -132,6 +133,18 @@ func (s *suite) TestClosedChangesChannel(c *gc.C) {
 	})
 }
 
+func (s *suite) TestNoStartingWorkersForImportingModel(c *gc.C) {
+	// We shouldn't start workers while the model is importing,
+	// otherwise the migrationmaster gets very confused.
+	// https://bugs.launchpad.net/juju/+bug/1646310
+	s.runTest(c, func(w worker.Worker, backend *mockBackend) {
+		backend.model.mode = state.MigrationModeImporting
+		backend.sendModelChange("uuid1")
+
+		s.assertNoWorkers(c)
+	})
+}
+
 type testFunc func(worker.Worker, *mockBackend)
 type killFunc func(*gc.C, worker.Worker)
 
@@ -228,15 +241,30 @@ func newMockBackend() *mockBackend {
 			Worker:  workertest.NewErrorWorker(nil),
 			changes: make(chan []string),
 		},
+		model: &mockModel{},
 	}
 }
 
 type mockBackend struct {
 	envWatcher *mockEnvWatcher
+	modelErr   error
+	model      *mockModel
 }
 
 func (mock *mockBackend) WatchModels() state.StringsWatcher {
 	return mock.envWatcher
+}
+
+func (mock *mockBackend) GetModel(tag names.ModelTag) (modelworkermanager.BackendModel, error) {
+	return mock.model, mock.modelErr
+}
+
+type mockModel struct {
+	mode state.MigrationMode
+}
+
+func (mock *mockModel) MigrationMode() state.MigrationMode {
+	return mock.mode
 }
 
 func (mock *mockBackend) sendModelChange(uuids ...string) {

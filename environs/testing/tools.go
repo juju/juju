@@ -269,7 +269,7 @@ func MustUploadFakeToolsVersions(stor storage.Storage, stream string, versions .
 
 func uploadFakeTools(stor storage.Storage, toolsDir, stream string) error {
 	toolsSeries := set.NewStrings(toolsLtsSeries...)
-	toolsSeries.Add(series.HostSeries())
+	toolsSeries.Add(series.MustHostSeries())
 	var versions []version.Binary
 	for _, series := range toolsSeries.Values() {
 		vers := version.Binary{
@@ -307,13 +307,13 @@ func RemoveFakeTools(c *gc.C, stor storage.Storage, toolsDir string) {
 	toolsVersion := version.Binary{
 		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
-		Series: series.HostSeries(),
+		Series: series.MustHostSeries(),
 	}
 	name := envtools.StorageName(toolsVersion, toolsDir)
 	err := stor.Remove(name)
 	c.Check(err, jc.ErrorIsNil)
 	defaultSeries := series.LatestLts()
-	if series.HostSeries() != defaultSeries {
+	if series.MustHostSeries() != defaultSeries {
 		toolsVersion.Series = defaultSeries
 		name := envtools.StorageName(toolsVersion, toolsDir)
 		err := stor.Remove(name)

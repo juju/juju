@@ -31,6 +31,7 @@ const (
 // DataStore is the functionality of Juju's state needed for the resources API.
 type DataStore interface {
 	resourceInfoStore
+	DownloadDataStore
 	UploadDataStore
 }
 

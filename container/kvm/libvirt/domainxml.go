@@ -100,10 +100,10 @@ func NewDomain(p domainParams) (Domain, error) {
 			Type:     "vnc",
 			Port:     "-1",
 			Autoport: "yes",
-			Listen:   "127.0.0.1",
+			Listen:   "localhost",
 			GraphicsListen: GraphicsListen{
 				Type:    "address",
-				Address: "127.0.0.1",
+				Address: "localhost",
 			},
 		},
 		Video: Video{

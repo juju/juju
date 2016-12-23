@@ -36,6 +36,7 @@ import (
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/upgrades"
 	jujuversion "github.com/juju/juju/version"
+	"github.com/juju/juju/worker/logsender"
 	"github.com/juju/juju/worker/upgrader"
 	"github.com/juju/juju/worker/upgradesteps"
 	"github.com/juju/version"
@@ -63,7 +64,7 @@ func (s *upgradeSuite) SetUpTest(c *gc.C) {
 	s.oldVersion = version.Binary{
 		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
-		Series: series.HostSeries(),
+		Series: series.MustHostSeries(),
 	}
 	s.oldVersion.Major = 1
 	s.oldVersion.Minor = 16
@@ -200,7 +201,7 @@ func (s *upgradeSuite) TestDowngradeOnMasterWhenOtherControllerDoesntStartUpgrad
 		current := version.Binary{
 			Number: jujuversion.Current,
 			Arch:   arch.HostArch(),
-			Series: series.HostSeries(),
+			Series: series.MustHostSeries(),
 		}
 		c.Assert(upgradeReadyErr.OldTools, gc.Equals, current)
 		c.Assert(upgradeReadyErr.NewTools, gc.Equals, s.oldVersion)
@@ -218,8 +219,17 @@ func (s *upgradeSuite) TestDowngradeOnMasterWhenOtherControllerDoesntStartUpgrad
 func (s *upgradeSuite) newAgent(c *gc.C, m *state.Machine) *agentcmd.MachineAgent {
 	agentConf := agentcmd.NewAgentConf(s.DataDir())
 	agentConf.ReadConfig(m.Tag().String())
-	machineAgentFactory := agentcmd.MachineAgentFactoryFn(agentConf, nil, c.MkDir())
-	return machineAgentFactory(m.Id())
+	logger := logsender.NewBufferedLogWriter(1024)
+	s.AddCleanup(func(*gc.C) { logger.Close() })
+	machineAgentFactory := agentcmd.MachineAgentFactoryFn(
+		agentConf,
+		logger,
+		agentcmd.DefaultIntrospectionSocketName,
+		c.MkDir(),
+	)
+	a, err := machineAgentFactory(m.Id())
+	c.Assert(err, jc.ErrorIsNil)
+	return a
 }
 
 // TODO(mjs) - the following should maybe be part of AgentSuite

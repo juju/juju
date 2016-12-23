@@ -258,13 +258,17 @@ type stubSource struct {
 	ReturnNewTailer state.LogTailer
 }
 
-func (s *stubSource) newSource(req *http.Request) (logStreamSource, error) {
+func (s *stubSource) newSource(req *http.Request) (logStreamSource, closerFunc, error) {
 	s.stub.AddCall("newSource", req)
 	if err := s.stub.NextErr(); err != nil {
-		return nil, errors.Trace(err)
+		return nil, nil, errors.Trace(err)
 	}
 
-	return s, nil
+	closer := func() error {
+		s.stub.AddCall("close")
+		return s.stub.NextErr()
+	}
+	return s, closer, nil
 }
 
 func (s *stubSource) getStart(sink string, allModels bool) (time.Time, error) {

@@ -9,6 +9,7 @@ import (
 	"github.com/juju/utils/ssh"
 
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/network"
 )
 
 var usageSSHSummary = `
@@ -47,8 +48,10 @@ Connect to a jenkins unit as user jenkins:
 See also: 
     scp`
 
-func newSSHCommand() cmd.Command {
-	return modelcmd.Wrap(&sshCommand{})
+func newSSHCommand(hostDialer network.Dialer) cmd.Command {
+	c := new(sshCommand)
+	c.setHostDialer(hostDialer)
+	return modelcmd.Wrap(c)
 }
 
 // sshCommand is responsible for launching a ssh shell on a given unit or machine.

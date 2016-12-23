@@ -635,6 +635,11 @@ func (p *ProvisionerAPI) prepareOrGetContainerInterfaceInfo(args params.Entities
 			continue
 		}
 
+		// XXX(jam): this looks to be the point where we need to know the collection
+		// of endpoint bindings and space constraints for this container
+		// By the time we've gotten here, we've probably already done the work for
+		// StartInstance to have EndpointBindings described, but that information
+		// hasn't been passed back to us.
 		if err := hostMachine.SetContainerLinkLayerDevices(container); err != nil {
 			result.Results[i].Error = common.ServerError(err)
 			continue

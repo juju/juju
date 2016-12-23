@@ -1,5 +1,5 @@
 name: juju
-version: 2.0.0
+version: 2.2-alpha1
 summary: juju client
 description: Through the use of charms, juju provides you with shareable, re-usable, and repeatable expressions of devops best practices.
 confinement: devmode
@@ -15,6 +15,7 @@ parts:
     go-importpath: github.com/juju/juju
     source: https://github.com/juju/juju.git
     source-type: git
+    build-packages: [gcc]
     #If you want to grab a specific revision tag, include it here
     #source-tag: juju-2.0.0
     snap:

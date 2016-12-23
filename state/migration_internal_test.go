@@ -42,12 +42,14 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		unitsC,
 		meterStatusC, // red / green status for metrics of units
 		payloadsC,
+		"resources",
 
 		// relation
 		relationsC,
 		relationScopesC,
 
 		// networking
+		endpointBindingsC,
 		ipAddressesC,
 		spacesC,
 		linkLayerDevicesC,
@@ -155,24 +157,39 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 
 		// Recreated whilst migrating actions.
 		actionNotificationsC,
+
+		// Global settings store controller specific configuration settings
+		// and are not to be migrated.
+		globalSettingsC,
+
+		// The auditing collection stores a large amount of historical data
+		// and will be streamed across after migration in a similar way to
+		// logging.
+		auditingC,
+
+		// There is a precheck to ensure that there are no pending reboots
+		// for the model being migrated, and as such, there is no need to
+		// migrate that information.
+		rebootC,
+
+		// Charms are added into the migrated model during the binary transfer
+		// phase after the initial model migration.
+		charmsC,
+
+		// Metrics manager maintains controller specific state relating to
+		// the store and forward of charm metrics. Nothing to migrate here.
+		metricsManagerC,
 	)
 
 	// THIS SET WILL BE REMOVED WHEN MIGRATIONS ARE COMPLETE
 	todoCollections := set.NewStrings(
-		// model configuration
-		globalSettingsC,
-
-		// machine
-		rebootC,
-
-		// service / unit
-		charmsC,
-		"resources",
-		endpointBindingsC,
-
 		// uncategorised
-		metricsManagerC, // should really be copied across
-		auditingC,
+		//Cross Model Relations - TODO
+		localApplicationDirectoryC,
+		remoteApplicationsC,
+		applicationOffersC,
+		tokensC,
+		remoteEntitiesC,
 	)
 
 	envCollections := set.NewStrings()
@@ -793,6 +810,20 @@ func (s *MigrationSuite) TestPayloadDocFields(c *gc.C) {
 		"Labels",
 	)
 	s.AssertExportedFields(c, payloadDoc{}, migrated.Union(definedThroughContainment))
+}
+
+func (s *MigrationSuite) TestEndpointBindingFields(c *gc.C) {
+	definedThroughContainment := set.NewStrings(
+		"DocID",
+	)
+	migrated := set.NewStrings(
+		"Bindings",
+	)
+	ignored := set.NewStrings(
+		"TxnRevno",
+	)
+	fields := definedThroughContainment.Union(migrated).Union(ignored)
+	s.AssertExportedFields(c, endpointBindingsDoc{}, fields)
 }
 
 func (s *MigrationSuite) AssertExportedFields(c *gc.C, doc interface{}, fields set.Strings) {

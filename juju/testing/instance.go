@@ -190,7 +190,7 @@ func fillinStartInstanceParams(env environs.Environ, machineId string, isControl
 			Config: testing.FakeControllerConfig(),
 			MongoInfo: &mongo.MongoInfo{
 				Info: mongo.Info{
-					Addrs:  []string{"127.0.0.1:1234"},
+					Addrs:  []string{"localhost:1234"},
 					CACert: "CA CERT\n" + testing.CACert,
 				},
 				Password: "mongosecret",

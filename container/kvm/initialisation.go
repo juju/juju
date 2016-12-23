@@ -60,7 +60,11 @@ func (ci *containerInitialiser) Initialise() error {
 // getPackageManager is a helper function which returns the
 // package manager implementation for the current system.
 func getPackageManager() (manager.PackageManager, error) {
-	return manager.NewPackageManager(series.HostSeries())
+	hostSeries, err := series.HostSeries()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return manager.NewPackageManager(hostSeries)
 }
 
 func ensureDependencies() error {

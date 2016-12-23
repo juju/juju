@@ -4,8 +4,10 @@
 package state
 
 import (
+	"github.com/juju/utils/featureflag"
 	"gopkg.in/mgo.v2"
 
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/state/bakerystorage"
 )
 
@@ -44,7 +46,7 @@ var (
 // collections, please document them, and make an effort to put them in an
 // appropriate section.
 func allCollections() collectionSchema {
-	return collectionSchema{
+	result := collectionSchema{
 
 		// Infrastructure collections
 		// ==========================
@@ -396,6 +398,37 @@ func allCollections() collectionSchema {
 			rawAccess: true,
 		},
 	}
+	if featureflag.Enabled(feature.CrossModelRelations) {
+		for name, details := range map[string]collectionInfo{
+			applicationOffersC: {
+				indexes: []mgo.Index{{Key: []string{"model-uuid", "url"}}},
+			},
+			// This collection holds information about applications that have been
+			// offered (exported) for use in other models managed by the same
+			// host controller.
+			localApplicationDirectoryC: {
+				global: true,
+				indexes: []mgo.Index{{
+					Key: []string{"url"},
+				}},
+			},
+			remoteApplicationsC: {},
+			// remoteEntitiesC holds information about entities involved in
+			// cross-model relations.
+			remoteEntitiesC: {
+				indexes: []mgo.Index{{
+					Key: []string{"model-uuid", "source-model-uuid", "token"},
+				}, {
+					Key: []string{"model-uuid", "source-model-uuid"},
+				}},
+			},
+			// tokensC holds unique tokens for the model.
+			tokensC: {},
+		} {
+			result[name] = details
+		}
+	}
+	return result
 }
 
 // These constants are used to avoid sprinkling the package with any more
@@ -478,4 +511,11 @@ const (
 	volumeAttachmentsC       = "volumeattachments"
 	volumesC                 = "volumes"
 	// "resources" (see resource/persistence/mongo.go)
+
+	// Cross model relations
+	localApplicationDirectoryC = "localapplicationdirectory"
+	applicationOffersC         = "applicationOffers"
+	remoteApplicationsC        = "remoteApplications"
+	remoteEntitiesC            = "remoteEntities"
+	tokensC                    = "tokens"
 )

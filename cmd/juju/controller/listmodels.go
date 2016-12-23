@@ -6,6 +6,7 @@ package controller
 import (
 	"fmt"
 	"io"
+	"strings"
 	"time"
 
 	"github.com/juju/cmd"
@@ -282,7 +283,7 @@ func (c *modelsCommand) formatTabular(writer io.Writer, value interface{}) error
 		}
 	}
 	if haveMachineInfo {
-		w.Println("Owner", "Status", "Machines", "Cores", "Access", "Last connection")
+		w.Println("Cloud/Region", "Status", "Machines", "Cores", "Access", "Last connection")
 		offset := 0
 		if c.listUUID {
 			offset++
@@ -290,9 +291,10 @@ func (c *modelsCommand) formatTabular(writer io.Writer, value interface{}) error
 		tw.SetColumnAlignRight(3 + offset)
 		tw.SetColumnAlignRight(4 + offset)
 	} else {
-		w.Println("Owner", "Status", "Access", "Last connection")
+		w.Println("Cloud/Region", "Status", "Access", "Last connection")
 	}
 	for _, model := range modelSet.Models {
+		cloudRegion := strings.Trim(model.Cloud+"/"+model.CloudRegion, "/")
 		owner := names.NewUserTag(model.Owner)
 		name := common.OwnerQualifiedModelName(model.Name, owner, userForListing)
 		if jujuclient.JoinOwnerModelName(owner, model.Name) == modelSet.CurrentModelQualified {
@@ -313,7 +315,7 @@ func (c *modelsCommand) formatTabular(writer io.Writer, value interface{}) error
 			userForAccess = names.NewUserTag(c.user)
 		}
 		access := model.Users[userForAccess.Id()].Access
-		w.Print(model.Owner, model.Status.Current)
+		w.Print(cloudRegion, model.Status.Current)
 		if haveMachineInfo {
 			machineInfo := fmt.Sprintf("%d", len(model.Machines))
 			cores := uint64(0)

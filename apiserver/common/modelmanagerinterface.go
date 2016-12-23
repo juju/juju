@@ -57,6 +57,7 @@ type ModelManagerBackend interface {
 	Export() (description.Model, error)
 	SetUserAccess(subject names.UserTag, target names.Tag, access permission.Access) (permission.UserAccess, error)
 	LastModelConnection(user names.UserTag) (time.Time, error)
+	LatestMigration() (state.ModelMigration, error)
 	DumpAll() (map[string]interface{}, error)
 	Close() error
 }

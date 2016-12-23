@@ -15,26 +15,26 @@ import (
 	"github.com/juju/juju/status"
 )
 
-// ServiceStatusSetter implements a SetApplicationStatus method to be
-// used by facades that can change a service status.
-// This is only slightly less evil than ServiceStatusGetter. We have
+// ApplicationStatusSetter implements a SetApplicationStatus method to be
+// used by facades that can change an application status.
+// This is only slightly less evil than ApplicationStatusGetter. We have
 // StatusSetter already; all this does is set the status for the wrong
 // entity, and render the auth so confused as to be ~worthless.
-type ServiceStatusSetter struct {
+type ApplicationStatusSetter struct {
 	st           *state.State
 	getCanModify GetAuthFunc
 }
 
 // NewServiceStatusSetter returns a ServiceStatusSetter.
-func NewServiceStatusSetter(st *state.State, getCanModify GetAuthFunc) *ServiceStatusSetter {
-	return &ServiceStatusSetter{
+func NewServiceStatusSetter(st *state.State, getCanModify GetAuthFunc) *ApplicationStatusSetter {
+	return &ApplicationStatusSetter{
 		st:           st,
 		getCanModify: getCanModify,
 	}
 }
 
 // SetStatus sets the status on the service given by the unit in args if the unit is the leader.
-func (s *ServiceStatusSetter) SetStatus(args params.SetStatus) (params.ErrorResults, error) {
+func (s *ApplicationStatusSetter) SetStatus(args params.SetStatus) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Entities)),
 	}

@@ -243,8 +243,6 @@ func CloudInitUserData(
 		cloudConfig.SetAttr("hostname", instanceConfig.MachineContainerHostname)
 	}
 
-	cloudConfig.SetAttr("manage_etc_hosts", true)
-
 	data, err := cloudConfig.RenderYAML()
 	if err != nil {
 		return nil, errors.Trace(err)

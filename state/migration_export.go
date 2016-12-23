@@ -15,6 +15,7 @@ import (
 
 	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/payload"
+	"github.com/juju/juju/resource"
 	"github.com/juju/juju/storage/poolmanager"
 )
 
@@ -68,6 +69,19 @@ func (st *State) Export() (description.Model, error) {
 		Blocks:             blocks,
 	}
 	export.model = description.NewModel(args)
+	if credsTag, credsSet := dbModel.CloudCredential(); credsSet {
+		creds, err := st.CloudCredential(credsTag)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		export.model.SetCloudCredential(description.CloudCredentialArgs{
+			Owner:      credsTag.Owner(),
+			Cloud:      credsTag.Cloud(),
+			Name:       credsTag.Name(),
+			AuthType:   string(creds.AuthType()),
+			Attributes: creds.Attributes(),
+		})
+	}
 	modelKey := dbModel.globalKey()
 	export.model.SetAnnotations(export.getAnnotations(modelKey))
 	if err := export.sequences(); err != nil {
@@ -472,6 +486,11 @@ func (e *exporter) applications() error {
 		return errors.Trace(err)
 	}
 
+	bindings, err := e.readAllEndpointBindings()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	leaders, err := e.st.ApplicationLeaders()
 	if err != nil {
 		return errors.Trace(err)
@@ -482,15 +501,26 @@ func (e *exporter) applications() error {
 		return errors.Trace(err)
 	}
 
+	resourcesSt, err := e.st.Resources()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	for _, application := range applications {
 		applicationUnits := e.units[application.Name()]
 		leader := leaders[application.Name()]
+		resources, err := resourcesSt.ListResources(application.Name())
+		if err != nil {
+			return errors.Trace(err)
+		}
 		if err := e.addApplication(addApplicationContext{
-			application: application,
-			units:       applicationUnits,
-			meterStatus: meterStatus,
-			leader:      leader,
-			payloads:    payloads,
+			application:      application,
+			units:            applicationUnits,
+			meterStatus:      meterStatus,
+			leader:           leader,
+			payloads:         payloads,
+			resources:        resources,
+			endpoingBindings: bindings,
 		}); err != nil {
 			return errors.Trace(err)
 		}
@@ -542,16 +572,19 @@ func (e *exporter) readAllPayloads() (map[string][]payload.FullPayloadInfo, erro
 }
 
 type addApplicationContext struct {
-	application *Application
-	units       []*Unit
-	meterStatus map[string]*meterStatusDoc
-	leader      string
-	payloads    map[string][]payload.FullPayloadInfo
+	application      *Application
+	units            []*Unit
+	meterStatus      map[string]*meterStatusDoc
+	leader           string
+	payloads         map[string][]payload.FullPayloadInfo
+	resources        resource.ServiceResources
+	endpoingBindings map[string]bindingsMap
 }
 
 func (e *exporter) addApplication(ctx addApplicationContext) error {
 	application := ctx.application
 	appName := application.Name()
+	globalKey := application.globalKey()
 	settingsKey := application.settingsKey()
 	leadershipKey := leadershipSettingsKey(appName)
 	storageConstraintsKey := application.storageConstraintsKey()
@@ -575,6 +608,7 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 		ForceCharm:           application.doc.ForceCharm,
 		Exposed:              application.doc.Exposed,
 		MinUnits:             application.doc.MinUnits,
+		EndpointBindings:     map[string]string(ctx.endpoingBindings[globalKey]),
 		Settings:             applicationSettingsDoc.Settings,
 		Leader:               ctx.leader,
 		LeadershipSettings:   leadershipSettingsDoc.Settings,
@@ -585,7 +619,6 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 	}
 	exApplication := e.model.AddApplication(args)
 	// Find the current application status.
-	globalKey := application.globalKey()
 	statusArgs, err := e.statusArgs(globalKey)
 	if err != nil {
 		return errors.Annotatef(err, "status for application %s", appName)
@@ -599,6 +632,10 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 		return errors.Trace(err)
 	}
 	exApplication.SetConstraints(constraintsArgs)
+
+	if err := e.setResources(exApplication, ctx.resources); err != nil {
+		return errors.Trace(err)
+	}
 
 	for _, unit := range ctx.units {
 		agentKey := unit.globalAgentKey()
@@ -628,6 +665,8 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 			}
 		}
 		exUnit := exApplication.AddUnit(args)
+
+		e.setUnitResources(exUnit, ctx.resources.UnitResources)
 
 		if err := e.setUnitPayloads(exUnit, ctx.payloads[unit.UnitTag().Id()]); err != nil {
 			return errors.Trace(err)
@@ -673,6 +712,69 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 		exUnit.SetConstraints(constraintsArgs)
 	}
 
+	return nil
+}
+
+func (e *exporter) setResources(exApp description.Application, resources resource.ServiceResources) error {
+	if len(resources.Resources) != len(resources.CharmStoreResources) {
+		return errors.New("number of resources don't match charm store resources")
+	}
+
+	for i, resource := range resources.Resources {
+		exResource := exApp.AddResource(description.ResourceArgs{
+			Name: resource.Name,
+		})
+		exResource.SetApplicationRevision(description.ResourceRevisionArgs{
+			Revision:       resource.Revision,
+			Type:           resource.Type.String(),
+			Path:           resource.Path,
+			Description:    resource.Description,
+			Origin:         resource.Origin.String(),
+			FingerprintHex: resource.Fingerprint.Hex(),
+			Size:           resource.Size,
+			Timestamp:      resource.Timestamp,
+			Username:       resource.Username,
+		})
+		csResource := resources.CharmStoreResources[i]
+		exResource.SetCharmStoreRevision(description.ResourceRevisionArgs{
+			Revision:       csResource.Revision,
+			Type:           csResource.Type.String(),
+			Path:           csResource.Path,
+			Description:    csResource.Description,
+			Origin:         csResource.Origin.String(),
+			Size:           csResource.Size,
+			FingerprintHex: csResource.Fingerprint.Hex(),
+		})
+	}
+
+	return nil
+}
+
+func (e *exporter) setUnitResources(exUnit description.Unit, allResources []resource.UnitResources) {
+	for _, resource := range findUnitResources(exUnit.Name(), allResources) {
+		exUnit.AddResource(description.UnitResourceArgs{
+			Name: resource.Name,
+			RevisionArgs: description.ResourceRevisionArgs{
+				Revision:       resource.Revision,
+				Type:           resource.Type.String(),
+				Path:           resource.Path,
+				Description:    resource.Description,
+				Origin:         resource.Origin.String(),
+				FingerprintHex: resource.Fingerprint.Hex(),
+				Size:           resource.Size,
+				Timestamp:      resource.Timestamp,
+				Username:       resource.Username,
+			},
+		})
+	}
+}
+
+func findUnitResources(unitName string, allResources []resource.UnitResources) []resource.Resource {
+	for _, unitResources := range allResources {
+		if unitResources.Tag.Id() == unitName {
+			return unitResources.Resources
+		}
+	}
 	return nil
 }
 
@@ -920,7 +1022,7 @@ func (e *exporter) readAllUnits() (map[string][]*Unit, error) {
 	defer closer()
 
 	docs := []unitDoc{}
-	err := unitsCollection.Find(nil).All(&docs)
+	err := unitsCollection.Find(nil).Sort("name").All(&docs)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot get all units")
 	}
@@ -929,6 +1031,23 @@ func (e *exporter) readAllUnits() (map[string][]*Unit, error) {
 	for _, doc := range docs {
 		units := result[doc.Application]
 		result[doc.Application] = append(units, newUnit(e.st, &doc))
+	}
+	return result, nil
+}
+
+func (e *exporter) readAllEndpointBindings() (map[string]bindingsMap, error) {
+	bindings, closer := e.st.getCollection(endpointBindingsC)
+	defer closer()
+
+	docs := []endpointBindingsDoc{}
+	err := bindings.Find(nil).All(&docs)
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot get all application endpoint bindings")
+	}
+	e.logger.Debugf("found %d application endpoint binding docs", len(docs))
+	result := make(map[string]bindingsMap)
+	for _, doc := range docs {
+		result[e.st.localID(doc.DocID)] = doc.Bindings
 	}
 	return result, nil
 }

@@ -188,6 +188,7 @@ func (api *API) Export() (params.SerializedModel, error) {
 	serialized.Bytes = bytes
 	serialized.Charms = getUsedCharms(model)
 	serialized.Tools = getUsedTools(model)
+	serialized.Resources = getUsedResources(model)
 	return serialized, nil
 }
 
@@ -307,5 +308,57 @@ func addToolsVersionForMachine(machine description.Machine, usedVersions map[ver
 	usedVersions[tools.Version()] = true
 	for _, container := range machine.Containers() {
 		addToolsVersionForMachine(container, usedVersions)
+	}
+}
+
+func getUsedResources(model description.Model) []params.SerializedModelResource {
+	var out []params.SerializedModelResource
+	for _, app := range model.Applications() {
+		for _, resource := range app.Resources() {
+			outRes := resourceToSerialized(app.Name(), resource)
+
+			// Hunt through the application's units and look for
+			// revisions of this resource. This is particularly
+			// efficient or clever but will be fine even with 1000's
+			// of units and 10's of resources.
+			outRes.UnitRevisions = make(map[string]params.SerializedModelResourceRevision)
+			for _, unit := range app.Units() {
+				for _, unitResource := range unit.Resources() {
+					if unitResource.Name() == resource.Name() {
+						outRes.UnitRevisions[unit.Name()] = revisionToSerialized(unitResource.Revision())
+					}
+				}
+			}
+
+			out = append(out, outRes)
+		}
+
+	}
+	return out
+}
+
+func resourceToSerialized(app string, desc description.Resource) params.SerializedModelResource {
+	return params.SerializedModelResource{
+		Application:         app,
+		Name:                desc.Name(),
+		ApplicationRevision: revisionToSerialized(desc.ApplicationRevision()),
+		CharmStoreRevision:  revisionToSerialized(desc.CharmStoreRevision()),
+	}
+}
+
+func revisionToSerialized(rr description.ResourceRevision) params.SerializedModelResourceRevision {
+	if rr == nil {
+		return params.SerializedModelResourceRevision{}
+	}
+	return params.SerializedModelResourceRevision{
+		Revision:       rr.Revision(),
+		Type:           rr.Type(),
+		Path:           rr.Path(),
+		Description:    rr.Description(),
+		Origin:         rr.Origin(),
+		FingerprintHex: rr.FingerprintHex(),
+		Size:           rr.Size(),
+		Timestamp:      rr.Timestamp(),
+		Username:       rr.Username(),
 	}
 }

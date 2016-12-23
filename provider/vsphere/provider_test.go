@@ -7,7 +7,9 @@ package vsphere_test
 
 import (
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
+	yaml "gopkg.in/yaml.v1"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
@@ -86,4 +88,22 @@ func (s *providerSuite) TestValidate(c *gc.C) {
 
 	validAttrs := validCfg.AllAttrs()
 	c.Assert(s.Config.AllAttrs(), gc.DeepEquals, validAttrs)
+}
+func (s *providerSuite) TestSchema(c *gc.C) {
+	y := []byte(`
+auth-types: [userpass]
+endpoint: http://foo.com/vsphere
+regions:
+  foo: {}
+  bar: {}
+`[1:])
+	var v interface{}
+	err := yaml.Unmarshal(y, &v)
+	c.Assert(err, jc.ErrorIsNil)
+	v, err = utils.ConformYAML(v)
+	c.Assert(err, jc.ErrorIsNil)
+
+	p, err := environs.Provider("vsphere")
+	err = p.CloudSchema().Validate(v)
+	c.Assert(err, jc.ErrorIsNil)
 }

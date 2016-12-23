@@ -6,6 +6,7 @@ package state_test
 import (
 	"fmt"
 	"sort"
+	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -18,6 +19,7 @@ import (
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/resource/resourcetesting"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/testing"
 	"github.com/juju/juju/status"
@@ -43,6 +45,18 @@ func (s *ApplicationSuite) SetUpTest(c *gc.C) {
 	}
 	s.charm = s.AddTestingCharm(c, "mysql")
 	s.mysql = s.AddTestingService(c, "mysql", s.charm)
+}
+
+func (s *ApplicationSuite) assertNeedsCleanup(c *gc.C) {
+	dirty, err := s.State.NeedsCleanup()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(dirty, jc.IsTrue)
+}
+
+func (s *ApplicationSuite) assertNoCleanup(c *gc.C) {
+	dirty, err := s.State.NeedsCleanup()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(dirty, jc.IsFalse)
 }
 
 func (s *ApplicationSuite) TestSetCharm(c *gc.C) {
@@ -1727,22 +1741,16 @@ func (s *ApplicationSuite) TestDestroyQueuesUnitCleanup(c *gc.C) {
 		}
 	}
 
-	// Check state is clean.
-	dirty, err := s.State.NeedsCleanup()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(dirty, jc.IsFalse)
+	s.assertNoCleanup(c)
 
 	// Destroy mysql, and check units are not touched.
-	err = s.mysql.Destroy()
+	err := s.mysql.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	for _, unit := range units {
 		assertLife(c, unit, state.Alive)
 	}
 
-	// Check a cleanup doc was added.
-	dirty, err = s.State.NeedsCleanup()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(dirty, jc.IsTrue)
+	s.assertNeedsCleanup(c)
 
 	// Run the cleanup and check the units.
 	err = s.State.Cleanup()
@@ -1756,16 +1764,12 @@ func (s *ApplicationSuite) TestDestroyQueuesUnitCleanup(c *gc.C) {
 	}
 
 	// Check for queued unit cleanups, and run them.
-	dirty, err = s.State.NeedsCleanup()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(dirty, jc.IsTrue)
+	s.assertNeedsCleanup(c)
 	err = s.State.Cleanup()
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check we're now clean.
-	dirty, err = s.State.NeedsCleanup()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(dirty, jc.IsFalse)
+	s.assertNoCleanup(c)
 }
 
 func (s *ApplicationSuite) TestRemoveServiceMachine(c *gc.C) {
@@ -1786,17 +1790,12 @@ func (s *ApplicationSuite) TestRemoveServiceMachine(c *gc.C) {
 }
 
 func (s *ApplicationSuite) TestRemoveQueuesLocalCharmCleanup(c *gc.C) {
-	// Check state is clean.
-	dirty, err := s.State.NeedsCleanup()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(dirty, jc.IsFalse)
+	s.assertNoCleanup(c)
 
-	err = s.mysql.Destroy()
+	err := s.mysql.Destroy()
 
 	// Check a cleanup doc was added.
-	dirty, err = s.State.NeedsCleanup()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(dirty, jc.IsTrue)
+	s.assertNeedsCleanup(c)
 
 	// Run the cleanup
 	err = s.State.Cleanup()
@@ -1807,9 +1806,56 @@ func (s *ApplicationSuite) TestRemoveQueuesLocalCharmCleanup(c *gc.C) {
 	c.Check(err, jc.Satisfies, errors.IsNotFound)
 
 	// Check we're now clean.
-	dirty, err = s.State.NeedsCleanup()
+	s.assertNoCleanup(c)
+}
+
+func (s *ApplicationSuite) TestDestroyQueuesResourcesCleanup(c *gc.C) {
+	s.assertNoCleanup(c)
+
+	// Add a resource to the application, ensuring it is stored.
+	rSt, err := s.State.Resources()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(dirty, jc.IsFalse)
+	const content = "abc"
+	res := resourcetesting.NewCharmResource(c, "blob", content)
+	outRes, err := rSt.SetResource(s.mysql.Name(), "user", res, strings.NewReader(content))
+	c.Assert(err, jc.ErrorIsNil)
+	storagePath := state.ResourceStoragePath(c, s.State, outRes.ID)
+	c.Assert(state.IsBlobStored(c, s.State, storagePath), jc.IsTrue)
+
+	// Detroy the application.
+	err = s.mysql.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Cleanup should be registered but not yet run.
+	s.assertNeedsCleanup(c)
+	c.Assert(state.IsBlobStored(c, s.State, storagePath), jc.IsTrue)
+
+	// Run the cleanup.
+	err = s.State.Cleanup()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Check we're now clean.
+	s.assertNoCleanup(c)
+	c.Assert(state.IsBlobStored(c, s.State, storagePath), jc.IsFalse)
+}
+
+func (s *ApplicationSuite) TestDestroyWithPlaceholderResources(c *gc.C) {
+	s.assertNoCleanup(c)
+
+	// Add a placeholder resource to the application.
+	rSt, err := s.State.Resources()
+	c.Assert(err, jc.ErrorIsNil)
+	res := resourcetesting.NewPlaceholderResource(c, "blob", s.mysql.Name())
+	outRes, err := rSt.SetResource(s.mysql.Name(), "user", res.Resource, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(outRes.IsPlaceholder(), jc.IsTrue)
+
+	// Detroy the application.
+	err = s.mysql.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// No cleanup required for placeholder resources.
+	state.AssertNoCleanups(c, s.State, state.CleanupKindResourceBlob)
 }
 
 func (s *ApplicationSuite) TestReadUnitWithChangingState(c *gc.C) {

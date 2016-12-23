@@ -411,7 +411,7 @@ func (m unitMatcher) matchString(s string) bool {
 	return false
 }
 
-// validPattern must match the parts of a unit or service name
+// validPattern must match the parts of a unit or application name
 // pattern either side of the '/' for it to be valid.
 var validPattern = regexp.MustCompile("^[a-z0-9-*]+$")
 
