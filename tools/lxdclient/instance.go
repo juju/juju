@@ -18,8 +18,6 @@ import (
 
 // Constants related to user metadata.
 const (
-	MetadataNamespace = "user"
-
 	// This is defined by the cloud-init code:
 	// http://bazaar.launchpad.net/~cloud-init-dev/cloud-init/trunk/view/head:/cloudinit/sources/
 	// http://cloudinit.readthedocs.org/en/latest/
@@ -258,8 +256,7 @@ func resolveMetadata(metadata map[string]string) map[string]string {
 	config := make(map[string]string)
 
 	for name, val := range metadata {
-		key := resolveConfigKey(name, MetadataNamespace)
-		config[key] = val
+		config[name] = val
 	}
 
 	return config
@@ -269,11 +266,7 @@ func extractMetadata(config map[string]string) map[string]string {
 	metadata := make(map[string]string)
 
 	for key, val := range config {
-		namespace, name := splitConfigKey(key)
-		if namespace != MetadataNamespace {
-			continue
-		}
-		metadata[name] = val
+		metadata[key] = val
 	}
 
 	return metadata
