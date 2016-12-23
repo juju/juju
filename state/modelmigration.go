@@ -370,6 +370,12 @@ func (mig *modelMigration) SetPhase(nextPhase migration.Phase) error {
 // migStatusHistoryAndOps sets the model's status history and returns ops for
 // setting model status according to the phase and message.
 func migStatusHistoryAndOps(st *State, phase migration.Phase, now int64, msg string) ([]txn.Op, error) {
+	switch phase {
+	case migration.REAP, migration.DONE:
+		// if we're reaping/have reaped the model, setting status on it is both
+		// pointless and potentially problematic.
+		return nil, nil
+	}
 	model, err := st.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -387,6 +393,7 @@ func migStatusHistoryAndOps(st *State, phase migration.Phase, now int64, msg str
 		StatusInfo: msg,
 		Updated:    now,
 	}
+
 	ops, err := statusSetOps(st, doc, globalKey)
 	if err != nil {
 		return nil, errors.Trace(err)
