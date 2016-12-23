@@ -1,8 +1,6 @@
 // Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// TODO(ro) move all of kvm behind build flags?
-
 // +build linux
 // +build amd64 arm64 ppc64el
 
@@ -43,7 +41,7 @@ func runAsLibvirt(command string, args ...string) (string, error) {
 }
 
 // getUserUIDGID returns integervals for uid and gid for the user. It returns
-// -1 when there's an error so no one accidently things 0 is the appropriate
+// -1 when there's an error so no one accidently thinks 0 is the appropriate
 // uid/gid when there's an error.
 func getUserUIDGID(name string) (int, int, error) {
 	u, err := user.Lookup(libvirtUser)

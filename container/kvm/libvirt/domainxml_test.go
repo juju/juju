@@ -132,6 +132,6 @@ type dummyInterface struct {
 	mac, parent, name string
 }
 
-func (i dummyInterface) MAC() string              { return i.mac }
-func (i dummyInterface) ParentDeviceName() string { return i.parent }
-func (i dummyInterface) DeviceName() string       { return i.name }
+func (i dummyInterface) MACAddress() string          { return i.mac }
+func (i dummyInterface) ParentInterfaceName() string { return i.parent }
+func (i dummyInterface) InterfaceName() string       { return i.name }

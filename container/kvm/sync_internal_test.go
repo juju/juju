@@ -24,7 +24,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 )
 
-// cacheInternalSuite is gocheck boilerplate.
+// syncInternalSuite is gocheck boilerplate.
 type syncInternalSuite struct {
 	testing.IsolationSuite
 }

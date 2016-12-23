@@ -128,7 +128,7 @@ func (commandWrapperSuite) TestCreateMachineSuccess(c *gc.C) {
 		RootDisk:     8,
 	}
 
-	MakeTestableCreateMachineParams(&params, pathfinder, stub.Run)
+	MakeCreateMachineParamsTestable(&params, pathfinder, stub.Run)
 	err = CreateMachine(params)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -184,20 +184,27 @@ func (commandWrapperSuite) TestDestroyMachineFails(c *gc.C) {
 	err := DestroyMachine(container)
 	c.Check(stub.Calls(), jc.DeepEquals, []string{
 		"virsh destroy aname",
+		"virsh undefine aname",
 	})
-	c.Assert(err, gc.ErrorMatches, "Boom")
+	log := c.GetTestLog()
+	c.Check(log, jc.Contains, "`virsh destroy aname` failed")
+	c.Check(log, jc.Contains, "`virsh undefine aname` failed")
+	c.Assert(err, jc.ErrorIsNil)
+
 }
 
 func (commandWrapperSuite) TestAutostartMachineSuccess(c *gc.C) {
 	stub := NewRunStub("success", nil)
-	err := AutostartMachine("aname", stub.Run)
+	container := NewTestContainer("aname", stub.Run, nil)
+	err := AutostartMachine(container)
 	c.Assert(stub.Calls(), jc.DeepEquals, []string{"virsh autostart aname"})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (commandWrapperSuite) TestAutostartMachineFails(c *gc.C) {
 	stub := NewRunStub("", errors.Errorf("Boom"))
-	err := AutostartMachine("aname", stub.Run)
+	container := NewTestContainer("aname", stub.Run, nil)
+	err := AutostartMachine(container)
 	c.Assert(stub.Calls(), jc.DeepEquals, []string{"virsh autostart aname"})
 	c.Assert(err, gc.ErrorMatches, "Boom")
 }

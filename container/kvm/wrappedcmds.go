@@ -47,7 +47,7 @@ const (
 
 var (
 	// The regular expression for breaking up the results of 'virsh list'
-	// (?m) - specify that this is a multiline regex
+	// (?m) - specify that this is a multi-line regex
 	// first part is the opaque identifier we don't care about
 	// then the hostname, and lastly the status.
 	machineListPattern = regexp.MustCompile(`(?m)^\s+\d+\s+(?P<hostname>[-\w]+)\s+(?P<status>.+)\s*$`)
@@ -65,8 +65,9 @@ type CreateMachineParams struct {
 	RootDisk      uint64
 	Interfaces    []libvirt.InterfaceInfo
 	disks         []libvirt.DiskInfo
-	pathfinder    func(string) (string, error)
+	findPath      func(string) (string, error)
 	runCmd        runFunc
+	runCmdAsRoot  runFunc
 }
 
 // Host implements libvirt.domainParams.
@@ -147,69 +148,49 @@ func CreateMachine(params CreateMachineParams) error {
 	if params.Hostname == "" {
 		return fmt.Errorf("hostname is required")
 	}
-	if params.pathfinder == nil {
-		params.pathfinder = paths.DataDir
-	}
 
-	// We need to run some commands as root and some as libvirt. Alternatively,
-	// we could just run commands as root then change ownership as nessecary,
-	// but that's just gross in a different way.
-	var (
-		runCmdAsRoot runFunc
-	)
-	// if there isn't a runCmd passed in, we're not testing so use real
-	// runFuncs.
+	if params.findPath == nil {
+		params.findPath = paths.DataDir
+	}
 	if params.runCmd == nil {
-		runCmdAsRoot = run
 		params.runCmd = runAsLibvirt
-	} else {
-		// If there is a runCmd passed in we're passing a test stub. So set
-		// runCmdAsRoot to use it too.
-		runCmdAsRoot = params.runCmd
+	}
+	if params.runCmdAsRoot == nil {
+		params.runCmdAsRoot = run
 	}
 
-	// Get the template directory where we will also put the domain XML used
-	// for creating our guest.
 	templateDir := filepath.Dir(params.UserDataFile)
 
-	// Write out the meta-data to disk.
 	err := writeMetadata(templateDir)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	// Create the data source volume containg the cloud-init user and meta
-	// data. The user-data is passed in and meta-data is generated internally.
 	dsPath, err := writeDatasourceVolume(params)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	// Create the container's root disk based on a backing store.
 	imgPath, err := writeRootDisk(params)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	// Add the new volumes to CreateMachine params.
 	params.disks = append(params.disks, diskInfo{source: imgPath, driver: "qcow2"})
 	params.disks = append(params.disks, diskInfo{source: dsPath, driver: "raw"})
 
-	// Write out domain XML file.
 	domainPath, err := writeDomainXML(templateDir, params)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	// Create the domain guest.
-	out, err := runCmdAsRoot("virsh", "define", domainPath)
+	out, err := params.runCmdAsRoot("virsh", "define", domainPath)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	logger.Debugf("create domain: %s", out)
 
-	// Start the domain guest.
-	out, err = runCmdAsRoot("virsh", "start", params.Host())
+	out, err = params.runCmdAsRoot("virsh", "start", params.Host())
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -218,7 +199,7 @@ func CreateMachine(params CreateMachineParams) error {
 	return err
 }
 
-// DestroyMachine destroys the virtual machine identified by hostname.
+// DestroyMachine destroys the virtual machine represented by the kvmContainer.
 func DestroyMachine(c *kvmContainer) error {
 	if c.runCmd == nil {
 		c.runCmd = run
@@ -226,30 +207,34 @@ func DestroyMachine(c *kvmContainer) error {
 	if c.pathfinder == nil {
 		c.pathfinder = paths.DataDir
 	}
-	// destroy shuts down the domain.
+
+	// We don't return errors for virsh commands because it is possible that we
+	// didn't succeed in creating the domain. Additionally, we want all the
+	// commands to run. If any fail it is certainly because the thing we're
+	// trying to remove wasn't created. However, we still want to try removing
+	// all the parts. The exception here is getting the guestBase, if that
+	// fails we return the error because we cannot continue without it.
+
 	_, err := c.runCmd("virsh", "destroy", c.Name())
 	if err != nil {
-		return errors.Trace(err)
+		logger.Infof("`virsh destroy %s` failed: %q", c.Name(), err)
 	}
-	// undefine removes the domain from libvirt.
+
 	_, err = c.runCmd("virsh", "undefine", c.Name())
 	if err != nil {
-		return errors.Trace(err)
+		logger.Infof("`virsh undefine %s` failed: %q", c.Name(), err)
 	}
 	guestBase, err := guestPath(c.pathfinder)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	// remove the associated disk images
 	err = os.Remove(filepath.Join(guestBase, fmt.Sprintf("%s.qcow", c.Name())))
 	if err != nil {
-		logger.Errorf("failed to remove system disk for %q", c.Name())
-		return errors.Trace(err)
+		logger.Errorf("failed to remove system disk for %q: %s", c.Name(), err)
 	}
 	err = os.Remove(filepath.Join(guestBase, fmt.Sprintf("%s-ds.iso", c.Name())))
 	if err != nil {
-		logger.Errorf("failed to remove cloud-init data disk for %q", c.Name())
-		return errors.Trace(err)
+		logger.Errorf("failed to remove cloud-init data disk for %q: %s", c.Name(), err)
 	}
 
 	return nil
@@ -257,11 +242,11 @@ func DestroyMachine(c *kvmContainer) error {
 
 // AutostartMachine indicates that the virtual machines should automatically
 // restart when the host restarts.
-func AutostartMachine(hostname string, runCmd runFunc) error {
-	if runCmd == nil {
-		runCmd = run
+func AutostartMachine(c *kvmContainer) error {
+	if c.runCmd == nil {
+		c.runCmd = run
 	}
-	_, err := runCmd("virsh", "autostart", hostname)
+	_, err := c.runCmd("virsh", "autostart", c.Name())
 	return err
 }
 
@@ -307,7 +292,7 @@ func writeDatasourceVolume(params CreateMachineParams) (string, error) {
 		return "", errors.Trace(err)
 	}
 
-	// Creating a working DS volume was a bit trroublesome for me. I finally
+	// Creating a working DS volume was a bit troublesome for me. I finally
 	// found the details in the docs.
 	// http://cloudinit.readthedocs.io/en/latest/topics/datasources/nocloud.html
 	//
@@ -339,7 +324,7 @@ func writeDatasourceVolume(params CreateMachineParams) (string, error) {
 
 	// Create data the source volume outputting the iso image to the guests
 	// (AKA libvirt storage pool) directory.
-	guestBase, err := guestPath(params.pathfinder)
+	guestBase, err := guestPath(params.findPath)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
@@ -399,7 +384,7 @@ func writeDomainXML(templateDir string, p CreateMachineParams) (string, error) {
 }
 
 // writeMetadata writes out a metadata file with an UUID instance-id. The
-// meta-data file is use din the data source image along with user-data nee
+// meta-data file is used in the data source image along with user-data nee
 // cloud-init. `instance-id` is a required field in meta-data. It is what is
 // used to determine if this is the first boot, thereby whether or not to run
 // cloud-init.
@@ -411,7 +396,7 @@ func writeMetadata(dir string) error {
 		return errors.Trace(err)
 	}
 	defer func() {
-		if err := f.Close(); err != nil {
+		if err = f.Close(); err != nil {
 			logger.Errorf("failed to close %q %s", f.Name(), err)
 		}
 	}()
@@ -425,7 +410,7 @@ func writeMetadata(dir string) error {
 // writeRootDisk writes out the root disk for the container.  This creates a
 // system disk backed by our shared series/arch backing store.
 func writeRootDisk(params CreateMachineParams) (string, error) {
-	guestBase, err := guestPath(params.pathfinder)
+	guestBase, err := guestPath(params.findPath)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
@@ -449,7 +434,7 @@ func writeRootDisk(params CreateMachineParams) (string, error) {
 	return imgPath, nil
 }
 
-// pool info parses and returns the output of `virst pool-info <poolname>`.
+// pool info parses and returns the output of `virsh pool-info <poolname>`.
 func poolInfo(runCmd runFunc) (*libvirtPool, error) {
 	output, err := runCmd("virsh", "pool-info", poolName)
 	if err != nil {

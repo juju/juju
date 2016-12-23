@@ -16,9 +16,9 @@ import (
 // Details of the domain XML format are at: https://libvirt.org/formatdomain.html
 // We only use a subset, just enough to create instances in the pool. We don't
 // check any argument types here. We expect incoming params to be validate-able
-// by a function on the incoming domainParams. XXX: Or validate the params before being called.
+// by a function on the incoming domainParams.
 
-// DiskInfo is an interface to allow callers to pass DiskInfo in domainParams.
+// DiskInfo represents the type and location of a libvirt pool image.
 type DiskInfo interface {
 	// Source is the path to the disk image.
 	Source() string
@@ -26,19 +26,28 @@ type DiskInfo interface {
 	Driver() string
 }
 
-// InterfaceInfo is to allow callers to pass InterfaceInfo in domainParams.
+// InterfaceInfo represents network interface parameters for a kvm domain.
 type InterfaceInfo interface {
-	MAC() string
-	ParentDeviceName() string
-	DeviceName() string
+	// MAC returns the interfaces MAC address.
+	MACAddress() string
+	// ParentInterfaceName returns the interface's parent device name.
+	ParentInterfaceName() string
+	// InterfaceName returns the interface's device name.
+	InterfaceName() string
 }
 
 type domainParams interface {
+	// CPUs returns the number of CPUs to use.
 	CPUs() uint64
+	// DiskInfo returns the disk information for the domain.
 	DiskInfo() []DiskInfo
+	// Host returns the host name.
 	Host() string
+	// NetworkInfo contains the network interfaces to create in the domain.
 	NetworkInfo() []InterfaceInfo
+	// RAM returns the amount of RAM to use.
 	RAM() uint64
+	// ValidateDomainParams returns nil if the domainParams are valid.
 	ValidateDomainParams() error
 }
 
@@ -155,10 +164,10 @@ func NewDomain(p domainParams) (Domain, error) {
 	for _, iface := range p.NetworkInfo() {
 		d.Interface = append(d.Interface, Interface{
 			Type:   "bridge",
-			MAC:    InterfaceMAC{Address: iface.MAC()},
+			MAC:    InterfaceMAC{Address: iface.MACAddress()},
 			Model:  Model{Type: "virtio"},
-			Source: InterfaceSource{Bridge: iface.ParentDeviceName()},
-			Guest:  InterfaceGuest{Dev: iface.DeviceName()},
+			Source: InterfaceSource{Bridge: iface.ParentInterfaceName()},
+			Guest:  InterfaceGuest{Dev: iface.InterfaceName()},
 		})
 	}
 	return d, nil
@@ -255,7 +264,7 @@ type ConsoleSource struct {
 	Path string `xml:"path,attr,omitempty"`
 }
 
-// Serial is static. This was added specifially to create a functional console
+// Serial is static. This was added specifically to create a functional console
 // for troubleshooting vms as they boot. You can attach to this console with
 // `virsh console <domainName>`.
 // See: https://libvirt.org/formatdomain.html#elementsConsole
@@ -368,7 +377,7 @@ type DiskTarget struct {
 
 // CurrentMemory is the actual allocation of memory for the guest. It appears
 // we historically set this the same as Memory, which is also the default
-// behavior of libvirt. constrants.Value.Mem documents this as "megabytes".
+// behavior of libvirt. Constraints.Value.Mem documents this as "megabytes".
 // Interpreting that here as MiB.
 // See: Memory, github.com/juju/juju/constraints/constraints.Value.Mem
 type CurrentMemory struct {

@@ -8,6 +8,9 @@ package kvm
 
 import "github.com/juju/utils"
 
+// This is the user on ubuntu. I don't know what the user would be on other
+// linux distros. At the time of this writing we are only supporting ubuntu on
+// ubuntu for kvm containers in Juju.
 const libvirtUser = "libvirt-qemu"
 
 // runFunc provides the signature for running an external command and returning

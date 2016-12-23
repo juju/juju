@@ -24,21 +24,17 @@ import (
 	"github.com/juju/juju/juju/paths"
 )
 
-const (
-	// FType is the file type we want to fetch and use for kvm instances.
-	FType = "disk1.img"
-)
+// FType is the file type we want to fetch and use for kvm instances.
+const FType = "disk1.img"
 
-// Oner is an interface which allows us to use sync params to call
-// imagedownloads.One or pass in a fake for testing.
+// Oner gets the one matching item from simplestreams.
 type Oner interface {
 	One() (*imagedownloads.Metadata, error)
 }
 
-// SyncParams conveys the information necessary for calling imagedownloads.One.
+// syncParams conveys the information necessary for calling imagedownloads.One.
 type syncParams struct {
 	arch, series, ftype string
-	pathfinder          func(string) (string, error)
 	srcFunc             func() simplestreams.DataSource
 }
 
@@ -179,7 +175,7 @@ func (i *Image) write(r io.Reader, md *imagedownloads.Metadata) error {
 
 	output, err := i.runCmd(
 		"qemu-img", "convert", "-f", "qcow2", tmpPath, i.FilePath)
-	fmt.Println(output)
+	logger.Debugf("qemu-image convert output: %s", output)
 	if err != nil {
 		i.cleanupAll()
 		return errors.Trace(err)
@@ -191,11 +187,11 @@ func (i *Image) write(r io.Reader, md *imagedownloads.Metadata) error {
 // called if things don't work out. E.g. sha256 mismatch, incorrect size...
 func (i *Image) cleanup() {
 	if err := i.tmpFile.Close(); err != nil {
-		logger.Errorf("%s", err.Error())
+		logger.Debugf("%s", err.Error())
 	}
 
 	if err := os.Remove(i.tmpFile.Name()); err != nil {
-		logger.Errorf("got %q removing %q", err.Error(), i.tmpFile.Name())
+		logger.Debugf("got %q removing %q", err.Error(), i.tmpFile.Name())
 	}
 }
 
@@ -204,7 +200,7 @@ func (i *Image) cleanupAll() {
 	i.cleanup()
 	err := os.Remove(i.FilePath)
 	if err != nil {
-		logger.Errorf("got %q removing %q", err.Error(), i.FilePath)
+		logger.Debugf("got %q removing %q", err.Error(), i.FilePath)
 	}
 }
 

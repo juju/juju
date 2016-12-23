@@ -221,7 +221,7 @@ func (h sstreamsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	case "/releases/streams/v1/com.ubuntu.cloud:released:download.sjson":
 		w.Header().Set("Content-Type", "application/json")
-		http.ServeFile(w, r, "testdata/com.ubuntu.cloud:released:download.sjson")
+		http.ServeFile(w, r, "testdata/com.ubuntu.cloud-released-download.sjson")
 		return
 	default:
 		http.Error(w, r.URL.Path, 404)

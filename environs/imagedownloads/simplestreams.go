@@ -107,10 +107,9 @@ func Fetch(
 	for i, im := range items {
 		md[i] = im.(*Metadata)
 	}
-	// TODO(ro) 2016-11-04 Do we really need to sort here? If so what on? Other
-	// sstreams do it, but I'm not sure this is useful wihtout a knob to tune
-	// it on. For now it sorts on release.
+
 	Sort(md)
+
 	return md, resolveInfo, nil
 }
 

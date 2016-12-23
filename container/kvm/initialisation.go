@@ -18,10 +18,13 @@ import (
 )
 
 var requiredPackages = []string{
+	// `qemu-kvm` must be installed before `libvirt-bin` on trusty. It appears
+	// that upstart doesn't reload libvirtd if installed after, and we see
+	// errors related to `qemu-kvm` not being installed.
+	"qemu-kvm",
 	"genisoimage",
 	"libvirt-bin",
 	"qemu-utils",
-	"qemu-kvm",
 }
 
 type containerInitialiser struct{}
@@ -130,6 +133,9 @@ func definePool(dir string, runCmd runFunc, chownFunc func(string) error) error 
 		return errors.Trace(err)
 	}
 
+	// The dashes are empty positional args for other types of pool storage:
+	// e.g. file, lvm, scsi, disk, NFS. Newer versions support using only named
+	// args (--type, --target) but this is backwards compatible for trusty.
 	output, err := runCmd(
 		"virsh",
 		"pool-define-as",
@@ -140,7 +146,7 @@ func definePool(dir string, runCmd runFunc, chownFunc func(string) error) error 
 	if err != nil {
 		return errors.Trace(err)
 	}
-	logger.Debugf("pool-define-as ouput %s", output)
+	logger.Debugf("pool-define-as output %s", output)
 
 	return nil
 }
@@ -165,12 +171,12 @@ func chownToLibvirt(dir string) error {
 
 // buildPool sets up libvirt internals for the guest pool.
 func buildPool(runCmd runFunc) error {
-	// This can run without errror if the pool isn't active.
+	// This can run without error if the pool isn't active.
 	output, err := runCmd("virsh", "pool-build", poolName)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	logger.Debugf("pool-build ouput %s", output)
+	logger.Debugf("pool-build output %s", output)
 	return nil
 }
 
@@ -180,7 +186,7 @@ func startPool(runCmd runFunc) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	logger.Debugf("pool-start ouput %s", output)
+	logger.Debugf("pool-start output %s", output)
 
 	return nil
 }
@@ -191,7 +197,7 @@ func autostartPool(runCmd runFunc) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	logger.Debugf("pool-autostart ouput %s", output)
+	logger.Debugf("pool-autostart output %s", output)
 
 	return nil
 }

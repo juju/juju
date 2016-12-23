@@ -18,9 +18,10 @@ var (
 	TestStartParams = &startParams
 )
 
-func MakeTestableCreateMachineParams(params *CreateMachineParams, pathfinder func(string) (string, error), runCmd runFunc) {
-	params.pathfinder = pathfinder
+func MakeCreateMachineParamsTestable(params *CreateMachineParams, pathfinder func(string) (string, error), runCmd runFunc) {
+	params.findPath = pathfinder
 	params.runCmd = runCmd
+	params.runCmdAsRoot = runCmd
 	return
 }
 

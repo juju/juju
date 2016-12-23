@@ -153,17 +153,15 @@ func (s *ContainerSetupSuite) assertContainerProvisionerStarted(
 	s.PatchValue(&provisioner.StartProvisioner, startProvisionerWorker)
 
 	s.createContainer(c, host, ctype)
-	// Consume the apt command used to initialise the container.
-	select {
-	case <-s.aptCmdChan:
-	case <-time.After(coretesting.LongWait):
-		c.Fatalf("took too long to get command from channel")
-	}
+
 	// the container worker should have created the provisioner
 	c.Assert(atomic.LoadUint32(&provisionerStarted) > 0, jc.IsTrue)
 }
 
 func (s *ContainerSetupSuite) TestContainerProvisionerStarted(c *gc.C) {
+	s.PatchValue(provisioner.GetContainerInitialiser, func(instance.ContainerType, string) container.Initialiser {
+		return fakeContainerInitialiser{}
+	})
 	// Specifically ignore LXD here, if present in instance.ContainerTypes.
 	containerTypes := []instance.ContainerType{instance.KVM}
 	for _, ctype := range containerTypes {
@@ -191,7 +189,16 @@ func (s *ContainerSetupSuite) TestKvmContainerUsesHostArch(c *gc.C) {
 	// KVM should do what it's told, and use the architecture in
 	// constraints.
 	s.PatchValue(&arch.HostArch, func() string { return arch.PPC64EL })
+	s.PatchValue(provisioner.GetContainerInitialiser, func(instance.ContainerType, string) container.Initialiser {
+		return fakeContainerInitialiser{}
+	})
 	s.testContainerConstraintsArch(c, instance.KVM, arch.AMD64)
+}
+
+type fakeContainerInitialiser struct{}
+
+func (_ fakeContainerInitialiser) Initialise() error {
+	return nil
 }
 
 func (s *ContainerSetupSuite) testContainerConstraintsArch(c *gc.C, containerType instance.ContainerType, expectArch string) {
@@ -234,11 +241,7 @@ func (s *ContainerSetupSuite) testContainerConstraintsArch(c *gc.C, containerTyp
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.createContainer(c, m, containerType)
-	select {
-	case <-s.aptCmdChan:
-	case <-time.After(coretesting.LongWait):
-		c.Fatalf("took too long to get command from channel")
-	}
+
 	c.Assert(atomic.LoadUint32(&called) > 0, jc.IsTrue)
 }
 
@@ -367,10 +370,10 @@ func (t toolsFinderFunc) FindTools(v version.Number, series string, arch string)
 func getContainerInstance() (cont []ContainerInstance, err error) {
 	cont = []ContainerInstance{
 		{instance.KVM, [][]string{
+			{"qemu-kvm"},
 			{"genisoimage"},
 			{"libvirt-bin"},
 			{"qemu-utils"},
-			{"qemu-kvm"},
 		}},
 	}
 	return cont, nil

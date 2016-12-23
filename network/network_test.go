@@ -78,14 +78,6 @@ func (s *InterfaceInfoSuite) TestSortInterfaceInfo(c *gc.C) {
 	c.Assert(info, jc.DeepEquals, expectedInfo)
 }
 
-func (s *InterfaceInfoSuite) TestMemberFunctions(c *gc.C) {
-	info := network.InterfaceInfo{
-		MACAddress: "xxx", ParentInterfaceName: "parent", InterfaceName: "name"}
-	c.Check(info.MAC(), gc.Equals, info.MACAddress)
-	c.Check(info.ParentDeviceName(), gc.Equals, info.ParentInterfaceName)
-	c.Check(info.DeviceName(), gc.Equals, info.InterfaceName)
-}
-
 type NetworkSuite struct {
 	testing.BaseSuite
 }

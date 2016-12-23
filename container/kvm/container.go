@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/container/kvm/libvirt"
 	"github.com/juju/juju/environs/imagedownloads"
 	"github.com/juju/juju/environs/simplestreams"
+	"github.com/juju/juju/network"
 )
 
 type kvmContainer struct {
@@ -61,7 +62,7 @@ func (c *kvmContainer) Start(params StartParams) error {
 		if params.Network.NetworkType == container.BridgeNetwork {
 			bridge = params.Network.Device
 			for _, iface := range params.Network.Interfaces {
-				interfaces = append(interfaces, iface)
+				interfaces = append(interfaces, interfaceInfo{config: iface})
 			}
 		} else {
 			err := errors.New("Non-bridge network devices not yet supported")
@@ -85,7 +86,7 @@ func (c *kvmContainer) Start(params StartParams) error {
 	}
 
 	logger.Debugf("Set machine %s to autostart", c.name)
-	return AutostartMachine(c.name, run)
+	return AutostartMachine(c)
 }
 
 func (c *kvmContainer) Stop() error {
@@ -114,4 +115,23 @@ func (c *kvmContainer) IsRunning() bool {
 
 func (c *kvmContainer) String() string {
 	return fmt.Sprintf("<KVM container %v>", *c)
+}
+
+type interfaceInfo struct {
+	config network.InterfaceInfo
+}
+
+// MACAddress returns the embedded MacAddress value.
+func (i interfaceInfo) MACAddress() string {
+	return i.config.MACAddress
+}
+
+// InterfaceName returns the embedded InterfaceName value.
+func (i interfaceInfo) InterfaceName() string {
+	return i.config.InterfaceName
+}
+
+// ParentInterfaceName returns the embedded ParentInterfaceName value.
+func (i interfaceInfo) ParentInterfaceName() string {
+	return i.config.ParentInterfaceName
 }
