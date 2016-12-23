@@ -222,6 +222,46 @@ func (s *registrationSuite) TestMeteredCharmInvalidAllocation(c *gc.C) {
 	s.stub.CheckNoCalls(c)
 }
 
+func (s *registrationSuite) TestMeteredCharmDefaultBudgetAllocation(c *gc.C) {
+	client := httpbakery.NewClient()
+	d := DeploymentInfo{
+		CharmID: charmstore.CharmID{
+			URL: charm.MustParseURL("cs:quantal/metered-1"),
+		},
+		ApplicationName: "application name",
+		ModelUUID:       "model uuid",
+		CharmInfo: &apicharms.CharmInfo{
+			Metrics: &charm.Metrics{
+				Plan: &charm.Plan{Required: true},
+			},
+		},
+	}
+	s.register = &RegisterMeteredCharm{
+		Plan:           "someplan",
+		RegisterURL:    s.server.URL,
+		AllocationSpec: ":20",
+	}
+
+	err := s.register.RunPre(&mockMeteredDeployAPI{Stub: s.stub}, client, s.ctx, d)
+	c.Assert(err, jc.ErrorIsNil)
+	s.stub.CheckCalls(c, []testing.StubCall{{
+		FuncName: "IsMetered",
+		Args:     []interface{}{"cs:quantal/metered-1"},
+	}, {
+		FuncName: "Authorize",
+		Args: []interface{}{metricRegistrationPost{
+			ModelUUID:       "model uuid",
+			CharmURL:        "cs:quantal/metered-1",
+			ApplicationName: "application name",
+			PlanURL:         "someplan",
+			Budget:          "",
+			Limit:           "20",
+		},
+		},
+	},
+	})
+}
+
 func (s *registrationSuite) TestMeteredCharmDeployError(c *gc.C) {
 	client := httpbakery.NewClient()
 	d := DeploymentInfo{
