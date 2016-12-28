@@ -1078,6 +1078,31 @@ func (m *Machine) determineContainerSpaces(containerMachine *Machine) (set.Strin
 	return containerSpaces, nil
 }
 
+func possibleBridgeTarget(dev *LinkLayerDevice) (bool, error) {
+	if dev.ParentName() == "" {
+		return true, nil
+	}
+	// TODO(jam): 2016-12-22 This feels dirty, but it falls out of how we are
+	// currently modeling VLAN objects.  see bug https://pad.lv/1652049
+	if dev.Type() != VLAN_8021QDevice {
+		// Only VLAN_8021QDevice have parents that still allow us to bridge
+		// them. When anything else has a parent set, it shouldn't be used
+		return false, nil
+	}
+	parentDevice, err := dev.ParentDevice()
+	if err != nil {
+		// If we got an error here, we have some sort of
+		// database inconsistency error.
+		return false, err
+	}
+	if parentDevice.Type() == EthernetDevice || parentDevice.Type() == BondDevice {
+		// A plain VLAN device with a direct parent of its underlying
+		// ethernet device
+		return true, nil
+	}
+	return false, nil
+}
+
 // FindMissingBridgesForContainer looks at the spaces that the container
 // wants to be in, and sees if there are any host devices that should be
 // bridged.
@@ -1112,7 +1137,13 @@ func (m *Machine) FindMissingBridgesForContainer(containerMachine *Machine) ([]n
 		hostDeviceNames := make([]string, 0)
 		for _, hostDevice := range devicesPerSpace[spaceName] {
 			if hostDevice.ParentName() != "" {
-				continue
+				possible, err := possibleBridgeTarget(hostDevice)
+				if err != nil {
+					return nil, err
+				}
+				if !possible {
+					continue
+				}
 			}
 			hostDeviceNames = append(hostDeviceNames, hostDevice.Name())
 			spacesFound.Add(spaceName)

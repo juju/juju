@@ -1889,12 +1889,110 @@ func (s *linkLayerDevicesStateSuite) TestFindMissingBridgesForContainerBondedNIC
 	}})
 }
 
-// JAM Tests to write:
-// * unbridged host device shows up as desired to be bridged with right MTU
-// * 2 bridged host devices in the same space show up as both being used for
-//   the container
-// * container wanting 2 spaces, 1 has bridge, other not present
-// * container wanting 2 spaces, 1 has host device, other not present
-// TODO(jam): 2016-12-13 Test what happens when you have a machine that has 2
-// subnets in the same space, and you bridge that into a container
-// * Host with VLAN devices that can get bridged
+func (s *linkLayerDevicesStateSuite) TestFindMissingBridgesForContainerVLAN(c *gc.C) {
+	s.setupTwoSpaces(c)
+	// We create an eth0 that has an address, and then an eth0.100 which is
+	// VLAN tagged on top of that ethernet device.
+	// "eth0" is in "default", "eth0.100" is in "dmz"
+	s.createNICWithIP(c, s.machine, "eth0", "10.0.0.10/24")
+	err := s.machine.SetLinkLayerDevices(
+		state.LinkLayerDeviceArgs{
+			Name:       "eth0.100",
+			Type:       state.VLAN_8021QDevice,
+			ParentName: "eth0",
+			IsUp:       true,
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	// In dmz
+	err = s.machine.SetDevicesAddresses(
+		state.LinkLayerDeviceAddress{
+			DeviceName:   "eth0.100",
+			CIDRAddress:  "10.10.0.11/24",
+			ConfigMethod: state.StaticAddress,
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// We create a container in both spaces, and we should see that it wants
+	// to bridge both devices.
+	s.addContainerMachine(c)
+	err = s.containerMachine.SetConstraints(constraints.Value{
+		Spaces: &[]string{"default", "dmz"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	missing, err := s.machine.FindMissingBridgesForContainer(s.containerMachine)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(missing, jc.DeepEquals, []network.DeviceToBridge{{
+		DeviceName: "eth0",
+		BridgeName: "br-eth0",
+	}, {
+		DeviceName: "eth0.100",
+		BridgeName: "br-eth0.100",
+	}})
+}
+
+func (s *linkLayerDevicesStateSuite) TestFindMissingBridgesForContainerVLANOnBond(c *gc.C) {
+	s.setupTwoSpaces(c)
+	// We have eth0 and eth1 that don't have IP addresses, that are in a
+	// bond, which then has a VLAN on top of that bond. The VLAN should still
+	// be a valid target for bridging
+	err := s.machine.SetLinkLayerDevices(
+		state.LinkLayerDeviceArgs{
+			Name:       "bond0",
+			Type:       state.BondDevice,
+			ParentName: "",
+			IsUp:       true,
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.machine.SetLinkLayerDevices(
+		[]state.LinkLayerDeviceArgs{{
+			Name:       "eth0",
+			Type:       state.EthernetDevice,
+			ParentName: "bond0",
+			IsUp:       true,
+		}, {
+			Name:       "eth1",
+			Type:       state.EthernetDevice,
+			ParentName: "bond0",
+			IsUp:       true,
+		}, {
+			Name:       "bond0.100",
+			Type:       state.VLAN_8021QDevice,
+			ParentName: "bond0",
+			IsUp:       true,
+		}}...,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.machine.SetDevicesAddresses(
+		state.LinkLayerDeviceAddress{
+			DeviceName:   "bond0",
+			CIDRAddress:  "10.0.0.20/24", // default
+			ConfigMethod: state.StaticAddress,
+		},
+		state.LinkLayerDeviceAddress{
+			DeviceName:   "bond0.100",
+			CIDRAddress:  "10.10.0.20/24", // dmz
+			ConfigMethod: state.StaticAddress,
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// We create a container in both spaces, and we should see that it wants
+	// to bridge both devices.
+	s.addContainerMachine(c)
+	err = s.containerMachine.SetConstraints(constraints.Value{
+		Spaces: &[]string{"default", "dmz"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	missing, err := s.machine.FindMissingBridgesForContainer(s.containerMachine)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(missing, jc.DeepEquals, []network.DeviceToBridge{{
+		DeviceName: "bond0",
+		BridgeName: "br-bond0",
+	}, {
+		DeviceName: "bond0.100",
+		BridgeName: "br-bond0.100",
+	}})
+}
