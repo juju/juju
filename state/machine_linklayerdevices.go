@@ -17,11 +17,6 @@ import (
 	"github.com/juju/juju/network"
 )
 
-// defaultSpaceName is the name of the default space to assign containers.
-// Currently hard-coded to 'default', we may consider making this a model
-// config
-const defaultSpaceName = "default"
-
 // LinkLayerDevice returns the link-layer device matching the given name. An
 // error satisfying errors.IsNotFound() is returned when no such device exists
 // on the machine.
@@ -1041,6 +1036,7 @@ func (m *Machine) SetDevicesAddressesIdempotently(devicesAddresses []LinkLayerDe
 // If this machine is in a single space, then that space is used. Else, if
 // the machine has the default space, then that space is used.
 // If neither of those conditions is true, then we return an error.
+// TODO(jam): 2016-12-28 Move this off of machine
 func (m *Machine) inferContainerSpaces(containerId, defaultSpaceName string) (set.Strings, error) {
 	hostSpaces, err := m.AllSpaces()
 	if err != nil {
@@ -1051,7 +1047,7 @@ func (m *Machine) inferContainerSpaces(containerId, defaultSpaceName string) (se
 	if len(hostSpaces) == 1 {
 		return hostSpaces, nil
 	}
-	if hostSpaces.Contains(defaultSpaceName) {
+	if defaultSpaceName != "" && hostSpaces.Contains(defaultSpaceName) {
 		return set.NewStrings(defaultSpaceName), nil
 	}
 	return nil, errors.Errorf("no obvious space for container %q, host machine has spaces: %v",
@@ -1061,7 +1057,8 @@ func (m *Machine) inferContainerSpaces(containerId, defaultSpaceName string) (se
 // determineContainerSpaces tries to use the direct information about a
 // container to find what spaces it should be in, and then falls back to what
 // we know about the host machine.
-func (m *Machine) determineContainerSpaces(containerMachine *Machine) (set.Strings, error) {
+// TODO(jam): 2016-12-28 Move this off of machine
+func (m *Machine) determineContainerSpaces(containerMachine *Machine, defaultSpaceName string) (set.Strings, error) {
 	containerSpaces, err := containerMachine.DesiredSpaces()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -1110,8 +1107,9 @@ func possibleBridgeTarget(dev *LinkLayerDevice) (bool, error) {
 // bridged.
 // This will return an Error if the container wants a space that the host
 // machine cannot provide.
+// TODO(jam): 2016-12-28 Move this off of machine
 func (m *Machine) FindMissingBridgesForContainer(containerMachine *Machine) ([]network.DeviceToBridge, error) {
-	containerSpaces, err := m.determineContainerSpaces(containerMachine)
+	containerSpaces, err := m.determineContainerSpaces(containerMachine, "")
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1179,8 +1177,9 @@ func (m *Machine) FindMissingBridgesForContainer(containerMachine *Machine) ([]n
 // BridgeDevice of the host machine. It also records when one of the
 // desired spaces is available on the host machine, but not currently
 // bridged.
+// TODO(jam): 2016-12-28 Move this off of machine
 func (m *Machine) SetContainerLinkLayerDevices(containerMachine *Machine) error {
-	containerSpaces, err := m.determineContainerSpaces(containerMachine)
+	containerSpaces, err := m.determineContainerSpaces(containerMachine, "")
 	if err != nil {
 		return errors.Trace(err)
 	}

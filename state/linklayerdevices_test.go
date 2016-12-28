@@ -1504,6 +1504,9 @@ func (s *linkLayerDevicesStateSuite) TestSetContainerLinkLayerDevicesHostOneSpac
 }
 
 func (s *linkLayerDevicesStateSuite) TestSetContainerLinkLayerDevicesDefaultSpace(c *gc.C) {
+	// TODO(jam): 2016-12-28 Eventually we probably want to have a
+	// model-config level default-space, but for now, 'default' should not be
+	// special.
 	// The host machine is in both 'default' and 'dmz', and the container is
 	// not requested to be in any particular space. But because we have
 	// access to the 'default' space, we go ahead and use that for the
@@ -1513,21 +1516,7 @@ func (s *linkLayerDevicesStateSuite) TestSetContainerLinkLayerDevicesDefaultSpac
 	s.assertNoDevicesOnMachine(c, s.containerMachine)
 
 	err := s.machine.SetContainerLinkLayerDevices(s.containerMachine)
-	c.Assert(err, jc.ErrorIsNil)
-
-	containerDevices, err := s.containerMachine.AllLinkLayerDevices()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(containerDevices, gc.HasLen, 1)
-
-	containerDevice := containerDevices[0]
-	c.Check(containerDevice.Name(), gc.Matches, "eth0")
-	c.Check(containerDevice.Type(), gc.Equals, state.EthernetDevice)
-	c.Check(containerDevice.MTU(), gc.Equals, uint(0)) // inherited from the parent device.
-	c.Check(containerDevice.MACAddress(), gc.Matches, "00:16:3e(:[0-9a-f]{2}){3}")
-	c.Check(containerDevice.IsUp(), jc.IsTrue)
-	c.Check(containerDevice.IsAutoStart(), jc.IsTrue)
-	// br-ens33 is the one in 'default' space
-	c.Check(containerDevice.ParentName(), gc.Equals, `m#0#d#br-ens33`)
+	c.Assert(err, gc.ErrorMatches, "no obvious space for container.*")
 }
 
 func (s *linkLayerDevicesStateSuite) TestSetContainerLinkLayerDevicesNoValidSpace(c *gc.C) {
@@ -1763,7 +1752,10 @@ func (s *linkLayerDevicesStateSuite) TestFindMissingBridgesForContainerTwoHostDe
 	c.Check(missing, jc.DeepEquals, []network.DeviceToBridge{})
 }
 
-func (s *linkLayerDevicesStateSuite) TestFindMissingBridgesForContainerNoConstraintsDefault(c *gc.C) {
+func (s *linkLayerDevicesStateSuite) TestFindMissingBridgesForContainerNoConstraintsDefaultNotSpecial(c *gc.C) {
+	// TODO(jam): 2016-12-28 Eventually we probably want to have a
+	// model-config level default-space, but for now, 'default' should not be
+	// special.
 	s.setupTwoSpaces(c)
 	// Default
 	s.createNICWithIP(c, s.machine, "eth0", "10.0.0.20/24")
@@ -1771,12 +1763,8 @@ func (s *linkLayerDevicesStateSuite) TestFindMissingBridgesForContainerNoConstra
 	s.createNICWithIP(c, s.machine, "eth1", "10.10.0.20/24")
 	s.addContainerMachine(c)
 	missing, err := s.machine.FindMissingBridgesForContainer(s.containerMachine)
-	c.Assert(err, jc.ErrorIsNil)
-	// Default gets picked
-	c.Check(missing, jc.DeepEquals, []network.DeviceToBridge{{
-		DeviceName: "eth0",
-		BridgeName: "br-eth0",
-	}})
+	c.Assert(err, gc.ErrorMatches, "no obvious space for container.*")
+	c.Assert(missing, gc.IsNil)
 }
 
 func (s *linkLayerDevicesStateSuite) TestFindMissingBridgesForContainerTwoSpacesOneBridged(c *gc.C) {
