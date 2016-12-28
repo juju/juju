@@ -1111,11 +1111,12 @@ func (m *Machine) DesiredSpaces() (set.Strings, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	// We ignore negative spaces as it doesn't change what spaces we do want.
 	positiveSpaces, _ := convertSpacesFromConstraints(constraints.Spaces)
-	// XXX(jam): what to do about negativeSpaces ?
 	for _, space := range positiveSpaces {
 		spaces.Add(space)
 	}
+	bindings := set.NewStrings()
 	for _, unit := range units {
 		app, err := unit.Application()
 		if err != nil {
@@ -1123,10 +1124,12 @@ func (m *Machine) DesiredSpaces() (set.Strings, error) {
 		}
 		endpointBindings, err := app.EndpointBindings()
 		for _, space := range endpointBindings {
-			spaces.Add(space)
+			bindings.Add(space)
 		}
 	}
-	return spaces, nil
+	logger.Tracef("machine %q found constraints %v and bindings %v",
+		m.Id(), spaces.SortedValues(), bindings.SortedValues())
+	return spaces.Union(bindings), nil
 }
 
 // SetProvisioned sets the provider specific machine id, nonce and also metadata for

@@ -877,6 +877,8 @@ func (m *Machine) AllSpaces() (set.Strings, error) {
 			spaces.Add(spaceName)
 		}
 	}
+	logger.Tracef("machine %q found AllSpaces() = %v",
+		m.Id(), spaces.SortedValues())
 	return spaces, nil
 }
 
