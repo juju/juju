@@ -77,8 +77,6 @@ func DefaultNetworkConfigSource() NetworkConfigSource {
 // Result entries will be grouped by InterfaceName, in the same order they are
 // returned by the given source.
 func GetObservedNetworkConfig(source NetworkConfigSource) ([]params.NetworkConfig, error) {
-	logger.Tracef("discovering observed machine network config...")
-
 	interfaces, err := source.Interfaces()
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot get network interfaces")
@@ -115,7 +113,6 @@ func GetObservedNetworkConfig(source NetworkConfigSource) ([]params.NetworkConfi
 		}
 
 		if len(addrs) == 0 {
-			logger.Infof("no addresses observed on interface %q", nic.Name)
 			nameToConfigs[nic.Name] = append(nameToConfigs[nic.Name], nicConfig)
 			continue
 		}
@@ -141,7 +138,6 @@ func GetObservedNetworkConfig(source NetworkConfigSource) ([]params.NetworkConfi
 	for _, name := range namesOrder {
 		observedConfig = append(observedConfig, nameToConfigs[name]...)
 	}
-	logger.Tracef("observed network config: %+v", observedConfig)
 	return observedConfig, nil
 }
 
@@ -196,7 +192,6 @@ func interfaceAddressToNetworkConfig(interfaceName, configType string, address n
 
 	ip, ipNet, err := net.ParseCIDR(cidrAddress)
 	if err != nil {
-		logger.Infof("cannot parse %q on interface %q as CIDR, trying as IP address: %v", cidrAddress, interfaceName, err)
 		if ip = net.ParseIP(cidrAddress); ip == nil {
 			return config, errors.Errorf("cannot parse IP address %q on interface %q", cidrAddress, interfaceName)
 		} else {

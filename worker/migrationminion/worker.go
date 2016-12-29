@@ -205,6 +205,7 @@ func (w *Worker) doSUCCESS(status watcher.MigrationStatus) error {
 }
 
 func (w *Worker) report(status watcher.MigrationStatus, success bool) error {
+	logger.Debugf("reporting back for phase %s: %v", status.Phase, success)
 	err := w.config.Facade.Report(status.MigrationId, status.Phase, success)
 	return errors.Annotate(err, "failed to report phase progress")
 }

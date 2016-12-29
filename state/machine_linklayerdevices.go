@@ -877,6 +877,8 @@ func (m *Machine) AllSpaces() (set.Strings, error) {
 			spaces.Add(spaceName)
 		}
 	}
+	logger.Tracef("machine %q found AllSpaces() = %v",
+		m.Id(), spaces.SortedValues())
 	return spaces, nil
 }
 
@@ -914,14 +916,21 @@ func deviceMapToSortedList(deviceMap map[string]*LinkLayerDevice) []*LinkLayerDe
 	return result
 }
 
-// LinkLayerDevicesForSpaces takes a list of spaces, and returns the devices on
-// this machine that are in that space.
+// LinkLayerDevicesForSpaces takes a list of spaces, and returns the devices
+// on this machine that are in that space. (We currently only return devices
+// that have an address, which are thus targets for being bridged, or are
+// themselves a bridge that can be used.)
 func (m *Machine) LinkLayerDevicesForSpaces(spaces []string) (map[string][]*LinkLayerDevice, error) {
 	addresses, err := m.AllAddresses()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	requestedSpaces := set.NewStrings(spaces...)
+	devicesToSkip := set.NewStrings(
+		container.DefaultLxcBridge,
+		container.DefaultLxdBridge,
+		container.DefaultKvmBridge,
+	)
 	spaceToDevices := make(map[string]map[string]*LinkLayerDevice, 0)
 	// TODO(jam): 2016-12-08 We look up each subnet one-by-one, and then look
 	// up each Link-Layer-Device one-by-one, it feels like we should
@@ -934,6 +943,7 @@ func (m *Machine) LinkLayerDevicesForSpaces(spaces []string) (map[string][]*Link
 	// have Layer 3 addresses.
 	for _, addr := range addresses {
 		subnet, err := addr.Subnet()
+		spaceName := ""
 		if err != nil {
 			if errors.IsNotFound(err) {
 				// We record all addresses that we find on the
@@ -941,19 +951,28 @@ func (m *Machine) LinkLayerDevicesForSpaces(spaces []string) (map[string][]*Link
 				// addresses that are not in known subnets or spaces.
 				// (loopback devices aren't in a space, arbitrary
 				// application based addresses, etc.)
-				continue
+				// The caller can request those devices by asking us for the
+				// "" space.
+				if !requestedSpaces.Contains("") {
+					continue
+				}
+			} else {
+				// We don't understand the error, so error out for now
+				return nil, errors.Trace(err)
 			}
-			// We don't understand the error, so error out for now
-			return nil, errors.Trace(err)
+		} else {
+			spaceName = subnet.SpaceName()
 		}
-		spaceName := subnet.SpaceName()
 		if !requestedSpaces.Contains(spaceName) {
 			continue
 		}
 		device, err := addr.Device()
 		if err != nil {
-			// XXX should we be omitting all other good records because this one was bad?
 			return nil, errors.Trace(err)
+		}
+		if device.Type() == LoopbackDevice || devicesToSkip.Contains(device.Name()) {
+			// We skip loopback devices here
+			continue
 		}
 		spaceInfo, ok := spaceToDevices[spaceName]
 		if !ok {
@@ -1039,6 +1058,7 @@ func (m *Machine) SetDevicesAddressesIdempotently(devicesAddresses []LinkLayerDe
 // If this machine is in a single space, then that space is used. Else, if
 // the machine has the default space, then that space is used.
 // If neither of those conditions is true, then we return an error.
+// TODO(jam): 2016-12-28 Move this off of machine
 func (m *Machine) inferContainerSpaces(containerId, defaultSpaceName string) (set.Strings, error) {
 	hostSpaces, err := m.AllSpaces()
 	if err != nil {
@@ -1049,24 +1069,27 @@ func (m *Machine) inferContainerSpaces(containerId, defaultSpaceName string) (se
 	if len(hostSpaces) == 1 {
 		return hostSpaces, nil
 	}
-	if hostSpaces.Contains(defaultSpaceName) {
+	if defaultSpaceName != "" && hostSpaces.Contains(defaultSpaceName) {
 		return set.NewStrings(defaultSpaceName), nil
+	}
+	if len(hostSpaces) == 0 {
+		logger.Debugf("container has no desired spaces, " +
+			"and host has no known spaces, triggering fallback " +
+			"to bridge all devices")
+		return set.NewStrings(""), nil
 	}
 	return nil, errors.Errorf("no obvious space for container %q, host machine has spaces: %v",
 		containerId, hostSpaces.SortedValues())
 }
 
-// SetContainerLinkLayerDevices sets the link-layer devices of the given
-// containerMachine, setting each device linked to the corresponding
-// BridgeDevice of the host machine. It also records when one of the
-// desired spaces is available on the host machine, but not currently
-// bridged.
-func (m *Machine) SetContainerLinkLayerDevices(containerMachine *Machine) error {
+// determineContainerSpaces tries to use the direct information about a
+// container to find what spaces it should be in, and then falls back to what
+// we know about the host machine.
+// TODO(jam): 2016-12-28 Move this off of machine
+func (m *Machine) determineContainerSpaces(containerMachine *Machine, defaultSpaceName string) (set.Strings, error) {
 	containerSpaces, err := containerMachine.DesiredSpaces()
 	if err != nil {
-		logger.Errorf("SetContainerLinkLayerDevices(%q) got error looking for container spaces: %v",
-			containerMachine.Id(), err)
-		return errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 	logger.Debugf("for container %q, found desired spaces: %v",
 		containerMachine.Id(), containerSpaces.SortedValues())
@@ -1076,27 +1099,161 @@ func (m *Machine) SetContainerLinkLayerDevices(containerMachine *Machine) error 
 		// something useful.
 		containerSpaces, err = m.inferContainerSpaces(containerMachine.Id(), defaultSpaceName)
 		if err != nil {
-			return errors.Trace(err)
+			return nil, errors.Trace(err)
 		}
+	}
+	return containerSpaces, nil
+}
+
+// findSpacesAndDevicesForContainer looks up what spaces the container wants
+// to be in, and what spaces the host machine is already in, and tries to
+// find the devices on the host that are useful for the container.
+// TODO(jam): Move this off of machine
+func (m *Machine) findSpacesAndDevicesForContainer(containerMachine *Machine) (set.Strings, map[string][]*LinkLayerDevice, error) {
+	containerSpaces, err := m.determineContainerSpaces(containerMachine, "")
+	if err != nil {
+		return nil, nil, errors.Trace(err)
 	}
 	devicesPerSpace, err := m.LinkLayerDevicesForSpaces(containerSpaces.Values())
 	if err != nil {
-		logger.Errorf("SetContainerLinkLayerDevices(%q) got error looking for host spaces: %v",
+		logger.Errorf("findSpacesAndDevicesForContainer(%q) got error looking for host spaces: %v",
 			containerMachine.Id(), err)
+		return nil, nil, errors.Trace(err)
+	}
+	return containerSpaces, devicesPerSpace, nil
+}
+
+func possibleBridgeTarget(dev *LinkLayerDevice) (bool, error) {
+	if dev.Type() == LoopbackDevice {
+		return false, nil
+	}
+	if dev.ParentName() == "" {
+		return true, nil
+	}
+	// TODO(jam): 2016-12-22 This feels dirty, but it falls out of how we are
+	// currently modeling VLAN objects.  see bug https://pad.lv/1652049
+	if dev.Type() != VLAN_8021QDevice {
+		// Only VLAN_8021QDevice have parents that still allow us to bridge
+		// them. When anything else has a parent set, it shouldn't be used
+		return false, nil
+	}
+	parentDevice, err := dev.ParentDevice()
+	if err != nil {
+		// If we got an error here, we have some sort of
+		// database inconsistency error.
+		return false, err
+	}
+	if parentDevice.Type() == EthernetDevice || parentDevice.Type() == BondDevice {
+		// A plain VLAN device with a direct parent of its underlying
+		// ethernet device
+		return true, nil
+	}
+	return false, nil
+}
+
+// FindMissingBridgesForContainer looks at the spaces that the container
+// wants to be in, and sees if there are any host devices that should be
+// bridged.
+// This will return an Error if the container wants a space that the host
+// machine cannot provide.
+// TODO(jam): 2016-12-28 Move this off of machine
+func (m *Machine) FindMissingBridgesForContainer(containerMachine *Machine) ([]network.DeviceToBridge, error) {
+	containerSpaces, devicesPerSpace, err := m.findSpacesAndDevicesForContainer(containerMachine)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	// TODO(jam): 2016-12-28 The formatting for the spaces can look a bit
+	// screwy, because it does [name] instead of quoting it. But if we use
+	// %#v, then it does []string{"quoted"} which looks worse. We should have
+	// a helper that turns a list ingo ["s1", "s2"] style list to look more
+	// like a human would want to read it. (Especially important if we hit
+	// the fallback as "" doesn't print well at all.)
+	logger.Debugf("FindMissingBridgesForContainer(%q) spaces %v devices %v",
+		containerMachine.Id(), containerSpaces.SortedValues(), devicesPerSpace)
+	spacesFound := set.NewStrings()
+	for spaceName, devices := range devicesPerSpace {
+		for _, device := range devices {
+			if device.Type() == BridgeDevice {
+				spacesFound.Add(spaceName)
+			}
+		}
+	}
+	notFound := containerSpaces.Difference(spacesFound)
+	if notFound.IsEmpty() {
+		// Nothing to do, just return success
+		return nil, nil
+	}
+	hostDeviceNamesToBridge := make([]string, 0)
+	for _, spaceName := range notFound.Values() {
+		hostDeviceNames := make([]string, 0)
+		for _, hostDevice := range devicesPerSpace[spaceName] {
+			possible, err := possibleBridgeTarget(hostDevice)
+			if err != nil {
+				return nil, err
+			}
+			if !possible {
+				continue
+			}
+			hostDeviceNames = append(hostDeviceNames, hostDevice.Name())
+			spacesFound.Add(spaceName)
+		}
+		if len(hostDeviceNames) > 0 {
+			if spaceName == "" {
+				// When we are bridging unknown space devices, we bridge all
+				// of them. Both because this is a fallback, and because we
+				// don't know what the exact spaces are going to be.
+				for _, deviceName := range hostDeviceNames {
+					hostDeviceNamesToBridge = append(hostDeviceNamesToBridge, deviceName)
+				}
+			} else {
+				// This should already be sorted from
+				// LinkLayerDevicesForSpaces but sorting to be sure we stably
+				// pick the host device
+				hostDeviceNames = network.NaturallySortDeviceNames(hostDeviceNames...)
+				hostDeviceNamesToBridge = append(hostDeviceNamesToBridge, hostDeviceNames[0])
+			}
+		}
+	}
+	notFound = notFound.Difference(spacesFound)
+	if !notFound.IsEmpty() {
+		return nil, errors.Errorf("container %q wants spaces %v, but host machine %q has no device in spaces %v",
+			containerMachine.Id(), containerSpaces.SortedValues(),
+			m.Id(), notFound.SortedValues())
+	}
+	hostToBridge := make([]network.DeviceToBridge, 0, len(hostDeviceNamesToBridge))
+	for _, hostName := range network.NaturallySortDeviceNames(hostDeviceNamesToBridge...) {
+		hostToBridge = append(hostToBridge, network.DeviceToBridge{
+			DeviceName: hostName,
+			// Should be an indirection/policy being passed in here
+			BridgeName: fmt.Sprintf("br-%s", hostName),
+		})
+	}
+	return hostToBridge, nil
+}
+
+// SetContainerLinkLayerDevices sets the link-layer devices of the given
+// containerMachine, setting each device linked to the corresponding
+// BridgeDevice of the host machine. It also records when one of the
+// desired spaces is available on the host machine, but not currently
+// bridged.
+// TODO(jam): 2016-12-28 Move this off of machine
+func (m *Machine) SetContainerLinkLayerDevices(containerMachine *Machine) error {
+	containerSpaces, devicesPerSpace, err := m.findSpacesAndDevicesForContainer(containerMachine)
+	if err != nil {
 		return errors.Trace(err)
 	}
 	logger.Debugf("for container %q, found host devices spaces: %s",
 		containerMachine.Id(), devicesPerSpace)
 
 	spacesFound := set.NewStrings()
-	bridgeDevicesByName := make(map[string]*LinkLayerDevice)
+	devicesByName := make(map[string]*LinkLayerDevice)
 	bridgeDeviceNames := make([]string, 0)
 
 	for spaceName, hostDevices := range devicesPerSpace {
 		for _, hostDevice := range hostDevices {
 			deviceType, name := hostDevice.Type(), hostDevice.Name()
 			if deviceType == BridgeDevice {
-				bridgeDevicesByName[name] = hostDevice
+				devicesByName[name] = hostDevice
 				bridgeDeviceNames = append(bridgeDeviceNames, name)
 				spacesFound.Add(spaceName)
 			}
@@ -1117,7 +1274,7 @@ func (m *Machine) SetContainerLinkLayerDevices(containerMachine *Machine) error 
 	containerDevicesArgs := make([]LinkLayerDeviceArgs, len(bridgeDeviceNames))
 
 	for i, hostBridgeName := range sortedBridgeDeviceNames {
-		hostBridge := bridgeDevicesByName[hostBridgeName]
+		hostBridge := devicesByName[hostBridgeName]
 		containerDevicesArgs[i] = LinkLayerDeviceArgs{
 			Name:        fmt.Sprintf("eth%d", i),
 			Type:        EthernetDevice,

@@ -1913,6 +1913,8 @@ func (s *UniterSuite) TestStorage(c *gc.C) {
 	})
 }
 
+var mockExecutorErr = errors.New("some error occurred")
+
 type mockExecutor struct {
 	operation.Executor
 }
@@ -1923,7 +1925,7 @@ func (m *mockExecutor) Run(op operation.Operation) error {
 		return m.Executor.Run(op)
 	}
 	// but hooks should error
-	return errors.New("some error occurred")
+	return mockExecutorErr
 }
 
 func (s *UniterSuite) TestOperationErrorReported(c *gc.C) {
@@ -1943,6 +1945,34 @@ func (s *UniterSuite) TestOperationErrorReported(c *gc.C) {
 				info:   "resolver loop error",
 			},
 			expectError{".*some error occurred.*"},
+		),
+	})
+}
+
+func (s *UniterSuite) TestTranslateResolverError(c *gc.C) {
+	executorFunc := func(stateFilePath string, getInstallCharm func() (*corecharm.URL, error), acquireLock func() (mutex.Releaser, error)) (operation.Executor, error) {
+		e, err := operation.NewExecutor(stateFilePath, getInstallCharm, acquireLock)
+		c.Assert(err, jc.ErrorIsNil)
+		return &mockExecutor{e}, nil
+	}
+	translateResolverErr := func(in error) error {
+		c.Check(errors.Cause(in), gc.Equals, mockExecutorErr)
+		return errors.New("some other error")
+	}
+	s.runUniterTests(c, []uniterTest{
+		ut(
+			"resolver errors are translated",
+			createCharm{},
+			serveCharm{},
+			createUniter{
+				executorFunc:         executorFunc,
+				translateResolverErr: translateResolverErr,
+			},
+			waitUnitAgent{
+				status: status.Failed,
+				info:   "resolver loop error",
+			},
+			expectError{".*some other error.*"},
 		),
 	})
 }

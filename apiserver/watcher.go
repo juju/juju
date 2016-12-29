@@ -492,11 +492,6 @@ func (w *srvMigrationStatusWatcher) Next() (params.MigrationStatus, error) {
 		return empty, errors.Annotate(err, "migration lookup")
 	}
 
-	attempt, err := mig.Attempt()
-	if err != nil {
-		return empty, errors.Annotate(err, "retrieving migration attempt")
-	}
-
 	phase, err := mig.Phase()
 	if err != nil {
 		return empty, errors.Annotate(err, "retrieving migration phase")
@@ -519,7 +514,7 @@ func (w *srvMigrationStatusWatcher) Next() (params.MigrationStatus, error) {
 
 	return params.MigrationStatus{
 		MigrationId:    mig.Id(),
-		Attempt:        attempt,
+		Attempt:        mig.Attempt(),
 		Phase:          phase.String(),
 		SourceAPIAddrs: sourceAddrs,
 		SourceCACert:   sourceCACert,
