@@ -732,6 +732,12 @@ class LXDAccount:
                 instance_id = '{}:{}'.format(self.remote, instance_id)
             subprocess.check_call(['lxc', 'delete', '--force', instance_id])
 
+    def ensure_cleanup(self, resource_details):
+        if resource_details["instances"]:
+            instance_ids = [instance[0] for instance in resource_details['instances']]
+            self.terminate_instances(instance_ids)
+        return
+
 
 def get_config(boot_config):
     config = boot_config.make_config_copy()

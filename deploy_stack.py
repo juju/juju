@@ -61,6 +61,7 @@ from substrate import (
     start_libvirt_domain,
     stop_libvirt_domain,
     verify_libvirt_domain,
+    make_substrate_manager,
 )
 from utility import (
     add_basic_testing_arguments,
@@ -654,6 +655,38 @@ class BootstrapManager:
             controller_strategy = CreateController(client, tear_down_client)
         self.controller_strategy = controller_strategy
         self.has_controller = False
+        self.resource_details = None
+
+    def ensure_cleanup(self):
+        """
+        Ensure the BM cleanup call the respective substrate manager to
+        invoke provider specific ensure cleanup.
+        """
+        if self.resource_details is not None:
+            provider_type = self.client.env.provider
+            with make_substrate_manager(self.client.env) as substrate:
+                if substrate is None:
+                    raise ValueError("Invalid provider %s" % provider_type)
+                uncleaned_resource = substrate.ensure_cleanup(self.resource_details)
+
+            if uncleaned_resource:
+                raise AssertionError("failed to clean resource")
+
+    def collect_resource_details(self):
+        """
+        Collect information about the boostraped instances
+        :return:
+        """
+        controller_uuid = self.client.get_controller_uuid()
+        members = self.client.get_controller_members()
+        output = {
+            "controller-uuid": controller_uuid,
+            "instances": [],
+        }
+        for member in members:
+            output["instances"].append(
+                [member.info['instance-id'], member.info['dns-name']])
+        self.resource_details = output
 
     @property
     def client(self):
@@ -896,7 +929,9 @@ class BootstrapManager:
                     except KeyboardInterrupt:
                         pass
                     if not self.keep_env:
+                        self.collect_resource_details()
                         self.tear_down(self.jes_enabled)
+                        self.ensure_cleanup()
 
     # GZ 2016-08-11: Should this method be elsewhere to avoid poking backend?
     def _should_dump(self):
