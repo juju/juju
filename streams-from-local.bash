@@ -22,8 +22,8 @@ if [[ ! -f $JUJUD ]]; then
 fi
 
 full_version=$($JUJUD version)
-version=$(echo $full_version | cut -d '-' -f 1)
-arch=$(echo $full_version | cut -d '-' -f 3)
+version=$(echo $full_version | sed -r 's,(.*)-[^-]+-[^-]+,\1,')
+arch=$(echo $full_version | sed -r 's,.*-([^-]+),\1,')
 
 # Juju wont permit devel versions to be in released streams.
 if [[ $version =~ (alpha|beta) ]]; then
