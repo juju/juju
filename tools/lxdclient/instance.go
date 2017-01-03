@@ -32,11 +32,6 @@ const (
 	megabyte = 1024 * 1024
 )
 
-func resolveConfigKey(name string, namespace ...string) string {
-	parts := append(namespace, name)
-	return strings.Join(parts, ".")
-}
-
 func splitConfigKey(key string) (string, string) {
 	parts := strings.SplitN(key, ".", 2)
 	if len(parts) == 1 {
