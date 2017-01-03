@@ -58,7 +58,7 @@ func (s *applicationOffersAPIFactory) Stop() error {
 // ApplicationOffersAPIFactoryResource is a function which returns the application offer api factory
 // which can be used as an facade resource.
 func ApplicationOffersAPIFactoryResource(st *state.State) (facade.Resource, error) {
-	controllerModelStata := st
+	controllerModelState := st
 	controllerModel, err := st.ControllerModel()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -67,14 +67,14 @@ func ApplicationOffersAPIFactoryResource(st *state.State) (facade.Resource, erro
 	if st.ModelTag() != controllerModel.ModelTag() {
 		// We are not using the state server environment, so get one.
 		logger.Debugf("getting a controller connection, current model: %s", st.ModelTag())
-		controllerModelStata, err = st.ForModel(controllerModel.ModelTag())
+		controllerModelState, err = st.ForModel(controllerModel.ModelTag())
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		closer = controllerModelStata
+		closer = controllerModelState
 	}
 	return newServiceAPIFactory(
 		func() crossmodel.ApplicationDirectory {
-			return state.NewApplicationDirectory(controllerModelStata)
+			return state.NewApplicationDirectory(controllerModelState)
 		}, closer)
 }

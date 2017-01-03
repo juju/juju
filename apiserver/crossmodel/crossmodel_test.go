@@ -235,7 +235,7 @@ func (s *crossmodelSuite) TestShowNotFound(c *gc.C) {
 }
 
 func (s *crossmodelSuite) TestShowErrorMsgMultipleURLs(c *gc.C) {
-	urls := []string{"local:/u/fred/prod/foo/hosted-db2", "local:/u/fred/hosted-db2"}
+	urls := []string{"local:/u/fred/prod/hosted-db2", "local:/u/fred/hosted-db2"}
 	filter := params.ApplicationURLs{urls}
 
 	s.applicationDirectory.listOffers = func(filter params.OfferFilters) (params.ApplicationOfferResults, error) {
@@ -245,7 +245,7 @@ func (s *crossmodelSuite) TestShowErrorMsgMultipleURLs(c *gc.C) {
 	found, err := s.api.ApplicationOffers(filter)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(found.Results, gc.HasLen, 2)
-	c.Assert(found.Results[0].Error.Error(), gc.Matches, fmt.Sprintf(`application URL has invalid form: %q`, urls[0]))
+	c.Assert(found.Results[0].Error.Error(), gc.Matches, fmt.Sprintf(`application URL has too many parts: %q`, urls[0]))
 	c.Assert(found.Results[1].Error.Error(), gc.Matches, fmt.Sprintf(`offer for remote application url %v not found`, urls[1]))
 	s.applicationDirectory.CheckCallNames(c, listOffersBackendCall)
 }

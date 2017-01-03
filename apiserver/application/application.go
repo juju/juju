@@ -7,6 +7,7 @@
 package application
 
 import (
+	"fmt"
 	"regexp"
 
 	"github.com/juju/errors"
@@ -703,7 +704,7 @@ func (api *API) SetConstraints(args params.SetConstraints) error {
 
 // applicationUrlEndpointParse is used to split an application url and optional
 // relation name into url and relation name.
-var applicationUrlEndpointParse = regexp.MustCompile("(?P<url>.*/[^:]*)(:(?P<relname>.*))?")
+var applicationUrlEndpointParse = regexp.MustCompile("(?P<url>.*[/.][^:]*)(:(?P<relname>.*)$)?")
 
 // AddRelation adds a relation between the specified endpoints and returns the relation info.
 func (api *API) AddRelation(args params.AddRelation) (params.AddRelationResults, error) {
@@ -740,15 +741,15 @@ func (api *API) AddRelation(args params.AddRelation) (params.AddRelationResults,
 			continue
 		}
 		// Save the remote application details into state.
-		rs, err := saveRemoteApplication(api.backend, api.applicationOffersAPIFactory, *url)
+		remoteApp, err := api.processRemoteApplication(*url)
 		if err != nil {
 			return params.AddRelationResults{}, errors.Trace(err)
 		}
 		// The endpoint is named after the remote application name,
 		// not the application name from the URL.
-		endpoints[i] = rs.Name()
+		endpoints[i] = remoteApp.Name()
 		if relName != "" {
-			endpoints[i] = rs.Name() + ":" + relName
+			endpoints[i] = remoteApp.Name() + ":" + relName
 		}
 	}
 
@@ -778,13 +779,20 @@ func (api *API) AddRelation(args params.AddRelation) (params.AddRelationResults,
 	return params.AddRelationResults{Endpoints: outEps}, nil
 }
 
-// saveRemoteApplication takes a remote application URL and retrieves the details of the service from
-// the relevant application directory. These details are saved to the state model so relations to
+// processRemoteApplication takes a remote application URL and retrieves or confirms the the details
+// of the application and endpoint. These details are saved to the state model so relations to
 // the remote application can be created.
-func saveRemoteApplication(
-	backend Backend, apiFactory crossmodel.ApplicationOffersAPIFactory, url jujucrossmodel.ApplicationURL,
-) (*state.RemoteApplication, error) {
-	offersAPI, err := apiFactory.ApplicationOffers(url.Directory)
+func (api *API) processRemoteApplication(url jujucrossmodel.ApplicationURL) (*state.RemoteApplication, error) {
+	// The application URL is either for an application in another model on this controller,
+	// or is for an application offer contained in a directory.
+	if url.Directory == "" {
+		if url.ModelName == "" {
+			return nil, errors.Errorf("missing model name in URL %q", url.String())
+		}
+		return api.processSameControllerRemoteApplication(url)
+	}
+
+	offersAPI, err := api.applicationOffersAPIFactory.ApplicationOffers(url.Directory)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -813,8 +821,81 @@ func saveRemoteApplication(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	return api.saveRemoteApplication(sourceModelTag, url.ApplicationName, url.String(), offer.Endpoints)
+}
 
-	remoteApp, err := backend.RemoteApplication(url.ApplicationName)
+// processSameControllerRemoteApplication handles the case where we have an application
+// from another model on the same controller.
+func (api *API) processSameControllerRemoteApplication(url jujucrossmodel.ApplicationURL) (*state.RemoteApplication, error) {
+	// Look up the model by qualified name, ie user/model.
+	// The user name is either specified in URL, or else we default to
+	// the logged in user.
+	userName := url.User
+	if userName == "" {
+		userName = api.authorizer.GetAuthTag().Id()
+	}
+	var sourceModelTag names.ModelTag
+	allModels, err := api.backend.AllModels()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	for _, m := range allModels {
+		if m.Name() != url.ModelName {
+			continue
+		}
+		if m.Owner().Name() != userName {
+			continue
+		}
+		sourceModelTag = m.Tag().(names.ModelTag)
+	}
+	if sourceModelTag.Id() == "" {
+		return nil, errors.NotFoundf(`model "%s/%s"`, userName, url.ModelName)
+	}
+	// To relate to an application in another model, the user needs at least write permission.
+	ok, err := api.authorizer.HasPermission(permission.WriteAccess, sourceModelTag)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if !ok {
+		return nil, common.ErrPerm
+	}
+	// Get the backend state for the source model so we can lookup the application
+	// and its endpoints.
+	st, err := api.backend.ForModel(sourceModelTag)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	defer st.Close()
+	application, err := st.Application(url.ApplicationName)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	eps, err := application.Endpoints()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	endpoints := make([]params.RemoteEndpoint, len(eps))
+	for i, ep := range eps {
+		endpoints[i] = params.RemoteEndpoint{
+			Name:      ep.Name,
+			Scope:     ep.Scope,
+			Interface: ep.Interface,
+			Role:      ep.Role,
+			Limit:     ep.Limit,
+		}
+	}
+	// TODO(wallyworld) - allow remote app name to be specified by the user
+	// to override this default
+	remoteAppName := fmt.Sprintf("%s-%s-%s", userName, url.ModelName, url.ApplicationName)
+	return api.saveRemoteApplication(sourceModelTag, remoteAppName, url.String(), endpoints)
+}
+
+// saveRemoteApplication saves the details of the specified remote application and its endpoints
+// to the state model so relations to the remote application can be created.
+func (api *API) saveRemoteApplication(
+	sourceModelTag names.ModelTag, applicationName, url string, endpoints []params.RemoteEndpoint,
+) (*state.RemoteApplication, error) {
+	remoteApp, err := api.backend.RemoteApplication(applicationName)
 	if err != nil && !errors.IsNotFound(err) {
 		return nil, errors.Trace(err)
 	}
@@ -822,8 +903,8 @@ func saveRemoteApplication(
 		// TODO (wallyworld) - update service if it exists already with any additional endpoints
 		return remoteApp, nil
 	}
-	remoteEps := make([]charm.Relation, len(offer.Endpoints))
-	for j, ep := range offer.Endpoints {
+	remoteEps := make([]charm.Relation, len(endpoints))
+	for j, ep := range endpoints {
 		remoteEps[j] = charm.Relation{
 			Name:      ep.Name,
 			Role:      ep.Role,
@@ -832,9 +913,9 @@ func saveRemoteApplication(
 			Scope:     ep.Scope,
 		}
 	}
-	remoteApp, err = backend.AddRemoteApplication(state.AddRemoteApplicationParams{
-		Name:        url.ApplicationName,
-		URL:         url.String(),
+	remoteApp, err = api.backend.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name:        applicationName,
+		URL:         url,
 		SourceModel: sourceModelTag,
 		Endpoints:   remoteEps,
 	})
@@ -847,7 +928,7 @@ func saveRemoteApplication(
 		// same name or a remote application with the same name but we
 		// have no idea whether endpoints are compatible or not.
 		// Best just to error.
-		return nil, errors.Annotatef(err, "saving endpoints for application at URL %q", url.String())
+		return nil, errors.Annotatef(err, "saving endpoints for application at URL %q", url)
 	}
 	return remoteApp, nil
 }

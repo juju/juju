@@ -29,6 +29,13 @@ Service endpoints can be identified either by:
     <application name>[:<relation name>]
         where application name supplied without relation will be internally expanded to be well-formed
 or
+    <model name>.<application name>[:<relation name>]
+        where the application is hosted in another model in the same controller
+or
+    <user name>/<model name>.<application name>[:<relation name>]
+        where model name is another model in the same controller and in this case has been disambiguated
+        by prefixing with the model owner
+or
     <remote endpoint url>
 
 Examples:
