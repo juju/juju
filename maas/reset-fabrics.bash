@@ -27,7 +27,7 @@ for iface_machine in $INTERFACES; do
     machine=$(echo $iface_machine | cut -d @ -f2)
     system_id=$(
         echo "$ALL_SYSTEM_HOSTS" |
-        grep $machine@\$ | cut -d @ -f2)
+        grep $machine@ | cut -d @ -f2)
     maas $ENV interface update $system_id $iface fabric=0 vlan=0
 done
 # Delete the unwanted fabric.
