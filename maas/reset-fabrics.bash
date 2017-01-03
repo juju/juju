@@ -7,7 +7,7 @@ ENV=$1
 
 # Learn all the system_id and hostnames to lookup later.
 ALL_SYSTEM_HOSTS=$(
-    maas env20 machines read |
+    maas $ENV machines read |
     grep -P 'system_id|hostname' |
     sed -r ' N;s/\n/ /; s, +"(system_id|hostname)": ,,g; s/"//g; s/,/@/; s/,//')
 # Find the unwanted fabric, which is most likely the one with a number
