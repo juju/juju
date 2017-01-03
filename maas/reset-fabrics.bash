@@ -19,7 +19,7 @@ FABRIC=$(
 # the unwanted fabric.
 INTERFACES=$(
     maas $ENV fabric delete $FABRIC 2>&1 |
-    sed -r 's,(^.*:|\(.*\)) ,,g; s, on ,@,; s/,//' ||
+    sed -r 's,(^.*:|\([^\)]*\)) ,,g; s, on ,@,g; s/,//g' ||
     true)
 # Reset the fabric and vlan of each machine on the unwanted fabric.
 for iface_machine in $INTERFACES; do
