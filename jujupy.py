@@ -1630,6 +1630,18 @@ class EnvJujuClient:
                 pause(30)
                 self.juju('add-machine', ('ssh:' + machine,))
 
+    def make_remove_machine_condition(self, machine):
+        """Return a condition object representing a machine removal.
+
+        The timeout varies depending on the provider.
+        See wait_for.
+        """
+        if self.env.provider == 'azure':
+            timeout = 1200
+        else:
+            timeout = 600
+        return WaitMachineNotPresent(machine, timeout)
+
     @staticmethod
     def get_cloud_region(cloud, region):
         if region is None:
