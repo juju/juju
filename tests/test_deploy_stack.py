@@ -1704,6 +1704,16 @@ class TestBootstrapManager(FakeHomeTestCase):
                 self.assertIsTrue(bs_manager.has_controller)
         self.assertIsTrue(bs_manager.has_controller)
 
+    def test_existing_bootstrap_context_sets_has_controller(self):
+        client = self.make_client()
+        bs_manager = BootstrapManager(
+            'foobar', client, client, None, [], None, None, None, None,
+            None, False, False, False)
+        with patch.object(client, 'kill_controller'):
+            with bs_manager.existing_bootstrap_context([]):
+                self.assertIsTrue(bs_manager.has_controller)
+        self.assertIsTrue(bs_manager.has_controller)
+
     def test_handle_bootstrap_exceptions_ignores_soft_deadline(self):
         env = JujuData('foo', {'type': 'nonlocal'})
         client = EnvJujuClient(env, None, None)
