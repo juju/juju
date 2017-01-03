@@ -12,6 +12,7 @@ from fakejuju import (
     )
 from jujuconfig import get_juju_home
 from jujupy import (
+    ConditionList,
     EnvJujuClient,
     get_client_class,
     WaitMachineNotPresent,
@@ -64,8 +65,13 @@ def assess_cloud_combined(bs_manager):
         new_status = client.wait_for_started()
         new_machines = [k for k, v in new_status.iter_new_machines(old_status)]
         client.juju('remove-unit', 'ubuntu/0')
-        new_status = client.wait_for([WaitMachineNotPresent(n)
-                                      for n in new_machines])
+        if client.env.provider == 'azure':
+            timeout = 1200
+        else:
+            timeout = 300
+        new_status = client.wait_for(
+            ConditionList([WaitMachineNotPresent(n, timeout)
+                           for n in new_machines]))
 
 
 def assess_cloud_provisioning(bs_manager):
@@ -89,8 +95,9 @@ def assess_cloud_provisioning(bs_manager):
         new_machines = [k for k, v in new_status.iter_new_machines(old_status)]
         for machine in new_machines:
             client.juju('remove-machine', (machine,))
-        new_status = client.wait_for([WaitMachineNotPresent(n)
-                                      for n in new_machines], timeout=600)
+        new_status = client.wait_for(
+            ConditionList([WaitMachineNotPresent(n, timeout=600)
+                           for n in new_machines]))
 
 
 def assess_cloud_kill_controller(bs_manager):
