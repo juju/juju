@@ -831,6 +831,7 @@ class BootstrapManager:
             wait_for_port(machine, 22, timeout=120)
 
         with self.handle_bootstrap_exceptions():
+            self.has_controller = True
             yield
 
     @contextmanager

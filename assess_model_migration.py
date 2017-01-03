@@ -45,8 +45,9 @@ def assess_model_migration(bs1, bs2, args):
         with bs2.existing_booted_context(args.upload_tools):
             source_client = bs1.client
             dest_client = bs2.client
-            ensure_able_to_migrate_model_between_controllers(
+            ensure_migration_including_resources_succeeds(
                 source_client, dest_client)
+            ensure_model_logs_are_migrated(source_client, dest_client)
             with temp_dir() as temp:
                 ensure_migrating_with_insufficient_user_permissions_fails(
                     source_client, dest_client, temp)
@@ -57,16 +58,11 @@ def assess_model_migration(bs1, bs2, args):
                 if args.use_develop:
                     ensure_superuser_can_migrate_other_user_models(
                         source_client, dest_client, temp)
-            # These too.
+
             if args.use_develop:
-                ensure_model_logs_are_migrated(source_client, dest_client)
                 ensure_migration_rolls_back_on_failure(
                     source_client, dest_client)
-                ensure_migration_of_resources_succeeds(
-                    source_client, dest_client)
                 ensure_api_login_redirects(source_client, dest_client)
-                ensure_migrating_to_target_and_back_to_source_succeeds(
-                    source_client, dest_client)
 
 
 def parse_args(argv):
@@ -145,63 +141,18 @@ def wait_for_migrating(client, timeout=60):
                 ))
 
 
-def assert_deployed_charm_is_responding(client, expected_ouput):
+def assert_deployed_charm_is_responding(client, expected_output=None):
     """Ensure that the deployed simple-server charm is still responding."""
+    # Set default value if needed.
+    if expected_output is None:
+        expected_output = 'simple-server.'
     ipaddress = get_unit_ipaddress(client, 'simple-resource-http/0')
-    if expected_ouput != get_server_response(ipaddress):
+    if expected_output != get_server_response(ipaddress):
         raise JujuAssertionError('Server charm is not responding as expected.')
 
 
 def get_server_response(ipaddress):
     return urlopen('http://{}'.format(ipaddress)).read().rstrip()
-
-
-def test_deployed_mongo_is_up(client):
-    """Ensure the mongo service is running as expected."""
-    try:
-        output = client.get_juju_output(
-            'run', '--unit', 'mongodb/0', 'mongo --eval "db.getMongo()"')
-        if 'connecting to: test' in output:
-            return
-    except CalledProcessError as e:
-        # Pass through to assertion error
-        log.error('Mongodb check command failed: {}'.format(e))
-    raise AssertionError('Mongo db is not in an expected state.')
-
-
-def ensure_able_to_migrate_model_between_controllers(
-        source_client, dest_client):
-    """Test simple migration of a model to another controller.
-
-    Ensure that migration a model that has an application deployed upon it is
-    able to continue it's operation after the migration process.
-
-    Given 2 bootstrapped environments:
-      - Deploy an application
-        - ensure it's operating as expected
-      - Migrate that model to the other environment
-        - Ensure it's operating as expected
-        - Add a new unit to the application to ensure the model is functional
-      - Migrate the model back to the original environment
-        - Note: Test for lp:1607457
-        - Ensure it's operating as expected
-        - Add a new unit to the application to ensure the model is functional
-    """
-    application = 'mongodb'
-    test_model = deploy_mongodb_to_new_model(
-        source_client, model_name='example-model')
-    log.info('Initiating migration process')
-    migration_target_client = migrate_model_to_controller(
-        test_model, dest_client)
-    assert_model_migrated_successfully(migration_target_client, application)
-    migration_target_client.remove_service(application)
-    log.info('SUCCESS: model migrated.')
-
-
-def assert_model_migrated_successfully(client, application):
-    client.wait_for_workloads()
-    test_deployed_mongo_is_up(client)
-    ensure_model_is_functional(client, application)
 
 
 def ensure_api_login_redirects(source_client, dest_client):
@@ -258,7 +209,7 @@ def assert_model_has_correct_controller_uuid(client):
         raise JujuAssertionError()
 
 
-def ensure_migration_of_resources_succeeds(source_client, dest_client):
+def ensure_migration_including_resources_succeeds(source_client, dest_client):
     """Test simple migration of a model to another controller.
 
     Ensure that migration a model that has an application, that uses resources,
@@ -266,29 +217,31 @@ def ensure_migration_of_resources_succeeds(source_client, dest_client):
     process. This includes assertion that the resources are migrated correctly
     too.
 
-    Almost identical to ensure_able_to_migrate_model_between_controllers except
-    this test uses a charm with a resource.
-
-    Note: This test will supersede
-    ensure_able_to_migrate_model_between_controllers when the develop branch is
-    merged into master.
+    Given 2 bootstrapped environments:
+      - Deploy an application with a resource
+        - ensure it's operating as expected
+      - Migrate that model to the other environment
+        - Ensure it's operating as expected
+        - Add a new unit to the application to ensure the model is functional
 
     """
-    # Don't move the default model so we can reuse it in later tests.
-    test_model = source_client.add_model(
-        source_client.env.clone('example-model-resource'))
     resource_contents = get_random_string()
-    application = deploy_simple_resource_server(test_model, resource_contents)
-    assert_deployed_charm_is_responding(test_model, resource_contents)
-    log.info('Initiating migration process')
+    test_model, application = deploy_simple_server_to_new_model(
+        source_client, 'example-model-resource', resource_contents)
     migration_target_client = migrate_model_to_controller(
         test_model, dest_client)
-    migration_target_client.wait_for_workloads()
-    assert_deployed_charm_is_responding(
-        migration_target_client, resource_contents)
-    ensure_model_is_functional(migration_target_client, application)
+    assert_model_migrated_successfully(
+        migration_target_client, application, resource_contents)
+
     migration_target_client.remove_service(application)
     log.info('SUCCESS: resources migrated')
+
+
+def assert_model_migrated_successfully(
+        client, application, resource_contents=None):
+    client.wait_for_workloads()
+    assert_deployed_charm_is_responding(client, resource_contents)
+    ensure_model_is_functional(client, application)
 
 
 def ensure_superuser_can_migrate_other_user_models(
@@ -318,41 +271,13 @@ def ensure_superuser_can_migrate_other_user_models(
     migration_client.wait_for_started()
 
 
-def ensure_migrating_to_target_and_back_to_source_succeeds(
-        source_client, dest_client):
-    """Test migration from source to target and back again.
+def deploy_simple_server_to_new_model(
+        client, model_name, resource_contents=None):
+    new_model = client.add_model(client.env.clone(model_name))
+    application = deploy_simple_resource_server(new_model, resource_contents)
+    assert_deployed_charm_is_responding(new_model, resource_contents)
 
-    Almost a duplicate of 'ensure_able_to_migrate_model_between_controllers'
-    except adds the extra step of migrating the model back to the original
-    controller.
-
-    Note: Test for lp:1641824
-    """
-    application = 'mongodb'
-    test_model = deploy_mongodb_to_new_model(
-        source_client, model_name='example-model')
-    log.info('Initiating migration process')
-    migration_target_client = migrate_model_to_controller(
-        test_model, dest_client)
-    assert_model_migrated_successfully(migration_target_client, application)
-    # Ensure migration works back to the original controller as per lp:1641824
-    re_migrate_client = migrate_model_to_controller(
-        migration_target_client, source_client)
-    assert_model_migrated_successfully(re_migrate_client, application)
-    re_migrate_client.remove_service(application)
-    log.info('SUCCESS: model migrated back to source.')
-
-
-def deploy_mongodb_to_new_model(client, model_name):
-    bundle = 'mongodb'
-    log.info('Deploying charm')
-    # Don't move the default model so we can reuse it in later tests.
-    test_model = client.add_model(client.env.clone(model_name))
-    test_model.juju("deploy", (bundle))
-    test_model.wait_for_started()
-    test_model.wait_for_workloads()
-    test_deployed_mongo_is_up(test_model)
-    return test_model
+    return new_model, application
 
 
 def deploy_dummy_source_to_new_model(client, model_name):
@@ -366,24 +291,29 @@ def deploy_dummy_source_to_new_model(client, model_name):
     return new_model_client
 
 
-def deploy_simple_resource_server(client, resource_contents):
+def deploy_simple_resource_server(client, resource_contents=None):
     application_name = 'simple-resource-http'
     log.info('Deploying charm: '.format(application_name))
     charm_path = local_charm_path(
         charm=application_name, juju_ver=client.version)
     # Create a temp file which we'll use as the resource.
-    with temp_dir() as temp:
-        index_file = os.path.join(temp, 'index.html')
-        with open(index_file, 'wt') as f:
-            f.write(resource_contents)
-        client.deploy(charm_path, resource='index={}'.format(index_file))
-        client.wait_for_started()
-        client.wait_for_workloads()
-        return application_name
+    if resource_contents is not None:
+        with temp_dir() as temp:
+            index_file = os.path.join(temp, 'index.html')
+            with open(index_file, 'wt') as f:
+                f.write(resource_contents)
+            client.deploy(charm_path, resource='index={}'.format(index_file))
+    else:
+        client.deploy(charm_path)
+
+    client.wait_for_started()
+    client.wait_for_workloads()
+    return application_name
 
 
-def migrate_model_to_controller(source_client, dest_client,
-                                include_user_name=False):
+def migrate_model_to_controller(
+        source_client, dest_client, include_user_name=False):
+    log.info('Initiating migration process')
     if include_user_name:
         model_name = '{}/{}'.format(
             source_client.env.user_name, source_client.env.environment)
@@ -442,7 +372,7 @@ def ensure_model_logs_are_migrated(source_client, dest_client):
     log.info('Attempting migration process')
     migrated_model = migrate_model_to_controller(new_model_client, dest_client)
     after_migration_logs = migrated_model.get_juju_output(
-        'debug-log', '--no-tail', '-l', 'DEBUG')
+        'debug-log', '--no-tail', '--replay', '-l', 'DEBUG')
     if before_migration_logs not in after_migration_logs:
         raise JujuAssertionError('Logs failed to be migrated.')
     log.info('SUCCESS: logs migrated.')
@@ -455,9 +385,8 @@ def ensure_migration_rolls_back_on_failure(source_client, dest_client):
     the migration must roll back and continue to be available on the source
     controller.
     """
-    application = 'mongodb'
-    test_model = deploy_mongodb_to_new_model(
-        source_client, model_name='rollmeback')
+    test_model, application = deploy_simple_server_to_new_model(
+        source_client, 'rollmeback')
     test_model.controller_juju(
         'migrate',
         (test_model.env.environment,
@@ -470,7 +399,7 @@ def ensure_migration_rolls_back_on_failure(source_client, dest_client):
         log.info('Waiting for migration rollback to complete.')
         wait_for_model(test_model, test_model.env.environment)
         test_model.wait_for_started()
-        test_deployed_mongo_is_up(test_model)
+        assert_deployed_charm_is_responding(test_model)
         ensure_model_is_functional(test_model, application)
     test_model.remove_service(application)
     log.info('SUCCESS: migration rolled back.')

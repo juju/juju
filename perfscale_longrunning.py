@@ -63,7 +63,7 @@ def perfscale_longrun_perf(client, args):
 
 def action_create(client, series='trusty'):
     start = datetime.utcnow()
-    new_model = client.add_model(client.env.clone('newmodel'))
+    new_model = client.add_model('newmodel')
     deploy_stack(new_model, series)
     end = datetime.utcnow()
     log.info('Create action took: {}'.format(
@@ -83,8 +83,7 @@ def action_busy(client, applications):
     new_models = []
     for i in range(0, 20):
         total_new_models += 1
-        new_model_name = 'model{}'.format(total_new_models)
-        new_model = client.add_model(client.env.clone(new_model_name))
+        new_model = client.add_model('model{}'.format(total_new_models))
         new_model.wait_for_started()
         log.info('Added model number {}'.format(total_new_models))
         new_models.append(new_model)
