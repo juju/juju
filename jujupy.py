@@ -1298,6 +1298,7 @@ def client_from_config(config, juju_path, debug=False, soft_deadline=None):
 
 
 class BaseCondition:
+    """Base class for conditions that support client.wait_for."""
 
     def __init__(self, timeout=300, already_satisfied=False):
         self.timeout = timeout
@@ -1305,6 +1306,14 @@ class BaseCondition:
 
 
 class ConditionList(BaseCondition):
+    """A list of conditions that support client.wait_for.
+
+    This combines the supplied list of conditions.  It is only satisfied when
+    all conditions are met.  It times out when any member times out.  When
+    asked to raise, it causes the first condition to raise an exception.  An
+    improvement would be to raise the first condition whose timeout has been
+    exceeded.
+    """
 
     def __init__(self, conditions):
         if len(conditions) == 0:
