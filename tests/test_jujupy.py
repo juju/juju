@@ -1572,6 +1572,21 @@ class TestEnvJujuClient(ClientTest):
             2)
         self.assertEqual(cc_mock.call_count, 3)
 
+    def test_make_remove_machine_condition(self):
+        client = fake_juju_client()
+        condition = client.make_remove_machine_condition('0')
+        self.assertIs(WaitMachineNotPresent, type(condition))
+        self.assertEqual('0', condition.machine)
+        self.assertEqual(600, condition.timeout)
+
+    def test_make_remove_machine_condition_azure(self):
+        client = fake_juju_client()
+        client.env._config['type'] = 'azure'
+        condition = client.make_remove_machine_condition('0')
+        self.assertIs(WaitMachineNotPresent, type(condition))
+        self.assertEqual('0', condition.machine)
+        self.assertEqual(1200, condition.timeout)
+
     def test_add_ssh_machines_retry(self):
         client = EnvJujuClient(JujuData('foo'), None, 'juju')
         with patch('subprocess.check_call', autospec=True,
