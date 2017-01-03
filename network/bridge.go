@@ -64,23 +64,22 @@ func bestPythonVersion() string {
 }
 
 func (b *etcNetworkInterfacesBridger) Bridge(deviceNames []string) error {
-	args := make([]string, 0, 4)
-	args = append(args, fmt.Sprintf("--interfaces-to-bridge=%q", deviceNames))
-	args = append(args, fmt.Sprintf("--activate"))
+	prefix := ""
 	if b.BridgePrefix != "" {
-		args = append(args, fmt.Sprintf("--bridge-prefix=%s", b.BridgePrefix))
+		prefix = fmt.Sprintf("--bridge-prefix=%s", b.BridgePrefix)
 	}
-	args = append(args, b.Filename)
-	cmd := fmt.Sprintf(`
-%s - %s <<'EOF'
+	cmd := fmt.Sprintf(`%s - --interfaces-to-bridge=%q --activate %s %s <<'EOF'
 %s
 EOF
 `,
 		bestPythonVersion(),
-		strings.Join(args, " "),
+		strings.Join(deviceNames, " "),
+		prefix,
+		b.Filename,
 		BridgeScriptPythonContent)
 
 	result, err := RunCommand(cmd, os.Environ(), b.Clock, b.Timeout)
+	logger.Infof("bridgescript command=%s", cmd)
 	logger.Infof("bridgescript result=%v, timeout=%v", result.Code, result.TimedOut)
 	if result.Code != 0 {
 		logger.Errorf("bridgescript stdout\n%s\n", result.Stdout)
