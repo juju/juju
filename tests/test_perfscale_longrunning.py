@@ -123,13 +123,12 @@ class TestActionCreate(TestCase):
         client = Mock()
         new_model = Mock()
         client.add_model.return_value = new_model
-        client.env.clone.return_value = 'foo'
 
         with patch.object(pl, 'deploy_stack', autospec=True) as m_deploy_stack:
             pl.action_create(client, series='foo')
 
         m_deploy_stack.assert_called_once_with(new_model, 'foo')
-        client.add_model.assert_called_once_with('foo')
+        client.add_model.assert_called_once_with('newmodel')
 
 
 class TestPerfscaleLongrunPerf(TestCase):

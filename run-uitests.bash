@@ -92,7 +92,7 @@ echo "devenv/bin/uitest --driver phantom \
     --credentials <SECRET> \
     --admin <SECRET> \
     --url $STORE_URL" \
-     --juju $JUJU_SOURCE_BINARY \
+    --juju $JUJU_SOURCE_BINARY \
     "$SUITE"
 set +x
 devenv/bin/uitest --driver phantom \
