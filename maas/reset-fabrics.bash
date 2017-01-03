@@ -9,7 +9,7 @@ ENV=$1
 ALL_SYSTEM_HOSTS=$(
     maas $ENV machines read |
     grep -P 'system_id|hostname' |
-    sed -r ' N;s/\n/ /; s, +"(system_id|hostname)": ,,g; s/"//g; s/,/@/; s/,//')
+    sed -r ' N;s/\n/ /; s/( +"system_id": .[^,]+,)(.*)/\2 \1/; s, +"(system_id|hostname)": ,,g; s/"//g; s/,/@/; s/,//'
 # Find the unwanted fabric, which is most likely the one with a number
 # greater than 9.
 FABRIC=$(
@@ -27,7 +27,7 @@ for iface_machine in $INTERFACES; do
     machine=$(echo $iface_machine | cut -d @ -f2)
     system_id=$(
         echo "$ALL_SYSTEM_HOSTS" |
-        grep $machine@\$ | cut -d @ -f1)
+        grep $machine@\$ | cut -d @ -f2)
     maas $ENV interface update $system_id $iface fabric=0 vlan=0
 done
 # Delete the unwanted fabric.
