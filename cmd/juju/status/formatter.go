@@ -111,6 +111,7 @@ func (sf *statusFormatter) formatMachine(machine params.MachineStatus) machineSt
 		Series:        machine.Series,
 		Id:            machine.Id,
 		Containers:    make(map[string]machineStatus),
+		Constraints:   machine.Constraints,
 		Hardware:      machine.Hardware,
 	}
 
