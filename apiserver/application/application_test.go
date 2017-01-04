@@ -2550,9 +2550,10 @@ func (m *mockApplicationOffersAPI) ListOffers(filters params.OfferFilters) (para
 func remoteOffers() []params.ApplicationOffer {
 	return []params.ApplicationOffer{
 		{
-			ApplicationURL:  "local:/u/me/hosted-mysql",
-			ApplicationName: "mysqlremote",
-			SourceModelTag:  coretesting.ModelTag.String(),
+			ApplicationURL:         "local:/u/me/hosted-mysql",
+			ApplicationName:        "mysqlremote",
+			ApplicationDescription: "a database",
+			SourceModelTag:         coretesting.ModelTag.String(),
 			Endpoints: []params.RemoteEndpoint{
 				{
 					Name:      "server",
@@ -2918,4 +2919,42 @@ func (s *recordingStorage) Remove(path string) error {
 	}
 	s.blobs.Remove(path)
 	return nil
+}
+
+func (s *serviceSuite) TestRemoteApplicationInfo(c *gc.C) {
+	s.offersApiFactory.offers = remoteOffers()
+	_, err := s.otherModel.AddApplication(state.AddApplicationArgs{
+		Name:  "mysql",
+		Charm: s.addTestingCharmOtherModel(c, "mysql"),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	results, err := s.applicationAPI.RemoteApplicationInfo(params.ApplicationURLs{
+		ApplicationURLs: []string{"local:/u/me/hosted-mysql", "othermodel.mysql", "othermodel.unknown"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 3)
+	c.Assert(results.Results, jc.DeepEquals, []params.RemoteApplicationInfoResult{
+		{Result: &params.RemoteApplicationInfo{
+			ModelTag:         coretesting.ModelTag.String(),
+			Name:             "mysqlremote",
+			Description:      "a database",
+			ApplicationURL:   "local:/u/me/hosted-mysql",
+			SourceModelLabel: "",
+			Endpoints: []params.RemoteEndpoint{
+				{Name: "server", Role: "provider", Interface: "mysql", Limit: 0, Scope: "global"}},
+		}},
+		{Result: &params.RemoteApplicationInfo{
+			ModelTag:         s.otherModel.ModelTag().String(),
+			Name:             "mysql",
+			Description:      "A pretty popular database",
+			ApplicationURL:   "othermodel.mysql",
+			SourceModelLabel: "othermodel",
+			Endpoints: []params.RemoteEndpoint{
+				{Name: "juju-info", Role: "provider", Interface: "juju-info", Limit: 0, Scope: "global"},
+				{Name: "server", Role: "provider", Interface: "mysql", Limit: 0, Scope: "global"}},
+		}},
+		{
+			Error: &params.Error{Message: `application "unknown" not found`, Code: "not found"},
+		},
+	})
 }

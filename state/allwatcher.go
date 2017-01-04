@@ -401,24 +401,24 @@ func (u *backingUnit) mongoId() string {
 
 type backingApplication applicationDoc
 
-func (svc *backingApplication) updated(st *State, store *multiwatcherStore, id string) error {
-	if svc.CharmURL == nil {
+func (app *backingApplication) updated(st *State, store *multiwatcherStore, id string) error {
+	if app.CharmURL == nil {
 		return errors.Errorf("charm url is nil")
 	}
 	info := &multiwatcher.ApplicationInfo{
 		ModelUUID:   st.ModelUUID(),
-		Name:        svc.Name,
-		Exposed:     svc.Exposed,
-		CharmURL:    svc.CharmURL.String(),
-		Life:        multiwatcher.Life(svc.Life.String()),
-		MinUnits:    svc.MinUnits,
-		Subordinate: svc.Subordinate,
+		Name:        app.Name,
+		Exposed:     app.Exposed,
+		CharmURL:    app.CharmURL.String(),
+		Life:        multiwatcher.Life(app.Life.String()),
+		MinUnits:    app.MinUnits,
+		Subordinate: app.Subordinate,
 	}
 	oldInfo := store.Get(info.EntityId())
 	needConfig := false
 	if oldInfo == nil {
-		logger.Debugf("new application %q added to backing state", svc.Name)
-		key := applicationGlobalKey(svc.Name)
+		logger.Debugf("new application %q added to backing state", app.Name)
+		key := applicationGlobalKey(app.Name)
 		// We're adding the entry for the first time,
 		// so fetch the associated child documents.
 		c, err := readConstraints(st, key)
@@ -466,7 +466,7 @@ func (svc *backingApplication) updated(st *State, store *multiwatcherStore, id s
 		}
 	}
 	if needConfig {
-		doc, err := readSettingsDoc(st, settingsC, applicationSettingsKey(svc.Name, svc.CharmURL))
+		doc, err := readSettingsDoc(st, settingsC, applicationSettingsKey(app.Name, app.CharmURL))
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -476,7 +476,7 @@ func (svc *backingApplication) updated(st *State, store *multiwatcherStore, id s
 	return nil
 }
 
-func (svc *backingApplication) removed(store *multiwatcherStore, modelUUID, id string, _ *State) error {
+func (app *backingApplication) removed(store *multiwatcherStore, modelUUID, id string, _ *State) error {
 	store.Remove(multiwatcher.EntityId{
 		Kind:      "application",
 		ModelUUID: modelUUID,
@@ -485,27 +485,27 @@ func (svc *backingApplication) removed(store *multiwatcherStore, modelUUID, id s
 	return nil
 }
 
-func (svc *backingApplication) mongoId() string {
-	return svc.DocID
+func (app *backingApplication) mongoId() string {
+	return app.DocID
 }
 
 type backingRemoteApplication remoteApplicationDoc
 
-func (svc *backingRemoteApplication) updated(st *State, store *multiwatcherStore, id string) error {
-	if svc.Name == "" {
+func (app *backingRemoteApplication) updated(st *State, store *multiwatcherStore, id string) error {
+	if app.Name == "" {
 		return errors.Errorf("remote application name is not set")
 	}
 	info := &multiwatcher.RemoteApplicationInfo{
 		ModelUUID:      st.ModelUUID(),
-		Name:           svc.Name,
-		ApplicationURL: svc.URL,
-		Life:           multiwatcher.Life(svc.Life.String()),
+		Name:           app.Name,
+		ApplicationURL: app.URL,
+		Life:           multiwatcher.Life(app.Life.String()),
 	}
 	oldInfo := store.Get(info.EntityId())
 	if oldInfo == nil {
-		logger.Debugf("new remote application %q added to backing state", svc.Name)
+		logger.Debugf("new remote application %q added to backing state", app.Name)
 		// Fetch the status.
-		key := remoteApplicationGlobalKey(svc.Name)
+		key := remoteApplicationGlobalKey(app.Name)
 		serviceStatus, err := getStatus(st, key, "remote application")
 		if err != nil {
 			return errors.Annotatef(err, "reading remote application status for key %s", key)
@@ -516,10 +516,10 @@ func (svc *backingRemoteApplication) updated(st *State, store *multiwatcherStore
 			Data:    normaliseStatusData(serviceStatus.Data),
 			Since:   serviceStatus.Since,
 		}
-		logger.Debugf("service status %#v", info.Status)
+		logger.Debugf("remote application status %#v", info.Status)
 	}
 	if store.Get(info.EntityId()) == nil {
-		logger.Debugf("new remote application %q added to backing state", svc.Name)
+		logger.Debugf("new remote application %q added to backing state", app.Name)
 	}
 	store.Update(info)
 	return nil
@@ -534,8 +534,8 @@ func (svc *backingRemoteApplication) removed(store *multiwatcherStore, modelUUID
 	return nil
 }
 
-func (svc *backingRemoteApplication) mongoId() string {
-	return svc.DocID
+func (app *backingRemoteApplication) mongoId() string {
+	return app.DocID
 }
 
 type backingAction actionDoc

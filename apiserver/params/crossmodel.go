@@ -426,3 +426,28 @@ type RegisterRemoteRelation struct {
 type RegisterRemoteRelations struct {
 	Relations []RegisterRemoteRelation `json:"relations"`
 }
+
+// RemoteApplicationInfo has attributes for a remote application.
+type RemoteApplicationInfo struct {
+	ModelTag       string `json:"model-tag"`
+	Name           string `json:"name"`
+	Description    string `json:"description"`
+	ApplicationURL string `json:"application-url"`
+	// SourceModelLabel is only populated if the application
+	// originates from another model on the same controller
+	// rather than via an offer URL.
+	SourceModelLabel string           `json:"source-model-label,omitempty"`
+	Endpoints        []RemoteEndpoint `json:"endpoints"`
+}
+
+// RemoteApplicationInfoResult holds the result of loading
+// remote application info at a URL.
+type RemoteApplicationInfoResult struct {
+	Result *RemoteApplicationInfo `json:"result,omitempty"`
+	Error  *Error                 `json:"error,omitempty"`
+}
+
+// RemoteApplicationInfoResults represents the result of a RemoteApplicationInfo call.
+type RemoteApplicationInfoResults struct {
+	Results []RemoteApplicationInfoResult
+}
