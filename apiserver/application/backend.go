@@ -17,6 +17,8 @@ import (
 // facade. For details on the methods, see the methods on state.State
 // with the same names.
 type Backend interface {
+	AllModels() ([]Model, error)
+	ForModel(modelTag names.ModelTag) (*state.State, error)
 	Application(string) (Application, error)
 	AddApplication(state.AddApplicationArgs) (*state.Application, error)
 	RemoteApplication(name string) (*state.RemoteApplication, error)
@@ -98,6 +100,16 @@ type Unit interface {
 	Life() state.Life
 }
 
+// Model defines a subset of the functionality provided by the
+// state.Model type, as required by the application facade. For
+// details on the methods, see the methods on state.Model with
+// the same names.
+type Model interface {
+	Tag() names.Tag
+	Name() string
+	Owner() names.UserTag
+}
+
 type stateShim struct {
 	*state.State
 }
@@ -163,6 +175,18 @@ func (s stateShim) Unit(name string) (Unit, error) {
 	return stateUnitShim{u}, nil
 }
 
+func (s stateShim) AllModels() ([]Model, error) {
+	models, err := s.State.AllModels()
+	if err != nil {
+		return nil, err
+	}
+	result := make([]Model, len(models))
+	for i, m := range models {
+		result[i] = stateModelShim{m}
+	}
+	return result, nil
+}
+
 type stateApplicationShim struct {
 	*state.Application
 }
@@ -189,4 +213,8 @@ type stateRelationShim struct {
 
 type stateUnitShim struct {
 	*state.Unit
+}
+
+type stateModelShim struct {
+	*state.Model
 }

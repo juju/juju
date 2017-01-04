@@ -70,25 +70,25 @@ func (s *offerSuite) runOffer(c *gc.C, args ...string) (*cmd.Context, error) {
 }
 
 func (s *offerSuite) TestOfferCallErred(c *gc.C) {
-	s.args = []string{"tst:db", "local:/u/bob/testing/tst"}
+	s.args = []string{"tst:db", "local:/u/bob/tst"}
 	s.mockAPI.errCall = true
 	s.assertOfferErrorOutput(c, ".*aborted.*")
 }
 
 func (s *offerSuite) TestOfferDataErred(c *gc.C) {
-	s.args = []string{"tst:db", "local:/u/bob/testing/tst"}
+	s.args = []string{"tst:db", "local:/u/bob/tst"}
 	s.mockAPI.errData = true
 	s.assertOfferErrorOutput(c, ".*failed.*")
 }
 
 func (s *offerSuite) TestOfferValid(c *gc.C) {
-	s.args = []string{"tst:db", "local:/u/bob/testing/tst"}
-	s.assertOfferOutput(c, "test", "tst", []string{"db"}, "local:/u/bob/testing/tst")
+	s.args = []string{"tst:db", "local:/u/bob/tst"}
+	s.assertOfferOutput(c, "test", "tst", []string{"db"}, "local:/u/bob/tst")
 }
 
 func (s *offerSuite) TestOfferExplicitModel(c *gc.C) {
-	s.args = []string{"prod.tst:db", "local:/u/bob/testing/tst"}
-	s.assertOfferOutput(c, "prod", "tst", []string{"db"}, "local:/u/bob/testing/tst")
+	s.args = []string{"prod.tst:db", "local:/u/bob/tst"}
+	s.assertOfferOutput(c, "prod", "tst", []string{"db"}, "local:/u/bob/tst")
 }
 
 func (s *offerSuite) TestOfferWithURL(c *gc.C) {
@@ -97,8 +97,8 @@ func (s *offerSuite) TestOfferWithURL(c *gc.C) {
 }
 
 func (s *offerSuite) TestOfferMultipleEndpoints(c *gc.C) {
-	s.args = []string{"tst:db,admin", "local:/u/bob/testing/tst"}
-	s.assertOfferOutput(c, "test", "tst", []string{"db", "admin"}, "local:/u/bob/testing/tst")
+	s.args = []string{"tst:db,admin", "local:/u/bob/tst"}
+	s.assertOfferOutput(c, "test", "tst", []string{"db", "admin"}, "local:/u/bob/tst")
 }
 
 func (s *offerSuite) assertOfferOutput(c *gc.C, expectedModel, expectedApplication string, endpoints []string, url string) {
