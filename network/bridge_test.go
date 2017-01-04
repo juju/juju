@@ -14,6 +14,13 @@ import (
 	gc "gopkg.in/check.v1"
 )
 
+// A note regarding the use of clock.WallClock in these unit tests.
+//
+// All the tests pass 0 for a timeout, which means indefinite, and
+// therefore no timer/clock is used. There is one test that checks for
+// timeout and passes 0.5s as its timeout value. Because of this it's
+// not clear why the 'testing clock' would be a better choice.
+
 type BridgeSuite struct {
 	testing.IsolationSuite
 }
@@ -109,10 +116,10 @@ func (*BridgeSuite) TestENIBridgerWithTimeout(c *gc.C) {
 	environ := os.Environ()
 	environ = append(environ, "ADD_JUJU_BRIDGE_SLEEP_PREAMBLE_FOR_TESTING=10")
 	deviceNames := []string{"ens3", "ens4", "bond0"}
-	bridger := network.NewEtcNetworkInterfacesBridger(environ, clock.WallClock, 1*time.Second, "", "testdata/non-existent-file", true)
+	bridger := network.NewEtcNetworkInterfacesBridger(environ, clock.WallClock, 500*time.Millisecond, "", "testdata/non-existent-file", true)
 	err := bridger.Bridge(deviceNames)
 	c.Assert(err, gc.NotNil)
-	c.Check(err, gc.ErrorMatches, `bridgescript timed out after 1s`)
+	c.Check(err, gc.ErrorMatches, `bridgescript timed out after 500ms`)
 }
 
 func (*BridgeSuite) TestENIBridgerWithDryRun(c *gc.C) {
