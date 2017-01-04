@@ -62,6 +62,13 @@ func (s *providerSuite) TestDetectRegions(c *gc.C) {
 	c.Assert(regions, jc.DeepEquals, []cloud.Region{{Name: lxdnames.DefaultRegion}})
 }
 
+func (s *providerSuite) TestDefaultCloudName(c *gc.C) {
+	c.Assert(s.provider, gc.Implements, new(environs.DefaultCloudNamer))
+	name := s.provider.(environs.DefaultCloudNamer).DefaultCloudName()
+	c.Assert(name, gc.Equals, "localhost")
+	c.Assert(cloud.BuiltInClouds[name].Type, gc.Equals, "lxd")
+}
+
 func (s *providerSuite) TestRegistered(c *gc.C) {
 	c.Check(s.provider, gc.Equals, lxd.Provider)
 }
