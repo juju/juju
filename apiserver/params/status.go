@@ -63,6 +63,10 @@ type MachineStatus struct {
 	// machine.
 	Containers map[string]MachineStatus `json:"containers"`
 
+	// Constraints holds a string of space-separated key=value pairs for
+	// each constraint datum.
+	Constraints string `json:"constraints"`
+
 	// Hardware holds a string of space-separated key=value pairs of
 	// hardware specification datum.
 	Hardware string `json:"hardware"`
