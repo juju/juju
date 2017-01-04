@@ -32,7 +32,8 @@ var requiredPackages = []string{
 }
 
 type containerInitialiser struct {
-	series string
+	series         string
+	getExecCommand func(string, ...string) *exec.Cmd
 }
 
 // containerInitialiser implements container.Initialiser.
@@ -41,7 +42,10 @@ var _ container.Initialiser = (*containerInitialiser)(nil)
 // NewContainerInitialiser returns an instance used to perform the steps
 // required to allow a host machine to run a LXC container.
 func NewContainerInitialiser(series string) container.Initialiser {
-	return &containerInitialiser{series}
+	return &containerInitialiser{
+		series,
+		exec.Command,
+	}
 }
 
 // Initialise is specified on the container.Initialiser interface.
@@ -63,18 +67,28 @@ func (ci *containerInitialiser) Initialise() error {
 
 	// Well... this will need to change soon once we are passed 17.04 as who
 	// knows what the series name will be.
-	if ci.series >= "xenial" {
-		output, err := exec.Command(
-			"lxd",
-			"init",
-			"--auto",
-		).CombinedOutput()
-		if err != nil {
-			return errors.Annotate(err, "while running lxd init --auto: "+string(output))
-		}
+	if ci.series < "xenial" {
+		return nil
 	}
 
-	return nil
+	output, err := ci.getExecCommand(
+		"lxd",
+		"init",
+		"--auto",
+	).CombinedOutput()
+
+	if err == nil {
+		return nil
+	}
+
+	out := string(output)
+	if strings.Contains(out, "You have existing containers or images. lxd init requires an empty LXD.") {
+		// this error means we've already run lxd init, which is ok, so just
+		// ignore it.
+		return nil
+	}
+
+	return errors.Annotate(err, "while running lxd init --auto: "+out)
 }
 
 // getPackageManager is a helper function which returns the
