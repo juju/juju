@@ -2614,11 +2614,6 @@ class EnvJujuClient:
         return self.juju('add-cloud', ("--replace", cloud_name, cloud_file),
                          include_e=False)
 
-    def add_credential(self, cloud_name, cred_file):
-        return self.juju('add-credential',
-                         ("--replace", cloud_name, "-f", cred_file),
-                         include_e=False)
-
     def add_cloud_interactive(self, cloud_name, cloud):
         child = self.expect('add-cloud', include_e=False)
         try:
@@ -2730,6 +2725,7 @@ class EnvJujuClient:
         else:
             args += ('--local-dir', local_dir)
             return self.juju('sync-tools', args, include_e=False)
+
 
 class EnvJujuClientRC(EnvJujuClient):
 

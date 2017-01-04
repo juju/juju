@@ -65,7 +65,7 @@ class TestAssessAddCloud(TestCase):
         agent_stream = "develop"
         cloud_name = "testcloud"
         cloud_region = "localhost"
-        mock_client.env.get_cloud.return_value=cloud_name
+        mock_client.env.get_cloud.return_value = cloud_name
         mock_client.env.provider = "lxc"
         mock_client.env.get_region.return_value = cloud_region
         actual_cloud_details = \
@@ -143,7 +143,6 @@ class TestAssessMetadata(TestCase):
             self.assertNotEquals(local_sha256, expected_sha256)
             self.assertEquals(local_file_path, expected_lfp)
 
-
     def test_get_controller_url_and_sha256(self):
         expected_sha256 = SAMPLE_SHA256
         expected_url =\
@@ -210,4 +209,3 @@ class TestAssessMetadata(TestCase):
                        return_value=["file:///INVALID_URL", SAMPLE_SHA256]):
                 with self.assertRaises(JujuAssertionError):
                     verify_deployed_tool("/tmp", mock_client, "testing")
-

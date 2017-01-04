@@ -64,8 +64,7 @@ def assess_metadata(bs_manager, local_source):
     # This disconnects from the metadata source, as INVALID_URL is different.
     # agent-metadata-url | tools-metadata-url
     client.env.update_config({'agent-metadata-url': INVALID_URL})
-    with prepare_temp_metadata(client, local_source)\
-            as metadata_dir:
+    with prepare_temp_metadata(client, local_source) as metadata_dir:
         log.info('Metadata written to: {}'.format(metadata_dir))
         with thin_booted_context(bs_manager,
                                  metadata_source=metadata_dir):
@@ -130,7 +129,6 @@ def parse_args(argv=None):
 def main(argv=None):
     args = parse_args(argv)
     configure_logging(args.verbose)
-    args.agent_stream = args.agent_stream if args.agent_stream else 'testing'
     assess_bootstrap(args)
     return 0
 
