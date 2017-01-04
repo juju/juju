@@ -75,6 +75,7 @@ func (s *cloudSuite) TestParseCloudsConfig(c *gc.C) {
 	c.Assert(clouds, gc.HasLen, 1)
 	testingCloud := clouds["testing"]
 	c.Assert(testingCloud, jc.DeepEquals, cloud.Cloud{
+		Name: "testing",
 		Type: "dummy",
 		Config: map[string]interface{}{
 			"k1": "v1",
@@ -102,6 +103,7 @@ func (s *cloudSuite) TestParseCloudsRegionConfig(c *gc.C) {
 	c.Assert(clouds, gc.HasLen, 1)
 	testingCloud := clouds["testing"]
 	c.Assert(testingCloud, jc.DeepEquals, cloud.Cloud{
+		Name: "testing",
 		Type: "dummy",
 		Config: map[string]interface{}{
 			"k1": "v1",
@@ -150,6 +152,7 @@ clouds:
 	c.Assert(fallbackUsed, jc.IsFalse)
 	c.Assert(clouds, jc.DeepEquals, map[string]cloud.Cloud{
 		"aws-me": cloud.Cloud{
+			Name:        "aws-me",
 			Type:        "aws",
 			Description: "Amazon Web Services",
 			AuthTypes:   []cloud.AuthType{"userpass"},
@@ -170,6 +173,7 @@ func (s *cloudSuite) TestGeneratedPublicCloudInfo(c *gc.C) {
 func (s *cloudSuite) TestWritePublicCloudsMetadata(c *gc.C) {
 	clouds := map[string]cloud.Cloud{
 		"aws-me": cloud.Cloud{
+			Name:        "aws-me",
 			Type:        "aws",
 			Description: "Amazon Web Services",
 			AuthTypes:   []cloud.AuthType{"userpass"},
