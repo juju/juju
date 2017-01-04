@@ -116,7 +116,7 @@ func (*BridgeSuite) TestENIBridgerWithTimeout(c *gc.C) {
 }
 
 func (*BridgeSuite) TestENIBridgerWithDryRun(c *gc.C) {
-	bridger := network.NewEtcNetworkInterfacesBridger(os.Environ(), clock.WallClock, 1*time.Second, "", "testdata/interfaces", true)
+	bridger := network.NewEtcNetworkInterfacesBridger(os.Environ(), clock.WallClock, 0, "", "testdata/interfaces", true)
 	err := bridger.Bridge([]string{"ens123"})
 	c.Assert(err, gc.IsNil)
 }
