@@ -2604,11 +2604,11 @@ class EnvJujuClient:
         return self.get_juju_output('list-clouds', '--format',
                                     format, include_e=False)
 
-    def generate_tool(self, source_dir, stream="released"):
-        return self.juju("metadata ", ("generate-tools",
-                                       "-d", source_dir,
-                                       "--stream", stream),
-                         include_e=False)
+    def generate_tool(self, source_dir, stream=None):
+        args = ['generate-tools', '-d', source_dir]
+        if stream is not None:
+            args.extend(['--stream', stream])
+        return self.juju('metadata', tuple(args), include_e=False)
 
     def add_cloud(self, cloud_name, cloud_file):
         return self.juju('add-cloud', ("--replace", cloud_name, cloud_file),
@@ -2720,15 +2720,16 @@ class EnvJujuClient:
         """Enable a command-set."""
         return self.juju('enable-command', args)
 
-    def sync_tools(self, stream, local_dir=None):
+    def sync_tools(self, local_dir=None, stream=None):
         """Copy tools into a local directory or model."""
+        args = ()
+        if stream is not None:
+            args += ('--stream', stream)
         if local_dir is None:
-            return self.juju('sync-tools', ('--stream', stream))
+            return self.juju('sync-tools', args)
         else:
-            return self.juju('sync-tools', ('--local-dir', local_dir,
-                                            '--stream', stream),
-                             include_e=False)
-
+            args += ('--local-dir', local_dir)
+            return self.juju('sync-tools', args, include_e=False)
 
 class EnvJujuClientRC(EnvJujuClient):
 
