@@ -4,138 +4,119 @@
 package network_test
 
 import (
-	"fmt"
 	"os"
 	"runtime"
-	"strings"
 	"time"
 
 	"github.com/juju/juju/network"
-	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 )
 
-type ScriptRunnerSuite struct {
+type BridgeSuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&ScriptRunnerSuite{})
+var _ = gc.Suite(&BridgeSuite{})
 
-func (s *ScriptRunnerSuite) SetUpSuite(c *gc.C) {
+const echoArgsScript = `
+import sys
+for arg in sys.argv[1:]: print(arg)
+`
+
+func (s *BridgeSuite) SetUpSuite(c *gc.C) {
 	if runtime.GOOS == "windows" {
-		c.Skip("skipping ScriptRunnerSuite tests on windows")
+		c.Skip("skipping BridgeSuite tests on windows")
 	}
 	s.IsolationSuite.SetUpSuite(c)
 }
 
-func (*ScriptRunnerSuite) TestScriptRunnerFails(c *gc.C) {
-	clock := testing.NewClock(coretesting.ZeroTime())
-	result, err := network.RunCommand("exit 1", os.Environ(), clock, 0)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.TimedOut, gc.Equals, false)
-	c.Assert(result.Code, gc.Equals, 1)
-}
-
-func (*ScriptRunnerSuite) TestScriptRunnerSucceeds(c *gc.C) {
-	clock := testing.NewClock(coretesting.ZeroTime())
-	result, err := network.RunCommand("exit 0", os.Environ(), clock, 0)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.TimedOut, gc.Equals, false)
-	c.Assert(result.Code, gc.Equals, 0)
-}
-
-func (*ScriptRunnerSuite) TestScriptRunnerCheckStdout(c *gc.C) {
-	clock := testing.NewClock(coretesting.ZeroTime())
-	result, err := network.RunCommand("echo -n 42", os.Environ(), clock, 0)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.TimedOut, gc.Equals, false)
-	c.Assert(result.Code, gc.Equals, 0)
-	c.Check(string(result.Stdout), gc.Equals, "42")
-	c.Check(string(result.Stderr), gc.Equals, "")
-}
-
-func (*ScriptRunnerSuite) TestScriptRunnerCheckStderr(c *gc.C) {
-	clock := testing.NewClock(coretesting.ZeroTime())
-	result, err := network.RunCommand(">&2 echo -n 3.141", os.Environ(), clock, 0)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.TimedOut, gc.Equals, false)
-	c.Assert(result.Code, gc.Equals, 0)
-	c.Check(string(result.Stdout), gc.Equals, "")
-	c.Check(string(result.Stderr), gc.Equals, "3.141")
-}
-
-func (*ScriptRunnerSuite) TestScriptRunnerTimeout(c *gc.C) {
-	result, err := network.RunCommand("sleep 60", os.Environ(), clock.WallClock, 500*time.Microsecond)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.TimedOut, gc.Equals, true)
-	c.Assert(result.Code, gc.Equals, 0)
-}
-
-func (*ScriptRunnerSuite) TestBridgeScriptInvocationWithBadArg(c *gc.C) {
-	args := []string{"--big-bad-bogus-arg"}
-
-	cmd := fmt.Sprintf(`
-if [ -x "$(command -v python2)" ]; then
-    PREFERRED_PYTHON_BINARY=/usr/bin/python2
-elif [ -x "$(command -v python3)" ]; then
-    PREFERRED_PYTHON_BINARY=/usr/bin/python3
-elif [ -x "$(command -v python)" ]; then
-    PREFERRED_PYTHON_BINARY=/usr/bin/python
-fi
-
-if ! [ -x "$(command -v $PREFERRED_PYTHON_BINARY)" ]; then
-    echo "error: $PREFERRED_PYTHON_BINARY not executable, or not a command" >&2
-    exit 1
-fi
-
-${PREFERRED_PYTHON_BINARY} - %s <<'EOF'
-%s
-EOF
-`,
-		strings.Join(args, " "),
-		network.BridgeScriptPythonContent)
-
+func assertCmdResult(c *gc.C, cmd, expected string) {
 	result, err := network.RunCommand(cmd, os.Environ(), clock.WallClock, 0)
-
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.TimedOut, gc.Equals, false)
-	c.Assert(result.Code, gc.Equals, 2) // Python argparse error
+	c.Assert(err, gc.IsNil)
+	c.Assert(result.Code, gc.Equals, 0)
+	c.Assert(string(result.Stdout), gc.Equals, expected)
+	c.Assert(string(result.Stderr), gc.Equals, "")
 }
 
-func (*ScriptRunnerSuite) TestBridgeScriptInvocationWithDryRun(c *gc.C) {
-	args := []string{
-		"--interfaces-to-bridge=non-existent",
-		"--dry-run",
-		"/dev/null",
-	}
+func (*BridgeSuite) TestBridgeCmdArgumentsNoBridgePrefixAndDryRun(c *gc.C) {
+	deviceNames := []string{"ens3", "ens4", "bond0"}
+	cmd := network.BridgeCmd(deviceNames, "", "/etc/network/interfaces", echoArgsScript, true)
+	assertCmdResult(c, cmd, `
+--interfaces-to-bridge=ens3 ens4 bond0
+--activate
+--dry-run
+/etc/network/interfaces
+`[1:])
+}
 
-	cmd := fmt.Sprintf(`
-if [ -x "$(command -v python2)" ]; then
-    PREFERRED_PYTHON_BINARY=/usr/bin/python2
-elif [ -x "$(command -v python3)" ]; then
-    PREFERRED_PYTHON_BINARY=/usr/bin/python3
-elif [ -x "$(command -v python)" ]; then
-    PREFERRED_PYTHON_BINARY=/usr/bin/python
-fi
+func (*BridgeSuite) TestBridgeCmdArgumentsWithBridgePrefixAndDryRun(c *gc.C) {
+	deviceNames := []string{"ens3", "ens4", "bond0"}
+	cmd := network.BridgeCmd(deviceNames, "foo-", "/etc/network/interfaces", echoArgsScript, true)
+	assertCmdResult(c, cmd, `
+--interfaces-to-bridge=ens3 ens4 bond0
+--activate
+--bridge-prefix=foo-
+--dry-run
+/etc/network/interfaces
+`[1:])
+}
 
-if ! [ -x "$(command -v $PREFERRED_PYTHON_BINARY)" ]; then
-    echo "error: $PREFERRED_PYTHON_BINARY not executable, or not a command" >&2
-    exit 1
-fi
+func (*BridgeSuite) TestBridgeCmdArgumentsWithBridgePrefixWithoutDryRun(c *gc.C) {
+	deviceNames := []string{"ens3", "ens4", "bond0"}
+	cmd := network.BridgeCmd(deviceNames, "foo-", "/etc/network/interfaces", echoArgsScript, false)
+	assertCmdResult(c, cmd, `
+--interfaces-to-bridge=ens3 ens4 bond0
+--activate
+--bridge-prefix=foo-
+/etc/network/interfaces
+`[1:])
+}
 
-${PREFERRED_PYTHON_BINARY} - %s <<'EOF'
-%s
-EOF
-`,
-		strings.Join(args, " "),
-		network.BridgeScriptPythonContent)
+func (*BridgeSuite) TestBridgeCmdArgumentsWithoutBridgePrefixAndWithoutDryRun(c *gc.C) {
+	deviceNames := []string{"ens3", "ens4", "bond0"}
+	cmd := network.BridgeCmd(deviceNames, "", "/etc/network/interfaces", echoArgsScript, false)
+	assertCmdResult(c, cmd, `
+--interfaces-to-bridge=ens3 ens4 bond0
+--activate
+/etc/network/interfaces
+`[1:])
+}
 
-	result, err := network.RunCommand(cmd, os.Environ(), clock.WallClock, 0)
+func (*BridgeSuite) TestENIBridgerWithMissingFilenameArgument(c *gc.C) {
+	deviceNames := []string{"ens3", "ens4", "bond0"}
+	bridger := network.NewEtcNetworkInterfacesBridger(os.Environ(), clock.WallClock, 0, "", "", true)
+	err := bridger.Bridge(deviceNames)
+	c.Assert(err, gc.ErrorMatches, `(?s)bridgescript failed:.*too few arguments\n`)
+}
 
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.TimedOut, gc.Equals, false)
-	c.Assert(result.Code, gc.Equals, 0)
+func (*BridgeSuite) TestENIBridgerWithEmptyDeviceNamesArgument(c *gc.C) {
+	bridger := network.NewEtcNetworkInterfacesBridger(os.Environ(), clock.WallClock, 0, "", "", true)
+	err := bridger.Bridge([]string{})
+	c.Assert(err, gc.ErrorMatches, `(?s)bridgescript failed:.*too few arguments\n`)
+}
+
+func (*BridgeSuite) TestENIBridgerWithNonExistentFile(c *gc.C) {
+	deviceNames := []string{"ens3", "ens4", "bond0"}
+	bridger := network.NewEtcNetworkInterfacesBridger(os.Environ(), clock.WallClock, 0, "", "testdata/non-existent-file", true)
+	err := bridger.Bridge(deviceNames)
+	c.Assert(err, gc.NotNil)
+	c.Check(err, gc.ErrorMatches, `(?s).*IOError:.*No such file or directory: 'testdata/non-existent-file'\n`)
+}
+
+func (*BridgeSuite) TestENIBridgerWithTimeout(c *gc.C) {
+	environ := os.Environ()
+	environ = append(environ, "ADD_JUJU_BRIDGE_SLEEP_PREAMBLE_FOR_TESTING=10")
+	deviceNames := []string{"ens3", "ens4", "bond0"}
+	bridger := network.NewEtcNetworkInterfacesBridger(environ, clock.WallClock, 1*time.Second, "", "testdata/non-existent-file", true)
+	err := bridger.Bridge(deviceNames)
+	c.Assert(err, gc.NotNil)
+	c.Check(err, gc.ErrorMatches, `bridgescript timed out after 1s`)
+}
+
+func (*BridgeSuite) TestENIBridgerWithDryRun(c *gc.C) {
+	bridger := network.NewEtcNetworkInterfacesBridger(os.Environ(), clock.WallClock, 1*time.Second, "", "testdata/interfaces", true)
+	err := bridger.Bridge([]string{"ens123"})
+	c.Assert(err, gc.IsNil)
 }
