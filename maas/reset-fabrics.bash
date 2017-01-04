@@ -15,6 +15,9 @@ ALL_SYSTEM_HOSTS=$(
 FABRIC=$(
     maas $ENV fabrics read |
     sed -r '/\/fabrics\/[0-9][0-9]+/!d; s,.*/fabrics/([0-9][0-9]+)/.*,\1,')
+if [[ $FABRIC == "" ]]; then
+    exit 0
+fi
 # Find the vlan id of the default fabric.
 VLAN=$(
     maas $ENV fabric read 0 |
