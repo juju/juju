@@ -129,7 +129,7 @@ class TestPrepareMetadata(TestCase):
         with patch.object(client, 'sync_tools') as sync_mock:
             with temp_dir() as metadata_dir:
                 prepare_metadata(client, metadata_dir)
-        sync_mock.assert_called_once_with(metadata_dir)
+        sync_mock.assert_called_once_with(metadata_dir, None)
 
     def test_prepare_temp_metadata(self):
         client = fake_juju_client()
@@ -137,7 +137,7 @@ class TestPrepareMetadata(TestCase):
                    autospec=True) as prepare_mock:
             with prepare_temp_metadata(client) as metadata_dir:
                 pass
-        prepare_mock.assert_called_once_with(client, metadata_dir)
+        prepare_mock.assert_called_once_with(client, metadata_dir, None)
 
     def test_prepare_temp_metadata_source(self):
         client = fake_juju_client()

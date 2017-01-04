@@ -103,18 +103,18 @@ def assess_sync_bootstrap(args, agent_stream):
     client = bs_manager.client
 
     with prepare_temp_metadata(
-            client, args.agent_dir) as agent_dir:
+            client, args.agent_dir, agent_stream) as agent_dir:
         client.env.update_config({'agent-stream:': agent_stream})
         log.info('Metadata written to: {}'.format(agent_dir))
         log.info("Directory contents {} with stream {}".format(
             agent_dir, agent_stream))
         list_files(agent_dir)
 
-        """with bs_manager.booted_context(args.upload_tools,
+        with bs_manager.booted_context(args.upload_tools,
                                        metadata_source=agent_dir):
             log.info('Metadata bootstrap successful.')
             verify_deployed_tool(agent_dir, client, agent_stream)
-            deploy_charm_and_verify(client)"""
+            deploy_charm_and_verify(client)
 
 
 def parse_args(argv):
@@ -133,7 +133,7 @@ def main(argv=None):
     args = parse_args(argv)
     configure_logging(args.verbose)
 
-    assess_sync_bootstrap(args, agent_stream="develop")
+    assess_sync_bootstrap(args, agent_stream="devel")
     return 0
 
 
