@@ -52,17 +52,16 @@ def verify_deployed_charm(charm_app, client):
     Verfiy the deployed charm, to make sure it used the same
     juju tool of the controller by verifying the sha256 sum
     :param charm_app: The app name that need to be verified
-    :param client: juju client
-    :return:
+    :param client: Juju client
     """
     remote = remote_from_unit(client, "{0}/0".format(charm_app))
     output = remote.cat(
         "/var/lib/juju/tools/machine-0/downloaded-tools.txt")
 
-    output_ = json.loads(output)
+    charm_details = json.loads(output)
     _, controller_sha256 = get_controller_url_and_sha256(client)
 
-    if output_['sha256'] != controller_sha256:
+    if charm_details['sha256'] != controller_sha256:
         raise JujuAssertionError('Error, mismatch agent-metadata-url')
 
     log.info("Charm verification done successfully")
@@ -72,8 +71,7 @@ def deploy_charm_and_verify(client):
     """
     Deploy dummy charm from local repository and
     verify it uses the specified agent-metadata-url option
-    :param client: juju client
-    :return:
+    :param client: Juju client
     """
     charm_app = "dummy-sink"
     charm_source = local_charm_path(
@@ -88,13 +86,13 @@ def assess_sync_bootstrap(args, agent_stream):
     Do sync-tool and then perform juju bootstrap with
     metadata_source and agent-metadata-url option.
     :param args: Parsed command line arguments
-    :param agent_stream: choice of release or develop
+    :param agent_stream:  String representing agent stream name
     """
     bs_manager = BootstrapManager.from_args(args)
     client = bs_manager.client
 
     with prepare_temp_metadata(
-            client, agent_stream, args.agent_dir) as agent_dir:
+            client, args.agent_dir) as agent_dir:
         client.env.update_config({'agent-stream:': agent_stream})
         log.info('Metadata written to: {}'.format(agent_dir))
 
