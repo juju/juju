@@ -38,9 +38,11 @@ from jujupy import (
     AgentError,
     AgentUnresolvedError,
     AppError,
+    BaseCondition,
     BootstrapMismatch,
     CannotConnectEnv,
     client_from_config,
+    ConditionList,
     Controller,
     describe_substrate,
     EnvJujuClient,
@@ -520,6 +522,35 @@ class TestClientFromConfig(ClientTest):
                 client = client_from_config(
                     'foo', 'foo/bar/qux', soft_deadline=deadline)
         self.assertEqual(client._backend.soft_deadline, deadline)
+
+
+class TestBaseCondition(ClientTest):
+
+    def test_timeout(self):
+        condition = BaseCondition()
+        self.assertEqual(300, condition.timeout)
+        condition = BaseCondition(600)
+        self.assertEqual(600, condition.timeout)
+
+
+class TestConditionList(ClientTest):
+
+    def test_uses_max_timeout(self):
+        conditions = ConditionList([Mock(timeout=300), Mock(timeout=400)])
+        self.assertEqual(400, conditions.timeout)
+
+    def test_empty_timeout(self):
+        conditions = ConditionList([])
+        self.assertEqual(300, conditions.timeout)
+
+    def test_iter_blocking_state(self):
+        mock_ab = Mock()
+        mock_ab.iter_blocking_state.return_value = [('a', 'b')]
+        mock_cd = Mock()
+        mock_cd.iter_blocking_state.return_value = [('c', 'd')]
+        conditions = ConditionList([mock_ab, mock_cd])
+        self.assertEqual([('a', 'b'), ('c', 'd')],
+                         list(conditions.iter_blocking_state(None)))
 
 
 class TestWaitMachineNotPresent(ClientTest):
@@ -1541,6 +1572,21 @@ class TestEnvJujuClient(ClientTest):
             2)
         self.assertEqual(cc_mock.call_count, 3)
 
+    def test_make_remove_machine_condition(self):
+        client = fake_juju_client()
+        condition = client.make_remove_machine_condition('0')
+        self.assertIs(WaitMachineNotPresent, type(condition))
+        self.assertEqual('0', condition.machine)
+        self.assertEqual(600, condition.timeout)
+
+    def test_make_remove_machine_condition_azure(self):
+        client = fake_juju_client()
+        client.env._config['type'] = 'azure'
+        condition = client.make_remove_machine_condition('0')
+        self.assertIs(WaitMachineNotPresent, type(condition))
+        self.assertEqual('0', condition.machine)
+        self.assertEqual(1200, condition.timeout)
+
     def test_add_ssh_machines_retry(self):
         client = EnvJujuClient(JujuData('foo'), None, 'juju')
         with patch('subprocess.check_call', autospec=True,
@@ -2513,7 +2559,7 @@ class TestEnvJujuClient(ClientTest):
         })
         client = EnvJujuClient(JujuData('local'), None, None)
         with patch.object(client, 'get_juju_output', return_value=value):
-            client.wait_for([WaitMachineNotPresent('1')], quiet=True)
+            client.wait_for(WaitMachineNotPresent('1'), quiet=True)
 
     def test_wait_just_machine_0_timeout(self):
         value = yaml.safe_dump({
@@ -2528,9 +2574,13 @@ class TestEnvJujuClient(ClientTest):
             self.assertRaisesRegexp(
                 Exception,
                 'Timed out waiting for machine removal 1'):
-            client.wait_for([WaitMachineNotPresent('1')], quiet=True)
+            client.wait_for(WaitMachineNotPresent('1'), quiet=True)
 
     class NeverSatisfied:
+
+        timeout = 1234
+
+        already_satisfied = False
 
         class NeverSatisfiedException(Exception):
             pass
@@ -2544,17 +2594,17 @@ class TestEnvJujuClient(ClientTest):
     def test_wait_timeout(self):
         client = fake_juju_client()
         client.bootstrap()
-
         never_satisfied = self.NeverSatisfied()
         with self.assertRaises(never_satisfied.NeverSatisfiedException):
-            with patch.object(client, 'status_until', lambda timeout: iter(
-                    [Status({}, '')])):
-                client.wait_for([never_satisfied], quiet=True)
+            with patch.object(client, 'status_until', return_value=iter(
+                    [Status({}, '')])) as mock_su:
+                client.wait_for(never_satisfied, quiet=True)
+        mock_su.assert_called_once_with(1234)
 
     def test_wait_for_emits_output(self):
         client = fake_juju_client()
         client.bootstrap()
-        mock_wait = Mock()
+        mock_wait = Mock(timeout=300, already_satisfied=False)
         mock_wait.iter_blocking_state.side_effect = [
             [('0', 'still-present')],
             [('0', 'still-present')],
@@ -2564,13 +2614,13 @@ class TestEnvJujuClient(ClientTest):
         writes = []
         with patch.object(GroupReporter, '_write', autospec=True,
                           side_effect=lambda _, s: writes.append(s)):
-            client.wait_for([mock_wait])
+            client.wait_for(mock_wait)
         self.assertEqual('still-present: 0 ..\n', ''.join(writes))
 
     def test_wait_for_quiet(self):
         client = fake_juju_client()
         client.bootstrap()
-        mock_wait = Mock()
+        mock_wait = Mock(timeout=300)
         mock_wait.iter_blocking_state.side_effect = [
             [('0', 'still-present')],
             [('0', 'still-present')],
@@ -2580,7 +2630,7 @@ class TestEnvJujuClient(ClientTest):
         writes = []
         with patch.object(GroupReporter, '_write', autospec=True,
                           side_effect=lambda _, s: writes.append(s)):
-            client.wait_for([mock_wait], quiet=True)
+            client.wait_for(mock_wait, quiet=True)
         self.assertEqual('', ''.join(writes))
 
     def test_wait_bad_status(self):
@@ -2594,7 +2644,7 @@ class TestEnvJujuClient(ClientTest):
         with self.assertRaises(MachineError):
             with patch.object(client, 'status_until', lambda timeout: iter(
                     [bad_status])):
-                client.wait_for([never_satisfied], quiet=True)
+                client.wait_for(never_satisfied, quiet=True)
 
     def test_wait_bad_status_recoverable_recovered(self):
         client = fake_juju_client()
@@ -2608,7 +2658,7 @@ class TestEnvJujuClient(ClientTest):
         with self.assertRaises(never_satisfied.NeverSatisfiedException):
             with patch.object(client, 'status_until', lambda timeout: iter(
                     [bad_status, good_status])):
-                client.wait_for([never_satisfied], quiet=True)
+                client.wait_for(never_satisfied, quiet=True)
 
     def test_wait_bad_status_recoverable_timed_out(self):
         client = fake_juju_client()
@@ -2621,14 +2671,15 @@ class TestEnvJujuClient(ClientTest):
         with self.assertRaises(AppError):
             with patch.object(client, 'status_until', lambda timeout: iter(
                     [bad_status])):
-                client.wait_for([never_satisfied], quiet=True)
+                client.wait_for(never_satisfied, quiet=True)
 
     def test_wait_empty_list(self):
         client = fake_juju_client()
         client.bootstrap()
         with patch.object(client, 'status_until', side_effect=StatusTimeout):
-            self.assertEqual(client.wait_for([], quiet=True).status,
-                             client.get_status().status)
+            self.assertEqual(client.wait_for(
+                ConditionList([]), quiet=True).status,
+                client.get_status().status)
 
     def test_set_model_constraints(self):
         client = EnvJujuClient(JujuData('bar', {}), None, '/foo')
@@ -4599,7 +4650,7 @@ class TestEnvJujuClient1X(ClientTest):
         })
         client = EnvJujuClient1X(SimpleEnvironment('local'), None, None)
         with patch.object(client, 'get_juju_output', return_value=value):
-            client.wait_for([WaitMachineNotPresent('1')], quiet=True)
+            client.wait_for(WaitMachineNotPresent('1'), quiet=True)
 
     def test_wait_just_machine_0_timeout(self):
         value = yaml.safe_dump({
@@ -4614,7 +4665,7 @@ class TestEnvJujuClient1X(ClientTest):
             self.assertRaisesRegexp(
                 Exception,
                 'Timed out waiting for machine removal 1'):
-            client.wait_for([WaitMachineNotPresent('1')], quiet=True)
+            client.wait_for(WaitMachineNotPresent('1'), quiet=True)
 
     def test_set_model_constraints(self):
         client = EnvJujuClient1X(SimpleEnvironment('bar', {}), None, '/foo')

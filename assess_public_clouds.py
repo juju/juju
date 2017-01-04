@@ -38,14 +38,15 @@ def make_logging_dir(base_dir, config, region):
     return log_dir
 
 
-def prepare_cloud(config, region, client, log_dir):
+def make_bootstrap_manager(config, region, client, log_dir):
     env_name = 'boot-cpc-{}-{}'.format(client.env.get_cloud(), region)[:30]
     logging_dir = make_logging_dir(log_dir, config, region)
     bs_manager = BootstrapManager(
         env_name, client, client, bootstrap_host=None, machines=[],
         series=None, agent_url=None, agent_stream=None, region=region,
-        log_dir=logging_dir, keep_env=False, permanent=True, jes_enabled=True)
-    assess_cloud_combined(bs_manager)
+        log_dir=logging_dir, keep_env=False, permanent=True, jes_enabled=True,
+        logged_exception_exit=False)
+    return bs_manager
 
 
 def iter_cloud_regions(public_clouds, credentials):
@@ -77,7 +78,9 @@ def bootstrap_cloud_regions(public_clouds, credentials, args):
         try:
             client = client_from_config(
                 config, args.juju_bin, args.debug, args.deadline)
-            prepare_cloud(config, region, client, args.logs)
+            bs_manager = make_bootstrap_manager(config, region, client,
+                                                args.logs)
+            assess_cloud_combined(bs_manager)
         except LoggedException as error:
             yield config, region, error.exception
         except Exception as error:

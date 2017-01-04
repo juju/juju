@@ -1297,10 +1297,47 @@ def client_from_config(config, juju_path, debug=False, soft_deadline=None):
                         soft_deadline=soft_deadline)
 
 
-class WaitMachineNotPresent:
+class BaseCondition:
+    """Base class for conditions that support client.wait_for."""
+
+    def __init__(self, timeout=300, already_satisfied=False):
+        self.timeout = timeout
+        self.already_satisfied = already_satisfied
+
+
+class ConditionList(BaseCondition):
+    """A list of conditions that support client.wait_for.
+
+    This combines the supplied list of conditions.  It is only satisfied when
+    all conditions are met.  It times out when any member times out.  When
+    asked to raise, it causes the first condition to raise an exception.  An
+    improvement would be to raise the first condition whose timeout has been
+    exceeded.
+    """
+
+    def __init__(self, conditions):
+        if len(conditions) == 0:
+            timeout = 300
+        else:
+            timeout = max(c.timeout for c in conditions)
+        already_satisfied = all(c.already_satisfied for c in conditions)
+        super(ConditionList, self).__init__(timeout, already_satisfied)
+        self._conditions = conditions
+
+    def iter_blocking_state(self, status):
+        for condition in self._conditions:
+            for item, state in condition.iter_blocking_state(status):
+                yield item, state
+
+    def do_raise(self, model_name, status):
+        self._conditions[0].do_raise(model_name, status)
+
+
+class WaitMachineNotPresent(BaseCondition):
     """Condition satisfied when a given machine is not present."""
 
-    def __init__(self, machine):
+    def __init__(self, machine, timeout=300):
+        super(WaitMachineNotPresent, self).__init__(timeout)
         self.machine = machine
 
     def iter_blocking_state(self, status):
@@ -1313,9 +1350,10 @@ class WaitMachineNotPresent:
                         self.machine)
 
 
-class WaitVersion:
+class WaitVersion(BaseCondition):
 
-    def __init__(self, target_version):
+    def __init__(self, target_version, timeout=300):
+        super(WaitVersion, self).__init__(timeout)
         self.target_version = target_version
 
     def iter_blocking_state(self, status):
@@ -1591,6 +1629,18 @@ class EnvJujuClient:
                 logging.warning('add-machine failed.  Will retry.')
                 pause(30)
                 self.juju('add-machine', ('ssh:' + machine,))
+
+    def make_remove_machine_condition(self, machine):
+        """Return a condition object representing a machine removal.
+
+        The timeout varies depending on the provider.
+        See wait_for.
+        """
+        if self.env.provider == 'azure':
+            timeout = 1200
+        else:
+            timeout = 600
+        return WaitMachineNotPresent(machine, timeout)
 
     @staticmethod
     def get_cloud_region(cloud, region):
@@ -2153,7 +2203,7 @@ class EnvJujuClient:
             timeout=timeout, start=start)
 
     def wait_for_version(self, version, timeout=300):
-        self.wait_for([WaitVersion(version)], timeout=timeout)
+        self.wait_for(WaitVersion(version, timeout))
 
     def list_models(self):
         """List the models registered with the current controller."""
@@ -2347,25 +2397,24 @@ class EnvJujuClient:
         self._wait_for_status(reporter, status_to_workloads, WorkloadsNotReady,
                               timeout=timeout, start=start)
 
-    def wait_for(self, conditions, timeout=300, quiet=False):
+    def wait_for(self, condition, quiet=False):
         """Wait until the supplied conditions are satisfied.
 
         The supplied conditions must be an iterable of objects like
         WaitMachineNotPresent.
         """
-        if len(conditions) == 0:
+        if condition.already_satisfied:
             return self.get_status()
         reporter = GroupReporter(sys.stdout, 'started')
         status = None
         try:
-            for status in self.status_until(timeout):
+            for status in self.status_until(condition.timeout):
                 status.raise_highest_error(ignore_recoverable=True)
                 states = {}
-                for condition in conditions:
-                    for item, state in condition.iter_blocking_state(status):
-                        states.setdefault(state, []).append(item)
-                    if len(states) == 0:
-                        return
+                for item, state in condition.iter_blocking_state(status):
+                    states.setdefault(state, []).append(item)
+                if len(states) == 0:
+                    return
                 if not quiet:
                     reporter.update(states)
             else:
@@ -2374,7 +2423,7 @@ class EnvJujuClient:
             pass
         finally:
             reporter.finish()
-        conditions[0].do_raise(self.model_name, status)
+        condition.do_raise(self.model_name, status)
 
     def get_matching_agent_version(self, no_build=False):
         # strip the series and srch from the built version.
