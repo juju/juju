@@ -14,6 +14,7 @@ import argparse
 import logging
 import sys
 import json
+import os
 
 from assess_agent_metadata import (
     verify_deployed_tool,
@@ -81,6 +82,16 @@ def deploy_charm_and_verify(client):
     verify_deployed_charm(charm_app, client)
 
 
+def list_files(startpath):
+    for root, dirs, files in os.walk(startpath):
+        level = root.replace(startpath, '').count(os.sep)
+        indent = ' ' * 4 * (level)
+        log.info('{}{}/'.format(indent, os.path.basename(root)))
+        subindent = ' ' * 4 * (level + 1)
+        for f in files:
+            log.info('{}{}'.format(subindent, f))
+
+
 def assess_sync_bootstrap(args, agent_stream):
     """
     Do sync-tool and then perform juju bootstrap with
@@ -95,12 +106,15 @@ def assess_sync_bootstrap(args, agent_stream):
             client, args.agent_dir) as agent_dir:
         client.env.update_config({'agent-stream:': agent_stream})
         log.info('Metadata written to: {}'.format(agent_dir))
+        log.info("Directory contents {} with stream {}".format(
+            agent_dir, agent_stream))
+        list_files(agent_dir)
 
-        with bs_manager.booted_context(args.upload_tools,
+        """with bs_manager.booted_context(args.upload_tools,
                                        metadata_source=agent_dir):
             log.info('Metadata bootstrap successful.')
             verify_deployed_tool(agent_dir, client, agent_stream)
-            deploy_charm_and_verify(client)
+            deploy_charm_and_verify(client)"""
 
 
 def parse_args(argv):
@@ -119,7 +133,7 @@ def main(argv=None):
     args = parse_args(argv)
     configure_logging(args.verbose)
 
-    assess_sync_bootstrap(args, agent_stream="devel")
+    assess_sync_bootstrap(args, agent_stream="develop")
     return 0
 
 
