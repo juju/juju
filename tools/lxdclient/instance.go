@@ -8,7 +8,6 @@ package lxdclient
 import (
 	"fmt"
 	"math"
-	"strings"
 	"time"
 
 	"github.com/juju/errors"
@@ -31,14 +30,6 @@ const (
 
 	megabyte = 1024 * 1024
 )
-
-func splitConfigKey(key string) (string, string) {
-	parts := strings.SplitN(key, ".", 2)
-	if len(parts) == 1 {
-		return "", parts[0]
-	}
-	return parts[0], parts[1]
-}
 
 // AliveStatuses are the LXD statuses that indicate a container is "alive".
 var AliveStatuses = []string{
