@@ -555,6 +555,14 @@ func makeMachineStatus(machine *state.Machine) (status params.MachineStatus) {
 			status.InstanceId = "error"
 		}
 	}
+	constraints, err := machine.Constraints()
+	if err != nil {
+		if !errors.IsNotFound(err) {
+			status.Constraints = "error"
+		}
+	} else {
+		status.Constraints = constraints.String()
+	}
 	hc, err := machine.HardwareCharacteristics()
 	if err != nil {
 		if !errors.IsNotFound(err) {
