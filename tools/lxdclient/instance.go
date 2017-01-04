@@ -26,7 +26,7 @@ const (
 	// CertificateFingerprintKey is a key that we define to associate
 	// a certificate fingerprint with an instance. We use this to clean
 	// up certificates when removing controller instances.
-	CertificateFingerprintKey = "certificate-fingerprint"
+	CertificateFingerprintKey = "user.certificate-fingerprint"
 
 	megabyte = 1024 * 1024
 )
