@@ -21,7 +21,8 @@ fi
 # Find the vlan id of the default fabric.
 VLAN=$(
     maas $ENV fabric read 0 |
-    sed -r '/vlans/,/}/!d; /"id"/!d; s,[^0-9],,g')
+    sed -r '/vlans/,/}/!d; /"id"/!d; s,[^0-9],,g' |
+    head -1)
 # Learn the misconfigured interfaces by attempting to delete
 # the unwanted fabric.
 INTERFACES=$(
@@ -35,6 +36,8 @@ for iface_machine in $INTERFACES; do
     system_id=$(
         echo "$ALL_SYSTEM_HOSTS" |
         grep $machine@ | cut -d @ -f2)
+    maas $ENV machine release $system_id
+    sleep 5
     maas $ENV interface update $system_id $iface fabric=0 vlan=$VLAN
 done
 # Delete the unwanted fabric.
