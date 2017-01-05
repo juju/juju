@@ -136,6 +136,32 @@ func (s *InitialiserSuite) TestLXDInit(c *gc.C) {
 	testing.AssertEchoArgs(c, "lxd", "init", "--auto")
 }
 
+func (s *InitialiserSuite) TestLXDAlreadyInitialized(c *gc.C) {
+	// Patch df so it always returns 100GB
+	df100 := func(path string) (uint64, error) {
+		return 100 * 1024 * 1024 * 1024, nil
+	}
+	s.PatchValue(&df, df100)
+
+	container := NewContainerInitialiser("xenial")
+	cont, ok := container.(*containerInitialiser)
+	if !ok {
+		c.Fatalf("Unexpected type of container initialized: %T", container)
+	}
+	cont.getExecCommand = s.PatchExecHelper.GetExecCommand(testing.PatchExecConfig{
+		Stderr: `LXD init cannot be used at this time.
+However if all you want to do is reconfigure the network,
+you can still do so by running "sudo dpkg-reconfigure -p medium lxd"
+
+error: You have existing containers or images. lxd init requires an empty LXD.`,
+		ExitCode: 1,
+	})
+
+	// the above error should be ignored by the code that calls lxd init.
+	err := container.Initialise()
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 type mockConfigSetter struct {
 	keys   []string
 	values []string
