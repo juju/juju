@@ -1,9 +1,6 @@
 // Copyright 2013-2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// +build linux
-// +build amd64 arm64 ppc64el
-
 package kvm
 
 // This file contains wrappers around the following executables:
