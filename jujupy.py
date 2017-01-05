@@ -2605,10 +2605,10 @@ class EnvJujuClient:
                                     format, include_e=False)
 
     def generate_tool(self, source_dir, stream=None):
-        args = ['generate-tools', '-d', source_dir]
+        args = ('generate-tools', '-d', source_dir)
         if stream is not None:
-            args.extend(['--stream', stream])
-        return self.juju('metadata', tuple(args), include_e=False)
+            args += ('--stream', stream)
+        return self.juju('metadata', args, include_e=False)
 
     def add_cloud(self, cloud_name, cloud_file):
         return self.juju('add-cloud', ("--replace", cloud_name, cloud_file),

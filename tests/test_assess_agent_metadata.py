@@ -4,10 +4,10 @@ from mock import (
     patch,
     )
 from assess_agent_metadata import (
-    assert_metadata_is_correct,
+    assert_metadata_are_correct,
     get_controller_url_and_sha256,
     verify_deployed_tool,
-    assert_cloud_details_is_correct,
+    assert_cloud_details_are_correct,
     get_local_url_and_sha256,
     get_cloud_details,
     parse_args,
@@ -45,8 +45,8 @@ class TestAssessAddCloud(TestCase):
         expected_cloud = {'clouds': {'foo': {'type': 'lxd', 'config': {
             'agent-metadata-url': 'file:///juju-2.0.1-xenial-amd64.tgz'}}}}
         mock_client.env.read_clouds.return_value = expected_cloud
-        assert_cloud_details_is_correct(mock_client, 'foo',
-                                        expected_cloud['clouds']['foo'])
+        assert_cloud_details_are_correct(mock_client, 'foo',
+                                         expected_cloud['clouds']['foo'])
 
     def test_assert_cloud_details_are_correct_assertraises(self):
         mock_client = Mock()
@@ -56,8 +56,8 @@ class TestAssessAddCloud(TestCase):
             'agent-metadata-url': 'file:///juju-2.0.1-xenial-amd64.tgz'}}}}
         mock_client.env.read_clouds.return_value = sample_cloud
         with self.assertRaises(JujuAssertionError):
-            assert_cloud_details_is_correct(mock_client, 'foo',
-                                            expected_cloud['clouds']['foo'])
+            assert_cloud_details_are_correct(mock_client, 'foo',
+                                             expected_cloud['clouds']['foo'])
 
     def test_get_cloud_details(self):
         mock_client = Mock()
@@ -94,7 +94,7 @@ class TestAssessMetadata(TestCase):
         mock_client = Mock(spec=["get_model_config"])
         mock_client.get_model_config.return_value = \
             {'agent-metadata-url': {'value': AGENT_FILE}}
-        assert_metadata_is_correct(args.agent_file, mock_client)
+        assert_metadata_are_correct(args.agent_file, mock_client)
 
     def test_assess_check_metadata_invalid(self):
         args = parse_args(['metadata', 'bars', '/foo',
@@ -103,7 +103,7 @@ class TestAssessMetadata(TestCase):
         mock_client.get_model_config.return_value = \
             {'agent-metadata-url': {'value': "INVALID"}}
         with self.assertRaises(JujuAssertionError):
-            assert_metadata_is_correct(args.agent_file, mock_client)
+            assert_metadata_are_correct(args.agent_file, mock_client)
 
     def test_get_local_url_and_sha256_valid(self):
         controller_url = \

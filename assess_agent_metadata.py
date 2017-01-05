@@ -53,7 +53,7 @@ def get_sha256_sum(filename):
         return sha256(infile.read()).hexdigest()
 
 
-def assert_cloud_details_is_correct(client, cloud_name, example_cloud):
+def assert_cloud_details_are_correct(client, cloud_name, example_cloud):
     """
     Check juju add-cloud is performed successfully and it is available
     in the juju client.
@@ -82,7 +82,7 @@ def get_local_url_and_sha256(agent_dir, controller_url, agent_stream):
 
     local_sha256 = get_sha256_sum(local_url)
     local_file_path = "file://" + local_url
-    return [local_file_path, local_sha256]
+    return local_file_path, local_sha256
 
 
 def get_controller_url_and_sha256(client):
@@ -98,23 +98,26 @@ def get_controller_url_and_sha256(client):
     return stdout_details['url'], stdout_details['sha256']
 
 
-def assert_metadata_is_correct(agent_metadata_url, client):
+def assert_metadata_are_correct(expected_agent_metadata_url, client):
     """
     verify the client agent-metadata-url matches the specified value
-    :param agent_metadata_url: The agent file path.
+    :param expected_agent_metadata_url: The expected agent file path.
     :param client: Juju client
     """
     data = client.get_model_config()
-    if agent_metadata_url != data['agent-metadata-url']['value']:
-        raise JujuAssertionError('mismatch agent-metadata-url')
+    actual_agent_metadata_url = data['agent-metadata-url']['value']
+    if expected_agent_metadata_url != actual_agent_metadata_url:
+        raise JujuAssertionError(
+            'agent-metadata-url mismatch. Expected: {} Got: {}'.format(
+                expected_agent_metadata_url, actual_agent_metadata_url))
 
-    log.info('bootstrap successfully with agent-metdadata-url={}'.format(
-        data['agent-metadata-url']['value']))
+    log.info('bootstrap successfully with agent-metadata-url={}'.format(
+        actual_agent_metadata_url))
 
 
 def verify_deployed_tool(agent_dir, client, agent_stream):
     """
-    Verify the bootstraped controller makes use of the the specified
+    Verify the bootstrapped controller makes use of the the specified
     agent-metadata-url.
     :param agent_dir:  The top level directory location of agent file.
     :param client: Juju client
@@ -145,7 +148,7 @@ def set_new_log_dir(bs_manager, dir_name):
 def assess_metadata(args, agent_dir, agent_stream):
     """
     Bootstrap juju controller with agent-metadata-url value
-    and verify that bootstraped controller makes use of specified
+    and verify that bootstrapped controller makes use of specified
     agent-metadata-url value.
     :param args: Parsed command line arguments
     :param agent_dir: The top level directory location of agent file.
@@ -169,7 +172,7 @@ def assess_metadata(args, agent_dir, agent_stream):
 
     with bs_manager.booted_context(args.upload_tools):
         log.info('Metadata bootstrap successful.')
-        assert_metadata_is_correct(agent_metadata_url, client)
+        assert_metadata_are_correct(agent_metadata_url, client)
         verify_deployed_tool(agent_dir, client, agent_stream)
         log.info("Successfully deployed and verified agent-metadata-url")
 
@@ -180,7 +183,6 @@ def get_cloud_details(client, agent_metadata_url, agent_stream):
     :param client: Juju client
     :param agent_metadata_url: Sting representing agent-metadata-url
     :param agent_stream: String representing agent stream name
-    :return:
     """
     cloud_name = client.env.get_cloud()
     cloud_details = {
@@ -223,7 +225,7 @@ def assess_add_cloud(args, agent_dir, agent_stream):
         # this gets written to file during the bootstrap process.
         client.env.load_yaml()
         clouds = cloud_details['clouds'][cloud_name]
-        assert_cloud_details_is_correct(client, cloud_name, clouds)
+        assert_cloud_details_are_correct(client, cloud_name, clouds)
 
     client.generate_tool(agent_dir, agent_stream)
     set_new_log_dir(bs_manager, "assess_add_cloud")

@@ -131,6 +131,13 @@ class TestPrepareMetadata(TestCase):
                 prepare_metadata(client, metadata_dir)
         sync_mock.assert_called_once_with(metadata_dir, None)
 
+    def test_prepare_metadata_with_stream(self):
+        client = fake_juju_client()
+        with patch.object(client, 'sync_tools') as sync_mock:
+            with temp_dir() as metadata_dir:
+                prepare_metadata(client, metadata_dir, "testing")
+        sync_mock.assert_called_once_with(metadata_dir, "testing")
+
     def test_prepare_temp_metadata(self):
         client = fake_juju_client()
         with patch('assess_bootstrap.prepare_metadata',
