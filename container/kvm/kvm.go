@@ -26,20 +26,30 @@ import (
 var (
 	logger = loggo.GetLogger("juju.container.kvm")
 
+	// KvmObjectFactory imlements the container factory interface for kvm
+	// containers.
 	KvmObjectFactory ContainerFactory = &containerFactory{}
 
 	// In order for Juju to be able to create the hardware characteristics of
 	// the kvm machines it creates, we need to be explicit in our definition
 	// of memory, cores and root-disk.  The defaults here have been
 	// extracted from the uvt-kvm executable.
+
+	// DefaultMemory is the default RAM to use in a container.
 	DefaultMemory uint64 = 512 // MB
-	DefaultCpu    uint64 = 1
-	DefaultDisk   uint64 = 8 // GB
+	// DefaultCpu is the default number of CPUs to use in a container.
+	DefaultCpu uint64 = 1
+	// DefaultDisk is the default root disk size.
+	DefaultDisk uint64 = 8 // GB
 
 	// There are some values where it doesn't make sense to go below.
+
+	// MinMemory is the minimum RAM we will launch with.
 	MinMemory uint64 = 512 // MB
-	MinCpu    uint64 = 1
-	MinDisk   uint64 = 2 // GB
+	// MinCpu is the minimum number of CPUs to launch with.
+	MinCpu uint64 = 1
+	// MinDisk is the minimum root disk size we will launch with.
+	MinDisk uint64 = 2 // GB
 )
 
 // Utilized to provide a hard-coded path to kvm-ok
@@ -184,7 +194,7 @@ func (manager *containerManager) CreateContainer(
 func (manager *containerManager) IsInitialized() bool {
 	requiredBinaries := []string{
 		"virsh",
-		"uvt-kvm",
+		"qemu-utils",
 	}
 	for _, bin := range requiredBinaries {
 		if _, err := exec.LookPath(bin); err != nil {
