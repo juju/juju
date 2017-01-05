@@ -22,7 +22,7 @@ import (
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 
-	"github.com/juju/juju/apiserver"
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
@@ -583,7 +583,7 @@ func (s *charmsSuite) TestGetCharmIcon(c *gc.C) {
 	}, {
 		about:      "default icon requested: icon not found",
 		query:      "?url=local:quantal/dummy-1&icon=1",
-		expectBody: apiserver.DefaultIcon,
+		expectBody: common.DefaultCharmIcon,
 	}, {
 		about:      "default icon request ignored",
 		query:      "?url=local:quantal/mysql-1&file=revision&icon=1",

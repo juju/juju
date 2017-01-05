@@ -40,6 +40,7 @@ func (s *getSuite) SetUpTest(c *gc.C) {
 	offersApiFactory := &mockApplicationOffersFactory{}
 	resources := common.NewResources()
 	resources.RegisterNamed("applicationOffersApiFactory", offersApiFactory)
+	resources.RegisterNamed("dataDir", common.StringResource(c.MkDir()))
 	s.serviceAPI, err = application.NewAPI(
 		backend, s.authorizer, resources, blockChecker,
 		application.CharmToStateCharm,

@@ -1,11 +1,11 @@
 // Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package apiserver
+package common
 
-// defaultIcon holds the default charm icon SVG content.
+// DefaultCharmIcon holds the default charm icon SVG content.
 // Keep this in sync with the default icon returned by the charm store.
-const defaultIcon = `<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+const DefaultCharmIcon = `<?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <!-- Created with Inkscape (http://www.inkscape.org/) -->
 
 <svg
