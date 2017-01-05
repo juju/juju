@@ -41,8 +41,17 @@ func (s *ConsumeSuite) TestTooManyArguments(c *gc.C) {
 }
 
 func (s *ConsumeSuite) TestInvalidRemoteApplication(c *gc.C) {
-
-	c.Fatalf("writeme")
+	badApplications := []string{
+		"application",
+		"user/model.application:endpoint",
+		"user/model",
+		"unknown:/wherever",
+	}
+	for _, bad := range badApplications {
+		c.Logf(bad)
+		_, err := s.runConsume(c, bad)
+		c.Check(err != nil, jc.IsTrue)
+	}
 }
 
 func (s *ConsumeSuite) TestErrorFromAPI(c *gc.C) {
