@@ -13,6 +13,7 @@ import re
 import shutil
 import subprocess
 import sys
+import time
 
 # StringIO: accommodate Python2 & Python3
 
@@ -463,4 +464,7 @@ def main(args):
 # either all active interfaces, or a specific interface.
 
 if __name__ == '__main__':
+    sleep_preamble = os.getenv("ADD_JUJU_BRIDGE_SLEEP_PREAMBLE_FOR_TESTING", 0)
+    if int(sleep_preamble) > 0:
+        time.sleep(int(sleep_preamble))
     main(arg_parser().parse_args())

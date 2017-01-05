@@ -6,4 +6,6 @@ package network
 var (
 	NetLookupIP = &netLookupIP
 	NetListen   = &netListen
+	RunCommand  = runCommand
+	BridgeCmd   = bridgeCmd
 )

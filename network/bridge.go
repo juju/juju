@@ -11,25 +11,21 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/clock"
-	"github.com/juju/utils/exec"
 )
 
+// Bridger creates network bridges to support addressable containers.
 type Bridger interface {
+	// Turns existing devices into bridged devices.
 	Bridge(deviceNames []string) error
 }
 
-type ScriptResult struct {
-	Stdout   []byte
-	Stderr   []byte
-	Code     int
-	TimedOut bool
-}
-
 type etcNetworkInterfacesBridger struct {
-	Clock        clock.Clock
-	Timeout      time.Duration
 	BridgePrefix string
+	Clock        clock.Clock
+	DryRun       bool
+	Environ      []string
 	Filename     string
+	Timeout      time.Duration
 }
 
 var _ Bridger = (*etcNetworkInterfacesBridger)(nil)
@@ -64,73 +60,61 @@ func bestPythonVersion() string {
 }
 
 func (b *etcNetworkInterfacesBridger) Bridge(deviceNames []string) error {
-	args := make([]string, 0, 4)
-	args = append(args, fmt.Sprintf("--interfaces-to-bridge=%q", deviceNames))
-	args = append(args, fmt.Sprintf("--activate"))
-	if b.BridgePrefix != "" {
-		args = append(args, fmt.Sprintf("--bridge-prefix=%s", b.BridgePrefix))
+	cmd := bridgeCmd(deviceNames, b.BridgePrefix, b.Filename, BridgeScriptPythonContent, b.DryRun)
+	logger.Debugf("bridgescript command=%s", cmd)
+	result, err := runCommand(cmd, b.Environ, b.Clock, b.Timeout)
+	if err != nil {
+		return errors.Errorf("script invocation error: %s", err)
 	}
-	args = append(args, b.Filename)
-	cmd := fmt.Sprintf(`
-%s - %s <<'EOF'
-%s
-EOF
-`,
-		bestPythonVersion(),
-		strings.Join(args, " "),
-		BridgeScriptPythonContent)
-
-	result, err := RunCommand(cmd, os.Environ(), b.Clock, b.Timeout)
 	logger.Infof("bridgescript result=%v, timeout=%v", result.Code, result.TimedOut)
-	if result.Code != 0 {
-		logger.Errorf("bridgescript stdout\n%s\n", result.Stdout)
-		logger.Errorf("bridgescript stderr\n%s\n", result.Stderr)
-	}
 	if result.TimedOut {
 		return errors.Errorf("bridgescript timed out after %v", b.Timeout)
 	}
-	return err
+	if result.Code != 0 {
+		logger.Errorf("bridgescript stdout\n%s\n", result.Stdout)
+		logger.Errorf("bridgescript stderr\n%s\n", result.Stderr)
+		return errors.Errorf("bridgescript failed: %s", string(result.Stderr))
+	}
+	return nil
 }
 
-func NewEtcNetworkInterfacesBridger(clock clock.Clock, timeout time.Duration, bridgePrefix, filename string) Bridger {
+func bridgeCmd(deviceNames []string, bridgePrefix, filename, pythonScript string, dryRun bool) string {
+	dryRunOption := ""
+
+	if bridgePrefix != "" {
+		bridgePrefix = fmt.Sprintf("--bridge-prefix=%s", bridgePrefix)
+	}
+
+	if dryRun {
+		dryRunOption = "--dry-run"
+	}
+
+	return fmt.Sprintf(`
+%s - --interfaces-to-bridge=%q --activate %s %s %s <<'EOF'
+%s
+EOF
+`[1:],
+		bestPythonVersion(),
+		strings.Join(deviceNames, " "),
+		bridgePrefix,
+		dryRunOption,
+		filename,
+		pythonScript)
+}
+
+// NewEtcNetworkInterfacesBridger returns a Bridger that can parse
+// /etc/network/interfaces and create new stanzas to bridge existing
+// interfaces.
+//
+// TODO(frobware): We shouldn't expose DryRun; once we implement the
+// Python-based bridge script in Go this interface can change.
+func NewEtcNetworkInterfacesBridger(environ []string, clock clock.Clock, timeout time.Duration, bridgePrefix, filename string, dryRun bool) Bridger {
 	return &etcNetworkInterfacesBridger{
-		Clock:        clock,
-		Timeout:      timeout,
 		BridgePrefix: bridgePrefix,
+		Clock:        clock,
+		DryRun:       dryRun,
+		Environ:      environ,
 		Filename:     filename,
+		Timeout:      timeout,
 	}
-}
-
-func RunCommand(command string, environ []string, clock clock.Clock, timeout time.Duration) (*ScriptResult, error) {
-	cmd := exec.RunParams{
-		Commands:    command,
-		Environment: environ,
-		Clock:       clock,
-	}
-
-	err := cmd.Run()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	var cancel chan struct{}
-	timedOut := false
-
-	if timeout != 0 {
-		cancel = make(chan struct{})
-		go func() {
-			<-clock.After(timeout)
-			timedOut = true
-			close(cancel)
-		}()
-	}
-
-	result, err := cmd.WaitWithCancel(cancel)
-
-	return &ScriptResult{
-		Stdout:   result.Stdout,
-		Stderr:   result.Stderr,
-		Code:     result.Code,
-		TimedOut: timedOut,
-	}, nil
 }
