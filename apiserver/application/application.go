@@ -28,14 +28,9 @@ import (
 	jjj "github.com/juju/juju/juju"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
-	statestorage "github.com/juju/juju/state/storage"
 )
 
-var (
-	logger = loggo.GetLogger("juju.apiserver.application")
-
-	newStateStorage = statestorage.NewStorage
-)
+var logger = loggo.GetLogger("juju.apiserver.application")
 
 func init() {
 	// TODO - version 1 is required for the legacy deployer,
@@ -55,6 +50,7 @@ type API struct {
 	applicationOffersAPIFactory crossmodel.ApplicationOffersAPIFactory
 	authorizer                  facade.Authorizer
 	check                       BlockChecker
+	dataDir                     string
 
 	// TODO(axw) stateCharm only exists because I ran out
 	// of time unwinding all of the tendrils of state. We
@@ -92,12 +88,14 @@ func NewAPI(
 		return nil, common.ErrPerm
 	}
 	apiFactory := resources.Get("applicationOffersApiFactory").(crossmodel.ApplicationOffersAPIFactory)
+	dataDir := resources.Get("dataDir").(common.StringResource)
 	return &API{
 		backend:                     backend,
 		authorizer:                  authorizer,
 		applicationOffersAPIFactory: apiFactory,
 		check:      blockChecker,
 		stateCharm: stateCharm,
+		dataDir:    dataDir.String(),
 	}, nil
 }
 
@@ -997,6 +995,8 @@ func (api *API) oneRemoteApplicationInfo(urlStr string) (*params.RemoteApplicati
 		ApplicationURL:   urlStr,
 		SourceModelLabel: offer.SourceLabel,
 		Endpoints:        offer.Endpoints,
+		// TODO(wallyworld)
+		Icon: []byte(common.DefaultCharmIcon),
 	}, nil
 }
 
@@ -1052,6 +1052,10 @@ func (api *API) sameControllerRemoteApplicationInfo(url jujucrossmodel.Applicati
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	icon, err := api.charmIcon(NewStateBackend(st), ch.URL())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	return &params.RemoteApplicationInfo{
 		ModelTag:         sourceModelTag.String(),
 		Name:             application.Name(),
@@ -1059,7 +1063,20 @@ func (api *API) sameControllerRemoteApplicationInfo(url jujucrossmodel.Applicati
 		ApplicationURL:   url.String(),
 		SourceModelLabel: model.Name(),
 		Endpoints:        endpoints,
+		Icon:             icon,
 	}, nil
+}
+
+func (api *API) charmIcon(backend Backend, curl *charm.URL) ([]byte, error) {
+	ch, err := backend.Charm(curl)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	charmPath, err := common.ReadCharmFromStorage(backend.NewStorage(), api.dataDir, ch.StoragePath())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return common.CharmArchiveEntry(charmPath, "icon.svg", true)
 }
 
 // DestroyRelation removes the relation between the specified endpoints.

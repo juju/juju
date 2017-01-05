@@ -168,54 +168,23 @@ func (h *charmsHandler) manifestSender(w http.ResponseWriter, r *http.Request, b
 // default icon if that file is not included in the charm.
 func (h *charmsHandler) archiveEntrySender(filePath string, serveIcon bool) bundleContentSenderFunc {
 	return func(w http.ResponseWriter, r *http.Request, bundle *charm.CharmArchive) error {
-		// TODO(fwereade) 2014-01-27 bug #1285685
-		// This doesn't handle symlinks helpfully, and should be talking in
-		// terms of bundles rather than zip readers; but this demands thought
-		// and design and is not amenable to a quick fix.
-		zipReader, err := zip.OpenReader(bundle.Path)
+		contents, err := common.CharmArchiveEntry(bundle.Path, filePath, serveIcon)
 		if err != nil {
-			return errors.Annotatef(err, "unable to read charm")
+			return errors.Trace(err)
 		}
-		defer zipReader.Close()
-		for _, file := range zipReader.File {
-			if path.Clean(file.Name) != filePath {
-				continue
+		ctype := mime.TypeByExtension(filepath.Ext(filePath))
+		if ctype != "" {
+			// Older mime.types may map .js to x-javascript.
+			// Map it to javascript for consistency.
+			if ctype == params.ContentTypeXJS {
+				ctype = params.ContentTypeJS
 			}
-			fileInfo := file.FileInfo()
-			if fileInfo.IsDir() {
-				return &params.Error{
-					Message: "directory listing not allowed",
-					Code:    params.CodeForbidden,
-				}
-			}
-			contents, err := file.Open()
-			if err != nil {
-				return errors.Annotatef(err, "unable to read file %q", filePath)
-			}
-			defer contents.Close()
-			ctype := mime.TypeByExtension(filepath.Ext(filePath))
-			if ctype != "" {
-				// Older mime.types may map .js to x-javascript.
-				// Map it to javascript for consistency.
-				if ctype == params.ContentTypeXJS {
-					ctype = params.ContentTypeJS
-				}
-				w.Header().Set("Content-Type", ctype)
-			}
-			w.Header().Set("Content-Length", strconv.FormatInt(fileInfo.Size(), 10))
-			w.WriteHeader(http.StatusOK)
-			io.Copy(w, contents)
-			return nil
+			w.Header().Set("Content-Type", ctype)
 		}
-		if serveIcon {
-			// An icon was requested but none was found in the archive so
-			// return the default icon instead.
-			w.Header().Set("Content-Type", "image/svg+xml")
-			w.WriteHeader(http.StatusOK)
-			io.Copy(w, strings.NewReader(defaultIcon))
-			return nil
-		}
-		return errors.NotFoundf("charm file")
+		w.Header().Set("Content-Length", strconv.Itoa(len(contents)))
+		w.WriteHeader(http.StatusOK)
+		io.Copy(w, bytes.NewReader(contents))
+		return nil
 	}
 }
 
@@ -489,36 +458,17 @@ func (h *charmsHandler) processGet(r *http.Request, st *state.State) (
 		fileArg = "icon.svg"
 	}
 
-	// Ensure the working directory exists.
-	tmpDir := filepath.Join(h.dataDir, "charm-get-tmp")
-	if err = os.MkdirAll(tmpDir, 0755); err != nil {
-		return errRet(errors.Annotate(err, "cannot create charms tmp directory"))
-	}
-
+	store := storage.NewStorage(st.ModelUUID(), st.MongoSession())
 	// Use the storage to retrieve and save the charm archive.
-	storage := storage.NewStorage(st.ModelUUID(), st.MongoSession())
 	ch, err := st.Charm(curl)
 	if err != nil {
 		return errRet(errors.Annotate(err, "cannot get charm from state"))
 	}
-
-	reader, _, err := storage.Get(ch.StoragePath())
+	charmFileName, err := common.ReadCharmFromStorage(store, h.dataDir, ch.StoragePath())
 	if err != nil {
-		return errRet(errors.Annotate(err, "cannot get charm from model storage"))
+		return errRet(errors.Trace(err))
 	}
-	defer reader.Close()
-
-	charmFile, err := ioutil.TempFile(tmpDir, "charm")
-	if err != nil {
-		return errRet(errors.Annotate(err, "cannot create charm archive file"))
-	}
-	if _, err = io.Copy(charmFile, reader); err != nil {
-		cleanupFile(charmFile)
-		return errRet(errors.Annotate(err, "error processing charm archive download"))
-	}
-
-	charmFile.Close()
-	return charmFile.Name(), fileArg, serveIcon, nil
+	return charmFileName, fileArg, serveIcon, nil
 }
 
 // sendJSONError sends a JSON-encoded error response.  Note the
@@ -553,16 +503,6 @@ func sendBundleContent(
 		return errors.Trace(err)
 	}
 	return nil
-}
-
-// On windows we cannot remove a file until it has been closed
-// If this poses an active problem somewhere else it will be refactored in
-// utils and used everywhere.
-func cleanupFile(file *os.File) {
-	// Errors are ignored because it is ok for this to be called when
-	// the file is already closed or has been moved.
-	file.Close()
-	os.Remove(file.Name())
 }
 
 func writeCharmToTempFile(r io.Reader) (string, error) {

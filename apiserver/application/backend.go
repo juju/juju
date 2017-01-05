@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/storage"
 )
 
 // Backend defines the state functionality required by the application
@@ -32,6 +33,7 @@ type Backend interface {
 	Machine(string) (Machine, error)
 	ModelTag() names.ModelTag
 	Unit(string) (Unit, error)
+	NewStorage() storage.Storage
 }
 
 // BlockChecker defines the block-checking functionality required by
@@ -72,6 +74,7 @@ type Application interface {
 // the same names.
 type Charm interface {
 	charm.Charm
+	StoragePath() string
 }
 
 // Machine defines a subset of the functionality provided by the
@@ -125,6 +128,10 @@ func NewStateBackend(st *state.State) Backend {
 // charm.Charm and charm.URL.
 func CharmToStateCharm(ch Charm) *state.Charm {
 	return ch.(stateCharmShim).Charm
+}
+
+func (s stateShim) NewStorage() storage.Storage {
+	return storage.NewStorage(s.State.ModelUUID(), s.State.MongoSession())
 }
 
 func (s stateShim) Application(name string) (Application, error) {
