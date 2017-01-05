@@ -42,9 +42,10 @@ func (*fakeStatusAPI) Status(c []string) (*params.FullStatus, error) {
 					"10.0.0.1",
 					"10.0.1.1",
 				},
-				InstanceId: "juju-badd06-0",
-				Series:     "trusty",
-				Hardware:   "availability-zone=us-east-1",
+				InstanceId:  "juju-badd06-0",
+				Series:      "trusty",
+				Constraints: "mem=3584M",
+				Hardware:    "availability-zone=us-east-1",
 			},
 			"1": {
 				Id: "1",
@@ -113,6 +114,7 @@ func (s *MachineListCommandSuite) TestListMachineYaml(c *gc.C) {
 		"    - 10.0.1.1\n"+
 		"    instance-id: juju-badd06-0\n"+
 		"    series: trusty\n"+
+		"    constraints: mem=3584M\n"+
 		"    hardware: availability-zone=us-east-1\n"+
 		"  \"1\":\n"+
 		"    juju-status:\n"+
@@ -139,7 +141,7 @@ func (s *MachineListCommandSuite) TestListMachineJson(c *gc.C) {
 	context, err := testing.RunCommand(c, newMachineListCommand(), "--format", "json")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, ""+
-		"{\"model\":\"dummyenv\",\"machines\":{\"0\":{\"juju-status\":{\"current\":\"started\"},\"dns-name\":\"10.0.0.1\",\"ip-addresses\":[\"10.0.0.1\",\"10.0.1.1\"],\"instance-id\":\"juju-badd06-0\",\"machine-status\":{},\"series\":\"trusty\",\"hardware\":\"availability-zone=us-east-1\"},\"1\":{\"juju-status\":{\"current\":\"started\"},\"dns-name\":\"10.0.0.2\",\"ip-addresses\":[\"10.0.0.2\",\"10.0.1.2\"],\"instance-id\":\"juju-badd06-1\",\"machine-status\":{},\"series\":\"trusty\",\"containers\":{\"1/lxd/0\":{\"juju-status\":{\"current\":\"pending\"},\"dns-name\":\"10.0.0.3\",\"ip-addresses\":[\"10.0.0.3\",\"10.0.1.3\"],\"instance-id\":\"juju-badd06-1-lxd-0\",\"machine-status\":{},\"series\":\"trusty\"}}}}}\n")
+		"{\"model\":\"dummyenv\",\"machines\":{\"0\":{\"juju-status\":{\"current\":\"started\"},\"dns-name\":\"10.0.0.1\",\"ip-addresses\":[\"10.0.0.1\",\"10.0.1.1\"],\"instance-id\":\"juju-badd06-0\",\"machine-status\":{},\"series\":\"trusty\",\"constraints\":\"mem=3584M\",\"hardware\":\"availability-zone=us-east-1\"},\"1\":{\"juju-status\":{\"current\":\"started\"},\"dns-name\":\"10.0.0.2\",\"ip-addresses\":[\"10.0.0.2\",\"10.0.1.2\"],\"instance-id\":\"juju-badd06-1\",\"machine-status\":{},\"series\":\"trusty\",\"containers\":{\"1/lxd/0\":{\"juju-status\":{\"current\":\"pending\"},\"dns-name\":\"10.0.0.3\",\"ip-addresses\":[\"10.0.0.3\",\"10.0.1.3\"],\"instance-id\":\"juju-badd06-1-lxd-0\",\"machine-status\":{},\"series\":\"trusty\"}}}}}\n")
 }
 
 func (s *MachineListCommandSuite) TestListMachineArgsError(c *gc.C) {
