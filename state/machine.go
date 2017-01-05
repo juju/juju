@@ -1124,11 +1124,13 @@ func (m *Machine) DesiredSpaces() (set.Strings, error) {
 		}
 		endpointBindings, err := app.EndpointBindings()
 		for _, space := range endpointBindings {
-			bindings.Add(space)
+			if space != "" {
+				bindings.Add(space)
+			}
 		}
 	}
-	logger.Tracef("machine %q found constraints %v and bindings %v",
-		m.Id(), spaces.SortedValues(), bindings.SortedValues())
+	logger.Tracef("machine %q found constraints %s and bindings %s",
+		m.Id(), quoteSpaces(spaces), quoteSpaces(bindings))
 	return spaces.Union(bindings), nil
 }
 
