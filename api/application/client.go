@@ -323,3 +323,8 @@ func (c *Client) DestroyRelation(endpoints ...string) error {
 	params := params.DestroyRelation{Endpoints: endpoints}
 	return c.facade.FacadeCall("DestroyRelation", params, nil)
 }
+
+// Consume adds a remote application to the model.
+func (c *Client) Consume(remoteApplication string) (string, error) {
+	return "", nil
+}

@@ -8,58 +8,68 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/api/application"
-	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
 var usageConsumeSummary = `
 Add a remote application to the model.`[1:]
 
-var usageExposeDetails = `
-Adjusts the firewall rules and any relevant security mechanisms of the
-cloud to allow public access to the application.
+var usageConsumeDetails = `
+Adds a remote application to the model. Relations can be created later using "juju relate".
+
+The remote application can be identified in two ways:
+    [<model owner>/]<model name>.<application name>
+        for an application in another model in this controller (if owner isn't specified it's assumed to be the logged-in user)
+or
+    <remote endpoint url>
+        for remote applications that have been shared using the offer command
 
 Examples:
-    juju expose wordpress
+    $ juju consume othermodel.mysql
 
-See also: 
-    unexpose`[1:]
+    $ juju consume local:/u/fred/db2
 
-// NewExposeCommand returns a command to expose services.
-func NewExposeCommand() cmd.Command {
-	return modelcmd.Wrap(&exposeCommand{})
+See also:
+    add-relation
+    offer`[1:]
+
+// NewConsumeCommand returns a command to add remote applications to
+// the model.
+func NewConsumeCommand() cmd.Command {
+	return modelcmd.Wrap(&consumeCommand{})
 }
 
-// exposeCommand is responsible exposing services.
-type exposeCommand struct {
+// consumeCommand adds remote applications to the model without
+// relating them to other applications.
+type consumeCommand struct {
 	modelcmd.ModelCommandBase
-	ApplicationName string
+	api               serviceConsumeAPI
+	remoteApplication string
 }
 
-func (c *exposeCommand) Info() *cmd.Info {
+// Info implements cmd.Command.
+func (c *consumeCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "expose",
-		Args:    "<application name>",
-		Purpose: usageExposeSummary,
-		Doc:     usageExposeDetails,
+		Name:    "consume",
+		Args:    "<remote application>",
+		Purpose: usageConsumeSummary,
+		Doc:     usageConsumeDetails,
 	}
 }
 
-func (c *exposeCommand) Init(args []string) error {
+// Init implements cmd.Command.
+func (c *consumeCommand) Init(args []string) error {
 	if len(args) == 0 {
-		return errors.New("no application name specified")
+		return errors.New("no remote application specified")
 	}
-	c.ApplicationName = args[0]
+	c.remoteApplication = args[0]
 	return cmd.CheckEmpty(args[1:])
 }
 
-type serviceExposeAPI interface {
-	Close() error
-	Expose(serviceName string) error
-	Unexpose(serviceName string) error
-}
-
-func (c *exposeCommand) getAPI() (serviceExposeAPI, error) {
+func (c *consumeCommand) getAPI() (serviceConsumeAPI, error) {
+	if c.api != nil {
+		return c.api, nil
+	}
 	root, err := c.NewAPIRoot()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -67,13 +77,23 @@ func (c *exposeCommand) getAPI() (serviceExposeAPI, error) {
 	return application.NewClient(root), nil
 }
 
-// Run changes the juju-managed firewall to expose any
-// ports that were also explicitly marked by units as open.
-func (c *exposeCommand) Run(_ *cmd.Context) error {
+// Run adds the requested remote application to the model. Implements
+// cmd.Command.
+func (c *consumeCommand) Run(ctx *cmd.Context) error {
 	client, err := c.getAPI()
 	if err != nil {
 		return err
 	}
 	defer client.Close()
-	return block.ProcessBlockedError(client.Expose(c.ApplicationName), block.BlockChange)
+	localName, err := client.Consume(c.remoteApplication)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	ctx.Infof("Added %s as %s", c.remoteApplication, localName)
+	return nil
+}
+
+type serviceConsumeAPI interface {
+	Close() error
+	Consume(remoteApplication string) (string, error)
 }

@@ -355,6 +355,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(application.NewUnexposeCommand())
 	r.Register(application.NewServiceGetConstraintsCommand())
 	r.Register(application.NewServiceSetConstraintsCommand())
+	r.Register(application.NewConsumeCommand())
 
 	// Operation protection commands
 	r.Register(block.NewDisableCommand())
