@@ -450,5 +450,23 @@ type RemoteApplicationInfoResult struct {
 
 // RemoteApplicationInfoResults represents the result of a RemoteApplicationInfo call.
 type RemoteApplicationInfoResults struct {
-	Results []RemoteApplicationInfoResult
+	Results []RemoteApplicationInfoResult `json:"results"`
+}
+
+// ConsumeApplications represents a request to add remote applications
+// to the model.
+type ConsumeApplications struct {
+	Applications []string `json:"applications"`
+}
+
+// ConsumeApplicationResult is the response for one request to consume
+// a remote application.
+type ConsumeApplicationResult struct {
+	LocalName string `json:"local-name,omitempty"`
+	Error     *Error `json:"error,omitempty"`
+}
+
+// ConsumeApplicationResults is the result of a Consume call.
+type ConsumeApplicationResults struct {
+	Results []ConsumeApplicationResult `json:"results"`
 }

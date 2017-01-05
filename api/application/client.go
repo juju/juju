@@ -326,5 +326,19 @@ func (c *Client) DestroyRelation(endpoints ...string) error {
 
 // Consume adds a remote application to the model.
 func (c *Client) Consume(remoteApplication string) (string, error) {
-	return "", nil
+	var consumeRes params.ConsumeApplicationResults
+	params := params.ConsumeApplications{
+		Applications: []string{remoteApplication},
+	}
+	err := c.facade.FacadeCall("Consume", params, &consumeRes)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	if resultLen := len(consumeRes.Results); resultLen != 1 {
+		return "", errors.Errorf("expected 1 result, got %d", resultLen)
+	}
+	if err := consumeRes.Results[0].Error; err != nil {
+		return "", errors.Trace(err)
+	}
+	return consumeRes.Results[0].LocalName, nil
 }
