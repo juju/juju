@@ -256,10 +256,11 @@ type relation struct {
 }
 
 type remoteRelationInfo struct {
-	applicationId         params.RemoteEntityId
-	localEndpoint         params.RemoteEndpoint
-	remoteApplicationName string
-	remoteEndpointName    string
+	applicationId          params.RemoteEntityId
+	localEndpoint          params.RemoteEndpoint
+	remoteApplicationAlias string
+	remoteApplicationName  string
+	remoteEndpointName     string
 }
 
 func newRemoteApplicationWorker(
@@ -269,14 +270,25 @@ func newRemoteApplicationWorker(
 	newPublisherForModelFunc func(modelUUID string) (RemoteRelationChangePublisherCloser, error),
 	facade RemoteRelationsFacade,
 ) (worker.Worker, error) {
+	// We store the remote application name locally as an alias <user>-<model>-<appname>.
+	// For now, the name of the offering side can be deduced from the alias.
+	// TODO(wallyworld) - record the offering name in the RemoteApplication doc to allow arbitrary aliases
+	offeringName := remoteApplication.Name
+	appNameParts := strings.Split(remoteApplication.Name, "-")
+	if len(appNameParts) == 3 {
+		offeringName = appNameParts[2]
+	}
 	w := &remoteApplicationWorker{
 		relationsWatcher: relationsWatcher,
-		relationInfo:     remoteRelationInfo{remoteApplicationName: remoteApplication.Name},
-		localModelUUID:   localModelUUID,
-		remoteModelUUID:  remoteApplication.ModelUUID,
-		registered:       remoteApplication.Registered,
-		relationChanges:  make(chan params.RemoteRelationChangeEvent),
-		facade:           facade,
+		relationInfo: remoteRelationInfo{
+			remoteApplicationName:  offeringName,
+			remoteApplicationAlias: remoteApplication.Name,
+		},
+		localModelUUID:  localModelUUID,
+		remoteModelUUID: remoteApplication.ModelUUID,
+		registered:      remoteApplication.Registered,
+		relationChanges: make(chan params.RemoteRelationChangeEvent),
+		facade:          facade,
 		newPublisherForModelFunc: newPublisherForModelFunc,
 	}
 	err := catacomb.Invoke(catacomb.Plan{
@@ -466,20 +478,25 @@ func (w *remoteApplicationWorker) registerRemoteRelation(
 	if err != nil {
 		return emptyId, emptyId, errors.Trace(err)
 	}
+	// remoteAppIds is a slice but there's only one item
+	// as we currently only register one remote application
+	if err := remoteAppIds[0].Error; err != nil {
+		return emptyId, emptyId, errors.Trace(err)
+	}
 	if err := results[0].Error; err != nil && !params.IsCodeAlreadyExists(err) {
 		return emptyId, emptyId, errors.Annotatef(err, "registering relation %v", relationTag)
 	}
 	// Import the application id from the offering model.
 	offeringRemoteAppId := remoteAppIds[0].Result
 	logger.Debugf("import remote application token %v from %v for %v",
-		offeringRemoteAppId.Token, offeringRemoteAppId.ModelUUID, w.relationInfo.remoteApplicationName)
+		offeringRemoteAppId.Token, offeringRemoteAppId.ModelUUID, w.relationInfo.remoteApplicationAlias)
 	err = w.facade.ImportRemoteEntity(
 		offeringRemoteAppId.ModelUUID,
-		names.NewApplicationTag(w.relationInfo.remoteApplicationName),
+		names.NewApplicationTag(w.relationInfo.remoteApplicationAlias),
 		offeringRemoteAppId.Token)
 	if err != nil && !params.IsCodeAlreadyExists(err) {
 		return emptyId, emptyId, errors.Annotatef(
-			err, "importing remote application %v to local model", w.relationInfo.remoteApplicationName)
+			err, "importing remote application %v to local model", w.relationInfo.remoteApplicationAlias)
 	}
 	return remoteApplicationId, remoteRelationId, nil
 }
