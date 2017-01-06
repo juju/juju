@@ -180,3 +180,18 @@ func (s *ApplicationURLSuite) TestParseURLParts(c *gc.C) {
 		}
 	}
 }
+
+func (s *ApplicationURLSuite) TestHasEndpoint(c *gc.C) {
+	url, err := crossmodel.ParseApplicationURL("model.application:endpoint")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(url.HasEndpoint(), jc.IsTrue)
+	url, err = crossmodel.ParseApplicationURL("model.application")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(url.HasEndpoint(), jc.IsFalse)
+	url, err = crossmodel.ParseApplicationURL("local:/u/blah/application:thing")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(url.HasEndpoint(), jc.IsTrue)
+	url, err = crossmodel.ParseApplicationURL("local:/u/blah/application")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(url.HasEndpoint(), jc.IsFalse)
+}

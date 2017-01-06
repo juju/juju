@@ -1079,6 +1079,48 @@ func (api *API) charmIcon(backend Backend, curl *charm.URL) ([]byte, error) {
 	return common.CharmArchiveEntry(charmPath, "icon.svg", true)
 }
 
+// Consume adds remote applications to the model without creating any
+// relations.
+func (api *API) Consume(args params.ApplicationURLs) (params.ConsumeApplicationResults, error) {
+	var consumeResults params.ConsumeApplicationResults
+	if err := api.checkCanWrite(); err != nil {
+		return consumeResults, err
+	}
+	if err := api.check.ChangeAllowed(); err != nil {
+		return consumeResults, errors.Trace(err)
+	}
+	if !featureflag.Enabled(feature.CrossModelRelations) {
+		err := errors.Errorf(
+			"set %q feature flag to enable consuming remote applications",
+			feature.CrossModelRelations,
+		)
+		return consumeResults, err
+	}
+	results := make([]params.ConsumeApplicationResult, len(args.ApplicationURLs))
+	for i, applicationURL := range args.ApplicationURLs {
+		localName, err := api.consumeOne(applicationURL)
+		results[i].LocalName = localName
+		results[i].Error = common.ServerError(err)
+	}
+	consumeResults.Results = results
+	return consumeResults, nil
+}
+
+func (api *API) consumeOne(possibleURL string) (string, error) {
+	url, err := jujucrossmodel.ParseApplicationURL(possibleURL)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	if url.HasEndpoint() {
+		return "", errors.Errorf("remote application %q shouldn't include endpoint", url)
+	}
+	remoteApp, err := api.processRemoteApplication(*url)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	return remoteApp.Name(), nil
+}
+
 // DestroyRelation removes the relation between the specified endpoints.
 func (api *API) DestroyRelation(args params.DestroyRelation) error {
 	if err := api.checkCanWrite(); err != nil {

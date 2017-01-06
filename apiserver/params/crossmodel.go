@@ -126,7 +126,7 @@ type ApplicationOffersResults struct {
 	Results []ApplicationOfferResult `json:"results,omitempty"`
 }
 
-// ApplicationURLs is a filter used to select remote applications via show call.
+// ApplicationURLs is a collection of remote application URLs
 type ApplicationURLs struct {
 	// ApplicationURLs contains collection of urls for applications that are to be shown.
 	ApplicationURLs []string `json:"application-urls,omitempty"`
@@ -450,5 +450,17 @@ type RemoteApplicationInfoResult struct {
 
 // RemoteApplicationInfoResults represents the result of a RemoteApplicationInfo call.
 type RemoteApplicationInfoResults struct {
-	Results []RemoteApplicationInfoResult
+	Results []RemoteApplicationInfoResult `json:"results"`
+}
+
+// ConsumeApplicationResult is the response for one request to consume
+// a remote application.
+type ConsumeApplicationResult struct {
+	LocalName string `json:"local-name,omitempty"`
+	Error     *Error `json:"error,omitempty"`
+}
+
+// ConsumeApplicationResults is the result of a Consume call.
+type ConsumeApplicationResults struct {
+	Results []ConsumeApplicationResult `json:"results"`
 }

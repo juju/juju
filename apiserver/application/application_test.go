@@ -2852,6 +2852,73 @@ func (s *serviceSuite) TestBlockDestroyDestroyRelation(c *gc.C) {
 	s.assertDestroyRelation(c, endpoints)
 }
 
+func (s *serviceSuite) TestConsumeRejectsEndpoints(c *gc.C) {
+	results, err := s.applicationAPI.Consume(params.ApplicationURLs{
+		ApplicationURLs: []string{"othermodel.application:db"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Error != nil, jc.IsTrue)
+	c.Assert(results.Results[0].Error.Message, gc.Equals, `remote application "othermodel.application:db" shouldn't include endpoint`)
+}
+
+func (s *serviceSuite) TestConsumeRequiresFeatureFlag(c *gc.C) {
+	s.SetFeatureFlags()
+	_, err := s.applicationAPI.Consume(params.ApplicationURLs{
+		ApplicationURLs: []string{"othermodel.application:db"},
+	})
+	c.Assert(err, gc.ErrorMatches, `set "cross-model" feature flag to enable consuming remote applications`)
+}
+
+func (s *serviceSuite) TestConsumeDirectAndURL(c *gc.C) {
+	_, err := s.otherModel.AddApplication(state.AddApplicationArgs{
+		Name:  "mysql",
+		Charm: s.addTestingCharmOtherModel(c, "mysql"),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.otherModel.AddApplication(state.AddApplicationArgs{
+		Name:  "riak",
+		Charm: s.addTestingCharmOtherModel(c, "riak"),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Offer mysql via the directory.
+	s.offersApiFactory.offers = remoteOffers()
+
+	results, err := s.applicationAPI.Consume(params.ApplicationURLs{
+		ApplicationURLs: []string{"othermodel.riak", "local:/u/me/hosted-mysql"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, gc.DeepEquals, params.ConsumeApplicationResults{
+		Results: []params.ConsumeApplicationResult{
+			{LocalName: "admin-othermodel-riak"},
+			{LocalName: "hosted-mysql"},
+		},
+	})
+
+	// Check that the remote applications were created.
+	_, err = s.State.RemoteApplication("admin-othermodel-riak")
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.RemoteApplication("hosted-mysql")
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *serviceSuite) TestConsumingAndAddingRelation(c *gc.C) {
+	_, err := s.otherModel.AddApplication(state.AddApplicationArgs{
+		Name:  "mysql",
+		Charm: s.addTestingCharmOtherModel(c, "mysql"),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	s.offersApiFactory.offers = remoteOffers()
+	_, err = s.applicationAPI.Consume(params.ApplicationURLs{
+		ApplicationURLs: []string{"local:/u/me/hosted-mysql"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// There's already a wordpress in the scenario this assertion sets up.
+	s.assertAddRelation(c, []string{"wordpress", "hosted-mysql"})
+}
+
 type mockStorageProvider struct {
 	storage.Provider
 	kind storage.StorageKind

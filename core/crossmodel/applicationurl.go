@@ -59,6 +59,12 @@ func (u *ApplicationURL) String() string {
 	return fmt.Sprintf("%s:/%s", u.Directory, u.Path())
 }
 
+// HasEndpoint returns whether this application URL includes an
+// endpoint name in the application name.
+func (u *ApplicationURL) HasEndpoint() bool {
+	return strings.Contains(u.ApplicationName, ":")
+}
+
 // modelApplicationRegexp parses urls of the form user/model.application[:relname]
 var modelApplicationRegexp = regexp.MustCompile(`((?P<user>[^/]*)/)?(?P<model>[^.^/]*)\.(?P<application>[^:]*(:.*)?)`)
 
