@@ -116,7 +116,7 @@ def assert_metadata_are_correct(expected_agent_metadata_url, client):
             'agent-metadata-url mismatch. Expected: {} Got: {}'.format(
                 expected_agent_metadata_url, actual_agent_metadata_url))
 
-    log.info('bootstrap successfully with agent-metdadata-url={}'.format(
+    log.info('bootstrap successfully with agent-metadata-url={}'.format(
         actual_agent_metadata_url))
 
 
@@ -142,7 +142,7 @@ def verify_deployed_charm(charm_app, client):
     log.info("Charm verification done successfully")
 
 
-def deploy_charm_and_verify(client, series, charm_app=None):
+def deploy_charm_and_verify(client, series="xenial", charm_app="dummy-source"):
     """
     Deploy dummy charm from local repository and
     verify it uses the specified agent-metadata-url option
@@ -150,8 +150,6 @@ def deploy_charm_and_verify(client, series, charm_app=None):
     :param series: The charm series to deploy
     :param charm_app: Juju charm application
     """
-    if charm_app is None:
-        charm_app = "dummy-source"
     charm_source = local_charm_path(
         charm=charm_app, juju_ver=client.version, series=series)
     client.deploy(charm_source)
@@ -280,6 +278,8 @@ def assess_add_cloud(args, agent_dir, agent_stream):
         log.info('Metadata bootstrap successful.')
         verify_deployed_tool(agent_dir, client, agent_stream)
         log.info("Successfully deployed and verified add-cloud")
+        deploy_charm_and_verify(client, "xenial", "dummy-source")
+        log.info("Successfully deployed charm and verified")
 
 
 def clone_tgz_file_and_change_shasum(original_tgz_file, new_tgz_file):
