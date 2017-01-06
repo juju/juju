@@ -98,7 +98,7 @@ def get_controller_url_and_sha256(client):
     return stdout_details['url'], stdout_details['sha256']
 
 
-def assert_metadata_are_correct(expected_agent_metadata_url, client):
+def assert_metadata_is_correct(expected_agent_metadata_url, client):
     """
     verify the client agent-metadata-url matches the specified value
     :param expected_agent_metadata_url: The expected agent file path.
@@ -172,7 +172,7 @@ def assess_metadata(args, agent_dir, agent_stream):
 
     with bs_manager.booted_context(args.upload_tools):
         log.info('Metadata bootstrap successful.')
-        assert_metadata_are_correct(agent_metadata_url, client)
+        assert_metadata_is_correct(agent_metadata_url, client)
         verify_deployed_tool(agent_dir, client, agent_stream)
         log.info("Successfully deployed and verified agent-metadata-url")
 
