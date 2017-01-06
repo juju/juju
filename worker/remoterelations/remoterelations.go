@@ -256,11 +256,11 @@ type relation struct {
 }
 
 type remoteRelationInfo struct {
-	applicationId          params.RemoteEntityId
-	localEndpoint          params.RemoteEndpoint
-	remoteApplicationAlias string
-	remoteApplicationName  string
-	remoteEndpointName     string
+	applicationId               params.RemoteEntityId
+	localEndpoint               params.RemoteEndpoint
+	remoteApplicationLocalAlias string
+	remoteApplicationName       string
+	remoteEndpointName          string
 }
 
 func newRemoteApplicationWorker(
@@ -281,8 +281,8 @@ func newRemoteApplicationWorker(
 	w := &remoteApplicationWorker{
 		relationsWatcher: relationsWatcher,
 		relationInfo: remoteRelationInfo{
-			remoteApplicationName:  offeringName,
-			remoteApplicationAlias: remoteApplication.Name,
+			remoteApplicationName:       offeringName,
+			remoteApplicationLocalAlias: remoteApplication.Name,
 		},
 		localModelUUID:  localModelUUID,
 		remoteModelUUID: remoteApplication.ModelUUID,
@@ -489,14 +489,14 @@ func (w *remoteApplicationWorker) registerRemoteRelation(
 	// Import the application id from the offering model.
 	offeringRemoteAppId := remoteAppIds[0].Result
 	logger.Debugf("import remote application token %v from %v for %v",
-		offeringRemoteAppId.Token, offeringRemoteAppId.ModelUUID, w.relationInfo.remoteApplicationAlias)
+		offeringRemoteAppId.Token, offeringRemoteAppId.ModelUUID, w.relationInfo.remoteApplicationLocalAlias)
 	err = w.facade.ImportRemoteEntity(
 		offeringRemoteAppId.ModelUUID,
-		names.NewApplicationTag(w.relationInfo.remoteApplicationAlias),
+		names.NewApplicationTag(w.relationInfo.remoteApplicationLocalAlias),
 		offeringRemoteAppId.Token)
 	if err != nil && !params.IsCodeAlreadyExists(err) {
 		return emptyId, emptyId, errors.Annotatef(
-			err, "importing remote application %v to local model", w.relationInfo.remoteApplicationAlias)
+			err, "importing remote application %v to local model", w.relationInfo.remoteApplicationLocalAlias)
 	}
 	return remoteApplicationId, remoteRelationId, nil
 }
