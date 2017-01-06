@@ -44,7 +44,7 @@ func NewConsumeCommand() cmd.Command {
 // relating them to other applications.
 type consumeCommand struct {
 	modelcmd.ModelCommandBase
-	api               serviceConsumeAPI
+	api               applicationConsumeAPI
 	remoteApplication string
 }
 
@@ -69,12 +69,12 @@ func (c *consumeCommand) Init(args []string) error {
 		return errors.Trace(err)
 	}
 	if url.HasEndpoint() {
-		return errors.New("remote application shouldn't include endpoint")
+		return errors.Errorf("remote application %q shouldn't include endpoint", c.remoteApplication)
 	}
 	return cmd.CheckEmpty(args[1:])
 }
 
-func (c *consumeCommand) getAPI() (serviceConsumeAPI, error) {
+func (c *consumeCommand) getAPI() (applicationConsumeAPI, error) {
 	if c.api != nil {
 		return c.api, nil
 	}
@@ -101,7 +101,7 @@ func (c *consumeCommand) Run(ctx *cmd.Context) error {
 	return nil
 }
 
-type serviceConsumeAPI interface {
+type applicationConsumeAPI interface {
 	Close() error
 	Consume(remoteApplication string) (string, error)
 }

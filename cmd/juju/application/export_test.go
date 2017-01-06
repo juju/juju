@@ -70,7 +70,7 @@ func NewRemoveRelationCommandForTest(api ApplicationDestroyRelationAPI) cmd.Comm
 }
 
 // NewConsumeCommandForTest returns a ConsumeCommand with the specified api.
-func NewConsumeCommandForTest(api serviceConsumeAPI) cmd.Command {
+func NewConsumeCommandForTest(api applicationConsumeAPI) cmd.Command {
 	return modelcmd.Wrap(&consumeCommand{api: api})
 }
 

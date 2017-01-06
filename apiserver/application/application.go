@@ -1079,7 +1079,8 @@ func (api *API) charmIcon(backend Backend, curl *charm.URL) ([]byte, error) {
 	return common.CharmArchiveEntry(charmPath, "icon.svg", true)
 }
 
-// Consume adds remote applications to the model without
+// Consume adds remote applications to the model without creating any
+// relations.
 func (api *API) Consume(args params.ApplicationURLs) (params.ConsumeApplicationResults, error) {
 	var consumeResults params.ConsumeApplicationResults
 	if err := api.checkCanWrite(); err != nil {
@@ -1111,7 +1112,7 @@ func (api *API) consumeOne(possibleURL string) (string, error) {
 		return "", errors.Trace(err)
 	}
 	if url.HasEndpoint() {
-		return "", errors.New("remote application shouldn't include endpoint")
+		return "", errors.Errorf("remote application %q shouldn't include endpoint", url)
 	}
 	remoteApp, err := api.processRemoteApplication(*url)
 	if err != nil {

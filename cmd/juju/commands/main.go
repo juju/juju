@@ -255,6 +255,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 		r.Register(crossmodel.NewShowOfferedEndpointCommand())
 		r.Register(crossmodel.NewListEndpointsCommand())
 		r.Register(crossmodel.NewFindEndpointsCommand())
+		r.Register(application.NewConsumeCommand())
 	}
 
 	// Destruction commands.
@@ -355,9 +356,6 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(application.NewUnexposeCommand())
 	r.Register(application.NewServiceGetConstraintsCommand())
 	r.Register(application.NewServiceSetConstraintsCommand())
-	if featureflag.Enabled(feature.CrossModelRelations) {
-		r.Register(application.NewConsumeCommand())
-	}
 
 	// Operation protection commands
 	r.Register(block.NewDisableCommand())

@@ -2859,7 +2859,7 @@ func (s *serviceSuite) TestConsumeRejectsEndpoints(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
 	c.Assert(results.Results[0].Error != nil, jc.IsTrue)
-	c.Assert(results.Results[0].Error.Message, gc.Equals, "remote application shouldn't include endpoint")
+	c.Assert(results.Results[0].Error.Message, gc.Equals, `remote application "othermodel.application:db" shouldn't include endpoint`)
 }
 
 func (s *serviceSuite) TestConsumeRequiresFeatureFlag(c *gc.C) {

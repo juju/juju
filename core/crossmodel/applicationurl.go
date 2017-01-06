@@ -59,6 +59,8 @@ func (u *ApplicationURL) String() string {
 	return fmt.Sprintf("%s:/%s", u.Directory, u.Path())
 }
 
+// HasEndpoint returns whether this application URL includes an
+// endpoint name in the application name.
 func (u *ApplicationURL) HasEndpoint() bool {
 	return strings.Contains(u.ApplicationName, ":")
 }
