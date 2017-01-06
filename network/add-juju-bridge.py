@@ -452,9 +452,8 @@ def main(args):
             shell_cmd("sleep 3", dry_run=args.dry_run)
             break
 
-    bridged_names = [ args.bridge_prefix + x for x in interfaces ]
     shell_cmd("cat {}".format(args.filename), dry_run=args.dry_run)
-    shell_cmd("ifup --exclude=lo --interfaces={} {}".format(args.filename, " ".join(bridged_names)), dry_run=args.dry_run)
+    shell_cmd("ifup --exclude=lo --interfaces={} -a".format(args.filename), dry_run=args.dry_run)
     shell_cmd("ip link show up", dry_run=args.dry_run)
     shell_cmd("ifconfig -a", dry_run=args.dry_run)
     shell_cmd("ip route show", dry_run=args.dry_run)

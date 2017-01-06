@@ -248,7 +248,7 @@ func (s *bridgeConfigSuite) dryRunExpectedOutputHelper(isBonded, isAlreadyBridge
 			output = append(output, "sleep 3")
 		}
 		output = append(output, fmt.Sprintf("cat %s", s.testConfigPath))
-		output = append(output, fmt.Sprintf("ifup --exclude=lo --interfaces=%[1]s %s", s.testConfigPath, strings.Join(bridgedNames, " ")))
+		output = append(output, fmt.Sprintf("ifup --exclude=lo --interfaces=%[1]s -a", s.testConfigPath))
 		output = append(output, "ip link show up")
 		output = append(output, "ifconfig -a")
 		output = append(output, "ip route show")
