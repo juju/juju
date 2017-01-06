@@ -1110,6 +1110,9 @@ func (api *API) consumeOne(possibleURL string) (string, error) {
 	if err != nil {
 		return "", errors.Trace(err)
 	}
+	if url.HasEndpoint() {
+		return "", errors.New("remote application shouldn't include endpoint")
+	}
 	remoteApp, err := api.processRemoteApplication(*url)
 	if err != nil {
 		return "", errors.Trace(err)

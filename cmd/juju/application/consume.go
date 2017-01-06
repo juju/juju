@@ -69,7 +69,7 @@ func (c *consumeCommand) Init(args []string) error {
 		return errors.Trace(err)
 	}
 	if url.HasEndpoint() {
-		return errors.New("remote application shouldn't include an endpoint")
+		return errors.New("remote application shouldn't include endpoint")
 	}
 	return cmd.CheckEmpty(args[1:])
 }
