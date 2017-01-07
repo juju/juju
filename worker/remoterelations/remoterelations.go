@@ -393,14 +393,14 @@ func (w *remoteApplicationWorker) relationChanged(
 		// so look up the token to use when communicating status.
 		token, err := w.facade.GetToken(w.remoteModelUUID, relationTag)
 		if err != nil {
-			return errors.Trace(err)
+			return errors.Annotatef(err, "getting token for relation %v from consuming model", relationTag.Id())
 		}
 		remoteRelationId = params.RemoteEntityId{ModelUUID: w.remoteModelUUID, Token: token}
 		// Look up the exported token of the local application in the relation.
 		// The export was done when the relation was registered.
 		token, err = w.facade.GetToken(w.localModelUUID, names.NewApplicationTag(remoteRelation.ApplicationName))
 		if err != nil {
-			return errors.Trace(err)
+			return errors.Annotatef(err, "getting token for application %v from offering model", remoteRelation.ApplicationName)
 		}
 		w.relationInfo.applicationId = params.RemoteEntityId{ModelUUID: w.localModelUUID, Token: token}
 	} else {
@@ -412,7 +412,7 @@ func (w *remoteApplicationWorker) relationChanged(
 		applicationTag := names.NewApplicationTag(remoteRelation.ApplicationName)
 		w.relationInfo.applicationId, remoteRelationId, err = w.registerRemoteRelation(applicationTag, relationTag, publisher)
 		if err != nil {
-			return errors.Trace(err)
+			return errors.Annotatef(err, "registering application %v and relation %v", remoteRelation.ApplicationName, relationTag.Id())
 		}
 	}
 
