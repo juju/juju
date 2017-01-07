@@ -417,8 +417,9 @@ func (csau createServiceAndUnit) step(c *gc.C, ctx *context) {
 }
 
 type createUniter struct {
-	minion       bool
-	executorFunc uniter.NewExecutorFunc
+	minion               bool
+	executorFunc         uniter.NewExecutorFunc
+	translateResolverErr func(error) error
 }
 
 func (s createUniter) step(c *gc.C, ctx *context) {
@@ -427,7 +428,10 @@ func (s createUniter) step(c *gc.C, ctx *context) {
 	if s.minion {
 		step(c, ctx, forceMinion{})
 	}
-	step(c, ctx, startUniter{newExecutorFunc: s.executorFunc})
+	step(c, ctx, startUniter{
+		newExecutorFunc:      s.executorFunc,
+		translateResolverErr: s.translateResolverErr,
+	})
 	step(c, ctx, waitAddresses{})
 }
 
@@ -464,8 +468,9 @@ func hookExecutionLockName() string {
 }
 
 type startUniter struct {
-	unitTag         string
-	newExecutorFunc uniter.NewExecutorFunc
+	unitTag              string
+	newExecutorFunc      uniter.NewExecutorFunc
+	translateResolverErr func(error) error
 }
 
 func (s startUniter) step(c *gc.C, ctx *context) {
@@ -498,6 +503,7 @@ func (s startUniter) step(c *gc.C, ctx *context) {
 		MachineLockName:      hookExecutionLockName(),
 		UpdateStatusSignal:   ctx.updateStatusHookTicker.ReturnTimer,
 		NewOperationExecutor: operationExecutor,
+		TranslateResolverErr: s.translateResolverErr,
 		Observer:             ctx,
 		// TODO(axw) 2015-11-02 #1512191
 		// update tests that rely on timing to advance clock
