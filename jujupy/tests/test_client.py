@@ -33,7 +33,7 @@ from jujuconfig import (
     get_jenv_path,
     NoSuchEnvironment,
     )
-from jujupy import (
+from jujupy.client import (
     AuthNotAccepted,
     AgentError,
     AgentUnresolvedError,
