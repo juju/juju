@@ -125,7 +125,7 @@ class ClientTest(FakeHomeTestCase):
 
     def setUp(self):
         super(ClientTest, self).setUp()
-        patcher = patch('jujupy.pause')
+        patcher = patch('jujupy.client.pause')
         self.addCleanup(patcher.stop)
         self.pause_mock = patcher.start()
 
@@ -1264,7 +1264,8 @@ class TestEnvJujuClient(ClientTest):
 
         with patch.object(client, 'get_juju_output',
                           side_effect=get_juju_output):
-            with patch('jujupy.until_timeout', lambda x: iter([None, None])):
+            with patch('jujupy.client.until_timeout',
+                       lambda x: iter([None, None])):
                 with self.assertRaisesRegexp(
                         Exception, 'Timed out waiting for juju status'):
                     client.get_status()
@@ -1272,7 +1273,8 @@ class TestEnvJujuClient(ClientTest):
     def test_get_status_raises_on_timeout_2(self):
         env = JujuData('foo')
         client = EnvJujuClient(env, None, None)
-        with patch('jujupy.until_timeout', return_value=iter([1])) as mock_ut:
+        with patch('jujupy.client.until_timeout',
+                   return_value=iter([1])) as mock_ut:
             with patch.object(client, 'get_juju_output',
                               side_effect=StopIteration):
                 with self.assertRaises(StopIteration):
@@ -1439,7 +1441,7 @@ class TestEnvJujuClient(ClientTest):
         with patch.object(
                 client, 'list_resources',
                 return_value=resource_list) as mock_lr:
-            with patch('jujupy.until_timeout', autospec=True,
+            with patch('jujupy.client.until_timeout', autospec=True,
                        return_value=[0, 1]) as mock_ju:
                 with patch('time.sleep', autospec=True) as mock_ts:
                     with self.assertRaisesRegexp(
@@ -1527,7 +1529,7 @@ class TestEnvJujuClient(ClientTest):
             return iter([None, None])
 
         with patch.object(client, 'get_juju_output', return_value=status_txt):
-            with patch('jujupy.until_timeout',
+            with patch('jujupy.client.until_timeout',
                        side_effect=until_timeout_stub) as ut_mock:
                 result = list(client.status_until(30, 70))
         self.assertEqual(
@@ -1679,7 +1681,8 @@ class TestEnvJujuClient(ClientTest):
     def test_wait_for_started_timeout(self):
         value = self.make_status_yaml('agent-state', 'pending', 'started')
         client = EnvJujuClient(JujuData('local'), None, None)
-        with patch('jujupy.until_timeout', lambda x, start=None: range(1)):
+        with patch('jujupy.client.until_timeout',
+                   lambda x, start=None: range(1)):
             with patch.object(client, 'get_juju_output', return_value=value):
                 writes = []
                 with patch.object(GroupReporter, '_write', autospec=True,
@@ -2383,7 +2386,7 @@ class TestEnvJujuClient(ClientTest):
         client = self.make_controller_client()
         with patch.object(client, 'get_juju_output', return_value=value):
             writes = []
-            with patch('jujupy.until_timeout', autospec=True,
+            with patch('jujupy.client.until_timeout', autospec=True,
                        return_value=[2, 1]):
                 with patch.object(GroupReporter, '_write', autospec=True,
                                   side_effect=lambda _, s: writes.append(s)):
@@ -2405,7 +2408,8 @@ class TestEnvJujuClient(ClientTest):
         })
         client = self.make_controller_client()
         status = client.status_class.from_text(value)
-        with patch('jujupy.until_timeout', lambda x, start=None: range(0)):
+        with patch('jujupy.client.until_timeout',
+                   lambda x, start=None: range(0)):
             with patch.object(client, 'get_status', return_value=status
                               ) as get_status_mock:
                 with self.assertRaisesRegexp(
@@ -2423,7 +2427,8 @@ class TestEnvJujuClient(ClientTest):
             'services': {},
         })
         client = self.make_controller_client()
-        with patch('jujupy.until_timeout', autospec=True, return_value=[2, 1]):
+        with patch('jujupy.client.until_timeout', autospec=True,
+                   return_value=[2, 1]):
             with patch.object(client, 'get_juju_output', return_value=value):
                 with self.assertRaisesRegexp(
                         ErroredUnit, '1 is in state error: foo'):
@@ -2465,7 +2470,7 @@ class TestEnvJujuClient(ClientTest):
             'applications': {},
         })
         client = EnvJujuClient(JujuData('local'), None, None)
-        with patch('jujupy.until_timeout', lambda x: range(0)):
+        with patch('jujupy.client.until_timeout', lambda x: range(0)):
             with patch.object(client, 'get_juju_output', return_value=value):
                 with self.assertRaisesRegexp(
                         StatusNotMet,
@@ -2507,7 +2512,8 @@ class TestEnvJujuClient(ClientTest):
         value = self.make_status_yaml('agent-version', '1.17.2', '1.17.1')
         client = EnvJujuClient(JujuData('local'), None, None)
         writes = []
-        with patch('jujupy.until_timeout', lambda x, start=None: [x]):
+        with patch('jujupy.client.until_timeout',
+                   lambda x, start=None: [x]):
             with patch.object(client, 'get_juju_output', return_value=value):
                 with patch.object(GroupReporter, '_write', autospec=True,
                                   side_effect=lambda _, s: writes.append(s)):
@@ -2570,7 +2576,8 @@ class TestEnvJujuClient(ClientTest):
         })
         client = EnvJujuClient(JujuData('local'), None, None)
         with patch.object(client, 'get_juju_output', return_value=value), \
-            patch('jujupy.until_timeout', lambda x, start=None: range(1)), \
+            patch('jujupy.client.until_timeout',
+                  lambda x, start=None: range(1)), \
             self.assertRaisesRegexp(
                 Exception,
                 'Timed out waiting for machine removal 1'):
@@ -3290,7 +3297,7 @@ class TestEnvJujuClient(ClientTest):
 
     def test_get_service_config_timesout(self):
         client = EnvJujuClient(JujuData('foo', {}), None, '/foo')
-        with patch('jujupy.until_timeout', return_value=range(0)):
+        with patch('jujupy.client.until_timeout', return_value=range(0)):
             with self.assertRaisesRegexp(
                     Exception, 'Timed out waiting for juju get'):
                 client.get_service_config('foo')
@@ -4101,7 +4108,8 @@ class TestEnvJujuClient1X(ClientTest):
 
         with patch.object(client, 'get_juju_output',
                           side_effect=get_juju_output):
-            with patch('jujupy.until_timeout', lambda x: iter([None, None])):
+            with patch('jujupy.client.until_timeout',
+                       lambda x: iter([None, None])):
                 with self.assertRaisesRegexp(
                         Exception, 'Timed out waiting for juju status'):
                     client.get_status()
@@ -4109,7 +4117,8 @@ class TestEnvJujuClient1X(ClientTest):
     def test_get_status_raises_on_timeout_2(self):
         env = SimpleEnvironment('foo')
         client = EnvJujuClient1X(env, None, None)
-        with patch('jujupy.until_timeout', return_value=iter([1])) as mock_ut:
+        with patch('jujupy.client.until_timeout',
+                   return_value=iter([1])) as mock_ut:
             with patch.object(client, 'get_juju_output',
                               side_effect=StopIteration):
                 with self.assertRaises(StopIteration):
@@ -4218,7 +4227,7 @@ class TestEnvJujuClient1X(ClientTest):
             return iter([None, None])
 
         with patch.object(client, 'get_juju_output', return_value=status_txt):
-            with patch('jujupy.until_timeout',
+            with patch('jujupy.client.until_timeout',
                        side_effect=until_timeout_stub) as ut_mock:
                 result = list(client.status_until(30, 70))
         self.assertEqual(
@@ -4291,7 +4300,8 @@ class TestEnvJujuClient1X(ClientTest):
     def test_wait_for_started_timeout(self):
         value = self.make_status_yaml('agent-state', 'pending', 'started')
         client = EnvJujuClient1X(SimpleEnvironment('local'), None, None)
-        with patch('jujupy.until_timeout', lambda x, start=None: range(1)):
+        with patch('jujupy.client.until_timeout',
+                   lambda x, start=None: range(1)):
             with patch.object(client, 'get_juju_output', return_value=value):
                 writes = []
                 with patch.object(GroupReporter, '_write', autospec=True,
@@ -4527,7 +4537,7 @@ class TestEnvJujuClient1X(ClientTest):
         client = EnvJujuClient1X(SimpleEnvironment('local'), None, None)
         with patch.object(client, 'get_juju_output', return_value=value):
             writes = []
-            with patch('jujupy.until_timeout', autospec=True,
+            with patch('jujupy.client.until_timeout', autospec=True,
                        return_value=[2, 1]):
                 with patch.object(GroupReporter, '_write', autospec=True,
                                   side_effect=lambda _, s: writes.append(s)):
@@ -4549,7 +4559,8 @@ class TestEnvJujuClient1X(ClientTest):
         })
         client = EnvJujuClient1X(SimpleEnvironment('local'), None, None)
         status = client.status_class.from_text(value)
-        with patch('jujupy.until_timeout', lambda x, start=None: range(0)):
+        with patch('jujupy.client.until_timeout',
+                   lambda x, start=None: range(0)):
             with patch.object(client, 'get_status', return_value=status):
                 with self.assertRaisesRegexp(
                         StatusNotMet,
@@ -4581,7 +4592,7 @@ class TestEnvJujuClient1X(ClientTest):
             'services': {},
         })
         client = EnvJujuClient1X(SimpleEnvironment('local'), None, None)
-        with patch('jujupy.until_timeout', lambda x: range(0)):
+        with patch('jujupy.client.until_timeout', lambda x: range(0)):
             with patch.object(client, 'get_juju_output', return_value=value):
                 with self.assertRaisesRegexp(
                         StatusNotMet,
@@ -4598,7 +4609,8 @@ class TestEnvJujuClient1X(ClientTest):
         value = self.make_status_yaml('agent-version', '1.17.2', '1.17.1')
         client = EnvJujuClient1X(SimpleEnvironment('local'), None, None)
         writes = []
-        with patch('jujupy.until_timeout', lambda x, start=None: [x]):
+        with patch('jujupy.client.until_timeout',
+                   lambda x, start=None: [x]):
             with patch.object(client, 'get_juju_output', return_value=value):
                 with patch.object(GroupReporter, '_write', autospec=True,
                                   side_effect=lambda _, s: writes.append(s)):
@@ -4661,7 +4673,8 @@ class TestEnvJujuClient1X(ClientTest):
         })
         client = EnvJujuClient1X(SimpleEnvironment('local'), None, None)
         with patch.object(client, 'get_juju_output', return_value=value), \
-            patch('jujupy.until_timeout', lambda x, start=None: range(1)), \
+            patch('jujupy.client.until_timeout',
+                  lambda x, start=None: range(1)), \
             self.assertRaisesRegexp(
                 Exception,
                 'Timed out waiting for machine removal 1'):
@@ -5311,7 +5324,7 @@ class TestEnvJujuClient1X(ClientTest):
 
     def test_get_service_config_timesout(self):
         client = EnvJujuClient1X(SimpleEnvironment('foo', {}), None, '/foo')
-        with patch('jujupy.until_timeout', return_value=range(0)):
+        with patch('jujupy.client.until_timeout', return_value=range(0)):
             with self.assertRaisesRegexp(
                     Exception, 'Timed out waiting for juju get'):
                 client.get_service_config('foo')
@@ -5446,7 +5459,7 @@ class TestUniquifyLocal(TestCase):
 @contextmanager
 def bootstrap_context(client=None):
     # Avoid unnecessary syscalls.
-    with patch('jujupy.check_free_disk_space'):
+    with patch('jujupy.client.check_free_disk_space'):
         with scoped_environ():
             with temp_dir() as fake_home:
                 os.environ['JUJU_HOME'] = fake_home
@@ -5496,7 +5509,7 @@ class TestMakeSafeConfig(TestCase):
         with temp_dir() as juju_home:
             env = JujuData('foo', {'type': 'local'}, juju_home=juju_home)
             client = fake_juju_client(env)
-            with patch('jujupy.check_free_disk_space'):
+            with patch('jujupy.client.check_free_disk_space'):
                 config = make_safe_config(client)
         self.assertEqual(get_local_root(client.env.juju_home, client.env),
                          config['root-dir'])
@@ -5559,7 +5572,7 @@ class TestTempBootstrapEnv(FakeHomeTestCase):
             return juju_home
 
         with patch('utility.mkdtemp', side_effect=side_effect):
-            with patch('jujupy.check_free_disk_space', autospec=True):
+            with patch('jujupy.client.check_free_disk_space', autospec=True):
                 with temp_bootstrap_env(self.home_dir, client) as temp_home:
                     pass
         self.assertEqual(temp_home, juju_home)
@@ -5569,7 +5582,7 @@ class TestTempBootstrapEnv(FakeHomeTestCase):
         client = self.get_client(env)
         os.environ['JUJU_HOME'] = 'foo'
         os.environ['JUJU_DATA'] = 'bar'
-        with patch('jujupy.check_free_disk_space', autospec=True):
+        with patch('jujupy.client.check_free_disk_space', autospec=True):
             with temp_bootstrap_env(self.home_dir, client, set_home=False):
                 self.assertEqual(os.environ['JUJU_HOME'], 'foo')
                 self.assertEqual(os.environ['JUJU_DATA'], 'bar')
@@ -5612,7 +5625,7 @@ class TestTempBootstrapEnv(FakeHomeTestCase):
         env = SimpleEnvironment('qux', {'type': 'local'})
         with bootstrap_context() as fake_home:
             client = self.get_client(env)
-            with patch('jujupy.check_free_disk_space') as mock_cfds:
+            with patch('jujupy.client.check_free_disk_space') as mock_cfds:
                 with temp_bootstrap_env(fake_home, client):
                     stub_bootstrap(client)
         self.assertEqual(mock_cfds.mock_calls, [
@@ -5624,7 +5637,7 @@ class TestTempBootstrapEnv(FakeHomeTestCase):
         env = SimpleEnvironment('qux', {'type': 'local', 'container': 'kvm'})
         with bootstrap_context() as fake_home:
             client = self.get_client(env)
-            with patch('jujupy.check_free_disk_space') as mock_cfds:
+            with patch('jujupy.client.check_free_disk_space') as mock_cfds:
                 with temp_bootstrap_env(fake_home, client):
                     stub_bootstrap(client)
         self.assertEqual(mock_cfds.mock_calls, [

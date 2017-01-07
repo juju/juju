@@ -101,15 +101,15 @@ class JujuPyTestCase(FakeHomeTestCase):
 
     def setUp(self):
         super(JujuPyTestCase, self).setUp()
-        patcher = patch('jujupy.pause')
+        patcher = patch('jujupy.client.pause')
         self.addCleanup(patcher.stop)
         patcher.start()
 
-        patcher = patch('jujupy.GroupReporter._write')
+        patcher = patch('jujupy.client.GroupReporter._write')
         self.addCleanup(patcher.stop)
         patcher.start()
 
-        patcher = patch('jujupy.until_timeout', return_value=[2, 1])
+        patcher = patch('jujupy.client.until_timeout', return_value=[2, 1])
         self.addCleanup(patcher.stop)
         patcher.start()
 
