@@ -36,7 +36,6 @@ from jujuconfig import (
     )
 from utility import (
     check_free_disk_space,
-    ensure_deleted,
     ensure_dir,
     get_timeout_path,
     is_ipv6_address,
