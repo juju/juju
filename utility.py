@@ -448,6 +448,11 @@ def get_candidates_path(root_dir):
     return os.path.join(root_dir, 'candidate')
 
 
+def get_timeout_path():
+    import timeout
+    return os.path.abspath(timeout.__file__)
+
+
 # GZ 2015-10-15: Paths returned in filesystem dependent order, may want sort?
 def find_candidates(root_dir, find_all=False):
     return (path for path, buildvars in _find_candidates(root_dir, find_all))

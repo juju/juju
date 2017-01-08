@@ -39,6 +39,7 @@ from utility import (
     check_free_disk_space,
     ensure_deleted,
     ensure_dir,
+    get_timeout_path,
     is_ipv6_address,
     JujuResourceTimeout,
     pause,
@@ -122,11 +123,6 @@ class InvalidEndpoint(Exception):
 
 class AuthNotAccepted(Exception):
     """Raised when the provided auth was not accepted."""
-
-
-def get_timeout_path():
-    import timeout
-    return os.path.abspath(timeout.__file__)
 
 
 def get_timeout_prefix(duration, timeout_path=None):
