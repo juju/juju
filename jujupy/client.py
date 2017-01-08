@@ -21,7 +21,6 @@ import re
 import shutil
 import subprocess
 import sys
-from tempfile import NamedTemporaryFile
 import time
 
 from dateutil.parser import parse as datetime_parse
@@ -49,6 +48,7 @@ from utility import (
     skip_on_missing_file,
     split_address_port,
     temp_dir,
+    temp_yaml_file,
     unqualified_model_name,
     until_timeout,
     )
@@ -254,17 +254,6 @@ class ApplicationsNotStarted(StatusNotMet):
 class VotingNotEnabled(StatusNotMet):
 
     _fmt = 'Timed out waiting for voting to be enabled in {env}.'
-
-
-@contextmanager
-def temp_yaml_file(yaml_dict, encoding="utf-8"):
-    temp_file = NamedTemporaryFile(suffix='.yaml', delete=False)
-    try:
-        with temp_file:
-            yaml.safe_dump(yaml_dict, temp_file, encoding=encoding)
-        yield temp_file.name
-    finally:
-        os.unlink(temp_file.name)
 
 
 class SimpleEnvironment:

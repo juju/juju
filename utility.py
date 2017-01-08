@@ -16,13 +16,17 @@ from time import (
     sleep,
     time,
     )
-from tempfile import mkdtemp
+from tempfile import (
+    mkdtemp,
+    NamedTemporaryFile,
+    )
 import warnings
 # Export shell quoting function which has moved in newer python versions
 try:
     from shlex import quote
 except ImportError:
     from pipes import quote
+import yaml
 
 quote
 
@@ -442,6 +446,17 @@ def ensure_dir(path):
 def ensure_deleted(path):
     with skip_on_missing_file():
         os.unlink(path)
+
+
+@contextmanager
+def temp_yaml_file(yaml_dict, encoding="utf-8"):
+    temp_file = NamedTemporaryFile(suffix='.yaml', delete=False)
+    try:
+        with temp_file:
+            yaml.safe_dump(yaml_dict, temp_file, encoding=encoding)
+        yield temp_file.name
+    finally:
+        os.unlink(temp_file.name)
 
 
 def get_candidates_path(root_dir):

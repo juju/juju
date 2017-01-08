@@ -30,7 +30,6 @@ from jujupy.client import (
     Status,
     temp_bootstrap_env,
     _temp_env,
-    temp_yaml_file,
     TypeNotAccepted,
     uniquify_local,
     )
@@ -67,7 +66,6 @@ __all__ = [
     'Status',
     'temp_bootstrap_env',
     '_temp_env',
-    'temp_yaml_file',
     'TypeNotAccepted',
     'uniquify_local',
     ]
