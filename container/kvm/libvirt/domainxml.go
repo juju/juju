@@ -102,29 +102,6 @@ func NewDomain(p domainParams) (Domain, error) {
 			Input{Type: "mouse", Bus: "ps2"},
 			Input{Type: "keyboard", Bus: "ps2"},
 		},
-		Graphics: Graphics{
-			Type:     "vnc",
-			Port:     "-1",
-			Autoport: "yes",
-			Listen:   "localhost",
-			GraphicsListen: GraphicsListen{
-				Type:    "address",
-				Address: "localhost",
-			},
-		},
-		Video: Video{
-			Model: Model{
-				Type:  "cirrus",
-				VRAM:  "9216",
-				Heads: "1",
-			},
-			Address: Address{
-				Type:     "pci",
-				Domain:   "0x0000",
-				Bus:      "0x00",
-				Slot:     "0x02",
-				Function: "0x0"},
-		},
 		Interface:     []Interface{},
 		Name:          p.Host(),
 		VCPU:          p.CPUs(),
@@ -192,8 +169,6 @@ type Domain struct {
 	Serial        Serial       `xml:"devices>serial,omitempty"`
 	Console       []Console    `xml:"devices>console"`
 	Input         []Input      `xml:"devices>input"`
-	Graphics      Graphics     `xml:"devices>graphics"`
-	Video         Video        `xml:"devices>video"`
 	Interface     []Interface  `xml:"devices>interface"`
 	Disk          []Disk       `xml:"devices>disk"`
 	Name          string       `xml:"name"`
@@ -288,30 +263,6 @@ type SerialTarget struct {
 type Input struct {
 	Type string `xml:"type,attr"`
 	Bus  string `xml:"bus,attr"`
-}
-
-// Graphics is static. We generate a generic vnc server by default.
-// See: https://libvirt.org/formatdomain.html#elementsGraphics
-type Graphics struct {
-	Type           string         `xml:"type,attr"`
-	Port           string         `xml:"port,attr"`
-	Autoport       string         `xml:"autoport,attr"`
-	Listen         string         `xml:"listen,attr"`
-	GraphicsListen GraphicsListen `xml:"listen"`
-}
-
-// GraphicsListen is an element in Graphics.
-// See: Graphics
-type GraphicsListen struct {
-	Type    string `xml:"type,attr"`
-	Address string `xml:"address,attr"`
-}
-
-// Video is static. We generate a generic default value.
-// See: https://libvirt.org/formatdomain.html#elementsVideo
-type Video struct {
-	Model   Model   `xml:"model"`
-	Address Address `xml:"address"`
 }
 
 // Interface is dynamic. It represents a network interface. We generate it from

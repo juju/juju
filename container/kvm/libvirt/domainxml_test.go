@@ -47,13 +47,6 @@ var wantDomainStr = `
         </console>
         <input type="mouse" bus="ps2"></input>
         <input type="keyboard" bus="ps2"></input>
-        <graphics type="vnc" port="-1" autoport="yes" listen="localhost">
-            <listen type="address" address="localhost"></listen>
-        </graphics>
-        <video>
-            <model type="cirrus" vram="9216" heads="1"></model>
-            <address type="pci" domain="0x0000" bus="0x00" slot="0x02" function="0x0"></address>
-        </video>
         <interface type="bridge">
             <mac address="00:00:00:00:00:00"></mac>
             <model type="virtio"></model>
