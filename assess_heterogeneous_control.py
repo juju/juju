@@ -18,7 +18,6 @@ from jujupy import (
     EnvJujuClient1X,
     IncompatibleConfigClass,
     SimpleEnvironment,
-    until_timeout,
     )
 from deploy_stack import (
     BootstrapManager,
@@ -28,6 +27,7 @@ from deploy_stack import (
 from jujuci import add_credential_args
 from utility import (
     configure_logging,
+    until_timeout,
 )
 
 

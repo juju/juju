@@ -39,7 +39,7 @@ from jujuconfig import (
     get_jenv_path,
     get_juju_home,
 )
-from jujupy import (
+from jujupy.client import (
     client_from_config,
     get_local_root,
     get_machine_dns_name,
