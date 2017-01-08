@@ -203,7 +203,7 @@ func (commandWrapperSuite) TestAutostartMachineFails(c *gc.C) {
 	container := NewTestContainer("aname", stub.Run, nil)
 	err := AutostartMachine(container)
 	c.Assert(stub.Calls(), jc.DeepEquals, []string{"virsh autostart aname"})
-	c.Assert(err, gc.ErrorMatches, "Boom")
+	c.Check(err, gc.ErrorMatches, "failed to autostart domain \"aname\": Boom")
 }
 
 func (commandWrapperSuite) TestListMachinesSuccess(c *gc.C) {

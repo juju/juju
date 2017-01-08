@@ -67,7 +67,7 @@ func (c *kvmContainer) Start(params StartParams) error {
 			return err
 		}
 	}
-	logger.Debugf("Create the machine %s", c.name)
+	logger.Debugf("create the machine %s", c.name)
 	if err := CreateMachine(CreateMachineParams{
 		Hostname:      c.name,
 		Series:        params.Series,
