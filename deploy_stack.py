@@ -39,14 +39,16 @@ from jujuconfig import (
     get_jenv_path,
     get_juju_home,
 )
-from jujupy.client import (
+from jujupy import (
     client_from_config,
-    get_local_root,
     get_machine_dns_name,
     jes_home_path,
     NoProvider,
     SimpleEnvironment,
     temp_bootstrap_env,
+    )
+from jujupy.client import (
+    get_local_root,
 )
 from remote import (
     remote_from_address,

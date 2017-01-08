@@ -1,13 +1,9 @@
 from jujupy.client import (
     AgentsNotStarted,
     AuthNotAccepted,
-    client_from_config,
     ConditionList,
     EnvJujuClient,
-    EnvJujuClient1X,
-    EnvJujuClient25,
     get_cache_path,
-    get_client_class,
     get_machine_dns_name,
     get_timeout_prefix,
     IncompatibleConfigClass,
@@ -32,6 +28,12 @@ from jujupy.client import (
     _temp_env,
     TypeNotAccepted,
     uniquify_local,
+    )
+from jujupy.version_client import (
+    client_from_config,
+    EnvJujuClient1X,
+    EnvJujuClient25,
+    get_client_class,
     )
 
 __all__ = [
