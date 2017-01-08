@@ -44,3 +44,13 @@ func (initialisationInternalSuite) TestCreatePool(c *gc.C) {
 		"virsh pool-autostart juju-pool",
 	})
 }
+
+func (initialisationInternalSuite) TestRequiredPackagesAMD64(c *gc.C) {
+	got := getRequiredPackages("amd64")
+	c.Assert(got, jc.DeepEquals, []string{"qemu-kvm", "genisoimage", "libvirt-bin", "qemu-utils"})
+}
+
+func (initialisationInternalSuite) TestRequiredPackagesARM64(c *gc.C) {
+	got := getRequiredPackages("arm64")
+	c.Assert(got, jc.DeepEquals, []string{"qemu-kvm", "genisoimage", "libvirt-bin", "qemu-utils", "qemu-efi"})
+}
