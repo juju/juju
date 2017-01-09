@@ -1857,8 +1857,11 @@ class TestEnvJujuClient(ClientTest):
         now = datetime.now() + timedelta(days=1)
         with patch('utility.until_timeout.now', return_value=now):
             with patch.object(client, 'get_juju_output', return_value=value):
-                with patch('jujupy.GroupReporter.update') as update_mock:
-                    with patch('jujupy.GroupReporter.finish') as finish_mock:
+                with patch(
+                        'jujupy.client.GroupReporter.update') as update_mock:
+                    with patch(
+                            'jujupy.client.GroupReporter.finish'
+                            ) as finish_mock:
                         client.wait_for_subordinate_units(
                             'jenkins', 'sub1', start=now - timedelta(1200))
         self.assertEqual([], update_mock.call_args_list)
@@ -1892,8 +1895,11 @@ class TestEnvJujuClient(ClientTest):
         now = datetime.now() + timedelta(days=1)
         with patch('utility.until_timeout.now', return_value=now):
             with patch.object(client, 'get_juju_output', return_value=value):
-                with patch('jujupy.GroupReporter.update') as update_mock:
-                    with patch('jujupy.GroupReporter.finish') as finish_mock:
+                with patch(
+                        'jujupy.client.GroupReporter.update') as update_mock:
+                    with patch(
+                            'jujupy.client.GroupReporter.finish'
+                            ) as finish_mock:
                         client.wait_for_subordinate_units(
                             'jenkins', 'sub1', start=now - timedelta(1200))
         self.assertEqual([], update_mock.call_args_list)
@@ -1920,8 +1926,11 @@ class TestEnvJujuClient(ClientTest):
         now = datetime.now() + timedelta(days=1)
         with patch('utility.until_timeout.now', return_value=now):
             with patch.object(client, 'get_juju_output', return_value=value):
-                with patch('jujupy.GroupReporter.update') as update_mock:
-                    with patch('jujupy.GroupReporter.finish') as finish_mock:
+                with patch(
+                        'jujupy.client.GroupReporter.update') as update_mock:
+                    with patch(
+                            'jujupy.client.GroupReporter.finish'
+                            ) as finish_mock:
                         client.wait_for_subordinate_units(
                             'ubuntu', 'sub', start=now - timedelta(1200))
         self.assertEqual([], update_mock.call_args_list)
@@ -4366,8 +4375,11 @@ class TestEnvJujuClient1X(ClientTest):
         now = datetime.now() + timedelta(days=1)
         with patch('utility.until_timeout.now', return_value=now):
             with patch.object(client, 'get_juju_output', return_value=value):
-                with patch('jujupy.GroupReporter.update') as update_mock:
-                    with patch('jujupy.GroupReporter.finish') as finish_mock:
+                with patch(
+                        'jujupy.client.GroupReporter.update') as update_mock:
+                    with patch(
+                            'jujupy.client.GroupReporter.finish'
+                            ) as finish_mock:
                         client.wait_for_subordinate_units(
                             'jenkins', 'sub1', start=now - timedelta(1200))
         self.assertEqual([], update_mock.call_args_list)
@@ -4394,8 +4406,11 @@ class TestEnvJujuClient1X(ClientTest):
         now = datetime.now() + timedelta(days=1)
         with patch('utility.until_timeout.now', return_value=now):
             with patch.object(client, 'get_juju_output', return_value=value):
-                with patch('jujupy.GroupReporter.update') as update_mock:
-                    with patch('jujupy.GroupReporter.finish') as finish_mock:
+                with patch(
+                        'jujupy.client.GroupReporter.update') as update_mock:
+                    with patch(
+                            'jujupy.client.GroupReporter.finish'
+                            ) as finish_mock:
                         client.wait_for_subordinate_units(
                             'ubuntu', 'sub', start=now - timedelta(1200))
         self.assertEqual([], update_mock.call_args_list)
