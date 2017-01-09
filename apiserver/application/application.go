@@ -657,7 +657,11 @@ func (api *API) DestroyUnits(args params.DestroyApplicationUnits) error {
 	return common.DestroyErr("units", args.UnitNames, errs)
 }
 
-// Destroy destroys a given application.
+type appDestroy interface {
+	Destroy() (err error)
+}
+
+// Destroy destroys a given application, local or remote.
 func (api *API) Destroy(args params.ApplicationDestroy) error {
 	if err := api.checkCanWrite(); err != nil {
 		return err
@@ -665,7 +669,14 @@ func (api *API) Destroy(args params.ApplicationDestroy) error {
 	if err := api.check.RemoveAllowed(); err != nil {
 		return errors.Trace(err)
 	}
-	app, err := api.backend.Application(args.ApplicationName)
+	var (
+		app appDestroy
+		err error
+	)
+	app, err = api.backend.RemoteApplication(args.ApplicationName)
+	if errors.IsNotFound(err) {
+		app, err = api.backend.Application(args.ApplicationName)
+	}
 	if err != nil {
 		return err
 	}

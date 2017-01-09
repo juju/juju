@@ -14,25 +14,26 @@ import (
 
 	"github.com/juju/juju/api/application"
 	"github.com/juju/juju/api/charms"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
-// NewRemoveServiceCommand returns a command which removes an application.
-func NewRemoveServiceCommand() cmd.Command {
-	return modelcmd.Wrap(&removeServiceCommand{})
+// NewRemoveApplicationCommand returns a command which removes an application.
+func NewRemoveApplicationCommand() cmd.Command {
+	return modelcmd.Wrap(&removeApplicationCommand{})
 }
 
 // removeServiceCommand causes an existing application to be destroyed.
-type removeServiceCommand struct {
+type removeApplicationCommand struct {
 	modelcmd.ModelCommandBase
 	ApplicationName string
 }
 
-var helpSummaryRmSvc = `
+var helpSummaryRmApp = `
 Remove an application from the model.`[1:]
 
-var helpDetailsRmSvc = `
+var helpDetailsRmApp = `
 Removing an application will terminate any relations that application has, remove
 all units of the application, and in the case that this leaves machines with
 no running applications, Juju will also remove the machine. For this reason,
@@ -45,16 +46,16 @@ Examples:
     juju remove-application hadoop
     juju remove-application -m test-model mariadb`[1:]
 
-func (c *removeServiceCommand) Info() *cmd.Info {
+func (c *removeApplicationCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "remove-application",
 		Args:    "<application>",
-		Purpose: helpSummaryRmSvc,
-		Doc:     helpDetailsRmSvc,
+		Purpose: helpSummaryRmApp,
+		Doc:     helpDetailsRmApp,
 	}
 }
 
-func (c *removeServiceCommand) Init(args []string) error {
+func (c *removeApplicationCommand) Init(args []string) error {
 	if len(args) == 0 {
 		return errors.Errorf("no application specified")
 	}
@@ -65,7 +66,7 @@ func (c *removeServiceCommand) Init(args []string) error {
 	return cmd.CheckEmpty(args)
 }
 
-type ServiceAPI interface {
+type removeApplicationAPI interface {
 	Close() error
 	Destroy(serviceName string) error
 	DestroyUnits(unitNames ...string) error
@@ -73,7 +74,7 @@ type ServiceAPI interface {
 	ModelUUID() string
 }
 
-func (c *removeServiceCommand) getAPI() (ServiceAPI, error) {
+func (c *removeApplicationCommand) getAPI() (removeApplicationAPI, error) {
 	root, err := c.NewAPIRoot()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -81,7 +82,7 @@ func (c *removeServiceCommand) getAPI() (ServiceAPI, error) {
 	return application.NewClient(root), nil
 }
 
-func (c *removeServiceCommand) Run(ctx *cmd.Context) error {
+func (c *removeApplicationCommand) Run(ctx *cmd.Context) error {
 	client, err := c.getAPI()
 	if err != nil {
 		return err
@@ -94,12 +95,16 @@ func (c *removeServiceCommand) Run(ctx *cmd.Context) error {
 	return c.removeAllocation(ctx)
 }
 
-func (c *removeServiceCommand) removeAllocation(ctx *cmd.Context) error {
+func (c *removeApplicationCommand) removeAllocation(ctx *cmd.Context) error {
 	client, err := c.getAPI()
 	if err != nil {
 		return err
 	}
 	charmURL, err := client.GetCharmURL(c.ApplicationName)
+	// Not all apps have charms, eg remote applications.
+	if params.ErrCode(err) == params.CodeNotFound {
+		return nil
+	}
 	if err != nil {
 		return errors.Trace(err)
 	}
