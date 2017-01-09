@@ -80,14 +80,14 @@ func getRequiredPackages(a string) []string {
 		// that upstart doesn't reload libvirtd if installed after, and we see
 		// errors related to `qemu-kvm` not being installed.
 		"qemu-kvm",
+		"qemu-utils",
 		"genisoimage",
 		"libvirt-bin",
-		"qemu-utils",
 	}
 	if a == arch.ARM64 {
 		// ARM64 doesn't support legacy BIOS so it requires Extensible Firmware
 		// Interface.
-		requiredPackages = append(requiredPackages, "qemu-efi")
+		requiredPackages = append([]string{"qemu-efi"}, requiredPackages...)
 	}
 	return requiredPackages
 }

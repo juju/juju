@@ -368,13 +368,17 @@ func (t toolsFinderFunc) FindTools(v version.Number, series string, arch string)
 }
 
 func getContainerInstance() (cont []ContainerInstance, err error) {
+	pkgs := [][]string{
+		{"qemu-kvm"},
+		{"qemu-utils"},
+		{"genisoimage"},
+		{"libvirt-bin"},
+	}
+	if runtime.GOARCH == arch.ARM64 {
+		pkgs = append([][]string{{"qemu-efi"}}, pkgs...)
+	}
 	cont = []ContainerInstance{
-		{instance.KVM, [][]string{
-			{"qemu-kvm"},
-			{"genisoimage"},
-			{"libvirt-bin"},
-			{"qemu-utils"},
-		}},
+		{instance.KVM, pkgs},
 	}
 	return cont, nil
 }
