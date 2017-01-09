@@ -50,6 +50,7 @@ from substrate import (
     stop_libvirt_domain,
     terminate_instances,
     verify_libvirt_domain,
+    ensure_cleanup,
     )
 from tests import (
     FakeHomeTestCase,
@@ -623,6 +624,10 @@ def get_lxd_config():
 
 
 class TestLXDAccount(TestCase):
+    def test_ensure_cleanup(self):
+        account = LXDAccount()
+        resource_details = []
+        return account.ensure_cleanup(resource_details)
 
     def test_from_boot_config(self):
         boot_config = SimpleEnvironment('foo', get_lxd_config())
@@ -1599,3 +1604,43 @@ class EucaTestCase(TestCase):
                 destroy_job_instances('foo')
         gji_mock.assert_called_with('foo')
         cc_mock.assert_called_with(['euca-terminate-instances', 'i-bar'])
+
+
+class TestEnsureCleanup(TestCase):
+    resource_details = []
+
+    def test_lxd_ensure_cleanup(self):
+        env = get_lxd_env()
+        ucrl = ensure_cleanup(env, self.resource_details)
+        self.assertEquals(ucrl, [])
+
+    def test_aws_ensure_cleanup(self):
+        env = get_aws_env()
+        ucrl = ensure_cleanup(env, self.resource_details)
+        self.assertEquals(ucrl, [])
+
+    def test_openstack_ensure_cleanup(self):
+        env = get_openstack_env()
+        ucrl = ensure_cleanup(env, self.resource_details)
+        self.assertEquals(ucrl, [])
+
+    def test_rax_ensure_cleanup(self):
+        env = get_rax_env()
+        ucrl = ensure_cleanup(env, self.resource_details)
+        self.assertEquals(ucrl, [])
+
+    def test_maas_ensure_cleanup(self):
+        boot_config = get_maas_env()
+        login_error = CalledProcessError(1, ['maas', 'login'])
+        with patch('subprocess.check_call', autospec=True,
+                   side_effect=[login_error, None, None]):
+            with maas_account_from_boot_config(boot_config) as maas:
+                ucrl = maas.ensure_cleanup(self.resource_details)
+            self.assertEquals(ucrl, [])
+
+    def test_ensure_cleanup_unknown(self):
+        env = SimpleEnvironment('foo', {'type': 'unknown'})
+        with self.assertRaisesRegexp(
+                ValueError,
+                'This test does not support the unknown provider'):
+            ensure_cleanup(env, self.resource_details)

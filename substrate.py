@@ -74,6 +74,16 @@ def terminate_instances(env, instance_ids):
     subprocess.check_call(command_args, env=environ)
 
 
+def ensure_cleanup(env, resource_details):
+    provider_type = env.provider
+    with make_substrate_manager(env) as substrate:
+        if substrate is None:
+            raise ValueError(
+                "This test does not support the {0} provider".format(
+                    provider_type))
+        return substrate.ensure_cleanup(resource_details)
+
+
 class AWSAccount:
     """Represent the credentials of an AWS account."""
 
@@ -160,7 +170,7 @@ class AWSAccount:
 
     def ensure_cleanup(self, resource_details):
         """
-        Do provider specific clean-up activity.
+        Do AWS specific clean-up activity.
         :param resource_details: The list of resource to be cleaned up
         :return: list of resources that were not cleaned up
         """
@@ -231,7 +241,7 @@ class OpenStackAccount:
 
     def ensure_cleanup(self, resource_details):
         """
-        Do provider specific clean-up activity.
+        Do OpenStack specific clean-up activity.
         :param resource_details: The list of resource to be cleaned up
         :return: list of resources that were not cleaned up
         """
@@ -291,7 +301,7 @@ class JoyentAccount:
 
     def ensure_cleanup(self, resource_details):
         """
-        Do provider specific clean-up activity.
+        Do Joyent specific clean-up activity.
         :param resource_details: The list of resource to be cleaned up
         :return: list of resources that were not cleaned up
         """
@@ -359,7 +369,7 @@ class GCEAccount:
 
     def ensure_cleanup(self, resource_details):
         """
-        Do provider specific clean-up activity.
+        Do GCE specific clean-up activity.
         :param resource_details: The list of resource to be cleaned up
         :return: list of resources that were not cleaned up
         """
@@ -419,7 +429,7 @@ class AzureARMAccount:
 
     def ensure_cleanup(self, resource_details):
         """
-        Do provider specific clean-up activity.
+        Do AzureARM specific clean-up activity.
         :param resource_details: The list of resource to be cleaned up
         :return: list of resources that were not cleaned up
         """
@@ -523,7 +533,7 @@ class AzureAccount:
 
     def ensure_cleanup(self, resource_details):
         """
-        Do provider specific clean-up activity.
+        Do Azure specific clean-up activity.
         :param resource_details: The list of resource to be cleaned up
         :return: list of resources that were not cleaned up
         """
@@ -733,7 +743,7 @@ class MAASAccount:
 
     def ensure_cleanup(self, resource_details):
         """
-        Do provider specific clean-up activity.
+        Do MAAS specific clean-up activity.
         :param resource_details: The list of resource to be cleaned up
         :return: list of resources that were not cleaned up
         """
@@ -797,7 +807,7 @@ class LXDAccount:
 
     def ensure_cleanup(self, resource_details):
         """
-        Do provider specific clean-up activity.
+        Do LXD specific clean-up activity.
         :param resource_details: The list of resource to be cleaned up
         :return: list of resources that were not cleaned up
         """

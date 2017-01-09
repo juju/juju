@@ -659,29 +659,28 @@ class BootstrapManager:
 
     def ensure_cleanup(self):
         """
-        Ensure the BM cleanup call the respective substrate manager to
-        invoke provider specific ensure cleanup.
+        Ensure any required cleanup for the current substrate is done.
+        returns list of resource cleanup errors.
         """
         if self.resource_details is not None:
             provider_type = self.client.env.provider_type
             with make_substrate_manager(self.client.env) as substrate:
                 if substrate is None:
-                    raise ValueError("Invalid provider %s" % provider_type)
+                    raise ValueError("Invalid provider {0}".format(
+                        provider_type))
                 return substrate.ensure_cleanup(self.resource_details)
 
     def collect_resource_details(self):
         """
-        Collect information about the boostraped instances
+        Collect and store resource information for the bootstrapped instance.
         """
         controller_uuid = self.client.get_controller_uuid()
         members = self.client.get_controller_members()
         resource_details = {
             'controller-uuid': controller_uuid,
-            'instances': [],
+            'instances': [(m.info['instance-id'], m.info['dns-name'])
+                          for m in members]
         }
-        resource_details["instances"] = \
-            map(lambda member: [member.info['instance-id'],
-                                member.info['dns-name']], members)
         self.resource_details = resource_details
 
     @property
