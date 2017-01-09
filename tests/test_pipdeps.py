@@ -71,6 +71,10 @@ class TestRunPipInstall(unittest.TestCase):
         os.path.realpath(os.path.dirname(pipdeps.__file__)),
         "requirements.txt")
 
+    req_path_py3 = os.path.join(
+        os.path.realpath(os.path.dirname(pipdeps.__file__)),
+        "requirements_py3.txt")
+
     def test_added_args(self):
         with mock.patch("subprocess.check_call", autospec=True) as cc_mock:
             pipdeps.run_pip_install(["--user"], self.req_path)
@@ -85,10 +89,16 @@ class TestRunPipInstall(unittest.TestCase):
             "pip", "install", "-r", self.req_path, "--download", "/tmp/pip"])
 
     def test_pip3_install(self):
-        with mock.patch("subprocess.check_call", autospec=True) as cc_mock:
-            pipdeps.run_pip3_install(["--user"], self.req_path)
-        cc_mock.assert_called_once_with([
-            "pip3", "-q", "install", "-r", self.req_path, "--user"])
+        with mock.patch("subprocess.check_output", autospec=True,
+                        return_value='3.5.0') as co_mock:
+            with mock.patch("subprocess.check_call", autospec=True) as cc_mock:
+                pipdeps.run_pip3_install(["--user"], self.req_path_py3)
+        co_mock.assert_called_once_with(
+            ['python3', '--version'], stderr=subprocess.STDOUT)
+        calls = [mock.call(['pip3', '--version']),
+                 mock.call(['pip3', '-q', 'install', '-r', self.req_path_py3,
+                            '--user'])]
+        self.assertEqual(cc_mock.call_args_list, calls)
 
 
 class TestRunPipUninstall(unittest.TestCase):

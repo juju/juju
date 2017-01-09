@@ -29,6 +29,7 @@ OBSOLETE = os.path.join(os.path.realpath(os.path.dirname(__file__)),
 
 
 def get_requirements(python3=False):
+    """Return requirements file path."""
     if platform.dist()[0] in ('Ubuntu', 'debian'):
         if python3:
             return REQUIREMENTS_PY3
@@ -75,7 +76,11 @@ def is_py3_supported():
 
 
 def run_pip3_install(extra_args, requirements, verbose=False):
-    run_pip_install(extra_args, requirements, verbose=verbose, cmd=['pip3'])
+    if requirements and is_py3_supported():
+        run_pip_install(extra_args, requirements, verbose=verbose,
+                        cmd=['pip3'])
+    else:
+        print('Python 3 is not installed.')
 
 
 def run_pip_install(extra_args, requirements, verbose=False, cmd=None):
@@ -115,10 +120,11 @@ def run_pip_uninstall(obsolete_requirements):
 
 def get_pip_args(archives_url):
     args = ["--no-index", "--find-links", archives_url]
-    # --user option is invalid when running inside virtualenv.
+    # --user option is invalid when running inside virtualenv. Check
+    # sys.real_prefix to determine if it is executing inside virtualenv.
     # Inside virtualenv, the sys.prefix points to the virtualenv directory
-    # and sys.real_prefix points to the real prefix
-    # Running outside a virtualenv, sys should not have real_prefix attribute
+    # and sys.real_prefix points to the real prefix.
+    # Running outside a virtualenv, sys should not have real_prefix attribute.
     if not hasattr(sys, 'real_prefix'):
         args.append("--user")
     return args
@@ -134,10 +140,7 @@ def command_install(bucket, requirements, verbose=False,
         pip_args = get_pip_args(archives_url)
         run_pip_uninstall(OBSOLETE)
         run_pip_install(pip_args, requirements, verbose=verbose)
-        if requirements_py3 and is_py3_supported():
-            run_pip3_install(pip_args, requirements_py3, verbose=verbose)
-        else:
-            print('Python 3 is not installed.')
+        run_pip3_install(pip_args, requirements_py3, verbose=verbose)
 
 
 def command_update(s3, requirements, verbose=False):
@@ -181,7 +184,7 @@ def get_parser(argv0):
         "--requirements", default=get_requirements(), type=os.path.expanduser,
         help="Location requirements file to use.")
     parser.add_argument(
-        "--requirements_py3", default=get_requirements(),
+        "--requirements_py3", default=get_requirements(python3=True),
         type=os.path.expanduser,
         help="Location requirements file to use for Python 3.")
     subparsers = parser.add_subparsers(dest="command")
