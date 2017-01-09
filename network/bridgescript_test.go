@@ -240,6 +240,7 @@ func (s *bridgeConfigSuite) dryRunExpectedOutputHelper(isBonded, isAlreadyBridge
 		output = append(output, "**** Original configuration")
 		output = append(output, fmt.Sprintf("cat %s", s.testConfigPath))
 		output = append(output, "ifconfig -a")
+		output = append(output, "ip route show")
 		output = append(output, fmt.Sprintf("ifdown --exclude=lo --interfaces=%[1]s %s", s.testConfigPath, strings.Join(interfacesToBridge, " ")))
 		output = append(output, "**** Activating new configuration")
 		if isBonded {

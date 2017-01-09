@@ -432,6 +432,7 @@ def main(args):
     print("**** Original configuration")
     shell_cmd("cat {}".format(args.filename), dry_run=args.dry_run)
     shell_cmd("ifconfig -a", dry_run=args.dry_run)
+    shell_cmd("ip route show", dry_run=args.dry_run)
     shell_cmd("ifdown --exclude=lo --interfaces={} {}".format(args.filename, " ".join(interfaces)), dry_run=args.dry_run)
 
     print("**** Activating new configuration")
