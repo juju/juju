@@ -29,7 +29,6 @@ from jujupy.client import (
     SYSTEM,
     unqualified_model_name,
     UpgradeMongoNotSupported,
-    VersionNotTestedError,
     )
 from utility import (
     ensure_deleted,
@@ -39,6 +38,13 @@ from utility import (
 
 
 log = logging.getLogger("jujupy.version_client")
+
+
+class VersionNotTestedError(Exception):
+
+    def __init__(self, version):
+        super(VersionNotTestedError, self).__init__(
+            'Tests for juju {} are no longer supported.'.format(version))
 
 
 class Juju1XBackend(Juju2Backend):
