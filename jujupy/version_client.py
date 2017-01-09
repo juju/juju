@@ -8,14 +8,12 @@ import subprocess
 import yaml
 
 from jujupy.client import (
-    BootstrapMismatch,
     Controller,
     _DEFAULT_BUNDLE_TIMEOUT,
     EnvJujuClient,
     get_cache_path,
     get_jenv_path,
     get_teardown_timeout,
-    IncompatibleConfigClass,
     JESNotSupported,
     _jes_cmds,
     Juju2Backend,
@@ -38,6 +36,18 @@ from utility import (
 
 
 log = logging.getLogger("jujupy.version_client")
+
+
+class BootstrapMismatch(Exception):
+
+    def __init__(self, arg_name, arg_val, env_name, env_val):
+        super(BootstrapMismatch, self).__init__(
+            '--{} {} does not match {}: {}'.format(
+                arg_name, arg_val, env_name, env_val))
+
+
+class IncompatibleConfigClass(Exception):
+    """Raised when a client is initialised with the wrong config class."""
 
 
 class VersionNotTestedError(Exception):

@@ -6,7 +6,6 @@ from jujupy.client import (
     get_cache_path,
     get_machine_dns_name,
     get_timeout_prefix,
-    IncompatibleConfigClass,
     InvalidEndpoint,
     jes_home_path,
     JESNotSupported,
@@ -34,6 +33,7 @@ from jujupy.version_client import (
     EnvJujuClient1X,
     EnvJujuClient25,
     get_client_class,
+    IncompatibleConfigClass,
     )
 
 __all__ = [

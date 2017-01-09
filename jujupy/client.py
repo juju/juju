@@ -92,10 +92,6 @@ class StatusTimeout(Exception):
     """Raised when 'juju status' timed out."""
 
 
-class IncompatibleConfigClass(Exception):
-    """Raised when a client is initialised with the wrong config class."""
-
-
 class SoftDeadlineExceeded(Exception):
     """Raised when an overall client operation takes too long."""
 
@@ -159,14 +155,6 @@ class ErroredUnit(Exception):
         Exception.__init__(self, msg)
         self.unit_name = unit_name
         self.state = state
-
-
-class BootstrapMismatch(Exception):
-
-    def __init__(self, arg_name, arg_val, env_name, env_val):
-        super(BootstrapMismatch, self).__init__(
-            '--{} {} does not match {}: {}'.format(
-                arg_name, arg_val, env_name, env_val))
 
 
 class UpgradeMongoNotSupported(Exception):
