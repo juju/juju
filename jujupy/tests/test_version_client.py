@@ -22,11 +22,9 @@ from jujuconfig import (
     get_jenv_path,
     )
 from jujupy.client import (
-    BootstrapMismatch,
     EnvJujuClient,
     CannotConnectEnv,
     GroupReporter,
-    IncompatibleConfigClass,
     JujuData,
     JUJU_DEV_FEATURE_FLAGS,
     JESNotSupported,
@@ -40,12 +38,14 @@ from jujupy.client import (
     WaitMachineNotPresent,
     )
 from jujupy.version_client import (
+    BootstrapMismatch,
     client_from_config,
     EnvJujuClient1X,
     EnvJujuClient22,
     EnvJujuClient24,
     EnvJujuClient25,
     EnvJujuClientRC,
+    IncompatibleConfigClass,
     Juju1XBackend,
     VersionNotTestedError,
     Status1X,
