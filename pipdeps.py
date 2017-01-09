@@ -4,6 +4,7 @@
 from __future__ import print_function
 
 import argparse
+from distutils.version import StrictVersion
 import os
 import platform
 import subprocess
@@ -19,16 +20,22 @@ BUCKET = "juju-pip-archives"
 PREFIX = "juju-ci-tools/"
 REQUIREMENTS = os.path.join(os.path.realpath(os.path.dirname(__file__)),
                             "requirements.txt")
+REQUIREMENTS_PY3 = os.path.join(os.path.realpath(os.path.dirname(__file__)),
+                                "requirements_py3.txt")
 MAC_WIN_REQS = os.path.join(os.path.realpath(os.path.dirname(__file__)),
                             "mac-win-requirements.txt")
 OBSOLETE = os.path.join(os.path.realpath(os.path.dirname(__file__)),
                         "obsolete-requirements.txt")
 
 
-def get_requirements():
+def get_requirements(python3=False):
     if platform.dist()[0] in ('Ubuntu', 'debian'):
+        if python3:
+            return REQUIREMENTS_PY3
         return REQUIREMENTS
     else:
+        if python3:
+            return None
         return MAC_WIN_REQS
 
 
@@ -50,9 +57,30 @@ def s3_auth_with_rc(cloud_city):
     return boto.s3.connection.S3Connection(access_key, secret_key)
 
 
-def run_pip_install(extra_args, requirements, verbose=False):
+def is_py3_supported():
+    """Determine if Python3 and pip3 are installed."""
+    try:
+        version = subprocess.check_output(
+            ['python3', '--version'], stderr=subprocess.STDOUT)
+    except OSError:
+        return False
+    version = version.strip().split()[-1]
+    if StrictVersion(version) < StrictVersion('3.5'):
+        return False
+    try:
+        subprocess.check_call(['pip3', '--version'])
+    except OSError:
+        return False
+    return True
+
+
+def run_pip3_install(extra_args, requirements, verbose=False):
+    run_pip_install(extra_args, requirements, verbose=verbose, cmd=['pip3'])
+
+
+def run_pip_install(extra_args, requirements, verbose=False, cmd=None):
     """Run pip install in a subprocess with given additional arguments."""
-    cmd = ["pip"]
+    cmd = cmd or ['pip']
     if not verbose:
         cmd.append("-q")
     cmd.extend(["install", "-r", requirements])
@@ -85,15 +113,31 @@ def run_pip_uninstall(obsolete_requirements):
         subprocess.check_call(uninstall_cmd)
 
 
-def command_install(bucket, requirements, verbose=False):
+def get_pip_args(archives_url):
+    args = ["--no-index", "--find-links", archives_url]
+    # --user option is invalid when running inside virtualenv.
+    # Inside virtualenv, the sys.prefix points to the virtualenv directory
+    # and sys.real_prefix points to the real prefix
+    # Running outside a virtualenv, sys should not have real_prefix attribute
+    if not hasattr(sys, 'real_prefix'):
+        args.append("--user")
+    return args
+
+
+def command_install(bucket, requirements, verbose=False,
+                    requirements_py3=None):
     with utility.temp_dir() as archives_dir:
         for key in bucket.list(prefix=PREFIX):
             archive = key.name[len(PREFIX):]
             key.get_contents_to_filename(os.path.join(archives_dir, archive))
         archives_url = "file://" + archives_dir
+        pip_args = get_pip_args(archives_url)
         run_pip_uninstall(OBSOLETE)
-        run_pip_install(["--user", "--no-index", "--find-links", archives_url],
-                        requirements, verbose=verbose)
+        run_pip_install(pip_args, requirements, verbose=verbose)
+        if requirements_py3 and is_py3_supported():
+            run_pip3_install(pip_args, requirements_py3, verbose=verbose)
+        else:
+            print('Python 3 is not installed.')
 
 
 def command_update(s3, requirements, verbose=False):
@@ -136,6 +180,10 @@ def get_parser(argv0):
     parser.add_argument(
         "--requirements", default=get_requirements(), type=os.path.expanduser,
         help="Location requirements file to use.")
+    parser.add_argument(
+        "--requirements_py3", default=get_requirements(),
+        type=os.path.expanduser,
+        help="Location requirements file to use for Python 3.")
     subparsers = parser.add_subparsers(dest="command")
     subparsers.add_parser("install", help="Download deps from S3 and install.")
     subparsers.add_parser(
@@ -157,7 +205,8 @@ def main(argv):
     else:
         bucket = s3.get_bucket(BUCKET)
         if args.command == "install":
-            command_install(bucket, args.requirements, args.verbose)
+            command_install(
+                bucket, args.requirements, args.verbose, args.requirements_py3)
         elif args.command == "list":
             command_list(bucket, args.verbose)
         elif args.command == "delete":
