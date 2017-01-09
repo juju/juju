@@ -431,8 +431,9 @@ def main(args):
 
     print("**** Original configuration")
     shell_cmd("cat {}".format(args.filename), dry_run=args.dry_run)
-    shell_cmd("ifconfig -a", dry_run=args.dry_run)
+    shell_cmd("ip -d link show", dry_run=args.dry_run)
     shell_cmd("ip route show", dry_run=args.dry_run)
+    shell_cmd("brctl show", dry_run=args.dry_run)
     shell_cmd("ifdown --exclude=lo --interfaces={} {}".format(args.filename, " ".join(interfaces)), dry_run=args.dry_run)
 
     print("**** Activating new configuration")
@@ -459,8 +460,7 @@ def main(args):
 
     shell_cmd("cat {}".format(args.filename), dry_run=args.dry_run)
     shell_cmd("ifup --exclude=lo --interfaces={} -a".format(args.filename), dry_run=args.dry_run)
-    shell_cmd("ip link show up", dry_run=args.dry_run)
-    shell_cmd("ifconfig -a", dry_run=args.dry_run)
+    shell_cmd("ip -d link show", dry_run=args.dry_run)
     shell_cmd("ip route show", dry_run=args.dry_run)
     shell_cmd("brctl show", dry_run=args.dry_run)
 
