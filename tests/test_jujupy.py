@@ -3533,14 +3533,6 @@ class TestEnvJujuClient(ClientTest):
         mock.assert_called_once_with('sync-tools', ('--local-dir', '/agents'),
                                      include_e=False)
 
-    def test_sync_tools_stream(self):
-        client = EnvJujuClient(JujuData('foo'), None, None)
-        with patch.object(client, 'juju', autospec=True) as mock:
-            client.sync_tools('/agents', "testing")
-        mock.assert_called_once_with(
-            'sync-tools', ('--stream', 'testing', '--local-dir', '/agents'),
-            include_e=False)
-
     def test_generate_tool(self):
         client = EnvJujuClient(JujuData('foo'), None, None)
         with patch.object(client, 'juju', autospec=True) as mock:
