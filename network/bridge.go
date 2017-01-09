@@ -61,7 +61,8 @@ func bestPythonVersion() string {
 
 func (b *etcNetworkInterfacesBridger) Bridge(deviceNames []string) error {
 	cmd := bridgeCmd(deviceNames, b.BridgePrefix, b.Filename, BridgeScriptPythonContent, b.DryRun)
-	logger.Debugf("bridgescript command=%s", cmd)
+	debugCmd := bridgeCmd(deviceNames, b.BridgePrefix, b.Filename, "<script-redacted>", b.DryRun)
+	logger.Debugf("bridgescript command=%s", debugCmd)
 	result, err := runCommand(cmd, b.Environ, b.Clock, b.Timeout)
 	if err != nil {
 		return errors.Errorf("script invocation error: %s", err)
