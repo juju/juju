@@ -84,7 +84,6 @@ from jujupy.client import (
     uniquify_local,
     UnitError,
     UpgradeMongoNotSupported,
-    VersionNotTestedError,
     WaitMachineNotPresent,
     )
 from jujupy.version_client import (
@@ -96,6 +95,7 @@ from jujupy.version_client import (
     EnvJujuClientRC,
     Juju1XBackend,
     Status1X,
+    VersionNotTestedError,
     )
 from tests import (
     assert_juju_call,

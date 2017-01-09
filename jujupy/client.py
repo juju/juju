@@ -190,13 +190,6 @@ class JESByDefault(Exception):
             'This client does not need to enable JES')
 
 
-class VersionNotTestedError(Exception):
-
-    def __init__(self, version):
-        super(VersionNotTestedError, self).__init__(
-            'Tests for juju {} are no longer supported.'.format(version))
-
-
 Machine = namedtuple('Machine', ['machine_id', 'info'])
 
 
