@@ -1,7 +1,7 @@
 p=test*.py
 py3="assess_model_change_watcher.py"
 test:
-	TMPDIR=/tmp python -m unittest discover -vv ./tests -t . -p "$(p)"
+	TMPDIR=/tmp python -m unittest discover -vv . -p "$(p)"
 lint:
 	python3 -m flake8 --builtins xrange,basestring $(py3)
 	flake8 $$(find -name '*.py') --builtins xrange,basestring --exclude $(py3)
