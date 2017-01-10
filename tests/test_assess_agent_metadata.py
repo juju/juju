@@ -23,9 +23,6 @@ from utility import (
     JujuAssertionError,
     )
 
-from remote import (
-    SSHRemote,
-    )
 
 AGENT_FILE = '/stream/juju-2.0.1-xenial-amd64.tgz'
 SAMPLE_SHA256 = \
@@ -240,15 +237,13 @@ class TestAssessMetadata(TestCase):
                             '"size":23539776' \
                             '}' % SAMPLE_SHA256
         controller_url_sha = ['url', SAMPLE_SHA256]
-        remote = SSHRemote(mock_client, 'unit', None, series='xenial')
+        mock_remote = Mock()
+        mock_remote.cat.return_value = download_tool_txt
         with patch('assess_agent_metadata.remote_from_unit', autospec=True,
-                   return_value=remote):
-            with patch.object(remote, 'cat', autospec=True,
-                              return_value=download_tool_txt):
-                with patch(
-                        'assess_agent_metadata.get_controller_url_and_sha256',
-                        return_value=controller_url_sha, autospec=True):
-                    verify_deployed_charm("app", mock_client)
+                   return_value=mock_remote):
+            with patch('assess_agent_metadata.get_controller_url_and_sha256',
+                       return_value=controller_url_sha, autospec=True):
+                verify_deployed_charm("app", mock_client)
 
     def test_verify_deployed_charm_invalid_sha256(self):
         mock_client = Mock()
@@ -259,13 +254,11 @@ class TestAssessMetadata(TestCase):
                             '"size":23539776' \
                             '}' % SAMPLE_SHA256
         controller_url_sha = ['url', "12345"]
-        remote = SSHRemote(mock_client, 'unit', None, series='xenial')
+        mock_remote = Mock()
+        mock_remote.cat.return_value = download_tool_txt
         with patch('assess_agent_metadata.remote_from_unit', autospec=True,
-                   return_value=remote):
-            with patch.object(remote, 'cat', autospec=True,
-                              return_value=download_tool_txt):
-                with patch(
-                        'assess_agent_metadata.get_controller_url_and_sha256',
-                        return_value=controller_url_sha, autospec=True):
-                    with self.assertRaises(JujuAssertionError):
-                        verify_deployed_charm("app", mock_client)
+                   return_value=mock_remote):
+            with patch('assess_agent_metadata.get_controller_url_and_sha256',
+                       return_value=controller_url_sha, autospec=True):
+                with self.assertRaises(JujuAssertionError):
+                    verify_deployed_charm("app", mock_client)
