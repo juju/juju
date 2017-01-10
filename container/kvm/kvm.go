@@ -184,7 +184,6 @@ func (manager *containerManager) CreateContainer(
 	logger.Tracef("create the container, constraints: %v", cons)
 	if err := kvmContainer.Start(startParams); err != nil {
 		err = errors.Annotate(err, "kvm container creation failed")
-		logger.Infof(err.Error())
 		return nil, nil, err
 	}
 	logger.Tracef("kvm container created")

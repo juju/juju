@@ -160,17 +160,17 @@ func CreateMachine(params CreateMachineParams) error {
 
 	err := writeMetadata(templateDir)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Annotate(err, "failed to write instance metadata")
 	}
 
 	dsPath, err := writeDatasourceVolume(params)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Annotatef(err, "failed to write data source volume for %q", params.Host())
 	}
 
 	imgPath, err := writeRootDisk(params)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Annotatef(err, "failed to write root volume for %q", params.Host())
 	}
 
 	params.disks = append(params.disks, diskInfo{source: imgPath, driver: "qcow2"})
@@ -178,20 +178,20 @@ func CreateMachine(params CreateMachineParams) error {
 
 	domainPath, err := writeDomainXML(templateDir, params)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Annotatef(err, "failed to write domain xml for %q", params.Host())
 	}
 
 	out, err := params.runCmdAsRoot("virsh", "define", domainPath)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Annotatef(err, "failed to defined the domain for %q from %s", params.Host(), domainPath)
 	}
-	logger.Debugf("create domain: %s", out)
+	logger.Debugf("created domain: %s", out)
 
 	out, err = params.runCmdAsRoot("virsh", "start", params.Host())
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Annotatef(err, "failed to start domain %q", params.Host())
 	}
-	logger.Debugf("start domain: %s", out)
+	logger.Debugf("started domain: %s", out)
 
 	return err
 }
@@ -244,7 +244,7 @@ func AutostartMachine(c *kvmContainer) error {
 		c.runCmd = run
 	}
 	_, err := c.runCmd("virsh", "autostart", c.Name())
-	return err
+	return errors.Annotatef(err, "failed to autostart domain %q", c.Name())
 }
 
 // ListMachines returns a map of machine name to state, where state is one of:
