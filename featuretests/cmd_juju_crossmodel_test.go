@@ -153,7 +153,7 @@ func (s *crossmodelSuite) TestAddRelationFromURL(c *gc.C) {
 func (s *crossmodelSuite) assertAddRelationSameControllerSuccess(c *gc.C, otherModeluser string) {
 	_, err := runJujuCommand(c, "add-relation", "wordpress", otherModeluser+"/othermodel.mysql")
 	c.Assert(err, jc.ErrorIsNil)
-	svc, err := s.State.RemoteApplication(otherModeluser + "-othermodel-mysql")
+	svc, err := s.State.RemoteApplication("mysql")
 	c.Assert(err, jc.ErrorIsNil)
 	rel, err := svc.Relations()
 	c.Assert(err, jc.ErrorIsNil)
@@ -169,7 +169,7 @@ func (s *crossmodelSuite) assertAddRelationSameControllerSuccess(c *gc.C, otherM
 				Scope:     "global",
 			},
 		}, {
-			ApplicationName: otherModeluser + "-othermodel-mysql",
+			ApplicationName: "mysql",
 			Relation: charm.Relation{Name: "server",
 				Role:      "provider",
 				Interface: "mysql",

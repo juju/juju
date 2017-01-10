@@ -135,6 +135,9 @@ type RemoteApplication interface {
 	// Name returns the name of the remote application.
 	Name() string
 
+	// OfferName returns the name the offering side has given to the remote application..
+	OfferName() string
+
 	// Tag returns the remote applications's tag.
 	Tag() names.Tag
 

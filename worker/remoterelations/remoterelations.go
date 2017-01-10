@@ -256,11 +256,11 @@ type relation struct {
 }
 
 type remoteRelationInfo struct {
-	applicationId               params.RemoteEntityId
-	localEndpoint               params.RemoteEndpoint
-	remoteApplicationLocalAlias string
-	remoteApplicationName       string
-	remoteEndpointName          string
+	applicationId              params.RemoteEntityId
+	localEndpoint              params.RemoteEndpoint
+	remoteApplicationName      string
+	remoteApplicationOfferName string
+	remoteEndpointName         string
 }
 
 func newRemoteApplicationWorker(
@@ -270,19 +270,11 @@ func newRemoteApplicationWorker(
 	newPublisherForModelFunc func(modelUUID string) (RemoteRelationChangePublisherCloser, error),
 	facade RemoteRelationsFacade,
 ) (worker.Worker, error) {
-	// We store the remote application name locally as an alias <user>-<model>-<appname>.
-	// For now, the name of the offering side can be deduced from the alias.
-	// TODO(wallyworld) - record the offering name in the RemoteApplication doc to allow arbitrary aliases
-	offeringName := remoteApplication.Name
-	appNameParts := strings.Split(remoteApplication.Name, "-")
-	if len(appNameParts) == 3 {
-		offeringName = appNameParts[2]
-	}
 	w := &remoteApplicationWorker{
 		relationsWatcher: relationsWatcher,
 		relationInfo: remoteRelationInfo{
-			remoteApplicationName:       offeringName,
-			remoteApplicationLocalAlias: remoteApplication.Name,
+			remoteApplicationOfferName: remoteApplication.OfferName,
+			remoteApplicationName:      remoteApplication.Name,
 		},
 		localModelUUID:  localModelUUID,
 		remoteModelUUID: remoteApplication.ModelUUID,
@@ -471,7 +463,7 @@ func (w *remoteApplicationWorker) registerRemoteRelation(
 		ApplicationId:          remoteApplicationId,
 		RelationId:             remoteRelationId,
 		RemoteEndpoint:         w.relationInfo.localEndpoint,
-		OfferedApplicationName: w.relationInfo.remoteApplicationName,
+		OfferedApplicationName: w.relationInfo.remoteApplicationOfferName,
 		LocalEndpointName:      w.relationInfo.remoteEndpointName,
 	}
 	remoteAppIds, err := publisher.RegisterRemoteRelations(arg)
@@ -489,14 +481,14 @@ func (w *remoteApplicationWorker) registerRemoteRelation(
 	// Import the application id from the offering model.
 	offeringRemoteAppId := remoteAppIds[0].Result
 	logger.Debugf("import remote application token %v from %v for %v",
-		offeringRemoteAppId.Token, offeringRemoteAppId.ModelUUID, w.relationInfo.remoteApplicationLocalAlias)
+		offeringRemoteAppId.Token, offeringRemoteAppId.ModelUUID, w.relationInfo.remoteApplicationName)
 	err = w.facade.ImportRemoteEntity(
 		offeringRemoteAppId.ModelUUID,
-		names.NewApplicationTag(w.relationInfo.remoteApplicationLocalAlias),
+		names.NewApplicationTag(w.relationInfo.remoteApplicationName),
 		offeringRemoteAppId.Token)
 	if err != nil && !params.IsCodeAlreadyExists(err) {
 		return emptyId, emptyId, errors.Annotatef(
-			err, "importing remote application %v to local model", w.relationInfo.remoteApplicationLocalAlias)
+			err, "importing remote application %v to local model", w.relationInfo.remoteApplicationName)
 	}
 	return remoteApplicationId, remoteRelationId, nil
 }

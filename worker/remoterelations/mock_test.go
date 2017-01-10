@@ -188,6 +188,7 @@ func (m *mockRelationsFacade) RemoteApplications(names []string) ([]params.Remot
 			result[i] = params.RemoteApplicationResult{
 				Result: &params.RemoteApplication{
 					Name:       app.name,
+					OfferName:  app.offername,
 					Life:       app.life,
 					Status:     app.status,
 					ModelUUID:  app.modelUUID,
@@ -300,6 +301,7 @@ func (w *mockStringsWatcher) Changes() watcher.StringsChannel {
 type mockRemoteApplication struct {
 	testing.Stub
 	name       string
+	offername  string
 	url        string
 	life       params.Life
 	status     string
@@ -327,7 +329,7 @@ func (w *mockRelationUnitsWatcher) Changes() watcher.RelationUnitsChannel {
 
 func newMockRemoteApplication(name, url string) *mockRemoteApplication {
 	return &mockRemoteApplication{
-		name: name, url: url, life: params.Alive,
+		name: name, url: url, life: params.Alive, offername: "offer-" + name,
 		modelUUID: "remote-model-uuid",
 	}
 }

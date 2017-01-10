@@ -290,7 +290,7 @@ func (s *remoteRelationsSuite) TestRemoteApplications(c *gc.C) {
 	result, err := s.api.RemoteApplications(params.Entities{Entities: []params.Entity{{Tag: "application-django"}}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, jc.DeepEquals, []params.RemoteApplicationResult{{
-		Result: &params.RemoteApplication{Name: "django", Life: "alive", ModelUUID: "model-uuid"}}})
+		Result: &params.RemoteApplication{Name: "django", OfferName: "django-alias", Life: "alive", ModelUUID: "model-uuid"}}})
 	s.st.CheckCalls(c, []testing.StubCall{
 		{"RemoteApplication", []interface{}{"django"}},
 	})

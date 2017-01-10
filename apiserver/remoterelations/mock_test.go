@@ -268,6 +268,7 @@ func (r *mockRelation) WatchUnits(applicationName string) (state.RelationUnitsWa
 type mockRemoteApplication struct {
 	testing.Stub
 	name       string
+	alias      string
 	url        string
 	life       state.Life
 	status     status.Status
@@ -277,13 +278,18 @@ type mockRemoteApplication struct {
 
 func newMockRemoteApplication(name, url string) *mockRemoteApplication {
 	return &mockRemoteApplication{
-		name: name, url: url, life: state.Alive,
+		name: name, alias: name + "-alias", url: url, life: state.Alive,
 	}
 }
 
 func (r *mockRemoteApplication) Name() string {
 	r.MethodCall(r, "Name")
 	return r.name
+}
+
+func (r *mockRemoteApplication) OfferName() string {
+	r.MethodCall(r, "OfferName")
+	return r.alias
 }
 
 func (r *mockRemoteApplication) Tag() names.Tag {
