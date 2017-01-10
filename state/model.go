@@ -865,7 +865,7 @@ func (m *Model) destroyOps(ensureNoHostedModels, ensureEmpty bool) ([]txn.Op, er
 		// that case we'll get errors if we try to enqueue hosted-model
 		// cleanups, because the cleanups collection is non-global.
 		cleanupMachinesOp := newCleanupOp(cleanupMachinesForDyingModel, modelUUID)
-		cleanupServicesOp := newCleanupOp(cleanupServicesForDyingModel, modelUUID)
+		cleanupServicesOp := newCleanupOp(cleanupApplicationsForDyingModel, modelUUID)
 		ops = append(ops, cleanupMachinesOp, cleanupServicesOp)
 	}
 	return append(prereqOps, ops...), nil

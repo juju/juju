@@ -2014,32 +2014,49 @@ func (s *serviceSuite) TestBlockChangesServiceUnexpose(c *gc.C) {
 	s.assertServiceUnexposeBlocked(c, svc, "TestBlockChangesServiceUnexpose")
 }
 
-var serviceDestroyTests = []struct {
-	about   string
-	service string
-	err     string
+var applicationDestroyTests = []struct {
+	about       string
+	application string
+	err         string
 }{
 	{
-		about:   "unknown application name",
-		service: "unknown-service",
-		err:     `application "unknown-service" not found`,
+		about:       "unknown application name",
+		application: "unknown-application",
+		err:         `application "unknown-application" not found`,
 	},
 	{
-		about:   "destroy a service",
-		service: "dummy-service",
+		about:       "destroy an application",
+		application: "dummy-application",
 	},
 	{
-		about:   "destroy an already destroyed service",
-		service: "dummy-service",
-		err:     `application "dummy-service" not found`,
+		about:       "destroy an already destroyed application",
+		application: "dummy-application",
+		err:         `application "dummy-application" not found`,
+	},
+	{
+		about:       "destroy a remote application",
+		application: "remote-application",
+	},
+	{
+		about:       "destroy an already destroyed remote application",
+		application: "remote-application",
+		err:         `application "remote-application" not found`,
 	},
 }
 
-func (s *serviceSuite) TestServiceDestroy(c *gc.C) {
-	s.AddTestingService(c, "dummy-service", s.AddTestingCharm(c, "dummy"))
-	for i, t := range serviceDestroyTests {
+func (s *serviceSuite) TestApplicationDestroy(c *gc.C) {
+	s.AddTestingService(c, "dummy-application", s.AddTestingCharm(c, "dummy"))
+	_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name:        "remote-application",
+		URL:         "local:/u/me/remote",
+		SourceModel: s.State.ModelTag(),
+		Token:       "t0",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	for i, t := range applicationDestroyTests {
 		c.Logf("test %d. %s", i, t.about)
-		err := s.applicationAPI.Destroy(params.ApplicationDestroy{t.service})
+		err := s.applicationAPI.Destroy(params.ApplicationDestroy{t.application})
 		if t.err != "" {
 			c.Assert(err, gc.ErrorMatches, t.err)
 		} else {
@@ -2047,7 +2064,7 @@ func (s *serviceSuite) TestServiceDestroy(c *gc.C) {
 		}
 	}
 
-	// Now do Destroy on a service with units. Destroy will
+	// Now do Destroy on an application with units. Destroy will
 	// cause the service to be not-Alive, but will not remove its
 	// document.
 	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
