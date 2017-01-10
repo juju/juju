@@ -66,11 +66,10 @@ func (s *applicationdirectorySuite) SetUpTest(c *gc.C) {
 	s.applicationdirectory = s.constructApplicationDirectory()
 
 	var err error
-	serviceAPIFactory, err := crossmodel.NewServiceAPIFactory(
+	serviceAPIFactory := crossmodel.NewServiceAPIFactory(
 		func() jujucrossmodel.ApplicationDirectory { return s.applicationdirectory },
 		nil,
 	)
-	c.Assert(err, jc.ErrorIsNil)
 	s.api, err = crossmodel.CreateApplicationOffersAPI(serviceAPIFactory, s.authoriser)
 	c.Assert(err, jc.ErrorIsNil)
 }
