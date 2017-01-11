@@ -2469,14 +2469,14 @@ func (s *serviceSuite) assertAddRelation(c *gc.C, endpoints []string) {
 	var mySqlApplication state.ApplicationEntity
 	mySqlApplication, err = s.State.RemoteApplication("hosted-mysql")
 	if errors.IsNotFound(err) {
-		mySqlApplication, err = s.State.RemoteApplication("admin-othermodel-mysql")
+		mySqlApplication, err = s.State.RemoteApplication("othermysql")
 		if errors.IsNotFound(err) {
 			mySqlApplication, err = s.State.Application("mysql")
 			c.Assert(err, jc.ErrorIsNil)
 			s.checkEndpoints(c, "mysql", res.Endpoints)
 		} else {
 			c.Assert(err, jc.ErrorIsNil)
-			s.checkEndpoints(c, "admin-othermodel-mysql", res.Endpoints)
+			s.checkEndpoints(c, "othermysql", res.Endpoints)
 		}
 	} else {
 		c.Assert(err, jc.ErrorIsNil)
@@ -2608,11 +2608,11 @@ func (s *serviceSuite) addTestingCharmOtherModel(c *gc.C, name string) *state.Ch
 
 func (s *serviceSuite) TestSuccessfullyAddRemoteRelationOtherModel(c *gc.C) {
 	_, err := s.otherModel.AddApplication(state.AddApplicationArgs{
-		Name:  "mysql",
+		Name:  "othermysql",
 		Charm: s.addTestingCharmOtherModel(c, "mysql"),
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	endpoints := []string{"wordpress", "othermodel.mysql"}
+	endpoints := []string{"wordpress", "othermodel.othermysql"}
 	s.assertAddRelation(c, endpoints)
 }
 
@@ -2624,11 +2624,11 @@ func (s *serviceSuite) TestSuccessfullyAddRemoteRelationWithRelName(c *gc.C) {
 
 func (s *serviceSuite) TestSuccessfullyAddRemoteRelationOtherModelWithRelName(c *gc.C) {
 	_, err := s.otherModel.AddApplication(state.AddApplicationArgs{
-		Name:  "mysql",
+		Name:  "othermysql",
 		Charm: s.addTestingCharmOtherModel(c, "mysql"),
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	endpoints := []string{"wordpress", "othermodel.mysql:server"}
+	endpoints := []string{"wordpress", "othermodel.othermysql:server"}
 	s.assertAddRelation(c, endpoints)
 }
 
@@ -2641,11 +2641,11 @@ func (s *serviceSuite) TestAddRemoteRelationOnlyOneEndpoint(c *gc.C) {
 
 func (s *serviceSuite) TestAddRemoteRelationOtherModelOnlyOneEndpoint(c *gc.C) {
 	_, err := s.otherModel.AddApplication(state.AddApplicationArgs{
-		Name:  "mysql",
+		Name:  "othermysql",
 		Charm: s.addTestingCharmOtherModel(c, "mysql"),
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	endpoints := []string{"othermodel.mysql"}
+	endpoints := []string{"othermodel.othermysql"}
 	_, err = s.applicationAPI.AddRelation(params.AddRelation{endpoints})
 	c.Assert(err, gc.ErrorMatches, "no relations found")
 }
@@ -2658,21 +2658,21 @@ func (s *serviceSuite) TestAlreadyAddedRemoteRelation(c *gc.C) {
 
 	// And try to add it again.
 	_, err := s.applicationAPI.AddRelation(params.AddRelation{endpoints})
-	c.Assert(err, gc.ErrorMatches, `cannot add relation "wordpress:db hosted-mysql:server": relation wordpress:db hosted-mysql:server already exists`)
+	c.Assert(err, gc.ErrorMatches, `cannot add remote application "hosted-mysql": remote application already exists`)
 }
 
 func (s *serviceSuite) TestAlreadyAddedRemoteRelationOtherModel(c *gc.C) {
 	_, err := s.otherModel.AddApplication(state.AddApplicationArgs{
-		Name:  "mysql",
+		Name:  "othermysql",
 		Charm: s.addTestingCharmOtherModel(c, "mysql"),
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	endpoints := []string{"wordpress", "othermodel.mysql"}
+	endpoints := []string{"wordpress", "othermodel.othermysql"}
 	s.assertAddRelation(c, endpoints)
 
 	// And try to add it again.
 	_, err = s.applicationAPI.AddRelation(params.AddRelation{endpoints})
-	c.Assert(err, gc.ErrorMatches, `cannot add relation "wordpress:db admin-othermodel-mysql:server": relation wordpress:db admin-othermodel-mysql:server already exists`)
+	c.Assert(err, gc.ErrorMatches, `cannot add remote application "othermysql": remote application already exists`)
 }
 
 func (s *serviceSuite) TestRemoteRelationInvalidEndpoint(c *gc.C) {
@@ -2685,14 +2685,14 @@ func (s *serviceSuite) TestRemoteRelationInvalidEndpoint(c *gc.C) {
 
 func (s *serviceSuite) TestRemoteRelationInvalidEndpointOtherModel(c *gc.C) {
 	_, err := s.otherModel.AddApplication(state.AddApplicationArgs{
-		Name:  "mysql",
+		Name:  "othermysql",
 		Charm: s.addTestingCharmOtherModel(c, "mysql"),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-	endpoints := []string{"wordpress", "othermodel.mysql:nope"}
+	endpoints := []string{"wordpress", "othermodel.othermysql:nope"}
 	_, err = s.applicationAPI.AddRelation(params.AddRelation{endpoints})
-	c.Assert(err, gc.ErrorMatches, `remote application "admin-othermodel-mysql" has no "nope" relation`)
+	c.Assert(err, gc.ErrorMatches, `remote application "othermysql" has no "nope" relation`)
 }
 
 func (s *serviceSuite) TestRemoteRelationNoMatchingEndpoint(c *gc.C) {
@@ -2870,8 +2870,8 @@ func (s *serviceSuite) TestBlockDestroyDestroyRelation(c *gc.C) {
 }
 
 func (s *serviceSuite) TestConsumeRejectsEndpoints(c *gc.C) {
-	results, err := s.applicationAPI.Consume(params.ApplicationURLs{
-		ApplicationURLs: []string{"othermodel.application:db"},
+	results, err := s.applicationAPI.Consume(params.ConsumeApplicationArgs{
+		Args: []params.ConsumeApplicationArg{{ApplicationURL: "othermodel.application:db"}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
@@ -2881,8 +2881,8 @@ func (s *serviceSuite) TestConsumeRejectsEndpoints(c *gc.C) {
 
 func (s *serviceSuite) TestConsumeRequiresFeatureFlag(c *gc.C) {
 	s.SetFeatureFlags()
-	_, err := s.applicationAPI.Consume(params.ApplicationURLs{
-		ApplicationURLs: []string{"othermodel.application:db"},
+	_, err := s.applicationAPI.Consume(params.ConsumeApplicationArgs{
+		Args: []params.ConsumeApplicationArg{{ApplicationURL: "othermodel.application:db"}},
 	})
 	c.Assert(err, gc.ErrorMatches, `set "cross-model" feature flag to enable consuming remote applications`)
 }
@@ -2898,26 +2898,58 @@ func (s *serviceSuite) TestConsumeDirectAndURL(c *gc.C) {
 		Charm: s.addTestingCharmOtherModel(c, "riak"),
 	})
 	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.otherModel.AddApplication(state.AddApplicationArgs{
+		Name:  "wordpress",
+		Charm: s.addTestingCharmOtherModel(c, "wordpress"),
+	})
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Offer mysql via the directory.
 	s.offersApiFactory.offers = remoteOffers()
 
-	results, err := s.applicationAPI.Consume(params.ApplicationURLs{
-		ApplicationURLs: []string{"othermodel.riak", "local:/u/me/hosted-mysql"},
+	results, err := s.applicationAPI.Consume(params.ConsumeApplicationArgs{
+		Args: []params.ConsumeApplicationArg{
+			{ApplicationURL: "othermodel.riak", ApplicationAlias: "foo"},
+			{ApplicationURL: "othermodel.wordpress"},
+			{ApplicationURL: "local:/u/me/hosted-mysql"},
+		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.ConsumeApplicationResults{
 		Results: []params.ConsumeApplicationResult{
-			{LocalName: "admin-othermodel-riak"},
+			{LocalName: "foo"},
+			{LocalName: "wordpress"},
 			{LocalName: "hosted-mysql"},
 		},
 	})
 
 	// Check that the remote applications were created.
-	_, err = s.State.RemoteApplication("admin-othermodel-riak")
+	remoteApp, err := s.State.RemoteApplication("foo")
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.RemoteApplication("hosted-mysql")
+	c.Assert(remoteApp.OfferName(), gc.Equals, "riak")
+	remoteApp, err = s.State.RemoteApplication("wordpress")
+	c.Assert(remoteApp.OfferName(), gc.Equals, "wordpress")
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *serviceSuite) TestConsumeAlreadyExists(c *gc.C) {
+	_, err := s.otherModel.AddApplication(state.AddApplicationArgs{
+		Name:  "mysql",
+		Charm: s.addTestingCharmOtherModel(c, "mysql"),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	results, err := s.applicationAPI.Consume(params.ConsumeApplicationArgs{
+		Args: []params.ConsumeApplicationArg{
+			{ApplicationURL: "othermodel.mysql"},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Error, gc.DeepEquals, &params.Error{
+		Message: `cannot add remote application "mysql": local application with same name already exists`,
+		Code:    "already exists",
+	})
 }
 
 func (s *serviceSuite) TestConsumingAndAddingRelation(c *gc.C) {
@@ -2927,8 +2959,10 @@ func (s *serviceSuite) TestConsumingAndAddingRelation(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.offersApiFactory.offers = remoteOffers()
-	_, err = s.applicationAPI.Consume(params.ApplicationURLs{
-		ApplicationURLs: []string{"local:/u/me/hosted-mysql"},
+	_, err = s.applicationAPI.Consume(params.ConsumeApplicationArgs{
+		Args: []params.ConsumeApplicationArg{
+			{ApplicationURL: "local:/u/me/hosted-mysql"},
+		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 

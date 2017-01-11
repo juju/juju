@@ -36,7 +36,7 @@ func (s *ConsumeSuite) TestNoArguments(c *gc.C) {
 }
 
 func (s *ConsumeSuite) TestTooManyArguments(c *gc.C) {
-	_, err := s.runConsume(c, "model.application", "something else")
+	_, err := s.runConsume(c, "model.application", "alias", "something else")
 	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["something else"\]`)
 }
 
@@ -60,17 +60,25 @@ func (s *ConsumeSuite) TestErrorFromAPI(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "infirmary")
 }
 
-func (s *ConsumeSuite) TestSuccessUrl(c *gc.C) {
-	s.mockAPI.localName = "careless-love"
-	ctx, err := s.runConsume(c, "local:/u/james/hill")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(coretesting.Stderr(ctx), gc.Equals, "Added local:/u/james/hill as careless-love\n")
-}
-
 func (s *ConsumeSuite) TestSuccessModelDotApplication(c *gc.C) {
 	s.mockAPI.localName = "mary-weep"
 	ctx, err := s.runConsume(c, "booster.uke")
 	c.Assert(err, jc.ErrorIsNil)
+	s.mockAPI.CheckCalls(c, []testing.StubCall{
+		{"Consume", []interface{}{"booster.uke", ""}},
+		{"Close", nil},
+	})
+	c.Assert(coretesting.Stderr(ctx), gc.Equals, "Added booster.uke as mary-weep\n")
+}
+
+func (s *ConsumeSuite) TestSuccessModelDotApplicationWithAlias(c *gc.C) {
+	s.mockAPI.localName = "mary-weep"
+	ctx, err := s.runConsume(c, "booster.uke", "alias")
+	c.Assert(err, jc.ErrorIsNil)
+	s.mockAPI.CheckCalls(c, []testing.StubCall{
+		{"Consume", []interface{}{"booster.uke", "alias"}},
+		{"Close", nil},
+	})
 	c.Assert(coretesting.Stderr(ctx), gc.Equals, "Added booster.uke as mary-weep\n")
 }
 
@@ -85,7 +93,7 @@ func (a *mockConsumeAPI) Close() error {
 	return a.NextErr()
 }
 
-func (a *mockConsumeAPI) Consume(remoteApplication string) (string, error) {
-	a.MethodCall(a, "Consume", remoteApplication)
+func (a *mockConsumeAPI) Consume(remoteApplication, alias string) (string, error) {
+	a.MethodCall(a, "Consume", remoteApplication, alias)
 	return a.localName, a.NextErr()
 }

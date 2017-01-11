@@ -261,13 +261,14 @@ func (s *remoteApplicationSuite) TestAddRemoteApplicationErrors(c *gc.C) {
 
 func (s *remoteApplicationSuite) TestAddRemoteApplication(c *gc.C) {
 	foo, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
-		Name: "foo", URL: "local:/u/me/foo", SourceModel: s.State.ModelTag()})
+		Name: "foo", OfferName: "bar", URL: "local:/u/me/foo", SourceModel: s.State.ModelTag()})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(foo.Name(), gc.Equals, "foo")
 	c.Assert(foo.Registered(), jc.IsFalse)
 	foo, err = s.State.RemoteApplication("foo")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(foo.Name(), gc.Equals, "foo")
+	c.Assert(foo.OfferName(), gc.Equals, "bar")
 	c.Assert(foo.Registered(), jc.IsFalse)
 	c.Assert(foo.SourceModel().Id(), gc.Equals, s.State.ModelTag().Id())
 }

@@ -6,6 +6,7 @@ package application
 import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/application"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -46,13 +47,14 @@ type consumeCommand struct {
 	modelcmd.ModelCommandBase
 	api               applicationConsumeAPI
 	remoteApplication string
+	applicationAlias  string
 }
 
 // Info implements cmd.Command.
 func (c *consumeCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "consume",
-		Args:    "<remote application>",
+		Args:    "<remote application> [<local application name>]",
 		Purpose: usageConsumeSummary,
 		Doc:     usageConsumeDetails,
 	}
@@ -71,7 +73,14 @@ func (c *consumeCommand) Init(args []string) error {
 	if url.HasEndpoint() {
 		return errors.Errorf("remote application %q shouldn't include endpoint", c.remoteApplication)
 	}
-	return cmd.CheckEmpty(args[1:])
+	if len(args) > 1 {
+		if !names.IsValidApplication(args[1]) {
+			return errors.Errorf("invalid application name %q", args[1])
+		}
+		c.applicationAlias = args[1]
+		return cmd.CheckEmpty(args[2:])
+	}
+	return nil
 }
 
 func (c *consumeCommand) getAPI() (applicationConsumeAPI, error) {
@@ -93,7 +102,7 @@ func (c *consumeCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 	defer client.Close()
-	localName, err := client.Consume(c.remoteApplication)
+	localName, err := client.Consume(c.remoteApplication, c.applicationAlias)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -103,5 +112,5 @@ func (c *consumeCommand) Run(ctx *cmd.Context) error {
 
 type applicationConsumeAPI interface {
 	Close() error
-	Consume(remoteApplication string) (string, error)
+	Consume(remoteApplication, alias string) (string, error)
 }

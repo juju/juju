@@ -132,6 +132,20 @@ type ApplicationURLs struct {
 	ApplicationURLs []string `json:"application-urls,omitempty"`
 }
 
+// ConsumeApplicationArg holds the arguments for consuming a remote application.
+type ConsumeApplicationArg struct {
+	// ApplicationURLs contains collection of urls for applications that are to be shown.
+	ApplicationURL string `json:"application-url"`
+
+	// ApplicationAlias is the name of the alias to use for the application name.
+	ApplicationAlias string `json:"application-alias,omitempty"`
+}
+
+// ConsumeApplicationArgs is a collection of arg for consuming applications.
+type ConsumeApplicationArgs struct {
+	Args []ConsumeApplicationArg `json:"args,omitempty"`
+}
+
 // OfferedApplication represents attributes for an offered application.
 type OfferedApplication struct {
 	ApplicationURL  string            `json:"application-url"`
@@ -271,6 +285,9 @@ type RemoteRelationResults struct {
 type RemoteApplication struct {
 	// Name is the name of the application.
 	Name string `json:"name"`
+
+	// OfferName is the name of the application on the offering side.
+	OfferName string `json:"offer-name"`
 
 	// Life is the current lifecycle state of the application.
 	Life Life `json:"life"`

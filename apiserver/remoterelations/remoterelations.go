@@ -263,6 +263,7 @@ func (api *RemoteRelationsAPI) RemoteApplications(entities params.Entities) (par
 		}
 		return &params.RemoteApplication{
 			Name:       remoteApp.Name(),
+			OfferName:  remoteApp.OfferName(),
 			Life:       params.Life(remoteApp.Life().String()),
 			Status:     status.Status.String(),
 			ModelUUID:  remoteApp.SourceModel().Id(),

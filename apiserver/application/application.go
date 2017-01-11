@@ -7,7 +7,6 @@
 package application
 
 import (
-	"fmt"
 	"regexp"
 
 	"github.com/juju/errors"
@@ -750,7 +749,8 @@ func (api *API) AddRelation(args params.AddRelation) (params.AddRelationResults,
 			continue
 		}
 		// Save the remote application details into state.
-		remoteApp, err := api.processRemoteApplication(*url)
+		// TODO(wallyworld) - allow app name to be aliased
+		remoteApp, err := api.processRemoteApplication(*url, url.ApplicationName)
 		if err != nil {
 			return params.AddRelationResults{}, errors.Trace(err)
 		}
@@ -791,14 +791,14 @@ func (api *API) AddRelation(args params.AddRelation) (params.AddRelationResults,
 // processRemoteApplication takes a remote application URL and retrieves or confirms the the details
 // of the application and endpoint. These details are saved to the state model so relations to
 // the remote application can be created.
-func (api *API) processRemoteApplication(url jujucrossmodel.ApplicationURL) (*state.RemoteApplication, error) {
+func (api *API) processRemoteApplication(url jujucrossmodel.ApplicationURL, alias string) (*state.RemoteApplication, error) {
 	// The application URL is either for an application in another model on this controller,
 	// or is for an application offer contained in a directory.
 	if url.Directory == "" {
 		if url.ModelName == "" {
 			return nil, errors.Errorf("missing model name in URL %q", url.String())
 		}
-		return api.processSameControllerRemoteApplication(url)
+		return api.processSameControllerRemoteApplication(url, alias)
 	}
 
 	offersAPI, err := api.applicationOffersAPIFactory.ApplicationOffers(url.Directory)
@@ -830,7 +830,7 @@ func (api *API) processRemoteApplication(url jujucrossmodel.ApplicationURL) (*st
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return api.saveRemoteApplication(sourceModelTag, url.ApplicationName, url.String(), offer.Endpoints)
+	return api.saveRemoteApplication(sourceModelTag, url.ApplicationName, url.ApplicationName, url.String(), offer.Endpoints)
 }
 
 func (api *API) sameControllerSourceModel(userName string, url jujucrossmodel.ApplicationURL) (names.ModelTag, error) {
@@ -857,7 +857,7 @@ func (api *API) sameControllerSourceModel(userName string, url jujucrossmodel.Ap
 
 // processSameControllerRemoteApplication handles the case where we have an application
 // from another model on the same controller.
-func (api *API) processSameControllerRemoteApplication(url jujucrossmodel.ApplicationURL) (*state.RemoteApplication, error) {
+func (api *API) processSameControllerRemoteApplication(url jujucrossmodel.ApplicationURL, alias string) (*state.RemoteApplication, error) {
 	// The user name is either specified in URL, or else we default to
 	// the logged in user.
 	userName := url.User
@@ -901,25 +901,18 @@ func (api *API) processSameControllerRemoteApplication(url jujucrossmodel.Applic
 			Limit:     ep.Limit,
 		}
 	}
-	// TODO(wallyworld) - allow remote app name to be specified by the user
-	// to override this default
-	remoteAppName := fmt.Sprintf("%s-%s-%s", userName, url.ModelName, url.ApplicationName)
-	return api.saveRemoteApplication(sourceModelTag, remoteAppName, url.String(), endpoints)
+	appName := alias
+	if appName == "" {
+		appName = url.ApplicationName
+	}
+	return api.saveRemoteApplication(sourceModelTag, appName, url.ApplicationName, url.String(), endpoints)
 }
 
 // saveRemoteApplication saves the details of the specified remote application and its endpoints
 // to the state model so relations to the remote application can be created.
 func (api *API) saveRemoteApplication(
-	sourceModelTag names.ModelTag, applicationName, url string, endpoints []params.RemoteEndpoint,
+	sourceModelTag names.ModelTag, applicationName, offerName, url string, endpoints []params.RemoteEndpoint,
 ) (*state.RemoteApplication, error) {
-	remoteApp, err := api.backend.RemoteApplication(applicationName)
-	if err != nil && !errors.IsNotFound(err) {
-		return nil, errors.Trace(err)
-	}
-	if err == nil {
-		// TODO (wallyworld) - update service if it exists already with any additional endpoints
-		return remoteApp, nil
-	}
 	remoteEps := make([]charm.Relation, len(endpoints))
 	for j, ep := range endpoints {
 		remoteEps[j] = charm.Relation{
@@ -930,22 +923,15 @@ func (api *API) saveRemoteApplication(
 			Scope:     ep.Scope,
 		}
 	}
-	remoteApp, err = api.backend.AddRemoteApplication(state.AddRemoteApplicationParams{
+	remoteApp, err := api.backend.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name:        applicationName,
+		OfferName:   offerName,
 		URL:         url,
 		SourceModel: sourceModelTag,
 		Endpoints:   remoteEps,
 	})
 	if err != nil {
-		if !errors.IsAlreadyExists(err) {
-			return nil, errors.Trace(err)
-		}
-		// Remote application didn't exist but now there's a clash
-		// trying to save it. It could be a local application with the
-		// same name or a remote application with the same name but we
-		// have no idea whether endpoints are compatible or not.
-		// Best just to error.
-		return nil, errors.Annotatef(err, "saving endpoints for application at URL %q", url)
+		return nil, errors.Trace(err)
 	}
 	return remoteApp, nil
 }
@@ -1092,7 +1078,7 @@ func (api *API) charmIcon(backend Backend, curl *charm.URL) ([]byte, error) {
 
 // Consume adds remote applications to the model without creating any
 // relations.
-func (api *API) Consume(args params.ApplicationURLs) (params.ConsumeApplicationResults, error) {
+func (api *API) Consume(args params.ConsumeApplicationArgs) (params.ConsumeApplicationResults, error) {
 	var consumeResults params.ConsumeApplicationResults
 	if err := api.checkCanWrite(); err != nil {
 		return consumeResults, err
@@ -1107,9 +1093,9 @@ func (api *API) Consume(args params.ApplicationURLs) (params.ConsumeApplicationR
 		)
 		return consumeResults, err
 	}
-	results := make([]params.ConsumeApplicationResult, len(args.ApplicationURLs))
-	for i, applicationURL := range args.ApplicationURLs {
-		localName, err := api.consumeOne(applicationURL)
+	results := make([]params.ConsumeApplicationResult, len(args.Args))
+	for i, arg := range args.Args {
+		localName, err := api.consumeOne(arg.ApplicationURL, arg.ApplicationAlias)
 		results[i].LocalName = localName
 		results[i].Error = common.ServerError(err)
 	}
@@ -1117,7 +1103,7 @@ func (api *API) Consume(args params.ApplicationURLs) (params.ConsumeApplicationR
 	return consumeResults, nil
 }
 
-func (api *API) consumeOne(possibleURL string) (string, error) {
+func (api *API) consumeOne(possibleURL, alias string) (string, error) {
 	url, err := jujucrossmodel.ParseApplicationURL(possibleURL)
 	if err != nil {
 		return "", errors.Trace(err)
@@ -1125,7 +1111,7 @@ func (api *API) consumeOne(possibleURL string) (string, error) {
 	if url.HasEndpoint() {
 		return "", errors.Errorf("remote application %q shouldn't include endpoint", url)
 	}
-	remoteApp, err := api.processRemoteApplication(*url)
+	remoteApp, err := api.processRemoteApplication(*url, alias)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
