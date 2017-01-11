@@ -5,24 +5,16 @@ package kvm
 
 import (
 	"os"
+	"runtime"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils/arch"
 	"github.com/juju/utils/packaging/manager"
 	"github.com/juju/utils/series"
 
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/juju/paths"
 )
-
-var requiredPackages = []string{
-	// `qemu-kvm` must be installed before `libvirt-bin` on trusty. It appears
-	// that upstart doesn't reload libvirtd if installed after, and we see
-	// errors related to `qemu-kvm` not being installed.
-	"qemu-kvm",
-	"genisoimage",
-	"libvirt-bin",
-	"qemu-utils",
-}
 
 type containerInitialiser struct{}
 
@@ -73,13 +65,31 @@ func ensureDependencies() error {
 		return err
 	}
 
-	for _, pack := range requiredPackages {
+	for _, pack := range getRequiredPackages(runtime.GOARCH) {
 		if err := pacman.Install(pack); err != nil {
 			return err
 		}
 	}
 
 	return nil
+}
+
+func getRequiredPackages(a string) []string {
+	var requiredPackages = []string{
+		// `qemu-kvm` must be installed before `libvirt-bin` on trusty. It appears
+		// that upstart doesn't reload libvirtd if installed after, and we see
+		// errors related to `qemu-kvm` not being installed.
+		"qemu-kvm",
+		"qemu-utils",
+		"genisoimage",
+		"libvirt-bin",
+	}
+	if a == arch.ARM64 {
+		// ARM64 doesn't support legacy BIOS so it requires Extensible Firmware
+		// Interface.
+		requiredPackages = append([]string{"qemu-efi"}, requiredPackages...)
+	}
+	return requiredPackages
 }
 
 // createPool creates the libvirt storage pool directory. runCmd and chownFunc
