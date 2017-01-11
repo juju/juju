@@ -154,6 +154,8 @@ def deploy_charm_and_verify(client, series="xenial", charm_app="dummy-source"):
         charm=charm_app, juju_ver=client.version, series=series)
     client.deploy(charm_source)
     client.wait_for_started()
+    client.set_config(charm_app, {'token': 'one'})
+    client.wait_for_workloads()
     verify_deployed_charm(charm_app, client)
 
 

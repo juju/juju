@@ -215,11 +215,16 @@ class TestAssessMetadata(TestCase):
 
     def test_deploy_charm_and_verify(self):
         mock_client = Mock()
+        charm_app = 'dummy-source'
+        series = 'xenial'
         with patch('assess_agent_metadata.verify_deployed_charm'):
             deploy_charm_and_verify(mock_client)
             mock_client.deploy.assert_called_once_with(
-                'local:xenial/dummy-source')
+                'local:{}/{}'.format(series, charm_app))
             mock_client.wait_for_started.assert_called_once_with()
+            mock_client.set_config.assert_called_once_with(
+                charm_app, {'token': 'one'})
+            mock_client.wait_for_workloads.assert_called_once_with()
 
     def test_deploy_charm_and_verify_series_charm(self):
         mock_client = Mock()
