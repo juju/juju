@@ -20,6 +20,7 @@ from mock import (
     call,
     MagicMock,
     patch,
+    Mock,
     )
 import yaml
 
@@ -91,9 +92,6 @@ from utility import (
     LoggedException,
     temp_dir,
     )
-from substrate import (
-    LXDAccount,
-)
 
 
 def make_logs(log_dir):
@@ -2141,7 +2139,7 @@ class TestBootstrapManager(FakeHomeTestCase):
                     pass
         self.assertEqual(djt_mock.call_count, 0)
 
-    def test_collect_resource_details(self):
+    def test_collect_resource_details_collects_expected_details(self):
         controller_uuid = 'eb67e1eb-6c54-45f5-8b6a-b6243be97202'
         members = [
             Machine('0', {'dns-name': '10.0.0.0',
@@ -2159,52 +2157,14 @@ class TestBootstrapManager(FakeHomeTestCase):
                           for m in members]
         }
 
-        with patch.object(client, 'get_controller_uuid') as gcu:
-            gcu.return_value = controller_uuid
-            with patch.object(client, 'get_controller_members') as gcm:
-                gcm.return_value = members
+        with patch.object(client, 'get_controller_uuid', autospec=True,
+                          return_value=controller_uuid):
+            with patch.object(client, 'get_controller_members', autospec=True,
+                              return_value=members):
                 bs_manager.collect_resource_details()
                 self.assertEqual(bs_manager.resource_details, result)
 
-    def test_collect_resource_details_mismatch_instances(self):
-        controller_uuid = 'eb67e1eb-6c54-45f5-8b6a-b6243be97202'
-        members = [
-            Machine('0', {'dns-name': '10.0.0.0',
-                          'instance-id': 'juju-aaaa-machine-0'}),
-            Machine('1', {'dns-name': '10.0.0.1',
-                          'instance-id': 'juju-dddd-machine-1'}),
-        ]
-        client = fake_juju_client()
-        bs_manager = BootstrapManager(
-            'foobar', client, client, None, [], None, None, None, None,
-            client.env.juju_home, False, False, False)
-        resource_details = {
-            'controller-uuid': controller_uuid,
-            'instances': [["juju-aaaa-machine-0", "10.0.0.0"],
-                          ["juju-dddd-machine-1", "10.0.0.2"]]
-        }
-
-        with patch.object(client, 'get_controller_uuid') as gcu:
-            gcu.return_value = controller_uuid
-            with patch.object(client, 'get_controller_members') as gcm:
-                gcm.return_value = members
-                bs_manager.collect_resource_details()
-                self.assertNotEquals(bs_manager.resource_details,
-                                     resource_details)
-
     def test_ensure_cleanup(self):
-        controller_uuid = 'eb67e1eb-6c54-45f5-8b6a-b6243be97202'
-        members = [
-            Machine('0', {'dns-name': '10.0.0.0',
-                          'instance-id': 'juju-aaaa-machine-0'}),
-            Machine('1', {'dns-name': '10.0.0.1',
-                          'instance-id': 'juju-dddd-machine-1'}),
-        ]
-        resource_details = {
-            'controller-uuid': controller_uuid,
-            'instances': [(m.info['instance-id'], m.info['dns-name'])
-                          for m in members]
-        }
         client = fake_juju_client()
         with temp_dir() as root:
             log_dir = os.path.join(root, 'log-dir')
@@ -2213,32 +2173,17 @@ class TestBootstrapManager(FakeHomeTestCase):
                 'controller', client, client,
                 None, [], None, None, None, None, log_dir, False,
                 True, True)
-            bs_manager.resource_details = resource_details
-            juju_home = os.path.join(root, 'juju-home')
-            os.mkdir(juju_home)
-            client.env.juju_home = juju_home
-            client.env.provider_type = "lxd"
-            substrate = LXDAccount(None)
-            with patch('deploy_stack.make_substrate_manager') \
+            mock_substrate = Mock()
+            mock_details = []
+            with patch('deploy_stack.make_substrate_manager', autospec=True)\
                     as msm:
-                msm.return_value.__enter__.return_value \
-                    = substrate
-                ucrl = bs_manager.ensure_cleanup()
-                self.assertEquals(ucrl, [])
+                msm.return_value.__enter__.return_value = mock_substrate
+                bs_manager.resource_details = mock_details
+                bs_manager.ensure_cleanup()
+            mock_substrate.ensure_cleanup.assert_called_once_with(mock_details)
+            msm.assert_called_once_with(client.env)
 
     def test_ensure_cleanup_substrate_none(self):
-        controller_uuid = 'eb67e1eb-6c54-45f5-8b6a-b6243be97202'
-        members = [
-            Machine('0', {'dns-name': '10.0.0.0',
-                          'instance-id': 'juju-aaaa-machine-0'}),
-            Machine('1', {'dns-name': '10.0.0.1',
-                          'instance-id': 'juju-dddd-machine-1'}),
-        ]
-        resource_details = {
-            'controller-uuid': controller_uuid,
-            'instances': [(m.info['instance-id'], m.info['dns-name'])
-                          for m in members]
-        }
         client = fake_juju_client()
         with temp_dir() as root:
             log_dir = os.path.join(root, 'log-dir')
@@ -2247,52 +2192,15 @@ class TestBootstrapManager(FakeHomeTestCase):
                 'controller', client, client,
                 None, [], None, None, None, None, log_dir, False,
                 True, True)
-            bs_manager.resource_details = resource_details
-            juju_home = os.path.join(root, 'juju-home')
-            os.mkdir(juju_home)
-            client.env.juju_home = juju_home
-            client.env.provider_type = "lxd"
-            substrate = None
-            with patch('deploy_stack.make_substrate_manager') \
+            bs_manager.resource_details = []
+            client.env.provider_type = "foo"
+            with patch('deploy_stack.make_substrate_manager', autospec=True)\
                     as msm:
-                msm.return_value.__enter__.return_value \
-                    = substrate
-                with self.assertRaisesRegexp(
-                        ValueError, "Invalid provider"):
-                    bs_manager.ensure_cleanup()
-
-    def test_resource_details(self):
-        controller_uuid = 'eb67e1eb-6c54-45f5-8b6a-b6243be97202'
-        members = [
-            Machine('0', {'dns-name': '10.0.0.0',
-                          'instance-id': 'juju-aaaa-machine-0'}),
-            Machine('1', {'dns-name': '10.0.0.1',
-                          'instance-id': 'juju-dddd-machine-1'}),
-        ]
-        client = fake_juju_client()
-        with temp_dir() as root:
-            log_dir = os.path.join(root, 'log-dir')
-            os.mkdir(log_dir)
-            bs_manager = BootstrapManager(
-                'controller', client, client,
-                None, [], None, None, None, None, log_dir, False,
-                True, True)
-            juju_home = os.path.join(root, 'juju-home')
-            os.mkdir(juju_home)
-            client.env.juju_home = juju_home
-            client.env.provider_type = "lxd"
-            substrate = LXDAccount(None)
-            with self.booted_to_bootstrap(bs_manager):
-                with patch.object(client, 'get_controller_uuid') as gcu:
-                    gcu.return_value = controller_uuid
-                    with patch.object(client, 'get_controller_members') as gcm:
-                        gcm.return_value = members
-                        with patch('deploy_stack.make_substrate_manager') \
-                                as msm:
-                            msm.return_value.__enter__.return_value\
-                                    = substrate
-                            bs_manager.collect_resource_details()
-                            bs_manager.ensure_cleanup()
+                msm.return_value.__enter__.return_value = None
+                bs_manager.ensure_cleanup()
+                self.assertIn("foo is an unknown provider."
+                              " Unable to ensure cleanup",
+                              self.log_stream.getvalue())
 
 
 class TestBootContext(FakeHomeTestCase):
@@ -2307,6 +2215,9 @@ class TestBootContext(FakeHomeTestCase):
             patch('deploy_stack.BootstrapManager.dump_all_logs'))
         self.addContext(patch('deploy_stack.get_machine_dns_name',
                               return_value='foo', autospec=True))
+        self.addContext(patch(
+            'deploy_stack.BootstrapManager.collect_resource_details',
+            autospec=True))
         if isinstance(client, EnvJujuClient1X):
             models = []
         else:

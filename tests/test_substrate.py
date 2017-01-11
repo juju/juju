@@ -50,7 +50,6 @@ from substrate import (
     stop_libvirt_domain,
     terminate_instances,
     verify_libvirt_domain,
-    ensure_cleanup,
     )
 from tests import (
     FakeHomeTestCase,
@@ -1607,27 +1606,26 @@ class EucaTestCase(TestCase):
 
 
 class TestEnsureCleanup(TestCase):
-    resource_details = []
-
     def test_lxd_ensure_cleanup(self):
-        env = get_lxd_env()
-        ucrl = ensure_cleanup(env, self.resource_details)
-        self.assertEquals(ucrl, [])
+        substrate_account = LXDAccount()
+        self.assertEqual([], substrate_account.ensure_cleanup([]))
 
     def test_aws_ensure_cleanup(self):
-        env = get_aws_env()
-        ucrl = ensure_cleanup(env, self.resource_details)
-        self.assertEquals(ucrl, [])
+        substrate_account = AWSAccount('euca_environ', 'region', 'client')
+        self.assertEqual([], substrate_account.ensure_cleanup([]))
 
     def test_openstack_ensure_cleanup(self):
-        env = get_openstack_env()
-        ucrl = ensure_cleanup(env, self.resource_details)
-        self.assertEquals(ucrl, [])
+        substrate_account = OpenStackAccount(
+            'username', 'password', 'tenant_name', 'auth_url', 'region_name')
+        self.assertEqual([], substrate_account.ensure_cleanup([]))
 
     def test_rax_ensure_cleanup(self):
-        env = get_rax_env()
-        ucrl = ensure_cleanup(env, self.resource_details)
-        self.assertEquals(ucrl, [])
+        substrate_account = JoyentAccount('client')
+        self.assertEqual([], substrate_account.ensure_cleanup([]))
+
+    def test_gce_ensure_cleanup(self):
+        substrate_account = GCEAccount('client')
+        self.assertEqual([], substrate_account.ensure_cleanup([]))
 
     def test_maas_ensure_cleanup(self):
         boot_config = get_maas_env()
@@ -1635,12 +1633,4 @@ class TestEnsureCleanup(TestCase):
         with patch('subprocess.check_call', autospec=True,
                    side_effect=[login_error, None, None]):
             with maas_account_from_boot_config(boot_config) as maas:
-                ucrl = maas.ensure_cleanup(self.resource_details)
-            self.assertEquals(ucrl, [])
-
-    def test_ensure_cleanup_unknown(self):
-        env = SimpleEnvironment('foo', {'type': 'unknown'})
-        with self.assertRaisesRegexp(
-                ValueError,
-                'This test does not support the unknown provider'):
-            ensure_cleanup(env, self.resource_details)
+                self.assertEquals([], maas.ensure_cleanup([]))

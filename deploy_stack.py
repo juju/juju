@@ -663,24 +663,39 @@ class BootstrapManager:
         returns list of resource cleanup errors.
         """
         if self.resource_details is not None:
-            provider_type = self.client.env.provider_type
             with make_substrate_manager(self.client.env) as substrate:
-                if substrate is None:
-                    raise ValueError("Invalid provider {0}".format(
-                        provider_type))
-                return substrate.ensure_cleanup(self.resource_details)
+                # Need to raise an exception if the provider is unknown,
+                # but as we wouldn't know how to clean it up anyway lets log a
+                # warning for now (and not attempt cleanup).
+                if substrate is not None:
+                    return substrate.ensure_cleanup(self.resource_details)
+                try:
+                    provider_type = self.client.env.provider_type
+                    logging.warning(
+                        '{} is an unknown provider. '
+                        'Unable to ensure cleanup.'.format(provider_type))
+                except AttributeError:
+                    logging.debug("provider_type not found in the client")
 
     def collect_resource_details(self):
         """
         Collect and store resource information for the bootstrapped instance.
         """
-        controller_uuid = self.client.get_controller_uuid()
-        members = self.client.get_controller_members()
-        resource_details = {
-            'controller-uuid': controller_uuid,
-            'instances': [(m.info['instance-id'], m.info['dns-name'])
-                          for m in members]
-        }
+        resource_details = {}
+        try:
+            controller_uuid = self.client.get_controller_uuid()
+            resource_details['controller-uuid'] = controller_uuid
+        except TypeError:
+            logging.debug('Unable to retrieve controller uuid.')
+
+        try:
+            members = self.client.get_controller_members()
+            if members:
+                resource_details['instances'] = \
+                    [(m.info['instance-id'], m.info['dns-name'])
+                     for m in members]
+        except TypeError:
+            logging.debug('Unable to retrieve members')
         self.resource_details = resource_details
 
     @property
@@ -924,7 +939,8 @@ class BootstrapManager:
                     except KeyboardInterrupt:
                         pass
                     if not self.keep_env:
-                        self.collect_resource_details()
+                        if self.has_controller:
+                            self.collect_resource_details()
                         self.tear_down(self.jes_enabled)
                         self.ensure_cleanup()
 

@@ -177,7 +177,8 @@ def extended_bootstrap_cxt(juju_version=None):
     with assess_bootstrap_cxt(juju_version):
         gmdn_cxt = patch('deploy_stack.get_machine_dns_name')
         delkh_cxt = patch('deploy_stack.dump_env_logs_known_hosts')
-        with gmdn_cxt, delkh_cxt:
+        msm_cxt = patch('deploy_stack.make_substrate_manager')
+        with gmdn_cxt, delkh_cxt, msm_cxt:
             yield
 
 

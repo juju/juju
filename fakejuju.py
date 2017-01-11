@@ -702,8 +702,15 @@ class FakeBackend:
         server_id = list(controller_model.state_servers)[0]
         server_hostname = controller_model.machine_host_names[server_id]
         api_endpoint = '{}:23'.format(server_hostname)
-        return {controller_name: {'details': {'api-endpoints': [
-            api_endpoint]}}}
+        uuid = 'b74b0e9a-81cb-4161-8396-bd5149e2a3cc'
+        return {
+            controller_name: {
+                'details': {
+                    'api-endpoints': [api_endpoint],
+                    'uuid': uuid,
+                }
+            }
+        }
 
     def list_models(self):
         model_names = [state.name for state in

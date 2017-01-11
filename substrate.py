@@ -74,16 +74,6 @@ def terminate_instances(env, instance_ids):
     subprocess.check_call(command_args, env=environ)
 
 
-def ensure_cleanup(env, resource_details):
-    provider_type = env.provider
-    with make_substrate_manager(env) as substrate:
-        if substrate is None:
-            raise ValueError(
-                "This test does not support the {0} provider".format(
-                    provider_type))
-        return substrate.ensure_cleanup(resource_details)
-
-
 class AWSAccount:
     """Represent the credentials of an AWS account."""
 
