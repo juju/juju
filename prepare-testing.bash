@@ -1,6 +1,7 @@
 #!/bin/bash
 source $HOME/cloud-city/juju-qa.jujuci
 set -eux
+${SCRIPTS=$(readlink -f $(dirname $0))}
 
 # The maas 1.8 on finfolk is shutdown.
 #ssh -i $HOME/cloud-city/staging-juju-rsa maas-1-8 "~/clean_leaked_leases.bash"
@@ -30,56 +31,26 @@ EOT
 
 # Delete all lxd containers left behind on several machines.
 
-ssh -i $HOME/cloud-city/staging-juju-rsa jenkins@silcoon <<"EOT"
-    set -eux
-    for container in $(lxc list -c n | grep '\ juju-' | cut -d' ' -f2); do
-        lxc delete --verbose --force $container
-    done
-EOT
+ssh -i $HOME/cloud-city/staging-juju-rsa jenkins@silcoon \
+    python - < $SCRIPTS/clean_lxc.py
 
-ssh -i $HOME/cloud-city/staging-juju-rsa jenkins@feature-slave.vapour.ws <<"EOT"
-    set -eux
-    for container in $(lxc list -c n | grep '\ juju-' | cut -d' ' -f2); do
-        lxc delete --verbose --force $container
-    done
-EOT
+ssh -i $HOME/cloud-city/staging-juju-rsa jenkins@feature-slave.vapour.ws \
+    python - < $SCRIPTS/clean_lxc.py
 
-ssh -i $HOME/cloud-city/staging-juju-rsa jenkins@lxd-slave-a.vapour.ws <<"EOT"
-    set -eux
-    for container in $(lxc list -c n | grep '\ juju-' | cut -d' ' -f2); do
-        lxc delete --verbose --force $container
-    done
-EOT
+ssh -i $HOME/cloud-city/staging-juju-rsa jenkins@lxd-slave-a.vapour.ws \
+    python - < $SCRIPTS/clean_lxc.py
 
-ssh -i $HOME/cloud-city/staging-juju-rsa jenkins@lxd-slave-b.vapour.ws <<"EOT"
-    for container in $(lxc list -c n | grep '\ juju-' | cut -d' ' -f2); do
-        lxc delete --verbose --force $container
-    done
-EOT
+ssh -i $HOME/cloud-city/staging-juju-rsa jenkins@lxd-slave-b.vapour.ws \
+    python - < $SCRIPTS/clean_lxc.py
 
-ssh -i $HOME/cloud-city/staging-juju-rsa jenkins@arm64-slave <<"EOT"
-    set -eux
-    for container in $(lxc list -c n | grep '\ juju-' | cut -d' ' -f2); do
-        lxc delete --verbose --force $container
-    done
-EOT
+ssh -i $HOME/cloud-city/staging-juju-rsa jenkins@arm64-slave \
+    python - < $SCRIPTS/clean_lxc.py
 
-ssh -i $HOME/cloud-city/staging-juju-rsa jenkins@s390x-slave <<"EOT"
-    set -eux
-    for container in $(lxc list -c n | grep '\ juju-' | cut -d' ' -f2); do
-        lxc delete --verbose --force $container
-    done
-EOT
+ssh -i $HOME/cloud-city/staging-juju-rsa jenkins@s390x-slave \
+    python - < $SCRIPTS/clean_lxc.py
 
-ssh -i $HOME/cloud-city/staging-juju-rsa jenkins@xenial-slave.vapour.ws <<"EOT"
-    for container in $(lxc list -c n | grep '\ juju-' | cut -d' ' -f2); do
-        lxc delete --verbose --force $container
-    done
-EOT
+ssh -i $HOME/cloud-city/staging-juju-rsa jenkins@xenial-slave.vapour.ws \
+    python - < $SCRIPTS/clean_lxc.py
 
-ssh -i $HOME/cloud-city/staging-juju-rsa jenkins@yakkety-slave.vapour.ws <<"EOT"
-    set -eux
-    for container in $(lxc list -c n | grep '\ juju-' | cut -d' ' -f2); do
-        lxc delete --verbose --force $container
-    done
-EOT
+ssh -i $HOME/cloud-city/staging-juju-rsa jenkins@yakkety-slave.vapour.ws \
+    python - < $SCRIPTS/clean_lxc.py
