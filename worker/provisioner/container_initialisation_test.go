@@ -374,7 +374,7 @@ func getContainerInstance() (cont []ContainerInstance, err error) {
 		{"genisoimage"},
 		{"libvirt-bin"},
 	}
-	if runtime.GOARCH == arch.ARM64 {
+	if arch.HostArch() == arch.ARM64 {
 		pkgs = append([][]string{{"qemu-efi"}}, pkgs...)
 	}
 	cont = []ContainerInstance{
