@@ -11,19 +11,22 @@ import os
 import subprocess
 import sys
 
+from dateutil import (
+    parser as date_parser,
+    tz,
+    )
+
 
 def list_old_juju_containers(hours):
     env = dict(os.environ)
     containers = json.loads(subprocess.check_output([
         'lxc', 'list', '--format', 'json'], env=env))
-    now = datetime.now()
+    now = datetime.now(tz.gettz('UTC'))
     for container in containers:
         name = container['name']
         if not name.startswith('juju-'):
             continue
-        # This produces local time.  lxc does not respect TZ=UTC.
-        created_at = datetime.strptime(
-            container['created_at'][:-6], '%Y-%m-%dT%H:%M:%S')
+        created_at = date_parser.parse(container['created_at'])
         age = now - created_at
         if age <= timedelta(hours=hours):
             continue
