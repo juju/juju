@@ -1,7 +1,7 @@
 #!/bin/bash
 source $HOME/cloud-city/juju-qa.jujuci
 set -eux
-${SCRIPTS=$(readlink -f $(dirname $0))}
+: ${SCRIPTS=$(readlink -f $(dirname $0))}
 
 # The maas 1.8 on finfolk is shutdown.
 #ssh -i $HOME/cloud-city/staging-juju-rsa maas-1-8 "~/clean_leaked_leases.bash"
