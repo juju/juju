@@ -2183,6 +2183,17 @@ class TestBootstrapManager(FakeHomeTestCase):
             mock_substrate.ensure_cleanup.assert_called_once_with(mock_details)
             msm.assert_called_once_with(client.env)
 
+    def test_ensure_cleanup_resource_details_empty(self):
+        client = fake_juju_client()
+        with temp_dir() as root:
+            log_dir = os.path.join(root, 'log-dir')
+            os.mkdir(log_dir)
+            bs_manager = BootstrapManager(
+                'controller', client, client,
+                None, [], None, None, None, None, log_dir, False,
+                True, True)
+            self.assertEquals(bs_manager.ensure_cleanup(), None)
+
     def test_ensure_cleanup_substrate_none(self):
         client = fake_juju_client()
         with temp_dir() as root:

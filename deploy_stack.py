@@ -664,9 +664,6 @@ class BootstrapManager:
         """
         if self.resource_details is not None:
             with make_substrate_manager(self.client.env) as substrate:
-                # Need to raise an exception if the provider is unknown,
-                # but as we wouldn't know how to clean it up anyway lets log a
-                # warning for now (and not attempt cleanup).
                 if substrate is not None:
                     return substrate.ensure_cleanup(self.resource_details)
                 try:
@@ -676,6 +673,7 @@ class BootstrapManager:
                         'Unable to ensure cleanup.'.format(provider_type))
                 except AttributeError:
                     logging.debug("provider_type not found in the client")
+        return None
 
     def collect_resource_details(self):
         """

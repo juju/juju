@@ -623,11 +623,6 @@ def get_lxd_config():
 
 
 class TestLXDAccount(TestCase):
-    def test_ensure_cleanup(self):
-        account = LXDAccount()
-        resource_details = []
-        return account.ensure_cleanup(resource_details)
-
     def test_from_boot_config(self):
         boot_config = SimpleEnvironment('foo', get_lxd_config())
         with LXDAccount.from_boot_config(boot_config) as account:
@@ -1628,9 +1623,5 @@ class TestEnsureCleanup(TestCase):
         self.assertEqual([], substrate_account.ensure_cleanup([]))
 
     def test_maas_ensure_cleanup(self):
-        boot_config = get_maas_env()
-        login_error = CalledProcessError(1, ['maas', 'login'])
-        with patch('subprocess.check_call', autospec=True,
-                   side_effect=[login_error, None, None]):
-            with maas_account_from_boot_config(boot_config) as maas:
-                self.assertEquals([], maas.ensure_cleanup([]))
+        substrate_account = MAASAccount('profile', 'url', 'oauth')
+        self.assertEqual([], substrate_account.ensure_cleanup([]))
