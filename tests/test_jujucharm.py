@@ -172,14 +172,14 @@ class TestSaneCharmStoreApiUrl(TestCase):
 
     def test_replaces_places_api_characters(self):
         api = 'https://example.com'
-        expected = 'https://api.example.com/charmstore'
+        expected = 'https://example.com/charmstore'
         self.assertEqual(
             sane_charm_store_api_url(api),
             expected)
 
     def test_replaces_www_characters(self):
         api = 'https://www.example.com'
-        expected = 'https://api.example.com/charmstore'
+        expected = 'https://example.com/charmstore'
         self.assertEqual(
             sane_charm_store_api_url(api),
             expected)
