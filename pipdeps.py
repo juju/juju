@@ -4,7 +4,7 @@
 from __future__ import print_function
 
 import argparse
-from distutils.version import StrictVersion
+from distutils.version import LooseVersion
 import os
 import platform
 import subprocess
@@ -66,7 +66,8 @@ def is_py3_supported():
     except OSError:
         return False
     version = version.strip().split()[-1]
-    if StrictVersion(version) < StrictVersion('3.5'):
+    # Python on yakkety reports its version as "3.5.2+", so use LooseVersion.
+    if LooseVersion(version) < LooseVersion('3.5'):
         return False
     try:
         subprocess.check_call(['pip3', '--version'])
