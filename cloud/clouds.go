@@ -317,6 +317,7 @@ var defaultCloudDescription = map[string]string{
 	"lxd":         "LXD Container Hypervisor",
 	"maas":        "Metal As A Service",
 	"openstack":   "Openstack Cloud",
+	"oracle":      "Oracle Compute Cloud Service",
 }
 
 // WritePublicCloudMetadata marshals to YAML and writes the cloud metadata

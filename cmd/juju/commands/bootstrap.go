@@ -340,7 +340,6 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	if err := c.parseConstraints(ctx); err != nil {
 		return err
 	}
-
 	// Start by checking for usage errors, requests for information
 	finished, err := c.handleCommandLineErrorsAndInfoRequests(ctx)
 	if err != nil {

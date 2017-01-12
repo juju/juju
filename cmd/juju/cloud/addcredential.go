@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"os"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
@@ -175,6 +176,7 @@ func (c *addCredentialCommand) Run(ctxt *cmd.Context) error {
 
 func (c *addCredentialCommand) existingCredentialsForCloud() (*jujucloud.CloudCredential, error) {
 	existingCredentials, err := c.store.CredentialForCloud(c.CloudName)
+	fmt.Println(err)
 	if err != nil && !errors.IsNotFound(err) {
 		return nil, errors.Annotate(err, "reading existing credentials for cloud")
 	}
@@ -198,6 +200,7 @@ func (c *addCredentialCommand) interactiveAddCredential(ctxt *cmd.Context, schem
 
 	// Prompt to overwrite if needed.
 	existingCredentials, err := c.existingCredentialsForCloud()
+	os.Exit(1)
 	if err != nil {
 		return errors.Trace(err)
 	}
