@@ -11,6 +11,7 @@ import os
 import subprocess
 import sys
 
+
 def list_old_juju_containers(hours):
     env = dict(os.environ)
     containers = json.loads(subprocess.check_output([
@@ -37,7 +38,7 @@ def main():
                         help='Number of hours a juju container may exist.')
     args = parser.parse_args()
     for container, age in list_old_juju_containers(args.hours):
-        print ('deleting {} ({} old)'.format(container, age))
+        print('deleting {} ({} old)'.format(container, age))
         if args.dry_run:
             continue
         subprocess.check_call(('lxc', 'delete', '--verbose', '--force',
