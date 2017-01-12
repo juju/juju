@@ -8,26 +8,14 @@ set -eux
 
 # Release all allocated machines on maas
 
-ssh -i $HOME/cloud-city/staging-juju-rsa jenkins@munna <<"EOT"
-    set -eux
-    for mid in $(maas 210-maas nodes list-allocated | egrep '(system_id)' | sed -r 's,.*"([^"]*)".*,\1,'); do
-        maas 210-maas node release $mid;
-    done
-EOT
+ssh -i $HOME/cloud-city/staging-juju-rsa jenkins@munna \
+  juju-ci-tools/prepare_maas.py 210-maas
 
-ssh -i $HOME/cloud-city/staging-juju-rsa jenkins@finfolk <<"EOT"
-    set -eux
-    for mid in $(maas env20 machines list-allocated | egrep '(system_id)' | sed -r 's,.*"([^"]*)".*,\1,'); do
-        maas env20 machine release $mid;
-    done
-EOT
+ssh -i $HOME/cloud-city/staging-juju-rsa jenkins@finfolk \
+  juju-ci-tools/prepare_maas.py env20
 
-ssh -i $HOME/cloud-city/staging-juju-rsa jenkins@silcoon <<"EOT"
-    set -eux
-    for mid in $(maas env21 machines list-allocated | egrep '(system_id)' | sed -r 's,.*"([^"]*)".*,\1,'); do
-        maas env21 machine release $mid;
-    done
-EOT
+ssh -i $HOME/cloud-city/staging-juju-rsa jenkins@silcoon \
+  juju-ci-tools/prepare_maas.py env21
 
 # Delete all lxd containers left behind on several machines.
 
