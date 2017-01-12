@@ -81,7 +81,7 @@ def run_pip3_install(extra_args, requirements, verbose=False):
         run_pip_install(extra_args, requirements, verbose=verbose,
                         cmd=['pip3'])
     else:
-        print('Python 3 is not installed.')
+        print('Python 3 or pip 3 is not installed.')
 
 
 def run_pip_install(extra_args, requirements, verbose=False, cmd=None):
