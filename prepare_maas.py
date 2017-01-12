@@ -11,7 +11,6 @@ import sys
 
 from dateutil import (
     parser as date_parser,
-    tz,
     )
 
 
@@ -49,7 +48,7 @@ def main():
     now = datetime.now()
     for node, node_info in list_juju_nodes(profile):
         age = now - acquire_dates[node]
-        if age < timedelta(hours=1):
+        if age < timedelta(hours=2):
             continue
         print('Deleting {} ({})'.format(node_info[HOSTNAME], age))
         subprocess.check_call(['maas', profile, 'machine', 'release', node])
