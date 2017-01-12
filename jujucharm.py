@@ -176,4 +176,4 @@ def sane_charm_store_api_url(url):
     """Ensure the store url includes the right parts."""
     if url is None:
         return CharmCommand.default_api_url
-    return '{}/charmstore'.format(re.sub('//(www\.)?', '//', url))
+    return '{}/charmstore'.format(url)
