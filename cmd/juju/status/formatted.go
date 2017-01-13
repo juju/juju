@@ -49,6 +49,7 @@ type machineStatus struct {
 	Series        string                   `json:"series,omitempty" yaml:"series,omitempty"`
 	Id            string                   `json:"-" yaml:"-"`
 	Containers    map[string]machineStatus `json:"containers,omitempty" yaml:"containers,omitempty"`
+	Constraints   string                   `json:"constraints,omitempty" yaml:"constraints,omitempty"`
 	Hardware      string                   `json:"hardware,omitempty" yaml:"hardware,omitempty"`
 	HAStatus      string                   `json:"controller-member-status,omitempty" yaml:"controller-member-status,omitempty"`
 }

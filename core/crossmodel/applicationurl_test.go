@@ -30,9 +30,25 @@ var urlTests = []struct {
 	url:   &crossmodel.ApplicationURL{"local", "user", "", "applicationname"},
 	exact: "local:/u/user/applicationname",
 }, {
-	s:     "u/user/prod/applicationname",
-	url:   &crossmodel.ApplicationURL{"local", "user", "prod", "applicationname"},
-	exact: "local:/u/user/prod/applicationname",
+	s:   "modelname.applicationname",
+	url: &crossmodel.ApplicationURL{"", "", "modelname", "applicationname"},
+}, {
+	s:   "modelname.applicationname:rel",
+	url: &crossmodel.ApplicationURL{"", "", "modelname", "applicationname:rel"},
+}, {
+	s:   "user/modelname.applicationname:rel",
+	url: &crossmodel.ApplicationURL{"", "user", "modelname", "applicationname:rel"},
+}, {
+	s:     "/modelname.applicationname",
+	url:   &crossmodel.ApplicationURL{"", "", "modelname", "applicationname"},
+	exact: "modelname.applicationname",
+}, {
+	s:     "/modelname.applicationname:rel",
+	url:   &crossmodel.ApplicationURL{"", "", "modelname", "applicationname:rel"},
+	exact: "modelname.applicationname:rel",
+}, {
+	s:   "user/modelname.applicationname",
+	url: &crossmodel.ApplicationURL{"", "user", "modelname", "applicationname"},
 }, {
 	s:   "local:application",
 	err: `application URL has invalid form, missing "/u/<user>": $URL`,
@@ -52,17 +68,26 @@ var urlTests = []struct {
 	s:   "/u/user",
 	err: `application URL has invalid form, missing application name: $URL`,
 }, {
-	s:   "local:/u/user/application.bad",
-	err: `application name "application.bad" not valid`,
+	s:   "local:/u/user/application@bad",
+	err: `application name "application@bad" not valid`,
 }, {
 	s:   "local:/u/user[bad/application",
 	err: `user name "user\[bad" not valid`,
 }, {
+	s:   "model.application@bad",
+	err: `application name "application@bad" not valid`,
+}, {
+	s:   "user[bad/model.application",
+	err: `user name "user\[bad" not valid`,
+}, {
+	s:   "user/[badmodel.application",
+	err: `model name "\[badmodel" not valid`,
+}, {
 	s:   ":foo",
 	err: `cannot parse application URL: $URL`,
 }, {
-	s:   "local:/u/fred/prod/foo/db2",
-	err: `application URL has invalid form: $URL`,
+	s:   "local:/u/fred/application/extra",
+	err: `application URL has too many parts: $URL`,
 }}
 
 func (s *ApplicationURLSuite) TestParseURL(c *gc.C) {
@@ -76,13 +101,13 @@ func (s *ApplicationURLSuite) TestParseURL(c *gc.C) {
 		}
 		if t.url != nil {
 			c.Assert(err, gc.IsNil)
-			c.Assert(url, gc.DeepEquals, t.url)
+			c.Check(url, gc.DeepEquals, t.url)
 			c.Check(url.String(), gc.Equals, match)
 		}
 		if t.err != "" {
 			t.err = strings.Replace(t.err, "$URL", regexp.QuoteMeta(fmt.Sprintf("%q", t.s)), -1)
-			c.Assert(err, gc.ErrorMatches, t.err)
-			c.Assert(url, gc.IsNil)
+			c.Check(err, gc.ErrorMatches, t.err)
+			c.Check(url, gc.IsNil)
 		}
 	}
 }
@@ -108,17 +133,11 @@ var urlPartsTests = []struct {
 	s:   "u/user/applicationname",
 	url: &crossmodel.ApplicationURLParts{"", "user", "", "applicationname"},
 }, {
-	s:   "u/user/prod/applicationname",
-	url: &crossmodel.ApplicationURLParts{"", "user", "prod", "applicationname"},
-}, {
 	s:   "u/user",
 	url: &crossmodel.ApplicationURLParts{"", "user", "", ""},
 }, {
 	s:   "application",
 	url: &crossmodel.ApplicationURLParts{"", "", "", "application"},
-}, {
-	s:   "prod/application",
-	url: &crossmodel.ApplicationURLParts{"", "", "prod", "application"},
 }, {
 	s:   "local:/application",
 	url: &crossmodel.ApplicationURLParts{"local", "", "", "application"},
@@ -126,11 +145,17 @@ var urlPartsTests = []struct {
 	s:   "",
 	url: &crossmodel.ApplicationURLParts{},
 }, {
+	s:   "prod/application",
+	err: "application URL has too many parts: $URL",
+}, {
+	s:   "u/user/prod/applicationname",
+	err: "application URL has too many parts: $URL",
+}, {
 	s:   "a/b/c",
 	err: `application URL has too many parts: "a/b/c"`,
 }, {
-	s:   "local:/u/user/application.bad",
-	err: `application name "application.bad" not valid`,
+	s:   "local:/u/user/application@bad",
+	err: `application name "application@bad" not valid`,
 }, {
 	s:   "local:/u/user[bad/application",
 	err: `user name "user\[bad" not valid`,
@@ -154,4 +179,19 @@ func (s *ApplicationURLSuite) TestParseURLParts(c *gc.C) {
 			c.Assert(url, gc.IsNil)
 		}
 	}
+}
+
+func (s *ApplicationURLSuite) TestHasEndpoint(c *gc.C) {
+	url, err := crossmodel.ParseApplicationURL("model.application:endpoint")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(url.HasEndpoint(), jc.IsTrue)
+	url, err = crossmodel.ParseApplicationURL("model.application")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(url.HasEndpoint(), jc.IsFalse)
+	url, err = crossmodel.ParseApplicationURL("local:/u/blah/application:thing")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(url.HasEndpoint(), jc.IsTrue)
+	url, err = crossmodel.ParseApplicationURL("local:/u/blah/application")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(url.HasEndpoint(), jc.IsFalse)
 }

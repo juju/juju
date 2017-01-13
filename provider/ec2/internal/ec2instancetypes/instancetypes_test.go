@@ -72,6 +72,7 @@ func (s *InstanceTypesSuite) TestRegionInstanceTypesAvailability(c *gc.C) {
 		[]string{
 			"cc2.8xlarge", "cg1.4xlarge", "cr1.8xlarge", "hi1.4xlarge",
 			"hs1.8xlarge", "p2.16xlarge", "p2.8xlarge", "p2.xlarge",
+			"x1.16xlarge", "x1.32xlarge",
 		},
 	)
 }

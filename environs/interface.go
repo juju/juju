@@ -149,6 +149,14 @@ type CloudRegionDetector interface {
 	DetectRegions() ([]cloud.Region, error)
 }
 
+// DefaultCloudNamer is an interface that a provider implements to
+// specify what an implicitly-created cloud ahould be named.
+type DefaultCloudNamer interface {
+	// DefaultCloudName returns the name that should be used for the
+	// cloud instead of falling back to the provider name.
+	DefaultCloudName() string
+}
+
 // ModelConfigUpgrader is an interface that an EnvironProvider may
 // implement in order to modify environment configuration on agent upgrade.
 type ModelConfigUpgrader interface {

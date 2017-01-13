@@ -11,12 +11,15 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/storage"
 )
 
 // Backend defines the state functionality required by the application
 // facade. For details on the methods, see the methods on state.State
 // with the same names.
 type Backend interface {
+	AllModels() ([]Model, error)
+	ForModel(modelTag names.ModelTag) (*state.State, error)
 	Application(string) (Application, error)
 	AddApplication(state.AddApplicationArgs) (*state.Application, error)
 	RemoteApplication(name string) (*state.RemoteApplication, error)
@@ -30,6 +33,7 @@ type Backend interface {
 	Machine(string) (Machine, error)
 	ModelTag() names.ModelTag
 	Unit(string) (Unit, error)
+	NewStorage() storage.Storage
 }
 
 // BlockChecker defines the block-checking functionality required by
@@ -70,6 +74,7 @@ type Application interface {
 // the same names.
 type Charm interface {
 	charm.Charm
+	StoragePath() string
 }
 
 // Machine defines a subset of the functionality provided by the
@@ -98,6 +103,16 @@ type Unit interface {
 	Life() state.Life
 }
 
+// Model defines a subset of the functionality provided by the
+// state.Model type, as required by the application facade. For
+// details on the methods, see the methods on state.Model with
+// the same names.
+type Model interface {
+	Tag() names.Tag
+	Name() string
+	Owner() names.UserTag
+}
+
 type stateShim struct {
 	*state.State
 }
@@ -113,6 +128,10 @@ func NewStateBackend(st *state.State) Backend {
 // charm.Charm and charm.URL.
 func CharmToStateCharm(ch Charm) *state.Charm {
 	return ch.(stateCharmShim).Charm
+}
+
+func (s stateShim) NewStorage() storage.Storage {
+	return storage.NewStorage(s.State.ModelUUID(), s.State.MongoSession())
 }
 
 func (s stateShim) Application(name string) (Application, error) {
@@ -163,6 +182,18 @@ func (s stateShim) Unit(name string) (Unit, error) {
 	return stateUnitShim{u}, nil
 }
 
+func (s stateShim) AllModels() ([]Model, error) {
+	models, err := s.State.AllModels()
+	if err != nil {
+		return nil, err
+	}
+	result := make([]Model, len(models))
+	for i, m := range models {
+		result[i] = stateModelShim{m}
+	}
+	return result, nil
+}
+
 type stateApplicationShim struct {
 	*state.Application
 }
@@ -189,4 +220,8 @@ type stateRelationShim struct {
 
 type stateUnitShim struct {
 	*state.Unit
+}
+
+type stateModelShim struct {
+	*state.Model
 }

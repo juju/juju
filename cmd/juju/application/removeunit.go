@@ -68,7 +68,7 @@ func (c *removeUnitCommand) Init(args []string) error {
 	return nil
 }
 
-func (c *removeUnitCommand) getAPI() (ServiceAPI, error) {
+func (c *removeUnitCommand) getAPI() (removeApplicationAPI, error) {
 	root, err := c.NewAPIRoot()
 	if err != nil {
 		return nil, errors.Trace(err)

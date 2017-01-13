@@ -22,18 +22,19 @@ import (
 	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/testing"
 	jutesting "github.com/juju/testing"
+	"gopkg.in/juju/names.v2"
 )
 
-type RemoveServiceSuite struct {
+type RemoveApplicationSuite struct {
 	jujutesting.RepoSuite
 	testing.CmdBlockHelper
 	stub            *jutesting.Stub
 	budgetAPIClient budgetAPIClient
 }
 
-var _ = gc.Suite(&RemoveServiceSuite{})
+var _ = gc.Suite(&RemoveApplicationSuite{})
 
-func (s *RemoveServiceSuite) SetUpTest(c *gc.C) {
+func (s *RemoveApplicationSuite) SetUpTest(c *gc.C) {
 	s.RepoSuite.SetUpTest(c)
 	s.CmdBlockHelper = testing.NewCmdBlockHelper(s.APIState)
 	c.Assert(s.CmdBlockHelper, gc.NotNil)
@@ -43,21 +44,21 @@ func (s *RemoveServiceSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(&getBudgetAPIClient, func(*httpbakery.Client) budgetAPIClient { return s.budgetAPIClient })
 }
 
-func runRemoveService(c *gc.C, args ...string) error {
-	_, err := testing.RunCommand(c, NewRemoveServiceCommand(), args...)
+func runRemoveApplication(c *gc.C, args ...string) error {
+	_, err := testing.RunCommand(c, NewRemoveApplicationCommand(), args...)
 	return err
 }
 
-func (s *RemoveServiceSuite) setupTestService(c *gc.C) {
+func (s *RemoveApplicationSuite) setupTestApplication(c *gc.C) {
 	// Destroy an application that exists.
 	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "riak")
 	err := runDeploy(c, ch, "riak", "--series", "quantal")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *RemoveServiceSuite) TestSuccess(c *gc.C) {
-	s.setupTestService(c)
-	err := runRemoveService(c, "riak")
+func (s *RemoveApplicationSuite) TestLocalApplication(c *gc.C) {
+	s.setupTestApplication(c)
+	err := runRemoveApplication(c, "riak")
 	c.Assert(err, jc.ErrorIsNil)
 	riak, err := s.State.Application("riak")
 	c.Assert(err, jc.ErrorIsNil)
@@ -65,12 +66,30 @@ func (s *RemoveServiceSuite) TestSuccess(c *gc.C) {
 	s.stub.CheckNoCalls(c)
 }
 
-func (s *RemoveServiceSuite) TestRemoveLocalMetered(c *gc.C) {
+func (s *RemoveApplicationSuite) TestRemoteApplication(c *gc.C) {
+	_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name:        "remote-app",
+		SourceModel: names.NewModelTag("test"),
+		Token:       "token",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.RemoteApplication("remote-app")
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = runRemoveApplication(c, "remote-app")
+	c.Assert(err, jc.ErrorIsNil)
+	// Removed immediately since there are no units.
+	_, err = s.State.RemoteApplication("remote-app")
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	s.stub.CheckNoCalls(c)
+}
+
+func (s *RemoveApplicationSuite) TestRemoveLocalMetered(c *gc.C) {
 	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "metered")
 	deploy := NewDefaultDeployCommand()
 	_, err := testing.RunCommand(c, deploy, ch, "--series", "quantal")
 	c.Assert(err, jc.ErrorIsNil)
-	err = runRemoveService(c, "metered")
+	err = runRemoveApplication(c, "metered")
 	c.Assert(err, jc.ErrorIsNil)
 	riak, err := s.State.Application("metered")
 	c.Assert(err, jc.ErrorIsNil)
@@ -78,12 +97,12 @@ func (s *RemoveServiceSuite) TestRemoveLocalMetered(c *gc.C) {
 	s.stub.CheckNoCalls(c)
 }
 
-func (s *RemoveServiceSuite) TestBlockRemoveService(c *gc.C) {
-	s.setupTestService(c)
+func (s *RemoveApplicationSuite) TestBlockRemoveService(c *gc.C) {
+	s.setupTestApplication(c)
 
 	// block operation
 	s.BlockRemoveObject(c, "TestBlockRemoveService")
-	err := runRemoveService(c, "riak")
+	err := runRemoveApplication(c, "riak")
 	s.AssertBlocked(c, err, ".*TestBlockRemoveService.*")
 	riak, err := s.State.Application("riak")
 	c.Assert(err, jc.ErrorIsNil)
@@ -91,9 +110,9 @@ func (s *RemoveServiceSuite) TestBlockRemoveService(c *gc.C) {
 	s.stub.CheckNoCalls(c)
 }
 
-func (s *RemoveServiceSuite) TestFailure(c *gc.C) {
+func (s *RemoveApplicationSuite) TestFailure(c *gc.C) {
 	// Destroy an application that does not exist.
-	err := runRemoveService(c, "gargleblaster")
+	err := runRemoveApplication(c, "gargleblaster")
 	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
 		Message: `application "gargleblaster" not found`,
 		Code:    "not found",
@@ -101,12 +120,12 @@ func (s *RemoveServiceSuite) TestFailure(c *gc.C) {
 	s.stub.CheckNoCalls(c)
 }
 
-func (s *RemoveServiceSuite) TestInvalidArgs(c *gc.C) {
-	err := runRemoveService(c)
+func (s *RemoveApplicationSuite) TestInvalidArgs(c *gc.C) {
+	err := runRemoveApplication(c)
 	c.Assert(err, gc.ErrorMatches, `no application specified`)
-	err = runRemoveService(c, "ping", "pong")
+	err = runRemoveApplication(c, "ping", "pong")
 	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["pong"\]`)
-	err = runRemoveService(c, "invalid:name")
+	err = runRemoveApplication(c, "invalid:name")
 	c.Assert(err, gc.ErrorMatches, `invalid application name "invalid:name"`)
 	s.stub.CheckNoCalls(c)
 }
@@ -159,7 +178,7 @@ func (s *RemoveCharmStoreCharmsSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *RemoveCharmStoreCharmsSuite) TestRemoveAllocation(c *gc.C) {
-	err := runRemoveService(c, "metered")
+	err := runRemoveApplication(c, "metered")
 	c.Assert(err, jc.ErrorIsNil)
 	s.stub.CheckCalls(c, []jutesting.StubCall{{
 		"DeleteAllocation", []interface{}{testing.ModelTag.Id(), "metered"}}})
@@ -170,8 +189,8 @@ type mockBudgetAPIClient struct {
 }
 
 // CreateAllocation implements apiClient.
-func (c *mockBudgetAPIClient) CreateAllocation(budget, limit, model string, services []string) (string, error) {
-	c.MethodCall(c, "CreateAllocation", budget, limit, model, services)
+func (c *mockBudgetAPIClient) CreateAllocation(budget, limit, model string, applications []string) (string, error) {
+	c.MethodCall(c, "CreateAllocation", budget, limit, model, applications)
 	return "Allocation created.", c.NextErr()
 }
 

@@ -255,11 +255,12 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 		r.Register(crossmodel.NewShowOfferedEndpointCommand())
 		r.Register(crossmodel.NewListEndpointsCommand())
 		r.Register(crossmodel.NewFindEndpointsCommand())
+		r.Register(application.NewConsumeCommand())
 	}
 
 	// Destruction commands.
 	r.Register(application.NewRemoveRelationCommand())
-	r.Register(application.NewRemoveServiceCommand())
+	r.Register(application.NewRemoveApplicationCommand())
 	r.Register(application.NewRemoveUnitCommand())
 
 	// Reporting commands.

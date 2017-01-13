@@ -29,7 +29,6 @@ var (
 	BZMimeType            = bzMimeType
 	JSMimeType            = jsMimeType
 	SpritePath            = spritePath
-	DefaultIcon           = defaultIcon
 )
 
 func ServerMacaroon(srv *Server) (*macaroon.Macaroon, error) {

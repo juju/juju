@@ -535,6 +535,7 @@ var devFeatures = []string{feature.CrossModelRelations}
 
 // These are the commands that are behind the `devFeatures`.
 var commandNamesBehindFlags = set.NewStrings(
+	"consume",
 	"find-endpoints",
 	"list-offers",
 	"offer",

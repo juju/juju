@@ -23,7 +23,7 @@ const (
 	cleanupCharm                         cleanupKind = "charm"
 	cleanupDyingUnit                     cleanupKind = "dyingUnit"
 	cleanupRemovedUnit                   cleanupKind = "removedUnit"
-	cleanupServicesForDyingModel         cleanupKind = "applications"
+	cleanupApplicationsForDyingModel     cleanupKind = "applications"
 	cleanupDyingMachine                  cleanupKind = "dyingMachine"
 	cleanupForceDestroyedMachine         cleanupKind = "machine"
 	cleanupAttachmentsForDyingStorage    cleanupKind = "storageAttachments"
@@ -91,8 +91,8 @@ func (st *State) Cleanup() (err error) {
 			err = st.cleanupDyingUnit(doc.Prefix)
 		case cleanupRemovedUnit:
 			err = st.cleanupRemovedUnit(doc.Prefix)
-		case cleanupServicesForDyingModel:
-			err = st.cleanupServicesForDyingModel()
+		case cleanupApplicationsForDyingModel:
+			err = st.cleanupApplicationsForDyingModel()
 		case cleanupDyingMachine:
 			err = st.cleanupDyingMachine(doc.Prefix)
 		case cleanupForceDestroyedMachine:
@@ -215,19 +215,44 @@ func (st *State) cleanupMachinesForDyingModel() (err error) {
 // cleanupServicesForDyingModel sets all services to Dying, if they are
 // not already Dying or Dead. It's expected to be used when a model is
 // destroyed.
-func (st *State) cleanupServicesForDyingModel() (err error) {
-	// This won't miss services, because a Dying model cannot have
-	// services added to it. But we do have to remove the services themselves
+func (st *State) cleanupApplicationsForDyingModel() (err error) {
+	if err := st.removeRemoteApplicationsForDyingModel(); err != nil {
+		return err
+	}
+	return st.removeApplicationsForDyingModel()
+}
+
+func (st *State) removeApplicationsForDyingModel() (err error) {
+	// This won't miss applications, because a Dying model cannot have
+	// applications added to it. But we do have to remove the applications themselves
 	// via individual transactions, because they could be in any state at all.
 	applications, closer := st.getCollection(applicationsC)
 	defer closer()
 	application := Application{st: st}
 	sel := bson.D{{"life", Alive}}
 	iter := applications.Find(sel).Iter()
-	defer closeIter(iter, &err, "reading service document")
+	defer closeIter(iter, &err, "reading application document")
 	for iter.Next(&application.doc) {
 		if err := application.Destroy(); err != nil {
-			return err
+			return errors.Trace(err)
+		}
+	}
+	return nil
+}
+
+func (st *State) removeRemoteApplicationsForDyingModel() (err error) {
+	// This won't miss remote applications, because a Dying model cannot have
+	// applications added to it. But we do have to remove the applications themselves
+	// via individual transactions, because they could be in any state at all.
+	remoteApps, closer := st.getCollection(remoteApplicationsC)
+	defer closer()
+	remoteApp := RemoteApplication{st: st}
+	sel := bson.D{{"life", Alive}}
+	iter := remoteApps.Find(sel).Iter()
+	defer closeIter(iter, &err, "reading remote application document")
+	for iter.Next(&remoteApp.doc) {
+		if err := remoteApp.Destroy(); err != nil {
+			return errors.Trace(err)
 		}
 	}
 	return nil

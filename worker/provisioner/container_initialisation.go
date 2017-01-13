@@ -200,8 +200,8 @@ func (cs *ContainerSetup) getContainerArtifacts(
 	ToolsFinder,
 	error,
 ) {
-	var initialiser container.Initialiser
 	var broker environs.InstanceBroker
+	var series string
 
 	managerConfig, err := containerManagerConfig(containerType, cs.provisioner, cs.config)
 	if err != nil {
@@ -212,7 +212,6 @@ func (cs *ContainerSetup) getContainerArtifacts(
 
 	switch containerType {
 	case instance.KVM:
-		initialiser = kvm.NewContainerInitialiser()
 		broker, err = NewKvmBroker(
 			bridger,
 			cs.machine.Tag().String(),
@@ -225,12 +224,11 @@ func (cs *ContainerSetup) getContainerArtifacts(
 			return nil, nil, nil, err
 		}
 	case instance.LXD:
-		series, err := cs.machine.Series()
+		series, err = cs.machine.Series()
 		if err != nil {
 			return nil, nil, nil, err
 		}
 
-		initialiser = lxd.NewContainerInitialiser(series)
 		manager, err := lxd.NewContainerManager(managerConfig)
 		if err != nil {
 			return nil, nil, nil, err
@@ -249,8 +247,16 @@ func (cs *ContainerSetup) getContainerArtifacts(
 	default:
 		return nil, nil, nil, fmt.Errorf("unknown container type: %v", containerType)
 	}
-
+	initialiser := getContainerInitialiser(containerType, series)
 	return initialiser, broker, toolsFinder, nil
+}
+
+// getContainerInitialiser exists to patch out in tests.
+var getContainerInitialiser = func(ct instance.ContainerType, series string) container.Initialiser {
+	if ct == instance.LXD {
+		return lxd.NewContainerInitialiser(series)
+	}
+	return kvm.NewContainerInitialiser()
 }
 
 func containerManagerConfig(

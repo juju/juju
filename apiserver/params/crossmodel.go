@@ -126,10 +126,24 @@ type ApplicationOffersResults struct {
 	Results []ApplicationOfferResult `json:"results,omitempty"`
 }
 
-// ApplicationURLs is a filter used to select remote applications via show call.
+// ApplicationURLs is a collection of remote application URLs
 type ApplicationURLs struct {
 	// ApplicationURLs contains collection of urls for applications that are to be shown.
 	ApplicationURLs []string `json:"application-urls,omitempty"`
+}
+
+// ConsumeApplicationArg holds the arguments for consuming a remote application.
+type ConsumeApplicationArg struct {
+	// ApplicationURLs contains collection of urls for applications that are to be shown.
+	ApplicationURL string `json:"application-url"`
+
+	// ApplicationAlias is the name of the alias to use for the application name.
+	ApplicationAlias string `json:"application-alias,omitempty"`
+}
+
+// ConsumeApplicationArgs is a collection of arg for consuming applications.
+type ConsumeApplicationArgs struct {
+	Args []ConsumeApplicationArg `json:"args,omitempty"`
 }
 
 // OfferedApplication represents attributes for an offered application.
@@ -271,6 +285,9 @@ type RemoteRelationResults struct {
 type RemoteApplication struct {
 	// Name is the name of the application.
 	Name string `json:"name"`
+
+	// OfferName is the name of the application on the offering side.
+	OfferName string `json:"offer-name"`
 
 	// Life is the current lifecycle state of the application.
 	Life Life `json:"life"`
@@ -425,4 +442,42 @@ type RegisterRemoteRelation struct {
 // RegisterRemoteRelations holds args used to add remote relations.
 type RegisterRemoteRelations struct {
 	Relations []RegisterRemoteRelation `json:"relations"`
+}
+
+// RemoteApplicationInfo has attributes for a remote application.
+type RemoteApplicationInfo struct {
+	ModelTag       string `json:"model-tag"`
+	Name           string `json:"name"`
+	Description    string `json:"description"`
+	ApplicationURL string `json:"application-url"`
+	// SourceModelLabel is only populated if the application
+	// originates from another model on the same controller
+	// rather than via an offer URL.
+	SourceModelLabel string           `json:"source-model-label,omitempty"`
+	Endpoints        []RemoteEndpoint `json:"endpoints"`
+	Icon             []byte           `json:"icon"`
+}
+
+// RemoteApplicationInfoResult holds the result of loading
+// remote application info at a URL.
+type RemoteApplicationInfoResult struct {
+	Result *RemoteApplicationInfo `json:"result,omitempty"`
+	Error  *Error                 `json:"error,omitempty"`
+}
+
+// RemoteApplicationInfoResults represents the result of a RemoteApplicationInfo call.
+type RemoteApplicationInfoResults struct {
+	Results []RemoteApplicationInfoResult `json:"results"`
+}
+
+// ConsumeApplicationResult is the response for one request to consume
+// a remote application.
+type ConsumeApplicationResult struct {
+	LocalName string `json:"local-name,omitempty"`
+	Error     *Error `json:"error,omitempty"`
+}
+
+// ConsumeApplicationResults is the result of a Consume call.
+type ConsumeApplicationResults struct {
+	Results []ConsumeApplicationResult `json:"results"`
 }

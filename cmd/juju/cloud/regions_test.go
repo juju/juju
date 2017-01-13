@@ -39,7 +39,9 @@ us-east-1
 us-east-2
 us-west-1
 us-west-2
+ca-central-1
 eu-west-1
+eu-west-2
 eu-central-1
 ap-south-1
 ap-southeast-1
@@ -64,8 +66,12 @@ us-west-1:
   endpoint: https://ec2.us-west-1.amazonaws.com
 us-west-2:
   endpoint: https://ec2.us-west-2.amazonaws.com
+ca-central-1:
+  endpoint: https://ec2.ca-central-1.amazonaws.com
 eu-west-1:
   endpoint: https://ec2.eu-west-1.amazonaws.com
+eu-west-2:
+  endpoint: https://ec2.eu-west-2.amazonaws.com
 eu-central-1:
   endpoint: https://ec2.eu-central-1.amazonaws.com
 ap-south-1:

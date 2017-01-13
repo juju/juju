@@ -82,7 +82,7 @@ func (broker *kvmBroker) StartInstance(args environs.StartInstanceParams) (*envi
 	if err != nil {
 		// It's not fatal (yet) if we couldn't pre-allocate addresses for the
 		// container.
-		logger.Warningf("failed to prepare container %q network config: %v", containerMachineID, err)
+		logger.Infof("failed to prepare container %q network config: %v", containerMachineID, err)
 	} else {
 		args.NetworkInfo = preparedInfo
 	}

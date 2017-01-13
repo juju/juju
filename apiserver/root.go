@@ -81,10 +81,7 @@ func newAPIHandler(srv *Server, st *state.State, rpcConn *rpc.Conn, modelUUID st
 	if err := r.resources.RegisterNamed("logDir", common.StringResource(srv.logDir)); err != nil {
 		return nil, errors.Trace(err)
 	}
-	apiFactory, err := crossmodel.ApplicationOffersAPIFactoryResource(st)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
+	apiFactory := crossmodel.ApplicationOffersAPIFactoryResource(srv.state)
 	if err := r.resources.RegisterNamed("applicationOffersApiFactory", apiFactory); err != nil {
 		return nil, errors.Trace(err)
 	}

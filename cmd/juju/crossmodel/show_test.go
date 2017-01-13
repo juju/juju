@@ -46,7 +46,7 @@ func (s *showSuite) TestShowApiError(c *gc.C) {
 
 func (s *showSuite) TestShowURLError(c *gc.C) {
 	s.mockAPI.serviceTag = "invalid_tag"
-	s.assertShowError(c, []string{"local:/u/fred/prod/foo/db2"}, ".*invalid.*")
+	s.assertShowError(c, []string{"local:/u/fred/foo/db2"}, ".*too many parts.*")
 }
 
 func (s *showSuite) TestShowYaml(c *gc.C) {

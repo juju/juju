@@ -263,6 +263,7 @@ func (api *RemoteRelationsAPI) RemoteApplications(entities params.Entities) (par
 		}
 		return &params.RemoteApplication{
 			Name:       remoteApp.Name(),
+			OfferName:  remoteApp.OfferName(),
 			Life:       params.Life(remoteApp.Life().String()),
 			Status:     status.Status.String(),
 			ModelUUID:  remoteApp.SourceModel().Id(),
@@ -418,8 +419,12 @@ func (api *RemoteRelationsAPI) registerRemoteRelation(relation params.RegisterRe
 		return nil, errors.Trace(err)
 	}
 	if len(appOffer) == 0 {
-		// TODO(wallyworld) - we don't yet record the offer
+		// TODO(wallyworld) - we don't yet record the offer, assume the URL contains the name
 		// return errors.NotFoundf("offered application %q", relation.OfferedApplicationName)
+		appNameParts := strings.Split(relation.OfferedApplicationName, "-")
+		if len(appNameParts) > 1 {
+			localApplicationName = appNameParts[len(appNameParts)-1]
+		}
 	} else {
 		// TODO(wallyworld) - charm name should be service name
 		localApplicationName = appOffer[0].CharmName
@@ -427,7 +432,7 @@ func (api *RemoteRelationsAPI) registerRemoteRelation(relation params.RegisterRe
 
 	localApp, err := api.st.Application(localApplicationName)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Annotatef(err, "cannot get application for offer %q", relation.OfferedApplicationName)
 	}
 	if localApp.Life() != state.Alive {
 		return nil, errors.NotFoundf("application %v", localApplicationName)

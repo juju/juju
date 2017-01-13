@@ -160,10 +160,10 @@ func (s *remoteRelationsSuite) assertRemoteRelationsWorkers(c *gc.C) worker.Work
 				Limit:     1,
 				Scope:     "global",
 			},
-			OfferedApplicationName: "db2",
+			OfferedApplicationName: "offer-db2",
 			LocalEndpointName:      "data",
 		}}}},
-		{"ImportRemoteEntity", []interface{}{"source-model-uuid", names.NewApplicationTag("db2"), "token-db2"}},
+		{"ImportRemoteEntity", []interface{}{"source-model-uuid", names.NewApplicationTag("db2"), "token-offer-db2"}},
 		{"WatchLocalRelationUnits", []interface{}{"db2:db django:db"}},
 	}
 	s.waitForWorkerStubCalls(c, expected)

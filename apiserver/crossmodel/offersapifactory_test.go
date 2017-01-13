@@ -21,19 +21,17 @@ type applicationURLSuite struct {
 var _ = gc.Suite(&applicationURLSuite{})
 
 func (s *applicationURLSuite) TestUnsupportedURL(c *gc.C) {
-	f, err := crossmodel.NewServiceAPIFactory(nil, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = f.ApplicationOffers("unsupported")
+	f := crossmodel.NewServiceAPIFactory(nil, nil)
+	_, err := f.ApplicationOffers("unsupported")
 	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
 }
 
 func (s *applicationURLSuite) TestLocalURL(c *gc.C) {
 	var st *state.State
-	f, err := crossmodel.NewServiceAPIFactory(
+	f := crossmodel.NewServiceAPIFactory(
 		func() jujucrossmodel.ApplicationDirectory { return state.NewApplicationDirectory(st) },
 		nil,
 	)
-	c.Assert(err, jc.ErrorIsNil)
 	api, err := f.ApplicationOffers("local")
 	c.Assert(err, jc.ErrorIsNil)
 	_, ok := api.(crossmodel.ApplicationOffersAPI)
@@ -52,12 +50,11 @@ func (c *closer) Close() error {
 func (s *applicationURLSuite) TestStop(c *gc.C) {
 	var st *state.State
 	closer := &closer{}
-	f, err := crossmodel.NewServiceAPIFactory(
+	f := crossmodel.NewServiceAPIFactory(
 		func() jujucrossmodel.ApplicationDirectory { return state.NewApplicationDirectory(st) },
 		closer,
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	err = f.Stop()
+	err := f.Stop()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(closer.called, jc.IsTrue)
 }

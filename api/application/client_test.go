@@ -18,21 +18,21 @@ import (
 	"github.com/juju/juju/storage"
 )
 
-type serviceSuite struct {
+type applicationSuite struct {
 	jujutesting.JujuConnSuite
 
 	client *application.Client
 }
 
-var _ = gc.Suite(&serviceSuite{})
+var _ = gc.Suite(&applicationSuite{})
 
-func (s *serviceSuite) SetUpTest(c *gc.C) {
+func (s *applicationSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	s.client = application.NewClient(s.APIState)
 	c.Assert(s.client, gc.NotNil)
 }
 
-func (s *serviceSuite) TestSetServiceMetricCredentials(c *gc.C) {
+func (s *applicationSuite) TestSetServiceMetricCredentials(c *gc.C) {
 	var called bool
 	application.PatchFacadeCall(s, s.client, func(request string, a, response interface{}) error {
 		called = true
@@ -52,7 +52,7 @@ func (s *serviceSuite) TestSetServiceMetricCredentials(c *gc.C) {
 	c.Assert(called, jc.IsTrue)
 }
 
-func (s *serviceSuite) TestSetServiceMetricCredentialsFails(c *gc.C) {
+func (s *applicationSuite) TestSetServiceMetricCredentialsFails(c *gc.C) {
 	var called bool
 	application.PatchFacadeCall(s, s.client, func(request string, args, response interface{}) error {
 		called = true
@@ -67,7 +67,7 @@ func (s *serviceSuite) TestSetServiceMetricCredentialsFails(c *gc.C) {
 	c.Assert(called, jc.IsTrue)
 }
 
-func (s *serviceSuite) TestSetServiceMetricCredentialsNoMocks(c *gc.C) {
+func (s *applicationSuite) TestSetServiceMetricCredentialsNoMocks(c *gc.C) {
 	application := s.Factory.MakeApplication(c, nil)
 	err := s.client.SetMetricCredentials(application.Name(), []byte("creds"))
 	c.Assert(err, jc.ErrorIsNil)
@@ -76,7 +76,7 @@ func (s *serviceSuite) TestSetServiceMetricCredentialsNoMocks(c *gc.C) {
 	c.Assert(application.MetricCredentials(), gc.DeepEquals, []byte("creds"))
 }
 
-func (s *serviceSuite) TestSetServiceDeploy(c *gc.C) {
+func (s *applicationSuite) TestSetServiceDeploy(c *gc.C) {
 	var called bool
 	application.PatchFacadeCall(s, s.client, func(request string, a, response interface{}) error {
 		called = true
@@ -119,7 +119,7 @@ func (s *serviceSuite) TestSetServiceDeploy(c *gc.C) {
 	c.Assert(called, jc.IsTrue)
 }
 
-func (s *serviceSuite) TestServiceGetCharmURL(c *gc.C) {
+func (s *applicationSuite) TestServiceGetCharmURL(c *gc.C) {
 	var called bool
 	application.PatchFacadeCall(s, s.client, func(request string, a, response interface{}) error {
 		called = true
@@ -138,7 +138,7 @@ func (s *serviceSuite) TestServiceGetCharmURL(c *gc.C) {
 	c.Assert(called, jc.IsTrue)
 }
 
-func (s *serviceSuite) TestServiceSetCharm(c *gc.C) {
+func (s *applicationSuite) TestServiceSetCharm(c *gc.C) {
 	var called bool
 	toUint64Ptr := func(v uint64) *uint64 {
 		return &v
@@ -185,5 +185,25 @@ func (s *serviceSuite) TestServiceSetCharm(c *gc.C) {
 	}
 	err := s.client.SetCharm(cfg)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(called, jc.IsTrue)
+}
+
+func (s *applicationSuite) TestConsume(c *gc.C) {
+	var called bool
+	application.PatchFacadeCall(s, s.client, func(request string, a, response interface{}) error {
+		called = true
+		c.Assert(request, gc.Equals, "Consume")
+		args, ok := a.(params.ConsumeApplicationArgs)
+		c.Assert(ok, jc.IsTrue)
+		c.Assert(args.Args, jc.DeepEquals, []params.ConsumeApplicationArg{
+			{ApplicationURL: "remote app url", ApplicationAlias: "alias"},
+		})
+		result := response.(*params.ConsumeApplicationResults)
+		result.Results = []params.ConsumeApplicationResult{{LocalName: "result"}}
+		return nil
+	})
+	name, err := s.client.Consume("remote app url", "alias")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(name, gc.Equals, "result")
 	c.Assert(called, jc.IsTrue)
 }

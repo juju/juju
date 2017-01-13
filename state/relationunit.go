@@ -93,13 +93,13 @@ func (ru *RelationUnit) EnterScope(settings map[string]interface{}) error {
 			Id:     ru.unitName,
 			Assert: isAliveDoc,
 		})
+		ops = append(ops, txn.Op{
+			C:      relationsC,
+			Id:     relationDocID,
+			Assert: isAliveDoc,
+			Update: bson.D{{"$inc", bson.D{{"unitcount", 1}}}},
+		})
 	}
-	ops = append(ops, txn.Op{
-		C:      relationsC,
-		Id:     relationDocID,
-		Assert: isAliveDoc,
-		Update: bson.D{{"$inc", bson.D{{"unitcount", 1}}}},
-	})
 
 	// * Create the unit settings in this relation, if they do not already
 	//   exist; or completely overwrite them if they do. This must happen

@@ -31,6 +31,7 @@ type RemoteApplication struct {
 type remoteApplicationDoc struct {
 	DocID           string              `bson:"_id"`
 	Name            string              `bson:"name"`
+	OfferName       string              `bson:"offer-name"`
 	URL             string              `bson:"url,omitempty"`
 	SourceModelUUID string              `bson:"source-model-uuid"`
 	Endpoints       []remoteEndpointDoc `bson:"endpoints"`
@@ -86,6 +87,11 @@ func (s *RemoteApplication) Registered() bool {
 // Name returns the application name.
 func (s *RemoteApplication) Name() string {
 	return s.doc.Name
+}
+
+// OfferName returns the name on te offering side.
+func (s *RemoteApplication) OfferName() string {
+	return s.doc.OfferName
 }
 
 // URL returns the remote service URL, and a boolean indicating whether or not
@@ -318,6 +324,9 @@ type AddRemoteApplicationParams struct {
 	// match the application name in the URL, or the name in the remote model.
 	Name string
 
+	// OfferName is the name the offering side has given to the remote application.
+	OfferName string
+
 	// URL is either empty, or the URL that the remote application was offered
 	// with.
 	URL string
@@ -377,6 +386,7 @@ func (st *State) AddRemoteApplication(args AddRemoteApplicationParams) (_ *Remot
 	appDoc := &remoteApplicationDoc{
 		DocID:           applicationID,
 		Name:            args.Name,
+		OfferName:       args.OfferName,
 		SourceModelUUID: args.SourceModel.Id(),
 		URL:             args.URL,
 		Life:            Alive,

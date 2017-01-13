@@ -27,6 +27,7 @@ func GetRetryWatcher(p Provisioner) (watcher.NotifyWatcher, error) {
 
 var (
 	ContainerManagerConfig   = containerManagerConfig
+	GetContainerInitialiser  = &getContainerInitialiser
 	GetToolsFinder           = &getToolsFinder
 	ResolvConf               = &resolvConf
 	RetryStrategyDelay       = &retryStrategyDelay

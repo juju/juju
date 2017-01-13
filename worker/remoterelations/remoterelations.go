@@ -256,10 +256,11 @@ type relation struct {
 }
 
 type remoteRelationInfo struct {
-	applicationId         params.RemoteEntityId
-	localEndpoint         params.RemoteEndpoint
-	remoteApplicationName string
-	remoteEndpointName    string
+	applicationId              params.RemoteEntityId
+	localEndpoint              params.RemoteEndpoint
+	remoteApplicationName      string
+	remoteApplicationOfferName string
+	remoteEndpointName         string
 }
 
 func newRemoteApplicationWorker(
@@ -271,12 +272,15 @@ func newRemoteApplicationWorker(
 ) (worker.Worker, error) {
 	w := &remoteApplicationWorker{
 		relationsWatcher: relationsWatcher,
-		relationInfo:     remoteRelationInfo{remoteApplicationName: remoteApplication.Name},
-		localModelUUID:   localModelUUID,
-		remoteModelUUID:  remoteApplication.ModelUUID,
-		registered:       remoteApplication.Registered,
-		relationChanges:  make(chan params.RemoteRelationChangeEvent),
-		facade:           facade,
+		relationInfo: remoteRelationInfo{
+			remoteApplicationOfferName: remoteApplication.OfferName,
+			remoteApplicationName:      remoteApplication.Name,
+		},
+		localModelUUID:  localModelUUID,
+		remoteModelUUID: remoteApplication.ModelUUID,
+		registered:      remoteApplication.Registered,
+		relationChanges: make(chan params.RemoteRelationChangeEvent),
+		facade:          facade,
 		newPublisherForModelFunc: newPublisherForModelFunc,
 	}
 	err := catacomb.Invoke(catacomb.Plan{
@@ -381,14 +385,14 @@ func (w *remoteApplicationWorker) relationChanged(
 		// so look up the token to use when communicating status.
 		token, err := w.facade.GetToken(w.remoteModelUUID, relationTag)
 		if err != nil {
-			return errors.Trace(err)
+			return errors.Annotatef(err, "getting token for relation %v from consuming model", relationTag.Id())
 		}
 		remoteRelationId = params.RemoteEntityId{ModelUUID: w.remoteModelUUID, Token: token}
 		// Look up the exported token of the local application in the relation.
 		// The export was done when the relation was registered.
 		token, err = w.facade.GetToken(w.localModelUUID, names.NewApplicationTag(remoteRelation.ApplicationName))
 		if err != nil {
-			return errors.Trace(err)
+			return errors.Annotatef(err, "getting token for application %v from offering model", remoteRelation.ApplicationName)
 		}
 		w.relationInfo.applicationId = params.RemoteEntityId{ModelUUID: w.localModelUUID, Token: token}
 	} else {
@@ -400,7 +404,7 @@ func (w *remoteApplicationWorker) relationChanged(
 		applicationTag := names.NewApplicationTag(remoteRelation.ApplicationName)
 		w.relationInfo.applicationId, remoteRelationId, err = w.registerRemoteRelation(applicationTag, relationTag, publisher)
 		if err != nil {
-			return errors.Trace(err)
+			return errors.Annotatef(err, "registering application %v and relation %v", remoteRelation.ApplicationName, relationTag.Id())
 		}
 	}
 
@@ -459,11 +463,16 @@ func (w *remoteApplicationWorker) registerRemoteRelation(
 		ApplicationId:          remoteApplicationId,
 		RelationId:             remoteRelationId,
 		RemoteEndpoint:         w.relationInfo.localEndpoint,
-		OfferedApplicationName: w.relationInfo.remoteApplicationName,
+		OfferedApplicationName: w.relationInfo.remoteApplicationOfferName,
 		LocalEndpointName:      w.relationInfo.remoteEndpointName,
 	}
 	remoteAppIds, err := publisher.RegisterRemoteRelations(arg)
 	if err != nil {
+		return emptyId, emptyId, errors.Trace(err)
+	}
+	// remoteAppIds is a slice but there's only one item
+	// as we currently only register one remote application
+	if err := remoteAppIds[0].Error; err != nil {
 		return emptyId, emptyId, errors.Trace(err)
 	}
 	if err := results[0].Error; err != nil && !params.IsCodeAlreadyExists(err) {
