@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math/rand"
 	"net"
+	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/set"
@@ -877,8 +878,8 @@ func (m *Machine) AllSpaces() (set.Strings, error) {
 			spaces.Add(spaceName)
 		}
 	}
-	logger.Tracef("machine %q found AllSpaces() = %v",
-		m.Id(), spaces.SortedValues())
+	logger.Tracef("machine %q found AllSpaces() = %s",
+		m.Id(), quoteSpaces(spaces))
 	return spaces, nil
 }
 
@@ -1078,8 +1079,8 @@ func (m *Machine) inferContainerSpaces(containerId, defaultSpaceName string) (se
 			"to bridge all devices")
 		return set.NewStrings(""), nil
 	}
-	return nil, errors.Errorf("no obvious space for container %q, host machine has spaces: %v",
-		containerId, hostSpaces.SortedValues())
+	return nil, errors.Errorf("no obvious space for container %q, host machine has spaces: %s",
+		containerId, quoteSpaces(hostSpaces))
 }
 
 // determineContainerSpaces tries to use the direct information about a
@@ -1091,8 +1092,8 @@ func (m *Machine) determineContainerSpaces(containerMachine *Machine, defaultSpa
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	logger.Debugf("for container %q, found desired spaces: %v",
-		containerMachine.Id(), containerSpaces.SortedValues())
+	logger.Debugf("for container %q, found desired spaces: %s",
+		containerMachine.Id(), quoteSpaces(containerSpaces))
 	if len(containerSpaces) == 0 {
 		// We have determined that the container doesn't have any useful
 		// constraints set on it. So lets see if we can come up with
@@ -1168,8 +1169,8 @@ func (m *Machine) FindMissingBridgesForContainer(containerMachine *Machine) ([]n
 	// a helper that turns a list ingo ["s1", "s2"] style list to look more
 	// like a human would want to read it. (Especially important if we hit
 	// the fallback as "" doesn't print well at all.)
-	logger.Debugf("FindMissingBridgesForContainer(%q) spaces %v devices %v",
-		containerMachine.Id(), containerSpaces.SortedValues(), devicesPerSpace)
+	logger.Debugf("FindMissingBridgesForContainer(%q) spaces %s devices %v",
+		containerMachine.Id(), quoteSpaces(containerSpaces), devicesPerSpace)
 	spacesFound := set.NewStrings()
 	for spaceName, devices := range devicesPerSpace {
 		for _, device := range devices {
@@ -1216,9 +1217,9 @@ func (m *Machine) FindMissingBridgesForContainer(containerMachine *Machine) ([]n
 	}
 	notFound = notFound.Difference(spacesFound)
 	if !notFound.IsEmpty() {
-		return nil, errors.Errorf("container %q wants spaces %v, but host machine %q has no device in spaces %v",
-			containerMachine.Id(), containerSpaces.SortedValues(),
-			m.Id(), notFound.SortedValues())
+		return nil, errors.Errorf("container %q wants spaces %s, but host machine %q has no device in spaces %s",
+			containerMachine.Id(), quoteSpaces(containerSpaces),
+			m.Id(), quoteSpaces(notFound))
 	}
 	hostToBridge := make([]network.DeviceToBridge, 0, len(hostDeviceNamesToBridge))
 	for _, hostName := range network.NaturallySortDeviceNames(hostDeviceNamesToBridge...) {
@@ -1229,6 +1230,14 @@ func (m *Machine) FindMissingBridgesForContainer(containerMachine *Machine) ([]n
 		})
 	}
 	return hostToBridge, nil
+}
+
+func quoteSpaces(vals set.Strings) string {
+	out := []string{}
+	for _, space := range vals.SortedValues() {
+		out = append(out, fmt.Sprintf(`"%s"`, space))
+	}
+	return "[" + strings.Join(out, ", ") + "]"
 }
 
 // SetContainerLinkLayerDevices sets the link-layer devices of the given
@@ -1261,11 +1270,11 @@ func (m *Machine) SetContainerLinkLayerDevices(containerMachine *Machine) error 
 	}
 	missingSpace := containerSpaces.Difference(spacesFound)
 	if len(missingSpace) > 0 {
-		logger.Debugf("container %q wants spaces %v could not find bridges for %v",
-			containerMachine.Id(), containerSpaces.SortedValues(),
-			missingSpace.SortedValues())
-		return errors.Errorf("unable to find host bridge for spaces %v for container %q",
-			missingSpace.SortedValues(), containerMachine.Id())
+		logger.Debugf("container %q wants spaces %s could not find bridges for %s",
+			containerMachine.Id(), quoteSpaces(containerSpaces),
+			quoteSpaces(missingSpace))
+		return errors.Errorf("unable to find host bridge for spaces %s for container %q",
+			quoteSpaces(missingSpace), containerMachine.Id())
 	}
 
 	sortedBridgeDeviceNames := network.NaturallySortDeviceNames(bridgeDeviceNames...)

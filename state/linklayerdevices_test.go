@@ -1652,7 +1652,7 @@ func (s *linkLayerDevicesStateSuite) TestSetContainerLinkLayerDevicesMismatchCon
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.machine.SetContainerLinkLayerDevices(s.containerMachine)
-	c.Assert(err.Error(), gc.Equals, `unable to find host bridge for spaces [dmz] for container "0/lxd/0"`)
+	c.Assert(err.Error(), gc.Equals, `unable to find host bridge for spaces ["dmz"] for container "0/lxd/0"`)
 
 	s.assertNoDevicesOnMachine(c, s.containerMachine)
 }
@@ -1669,7 +1669,7 @@ func (s *linkLayerDevicesStateSuite) TestSetContainerLinkLayerDevicesMissingBrid
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.machine.SetContainerLinkLayerDevices(s.containerMachine)
-	c.Assert(err.Error(), gc.Equals, `unable to find host bridge for spaces [dmz] for container "0/lxd/0"`)
+	c.Assert(err.Error(), gc.Equals, `unable to find host bridge for spaces ["dmz"] for container "0/lxd/0"`)
 
 	s.assertNoDevicesOnMachine(c, s.containerMachine)
 }
@@ -1824,7 +1824,7 @@ func (s *linkLayerDevicesStateSuite) TestFindMissingBridgesForContainerNoHostDev
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.machine.FindMissingBridgesForContainer(s.containerMachine)
-	c.Assert(err.Error(), gc.Equals, `container "0/lxd/0" wants spaces [dmz], but host machine "0" has no device in spaces [dmz]`)
+	c.Assert(err.Error(), gc.Equals, `container "0/lxd/0" wants spaces ["dmz"], but host machine "0" has no device in spaces ["dmz"]`)
 }
 
 func (s *linkLayerDevicesStateSuite) TestFindMissingBridgesForContainerTwoSpacesOneMissing(c *gc.C) {
@@ -1837,7 +1837,7 @@ func (s *linkLayerDevicesStateSuite) TestFindMissingBridgesForContainerTwoSpaces
 	})
 	_, err = s.machine.FindMissingBridgesForContainer(s.containerMachine)
 	// both default and dmz are needed, but default is missing
-	c.Assert(err.Error(), gc.Equals, `container "0/lxd/0" wants spaces [default dmz], but host machine "0" has no device in spaces [default]`)
+	c.Assert(err.Error(), gc.Equals, `container "0/lxd/0" wants spaces ["default", "dmz"], but host machine "0" has no device in spaces ["default"]`)
 }
 
 func (s *linkLayerDevicesStateSuite) TestFindMissingBridgesForContainerNoSpaces(c *gc.C) {
@@ -1878,8 +1878,8 @@ func (s *linkLayerDevicesStateSuite) TestFindMissingBridgesForContainerUnknownWi
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.machine.FindMissingBridgesForContainer(s.containerMachine)
 	c.Assert(err.Error(), gc.Equals,
-		`container "0/lxd/0" wants spaces [default], but host machine "0" `+
-			`has no device in spaces [default]`)
+		`container "0/lxd/0" wants spaces ["default"], but host machine "0" `+
+			`has no device in spaces ["default"]`)
 }
 
 func (s *linkLayerDevicesStateSuite) TestFindMissingBridgesForContainerUnknownAndDefault(c *gc.C) {
