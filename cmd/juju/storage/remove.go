@@ -59,14 +59,14 @@ output by "juju storage --filesystem".
 	removeFilesystemCommandArgs = `<filesystem ID> [<filesystem ID> ...]`
 )
 
-type removeMachineStorageCommandBase struct {
+type removeStorageCommandBase struct {
 	StorageCommandBase
 	newEntityDestroyerCloser NewEntityDestroyerCloserFunc
 	tags                     []names.Tag
 }
 
 // Run implements Command.Run.
-func (c *removeMachineStorageCommandBase) Run(ctx *cmd.Context) error {
+func (c *removeStorageCommandBase) Run(ctx *cmd.Context) error {
 	destroyer, err := c.newEntityDestroyerCloser()
 	if err != nil {
 		return errors.Trace(err)
@@ -85,7 +85,7 @@ func (c *removeMachineStorageCommandBase) Run(ctx *cmd.Context) error {
 
 // removeVolumeCommand removes volumes from the model.
 type removeVolumeCommand struct {
-	removeMachineStorageCommandBase
+	removeStorageCommandBase
 }
 
 // Init implements Command.Init.
@@ -116,7 +116,7 @@ func (c *removeVolumeCommand) Info() *cmd.Info {
 
 // removeFilesystemCommand removes filesystems from the model.
 type removeFilesystemCommand struct {
-	removeMachineStorageCommandBase
+	removeStorageCommandBase
 }
 
 // Init implements Command.Init.
