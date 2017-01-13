@@ -181,7 +181,7 @@ func (t *Tracker) refresh() error {
 func (t *Tracker) setLeader(untilTime time.Time) error {
 	logger.Debugf("%s confirmed for %s leadership until %s", t.unitName, t.applicationName, untilTime)
 	renewTime := untilTime.Add(-t.duration)
-	logger.Infof("%s will renew %s leadership at %s", t.unitName, t.applicationName, renewTime)
+	logger.Debugf("%s will renew %s leadership at %s", t.unitName, t.applicationName, renewTime)
 	t.isMinion = false
 	t.claimLease = nil
 	t.renewLease = t.clock.After(renewTime.Sub(t.clock.Now()))
