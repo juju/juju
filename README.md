@@ -147,5 +147,5 @@ Known Issues
 
 Needed for confinement
 ----------------------
- * Missing support for abstract mutex socket (https://bugs.launchpad.net/snappy/+bug/1604967)
+ * Missing support for abstract unix sockets (https://bugs.launchpad.net/snappy/+bug/1604967)
  * Needs SSH interface (https://bugs.launchpad.net/snappy/+bug/1606574)
