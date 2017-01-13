@@ -86,6 +86,7 @@ const (
 	addStorageForUnitCall                   = "addStorageForUnit"
 	getBlockForTypeCall                     = "getBlockForType"
 	volumeAttachmentCall                    = "volumeAttachment"
+	destroyStorageAttachmentCall            = "destroyStorageAttachment"
 	destroyStorageInstanceCall              = "destroyStorageInstance"
 )
 
@@ -143,7 +144,7 @@ func (s *baseStorageSuite) constructState() *mockState {
 			if tag == s.storageTag {
 				return []state.StorageAttachment{storageInstanceAttachment}, nil
 			}
-			return nil, errors.NotFoundf("%s", names.ReadableString(tag))
+			return []state.StorageAttachment{}, nil
 		},
 		storageInstanceFilesystem: func(sTag names.StorageTag) (state.Filesystem, error) {
 			s.calls = append(s.calls, storageInstanceFilesystemCall)
@@ -236,6 +237,17 @@ func (s *baseStorageSuite) constructState() *mockState {
 			s.calls = append(s.calls, getBlockForTypeCall)
 			val, found := s.blocks[t]
 			return val, found, nil
+		},
+		destroyStorageAttachment: func(storage names.StorageTag, unit names.UnitTag) error {
+			s.calls = append(s.calls, destroyStorageAttachmentCall)
+			if storage == s.storageTag && unit == s.unitTag {
+				return nil
+			}
+			return errors.NotFoundf(
+				"attachment of %s to %s",
+				names.ReadableString(storage),
+				names.ReadableString(unit),
+			)
 		},
 		destroyStorageInstance: func(tag names.StorageTag) error {
 			s.calls = append(s.calls, destroyStorageInstanceCall)

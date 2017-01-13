@@ -42,7 +42,7 @@ type listCommand struct {
 func (c *listCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "storage",
-		Args:    "<machineID> ...",
+		Args:    "<filesystem|volume> ...",
 		Purpose: "Lists storage details.",
 		Doc:     listCommandDoc,
 		Aliases: []string{"list-storage"},

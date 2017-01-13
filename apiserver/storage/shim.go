@@ -114,6 +114,10 @@ type storageAccess interface {
 	// GetBlockForType is required to block operations.
 	GetBlockForType(t state.BlockType) (state.Block, bool, error)
 
+	// DestroyStorageAttachment detaches the storage instance with the
+	// specified tag from the unit with the specified tag.
+	DestroyStorageAttachment(names.StorageTag, names.UnitTag) error
+
 	// DestroyStorageInstance destroys the storage instance with the specified tag.
 	DestroyStorageInstance(names.StorageTag) error
 }
