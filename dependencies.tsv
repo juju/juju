@@ -6,7 +6,7 @@ github.com/dustin/go-humanize	git	145fabdb1ab757076a70a886d092a3af27f66f4c	2014-
 github.com/gabriel-samfira/sys	git	9ddc60d56b511544223adecea68da1e4f2153beb	2015-06-08T13:21:19Z
 github.com/godbus/dbus	git	32c6cc29c14570de4cf6d7e7737d68fb2d01ad15	2016-05-06T22:25:50Z
 github.com/joyent/gocommon	git	40c7818502f7c1ebbb13dab185a26e77b746ff40	2014-05-24T00:08:47Z
-github.com/joyent/gomanta	git	b7f8007afb65647543e768d5a71b4dcb26bcfe1f	2016-04-11T00:09:46Z
+github.com/joyent/gomanta	git	b7f8007afb65647543e768d5a71b4dcb26bcfe1f	2016-04-08T17:20:39Z
 github.com/joyent/gosdc	git	2f11feadd2d9891e92296a1077c3e2e56939547d	2014-05-24T00:08:15Z
 github.com/joyent/gosign	git	0da0d5f1342065321c97812b1f4ac0c2b0bab56c	2014-05-24T00:07:34Z
 github.com/juju/blobstore	git	337aa7d5d712728d181dbda2547a6556d4189626	2015-05-08T07:43:36Z
@@ -27,9 +27,9 @@ github.com/juju/ratelimit	git	aa5bb718d4d435629821789cb90970319f57bfe5	2015-03-3
 github.com/juju/replicaset	git	fb7294cf57a1e2f08a57691f1246d129a87ab7e8	2015-05-08T02:21:43Z
 github.com/juju/schema	git	afe1151cb49d1d7ed3c75592dfc6f38703f2e988	2015-08-07T07:58:08Z
 github.com/juju/syslog	git	6be94e8b718766e9ff7a37342157fe4795da7cfa	2015-02-05T15:59:36Z
-github.com/juju/testing	git	162fafccebf20a4207ab93d63b986c230e3f4d2e	2015-05-29T04:40:43Z
+github.com/juju/testing	git	162fafccebf20a4207ab93d63b986c230e3f4d2e	2016-04-04T09:43:17Z
 github.com/juju/txn	git	99ec629d0066a4d73c54d8e021a7fc1dc07df614	2015-06-09T16:58:27Z
-github.com/juju/utils	git	3b23c7348d5b56ac89911a2c953ff1f3f65b005f	2016-09-05T03:29:40Z
+github.com/juju/utils	git	d4cd08b9e2a6bfd92b149a45d43e4c1569edb4ce	2017-01-06T15:12:36Z
 github.com/juju/xml	git	eb759a627588d35166bc505fceb51b88500e291e	2015-04-13T13:11:21Z
 golang.org/x/crypto	git	c57d4a71915a248dbad846d60825145062b4c18e	2015-03-27T05:11:19Z
 golang.org/x/net	git	bb64f4dc73d4ab97978d5e1cb34515dcc570361b	2015-05-18T01:39:50Z
