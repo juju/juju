@@ -886,6 +886,12 @@ func (e *environ) SetConfig(cfg *config.Config) error {
 	return nil
 }
 
+// MoveInstancesToController is part of the Environ interface.
+func (e *environ) MoveInstancesToController([]instance.Id, string) error {
+	// This provider doesn't track instance -> controller.
+	return nil
+}
+
 func (e *environ) Destroy() (res error) {
 	defer delay()
 	estate, err := e.state()
