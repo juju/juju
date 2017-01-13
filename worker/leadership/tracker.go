@@ -55,6 +55,7 @@ func NewTracker(tag names.UnitTag, claimer leadership.Claimer, clock clock.Clock
 		claimTickets:      make(chan chan bool),
 		waitLeaderTickets: make(chan chan bool),
 		waitMinionTickets: make(chan chan bool),
+		isMinion:		   true,
 	}
 	go func() {
 		defer t.tomb.Done()
@@ -179,6 +180,10 @@ func (t *Tracker) refresh() error {
 
 // setLeader arranges for lease renewal.
 func (t *Tracker) setLeader(untilTime time.Time) error {
+	if t.isMinion {
+		// If we were a minion, we're now the leader, so we can record the transition.
+		logger.Infof("%s promoted to leadership of %s", t.unitName, t.applicationName)
+	}
 	logger.Debugf("%s confirmed for %s leadership until %s", t.unitName, t.applicationName, untilTime)
 	renewTime := untilTime.Add(-t.duration)
 	logger.Debugf("%s will renew %s leadership at %s", t.unitName, t.applicationName, renewTime)
