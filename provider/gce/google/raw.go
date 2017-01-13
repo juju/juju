@@ -367,3 +367,13 @@ func (rc *rawConn) ListMachineTypes(projectID, zone string) (*compute.MachineTyp
 	}
 	return machines, nil
 }
+
+func (rc *rawConn) SetMetadata(projectID, zone, instanceID string, metadata *compute.Metadata) error {
+	call := rc.Instances.SetMetadata(projectID, zone, instanceID, metadata)
+	op, err := call.Do()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	err = rc.waitOperation(projectID, op, attemptsLong)
+	return errors.Trace(err)
+}
