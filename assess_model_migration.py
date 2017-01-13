@@ -43,10 +43,15 @@ def assess_model_migration(bs1, bs2, args):
         bs2.client.enable_feature('migration')
         bs2.client.env.juju_home = bs1.client.env.juju_home
         with bs2.existing_booted_context(args.upload_tools):
-            source_client = bs1.client
-            dest_client = bs2.client
-            ensure_migration_including_resources_succeeds(
-                source_client, dest_client)
+            source_client = bs2.client
+            dest_client = bs1.client
+            # Capture the migrated client so we can use it to assert it
+            # continues to operate after the originating controller is torn
+            # down.
+            migrated_client, application, resource_contents = \
+                ensure_migration_with_resources_succeeds(
+                    source_client,
+                    dest_client)
             ensure_model_logs_are_migrated(source_client, dest_client)
             with temp_dir() as temp:
                 ensure_migrating_with_insufficient_user_permissions_fails(
@@ -63,6 +68,12 @@ def assess_model_migration(bs1, bs2, args):
                 ensure_migration_rolls_back_on_failure(
                     source_client, dest_client)
                 ensure_api_login_redirects(source_client, dest_client)
+        # Continue test where we ensure that a migrated model continues to work
+        # after it's originating controller has been destroyed.
+        assert_model_migrated_successfully(
+            migrated_client, application, resource_contents)
+        log.info(
+            'SUCCESS: Model operational after origin controller destroyed')
 
 
 def parse_args(argv):
@@ -209,7 +220,7 @@ def assert_model_has_correct_controller_uuid(client):
         raise JujuAssertionError()
 
 
-def ensure_migration_including_resources_succeeds(source_client, dest_client):
+def ensure_migration_with_resources_succeeds(source_client, dest_client):
     """Test simple migration of a model to another controller.
 
     Ensure that migration a model that has an application, that uses resources,
@@ -224,6 +235,9 @@ def ensure_migration_including_resources_succeeds(source_client, dest_client):
         - Ensure it's operating as expected
         - Add a new unit to the application to ensure the model is functional
 
+    :return: Tuple containing migrated client object and the resource string
+      that the charm deployed to it outputs.
+
     """
     resource_contents = get_random_string()
     test_model, application = deploy_simple_server_to_new_model(
@@ -233,8 +247,8 @@ def ensure_migration_including_resources_succeeds(source_client, dest_client):
     assert_model_migrated_successfully(
         migration_target_client, application, resource_contents)
 
-    migration_target_client.remove_service(application)
     log.info('SUCCESS: resources migrated')
+    return migration_target_client, application, resource_contents
 
 
 def assert_model_migrated_successfully(

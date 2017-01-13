@@ -726,7 +726,7 @@ class TestAssessModelMigration(TestCase):
         bs2.existing_booted_context.return_value = noop_context()
 
         patch_between = patch_amm(
-            'ensure_migration_including_resources_succeeds')
+            'ensure_migration_with_resources_succeeds')
         patch_user = patch_amm(
             'ensure_migrating_with_insufficient_user_permissions_fails')
         patch_super = patch_amm(
@@ -737,8 +737,14 @@ class TestAssessModelMigration(TestCase):
             'ensure_superuser_can_migrate_other_user_models')
         patch_redirects = patch_amm('ensure_api_login_redirects')
         patch_deploy_simple = patch_amm('deploy_simple_server_to_new_model')
+        patch_assert_migrated = patch_amm('assert_model_migrated_successfully')
+
+        mig_client = Mock()
+        app = 'application'
+        resource_string = 'resource'
 
         with patch_between as m_between:
+            m_between.return_value = mig_client, app, resource_string
             with patch_user as m_user, patch_super as m_super:
                 with patch_rollback as m_rollback, patch_logs as m_logs:
                     with patch_redirects as m_redirects:
@@ -748,9 +754,11 @@ class TestAssessModelMigration(TestCase):
                                     autospec=True,
                                     return_value=tmp_ctx()):
                                 with patch_deploy_simple:
-                                    amm.assess_model_migration(bs1, bs2, args)
-        source_client = bs1.client
-        dest_client = bs2.client
+                                    with patch_assert_migrated as m_am:
+                                        amm.assess_model_migration(
+                                            bs1, bs2, args)
+        source_client = bs2.client
+        dest_client = bs1.client
         m_between.assert_called_once_with(source_client, dest_client)
         m_user.assert_called_once_with(source_client, dest_client, '/tmp/dir')
         m_super.assert_called_once_with(source_client, dest_client, '/tmp/dir')
@@ -759,6 +767,7 @@ class TestAssessModelMigration(TestCase):
         m_superother.assert_called_once_with(
             source_client, dest_client, '/tmp/dir')
         m_redirects.assert_called_once_with(source_client, dest_client)
+        m_am.assert_called_once_with(mig_client, app, resource_string)
 
     def test_does_not_run_develop_tests_by_default(self):
         argv = [
@@ -774,24 +783,32 @@ class TestAssessModelMigration(TestCase):
         patch_super = patch_amm(
             'ensure_migrating_with_superuser_user_permissions_succeeds')
         patch_between = patch_amm(
-            'ensure_migration_including_resources_succeeds')
+            'ensure_migration_with_resources_succeeds')
         patch_rollback = patch_amm('ensure_migration_rolls_back_on_failure')
         patch_logs = patch_amm('ensure_model_logs_are_migrated')
+        patch_assert_migrated = patch_amm('assert_model_migrated_successfully')
+
+        mig_client = Mock()
+        app = 'application'
+        resource_string = 'resource'
 
         with patch_user as m_user:
             with patch_super as m_super:
                 with patch_between as m_between:
+                    m_between.return_value = mig_client, app, resource_string
                     with patch_rollback as m_rollback:
                         with patch_logs as m_logs:
                             with patch.object(
                                     amm, 'temp_dir',
                                     autospec=True, return_value=tmp_ctx()):
-                                amm.assess_model_migration(bs1, bs2, args)
-        source_client = bs1.client
-        dest_client = bs2.client
+                                with patch_assert_migrated as m_am:
+                                    amm.assess_model_migration(bs1, bs2, args)
+        source_client = bs2.client
+        dest_client = bs1.client
         m_user.assert_called_once_with(source_client, dest_client, '/tmp/dir')
         m_super.assert_called_once_with(source_client, dest_client, '/tmp/dir')
         m_between.assert_called_once_with(source_client, dest_client)
         m_logs.assert_called_once_with(source_client, dest_client)
+        m_am.assert_called_once_with(mig_client, app, resource_string)
 
         self.assertEqual(m_rollback.call_count, 0)
