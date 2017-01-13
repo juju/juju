@@ -662,18 +662,14 @@ class BootstrapManager:
         Ensure any required cleanup for the current substrate is done.
         returns list of resource cleanup errors.
         """
-        if self.resource_details is not None:
+        if self.resource_details:
             with make_substrate_manager(self.client.env) as substrate:
                 if substrate is not None:
                     return substrate.ensure_cleanup(self.resource_details)
-                try:
-                    provider_type = self.client.env.provider_type
-                    logging.warning(
-                        '{} is an unknown provider. '
-                        'Unable to ensure cleanup.'.format(provider_type))
-                except AttributeError:
-                    logging.debug("provider_type not found in the client")
-        return None
+                provider_type = self.client.env.provider_type
+                logging.warning(
+                    '{} is an unknown provider.'
+                    ' Unable to ensure cleanup.'.format(provider_type))
 
     def collect_resource_details(self):
         """
@@ -686,14 +682,12 @@ class BootstrapManager:
         except TypeError:
             logging.debug('Unable to retrieve controller uuid.')
 
-        try:
-            members = self.client.get_controller_members()
-            if members:
-                resource_details['instances'] = \
-                    [(m.info['instance-id'], m.info['dns-name'])
-                     for m in members]
-        except TypeError:
-            logging.debug('Unable to retrieve members')
+        members = self.client.get_controller_members()
+        if len(members) > 0:
+            resource_details['instances'] = \
+                [(m.info['instance-id'], m.info['dns-name'])
+                 for m in members]
+
         self.resource_details = resource_details
 
     @property

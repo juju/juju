@@ -1035,6 +1035,7 @@ def fake_juju_client(env=None, full_path=None, debug=False, version='2.0.0',
             'region': 'bar',
             }, juju_home=juju_home)
         env.credentials = {'credentials': {'foo': {'creds': {}}}}
+        env.provider_type = "foo"
     if _backend is None:
         backend_state = FakeControllerState()
         _backend = FakeBackend(

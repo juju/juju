@@ -2259,6 +2259,8 @@ class EnvJujuClient:
         """
         members = []
         status = self.get_status()
+        if not status.status:
+            return members
         for machine_id, machine in status.iter_machines():
             if self.get_controller_member_status(machine):
                 members.append(Machine(machine_id, machine))
