@@ -15,6 +15,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
+	"github.com/juju/juju/container"
 	"github.com/juju/juju/network"
 )
 
