@@ -51,7 +51,7 @@ def deploy_swarm_to_new_model(client, model_name):
     before_add = datetime.utcnow()
 
     new_client = client.add_model(model_name)
-    new_client.deploy(get_charm_url(), series='trusty')
+    new_client.deploy(get_charm_url())
     new_client.wait_for_started()
     new_client.wait_for_workloads()
 
