@@ -152,6 +152,11 @@ func (dev *LinkLayerDevice) Type() LinkLayerDeviceType {
 	return dev.doc.Type
 }
 
+// IsLoopbackDevice returns whether this is a loopback device.
+func (dev *LinkLayerDevice) IsLoopbackDevice() bool {
+	return dev.doc.Type == LoopbackDevice
+}
+
 // MACAddress returns the media access control (MAC) address of the device.
 func (dev *LinkLayerDevice) MACAddress() string {
 	return dev.doc.MACAddress

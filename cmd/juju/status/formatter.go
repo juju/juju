@@ -103,18 +103,28 @@ func (sf *statusFormatter) formatMachine(machine params.MachineStatus) machineSt
 	var out machineStatus
 
 	out = machineStatus{
-		JujuStatus:    sf.getStatusInfoContents(machine.AgentStatus),
-		DNSName:       machine.DNSName,
-		IPAddresses:   machine.IPAddresses,
-		InstanceId:    machine.InstanceId,
-		MachineStatus: sf.getStatusInfoContents(machine.InstanceStatus),
-		Series:        machine.Series,
-		Id:            machine.Id,
-		Containers:    make(map[string]machineStatus),
-		Constraints:   machine.Constraints,
-		Hardware:      machine.Hardware,
+		JujuStatus:        sf.getStatusInfoContents(machine.AgentStatus),
+		DNSName:           machine.DNSName,
+		InstanceId:        machine.InstanceId,
+		MachineStatus:     sf.getStatusInfoContents(machine.InstanceStatus),
+		Series:            machine.Series,
+		Id:                machine.Id,
+		NetworkInterfaces: make(map[string]networkInterface),
+		Containers:        make(map[string]machineStatus),
+		Constraints:       machine.Constraints,
+		Hardware:          machine.Hardware,
 	}
 
+	for k, d := range machine.NetworkInterfaces {
+		out.NetworkInterfaces[k] = networkInterface{
+			IPAddresses:    d.IPAddresses,
+			MACAddress:     d.MACAddress,
+			Gateway:        d.Gateway,
+			DNSNameservers: d.DNSNameservers,
+			Space:          d.Space,
+			IsUp:           d.IsUp,
+		}
+	}
 	for k, m := range machine.Containers {
 		out.Containers[k] = sf.formatMachine(m)
 	}

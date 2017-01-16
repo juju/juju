@@ -184,6 +184,11 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 	if context.machines, err = fetchMachines(c.api.stateAccessor, nil); err != nil {
 		return noStatus, errors.Annotate(err, "could not fetch machines")
 	}
+	// These may be empty when machines have not finished deployment.
+	if context.ipAddresses, context.spaces, context.linkLayerDevices, err =
+		fetchNetworkInterfaces(c.api.stateAccessor); err != nil {
+		return noStatus, errors.Annotate(err, "could not fetch IP addresses and link layer devices")
+	}
 	if context.relations, err = fetchRelations(c.api.stateAccessor); err != nil {
 		return noStatus, errors.Annotate(err, "could not fetch relations")
 	}
@@ -289,8 +294,13 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 		return noStatus, errors.Annotate(err, "cannot determine model status")
 	}
 	return params.FullStatus{
-		Model:              modelStatus,
-		Machines:           processMachines(context.machines),
+		Model: modelStatus,
+		Machines: processMachines(
+			context.machines,
+			context.ipAddresses,
+			context.spaces,
+			context.linkLayerDevices,
+		),
 		Applications:       context.processApplications(),
 		RemoteApplications: context.processRemoteApplications(),
 		Relations:          context.processRelations(),
@@ -343,8 +353,19 @@ type statusContext struct {
 	// machines: top-level machine id -> list of machines nested in
 	// this machine.
 	machines map[string][]*state.Machine
+
+	// ipAddresses: machine id -> list of ip.addresses
+	ipAddresses map[string][]*state.Address
+
+	// spaces: machine id -> deviceName -> list of spaceNames
+	spaces map[string]map[string]set.Strings
+
+	// linkLayerDevices: machine id -> list of linkLayerDevices
+	linkLayerDevices map[string][]*state.LinkLayerDevice
+
 	// applications: application name -> application
 	applications map[string]*state.Application
+
 	// remote applications: application name -> application
 	remoteApplications map[string]*state.RemoteApplication
 	relations          map[string][]*state.Relation
@@ -383,6 +404,67 @@ func fetchMachines(st Backend, machineIds set.Strings) (map[string][]*state.Mach
 		}
 	}
 	return v, nil
+}
+
+// fetchNetworkInterfaces returns maps from machine id to ip.addresses, machine
+// if to a map of interface names from space names, and machine id to
+// linklayerdevices.
+//
+// All are required to determine a machine's network interfaces configuration,
+// so we want all or none.
+func fetchNetworkInterfaces(st Backend) (map[string][]*state.Address, map[string]map[string]set.Strings, map[string][]*state.LinkLayerDevice, error) {
+	ipAddresses := make(map[string][]*state.Address)
+	spaces := make(map[string]map[string]set.Strings)
+	ipAddrs, err := st.AllIPAddresses()
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	for _, ipAddr := range ipAddrs {
+		if !ipAddr.LoopbackConfigMethod() {
+			machineID := ipAddr.MachineID()
+			ipAddresses[machineID] = append(ipAddresses[machineID], ipAddr)
+			subnet, err := st.Subnet(ipAddr.SubnetCIDR())
+			spaceName := ""
+			if errors.IsNotFound(err) {
+				// No worries; no subnets means no spaces.
+			} else if err != nil {
+				return nil, nil, nil, err
+			} else {
+				spaceName = subnet.SpaceName()
+			}
+			if spaceName != "" {
+				deviceName := ipAddr.DeviceName()
+				spacesSet, ok := spaces[machineID][deviceName]
+				if !ok {
+					spaces[machineID] = make(map[string]set.Strings)
+					spacesSet = make(set.Strings)
+				}
+				spacesSet.Add(spaceName)
+				spaces[machineID][deviceName] = spacesSet
+			}
+		}
+	}
+
+	linkLayerDevices := make(map[string][]*state.LinkLayerDevice)
+	llDevs, err := st.AllLinkLayerDevices()
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	for _, llDev := range llDevs {
+		if llDev.IsLoopbackDevice() {
+			continue
+		}
+		addrs, err := llDev.Addresses()
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		if len(addrs) > 0 {
+			machineID := llDev.MachineID()
+			linkLayerDevices[machineID] = append(linkLayerDevices[machineID], llDev)
+		}
+	}
+
+	return ipAddresses, spaces, linkLayerDevices, nil
 }
 
 // fetchAllApplicationsAndUnits returns a map from application name to application,
@@ -480,7 +562,12 @@ func (m machineAndContainers) Containers(id string) []*state.Machine {
 	return m[id][1:]
 }
 
-func processMachines(idToMachines map[string][]*state.Machine) map[string]params.MachineStatus {
+func processMachines(
+	idToMachines map[string][]*state.Machine,
+	idToIpAddresses map[string][]*state.Address,
+	idToDeviceToSpaces map[string]map[string]set.Strings,
+	idToLinkLayerDevices map[string][]*state.LinkLayerDevice,
+) map[string]params.MachineStatus {
 	machinesMap := make(map[string]params.MachineStatus)
 	cache := make(map[string]params.MachineStatus)
 	for id, machines := range idToMachines {
@@ -491,7 +578,12 @@ func processMachines(idToMachines map[string][]*state.Machine) map[string]params
 
 		// Element 0 is assumed to be the top-level machine.
 		tlMachine := machines[0]
-		hostStatus := makeMachineStatus(tlMachine)
+		hostStatus := makeMachineStatus(
+			tlMachine,
+			idToIpAddresses[tlMachine.Id()],
+			idToDeviceToSpaces[tlMachine.Id()],
+			idToLinkLayerDevices[tlMachine.Id()],
+		)
 		machinesMap[id] = hostStatus
 		cache[id] = hostStatus
 
@@ -501,7 +593,12 @@ func processMachines(idToMachines map[string][]*state.Machine) map[string]params
 				panic("We've broken an assumpution.")
 			}
 
-			status := makeMachineStatus(machine)
+			status := makeMachineStatus(
+				machine,
+				idToIpAddresses[machine.Id()],
+				idToDeviceToSpaces[machine.Id()],
+				idToLinkLayerDevices[machine.Id()],
+			)
 			parent.Containers[machine.Id()] = status
 			cache[machine.Id()] = status
 		}
@@ -509,7 +606,12 @@ func processMachines(idToMachines map[string][]*state.Machine) map[string]params
 	return machinesMap
 }
 
-func makeMachineStatus(machine *state.Machine) (status params.MachineStatus) {
+func makeMachineStatus(
+	machine *state.Machine,
+	ipAddresses []*state.Address,
+	spaces map[string]set.Strings,
+	linkLayerDevices []*state.LinkLayerDevice,
+) (status params.MachineStatus) {
 	var err error
 	status.Id = machine.Id()
 	agentStatus := processMachine(machine)
@@ -533,21 +635,50 @@ func makeMachineStatus(machine *state.Machine) (status params.MachineStatus) {
 		}
 		status.DNSName = addr.Value
 
-		mAddrs := machine.Addresses()
-		if len(mAddrs) == 0 {
-			logger.Debugf("no IP addresses fetched for machine %q", instid)
-			// At least give it the newly created DNSName address, if it exists.
-			if addr.Value != "" {
-				mAddrs = append(mAddrs, addr)
+		status.NetworkInterfaces = make(map[string]params.NetworkInterface, len(linkLayerDevices))
+		for _, llDev := range linkLayerDevices {
+			device := llDev.Name()
+			ips := []string{}
+			gw := []string{}
+			ns := []string{}
+			sp := make(set.Strings)
+			for _, ipAddress := range ipAddresses {
+				if ipAddress.DeviceName() == device {
+					ips = append(ips, ipAddress.Value())
+					// We don't expect to find more than
+					// one ipAddress on a device with a
+					// list of nameservers, but append in
+					// any case.
+					if len(ipAddress.DNSServers()) > 0 {
+						ns = append(ns, ipAddress.DNSServers()...)
+					}
+					// There should only be one gateway per
+					// device (per machine, in fact, as we
+					// don't store metrics). If we find
+					// more than one we should show them
+					// all.
+					if ipAddress.GatewayAddress() != "" {
+						gw = append(gw, ipAddress.GatewayAddress())
+					}
+					// There should only be one space per
+					// address, but it's technically
+					// possible to have more than one
+					// address on an interface. If we find
+					// that happens, we need to show all
+					// spaces, to be safe.
+					sp = spaces[device]
+				}
+			}
+			status.NetworkInterfaces[device] = params.NetworkInterface{
+				IPAddresses:    ips,
+				MACAddress:     llDev.MACAddress(),
+				Gateway:        strings.Join(gw, " "),
+				DNSNameservers: ns,
+				Space:          strings.Join(sp.Values(), " "),
+				IsUp:           llDev.IsUp(),
 			}
 		}
-		for _, mAddr := range mAddrs {
-			switch mAddr.Scope {
-			case network.ScopeMachineLocal, network.ScopeLinkLocal:
-				continue
-			}
-			status.IPAddresses = append(status.IPAddresses, mAddr.Value)
-		}
+		logger.Debugf("NetworkInterfaces: %+v", status.NetworkInterfaces)
 	} else {
 		if errors.IsNotProvisioned(err) {
 			status.InstanceId = "pending"
