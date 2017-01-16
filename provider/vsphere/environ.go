@@ -121,6 +121,12 @@ func (env *environ) BootstrapMessage() string {
 //this variable is exported, because it has to be rewritten in external unit tests
 var DestroyEnv = common.Destroy
 
+// MoveInstancesToController is part of the Environ interface.
+func (env *environ) MoveInstancesToController(ids []instance.Id, controllerUUID string) error {
+	// This provider doesn't track instance -> controller.
+	return nil
+}
+
 // Destroy shuts down all known machines and destroys the rest of the
 // known environment.
 func (env *environ) Destroy() error {

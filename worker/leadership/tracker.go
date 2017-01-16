@@ -55,7 +55,7 @@ func NewTracker(tag names.UnitTag, claimer leadership.Claimer, clock clock.Clock
 		claimTickets:      make(chan chan bool),
 		waitLeaderTickets: make(chan chan bool),
 		waitMinionTickets: make(chan chan bool),
-		isMinion:		   true,
+		isMinion:          true,
 	}
 	go func() {
 		defer t.tomb.Done()

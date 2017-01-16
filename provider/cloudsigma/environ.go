@@ -98,8 +98,15 @@ func (env *environ) BootstrapMessage() string {
 	return ""
 }
 
+// ControllerInstances is part of the Environ interface.
 func (e *environ) ControllerInstances(controllerUUID string) ([]instance.Id, error) {
 	return e.client.getControllerIds()
+}
+
+// MoveInstancesToController is part of the Environ interface.
+func (e *environ) MoveInstancesToController(ids []instance.Id, controllerUUID string) error {
+	// This provider doesn't track instance -> controller.
+	return nil
 }
 
 // Destroy shuts down all known machines and destroys the
