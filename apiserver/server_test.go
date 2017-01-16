@@ -32,6 +32,7 @@ import (
 	"github.com/juju/juju/apiserver/observer"
 	"github.com/juju/juju/apiserver/observer/fakeobserver"
 	"github.com/juju/juju/apiserver/params"
+	corecert "github.com/juju/juju/cert"
 	"github.com/juju/juju/controller"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/mongo"
@@ -52,6 +53,12 @@ type serverSuite struct {
 }
 
 var _ = gc.Suite(&serverSuite{})
+
+func (s *serverSuite) SetUpSuite(c *gc.C) {
+	s.JujuConnSuite.SetUpSuite(c)
+	s.PatchValue(&corecert.NewCA, coretesting.NewCA)
+	s.PatchValue(&corecert.NewLeafKeyBits, 512)
+}
 
 func (s *serverSuite) TestStop(c *gc.C) {
 	// Start our own instance of the server so we have
