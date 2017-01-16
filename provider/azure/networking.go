@@ -6,9 +6,11 @@ package azure
 import (
 	"fmt"
 	"net"
+	"net/http"
 	"strconv"
 
 	"github.com/Azure/azure-sdk-for-go/arm/network"
+	"github.com/Azure/go-autorest/autorest"
 	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/juju/errors"
 
@@ -107,24 +109,28 @@ var (
 
 // networkTemplateResources returns resource definitions for creating network
 // resources shared by all machines in a model.
+//
+// If apiPort is -1, then there should be no controller subnet created, and
+// no network security rule allowing Juju API traffic.
 func networkTemplateResources(
 	location string,
 	envTags map[string]string,
 	apiPort int,
+	extraRules []network.SecurityRule,
 ) []armtemplates.Resource {
 	// Create a network security group for the environment. There is only
 	// one NSG per environment (there's a limit of 100 per subscription),
 	// in which we manage rules for each exposed machine.
-	apiSecurityRule := apiSecurityRule
-	properties := *apiSecurityRule.Properties
-	properties.DestinationPortRange = to.StringPtr(fmt.Sprint(apiPort))
-	apiSecurityRule.Properties = &properties
-	securityRules := []network.SecurityRule{sshSecurityRule, apiSecurityRule}
+	securityRules := []network.SecurityRule{sshSecurityRule}
+	if apiPort != -1 {
+		apiSecurityRule := apiSecurityRule
+		properties := *apiSecurityRule.Properties
+		properties.DestinationPortRange = to.StringPtr(fmt.Sprint(apiPort))
+		apiSecurityRule.Properties = &properties
+		securityRules = append(securityRules, apiSecurityRule)
+	}
+	securityRules = append(securityRules, extraRules...)
 
-	// NOTE(axw) we create the API rule for all models to avoid having to
-	// make queries when creating resources, making deployment faster and
-	// more robust. The controller subnet is never used in non-controller
-	// models, so there are no security implications.
 	nsgId := fmt.Sprintf(
 		`[resourceId('Microsoft.Network/networkSecurityGroups', '%s')]`,
 		internalSecurityGroupName,
@@ -137,15 +143,18 @@ func networkTemplateResources(
 				ID: to.StringPtr(nsgId),
 			},
 		},
-	}, {
-		Name: to.StringPtr(controllerSubnetName),
-		Properties: &network.SubnetPropertiesFormat{
-			AddressPrefix: to.StringPtr(controllerSubnetPrefix),
-			NetworkSecurityGroup: &network.SecurityGroup{
-				ID: to.StringPtr(nsgId),
-			},
-		},
 	}}
+	if apiPort != -1 {
+		subnets = append(subnets, network.Subnet{
+			Name: to.StringPtr(controllerSubnetName),
+			Properties: &network.SubnetPropertiesFormat{
+				AddressPrefix: to.StringPtr(controllerSubnetPrefix),
+				NetworkSecurityGroup: &network.SecurityGroup{
+					ID: to.StringPtr(nsgId),
+				},
+			},
+		})
+	}
 
 	addressPrefixes := []string{internalSubnetPrefix, controllerSubnetPrefix}
 	resources := []armtemplates.Resource{{
@@ -169,6 +178,7 @@ func networkTemplateResources(
 		},
 		DependsOn: []string{nsgId},
 	}}
+
 	return resources
 }
 
@@ -217,4 +227,31 @@ func machineSubnetIP(subnetPrefix, machineId string) (net.IP, error) {
 		)
 	}
 	return ip, nil
+}
+
+// networkSecurityRules returns the network security rules for the internal
+// network security group in the specified resource group. If the network
+// security group has not been created, this function will return an error
+// satisfying errors.IsNotFound.
+func networkSecurityRules(
+	nsgClient network.SecurityGroupsClient,
+	callAPI callAPIFunc,
+	resourceGroup string,
+) ([]network.SecurityRule, error) {
+	var nsg network.SecurityGroup
+	if err := callAPI(func() (autorest.Response, error) {
+		var err error
+		nsg, err = nsgClient.Get(resourceGroup, internalSecurityGroupName, "")
+		return nsg.Response, err
+	}); err != nil {
+		if nsg.StatusCode != http.StatusNotFound {
+			return nil, errors.Annotate(err, "querying network security group")
+		}
+		return nil, errors.NotFoundf("security group")
+	}
+	var rules []network.SecurityRule
+	if nsg.Properties.SecurityRules != nil {
+		rules = *nsg.Properties.SecurityRules
+	}
+	return rules, nil
 }

@@ -321,10 +321,20 @@ func (s *environSuite) initResourceGroupSenders() azuretesting.Senders {
 	return senders
 }
 
-func (s *environSuite) startInstanceSenders(controller bool) azuretesting.Senders {
+func (s *environSuite) startInstanceSenders(bootstrap bool) azuretesting.Senders {
 	senders := azuretesting.Senders{s.vmSizesSender()}
 	if s.ubuntuServerSKUs != nil {
 		senders = append(senders, s.makeSender(".*/Canonical/.*/UbuntuServer/skus", s.ubuntuServerSKUs))
+	}
+	if !bootstrap {
+		// When starting an instance, we must wait for the common
+		// deployment to complete.
+		commonDeployment := &resources.DeploymentExtended{
+			Properties: &resources.DeploymentPropertiesExtended{
+				ProvisioningState: to.StringPtr("Succeeded"),
+			},
+		}
+		senders = append(senders, s.makeSender("/deployments/common", commonDeployment))
 	}
 	senders = append(senders, s.makeSender("/deployments/machine-0", s.deployment))
 	return senders
@@ -676,7 +686,10 @@ func (s *environSuite) TestStartInstanceServiceAvailabilitySet(c *gc.C) {
 	})
 }
 
-const numExpectedStartInstanceRequests = 3
+// numExpectedStartInstanceRequests is the number of expected requests base
+// by StartInstance method calls. The number is one less for Bootstrap, which
+// does not require a query on the common deployment.
+const numExpectedStartInstanceRequests = 4
 
 type assertStartInstanceRequestsParams struct {
 	availabilitySetName string
@@ -739,11 +752,13 @@ func (s *environSuite) assertStartInstanceRequests(
 		},
 	}}
 
+	createCommonResources := false
 	subnetName := "juju-internal-subnet"
 	privateIPAddress := "192.168.0.4"
 	if args.availabilitySetName == "juju-controller" {
 		subnetName = "juju-controller-subnet"
 		privateIPAddress = "192.168.16.4"
+		createCommonResources = true
 	}
 	subnetId := fmt.Sprintf(
 		`[concat(resourceId('Microsoft.Network/virtualNetworks', 'juju-internal-network'), '/subnets/%s')]`,
@@ -772,42 +787,48 @@ func (s *environSuite) assertStartInstanceRequests(
 			Primary: to.BoolPtr(true),
 		},
 	}}
-	vmDependsOn := []string{
-		nicId,
-		`[resourceId('Microsoft.Storage/storageAccounts', '` + storageAccountName + `')]`,
-	}
 
-	addressPrefixes := []string{"192.168.0.0/20", "192.168.16.0/20"}
-	templateResources := []armtemplates.Resource{{
-		APIVersion: network.APIVersion,
-		Type:       "Microsoft.Network/networkSecurityGroups",
-		Name:       "juju-internal-nsg",
-		Location:   "westus",
-		Tags:       to.StringMap(s.envTags),
-		Properties: &network.SecurityGroupPropertiesFormat{
-			SecurityRules: &securityRules,
-		},
-	}, {
-		APIVersion: network.APIVersion,
-		Type:       "Microsoft.Network/virtualNetworks",
-		Name:       "juju-internal-network",
-		Location:   "westus",
-		Tags:       to.StringMap(s.envTags),
-		Properties: &network.VirtualNetworkPropertiesFormat{
-			AddressSpace: &network.AddressSpace{&addressPrefixes},
-			Subnets:      &subnets,
-		},
-		DependsOn: []string{nsgId},
-	}, {
-		APIVersion: storage.APIVersion,
-		Type:       "Microsoft.Storage/storageAccounts",
-		Name:       storageAccountName,
-		Location:   "westus",
-		Tags:       to.StringMap(s.envTags),
-		StorageSku: &storage.Sku{
-			Name: storage.SkuName("Standard_LRS"),
-		},
-	}}
+	var nicDependsOn, vmDependsOn []string
+	var templateResources []armtemplates.Resource
+	if createCommonResources {
+		addressPrefixes := []string{"192.168.0.0/20", "192.168.16.0/20"}
+		templateResources = append(templateResources, []armtemplates.Resource{{
+			APIVersion: network.APIVersion,
+			Type:       "Microsoft.Network/networkSecurityGroups",
+			Name:       "juju-internal-nsg",
+			Location:   "westus",
+			Tags:       to.StringMap(s.envTags),
+			Properties: &network.SecurityGroupPropertiesFormat{
+				SecurityRules: &securityRules,
+			},
+		}, {
+			APIVersion: network.APIVersion,
+			Type:       "Microsoft.Network/virtualNetworks",
+			Name:       "juju-internal-network",
+			Location:   "westus",
+			Tags:       to.StringMap(s.envTags),
+			Properties: &network.VirtualNetworkPropertiesFormat{
+				AddressSpace: &network.AddressSpace{&addressPrefixes},
+				Subnets:      &subnets,
+			},
+			DependsOn: []string{nsgId},
+		}, {
+			APIVersion: storage.APIVersion,
+			Type:       "Microsoft.Storage/storageAccounts",
+			Name:       storageAccountName,
+			Location:   "westus",
+			Tags:       to.StringMap(s.envTags),
+			StorageSku: &storage.Sku{
+				Name: storage.SkuName("Standard_LRS"),
+			},
+		}}...)
+		vmDependsOn = append(vmDependsOn,
+			`[resourceId('Microsoft.Storage/storageAccounts', '`+storageAccountName+`')]`,
+		)
+		nicDependsOn = append(nicDependsOn,
+			`[resourceId('Microsoft.Network/virtualNetworks', 'juju-internal-network')]`,
+		)
+	}
 
 	var availabilitySetSubResource *compute.SubResource
 	if args.availabilitySetName != "" {
@@ -825,7 +846,7 @@ func (s *environSuite) assertStartInstanceRequests(
 		availabilitySetSubResource = &compute.SubResource{
 			ID: to.StringPtr(availabilitySetId),
 		}
-		vmDependsOn = append([]string{availabilitySetId}, vmDependsOn...)
+		vmDependsOn = append(vmDependsOn, availabilitySetId)
 	}
 
 	templateResources = append(templateResources, []armtemplates.Resource{{
@@ -846,10 +867,7 @@ func (s *environSuite) assertStartInstanceRequests(
 		Properties: &network.InterfacePropertiesFormat{
 			IPConfigurations: &ipConfigurations,
 		},
-		DependsOn: []string{
-			publicIPAddressId,
-			`[resourceId('Microsoft.Network/virtualNetworks', 'juju-internal-network')]`,
-		},
+		DependsOn: append(nicDependsOn, publicIPAddressId),
 	}, {
 		APIVersion: compute.APIVersion,
 		Type:       "Microsoft.Compute/virtualMachines",
@@ -879,7 +897,7 @@ func (s *environSuite) assertStartInstanceRequests(
 			NetworkProfile:  &compute.NetworkProfile{&nics},
 			AvailabilitySet: availabilitySetSubResource,
 		},
-		DependsOn: vmDependsOn,
+		DependsOn: append(vmDependsOn, nicId),
 	}}...)
 	if args.vmExtension != nil {
 		templateResources = append(templateResources, armtemplates.Resource{
@@ -904,34 +922,44 @@ func (s *environSuite) assertStartInstanceRequests(
 		},
 	}
 
+	var i int
+	nexti := func() int {
+		i++
+		return i - 1
+	}
+
 	// Validate HTTP request bodies.
 	var startInstanceRequests startInstanceRequests
 	if args.vmExtension != nil {
 		// It must be Windows or CentOS, so
 		// there should be no image query.
 		c.Assert(requests, gc.HasLen, numExpectedStartInstanceRequests-1)
-		c.Assert(requests[0].Method, gc.Equals, "GET") // vmSizes
-		c.Assert(requests[1].Method, gc.Equals, "PUT") // create deployment
+		c.Assert(requests[nexti()].Method, gc.Equals, "GET") // vmSizes
 		startInstanceRequests.vmSizes = requests[0]
-		startInstanceRequests.deployment = requests[1]
 	} else {
-		c.Assert(requests, gc.HasLen, numExpectedStartInstanceRequests)
+		if createCommonResources {
+			c.Assert(requests, gc.HasLen, numExpectedStartInstanceRequests-1)
+		} else {
+			c.Assert(requests, gc.HasLen, numExpectedStartInstanceRequests)
+		}
 		if args.needsProviderInit {
-			c.Assert(requests[0].Method, gc.Equals, "PUT") // resource groups
-			c.Assert(requests[1].Method, gc.Equals, "GET") // skus
-			c.Assert(requests[2].Method, gc.Equals, "PUT") // create deployment
+			c.Assert(requests[nexti()].Method, gc.Equals, "PUT") // resource groups
+			c.Assert(requests[nexti()].Method, gc.Equals, "GET") // skus
 			startInstanceRequests.resourceGroups = requests[0]
 			startInstanceRequests.skus = requests[1]
-			startInstanceRequests.deployment = requests[2]
 		} else {
-			c.Assert(requests[0].Method, gc.Equals, "GET") // vmSizes
-			c.Assert(requests[1].Method, gc.Equals, "GET") // skus
-			c.Assert(requests[2].Method, gc.Equals, "PUT") // create deployment
+			c.Assert(requests[nexti()].Method, gc.Equals, "GET") // vmSizes
+			c.Assert(requests[nexti()].Method, gc.Equals, "GET") // skus
 			startInstanceRequests.vmSizes = requests[0]
 			startInstanceRequests.skus = requests[1]
-			startInstanceRequests.deployment = requests[2]
 		}
 	}
+	if !createCommonResources {
+		c.Assert(requests[nexti()].Method, gc.Equals, "GET") // wait for common deployment
+	}
+	ideployment := nexti()
+	c.Assert(requests[ideployment].Method, gc.Equals, "PUT") // create deployment
+	startInstanceRequests.deployment = requests[ideployment]
 
 	// Marshal/unmarshal the deployment we expect, so it's in map form.
 	var expected resources.Deployment
@@ -991,7 +1019,7 @@ func (s *environSuite) TestBootstrap(c *gc.C) {
 	c.Assert(result.Arch, gc.Equals, "amd64")
 	c.Assert(result.Series, gc.Equals, "quantal")
 
-	c.Assert(len(s.requests), gc.Equals, numExpectedStartInstanceRequests+1)
+	c.Assert(len(s.requests), gc.Equals, numExpectedStartInstanceRequests)
 	s.vmTags[tags.JujuIsController] = to.StringPtr("true")
 	s.assertStartInstanceRequests(c, s.requests[1:], assertStartInstanceRequestsParams{
 		availabilitySetName: "juju-controller",
@@ -1040,7 +1068,7 @@ func (s *environSuite) TestBootstrapInstanceConstraints(c *gc.C) {
 	// amd64 should pass the rest of the test.
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(len(s.requests), gc.Equals, numExpectedStartInstanceRequests+1)
+	c.Assert(len(s.requests), gc.Equals, numExpectedStartInstanceRequests)
 	s.vmTags[tags.JujuIsController] = to.StringPtr("true")
 	s.assertStartInstanceRequests(c, s.requests[1:], assertStartInstanceRequestsParams{
 		availabilitySetName: "juju-controller",
