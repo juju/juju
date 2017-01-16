@@ -9,13 +9,16 @@ set -eux
 # Release all allocated machines on maas
 
 ssh -i $HOME/cloud-city/staging-juju-rsa jenkins@munna \
-  juju-ci-tools/prepare_maas.py 210-maas
+  'JUJU_HOME=~/cloud-city' juju-ci-tools/clean_maas.py parallel-munna-vmaas \
+  --hours=2
 
 ssh -i $HOME/cloud-city/staging-juju-rsa jenkins@finfolk \
-  juju-ci-tools/prepare_maas.py env20
+  'JUJU_HOME=~/cloud-city' juju-ci-tools/clean_maas.py parallel-finfolk-vmaas \
+  --hours=2
 
 ssh -i $HOME/cloud-city/staging-juju-rsa jenkins@silcoon \
-  juju-ci-tools/prepare_maas.py env21
+  'JUJU_HOME=~/cloud-city' juju-ci-tools/clean_maas.py parallel-silcoon-vmaas \
+  --hours=2
 
 # Delete all lxd containers left behind on several machines.
 
