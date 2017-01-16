@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	apideployer "github.com/juju/juju/api/deployer"
+	"github.com/juju/juju/cert"
 	"github.com/juju/juju/cmd/jujud/agent/agenttest"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/environs"
@@ -66,8 +67,10 @@ type commonMachineSuite struct {
 
 func (s *commonMachineSuite) SetUpSuite(c *gc.C) {
 	s.AgentSuite.SetUpSuite(c)
-	s.AgentSuite.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
-	s.AgentSuite.PatchValue(&stateWorkerDialOpts, mongotest.DialOpts())
+	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
+	s.PatchValue(&stateWorkerDialOpts, mongotest.DialOpts())
+	s.PatchValue(&cert.NewCA, coretesting.NewCA)
+	s.PatchValue(&cert.NewLeafKeyBits, 512)
 }
 
 func (s *commonMachineSuite) TearDownSuite(c *gc.C) {
@@ -76,22 +79,22 @@ func (s *commonMachineSuite) TearDownSuite(c *gc.C) {
 
 func (s *commonMachineSuite) SetUpTest(c *gc.C) {
 	s.AgentSuite.SetUpTest(c)
-	s.AgentSuite.PatchValue(&charmrepo.CacheDir, c.MkDir())
+	s.PatchValue(&charmrepo.CacheDir, c.MkDir())
 
 	// Patch ssh user to avoid touching ~ubuntu/.ssh/authorized_keys.
-	s.AgentSuite.PatchValue(&authenticationworker.SSHUser, "")
+	s.PatchValue(&authenticationworker.SSHUser, "")
 
 	testpath := c.MkDir()
-	s.AgentSuite.PatchEnvPathPrepend(testpath)
+	s.PatchEnvPathPrepend(testpath)
 	// mock out the start method so we can fake install services without sudo
 	fakeCmd(filepath.Join(testpath, "start"))
 	fakeCmd(filepath.Join(testpath, "stop"))
 
-	s.AgentSuite.PatchValue(&upstart.InitDir, c.MkDir())
+	s.PatchValue(&upstart.InitDir, c.MkDir())
 
 	s.singularRecord = newSingularRunnerRecord()
-	s.AgentSuite.PatchValue(&newSingularRunner, s.singularRecord.newSingularRunner)
-	s.AgentSuite.PatchValue(&peergrouperNew, func(*state.State, clock.Clock, bool, peergrouper.Hub) (worker.Worker, error) {
+	s.PatchValue(&newSingularRunner, s.singularRecord.newSingularRunner)
+	s.PatchValue(&peergrouperNew, func(*state.State, clock.Clock, bool, peergrouper.Hub) (worker.Worker, error) {
 		return newDummyWorker(), nil
 	})
 
