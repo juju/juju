@@ -104,7 +104,7 @@ func (e *environ) ControllerInstances(controllerUUID string) ([]instance.Id, err
 }
 
 // MoveInstancesToController is part of the Environ interface.
-func (e *environ) MoveInstancesToController([]instance.Id, string) error {
+func (e *environ) MoveInstancesToController(ids []instance.Id, controllerUUID string) error {
 	// This provider doesn't track instance -> controller.
 	return nil
 }

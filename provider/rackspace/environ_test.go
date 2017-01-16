@@ -175,7 +175,7 @@ func (e *fakeEnviron) ControllerInstances(_ string) ([]instance.Id, error) {
 	return nil, nil
 }
 
-func (e *fakeEnviron) MoveInstancesToController([]instance.Id, string) error {
+func (e *fakeEnviron) MoveInstancesToController(ids []instance.Id, controllerUUID string) error {
 	e.Push("MoveInstancesToController")
 	return nil
 }

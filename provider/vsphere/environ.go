@@ -122,7 +122,7 @@ func (env *environ) BootstrapMessage() string {
 var DestroyEnv = common.Destroy
 
 // MoveInstancesToController is part of the Environ interface.
-func (env *environ) MoveInstancesToController([]instance.Id, string) error {
+func (env *environ) MoveInstancesToController(ids []instance.Id, controllerUUID string) error {
 	// This provider doesn't track instance -> controller.
 	return nil
 }
