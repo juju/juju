@@ -75,7 +75,8 @@ class TestQuickstartTest(FakeHomeTestCase):
         steps = quickstart.iter_steps()
         with patch.object(client, 'quickstart') as qs_mock:
             # Test first yield
-            with patch('jujupy.check_free_disk_space', autospec=True):
+            with patch('jujupy.client.check_free_disk_space',
+                       autospec=True):
                 with patch.object(client, 'kill_controller',
                                   autospec=True) as kill_mock:
                     step = steps.next()

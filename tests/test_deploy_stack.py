@@ -1202,7 +1202,7 @@ class TestTestUpgrade(FakeHomeTestCase):
                                    side_effect=lambda cls:
                                    '2.0-rc2-arch-series'):
                             with patch(
-                                    'jujupy.get_timeout_prefix',
+                                    'jujupy.client.get_timeout_prefix',
                                     autospec=True, return_value=()):
                                 yield (co_mock, cc_mock)
 

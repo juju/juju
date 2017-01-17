@@ -2,7 +2,7 @@
 from argparse import ArgumentParser
 import json
 
-from jujupy import (
+from jujupy.client import (
     describe_substrate,
     EnvJujuClient,
     SimpleEnvironment,
