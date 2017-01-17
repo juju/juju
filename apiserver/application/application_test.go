@@ -6,8 +6,6 @@ package application_test
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
-	"path/filepath"
 	"regexp"
 	"sync"
 	"time"
@@ -3054,9 +3052,6 @@ func (s *serviceSuite) TestRemoteApplicationInfo(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 3)
-	chpath := testcharms.Repo.CharmDirPath("mysql")
-	mysqlIcon, err := ioutil.ReadFile(filepath.Join(chpath, "icon.svg"))
-	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, jc.DeepEquals, []params.RemoteApplicationInfoResult{
 		{Result: &params.RemoteApplicationInfo{
 			ModelTag:         coretesting.ModelTag.String(),
@@ -3064,9 +3059,9 @@ func (s *serviceSuite) TestRemoteApplicationInfo(c *gc.C) {
 			Description:      "a database",
 			ApplicationURL:   "local:/u/me/hosted-mysql",
 			SourceModelLabel: "",
-			Icon:             []byte(common.DefaultCharmIcon),
 			Endpoints: []params.RemoteEndpoint{
 				{Name: "server", Role: "provider", Interface: "mysql", Limit: 0, Scope: "global"}},
+			IconURLPath: "rest/1.0/remote-application/hosted-mysql/icon",
 		}},
 		{Result: &params.RemoteApplicationInfo{
 			ModelTag:         s.otherModel.ModelTag().String(),
@@ -3074,7 +3069,7 @@ func (s *serviceSuite) TestRemoteApplicationInfo(c *gc.C) {
 			Description:      "A pretty popular database",
 			ApplicationURL:   "othermodel.mysql",
 			SourceModelLabel: "othermodel",
-			Icon:             mysqlIcon,
+			IconURLPath:      "rest/1.0/remote-application/mysql/icon",
 			Endpoints: []params.RemoteEndpoint{
 				{Name: "juju-info", Role: "provider", Interface: "juju-info", Limit: 0, Scope: "global"},
 				{Name: "server", Role: "provider", Interface: "mysql", Limit: 0, Scope: "global"}},

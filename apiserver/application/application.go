@@ -7,6 +7,7 @@
 package application
 
 import (
+	"fmt"
 	"regexp"
 
 	"github.com/juju/errors"
@@ -992,8 +993,7 @@ func (api *API) oneRemoteApplicationInfo(urlStr string) (*params.RemoteApplicati
 		ApplicationURL:   urlStr,
 		SourceModelLabel: offer.SourceLabel,
 		Endpoints:        offer.Endpoints,
-		// TODO(wallyworld)
-		Icon: []byte(common.DefaultCharmIcon),
+		IconURLPath:      fmt.Sprintf("rest/1.0/remote-application/%s/icon", url.ApplicationName),
 	}, nil
 }
 
@@ -1049,10 +1049,6 @@ func (api *API) sameControllerRemoteApplicationInfo(url jujucrossmodel.Applicati
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	icon, err := api.charmIcon(NewStateBackend(st), ch.URL())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 	return &params.RemoteApplicationInfo{
 		ModelTag:         sourceModelTag.String(),
 		Name:             application.Name(),
@@ -1060,7 +1056,7 @@ func (api *API) sameControllerRemoteApplicationInfo(url jujucrossmodel.Applicati
 		ApplicationURL:   url.String(),
 		SourceModelLabel: model.Name(),
 		Endpoints:        endpoints,
-		Icon:             icon,
+		IconURLPath:      fmt.Sprintf("rest/1.0/remote-application/%s/icon", url.ApplicationName),
 	}, nil
 }
 
