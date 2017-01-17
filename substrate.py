@@ -13,6 +13,8 @@ except ImportError:
 from boto import ec2
 from boto.exception import EC2ResponseError
 
+from dateutil import parser as date_parser
+
 import gce
 from jujuconfig import (
     get_euca_env,
@@ -486,6 +488,12 @@ class MAASAccount:
 
     SUBNET_CONNECTION_MODES = frozenset(('AUTO', 'DHCP', 'STATIC', 'LINK_UP'))
 
+    ACQUIRING = 'User acquiring node'
+
+    CREATED = 'created'
+
+    NODE = 'node'
+
     def __init__(self, profile, url, oauth):
         self.profile = profile
         self.url = urlparse.urljoin(url, self._API_PATH)
@@ -525,6 +533,15 @@ class MAASAccount:
         nodes = self._maas(*self._list_allocated_args())
         allocated = {node['hostname']: node for node in nodes}
         return allocated
+
+    def get_acquire_dates(self):
+        events = self._maas(self.profile, 'events', 'query')
+        acquire_dates = {}
+        for event in events['events']:
+            if event['type'] == self.ACQUIRING:
+                date = date_parser.parse(event[self.CREATED])
+                acquire_dates.setdefault(event[self.NODE], date)
+        return acquire_dates
 
     def get_allocated_ips(self):
         """Return a dict of allocated ips with the hostname as keys.

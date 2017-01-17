@@ -8,26 +8,17 @@ set -eux
 
 # Release all allocated machines on maas
 
-ssh -i $HOME/cloud-city/staging-juju-rsa jenkins@munna <<"EOT"
-    set -eux
-    for mid in $(maas 210-maas nodes list-allocated | egrep '(system_id)' | sed -r 's,.*"([^"]*)".*,\1,'); do
-        maas 210-maas node release $mid;
-    done
-EOT
+ssh -i $HOME/cloud-city/staging-juju-rsa jenkins@munna \
+  'JUJU_HOME=~/cloud-city' juju-ci-tools/clean_maas.py parallel-munna-vmaas \
+  --hours=2
 
-ssh -i $HOME/cloud-city/staging-juju-rsa jenkins@finfolk <<"EOT"
-    set -eux
-    for mid in $(maas env20 machines list-allocated | egrep '(system_id)' | sed -r 's,.*"([^"]*)".*,\1,'); do
-        maas env20 machine release $mid;
-    done
-EOT
+ssh -i $HOME/cloud-city/staging-juju-rsa jenkins@finfolk \
+  'JUJU_HOME=~/cloud-city' juju-ci-tools/clean_maas.py parallel-finfolk-vmaas \
+  --hours=2
 
-ssh -i $HOME/cloud-city/staging-juju-rsa jenkins@silcoon <<"EOT"
-    set -eux
-    for mid in $(maas env21 machines list-allocated | egrep '(system_id)' | sed -r 's,.*"([^"]*)".*,\1,'); do
-        maas env21 machine release $mid;
-    done
-EOT
+ssh -i $HOME/cloud-city/staging-juju-rsa jenkins@silcoon \
+  'JUJU_HOME=~/cloud-city' juju-ci-tools/clean_maas.py parallel-silcoon-vmaas \
+  --hours=2
 
 # Delete all lxd containers left behind on several machines.
 

@@ -1,4 +1,5 @@
 from contextlib import contextmanager
+from datetime import datetime
 import json
 import os
 from subprocess import CalledProcessError
@@ -942,6 +943,50 @@ class TestMAASAccount(TestCase):
         co_mock.assert_called_once_with(
             ('maas', 'mas', 'machines', 'list-allocated'))
         self.assertEqual(node, allocated['maas-node-1.maas'])
+
+    def make_event(self, acquire_date, type_=MAASAccount.ACQUIRING):
+        return {
+           'type': type_,
+           MAASAccount.CREATED: acquire_date.isoformat(),
+           MAASAccount.NODE: 'asdf',
+           }
+
+    def test_get_acquire_dates(self):
+        acquire_date = datetime(2016, 10, 25)
+        dates = self._run_acquire_dates(acquire_date)
+        self.assertEqual({'asdf': acquire_date}, dates)
+
+    def _run_acquire_dates(self, acquire_date, type_=MAASAccount.ACQUIRING):
+        events = {'events': [
+            self.make_event(acquire_date, type_=type_),
+            ]}
+        return self._run_acquire_dates_events(events)
+
+    def _run_acquire_dates_events(self, events):
+        account = self.get_account()
+        with patch('subprocess.check_output', autospec=True,
+                   return_value=json.dumps(events)) as co_mock:
+            dates = account.get_acquire_dates()
+        co_mock.assert_called_once_with(
+            ('maas', 'mas', 'events', 'query'))
+        return dates
+
+    def test_get_acquire_dates_not_acquiring(self):
+        acquire_date = datetime(2016, 10, 25)
+        dates = self._run_acquire_dates(acquire_date, type_='Not acquiring')
+        self.assertEqual({}, dates)
+
+    def test_get_acquire_dates_uses_first_entry(self):
+        acquire_date = datetime(2016, 10, 25)
+        newer_date = datetime(2016, 10, 26)
+        older_date = datetime(2016, 10, 24)
+        events = {'events': [
+            self.make_event(acquire_date),
+            self.make_event(older_date),
+            self.make_event(newer_date),
+            ]}
+        dates = self._run_acquire_dates_events(events)
+        self.assertEqual({'asdf': acquire_date}, dates)
 
     def test_get_allocated_ips(self):
         account = self.get_account()
