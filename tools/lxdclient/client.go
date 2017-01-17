@@ -185,18 +185,9 @@ func isSupportedAPIVersion(version string) bool {
 
 // newRawClient connects to the LXD host that is defined in Config.
 func newRawClient(remote Remote) (*lxd.Client, error) {
-	host := remote.Host
-
-	if remote.ID() == remoteIDForLocal && host == "" {
-		host = "unix://" + lxdshared.VarPath("unix.socket")
-	} else if !strings.HasPrefix(host, "unix://") {
-		_, _, err := net.SplitHostPort(host)
-		if err != nil {
-			// There is no port here
-			host = net.JoinHostPort(host, lxdshared.DefaultPort)
-		}
-	}
-	logger.Debugf("connecting to LXD remote %q: %q", remote.ID(), host)
+	remote_id := remote.ID()
+	host := generateHostString(remote_id, remote.Host)
+	logger.Debugf("connecting to LXD remote %q: %q", remote_id, host)
 
 	clientCert := ""
 	if remote.Cert != nil && remote.Cert.CertPEM != nil {
@@ -216,7 +207,7 @@ func newRawClient(remote Remote) (*lxd.Client, error) {
 	}
 
 	client, err := lxdNewClientFromInfo(lxd.ConnectInfo{
-		Name: remote.ID(),
+		Name: remote_id,
 		RemoteConfig: lxd.RemoteConfig{
 			Addr:     host,
 			Static:   static,
@@ -228,7 +219,7 @@ func newRawClient(remote Remote) (*lxd.Client, error) {
 		ServerPEMCert: remote.ServerPEMCert,
 	})
 	if err != nil {
-		if remote.ID() == remoteIDForLocal {
+		if remote_id == remoteIDForLocal {
 			err = hoistLocalConnectErr(err)
 			return nil, errors.Annotate(err, "can't connect to the local LXD server")
 		}
@@ -249,6 +240,46 @@ func newRawClient(remote Remote) (*lxd.Client, error) {
 	}
 
 	return client, nil
+}
+
+// Generate host string from remote.ID and remote.Host
+func generateHostString(id string, host string) (string) {
+	if host != "" {
+		is_localhost, _ := isLocalhost(host)
+		if is_localhost {
+			return "unix://" + lxdshared.VarPath("unix.socket")
+		} else {
+			return net.JoinHostPort(host, lxdshared.DefaultPort)
+		}
+	} else if id == remoteIDForLocal && host == "" {
+		return "unix://" + lxdshared.VarPath("unix.socket")
+	} else if !strings.HasPrefix(host, "unix://") {
+		_, _, err := net.SplitHostPort(host)
+		if err != nil {
+			// There is no port here
+			return net.JoinHostPort(host, lxdshared.DefaultPort)
+		}
+	}
+	return host
+}
+
+// Check if the remote host is pointing to a local ip address configured in
+// our interfaces.
+func isLocalhost(host string) (bool, error) {
+	addresses, err := net.InterfaceAddrs()
+
+	// As default, we assume that we are on localhost
+	if err != nil {
+		return true, errors.Trace(err)
+	}
+
+	for _, address := range addresses {
+		if strings.Contains(host, address.String()) {
+			return true, nil
+		}
+	}
+
+	return false, nil
 }
 
 // verifyDefaultProfileBridgeConfig takes a LXD API client and extracts the
