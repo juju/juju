@@ -26,9 +26,9 @@ from deploy_stack import (
     BootstrapManager,
     get_random_string,
     )
-from fakejuju import fake_juju_client
 from jujupy import (
     EnvJujuClient,
+    fake_juju_client,
     JujuData,
     SoftDeadlineExceeded,
     )

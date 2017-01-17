@@ -17,23 +17,25 @@ from mock import (
     )
 import yaml
 
-from fakejuju import fake_juju_client
 from jujuconfig import (
     get_jenv_path,
     )
-from jujupy.client import (
+from jujupy import (
+    fake_juju_client,
     EnvJujuClient,
-    CannotConnectEnv,
-    GroupReporter,
     JujuData,
     JUJU_DEV_FEATURE_FLAGS,
     JESNotSupported,
     SimpleEnvironment,
     Status,
+    _temp_env as temp_env,
+    )
+from jujupy.client import (
+    CannotConnectEnv,
+    GroupReporter,
     StatusItem,
     StatusNotMet,
     SYSTEM,
-    _temp_env as temp_env,
     UpgradeMongoNotSupported,
     WaitMachineNotPresent,
     )

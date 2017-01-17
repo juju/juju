@@ -14,12 +14,10 @@ from assess_cloud import (
     parse_args,
     )
 from deploy_stack import BootstrapManager
-from fakejuju import (
-    FakeBackend,
-    fake_juju_client,
-    )
 from jujupy import (
     EnvJujuClient,
+    FakeBackend,
+    fake_juju_client,
     Juju2Backend,
     )
 from tests import (

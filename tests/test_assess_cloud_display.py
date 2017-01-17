@@ -6,7 +6,7 @@ from mock import (
     )
 import yaml
 
-from fakejuju import fake_juju_client
+from jujupy import fake_juju_client
 from assess_cloud_display import (
     assess_clouds,
     assess_show_cloud,

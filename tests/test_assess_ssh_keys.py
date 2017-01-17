@@ -10,7 +10,7 @@ from assess_ssh_keys import (
     parse_args,
     parse_ssh_keys_output,
     )
-from fakejuju import fake_juju_client
+from jujupy import fake_juju_client
 from tests import (
     parse_error,
     TestCase,

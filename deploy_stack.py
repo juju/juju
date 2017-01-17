@@ -28,10 +28,6 @@ import json
 import shutil
 
 from chaos import background_chaos
-from fakejuju import (
-    FakeBackend,
-    fake_juju_client,
-)
 from jujucharm import (
     local_charm_path,
 )
@@ -41,6 +37,8 @@ from jujuconfig import (
 )
 from jujupy import (
     client_from_config,
+    FakeBackend,
+    fake_juju_client,
     get_machine_dns_name,
     jes_home_path,
     NoProvider,

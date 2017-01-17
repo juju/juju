@@ -9,9 +9,9 @@ from mock import (
     patch,
     )
 
-from fakejuju import fake_juju_client
 from jujupy import (
     AuthNotAccepted,
+    fake_juju_client,
     InvalidEndpoint,
     NameNotAccepted,
     TypeNotAccepted,

@@ -15,9 +15,9 @@ from mock import (
 
 from jujupy import (
     EnvJujuClient,
+    fake_juju_client,
     JujuData,
     )
-from fakejuju import fake_juju_client
 from run_deployer import (
     apply_condition,
     assess_deployer,

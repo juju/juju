@@ -6,14 +6,12 @@ import yaml
 from deploy_stack import (
     BootstrapManager,
     )
-from fakejuju import (
-    FakeBackend,
-    FakeControllerState,
-    )
 from jujuconfig import get_juju_home
 from jujupy import (
     ConditionList,
     EnvJujuClient,
+    FakeBackend,
+    FakeControllerState,
     get_client_class,
     )
 from utility import (

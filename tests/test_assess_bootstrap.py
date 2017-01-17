@@ -21,10 +21,8 @@ from assess_bootstrap import (
 from deploy_stack import (
     BootstrapManager,
     )
-from fakejuju import (
-    fake_juju_client,
-    )
 from jujupy import (
+    fake_juju_client,
     _temp_env as temp_env,
     Status,
     )

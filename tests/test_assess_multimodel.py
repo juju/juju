@@ -16,9 +16,9 @@ from assess_multimodel import (
     hosted_environment,
     multimodel_setup,
     )
-from fakejuju import fake_juju_client
 from jujupy import (
     EnvJujuClient25,
+    fake_juju_client,
     JUJU_DEV_FEATURE_FLAGS,
     SimpleEnvironment,
     )
