@@ -37,7 +37,7 @@ func MachineStatus(machine MachineStatusGetter) (status.StatusInfo, error) {
 		logger.Debugf("error determining presence for machine %s: %v", machine.Id(), err)
 		return machineStatus, nil
 	}
-	if machine.Life() != state.Dead && !agentAlive && machineStatus.Message == "" {
+	if machine.Life() != state.Dead && !agentAlive {
 		machineStatus.Status = status.Down
 		machineStatus.Message = "agent is not communicating with the server"
 	}

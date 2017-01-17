@@ -713,7 +713,7 @@ func (task *provisionerTask) startMachine(
 		logger.Warningf("%v", errors.Annotate(err, "starting instance"))
 		retryMsg := fmt.Sprintf("failed to start instance (%s), will retry in %v",
 			err.Error(), task.retryStartInstanceStrategy.retryDelay)
-		if err2 := machine.SetStatus(status.Pending, retryMsg, nil); err2 != nil {
+		if err2 := machine.SetInstanceStatus(status.Pending, retryMsg, nil); err2 != nil {
 			logger.Errorf("%v", err2)
 		}
 		logger.Infof(retryMsg)
