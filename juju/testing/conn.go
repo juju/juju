@@ -27,6 +27,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/cert"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/controller"
@@ -112,6 +113,8 @@ func (s *JujuConnSuite) SetUpSuite(c *gc.C) {
 	s.MgoSuite.SetUpSuite(c)
 	s.FakeJujuXDGDataHomeSuite.SetUpSuite(c)
 	s.PatchValue(&utils.OutgoingAccessAllowed, false)
+	s.PatchValue(&cert.NewCA, testing.NewCA)
+	s.PatchValue(&cert.NewLeafKeyBits, 512)
 }
 
 func (s *JujuConnSuite) TearDownSuite(c *gc.C) {
