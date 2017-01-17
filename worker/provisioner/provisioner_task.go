@@ -685,7 +685,7 @@ func (task *provisionerTask) startMachines(machines []*apiprovisioner.Machine) e
 
 func (task *provisionerTask) setErrorStatus(message string, machine *apiprovisioner.Machine, err error) error {
 	logger.Errorf(message, machine, err)
-	if err1 := machine.SetStatus(status.Error, err.Error(), nil); err1 != nil {
+	if err1 := machine.SetInstanceStatus(status.Error, err.Error(), nil); err1 != nil {
 		// Something is wrong with this machine, better report it back.
 		return errors.Annotatef(err1, "cannot set error status for machine %q", machine)
 	}
@@ -711,7 +711,8 @@ func (task *provisionerTask) startMachine(
 		}
 
 		logger.Warningf("%v", errors.Annotate(err, "starting instance"))
-		retryMsg := fmt.Sprintf("will retry to start instance in %v", task.retryStartInstanceStrategy.retryDelay)
+		retryMsg := fmt.Sprintf("failed to start instance (%s), will retry in %v",
+			err.Error(), task.retryStartInstanceStrategy.retryDelay)
 		if err2 := machine.SetStatus(status.Pending, retryMsg, nil); err2 != nil {
 			logger.Errorf("%v", err2)
 		}
