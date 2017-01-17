@@ -3,10 +3,6 @@
 
 package upgrades
 
-import (
-	"github.com/juju/juju/state"
-)
-
 // stateStepsFor21 returns upgrade steps for Juju 2.1 that manipulate state directly.
 func stateStepsFor21() []Step {
 	return []Step{
@@ -14,14 +10,14 @@ func stateStepsFor21() []Step {
 			description: "drop old log index",
 			targets:     []Target{DatabaseMaster},
 			run: func(context Context) error {
-				return state.DropOldLogIndex(context.State())
+				return context.State().DropOldLogIndex()
 			},
 		},
 		&upgradeStep{
 			description: "add attempt to migration docs",
 			targets:     []Target{DatabaseMaster},
 			run: func(context Context) error {
-				return state.AddMigrationAttempt(context.State())
+				return context.State().AddMigrationAttempt()
 			},
 		},
 	}

@@ -205,6 +205,7 @@ func (s *syslogSuite) TestLogRecordForwarded(c *gc.C) {
 		agentConf,
 		s.logger,
 		agentcmd.DefaultIntrospectionSocketName,
+		noPreUpgradeSteps,
 		c.MkDir(),
 	)
 	a, err := machineAgentFactory(m.Id())
@@ -238,6 +239,7 @@ func (s *syslogSuite) TestConfigChange(c *gc.C) {
 		agentConf,
 		s.logger,
 		agentcmd.DefaultIntrospectionSocketName,
+		noPreUpgradeSteps,
 		c.MkDir(),
 	)
 	a, err := machineAgentFactory(m.Id())

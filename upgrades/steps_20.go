@@ -6,8 +6,6 @@ package upgrades
 import (
 	"os"
 	"path/filepath"
-
-	"github.com/juju/juju/state"
 )
 
 // stateStepsFor20 returns upgrade steps for Juju 2.0 that manipulate state directly.
@@ -17,14 +15,14 @@ func stateStepsFor20() []Step {
 			description: "strip @local from local user names",
 			targets:     []Target{DatabaseMaster},
 			run: func(context Context) error {
-				return state.StripLocalUserDomain(context.State())
+				return context.State().StripLocalUserDomain()
 			},
 		},
 		&upgradeStep{
 			description: "rename addmodel permission to add-model",
 			targets:     []Target{DatabaseMaster},
 			run: func(context Context) error {
-				return state.RenameAddModelPermission(context.State())
+				return context.State().RenameAddModelPermission()
 			},
 		},
 	}

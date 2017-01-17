@@ -62,6 +62,7 @@ func (s *dblogSuite) runMachineAgentTest(c *gc.C) bool {
 		agentConf,
 		logger,
 		agentcmd.DefaultIntrospectionSocketName,
+		noPreUpgradeSteps,
 		c.MkDir(),
 	)
 	a, err := machineAgentFactory(m.Id())

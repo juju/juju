@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
@@ -52,36 +53,10 @@ var (
 )
 
 // NewLock creates a gate.Lock to be used to synchronise workers which
-// need to start after upgrades have completed. If no upgrade steps
-// are required the Lock is unlocked and the version in agent's
-// configuration is updated to the currently running version.
-//
-// The returned Lock should be passed to NewWorker.
-func NewLock(a agent.Agent) (gate.Lock, error) {
-	lock := gate.NewLock()
-
-	if wrench.IsActive("machine-agent", "always-try-upgrade") {
-		// Always enter upgrade mode. This allows test of upgrades
-		// even when there's actually no upgrade steps to run.
-		return lock, nil
-	}
-
-	err := a.ChangeConfig(func(agentConfig agent.ConfigSetter) error {
-		if !upgrades.AreUpgradesDefined(agentConfig.UpgradedToVersion()) {
-			logger.Infof("no upgrade steps required or upgrade steps for %v "+
-				"have already been run.", jujuversion.Current)
-			lock.Unlock()
-
-			// Even if no upgrade is required the version number in
-			// the agent's config still needs to be bumped.
-			agentConfig.SetUpgradedToVersion(jujuversion.Current)
-		}
-		return nil
-	})
-	if err != nil {
-		return nil, err
-	}
-	return lock, nil
+// need to start after upgrades have completed. The returned Lock should
+// be passed to NewWorker.
+func NewLock() gate.Lock {
+	return gate.NewLock()
 }
 
 // StatusSetter defines the single method required to set an agent's
@@ -101,6 +76,7 @@ func NewWorker(
 	openState func() (*state.State, error),
 	preUpgradeSteps func(st *state.State, agentConf agent.Config, isController, isMasterServer bool) error,
 	machine StatusSetter,
+	newEnvironFunc environs.NewEnvironFunc,
 ) (worker.Worker, error) {
 	tag, ok := agent.CurrentConfig().Tag().(names.MachineTag)
 	if !ok {
@@ -115,6 +91,7 @@ func NewWorker(
 		preUpgradeSteps: preUpgradeSteps,
 		machine:         machine,
 		tag:             tag,
+		newEnviron:      newEnvironFunc,
 	}
 	go func() {
 		defer w.tomb.Done()
@@ -131,6 +108,7 @@ type upgradesteps struct {
 	jobs            []multiwatcher.MachineJob
 	openState       func() (*state.State, error)
 	preUpgradeSteps func(st *state.State, agentConf agent.Config, isController, isMaster bool) error
+	newEnviron      environs.NewEnvironFunc
 	machine         StatusSetter
 
 	fromVersion  version.Number
@@ -345,7 +323,8 @@ func (w *upgradesteps) runUpgradeSteps(agentConfig agent.ConfigSetter) error {
 	var upgradeErr error
 	w.machine.SetStatus(status.Started, fmt.Sprintf("upgrading to %v", w.toVersion), nil)
 
-	context := upgrades.NewContext(agentConfig, w.apiConn, w.st)
+	stBackend := upgrades.NewStateBackend(w.st)
+	context := upgrades.NewContext(agentConfig, w.apiConn, stBackend, w.newEnviron)
 	logger.Infof("starting upgrade from %v to %v for %q", w.fromVersion, w.toVersion, w.tag)
 
 	targets := jobsToTargets(w.jobs, w.isMaster)
