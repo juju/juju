@@ -482,7 +482,7 @@ func (conn *StubClient) ServerStatus() (*shared.ServerState, error) {
 	}, nil
 }
 
-func (conn *StubClient) SetConfig(k, v string) error {
+func (conn *StubClient) SetServerConfig(k, v string) error {
 	conn.AddCall("SetConfig", k, v)
 	return conn.NextErr()
 }

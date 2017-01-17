@@ -11,19 +11,19 @@ import (
 	"github.com/lxc/lxd/shared"
 )
 
-type rawServerConfigClient interface {
+type rawConfigClient interface {
 	SetServerConfig(key string, value string) (*lxd.Response, error)
 
 	WaitForSuccess(waitURL string) error
 	ServerStatus() (*shared.ServerState, error)
 }
 
-type serverConfigClient struct {
-	raw rawServerConfigClient
+type configClient struct {
+	raw rawConfigClient
 }
 
 // SetConfig sets the given value in the server's config.
-func (c serverConfigClient) SetConfig(key, value string) error {
+func (c configClient) SetServerConfig(key, value string) error {
 	resp, err := c.raw.SetServerConfig(key, value)
 	if err != nil {
 		return errors.Trace(err)
@@ -40,6 +40,6 @@ func (c serverConfigClient) SetConfig(key, value string) error {
 	return nil
 }
 
-func (c serverConfigClient) ServerStatus() (*shared.ServerState, error) {
+func (c configClient) ServerStatus() (*shared.ServerState, error) {
 	return c.raw.ServerStatus()
 }
