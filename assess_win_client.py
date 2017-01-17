@@ -33,7 +33,7 @@ def win_test(script_dir, address, juju_home, revision_build):
                 --agent-stream revision-build-{revision_build}
             """.format(revision_build=revision_build, deploy_job=deploy_job)))
 
-    ci = ([install_file, 'run-file'])
+    ci = [install_file, 'run-file']
     with open('foo.yaml', 'w') as config:
         yaml.dump({
             'install': {'ci': ci},
