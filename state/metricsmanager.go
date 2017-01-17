@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	jujutxn "github.com/juju/txn"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -57,24 +58,31 @@ func (st *State) MetricsManager() (*MetricsManager, error) {
 }
 
 func (st *State) newMetricsManager() (*MetricsManager, error) {
-	mm := &MetricsManager{
-		st: st,
-		doc: metricsManagerDoc{
-			LastSuccessfulSend: time.Time{},
-			ConsecutiveErrors:  0,
-			GracePeriod:        defaultGracePeriod,
-		}}
-	ops := []txn.Op{{
-		C:      metricsManagerC,
-		Id:     metricsManagerKey,
-		Assert: txn.DocMissing,
-		Insert: mm.doc,
-	}}
-	err := st.runTransaction(ops)
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		if attempt > 1 {
+			if _, err := st.getMetricsManager(); err == nil {
+				return nil, jujutxn.ErrNoOperations
+			}
+		}
+		mm := &MetricsManager{
+			st: st,
+			doc: metricsManagerDoc{
+				LastSuccessfulSend: time.Time{},
+				ConsecutiveErrors:  0,
+				GracePeriod:        defaultGracePeriod,
+			}}
+		return []txn.Op{{
+			C:      metricsManagerC,
+			Id:     metricsManagerKey,
+			Assert: txn.DocMissing,
+			Insert: mm.doc,
+		}}, nil
+	}
+	err := st.run(buildTxn)
 	if err != nil {
 		return nil, onAbort(err, errors.NotFoundf("metrics manager"))
 	}
-	return mm, nil
+	return st.getMetricsManager()
 }
 
 func (st *State) getMetricsManager() (*MetricsManager, error) {
