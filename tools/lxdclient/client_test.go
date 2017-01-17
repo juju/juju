@@ -15,6 +15,7 @@ import (
 	jujuos "github.com/juju/utils/os"
 	"github.com/lxc/lxd"
 	gc "gopkg.in/check.v1"
+	"strings"
 )
 
 type ConnectSuite struct {
@@ -241,4 +242,25 @@ var testerr = errors.Errorf("boo!")
 
 func fakeNewClientFromInfo(info lxd.ConnectInfo) (*lxd.Client, error) {
 	return nil, testerr
+}
+
+func (cs *ConnectSuite) TestIsLocalhost(c *gc.C) {
+	out, err := isLocalhost("127.0.0.1")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(out, gc.Equals, true)
+}
+
+func (cs *ConnectSuite) TestIsNotLocalhost(c *gc.C) {
+	out, err := isLocalhost("8.8.8.8")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(out, gc.Equals, true)
+}
+
+func (cs *ConnectSuite) TestGenerateUnixHostString(c *gc.C){
+	host := generateHostString(remoteLocalName, "127.0.0.1")
+	c.Assert(strings.HasPrefix(host, "unix://"), gc.Equals, true)
+}
+func (cs *ConnectSuite) TestGenerateHTTPSHostString(c *gc.C){
+	host := generateHostString(remoteLocalName, "8.8.8.8")
+	c.Assert(strings.HasPrefix(host, "https://"), gc.Equals, true)
 }
