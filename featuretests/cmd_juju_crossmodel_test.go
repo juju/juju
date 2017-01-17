@@ -115,6 +115,8 @@ local:/u/me/varnish:
 }
 
 func (s *crossmodelSuite) TestAddRelationFromURL(c *gc.C) {
+	c.Skip("add relation from URL not currently supported")
+
 	ch := s.AddTestingCharm(c, "wordpress")
 	s.AddTestingService(c, "wordpress", ch)
 	ch = s.AddTestingCharm(c, "mysql")
