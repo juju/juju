@@ -2165,18 +2165,6 @@ class TestBootstrapManager(FakeHomeTestCase):
                 self.assertEqual(bs_manager.resource_details, result)
 
     def test_ensure_cleanup(self):
-        controller_uuid = 'eb67e1eb-6c54-45f5-8b6a-b6243be97202'
-        members = [
-            Machine('0', {'dns-name': '10.0.0.0',
-                          'instance-id': 'juju-aaaa-machine-0'}),
-            Machine('1', {'dns-name': '10.0.0.1',
-                          'instance-id': 'juju-dddd-machine-1'}),
-        ]
-        resource_details = {
-            'controller-uuid': controller_uuid,
-            'instances': [(m.info['instance-id'], m.info['dns-name'])
-                          for m in members]
-        }
         client = fake_juju_client()
         with temp_dir() as root:
             log_dir = os.path.join(root, 'log-dir')
@@ -2186,13 +2174,14 @@ class TestBootstrapManager(FakeHomeTestCase):
                 None, [], None, None, None, None, log_dir, False,
                 True, True)
             mock_substrate = Mock()
+            mock_details = {}
             with patch('deploy_stack.make_substrate_manager', autospec=True)\
                     as msm:
                 msm.return_value.__enter__.return_value = mock_substrate
-                bs_manager.resource_details = resource_details
+                bs_manager.resource_details = mock_details
                 bs_manager.ensure_cleanup()
             mock_substrate.ensure_cleanup.assert_called_once_with(
-                resource_details)
+                mock_details)
             msm.assert_called_once_with(client.env)
 
     def test_ensure_cleanup_resource_details_empty(self):
@@ -2206,20 +2195,11 @@ class TestBootstrapManager(FakeHomeTestCase):
                 True, True)
             with patch('deploy_stack.make_substrate_manager', autospec=True) \
                     as msm:
-                bs_manager.ensure_cleanup()
+                rl = bs_manager.ensure_cleanup()
                 self.assertEquals(0, msm.call_count)
+                self.assertEquals(rl, [])
 
     def test_ensure_cleanup_substrate_none(self):
-        controller_uuid = 'eb67e1eb-6c54-45f5-8b6a-b6243be97202'
-        members = [
-            Machine('0', {'dns-name': '10.0.0.0',
-                          'instance-id': 'juju-aaaa-machine-0'}),
-        ]
-        resource_details = {
-            'controller-uuid': controller_uuid,
-            'instances': [(m.info['instance-id'], m.info['dns-name'])
-                          for m in members]
-        }
         client = fake_juju_client()
         with temp_dir() as root:
             log_dir = os.path.join(root, 'log-dir')
@@ -2228,14 +2208,16 @@ class TestBootstrapManager(FakeHomeTestCase):
                 'controller', client, client,
                 None, [], None, None, None, None, log_dir, False,
                 True, True)
-            bs_manager.resource_details = resource_details
+            mock_details = {}
+            bs_manager.resource_details = mock_details
             with patch('deploy_stack.make_substrate_manager', autospec=True)\
                     as msm:
                 msm.return_value.__enter__.return_value = None
-                bs_manager.ensure_cleanup()
+                rl = bs_manager.ensure_cleanup()
                 self.assertIn("foo is an unknown provider."
                               " Unable to ensure cleanup",
                               self.log_stream.getvalue())
+                self.assertEquals(rl, [])
 
 
 class TestBootContext(FakeHomeTestCase):
