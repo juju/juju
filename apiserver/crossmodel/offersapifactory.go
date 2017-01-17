@@ -33,8 +33,8 @@ type applicationOffersAPIFactory struct {
 
 // newServiceAPIFactory creates a ApplicationOffersAPIFactory instance which
 // is used to provide access to services for specified directories eg "local" or "vendor".
-func newServiceAPIFactory(createFunc createApplicationDirectoryFunc, closer closer) (ApplicationOffersAPIFactory, error) {
-	return &applicationOffersAPIFactory{createFunc, closer}, nil
+func newServiceAPIFactory(createFunc createApplicationDirectoryFunc, closer closer) ApplicationOffersAPIFactory {
+	return &applicationOffersAPIFactory{createFunc, closer}
 }
 
 // ApplicationOffers returns a application directory used to look up services
@@ -57,24 +57,11 @@ func (s *applicationOffersAPIFactory) Stop() error {
 
 // ApplicationOffersAPIFactoryResource is a function which returns the application offer api factory
 // which can be used as an facade resource.
-func ApplicationOffersAPIFactoryResource(st *state.State) (facade.Resource, error) {
-	controllerModelStata := st
-	controllerModel, err := st.ControllerModel()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	var closer closer
-	if st.ModelTag() != controllerModel.ModelTag() {
-		// We are not using the state server environment, so get one.
-		logger.Debugf("getting a controller connection, current model: %s", st.ModelTag())
-		controllerModelStata, err = st.ForModel(controllerModel.ModelTag())
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		closer = controllerModelStata
-	}
+func ApplicationOffersAPIFactoryResource(st *state.State) facade.Resource {
+	// This method is only passed the state of the controller model.
+	// Further cleanup can be done as future CRM work.
 	return newServiceAPIFactory(
 		func() crossmodel.ApplicationDirectory {
-			return state.NewApplicationDirectory(controllerModelStata)
-		}, closer)
+			return state.NewApplicationDirectory(st)
+		}, nil)
 }

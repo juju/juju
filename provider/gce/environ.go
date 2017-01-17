@@ -28,6 +28,7 @@ type gceConnection interface {
 	Instances(prefix string, statuses ...string) ([]google.Instance, error)
 	AddInstance(spec google.InstanceSpec, zones ...string) (*google.Instance, error)
 	RemoveInstances(prefix string, ids ...string) error
+	UpdateMetadata(key, value string, ids ...string) error
 
 	Ports(fwname string) ([]network.PortRange, error)
 	OpenPorts(fwname string, ports ...network.PortRange) error
