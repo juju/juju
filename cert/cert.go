@@ -58,6 +58,21 @@ func ParseCertAndKey(certPEM, keyPEM string) (*x509.Certificate, *rsa.PrivateKey
 	return cert, key, nil
 }
 
+// Generate public key from keyPEM string
+func ComputePublicKey(certPEM string) (string, error){
+	cert, err := ParseCert(certPEM)
+	if err != nil {
+		return "", err
+	}
+	pubKey := cert.PublicKey.(interface {})
+	marshalledPubKey, _ := x509.MarshalPKIXPublicKey(pubKey)
+	keyPEMData := pem.EncodeToMemory(&pem.Block{
+		Type:  "RSA PUBLIC KEY",
+		Bytes: marshalledPubKey,
+	})
+	return string(keyPEMData), nil
+}
+
 // Verify verifies that the given server certificate is valid with
 // respect to the given CA certificate at the given time.
 func Verify(srvCertPEM, caCertPEM string, when time.Time) error {
