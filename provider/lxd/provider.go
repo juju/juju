@@ -95,3 +95,10 @@ func (p environProvider) ConfigSchema() schema.Fields {
 func (p environProvider) ConfigDefaults() schema.Defaults {
 	return configDefaults
 }
+
+// DefaultCloudName specifies what name should be used for the cloud
+// implicitly created when the provider is specified directly at
+// bootstrap time. Implements environs.DefaultCloudNamer.
+func (p environProvider) DefaultCloudName() string {
+	return cloud.DefaultLXD
+}

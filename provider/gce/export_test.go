@@ -22,8 +22,8 @@ var (
 	WindowsImageBasePath                              = windowsImageBasePath
 )
 
-func ExposeInstBase(inst *environInstance) *google.Instance {
-	return inst.base
+func ExposeInstBase(inst instance.Instance) *google.Instance {
+	return inst.(*environInstance).base
 }
 
 func ExposeInstEnv(inst *environInstance) *environ {

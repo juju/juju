@@ -25,6 +25,7 @@ import (
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/cert"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/modelcmd"
 	cmdtesting "github.com/juju/juju/cmd/testing"
@@ -72,12 +73,15 @@ func init() {
 	environs.RegisterProvider("no-cloud-regions", noCloudRegionsProvider{dummyProvider})
 	environs.RegisterProvider("no-credentials", noCredentialsProvider{})
 	environs.RegisterProvider("many-credentials", manyCredentialsProvider{dummyProvider})
+	environs.RegisterProvider("default-cloud-name", defaultCloudNameProvider{})
 }
 
 func (s *BootstrapSuite) SetUpSuite(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpSuite(c)
 	s.MgoSuite.SetUpSuite(c)
 	s.PatchValue(&keys.JujuPublicKey, sstesting.SignedMetadataPublicKey)
+	s.PatchValue(&cert.NewCA, coretesting.NewCA)
+	s.PatchValue(&cert.NewLeafKeyBits, 128)
 }
 
 func (s *BootstrapSuite) SetUpTest(c *gc.C) {
@@ -1351,6 +1355,7 @@ func (s *BootstrapSuite) TestBootstrapProviderDetectRegions(c *gc.C) {
 	c.Assert(bootstrap.args.CloudCredentialName, gc.Equals, "default")
 	sort.Sort(bootstrap.args.Cloud.AuthTypes)
 	c.Assert(bootstrap.args.Cloud, jc.DeepEquals, cloud.Cloud{
+		Name:      "dummy",
 		Type:      "dummy",
 		AuthTypes: []cloud.AuthType{cloud.EmptyAuthType, cloud.UserPassAuthType},
 		Regions:   []cloud.Region{{Name: "bruce", Endpoint: "endpoint"}},
@@ -1373,9 +1378,28 @@ func (s *BootstrapSuite) TestBootstrapProviderDetectNoRegions(c *gc.C) {
 	c.Assert(bootstrap.args.CloudRegion, gc.Equals, "")
 	sort.Sort(bootstrap.args.Cloud.AuthTypes)
 	c.Assert(bootstrap.args.Cloud, jc.DeepEquals, cloud.Cloud{
+		Name:      "dummy",
 		Type:      "dummy",
 		AuthTypes: []cloud.AuthType{cloud.EmptyAuthType, cloud.UserPassAuthType},
 	})
+}
+
+func (s *BootstrapSuite) TestBootstrapProviderUsesDefaultCloudName(c *gc.C) {
+	s.patchVersionAndSeries(c, "xenial")
+
+	var prepareParams bootstrap.PrepareParams
+	s.PatchValue(&bootstrapPrepare, func(
+		ctx environs.BootstrapContext,
+		stor jujuclient.ClientStore,
+		params bootstrap.PrepareParams,
+	) (environs.Environ, error) {
+		prepareParams = params
+		return nil, errors.New("mock-prepare")
+	})
+
+	_, err := coretesting.RunCommand(c, s.newBootstrapCommand(), "default-cloud-name", "ctrl")
+	c.Assert(err, gc.ErrorMatches, "mock-prepare")
+	c.Assert(prepareParams.Cloud.Name, gc.Equals, "mykonos")
 }
 
 func (s *BootstrapSuite) TestBootstrapProviderCaseInsensitiveRegionCheck(c *gc.C) {
@@ -1759,6 +1783,10 @@ func (fake *fakeBootstrapFuncs) CloudRegionDetector(environs.EnvironProvider) (e
 	return detector, true
 }
 
+func (fake *fakeBootstrapFuncs) DefaultCloudName(environs.EnvironProvider) (string, bool) {
+	return "", false
+}
+
 type noCloudRegionDetectionProvider struct {
 	environs.EnvironProvider
 }
@@ -1816,4 +1844,20 @@ type cloudRegionDetectorFunc func() ([]cloud.Region, error)
 
 func (c cloudRegionDetectorFunc) DetectRegions() ([]cloud.Region, error) {
 	return c()
+}
+
+type defaultCloudNameProvider struct {
+	manyCredentialsProvider
+}
+
+func (defaultCloudNameProvider) DefaultCloudName() string {
+	return "mykonos"
+}
+
+func (defaultCloudNameProvider) DetectCredentials() (*cloud.CloudCredential, error) {
+	return &cloud.CloudCredential{
+		AuthCredentials: map[string]cloud.Credential{
+			"one": cloud.NewCredential("one", nil),
+		},
+	}, nil
 }
