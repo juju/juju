@@ -2425,3 +2425,36 @@ func bridgeScriptPathForSeries(series string) (string, error) {
 	}
 	return path.Join(dataDir, bridgeScriptName), nil
 }
+
+// AdoptInstances updates the instances to indicate they
+// are now associated with the specified controller. Part of the
+// Environ interface.
+func (env *maasEnviron) AdoptInstances(ids []instance.Id, controllerUUID string) error {
+	if !env.usingMAAS2() {
+		// We don't track instance -> controller for MAAS1.
+		return nil
+	}
+	instances, err := env.Instances(ids)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	var failed []instance.Id
+	for _, instance := range instances {
+		maas2Instance, ok := instance.(*maas2Instance)
+		if !ok {
+			// This should never happen.
+			return errors.Errorf("instance %q wasn't a maas2Instance", instance.Id())
+		}
+		// SetOwnerData will update the existing tags with this data.
+		err := maas2Instance.machine.SetOwnerData(map[string]string{tags.JujuController: controllerUUID})
+		if err != nil {
+			logger.Errorf("error setting controller uuid tag for %q: %v", instance.Id(), err)
+			failed = append(failed, instance.Id())
+		}
+	}
+
+	if failed != nil {
+		return errors.Errorf("failed to update controller for some instances: %v", failed)
+	}
+	return nil
+}
