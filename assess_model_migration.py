@@ -48,10 +48,11 @@ def assess_model_migration(bs1, bs2, args):
             # Capture the migrated client so we can use it to assert it
             # continues to operate after the originating controller is torn
             # down.
-            migrated_client, application, resource_contents = \
-                ensure_migration_with_resources_succeeds(
-                    source_client,
-                    dest_client)
+            results = ensure_migration_with_resources_succeeds(
+                source_client,
+                dest_client)
+            migrated_client, application, resource_contents = results
+
             ensure_model_logs_are_migrated(source_client, dest_client)
             with temp_dir() as temp:
                 ensure_migrating_with_insufficient_user_permissions_fails(
