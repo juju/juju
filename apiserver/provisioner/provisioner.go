@@ -218,6 +218,7 @@ func (p *ProvisionerAPI) SetSupportedContainers(args params.MachineContainersPar
 	for i, arg := range args.Params {
 		tag, err := names.ParseMachineTag(arg.MachineTag)
 		if err != nil {
+			logger.Warningf("SetSupportedContainers called with %q which is not a valid machine tag: %v", arg.MachineTag, err)
 			result.Results[i].Error = common.ServerError(common.ErrPerm)
 			continue
 		}
@@ -844,7 +845,8 @@ func (p *ProvisionerAPI) InstanceStatus(args params.Entities) (params.StatusResu
 	for i, arg := range args.Entities {
 		mTag, err := names.ParseMachineTag(arg.Tag)
 		if err != nil {
-			result.Results[i].Error = common.ServerError(err)
+			logger.Warningf("InstanceStatus called with %q which is not a valid machine tag: %v", arg.Tag, err)
+			result.Results[i].Error = common.ServerError(common.ErrPerm)
 			continue
 		}
 		machine, err := p.getMachine(canAccess, mTag)
@@ -875,7 +877,8 @@ func (p *ProvisionerAPI) SetInstanceStatus(args params.SetStatus) (params.ErrorR
 	for i, arg := range args.Entities {
 		mTag, err := names.ParseMachineTag(arg.Tag)
 		if err != nil {
-			result.Results[i].Error = common.ServerError(err)
+			logger.Warningf("SetInstanceStatus called with %q which is not a valid machine tag: %v", arg.Tag, err)
+			result.Results[i].Error = common.ServerError(common.ErrPerm)
 			continue
 		}
 		machine, err := p.getMachine(canAccess, mTag)
