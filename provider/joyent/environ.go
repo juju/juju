@@ -142,8 +142,8 @@ func (env *joyentEnviron) ControllerInstances(controllerUUID string) ([]instance
 	return instanceIds, nil
 }
 
-// MoveInstancesToController is part of the Environ interface.
-func (env *joyentEnviron) MoveInstancesToController(ids []instance.Id, controllerUUID string) error {
+// AdoptInstances is part of the Environ interface.
+func (env *joyentEnviron) AdoptInstances(ids []instance.Id, controllerUUID string) error {
 	// This provider doesn't track instance -> controller.
 	return nil
 }

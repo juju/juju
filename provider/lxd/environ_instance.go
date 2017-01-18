@@ -124,10 +124,10 @@ func (env *environ) parsePlacement(placement string) (*instPlacement, error) {
 	return nil, errors.Errorf("unknown placement directive: %v", placement)
 }
 
-// MoveInstancesToController updates the controller tags on the
-// specified instances to have the new controller id. It's part of the
-// Environ interface.
-func (env *environ) MoveInstancesToController(ids []instance.Id, controllerUUID string) error {
+// AdoptInstances updates the controller tags on the specified
+// instances to have the new controller id. It's part of the Environ
+// interface.
+func (env *environ) AdoptInstances(ids []instance.Id, controllerUUID string) error {
 	var failed []instance.Id
 	for _, id := range ids {
 		qualifiedKey := lxdclient.ResolveConfigKey(tags.JujuController, lxdclient.MetadataNamespace)
