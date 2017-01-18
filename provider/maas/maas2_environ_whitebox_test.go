@@ -1837,6 +1837,50 @@ func (suite *maas2EnvironSuite) TestReleaseContainerAddressesErrorDeletingDevice
 	dev1.CheckCallNames(c, "Delete")
 }
 
+func (suite *maas2EnvironSuite) TestAdoptInstances(c *gc.C) {
+	machine1 := newFakeMachine("big-fig-wasp", "gaudi", "good")
+	machine2 := newFakeMachine("robot-stop", "hundertwasser", "fine")
+	machine3 := newFakeMachine("gamma-knife", "von-neumann", "acceptable")
+	controller := newFakeController()
+	controller.machines = append(controller.machines, machine1, machine2, machine3)
+	env := suite.makeEnviron(c, controller)
+
+	err := env.AdoptInstances([]instance.Id{"big-fig-wasp", "gamma-knife"}, "some-other-controller")
+	c.Assert(err, jc.ErrorIsNil)
+
+	machine1.CheckCallNames(c, "SetOwnerData")
+	c.Assert(machine1.Calls()[0].Args[0], gc.DeepEquals, map[string]string{
+		tags.JujuController: "some-other-controller",
+	})
+	machine2.CheckCallNames(c)
+	machine3.CheckCallNames(c, "SetOwnerData")
+	c.Assert(machine3.Calls()[0].Args[0], gc.DeepEquals, map[string]string{
+		tags.JujuController: "some-other-controller",
+	})
+}
+
+func (suite *maas2EnvironSuite) TestAdoptInstancesError(c *gc.C) {
+	machine1 := newFakeMachine("evil-death-roll", "frank-lloyd-wright", "ok")
+	machine2 := newFakeMachine("people-vultures", "gehry", "adequate")
+	controller := newFakeController()
+	controller.machines = append(controller.machines, machine1, machine2)
+	env := suite.makeEnviron(c, controller)
+
+	machine1.SetErrors(errors.New("blorp"))
+
+	err := env.AdoptInstances([]instance.Id{"evil-death-roll", "people-vultures"}, "some-other-controller")
+	c.Assert(err, gc.ErrorMatches, `failed to update controller for some instances: \[evil-death-roll\]`)
+
+	machine1.CheckCallNames(c, "SetOwnerData")
+	c.Assert(machine1.Calls()[0].Args[0], gc.DeepEquals, map[string]string{
+		tags.JujuController: "some-other-controller",
+	})
+	machine2.CheckCallNames(c, "SetOwnerData")
+	c.Assert(machine2.Calls()[0].Args[0], gc.DeepEquals, map[string]string{
+		tags.JujuController: "some-other-controller",
+	})
+}
+
 func newFakeDevice(systemID, macAddress string) *fakeDevice {
 	return &fakeDevice{
 		Stub:     &testing.Stub{},
