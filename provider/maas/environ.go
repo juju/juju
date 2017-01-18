@@ -2445,7 +2445,10 @@ func (env *maasEnviron) AdoptInstances(ids []instance.Id, controllerUUID string)
 			// This should never happen.
 			return errors.Errorf("instance %q wasn't a maas2Instance", instance.Id())
 		}
-		// SetOwnerData will update the existing tags with this data.
+		// From the MAAS docs: "[SetOwnerData] will not remove any
+		// previous keys unless explicitly passed with an empty
+		// string." So not passing all of the keys here is fine.
+		// https://maas.ubuntu.com/docs2.0/api.html#machine
 		err := maas2Instance.machine.SetOwnerData(map[string]string{tags.JujuController: controllerUUID})
 		if err != nil {
 			logger.Errorf("error setting controller uuid tag for %q: %v", instance.Id(), err)
