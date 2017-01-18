@@ -26,10 +26,10 @@ def main(argv):
     with substrate.maas_account_from_boot_config(boot_config) as manager:
         machines = manager.get_allocated_nodes()
         if args.hours is not None:
-            acquire_dates = manager.get_acquire_dates()
             threshold = datetime.now() - timedelta(hours=args.hours)
-            machines = dict((k, v) for k, v in machines.items()
-                            if acquire_dates[v['system_id']] < threshold)
+            machines = dict(
+                (k, v) for k, v in machines.items()
+                if manager.get_acquire_date(v['system_id']) < threshold)
         print("Found {} machines: {}".format(len(machines), machines.keys()))
         if not args.dry_run:
             manager.terminate_instances(machine["resource_uri"]

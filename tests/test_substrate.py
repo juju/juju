@@ -951,32 +951,34 @@ class TestMAASAccount(TestCase):
            MAASAccount.NODE: 'asdf',
            }
 
-    def test_get_acquire_dates(self):
+    def test_get_acquire_date(self):
         acquire_date = datetime(2016, 10, 25)
-        dates = self._run_acquire_dates(acquire_date)
-        self.assertEqual({'asdf': acquire_date}, dates)
+        result = self._run_acquire_date(acquire_date)
+        self.assertEqual(acquire_date, result)
 
-    def _run_acquire_dates(self, acquire_date, type_=MAASAccount.ACQUIRING):
+    def _run_acquire_date(self, acquire_date, type_=MAASAccount.ACQUIRING,
+                          node='asdf'):
         events = {'events': [
             self.make_event(acquire_date, type_=type_),
             ]}
-        return self._run_acquire_dates_events(events)
+        return self._run_acquire_date_events(events, node)
 
-    def _run_acquire_dates_events(self, events):
+    def _run_acquire_date_events(self, events, node):
         account = self.get_account()
         with patch('subprocess.check_output', autospec=True,
                    return_value=json.dumps(events)) as co_mock:
-            dates = account.get_acquire_dates()
+            result = account.get_acquire_date(node)
         co_mock.assert_called_once_with(
-            ('maas', 'mas', 'events', 'query'))
-        return dates
+            ('maas', 'mas', 'events', 'query', 'id={}'.format(node)))
+        return result
 
-    def test_get_acquire_dates_not_acquiring(self):
+    def test_get_acquire_date_not_acquiring(self):
         acquire_date = datetime(2016, 10, 25)
-        dates = self._run_acquire_dates(acquire_date, type_='Not acquiring')
-        self.assertEqual({}, dates)
+        with self.assertRaisesRegexp(
+                LookupError, 'Unable to find acquire date for "asdf".'):
+            self._run_acquire_date(acquire_date, type_='Not acquiring')
 
-    def test_get_acquire_dates_uses_first_entry(self):
+    def test_get_acquire_date_uses_first_entry(self):
         acquire_date = datetime(2016, 10, 25)
         newer_date = datetime(2016, 10, 26)
         older_date = datetime(2016, 10, 24)
@@ -985,8 +987,13 @@ class TestMAASAccount(TestCase):
             self.make_event(older_date),
             self.make_event(newer_date),
             ]}
-        dates = self._run_acquire_dates_events(events)
-        self.assertEqual({'asdf': acquire_date}, dates)
+        result = self._run_acquire_date_events(events, 'asdf')
+        self.assertEqual(acquire_date, result)
+
+    def test_get_acquire_date_wrong_node(self):
+        acquire_date = datetime(2016, 10, 25)
+        with self.assertRaisesRegexp(ValueError, 'Node "asdf" was not "fasd"'):
+            self._run_acquire_date(acquire_date, node='fasd')
 
     def test_get_allocated_ips(self):
         account = self.get_account()

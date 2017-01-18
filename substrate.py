@@ -534,14 +534,16 @@ class MAASAccount:
         allocated = {node['hostname']: node for node in nodes}
         return allocated
 
-    def get_acquire_dates(self):
-        events = self._maas(self.profile, 'events', 'query')
-        acquire_dates = {}
+    def get_acquire_date(self, node):
+        events = self._maas(
+            self.profile, 'events', 'query', 'id={}'.format(node))
         for event in events['events']:
+            if node != event[self.NODE]:
+                raise ValueError(
+                    'Node "{}" was not "{}".'.format(event[self.NODE], node))
             if event['type'] == self.ACQUIRING:
-                date = date_parser.parse(event[self.CREATED])
-                acquire_dates.setdefault(event[self.NODE], date)
-        return acquire_dates
+                return date_parser.parse(event[self.CREATED])
+        raise LookupError('Unable to find acquire date for "{}".'.format(node))
 
     def get_allocated_ips(self):
         """Return a dict of allocated ips with the hostname as keys.
