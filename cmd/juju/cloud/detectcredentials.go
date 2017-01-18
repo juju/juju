@@ -147,6 +147,8 @@ func (c *detectCredentialsCommand) Run(ctxt *cmd.Context) error {
 		defaultCloudNames[cloud.Type] = cloudName
 	}
 
+	// get all provider Names that are registered
+	// and sort them
 	providerNames := c.registeredProvidersFunc()
 	sort.Strings(providerNames)
 

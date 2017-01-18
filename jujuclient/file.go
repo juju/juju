@@ -7,8 +7,6 @@
 package jujuclient
 
 import (
-	"fmt"
-	"os"
 	"time"
 
 	"github.com/juju/errors"
@@ -645,10 +643,6 @@ func (s *store) CredentialForCloud(cloudName string) (*cloud.CloudCredential, er
 		return nil, errors.Trace(err)
 	}
 	credentials, ok := cloudCredentials[cloudName]
-	fmt.Println(cloudName)
-	fmt.Println(credentials)
-	fmt.Println(ok)
-	os.Exit(1)
 	if !ok {
 		return nil, errors.NotFoundf("credentials for cloud %s", cloudName)
 	}
@@ -657,7 +651,6 @@ func (s *store) CredentialForCloud(cloudName string) (*cloud.CloudCredential, er
 
 // AllCredentials implements CredentialGetter.
 func (s *store) AllCredentials() (map[string]cloud.CloudCredential, error) {
-	//TODO
 	cloudCredentials, err := ReadCredentialsFile(JujuCredentialsPath())
 	if err != nil {
 		return nil, errors.Trace(err)
