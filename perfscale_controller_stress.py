@@ -36,7 +36,7 @@ def assess_controller_stress(client, args):
     test_start = datetime.utcnow()
 
     deploy_details = dict()
-    for model_number in xrange(0, args.deploy_amount):
+    for model_number in range(0, args.deploy_amount):
         model_name = 'swarm-model-{}'.format(model_number)
         deploy_time = deploy_swarm_to_new_model(client, model_name)
         deploy_details[model_name] = '{} Seconds'.format(deploy_time)
@@ -60,7 +60,7 @@ def deploy_swarm_to_new_model(client, model_name):
 
 
 def get_charm_url():
-    return 'cs:bundle/observable-swarm-1'
+    return 'cs:~containers/observable-swarm'
 
 
 def parse_args(argv):
