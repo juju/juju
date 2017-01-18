@@ -11,7 +11,7 @@ from assess_cs_staging import (
     main,
     _set_charm_store_ip,
 )
-from fakejuju import (
+from jujupy import (
     fake_juju_client,
     fake_juju_client_optional_jes,
     )

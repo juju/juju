@@ -21,7 +21,7 @@ from mock import (
     )
 import yaml
 
-from fakejuju import (
+from jujupy import (
     fake_juju_client,
     )
 from industrial_test import (

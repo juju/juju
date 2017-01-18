@@ -51,10 +51,6 @@ from deploy_stack import (
     update_env,
     wait_for_state_server_to_shutdown,
     )
-from fakejuju import (
-    fake_juju_client,
-    fake_juju_client_optional_jes,
-    )
 from jujuconfig import (
     get_environments_path,
     get_jenv_path,
@@ -64,6 +60,8 @@ from jujupy import (
     EnvJujuClient,
     EnvJujuClient1X,
     EnvJujuClient25,
+    fake_juju_client,
+    fake_juju_client_optional_jes,
     get_cache_path,
     get_timeout_prefix,
     JujuData,

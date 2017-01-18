@@ -23,15 +23,13 @@ from mock import (
     )
 import yaml
 
-from fakejuju import (
-    fake_juju_client,
-    get_user_register_command_info,
-    get_user_register_token,
-    )
 from jujuconfig import (
     get_environments_path,
     get_jenv_path,
     NoSuchEnvironment,
+    )
+from jujupy import (
+    fake_juju_client,
     )
 from jujupy.client import (
     AuthNotAccepted,
@@ -81,6 +79,10 @@ from jujupy.client import (
     UnitError,
     WaitMachineNotPresent,
     )
+from jujupy.fake import (
+    get_user_register_command_info,
+    get_user_register_token,
+)
 from jujupy.version_client import (
     EnvJujuClient1X,
     EnvJujuClient24,

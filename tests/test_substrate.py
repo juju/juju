@@ -16,13 +16,13 @@ from mock import (
     patch,
     )
 
-from fakejuju import fake_juju_client
 from jujuconfig import (
     get_euca_env,
     translate_to_env,
     )
 from jujupy import (
     EnvJujuClient1X,
+    fake_juju_client,
     JujuData,
     SimpleEnvironment,
     )

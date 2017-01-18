@@ -17,12 +17,10 @@ from assess_log_rotation import (
     assess_debug_log,
     assess_machine_rotation,
     )
-from fakejuju import (
-    fake_juju_client,
-    fake_juju_client_optional_jes,
-    )
 from jujupy import (
     EnvJujuClient,
+    fake_juju_client,
+    fake_juju_client_optional_jes,
     JujuData,
     _temp_env as temp_env,
     )

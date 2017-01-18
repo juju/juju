@@ -7,15 +7,13 @@ from textwrap import dedent
 from subprocess import CalledProcessError
 import sys
 
-from fakejuju import (
-    fake_juju_client,
-)
 from jujucharm import (
     local_charm_path,
 )
 from jujupy import (
     client_from_config,
     EnvJujuClient1X,
+    fake_juju_client,
     IncompatibleConfigClass,
     SimpleEnvironment,
     )

@@ -12,7 +12,7 @@ from mock import call, patch, Mock
 from textwrap import dedent
 import json
 
-from fakejuju import fake_juju_client
+from jujupy import fake_juju_client
 import generate_perfscale_results as gpr
 import perf_graphing
 from test_quickstart_deploy import make_bootstrap_manager

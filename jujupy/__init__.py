@@ -28,6 +28,12 @@ from jujupy.client import (
     TypeNotAccepted,
     uniquify_local,
     )
+from jujupy.fake import (
+    FakeBackend,
+    FakeControllerState,
+    fake_juju_client,
+    fake_juju_client_optional_jes,
+    )
 from jujupy.version_client import (
     client_from_config,
     EnvJujuClient1X,
@@ -44,6 +50,10 @@ __all__ = [
     'EnvJujuClient',
     'EnvJujuClient1X',
     'EnvJujuClient25',
+    'FakeBackend',
+    'FakeControllerState',
+    'fake_juju_client',
+    'fake_juju_client_optional_jes',
     'get_cache_path',
     'get_client_class',
     'get_machine_dns_name',

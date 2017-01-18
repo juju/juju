@@ -5,9 +5,9 @@ from mock import (
 )
 
 from deploy_stack import BootstrapManager
-from fakejuju import fake_juju_client
 from jujupy import (
     EnvJujuClient,
+    fake_juju_client,
     JujuData,
     )
 from quickstart_deploy import QuickstartTest

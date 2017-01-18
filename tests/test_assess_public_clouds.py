@@ -23,7 +23,7 @@ from assess_public_clouds import (
     yaml_file_load,
     )
 from deploy_stack import BootstrapManager
-from fakejuju import (
+from jujupy import (
     fake_juju_client,
     )
 from tests import (

@@ -10,6 +10,7 @@ from mock import (
 
 from jujupy import (
     EnvJujuClient,
+    fake_juju_client,
     JujuData,
     KVM_MACHINE,
     LXC_MACHINE,
@@ -18,7 +19,6 @@ from jujupy import (
     )
 
 import assess_container_networking as jcnet
-from fakejuju import fake_juju_client
 from tests import (
     FakeHomeTestCase,
     parse_error,

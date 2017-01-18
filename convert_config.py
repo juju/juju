@@ -8,9 +8,9 @@ from textwrap import dedent
 
 import yaml
 
-from fakejuju import fake_juju_client
 from jujuconfig import get_environments
 from jujupy import (
+    fake_juju_client,
     JujuData,
     )
 
