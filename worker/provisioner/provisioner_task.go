@@ -685,9 +685,9 @@ func (task *provisionerTask) startMachines(machines []*apiprovisioner.Machine) e
 
 func (task *provisionerTask) setErrorStatus(message string, machine *apiprovisioner.Machine, err error) error {
 	logger.Errorf(message, machine, err)
-	if err1 := machine.SetInstanceStatus(status.Error, err.Error(), nil); err1 != nil {
+	if err := machine.SetInstanceStatus(status.Error, err.Error(), nil); err != nil {
 		// Something is wrong with this machine, better report it back.
-		return errors.Annotatef(err1, "cannot set error status for machine %q", machine)
+		return errors.Annotatef(err, "cannot set error status for machine %q", machine)
 	}
 	return nil
 }
@@ -698,7 +698,8 @@ func (task *provisionerTask) startMachine(
 	startInstanceParams environs.StartInstanceParams,
 ) error {
 	var result *environs.StartInstanceResult
-	for attemptsLeft := task.retryStartInstanceStrategy.retryCount; attemptsLeft >= 0; attemptsLeft-- {
+	retryCount := task.retryStartInstanceStrategy.retryCount
+	for attemptsLeft := retryCount; attemptsLeft >= 0; attemptsLeft-- {
 		attemptResult, err := task.broker.StartInstance(startInstanceParams)
 		if err == nil {
 			result = attemptResult
@@ -710,8 +711,8 @@ func (task *provisionerTask) startMachine(
 			return task.setErrorStatus("cannot start instance for machine %q: %v", machine, err)
 		}
 
-		retryMsg := fmt.Sprintf("failed to start instance (%s), will retry in %v",
-			err.Error(), task.retryStartInstanceStrategy.retryDelay)
+		retryMsg := fmt.Sprintf("failed to start instance (%s), retrying (%d/%d) in %v",
+			err.Error(), retryCount - attemptsLeft, retryCount, task.retryStartInstanceStrategy.retryDelay)
 		logger.Warningf(retryMsg)
 		if err2 := machine.SetInstanceStatus(status.Pending, retryMsg, nil); err2 != nil {
 			logger.Errorf("%v", err2)

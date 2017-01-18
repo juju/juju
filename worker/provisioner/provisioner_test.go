@@ -525,7 +525,7 @@ func (s *ProvisionerSuite) TestProvisionerSetsErrorStatusWhenNoToolsAreAvailable
 	t0 := time.Now()
 	for time.Since(t0) < coretesting.LongWait {
 		// And check the machine status is set to error.
-		statusInfo, err := m.Status()
+		statusInfo, err := m.InstanceStatus()
 		c.Assert(err, jc.ErrorIsNil)
 		if statusInfo.Status == status.Pending {
 			time.Sleep(coretesting.ShortWait)
@@ -572,7 +572,7 @@ func (s *ProvisionerSuite) TestProvisionerFailedStartInstanceWithInjectedCreatio
 	t0 := time.Now()
 	for time.Since(t0) < coretesting.LongWait {
 		// And check the machine status is set to error.
-		statusInfo, err := m.Status()
+		statusInfo, err := m.InstanceStatus()
 		c.Assert(err, jc.ErrorIsNil)
 		if statusInfo.Status == status.Pending {
 			time.Sleep(coretesting.ShortWait)
@@ -633,7 +633,7 @@ func (s *ProvisionerSuite) TestProvisionerStopRetryingIfDying(c *gc.C) {
 	time.Sleep(coretesting.ShortWait)
 
 	stop(c, p)
-	statusInfo, err := m.Status()
+	statusInfo, err := m.InstanceStatus()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(statusInfo.Status, gc.Equals, status.Pending)
 	s.checkNoOperations(c)
@@ -722,6 +722,10 @@ func (m *MockMachine) EnsureDead() error {
 }
 
 func (m *MockMachine) Status() (status.Status, string, error) {
+	return m.status, "", m.statusErr
+}
+
+func (m *MockMachine) InstanceStatus() (status.Status, string, error) {
 	return m.status, "", m.statusErr
 }
 
@@ -1277,7 +1281,7 @@ func (s *ProvisionerSuite) TestProvisionerRetriesTransientErrors(c *gc.C) {
 					Data:    map[string]interface{}{"transient": true},
 					Since:   &now,
 				}
-				err := m3.SetStatus(sInfo)
+				err := m3.SetInstanceStatus(sInfo)
 				c.Assert(err, jc.ErrorIsNil)
 			}
 		}
@@ -1286,7 +1290,7 @@ func (s *ProvisionerSuite) TestProvisionerRetriesTransientErrors(c *gc.C) {
 	close(thatsAllFolks)
 
 	// Machine 4 is never provisioned.
-	statusInfo, err := m4.Status()
+	statusInfo, err := m4.InstanceStatus()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(statusInfo.Status, gc.Equals, status.Error)
 	_, err = m4.InstanceId()

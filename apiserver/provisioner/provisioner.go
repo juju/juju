@@ -303,7 +303,7 @@ func (p *ProvisionerAPI) MachinesWithTransientErrors() (params.StatusResults, er
 			continue
 		}
 		var result params.StatusResult
-		statusInfo, err := machine.Status()
+		statusInfo, err := machine.InstanceStatus()
 		if err != nil {
 			continue
 		}
