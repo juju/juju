@@ -587,22 +587,23 @@ func newWebsocketDialer(cfg *websocket.Config, opts DialOpts) func(<-chan struct
 				return nil, parallel.ErrStopped
 			default:
 			}
-			logger.Infof("dialing %q", cfg.Location)
+			logger.Debugf("dialing %q", cfg.Location)
 			conn, err := opts.DialWebsocket(cfg)
 			if err == nil {
+				logger.Debugf("successfully dialed %q", cfg.Location)
 				return conn, nil
 			}
-			if isX509Error(err) {
+			if isCertErr := isX509Error(err); !a.HasNext() || isCertErr {
 				// We won't reconnect when there's an X509
 				// error because we're not going to succeed if
 				// we retry in that case.
-				logger.Errorf("certificate error dialing %q: %v", cfg.Location, err)
-				return nil, errors.Annotatef(err, "X509 certficate error on API")
-			}
-			if !a.HasNext() {
-				logger.Errorf("error dialing %q: %v", cfg.Location, err)
+				//
+				// Note that the error returned from websocket.DialConfig
+				// always includes the location in the message.
+				logger.Debugf("error dialing websocket (certificate error %v): %v", isCertErr, err)
 				return nil, errors.Annotatef(err, "unable to connect to API")
 			}
+			logger.Debugf("will retry after error dialing websocket: %v", err)
 		}
 		panic("unreachable")
 	}
