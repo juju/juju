@@ -12,7 +12,8 @@ import (
 )
 
 type rawConfigClient interface {
-	SetServerConfig(key string, value string) (*lxd.Response, error)
+	SetServerConfig(key, value string) (*lxd.Response, error)
+	SetContainerConfig(container, key, value string) error
 
 	WaitForSuccess(waitURL string) error
 	ServerStatus() (*shared.ServerState, error)
@@ -22,7 +23,7 @@ type configClient struct {
 	raw rawConfigClient
 }
 
-// SetConfig sets the given value in the server's config.
+// SetServerConfig sets the given value in the server's config.
 func (c configClient) SetServerConfig(key, value string) error {
 	resp, err := c.raw.SetServerConfig(key, value)
 	if err != nil {
@@ -40,6 +41,13 @@ func (c configClient) SetServerConfig(key, value string) error {
 	return nil
 }
 
+// SetContainerConfig sets the given config value for the specified
+// container.
+func (c configClient) SetContainerConfig(container, key, value string) error {
+	return errors.Trace(c.raw.SetContainerConfig(container, key, value))
+}
+
+// ServerStatus reports the state of the server.
 func (c configClient) ServerStatus() (*shared.ServerState, error) {
 	return c.raw.ServerStatus()
 }

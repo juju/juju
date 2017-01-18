@@ -47,6 +47,7 @@ type lxdCerts interface {
 type lxdConfig interface {
 	ServerStatus() (*lxdshared.ServerState, error)
 	SetServerConfig(k, v string) error
+	SetContainerConfig(container, key, value string) error
 }
 
 type lxdInstances interface {
