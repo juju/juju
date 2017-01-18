@@ -3771,8 +3771,8 @@ func (s *StatusSuite) testStatusWithFormatTabular(c *gc.C, useFeatureFlag bool) 
 Model       Controller  Cloud/Region        Version  Notes
 controller  kontroll    dummy/dummy-region  1.2.3    upgrade available: 1.2.4
 
-SAAS name    Status   Store  URL        Interfaces
-hosted-riak  unknown  local  u/me/riak  http:endpoint
+SAAS name    Status   Store  URL
+hosted-riak  unknown  local  u/me/riak
 
 App        Version          Status       Scale  Charm      Store       Rev  OS      Notes
 logging    a bit too lo...  error            2  logging    jujucharms    1  ubuntu  exposed

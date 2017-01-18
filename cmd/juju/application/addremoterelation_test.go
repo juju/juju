@@ -43,11 +43,11 @@ func (s *AddRemoteRelationSuiteNewAPI) TestAddRelationRemoteApplications(c *gc.C
 }
 
 func (s *AddRemoteRelationSuiteNewAPI) TestAddRelationToOneRemoteApplication(c *gc.C) {
-	s.assertAddedRelation(c, "applicationname", "local:/u/user/applicationname2")
+	s.assertAddedRelation(c, "applicationname", "othermodel.applicationname2")
 }
 
 func (s *AddRemoteRelationSuiteNewAPI) TestAddRelationAnyRemoteApplication(c *gc.C) {
-	s.assertAddedRelation(c, "local:/u/user/applicationname2", "applicationname")
+	s.assertAddedRelation(c, "othermodel.applicationname2", "applicationname")
 }
 
 func (s *AddRemoteRelationSuiteNewAPI) TestAddRelationFailure(c *gc.C) {
@@ -56,7 +56,7 @@ func (s *AddRemoteRelationSuiteNewAPI) TestAddRelationFailure(c *gc.C) {
 		return nil, errors.New(msg)
 	}
 
-	err := s.runAddRelation(c, "local:/u/user/applicationname2", "applicationname")
+	err := s.runAddRelation(c, "othermodel.applicationname2", "applicationname")
 	c.Assert(err, gc.ErrorMatches, msg)
 	s.mockAPI.CheckCallNames(c, "BestAPIVersion", "AddRelation", "Close")
 }
@@ -69,7 +69,7 @@ func (s *AddRemoteRelationSuiteNewAPI) TestAddRelationClientRetrievalFailure(c *
 		return nil, errors.New(msg)
 	}
 
-	_, err := testing.RunCommand(c, modelcmd.Wrap(addRelationCmd), "local:/u/user/applicationname2", "applicationname")
+	_, err := testing.RunCommand(c, modelcmd.Wrap(addRelationCmd), "othermodel.applicationname2", "applicationname")
 	c.Assert(err, gc.ErrorMatches, msg)
 }
 
@@ -94,13 +94,13 @@ func (s *AddRemoteRelationSuiteOldAPI) TestAddRelationRemoteApplications(c *gc.C
 }
 
 func (s *AddRemoteRelationSuiteOldAPI) TestAddRelationToOneRemoteApplication(c *gc.C) {
-	err := s.runAddRelation(c, "applicationname", "local:/u/user/applicationname2")
-	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta("cannot add relation between [applicationname local:/u/user/applicationname2]: remote endpoints not supported"))
+	err := s.runAddRelation(c, "applicationname", "othermodel.applicationname2")
+	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta("cannot add relation between [applicationname othermodel.applicationname2]: remote endpoints not supported"))
 }
 
 func (s *AddRemoteRelationSuiteOldAPI) TestAddRelationAnyRemoteApplication(c *gc.C) {
-	err := s.runAddRelation(c, "local:/u/user/applicationname2", "applicationname")
-	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta("cannot add relation between [local:/u/user/applicationname2 applicationname]: remote endpoints not supported"))
+	err := s.runAddRelation(c, "othermodel.applicationname2", "applicationname")
+	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta("cannot add relation between [othermodel.applicationname2 applicationname]: remote endpoints not supported"))
 }
 
 // AddRelationValidationSuite has input validation tests.
@@ -171,7 +171,7 @@ func (s *baseAddRemoteRelationSuite) runAddRelation(c *gc.C, args ...string) err
 }
 
 func (s *baseAddRemoteRelationSuite) assertFailAddRelationTwoRemoteApplications(c *gc.C) {
-	err := s.runAddRelation(c, "local:/u/user/applicationname1", "local:/u/user/applicationname2")
+	err := s.runAddRelation(c, "othermodel.applicationname1", "othermodel.applicationname2")
 	c.Assert(err, gc.ErrorMatches, "providing more than one remote endpoints not supported")
 }
 

@@ -71,7 +71,17 @@ var modelApplicationRegexp = regexp.MustCompile(`((?P<user>[^/]*)/)?(?P<model>[^
 // applicationURLRegexp parses urls of the form local:/u/user/application
 var applicationURLRegexp = regexp.MustCompile(`(u/(?P<user>[^/]*)/?)?(?P<application>.*)`)
 
-// ParseApplicationURL parses the specified URL string into a ApplicationURL.
+// ParseLocalOnlyApplicationURL parses the specified URL string into an ApplicationURL.
+// The URL string is of one of the forms:
+//  <model-name>.<application-name>
+//  <model-name>.<application-name>:<relation-name>
+//  <user>/<model-name>.<application-name>
+//  <user>/<model-name>.<application-name>:<relation-name>
+func ParseLocalOnlyApplicationURL(urlStr string) (*ApplicationURL, error) {
+	return parseApplicationURL(urlStr, true)
+}
+
+// ParseApplicationURL parses the specified URL string into an ApplicationURL.
 // The URL string is of one of the forms:
 //  <model-name>.<application-name>
 //  <model-name>.<application-name>:<relation-name>
@@ -81,7 +91,13 @@ var applicationURLRegexp = regexp.MustCompile(`(u/(?P<user>[^/]*)/?)?(?P<applica
 //  local:/u/<user>/<model-name>/<application-name>
 //  <vendor>:/u/<user>/<application-name>
 func ParseApplicationURL(urlStr string) (*ApplicationURL, error) {
-	urlParts, err := parseApplicationURLParts(urlStr, false)
+	return parseApplicationURL(urlStr, false)
+}
+
+// parseApplicationURL parses the specified URL string into an ApplicationURL.
+// If localOnly is true, we only support model paths on the same controller.
+func parseApplicationURL(urlStr string, localOnly bool) (*ApplicationURL, error) {
+	urlParts, err := parseApplicationURLParts(urlStr, false, localOnly)
 	if err != nil {
 		return nil, err
 	}
@@ -98,15 +114,17 @@ type ApplicationURLParts ApplicationURL
 // ParseApplicationURLParts parses a partial URL, filling out what parts are supplied.
 // This method is used to generate a filter used to query matching application URLs.
 func ParseApplicationURLParts(urlStr string) (*ApplicationURLParts, error) {
-	return parseApplicationURLParts(urlStr, true)
+	return parseApplicationURLParts(urlStr, true, false)
 }
 
-func parseApplicationURLParts(urlStr string, allowIncomplete bool) (*ApplicationURLParts, error) {
+func parseApplicationURLParts(urlStr string, allowIncomplete, localOnly bool) (*ApplicationURLParts, error) {
 	var result ApplicationURLParts
 	if modelApplicationRegexp.MatchString(urlStr) {
 		result.User = modelApplicationRegexp.ReplaceAllString(urlStr, "$user")
 		result.ModelName = modelApplicationRegexp.ReplaceAllString(urlStr, "$model")
 		result.ApplicationName = modelApplicationRegexp.ReplaceAllString(urlStr, "$application")
+	} else if localOnly {
+		return nil, errors.Errorf("application URL has invalid form, must be [<user/]<model>.<appname>: %q", urlStr)
 	} else {
 		url, err := gourl.Parse(urlStr)
 		if err != nil {
