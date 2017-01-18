@@ -124,3 +124,22 @@ func (s *environInstSuite) TestControllerInstancesMixed(c *gc.C) {
 
 	c.Check(ids, jc.DeepEquals, []instance.Id{"spam"})
 }
+
+func (s *environInstSuite) TestAdoptInstances(c *gc.C) {
+	err := s.Env.AdoptInstances([]instance.Id{"smoosh", "guild-league", "tall-dwarfs"}, "target-uuid")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.BaseSuite.Client.Calls(), gc.HasLen, 3)
+	s.BaseSuite.Client.CheckCall(c, 0, "SetContainerConfig", "smoosh", "user.juju-controller-uuid", "target-uuid")
+	s.BaseSuite.Client.CheckCall(c, 1, "SetContainerConfig", "guild-league", "user.juju-controller-uuid", "target-uuid")
+	s.BaseSuite.Client.CheckCall(c, 2, "SetContainerConfig", "tall-dwarfs", "user.juju-controller-uuid", "target-uuid")
+}
+
+func (s *environInstSuite) TestAdoptInstancesError(c *gc.C) {
+	s.BaseSuite.Client.SetErrors(nil, errors.New("blammo"))
+	err := s.Env.AdoptInstances([]instance.Id{"smoosh", "guild-league", "tall-dwarfs"}, "target-uuid")
+	c.Assert(err, gc.ErrorMatches, `failed to update controller for some instances: \[guild-league\]`)
+	c.Assert(s.BaseSuite.Client.Calls(), gc.HasLen, 3)
+	s.BaseSuite.Client.CheckCall(c, 0, "SetContainerConfig", "smoosh", "user.juju-controller-uuid", "target-uuid")
+	s.BaseSuite.Client.CheckCall(c, 1, "SetContainerConfig", "guild-league", "user.juju-controller-uuid", "target-uuid")
+	s.BaseSuite.Client.CheckCall(c, 2, "SetContainerConfig", "tall-dwarfs", "user.juju-controller-uuid", "target-uuid")
+}
