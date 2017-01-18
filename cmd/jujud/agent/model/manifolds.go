@@ -251,6 +251,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		})),
 		firewallerName: ifNotMigrating(firewaller.Manifold(firewaller.ManifoldConfig{
 			APICallerName: apiCallerName,
+			EnvironName:   environTrackerName,
 		})),
 		unitAssignerName: ifNotMigrating(unitassigner.Manifold(unitassigner.ManifoldConfig{
 			APICallerName: apiCallerName,

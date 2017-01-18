@@ -18,7 +18,6 @@ import (
 	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/catacomb"
-	"github.com/juju/juju/worker/environ"
 )
 
 type machineRanges map[network.PortRange]bool
@@ -30,7 +29,6 @@ type Firewaller struct {
 	catacomb        catacomb.Catacomb
 	st              *firewaller.State
 	environ         environs.Environ
-	modelWatcher    watcher.NotifyWatcher
 	machinesWatcher watcher.StringsWatcher
 	portsWatcher    watcher.StringsWatcher
 	machineds       map[names.MachineTag]*machineData
@@ -45,9 +43,14 @@ type Firewaller struct {
 
 // NewFirewaller returns a new Firewaller or a new FirewallerV0,
 // depending on what the API supports.
-func NewFirewaller(st *firewaller.State) (worker.Worker, error) {
+func NewFirewaller(
+	env environs.Environ,
+	st *firewaller.State,
+	mode string,
+) (worker.Worker, error) {
 	fw := &Firewaller{
 		st:             st,
+		environ:        env,
 		machineds:      make(map[names.MachineTag]*machineData),
 		unitsChange:    make(chan *unitsChange),
 		unitds:         make(map[names.UnitTag]*unitData),
@@ -55,6 +58,16 @@ func NewFirewaller(st *firewaller.State) (worker.Worker, error) {
 		exposedChange:  make(chan *exposedChange),
 		machinePorts:   make(map[names.MachineTag]machineRanges),
 	}
+
+	switch mode {
+	case config.FwInstance:
+	case config.FwGlobal:
+		fw.globalMode = true
+		fw.globalPortRef = make(map[network.PortRange]int)
+	default:
+		return nil, errors.Errorf("invalid firewall-mode %q", mode)
+	}
+
 	err := catacomb.Invoke(catacomb.Plan{
 		Site: &fw.catacomb,
 		Work: fw.loop,
@@ -67,37 +80,6 @@ func NewFirewaller(st *firewaller.State) (worker.Worker, error) {
 
 func (fw *Firewaller) setUp() error {
 	var err error
-	fw.modelWatcher, err = fw.st.WatchForModelConfigChanges()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if err := fw.catacomb.Add(fw.modelWatcher); err != nil {
-		return errors.Trace(err)
-	}
-
-	// We won't "wait" actually, because the environ is already
-	// available and has a guaranteed valid config, but until
-	// WaitForEnviron goes away, this code needs to stay.
-	fw.environ, err = environ.WaitForEnviron(fw.modelWatcher, fw.st, environs.New, fw.catacomb.Dying())
-	if err != nil {
-		if err == environ.ErrWaitAborted {
-			return fw.catacomb.ErrDying()
-		}
-		return errors.Trace(err)
-	}
-	switch fw.environ.Config().FirewallMode() {
-	case config.FwInstance:
-	case config.FwGlobal:
-		fw.globalMode = true
-		fw.globalPortRef = make(map[network.PortRange]int)
-	case config.FwNone:
-		logger.Infof("stopping firewaller (not required)")
-		fw.Kill()
-		return fw.catacomb.ErrDying()
-	default:
-		return errors.Errorf("unknown firewall-mode %q", config.FwNone)
-	}
-
 	fw.machinesWatcher, err = fw.st.WatchModelMachines()
 	if err != nil {
 		return errors.Trace(err)
@@ -128,20 +110,6 @@ func (fw *Firewaller) loop() error {
 		select {
 		case <-fw.catacomb.Dying():
 			return fw.catacomb.ErrDying()
-		case _, ok := <-fw.modelWatcher.Changes():
-			logger.Debugf("got environ config changes")
-			if !ok {
-				return errors.New("environment configuration watcher closed")
-			}
-			config, err := fw.st.ModelConfig()
-			if err != nil {
-				return errors.Trace(err)
-			}
-			if err := fw.environ.SetConfig(config); err != nil {
-				// XXX(fwereade): surely this is an error? probably moot, will
-				// hopefully be replaced with EnvironObserver.
-				logger.Errorf("loaded invalid environment configuration: %v", err)
-			}
 		case change, ok := <-fw.machinesWatcher.Changes():
 			if !ok {
 				return errors.New("machines watcher closed")
