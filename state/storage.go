@@ -307,7 +307,7 @@ func removeStorageInstanceOps(
 			C:      c,
 			Id:     id,
 			Assert: bson.D{{"storageid", tag.Id()}},
-			Update: bson.D{{"$set", bson.D{{"storageid", ""}}}},
+			Update: bson.D{{"$unset", bson.D{{"storageid", nil}}}},
 		}
 	}
 

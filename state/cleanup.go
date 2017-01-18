@@ -23,7 +23,7 @@ const (
 	cleanupCharm                         cleanupKind = "charm"
 	cleanupDyingUnit                     cleanupKind = "dyingUnit"
 	cleanupRemovedUnit                   cleanupKind = "removedUnit"
-	cleanupServicesForDyingModel         cleanupKind = "applications"
+	cleanupApplicationsForDyingModel     cleanupKind = "applications"
 	cleanupDyingMachine                  cleanupKind = "dyingMachine"
 	cleanupForceDestroyedMachine         cleanupKind = "machine"
 	cleanupAttachmentsForDyingStorage    cleanupKind = "storageAttachments"
@@ -31,6 +31,8 @@ const (
 	cleanupAttachmentsForDyingFilesystem cleanupKind = "filesystemAttachments"
 	cleanupModelsForDyingController      cleanupKind = "models"
 	cleanupMachinesForDyingModel         cleanupKind = "modelMachines"
+	cleanupVolumesForDyingModel          cleanupKind = "modelVolumes"
+	cleanupFilesystemsForDyingModel      cleanupKind = "modelFilesystems"
 )
 
 // cleanupDoc originally represented a set of documents that should be
@@ -91,8 +93,8 @@ func (st *State) Cleanup() (err error) {
 			err = st.cleanupDyingUnit(doc.Prefix)
 		case cleanupRemovedUnit:
 			err = st.cleanupRemovedUnit(doc.Prefix)
-		case cleanupServicesForDyingModel:
-			err = st.cleanupServicesForDyingModel()
+		case cleanupApplicationsForDyingModel:
+			err = st.cleanupApplicationsForDyingModel()
 		case cleanupDyingMachine:
 			err = st.cleanupDyingMachine(doc.Prefix)
 		case cleanupForceDestroyedMachine:
@@ -107,6 +109,10 @@ func (st *State) Cleanup() (err error) {
 			err = st.cleanupModelsForDyingController()
 		case cleanupMachinesForDyingModel:
 			err = st.cleanupMachinesForDyingModel()
+		case cleanupVolumesForDyingModel:
+			err = st.cleanupVolumesForDyingModel()
+		case cleanupFilesystemsForDyingModel:
+			err = st.cleanupFilesystemsForDyingModel()
 		default:
 			handler, ok := cleanupHandlers[doc.Kind]
 			if !ok {
@@ -212,19 +218,54 @@ func (st *State) cleanupMachinesForDyingModel() (err error) {
 	return nil
 }
 
-// cleanupServicesForDyingModel sets all services to Dying, if they are
+// cleanupVolumesForDyingModel sets all persistent volumes to Dying,
+// if they are not already Dying or Dead. It's expected to be used when
+// a model is destroyed.
+func (st *State) cleanupVolumesForDyingModel() (err error) {
+	volumes, err := st.AllVolumes()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	for _, v := range volumes {
+		err := st.DestroyVolume(v.VolumeTag())
+		if err != nil && !IsContainsFilesystem(err) {
+			return errors.Trace(err)
+		}
+	}
+	return nil
+}
+
+// cleanupFilesystemsForDyingModel sets all persistent filesystems to
+// Dying, if they are not already Dying or Dead. It's expected to be used
+// when a model is destroyed.
+func (st *State) cleanupFilesystemsForDyingModel() (err error) {
+	filesystems, err := st.AllFilesystems()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	for _, fs := range filesystems {
+		err := st.DestroyFilesystem(fs.FilesystemTag())
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return nil
+}
+
+// cleanupApplicationsForDyingModel sets all applications to Dying, if they are
 // not already Dying or Dead. It's expected to be used when a model is
 // destroyed.
-func (st *State) cleanupServicesForDyingModel() (err error) {
-	// This won't miss services, because a Dying model cannot have
-	// services added to it. But we do have to remove the services themselves
-	// via individual transactions, because they could be in any state at all.
+func (st *State) cleanupApplicationsForDyingModel() (err error) {
+	// This won't miss applications, because a Dying model cannot have
+	// applications added to it. But we do have to remove the applications
+	// themselves via individual transactions, because they could be in any
+	// state at all.
 	applications, closer := st.getCollection(applicationsC)
 	defer closer()
 	application := Application{st: st}
 	sel := bson.D{{"life", Alive}}
 	iter := applications.Find(sel).Iter()
-	defer closeIter(iter, &err, "reading service document")
+	defer closeIter(iter, &err, "reading application document")
 	for iter.Next(&application.doc) {
 		if err := application.Destroy(); err != nil {
 			return err
@@ -235,11 +276,11 @@ func (st *State) cleanupServicesForDyingModel() (err error) {
 
 // cleanupUnitsForDyingApplication sets all units with the given prefix to Dying,
 // if they are not already Dying or Dead. It's expected to be used when a
-// service is destroyed.
+// application is destroyed.
 func (st *State) cleanupUnitsForDyingApplication(applicationname string) (err error) {
-	// This won't miss units, because a Dying service cannot have units added
-	// to it. But we do have to remove the units themselves via individual
-	// transactions, because they could be in any state at all.
+	// This won't miss units, because a Dying application cannot have units
+	// added to it. But we do have to remove the units themselves via
+	// individual transactions, because they could be in any state at all.
 	units, closer := st.getCollection(unitsC)
 	defer closer()
 
