@@ -698,8 +698,7 @@ func (task *provisionerTask) startMachine(
 	startInstanceParams environs.StartInstanceParams,
 ) error {
 	var result *environs.StartInstanceResult
-	retryCount := task.retryStartInstanceStrategy.retryCount
-	for attemptsLeft := retryCount; attemptsLeft >= 0; attemptsLeft-- {
+	for attemptsLeft := task.retryStartInstanceStrategy.retryCount; attemptsLeft >= 0; attemptsLeft-- {
 		attemptResult, err := task.broker.StartInstance(startInstanceParams)
 		if err == nil {
 			result = attemptResult
@@ -711,8 +710,8 @@ func (task *provisionerTask) startMachine(
 			return task.setErrorStatus("cannot start instance for machine %q: %v", machine, err)
 		}
 
-		retryMsg := fmt.Sprintf("failed to start instance (%s), retrying (%d/%d) in %v",
-			err.Error(), retryCount - attemptsLeft, retryCount, task.retryStartInstanceStrategy.retryDelay)
+		retryMsg := fmt.Sprintf("failed to start instance (%s), retrying in %v (%d more attempts)",
+			err.Error(), task.retryStartInstanceStrategy.retryDelay, attemptsLeft)
 		logger.Warningf(retryMsg)
 		if err2 := machine.SetInstanceStatus(status.Pending, retryMsg, nil); err2 != nil {
 			logger.Errorf("%v", err2)
