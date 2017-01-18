@@ -710,13 +710,12 @@ func (task *provisionerTask) startMachine(
 			return task.setErrorStatus("cannot start instance for machine %q: %v", machine, err)
 		}
 
-		logger.Warningf("%v", errors.Annotate(err, "starting instance"))
 		retryMsg := fmt.Sprintf("failed to start instance (%s), will retry in %v",
 			err.Error(), task.retryStartInstanceStrategy.retryDelay)
+		logger.Warningf(retryMsg)
 		if err2 := machine.SetInstanceStatus(status.Pending, retryMsg, nil); err2 != nil {
 			logger.Errorf("%v", err2)
 		}
-		logger.Infof(retryMsg)
 
 		select {
 		case <-task.catacomb.Dying():
