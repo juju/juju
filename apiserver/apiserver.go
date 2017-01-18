@@ -393,6 +393,16 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 	logTransferHandler := newLogSinkHandler(httpCtxt, ioutil.Discard, newMigrationLoggingStrategy)
 	add("/migrate/logtransfer", srv.trackRequests(logTransferHandler))
 
+	modelRestHandler := &modelRestHandler{
+		ctxt:          httpCtxt,
+		dataDir:       srv.dataDir,
+		stateAuthFunc: httpCtxt.stateForRequestAuthenticatedUser,
+	}
+	modelRestServer := &RestHTTPHandler{
+		GetHandler: modelRestHandler.ServeGet,
+	}
+	add("/model/:modeluuid/rest/1.0/:entity/:name/:attribute", modelRestServer)
+
 	modelCharmsHandler := &charmsHandler{
 		ctxt:          httpCtxt,
 		dataDir:       srv.dataDir,

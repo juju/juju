@@ -455,7 +455,8 @@ type RemoteApplicationInfo struct {
 	// rather than via an offer URL.
 	SourceModelLabel string           `json:"source-model-label,omitempty"`
 	Endpoints        []RemoteEndpoint `json:"endpoints"`
-	Icon             []byte           `json:"icon"`
+	// IconURLPath is relative to the model api endpoint
+	IconURLPath string `json:"icon-url-path"`
 }
 
 // RemoteApplicationInfoResult holds the result of loading
