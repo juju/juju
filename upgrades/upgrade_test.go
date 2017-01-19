@@ -4,12 +4,13 @@
 package upgrades_test
 
 import (
-	"errors"
 	"fmt"
 	"path/filepath"
 	"strings"
 	stdtesting "testing"
 
+	"github.com/juju/errors"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
@@ -18,8 +19,9 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/upgrades"
@@ -27,7 +29,7 @@ import (
 )
 
 func TestPackage(t *stdtesting.T) {
-	coretesting.MgoTestPackage(t)
+	gc.TestingT(t)
 }
 
 func findStep(c *gc.C, ver version.Number, description string) upgrades.Step {
@@ -109,19 +111,33 @@ func newUpgradeStep(msg string, targets ...upgrades.Target) *mockUpgradeStep {
 	}
 }
 
+type mockEnvironUpgradeStep struct {
+	msg string
+	run func() error
+}
+
+func (m *mockEnvironUpgradeStep) Description() string {
+	return m.msg
+}
+
+func (m *mockEnvironUpgradeStep) Run() error {
+	return m.run()
+}
+
 type mockContext struct {
 	messages        []string
 	agentConfig     *mockAgentConfig
 	realAgentConfig agent.ConfigSetter
 	apiState        api.Connection
-	state           *state.State
+	state           upgrades.StateBackend
+	newEnviron      environs.NewEnvironFunc
 }
 
 func (c *mockContext) APIState() api.Connection {
 	return c.apiState
 }
 
-func (c *mockContext) State() *state.State {
+func (c *mockContext) State() upgrades.StateBackend {
 	return c.state
 }
 
@@ -138,6 +154,10 @@ func (c *mockContext) StateContext() upgrades.Context {
 
 func (c *mockContext) APIContext() upgrades.Context {
 	return c
+}
+
+func (c *mockContext) NewEnviron(args environs.OpenParams) (environs.Environ, error) {
+	return c.newEnviron(args)
 }
 
 type mockAgentConfig struct {
@@ -195,6 +215,44 @@ func (mock *mockAgentConfig) SetStateServingInfo(info params.StateServingInfo) {
 
 func (mock *mockAgentConfig) Model() names.ModelTag {
 	return mock.modelTag
+}
+
+type mockStateBackend struct {
+	upgrades.StateBackend
+	testing.Stub
+	models []upgrades.Model
+}
+
+func (mock *mockStateBackend) AllModels() ([]upgrades.Model, error) {
+	mock.MethodCall(mock, "AllModels")
+	return mock.models, mock.NextErr()
+}
+
+type mockModel struct {
+	testing.Stub
+	config    *config.Config
+	cloudSpec environs.CloudSpec
+}
+
+func (m *mockModel) Config() (*config.Config, error) {
+	m.MethodCall(m, "Config")
+	return m.config, m.NextErr()
+}
+
+func (m *mockModel) CloudSpec() (environs.CloudSpec, error) {
+	m.MethodCall(m, "CloudSpec")
+	return m.cloudSpec, m.NextErr()
+}
+
+type mockUpgradeableEnviron struct {
+	testing.Stub
+	environs.Environ
+	ops []environs.UpgradeOperation
+}
+
+func (m *mockUpgradeableEnviron) UpgradeOperations() []environs.UpgradeOperation {
+	m.MethodCall(m, "UpgradeOperations")
+	return m.ops
 }
 
 func stateUpgradeOperations() []upgrades.Operation {
@@ -287,75 +345,6 @@ func upgradeOperations() []upgrades.Operation {
 		},
 	}
 	return steps
-}
-
-type areUpgradesDefinedTest struct {
-	about       string
-	fromVersion string
-	toVersion   string
-	expected    bool
-	err         string
-}
-
-var areUpgradesDefinedTests = []areUpgradesDefinedTest{
-	{
-		about:       "no ops if same version",
-		fromVersion: "1.18.0",
-		expected:    false,
-	},
-	{
-		about:       "true when ops defined between versions",
-		fromVersion: "1.17.1",
-		expected:    true,
-	},
-	{
-		about:       "false when no ops defined between versions",
-		fromVersion: "1.13.0",
-		toVersion:   "1.14.1",
-		expected:    false,
-	},
-	{
-		about:       "true when just state ops defined ",
-		fromVersion: "1.10.0",
-		toVersion:   "1.11.0",
-		expected:    true,
-	},
-	{
-		about:       "from version is defaulted when not supplied",
-		fromVersion: "",
-		expected:    true,
-	},
-	{
-		about:       "upgrade between pre-final versions",
-		fromVersion: "1.21-beta4",
-		toVersion:   "1.21-beta5",
-		expected:    true,
-	},
-	{
-		about:       "no upgrades when version hasn't changed, even with release tags",
-		fromVersion: "1.21-beta5",
-		toVersion:   "1.21-beta5",
-		expected:    false,
-	},
-}
-
-func (s *upgradeSuite) TestAreUpgradesDefined(c *gc.C) {
-	s.PatchValue(upgrades.StateUpgradeOperations, stateUpgradeOperations)
-	s.PatchValue(upgrades.UpgradeOperations, upgradeOperations)
-	for i, test := range areUpgradesDefinedTests {
-		c.Logf("%d: %s", i, test.about)
-		fromVersion := version.Zero
-		if test.fromVersion != "" {
-			fromVersion = version.MustParse(test.fromVersion)
-		}
-		toVersion := version.MustParse("1.18.0")
-		if test.toVersion != "" {
-			toVersion = version.MustParse(test.toVersion)
-		}
-		s.PatchValue(&jujuversion.Current, toVersion)
-		result := upgrades.AreUpgradesDefined(fromVersion)
-		c.Check(result, gc.Equals, test.expected)
-	}
 }
 
 type upgradeTest struct {
@@ -529,6 +518,7 @@ func (s *upgradeSuite) TestPerformUpgrade(c *gc.C) {
 		var messages []string
 		ctx := &mockContext{
 			messages: messages,
+			state:    &mockStateBackend{},
 		}
 		fromVersion := version.Zero
 		if test.fromVersion != "" {
@@ -605,7 +595,7 @@ func (s *upgradeSuite) TestAPIStepsGetRestrictedContext(c *gc.C) {
 func (s *upgradeSuite) checkContextRestriction(c *gc.C, expectedPanic string) {
 	fromVersion := version.MustParse("1.20.0")
 	type fakeAgentConfigSetter struct{ agent.ConfigSetter }
-	ctx := upgrades.NewContext(fakeAgentConfigSetter{}, nil, new(state.State))
+	ctx := upgrades.NewContext(fakeAgentConfigSetter{}, nil, &mockStateBackend{}, nil)
 	c.Assert(
 		func() { upgrades.PerformUpgrade(fromVersion, targets(upgrades.Controller), ctx) },
 		gc.PanicMatches, expectedPanic,
@@ -628,20 +618,84 @@ func (s *upgradeSuite) TestStateStepsNotAttemptedWhenNoStateTarget(c *gc.C) {
 	s.PatchValue(upgrades.UpgradeOperations, upgradeOperations)
 
 	fromVers := version.MustParse("1.18.0")
-	ctx := new(mockContext)
-	check := func(target upgrades.Target, expectedStateCallCount int) {
+	state := &mockStateBackend{}
+	ctx := &mockContext{state: state}
+	check := func(target upgrades.Target, expectedStateCallCount int, expectedStateMethodCalls []string) {
 		stateCount = 0
 		apiCount = 0
 		err := upgrades.PerformUpgrade(fromVers, targets(target), ctx)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(stateCount, gc.Equals, expectedStateCallCount)
 		c.Assert(apiCount, gc.Equals, 1)
+		state.CheckCallNames(c, expectedStateMethodCalls...)
+		state.ResetCalls()
 	}
 
-	check(upgrades.Controller, 1)
-	check(upgrades.DatabaseMaster, 1)
-	check(upgrades.AllMachines, 0)
-	check(upgrades.HostMachine, 0)
+	check(upgrades.Controller, 1, nil)
+	check(upgrades.DatabaseMaster, 1, []string{"AllModels"})
+	check(upgrades.AllMachines, 0, nil)
+	check(upgrades.HostMachine, 0, nil)
+}
+
+func (s *upgradeSuite) TestEnvironUpgradeOperations(c *gc.C) {
+	type nonUpgradeableEnviron struct{ environs.Environ }
+
+	fromVers := version.MustParse("1.18.0")
+	model0 := &mockModel{config: coretesting.ModelConfig(c)}
+	model1 := &mockModel{config: coretesting.ModelConfig(c)}
+	models := []upgrades.Model{model0, model1}
+	var opsRun int
+	ops := []environs.UpgradeOperation{{
+		TargetVersion: fromVers,
+		Steps: []environs.UpgradeStep{&mockEnvironUpgradeStep{
+			"should not be run",
+			func() error { return errors.New("should not be run") },
+		}},
+	}, {
+		TargetVersion: version.MustParse("1.19.0"),
+		Steps: []environs.UpgradeStep{&mockEnvironUpgradeStep{
+			"should be run",
+			func() error {
+				opsRun++
+				return nil
+			},
+		}},
+	}}
+	model0Environ := &mockUpgradeableEnviron{ops: ops}
+	state := &mockStateBackend{models: models}
+
+	var newEnvironStub testing.Stub
+	newEnviron := func(args environs.OpenParams) (environs.Environ, error) {
+		newEnvironStub.AddCall("NewEnviron", args)
+		switch args.Config {
+		case model0.config:
+			return model0Environ, nil
+		case model1.config:
+			return nonUpgradeableEnviron{}, nil
+		}
+		panic("unknown config")
+	}
+
+	s.PatchValue(upgrades.StateUpgradeOperations, func() []upgrades.Operation {
+		return nil
+	})
+	s.PatchValue(upgrades.UpgradeOperations, func() []upgrades.Operation {
+		return nil
+	})
+
+	ctx := &mockContext{
+		state:      state,
+		newEnviron: newEnviron,
+	}
+	err := upgrades.PerformUpgrade(fromVers, targets(upgrades.DatabaseMaster), ctx)
+	c.Assert(err, jc.ErrorIsNil)
+
+	state.CheckCallNames(c, "AllModels")
+	model0.CheckCallNames(c, "Config", "CloudSpec")
+	model1.CheckCallNames(c, "Config", "CloudSpec")
+	newEnvironStub.CheckCallNames(c, "NewEnviron", "NewEnviron")
+	//model0Environ.CheckCallNames(c, "UpgradeOperations")
+	c.Assert(opsRun, gc.Equals, 1)
 }
 
 func (s *upgradeSuite) TestUpgradeOperationsOrdered(c *gc.C) {

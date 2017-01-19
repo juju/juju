@@ -6,7 +6,7 @@ package upgrades
 import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/environs"
 )
 
 // Context provides the dependencies used when executing upgrade steps.
@@ -21,7 +21,7 @@ type Context interface {
 
 	// State returns a connection to state. This will be non-nil
 	// only in the context of a controller.
-	State() *state.State
+	State() StateBackend
 
 	// AgentConfig returns the agent config for the machine that is being
 	// upgraded.
@@ -34,14 +34,24 @@ type Context interface {
 	// APIContext returns a new Context suitable for API-based upgrade
 	// steps.
 	APIContext() Context
+
+	// NewEnviron returns a new Environ given a State. This is used
+	// for upgrading Environs.
+	NewEnviron(environs.OpenParams) (environs.Environ, error)
 }
 
 // NewContext returns a new upgrade context.
-func NewContext(agentConfig agent.ConfigSetter, api api.Connection, st *state.State) Context {
+func NewContext(
+	agentConfig agent.ConfigSetter,
+	api api.Connection,
+	st StateBackend,
+	newEnviron environs.NewEnvironFunc,
+) Context {
 	return &upgradeContext{
 		agentConfig: agentConfig,
 		api:         api,
 		st:          st,
+		newEnviron:  newEnviron,
 	}
 }
 
@@ -49,7 +59,8 @@ func NewContext(agentConfig agent.ConfigSetter, api api.Connection, st *state.St
 type upgradeContext struct {
 	agentConfig agent.ConfigSetter
 	api         api.Connection
-	st          *state.State
+	st          StateBackend
+	newEnviron  environs.NewEnvironFunc
 }
 
 // APIState is defined on the Context interface.
@@ -65,7 +76,7 @@ func (c *upgradeContext) APIState() api.Connection {
 // State is defined on the Context interface.
 //
 // This will panic if called on a Context returned by APIContext.
-func (c *upgradeContext) State() *state.State {
+func (c *upgradeContext) State() StateBackend {
 	if c.st == nil {
 		panic("State not available from this context")
 	}
@@ -91,4 +102,9 @@ func (c *upgradeContext) APIContext() Context {
 		agentConfig: c.agentConfig,
 		api:         c.api,
 	}
+}
+
+// NewEnviron is defined on the Context interface.
+func (c *upgradeContext) NewEnviron(args environs.OpenParams) (environs.Environ, error) {
+	return c.newEnviron(args)
 }

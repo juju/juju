@@ -25,6 +25,7 @@ import (
 	components "github.com/juju/juju/component/all"
 	"github.com/juju/juju/juju/names"
 	"github.com/juju/juju/juju/sockets"
+	"github.com/juju/juju/upgrades"
 	// Import the providers.
 	_ "github.com/juju/juju/provider/all"
 	"github.com/juju/juju/worker/logsender"
@@ -156,6 +157,7 @@ func jujuDMain(args []string, ctx *cmd.Context) (code int, err error) {
 		agentConf,
 		bufferedLogger,
 		agentcmd.DefaultIntrospectionSocketName,
+		upgrades.PreUpgradeSteps,
 		"",
 	)
 	jujud.Register(agentcmd.NewMachineAgentCmd(ctx, machineAgentFactory, agentConf, agentConf))
