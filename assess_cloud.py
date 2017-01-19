@@ -6,15 +6,13 @@ import yaml
 from deploy_stack import (
     BootstrapManager,
     )
-from fakejuju import (
-    FakeBackend,
-    FakeControllerState,
-    )
 from jujuconfig import get_juju_home
 from jujupy import (
+    ConditionList,
     EnvJujuClient,
+    FakeBackend,
+    FakeControllerState,
     get_client_class,
-    WaitMachineNotPresent,
     )
 from utility import (
     add_basic_testing_arguments,
@@ -64,8 +62,9 @@ def assess_cloud_combined(bs_manager):
         new_status = client.wait_for_started()
         new_machines = [k for k, v in new_status.iter_new_machines(old_status)]
         client.juju('remove-unit', 'ubuntu/0')
-        new_status = client.wait_for([WaitMachineNotPresent(n)
-                                      for n in new_machines])
+        new_status = client.wait_for(
+            ConditionList([client.make_remove_machine_condition(n)
+                           for n in new_machines]))
 
 
 def assess_cloud_provisioning(bs_manager):
@@ -89,8 +88,9 @@ def assess_cloud_provisioning(bs_manager):
         new_machines = [k for k, v in new_status.iter_new_machines(old_status)]
         for machine in new_machines:
             client.juju('remove-machine', (machine,))
-        new_status = client.wait_for([WaitMachineNotPresent(n)
-                                      for n in new_machines], timeout=600)
+        new_status = client.wait_for(
+            ConditionList([client.make_remove_machine_condition(n)
+                           for n in new_machines]))
 
 
 def assess_cloud_kill_controller(bs_manager):

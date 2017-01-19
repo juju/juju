@@ -11,7 +11,7 @@ import subprocess
 from textwrap import dedent
 
 import assess_unregister as a_unreg
-from fakejuju import fake_juju_client
+from jujupy import fake_juju_client
 from tests import (
     parse_error,
     TestCase,

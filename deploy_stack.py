@@ -28,10 +28,6 @@ import json
 import shutil
 
 from chaos import background_chaos
-from fakejuju import (
-    FakeBackend,
-    fake_juju_client,
-)
 from jujucharm import (
     local_charm_path,
 )
@@ -41,12 +37,16 @@ from jujuconfig import (
 )
 from jujupy import (
     client_from_config,
-    get_local_root,
+    FakeBackend,
+    fake_juju_client,
     get_machine_dns_name,
     jes_home_path,
     NoProvider,
     SimpleEnvironment,
     temp_bootstrap_env,
+    )
+from jujupy.client import (
+    get_local_root,
 )
 from remote import (
     remote_from_address,
@@ -629,7 +629,8 @@ class BootstrapManager:
 
     def __init__(self, temp_env_name, client, tear_down_client, bootstrap_host,
                  machines, series, agent_url, agent_stream, region, log_dir,
-                 keep_env, permanent, jes_enabled, controller_strategy=None):
+                 keep_env, permanent, jes_enabled, controller_strategy=None,
+                 logged_exception_exit=True):
         """Constructor.
 
         Please see see `BootstrapManager` for argument descriptions.
@@ -654,6 +655,7 @@ class BootstrapManager:
         if controller_strategy is None:
             controller_strategy = CreateController(client, tear_down_client)
         self.controller_strategy = controller_strategy
+        self.logged_exception_exit = logged_exception_exit
         self.has_controller = False
         self.resource_details = None
 
@@ -1024,7 +1026,9 @@ class BootstrapManager:
                         m_client.show_status()
                     yield machines
         except LoggedException:
-            sys.exit(1)
+            if self.logged_exception_exit:
+                sys.exit(1)
+            raise
 
     @contextmanager
     def existing_booted_context(self, upload_tools, **kwargs):

@@ -4,7 +4,7 @@ import argparse
 from mock import patch, Mock, call
 import StringIO
 
-from fakejuju import fake_juju_client
+from jujupy import fake_juju_client
 import perfscale_longrunning as pl
 from tests import (
     parse_error,

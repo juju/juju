@@ -52,10 +52,6 @@ from deploy_stack import (
     update_env,
     wait_for_state_server_to_shutdown,
     )
-from fakejuju import (
-    fake_juju_client,
-    fake_juju_client_optional_jes,
-    )
 from jujuconfig import (
     get_environments_path,
     get_jenv_path,
@@ -65,6 +61,8 @@ from jujupy import (
     EnvJujuClient,
     EnvJujuClient1X,
     EnvJujuClient25,
+    fake_juju_client,
+    fake_juju_client_optional_jes,
     get_cache_path,
     get_timeout_prefix,
     JujuData,
@@ -1204,7 +1202,7 @@ class TestTestUpgrade(FakeHomeTestCase):
                                    side_effect=lambda cls:
                                    '2.0-rc2-arch-series'):
                             with patch(
-                                    'jujupy.get_timeout_prefix',
+                                    'jujupy.client.get_timeout_prefix',
                                     autospec=True, return_value=()):
                                 yield (co_mock, cc_mock)
 
@@ -1995,7 +1993,8 @@ class TestBootstrapManager(FakeHomeTestCase):
                 with bs_manager.runtime_context([]):
                     raise ValueError
 
-    def test_booted_context_handles_logged_exception(self):
+    @contextmanager
+    def logged_exception_bs_manager(self):
         client = fake_juju_client()
         with temp_dir() as root:
             log_dir = os.path.join(root, 'log-dir')
@@ -2007,7 +2006,19 @@ class TestBootstrapManager(FakeHomeTestCase):
             juju_home = os.path.join(root, 'juju-home')
             os.mkdir(juju_home)
             client.env.juju_home = juju_home
+            yield bs_manager
+
+    def test_booted_context_handles_logged_exception(self):
+        with self.logged_exception_bs_manager() as bs_manager:
             with self.assertRaises(SystemExit):
+                with patch.object(bs_manager, 'dump_all_logs'):
+                    with bs_manager.booted_context(False):
+                        raise LoggedException()
+
+    def test_booted_context_raises_logged_exception(self):
+        with self.logged_exception_bs_manager() as bs_manager:
+            bs_manager.logged_exception_exit = False
+            with self.assertRaises(LoggedException):
                 with patch.object(bs_manager, 'dump_all_logs'):
                     with bs_manager.booted_context(False):
                         raise LoggedException()

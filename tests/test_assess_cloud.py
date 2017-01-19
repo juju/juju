@@ -14,21 +14,21 @@ from assess_cloud import (
     parse_args,
     )
 from deploy_stack import BootstrapManager
-from fakejuju import (
-    FakeBackend,
-    fake_juju_client,
-    )
 from jujupy import (
     EnvJujuClient,
+    FakeBackend,
+    fake_juju_client,
     Juju2Backend,
-    temp_yaml_file,
     )
 from tests import (
     FakeHomeTestCase,
     observable_temp_file,
     TestCase,
     )
-from utility import temp_dir
+from utility import (
+    temp_dir,
+    temp_yaml_file,
+    )
 
 
 def backend_call(client, cmd, args, model=None, check=True, timeout=None,

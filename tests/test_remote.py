@@ -9,7 +9,6 @@ import winrm
 
 from jujupy import (
     EnvJujuClient,
-    get_timeout_path,
     JujuData,
     Status,
 )
@@ -20,6 +19,7 @@ from remote import (
 )
 import tests
 from utility import (
+    get_timeout_path,
     temp_dir,
 )
 
