@@ -302,8 +302,27 @@ class SimpleEnvironment:
         except KeyError:
             raise NoProvider('No provider specified.')
 
+    def is_cloud_provider(self):
+        """Return True if the commandline cloud is a provider.
+
+        This is True when LXD or Manual would be specified on the commandline,
+        false otherwse.
+        """
+        return bool(self.provider in ('lxd', 'manual'))
+
     def get_region(self):
+        """Determine the region from a 1.x-style config.
+
+        This requires translating Azure's and Joyent's conventions for
+        specifying region.
+
+        It means that endpoint, rather than region, should be supplied if the
+        cloud (not the provider) is named "lxd" or "manual".
+
+        May return None for MAAS or LXD clouds.
+        """
         provider = self.provider
+        # In 1.x, providers define region differently.  Translate.
         if provider == 'azure':
             if 'tenant-id' not in self._config:
                 return self._config['location'].replace(' ', '').lower()
@@ -311,32 +330,59 @@ class SimpleEnvironment:
         elif provider == 'joyent':
             matcher = re.compile('https://(.*).api.joyentcloud.com')
             return matcher.match(self._config['sdc-url']).group(1)
-        elif provider == 'lxd':
-            return self._config.get('region', 'localhost')
-        elif provider == 'manual':
-            return self._config['bootstrap-host']
-        elif provider in ('maas', 'manual'):
+        elif provider == 'maas':
             return None
+        # In 2.x, certain providers can be specified on the commandline in
+        # place of a cloud.  The "region" in these cases is the endpoint.
+        elif self.is_cloud_provider():
+            return self._get_config_endpoint()
         else:
+            # The manual provider is typically used without a region.
+            if provider == 'manual':
+                return self._config.get('region')
             return self._config['region']
 
+    def _get_config_endpoint(self):
+        if self.provider == 'lxd':
+            return self._config.get('region', 'localhost')
+        elif self.provider == 'manual':
+            return self._config['bootstrap-host']
+
     def set_region(self, region):
+        """Assign the region to a 1.x-style config.
+
+        This requires translating Azure's and Joyent's conventions for
+        specifying region.
+
+        It means that endpoint, rather than region, should be updated if the
+        cloud (not the provider) is named "lxd" or "manual".
+
+        Only None is acccepted for MAAS.
+        """
         try:
             provider = self.provider
+            cloud_is_provider = self.is_cloud_provider()
         except NoProvider:
             provider = None
+            cloud_is_provider = False
         if provider == 'azure':
             self._config['location'] = region
         elif provider == 'joyent':
             self._config['sdc-url'] = (
                 'https://{}.api.joyentcloud.com'.format(region))
-        elif provider == 'manual':
-            self._config['bootstrap-host'] = region
+        elif cloud_is_provider:
+            self._set_config_endpoint(region)
         elif provider == 'maas':
             if region is not None:
                 raise ValueError('Only None allowed for maas.')
         else:
             self._config['region'] = region
+
+    def _set_config_endpoint(self, endpoint):
+        if self.provider == 'lxd':
+            self._config['region'] = endpoint
+        elif self.provider == 'manual':
+            self._config['bootstrap-host'] = endpoint
 
     def clone(self, model_name=None):
         config = deepcopy(self._config)
@@ -585,6 +631,17 @@ class JujuData(SimpleEnvironment):
     def get_cloud_credentials(self):
         """Return the credentials for this model's cloud."""
         return self.get_cloud_credentials_item()[1]
+
+    def is_cloud_provider(self):
+        """Return True if the commandline cloud is a provider.
+
+        Examples: lxd, manual
+        """
+        # if the commandline cloud is "lxd" or "manual", the provider type
+        # should match, and shortcutting get_cloud avoids pointless test
+        # breakage.
+        return bool(self.provider in ('lxd', 'manual') and
+                    self.get_cloud() in ('lxd', 'manual'))
 
 
 class StatusError(Exception):

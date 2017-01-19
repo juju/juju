@@ -5156,6 +5156,108 @@ class TestJujuData(TestCase):
         juju_data = JujuData('foo', {'type': 'bar'}, 'home', cloud_name='baz')
         self.assertEqual('baz', juju_data.get_cloud())
 
+    def test_set_region(self):
+        env = JujuData('foo', {'type': 'bar'}, 'home')
+        env.set_region('baz')
+        self.assertEqual(env.get_option('region'), 'baz')
+        self.assertEqual(env.get_region(), 'baz')
+
+    def test_set_region_no_provider(self):
+        env = JujuData('foo', {}, 'home')
+        env.set_region('baz')
+        self.assertEqual(env.get_option('region'), 'baz')
+
+    def test_set_region_joyent(self):
+        env = JujuData('foo', {'type': 'joyent'}, 'home')
+        env.set_region('baz')
+        self.assertEqual(env.get_option('sdc-url'),
+                         'https://baz.api.joyentcloud.com')
+        self.assertEqual(env.get_region(), 'baz')
+
+    def test_set_region_azure(self):
+        env = JujuData('foo', {'type': 'azure'}, 'home')
+        env.set_region('baz')
+        self.assertEqual(env.get_option('location'), 'baz')
+        self.assertEqual(env.get_region(), 'baz')
+
+    def test_set_region_lxd(self):
+        env = JujuData('foo', {'type': 'lxd'}, 'home')
+        env.set_region('baz')
+        self.assertEqual(env.get_option('region'), 'baz')
+
+    def test_set_region_manual(self):
+        env = JujuData('foo', {'type': 'manual'}, 'home')
+        env.set_region('baz')
+        self.assertEqual(env.get_option('bootstrap-host'), 'baz')
+        self.assertEqual(env.get_region(), 'baz')
+
+    def test_set_region_manual_named_cloud(self):
+        env = JujuData('foo', {'type': 'manual'}, 'home', cloud_name='qux')
+        env.set_region('baz')
+        self.assertEqual(env.get_option('region'), 'baz')
+        self.assertEqual(env.get_region(), 'baz')
+
+    def test_set_region_maas(self):
+        env = JujuData('foo', {'type': 'maas'}, 'home')
+        with self.assertRaisesRegexp(ValueError,
+                                     'Only None allowed for maas.'):
+            env.set_region('baz')
+        env.set_region(None)
+        self.assertIs(env.get_region(), None)
+
+    def test_get_region(self):
+        self.assertEqual(
+            'bar', JujuData(
+                'foo', {'type': 'foo', 'region': 'bar'}, 'home').get_region())
+
+    def test_get_region_old_azure(self):
+        self.assertEqual('northeu', JujuData('foo', {
+            'type': 'azure', 'location': 'North EU'}, 'home').get_region())
+
+    def test_get_region_azure_arm(self):
+        self.assertEqual('bar', JujuData('foo', {
+            'type': 'azure', 'location': 'bar', 'tenant-id': 'baz'},
+            'home').get_region())
+
+    def test_get_region_joyent(self):
+        self.assertEqual('bar', JujuData('foo', {
+            'type': 'joyent', 'sdc-url': 'https://bar.api.joyentcloud.com'},
+            'home').get_region())
+
+    def test_get_region_lxd(self):
+        self.assertEqual('localhost', JujuData(
+            'foo', {'type': 'lxd'}, 'home').get_region())
+
+    def test_get_region_lxd_specified(self):
+        self.assertEqual('foo', JujuData(
+            'foo', {'type': 'lxd', 'region': 'foo'}, 'home').get_region())
+
+    def test_get_region_maas(self):
+        self.assertIs(None, JujuData('foo', {
+            'type': 'maas', 'region': 'bar',
+        }, 'home').get_region())
+
+    def test_get_region_manual(self):
+        self.assertEqual('baz', JujuData('foo', {
+            'type': 'manual', 'region': 'bar',
+            'bootstrap-host': 'baz'}, 'home').get_region())
+
+    def test_get_region_manual_named_cloud(self):
+        self.assertEqual('bar', JujuData('foo', {
+            'type': 'manual', 'region': 'bar',
+            'bootstrap-host': 'baz'}, 'home', cloud_name='qux').get_region())
+
+    def test_get_region_manual_cloud_name_manual(self):
+        self.assertEqual('baz', JujuData('foo', {
+            'type': 'manual', 'region': 'bar',
+            'bootstrap-host': 'baz'}, 'home',
+            cloud_name='manual').get_region())
+
+    def test_get_region_manual_named_cloud_no_region(self):
+        self.assertIs(None, JujuData('foo', {
+            'type': 'manual', 'bootstrap-host': 'baz',
+            }, 'home', cloud_name='qux').get_region())
+
     def test_dump_yaml(self):
         cloud_dict = {'clouds': {'foo': {}}}
         credential_dict = {'credential': {'bar': {}}}
