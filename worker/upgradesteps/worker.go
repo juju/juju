@@ -54,9 +54,26 @@ var (
 
 // NewLock creates a gate.Lock to be used to synchronise workers which
 // need to start after upgrades have completed. The returned Lock should
-// be passed to NewWorker.
-func NewLock() gate.Lock {
-	return gate.NewLock()
+// be passed to NewWorker. If the agent has already upgraded to the
+// current version, then the lock will be returned in the released state.
+func NewLock(agentConfig agent.Config) gate.Lock {
+	lock := gate.NewLock()
+
+	if wrench.IsActive("machine-agent", "always-try-upgrade") {
+		// Always enter upgrade mode. This allows test of upgrades
+		// even when there's actually no upgrade steps to run.
+		return lock
+	}
+
+	if agentConfig.UpgradedToVersion() == jujuversion.Current {
+		logger.Infof(
+			"upgrade steps for %v have already been run.",
+			jujuversion.Current,
+		)
+		lock.Unlock()
+	}
+
+	return lock
 }
 
 // StatusSetter defines the single method required to set an agent's

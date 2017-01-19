@@ -303,7 +303,6 @@ func NewMachineAgent(
 		newIntrospectionSocketName:  newIntrospectionSocketName,
 		prometheusRegistry:          prometheusRegistry,
 		txnmetricsCollector:         txnmetrics.New(),
-		upgradeComplete:             upgradesteps.NewLock(),
 		preUpgradeSteps:             preUpgradeSteps,
 	}
 	if err := a.prometheusRegistry.Register(
@@ -466,6 +465,8 @@ func (a *MachineAgent) Run(*cmd.Context) error {
 	}
 
 	agentConfig := a.CurrentConfig()
+	a.upgradeComplete = upgradesteps.NewLock(agentConfig)
+
 	createEngine := a.makeEngineCreator(agentConfig.UpgradedToVersion())
 	charmrepo.CacheDir = filepath.Join(agentConfig.DataDir(), "charmcache")
 	if err := a.createJujudSymlinks(agentConfig.DataDir()); err != nil {

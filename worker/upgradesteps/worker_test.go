@@ -108,18 +108,15 @@ func (s *UpgradeSuite) countUpgradeAttempts(upgradeErr error) *int {
 }
 
 func (s *UpgradeSuite) TestNewChannelWhenNoUpgradeRequired(c *gc.C) {
-	// Set the agent's upgradedToVersion so that upgrade steps are not required.
-	initialVersion := makeBumpedCurrentVersion().Number
+	// Set the agent's upgradedToVersion to version.Current,
+	// to simulate the upgrade steps having been run already.
+	initialVersion := jujuversion.Current
 	config := NewFakeConfigSetter(names.NewMachineTag("0"), initialVersion)
 
-	lock := NewLock()
+	lock := NewLock(config)
 
-	c.Assert(lock.IsUnlocked(), jc.IsFalse)
-	// The agent's version should NOT have been updated. We used to return
-	// the lock released immediately, but we now always return it locked
-	// and rely on the upgrade steps worker to release it after running
-	// or determining that there are no upgrade steps to run.
-	c.Assert(config.Version, gc.Equals, initialVersion)
+	// Upgrade steps have already been run.
+	c.Assert(lock.IsUnlocked(), jc.IsTrue)
 }
 
 func (s *UpgradeSuite) TestNewChannelWhenUpgradeRequired(c *gc.C) {
@@ -127,7 +124,7 @@ func (s *UpgradeSuite) TestNewChannelWhenUpgradeRequired(c *gc.C) {
 	initialVersion := version.MustParse("1.16.0")
 	config := NewFakeConfigSetter(names.NewMachineTag("0"), initialVersion)
 
-	lock := NewLock()
+	lock := NewLock(config)
 
 	c.Assert(lock.IsUnlocked(), jc.IsFalse)
 	// The agent's version should NOT have been updated.
@@ -398,7 +395,7 @@ func (s *UpgradeSuite) runUpgradeWorker(c *gc.C, jobs ...multiwatcher.MachineJob
 	s.setInstantRetryStrategy(c)
 	config := s.makeFakeConfig()
 	agent := NewFakeAgent(config)
-	doneLock := NewLock()
+	doneLock := NewLock(config)
 	machineStatus := &testStatusSetter{}
 	worker, err := NewWorker(
 		doneLock,
@@ -483,22 +480,6 @@ func (s *UpgradeSuite) setMachineAlive(c *gc.C, id string) {
 	s.AddCleanup(func(c *gc.C) {
 		c.Assert(worker.Stop(pinger), jc.ErrorIsNil)
 	})
-}
-
-// Return a version the same as the current software version, but with
-// the build number bumped.
-//
-// The version Tag is also cleared so that upgrades.PerformUpgrade
-// doesn't think it needs to run upgrade steps unnecessarily.
-func makeBumpedCurrentVersion() version.Binary {
-	v := version.Binary{
-		Number: jujuversion.Current,
-		Arch:   arch.HostArch(),
-		Series: series.MustHostSeries(),
-	}
-	v.Build++
-	v.Tag = ""
-	return v
 }
 
 const maxUpgradeRetries = 3
