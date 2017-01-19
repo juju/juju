@@ -436,7 +436,7 @@ func (s *withoutControllerSuite) TestMachinesWithTransientErrors(c *gc.C) {
 	err := s.machines[0].SetInstanceStatus(sInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	sInfo = status.StatusInfo{
-		Status:  status.Error,
+		Status:  status.ProvisioningError,
 		Message: "transient error",
 		Data:    map[string]interface{}{"transient": true, "foo": "bar"},
 		Since:   &now,
@@ -475,7 +475,7 @@ func (s *withoutControllerSuite) TestMachinesWithTransientErrors(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.StatusResults{
 		Results: []params.StatusResult{
-			{Id: "1", Life: "alive", Status: "error", Info: "transient error",
+			{Id: "1", Life: "alive", Status: "provisioning error", Info: "transient error",
 				Data: map[string]interface{}{"transient": true, "foo": "bar"}},
 		},
 	})

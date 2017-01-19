@@ -311,7 +311,7 @@ func (p *ProvisionerAPI) MachinesWithTransientErrors() (params.StatusResults, er
 		result.Status = statusInfo.Status.String()
 		result.Info = statusInfo.Message
 		result.Data = statusInfo.Data
-		if statusInfo.Status != status.Error {
+		if statusInfo.Status != status.Error && statusInfo.Status != status.ProvisioningError {
 			continue
 		}
 		// Transient errors are marked as such in the status data.
@@ -863,6 +863,44 @@ func (p *ProvisionerAPI) InstanceStatus(args params.Entities) (params.StatusResu
 	return result, nil
 }
 
+func (p *ProvisionerAPI) setOneInstanceStatus(canAccess common.AuthFunc, arg params.EntityStatusArgs) error {
+	logger.Debugf("SetInstanceStatus called with: %#v", arg)
+	mTag, err := names.ParseMachineTag(arg.Tag)
+	if err != nil {
+		logger.Warningf("SetInstanceStatus called with %q which is not a valid machine tag: %v", arg.Tag, err)
+		return common.ErrPerm
+	}
+	machine, err := p.getMachine(canAccess, mTag)
+	if err != nil {
+		logger.Debugf("SetInstanceStatus unable to get machine %q", mTag)
+		return err
+	}
+	// TODO(perrito666) 2016-05-02 lp:1558657
+	now := time.Now()
+	s := status.StatusInfo{
+		Status:  status.Status(arg.Status),
+		Message: arg.Info,
+		Data:    arg.Data,
+		Since:   &now,
+	}
+
+	// TODO(jam): 2017-01-29 These two status should be set in a single
+	//	transaction, not in two separate transactions. Otherwise you can see
+	//	one toggle, but not the other.
+	if err = machine.SetInstanceStatus(s); err != nil {
+		logger.Debugf("failed to SetInstanceStatus for %q: %v", mTag, err)
+		return err
+	}
+	if status.Status(arg.Status) == status.ProvisioningError {
+		s.Status = status.Error
+		logger.Debugf("SetInstanceStatus triggering SetStatus for %#v", s)
+		if err = machine.SetStatus(s); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // SetInstanceStatus updates the instance status for each given
 // entity. Only machine tags are accepted.
 func (p *ProvisionerAPI) SetInstanceStatus(args params.SetStatus) (params.ErrorResults, error) {
@@ -875,30 +913,7 @@ func (p *ProvisionerAPI) SetInstanceStatus(args params.SetStatus) (params.ErrorR
 		return result, errors.Trace(err)
 	}
 	for i, arg := range args.Entities {
-		mTag, err := names.ParseMachineTag(arg.Tag)
-		if err != nil {
-			logger.Warningf("SetInstanceStatus called with %q which is not a valid machine tag: %v", arg.Tag, err)
-			result.Results[i].Error = common.ServerError(common.ErrPerm)
-			continue
-		}
-		machine, err := p.getMachine(canAccess, mTag)
-		if err == nil {
-			// TODO(perrito666) 2016-05-02 lp:1558657
-			now := time.Now()
-			s := status.StatusInfo{
-				Status:  status.Status(arg.Status),
-				Message: arg.Info,
-				Data:    arg.Data,
-				Since:   &now,
-			}
-			err = machine.SetInstanceStatus(s)
-			if status.Status(arg.Status) == status.ProvisioningError {
-				s.Status = status.Error
-				if err == nil {
-					err = machine.SetStatus(s)
-				}
-			}
-		}
+		err = p.setOneInstanceStatus(canAccess, arg)
 		result.Results[i].Error = common.ServerError(err)
 	}
 	return result, nil

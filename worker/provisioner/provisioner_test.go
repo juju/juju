@@ -522,25 +522,43 @@ func (s *ProvisionerSuite) TestProvisionerSetsErrorStatusWhenNoToolsAreAvailable
 	c.Assert(err, jc.ErrorIsNil)
 	s.checkNoOperations(c)
 
-	t0 := time.Now()
-	for time.Since(t0) < coretesting.LongWait {
-		// And check the machine status is set to error.
-		statusInfo, err := m.InstanceStatus()
-		c.Assert(err, jc.ErrorIsNil)
-		if statusInfo.Status == status.Pending {
-			time.Sleep(coretesting.ShortWait)
-			continue
-		}
-		c.Assert(statusInfo.Status, gc.Equals, status.Error)
-		c.Assert(statusInfo.Message, gc.Equals, "no matching tools available")
-		break
-	}
+	// Ensure machine error status was set, and the error matches
+	agentStatus, instanceStatus := s.waitUntilMachineNotPending(c, m)
+	c.Check(agentStatus.Status, gc.Equals, status.Error)
+	c.Check(agentStatus.Message, gc.Equals, "no matching tools available")
+	c.Check(instanceStatus.Status, gc.Equals, status.ProvisioningError)
+	c.Check(instanceStatus.Message, gc.Equals, "no matching tools available")
 
 	// Restart the PA to make sure the machine is skipped again.
 	stop(c, p)
 	p = s.newEnvironProvisioner(c)
 	defer stop(c, p)
 	s.checkNoOperations(c)
+}
+
+func (s *ProvisionerSuite) waitUntilMachineNotPending(c *gc.C, m *state.Machine) (status.StatusInfo, status.StatusInfo) {
+	t0 := time.Now()
+	for time.Since(t0) < coretesting.LongWait {
+		agentStatusInfo, err := m.Status()
+		c.Assert(err, jc.ErrorIsNil)
+		if agentStatusInfo.Status == status.Pending {
+			time.Sleep(coretesting.ShortWait)
+			continue
+		}
+		instanceStatusInfo, err := m.InstanceStatus()
+		c.Assert(err, jc.ErrorIsNil)
+		// officially InstanceStatus is only supposed to be Provisioning, but
+		// all current Providers have their unknown state as Pending.
+		if instanceStatusInfo.Status == status.Provisioning ||
+			instanceStatusInfo.Status == status.Pending {
+			time.Sleep(coretesting.ShortWait)
+			continue
+		}
+		return agentStatusInfo, instanceStatusInfo
+	}
+	c.Fatal("machine %q stayed in pending", m.Id())
+	// Satisfy Go, Fatal should be a panic anyway
+	return status.StatusInfo{}, status.StatusInfo{}
 }
 
 func (s *ProvisionerSuite) TestProvisionerFailedStartInstanceWithInjectedCreationError(c *gc.C) {
@@ -569,21 +587,12 @@ func (s *ProvisionerSuite) TestProvisionerFailedStartInstanceWithInjectedCreatio
 	c.Assert(err, jc.ErrorIsNil)
 	s.checkNoOperations(c)
 
-	t0 := time.Now()
-	for time.Since(t0) < coretesting.LongWait {
-		// And check the machine status is set to error.
-		statusInfo, err := m.InstanceStatus()
-		c.Assert(err, jc.ErrorIsNil)
-		if statusInfo.Status == status.Pending {
-			time.Sleep(coretesting.ShortWait)
-			continue
-		}
-		c.Assert(statusInfo.Status, gc.Equals, status.Error)
-		// check that the status matches the error message
-		c.Assert(statusInfo.Message, gc.Equals, destroyError.Error())
-		return
-	}
-	c.Fatal("Test took too long to complete")
+	agentStatus, instanceStatus := s.waitUntilMachineNotPending(c, m)
+	// check that the status matches the error message
+	c.Check(agentStatus.Status, gc.Equals, status.Error)
+	c.Check(agentStatus.Message, gc.Equals, destroyError.Error())
+	c.Check(instanceStatus.Status, gc.Equals, status.ProvisioningError)
+	c.Check(instanceStatus.Message, gc.Equals, destroyError.Error())
 }
 
 func (s *ProvisionerSuite) TestProvisionerSucceedStartInstanceWithInjectedRetryableCreationError(c *gc.C) {
@@ -633,9 +642,15 @@ func (s *ProvisionerSuite) TestProvisionerStopRetryingIfDying(c *gc.C) {
 	time.Sleep(coretesting.ShortWait)
 
 	stop(c, p)
-	statusInfo, err := m.InstanceStatus()
+	statusInfo, err := m.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(statusInfo.Status, gc.Equals, status.Pending)
+	c.Check(statusInfo.Status, gc.Equals, status.Pending)
+	statusInfo, err = m.InstanceStatus()
+	c.Assert(err, jc.ErrorIsNil)
+	if statusInfo.Status != status.Pending && statusInfo.Status != status.Provisioning {
+		c.Errorf("statusInfo.Status was %q not one of %q or %q",
+			statusInfo.Status, status.Pending, status.Provisioning)
+	}
 	s.checkNoOperations(c)
 }
 
@@ -910,19 +925,12 @@ func (s *ProvisionerSuite) testProvisioningFailsAndSetsErrorStatusForConstraints
 	// Expect StartInstance to fail.
 	s.checkNoOperations(c)
 
-	// Ensure machine error status was set.
-	t0 := time.Now()
-	for time.Since(t0) < coretesting.LongWait {
-		statusInfo, err := machine.Status()
-		c.Assert(err, jc.ErrorIsNil)
-		if statusInfo.Status == status.Pending {
-			time.Sleep(coretesting.ShortWait)
-			continue
-		}
-		c.Assert(statusInfo.Status, gc.Equals, status.Error)
-		c.Assert(statusInfo.Message, gc.Equals, expectedErrorStatus)
-		break
-	}
+	// Ensure machine error status was set, and the error matches
+	agentStatus, instanceStatus := s.waitUntilMachineNotPending(c, machine)
+	c.Check(agentStatus.Status, gc.Equals, status.Error)
+	c.Check(agentStatus.Message, gc.Equals, expectedErrorStatus)
+	c.Check(instanceStatus.Status, gc.Equals, status.ProvisioningError)
+	c.Check(instanceStatus.Message, gc.Equals, expectedErrorStatus)
 
 	// Make sure the task didn't stop with an error
 	died := make(chan error)
@@ -1276,7 +1284,7 @@ func (s *ProvisionerSuite) TestProvisionerRetriesTransientErrors(c *gc.C) {
 			case <-time.After(coretesting.ShortWait):
 				now := time.Now()
 				sInfo := status.StatusInfo{
-					Status:  status.Error,
+					Status:  status.ProvisioningError,
 					Message: "info",
 					Data:    map[string]interface{}{"transient": true},
 					Since:   &now,
@@ -1292,7 +1300,7 @@ func (s *ProvisionerSuite) TestProvisionerRetriesTransientErrors(c *gc.C) {
 	// Machine 4 is never provisioned.
 	statusInfo, err := m4.InstanceStatus()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(statusInfo.Status, gc.Equals, status.Error)
+	c.Assert(statusInfo.Status, gc.Equals, status.ProvisioningError)
 	_, err = m4.InstanceId()
 	c.Assert(err, jc.Satisfies, errors.IsNotProvisioned)
 }
