@@ -998,24 +998,6 @@ func (m *Machine) InstanceStatus() (status.StatusInfo, error) {
 
 // SetInstanceStatus sets the provider specific instance status for a machine.
 func (m *Machine) SetInstanceStatus(sInfo status.StatusInfo) (err error) {
-	switch sInfo.Status {
-	case status.Running, status.Unknown:
-	case status.Error, status.ProvisioningError:
-		if sInfo.Message == "" {
-			return errors.Errorf("cannot set status %q without info", sInfo.Status)
-		}
-	case status.Pending, status.Provisioning:
-		// If a machine is not yet provisioned, we allow its status
-		// to be set back to pending (when a retry is to occur).
-		_, err := m.InstanceId()
-		allowPending := errors.IsNotProvisioned(err)
-		if allowPending {
-			break
-		}
-		fallthrough
-	default:
-		return errors.Errorf("cannot set invalid status %q", sInfo.Status)
-	}
 	return setStatus(m.st, setStatusParams{
 		badge:     "instance",
 		globalKey: m.globalInstanceKey(),
