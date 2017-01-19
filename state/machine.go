@@ -999,8 +999,8 @@ func (m *Machine) InstanceStatus() (status.StatusInfo, error) {
 // SetInstanceStatus sets the provider specific instance status for a machine.
 func (m *Machine) SetInstanceStatus(sInfo status.StatusInfo) (err error) {
 	switch sInfo.Status {
-	case status.Running:
-	case status.ProvisioningError:
+	case status.Running, status.Unknown:
+	case status.Error, status.ProvisioningError:
 		if sInfo.Message == "" {
 			return errors.Errorf("cannot set status %q without info", sInfo.Status)
 		}
