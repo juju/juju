@@ -128,7 +128,7 @@ func possiblePeerGroupChanges(
 				logger.Debugf("machine %q is a potential voter", m.Id())
 				toAddVote = append(toAddVote, m)
 			} else {
-				logger.Debugf("machine %q is not ready (has status: %v)", m.Id(), ok)
+				logger.Debugf("machine %q is not ready (status: %v, healthy: %v)", m.Id(), status.State, status.Healthy)
 				toKeep = append(toKeep, m)
 			}
 		case !wantsVote && isVoting:
