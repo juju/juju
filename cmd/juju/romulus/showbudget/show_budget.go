@@ -101,17 +101,17 @@ func (c *showBudgetCommand) resolveModelNames(budget *wireformat.BudgetWithAlloc
 	}
 	client, err := newAPIClient(c)
 	if err != nil {
-		logger.Errorf("failed to open the API client: %v", err)
+		logger.Warningf("failed to open the API client: %v", err)
 		return
 	}
 	modelInfoSlice, err := client.ModelInfo(models)
 	if err != nil {
-		logger.Errorf("failed to retrieve model info: %v", err)
+		logger.Debugf("failed to retrieve model info: %v", err)
 		return
 	}
 	for j, info := range modelInfoSlice {
 		if info.Error != nil {
-			logger.Errorf("failed to get model info for model %q: %v", models[j], info.Error)
+			logger.Debugf("failed to get info for model %q: %v", models[j], info.Error)
 			continue
 		}
 		for i, allocation := range budget.Allocations {
