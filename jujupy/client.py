@@ -2210,8 +2210,7 @@ class EnvJujuClient:
             'show-controller', controller, include_e=False)
         info = yaml.safe_load(output)
         endpoint = info[controller]['details']['api-endpoints'][0]
-        address, port = split_address_port(endpoint)
-        return address
+        return split_address_port(endpoint)
 
     def get_controller_members(self):
         """Return a list of Machines that are members of the controller.
@@ -2229,7 +2228,7 @@ class EnvJujuClient:
         # Search for the leader and make it the first in the list.
         # If the endpoint address is not the same as the leader's dns_name,
         # the members are return in the order they were discovered.
-        endpoint = self.get_controller_endpoint()
+        endpoint = self.get_controller_endpoint()[0]
         log.debug('Controller endpoint is at {}'.format(endpoint))
         members.sort(key=lambda m: m.info.get('dns-name') != endpoint)
         return members
