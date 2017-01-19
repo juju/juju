@@ -21,7 +21,7 @@ import (
 	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/utils"
+	"github.com/juju/retry"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/os"
 	jujuseries "github.com/juju/utils/series"
@@ -783,6 +783,10 @@ func (env *azureEnviron) waitCommonResourcesCreated() error {
 	return nil
 }
 
+type deploymentIncompleteError struct {
+	error
+}
+
 func (env *azureEnviron) waitCommonResourcesCreatedLocked() error {
 	deploymentsClient := resources.DeploymentsClient{env.resources}
 
@@ -794,11 +798,7 @@ func (env *azureEnviron) waitCommonResourcesCreatedLocked() error {
 	// for the "common" deployment to be in one of the terminal
 	// states. The deployment typically takes only around 30 seconds,
 	// but we allow for a longer duration to be defensive.
-	attempt := utils.AttemptStrategy{
-		Total: 5 * time.Minute,
-		Delay: 5 * time.Second,
-	}
-	for a := attempt.Start(); a.Next(); {
+	waitDeployment := func() error {
 		var result resources.DeploymentExtended
 		if err := env.callAPI(func() (autorest.Response, error) {
 			var err error
@@ -816,19 +816,34 @@ func (env *azureEnviron) waitCommonResourcesCreatedLocked() error {
 			return errors.Annotate(err, "querying common deployment")
 		}
 		if result.Properties == nil {
-			continue
+			return deploymentIncompleteError{errors.New("deployment incomplete")}
 		}
-		switch state := to.String(result.Properties.ProvisioningState); state {
-		case "Succeeded":
+
+		state := to.String(result.Properties.ProvisioningState)
+		if state == "Succeeded" {
 			// The deployment has succeeded, so the resources are
 			// ready for use.
 			return nil
-		case "Canceled", "Failed", "Deleted":
-			return errors.Errorf(
-				"common resource deployment status is %q", state,
-			)
 		}
+		err := errors.Errorf("common resource deployment status is %q", state)
+		switch state {
+		case "Canceled", "Failed", "Deleted":
+		default:
+			err = deploymentIncompleteError{err}
+		}
+		return err
 	}
+	return retry.Call(retry.CallArgs{
+		Func: waitDeployment,
+		IsFatalError: func(err error) bool {
+			_, ok := err.(deploymentIncompleteError)
+			return !ok
+		},
+		Attempts:    -1,
+		Delay:       5 * time.Second,
+		MaxDuration: 5 * time.Minute,
+		Clock:       env.provider.config.RetryClock,
+	})
 	return errors.Errorf("timed out waiting for common resources to be created")
 }
 

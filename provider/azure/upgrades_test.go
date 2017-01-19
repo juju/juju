@@ -101,13 +101,15 @@ func (s *environUpgradeSuite) TestEnvironUpgradeOperationCreateCommonDeployment(
 		},
 	}
 
+	vmListSender := azuretesting.NewSenderWithValue(&compute.VirtualMachineListResult{})
+	vmListSender.PathPattern = ".*/virtualMachines"
 	nsgSender := azuretesting.NewSenderWithValue(&nsg)
 	nsgSender.PathPattern = ".*/networkSecurityGroups/juju-internal-nsg"
 	deploymentSender := azuretesting.NewSenderWithValue(&resources.Deployment{})
 	deploymentSender.PathPattern = ".*/deployments/common"
-	s.sender = append(s.sender, nsgSender, deploymentSender)
+	s.sender = append(s.sender, vmListSender, nsgSender, deploymentSender)
 	c.Assert(op0.Steps[0].Run(), jc.ErrorIsNil)
-	c.Assert(s.requests, gc.HasLen, 2)
+	c.Assert(s.requests, gc.HasLen, 3)
 
 	expectedSecurityRules := []network.SecurityRule{{
 		Name: to.StringPtr("SSHInbound"),
@@ -171,7 +173,7 @@ func (s *environUpgradeSuite) TestEnvironUpgradeOperationCreateCommonDeployment(
 	}}
 
 	var actual resources.Deployment
-	unmarshalRequestBody(c, s.requests[1], &actual)
+	unmarshalRequestBody(c, s.requests[2], &actual)
 	c.Assert(actual.Properties, gc.NotNil)
 	c.Assert(actual.Properties.Template, gc.NotNil)
 	resources := (*actual.Properties.Template)["resources"].([]interface{})

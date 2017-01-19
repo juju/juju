@@ -81,13 +81,6 @@ func (step commonDeploymentUpgradeStep) Run() error {
 }
 
 func isControllerEnviron(env *azureEnviron) (bool, error) {
-	if env.envName != "controller" {
-		// At the time of writing, the controller model name is
-		// hard-coded to "controller". If/when this changes, we
-		// must drop this check.
-		return false, nil
-	}
-
 	// Look for a machine with the "juju-is-controller" tag set to "true".
 	client := compute.VirtualMachinesClient{env.compute}
 	var result compute.VirtualMachineListResult

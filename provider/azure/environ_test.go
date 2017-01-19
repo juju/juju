@@ -117,6 +117,7 @@ type environSuite struct {
 	storageAccount     *storage.Account
 	storageAccountKeys *storage.AccountListKeysResult
 	ubuntuServerSKUs   []compute.VirtualMachineImageResource
+	commonDeployment   *resources.DeploymentExtended
 	deployment         *resources.Deployment
 }
 
@@ -211,6 +212,12 @@ func (s *environSuite) SetUpTest(c *gc.C) {
 		{Name: to.StringPtr("15.04")},
 		{Name: to.StringPtr("15.10")},
 		{Name: to.StringPtr("16.04-LTS")},
+	}
+
+	s.commonDeployment = &resources.DeploymentExtended{
+		Properties: &resources.DeploymentPropertiesExtended{
+			ProvisioningState: to.StringPtr("Succeeded"),
+		},
 	}
 
 	s.deployment = nil
@@ -329,12 +336,7 @@ func (s *environSuite) startInstanceSenders(bootstrap bool) azuretesting.Senders
 	if !bootstrap {
 		// When starting an instance, we must wait for the common
 		// deployment to complete.
-		commonDeployment := &resources.DeploymentExtended{
-			Properties: &resources.DeploymentPropertiesExtended{
-				ProvisioningState: to.StringPtr("Succeeded"),
-			},
-		}
-		senders = append(senders, s.makeSender("/deployments/common", commonDeployment))
+		senders = append(senders, s.makeSender("/deployments/common", s.commonDeployment))
 	}
 	senders = append(senders, s.makeSender("/deployments/machine-0", s.deployment))
 	return senders
@@ -660,6 +662,57 @@ func (s *environSuite) TestStartInstanceTooManyRequestsTimeout(c *gc.C) {
 		// There would be another call here, but since the time
 		// exceeds the give minute limit, retrying is aborted.
 	})
+}
+
+func (s *environSuite) TestStartInstanceCommonDeployment(c *gc.C) {
+	// StartInstance waits for the "common" deployment to complete
+	// successfully before creating the VM deployment. If the deployment
+	// is seen to be in a terminal state, the process will stop
+	// immediately.
+	s.commonDeployment.Properties.ProvisioningState = to.StringPtr("Failed")
+
+	env := s.openEnviron(c)
+	senders := s.startInstanceSenders(false)
+	s.sender = senders
+	s.requests = nil
+
+	_, err := env.StartInstance(makeStartInstanceParams(c, s.controllerUUID, "quantal"))
+	c.Assert(err, gc.ErrorMatches,
+		`creating virtual machine "machine-0": `+
+			`waiting for common resources to be created: `+
+			`common resource deployment status is "Failed"`)
+}
+
+func (s *environSuite) TestStartInstanceCommonDeploymentRetryTimeout(c *gc.C) {
+	// StartInstance waits for the "common" deployment to complete
+	// successfully before creating the VM deployment.
+	s.commonDeployment.Properties.ProvisioningState = to.StringPtr("Running")
+
+	env := s.openEnviron(c)
+	senders := s.startInstanceSenders(false)
+
+	const failures = 60 // 5 minutes / 5 seconds
+	head, tail := senders[:2], senders[2:]
+	for i := 0; i < failures; i++ {
+		head = append(head, s.makeSender("/deployments/common", s.commonDeployment))
+	}
+	senders = append(head, tail...)
+	s.sender = senders
+	s.requests = nil
+
+	_, err := env.StartInstance(makeStartInstanceParams(c, s.controllerUUID, "quantal"))
+	c.Assert(err, gc.ErrorMatches,
+		`creating virtual machine "machine-0": `+
+			`waiting for common resources to be created: `+
+			`max duration exceeded: deployment incomplete`)
+
+	var expectedCalls []gitjujutesting.StubCall
+	for i := 0; i < failures; i++ {
+		expectedCalls = append(expectedCalls, gitjujutesting.StubCall{
+			"After", []interface{}{5 * time.Second},
+		})
+	}
+	s.retryClock.CheckCalls(c, expectedCalls)
 }
 
 func (s *environSuite) TestStartInstanceDistributionGroup(c *gc.C) {
