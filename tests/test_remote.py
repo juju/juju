@@ -9,7 +9,6 @@ import winrm
 
 from jujupy import (
     EnvJujuClient,
-    get_timeout_path,
     JujuData,
     Status,
 )
@@ -20,6 +19,7 @@ from remote import (
 )
 import tests
 from utility import (
+    get_timeout_path,
     temp_dir,
 )
 
@@ -119,8 +119,8 @@ class TestRemote(tests.FakeHomeTestCase):
             st.return_value = Status.from_text(self.precise_status_output)
             remote = remote_from_unit(client, unit)
             with patch.object(client, "get_juju_output") as mock_gjo:
-                mock_gjo.side_effect = subprocess.CalledProcessError(1, "ssh",
-                                                                     output="")
+                mock_gjo.side_effect = subprocess.CalledProcessError(
+                    255, "ssh", output="")
                 with patch.object(remote, "_run_subprocess") as mock_run:
                     mock_run.return_value = "contents of /a/file"
                     output = remote.run("cat /a/file")
@@ -136,6 +136,47 @@ class TestRemote(tests.FakeHomeTestCase):
             "10.55.60.1",
             "cat /a/file",
         ])
+        self.assertRegexpMatches(
+            self.log_stream.getvalue(),
+            "(?m)^WARNING juju ssh to 'a-application/0' failed, .*")
+
+    def test_run_default_command_error_fallback(self):
+        env = JujuData("an-env", {"type": "nonlocal"})
+        client = EnvJujuClient(env, None, None)
+        unit = "a-application/0"
+        error = subprocess.CalledProcessError(1, "ssh", output="bad command")
+        with patch.object(client, "get_status") as st:
+            st.return_value = Status.from_text(self.precise_status_output)
+            remote = remote_from_unit(client, unit)
+            with patch.object(client, "get_juju_output") as mock_gjo:
+                mock_gjo.side_effect = error
+                with self.assertRaises(subprocess.CalledProcessError) as c:
+                    remote.run("cat /a/file")
+        self.assertIs(c.exception, error)
+        mock_gjo.assert_called_once_with("ssh", unit, "cat /a/file",
+                                         timeout=120)
+        self.assertRegexpMatches(
+            self.log_stream.getvalue(),
+            "(?m)^WARNING juju ssh to 'a-application/0' failed, .*")
+
+    def test_run_no_platform_fallback(self):
+        env = JujuData("an-env", {"type": "nonlocal"})
+        client = EnvJujuClient(env, None, None)
+        unit = "a-application/0"
+        error = subprocess.CalledProcessError(255, "ssh", output="")
+        with patch.object(client, "get_status") as st:
+            st.return_value = Status.from_text(self.precise_status_output)
+            remote = remote_from_unit(client, unit)
+            with patch.object(client, "get_juju_output") as mock_gjo:
+                mock_gjo.side_effect = error
+                with patch("remote._no_platform_ssh", autospec=True,
+                           return_value=True) as mock_nps:
+                    with self.assertRaises(subprocess.CalledProcessError) as c:
+                        remote.run("cat /a/file")
+        self.assertIs(c.exception, error)
+        mock_gjo.assert_called_once_with("ssh", unit, "cat /a/file",
+                                         timeout=120)
+        mock_nps.assert_called_once_with()
         self.assertRegexpMatches(
             self.log_stream.getvalue(),
             "(?m)^WARNING juju ssh to 'a-application/0' failed, .*")
@@ -167,7 +208,7 @@ class TestRemote(tests.FakeHomeTestCase):
             "-o", "StrictHostKeyChecking no",
             "-o", "PasswordAuthentication no",
             "10.55.60.1",
-            "cat /a/file",
+            "cat", "/a/file",
         ])
 
     def test_cat_on_windows(self):
@@ -274,7 +315,7 @@ class TestRemote(tests.FakeHomeTestCase):
             "-o", "StrictHostKeyChecking no",
             "-o", "PasswordAuthentication no",
             "10.55.60.1",
-            "cat /a/file",
+            "cat", "/a/file",
             ),
             stdin=subprocess.PIPE,
         )

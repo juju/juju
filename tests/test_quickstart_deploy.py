@@ -5,9 +5,9 @@ from mock import (
 )
 
 from deploy_stack import BootstrapManager
-from fakejuju import fake_juju_client
 from jujupy import (
     EnvJujuClient,
+    fake_juju_client,
     JujuData,
     )
 from quickstart_deploy import QuickstartTest
@@ -75,7 +75,8 @@ class TestQuickstartTest(FakeHomeTestCase):
         steps = quickstart.iter_steps()
         with patch.object(client, 'quickstart') as qs_mock:
             # Test first yield
-            with patch('jujupy.check_free_disk_space', autospec=True):
+            with patch('jujupy.client.check_free_disk_space',
+                       autospec=True):
                 with patch.object(client, 'kill_controller',
                                   autospec=True) as kill_mock:
                     step = steps.next()

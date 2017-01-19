@@ -22,7 +22,7 @@ from jujucharm import (
     Charm,
     local_charm_path,
 )
-from jujupy import (
+from jujupy.client import (
     AgentsNotStarted,
     AGENTS_READY,
     coalesce_agent_status,

@@ -12,7 +12,7 @@ import StringIO
 import subprocess
 
 import assess_proxy
-from fakejuju import fake_juju_client
+from jujupy import fake_juju_client
 from tests import (
     parse_error,
     TestCase,

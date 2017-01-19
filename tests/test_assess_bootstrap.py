@@ -21,10 +21,8 @@ from assess_bootstrap import (
 from deploy_stack import (
     BootstrapManager,
     )
-from fakejuju import (
-    fake_juju_client,
-    )
 from jujupy import (
+    fake_juju_client,
     _temp_env as temp_env,
     Status,
     )
@@ -129,14 +127,7 @@ class TestPrepareMetadata(TestCase):
         with patch.object(client, 'sync_tools') as sync_mock:
             with temp_dir() as metadata_dir:
                 prepare_metadata(client, metadata_dir)
-        sync_mock.assert_called_once_with(metadata_dir, None)
-
-    def test_prepare_metadata_with_stream(self):
-        client = fake_juju_client()
-        with patch.object(client, 'sync_tools') as sync_mock:
-            with temp_dir() as metadata_dir:
-                prepare_metadata(client, metadata_dir, "testing")
-        sync_mock.assert_called_once_with(metadata_dir, "testing")
+        sync_mock.assert_called_once_with(metadata_dir)
 
     def test_prepare_temp_metadata(self):
         client = fake_juju_client()
@@ -144,7 +135,7 @@ class TestPrepareMetadata(TestCase):
                    autospec=True) as prepare_mock:
             with prepare_temp_metadata(client) as metadata_dir:
                 pass
-        prepare_mock.assert_called_once_with(client, metadata_dir, None)
+        prepare_mock.assert_called_once_with(client, metadata_dir)
 
     def test_prepare_temp_metadata_source(self):
         client = fake_juju_client()

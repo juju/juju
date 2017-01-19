@@ -26,9 +26,9 @@ from deploy_stack import (
     BootstrapManager,
     get_random_string,
     )
-from fakejuju import fake_juju_client
 from jujupy import (
     EnvJujuClient,
+    fake_juju_client,
     JujuData,
     SoftDeadlineExceeded,
     )
@@ -226,16 +226,33 @@ class TestCreateUserOnControllers(TestCase):
 
 class TestAssertModelMigratedSuccessfully(TestCase):
 
-    def test_assert_model_migrated_successfully(self):
+    def test_assert_model_migrated_successfully_default_values(self):
         client = Mock()
         with patch.object(
-                amm, 'test_deployed_mongo_is_up', autospec=True) as m_tdmiu:
+                amm,
+                'assert_deployed_charm_is_responding',
+                autospec=True) as m_tdmiu:
             with patch.object(
                     amm, 'ensure_model_is_functional',
                     autospec=True) as m_emif:
                 amm.assert_model_migrated_successfully(client, 'test')
         client.wait_for_workloads.assert_called_once_with()
-        m_tdmiu.assert_called_once_with(client)
+        m_tdmiu.assert_called_once_with(client, None)
+        m_emif.assert_called_once_with(client, 'test')
+
+    def test_assert_model_migrated_successfully_explicit_values(self):
+        client = Mock()
+        with patch.object(
+                amm,
+                'assert_deployed_charm_is_responding',
+                autospec=True) as m_tdmiu:
+            with patch.object(
+                    amm, 'ensure_model_is_functional',
+                    autospec=True) as m_emif:
+                amm.assert_model_migrated_successfully(
+                    client, 'test', 'abc123')
+        client.wait_for_workloads.assert_called_once_with()
+        m_tdmiu.assert_called_once_with(client, 'abc123')
         m_emif.assert_called_once_with(client, 'test')
 
 
@@ -494,11 +511,6 @@ class TestEnsureApiLoginRedirects(FakeHomeTestCase):
                         ensure_api_login_redirects(client1, client2)
         show_model_mock.assert_has_calls([call(client1), call(client3)])
 
-    def fake_home_juju_client(self):
-        env = JujuData('name', {'type': 'foo', 'default-series': 'angsty',
-                                'region': 'bar'}, juju_home=self.juju_home)
-        return fake_juju_client(env=env)
-
     def create_models_yaml(self, client, controllers_to_models):
         data = dict([(controller, {'models': models})
                      for (controller, models)
@@ -508,12 +520,12 @@ class TestEnsureApiLoginRedirects(FakeHomeTestCase):
             yaml.safe_dump({'controllers': data}, models_yaml)
 
     def test_assert_data_file_lists_correct_controller_for_model(self):
-        client = self.fake_home_juju_client()
+        client = fake_juju_client(juju_home=self.juju_home)
         self.create_models_yaml(client, {'testing': [client.env.environment]})
         assert_data_file_lists_correct_controller_for_model(client, 'testing')
 
     def test_assert_data_file_lists_correct_controller_for_model_fails(self):
-        client = self.fake_home_juju_client()
+        client = fake_juju_client(juju_home=self.juju_home)
         self.create_models_yaml(client, {'testing': ['not-the-client-name']})
         with self.assertRaises(JujuAssertionError):
             assert_data_file_lists_correct_controller_for_model(
@@ -545,27 +557,6 @@ class TestEnsureApiLoginRedirects(FakeHomeTestCase):
         with self.patch_uuid_client(client, '12345', 'ABCDE'):
             with self.assertRaises(JujuAssertionError):
                 assert_model_has_correct_controller_uuid(client)
-
-
-class TestDeployMongodbToNewModel(TestCase):
-
-    def test_deploys_mongodb_to_new_model(self):
-        new_model = Mock()
-        source_client = Mock()
-        source_client.add_model.return_value = new_model
-
-        with patch.object(
-                amm, 'test_deployed_mongo_is_up', autospec=True) as m_tdmiu:
-            self.assertEqual(
-                new_model,
-                amm.deploy_mongodb_to_new_model(source_client, 'test'))
-
-        source_client.add_model.assert_called_once_with(
-            source_client.env.clone.return_value)
-        new_model.juju.assert_called_once_with('deploy', ('mongodb'))
-        new_model.wait_for_started.assert_called_once_with()
-        new_model.wait_for_workloads.assert_called_once_with()
-        m_tdmiu.assert_called_once_with(new_model)
 
 
 class TestMigrateModelToController(FakeHomeTestCase):
@@ -719,6 +710,10 @@ def tmp_ctx():
     yield '/tmp/dir'
 
 
+def patch_amm(target):
+    return patch.object(amm, target, autospec=True)
+
+
 class TestAssessModelMigration(TestCase):
 
     def test_runs_develop_tests_when_requested(self):
@@ -730,43 +725,36 @@ class TestAssessModelMigration(TestCase):
         bs1.booted_context.return_value = noop_context()
         bs2.existing_booted_context.return_value = noop_context()
 
-        def patch_amm(target):
-            return patch.object(amm, target, autospec=True)
-
+        patch_between = patch_amm(
+            'ensure_migration_including_resources_succeeds')
         patch_user = patch_amm(
             'ensure_migrating_with_insufficient_user_permissions_fails')
         patch_super = patch_amm(
             'ensure_migrating_with_superuser_user_permissions_succeeds')
-        patch_between = patch_amm(
-            'ensure_able_to_migrate_model_between_controllers')
         patch_rollback = patch_amm('ensure_migration_rolls_back_on_failure')
-        patch_resource = patch_amm('ensure_migration_of_resources_succeeds')
-        patch_back = patch_amm(
-            'ensure_migrating_to_target_and_back_to_source_succeeds')
         patch_logs = patch_amm('ensure_model_logs_are_migrated')
         patch_superother = patch_amm(
             'ensure_superuser_can_migrate_other_user_models')
         patch_redirects = patch_amm('ensure_api_login_redirects')
+        patch_deploy_simple = patch_amm('deploy_simple_server_to_new_model')
 
-        with patch_user as m_user, patch_super as m_super:
-            with patch_between as m_between, patch_rollback as m_rollback:
-                with patch_resource as m_resource, patch_back as m_back:
-                    with patch_logs as m_logs, patch_redirects as m_redirects:
+        with patch_between as m_between:
+            with patch_user as m_user, patch_super as m_super:
+                with patch_rollback as m_rollback, patch_logs as m_logs:
+                    with patch_redirects as m_redirects:
                         with patch_superother as m_superother:
                             with patch.object(
                                     amm, 'temp_dir',
                                     autospec=True,
                                     return_value=tmp_ctx()):
-                                amm.assess_model_migration(
-                                    bs1, bs2, args)
+                                with patch_deploy_simple:
+                                    amm.assess_model_migration(bs1, bs2, args)
         source_client = bs1.client
         dest_client = bs2.client
+        m_between.assert_called_once_with(source_client, dest_client)
         m_user.assert_called_once_with(source_client, dest_client, '/tmp/dir')
         m_super.assert_called_once_with(source_client, dest_client, '/tmp/dir')
-        m_between.assert_called_once_with(source_client, dest_client)
         m_rollback.assert_called_once_with(source_client, dest_client)
-        m_resource.assert_called_once_with(source_client, dest_client)
-        m_back.assert_called_once_with(source_client, dest_client)
         m_logs.assert_called_once_with(source_client, dest_client)
         m_superother.assert_called_once_with(
             source_client, dest_client, '/tmp/dir')
@@ -781,30 +769,29 @@ class TestAssessModelMigration(TestCase):
         bs1.booted_context.return_value = noop_context()
         bs2.existing_booted_context.return_value = noop_context()
 
-        with patch.object(
-                amm,
-                'ensure_migrating_with_insufficient_user_permissions_fails',
-                autospec=True) as m_user:
-            with patch.object(
-                    amm,
-                    'ensure_migrating_with_superuser_user_permissions_succeeds',  # NOQA
-                    autospec=True) as m_super:
-                with patch.object(
-                        amm,
-                        'ensure_able_to_migrate_model_between_controllers',
-                        autospec=True) as m_between:
-                    with patch.object(
-                            amm,
-                            'ensure_migration_rolls_back_on_failure',
-                            autospec=True) as m_rollback:
-                        with patch.object(
-                                amm, 'temp_dir',
-                                autospec=True, return_value=tmp_ctx()):
-                            amm.assess_model_migration(bs1, bs2, args)
+        patch_user = patch_amm(
+            'ensure_migrating_with_insufficient_user_permissions_fails')
+        patch_super = patch_amm(
+            'ensure_migrating_with_superuser_user_permissions_succeeds')
+        patch_between = patch_amm(
+            'ensure_migration_including_resources_succeeds')
+        patch_rollback = patch_amm('ensure_migration_rolls_back_on_failure')
+        patch_logs = patch_amm('ensure_model_logs_are_migrated')
+
+        with patch_user as m_user:
+            with patch_super as m_super:
+                with patch_between as m_between:
+                    with patch_rollback as m_rollback:
+                        with patch_logs as m_logs:
+                            with patch.object(
+                                    amm, 'temp_dir',
+                                    autospec=True, return_value=tmp_ctx()):
+                                amm.assess_model_migration(bs1, bs2, args)
         source_client = bs1.client
         dest_client = bs2.client
         m_user.assert_called_once_with(source_client, dest_client, '/tmp/dir')
         m_super.assert_called_once_with(source_client, dest_client, '/tmp/dir')
         m_between.assert_called_once_with(source_client, dest_client)
+        m_logs.assert_called_once_with(source_client, dest_client)
 
         self.assertEqual(m_rollback.call_count, 0)

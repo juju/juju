@@ -25,8 +25,8 @@ from assess_constraints import (
     mem_to_int,
     INSTANCE_TYPES,
     )
-from fakejuju import fake_juju_client
 from jujupy import (
+    fake_juju_client,
     Status,
     )
 from tests import (
