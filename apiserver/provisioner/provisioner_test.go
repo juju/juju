@@ -371,37 +371,92 @@ func (s *withoutControllerSuite) TestSetStatus(c *gc.C) {
 	s.assertStatus(c, 2, status.Started, "again", map[string]interface{}{})
 }
 
-func (s *withoutControllerSuite) TestMachinesWithTransientErrors(c *gc.C) {
+func (s *withoutControllerSuite) TestSetInstanceStatus(c *gc.C) {
 	now := time.Now()
 	sInfo := status.StatusInfo{
-		Status:  status.Started,
+		Status:  status.Provisioning,
 		Message: "blah",
 		Since:   &now,
 	}
-	err := s.machines[0].SetStatus(sInfo)
+	err := s.machines[0].SetInstanceStatus(sInfo)
+	c.Assert(err, jc.ErrorIsNil)
+	sInfo = status.StatusInfo{
+		Status:  status.Running,
+		Message: "foo",
+		Since:   &now,
+	}
+	err = s.machines[1].SetInstanceStatus(sInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	sInfo = status.StatusInfo{
 		Status:  status.Error,
+		Message: "not really",
+		Since:   &now,
+	}
+	err = s.machines[2].SetInstanceStatus(sInfo)
+	c.Assert(err, jc.ErrorIsNil)
+
+	args := params.SetStatus{
+		Entities: []params.EntityStatusArgs{
+			{Tag: s.machines[0].Tag().String(), Status: status.Provisioning.String(), Info: "not really",
+				Data: map[string]interface{}{"foo": "bar"}},
+			{Tag: s.machines[1].Tag().String(), Status: status.Running.String(), Info: "foobar"},
+			{Tag: s.machines[2].Tag().String(), Status: status.ProvisioningError.String(), Info: "again"},
+			{Tag: "machine-42", Status: status.Provisioning.String(), Info: "blah"},
+			{Tag: "unit-foo-0", Status: status.Error.String(), Info: "foobar"},
+			{Tag: "application-bar", Status: status.ProvisioningError.String(), Info: "foobar"},
+		}}
+	result, err := s.provisioner.SetInstanceStatus(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{nil},
+			{nil},
+			{nil},
+			{apiservertesting.NotFoundError("machine 42")},
+			{apiservertesting.ErrUnauthorized},
+			{apiservertesting.ErrUnauthorized},
+		},
+	})
+
+	// Verify the changes.
+	s.assertInstanceStatus(c, 0, status.Provisioning, "not really", map[string]interface{}{"foo": "bar"})
+	s.assertInstanceStatus(c, 1, status.Running, "foobar", map[string]interface{}{})
+	s.assertInstanceStatus(c, 2, status.ProvisioningError, "again", map[string]interface{}{})
+	// ProvisioningError also has a special case which is to set the machine to Error
+	s.assertStatus(c, 2, status.Error, "again", map[string]interface{}{})
+}
+
+func (s *withoutControllerSuite) TestMachinesWithTransientErrors(c *gc.C) {
+	now := time.Now()
+	sInfo := status.StatusInfo{
+		Status:  status.Provisioning,
+		Message: "blah",
+		Since:   &now,
+	}
+	err := s.machines[0].SetInstanceStatus(sInfo)
+	c.Assert(err, jc.ErrorIsNil)
+	sInfo = status.StatusInfo{
+		Status:  status.ProvisioningError,
 		Message: "transient error",
 		Data:    map[string]interface{}{"transient": true, "foo": "bar"},
 		Since:   &now,
 	}
-	err = s.machines[1].SetStatus(sInfo)
+	err = s.machines[1].SetInstanceStatus(sInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	sInfo = status.StatusInfo{
-		Status:  status.Error,
+		Status:  status.ProvisioningError,
 		Message: "error",
 		Data:    map[string]interface{}{"transient": false},
 		Since:   &now,
 	}
-	err = s.machines[2].SetStatus(sInfo)
+	err = s.machines[2].SetInstanceStatus(sInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	sInfo = status.StatusInfo{
 		Status:  status.Error,
 		Message: "error",
 		Since:   &now,
 	}
-	err = s.machines[3].SetStatus(sInfo)
+	err = s.machines[3].SetInstanceStatus(sInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	// Machine 4 is provisioned but error not reset yet.
 	sInfo = status.StatusInfo{
@@ -410,7 +465,7 @@ func (s *withoutControllerSuite) TestMachinesWithTransientErrors(c *gc.C) {
 		Data:    map[string]interface{}{"transient": true, "foo": "bar"},
 		Since:   &now,
 	}
-	err = s.machines[4].SetStatus(sInfo)
+	err = s.machines[4].SetInstanceStatus(sInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	hwChars := instance.MustParseHardware("arch=i386", "mem=4G")
 	err = s.machines[4].SetProvisioned("i-am", "fake_nonce", &hwChars)
@@ -420,7 +475,7 @@ func (s *withoutControllerSuite) TestMachinesWithTransientErrors(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.StatusResults{
 		Results: []params.StatusResult{
-			{Id: "1", Life: "alive", Status: "error", Info: "transient error",
+			{Id: "1", Life: "alive", Status: "provisioning error", Info: "transient error",
 				Data: map[string]interface{}{"transient": true, "foo": "bar"}},
 		},
 	})
@@ -435,42 +490,44 @@ func (s *withoutControllerSuite) TestMachinesWithTransientErrorsPermission(c *gc
 		anAuthorizer)
 	now := time.Now()
 	sInfo := status.StatusInfo{
-		Status:  status.Started,
+		Status:  status.Running,
 		Message: "blah",
 		Since:   &now,
 	}
-	err = s.machines[0].SetStatus(sInfo)
+	err = s.machines[0].SetInstanceStatus(sInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	sInfo = status.StatusInfo{
-		Status:  status.Error,
+		Status:  status.ProvisioningError,
 		Message: "transient error",
 		Data:    map[string]interface{}{"transient": true, "foo": "bar"},
 		Since:   &now,
 	}
-	err = s.machines[1].SetStatus(sInfo)
+	err = s.machines[1].SetInstanceStatus(sInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	sInfo = status.StatusInfo{
-		Status:  status.Error,
+		Status:  status.ProvisioningError,
 		Message: "error",
 		Data:    map[string]interface{}{"transient": false},
 		Since:   &now,
 	}
-	err = s.machines[2].SetStatus(sInfo)
+	err = s.machines[2].SetInstanceStatus(sInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	sInfo = status.StatusInfo{
-		Status:  status.Error,
+		Status:  status.ProvisioningError,
 		Message: "error",
 		Since:   &now,
 	}
-	err = s.machines[3].SetStatus(sInfo)
+	err = s.machines[3].SetInstanceStatus(sInfo)
 	c.Assert(err, jc.ErrorIsNil)
 
 	result, err := aProvisioner.MachinesWithTransientErrors()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.StatusResults{
-		Results: []params.StatusResult{
-			{Id: "1", Life: "alive", Status: "error", Info: "transient error",
-				Data: map[string]interface{}{"transient": true, "foo": "bar"}},
+		Results: []params.StatusResult{{
+			Id: "1", Life: "alive", Status: "provisioning error",
+			Info: "transient error",
+			Data: map[string]interface{}{"transient": true, "foo": "bar"},
+		},
 		},
 	})
 }
@@ -519,6 +576,16 @@ func (s *withoutControllerSuite) assertStatus(c *gc.C, index int, expectStatus s
 	expectData map[string]interface{}) {
 
 	statusInfo, err := s.machines[index].Status()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(statusInfo.Status, gc.Equals, expectStatus)
+	c.Assert(statusInfo.Message, gc.Equals, expectInfo)
+	c.Assert(statusInfo.Data, gc.DeepEquals, expectData)
+}
+
+func (s *withoutControllerSuite) assertInstanceStatus(c *gc.C, index int, expectStatus status.Status, expectInfo string,
+	expectData map[string]interface{}) {
+
+	statusInfo, err := s.machines[index].InstanceStatus()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(statusInfo.Status, gc.Equals, expectStatus)
 	c.Assert(statusInfo.Message, gc.Equals, expectInfo)
@@ -660,6 +727,62 @@ func (s *withoutControllerSuite) TestStatus(c *gc.C) {
 			{Status: status.Started.String(), Info: "blah", Data: map[string]interface{}{}},
 			{Status: status.Stopped.String(), Info: "foo", Data: map[string]interface{}{}},
 			{Status: status.Error.String(), Info: "not really", Data: map[string]interface{}{"foo": "bar"}},
+			{Error: apiservertesting.NotFoundError("machine 42")},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+		},
+	})
+}
+
+func (s *withoutControllerSuite) TestInstanceStatus(c *gc.C) {
+	now := time.Now()
+	sInfo := status.StatusInfo{
+		Status:  status.Provisioning,
+		Message: "blah",
+		Since:   &now,
+	}
+	err := s.machines[0].SetInstanceStatus(sInfo)
+	c.Assert(err, jc.ErrorIsNil)
+	sInfo = status.StatusInfo{
+		Status:  status.Running,
+		Message: "foo",
+		Since:   &now,
+	}
+	err = s.machines[1].SetInstanceStatus(sInfo)
+	c.Assert(err, jc.ErrorIsNil)
+	sInfo = status.StatusInfo{
+		Status:  status.ProvisioningError,
+		Message: "not really",
+		Data:    map[string]interface{}{"foo": "bar"},
+		Since:   &now,
+	}
+	err = s.machines[2].SetInstanceStatus(sInfo)
+	c.Assert(err, jc.ErrorIsNil)
+
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: s.machines[0].Tag().String()},
+		{Tag: s.machines[1].Tag().String()},
+		{Tag: s.machines[2].Tag().String()},
+		{Tag: "machine-42"},
+		{Tag: "unit-foo-0"},
+		{Tag: "application-bar"},
+	}}
+	result, err := s.provisioner.InstanceStatus(args)
+	c.Assert(err, jc.ErrorIsNil)
+	// Zero out the updated timestamps so we can easily check the results.
+	for i, statusResult := range result.Results {
+		r := statusResult
+		if r.Status != "" {
+			c.Assert(r.Since, gc.NotNil)
+		}
+		r.Since = nil
+		result.Results[i] = r
+	}
+	c.Assert(result, gc.DeepEquals, params.StatusResults{
+		Results: []params.StatusResult{
+			{Status: status.Provisioning.String(), Info: "blah", Data: map[string]interface{}{}},
+			{Status: status.Running.String(), Info: "foo", Data: map[string]interface{}{}},
+			{Status: status.ProvisioningError.String(), Info: "not really", Data: map[string]interface{}{"foo": "bar"}},
 			{Error: apiservertesting.NotFoundError("machine 42")},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
