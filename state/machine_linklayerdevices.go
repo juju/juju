@@ -1274,10 +1274,10 @@ func (m *Machine) SetContainerLinkLayerDevices(containerMachine *Machine) error 
 	}
 	missingSpace := containerSpaces.Difference(spacesFound)
 	if len(missingSpace) > 0 {
-		logger.Debugf("container %q wants spaces %s could not find bridges for %s",
+		logger.Warningf("container %q wants spaces %s could not find host %q bridges for %s, found bridges %s",
 			containerMachine.Id(), quoteSpaces(containerSpaces),
-			quoteSpaces(missingSpace))
-		return errors.Errorf("unable to find host bridge for spaces %s for container %q",
+			m.Id(), quoteSpaces(missingSpace), bridgeDeviceNames)
+		return errors.Errorf("unable to find host bridge for space(s) %s for container %q",
 			quoteSpaces(missingSpace), containerMachine.Id())
 	}
 

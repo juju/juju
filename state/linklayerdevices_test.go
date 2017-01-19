@@ -1652,7 +1652,7 @@ func (s *linkLayerDevicesStateSuite) TestSetContainerLinkLayerDevicesMismatchCon
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.machine.SetContainerLinkLayerDevices(s.containerMachine)
-	c.Assert(err.Error(), gc.Equals, `unable to find host bridge for spaces "dmz" for container "0/lxd/0"`)
+	c.Assert(err.Error(), gc.Equals, `unable to find host bridge for space(s) "dmz" for container "0/lxd/0"`)
 
 	s.assertNoDevicesOnMachine(c, s.containerMachine)
 }
@@ -1669,7 +1669,7 @@ func (s *linkLayerDevicesStateSuite) TestSetContainerLinkLayerDevicesMissingBrid
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.machine.SetContainerLinkLayerDevices(s.containerMachine)
-	c.Assert(err.Error(), gc.Equals, `unable to find host bridge for spaces "dmz" for container "0/lxd/0"`)
+	c.Assert(err.Error(), gc.Equals, `unable to find host bridge for space(s) "dmz" for container "0/lxd/0"`)
 
 	s.assertNoDevicesOnMachine(c, s.containerMachine)
 }
