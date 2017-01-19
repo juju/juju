@@ -13,7 +13,7 @@ from assess_mixed_images import (
     parse_args,
     main,
     )
-from fakejuju import fake_juju_client
+from jujupy import fake_juju_client
 from tests import (
     parse_error,
     TestCase,
@@ -85,6 +85,7 @@ class TestAssess(TestCase):
         mock_client.bootstrap()
         assess_mixed_images(mock_client)
         expected = {
+            'model': {'name': 'name'},
             'machines': {
                 '0': {
                     'dns-name': '0.example.com',

@@ -219,7 +219,7 @@ def application_machines(client, application):
     status = client.get_status()
     app_data = status.get_applications()[application]
     machines = [unit_data['machine'] for unit_data in
-                app_data['units'].itervalues()]
+                app_data['units'].values()]
     return machines
 
 

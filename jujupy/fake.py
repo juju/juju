@@ -21,14 +21,11 @@ from jujupy import (
 
 __metaclass__ = type
 
-
-def check_juju_output(func):
-    def wrapper(*args, **kwargs):
-        result = func(*args, **kwargs)
-        if 'service' in result:
-            raise AssertionError('Result contained service')
-        return result
-    return wrapper
+# Python 2 and 3 compatibility
+try:
+    argtype = basestring
+except NameError:
+    argtype = str
 
 
 class ControllerOperation(Exception):
@@ -106,7 +103,7 @@ class FakeControllerState:
         self.state = 'registered'
 
     def destroy(self, kill=False):
-        for model in self.models.values():
+        for model in list(self.models.values()):
             model.destroy_model()
         self.models.clear()
         if kill:
@@ -146,7 +143,7 @@ class FakeEnvironmentState:
 
     def add_machine(self, host_name=None, machine_id=None):
         if machine_id is None:
-            machine_id = str(self.machine_id_iter.next())
+            machine_id = str(next(self.machine_id_iter))
         self.machines.add(machine_id)
         if host_name is None:
             host_name = '{}.example.com'.format(machine_id)
@@ -278,7 +275,11 @@ class FakeEnvironmentState:
                 'relations': self.relations.get(service, {}),
                 'exposed': service in self.exposed,
                 }
-        return {'machines': machines, 'applications': services}
+        return {
+            'machines': machines,
+            'applications': services,
+            'model': {'name': self.name},
+            }
 
     def add_ssh_key(self, keys_to_add):
         errors = []
@@ -382,23 +383,31 @@ class PromptingExpectChild(FakeExpectChild):
         self.values = {}
         self.lines = []
 
-    def expect(self, regex):
+    def expect(self, pattern):
+        if type(pattern) is not list:
+            pattern = [pattern]
         try:
             prompt = self.prompts.next()
         except StopIteration:
-            if regex is not pexpect.EOF:
+            if pexpect.EOF not in pattern:
                 raise
             self.close()
             return
-        if regex is pexpect.EOF:
-            raise ValueError('Expected EOF. got "{}"'.format(prompt))
+        for regex in pattern:
+            if regex is pexpect.EOF:
+                continue
+            regex_match = re.search(regex, prompt)
+            if regex_match is not None:
+                self.match = regex_match
+                break
+        else:
+            if pexpect.EOF in pattern:
+                raise ValueError('Expected EOF. got "{}"'.format(prompt))
+            else:
+                raise ValueError(
+                    'Regular expression did not match prompt.  Regex: "{}",'
+                    ' prompt "{}"'.format(pattern, prompt))
         super(PromptingExpectChild, self).expect(regex)
-        regex_match = re.search(regex, prompt)
-        if regex_match is None:
-            raise ValueError(
-                'Regular expression did not match prompt.  Regex: "{}",'
-                ' prompt "{}"'.format(regex, prompt))
-        self.match = regex_match
 
     def sendline(self, line=''):
         full_match = self.match.group(0)
@@ -428,7 +437,13 @@ class RegisterHost(PromptingExpectChild):
 
 class AddCloud(PromptingExpectChild):
 
-    NAME = 'Enter a name for the cloud:'
+    @property
+    def provider(self):
+        return self.values[self.TYPE]
+
+    @property
+    def name_prompt(self):
+        return 'Enter a name for your {} cloud:'.format(self.provider)
 
     REGION_NAME = 'Enter region name:'
 
@@ -446,6 +461,21 @@ class AddCloud(PromptingExpectChild):
 
     ANOTHER_REGION = 'Enter another region? (Y/n):'
 
+    def cant_validate(self, endpoint):
+        if self.provider in ('openstack', 'maas'):
+            if self.provider == 'openstack':
+                server_type = 'Openstack'
+                reprompt = self.CLOUD_ENDPOINT
+            else:
+                server_type = 'MAAS'
+                reprompt = self.API_ENDPOINT
+            msg = 'No {} server running at {}'.format(server_type, endpoint)
+        elif self.provider == 'manual':
+            msg = 'ssh: Could not resolve hostname {}'.format(endpoint)
+            reprompt = self.HOST
+        return "Can't validate endpoint: {}\n{}".format(
+            msg, reprompt)
+
     def __init__(self, backend, juju_home, extra_env):
         super(AddCloud, self).__init__(
             backend, juju_home, extra_env, self.iter_prompts())
@@ -456,15 +486,24 @@ class AddCloud(PromptingExpectChild):
             if self.values[self.TYPE] != 'bogus':
                 break
         while True:
-            yield self.NAME
-            if '/' not in self.values[self.NAME]:
+            yield self.name_prompt
+            if '/' not in self.values[self.name_prompt]:
                 break
         if self.values[self.TYPE] == 'maas':
             yield self.API_ENDPOINT
+            endpoint = self.values[self.API_ENDPOINT]
+            while len(endpoint) > 1000:
+                yield self.cant_validate(endpoint)
         elif self.values[self.TYPE] == 'manual':
             yield self.HOST
+            endpoint = self.values[self.HOST]
+            while len(endpoint) > 1000:
+                yield self.cant_validate(endpoint)
         elif self.values[self.TYPE] == 'openstack':
             yield self.CLOUD_ENDPOINT
+            endpoint = self.values[self.CLOUD_ENDPOINT]
+            while len(endpoint) > 1000:
+                yield self.cant_validate(endpoint)
             while True:
                 yield self.AUTH
                 if 'invalid' not in self.values[self.AUTH]:
@@ -472,6 +511,9 @@ class AddCloud(PromptingExpectChild):
             while self.values.get(self.ANOTHER_REGION) != 'n':
                 yield self.REGION_NAME
                 yield self.REGION_ENDPOINT
+                endpoint = self.values[self.REGION_ENDPOINT]
+                if len(endpoint) > 1000:
+                    yield self.cant_validate(endpoint)
                 yield self.ANOTHER_REGION
         if self.values['Select cloud type:'] == 'vsphere':
             yield self.CLOUD_ENDPOINT
@@ -510,8 +552,7 @@ class AddCloud(PromptingExpectChild):
                 'endpoint': self.values[self.CLOUD_ENDPOINT],
                 'regions': regions,
                 })
-        self.backend.clouds[self.values[self.NAME]] = cloud
-        self.backend.clouds[self.values[self.NAME]] = cloud
+        self.backend.clouds[self.values[self.name_prompt]] = cloud
 
 
 class FakeBackend:
@@ -638,6 +679,7 @@ class FakeBackend:
         parser = ArgumentParser()
         parser.add_argument('host_placement', nargs='*')
         parser.add_argument('-n', type=int, dest='count', default='1')
+        parser.add_argument('--series')
         parsed = parser.parse_args(args)
         if len(parsed.host_placement) == 1:
             split = parsed.host_placement[0].split(':')
@@ -728,13 +770,14 @@ class FakeBackend:
         if model is not None:
             full_args.extend(['-m', model])
         full_args.extend(args)
-        self.log.log(level, ' '.join(full_args))
+        self.log.log(level, u' '.join(full_args))
 
     def juju(self, command, args, used_feature_flags,
              juju_home, model=None, check=True, timeout=None, extra_env=None):
         if 'service' in command:
             raise Exception('Command names must not contain "service".')
-        if isinstance(args, basestring):
+
+        if isinstance(args, argtype):
             args = (args,)
         self._log_command(command, args, model)
         if model is not None:
@@ -863,7 +906,6 @@ class FakeBackend:
         self.juju(command, args, used_feature_flags,
                   juju_home, model, timeout=timeout)
 
-    @check_juju_output
     def get_juju_output(self, command, args, used_feature_flags, juju_home,
                         model=None, timeout=None, user_name=None,
                         merge_stderr=False):
@@ -875,8 +917,8 @@ class FakeBackend:
                 if ':' in model:
                     model = model.split(':')[1]
                 model_state = self.controller_state.models[model]
-            from deploy_stack import GET_TOKEN_SCRIPT
-            if (command, args) == ('ssh', ('dummy-sink/0', GET_TOKEN_SCRIPT)):
+            sink_cat = ('dummy-sink/0', 'cat', '/var/run/dummy-sink/token')
+            if (command, args) == ('ssh', sink_cat):
                 return model_state.token
             if (command, args) == ('ssh', ('0', 'lsb_release', '-c')):
                 return 'Codename:\t{}\n'.format(
@@ -906,7 +948,7 @@ class FakeBackend:
                 status_dict = model_state.get_status_dict()
                 # Parsing JSON is much faster than parsing YAML, and JSON is a
                 # subset of YAML, so emit JSON.
-                return json.dumps(status_dict)
+                return json.dumps(status_dict).encode('utf-8')
             if command == 'create-backup':
                 self.controller_state.require_controller('backup', model)
                 return 'juju-backup-0.tar.gz'
@@ -973,17 +1015,19 @@ class FakeBackendOptionalJES(FakeBackend):
 
 
 def fake_juju_client(env=None, full_path=None, debug=False, version='2.0.0',
-                     _backend=None, cls=EnvJujuClient):
+                     _backend=None, cls=EnvJujuClient, juju_home=None):
+    if juju_home is None:
+        if env is None or env.juju_home is None:
+            juju_home = 'foo'
+        else:
+            juju_home = env.juju_home
     if env is None:
         env = JujuData('name', {
             'type': 'foo',
             'default-series': 'angsty',
             'region': 'bar',
-            }, juju_home='foo')
+            }, juju_home=juju_home)
         env.credentials = {'credentials': {'foo': {'creds': {}}}}
-    juju_home = env.juju_home
-    if juju_home is None:
-        juju_home = 'foo'
     if _backend is None:
         backend_state = FakeControllerState()
         _backend = FakeBackend(

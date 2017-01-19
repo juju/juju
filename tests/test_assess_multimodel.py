@@ -1,29 +1,39 @@
+#!/usr/bin/env python
+
 from argparse import Namespace
-from mock import (
-    patch,
-    )
+from contextlib import contextmanager
 import os
 
-from assess_jes_deploy import (
+from mock import (
+    Mock,
+    patch,
+    )
+
+from assess_multimodel import (
+    assess_destroy_current,
     check_services,
     env_token,
     hosted_environment,
-    jes_setup,
+    multimodel_setup,
     )
-from fakejuju import fake_juju_client
 from jujupy import (
     EnvJujuClient25,
+    fake_juju_client,
     JUJU_DEV_FEATURE_FLAGS,
     SimpleEnvironment,
     )
 import tests
 
 
-class TestJES(tests.FakeHomeTestCase):
+def patch_local(target, **kwargs):
+    return patch('assess_multimodel.' + target, **kwargs)
+
+
+class TestMultiModel(tests.FakeHomeTestCase):
 
     client_class = EnvJujuClient25
 
-    @patch('assess_jes_deploy.get_random_string', autospec=True)
+    @patch_local('get_random_string', autospec=True)
     @patch('jujupy.SimpleEnvironment.from_config')
     def mock_client(self, from_config_func, get_random_string_func):
         from_config_func.return_value = SimpleEnvironment('baz', {})
@@ -33,20 +43,19 @@ class TestJES(tests.FakeHomeTestCase):
             '1.25-foobar', 'path')
         return client
 
-    @patch('assess_jes_deploy.get_random_string', autospec=True)
-    def test_env_token(self, get_random_string_func):
-        get_random_string_func.return_value = 'fakeran'
-        self.assertEqual(env_token('env1'), 'env1fakeran')
+    def test_env_token(self):
+        with patch_local('get_random_string', return_value='fakeran'):
+            self.assertEqual(env_token('env1'), 'env1fakeran')
 
     def test_set_jes_flag(self):
         client = self.mock_client()
         env = client._shell_environ()
         self.assertNotIn('jes', env.get(JUJU_DEV_FEATURE_FLAGS, '').split(","))
 
-    @patch('assess_jes_deploy.print_now', autospec=True)
-    @patch('assess_jes_deploy.get_random_string', autospec=True)
+    @patch_local('print_now', autospec=True)
+    @patch_local('get_random_string', autospec=True)
     @patch('jujupy.EnvJujuClient.juju', autospec=True)
-    @patch('assess_jes_deploy.check_token', autospec=True)
+    @patch_local('check_token', autospec=True)
     def test_check_services(
             self,
             check_token_func,
@@ -64,12 +73,12 @@ class TestJES(tests.FakeHomeTestCase):
         check_token_func.assert_called_once_with(client, 'tokenfakeran')
         print_now_func.assert_called_once_with('checking services in token')
 
-    @patch('jujupy.EnvJujuClient.get_full_path')
+    @patch('jujupy.EnvJujuClient.get_full_path', autospec=True)
     @patch('jujupy.EnvJujuClient.add_ssh_machines', autospec=True)
-    @patch('assess_jes_deploy.boot_context', autospec=True)
-    @patch('assess_jes_deploy.configure_logging', autospec=True)
-    @patch('assess_jes_deploy.client_from_config')
-    def test_jes_setup(
+    @patch_local('boot_context', autospec=True)
+    @patch_local('configure_logging', autospec=True)
+    @patch_local('client_from_config', autospec=True)
+    def test_multimodel_setup(
             self,
             by_version_func,
             configure_logging_func,
@@ -93,7 +102,8 @@ class TestJES(tests.FakeHomeTestCase):
         with patch.object(expected_client, 'enable_jes'):
             with patch.object(expected_client, 'is_jes_enabled',
                               return_value=True):
-                with jes_setup(setup_args) as (client, charm_series, base_env):
+                with multimodel_setup(setup_args) as (
+                        client, charm_series, base_env):
                     self.assertEqual(1, client.is_jes_enabled.call_count)
                     self.assertEqual(0, client.enable_jes.call_count)
 
@@ -116,9 +126,27 @@ class TestJES(tests.FakeHomeTestCase):
         with patch.object(expected_client, 'enable_jes'):
             with patch.object(expected_client, 'is_jes_enabled',
                               return_value=False):
-                with jes_setup(setup_args) as (client, charm_previx, base_env):
+                with multimodel_setup(setup_args) as (
+                        client, charm_previx, base_env):
                     self.assertEqual(1, client.is_jes_enabled.call_count)
                     self.assertEqual(1, client.enable_jes.call_count)
+
+
+class TestDestroyCurrent(tests.TestCase):
+
+    @contextmanager
+    def prepare(self):
+        (mock_client, mock_model) = (Mock(), Mock())
+        mock_client.attach_mock(Mock(return_value=mock_model), 'add_model')
+        yield (mock_client, mock_model)
+
+    def test_destroy_current(self):
+        with self.prepare() as (client, model):
+            assess_destroy_current(client)
+        client.add_model.assert_called_once_with('delete-me')
+        model.switch.assert_called_once_with('delete-me')
+        model.destroy_model.assert_called_once_with()
+        model.show_controller.assert_called_once_with()
 
 
 class TestHostedEnvironment(tests.FakeHomeTestCase):

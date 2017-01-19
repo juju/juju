@@ -34,9 +34,6 @@ from utility import (
     configure_logging,
     JujuAssertionError,
     temp_dir,
-)
-
-from jujupy import (
     temp_yaml_file,
 )
 

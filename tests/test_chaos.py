@@ -107,7 +107,8 @@ class TestRunChaosMonkey(FakeHomeTestCase):
                           autospec=True) as gjo_mock:
             with patch('subprocess.check_call', autospec=True) as cc_mock:
                 monkey_runner = MonkeyRunner('foo', client, service='ser1')
-                with patch('jujupy.GroupReporter._write', autospec=True):
+                with patch('jujupy.client.GroupReporter._write',
+                           autospec=True):
                     monkey_runner.deploy_chaos_monkey()
         assert_juju_call(
             self,

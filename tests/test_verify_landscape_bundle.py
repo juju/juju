@@ -2,7 +2,7 @@ from mock import (
     patch,
     )
 
-from fakejuju import fake_juju_client
+from jujupy import fake_juju_client
 import tests
 from verify_landscape_bundle import(
     assess_landscape_bundle,

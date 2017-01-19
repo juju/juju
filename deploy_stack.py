@@ -3,10 +3,13 @@ from __future__ import print_function
 
 
 from argparse import ArgumentParser
-from contextlib import (
-    contextmanager,
-    nested,
-)
+from contextlib import contextmanager
+try:
+    from contextlib import nested
+except ImportError:
+    from contextlib import ExitStack as nested
+
+
 from datetime import (
     datetime,
 )
@@ -25,10 +28,6 @@ import json
 import shutil
 
 from chaos import background_chaos
-from fakejuju import (
-    FakeBackend,
-    fake_juju_client,
-)
 from jujucharm import (
     local_charm_path,
 )
@@ -38,12 +37,16 @@ from jujuconfig import (
 )
 from jujupy import (
     client_from_config,
-    get_local_root,
+    FakeBackend,
+    fake_juju_client,
     get_machine_dns_name,
     jes_home_path,
     NoProvider,
     SimpleEnvironment,
     temp_bootstrap_env,
+    )
+from jujupy.client import (
+    get_local_root,
 )
 from remote import (
     remote_from_address,
@@ -83,7 +86,7 @@ def destroy_environment(client, instance_tag):
         destroy_job_instances(instance_tag)
 
 
-def deploy_dummy_stack(client, charm_series):
+def deploy_dummy_stack(client, charm_series, use_charmstore=False):
     """"Deploy a dummy stack in the specified environment."""
     # Centos requires specific machine configuration (i.e. network device
     # order).
@@ -94,12 +97,18 @@ def deploy_dummy_stack(client, charm_series):
         platform = 'win'
     elif charm_series.startswith('centos'):
         platform = 'centos'
-    charm = local_charm_path(charm='dummy-source', juju_ver=client.version,
-                             series=charm_series, platform=platform)
-    client.deploy(charm, series=charm_series)
-    charm = local_charm_path(charm='dummy-sink', juju_ver=client.version,
-                             series=charm_series, platform=platform)
-    client.deploy(charm, series=charm_series)
+    if use_charmstore:
+        dummy_source = "cs:~juju-qa/dummy-source"
+        dummy_sink = "cs:~juju-qa/dummy-sink"
+    else:
+        dummy_source = local_charm_path(
+            charm='dummy-source', juju_ver=client.version, series=charm_series,
+            platform=platform)
+        dummy_sink = local_charm_path(
+            charm='dummy-sink', juju_ver=client.version, series=charm_series,
+            platform=platform)
+    client.deploy(dummy_source, series=charm_series)
+    client.deploy(dummy_sink, series=charm_series)
     client.juju('add-relation', ('dummy-source', 'dummy-sink'))
     client.juju('expose', ('dummy-sink',))
     if client.env.kvm or client.env.maas:
@@ -119,20 +128,6 @@ def assess_juju_relations(client):
     check_token(client, token)
 
 
-GET_TOKEN_SCRIPT = """
-        for x in $(seq 120); do
-          if [ -f /var/run/dummy-sink/token ]; then
-            if [ "$(cat /var/run/dummy-sink/token)" != "" ]; then
-              break
-            fi
-          fi
-          sleep 1
-        done
-        cat /var/run/dummy-sink/token
-        sleep 2
-    """
-
-
 def get_token_from_status(client):
     """Return the token from the application status message or None."""
     status = client.get_status()
@@ -146,41 +141,48 @@ def get_token_from_status(client):
     return None
 
 
+token_pattern = re.compile(r'([^\n\r]*)\r?\n?')
+
+
+def _get_token(remote, token_path="/var/run/dummy-sink/token"):
+    """Check for token with remote, handling missing error if needed."""
+    try:
+        contents = remote.cat(token_path)
+    except subprocess.CalledProcessError as e:
+        if e.returncode != 1:
+            raise
+        return ""
+    return token_pattern.match(contents).group(1)
+
+
 def check_token(client, token, timeout=120):
     """Check the token found on dummy-sink/0 or raise ValueError."""
     logging.info('Waiting for applications to reach ready.')
     client.wait_for_workloads()
-    # Wait up to 120 seconds for token to be created.
     logging.info('Retrieving token.')
     remote = remote_from_unit(client, "dummy-sink/0")
     # Update remote with real address if needed.
     resolve_remote_dns_names(client.env, [remote])
+    # By this point the workloads should be ready and token will have been
+    # sent successfully, but fallback to timeout as previously for now.
     start = time.time()
     while True:
         if remote.is_windows():
             result = get_token_from_status(client)
             if not result:
-                try:
-                    result = remote.cat("%ProgramData%\\dummy-sink\\token")
-                except winrm.exceptions.WinRMTransportError as e:
-                    logging.warning(
-                        "Skipping token check because of: {}".format(str(e)))
-                    return
+                result = _get_token(remote, "%ProgramData%\\dummy-sink\\token")
         else:
-            result = remote.run(GET_TOKEN_SCRIPT)
-        token_pattern = re.compile(r'([^\n\r]*)\r?\n?')
-        result = token_pattern.match(result).group(1)
+            result = _get_token(remote)
         if result == token:
             logging.info("Token matches expected %r", result)
             return
         if time.time() - start > timeout:
-            if not remote.is_windows() and remote.use_juju_ssh:
+            if remote.use_juju_ssh and _can_run_ssh():
                 # 'juju ssh' didn't error, but try raw ssh to verify
                 # the result is the same.
                 remote.get_address()
                 remote.use_juju_ssh = False
-                result = remote.run(GET_TOKEN_SCRIPT)
-                result = token_pattern.match(result).group(1)
+                result = _get_token(remote)
                 if result == token:
                     logging.info("Token matches expected %r", result)
                     logging.error("juju ssh to unit is broken.")
@@ -274,7 +276,7 @@ def get_remote_machines(client, known_hosts):
         if machine_id not in machines:
             machines[machine_id] = remote_from_address(address)
     # Update remote machines in place with real addresses if substrate needs.
-    resolve_remote_dns_names(client.env, machines.itervalues())
+    resolve_remote_dns_names(client.env, machines.values())
     return machines
 
 
@@ -460,6 +462,8 @@ def deploy_job_parse_args(argv=None):
             'Host with a controller to use.  If supplied, SSO_EMAIL and'
             ' SSO_PASSWORD environment variables will be used for oauth'
             ' authentication.'))
+    parser.add_argument('--use-charmstore', action='store_true',
+                        help='Deploy dummy charms from the charmstore.')
     return parser.parse_args(argv)
 
 
@@ -624,7 +628,8 @@ class BootstrapManager:
 
     def __init__(self, temp_env_name, client, tear_down_client, bootstrap_host,
                  machines, series, agent_url, agent_stream, region, log_dir,
-                 keep_env, permanent, jes_enabled, controller_strategy=None):
+                 keep_env, permanent, jes_enabled, controller_strategy=None,
+                 logged_exception_exit=True):
         """Constructor.
 
         Please see see `BootstrapManager` for argument descriptions.
@@ -649,6 +654,7 @@ class BootstrapManager:
         if controller_strategy is None:
             controller_strategy = CreateController(client, tear_down_client)
         self.controller_strategy = controller_strategy
+        self.logged_exception_exit = logged_exception_exit
         self.has_controller = False
 
     @property
@@ -825,6 +831,7 @@ class BootstrapManager:
             wait_for_port(machine, 22, timeout=120)
 
         with self.handle_bootstrap_exceptions():
+            self.has_controller = True
             yield
 
     @contextmanager
@@ -977,7 +984,9 @@ class BootstrapManager:
                         m_client.show_status()
                     yield machines
         except LoggedException:
-            sys.exit(1)
+            if self.logged_exception_exit:
+                sys.exit(1)
+            raise
 
     @contextmanager
     def existing_booted_context(self, upload_tools, **kwargs):
@@ -1057,10 +1066,6 @@ def _deploy_job(args, charm_series, series):
         args.keep_env, permanent=jes_enabled, jes_enabled=jes_enabled,
         controller_strategy=controller_strategy)
     with bs_manager.booted_context(args.upload_tools):
-        if sys.platform in ('win32', 'darwin'):
-            # The win and osx client tests only verify the client
-            # can bootstrap and call the state-server.
-            return
         if args.with_chaos > 0:
             manager = background_chaos(args.temp_env_name, client,
                                        args.logs, args.with_chaos)
@@ -1069,9 +1074,11 @@ def _deploy_job(args, charm_series, series):
             # deploy_dummy_stack(), as was the case prior to this revision.
             manager = nested()
         with manager:
-            deploy_dummy_stack(client, charm_series)
+            deploy_dummy_stack(client, charm_series, args.use_charmstore)
         assess_juju_relations(client)
-        skip_juju_run = charm_series.startswith(("centos", "win"))
+        skip_juju_run = (
+            (client.version < "2" and sys.platform in ("win32", "darwin")) or
+            charm_series.startswith(("centos", "win")))
         if not skip_juju_run:
             assess_juju_run(client)
         if args.upgrade:
