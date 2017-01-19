@@ -30,6 +30,10 @@ const (
 	// ReplicaSetName is the name of the replica set that juju uses for its
 	// controllers.
 	ReplicaSetName = "juju"
+
+	// DefaultCacheSize expressed in GB sets the max value Mongo WiredTiger cache can
+	// reach.
+	DefaultCacheSize = 1
 )
 
 var (
@@ -183,7 +187,10 @@ func newConf(args ConfigArgs) common.Conf {
 			" --smallfiles"
 	} else {
 		mongoCmd = mongoCmd +
-			" --storageEngine wiredTiger"
+			" --storageEngine wiredTiger" +
+			// TODO(perrito666) make DefaultCacheSize 0,25 when mongo version goes
+			// to 3.4
+			" --wiredTigerCacheSizeGB " + fmt.Sprint(DefaultCacheSize)
 	}
 	extraScript := ""
 	if args.WantNUMACtl {
