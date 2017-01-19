@@ -100,6 +100,8 @@ func (commandWrapperSuite) TestCreateMachineSuccess(c *gc.C) {
 
 	tmpDir, err := ioutil.TempDir("", "juju-libvirtSuite-")
 	c.Check(err, jc.ErrorIsNil)
+	err = os.MkdirAll(filepath.Join(tmpDir, "kvm", "guests"), 0755)
+	c.Check(err, jc.ErrorIsNil)
 	cloudInitPath := filepath.Join(tmpDir, "cloud-init")
 	userDataPath := filepath.Join(tmpDir, "user-data")
 	err = ioutil.WriteFile(cloudInitPath, []byte("#cloud-init\nEOF\n"), 0755)
@@ -119,13 +121,12 @@ func (commandWrapperSuite) TestCreateMachineSuccess(c *gc.C) {
 	params := CreateMachineParams{
 		Hostname:     hostname,
 		Series:       "precise",
-		Arch:         "arm64",
 		UserDataFile: cloudInitPath,
 		CpuCores:     1,
 		RootDisk:     8,
 	}
 
-	MakeCreateMachineParamsTestable(&params, pathfinder, stub.Run)
+	MakeCreateMachineParamsTestable(&params, pathfinder, stub.Run, "arm64")
 	err = CreateMachine(params)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -171,7 +172,7 @@ func (commandWrapperSuite) TestDestroyMachineSuccess(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(stub.Calls(), jc.DeepEquals, []string{
 		"virsh destroy aname",
-		"virsh undefine aname",
+		"virsh undefine --nvram aname",
 	})
 }
 
@@ -181,7 +182,7 @@ func (commandWrapperSuite) TestDestroyMachineFails(c *gc.C) {
 	err := DestroyMachine(container)
 	c.Check(stub.Calls(), jc.DeepEquals, []string{
 		"virsh destroy aname",
-		"virsh undefine aname",
+		"virsh undefine --nvram aname",
 	})
 	log := c.GetTestLog()
 	c.Check(log, jc.Contains, "`virsh destroy aname` failed")

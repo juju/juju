@@ -22,37 +22,16 @@ type domainXMLSuite struct {
 
 var _ = gc.Suite(&domainXMLSuite{})
 
-var wantDomainStr = `
+var amd64DomainStr = `
 <domain type="kvm">
+    <name>juju-someid</name>
+    <vcpu>2</vcpu>
+    <currentMemory unit="MiB">1024</currentMemory>
+    <memory unit="MiB">1024</memory>
     <os>
         <type>hvm</type>
     </os>
-    <features>
-        <acpi></acpi>
-        <apic></apic>
-        <pae></pae>
-    </features>
     <devices>
-        <controller type="usb" index="0">
-            <address type="pci" domain="0x0000" bus="0x00" slot="0x01" function="0x2"></address>
-        </controller>
-        <controller type="pci" index="0" model="pci-root"></controller>
-        <serial type="pty">
-            <source path="/dev/pts/2"></source>
-            <target port="0"></target>
-        </serial>
-        <console type="pty" tty="/dev/pts/2">
-            <source path="/dev/pts/2"></source>
-            <target port="0"></target>
-        </console>
-        <input type="mouse" bus="ps2"></input>
-        <input type="keyboard" bus="ps2"></input>
-        <interface type="bridge">
-            <mac address="00:00:00:00:00:00"></mac>
-            <model type="virtio"></model>
-            <source bridge="parent-dev"></source>
-            <guest dev="device-name"></guest>
-        </interface>
         <disk device="disk" type="file">
             <driver type="qcow2" name="qemu"></driver>
             <source file="/some/path"></source>
@@ -63,29 +42,99 @@ var wantDomainStr = `
             <source file="/another/path"></source>
             <target dev="vdb"></target>
         </disk>
+        <interface type="bridge">
+            <mac address="00:00:00:00:00:00"></mac>
+            <model type="virtio"></model>
+            <source bridge="parent-dev"></source>
+            <guest dev="device-name"></guest>
+        </interface>
+        <serial type="pty">
+            <source path="/dev/pts/2"></source>
+            <target port="0"></target>
+        </serial>
+        <console type="pty" tty="/dev/pts/2">
+            <source path="/dev/pts/2"></source>
+            <target port="0"></target>
+        </console>
     </devices>
+</domain>`[1:]
+
+var arm64DomainStr = `
+<domain type="kvm">
     <name>juju-someid</name>
     <vcpu>2</vcpu>
     <currentMemory unit="MiB">1024</currentMemory>
     <memory unit="MiB">1024</memory>
+    <os>
+        <type arch="aarch64" machine="virt">hvm</type>
+        <loader readonly="yes" type="pflash">/shared/readonly.fd</loader>
+        <nvram>/private/writable.fd</nvram>
+    </os>
+    <features>
+        <gic version="host"></gic>
+    </features>
+    <cpu mode="custom" match="exact">
+        <model fallback="allow">cortex-a53</model>
+    </cpu>
+    <devices>
+        <disk device="disk" type="file">
+            <driver type="qcow2" name="qemu"></driver>
+            <source file="/some/path"></source>
+            <target dev="vda"></target>
+        </disk>
+        <disk device="disk" type="file">
+            <driver type="raw" name="qemu"></driver>
+            <source file="/another/path"></source>
+            <target dev="vdb"></target>
+        </disk>
+        <interface type="bridge">
+            <mac address="00:00:00:00:00:00"></mac>
+            <model type="virtio"></model>
+            <source bridge="parent-dev"></source>
+            <guest dev="device-name"></guest>
+        </interface>
+        <serial type="pty">
+            <source path="/dev/pts/2"></source>
+            <target port="0"></target>
+        </serial>
+        <console type="pty" tty="/dev/pts/2">
+            <source path="/dev/pts/2"></source>
+            <target port="0"></target>
+        </console>
+    </devices>
 </domain>`[1:]
 
 func (domainXMLSuite) TestNewDomain(c *gc.C) {
-	ifaces := []InterfaceInfo{
-		dummyInterface{
-			mac:    "00:00:00:00:00:00",
-			parent: "parent-dev",
-			name:   "device-name"}}
-	disks := []DiskInfo{
-		dummyDisk{driver: "qcow2", source: "/some/path"},
-		dummyDisk{driver: "raw", source: "/another/path"},
+	table := []struct {
+		arch, want string
+	}{
+		{"amd64", amd64DomainStr},
+		{"arm64", arm64DomainStr},
 	}
-	params := dummyParams{ifaceInfo: ifaces, diskInfo: disks, memory: 1024, cpuCores: 2, hostname: "juju-someid"}
-	d, err := NewDomain(params)
-	c.Assert(err, jc.ErrorIsNil)
-	ml, err := xml.MarshalIndent(&d, "", "    ")
-	c.Check(err, jc.ErrorIsNil)
-	c.Assert(string(ml), jc.DeepEquals, wantDomainStr)
+	for i, test := range table {
+		c.Logf("TestNewDomain: test #%d for %s", i+1, test.arch)
+		ifaces := []InterfaceInfo{
+			dummyInterface{
+				mac:    "00:00:00:00:00:00",
+				parent: "parent-dev",
+				name:   "device-name"}}
+		disks := []DiskInfo{
+			dummyDisk{driver: "qcow2", source: "/some/path"},
+			dummyDisk{driver: "raw", source: "/another/path"},
+		}
+		params := dummyParams{ifaceInfo: ifaces, diskInfo: disks, memory: 1024, cpuCores: 2, hostname: "juju-someid", arch: test.arch}
+
+		if test.arch == "arm64" {
+			params.nvram = "/private/writable.fd"
+			params.loader = "/shared/readonly.fd"
+		}
+
+		d, err := NewDomain(params)
+		c.Check(err, jc.ErrorIsNil)
+		ml, err := xml.MarshalIndent(&d, "", "    ")
+		c.Check(err, jc.ErrorIsNil)
+		c.Assert(string(ml), jc.DeepEquals, test.want)
+	}
 }
 
 func (domainXMLSuite) TestNewDomainError(c *gc.C) {
@@ -96,17 +145,23 @@ func (domainXMLSuite) TestNewDomainError(c *gc.C) {
 
 type dummyParams struct {
 	err       error
+	arch      string
 	cpuCores  uint64
 	diskInfo  []DiskInfo
 	hostname  string
 	ifaceInfo []InterfaceInfo
+	loader    string
 	memory    uint64
+	nvram     string
 }
 
-func (p dummyParams) DiskInfo() []DiskInfo         { return p.diskInfo }
-func (p dummyParams) NetworkInfo() []InterfaceInfo { return p.ifaceInfo }
-func (p dummyParams) Host() string                 { return p.hostname }
+func (p dummyParams) Arch() string                 { return p.arch }
 func (p dummyParams) CPUs() uint64                 { return p.cpuCores }
+func (p dummyParams) DiskInfo() []DiskInfo         { return p.diskInfo }
+func (p dummyParams) Host() string                 { return p.hostname }
+func (p dummyParams) Loader() string               { return p.loader }
+func (p dummyParams) NVRAM() string                { return p.nvram }
+func (p dummyParams) NetworkInfo() []InterfaceInfo { return p.ifaceInfo }
 func (p dummyParams) RAM() uint64                  { return p.memory }
 func (p dummyParams) ValidateDomainParams() error  { return p.err }
 
@@ -115,13 +170,13 @@ type dummyDisk struct {
 	driver string
 }
 
-func (d dummyDisk) Source() string { return d.source }
 func (d dummyDisk) Driver() string { return d.driver }
+func (d dummyDisk) Source() string { return d.source }
 
 type dummyInterface struct {
 	mac, parent, name string
 }
 
+func (i dummyInterface) InterfaceName() string       { return i.name }
 func (i dummyInterface) MACAddress() string          { return i.mac }
 func (i dummyInterface) ParentInterfaceName() string { return i.parent }
-func (i dummyInterface) InterfaceName() string       { return i.name }
