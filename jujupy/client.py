@@ -2204,7 +2204,7 @@ class EnvJujuClient:
         self.juju('list-controllers', (), include_e=False)
 
     def get_controller_endpoint(self):
-        """Return the address of the controller leader."""
+        """Return the host and port of the controller leader."""
         controller = self.env.controller.name
         output = self.get_juju_output(
             'show-controller', controller, include_e=False)
