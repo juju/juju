@@ -44,6 +44,7 @@ from jujupy.client import (
     Controller,
     describe_substrate,
     EnvJujuClient,
+    EnvJujuClient as ModelClient,
     ErroredUnit,
     GroupReporter,
     get_cache_path,
@@ -347,17 +348,17 @@ class TestWaitMachineNotPresent(ClientTest):
             not_present.do_raise('', None)
 
 
-class TestEnvJujuClient(ClientTest):
+class TestModelClient(ClientTest):
 
     def test_no_duplicate_env(self):
         env = JujuData('foo', {})
-        client = EnvJujuClient(env, '1.25', 'full_path')
+        client = ModelClient(env, '1.25', 'full_path')
         self.assertIs(env, client.env)
 
     def test_convert_to_juju_data(self):
         env = SimpleEnvironment('foo', {'type': 'bar'}, 'baz')
         with patch.object(JujuData, 'load_yaml'):
-            client = EnvJujuClient(env, '1.25', 'full_path')
+            client = ModelClient(env, '1.25', 'full_path')
             client.env.load_yaml.assert_called_once_with()
         self.assertIsInstance(client.env, JujuData)
         self.assertEqual(client.env.environment, 'foo')
@@ -367,17 +368,17 @@ class TestEnvJujuClient(ClientTest):
     def test_get_version(self):
         value = ' 5.6 \n'
         with patch('subprocess.check_output', return_value=value) as vsn:
-            version = EnvJujuClient.get_version()
+            version = ModelClient.get_version()
         self.assertEqual('5.6', version)
         vsn.assert_called_with(('juju', '--version'))
 
     def test_get_version_path(self):
         with patch('subprocess.check_output', return_value=' 4.3') as vsn:
-            EnvJujuClient.get_version('foo/bar/baz')
+            ModelClient.get_version('foo/bar/baz')
         vsn.assert_called_once_with(('foo/bar/baz', '--version'))
 
     def test_get_matching_agent_version(self):
-        client = EnvJujuClient(
+        client = ModelClient(
             JujuData(None, {'type': 'local'}, juju_home='foo'),
             '1.23-series-arch', None)
         self.assertEqual('1.23.1', client.get_matching_agent_version())
@@ -387,29 +388,29 @@ class TestEnvJujuClient(ClientTest):
         self.assertEqual('1.20-beta1.1', client.get_matching_agent_version())
 
     def test_upgrade_juju_nonlocal(self):
-        client = EnvJujuClient(
+        client = ModelClient(
             JujuData('foo', {'type': 'nonlocal'}), '2.0-betaX', None)
         with patch.object(client, '_upgrade_juju') as juju_mock:
             client.upgrade_juju()
         juju_mock.assert_called_with(('--agent-version', '2.0'))
 
     def test_upgrade_juju_local(self):
-        client = EnvJujuClient(
+        client = ModelClient(
             JujuData('foo', {'type': 'local'}), '2.0-betaX', None)
         with patch.object(client, '_upgrade_juju') as juju_mock:
             client.upgrade_juju()
         juju_mock.assert_called_with(('--agent-version', '2.0',))
 
     def test_upgrade_juju_no_force_version(self):
-        client = EnvJujuClient(
+        client = ModelClient(
             JujuData('foo', {'type': 'local'}), '2.0-betaX', None)
         with patch.object(client, '_upgrade_juju') as juju_mock:
             client.upgrade_juju(force_version=False)
         juju_mock.assert_called_with(())
 
     def test_clone_unchanged(self):
-        client1 = EnvJujuClient(JujuData('foo'), '1.27', 'full/path',
-                                debug=True)
+        client1 = ModelClient(JujuData('foo'), '1.27', 'full/path',
+                              debug=True)
         client2 = client1.clone()
         self.assertIsNot(client1, client2)
         self.assertIs(type(client1), type(client2))
@@ -421,8 +422,8 @@ class TestEnvJujuClient(ClientTest):
         self.assertEqual(client1._backend, client2._backend)
 
     def test_clone_changed(self):
-        client1 = EnvJujuClient(JujuData('foo'), '1.27', 'full/path',
-                                debug=True)
+        client1 = ModelClient(JujuData('foo'), '1.27', 'full/path',
+                              debug=True)
         env2 = SimpleEnvironment('bar')
         client2 = client1.clone(env2, '1.28', 'other/path', debug=False,
                                 cls=EnvJujuClient1X)
@@ -434,8 +435,8 @@ class TestEnvJujuClient(ClientTest):
         self.assertEqual(client1.feature_flags, client2.feature_flags)
 
     def test_get_cache_path(self):
-        client = EnvJujuClient(JujuData('foo', juju_home='/foo/'),
-                               '1.27', 'full/path', debug=True)
+        client = ModelClient(JujuData('foo', juju_home='/foo/'),
+                             '1.27', 'full/path', debug=True)
         self.assertEqual('/foo/models/cache.yaml',
                          client.get_cache_path())
 
@@ -445,7 +446,7 @@ class TestEnvJujuClient(ClientTest):
             'tools-metadata-url': 'bar',
             'type': 'baz',
             })
-        client = EnvJujuClient(env, None, 'my/juju/bin')
+        client = ModelClient(env, None, 'my/juju/bin')
         self.assertEqual({
             'agent-metadata-url': 'foo',
             'test-mode': True,
@@ -498,7 +499,7 @@ class TestEnvJujuClient(ClientTest):
             'type': 'foo',
             'username': 'foo',
             }, 'home')
-        client = EnvJujuClient(env, None, 'my/juju/bin')
+        client = ModelClient(env, None, 'my/juju/bin')
         with client._bootstrap_config() as config_filename:
             with open(config_filename) as f:
                 self.assertEqual({
@@ -519,14 +520,14 @@ class TestEnvJujuClient(ClientTest):
 
     def test_get_cloud_region(self):
         self.assertEqual(
-            'foo/bar', EnvJujuClient.get_cloud_region('foo', 'bar'))
+            'foo/bar', ModelClient.get_cloud_region('foo', 'bar'))
         self.assertEqual(
-            'foo', EnvJujuClient.get_cloud_region('foo', None))
+            'foo', ModelClient.get_cloud_region('foo', None))
 
     def test_bootstrap_maas(self):
         env = JujuData('maas', {'type': 'foo', 'region': 'asdf'})
-        with patch.object(EnvJujuClient, 'juju') as mock:
-            client = EnvJujuClient(env, '2.0-zeta1', None)
+        with patch.object(ModelClient, 'juju') as mock:
+            client = ModelClient(env, '2.0-zeta1', None)
             with patch.object(client.env, 'maas', lambda: True):
                 with observable_temp_file() as config_file:
                     client.bootstrap()
@@ -543,8 +544,8 @@ class TestEnvJujuClient(ClientTest):
         # Disable space constraint with environment variable
         os.environ['JUJU_CI_SPACELESSNESS'] = "1"
         env = JujuData('maas', {'type': 'foo', 'region': 'asdf'})
-        with patch.object(EnvJujuClient, 'juju') as mock:
-            client = EnvJujuClient(env, '2.0-zeta1', None)
+        with patch.object(ModelClient, 'juju') as mock:
+            client = ModelClient(env, '2.0-zeta1', None)
             with patch.object(client.env, 'maas', lambda: True):
                 with observable_temp_file() as config_file:
                     client.bootstrap()
@@ -559,8 +560,8 @@ class TestEnvJujuClient(ClientTest):
     def test_bootstrap_joyent(self):
         env = JujuData('joyent', {
             'type': 'joyent', 'sdc-url': 'https://foo.api.joyentcloud.com'})
-        with patch.object(EnvJujuClient, 'juju', autospec=True) as mock:
-            client = EnvJujuClient(env, '2.0-zeta1', None)
+        with patch.object(ModelClient, 'juju', autospec=True) as mock:
+            client = ModelClient(env, '2.0-zeta1', None)
             with patch.object(client.env, 'joyent', lambda: True):
                 with observable_temp_file() as config_file:
                     client.bootstrap()
@@ -575,8 +576,8 @@ class TestEnvJujuClient(ClientTest):
     def test_bootstrap(self):
         env = JujuData('foo', {'type': 'bar', 'region': 'baz'})
         with observable_temp_file() as config_file:
-            with patch.object(EnvJujuClient, 'juju') as mock:
-                client = EnvJujuClient(env, '2.0-zeta1', None)
+            with patch.object(ModelClient, 'juju') as mock:
+                client = ModelClient(env, '2.0-zeta1', None)
                 client.bootstrap()
                 mock.assert_called_with(
                     'bootstrap', ('--constraints', 'mem=2G',
@@ -590,7 +591,7 @@ class TestEnvJujuClient(ClientTest):
 
     def test_bootstrap_upload_tools(self):
         env = JujuData('foo', {'type': 'foo', 'region': 'baz'})
-        client = EnvJujuClient(env, '2.0-zeta1', None)
+        client = ModelClient(env, '2.0-zeta1', None)
         with observable_temp_file() as config_file:
             with patch.object(client, 'juju') as mock:
                 client.bootstrap(upload_tools=True)
@@ -603,7 +604,7 @@ class TestEnvJujuClient(ClientTest):
 
     def test_bootstrap_credential(self):
         env = JujuData('foo', {'type': 'foo', 'region': 'baz'})
-        client = EnvJujuClient(env, '2.0-zeta1', None)
+        client = ModelClient(env, '2.0-zeta1', None)
         with observable_temp_file() as config_file:
             with patch.object(client, 'juju') as mock:
                 client.bootstrap(credential='credential_name')
@@ -617,7 +618,7 @@ class TestEnvJujuClient(ClientTest):
 
     def test_bootstrap_bootstrap_series(self):
         env = JujuData('foo', {'type': 'bar', 'region': 'baz'})
-        client = EnvJujuClient(env, '2.0-zeta1', None)
+        client = ModelClient(env, '2.0-zeta1', None)
         with patch.object(client, 'juju') as mock:
             with observable_temp_file() as config_file:
                 client.bootstrap(bootstrap_series='angsty')
@@ -631,7 +632,7 @@ class TestEnvJujuClient(ClientTest):
 
     def test_bootstrap_auto_upgrade(self):
         env = JujuData('foo', {'type': 'bar', 'region': 'baz'})
-        client = EnvJujuClient(env, '2.0-zeta1', None)
+        client = ModelClient(env, '2.0-zeta1', None)
         with patch.object(client, 'juju') as mock:
             with observable_temp_file() as config_file:
                 client.bootstrap(auto_upgrade=True)
@@ -644,7 +645,7 @@ class TestEnvJujuClient(ClientTest):
 
     def test_bootstrap_no_gui(self):
         env = JujuData('foo', {'type': 'bar', 'region': 'baz'})
-        client = EnvJujuClient(env, '2.0-zeta1', None)
+        client = ModelClient(env, '2.0-zeta1', None)
         with patch.object(client, 'juju') as mock:
             with observable_temp_file() as config_file:
                 client.bootstrap(no_gui=True)
@@ -657,7 +658,7 @@ class TestEnvJujuClient(ClientTest):
 
     def test_bootstrap_metadata(self):
         env = JujuData('foo', {'type': 'bar', 'region': 'baz'})
-        client = EnvJujuClient(env, '2.0-zeta1', None)
+        client = ModelClient(env, '2.0-zeta1', None)
         with patch.object(client, 'juju') as mock:
             with observable_temp_file() as config_file:
                 client.bootstrap(metadata_source='/var/test-source')
@@ -671,7 +672,7 @@ class TestEnvJujuClient(ClientTest):
 
     def test_bootstrap_to(self):
         env = JujuData('foo', {'type': 'bar', 'region': 'baz'})
-        client = EnvJujuClient(env, '2.0-zeta1', None)
+        client = ModelClient(env, '2.0-zeta1', None)
         with patch.object(client, 'juju') as mock:
             with observable_temp_file() as config_file:
                 client.bootstrap(to='target')
@@ -684,8 +685,8 @@ class TestEnvJujuClient(ClientTest):
 
     def test_bootstrap_async(self):
         env = JujuData('foo', {'type': 'bar', 'region': 'baz'})
-        with patch.object(EnvJujuClient, 'juju_async', autospec=True) as mock:
-            client = EnvJujuClient(env, '2.0-zeta1', None)
+        with patch.object(ModelClient, 'juju_async', autospec=True) as mock:
+            client = ModelClient(env, '2.0-zeta1', None)
             client.env.juju_home = 'foo'
             with observable_temp_file() as config_file:
                 with client.bootstrap_async():
@@ -699,7 +700,7 @@ class TestEnvJujuClient(ClientTest):
 
     def test_bootstrap_async_upload_tools(self):
         env = JujuData('foo', {'type': 'bar', 'region': 'baz'})
-        with patch.object(EnvJujuClient, 'juju_async', autospec=True) as mock:
+        with patch.object(ModelClient, 'juju_async', autospec=True) as mock:
             client = EnvJujuClient(env, '2.0-zeta1', None)
             with observable_temp_file() as config_file:
                 with client.bootstrap_async(upload_tools=True):
@@ -4499,7 +4500,7 @@ class TestStatus(FakeHomeTestCase):
             status.get_machine_dns_name('2')
 
     def test_from_text(self):
-        text = TestEnvJujuClient.make_status_yaml(
+        text = TestModelClient.make_status_yaml(
             'agent-state', 'pending', 'horsefeathers')
         status = Status.from_text(text)
         self.assertEqual(status.status_text, text)
