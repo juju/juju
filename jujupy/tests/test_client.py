@@ -1226,7 +1226,7 @@ class TestModelClient(ClientTest):
         self.assertEqual(mock_ju.mock_calls, [call(60)])
 
     def test_wait_for_resource_suppresses_deadline(self):
-        client = EnvJujuClient(JujuData('local', juju_home=''), None, None)
+        client = ModelClient(JujuData('local', juju_home=''), None, None)
         with client_past_deadline(client):
             real_check_timeouts = client.check_timeouts
 
@@ -1242,7 +1242,7 @@ class TestModelClient(ClientTest):
 
     def test_wait_for_resource_checks_deadline(self):
         resource_list = make_resource_list()
-        client = EnvJujuClient(JujuData('local', juju_home=''), None, None)
+        client = ModelClient(JujuData('local', juju_home=''), None, None)
         with client_past_deadline(client):
             with patch.object(client, 'list_resources', autospec=True,
                               return_value=resource_list):
@@ -1250,23 +1250,23 @@ class TestModelClient(ClientTest):
                     client.wait_for_resource('dummy-resource/foo', 'app_unit')
 
     def test_deploy_bundle_2x(self):
-        client = EnvJujuClient(JujuData('an_env', None),
-                               '1.23-series-arch', None)
+        client = ModelClient(JujuData('an_env', None),
+                             '1.23-series-arch', None)
         with patch.object(client, 'juju') as mock_juju:
             client.deploy_bundle('bundle:~juju-qa/some-bundle')
         mock_juju.assert_called_with(
             'deploy', ('bundle:~juju-qa/some-bundle'), timeout=3600)
 
     def test_deploy_bundle_template(self):
-        client = EnvJujuClient(JujuData('an_env', None),
-                               '1.23-series-arch', None)
+        client = ModelClient(JujuData('an_env', None),
+                             '1.23-series-arch', None)
         with patch.object(client, 'juju') as mock_juju:
             client.deploy_bundle('bundle:~juju-qa/some-{container}-bundle')
         mock_juju.assert_called_with(
             'deploy', ('bundle:~juju-qa/some-lxd-bundle'), timeout=3600)
 
     def test_upgrade_charm(self):
-        env = EnvJujuClient(
+        env = ModelClient(
             JujuData('foo', {'type': 'local'}), '2.34-74', None)
         with patch.object(env, 'juju') as mock_juju:
             env.upgrade_charm('foo-service',
@@ -1276,14 +1276,14 @@ class TestModelClient(ClientTest):
                               '/bar/repository/angsty/mongodb',))
 
     def test_remove_service(self):
-        env = EnvJujuClient(
+        env = ModelClient(
             JujuData('foo', {'type': 'local'}), '1.234-76', None)
         with patch.object(env, 'juju') as mock_juju:
             env.remove_service('mondogb')
         mock_juju.assert_called_with('remove-application', ('mondogb',))
 
     def test_status_until_always_runs_once(self):
-        client = EnvJujuClient(
+        client = ModelClient(
             JujuData('foo', {'type': 'local'}), '1.234-76', None)
         status_txt = self.make_status_yaml('agent-state', 'started', 'started')
         with patch.object(client, 'get_juju_output', return_value=status_txt):
@@ -1292,7 +1292,7 @@ class TestModelClient(ClientTest):
             [r.status for r in result], [Status.from_text(status_txt).status])
 
     def test_status_until_timeout(self):
-        client = EnvJujuClient(
+        client = ModelClient(
             JujuData('foo', {'type': 'local'}), '1.234-76', None)
         status_txt = self.make_status_yaml('agent-state', 'started', 'started')
         status_yaml = yaml.safe_load(status_txt)
@@ -1320,7 +1320,7 @@ class TestModelClient(ClientTest):
                 list(client.status_until(0))
 
     def test_add_ssh_machines(self):
-        client = EnvJujuClient(JujuData('foo'), None, 'juju')
+        client = ModelClient(JujuData('foo'), None, 'juju')
         with patch('subprocess.check_call', autospec=True) as cc_mock:
             client.add_ssh_machines(['m-foo', 'm-bar', 'm-baz'])
         assert_juju_call(
@@ -1362,7 +1362,7 @@ class TestModelClient(ClientTest):
         self.assertEqual(1200, condition.timeout)
 
     def test_add_ssh_machines_retry(self):
-        client = EnvJujuClient(JujuData('foo'), None, 'juju')
+        client = ModelClient(JujuData('foo'), None, 'juju')
         with patch('subprocess.check_call', autospec=True,
                    side_effect=[subprocess.CalledProcessError(None, None),
                                 None, None, None]) as cc_mock:
@@ -1399,7 +1399,7 @@ class TestModelClient(ClientTest):
         self.assertEqual(cc_mock.call_count, 4)
 
     def test_add_ssh_machines_fail_on_second_machine(self):
-        client = EnvJujuClient(JujuData('foo'), None, 'juju')
+        client = ModelClient(JujuData('foo'), None, 'juju')
         with patch('subprocess.check_call', autospec=True, side_effect=[
                 None, subprocess.CalledProcessError(None, None), None, None
                 ]) as cc_mock:
@@ -1422,7 +1422,7 @@ class TestModelClient(ClientTest):
         self.assertEqual(cc_mock.call_count, 2)
 
     def test_add_ssh_machines_fail_on_second_attempt(self):
-        client = EnvJujuClient(JujuData('foo'), None, 'juju')
+        client = ModelClient(JujuData('foo'), None, 'juju')
         with patch('subprocess.check_call', autospec=True, side_effect=[
                 subprocess.CalledProcessError(None, None),
                 subprocess.CalledProcessError(None, None)]) as cc_mock:
@@ -1446,13 +1446,13 @@ class TestModelClient(ClientTest):
 
     def test_wait_for_started(self):
         value = self.make_status_yaml('agent-state', 'started', 'started')
-        client = EnvJujuClient(JujuData('local'), None, None)
+        client = ModelClient(JujuData('local'), None, None)
         with patch.object(client, 'get_juju_output', return_value=value):
             client.wait_for_started()
 
     def test_wait_for_started_timeout(self):
         value = self.make_status_yaml('agent-state', 'pending', 'started')
-        client = EnvJujuClient(JujuData('local'), None, None)
+        client = ModelClient(JujuData('local'), None, None)
         with patch('jujupy.client.until_timeout',
                    lambda x, start=None: range(1)):
             with patch.object(client, 'get_juju_output', return_value=value):
@@ -1467,7 +1467,7 @@ class TestModelClient(ClientTest):
 
     def test_wait_for_started_start(self):
         value = self.make_status_yaml('agent-state', 'started', 'pending')
-        client = EnvJujuClient(JujuData('local'), None, None)
+        client = ModelClient(JujuData('local'), None, None)
         now = datetime.now() + timedelta(days=1)
         with patch('utility.until_timeout.now', return_value=now):
             with patch.object(client, 'get_juju_output', return_value=value):
@@ -1496,7 +1496,7 @@ class TestModelClient(ClientTest):
         Also, the client is patched so that the soft_deadline has been hit.
         """
         if client is None:
-            client = EnvJujuClient(JujuData('local', juju_home=''), None, None)
+            client = ModelClient(JujuData('local', juju_home=''), None, None)
         with client_past_deadline(client):
             # This will work even after we patch check_timeouts below.
             real_check_timeouts = client.check_timeouts
@@ -1525,7 +1525,7 @@ class TestModelClient(ClientTest):
         Also, the client is patched so that the soft_deadline has been hit.
         """
         if client is None:
-            client = EnvJujuClient(JujuData('local', juju_home=''), None, None)
+            client = ModelClient(JujuData('local', juju_home=''), None, None)
         with client_past_deadline(client):
             status_obj = client.status_class(status, '')
             with patch.object(client, 'get_status', autospec=True,
@@ -1592,7 +1592,7 @@ class TestModelClient(ClientTest):
 
     def test_wait_for_started_logs_status(self):
         value = self.make_status_yaml('agent-state', 'pending', 'started')
-        client = EnvJujuClient(JujuData('local'), None, None)
+        client = ModelClient(JujuData('local'), None, None)
         with patch.object(client, 'get_juju_output', return_value=value):
             writes = []
             with patch.object(GroupReporter, '_write', autospec=True,
@@ -1625,7 +1625,7 @@ class TestModelClient(ClientTest):
                       sub3/0:
                         agent-state: started
         """)
-        client = EnvJujuClient(JujuData('local'), None, None)
+        client = ModelClient(JujuData('local'), None, None)
         now = datetime.now() + timedelta(days=1)
         with patch('utility.until_timeout.now', return_value=now):
             with patch.object(client, 'get_juju_output', return_value=value):
@@ -1663,7 +1663,7 @@ class TestModelClient(ClientTest):
                         agent-status:
                           current: idle
         """)
-        client = EnvJujuClient(JujuData('local'), None, None)
+        client = ModelClient(JujuData('local'), None, None)
         now = datetime.now() + timedelta(days=1)
         with patch('utility.until_timeout.now', return_value=now):
             with patch.object(client, 'get_juju_output', return_value=value):
@@ -1694,7 +1694,7 @@ class TestModelClient(ClientTest):
                       sub/1:
                         agent-state: started
         """)
-        client = EnvJujuClient(JujuData('local'), None, None)
+        client = ModelClient(JujuData('local'), None, None)
         now = datetime.now() + timedelta(days=1)
         with patch('utility.until_timeout.now', return_value=now):
             with patch.object(client, 'get_juju_output', return_value=value):
@@ -1721,7 +1721,7 @@ class TestModelClient(ClientTest):
                       sub1:
                         agent-state: started
         """)
-        client = EnvJujuClient(JujuData('local'), None, None)
+        client = ModelClient(JujuData('local'), None, None)
         now = datetime.now() + timedelta(days=1)
         with patch('utility.until_timeout.now', return_value=now):
             with patch.object(client, 'get_juju_output', return_value=value):
@@ -1742,7 +1742,7 @@ class TestModelClient(ClientTest):
                   jenkins/0:
                     agent-state: started
         """)
-        client = EnvJujuClient(JujuData('local'), None, None)
+        client = ModelClient(JujuData('local'), None, None)
         now = datetime.now() + timedelta(days=1)
         with patch('utility.until_timeout.now', return_value=now):
             with patch.object(client, 'get_juju_output', return_value=value):
@@ -1768,7 +1768,7 @@ class TestModelClient(ClientTest):
         final_status = Status(copy.deepcopy(initial_status.status), None)
         final_status.status['applications']['jenkins']['units']['jenkins/0'][
             'workload-status']['current'] = 'active'
-        client = EnvJujuClient(JujuData('local'), None, None)
+        client = ModelClient(JujuData('local'), None, None)
         writes = []
         with patch('utility.until_timeout', autospec=True, return_value=[1]):
             with patch.object(client, 'get_status', autospec=True,
@@ -1791,7 +1791,7 @@ class TestModelClient(ClientTest):
                       workload-status:
                         current: unknown
         """)
-        client = EnvJujuClient(JujuData('local'), None, None)
+        client = ModelClient(JujuData('local'), None, None)
         writes = []
         with patch('utility.until_timeout', autospec=True, return_value=[]):
             with patch.object(client, 'get_status', autospec=True,
@@ -1809,7 +1809,7 @@ class TestModelClient(ClientTest):
                   jenkins/0:
                     agent-state: active
         """)
-        client = EnvJujuClient(JujuData('local'), None, None)
+        client = ModelClient(JujuData('local'), None, None)
         writes = []
         with patch('utility.until_timeout', autospec=True, return_value=[]):
             with patch.object(client, 'get_status', autospec=True,
@@ -1820,7 +1820,7 @@ class TestModelClient(ClientTest):
         self.assertEqual(writes, [])
 
     def test_list_models(self):
-        client = EnvJujuClient(JujuData('foo'), None, None)
+        client = ModelClient(JujuData('foo'), None, None)
         with patch.object(client, 'juju') as j_mock:
             client.list_models()
         j_mock.assert_called_once_with(
@@ -1837,7 +1837,7 @@ class TestModelClient(ClientTest):
               owner: admin
             current-model: foo
         """
-        client = EnvJujuClient(JujuData('baz'), None, None)
+        client = ModelClient(JujuData('baz'), None, None)
         with patch.object(client, 'get_juju_output',
                           return_value=data) as gjo_mock:
             models = client.get_models()
@@ -1863,7 +1863,7 @@ class TestModelClient(ClientTest):
               owner: admin
             current-model: foo
         """
-        client = EnvJujuClient(JujuData('foo', {}), None, None)
+        client = ModelClient(JujuData('foo', {}), None, None)
         with patch.object(client, 'get_juju_output', return_value=data):
             model_clients = list(client.iter_model_clients())
         self.assertEqual(2, len(model_clients))
@@ -1877,7 +1877,7 @@ class TestModelClient(ClientTest):
                 {'name': 'bar', 'model-uuid': 'bbbb'}],
             'current-model': 'bar'
         }
-        client = EnvJujuClient(JujuData('foo'), None, None)
+        client = ModelClient(JujuData('foo'), None, None)
         with patch.object(client, 'get_models',
                           return_value=models) as gm_mock:
             controller_name = client.get_controller_model_name()
@@ -1891,13 +1891,13 @@ class TestModelClient(ClientTest):
                 {'name': 'baz', 'model-uuid': 'bbbb'}],
             'current-model': 'bar'
         }
-        client = EnvJujuClient(JujuData('foo'), None, None)
+        client = ModelClient(JujuData('foo'), None, None)
         with patch.object(client, 'get_models', return_value=models):
             controller_name = client.get_controller_model_name()
         self.assertEqual('controller', controller_name)
 
     def test_get_controller_model_name_no_models(self):
-        client = EnvJujuClient(JujuData('foo'), None, None)
+        client = ModelClient(JujuData('foo'), None, None)
         with patch.object(client, 'get_models', return_value={}):
             controller_name = client.get_controller_model_name()
         self.assertEqual('controller', controller_name)
@@ -1923,7 +1923,7 @@ class TestModelClient(ClientTest):
               access: admin
               last-connection: just now
             """.format(uuid=model_uuid))
-        client = EnvJujuClient(JujuData('foo'), None, None)
+        client = ModelClient(JujuData('foo'), None, None)
         with patch.object(client, 'get_juju_output') as m_get_juju_output:
             m_get_juju_output.return_value = yaml_string
             self.assertEqual(
@@ -1956,7 +1956,7 @@ class TestModelClient(ClientTest):
               access: admin
               last-connection: just now""".format(model=controller_model_uuid,
                                                   controller=controller_uuid))
-        client = EnvJujuClient(JujuData('foo'), None, None)
+        client = ModelClient(JujuData('foo'), None, None)
         with patch.object(client, 'get_juju_output') as m_get_juju_output:
             m_get_juju_output.return_value = yaml_string
             self.assertEqual(
@@ -1989,7 +1989,7 @@ class TestModelClient(ClientTest):
             cloud: lxd
             cloud-type: lxd
             region: localhost""".format(uuid=controller_uuid))
-        client = EnvJujuClient(JujuData('foo'), None, None)
+        client = ModelClient(JujuData('foo'), None, None)
         with patch.object(client, 'get_juju_output') as m_get_juju_output:
             m_get_juju_output.return_value = yaml_string
             self.assertEqual(
@@ -2000,7 +2000,7 @@ class TestModelClient(ClientTest):
                 'show-controller', '--format', 'yaml', 'foo', include_e=False)
 
     def test_get_controller_client(self):
-        client = EnvJujuClient(
+        client = ModelClient(
             JujuData('foo', {'bar': 'baz'}, 'myhome'), None, None)
         controller_client = client.get_controller_client()
         controller_env = controller_client.env
@@ -2009,7 +2009,7 @@ class TestModelClient(ClientTest):
             {'bar': 'baz', 'name': 'controller'}, controller_env._config)
 
     def test_list_controllers(self):
-        client = EnvJujuClient(JujuData('foo'), None, None)
+        client = ModelClient(JujuData('foo'), None, None)
         with patch.object(client, 'juju') as j_mock:
             client.list_controllers()
         j_mock.assert_called_once_with('list-controllers', (), include_e=False)
@@ -2020,7 +2020,7 @@ class TestModelClient(ClientTest):
             details:
               api-endpoints: ['10.0.0.1:17070', '10.0.0.2:17070']
         """
-        client = EnvJujuClient(JujuData('foo'), None, None)
+        client = ModelClient(JujuData('foo'), None, None)
         with patch.object(client, 'get_juju_output',
                           return_value=data) as gjo_mock:
             endpoint = client.get_controller_endpoint()
@@ -2034,7 +2034,7 @@ class TestModelClient(ClientTest):
             details:
               api-endpoints: ['[::1]:17070', '[fe80::216:3eff:0:9dc7]:17070']
         """
-        client = EnvJujuClient(JujuData('foo'), None, None)
+        client = ModelClient(JujuData('foo'), None, None)
         with patch.object(client, 'get_juju_output',
                           return_value=data) as gjo_mock:
             endpoint = client.get_controller_endpoint()
@@ -2048,7 +2048,7 @@ class TestModelClient(ClientTest):
             details:
               api-endpoints: ['[::1]:17070', '[fe80::216:3eff:0:9dc7]:17070']
         """
-        client = EnvJujuClient(JujuData('foo', {}), None, None)
+        client = ModelClient(JujuData('foo', {}), None, None)
         controller_client = client.get_controller_client()
         client.env.controller.name = 'bar'
         with patch.object(controller_client, 'get_juju_output',
@@ -2078,7 +2078,7 @@ class TestModelClient(ClientTest):
                 instance-id: juju-dddd-machine-3
                 controller-member-status: has-vote
         """)
-        client = EnvJujuClient(JujuData('foo'), None, None)
+        client = ModelClient(JujuData('foo'), None, None)
         with patch.object(client, 'get_status', autospec=True,
                           return_value=status):
             with patch.object(client, 'get_controller_endpoint', autospec=True,
@@ -2117,7 +2117,7 @@ class TestModelClient(ClientTest):
                 instance-id: juju-aaaa-machine-0
                 controller-member-status: has-vote
         """)
-        client = EnvJujuClient(JujuData('foo'), None, None)
+        client = ModelClient(JujuData('foo'), None, None)
         with patch.object(client, 'get_status', autospec=True,
                           return_value=status):
             with patch.object(client, 'get_controller_endpoint') as gce_mock:
@@ -2138,14 +2138,14 @@ class TestModelClient(ClientTest):
             Machine('0', {}),
             Machine('2', {}),
         ]
-        client = EnvJujuClient(JujuData('foo'), None, None)
+        client = ModelClient(JujuData('foo'), None, None)
         with patch.object(client, 'get_controller_members', autospec=True,
                           return_value=members):
             leader = client.get_controller_leader()
         self.assertEqual(Machine('3', {}), leader)
 
     def make_controller_client(self):
-        client = EnvJujuClient(JujuData('local', {'name': 'test'}), None, None)
+        client = ModelClient(JujuData('local', {'name': 'test'}), None, None)
         return client.get_controller_client()
 
     def test_wait_for_ha(self):
