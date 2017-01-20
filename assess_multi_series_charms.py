@@ -67,7 +67,7 @@ def assess_multi_series_charms(client):
     """Assess multi series charms.
 
     :param client: Juju client.
-    :type client: jujupy.EnvJujuClient
+    :type client: jujupy.ModelClient
     :return: None
     """
     tests = [
@@ -104,7 +104,7 @@ def assert_deploy(client, test, charm_path, repository=None):
     """Deploy a charm and assert a success or fail.
 
     :param client: Juju client
-    :type client: jujupy.EnvJujuClient
+    :type client: jujupy.ModelClient
     :param test: Deploy test data.
     :type  test: Test
     :param charm_dir:
