@@ -90,7 +90,7 @@ def make_machines(client, container_types):
        Two host machines.
        Two of each container_type on one host machine.
        One of each container_type on one host machine.
-    :param client: An EnvJujuClient
+    :param client: A ModelClient
     :param container_types: list of containers to create
     :return: hosts (list), containers {container_type}{host}[containers]
     """
