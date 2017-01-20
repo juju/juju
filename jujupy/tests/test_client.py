@@ -2001,7 +2001,7 @@ class TestEnvJujuClient(ClientTest):
         with patch.object(client, 'get_juju_output',
                           return_value=data) as gjo_mock:
             endpoint = client.get_controller_endpoint()
-        self.assertEqual('10.0.0.1', endpoint)
+        self.assertEqual(('10.0.0.1', '17070'), endpoint)
         gjo_mock.assert_called_once_with(
             'show-controller', 'foo', include_e=False)
 
@@ -2015,7 +2015,7 @@ class TestEnvJujuClient(ClientTest):
         with patch.object(client, 'get_juju_output',
                           return_value=data) as gjo_mock:
             endpoint = client.get_controller_endpoint()
-        self.assertEqual('::1', endpoint)
+        self.assertEqual(('::1', '17070'), endpoint)
         gjo_mock.assert_called_once_with(
             'show-controller', 'foo', include_e=False)
 
@@ -2033,7 +2033,7 @@ class TestEnvJujuClient(ClientTest):
             endpoint = controller_client.get_controller_endpoint()
         gjo.assert_called_once_with('show-controller', 'bar',
                                     include_e=False)
-        self.assertEqual('::1', endpoint)
+        self.assertEqual(('::1', '17070'), endpoint)
 
     def test_get_controller_members(self):
         status = Status.from_text("""\
@@ -2059,7 +2059,7 @@ class TestEnvJujuClient(ClientTest):
         with patch.object(client, 'get_status', autospec=True,
                           return_value=status):
             with patch.object(client, 'get_controller_endpoint', autospec=True,
-                              return_value='10.0.0.3') as gce_mock:
+                              return_value=('10.0.0.3', '17070')) as gce_mock:
                 with patch.object(client, 'get_controller_member_status',
                                   wraps=client.get_controller_member_status,
                                   ) as gcms_mock:

@@ -549,10 +549,9 @@ class EnvJujuClient1X(EnvJujuClientRC):
         return self.env.environment
 
     def get_controller_endpoint(self):
-        """Return the address of the state-server leader."""
+        """Return the host and port of the state-server leader."""
         endpoint = self.get_juju_output('api-endpoints')
-        address, port = split_address_port(endpoint)
-        return address
+        return split_address_port(endpoint)
 
     def upgrade_mongo(self):
         raise UpgradeMongoNotSupported()
