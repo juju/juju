@@ -3821,6 +3821,11 @@ class TestStatusItem(TestCase):
                 "\('0', 'Stuck allocating.  Last message: foo'\)"):
             raise item.to_exception()
 
+    def test_to_exception_allocating_unit(self):
+        item = self.make_status_item(StatusItem.JUJU, '0',
+                                     current='allocating', message='foo')
+        self.assertIs(None, item.to_exception())
+
     def test_to_exception_app_error(self):
         item = self.make_status_item(StatusItem.APPLICATION, '0',
                                      current='error')

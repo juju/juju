@@ -766,9 +766,10 @@ class StatusItem:
         :return: StatusError (or subtype) to represent an error or None
         to show that there is no error."""
         if self.current not in ['error', 'failed', 'down',
-                                'provisioning error', 'allocating']:
-            return None
-
+                                'provisioning error']:
+            if (self.current, self.status_name) != (
+                    'allocating', self.MACHINE):
+                return None
         if self.APPLICATION == self.status_name:
             return AppError(self.item_name, self.message)
         elif self.WORKLOAD == self.status_name:
