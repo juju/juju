@@ -15,7 +15,10 @@ var _ = gc.Suite(&progressSuite{})
 
 func (*progressSuite) TestProgressCmds(c *gc.C) {
 	initCmd := cloudinit.InitProgressCmd()
-	c.Assert(initCmd, gc.Equals, `test -n "$JUJU_PROGRESS_FD" || exec {JUJU_PROGRESS_FD}>&2`)
+	c.Assert(initCmd, gc.Equals,
+		`test -n "$JUJU_PROGRESS_FD" || `+
+			`(exec {JUJU_PROGRESS_FD}>&2) 2>/dev/null && exec {JUJU_PROGRESS_FD}>&2 || `+
+			`JUJU_PROGRESS_FD=2`)
 	logCmd := cloudinit.LogProgressCmd("he'llo\"!")
 	c.Assert(logCmd, gc.Equals, `echo 'he'"'"'llo"!' >&$JUJU_PROGRESS_FD`)
 }

@@ -24,8 +24,16 @@ const progressFdEnvVar = "JUJU_PROGRESS_FD"
 // allow a script to be embedded in another with stderr redirected,
 // in which case InitProgressCmd must precede the redirection.
 func InitProgressCmd() string {
+	// This command may be run by either bash or /bin/sh, the
+	// latter of which does not support named file descriptors.
+	// When running under /bin/sh we don't care about progress
+	// logging, so we can allow it to go to FD 2.
 	return fmt.Sprintf(
-		`test -n "$%s" || exec {%s}>&2`,
+		`test -n "$%s" || `+
+			`(exec {%s}>&2) 2>/dev/null && exec {%s}>&2 || `+
+			`%s=2`,
+		progressFdEnvVar,
+		progressFdEnvVar,
 		progressFdEnvVar,
 		progressFdEnvVar,
 	)
