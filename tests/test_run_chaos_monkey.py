@@ -10,7 +10,7 @@ from mock import (
 
 from chaos import MonkeyRunner
 from jujupy import (
-    EnvJujuClient,
+    ModelClient,
     JujuData,
     )
 from run_chaos_monkey import (
@@ -32,7 +32,7 @@ class TestRunChaosMonkey(TestCase):
         self.assertEqual(args.health_checker, 'baz')
 
     def test_run_while_healthy_or_timeout(self):
-        client = EnvJujuClient(JujuData('foo', {}), None, '/foo')
+        client = ModelClient(JujuData('foo', {}), None, '/foo')
         runner = MonkeyRunner('foo', 'bar', 'script', client, total_timeout=60)
         runner.expire_time = (datetime.now() - timedelta(seconds=1))
         with patch.object(runner, 'is_healthy', autospec=True,
@@ -45,7 +45,7 @@ class TestRunChaosMonkey(TestCase):
         wait_mock.assert_called_once_with()
 
     def test_run_while_healthy_or_timeout_exits_non_zero(self):
-        client = EnvJujuClient(JujuData('foo', {}), None, '/foo')
+        client = ModelClient(JujuData('foo', {}), None, '/foo')
         runner = MonkeyRunner('foo', 'bar', 'script', client, total_timeout=60)
         with patch.object(runner, 'is_healthy', autospec=True,
                           return_value=False):
