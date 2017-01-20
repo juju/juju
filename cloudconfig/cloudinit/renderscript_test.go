@@ -220,7 +220,7 @@ func (s *configureSuite) TestAptUpgrade(c *gc.C) {
 
 func (s *configureSuite) TestAptMirrorWrapper(c *gc.C) {
 	expectedCommands := regexp.QuoteMeta(`
-echo 'Changing apt mirror to http://woat.com' >&9
+echo 'Changing apt mirror to http://woat.com' >&$JUJU_PROGRESS_FD
 old_mirror=$(awk "/^deb .* $(lsb_release -sc) .*main.*\$/{print \$2;exit}" /etc/apt/sources.list)
 new_mirror=http://woat.com
 sed -i s,$old_mirror,$new_mirror, /etc/apt/sources.list
