@@ -22,11 +22,11 @@ from jujucharm import (
     Charm,
     local_charm_path,
 )
+from jujupy import EnvJujuClient
 from jujupy.client import (
     AgentsNotStarted,
     AGENTS_READY,
     coalesce_agent_status,
-    EnvJujuClient,
     get_machine_dns_name,
     LXC_MACHINE,
     LXD_MACHINE,

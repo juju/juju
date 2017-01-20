@@ -23,11 +23,11 @@ from jujuconfig import (
 from jujupy import (
     AuthNotAccepted,
     fake_juju_client,
-    EnvJujuClient as ModelClient,
     InvalidEndpoint,
     JujuData,
     JUJU_DEV_FEATURE_FLAGS,
     JESNotSupported,
+    ModelClient,
     NameNotAccepted,
     SimpleEnvironment,
     Status,

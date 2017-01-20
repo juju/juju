@@ -10,7 +10,6 @@ import yaml
 from jujupy.client import (
     Controller,
     _DEFAULT_BUNDLE_TIMEOUT,
-    EnvJujuClient as ModelClient,
     get_cache_path,
     get_jenv_path,
     get_teardown_timeout,
@@ -21,6 +20,7 @@ from jujupy.client import (
     KVM_MACHINE,
     LXC_MACHINE,
     make_safe_config,
+    ModelClient,
     SimpleEnvironment,
     Status,
     StatusItem,
