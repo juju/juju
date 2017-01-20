@@ -397,6 +397,7 @@ def arg_parser():
     parser.add_argument('--interfaces-to-bridge', help="interfaces to bridge; space delimited", type=str, required=True)
     parser.add_argument('--dry-run', help="dry run, no activation", action='store_true', default=False, required=False)
     parser.add_argument('--bridge-name', help="bridge name", type=str, required=False)
+    parser.add_argument('--bond-raise-delay', help="delay in seconds before raising bonded interfaces", type=int, required=False, default=30)
     parser.add_argument('filename', help="interfaces(5) based filename")
     return parser
 
@@ -455,7 +456,8 @@ def main(args):
         if s.is_logical_interface and s.iface.is_bonded:
             print("working around https://bugs.launchpad.net/ubuntu/+source/ifenslave/+bug/1269921")
             print("working around https://bugs.launchpad.net/juju-core/+bug/1594855")
-            shell_cmd("sleep 3", dry_run=args.dry_run)
+            if args.dry_run and args.dry_run > 0:
+                shell_cmd("sleep {}".format(args.bond_raise_delay, dry_run=args.dry_run))
             break
 
     shell_cmd("cat {}".format(args.filename), dry_run=args.dry_run)
