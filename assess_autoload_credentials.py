@@ -146,9 +146,9 @@ def begin_autoload_test(client_base):
 def ensure_autoload_credentials_stores_details(client_base, cloud_details_fn):
     """Test covering loading and storing credentials using autoload-credentials
 
-    :param client: EnvJujuClient object to use for the test run.
+    :param client: ModelClient object to use for the test run.
     :param cloud_details_fn: A callable that takes the 3 arguments `user`
-      string, `tmp_dir` path string and client EnvJujuClient and will returns a
+      string, `tmp_dir` path string and client ModelClient and will returns a
       `CloudDetails` object used to setup creation of credential details &
       comparison of the result.
 
@@ -173,9 +173,9 @@ def ensure_autoload_credentials_overwrite_existing(client_base,
                                                    cloud_details_fn):
     """Storing credentials using autoload-credentials must overwrite existing.
 
-    :param client: EnvJujuClient object to use for the test run.
+    :param client: ModelClient object to use for the test run.
     :param cloud_details_fn: A callable that takes the 3 arguments `user`
-      string, `tmp_dir` path string and client EnvJujuClient and will returns a
+      string, `tmp_dir` path string and client ModelClient and will returns a
       `CloudDetails` object used to setup creation of credential details &
       comparison of the result.
 
@@ -259,7 +259,7 @@ def run_autoload_credentials(client, envvars, answers):
     Simple interaction, calls juju autoload-credentials selects the first
     option and then quits.
 
-    :param client: EnvJujuClient from which juju will be called.
+    :param client: ModelClient from which juju will be called.
     :param envvars: Dictionary containing environment variables to be used
       during execution.
     :param answers: ExpectAnswers object containing answers for the interactive
