@@ -10,7 +10,7 @@ import yaml
 from jujupy.client import (
     Controller,
     _DEFAULT_BUNDLE_TIMEOUT,
-    EnvJujuClient,
+    EnvJujuClient as ModelClient,
     get_cache_path,
     get_jenv_path,
     get_teardown_timeout,
@@ -122,7 +122,13 @@ class Status1X(Status):
                                      self.condense_status(unit_value))
 
 
-class EnvJujuClientRC(EnvJujuClient):
+class ModelClient2_1(ModelClient):
+    """Client for Juju 2.1"""
+
+    REGION_ENDPOINT_PROMPT = 'Enter the API endpoint url for the region:'
+
+
+class EnvJujuClientRC(ModelClient2_1):
 
     def get_bootstrap_args(
             self, upload_tools, config_filename, bootstrap_series=None,
@@ -668,8 +674,10 @@ def get_client_class(version):
         raise VersionNotTestedError(version)
     elif re.match('^2\.0-rc[1-3]', version):
         client_class = EnvJujuClientRC
+    elif re.match('^2\.[0-1][.-]', version):
+        client_class = ModelClient2_1
     else:
-        client_class = EnvJujuClient
+        client_class = ModelClient
     return client_class
 
 
@@ -683,14 +691,14 @@ def client_from_config(config, juju_path, debug=False, soft_deadline=None):
         normal operations should complete.  If None, no deadline is
         enforced.
     """
-    version = EnvJujuClient.get_version(juju_path)
+    version = ModelClient.get_version(juju_path)
     client_class = get_client_class(str(version))
     if config is None:
         env = client_class.config_class('', {})
     else:
         env = client_class.config_class.from_config(config)
     if juju_path is None:
-        full_path = EnvJujuClient.get_full_path()
+        full_path = ModelClient.get_full_path()
     else:
         full_path = os.path.abspath(juju_path)
     return client_class(env, version, full_path, debug=debug,

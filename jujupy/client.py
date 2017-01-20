@@ -1326,6 +1326,9 @@ class EnvJujuClient:
 
     command_set_all = 'all'
 
+    REGION_ENDPOINT_PROMPT = (
+        r'Enter the API endpoint url for the region \[use cloud api url\]:')
+
     @classmethod
     def preferred_container(cls):
         for container_type in [LXD_MACHINE, LXC_MACHINE]:
@@ -2673,7 +2676,7 @@ class EnvJujuClient:
                     if child.match.group(2) is not None:
                         raise AuthNotAccepted('Auth was not compatible.')
                     child.sendline(name)
-                    child.expect('Enter the API endpoint url for the region:')
+                    child.expect(self.REGION_ENDPOINT_PROMPT)
                     child.sendline(values['endpoint'])
                     child.expect("(Enter another region\? \(Y/n\):)|"
                                  "(Can't validate endpoint)")
