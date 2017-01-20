@@ -4,8 +4,6 @@
 package cloudinit_test
 
 import (
-	"regexp"
-
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloudconfig/cloudinit"
@@ -17,11 +15,7 @@ var _ = gc.Suite(&progressSuite{})
 
 func (*progressSuite) TestProgressCmds(c *gc.C) {
 	initCmd := cloudinit.InitProgressCmd()
-	re := regexp.MustCompile(`test -e /proc/self/fd/([0-9]+) \|\| exec ([0-9]+)>&2`)
-	submatch := re.FindStringSubmatch(initCmd)
-	c.Assert(submatch, gc.HasLen, 3)
-	c.Assert(submatch[0], gc.Equals, initCmd)
-	c.Assert(submatch[1], gc.Equals, submatch[2])
+	c.Assert(initCmd, gc.Equals, `test -n "$JUJU_PROGRESS_FD" || exec {JUJU_PROGRESS_FD}>&2`)
 	logCmd := cloudinit.LogProgressCmd("he'llo\"!")
-	c.Assert(logCmd, gc.Equals, `echo 'he'"'"'llo"!' >&`+submatch[1])
+	c.Assert(logCmd, gc.Equals, `echo 'he'"'"'llo"!' >&$JUJU_PROGRESS_FD`)
 }
