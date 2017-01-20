@@ -125,7 +125,7 @@ def run_perfscale_test(target_test, bs_manager, args):
     for the controller during the test run.
 
     :param target_test: A callable that takes 2 arguments:
-        - EnvJujuClient client object  (bootstrapped)
+        - ModelClient client object  (bootstrapped)
         - argparse args object
       This callable must return a `DeployDetails` object.
 
