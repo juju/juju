@@ -283,7 +283,7 @@ def convert_to_azure_ids(client, instance_ids):
 
     See: https://bugs.launchpad.net/juju-core/+bug/1586089
 
-    :param client: An EnvJujuClient instance.
+    :param client: A ModelClient instance.
     :param instance_ids: a list of Juju machine instance-ids
     :return: A list of ARM VM instance ids.
     """
