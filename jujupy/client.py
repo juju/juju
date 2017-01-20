@@ -671,6 +671,12 @@ class ProvisioningError(MachineError):
     """Machine experianced a 'provisioning error'."""
 
 
+class StuckAllocatingError(MachineError):
+    """Machine did not transition out of 'allocating' state."""
+
+    recoverable = True
+
+
 class UnitError(StatusError):
     """Error in a unit's status."""
 
@@ -707,8 +713,9 @@ class AgentUnresolvedError(AgentError):
 
 
 StatusError.ordering = [
-    ProvisioningError, MachineError, InstallError, AgentUnresolvedError,
-    HookFailedError, UnitError, AppError, AgentError, StatusError,
+    ProvisioningError, StuckAllocatingError, MachineError, InstallError,
+    AgentUnresolvedError, HookFailedError, UnitError, AppError, AgentError,
+    StatusError,
     ]
 
 
@@ -759,7 +766,7 @@ class StatusItem:
         :return: StatusError (or subtype) to represent an error or None
         to show that there is no error."""
         if self.current not in ['error', 'failed', 'down',
-                                'provisioning error']:
+                                'provisioning error', 'allocating']:
             return None
 
         if self.APPLICATION == self.status_name:
@@ -776,6 +783,10 @@ class StatusItem:
         elif self.MACHINE == self.status_name:
             if self.current == 'provisioning error':
                 return ProvisioningError(self.item_name, self.message)
+            if self.current == 'allocating':
+                return StuckAllocatingError(
+                    self.item_name,
+                    'Stuck allocating.  Last message: {}'.format(self.message))
             else:
                 return MachineError(self.item_name, self.message)
         elif self.JUJU == self.status_name:
