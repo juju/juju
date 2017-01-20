@@ -701,7 +701,7 @@ class TestModelClient(ClientTest):
     def test_bootstrap_async_upload_tools(self):
         env = JujuData('foo', {'type': 'bar', 'region': 'baz'})
         with patch.object(ModelClient, 'juju_async', autospec=True) as mock:
-            client = EnvJujuClient(env, '2.0-zeta1', None)
+            client = ModelClient(env, '2.0-zeta1', None)
             with observable_temp_file() as config_file:
                 with client.bootstrap_async(upload_tools=True):
                     mock.assert_called_with(
@@ -715,7 +715,7 @@ class TestModelClient(ClientTest):
 
     def test_get_bootstrap_args_bootstrap_series(self):
         env = JujuData('foo', {'type': 'bar', 'region': 'baz'})
-        client = EnvJujuClient(env, '2.0-zeta1', None)
+        client = ModelClient(env, '2.0-zeta1', None)
         args = client.get_bootstrap_args(upload_tools=True,
                                          config_filename='config',
                                          bootstrap_series='angsty')
@@ -727,7 +727,7 @@ class TestModelClient(ClientTest):
 
     def test_get_bootstrap_args_agent_version(self):
         env = JujuData('foo', {'type': 'bar', 'region': 'baz'})
-        client = EnvJujuClient(env, '2.0-zeta1', None)
+        client = ModelClient(env, '2.0-zeta1', None)
         args = client.get_bootstrap_args(upload_tools=False,
                                          config_filename='config',
                                          agent_version='2.0-lambda1')
@@ -738,7 +738,7 @@ class TestModelClient(ClientTest):
 
     def test_get_bootstrap_args_upload_tools_and_agent_version(self):
         env = JujuData('foo', {'type': 'bar', 'region': 'baz'})
-        client = EnvJujuClient(env, '2.0-zeta1', None)
+        client = ModelClient(env, '2.0-zeta1', None)
         with self.assertRaises(ValueError):
             client.get_bootstrap_args(upload_tools=True,
                                       config_filename='config',
@@ -749,9 +749,9 @@ class TestModelClient(ClientTest):
             'kill-controller', 'add-model', ('-c', 'foo'))
 
     def do_add_model(self, jes_command, create_cmd, controller_option):
-        controller_client = EnvJujuClient(JujuData('foo'), None, None)
+        controller_client = ModelClient(JujuData('foo'), None, None)
         model_data = JujuData('bar', {'type': 'foo'})
-        client = EnvJujuClient(model_data, None, None)
+        client = ModelClient(model_data, None, None)
         with patch.object(client, 'get_jes_command',
                           return_value=jes_command):
                 with patch.object(controller_client, 'juju') as ccj_mock:
@@ -786,12 +786,12 @@ class TestModelClient(ClientTest):
 
     def test_destroy_environment(self):
         env = JujuData('foo')
-        client = EnvJujuClient(env, None, None)
+        client = ModelClient(env, None, None)
         self.assertIs(False, hasattr(client, 'destroy_environment'))
 
     def test_destroy_model(self):
         env = JujuData('foo', {'type': 'ec2'})
-        client = EnvJujuClient(env, None, None)
+        client = ModelClient(env, None, None)
         with patch.object(client, 'juju') as mock:
             client.destroy_model()
         mock.assert_called_with(
@@ -800,7 +800,7 @@ class TestModelClient(ClientTest):
 
     def test_destroy_model_azure(self):
         env = JujuData('foo', {'type': 'azure'})
-        client = EnvJujuClient(env, None, None)
+        client = ModelClient(env, None, None)
         with patch.object(client, 'juju') as mock:
             client.destroy_model()
         mock.assert_called_with(
@@ -809,7 +809,7 @@ class TestModelClient(ClientTest):
 
     def test_destroy_model_gce(self):
         env = JujuData('foo', {'type': 'gce'})
-        client = EnvJujuClient(env, None, None)
+        client = ModelClient(env, None, None)
         with patch.object(client, 'juju') as mock:
             client.destroy_model()
         mock.assert_called_with(
@@ -817,7 +817,7 @@ class TestModelClient(ClientTest):
             include_e=False, timeout=1200)
 
     def test_kill_controller(self):
-        client = EnvJujuClient(JujuData('foo', {'type': 'ec2'}), None, None)
+        client = ModelClient(JujuData('foo', {'type': 'ec2'}), None, None)
         with patch.object(client, 'juju') as juju_mock:
             client.kill_controller()
         juju_mock.assert_called_once_with(
@@ -825,7 +825,7 @@ class TestModelClient(ClientTest):
             timeout=600)
 
     def test_kill_controller_check(self):
-        client = EnvJujuClient(JujuData('foo', {'type': 'ec2'}), None, None)
+        client = ModelClient(JujuData('foo', {'type': 'ec2'}), None, None)
         with patch.object(client, 'juju') as juju_mock:
             client.kill_controller(check=True)
         juju_mock.assert_called_once_with(
@@ -833,7 +833,7 @@ class TestModelClient(ClientTest):
             timeout=600)
 
     def do_kill_controller_azure(self, jes_command, kill_command):
-        client = EnvJujuClient(JujuData('foo', {'type': 'azure'}), None, None)
+        client = ModelClient(JujuData('foo', {'type': 'azure'}), None, None)
         with patch.object(client, 'get_jes_command',
                           return_value=jes_command):
             with patch.object(client, 'juju') as juju_mock:
@@ -843,7 +843,7 @@ class TestModelClient(ClientTest):
             timeout=1800)
 
     def test_kill_controller_gce(self):
-        client = EnvJujuClient(JujuData('foo', {'type': 'gce'}), None, None)
+        client = ModelClient(JujuData('foo', {'type': 'gce'}), None, None)
         with patch.object(client, 'juju') as juju_mock:
             client.kill_controller()
         juju_mock.assert_called_once_with(
@@ -851,7 +851,7 @@ class TestModelClient(ClientTest):
             timeout=1200)
 
     def test_destroy_controller(self):
-        client = EnvJujuClient(JujuData('foo', {'type': 'ec2'}), None, None)
+        client = ModelClient(JujuData('foo', {'type': 'ec2'}), None, None)
         with patch.object(client, 'juju') as juju_mock:
             client.destroy_controller()
         juju_mock.assert_called_once_with(
@@ -859,7 +859,7 @@ class TestModelClient(ClientTest):
             timeout=600)
 
     def test_destroy_controller_all_models(self):
-        client = EnvJujuClient(JujuData('foo', {'type': 'ec2'}), None, None)
+        client = ModelClient(JujuData('foo', {'type': 'ec2'}), None, None)
         with patch.object(client, 'juju') as juju_mock:
             client.destroy_controller(all_models=True)
         juju_mock.assert_called_once_with(
@@ -889,7 +889,7 @@ class TestModelClient(ClientTest):
 
     def test_tear_down(self):
         """Check that a successful tear_down calls destroy."""
-        client = EnvJujuClient(JujuData('foo', {'type': 'gce'}), None, None)
+        client = ModelClient(JujuData('foo', {'type': 'gce'}), None, None)
         with self.mock_tear_down(client) as (mock_destroy, mock_kill):
             client.tear_down()
         mock_destroy.assert_called_once_with(all_models=True)
@@ -897,7 +897,7 @@ class TestModelClient(ClientTest):
 
     def test_tear_down_fall_back(self):
         """Check that tear_down uses kill_controller if destroy fails."""
-        client = EnvJujuClient(JujuData('foo', {'type': 'gce'}), None, None)
+        client = ModelClient(JujuData('foo', {'type': 'gce'}), None, None)
         with self.mock_tear_down(client, True) as (mock_destroy, mock_kill):
             with self.assertRaises(subprocess.CalledProcessError) as err:
                 client.tear_down()
@@ -907,7 +907,7 @@ class TestModelClient(ClientTest):
 
     def test_tear_down_double_fail(self):
         """Check tear_down when both destroy and kill fail."""
-        client = EnvJujuClient(JujuData('foo', {'type': 'gce'}), None, None)
+        client = ModelClient(JujuData('foo', {'type': 'gce'}), None, None)
         with self.mock_tear_down(client, True, True) as (
                 mock_destroy, mock_kill):
             with self.assertRaises(subprocess.CalledProcessError) as err:
@@ -918,7 +918,7 @@ class TestModelClient(ClientTest):
 
     def test_get_juju_output(self):
         env = JujuData('foo')
-        client = EnvJujuClient(env, None, 'juju')
+        client = ModelClient(env, None, 'juju')
         fake_popen = FakePopen('asdf', None, 0)
         with patch('subprocess.Popen', return_value=fake_popen) as mock:
             result = client.get_juju_output('bar')
@@ -929,7 +929,7 @@ class TestModelClient(ClientTest):
     def test_get_juju_output_accepts_varargs(self):
         env = JujuData('foo')
         fake_popen = FakePopen('asdf', None, 0)
-        client = EnvJujuClient(env, None, 'juju')
+        client = ModelClient(env, None, 'juju')
         with patch('subprocess.Popen', return_value=fake_popen) as mock:
             result = client.get_juju_output('bar', 'baz', '--qux')
         self.assertEqual('asdf', result)
@@ -939,7 +939,7 @@ class TestModelClient(ClientTest):
     def test_get_juju_output_stderr(self):
         env = JujuData('foo')
         fake_popen = FakePopen(None, 'Hello!', 1)
-        client = EnvJujuClient(env, None, 'juju')
+        client = ModelClient(env, None, 'juju')
         with self.assertRaises(subprocess.CalledProcessError) as exc:
             with patch('subprocess.Popen', return_value=fake_popen):
                 client.get_juju_output('bar')
@@ -948,7 +948,7 @@ class TestModelClient(ClientTest):
     def test_get_juju_output_merge_stderr(self):
         env = JujuData('foo')
         fake_popen = FakePopen('Err on out', None, 0)
-        client = EnvJujuClient(env, None, 'juju')
+        client = ModelClient(env, None, 'juju')
         with patch('subprocess.Popen', return_value=fake_popen) as mock_popen:
             result = client.get_juju_output('bar', merge_stderr=True)
         self.assertEqual(result, 'Err on out')
@@ -960,7 +960,7 @@ class TestModelClient(ClientTest):
     def test_get_juju_output_full_cmd(self):
         env = JujuData('foo')
         fake_popen = FakePopen(None, 'Hello!', 1)
-        client = EnvJujuClient(env, None, 'juju')
+        client = ModelClient(env, None, 'juju')
         with self.assertRaises(subprocess.CalledProcessError) as exc:
             with patch('subprocess.Popen', return_value=fake_popen):
                 client.get_juju_output('bar', '--baz', 'qux')
@@ -971,7 +971,7 @@ class TestModelClient(ClientTest):
     def test_get_juju_output_accepts_timeout(self):
         env = JujuData('foo')
         fake_popen = FakePopen('asdf', None, 0)
-        client = EnvJujuClient(env, None, 'juju')
+        client = ModelClient(env, None, 'juju')
         with patch('subprocess.Popen', return_value=fake_popen) as po_mock:
             client.get_juju_output('bar', timeout=5)
         self.assertEqual(
@@ -980,7 +980,7 @@ class TestModelClient(ClientTest):
              '--show-log', 'bar', '-m', 'foo:foo'))
 
     def test__shell_environ_juju_data(self):
-        client = EnvJujuClient(
+        client = ModelClient(
             JujuData('baz', {'type': 'ec2'}), '1.25-foobar', 'path', 'asdf')
         env = client._shell_environ()
         self.assertEqual(env['JUJU_DATA'], 'asdf')
@@ -988,7 +988,7 @@ class TestModelClient(ClientTest):
 
     def test_juju_output_supplies_path(self):
         env = JujuData('foo')
-        client = EnvJujuClient(env, None, '/foobar/bar')
+        client = ModelClient(env, None, '/foobar/bar')
 
         def check_path(*args, **kwargs):
             self.assertRegexpMatches(os.environ['PATH'], r'/foobar\:')
@@ -1004,7 +1004,7 @@ class TestModelClient(ClientTest):
                 - c
                 """)
         env = JujuData('foo')
-        client = EnvJujuClient(env, None, None)
+        client = ModelClient(env, None, None)
         with patch.object(client, 'get_juju_output',
                           return_value=output_text) as gjo_mock:
             result = client.get_status()
@@ -1015,7 +1015,7 @@ class TestModelClient(ClientTest):
 
     def test_get_status_retries_on_error(self):
         env = JujuData('foo')
-        client = EnvJujuClient(env, None, None)
+        client = ModelClient(env, None, None)
         client.attempt = 0
 
         def get_juju_output(command, *args, **kwargs):
@@ -1029,7 +1029,7 @@ class TestModelClient(ClientTest):
 
     def test_get_status_raises_on_timeout_1(self):
         env = JujuData('foo')
-        client = EnvJujuClient(env, None, None)
+        client = ModelClient(env, None, None)
 
         def get_juju_output(command, *args, **kwargs):
             raise subprocess.CalledProcessError(1, command)
@@ -1044,7 +1044,7 @@ class TestModelClient(ClientTest):
 
     def test_get_status_raises_on_timeout_2(self):
         env = JujuData('foo')
-        client = EnvJujuClient(env, None, None)
+        client = ModelClient(env, None, None)
         with patch('jujupy.client.until_timeout',
                    return_value=iter([1])) as mock_ut:
             with patch.object(client, 'get_juju_output',
@@ -1055,7 +1055,7 @@ class TestModelClient(ClientTest):
 
     def test_show_model_uses_provided_model_name(self):
         env = JujuData('foo')
-        client = EnvJujuClient(env, None, None)
+        client = ModelClient(env, None, None)
         show_model_output = dedent("""\
             bar:
                 status:
@@ -1074,7 +1074,7 @@ class TestModelClient(ClientTest):
 
     def test_show_model_defaults_to_own_model_name(self):
         env = JujuData('foo')
-        client = EnvJujuClient(env, None, None)
+        client = ModelClient(env, None, None)
         show_model_output = dedent("""\
             foo:
                 status:
@@ -1107,21 +1107,21 @@ class TestModelClient(ClientTest):
         """.format(key, machine_value, unit_value))
 
     def test_deploy_non_joyent(self):
-        env = EnvJujuClient(
+        env = ModelClient(
             JujuData('foo', {'type': 'local'}), '1.234-76', None)
         with patch.object(env, 'juju') as mock_juju:
             env.deploy('mondogb')
         mock_juju.assert_called_with('deploy', ('mondogb',))
 
     def test_deploy_joyent(self):
-        env = EnvJujuClient(
+        env = ModelClient(
             JujuData('foo', {'type': 'local'}), '1.234-76', None)
         with patch.object(env, 'juju') as mock_juju:
             env.deploy('mondogb')
         mock_juju.assert_called_with('deploy', ('mondogb',))
 
     def test_deploy_repository(self):
-        env = EnvJujuClient(
+        env = ModelClient(
             JujuData('foo', {'type': 'local'}), '1.234-76', None)
         with patch.object(env, 'juju') as mock_juju:
             env.deploy('/home/jrandom/repo/mongodb')
@@ -1129,7 +1129,7 @@ class TestModelClient(ClientTest):
             'deploy', ('/home/jrandom/repo/mongodb',))
 
     def test_deploy_to(self):
-        env = EnvJujuClient(
+        env = ModelClient(
             JujuData('foo', {'type': 'local'}), '1.234-76', None)
         with patch.object(env, 'juju') as mock_juju:
             env.deploy('mondogb', to='0')
@@ -1137,7 +1137,7 @@ class TestModelClient(ClientTest):
             'deploy', ('mondogb', '--to', '0'))
 
     def test_deploy_service(self):
-        env = EnvJujuClient(
+        env = ModelClient(
             JujuData('foo', {'type': 'local'}), '1.234-76', None)
         with patch.object(env, 'juju') as mock_juju:
             env.deploy('local:mondogb', service='my-mondogb')
@@ -1145,14 +1145,14 @@ class TestModelClient(ClientTest):
             'deploy', ('local:mondogb', 'my-mondogb',))
 
     def test_deploy_force(self):
-        env = EnvJujuClient(
+        env = ModelClient(
             JujuData('foo', {'type': 'local'}), '1.234-76', None)
         with patch.object(env, 'juju') as mock_juju:
             env.deploy('local:mondogb', force=True)
         mock_juju.assert_called_with('deploy', ('local:mondogb', '--force',))
 
     def test_deploy_series(self):
-        env = EnvJujuClient(
+        env = ModelClient(
             JujuData('foo', {'type': 'local'}), '1.234-76', None)
         with patch.object(env, 'juju') as mock_juju:
             env.deploy('local:blah', series='xenial')
@@ -1160,7 +1160,7 @@ class TestModelClient(ClientTest):
             'deploy', ('local:blah', '--series', 'xenial'))
 
     def test_deploy_resource(self):
-        env = EnvJujuClient(JujuData('foo', {'type': 'local'}), None, None)
+        env = ModelClient(JujuData('foo', {'type': 'local'}), None, None)
         with patch.object(env, 'juju') as mock_juju:
             env.deploy('local:blah', resource='foo=/path/dir')
         mock_juju.assert_called_with(
@@ -1183,14 +1183,14 @@ class TestModelClient(ClientTest):
             'deploy', ('mondogb', '--constraints', 'virt-type=kvm'))
 
     def test_attach(self):
-        env = EnvJujuClient(JujuData('foo', {'type': 'local'}), None, None)
+        env = ModelClient(JujuData('foo', {'type': 'local'}), None, None)
         with patch.object(env, 'juju') as mock_juju:
             env.attach('foo', resource='foo=/path/dir')
         mock_juju.assert_called_with('attach', ('foo', 'foo=/path/dir'))
 
     def test_list_resources(self):
         data = 'resourceid: resource/foo'
-        client = EnvJujuClient(JujuData('local'), None, None)
+        client = ModelClient(JujuData('local'), None, None)
         with patch.object(
                 client, 'get_juju_output', return_value=data) as mock_gjo:
             status = client.list_resources('foo')
@@ -1199,7 +1199,7 @@ class TestModelClient(ClientTest):
             'list-resources', '--format', 'yaml', 'foo', '--details')
 
     def test_wait_for_resource(self):
-        client = EnvJujuClient(JujuData('local'), None, None)
+        client = ModelClient(JujuData('local'), None, None)
         with patch.object(
                 client, 'list_resources',
                 return_value=make_resource_list()) as mock_lr:
@@ -1207,7 +1207,7 @@ class TestModelClient(ClientTest):
         mock_lr.assert_called_once_with('foo')
 
     def test_wait_for_resource_timeout(self):
-        client = EnvJujuClient(JujuData('local'), None, None)
+        client = ModelClient(JujuData('local'), None, None)
         resource_list = make_resource_list()
         resource_list['resources'][0]['expected']['resourceid'] = 'bad_id'
         with patch.object(
