@@ -68,7 +68,7 @@ var (
 	centos7ImageReference = compute.ImageReference{
 		Publisher: to.StringPtr("OpenLogic"),
 		Offer:     to.StringPtr("CentOS"),
-		Sku:       to.StringPtr("7.1"),
+		Sku:       to.StringPtr("7.3"),
 		Version:   to.StringPtr("latest"),
 	}
 
