@@ -11,7 +11,7 @@ import yaml
 
 from jujupy import (
     AuthNotAccepted,
-    EnvJujuClient,
+    ModelClient,
     get_client_class,
     InvalidEndpoint,
     JujuData,
@@ -214,7 +214,7 @@ def parse_args():
 def main():
     args = parse_args()
     juju_bin = args.juju_bin
-    version = EnvJujuClient.get_version(juju_bin)
+    version = ModelClient.get_version(juju_bin)
     client_class = get_client_class(version)
     if client_class.config_class is not JujuData:
         logging.warn('This test does not support old jujus.')
