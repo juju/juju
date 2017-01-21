@@ -197,15 +197,15 @@ func (*localTests) TestPortsToRuleInfo(c *gc.C) {
 	groupId := "groupid"
 	testCases := []struct {
 		about    string
-		ports    []network.PortRange
+		rules    []network.IngressRule
 		expected []neutron.RuleInfoV2
 	}{{
 		about: "single port",
-		ports: []network.PortRange{{
+		rules: network.RulesFromPortRanges([]network.PortRange{{
 			FromPort: 80,
 			ToPort:   80,
 			Protocol: "tcp",
-		}},
+		}}...),
 		expected: []neutron.RuleInfoV2{{
 			Direction:      "ingress",
 			IPProtocol:     "tcp",
@@ -216,11 +216,11 @@ func (*localTests) TestPortsToRuleInfo(c *gc.C) {
 		}},
 	}, {
 		about: "multiple ports",
-		ports: []network.PortRange{{
+		rules: network.RulesFromPortRanges([]network.PortRange{{
 			FromPort: 80,
 			ToPort:   82,
 			Protocol: "tcp",
-		}},
+		}}...),
 		expected: []neutron.RuleInfoV2{{
 			Direction:      "ingress",
 			IPProtocol:     "tcp",
@@ -231,7 +231,7 @@ func (*localTests) TestPortsToRuleInfo(c *gc.C) {
 		}},
 	}, {
 		about: "multiple port ranges",
-		ports: []network.PortRange{{
+		rules: network.RulesFromPortRanges([]network.PortRange{{
 			FromPort: 80,
 			ToPort:   82,
 			Protocol: "tcp",
@@ -239,7 +239,7 @@ func (*localTests) TestPortsToRuleInfo(c *gc.C) {
 			FromPort: 100,
 			ToPort:   120,
 			Protocol: "tcp",
-		}},
+		}}...),
 		expected: []neutron.RuleInfoV2{{
 			Direction:      "ingress",
 			IPProtocol:     "tcp",
@@ -255,35 +255,50 @@ func (*localTests) TestPortsToRuleInfo(c *gc.C) {
 			RemoteIPPrefix: "0.0.0.0/0",
 			ParentGroupId:  groupId,
 		}},
+	}, {
+		about: "source range",
+		rules: []network.IngressRule{network.MustNewIngressRule(
+			"tcp", 80, 100, "192.168.1.0/24", "0.0.0.0/0")},
+		expected: []neutron.RuleInfoV2{{
+			Direction:      "ingress",
+			IPProtocol:     "tcp",
+			PortRangeMin:   80,
+			PortRangeMax:   100,
+			RemoteIPPrefix: "192.168.1.0/24",
+			ParentGroupId:  groupId,
+		}, {
+			Direction:      "ingress",
+			IPProtocol:     "tcp",
+			PortRangeMin:   80,
+			PortRangeMax:   100,
+			RemoteIPPrefix: "0.0.0.0/0",
+			ParentGroupId:  groupId,
+		}},
 	}}
 
 	for i, t := range testCases {
 		c.Logf("test %d: %s", i, t.about)
-		rules := PortsToRuleInfo(groupId, t.ports)
+		rules := PortsToRuleInfo(groupId, t.rules)
 		c.Check(len(rules), gc.Equals, len(t.expected))
 		c.Check(rules, gc.DeepEquals, t.expected)
 	}
 }
 
-func (*localTests) TestRuleMatchesPortRange(c *gc.C) {
+func (*localTests) TestSecGroupMatchesIngressRule(c *gc.C) {
 	proto_tcp := "tcp"
 	proto_udp := "udp"
 	port_80 := 80
 	port_85 := 85
 
 	testCases := []struct {
-		about    string
-		ports    network.PortRange
-		rule     neutron.SecurityGroupRuleV2
-		expected bool
+		about        string
+		rule         network.IngressRule
+		secGroupRule neutron.SecurityGroupRuleV2
+		expected     bool
 	}{{
 		about: "single port",
-		ports: network.PortRange{
-			FromPort: 80,
-			ToPort:   80,
-			Protocol: "tcp",
-		},
-		rule: neutron.SecurityGroupRuleV2{
+		rule:  network.MustNewIngressRule(proto_tcp, 80, 80),
+		secGroupRule: neutron.SecurityGroupRuleV2{
 			IPProtocol:   &proto_tcp,
 			PortRangeMin: &port_80,
 			PortRangeMax: &port_80,
@@ -291,12 +306,8 @@ func (*localTests) TestRuleMatchesPortRange(c *gc.C) {
 		expected: true,
 	}, {
 		about: "multiple port",
-		ports: network.PortRange{
-			FromPort: port_80,
-			ToPort:   port_85,
-			Protocol: proto_tcp,
-		},
-		rule: neutron.SecurityGroupRuleV2{
+		rule:  network.MustNewIngressRule(proto_tcp, 80, 85),
+		secGroupRule: neutron.SecurityGroupRuleV2{
 			IPProtocol:   &proto_tcp,
 			PortRangeMin: &port_80,
 			PortRangeMax: &port_85,
@@ -304,12 +315,8 @@ func (*localTests) TestRuleMatchesPortRange(c *gc.C) {
 		expected: true,
 	}, {
 		about: "nil rule components",
-		ports: network.PortRange{
-			FromPort: port_80,
-			ToPort:   port_85,
-			Protocol: proto_tcp,
-		},
-		rule: neutron.SecurityGroupRuleV2{
+		rule:  network.MustNewIngressRule(proto_tcp, 80, 85),
+		secGroupRule: neutron.SecurityGroupRuleV2{
 			IPProtocol:   nil,
 			PortRangeMin: nil,
 			PortRangeMax: nil,
@@ -317,21 +324,47 @@ func (*localTests) TestRuleMatchesPortRange(c *gc.C) {
 		expected: false,
 	}, {
 		about: "mismatched port range and rule",
-		ports: network.PortRange{
-			FromPort: port_80,
-			ToPort:   port_85,
-			Protocol: proto_tcp,
-		},
-		rule: neutron.SecurityGroupRuleV2{
+		rule:  network.MustNewIngressRule(proto_tcp, 80, 85),
+		secGroupRule: neutron.SecurityGroupRuleV2{
 			IPProtocol:   &proto_udp,
 			PortRangeMin: &port_80,
 			PortRangeMax: &port_80,
 		},
 		expected: false,
+	}, {
+		about: "default RemoteIPPrefix",
+		rule:  network.MustNewIngressRule(proto_tcp, 80, 85),
+		secGroupRule: neutron.SecurityGroupRuleV2{
+			IPProtocol:     &proto_tcp,
+			PortRangeMin:   &port_80,
+			PortRangeMax:   &port_85,
+			RemoteIPPrefix: "0.0.0.0/0",
+		},
+		expected: true,
+	}, {
+		about: "matching RemoteIPPrefix",
+		rule:  network.MustNewIngressRule(proto_tcp, 80, 85, "0.0.0.0/0", "192.168.1.0/24"),
+		secGroupRule: neutron.SecurityGroupRuleV2{
+			IPProtocol:     &proto_tcp,
+			PortRangeMin:   &port_80,
+			PortRangeMax:   &port_85,
+			RemoteIPPrefix: "192.168.1.0/24",
+		},
+		expected: true,
+	}, {
+		about: "non-matching RemoteIPPrefix",
+		rule:  network.MustNewIngressRule(proto_tcp, 80, 85, "0.0.0.0/0", "192.168.1.0/24"),
+		secGroupRule: neutron.SecurityGroupRuleV2{
+			IPProtocol:     &proto_tcp,
+			PortRangeMin:   &port_80,
+			PortRangeMax:   &port_85,
+			RemoteIPPrefix: "192.168.100.0/24",
+		},
+		expected: false,
 	}}
 	for i, t := range testCases {
 		c.Logf("test %d: %s", i, t.about)
-		c.Check(RuleMatchesPortRange(t.rule, t.ports), gc.Equals, t.expected)
+		c.Check(SecGroupMatchesIngressRule(t.secGroupRule, t.rule), gc.Equals, t.expected)
 	}
 }
 

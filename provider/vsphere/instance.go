@@ -72,27 +72,27 @@ func findInst(id instance.Id, instances []instance.Instance) instance.Instance {
 
 // OpenPorts opens the given ports on the instance, which
 // should have been started with the given machine id.
-func (inst *environInstance) OpenPorts(machineID string, ports []network.PortRange) error {
-	return inst.changePorts(true, ports)
+func (inst *environInstance) OpenPorts(machineID string, rules []network.IngressRule) error {
+	return inst.changeIngressRules(true, rules)
 }
 
 // ClosePorts closes the given ports on the instance, which
 // should have been started with the given machine id.
-func (inst *environInstance) ClosePorts(machineID string, ports []network.PortRange) error {
-	return inst.changePorts(false, ports)
+func (inst *environInstance) ClosePorts(machineID string, rules []network.IngressRule) error {
+	return inst.changeIngressRules(false, rules)
 }
 
-// Ports returns the set of ports open on the instance, which
+// IngressRules returns the set of ports open on the instance, which
 // should have been started with the given machine id.
-func (inst *environInstance) Ports(machineID string) ([]network.PortRange, error) {
+func (inst *environInstance) IngressRules(machineID string) ([]network.IngressRule, error) {
 	_, client, err := inst.getInstanceConfigurator()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return client.FindOpenPorts()
+	return client.FindIngressRules()
 }
 
-func (inst *environInstance) changePorts(insert bool, ports []network.PortRange) error {
+func (inst *environInstance) changeIngressRules(insert bool, rules []network.IngressRule) error {
 	if inst.env.ecfg.externalNetwork() == "" {
 		return errors.New("Can't close/open ports without external network")
 	}
@@ -103,7 +103,7 @@ func (inst *environInstance) changePorts(insert bool, ports []network.PortRange)
 
 	for _, addr := range addresses {
 		if addr.Scope == network.ScopePublic {
-			err = client.ChangePorts(addr.Value, insert, ports)
+			err = client.ChangeIngressRules(addr.Value, insert, rules)
 			if err != nil {
 				return errors.Trace(err)
 			}

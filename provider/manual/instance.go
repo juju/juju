@@ -38,14 +38,14 @@ func (inst manualBootstrapInstance) Addresses() (addresses []network.Address, er
 	return []network.Address{addr}, nil
 }
 
-func (manualBootstrapInstance) OpenPorts(machineId string, ports []network.PortRange) error {
+func (manualBootstrapInstance) OpenPorts(machineId string, rules []network.IngressRule) error {
 	return nil
 }
 
-func (manualBootstrapInstance) ClosePorts(machineId string, ports []network.PortRange) error {
+func (manualBootstrapInstance) ClosePorts(machineId string, rules []network.IngressRule) error {
 	return nil
 }
 
-func (manualBootstrapInstance) Ports(machineId string) ([]network.PortRange, error) {
+func (manualBootstrapInstance) IngressRules(machineId string) ([]network.IngressRule, error) {
 	return nil, nil
 }

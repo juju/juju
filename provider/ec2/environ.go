@@ -1111,21 +1111,26 @@ func (e *environ) allControllerManagedVolumes(controllerUUID string) ([]string, 
 	return listVolumes(e.ec2, filter)
 }
 
-func portsToIPPerms(ports []network.PortRange) []ec2.IPPerm {
-	ipPerms := make([]ec2.IPPerm, len(ports))
-	for i, p := range ports {
+func rulesToIPPerms(rules []network.IngressRule) []ec2.IPPerm {
+	ipPerms := make([]ec2.IPPerm, len(rules))
+	for i, r := range rules {
 		ipPerms[i] = ec2.IPPerm{
-			Protocol:  p.Protocol,
-			FromPort:  p.FromPort,
-			ToPort:    p.ToPort,
-			SourceIPs: []string{"0.0.0.0/0"},
+			Protocol: r.Protocol,
+			FromPort: r.FromPort,
+			ToPort:   r.ToPort,
+		}
+		if len(r.SourceCIDRs) == 0 {
+			ipPerms[i].SourceIPs = []string{defaultRouteCIDRBlock}
+		} else {
+			ipPerms[i].SourceIPs = make([]string, len(r.SourceCIDRs))
+			copy(ipPerms[i].SourceIPs, r.SourceCIDRs)
 		}
 	}
 	return ipPerms
 }
 
-func (e *environ) openPortsInGroup(name string, ports []network.PortRange) error {
-	if len(ports) == 0 {
+func (e *environ) openPortsInGroup(name string, rules []network.IngressRule) error {
+	if len(rules) == 0 {
 		return nil
 	}
 	// Give permissions for anyone to access the given ports.
@@ -1133,10 +1138,10 @@ func (e *environ) openPortsInGroup(name string, ports []network.PortRange) error
 	if err != nil {
 		return err
 	}
-	ipPerms := portsToIPPerms(ports)
+	ipPerms := rulesToIPPerms(rules)
 	_, err = e.ec2.AuthorizeSecurityGroup(g, ipPerms)
 	if err != nil && ec2ErrCode(err) == "InvalidPermission.Duplicate" {
-		if len(ports) == 1 {
+		if len(rules) == 1 {
 			return nil
 		}
 		// If there's more than one port and we get a duplicate error,
@@ -1157,8 +1162,8 @@ func (e *environ) openPortsInGroup(name string, ports []network.PortRange) error
 	return nil
 }
 
-func (e *environ) closePortsInGroup(name string, ports []network.PortRange) error {
-	if len(ports) == 0 {
+func (e *environ) closePortsInGroup(name string, rules []network.IngressRule) error {
+	if len(rules) == 0 {
 		return nil
 	}
 	// Revoke permissions for anyone to access the given ports.
@@ -1168,60 +1173,60 @@ func (e *environ) closePortsInGroup(name string, ports []network.PortRange) erro
 	if err != nil {
 		return err
 	}
-	_, err = e.ec2.RevokeSecurityGroup(g, portsToIPPerms(ports))
+	_, err = e.ec2.RevokeSecurityGroup(g, rulesToIPPerms(rules))
 	if err != nil {
 		return fmt.Errorf("cannot close ports: %v", err)
 	}
 	return nil
 }
 
-func (e *environ) portsInGroup(name string) (ports []network.PortRange, err error) {
+func (e *environ) ingressRulesInGroup(name string) (rules []network.IngressRule, err error) {
 	group, err := e.groupInfoByName(name)
 	if err != nil {
 		return nil, err
 	}
 	for _, p := range group.IPPerms {
-		if len(p.SourceIPs) != 1 {
-			logger.Errorf("expected exactly one IP permission, found: %v", p)
-			continue
+		ips := p.SourceIPs
+		if len(ips) == 1 && ips[0] == defaultRouteCIDRBlock {
+			ips = nil
 		}
-		ports = append(ports, network.PortRange{
-			Protocol: p.Protocol,
-			FromPort: p.FromPort,
-			ToPort:   p.ToPort,
-		})
+		rule, err := network.NewIngressRule(p.Protocol, p.FromPort, p.ToPort, ips...)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		rules = append(rules, rule)
 	}
-	network.SortPortRanges(ports)
-	return ports, nil
+	network.SortIngressRules(rules)
+	return rules, nil
 }
 
-func (e *environ) OpenPorts(ports []network.PortRange) error {
+func (e *environ) OpenPorts(rules []network.IngressRule) error {
 	if e.Config().FirewallMode() != config.FwGlobal {
 		return errors.Errorf("invalid firewall mode %q for opening ports on model", e.Config().FirewallMode())
 	}
-	if err := e.openPortsInGroup(e.globalGroupName(), ports); err != nil {
+	if err := e.openPortsInGroup(e.globalGroupName(), rules); err != nil {
 		return errors.Trace(err)
 	}
-	logger.Infof("opened ports in global group: %v", ports)
+	logger.Infof("opened ports in global group: %v", rules)
 	return nil
 }
 
-func (e *environ) ClosePorts(ports []network.PortRange) error {
+func (e *environ) ClosePorts(rules []network.IngressRule) error {
 	if e.Config().FirewallMode() != config.FwGlobal {
 		return errors.Errorf("invalid firewall mode %q for closing ports on model", e.Config().FirewallMode())
 	}
-	if err := e.closePortsInGroup(e.globalGroupName(), ports); err != nil {
+	if err := e.closePortsInGroup(e.globalGroupName(), rules); err != nil {
 		return errors.Trace(err)
 	}
-	logger.Infof("closed ports in global group: %v", ports)
+	logger.Infof("closed ports in global group: %v", rules)
 	return nil
 }
 
-func (e *environ) Ports() ([]network.PortRange, error) {
+func (e *environ) IngressRules() ([]network.IngressRule, error) {
 	if e.Config().FirewallMode() != config.FwGlobal {
-		return nil, errors.Errorf("invalid firewall mode %q for retrieving ports from model", e.Config().FirewallMode())
+		return nil, errors.Errorf("invalid firewall mode %q for retrieving ingress rules from model", e.Config().FirewallMode())
 	}
-	return e.portsInGroup(e.globalGroupName())
+	return e.ingressRulesInGroup(e.globalGroupName())
 }
 
 func (*environ) Provider() environs.EnvironProvider {

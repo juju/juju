@@ -47,17 +47,17 @@ func (kvm *kvmInstance) Addresses() ([]network.Address, error) {
 }
 
 // OpenPorts implements instance.Instance.OpenPorts.
-func (kvm *kvmInstance) OpenPorts(machineId string, ports []network.PortRange) error {
+func (kvm *kvmInstance) OpenPorts(machineId string, rules []network.IngressRule) error {
 	return fmt.Errorf("not implemented")
 }
 
 // ClosePorts implements instance.Instance.ClosePorts.
-func (kvm *kvmInstance) ClosePorts(machineId string, ports []network.PortRange) error {
+func (kvm *kvmInstance) ClosePorts(machineId string, rules []network.IngressRule) error {
 	return fmt.Errorf("not implemented")
 }
 
-// Ports implements instance.Instance.Ports.
-func (kvm *kvmInstance) Ports(machineId string) ([]network.PortRange, error) {
+// IngressRules implements instance.Instance.IngressRules.
+func (kvm *kvmInstance) IngressRules(machineId string) ([]network.IngressRule, error) {
 	return nil, fmt.Errorf("not implemented")
 }
 

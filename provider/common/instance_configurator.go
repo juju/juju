@@ -26,10 +26,10 @@ type InstanceConfigurator interface {
 	ConfigureExternalIpAddress(apiPort int) error
 
 	// Open or close ports.
-	ChangePorts(ipAddress string, insert bool, ports []network.PortRange) error
+	ChangeIngressRules(ipAddress string, insert bool, rules []network.IngressRule) error
 
-	// List all opened ports.
-	FindOpenPorts() ([]network.PortRange, error)
+	// List all ingress rules.
+	FindIngressRules() ([]network.IngressRule, error)
 
 	// Add Ip address.
 	AddIpAddress(nic string, addr string) error
@@ -93,14 +93,14 @@ sudo iptables -i eth1 -I INPUT -m state --state NEW -j DROP`
 	return nil
 }
 
-// ChangePorts implements InstanceConfigurator interface.
-func (c *sshInstanceConfigurator) ChangePorts(ipAddress string, insert bool, ports []network.PortRange) error {
+// ChangeIngressRules implements InstanceConfigurator interface.
+func (c *sshInstanceConfigurator) ChangeIngressRules(ipAddress string, insert bool, rules []network.IngressRule) error {
 	cmd := ""
 	insertArg := "-I"
 	if !insert {
 		insertArg = "-D"
 	}
-	for _, port := range ports {
+	for _, port := range rules {
 		if port.ToPort-port.FromPort > 0 {
 			cmd += fmt.Sprintf("sudo iptables -d %s %s INPUT -p %s --match multiport --dports %d:%d -j ACCEPT\n", ipAddress, insertArg, port.Protocol, port.FromPort, port.ToPort)
 		} else {
@@ -119,8 +119,8 @@ func (c *sshInstanceConfigurator) ChangePorts(ipAddress string, insert bool, por
 	return nil
 }
 
-// FindOpenPorts implements InstanceConfigurator interface.
-func (c *sshInstanceConfigurator) FindOpenPorts() ([]network.PortRange, error) {
+// FindIngressRules implements InstanceConfigurator interface.
+func (c *sshInstanceConfigurator) FindIngressRules() ([]network.IngressRule, error) {
 	cmd := "sudo iptables -L INPUT -n"
 	command := c.client.Command(c.host, []string{"/bin/bash"}, c.options)
 	command.Stdin = strings.NewReader(cmd)
@@ -136,7 +136,7 @@ func (c *sshInstanceConfigurator) FindOpenPorts() ([]network.PortRange, error) {
 	//ACCEPT     tcp  --  0.0.0.0/0            192.168.0.1  multiport dports 3456:3458
 	//ACCEPT     tcp  --  0.0.0.0/0            192.168.0.2  tcp dpt:12345
 
-	res := make([]network.PortRange, 0)
+	res := make([]network.IngressRule, 0)
 	var addSinglePortRange = func(items []string) {
 		ports := strings.Split(items[6], ":")
 		if len(ports) != 2 {
@@ -147,11 +147,7 @@ func (c *sshInstanceConfigurator) FindOpenPorts() ([]network.PortRange, error) {
 			return
 		}
 
-		res = append(res, network.PortRange{
-			Protocol: items[1],
-			FromPort: int(to),
-			ToPort:   int(to),
-		})
+		res = append(res, network.NewOpenIngressRule(items[1], int(to), int(to)))
 	}
 	var addMultiplePortRange = func(items []string) {
 		ports := strings.Split(items[7], ":")
@@ -167,11 +163,7 @@ func (c *sshInstanceConfigurator) FindOpenPorts() ([]network.PortRange, error) {
 			return
 		}
 
-		res = append(res, network.PortRange{
-			Protocol: items[1],
-			FromPort: int(from),
-			ToPort:   int(to),
-		})
+		res = append(res, network.NewOpenIngressRule(items[1], int(from), int(to)))
 	}
 
 	for i, line := range strings.Split(string(output), "\n") {

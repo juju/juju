@@ -57,10 +57,10 @@ func (s ByIPProtocol) Less(i, j int) bool {
 }
 
 func (s *networkSuite) TestFirewallSpec(c *gc.C) {
-	ports := network.NewPortSet(
-		network.MustParsePortRange("80-81/tcp"),
-		network.MustParsePortRange("8888/tcp"),
-		network.MustParsePortRange("1234/udp"),
+	ports := network.NewRuleSet(
+		network.RulesFromPortRanges(network.MustParsePortRange("80-81/tcp"),
+			network.MustParsePortRange("8888/tcp"),
+			network.MustParsePortRange("1234/udp"))...,
 	)
 	fw := google.FirewallSpec("spam", ports)
 

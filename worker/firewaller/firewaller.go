@@ -307,7 +307,7 @@ func (fw *Firewaller) startService(service *firewaller.Application) error {
 // units and services with the opened and closed ports globally and
 // opens and closes the appropriate ports for the whole environment.
 func (fw *Firewaller) reconcileGlobal() error {
-	initialPortRanges, err := fw.environ.Ports()
+	initialPortRanges, err := fw.environ.IngressRules()
 	if err != nil {
 		return err
 	}
@@ -329,18 +329,18 @@ func (fw *Firewaller) reconcileGlobal() error {
 		wantedPorts = append(wantedPorts, port)
 	}
 	// Check which ports to open or to close.
-	toOpen := diffRanges(wantedPorts, initialPortRanges)
-	toClose := diffRanges(initialPortRanges, wantedPorts)
+	toOpen := diffRanges(wantedPorts, network.PortRangesFromRules(initialPortRanges))
+	toClose := diffRanges(network.PortRangesFromRules(initialPortRanges), wantedPorts)
 	if len(toOpen) > 0 {
 		logger.Infof("opening global ports %v", toOpen)
-		if err := fw.environ.OpenPorts(toOpen); err != nil {
+		if err := fw.environ.OpenPorts(network.RulesFromPortRanges(toOpen...)); err != nil {
 			return err
 		}
 		network.SortPortRanges(toOpen)
 	}
 	if len(toClose) > 0 {
 		logger.Infof("closing global ports %v", toClose)
-		if err := fw.environ.ClosePorts(toClose); err != nil {
+		if err := fw.environ.ClosePorts(network.RulesFromPortRanges(toClose...)); err != nil {
 			return err
 		}
 		network.SortPortRanges(toClose)
@@ -379,18 +379,18 @@ func (fw *Firewaller) reconcileInstances() error {
 			return err
 		}
 		machineId := machined.tag.Id()
-		initialPortRanges, err := instances[0].Ports(machineId)
+		initialRules, err := instances[0].IngressRules(machineId)
 		if err != nil {
 			return err
 		}
 
 		// Check which ports to open or to close.
-		toOpen := diffRanges(machined.openedPorts, initialPortRanges)
-		toClose := diffRanges(initialPortRanges, machined.openedPorts)
+		toOpen := diffRanges(machined.openedPorts, network.PortRangesFromRules(initialRules))
+		toClose := diffRanges(network.PortRangesFromRules(initialRules), machined.openedPorts)
 		if len(toOpen) > 0 {
 			logger.Infof("opening instance port ranges %v for %q",
 				toOpen, machined.tag)
-			if err := instances[0].OpenPorts(machineId, toOpen); err != nil {
+			if err := instances[0].OpenPorts(machineId, network.RulesFromPortRanges(toOpen...)); err != nil {
 				// TODO(mue) Add local retry logic.
 				return err
 			}
@@ -399,7 +399,7 @@ func (fw *Firewaller) reconcileInstances() error {
 		if len(toClose) > 0 {
 			logger.Infof("closing instance port ranges %v for %q",
 				toClose, machined.tag)
-			if err := instances[0].ClosePorts(machineId, toClose); err != nil {
+			if err := instances[0].ClosePorts(machineId, network.RulesFromPortRanges(toClose...)); err != nil {
 				// TODO(mue) Add local retry logic.
 				return err
 			}
@@ -566,7 +566,7 @@ func (fw *Firewaller) flushGlobalPorts(rawOpen, rawClose []network.PortRange) er
 	}
 	// Open and close the ports.
 	if len(toOpen) > 0 {
-		if err := fw.environ.OpenPorts(toOpen); err != nil {
+		if err := fw.environ.OpenPorts(network.RulesFromPortRanges(toOpen...)); err != nil {
 			// TODO(mue) Add local retry logic.
 			return err
 		}
@@ -574,7 +574,7 @@ func (fw *Firewaller) flushGlobalPorts(rawOpen, rawClose []network.PortRange) er
 		logger.Infof("opened port ranges %v in environment", toOpen)
 	}
 	if len(toClose) > 0 {
-		if err := fw.environ.ClosePorts(toClose); err != nil {
+		if err := fw.environ.ClosePorts(network.RulesFromPortRanges(toClose...)); err != nil {
 			// TODO(mue) Add local retry logic.
 			return err
 		}
@@ -611,7 +611,7 @@ func (fw *Firewaller) flushInstancePorts(machined *machineData, toOpen, toClose 
 	}
 	// Open and close the ports.
 	if len(toOpen) > 0 {
-		if err := instances[0].OpenPorts(machineId, toOpen); err != nil {
+		if err := instances[0].OpenPorts(machineId, network.RulesFromPortRanges(toOpen...)); err != nil {
 			// TODO(mue) Add local retry logic.
 			return err
 		}
@@ -619,7 +619,7 @@ func (fw *Firewaller) flushInstancePorts(machined *machineData, toOpen, toClose 
 		logger.Infof("opened port ranges %v on %q", toOpen, machined.tag)
 	}
 	if len(toClose) > 0 {
-		if err := instances[0].ClosePorts(machineId, toClose); err != nil {
+		if err := instances[0].ClosePorts(machineId, network.RulesFromPortRanges(toClose...)); err != nil {
 			// TODO(mue) Add local retry logic.
 			return err
 		}

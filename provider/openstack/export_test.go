@@ -514,8 +514,8 @@ func ResolveNetwork(e environs.Environ, networkName string) (string, error) {
 	return e.(*Environ).networking.ResolveNetwork(networkName)
 }
 
-var PortsToRuleInfo = portsToRuleInfo
-var RuleMatchesPortRange = ruleMatchesPortRange
+var PortsToRuleInfo = rulesToRuleInfo
+var SecGroupMatchesIngressRule = secGroupMatchesIngressRule
 
 var MakeServiceURL = &makeServiceURL
 
