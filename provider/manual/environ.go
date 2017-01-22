@@ -177,8 +177,8 @@ func (e *manualEnviron) verifyBootstrapHost() error {
 	return nil
 }
 
-// MoveInstancesToController implements environs.Environ.
-func (e *manualEnviron) MoveInstancesToController(ids []instance.Id, controllerUUID string) error {
+// AdoptInstances implements environs.Environ.
+func (e *manualEnviron) AdoptInstances(ids []instance.Id, controllerUUID string) error {
 	// This provider doesn't track instance -> controller.
 	return nil
 }

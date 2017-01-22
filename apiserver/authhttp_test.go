@@ -24,7 +24,6 @@ import (
 
 	apitesting "github.com/juju/juju/api/testing"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cert"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
@@ -54,17 +53,6 @@ type authHTTPSuite struct {
 	userTag      names.UserTag
 	password     string
 	extraHeaders map[string]string
-}
-
-func (s *authHTTPSuite) SetUpSuite(c *gc.C) {
-	if s.macaroonAuthEnabled {
-		s.MacaroonSuite.SetUpSuite(c)
-	} else {
-		// No macaroons, so don't enable them.
-		s.JujuConnSuite.SetUpSuite(c)
-	}
-	s.PatchValue(&cert.NewCA, testing.NewCA)
-	s.PatchValue(&cert.NewLeafKeyBits, 512)
 }
 
 func (s *authHTTPSuite) SetUpTest(c *gc.C) {

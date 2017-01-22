@@ -202,8 +202,8 @@ func (s *environInstSuite) TestListMachineTypes(c *gc.C) {
 
 }
 
-func (s *environInstSuite) TestMoveInstancesToController(c *gc.C) {
-	err := s.Env.MoveInstancesToController([]instance.Id{"john", "misty"}, "other-uuid")
+func (s *environInstSuite) TestAdoptInstances(c *gc.C) {
+	err := s.Env.AdoptInstances([]instance.Id{"john", "misty"}, "other-uuid")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.FakeConn.Calls, gc.HasLen, 1)
 	call := s.FakeConn.Calls[0]

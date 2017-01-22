@@ -122,8 +122,8 @@ func (env *environ) ControllerInstances(controllerUUID string) ([]instance.Id, e
 	return results, nil
 }
 
-// MoveInstancesToController is part of the environs.Environ interface.
-func (env *environ) MoveInstancesToController(ids []instance.Id, controllerUUID string) error {
+// AdoptInstances is part of the environs.Environ interface.
+func (env *environ) AdoptInstances(ids []instance.Id, controllerUUID string) error {
 	stringIds := make([]string, len(ids))
 	for i, id := range ids {
 		stringIds[i] = string(id)

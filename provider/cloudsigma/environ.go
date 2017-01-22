@@ -103,8 +103,8 @@ func (e *environ) ControllerInstances(controllerUUID string) ([]instance.Id, err
 	return e.client.getControllerIds()
 }
 
-// MoveInstancesToController is part of the Environ interface.
-func (e *environ) MoveInstancesToController(ids []instance.Id, controllerUUID string) error {
+// AdoptInstances is part of the Environ interface.
+func (e *environ) AdoptInstances(ids []instance.Id, controllerUUID string) error {
 	// This provider doesn't track instance -> controller.
 	return nil
 }
