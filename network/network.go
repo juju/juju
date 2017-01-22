@@ -58,6 +58,10 @@ const UnknownId = ""
 // DefaultLXDBridge is the bridge that gets used for LXD containers
 const DefaultLXDBridge = "lxdbr0"
 
+// DefaultKVMBridge is the bridge that is set up by installing libvirt-bin
+// Note: we don't import this from 'container' to avoid import loops
+const DefaultKVMBridge = "virbr0"
+
 var dashPrefix = regexp.MustCompile("^-*")
 var dashSuffix = regexp.MustCompile("-*$")
 var multipleDashes = regexp.MustCompile("--+")
@@ -438,17 +442,28 @@ func filterLXCAddresses(addresses []Address) []Address {
 	return addresses
 }
 
+func filterBridgeAddresses(bridgeName string, addresses []Address) []Address {
+	// Should we be getting this from LXD instead?
+	addrs, err := InterfaceByNameAddrs(bridgeName)
+	if err != nil {
+		logger.Debugf("cannot get %q addresses: %v (ignoring)", bridgeName, err)
+		return addresses
+	}
+	logger.Debugf("%q has addresses %v", bridgeName, addrs)
+	return filterAddrs(bridgeName, addresses, addrs)
+
+}
+
 // filterLXDAddresses removes addresses on the LXD bridge from the list to be
 // considered.
 func filterLXDAddresses(addresses []Address) []Address {
-	// Should we be getting this from LXD instead?
-	addrs, err := InterfaceByNameAddrs(DefaultLXDBridge)
-	if err != nil {
-		logger.Warningf("cannot get %q addresses: %v (ignoring)", DefaultLXDBridge, err)
-		return addresses
-	}
-	logger.Debugf("%q has addresses %v", DefaultLXDBridge, addrs)
-	return filterAddrs(DefaultLXDBridge, addresses, addrs)
+	return filterBridgeAddresses(DefaultLXDBridge, addresses)
+}
+
+// filterKVMAddresses removes addresses on the default KVM bridge from the list
+// to be considered.
+func filterKVMAddresses(addresses []Address) []Address {
+	return filterBridgeAddresses(DefaultKVMBridge, addresses)
 
 }
 
@@ -458,5 +473,6 @@ func filterLXDAddresses(addresses []Address) []Address {
 func FilterBridgeAddresses(addresses []Address) []Address {
 	addresses = filterLXCAddresses(addresses)
 	addresses = filterLXDAddresses(addresses)
+	addresses = filterKVMAddresses(addresses)
 	return addresses
 }
