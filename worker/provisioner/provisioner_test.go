@@ -556,7 +556,7 @@ func (s *ProvisionerSuite) waitUntilMachineNotPending(c *gc.C, m *state.Machine)
 		}
 		return agentStatusInfo, instanceStatusInfo
 	}
-	c.Fatal("machine %q stayed in pending", m.Id())
+	c.Fatalf("machine %q stayed in pending", m.Id())
 	// Satisfy Go, Fatal should be a panic anyway
 	return status.StatusInfo{}, status.StatusInfo{}
 }
