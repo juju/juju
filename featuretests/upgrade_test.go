@@ -225,11 +225,16 @@ func (s *upgradeSuite) newAgent(c *gc.C, m *state.Machine) *agentcmd.MachineAgen
 		agentConf,
 		logger,
 		agentcmd.DefaultIntrospectionSocketName,
+		noPreUpgradeSteps,
 		c.MkDir(),
 	)
 	a, err := machineAgentFactory(m.Id())
 	c.Assert(err, jc.ErrorIsNil)
 	return a
+}
+
+func noPreUpgradeSteps(_ *state.State, _ agent.Config, isController, isMaster bool) error {
+	return nil
 }
 
 // TODO(mjs) - the following should maybe be part of AgentSuite

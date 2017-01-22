@@ -5,6 +5,7 @@ package peergrouper
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/juju/errors"
@@ -170,6 +171,7 @@ func (w *pgWorker) loop() error {
 	retryInterval := initialRetryInterval
 
 	for {
+		logger.Tracef("waiting...")
 		select {
 		case <-w.catacomb.Dying():
 			return w.catacomb.ErrDying()
@@ -182,6 +184,7 @@ func (w *pgWorker) loop() error {
 			if changed {
 				// A controller machine was added or removed, update
 				// the replica set immediately.
+				logger.Tracef("controller added or removed, update replica now")
 				updateChan = w.clock.After(0)
 			}
 
@@ -458,6 +461,18 @@ type replicaSetError struct {
 	error
 }
 
+func prettyReplicaSetMembers(members []replicaset.Member) string {
+	var result []string
+	for _, member := range members {
+		vote := true
+		if member.Votes != nil && *member.Votes == 0 {
+			vote = false
+		}
+		result = append(result, fmt.Sprintf("    Id: %d, Tags: %v, Vote: %v", member.Id, member.Tags, vote))
+	}
+	return strings.Join(result, "\n")
+}
+
 // updateReplicaset sets the current replica set members, and applies the
 // given voting status to machines in the state.
 func (w *pgWorker) updateReplicaset() error {
@@ -469,10 +484,16 @@ func (w *pgWorker) updateReplicaset() error {
 	if err != nil {
 		return fmt.Errorf("cannot compute desired peer group: %v", err)
 	}
-	if members != nil {
-		logger.Debugf("desired peer group members: %#v", members)
-	} else {
-		logger.Debugf("no change in desired peer group (voting %#v)", voting)
+	if logger.IsDebugEnabled() {
+		if members != nil {
+			logger.Debugf("desired peer group members: \n%s", prettyReplicaSetMembers(members))
+		} else {
+			var output []string
+			for m, v := range voting {
+				output = append(output, fmt.Sprintf("  %s: %v", m.id, v))
+			}
+			logger.Debugf("no change in desired peer group, voting: \n%s", strings.Join(output, "\n"))
+		}
 	}
 
 	// We cannot change the HasVote flag of a machine in state at exactly
@@ -518,7 +539,7 @@ func (w *pgWorker) updateReplicaset() error {
 			}
 			return &replicaSetError{err}
 		}
-		logger.Infof("successfully changed replica set to %#v", members)
+		logger.Infof("successfully updated replica set")
 	}
 	if err := setHasVote(removed, false); err != nil {
 		return errors.Annotate(err, "cannot set HasVote removed")

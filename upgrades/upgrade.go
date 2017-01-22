@@ -37,6 +37,12 @@ type Operation interface {
 	Steps() []Step
 }
 
+// OperationSource provides a means of obtaining upgrade operations.
+type OperationSource interface {
+	// UpgradeOperations returns Operations to run during upgrade.
+	UpgradeOperations() []Operation
+}
+
 // Target defines the type of machine for which a particular upgrade
 // step can be run.
 type Target string
@@ -83,13 +89,6 @@ func (e *upgradeError) Error() string {
 	return fmt.Sprintf("%s: %v", e.description, e.err)
 }
 
-// AreUpgradesDefined returns true if there are upgrade operations
-// defined between the version supplied and the running software
-// version.
-func AreUpgradesDefined(from version.Number) bool {
-	return newUpgradeOpsIterator(from).Next() || newStateUpgradeOpsIterator(from).Next()
-}
-
 // PerformUpgrade runs the business logic needed to upgrade the current "from" version to this
 // version of Juju on the "target" type of machine.
 func PerformUpgrade(from version.Number, targets []Target, context Context) error {
@@ -98,13 +97,20 @@ func PerformUpgrade(from version.Number, targets []Target, context Context) erro
 		if err := runUpgradeSteps(ops, targets, context.StateContext()); err != nil {
 			return err
 		}
+		if hasDatabaseMasterTarget(targets) {
+			ops, err := newEnvironUpgradeOpsIterator(from, context)
+			if err != nil {
+				return err
+			}
+			if err := runUpgradeSteps(ops, targets, context.StateContext()); err != nil {
+				return err
+			}
+		}
 	}
-
 	ops := newUpgradeOpsIterator(from)
 	if err := runUpgradeSteps(ops, targets, context.APIContext()); err != nil {
 		return err
 	}
-
 	logger.Infof("All upgrade steps completed successfully")
 	return nil
 }
@@ -112,6 +118,15 @@ func PerformUpgrade(from version.Number, targets []Target, context Context) erro
 func hasStateTarget(targets []Target) bool {
 	for _, target := range targets {
 		if target == Controller || target == DatabaseMaster {
+			return true
+		}
+	}
+	return false
+}
+
+func hasDatabaseMasterTarget(targets []Target) bool {
+	for _, target := range targets {
+		if target == DatabaseMaster {
 			return true
 		}
 	}

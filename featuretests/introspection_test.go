@@ -73,6 +73,7 @@ func (s *introspectionSuite) startMachineAgent(c *gc.C) (*agentcmd.MachineAgent,
 		agentConf,
 		s.logger,
 		func(names.Tag) string { return rootDir },
+		noPreUpgradeSteps,
 		rootDir,
 	)
 	a, err := machineAgentFactory(m.Id())

@@ -125,16 +125,38 @@ func (s *workerSuite) waitAdvance(c *gc.C, d time.Duration) {
 }
 
 func (s *workerSuite) TestSetsAndUpdatesMembers(c *gc.C) {
+	logger.SetLogLevel(loggo.TRACE)
+	loggo.GetLogger("juju.mongo").SetLogLevel(loggo.INFO)
+	loggo.GetLogger("juju.network").SetLogLevel(loggo.INFO)
 	DoTestForIPv4AndIPv6(func(ipVersion TestIPVersion) {
+		c.Logf("\n\nTestSetsAndUpdatesMembers: %s", ipVersion.version)
 		st := NewFakeState()
 		InitState(c, st, 3, ipVersion)
-
 		memberWatcher := st.session.members.Watch()
 		mustNext(c, memberWatcher)
 		assertMembers(c, memberWatcher.Value(), mkMembers("0v", ipVersion))
 
 		logger.Infof("starting worker")
 		s.newNoPublishWorker(c, st)
+		// Due to the inherit complexity of the multiple goroutines running
+		// and listen do different watchers, there is no way to manually
+		// advance the testing clock in a controlled manner as the clock.After
+		// calls can be replaced in response to other watcher events. Hence
+		// using the standard testing clock wait / advance method does not
+		// work. So we use the real clock to advance the test clock for this
+		// test.
+		done := make(chan struct{})
+		defer close(done)
+		go func() {
+			for {
+				select {
+				case <-time.After(5 * time.Millisecond):
+					s.clock.Advance(pollInterval)
+				case <-done:
+					return
+				}
+			}
+		}()
 
 		// Wait for the worker to set the initial members.
 		mustNext(c, memberWatcher)
@@ -142,27 +164,23 @@ func (s *workerSuite) TestSetsAndUpdatesMembers(c *gc.C) {
 
 		// Update the status of the new members
 		// and check that they become voting.
-		c.Logf("updating new member status")
-		s.waitAdvance(c, pollInterval)
+		c.Logf("\nupdating new member status")
 		st.session.setStatus(mkStatuses("0p 1s 2s", ipVersion))
 		mustNext(c, memberWatcher)
 		assertMembers(c, memberWatcher.Value(), mkMembers("0v 1v 2v", ipVersion))
 
-		c.Logf("adding another machine")
-		// Add another machine.
+		c.Logf("\nadding another machine")
 		m13 := st.addMachine("13", false)
 		m13.setStateHostPort(fmt.Sprintf(ipVersion.formatHostPort, 13, mongoPort))
 		st.setControllers("10", "11", "12", "13")
 
-		c.Logf("waiting for new member to be added")
+		c.Logf("\nwaiting for new member to be added")
 		mustNext(c, memberWatcher)
 		assertMembers(c, memberWatcher.Value(), mkMembers("0v 1v 2v 3", ipVersion))
 
-		// Remove vote from an existing member;
-		// and give it to the new machine.
-		// Also set the status of the new machine to
-		// healthy.
-		c.Logf("removing vote from machine 10 and adding it to machine 13")
+		// Remove vote from an existing member; and give it to the new
+		// machine. Also set the status of the new machine to healthy.
+		c.Logf("\nremoving vote from machine 10 and adding it to machine 13")
 		st.machine("10").setWantsVote(false)
 		st.machine("13").setWantsVote(true)
 
@@ -170,17 +188,17 @@ func (s *workerSuite) TestSetsAndUpdatesMembers(c *gc.C) {
 
 		// Check that the new machine gets the vote and the
 		// old machine loses it.
-		c.Logf("waiting for vote switch")
+		c.Logf("\nwaiting for vote switch")
 		mustNext(c, memberWatcher)
 		assertMembers(c, memberWatcher.Value(), mkMembers("0 1v 2v 3v", ipVersion))
 
-		c.Logf("removing old machine")
+		c.Logf("\nremoving old machine")
 		// Remove the old machine.
 		st.removeMachine("10")
 		st.setControllers("11", "12", "13")
 
 		// Check that it's removed from the members.
-		c.Logf("waiting for removal")
+		c.Logf("\nwaiting for removal")
 		mustNext(c, memberWatcher)
 		assertMembers(c, memberWatcher.Value(), mkMembers("1v 2v 3v", ipVersion))
 	})
@@ -731,7 +749,11 @@ func mustNext(c *gc.C, w *voyeur.Watcher) (val interface{}) {
 		c.Logf("mustNext %p", w)
 		ok := w.Next()
 		val = w.Value()
-		c.Logf("mustNext done %p, ok: %v, val: %#v", w, ok, val)
+		if ok {
+			members := val.([]replicaset.Member)
+			val = "\n" + prettyReplicaSetMembers(members)
+		}
+		c.Logf("mustNext done %p, ok: %v, val: %v", w, ok, val)
 		done <- voyeurResult{ok, val}
 	}()
 	select {

@@ -258,6 +258,7 @@ func MachineAgentFactoryFn(
 	agentConfWriter AgentConfigWriter,
 	bufferedLogger *logsender.BufferedLogWriter,
 	newIntrospectionSocketName func(names.Tag) string,
+	preUpgradeSteps upgrades.PreUpgradeStepsFunc,
 	rootDir string,
 ) func(string) (*MachineAgent, error) {
 	return func(machineId string) (*MachineAgent, error) {
@@ -268,6 +269,7 @@ func MachineAgentFactoryFn(
 			worker.NewRunner(cmdutil.IsFatal, cmdutil.MoreImportant, worker.RestartDelay),
 			looputil.NewLoopDeviceManager(),
 			newIntrospectionSocketName,
+			preUpgradeSteps,
 			rootDir,
 		)
 	}
@@ -281,6 +283,7 @@ func NewMachineAgent(
 	runner worker.Runner,
 	loopDeviceManager looputil.LoopDeviceManager,
 	newIntrospectionSocketName func(names.Tag) string,
+	preUpgradeSteps upgrades.PreUpgradeStepsFunc,
 	rootDir string,
 ) (*MachineAgent, error) {
 	prometheusRegistry, err := newPrometheusRegistry()
@@ -300,6 +303,7 @@ func NewMachineAgent(
 		newIntrospectionSocketName:  newIntrospectionSocketName,
 		prometheusRegistry:          prometheusRegistry,
 		txnmetricsCollector:         txnmetrics.New(),
+		preUpgradeSteps:             preUpgradeSteps,
 	}
 	if err := a.prometheusRegistry.Register(
 		logsendermetrics.BufferedLogWriterMetrics{bufferedLogger},
@@ -344,6 +348,7 @@ type MachineAgent struct {
 	newIntrospectionSocketName func(names.Tag) string
 	prometheusRegistry         *prometheus.Registry
 	txnmetricsCollector        *txnmetrics.Collector
+	preUpgradeSteps            upgrades.PreUpgradeStepsFunc
 
 	// Only API servers have hubs. This is temporary until the apiserver and
 	// peergrouper have manifolds.
@@ -459,13 +464,9 @@ func (a *MachineAgent) Run(*cmd.Context) error {
 		return errors.Annotate(err, "error upgrading server certificate")
 	}
 
-	if upgradeComplete, err := upgradesteps.NewLock(a); err != nil {
-		return errors.Annotate(err, "error during creating upgrade completion channel")
-	} else {
-		a.upgradeComplete = upgradeComplete
-	}
-
 	agentConfig := a.CurrentConfig()
+	a.upgradeComplete = upgradesteps.NewLock(agentConfig)
+
 	createEngine := a.makeEngineCreator(agentConfig.UpgradedToVersion())
 	charmrepo.CacheDir = filepath.Join(agentConfig.DataDir(), "charmcache")
 	if err := a.createJujudSymlinks(agentConfig.DataDir()); err != nil {
@@ -514,9 +515,10 @@ func (a *MachineAgent) makeEngineCreator(previousAgentVersion version.Number) fu
 			OpenStateForUpgrade:  a.openStateForUpgrade,
 			StartStateWorkers:    a.startStateWorkers,
 			StartAPIWorkers:      a.startAPIWorkers,
-			PreUpgradeSteps:      upgrades.PreUpgradeSteps,
+			PreUpgradeSteps:      a.preUpgradeSteps,
 			LogSource:            a.bufferedLogger.Logs(),
 			NewDeployContext:     newDeployContext,
+			NewEnvironFunc:       newEnvirons,
 			Clock:                clock.WallClock,
 			ValidateMigration:    a.validateMigration,
 			PrometheusRegisterer: a.prometheusRegistry,

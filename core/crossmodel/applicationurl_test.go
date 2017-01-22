@@ -112,6 +112,13 @@ func (s *ApplicationURLSuite) TestParseURL(c *gc.C) {
 	}
 }
 
+func (s *ApplicationURLSuite) TestParseLocalOnlyURL(c *gc.C) {
+	_, err := crossmodel.ParseLocalOnlyApplicationURL("local:/u/fred/application")
+	c.Assert(err, gc.ErrorMatches, `application URL has invalid form.*"`)
+	url, err := crossmodel.ParseLocalOnlyApplicationURL("user/modelname.applicationname")
+	c.Assert(url, jc.DeepEquals, &crossmodel.ApplicationURL{"", "user", "modelname", "applicationname"})
+}
+
 func (s *ApplicationURLSuite) TestServiceDirectoryForURL(c *gc.C) {
 	dir, err := crossmodel.ApplicationDirectoryForURL("local:/u/me/application")
 	c.Assert(err, jc.ErrorIsNil)

@@ -6,9 +6,10 @@ package environs
 import (
 	"io"
 
+	"github.com/juju/jsonschema"
+	"github.com/juju/version"
 	"gopkg.in/juju/environschema.v1"
 
-	"github.com/juju/jsonschema"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
@@ -348,4 +349,36 @@ type InstanceTagger interface {
 // a provider to be obtained.
 type InstanceTypesFetcher interface {
 	InstanceTypes(constraints.Value) (instances.InstanceTypesWithCostMetadata, error)
+}
+
+// Upgrader is an interface that can be used for upgrading Environs. If an
+// Environ implements this interface, its UpgradeOperations method will be
+// invoked to identify operations that should be run on upgrade.
+type Upgrader interface {
+	// UpgradeOperations returns a list of UpgradeOperations for upgrading
+	// an Environ.
+	UpgradeOperations() []UpgradeOperation
+}
+
+// UpgradeOperation contains a target agent version and sequence of upgrade
+// steps to apply to get to that version.
+type UpgradeOperation struct {
+	// TargetVersion is the target agent version number to which the
+	// upgrade steps pertain.
+	TargetVersion version.Number
+
+	// Steps contains the sequence of upgrade steps to apply when
+	// upgrading to the accompanying target version number.
+	Steps []UpgradeStep
+}
+
+// UpgradeStep defines an idempotent operation that is run to perform a
+// specific upgrade step on an Environ.
+type UpgradeStep interface {
+	// Description is a human readable description of what the upgrade
+	// step does.
+	Description() string
+
+	// Run executes the upgrade business logic.
+	Run() error
 }

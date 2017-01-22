@@ -119,26 +119,24 @@ func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
 	p(values...)
 
 	if len(fs.RemoteApplications) > 0 {
-		outputHeaders("SAAS name", "Status", "Store", "URL", "Interfaces")
-		for _, svcName := range utils.SortStringsNaturally(stringKeysFromMap(fs.RemoteApplications)) {
-			svc := fs.RemoteApplications[svcName]
+		outputHeaders("SAAS name", "Status", "Store", "URL")
+		for _, appName := range utils.SortStringsNaturally(stringKeysFromMap(fs.RemoteApplications)) {
+			app := fs.RemoteApplications[appName]
 			var store, urlPath string
-			url, err := crossmodel.ParseApplicationURL(svc.ApplicationURL)
+			url, err := crossmodel.ParseApplicationURL(app.ApplicationURL)
 			if err == nil {
 				store = url.Directory
 				urlPath = url.Path()
+				if store == "" {
+					store = "local"
+				}
 			} else {
 				// This is not expected.
-				logger.Errorf("invalid application URL %q: %v", svc.ApplicationURL, err)
+				logger.Errorf("invalid application URL %q: %v", app.ApplicationURL, err)
 				store = "unknown"
-				urlPath = svc.ApplicationURL
+				urlPath = app.ApplicationURL
 			}
-			interfaces := make([]string, len(svc.Endpoints))
-			for i, name := range utils.SortStringsNaturally(stringKeysFromMap(svc.Endpoints)) {
-				ep := svc.Endpoints[name]
-				interfaces[i] = fmt.Sprintf("%s:%s", ep.Interface, name)
-			}
-			p(svcName, svc.StatusInfo.Current, store, urlPath, strings.Join(interfaces, ", "))
+			p(appName, app.StatusInfo.Current, store, urlPath)
 		}
 		tw.Flush()
 	}

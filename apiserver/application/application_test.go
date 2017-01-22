@@ -6,8 +6,6 @@ package application_test
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
-	"path/filepath"
 	"regexp"
 	"sync"
 	"time"
@@ -2607,13 +2605,19 @@ func (s *serviceSuite) addTestingCharmOtherModel(c *gc.C, name string) *state.Ch
 }
 
 func (s *serviceSuite) TestSuccessfullyAddRemoteRelationOtherModel(c *gc.C) {
-	_, err := s.otherModel.AddApplication(state.AddApplicationArgs{
+	mysql, err := s.otherModel.AddApplication(state.AddApplicationArgs{
 		Name:  "othermysql",
 		Charm: s.addTestingCharmOtherModel(c, "mysql"),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	endpoints := []string{"wordpress", "othermodel.othermysql"}
 	s.assertAddRelation(c, endpoints)
+	err = mysql.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(mysql.IsExposed(), jc.IsTrue)
+	wp, err := s.State.Application("wordpress")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(wp.IsExposed(), jc.IsTrue)
 }
 
 func (s *serviceSuite) TestSuccessfullyAddRemoteRelationWithRelName(c *gc.C) {
@@ -2623,13 +2627,19 @@ func (s *serviceSuite) TestSuccessfullyAddRemoteRelationWithRelName(c *gc.C) {
 }
 
 func (s *serviceSuite) TestSuccessfullyAddRemoteRelationOtherModelWithRelName(c *gc.C) {
-	_, err := s.otherModel.AddApplication(state.AddApplicationArgs{
+	mysql, err := s.otherModel.AddApplication(state.AddApplicationArgs{
 		Name:  "othermysql",
 		Charm: s.addTestingCharmOtherModel(c, "mysql"),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	endpoints := []string{"wordpress", "othermodel.othermysql:server"}
 	s.assertAddRelation(c, endpoints)
+	err = mysql.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(mysql.IsExposed(), jc.IsTrue)
+	wp, err := s.State.Application("wordpress")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(wp.IsExposed(), jc.IsTrue)
 }
 
 func (s *serviceSuite) TestAddRemoteRelationOnlyOneEndpoint(c *gc.C) {
@@ -2640,7 +2650,7 @@ func (s *serviceSuite) TestAddRemoteRelationOnlyOneEndpoint(c *gc.C) {
 }
 
 func (s *serviceSuite) TestAddRemoteRelationOtherModelOnlyOneEndpoint(c *gc.C) {
-	_, err := s.otherModel.AddApplication(state.AddApplicationArgs{
+	mysql, err := s.otherModel.AddApplication(state.AddApplicationArgs{
 		Name:  "othermysql",
 		Charm: s.addTestingCharmOtherModel(c, "mysql"),
 	})
@@ -2648,6 +2658,9 @@ func (s *serviceSuite) TestAddRemoteRelationOtherModelOnlyOneEndpoint(c *gc.C) {
 	endpoints := []string{"othermodel.othermysql"}
 	_, err = s.applicationAPI.AddRelation(params.AddRelation{endpoints})
 	c.Assert(err, gc.ErrorMatches, "no relations found")
+	err = mysql.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(mysql.IsExposed(), jc.IsFalse)
 }
 
 func (s *serviceSuite) TestAlreadyAddedRemoteRelation(c *gc.C) {
@@ -2684,7 +2697,7 @@ func (s *serviceSuite) TestRemoteRelationInvalidEndpoint(c *gc.C) {
 }
 
 func (s *serviceSuite) TestRemoteRelationInvalidEndpointOtherModel(c *gc.C) {
-	_, err := s.otherModel.AddApplication(state.AddApplicationArgs{
+	mysql, err := s.otherModel.AddApplication(state.AddApplicationArgs{
 		Name:  "othermysql",
 		Charm: s.addTestingCharmOtherModel(c, "mysql"),
 	})
@@ -2693,6 +2706,12 @@ func (s *serviceSuite) TestRemoteRelationInvalidEndpointOtherModel(c *gc.C) {
 	endpoints := []string{"wordpress", "othermodel.othermysql:nope"}
 	_, err = s.applicationAPI.AddRelation(params.AddRelation{endpoints})
 	c.Assert(err, gc.ErrorMatches, `remote application "othermysql" has no "nope" relation`)
+	err = mysql.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(mysql.IsExposed(), jc.IsFalse)
+	wp, err := s.State.Application("wordpress")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(wp.IsExposed(), jc.IsFalse)
 }
 
 func (s *serviceSuite) TestRemoteRelationNoMatchingEndpoint(c *gc.C) {
@@ -2718,7 +2737,7 @@ func (s *serviceSuite) TestRemoteRelationNoMatchingEndpoint(c *gc.C) {
 }
 
 func (s *serviceSuite) TestRemoteRelationNoMatchingEndpointOtherModel(c *gc.C) {
-	_, err := s.otherModel.AddApplication(state.AddApplicationArgs{
+	mysql, err := s.otherModel.AddApplication(state.AddApplicationArgs{
 		Name:  "dummy",
 		Charm: s.addTestingCharmOtherModel(c, "dummy"),
 	})
@@ -2727,6 +2746,12 @@ func (s *serviceSuite) TestRemoteRelationNoMatchingEndpointOtherModel(c *gc.C) {
 	endpoints := []string{"wordpress", "othermodel.dummy"}
 	_, err = s.applicationAPI.AddRelation(params.AddRelation{endpoints})
 	c.Assert(err, gc.ErrorMatches, "no relations found")
+	err = mysql.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(mysql.IsExposed(), jc.IsFalse)
+	wp, err := s.State.Application("wordpress")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(wp.IsExposed(), jc.IsFalse)
 }
 
 func (s *serviceSuite) TestRemoteRelationApplicationOfferNotFound(c *gc.C) {
@@ -3054,9 +3079,6 @@ func (s *serviceSuite) TestRemoteApplicationInfo(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 3)
-	chpath := testcharms.Repo.CharmDirPath("mysql")
-	mysqlIcon, err := ioutil.ReadFile(filepath.Join(chpath, "icon.svg"))
-	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, jc.DeepEquals, []params.RemoteApplicationInfoResult{
 		{Result: &params.RemoteApplicationInfo{
 			ModelTag:         coretesting.ModelTag.String(),
@@ -3064,9 +3086,9 @@ func (s *serviceSuite) TestRemoteApplicationInfo(c *gc.C) {
 			Description:      "a database",
 			ApplicationURL:   "local:/u/me/hosted-mysql",
 			SourceModelLabel: "",
-			Icon:             []byte(common.DefaultCharmIcon),
 			Endpoints: []params.RemoteEndpoint{
 				{Name: "server", Role: "provider", Interface: "mysql", Limit: 0, Scope: "global"}},
+			IconURLPath: "rest/1.0/remote-application/hosted-mysql/icon",
 		}},
 		{Result: &params.RemoteApplicationInfo{
 			ModelTag:         s.otherModel.ModelTag().String(),
@@ -3074,7 +3096,7 @@ func (s *serviceSuite) TestRemoteApplicationInfo(c *gc.C) {
 			Description:      "A pretty popular database",
 			ApplicationURL:   "othermodel.mysql",
 			SourceModelLabel: "othermodel",
-			Icon:             mysqlIcon,
+			IconURLPath:      "rest/1.0/remote-application/mysql/icon",
 			Endpoints: []params.RemoteEndpoint{
 				{Name: "juju-info", Role: "provider", Interface: "juju-info", Limit: 0, Scope: "global"},
 				{Name: "server", Role: "provider", Interface: "mysql", Limit: 0, Scope: "global"}},
