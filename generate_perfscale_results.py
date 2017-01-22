@@ -220,16 +220,17 @@ def dump_performance_metrics_logs(log_dir, admin_client, machine_ids):
 
         admin_client.juju(
             'scp',
-            ('--',
+            ('--proxy', '--',
              '-r',
              '{}:/var/lib/collectd/rrd/localhost/*'.format(machine_id),
              results_dir)
         )
         try:
             admin_client.juju(
-                'scp', ('{}:/tmp/mongodb-stats.log'.format(machine_id),
-                        results_dir)
-            )
+                'scp',
+                ('--proxy',
+                 '{}:/tmp/mongodb-stats.log'.format(machine_id),
+                 results_dir))
         except subprocess.CalledProcessError as e:
             log.error('Failed to copy mongodb stats for machine {}: {}'.format(
                 machine_id, e))
@@ -564,14 +565,14 @@ def _setup_system_monitoring(admin_client, machine_id):
     """
     admin_client.juju(
         'scp',
-        (PATHS.collectd_config_path, '{}:{}'.format(
+        ('--proxy', PATHS.collectd_config_path, '{}:{}'.format(
             machine_id, PATHS.collectd_config_dest_file)))
 
     admin_client.juju(
         'scp',
-        (PATHS.installer_script_path, '{}:{}'.format(
+        ('--proxy', PATHS.installer_script_path, '{}:{}'.format(
             machine_id, PATHS.installer_script_dest_path)))
-    admin_client.juju('ssh', (machine_id, 'chmod +x {}'.format(
+    admin_client.juju('ssh', ('--proxy', machine_id, 'chmod +x {}'.format(
         PATHS.installer_script_dest_path)))
 
 
@@ -580,10 +581,14 @@ def _enable_monitoring(admin_client, machine_id):
     # Respawn incase the initial execution fails for whatever reason.
     admin_client.juju(
         'ssh',
-        (machine_id, '{installer} {config_file} {output_file}'.format(
-            installer=PATHS.installer_script_dest_path,
-            config_file=PATHS.collectd_config_dest_file,
-            output_file=PATHS.runner_script_dest_path)))
+        ('--proxy',
+         machine_id,
+         '{installer} {config_file} {output_file}'.format(
+             installer=PATHS.installer_script_dest_path,
+             config_file=PATHS.collectd_config_dest_file,
+             output_file=PATHS.runner_script_dest_path)))
 
-    admin_client.juju('ssh', (machine_id, '--', 'daemon --respawn {}'.format(
-        PATHS.runner_script_dest_path)))
+    admin_client.juju(
+        'ssh',
+        ('--proxy', machine_id, '--', 'daemon --respawn {}'.format(
+            PATHS.runner_script_dest_path)))
