@@ -501,30 +501,6 @@ func (s *HostPortSuite) TestUniqueHostPortsHugeUniqueInput(c *gc.C) {
 	c.Assert(results, jc.DeepEquals, expected)
 }
 
-func (s *HostPortSuite) TestReachableHostPortAllUnreachable(c *gc.C) {
-	dialer := &net.Dialer{Timeout: 100 * time.Millisecond}
-	unreachableHPs := s.manyHostPorts(c, maxTCPPort, nil) // use IANA reserved port
-	timeout := 300 * time.Millisecond
-
-	best, err := network.ReachableHostPort(unreachableHPs, dialer, timeout)
-	c.Check(err, gc.ErrorMatches, "cannot connect to any address: .*")
-	c.Check(best, gc.Equals, network.HostPort{})
-}
-
-func (s *HostPortSuite) TestReachableHostPortRealDial(c *gc.C) {
-	fakeHostPort := network.NewHostPorts(1234, "127.0.0.1")[0]
-	hostPorts := []network.HostPort{
-		fakeHostPort,
-		testTCPServer(c),
-	}
-	timeout := 300 * time.Millisecond
-
-	dialer := &net.Dialer{Timeout: 100 * time.Millisecond}
-	best, err := network.ReachableHostPort(hostPorts, dialer, timeout)
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(best, jc.DeepEquals, hostPorts[1]) // the only real listener
-}
-
 const maxTCPPort = 65535
 
 func (s *HostPortSuite) manyHostPorts(c *gc.C, count int, addressFunc func(index int) string) []network.HostPort {
@@ -541,25 +517,4 @@ func (s *HostPortSuite) manyHostPorts(c *gc.C, count int, addressFunc func(index
 		results[i] = *hostPort
 	}
 	return results
-}
-
-func testTCPServer(c *gc.C) network.HostPort {
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
-	c.Assert(err, jc.ErrorIsNil)
-
-	listenAddress := listener.Addr().String()
-	hostPort, err := network.ParseHostPort(listenAddress)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Logf("listening on %q", hostPort)
-
-	go func() {
-		conn, _ := listener.Accept()
-		if conn != nil {
-			c.Logf("accepted connection on %q from %s", hostPort, conn.RemoteAddr())
-			conn.Close()
-		}
-		listener.Close()
-	}()
-
-	return *hostPort
 }
