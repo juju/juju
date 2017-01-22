@@ -120,19 +120,19 @@ func getConfigSetterConnect() (configSetter, error) {
 }
 
 type configSetter interface {
-	SetConfig(key, value string) error
+	SetServerConfig(key, value string) error
 }
 
 func configureLXDProxies(setter configSetter, proxies proxy.Settings) error {
-	err := setter.SetConfig("core.proxy_http", proxies.Http)
+	err := setter.SetServerConfig("core.proxy_http", proxies.Http)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	err = setter.SetConfig("core.proxy_https", proxies.Https)
+	err = setter.SetServerConfig("core.proxy_https", proxies.Https)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	err = setter.SetConfig("core.proxy_ignore_hosts", proxies.NoProxy)
+	err = setter.SetServerConfig("core.proxy_ignore_hosts", proxies.NoProxy)
 	if err != nil {
 		return errors.Trace(err)
 	}
