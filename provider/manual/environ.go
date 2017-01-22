@@ -177,6 +177,12 @@ func (e *manualEnviron) verifyBootstrapHost() error {
 	return nil
 }
 
+// MoveInstancesToController implements environs.Environ.
+func (e *manualEnviron) MoveInstancesToController(ids []instance.Id, controllerUUID string) error {
+	// This provider doesn't track instance -> controller.
+	return nil
+}
+
 func (e *manualEnviron) SetConfig(cfg *config.Config) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()

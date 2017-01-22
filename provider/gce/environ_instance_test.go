@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider/gce"
 	"github.com/juju/juju/provider/gce/google"
@@ -199,4 +200,15 @@ func (s *environInstSuite) TestListMachineTypes(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(types.InstanceTypes, gc.HasLen, 1)
 
+}
+
+func (s *environInstSuite) TestMoveInstancesToController(c *gc.C) {
+	err := s.Env.MoveInstancesToController([]instance.Id{"john", "misty"}, "other-uuid")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.FakeConn.Calls, gc.HasLen, 1)
+	call := s.FakeConn.Calls[0]
+	c.Check(call.FuncName, gc.Equals, "UpdateMetadata")
+	c.Check(call.IDs, gc.DeepEquals, []string{"john", "misty"})
+	c.Check(call.Key, gc.Equals, tags.JujuController)
+	c.Check(call.Value, gc.Equals, "other-uuid")
 }

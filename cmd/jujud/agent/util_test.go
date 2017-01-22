@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	apideployer "github.com/juju/juju/api/deployer"
+	"github.com/juju/juju/cert"
 	"github.com/juju/juju/cmd/jujud/agent/agenttest"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/environs"
@@ -68,6 +69,8 @@ func (s *commonMachineSuite) SetUpSuite(c *gc.C) {
 	s.AgentSuite.SetUpSuite(c)
 	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
 	s.PatchValue(&stateWorkerDialOpts, mongotest.DialOpts())
+	s.PatchValue(&cert.NewCA, coretesting.NewCA)
+	s.PatchValue(&cert.NewLeafKeyBits, 512)
 }
 
 func (s *commonMachineSuite) TearDownSuite(c *gc.C) {

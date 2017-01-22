@@ -47,11 +47,11 @@ func prepareHost(bridger network.Bridger, hostMachineID string, containerTag nam
 	devicesToBridge, err := api.HostChangesForContainer(containerTag)
 
 	if err != nil {
-		return errors.Annotate(err, "failed to get host network changes required for container")
+		return errors.Annotate(err, "unable to setup network")
 	}
 
 	if len(devicesToBridge) == 0 {
-		log.Tracef("container %q require no additional bridges", containerTag)
+		log.Tracef("container %q requires no additional bridges", containerTag)
 		return nil
 	}
 

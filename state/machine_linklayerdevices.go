@@ -1218,8 +1218,16 @@ func (m *Machine) FindMissingBridgesForContainer(containerMachine *Machine) ([]n
 	}
 	notFound = notFound.Difference(spacesFound)
 	if !notFound.IsEmpty() {
-		return nil, errors.Errorf("container %q wants spaces %s, but host machine %q has no device in spaces %s",
+		hostSpaces, err := m.AllSpaces()
+		if err != nil {
+			// log it, but we're returning another error right now
+			logger.Warningf("got error looking for spaces for host machine %q: %v",
+				m.Id(), err)
+		}
+		logger.Warningf("container %q wants spaces %s, but host machine %q has %s missing %s",
 			containerMachine.Id(), quoteSpaces(containerSpaces),
+			m.Id(), quoteSpaces(hostSpaces), quoteSpaces(notFound))
+		return nil, errors.Errorf("host machine %q has no available device in space(s) %s",
 			m.Id(), quoteSpaces(notFound))
 	}
 	hostToBridge := make([]network.DeviceToBridge, 0, len(hostDeviceNamesToBridge))
@@ -1236,9 +1244,9 @@ func (m *Machine) FindMissingBridgesForContainer(containerMachine *Machine) ([]n
 func quoteSpaces(vals set.Strings) string {
 	out := []string{}
 	for _, space := range vals.SortedValues() {
-		out = append(out, fmt.Sprintf(`"%s"`, space))
+		out = append(out, fmt.Sprintf("%q", space))
 	}
-	return "[" + strings.Join(out, ", ") + "]"
+	return strings.Join(out, ", ")
 }
 
 // SetContainerLinkLayerDevices sets the link-layer devices of the given
@@ -1271,10 +1279,10 @@ func (m *Machine) SetContainerLinkLayerDevices(containerMachine *Machine) error 
 	}
 	missingSpace := containerSpaces.Difference(spacesFound)
 	if len(missingSpace) > 0 {
-		logger.Debugf("container %q wants spaces %s could not find bridges for %s",
+		logger.Warningf("container %q wants spaces %s could not find host %q bridges for %s, found bridges %s",
 			containerMachine.Id(), quoteSpaces(containerSpaces),
-			quoteSpaces(missingSpace))
-		return errors.Errorf("unable to find host bridge for spaces %s for container %q",
+			m.Id(), quoteSpaces(missingSpace), bridgeDeviceNames)
+		return errors.Errorf("unable to find host bridge for space(s) %s for container %q",
 			quoteSpaces(missingSpace), containerMachine.Id())
 	}
 

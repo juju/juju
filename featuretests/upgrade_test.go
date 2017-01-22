@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cert"
 	agentcmd "github.com/juju/juju/cmd/jujud/agent"
 	"github.com/juju/juju/cmd/jujud/agent/agenttest"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
@@ -56,6 +57,12 @@ var ShortAttempt = &utils.AttemptStrategy{
 type upgradeSuite struct {
 	agenttest.AgentSuite
 	oldVersion version.Binary
+}
+
+func (s *upgradeSuite) SetUpSuite(c *gc.C) {
+	s.AgentSuite.SetUpSuite(c)
+	s.PatchValue(&cert.NewCA, coretesting.NewCA)
+	s.PatchValue(&cert.NewLeafKeyBits, 512)
 }
 
 func (s *upgradeSuite) SetUpTest(c *gc.C) {

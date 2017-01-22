@@ -120,11 +120,11 @@ func (s *provisionerSuite) TestGetSetInstanceStatus(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(instanceStatus, gc.Equals, status.Pending)
 	c.Assert(info, gc.Equals, "")
-	err = apiMachine.SetInstanceStatus(status.Started, "blah", nil)
+	err = apiMachine.SetInstanceStatus(status.Running, "blah", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	instanceStatus, info, err = apiMachine.InstanceStatus()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(instanceStatus, gc.Equals, status.Started)
+	c.Assert(instanceStatus, gc.Equals, status.Running)
 	c.Assert(info, gc.Equals, "blah")
 	statusInfo, err := s.machine.InstanceStatus()
 	c.Assert(err, jc.ErrorIsNil)
@@ -152,12 +152,12 @@ func (s *provisionerSuite) TestMachinesWithTransientErrors(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	now := time.Now()
 	sInfo := status.StatusInfo{
-		Status:  status.Error,
+		Status:  status.ProvisioningError,
 		Message: "blah",
 		Data:    map[string]interface{}{"transient": true},
 		Since:   &now,
 	}
-	err = machine.SetStatus(sInfo)
+	err = machine.SetInstanceStatus(sInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	machines, info, err := s.provisioner.MachinesWithTransientErrors()
 	c.Assert(err, jc.ErrorIsNil)
@@ -167,7 +167,7 @@ func (s *provisionerSuite) TestMachinesWithTransientErrors(c *gc.C) {
 	c.Assert(info[0], gc.DeepEquals, params.StatusResult{
 		Id:     "1",
 		Life:   "alive",
-		Status: "error",
+		Status: "provisioning error",
 		Info:   "blah",
 		Data:   map[string]interface{}{"transient": true},
 	})
