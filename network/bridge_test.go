@@ -95,13 +95,13 @@ func (*BridgeSuite) TestENIBridgerWithMissingFilenameArgument(c *gc.C) {
 	deviceNames := []string{"ens3", "ens4", "bond0"}
 	bridger := network.NewEtcNetworkInterfacesBridger(os.Environ(), clock.WallClock, 0, "", "", true)
 	err := bridger.Bridge(deviceNames)
-	c.Assert(err, gc.ErrorMatches, `(?s)bridgescript failed:.*too few arguments\n`)
+	c.Assert(err, gc.ErrorMatches, `(?s)bridgescript failed:.*(too few arguments|the following arguments are required: filename)\n`)
 }
 
 func (*BridgeSuite) TestENIBridgerWithEmptyDeviceNamesArgument(c *gc.C) {
-	bridger := network.NewEtcNetworkInterfacesBridger(os.Environ(), clock.WallClock, 0, "", "", true)
+	bridger := network.NewEtcNetworkInterfacesBridger(os.Environ(), clock.WallClock, 0, "", "missing-filename", true)
 	err := bridger.Bridge([]string{})
-	c.Assert(err, gc.ErrorMatches, `(?s)bridgescript failed:.*too few arguments\n`)
+	c.Assert(err, gc.ErrorMatches, `(?s)bridgescript failed:.*(too few arguments|no interfaces specified)\n`)
 }
 
 func (*BridgeSuite) TestENIBridgerWithNonExistentFile(c *gc.C) {
@@ -109,7 +109,7 @@ func (*BridgeSuite) TestENIBridgerWithNonExistentFile(c *gc.C) {
 	bridger := network.NewEtcNetworkInterfacesBridger(os.Environ(), clock.WallClock, 0, "", "testdata/non-existent-file", true)
 	err := bridger.Bridge(deviceNames)
 	c.Assert(err, gc.NotNil)
-	c.Check(err, gc.ErrorMatches, `(?s).*IOError:.*No such file or directory: 'testdata/non-existent-file'\n`)
+	c.Check(err, gc.ErrorMatches, `(?s).*(IOError|FileNotFoundError):.*No such file or directory: 'testdata/non-existent-file'\n`)
 }
 
 func (*BridgeSuite) TestENIBridgerWithTimeout(c *gc.C) {
