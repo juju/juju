@@ -49,6 +49,9 @@ func prepareOrGetContainerInterfaceInfo(
 	maintain := !allocateOrMaintain
 
 	if maintain {
+		// TODO(jam): 2016-12-14 The function is called
+		// 'prepareOrGet', but the only time we would handle the 'Get'
+		// side, we explicitly abort. Something seems wrong.
 		log.Debugf("not running maintenance for machine %q", machineID)
 		return nil, nil
 	}
