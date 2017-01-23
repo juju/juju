@@ -70,8 +70,6 @@ func main() {
 	gnuflag.Parse(true)
 	if verbose {
 		loggo.ConfigureLoggers(`<root>=DEBUG`)
-	} else {
-		loggo.ConfigureLoggers(`<root>=INFO`)
 	}
 	args := gnuflag.Args()
 	pubKeys := getKnownHostKeys(hostFile)
@@ -88,8 +86,8 @@ func main() {
 		}
 		hostPorts = append(hostPorts, *hp)
 	}
-	fmt.Fprintf(os.Stderr, "host ports: %v\n", hostPorts)
-	fmt.Fprintf(os.Stderr, "found %d known hosts\n", len(pubKeys))
+	logger.Infof("host ports: %v\n", hostPorts)
+	logger.Infof("found %d known hosts\n", len(pubKeys))
 	logger.Debugf("known hosts: %v\n", pubKeys)
 	dialer := &net.Dialer{Timeout: time.Duration(dialTimeout) * time.Millisecond}
 	found, err := jujussh.ReachableHostPort(hostPorts, pubKeys, dialer, time.Duration(waitTimeout)*time.Millisecond)

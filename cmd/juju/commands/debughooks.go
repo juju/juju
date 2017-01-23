@@ -15,11 +15,11 @@ import (
 
 	"github.com/juju/juju/api/application"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/network"
+	"github.com/juju/juju/network/ssh"
 	unitdebug "github.com/juju/juju/worker/uniter/runner/debug"
 )
 
-func newDebugHooksCommand(hostDialer network.Dialer) cmd.Command {
+func newDebugHooksCommand(hostDialer ssh.Dialer) cmd.Command {
 	c := new(debugHooksCommand)
 	c.setHostDialer(hostDialer)
 	return modelcmd.Wrap(c)

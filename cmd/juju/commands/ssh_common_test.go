@@ -5,6 +5,7 @@ package commands
 
 import (
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"path/filepath"
@@ -19,6 +20,7 @@ import (
 
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
+	jujussh "github.com/juju/juju/network/ssh"
 	"github.com/juju/juju/state"
 )
 
@@ -115,7 +117,7 @@ type SSHCommonSuite struct {
 	testing.JujuConnSuite
 	knownHostsDir string
 	binDir        string
-	hostDialer    network.Dialer
+	hostDialer    jujussh.Dialer
 }
 
 // Commands to patch
@@ -163,7 +165,9 @@ type fakeConn struct {
 	net.Conn
 }
 
-func (f *fakeConn) Close() error { return nil }
+func (f *fakeConn) Close() error                { return nil }
+func (f *fakeConn) Write(b []byte) (int, error) { return len(b), nil }
+func (f *fakeConn) Read(b []byte) (int, error)  { return 0, io.EOF }
 
 func (s *SSHCommonSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)

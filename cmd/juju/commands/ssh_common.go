@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/network"
+	jujussh "github.com/juju/juju/network/ssh"
 )
 
 // SSHCommon implements functionality shared by sshCommand, SCPCommand
@@ -38,7 +39,7 @@ type SSHCommon struct {
 	apiClient       sshAPIClient
 	apiAddr         string
 	knownHostsPath  string
-	hostDialer      network.Dialer
+	hostDialer      jujussh.Dialer
 	forceAPIv1      bool
 }
 
@@ -115,12 +116,12 @@ func (c *SSHCommon) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.noHostKeyChecks, "no-host-key-checks", false, "Skip host key checking (INSECURE)")
 }
 
-// defaultHostDialer returns a network.Dialer with timeout set to SSHRetryDelay.
-func defaultHostDialer() network.Dialer {
+// defaultHostDialer returns a jujussh.Dialer with timeout set to SSHRetryDelay.
+func defaultHostDialer() jujussh.Dialer {
 	return &net.Dialer{Timeout: SSHRetryDelay}
 }
 
-func (c *SSHCommon) setHostDialer(dialer network.Dialer) {
+func (c *SSHCommon) setHostDialer(dialer jujussh.Dialer) {
 	if dialer == nil {
 		dialer = defaultHostDialer()
 	}
@@ -392,10 +393,15 @@ func (c *SSHCommon) reachableAddressGetter(entity string) (string, error) {
 	} else if len(addresses) == 0 {
 		return "", network.NoAddressError("available")
 	}
+	publicKeys, err := c.apiClient.PublicKeys(entity)
+	if err != nil {
+		// XXX(jam): 2017-01-23 Should we continue anyway
+		return "", errors.Trace(err)
+	}
 
 	hostPorts := network.NewHostPorts(SSHPort, addresses...)
 	usableHPs := network.FilterUnusableHostPorts(hostPorts)
-	bestHP, err := network.ReachableHostPort(usableHPs, c.hostDialer, SSHTimeout)
+	bestHP, err := jujussh.ReachableHostPort(usableHPs, publicKeys, c.hostDialer, SSHTimeout)
 	if err != nil {
 		return "", errors.Trace(err)
 	}

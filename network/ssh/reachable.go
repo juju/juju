@@ -4,15 +4,15 @@
 package ssh
 
 import (
-	"bytes"
 	"net"
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/juju/network"
+	"github.com/juju/loggo"
+	"github.com/juju/utils/set"
 	"golang.org/x/crypto/ssh"
 
-	"github.com/juju/loggo"
+	"github.com/juju/juju/network"
 )
 
 var logger = loggo.GetLogger("juju.network.ssh")
@@ -26,52 +26,37 @@ type Dialer interface {
 // it uses the golang/x/crypto/ssh/HostKeyCallback to find the host keys on a
 // given connection.
 type hostKeyChecker struct {
-	acceptablePublicKeys []ssh.PublicKey
-	hostPort network.HostPort
-	// validHostPortChan will get hostPort passed if this host matches the
-	// acceptablePublicKeys
-	validHostPortChan chan network.HostPort
+	// acceptedKeys is a set of the Marshalled PublicKey content.
+	acceptedKeys set.Strings
 	// stop will be polled for whether we should stop trying to do any work
 	stop <-chan struct{}
-	// keyProcessed lets the setup function know when we're done
-	keyProcessed chan struct{}
+	// hostPort is the identifier that corresponds to this connection
+	hostPort network.HostPort
+	// accepted will be passed hostPort if it validated the connection
+	accepted chan network.HostPort
 }
+
+var hostKeyNotInList = errors.New("host key not in expected set")
 
 func (h *hostKeyChecker) hostKeyCallback(hostname string, remote net.Addr, key ssh.PublicKey) error {
 	// Note: we don't do any advanced checking of the PublicKey, like whether
 	// the key is revoked or expired. All we care about is whether it matches
 	// the public keys that we consider acceptable
-	logger.Infof("Checking %q at %v, with key %q", hostname, remote, ssh.MarshalAuthorizedKey(key))
-	defer func() {
+	logger.Debugf("checking host key for %q at %v, with key %q", hostname, remote, ssh.MarshalAuthorizedKey(key))
+
+	lookupKey := string(key.Marshal())
+	if h.acceptedKeys.Contains(lookupKey) {
+		logger.Debugf("accepted host key for: %q %v", hostname, remote)
+		// This key was valid, so return it, but if someone else was found
+		// first, still exit.
 		select {
-		case h.keyProcessed <- struct{}{}:
+		case h.accepted <- h.hostPort:
 		case <-h.stop:
 		}
-	}()
-
-	for i, accepted := range h.acceptablePublicKeys {
-		// TODO(jam): 2016-01-23 The ssh test suite uses Marshal and byte
-		// comparision to determine a match. Is that really the best way?
-		if h == nil {
-			logger.Warningf("why is h nil?", i)
-		}
-		if accepted == nil {
-			logger.Warningf("why is key %d nil?", i)
-		}
-		if bytes.Equal(accepted.Marshal(), key.Marshal()) {
-			logger.Debugf("found match: %q %v", hostname, remote)
-			select {
-			case <-h.stop:
-				logger.Debugf("stopped after finding a valid host: %q, %v %v", hostname, remote, h.hostPort)
-				return nil
-			case h.validHostPortChan <- h.hostPort:
-				logger.Debugf("found valid host for: %q, %v %v", hostname, remote, h.hostPort)
-				return nil
-			}
-		}
+		return nil
 	}
-	logger.Debugf("not the host key we were looking for %q %v", hostname, remote)
-	return errors.Errorf("do not proceed")
+	logger.Debugf("host key for %q %v not in our accepted set", hostname, remote)
+	return hostKeyNotInList
 }
 
 // ReachableHostPort dials the entries in the given hostPorts, in parallel,
@@ -88,9 +73,12 @@ func ReachableHostPort(hostPorts []network.HostPort, publicKeys []string, dialer
 	uniqueHPs := network.UniqueHostPorts(hostPorts)
 	successful := make(chan network.HostPort, 1)
 	stop := make(chan struct{}, 0)
+	// We use a channel instead of a sync.WaitGroup so that we can return as
+	// soon as we get one connected. We'll signal the rest to stop via the
+	// 'stop' channel.
 	finished := make(chan struct{}, len(uniqueHPs))
 
-	pubKeys := make([]ssh.PublicKey, len(publicKeys))
+	acceptedKeys := set.NewStrings()
 	for _, pubKey := range publicKeys {
 		// key, comment, options, rest, err
 		sshKey, _, _, _, err := ssh.ParseAuthorizedKey([]byte(pubKey))
@@ -98,67 +86,55 @@ func ReachableHostPort(hostPorts []network.HostPort, publicKeys []string, dialer
 			logger.Warningf("unable to handle public key: %q\n", pubKey)
 			continue
 		}
-		logger.Debugf("pub key: %q %v", pubKey, sshKey)
-		pubKeys = append(pubKeys, sshKey)
+		acceptedKeys.Add(string(sshKey.Marshal()))
 	}
 	for _, hostPort := range uniqueHPs {
 		go func(hostPort network.HostPort) {
+			defer func() {
+				select {
+				case finished <- struct{}{}:
+				case <-stop:
+				}
+			}()
 			checker := &hostKeyChecker{
-				acceptablePublicKeys: pubKeys,
-				hostPort: hostPort,
-				validHostPortChan: successful,
-				stop: stop,
-				keyProcessed: make(chan struct{}, 1),
+				acceptedKeys: acceptedKeys,
+				stop:         stop,
+				accepted:     successful,
+				hostPort:     hostPort,
 			}
 			sshconfig := &ssh.ClientConfig{
-				// User ?
-				// Auth ?
 				HostKeyCallback: checker.hostKeyCallback,
 			}
 			addr := hostPort.NetAddr()
 			logger.Debugf("dialing %q", addr)
 			conn, err := dialer.Dial("tcp", addr)
 			if err != nil {
-				// TODO: Tracef
 				logger.Debugf("dial %q failed with: %v", addr, err)
-				select {
-					case <-finished:
-					case <-stop:
-					}
-					return
-			}
-			logger.Debugf("NewClientConn for %q", addr)
-			clientConn, chans, requests, err := ssh.NewClientConn(conn, addr, sshconfig)
-			if err != nil {
-				logger.Debugf("NewClientConn %q failed with: %v", addr, err)
-				select {
-				case <-finished:
-				case <-stop:
-				}
 				return
 			}
-			logger.Debugf("Discarding requests: %q", addr)
-			go ssh.DiscardRequests(requests)
-			go func() {
-				for ch := range chans {
-					ch.Reject(ssh.ResourceShortage, "no channels allowed")
-				}
-			}()
+			// No need to do the key exchange if we're already stopping
 			select {
-			case <-checker.keyProcessed:
 			case <-stop:
+				conn.Close()
+				return
+			default:
 			}
-			clientConn.Close()
+			// NewClientConn will close the underlying net.Conn if it gets an error
+			client, _, _, err := ssh.NewClientConn(conn, addr, sshconfig)
+			if err == nil {
+				// We don't expect this case, because we don't support Auth,
+				// but make sure to close it anyway.
+				client.Close()
+			}
 		}(hostPort)
 	}
 
 	for finishedCount := 0; finishedCount < len(uniqueHPs); {
 		select {
 		case result := <-successful:
-			logger.Infof("dialed %q successfully", result)
+			logger.Infof("found %v has an acceptable ssh key", result)
 			close(stop)
 			return result, nil
-
 		case <-finished:
 			finishedCount++
 		case <-time.After(timeout):
