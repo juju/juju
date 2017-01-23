@@ -8,7 +8,7 @@ import sys
 import winrm
 
 from jujupy import (
-    EnvJujuClient,
+    ModelClient,
     JujuData,
     Status,
 )
@@ -52,7 +52,7 @@ class TestRemote(tests.FakeHomeTestCase):
 
     def test_remote_from_unit(self):
         env = JujuData("an-env", {"type": "nonlocal"})
-        client = EnvJujuClient(env, None, None)
+        client = ModelClient(env, None, None)
         unit = "a-application/0"
         with patch.object(client, "get_status", autospec=True) as st:
             st.return_value = Status.from_text(self.precise_status_output)
@@ -64,7 +64,7 @@ class TestRemote(tests.FakeHomeTestCase):
 
     def test_remote_from_unit_with_series(self):
         env = JujuData("an-env", {"type": "nonlocal"})
-        client = EnvJujuClient(env, None, None)
+        client = ModelClient(env, None, None)
         unit = "a-application/0"
         remote = remote_from_unit(client, unit, series="trusty")
         self.assertEqual(
@@ -74,7 +74,7 @@ class TestRemote(tests.FakeHomeTestCase):
 
     def test_remote_from_unit_with_status(self):
         env = JujuData("an-env", {"type": "nonlocal"})
-        client = EnvJujuClient(env, None, None)
+        client = ModelClient(env, None, None)
         unit = "a-application/0"
         status = Status.from_text(self.win2012hvr2_status_output)
         remote = remote_from_unit(client, unit, status=status)
@@ -101,7 +101,7 @@ class TestRemote(tests.FakeHomeTestCase):
 
     def test_run_with_unit(self):
         env = JujuData("an-env", {"type": "nonlocal"})
-        client = EnvJujuClient(env, None, None)
+        client = ModelClient(env, None, None)
         unit = "a-application/0"
         remote = remote_from_unit(client, unit, series="trusty")
         with patch.object(client, "get_juju_output") as mock_cmd:
@@ -113,7 +113,7 @@ class TestRemote(tests.FakeHomeTestCase):
 
     def test_run_with_unit_fallback(self):
         env = JujuData("an-env", {"type": "nonlocal"})
-        client = EnvJujuClient(env, None, None)
+        client = ModelClient(env, None, None)
         unit = "a-application/0"
         with patch.object(client, "get_status") as st:
             st.return_value = Status.from_text(self.precise_status_output)
@@ -142,7 +142,7 @@ class TestRemote(tests.FakeHomeTestCase):
 
     def test_run_default_command_error_fallback(self):
         env = JujuData("an-env", {"type": "nonlocal"})
-        client = EnvJujuClient(env, None, None)
+        client = ModelClient(env, None, None)
         unit = "a-application/0"
         error = subprocess.CalledProcessError(1, "ssh", output="bad command")
         with patch.object(client, "get_status") as st:
@@ -161,7 +161,7 @@ class TestRemote(tests.FakeHomeTestCase):
 
     def test_run_no_platform_fallback(self):
         env = JujuData("an-env", {"type": "nonlocal"})
-        client = EnvJujuClient(env, None, None)
+        client = ModelClient(env, None, None)
         unit = "a-application/0"
         error = subprocess.CalledProcessError(255, "ssh", output="")
         with patch.object(client, "get_status") as st:
@@ -213,7 +213,7 @@ class TestRemote(tests.FakeHomeTestCase):
 
     def test_cat_on_windows(self):
         env = JujuData("an-env", {"type": "nonlocal"})
-        client = EnvJujuClient(env, None, None)
+        client = ModelClient(env, None, None)
         unit = "a-application/0"
         with patch.object(client, "get_status", autospec=True) as st:
             st.return_value = Status.from_text(self.win2012hvr2_status_output)
@@ -245,7 +245,7 @@ class TestRemote(tests.FakeHomeTestCase):
 
     def test_copy_on_windows(self):
         env = JujuData("an-env", {"type": "nonlocal"})
-        client = EnvJujuClient(env, None, None)
+        client = ModelClient(env, None, None)
         unit = "a-application/0"
         dest = "/local/path"
         with patch.object(client, "get_status", autospec=True) as st:
@@ -284,7 +284,7 @@ class TestRemote(tests.FakeHomeTestCase):
 
     def test_run_cmd(self):
         env = JujuData("an-env", {"type": "nonlocal"})
-        client = EnvJujuClient(env, None, None)
+        client = ModelClient(env, None, None)
         unit = "a-application/0"
         with patch.object(client, "get_status", autospec=True) as st:
             st.return_value = Status.from_text(self.win2012hvr2_status_output)

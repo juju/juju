@@ -50,7 +50,7 @@ def parse_args(argv=None):
 
 def assess_spaces_subnets(client):
     """Check that space and subnet functionality works as expected
-    :param client: EnvJujuClient
+    :param client: ModelClient
     """
     network_config = {
         'default': ['subnet-0fb97566', 'subnet-d27d91a9'],
@@ -75,7 +75,7 @@ def assess_spaces_subnets(client):
 
 def _assess_spaces_subnets(client, network_config, charms_to_space):
     """Check that space and subnet functionality works as expected
-    :param client: EnvJujuClient
+    :param client: ModelClient
     :param network_config: Map of 'space name' to ['subnet', 'list']
     :param charms_to_space: Map of 'unit name' to
            {'space': 'space name', 'charm': 'charm name (if not same as unit)}

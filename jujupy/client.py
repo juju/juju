@@ -1278,7 +1278,7 @@ class WaitVersion(BaseCondition):
         raise VersionsNotUpdated(model_name, status)
 
 
-class EnvJujuClient:
+class ModelClient:
     """Wraps calls to a juju instance, associated with a single model.
 
     Note: A model is often called an enviroment (Juju 1 legacy).
@@ -1411,7 +1411,7 @@ class EnvJujuClient:
 
     def clone(self, env=None, version=None, full_path=None, debug=None,
               cls=None):
-        """Create a clone of this EnvJujuClient.
+        """Create a clone of this ModelClient.
 
         By default, the class, environment, version, full_path, and debug
         settings will match the original, but each can be overridden.

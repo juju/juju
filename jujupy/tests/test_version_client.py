@@ -23,11 +23,11 @@ from jujuconfig import (
 from jujupy import (
     AuthNotAccepted,
     fake_juju_client,
-    EnvJujuClient,
     InvalidEndpoint,
     JujuData,
     JUJU_DEV_FEATURE_FLAGS,
     JESNotSupported,
+    ModelClient,
     NameNotAccepted,
     SimpleEnvironment,
     Status,
@@ -53,7 +53,7 @@ from jujupy.version_client import (
     EnvJujuClient22,
     EnvJujuClient24,
     EnvJujuClient25,
-    EnvJujuClientRC,
+    ModelClientRC,
     IncompatibleConfigClass,
     Juju1XBackend,
     ModelClient2_1,
@@ -95,7 +95,7 @@ class TestClientFromConfig(ClientTest):
     @patch.object(JujuData, 'from_config', return_value=JujuData('', {}))
     @patch.object(SimpleEnvironment, 'from_config',
                   return_value=SimpleEnvironment('', {}))
-    @patch.object(EnvJujuClient, 'get_full_path', return_value='fake-path')
+    @patch.object(ModelClient, 'get_full_path', return_value='fake-path')
     def test_from_config(self, gfp_mock, se_fc_mock, jd_fc_mock):
         def juju_cmd_iterator():
             yield '1.17'
@@ -133,7 +133,7 @@ class TestClientFromConfig(ClientTest):
             yield '2.2.0'
 
         context = patch.object(
-            EnvJujuClient, 'get_version',
+            ModelClient, 'get_version',
             side_effect=juju_cmd_iterator().send)
         with context:
             self.assertIs(EnvJujuClient1X,
@@ -179,11 +179,11 @@ class TestClientFromConfig(ClientTest):
             test_fc('2.0-beta13', None)
             test_fc('2.0-beta14', None)
             test_fc('2.0-beta15', None)
-            test_fc('2.0-rc1', EnvJujuClientRC)
-            test_fc('2.0-rc2', EnvJujuClientRC)
-            test_fc('2.0-rc3', EnvJujuClientRC)
+            test_fc('2.0-rc1', ModelClientRC)
+            test_fc('2.0-rc2', ModelClientRC)
+            test_fc('2.0-rc3', ModelClientRC)
             test_fc('2.0-delta1', ModelClient2_1)
-            test_fc('2.2.0', EnvJujuClient)
+            test_fc('2.2.0', ModelClient)
             with self.assertRaises(StopIteration):
                 client_from_config('foo', None)
 
@@ -318,13 +318,13 @@ class TestModelClient2_1(ClientTest):
             client.add_cloud_interactive('invalid/name', cloud)
 
 
-class TestEnvJujuClientRC(ClientTest):
+class TestModelClientRC(ClientTest):
 
     def test_bootstrap(self):
         env = JujuData('foo', {'type': 'bar', 'region': 'baz'})
         with observable_temp_file() as config_file:
-            with patch.object(EnvJujuClientRC, 'juju') as mock:
-                client = EnvJujuClientRC(env, '2.0-zeta1', None)
+            with patch.object(ModelClientRC, 'juju') as mock:
+                client = ModelClientRC(env, '2.0-zeta1', None)
                 client.bootstrap()
                 mock.assert_called_with(
                     'bootstrap', ('--constraints', 'mem=2G',
@@ -469,7 +469,7 @@ class TestEnvJujuClient1X(ClientTest):
 
     def test_bootstrap_async(self):
         env = SimpleEnvironment('foo')
-        with patch.object(EnvJujuClient, 'juju_async', autospec=True) as mock:
+        with patch.object(ModelClient, 'juju_async', autospec=True) as mock:
             client = EnvJujuClient1X(env, None, None)
             client.env.juju_home = 'foo'
             with client.bootstrap_async():
@@ -478,7 +478,7 @@ class TestEnvJujuClient1X(ClientTest):
 
     def test_bootstrap_async_upload_tools(self):
         env = SimpleEnvironment('foo')
-        with patch.object(EnvJujuClient, 'juju_async', autospec=True) as mock:
+        with patch.object(ModelClient, 'juju_async', autospec=True) as mock:
             client = EnvJujuClient1X(env, None, None)
             with client.bootstrap_async(upload_tools=True):
                 mock.assert_called_with(

@@ -51,7 +51,7 @@ from industrial_test import (
     )
 from jujuconfig import get_euca_env
 from jujupy import (
-    EnvJujuClient,
+    ModelClient,
     EnvJujuClient1X,
     get_timeout_prefix,
     JujuData,
@@ -121,7 +121,7 @@ def iter_steps_validate_info(test, stage, client):
 
     :param test: A unittest.TestCase
     :param stage: The SteppedStageAttempt to test.
-    :param client: The EnvJujuClient to use for iter_steps.
+    :param client: The ModelClient to use for iter_steps.
     """
     step_iter = stage.iter_steps(client)
     test_ids = stage.get_test_info().keys()
@@ -139,7 +139,7 @@ def iter_steps_validate_info(test, stage, client):
 
 def patch_status(client, *statuses):
     """
-    Replace calls to EnvJujuClient.get_status with preformed output.
+    Replace calls to ModelClient.get_status with preformed output.
 
     If client is None, all clients will have the given status for the duration
     of the patch, otherwise only the given client is modified.
@@ -157,7 +157,7 @@ def patch_status(client, *statuses):
         kwargs['return_value'] = Status.from_text(json.dumps(statuses[0]))
     if client is not None:
         return patch.object(client, 'get_status', autospec=True, **kwargs)
-    return patch('jujupy.EnvJujuClient.get_status', autospec=True, **kwargs)
+    return patch('jujupy.ModelClient.get_status', autospec=True, **kwargs)
 
 
 class TestParseArgs(TestCase):
@@ -528,7 +528,7 @@ class TestMultiIndustrialTest(TestCase):
                    side_effect=by_version):
             with patch('jujupy.SimpleEnvironment.from_config',
                        side_effect=lambda x: SimpleEnvironment(x, {})):
-                with patch.object(EnvJujuClient, 'get_full_path',
+                with patch.object(ModelClient, 'get_full_path',
                                   side_effect=lambda: 'juju'):
                     yield
 
@@ -883,8 +883,8 @@ class TestIndustrialTest(JujuPyTestCase):
                 self.assertEqual(industrial.new_client.debug, True)
 
     def test_run_stages(self):
-        old_client = FakeEnvJujuClient('old')
-        new_client = FakeEnvJujuClient('new')
+        old_client = FakeModelClient('old')
+        new_client = FakeModelClient('new')
         industrial = IndustrialTest(old_client, new_client, [
             FakeStepAttempt.from_result(True, True),
             FakeStepAttempt.from_result(True, True)])
@@ -970,8 +970,8 @@ class TestIndustrialTest(JujuPyTestCase):
             ('foo', True, False), ('bar', True, True), ('foo-id', True, True)])
 
     def test_run_stages_failure_in_last_step(self):
-        old_client = FakeEnvJujuClient('old')
-        new_client = FakeEnvJujuClient('new')
+        old_client = FakeModelClient('old')
+        new_client = FakeModelClient('new')
         fsa = FakeStepAttempt([('foo', True, True), ('bar', False, True)])
         industrial = IndustrialTest(old_client, new_client, [
             fsa, FakeStepAttempt.from_result(True, True)])
@@ -981,8 +981,8 @@ class TestIndustrialTest(JujuPyTestCase):
                     ('foo', True, True), ('bar', False, True)])
 
     def test_run_stages_raises_cannot_upgrade_to_old_client(self):
-        old = FakeEnvJujuClient()
-        new = FakeEnvJujuClient()
+        old = FakeModelClient()
+        new = FakeModelClient()
         industrial = IndustrialTest(old, new, [PrepareUpgradeJujuAttempt({})])
         with self.assertRaises(CannotUpgradeToOldClient):
             list(industrial.run_stages())
@@ -1136,8 +1136,8 @@ class TestSteppedStageAttempt(JujuPyTestCase):
             [('foo-id', True, False), ('bar-id', False, False)])
 
     def test_iter_test_results(self):
-        old = FakeEnvJujuClient()
-        new = FakeEnvJujuClient()
+        old = FakeModelClient()
+        new = FakeModelClient()
         error = ValueError('asdf')
 
         class StubSA(SteppedStageAttempt):
@@ -1187,10 +1187,10 @@ class TestSteppedStageAttempt(JujuPyTestCase):
             ('bar-id', {'title': 'Bar title', 'report_on': False})]))
 
 
-def FakeEnvJujuClient(name='steve', version='1.2', full_path='/jbin/juju'):
+def FakeModelClient(name='steve', version='1.2', full_path='/jbin/juju'):
     juju_data = JujuData(name, {'type': 'fake', 'region': 'regionx'})
     juju_data.credentials = {'credentials': {'fake': {'creds': {}}}}
-    return EnvJujuClient(
+    return ModelClient(
         juju_data, version, full_path)
 
 
@@ -1204,7 +1204,7 @@ class FakeEnvJujuClient1X(EnvJujuClient1X):
 class TestBootstrapAttempt(JujuPyTestCase):
 
     def test_iter_steps(self):
-        client = FakeEnvJujuClient()
+        client = FakeModelClient()
         bootstrap = BootstrapAttempt()
         boot_iter = iter_steps_validate_info(self, bootstrap, client)
         self.assertEqual(boot_iter.next(), {'test_id': 'bootstrap'})
@@ -1232,7 +1232,7 @@ class TestBootstrapAttempt(JujuPyTestCase):
 class TestDestroyEnvironmentAttempt(JujuPyTestCase):
 
     def test_iter_steps(self):
-        client = FakeEnvJujuClient()
+        client = FakeModelClient()
         destroy_env = DestroyEnvironmentAttempt()
         iterator = iter_steps_validate_info(self, destroy_env, client)
         self.assertEqual({'test_id': 'destroy-env'}, iterator.next())
@@ -1271,7 +1271,7 @@ class TestDestroyEnvironmentAttempt(JujuPyTestCase):
         csg_mock.assert_called_once_with(client, gsg_mock.return_value)
 
     def test_iter_test_results(self):
-        client = FakeEnvJujuClient()
+        client = FakeModelClient()
         destroy_env = DestroyEnvironmentAttempt()
         with patch('subprocess.call'):
             with patch.object(client, 'get_jes_command',
@@ -1281,7 +1281,7 @@ class TestDestroyEnvironmentAttempt(JujuPyTestCase):
             ('destroy-env', True, True), ('substrate-clean', True, True)])
 
     def test_iter_steps_failure(self):
-        client = FakeEnvJujuClient()
+        client = FakeModelClient()
         destroy_env = DestroyEnvironmentAttempt()
         iterator = iter_steps_validate_info(self, destroy_env, client)
         self.assertEqual({'test_id': 'destroy-env'}, iterator.next())
@@ -1331,13 +1331,13 @@ class TestDestroyEnvironmentAttempt(JujuPyTestCase):
 
     @staticmethod
     def get_aws_client():
-        client = FakeEnvJujuClient()
+        client = FakeModelClient()
         client.env = get_aws_env()
         return client
 
     @staticmethod
     def get_openstack_client():
-        client = FakeEnvJujuClient()
+        client = FakeModelClient()
         client.env.clouds = {'clouds': {'quxxx': {
             'type': 'openstack', 'endpoint': 'qux',
             }}}
@@ -1400,7 +1400,7 @@ class TestDestroyEnvironmentAttempt(JujuPyTestCase):
         os_client.servers.list.assert_called_once_with()
 
     def test_get_security_groups_non_aws(self):
-        client = FakeEnvJujuClient()
+        client = FakeModelClient()
         destroy_env = DestroyEnvironmentAttempt()
         self.assertIs(destroy_env.get_security_groups(client), None)
 
@@ -1450,7 +1450,7 @@ class TestDestroyEnvironmentAttempt(JujuPyTestCase):
             aws_secret_access_key='secret-skeleton-key')
 
     def test_check_security_groups_non_aws(self):
-        client = FakeEnvJujuClient()
+        client = FakeModelClient()
         destroy_env = DestroyEnvironmentAttempt()
         with patch('subprocess.check_output') as co_mock:
                 destroy_env.check_security_groups(
@@ -1461,7 +1461,7 @@ class TestDestroyEnvironmentAttempt(JujuPyTestCase):
 class TestEnsureAvailabilityAttempt(JujuPyTestCase):
 
     def test_iter_steps(self):
-        client = FakeEnvJujuClient()
+        client = FakeModelClient()
         controller_client = client.get_controller_client()
         ensure_av = EnsureAvailabilityAttempt()
         ensure_iter = iter_steps_validate_info(self, ensure_av, client)
@@ -1490,7 +1490,7 @@ class TestEnsureAvailabilityAttempt(JujuPyTestCase):
         gs_mock.assert_called_once_with()
 
     def test_iter_steps_failure(self):
-        client = FakeEnvJujuClient()
+        client = FakeModelClient()
         ensure_av = EnsureAvailabilityAttempt()
         ensure_iter = iter_steps_validate_info(self, ensure_av, client)
         ensure_iter.next()
@@ -1532,14 +1532,14 @@ class TestDeployManyAttempt(JujuPyTestCase):
     def test_iter_steps(self):
         machine_started = {'juju-status': {'current': 'idle'}}
         unit_started = {'agent-status': {'current': 'idle'}}
-        client = FakeEnvJujuClient()
+        client = FakeModelClient()
         client.env.update_config({'default-series': 'angsty'})
         self.do_iter_steps(client, LXD_MACHINE, machine_started, unit_started)
 
     def test_iter_steps_1x(self):
         started_state = {'agent-state': 'started'}
-        client = FakeEnvJujuClient()
-        with patch.object(EnvJujuClient, 'supported_container_types',
+        client = FakeModelClient()
+        with patch.object(ModelClient, 'supported_container_types',
                           frozenset([KVM_MACHINE, LXC_MACHINE])):
             client.env.update_config({'default-series': 'angsty'})
             self.do_iter_steps(client, LXC_MACHINE, started_state,
@@ -1650,7 +1650,7 @@ class TestDeployManyAttempt(JujuPyTestCase):
 
     def test_iter_step_failure(self):
         deploy_many = DeployManyAttempt()
-        client = FakeEnvJujuClient()
+        client = FakeModelClient()
         client.env.update_config({'default-series': 'angsty'})
         deploy_iter = iter_steps_validate_info(self, deploy_many, client)
         self.assertEqual(deploy_iter.next(), {'test_id': 'add-machine-many'})
@@ -1702,7 +1702,7 @@ class TestDeployManyAttempt(JujuPyTestCase):
 
     def test_iter_step_add_machine_failure(self):
         deploy_many = DeployManyAttempt()
-        client = FakeEnvJujuClient()
+        client = FakeModelClient()
         client.env.update_config({'default-series': 'angsty'})
         deploy_iter = iter_steps_validate_info(self, deploy_many, client)
         self.assertEqual(deploy_iter.next(), {'test_id': 'add-machine-many'})
@@ -1806,7 +1806,7 @@ class TestBackupRestoreAttempt(JujuPyTestCase):
 
     def test_iter_steps(self):
         br_attempt = BackupRestoreAttempt()
-        client = FakeEnvJujuClient()
+        client = FakeModelClient()
         aws_env = get_aws_env()
         client.env.environment = aws_env.environment
         client.env._config = aws_env._config
@@ -1879,7 +1879,7 @@ class TestBackupRestoreAttempt(JujuPyTestCase):
         test_id = {'test_id': 'back-up-restore'}
         br_attempt = BackupRestoreAttempt()
         azure_env = SimpleEnvironment('steve', get_azure_config())
-        client = FakeEnvJujuClient()
+        client = FakeModelClient()
         client.env.environment = azure_env.environment
         client.env._config = azure_env._config
         client.env.credentials = {'credentials': {'azure': {'creds': {}}}}
@@ -1951,8 +1951,8 @@ class TestPrepareUpgradeJujuAttempt(JujuPyTestCase):
         self.assertEqual('b', bootstrap_client.full_path)
 
     def test_iter_steps(self):
-        future_client = FakeEnvJujuClient(full_path='/future/juju')
-        present_client = FakeEnvJujuClient(full_path='/present/juju')
+        future_client = FakeModelClient(full_path='/future/juju')
+        present_client = FakeModelClient(full_path='/present/juju')
         puj_attempt = PrepareUpgradeJujuAttempt(
             {future_client.full_path: present_client.full_path})
         puj_iterator = iter_steps_validate_info(self, puj_attempt,
@@ -1984,7 +1984,7 @@ class TestPrepareUpgradeJujuAttempt(JujuPyTestCase):
 
     def test_iter_steps_no_previous_client(self):
         uj_attempt = PrepareUpgradeJujuAttempt({})
-        client = FakeEnvJujuClient(full_path='/present/juju')
+        client = FakeModelClient(full_path='/present/juju')
         uj_iterator = uj_attempt.iter_steps(client)
         with self.assertRaises(CannotUpgradeToClient) as exc_context:
             uj_iterator.next()
@@ -1994,7 +1994,7 @@ class TestPrepareUpgradeJujuAttempt(JujuPyTestCase):
 class TestUpgradeJujuAttempt(JujuPyTestCase):
 
     def test_iter_steps(self):
-        future_client = FakeEnvJujuClient(full_path='/future/juju')
+        future_client = FakeModelClient(full_path='/future/juju')
         uj_attempt = UpgradeJujuAttempt()
         uj_iterator = iter_steps_validate_info(self, uj_attempt, future_client)
         self.assertEqual(uj_iterator.next(), {'test_id': 'upgrade-juju'})
@@ -2026,7 +2026,7 @@ class TestUpgradeCharmAttempt(JujuPyTestCase):
         self.assertEqual(0o755, mode & 0o777)
 
     def test_iter_steps(self):
-        client = FakeEnvJujuClient(version='2.0.0', full_path='/future/juju')
+        client = FakeModelClient(version='2.0.0', full_path='/future/juju')
         self._iter_steps(client)
 
     def test_iter_steps_juju_1x(self):
@@ -2140,20 +2140,20 @@ class TestMaybeWriteJson(TestCase):
 class TestMakeSubstrate(JujuPyTestCase):
 
     def test_make_substrate_manager_no_support(self):
-        client = EnvJujuClient(JujuData('foo', {'type': 'foo'}),
-                               '', '')
+        client = ModelClient(JujuData('foo', {'type': 'foo'}),
+                             '', '')
         client.env.credentials = {'credentials': {'foo': {'creds': {}}}}
         with make_substrate_manager(client, []) as substrate:
             self.assertIs(substrate, None)
 
     def test_make_substrate_no_requirements(self):
-        client = EnvJujuClient(get_aws_juju_data(), '', '')
+        client = ModelClient(get_aws_juju_data(), '', '')
         client.env.credentials = {'credentials': {'aws': {'creds': {}}}}
         with make_substrate_manager(client, []) as substrate:
             self.assertIs(type(substrate), AWSAccount)
 
     def test_make_substrate_manager_unsatisifed_requirements(self):
-        client = EnvJujuClient(get_aws_juju_data(), '', '')
+        client = ModelClient(get_aws_juju_data(), '', '')
         client.env.credentials = {'credentials': {'aws': {'creds': {}}}}
         with make_substrate_manager(client, ['foo']) as substrate:
             self.assertIs(substrate, None)
@@ -2162,7 +2162,7 @@ class TestMakeSubstrate(JujuPyTestCase):
             self.assertIs(substrate, None)
 
     def test_make_substrate_satisfied_requirements(self):
-        client = EnvJujuClient(get_aws_juju_data(), '', '')
+        client = ModelClient(get_aws_juju_data(), '', '')
         client.env.credentials = {'credentials': {'aws': {'creds': {}}}}
         with make_substrate_manager(
                 client, ['iter_security_groups']) as substrate:

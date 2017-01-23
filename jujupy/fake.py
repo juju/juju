@@ -13,7 +13,7 @@ import pexpect
 import yaml
 
 from jujupy import (
-    EnvJujuClient,
+    ModelClient,
     JESNotSupported,
     JujuData,
     SoftDeadlineExceeded,
@@ -1032,7 +1032,7 @@ class FakeBackendOptionalJES(FakeBackend):
 
 
 def fake_juju_client(env=None, full_path=None, debug=False, version='2.0.0',
-                     _backend=None, cls=EnvJujuClient, juju_home=None):
+                     _backend=None, cls=ModelClient, juju_home=None):
     if juju_home is None:
         if env is None or env.juju_home is None:
             juju_home = 'foo'
@@ -1072,7 +1072,7 @@ def fake_juju_client_optional_jes(env=None, full_path=None, debug=False,
     return client
 
 
-class FakeJujuClientOptionalJES(EnvJujuClient):
+class FakeJujuClientOptionalJES(ModelClient):
 
     def get_controller_model_name(self):
         return self._backend.controller_state.controller_model.name

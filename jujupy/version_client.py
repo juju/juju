@@ -10,7 +10,6 @@ import yaml
 from jujupy.client import (
     Controller,
     _DEFAULT_BUNDLE_TIMEOUT,
-    EnvJujuClient as ModelClient,
     get_cache_path,
     get_jenv_path,
     get_teardown_timeout,
@@ -21,6 +20,7 @@ from jujupy.client import (
     KVM_MACHINE,
     LXC_MACHINE,
     make_safe_config,
+    ModelClient,
     SimpleEnvironment,
     Status,
     StatusItem,
@@ -128,7 +128,7 @@ class ModelClient2_1(ModelClient):
     REGION_ENDPOINT_PROMPT = 'Enter the API endpoint url for the region:'
 
 
-class EnvJujuClientRC(ModelClient2_1):
+class ModelClientRC(ModelClient2_1):
 
     def get_bootstrap_args(
             self, upload_tools, config_filename, bootstrap_series=None,
@@ -172,7 +172,7 @@ class EnvJujuClientRC(ModelClient2_1):
         return tuple(args)
 
 
-class EnvJujuClient1X(EnvJujuClientRC):
+class EnvJujuClient1X(ModelClientRC):
     """Base for all 1.x client drivers."""
 
     default_backend = Juju1XBackend
@@ -673,7 +673,7 @@ def get_client_class(version):
     elif re.match('^2\.0-(alpha|beta)', version):
         raise VersionNotTestedError(version)
     elif re.match('^2\.0-rc[1-3]', version):
-        client_class = EnvJujuClientRC
+        client_class = ModelClientRC
     elif re.match('^2\.[0-1][.-]', version):
         client_class = ModelClient2_1
     else:
