@@ -202,8 +202,12 @@ func (s *environInstSuite) TestListMachineTypes(c *gc.C) {
 
 }
 
-func (s *environInstSuite) TestAdoptInstances(c *gc.C) {
-	err := s.Env.AdoptInstances([]instance.Id{"john", "misty"}, "other-uuid")
+func (s *environInstSuite) TestUpdateController(c *gc.C) {
+	john := s.NewInstance(c, "john")
+	misty := s.NewInstance(c, "misty")
+	s.FakeEnviron.Insts = []instance.Instance{john, misty}
+
+	err := s.Env.UpdateController("other-uuid")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.FakeConn.Calls, gc.HasLen, 1)
 	call := s.FakeConn.Calls[0]

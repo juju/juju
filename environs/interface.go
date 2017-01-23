@@ -232,6 +232,15 @@ type Environ interface {
 	// the Bootstrap method's job to create the controller model.
 	Create(CreateParams) error
 
+	// UpdateController is called when the model is moved from one controller
+	// to another using model migration. Some providers tag instances, disks,
+	// and cloud storage with the controller UUID to aid in clean destruction.
+	// All things that the provider has tagged with the controller UUID need
+	// to be updated in this method to use the new controller UUID. For
+	// providers that do not track the controller UUID, a simple method
+	// returning nil will suffice.
+	UpdateController(controllerUUID string) error
+
 	// InstanceBroker defines methods for starting and stopping
 	// instances.
 	InstanceBroker

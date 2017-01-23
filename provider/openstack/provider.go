@@ -1259,6 +1259,11 @@ func (e *Environ) Instances(ids []instance.Id) ([]instance.Instance, error) {
 	return insts, err
 }
 
+// UpdateController is part of the Environ interface.
+func (e *Environ) UpdateController(controllerUUID string) error {
+	return errors.NotImplementedf("UpdateController")
+}
+
 // AllInstances returns all instances in this environment.
 func (e *Environ) AllInstances() ([]instance.Instance, error) {
 	tagFilter := tagValue{tags.JujuModel, e.ecfg().UUID()}
