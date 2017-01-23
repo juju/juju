@@ -240,7 +240,9 @@ func (inst *azureInstance) OpenPorts(machineId string, rules []jujunetwork.Ingre
 	// NSG in memory, so we can easily tell which priorities are available.
 	vmName := resourceName(names.NewMachineTag(machineId))
 	prefix := instanceNetworkSecurityRulePrefix(instance.Id(vmName))
-	for _, rule := range rules {
+
+	singleSourceIngressRules := explodeIngressRules(rules)
+	for _, rule := range singleSourceIngressRules {
 		ruleName := securityRuleName(prefix, rule)
 
 		// Check if the rule already exists; OpenPorts must be idempotent.
@@ -279,13 +281,15 @@ func (inst *azureInstance) OpenPorts(machineId string, rules []jujunetwork.Ingre
 			portRange = fmt.Sprint(rule.FromPort)
 		}
 
-		rule := network.SecurityRule{
+		// rule has a single source CIDR
+		from := rule.SourceCIDRs[0]
+		securityRule := network.SecurityRule{
 			Properties: &network.SecurityRulePropertiesFormat{
 				Description:              to.StringPtr(rule.String()),
 				Protocol:                 protocol,
 				SourcePortRange:          to.StringPtr("*"),
 				DestinationPortRange:     to.StringPtr(portRange),
-				SourceAddressPrefix:      to.StringPtr("*"),
+				SourceAddressPrefix:      to.StringPtr(from),
 				DestinationAddressPrefix: to.StringPtr(primaryNetworkAddress.Value),
 				Access:    network.Allow,
 				Priority:  to.Int32Ptr(priority),
@@ -294,13 +298,13 @@ func (inst *azureInstance) OpenPorts(machineId string, rules []jujunetwork.Ingre
 		}
 		if err := inst.env.callAPI(func() (autorest.Response, error) {
 			return securityRuleClient.CreateOrUpdate(
-				inst.env.resourceGroup, securityGroupName, ruleName, rule,
+				inst.env.resourceGroup, securityGroupName, ruleName, securityRule,
 				nil, // abort channel
 			)
 		}); err != nil {
-			return errors.Annotatef(err, "creating security rule for %s", rule)
+			return errors.Annotatef(err, "creating security rule for %s", securityRule)
 		}
-		securityRules = append(securityRules, rule)
+		securityRules = append(securityRules, securityRule)
 	}
 	return nil
 }
@@ -314,7 +318,9 @@ func (inst *azureInstance) ClosePorts(machineId string, rules []jujunetwork.Ingr
 	// on changes made by the provisioner.
 	vmName := resourceName(names.NewMachineTag(machineId))
 	prefix := instanceNetworkSecurityRulePrefix(instance.Id(vmName))
-	for _, rule := range rules {
+
+	singleSourceIngressRules := explodeIngressRules(rules)
+	for _, rule := range singleSourceIngressRules {
 		ruleName := securityRuleName(prefix, rule)
 		logger.Debugf("deleting security rule %q", ruleName)
 		var result autorest.Response
@@ -352,6 +358,9 @@ func (inst *azureInstance) IngressRules(machineId string) (rules []jujunetwork.I
 
 	vmName := resourceName(names.NewMachineTag(machineId))
 	prefix := instanceNetworkSecurityRulePrefix(instance.Id(vmName))
+
+	// Keep track of all the SourceAddressPrefixes for each port range.
+	portSourceCIDRs := make(map[jujunetwork.PortRange]*[]string)
 	for _, rule := range *nsg.Properties.SecurityRules {
 		if rule.Properties.Direction != network.Inbound {
 			continue
@@ -391,11 +400,35 @@ func (inst *azureInstance) IngressRules(machineId string) (rules []jujunetwork.I
 		default:
 			protocols = []string{"tcp", "udp"}
 		}
+
+		// Record the SourceAddressPrefix for the port range.
+		remotePrefix := to.String(rule.Properties.SourceAddressPrefix)
+		if remotePrefix == "" || remotePrefix == "*" {
+			remotePrefix = "0.0.0.0/0"
+		}
 		for _, protocol := range protocols {
 			portRange.Protocol = protocol
-			rules = append(rules, jujunetwork.RulesFromPortRanges(portRange)...)
+			sourceCIDRs, ok := portSourceCIDRs[portRange]
+			if !ok {
+				sourceCIDRs = &[]string{}
+				portSourceCIDRs[portRange] = sourceCIDRs
+			}
+			*sourceCIDRs = append(*sourceCIDRs, remotePrefix)
 		}
 	}
+	// Combine all the port ranges and remote prefixes.
+	for portRange, sourceCIDRs := range portSourceCIDRs {
+		rule, err := jujunetwork.NewIngressRule(
+			portRange.Protocol,
+			portRange.FromPort,
+			portRange.ToPort,
+			*sourceCIDRs...)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		rules = append(rules, rule)
+	}
+	jujunetwork.SortIngressRules(rules)
 	return rules, nil
 }
 
@@ -461,5 +494,35 @@ func securityRuleName(prefix string, rule jujunetwork.IngressRule) string {
 	if rule.FromPort != rule.ToPort {
 		ruleName += fmt.Sprintf("-%d", rule.ToPort)
 	}
+	// The rule parameter must have a single source cidr.
+	// Ensure the rule name can be a valid URL path component.
+	cidr := rule.SourceCIDRs[0]
+	cidr = strings.Replace(cidr, ".", "-", -1)
+	cidr = strings.Replace(cidr, "::", "-", -1)
+	cidr = strings.Replace(cidr, "/", "-", -1)
+	if cidr != "*" {
+		ruleName = fmt.Sprintf("%s-cidr-%s", ruleName, cidr)
+	}
 	return ruleName
+}
+
+// explodeIngressRules creates a slice of ingress rules, each rule in the
+// result having a single source CIDR. The results contain a copy of each
+// specified rule with each copy having one of the source CIDR values,
+func explodeIngressRules(inRules jujunetwork.IngressRuleSlice) jujunetwork.IngressRuleSlice {
+	// If any rule has an empty source CIDR slice, a default
+	// source value of "*" is used.
+	var singleSourceIngressRules jujunetwork.IngressRuleSlice
+	for _, rule := range inRules {
+		sourceCIDRs := rule.SourceCIDRs
+		if len(sourceCIDRs) == 0 {
+			sourceCIDRs = []string{"*"}
+		}
+		for _, sr := range sourceCIDRs {
+			r := rule
+			r.SourceCIDRs = []string{sr}
+			singleSourceIngressRules = append(singleSourceIngressRules, r)
+		}
+	}
+	return singleSourceIngressRules
 }

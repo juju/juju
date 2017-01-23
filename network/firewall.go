@@ -68,8 +68,9 @@ func NewOpenIngressRule(protocol string, from, to int) IngressRule {
 // String is the string representation of IngressRule.
 func (r IngressRule) String() string {
 	source := ""
-	if len(r.SourceCIDRs) > 0 {
-		source = " from " + strings.Join(r.SourceCIDRs, ",")
+	from := strings.Join(r.SourceCIDRs, ",")
+	if from != "" && from != "0.0.0.0/0" {
+		source = " from " + from
 	}
 	if r.FromPort == r.ToPort {
 		return fmt.Sprintf("%d/%s%s", r.FromPort, strings.ToLower(r.Protocol), source)

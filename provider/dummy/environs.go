@@ -1395,6 +1395,9 @@ func (e *environ) OpenPorts(rules []network.IngressRule) error {
 	estate.mu.Lock()
 	defer estate.mu.Unlock()
 	for _, r := range rules {
+		if len(r.SourceCIDRs) == 0 {
+			r.SourceCIDRs = []string{"0.0.0.0/0"}
+		}
 		found := false
 		for _, rule := range estate.globalRules {
 			if r.String() == rule.String() {
@@ -1556,6 +1559,9 @@ func (inst *dummyInstance) OpenPorts(machineId string, rules []network.IngressRu
 		Rules:      rules,
 	}
 	for _, r := range rules {
+		if len(r.SourceCIDRs) == 0 {
+			r.SourceCIDRs = []string{"0.0.0.0/0"}
+		}
 		found := false
 		for _, rule := range inst.rules {
 			if r.String() == rule.String() {
@@ -1610,7 +1616,7 @@ func (inst *dummyInstance) IngressRules(machineId string) (rules []network.Ingre
 	}
 	inst.state.mu.Lock()
 	defer inst.state.mu.Unlock()
-	if err := inst.checkBroken("Ports"); err != nil {
+	if err := inst.checkBroken("IngressRules"); err != nil {
 		return nil, err
 	}
 	for _, r := range inst.rules {

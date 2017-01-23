@@ -1187,8 +1187,8 @@ func (e *environ) ingressRulesInGroup(name string) (rules []network.IngressRule,
 	}
 	for _, p := range group.IPPerms {
 		ips := p.SourceIPs
-		if len(ips) == 1 && ips[0] == defaultRouteCIDRBlock {
-			ips = nil
+		if len(ips) == 0 {
+			ips = []string{defaultRouteCIDRBlock}
 		}
 		rule, err := network.NewIngressRule(p.Protocol, p.FromPort, p.ToPort, ips...)
 		if err != nil {

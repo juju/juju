@@ -28,8 +28,8 @@ func (gce Connection) IngressRules(fwname string) ([]network.IngressRule, error)
 			if err != nil {
 				return rules, errors.Annotate(err, "bad ports from GCE")
 			}
-			portRange.Protocol = allowed.IPProtocol
-			rules = append(rules, network.RulesFromPortRanges(portRange)...)
+			rule, _ := network.NewIngressRule(allowed.IPProtocol, portRange.FromPort, portRange.ToPort, "0.0.0.0/0")
+			rules = append(rules, rule)
 		}
 	}
 

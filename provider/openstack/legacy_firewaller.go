@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/clock"
-	"github.com/juju/utils/set"
 	gooseerrors "gopkg.in/goose.v1/errors"
 	"gopkg.in/goose.v1/neutron"
 	"gopkg.in/goose.v1/nova"
@@ -289,25 +288,20 @@ func (c *legacyNovaFirewaller) ingressRulesInGroup(nameRegexp string) (rules []n
 		return nil, errors.Trace(err)
 	}
 	// Keep track of all the RemoteIPPrefixes for each port range.
-	portSourceCIDRs := make(map[network.PortRange]set.Strings)
+	portSourceCIDRs := make(map[network.PortRange]*[]string)
 	for _, p := range group.Rules {
 		portRange := network.PortRange{*p.FromPort, *p.ToPort, *p.IPProtocol}
 		// Record the RemoteIPPrefix for the port range.
 		remotePrefix := p.IPRange["cidr"]
-		if remotePrefix == "0.0.0.0/0" {
-			remotePrefix = ""
+		if remotePrefix == "" {
+			remotePrefix = "0.0.0.0/0"
 		}
-		var (
-			sourceCIDRs set.Strings
-			ok          bool
-		)
-		if sourceCIDRs, ok = portSourceCIDRs[portRange]; !ok {
-			sourceCIDRs = set.NewStrings()
+		sourceCIDRs, ok := portSourceCIDRs[portRange]
+		if !ok {
+			sourceCIDRs = &[]string{}
 			portSourceCIDRs[portRange] = sourceCIDRs
 		}
-		if remotePrefix != "" {
-			sourceCIDRs.Add(remotePrefix)
-		}
+		*sourceCIDRs = append(*sourceCIDRs, remotePrefix)
 	}
 	// Combine all the port ranges and remote prefixes.
 	for portRange, sourceCIDRs := range portSourceCIDRs {
@@ -315,7 +309,7 @@ func (c *legacyNovaFirewaller) ingressRulesInGroup(nameRegexp string) (rules []n
 			portRange.Protocol,
 			portRange.FromPort,
 			portRange.ToPort,
-			sourceCIDRs.Values()...)
+			*sourceCIDRs...)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

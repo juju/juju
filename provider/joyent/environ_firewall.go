@@ -52,9 +52,9 @@ func ruleExists(rules []cloudapi.FirewallRule, rule string) (bool, string) {
 }
 
 // Helper method to get port from the given firewall rules
-func getPorts(envName string, rules []cloudapi.FirewallRule) ([]network.IngressRule, error) {
-	portRanges := []network.IngressRule{}
-	for _, r := range rules {
+func getRules(envName string, fwrules []cloudapi.FirewallRule) ([]network.IngressRule, error) {
+	rules := []network.IngressRule{}
+	for _, r := range fwrules {
 		rule := r.Rule
 		if r.Enabled && strings.HasPrefix(rule, "FROM tag "+envName) && strings.Contains(rule, "PORT") {
 			if firewallSinglePortRule.MatchString(rule) {
@@ -64,11 +64,11 @@ func getPorts(envName string, rules []cloudapi.FirewallRule) ([]network.IngressR
 				}
 				protocol := parts[1]
 				n, _ := strconv.Atoi(parts[2])
-				rule, err := network.NewIngressRule(protocol, n, n)
+				rule, err := network.NewIngressRule(protocol, n, n, "0.0.0.0/0")
 				if err != nil {
 					return nil, errors.Trace(err)
 				}
-				portRanges = append(portRanges, rule)
+				rules = append(rules, rule)
 			} else if firewallMultiPortRule.MatchString(rule) {
 				parts := firewallMultiPortRule.FindStringSubmatch(rule)
 				if len(parts) != 3 {
@@ -82,13 +82,17 @@ func getPorts(envName string, rules []cloudapi.FirewallRule) ([]network.IngressR
 					port, _ := strconv.Atoi(portString)
 					ports = append(ports, network.Port{protocol, port})
 				}
-				portRanges = append(portRanges, network.RulesFromPortRanges(network.CollapsePorts(ports)...)...)
+				portRange := network.CollapsePorts(ports)
+				for _, port := range portRange {
+					rule, _ := network.NewIngressRule(port.Protocol, port.FromPort, port.ToPort, "0.0.0.0/0")
+					rules = append(rules, rule)
+				}
 			}
 		}
 	}
 
-	network.SortIngressRules(portRanges)
-	return portRanges, nil
+	network.SortIngressRules(rules)
+	return rules, nil
 }
 
 func (env *joyentEnviron) OpenPorts(ports []network.IngressRule) error {
@@ -167,5 +171,5 @@ func (env *joyentEnviron) IngressRules() ([]network.IngressRule, error) {
 		return nil, fmt.Errorf("cannot get firewall rules: %v", err)
 	}
 
-	return getPorts(env.Config().Name(), fwRules)
+	return getRules(env.Config().Name(), fwRules)
 }

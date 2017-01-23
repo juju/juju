@@ -201,11 +201,7 @@ func (*localTests) TestPortsToRuleInfo(c *gc.C) {
 		expected []neutron.RuleInfoV2
 	}{{
 		about: "single port",
-		rules: network.RulesFromPortRanges([]network.PortRange{{
-			FromPort: 80,
-			ToPort:   80,
-			Protocol: "tcp",
-		}}...),
+		rules: []network.IngressRule{network.MustNewIngressRule("tcp", 80, 80)},
 		expected: []neutron.RuleInfoV2{{
 			Direction:      "ingress",
 			IPProtocol:     "tcp",
@@ -216,11 +212,7 @@ func (*localTests) TestPortsToRuleInfo(c *gc.C) {
 		}},
 	}, {
 		about: "multiple ports",
-		rules: network.RulesFromPortRanges([]network.PortRange{{
-			FromPort: 80,
-			ToPort:   82,
-			Protocol: "tcp",
-		}}...),
+		rules: []network.IngressRule{network.MustNewIngressRule("tcp", 80, 82)},
 		expected: []neutron.RuleInfoV2{{
 			Direction:      "ingress",
 			IPProtocol:     "tcp",
@@ -231,15 +223,10 @@ func (*localTests) TestPortsToRuleInfo(c *gc.C) {
 		}},
 	}, {
 		about: "multiple port ranges",
-		rules: network.RulesFromPortRanges([]network.PortRange{{
-			FromPort: 80,
-			ToPort:   82,
-			Protocol: "tcp",
-		}, {
-			FromPort: 100,
-			ToPort:   120,
-			Protocol: "tcp",
-		}}...),
+		rules: []network.IngressRule{
+			network.MustNewIngressRule("tcp", 80, 82),
+			network.MustNewIngressRule("tcp", 100, 120),
+		},
 		expected: []neutron.RuleInfoV2{{
 			Direction:      "ingress",
 			IPProtocol:     "tcp",

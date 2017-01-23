@@ -18,44 +18,21 @@ type FirewallSuite struct {
 var _ = gc.Suite(&FirewallSuite{})
 
 func (*FirewallSuite) TestStrings(c *gc.C) {
-	rule, err := network.NewIngressRule("tcp", 80, 80)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(
-		rule.String(),
-		gc.Equals,
-		"80/tcp",
-	)
-	c.Assert(
-		rule.GoString(),
-		gc.Equals,
-		"80/tcp",
-	)
+	rule := network.MustNewIngressRule("tcp", 80, 80)
+	c.Assert(rule.String(), gc.Equals, "80/tcp")
+	c.Assert(rule.GoString(), gc.Equals, "80/tcp")
 
-	rule, err = network.NewIngressRule("tcp", 80, 100)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(
-		rule.String(),
-		gc.Equals,
-		"80-100/tcp",
-	)
-	c.Assert(
-		rule.GoString(),
-		gc.Equals,
-		"80-100/tcp",
-	)
+	rule = network.MustNewIngressRule("tcp", 80, 80, "0.0.0.0/0")
+	c.Assert(rule.String(), gc.Equals, "80/tcp")
+	c.Assert(rule.GoString(), gc.Equals, "80/tcp")
 
-	rule, err = network.NewIngressRule("tcp", 80, 100, "0.0.0.0/0", "192.168.1.0/24")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(
-		rule.String(),
-		gc.Equals,
-		"80-100/tcp from 0.0.0.0/0,192.168.1.0/24",
-	)
-	c.Assert(
-		rule.GoString(),
-		gc.Equals,
-		"80-100/tcp from 0.0.0.0/0,192.168.1.0/24",
-	)
+	rule = network.MustNewIngressRule("tcp", 80, 100)
+	c.Assert(rule.String(), gc.Equals, "80-100/tcp")
+	c.Assert(rule.GoString(), gc.Equals, "80-100/tcp")
+
+	rule = network.MustNewIngressRule("tcp", 80, 100, "0.0.0.0/0", "192.168.1.0/24")
+	c.Assert(rule.String(), gc.Equals, "80-100/tcp from 0.0.0.0/0,192.168.1.0/24")
+	c.Assert(rule.GoString(), gc.Equals, "80-100/tcp from 0.0.0.0/0,192.168.1.0/24")
 }
 
 func (*FirewallSuite) TestSortIngressRules(c *gc.C) {

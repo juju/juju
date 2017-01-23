@@ -333,6 +333,9 @@ type Firewaller interface {
 	// IngressRules returns the ingress rules applied to the whole environment.
 	// Must only be used if the environment was setup with the
 	// FwGlobal firewall mode.
+	// It is expected that there be only one ingress rule result for a given
+	// port range - the rule's SourceCIDRs will contain all applicable source
+	// address rules for that port range.
 	IngressRules() ([]network.IngressRule, error)
 }
 
