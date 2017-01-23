@@ -14,20 +14,20 @@ import (
 // OpenPorts opens the given port ranges for the whole environment.
 // Must only be used if the environment was setup with the
 // FwGlobal firewall mode.
-func (env *environ) OpenPorts(ports []network.PortRange) error {
+func (env *environ) OpenPorts(rules []network.IngressRule) error {
 	return errors.Trace(errors.NotSupportedf("ClosePorts"))
 }
 
 // ClosePorts closes the given port ranges for the whole environment.
 // Must only be used if the environment was setup with the
 // FwGlobal firewall mode.
-func (env *environ) ClosePorts(ports []network.PortRange) error {
+func (env *environ) ClosePorts(rules []network.IngressRule) error {
 	return errors.Trace(errors.NotSupportedf("ClosePorts"))
 }
 
-// Ports returns the port ranges opened for the whole environment.
+// IngressRules returns the port ranges opened for the whole environment.
 // Must only be used if the environment was setup with the
 // FwGlobal firewall mode.
-func (env *environ) Ports() ([]network.PortRange, error) {
+func (env *environ) IngressRules() ([]network.IngressRule, error) {
 	return nil, errors.Trace(errors.NotSupportedf("Ports"))
 }

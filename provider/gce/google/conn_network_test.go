@@ -25,14 +25,10 @@ func (s *connSuite) TestConnectionPorts(c *gc.C) {
 		}},
 	}
 
-	ports, err := s.Conn.Ports("spam")
+	ports, err := s.Conn.IngressRules("spam")
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(ports, jc.DeepEquals, []network.PortRange{{
-		FromPort: 80,
-		ToPort:   81,
-		Protocol: "tcp",
-	}})
+	c.Check(ports, jc.DeepEquals, []network.IngressRule{network.MustNewIngressRule("tcp", 80, 81)})
 }
 
 func (s *connSuite) TestConnectionPortsAPI(c *gc.C) {
@@ -46,7 +42,7 @@ func (s *connSuite) TestConnectionPortsAPI(c *gc.C) {
 		}},
 	}
 
-	_, err := s.Conn.Ports("eggs")
+	_, err := s.Conn.IngressRules("eggs")
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(s.FakeConn.Calls, gc.HasLen, 1)
@@ -58,11 +54,7 @@ func (s *connSuite) TestConnectionPortsAPI(c *gc.C) {
 func (s *connSuite) TestConnectionOpenPortsAdd(c *gc.C) {
 	s.FakeConn.Err = errors.NotFoundf("spam")
 
-	ports := network.PortRange{
-		FromPort: 80,
-		ToPort:   81,
-		Protocol: "tcp",
-	}
+	ports := network.MustNewIngressRule("tcp", 80, 81)
 	err := s.Conn.OpenPorts("spam", ports)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -92,11 +84,7 @@ func (s *connSuite) TestConnectionOpenPortsUpdate(c *gc.C) {
 		}},
 	}
 
-	ports := network.PortRange{
-		FromPort: 443,
-		ToPort:   443,
-		Protocol: "tcp",
-	}
+	ports := network.MustNewIngressRule("tcp", 443, 443)
 	err := s.Conn.OpenPorts("spam", ports)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -126,11 +114,7 @@ func (s *connSuite) TestConnectionClosePortsRemove(c *gc.C) {
 		}},
 	}
 
-	ports := network.PortRange{
-		FromPort: 443,
-		ToPort:   443,
-		Protocol: "tcp",
-	}
+	ports := network.MustNewIngressRule("tcp", 443, 443)
 	err := s.Conn.ClosePorts("spam", ports)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -151,11 +135,7 @@ func (s *connSuite) TestConnectionClosePortsUpdate(c *gc.C) {
 		}},
 	}
 
-	ports := network.PortRange{
-		FromPort: 443,
-		ToPort:   443,
-		Protocol: "tcp",
-	}
+	ports := network.MustNewIngressRule("tcp", 443, 443)
 	err := s.Conn.ClosePorts("spam", ports)
 	c.Assert(err, jc.ErrorIsNil)
 

@@ -57,7 +57,7 @@ func (ns *NetworkSpec) newInterface(name string) *compute.NetworkInterface {
 
 // firewallSpec expands a port range set in to compute.FirewallAllowed
 // and returns a compute.Firewall for the provided name.
-func firewallSpec(name string, ps network.PortSet) *compute.Firewall {
+func firewallSpec(name string, ps network.RuleSet) *compute.Firewall {
 	firewall := compute.Firewall{
 		// Allowed is set below.
 		// Description is not set.

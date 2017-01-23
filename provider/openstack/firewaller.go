@@ -13,6 +13,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/retry"
 	"github.com/juju/utils/clock"
+	"github.com/juju/utils/set"
 	"gopkg.in/goose.v1/neutron"
 
 	"github.com/juju/juju/environs"
@@ -30,13 +31,13 @@ type FirewallerFactory interface {
 // This is used in other providers that embed the openstack provider.
 type Firewaller interface {
 	// OpenPorts opens the given port ranges for the whole environment.
-	OpenPorts(ports []network.PortRange) error
+	OpenPorts(rules []network.IngressRule) error
 
 	// ClosePorts closes the given port ranges for the whole environment.
-	ClosePorts(ports []network.PortRange) error
+	ClosePorts(rules []network.IngressRule) error
 
-	// Ports returns the port ranges opened for the whole environment.
-	Ports() ([]network.PortRange, error)
+	// IngressRules returns the ingress rules applied to the whole environment.
+	IngressRules() ([]network.IngressRule, error)
 
 	// Implementations are expected to delete all security groups for the
 	// environment.
@@ -57,13 +58,13 @@ type Firewaller interface {
 	SetUpGroups(controllerUUID, machineId string, apiPort int) ([]string, error)
 
 	// OpenInstancePorts opens the given port ranges for the specified  instance.
-	OpenInstancePorts(inst instance.Instance, machineId string, ports []network.PortRange) error
+	OpenInstancePorts(inst instance.Instance, machineId string, rules []network.IngressRule) error
 
 	// CloseInstancePorts closes the given port ranges for the specified  instance.
-	CloseInstancePorts(inst instance.Instance, machineId string, ports []network.PortRange) error
+	CloseInstancePorts(inst instance.Instance, machineId string, rules []network.IngressRule) error
 
-	// InstancePorts returns the port ranges opened for the specified  instance.
-	InstancePorts(inst instance.Instance, machineId string) ([]network.PortRange, error)
+	// InstanceIngressRules returns the ingress rules applied to the specified  instance.
+	InstanceIngressRules(inst instance.Instance, machineId string) ([]network.IngressRule, error)
 }
 
 type firewallerFactory struct {
@@ -104,25 +105,25 @@ func (f *switchingFirewaller) initFirewaller() error {
 	return nil
 }
 
-func (f *switchingFirewaller) OpenPorts(ports []network.PortRange) error {
+func (f *switchingFirewaller) OpenPorts(rules []network.IngressRule) error {
 	if err := f.initFirewaller(); err != nil {
 		return errors.Trace(err)
 	}
-	return f.fw.OpenPorts(ports)
+	return f.fw.OpenPorts(rules)
 }
 
-func (f *switchingFirewaller) ClosePorts(ports []network.PortRange) error {
+func (f *switchingFirewaller) ClosePorts(rules []network.IngressRule) error {
 	if err := f.initFirewaller(); err != nil {
 		return errors.Trace(err)
 	}
-	return f.fw.ClosePorts(ports)
+	return f.fw.ClosePorts(rules)
 }
 
-func (f *switchingFirewaller) Ports() ([]network.PortRange, error) {
+func (f *switchingFirewaller) IngressRules() ([]network.IngressRule, error) {
 	if err := f.initFirewaller(); err != nil {
 		return nil, errors.Trace(err)
 	}
-	return f.fw.Ports()
+	return f.fw.IngressRules()
 }
 
 func (f *switchingFirewaller) DeleteAllModelGroups() error {
@@ -160,25 +161,25 @@ func (f *switchingFirewaller) SetUpGroups(controllerUUID, machineId string, apiP
 	return f.fw.SetUpGroups(controllerUUID, machineId, apiPort)
 }
 
-func (f *switchingFirewaller) OpenInstancePorts(inst instance.Instance, machineId string, ports []network.PortRange) error {
+func (f *switchingFirewaller) OpenInstancePorts(inst instance.Instance, machineId string, rules []network.IngressRule) error {
 	if err := f.initFirewaller(); err != nil {
 		return errors.Trace(err)
 	}
-	return f.fw.OpenInstancePorts(inst, machineId, ports)
+	return f.fw.OpenInstancePorts(inst, machineId, rules)
 }
 
-func (f *switchingFirewaller) CloseInstancePorts(inst instance.Instance, machineId string, ports []network.PortRange) error {
+func (f *switchingFirewaller) CloseInstancePorts(inst instance.Instance, machineId string, rules []network.IngressRule) error {
 	if err := f.initFirewaller(); err != nil {
 		return errors.Trace(err)
 	}
-	return f.fw.CloseInstancePorts(inst, machineId, ports)
+	return f.fw.CloseInstancePorts(inst, machineId, rules)
 }
 
-func (f *switchingFirewaller) InstancePorts(inst instance.Instance, machineId string) ([]network.PortRange, error) {
+func (f *switchingFirewaller) InstanceIngressRules(inst instance.Instance, machineId string) ([]network.IngressRule, error) {
 	if err := f.initFirewaller(); err != nil {
 		return nil, errors.Trace(err)
 	}
-	return f.fw.InstancePorts(inst, machineId)
+	return f.fw.InstanceIngressRules(inst, machineId)
 }
 
 type firewallerBase struct {
@@ -294,89 +295,89 @@ func deleteSecurityGroup(
 }
 
 func (c *firewallerBase) openPorts(
-	openPortsInGroup func(string, []network.PortRange) error,
-	ports []network.PortRange,
+	openPortsInGroup func(string, []network.IngressRule) error,
+	rules []network.IngressRule,
 ) error {
 	if c.environ.Config().FirewallMode() != config.FwGlobal {
 		return errors.Errorf("invalid firewall mode %q for opening ports on model",
 			c.environ.Config().FirewallMode())
 	}
-	if err := openPortsInGroup(c.globalGroupRegexp(), ports); err != nil {
+	if err := openPortsInGroup(c.globalGroupRegexp(), rules); err != nil {
 		return errors.Trace(err)
 	}
-	logger.Infof("opened ports in global group: %v", ports)
+	logger.Infof("opened ports in global group: %v", rules)
 	return nil
 }
 
 func (c *firewallerBase) closePorts(
-	closePortsInGroup func(string, []network.PortRange) error,
-	ports []network.PortRange,
+	closePortsInGroup func(string, []network.IngressRule) error,
+	rules []network.IngressRule,
 ) error {
 	if c.environ.Config().FirewallMode() != config.FwGlobal {
 		return errors.Errorf("invalid firewall mode %q for closing ports on model",
 			c.environ.Config().FirewallMode())
 	}
-	if err := closePortsInGroup(c.globalGroupRegexp(), ports); err != nil {
+	if err := closePortsInGroup(c.globalGroupRegexp(), rules); err != nil {
 		return errors.Trace(err)
 	}
-	logger.Infof("closed ports in global group: %v", ports)
+	logger.Infof("closed ports in global group: %v", rules)
 	return nil
 }
 
-func (c *firewallerBase) ports(
-	portsInGroup func(string) ([]network.PortRange, error),
-) ([]network.PortRange, error) {
+func (c *firewallerBase) ingressRules(
+	ingressRulesInGroup func(string) ([]network.IngressRule, error),
+) ([]network.IngressRule, error) {
 	if c.environ.Config().FirewallMode() != config.FwGlobal {
-		return nil, errors.Errorf("invalid firewall mode %q for retrieving ports from model",
+		return nil, errors.Errorf("invalid firewall mode %q for retrieving ingress rules from model",
 			c.environ.Config().FirewallMode())
 	}
-	return portsInGroup(c.globalGroupRegexp())
+	return ingressRulesInGroup(c.globalGroupRegexp())
 }
 
 func (c *firewallerBase) openInstancePorts(
-	openPortsInGroup func(string, []network.PortRange) error,
+	openPortsInGroup func(string, []network.IngressRule) error,
 	machineId string,
-	ports []network.PortRange,
+	rules []network.IngressRule,
 ) error {
 	if c.environ.Config().FirewallMode() != config.FwInstance {
 		return errors.Errorf("invalid firewall mode %q for opening ports on instance",
 			c.environ.Config().FirewallMode())
 	}
 	nameRegexp := c.machineGroupRegexp(machineId)
-	if err := openPortsInGroup(nameRegexp, ports); err != nil {
+	if err := openPortsInGroup(nameRegexp, rules); err != nil {
 		return errors.Trace(err)
 	}
-	logger.Infof("opened ports in security group %s-%s: %v", c.environ.Config().UUID(), machineId, ports)
+	logger.Infof("opened ports in security group %s-%s: %v", c.environ.Config().UUID(), machineId, rules)
 	return nil
 }
 
 func (c *firewallerBase) closeInstancePorts(
-	closePortsInGroup func(string, []network.PortRange) error,
+	closePortsInGroup func(string, []network.IngressRule) error,
 	machineId string,
-	ports []network.PortRange,
+	rules []network.IngressRule,
 ) error {
 	if c.environ.Config().FirewallMode() != config.FwInstance {
 		return errors.Errorf("invalid firewall mode %q for closing ports on instance",
 			c.environ.Config().FirewallMode())
 	}
 	nameRegexp := c.machineGroupRegexp(machineId)
-	if err := closePortsInGroup(nameRegexp, ports); err != nil {
+	if err := closePortsInGroup(nameRegexp, rules); err != nil {
 		return errors.Trace(err)
 	}
-	logger.Infof("closed ports in security group %s-%s: %v", c.environ.Config().UUID(), machineId, ports)
+	logger.Infof("closed ports in security group %s-%s: %v", c.environ.Config().UUID(), machineId, rules)
 	return nil
 }
 
-func (c *firewallerBase) instancePorts(
-	portsInGroup func(string) ([]network.PortRange, error),
+func (c *firewallerBase) instanceIngressRules(
+	ingressRulesInGroup func(string) ([]network.IngressRule, error),
 	machineId string,
-) ([]network.PortRange, error) {
+) ([]network.IngressRule, error) {
 	if c.environ.Config().FirewallMode() != config.FwInstance {
-		return nil, errors.Errorf("invalid firewall mode %q for retrieving ports from instance",
+		return nil, errors.Errorf("invalid firewall mode %q for retrieving ingress rules from instance",
 			c.environ.Config().FirewallMode())
 	}
 	nameRegexp := c.machineGroupRegexp(machineId)
-	portRanges, err := portsInGroup(nameRegexp)
+	portRanges, err := ingressRulesInGroup(nameRegexp)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -647,33 +648,33 @@ func (c *neutronFirewaller) DeleteAllModelGroups() error {
 }
 
 // OpenPorts implements Firewaller interface.
-func (c *neutronFirewaller) OpenPorts(ports []network.PortRange) error {
-	return c.openPorts(c.openPortsInGroup, ports)
+func (c *neutronFirewaller) OpenPorts(rules []network.IngressRule) error {
+	return c.openPorts(c.openPortsInGroup, rules)
 }
 
 // ClosePorts implements Firewaller interface.
-func (c *neutronFirewaller) ClosePorts(ports []network.PortRange) error {
-	return c.closePorts(c.closePortsInGroup, ports)
+func (c *neutronFirewaller) ClosePorts(rules []network.IngressRule) error {
+	return c.closePorts(c.closePortsInGroup, rules)
 }
 
-// Ports implements Firewaller interface.
-func (c *neutronFirewaller) Ports() ([]network.PortRange, error) {
-	return c.ports(c.portsInGroup)
+// IngressRules implements Firewaller interface.
+func (c *neutronFirewaller) IngressRules() ([]network.IngressRule, error) {
+	return c.ingressRules(c.ingressRulesInGroup)
 }
 
 // OpenInstancePorts implements Firewaller interface.
-func (c *neutronFirewaller) OpenInstancePorts(inst instance.Instance, machineId string, ports []network.PortRange) error {
+func (c *neutronFirewaller) OpenInstancePorts(inst instance.Instance, machineId string, ports []network.IngressRule) error {
 	return c.openInstancePorts(c.openPortsInGroup, machineId, ports)
 }
 
 // CloseInstancePorts implements Firewaller interface.
-func (c *neutronFirewaller) CloseInstancePorts(inst instance.Instance, machineId string, ports []network.PortRange) error {
+func (c *neutronFirewaller) CloseInstancePorts(inst instance.Instance, machineId string, ports []network.IngressRule) error {
 	return c.closeInstancePorts(c.closePortsInGroup, machineId, ports)
 }
 
-// InstancePorts implements Firewaller interface.
-func (c *neutronFirewaller) InstancePorts(inst instance.Instance, machineId string) ([]network.PortRange, error) {
-	return c.instancePorts(c.portsInGroup, machineId)
+// InstanceIngressRules implements Firewaller interface.
+func (c *neutronFirewaller) InstanceIngressRules(inst instance.Instance, machineId string) ([]network.IngressRule, error) {
+	return c.instanceIngressRules(c.ingressRulesInGroup, machineId)
 }
 
 // Matching a security group by name only works if each name is unqiue.  Neutron
@@ -701,14 +702,14 @@ func (c *neutronFirewaller) matchingGroup(nameRegExp string) (neutron.SecurityGr
 	return matchingGroups[0], nil
 }
 
-func (c *neutronFirewaller) openPortsInGroup(nameRegExp string, portRanges []network.PortRange) error {
+func (c *neutronFirewaller) openPortsInGroup(nameRegExp string, rules []network.IngressRule) error {
 	group, err := c.matchingGroup(nameRegExp)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	neutronClient := c.environ.neutron()
-	rules := portsToRuleInfo(group.Id, portRanges)
-	for _, rule := range rules {
+	ruleInfo := rulesToRuleInfo(group.Id, rules)
+	for _, rule := range ruleInfo {
 		_, err := neutronClient.CreateSecurityGroupRuleV2(rule)
 		if err != nil {
 			// TODO: if err is not rule already exists, raise?
@@ -718,18 +719,32 @@ func (c *neutronFirewaller) openPortsInGroup(nameRegExp string, portRanges []net
 	return nil
 }
 
-// ruleMatchesPortRange checks if supplied nova security group rule matches the port range
-func ruleMatchesPortRange(rule neutron.SecurityGroupRuleV2, portRange network.PortRange) bool {
-	if rule.IPProtocol == nil || *rule.PortRangeMax == 0 || *rule.PortRangeMin == 0 {
+// secGroupMatchesIngressRule checks if supplied nova security group rule matches the ingress rule
+func secGroupMatchesIngressRule(secGroupRule neutron.SecurityGroupRuleV2, rule network.IngressRule) bool {
+	if secGroupRule.IPProtocol == nil || *secGroupRule.PortRangeMax == 0 || *secGroupRule.PortRangeMin == 0 {
 		return false
 	}
-	return *rule.IPProtocol == portRange.Protocol &&
-		*rule.PortRangeMin == portRange.FromPort &&
-		*rule.PortRangeMax == portRange.ToPort
+	portsMatch := *secGroupRule.IPProtocol == rule.Protocol &&
+		*secGroupRule.PortRangeMin == rule.FromPort &&
+		*secGroupRule.PortRangeMax == rule.ToPort
+	if !portsMatch {
+		return false
+	}
+	// The ports match, so if the security group RemoteIPPrefix matches *any* of the
+	// rule's source ranges, then that's a match.
+	if len(rule.SourceCIDRs) == 0 {
+		return secGroupRule.RemoteIPPrefix == "" || secGroupRule.RemoteIPPrefix == "0.0.0.0/0"
+	}
+	for _, r := range rule.SourceCIDRs {
+		if r == secGroupRule.RemoteIPPrefix {
+			return true
+		}
+	}
+	return false
 }
 
-func (c *neutronFirewaller) closePortsInGroup(nameRegExp string, portRanges []network.PortRange) error {
-	if len(portRanges) == 0 {
+func (c *neutronFirewaller) closePortsInGroup(nameRegExp string, rules []network.IngressRule) error {
+	if len(rules) == 0 {
 		return nil
 	}
 	group, err := c.matchingGroup(nameRegExp)
@@ -738,9 +753,9 @@ func (c *neutronFirewaller) closePortsInGroup(nameRegExp string, portRanges []ne
 	}
 	neutronClient := c.environ.neutron()
 	// TODO: Hey look ma, it's quadratic
-	for _, portRange := range portRanges {
+	for _, rule := range rules {
 		for _, p := range group.Rules {
-			if !ruleMatchesPortRange(p, portRange) {
+			if !secGroupMatchesIngressRule(p, rule) {
 				continue
 			}
 			err := neutronClient.DeleteSecurityGroupRuleV2(p.Id)
@@ -753,11 +768,13 @@ func (c *neutronFirewaller) closePortsInGroup(nameRegExp string, portRanges []ne
 	return nil
 }
 
-func (c *neutronFirewaller) portsInGroup(nameRegexp string) (portRanges []network.PortRange, err error) {
+func (c *neutronFirewaller) ingressRulesInGroup(nameRegexp string) (rules []network.IngressRule, err error) {
 	group, err := c.matchingGroup(nameRegexp)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	// Keep track of all the RemoteIPPrefixes for each port range.
+	portSourceCIDRs := make(map[network.PortRange]set.Strings)
 	for _, p := range group.Rules {
 		// Skip the default Security Group Rules created by Neutron
 		if p.Direction == "egress" {
@@ -772,8 +789,35 @@ func (c *neutronFirewaller) portsInGroup(nameRegexp string) (portRanges []networ
 		if p.PortRangeMax != nil {
 			portRange.ToPort = *p.PortRangeMax
 		}
-		portRanges = append(portRanges, portRange)
+		// Record the RemoteIPPrefix for the port range.
+		remotePrefix := p.RemoteIPPrefix
+		if remotePrefix == "0.0.0.0/0" {
+			remotePrefix = ""
+		}
+		var (
+			sourceCIDRs set.Strings
+			ok          bool
+		)
+		if sourceCIDRs, ok = portSourceCIDRs[portRange]; !ok {
+			sourceCIDRs = set.NewStrings()
+			portSourceCIDRs[portRange] = sourceCIDRs
+		}
+		if remotePrefix != "" {
+			sourceCIDRs.Add(remotePrefix)
+		}
 	}
-	network.SortPortRanges(portRanges)
-	return portRanges, nil
+	// Combine all the port ranges and remote prefixes.
+	for portRange, sourceCIDRs := range portSourceCIDRs {
+		rule, err := network.NewIngressRule(
+			portRange.Protocol,
+			portRange.FromPort,
+			portRange.ToPort,
+			sourceCIDRs.Values()...)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		rules = append(rules, rule)
+	}
+	network.SortIngressRules(rules)
+	return rules, nil
 }

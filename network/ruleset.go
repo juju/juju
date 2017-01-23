@@ -10,42 +10,44 @@ import (
 	"github.com/juju/utils/set"
 )
 
-// PortSet is a set-like container of Port values.
-type PortSet struct {
+// RuleSet is a set-like container of Port values.
+// TODO(Wallyworld) - this struct is only used by the GCE provider and needs
+// to be updated to account for SourceCIDRs along with the GCE provider.
+type RuleSet struct {
 	values map[string]set.Ints
 }
 
-// NewPortSet creates a map of protocols to sets of stringified port numbers.
-func NewPortSet(portRanges ...PortRange) PortSet {
-	var result PortSet
+// NewRuleSet creates a map of protocols to sets of stringified port numbers.
+func NewRuleSet(rules ...IngressRule) RuleSet {
+	var result RuleSet
 	result.values = make(map[string]set.Ints)
-	result.AddRanges(portRanges...)
+	result.AddRanges(rules...)
 	return result
 }
 
-// Size returns the number of ports in the set.
-func (ps PortSet) Size() int {
+// Size returns the number of rules in the set.
+func (rs RuleSet) Size() int {
 	size := 0
-	for _, ports := range ps.values {
-		size += len(ports)
+	for _, rules := range rs.values {
+		size += len(rules)
 	}
 	return size
 }
 
-// IsEmpty returns true if the PortSet is empty.
-func (ps PortSet) IsEmpty() bool {
-	return len(ps.values) == 0
+// IsEmpty returns true if the RuleSet is empty.
+func (rs RuleSet) IsEmpty() bool {
+	return len(rs.values) == 0
 }
 
 // Values returns a list of all the ports in the set.
-func (ps PortSet) Values() []Port {
-	return ps.Ports()
+func (rs RuleSet) Values() []Port {
+	return rs.Ports()
 }
 
-// Protocols returns a list of protocols known to the PortSet.
-func (ps PortSet) Protocols() []string {
+// Protocols returns a list of protocols known to the RuleSet.
+func (rs RuleSet) Protocols() []string {
 	var result []string
-	for key := range ps.values {
+	for key := range rs.values {
 		result = append(result, key)
 	}
 	return result
@@ -54,14 +56,14 @@ func (ps PortSet) Protocols() []string {
 // PortRanges returns a list of all the port ranges in the set for the
 // given protocols. If no protocols are provided all known protocols in
 // the set are used.
-func (ps PortSet) PortRanges(protocols ...string) []PortRange {
+func (rs RuleSet) PortRanges(protocols ...string) []PortRange {
 	if len(protocols) == 0 {
-		protocols = ps.Protocols()
+		protocols = rs.Protocols()
 	}
 
 	var result []PortRange
 	for _, protocol := range protocols {
-		ranges := collapsePorts(protocol, ps.PortNumbers(protocol)...)
+		ranges := collapsePorts(protocol, rs.PortNumbers(protocol)...)
 		result = append(result, ranges...)
 	}
 	return result
@@ -103,16 +105,16 @@ func collapsePorts(protocol string, ports ...int) (result []PortRange) {
 	return
 }
 
-// PortNumbers returns a list of all the port numbers in the set for
+// Ports returns a list of all the ports in the set for
 // the given protocols. If no protocols are provided then all known
 // protocols in the set are used.
-func (ps PortSet) Ports(protocols ...string) []Port {
+func (rs RuleSet) Ports(protocols ...string) []Port {
 	if len(protocols) == 0 {
-		protocols = ps.Protocols()
+		protocols = rs.Protocols()
 	}
 
 	var results []Port
-	for _, portRange := range ps.PortRanges(protocols...) {
+	for _, portRange := range rs.PortRanges(protocols...) {
 		for p := portRange.FromPort; p <= portRange.ToPort; p++ {
 			results = append(results, Port{portRange.Protocol, p})
 		}
@@ -122,8 +124,8 @@ func (ps PortSet) Ports(protocols ...string) []Port {
 
 // PortNumbers returns a list of all the port numbers in the set for
 // the given protocol.
-func (ps PortSet) PortNumbers(protocol string) []int {
-	ports, ok := ps.values[protocol]
+func (rs RuleSet) PortNumbers(protocol string) []int {
+	ports, ok := rs.values[protocol]
 	if !ok {
 		return nil
 	}
@@ -133,8 +135,8 @@ func (ps PortSet) PortNumbers(protocol string) []int {
 // PortStrings returns a list of stringified ports in the set
 // for the given protocol. This is strictly a convenience method
 // for situations where another API requires a list of strings.
-func (ps PortSet) PortStrings(protocol string) []string {
-	ports, ok := ps.values[protocol]
+func (rs RuleSet) PortStrings(protocol string) []string {
+	ports, ok := rs.values[protocol]
 	if !ok {
 		return nil
 	}
@@ -146,31 +148,31 @@ func (ps PortSet) PortStrings(protocol string) []string {
 	return result
 }
 
-// Add adds a port to the PortSet.
-func (ps *PortSet) Add(protocol string, port int) {
-	if ps.values == nil {
+// Add adds a port to the RuleSet.
+func (rs *RuleSet) Add(protocol string, port int) {
+	if rs.values == nil {
 		panic("uninitalised set")
 	}
-	ports, ok := ps.values[protocol]
+	ports, ok := rs.values[protocol]
 	if !ok {
-		ps.values[protocol] = set.NewInts(port)
+		rs.values[protocol] = set.NewInts(port)
 	} else {
 		ports.Add(port)
 	}
 }
 
-// AddRanges adds port ranges to the PortSet.
-func (ps *PortSet) AddRanges(portRanges ...PortRange) {
-	for _, portRange := range portRanges {
-		for p := portRange.FromPort; p <= portRange.ToPort; p++ {
-			ps.Add(portRange.Protocol, p)
+// AddRanges adds rules to the RuleSet.
+func (rs *RuleSet) AddRanges(rules ...IngressRule) {
+	for _, rule := range rules {
+		for p := rule.FromPort; p <= rule.ToPort; p++ {
+			rs.Add(rule.Protocol, p)
 		}
 	}
 }
 
 // Remove removes the given port from the set.
-func (ps *PortSet) Remove(protocol string, port int) {
-	ports, ok := ps.values[protocol]
+func (rs *RuleSet) Remove(protocol string, port int) {
+	ports, ok := rs.values[protocol]
 	if ok {
 		ports.Remove(port)
 	}
@@ -178,20 +180,20 @@ func (ps *PortSet) Remove(protocol string, port int) {
 
 // RemoveRanges removes all ports in the given PortRange values
 // from the set.
-func (ps *PortSet) RemoveRanges(portRanges ...PortRange) {
+func (rs *RuleSet) RemoveRanges(portRanges ...IngressRule) {
 	for _, portRange := range portRanges {
-		_, ok := ps.values[portRange.Protocol]
+		_, ok := rs.values[portRange.Protocol]
 		if ok {
 			for p := portRange.FromPort; p <= portRange.ToPort; p++ {
-				ps.Remove(portRange.Protocol, p)
+				rs.Remove(portRange.Protocol, p)
 			}
 		}
 	}
 }
 
 // Contains returns true if the provided port is in the set.
-func (ps *PortSet) Contains(protocol string, port int) bool {
-	ports, ok := ps.values[protocol]
+func (rs *RuleSet) Contains(protocol string, port int) bool {
+	ports, ok := rs.values[protocol]
 	if !ok {
 		return false
 	}
@@ -200,9 +202,9 @@ func (ps *PortSet) Contains(protocol string, port int) bool {
 
 // ContainsRanges returns true if the provided port ranges are
 // in the set.
-func (ps *PortSet) ContainsRanges(portRanges ...PortRange) bool {
+func (rs *RuleSet) ContainsRanges(portRanges ...IngressRule) bool {
 	for _, portRange := range portRanges {
-		ports, ok := ps.values[portRange.Protocol]
+		ports, ok := rs.values[portRange.Protocol]
 		if !ok {
 			return false
 		}
@@ -215,11 +217,11 @@ func (ps *PortSet) ContainsRanges(portRanges ...PortRange) bool {
 	return true
 }
 
-// Union returns a new PortSet of the shared values
+// Union returns a new RuleSet of the shared values
 // that are common between both PortSets.
-func (ps PortSet) Union(other PortSet) PortSet {
-	result := NewPortSet()
-	for protocol, value := range ps.values {
+func (rs RuleSet) Union(other RuleSet) RuleSet {
+	result := NewRuleSet()
+	for protocol, value := range rs.values {
 		result.values[protocol] = value.Union(nil)
 	}
 	for protocol, value := range other.values {
@@ -232,13 +234,13 @@ func (ps PortSet) Union(other PortSet) PortSet {
 	return result
 }
 
-// Intersection returns a new PortSet of the values that are in both
+// Intersection returns a new RuleSet of the values that are in both
 // this set and the other, but not in just one of either.
-func (ps PortSet) Intersection(other PortSet) PortSet {
-	result := NewPortSet()
-	for protocol, value := range ps.values {
+func (rs RuleSet) Intersection(other RuleSet) RuleSet {
+	result := NewRuleSet()
+	for protocol, value := range rs.values {
 		if ports, ok := other.values[protocol]; ok {
-			// For PortSet, a protocol without any associated ports
+			// For RuleSet, a protocol without any associated ports
 			// doesn't make a lot of sense. It's also a waste of space.
 			// Consequently, if the intersection for a protocol is empty
 			// then we simply skip it.
@@ -250,13 +252,13 @@ func (ps PortSet) Intersection(other PortSet) PortSet {
 	return result
 }
 
-// Difference returns a new PortSet of the values
-// that are not in the other PortSet.
-func (ps PortSet) Difference(other PortSet) PortSet {
-	result := NewPortSet()
-	for protocol, value := range ps.values {
+// Difference returns a new RuleSet of the values
+// that are not in the other RuleSet.
+func (rs RuleSet) Difference(other RuleSet) RuleSet {
+	result := NewRuleSet()
+	for protocol, value := range rs.values {
 		if ports, ok := other.values[protocol]; ok {
-			// For PortSet, a protocol without any associated ports
+			// For RuleSet, a protocol without any associated ports
 			// doesn't make a lot of sense. It's also a waste of space.
 			// Consequently, if the difference for a protocol is empty
 			// then we simply skip it.

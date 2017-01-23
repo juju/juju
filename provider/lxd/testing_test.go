@@ -105,7 +105,7 @@ type BaseSuiteUnpatched struct {
 	StartInstArgs environs.StartInstanceParams
 	//InstanceType  instances.InstanceType
 
-	Ports []network.PortRange
+	Rules []network.IngressRule
 }
 
 func (s *BaseSuiteUnpatched) SetUpSuite(c *gc.C) {
@@ -211,11 +211,7 @@ func (s *BaseSuiteUnpatched) initInst(c *gc.C) {
 }
 
 func (s *BaseSuiteUnpatched) initNet(c *gc.C) {
-	s.Ports = []network.PortRange{{
-		FromPort: 80,
-		ToPort:   80,
-		Protocol: "tcp",
-	}}
+	s.Rules = []network.IngressRule{network.MustNewIngressRule("tcp", 80, 80)}
 }
 
 func (s *BaseSuiteUnpatched) setConfig(c *gc.C, cfg *config.Config) {
@@ -492,10 +488,10 @@ func (conn *StubClient) SetConfig(k, v string) error {
 type stubFirewaller struct {
 	stub *gitjujutesting.Stub
 
-	PortRanges []network.PortRange
+	PortRanges []network.IngressRule
 }
 
-func (fw *stubFirewaller) Ports(fwname string) ([]network.PortRange, error) {
+func (fw *stubFirewaller) IngressRules(fwname string) ([]network.IngressRule, error) {
 	fw.stub.AddCall("Ports", fwname)
 	if err := fw.stub.NextErr(); err != nil {
 		return nil, errors.Trace(err)
@@ -504,8 +500,8 @@ func (fw *stubFirewaller) Ports(fwname string) ([]network.PortRange, error) {
 	return fw.PortRanges, nil
 }
 
-func (fw *stubFirewaller) OpenPorts(fwname string, ports ...network.PortRange) error {
-	fw.stub.AddCall("OpenPorts", fwname, ports)
+func (fw *stubFirewaller) OpenPorts(fwname string, rules ...network.IngressRule) error {
+	fw.stub.AddCall("OpenPorts", fwname, rules)
 	if err := fw.stub.NextErr(); err != nil {
 		return errors.Trace(err)
 	}
@@ -513,8 +509,8 @@ func (fw *stubFirewaller) OpenPorts(fwname string, ports ...network.PortRange) e
 	return nil
 }
 
-func (fw *stubFirewaller) ClosePorts(fwname string, ports ...network.PortRange) error {
-	fw.stub.AddCall("ClosePorts", fwname, ports)
+func (fw *stubFirewaller) ClosePorts(fwname string, rules ...network.IngressRule) error {
+	fw.stub.AddCall("ClosePorts", fwname, rules)
 	if err := fw.stub.NextErr(); err != nil {
 		return errors.Trace(err)
 	}

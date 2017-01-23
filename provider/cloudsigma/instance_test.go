@@ -92,7 +92,7 @@ func (s *instanceSuite) TestInstancePorts(c *gc.C) {
 	c.Check(s.inst.OpenPorts("", nil), gc.ErrorMatches, "OpenPorts not implemented")
 	c.Check(s.inst.ClosePorts("", nil), gc.ErrorMatches, "ClosePorts not implemented")
 
-	_, err := s.inst.Ports("")
+	_, err := s.inst.IngressRules("")
 	c.Check(err, gc.ErrorMatches, "Ports not implemented")
 }
 

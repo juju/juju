@@ -277,39 +277,3 @@ func (*PortRangeSuite) TestMustParsePortRangeInvalid(c *gc.C) {
 
 	c.Check(f, gc.PanicMatches, `invalid port range "10-55-100".*`)
 }
-
-func (*PortRangeSuite) TestParsePortRanges(c *gc.C) {
-	portRanges, err := network.ParsePortRanges("80/tcp,8000-8099/tcp")
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Assert(portRanges, gc.HasLen, 2)
-	c.Check(portRanges[0].Protocol, gc.Equals, "tcp")
-	c.Check(portRanges[0].FromPort, gc.Equals, 80)
-	c.Check(portRanges[0].ToPort, gc.Equals, 80)
-	c.Check(portRanges[1].Protocol, gc.Equals, "tcp")
-	c.Check(portRanges[1].FromPort, gc.Equals, 8000)
-	c.Check(portRanges[1].ToPort, gc.Equals, 8099)
-}
-
-func (*PortRangeSuite) TestParsePortRangesSingle(c *gc.C) {
-	portRanges, err := network.ParsePortRanges("80")
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Assert(portRanges, gc.HasLen, 1)
-	c.Check(portRanges[0].Protocol, gc.Equals, "tcp")
-	c.Check(portRanges[0].FromPort, gc.Equals, 80)
-	c.Check(portRanges[0].ToPort, gc.Equals, 80)
-}
-
-func (*PortRangeSuite) TestParsePortRangesSpaces(c *gc.C) {
-	portRanges, err := network.ParsePortRanges(" 80, 	8000-8099  ")
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Assert(portRanges, gc.HasLen, 2)
-	c.Check(portRanges[0].Protocol, gc.Equals, "tcp")
-	c.Check(portRanges[0].FromPort, gc.Equals, 80)
-	c.Check(portRanges[0].ToPort, gc.Equals, 80)
-	c.Check(portRanges[1].Protocol, gc.Equals, "tcp")
-	c.Check(portRanges[1].FromPort, gc.Equals, 8000)
-	c.Check(portRanges[1].ToPort, gc.Equals, 8099)
-}

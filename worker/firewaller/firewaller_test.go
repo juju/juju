@@ -69,19 +69,20 @@ func (s *firewallerBaseSuite) assertPorts(c *gc.C, inst instance.Instance, machi
 	s.BackingState.StartSync()
 	start := time.Now()
 	for {
-		got, err := inst.Ports(machineId)
+		got, err := inst.IngressRules(machineId)
 		if err != nil {
 			c.Fatal(err)
 			return
 		}
-		network.SortPortRanges(got)
+		gotPorts := network.PortRangesFromRules(got)
+		network.SortPortRanges(gotPorts)
 		network.SortPortRanges(expected)
-		if reflect.DeepEqual(got, expected) {
+		if reflect.DeepEqual(gotPorts, expected) {
 			c.Succeed()
 			return
 		}
 		if time.Since(start) > coretesting.LongWait {
-			c.Fatalf("timed out: expected %q; got %q", expected, got)
+			c.Fatalf("timed out: expected %q; got %q", expected, gotPorts)
 			return
 		}
 		time.Sleep(coretesting.ShortWait)
@@ -94,19 +95,20 @@ func (s *firewallerBaseSuite) assertEnvironPorts(c *gc.C, expected []network.Por
 	s.BackingState.StartSync()
 	start := time.Now()
 	for {
-		got, err := s.Environ.Ports()
+		got, err := s.Environ.IngressRules()
 		if err != nil {
 			c.Fatal(err)
 			return
 		}
-		network.SortPortRanges(got)
+		gotPorts := network.PortRangesFromRules(got)
+		network.SortPortRanges(gotPorts)
 		network.SortPortRanges(expected)
-		if reflect.DeepEqual(got, expected) {
+		if reflect.DeepEqual(gotPorts, expected) {
 			c.Succeed()
 			return
 		}
 		if time.Since(start) > coretesting.LongWait {
-			c.Fatalf("timed out: expected %q; got %q", expected, got)
+			c.Fatalf("timed out: expected %q; got %q", expected, gotPorts)
 			return
 		}
 		time.Sleep(coretesting.ShortWait)

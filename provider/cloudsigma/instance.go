@@ -75,20 +75,20 @@ func (i sigmaInstance) Addresses() ([]network.Address, error) {
 
 // OpenPorts opens the given ports on the instance, which
 // should have been started with the given machine id.
-func (i sigmaInstance) OpenPorts(machineID string, ports []network.PortRange) error {
+func (i sigmaInstance) OpenPorts(machineID string, ports []network.IngressRule) error {
 	return errors.NotImplementedf("OpenPorts")
 }
 
 // ClosePorts closes the given ports on the instance, which
 // should have been started with the given machine id.
-func (i sigmaInstance) ClosePorts(machineID string, ports []network.PortRange) error {
+func (i sigmaInstance) ClosePorts(machineID string, ports []network.IngressRule) error {
 	return errors.NotImplementedf("ClosePorts")
 }
 
-// Ports returns the set of ports open on the instance, which
+// IngressRules returns the set of ports open on the instance, which
 // should have been started with the given machine id.
 // The ports are returned as sorted by SortPorts.
-func (i sigmaInstance) Ports(machineID string) ([]network.PortRange, error) {
+func (i sigmaInstance) IngressRules(machineID string) ([]network.IngressRule, error) {
 	return nil, errors.NotImplementedf("Ports")
 }
 

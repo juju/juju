@@ -279,9 +279,9 @@ func (s *instanceSuite) TestInstancePortsEmpty(c *gc.C) {
 	inst := s.getInstance(c)
 	nsgSender := networkSecurityGroupSender(nil)
 	s.sender = azuretesting.Senders{nsgSender}
-	ports, err := inst.Ports("0")
+	rules, err := inst.IngressRules("0")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ports, gc.HasLen, 0)
+	c.Assert(rules, gc.HasLen, 0)
 }
 
 func (s *instanceSuite) TestInstancePorts(c *gc.C) {
@@ -352,9 +352,9 @@ func (s *instanceSuite) TestInstancePorts(c *gc.C) {
 	}})
 	s.sender = azuretesting.Senders{nsgSender}
 
-	ports, err := inst.Ports("0")
+	rules, err := inst.IngressRules("0")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ports, jc.DeepEquals, []jujunetwork.PortRange{{
+	c.Assert(rules, jc.DeepEquals, jujunetwork.RulesFromPortRanges([]jujunetwork.PortRange{{
 		FromPort: 0,
 		ToPort:   65535,
 		Protocol: "udp",
@@ -370,7 +370,7 @@ func (s *instanceSuite) TestInstancePorts(c *gc.C) {
 		FromPort: 80,
 		ToPort:   80,
 		Protocol: "udp",
-	}})
+	}}...))
 }
 
 func (s *instanceSuite) TestInstanceClosePorts(c *gc.C) {
@@ -382,7 +382,7 @@ func (s *instanceSuite) TestInstanceClosePorts(c *gc.C) {
 	))
 	s.sender = azuretesting.Senders{sender, notFoundSender}
 
-	err := inst.ClosePorts("0", []jujunetwork.PortRange{{
+	err := inst.ClosePorts("0", jujunetwork.RulesFromPortRanges([]jujunetwork.PortRange{{
 		Protocol: "tcp",
 		FromPort: 1000,
 		ToPort:   1000,
@@ -390,7 +390,7 @@ func (s *instanceSuite) TestInstanceClosePorts(c *gc.C) {
 		Protocol: "udp",
 		FromPort: 1000,
 		ToPort:   2000,
-	}})
+	}}...))
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(s.requests, gc.HasLen, 2)
@@ -425,7 +425,7 @@ func (s *instanceSuite) TestInstanceOpenPorts(c *gc.C) {
 	nsgSender := networkSecurityGroupSender(nil)
 	s.sender = azuretesting.Senders{nsgSender, okSender, okSender}
 
-	err := inst.OpenPorts("0", []jujunetwork.PortRange{{
+	err := inst.OpenPorts("0", jujunetwork.RulesFromPortRanges([]jujunetwork.PortRange{{
 		Protocol: "tcp",
 		FromPort: 1000,
 		ToPort:   1000,
@@ -433,7 +433,7 @@ func (s *instanceSuite) TestInstanceOpenPorts(c *gc.C) {
 		Protocol: "udp",
 		FromPort: 1000,
 		ToPort:   2000,
-	}})
+	}}...))
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(s.requests, gc.HasLen, 3)
@@ -505,7 +505,7 @@ func (s *instanceSuite) TestInstanceOpenPortsAlreadyOpen(c *gc.C) {
 	}})
 	s.sender = azuretesting.Senders{nsgSender, okSender, okSender}
 
-	err := inst.OpenPorts("0", []jujunetwork.PortRange{{
+	err := inst.OpenPorts("0", jujunetwork.RulesFromPortRanges([]jujunetwork.PortRange{{
 		Protocol: "tcp",
 		FromPort: 1000,
 		ToPort:   1000,
@@ -513,7 +513,7 @@ func (s *instanceSuite) TestInstanceOpenPortsAlreadyOpen(c *gc.C) {
 		Protocol: "udp",
 		FromPort: 1000,
 		ToPort:   2000,
-	}})
+	}}...))
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(s.requests, gc.HasLen, 2)
