@@ -208,7 +208,15 @@ func (cs *ContainerSetup) getContainerArtifacts(
 		return nil, nil, nil, err
 	}
 
-	bridger := network.NewEtcNetworkInterfacesBridger(os.Environ(), clock.WallClock, activateBridgesTimeout, instancecfg.DefaultBridgePrefix, systemNetworkInterfacesFile, false)
+	modelConfig, err := cs.provisioner.ModelConfig()
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	bridger := network.NewEtcNetworkInterfacesBridger(os.Environ(), clock.WallClock,
+		activateBridgesTimeout, instancecfg.DefaultBridgePrefix, systemNetworkInterfacesFile,
+		false, // --dry-run
+		modelConfig.BondRaiseDelay())
 
 	switch containerType {
 	case instance.KVM:

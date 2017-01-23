@@ -116,6 +116,7 @@ func (s *BootstrapSuite) TestCannotStartInstance(c *gc.C) {
 			"juju-controller-uuid": coretesting.ControllerTag.Id(),
 			"juju-is-controller":   "true",
 		}
+		expectedMcfg.BondRaiseDelay = env.Config().BondRaiseDelay()
 
 		c.Assert(icfg, jc.DeepEquals, expectedMcfg)
 		return nil, nil, nil, errors.Errorf("meh, not started")

@@ -129,6 +129,10 @@ const (
 	// metrics collected in this model for anonymized aggregate analytics.
 	TransmitVendorMetricsKey = "transmit-vendor-metrics"
 
+	// BondRaiseDelay is the key to pass when bridging the network
+	// for containers.
+	BondRaiseDelayKey = "bond-raise-delay"
+
 	//
 	// Deprecated Settings Attributes
 	//
@@ -284,6 +288,7 @@ var defaultConfigValues = map[string]interface{}{
 	IgnoreMachineAddresses:       false,
 	"ssl-hostname-verification":  true,
 	"proxy-ssh":                  false,
+	BondRaiseDelayKey:            17,
 
 	"default-series":           series.LatestLts(),
 	ProvisionerHarvestModeKey:  HarvestDestroyed.String(),
@@ -565,6 +570,13 @@ func (c *Config) AuthorizedKeys() string {
 func (c *Config) ProxySSH() bool {
 	value, _ := c.defined["proxy-ssh"].(bool)
 	return value
+}
+
+// BondRaiseDelay returns the duration, measured in seconds, that
+// should be passed to the bridge script when bridging bonded
+// interfaces.
+func (c *Config) BondRaiseDelay() int {
+	return c.mustInt("bond-raise-delay")
 }
 
 // ProxySettings returns all four proxy settings; http, https, ftp, and no
@@ -972,6 +984,7 @@ var alwaysOptional = schema.Defaults{
 	AutomaticallyRetryHooks:      schema.Omit,
 	"test-mode":                  schema.Omit,
 	TransmitVendorMetricsKey:     schema.Omit,
+	BondRaiseDelayKey:            schema.Omit,
 }
 
 func allowEmpty(attr string) bool {
@@ -1325,6 +1338,11 @@ data of the store. (default false)`,
 	TransmitVendorMetricsKey: {
 		Description: "Determines whether metrics declared by charms deployed into this model are sent for anonymized aggregate analytics",
 		Type:        environschema.Tbool,
+		Group:       environschema.EnvironGroup,
+	},
+	BondRaiseDelayKey: {
+		Description: "The amount of time in seconds to sleep between ifdown and ifup when bridging",
+		Type:        environschema.Tint,
 		Group:       environschema.EnvironGroup,
 	},
 }

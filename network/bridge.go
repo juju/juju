@@ -20,12 +20,13 @@ type Bridger interface {
 }
 
 type etcNetworkInterfacesBridger struct {
-	BridgePrefix string
-	Clock        clock.Clock
-	DryRun       bool
-	Environ      []string
-	Filename     string
-	Timeout      time.Duration
+	BondRaiseDelay int
+	BridgePrefix   string
+	Clock          clock.Clock
+	DryRun         bool
+	Environ        []string
+	Filename       string
+	Timeout        time.Duration
 }
 
 var _ Bridger = (*etcNetworkInterfacesBridger)(nil)
@@ -60,8 +61,8 @@ func bestPythonVersion() string {
 }
 
 func (b *etcNetworkInterfacesBridger) Bridge(deviceNames []string) error {
-	cmd := bridgeCmd(deviceNames, b.BridgePrefix, b.Filename, BridgeScriptPythonContent, b.DryRun)
-	infoCmd := bridgeCmd(deviceNames, b.BridgePrefix, b.Filename, "<script-redacted>", b.DryRun)
+	cmd := bridgeCmd(deviceNames, b.BridgePrefix, b.Filename, BridgeScriptPythonContent, b.DryRun, b.BondRaiseDelay)
+	infoCmd := bridgeCmd(deviceNames, b.BridgePrefix, b.Filename, "<script-redacted>", b.DryRun, b.BondRaiseDelay)
 	logger.Infof("bridgescript command=%s", infoCmd)
 	result, err := runCommand(cmd, b.Environ, b.Clock, b.Timeout)
 	if err != nil {
@@ -81,8 +82,9 @@ func (b *etcNetworkInterfacesBridger) Bridge(deviceNames []string) error {
 	return nil
 }
 
-func bridgeCmd(deviceNames []string, bridgePrefix, filename, pythonScript string, dryRun bool) string {
+func bridgeCmd(deviceNames []string, bridgePrefix, filename, pythonScript string, dryRun bool, bondRaiseDelay int) string {
 	dryRunOption := ""
+	bondRaiseDelayOption := ""
 
 	if bridgePrefix != "" {
 		bridgePrefix = fmt.Sprintf("--bridge-prefix=%s", bridgePrefix)
@@ -92,8 +94,12 @@ func bridgeCmd(deviceNames []string, bridgePrefix, filename, pythonScript string
 		dryRunOption = "--dry-run"
 	}
 
+	if bondRaiseDelay > 0 {
+		bondRaiseDelayOption = fmt.Sprintf("--bond-raise-delay=%v", bondRaiseDelay)
+	}
+
 	return fmt.Sprintf(`
-%s - --interfaces-to-bridge=%q --activate %s %s %s <<'EOF'
+%s - --interfaces-to-bridge=%q --activate %s %s %s %s <<'EOF'
 %s
 EOF
 `[1:],
@@ -101,6 +107,7 @@ EOF
 		strings.Join(deviceNames, " "),
 		bridgePrefix,
 		dryRunOption,
+		bondRaiseDelayOption,
 		filename,
 		pythonScript)
 }
@@ -111,13 +118,14 @@ EOF
 //
 // TODO(frobware): We shouldn't expose DryRun; once we implement the
 // Python-based bridge script in Go this interface can change.
-func NewEtcNetworkInterfacesBridger(environ []string, clock clock.Clock, timeout time.Duration, bridgePrefix, filename string, dryRun bool) Bridger {
+func NewEtcNetworkInterfacesBridger(environ []string, clock clock.Clock, timeout time.Duration, bridgePrefix, filename string, dryRun bool, bondRaiseDelay int) Bridger {
 	return &etcNetworkInterfacesBridger{
-		BridgePrefix: bridgePrefix,
-		Clock:        clock,
-		DryRun:       dryRun,
-		Environ:      environ,
-		Filename:     filename,
-		Timeout:      timeout,
+		BondRaiseDelay: bondRaiseDelay,
+		BridgePrefix:   bridgePrefix,
+		Clock:          clock,
+		DryRun:         dryRun,
+		Environ:        environ,
+		Filename:       filename,
+		Timeout:        timeout,
 	}
 }
