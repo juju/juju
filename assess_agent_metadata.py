@@ -154,6 +154,8 @@ def deploy_charm_and_verify(client, series="xenial", charm_app="dummy-source"):
     client.set_config(charm_app, {'token': 'one'})
     client.wait_for_workloads()
     verify_deployed_charm(charm_app, client)
+    client.remove_service(charm_app)
+    client.wait_for_started()
 
 
 def verify_deployed_tool(agent_dir, client, agent_stream):
@@ -227,9 +229,10 @@ def assess_metadata(args, agent_dir, agent_stream):
             "Successfully deployed charm {} of series {} and verified".format(
                 "dummy-source", controller_series))
 
+
         # Deploy charm of different series that of controller
         serial_ver.remove(controller_series)
-        deploy_charm_and_verify(client, controller_series, "dummy-sink")
+        deploy_charm_and_verify(client, controller_series, "dummy-source")
         log.info(
             "Successfully deployed charm {} of series {} and verified".format(
                 "dummy-sink", serial_ver[0]))
