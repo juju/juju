@@ -198,6 +198,7 @@ def assess_metadata(args, agent_dir, agent_stream):
     bs_manager = BootstrapManager.from_args(args)
     client = bs_manager.client
     agent_metadata_url = os.path.join(agent_dir, "tools")
+    serial_ver = ['xenial', 'trusty']
 
     client.env.discard_option('tools-metadata-url')
     client.env.update_config(
@@ -216,8 +217,22 @@ def assess_metadata(args, agent_dir, agent_stream):
         assert_metadata_is_correct(agent_metadata_url, client)
         verify_deployed_tool(agent_dir, client, agent_stream)
         log.info("Successfully deployed and verified agent-metadata-url")
-        deploy_charm_and_verify(client, "xenial", "dummy-source")
-        log.info("Successfully deployed charm and verified")
+
+        controller_status = client.get_status(controller=True)
+        controller_series = controller_status.get_machines()['0']['series']
+
+        # Deploy charm of same controller series
+        deploy_charm_and_verify(client, controller_series, "dummy-source")
+        log.info(
+            "Successfully deployed charm {} of series {} and verified".format(
+                "dummy-source", controller_series))
+
+        # Deploy charm of different series that of controller
+        serial_ver.remove(controller_series)
+        deploy_charm_and_verify(client, serial_ver[0], "dummy-sink")
+        log.info(
+            "Successfully deployed charm {} of series {} and verified".format(
+                "dummy-sink", serial_ver[0]))
 
 
 def get_cloud_details(client, agent_metadata_url, agent_stream):
