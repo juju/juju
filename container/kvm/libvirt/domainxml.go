@@ -48,9 +48,6 @@ type domainParams interface {
 	Loader() string
 	// NetworkInfo contains the network interfaces to create in the domain.
 	NetworkInfo() []InterfaceInfo
-	// NVRAM returns the path to the UEFI variable storage drive. This is a
-	// "pflash" drive where UEFI stores variables used for booting an image.
-	NVRAM() string
 	// RAM returns the amount of RAM to use.
 	RAM() uint64
 	// ValidateDomainParams returns nil if the domainParams are valid.
@@ -152,8 +149,6 @@ func generateOSElement(p domainParams) OS {
 				ReadOnly: "yes",
 				Type:     "pflash",
 			},
-
-			NVRAMVars: p.NVRAM(),
 		}
 	default:
 		return OS{Type: OSType{Text: "hvm"}}
@@ -220,9 +215,6 @@ type OS struct {
 	Type OSType `xml:"type"`
 	// Loader is a pointer so it is omitted if empty.
 	Loader *NVRAMCode `xml:"loader,omitempty"`
-	// NVRAMVars is the writable storage for UEFI to store variables.
-	// See: https://libvirt.org/formatdomain.html#elementsOS
-	NVRAMVars string `xml:"nvram,omitempty"`
 }
 
 // OSType provides details that are required on certain architectures, e.g.

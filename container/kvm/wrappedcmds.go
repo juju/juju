@@ -68,8 +68,6 @@ type CreateMachineParams struct {
 	RootDisk      uint64
 	Interfaces    []libvirt.InterfaceInfo
 
-	nvram string
-
 	disks    []libvirt.DiskInfo
 	findPath func(string) (string, error)
 
@@ -90,12 +88,6 @@ func (p CreateMachineParams) Arch() string {
 // time of this writing only ARM64 requires this to run.
 func (p CreateMachineParams) Loader() string {
 	return nvramCode
-}
-
-// NVRAM is the path to the "pflash" drive where UEFI stores variables related
-// to booting an image. At the time of this writing only ARM64 uses this.
-func (p CreateMachineParams) NVRAM() string {
-	return p.nvram
 }
 
 // Host implements libvirt.domainParams.
@@ -186,10 +178,6 @@ func CreateMachine(params CreateMachineParams) error {
 		return errors.Annotate(err, "failed to write instance metadata")
 	}
 
-	if err = createNVRAM(params); err != nil {
-		return errors.Annotatef(err, "failed to create NVRAM on %q for %q", params.Arch(), params.Host())
-	}
-
 	dsPath, err := writeDatasourceVolume(params)
 	if err != nil {
 		return errors.Annotatef(err, "failed to write data source volume for %q", params.Host())
@@ -257,9 +245,13 @@ func DestroyMachine(c *kvmContainer) error {
 		logger.Infof("`virsh destroy %s` failed: %q", c.Name(), err)
 	}
 
+	// The nvram flag here removes the pflash drive for us. There is also a
+	// `remove-all-storage` flag, but it is unclear if that would also remove
+	// the backing store which we don't want to do. So we remove those manually
+	// after undefining.
 	_, err = c.runCmd("virsh", "undefine", "--nvram", c.Name())
 	if err != nil {
-		logger.Infof("`virsh undefine %s` failed: %q", c.Name(), err)
+		logger.Infof("`virsh undefine --nvram %s` failed: %q", c.Name(), err)
 	}
 	guestBase, err := guestPath(c.pathfinder)
 	if err != nil {
@@ -469,40 +461,6 @@ func writeRootDisk(params CreateMachineParams) (string, error) {
 	}
 
 	return imgPath, nil
-}
-
-// createNVRAM creates an empty NVRAM (pflash) drive. This is required for
-// booting UEFI images. As of Xenial Two pflash drives are required. One
-// provides the actual firmware which can be shared read-only and is provided
-// in a shared directory by qemu-efi. It is in /usr/share/AAVMF/AAVMF_CODE.fd.
-// The the second is for storing variables to be read on subsequent boots.
-// This creates that second drive from a template.
-func createNVRAM(params CreateMachineParams) error {
-	if params.Arch() != arch.ARM64 {
-		return nil
-	}
-
-	guestBase, err := guestPath(params.findPath)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	params.nvram = filepath.Join(guestBase, fmt.Sprintf("%s-VARS.fd", params.Host()))
-	f, err := os.Create(params.nvram)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	defer func() {
-		err = f.Close()
-		if err != nil {
-			logger.Infof("failed to close %q %s", f.Name(), err)
-		}
-	}()
-
-	err = f.Truncate(64 * (1 << 20))
-	if err != nil {
-		return errors.Annotatef(err, "failed to create NVRAM %q", f.Name())
-	}
-	return nil
 }
 
 // pool info parses and returns the output of `virsh pool-info <poolname>`.
