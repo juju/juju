@@ -28,6 +28,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils"
+	"github.com/juju/utils/arch"
 	"github.com/juju/utils/series"
 
 	"github.com/juju/juju/container/kvm/libvirt"
@@ -40,6 +41,12 @@ const (
 	kvm      = "kvm"
 	metadata = "meta-data"
 	userdata = "user-data"
+
+	// This path is only valid on ubuntu, and xenial at this point.
+	// TODO(ro) 2017-01-20 Determine if we will support trusty and update this
+	// as necessary if so. It seems it will require some serious acrobatics to
+	// get trusty to work properly and that may be out of scope for juju.
+	nvramCode = "/usr/share/AAVMF/AAVMF_CODE.fd"
 )
 
 var (
@@ -54,17 +61,41 @@ var (
 type CreateMachineParams struct {
 	Hostname      string
 	Series        string
-	Arch          string
 	UserDataFile  string
 	NetworkBridge string
 	Memory        uint64
 	CpuCores      uint64
 	RootDisk      uint64
 	Interfaces    []libvirt.InterfaceInfo
-	disks         []libvirt.DiskInfo
-	findPath      func(string) (string, error)
-	runCmd        runFunc
-	runCmdAsRoot  runFunc
+
+	nvram string
+
+	disks    []libvirt.DiskInfo
+	findPath func(string) (string, error)
+
+	runCmd       runFunc
+	runCmdAsRoot runFunc
+	arch         string
+}
+
+// Arch returns the architecture to be used.
+func (p CreateMachineParams) Arch() string {
+	if p.arch != "" {
+		return p.arch
+	}
+	return arch.HostArch()
+}
+
+// Loader is the path to the binary firmware blob used in UEFI booting. At the
+// time of this writing only ARM64 requires this to run.
+func (p CreateMachineParams) Loader() string {
+	return nvramCode
+}
+
+// NVRAM is the path to the "pflash" drive where UEFI stores variables related
+// to booting an image. At the time of this writing only ARM64 uses this.
+func (p CreateMachineParams) NVRAM() string {
+	return p.nvram
 }
 
 // Host implements libvirt.domainParams.
@@ -146,21 +177,17 @@ func CreateMachine(params CreateMachineParams) error {
 		return fmt.Errorf("hostname is required")
 	}
 
-	if params.findPath == nil {
-		params.findPath = paths.DataDir
-	}
-	if params.runCmd == nil {
-		params.runCmd = runAsLibvirt
-	}
-	if params.runCmdAsRoot == nil {
-		params.runCmdAsRoot = run
-	}
+	setDefaults(&params)
 
 	templateDir := filepath.Dir(params.UserDataFile)
 
 	err := writeMetadata(templateDir)
 	if err != nil {
 		return errors.Annotate(err, "failed to write instance metadata")
+	}
+
+	if err = createNVRAM(params); err != nil {
+		return errors.Annotatef(err, "failed to create NVRAM on %q for %q", params.Arch(), params.Host())
 	}
 
 	dsPath, err := writeDatasourceVolume(params)
@@ -196,6 +223,19 @@ func CreateMachine(params CreateMachineParams) error {
 	return err
 }
 
+// Setup the default values for params.
+func setDefaults(p *CreateMachineParams) {
+	if p.findPath == nil {
+		p.findPath = paths.DataDir
+	}
+	if p.runCmd == nil {
+		p.runCmd = runAsLibvirt
+	}
+	if p.runCmdAsRoot == nil {
+		p.runCmdAsRoot = run
+	}
+}
+
 // DestroyMachine destroys the virtual machine represented by the kvmContainer.
 func DestroyMachine(c *kvmContainer) error {
 	if c.runCmd == nil {
@@ -217,7 +257,7 @@ func DestroyMachine(c *kvmContainer) error {
 		logger.Infof("`virsh destroy %s` failed: %q", c.Name(), err)
 	}
 
-	_, err = c.runCmd("virsh", "undefine", c.Name())
+	_, err = c.runCmd("virsh", "undefine", "--nvram", c.Name())
 	if err != nil {
 		logger.Infof("`virsh undefine %s` failed: %q", c.Name(), err)
 	}
@@ -414,7 +454,7 @@ func writeRootDisk(params CreateMachineParams) (string, error) {
 	imgPath := filepath.Join(guestBase, fmt.Sprintf("%s.qcow", params.Host()))
 	backingPath := filepath.Join(
 		guestBase,
-		backingFileName(params.Series, params.Arch))
+		backingFileName(params.Series, params.Arch()))
 
 	out, err := params.runCmd(
 		"qemu-img",
@@ -429,6 +469,40 @@ func writeRootDisk(params CreateMachineParams) (string, error) {
 	}
 
 	return imgPath, nil
+}
+
+// createNVRAM creates an empty NVRAM (pflash) drive. This is required for
+// booting UEFI images. As of Xenial Two pflash drives are required. One
+// provides the actual firmware which can be shared read-only and is provided
+// in a shared directory by qemu-efi. It is in /usr/share/AAVMF/AAVMF_CODE.fd.
+// The the second is for storing variables to be read on subsequent boots.
+// This creates that second drive from a template.
+func createNVRAM(params CreateMachineParams) error {
+	if params.Arch() != arch.ARM64 {
+		return nil
+	}
+
+	guestBase, err := guestPath(params.findPath)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	params.nvram = filepath.Join(guestBase, fmt.Sprintf("%s-VARS.fd", params.Host()))
+	f, err := os.Create(params.nvram)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defer func() {
+		err = f.Close()
+		if err != nil {
+			logger.Infof("failed to close %q %s", f.Name(), err)
+		}
+	}()
+
+	err = f.Truncate(64 * (1 << 20))
+	if err != nil {
+		return errors.Annotatef(err, "failed to create NVRAM %q", f.Name())
+	}
+	return nil
 }
 
 // pool info parses and returns the output of `virsh pool-info <poolname>`.

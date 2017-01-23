@@ -17,7 +17,7 @@ type containerInternalSuite struct {
 
 var _ = gc.Suite(&containerInternalSuite{})
 
-func (_ containerInternalSuite) TestInterfaceInfo(c *gc.C) {
+func (containerInternalSuite) TestInterfaceInfo(c *gc.C) {
 	i := interfaceInfo{config: network.InterfaceInfo{
 		MACAddress: "mac", ParentInterfaceName: "piname", InterfaceName: "iname"}}
 	c.Check(i.InterfaceName(), gc.Equals, "iname")

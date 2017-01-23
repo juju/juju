@@ -4,7 +4,9 @@
 package kvm
 
 import (
+	"crypto/sha256"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -23,10 +25,9 @@ type libvirtInternalSuite struct {
 var _ = gc.Suite(&libvirtInternalSuite{})
 
 func (libvirtInternalSuite) TestWriteMetadata(c *gc.C) {
-	d, err := ioutil.TempDir("", "juju-libvirtInternalSuite")
-	defer removeAll(d, c)
-	c.Check(err, jc.ErrorIsNil)
-	err = writeMetadata(d)
+	d := c.MkDir()
+
+	err := writeMetadata(d)
 	c.Check(err, jc.ErrorIsNil)
 	b, err := ioutil.ReadFile(filepath.Join(d, metadata))
 	c.Check(err, jc.ErrorIsNil)
@@ -34,9 +35,7 @@ func (libvirtInternalSuite) TestWriteMetadata(c *gc.C) {
 }
 
 func (libvirtInternalSuite) TestWriteDomainXMLSucceeds(c *gc.C) {
-	d, err := ioutil.TempDir("", "juju-libvirtInternalSuite-")
-	c.Assert(err, jc.ErrorIsNil)
-	defer removeAll(d, c)
+	d := c.MkDir()
 
 	stub := &runStub{}
 
@@ -55,13 +54,11 @@ func (libvirtInternalSuite) TestWriteDomainXMLSucceeds(c *gc.C) {
 
 	got, err := writeDomainXML(d, p)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(got, gc.Matches, "/tmp/juju-libvirtInternalSuite-.*/host00.xml")
+	c.Assert(got, gc.Matches, `/tmp/check-.*/\d+/host00.xml`)
 }
 
 func (libvirtInternalSuite) TestWriteDomainXMLMissingValidSystemDisk(c *gc.C) {
-	d, err := ioutil.TempDir("", "juju-libvirtInternalSuite-")
-	c.Assert(err, jc.ErrorIsNil)
-	defer removeAll(d, c)
+	d := c.MkDir()
 
 	stub := &runStub{}
 
@@ -84,9 +81,7 @@ func (libvirtInternalSuite) TestWriteDomainXMLMissingValidSystemDisk(c *gc.C) {
 }
 
 func (libvirtInternalSuite) TestWriteDomainXMLMissingOneDisk(c *gc.C) {
-	d, err := ioutil.TempDir("", "juju-libvirtInternalSuite-")
-	c.Assert(err, jc.ErrorIsNil)
-	defer removeAll(d, c)
+	d := c.MkDir()
 
 	stub := &runStub{}
 
@@ -106,9 +101,7 @@ func (libvirtInternalSuite) TestWriteDomainXMLMissingOneDisk(c *gc.C) {
 }
 
 func (libvirtInternalSuite) TestWriteDomainXMLMissingBothDisk(c *gc.C) {
-	d, err := ioutil.TempDir("", "juju-libvirtInternalSuite-")
-	c.Assert(err, jc.ErrorIsNil)
-	defer removeAll(d, c)
+	d := c.MkDir()
 
 	stub := &runStub{}
 
@@ -123,10 +116,38 @@ func (libvirtInternalSuite) TestWriteDomainXMLMissingBothDisk(c *gc.C) {
 	c.Assert(got, gc.Matches, "")
 }
 
-func (libvirtInternalSuite) TestWriteDomainXMLNoHostname(c *gc.C) {
-	d, err := ioutil.TempDir("", "juju-libvirtInternalSuite-")
+func (libvirtInternalSuite) TestCreateNVRAMOnARM64(c *gc.C) {
+	d := c.MkDir()
+
+	err := os.MkdirAll(filepath.Join(d, "kvm", "guests"), 0755)
+	c.Check(err, jc.ErrorIsNil)
+	p := CreateMachineParams{
+		Hostname: "host00",
+		arch:     "arm64",
+		findPath: func(string) (string, error) { return d, nil },
+	}
+	err = createNVRAM(p)
+	c.Check(err, jc.ErrorIsNil)
+	data, err := ioutil.ReadFile(filepath.Join(d, "kvm", "guests", "host00-VARS.fd"))
+	c.Check(err, jc.ErrorIsNil)
+	got := fmt.Sprintf("%x", sha256.Sum256(data))
+	c.Assert(got, gc.Equals, "3b6a07d0d404fab4e23b6d34bc6696a6a312dd92821332385e5af7c01c421351")
+}
+
+func (libvirtInternalSuite) TestCreateNVRAMOnAMD64(c *gc.C) {
+	d := c.MkDir()
+
+	p := CreateMachineParams{
+		Hostname: "host00",
+		arch:     "amd64",
+		findPath: func(string) (string, error) { return d, nil },
+	}
+	err := createNVRAM(p)
 	c.Assert(err, jc.ErrorIsNil)
-	defer removeAll(d, c)
+}
+
+func (libvirtInternalSuite) TestWriteDomainXMLNoHostname(c *gc.C) {
+	d := c.MkDir()
 
 	stub := &runStub{}
 

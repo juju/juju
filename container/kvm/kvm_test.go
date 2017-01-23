@@ -332,6 +332,7 @@ func (s *KVMSuite) TestIsKVMSupportedOnlyPath(c *gc.C) {
 	// developers without kvm-ok.
 	tmpDir := c.MkDir()
 	err := ioutil.WriteFile(filepath.Join(tmpDir, "kvm-ok"), []byte("#!/bin/bash"), 0777)
+	c.Check(err, jc.ErrorIsNil)
 	s.PatchEnvironment("PATH", tmpDir)
 
 	supported, err := kvm.IsKVMSupported()
