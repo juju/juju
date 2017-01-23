@@ -29,7 +29,9 @@ from jujuconfig import (
     NoSuchEnvironment,
     )
 from jujupy import (
+    FakeControllerState,
     fake_juju_client,
+    get_client_class,
     )
 from jujupy.client import (
     AuthNotAccepted,
@@ -120,6 +122,26 @@ class ClientTest(FakeHomeTestCase):
         patcher = patch('jujupy.client.pause')
         self.addCleanup(patcher.stop)
         self.pause_mock = patcher.start()
+
+    def fake_juju_client(self):
+        """Provide a faked juju client for the version under test.
+
+        Requires client_version, client_class, fake_backend_class to be
+        defined.
+        """
+        backend_state = FakeControllerState()
+        backend = self.fake_backend_class(backend_state,
+                                          version=self.client_version)
+        return fake_juju_client(version=self.client_version,
+                                cls=self.client_class, _backend=backend)
+
+    def check_basics(self):
+        """Basic tests for a recent ClientTest.
+
+        These are opt-in because not every ClientTest declares client_class
+        and client_version.
+        """
+        self.assertIs(self.client_class, get_client_class(self.client_version))
 
 
 class TestTempYamlFile(TestCase):

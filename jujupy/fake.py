@@ -455,7 +455,8 @@ class AddCloud(PromptingExpectChild):
 
     CLOUD_ENDPOINT = 'Enter the API endpoint url for the cloud:'
 
-    REGION_ENDPOINT = 'Enter the API endpoint url for the region:'
+    REGION_ENDPOINT = (
+        'Enter the API endpoint url for the region [use cloud api url]:')
 
     HOST = "Enter the controller's hostname or IP address:"
 
@@ -553,6 +554,11 @@ class AddCloud(PromptingExpectChild):
                 'regions': regions,
                 })
         self.backend.clouds[self.values[self.name_prompt]] = cloud
+
+
+class AddCloud2_1(AddCloud):
+
+    REGION_ENDPOINT = 'Enter the API endpoint url for the region:'
 
 
 class FakeBackend:
@@ -993,7 +999,18 @@ def get_user_register_token(username):
     return b64encode(sha512(username).digest())
 
 
-class FakeBackend2B7(FakeBackend):
+class FakeBackend2_1(FakeBackend):
+    """Backend for 2.1 and earlier."""
+    def expect(self, command, args, used_feature_flags, juju_home, model=None,
+               timeout=None, extra_env=None):
+        if command == 'add-cloud':
+            return AddCloud2_1(self, juju_home, extra_env)
+        return super(FakeBackend2_1, self).expect(
+            command, args, used_feature_flags, juju_home, model, timeout,
+            extra_env)
+
+
+class FakeBackend2B7(FakeBackend2_1):
 
     def juju(self, command, args, used_feature_flags,
              juju_home, model=None, check=True, timeout=None, extra_env=None):

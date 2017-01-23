@@ -20,6 +20,7 @@ from jujupy import (
     fake_juju_client,
     Juju2Backend,
     )
+from jujupy.version_client import ModelClient2_1
 from tests import (
     FakeHomeTestCase,
     observable_temp_file,
@@ -133,7 +134,7 @@ class TestClientFromArgs(FakeHomeTestCase):
                     client = client_from_args(args)
         fcr_mock.assert_called_once_with('mycloud', None, {}, {},
                                          self.juju_home)
-        self.assertIs(type(client), EnvJujuClient)
+        self.assertIs(type(client), ModelClient2_1)
         self.assertIs(type(client._backend), Juju2Backend)
         self.assertEqual(client.version, '2.0.x')
         self.assertIs(client.env, fcr_mock.return_value)
