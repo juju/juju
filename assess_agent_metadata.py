@@ -229,10 +229,9 @@ def assess_metadata(args, agent_dir, agent_stream):
             "Successfully deployed charm {} of series {} and verified".format(
                 "dummy-source", controller_series))
 
-
         # Deploy charm of different series that of controller
         serial_ver.remove(controller_series)
-        deploy_charm_and_verify(client, controller_series, "dummy-source")
+        deploy_charm_and_verify(client, serial_ver[0], "dummy-sink")
         log.info(
             "Successfully deployed charm {} of series {} and verified".format(
                 "dummy-sink", serial_ver[0]))
