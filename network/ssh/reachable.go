@@ -45,7 +45,7 @@ func (h *hostKeyChecker) hostKeyCallback(hostname string, remote net.Addr, key s
 	logger.Debugf("checking host key for %q at %v, with key %q", hostname, remote, ssh.MarshalAuthorizedKey(key))
 
 	lookupKey := string(key.Marshal())
-	if h.acceptedKeys.Contains(lookupKey) {
+	if len(h.acceptedKeys) == 0 || h.acceptedKeys.Contains(lookupKey) {
 		logger.Debugf("accepted host key for: %q %v", hostname, remote)
 		// This key was valid, so return it, but if someone else was found
 		// first, still exit.
