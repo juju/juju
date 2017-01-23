@@ -165,6 +165,7 @@ LXC_BRIDGE="ignored"`[1:])
 		"10.0.6.10",     // unfiltered
 		"192.168.122.1", // filtered (from virbr0 bridge, 192.168.122.1)
 		"192.168.123.42",
+		"localhost", // unfiltered because it isn't an IP address
 	)
 	filteredAddresses := network.NewAddresses(
 		"127.0.0.1",
@@ -172,6 +173,7 @@ LXC_BRIDGE="ignored"`[1:])
 		"10.0.0.1",
 		"10.0.6.10",
 		"192.168.123.42",
+		"localhost",
 	)
 	c.Assert(network.FilterBridgeAddresses(inputAddresses), jc.DeepEquals, filteredAddresses)
 }

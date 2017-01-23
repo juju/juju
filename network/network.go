@@ -340,7 +340,7 @@ var InterfaceByNameAddrs = func(name string) ([]net.Addr, error) {
 
 type ipNetAndName struct {
 	ipnet *net.IPNet
-	name string
+	name  string
 }
 
 func addrMapToIPNetAndName(bridgeToAddrs map[string][]net.Addr) []ipNetAndName {
@@ -384,20 +384,20 @@ func addrMapToIPNetAndName(bridgeToAddrs map[string][]net.Addr) []ipNetAndName {
 // addresses, so that we can report why the address was filtered.
 func filterAddrs(allAddresses []Address, removeAddresses map[string][]net.Addr) []Address {
 	filtered := make([]Address, 0, len(allAddresses))
-	// Convert all 
+	// Convert all
 	ipNets := addrMapToIPNetAndName(removeAddresses)
 	for _, addr := range allAddresses {
 		bridgeName := ""
 		// Then check if it is in one of the CIDRs
 		ip := net.ParseIP(addr.Value)
 		if ip == nil {
-			logger.Debugf("invalid IP: %q", addr.Value)
-			continue
-		}
-		for _, ipNetName := range ipNets {
-			if ipNetName.ipnet.Contains(ip) {
-				bridgeName = ipNetName.name
-				break
+			logger.Debugf("not filtering invalid IP: %q", addr.Value)
+		} else {
+			for _, ipNetName := range ipNets {
+				if ipNetName.ipnet.Contains(ip) {
+					bridgeName = ipNetName.name
+					break
+				}
 			}
 		}
 		if bridgeName == "" {
