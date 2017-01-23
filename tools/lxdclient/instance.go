@@ -8,7 +8,6 @@ package lxdclient
 import (
 	"fmt"
 	"math"
-	"strings"
 	"time"
 
 	"github.com/juju/errors"
@@ -18,34 +17,19 @@ import (
 
 // Constants related to user metadata.
 const (
-	MetadataNamespace = "user"
-
 	// This is defined by the cloud-init code:
 	// http://bazaar.launchpad.net/~cloud-init-dev/cloud-init/trunk/view/head:/cloudinit/sources/
 	// http://cloudinit.readthedocs.org/en/latest/
 	// Also see https://github.com/lxc/lxd/blob/master/specs/configuration.md.
-	UserdataKey = "user-data"
+	UserdataKey = "user.user-data"
 
 	// CertificateFingerprintKey is a key that we define to associate
 	// a certificate fingerprint with an instance. We use this to clean
 	// up certificates when removing controller instances.
-	CertificateFingerprintKey = "certificate-fingerprint"
+	CertificateFingerprintKey = "user.certificate-fingerprint"
 
 	megabyte = 1024 * 1024
 )
-
-func resolveConfigKey(name string, namespace ...string) string {
-	parts := append(namespace, name)
-	return strings.Join(parts, ".")
-}
-
-func splitConfigKey(key string) (string, string) {
-	parts := strings.SplitN(key, ".", 2)
-	if len(parts) == 1 {
-		return "", parts[0]
-	}
-	return parts[0], parts[1]
-}
 
 // AliveStatuses are the LXD statuses that indicate a container is "alive".
 var AliveStatuses = []string{
@@ -258,8 +242,7 @@ func resolveMetadata(metadata map[string]string) map[string]string {
 	config := make(map[string]string)
 
 	for name, val := range metadata {
-		key := resolveConfigKey(name, MetadataNamespace)
-		config[key] = val
+		config[name] = val
 	}
 
 	return config
@@ -269,11 +252,7 @@ func extractMetadata(config map[string]string) map[string]string {
 	metadata := make(map[string]string)
 
 	for key, val := range config {
-		namespace, name := splitConfigKey(key)
-		if namespace != MetadataNamespace {
-			continue
-		}
-		metadata[name] = val
+		metadata[key] = val
 	}
 
 	return metadata

@@ -54,7 +54,7 @@ func (s *instanceSuite) TestNewInstanceSummaryTemplate(c *gc.C) {
 	c.Check(summary.Hardware.MemoryMB, gc.Equals, uint(256))
 	// NotImplemented yet
 	c.Check(summary.Hardware.RootDiskMB, gc.Equals, uint64(0))
-	c.Check(summary.Metadata, gc.DeepEquals, map[string]string{"something": "something value"})
+	c.Check(summary.Metadata, gc.DeepEquals, map[string]string{"limits.cpu": "2", "limits.memory": "256MB", "user.something": "something value"})
 }
 
 func infoWithMemory(mem string) *lxdshared.ContainerInfo {
