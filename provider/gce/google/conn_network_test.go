@@ -27,8 +27,9 @@ func (s *connSuite) TestConnectionPorts(c *gc.C) {
 
 	ports, err := s.Conn.IngressRules("spam")
 	c.Assert(err, jc.ErrorIsNil)
-
-	c.Check(ports, jc.DeepEquals, []network.IngressRule{network.MustNewIngressRule("tcp", 80, 81)})
+	c.Check(
+		ports, jc.DeepEquals,
+		[]network.IngressRule{network.MustNewIngressRule("tcp", 80, 81, "0.0.0.0/0")})
 }
 
 func (s *connSuite) TestConnectionPortsAPI(c *gc.C) {

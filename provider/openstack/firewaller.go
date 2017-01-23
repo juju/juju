@@ -13,7 +13,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/retry"
 	"github.com/juju/utils/clock"
-	"github.com/juju/utils/set"
 	"gopkg.in/goose.v1/neutron"
 
 	"github.com/juju/juju/environs"
@@ -37,6 +36,9 @@ type Firewaller interface {
 	ClosePorts(rules []network.IngressRule) error
 
 	// IngressRules returns the ingress rules applied to the whole environment.
+	// It is expected that there be only one ingress rule result for a given
+	// port range - the rule's SourceCIDRs will contain all applicable source
+	// address rules for that port range.
 	IngressRules() ([]network.IngressRule, error)
 
 	// Implementations are expected to delete all security groups for the
@@ -774,7 +776,7 @@ func (c *neutronFirewaller) ingressRulesInGroup(nameRegexp string) (rules []netw
 		return nil, errors.Trace(err)
 	}
 	// Keep track of all the RemoteIPPrefixes for each port range.
-	portSourceCIDRs := make(map[network.PortRange]set.Strings)
+	portSourceCIDRs := make(map[network.PortRange]*[]string)
 	for _, p := range group.Rules {
 		// Skip the default Security Group Rules created by Neutron
 		if p.Direction == "egress" {
@@ -791,20 +793,15 @@ func (c *neutronFirewaller) ingressRulesInGroup(nameRegexp string) (rules []netw
 		}
 		// Record the RemoteIPPrefix for the port range.
 		remotePrefix := p.RemoteIPPrefix
-		if remotePrefix == "0.0.0.0/0" {
-			remotePrefix = ""
+		if remotePrefix == "" {
+			remotePrefix = "0.0.0.0/0"
 		}
-		var (
-			sourceCIDRs set.Strings
-			ok          bool
-		)
-		if sourceCIDRs, ok = portSourceCIDRs[portRange]; !ok {
-			sourceCIDRs = set.NewStrings()
+		sourceCIDRs, ok := portSourceCIDRs[portRange]
+		if !ok {
+			sourceCIDRs = &[]string{}
 			portSourceCIDRs[portRange] = sourceCIDRs
 		}
-		if remotePrefix != "" {
-			sourceCIDRs.Add(remotePrefix)
-		}
+		*sourceCIDRs = append(*sourceCIDRs, remotePrefix)
 	}
 	// Combine all the port ranges and remote prefixes.
 	for portRange, sourceCIDRs := range portSourceCIDRs {
@@ -812,7 +809,7 @@ func (c *neutronFirewaller) ingressRulesInGroup(nameRegexp string) (rules []netw
 			portRange.Protocol,
 			portRange.FromPort,
 			portRange.ToPort,
-			sourceCIDRs.Values()...)
+			*sourceCIDRs...)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

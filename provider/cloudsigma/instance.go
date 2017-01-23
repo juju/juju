@@ -87,9 +87,9 @@ func (i sigmaInstance) ClosePorts(machineID string, ports []network.IngressRule)
 
 // IngressRules returns the set of ports open on the instance, which
 // should have been started with the given machine id.
-// The ports are returned as sorted by SortPorts.
+// The rules are returned as sorted by SortInstanceRules.
 func (i sigmaInstance) IngressRules(machineID string) ([]network.IngressRule, error) {
-	return nil, errors.NotImplementedf("Ports")
+	return nil, errors.NotImplementedf("InstanceRules")
 }
 
 func (i sigmaInstance) findIPv4() string {

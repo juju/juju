@@ -111,5 +111,5 @@ func (inst *joyentInstance) IngressRules(machineId string) ([]network.IngressRul
 		return nil, fmt.Errorf("cannot get firewall rules: %v", err)
 	}
 
-	return getPorts(inst.env.Config().Name(), fwRules)
+	return getRules(inst.env.Config().Name(), fwRules)
 }

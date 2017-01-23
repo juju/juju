@@ -15,7 +15,7 @@ type FirewallSuite struct{}
 
 var _ = gc.Suite(&FirewallSuite{})
 
-func (s *FirewallSuite) TestGetPorts(c *gc.C) {
+func (s *FirewallSuite) TestGetIngressRules(c *gc.C) {
 	testCases := []struct {
 		about    string
 		envName  string
@@ -30,7 +30,7 @@ func (s *FirewallSuite) TestGetPorts(c *gc.C) {
 				true,
 				"FROM tag switch TO tag juju ALLOW tcp PORT 80",
 			}},
-			[]network.IngressRule{network.MustNewIngressRule("tcp", 80, 80)},
+			[]network.IngressRule{network.MustNewIngressRule("tcp", 80, 80, "0.0.0.0/0")},
 		},
 		{
 			"port range model rule",
@@ -40,7 +40,7 @@ func (s *FirewallSuite) TestGetPorts(c *gc.C) {
 				true,
 				"FROM tag switch TO tag juju ALLOW tcp (PORT 80 AND PORT 81 AND PORT 82 AND PORT 83)",
 			}},
-			[]network.IngressRule{network.MustNewIngressRule("tcp", 80, 83)},
+			[]network.IngressRule{network.MustNewIngressRule("tcp", 80, 83, "0.0.0.0/0")},
 		},
 	}
 	for i, t := range testCases {
