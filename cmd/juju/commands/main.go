@@ -136,13 +136,13 @@ func (m main) Run(args []string) int {
 	// since it relies on detecting the lack of said directory.
 	newInstall := m.maybeWarnJuju1x()
 
-	if err = juju.InitJujuXDGDataHome(); err != nil {
-		fmt.Fprintf(os.Stderr, "error: %s\n", err)
-		return 2
-	}
-
 	if newInstall {
-		fmt.Fprintf(ctx.Stderr, "Since Juju %v is being run for the first time, downloading latest cloud information.\n", jujuversion.Current.Major)
+		fmt.Fprintf(ctx.Stderr, "Since Juju %v is being run for the first time, initializing config.\n", jujuversion.Current.Major)
+		if err = juju.InitJujuXDGDataHome(); err != nil {
+			fmt.Fprintf(os.Stderr, "error: %s\n", err)
+			return 2
+		}
+		fmt.Fprint(ctx.Stderr, "Downloading latest cloud information.\n")
 		updateCmd := cloud.NewUpdateCloudsCommand()
 		if err := updateCmd.Run(ctx); err != nil {
 			fmt.Fprintf(ctx.Stderr, "error: %v\n", err)
