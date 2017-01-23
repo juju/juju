@@ -122,11 +122,16 @@ func (env *environ) ControllerInstances(controllerUUID string) ([]instance.Id, e
 	return results, nil
 }
 
-// AdoptInstances is part of the environs.Environ interface.
-func (env *environ) AdoptInstances(ids []instance.Id, controllerUUID string) error {
-	stringIds := make([]string, len(ids))
-	for i, id := range ids {
-		stringIds[i] = string(id)
+// UpdateController is part of the Environ interface.
+func (env *environ) UpdateController(controllerUUID string) error {
+	instances, err := env.AllInstances()
+	if err != nil {
+		return errors.Annotate(err, "all instances")
+	}
+
+	var stringIds []string
+	for _, id := range instances {
+		stringIds = append(stringIds, string(id.Id()))
 	}
 	return errors.Trace(env.gce.UpdateMetadata(tags.JujuController, controllerUUID, stringIds...))
 }

@@ -886,8 +886,8 @@ func (e *environ) SetConfig(cfg *config.Config) error {
 	return nil
 }
 
-// AdoptInstances is part of the Environ interface.
-func (e *environ) AdoptInstances(ids []instance.Id, controllerUUID string) error {
+// UpdateController is part of the Environ interface.
+func (e *environ) UpdateController(controllerUUID string) error {
 	// This provider doesn't track instance -> controller.
 	return nil
 }

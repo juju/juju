@@ -1837,15 +1837,15 @@ func (suite *maas2EnvironSuite) TestReleaseContainerAddressesErrorDeletingDevice
 	dev1.CheckCallNames(c, "Delete")
 }
 
-func (suite *maas2EnvironSuite) TestAdoptInstances(c *gc.C) {
+func (suite *maas2EnvironSuite) TestUpdateController(c *gc.C) {
 	machine1 := newFakeMachine("big-fig-wasp", "gaudi", "good")
 	machine2 := newFakeMachine("robot-stop", "hundertwasser", "fine")
 	machine3 := newFakeMachine("gamma-knife", "von-neumann", "acceptable")
 	controller := newFakeController()
-	controller.machines = append(controller.machines, machine1, machine2, machine3)
+	controller.machines = append(controller.machines, machine1, machine3)
 	env := suite.makeEnviron(c, controller)
 
-	err := env.AdoptInstances([]instance.Id{"big-fig-wasp", "gamma-knife"}, "some-other-controller")
+	err := env.UpdateController("some-other-controller")
 	c.Assert(err, jc.ErrorIsNil)
 
 	machine1.CheckCallNames(c, "SetOwnerData")
@@ -1859,7 +1859,7 @@ func (suite *maas2EnvironSuite) TestAdoptInstances(c *gc.C) {
 	})
 }
 
-func (suite *maas2EnvironSuite) TestAdoptInstancesError(c *gc.C) {
+func (suite *maas2EnvironSuite) TestUpdateControllerError(c *gc.C) {
 	machine1 := newFakeMachine("evil-death-roll", "frank-lloyd-wright", "ok")
 	machine2 := newFakeMachine("people-vultures", "gehry", "adequate")
 	controller := newFakeController()
@@ -1868,7 +1868,7 @@ func (suite *maas2EnvironSuite) TestAdoptInstancesError(c *gc.C) {
 
 	machine1.SetErrors(errors.New("blorp"))
 
-	err := env.AdoptInstances([]instance.Id{"evil-death-roll", "people-vultures"}, "some-other-controller")
+	err := env.UpdateController("some-other-controller")
 	c.Assert(err, gc.ErrorMatches, `failed to update controller for some instances: \[evil-death-roll\]`)
 
 	machine1.CheckCallNames(c, "SetOwnerData")
