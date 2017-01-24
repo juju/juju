@@ -217,7 +217,13 @@ func (c *defaultsCommand) Init(args []string) error {
 		// set args.
 		return c.handleSetArgs(args)
 	case len(args) == 0:
-		c.action = c.getDefaults
+		if len(c.resetKeys) == 0 {
+			// If there's no positional args and reset is not set then we're
+			// getting all attrs.
+			c.action = c.getDefaults
+			return nil
+		}
+		// Reset only.
 		return nil
 	case len(args) == 1:
 		// We want to get settings for the provided key.
@@ -519,6 +525,11 @@ func (c *defaultsCommand) getDefaults(client defaultsCommandAPI, ctx *cmd.Contex
 			return errors.New(msg)
 		}
 	}
+	if c.regionName != "" && len(attrs) == 0 {
+		return errors.New(fmt.Sprintf(
+			"there are no default model values in region %q", c.regionName))
+	}
+
 	// If c.keys is empty, write out the whole lot.
 	return c.out.Write(ctx, attrs)
 }

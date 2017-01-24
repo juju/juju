@@ -800,6 +800,14 @@ type LogRecord struct {
 	Location string    `json:"l"`
 	Level    string    `json:"v"`
 	Message  string    `json:"x"`
+	Entity   string    `json:"e,omitempty"`
+}
+
+// PubSubMessage is used to propagate pubsub messages from one api server to the
+// others.
+type PubSubMessage struct {
+	Topic string                 `json:"topic"`
+	Data  map[string]interface{} `json:"data"`
 }
 
 // BundleChangesParams holds parameters for making Bundle.GetChanges calls.

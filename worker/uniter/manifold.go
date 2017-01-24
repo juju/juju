@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/fortress"
 	"github.com/juju/juju/worker/uniter/operation"
+	"github.com/juju/juju/worker/uniter/resolver"
 )
 
 // ManifoldConfig defines the names of the manifolds on which a
@@ -29,6 +30,7 @@ type ManifoldConfig struct {
 	LeadershipTrackerName string
 	CharmDirName          string
 	HookRetryStrategyName string
+	TranslateResolverErr  func(error) error
 }
 
 // Manifold returns a dependency manifold that runs a uniter worker,
@@ -98,6 +100,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				UpdateStatusSignal:   NewUpdateStatusTimer(),
 				HookRetryStrategy:    hookRetryStrategy,
 				NewOperationExecutor: operation.NewExecutor,
+				TranslateResolverErr: config.TranslateResolverErr,
 				Clock:                manifoldConfig.Clock,
 			})
 			if err != nil {
@@ -106,4 +109,15 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			return uniter, nil
 		},
 	}
+}
+
+// TranslateFortressErrors turns errors returned by dependent
+// manifolds due to fortress lockdown (i.e. model migration) into an
+// error which causes the resolver loop to be restarted. When this
+// happens the uniter is about to be shut down anyway.
+func TranslateFortressErrors(err error) error {
+	if fortress.IsFortressError(err) {
+		return resolver.ErrRestart
+	}
+	return err
 }

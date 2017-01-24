@@ -335,13 +335,26 @@ _juju_complete_2_0() {
 }
 # _juju_2_0_cache_TTL [mins]
 export _juju_2_0_cache_TTL=2
+
 # All above completion is juju-2.0 specific, uses $_juju_cmd_JUJU_2_0
-export _juju_cmd_JUJU_2_0=/usr/bin/juju-2.0
+
+# Detect juju built from source (highest priority)
+if [ -x "$GOPATH/bin/juju" ]; then 
+    export _juju_cmd_JUJU_2_0="$GOPATH/bin/juju"
+# Detect installed juju-2.0 binary (next highest priority)
+elif [ -x "/usr/bin/juju-2.0" ]; then
+    export _juju_cmd_JUJU_2_0="/usr/bin/juju-2.0"
+# Use /usr/bin/juju as a last resort.
+else
+    export _juju_cmd_JUJU_2_0="/usr/bin/juju"
+fi
+
 # Select python3, else python2
 export _juju_cmd_PYTHON
 for _juju_cmd_PYTHON in /usr/bin/python{3,2};do
   [ -x ${_juju_cmd_PYTHON?} ] && break
 done
+
 # Add juju-2.0 completion
 complete -F _juju_complete_2_0 juju-2.0
 

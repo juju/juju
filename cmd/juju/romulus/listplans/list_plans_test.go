@@ -4,8 +4,6 @@
 package listplans_test
 
 import (
-	"net/http"
-	"net/url"
 	"time"
 
 	"github.com/juju/cmd/cmdtesting"
@@ -14,6 +12,7 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/macaroon-bakery.v1/httpbakery"
 
 	"github.com/juju/juju/cmd/juju/romulus/listplans"
 	coretesting "github.com/juju/juju/testing"
@@ -228,7 +227,7 @@ type mockCharmResolver struct {
 }
 
 // Resolve implements cmd.CharmResolver.
-func (r *mockCharmResolver) Resolve(_ func(*url.URL) error, _ *http.Client, charmURL string) (string, error) {
+func (r *mockCharmResolver) Resolve(_ *httpbakery.Client, charmURL string) (string, error) {
 	r.AddCall("Resolve", charmURL)
 	if r.ResolvedURL != "" {
 		return r.ResolvedURL, r.NextErr()

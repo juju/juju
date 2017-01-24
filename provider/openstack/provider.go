@@ -7,13 +7,13 @@ package openstack
 
 import (
 	"fmt"
-	"log"
 	"net/url"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/jsonschema"
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
 	"github.com/juju/version"
@@ -21,6 +21,8 @@ import (
 	"gopkg.in/goose.v1/client"
 	gooseerrors "gopkg.in/goose.v1/errors"
 	"gopkg.in/goose.v1/identity"
+	gooselogging "gopkg.in/goose.v1/logging"
+	"gopkg.in/goose.v1/neutron"
 	"gopkg.in/goose.v1/nova"
 
 	"github.com/juju/juju/cloud"
@@ -38,6 +40,7 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/tools"
+	"github.com/juju/utils/clock"
 )
 
 var logger = loggo.GetLogger("juju.provider.openstack")
@@ -46,6 +49,15 @@ type EnvironProvider struct {
 	environs.ProviderCredentials
 	Configurator      ProviderConfigurator
 	FirewallerFactory FirewallerFactory
+	FlavorFilter      FlavorFilter
+
+	// NetworkingDecorator, if non-nil, will be used to
+	// decorate the default networking implementation.
+	// This can be used to override behaviour.
+	NetworkingDecorator NetworkingDecorator
+
+	// ClientFromEndpoint returns an Openstack client for the given endpoint.
+	ClientFromEndpoint func(endpoint string) client.AuthenticatingClient
 }
 
 var (
@@ -54,9 +66,59 @@ var (
 )
 
 var providerInstance *EnvironProvider = &EnvironProvider{
-	OpenstackCredentials{},
-	&defaultConfigurator{},
-	&firewallerFactory{},
+	ProviderCredentials: OpenstackCredentials{},
+	Configurator:        &defaultConfigurator{},
+	FirewallerFactory:   &firewallerFactory{},
+	FlavorFilter:        FlavorFilterFunc(AcceptAllFlavors),
+	NetworkingDecorator: nil,
+	ClientFromEndpoint:  newGooseClient,
+}
+
+var cloudSchema = &jsonschema.Schema{
+	Type:     []jsonschema.Type{jsonschema.ObjectType},
+	Required: []string{cloud.EndpointKey, cloud.AuthTypesKey, cloud.RegionsKey},
+	Order:    []string{cloud.EndpointKey, cloud.AuthTypesKey, cloud.RegionsKey},
+	Properties: map[string]*jsonschema.Schema{
+		cloud.EndpointKey: {
+			Singular: "the API endpoint url for the cloud",
+			Type:     []jsonschema.Type{jsonschema.StringType},
+			Format:   jsonschema.FormatURI,
+		},
+		cloud.AuthTypesKey: {
+			Singular:    "auth type",
+			Plural:      "auth types",
+			Type:        []jsonschema.Type{jsonschema.ArrayType},
+			UniqueItems: jsonschema.Bool(true),
+			Items: &jsonschema.ItemSpec{
+				Schemas: []*jsonschema.Schema{{
+					Type: []jsonschema.Type{jsonschema.StringType},
+					Enum: []interface{}{
+						string(cloud.AccessKeyAuthType),
+						string(cloud.UserPassAuthType),
+					},
+				}},
+			},
+		},
+		cloud.RegionsKey: {
+			Type:     []jsonschema.Type{jsonschema.ObjectType},
+			Singular: "region",
+			Plural:   "regions",
+			AdditionalProperties: &jsonschema.Schema{
+				Type:          []jsonschema.Type{jsonschema.ObjectType},
+				Required:      []string{cloud.EndpointKey},
+				MaxProperties: jsonschema.Int(1),
+				Properties: map[string]*jsonschema.Schema{
+					cloud.EndpointKey: &jsonschema.Schema{
+						Singular:      "the API endpoint url for the region",
+						Type:          []jsonschema.Type{jsonschema.StringType},
+						Format:        jsonschema.FormatURI,
+						Default:       "",
+						PromptDefault: "use cloud api url",
+					},
+				},
+			},
+		},
+	},
 }
 
 var makeServiceURL = client.AuthenticatingClient.MakeServiceURL
@@ -83,13 +145,26 @@ func (p EnvironProvider) Open(args environs.OpenParams) (environs.Environ, error
 	}
 
 	e := &Environ{
-		name:      args.Config.Name(),
-		uuid:      uuid,
-		cloud:     args.Cloud,
-		namespace: namespace,
+		name:         args.Config.Name(),
+		uuid:         uuid,
+		cloud:        args.Cloud,
+		namespace:    namespace,
+		clock:        clock.WallClock,
+		configurator: p.Configurator,
+		flavorFilter: p.FlavorFilter,
 	}
 	e.firewaller = p.FirewallerFactory.GetFirewaller(e)
-	e.configurator = p.Configurator
+
+	var networking Networking = &switchingNetworking{env: e}
+	if p.NetworkingDecorator != nil {
+		var err error
+		networking, err = p.NetworkingDecorator.DecorateNetworking(networking)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
+	e.networking = networking
+
 	if err := e.SetConfig(args.Config); err != nil {
 		return nil, err
 	}
@@ -111,6 +186,25 @@ func (EnvironProvider) DetectRegions() ([]cloud.Region, error) {
 		Name:     creds.Region,
 		Endpoint: creds.URL,
 	}}, nil
+}
+
+// CloudSchema returns the schema for adding new clouds of this type.
+func (p EnvironProvider) CloudSchema() *jsonschema.Schema {
+	return cloudSchema
+}
+
+// Ping tests the connection to the cloud, to verify the endpoint is valid.
+func (p EnvironProvider) Ping(endpoint string) error {
+	c := p.ClientFromEndpoint(endpoint)
+	if _, err := c.IdentityAuthOptions(); err != nil {
+		return errors.Wrap(err, errors.Errorf("No Openstack server running at %s", endpoint))
+	}
+	return nil
+}
+
+// newGooseClient is the default function in EnvironProvider.ClientFromEndpoint.
+func newGooseClient(endpoint string) client.AuthenticatingClient {
+	return client.NewClient(&identity.Credentials{URL: endpoint}, 0, nil)
 }
 
 // PrepareConfig is specified in the EnvironProvider interface.
@@ -157,11 +251,12 @@ type Environ struct {
 	cloud     environs.CloudSpec
 	namespace instance.Namespace
 
-	ecfgMutex    sync.Mutex
-	ecfgUnlocked *environConfig
-	client       client.AuthenticatingClient
-	novaUnlocked *nova.Client
-	volumeURL    *url.URL
+	ecfgMutex       sync.Mutex
+	ecfgUnlocked    *environConfig
+	clientUnlocked  client.AuthenticatingClient
+	novaUnlocked    *nova.Client
+	neutronUnlocked *neutron.Client
+	volumeURL       *url.URL
 
 	// keystoneImageDataSource caches the result of getKeystoneImageSource.
 	keystoneImageDataSourceMutex sync.Mutex
@@ -174,7 +269,12 @@ type Environ struct {
 	availabilityZonesMutex sync.Mutex
 	availabilityZones      []common.AvailabilityZone
 	firewaller             Firewaller
+	networking             Networking
 	configurator           ProviderConfigurator
+	flavorFilter           FlavorFilter
+
+	// Clock is defined so it can be replaced for testing
+	clock clock.Clock
 }
 
 var _ environs.Environ = (*Environ)(nil)
@@ -191,7 +291,7 @@ type openstackInstance struct {
 	mu           sync.Mutex
 	serverDetail *nova.ServerDetail
 	// floatingIP is non-nil iff use-floating-ip is true.
-	floatingIP *nova.FloatingIP
+	floatingIP *string
 }
 
 func (inst *openstackInstance) String() string {
@@ -291,8 +391,8 @@ func (inst *openstackInstance) Addresses() ([]network.Address, error) {
 		return nil, err
 	}
 	var floatingIP string
-	if inst.floatingIP != nil && inst.floatingIP.IP != "" {
-		floatingIP = inst.floatingIP.IP
+	if inst.floatingIP != nil {
+		floatingIP = *inst.floatingIP
 		logger.Debugf("instance %v has floating IP address: %v", inst.Id(), floatingIP)
 	}
 	return convertNovaAddresses(floatingIP, addresses), nil
@@ -352,11 +452,25 @@ func (e *Environ) ecfg() *environConfig {
 	return ecfg
 }
 
+func (e *Environ) client() client.AuthenticatingClient {
+	e.ecfgMutex.Lock()
+	client := e.clientUnlocked
+	e.ecfgMutex.Unlock()
+	return client
+}
+
 func (e *Environ) nova() *nova.Client {
 	e.ecfgMutex.Lock()
 	nova := e.novaUnlocked
 	e.ecfgMutex.Unlock()
 	return nova
+}
+
+func (e *Environ) neutron() *neutron.Client {
+	e.ecfgMutex.Lock()
+	neutron := e.neutronUnlocked
+	e.ecfgMutex.Unlock()
+	return neutron
 }
 
 var unsupportedConstraints = []string{
@@ -491,8 +605,21 @@ func (e *Environ) PrecheckInstance(series string, cons constraints.Value, placem
 // PrepareForBootstrap is part of the Environ interface.
 func (e *Environ) PrepareForBootstrap(ctx environs.BootstrapContext) error {
 	// Verify credentials.
-	if err := authenticateClient(e.client); err != nil {
+	if err := authenticateClient(e.client()); err != nil {
 		return err
+	}
+	if !e.supportsNeutron() {
+		logger.Warningf(`Using deprecated OpenStack APIs.
+
+  Neutron networking is not supported by this OpenStack cloud.
+  Falling back to deprecated Nova networking.
+
+  Support for deprecated Nova networking APIs will be removed
+  in a future Juju release. Please upgrade to OpenStack Icehouse
+  or newer to maintain compatibility.
+
+`,
+		)
 	}
 	return nil
 }
@@ -500,7 +627,7 @@ func (e *Environ) PrepareForBootstrap(ctx environs.BootstrapContext) error {
 // Create is part of the Environ interface.
 func (e *Environ) Create(environs.CreateParams) error {
 	// Verify credentials.
-	if err := authenticateClient(e.client); err != nil {
+	if err := authenticateClient(e.client()); err != nil {
 		return err
 	}
 	// TODO(axw) 2016-08-04 #1609643
@@ -512,10 +639,17 @@ func (e *Environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 	// The client's authentication may have been reset when finding tools if the agent-version
 	// attribute was updated so we need to re-authenticate. This will be a no-op if already authenticated.
 	// An authenticated client is needed for the URL() call below.
-	if err := authenticateClient(e.client); err != nil {
+	if err := authenticateClient(e.client()); err != nil {
 		return nil, err
 	}
 	return common.Bootstrap(ctx, e, args)
+}
+
+func (e *Environ) supportsNeutron() bool {
+	client := e.client()
+	endpointMap := client.EndpointsForRegion(e.cloud.Region)
+	_, ok := endpointMap["network"]
+	return ok
 }
 
 // BootstrapMessage is part of the Environ interface.
@@ -579,14 +713,15 @@ func determineBestClient(
 	options identity.AuthOptions,
 	client client.AuthenticatingClient,
 	cred identity.Credentials,
-	newClient func(*identity.Credentials, identity.AuthMode, *log.Logger) client.AuthenticatingClient,
+	newClient func(*identity.Credentials, identity.AuthMode, gooselogging.CompatLogger) client.AuthenticatingClient,
+	logger gooselogging.CompatLogger,
 ) client.AuthenticatingClient {
 	for _, option := range options {
 		if option.Mode != identity.AuthUserPassV3 {
 			continue
 		}
 		cred.URL = option.Endpoint
-		v3client := newClient(&cred, identity.AuthUserPassV3, nil)
+		v3client := newClient(&cred, identity.AuthUserPassV3, logger)
 		// V3 being advertised is not necessaritly a guarantee that it will
 		// work.
 		err := v3client.Authenticate()
@@ -598,18 +733,18 @@ func determineBestClient(
 }
 
 func authClient(spec environs.CloudSpec, ecfg *environConfig) (client.AuthenticatingClient, error) {
-
 	identityClientVersion, err := identityClientVersion(spec.Endpoint)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot create a client")
 	}
 	cred, authMode := newCredentials(spec)
 
+	gooseLogger := gooselogging.LoggoLogger{loggo.GetLogger("goose")}
 	newClient := client.NewClient
 	if ecfg.SSLHostnameVerification() == false {
 		newClient = client.NewNonValidatingClient
 	}
-	client := newClient(&cred, authMode, nil)
+	client := newClient(&cred, authMode, gooseLogger)
 
 	// before returning, lets make sure that we want to have AuthMode
 	// AuthUserPass instead of its V3 counterpart.
@@ -618,12 +753,19 @@ func authClient(spec environs.CloudSpec, ecfg *environConfig) (client.Authentica
 		if err != nil {
 			logger.Errorf("cannot determine available auth versions %v", err)
 		} else {
-			client = determineBestClient(options, client, cred, newClient)
+			client = determineBestClient(
+				options,
+				client,
+				cred,
+				newClient,
+				gooseLogger,
+			)
 		}
 	}
 
-	// By default, the client requires "compute" and
-	// "object-store". Juju only requires "compute".
+	// Juju requires "compute" at a minimum. We'll use "network" if it's
+	// available in preference to the Nova network APIs; and "volume" or
+	// "volume2" for storage if either one is available.
 	client.SetRequiredServiceTypes([]string{"compute"})
 	return client, nil
 }
@@ -663,25 +805,44 @@ func (e *Environ) SetConfig(cfg *config.Config) error {
 	if err != nil {
 		return errors.Annotate(err, "cannot set config")
 	}
-	e.client = client
-	e.novaUnlocked = nova.New(e.client)
+	e.clientUnlocked = client
+	e.novaUnlocked = nova.New(e.clientUnlocked)
+	e.neutronUnlocked = neutron.New(e.clientUnlocked)
 	return nil
 }
 
 func identityClientVersion(authURL string) (int, error) {
 	url, err := url.Parse(authURL)
 	if err != nil {
-		return -1, err
-	} else if url.Path == "" {
-		return -1, err
+		// Return 0 as this is the lowest invalid number according to openstack codebase:
+		// -1 is reserved and has special handling; 1, 2, 3, etc are valid identity client versions.
+		return 0, err
+	}
+	if url.Path == authURL {
+		// This means we could not parse URL into url structure
+		// with protocols, domain, port, etc.
+		// For example, specifying "keystone.foo" instead of "https://keystone.foo:443/v3/"
+		// falls into this category.
+		return 0, errors.Errorf("url %s is malformed", authURL)
+	}
+	if url.Path == "" || url.Path == "/" {
+		// User explicitely did not provide any version, it is empty.
+		return -1, nil
 	}
 	// The last part of the path should be the version #.
 	// Example: https://keystone.foo:443/v3/
-	logger.Tracef("authURL: %s", authURL)
-	versionNumStr := url.Path[2:]
-	if versionNumStr[len(versionNumStr)-1] == '/' {
-		versionNumStr = versionNumStr[:len(versionNumStr)-1]
+	versionNumStr := strings.TrimPrefix(strings.ToLower(url.Path), "/v")
+	versionNumStr = strings.TrimSuffix(versionNumStr, "/")
+	if versionNumStr == url.Path || versionNumStr == "" {
+		// If nothing was trimmed, version specification was malformed.
+		// If nothing was left after trim, version number is not provided and,
+		// hence, version specification was malformed.
+		// At this stage only '/Vxxx' and '/vxxx' are valid where xxx is major.minor version.
+		// Return 0 as this is the lowest invalid number according to openstack codebase:
+		// -1 is reserved and has special handling; 1, 2, 3, etc are valid identity client versions.
+		return 0, errors.NotValidf("version part of identity url %s", authURL)
 	}
+	logger.Tracef("authURL: %s", authURL)
 	major, _, err := version.ParseMajorMinor(versionNumStr)
 	return major, err
 }
@@ -712,13 +873,15 @@ func (e *Environ) getKeystoneDataSource(mu *sync.Mutex, datasource *simplestream
 	if *datasource != nil {
 		return *datasource, nil
 	}
-	if !e.client.IsAuthenticated() {
-		if err := authenticateClient(e.client); err != nil {
+
+	client := e.client()
+	if !client.IsAuthenticated() {
+		if err := authenticateClient(client); err != nil {
 			return nil, err
 		}
 	}
 
-	url, err := makeServiceURL(e.client, keystoneName, nil)
+	url, err := makeServiceURL(client, keystoneName, "", nil)
 	if err != nil {
 		return nil, errors.NewNotSupported(err, fmt.Sprintf("cannot make service URL: %v", err))
 	}
@@ -730,77 +893,16 @@ func (e *Environ) getKeystoneDataSource(mu *sync.Mutex, datasource *simplestream
 	return *datasource, nil
 }
 
-// resolveNetwork takes either a network id or label and returns a network id
-func (e *Environ) resolveNetwork(networkName string) (string, error) {
-	if utils.IsValidUUIDString(networkName) {
-		// Network id supplied, assume valid as boot will fail if not
-		return networkName, nil
-	}
-	// Network label supplied, resolve to a network id
-	networks, err := e.nova().ListNetworks()
-	if err != nil {
-		return "", err
-	}
-	var networkIds = []string{}
-	for _, network := range networks {
-		if network.Label == networkName {
-			networkIds = append(networkIds, network.Id)
-		}
-	}
-	switch len(networkIds) {
-	case 1:
-		return networkIds[0], nil
-	case 0:
-		return "", errors.Errorf("No networks exist with label %q", networkName)
-	}
-	return "", errors.Errorf("Multiple networks with label %q: %v", networkName, networkIds)
-}
-
-// allocatePublicIP tries to find an available floating IP address, or
-// allocates a new one, returning it, or an error
-func (e *Environ) allocatePublicIP() (*nova.FloatingIP, error) {
-	fips, err := e.nova().ListFloatingIPs()
-	if err != nil {
-		return nil, err
-	}
-	var newfip *nova.FloatingIP
-	for _, fip := range fips {
-		newfip = &fip
-		if fip.InstanceId != nil && *fip.InstanceId != "" {
-			// unavailable, skip
-			newfip = nil
-			continue
-		} else {
-			logger.Debugf("found unassigned public ip: %v", newfip.IP)
-			// unassigned, we can use it
-			return newfip, nil
-		}
-	}
-	if newfip == nil {
-		// allocate a new IP and use it
-		newfip, err = e.nova().AllocateFloatingIP()
-		if err != nil {
-			return nil, err
-		}
-		logger.Debugf("allocated new public IP: %v", newfip.IP)
-	}
-	return newfip, nil
-}
-
 // assignPublicIP tries to assign the given floating IP address to the
 // specified server, or returns an error.
-func (e *Environ) assignPublicIP(fip *nova.FloatingIP, serverId string) (err error) {
-	if fip == nil {
+func (e *Environ) assignPublicIP(fip *string, serverId string) (err error) {
+	if *fip == "" {
 		return errors.Errorf("cannot assign a nil public IP to %q", serverId)
-	}
-	if fip.InstanceId != nil && *fip.InstanceId == serverId {
-		// IP already assigned, nothing to do
-		return nil
 	}
 	// At startup nw_info is not yet cached so this may fail
 	// temporarily while the server is being built
 	for a := common.LongAttempt.Start(); a.Next(); {
-		err = e.nova().AddServerFloatingIP(serverId, fip.IP)
+		err = e.nova().AddServerFloatingIP(serverId, *fip)
 		if err == nil {
 			return nil
 		}
@@ -899,26 +1001,18 @@ func (e *Environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 	}
 	logger.Debugf("openstack user data; %d bytes", len(userData))
 
-	var networks = e.firewaller.InitialNetworks()
+	networks, err := e.networking.DefaultNetworks()
+	if err != nil {
+		return nil, errors.Annotate(err, "getting initial networks")
+	}
 	usingNetwork := e.ecfg().network()
 	if usingNetwork != "" {
-		networkId, err := e.resolveNetwork(usingNetwork)
+		networkId, err := e.networking.ResolveNetwork(usingNetwork)
 		if err != nil {
 			return nil, err
 		}
 		logger.Debugf("using network id %q", networkId)
 		networks = append(networks, nova.ServerNetworks{NetworkId: networkId})
-	}
-	withPublicIP := e.ecfg().useFloatingIP()
-	var publicIP *nova.FloatingIP
-	if withPublicIP {
-		logger.Debugf("allocating public IP address for openstack node")
-		if fip, err := e.allocatePublicIP(); err != nil {
-			return nil, errors.Annotate(err, "cannot allocate a public IP as needed")
-		} else {
-			publicIP = fip
-			logger.Infof("allocated public IP %s", publicIP.IP)
-		}
 	}
 
 	var apiPort int
@@ -928,15 +1022,15 @@ func (e *Environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 		// All ports are the same so pick the first.
 		apiPort = args.InstanceConfig.APIInfo.Ports()[0]
 	}
-	var groupNames = make([]nova.SecurityGroupName, 0)
-	groups, err := e.firewaller.SetUpGroups(args.ControllerUUID, args.InstanceConfig.MachineId, apiPort)
+	groupNames, err := e.firewaller.SetUpGroups(args.ControllerUUID, args.InstanceConfig.MachineId, apiPort)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot set up groups")
 	}
-
-	for _, g := range groups {
-		groupNames = append(groupNames, nova.SecurityGroupName{g.Name})
+	novaGroupNames := make([]nova.SecurityGroupName, len(groupNames))
+	for i, name := range groupNames {
+		novaGroupNames[i].Name = name
 	}
+
 	machineName := resourceName(
 		e.namespace,
 		e.name,
@@ -986,7 +1080,7 @@ func (e *Environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 		FlavorId:           spec.InstanceType.Id,
 		ImageId:            spec.Image.Id,
 		UserData:           userData,
-		SecurityGroupNames: groupNames,
+		SecurityGroupNames: novaGroupNames,
 		Networks:           networks,
 		Metadata:           args.InstanceConfig.Tags,
 	}
@@ -1007,16 +1101,24 @@ func (e *Environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 		instType:     &spec.InstanceType,
 	}
 	logger.Infof("started instance %q", inst.Id())
+	withPublicIP := e.ecfg().useFloatingIP()
 	if withPublicIP {
+		var publicIP *string
+		logger.Debugf("allocating public IP address for openstack node")
+		if fip, err := e.networking.AllocatePublicIP(inst.Id()); err != nil {
+			return nil, errors.Annotate(err, "cannot allocate a public IP as needed")
+		} else {
+			publicIP = fip
+			logger.Infof("allocated public IP %s", *publicIP)
+		}
 		if err := e.assignPublicIP(publicIP, string(inst.Id())); err != nil {
 			if err := e.terminateInstances([]instance.Id{inst.Id()}); err != nil {
 				// ignore the failure at this stage, just log it
 				logger.Debugf("failed to terminate instance %q: %v", inst.Id(), err)
 			}
-			return nil, errors.Annotatef(err, "cannot assign public address %s to instance %q", publicIP.IP, inst.Id())
+			return nil, errors.Annotatef(err, "cannot assign public address %s to instance %q", publicIP, inst.Id())
 		}
 		inst.floatingIP = publicIP
-		logger.Infof("assigned public IP %s to %q", publicIP.IP, inst.Id())
 	}
 	return &environs.StartInstanceResult{
 		Instance: inst,
@@ -1047,7 +1149,7 @@ func (e *Environ) StopInstances(ids ...instance.Id) error {
 		return err
 	}
 	if securityGroupNames != nil {
-		return e.deleteSecurityGroups(securityGroupNames)
+		return e.firewaller.DeleteGroups(securityGroupNames...)
 	}
 	return nil
 }
@@ -1101,16 +1203,21 @@ func (e *Environ) listServers(ids []instance.Id) ([]nova.ServerDetail, error) {
 // updateFloatingIPAddresses updates the instances with any floating IP address
 // that have been assigned to those instances.
 func (e *Environ) updateFloatingIPAddresses(instances map[string]instance.Instance) error {
-	fips, err := e.nova().ListFloatingIPs()
+	servers, err := e.nova().ListServersDetail(nil)
 	if err != nil {
 		return err
 	}
-	for _, fip := range fips {
-		if fip.InstanceId != nil && *fip.InstanceId != "" {
-			instId := *fip.InstanceId
-			if inst, ok := instances[instId]; ok {
-				instFip := fip
-				inst.(*openstackInstance).floatingIP = &instFip
+	for _, server := range servers {
+		// server.Addresses is a map with entries containing []nova.IPAddress
+		for _, net := range server.Addresses {
+			for _, addr := range net {
+				if addr.Type == "floating" {
+					instId := server.Id
+					if inst, ok := instances[instId]; ok {
+						instFip := &addr.Address
+						inst.(*openstackInstance).floatingIP = instFip
+					}
+				}
 			}
 		}
 	}
@@ -1309,15 +1416,16 @@ func jujuMachineFilter() *nova.Filter {
 }
 
 // portsToRuleInfo maps port ranges to nova rules
-func portsToRuleInfo(groupId string, ports []network.PortRange) []nova.RuleInfo {
-	rules := make([]nova.RuleInfo, len(ports))
+func portsToRuleInfo(groupId string, ports []network.PortRange) []neutron.RuleInfoV2 {
+	rules := make([]neutron.RuleInfoV2, len(ports))
 	for i, portRange := range ports {
-		rules[i] = nova.RuleInfo{
-			ParentGroupId: groupId,
-			FromPort:      portRange.FromPort,
-			ToPort:        portRange.ToPort,
-			IPProtocol:    portRange.Protocol,
-			Cidr:          "0.0.0.0/0",
+		rules[i] = neutron.RuleInfoV2{
+			Direction:      "ingress",
+			ParentGroupId:  groupId,
+			PortRangeMin:   portRange.FromPort,
+			PortRangeMax:   portRange.ToPort,
+			IPProtocol:     portRange.Protocol,
+			RemoteIPPrefix: "0.0.0.0/0",
 		}
 	}
 	return rules
@@ -1337,26 +1445,6 @@ func (e *Environ) Ports() ([]network.PortRange, error) {
 
 func (e *Environ) Provider() environs.EnvironProvider {
 	return providerInstance
-}
-
-// deleteSecurityGroups deletes the given security groups. If a security
-// group is also used by another environment (see bug #1300755), an attempt
-// to delete this group fails. A warning is logged in this case.
-func (e *Environ) deleteSecurityGroups(securityGroupNames []string) error {
-	novaclient := e.nova()
-	allSecurityGroups, err := novaclient.ListSecurityGroups()
-	if err != nil {
-		return err
-	}
-	for _, securityGroup := range allSecurityGroups {
-		for _, name := range securityGroupNames {
-			if securityGroup.Name == name {
-				deleteSecurityGroup(novaclient, name, securityGroup.Id)
-				break
-			}
-		}
-	}
-	return nil
 }
 
 func (e *Environ) terminateInstances(ids []instance.Id) error {
@@ -1412,6 +1500,10 @@ func (e *Environ) TagInstance(id instance.Id, tags map[string]string) error {
 		return errors.Annotate(err, "setting server metadata")
 	}
 	return nil
+}
+
+func (e *Environ) SetClock(clock clock.Clock) {
+	e.clock = clock
 }
 
 func validateCloudSpec(spec environs.CloudSpec) error {

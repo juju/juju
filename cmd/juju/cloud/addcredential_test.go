@@ -219,9 +219,16 @@ func (s *addCredentialSuite) TestAddCredentialInteractive(c *gc.C) {
 	ctx, err := s.run(c, stdin, "somecloud")
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(testing.Stderr(ctx), gc.Equals, `
-Enter credential name: Using auth-type "interactive".
-Enter username: generating userpass credential
+	// there's an extra line return after Using auth-type because the rest get a
+	// second line return from the user hitting return when they enter a value
+	// (which is not shown here), but that one does not.
+	c.Assert(testing.Stdout(ctx), gc.Equals, `
+Enter credential name: 
+Using auth-type "interactive".
+
+Enter username: 
+Credentials added for cloud somecloud.
+
 `[1:])
 
 	// FinalizeCredential should have generated a userpass credential

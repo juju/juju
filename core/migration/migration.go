@@ -9,6 +9,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/version"
 	"gopkg.in/juju/names.v2"
+
+	"github.com/juju/juju/resource"
 )
 
 // MigrationStatus returns the details for a migration as needed by
@@ -50,14 +52,26 @@ type SerializedModel struct {
 	// their URIs. The URIs can be used to download the tools from the
 	// source controller.
 	Tools map[version.Binary]string // version -> tools URI
+
+	// Resources represents all the resources in use in the model.
+	Resources []SerializedModelResource
+}
+
+// SerializedModelResource defines the resource revisions for a
+// specific application and its units.
+type SerializedModelResource struct {
+	ApplicationRevision resource.Resource
+	CharmStoreRevision  resource.Resource
+	UnitRevisions       map[string]resource.Resource
 }
 
 // ModelInfo is used to report basic details about a model.
 type ModelInfo struct {
-	UUID         string
-	Owner        names.UserTag
-	Name         string
-	AgentVersion version.Number
+	UUID                   string
+	Owner                  names.UserTag
+	Name                   string
+	AgentVersion           version.Number
+	ControllerAgentVersion version.Number
 }
 
 func (i *ModelInfo) Validate() error {

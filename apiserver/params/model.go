@@ -106,6 +106,14 @@ type SetModelAgentVersion struct {
 	Version version.Number `json:"version"`
 }
 
+// ModelMigrationStatus holds information about the progress of a (possibly
+// failed) migration.
+type ModelMigrationStatus struct {
+	Status string     `json:"status"`
+	Start  *time.Time `json:"start"`
+	End    *time.Time `json:"end,omitempty"`
+}
+
 // ModelInfo holds information about the Juju model.
 type ModelInfo struct {
 	Name               string `json:"name"`
@@ -135,6 +143,10 @@ type ModelInfo struct {
 	// This information is available to owners and users with write
 	// access or greater.
 	Machines []ModelMachineInfo `json:"machines"`
+
+	// Migration contains information about the latest failed or
+	// currently-running migration. It'll be nil if there isn't one.
+	Migration *ModelMigrationStatus `json:"migration,omitempty"`
 }
 
 // ModelInfoResult holds the result of a ModelInfo call.

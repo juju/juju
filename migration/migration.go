@@ -13,11 +13,11 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/version"
 	"gopkg.in/juju/charm.v6-unstable"
-	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/core/description"
+	"github.com/juju/juju/core/migration"
+	"github.com/juju/juju/resource"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/binarystorage"
 	"github.com/juju/juju/tools"
 )
 
@@ -68,16 +68,6 @@ type CharmDownloader interface {
 	OpenCharm(*charm.URL) (io.ReadCloser, error)
 }
 
-// UploadBackend define the methods on *state.State that are needed for
-// uploading the tools and charms from the current controller to a different
-// controller.
-type UploadBackend interface {
-	Charm(*charm.URL) (*state.Charm, error)
-	ModelUUID() string
-	MongoSession() *mgo.Session
-	ToolsStorage() (binarystorage.StorageCloser, error)
-}
-
 // CharmUploader defines a single method that is used to upload a
 // charm to the target controller in a migration.
 type CharmUploader interface {
@@ -96,6 +86,20 @@ type ToolsUploader interface {
 	UploadTools(io.ReadSeeker, version.Binary, ...string) (tools.List, error)
 }
 
+// ResourceDownloader defines the interface for downloading resources
+// from the source controller during a migration.
+type ResourceDownloader interface {
+	OpenResource(string, string) (io.ReadCloser, error)
+}
+
+// ResourceUploader defines the interface for uploading resources into
+// the target controller during a migration.
+type ResourceUploader interface {
+	UploadResource(resource.Resource, io.ReadSeeker) error
+	SetPlaceholderResource(resource.Resource) error
+	SetUnitResource(string, resource.Resource) error
+}
+
 // UploadBinariesConfig provides all the configuration that the
 // UploadBinaries function needs to operate. To construct the config
 // with the default helper functions, use `NewUploadBinariesConfig`.
@@ -107,6 +111,10 @@ type UploadBinariesConfig struct {
 	Tools           map[version.Binary]string
 	ToolsDownloader ToolsDownloader
 	ToolsUploader   ToolsUploader
+
+	Resources          []migration.SerializedModelResource
+	ResourceDownloader ResourceDownloader
+	ResourceUploader   ResourceUploader
 }
 
 // Validate makes sure that all the config values are non-nil.
@@ -123,6 +131,12 @@ func (c *UploadBinariesConfig) Validate() error {
 	if c.ToolsUploader == nil {
 		return errors.NotValidf("missing ToolsUploader")
 	}
+	if c.ResourceDownloader == nil {
+		return errors.NotValidf("missing ResourceDownloader")
+	}
+	if c.ResourceUploader == nil {
+		return errors.NotValidf("missing ResourceUploader")
+	}
 	return nil
 }
 
@@ -136,6 +150,9 @@ func UploadBinaries(config UploadBinariesConfig) error {
 		return errors.Trace(err)
 	}
 	if err := uploadTools(config); err != nil {
+		return errors.Trace(err)
+	}
+	if err := uploadResources(config); err != nil {
 		return errors.Trace(err)
 	}
 	return nil
@@ -212,6 +229,54 @@ func uploadTools(config UploadBinariesConfig) error {
 		if _, err := config.ToolsUploader.UploadTools(content, v); err != nil {
 			return errors.Annotate(err, "cannot upload tools")
 		}
+	}
+	return nil
+}
+
+func uploadResources(config UploadBinariesConfig) error {
+	for _, res := range config.Resources {
+		if res.ApplicationRevision.IsPlaceholder() {
+			err := config.ResourceUploader.SetPlaceholderResource(res.ApplicationRevision)
+			if err != nil {
+				return errors.Annotate(err, "cannot set placeholder resource")
+			}
+		} else {
+			err := uploadAppResource(config, res.ApplicationRevision)
+			if err != nil {
+				return errors.Trace(err)
+			}
+		}
+		for unitName, unitRev := range res.UnitRevisions {
+			if err := config.ResourceUploader.SetUnitResource(unitName, unitRev); err != nil {
+				return errors.Annotate(err, "cannot set unit resource")
+			}
+		}
+		// Each config.Resources element also contains a
+		// CharmStoreRevision field. This isn't especially important
+		// to migrate so is skipped for now.
+	}
+	return nil
+}
+
+func uploadAppResource(config UploadBinariesConfig, rev resource.Resource) error {
+	logger.Debugf("opening application resource for %s: %s", rev.ApplicationID, rev.Name)
+	reader, err := config.ResourceDownloader.OpenResource(rev.ApplicationID, rev.Name)
+	if err != nil {
+		return errors.Annotate(err, "cannot open resource")
+	}
+	defer reader.Close()
+
+	// TODO(menn0) - validate that the downloaded revision matches
+	// the expected metadata. Check revision and fingerprint.
+
+	content, cleanup, err := streamThroughTempFile(reader)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defer cleanup()
+
+	if err := config.ResourceUploader.UploadResource(rev, content); err != nil {
+		return errors.Annotate(err, "cannot upload resource")
 	}
 	return nil
 }

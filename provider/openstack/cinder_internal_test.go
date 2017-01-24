@@ -29,7 +29,7 @@ func (s *cinderInternalSuite) TestStorageProviderTypes(c *gc.C) {
 		cloud: environs.CloudSpec{
 			Region: "foo",
 		},
-		client: &testAuthClient{
+		clientUnlocked: &testAuthClient{
 			regionEndpoints: map[string]identity.ServiceURLs{
 				"foo": {"volumev2": "https://bar.invalid"},
 			},
@@ -40,7 +40,7 @@ func (s *cinderInternalSuite) TestStorageProviderTypes(c *gc.C) {
 }
 
 func (s *cinderInternalSuite) TestStorageProviderTypesNotSupported(c *gc.C) {
-	env := &Environ{client: &testAuthClient{}}
+	env := &Environ{clientUnlocked: &testAuthClient{}}
 	types, err := env.StorageProviderTypes()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(types, gc.HasLen, 0)

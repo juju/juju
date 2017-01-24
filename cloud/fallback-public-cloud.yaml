@@ -7,12 +7,18 @@ clouds:
     regions:
       us-east-1:
         endpoint: https://ec2.us-east-1.amazonaws.com
+      us-east-2:
+        endpoint: https://ec2.us-east-2.amazonaws.com
       us-west-1:
         endpoint: https://ec2.us-west-1.amazonaws.com
       us-west-2:
         endpoint: https://ec2.us-west-2.amazonaws.com
+      ca-central-1:
+        endpoint: https://ec2.ca-central-1.amazonaws.com
       eu-west-1:
         endpoint: https://ec2.eu-west-1.amazonaws.com
+      eu-west-2:
+        endpoint: https://ec2.eu-west-2.amazonaws.com
       eu-central-1:
         endpoint: https://ec2.eu-central-1.amazonaws.com
       ap-south-1:
@@ -167,17 +173,17 @@ clouds:
     description: Joyent Cloud
     auth-types: [ userpass ]
     regions:
-      eu-ams-1: 
+      eu-ams-1:
         endpoint: https://eu-ams-1.api.joyentcloud.com
-      us-sw-1: 
+      us-sw-1:
         endpoint: https://us-sw-1.api.joyentcloud.com
-      us-east-1: 
+      us-east-1:
         endpoint: https://us-east-1.api.joyentcloud.com
-      us-east-2: 
+      us-east-2:
         endpoint: https://us-east-2.api.joyentcloud.com
-      us-east-3: 
+      us-east-3:
         endpoint: https://us-east-3.api.joyentcloud.com
-      us-west-1: 
+      us-west-1:
         endpoint: https://us-west-1.api.joyentcloud.com
   cloudsigma:
     type: cloudsigma

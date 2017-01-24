@@ -13,6 +13,43 @@ import (
 	"gopkg.in/juju/names.v2"
 )
 
+// Application represents a deployed charm in a model.
+type Application interface {
+	HasAnnotations
+	HasConstraints
+	HasStatus
+	HasStatusHistory
+
+	Tag() names.ApplicationTag
+	Name() string
+	Series() string
+	Subordinate() bool
+	CharmURL() string
+	Channel() string
+	CharmModifiedVersion() int
+	ForceCharm() bool
+	Exposed() bool
+	MinUnits() int
+
+	EndpointBindings() map[string]string
+
+	Settings() map[string]interface{}
+
+	Leader() string
+	LeadershipSettings() map[string]interface{}
+
+	MetricsCredentials() []byte
+	StorageConstraints() map[string]StorageConstraint
+
+	Resources() []Resource
+	AddResource(ResourceArgs) Resource
+
+	Units() []Unit
+	AddUnit(UnitArgs) Unit
+
+	Validate() error
+}
+
 type applications struct {
 	Version       int            `yaml:"version"`
 	Applications_ []*application `yaml:"applications"`
@@ -35,6 +72,8 @@ type application struct {
 	Status_        *status `yaml:"status"`
 	StatusHistory_ `yaml:"status-history"`
 
+	EndpointBindings_ map[string]string `yaml:"endpoint-bindings,omitempty"`
+
 	Settings_ map[string]interface{} `yaml:"settings"`
 
 	Leader_             string                 `yaml:"leader,omitempty"`
@@ -44,6 +83,8 @@ type application struct {
 
 	// unit count will be assumed by the number of units associated.
 	Units_ units `yaml:"units"`
+
+	Resources_ resources `yaml:"resources"`
 
 	Annotations_ `yaml:"annotations,omitempty"`
 
@@ -62,6 +103,7 @@ type ApplicationArgs struct {
 	ForceCharm           bool
 	Exposed              bool
 	MinUnits             int
+	EndpointBindings     map[string]string
 	Settings             map[string]interface{}
 	Leader               string
 	LeadershipSettings   map[string]interface{}
@@ -81,6 +123,7 @@ func newApplication(args ApplicationArgs) *application {
 		ForceCharm_:           args.ForceCharm,
 		Exposed_:              args.Exposed,
 		MinUnits_:             args.MinUnits,
+		EndpointBindings_:     args.EndpointBindings,
 		Settings_:             args.Settings,
 		Leader_:               args.Leader,
 		LeadershipSettings_:   args.LeadershipSettings,
@@ -88,6 +131,7 @@ func newApplication(args ApplicationArgs) *application {
 		StatusHistory_:        newStatusHistory(),
 	}
 	app.setUnits(nil)
+	app.setResources(nil)
 	if len(args.StorageConstraints) > 0 {
 		app.StorageConstraints_ = make(map[string]*storageconstraint)
 		for key, value := range args.StorageConstraints {
@@ -98,68 +142,73 @@ func newApplication(args ApplicationArgs) *application {
 }
 
 // Tag implements Application.
-func (s *application) Tag() names.ApplicationTag {
-	return names.NewApplicationTag(s.Name_)
+func (a *application) Tag() names.ApplicationTag {
+	return names.NewApplicationTag(a.Name_)
 }
 
 // Name implements Application.
-func (s *application) Name() string {
-	return s.Name_
+func (a *application) Name() string {
+	return a.Name_
 }
 
 // Series implements Application.
-func (s *application) Series() string {
-	return s.Series_
+func (a *application) Series() string {
+	return a.Series_
 }
 
 // Subordinate implements Application.
-func (s *application) Subordinate() bool {
-	return s.Subordinate_
+func (a *application) Subordinate() bool {
+	return a.Subordinate_
 }
 
 // CharmURL implements Application.
-func (s *application) CharmURL() string {
-	return s.CharmURL_
+func (a *application) CharmURL() string {
+	return a.CharmURL_
 }
 
 // Channel implements Application.
-func (s *application) Channel() string {
-	return s.Channel_
+func (a *application) Channel() string {
+	return a.Channel_
 }
 
 // CharmModifiedVersion implements Application.
-func (s *application) CharmModifiedVersion() int {
-	return s.CharmModifiedVersion_
+func (a *application) CharmModifiedVersion() int {
+	return a.CharmModifiedVersion_
 }
 
 // ForceCharm implements Application.
-func (s *application) ForceCharm() bool {
-	return s.ForceCharm_
+func (a *application) ForceCharm() bool {
+	return a.ForceCharm_
 }
 
 // Exposed implements Application.
-func (s *application) Exposed() bool {
-	return s.Exposed_
+func (a *application) Exposed() bool {
+	return a.Exposed_
 }
 
 // MinUnits implements Application.
-func (s *application) MinUnits() int {
-	return s.MinUnits_
+func (a *application) MinUnits() int {
+	return a.MinUnits_
+}
+
+// EndpointBindings implements Application.
+func (a *application) EndpointBindings() map[string]string {
+	return a.EndpointBindings_
 }
 
 // Settings implements Application.
-func (s *application) Settings() map[string]interface{} {
-	return s.Settings_
+func (a *application) Settings() map[string]interface{} {
+	return a.Settings_
 }
 
 // Leader implements Application.
-func (s *application) Leader() string {
-	return s.Leader_
+func (a *application) Leader() string {
+	return a.Leader_
 }
 
 // LeadershipSettings implements Application.
-func (s *application) LeadershipSettings() map[string]interface{} {
-	return s.LeadershipSettings_
+func (a *application) LeadershipSettings() map[string]interface{} {
+	return a.LeadershipSettings_
 }
 
 // StorageConstraints implements Application.
@@ -172,95 +221,126 @@ func (a *application) StorageConstraints() map[string]StorageConstraint {
 }
 
 // MetricsCredentials implements Application.
-func (s *application) MetricsCredentials() []byte {
+func (a *application) MetricsCredentials() []byte {
 	// Here we are explicitly throwing away any decode error. We check that
 	// the creds can be decoded when we parse the incoming data, or we encode
 	// an incoming byte array, so in both cases, we know that the stored creds
 	// can be decoded.
-	creds, _ := base64.StdEncoding.DecodeString(s.MetricsCredentials_)
+	creds, _ := base64.StdEncoding.DecodeString(a.MetricsCredentials_)
 	return creds
 }
 
 // Status implements Application.
-func (s *application) Status() Status {
+func (a *application) Status() Status {
 	// To avoid typed nils check nil here.
-	if s.Status_ == nil {
+	if a.Status_ == nil {
 		return nil
 	}
-	return s.Status_
+	return a.Status_
 }
 
 // SetStatus implements Application.
-func (s *application) SetStatus(args StatusArgs) {
-	s.Status_ = newStatus(args)
+func (a *application) SetStatus(args StatusArgs) {
+	a.Status_ = newStatus(args)
 }
 
 // Units implements Application.
-func (s *application) Units() []Unit {
-	result := make([]Unit, len(s.Units_.Units_))
-	for i, u := range s.Units_.Units_ {
+func (a *application) Units() []Unit {
+	result := make([]Unit, len(a.Units_.Units_))
+	for i, u := range a.Units_.Units_ {
 		result[i] = u
 	}
 	return result
 }
 
-func (s *application) unitNames() set.Strings {
+func (a *application) unitNames() set.Strings {
 	result := set.NewStrings()
-	for _, u := range s.Units_.Units_ {
+	for _, u := range a.Units_.Units_ {
 		result.Add(u.Name())
 	}
 	return result
 }
 
 // AddUnit implements Application.
-func (s *application) AddUnit(args UnitArgs) Unit {
+func (a *application) AddUnit(args UnitArgs) Unit {
 	u := newUnit(args)
-	s.Units_.Units_ = append(s.Units_.Units_, u)
+	a.Units_.Units_ = append(a.Units_.Units_, u)
 	return u
 }
 
-func (s *application) setUnits(unitList []*unit) {
-	s.Units_ = units{
+func (a *application) setUnits(unitList []*unit) {
+	a.Units_ = units{
 		Version: 1,
 		Units_:  unitList,
 	}
 }
 
 // Constraints implements HasConstraints.
-func (s *application) Constraints() Constraints {
-	if s.Constraints_ == nil {
+func (a *application) Constraints() Constraints {
+	if a.Constraints_ == nil {
 		return nil
 	}
-	return s.Constraints_
+	return a.Constraints_
 }
 
 // SetConstraints implements HasConstraints.
-func (s *application) SetConstraints(args ConstraintsArgs) {
-	s.Constraints_ = newConstraints(args)
+func (a *application) SetConstraints(args ConstraintsArgs) {
+	a.Constraints_ = newConstraints(args)
+}
+
+// Resources implements Application.
+func (a *application) Resources() []Resource {
+	rs := a.Resources_.Resources_
+	result := make([]Resource, len(rs))
+	for i, r := range rs {
+		result[i] = r
+	}
+	return result
+}
+
+// AddResource implements Application.
+func (a *application) AddResource(args ResourceArgs) Resource {
+	r := newResource(args)
+	a.Resources_.Resources_ = append(a.Resources_.Resources_, r)
+	return r
+}
+
+func (a *application) setResources(resourceList []*resource) {
+	a.Resources_ = resources{
+		Version:    1,
+		Resources_: resourceList,
+	}
 }
 
 // Validate implements Application.
-func (s *application) Validate() error {
-	if s.Name_ == "" {
+func (a *application) Validate() error {
+	if a.Name_ == "" {
 		return errors.NotValidf("application missing name")
 	}
-	if s.Status_ == nil {
-		return errors.NotValidf("application %q missing status", s.Name_)
+	if a.Status_ == nil {
+		return errors.NotValidf("application %q missing status", a.Name_)
 	}
+
+	for _, resource := range a.Resources_.Resources_ {
+		if err := resource.Validate(); err != nil {
+			return errors.Annotatef(err, "resource %s", resource.Name_)
+		}
+	}
+
 	// If leader is set, it must match one of the units.
 	var leaderFound bool
 	// All of the applications units should also be valid.
-	for _, u := range s.Units() {
+	for _, u := range a.Units() {
 		if err := u.Validate(); err != nil {
 			return errors.Trace(err)
 		}
 		// We know that the unit has a name, because it validated correctly.
-		if u.Name() == s.Leader_ {
+		if u.Name() == a.Leader_ {
 			leaderFound = true
 		}
 	}
-	if s.Leader_ != "" && !leaderFound {
-		return errors.NotValidf("missing unit for leader %q", s.Leader_)
+	if a.Leader_ != "" && !leaderFound {
+		return errors.NotValidf("missing unit for leader %q", a.Leader_)
 	}
 	return nil
 }
@@ -316,11 +396,13 @@ func importApplicationV1(source map[string]interface{}) (*application, error) {
 		"exposed":             schema.Bool(),
 		"min-units":           schema.Int(),
 		"status":              schema.StringMap(schema.Any()),
+		"endpoint-bindings":   schema.StringMap(schema.String()),
 		"settings":            schema.StringMap(schema.Any()),
 		"leader":              schema.String(),
 		"leadership-settings": schema.StringMap(schema.Any()),
 		"storage-constraints": schema.StringMap(schema.StringMap(schema.Any())),
 		"metrics-creds":       schema.String(),
+		"resources":           schema.StringMap(schema.Any()),
 		"units":               schema.StringMap(schema.Any()),
 	}
 
@@ -332,6 +414,7 @@ func importApplicationV1(source map[string]interface{}) (*application, error) {
 		"leader":              "",
 		"metrics-creds":       "",
 		"storage-constraints": schema.Omit,
+		"endpoint-bindings":   schema.Omit,
 	}
 	addAnnotationSchema(fields, defaults)
 	addConstraintsSchema(fields, defaults)
@@ -355,12 +438,14 @@ func importApplicationV1(source map[string]interface{}) (*application, error) {
 		ForceCharm_:           valid["force-charm"].(bool),
 		Exposed_:              valid["exposed"].(bool),
 		MinUnits_:             int(valid["min-units"].(int64)),
+		EndpointBindings_:     convertToStringMap(valid["endpoint-bindings"]),
 		Settings_:             valid["settings"].(map[string]interface{}),
 		Leader_:               valid["leader"].(string),
 		LeadershipSettings_:   valid["leadership-settings"].(map[string]interface{}),
 		StatusHistory_:        newStatusHistory(),
 	}
 	result.importAnnotations(valid)
+
 	if err := result.importStatusHistory(valid); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -394,6 +479,12 @@ func importApplicationV1(source map[string]interface{}) (*application, error) {
 		return nil, errors.Trace(err)
 	}
 	result.Status_ = status
+
+	resources, err := importResources(valid["resources"].(map[string]interface{}))
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	result.setResources(resources)
 
 	units, err := importUnits(valid["units"].(map[string]interface{}))
 	if err != nil {

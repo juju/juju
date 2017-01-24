@@ -56,6 +56,18 @@ const (
 	// EmptyAuthType is the authentication type used for providers
 	// that require no credentials, e.g. "lxd", and "manual".
 	EmptyAuthType AuthType = "empty"
+
+	// AuthTypesKey is the name of the key in a cloud config or cloud schema
+	// that holds the cloud's auth types.
+	AuthTypesKey = "auth-types"
+
+	// EndpointKey is the name of the key in a cloud config or cloud schema
+	// that holds the cloud's endpoint url.
+	EndpointKey = "endpoint"
+
+	// RegionsKey is the name of the key in a cloud schema that holds the list
+	// of regions a cloud supports.
+	RegionsKey = "regions"
 )
 
 // Attrs serves as a map to hold regions specific configuration attributes.
@@ -71,6 +83,9 @@ type RegionConfig map[string]Attrs
 
 // Cloud is a cloud definition.
 type Cloud struct {
+	// Name of the cloud.
+	Name string
+
 	// Type is the type of cloud, eg ec2, openstack etc.
 	// This is one of the provider names registered with
 	// environs.RegisterProvider.
@@ -180,6 +195,7 @@ const DefaultLXD = "localhost"
 // BuiltInClouds work out of the box.
 var BuiltInClouds = map[string]Cloud{
 	DefaultLXD: {
+		Name:        DefaultLXD,
 		Type:        lxdnames.ProviderType,
 		AuthTypes:   []AuthType{EmptyAuthType},
 		Regions:     []Region{{Name: lxdnames.DefaultRegion}},
@@ -266,6 +282,15 @@ func PublicCloudMetadata(searchPath ...string) (result map[string]Cloud, fallbac
 	return clouds, true, err
 }
 
+// ParseOneCloud parses the given yaml bytes into a single Cloud metadata.
+func ParseOneCloud(data []byte) (Cloud, error) {
+	c := &cloud{}
+	if err := yaml.Unmarshal(data, &c); err != nil {
+		return Cloud{}, errors.Annotate(err, "cannot unmarshal yaml cloud metadata")
+	}
+	return cloudFromInternal(c), nil
+}
+
 // ParseCloudMetadata parses the given yaml bytes into Clouds metadata.
 func ParseCloudMetadata(data []byte) (map[string]Cloud, error) {
 	var metadata cloudSet
@@ -278,6 +303,7 @@ func ParseCloudMetadata(data []byte) (map[string]Cloud, error) {
 	clouds := make(map[string]Cloud)
 	for name, cloud := range metadata.Clouds {
 		details := cloudFromInternal(cloud)
+		details.Name = name
 		if details.Description == "" {
 			var ok bool
 			if details.Description, ok = defaultCloudDescription[name]; !ok {

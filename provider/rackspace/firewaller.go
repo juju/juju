@@ -5,7 +5,6 @@ package rackspace
 
 import (
 	"github.com/juju/errors"
-	"gopkg.in/goose.v1/nova"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
@@ -28,16 +27,6 @@ type rackspaceFirewaller struct{}
 
 var _ openstack.Firewaller = (*rackspaceFirewaller)(nil)
 
-// InitialNetworks implements Firewaller interface.
-func (c *rackspaceFirewaller) InitialNetworks() []nova.ServerNetworks {
-	// These are the default rackspace networks, see:
-	// http://docs.rackspace.com/servers/api/v2/cs-devguide/content/provision_server_with_networks.html
-	return []nova.ServerNetworks{
-		{NetworkId: "00000000-0000-0000-0000-000000000000"}, //Racksapce PublicNet
-		{NetworkId: "11111111-1111-1111-1111-111111111111"}, //Rackspace ServiceNet
-	}
-}
-
 // OpenPorts is not supported.
 func (c *rackspaceFirewaller) OpenPorts(ports []network.PortRange) error {
 	return errors.NotSupportedf("OpenPorts")
@@ -53,6 +42,11 @@ func (c *rackspaceFirewaller) ClosePorts(ports []network.PortRange) error {
 // FwGlobal firewall mode.
 func (c *rackspaceFirewaller) Ports() ([]network.PortRange, error) {
 	return nil, errors.NotSupportedf("Ports")
+}
+
+// DeleteGroups implements OpenstackFirewaller interface.
+func (c *rackspaceFirewaller) DeleteGroups(names ...string) error {
+	return nil
 }
 
 // DeleteAllModelGroups implements OpenstackFirewaller interface.
@@ -71,7 +65,7 @@ func (c *rackspaceFirewaller) GetSecurityGroups(ids ...instance.Id) ([]string, e
 }
 
 // SetUpGroups implements OpenstackFirewaller interface.
-func (c *rackspaceFirewaller) SetUpGroups(controllerUUID, machineId string, apiPort int) ([]nova.SecurityGroup, error) {
+func (c *rackspaceFirewaller) SetUpGroups(controllerUUID, machineId string, apiPort int) ([]string, error) {
 	return nil, nil
 }
 

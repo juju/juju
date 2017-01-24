@@ -7,7 +7,7 @@ package vsphere
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/govmomi/vim25/mo"
+	"github.com/vmware/govmomi/vim25/mo"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
@@ -81,8 +81,13 @@ func (env *environ) availZone(name string) (*vmwareAvailZone, error) {
 	return nil, errors.NotFoundf("invalid availability zone %q", name)
 }
 
-//this variable is exported, because it has to be rewritten in external unit tests
+//AvailabilityZoneAllocations is exported, because it has to be rewritten in external unit tests
 var AvailabilityZoneAllocations = common.AvailabilityZoneAllocations
+
+// AllAvailabilityZones is exported because it has to be patched in external unit tests.
+var AllAvailabilityZones = func(env common.ZonedEnviron) ([]common.AvailabilityZone, error) {
+	return env.AvailabilityZones()
+}
 
 // parseAvailabilityZones returns the availability zones that should be
 // tried for the given instance spec. If a placement argument was
@@ -111,16 +116,27 @@ func (env *environ) parseAvailabilityZones(args environs.StartInstanceParams) ([
 			return nil, errors.Trace(err)
 		}
 	}
-	zoneInstances, err := AvailabilityZoneAllocations(env, group)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	logger.Infof("found %d zones: %v", len(zoneInstances), zoneInstances)
-
 	var zoneNames []string
-	for _, z := range zoneInstances {
-		zoneNames = append(zoneNames, z.ZoneName)
+	// Vsphere will misbehave if we call AvailabilityZoneAllocations with empty
+	// groups, in this case all zones shouhld be returned.
+	if len(group) != 0 {
+		zoneInstances, err := AvailabilityZoneAllocations(env, group)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		for _, z := range zoneInstances {
+			zoneNames = append(zoneNames, z.ZoneName)
+		}
+	} else {
+		zones, err := AllAvailabilityZones(env)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		for _, z := range zones {
+			zoneNames = append(zoneNames, z.Name())
+		}
 	}
+	logger.Infof("found %d zones: %v", len(zoneNames), zoneNames)
 
 	if len(zoneNames) == 0 {
 		return nil, errors.NotFoundf("failed to determine availability zones")

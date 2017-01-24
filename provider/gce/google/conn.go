@@ -70,6 +70,8 @@ type rawConnectionWrapper interface {
 	// InstanceDisks returns the disks attached to the instance identified
 	// by instanceId
 	InstanceDisks(project, zone, instanceId string) ([]*compute.AttachedDisk, error)
+	// ListMachineTypes returns a list of machines available in the project and zone provided.
+	ListMachineTypes(projectID, zone string) (*compute.MachineTypeList, error)
 }
 
 // TODO(ericsnow) Add specific error types for common failures

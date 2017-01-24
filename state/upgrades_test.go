@@ -4,6 +4,7 @@
 package state
 
 import (
+	"reflect"
 	"time"
 
 	jc "github.com/juju/testing/checkers"
@@ -360,4 +361,74 @@ func (s *upgradesSuite) TestRenameAddModelPermission(c *gc.C) {
 		"access":             "add-model",
 	}}
 	s.assertUpgradedData(c, RenameAddModelPermission, coll, expected)
+}
+
+func (s *upgradesSuite) TestDropOldLogIndex(c *gc.C) {
+	coll := s.state.MongoSession().DB(logsDB).C(logsC)
+	err := coll.EnsureIndexKey("e", "t")
+	c.Assert(err, jc.ErrorIsNil)
+	err = DropOldLogIndex(s.state)
+	c.Assert(err, jc.ErrorIsNil)
+
+	exists, err := hasIndex(coll, []string{"e", "t"})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(exists, jc.IsFalse)
+
+	// Sanity check for idempotency.
+	err = DropOldLogIndex(s.state)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *upgradesSuite) TestDropOldIndexWhenNoIndex(c *gc.C) {
+	coll := s.state.MongoSession().DB(logsDB).C(logsC)
+	exists, err := hasIndex(coll, []string{"e", "t"})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(exists, jc.IsFalse)
+
+	err = DropOldLogIndex(s.state)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *upgradesSuite) TestAddMigrationAttempt(c *gc.C) {
+	coll, closer := s.state.getRawCollection(migrationsC)
+	defer closer()
+
+	err := coll.Insert(
+		bson.M{"_id": "uuid:1"},
+		bson.M{"_id": "uuid:11"},
+		bson.M{
+			"_id":     "uuid:2",
+			"attempt": 2,
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	expected := []bson.M{
+		bson.M{
+			"_id":     "uuid:1",
+			"attempt": 1,
+		},
+		bson.M{
+			"_id":     "uuid:11",
+			"attempt": 11,
+		},
+		bson.M{
+			"_id":     "uuid:2",
+			"attempt": 2,
+		},
+	}
+	s.assertUpgradedData(c, AddMigrationAttempt, coll, expected)
+}
+
+func hasIndex(coll *mgo.Collection, key []string) (bool, error) {
+	indexes, err := coll.Indexes()
+	if err != nil {
+		return false, err
+	}
+	for _, index := range indexes {
+		if reflect.DeepEqual(index.Key, key) {
+			return true, nil
+		}
+	}
+	return false, nil
 }

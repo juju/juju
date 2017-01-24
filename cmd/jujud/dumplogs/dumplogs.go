@@ -19,6 +19,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
+	"github.com/juju/utils/clock"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/agent"
@@ -108,7 +109,13 @@ func (c *dumpLogsCommand) Run(ctx *cmd.Context) error {
 		return errors.New("no database connection info available (is this a controller host?)")
 	}
 
-	st0, err := state.Open(config.Model(), config.Controller(), info, mongo.DefaultDialOpts(), nil)
+	st0, err := state.Open(state.OpenParams{
+		Clock:              clock.WallClock,
+		ControllerTag:      config.Controller(),
+		ControllerModelTag: config.Model(),
+		MongoInfo:          info,
+		MongoDialOpts:      mongo.DefaultDialOpts(),
+	})
 	if err != nil {
 		return errors.Annotate(err, "failed to connect to database")
 	}

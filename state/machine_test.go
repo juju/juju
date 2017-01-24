@@ -10,6 +10,7 @@ import (
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	jujutxn "github.com/juju/txn"
+	"github.com/juju/utils/clock"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
@@ -603,7 +604,13 @@ func (s *MachineSuite) TestTag(c *gc.C) {
 
 func (s *MachineSuite) TestSetMongoPassword(c *gc.C) {
 	info := testing.NewMongoInfo()
-	st, err := state.Open(s.modelTag, s.State.ControllerTag(), info, mongotest.DialOpts(), state.NewPolicyFunc(nil))
+	st, err := state.Open(state.OpenParams{
+		Clock:              clock.WallClock,
+		ControllerTag:      s.State.ControllerTag(),
+		ControllerModelTag: s.modelTag,
+		MongoInfo:          info,
+		MongoDialOpts:      mongotest.DialOpts(),
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() {
 		// Remove the admin password so that the test harness can reset the state.
@@ -634,7 +641,13 @@ func (s *MachineSuite) TestSetMongoPassword(c *gc.C) {
 
 	// Check that we can log in with the correct password.
 	info.Password = "foo"
-	st1, err := state.Open(s.modelTag, s.State.ControllerTag(), info, mongotest.DialOpts(), state.NewPolicyFunc(nil))
+	st1, err := state.Open(state.OpenParams{
+		Clock:              clock.WallClock,
+		ControllerTag:      s.State.ControllerTag(),
+		ControllerModelTag: s.modelTag,
+		MongoInfo:          info,
+		MongoDialOpts:      mongotest.DialOpts(),
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	defer st1.Close()
 
@@ -733,6 +746,63 @@ func (s *MachineSuite) TestMachineInstanceIdBlank(c *gc.C) {
 	iid, err := machine.InstanceId()
 	c.Assert(err, jc.Satisfies, errors.IsNotProvisioned)
 	c.Assert(string(iid), gc.Equals, "")
+}
+
+func (s *MachineSuite) TestDesiredSpacesNone(c *gc.C) {
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	spaces, err := machine.DesiredSpaces()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(spaces.SortedValues(), gc.DeepEquals, []string{})
+}
+
+func (s *MachineSuite) TestDesiredSpacesSimpleConstraints(c *gc.C) {
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	err = machine.SetConstraints(constraints.Value{
+		Spaces: &[]string{"foo", "bar", "^baz"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	spaces, err := machine.DesiredSpaces()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(spaces.SortedValues(), gc.DeepEquals, []string{"bar", "foo"})
+}
+
+func (s *MachineSuite) TestDesiredSpacesEndpoints(c *gc.C) {
+	_, err := s.State.AddSpace("db", "", nil, true)
+	c.Assert(err, jc.ErrorIsNil)
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	svc := s.AddTestingServiceWithBindings(c, "mysql",
+		s.AddTestingCharm(c, "mysql"), map[string]string{"server": "db"})
+	unit, err := svc.AddUnit()
+	c.Assert(err, jc.ErrorIsNil)
+	err = unit.AssignToMachine(machine)
+	c.Assert(err, jc.ErrorIsNil)
+	spaces, err := machine.DesiredSpaces()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(spaces.SortedValues(), gc.DeepEquals, []string{"db"})
+}
+
+func (s *MachineSuite) TestDesiredSpacesEndpointsAndConstraints(c *gc.C) {
+	_, err := s.State.AddSpace("foo", "", nil, true)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddSpace("db", "", nil, true)
+	c.Assert(err, jc.ErrorIsNil)
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	err = machine.SetConstraints(constraints.Value{
+		Spaces: &[]string{"foo"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	svc := s.AddTestingServiceWithBindings(c, "mysql",
+		s.AddTestingCharm(c, "mysql"), map[string]string{"server": "db"})
+	unit, err := svc.AddUnit()
+	c.Assert(err, jc.ErrorIsNil)
+	err = unit.AssignToMachine(machine)
+	c.Assert(err, jc.ErrorIsNil)
+	spaces, err := machine.DesiredSpaces()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(spaces.SortedValues(), gc.DeepEquals, []string{"db", "foo"})
 }
 
 func (s *MachineSuite) TestMachineSetProvisionedUpdatesCharacteristics(c *gc.C) {

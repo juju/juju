@@ -7,6 +7,7 @@ package lxd
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/jsonschema"
 	"github.com/juju/schema"
 	"gopkg.in/juju/environschema.v1"
 
@@ -30,6 +31,17 @@ func (environProvider) Open(args environs.OpenParams) (environs.Environ, error) 
 	// TODO(ericsnow) verify prerequisites (see provider/local/prereq.go)?
 	env, err := newEnviron(args.Cloud, args.Config, newRawProvider)
 	return env, errors.Trace(err)
+}
+
+// CloudSchema returns the schema used to validate input for add-cloud.  Since
+// this provider does not support custom clouds, this always returns nil.
+func (p environProvider) CloudSchema() *jsonschema.Schema {
+	return nil
+}
+
+// Ping tests the connection to the cloud, to verify the endpoint is valid.
+func (p environProvider) Ping(endpoint string) error {
+	return errors.NotImplementedf("Ping")
 }
 
 // PrepareConfig implements environs.EnvironProvider.
@@ -69,9 +81,6 @@ func validateCloudSpec(spec environs.CloudSpec) error {
 	if err := spec.Validate(); err != nil {
 		return errors.Trace(err)
 	}
-	if spec.Endpoint != "" {
-		return errors.NotValidf("non-empty endpoint %q", spec.Endpoint)
-	}
 	if spec.Credential != nil {
 		if authType := spec.Credential.AuthType(); authType != cloud.EmptyAuthType {
 			return errors.NotSupportedf("%q auth-type", authType)
@@ -90,4 +99,11 @@ func (p environProvider) ConfigSchema() schema.Fields {
 // provider specific config attributes.
 func (p environProvider) ConfigDefaults() schema.Defaults {
 	return configDefaults
+}
+
+// DefaultCloudName specifies what name should be used for the cloud
+// implicitly created when the provider is specified directly at
+// bootstrap time. Implements environs.DefaultCloudNamer.
+func (p environProvider) DefaultCloudName() string {
+	return cloud.DefaultLXD
 }

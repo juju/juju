@@ -31,12 +31,9 @@ var requiredPackages = []string{
 	"lxd",
 }
 
-var xenialPackages = []string{
-	"zfsutils-linux",
-}
-
 type containerInitialiser struct {
-	series string
+	series         string
+	getExecCommand func(string, ...string) *exec.Cmd
 }
 
 // containerInitialiser implements container.Initialiser.
@@ -45,7 +42,10 @@ var _ container.Initialiser = (*containerInitialiser)(nil)
 // NewContainerInitialiser returns an instance used to perform the steps
 // required to allow a host machine to run a LXC container.
 func NewContainerInitialiser(series string) container.Initialiser {
-	return &containerInitialiser{series}
+	return &containerInitialiser{
+		series,
+		exec.Command,
+	}
 }
 
 // Initialise is specified on the container.Initialiser interface.
@@ -67,11 +67,28 @@ func (ci *containerInitialiser) Initialise() error {
 
 	// Well... this will need to change soon once we are passed 17.04 as who
 	// knows what the series name will be.
-	if ci.series >= "xenial" {
-		configureZFS()
+	if ci.series < "xenial" {
+		return nil
 	}
 
-	return nil
+	output, err := ci.getExecCommand(
+		"lxd",
+		"init",
+		"--auto",
+	).CombinedOutput()
+
+	if err == nil {
+		return nil
+	}
+
+	out := string(output)
+	if strings.Contains(out, "You have existing containers or images. lxd init requires an empty LXD.") {
+		// this error means we've already run lxd init, which is ok, so just
+		// ignore it.
+		return nil
+	}
+
+	return errors.Annotate(err, "while running lxd init --auto: "+out)
 }
 
 // getPackageManager is a helper function which returns the
@@ -133,32 +150,6 @@ var df = func(path string) (uint64, error) {
 		return 0, err
 	}
 	return uint64(statfs.Bsize) * statfs.Bfree, nil
-}
-
-var configureZFS = func() {
-	/* create a pool that will occupy 90% of the free disk space
-	   (sparse, so it won't actually fill that immediately)
-	*/
-
-	// Find 90% of the free disk space
-	freeBytes, err := df("/")
-	if err != nil {
-		logger.Errorf("configuring zfs failed - unable to find file system size: %s", err)
-	}
-	GigaBytesToUse := freeBytes * 9 / (10 * 1024 * 1024 * 1024)
-
-	output, err := exec.Command(
-		"lxd",
-		"init",
-		"--auto",
-		"--storage-backend", "zfs",
-		"--storage-pool", "lxd",
-		"--storage-create-loop", fmt.Sprintf("%d", GigaBytesToUse),
-	).CombinedOutput()
-
-	if err != nil {
-		logger.Errorf("configuring zfs failed with %s: %s", err, string(output))
-	}
 }
 
 var configureLXDBridge = func() error {
@@ -296,12 +287,6 @@ func ensureDependencies(series string) error {
 
 		if err := pacman.Install(pkg); err != nil {
 			return err
-		}
-	}
-
-	if series >= "xenial" {
-		for _, pack := range xenialPackages {
-			pacman.Install(fmt.Sprintf("--no-install-recommends %s", pack))
 		}
 	}
 

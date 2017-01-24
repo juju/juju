@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -48,7 +49,7 @@ func (s *FortressSuite) TestStoppedUnlock(c *gc.C) {
 	fix.TearDown(c)
 
 	err := fix.Guard(c).Unlock()
-	c.Check(err, gc.ErrorMatches, "fortress worker shutting down")
+	c.Check(err, gc.Equals, fortress.ErrShutdown)
 }
 
 func (s *FortressSuite) TestStoppedLockdown(c *gc.C) {
@@ -56,7 +57,7 @@ func (s *FortressSuite) TestStoppedLockdown(c *gc.C) {
 	fix.TearDown(c)
 
 	err := fix.Guard(c).Lockdown(nil)
-	c.Check(err, gc.ErrorMatches, "fortress worker shutting down")
+	c.Check(err, gc.Equals, fortress.ErrShutdown)
 }
 
 func (s *FortressSuite) TestStoppedVisit(c *gc.C) {
@@ -64,7 +65,7 @@ func (s *FortressSuite) TestStoppedVisit(c *gc.C) {
 	fix.TearDown(c)
 
 	err := fix.Guest(c).Visit(nil, nil)
-	c.Check(err, gc.ErrorMatches, "fortress worker shutting down")
+	c.Check(err, gc.Equals, fortress.ErrShutdown)
 }
 
 func (s *FortressSuite) TestStartsLocked(c *gc.C) {
@@ -316,4 +317,11 @@ func (s *FortressSuite) TestAbortedLockdownUnlock(c *gc.C) {
 	err = guard.Unlock()
 	c.Assert(err, jc.ErrorIsNil)
 	AssertUnlocked(c, fix.Guest(c))
+}
+
+func (s *FortressSuite) TestIsFortressError(c *gc.C) {
+	c.Check(fortress.IsFortressError(fortress.ErrAborted), jc.IsTrue)
+	c.Check(fortress.IsFortressError(fortress.ErrShutdown), jc.IsTrue)
+	c.Check(fortress.IsFortressError(errors.Trace(fortress.ErrShutdown)), jc.IsTrue)
+	c.Check(fortress.IsFortressError(errors.New("boom")), jc.IsFalse)
 }

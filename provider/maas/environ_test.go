@@ -47,13 +47,9 @@ func (s *environSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)
 
-	mockCapabilities := func(*gomaasapi.MAASObject, string) (set.Strings, error) {
-		return set.NewStrings("network-deployment-ubuntu"), nil
-	}
 	mockGetController := func(string, string) (gomaasapi.Controller, error) {
 		return nil, gomaasapi.NewUnsupportedVersionError("oops")
 	}
-	s.PatchValue(&maas.GetCapabilities, mockCapabilities)
 	s.PatchValue(&maas.GetMAAS2Controller, mockGetController)
 }
 
@@ -96,7 +92,7 @@ func (*environSuite) TestSetConfigValidatesFirst(c *gc.C) {
 	// changes in the environment name.
 	oldCfg := getSimpleTestConfig(c, coretesting.Attrs{"name": "old-name"})
 	newCfg := getSimpleTestConfig(c, coretesting.Attrs{"name": "new-name"})
-	env, err := maas.NewEnviron(getSimpleCloudSpec(), oldCfg)
+	env, err := maas.NewEnviron(getSimpleCloudSpec(), oldCfg, fakeGetCapabilities)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// SetConfig() fails, even though both the old and the new config are
@@ -109,12 +105,16 @@ func (*environSuite) TestSetConfigValidatesFirst(c *gc.C) {
 	c.Check(env.Config().Name(), gc.Equals, "old-name")
 }
 
+func fakeGetCapabilities(client *gomaasapi.MAASObject, serverURL string) (set.Strings, error) {
+	return set.NewStrings("network-deployment-ubuntu"), nil
+}
+
 func (*environSuite) TestSetConfigUpdatesConfig(c *gc.C) {
 	origAttrs := coretesting.Attrs{
 		"apt-mirror": "http://testing1.invalid",
 	}
 	cfg := getSimpleTestConfig(c, origAttrs)
-	env, err := maas.NewEnviron(getSimpleCloudSpec(), cfg)
+	env, err := maas.NewEnviron(getSimpleCloudSpec(), cfg, fakeGetCapabilities)
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(env.Config().Name(), gc.Equals, "testenv")
 
@@ -131,7 +131,7 @@ func (*environSuite) TestSetConfigUpdatesConfig(c *gc.C) {
 func (*environSuite) TestNewEnvironSetsConfig(c *gc.C) {
 	cfg := getSimpleTestConfig(c, nil)
 
-	env, err := maas.NewEnviron(getSimpleCloudSpec(), cfg)
+	env, err := maas.NewEnviron(getSimpleCloudSpec(), cfg, fakeGetCapabilities)
 
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(env.Config().Name(), gc.Equals, "testenv")
@@ -144,9 +144,12 @@ var expectedCloudinitConfig = []string{
 
 func (*environSuite) TestNewCloudinitConfig(c *gc.C) {
 	cfg := getSimpleTestConfig(c, nil)
-	env, err := maas.NewEnviron(getSimpleCloudSpec(), cfg)
+	env, err := maas.NewEnviron(getSimpleCloudSpec(), cfg, fakeGetCapabilities)
 	c.Assert(err, jc.ErrorIsNil)
-	modifyNetworkScript := maas.RenderEtcNetworkInterfacesScript("eth0", "eth1")
+	var path string
+	path, err = maas.BridgeScriptPathForSeries("quantal")
+	c.Assert(err, jc.ErrorIsNil)
+	modifyNetworkScript := maas.BridgeScriptWrapperForCloudInit(path, []string{"eth0", "eth1"})
 	script := expectedCloudinitConfig
 	script = append(script, modifyNetworkScript)
 	cloudcfg, err := maas.NewCloudinitConfig(env, "testing.invalid", "quantal", []string{"eth0", "eth1"})
@@ -160,7 +163,7 @@ func (*environSuite) TestNewCloudinitConfigWithDisabledNetworkManagement(c *gc.C
 		"disable-network-management": true,
 	}
 	cfg := getSimpleTestConfig(c, attrs)
-	env, err := maas.NewEnviron(getSimpleCloudSpec(), cfg)
+	env, err := maas.NewEnviron(getSimpleCloudSpec(), cfg, fakeGetCapabilities)
 	c.Assert(err, jc.ErrorIsNil)
 	cloudcfg, err := maas.NewCloudinitConfig(env, "testing.invalid", "quantal", nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -169,13 +172,17 @@ func (*environSuite) TestNewCloudinitConfigWithDisabledNetworkManagement(c *gc.C
 }
 
 func (*environSuite) TestRenderEtcNetworkInterfacesScriptMultipleNames(c *gc.C) {
-	script := maas.RenderEtcNetworkInterfacesScript("eth0", "eth0:1", "eth2", "eth1")
+	path, err := maas.BridgeScriptPathForSeries("quantal")
+	c.Assert(err, jc.ErrorIsNil)
+	script := maas.BridgeScriptWrapperForCloudInit(path, []string{"eth0", "eth0:1", "eth2", "eth1"})
 	c.Check(script, jc.Contains, `--interfaces-to-bridge="eth0 eth0:1 eth2 eth1"`)
 	c.Check(script, jc.Contains, `--bridge-prefix="br-"`)
 }
 
 func (*environSuite) TestRenderEtcNetworkInterfacesScriptSingleName(c *gc.C) {
-	script := maas.RenderEtcNetworkInterfacesScript("eth0")
+	path, err := maas.BridgeScriptPathForSeries("quantal")
+	c.Assert(err, jc.ErrorIsNil)
+	script := maas.BridgeScriptWrapperForCloudInit(path, []string{"eth0"})
 	c.Check(script, jc.Contains, `--interfaces-to-bridge="eth0"`)
 	c.Check(script, jc.Contains, `--bridge-prefix="br-"`)
 }
@@ -213,7 +220,7 @@ func (s *badEndpointSuite) SetUpTest(c *gc.C) {
 
 func (s *badEndpointSuite) TestBadEndpointMessageNoMAAS(c *gc.C) {
 	cfg := getSimpleTestConfig(c, coretesting.Attrs{})
-	env, err := maas.NewEnviron(s.cloudSpec, cfg)
+	env, err := maas.NewEnviron(s.cloudSpec, cfg, nil)
 	c.Assert(env, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, `could not connect to MAAS controller - check the endpoint is correct \(it normally ends with /MAAS\)`)
 	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
@@ -222,7 +229,7 @@ func (s *badEndpointSuite) TestBadEndpointMessageNoMAAS(c *gc.C) {
 func (s *badEndpointSuite) TestBadEndpointMessageWithMAAS(c *gc.C) {
 	cfg := getSimpleTestConfig(c, coretesting.Attrs{})
 	s.cloudSpec.Endpoint += "/MAAS"
-	env, err := maas.NewEnviron(s.cloudSpec, cfg)
+	env, err := maas.NewEnviron(s.cloudSpec, cfg, nil)
 	c.Assert(env, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, `could not connect to MAAS controller - check the endpoint is correct`)
 	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
@@ -231,7 +238,7 @@ func (s *badEndpointSuite) TestBadEndpointMessageWithMAAS(c *gc.C) {
 func (s *badEndpointSuite) TestBadEndpointMessageWithMAASAndSlash(c *gc.C) {
 	cfg := getSimpleTestConfig(c, coretesting.Attrs{})
 	s.cloudSpec.Endpoint += "/MAAS/"
-	env, err := maas.NewEnviron(s.cloudSpec, cfg)
+	env, err := maas.NewEnviron(s.cloudSpec, cfg, nil)
 	c.Assert(env, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, `could not connect to MAAS controller - check the endpoint is correct`)
 	c.Assert(err, jc.Satisfies, errors.IsNotSupported)

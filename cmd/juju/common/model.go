@@ -38,9 +38,12 @@ type ModelMachineInfo struct {
 
 // ModelStatus contains the current status of a model.
 type ModelStatus struct {
-	Current status.Status `json:"current" yaml:"current"`
-	Message string        `json:"message,omitempty" yaml:"message,omitempty"`
-	Since   string        `json:"since,omitempty" yaml:"since,omitempty"`
+	Current        status.Status `json:"current" yaml:"current"`
+	Message        string        `json:"message,omitempty" yaml:"message,omitempty"`
+	Since          string        `json:"since,omitempty" yaml:"since,omitempty"`
+	Migration      string        `json:"migration,omitempty" yaml:"migration,omitempty"`
+	MigrationStart string        `json:"migration-start,omitempty" yaml:"migration-start,omitempty"`
+	MigrationEnd   string        `json:"migration-end,omitempty" yaml:"migration-end,omitempty"`
 }
 
 // ModelUserInfo defines the serialization behaviour of the model user
@@ -49,6 +52,15 @@ type ModelUserInfo struct {
 	DisplayName    string `yaml:"display-name,omitempty" json:"display-name,omitempty"`
 	Access         string `yaml:"access" json:"access"`
 	LastConnection string `yaml:"last-connection" json:"last-connection"`
+}
+
+// friendlyDuration renders a time pointer that we get from the API as
+// a friendly string.
+func friendlyDuration(when *time.Time, now time.Time) string {
+	if when == nil {
+		return ""
+	}
+	return UserFriendlyDuration(*when, now)
 }
 
 // ModelInfoFromParams translates a params.ModelInfo to ModelInfo.
@@ -60,9 +72,12 @@ func ModelInfoFromParams(info params.ModelInfo, now time.Time) (ModelInfo, error
 	status := ModelStatus{
 		Current: info.Status.Status,
 		Message: info.Status.Info,
+		Since:   friendlyDuration(info.Status.Since, now),
 	}
-	if info.Status.Since != nil {
-		status.Since = UserFriendlyDuration(*info.Status.Since, now)
+	if info.Migration != nil {
+		status.Migration = info.Migration.Status
+		status.MigrationStart = friendlyDuration(info.Migration.Start, now)
+		status.MigrationEnd = friendlyDuration(info.Migration.End, now)
 	}
 	cloudTag, err := names.ParseCloudTag(info.CloudTag)
 	if err != nil {

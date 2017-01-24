@@ -7,10 +7,8 @@ import (
 	"fmt"
 	"io/ioutil"
 	"path/filepath"
-	"strings"
 
 	"github.com/juju/loggo"
-	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
 	gc "gopkg.in/check.v1"
@@ -21,7 +19,6 @@ import (
 	kvmtesting "github.com/juju/juju/container/kvm/testing"
 	containertesting "github.com/juju/juju/container/testing"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/network"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -101,70 +98,6 @@ func (s *KVMSuite) TestCreateContainer(c *gc.C) {
 	containertesting.AssertCloudInit(c, cloudInitFilename)
 }
 
-func (s *KVMSuite) TestWriteTemplate(c *gc.C) {
-	params := kvm.CreateMachineParams{
-		Hostname:      "foo-bar",
-		NetworkBridge: "br0",
-		Interfaces: []network.InterfaceInfo{{
-			InterfaceName:       "eth0",
-			MACAddress:          "00:16:3e:20:b0:11",
-			ParentInterfaceName: "br-eth0.10",
-		}, {
-			InterfaceName:       "eth42",
-			MACAddress:          "00:16:3e:20:b0:12",
-			ParentInterfaceName: "virbr42",
-		}},
-	}
-	tempDir := c.MkDir()
-
-	templatePath := filepath.Join(tempDir, "kvm.xml")
-	err := kvm.WriteTemplate(templatePath, params)
-	c.Assert(err, jc.ErrorIsNil)
-	templateBytes, err := ioutil.ReadFile(templatePath)
-	c.Assert(err, jc.ErrorIsNil)
-
-	template := string(templateBytes)
-
-	c.Check(template, jc.Contains, "<name>foo-bar</name>")
-	c.Check(strings.Count(template, "<interface type='bridge'>"), gc.Equals, 2)
-	c.Check(template, jc.Contains, "<source bridge='br-eth0.10'/>")
-	c.Check(template, jc.Contains, "<mac address='00:16:3e:20:b0:11'/>")
-	c.Check(template, jc.Contains, "<guest dev='eth0'/>")
-	c.Check(template, jc.Contains, "<source bridge='virbr42'/>")
-	c.Check(template, jc.Contains, "<mac address='00:16:3e:20:b0:12'/>")
-	c.Check(template, jc.Contains, "<guest dev='eth42'/>")
-}
-
-func (s *KVMSuite) TestCreateMachineUsesTemplate(c *gc.C) {
-	const uvtKvmBinName = "uvt-kvm"
-	testing.PatchExecutableAsEchoArgs(c, s, uvtKvmBinName)
-
-	tempDir := c.MkDir()
-	params := kvm.CreateMachineParams{
-		Hostname:      "foo-bar",
-		NetworkBridge: "br0",
-		Interfaces: []network.InterfaceInfo{
-			{MACAddress: "00:16:3e:20:b0:11"},
-		},
-		UserDataFile: filepath.Join(tempDir, "something"),
-	}
-
-	err := kvm.CreateMachine(params)
-	c.Assert(err, jc.ErrorIsNil)
-
-	expectedArgs := []string{
-		"create",
-		"--log-console-output",
-		"--user-data",
-		filepath.Join(tempDir, "something"),
-		"--template",
-		filepath.Join(tempDir, "kvm-template.xml"),
-		"foo-bar",
-	}
-
-	testing.AssertEchoArgs(c, uvtKvmBinName, expectedArgs...)
-}
-
 func (s *KVMSuite) TestDestroyContainer(c *gc.C) {
 	instance := containertesting.CreateContainer(c, s.manager, "1/kvm/0")
 
@@ -209,9 +142,6 @@ func (s *KVMSuite) TestCreateContainerUtilizesDailySimpleStream(c *gc.C) {
 
 func (s *KVMSuite) TestStartContainerUtilizesSimpleStream(c *gc.C) {
 
-	const libvirtBinName = "uvt-simplestreams-libvirt"
-	testing.PatchExecutableAsEchoArgs(c, s, libvirtBinName)
-
 	startParams := kvm.StartParams{
 		Series:           "mocked-series",
 		Arch:             "mocked-arch",
@@ -220,17 +150,13 @@ func (s *KVMSuite) TestStartContainerUtilizesSimpleStream(c *gc.C) {
 	mockedContainer := kvm.NewEmptyKvmContainer()
 	mockedContainer.Start(startParams)
 
-	expectedArgs := strings.Split(
-		fmt.Sprintf(
-			"sync arch=%s release=%s --source=%s",
-			startParams.Arch,
-			startParams.Series,
-			startParams.ImageDownloadURL,
-		),
-		" ",
+	expectedArgs := fmt.Sprintf(
+		"synchronise images for %s %s %s",
+		startParams.Arch,
+		startParams.Series,
+		startParams.ImageDownloadURL,
 	)
-
-	testing.AssertEchoArgs(c, libvirtBinName, expectedArgs...)
+	c.Assert(c.GetTestLog(), jc.Contains, expectedArgs)
 }
 
 type ConstraintsSuite struct {

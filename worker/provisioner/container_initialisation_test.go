@@ -153,17 +153,15 @@ func (s *ContainerSetupSuite) assertContainerProvisionerStarted(
 	s.PatchValue(&provisioner.StartProvisioner, startProvisionerWorker)
 
 	s.createContainer(c, host, ctype)
-	// Consume the apt command used to initialise the container.
-	select {
-	case <-s.aptCmdChan:
-	case <-time.After(coretesting.LongWait):
-		c.Fatalf("took too long to get command from channel")
-	}
+
 	// the container worker should have created the provisioner
 	c.Assert(atomic.LoadUint32(&provisionerStarted) > 0, jc.IsTrue)
 }
 
 func (s *ContainerSetupSuite) TestContainerProvisionerStarted(c *gc.C) {
+	s.PatchValue(provisioner.GetContainerInitialiser, func(instance.ContainerType, string) container.Initialiser {
+		return fakeContainerInitialiser{}
+	})
 	// Specifically ignore LXD here, if present in instance.ContainerTypes.
 	containerTypes := []instance.ContainerType{instance.KVM}
 	for _, ctype := range containerTypes {
@@ -179,7 +177,7 @@ func (s *ContainerSetupSuite) TestContainerProvisionerStarted(c *gc.C) {
 		current := version.Binary{
 			Number: jujuversion.Current,
 			Arch:   arch.HostArch(),
-			Series: series.HostSeries(),
+			Series: series.MustHostSeries(),
 		}
 		err = m.SetAgentVersion(current)
 		c.Assert(err, jc.ErrorIsNil)
@@ -191,7 +189,16 @@ func (s *ContainerSetupSuite) TestKvmContainerUsesHostArch(c *gc.C) {
 	// KVM should do what it's told, and use the architecture in
 	// constraints.
 	s.PatchValue(&arch.HostArch, func() string { return arch.PPC64EL })
+	s.PatchValue(provisioner.GetContainerInitialiser, func(instance.ContainerType, string) container.Initialiser {
+		return fakeContainerInitialiser{}
+	})
 	s.testContainerConstraintsArch(c, instance.KVM, arch.AMD64)
+}
+
+type fakeContainerInitialiser struct{}
+
+func (_ fakeContainerInitialiser) Initialise() error {
+	return nil
 }
 
 func (s *ContainerSetupSuite) testContainerConstraintsArch(c *gc.C, containerType instance.ContainerType, expectArch string) {
@@ -212,7 +219,7 @@ func (s *ContainerSetupSuite) testContainerConstraintsArch(c *gc.C, containerTyp
 	s.PatchValue(&provisioner.StartProvisioner, func(runner worker.Runner, containerType instance.ContainerType,
 		pr *apiprovisioner.State, cfg agent.Config, broker environs.InstanceBroker,
 		toolsFinder provisioner.ToolsFinder) error {
-		toolsFinder.FindTools(jujuversion.Current, series.HostSeries(), arch.AMD64)
+		toolsFinder.FindTools(jujuversion.Current, series.MustHostSeries(), arch.AMD64)
 		return nil
 	})
 
@@ -228,17 +235,13 @@ func (s *ContainerSetupSuite) testContainerConstraintsArch(c *gc.C, containerTyp
 	current := version.Binary{
 		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
-		Series: series.HostSeries(),
+		Series: series.MustHostSeries(),
 	}
 	err = m.SetAgentVersion(current)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.createContainer(c, m, containerType)
-	select {
-	case <-s.aptCmdChan:
-	case <-time.After(coretesting.LongWait):
-		c.Fatalf("took too long to get command from channel")
-	}
+
 	c.Assert(atomic.LoadUint32(&called) > 0, jc.IsTrue)
 }
 
@@ -263,7 +266,7 @@ func (s *ContainerSetupSuite) assertContainerInitialised(c *gc.C, cont Container
 	}
 	s.PatchValue(&provisioner.StartProvisioner, startProvisionerWorker)
 
-	current_os, err := series.GetOSFromSeries(series.HostSeries())
+	current_os, err := series.GetOSFromSeries(series.MustHostSeries())
 	c.Assert(err, jc.ErrorIsNil)
 
 	var ser string
@@ -293,7 +296,7 @@ func (s *ContainerSetupSuite) assertContainerInitialised(c *gc.C, cont Container
 	current := version.Binary{
 		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
-		Series: series.HostSeries(),
+		Series: series.MustHostSeries(),
 	}
 	err = m.SetAgentVersion(current)
 	c.Assert(err, jc.ErrorIsNil)
@@ -339,7 +342,7 @@ func (s *ContainerSetupSuite) TestContainerInitLockError(c *gc.C) {
 	current := version.Binary{
 		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
-		Series: series.HostSeries(),
+		Series: series.MustHostSeries(),
 	}
 	err = m.SetAgentVersion(current)
 	c.Assert(err, jc.ErrorIsNil)
@@ -365,11 +368,17 @@ func (t toolsFinderFunc) FindTools(v version.Number, series string, arch string)
 }
 
 func getContainerInstance() (cont []ContainerInstance, err error) {
+	pkgs := [][]string{
+		{"qemu-kvm"},
+		{"qemu-utils"},
+		{"genisoimage"},
+		{"libvirt-bin"},
+	}
+	if arch.HostArch() == arch.ARM64 {
+		pkgs = append([][]string{{"qemu-efi"}}, pkgs...)
+	}
 	cont = []ContainerInstance{
-		{instance.KVM, [][]string{
-			{"uvtool-libvirt"},
-			{"uvtool"},
-		}},
+		{instance.KVM, pkgs},
 	}
 	return cont, nil
 }

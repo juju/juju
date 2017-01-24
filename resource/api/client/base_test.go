@@ -81,6 +81,7 @@ func newResource(c *gc.C, name, username, data string) (resource.Resource, api.R
 	apiRes := api.Resource{
 		CharmResource: api.CharmResource{
 			Name:        name,
+			Description: name + " description",
 			Type:        "file",
 			Path:        res.Path,
 			Origin:      "upload",

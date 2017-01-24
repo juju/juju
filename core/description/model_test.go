@@ -66,6 +66,30 @@ func (*ModelSerializationSuite) TestUpdateConfig(c *gc.C) {
 	})
 }
 
+func (*ModelSerializationSuite) TestCloudCredentials(c *gc.C) {
+	owner := names.NewUserTag("me")
+	model := NewModel(ModelArgs{
+		Owner: owner,
+	})
+	args := CloudCredentialArgs{
+		Owner:    owner,
+		Cloud:    names.NewCloudTag("altostratus"),
+		Name:     "creds",
+		AuthType: "fuzzy",
+		Attributes: map[string]string{
+			"key": "value",
+		},
+	}
+	model.SetCloudCredential(args)
+	creds := model.CloudCredential()
+
+	c.Check(creds.Owner(), gc.Equals, args.Owner.Id())
+	c.Check(creds.Cloud(), gc.Equals, args.Cloud.Id())
+	c.Check(creds.Name(), gc.Equals, args.Name)
+	c.Check(creds.AuthType(), gc.Equals, args.AuthType)
+	c.Check(creds.Attributes(), jc.DeepEquals, args.Attributes)
+}
+
 func (s *ModelSerializationSuite) exportImport(c *gc.C, initial Model) Model {
 	bytes, err := Serialize(initial)
 	c.Assert(err, jc.ErrorIsNil)
@@ -85,9 +109,16 @@ func (s *ModelSerializationSuite) TestParsingYAML(c *gc.C) {
 		Blocks: map[string]string{
 			"all-changes": "locked down",
 		},
+		Cloud:       "vapour",
+		CloudRegion: "east-west",
 	}
 	initial := NewModel(args)
-	adminUser := names.NewUserTag("admin@local")
+	initial.SetCloudCredential(CloudCredentialArgs{
+		Name:  "creds",
+		Cloud: names.NewCloudTag("vapour"),
+		Owner: names.NewUserTag("admin"),
+	})
+	adminUser := names.NewUserTag("admin")
 	initial.AddUser(UserArgs{
 		Name:        adminUser,
 		CreatedBy:   adminUser,
@@ -100,6 +131,9 @@ func (s *ModelSerializationSuite) TestParsingYAML(c *gc.C) {
 	c.Assert(model.Owner(), gc.Equals, args.Owner)
 	c.Assert(model.Tag().Id(), gc.Equals, "some-uuid")
 	c.Assert(model.Config(), jc.DeepEquals, args.Config)
+	c.Assert(model.Cloud(), gc.Equals, "vapour")
+	c.Assert(model.CloudRegion(), gc.Equals, "east-west")
+	c.Assert(model.CloudCredential(), jc.DeepEquals, initial.CloudCredential())
 	c.Assert(model.LatestToolsVersion(), gc.Equals, args.LatestToolsVersion)
 	c.Assert(model.Blocks(), jc.DeepEquals, args.Blocks)
 	users := model.Users()

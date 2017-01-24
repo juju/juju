@@ -14,9 +14,10 @@ import (
 )
 
 type formattedStatus struct {
-	Model        modelStatus                  `json:"model"`
-	Machines     map[string]machineStatus     `json:"machines"`
-	Applications map[string]applicationStatus `json:"applications"`
+	Model              modelStatus                        `json:"model"`
+	Machines           map[string]machineStatus           `json:"machines"`
+	Applications       map[string]applicationStatus       `json:"applications"`
+	RemoteApplications map[string]remoteApplicationStatus `json:"application-endpoints,omitempty" yaml:"application-endpoints,omitempty"`
 }
 
 type formattedMachineStatus struct {
@@ -29,13 +30,13 @@ type errorStatus struct {
 }
 
 type modelStatus struct {
-	Name             string `json:"name" yaml:"name"`
-	Controller       string `json:"controller" yaml:"controller"`
-	Cloud            string `json:"cloud" yaml:"cloud"`
-	CloudRegion      string `json:"region,omitempty" yaml:"region,omitempty"`
-	Version          string `json:"version" yaml:"version"`
-	AvailableVersion string `json:"upgrade-available,omitempty" yaml:"upgrade-available,omitempty"`
-	Migration        string `json:"migration,omitempty" yaml:"migration,omitempty"`
+	Name             string             `json:"name" yaml:"name"`
+	Controller       string             `json:"controller" yaml:"controller"`
+	Cloud            string             `json:"cloud" yaml:"cloud"`
+	CloudRegion      string             `json:"region,omitempty" yaml:"region,omitempty"`
+	Version          string             `json:"version" yaml:"version"`
+	AvailableVersion string             `json:"upgrade-available,omitempty" yaml:"upgrade-available,omitempty"`
+	Status           statusInfoContents `json:"model-status,omitempty" yaml:"model-status,omitempty"`
 }
 
 type machineStatus struct {
@@ -48,6 +49,7 @@ type machineStatus struct {
 	Series        string                   `json:"series,omitempty" yaml:"series,omitempty"`
 	Id            string                   `json:"-" yaml:"-"`
 	Containers    map[string]machineStatus `json:"containers,omitempty" yaml:"containers,omitempty"`
+	Constraints   string                   `json:"constraints,omitempty" yaml:"constraints,omitempty"`
 	Hardware      string                   `json:"hardware,omitempty" yaml:"hardware,omitempty"`
 	HAStatus      string                   `json:"controller-member-status,omitempty" yaml:"controller-member-status,omitempty"`
 }
@@ -102,6 +104,36 @@ func (s applicationStatus) MarshalYAML() (interface{}, error) {
 		return errorStatus{s.Err.Error()}, nil
 	}
 	return applicationStatusNoMarshal(s), nil
+}
+
+type remoteEndpoint struct {
+	Interface string `json:"interface" yaml:"interface"`
+	Role      string `json:"role" yaml:"role"`
+}
+
+type remoteApplicationStatus struct {
+	Err            error                     `json:"-" yaml:",omitempty"`
+	ApplicationURL string                    `json:"url" yaml:"url"`
+	Endpoints      map[string]remoteEndpoint `json:"endpoints,omitempty" yaml:"endpoints,omitempty"`
+	Life           string                    `json:"life,omitempty" yaml:"life,omitempty"`
+	StatusInfo     statusInfoContents        `json:"application-status,omitempty" yaml:"application-status"`
+	Relations      map[string][]string       `json:"relations,omitempty" yaml:"relations,omitempty"`
+}
+
+type remoteApplicationStatusNoMarshal remoteApplicationStatus
+
+func (s remoteApplicationStatus) MarshalJSON() ([]byte, error) {
+	if s.Err != nil {
+		return json.Marshal(errorStatus{s.Err.Error()})
+	}
+	return json.Marshal(remoteApplicationStatusNoMarshal(s))
+}
+
+func (s remoteApplicationStatus) MarshalYAML() (interface{}, error) {
+	if s.Err != nil {
+		return errorStatus{s.Err.Error()}, nil
+	}
+	return remoteApplicationStatusNoMarshal(s), nil
 }
 
 type meterStatus struct {

@@ -6,9 +6,11 @@ package api
 import (
 	"net"
 	"net/url"
+	"runtime/debug"
 	"strconv"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils/featureflag"
 	"github.com/juju/version"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
@@ -26,6 +28,7 @@ import (
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/api/upgrader"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/network"
 )
 
@@ -41,6 +44,13 @@ func (st *state) Login(tag names.Tag, password, nonce string, macaroons []macaro
 		Nonce:       nonce,
 		Macaroons:   macaroons,
 	}
+	// If we are in developer mode, add the stack location as user data to the
+	// login request. This will allow the apiserver to connect connection ids
+	// to the particular place that initiated the connection.
+	if featureflag.Enabled(feature.DeveloperMode) {
+		request.UserData = string(debug.Stack())
+	}
+
 	if password == "" {
 		// Add any macaroons from the cookie jar that might work for
 		// authenticating the login request.

@@ -90,12 +90,7 @@ func newClient(
 	readFile readFileFunc,
 	runCommand runCommandFunc,
 ) (*lxdclient.Client, error) {
-	if spec.Endpoint != "" {
-		// We don't handle connecting to non-local lxd at present.
-		return nil, errors.NotValidf("endpoint %q", spec.Endpoint)
-	}
-
-	config, err := getRemoteConfig(readFile, runCommand)
+	config, err := getRemoteConfig(readFile, runCommand, spec)
 	if errors.IsNotFound(err) {
 		config = &lxdclient.Config{Remote: lxdclient.Local}
 	} else if err != nil {
@@ -112,7 +107,7 @@ func newClient(
 // getRemoteConfig returns a lxdclient.Config using a TCP-based remote
 // if called from within an instance started by the LXD provider. Otherwise,
 // it returns an errors satisfying errors.IsNotFound.
-func getRemoteConfig(readFile readFileFunc, runCommand runCommandFunc) (*lxdclient.Config, error) {
+func getRemoteConfig(readFile readFileFunc, runCommand runCommandFunc, spec environs.CloudSpec) (*lxdclient.Config, error) {
 	readFileOrig := readFile
 	readFile = func(path string) ([]byte, error) {
 		data, err := readFileOrig(path)
@@ -137,9 +132,16 @@ func getRemoteConfig(readFile readFileFunc, runCommand runCommandFunc) (*lxdclie
 		return nil, errors.Annotate(err, "reading server certificate")
 	}
 	cert := lxdclient.NewCert(clientCert, clientKey)
-	hostAddress, err := getDefaultGateway(runCommand)
 	if err != nil {
 		return nil, errors.Annotate(err, "getting gateway address")
+	}
+	hostAddress := spec.Endpoint
+	if hostAddress == "" {
+		var err error
+		hostAddress, err = getDefaultGateway(runCommand)
+		if err != nil {
+			return nil, errors.Annotate(err, "getting gateway address")
+		}
 	}
 	return &lxdclient.Config{
 		lxdclient.Remote{

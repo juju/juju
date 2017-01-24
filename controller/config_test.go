@@ -10,6 +10,7 @@ import (
 	"github.com/juju/loggo"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	utilscert "github.com/juju/utils/cert"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cert"
@@ -54,7 +55,7 @@ func (s *ConfigSuite) TestGenerateControllerCertAndKey(c *gc.C) {
 		certPEM, keyPEM, err := controller.GenerateControllerCertAndKey(test.caCert, test.caKey, test.sanValues)
 		c.Assert(err, jc.ErrorIsNil)
 
-		_, _, err = cert.ParseCertAndKey(certPEM, keyPEM)
+		_, _, err = utilscert.ParseCertAndKey(certPEM, keyPEM)
 		c.Check(err, jc.ErrorIsNil)
 
 		err = cert.Verify(certPEM, testing.CACert, time.Now())
@@ -63,7 +64,7 @@ func (s *ConfigSuite) TestGenerateControllerCertAndKey(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		err = cert.Verify(certPEM, testing.CACert, time.Now().AddDate(10, 0, 1))
 		c.Assert(err, gc.NotNil)
-		srvCert, err := cert.ParseCert(certPEM)
+		srvCert, err := utilscert.ParseCert(certPEM)
 		c.Assert(err, jc.ErrorIsNil)
 		sanIPs := make([]string, len(srvCert.IPAddresses))
 		for i, ip := range srvCert.IPAddresses {

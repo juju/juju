@@ -4,25 +4,31 @@
 package manual
 
 import (
+	"bytes"
 	"fmt"
 	"strings"
 
 	"github.com/juju/errors"
+	"github.com/juju/jsonschema"
+	"github.com/juju/utils/ssh"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/manual"
+	"github.com/juju/juju/environs/manual/sshprovisioner"
 )
 
-type manualProvider struct {
+// ManualProvider contains the logic for using a random ubuntu machine as a
+// controller, connected via SSH.
+type ManualProvider struct {
 	environProviderCredentials
+	ping func(endpoint string) error
 }
 
 // Verify that we conform to the interface.
-var _ environs.EnvironProvider = (*manualProvider)(nil)
+var _ environs.EnvironProvider = (*ManualProvider)(nil)
 
-var initUbuntuUser = manual.InitUbuntuUser
+var initUbuntuUser = sshprovisioner.InitUbuntuUser
 
 func ensureBootstrapUbuntuUser(ctx environs.BootstrapContext, host, user string, cfg *environConfig) error {
 	err := initUbuntuUser(host, user, cfg.AuthorizedKeys(), ctx.GetStdin(), ctx.GetStdout())
@@ -35,12 +41,59 @@ func ensureBootstrapUbuntuUser(ctx environs.BootstrapContext, host, user string,
 }
 
 // DetectRegions is specified in the environs.CloudRegionDetector interface.
-func (p manualProvider) DetectRegions() ([]cloud.Region, error) {
+func (p ManualProvider) DetectRegions() ([]cloud.Region, error) {
 	return nil, errors.NotFoundf("regions")
 }
 
+var cloudSchema = &jsonschema.Schema{
+	Type:     []jsonschema.Type{jsonschema.ObjectType},
+	Required: []string{cloud.EndpointKey},
+	Properties: map[string]*jsonschema.Schema{
+		cloud.EndpointKey: &jsonschema.Schema{
+			Singular: "the controller's hostname or IP address",
+			Type:     []jsonschema.Type{jsonschema.StringType},
+			Format:   jsonschema.FormatURI,
+		},
+	},
+}
+
+// CloudSchema returns the schema for verifying the cloud configuration.
+func (p ManualProvider) CloudSchema() *jsonschema.Schema {
+	return cloudSchema
+}
+
+// Ping tests the connection to the cloud, to verify the endpoint is valid.
+func (p ManualProvider) Ping(endpoint string) error {
+	if p.ping != nil {
+		return p.ping(endpoint)
+	}
+	return pingMachine(endpoint)
+}
+
+// pingMachine is what is used in production by ManualProvider.Ping().  It
+// attempts a simplistic ssh connection to verify the machine exists and that
+// you can log into it with SSH.
+func pingMachine(endpoint string) error {
+	// There's no "just connect" command for utils/ssh, so we run a command that
+	// should always work.
+	cmd := ssh.Command(endpoint, []string{"echo", "hi"}, nil)
+
+	// os/exec just returns an error that contains the error code from the
+	// executable, which is basically useless, but stderr usually shows
+	// something useful, so we show that instead.
+	buf := bytes.Buffer{}
+	cmd.Stderr = &buf
+	if err := cmd.Run(); err != nil {
+		if buf.Len() > 0 {
+			return errors.New(buf.String())
+		}
+		return err
+	}
+	return nil
+}
+
 // PrepareConfig is specified in the EnvironProvider interface.
-func (p manualProvider) PrepareConfig(args environs.PrepareConfigParams) (*config.Config, error) {
+func (p ManualProvider) PrepareConfig(args environs.PrepareConfigParams) (*config.Config, error) {
 	if err := validateCloudSpec(args.Cloud); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -51,7 +104,7 @@ func (p manualProvider) PrepareConfig(args environs.PrepareConfigParams) (*confi
 	return args.Config.Apply(envConfig.attrs)
 }
 
-func (p manualProvider) Open(args environs.OpenParams) (environs.Environ, error) {
+func (p ManualProvider) Open(args environs.OpenParams) (environs.Environ, error) {
 	if err := validateCloudSpec(args.Cloud); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -80,7 +133,7 @@ func validateCloudSpec(spec environs.CloudSpec) error {
 	return nil
 }
 
-func (p manualProvider) open(host, user string, cfg *environConfig) (environs.Environ, error) {
+func (p ManualProvider) open(host, user string, cfg *environConfig) (environs.Environ, error) {
 	env := &manualEnviron{host: host, user: user, cfg: cfg}
 	// Need to call SetConfig to initialise storage.
 	if err := env.SetConfig(cfg.Config); err != nil {
@@ -96,7 +149,7 @@ func checkImmutableString(cfg, old *environConfig, key string) error {
 	return nil
 }
 
-func (p manualProvider) validate(cfg, old *config.Config) (*environConfig, error) {
+func (p ManualProvider) validate(cfg, old *config.Config) (*environConfig, error) {
 	// Check for valid changes for the base config values.
 	if err := config.Validate(cfg, old); err != nil {
 		return nil, err
@@ -124,7 +177,7 @@ func (p manualProvider) validate(cfg, old *config.Config) (*environConfig, error
 	return envConfig, nil
 }
 
-func (p manualProvider) Validate(cfg, old *config.Config) (valid *config.Config, err error) {
+func (p ManualProvider) Validate(cfg, old *config.Config) (valid *config.Config, err error) {
 	envConfig, err := p.validate(cfg, old)
 	if err != nil {
 		return nil, err

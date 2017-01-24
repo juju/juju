@@ -94,7 +94,7 @@ func (s *InitialiserSuite) TestLTSSeriesPackages(c *gc.C) {
 	paccmder, err := commands.NewPackageCommander("trusty")
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.PatchValue(&series.HostSeries, func() string { return "trusty" })
+	s.PatchValue(&series.MustHostSeries, func() string { return "trusty" })
 	container := NewContainerInitialiser("trusty")
 
 	err = container.Initialise()
@@ -122,7 +122,7 @@ func (s *InitialiserSuite) TestNoSeriesPackages(c *gc.C) {
 	})
 }
 
-func (s *InitialiserSuite) TestLXDInitZFS(c *gc.C) {
+func (s *InitialiserSuite) TestLXDInit(c *gc.C) {
 	// Patch df so it always returns 100GB
 	df100 := func(path string) (uint64, error) {
 		return 100 * 1024 * 1024 * 1024, nil
@@ -133,8 +133,33 @@ func (s *InitialiserSuite) TestLXDInitZFS(c *gc.C) {
 	err := container.Initialise()
 	c.Assert(err, jc.ErrorIsNil)
 
-	testing.AssertEchoArgs(c, "lxd", "init", "--auto", "--storage-backend",
-		"zfs", "--storage-pool", "lxd", "--storage-create-loop", "90")
+	testing.AssertEchoArgs(c, "lxd", "init", "--auto")
+}
+
+func (s *InitialiserSuite) TestLXDAlreadyInitialized(c *gc.C) {
+	// Patch df so it always returns 100GB
+	df100 := func(path string) (uint64, error) {
+		return 100 * 1024 * 1024 * 1024, nil
+	}
+	s.PatchValue(&df, df100)
+
+	container := NewContainerInitialiser("xenial")
+	cont, ok := container.(*containerInitialiser)
+	if !ok {
+		c.Fatalf("Unexpected type of container initialized: %T", container)
+	}
+	cont.getExecCommand = s.PatchExecHelper.GetExecCommand(testing.PatchExecConfig{
+		Stderr: `LXD init cannot be used at this time.
+However if all you want to do is reconfigure the network,
+you can still do so by running "sudo dpkg-reconfigure -p medium lxd"
+
+error: You have existing containers or images. lxd init requires an empty LXD.`,
+		ExitCode: 1,
+	})
+
+	// the above error should be ignored by the code that calls lxd init.
+	err := container.Initialise()
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 type mockConfigSetter struct {

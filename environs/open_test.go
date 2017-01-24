@@ -5,6 +5,7 @@ package environs_test
 
 import (
 	"github.com/juju/errors"
+	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
@@ -169,4 +170,22 @@ func (*OpenSuite) TestDestroy(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "model is not prepared")
 	_, err = store.ControllerByName("controller-name")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
+func (*OpenSuite) TestDestroyNotFound(c *gc.C) {
+	var env destroyControllerEnv
+	store := jujuclienttesting.NewMemStore()
+	err := environs.Destroy("fnord", &env, store)
+	c.Assert(err, jc.ErrorIsNil)
+	env.CheckCallNames(c) // no controller details, no call
+}
+
+type destroyControllerEnv struct {
+	environs.Environ
+	gitjujutesting.Stub
+}
+
+func (e *destroyControllerEnv) DestroyController(uuid string) error {
+	e.MethodCall(e, "DestroyController", uuid)
+	return e.NextErr()
 }

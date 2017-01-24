@@ -21,7 +21,9 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/sshclient"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/network"
 )
 
 // SSHCommon implements functionality shared by sshCommand, SCPCommand
@@ -36,11 +38,17 @@ type SSHCommon struct {
 	apiClient       sshAPIClient
 	apiAddr         string
 	knownHostsPath  string
+	hostDialer      network.Dialer
+	forceAPIv1      bool
 }
 
+const jujuSSHClientForceAPIv1 = "JUJU_SSHCLIENT_API_V1"
+
 type sshAPIClient interface {
+	BestAPIVersion() int
 	PublicAddress(target string) (string, error)
 	PrivateAddress(target string) (string, error)
+	AllAddresses(target string) ([]string, error)
 	PublicKeys(target string) ([]string, error)
 	Proxy() (bool, error)
 	Close() error
@@ -82,9 +90,22 @@ func (s attemptStrategy) Start() attempt {
 	return utils.AttemptStrategy(s).Start()
 }
 
+const (
+	// SSHRetryDelay is the time to wait for an SSH connection to be established
+	// to a single endpoint of a target.
+	SSHRetryDelay = 500 * time.Millisecond
+
+	// SSHTimeout is the time to wait for before giving up trying to establish
+	// an SSH connection to a target, after retriying.
+	SSHTimeout = 5 * time.Second
+
+	// SSHPort is the TCP port used for SSH connections.
+	SSHPort = 22
+)
+
 var sshHostFromTargetAttemptStrategy attemptStarter = attemptStrategy{
-	Total: 5 * time.Second,
-	Delay: 500 * time.Millisecond,
+	Total: SSHTimeout,
+	Delay: SSHRetryDelay,
 }
 
 func (c *SSHCommon) SetFlags(f *gnuflag.FlagSet) {
@@ -94,21 +115,37 @@ func (c *SSHCommon) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.noHostKeyChecks, "no-host-key-checks", false, "Skip host key checking (INSECURE)")
 }
 
+// defaultHostDialer returns a network.Dialer with timeout set to SSHRetryDelay.
+func defaultHostDialer() network.Dialer {
+	return &net.Dialer{Timeout: SSHRetryDelay}
+}
+
+func (c *SSHCommon) setHostDialer(dialer network.Dialer) {
+	if dialer == nil {
+		dialer = defaultHostDialer()
+	}
+	c.hostDialer = dialer
+}
+
 // initRun initializes the API connection if required, and determines
 // if SSH proxying is required. It must be called at the top of the
 // command's Run method.
 //
-// The apiClient, apiAddr and proxy fields are initialized after this
-// call.
+// The apiClient, apiAddr and proxy fields are initialized after this call.
 func (c *SSHCommon) initRun() error {
 	if err := c.ensureAPIClient(); err != nil {
 		return errors.Trace(err)
 	}
+
 	if proxy, err := c.proxySSH(); err != nil {
 		return errors.Trace(err)
 	} else {
 		c.proxy = proxy
 	}
+
+	// Used mostly for testing, but useful for debugging and/or
+	// backwards-compatibility with some scripts.
+	c.forceAPIv1 = os.Getenv(jujuSSHClientForceAPIv1) != ""
 	return nil
 }
 
@@ -275,35 +312,95 @@ func (c *SSHCommon) initAPIClient() error {
 }
 
 func (c *SSHCommon) resolveTarget(target string) (*resolvedTarget, error) {
-	out := new(resolvedTarget)
-	out.user, out.entity = splitUserTarget(target)
-
-	// If the target is neither a machine nor a unit assume it's a
-	// hostname and try it directly.
-	if !targetIsAgent(out.entity) {
-		out.host = out.entity
+	out, ok := c.resolveAsAgent(target)
+	if !ok {
+		// Not a machine or unit agent target - use directly.
 		return out, nil
 	}
 
-	if out.user == "" {
+	getAddress := c.reachableAddressGetter
+	if c.apiClient.BestAPIVersion() < 2 || c.forceAPIv1 {
+		logger.Debugf("using legacy SSHClient API v1: no support for AllAddresses()")
+		getAddress = c.legacyAddressGetter
+	} else if c.proxy {
+		logger.Infof("proxy-ssh enabled but ignored: trying all addresses of target %q", out.entity)
+	}
+
+	return c.resolveWithRetry(*out, getAddress)
+}
+
+func (c *SSHCommon) resolveAsAgent(target string) (*resolvedTarget, bool) {
+	out := new(resolvedTarget)
+	out.user, out.entity = splitUserTarget(target)
+	isAgent := out.isAgent()
+
+	if !isAgent {
+		// Not a machine/unit agent target: resolve - use as-is.
+		out.host = out.entity
+	} else if out.user == "" {
 		out.user = "ubuntu"
 	}
 
+	return out, isAgent
+}
+
+type addressGetterFunc func(target string) (string, error)
+
+func (c *SSHCommon) resolveWithRetry(target resolvedTarget, getAddress addressGetterFunc) (*resolvedTarget, error) {
 	// A target may not initially have an address (e.g. the
 	// address updater hasn't yet run), so we must do this in
 	// a loop.
 	var err error
+	out := &target
 	for a := sshHostFromTargetAttemptStrategy.Start(); a.Next(); {
-		if c.proxy {
-			out.host, err = c.apiClient.PrivateAddress(out.entity)
-		} else {
-			out.host, err = c.apiClient.PublicAddress(out.entity)
+		out.host, err = getAddress(out.entity)
+		if errors.IsNotFound(err) || params.IsCodeNotFound(err) {
+			// Catch issues like passing invalid machine/unit IDs early.
+			return nil, errors.Trace(err)
 		}
-		if err == nil {
-			return out, nil
+
+		if err != nil {
+			logger.Debugf("getting target %q address(es) failed: %v (retrying)", out.entity, err)
+			continue
 		}
+
+		logger.Debugf("using target %q address %q", out.entity, out.host)
+		return out, nil
 	}
-	return nil, err
+
+	return nil, errors.Trace(err)
+}
+
+// legacyAddressGetter returns the preferred public or private address of the
+// given entity (private when c.proxy is true), using the apiClient. Only used
+// when the SSHClient API facade v2 is not available.
+func (c *SSHCommon) legacyAddressGetter(entity string) (string, error) {
+	if c.proxy {
+		return c.apiClient.PrivateAddress(entity)
+	}
+
+	return c.apiClient.PublicAddress(entity)
+}
+
+// reachableAddressGetter dials all addresses of the given entity, returning the
+// first one that succeeds. Only used with SSHClient API facade v2 or later is
+// available.
+func (c *SSHCommon) reachableAddressGetter(entity string) (string, error) {
+	addresses, err := c.apiClient.AllAddresses(entity)
+	if err != nil {
+		return "", errors.Trace(err)
+	} else if len(addresses) == 0 {
+		return "", network.NoAddressError("available")
+	}
+
+	hostPorts := network.NewHostPorts(SSHPort, addresses...)
+	usableHPs := network.FilterUnusableHostPorts(hostPorts)
+	bestHP, err := network.ReachableHostPort(usableHPs, c.hostDialer, SSHTimeout)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	return bestHP.Address.Value, nil
 }
 
 // AllowInterspersedFlags for ssh/scp is set to false so that

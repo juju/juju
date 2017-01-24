@@ -12,7 +12,9 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/cloud"
 	coremigration "github.com/juju/juju/core/migration"
+	"github.com/juju/juju/resource"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/tools"
@@ -29,7 +31,16 @@ type PrecheckBackend interface {
 	IsMigrationActive(string) (bool, error)
 	AllMachines() ([]PrecheckMachine, error)
 	AllApplications() ([]PrecheckApplication, error)
-	ControllerBackend() (PrecheckBackend, error)
+	ControllerBackend() (PrecheckBackendCloser, error)
+	CloudCredential(tag names.CloudCredentialTag) (cloud.Credential, error)
+	ListPendingResources(string) ([]resource.Resource, error)
+}
+
+// PrecheckBackendCloser adds the Close method to the standard
+// PrecheckBackend.
+type PrecheckBackendCloser interface {
+	PrecheckBackend
+	Close() error
 }
 
 // PrecheckModel describes the state interface a model as needed by
@@ -40,6 +51,7 @@ type PrecheckModel interface {
 	Owner() names.UserTag
 	Life() state.Life
 	MigrationMode() state.MigrationMode
+	CloudCredential() (names.CloudCredentialTag, bool)
 }
 
 // PrecheckMachine describes the state interface for a machine needed
@@ -103,6 +115,7 @@ func SourcePrecheck(backend PrecheckBackend) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
+	defer controllerBackend.Close()
 	if err := checkController(controllerBackend); err != nil {
 		return errors.Annotate(err, "controller")
 	}
@@ -119,6 +132,15 @@ func checkModel(backend PrecheckBackend) error {
 	}
 	if model.MigrationMode() == state.MigrationModeImporting {
 		return errors.New("model is being imported as part of another migration")
+	}
+	if credTag, found := model.CloudCredential(); found {
+		creds, err := backend.CloudCredential(credTag)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if creds.Revoked {
+			return errors.New("model has revoked credentials")
+		}
 	}
 	return nil
 }
@@ -154,6 +176,11 @@ func TargetPrecheck(backend PrecheckBackend, modelInfo coremigration.ModelInfo) 
 			modelInfo.AgentVersion, controllerVersion)
 	}
 
+	if !controllerVersionCompatible(modelInfo.ControllerAgentVersion, controllerVersion) {
+		return errors.Errorf("source controller has higher version than target controller (%s > %s)",
+			modelInfo.ControllerAgentVersion, controllerVersion)
+	}
+
 	if err := checkController(backend); err != nil {
 		return errors.Trace(err)
 	}
@@ -176,6 +203,23 @@ func TargetPrecheck(backend PrecheckBackend, modelInfo coremigration.ModelInfo) 
 	}
 
 	return nil
+}
+
+func controllerVersionCompatible(sourceVersion, targetVersion version.Number) bool {
+	// Compare source controller version to target controller version, only
+	// considering major and minor version numbers. Downgrades between
+	// patch, build releases for a given major.minor release are
+	// ok. Tag differences are ok too.
+	sourceVersion = versionToMajMin(sourceVersion)
+	targetVersion = versionToMajMin(targetVersion)
+	return sourceVersion.Compare(targetVersion) <= 0
+}
+
+func versionToMajMin(ver version.Number) version.Number {
+	ver.Patch = 0
+	ver.Build = 0
+	ver.Tag = ""
+	return ver
 }
 
 func checkController(backend PrecheckBackend) error {
@@ -255,6 +299,15 @@ func checkApplications(backend PrecheckBackend) error {
 		if err != nil {
 			return errors.Trace(err)
 		}
+
+		resources, err := backend.ListPendingResources(app.Name())
+		if err != nil {
+			return errors.Annotate(err, "checking resources")
+		}
+		if len(resources) > 0 {
+			resName := resources[0].Name
+			return errors.Errorf("resource %q is pending for application %s", resName, app.Name())
+		}
 	}
 	return nil
 }
@@ -297,8 +350,11 @@ func checkUnitAgentStatus(unit PrecheckUnit) error {
 		return errors.Annotatef(statusData.Err, "retrieving unit %s status", unit.Name())
 	}
 	agentStatus := statusData.Status.Status
-	if agentStatus != status.Idle {
-		return newStatusError("unit %s not idle", unit.Name(), agentStatus)
+	switch agentStatus {
+	case status.Idle, status.Executing:
+		// These two are fine.
+	default:
+		return newStatusError("unit %s not idle or executing", unit.Name(), agentStatus)
 	}
 	return nil
 }

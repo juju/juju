@@ -144,9 +144,10 @@ func (suite *environSuite) TestStartInstanceStartsInstance(c *gc.C) {
 	suite.newNode(c, "node0", "host0", nil)
 	suite.addSubnet(c, 9, 9, "node0")
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
-		ControllerConfig: coretesting.FakeControllerConfig(),
-		AdminSecret:      testing.AdminSecret,
-		CAPrivateKey:     coretesting.CAKey,
+		ControllerConfig:     coretesting.FakeControllerConfig(),
+		AdminSecret:          testing.AdminSecret,
+		CAPrivateKey:         coretesting.CAKey,
+		BootstrapConstraints: constraints.MustParse("mem=1G"),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	// The bootstrap node has been acquired and started.
@@ -340,9 +341,10 @@ func (suite *environSuite) TestBootstrapSucceeds(c *gc.C) {
 	suite.newNode(c, "thenode", "host", nil)
 	suite.addSubnet(c, 9, 9, "thenode")
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
-		ControllerConfig: coretesting.FakeControllerConfig(),
-		AdminSecret:      testing.AdminSecret,
-		CAPrivateKey:     coretesting.CAKey,
+		ControllerConfig:     coretesting.FakeControllerConfig(),
+		AdminSecret:          testing.AdminSecret,
+		CAPrivateKey:         coretesting.CAKey,
+		BootstrapConstraints: constraints.MustParse("mem=1G"),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -355,9 +357,10 @@ func (suite *environSuite) TestBootstrapNodeNotDeployed(c *gc.C) {
 	// Ensure node will not be reported as deployed by changing its status.
 	suite.testMAASObject.TestServer.ChangeNode("thenode", "status", "4")
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
-		ControllerConfig: coretesting.FakeControllerConfig(),
-		AdminSecret:      testing.AdminSecret,
-		CAPrivateKey:     coretesting.CAKey,
+		ControllerConfig:     coretesting.FakeControllerConfig(),
+		AdminSecret:          testing.AdminSecret,
+		CAPrivateKey:         coretesting.CAKey,
+		BootstrapConstraints: constraints.MustParse("mem=1G"),
 	})
 	c.Assert(err, gc.ErrorMatches, "bootstrap instance started but did not change to Deployed state.*")
 }
@@ -370,9 +373,10 @@ func (suite *environSuite) TestBootstrapNodeFailedDeploy(c *gc.C) {
 	// Set the node status to "Failed deployment"
 	suite.testMAASObject.TestServer.ChangeNode("thenode", "status", "11")
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
-		ControllerConfig: coretesting.FakeControllerConfig(),
-		AdminSecret:      testing.AdminSecret,
-		CAPrivateKey:     coretesting.CAKey,
+		ControllerConfig:     coretesting.FakeControllerConfig(),
+		AdminSecret:          testing.AdminSecret,
+		CAPrivateKey:         coretesting.CAKey,
+		BootstrapConstraints: constraints.MustParse("mem=1G"),
 	})
 	c.Assert(err, gc.ErrorMatches, "bootstrap instance started but did not change to Deployed state. instance \"/api/.*/nodes/thenode/\" failed to deploy")
 }
@@ -395,9 +399,10 @@ func (suite *environSuite) TestBootstrapFailsIfNoNodes(c *gc.C) {
 	suite.setupFakeTools(c)
 	env := suite.makeEnviron()
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
-		ControllerConfig: coretesting.FakeControllerConfig(),
-		AdminSecret:      testing.AdminSecret,
-		CAPrivateKey:     coretesting.CAKey,
+		ControllerConfig:     coretesting.FakeControllerConfig(),
+		AdminSecret:          testing.AdminSecret,
+		CAPrivateKey:         coretesting.CAKey,
+		BootstrapConstraints: constraints.MustParse("mem=1G"),
 	})
 	// Since there are no nodes, the attempt to allocate one returns a
 	// 409: Conflict.
@@ -903,10 +908,11 @@ func (s *environSuite) bootstrap(c *gc.C) environs.Environ {
 	s.setupFakeTools(c)
 	env := s.makeEnviron()
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
-		ControllerConfig: coretesting.FakeControllerConfig(),
-		Placement:        "bootstrap-host",
-		AdminSecret:      testing.AdminSecret,
-		CAPrivateKey:     coretesting.CAKey,
+		ControllerConfig:     coretesting.FakeControllerConfig(),
+		Placement:            "bootstrap-host",
+		AdminSecret:          testing.AdminSecret,
+		CAPrivateKey:         coretesting.CAKey,
+		BootstrapConstraints: constraints.MustParse("mem=1G"),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	return env
@@ -998,6 +1004,7 @@ func (s *environSuite) TestStartInstanceDistributionFailover(c *gc.C) {
 	c.Assert(s.testMAASObject.TestServer.NodesOperationRequestValues(), gc.DeepEquals, []url.Values{{
 		"name":       []string{"bootstrap-host"},
 		"agent_name": []string{env.Config().UUID()},
+		"mem":        []string{"1024"},
 	}, {
 		"zone":       []string{"zone1"},
 		"agent_name": []string{env.Config().UUID()},

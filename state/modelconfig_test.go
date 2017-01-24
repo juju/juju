@@ -9,6 +9,7 @@ import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"github.com/juju/utils/clock"
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
@@ -436,7 +437,13 @@ func (s *ModelConfigSourceSuite) TestUpdateModelConfigDefaults(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	info := statetesting.NewMongoInfo()
-	anotherState, err := state.Open(s.modelTag, s.State.ControllerTag(), info, mongotest.DialOpts(), state.NewPolicyFunc(nil))
+	anotherState, err := state.Open(state.OpenParams{
+		Clock:              clock.WallClock,
+		ControllerTag:      s.State.ControllerTag(),
+		ControllerModelTag: s.modelTag,
+		MongoInfo:          info,
+		MongoDialOpts:      mongotest.DialOpts(),
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	defer anotherState.Close()
 
@@ -483,7 +490,13 @@ func (s *ModelConfigSourceSuite) TestUpdateModelConfigRegionDefaults(c *gc.C) {
 
 	// Then check in another state.
 	info := statetesting.NewMongoInfo()
-	anotherState, err := state.Open(s.modelTag, s.State.ControllerTag(), info, mongotest.DialOpts(), state.NewPolicyFunc(nil))
+	anotherState, err := state.Open(state.OpenParams{
+		Clock:              clock.WallClock,
+		ControllerTag:      s.State.ControllerTag(),
+		ControllerModelTag: s.modelTag,
+		MongoInfo:          info,
+		MongoDialOpts:      mongotest.DialOpts(),
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	defer anotherState.Close()
 

@@ -14,6 +14,11 @@ import (
 	"github.com/juju/juju/state"
 )
 
+// PreUpgradeStepsFunc is the function type of PreUpgradeSteps. This may be
+// used to provide an alternative to PreUpgradeSteps to the upgrade steps
+// worker.
+type PreUpgradeStepsFunc func(_ *state.State, _ agent.Config, isController, isMaster bool) error
+
 // PreUpgradeSteps runs various checks and prepares for performing an upgrade.
 // If any check fails, an error is returned which aborts the upgrade.
 func PreUpgradeSteps(st *state.State, agentConf agent.Config, isController, isMaster bool) error {

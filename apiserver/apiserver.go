@@ -6,8 +6,11 @@ package apiserver
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"io"
+	"io/ioutil"
 	"net"
 	"net/http"
+	"path/filepath"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -15,6 +18,7 @@ import (
 	"github.com/bmizerany/pat"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/pubsub"
 	"github.com/juju/utils"
 	"github.com/juju/utils/clock"
 	"golang.org/x/crypto/acme"
@@ -58,11 +62,13 @@ type Server struct {
 	modelUUID         string
 	authCtxt          *authContext
 	lastConnectionID  uint64
+	centralHub        *pubsub.StructuredHub
 	newObserver       observer.ObserverFactory
 	connCount         int64
 	certChanged       <-chan params.StateServingInfo
 	tlsConfig         *tls.Config
 	allowModelAccess  bool
+	logSinkWriter     io.WriteCloser
 
 	// mu guards the fields below it.
 	mu sync.Mutex
@@ -89,6 +95,7 @@ type ServerConfig struct {
 	DataDir     string
 	LogDir      string
 	Validator   LoginValidator
+	Hub         *pubsub.StructuredHub
 	CertChanged <-chan params.StateServingInfo
 
 	// AutocertDNSName holds the DNS name for which
@@ -116,6 +123,9 @@ type ServerConfig struct {
 }
 
 func (c *ServerConfig) Validate() error {
+	if c.Hub == nil {
+		return errors.NotValidf("missing Hub")
+	}
 	if c.Clock == nil {
 		return errors.NotValidf("missing Clock")
 	}
@@ -178,6 +188,7 @@ func newServer(s *state.State, lis net.Listener, cfg ServerConfig) (_ *Server, e
 		adminAPIFactories: map[int]adminAPIFactory{
 			3: newAdminAPIV3,
 		},
+		centralHub:       cfg.Hub,
 		certChanged:      cfg.CertChanged,
 		allowModelAccess: cfg.AllowModelAccess,
 	}
@@ -192,6 +203,13 @@ func newServer(s *state.State, lis net.Listener, cfg ServerConfig) (_ *Server, e
 	if err := srv.updateCertificate(cfg.Cert, cfg.Key); err != nil {
 		return nil, errors.Annotatef(err, "cannot set initial certificate")
 	}
+
+	logSinkWriter, err := newLogSinkWriter(filepath.Join(srv.logDir, "logsink.log"))
+	if err != nil {
+		return nil, errors.Annotate(err, "creating logsink writer")
+	}
+	srv.logSinkWriter = logSinkWriter
+
 	go srv.run()
 	return srv, nil
 }
@@ -277,6 +295,7 @@ func (srv *Server) run() {
 		srv.tomb.Done()
 		srv.statePool.Close()
 		srv.state.Close()
+		srv.logSinkWriter.Close()
 	}()
 
 	srv.wg.Add(1)
@@ -355,26 +374,73 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 	strictCtxt.controllerModelOnly = true
 
 	mainAPIHandler := srv.trackRequests(http.HandlerFunc(srv.apiHandler))
-	logSinkHandler := srv.trackRequests(newLogSinkHandler(httpCtxt, srv.logDir))
 	logStreamHandler := srv.trackRequests(newLogStreamEndpointHandler(strictCtxt))
 	debugLogHandler := srv.trackRequests(newDebugLogDBHandler(httpCtxt))
+	pubsubHandler := srv.trackRequests(newPubSubHandler(httpCtxt, srv.centralHub))
 
-	add("/model/:modeluuid/logsink", logSinkHandler)
+	// This handler is model specific even though it only ever makes sense
+	// for a controller because the API caller that is handed to the worker
+	// that is forwarding the messages between controllers is bound to the
+	// /model/:modeluuid namespace.
+	add("/model/:modeluuid/pubsub", pubsubHandler)
 	add("/model/:modeluuid/logstream", logStreamHandler)
 	add("/model/:modeluuid/log", debugLogHandler)
 
-	charmsHandler := &charmsHandler{
-		ctxt:    httpCtxt,
-		dataDir: srv.dataDir,
+	logSinkHandler := newLogSinkHandler(httpCtxt, srv.logSinkWriter, newAgentLoggingStrategy)
+	add("/model/:modeluuid/logsink", srv.trackRequests(logSinkHandler))
+
+	// We don't need to save the migrated logs to a logfile as well as to the DB.
+	logTransferHandler := newLogSinkHandler(httpCtxt, ioutil.Discard, newMigrationLoggingStrategy)
+	add("/migrate/logtransfer", srv.trackRequests(logTransferHandler))
+
+	modelRestHandler := &modelRestHandler{
+		ctxt:          httpCtxt,
+		dataDir:       srv.dataDir,
+		stateAuthFunc: httpCtxt.stateForRequestAuthenticatedUser,
+	}
+	modelRestServer := &RestHTTPHandler{
+		GetHandler: modelRestHandler.ServeGet,
+	}
+	add("/model/:modeluuid/rest/1.0/:entity/:name/:attribute", modelRestServer)
+
+	modelCharmsHandler := &charmsHandler{
+		ctxt:          httpCtxt,
+		dataDir:       srv.dataDir,
+		stateAuthFunc: httpCtxt.stateForRequestAuthenticatedUser,
 	}
 	charmsServer := &CharmsHTTPHandler{
-		PostHandler: charmsHandler.ServePost,
-		GetHandler:  charmsHandler.ServeGet,
+		PostHandler: modelCharmsHandler.ServePost,
+		GetHandler:  modelCharmsHandler.ServeGet,
 	}
 	add("/model/:modeluuid/charms", charmsServer)
 	add("/model/:modeluuid/tools",
 		&toolsUploadHandler{
-			ctxt: httpCtxt,
+			ctxt:          httpCtxt,
+			stateAuthFunc: httpCtxt.stateForRequestAuthenticatedUser,
+		},
+	)
+
+	migrateCharmsHandler := &charmsHandler{
+		ctxt:          httpCtxt,
+		dataDir:       srv.dataDir,
+		stateAuthFunc: httpCtxt.stateForMigrationImporting,
+	}
+	add("/migrate/charms",
+		&CharmsHTTPHandler{
+			PostHandler: migrateCharmsHandler.ServePost,
+			GetHandler:  migrateCharmsHandler.ServeUnsupported,
+		},
+	)
+	add("/migrate/tools",
+		&toolsUploadHandler{
+			ctxt:          httpCtxt,
+			stateAuthFunc: httpCtxt.stateForMigrationImporting,
+		},
+	)
+	add("/migrate/resources",
+		&resourceUploadHandler{
+			ctxt:          httpCtxt,
+			stateAuthFunc: httpCtxt.stateForMigrationImporting,
 		},
 	)
 	add("/model/:modeluuid/tools/:version",
@@ -403,7 +469,8 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 	add("/charms", charmsServer)
 	add("/tools",
 		&toolsUploadHandler{
-			ctxt: httpCtxt,
+			ctxt:          httpCtxt,
+			stateAuthFunc: httpCtxt.stateForRequestAuthenticatedUser,
 		},
 	)
 	add("/tools/:version",
@@ -465,27 +532,14 @@ func (srv *Server) newHandlerArgs(spec apihttp.HandlerConstraints) apihttp.NewHa
 		strictValidation:    spec.StrictValidation,
 		controllerModelOnly: spec.ControllerModelOnly,
 	}
-
-	var args apihttp.NewHandlerArgs
-	switch spec.AuthKind {
-	case names.UserTagKind:
-		args.Connect = ctxt.stateForRequestAuthenticatedUser
-	case names.UnitTagKind:
-		args.Connect = ctxt.stateForRequestAuthenticatedAgent
-	case "":
-		logger.Tracef(`no access level specified; proceeding with "unauthenticated"`)
-		args.Connect = func(req *http.Request) (*state.State, state.Entity, error) {
-			st, err := ctxt.stateForRequestUnauthenticated(req)
-			return st, nil, err
-		}
-	default:
-		logger.Infof(`unrecognized access level %q; proceeding with "unauthenticated"`, spec.AuthKind)
-		args.Connect = func(req *http.Request) (*state.State, state.Entity, error) {
-			st, err := ctxt.stateForRequestUnauthenticated(req)
-			return st, nil, err
-		}
+	return apihttp.NewHandlerArgs{
+		Connect: func(req *http.Request) (*state.State, state.Entity, error) {
+			return ctxt.stateForRequestAuthenticatedTag(req, spec.AuthKinds...)
+		},
+		Release: func(st *state.State) error {
+			return ctxt.release(st)
+		},
 	}
-	return args
 }
 
 // trackRequests wraps a http.Handler, incrementing and decrementing
@@ -580,7 +634,7 @@ func (srv *Server) serveConn(wsConn *websocket.Conn, modelUUID string, apiObserv
 		defer func() {
 			err := srv.statePool.Release(resolvedModelUUID)
 			if err != nil {
-				logger.Errorf("error releasing %v back into the state pool:", err)
+				logger.Errorf("error releasing %v back into the state pool: %v", resolvedModelUUID, err)
 			}
 		}()
 		h, err = newAPIHandler(srv, st, conn, modelUUID, host)
@@ -695,7 +749,7 @@ func serverError(err error) error {
 }
 
 func (srv *Server) processModelRemovals() error {
-	w := srv.state.WatchModels()
+	w := srv.state.WatchModelLives()
 	defer w.Stop()
 	for {
 		select {

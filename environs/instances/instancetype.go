@@ -26,6 +26,21 @@ type InstanceType struct {
 	Deprecated bool
 }
 
+// InstanceTypesWithCostMetadata holds an array of InstanceType and metadata
+// about their cost.
+type InstanceTypesWithCostMetadata struct {
+	// InstanceTypes holds the array of InstanceTypes affected by this cost scheme.
+	InstanceTypes []InstanceType
+	// CostUnit holds the unit in which the InstanceType.Cost is expressed.
+	CostUnit string
+	// CostCurrency holds the currency in which InstanceType.Cost is expressed.
+	CostCurrency string
+	// CostDivisor indicates a number that must be applied to InstanceType.Cost to obtain
+	// a number that is in CostUnit.
+	// If 0 it means that InstanceType.Cost is already expressed in CostUnit.
+	CostDivisor uint64
+}
+
 func CpuPower(power uint64) *uint64 {
 	return &power
 }

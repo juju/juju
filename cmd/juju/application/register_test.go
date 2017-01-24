@@ -34,7 +34,13 @@ type registrationSuite struct {
 func (s *registrationSuite) SetUpTest(c *gc.C) {
 	s.CleanupSuite.SetUpTest(c)
 	s.stub = &testing.Stub{}
-	s.handler = &testMetricsRegistrationHandler{Stub: s.stub}
+	s.handler = &testMetricsRegistrationHandler{
+		Stub: s.stub,
+		availablePlans: []availablePlanURL{
+			{URL: "thisplan"},
+			{URL: "thisotherplan"},
+		},
+	}
 	s.server = httptest.NewServer(s.handler)
 	s.register = &RegisterMeteredCharm{
 		Plan:           "someplan",
@@ -220,6 +226,46 @@ func (s *registrationSuite) TestMeteredCharmInvalidAllocation(c *gc.C) {
 	err := s.register.RunPre(&mockMeteredDeployAPI{Stub: s.stub}, client, s.ctx, d)
 	c.Assert(err, gc.ErrorMatches, `invalid allocation, expecting <budget>:<limit>`)
 	s.stub.CheckNoCalls(c)
+}
+
+func (s *registrationSuite) TestMeteredCharmDefaultBudgetAllocation(c *gc.C) {
+	client := httpbakery.NewClient()
+	d := DeploymentInfo{
+		CharmID: charmstore.CharmID{
+			URL: charm.MustParseURL("cs:quantal/metered-1"),
+		},
+		ApplicationName: "application name",
+		ModelUUID:       "model uuid",
+		CharmInfo: &apicharms.CharmInfo{
+			Metrics: &charm.Metrics{
+				Plan: &charm.Plan{Required: true},
+			},
+		},
+	}
+	s.register = &RegisterMeteredCharm{
+		Plan:           "someplan",
+		RegisterURL:    s.server.URL,
+		AllocationSpec: ":20",
+	}
+
+	err := s.register.RunPre(&mockMeteredDeployAPI{Stub: s.stub}, client, s.ctx, d)
+	c.Assert(err, jc.ErrorIsNil)
+	s.stub.CheckCalls(c, []testing.StubCall{{
+		FuncName: "IsMetered",
+		Args:     []interface{}{"cs:quantal/metered-1"},
+	}, {
+		FuncName: "Authorize",
+		Args: []interface{}{metricRegistrationPost{
+			ModelUUID:       "model uuid",
+			CharmURL:        "cs:quantal/metered-1",
+			ApplicationName: "application name",
+			PlanURL:         "someplan",
+			Budget:          "",
+			Limit:           "20",
+		},
+		},
+	},
+	})
 }
 
 func (s *registrationSuite) TestMeteredCharmDeployError(c *gc.C) {
@@ -417,6 +463,37 @@ func (s *registrationSuite) TestMeteredCharmNoDefaultPlan(c *gc.C) {
 	}})
 }
 
+func (s *registrationSuite) TestMeteredCharmNoAvailablePlan(c *gc.C) {
+	s.stub.SetErrors(nil, errors.NotFoundf("default plan"))
+	s.handler.availablePlans = []availablePlanURL{}
+	s.register = &RegisterMeteredCharm{
+		AllocationSpec: "personal:100",
+		RegisterURL:    s.server.URL,
+		QueryURL:       s.server.URL}
+	client := httpbakery.NewClient()
+	d := DeploymentInfo{
+		CharmID: charmstore.CharmID{
+			URL: charm.MustParseURL("cs:quantal/metered-1"),
+		},
+		ApplicationName: "application name",
+		ModelUUID:       "model uuid",
+		CharmInfo: &apicharms.CharmInfo{
+			Metrics: &charm.Metrics{
+				Plan: &charm.Plan{Required: true},
+			},
+		},
+	}
+	err := s.register.RunPre(&mockMeteredDeployAPI{Stub: s.stub}, client, s.ctx, d)
+	c.Assert(err, gc.ErrorMatches, `no plans available for cs:quantal/metered-1.`)
+	s.stub.CheckCalls(c, []testing.StubCall{{
+		"IsMetered", []interface{}{"cs:quantal/metered-1"},
+	}, {
+		"DefaultPlan", []interface{}{"cs:quantal/metered-1"},
+	}, {
+		"ListPlans", []interface{}{"cs:quantal/metered-1"},
+	}})
+}
+
 func (s *registrationSuite) TestMeteredCharmFailToQueryDefaultCharm(c *gc.C) {
 	s.stub.SetErrors(nil, errors.New("something failed"))
 	s.register = &RegisterMeteredCharm{
@@ -587,8 +664,13 @@ func (s *registrationSuite) TestPlanArgumentPlanRequiredInteraction(c *gc.C) {
 	}
 }
 
+type availablePlanURL struct {
+	URL string `json:"url"`
+}
+
 type testMetricsRegistrationHandler struct {
 	*testing.Stub
+	availablePlans []availablePlanURL
 }
 
 type respErr struct {
@@ -648,13 +730,7 @@ func (c *testMetricsRegistrationHandler) ServeHTTP(w http.ResponseWriter, req *h
 			http.Error(w, rErr.Error(), http.StatusInternalServerError)
 			return
 		}
-		result := []struct {
-			URL string `json:"url"`
-		}{
-			{"thisplan"},
-			{"thisotherplan"},
-		}
-		err := json.NewEncoder(w).Encode(result)
+		err := json.NewEncoder(w).Encode(c.availablePlans)
 		if err != nil {
 			panic(err)
 		}

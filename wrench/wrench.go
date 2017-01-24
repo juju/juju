@@ -21,7 +21,7 @@ var (
 	enabledMu sync.Mutex
 	enabled   = true
 
-	dataDir   = paths.MustSucceed(paths.DataDir(series.HostSeries()))
+	dataDir   = paths.MustSucceed(paths.DataDir(series.MustHostSeries()))
 	wrenchDir = filepath.Join(dataDir, "wrench")
 	jujuUid   = os.Getuid()
 )

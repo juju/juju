@@ -358,7 +358,11 @@ func (s *SvcManager) Delete(name string) error {
 func (s *SvcManager) Create(name string, conf common.Conf) error {
 	serviceStartName := "LocalSystem"
 	var passwd string
-	if !series.IsWindowsNano(series.HostSeries()) {
+	hostSeries, err := series.HostSeries()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if !series.IsWindowsNano(hostSeries) {
 		password, err := getPassword()
 		if err != nil {
 			return errors.Trace(err)

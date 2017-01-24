@@ -40,6 +40,12 @@ func barAuth() (common.AuthFunc, error) {
 	}, nil
 }
 
+func bazAuth() (common.AuthFunc, error) {
+	return func(tag names.Tag) bool {
+		return tag == names.NewUserTag("baz")
+	}, nil
+}
+
 var authEitherTests = []struct {
 	about  string
 	a, b   func() (common.AuthFunc, error)
@@ -99,20 +105,37 @@ var authEitherTests = []struct {
 	expect: false,
 }}
 
-func (s *commonSuite) TestAuthEither(c *gc.C) {
+func (s *commonSuite) TestAuthAnyCoversEither(c *gc.C) {
 	for i, test := range authEitherTests {
 		c.Logf("test %d: %s", i, test.about)
-		authEither := common.AuthEither(test.a, test.b)
-		either, err := authEither()
+		authAny := common.AuthAny(test.a, test.b)
+		any, err := authAny()
 		if test.err == "" {
 			c.Assert(err, jc.ErrorIsNil)
-			ok := either(test.tag)
+			ok := any(test.tag)
 			c.Assert(ok, gc.Equals, test.expect)
 		} else {
 			c.Assert(err, gc.ErrorMatches, test.err)
-			c.Assert(either, gc.IsNil)
+			c.Assert(any, gc.IsNil)
 		}
 	}
+}
+
+func (s *commonSuite) TestAuthAnyAlwaysFalseWithNoFuncs(c *gc.C) {
+	getAuth := common.AuthAny()
+	auth, err := getAuth()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(auth(names.NewUserTag("foo")), jc.IsFalse)
+}
+
+func (s *commonSuite) TestAuthAnyWith3(c *gc.C) {
+	getAuth := common.AuthAny(fooAuth, barAuth, bazAuth)
+	auth, err := getAuth()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(auth(names.NewUserTag("foo")), jc.IsTrue)
+	c.Check(auth(names.NewUserTag("bar")), jc.IsTrue)
+	c.Check(auth(names.NewUserTag("baz")), jc.IsTrue)
+	c.Check(auth(names.NewUserTag("quux")), jc.IsFalse)
 }
 
 func u(unit string) names.Tag                 { return names.NewUnitTag(unit) }

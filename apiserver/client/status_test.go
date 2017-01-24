@@ -48,6 +48,7 @@ func (s *statusSuite) TestFullStatus(c *gc.C) {
 	c.Check(status.Model.Name, gc.Equals, "controller")
 	c.Check(status.Model.CloudTag, gc.Equals, "cloud-dummy")
 	c.Check(status.Applications, gc.HasLen, 0)
+	c.Check(status.RemoteApplications, gc.HasLen, 0)
 	c.Check(status.Machines, gc.HasLen, 1)
 	resultMachine, ok := status.Machines[machine.Id()]
 	if !ok {
@@ -320,7 +321,10 @@ func (s *statusUnitTestSuite) TestMigrationInProgress(c *gc.C) {
 	checkMigStatus := func(expected string) {
 		status, err := client.Status(nil)
 		c.Assert(err, jc.ErrorIsNil)
-		c.Check(status.Model.Migration, gc.Equals, expected)
+		if expected != "" {
+			expected = "migrating: " + expected
+		}
+		c.Check(status.Model.ModelStatus.Info, gc.Equals, expected)
 	}
 
 	// Migration status should be empty when no migration is happening.

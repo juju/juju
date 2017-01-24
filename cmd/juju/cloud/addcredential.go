@@ -7,16 +7,14 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"os"
-	"strings"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"golang.org/x/crypto/ssh/terminal"
 
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/common"
+	"github.com/juju/juju/cmd/juju/interact"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/jujuclient"
 )
@@ -177,14 +175,13 @@ func (c *addCredentialCommand) existingCredentialsForCloud() (*jujucloud.CloudCr
 }
 
 func (c *addCredentialCommand) interactiveAddCredential(ctxt *cmd.Context, schemas map[jujucloud.AuthType]jujucloud.CredentialSchema) error {
+	errout := interact.NewErrWriter(ctxt.Stdout)
+	pollster := interact.New(ctxt.Stdin, ctxt.Stdout, errout)
+
 	var err error
-	credentialName, err := c.promptCredentialName(ctxt.Stderr, ctxt.Stdin)
+	credentialName, err := pollster.Enter("credential name")
 	if err != nil {
 		return errors.Trace(err)
-	}
-	if credentialName == "" {
-		fmt.Fprintln(ctxt.Stderr, "Credentials entry aborted.")
-		return nil
 	}
 
 	// Prompt to overwrite if needed.
@@ -193,7 +190,8 @@ func (c *addCredentialCommand) interactiveAddCredential(ctxt *cmd.Context, schem
 		return errors.Trace(err)
 	}
 	if _, ok := existingCredentials.AuthCredentials[credentialName]; ok {
-		overwrite, err := c.promptReplace(ctxt.Stderr, ctxt.Stdin)
+		fmt.Fprint(ctxt.Stdout, "A credential with that name already exists.\n")
+		overwrite, err := pollster.YN("Replace the existing credential", false)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -201,8 +199,7 @@ func (c *addCredentialCommand) interactiveAddCredential(ctxt *cmd.Context, schem
 			return nil
 		}
 	}
-
-	authType, err := c.promptAuthType(ctxt.Stderr, ctxt.Stdin, c.cloud.AuthTypes)
+	authType, err := c.promptAuthType(pollster, c.cloud.AuthTypes, ctxt.Stdout)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -211,7 +208,7 @@ func (c *addCredentialCommand) interactiveAddCredential(ctxt *cmd.Context, schem
 		return errors.NotSupportedf("auth type %q for cloud %q", authType, c.CloudName)
 	}
 
-	attrs, err := c.promptCredentialAttributes(ctxt, ctxt.Stderr, ctxt.Stdin, authType, schema)
+	attrs, err := c.promptCredentialAttributes(pollster, authType, schema)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -256,132 +253,52 @@ func (c *addCredentialCommand) interactiveAddCredential(ctxt *cmd.Context, schem
 	return nil
 }
 
-func (c *addCredentialCommand) promptCredentialName(out io.Writer, in io.Reader) (string, error) {
-	fmt.Fprint(out, "Enter credential name: ")
-	input, err := readLine(in)
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	return strings.TrimSpace(input), nil
-}
-
-func (c *addCredentialCommand) promptReplace(out io.Writer, in io.Reader) (bool, error) {
-	fmt.Fprint(out, `
-A credential with that name already exists.
-
-Replace the existing credential? (y/N): `[1:])
-
-	input, err := readLine(in)
-	if err != nil {
-		return false, errors.Trace(err)
-	}
-	return strings.ToLower(strings.TrimSpace(input)) == "y", nil
-}
-
-func (c *addCredentialCommand) promptAuthType(out io.Writer, in io.Reader, authTypes []jujucloud.AuthType) (jujucloud.AuthType, error) {
+func (c *addCredentialCommand) promptAuthType(p *interact.Pollster, authTypes []jujucloud.AuthType, out io.Writer) (jujucloud.AuthType, error) {
 	if len(authTypes) == 1 {
-		fmt.Fprintf(out, "Using auth-type %q.\n", authTypes[0])
+		fmt.Fprintf(out, "Using auth-type %q.\n\n", authTypes[0])
 		return authTypes[0], nil
 	}
 	authType := ""
 	choices := make([]string, len(authTypes))
 	for i, a := range authTypes {
 		choices[i] = string(a)
-		if i == 0 {
-			choices[i] += "*"
-		}
 	}
-	for {
-		fmt.Fprintf(out, "Auth Types\n%s\n\nSelect auth-type: ",
-			strings.Join(choices, "\n"))
-		input, err := readLine(in)
-		if err != nil {
-			return "", errors.Trace(err)
-		}
-		authType = strings.ToLower(strings.TrimSpace(input))
-		if authType == "" {
-			authType = string(authTypes[0])
-		}
-		isValid := false
-		for _, a := range authTypes {
-			if string(a) == authType {
-				isValid = true
-				break
-			}
-		}
-		if isValid {
-			break
-		}
-		fmt.Fprintf(out, "Invalid auth type %q.\n", authType)
+	authType, err := p.Select(interact.List{
+		Singular: "auth type",
+		Plural:   "auth types",
+		Options:  choices,
+		Default:  choices[0],
+	})
+	if err != nil {
+		return "", errors.Trace(err)
 	}
 	return jujucloud.AuthType(authType), nil
 }
 
-func (c *addCredentialCommand) promptCredentialAttributes(
-	ctxt *cmd.Context, out io.Writer, in io.Reader, authType jujucloud.AuthType, schema jujucloud.CredentialSchema,
-) (map[string]string, error) {
+func (c *addCredentialCommand) promptCredentialAttributes(p *interact.Pollster, authType jujucloud.AuthType, schema jujucloud.CredentialSchema) (attributes map[string]string, err error) {
+	// Interactive add does not support adding multi-line values, which
+	// is what we typically get when the attribute can come from a file.
+	// For now we'll skip, and just get the user to enter the file path.
+	// TODO(wallyworld) - add support for multi-line entry
 
 	attrs := make(map[string]string)
 	for _, attr := range schema {
 		currentAttr := attr
 		value := ""
-		for {
-			var err error
-			// Interactive add does not support adding multi-line values, which
-			// is what we typically get when the attribute can come from a file.
-			// For now we'll skip, and just get the user to enter the file path.
-			// TODO(wallyworld) - add support for multi-line entry
-			if currentAttr.FileAttr == "" {
-				value, err = c.promptFieldValue(out, in, currentAttr)
-				if err != nil {
-					return nil, err
-				}
-			}
-			// Validate the entered value matches any options.
-			// If the user just hits Enter, the first option is used.
-			if len(currentAttr.Options) > 0 {
-				isValid := false
-				for _, choice := range currentAttr.Options {
-					if choice == value || value == "" {
-						isValid = true
-						break
-					}
-				}
-				if !isValid {
-					fmt.Fprintf(out, "Invalid value %q.\n", value)
-					continue
-				}
-				if value == "" && !currentAttr.Optional {
-					value = fmt.Sprintf("%v", currentAttr.Options[0])
-				}
-			}
+		var err error
 
-			// If the entered value is empty and the attribute can come
-			// from a file, prompt for that.
-			if value == "" && currentAttr.FileAttr != "" {
-				fileAttr := currentAttr
-				fileAttr.Name = currentAttr.FileAttr
-				fileAttr.Hidden = false
-				fileAttr.FilePath = true
-				currentAttr = fileAttr
-				value, err = c.promptFieldValue(out, in, currentAttr)
-				if err != nil {
-					return nil, err
-				}
+		if currentAttr.FileAttr == "" {
+			value, err = c.promptFieldValue(p, currentAttr)
+			if err != nil {
+				return nil, err
 			}
-
-			// Validate any file attribute is a valid file.
-			if value != "" && currentAttr.FilePath {
-				value, err = jujucloud.ValidateFileAttrValue(value)
-				if err != nil {
-					fmt.Fprintf(out, "Invalid file attribute %q.\n", err.Error())
-					continue
-				}
-			}
-
-			// Stay in the loop if we need a mandatory value.
-			if value != "" || currentAttr.Optional {
-				break
+		} else {
+			currentAttr.Name = currentAttr.FileAttr
+			currentAttr.Hidden = false
+			currentAttr.FilePath = true
+			value, err = c.promptFieldValue(p, currentAttr)
+			if err != nil {
+				return nil, err
 			}
 		}
 		if value != "" {
@@ -392,47 +309,50 @@ func (c *addCredentialCommand) promptCredentialAttributes(
 }
 
 func (c *addCredentialCommand) promptFieldValue(
-	out io.Writer, in io.Reader, attr jujucloud.NamedCredentialAttr,
+	p *interact.Pollster, attr jujucloud.NamedCredentialAttr,
 ) (string, error) {
-
 	name := attr.Name
-	// Formulate the prompt for the list of valid options.
-	optionsPrompt := ""
+
 	if len(attr.Options) > 0 {
 		options := make([]string, len(attr.Options))
 		for i, opt := range attr.Options {
 			options[i] = fmt.Sprintf("%v", opt)
-			if i == 0 {
-				options[i] += "*"
-			}
 		}
-		optionsPrompt = fmt.Sprintf(" [%v]", strings.Join(options, ","))
+		return p.Select(interact.List{
+			Singular: name,
+			Plural:   name,
+			Options:  options,
+			Default:  options[0],
+		})
 	}
 
-	// Prompt for and accept input for field value.
-	fmt.Fprintf(out, "Enter %s%s: ", name, optionsPrompt)
-	var input string
-	var err error
-	if attr.Hidden {
-		input, err = c.readHiddenField(in)
-		fmt.Fprintln(out)
-	} else {
-		input, err = readLine(in)
+	// We assume that Hidden and FilePath are mutually exclusive here.
+	switch {
+	case attr.Hidden:
+		return p.EnterPassword(name)
+	case attr.FilePath:
+		return enterFile(name, p)
+	case attr.Optional:
+		return p.EnterOptional(name)
+	default:
+		return p.Enter(name)
 	}
+}
+
+func enterFile(name string, p *interact.Pollster) (string, error) {
+	input, err := p.EnterVerify(name, func(s string) (ok bool, msg string, err error) {
+		_, err = jujucloud.ValidateFileAttrValue(s)
+		if err != nil {
+			return false, err.Error(), nil
+		}
+		return true, "", nil
+	})
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	value := strings.TrimSpace(input)
-	return value, nil
-}
+	// We have to run this twice, since it has glommed together
+	// validation and normalization, and Pollster doesn't deal with the
+	// verification function modifying the value.
+	return jujucloud.ValidateFileAttrValue(input)
 
-func (c *addCredentialCommand) readHiddenField(in io.Reader) (string, error) {
-	if f, ok := in.(*os.File); ok && terminal.IsTerminal(int(f.Fd())) {
-		value, err := terminal.ReadPassword(int(f.Fd()))
-		if err != nil {
-			return "", errors.Trace(err)
-		}
-		return string(value), nil
-	}
-	return readLine(in)
 }

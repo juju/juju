@@ -176,8 +176,17 @@ func (a *admin) login(req params.LoginRequest, loginVersion int) (params.LoginRe
 		return fail, errors.Trace(err)
 	}
 
-	if isUser && model.MigrationMode() == state.MigrationModeImporting {
-		apiRoot = restrictAll(apiRoot, errors.New("migration in progress, model is importing"))
+	if isUser {
+		switch model.MigrationMode() {
+		case state.MigrationModeImporting:
+			// The user is not able to access a model that is currently being
+			// imported until the model has been activated.
+			apiRoot = restrictAll(apiRoot, errors.New("migration in progress, model is importing"))
+		case state.MigrationModeExporting:
+			// The user is not allowed to change anything in a model that is
+			// currently being moved to another controller.
+			apiRoot = restrictRoot(apiRoot, migrationClientMethodsOnly)
+		}
 	}
 
 	loginResult := params.LoginResult{

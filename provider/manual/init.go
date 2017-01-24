@@ -10,6 +10,6 @@ const (
 )
 
 func init() {
-	p := manualProvider{}
+	p := ManualProvider{}
 	environs.RegisterProvider(providerType, p, "null")
 }

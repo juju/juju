@@ -12,5 +12,5 @@ const (
 )
 
 func init() {
-	environs.RegisterProvider(providerType, maasEnvironProvider{})
+	environs.RegisterProvider(providerType, MaasEnvironProvider{GetCapabilities: getCapabilities})
 }

@@ -4,31 +4,46 @@
 package server
 
 import (
+	"fmt"
+	"io"
 	"net/http"
 
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/resource/api"
 )
 
-// LegacyHTTPHandler is the HTTP handler for the resources endpoint. We
-// use it rather having a separate handler for each HTTP method since
+// Closer is a function that should be called to indicate that the
+// datastore is finished with and can be closed.
+type Closer func() error
+
+// HTTPHandler is the HTTP handler for the resources endpoint. We use
+// it rather having a separate handler for each HTTP method since
 // registered API handlers must handle *all* HTTP methods currently.
-type LegacyHTTPHandler struct {
+type HTTPHandler struct {
 	// Connect opens a connection to state resources.
-	Connect func(*http.Request) (DataStore, names.Tag, error)
+	Connect func(*http.Request) (DataStore, Closer, names.Tag, error)
+
+	// HandleDownload provides the download functionality.
+	HandleDownload func(st DataStore, req *http.Request) (io.ReadCloser, int64, error)
 
 	// HandleUpload provides the upload functionality.
 	HandleUpload func(username string, st DataStore, req *http.Request) (*api.UploadResult, error)
 }
 
-// TODO(ericsnow) Can username be extracted from the request?
-
-// NewLegacyHTTPHandler creates a new http.Handler for the resources endpoint.
-func NewLegacyHTTPHandler(connect func(*http.Request) (DataStore, names.Tag, error)) *LegacyHTTPHandler {
-	return &LegacyHTTPHandler{
+// NewHTTPHandler creates a new http.Handler for the application
+// resources endpoint.
+func NewHTTPHandler(connect func(*http.Request) (DataStore, Closer, names.Tag, error)) *HTTPHandler {
+	return &HTTPHandler{
 		Connect: connect,
+		HandleDownload: func(st DataStore, req *http.Request) (io.ReadCloser, int64, error) {
+			dh := DownloadHandler{
+				Store: st,
+			}
+			return dh.HandleRequest(req)
+		},
 		HandleUpload: func(username string, st DataStore, req *http.Request) (*api.UploadResult, error) {
 			uh := UploadHandler{
 				Username: username,
@@ -40,35 +55,46 @@ func NewLegacyHTTPHandler(connect func(*http.Request) (DataStore, names.Tag, err
 }
 
 // ServeHTTP implements http.Handler.
-func (h *LegacyHTTPHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
-	st, tag, err := h.Connect(req)
+func (h *HTTPHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
+	st, closer, tag, err := h.Connect(req)
 	if err != nil {
 		api.SendHTTPError(resp, err)
 		return
 	}
+	defer closer()
 
-	var username string
-	switch tag := tag.(type) {
-	case *names.UserTag:
-		username = tag.Name()
-	default:
-		// TODO(ericsnow) Fail?
-		username = tag.Id()
-	}
-
-	// We do this *after* authorization, etc. (in h.Connect) in order
-	// to prioritize errors that may originate there.
 	switch req.Method {
+	case "GET":
+		reader, size, err := h.HandleDownload(st, req)
+		if err != nil {
+			api.SendHTTPError(resp, err)
+			return
+		}
+		defer reader.Close()
+		header := resp.Header()
+		header.Set("Content-Type", params.ContentTypeRaw)
+		header.Set("Content-Length", fmt.Sprint(size))
+		resp.WriteHeader(http.StatusOK)
+		if _, err := io.Copy(resp, reader); err != nil {
+			logger.Errorf("resource download failed: %v", err)
+		}
 	case "PUT":
-		logger.Infof("handling resource upload request")
-		response, err := h.HandleUpload(username, st, req)
+		response, err := h.HandleUpload(tagToUsername(tag), st, req)
 		if err != nil {
 			api.SendHTTPError(resp, err)
 			return
 		}
 		api.SendHTTPStatusAndJSON(resp, http.StatusOK, &response)
-		logger.Infof("resource upload request successful")
 	default:
 		api.SendHTTPError(resp, errors.MethodNotAllowedf("unsupported method: %q", req.Method))
+	}
+}
+
+func tagToUsername(tag names.Tag) string {
+	switch tag := tag.(type) {
+	case names.UserTag:
+		return tag.Name()
+	default:
+		return ""
 	}
 }

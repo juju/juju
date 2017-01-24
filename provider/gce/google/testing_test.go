@@ -442,3 +442,20 @@ func (rc *fakeConn) InstanceDisks(project, zone, instanceId string) ([]*compute.
 	}
 	return rc.AttachedDisks, err
 }
+
+func (rc *fakeConn) ListMachineTypes(projectID, zone string) (*compute.MachineTypeList, error) {
+	call := fakeCall{
+		FuncName:  "ListMachineTypes",
+		ProjectID: projectID,
+		ZoneName:  zone,
+	}
+	rc.Calls = append(rc.Calls, call)
+	machineType := compute.MachineTypeList{
+		Items: []*compute.MachineType{
+			{Name: "type-1", MemoryMb: 1024},
+			{Name: "type-2", MemoryMb: 2048},
+		},
+	}
+	return &machineType, nil
+
+}

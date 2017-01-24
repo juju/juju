@@ -64,7 +64,7 @@ func (s *ShowServiceSuite) TestInfo(c *gc.C) {
 		Name:    "resources",
 		Aliases: []string{"list-resources"},
 		Args:    "application-or-unit",
-		Purpose: "show the resources for an application or unit",
+		Purpose: "show the resources for a service or unit",
 		Doc: `
 This command shows the resources required by and those in use by an existing
 application or unit in your model.  When run for an application, it will also show any
@@ -174,7 +174,7 @@ func (s *ShowServiceSuite) TestRun(c *gc.C) {
 	c.Check(stderr, gc.Equals, "")
 
 	c.Check(stdout, gc.Equals, `
-[Application]
+[Service]
 Resource  Supplied by  Revision
 openjdk   charmstore   7
 website   upload       -

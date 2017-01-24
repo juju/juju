@@ -21,20 +21,21 @@ type StatusParams struct {
 
 // FullStatus holds information about the status of a juju model.
 type FullStatus struct {
-	Model        ModelStatusInfo              `json:"model"`
-	Machines     map[string]MachineStatus     `json:"machines"`
-	Applications map[string]ApplicationStatus `json:"applications"`
-	Relations    []RelationStatus             `json:"relations"`
+	Model              ModelStatusInfo                    `json:"model"`
+	Machines           map[string]MachineStatus           `json:"machines"`
+	Applications       map[string]ApplicationStatus       `json:"applications"`
+	RemoteApplications map[string]RemoteApplicationStatus `json:"remote-applications"`
+	Relations          []RelationStatus                   `json:"relations"`
 }
 
 // ModelStatusInfo holds status information about the model itself.
 type ModelStatusInfo struct {
-	Name             string `json:"name"`
-	CloudTag         string `json:"cloud-tag"`
-	CloudRegion      string `json:"region,omitempty"`
-	Version          string `json:"version"`
-	AvailableVersion string `json:"available-version"`
-	Migration        string `json:"migration,omitempty"`
+	Name             string         `json:"name"`
+	CloudTag         string         `json:"cloud-tag"`
+	CloudRegion      string         `json:"region,omitempty"`
+	Version          string         `json:"version"`
+	AvailableVersion string         `json:"available-version"`
+	ModelStatus      DetailedStatus `json:"model-status"`
 }
 
 // MachineStatus holds status info about a machine.
@@ -62,6 +63,10 @@ type MachineStatus struct {
 	// machine.
 	Containers map[string]MachineStatus `json:"containers"`
 
+	// Constraints holds a string of space-separated key=value pairs for
+	// each constraint datum.
+	Constraints string `json:"constraints"`
+
 	// Hardware holds a string of space-separated key=value pairs of
 	// hardware specification datum.
 	Hardware string `json:"hardware"`
@@ -85,6 +90,17 @@ type ApplicationStatus struct {
 	MeterStatuses   map[string]MeterStatus `json:"meter-statuses"`
 	Status          DetailedStatus         `json:"status"`
 	WorkloadVersion string                 `json:"workload-version"`
+}
+
+// RemoteApplicationStatus holds status info about a remote application.
+type RemoteApplicationStatus struct {
+	Err             error               `json:"err,omitempty"`
+	ApplicationURL  string              `json:"application-url"`
+	ApplicationName string              `json:"application-name"`
+	Endpoints       []RemoteEndpoint    `json:"endpoints"`
+	Life            string              `json:"life"`
+	Relations       map[string][]string `json:"relations"`
+	Status          DetailedStatus      `json:"status"`
 }
 
 // MeterStatus represents the meter status of a unit.

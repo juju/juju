@@ -59,11 +59,20 @@ type ModelSessioner interface {
 	ModelUUID() string
 }
 
+// logIndexes defines the indexes we need on the log collection.
+var logIndexes = [][]string{
+	// This index needs to include _id because
+	// logTailer.processCollection uses _id to ensure log records with
+	// the same time have a consistent ordering.
+	{"e", "t", "_id"},
+	{"e", "n"},
+}
+
 // InitDbLogs sets up the indexes for the logs collection. It should
 // be called as state is opened. It is idempotent.
 func InitDbLogs(session *mgo.Session) error {
 	logsColl := session.DB(logsDB).C(logsC)
-	for _, key := range [][]string{{"e", "t"}, {"e", "n"}} {
+	for _, key := range logIndexes {
 		err := logsColl.EnsureIndex(mgo.Index{Key: key})
 		if err != nil {
 			return errors.Annotate(err, "cannot create index for logs collection")
@@ -192,6 +201,7 @@ func (logger *LastSentLogTracker) Get() (int64, int64, error) {
 // document includes the field names.
 // (alesstimec) It would be really nice if we could store Time as int64
 // for increased precision.
+// TODO: remove version from this structure: https://pad.lv/1643743
 type logDoc struct {
 	Id        bson.ObjectId `bson:"_id"`
 	Time      int64         `bson:"t"` // unix nano UTC
@@ -207,35 +217,26 @@ type logDoc struct {
 type DbLogger struct {
 	logsColl  *mgo.Collection
 	modelUUID string
-	entity    string
-	version   string
 }
 
-// NewDbLogger returns a DbLogger instance which is used to write logs
-// to the database.
-func NewDbLogger(st ModelSessioner, entity names.Tag, ver version.Number) *DbLogger {
+func NewDbLogger(st ModelSessioner) *DbLogger {
 	_, logsColl := initLogsSession(st)
 	return &DbLogger{
 		logsColl:  logsColl,
 		modelUUID: st.ModelUUID(),
-		entity:    entity.String(),
-		version:   ver.String(),
 	}
 }
 
 // Log writes a log message to the database.
-func (logger *DbLogger) Log(t time.Time, module string, location string, level loggo.Level, msg string) error {
+func (logger *DbLogger) Log(t time.Time, entity string, module string, location string, level loggo.Level, msg string) error {
 	// TODO(ericsnow) Use a controller-global int sequence for Id.
 
-	// UnixNano() returns the "absolute" (UTC) number of nanoseconds
-	// since the Unix "epoch".
 	unixEpochNanoUTC := t.UnixNano()
 	return logger.logsColl.Insert(&logDoc{
 		Id:        bson.NewObjectId(),
 		Time:      unixEpochNanoUTC,
 		ModelUUID: logger.modelUUID,
-		Entity:    logger.entity,
-		Version:   logger.version,
+		Entity:    entity,
 		Module:    module,
 		Location:  location,
 		Level:     int(level),
@@ -248,6 +249,42 @@ func (logger *DbLogger) Close() {
 	if logger.logsColl != nil {
 		logger.logsColl.Database.Session.Close()
 	}
+}
+
+// EntityDbLogger writes log records about one entity.
+type EntityDbLogger struct {
+	DbLogger
+	entity  string
+	version string
+}
+
+// NewEntityDbLogger returns an EntityDbLogger instance which is used
+// to write logs to the database.
+func NewEntityDbLogger(st ModelSessioner, entity names.Tag, ver version.Number) *EntityDbLogger {
+	dbLogger := NewDbLogger(st)
+	return &EntityDbLogger{
+		DbLogger: *dbLogger,
+		entity:   entity.String(),
+		version:  ver.String(),
+	}
+}
+
+// Log writes a log message to the database.
+func (logger *EntityDbLogger) Log(t time.Time, module string, location string, level loggo.Level, msg string) error {
+	// TODO(ericsnow) Use a controller-global int sequence for Id.
+
+	unixEpochNanoUTC := t.UnixNano()
+	return logger.logsColl.Insert(&logDoc{
+		Id:        bson.NewObjectId(),
+		Time:      unixEpochNanoUTC,
+		ModelUUID: logger.modelUUID,
+		Entity:    logger.entity,
+		Version:   logger.version,
+		Module:    module,
+		Location:  location,
+		Level:     int(level),
+		Message:   msg,
+	})
 }
 
 // LogTailer allows for retrieval of Juju's logs from MongoDB. It
@@ -429,14 +466,12 @@ func (t *logTailer) processCollection() error {
 	// and the tests only run one mongod process, including _id
 	// guarantees getting log messages in a predictable order.
 	//
-	// Important: it is critical that the sort on _id is done
-	// separately from the sort on {model, time}. Combining the sort
-	// fields means that MongoDB won't use the indexes that are in
-	// place, which risks hitting MongoDB's 32MB sort limit.  See
-	// https://pad.lv/1590605.
+	// Important: it is critical that the sort index includes _id,
+	// otherwise MongoDB won't use the index, which risks hitting
+	// MongoDB's 32MB sort limit.  See https://pad.lv/1590605.
 	//
 	// TODO(ericsnow) Sort only by _id once it is a sequential int.
-	iter := query.Sort("e", "t").Sort("_id").Iter()
+	iter := query.Sort("e", "t", "_id").Iter()
 	doc := new(logDoc)
 	for iter.Next(doc) {
 		rec, err := logDocToRecord(doc)
@@ -799,4 +834,18 @@ func getLogCountForEnv(coll *mgo.Collection, modelUUID string) (int, error) {
 		return -1, errors.Annotate(err, "failed to get log count")
 	}
 	return count, nil
+}
+
+func removeModelLogs(session *mgo.Session, modelUUID string) error {
+	logsDB := session.DB(logsDB)
+	logsColl := logsDB.C(logsC)
+	_, err := logsColl.RemoveAll(bson.M{"e": modelUUID})
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	// Also remove the tracked high-water times.
+	trackersColl := logsDB.C(forwardedC)
+	_, err = trackersColl.RemoveAll(bson.M{"model-uuid": modelUUID})
+	return errors.Trace(err)
 }

@@ -93,6 +93,8 @@ func (d *Delta) UnmarshalJSON(data []byte) error {
 		d.Entity = new(MachineInfo)
 	case "application":
 		d.Entity = new(ApplicationInfo)
+	case "remoteApplication":
+		d.Entity = new(RemoteApplicationInfo)
 	case "unit":
 		d.Entity = new(UnitInfo)
 	case "relation":
@@ -127,6 +129,7 @@ type MachineInfo struct {
 	AgentStatus              StatusInfo                        `json:"agent-status"`
 	InstanceStatus           StatusInfo                        `json:"instance-status"`
 	Life                     Life                              `json:"life"`
+	Config                   map[string]interface{}            `json:"config,omitempty"`
 	Series                   string                            `json:"series"`
 	SupportedContainers      []instance.ContainerType          `json:"supported-containers"`
 	SupportedContainersKnown bool                              `json:"supported-containers-known"`
@@ -191,6 +194,26 @@ type ApplicationInfo struct {
 func (i *ApplicationInfo) EntityId() EntityId {
 	return EntityId{
 		Kind:      "application",
+		ModelUUID: i.ModelUUID,
+		Id:        i.Name,
+	}
+}
+
+// RemoteApplicationInfo holds the information about a remote application that is
+// tracked by multiwatcherStore.
+type RemoteApplicationInfo struct {
+	ModelUUID      string     `json:"model-uuid"`
+	Name           string     `json:"name"`
+	ApplicationURL string     `json:"application-url"`
+	Life           Life       `json:"life"`
+	Status         StatusInfo `json:"status"`
+}
+
+// EntityId returns a unique identifier for a remote application across
+// environments.
+func (i *RemoteApplicationInfo) EntityId() EntityId {
+	return EntityId{
+		Kind:      "remoteApplication",
 		ModelUUID: i.ModelUUID,
 		Id:        i.Name,
 	}
@@ -394,11 +417,14 @@ const (
 // ModelInfo holds the information about an model that is
 // tracked by multiwatcherStore.
 type ModelInfo struct {
-	ModelUUID      string `json:"model-uuid"`
-	Name           string `json:"name"`
-	Life           Life   `json:"life"`
-	Owner          string `json:"owner"`
-	ControllerUUID string `json:"controller-uuid"`
+	ModelUUID      string                 `json:"model-uuid"`
+	Name           string                 `json:"name"`
+	Life           Life                   `json:"life"`
+	Owner          string                 `json:"owner"`
+	ControllerUUID string                 `json:"controller-uuid"`
+	Config         map[string]interface{} `json:"config,omitempty"`
+	Status         StatusInfo             `json:"status"`
+	Constraints    constraints.Value      `json:"constraints"`
 }
 
 // EntityId returns a unique identifier for an model.

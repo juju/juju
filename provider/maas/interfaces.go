@@ -43,6 +43,7 @@ const (
 	typePhysical maasInterfaceType = "physical"
 	typeVLAN     maasInterfaceType = "vlan"
 	typeBond     maasInterfaceType = "bond"
+	typeBridge   maasInterfaceType = "bridge"
 )
 
 type maasInterface struct {
@@ -139,6 +140,8 @@ func maasObjectNetworkInterfaces(maasObject *gomaasapi.MAASObject, subnetsMap ma
 			nicType = network.BondInterface
 		case typeVLAN:
 			nicType = network.VLAN_8021QInterface
+		case typeBridge:
+			nicType = network.BridgeInterface
 		}
 
 		nicInfo := network.InterfaceInfo{
@@ -238,6 +241,8 @@ func maas2NetworkInterfaces(instance *maas2Instance, subnetsMap map[string]netwo
 			nicType = network.BondInterface
 		case typeVLAN:
 			nicType = network.VLAN_8021QInterface
+		case typeBridge:
+			nicType = network.BridgeInterface
 		}
 
 		vlanTag := 0

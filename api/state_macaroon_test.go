@@ -4,11 +4,14 @@
 package api_test
 
 import (
+	"net/http"
 	"net/url"
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/macaroon-bakery.v1/httpbakery"
+	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/api"
 	apitesting "github.com/juju/juju/api/testing"
@@ -130,4 +133,58 @@ func (s *macaroonLoginSuite) TestConnectStreamFailedDischarge(c *gc.C) {
 	conn, err = client.ConnectStream("/log", logArgs)
 	c.Assert(err, gc.ErrorMatches, `cannot get discharge from "https://.*": third party refused discharge: cannot discharge: login denied by discharger`)
 	c.Assert(conn, gc.IsNil)
+}
+
+func (s *macaroonLoginSuite) TestConnectStreamWithDischargedMacaroons(c *gc.C) {
+	// If the connection was created with already-discharged macaroons
+	// (rather than acquiring them through the discharge dance), they
+	// wouldn't get attached to the websocket request.
+	// https://bugs.launchpad.net/juju/+bug/1650451
+	catcher := urlCatcher{}
+	s.PatchValue(api.WebsocketDialConfig, catcher.recordLocation)
+
+	mac, err := macaroon.New([]byte("abc-123"), "aurora gone", "shankil butchers")
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.DischargerLogin = func() string {
+		return testUserName
+	}
+
+	info := s.APIInfo(c)
+	info.Macaroons = []macaroon.Slice{{mac}}
+	client := s.OpenAPI(c, info, nil)
+
+	dischargedMacaroons, err := api.ExtractMacaroons(client)
+	c.Assert(len(dischargedMacaroons), gc.Equals, 1)
+
+	// Mirror the situation in migration logtransfer - the macaroon is
+	// now stored in the auth service (so no further discharge is
+	// needed), but we use a different client to connect to the log
+	// stream, so the macaroon isn't in the cookie jar despite being
+	// in the connection info.
+
+	// Then check that ConnectStream works OK and that it doesn't need
+	// to discharge again.
+	s.DischargerLogin = nil
+
+	info2 := s.APIInfo(c)
+	info2.Macaroons = dischargedMacaroons
+
+	client2 := s.OpenAPI(c, info2, nil)
+	conn, err := client2.ConnectStream("/path", nil)
+	c.Assert(err, gc.IsNil)
+	defer conn.Close()
+
+	headers := catcher.headers
+	c.Assert(headers.Get("Cookie"), jc.HasPrefix, "macaroon-")
+	assertHeaderMatchesMacaroon(c, headers, dischargedMacaroons[0])
+}
+
+func assertHeaderMatchesMacaroon(c *gc.C, header http.Header, macaroon macaroon.Slice) {
+	req := http.Request{Header: header}
+	actualCookie := req.Cookies()[0]
+	expectedCookie, err := httpbakery.NewCookie(macaroon)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(actualCookie.Name, gc.Equals, expectedCookie.Name)
+	c.Assert(actualCookie.Value, gc.Equals, expectedCookie.Value)
 }

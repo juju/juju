@@ -4,6 +4,7 @@
 package maas
 
 import (
+	"errors"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -11,8 +12,13 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/juju/gomaasapi"
+
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
+	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
+	yaml "gopkg.in/yaml.v1"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
@@ -167,4 +173,56 @@ func (suite *EnvironProviderSuite) TestOpenReturnsNilInterfaceUponFailure(c *gc.
 	// type.
 	c.Check(env, gc.Equals, nil)
 	c.Check(err, gc.ErrorMatches, ".*malformed maas-oauth.*")
+}
+
+func (suite *EnvironProviderSuite) TestSchema(c *gc.C) {
+	y := []byte(`
+auth-types: [oauth1]
+endpoint: http://foo.com/openstack
+`[1:])
+	var v interface{}
+	err := yaml.Unmarshal(y, &v)
+	c.Assert(err, jc.ErrorIsNil)
+	v, err = utils.ConformYAML(v)
+	c.Assert(err, jc.ErrorIsNil)
+
+	p, err := environs.Provider("maas")
+	c.Assert(err, jc.ErrorIsNil)
+	err = p.CloudSchema().Validate(v)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+type MaasPingSuite struct {
+	testing.BaseSuite
+}
+
+var _ = gc.Suite(&MaasPingSuite{})
+
+func (MaasPingSuite) TestPingNoEndpoint(c *gc.C) {
+	p, err := environs.Provider("maas")
+	c.Assert(err, jc.ErrorIsNil)
+	m, ok := p.(MaasEnvironProvider)
+	c.Assert(ok, jc.IsTrue)
+	endpoint := "https://foo.com/MAAS"
+	m.GetCapabilities = func(client *gomaasapi.MAASObject, serverURL string) (set.Strings, error) {
+		c.Assert(serverURL, gc.Equals, endpoint)
+		return nil, errors.New("nope")
+	}
+
+	err = m.Ping(endpoint)
+	c.Assert(err, gc.ErrorMatches, "No MAAS server running at "+endpoint)
+}
+
+func (MaasPingSuite) TestPingOK(c *gc.C) {
+	p, err := environs.Provider("maas")
+	c.Assert(err, jc.ErrorIsNil)
+	m, ok := p.(MaasEnvironProvider)
+	c.Assert(ok, jc.IsTrue)
+	endpoint := "https://foo.com/MAAS"
+	m.GetCapabilities = func(client *gomaasapi.MAASObject, serverURL string) (set.Strings, error) {
+		c.Assert(serverURL, gc.Equals, endpoint)
+		return set.NewStrings("network-deployment-ubuntu"), nil
+	}
+	err = m.Ping(endpoint)
+	c.Assert(err, jc.ErrorIsNil)
 }

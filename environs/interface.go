@@ -6,11 +6,14 @@ package environs
 import (
 	"io"
 
+	"github.com/juju/jsonschema"
+	"github.com/juju/version"
 	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/storage"
@@ -21,7 +24,13 @@ type EnvironProvider interface {
 	config.Validator
 	ProviderCredentials
 
-	// TODO(wallyworld) - embed config.ConfigSchemaSource and make all providers implement it
+	// CloudSchema returns the schema used to validate input for add-cloud.  If
+	// a provider does not suppport custom clouds, CloudSchema should return
+	// nil.
+	CloudSchema() *jsonschema.Schema
+
+	// Ping tests the connection to the cloud, to verify the endpoint is valid.
+	Ping(endpoint string) error
 
 	// PrepareConfig prepares the configuration for a new model, based on
 	// the provided arguments. PrepareConfig is expected to produce a
@@ -139,6 +148,14 @@ type CloudRegionDetector interface {
 	// If no regions can be detected, DetectRegions should return
 	// an error satisfying errors.IsNotFound.
 	DetectRegions() ([]cloud.Region, error)
+}
+
+// DefaultCloudNamer is an interface that a provider implements to
+// specify what an implicitly-created cloud ahould be named.
+type DefaultCloudNamer interface {
+	// DefaultCloudName returns the name that should be used for the
+	// cloud instead of falling back to the provider name.
+	DefaultCloudName() string
 }
 
 // ModelConfigUpgrader is an interface that an EnvironProvider may
@@ -288,6 +305,10 @@ type Environ interface {
 	// constraints package? Can't be instance, because constraints
 	// import instance...
 	PrecheckInstance(series string, cons constraints.Value, placement string) error
+
+	// InstanceTypesFetcher represents an environment that can return
+	// information about the available instance types.
+	InstanceTypesFetcher
 }
 
 // CreateParams contains the parameters for Environ.Create.
@@ -322,4 +343,42 @@ type InstanceTagger interface {
 	// The specified tags will replace any existing ones with the
 	// same names, but other existing tags will be left alone.
 	TagInstance(id instance.Id, tags map[string]string) error
+}
+
+// InstanceTypesFetcher is an interface that allows for instance information from
+// a provider to be obtained.
+type InstanceTypesFetcher interface {
+	InstanceTypes(constraints.Value) (instances.InstanceTypesWithCostMetadata, error)
+}
+
+// Upgrader is an interface that can be used for upgrading Environs. If an
+// Environ implements this interface, its UpgradeOperations method will be
+// invoked to identify operations that should be run on upgrade.
+type Upgrader interface {
+	// UpgradeOperations returns a list of UpgradeOperations for upgrading
+	// an Environ.
+	UpgradeOperations() []UpgradeOperation
+}
+
+// UpgradeOperation contains a target agent version and sequence of upgrade
+// steps to apply to get to that version.
+type UpgradeOperation struct {
+	// TargetVersion is the target agent version number to which the
+	// upgrade steps pertain.
+	TargetVersion version.Number
+
+	// Steps contains the sequence of upgrade steps to apply when
+	// upgrading to the accompanying target version number.
+	Steps []UpgradeStep
+}
+
+// UpgradeStep defines an idempotent operation that is run to perform a
+// specific upgrade step on an Environ.
+type UpgradeStep interface {
+	// Description is a human readable description of what the upgrade
+	// step does.
+	Description() string
+
+	// Run executes the upgrade business logic.
+	Run() error
 }

@@ -16,7 +16,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/mattn/go-isatty"
 
-	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
@@ -117,7 +117,7 @@ type debugLogCommand struct {
 	modelcmd.ModelCommandBase
 
 	level  string
-	params api.DebugLogParams
+	params common.DebugLogParams
 
 	utc      bool
 	location bool
@@ -186,7 +186,7 @@ func (c *debugLogCommand) Init(args []string) error {
 }
 
 type DebugLogAPI interface {
-	WatchDebugLog(params api.DebugLogParams) (<-chan api.LogMessage, error)
+	WatchDebugLog(params common.DebugLogParams) (<-chan common.LogMessage, error)
 	Close() error
 }
 
@@ -250,7 +250,7 @@ var SeverityColor = map[string]*ansiterm.Context{
 	},
 }
 
-func (c *debugLogCommand) writeLogRecord(w *ansiterm.Writer, r api.LogMessage) {
+func (c *debugLogCommand) writeLogRecord(w *ansiterm.Writer, r common.LogMessage) {
 	ts := r.Timestamp.In(c.tz).Format(c.format)
 	fmt.Fprintf(w, "%s: %s ", r.Entity, ts)
 	SeverityColor[r.Severity].Fprintf(w, r.Severity)

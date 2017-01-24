@@ -24,7 +24,7 @@ func isRunning(value string) *bool {
 }
 
 func (factory *containerFactory) List() (result []Container, err error) {
-	machines, err := ListMachines()
+	machines, err := ListMachines(run)
 	if err != nil {
 		return nil, err
 	}

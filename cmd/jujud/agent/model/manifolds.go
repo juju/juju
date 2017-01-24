@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/utils/clock"
+	"github.com/juju/utils/featureflag"
 	"github.com/juju/utils/voyeur"
 
 	coreagent "github.com/juju/juju/agent"
@@ -15,6 +16,7 @@ import (
 	"github.com/juju/juju/cmd/jujud/agent/engine"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/agent"
 	"github.com/juju/juju/worker/apicaller"
@@ -36,6 +38,7 @@ import (
 	"github.com/juju/juju/worker/migrationflag"
 	"github.com/juju/juju/worker/migrationmaster"
 	"github.com/juju/juju/worker/provisioner"
+	"github.com/juju/juju/worker/remoterelations"
 	"github.com/juju/juju/worker/singular"
 	"github.com/juju/juju/worker/statushistorypruner"
 	"github.com/juju/juju/worker/storageprovisioner"
@@ -101,7 +104,7 @@ type ManifoldsConfig struct {
 // run together to administer a model, as configured.
 func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 	modelTag := config.Agent.CurrentConfig().Model()
-	return dependency.Manifolds{
+	result := dependency.Manifolds{
 
 		// The first group are foundational; the agent and clock
 		// which wrap those supplied in config, and the api-caller
@@ -248,6 +251,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		})),
 		firewallerName: ifNotMigrating(firewaller.Manifold(firewaller.ManifoldConfig{
 			APICallerName: apiCallerName,
+			EnvironName:   environTrackerName,
 		})),
 		unitAssignerName: ifNotMigrating(unitassigner.Manifold(unitassigner.ManifoldConfig{
 			APICallerName: apiCallerName,
@@ -291,6 +295,16 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker:     machineundertaker.NewWorker,
 		})),
 	}
+	if featureflag.Enabled(feature.CrossModelRelations) {
+		result[remoteRelationsName] = ifNotMigrating(remoterelations.Manifold(remoterelations.ManifoldConfig{
+			AgentName:                agentName,
+			APICallerName:            apiCallerName,
+			APIOpen:                  api.Open,
+			NewRemoteRelationsFacade: remoterelations.NewRemoteRelationsFacade,
+			NewWorker:                remoterelations.NewWorker,
+		}))
+	}
+	return result
 }
 
 // clockManifold expresses a Clock as a ValueWorker manifold.
@@ -383,4 +397,5 @@ const (
 	stateCleanerName         = "state-cleaner"
 	statusHistoryPrunerName  = "status-history-pruner"
 	machineUndertakerName    = "machine-undertaker"
+	remoteRelationsName      = "remote-relations"
 )

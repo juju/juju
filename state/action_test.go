@@ -583,23 +583,33 @@ func (s *ActionSuite) TestUnitWatchActionNotifications(c *gc.C) {
 	wc := statetesting.NewStringsWatcherC(c, s.State, w)
 	// make sure the previously pending actions are sent on the watcher
 	expect := expectActionIds(fa1, fa2)
+	// Fixes lp#1589641: some time, under race & stress testing,
+	// reads of changes from watcher chan seem to get out of order.
+	// This additional Sync, ensures that the changes are processed correctly.
+	wc.State.StartSync()
 	wc.AssertChange(expect...)
+	wc.State.StartSync()
 	wc.AssertNoChange()
 
 	// add watcher on unit2
 	w2 := unit2.WatchActionNotifications()
 	defer statetesting.AssertStop(c, w2)
 	wc2 := statetesting.NewStringsWatcherC(c, s.State, w2)
+	wc2.State.StartSync()
 	wc2.AssertChange()
+	wc2.State.StartSync()
 	wc2.AssertNoChange()
 
 	// add action on unit2 and makes sure unit1 watcher doesn't trigger
 	// and unit2 watcher does
 	fa3, err := unit2.AddAction("snapshot", nil)
 	c.Assert(err, jc.ErrorIsNil)
+	wc.State.StartSync()
 	wc.AssertNoChange()
 	expect2 := expectActionIds(fa3)
+	wc2.State.StartSync()
 	wc2.AssertChange(expect2...)
+	wc2.State.StartSync()
 	wc2.AssertNoChange()
 
 	// add a couple actions on unit1 and make sure watcher sees events
@@ -609,7 +619,9 @@ func (s *ActionSuite) TestUnitWatchActionNotifications(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	expect = expectActionIds(fa4, fa5)
+	wc.State.StartSync()
 	wc.AssertChange(expect...)
+	wc.State.StartSync()
 	wc.AssertNoChange()
 }
 
@@ -643,7 +655,7 @@ func (s *ActionSuite) TestMergeIds(c *gc.C) {
 		expected := sliceify("", test.expected)
 
 		c.Log(fmt.Sprintf("test number %d %#v", ix, test))
-		err := state.WatcherMergeIds(s.State, &changes, updates, state.ActionNotificationIdToActionId)
+		err := state.WatcherMergeIds(s.State, &changes, updates, state.MakeActionIdConverter(s.State))
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(changes, jc.SameContents, expected)
 	}
@@ -663,7 +675,7 @@ func (s *ActionSuite) TestMergeIdsErrors(c *gc.C) {
 	for _, test := range tests {
 		changes, updates := []string{}, map[interface{}]bool{}
 		updates[test.key] = true
-		err := state.WatcherMergeIds(s.State, &changes, updates, state.ActionNotificationIdToActionId)
+		err := state.WatcherMergeIds(s.State, &changes, updates, state.MakeActionIdConverter(s.State))
 		c.Assert(err, gc.ErrorMatches, "id is not of type string, got "+test.name)
 	}
 }

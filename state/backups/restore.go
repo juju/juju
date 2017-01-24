@@ -16,6 +16,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils"
+	"github.com/juju/utils/clock"
 	"github.com/juju/utils/ssh"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
@@ -157,7 +158,14 @@ func newStateConnection(controllerTag names.ControllerTag, modelTag names.ModelT
 	attempt := utils.AttemptStrategy{Delay: newStateConnDelay, Min: newStateConnMinAttempts}
 	getEnviron := stateenvirons.GetNewEnvironFunc(environs.New)
 	for a := attempt.Start(); a.Next(); {
-		st, err = state.Open(modelTag, controllerTag, info, mongoDefaultDialOpts(), environsGetNewPolicyFunc(getEnviron))
+		st, err = state.Open(state.OpenParams{
+			Clock:              clock.WallClock,
+			ControllerTag:      controllerTag,
+			ControllerModelTag: modelTag,
+			MongoInfo:          info,
+			MongoDialOpts:      mongoDefaultDialOpts(),
+			NewPolicy:          environsGetNewPolicyFunc(getEnviron),
+		})
 		if err == nil {
 			return st, nil
 		}

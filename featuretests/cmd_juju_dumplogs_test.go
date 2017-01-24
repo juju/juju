@@ -51,7 +51,7 @@ func (s *dumpLogsCommandSuite) TestRun(c *gc.C) {
 
 	t := time.Date(2015, 11, 4, 3, 2, 1, 0, time.UTC)
 	for _, st := range states {
-		w := state.NewDbLogger(st, names.NewMachineTag("42"), version.Current)
+		w := state.NewEntityDbLogger(st, names.NewMachineTag("42"), version.Current)
 		defer w.Close()
 		for i := 0; i < 3; i++ {
 			err := w.Log(t, "module", "location", loggo.INFO, fmt.Sprintf("%d", i))

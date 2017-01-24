@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/storage"
 	jujuversion "github.com/juju/juju/version"
 )
 
@@ -30,6 +31,8 @@ import (
 // NewCharmStoreRepo instantiates a new charm store repository.
 // It is exported for testing purposes.
 var NewCharmStoreRepo = newCharmStoreFromClient
+
+var newStateStorage = storage.NewStorage
 
 func newCharmStoreFromClient(csClient *csclient.Client) charmrepo.Interface {
 	return charmrepo.NewCharmStoreFromClient(csClient)

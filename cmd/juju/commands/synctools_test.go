@@ -263,7 +263,7 @@ func (s *syncToolsSuite) TestAPIAdapterUploadTools(c *gc.C) {
 	current := version.Binary{
 		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
-		Series: series.HostSeries(),
+		Series: series.MustHostSeries(),
 	}
 	fake := fakeSyncToolsAPI{
 		uploadTools: func(r io.Reader, v version.Binary, additionalSeries ...string) (coretools.List, error) {
