@@ -26,14 +26,18 @@ type Dialer interface {
 // it uses the golang/x/crypto/ssh/HostKeyCallback to find the host keys on a
 // given connection.
 type hostKeyChecker struct {
-	// acceptedKeys is a set of the Marshalled PublicKey content.
-	acceptedKeys set.Strings
-	// stop will be polled for whether we should stop trying to do any work
-	stop <-chan struct{}
-	// hostPort is the identifier that corresponds to this connection
-	hostPort network.HostPort
-	// accepted will be passed hostPort if it validated the connection
-	accepted chan network.HostPort
+	// AcceptedKeys is a set of the Marshalled PublicKey content.
+	AcceptedKeys set.Strings
+	// Stop will be polled for whether we should stop trying to do any work
+	Stop <-chan struct{}
+	// HostPort is the identifier that corresponds to this connection
+	HostPort network.HostPort
+	// Accepted will be passed HostPort if it validated the connection
+	Accepted chan network.HostPort
+	// Dialer is a Dialer that allows us to initiate the underlying TCP connection
+	Dialer Dialer
+	// Finished will be set an event when we've finished our check (success or failure)
+	Finished chan struct{}
 }
 
 var hostKeyNotInList = errors.New("host key not in expected set")
@@ -46,18 +50,84 @@ func (h *hostKeyChecker) hostKeyCallback(hostname string, remote net.Addr, key s
 	logger.Debugf("checking host key for %q at %v, with key %q", hostname, remote, ssh.MarshalAuthorizedKey(key))
 
 	lookupKey := string(key.Marshal())
-	if len(h.acceptedKeys) == 0 || h.acceptedKeys.Contains(lookupKey) {
+	if len(h.AcceptedKeys) == 0 || h.AcceptedKeys.Contains(lookupKey) {
 		logger.Debugf("accepted host key for: %q %v", hostname, remote)
 		// This key was valid, so return it, but if someone else was found
 		// first, still exit.
 		select {
-		case h.accepted <- h.hostPort:
-		case <-h.stop:
+		case h.Accepted <- h.HostPort:
+		case <-h.Stop:
 		}
 		return hostKeyAccepted
 	}
 	logger.Debugf("host key for %q %v not in our accepted set", hostname, remote)
 	return hostKeyNotInList
+}
+
+// publicKeysToSet converts all the public key values (eg id_rsa.pub) into
+// their short hash form. Problems with a key are logged at Warning level, but
+// otherwise ignored.
+func publicKeysToSet(publicKeys []string) set.Strings {
+	acceptedKeys := set.NewStrings()
+	for _, pubKey := range publicKeys {
+		// key, comment, options, rest, err
+		sshKey, _, _, _, err := ssh.ParseAuthorizedKey([]byte(pubKey))
+		if err != nil {
+			logger.Warningf("unable to handle public key: %q\n", pubKey)
+			continue
+		}
+		acceptedKeys.Add(string(sshKey.Marshal()))
+	}
+	return acceptedKeys
+}
+
+// Check initiates a connection to HostPort and tries to do an SSH key
+// exchange to determine the preferred public key of the remote host.
+// It then checks if that key is in the accepted set of keys.
+func (h *hostKeyChecker) Check() {
+	defer func() {
+		// send a finished message unless we're already stopped and nobody
+		// is listening
+		select {
+		case h.Finished <- struct{}{}:
+		case <-h.Stop:
+		}
+	}()
+	// TODO(jam): 2017-01-24 One limitation of our algorithm, is that we don't
+	// try to limit the negotiation of the keys to our set of possible keys.
+	// For example, say we only know about the RSA key for the remote host, but
+	// it has been updated to use a ECDSA key as well. We
+	sshconfig := &ssh.ClientConfig{
+		HostKeyCallback: h.hostKeyCallback,
+	}
+	addr := h.HostPort.NetAddr()
+	logger.Debugf("dialing %q to check host keys", addr)
+	conn, err := h.Dialer.Dial("tcp", addr)
+	if err != nil {
+		logger.Debugf("dial %q failed with: %v", addr, err)
+		return
+	}
+	// No need to do the key exchange if we're already stopping
+	select {
+	case <-h.Stop:
+		conn.Close()
+		return
+	default:
+	}
+	logger.Debugf("connected to %q, initiating ssh handshake", addr)
+	// NewClientConn will close the underlying net.Conn if it gets an error
+	client, _, _, err := ssh.NewClientConn(conn, addr, sshconfig)
+	if err == nil {
+		// We don't expect this case, because we don't support Auth,
+		// but make sure to close it anyway.
+		client.Close()
+	} else {
+		// no need to log these two messages, that's already been done
+		// in hostKeyCallback
+		if err != hostKeyAccepted && err != hostKeyNotInList {
+			logger.Debugf("ssh error: %v", err)
+		}
+	}
 }
 
 // ReachableHostPort dials the entries in the given hostPorts, in parallel,
@@ -79,58 +149,17 @@ func ReachableHostPort(hostPorts []network.HostPort, publicKeys []string, dialer
 	// 'stop' channel.
 	finished := make(chan struct{}, len(uniqueHPs))
 
-	acceptedKeys := set.NewStrings()
-	for _, pubKey := range publicKeys {
-		// key, comment, options, rest, err
-		sshKey, _, _, _, err := ssh.ParseAuthorizedKey([]byte(pubKey))
-		if err != nil {
-			logger.Warningf("unable to handle public key: %q\n", pubKey)
-			continue
-		}
-		acceptedKeys.Add(string(sshKey.Marshal()))
-	}
+	acceptedKeys := publicKeysToSet(publicKeys)
 	for _, hostPort := range uniqueHPs {
-		go func(hostPort network.HostPort) {
-			defer func() {
-				select {
-				case finished <- struct{}{}:
-				case <-stop:
-				}
-			}()
-			checker := &hostKeyChecker{
-				acceptedKeys: acceptedKeys,
-				stop:         stop,
-				accepted:     successful,
-				hostPort:     hostPort,
-			}
-			sshconfig := &ssh.ClientConfig{
-				HostKeyCallback: checker.hostKeyCallback,
-			}
-			addr := hostPort.NetAddr()
-			logger.Debugf("dialing %q", addr)
-			conn, err := dialer.Dial("tcp", addr)
-			if err != nil {
-				logger.Debugf("dial %q failed with: %v", addr, err)
-				return
-			}
-			// No need to do the key exchange if we're already stopping
-			select {
-			case <-stop:
-				conn.Close()
-				return
-			default:
-			}
-			logger.Debugf("connected to %q, initiating ssh handshake", addr)
-			// NewClientConn will close the underlying net.Conn if it gets an error
-			client, _, _, err := ssh.NewClientConn(conn, addr, sshconfig)
-			if err == nil {
-				// We don't expect this case, because we don't support Auth,
-				// but make sure to close it anyway.
-				client.Close()
-			} else {
-				logger.Debugf("ssh error: %v", err)
-			}
-		}(hostPort)
+		checker := &hostKeyChecker{
+			AcceptedKeys: acceptedKeys,
+			Stop:         stop,
+			Accepted:     successful,
+			HostPort:     hostPort,
+			Dialer:       dialer,
+			Finished:     finished,
+		}
+		go checker.Check()
 	}
 
 	for finishedCount := 0; finishedCount < len(uniqueHPs); {

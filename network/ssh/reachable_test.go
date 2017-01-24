@@ -100,7 +100,7 @@ func (s *SSHReachableHostPortSuite) TestReachableNoPublicKeysAvailable(c *gc.C) 
 
 func (s *SSHReachableHostPortSuite) TestMultiplePublicKeys(c *gc.C) {
 	hostPorts := []network.HostPort{
-		testSSHServer(c, s, sshtesting.SSHKey2),
+		testSSHServer(c, s, sshtesting.SSHKey1, sshtesting.SSHKey2),
 	}
 	dialer := &net.Dialer{Timeout: dialTimeout}
 	best, err := ssh.ReachableHostPort(hostPorts, []string{sshtesting.SSHPub1, sshtesting.SSHPub2}, dialer, searchTimeout)
@@ -182,8 +182,8 @@ func testTCPServer(c *gc.C, cleaner Cleaner) network.HostPort {
 
 // testSSHServer will listen on the socket and respond with the appropriate
 // public key information and then die.
-func testSSHServer(c *gc.C, cleaner Cleaner, privateKey string) network.HostPort {
-	address, shutdown := sshtesting.CreateSSHServer(c, privateKey)
+func testSSHServer(c *gc.C, cleaner Cleaner, privateKeys ...string) network.HostPort {
+	address, shutdown := sshtesting.CreateSSHServer(c, privateKeys...)
 	hostPort, err := network.ParseHostPort(address)
 	c.Assert(err, jc.ErrorIsNil)
 	cleaner.AddCleanup(func(*gc.C) { close(shutdown) })
