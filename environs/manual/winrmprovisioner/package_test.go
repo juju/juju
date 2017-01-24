@@ -7,12 +7,12 @@ import (
 	"runtime"
 	stdtesting "testing"
 
-	gocheck "gopkg.in/check.v1"
+	gc "gopkg.in/check.v1"
 )
 
 func Test(t *stdtesting.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("Manual provider as client is not supported on windows")
 	}
-	gocheck.TestingT(t)
+	gc.TestingT(t)
 }
