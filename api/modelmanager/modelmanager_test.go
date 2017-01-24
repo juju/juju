@@ -87,11 +87,11 @@ func (s *modelmanagerSuite) TestListModels(c *gc.C) {
 	defer modelManager.Close()
 	models, err := modelManager.ListModels("user@remote")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(models, gc.HasLen, 2)
+	c.Assert(models, gc.HasLen, 3)
 
-	modelNames := []string{models[0].Name, models[1].Name}
+	modelNames := []string{models[1].Name, models[2].Name}
 	c.Assert(modelNames, jc.DeepEquals, []string{"first", "second"})
-	ownerNames := []string{models[0].Owner, models[1].Owner}
+	ownerNames := []string{models[1].Owner, models[2].Owner}
 	c.Assert(ownerNames, jc.DeepEquals, []string{"user@remote", "user@remote"})
 }
 

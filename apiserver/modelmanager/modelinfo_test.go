@@ -385,6 +385,11 @@ func (st *mockState) ModelUUID() string {
 	return st.modelUUID
 }
 
+func (st *mockState) AllUserModels() ([]*state.UserModel, error) {
+	st.MethodCall(st, "AllUserModels")
+	return nil, st.NextErr()
+}
+
 func (st *mockState) ModelsForUser(user names.UserTag) ([]*state.UserModel, error) {
 	st.MethodCall(st, "ModelsForUser", user)
 	return nil, st.NextErr()

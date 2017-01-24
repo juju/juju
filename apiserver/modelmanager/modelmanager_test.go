@@ -879,7 +879,7 @@ func (s *modelManagerStateSuite) TestListModelsAdminListsOther(c *gc.C) {
 	other := names.NewUserTag("external@remote")
 	result, err := s.modelmanager.ListModels(params.Entity{Tag: other.String()})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.UserModels, gc.HasLen, 0)
+	c.Assert(result.UserModels, gc.HasLen, 1)
 }
 
 func (s *modelManagerStateSuite) TestListModelsDenied(c *gc.C) {
