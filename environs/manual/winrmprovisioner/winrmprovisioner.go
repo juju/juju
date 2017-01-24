@@ -124,7 +124,7 @@ func InitAdministratorUser(args *manual.ProvisionMachineArgs) error {
 	logger.Infof("Trying https client as user %s on %s", args.Host, args.User)
 	err := args.WinRM.Client.Ping()
 	if err == nil {
-		logger.Infof("Https connection is enabled on the host %s with user", args.Host, args.User)
+		logger.Infof("Https connection is enabled on the host %s with user %s", args.Host, args.User)
 		return nil
 	}
 
