@@ -18,6 +18,8 @@ from deploy_stack import (
     BootstrapManager,
     get_random_string
     )
+from jujupy import ModelClient
+from jujupy.version_client import ModelClient2_1
 from jujucharm import local_charm_path
 from remote import remote_from_address
 from utility import (
@@ -54,27 +56,40 @@ def assess_model_migration(bs1, bs2, args):
             migrated_client, application, resource_contents = results
 
             ensure_model_logs_are_migrated(source_client, dest_client)
-            with temp_dir() as temp:
-                ensure_migrating_with_insufficient_user_permissions_fails(
-                    source_client, dest_client, temp)
-                ensure_migrating_with_superuser_user_permissions_succeeds(
-                    source_client, dest_client, temp)
-                # Tests that require features or bug fixes found in the
-                # 'develop' branch.
-                if args.use_develop:
-                    ensure_superuser_can_migrate_other_user_models(
-                        source_client, dest_client, temp)
-
+            assess_user_permission_model_migrations(source_client, dest_client)
             if args.use_develop:
-                ensure_migration_rolls_back_on_failure(
+                assess_development_branch_migrations(
                     source_client, dest_client)
-                ensure_api_login_redirects(source_client, dest_client)
-        # Continue test where we ensure that a migrated model continues to work
-        # after it's originating controller has been destroyed.
-        assert_model_migrated_successfully(
-            migrated_client, application, resource_contents)
+
+        if client_is_at_least_2_1(bs1.client):
+            # Continue test where we ensure that a migrated model continues to
+            # work after it's originating controller has been destroyed.
+            assert_model_migrated_successfully(
+                migrated_client, application, resource_contents)
         log.info(
             'SUCCESS: Model operational after origin controller destroyed')
+
+
+def assess_user_permission_model_migrations(source_client, dest_client):
+    """Run migration tests for user permissions."""
+    with temp_dir() as temp:
+        ensure_migrating_with_insufficient_user_permissions_fails(
+            source_client, dest_client, temp)
+        ensure_migrating_with_superuser_user_permissions_succeeds(
+            source_client, dest_client, temp)
+
+
+def assess_development_branch_migrations(source_client, dest_client):
+    with temp_dir() as temp:
+        ensure_superuser_can_migrate_other_user_models(
+                source_client, dest_client, temp)
+    ensure_migration_rolls_back_on_failure(source_client, dest_client)
+    ensure_api_login_redirects(source_client, dest_client)
+
+
+def client_is_at_least_2_1(client):
+    """Return true of the given ModelClient is version 2.1 or greater."""
+    return type(client) == ModelClient2_1 or type(client) == ModelClient
 
 
 def parse_args(argv):
