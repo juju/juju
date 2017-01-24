@@ -383,6 +383,7 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	if err != nil {
 		return errors.Trace(err)
 	}
+
 	if c.controllerName == "" {
 		c.controllerName = defaultControllerName(cloud.Name, region.Name)
 	}
@@ -441,6 +442,8 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 			AdminSecret:    config.bootstrap.AdminSecret,
 		},
 	)
+	fmt.Printf("%+v", environ)
+	os.Exit(1)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -929,12 +932,14 @@ func (c *bootstrapCommand) bootstrapConfigs(
 	}
 
 	bootstrapConfig, err := bootstrap.NewConfig(bootstrapConfigAttrs)
+
 	if err != nil {
 		return bootstrapConfigs{}, errors.Annotate(err, "constructing bootstrap config")
 	}
 	controllerConfig, err := controller.NewConfig(
 		controllerUUID.String(), bootstrapConfig.CACert, controllerConfigAttrs,
 	)
+
 	if err != nil {
 		return bootstrapConfigs{}, errors.Annotate(err, "constructing controller config")
 	}

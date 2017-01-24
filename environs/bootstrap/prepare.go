@@ -4,6 +4,9 @@
 package bootstrap
 
 import (
+	"fmt"
+	"os"
+
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
@@ -152,6 +155,9 @@ func prepare(
 	if err != nil {
 		return nil, details, errors.Trace(err)
 	}
+	//TODO
+	fmt.Println(cfg)
+	os.Exit(1)
 	env, err := p.Open(environs.OpenParams{
 		Cloud:  args.Cloud,
 		Config: cfg,

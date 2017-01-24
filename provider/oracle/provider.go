@@ -1,10 +1,15 @@
 package oracle
 
 import (
+	"os"
+
+	"github.com/juju/errors"
 	"github.com/juju/jsonschema"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+
+	oci "github.com/hoenirvili/go-oracle-cloud/api"
 )
 
 const (
@@ -19,8 +24,7 @@ var providerAliases = []string{"ocl", "orcl", "oci"}
 // alongiside environs.EnvironProvider this implements config.Validator interface and
 // environs.ProviderCredentials also.
 type environProvider struct {
-	//TODO
-	// cli *oracleAPI // oracle client api to the REST API.
+	client *oci.Client
 }
 
 func (e environProvider) CloudSchema() *jsonschema.Schema {
@@ -36,7 +40,33 @@ func (e environProvider) Ping(endpoint string) error {
 // the provided arguments. PrepareConfig is expected to produce a
 // deterministic output
 func (e environProvider) PrepareConfig(config environs.PrepareConfigParams) (*config.Config, error) {
-	return nil, nil
+	if err := e.checkSpec(config.Cloud); err != nil {
+		return nil, errors.Annotatef(err, "validating cloud spec")
+	}
+	os.Exit(1)
+	return config.Config, nil
+}
+
+// checkSpec will try and see if the config cloud that is generated is on point with the cloudspec.
+func (e environProvider) checkSpec(spec environs.CloudSpec) error {
+	// also every spec has a internal validate function
+	// so we must call it in order to know if everything is ok in this state
+	if err := spec.Validate(); err != nil {
+		return errors.Trace(err)
+	}
+
+	// we must know if the credentials are missing or not
+	if spec.Credential == nil {
+		return errors.NotValidf("missing credentials")
+	}
+
+	// check if the authentication type selected by client match the same auth type
+	// that oracle cloud services support.
+	if authType := spec.Credential.AuthType(); authType != cloud.UserPassAuthType {
+		return errors.NotSupportedf("%q auth-type ", authType)
+	}
+
+	return nil
 }
 
 // Open opens the oracle environment complaint with Juju and returns it. The configuration must have
@@ -44,6 +74,7 @@ func (e environProvider) PrepareConfig(config environs.PrepareConfigParams) (*co
 //
 // This operation is not performing any expensive operation.
 func (e environProvider) Open(params environs.OpenParams) (environs.Environ, error) {
+	logger.Debugf("opening model %q", paramas.Config.Name())
 
 	return nil, nil
 }
@@ -57,7 +88,18 @@ func (e environProvider) Validate(cfg, old *config.Config) (valid *config.Config
 
 // CredentialSchemas returns credential schemas, keyed on authentication type. This is used to validate existing oracle credentials, or to generate new ones.
 func (e environProvider) CredentialSchemas() map[cloud.AuthType]cloud.CredentialSchema {
-	return nil
+	return map[cloud.AuthType]cloud.CredentialSchema{
+		cloud.UserPassAuthType: {{
+			"username", cloud.CredentialAttr{
+				Description: "account username",
+			},
+		}, {
+			"password", cloud.CredentialAttr{
+				Description: "account password",
+				Hidden:      true,
+			},
+		}},
+	}
 }
 
 // DetectCredentials automatically detects one or more oracle credentials from the environmnet. This may involve, for example inspecting environmnet variables, or reading configuration files in well-defined locations.
@@ -74,5 +116,6 @@ func (e environProvider) FinalizeCredential(
 	cfx environs.FinalizeCredentialContext,
 	params environs.FinalizeCredentialParams,
 ) (*cloud.Credential, error) {
-	return nil, nil
+	// we will return the exact credentials that we have entered from the interactive form.
+	return &params.Credential, nil
 }
