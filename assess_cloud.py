@@ -6,14 +6,12 @@ import yaml
 from deploy_stack import (
     BootstrapManager,
     )
-from fakejuju import (
-    FakeBackend,
-    FakeControllerState,
-    )
 from jujuconfig import get_juju_home
 from jujupy import (
     ConditionList,
-    EnvJujuClient,
+    ModelClient,
+    FakeBackend,
+    FakeControllerState,
     get_client_class,
     )
 from utility import (
@@ -29,13 +27,13 @@ def client_from_args(args):
     client is determined based on the path and version.
     """
     if args.juju_bin == 'FAKE':
-        client_class = EnvJujuClient
+        client_class = ModelClient
         controller_state = FakeControllerState()
         version = '2.0.0'
         backend = FakeBackend(controller_state, full_path=args.juju_bin,
                               version=version)
     else:
-        version = EnvJujuClient.get_version(args.juju_bin)
+        version = ModelClient.get_version(args.juju_bin)
         client_class = get_client_class(version)
         backend = None
     juju_home = get_juju_home()

@@ -17,12 +17,10 @@ from assess_log_rotation import (
     assess_debug_log,
     assess_machine_rotation,
     )
-from fakejuju import (
+from jujupy import (
+    ModelClient,
     fake_juju_client,
     fake_juju_client_optional_jes,
-    )
-from jujupy import (
-    EnvJujuClient,
     JujuData,
     _temp_env as temp_env,
     )
@@ -222,11 +220,11 @@ class TestMakeClientFromArgs(TestCase):
     def make_client_cxt(self):
         with temp_env({'environments': {'foo': {}}}):
             with patch('subprocess.check_output', return_value=''):
-                with patch('jujupy.EnvJujuClient.get_jes_command',
+                with patch('jujupy.ModelClient.get_jes_command',
                            autospec=True, return_value='controller'):
-                    with patch('jujupy.EnvJujuClient.juju',
+                    with patch('jujupy.ModelClient.juju',
                                autospec=True, return_value=''):
-                        with patch('jujupy.EnvJujuClient.kill_controller',
+                        with patch('jujupy.ModelClient.kill_controller',
                                    autospec=True) as kill_func:
                             with patch.object(JujuData, 'load_yaml'):
                                 yield kill_func
@@ -238,6 +236,6 @@ class TestMakeClientFromArgs(TestCase):
                 agent_url=None, agent_stream=None, series=None, region=None,
                 bootstrap_host=None, machine=[]
                 ))
-        self.assertIsInstance(client, EnvJujuClient)
+        self.assertIsInstance(client, ModelClient)
         self.assertIn('/jes-homes/bar', client.env.juju_home)
         kill_func.assert_called_once_with(client)

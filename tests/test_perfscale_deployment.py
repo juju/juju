@@ -3,7 +3,7 @@
 from mock import patch, Mock
 import StringIO
 
-from fakejuju import fake_juju_client
+from jujupy import fake_juju_client
 import perfscale_deployment as pd
 from tests import (
     parse_error,

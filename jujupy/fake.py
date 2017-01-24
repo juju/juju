@@ -13,7 +13,7 @@ import pexpect
 import yaml
 
 from jujupy import (
-    EnvJujuClient,
+    ModelClient,
     JESNotSupported,
     JujuData,
     SoftDeadlineExceeded,
@@ -455,7 +455,8 @@ class AddCloud(PromptingExpectChild):
 
     CLOUD_ENDPOINT = 'Enter the API endpoint url for the cloud:'
 
-    REGION_ENDPOINT = 'Enter the API endpoint url for the region:'
+    REGION_ENDPOINT = (
+        'Enter the API endpoint url for the region [use cloud api url]:')
 
     HOST = "Enter the controller's hostname or IP address:"
 
@@ -553,6 +554,11 @@ class AddCloud(PromptingExpectChild):
                 'regions': regions,
                 })
         self.backend.clouds[self.values[self.name_prompt]] = cloud
+
+
+class AddCloud2_1(AddCloud):
+
+    REGION_ENDPOINT = 'Enter the API endpoint url for the region:'
 
 
 class FakeBackend:
@@ -993,7 +999,18 @@ def get_user_register_token(username):
     return b64encode(sha512(username).digest())
 
 
-class FakeBackend2B7(FakeBackend):
+class FakeBackend2_1(FakeBackend):
+    """Backend for 2.1 and earlier."""
+    def expect(self, command, args, used_feature_flags, juju_home, model=None,
+               timeout=None, extra_env=None):
+        if command == 'add-cloud':
+            return AddCloud2_1(self, juju_home, extra_env)
+        return super(FakeBackend2_1, self).expect(
+            command, args, used_feature_flags, juju_home, model, timeout,
+            extra_env)
+
+
+class FakeBackend2B7(FakeBackend2_1):
 
     def juju(self, command, args, used_feature_flags,
              juju_home, model=None, check=True, timeout=None, extra_env=None):
@@ -1015,7 +1032,7 @@ class FakeBackendOptionalJES(FakeBackend):
 
 
 def fake_juju_client(env=None, full_path=None, debug=False, version='2.0.0',
-                     _backend=None, cls=EnvJujuClient, juju_home=None):
+                     _backend=None, cls=ModelClient, juju_home=None):
     if juju_home is None:
         if env is None or env.juju_home is None:
             juju_home = 'foo'
@@ -1055,7 +1072,7 @@ def fake_juju_client_optional_jes(env=None, full_path=None, debug=False,
     return client
 
 
-class FakeJujuClientOptionalJES(EnvJujuClient):
+class FakeJujuClientOptionalJES(ModelClient):
 
     def get_controller_model_name(self):
         return self._backend.controller_state.controller_model.name

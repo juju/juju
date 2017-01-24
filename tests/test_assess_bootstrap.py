@@ -21,10 +21,8 @@ from assess_bootstrap import (
 from deploy_stack import (
     BootstrapManager,
     )
-from fakejuju import (
-    fake_juju_client,
-    )
 from jujupy import (
+    fake_juju_client,
     _temp_env as temp_env,
     Status,
     )
@@ -160,11 +158,11 @@ def assess_bootstrap_cxt(juju_version=None):
         juju_version = '1.25.5'
     call_cxt = patch('subprocess.call')
     cc_cxt = patch('subprocess.check_call')
-    gv_cxt = patch('jujupy.EnvJujuClient.get_version',
+    gv_cxt = patch('jujupy.ModelClient.get_version',
                    side_effect=lambda cls: juju_version)
-    gjo_cxt = patch('jujupy.EnvJujuClient.get_juju_output', autospec=True,
+    gjo_cxt = patch('jujupy.ModelClient.get_juju_output', autospec=True,
                     return_value='')
-    imc_cxt = patch('jujupy.EnvJujuClient.iter_model_clients',
+    imc_cxt = patch('jujupy.ModelClient.iter_model_clients',
                     autospec=True, return_value=[])
     env_cxt = temp_env({'environments': {'bar': {'type': 'foo'}}})
     with call_cxt, cc_cxt, gv_cxt, gjo_cxt, env_cxt, imc_cxt:
@@ -233,7 +231,7 @@ class TestAssessBaseBootstrap(FakeHomeTestCase):
             self.assertEqual(myself.env.config,
                              {'name': 'bar', 'type': 'foo'})
         with extended_bootstrap_cxt():
-            with patch('jujupy.EnvJujuClient.bootstrap', side_effect=check,
+            with patch('jujupy.ModelClient.bootstrap', side_effect=check,
                        autospec=True):
                 assess_bootstrap(parse_args(['base', 'bar', '/foo']))
         self.assertRegexpMatches(
@@ -247,7 +245,7 @@ class TestAssessBaseBootstrap(FakeHomeTestCase):
                     'name': 'qux', 'type': 'foo', 'region': 'baz'})
             self.assertEqual(myself.env.environment, 'qux')
         with extended_bootstrap_cxt():
-            with patch('jujupy.EnvJujuClient.bootstrap', side_effect=check,
+            with patch('jujupy.ModelClient.bootstrap', side_effect=check,
                        autospec=True):
                 args = parse_args(['base', 'bar', '/foo'])
                 args.region = 'baz'
@@ -273,7 +271,7 @@ class TestAssessMetadata(FakeHomeTestCase):
             self.assertEqual(self.target_dict, myself.env._config)
             self.assertIsNotNone(metadata_source)
         with extended_bootstrap_cxt('2.0.0'):
-            with patch('jujupy.EnvJujuClient.bootstrap', side_effect=check,
+            with patch('jujupy.ModelClient.bootstrap', side_effect=check,
                        autospec=True):
                 args = parse_args(['metadata', 'bar', '/foo'])
                 args.temp_env_name = 'qux'
@@ -288,7 +286,7 @@ class TestAssessMetadata(FakeHomeTestCase):
             self.assertEqual(self.target_dict, myself.env._config)
             self.assertEqual('agents', metadata_source)
         with extended_bootstrap_cxt('2.0.0'):
-            with patch('jujupy.EnvJujuClient.bootstrap', side_effect=check,
+            with patch('jujupy.ModelClient.bootstrap', side_effect=check,
                        autospec=True):
                 args = parse_args(['metadata', 'bar', '/foo'])
                 args.temp_env_name = 'qux'
@@ -300,7 +298,7 @@ class TestAssessMetadata(FakeHomeTestCase):
 
     def test_assess_metadata_valid_url(self):
         with extended_bootstrap_cxt('2.0.0'):
-            with patch('jujupy.EnvJujuClient.bootstrap', autospec=True):
+            with patch('jujupy.ModelClient.bootstrap', autospec=True):
                 args = parse_args(['metadata', 'bar', '/foo'])
                 args.temp_env_name = 'qux'
                 bs_manager = BootstrapManager.from_args(args)
@@ -317,7 +315,7 @@ class TestAssessTo(FakeHomeTestCase):
     def test_get_controller_address(self):
         status = Status({'machines': {"0": {'dns-name': '255.1.1.0'}}}, '')
         client = fake_juju_client()
-        with patch('jujupy.EnvJujuClient.status_until', return_value=[status],
+        with patch('jujupy.ModelClient.status_until', return_value=[status],
                    autospec=True):
             self.assertEqual('255.1.1.0', get_controller_address(client))
 
@@ -341,7 +339,7 @@ class TestAssessTo(FakeHomeTestCase):
                              myself.env._config)
             self.assertEqual(DEST, to)
         with extended_bootstrap_cxt('2.0.0'):
-            with patch('jujupy.EnvJujuClient.bootstrap', side_effect=check,
+            with patch('jujupy.ModelClient.bootstrap', side_effect=check,
                        autospec=True):
                 with patch('assess_bootstrap.get_controller_hostname',
                            return_value=DEST, autospec=True):
@@ -357,7 +355,7 @@ class TestAssessTo(FakeHomeTestCase):
 
     def test_assess_to_fails(self):
         with extended_bootstrap_cxt('2.0.0'):
-            with patch('jujupy.EnvJujuClient.bootstrap', autospec=True):
+            with patch('jujupy.ModelClient.bootstrap', autospec=True):
                 with patch('assess_bootstrap.get_controller_address',
                            return_value='255.1.1.0', autospec=True):
                     args = parse_args(['to', 'bar', '/foo',

@@ -6,7 +6,7 @@ from mock import patch, Mock
 import perfscale_mass_model_destruction as pmmd
 from generate_perfscale_results import DeployDetails
 from test_generate_perfscale_results import get_default_args
-from fakejuju import fake_juju_client
+from jujupy import fake_juju_client
 from tests import (
     TestCase
 )

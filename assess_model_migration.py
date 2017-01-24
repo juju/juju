@@ -482,12 +482,12 @@ def create_user_on_controllers(source_client, dest_client,
                                tmp_dir, username, permission):
     """Create a user on both supplied controller with the permissions supplied.
 
-    :param source_client: EnvJujuClient object to create user on.
-    :param dest_client: EnvJujuClient object to create user on.
+    :param source_client: ModelClient object to create user on.
+    :param dest_client: ModelClient object to create user on.
     :param tmp_dir: Path to base new users JUJU_DATA directory in.
     :param username: String of username to use.
     :param permission: String for permissions to grant user on both
-      controllers. Valid values are `EnvJujuClient.controller_permissions`.
+      controllers. Valid values are `ModelClient.controller_permissions`.
     """
     new_user_home = os.path.join(tmp_dir, username)
     os.makedirs(new_user_home)

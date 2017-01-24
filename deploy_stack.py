@@ -28,10 +28,6 @@ import json
 import shutil
 
 from chaos import background_chaos
-from fakejuju import (
-    FakeBackend,
-    fake_juju_client,
-)
 from jujucharm import (
     local_charm_path,
 )
@@ -41,12 +37,16 @@ from jujuconfig import (
 )
 from jujupy import (
     client_from_config,
-    get_local_root,
+    FakeBackend,
+    fake_juju_client,
     get_machine_dns_name,
     jes_home_path,
     NoProvider,
     SimpleEnvironment,
     temp_bootstrap_env,
+    )
+from jujupy.client import (
+    get_local_root,
 )
 from remote import (
     remote_from_address,
@@ -607,8 +607,8 @@ class BootstrapManager:
 
     :ivar temp_env_name: a unique name for the juju env, such as a Jenkins
         job name.
-    :ivar client: an EnvJujuClient.
-    :ivar tear_down_client: an EnvJujuClient for tearing down the environment
+    :ivar client: a ModelClient.
+    :ivar tear_down_client: a ModelClient for tearing down the controller
         (may be more reliable/capable/compatible than client.)
     :ivar bootstrap_host: None, or the address of a manual or MAAS host to
         bootstrap on.
@@ -963,7 +963,7 @@ class BootstrapManager:
         environment will be destroyed when the test completes or there is an
         unrecoverable error.
 
-        The temporary environment is created by updating a EnvJujuClient's
+        The temporary environment is created by updating a ModelClient's
         config with series, agent_url, agent_stream.
 
         :param upload_tools: False or True to upload the local agent instead
@@ -1016,12 +1016,12 @@ def boot_context(temp_env_name, client, bootstrap_host, machines, series,
     will be destroyed when the test completes or there is an unrecoverable
     error.
 
-    The temporary environment is created by updating a EnvJujuClient's config
+    The temporary environment is created by updating a ModelClient's config
     with series, agent_url, agent_stream.
 
     :param temp_env_name: a unique name for the juju env, such as a Jenkins
         job name.
-    :param client: an EnvJujuClient.
+    :param client: an ModelClient.
     :param bootstrap_host: None, or the address of a manual or MAAS host to
         bootstrap on.
     :param machine: [] or a list of machines to use add to a manual env

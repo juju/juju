@@ -25,8 +25,8 @@ from assess_constraints import (
     mem_to_int,
     INSTANCE_TYPES,
     )
-from fakejuju import fake_juju_client
 from jujupy import (
+    fake_juju_client,
     Status,
     )
 from tests import (
@@ -193,7 +193,7 @@ class TestAssess(TestCase):
         # weird.
         fake_client.env = env
         fake_client.bootstrap()
-        with patch('jujupy.EnvJujuClient.deploy',
+        with patch('jujupy.ModelClient.deploy',
                    autospec=True) as deploy_mock:
             yield fake_client, deploy_mock
 

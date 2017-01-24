@@ -16,9 +16,9 @@ from assess_multimodel import (
     hosted_environment,
     multimodel_setup,
     )
-from fakejuju import fake_juju_client
 from jujupy import (
     EnvJujuClient25,
+    fake_juju_client,
     JUJU_DEV_FEATURE_FLAGS,
     SimpleEnvironment,
     )
@@ -54,7 +54,7 @@ class TestMultiModel(tests.FakeHomeTestCase):
 
     @patch_local('print_now', autospec=True)
     @patch_local('get_random_string', autospec=True)
-    @patch('jujupy.EnvJujuClient.juju', autospec=True)
+    @patch('jujupy.ModelClient.juju', autospec=True)
     @patch_local('check_token', autospec=True)
     def test_check_services(
             self,
@@ -73,8 +73,8 @@ class TestMultiModel(tests.FakeHomeTestCase):
         check_token_func.assert_called_once_with(client, 'tokenfakeran')
         print_now_func.assert_called_once_with('checking services in token')
 
-    @patch('jujupy.EnvJujuClient.get_full_path', autospec=True)
-    @patch('jujupy.EnvJujuClient.add_ssh_machines', autospec=True)
+    @patch('jujupy.ModelClient.get_full_path', autospec=True)
+    @patch('jujupy.ModelClient.add_ssh_machines', autospec=True)
     @patch_local('boot_context', autospec=True)
     @patch_local('configure_logging', autospec=True)
     @patch_local('client_from_config', autospec=True)

@@ -26,9 +26,9 @@ from deploy_stack import (
     BootstrapManager,
     get_random_string,
     )
-from fakejuju import fake_juju_client
 from jujupy import (
-    EnvJujuClient,
+    ModelClient,
+    fake_juju_client,
     JujuData,
     SoftDeadlineExceeded,
     )
@@ -450,7 +450,7 @@ class TestWaitForModel(TestCase):
             mock_sleep.assert_called_once_with(1)
 
     def test_suppresses_deadline(self):
-        client = EnvJujuClient(JujuData('local', juju_home=''), None, None)
+        client = ModelClient(JujuData('local', juju_home=''), None, None)
         with client_past_deadline(client):
 
             real_check_timeouts = client.check_timeouts
@@ -469,7 +469,7 @@ class TestWaitForModel(TestCase):
                     amm.wait_for_model(client, 'TestModelName')
 
     def test_checks_deadline(self):
-        client = EnvJujuClient(JujuData('local', juju_home=''), None, None)
+        client = ModelClient(JujuData('local', juju_home=''), None, None)
         with client_past_deadline(client):
             def get_models():
                 return {'models': [{'name': 'TestModelName'}]}
@@ -503,7 +503,7 @@ class TestEnsureApiLoginRedirects(FakeHomeTestCase):
             for (client, uuid)
             in [(client1, '12345'), (client3, 'ABCDE')]]
         with patch('logging.Logger.info', autospec=True):
-            with patch('jujupy.EnvJujuClient.show_model', autospec=True,
+            with patch('jujupy.ModelClient.show_model', autospec=True,
                        side_effect=model_details_list) as show_model_mock:
                 with patch.object(amm, 'migrate_model_to_controller',
                                   return_value=client3):

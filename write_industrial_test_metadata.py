@@ -2,9 +2,9 @@
 from argparse import ArgumentParser
 import json
 
-from jujupy import (
+from jujupy.client import (
     describe_substrate,
-    EnvJujuClient,
+    ModelClient,
     SimpleEnvironment,
     )
 
@@ -25,7 +25,7 @@ def make_metadata(buildvars_path, env_name):
     :param buildbars_path: Path to the buildvars.json file for the new client.
     :param env_name: Name of the environment being used.
     """
-    old_version = EnvJujuClient.get_version()
+    old_version = ModelClient.get_version()
     env = SimpleEnvironment.from_config(env_name)
     with open(buildvars_path) as buildvars_file:
         buildvars = json.load(buildvars_file)

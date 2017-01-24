@@ -14,21 +14,22 @@ from assess_cloud import (
     parse_args,
     )
 from deploy_stack import BootstrapManager
-from fakejuju import (
+from jujupy import (
+    ModelClient,
     FakeBackend,
     fake_juju_client,
-    )
-from jujupy import (
-    EnvJujuClient,
     Juju2Backend,
-    temp_yaml_file,
     )
+from jujupy.version_client import ModelClient2_1
 from tests import (
     FakeHomeTestCase,
     observable_temp_file,
     TestCase,
     )
-from utility import temp_dir
+from utility import (
+    temp_dir,
+    temp_yaml_file,
+    )
 
 
 def backend_call(client, cmd, args, model=None, check=True, timeout=None,
@@ -126,14 +127,14 @@ class TestClientFromArgs(FakeHomeTestCase):
                 juju_bin='/usr/bin/juju', clouds_file=clouds_file,
                 cloud='mycloud', region=None, debug=False, deadline=None,
                 config=None)
-            with patch.object(EnvJujuClient.config_class,
+            with patch.object(ModelClient.config_class,
                               'from_cloud_region') as fcr_mock:
-                with patch.object(EnvJujuClient, 'get_version',
+                with patch.object(ModelClient, 'get_version',
                                   return_value='2.0.x'):
                     client = client_from_args(args)
         fcr_mock.assert_called_once_with('mycloud', None, {}, {},
                                          self.juju_home)
-        self.assertIs(type(client), EnvJujuClient)
+        self.assertIs(type(client), ModelClient2_1)
         self.assertIs(type(client._backend), Juju2Backend)
         self.assertEqual(client.version, '2.0.x')
         self.assertIs(client.env, fcr_mock.return_value)
@@ -143,12 +144,12 @@ class TestClientFromArgs(FakeHomeTestCase):
             args = Namespace(
                 juju_bin='FAKE', clouds_file=clouds_file, cloud='mycloud',
                 region=None, debug=False, deadline=None, config=None)
-            with patch.object(EnvJujuClient.config_class,
+            with patch.object(ModelClient.config_class,
                               'from_cloud_region') as fcr_mock:
                 client = client_from_args(args)
         fcr_mock.assert_called_once_with('mycloud', None, {}, {},
                                          self.juju_home)
-        self.assertIs(type(client), EnvJujuClient)
+        self.assertIs(type(client), ModelClient)
         self.assertIs(type(client._backend), FakeBackend)
         self.assertEqual(client.version, '2.0.0')
         self.assertIs(client.env, fcr_mock.return_value)
@@ -160,9 +161,9 @@ class TestClientFromArgs(FakeHomeTestCase):
                     juju_bin='/usr/bin/juju', clouds_file=clouds_file,
                     cloud='mycloud', region=None, debug=False, deadline=None,
                     config=config_file)
-                with patch.object(EnvJujuClient.config_class,
+                with patch.object(ModelClient.config_class,
                                   'from_cloud_region') as fcr_mock:
-                    with patch.object(EnvJujuClient, 'get_version',
+                    with patch.object(ModelClient, 'get_version',
                                       return_value='2.0.x'):
                         client_from_args(args)
         fcr_mock.assert_called_once_with('mycloud', None, {'foo': 'bar'}, {},

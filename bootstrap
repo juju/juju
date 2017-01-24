@@ -5,8 +5,6 @@ from jujuconfig import get_juju_home
 from jujupy import (
     bootstrap_from_env,
     client_from_config,
-    EnvJujuClient,
-    SimpleEnvironment,
 )
 
 

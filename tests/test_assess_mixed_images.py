@@ -13,7 +13,7 @@ from assess_mixed_images import (
     parse_args,
     main,
     )
-from fakejuju import fake_juju_client
+from jujupy import fake_juju_client
 from tests import (
     parse_error,
     TestCase,

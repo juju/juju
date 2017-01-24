@@ -22,11 +22,11 @@ from jujucharm import (
     Charm,
     local_charm_path,
 )
-from jujupy import (
+from jujupy import ModelClient
+from jujupy.client import (
     AgentsNotStarted,
     AGENTS_READY,
     coalesce_agent_status,
-    EnvJujuClient,
     get_machine_dns_name,
     LXC_MACHINE,
     LXD_MACHINE,
@@ -151,7 +151,7 @@ class MultiIndustrialTest:
 
     def make_industrial_test(self):
         """Create an IndustrialTest for this MultiIndustrialTest."""
-        stable_path = EnvJujuClient.get_full_path()
+        stable_path = ModelClient.get_full_path()
         paths = [self.really_old_path, stable_path, self.new_juju_path]
         upgrade_sequence = [p for p in paths if p is not None]
         stage_attempts = [self.stages.factory(upgrade_sequence,
@@ -217,8 +217,8 @@ class IndustrialTest:
     def __init__(self, old_client, new_client, stage_attempts):
         """Constructor.
 
-        :param old_client: An EnvJ/maujuClient for the old juju.
-        :param new_client: An EnvJujuClient for the new juju.
+        :param old_client: An ModelClient for the old juju.
+        :param new_client: A ModelClient for the new juju.
         :param stage_attemps: List of stages to attempt.
         """
         self.old_client = old_client

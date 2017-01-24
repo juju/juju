@@ -7,7 +7,7 @@ from mock import (
 )
 
 from assess_min_version import JujuAssertionError
-from fakejuju import (
+from jujupy import (
     fake_juju_client,
     fake_juju_client_optional_jes,
     )

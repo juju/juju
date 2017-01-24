@@ -10,7 +10,7 @@ from run_download_juju import (
     parse_args,
     main
 )
-from jujupy import ensure_dir
+from utility import ensure_dir
 from tests import (
     TestCase,
 )

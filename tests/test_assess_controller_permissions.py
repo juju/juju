@@ -75,7 +75,7 @@ class TestAssess(TestCase):
         sc = patch('assess_controller_permissions.assert_superuser_permission',
                    autospec=True)
         with lc as lc_mock, ac as ac_mock, sc as sc_mock:
-            with patch("jujupy.EnvJujuClient.expect",
+            with patch("jujupy.ModelClient.expect",
                        autospec=True) as expect_mock:
                 expect_mock.return_value.isalive.return_value = False
                 assess_controller_permissions(fake_client)
