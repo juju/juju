@@ -193,6 +193,19 @@ func (e *UserModel) LastConnection() (time.Time, error) {
 	return lastConnDoc.LastConnection, nil
 }
 
+// AllUserModels returns a list of all models with the user they belong to.
+func (st *State) AllUserModels() ([]*UserModel, error) {
+	models, err := st.AllModels()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	var result []*UserModel
+	for _, model := range models {
+		result = append(result, &UserModel{Model: model, User: model.Owner()})
+	}
+	return result, nil
+}
+
 // ModelsForUser returns a list of models that the user
 // is able to access.
 func (st *State) ModelsForUser(user names.UserTag) ([]*UserModel, error) {

@@ -30,6 +30,7 @@ type ModelManagerBackend interface {
 	state.CloudAccessor
 
 	ModelUUID() string
+	AllUserModels() ([]*state.UserModel, error)
 	ModelsForUser(names.UserTag) ([]*state.UserModel, error)
 	IsControllerAdmin(user names.UserTag) (bool, error)
 	NewModel(state.ModelArgs) (Model, ModelManagerBackend, error)
