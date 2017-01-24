@@ -667,7 +667,14 @@ class BootstrapManager:
         if self.resource_details is not None:
             with make_substrate_manager(self.client.env) as substrate:
                 if substrate is not None:
-                    return substrate.ensure_cleanup(self.resource_details)
+                    unclean = substrate.ensure_cleanup(self.resource_details)
+                    if unclean:
+                        logging.warning(
+                            "Following list of resource requires "
+                            "manual cleanup")
+                        for resource in unclean:
+                            logging.warning(resource)
+                    return unclean
                 logging.warning(
                     '{} is an unknown provider.'
                     ' Unable to ensure cleanup.'.format(
