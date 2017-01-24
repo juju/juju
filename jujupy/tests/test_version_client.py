@@ -57,7 +57,6 @@ from jujupy.version_client import (
     IncompatibleConfigClass,
     Juju1XBackend,
     ModelClient2_0,
-    ModelClient2_1,
     VersionNotTestedError,
     Status1X,
     )
@@ -185,7 +184,7 @@ class TestClientFromConfig(ClientTest):
             test_fc('2.0-rc2', ModelClientRC)
             test_fc('2.0-rc3', ModelClientRC)
             test_fc('2.0-delta1', ModelClient2_0)
-            test_fc('2.1.0', ModelClient2_1)
+            test_fc('2.1.0', ModelClient2_0)
             test_fc('2.2.0', ModelClient)
             with self.assertRaises(StopIteration):
                 client_from_config('foo', None)
@@ -216,11 +215,11 @@ class TestClientFromConfig(ClientTest):
         self.assertEqual(client._backend.soft_deadline, deadline)
 
 
-class TestModelClient2_1(ClientTest):
+class TestModelClient2_0(ClientTest):
 
-    client_version = '2.1.0'
+    client_version = '2.0.0'
 
-    client_class = ModelClient2_1
+    client_class = ModelClient2_0
 
     fake_backend_class = FakeBackend2_1
 

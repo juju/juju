@@ -32,10 +32,6 @@ from jujupy import (
     JujuData,
     SoftDeadlineExceeded,
     )
-from jujupy.version_client import (
-    ModelClient2_0,
-    ModelClient2_1,
-)
 from tests import (
     client_past_deadline,
     FakeHomeTestCase,
@@ -696,15 +692,26 @@ class TestRaiseIfSharedMachines(TestCase):
 class TestClientIsAtLeast21(TestCase):
 
     def test_returns_true_when_21(self):
-        client = ModelClient2_1(JujuData('local', juju_home=''), None, None)
+        client = ModelClient(JujuData('local', juju_home=''), '2.1', None)
+        self.assertTrue(amm.client_is_at_least_2_1(client))
+
+        client = ModelClient(
+            JujuData('local', juju_home=''), '2.1-beta1', None)
         self.assertTrue(amm.client_is_at_least_2_1(client))
 
     def test_returns_true_when_greater_than_21(self):
-        client = ModelClient(JujuData('local', juju_home=''), None, None)
+        client = ModelClient(JujuData('local', juju_home=''), '2.3', None)
+        self.assertTrue(amm.client_is_at_least_2_1(client))
+
+        client = ModelClient(JujuData('local', juju_home=''), '2.3-rc2', None)
         self.assertTrue(amm.client_is_at_least_2_1(client))
 
     def test_returns_false_when_not_at_least_21(self):
-        client = ModelClient2_0(JujuData('local', juju_home=''), None, None)
+        client = ModelClient(JujuData('local', juju_home=''), '2.0', None)
+        self.assertFalse(amm.client_is_at_least_2_1(client))
+
+        client = ModelClient(
+            JujuData('local', juju_home=''), '2.0-beta4', None)
         self.assertFalse(amm.client_is_at_least_2_1(client))
 
 
