@@ -420,6 +420,44 @@ func (s *upgradesSuite) TestAddMigrationAttempt(c *gc.C) {
 	s.assertUpgradedData(c, AddMigrationAttempt, coll, expected)
 }
 
+func (s *upgradesSuite) TestAddLocalCharmSequences(c *gc.C) {
+	mkInput := func(uuid, curl string) bson.M {
+		return bson.M{"_id": uuid + ":" + curl, "url": curl}
+	}
+
+	charms, closer := s.state.getRawCollection(charmsC)
+	defer closer()
+	err := charms.Insert(
+		mkInput("uuid0", "local:trusty/bar-2"),
+		mkInput("uuid0", "local:xenial/foo-1"),
+		mkInput("uuid0", "cs:xenial/moo-2"), // Should be ignored
+		mkInput("uuid1", "local:trusty/aaa-3"),
+		mkInput("uuid1", "local:xenial/bbb-5"),
+		mkInput("uuid1", "cs:xenial/boo-2"), // Should be ignored
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	sequences, closer := s.state.getRawCollection(sequenceC)
+	defer closer()
+
+	mkExpected := func(uuid, urlBase string, counter int) bson.M {
+		name := "charmrev-" + urlBase
+		return bson.M{
+			"_id":        uuid + ":" + name,
+			"name":       name,
+			"model-uuid": uuid,
+			"counter":    counter,
+		}
+	}
+	expected := []bson.M{
+		mkExpected("uuid0", "local:trusty/bar", 3),
+		mkExpected("uuid0", "local:xenial/foo", 2),
+		mkExpected("uuid1", "local:trusty/aaa", 4),
+		mkExpected("uuid1", "local:xenial/bbb", 6),
+	}
+	s.assertUpgradedData(c, AddLocalCharmSequences, sequences, expected)
+}
+
 func hasIndex(coll *mgo.Collection, key []string) (bool, error) {
 	indexes, err := coll.Indexes()
 	if err != nil {

@@ -652,7 +652,7 @@ func (st *State) PrepareLocalCharmUpload(curl *charm.URL) (chosenURL *charm.URL,
 		return nil, errors.Errorf("expected charm URL with revision, got %q", curl)
 	}
 
-	revisionSeq := "charmrev-" + curl.WithRevision(-1).String()
+	revisionSeq := charmRevSeqName(curl.WithRevision(-1).String())
 	revision, err := st.sequenceWithMin(revisionSeq, curl.Revision)
 	if err != nil {
 		return nil, errors.Annotate(err, "unable to allocate charm revision")
@@ -668,6 +668,10 @@ func (st *State) PrepareLocalCharmUpload(curl *charm.URL) (chosenURL *charm.URL,
 		return nil, errors.Trace(err)
 	}
 	return allocatedURL, nil
+}
+
+func charmRevSeqName(baseURL string) string {
+	return "charmrev-" + baseURL
 }
 
 // PrepareStoreCharmUpload must be called before a charm store charm
