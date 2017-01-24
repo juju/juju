@@ -7,7 +7,6 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
-	"github.com/juju/juju/mongo"
 
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
@@ -57,13 +56,9 @@ func (st *State) sequence(name string) (int, error) {
 // `sequence` is more efficient than `sequenceWithMin` and should be
 // preferred if there is no minimum value requirement.
 func (st *State) sequenceWithMin(name string, minVal int) (int, error) {
-	sequences, closer := st.getCollection(sequenceC)
+	sequences, closer := st.getRawCollection(sequenceC)
 	defer closer()
-	updater := &dbSeqUpdater{
-		coll: sequences,
-		id:   st.docID(name),
-		name: name,
-	}
+	updater := newDbSeqUpdater(sequences, st.ModelUUID(), name)
 	return updateSeqWithMin(updater, minVal)
 }
 
@@ -141,9 +136,19 @@ func updateSeqWithMin(sequence seqUpdater, minVal int) (int, error) {
 
 // dbSeqUpdater implements seqUpdater.
 type dbSeqUpdater struct {
-	coll mongo.Collection
-	id   string
-	name string
+	coll      *mgo.Collection
+	modelUUID string
+	name      string
+	id        string
+}
+
+func newDbSeqUpdater(coll *mgo.Collection, modelUUID, name string) *dbSeqUpdater {
+	return &dbSeqUpdater{
+		coll:      coll,
+		modelUUID: modelUUID,
+		name:      name,
+		id:        modelUUID + ":" + name,
+	}
 }
 
 func (su *dbSeqUpdater) read() (int, error) {
@@ -158,10 +163,11 @@ func (su *dbSeqUpdater) read() (int, error) {
 }
 
 func (su *dbSeqUpdater) create(value int) (bool, error) {
-	err := su.coll.Writeable().Insert(bson.M{
-		"_id":     su.id,
-		"name":    su.name,
-		"counter": value,
+	err := su.coll.Insert(bson.M{
+		"_id":        su.id,
+		"name":       su.name,
+		"model-uuid": su.modelUUID,
+		"counter":    value,
 	})
 	if mgo.IsDup(errors.Cause(err)) {
 		return false, nil
@@ -172,7 +178,7 @@ func (su *dbSeqUpdater) create(value int) (bool, error) {
 }
 
 func (su *dbSeqUpdater) set(expected, next int) (bool, error) {
-	err := su.coll.Writeable().Update(
+	err := su.coll.Update(
 		bson.M{"_id": su.id, "counter": expected},
 		bson.M{"$set": bson.M{"counter": next}},
 	)
@@ -182,4 +188,26 @@ func (su *dbSeqUpdater) set(expected, next int) (bool, error) {
 		return false, errors.Trace(err)
 	}
 	return true, nil
+}
+
+func (su *dbSeqUpdater) ensure(next int) error {
+	curVal, err := su.read()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	var ok bool
+	if curVal == 0 {
+		ok, err = su.create(next)
+	} else {
+		// Sequences should never go backwards.
+		if next <= curVal {
+			return nil
+		}
+		ok, err = su.set(curVal, next)
+	}
+	if !ok {
+		return errors.New("unexpected contention")
+	}
+	return errors.Trace(err)
 }
