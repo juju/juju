@@ -68,7 +68,6 @@ var arm64DomainStr = `
     <os>
         <type arch="aarch64" machine="virt">hvm</type>
         <loader readonly="yes" type="pflash">/shared/readonly.fd</loader>
-        <nvram>/private/writable.fd</nvram>
     </os>
     <features>
         <gic version="host"></gic>
@@ -125,7 +124,6 @@ func (domainXMLSuite) TestNewDomain(c *gc.C) {
 		params := dummyParams{ifaceInfo: ifaces, diskInfo: disks, memory: 1024, cpuCores: 2, hostname: "juju-someid", arch: test.arch}
 
 		if test.arch == "arm64" {
-			params.nvram = "/private/writable.fd"
 			params.loader = "/shared/readonly.fd"
 		}
 
