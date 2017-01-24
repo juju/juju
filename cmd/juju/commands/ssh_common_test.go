@@ -276,7 +276,7 @@ func (s *SSHCommonSuite) setLinkLayerDevicesAddresses(c *gc.C, m *state.Machine)
 		ConfigMethod: state.LoopbackAddress,
 	}, {
 		DeviceName:   "eth0",
-		CIDRAddress:  "0.1.2.3/24", // needs the be a valid CIDR
+		CIDRAddress:  "0.1.2.3/24", // needs to be a valid CIDR
 		ConfigMethod: state.StaticAddress,
 	}}
 	err = m.SetDevicesAddresses(addressesArgs...)
