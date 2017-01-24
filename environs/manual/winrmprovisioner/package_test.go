@@ -7,13 +7,12 @@ import (
 	"runtime"
 	stdtesting "testing"
 
-	"github.com/juju/juju/testing"
+	gocheck "gopkg.in/check.v1"
 )
 
 func Test(t *stdtesting.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("Manual provider as client is not supported on windows")
 	}
-
-	testing.MgoTestPackage(t)
+	gocheck.TestingT(t)
 }

@@ -365,7 +365,7 @@ func checkProvisioned(host string, cli manual.WinrmClientAPI) (bool, error) {
 
 	provisioned := strings.Contains(stdout.String(), "Yes")
 	if stderr.Len() != 0 {
-		err = errors.Annotatef(err, "%v (%v)", err, strings.TrimSpace(stderr.String()))
+		err = errors.Annotate(err, strings.TrimSpace(stderr.String()))
 	}
 
 	// if the script said yes
@@ -561,16 +561,16 @@ powershell.exe -ExecutionPolicy RemoteSigned -NonInteractive -File C:\udata.ps1
 func ProvisioningScript(icfg *instancecfg.InstanceConfig) (string, error) {
 	cloudcfg, err := cloudinit.New(icfg.Series)
 	if err != nil {
-		return "", errors.Annotate(err, "error generating cloud-config")
+		return "", errors.Annotate(err, "error creating new cloud config")
 	}
 
 	udata, err := cloudconfig.NewUserdataConfig(icfg, cloudcfg)
 	if err != nil {
-		return "", errors.Annotate(err, "error generating cloud-config")
+		return "", errors.Annotate(err, "error creating new userdata based on the cloud config")
 	}
 
 	if err := udata.Configure(); err != nil {
-		return "", errors.Annotate(err, "error generating cloud-config")
+		return "", errors.Annotate(err, "error adding extra configurations in the userdata")
 	}
 
 	return cloudcfg.RenderScript()
