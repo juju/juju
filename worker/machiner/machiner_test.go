@@ -484,6 +484,10 @@ LXC_BRIDGE="ignored"`[1:])
 				&net.IPAddr{IP: net.IPv4(10, 0, 4, 1)},
 				&net.IPAddr{IP: net.IPv4(10, 0, 4, 4)},
 			}, nil
+		} else if name == network.DefaultKVMBridge {
+			return []net.Addr{
+				&net.IPAddr{IP: net.IPv4(192, 168, 1, 1)},
+			}, nil
 		}
 		c.Fatalf("unknown bridge in testing: %v", name)
 		return nil, nil
@@ -494,7 +498,16 @@ LXC_BRIDGE="ignored"`[1:])
 	defer worker.Stop(mr)
 	c.Assert(s.machine.Destroy(), jc.ErrorIsNil)
 	s.State.StartSync()
-	c.Assert(mr.Wait(), gc.Equals, worker.ErrTerminateAgent)
+	errCh := make(chan error, 0)
+	go func() {
+		errCh <-mr.Wait()
+	}()
+	select {
+	case err = <-errCh:
+		c.Assert(mr.Wait(), gc.Equals, worker.ErrTerminateAgent)
+	case <-time.After(coretesting.ShortWait):
+		c.Fatalf("Machiner failed to terminate.")
+	}
 	c.Assert(s.machine.Refresh(), jc.ErrorIsNil)
 }
 
