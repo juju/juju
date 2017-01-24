@@ -572,11 +572,10 @@ func (c *Config) ProxySSH() bool {
 	return value
 }
 
-// BondRaiseDelay returns the duration, measured in seconds, that
-// should be passed to the bridge script when bridging bonded
-// interfaces.
+// BondRaiseDelay returns the duration in seconds that should be
+// passed to the bridge script when bridging bonded interfaces.
 func (c *Config) BondRaiseDelay() int {
-	return c.mustInt("bond-raise-delay")
+	return c.mustInt(BondRaiseDelayKey)
 }
 
 // ProxySettings returns all four proxy settings; http, https, ftp, and no
