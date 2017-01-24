@@ -161,7 +161,7 @@ def deploy_machine_and_verify(client, series="xenial"):
         if hostname:
             remote = remote_from_address(hostname, machine.get('series'))
             output = remote.cat(
-                "/var/lib/juju/tools/machine-0/downloaded-tools.txt")
+                "/var/lib/juju/tools/machine-{}/downloaded-tools.txt".format(unit))
             deserialized_output = json.loads(output)
 
             client.juju('remove-machine', ('--force', unit))
@@ -257,17 +257,18 @@ def assess_metadata(args, agent_dir, agent_stream):
         verify_deployed_tool(agent_dir, client, agent_stream)
         log.info("Successfully deployed and verified agent-metadata-url")
 
-        # Deploy machine of series different that of controller
         controller_status = client.get_status(controller=True)
         controller_series = controller_status.get_machines()['0']['series']
-        serial_ver.remove(controller_series)
-        deploy_machine_and_verify(client, serial_ver[0])
 
         # Deploy charm of same controller series
         deploy_charm_and_verify(client, controller_series, "dummy-source")
         log.info(
             "Successfully deployed charm {} of series {} and verified".format(
                 "dummy-source", controller_series))
+
+        # Deploy machine of series different that of controller
+        serial_ver.remove(controller_series)
+        deploy_machine_and_verify(client, serial_ver[0])
 
 
 def get_cloud_details(client, agent_metadata_url, agent_stream):
