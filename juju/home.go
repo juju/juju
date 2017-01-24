@@ -4,11 +4,11 @@
 package juju
 
 import (
+	"github.com/juju/juju/juju/osenv"
+
 	"github.com/juju/errors"
 	"github.com/juju/utils/ssh"
 	"gopkg.in/juju/charmrepo.v2-unstable"
-
-	"github.com/juju/juju/juju/osenv"
 )
 
 // InitJujuXDGDataHome initializes the charm cache, environs/config and utils/ssh packages
@@ -23,5 +23,6 @@ func InitJujuXDGDataHome() error {
 	if err := ssh.LoadClientKeys(osenv.JujuXDGDataHomePath("ssh")); err != nil {
 		return errors.Annotate(err, "cannot load ssh client keys")
 	}
+
 	return nil
 }
