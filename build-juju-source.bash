@@ -32,14 +32,12 @@ if [[ -d "$WORKPACKAGE/patches" ]]; then
 fi
 
 # Run juju's fmt and vet script on the source after finding the right version
-echo "Running format and checking build"
-if [[ $(lsb_release -sc) == "trusty" ]]; then
-    CHECKSCRIPT=./scripts/verify.bash
-    if [[ ! -f $WORKPACKAGE/scripts/verify.bash ]]; then
-        CHECKSCRIPT=./scripts/pre-push.bash
-    fi
-    (cd $WORKPACKAGE && GOPATH=$WORK $CHECKSCRIPT)
+echo "Running format and vetting the build"
+CHECKSCRIPT=./scripts/verify.bash
+if [[ ! -f $WORKPACKAGE/scripts/verify.bash ]]; then
+    CHECKSCRIPT=./scripts/pre-push.bash
 fi
+(cd $WORKPACKAGE && GOPATH=$WORK $CHECKSCRIPT)
 
 # Remove binaries and build artefacts
 echo "Removing binaries and build artifacts"
