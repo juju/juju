@@ -38,9 +38,13 @@ from utility import (
 )
 from remote import (
     remote_from_unit,
+    remote_from_address,
 )
 from jujucharm import (
     local_charm_path,
+)
+from jujupy import (
+    ConditionList,
 )
 
 log = logging.getLogger("assess_agent_metadata")
@@ -139,6 +143,39 @@ def verify_deployed_charm(charm_app, client):
     log.info("Charm verification done successfully")
 
 
+def deploy_machine_and_verify(client, series="xenial"):
+    """
+    Deploy machine using juju add-machine of specified series
+    and verify that it make use of same agent-file used by the
+    contorller.
+    :param client: Juju client
+    :param series: The charm series to deploy
+    """
+    _, controller_sha256 = get_controller_url_and_sha256(client)
+    old_status = client.get_status()
+    client.juju('add-machine', ('--series', series))
+    new_status = client.wait_for_started()
+
+    for unit, machine in new_status.iter_new_machines(old_status):
+        hostname = machine.get('dns-name')
+        if hostname:
+            remote = remote_from_address(hostname, machine.get('series'))
+            output = remote.cat(
+                "/var/lib/juju/tools/machine-0/downloaded-tools.txt")
+            deserialized_output = json.loads(output)
+
+            client.juju('remove-machine', ('--force', unit))
+            client.wait_for(
+                ConditionList([client.make_remove_machine_condition(unit)]))
+
+            if deserialized_output['sha256'] != controller_sha256:
+                raise JujuAssertionError(
+                    'agent-metadata-url mismatch. Expected: {} Got: {}'.format(
+                        controller_sha256, deserialized_output))
+
+    log.info("add-machine verification done successfully")
+
+
 def deploy_charm_and_verify(client, series="xenial", charm_app="dummy-source"):
     """
     Deploy dummy charm from local repository and
@@ -220,21 +257,17 @@ def assess_metadata(args, agent_dir, agent_stream):
         verify_deployed_tool(agent_dir, client, agent_stream)
         log.info("Successfully deployed and verified agent-metadata-url")
 
+        # Deploy machine of series different that of controller
         controller_status = client.get_status(controller=True)
         controller_series = controller_status.get_machines()['0']['series']
+        serial_ver.remove(controller_series)
+        deploy_machine_and_verify(client, serial_ver[0])
 
         # Deploy charm of same controller series
         deploy_charm_and_verify(client, controller_series, "dummy-source")
         log.info(
             "Successfully deployed charm {} of series {} and verified".format(
                 "dummy-source", controller_series))
-
-        # Deploy charm of different series that of controller
-        serial_ver.remove(controller_series)
-        deploy_charm_and_verify(client, serial_ver[0], "dummy-sink")
-        log.info(
-            "Successfully deployed charm {} of series {} and verified".format(
-                "dummy-sink", serial_ver[0]))
 
 
 def get_cloud_details(client, agent_metadata_url, agent_stream):
