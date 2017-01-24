@@ -8,6 +8,7 @@ import (
 	"crypto/x509"
 	"io"
 	"io/ioutil"
+	"log"
 	"net"
 	"net/http"
 	"path/filepath"
@@ -279,6 +280,21 @@ func (srv *Server) Wait() error {
 	return srv.tomb.Wait()
 }
 
+// loggoWrapper is an io.Writer() that forwards the messages to a loggo.Logger.
+// Unfortunately http takes a concrete stdlib log.Logger struct, and not an
+// interface, so we can't just proxy all of the log levels without inspecting
+// the string content. For now, we just want to get the messages into the log
+// file.
+type loggoWrapper struct {
+	logger loggo.Logger
+	level  loggo.Level
+}
+
+func (w *loggoWrapper) Write(content []byte) (int, error) {
+	w.logger.Logf(w.level, "%s", string(content))
+	return len(content), nil
+}
+
 func (srv *Server) run() {
 	logger.Infof("listening on %q", srv.lis.Addr())
 
@@ -335,6 +351,10 @@ func (srv *Server) run() {
 		httpSrv := &http.Server{
 			Handler:   mux,
 			TLSConfig: srv.tlsConfig,
+			ErrorLog: log.New(&loggoWrapper{
+				level: loggo.WARNING,
+				logger: logger,
+			}, "", 0), // no prefix and no flags so log.Logger doesn't add extra prefixes
 		}
 		err := httpSrv.Serve(srv.lis)
 		// Normally logging an error at debug level would be grounds for a beating,
