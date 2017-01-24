@@ -4,6 +4,8 @@
 package state_test
 
 import (
+	"sort"
+
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2/bson"
@@ -53,6 +55,102 @@ func (s *sequenceSuite) TestSequenceWithMultipleEnvs(c *gc.C) {
 	s.checkDocCount(c, 2)
 	s.checkDoc(c, state1.ModelUUID(), "foo", 3)
 	s.checkDoc(c, state2.ModelUUID(), "foo", 2)
+}
+
+func (s *sequenceSuite) TestSequenceWithMin(c *gc.C) {
+	st := s.State
+	modelUUID := st.ModelUUID()
+	const name = "foo"
+
+	value, err := state.SequenceWithMin(st, name, 3)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(value, gc.Equals, 3)
+	s.checkDoc(c, modelUUID, name, 4)
+
+	value, err = state.SequenceWithMin(st, name, 3)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(value, gc.Equals, 4)
+	s.checkDoc(c, modelUUID, name, 5)
+
+	value, err = state.SequenceWithMin(st, name, 3)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(value, gc.Equals, 5)
+	s.checkDoc(c, modelUUID, name, 6)
+
+	value, err = state.SequenceWithMin(st, name, 10)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(value, gc.Equals, 10)
+	s.checkDoc(c, modelUUID, name, 11)
+}
+
+func (s *sequenceSuite) TestMultipleSequenceWithMin(c *gc.C) {
+	st := s.State
+
+	value, err := state.SequenceWithMin(st, "foo", 3)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(value, gc.Equals, 3)
+
+	value, err = state.SequenceWithMin(st, "bar", 2)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(value, gc.Equals, 2)
+
+	value, err = state.SequenceWithMin(st, "foo", 3)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(value, gc.Equals, 4)
+
+	value, err = state.SequenceWithMin(st, "bar", 2)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(value, gc.Equals, 3)
+}
+
+func (s *sequenceSuite) TestContention(c *gc.C) {
+	const name = "foo"
+	const goroutines = 2
+	const iterations = 10
+	st := s.State
+
+	type results struct {
+		values  []int
+		numErrs int
+	}
+	resultsCh := make(chan results)
+
+	workFunc := func(nextSeq func() (int, error)) {
+		var r results
+		for i := 0; i < iterations; i++ {
+			v, err := nextSeq()
+			if err != nil {
+				c.Logf("sequence increment failed: %v", err)
+				r.numErrs++
+			}
+			r.values = append(r.values, v)
+		}
+		resultsCh <- r
+	}
+
+	go workFunc(func() (int, error) {
+		return state.Sequence(st, name)
+	})
+
+	go workFunc(func() (int, error) {
+		return state.SequenceWithMin(st, name, 0)
+	})
+
+	var seenValues sort.IntSlice
+	var seenErrs int
+	for i := 0; i < goroutines; i++ {
+		r := <-resultsCh
+		seenValues = append(seenValues, r.values...)
+		seenErrs += r.numErrs
+	}
+	c.Assert(seenErrs, gc.Equals, 0)
+
+	numExpected := goroutines * iterations
+	c.Assert(len(seenValues), gc.Equals, numExpected)
+	seenValues.Sort()
+	for i := 0; i < numExpected; i++ {
+		c.Assert(seenValues[i], gc.Equals, i, gc.Commentf("index %d", i))
+	}
 }
 
 func (s *sequenceSuite) incAndCheck(c *gc.C, st *state.State, name string, expectedCount int) {

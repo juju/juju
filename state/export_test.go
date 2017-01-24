@@ -369,6 +369,10 @@ func Sequence(st *State, name string) (int, error) {
 	return st.sequence(name)
 }
 
+func SequenceWithMin(st *State, name string, minVal int) (int, error) {
+	return st.sequenceWithMin(name, minVal)
+}
+
 func SetModelLifeDead(st *State, modelUUID string) error {
 	ops := []txn.Op{{
 		C:      modelsC,
