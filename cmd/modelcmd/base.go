@@ -285,10 +285,7 @@ func (c *JujuCommandBase) ClearControllerMacaroons(endpoints []string) error {
 		return errors.Trace(err)
 	}
 	for _, s := range endpoints {
-		apictx.Jar.RemoveAllHost(s)
-	}
-	if err := apictx.Jar.Save(); err != nil {
-		return errors.Annotate(err, "can't remove cached authentication cookie")
+		apictx.jar.RemoveAllHost(s)
 	}
 	return nil
 }

@@ -7,17 +7,17 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
-	"github.com/juju/juju/testing"
 )
 
 type ControllerCommandSuite struct {
-	testing.FakeJujuXDGDataHomeSuite
+	testing.IsolationSuite
 }
 
 var _ = gc.Suite(&ControllerCommandSuite{})
