@@ -66,8 +66,8 @@ func (s *SSHReachableHostPortSuite) TestReachableMixedPublicKeys(c *gc.C) {
 		testSSHServer(c, s, sshtesting.SSHKey1),
 	}
 	dialer := &net.Dialer{Timeout: dialTimeout}
+	c.Logf("looking for host with public key: %s", sshtesting.SSHPub1)
 	best, err := ssh.ReachableHostPort(hostPorts, []string{sshtesting.SSHPub1}, dialer, searchTimeout)
-	c.Check(best, gc.Equals, network.HostPort{})
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(best, jc.DeepEquals, hostPorts[3])
 }
@@ -77,11 +77,13 @@ func (s *SSHReachableHostPortSuite) TestReachableNoPublicKeysPassed(c *gc.C) {
 	hostPorts := []network.HostPort{
 		fakeHostPort,
 		testTCPServer(c, s),
+		testSSHServer(c, s, sshtesting.SSHKey1),
 	}
 	dialer := &net.Dialer{Timeout: dialTimeout}
+	// Without a list of public keys, we should just check that the remote host is an SSH server
 	best, err := ssh.ReachableHostPort(hostPorts, nil, dialer, searchTimeout)
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(best, jc.DeepEquals, hostPorts[1]) // the only real listener
+	c.Check(best, jc.DeepEquals, hostPorts[2]) // the only real ssh server
 }
 
 func (s *SSHReachableHostPortSuite) TestReachableNoPublicKeysAvailable(c *gc.C) {
@@ -168,7 +170,7 @@ func testTCPServer(c *gc.C, cleaner Cleaner) network.HostPort {
 				continue
 			}
 			if tcpConn != nil {
-				c.Logf("accepted connection on %q from %s", hostPort, tcpConn.RemoteAddr())
+				c.Logf("accepted tcp connection on %q from %s", hostPort, tcpConn.RemoteAddr())
 				tcpConn.Close()
 			}
 		}

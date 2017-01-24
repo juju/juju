@@ -37,6 +37,7 @@ type hostKeyChecker struct {
 }
 
 var hostKeyNotInList = errors.New("host key not in expected set")
+var hostKeyAccepted = errors.New("host key was accepted, retry")
 
 func (h *hostKeyChecker) hostKeyCallback(hostname string, remote net.Addr, key ssh.PublicKey) error {
 	// Note: we don't do any advanced checking of the PublicKey, like whether
@@ -53,7 +54,7 @@ func (h *hostKeyChecker) hostKeyCallback(hostname string, remote net.Addr, key s
 		case h.accepted <- h.hostPort:
 		case <-h.stop:
 		}
-		return nil
+		return hostKeyAccepted
 	}
 	logger.Debugf("host key for %q %v not in our accepted set", hostname, remote)
 	return hostKeyNotInList
@@ -119,12 +120,15 @@ func ReachableHostPort(hostPorts []network.HostPort, publicKeys []string, dialer
 				return
 			default:
 			}
+			logger.Debugf("connected to %q, initiating ssh handshake", addr)
 			// NewClientConn will close the underlying net.Conn if it gets an error
 			client, _, _, err := ssh.NewClientConn(conn, addr, sshconfig)
 			if err == nil {
 				// We don't expect this case, because we don't support Auth,
 				// but make sure to close it anyway.
 				client.Close()
+			} else {
+				logger.Debugf("ssh error: %v", err)
 			}
 		}(hostPort)
 	}

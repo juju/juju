@@ -7,6 +7,7 @@ import (
 	"net"
 	"time"
 
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"golang.org/x/crypto/ssh"
 	gc "gopkg.in/check.v1"
@@ -34,6 +35,12 @@ AAAEB0Vb6XYd1aFm1dl+37KgqgEeZDuFRlSHjeHrXEDFP4Iw2TeJHVWtOwR8jJANeStlqO
 
 var SSHPub2 = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIA2TeJHVWtOwR8jJANeStlqO04jCYoF3P6EA33RVd3E5 test-only"
 
+// denyPublicKey implements the SSH PublicKeyCallback API, but just always
+// denies any public key it gets.
+func denyPublicKey(conn ssh.ConnMetadata, key ssh.PublicKey) (*ssh.Permissions, error) {
+	return nil, errors.Errorf("public key denied")
+}
+
 // CreateSSHServer launches an SSH server that will use the described private
 // key to allow SSH connections. Note that it explicitly doesn't actually
 // support any Auth mechanisms, so nobody can complete connections, but it will
@@ -42,8 +49,9 @@ var SSHPub2 = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIA2TeJHVWtOwR8jJANeStlqO04jCY
 // callers must close when they want the service to stop.
 func CreateSSHServer(c *gc.C, privateKeys ...string) (string, chan struct{}) {
 	serverConf := &ssh.ServerConfig{
-	// Note that we don't set up a PasswordCallback or 'NoClientAuth:
-	// true'. Right now we just don't allow actual logins.
+		// We have to set up at least one Auth method, or the SSH server
+		// doesn't even try to do key-exchange
+		PublicKeyCallback: denyPublicKey,
 	}
 	for _, privateStr := range privateKeys {
 		privateKey, err := ssh.ParsePrivateKey([]byte(privateStr))
@@ -85,7 +93,7 @@ func CreateSSHServer(c *gc.C, privateKeys ...string) (string, chan struct{}) {
 				continue
 			}
 			remoteAddress := tcpConn.RemoteAddr().String()
-			c.Logf("accepted connection on %s from %s", localAddress, remoteAddress)
+			c.Logf("accepted tcp connection for ssh on %s from %s", localAddress, remoteAddress)
 			sshConn, _, _, err := ssh.NewServerConn(tcpConn, serverConf)
 			if err != nil {
 				// TODO: some errors are expected, as we don't support Auth
