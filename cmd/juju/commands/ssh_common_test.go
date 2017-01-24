@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
@@ -161,13 +162,25 @@ func (f *fakeDialer) Dial(network, address string) (net.Conn, error) {
 	return &fakeConn{}, nil
 }
 
-type fakeConn struct {
-	net.Conn
-}
+type fakeConn struct{}
 
-func (f *fakeConn) Close() error                { return nil }
-func (f *fakeConn) Write(b []byte) (int, error) { return len(b), nil }
-func (f *fakeConn) Read(b []byte) (int, error)  { return 0, io.EOF }
+func (*fakeConn) Close() error                       { return nil }
+func (*fakeConn) Write(b []byte) (int, error)        { return 0, io.EOF }
+func (*fakeConn) Read(b []byte) (int, error)         { return 0, io.EOF }
+func (*fakeConn) LocalAddr() net.Addr                { return &fakeAddr{} }
+func (*fakeConn) RemoteAddr() net.Addr               { return &fakeAddr{} }
+func (*fakeConn) SetDeadline(t time.Time) error      { return errors.Errorf("deadline not supported") }
+func (*fakeConn) SetReadDeadline(t time.Time) error  { return errors.Errorf("deadline not supported") }
+func (*fakeConn) SetWriteDeadline(t time.Time) error { return errors.Errorf("deadline not supported") }
+
+var _ net.Conn = (*fakeConn)(nil)
+
+type fakeAddr struct{}
+
+func (*fakeAddr) Network() string { return "" }
+func (*fakeAddr) String() string  { return "" }
+
+var _ net.Addr = (*fakeAddr)(nil)
 
 func (s *SSHCommonSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
