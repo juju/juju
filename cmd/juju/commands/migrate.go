@@ -206,5 +206,5 @@ func (c *migrateCommand) getTargetControllerMacaroons() ([]macaroon.Slice, error
 		return nil, errors.Annotate(err, "connecting to target controller")
 	}
 	defer api.Close()
-	return httpbakery.MacaroonsForURL(apiContext.Jar, api.CookieURL()), nil
+	return httpbakery.MacaroonsForURL(apiContext.CookieJar(), api.CookieURL()), nil
 }
