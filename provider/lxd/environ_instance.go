@@ -7,6 +7,7 @@ package lxd
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/version"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/tags"
@@ -124,9 +125,9 @@ func (env *environ) parsePlacement(placement string) (*instPlacement, error) {
 	return nil, errors.Errorf("unknown placement directive: %v", placement)
 }
 
-// UpdateController updates the controller tags on all instances to have the
+// AdoptResources updates the controller tags on all instances to have the
 // new controller id. It's part of the Environ interface.
-func (env *environ) UpdateController(controllerUUID string) error {
+func (env *environ) AdoptResources(controllerUUID string, fromVersion version.Number) error {
 	instances, err := env.AllInstances()
 	if err != nil {
 		return errors.Annotate(err, "all instances")

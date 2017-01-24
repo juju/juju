@@ -15,6 +15,7 @@ import (
 	"github.com/juju/retry"
 	"github.com/juju/utils"
 	"github.com/juju/utils/clock"
+	"github.com/juju/version"
 	"gopkg.in/amz.v3/aws"
 	"gopkg.in/amz.v3/ec2"
 	"gopkg.in/juju/names.v2"
@@ -943,9 +944,9 @@ func (e *environ) Subnets(instId instance.Id, subnetIds []network.Id) ([]network
 	return results, nil
 }
 
-// UpdateController is part of the Environ interface.
-func (e *environ) UpdateController(controllerUUID string) error {
-	return errors.NotImplementedf("UpdateController")
+// AdoptResources is part of the Environ interface.
+func (e *environ) AdoptResources(controllerUUID string, fromVersion version.Number) error {
+	return errors.NotImplementedf("AdoptResources")
 }
 
 // AllInstances is part of the environs.InstanceBroker interface.

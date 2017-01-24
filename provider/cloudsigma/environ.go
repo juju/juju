@@ -8,6 +8,7 @@ import (
 
 	"github.com/altoros/gosigma"
 	"github.com/juju/errors"
+	"github.com/juju/version"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
@@ -103,8 +104,8 @@ func (e *environ) ControllerInstances(controllerUUID string) ([]instance.Id, err
 	return e.client.getControllerIds()
 }
 
-// UpdateController is part of the Environ interface.
-func (e *environ) UpdateController(controllerUUID string) error {
+// AdoptResources is part of the Environ interface.
+func (e *environ) AdoptResources(controllerUUID string, fromVersion version.Number) error {
 	// This provider doesn't track instance -> controller.
 	return nil
 }

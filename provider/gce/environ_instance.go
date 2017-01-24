@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+	"github.com/juju/version"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
@@ -122,8 +123,8 @@ func (env *environ) ControllerInstances(controllerUUID string) ([]instance.Id, e
 	return results, nil
 }
 
-// UpdateController is part of the Environ interface.
-func (env *environ) UpdateController(controllerUUID string) error {
+// AdoptResources is part of the Environ interface.
+func (env *environ) AdoptResources(controllerUUID string, fromVersion version.Number) error {
 	instances, err := env.AllInstances()
 	if err != nil {
 		return errors.Annotate(err, "all instances")

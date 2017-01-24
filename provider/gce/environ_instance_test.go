@@ -6,6 +6,7 @@ package gce_test
 import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/constraints"
@@ -202,12 +203,12 @@ func (s *environInstSuite) TestListMachineTypes(c *gc.C) {
 
 }
 
-func (s *environInstSuite) TestUpdateController(c *gc.C) {
+func (s *environInstSuite) TestAdoptResources(c *gc.C) {
 	john := s.NewInstance(c, "john")
 	misty := s.NewInstance(c, "misty")
 	s.FakeEnviron.Insts = []instance.Instance{john, misty}
 
-	err := s.Env.UpdateController("other-uuid")
+	err := s.Env.AdoptResources("other-uuid", version.MustParse("1.2.3"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.FakeConn.Calls, gc.HasLen, 1)
 	call := s.FakeConn.Calls[0]

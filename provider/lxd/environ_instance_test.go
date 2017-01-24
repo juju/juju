@@ -9,6 +9,7 @@ import (
 	"github.com/juju/errors"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs"
@@ -125,13 +126,13 @@ func (s *environInstSuite) TestControllerInstancesMixed(c *gc.C) {
 	c.Check(ids, jc.DeepEquals, []instance.Id{"spam"})
 }
 
-func (s *environInstSuite) TestUpdateController(c *gc.C) {
+func (s *environInstSuite) TestAdoptResources(c *gc.C) {
 	one := s.NewRawInstance(c, "smoosh")
 	two := s.NewRawInstance(c, "guild-league")
 	three := s.NewRawInstance(c, "tall-dwarfs")
 	s.Client.Insts = []lxdclient.Instance{*one, *two, *three}
 
-	err := s.Env.UpdateController("target-uuid")
+	err := s.Env.AdoptResources("target-uuid", version.MustParse("3.4.5"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.BaseSuite.Client.Calls(), gc.HasLen, 4)
 	s.BaseSuite.Client.CheckCall(c, 0, "Instances", "juju-f75cba-", []string{"Starting", "Started", "Running", "Stopping", "Stopped"})
@@ -140,14 +141,14 @@ func (s *environInstSuite) TestUpdateController(c *gc.C) {
 	s.BaseSuite.Client.CheckCall(c, 3, "SetContainerConfig", "tall-dwarfs", "user.juju-controller-uuid", "target-uuid")
 }
 
-func (s *environInstSuite) TestUpdateControllerError(c *gc.C) {
+func (s *environInstSuite) TestAdoptResourcesError(c *gc.C) {
 	one := s.NewRawInstance(c, "smoosh")
 	two := s.NewRawInstance(c, "guild-league")
 	three := s.NewRawInstance(c, "tall-dwarfs")
 	s.Client.Insts = []lxdclient.Instance{*one, *two, *three}
 	s.Client.SetErrors(nil, nil, errors.New("blammo"))
 
-	err := s.Env.UpdateController("target-uuid")
+	err := s.Env.AdoptResources("target-uuid", version.MustParse("5.3.3"))
 	c.Assert(err, gc.ErrorMatches, `failed to update controller for some instances: \[guild-league\]`)
 	c.Assert(s.BaseSuite.Client.Calls(), gc.HasLen, 4)
 	s.BaseSuite.Client.CheckCall(c, 0, "Instances", "juju-f75cba-", []string{"Starting", "Started", "Running", "Stopping", "Stopped"})

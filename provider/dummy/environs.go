@@ -38,6 +38,7 @@ import (
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/clock"
 	"github.com/juju/utils/series"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/environschema.v1"
 	"gopkg.in/juju/names.v2"
@@ -886,8 +887,8 @@ func (e *environ) SetConfig(cfg *config.Config) error {
 	return nil
 }
 
-// UpdateController is part of the Environ interface.
-func (e *environ) UpdateController(controllerUUID string) error {
+// AdoptResources is part of the Environ interface.
+func (e *environ) AdoptResources(controllerUUID string, fromVersion version.Number) error {
 	// This provider doesn't track instance -> controller.
 	return nil
 }

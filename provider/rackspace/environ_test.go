@@ -175,8 +175,8 @@ func (e *fakeEnviron) ControllerInstances(_ string) ([]instance.Id, error) {
 	return nil, nil
 }
 
-func (e *fakeEnviron) UpdateController(controllerUUID string) error {
-	e.Push("UpdateController")
+func (e *fakeEnviron) AdoptResources(controllerUUID string, fromVersion version.Number) error {
+	e.Push("AdoptResources")
 	return nil
 }
 
