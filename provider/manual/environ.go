@@ -178,8 +178,8 @@ func (e *manualEnviron) verifyBootstrapHost() error {
 	return nil
 }
 
-// AdoptInstances implements environs.Environ.
-func (e *manualEnviron) AdoptInstances(ids []instance.Id, controllerUUID string) error {
+// UpdateController is part of the Environ interface.
+func (e *manualEnviron) UpdateController(controllerUUID string) error {
 	// This provider doesn't track instance -> controller.
 	return nil
 }

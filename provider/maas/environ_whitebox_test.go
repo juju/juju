@@ -1094,10 +1094,10 @@ func (s *environSuite) TestReleaseContainerAddresses_HandlesDupes(c *gc.C) {
 	c.Assert(systemIds, gc.DeepEquals, []string{"device3"})
 }
 
-func (s *environSuite) TestAdoptInstances(c *gc.C) {
-	id := s.addNode(allocatedNode)
+func (s *environSuite) TestUpdateController(c *gc.C) {
+	s.addNode(allocatedNode)
 	env := s.makeEnviron()
 	// Shouldn't do anything in MAAS1.
-	err := env.AdoptInstances([]instance.Id{id}, "other-controller")
+	err := env.UpdateController("other-controller")
 	c.Assert(err, jc.ErrorIsNil)
 }

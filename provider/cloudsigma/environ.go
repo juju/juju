@@ -103,8 +103,8 @@ func (e *environ) ControllerInstances(controllerUUID string) ([]instance.Id, err
 	return e.client.getControllerIds()
 }
 
-// AdoptInstances is part of the Environ interface.
-func (e *environ) AdoptInstances(ids []instance.Id, controllerUUID string) error {
+// UpdateController is part of the Environ interface.
+func (e *environ) UpdateController(controllerUUID string) error {
 	// This provider doesn't track instance -> controller.
 	return nil
 }

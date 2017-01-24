@@ -1071,6 +1071,11 @@ func (env *azureEnviron) instances(
 	return matching, nil
 }
 
+// UpdateController is part of the Environ interface.
+func (env *azureEnviron) UpdateController(controllerUUID string) error {
+	return errors.NotImplementedf("UpdateController")
+}
+
 // AllInstances is specified in the InstanceBroker interface.
 func (env *azureEnviron) AllInstances() ([]instance.Instance, error) {
 	return env.allInstances(env.resourceGroup, true /* refresh addresses */, false /* all instances */)

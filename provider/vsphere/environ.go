@@ -121,8 +121,8 @@ func (env *environ) BootstrapMessage() string {
 //this variable is exported, because it has to be rewritten in external unit tests
 var DestroyEnv = common.Destroy
 
-// AdoptInstances is part of the Environ interface.
-func (env *environ) AdoptInstances(ids []instance.Id, controllerUUID string) error {
+// UpdateController is part of the Environ interface.
+func (env *environ) UpdateController(controllerUUID string) error {
 	// This provider doesn't track instance -> controller.
 	return nil
 }

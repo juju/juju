@@ -943,6 +943,11 @@ func (e *environ) Subnets(instId instance.Id, subnetIds []network.Id) ([]network
 	return results, nil
 }
 
+// UpdateController is part of the Environ interface.
+func (e *environ) UpdateController(controllerUUID string) error {
+	return errors.NotImplementedf("UpdateController")
+}
+
 // AllInstances is part of the environs.InstanceBroker interface.
 func (e *environ) AllInstances() ([]instance.Instance, error) {
 	return e.AllInstancesByState("pending", "running")
