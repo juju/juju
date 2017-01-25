@@ -16,7 +16,10 @@ import (
 // Bridger creates network bridges to support addressable containers.
 type Bridger interface {
 	// Turns existing devices into bridged devices.
-	Bridge(deviceNames []string) error
+	// TODO(frobware) - we may want a different type to encompass
+	// and reflect how bridging should be done vis-a-vis what
+	// needs to be bridged.
+	Bridge(devices []DeviceToBridge) error
 }
 
 type etcNetworkInterfacesBridger struct {
@@ -59,9 +62,9 @@ func bestPythonVersion() string {
 	return ""
 }
 
-func (b *etcNetworkInterfacesBridger) Bridge(deviceNames []string) error {
-	cmd := bridgeCmd(deviceNames, b.BridgePrefix, b.Filename, BridgeScriptPythonContent, b.DryRun)
-	infoCmd := bridgeCmd(deviceNames, b.BridgePrefix, b.Filename, "<script-redacted>", b.DryRun)
+func (b *etcNetworkInterfacesBridger) Bridge(devices []DeviceToBridge) error {
+	cmd := bridgeCmd(devices, b.BridgePrefix, b.Filename, BridgeScriptPythonContent, b.DryRun)
+	infoCmd := bridgeCmd(devices, b.BridgePrefix, b.Filename, "<script-redacted>", b.DryRun)
 	logger.Infof("bridgescript command=%s", infoCmd)
 	result, err := runCommand(cmd, b.Environ, b.Clock, b.Timeout)
 	if err != nil {
@@ -81,9 +84,8 @@ func (b *etcNetworkInterfacesBridger) Bridge(deviceNames []string) error {
 	return nil
 }
 
-func bridgeCmd(deviceNames []string, bridgePrefix, filename, pythonScript string, dryRun bool) string {
+func bridgeCmd(devices []DeviceToBridge, bridgePrefix, filename, pythonScript string, dryRun bool) string {
 	dryRunOption := ""
-	bondRaiseDelayOption := ""
 
 	if bridgePrefix != "" {
 		bridgePrefix = fmt.Sprintf("--bridge-prefix=%s", bridgePrefix)
@@ -93,7 +95,17 @@ func bridgeCmd(deviceNames []string, bridgePrefix, filename, pythonScript string
 		dryRunOption = "--dry-run"
 	}
 
-	bondRaiseDelay := 0 // FIXME
+	bondRaiseDelay := 0
+	bondRaiseDelayOption := ""
+
+	deviceNames := make([]string, len(devices))
+
+	for i, d := range devices {
+		if d.BondRaiseDelay > bondRaiseDelay {
+			bondRaiseDelay = d.BondRaiseDelay
+		}
+		deviceNames[i] = d.DeviceName
+	}
 
 	if bondRaiseDelay > 0 {
 		bondRaiseDelayOption = fmt.Sprintf("--bond-raise-delay=%v", bondRaiseDelay)

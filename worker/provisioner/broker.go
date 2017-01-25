@@ -55,15 +55,9 @@ func prepareHost(bridger network.Bridger, hostMachineID string, containerTag nam
 		return nil
 	}
 
-	deviceNamesToBridge := make([]string, len(devicesToBridge))
+	log.Tracef("Bridging %+v devices on host %q", devicesToBridge, hostMachineID)
 
-	for i, v := range devicesToBridge {
-		deviceNamesToBridge[i] = v.DeviceName
-	}
-
-	log.Tracef("Bridging %q devices on host %q", deviceNamesToBridge, hostMachineID)
-
-	err = bridger.Bridge(deviceNamesToBridge)
+	err = bridger.Bridge(devicesToBridge)
 
 	if err != nil {
 		return errors.Annotate(err, "failed to bridge devices")

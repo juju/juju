@@ -233,7 +233,7 @@ func newFakeBridgerNeverErrors() *fakeBridger {
 	}
 }
 
-func (f *fakeBridger) Bridge(deviceNames []string) error {
+func (f *fakeBridger) Bridge(devices []network.DeviceToBridge) error {
 	if f.returnError {
 		return errors.New(f.errorMessage)
 	}
