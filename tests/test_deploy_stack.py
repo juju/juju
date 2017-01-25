@@ -359,6 +359,35 @@ class DeployStackTestCase(FakeHomeTestCase):
              "INFO Token matches expected 'token'"],
             self.log_stream.getvalue().splitlines())
 
+    def test_check_token_win_client_status(self):
+        env = SimpleEnvironment('foo', {'type': 'ec2'})
+        client = EnvJujuClient1X(env, None, None)
+        remote = MagicMock(spec=['cat', 'is_windows'])
+        remote.is_windows.return_value = False
+        status = Status.from_text("""\
+            applications:
+              dummy-sink:
+                units:
+                  dummy-sink/0:
+                    workload-status:
+                      current: active
+                      message: Token is token
+
+            """)
+        with patch('deploy_stack.remote_from_unit', autospec=True,
+                   return_value=remote):
+            with patch.object(client, 'get_status', autospec=True,
+                              return_value=status):
+                with patch('sys.platform', 'win32'):
+                    check_token(client, 'token', timeout=0)
+        # application-status had the token.
+        self.assertEqual(0, remote.cat.call_count)
+        self.assertEqual(
+            ['INFO Waiting for applications to reach ready.',
+             'INFO Retrieving token.',
+             "INFO Token matches expected 'token'"],
+            self.log_stream.getvalue().splitlines())
+
     def test_check_token_win_remote(self):
         env = JujuData('foo', {'type': 'azure'})
         client = ModelClient(env, None, None)
