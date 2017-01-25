@@ -2347,7 +2347,6 @@ func (env *maasEnviron) releaseContainerAddresses2(macAddresses []string) error 
 	return nil
 }
 
-
 // AdoptResources updates all the instances to indicate they
 // are now associated with the specified controller.
 func (env *maasEnviron) AdoptResources(controllerUUID string, fromVersion version.Number) error {
