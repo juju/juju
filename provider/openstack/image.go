@@ -4,9 +4,32 @@
 package openstack
 
 import (
+	"gopkg.in/goose.v1/nova"
+
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
 )
+
+// FlavorFilter is an interface that can control which server flavors
+// are acceptable.
+type FlavorFilter interface {
+	// AcceptFlavor returns true iff the given flavor is acceptable.
+	AcceptFlavor(nova.FlavorDetail) bool
+}
+
+// FlavorFilterFunc is a function type that implements FlavorFilter.
+type FlavorFilterFunc func(nova.FlavorDetail) bool
+
+// AcceptFlavor is part of the FlavorFilter interface.
+func (f FlavorFilterFunc) AcceptFlavor(d nova.FlavorDetail) bool {
+	return f(d)
+}
+
+// AcceptAllFlavors is a function that returns true for any input,
+// and can be assigned to a value of type FlavorFilterFunc.
+func AcceptAllFlavors(nova.FlavorDetail) bool {
+	return true
+}
 
 // findInstanceSpec returns an image and instance type satisfying the constraint.
 // The instance type comes from querying the flavors supported by the deployment.
@@ -27,6 +50,9 @@ func findInstanceSpec(
 	// all values.
 	allInstanceTypes := []instances.InstanceType{}
 	for _, flavor := range flavors {
+		if !e.flavorFilter.AcceptFlavor(flavor) {
+			continue
+		}
 		instanceType := instances.InstanceType{
 			Id:       flavor.Id,
 			Name:     flavor.Name,

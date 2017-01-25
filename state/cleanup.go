@@ -19,11 +19,11 @@ type cleanupKind string
 const (
 	// SCHEMACHANGE: the names are expressive, the values not so much.
 	cleanupRelationSettings              cleanupKind = "settings"
-	cleanupUnitsForDyingService          cleanupKind = "units"
+	cleanupUnitsForDyingApplication      cleanupKind = "units"
 	cleanupCharm                         cleanupKind = "charm"
 	cleanupDyingUnit                     cleanupKind = "dyingUnit"
 	cleanupRemovedUnit                   cleanupKind = "removedUnit"
-	cleanupServicesForDyingModel         cleanupKind = "applications"
+	cleanupApplicationsForDyingModel     cleanupKind = "applications"
 	cleanupDyingMachine                  cleanupKind = "dyingMachine"
 	cleanupForceDestroyedMachine         cleanupKind = "machine"
 	cleanupAttachmentsForDyingStorage    cleanupKind = "storageAttachments"
@@ -85,14 +85,14 @@ func (st *State) Cleanup() (err error) {
 			err = st.cleanupRelationSettings(doc.Prefix)
 		case cleanupCharm:
 			err = st.cleanupCharm(doc.Prefix)
-		case cleanupUnitsForDyingService:
-			err = st.cleanupUnitsForDyingService(doc.Prefix)
+		case cleanupUnitsForDyingApplication:
+			err = st.cleanupUnitsForDyingApplication(doc.Prefix)
 		case cleanupDyingUnit:
 			err = st.cleanupDyingUnit(doc.Prefix)
 		case cleanupRemovedUnit:
 			err = st.cleanupRemovedUnit(doc.Prefix)
-		case cleanupServicesForDyingModel:
-			err = st.cleanupServicesForDyingModel()
+		case cleanupApplicationsForDyingModel:
+			err = st.cleanupApplicationsForDyingModel()
 		case cleanupDyingMachine:
 			err = st.cleanupDyingMachine(doc.Prefix)
 		case cleanupForceDestroyedMachine:
@@ -215,28 +215,53 @@ func (st *State) cleanupMachinesForDyingModel() (err error) {
 // cleanupServicesForDyingModel sets all services to Dying, if they are
 // not already Dying or Dead. It's expected to be used when a model is
 // destroyed.
-func (st *State) cleanupServicesForDyingModel() (err error) {
-	// This won't miss services, because a Dying model cannot have
-	// services added to it. But we do have to remove the services themselves
+func (st *State) cleanupApplicationsForDyingModel() (err error) {
+	if err := st.removeRemoteApplicationsForDyingModel(); err != nil {
+		return err
+	}
+	return st.removeApplicationsForDyingModel()
+}
+
+func (st *State) removeApplicationsForDyingModel() (err error) {
+	// This won't miss applications, because a Dying model cannot have
+	// applications added to it. But we do have to remove the applications themselves
 	// via individual transactions, because they could be in any state at all.
 	applications, closer := st.getCollection(applicationsC)
 	defer closer()
 	application := Application{st: st}
 	sel := bson.D{{"life", Alive}}
 	iter := applications.Find(sel).Iter()
-	defer closeIter(iter, &err, "reading service document")
+	defer closeIter(iter, &err, "reading application document")
 	for iter.Next(&application.doc) {
 		if err := application.Destroy(); err != nil {
-			return err
+			return errors.Trace(err)
 		}
 	}
 	return nil
 }
 
-// cleanupUnitsForDyingService sets all units with the given prefix to Dying,
+func (st *State) removeRemoteApplicationsForDyingModel() (err error) {
+	// This won't miss remote applications, because a Dying model cannot have
+	// applications added to it. But we do have to remove the applications themselves
+	// via individual transactions, because they could be in any state at all.
+	remoteApps, closer := st.getCollection(remoteApplicationsC)
+	defer closer()
+	remoteApp := RemoteApplication{st: st}
+	sel := bson.D{{"life", Alive}}
+	iter := remoteApps.Find(sel).Iter()
+	defer closeIter(iter, &err, "reading remote application document")
+	for iter.Next(&remoteApp.doc) {
+		if err := remoteApp.Destroy(); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return nil
+}
+
+// cleanupUnitsForDyingApplication sets all units with the given prefix to Dying,
 // if they are not already Dying or Dead. It's expected to be used when a
 // service is destroyed.
-func (st *State) cleanupUnitsForDyingService(applicationname string) (err error) {
+func (st *State) cleanupUnitsForDyingApplication(applicationname string) (err error) {
 	// This won't miss units, because a Dying service cannot have units added
 	// to it. But we do have to remove the units themselves via individual
 	// transactions, because they could be in any state at all.
@@ -362,8 +387,13 @@ func (st *State) cleanupRemovedUnit(unitId string) error {
 		Message: "unit removed",
 	}
 	for _, action := range actions {
-		if _, err = action.Finish(cancelled); err != nil {
-			return errors.Trace(err)
+		switch action.Status() {
+		case ActionCompleted, ActionCancelled, ActionFailed:
+			// nothing to do here
+		default:
+			if _, err = action.Finish(cancelled); err != nil {
+				return errors.Trace(err)
+			}
 		}
 	}
 

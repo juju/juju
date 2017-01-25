@@ -98,7 +98,7 @@ type RestartableService interface {
 // and several helper functions.
 
 // NewService returns a new Service based on the provided info.
-func NewService(name string, conf common.Conf, series string) (Service, error) {
+var NewService = func(name string, conf common.Conf, series string) (Service, error) {
 	if name == "" {
 		return nil, errors.New("missing name")
 	}
@@ -110,6 +110,7 @@ func NewService(name string, conf common.Conf, series string) (Service, error) {
 	return newService(name, conf, initSystem, series)
 }
 
+// this needs to be stubbed out in some tests
 func newService(name string, conf common.Conf, initSystem, series string) (Service, error) {
 	switch initSystem {
 	case InitSystemWindows:
@@ -137,8 +138,12 @@ func newService(name string, conf common.Conf, initSystem, series string) (Servi
 }
 
 // ListServices lists all installed services on the running system
-func ListServices() ([]string, error) {
-	initName, err := VersionInitSystem(series.HostSeries())
+var ListServices = func() ([]string, error) {
+	hostSeries, err := series.HostSeries()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	initName, err := VersionInitSystem(hostSeries)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

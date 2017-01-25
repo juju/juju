@@ -265,7 +265,15 @@ func (st *State) NewModel(args ModelArgs) (_ *Model, _ *State, err error) {
 
 	uuid := args.Config.UUID()
 	session := st.session.Copy()
-	newSt, err := newState(names.NewModelTag(uuid), controllerInfo.ModelTag, session, st.mongoInfo, st.newPolicy, st.clock)
+	newSt, err := newState(
+		names.NewModelTag(uuid),
+		controllerInfo.ModelTag,
+		session,
+		st.mongoInfo,
+		st.newPolicy,
+		st.clock,
+		st.runTransactionObserver,
+	)
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "could not create state for new model")
 	}
@@ -857,7 +865,7 @@ func (m *Model) destroyOps(ensureNoHostedModels, ensureEmpty bool) ([]txn.Op, er
 		// that case we'll get errors if we try to enqueue hosted-model
 		// cleanups, because the cleanups collection is non-global.
 		cleanupMachinesOp := newCleanupOp(cleanupMachinesForDyingModel, modelUUID)
-		cleanupServicesOp := newCleanupOp(cleanupServicesForDyingModel, modelUUID)
+		cleanupServicesOp := newCleanupOp(cleanupApplicationsForDyingModel, modelUUID)
 		ops = append(ops, cleanupMachinesOp, cleanupServicesOp)
 	}
 	return append(prereqOps, ops...), nil
@@ -909,7 +917,7 @@ func removeModelMachineRefOp(st *State, machineId string) txn.Op {
 	}
 }
 
-func addModelServiceRefOp(st *State, applicationname string) txn.Op {
+func addModelApplicationRefOp(st *State, applicationname string) txn.Op {
 	return txn.Op{
 		C:      modelEntityRefsC,
 		Id:     st.ModelUUID(),
@@ -918,7 +926,7 @@ func addModelServiceRefOp(st *State, applicationname string) txn.Op {
 	}
 }
 
-func removeModelServiceRefOp(st *State, applicationname string) txn.Op {
+func removeModelApplicationRefOp(st *State, applicationname string) txn.Op {
 	return txn.Op{
 		C:      modelEntityRefsC,
 		Id:     st.ModelUUID(),

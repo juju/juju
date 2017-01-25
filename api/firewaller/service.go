@@ -20,7 +20,7 @@ type Application struct {
 	life params.Life
 }
 
-// Name returns the service name.
+// Name returns the application name.
 func (s *Application) Name() string {
 	return s.tag.Id()
 }

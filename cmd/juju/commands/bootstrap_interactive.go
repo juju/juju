@@ -41,10 +41,10 @@ func queryCloud(clouds []string, defCloud string, scanner *bufio.Scanner, w io.W
 	// add support for a default (empty) selection.
 	clouds = append(clouds, "")
 
-	verify := interact.MatchOptions(clouds, errors.Errorf("Invalid cloud."))
+	verify := interact.MatchOptions(clouds, "Invalid cloud.")
 
 	query := fmt.Sprintf("Select a cloud [%s]: ", defCloud)
-	cloud, err := interact.QueryVerify([]byte(query), scanner, w, verify)
+	cloud, err := interact.QueryVerify(query, scanner, w, w, verify)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
@@ -72,10 +72,10 @@ func queryRegion(cloud string, regions []jujucloud.Region, scanner *bufio.Scanne
 	if _, err := fmt.Fprintln(w, strings.Join(names, "\n")); err != nil {
 		return "", errors.Trace(err)
 	}
-	verify := interact.MatchOptions(names, errors.Errorf("Invalid region."))
+	verify := interact.MatchOptions(names, "Invalid region.")
 	defaultRegion := regions[0].Name
 	query := fmt.Sprintf("Select a region in %s [%s]: ", cloud, defaultRegion)
-	region, err := interact.QueryVerify([]byte(query), scanner, w, verify)
+	region, err := interact.QueryVerify(query, scanner, w, w, verify)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
@@ -100,7 +100,7 @@ func defaultControllerName(cloudname, region string) string {
 
 func queryName(defName string, scanner *bufio.Scanner, w io.Writer) (string, error) {
 	query := fmt.Sprintf("Enter a name for the Controller [%s]: ", defName)
-	name, err := interact.QueryVerify([]byte(query), scanner, w, nil)
+	name, err := interact.QueryVerify(query, scanner, w, w, nil)
 	if err != nil {
 		return "", errors.Trace(err)
 	}

@@ -47,7 +47,7 @@ func (api *API) Watch() (watcher.StringsWatcher, error) {
 	return w, nil
 }
 
-// Rescale requests that all supplied service names be rescaled to
+// Rescale requests that all supplied application names be rescaled to
 // their minimum configured sizes. It returns the first error it
 // encounters.
 func (api *API) Rescale(services []string) error {

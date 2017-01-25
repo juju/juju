@@ -22,30 +22,46 @@ type SCPSuite struct {
 }
 
 var scpTests = []struct {
-	about    string
-	args     []string
-	expected argsSpec
-	error    string
+	about      string
+	args       []string
+	dialWith   dialerFunc
+	forceAPIv1 bool
+	expected   argsSpec
+	error      string
 }{
 	{
-		about: "scp from machine 0 to current dir",
-		args:  []string{"0:foo", "."},
+		about:      "scp from machine 0 to current dir (api v1)",
+		args:       []string{"0:foo", "."},
+		dialWith:   dialerFuncFor("0.private", "0.public"),
+		forceAPIv1: true,
 		expected: argsSpec{
 			args:            "ubuntu@0.public:foo .",
 			hostKeyChecking: "yes",
 			knownHosts:      "0",
 		},
 	}, {
-		about: "scp from machine 0 to current dir with extra args",
-		args:  []string{"0:foo", ".", "-rv", "-o", "SomeOption"},
+		about:      "scp from machine 0 to current dir (api v2)",
+		args:       []string{"0:foo", "."},
+		dialWith:   dialerFuncFor("0.private", "0.public", "0.1.2.3"), // set by setAddresses() and setLinkLayerDevicesAddresses()
+		forceAPIv1: false,
+		expected: argsSpec{
+			argsMatch:       `ubuntu@0.(public|private|1\.2\.3):foo \.`, // can be any of the 3
+			hostKeyChecking: "yes",
+			knownHosts:      "0",
+		},
+	}, {
+		about:    "scp from machine 0 to current dir with extra args",
+		args:     []string{"0:foo", ".", "-rv", "-o", "SomeOption"},
+		dialWith: dialerFuncFor("0.public"),
 		expected: argsSpec{
 			args:            "ubuntu@0.public:foo . -rv -o SomeOption",
 			hostKeyChecking: "yes",
 			knownHosts:      "0",
 		},
 	}, {
-		about: "scp from current dir to machine 0",
-		args:  []string{"foo", "0:"},
+		about:    "scp from current dir to machine 0",
+		args:     []string{"foo", "0:"},
+		dialWith: dialerFuncFor("0.public"),
 		expected: argsSpec{
 			args:            "foo ubuntu@0.public:",
 			hostKeyChecking: "yes",
@@ -56,32 +72,36 @@ var scpTests = []struct {
 		args:  []string{"foo", "1:"},
 		error: `retrieving SSH host keys for "1": keys not found`,
 	}, {
-		about: "scp when no keys available, with --no-host-key-checks",
-		args:  []string{"--no-host-key-checks", "foo", "1:"},
+		about:    "scp when no keys available, with --no-host-key-checks",
+		args:     []string{"--no-host-key-checks", "foo", "1:"},
+		dialWith: dialerFuncFor("1.public"),
 		expected: argsSpec{
 			args:            "foo ubuntu@1.public:",
 			hostKeyChecking: "no",
 			knownHosts:      "null",
 		},
 	}, {
-		about: "scp from current dir to machine 0 with extra args",
-		args:  []string{"foo", "0:", "-r", "-v"},
+		about:    "scp from current dir to machine 0 with extra args",
+		args:     []string{"foo", "0:", "-r", "-v"},
+		dialWith: dialerFuncFor("0.public"),
 		expected: argsSpec{
 			args:            "foo ubuntu@0.public: -r -v",
 			hostKeyChecking: "yes",
 			knownHosts:      "0",
 		},
 	}, {
-		about: "scp from machine 0 to unit mysql/0",
-		args:  []string{"0:foo", "mysql/0:/foo"},
+		about:    "scp from machine 0 to unit mysql/0",
+		args:     []string{"0:foo", "mysql/0:/foo"},
+		dialWith: dialerFuncFor("0.public"),
 		expected: argsSpec{
 			args:            "ubuntu@0.public:foo ubuntu@0.public:/foo",
 			hostKeyChecking: "yes",
 			knownHosts:      "0",
 		},
 	}, {
-		about: "scp from machine 0 to unit mysql/0 and extra args",
-		args:  []string{"0:foo", "mysql/0:/foo", "-q"},
+		about:    "scp from machine 0 to unit mysql/0 and extra args",
+		args:     []string{"0:foo", "mysql/0:/foo", "-q"},
+		dialWith: dialerFuncFor("0.public"),
 		expected: argsSpec{
 			args:            "ubuntu@0.public:foo ubuntu@0.public:/foo -q",
 			hostKeyChecking: "yes",
@@ -92,32 +112,36 @@ var scpTests = []struct {
 		args:  []string{"-q", "-r", "0:foo", "mysql/0:/foo"},
 		error: "flag provided but not defined: -q",
 	}, {
-		about: "scp two local files to unit mysql/0",
-		args:  []string{"file1", "file2", "mysql/0:/foo/"},
+		about:    "scp two local files to unit mysql/0",
+		args:     []string{"file1", "file2", "mysql/0:/foo/"},
+		dialWith: dialerFuncFor("0.public"),
 		expected: argsSpec{
 			args:            "file1 file2 ubuntu@0.public:/foo/",
 			hostKeyChecking: "yes",
 			knownHosts:      "0",
 		},
 	}, {
-		about: "scp from machine 0 to unit mysql/0 and multiple extra args",
-		args:  []string{"0:foo", "mysql/0:", "-r", "-v", "-q", "-l5"},
+		about:    "scp from machine 0 to unit mysql/0 and multiple extra args",
+		args:     []string{"0:foo", "mysql/0:", "-r", "-v", "-q", "-l5"},
+		dialWith: dialerFuncFor("0.public"),
 		expected: argsSpec{
 			args:            "ubuntu@0.public:foo ubuntu@0.public: -r -v -q -l5",
 			hostKeyChecking: "yes",
 			knownHosts:      "0",
 		},
 	}, {
-		about: "scp works with IPv6 addresses",
-		args:  []string{"2:foo", "bar"},
+		about:    "scp works with IPv6 addresses",
+		args:     []string{"2:foo", "bar"},
+		dialWith: dialerFuncFor("2001:db8::1"),
 		expected: argsSpec{
 			args:            `ubuntu@[2001:db8::1]:foo bar`,
 			hostKeyChecking: "yes",
 			knownHosts:      "2",
 		},
 	}, {
-		about: "scp from machine 0 to unit mysql/0 with proxy",
-		args:  []string{"--proxy=true", "0:foo", "mysql/0:/bar"},
+		about:    "scp from machine 0 to unit mysql/0 with proxy",
+		args:     []string{"--proxy=true", "0:foo", "mysql/0:/bar"},
+		dialWith: dialerFuncFor("0.private"),
 		expected: argsSpec{
 			args:            "ubuntu@0.private:foo ubuntu@0.private:/bar",
 			withProxy:       true,
@@ -125,16 +149,18 @@ var scpTests = []struct {
 			knownHosts:      "0",
 		},
 	}, {
-		about: "scp from unit mysql/0 to machine 2 with a --",
-		args:  []string{"--", "-r", "-v", "mysql/0:foo", "2:", "-q", "-l5"},
+		about:    "scp from unit mysql/0 to machine 2 with a --",
+		args:     []string{"--", "-r", "-v", "mysql/0:foo", "2:", "-q", "-l5"},
+		dialWith: dialerFuncFor("0.public", "2001:db8::1"),
 		expected: argsSpec{
 			args:            "-r -v ubuntu@0.public:foo ubuntu@[2001:db8::1]: -q -l5",
 			hostKeyChecking: "yes",
 			knownHosts:      "0,2",
 		},
 	}, {
-		about: "scp from unit mysql/0 to current dir as 'sam' user",
-		args:  []string{"sam@mysql/0:foo", "."},
+		about:    "scp from unit mysql/0 to current dir as 'sam' user",
+		args:     []string{"sam@mysql/0:foo", "."},
+		dialWith: dialerFuncFor("0.public"),
 		expected: argsSpec{
 			args:            "sam@0.public:foo .",
 			hostKeyChecking: "yes",
@@ -145,15 +171,17 @@ var scpTests = []struct {
 		args:  []string{"5:foo", "bar"},
 		error: `machine 5 not found`,
 	}, {
-		about: "scp from arbitrary host name to current dir",
-		args:  []string{"some.host:foo", "."},
+		about:    "scp from arbitrary host name to current dir",
+		args:     []string{"some.host:foo", "."},
+		dialWith: dialerFuncFor("some.host"),
 		expected: argsSpec{
 			args:            "some.host:foo .",
 			hostKeyChecking: "",
 		},
 	}, {
-		about: "scp from arbitrary user & host to current dir",
-		args:  []string{"someone@some.host:foo", "."},
+		about:    "scp from arbitrary user & host to current dir",
+		args:     []string{"someone@some.host:foo", "."},
+		dialWith: dialerFuncFor("some.host"),
 		expected: argsSpec{
 			args:            "someone@some.host:foo .",
 			hostKeyChecking: "",
@@ -163,13 +191,20 @@ var scpTests = []struct {
 		args:  []string{"some.host:foo", "0:"},
 		error: `can't determine host keys for all targets: consider --no-host-key-checks`,
 	}, {
-		about: "scp with arbitrary host name and an entity, --no-host-key-checks",
-		args:  []string{"--no-host-key-checks", "some.host:foo", "0:"},
+		about:      "scp with arbitrary host name and an entity, --no-host-key-checks, --proxy (api v1)",
+		args:       []string{"--no-host-key-checks", "--proxy", "some.host:foo", "0:"},
+		dialWith:   dialerFuncFor("some.host", "0.private"),
+		forceAPIv1: true,
 		expected: argsSpec{
-			args:            "some.host:foo ubuntu@0.public:",
+			args:            "some.host:foo ubuntu@0.private:",
 			hostKeyChecking: "no",
+			withProxy:       true,
 			knownHosts:      "null",
 		},
+	}, {
+		about: "scp with no arguments",
+		args:  nil,
+		error: `at least two arguments required`,
 	},
 }
 
@@ -179,7 +214,10 @@ func (s *SCPSuite) TestSCPCommand(c *gc.C) {
 	for i, t := range scpTests {
 		c.Logf("test %d: %s -> %s\n", i, t.about, t.args)
 
-		ctx, err := coretesting.RunCommand(c, newSCPCommand(), t.args...)
+		s.setHostDialerFunc(t.dialWith)
+		s.setForceAPIv1(t.forceAPIv1)
+
+		ctx, err := coretesting.RunCommand(c, newSCPCommand(s.hostDialer), t.args...)
 		if t.error != "" {
 			c.Check(err, gc.ErrorMatches, t.error)
 		} else {

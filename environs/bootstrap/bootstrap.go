@@ -163,6 +163,23 @@ func (p BootstrapParams) Validate() error {
 	return nil
 }
 
+// withDefaultControllerConstraints returns the given constraints,
+// updated to choose a default instance type appropriate for a
+// controller machine. We use this only if the user does not specify
+// any constraints that would otherwise control the instance type
+// selection.
+func withDefaultControllerConstraints(cons constraints.Value) constraints.Value {
+	if !cons.HasInstanceType() && !cons.HasCpuCores() && !cons.HasCpuPower() && !cons.HasMem() {
+		// A default of 3.5GiB will result in machines with up to 4GiB of memory, eg
+		// - 3.75GiB on AWS, Google
+		// - 3.5GiB on Azure
+		// - 4GiB on Rackspace etc
+		var mem uint64 = 3.5 * 1024
+		cons.Mem = &mem
+	}
+	return cons
+}
+
 // Bootstrap bootstraps the given environment. The supplied constraints are
 // used to provision the instance, and are also set within the bootstrapped
 // environment.
@@ -253,6 +270,7 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 	if err != nil {
 		return errors.Trace(err)
 	}
+	bootstrapConstraints = withDefaultControllerConstraints(args.BootstrapConstraints)
 
 	// The arch we use to find tools isn't the boostrapConstraints arch.
 	// We copy the constraints arch to a separate variable and

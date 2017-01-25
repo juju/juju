@@ -16,6 +16,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
+	"github.com/juju/utils/clock"
 	"github.com/juju/utils/series"
 	"github.com/juju/utils/set"
 	"github.com/juju/version"
@@ -38,6 +39,7 @@ import (
 	"github.com/juju/juju/environs/storage"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/environs/tools"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju/keys"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/jujuclient"
@@ -107,10 +109,12 @@ type JujuConnSuite struct {
 const AdminSecret = "dummy-secret"
 
 func (s *JujuConnSuite) SetUpSuite(c *gc.C) {
+	s.SetInitialFeatureFlags(feature.CrossModelRelations)
 	s.MgoSuite.SetUpSuite(c)
 	s.FakeJujuXDGDataHomeSuite.SetUpSuite(c)
 	s.PatchValue(&utils.OutgoingAccessAllowed, false)
-	s.PatchValue(&cert.KeyBits, 1024) // Use a shorter key for a faster TLS handshake.
+	s.PatchValue(&cert.NewCA, testing.NewCA)
+	s.PatchValue(&cert.NewLeafKeyBits, 512)
 }
 
 func (s *JujuConnSuite) TearDownSuite(c *gc.C) {
@@ -228,7 +232,7 @@ func DefaultVersions(conf *config.Config) []version.Binary {
 	supported := series.SupportedLts()
 	defaultSeries := set.NewStrings(supported...)
 	defaultSeries.Add(config.PreferredSeries(conf))
-	defaultSeries.Add(series.HostSeries())
+	defaultSeries.Add(series.MustHostSeries())
 	agentVersion, set := conf.AgentVersion()
 	if !set {
 		agentVersion = jujuversion.Current
@@ -473,13 +477,21 @@ func newState(controllerUUID string, environ environs.Environ, mongoInfo *mongo.
 		stateenvirons.GetNewEnvironFunc(environs.New),
 	)
 	controllerTag := names.NewControllerTag(controllerUUID)
-	st, err := state.Open(modelTag, controllerTag, mongoInfo, opts, newPolicyFunc)
+	args := state.OpenParams{
+		Clock:              clock.WallClock,
+		ControllerTag:      controllerTag,
+		ControllerModelTag: modelTag,
+		MongoInfo:          mongoInfo,
+		MongoDialOpts:      opts,
+		NewPolicy:          newPolicyFunc,
+	}
+	st, err := state.Open(args)
 	if errors.IsUnauthorized(errors.Cause(err)) {
 		// We try for a while because we might succeed in
 		// connecting to mongo before the state has been
 		// initialized and the initial password set.
 		for a := redialStrategy.Start(); a.Next(); {
-			st, err = state.Open(modelTag, controllerTag, mongoInfo, opts, newPolicyFunc)
+			st, err = state.Open(args)
 			if !errors.IsUnauthorized(errors.Cause(err)) {
 				break
 			}

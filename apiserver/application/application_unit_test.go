@@ -12,6 +12,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/application"
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/state"
@@ -50,9 +51,14 @@ func (s *ApplicationSuite) SetUpTest(c *gc.C) {
 		charm:       &s.charm,
 	}
 	s.blockChecker = mockBlockChecker{}
+	offersApiFactory := &mockApplicationOffersFactory{}
+	resources := common.NewResources()
+	resources.RegisterNamed("applicationOffersApiFactory", offersApiFactory)
+	resources.RegisterNamed("dataDir", common.StringResource(c.MkDir()))
 	api, err := application.NewAPI(
 		&s.backend,
 		s.authorizer,
+		resources,
 		&s.blockChecker,
 		func(application.Charm) *state.Charm {
 			return &state.Charm{}

@@ -143,7 +143,11 @@ type collectionSchema map[string]collectionInfo
 // Load causes all recorded collections to be created and indexed as specified;
 // the returned Database will filter queries and transactions according to the
 // suppplied model UUID.
-func (schema collectionSchema) Load(db *mgo.Database, modelUUID string) (Database, error) {
+func (schema collectionSchema) Load(
+	db *mgo.Database,
+	modelUUID string,
+	runTransactionObserver RunTransactionObserverFunc,
+) (Database, error) {
 	if !names.IsValidModel(modelUUID) {
 		return nil, errors.New("invalid model UUID")
 	}
@@ -162,9 +166,10 @@ func (schema collectionSchema) Load(db *mgo.Database, modelUUID string) (Databas
 		}
 	}
 	return &database{
-		raw:       db,
-		schema:    schema,
-		modelUUID: modelUUID,
+		raw:                    db,
+		schema:                 schema,
+		modelUUID:              modelUUID,
+		runTransactionObserver: runTransactionObserver,
 	}, nil
 }
 
@@ -200,7 +205,15 @@ type database struct {
 	// ownSession is used to avoid copying additional sessions in a database
 	// resulting from Copy.
 	ownSession bool
+
+	// runTransactionObserver is passed on to txn.TransactionRunner, to be
+	// invoked after calls to Run and RunTransaction.
+	runTransactionObserver RunTransactionObserverFunc
 }
+
+// RunTransactionObserverFunc is the type of a function to be called
+// after an mgo/txn transaction is run.
+type RunTransactionObserverFunc func(dbName, modelUUID string, ops []txn.Op, err error)
 
 func (db *database) copySession(modelUUID string) (*database, SessionCloser) {
 	session := db.raw.Session.Copy()
@@ -211,7 +224,6 @@ func (db *database) copySession(modelUUID string) (*database, SessionCloser) {
 		runner:     db.runner,
 		ownSession: true,
 	}, session.Close
-
 }
 
 // Copy is part of the Database interface.
@@ -267,7 +279,19 @@ func (db *database) TransactionRunner() (runner jujutxn.Runner, closer SessionCl
 			raw = raw.With(session)
 			closer = session.Close
 		}
-		params := jujutxn.RunnerParams{Database: raw}
+		var observer func([]txn.Op, error)
+		if db.runTransactionObserver != nil {
+			observer = func(ops []txn.Op, err error) {
+				db.runTransactionObserver(
+					db.raw.Name, db.modelUUID,
+					ops, err,
+				)
+			}
+		}
+		params := jujutxn.RunnerParams{
+			Database:               raw,
+			RunTransactionObserver: observer,
+		}
 		runner = jujutxn.NewRunner(params)
 	}
 	return &multiModelRunner{

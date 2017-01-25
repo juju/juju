@@ -179,7 +179,7 @@ func (ss *FakeService) running() bool {
 func (ss *FakeService) Start() error {
 	ss.AddCall("Start")
 	// TODO(ericsnow) Check managed?
-	if ss.running() {
+	if !ss.running() {
 		ss.mu.Lock()
 		ss.FakeServiceData.runningNames.Add(ss.Service.Name)
 		ss.mu.Unlock()
@@ -191,7 +191,7 @@ func (ss *FakeService) Start() error {
 // Stop implements Service.
 func (ss *FakeService) Stop() error {
 	ss.AddCall("Stop")
-	if !ss.running() {
+	if ss.running() {
 		ss.mu.Lock()
 		ss.FakeServiceData.runningNames.Remove(ss.Service.Name)
 		ss.mu.Unlock()

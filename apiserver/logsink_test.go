@@ -5,6 +5,7 @@ package apiserver_test
 
 import (
 	"bufio"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -27,21 +28,8 @@ import (
 	"github.com/juju/juju/version"
 )
 
-// logsinkBaseSuite has functionality that's shared between the the 2 logsink related suites
-type logsinkBaseSuite struct {
-	authHTTPSuite
-}
-
-func (s *logsinkBaseSuite) logsinkURL(c *gc.C, scheme string) *url.URL {
-	server := s.makeURL(c, scheme, "/model/"+s.State.ModelUUID()+"/logsink", nil)
-	query := server.Query()
-	query.Set("jujuclientversion", version.Current.String())
-	server.RawQuery = query.Encode()
-	return server
-}
-
 type logsinkSuite struct {
-	logsinkBaseSuite
+	authHTTPSuite
 	machineTag names.Tag
 	password   string
 	nonce      string
@@ -50,8 +38,16 @@ type logsinkSuite struct {
 
 var _ = gc.Suite(&logsinkSuite{})
 
+func (s *logsinkSuite) logsinkURL(c *gc.C, scheme string) *url.URL {
+	server := s.makeURL(c, scheme, "/model/"+s.State.ModelUUID()+"/logsink", nil)
+	query := server.Query()
+	query.Set("jujuclientversion", version.Current.String())
+	server.RawQuery = query.Encode()
+	return server
+}
+
 func (s *logsinkSuite) SetUpTest(c *gc.C) {
-	s.logsinkBaseSuite.SetUpTest(c)
+	s.authHTTPSuite.SetUpTest(c)
 	s.nonce = "nonce"
 	m, password := s.Factory.MakeMachineReturningPassword(c, &factory.MachineParams{
 		Nonce: s.nonce,
@@ -64,7 +60,7 @@ func (s *logsinkSuite) SetUpTest(c *gc.C) {
 	c.Assert(loggo.RegisterWriter("logsink-tests", writer), jc.ErrorIsNil)
 }
 
-func (s *logsinkSuite) TestRejectsBadEnvironUUID(c *gc.C) {
+func (s *logsinkSuite) TestRejectsBadModelUUID(c *gc.C) {
 	reader := s.openWebsocketCustomPath(c, "/model/does-not-exist/logsink")
 	assertJSONError(c, reader, `unknown model: "does-not-exist"`)
 	assertWebsocketClosed(c, reader)
@@ -188,8 +184,8 @@ func (s *logsinkSuite) TestLogging(c *gc.C) {
 	logPath := filepath.Join(s.LogDir, "logsink.log")
 	logContents, err := ioutil.ReadFile(logPath)
 	c.Assert(err, jc.ErrorIsNil)
-	line0 := modelUUID + " machine-0: 2015-06-01 23:02:01 INFO some.where foo.go:42 all is well\n"
-	line1 := modelUUID + " machine-0: 2015-06-01 23:02:02 ERROR else.where bar.go:99 oh noes\n"
+	line0 := modelUUID + ": machine-0 2015-06-01 23:02:01 INFO some.where foo.go:42 all is well\n"
+	line1 := modelUUID + ": machine-0 2015-06-01 23:02:02 ERROR else.where bar.go:99 oh noes\n"
 	c.Assert(string(logContents), gc.Equals, line0+line1)
 
 	// Check the file mode is as expected. This doesn't work on
@@ -200,6 +196,24 @@ func (s *logsinkSuite) TestLogging(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(info.Mode(), gc.Equals, os.FileMode(0600))
 	}
+}
+
+func (s *logsinkSuite) TestReceiveErrorBreaksConn(c *gc.C) {
+	conn := s.dialWebsocket(c)
+	defer conn.Close()
+
+	// Read back the nil error, indicating that all is well.
+	reader := bufio.NewReader(conn)
+	errResult := readJSONErrorLine(c, reader)
+	c.Assert(errResult.Error, gc.IsNil)
+
+	// The logsink handler expects JSON messages. Send some
+	// junk to verify that the server closes the connection.
+	err := websocket.Message.Send(conn, "junk!")
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = conn.Read(make([]byte, 1024))
+	c.Assert(err, gc.Equals, io.EOF)
 }
 
 func (s *logsinkSuite) dialWebsocket(c *gc.C) *websocket.Conn {

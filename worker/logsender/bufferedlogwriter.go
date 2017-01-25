@@ -6,6 +6,7 @@ package logsender
 import (
 	"fmt"
 	"path/filepath"
+	"sync"
 	"time"
 
 	"github.com/juju/errors"
@@ -26,21 +27,33 @@ type LogRecord struct {
 	DroppedAfter int
 }
 
+// LogStats contains statistics on logging.
+type LogStats struct {
+	// Enqueued is the number of log messages enqueued.
+	Enqueued uint64
+
+	// Sent is the number of log messages sent.
+	Sent uint64
+
+	// Dropped is the number of log messages dropped from the queue.
+	Dropped uint64
+}
+
 // LogRecordCh defines the channel type used to send log message
 // structs within the unit and machine agents.
 type LogRecordCh chan *LogRecord
 
 const writerName = "buffered-logs"
 
-// InstallBufferedLogWriter creates a new BufferedLogWriter, registers
-// it with Loggo and returns its output channel.
-func InstallBufferedLogWriter(maxLen int) (LogRecordCh, error) {
+// InstallBufferedLogWriter creates and returns a new BufferedLogWriter,
+// registering it with Loggo.
+func InstallBufferedLogWriter(maxLen int) (*BufferedLogWriter, error) {
 	writer := NewBufferedLogWriter(maxLen)
 	err := loggo.RegisterWriter(writerName, writer)
 	if err != nil {
 		return nil, errors.Annotate(err, "failed to set up log buffering")
 	}
-	return writer.Logs(), nil
+	return writer, nil
 }
 
 // UninstallBufferedLogWriter removes the BufferedLogWriter previously
@@ -68,6 +81,9 @@ type BufferedLogWriter struct {
 	maxLen int
 	in     LogRecordCh
 	out    LogRecordCh
+
+	mu    sync.Mutex
+	stats LogStats
 }
 
 // NewBufferedLogWriter returns a new BufferedLogWriter which will
@@ -107,15 +123,23 @@ func (w *BufferedLogWriter) loop() {
 
 			buffer.PushBack(inRec)
 
+			w.mu.Lock()
+			w.stats.Enqueued++
 			if buffer.Len() > w.maxLen {
 				// The buffer has exceeded the limit - discard the
 				// next LogRecord from the front of the queue.
 				buffer.PopFront()
 				outRec.DroppedAfter++
+				w.stats.Dropped++
 			}
+			w.mu.Unlock()
 
 		case outCh <- outRec:
 			outCh = nil // Signal that send happened.
+
+			w.mu.Lock()
+			w.stats.Sent++
+			w.mu.Unlock()
 		}
 	}
 
@@ -136,6 +160,18 @@ func (w *BufferedLogWriter) Write(entry loggo.Entry) {
 // to the BufferedLogWriter instance.
 func (w *BufferedLogWriter) Logs() LogRecordCh {
 	return w.out
+}
+
+// Capacity returns the capacity of the BufferedLogWriter.
+func (w *BufferedLogWriter) Capacity() int {
+	return w.maxLen
+}
+
+// Stats returns the current LogStats for this BufferedLogWriter.
+func (w *BufferedLogWriter) Stats() LogStats {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	return w.stats
 }
 
 // Close cleans up the BufferedLogWriter instance. The output channel

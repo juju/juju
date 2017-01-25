@@ -179,8 +179,8 @@ func importActionV1(source map[string]interface{}) (*action, error) {
 	}
 	// Some values don't have to be there.
 	defaults := schema.Defaults{
-		"started":   time.Time{},
-		"completed": time.Time{},
+		"started":   schema.Omit,
+		"completed": schema.Omit,
 	}
 	checker := schema.FieldMap(fields, defaults)
 
@@ -198,17 +198,8 @@ func importActionV1(source map[string]interface{}) (*action, error) {
 		Parameters_: valid["parameters"].(map[string]interface{}),
 		Enqueued_:   valid["enqueued"].(time.Time).UTC(),
 		Results_:    valid["results"].(map[string]interface{}),
-	}
-
-	started := valid["started"].(time.Time)
-	if !started.IsZero() {
-		started = started.UTC()
-		action.Started_ = &started
-	}
-	completed := valid["completed"].(time.Time)
-	if !started.IsZero() {
-		completed = completed.UTC()
-		action.Completed_ = &completed
+		Started_:    fieldToTimePtr(valid, "started"),
+		Completed_:  fieldToTimePtr(valid, "completed"),
 	}
 	return action, nil
 }

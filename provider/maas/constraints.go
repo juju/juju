@@ -177,11 +177,10 @@ func addInterfaces(
 		params.Add("interfaces", strings.Join(combinedBindingsString, ";"))
 	}
 	if len(negatives) > 0 {
-		negativesString := make([]string, len(negatives))
-		for i, binding := range negatives {
-			negativesString[i] = fmt.Sprintf("space:%s", binding.SpaceProviderId)
+		for _, binding := range negatives {
+			not_network := fmt.Sprintf("space:%s", binding.SpaceProviderId)
+			params.Add("not_networks", not_network)
 		}
-		params.Add("not_networks", strings.Join(negativesString, ","))
 	}
 	return nil
 }

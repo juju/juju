@@ -8,8 +8,10 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/pubsub"
 	"github.com/juju/utils/proxy"
 	"github.com/juju/utils/voyeur"
+	"github.com/prometheus/client_golang/prometheus"
 
 	coreagent "github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
@@ -17,6 +19,7 @@ import (
 	apideployer "github.com/juju/juju/api/deployer"
 	"github.com/juju/juju/cmd/jujud/agent/engine"
 	"github.com/juju/juju/container/lxd"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/agent"
@@ -24,6 +27,7 @@ import (
 	"github.com/juju/juju/worker/apicaller"
 	"github.com/juju/juju/worker/apiconfigwatcher"
 	"github.com/juju/juju/worker/authenticationworker"
+	"github.com/juju/juju/worker/centralhub"
 	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/deployer"
 	"github.com/juju/juju/worker/diskmanager"
@@ -119,6 +123,10 @@ type ManifoldsConfig struct {
 	// otherwise be restricted.
 	NewDeployContext func(st *apideployer.State, agentConfig coreagent.Config) deployer.Context
 
+	// NewEnvironFunc is a function opens a provider "environment"
+	// (typically environs.New).
+	NewEnvironFunc environs.NewEnvironFunc
+
 	// Clock supplies timekeeping services to various workers.
 	Clock clock.Clock
 
@@ -126,6 +134,13 @@ type ManifoldsConfig struct {
 	// migration process to check that the agent will be ok when
 	// connected to the new target controller.
 	ValidateMigration func(base.APICaller) error
+
+	// PrometheusRegisterer is a prometheus.Registerer that may be used
+	// by workers to register Prometheus metric collectors.
+	PrometheusRegisterer prometheus.Registerer
+
+	// CentralHub is the primary hub that exists in the apiserver.
+	CentralHub *pubsub.StructuredHub
 }
 
 // Manifolds returns a set of co-configured manifolds covering the
@@ -180,6 +195,17 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		stateConfigWatcherName: stateconfigwatcher.Manifold(stateconfigwatcher.ManifoldConfig{
 			AgentName:          agentName,
 			AgentConfigChanged: config.AgentConfigChanged,
+		}),
+
+		// The centralhub manifold watches the state config to make sure it
+		// only starts for machines that are api servers. Currently the hub is
+		// passed in as config, but when the apiserver and peergrouper are
+		// updated to use the dependency engine, the centralhub manifold
+		// should also take the agentName so the worker can get the machine ID
+		// for the creation of the hub.
+		centralHubName: centralhub.Manifold(centralhub.ManifoldConfig{
+			StateConfigWatcherName: stateConfigWatcherName,
+			Hub: config.CentralHub,
 		}),
 
 		// The state manifold creates a *state.State and makes it
@@ -272,6 +298,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			UpgradeStepsGateName: upgradeStepsGateName,
 			OpenStateForUpgrade:  config.OpenStateForUpgrade,
 			PreUpgradeSteps:      config.PreUpgradeSteps,
+			NewEnvironFunc:       config.NewEnvironFunc,
 		}),
 
 		// The migration workers collaborate to run migrations;
@@ -476,6 +503,7 @@ const (
 	stateWorkersName       = "unconverted-state-workers"
 	apiCallerName          = "api-caller"
 	apiConfigWatcherName   = "api-config-watcher"
+	centralHubName         = "central-hub"
 
 	upgraderName         = "upgrader"
 	upgradeStepsName     = "upgrade-steps-runner"

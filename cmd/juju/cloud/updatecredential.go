@@ -66,7 +66,6 @@ func (c *updateCredentialCommand) Info() *cmd.Info {
 func (c *updateCredentialCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ControllerCommandBase.SetFlags(f)
 	f.StringVar(&c.credential, "credential", "", "Name of credential to update")
-	f.StringVar(&c.cloud, "cloud", "", "Cloud for which to update the credential")
 }
 
 type credentialAPI interface {

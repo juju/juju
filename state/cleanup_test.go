@@ -29,8 +29,8 @@ func (s *CleanupSuite) SetUpTest(c *gc.C) {
 	s.assertDoesNotNeedCleanup(c)
 }
 
-func (s *CleanupSuite) TestCleanupDyingServiceUnits(c *gc.C) {
-	// Create a service with some units.
+func (s *CleanupSuite) TestCleanupDyingApplicationUnits(c *gc.C) {
+	// Create a application with some units.
 	mysql := s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
 	units := make([]*state.Unit, 3)
 	for i := range units {
@@ -41,7 +41,7 @@ func (s *CleanupSuite) TestCleanupDyingServiceUnits(c *gc.C) {
 	preventUnitDestroyRemove(c, units[0])
 	s.assertDoesNotNeedCleanup(c)
 
-	// Destroy the service and check the units are unaffected, but a cleanup
+	// Destroy the application and check the units are unaffected, but a cleanup
 	// has been scheduled.
 	err := mysql.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
@@ -66,8 +66,8 @@ func (s *CleanupSuite) TestCleanupDyingServiceUnits(c *gc.C) {
 	s.assertCleanupCount(c, 1)
 }
 
-func (s *CleanupSuite) TestCleanupDyingServiceCharm(c *gc.C) {
-	// Create a service and  a charm.
+func (s *CleanupSuite) TestCleanupDyingApplicationCharm(c *gc.C) {
+	// Create a application and a charm.
 	ch := s.AddTestingCharm(c, "mysql")
 	mysql := s.AddTestingService(c, "mysql", ch)
 
@@ -77,7 +77,7 @@ func (s *CleanupSuite) TestCleanupDyingServiceCharm(c *gc.C) {
 	err := stor.Put(storagePath, bytes.NewReader([]byte("data")), 4)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Destroy the service and check that a cleanup has been scheduled.
+	// Destroy the application and check that a cleanup has been scheduled.
 	err = mysql.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertNeedsCleanup(c)
@@ -85,6 +85,56 @@ func (s *CleanupSuite) TestCleanupDyingServiceCharm(c *gc.C) {
 	// Run the cleanup, and check that the charm is removed.
 	s.assertCleanupRuns(c)
 	_, _, err = stor.Get(storagePath)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
+func (s *CleanupSuite) TestCleanupRemoteApplication(c *gc.C) {
+	app, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name:        "remote-app",
+		SourceModel: names.NewModelTag("test"),
+		Token:       "token",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = app.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	// Removed immediately since there are no relations yet.
+	s.assertDoesNotNeedCleanup(c)
+	_, err = s.State.RemoteApplication("remote-app")
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
+func (s *CleanupSuite) TestCleanupRemoteApplicationWithRelations(c *gc.C) {
+	mysqlEps := []charm.Relation{
+		{
+			Interface: "mysql",
+			Name:      "db",
+			Role:      charm.RoleProvider,
+			Scope:     charm.ScopeGlobal,
+		},
+	}
+	remoteApp, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name:        "mysql",
+		URL:         "local:/u/me/mysql",
+		SourceModel: s.State.ModelTag(),
+		Token:       "t0",
+		Endpoints:   mysqlEps,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	eps, err := s.State.InferEndpoints("wordpress", "mysql")
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddRelation(eps[0], eps[1])
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = remoteApp.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertNeedsCleanup(c)
+
+	// Run the cleanup, and check that the remote app is removed.
+	s.assertCleanupRuns(c)
+	_, err = s.State.RemoteApplication("mysql")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
@@ -101,7 +151,7 @@ func (s *CleanupSuite) TestCleanupControllerModels(c *gc.C) {
 	s.assertDoesNotNeedCleanup(c)
 
 	// Destroy the controller and check the model is unaffected, but a
-	// cleanup for the model and services has been scheduled.
+	// cleanup for the model and applications has been scheduled.
 	controllerEnv, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	err = controllerEnv.DestroyIncludingHosted()
@@ -109,7 +159,7 @@ func (s *CleanupSuite) TestCleanupControllerModels(c *gc.C) {
 
 	// Two cleanups should be scheduled. One to destroy the hosted
 	// models, the other to destroy the controller model's
-	// services.
+	// applications.
 	s.assertCleanupCount(c, 1)
 	err = otherEnv.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
@@ -162,10 +212,10 @@ func (s *CleanupSuite) TestCleanupModelMachines(c *gc.C) {
 	assertLife(c, stateMachine, state.Alive)
 }
 
-func (s *CleanupSuite) TestCleanupModelServices(c *gc.C) {
+func (s *CleanupSuite) TestCleanupModelApplications(c *gc.C) {
 	s.assertDoesNotNeedCleanup(c)
 
-	// Create a service with some units.
+	// Create a application with some units.
 	mysql := s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
 	units := make([]*state.Unit, 3)
 	for i := range units {
@@ -175,11 +225,11 @@ func (s *CleanupSuite) TestCleanupModelServices(c *gc.C) {
 	}
 	s.assertDoesNotNeedCleanup(c)
 
-	// Destroy the model and check the service and units are
+	// Destroy the model and check the application and units are
 	// unaffected, but a cleanup for the application has been scheduled.
-	env, err := s.State.Model()
+	model, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	err = env.Destroy()
+	err = model.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertNeedsCleanup(c)
 	s.assertCleanupRuns(c)
@@ -192,7 +242,7 @@ func (s *CleanupSuite) TestCleanupModelServices(c *gc.C) {
 		c.Assert(unit.Life(), gc.Equals, state.Alive)
 	}
 
-	// The first cleanup Destroys the service, which
+	// The first cleanup Destroys the application, which
 	// schedules another cleanup to destroy the units,
 	// then we need another pass for the actions cleanup
 	// which is queued on the next pass
@@ -214,7 +264,7 @@ func (s *CleanupSuite) TestCleanupRelationSettings(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertDoesNotNeedCleanup(c)
 
-	// Destroy the service, check the relation's still around.
+	// Destroy the application, check the relation's still around.
 	err = pr.svc.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertCleanupCount(c, 2)
@@ -287,8 +337,8 @@ func (s *CleanupSuite) TestCleanupForceDestroyMachineCleansStorageAttachments(c 
 	storage := map[string]state.StorageConstraints{
 		"data": makeStorageCons("loop", 1024, 1),
 	}
-	service := s.AddTestingServiceWithStorage(c, "storage-block", ch, storage)
-	u, err := service.AddUnit()
+	application := s.AddTestingServiceWithStorage(c, "storage-block", ch, storage)
+	u, err := application.AddUnit()
 	c.Assert(err, jc.ErrorIsNil)
 	err = u.AssignToMachine(machine)
 	c.Assert(err, jc.ErrorIsNil)
@@ -445,7 +495,7 @@ func (s *CleanupSuite) TestCleanupDyingUnitAlreadyRemoved(c *gc.C) {
 }
 
 func (s *CleanupSuite) TestCleanupActions(c *gc.C) {
-	// Create a service with a unit.
+	// Create a application with a unit.
 	dummy := s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
 	unit, err := dummy.AddUnit()
 	c.Assert(err, jc.ErrorIsNil)
@@ -486,6 +536,34 @@ func (s *CleanupSuite) TestCleanupActions(c *gc.C) {
 	s.assertDoesNotNeedCleanup(c)
 }
 
+func (s *CleanupSuite) TestCleanupWithCompletedActions(c *gc.C) {
+	// Create a application with a unit.
+	dummy := s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
+	unit, err := dummy.AddUnit()
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertDoesNotNeedCleanup(c)
+
+	// Add a completed action to the unit.
+	action, err := unit.AddAction("snapshot", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	action, err = action.Finish(state.ActionResults{
+		Status:  state.ActionCompleted,
+		Message: "done",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(action.Status(), gc.Equals, state.ActionCompleted)
+
+	// Destroy application and run cleanups.
+	err = dummy.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	// First cleanup marks all units of the application as dying.
+	s.assertCleanupRuns(c)
+	// Second cleanup clear pending actions.
+	s.assertCleanupRuns(c)
+	// Check no cleanups.
+	s.assertDoesNotNeedCleanup(c)
+}
+
 func (s *CleanupSuite) TestCleanupStorageAttachments(c *gc.C) {
 	s.assertDoesNotNeedCleanup(c)
 
@@ -493,8 +571,8 @@ func (s *CleanupSuite) TestCleanupStorageAttachments(c *gc.C) {
 	storage := map[string]state.StorageConstraints{
 		"data": makeStorageCons("loop", 1024, 1),
 	}
-	service := s.AddTestingServiceWithStorage(c, "storage-block", ch, storage)
-	u, err := service.AddUnit()
+	application := s.AddTestingServiceWithStorage(c, "storage-block", ch, storage)
+	u, err := application.AddUnit()
 	c.Assert(err, jc.ErrorIsNil)
 
 	// check no cleanups
@@ -526,8 +604,8 @@ func (s *CleanupSuite) TestCleanupStorageInstances(c *gc.C) {
 	storage := map[string]state.StorageConstraints{
 		"data": makeStorageCons("loop", 1024, 1),
 	}
-	service := s.AddTestingServiceWithStorage(c, "storage-block", ch, storage)
-	u, err := service.AddUnit()
+	application := s.AddTestingServiceWithStorage(c, "storage-block", ch, storage)
+	u, err := application.AddUnit()
 	c.Assert(err, jc.ErrorIsNil)
 
 	// check no cleanups
@@ -567,8 +645,8 @@ func (s *CleanupSuite) TestCleanupMachineStorage(c *gc.C) {
 	storage := map[string]state.StorageConstraints{
 		"data": makeStorageCons("loop", 1024, 1),
 	}
-	service := s.AddTestingServiceWithStorage(c, "storage-filesystem", ch, storage)
-	unit, err := service.AddUnit()
+	application := s.AddTestingServiceWithStorage(c, "storage-filesystem", ch, storage)
+	unit, err := application.AddUnit()
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.State.AssignUnit(unit, state.AssignCleanEmpty)
 	c.Assert(err, jc.ErrorIsNil)
@@ -577,10 +655,10 @@ func (s *CleanupSuite) TestCleanupMachineStorage(c *gc.C) {
 	machine, err := s.State.Machine(machineId)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Destroy the service, so we can destroy the machine.
+	// Destroy the application, so we can destroy the machine.
 	err = unit.Destroy()
 	s.assertCleanupRuns(c)
-	err = service.Destroy()
+	err = application.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertCleanupRuns(c)
 

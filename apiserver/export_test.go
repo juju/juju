@@ -29,7 +29,6 @@ var (
 	BZMimeType            = bzMimeType
 	JSMimeType            = jsMimeType
 	SpritePath            = spritePath
-	DefaultIcon           = defaultIcon
 )
 
 func ServerMacaroon(srv *Server) (*macaroon.Macaroon, error) {
@@ -118,6 +117,13 @@ func TestingAPIHandlerWithEntity(c *gc.C, srvSt, st *state.State, entity state.E
 func TestingUpgradingRoot(st *state.State) rpc.Root {
 	r := TestingAPIRoot(st)
 	return restrictRoot(r, upgradeMethodsOnly)
+}
+
+// TestingMigratingRoot returns a resricted srvRoot in a migration
+// scenario.
+func TestingMigratingRoot(st *state.State) rpc.Root {
+	r := TestingAPIRoot(st)
+	return restrictRoot(r, migrationClientMethodsOnly)
 }
 
 // TestingControllerOnlyRoot returns a restricted srvRoot as if

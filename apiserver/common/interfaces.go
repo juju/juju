@@ -14,21 +14,28 @@ type AuthFunc func(tag names.Tag) bool
 // GetAuthFunc returns an AuthFunc.
 type GetAuthFunc func() (AuthFunc, error)
 
-// AuthEither returns an AuthFunc generator that returns an AuthFunc
-// that accepts any tag authorized by either of its arguments.
-func AuthEither(a, b GetAuthFunc) GetAuthFunc {
+// AuthAny returns an AuthFunc generator that returns an AuthFunc that
+// accepts any tag authorized by any of its arguments. If no arguments
+// are passed this is equivalent to AuthNever.
+func AuthAny(getFuncs ...GetAuthFunc) GetAuthFunc {
 	return func() (AuthFunc, error) {
-		f1, err := a()
-		if err != nil {
-			return nil, err
+		funcs := make([]AuthFunc, len(getFuncs))
+		for i, getFunc := range getFuncs {
+			f, err := getFunc()
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			funcs[i] = f
 		}
-		f2, err := b()
-		if err != nil {
-			return nil, err
+		combined := func(tag names.Tag) bool {
+			for _, f := range funcs {
+				if f(tag) {
+					return true
+				}
+			}
+			return false
 		}
-		return func(tag names.Tag) bool {
-			return f1(tag) || f2(tag)
-		}, nil
+		return combined, nil
 	}
 }
 

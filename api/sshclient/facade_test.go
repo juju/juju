@@ -22,16 +22,31 @@ type FacadeSuite struct {
 
 var _ = gc.Suite(&FacadeSuite{})
 
-func (s *FacadeSuite) TestAddress(c *gc.C) {
+func (s *FacadeSuite) TestAddresses(c *gc.C) {
 	var stub jujutesting.Stub
 	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		stub.AddCall(objType+"."+request, arg)
 		c.Check(id, gc.Equals, "")
-		*result.(*params.SSHAddressResults) = params.SSHAddressResults{
-			Results: []params.SSHAddressResult{{Address: "1.1.1.1"}},
+
+		switch request {
+		case "PublicAddress", "PrivateAddress":
+			*result.(*params.SSHAddressResults) = params.SSHAddressResults{
+				Results: []params.SSHAddressResult{
+					{Address: "1.1.1.1"},
+				},
+			}
+
+		case "AllAddresses":
+			*result.(*params.SSHAddressesResults) = params.SSHAddressesResults{
+				Results: []params.SSHAddressesResult{
+					{Addresses: []string{"1.1.1.1", "2.2.2.2"}},
+				},
+			}
 		}
+
 		return nil
 	})
+
 	facade := sshclient.NewFacade(apiCaller)
 	expectedArg := []interface{}{params.Entities{[]params.Entity{{
 		names.NewUnitTag("foo/0").String(),
@@ -47,9 +62,15 @@ func (s *FacadeSuite) TestAddress(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(private, gc.Equals, "1.1.1.1")
 	stub.CheckCalls(c, []jujutesting.StubCall{{"SSHClient.PrivateAddress", expectedArg}})
+	stub.ResetCalls()
+
+	addrs, err := facade.AllAddresses("foo/0")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(addrs, gc.DeepEquals, []string{"1.1.1.1", "2.2.2.2"})
+	stub.CheckCalls(c, []jujutesting.StubCall{{"SSHClient.AllAddresses", expectedArg}})
 }
 
-func (s *FacadeSuite) TestAddressError(c *gc.C) {
+func (s *FacadeSuite) TestAddressesError(c *gc.C) {
 	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		return errors.New("boom")
 	})
@@ -62,13 +83,27 @@ func (s *FacadeSuite) TestAddressError(c *gc.C) {
 	private, err := facade.PrivateAddress("foo/0")
 	c.Check(private, gc.Equals, "")
 	c.Check(err, gc.ErrorMatches, "boom")
+
+	addrs, err := facade.AllAddresses("foo/0")
+	c.Check(addrs, gc.IsNil)
+	c.Check(err, gc.ErrorMatches, "boom")
 }
 
-func (s *FacadeSuite) TestAddressTargetError(c *gc.C) {
+func (s *FacadeSuite) TestAddressesTargetError(c *gc.C) {
 	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		*result.(*params.SSHAddressResults) = params.SSHAddressResults{
-			Results: []params.SSHAddressResult{{Error: common.ServerError(errors.New("boom"))}},
+		serverError := common.ServerError(errors.New("boom"))
+
+		switch request {
+		case "PublicAddress", "PrivateAddress":
+			*result.(*params.SSHAddressResults) = params.SSHAddressResults{
+				Results: []params.SSHAddressResult{{Error: serverError}},
+			}
+		case "AllAddresses":
+			*result.(*params.SSHAddressesResults) = params.SSHAddressesResults{
+				Results: []params.SSHAddressesResult{{Error: serverError}},
+			}
 		}
+
 		return nil
 	})
 	facade := sshclient.NewFacade(apiCaller)
@@ -80,9 +115,13 @@ func (s *FacadeSuite) TestAddressTargetError(c *gc.C) {
 	private, err := facade.PrivateAddress("foo/0")
 	c.Check(private, gc.Equals, "")
 	c.Check(err, gc.ErrorMatches, "boom")
+
+	addrs, err := facade.AllAddresses("foo/0")
+	c.Check(addrs, gc.IsNil)
+	c.Check(err, gc.ErrorMatches, "boom")
 }
 
-func (s *FacadeSuite) TestAddressMissingResults(c *gc.C) {
+func (s *FacadeSuite) TestAddressesMissingResults(c *gc.C) {
 	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		return nil
 	})
@@ -96,15 +135,29 @@ func (s *FacadeSuite) TestAddressMissingResults(c *gc.C) {
 	private, err := facade.PrivateAddress("foo/0")
 	c.Check(private, gc.Equals, "")
 	c.Check(err, gc.ErrorMatches, expectedErr)
+
+	addrs, err := facade.AllAddresses("foo/0")
+	c.Check(addrs, gc.IsNil)
+	c.Check(err, gc.ErrorMatches, expectedErr)
 }
 
-func (s *FacadeSuite) TestAddressExtraResults(c *gc.C) {
+func (s *FacadeSuite) TestAddressesExtraResults(c *gc.C) {
 	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		*result.(*params.SSHAddressResults) = params.SSHAddressResults{
-			Results: []params.SSHAddressResult{
-				{Address: "1.1.1.1"},
-				{Address: "2.2.2.2"},
-			},
+		switch request {
+		case "PublicAddress", "PrivateAddress":
+			*result.(*params.SSHAddressResults) = params.SSHAddressResults{
+				Results: []params.SSHAddressResult{
+					{Address: "1.1.1.1"},
+					{Address: "2.2.2.2"},
+				},
+			}
+		case "AllAddresses":
+			*result.(*params.SSHAddressesResults) = params.SSHAddressesResults{
+				Results: []params.SSHAddressesResult{
+					{Addresses: []string{"1.1.1.1"}},
+					{Addresses: []string{"2.2.2.2"}},
+				},
+			}
 		}
 		return nil
 	})
@@ -117,6 +170,10 @@ func (s *FacadeSuite) TestAddressExtraResults(c *gc.C) {
 
 	private, err := facade.PrivateAddress("foo/0")
 	c.Check(private, gc.Equals, "")
+	c.Check(err, gc.ErrorMatches, expectedErr)
+
+	addrs, err := facade.AllAddresses("foo/0")
+	c.Check(addrs, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, expectedErr)
 }
 

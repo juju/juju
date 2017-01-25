@@ -32,10 +32,15 @@ type modelData struct {
 	ServiceCount       int
 }
 
+type environmentStatus struct {
+	controller ctrData
+	models     []modelData
+}
+
 // newTimedStatusUpdater returns a function which waits a given period of time
 // before querying the apiserver for updated data.
-func newTimedStatusUpdater(ctx *cmd.Context, api destroyControllerAPI, controllerModelUUID string, clock clock.Clock) func(time.Duration) (ctrData, []modelData) {
-	return func(wait time.Duration) (ctrData, []modelData) {
+func newTimedStatusUpdater(ctx *cmd.Context, api destroyControllerAPI, controllerModelUUID string, clock clock.Clock) func(time.Duration) environmentStatus {
+	return func(wait time.Duration) environmentStatus {
 		if wait > 0 {
 			<-clock.After(wait)
 		}
@@ -47,7 +52,10 @@ func newTimedStatusUpdater(ctx *cmd.Context, api destroyControllerAPI, controlle
 			ctx.Infof("Unable to get the controller summary from the API: %s.", err)
 		}
 
-		return ctrStatus, modelsStatus
+		return environmentStatus{
+			controller: ctrStatus,
+			models:     modelsStatus,
+		}
 	}
 }
 
@@ -117,6 +125,11 @@ func newData(api destroyControllerAPI, controllerModelUUID string) (ctrData, []m
 	}
 
 	return ctrFinalStatus, modelsData, nil
+}
+
+func hasUnreclaimedResources(env environmentStatus) bool {
+	return hasUnDeadModels(env.models) ||
+		env.controller.HostedMachineCount > 0
 }
 
 func hasUnDeadModels(models []modelData) bool {

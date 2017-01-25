@@ -6,7 +6,10 @@
 package vsphere
 
 import (
+	"net/url"
+
 	"github.com/juju/errors"
+	"github.com/juju/jsonschema"
 	"github.com/juju/loggo"
 
 	"github.com/juju/juju/cloud"
@@ -30,6 +33,45 @@ func (environProvider) Open(args environs.OpenParams) (environs.Environ, error) 
 	}
 	env, err := newEnviron(args.Cloud, args.Config)
 	return env, errors.Trace(err)
+}
+
+var cloudSchema = &jsonschema.Schema{
+	Type:     []jsonschema.Type{jsonschema.ObjectType},
+	Required: []string{cloud.EndpointKey, cloud.AuthTypesKey, cloud.RegionsKey},
+	Order:    []string{cloud.EndpointKey, cloud.AuthTypesKey, cloud.RegionsKey},
+	Properties: map[string]*jsonschema.Schema{
+		cloud.EndpointKey: {
+			Singular: "the API endpoint url for the cloud",
+			Type:     []jsonschema.Type{jsonschema.StringType},
+			Format:   jsonschema.FormatURI,
+		},
+		cloud.AuthTypesKey: &jsonschema.Schema{
+			// don't need a prompt, since there's only one choice.
+			Type: []jsonschema.Type{jsonschema.ArrayType},
+			Enum: []interface{}{[]string{string(cloud.UserPassAuthType)}},
+		},
+		cloud.RegionsKey: {
+			Type:     []jsonschema.Type{jsonschema.ObjectType},
+			Singular: "region",
+			Plural:   "regions",
+			AdditionalProperties: &jsonschema.Schema{
+				Type:          []jsonschema.Type{jsonschema.ObjectType},
+				MaxProperties: jsonschema.Int(0),
+			},
+		},
+	},
+}
+
+// CloudSchema returns the schema for adding new clouds of this type.
+func (p environProvider) CloudSchema() *jsonschema.Schema {
+	return cloudSchema
+}
+
+// Ping tests the connection to the cloud, to verify the endpoint is valid.
+func (p environProvider) Ping(endpoint string) error {
+	// a stub for now until we get a real implementation.
+	_, err := url.Parse(endpoint)
+	return errors.Trace(err)
 }
 
 // PrepareConfig implements environs.EnvironProvider.

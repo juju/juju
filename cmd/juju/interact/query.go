@@ -13,38 +13,58 @@ import (
 // QueryVerify writes a question to w and waits for an answer to be read from
 // scanner.  It will pass the answer into the verify function.  Verify, if
 // non-nil, should check the answer for validity, returning an error that will
-// be written out to the user, or nil if answer is valid.
+// be written out to errOut, or nil if answer is valid.
 //
 // This function takes a scanner rather than an io.Reader to avoid the case
 // where the scanner reads past the delimiter and thus might lose data.  It is
 // expected that this method will be used repeatedly with the same scanner if
 // multiple queries are required.
-func QueryVerify(question []byte, scanner *bufio.Scanner, w io.Writer, verify func(string) error) (answer string, err error) {
-	defer fmt.Fprint(w, "\n")
+func QueryVerify(question string, scanner *bufio.Scanner, out, errOut io.Writer, verify VerifyFunc) (answer string, err error) {
+	defer fmt.Fprint(out, "\n")
 	for {
-		if _, err = w.Write(question); err != nil {
+		if _, err = out.Write([]byte(question)); err != nil {
 			return "", err
 		}
 
-		if !scanner.Scan() {
+		done := !scanner.Scan()
+
+		if done {
 			if err := scanner.Err(); err != nil {
 				return "", err
 			}
-			return "", io.EOF
 		}
 		answer = scanner.Text()
+		if done && answer == "" {
+			// EOF
+			return "", io.EOF
+		}
 		if verify == nil {
 			return answer, nil
 		}
-		err := verify(answer)
-		// valid answer, return it!
-		if err == nil {
-			return answer, nil
-		}
-		// invalid answer, inform user of problem and retry.
-		_, err = fmt.Fprint(w, err, "\n\n")
+		ok, msg, err := verify(answer)
 		if err != nil {
 			return "", err
+		}
+		// valid answer, return it!
+		if ok {
+			return answer, nil
+		}
+
+		// invalid answer, inform user of problem and retry.
+		if msg != "" {
+			_, err := fmt.Fprint(errOut, msg+"\n")
+			if err != nil {
+				return "", err
+			}
+		}
+		_, err = errOut.Write([]byte{'\n'})
+		if err != nil {
+			return "", err
+		}
+
+		if done {
+			// can't query any more, nothing we can do.
+			return "", io.EOF
 		}
 	}
 }
@@ -52,14 +72,14 @@ func QueryVerify(question []byte, scanner *bufio.Scanner, w io.Writer, verify fu
 // MatchOptions returns a function that performs a case insensitive comparison
 // against the given list of options.  To make a verification function that
 // accepts an empty default, include an empty string in the list.
-func MatchOptions(options []string, err error) func(string) error {
-	return func(s string) error {
+func MatchOptions(options []string, errmsg string) VerifyFunc {
+	return func(s string) (ok bool, msg string, err error) {
 		for _, opt := range options {
 			if strings.ToLower(opt) == strings.ToLower(s) {
-				return nil
+				return true, "", nil
 			}
 		}
-		return err
+		return false, errmsg, nil
 	}
 }
 

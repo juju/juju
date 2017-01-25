@@ -14,6 +14,7 @@ import (
 	"github.com/juju/cmd"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
+	"github.com/juju/utils/clock"
 	"github.com/juju/utils/series"
 	"github.com/juju/utils/set"
 	"github.com/juju/version"
@@ -42,6 +43,7 @@ import (
 	"github.com/juju/juju/worker/authenticationworker"
 	"github.com/juju/juju/worker/deployer"
 	"github.com/juju/juju/worker/logsender"
+	"github.com/juju/juju/worker/peergrouper"
 	"github.com/juju/juju/worker/singular"
 )
 
@@ -64,8 +66,8 @@ type commonMachineSuite struct {
 
 func (s *commonMachineSuite) SetUpSuite(c *gc.C) {
 	s.AgentSuite.SetUpSuite(c)
-	s.AgentSuite.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
-	s.AgentSuite.PatchValue(&stateWorkerDialOpts, mongotest.DialOpts())
+	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
+	s.PatchValue(&stateWorkerDialOpts, mongotest.DialOpts())
 }
 
 func (s *commonMachineSuite) TearDownSuite(c *gc.C) {
@@ -74,22 +76,22 @@ func (s *commonMachineSuite) TearDownSuite(c *gc.C) {
 
 func (s *commonMachineSuite) SetUpTest(c *gc.C) {
 	s.AgentSuite.SetUpTest(c)
-	s.AgentSuite.PatchValue(&charmrepo.CacheDir, c.MkDir())
+	s.PatchValue(&charmrepo.CacheDir, c.MkDir())
 
 	// Patch ssh user to avoid touching ~ubuntu/.ssh/authorized_keys.
-	s.AgentSuite.PatchValue(&authenticationworker.SSHUser, "")
+	s.PatchValue(&authenticationworker.SSHUser, "")
 
 	testpath := c.MkDir()
-	s.AgentSuite.PatchEnvPathPrepend(testpath)
+	s.PatchEnvPathPrepend(testpath)
 	// mock out the start method so we can fake install services without sudo
 	fakeCmd(filepath.Join(testpath, "start"))
 	fakeCmd(filepath.Join(testpath, "stop"))
 
-	s.AgentSuite.PatchValue(&upstart.InitDir, c.MkDir())
+	s.PatchValue(&upstart.InitDir, c.MkDir())
 
 	s.singularRecord = newSingularRunnerRecord()
-	s.AgentSuite.PatchValue(&newSingularRunner, s.singularRecord.newSingularRunner)
-	s.AgentSuite.PatchValue(&peergrouperNew, func(*state.State, bool) (worker.Worker, error) {
+	s.PatchValue(&newSingularRunner, s.singularRecord.newSingularRunner)
+	s.PatchValue(&peergrouperNew, func(*state.State, clock.Clock, bool, peergrouper.Hub) (worker.Worker, error) {
 		return newDummyWorker(), nil
 	})
 
@@ -132,7 +134,7 @@ func (s *commonMachineSuite) primeAgent(c *gc.C, jobs ...state.MachineJob) (m *s
 	vers := version.Binary{
 		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
-		Series: series.HostSeries(),
+		Series: series.MustHostSeries(),
 	}
 	return s.primeAgentVersion(c, vers, jobs...)
 }
@@ -193,16 +195,21 @@ func (s *commonMachineSuite) configureMachine(c *gc.C, machineId string, vers ve
 
 func NewTestMachineAgentFactory(
 	agentConfWriter AgentConfigWriter,
-	bufferedLogs logsender.LogRecordCh,
+	bufferedLogger *logsender.BufferedLogWriter,
 	rootDir string,
-) func(string) *MachineAgent {
-	return func(machineId string) *MachineAgent {
+) func(string) (*MachineAgent, error) {
+	preUpgradeSteps := func(_ *state.State, _ agent.Config, isController, isMaster bool) error {
+		return nil
+	}
+	return func(machineId string) (*MachineAgent, error) {
 		return NewMachineAgent(
 			machineId,
 			agentConfWriter,
-			bufferedLogs,
+			bufferedLogger,
 			worker.NewRunner(cmdutil.IsFatal, cmdutil.MoreImportant, worker.RestartDelay),
 			&mockLoopDeviceManager{},
+			DefaultIntrospectionSocketName,
+			preUpgradeSteps,
 			rootDir,
 		)
 	}
@@ -212,8 +219,17 @@ func NewTestMachineAgentFactory(
 func (s *commonMachineSuite) newAgent(c *gc.C, m *state.Machine) *MachineAgent {
 	agentConf := agentConf{dataDir: s.DataDir()}
 	agentConf.ReadConfig(names.NewMachineTag(m.Id()).String())
-	machineAgentFactory := NewTestMachineAgentFactory(&agentConf, nil, c.MkDir())
-	return machineAgentFactory(m.Id())
+	logger := s.newBufferedLogWriter()
+	machineAgentFactory := NewTestMachineAgentFactory(&agentConf, logger, c.MkDir())
+	machineAgent, err := machineAgentFactory(m.Id())
+	c.Assert(err, jc.ErrorIsNil)
+	return machineAgent
+}
+
+func (s *commonMachineSuite) newBufferedLogWriter() *logsender.BufferedLogWriter {
+	logger := logsender.NewBufferedLogWriter(1024)
+	s.AddCleanup(func(*gc.C) { logger.Close() })
+	return logger
 }
 
 func patchDeployContext(c *gc.C, st *state.State) (*fakeContext, func()) {

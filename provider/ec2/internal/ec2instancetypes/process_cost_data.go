@@ -14,6 +14,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 	"text/template"
@@ -279,7 +280,10 @@ func calculateCPUPower(info productInfo) (uint64, error) {
 	// to estimate the ECUs. The pricing information does not
 	// include the ECUs, but they're only estimates anyway.
 	// Amazon moved to "vCPUs" quite some time ago.
-	clock, err := strconv.ParseFloat(strings.Fields(info.ClockSpeed)[0], 64)
+	// To date, info.ClockSpeed can have the form "Up to <float> GHz" or
+	// "<float> GHz", so look for a float match.
+	validSpeed := regexp.MustCompile(`[0-9]+\.?[0-9]*`)
+	clock, err := strconv.ParseFloat(validSpeed.FindString(info.ClockSpeed), 64)
 	if err != nil {
 		return 0, errors.Annotate(err, "parsing clock speed")
 	}
@@ -298,6 +302,7 @@ func parseMem(s string) (uint64, error) {
 func locationToRegion(loc string) (string, bool) {
 	regions := map[string]string{
 		"US East (N. Virginia)":     "us-east-1",
+		"US East (Ohio)":            "us-east-2",
 		"US West (N. California)":   "us-west-1",
 		"US West (Oregon)":          "us-west-2",
 		"Asia Pacific (Mumbai)":     "ap-south-1",
@@ -305,8 +310,10 @@ func locationToRegion(loc string) (string, bool) {
 		"Asia Pacific (Singapore)":  "ap-southeast-1",
 		"Asia Pacific (Sydney)":     "ap-southeast-2",
 		"Asia Pacific (Tokyo)":      "ap-northeast-1",
+		"Canada (Central)":          "ca-central-1",
 		"EU (Frankfurt)":            "eu-central-1",
 		"EU (Ireland)":              "eu-west-1",
+		"EU (London)":               "eu-west-2",
 		"South America (Sao Paulo)": "sa-east-1",
 		"AWS GovCloud (US)":         "us-gov-west-1",
 

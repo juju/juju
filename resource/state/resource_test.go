@@ -129,6 +129,20 @@ func (s *ResourceSuite) TestListResourcesError(c *gc.C) {
 	s.stub.CheckCallNames(c, "ListResources", "VerifyService")
 }
 
+func (s *ResourceSuite) TestListPendingResources(c *gc.C) {
+	resources := newUploadResources(c, "spam", "eggs")
+	s.persist.ReturnListPendingResources = resources
+	st := NewState(s.raw)
+	s.stub.ResetCalls()
+
+	outResources, err := st.ListPendingResources("a-application")
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(outResources, jc.DeepEquals, resources)
+	s.stub.CheckCallNames(c, "ListPendingResources")
+	s.stub.CheckCall(c, 0, "ListPendingResources", "a-application")
+}
+
 func (s *ResourceSuite) TestGetPendingResource(c *gc.C) {
 	resources := newUploadResources(c, "spam", "eggs")
 	resources[0].PendingID = "some-unique-id"
@@ -344,6 +358,31 @@ func (s *ResourceSuite) TestSetResourceSetFailureExtra(c *gc.C) {
 	s.stub.CheckCall(c, 1, "StageResource", expected, path)
 	s.stub.CheckCall(c, 2, "PutAndCheckHash", path, file, expected.Size, hash)
 	s.stub.CheckCall(c, 4, "Remove", path)
+}
+
+func (s *ResourceSuite) TestSetUnitResource(c *gc.C) {
+	expected := newUploadResource(c, "spam", "spamspamspam")
+	expected.Timestamp = s.timestamp
+	chRes := expected.Resource
+	st := NewState(s.raw)
+	st.currentTimestamp = s.now
+	s.stub.ResetCalls()
+
+	res, err := st.SetUnitResource("a-application/0", "a-user", chRes)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.stub.CheckCallNames(c,
+		"currentTimestamp",
+		"SetUnitResource",
+	)
+	s.stub.CheckCall(c, 1, "SetUnitResource", "a-application/0", res)
+	c.Check(res, jc.DeepEquals, resource.Resource{
+		Resource:      chRes,
+		ID:            "a-application/" + res.Name,
+		ApplicationID: "a-application",
+		Username:      "a-user",
+		Timestamp:     s.timestamp,
+	})
 }
 
 func (s *ResourceSuite) TestUpdatePendingResourceOkay(c *gc.C) {

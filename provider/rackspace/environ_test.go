@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
@@ -217,6 +218,10 @@ func (e *fakeEnviron) StorageProviderTypes() ([]storage.ProviderType, error) {
 func (e *fakeEnviron) StorageProvider(t storage.ProviderType) (storage.Provider, error) {
 	e.Push("StorageProvider", t)
 	return nil, errors.NotImplementedf("StorageProvider")
+}
+
+func (e *fakeEnviron) InstanceTypes(constraints.Value) (instances.InstanceTypesWithCostMetadata, error) {
+	return instances.InstanceTypesWithCostMetadata{}, nil
 }
 
 type fakeConfigurator struct {

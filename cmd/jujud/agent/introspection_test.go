@@ -51,7 +51,8 @@ func (s *introspectionSuite) TestStartError(c *gc.C) {
 	}
 
 	cfg := introspectionConfig{
-		Agent: &dummyAgent{},
+		Agent:         &dummyAgent{},
+		NewSocketName: DefaultIntrospectionSocketName,
 		WorkerFunc: func(_ introspection.Config) (worker.Worker, error) {
 			return nil, errors.New("boom")
 		},
@@ -77,8 +78,9 @@ func (s *introspectionSuite) TestStartSuccess(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	cfg := introspectionConfig{
-		Agent:  &dummyAgent{},
-		Engine: engine,
+		Agent:         &dummyAgent{},
+		Engine:        engine,
+		NewSocketName: func(tag names.Tag) string { return "bananas" },
 		WorkerFunc: func(cfg introspection.Config) (worker.Worker, error) {
 			fake.config = cfg
 			return fake, nil
@@ -89,7 +91,7 @@ func (s *introspectionSuite) TestStartSuccess(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(fake.config.Reporter, gc.Equals, engine)
-	c.Check(fake.config.SocketName, gc.Equals, "jujud-machine-42")
+	c.Check(fake.config.SocketName, gc.Equals, "bananas")
 
 	// Stopping the engine causes the introspection worker to stop.
 	engine.Kill()
@@ -99,6 +101,11 @@ func (s *introspectionSuite) TestStartSuccess(c *gc.C) {
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("worker did not get stopped")
 	}
+}
+
+func (s *introspectionSuite) TestDefaultIntrospectionSocketName(c *gc.C) {
+	name := DefaultIntrospectionSocketName(names.NewMachineTag("42"))
+	c.Assert(name, gc.Equals, "jujud-machine-42")
 }
 
 type dummyAgent struct {

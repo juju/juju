@@ -13,6 +13,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/set"
+	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
@@ -81,6 +82,15 @@ type RelationUnitsWatcher interface {
 	// also api-ey; and the multiwatcher type was used directly in params
 	// anyway.)
 	Changes() <-chan params.RelationUnitsChange
+}
+
+// RemoteApplicationWatcher is a watcher that reports on remote changes to the
+// lifecycle, status, relations and relation units for a specified remote
+// application.
+type RemoteApplicationWatcher interface {
+	Watcher
+
+	Changes() <-chan params.RemoteApplicationChange
 }
 
 // newCommonWatcher exists so that all embedders have a place from which
@@ -196,9 +206,22 @@ func collFactory(st *State, collName string) func() (mongo.Collection, func()) {
 	}
 }
 
-// WatchModels returns a StringsWatcher that notifies of changes
-// to the lifecycles of all models.
+// WatchModels returns a StringsWatcher that notifies of changes to
+// any models. If a model is removed this *won't* signal that the
+// model has gone away - it's based on a collectionWatcher which omits
+// these events.
 func (st *State) WatchModels() StringsWatcher {
+	return newcollectionWatcher(st, colWCfg{
+		col:    modelsC,
+		global: true,
+	})
+}
+
+// WatchModelLives returns a StringsWatcher that notifies of changes
+// to any model life values. The most important difference between
+// this and WatchModels is that this will signal one last time if a
+// model is removed.
+func (st *State) WatchModelLives() StringsWatcher {
 	return newLifecycleWatcher(st, modelsC, nil, nil, nil)
 }
 
@@ -318,6 +341,12 @@ func (st *State) WatchServices() StringsWatcher {
 	return newLifecycleWatcher(st, applicationsC, nil, isLocalID(st), nil)
 }
 
+// WatchRemoteApplications returns a StringsWatcher that notifies of changes to
+// the lifecycles of the remote applications in the model.
+func (st *State) WatchRemoteApplications() StringsWatcher {
+	return newLifecycleWatcher(st, remoteApplicationsC, nil, isLocalID(st), nil)
+}
+
 // WatchStorageAttachments returns a StringsWatcher that notifies of
 // changes to the lifecycles of all storage instances attached to the
 // specified unit.
@@ -356,10 +385,20 @@ func (s *Application) WatchUnits() StringsWatcher {
 // WatchRelations returns a StringsWatcher that notifies of changes to the
 // lifecycles of relations involving s.
 func (s *Application) WatchRelations() StringsWatcher {
-	prefix := s.doc.Name + ":"
+	return watchApplicationRelations(s.st, s.doc.Name)
+}
+
+// WatchRelations returns a StringsWatcher that notifies of changes to the
+// lifecycles of relations involving s.
+func (s *RemoteApplication) WatchRelations() StringsWatcher {
+	return watchApplicationRelations(s.st, s.doc.Name)
+}
+
+func watchApplicationRelations(st *State, applicationName string) StringsWatcher {
+	prefix := applicationName + ":"
 	infix := " " + prefix
 	filter := func(id interface{}) bool {
-		k, err := s.st.strictLocalID(id.(string))
+		k, err := st.strictLocalID(id.(string))
 		if err != nil {
 			return false
 		}
@@ -367,8 +406,8 @@ func (s *Application) WatchRelations() StringsWatcher {
 		return out
 	}
 
-	members := bson.D{{"endpoints.applicationname", s.doc.Name}}
-	return newLifecycleWatcher(s.st, relationsC, members, filter, nil)
+	members := bson.D{{"endpoints.applicationname", applicationName}}
+	return newLifecycleWatcher(st, relationsC, members, filter, nil)
 }
 
 // WatchModelMachines returns a StringsWatcher that notifies of changes to
@@ -888,13 +927,36 @@ type relationUnitsWatcher struct {
 // Watch returns a watcher that notifies of changes to conterpart units in
 // the relation.
 func (ru *RelationUnit) Watch() RelationUnitsWatcher {
-	return newRelationUnitsWatcher(ru)
+	return newRelationUnitsWatcher(ru.st, ru.WatchScope())
 }
 
-func newRelationUnitsWatcher(ru *RelationUnit) RelationUnitsWatcher {
+// WatchUnits returns a watcher that notifies of changes to the units of the
+// specified application endpoint in the relation. This method will return an error
+// if the endpoint is not globally scoped.
+func (r *Relation) WatchUnits(serviceName string) (RelationUnitsWatcher, error) {
+	return r.watchUnits(serviceName, false)
+}
+
+func (r *Relation) watchUnits(applicationName string, counterpart bool) (RelationUnitsWatcher, error) {
+	ep, err := r.Endpoint(applicationName)
+	if err != nil {
+		return nil, err
+	}
+	if ep.Scope != charm.ScopeGlobal {
+		return nil, errors.Errorf("%q endpoint is not globally scoped", ep.Name)
+	}
+	role := ep.Role
+	if counterpart {
+		role = counterpartRole(role)
+	}
+	rsw := watchRelationScope(r.st, r.globalScope(), role, "")
+	return newRelationUnitsWatcher(r.st, rsw), nil
+}
+
+func newRelationUnitsWatcher(st *State, sw *RelationScopeWatcher) RelationUnitsWatcher {
 	w := &relationUnitsWatcher{
-		commonWatcher: newCommonWatcher(ru.st),
-		sw:            ru.WatchScope(),
+		commonWatcher: newCommonWatcher(st),
+		sw:            sw,
 		watching:      make(set.Strings),
 		updates:       make(chan watcher.Change),
 		out:           make(chan params.RelationUnitsChange),
@@ -1900,23 +1962,34 @@ type colWCfg struct {
 	col    string
 	filter func(interface{}) bool
 	idconv func(string) string
+
+	// If global is true the watcher won't be limited to this model.
+	global bool
 }
 
 // newcollectionWatcher starts and returns a new StringsWatcher configured
 // with the given collection and filter function
 func newcollectionWatcher(st *State, cfg colWCfg) StringsWatcher {
-	// Always ensure that there is at least filtering on the
-	// model in place.
-	backstop := isLocalID(st)
-	if cfg.filter == nil {
-		cfg.filter = backstop
-	} else {
-		innerFilter := cfg.filter
-		cfg.filter = func(id interface{}) bool {
-			if !backstop(id) {
-				return false
+	if cfg.global {
+		if cfg.filter == nil {
+			cfg.filter = func(x interface{}) bool {
+				return true
 			}
-			return innerFilter(id)
+		}
+	} else {
+		// Always ensure that there is at least filtering on the
+		// model in place.
+		backstop := isLocalID(st)
+		if cfg.filter == nil {
+			cfg.filter = backstop
+		} else {
+			innerFilter := cfg.filter
+			cfg.filter = func(id interface{}) bool {
+				if !backstop(id) {
+					return false
+				}
+				return innerFilter(id)
+			}
 		}
 	}
 
@@ -2023,7 +2096,10 @@ func (w *collectionWatcher) initial() ([]string, error) {
 	iter := coll.Find(nil).Iter()
 	for iter.Next(&doc) {
 		if w.filter == nil || w.filter(doc.DocId) {
-			id := w.st.localID(doc.DocId)
+			id := doc.DocId
+			if !w.colWCfg.global {
+				id = w.st.localID(id)
+			}
 			if w.idconv != nil {
 				id = w.idconv(id)
 			}
@@ -2042,25 +2118,35 @@ func (w *collectionWatcher) initial() ([]string, error) {
 // Additionally, mergeIds strips the model UUID prefix from the id
 // before emitting it through the watcher.
 func (w *collectionWatcher) mergeIds(changes *[]string, updates map[interface{}]bool) error {
-	return mergeIds(w.st, changes, updates, w.idconv)
+	return mergeIds(w.st, changes, updates, w.convertId)
 }
 
-func mergeIds(st modelBackend, changes *[]string, updates map[interface{}]bool, idconv func(string) string) error {
+func (w *collectionWatcher) convertId(id string) (string, error) {
+	if !w.colWCfg.global {
+		// Strip off the env UUID prefix.
+		// We only expect ids for a single model.
+		var err error
+		id, err = w.st.strictLocalID(id)
+		if err != nil {
+			return "", errors.Trace(err)
+		}
+	}
+	if w.idconv != nil {
+		id = w.idconv(id)
+	}
+	return id, nil
+}
+
+func mergeIds(st modelBackend, changes *[]string, updates map[interface{}]bool, idconv func(string) (string, error)) error {
 	for val, idExists := range updates {
 		id, ok := val.(string)
 		if !ok {
 			return errors.Errorf("id is not of type string, got %T", val)
 		}
 
-		// Strip off the env UUID prefix. We only expect ids for a
-		// single model.
-		id, err := st.strictLocalID(id)
+		id, err := idconv(id)
 		if err != nil {
 			return errors.Annotatef(err, "collection watcher")
-		}
-
-		if idconv != nil {
-			id = idconv(id)
 		}
 
 		chIx, idAlreadyInChangeset := indexOf(id, *changes)
@@ -2543,4 +2629,107 @@ func (w *notifyCollWatcher) loop() error {
 			out = nil
 		}
 	}
+}
+
+// OfferedApplicationWatcher notifies about values in the collection
+// of offered applications. The first event returned by the watcher
+// is a slice of all current offer urls.
+// Subsequent events are generated when a application offer has it's
+// registered value changed.
+type offeredApplicationsWatcher struct {
+	commonWatcher
+	known map[string]int64
+	out   chan []string
+}
+
+func newOfferedApplicationsWatcher(st *State) StringsWatcher {
+	w := &offeredApplicationsWatcher{
+		commonWatcher: newCommonWatcher(st),
+		known:         make(map[string]int64),
+		out:           make(chan []string),
+	}
+	go func() {
+		defer w.tomb.Done()
+		defer close(w.out)
+		w.tomb.Kill(w.loop())
+	}()
+	return w
+}
+
+// WatchOfferedApplications returns a OfferedApplicationsWatcher.
+func (st *State) WatchOfferedApplications() StringsWatcher {
+	return newOfferedApplicationsWatcher(st)
+}
+
+func (w *offeredApplicationsWatcher) initial() (set.Strings, error) {
+	offered := set.NewStrings()
+	var revnoDoc struct {
+		ApplicationURL string `bson:"application-url"`
+		TxnRevno       int64  `bson:"txn-revno"`
+	}
+	offeredCollection, closer := w.st.getCollection(applicationOffersC)
+	defer closer()
+
+	iter := offeredCollection.Find(nil).Iter()
+	for iter.Next(&revnoDoc) {
+		w.known[revnoDoc.ApplicationURL] = revnoDoc.TxnRevno
+		offered.Add(revnoDoc.ApplicationURL)
+	}
+	return offered, iter.Close()
+}
+
+func (w *offeredApplicationsWatcher) merge(applicationURLs set.Strings, change watcher.Change) error {
+	applicationURL := w.st.localID(change.Id.(string))
+	if change.Revno == -1 {
+		delete(w.known, applicationURL)
+		applicationURLs.Remove(applicationURL)
+		return nil
+	}
+	var revnoDoc struct {
+		TxnRevno int64 `bson:"txn-revno"`
+	}
+	offeredCollection, closer := w.st.getCollection(applicationOffersC)
+	defer closer()
+	if err := offeredCollection.FindId(change.Id).One(&revnoDoc); err != nil {
+		return err
+	}
+	revno, known := w.known[applicationURL]
+	w.known[applicationURL] = revnoDoc.TxnRevno
+	if !known || revnoDoc.TxnRevno > revno {
+		applicationURLs.Add(applicationURL)
+	}
+	return nil
+}
+
+func (w *offeredApplicationsWatcher) loop() (err error) {
+	ch := make(chan watcher.Change)
+	w.watcher.WatchCollectionWithFilter(applicationOffersC, ch, isLocalID(w.st))
+	defer w.watcher.UnwatchCollection(applicationOffersC, ch)
+	offers, err := w.initial()
+	if err != nil {
+		return err
+	}
+	out := w.out
+	for {
+		select {
+		case <-w.tomb.Dying():
+			return tomb.ErrDying
+		case <-w.watcher.Dead():
+			return stateWatcherDeadError(w.watcher.Err())
+		case change := <-ch:
+			if err = w.merge(offers, change); err != nil {
+				return err
+			}
+			if len(offers) > 0 {
+				out = w.out
+			}
+		case out <- offers.Values():
+			out = nil
+			offers = set.NewStrings()
+		}
+	}
+}
+
+func (w *offeredApplicationsWatcher) Changes() <-chan []string {
+	return w.out
 }

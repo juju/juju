@@ -97,7 +97,9 @@ func (e *errorPatterns) errorFor(name string, args ...interface{}) error {
 		}
 	}
 	err := f()
-	logger.Errorf("errorFor %q -> %v", s, err)
+	if err != nil {
+		logger.Errorf("errorFor %q -> %v", s, err)
+	}
 	return err
 }
 
@@ -477,10 +479,10 @@ func (session *fakeMongoSession) setStatus(members []replicaset.MemberStatus) {
 // Set implements mongoSession.Set
 func (session *fakeMongoSession) Set(members []replicaset.Member) error {
 	if err := session.errors.errorFor("Session.Set"); err != nil {
-		logger.Infof("not setting replicaset members to %#v", members)
+		logger.Infof("NOT setting replicaset members to \n%s", prettyReplicaSetMembers(members))
 		return err
 	}
-	logger.Infof("setting replicaset members to %#v", members)
+	logger.Infof("setting replicaset members to \n%s", prettyReplicaSetMembers(members))
 	session.members.Set(deepCopy(members))
 	if session.InstantlyReady {
 		statuses := make([]replicaset.MemberStatus, len(members))

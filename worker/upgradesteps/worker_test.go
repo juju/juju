@@ -12,6 +12,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
+	"github.com/juju/utils/clock"
 	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
@@ -66,7 +67,7 @@ func (s *UpgradeSuite) SetUpTest(c *gc.C) {
 	s.oldVersion = version.Binary{
 		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
-		Series: series.HostSeries(),
+		Series: series.MustHostSeries(),
 	}
 	s.oldVersion.Major = 1
 	s.oldVersion.Minor = 16
@@ -107,30 +108,23 @@ func (s *UpgradeSuite) countUpgradeAttempts(upgradeErr error) *int {
 }
 
 func (s *UpgradeSuite) TestNewChannelWhenNoUpgradeRequired(c *gc.C) {
-	// Set the agent's initial upgradedToVersion to almost the same as
-	// the current version. We want it to be different to
-	// jujuversion.Current (so that we can see it change) but not to
-	// trigger upgrade steps.
-	config := NewFakeConfigSetter(names.NewMachineTag("0"), makeBumpedCurrentVersion().Number)
-	agent := NewFakeAgent(config)
+	// Set the agent's upgradedToVersion to version.Current,
+	// to simulate the upgrade steps having been run already.
+	initialVersion := jujuversion.Current
+	config := NewFakeConfigSetter(names.NewMachineTag("0"), initialVersion)
 
-	lock, err := NewLock(agent)
-	c.Assert(err, jc.ErrorIsNil)
+	lock := NewLock(config)
 
+	// Upgrade steps have already been run.
 	c.Assert(lock.IsUnlocked(), jc.IsTrue)
-	// The agent's version should have been updated.
-	c.Assert(config.Version, gc.Equals, jujuversion.Current)
-
 }
 
 func (s *UpgradeSuite) TestNewChannelWhenUpgradeRequired(c *gc.C) {
 	// Set the agent's upgradedToVersion so that upgrade steps are required.
 	initialVersion := version.MustParse("1.16.0")
 	config := NewFakeConfigSetter(names.NewMachineTag("0"), initialVersion)
-	agent := NewFakeAgent(config)
 
-	lock, err := NewLock(agent)
-	c.Assert(err, jc.ErrorIsNil)
+	lock := NewLock(config)
 
 	c.Assert(lock.IsUnlocked(), jc.IsFalse)
 	// The agent's version should NOT have been updated.
@@ -401,10 +395,20 @@ func (s *UpgradeSuite) runUpgradeWorker(c *gc.C, jobs ...multiwatcher.MachineJob
 	s.setInstantRetryStrategy(c)
 	config := s.makeFakeConfig()
 	agent := NewFakeAgent(config)
-	doneLock, err := NewLock(agent)
-	c.Assert(err, jc.ErrorIsNil)
+	doneLock := NewLock(config)
 	machineStatus := &testStatusSetter{}
-	worker, err := NewWorker(doneLock, agent, nil, jobs, s.openStateForUpgrade, s.preUpgradeSteps, machineStatus)
+	worker, err := NewWorker(
+		doneLock,
+		agent,
+		nil,
+		jobs,
+		s.openStateForUpgrade,
+		s.preUpgradeSteps,
+		machineStatus,
+		func(environs.OpenParams) (environs.Environ, error) {
+			return nil, errors.NotImplementedf("NewEnviron")
+		},
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	return worker.Wait(), config, machineStatus.Calls, doneLock
 }
@@ -414,7 +418,14 @@ func (s *UpgradeSuite) openStateForUpgrade() (*state.State, error) {
 	newPolicy := stateenvirons.GetNewPolicyFunc(
 		stateenvirons.GetNewEnvironFunc(environs.New),
 	)
-	st, err := state.Open(s.State.ModelTag(), s.State.ControllerTag(), mongoInfo, mongotest.DialOpts(), newPolicy)
+	st, err := state.Open(state.OpenParams{
+		Clock:              clock.WallClock,
+		ControllerTag:      s.State.ControllerTag(),
+		ControllerModelTag: s.State.ModelTag(),
+		MongoInfo:          mongoInfo,
+		MongoDialOpts:      mongotest.DialOpts(),
+		NewPolicy:          newPolicy,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -469,22 +480,6 @@ func (s *UpgradeSuite) setMachineAlive(c *gc.C, id string) {
 	s.AddCleanup(func(c *gc.C) {
 		c.Assert(worker.Stop(pinger), jc.ErrorIsNil)
 	})
-}
-
-// Return a version the same as the current software version, but with
-// the build number bumped.
-//
-// The version Tag is also cleared so that upgrades.PerformUpgrade
-// doesn't think it needs to run upgrade steps unnecessarily.
-func makeBumpedCurrentVersion() version.Binary {
-	v := version.Binary{
-		Number: jujuversion.Current,
-		Arch:   arch.HostArch(),
-		Series: series.HostSeries(),
-	}
-	v.Build++
-	v.Tag = ""
-	return v
 }
 
 const maxUpgradeRetries = 3

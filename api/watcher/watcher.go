@@ -513,3 +513,13 @@ func (w *migrationStatusWatcher) loop() error {
 func (w *migrationStatusWatcher) Changes() <-chan watcher.MigrationStatus {
 	return w.out
 }
+
+// remoteRelationsWatcher will sends changes to relations an application
+// is involved in with another remote application, including changes to the
+// remote units involved in those relations, and their settings.
+type remoteRelationsWatcher struct {
+	commonWatcher
+	caller                   base.APICaller
+	remoteRelationsWatcherId string
+	out                      chan watcher.RemoteRelationsChange
+}

@@ -55,6 +55,7 @@ func newResource(c *gc.C, name, username, data string) (resource.Resource, api.R
 	apiRes := api.Resource{
 		CharmResource: api.CharmResource{
 			Name:        name,
+			Description: name + " description",
 			Type:        "file",
 			Path:        res.Path,
 			Origin:      "upload",
@@ -80,6 +81,14 @@ type stubDataStore struct {
 	ReturnGetPendingResource    resource.Resource
 	ReturnSetResource           resource.Resource
 	ReturnUpdatePendingResource resource.Resource
+}
+
+func (s *stubDataStore) OpenResource(application, name string) (resource.Resource, io.ReadCloser, error) {
+	s.stub.AddCall("OpenResource", application, name)
+	if err := s.stub.NextErr(); err != nil {
+		return resource.Resource{}, nil, errors.Trace(err)
+	}
+	return s.ReturnGetResource, nil, nil
 }
 
 func (s *stubDataStore) ListResources(service string) (resource.ServiceResources, error) {

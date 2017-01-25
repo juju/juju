@@ -15,7 +15,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/cmd/output"
 	"github.com/juju/terms-client/api"
 	"github.com/juju/terms-client/api/wireformat"
 	"gopkg.in/juju/charm.v6-unstable"
@@ -60,7 +59,6 @@ type term struct {
 // agreeCommand creates a user agreement to the specified terms.
 type agreeCommand struct {
 	modelcmd.JujuCommandBase
-	out cmd.Output
 
 	terms           []term
 	termIds         []string
@@ -71,7 +69,6 @@ type agreeCommand struct {
 func (c *agreeCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.JujuCommandBase.SetFlags(f)
 	f.BoolVar(&c.SkipTermContent, "yes", false, "Agree to terms non interactively")
-	c.out.AddFlags(f, "json", output.DefaultFormatters)
 }
 
 // Info implements Command.Info.

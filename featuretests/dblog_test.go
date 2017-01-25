@@ -14,7 +14,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/common"
 	agentcmd "github.com/juju/juju/cmd/jujud/agent"
 	"github.com/juju/juju/cmd/jujud/agent/agenttest"
 	"github.com/juju/juju/state"
@@ -56,10 +56,17 @@ func (s *dblogSuite) runMachineAgentTest(c *gc.C) bool {
 	s.PrimeAgent(c, m.Tag(), password)
 	agentConf := agentcmd.NewAgentConf(s.DataDir())
 	agentConf.ReadConfig(m.Tag().String())
-	logsCh, err := logsender.InstallBufferedLogWriter(1000)
+	logger, err := logsender.InstallBufferedLogWriter(1000)
 	c.Assert(err, jc.ErrorIsNil)
-	machineAgentFactory := agentcmd.MachineAgentFactoryFn(agentConf, logsCh, c.MkDir())
-	a := machineAgentFactory(m.Id())
+	machineAgentFactory := agentcmd.MachineAgentFactoryFn(
+		agentConf,
+		logger,
+		agentcmd.DefaultIntrospectionSocketName,
+		noPreUpgradeSteps,
+		c.MkDir(),
+	)
+	a, err := machineAgentFactory(m.Id())
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Ensure there's no logs to begin with.
 	c.Assert(s.getLogCount(c, m.Tag()), gc.Equals, 0)
@@ -75,9 +82,10 @@ func (s *dblogSuite) runUnitAgentTest(c *gc.C) bool {
 	// Create a unit and an agent for it.
 	u, password := s.Factory.MakeUnitReturningPassword(c, nil)
 	s.PrimeAgent(c, u.Tag(), password)
-	logsCh, err := logsender.InstallBufferedLogWriter(1000)
+	logger, err := logsender.InstallBufferedLogWriter(1000)
 	c.Assert(err, jc.ErrorIsNil)
-	a := agentcmd.NewUnitAgent(nil, logsCh)
+	a, err := agentcmd.NewUnitAgent(nil, logger)
+	c.Assert(err, jc.ErrorIsNil)
 	s.InitAgent(c, a, "--unit-name", u.Name(), "--log-to-stderr=true")
 
 	// Ensure there's no logs to begin with.
@@ -147,17 +155,17 @@ func (s *debugLogDbSuite) TearDownSuite(c *gc.C) {
 }
 
 func (s *debugLogDbSuite) TestLogsAPI(c *gc.C) {
-	dbLogger := state.NewDbLogger(s.State, names.NewMachineTag("99"), version.Current)
+	dbLogger := state.NewEntityDbLogger(s.State, names.NewMachineTag("99"), version.Current)
 	defer dbLogger.Close()
 
 	t := time.Date(2015, 6, 23, 13, 8, 49, 0, time.UTC)
 	dbLogger.Log(t, "juju.foo", "code.go:42", loggo.INFO, "all is well")
 	dbLogger.Log(t.Add(time.Second), "juju.bar", "go.go:99", loggo.ERROR, "no it isn't")
 
-	messages := make(chan api.LogMessage)
+	messages := make(chan common.LogMessage)
 	go func(numMessages int) {
 		client := s.APIState.Client()
-		logMessages, err := client.WatchDebugLog(api.DebugLogParams{})
+		logMessages, err := client.WatchDebugLog(common.DebugLogParams{})
 		c.Assert(err, jc.ErrorIsNil)
 
 		for n := 0; n < numMessages; n++ {
@@ -165,7 +173,7 @@ func (s *debugLogDbSuite) TestLogsAPI(c *gc.C) {
 		}
 	}(3)
 
-	assertMessage := func(expected api.LogMessage) {
+	assertMessage := func(expected common.LogMessage) {
 		select {
 		case actual := <-messages:
 			c.Assert(actual, jc.DeepEquals, expected)
@@ -175,7 +183,7 @@ func (s *debugLogDbSuite) TestLogsAPI(c *gc.C) {
 	}
 
 	// Read the 2 lines that are in the logs collection.
-	assertMessage(api.LogMessage{
+	assertMessage(common.LogMessage{
 		Entity:    "machine-99",
 		Timestamp: t,
 		Severity:  "INFO",
@@ -183,7 +191,7 @@ func (s *debugLogDbSuite) TestLogsAPI(c *gc.C) {
 		Location:  "code.go:42",
 		Message:   "all is well",
 	})
-	assertMessage(api.LogMessage{
+	assertMessage(common.LogMessage{
 		Entity:    "machine-99",
 		Timestamp: t.Add(time.Second),
 		Severity:  "ERROR",
@@ -194,12 +202,58 @@ func (s *debugLogDbSuite) TestLogsAPI(c *gc.C) {
 
 	// Now write and observe another log. This should be read from the oplog.
 	dbLogger.Log(t.Add(2*time.Second), "ju.jitsu", "no.go:3", loggo.WARNING, "beep beep")
-	assertMessage(api.LogMessage{
+	assertMessage(common.LogMessage{
 		Entity:    "machine-99",
 		Timestamp: t.Add(2 * time.Second),
 		Severity:  "WARNING",
 		Module:    "ju.jitsu",
 		Location:  "no.go:3",
 		Message:   "beep beep",
+	})
+}
+
+func (s *debugLogDbSuite) TestLogsUsesStartTime(c *gc.C) {
+	dbLogger := state.NewEntityDbLogger(s.State, names.NewMachineTag("99"), version.Current)
+	defer dbLogger.Close()
+
+	t1 := time.Date(2015, 6, 23, 13, 8, 49, 100, time.UTC)
+	// Check that start time has subsecond resolution.
+	t2 := time.Date(2015, 6, 23, 13, 8, 51, 50, time.UTC)
+	t3 := t1.Add(2 * time.Second)
+	t4 := t1.Add(4 * time.Second)
+	dbLogger.Log(t1, "juju.foo", "code.go:42", loggo.INFO, "spinto band")
+	dbLogger.Log(t2, "juju.quux", "ok.go:101", loggo.INFO, "king gizzard and the lizard wizard")
+	dbLogger.Log(t3, "juju.bar", "go.go:99", loggo.ERROR, "born ruffians")
+	dbLogger.Log(t4, "juju.baz", "go.go.go:23", loggo.WARNING, "cold war kids")
+
+	client := s.APIState.Client()
+	logMessages, err := client.WatchDebugLog(common.DebugLogParams{
+		StartTime: t3,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	assertMessage := func(expected common.LogMessage) {
+		select {
+		case actual := <-logMessages:
+			c.Assert(actual, jc.DeepEquals, expected)
+		case <-time.After(coretesting.LongWait):
+			c.Fatal("timed out waiting for log line")
+		}
+	}
+	assertMessage(common.LogMessage{
+		Entity:    "machine-99",
+		Timestamp: t3,
+		Severity:  "ERROR",
+		Module:    "juju.bar",
+		Location:  "go.go:99",
+		Message:   "born ruffians",
+	})
+	assertMessage(common.LogMessage{
+		Entity:    "machine-99",
+		Timestamp: t4,
+		Severity:  "WARNING",
+		Module:    "juju.baz",
+		Location:  "go.go.go:23",
+		Message:   "cold war kids",
 	})
 }

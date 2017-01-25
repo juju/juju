@@ -18,7 +18,10 @@ import (
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 )
 
-var budgetWithLimitRe = regexp.MustCompile(`^[a-zA-Z0-9\-]+:[0-9]+$`)
+var (
+	budgetWithLimitRe    = regexp.MustCompile(`^[a-zA-Z0-9\-]+:[0-9]+$`)
+	limitWithoutBudgetRe = regexp.MustCompile(`:[0-9]+$`)
+)
 
 type metricRegistrationPost struct {
 	ModelUUID       string `json:"env-uuid"`
@@ -41,7 +44,7 @@ type RegisterMeteredCharm struct {
 }
 
 func (r *RegisterMeteredCharm) SetFlags(f *gnuflag.FlagSet) {
-	f.StringVar(&r.AllocationSpec, "budget", "personal:0", "budget and allocation limit")
+	f.StringVar(&r.AllocationSpec, "budget", ":0", "budget and allocation limit")
 	f.StringVar(&r.Plan, "plan", "", "plan to deploy charm under")
 }
 
@@ -76,7 +79,11 @@ func (r *RegisterMeteredCharm) RunPre(api MeteredDeployAPI, bakeryClient *httpba
 					return err1
 				}
 				charmURL := deployInfo.CharmID.URL.String()
-				return errors.Errorf(`%v has no default plan. Try "juju deploy --plan <plan-name> with one of %v"`, charmURL, strings.Join(options, ", "))
+				if len(options) > 0 {
+					return errors.Errorf(`%v has no default plan. Try "juju deploy --plan <plan-name> with one of %v"`, charmURL, strings.Join(options, ", "))
+				} else {
+					return errors.Errorf("no plans available for %v.", charmURL)
+				}
 			}
 			return err
 		}
@@ -271,7 +278,8 @@ func (r *RegisterMeteredCharm) registerMetrics(modelUUID, charmURL, serviceName,
 }
 
 func parseBudgetWithLimit(bl string) (string, string, error) {
-	if !budgetWithLimitRe.MatchString(bl) {
+	if !budgetWithLimitRe.MatchString(bl) && !limitWithoutBudgetRe.MatchString(bl) {
+
 		return "", "", errors.New("invalid allocation, expecting <budget>:<limit>")
 	}
 	parts := strings.Split(bl, ":")

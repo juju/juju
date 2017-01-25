@@ -11,6 +11,8 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"gopkg.in/tomb.v1"
 	"gopkg.in/yaml.v2"
 
@@ -29,8 +31,9 @@ type DepEngineReporter interface {
 
 // Config describes the arguments required to create the introspection worker.
 type Config struct {
-	SocketName string
-	Reporter   DepEngineReporter
+	SocketName         string
+	Reporter           DepEngineReporter
+	PrometheusGatherer prometheus.Gatherer
 }
 
 // Validate checks the config values to assert they are valid to create the worker.
@@ -38,15 +41,19 @@ func (c *Config) Validate() error {
 	if c.SocketName == "" {
 		return errors.NotValidf("empty SocketName")
 	}
+	if c.PrometheusGatherer == nil {
+		return errors.NotValidf("nil PrometheusGatherer")
+	}
 	return nil
 }
 
 // socketListener is a worker and constructed with NewWorker.
 type socketListener struct {
-	tomb     tomb.Tomb
-	listener *net.UnixListener
-	reporter DepEngineReporter
-	done     chan struct{}
+	tomb               tomb.Tomb
+	listener           *net.UnixListener
+	reporter           DepEngineReporter
+	prometheusGatherer prometheus.Gatherer
+	done               chan struct{}
 }
 
 // NewWorker starts an http server listening on an abstract domain socket
@@ -72,9 +79,10 @@ func NewWorker(config Config) (worker.Worker, error) {
 	logger.Debugf("introspection worker listening on %q", path)
 
 	w := &socketListener{
-		listener: l,
-		reporter: config.Reporter,
-		done:     make(chan struct{}),
+		listener:           l,
+		reporter:           config.Reporter,
+		prometheusGatherer: config.PrometheusGatherer,
+		done:               make(chan struct{}),
 	}
 	go w.serve()
 	go w.run()
@@ -88,13 +96,14 @@ func (w *socketListener) serve() {
 	mux.Handle("/debug/pprof/profile", http.HandlerFunc(pprof.Profile))
 	mux.Handle("/debug/pprof/symbol", http.HandlerFunc(pprof.Symbol))
 	mux.Handle("/depengine/", http.HandlerFunc(w.depengineReport))
+	mux.Handle("/metrics", promhttp.HandlerFor(w.prometheusGatherer, promhttp.HandlerOpts{}))
 
 	srv := http.Server{
 		Handler: mux,
 	}
 
-	logger.Debugf("stats worker now servering")
-	defer logger.Debugf("stats worker servering finished")
+	logger.Debugf("stats worker now serving")
+	defer logger.Debugf("stats worker serving finished")
 	defer close(w.done)
 	srv.Serve(w.listener)
 }

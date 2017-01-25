@@ -48,15 +48,15 @@ type InstanceStatusHistoryGetter interface {
 
 // DetailedStatus holds status info about a machine or unit agent.
 type DetailedStatus struct {
-	Status  Status
-	Info    string
-	Data    map[string]interface{}
-	Since   *time.Time
-	Kind    HistoryKind
-	Version string
+	Status Status
+	Info   string
+	Data   map[string]interface{}
+	Since  *time.Time
+	Kind   HistoryKind
 	// TODO(perrito666) make sure this is not used and remove.
-	Life string
-	Err  error
+	Version string
+	Life    string
+	Err     error
 }
 
 // History holds many DetailedStatus,
@@ -154,13 +154,13 @@ const (
 	// KindWorkload represents a charm workload status history entry.
 	KindWorkload HistoryKind = "workload"
 	// KindMachineInstance represents an entry for a machine instance.
-	KindMachineInstance = "machine"
+	KindMachineInstance HistoryKind = "machine"
 	// KindMachine represents an entry for a machine agent.
-	KindMachine = "juju-machine"
+	KindMachine HistoryKind = "juju-machine"
 	// KindContainerInstance represents an entry for a container instance.
-	KindContainerInstance = "container"
+	KindContainerInstance HistoryKind = "container"
 	// KindContainer represents an entry for a container agent.
-	KindContainer = "juju-container"
+	KindContainer HistoryKind = "juju-container"
 )
 
 // String returns a string representation of the HistoryKind.

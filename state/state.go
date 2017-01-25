@@ -20,6 +20,7 @@ import (
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils"
 	"github.com/juju/utils/clock"
+	"github.com/juju/utils/featureflag"
 	"github.com/juju/utils/os"
 	"github.com/juju/utils/series"
 	"github.com/juju/utils/set"
@@ -35,6 +36,7 @@ import (
 	"github.com/juju/juju/audit"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/core/lease"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
@@ -76,15 +78,16 @@ type providerIdDoc struct {
 // State represents the state of an model
 // managed by juju.
 type State struct {
-	clock              clock.Clock
-	modelTag           names.ModelTag
-	controllerModelTag names.ModelTag
-	controllerTag      names.ControllerTag
-	mongoInfo          *mongo.MongoInfo
-	session            *mgo.Session
-	database           Database
-	policy             Policy
-	newPolicy          NewPolicyFunc
+	clock                  clock.Clock
+	modelTag               names.ModelTag
+	controllerModelTag     names.ModelTag
+	controllerTag          names.ControllerTag
+	mongoInfo              *mongo.MongoInfo
+	session                *mgo.Session
+	database               Database
+	policy                 Policy
+	newPolicy              NewPolicyFunc
+	runTransactionObserver RunTransactionObserverFunc
 
 	// cloudName is the name of the cloud on which the model
 	// represented by this state runs.
@@ -220,6 +223,9 @@ func (st *State) removeAllModelDocs(modelAssertion bson.D) error {
 			}
 		}
 	}
+	// Logs are in a separate database so don't get caught by that
+	// loop.
+	removeModelLogs(st.MongoSession(), modelUUID)
 
 	// Remove all user permissions for the model.
 	permPattern := bson.M{
@@ -304,6 +310,7 @@ func (st *State) ForModel(modelTag names.ModelTag) (*State, error) {
 	session := st.session.Copy()
 	newSt, err := newState(
 		modelTag, st.controllerModelTag, session, st.mongoInfo, st.newPolicy, st.clock,
+		st.runTransactionObserver,
 	)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -829,7 +836,7 @@ func (st *State) getMachineDoc(id string) (*machineDoc, error) {
 // FindEntity returns the entity with the given tag.
 //
 // The returned value can be of type *Machine, *Unit,
-// *User, *Service, *Model, or *Action, depending
+// *User, *Application, *Model, or *Action, depending
 // on the tag.
 func (st *State) FindEntity(tag names.Tag) (Entity, error) {
 	id := tag.Id()
@@ -928,7 +935,7 @@ func (st *State) tagToCollectionAndId(tag names.Tag) (string, interface{}, error
 }
 
 // addPeerRelationsOps returns the operations necessary to add the
-// specified service peer relations to the state.
+// specified application peer relations to the state.
 func (st *State) addPeerRelationsOps(applicationname string, peers map[string]charm.Relation) ([]txn.Op, error) {
 	var ops []txn.Op
 	for _, rel := range peers {
@@ -958,6 +965,11 @@ func (st *State) addPeerRelationsOps(applicationname string, peers map[string]ch
 	}
 	return ops, nil
 }
+
+var (
+	errSameNameRemoteApplicationExists = errors.Errorf("remote application with same name already exists")
+	errLocalApplicationExists          = errors.Errorf("application already exists")
+)
 
 type AddApplicationArgs struct {
 	Name             string
@@ -1093,12 +1105,12 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 
 	applicationID := st.docID(args.Name)
 
-	// Create the service addition operations.
+	// Create the application addition operations.
 	peers := args.Charm.Meta().Peers
 
 	// The doc defaults to CharmModifiedVersion = 0, which is correct, since it
 	// has, by definition, at its initial state.
-	svcDoc := &applicationDoc{
+	appDoc := &applicationDoc{
 		DocID:         applicationID,
 		Name:          args.Name,
 		ModelUUID:     st.ModelUUID(),
@@ -1110,10 +1122,10 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 		Life:          Alive,
 	}
 
-	svc := newApplication(st, svcDoc)
+	app := newApplication(st, appDoc)
 
 	endpointBindingsOp, err := createEndpointBindingsOp(
-		st, svc.globalKey(),
+		st, app.globalKey(),
 		args.EndpointBindings, args.Charm.Meta(),
 	)
 	if err != nil {
@@ -1127,91 +1139,100 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 		Updated:    st.clock.Now().UnixNano(),
 		// This exists to preserve questionable unit-aggregation behaviour
 		// while we work out how to switch to an implementation that makes
-		// sense. It is also set in AddMissingServiceStatuses.
+		// sense.
 		NeverSet: true,
 	}
 
-	// The addServiceOps does not include the environment alive assertion,
-	// so we add it here.
-	ops := []txn.Op{
-		assertModelActiveOp(st.ModelUUID()),
-		endpointBindingsOp,
-	}
-	addOps, err := addApplicationOps(st, addApplicationOpsArgs{
-		applicationDoc: svcDoc,
-		statusDoc:      statusDoc,
-		constraints:    args.Constraints,
-		storage:        args.Storage,
-		settings:       map[string]interface{}(args.Settings),
-	})
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	ops = append(ops, addOps...)
-
-	// Collect peer relation addition operations.
-	//
-	// TODO(dimitern): Ensure each st.Endpoint has a space name associated in a
-	// follow-up.
-	peerOps, err := st.addPeerRelationsOps(args.Name, peers)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	ops = append(ops, peerOps...)
-
-	if len(args.Resources) > 0 {
-		// Collect pending resource resolution operations.
-		resources, err := st.Resources()
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		// If we've tried once already and failed, check that
+		// model may have been destroyed.
+		if attempt > 0 {
+			if err := checkModelActive(st); err != nil {
+				return nil, errors.Trace(err)
+			}
+			// Ensure a local application with the same name doesn't exist.
+			if exists, err := isNotDead(st, applicationsC, args.Name); err != nil {
+				return nil, errors.Trace(err)
+			} else if exists {
+				return nil, errLocalApplicationExists
+			}
+			if featureflag.Enabled(feature.CrossModelRelations) {
+				// Ensure a remote application with the same name doesn't exist.
+				if remoteExists, err := isNotDead(st, remoteApplicationsC, args.Name); err != nil {
+					return nil, errors.Trace(err)
+				} else if remoteExists {
+					return nil, errSameNameRemoteApplicationExists
+				}
+			}
+		}
+		// The addApplicationOps does not include the model alive assertion,
+		// so we add it here.
+		ops := []txn.Op{
+			assertModelActiveOp(st.ModelUUID()),
+			endpointBindingsOp,
+		}
+		addOps, err := addApplicationOps(st, addApplicationOpsArgs{
+			applicationDoc: appDoc,
+			statusDoc:      statusDoc,
+			constraints:    args.Constraints,
+			storage:        args.Storage,
+			settings:       map[string]interface{}(args.Settings),
+		})
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		resOps, err := resources.NewResolvePendingResourcesOps(args.Name, args.Resources)
+		ops = append(ops, addOps...)
+
+		// Collect peer relation addition operations.
+		//
+		// TODO(dimitern): Ensure each st.Endpoint has a space name associated in a
+		// follow-up.
+		peerOps, err := st.addPeerRelationsOps(args.Name, peers)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		ops = append(ops, resOps...)
-	}
+		ops = append(ops, peerOps...)
 
-	// Collect unit-adding operations.
-	for x := 0; x < args.NumUnits; x++ {
-		unitName, unitOps, err := svc.addServiceUnitOps(applicationAddUnitOpsArgs{cons: args.Constraints, storageCons: args.Storage})
-		if err != nil {
+		if len(args.Resources) > 0 {
+			// Collect pending resource resolution operations.
+			resources, err := st.Resources()
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			resOps, err := resources.NewResolvePendingResourcesOps(args.Name, args.Resources)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			ops = append(ops, resOps...)
+		}
+
+		// Collect unit-adding operations.
+		for x := 0; x < args.NumUnits; x++ {
+			unitName, unitOps, err := app.addApplicationUnitOps(applicationAddUnitOpsArgs{cons: args.Constraints, storageCons: args.Storage})
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			ops = append(ops, unitOps...)
+			placement := instance.Placement{}
+			if x < len(args.Placement) {
+				placement = *args.Placement[x]
+			}
+			ops = append(ops, assignUnitOps(unitName, placement)...)
+		}
+		return ops, nil
+	}
+	// At the last moment before inserting the application, prime status history.
+	probablyUpdateStatusHistory(st, app.globalKey(), statusDoc)
+
+	if err = st.run(buildTxn); err == nil {
+		// Refresh to pick the txn-revno.
+		if err = app.Refresh(); err != nil {
 			return nil, errors.Trace(err)
 		}
-		ops = append(ops, unitOps...)
-		placement := instance.Placement{}
-		if x < len(args.Placement) {
-			placement = *args.Placement[x]
-		}
-		ops = append(ops, assignUnitOps(unitName, placement)...)
+		return app, nil
 	}
-	// At the last moment before inserting the service, prime status history.
-	probablyUpdateStatusHistory(st, svc.globalKey(), statusDoc)
-
-	if err := st.runTransaction(ops); err == txn.ErrAborted {
-		if err := checkModelActive(st); err != nil {
-			return nil, errors.Trace(err)
-		}
-		// TODO(fwereade): 2016-09-09 lp:1621754
-		// This is not always correct -- there are a million
-		// operations collected in this func, not *all* of them
-		// imply that this is the problem. (e.g. the charm being
-		// destroyed just as we add application will fail, but
-		// not because "application already exists")
-		return nil, errors.Errorf("application already exists")
-	} else if err != nil {
-		return nil, errors.Trace(err)
-	}
-	// Refresh to pick the txn-revno.
-	if err = svc.Refresh(); err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	return svc, nil
+	return nil, errors.Trace(err)
 }
-
-// TODO(natefinch) DEMO code, revisit after demo!
-var AddServicePostFuncs = map[string]func(*State, AddApplicationArgs) error{}
 
 // assignUnitOps returns the db ops to save unit assignment for use by the
 // UnitAssigner worker.
@@ -1398,7 +1419,7 @@ func (st *State) addMachineWithPlacement(unit *Unit, placement *instance.Placeme
 	}
 }
 
-// Service returns a service state by name.
+// Application returns a application state by name.
 func (st *State) Application(name string) (_ *Application, err error) {
 	applications, closer := st.getCollection(applicationsC)
 	defer closer()
@@ -1417,7 +1438,7 @@ func (st *State) Application(name string) (_ *Application, err error) {
 	return newApplication(st, sdoc), nil
 }
 
-// AllApplications returns all deployed services in the model.
+// AllApplications returns all deployed applications in the model.
 func (st *State) AllApplications() (applications []*Application, err error) {
 	applicationsCollection, closer := st.getCollection(applicationsC)
 	defer closer()
@@ -1434,7 +1455,7 @@ func (st *State) AllApplications() (applications []*Application, err error) {
 }
 
 // InferEndpoints returns the endpoints corresponding to the supplied names.
-// There must be 1 or 2 supplied names, of the form <service>[:<relation>].
+// There must be 1 or 2 supplied names, of the form <application>[:<relation>].
 // If the supplied names uniquely specify a possible relation, or if they
 // uniquely specify a possible relation once all implicit relations have been
 // filtered, the endpoints corresponding to that relation will be returned.
@@ -1461,7 +1482,11 @@ func (st *State) InferEndpoints(names ...string) ([]Endpoint, error) {
 		}
 		for _, ep1 := range eps1 {
 			for _, ep2 := range eps2 {
-				if ep1.CanRelateTo(ep2) && containerScopeOk(st, ep1, ep2) {
+				scopeOk, err := containerScopeOk(st, ep1, ep2)
+				if err != nil {
+					return nil, errors.Trace(err)
+				}
+				if ep1.CanRelateTo(ep2) && scopeOk {
 					candidates = append(candidates, []Endpoint{ep1, ep2})
 				}
 			}
@@ -1506,37 +1531,51 @@ func notPeer(ep Endpoint) bool {
 	return ep.Role != charm.RolePeer
 }
 
-func containerScopeOk(st *State, ep1, ep2 Endpoint) bool {
+func containerScopeOk(st *State, ep1, ep2 Endpoint) (bool, error) {
 	if ep1.Scope != charm.ScopeContainer && ep2.Scope != charm.ScopeContainer {
-		return true
+		return true, nil
 	}
 	var subordinateCount int
 	for _, ep := range []Endpoint{ep1, ep2} {
-		svc, err := st.Application(ep.ApplicationName)
+		svc, err := applicationByName(st, ep.ApplicationName)
 		if err != nil {
-			return false
+			return false, err
 		}
-		if svc.doc.Subordinate {
+		// Container scoped relations are not allowed for remote applications.
+		if svc.IsRemote() {
+			return false, nil
+		}
+		if svc.(*Application).doc.Subordinate {
 			subordinateCount++
 		}
 	}
-	return subordinateCount >= 1
+	return subordinateCount >= 1, nil
+}
+
+func applicationByName(st *State, name string) (ApplicationEntity, error) {
+	s, err := st.RemoteApplication(name)
+	if err == nil {
+		return s, nil
+	} else if err != nil && !errors.IsNotFound(err) {
+		return nil, err
+	}
+	return st.Application(name)
 }
 
 // endpoints returns all endpoints that could be intended by the
 // supplied endpoint name, and which cause the filter param to
 // return true.
 func (st *State) endpoints(name string, filter func(ep Endpoint) bool) ([]Endpoint, error) {
-	var svcName, relName string
+	var appName, relName string
 	if i := strings.Index(name, ":"); i == -1 {
-		svcName = name
+		appName = name
 	} else if i != 0 && i != len(name)-1 {
-		svcName = name[:i]
+		appName = name[:i]
 		relName = name[i+1:]
 	} else {
 		return nil, errors.Errorf("invalid endpoint %q", name)
 	}
-	svc, err := st.Application(svcName)
+	svc, err := applicationByName(st, appName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1574,8 +1613,26 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 	if !eps[0].CanRelateTo(eps[1]) {
 		return nil, errors.Errorf("endpoints do not relate")
 	}
+
+	// Check applications are alive and do checks if one is remote.
+	svc1, err := aliveApplication(st, eps[0].ApplicationName)
+	if err != nil {
+		return nil, err
+	}
+	svc2, err := aliveApplication(st, eps[1].ApplicationName)
+	if err != nil {
+		return nil, err
+	}
+	if svc1.IsRemote() && svc2.IsRemote() {
+		return nil, errors.Errorf("cannot add relation between remote applications %q and %q", eps[0].ApplicationName, eps[1].ApplicationName)
+	}
+	remoteRelation := svc1.IsRemote() || svc2.IsRemote()
+	if remoteRelation && (eps[0].Scope != charm.ScopeGlobal || eps[1].Scope != charm.ScopeGlobal) {
+		return nil, errors.Errorf("both endpoints must be globally scoped for remote relations")
+	}
+
 	// If either endpoint has container scope, so must the other; and the
-	// services's series must also match, because they'll be deployed to
+	// applications's series must also match, because they'll be deployed to
 	// the same machines.
 	matchSeries := true
 	if eps[0].Scope == charm.ScopeContainer {
@@ -1589,46 +1646,55 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 	// -1, we haven't got it yet (we don't get it at this stage, because we
 	// still don't know whether it's sane to even attempt creation).
 	id := -1
-	// If a service's charm is upgraded while we're trying to add a relation,
-	// we'll need to re-validate service sanity.
+	// If a application's charm is upgraded while we're trying to add a relation,
+	// we'll need to re-validate application sanity.
 	var doc *relationDoc
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		// Perform initial relation sanity check.
 		if exists, err := isNotDead(st, relationsC, key); err != nil {
 			return nil, errors.Trace(err)
 		} else if exists {
-			return nil, errors.Errorf("relation already exists")
+			return nil, errors.AlreadyExistsf("relation %v", key)
 		}
-		// Collect per-service operations, checking sanity as we go.
+		// Collect per-application operations, checking sanity as we go.
 		var ops []txn.Op
 		var subordinateCount int
 		series := map[string]bool{}
 		for _, ep := range eps {
-			svc, err := st.Application(ep.ApplicationName)
-			if errors.IsNotFound(err) {
-				return nil, errors.Errorf("application %q does not exist", ep.ApplicationName)
-			} else if err != nil {
-				return nil, errors.Trace(err)
-			} else if svc.doc.Life != Alive {
-				return nil, errors.Errorf("application %q is not alive", ep.ApplicationName)
-			}
-			if svc.doc.Subordinate {
-				subordinateCount++
-			}
-			series[svc.doc.Series] = true
-			ch, _, err := svc.Charm()
+			svc, err := aliveApplication(st, ep.ApplicationName)
 			if err != nil {
-				return nil, errors.Trace(err)
+				return nil, err
 			}
-			if !ep.ImplementedBy(ch) {
-				return nil, errors.Errorf("%q does not implement %q", ep.ApplicationName, ep)
+			if svc.IsRemote() {
+				ops = append(ops, txn.Op{
+					C:      remoteApplicationsC,
+					Id:     st.docID(ep.ApplicationName),
+					Assert: bson.D{{"life", Alive}},
+					Update: bson.D{{"$inc", bson.D{{"relationcount", 1}}}},
+				})
+			} else {
+				localSvc := svc.(*Application)
+				if localSvc.doc.Subordinate {
+					if remoteRelation {
+						return nil, errors.Errorf("cannot relate subordinate %q to remote application", localSvc.Name())
+					}
+					subordinateCount++
+				}
+				series[localSvc.doc.Series] = true
+				ch, _, err := localSvc.Charm()
+				if err != nil {
+					return nil, errors.Trace(err)
+				}
+				if !ep.ImplementedBy(ch) {
+					return nil, errors.Errorf("%q does not implement %q", ep.ApplicationName, ep)
+				}
+				ops = append(ops, txn.Op{
+					C:      applicationsC,
+					Id:     st.docID(ep.ApplicationName),
+					Assert: bson.D{{"life", Alive}, {"charmurl", ch.URL()}},
+					Update: bson.D{{"$inc", bson.D{{"relationcount", 1}}}},
+				})
 			}
-			ops = append(ops, txn.Op{
-				C:      applicationsC,
-				Id:     st.docID(ep.ApplicationName),
-				Assert: bson.D{{"life", Alive}, {"charmurl", ch.URL()}},
-				Update: bson.D{{"$inc", bson.D{{"relationcount", 1}}}},
-			})
 		}
 		if matchSeries && len(series) != 1 {
 			return nil, errors.Errorf("principal and subordinate applications' series must match")
@@ -1666,6 +1732,18 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 		return &Relation{st, *doc}, nil
 	}
 	return nil, errors.Trace(err)
+}
+
+func aliveApplication(st *State, name string) (ApplicationEntity, error) {
+	app, err := applicationByName(st, name)
+	if errors.IsNotFound(err) {
+		return nil, errors.Errorf("application %q does not exist", name)
+	} else if err != nil {
+		return nil, errors.Trace(err)
+	} else if app.Life() != Alive {
+		return nil, errors.Errorf("application %q is not alive", name)
+	}
+	return app, err
 }
 
 // EndpointsRelation returns the existing relation with the given endpoints.

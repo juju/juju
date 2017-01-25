@@ -55,6 +55,8 @@ type gceConnection interface {
 	DetachDisk(zone, instanceId, volumeName string) error
 	// InstanceDisks returns a list of the disks attached to the passed instance.
 	InstanceDisks(zone, instanceId string) ([]*google.AttachedDisk, error)
+	// ListMachineTypes returns a list of machines available in the project and zone provided.
+	ListMachineTypes(zone string) ([]google.MachineType, error)
 }
 
 type environ struct {

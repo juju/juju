@@ -139,7 +139,7 @@ func formatTabular(writer io.Writer, value interface{}) error {
 	table.AddRow("MODEL", "SERVICES", "SPENT", "ALLOCATED", "BY", "USAGE")
 	for _, allocation := range b.Allocations {
 		firstLine := true
-		// We'll sort the service names to avoid nondeterministic
+		// We'll sort the application names to avoid nondeterministic
 		// command output.
 		services := make([]string, 0, len(allocation.Services))
 		for serviceName, _ := range allocation.Services {

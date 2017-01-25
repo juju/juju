@@ -4,10 +4,12 @@
 package commands
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"os/exec"
 	"strings"
+	"text/template"
 
 	"github.com/juju/cmd"
 	"github.com/juju/loggo"
@@ -25,6 +27,7 @@ import (
 	"github.com/juju/juju/cmd/juju/charmcmd"
 	"github.com/juju/juju/cmd/juju/cloud"
 	"github.com/juju/juju/cmd/juju/controller"
+	"github.com/juju/juju/cmd/juju/crossmodel"
 	"github.com/juju/juju/cmd/juju/gui"
 	"github.com/juju/juju/cmd/juju/machine"
 	"github.com/juju/juju/cmd/juju/metricsdebug"
@@ -43,6 +46,7 @@ import (
 	"github.com/juju/juju/jujuclient"
 	jujuversion "github.com/juju/juju/version"
 	// Import the providers.
+	cloudfile "github.com/juju/juju/cloud"
 	_ "github.com/juju/juju/provider/all"
 )
 
@@ -166,12 +170,24 @@ func (m main) maybeWarnJuju1x() (newInstall bool) {
 	if !exists {
 		return newInstall
 	}
-	fmt.Fprintf(os.Stderr, `
-    Welcome to Juju %s. If you meant to use Juju %s you can continue using it
-    with the command %s e.g. '%s switch'.
+	// TODO (anastasiamac 2016-10-21) Once manual page exists as per
+	// https://github.com/juju/docs/issues/1487,
+	// link it in the Note below to avoid propose here.
+	welcomeMsgTemplate := `
+Welcome to Juju {{.CurrentJujuVersion}}. 
     See https://jujucharms.com/docs/stable/introducing-2 for more details.
 
-`[1:], jujuversion.Current, ver, juju1xCmdName, juju1xCmdName)
+If you want to use Juju {{.OldJujuVersion}}, run 'juju' commands as '{{.OldJujuCommand}}'. For example, '{{.OldJujuCommand}} bootstrap'.
+   See https://jujucharms.com/docs/stable/juju-coexist for installation details. 
+`[1:]
+	t := template.Must(template.New("plugin").Parse(welcomeMsgTemplate))
+	var buf bytes.Buffer
+	t.Execute(&buf, map[string]interface{}{
+		"CurrentJujuVersion": jujuversion.Current,
+		"OldJujuVersion":     ver,
+		"OldJujuCommand":     juju1xCmdName,
+	})
+	fmt.Fprintln(os.Stderr, buf.String())
 	return newInstall
 }
 
@@ -194,7 +210,7 @@ func (m main) juju1xVersion() (ver string, exists bool) {
 
 func shouldWarnJuju1x() bool {
 	// this code only applies to Ubuntu, where we renamed Juju 1.x to juju-1.
-	ostype, err := series.GetOSFromSeries(series.HostSeries())
+	ostype, err := series.GetOSFromSeries(series.MustHostSeries())
 	if err != nil || ostype != utilsos.Ubuntu {
 		return false
 	}
@@ -234,9 +250,17 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(newBootstrapCommand())
 	r.Register(application.NewAddRelationCommand())
 
+	if featureflag.Enabled(feature.CrossModelRelations) {
+		r.Register(crossmodel.NewOfferCommand())
+		r.Register(crossmodel.NewShowOfferedEndpointCommand())
+		r.Register(crossmodel.NewListEndpointsCommand())
+		r.Register(crossmodel.NewFindEndpointsCommand())
+		r.Register(application.NewConsumeCommand())
+	}
+
 	// Destruction commands.
 	r.Register(application.NewRemoveRelationCommand())
-	r.Register(application.NewRemoveServiceCommand())
+	r.Register(application.NewRemoveApplicationCommand())
 	r.Register(application.NewRemoveUnitCommand())
 
 	// Reporting commands.
@@ -246,11 +270,11 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 
 	// Error resolution and debugging commands.
 	r.Register(newRunCommand())
-	r.Register(newSCPCommand())
-	r.Register(newSSHCommand())
+	r.Register(newSCPCommand(nil))
+	r.Register(newSSHCommand(nil))
 	r.Register(newResolvedCommand())
 	r.Register(newDebugLogCommand())
-	r.Register(newDebugHooksCommand())
+	r.Register(newDebugHooksCommand(nil))
 
 	// Configuration commands.
 	r.Register(model.NewModelGetConstraintsCommand())
@@ -309,9 +333,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(model.NewRevokeCommand())
 	r.Register(model.NewShowCommand())
 
-	if featureflag.Enabled(feature.Migration) {
-		r.Register(newMigrateCommand())
-	}
+	r.Register(newMigrateCommand())
 	if featureflag.Enabled(feature.DeveloperMode) {
 		r.Register(model.NewDumpCommand())
 		r.Register(model.NewDumpDBCommand())
@@ -386,7 +408,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(cloud.NewListCloudsCommand())
 	r.Register(cloud.NewListRegionsCommand())
 	r.Register(cloud.NewShowCloudCommand())
-	r.Register(cloud.NewAddCloudCommand())
+	r.Register(cloud.NewAddCloudCommand(&cloudToCommandAdapter{}))
 	r.Register(cloud.NewRemoveCloudCommand())
 	r.Register(cloud.NewListCredentialsCommand())
 	r.Register(cloud.NewDetectCredentialsCommand())
@@ -410,4 +432,22 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 		r.Register(modelcmd.Wrap(command))
 	}
 	rcmd.RegisterAll(r)
+}
+
+type cloudToCommandAdapter struct{}
+
+func (cloudToCommandAdapter) ParseCloudMetadataFile(path string) (map[string]cloudfile.Cloud, error) {
+	return cloudfile.ParseCloudMetadataFile(path)
+}
+func (cloudToCommandAdapter) ParseOneCloud(data []byte) (cloudfile.Cloud, error) {
+	return cloudfile.ParseOneCloud(data)
+}
+func (cloudToCommandAdapter) PublicCloudMetadata(searchPaths ...string) (map[string]cloudfile.Cloud, bool, error) {
+	return cloudfile.PublicCloudMetadata(searchPaths...)
+}
+func (cloudToCommandAdapter) PersonalCloudMetadata() (map[string]cloudfile.Cloud, error) {
+	return cloudfile.PersonalCloudMetadata()
+}
+func (cloudToCommandAdapter) WritePersonalCloudMetadata(cloudsMap map[string]cloudfile.Cloud) error {
+	return cloudfile.WritePersonalCloudMetadata(cloudsMap)
 }

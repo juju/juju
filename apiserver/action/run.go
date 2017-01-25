@@ -16,7 +16,7 @@ import (
 )
 
 // getAllUnitNames returns a sequence of valid Unit objects from state. If any
-// of the service names or unit names are not found, an error is returned.
+// of the application names or unit names are not found, an error is returned.
 func getAllUnitNames(st *state.State, units, services []string) (result []names.Tag, err error) {
 	unitsSet := set.NewStrings(units...)
 	for _, name := range services {

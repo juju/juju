@@ -10,6 +10,8 @@
 package ad
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -23,6 +25,13 @@ import (
 const (
 	// APIVersion is the version of the Active Directory API
 	APIVersion = "1.6"
+)
+
+var (
+	// utf8BOM is the UTF-8 BOM, which may come at the beginning
+	// of a UTF-8 stream. Since it has no effect on the stream,
+	// it can be stripped off and ignored.
+	utf8BOM = []byte("\ufeff")
 )
 
 func UserAgent() string {
@@ -69,10 +78,15 @@ func WithOdataErrorUnlessStatusCode(codes ...int) autorest.RespondDecorator {
 
 				// Copy and replace the Body in case it does not contain an error object.
 				// This will leave the Body available to the caller.
-				b, decodeErr := autorest.CopyAndDecode(autorest.EncodedAsJSON, resp.Body, &oe)
-				resp.Body = ioutil.NopCloser(&b)
+				data, readErr := ioutil.ReadAll(resp.Body)
+				if readErr != nil {
+					return readErr
+				}
+				resp.Body = ioutil.NopCloser(bytes.NewReader(data))
+				decodeErr := json.Unmarshal(bytes.TrimPrefix(data, utf8BOM), &oe)
+
 				if decodeErr != nil {
-					return fmt.Errorf("ad: error response cannot be parsed: %q error: %v", b.String(), decodeErr)
+					return fmt.Errorf("ad: error response cannot be parsed: %q error: %v", data, decodeErr)
 				} else if oe.ServiceError == nil {
 					oe.ServiceError = &odataServiceError{Code: "Unknown"}
 				}

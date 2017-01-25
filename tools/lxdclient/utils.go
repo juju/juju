@@ -48,7 +48,11 @@ func IsRunningLocally() (bool, error) {
 		return false, nil
 	}
 
-	svc, err := service.NewService("lxd", common.Conf{}, series.HostSeries())
+	hostSeries, err := series.HostSeries()
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	svc, err := service.NewService("lxd", common.Conf{}, hostSeries)
 	if err != nil {
 		return false, errors.Trace(err)
 	}

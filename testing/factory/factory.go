@@ -294,7 +294,7 @@ func (factory *Factory) MakeMachineNested(c *gc.C, parentId string, params *Mach
 	current := version.Binary{
 		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
-		Series: series.HostSeries(),
+		Series: series.MustHostSeries(),
 	}
 	err = m.SetAgentVersion(current)
 	c.Assert(err, jc.ErrorIsNil)
@@ -360,7 +360,7 @@ func (factory *Factory) makeMachineReturningPassword(c *gc.C, params *MachinePar
 	current := version.Binary{
 		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
-		Series: series.HostSeries(),
+		Series: series.MustHostSeries(),
 	}
 	err = machine.SetAgentVersion(current)
 	c.Assert(err, jc.ErrorIsNil)

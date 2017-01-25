@@ -6,6 +6,7 @@ package metricsdebug
 import (
 	"fmt"
 	"io"
+	"sort"
 	"time"
 
 	"github.com/gosuri/uitable"
@@ -91,6 +92,23 @@ var newClient = func(env modelcmd.ModelCommandBase) (GetMetricsClient, error) {
 	return metricsdebug.NewClient(state), nil
 }
 
+type metricSlice []metric
+
+// Len implements the sort.Interface.
+func (slice metricSlice) Len() int {
+	return len(slice)
+}
+
+// Less implements the sort.Interface.
+func (slice metricSlice) Less(i, j int) bool {
+	return slice[i].Metric < slice[j].Metric
+}
+
+// Swap implements the sort.Interface.
+func (slice metricSlice) Swap(i, j int) {
+	slice[i], slice[j] = slice[j], slice[i]
+}
+
 type metric struct {
 	Unit      string    `json:"unit" yaml:"unit"`
 	Timestamp time.Time `json:"timestamp" yaml:"timestamp"`
@@ -126,6 +144,9 @@ func (c *MetricsCommand) Run(ctx *cmd.Context) error {
 			Value:     m.Value,
 		}
 	}
+	sortedResults := metricSlice(results)
+	sort.Sort(sortedResults)
+
 	return errors.Trace(c.out.Write(ctx, results))
 }
 

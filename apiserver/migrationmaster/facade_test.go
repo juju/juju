@@ -194,28 +194,118 @@ func (s *Suite) TestPrechecks(c *gc.C) {
 }
 
 func (s *Suite) TestExport(c *gc.C) {
-	s.model.AddApplication(description.ApplicationArgs{
+	app := s.model.AddApplication(description.ApplicationArgs{
 		Tag:      names.NewApplicationTag("foo"),
 		CharmURL: "cs:foo-0",
 	})
-	const tools = "2.0.0-xenial-amd64"
+
+	const tools0 = "2.0.0-xenial-amd64"
+	const tools1 = "2.0.1-xenial-amd64"
 	m := s.model.AddMachine(description.MachineArgs{Id: names.NewMachineTag("9")})
 	m.SetTools(description.AgentToolsArgs{
-		Version: version.MustParseBinary(tools),
+		Version: version.MustParseBinary(tools1),
 	})
+
+	res := app.AddResource(description.ResourceArgs{"bin"})
+	appRev := res.SetApplicationRevision(description.ResourceRevisionArgs{
+		Revision:       2,
+		Type:           "file",
+		Path:           "bin.tar.gz",
+		Description:    "who knows",
+		Origin:         "upload",
+		FingerprintHex: "abcd",
+		Size:           123,
+		Timestamp:      time.Now(),
+		Username:       "bob",
+	})
+	csRev := res.SetCharmStoreRevision(description.ResourceRevisionArgs{
+		Revision:       3,
+		Type:           "file",
+		Path:           "fink.tar.gz",
+		Description:    "knows who",
+		Origin:         "store",
+		FingerprintHex: "deaf",
+		Size:           321,
+		Timestamp:      time.Now(),
+		Username:       "xena",
+	})
+
+	unit := app.AddUnit(description.UnitArgs{
+		Tag: names.NewUnitTag("foo/0"),
+	})
+	unit.SetTools(description.AgentToolsArgs{
+		Version: version.MustParseBinary(tools0),
+	})
+	unitRes := unit.AddResource(description.UnitResourceArgs{
+		Name: "bin",
+		RevisionArgs: description.ResourceRevisionArgs{
+			Revision:       1,
+			Type:           "file",
+			Path:           "bin.tar.gz",
+			Description:    "nose knows",
+			Origin:         "upload",
+			FingerprintHex: "beef",
+			Size:           222,
+			Timestamp:      time.Now(),
+			Username:       "bambam",
+		},
+	})
+	unitRev := unitRes.Revision()
+
 	api := s.mustMakeAPI(c)
-
 	serialized, err := api.Export()
-
 	c.Assert(err, jc.ErrorIsNil)
+
 	// We don't want to tie this test the serialisation output (that's
 	// tested elsewhere). Just check that at least one thing we expect
 	// is in the serialised output.
-	c.Assert(string(serialized.Bytes), jc.Contains, jujuversion.Current.String())
-	c.Assert(serialized.Charms, gc.DeepEquals, []string{"cs:foo-0"})
-	c.Assert(serialized.Tools, gc.DeepEquals, []params.SerializedModelTools{
-		{tools, "/tools/" + tools},
+	c.Check(string(serialized.Bytes), jc.Contains, jujuversion.Current.String())
+
+	c.Check(serialized.Charms, gc.DeepEquals, []string{"cs:foo-0"})
+	c.Check(serialized.Tools, jc.SameContents, []params.SerializedModelTools{
+		{tools0, "/tools/" + tools0},
+		{tools1, "/tools/" + tools1},
 	})
+	c.Check(serialized.Resources, gc.DeepEquals, []params.SerializedModelResource{{
+		Application: "foo",
+		Name:        "bin",
+		ApplicationRevision: params.SerializedModelResourceRevision{
+			Revision:       appRev.Revision(),
+			Type:           appRev.Type(),
+			Path:           appRev.Path(),
+			Description:    appRev.Description(),
+			Origin:         appRev.Origin(),
+			FingerprintHex: appRev.FingerprintHex(),
+			Size:           appRev.Size(),
+			Timestamp:      appRev.Timestamp(),
+			Username:       appRev.Username(),
+		},
+		CharmStoreRevision: params.SerializedModelResourceRevision{
+			Revision:       csRev.Revision(),
+			Type:           csRev.Type(),
+			Path:           csRev.Path(),
+			Description:    csRev.Description(),
+			Origin:         csRev.Origin(),
+			FingerprintHex: csRev.FingerprintHex(),
+			Size:           csRev.Size(),
+			Timestamp:      csRev.Timestamp(),
+			Username:       csRev.Username(),
+		},
+		UnitRevisions: map[string]params.SerializedModelResourceRevision{
+			"foo/0": params.SerializedModelResourceRevision{
+				Revision:       unitRev.Revision(),
+				Type:           unitRev.Type(),
+				Path:           unitRev.Path(),
+				Description:    unitRev.Description(),
+				Origin:         unitRev.Origin(),
+				FingerprintHex: unitRev.FingerprintHex(),
+				Size:           unitRev.Size(),
+				Timestamp:      unitRev.Timestamp(),
+				Username:       unitRev.Username(),
+			},
+		},
+	}})
+
 }
 
 func (s *Suite) TestReap(c *gc.C) {
@@ -386,10 +476,6 @@ func (m *stubMigration) Phase() (coremigration.Phase, error) {
 
 func (m *stubMigration) PhaseChangedTime() time.Time {
 	return time.Date(2016, 6, 22, 16, 38, 0, 0, time.UTC)
-}
-
-func (m *stubMigration) Attempt() (int, error) {
-	return 1, nil
 }
 
 func (m *stubMigration) ModelUUID() string {

@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/api"
 	apiagent "github.com/juju/juju/api/agent"
 	apimachiner "github.com/juju/juju/api/machiner"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
@@ -25,6 +26,7 @@ type ManifoldConfig struct {
 	UpgradeStepsGateName string
 	OpenStateForUpgrade  func() (*state.State, error)
 	PreUpgradeSteps      func(*state.State, agent.Config, bool, bool) error
+	NewEnvironFunc       environs.NewEnvironFunc
 }
 
 // Manifold returns a dependency manifold that runs an upgrader
@@ -97,6 +99,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				config.OpenStateForUpgrade,
 				config.PreUpgradeSteps,
 				machine,
+				config.NewEnvironFunc,
 			)
 		},
 	}

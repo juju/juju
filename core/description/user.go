@@ -138,7 +138,7 @@ func importUserV1(source map[string]interface{}) (*user, error) {
 	// Some values don't have to be there.
 	defaults := schema.Defaults{
 		"display-name":    "",
-		"last-connection": time.Time{},
+		"last-connection": schema.Omit,
 		"read-only":       false,
 	}
 	checker := schema.FieldMap(fields, defaults)
@@ -151,18 +151,13 @@ func importUserV1(source map[string]interface{}) (*user, error) {
 	// contains fields of the right type.
 
 	result := &user{
-		Name_:        valid["name"].(string),
-		DisplayName_: valid["display-name"].(string),
-		CreatedBy_:   valid["created-by"].(string),
-		DateCreated_: valid["date-created"].(time.Time),
-		Access_:      valid["access"].(string),
+		Name_:           valid["name"].(string),
+		DisplayName_:    valid["display-name"].(string),
+		CreatedBy_:      valid["created-by"].(string),
+		DateCreated_:    valid["date-created"].(time.Time),
+		Access_:         valid["access"].(string),
+		LastConnection_: fieldToTimePtr(valid, "last-connection"),
 	}
-
-	lastConn := valid["last-connection"].(time.Time)
-	if !lastConn.IsZero() {
-		result.LastConnection_ = &lastConn
-	}
-
 	return result, nil
 
 }
