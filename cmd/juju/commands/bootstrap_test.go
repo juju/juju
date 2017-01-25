@@ -1355,7 +1355,6 @@ func (s *BootstrapSuite) TestBootstrapProviderDetectCloud(c *gc.C) {
 
 	s.patchVersionAndSeries(c, "raring")
 	coretesting.RunCommand(c, s.newBootstrapCommand(), "bruce", "ctrl")
-	c.Assert(bootstrap.args.CloudName, gc.Equals, "bruce")
 	c.Assert(bootstrap.args.CloudRegion, gc.Equals, "gazza")
 	c.Assert(bootstrap.args.CloudCredentialName, gc.Equals, "default")
 	sort.Sort(bootstrap.args.Cloud.AuthTypes)
