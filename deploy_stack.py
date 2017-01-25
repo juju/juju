@@ -37,6 +37,7 @@ from jujuconfig import (
 )
 from jujupy import (
     client_from_config,
+    EnvJujuClient1X,
     FakeBackend,
     fake_juju_client,
     get_machine_dns_name,
@@ -167,7 +168,9 @@ def check_token(client, token, timeout=120):
     # sent successfully, but fallback to timeout as previously for now.
     start = time.time()
     while True:
-        if remote.is_windows():
+        is_winclient1x = (isinstance(client, EnvJujuClient1X) and
+                          sys.platform == "win32")
+        if remote.is_windows() or is_winclient1x:
             result = get_token_from_status(client)
             if not result:
                 result = _get_token(remote, "%ProgramData%\\dummy-sink\\token")
