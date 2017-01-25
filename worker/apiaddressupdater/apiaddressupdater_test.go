@@ -132,6 +132,10 @@ LXC_BRIDGE="ignored"`[1:])
 				&net.IPAddr{IP: net.IPv4(10, 0, 4, 1)},
 				&net.IPAddr{IP: net.IPv4(10, 0, 4, 4)},
 			}, nil
+		} else if name == network.DefaultKVMBridge {
+			return []net.Addr{
+				&net.IPAddr{IP: net.IPv4(192, 168, 122, 1)},
+			}, nil
 		}
 		c.Fatalf("unknown bridge in testing: %v", name)
 		return nil, nil
@@ -142,10 +146,11 @@ LXC_BRIDGE="ignored"`[1:])
 		network.NewHostPorts(1234, "localhost", "127.0.0.1"),
 		network.NewHostPorts(
 			4321,
-			"10.0.3.1", // filtered
-			"10.0.3.3", // not filtered (not a lxc bridge address)
-			"10.0.4.1", // filtered lxd bridge address
-			"10.0.4.2", // not filtered
+			"10.0.3.1",      // filtered
+			"10.0.3.3",      // not filtered (not a lxc bridge address)
+			"10.0.4.1",      // filtered lxd bridge address
+			"10.0.4.2",      // not filtered
+			"192.168.122.1", // filtered default virbr0
 		),
 		network.NewHostPorts(4242, "10.0.3.4"), // filtered
 	}
