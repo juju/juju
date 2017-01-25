@@ -2639,6 +2639,16 @@ class ModelClient:
         return self.get_juju_output('list-clouds', '--format',
                                     format, include_e=False)
 
+    def generate_tool(self, source_dir, stream=None):
+        args = ('generate-tools', '-d', source_dir)
+        if stream is not None:
+            args += ('--stream', stream)
+        return self.juju('metadata', args, include_e=False)
+
+    def add_cloud(self, cloud_name, cloud_file):
+        return self.juju('add-cloud', ("--replace", cloud_name, cloud_file),
+                         include_e=False)
+
     def add_cloud_interactive(self, cloud_name, cloud):
         child = self.expect('add-cloud', include_e=False)
         try:

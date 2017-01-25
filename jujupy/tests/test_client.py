@@ -3471,6 +3471,30 @@ class TestModelClient(ClientTest):
         mock.assert_called_once_with('sync-tools', ('--local-dir', '/agents'),
                                      include_e=False)
 
+    def test_generate_tool(self):
+        client = EnvJujuClient(JujuData('foo'), None, None)
+        with patch.object(client, 'juju', autospec=True) as mock:
+            client.generate_tool('/agents')
+        mock.assert_called_once_with('metadata',
+                                     ('generate-tools', '-d', '/agents'),
+                                     include_e=False)
+
+    def test_generate_tool_with_stream(self):
+        client = EnvJujuClient(JujuData('foo'), None, None)
+        with patch.object(client, 'juju', autospec=True) as mock:
+            client.generate_tool('/agents', "testing")
+        mock.assert_called_once_with(
+            'metadata', ('generate-tools', '-d', '/agents',
+                         '--stream', 'testing'), include_e=False)
+
+    def test_add_cloud(self):
+        client = EnvJujuClient(JujuData('foo'), None, None)
+        with patch.object(client, 'juju', autospec=True) as mock:
+            client.add_cloud('localhost', 'cfile')
+        mock.assert_called_once_with('add-cloud',
+                                     ('--replace', 'localhost', 'cfile'),
+                                     include_e=False)
+
     def test_switch(self):
         def run_switch_test(expect, model=None, controller=None):
             client = ModelClient(JujuData('foo'), None, None)
