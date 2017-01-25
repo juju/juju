@@ -17,6 +17,13 @@ else
 	INSTALL_FLAGS := -gccgoflags=-static-libgo
 endif
 
+# Allow the tests to take longer on arm platforms.
+ifeq ($(shell uname -p | sed -r 's/.*(armel|armhf|aarch64).*/golang/'), golang)
+	TEST_TIMEOUT := 2400s
+else
+	TEST_TIMEOUT := 1500s
+endif
+
 define DEPENDENCIES
   ca-certificates
   bzip2
@@ -49,7 +56,7 @@ build: godeps
 	go build $(PROJECT)/...
 
 check: godeps
-	go test -v -test.timeout=1500s $(PROJECT)/... -check.v
+	go test -v -test.timeout=$(TEST_TIMEOUT) $(PROJECT)/... -check.v
 
 install: godeps
 	go install $(INSTALL_FLAGS) -v $(PROJECT)/...
