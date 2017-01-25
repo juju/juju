@@ -9,7 +9,8 @@ from mock import (
     )
 
 from jujupy import (
-    EnvJujuClient,
+    ModelClient,
+    fake_juju_client,
     JujuData,
     KVM_MACHINE,
     LXC_MACHINE,
@@ -18,7 +19,6 @@ from jujupy import (
     )
 
 import assess_container_networking as jcnet
-from fakejuju import fake_juju_client
 from tests import (
     FakeHomeTestCase,
     parse_error,
@@ -29,7 +29,7 @@ from tests import (
 __metaclass__ = type
 
 
-class JujuMock(EnvJujuClient):
+class JujuMock(ModelClient):
     """A mock of the parts of the Juju command that the tests hit."""
 
     def __init__(self, *args, **kwargs):
@@ -103,7 +103,7 @@ class JujuMock(EnvJujuClient):
 
 class TestContainerNetworking(TestCase):
     def setUp(self):
-        self.client = EnvJujuClient(
+        self.client = ModelClient(
             JujuData('foo', {'type': 'local'}), '1.234-76', None)
 
         self.juju_mock = fake_juju_client(cls=JujuMock)

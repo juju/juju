@@ -1,8 +1,10 @@
 p=test*.py
+py3="assess_model_change_watcher.py"
 test:
-	TMPDIR=/tmp python -m unittest discover -vv ./tests -p "$(p)"
+	TMPDIR=/tmp python -m unittest discover -vv . -p "$(p)"
 lint:
-	flake8 $$(find -name '*.py') --builtins xrange,basestring
+	python3 -m flake8 --builtins xrange,basestring $(py3)
+	flake8 $$(find -name '*.py') --builtins xrange,basestring --exclude $(py3)
 cover:
 	python -m coverage run --source="./" --omit "./tests/*" -m unittest discover -vv ./tests
 	python -m coverage report
@@ -18,7 +20,7 @@ juju-ci-tools.common_0.1.4-0_all.deb: apt-update
 install-deps: juju-ci-tools.common_0.1.4-0_all.deb apt-update
 	sudo dpkg -i juju-ci-tools.common_0.1.4-0_all.deb || true
 	sudo apt-get install -y -f
-	./pipdeps.py install
+	./pipdeps.py -v install
 name=NAMEHERE
 assess_file=assess_$(name).py
 test_assess_file=tests/test_assess_$(name).py

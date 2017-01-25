@@ -11,7 +11,7 @@ import subprocess
 from textwrap import dedent
 
 import assess_unregister as a_unreg
-from fakejuju import fake_juju_client
+from jujupy import fake_juju_client
 from tests import (
     parse_error,
     TestCase,
@@ -64,7 +64,7 @@ class TestAssess(TestCase):
 
     def test_unregister(self):
         fake_user = Mock()
-        with patch('jujupy.EnvJujuClient.register_user',
+        with patch('jujupy.ModelClient.register_user',
                    return_value=fake_user):
             with patch.object(
                     a_unreg, 'assert_controller_list',

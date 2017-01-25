@@ -19,25 +19,21 @@ def win_test(script_dir, address, juju_home, revision_build):
     installer = [u for u in urls if re.search('juju-setup-.*\.exe', u)][-1]
     s3_cmd(['sync', installer, '.'])
     install_file = installer.split('/')[-1]
+    deploy_job = (
+        'c:\\\\Users\\\\Administrator\\\\juju-ci-tools\\\\deploy_job.py')
     with open('run-file', 'w') as run_file:
         run_file.write(dedent("""
             ci/$1 /verysilent
             juju version
             juju destroy-environment --force -y win-client-deploy
             mkdir logs
-            python ci\\\\deploy_job.py parallel-win-client \
+            python {deploy_job} parallel-win-client \
                 'c:\\Program Files (x86)\\Juju\\juju.exe' \
-                logs win-client-deploy --series trusty \
+                logs win-client-deploy --series xenial --use-charmstore \
                 --agent-stream revision-build-{revision_build}
-            """.format(revision_build=revision_build)))
+            """.format(revision_build=revision_build, deploy_job=deploy_job)))
 
-    ci = [os.path.join(script_dir, f) for f in [
-        'deploy_stack.py', 'deploy_job.py', 'fakejuju.py', 'jujupy.py',
-        'jujuconfig.py', 'remote.py', 'substrate.py', 'utility.py',
-        'get_ami.py', 'chaos.py', 'timeout.py', 'jujucharm.py',
-        'winazurearm.py', 'gce.py',
-        ]]
-    ci.extend([install_file, 'run-file'])
+    ci = [install_file, 'run-file']
     with open('foo.yaml', 'w') as config:
         yaml.dump({
             'install': {'ci': ci},

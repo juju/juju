@@ -6,15 +6,13 @@ import yaml
 from deploy_stack import (
     BootstrapManager,
     )
-from fakejuju import (
-    FakeBackend,
-    FakeControllerState,
-    )
 from jujuconfig import get_juju_home
 from jujupy import (
-    EnvJujuClient,
+    ConditionList,
+    ModelClient,
+    FakeBackend,
+    FakeControllerState,
     get_client_class,
-    WaitMachineNotPresent,
     )
 from utility import (
     add_basic_testing_arguments,
@@ -29,20 +27,25 @@ def client_from_args(args):
     client is determined based on the path and version.
     """
     if args.juju_bin == 'FAKE':
-        client_class = EnvJujuClient
+        client_class = ModelClient
         controller_state = FakeControllerState()
         version = '2.0.0'
         backend = FakeBackend(controller_state, full_path=args.juju_bin,
                               version=version)
     else:
-        version = EnvJujuClient.get_version(args.juju_bin)
+        version = ModelClient.get_version(args.juju_bin)
         client_class = get_client_class(version)
         backend = None
     juju_home = get_juju_home()
     with open(args.clouds_file) as f:
         clouds = yaml.safe_load(f)
+    if args.config is None:
+        config = {}
+    else:
+        with open(args.config) as f:
+            config = yaml.safe_load(f)
     juju_data = client_class.config_class.from_cloud_region(
-        args.cloud, args.region, {}, clouds, juju_home)
+        args.cloud, args.region, config, clouds, juju_home)
     return client_class(juju_data, version, args.juju_bin, debug=args.debug,
                         soft_deadline=args.deadline, _backend=backend)
 
@@ -59,8 +62,35 @@ def assess_cloud_combined(bs_manager):
         new_status = client.wait_for_started()
         new_machines = [k for k, v in new_status.iter_new_machines(old_status)]
         client.juju('remove-unit', 'ubuntu/0')
-        new_status = client.wait_for([WaitMachineNotPresent(n)
-                                      for n in new_machines])
+        new_status = client.wait_for(
+            ConditionList([client.make_remove_machine_condition(n)
+                           for n in new_machines]))
+
+
+def assess_cloud_provisioning(bs_manager):
+    """Assess provisioning operations on a cloud.
+
+    This was created for testing Azure streams.  It tests bootstrap,
+    add-machine, remove-machine and destroy-controller.  It does not test
+    charms.
+
+    It tests "trusty" and "win2012r2" as representative series on Azure.  It
+    does not test CentOS, because that is known-broken at the moment (bug
+    #1571982).  It tests "trusty" rather than "xenial" because "xenial" will
+    be used for bootstrap by default.
+    """
+    client = bs_manager.client
+    with bs_manager.booted_context(upload_tools=False):
+        old_status = client.get_status()
+        client.juju('add-machine', ('--series', 'win2012r2'))
+        client.juju('add-machine', ('--series', 'trusty'))
+        new_status = client.wait_for_started()
+        new_machines = [k for k, v in new_status.iter_new_machines(old_status)]
+        for machine in new_machines:
+            client.juju('remove-machine', (machine,))
+        new_status = client.wait_for(
+            ConditionList([client.make_remove_machine_condition(n)
+                           for n in new_machines]))
 
 
 def assess_cloud_kill_controller(bs_manager):
@@ -83,12 +113,13 @@ def parse_args(args):
         cloud to test.
         """))
     subparsers = parser.add_subparsers(dest='test')
-    for test in ['combined', 'kill-controller']:
+    for test in ['combined', 'kill-controller', 'provisioning']:
         subparser = subparsers.add_parser(test)
         subparser.add_argument('clouds_file',
                                help='A clouds.yaml file to use for testing.')
         subparser.add_argument('cloud', help='Specific cloud to test.')
         add_basic_testing_arguments(subparser, env=False)
+        subparser.add_argument('--config')
     return parser.parse_args(args)
 
 
@@ -99,6 +130,8 @@ def main():
     bs_manager = BootstrapManager.from_client(args, client)
     if args.test == 'combined':
         assess_cloud_combined(bs_manager)
+    if args.test == 'provisioning':
+        assess_cloud_provisioning(bs_manager)
     else:
         assess_cloud_kill_controller(bs_manager)
 

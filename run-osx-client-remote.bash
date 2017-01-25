@@ -11,6 +11,7 @@ env=testing-osx-client1
 tar -xf $TARFILE -C $WORKSPACE
 mkdir artifacts
 deploy_job.py parallel-osx-client-base $WORKSPACE/juju-bin/juju artifacts $env \
-    --series trusty --agent-stream=revision-build-$revision_build
+    --series xenial --use-charmstore \
+    --agent-stream=revision-build-$revision_build
 # The host experiences connection issues with AWS, retry destroy just in case.
 ~/Bin/juju destroy-environment --force -y $env || true

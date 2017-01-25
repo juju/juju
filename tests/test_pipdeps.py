@@ -2,10 +2,12 @@
 
 import mock
 import os
+import subprocess
 import unittest
 
 
 import pipdeps
+import tests
 import utility
 
 
@@ -69,6 +71,10 @@ class TestRunPipInstall(unittest.TestCase):
         os.path.realpath(os.path.dirname(pipdeps.__file__)),
         "requirements.txt")
 
+    req_path_py3 = os.path.join(
+        os.path.realpath(os.path.dirname(pipdeps.__file__)),
+        "requirements_py3.txt")
+
     def test_added_args(self):
         with mock.patch("subprocess.check_call", autospec=True) as cc_mock:
             pipdeps.run_pip_install(["--user"], self.req_path)
@@ -81,6 +87,18 @@ class TestRunPipInstall(unittest.TestCase):
                 ["--download", "/tmp/pip"], self.req_path, verbose=True)
         cc_mock.assert_called_once_with([
             "pip", "install", "-r", self.req_path, "--download", "/tmp/pip"])
+
+    def test_pip3_install(self):
+        with mock.patch("subprocess.check_output", autospec=True,
+                        return_value='3.5.0') as co_mock:
+            with mock.patch("subprocess.check_call", autospec=True) as cc_mock:
+                pipdeps.run_pip3_install(["--user"], self.req_path_py3)
+        co_mock.assert_called_once_with(
+            ['python3', '--version'], stderr=subprocess.STDOUT)
+        calls = [mock.call(['pip3', '--version']),
+                 mock.call(['pip3', '-q', 'install', '-r', self.req_path_py3,
+                            '--user'])]
+        self.assertEqual(cc_mock.call_args_list, calls)
 
 
 class TestRunPipUninstall(unittest.TestCase):
@@ -117,3 +135,43 @@ class TestGetRequirements(unittest.TestCase):
             self.assertEqual(pipdeps.MAC_WIN_REQS, pipdeps.get_requirements())
 
             self.assertEqual(pipdeps.MAC_WIN_REQS, pipdeps.get_requirements())
+
+
+class TestIsPy3Supported(tests.TestCase):
+
+    def test_is_py3_supported(self):
+        with mock.patch("subprocess.check_output", autospec=True,
+                        return_value='3.5.0') as co_mock:
+            with mock.patch("subprocess.check_call", autospec=True) as cc_mock:
+                self.assertTrue(pipdeps.is_py3_supported())
+        co_mock.assert_called_once_with(
+            ['python3', '--version'], stderr=subprocess.STDOUT)
+        cc_mock.assert_called_once_with(['pip3', '--version'])
+
+    def test_is_py3_supported_older_python3_version(self):
+        with mock.patch("subprocess.check_output", autospec=True,
+                        return_value='3.4') as co_mock:
+            with mock.patch("subprocess.check_call", autospec=True) as cc_mock:
+                self.assertFalse(pipdeps.is_py3_supported())
+        co_mock.assert_called_once_with(
+            ['python3', '--version'], stderr=subprocess.STDOUT)
+        self.assertEqual(cc_mock.call_count, 0)
+
+    def test_is_pyt3_supported_python3_not_installed(self):
+        with mock.patch("subprocess.check_output", autospec=True,
+                        side_effect=OSError(2, 'No such file')) as co_mock:
+            with mock.patch("subprocess.check_call", autospec=True) as cc_mock:
+                self.assertFalse(pipdeps.is_py3_supported())
+        co_mock.assert_called_once_with(
+            ['python3', '--version'], stderr=subprocess.STDOUT)
+        self.assertEqual(cc_mock.call_count, 0)
+
+    def test_is_pyt3_supported_pip3_not_installed(self):
+        with mock.patch("subprocess.check_output", autospec=True,
+                        return_value='3.5.2') as co_mock:
+            with mock.patch("subprocess.check_call", autospec=True,
+                            side_effect=OSError(2, 'No such file')) as cc_mock:
+                self.assertFalse(pipdeps.is_py3_supported())
+        co_mock.assert_called_once_with(
+            ['python3', '--version'], stderr=subprocess.STDOUT)
+        cc_mock.assert_called_once_with(['pip3', '--version'])

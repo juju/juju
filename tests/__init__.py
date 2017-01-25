@@ -2,15 +2,22 @@
 
 from contextlib import contextmanager
 import datetime
-import errno
 import logging
 import os
-import StringIO
+import io
+try:
+    from StringIO import StringIO
+except ImportError:
+    from io import StringIO
 import subprocess
+import sys
 from tempfile import NamedTemporaryFile
 import unittest
 
-from mock import patch
+try:
+    from mock import patch
+except ImportError:
+    from unittest.mock import patch
 import yaml
 
 import utility
@@ -18,7 +25,10 @@ import utility
 
 @contextmanager
 def stdout_guard():
-    stdout = StringIO.StringIO()
+    if isinstance(sys.stdout, io.TextIOWrapper):
+        stdout = io.StringIO()
+    else:
+        stdout = io.BytesIO()
     with patch('sys.stdout', stdout):
         yield
     if stdout.getvalue() != '':
@@ -90,7 +100,7 @@ class FakeHomeTestCase(TestCase):
         :param data_dict: A dictionary of data, which is used to overwrite
             the data in public-clouds.yaml, or None, in which case the file
             is removed."""
-        dest_file = os.path.join(self.home_dir, '.juju/public-clouds.yaml')
+        dest_file = os.path.join(self.juju_home, 'public-clouds.yaml')
         if data_dict is None:
             with utility.skip_on_missing_file():
                 os.remove(dest_file)
@@ -103,7 +113,7 @@ def setup_test_logging(testcase, level=None):
     log = logging.getLogger()
     testcase.addCleanup(setattr, log, 'handlers', log.handlers)
     log.handlers = []
-    testcase.log_stream = StringIO.StringIO()
+    testcase.log_stream = StringIO()
     handler = logging.StreamHandler(testcase.log_stream)
     handler.setFormatter(logging.Formatter("%(levelname)s %(message)s"))
     log.addHandler(handler)
@@ -118,7 +128,10 @@ setup_test_logging.__test__ = False
 
 @contextmanager
 def parse_error(test_case):
-    stderr = StringIO.StringIO()
+    if isinstance(sys.stdout, io.TextIOWrapper):
+        stderr = io.StringIO()
+    else:
+        stderr = io.BytesIO()
     with test_case.assertRaises(SystemExit):
         with patch('sys.stderr', stderr):
             yield stderr
@@ -174,17 +187,14 @@ def observable_temp_file():
     temporary_file = NamedTemporaryFile(delete=False)
     try:
         with temporary_file as temp_file:
-            with patch('jujupy.NamedTemporaryFile',
+            with patch('utility.NamedTemporaryFile',
                        return_value=temp_file):
                 with patch.object(temp_file, '__exit__'):
                     yield temp_file
     finally:
-        try:
+        # File may have already been deleted, e.g. by temp_yaml_file.
+        with utility.skip_on_missing_file():
             os.unlink(temporary_file.name)
-        except OSError as e:
-            # File may have already been deleted, e.g. by temp_yaml_file.
-            if e.errno != errno.ENOENT:
-                raise
 
 
 @contextmanager

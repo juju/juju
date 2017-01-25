@@ -18,7 +18,7 @@ from chaos import (
     MonkeyRunner,
     )
 from jujupy import (
-    EnvJujuClient,
+    ModelClient,
     JujuData,
     )
 from remote import SSHRemote
@@ -31,7 +31,7 @@ from tests import (
 class TestBackgroundChaos(FakeHomeTestCase):
 
     def test_background_chaos(self):
-        client = EnvJujuClient(JujuData('foo', {}), None, '/foo/juju')
+        client = ModelClient(JujuData('foo', {}), None, '/foo/juju')
         with patch('chaos.MonkeyRunner.deploy_chaos_monkey',
                    autospec=True) as d_mock:
             with patch('chaos.MonkeyRunner.unleash_once',
@@ -55,7 +55,7 @@ class TestBackgroundChaos(FakeHomeTestCase):
                          w_mock.mock_calls[1][2])
 
     def test_background_chaos_exits(self):
-        client = EnvJujuClient(JujuData('foo', {}), None, '/foo/juju')
+        client = ModelClient(JujuData('foo', {}), None, '/foo/juju')
         with patch('chaos.MonkeyRunner.deploy_chaos_monkey',
                    autospec=True):
             with patch('chaos.MonkeyRunner.unleash_once',
@@ -102,12 +102,13 @@ class TestRunChaosMonkey(FakeHomeTestCase):
                 ('show-status', '--format', 'yaml'): status,
                 }
             return output[args]
-        client = EnvJujuClient(JujuData('foo', {}), '1.25.0', '/foo/juju')
+        client = ModelClient(JujuData('foo', {}), '1.25.0', '/foo/juju')
         with patch.object(client, 'get_juju_output', side_effect=output,
                           autospec=True) as gjo_mock:
             with patch('subprocess.check_call', autospec=True) as cc_mock:
                 monkey_runner = MonkeyRunner('foo', client, service='ser1')
-                with patch('jujupy.GroupReporter._write', autospec=True):
+                with patch('jujupy.client.GroupReporter._write',
+                           autospec=True):
                     monkey_runner.deploy_chaos_monkey()
         assert_juju_call(
             self,
@@ -150,7 +151,7 @@ class TestRunChaosMonkey(FakeHomeTestCase):
                 ('show-status', '--format', 'yaml'): status,
                 }
             return output[args]
-        client = EnvJujuClient(JujuData('foo', {}), None, '/foo/juju')
+        client = ModelClient(JujuData('foo', {}), None, '/foo/juju')
         runner = MonkeyRunner('foo', client, service='jenkins')
         with patch.object(client, 'get_juju_output', side_effect=output,
                           autospec=True):
@@ -203,7 +204,7 @@ class TestRunChaosMonkey(FakeHomeTestCase):
                 ('config', 'chaos-monkey'): charm_config,
                 }
             return output[args]
-        client = EnvJujuClient(JujuData('foo', {}), None, '/foo')
+        client = ModelClient(JujuData('foo', {}), None, '/foo')
         monkey_runner = MonkeyRunner('foo', client, service='jenkins')
         monkey_runner.monkey_ids = {
             'chaos-monkey/0': 'workspace0',
@@ -315,7 +316,7 @@ class TestUnleashOnce(FakeHomeTestCase):
                      'abcdabcdabcdabcdabcdabcdabcdabcdabcd'),
                 }
             return output[args]
-        client = EnvJujuClient(JujuData('foo', {}), None, '/foo/juju')
+        client = ModelClient(JujuData('foo', {}), None, '/foo/juju')
         monkey_runner = MonkeyRunner('foo', client, service='jenkins')
         with patch.object(client, 'get_juju_output', side_effect=output,
                           autospec=True) as gjo_mock:
@@ -384,7 +385,7 @@ class TestUnleashOnce(FakeHomeTestCase):
                  ): 'Action fail',
                 }
             return output[args]
-        client = EnvJujuClient(JujuData('foo', {}), None, '/foo/juju')
+        client = ModelClient(JujuData('foo', {}), None, '/foo/juju')
         monkey_runner = MonkeyRunner('foo', client, service='jenkins')
         with patch.object(client, 'get_juju_output', side_effect=output,
                           autospec=True):
@@ -397,7 +398,7 @@ class TestIsHealthy(unittest.TestCase):
 
     def test_is_healthy(self):
         SCRIPT = """#!/bin/bash\necho -n 'PASS'\nexit 0"""
-        client = EnvJujuClient(JujuData('foo', {}), None, '/foo/juju')
+        client = ModelClient(JujuData('foo', {}), None, '/foo/juju')
         with NamedTemporaryFile(delete=False) as health_script:
             health_script.write(SCRIPT)
             os.fchmod(health_script.fileno(), stat.S_IEXEC | stat.S_IREAD)
@@ -413,7 +414,7 @@ class TestIsHealthy(unittest.TestCase):
 
     def test_is_healthy_fail(self):
         SCRIPT = """#!/bin/bash\necho -n 'FAIL'\nexit 1"""
-        client = EnvJujuClient(JujuData('foo', {}), None, '/foo/juju')
+        client = ModelClient(JujuData('foo', {}), None, '/foo/juju')
         with NamedTemporaryFile(delete=False) as health_script:
             health_script.write(SCRIPT)
             os.fchmod(health_script.fileno(), stat.S_IEXEC | stat.S_IREAD)
@@ -428,7 +429,7 @@ class TestIsHealthy(unittest.TestCase):
 
     def test_is_healthy_with_no_execute_perms(self):
         SCRIPT = """#!/bin/bash\nexit 0"""
-        client = EnvJujuClient(JujuData('foo', {}), None, '/foo/juju')
+        client = ModelClient(JujuData('foo', {}), None, '/foo/juju')
         with NamedTemporaryFile(delete=False) as health_script:
             health_script.write(SCRIPT)
             os.fchmod(health_script.fileno(), stat.S_IREAD)
@@ -447,7 +448,7 @@ class TestIsHealthy(unittest.TestCase):
 class TestWaitForChaos(FakeHomeTestCase):
 
     def test_wait_for_chaos_complete(self):
-        client = EnvJujuClient(JujuData('foo', {}), None, '/foo')
+        client = ModelClient(JujuData('foo', {}), None, '/foo')
         runner = MonkeyRunner('foo', client)
         units = [('blib', 'blab')]
         with patch.object(runner, 'iter_chaos_monkey_units', autospec=True,
@@ -460,14 +461,14 @@ class TestWaitForChaos(FakeHomeTestCase):
         self.assertEqual(us_mock.call_count, 1)
 
     def test_wait_for_chaos_complete_timesout(self):
-        client = EnvJujuClient(JujuData('foo', {}), None, '/foo')
+        client = ModelClient(JujuData('foo', {}), None, '/foo')
         runner = MonkeyRunner('foo', client)
         with self.assertRaisesRegexp(
                 Exception, 'Chaos operations did not complete.'):
             runner.wait_for_chaos(timeout=0)
 
     def test_wait_for_chaos_started(self):
-        client = EnvJujuClient(JujuData('foo', {}), None, '/foo')
+        client = ModelClient(JujuData('foo', {}), None, '/foo')
         runner = MonkeyRunner('foo', client)
         units = [('blib', 'blab')]
         with patch.object(runner, 'iter_chaos_monkey_units', autospec=True,
@@ -481,7 +482,7 @@ class TestWaitForChaos(FakeHomeTestCase):
         self.assertEqual(us_mock.call_count, 1)
 
     def test_wait_for_chaos_unexpected_state(self):
-        client = EnvJujuClient(JujuData('foo', {}), None, '/foo')
+        client = ModelClient(JujuData('foo', {}), None, '/foo')
         runner = MonkeyRunner('foo', client)
         with self.assertRaisesRegexp(
                 Exception, 'Unexpected state value: foo'):

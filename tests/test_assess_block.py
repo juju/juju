@@ -12,7 +12,7 @@ from assess_block import (
     parse_args,
     )
 from jujupy import (
-    EnvJujuClient,
+    ModelClient,
     EnvJujuClient1X,
     SimpleEnvironment
     )
@@ -79,12 +79,12 @@ class TestAssess(FakeHomeTestCase):
         mock_client.list_disabled_commands.side_effect = [
             make_block_list(mock_client, []),
             make_block_list(
-                mock_client, [EnvJujuClient.command_set_destroy_model]),
+                mock_client, [ModelClient.command_set_destroy_model]),
             make_block_list(mock_client, []),
             make_block_list(
-                mock_client, [EnvJujuClient.command_set_remove_object]),
+                mock_client, [ModelClient.command_set_remove_object]),
             make_block_list(mock_client, []),
-            make_block_list(mock_client, [EnvJujuClient.command_set_all]),
+            make_block_list(mock_client, [ModelClient.command_set_all]),
             make_block_list(mock_client, []),
             ]
         mock_client.env.environment = 'foo'

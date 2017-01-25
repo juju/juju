@@ -11,7 +11,7 @@ import yaml
 
 import assess_spaces_subnets as jss
 from jujupy import (
-    EnvJujuClient,
+    ModelClient,
     JujuData,
     Status,
     )
@@ -209,7 +209,7 @@ class JujuMock:
 
 class JujuMockTestCase(TestCase):
     def setUp(self):
-        self.client = EnvJujuClient(
+        self.client = ModelClient(
             JujuData('foo', {'type': 'local'}), '1.234-76', None)
 
         def nil_func():

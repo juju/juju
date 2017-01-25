@@ -79,7 +79,7 @@ def assert_switch_raises_error(client):
 def assert_controller_list(client, controller_list):
     """Assert that clients controller list only contains names provided.
 
-    :param client: EnvJujuClient to retrieve controllers of.
+    :param client: ModelClient to retrieve controllers of.
     :param controller_list: list of strings for expected controller names.
 
     """
