@@ -8,9 +8,12 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/loggo"
 
 	oci "github.com/hoenirvili/go-oracle-cloud/api"
 )
+
+var logger = loggo.GetLogger("juju.provider.oracle")
 
 const (
 	providerType = "oracle"
@@ -74,8 +77,7 @@ func (e environProvider) checkSpec(spec environs.CloudSpec) error {
 //
 // This operation is not performing any expensive operation.
 func (e environProvider) Open(params environs.OpenParams) (environs.Environ, error) {
-	logger.Debugf("opening model %q", paramas.Config.Name())
-
+	logger.Debugf("opening model %q", params.Config.Name())
 	return nil, nil
 }
 

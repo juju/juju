@@ -2,10 +2,12 @@ package oracle
 
 import (
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/storage"
 )
 
 // oracleEnviron implements the environs.Environ interface
@@ -23,12 +25,12 @@ func (o oracleEnviron) Validate(cfg, old *config.Config) (valid *config.Config, 
 	return nil, nil
 }
 
-func (o oracleEnviron) StorageProviderTypes() ([]environs.ProviderType, error) {
-
+func (o oracleEnviron) StorageProviderTypes() ([]storage.ProviderType, error) {
+	return nil, nil
 }
 
-func (o oracleEnviron) StorageProvider(t environs.ProviderType) (Provider, error) {
-
+func (o oracleEnviron) StorageProvider(t storage.ProviderType) (storage.Provider, error) {
+	return nil, nil
 }
 
 func (o oracleEnviron) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
@@ -40,10 +42,10 @@ func (o oracleEnviron) StopInstances(...instance.Id) error {
 }
 
 func (o oracleEnviron) AllInstances() ([]instance.Instance, error) {
-	return nil
+	return nil, nil
 }
 
-func (o oracleEnviron) MaintainInstance(args StartInstanceParams) error {
+func (o oracleEnviron) MaintainInstance(args environs.StartInstanceParams) error {
 	return nil
 }
 
@@ -72,7 +74,7 @@ func (o oracleEnviron) SetConfig(cfg *config.Config) error {
 }
 
 func (o oracleEnviron) Instances(ids []instance.Id) ([]instance.Instance, error) {
-	return nil
+	return nil, nil
 }
 
 func (o oracleEnviron) ControllerInstances(controllerUUID string) ([]instance.Id, error) {
@@ -87,11 +89,11 @@ func (o oracleEnviron) DestroyController(controllerUUID string) error {
 	return nil
 }
 
-func (o oracleEnviron) Provider() EnvironProvider {
+func (o oracleEnviron) Provider() environs.EnvironProvider {
 	return o.p
 }
 
-func (o oracleEnviron) PrecheckInstance(series string, cons constrants.Value, placement string) error {
+func (o oracleEnviron) PrecheckInstance(series string, cons constraints.Value, placement string) error {
 	return nil
 }
 
@@ -108,5 +110,6 @@ func (o oracleEnviron) IngressRules() ([]network.IngressRule, error) {
 }
 
 func (o oracleEnviron) InstanceTypes(constraints.Value) (instances.InstanceTypesWithCostMetadata, error) {
-	return nil, nil
+	var i instances.InstanceTypesWithCostMetadata
+	return i, nil
 }
