@@ -55,18 +55,45 @@ func (s *providerSuite) SetUpTest(c *gc.C) {
 	s.provider = provider
 }
 
+func (s *providerSuite) TestDetectClouds(c *gc.C) {
+	c.Assert(s.provider, gc.Implements, new(environs.CloudDetector))
+	clouds, err := s.provider.(environs.CloudDetector).DetectClouds()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(clouds, gc.HasLen, 1)
+	s.assertLocalhostCloud(c, clouds[0])
+}
+
+func (s *providerSuite) TestDetectCloud(c *gc.C) {
+	detector := s.provider.(environs.CloudDetector)
+	cloud, err := detector.DetectCloud("localhost")
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertLocalhostCloud(c, cloud)
+	cloud, err = detector.DetectCloud("lxd")
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertLocalhostCloud(c, cloud)
+}
+
+func (s *providerSuite) TestDetectCloudError(c *gc.C) {
+	detector := s.provider.(environs.CloudDetector)
+	_, err := detector.DetectCloud("foo")
+	c.Assert(err, gc.ErrorMatches, `cloud foo not found`)
+}
+
+func (s *providerSuite) assertLocalhostCloud(c *gc.C, found cloud.Cloud) {
+	c.Assert(found, jc.DeepEquals, cloud.Cloud{
+		Name:        "localhost",
+		Type:        "lxd",
+		AuthTypes:   []cloud.AuthType{cloud.EmptyAuthType},
+		Regions:     []cloud.Region{{Name: "localhost"}},
+		Description: "LXD Container Hypervisor",
+	})
+}
+
 func (s *providerSuite) TestDetectRegions(c *gc.C) {
 	c.Assert(s.provider, gc.Implements, new(environs.CloudRegionDetector))
 	regions, err := s.provider.(environs.CloudRegionDetector).DetectRegions()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(regions, jc.DeepEquals, []cloud.Region{{Name: lxdnames.DefaultRegion}})
-}
-
-func (s *providerSuite) TestDefaultCloudName(c *gc.C) {
-	c.Assert(s.provider, gc.Implements, new(environs.DefaultCloudNamer))
-	name := s.provider.(environs.DefaultCloudNamer).DefaultCloudName()
-	c.Assert(name, gc.Equals, "localhost")
-	c.Assert(cloud.BuiltInClouds[name].Type, gc.Equals, "lxd")
 }
 
 func (s *providerSuite) TestRegistered(c *gc.C) {

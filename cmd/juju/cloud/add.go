@@ -202,7 +202,10 @@ func queryName(
 			// else, ask again
 			continue
 		}
-		msg := nameExists(name, public)
+		msg, err := nameExists(name, public)
+		if err != nil {
+			return "", errors.Trace(err)
+		}
 		if msg == "" {
 			return name, nil
 		}
@@ -278,7 +281,11 @@ func (c *addCloudCommand) verifyName(name string) error {
 	if _, ok := personal[name]; ok {
 		return errors.Errorf("%q already exists; use --replace to replace this existing cloud", name)
 	}
-	if msg := nameExists(name, public); msg != "" {
+	msg, err := nameExists(name, public)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if msg != "" {
 		return errors.Errorf(msg + "; use --replace to override this definition")
 	}
 	return nil
@@ -286,14 +293,18 @@ func (c *addCloudCommand) verifyName(name string) error {
 
 // nameExists returns either an empty string if the name does not exist, or a
 // non-empty string with an error message if it does exist.
-func nameExists(name string, public map[string]cloud.Cloud) string {
+func nameExists(name string, public map[string]cloud.Cloud) (string, error) {
 	if _, ok := public[name]; ok {
-		return fmt.Sprintf("%q is the name of a public cloud", name)
+		return fmt.Sprintf("%q is the name of a public cloud", name), nil
 	}
-	if _, ok := common.BuiltInClouds()[name]; ok {
-		return fmt.Sprintf("%q is the name of a built-in cloud", name)
+	builtin, err := common.BuiltInClouds()
+	if err != nil {
+		return "", errors.Trace(err)
 	}
-	return ""
+	if _, ok := builtin[name]; ok {
+		return fmt.Sprintf("%q is the name of a built-in cloud", name), nil
+	}
+	return "", nil
 }
 
 func addCloud(cloudMetadataStore CloudMetadataStore, newCloud cloud.Cloud) error {
