@@ -26,10 +26,16 @@ var _ = gc.Suite(&SSHReachableHostPortSuite{})
 var searchTimeout = 300 * time.Millisecond
 var dialTimeout = 100 * time.Millisecond
 
-func (s *SSHReachableHostPortSuite) TestAllUnreachable(c *gc.C) {
+func makeChecker() ssh.ReachableChecker {
 	dialer := &net.Dialer{Timeout: dialTimeout}
+	checker := ssh.NewReachableChecker(dialer, searchTimeout)
+	return checker
+}
+
+func (s *SSHReachableHostPortSuite) TestAllUnreachable(c *gc.C) {
+	checker := makeChecker()
 	unreachableHPs := closedTCPHostPorts(c, 10)
-	best, err := ssh.ReachableHostPort(unreachableHPs, nil, dialer, searchTimeout)
+	best, err := checker.FindHost(unreachableHPs, nil)
 	c.Check(err, gc.ErrorMatches, "cannot connect to any address: .*")
 	c.Check(best, gc.Equals, network.HostPort{})
 }
@@ -39,8 +45,8 @@ func (s *SSHReachableHostPortSuite) TestReachableInvalidPublicKey(c *gc.C) {
 		// We use Key2, but are looking for Pub1
 		testSSHServer(c, s, sshtesting.SSHKey2),
 	}
-	dialer := &net.Dialer{Timeout: dialTimeout}
-	best, err := ssh.ReachableHostPort(hostPorts, []string{sshtesting.SSHPub1}, dialer, searchTimeout)
+	checker := makeChecker()
+	best, err := checker.FindHost(hostPorts, []string{sshtesting.SSHPub1})
 	c.Check(err, gc.ErrorMatches, "cannot connect to any address: .*")
 	c.Check(best, gc.Equals, network.HostPort{})
 }
@@ -49,8 +55,8 @@ func (s *SSHReachableHostPortSuite) TestReachableValidPublicKey(c *gc.C) {
 	hostPorts := []network.HostPort{
 		testSSHServer(c, s, sshtesting.SSHKey1),
 	}
-	dialer := &net.Dialer{Timeout: dialTimeout}
-	best, err := ssh.ReachableHostPort(hostPorts, []string{sshtesting.SSHPub1}, dialer, searchTimeout)
+	checker := makeChecker()
+	best, err := checker.FindHost(hostPorts, []string{sshtesting.SSHPub1})
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(best, gc.Equals, hostPorts[0])
 }
@@ -65,9 +71,8 @@ func (s *SSHReachableHostPortSuite) TestReachableMixedPublicKeys(c *gc.C) {
 		testSSHServer(c, s, sshtesting.SSHKey2),
 		testSSHServer(c, s, sshtesting.SSHKey1),
 	}
-	dialer := &net.Dialer{Timeout: dialTimeout}
-	c.Logf("looking for host with public key: %s", sshtesting.SSHPub1)
-	best, err := ssh.ReachableHostPort(hostPorts, []string{sshtesting.SSHPub1}, dialer, searchTimeout)
+	checker := makeChecker()
+	best, err := checker.FindHost(hostPorts, []string{sshtesting.SSHPub1})
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(best, jc.DeepEquals, hostPorts[3])
 }
@@ -79,9 +84,9 @@ func (s *SSHReachableHostPortSuite) TestReachableNoPublicKeysPassed(c *gc.C) {
 		testTCPServer(c, s),
 		testSSHServer(c, s, sshtesting.SSHKey1),
 	}
-	dialer := &net.Dialer{Timeout: dialTimeout}
+	checker := makeChecker()
 	// Without a list of public keys, we should just check that the remote host is an SSH server
-	best, err := ssh.ReachableHostPort(hostPorts, nil, dialer, searchTimeout)
+	best, err := checker.FindHost(hostPorts, nil)
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(best, jc.DeepEquals, hostPorts[2]) // the only real ssh server
 }
@@ -92,8 +97,8 @@ func (s *SSHReachableHostPortSuite) TestReachableNoPublicKeysAvailable(c *gc.C) 
 		fakeHostPort,
 		testTCPServer(c, s),
 	}
-	dialer := &net.Dialer{Timeout: dialTimeout}
-	best, err := ssh.ReachableHostPort(hostPorts, []string{sshtesting.SSHPub1}, dialer, searchTimeout)
+	checker := makeChecker()
+	best, err := checker.FindHost(hostPorts, []string{sshtesting.SSHPub1})
 	c.Check(err, gc.ErrorMatches, "cannot connect to any address: .*")
 	c.Check(best, gc.Equals, network.HostPort{})
 }
@@ -102,8 +107,8 @@ func (s *SSHReachableHostPortSuite) TestMultiplePublicKeys(c *gc.C) {
 	hostPorts := []network.HostPort{
 		testSSHServer(c, s, sshtesting.SSHKey1, sshtesting.SSHKey2),
 	}
-	dialer := &net.Dialer{Timeout: dialTimeout}
-	best, err := ssh.ReachableHostPort(hostPorts, []string{sshtesting.SSHPub1, sshtesting.SSHPub2}, dialer, searchTimeout)
+	checker := makeChecker()
+	best, err := checker.FindHost(hostPorts, []string{sshtesting.SSHPub1, sshtesting.SSHPub2})
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(best, gc.Equals, hostPorts[0])
 }

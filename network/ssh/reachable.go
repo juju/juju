@@ -22,6 +22,35 @@ type Dialer interface {
 	Dial(network, address string) (net.Conn, error)
 }
 
+// ReachableChecker tries to find ssh hosts that have a public key that matches
+// our expectations.
+type ReachableChecker interface {
+	// FindHost tries to connect to all of the host+port combinations supplied,
+	// and tries to do an SSH key negotiation. The first successful negotiation
+	// that includes one of the public keys supplied will be returned. If none
+	// of them can be validated, then an error will be returned.
+	FindHost(hostPorts []network.HostPort, publicKeys []string) (network.HostPort, error)
+}
+
+// NewReachableChecker creates a ReachableChecker that can be used to check for
+// Hosts that are viable SSH targets.
+// When FindHost is called, we will dial the entries in the given hostPorts, in
+// parallel, using the given dialer, closing successfully established
+// connections after checking the ssh key. Individual connection errors are
+// discarded, and an error is returned only if none of the hostPorts can be
+// reached when the given timeout expires.
+// If publicKeys is a non empty list, then the SSH host public key will be
+// checked. If it is not in the list, that host is not considered valid.
+//
+// Usually, a net.Dialer initialized with a non-empty Timeout field is passed
+// for dialer.
+func NewReachableChecker(dialer Dialer, timeout time.Duration) *reachableChecker {
+	return &reachableChecker{
+		dialer: dialer,
+		timeout: timeout,
+	}
+}
+
 // hostKeyChecker checks if this host matches one of allowed public keys
 // it uses the golang/x/crypto/ssh/HostKeyCallback to find the host keys on a
 // given connection.
@@ -130,17 +159,13 @@ func (h *hostKeyChecker) Check() {
 	}
 }
 
-// ReachableHostPort dials the entries in the given hostPorts, in parallel,
-// using the given dialer, closing successfully established connections
-// after checking the ssh key. Individual connection errors are discarded, and
-// an error is returned only if none of the hostPorts can be reached when the
-// given timeout expires.
-// If publicKeys is a non empty list, then the SSH host public key will be
-// checked. If it is not in the list, then that host is not considered valid.
-//
-// Usually, a net.Dialer initialized with a non-empty Timeout field is passed
-// for dialer.
-func ReachableHostPort(hostPorts []network.HostPort, publicKeys []string, dialer Dialer, timeout time.Duration) (network.HostPort, error) {
+
+type reachableChecker struct {
+	dialer Dialer
+	timeout time.Duration
+}
+
+func (r *reachableChecker) FindHost(hostPorts []network.HostPort, publicKeys []string) (network.HostPort, error) {
 	uniqueHPs := network.UniqueHostPorts(hostPorts)
 	successful := make(chan network.HostPort, 1)
 	stop := make(chan struct{}, 0)
@@ -156,7 +181,7 @@ func ReachableHostPort(hostPorts []network.HostPort, publicKeys []string, dialer
 			Stop:         stop,
 			Accepted:     successful,
 			HostPort:     hostPort,
-			Dialer:       dialer,
+			Dialer:       r.dialer,
 			Finished:     finished,
 		}
 		go checker.Check()
@@ -170,10 +195,15 @@ func ReachableHostPort(hostPorts []network.HostPort, publicKeys []string, dialer
 			return result, nil
 		case <-finished:
 			finishedCount++
-		case <-time.After(timeout):
+		case <-time.After(r.timeout):
 			break
 		}
 	}
 	close(stop)
 	return network.HostPort{}, errors.Errorf("cannot connect to any address: %v", hostPorts)
+}
+
+func ReachableHostPort(hostPorts []network.HostPort, publicKeys []string, dialer Dialer, timeout time.Duration) (network.HostPort, error) {
+	checker := NewReachableChecker(dialer, timeout)
+	return checker.FindHost(hostPorts, publicKeys)
 }
