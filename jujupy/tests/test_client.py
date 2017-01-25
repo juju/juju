@@ -3472,7 +3472,7 @@ class TestModelClient(ClientTest):
                                      include_e=False)
 
     def test_generate_tool(self):
-        client = EnvJujuClient(JujuData('foo'), None, None)
+        client = ModelClient(JujuData('foo'), None, None)
         with patch.object(client, 'juju', autospec=True) as mock:
             client.generate_tool('/agents')
         mock.assert_called_once_with('metadata',
@@ -3480,7 +3480,7 @@ class TestModelClient(ClientTest):
                                      include_e=False)
 
     def test_generate_tool_with_stream(self):
-        client = EnvJujuClient(JujuData('foo'), None, None)
+        client = ModelClient(JujuData('foo'), None, None)
         with patch.object(client, 'juju', autospec=True) as mock:
             client.generate_tool('/agents', "testing")
         mock.assert_called_once_with(
@@ -3488,7 +3488,7 @@ class TestModelClient(ClientTest):
                          '--stream', 'testing'), include_e=False)
 
     def test_add_cloud(self):
-        client = EnvJujuClient(JujuData('foo'), None, None)
+        client = ModelClient(JujuData('foo'), None, None)
         with patch.object(client, 'juju', autospec=True) as mock:
             client.add_cloud('localhost', 'cfile')
         mock.assert_called_once_with('add-cloud',
