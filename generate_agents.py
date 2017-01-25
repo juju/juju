@@ -4,87 +4,21 @@ from __future__ import print_function
 from argparse import (
     ArgumentParser,
     )
-from collections import namedtuple
 from datetime import datetime
 import errno
-import glob
 import os
-import re
 import shutil
 import subprocess
 import sys
-import tarfile
-from urlparse import (
-    urlsplit,
-    urlunsplit,
-    )
-
-from debian import deb822
 
 from agent_archive import parse_args as parse_archive_args
-from build_package import juju_series
 from make_agent_json import StanzaWriter
-from utils import temp_dir
 
 
-class NoDebsFound(Exception):
-    """Raised when no .deb files could be found."""
-
-
-# These are the archives that are searched for matching releases.
-UBUNTU_ARCH = "http://archive.ubuntu.com/ubuntu/pool/universe/j/juju-core/"
-ARM_ARCH = "http://ports.ubuntu.com/pool/universe/j/juju-core/"
-PUBLIC_ARCHIVES = [UBUNTU_ARCH, ARM_ARCH]
-
-
-def move_debs(dest_debs):
-    juju_core_dir = os.path.join(dest_debs, 'juju-2.0')
-    debs = glob.glob(os.path.join(juju_core_dir, '*deb'))
-    if len(debs) == 0:
-        # The juju-2.0 package was not found, try the juju-core package.
-        print('No debs in {}'.format(juju_core_dir))
-        juju_core_dir = os.path.join(dest_debs, 'juju-core')
-        debs = glob.glob(os.path.join(juju_core_dir, '*deb'))
-    if len(debs) == 0:
-        print('No debs in {}'.format(juju_core_dir))
-        raise NoDebsFound('No deb files found.')
-    for deb in debs:
-        shutil.move(deb, dest_debs)
-    shutil.rmtree(juju_core_dir)
-
-
-def retrieve_deb_packages(release, upatch, archives, dest_debs):
-    if '-' in release:
-        deb_release = release.replace('-', '~')
-    else:
-        deb_release = release
-    for archive in archives:
-        scheme, netloc, path, query, fragment = urlsplit(archive)
-        # Strip username / password
-        netloc = netloc.rsplit('@')[-1]
-        safe_archive = urlunsplit((scheme, netloc, path, query, fragment))
-        print("checking {} for {}".format(safe_archive, deb_release))
-        try:
-            subprocess.call([
-                'lftp', '-c', 'mirror', '-i',
-                "(juju-2.0|juju-core).*{}.*\.{}~juj.*\.deb$".format(
-                    deb_release, upatch),
-                archive], cwd=dest_debs)
-        except OSError as e:
-            if e.errno == errno.ENOENT:
-                print("%s not found in %s" % (deb_release, safe_archive))
-            else:
-                raise e
-        except subprocess.CalledProcessError:
-            raise
-
-
-def retrieve_packages(release, upatch, archives, dest_debs, s3_config):
+def retrieve_packages(release, dest_debs, s3_config):
     # Retrieve the packages that contain a jujud for this version.
     print("Retrieving juju-core packages from archives")
     print(datetime.now().replace(microsecond=0).isoformat())
-    retrieve_deb_packages(release, upatch, archives, dest_debs)
-    move_debs(dest_debs)
     if os.path.exists(s3_config):
         print(
             'checking s3://juju-qa-data/agent-archive for'
@@ -105,73 +39,7 @@ def parse_args():
     parser.add_argument('release', help='The juju release to prepare')
     parser.add_argument('agent_stream', help='The juju agent-stream.')
     parser.add_argument('destination', help='The simplestreams destination')
-    parser.add_argument('--upatch', help='Ubuntu patchlevel', default='1')
     return parser.parse_args()
-
-
-def list_ppas(juju_home):
-    config = os.path.join(juju_home, 'buildarchrc')
-    if not os.path.exists(config):
-        return None
-    listing = subprocess.check_output(
-        ['/bin/bash', '-c', 'source {}; set -u; echo '
-         '"$BUILD_STABLE1_ARCH\n'
-         '$BUILD_DEVEL1_ARCH\n'
-         '$BUILD_SUPPORTED_ARCH"'.format(config)])
-    return listing.splitlines()
-
-
-AgentVersion = namedtuple(
-    'AgentVersion', ['version', 'major_minor', 'series', 'architecture'])
-
-
-def get_agent_version(control_str):
-    control = deb822.Deb822(control_str)
-    control_version = control['Version']
-    corrected_version = re.sub('~(alpha|beta|rc)', r'-\1', control_version)
-    epochless_version = re.sub('^.:', '', corrected_version)
-    version = re.sub('(~|-0ubuntu).*$', '', epochless_version)
-    major_minor = '.'.join(version.split('-')[0].split('.')[0:2])
-    series = juju_series.get_name_from_package_version(control_version)
-    architecture = control['Architecture']
-    return AgentVersion(version, major_minor, series, architecture)
-
-
-def deb_to_agent(deb_path, dest_dir, agent_stream):
-    control_str = subprocess.check_output(['dpkg-deb', '-I', deb_path,
-                                           'control'])
-    agent_version = get_agent_version(control_str)
-    with temp_dir() as work_dir:
-        contents = os.path.join(work_dir, 'contents')
-        os.mkdir(contents)
-        subprocess.check_call(['dpkg-deb', '-x', deb_path, contents])
-        jujud_path = os.path.join(
-            contents, 'usr', 'lib', 'juju-{}'.format(
-                agent_version.major_minor), 'bin',
-            'jujud')
-        if not os.path.exists(jujud_path):
-            jujud_path = os.path.join(
-                contents, 'usr', 'lib', 'juju-{}'.format(
-                    agent_version.version), 'bin', 'jujud')
-        basename = 'juju-{}-{}-{}.tgz'.format(
-            agent_version.version, agent_version.series,
-            agent_version.architecture)
-        agent_filename = os.path.join(work_dir, basename)
-        with tarfile.open(agent_filename, 'w:gz') as tf:
-            tf.add(jujud_path, 'jujud')
-        writer = StanzaWriter.for_ubuntu(
-            juju_series.get_version(agent_version.series),
-            agent_version.series, agent_version.architecture,
-            agent_version.version, agent_filename, agent_stream=agent_stream)
-        writer.write_stanzas()
-        shutil.move(writer.filename, dest_dir)
-        final_agent_path = os.path.join(dest_dir, writer.path)
-        move_create_parent(agent_filename, final_agent_path)
-
-
-def debs_to_agents(dest_debs, agent_stream):
-    for deb_path in glob.glob(os.path.join(dest_debs, '*.deb')):
-        deb_to_agent(deb_path, dest_debs, agent_stream)
 
 
 def move_create_parent(source, target):
@@ -181,6 +49,18 @@ def move_create_parent(source, target):
         if e.errno != errno.EEXIST:
             raise
     shutil.move(source, target)
+
+
+def make_ubuntu_agent(dest_debs, agent_stream, release):
+    for arch in ['amd64', 'arm64', 'ppc64el', 's390x']:
+        tarfile = os.path.join(
+            dest_debs, 'juju-{}-ubuntu-{}.tgz'.format(release, arch))
+        writer = StanzaWriter.for_living_ubuntu(
+            arch, release, tarfile, agent_stream=agent_stream)
+        writer.write_stanzas()
+        agent_path = os.path.join(dest_debs, writer.path)
+        shutil.copy2(tarfile, agent_path)
+        shutil.move(writer.filename, os.path.join(dest_debs, writer.filename))
 
 
 def make_windows_agent(dest_debs, agent_stream, release):
@@ -214,15 +94,8 @@ def main():
     juju_dir = os.environ.get(
         'JUJU_HOME', os.path.join(os.environ.get('HOME'), '.juju'))
     s3_config = os.path.join(juju_dir, 'juju-qa.s3cfg')
-    archives = list_ppas(juju_dir)
-    if archives is None:
-        print("Only public archives will be searched.")
-        archives = PUBLIC_ARCHIVES
-    else:
-        print("Searching the build archives.")
-    retrieve_packages(args.release, args.upatch, archives, dest_debs,
-                      s3_config)
-    debs_to_agents(dest_debs, args.agent_stream)
+    retrieve_packages(args.release, dest_debs, s3_config)
+    make_ubuntu_agent(dest_debs, args.agent_stream, args.release)
     make_windows_agent(dest_debs, args.agent_stream, args.release)
     make_centos_agent(dest_debs, args.agent_stream, args.release)
 
