@@ -43,7 +43,7 @@ class GoTestWinTestCase(TestCase):
             data['command'])
         co_mock.assert_called_once_with(
             [S3_CI_PATH, 'get', '1234', 'build-revision',
-             'juju_core.*.tar.gz', './'])
+             '.*.tar.gz', './'])
         tarfile_call = call(
             [S3_CI_PATH, 'get-summary', '1234', 'GoTestWin'])
         gotest_call = call(
