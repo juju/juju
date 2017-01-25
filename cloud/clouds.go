@@ -18,7 +18,6 @@ import (
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/juju/osenv"
-	"github.com/juju/juju/provider/lxd/lxdnames"
 )
 
 //go:generate go run ../generate/filetoconst/filetoconst.go fallbackPublicCloudInfo fallback-public-cloud.yaml fallback_public_cloud.go 2015 cloud
@@ -189,20 +188,6 @@ type region struct {
 	StorageEndpoint  string `yaml:"storage-endpoint,omitempty"`
 }
 
-//DefaultLXD is the name of the default lxd cloud.
-const DefaultLXD = "localhost"
-
-// BuiltInClouds work out of the box.
-var BuiltInClouds = map[string]Cloud{
-	DefaultLXD: {
-		Name:        DefaultLXD,
-		Type:        lxdnames.ProviderType,
-		AuthTypes:   []AuthType{EmptyAuthType},
-		Regions:     []Region{{Name: lxdnames.DefaultRegion}},
-		Description: defaultCloudDescription[lxdnames.ProviderType],
-	},
-}
-
 // CloudByName returns the cloud with the specified name.
 // If there exists no cloud with the specified name, an
 // error satisfying errors.IsNotFound will be returned.
@@ -222,9 +207,6 @@ func CloudByName(name string) (*Cloud, error) {
 		return nil, errors.Trace(err)
 	}
 	if cloud, ok := clouds[name]; ok {
-		return &cloud, nil
-	}
-	if cloud, ok := BuiltInClouds[name]; ok {
 		return &cloud, nil
 	}
 	return nil, errors.NotFoundf("cloud %s", name)
@@ -313,6 +295,12 @@ func ParseCloudMetadata(data []byte) (map[string]Cloud, error) {
 		clouds[name] = details
 	}
 	return clouds, nil
+}
+
+// DefaultCloudDescription returns the description for the specified cloud
+// type, or an empty string if the cloud type is unknown.
+func DefaultCloudDescription(cloudType string) string {
+	return defaultCloudDescription[cloudType]
 }
 
 var defaultCloudDescription = map[string]string{

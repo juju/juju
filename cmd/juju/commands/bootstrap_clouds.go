@@ -98,7 +98,11 @@ func printClouds(ctx *cmd.Context, credStore jujuclient.CredentialStore) error {
 		clouds.public = append(clouds.public, name)
 	}
 	// Add in built in clouds like localhost (lxd).
-	for name := range common.BuiltInClouds() {
+	builtin, err := common.BuiltInClouds()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	for name := range builtin {
 		clouds.builtin = append(clouds.builtin, name)
 	}
 	for name := range personalClouds {
