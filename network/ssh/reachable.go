@@ -46,7 +46,7 @@ type ReachableChecker interface {
 // for dialer.
 func NewReachableChecker(dialer Dialer, timeout time.Duration) *reachableChecker {
 	return &reachableChecker{
-		dialer: dialer,
+		dialer:  dialer,
 		timeout: timeout,
 	}
 }
@@ -159,9 +159,8 @@ func (h *hostKeyChecker) Check() {
 	}
 }
 
-
 type reachableChecker struct {
-	dialer Dialer
+	dialer  Dialer
 	timeout time.Duration
 }
 
