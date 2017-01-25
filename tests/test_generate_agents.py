@@ -47,10 +47,7 @@ class TestRetrievePackages(TestCase):
     def patch_for_test(self):
         with patch('generate_agents.print') as print_mock:
             with patch('generate_agents.datetime') as time_mock:
-                with patch('generate_agents.retrieve_deb_packages',
-                           autospec=True) as deb_mock:
-                    with patch('generate_agents.move_debs') as move_mock:
-                        yield (print_mock, time_mock, deb_mock, move_mock)
+                yield (print_mock, time_mock)
 
     @contextmanager
     def mock_s3_config(self):
@@ -64,8 +61,7 @@ class TestRetrievePackages(TestCase):
         with self.patch_for_test():
             with self.mock_s3_config() as s3_config:
                 with patch('agent_archive.get_agents') as get_agent_mock:
-                    retrieve_packages('release', 'upatch', 'archives',
-                                      'dest_debs', s3_config)
+                    retrieve_packages('release', 'dest_debs', s3_config)
         self.assertEqual(1, get_agent_mock.call_count)
         args = get_agent_mock.call_args[0][0]
         self.assertEqual(args.version, 'release')
@@ -82,17 +78,19 @@ class TestMakeUbuntuAgent(TestCase):
             os.makedirs(agent_dir)
             stanzas = os.path.join(workspace, 'stanzas')
             os.mkdir(stanzas)
-            agent = os.path.join(dest_debs, 'juju-1.25.5-ubuntu-amd64.tgz')
-            with open(agent, 'w') as dummy_file:
-                dummy_file.write('ubuntu agent')
+            for arch in ['amd64', 'arm64', 'ppc64el', 's390x']:
+                agent = os.path.join(
+                    dest_debs, 'juju-1.25.5-ubuntu-{}.tgz'.format(arch))
+                with open(agent, 'w') as dummy_file:
+                    dummy_file.write('ubuntu {} agent'.format(arch))
             make_ubuntu_agent(dest_debs, 'proposed', '1.25.5')
-            agent_path = os.path.join(
-                workspace, 'debs', 'agent', '1.25.5',
-                'juju-1.25.5-ubuntu-amd64.tgz')
-            self.assertTrue(os.path.exists(agent_path))
-            stanza_path = os.path.join(
-                workspace, 'debs', 'proposed-1.25.5-ubuntu.json')
-            self.assertTrue(os.path.exists(stanza_path))
+            for arch in ['amd64', 'arm64', 'ppc64el', 's390x']:
+                agent_path = os.path.join(
+                    agent_dir, 'juju-1.25.5-ubuntu-{}.tgz'.format(arch))
+                self.assertTrue(os.path.exists(agent_path))
+                stanza_path = os.path.join(
+                    dest_debs, 'proposed-1.25.5-ubuntu-{}.json'.format(arch))
+                self.assertTrue(os.path.exists(stanza_path))
 
 
 class TestMakeCentosAgent(TestCase):

@@ -60,8 +60,7 @@ def make_ubuntu_agent(dest_debs, agent_stream, release):
         writer.write_stanzas()
         agent_path = os.path.join(dest_debs, writer.path)
         shutil.copy2(tarfile, agent_path)
-        arch_name = '{}-{}'.format(arch, writer.filename)
-        shutil.move(writer.filename, os.path.join(dest_debs, arch_name))
+        shutil.move(writer.filename, os.path.join(dest_debs, writer.filename))
 
 
 def make_windows_agent(dest_debs, agent_stream, release):
