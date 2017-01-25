@@ -123,14 +123,14 @@ def parse_args(args):
     return parser.parse_args(args)
 
 
-def main():
-    args = parse_args(None)
+def main(argv=None):
+    args = parse_args(argv)
     configure_logging(args.verbose)
     client = client_from_args(args)
     bs_manager = BootstrapManager.from_client(args, client)
     if args.test == 'combined':
         assess_cloud_combined(bs_manager)
-    if args.test == 'provisioning':
+    elif args.test == 'provisioning':
         assess_cloud_provisioning(bs_manager)
     else:
         assess_cloud_kill_controller(bs_manager)

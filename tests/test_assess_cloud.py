@@ -11,6 +11,7 @@ from assess_cloud import (
     assess_cloud_kill_controller,
     assess_cloud_provisioning,
     client_from_args,
+    main,
     parse_args,
     )
 from deploy_stack import BootstrapManager
@@ -46,7 +47,7 @@ def mocked_bs_manager(juju_home):
         'foo', client, client, bootstrap_host=None, machines=[],
         series=None, agent_url=None, agent_stream=None, region=None,
         log_dir=juju_home, keep_env=False, permanent=True,
-        jes_enabled=True)
+        jes_enabled=True, logged_exception_exit=False)
     backend = client._backend
     with patch.object(backend, 'juju', wraps=backend.juju):
         with observable_temp_file() as temp_file:
@@ -70,11 +71,18 @@ def strip_calls(calls):
 class TestAssessCloudCombined(FakeHomeTestCase):
 
     def test_assess_cloud_combined(self):
-        with mocked_bs_manager(self.juju_home) as (bs_manager, config_file):
+        with self.check_assess_cloud_combined(self) as bs_manager:
             assess_cloud_combined(bs_manager)
+
+    @staticmethod
+    @contextmanager
+    def check_assess_cloud_combined(test_case):
+        with mocked_bs_manager(test_case.juju_home) as (bs_manager,
+                                                        config_file):
+            yield bs_manager
             client = bs_manager.client
             juju_wrapper = client._backend.juju
-        self.assertEqual([
+        test_case.assertEqual([
             backend_call(
                 client, 'bootstrap', (
                     '--constraints', 'mem=2G', 'foo/bar', 'foo', '--config',
@@ -91,11 +99,18 @@ class TestAssessCloudCombined(FakeHomeTestCase):
 class TestAssessCloudKillController(FakeHomeTestCase):
 
     def test_assess_cloud_kill_controller(self):
-        with mocked_bs_manager(self.juju_home) as (bs_manager, config_file):
+        with self.check_assess_cloud_kill_controller(self) as bs_manager:
             assess_cloud_kill_controller(bs_manager)
+
+    @staticmethod
+    @contextmanager
+    def check_assess_cloud_kill_controller(test_case):
+        with mocked_bs_manager(test_case.juju_home) as (bs_manager,
+                                                        config_file):
+            yield bs_manager
             client = bs_manager.client
             juju_wrapper = client._backend.juju
-        self.assertEqual([
+        test_case.assertEqual([
             backend_call(
                 client, 'bootstrap', (
                     '--constraints', 'mem=2G', 'foo/bar', 'foo', '--config',
@@ -110,11 +125,18 @@ class TestAssessCloudKillController(FakeHomeTestCase):
 class TestAssessCloudProvisioning(FakeHomeTestCase):
 
     def test_assess_cloud_provisioning(self):
-        with mocked_bs_manager(self.juju_home) as (bs_manager, config_file):
+        with self.check_assess_cloud_provisioning(self) as bs_manager:
             assess_cloud_provisioning(bs_manager)
+
+    @staticmethod
+    @contextmanager
+    def check_assess_cloud_provisioning(test_case):
+        with mocked_bs_manager(test_case.juju_home) as (bs_manager,
+                                                        config_file):
             client = bs_manager.client
+            yield bs_manager
             juju_wrapper = client._backend.juju
-        self.assertEqual([
+        test_case.assertEqual([
             backend_call(
                 client, 'bootstrap', (
                     '--constraints', 'mem=2G', 'foo/bar', 'foo', '--config',
@@ -238,3 +260,34 @@ class TestParseArgs(TestCase):
             args = parse_args(['provisioning', 'foo', 'bar', 'baz', log_dir,
                                'qux', '--config', 'quxx'])
         self.assertEqual('quxx', args.config)
+
+
+class TestMain(FakeHomeTestCase):
+
+    @contextmanager
+    def main_cxt(self, check_cxt):
+        with temp_yaml_file({
+                'clouds': {'cloud': {'type': 'foo'}}
+                }) as clouds_file:
+            with check_cxt as bs_manager:
+                with patch.object(BootstrapManager, 'from_client',
+                                  return_value=bs_manager):
+                    yield clouds_file
+
+    def test_main_provisioning(self):
+        tacp = TestAssessCloudProvisioning
+        check_cxt = tacp.check_assess_cloud_provisioning(self)
+        with self.main_cxt(check_cxt) as clouds_file:
+            main(['provisioning', clouds_file, 'cloud', 'FAKE'])
+
+    def test_main_kill_controller(self):
+        tackc = TestAssessCloudKillController
+        check_cxt = tackc.check_assess_cloud_kill_controller(self)
+        with self.main_cxt(check_cxt) as clouds_file:
+            main(['kill-controller', clouds_file, 'cloud', 'FAKE'])
+
+    def test_main_combined(self):
+        tacc = TestAssessCloudCombined
+        check_cxt = tacc.check_assess_cloud_combined(self)
+        with self.main_cxt(check_cxt) as clouds_file:
+            main(['combined', clouds_file, 'cloud', 'FAKE'])
