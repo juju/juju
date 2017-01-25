@@ -10,6 +10,8 @@ from assess_agent_metadata import (
     assert_cloud_details_are_correct,
     get_local_url_and_sha256,
     get_cloud_details,
+    deploy_charm_and_verify,
+    verify_deployed_charm,
     parse_args,
     )
 
@@ -20,6 +22,7 @@ from tests import (
 from utility import (
     JujuAssertionError,
     )
+
 
 AGENT_FILE = '/stream/juju-2.0.1-xenial-amd64.tgz'
 SAMPLE_SHA256 = \
@@ -209,3 +212,58 @@ class TestAssessMetadata(TestCase):
                        return_value=["file:///INVALID_URL", SAMPLE_SHA256]):
                 with self.assertRaises(JujuAssertionError):
                     verify_deployed_tool("/tmp", mock_client, "testing")
+
+    def test_deploy_charm_and_verify(self):
+        mock_client = Mock()
+        charm_app = 'dummy-source'
+        series = 'xenial'
+        with patch('assess_agent_metadata.verify_deployed_charm'):
+            deploy_charm_and_verify(mock_client)
+            mock_client.deploy.assert_called_once_with(
+                'local:{}/{}'.format(series, charm_app))
+            mock_client.wait_for_started.assert_called_once_with()
+            mock_client.set_config.assert_called_once_with(
+                charm_app, {'token': 'one'})
+            mock_client.wait_for_workloads.assert_called_once_with()
+
+    def test_deploy_charm_and_verify_series_charm(self):
+        mock_client = Mock()
+        with patch('assess_agent_metadata.verify_deployed_charm'):
+            deploy_charm_and_verify(mock_client, "trusty", "demo")
+            mock_client.deploy.assert_called_once_with('local:trusty/demo')
+            mock_client.wait_for_started.assert_called_once_with()
+
+    def test_verify_deployed_charm(self):
+        mock_client = Mock()
+        download_tool_txt = '{' \
+                            '"version":"trust-version",' \
+                            '"url":"https://example.com",' \
+                            '"sha256": "%s",' \
+                            '"size":23539776' \
+                            '}' % SAMPLE_SHA256
+        controller_url_sha = ['url', SAMPLE_SHA256]
+        mock_remote = Mock()
+        mock_remote.cat.return_value = download_tool_txt
+        with patch('assess_agent_metadata.remote_from_unit', autospec=True,
+                   return_value=mock_remote):
+            with patch('assess_agent_metadata.get_controller_url_and_sha256',
+                       return_value=controller_url_sha, autospec=True):
+                verify_deployed_charm("app", mock_client)
+
+    def test_verify_deployed_charm_invalid_sha256(self):
+        mock_client = Mock()
+        download_tool_txt = '{' \
+                            '"version":"trust-version",' \
+                            '"url":"https://example.com",' \
+                            '"sha256": "%s",' \
+                            '"size":23539776' \
+                            '}' % SAMPLE_SHA256
+        controller_url_sha = ['url', "12345"]
+        mock_remote = Mock()
+        mock_remote.cat.return_value = download_tool_txt
+        with patch('assess_agent_metadata.remote_from_unit', autospec=True,
+                   return_value=mock_remote):
+            with patch('assess_agent_metadata.get_controller_url_and_sha256',
+                       return_value=controller_url_sha, autospec=True):
+                with self.assertRaises(JujuAssertionError):
+                    verify_deployed_charm("app", mock_client)

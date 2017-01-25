@@ -36,7 +36,12 @@ from utility import (
     temp_dir,
     temp_yaml_file,
 )
-
+from remote import (
+    remote_from_unit,
+)
+from jujucharm import (
+    local_charm_path,
+)
 
 log = logging.getLogger("assess_agent_metadata")
 
@@ -112,6 +117,45 @@ def assert_metadata_is_correct(expected_agent_metadata_url, client):
         actual_agent_metadata_url))
 
 
+def verify_deployed_charm(charm_app, client):
+    """
+    Verfiy the deployed charm, to make sure it used the same
+    juju tool of the controller by verifying the sha256 sum
+    :param charm_app: The app name that need to be verified
+    :param client: juju client
+    """
+    remote = remote_from_unit(client, "{0}/0".format(charm_app))
+    output = remote.cat(
+        "/var/lib/juju/tools/machine-0/downloaded-tools.txt")
+
+    deserialized_output = json.loads(output)
+    _, controller_sha256 = get_controller_url_and_sha256(client)
+
+    if deserialized_output['sha256'] != controller_sha256:
+        raise JujuAssertionError(
+            'agent-metadata-url mismatch. Expected: {} Got: {}'.format(
+                controller_sha256, deserialized_output))
+
+    log.info("Charm verification done successfully")
+
+
+def deploy_charm_and_verify(client, series="xenial", charm_app="dummy-source"):
+    """
+    Deploy dummy charm from local repository and
+    verify it uses the specified agent-metadata-url option
+    :param client: Juju client
+    :param series: The charm series to deploy
+    :param charm_app: Juju charm application
+    """
+    charm_source = local_charm_path(
+        charm=charm_app, juju_ver=client.version, series=series)
+    client.deploy(charm_source)
+    client.wait_for_started()
+    client.set_config(charm_app, {'token': 'one'})
+    client.wait_for_workloads()
+    verify_deployed_charm(charm_app, client)
+
+
 def verify_deployed_tool(agent_dir, client, agent_stream):
     """
     Verify the bootstrapped controller makes use of the the specified
@@ -172,6 +216,8 @@ def assess_metadata(args, agent_dir, agent_stream):
         assert_metadata_is_correct(agent_metadata_url, client)
         verify_deployed_tool(agent_dir, client, agent_stream)
         log.info("Successfully deployed and verified agent-metadata-url")
+        deploy_charm_and_verify(client, "xenial", "dummy-source")
+        log.info("Successfully deployed charm and verified")
 
 
 def get_cloud_details(client, agent_metadata_url, agent_stream):
@@ -231,6 +277,8 @@ def assess_add_cloud(args, agent_dir, agent_stream):
         log.info('Metadata bootstrap successful.')
         verify_deployed_tool(agent_dir, client, agent_stream)
         log.info("Successfully deployed and verified add-cloud")
+        deploy_charm_and_verify(client, "xenial", "dummy-source")
+        log.info("Successfully deployed charm and verified")
 
 
 def clone_tgz_file_and_change_shasum(original_tgz_file, new_tgz_file):
