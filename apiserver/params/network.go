@@ -135,9 +135,9 @@ type NetworkConfig struct {
 // DeviceBridgeInfo lists the host device and the expected bridge to be
 // created.
 type DeviceBridgeInfo struct {
-	HostDeviceName string `json:"host-device-name"`
-	BridgeName     string `json:"bridge-name"`
-	BondRaiseDelay int    `json:"bond-raise-delay"`
+	HostDeviceName       string `json:"host-device-name"`
+	BridgeName           string `json:"bridge-name"`
+	BondReconfigureDelay int    `json:"bond-reconfigure-delay"`
 }
 
 // ProviderInterfaceInfoResults holds the results of a

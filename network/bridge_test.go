@@ -68,7 +68,7 @@ func (*BridgeSuite) TestBridgeCmdArgumentsNoBridgePrefixAndDryRun(c *gc.C) {
 `[1:])
 }
 
-func (*BridgeSuite) TestBridgeCmdArgumentsNoBondRaiseDelay(c *gc.C) {
+func (*BridgeSuite) TestBridgeCmdArgumentsNoBondReconfigureDelay(c *gc.C) {
 	devices := []network.DeviceToBridge{
 		network.DeviceToBridge{
 			DeviceName: "ens3",
@@ -152,26 +152,26 @@ func (*BridgeSuite) TestBridgeCmdArgumentsWithoutBridgePrefixAndWithoutDryRun(c 
 `[1:])
 }
 
-func (*BridgeSuite) TestBridgeCmdArgumentsWithBondRaiseDelay(c *gc.C) {
+func (*BridgeSuite) TestBridgeCmdArgumentsWithBondReconfigureDelay(c *gc.C) {
 	devices := []network.DeviceToBridge{
 		network.DeviceToBridge{
-			DeviceName:     "ens3",
-			BondRaiseDelay: 0,
+			DeviceName:           "ens3",
+			BondReconfigureDelay: 0,
 		},
 		network.DeviceToBridge{
-			DeviceName:     "ens4",
-			BondRaiseDelay: 4,
+			DeviceName:           "ens4",
+			BondReconfigureDelay: 4,
 		},
 		network.DeviceToBridge{
-			DeviceName:     "bond0",
-			BondRaiseDelay: 2,
+			DeviceName:           "bond0",
+			BondReconfigureDelay: 2,
 		},
 	}
 	cmd := network.BridgeCmd(devices, "", "/etc/network/interfaces", echoArgsScript, false)
 	assertCmdResult(c, cmd, `
 --interfaces-to-bridge=ens3 ens4 bond0
 --activate
---bond-raise-delay=4
+--bond-reconfigure-delay=4
 /etc/network/interfaces
 `[1:])
 }

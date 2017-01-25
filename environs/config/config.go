@@ -129,9 +129,9 @@ const (
 	// metrics collected in this model for anonymized aggregate analytics.
 	TransmitVendorMetricsKey = "transmit-vendor-metrics"
 
-	// BondRaiseDelay is the key to pass when bridging the network
+	// BondReconfigureDelay is the key to pass when bridging the network
 	// for containers.
-	BondRaiseDelayKey = "bond-raise-delay"
+	BondReconfigureDelayKey = "bond-reconfigure-delay"
 
 	//
 	// Deprecated Settings Attributes
@@ -288,7 +288,7 @@ var defaultConfigValues = map[string]interface{}{
 	IgnoreMachineAddresses:       false,
 	"ssl-hostname-verification":  true,
 	"proxy-ssh":                  false,
-	BondRaiseDelayKey:            17,
+	BondReconfigureDelayKey:      17,
 
 	"default-series":           series.LatestLts(),
 	ProvisionerHarvestModeKey:  HarvestDestroyed.String(),
@@ -561,10 +561,10 @@ func (c *Config) ProxySSH() bool {
 	return value
 }
 
-// BondRaiseDelay returns the duration in seconds that should be
+// BondReconfigureDelay returns the duration in seconds that should be
 // passed to the bridge script when bridging bonded interfaces.
-func (c *Config) BondRaiseDelay() int {
-	value, _ := c.defined[BondRaiseDelayKey].(int)
+func (c *Config) BondReconfigureDelay() int {
+	value, _ := c.defined[BondReconfigureDelayKey].(int)
 	return value
 }
 
@@ -973,7 +973,7 @@ var alwaysOptional = schema.Defaults{
 	AutomaticallyRetryHooks:      schema.Omit,
 	"test-mode":                  schema.Omit,
 	TransmitVendorMetricsKey:     schema.Omit,
-	BondRaiseDelayKey:            schema.Omit,
+	BondReconfigureDelayKey:      schema.Omit,
 }
 
 func allowEmpty(attr string) bool {
@@ -1329,7 +1329,7 @@ data of the store. (default false)`,
 		Type:        environschema.Tbool,
 		Group:       environschema.EnvironGroup,
 	},
-	BondRaiseDelayKey: {
+	BondReconfigureDelayKey: {
 		Description: "The amount of time in seconds to sleep between ifdown and ifup when bridging",
 		Type:        environschema.Tint,
 		Group:       environschema.EnvironGroup,

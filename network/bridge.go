@@ -95,20 +95,20 @@ func bridgeCmd(devices []DeviceToBridge, bridgePrefix, filename, pythonScript st
 		dryRunOption = "--dry-run"
 	}
 
-	bondRaiseDelay := 0
-	bondRaiseDelayOption := ""
+	bondReconfigureDelay := 0
+	bondReconfigureDelayOption := ""
 
 	deviceNames := make([]string, len(devices))
 
 	for i, d := range devices {
-		if d.BondRaiseDelay > bondRaiseDelay {
-			bondRaiseDelay = d.BondRaiseDelay
+		if d.BondReconfigureDelay > bondReconfigureDelay {
+			bondReconfigureDelay = d.BondReconfigureDelay
 		}
 		deviceNames[i] = d.DeviceName
 	}
 
-	if bondRaiseDelay > 0 {
-		bondRaiseDelayOption = fmt.Sprintf("--bond-raise-delay=%v", bondRaiseDelay)
+	if bondReconfigureDelay > 0 {
+		bondReconfigureDelayOption = fmt.Sprintf("--bond-reconfigure-delay=%v", bondReconfigureDelay)
 	}
 
 	return fmt.Sprintf(`
@@ -120,7 +120,7 @@ EOF
 		strings.Join(deviceNames, " "),
 		bridgePrefix,
 		dryRunOption,
-		bondRaiseDelayOption,
+		bondReconfigureDelayOption,
 		filename,
 		pythonScript)
 }
