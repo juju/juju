@@ -20,13 +20,12 @@ type Bridger interface {
 }
 
 type etcNetworkInterfacesBridger struct {
-	BondRaiseDelay int
-	BridgePrefix   string
-	Clock          clock.Clock
-	DryRun         bool
-	Environ        []string
-	Filename       string
-	Timeout        time.Duration
+	BridgePrefix string
+	Clock        clock.Clock
+	DryRun       bool
+	Environ      []string
+	Filename     string
+	Timeout      time.Duration
 }
 
 var _ Bridger = (*etcNetworkInterfacesBridger)(nil)
@@ -61,8 +60,8 @@ func bestPythonVersion() string {
 }
 
 func (b *etcNetworkInterfacesBridger) Bridge(deviceNames []string) error {
-	cmd := bridgeCmd(deviceNames, b.BridgePrefix, b.Filename, BridgeScriptPythonContent, b.DryRun, b.BondRaiseDelay)
-	infoCmd := bridgeCmd(deviceNames, b.BridgePrefix, b.Filename, "<script-redacted>", b.DryRun, b.BondRaiseDelay)
+	cmd := bridgeCmd(deviceNames, b.BridgePrefix, b.Filename, BridgeScriptPythonContent, b.DryRun)
+	infoCmd := bridgeCmd(deviceNames, b.BridgePrefix, b.Filename, "<script-redacted>", b.DryRun)
 	logger.Infof("bridgescript command=%s", infoCmd)
 	result, err := runCommand(cmd, b.Environ, b.Clock, b.Timeout)
 	if err != nil {
@@ -82,7 +81,7 @@ func (b *etcNetworkInterfacesBridger) Bridge(deviceNames []string) error {
 	return nil
 }
 
-func bridgeCmd(deviceNames []string, bridgePrefix, filename, pythonScript string, dryRun bool, bondRaiseDelay int) string {
+func bridgeCmd(deviceNames []string, bridgePrefix, filename, pythonScript string, dryRun bool) string {
 	dryRunOption := ""
 	bondRaiseDelayOption := ""
 
@@ -93,6 +92,8 @@ func bridgeCmd(deviceNames []string, bridgePrefix, filename, pythonScript string
 	if dryRun {
 		dryRunOption = "--dry-run"
 	}
+
+	bondRaiseDelay := 0 // FIXME
 
 	if bondRaiseDelay > 0 {
 		bondRaiseDelayOption = fmt.Sprintf("--bond-raise-delay=%v", bondRaiseDelay)
@@ -118,14 +119,13 @@ EOF
 //
 // TODO(frobware): We shouldn't expose DryRun; once we implement the
 // Python-based bridge script in Go this interface can change.
-func NewEtcNetworkInterfacesBridger(environ []string, clock clock.Clock, timeout time.Duration, bridgePrefix, filename string, dryRun bool, bondRaiseDelay int) Bridger {
+func NewEtcNetworkInterfacesBridger(environ []string, clock clock.Clock, timeout time.Duration, bridgePrefix, filename string, dryRun bool) Bridger {
 	return &etcNetworkInterfacesBridger{
-		BondRaiseDelay: bondRaiseDelay,
-		BridgePrefix:   bridgePrefix,
-		Clock:          clock,
-		DryRun:         dryRun,
-		Environ:        environ,
-		Filename:       filename,
-		Timeout:        timeout,
+		BridgePrefix: bridgePrefix,
+		Clock:        clock,
+		DryRun:       dryRun,
+		Environ:      environ,
+		Filename:     filename,
+		Timeout:      timeout,
 	}
 }
