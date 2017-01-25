@@ -27,14 +27,13 @@ def main(argv=None):
         downloaded = args.revision_or_tarfile
     else:
         revision = args.revision_or_tarfile
-        juju_ci_path = join(SCRIPTS, 'jujuci.py')
+        s3_ci_path = join(SCRIPTS, 's3ci.py')
         downloaded = subprocess.check_output([
-            juju_ci_path, 'get', '-b', revision, 'build-revision',
-            '*.tar.gz', './'])
-        subprocess.check_call([
-            juju_ci_path, 'get-build-vars', '--summary', revision])
-    (tarfile,) = [basename(l) for l in downloaded.splitlines()]
-
+            s3_ci_path, 'get', revision, 'build-revision',
+            '.*.tar.gz', './'])
+        job_name = os.environ.get('job_name', 'GoTestWin')
+        subprocess.check_call([s3_ci_path, 'get-summary', revision, job_name])
+    tarfile = basename(downloaded)
     with open('temp-config.yaml', 'w') as temp_file:
         dump({
             'install': {'ci': [

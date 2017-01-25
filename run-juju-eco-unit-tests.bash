@@ -50,9 +50,7 @@ if [[ -n "$JUJU_BUILD" ]]; then
     set +x
     source $CLOUD_CITY/juju-qa.jujuci
     set -x
-    jujuci.py get -b $JUJU_BUILD build-revision \
-        buildvars.bash $WORKSPACE/
-    source $WORKSPACE/buildvars.bash
+    source $(s3ci.py get $revision_build build-revision buildvars.bash)
     JUJU_REVISION=$REVISION_ID
 else
     JUJU_REVISION=$(grep $JUJU_PROJECT $ECO_DEPS | cut -d $'\t' -f 3)

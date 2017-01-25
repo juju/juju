@@ -13,7 +13,8 @@ WS_JSON=$WORKSPACE/ws-json
 AGENT_DIRNAME=revision-build-$revision_build
 WS_AGENTS=$WORKSPACE/agent/$AGENT_DIRNAME
 TESTING_AGENTS=$TESTING/agent/$AGENT_DIRNAME
-VERSION=$(jujuci.py get-build-vars $revision_build --version)
+# set VERSION from buildvars.
+source $(s3ci.py get $revision_build build-revision buildvars.bash)
 mkdir $WS_JSON
 mkdir -p $WS_AGENTS
 for job in $AGENT_JOBS; do

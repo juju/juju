@@ -11,7 +11,7 @@ from tests import TestCase
 from utility import temp_dir
 
 
-JUJU_CI_PATH = os.path.join(gotestwin.SCRIPTS, 'jujuci.py')
+S3_CI_PATH = os.path.join(gotestwin.SCRIPTS, 's3ci.py')
 JUJU_HOME = os.path.normpath(os.path.join(
     gotestwin.SCRIPTS, '..', 'cloud-city'))
 
@@ -42,10 +42,10 @@ class GoTestWinTestCase(TestCase):
              'github.com/juju/juju', '--remove', 'ci/foo.tar.gz'],
             data['command'])
         co_mock.assert_called_once_with(
-            [JUJU_CI_PATH, 'get', '-b', '1234', 'build-revision',
-             '*.tar.gz', './'])
+            [S3_CI_PATH, 'get', '1234', 'build-revision',
+             '.*.tar.gz', './'])
         tarfile_call = call(
-            [JUJU_CI_PATH, 'get-build-vars', '--summary', '1234'])
+            [S3_CI_PATH, 'get-summary', '1234', 'GoTestWin'])
         gotest_call = call(
             ['workspace-run', '-v', '-i',
              '{}/staging-juju-rsa'.format(JUJU_HOME),

@@ -2,8 +2,7 @@
 set -eu
 source $HOME/cloud-city/juju-qa.jujuci
 PATH="$HOME/juju-release-tools:$HOME/juju-ci-tools:$PATH"
-jujuci.py get -b $revision_build build-revision buildvars.bash $WORKSPACE/
-source buildvars.bash
+source $(s3ci.py get $revision_build build-revision buildvars.bash)
 set -x
 export PATH
 new_streams=$HOME/new-streams
