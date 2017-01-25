@@ -81,7 +81,7 @@ class DeploySwarmToNewModel(TestCase):
 
         client.add_model.assert_called_once_with('testing')
         new_client.deploy.assert_called_once_with(
-            'cs:bundle/observable-swarm-1', series='trusty')
+            'cs:~containers/observable-swarm')
         self.assertEqual(new_client.wait_for_started.call_count, 1)
         self.assertEqual(new_client.wait_for_workloads.call_count, 1)
 
@@ -89,7 +89,8 @@ class DeploySwarmToNewModel(TestCase):
 class TestGetCharmUrl(TestCase):
 
     def test_returns_correct_url(self):
-        self.assertEqual(pcs.get_charm_url(), 'cs:bundle/observable-swarm-1')
+        self.assertEqual(
+            pcs.get_charm_url(), 'cs:~containers/observable-swarm')
 
 
 class TestParseArgs(TestCase):
