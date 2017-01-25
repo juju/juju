@@ -517,17 +517,6 @@ func (c *Config) mustString(name string) string {
 	return value
 }
 
-// mustInt returns the named attribute as an integer, panicking if
-// it is not found or is zero. Zero values should have been
-// diagnosed at Validate time.
-func (c *Config) mustInt(name string) int {
-	value, _ := c.defined[name].(int)
-	if value == 0 {
-		panic(fmt.Errorf("empty value for %q found in configuration", name))
-	}
-	return value
-}
-
 // Type returns the model's cloud provider type.
 func (c *Config) Type() string {
 	return c.mustString(TypeKey)
