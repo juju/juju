@@ -97,7 +97,7 @@ const (
 	SSHRetryDelay = 500 * time.Millisecond
 
 	// SSHTimeout is the time to wait for before giving up trying to establish
-	// an SSH connection to a target, after retriying.
+	// an SSH connection to a target, after retrying.
 	SSHTimeout = 5 * time.Second
 
 	// SSHPort is the TCP port used for SSH connections.
