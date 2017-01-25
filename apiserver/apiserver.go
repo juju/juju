@@ -352,7 +352,7 @@ func (srv *Server) run() {
 			Handler:   mux,
 			TLSConfig: srv.tlsConfig,
 			ErrorLog: log.New(&loggoWrapper{
-				level: loggo.WARNING,
+				level:  loggo.WARNING,
 				logger: logger,
 			}, "", 0), // no prefix and no flags so log.Logger doesn't add extra prefixes
 		}
