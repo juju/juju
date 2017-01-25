@@ -21,6 +21,7 @@ import (
 	"github.com/juju/utils/os"
 	"github.com/juju/utils/series"
 	"github.com/juju/utils/set"
+	"github.com/juju/version"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/cloudconfig/cloudinit"
@@ -2426,15 +2427,15 @@ func bridgeScriptPathForSeries(series string) (string, error) {
 	return path.Join(dataDir, bridgeScriptName), nil
 }
 
-// AdoptInstances updates the instances to indicate they
-// are now associated with the specified controller. Part of the
-// Environ interface.
-func (env *maasEnviron) AdoptInstances(ids []instance.Id, controllerUUID string) error {
+// AdoptResources updates all the instances to indicate they
+// are now associated with the specified controller.
+func (env *maasEnviron) AdoptResources(controllerUUID string, fromVersion version.Number) error {
 	if !env.usingMAAS2() {
 		// We don't track instance -> controller for MAAS1.
 		return nil
 	}
-	instances, err := env.Instances(ids)
+
+	instances, err := env.AllInstances()
 	if err != nil {
 		return errors.Trace(err)
 	}
