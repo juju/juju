@@ -9,37 +9,25 @@ from mock import patch
 
 from jujuci import (
     add_artifacts,
-    Artifact,
-    CERTIFY_UBUNTU_PACKAGES,
     clean_environment,
     Credentials,
     CredentialsMissing,
     find_artifacts,
-    get_artifacts,
     get_build_data,
-    get_buildvars,
-    get_certification_bin,
     get_credentials,
     get_job_data,
-    get_juju_bin,
-    get_juju_binary,
-    get_juju_bin_artifact,
-    get_release_package_filename,
     JENKINS_URL,
     JobNamer,
     list_artifacts,
     Namer,
     PackageNamer,
-    parse_args,
     main,
-    retrieve_artifact,
     setup_workspace,
 )
 import jujupy
 from utility import temp_dir
 from tests import (
     FakeHomeTestCase,
-    parse_error,
     TestCase,
 )
 
@@ -231,21 +219,6 @@ class JujuCITestCase(FakeHomeTestCase):
         self.assertTrue(kwargs['verbose'])
         self.assertEqual(print_list, ['Done.'])
 
-    def test_main_get_options(self):
-        print_list = []
-        with patch('jujuci.print_now', side_effect=print_list.append):
-            with patch('jujuci.get_artifacts') as mock:
-                main(['-d', '-v',
-                      'get', '-a', '-b', '1234', 'foo', '*.tar.gz', 'bar',
-                      '--user', 'jrandom', '--password', '1password'])
-        args, kwargs = mock.call_args
-        self.assertEqual((Credentials('jrandom', '1password'), 'foo',
-                         '1234', '*.tar.gz', 'bar'), args)
-        self.assertTrue(kwargs['archive'])
-        self.assertTrue(kwargs['verbose'])
-        self.assertTrue(kwargs['dry_run'])
-        self.assertEqual(print_list, ['Done.'])
-
     def test_main_setup_workspace_options(self):
         print_list = []
         with patch('jujuci.print_now', side_effect=print_list.append):
@@ -258,59 +231,6 @@ class JujuCITestCase(FakeHomeTestCase):
         self.assertTrue(kwargs['dry_run'])
         self.assertTrue(kwargs['verbose'])
         self.assertEqual(print_list, ['Done.'])
-
-    def test_main_get_buildvars(self):
-        print_list = []
-        with patch('jujuci.print_now', side_effect=print_list.append):
-            with patch('jujuci.get_buildvars', autospec=True,
-                       return_value='sample buildvars') as mock:
-                main(
-                    ['get-build-vars', '--env', 'foo', '--summary',
-                     '--revision-build', '--version', '--short-branch',
-                     '--short-revision', '--branch', '--revision', '123',
-                     '--user', 'jrandom', '--password', '1password'])
-        args, kwargs = mock.call_args
-        self.assertEqual((Credentials('jrandom', '1password'), '123'), args)
-        self.assertEqual('foo', kwargs['env'])
-        self.assertTrue(kwargs['summary'])
-        self.assertTrue(kwargs['revision_build'])
-        self.assertTrue(kwargs['version'])
-        self.assertTrue(kwargs['short_revision'])
-        self.assertTrue(kwargs['short_branch'])
-        self.assertTrue(kwargs['branch'])
-        self.assertTrue(kwargs['revision'])
-        self.assertEqual(print_list, ['sample buildvars'])
-
-    def test_parse_arg_buildvars_common_options(self):
-        args, credentials = parse_args(
-            ['get-build-vars', '--env', 'foo', '--summary',
-             '--user', 'jrandom', '--password', '1password', '1234'])
-        self.assertEqual(Credentials('jrandom', '1password'), credentials)
-        self.assertEqual('foo', args.env)
-        self.assertTrue(args.summary)
-        args, credentials = parse_args(
-            ['get-build-vars', '--version',
-             '--user', 'jrandom', '--password', '1password', '1234'])
-        self.assertTrue(args.version)
-        args, credentials = parse_args(
-            ['get-build-vars', '--short-branch',
-             '--user', 'jrandom', '--password', '1password', '1234'])
-        self.assertTrue(args.short_branch)
-
-    def test_parse_arg_buildvars_error(self):
-        with parse_error(self) as stderr:
-            parse_args(['get-build-vars', '1234'])
-        self.assertIn(
-            'Expected --summary or one or more of:', stderr.getvalue())
-
-    def test_parse_arg_get_package_name(self):
-        with parse_error(self) as stderr:
-            parse_args(['get-package-name'])
-        self.assertIn('error: too few arguments', stderr.getvalue())
-        args = parse_args(['get-package-name', '1.22.1'])
-        expected = Namespace(command='get-package-name', version='1.22.1',
-                             dry_run=False, verbose=False)
-        self.assertEqual(args, (expected, None))
 
     def test_get_build_data(self):
         expected_data = make_build_data(1234)
@@ -387,127 +307,6 @@ class JujuCITestCase(FakeHomeTestCase):
              'juju-core_1.22-alpha1.tar.gz'],
             files)
 
-    def test_list_artifacts_verbose(self):
-        build_data = make_build_data(1234)
-        with patch('jujuci.get_build_data', return_value=build_data):
-            with patch('jujuci.print_now') as pn_mock:
-                list_artifacts(
-                    Credentials('jrandom', '1password'), 'foo', '1234',
-                    '*.bash', verbose=True)
-        files = sorted(call[1][0] for call in pn_mock.mock_calls)
-        self.assertEqual(
-            ['http://juju-ci.vapour.ws:8080/job/build-revision/1234/artifact/'
-             'buildvars.bash'],
-            files)
-
-    def test_retrieve_artifact(self):
-        location = (
-            'http://juju-ci.vapour.ws:8080/job/build-revision/1234/artifact/'
-            'buildvars.bash')
-        local_path = '%s/buildvars.bash' % os.path.abspath('./')
-        with patch('urllib.urlretrieve') as uo_mock:
-            retrieve_artifact(
-                Credentials('jrandom', '1password'), location, local_path)
-        self.assertEqual(1, uo_mock.call_count)
-        args, kwargs = uo_mock.call_args
-        auth_location = location.replace('http://',
-                                         'http://jrandom:1password@')
-        self.assertEqual((auth_location, local_path), args)
-
-    def test_get_juju_bin_artifact(self):
-        package_namer = PackageNamer('foo', 'bar', 'baz')
-        bin_filename = 'juju-core_1.27.32-0ubuntu1~bar.1~juju1_foo.deb'
-        artifact = get_juju_bin_artifact(package_namer, '1.27.32', {
-            'url': 'http://asdf/',
-            'artifacts': [{
-                'relativePath': 'foo',
-                'fileName': bin_filename,
-                }],
-            })
-        self.assertEqual(artifact.location, 'http://asdf/artifact/foo')
-        self.assertEqual(artifact.file_name, bin_filename)
-
-    def test_get_release_package_filename(self):
-        package_namer = PackageNamer('foo', 'bar', 'baz')
-        credentials = ('jrandom', 'password1')
-        publish_build_data = {'actions': [], }
-        build_revision_data = json.dumps({
-            'artifacts': [{
-                'fileName': 'buildvars.json',
-                'relativePath': 'buildvars.json'
-                }],
-            'url': 'http://foo/'})
-
-        def mock_urlopen(request):
-            if request.get_full_url() == 'http://foo/artifact/buildvars.json':
-                data = json.dumps({'version': '1.42'})
-            else:
-                data = build_revision_data
-            return StringIO(data)
-
-        with patch('urllib2.urlopen', autospec=True,
-                   side_effect=mock_urlopen):
-            with patch.object(PackageNamer, 'factory',
-                              return_value=package_namer):
-                file_name = get_release_package_filename(
-                    credentials, publish_build_data)
-        self.assertEqual(file_name, package_namer.get_release_package('1.42'))
-
-    def test_get_juju_bin(self):
-        build_data = {
-            'url': 'http://foo/',
-            'artifacts': [{
-                'fileName': 'steve',
-                'relativePath': 'baz',
-                }]
-            }
-        credentials = Credentials('jrandom', 'password1')
-        job_namer = JobNamer('a64', '42.34', 'wacky')
-
-        with self.get_juju_binary_mocks() as (workspace, cc_mock, uo_mock):
-            with patch('jujuci.get_build_data', return_value=build_data,
-                       autospec=True) as gbd_mock:
-                with patch(
-                        'jujuci.get_release_package_filename',
-                        return_value='steve', autospec=True) as grpf_mock:
-                    with patch.object(
-                            JobNamer, 'factory', spec=JobNamer.factory,
-                            return_value=job_namer) as jnf_mock:
-                        bin_loc = get_juju_bin(credentials, workspace)
-        self.assertEqual(bin_loc, os.path.join(
-            workspace, 'extracted-bin', 'subdir', 'sub-subdir', 'juju'))
-        grpf_mock.assert_called_once_with(credentials, build_data)
-        gbd_mock.assert_called_once_with(
-            JENKINS_URL, credentials, 'build-binary-wacky-a64', 'lastBuild')
-        self.assertEqual(1, jnf_mock.call_count)
-
-    def test_get_certification_bin(self):
-        package_namer = PackageNamer('foo', 'bar', 'baz')
-        build_data = {
-            'url': 'http://foo/',
-            'artifacts': [{
-                'fileName': 'juju-core_36.1~0ubuntu1~bar.1_foo.deb',
-                'relativePath': 'baz',
-                }]
-            }
-        credentials = Credentials('jrandom', 'password1')
-
-        with self.get_juju_binary_mocks() as (workspace, ur_mock, cc_mock):
-            with patch('jujuci.get_build_data', return_value=build_data,
-                       autospec=True) as gbd_mock:
-                with patch.object(PackageNamer, 'factory',
-                                  return_value=package_namer):
-                    bin_loc = get_certification_bin(credentials,
-                                                    '36.1~0ubuntu1',
-                                                    workspace)
-        self.assertEqual(bin_loc, os.path.join(
-            workspace, 'extracted-bin', 'subdir', 'sub-subdir', 'juju'))
-        ur_mock.assert_called_once_with(
-            'http://jrandom:password1@foo/artifact/baz',
-            os.path.join(workspace, 'juju-core_36.1~0ubuntu1~bar.1_foo.deb'))
-        gbd_mock.assert_called_once_with(
-            JENKINS_URL, credentials, CERTIFY_UBUNTU_PACKAGES, 'lastBuild')
-
     @contextmanager
     def get_juju_binary_mocks(self):
         def mock_extract_deb(args):
@@ -521,92 +320,6 @@ class JujuCITestCase(FakeHomeTestCase):
                 with patch('subprocess.check_call',
                            side_effect=mock_extract_deb) as cc_mock:
                     yield workspace, ur_mock, cc_mock
-
-    def test_get_juju_binary(self):
-        build_data = {
-            'url': 'http://foo/',
-            'artifacts': [{
-                'fileName': 'steve',
-                'relativePath': 'baz',
-                }]
-            }
-        credentials = Credentials('jrandom', 'password1')
-        with self.get_juju_binary_mocks() as (workspace, ur_mock, cc_mock):
-            bin_loc = get_juju_binary(credentials, 'steve', build_data,
-                                      workspace)
-        target_path = os.path.join(workspace, 'steve')
-        ur_mock.assert_called_once_with(
-            'http://jrandom:password1@foo/artifact/baz', target_path)
-        out_dir = os.path.join(workspace, 'extracted-bin')
-        cc_mock.assert_called_once_with(['dpkg', '-x', target_path, out_dir])
-        self.assertEqual(
-            bin_loc, os.path.join(workspace, 'extracted-bin', 'subdir',
-                                  'sub-subdir', 'juju'))
-
-    def test_get_artifacts(self):
-        build_data = make_build_data(1234)
-        print_list = []
-        with patch('jujuci.print_now', side_effect=print_list.append):
-            with patch('jujuci.get_build_data', return_value=build_data):
-                with patch('urllib.urlretrieve') as uo_mock:
-                    found = get_artifacts(
-                        Credentials('jrandom', '1password'), 'foo', '1234',
-                        '*.bash', './', verbose=True)
-        location = (
-            'http://juju-ci.vapour.ws:8080/job/build-revision/1234/artifact/'
-            'buildvars.bash')
-        buildvar_artifact = Artifact('buildvars.bash', location)
-        self.assertEqual([buildvar_artifact], found)
-        self.assertEqual(1, uo_mock.call_count)
-        args, kwargs = uo_mock.call_args
-        local_path = '%s/buildvars.bash' % os.path.abspath('./')
-        auth_location = location.replace('http://',
-                                         'http://jrandom:1password@')
-        self.assertEqual((auth_location, local_path), args)
-        self.assertEqual(
-            print_list,
-            ['Retrieving %s => %s' % (location, local_path)]
-        )
-
-    def test_get_artifacts_with_dry_run(self):
-        build_data = make_build_data(1234)
-        print_list = []
-        with patch('jujuci.print_now', side_effect=print_list.append):
-            with patch('jujuci.get_build_data', return_value=build_data):
-                with patch('urllib.urlretrieve') as uo_mock:
-                    get_artifacts(
-                        Credentials('jrandom', '1password'), 'foo', '1234',
-                        '*.bash', './', dry_run=True)
-        self.assertEqual(0, uo_mock.call_count)
-        self.assertEqual(print_list, ['buildvars.bash'])
-
-    def test_get_artifacts_with_archive(self):
-        build_data = make_build_data(1234)
-        print_list = []
-        with temp_dir() as base_dir:
-            path = os.path.join(base_dir, 'foo')
-            os.mkdir(path)
-            old_file_path = os.path.join(path, 'old_file.txt')
-            with open(old_file_path, 'w') as old_file:
-                old_file.write('old')
-            with patch('jujuci.print_now', side_effect=print_list.append):
-                with patch('jujuci.get_build_data', return_value=build_data):
-                    with patch('urllib.urlretrieve'):
-                        get_artifacts(
-                            Credentials('jrandom', '1password'), 'foo', '1234',
-                            '*.bash', path, archive=True)
-            self.assertFalse(os.path.isfile(old_file_path))
-            self.assertTrue(os.path.isdir(path))
-        self.assertEqual(print_list, ['buildvars.bash'])
-
-    def test_get_artifacts_with_archive_error(self):
-        build_data = make_build_data(1234)
-        with patch('jujuci.get_build_data', return_value=build_data):
-            with patch('urllib.urlretrieve'):
-                with self.assertRaises(ValueError):
-                    get_artifacts(
-                        Credentials('jrandom', '1password'), 'foo', '1234',
-                        '*.bash', '/foo-bar-baz', archive=True)
 
     def test_setup_workspace(self):
         with temp_dir() as base_dir:
@@ -699,38 +412,6 @@ class JujuCITestCase(FakeHomeTestCase):
                 workspace_dir, ['sub_dir/*.deb'], dry_run=False, verbose=False)
             artifacts = os.listdir(artifacts_dir)
             self.assertEqual(['juju-core-1.2.3.deb'], artifacts)
-
-    def test_get_buildvars(self):
-        buildvars = {
-            'revision_id': '1234567abcdef',
-            'version': '1.22.4',
-            'revision_build': '1234',
-            'branch': 'gitbranch:1.22:github.com/juju/juju',
-            }
-        credentials = Credentials('bar', 'baz')
-        with patch('jujuci.retrieve_buildvars', autospec=True,
-                   return_value=buildvars) as rb_mock:
-            # The summary case for deploy and upgrade jobs.
-            text = get_buildvars(
-                credentials, 1234, env='foo',
-                summary=True, revision_build=False, version=False,
-                short_branch=False, short_revision=False,
-                branch=False, revision=False)
-            rb_mock.assert_called_once_with(credentials, 1234)
-            self.assertEqual(
-                'Testing gitbranch:1.22:github.com/juju/juju 1234567 '
-                'on foo for 1234',
-                text)
-            # The version case used to skip jobs testing old versions.
-            text = get_buildvars(
-                credentials, 1234,
-                summary=False, revision_build=True, version=True,
-                branch=True, short_branch=True,
-                revision=True, short_revision=True)
-            self.assertEqual(
-                '1234 1.22.4 1.22 1234567 '
-                'gitbranch:1.22:github.com/juju/juju 1234567abcdef',
-                text)
 
 
 class TestNamer(TestCase):
