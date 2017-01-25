@@ -12,7 +12,8 @@ from utility import temp_dir
 
 
 S3_CI_PATH = os.path.join(gotestwin.SCRIPTS, 's3ci.py')
-JUJU_HOME = os.path.join(gotestwin.SCRIPTS, '..', 'cloud-city')
+JUJU_HOME = os.path.normpath(os.path.join(
+    gotestwin.SCRIPTS, '..', 'cloud-city'))
 
 
 @contextlib.contextmanager
@@ -42,11 +43,12 @@ class GoTestWinTestCase(TestCase):
             data['command'])
         co_mock.assert_called_once_with(
             [S3_CI_PATH, 'get', '1234', 'build-revision',
-             'juju_core.*.tar.gz', './'])
+             '.*.tar.gz', './'])
         tarfile_call = call(
             [S3_CI_PATH, 'get-summary', '1234', 'GoTestWin'])
         gotest_call = call(
-            ['workspace-run', '-v', '-i', 'cloud-city/staging-juju-rsa',
+            ['workspace-run', '-v', '-i',
+             '{}/staging-juju-rsa'.format(JUJU_HOME),
              'temp-config.yaml', 'Administrator@host'])
         self.assertEqual([tarfile_call, gotest_call], cc_mock.call_args_list)
 
@@ -64,5 +66,6 @@ class GoTestWinTestCase(TestCase):
              'github.com/juju/juju/cmd', '--remove', 'ci/bar.tar.gz'],
             data['command'])
         cc_mock.assert_called_once_with(
-            ['workspace-run', '-v', '-i', 'cloud-city/staging-juju-rsa',
-             'temp-config.yaml', 'Administrator@host'])
+            ['workspace-run', '-v', '-i',
+             '{}/staging-juju-rsa'.format(JUJU_HOME), 'temp-config.yaml',
+             'Administrator@host'])

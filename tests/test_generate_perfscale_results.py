@@ -12,7 +12,7 @@ from mock import call, patch, Mock
 from textwrap import dedent
 import json
 
-from fakejuju import fake_juju_client
+from jujupy import fake_juju_client
 import generate_perfscale_results as gpr
 import perf_graphing
 from test_quickstart_deploy import make_bootstrap_manager
@@ -181,9 +181,11 @@ class TestSetupSystemMonitoring(TestCase):
         static_config_path = '/baz/bang/config'
 
         expected_calls = [
-            call('scp', (static_config_path, '2:/tmp/collectd.config')),
-            call('scp', (static_setup_path, '2:/tmp/installer.sh')),
-            call('ssh', ('2', 'chmod +x /tmp/installer.sh')),
+            call(
+                'scp',
+                ('--proxy', static_config_path, '2:/tmp/collectd.config')),
+            call('scp', ('--proxy', static_setup_path, '2:/tmp/installer.sh')),
+            call('ssh', ('--proxy', '2', 'chmod +x /tmp/installer.sh')),
         ]
 
         with patch.object(gpr, 'PATHS', autospec=True) as m_sp:
@@ -203,10 +205,12 @@ class TestSetupSystemMonitoring(TestCase):
         expected_calls = [
             call(
                 'ssh',
-                ('3',
+                ('--proxy',
+                 '3',
                  '/tmp/installer.sh /tmp/collectd.config /tmp/runner.sh')),
             call(
-                'ssh', ('3', '--', 'daemon --respawn /tmp/runner.sh'))]
+                'ssh',
+                ('--proxy', '3', '--', 'daemon --respawn /tmp/runner.sh'))]
         self.assertListEqual(
             admin_client.juju.call_args_list,
             expected_calls
@@ -229,11 +233,11 @@ class TestDumpPerformanceMetricsLogs(TestCase):
         expected_calls = [
             call(
                 'scp',
-                ('--', '-r',
+                ('--proxy', '--', '-r',
                  '0:/var/lib/collectd/rrd/localhost/*', expected_dir)),
             call(
                 'scp',
-                ('0:/tmp/mongodb-stats.log', expected_dir)
+                ('--proxy', '0:/tmp/mongodb-stats.log', expected_dir)
                 )]
         self.assertEqual(
             client.juju.call_args_list,
@@ -263,13 +267,14 @@ class TestDumpPerformanceMetricsLogs(TestCase):
             expected_calls.append(
                 call(
                     'scp',
-                    ('--', '-r',
+                    ('--proxy', '--', '-r',
                      '{}:/var/lib/collectd/rrd/localhost/*'.format(m_id),
                      expected_dir)))
             expected_calls.append(
                 call(
                     'scp',
-                    ('{}:/tmp/mongodb-stats.log'.format(m_id), expected_dir)))
+                    ('--proxy',
+                     '{}:/tmp/mongodb-stats.log'.format(m_id), expected_dir)))
 
         self.assertEqual(
             client.juju.call_args_list,

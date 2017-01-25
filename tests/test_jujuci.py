@@ -355,9 +355,9 @@ class JujuCITestCase(FakeHomeTestCase):
         config = {'environments': {'local': {'type': 'local'}}}
         with jujupy._temp_env(config, set_home=True):
             with patch('jujuci.destroy_environment', autospec=True) as mock_de:
-                with patch.object(jujupy.EnvJujuClient, 'get_version'):
+                with patch.object(jujupy.ModelClient, 'get_version'):
                     with patch('jujupy.get_client_class') as gcc_mock:
-                        gcc_mock.return_value = jujupy.EnvJujuClient
+                        gcc_mock.return_value = jujupy.ModelClient
                         dirty = clean_environment('foo', verbose=False)
         self.assertFalse(dirty)
         self.assertEqual(0, mock_de.call_count)
@@ -366,19 +366,19 @@ class JujuCITestCase(FakeHomeTestCase):
         config = {'environments': {'foo': {'type': 'local'}}}
         with jujupy._temp_env(config, set_home=True):
             with patch('jujuci.destroy_environment', autospec=True) as mock_de:
-                with patch.object(jujupy.EnvJujuClient, 'get_version'):
+                with patch.object(jujupy.ModelClient, 'get_version'):
                     with patch('jujupy.get_client_class') as gcc_mock:
                         factory = gcc_mock.return_value
-                        factory.return_value = jujupy.EnvJujuClient(
+                        factory.return_value = jujupy.ModelClient(
                             None, None, None)
-                        with patch.object(jujupy.EnvJujuClient,
+                        with patch.object(jujupy.ModelClient,
                                           'get_full_path'):
                             with patch.object(jujupy.JujuData, 'load_yaml'):
                                 dirty = clean_environment('foo', verbose=False)
         self.assertTrue(dirty)
         self.assertEqual(1, mock_de.call_count)
         args, kwargs = mock_de.call_args
-        self.assertIsInstance(args[0], jujupy.EnvJujuClient)
+        self.assertIsInstance(args[0], jujupy.ModelClient)
         self.assertEqual('foo', args[1])
 
     def test_add_artifacts_simple(self):

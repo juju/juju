@@ -6,7 +6,7 @@ from mock import Mock, patch
 import StringIO
 
 import assess_model_config_tree as amct
-from fakejuju import fake_juju_client
+from jujupy import fake_juju_client
 from tests import (
     parse_error,
     TestCase,

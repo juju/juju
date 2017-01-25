@@ -14,10 +14,10 @@ from mock import (
     )
 
 from jujupy import (
-    EnvJujuClient,
+    ModelClient,
+    fake_juju_client,
     JujuData,
     )
-from fakejuju import fake_juju_client
 from run_deployer import (
     apply_condition,
     assess_deployer,
@@ -79,7 +79,7 @@ class TestMain(tests.FakeHomeTestCase):
     def test_basic_args(self):
         args = ['bundles', 'an-env', '/bin/juju', 'logs', 'deployer-env']
         env = JujuData('an-env')
-        client = EnvJujuClient(env, '1.234-76', None)
+        client = ModelClient(env, '1.234-76', None)
         with patch('run_deployer.client_from_config',
                    return_value=client) as c_mock:
             with patch('run_deployer.boot_context'):
@@ -95,7 +95,7 @@ class TestMain(tests.FakeHomeTestCase):
                 '--bundle-verification-script',
                 'verify_mediawiki_bundle.py']
         env = JujuData('an-env')
-        client = EnvJujuClient(env, '1.234-76', None)
+        client = ModelClient(env, '1.234-76', None)
         with patch('run_deployer.client_from_config',
                    return_value=client) as c_mock:
             with patch('run_deployer.boot_context'):
@@ -116,7 +116,7 @@ class TestMain(tests.FakeHomeTestCase):
                 '--bundle-verification-script',
                 'verify_landscape_bundle.py']
         env = JujuData('an-env')
-        client = EnvJujuClient(env, '1.234-76', None)
+        client = ModelClient(env, '1.234-76', None)
         with patch('run_deployer.client_from_config',
                    return_value=client) as c_mock:
             with patch('run_deployer.boot_context'):
@@ -151,7 +151,7 @@ class TestAssessDeployer(tests.TestCase):
 
     def test_health(self):
         args = self.make_args(health_cmd='/tmp/check')
-        client_mock = Mock(spec=EnvJujuClient)
+        client_mock = Mock(spec=ModelClient)
         with patch('run_deployer.check_health', autospec=True) as ch_mock:
             assess_deployer(args, client_mock, 600, 1800)
         client_mock.deployer.assert_called_once_with('bundle.yaml', 'bu')
@@ -161,7 +161,7 @@ class TestAssessDeployer(tests.TestCase):
 
     def test_upgrade(self):
         args = self.make_args(juju_bin='new/juju', upgrade=True)
-        client_mock = Mock(spec=EnvJujuClient)
+        client_mock = Mock(spec=ModelClient)
         with patch('run_deployer.assess_upgrade', autospec=True) as au_mock:
             assess_deployer(args, client_mock, 600, 1800)
         client_mock.deployer.assert_called_once_with('bundle.yaml', 'bu')
@@ -174,7 +174,7 @@ class TestAssessDeployer(tests.TestCase):
     def test_upgrade_and_health(self):
         args = self.make_args(health_cmd='/tmp/check', juju_bin='new/juju',
                               upgrade=True)
-        client_mock = Mock(spec=EnvJujuClient)
+        client_mock = Mock(spec=ModelClient)
         with patch('run_deployer.assess_upgrade', autospec=True) as au_mock:
             with patch('run_deployer.check_health', autospec=True) as ch_mock:
                 assess_deployer(args, client_mock, 600, 1800)
@@ -208,7 +208,7 @@ class TestAssessDeployer(tests.TestCase):
 
     def test_allow_native_deploy(self):
         args = self.make_args(allow_native_deploy=True)
-        client_mock = Mock(spec=EnvJujuClient)
+        client_mock = Mock(spec=ModelClient)
         assess_deployer(args, client_mock, 600, 1800)
         client_mock.deploy_bundle.assert_called_once_with('bundle.yaml')
         client_mock.wait_for_started.assert_called_once_with(timeout=600)

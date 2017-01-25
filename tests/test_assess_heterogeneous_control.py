@@ -14,11 +14,9 @@ from assess_heterogeneous_control import (
     parse_args,
     test_control_heterogeneous,
 )
-from fakejuju import (
+from jujupy import (
     fake_juju_client,
     fake_juju_client_optional_jes,
-)
-from jujupy import (
     _temp_env,
 )
 from tests.test_deploy_stack import FakeBootstrapManager

@@ -20,8 +20,8 @@ from assess_recovery import (
     restore_missing_state_server,
     )
 from deploy_stack import BootstrapManager
-from fakejuju import fake_juju_client
 from jujupy import (
+    fake_juju_client,
     Machine,
     )
 from subprocess import CalledProcessError

@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+"""Assess basic quality of public clouds."""
+
 from __future__ import print_function
 
 from argparse import ArgumentParser
@@ -36,14 +38,15 @@ def make_logging_dir(base_dir, config, region):
     return log_dir
 
 
-def prepare_cloud(config, region, client, log_dir):
+def make_bootstrap_manager(config, region, client, log_dir):
     env_name = 'boot-cpc-{}-{}'.format(client.env.get_cloud(), region)[:30]
     logging_dir = make_logging_dir(log_dir, config, region)
     bs_manager = BootstrapManager(
         env_name, client, client, bootstrap_host=None, machines=[],
         series=None, agent_url=None, agent_stream=None, region=region,
-        log_dir=logging_dir, keep_env=False, permanent=True, jes_enabled=True)
-    assess_cloud_combined(bs_manager)
+        log_dir=logging_dir, keep_env=False, permanent=True, jes_enabled=True,
+        logged_exception_exit=False)
+    return bs_manager
 
 
 def iter_cloud_regions(public_clouds, credentials):
@@ -75,7 +78,9 @@ def bootstrap_cloud_regions(public_clouds, credentials, args):
         try:
             client = client_from_config(
                 config, args.juju_bin, args.debug, args.deadline)
-            prepare_cloud(config, region, client, args.logs)
+            bs_manager = make_bootstrap_manager(config, region, client,
+                                                args.logs)
+            assess_cloud_combined(bs_manager)
         except LoggedException as error:
             yield config, region, error.exception
         except Exception as error:
@@ -85,7 +90,7 @@ def bootstrap_cloud_regions(public_clouds, credentials, args):
 def parse_args(argv):
     """Parse all arguments."""
     parser = ArgumentParser(
-        description="This is a quick hack to test 0052b26.  HERE BE DRAGONS!")
+        description='Assess basic quality of public clouds.')
     parser.add_argument('juju_bin', nargs='?',
                         help='Full path to the Juju binary. By default, this'
                         ' will use $GOPATH/bin/juju or /usr/bin/juju in that'
@@ -117,7 +122,6 @@ def main():
     configure_logging(logging.INFO)
     args = parse_args(None)
     default_log_dir(args)
-    logging.warning('This is a quick hack to test 0052b26.  HERE BE DRAGONS!')
     public_clouds = yaml_file_load('public-clouds.yaml')['clouds']
     credentials = yaml_file_load('credentials.yaml')['credentials']
     failures = []

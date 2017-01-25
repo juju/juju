@@ -5,9 +5,9 @@ from mock import (
 )
 
 from deploy_stack import BootstrapManager
-from fakejuju import fake_juju_client
 from jujupy import (
-    EnvJujuClient,
+    ModelClient,
+    fake_juju_client,
     JujuData,
     )
 from quickstart_deploy import QuickstartTest
@@ -37,7 +37,7 @@ class TestQuickstartTest(FakeHomeTestCase):
             finally:
                 do_finally()
 
-        client = EnvJujuClient(
+        client = ModelClient(
             JujuData('foo', {'type': 'local'}), '1.234-76', None)
         bs_manager = make_bootstrap_manager(client)
         quickstart = QuickstartTest(bs_manager, '/tmp/bundle.yaml', 2)
@@ -55,7 +55,7 @@ class TestQuickstartTest(FakeHomeTestCase):
             except:
                 tear_down()
 
-        client = EnvJujuClient(
+        client = ModelClient(
             JujuData('foo', {'type': 'local'}), '1.234-76', None)
         bs_manager = make_bootstrap_manager(client)
         quickstart = QuickstartTest(bs_manager, '/tmp/bundle.yaml', 2)
@@ -68,14 +68,15 @@ class TestQuickstartTest(FakeHomeTestCase):
 
     def test_iter_steps(self):
         log_dir = use_context(self, temp_dir())
-        client = EnvJujuClient(
+        client = ModelClient(
             JujuData('foo', {'type': 'local'}), '1.234-76', None)
         bs_manager = make_bootstrap_manager(client, log_dir=log_dir)
         quickstart = QuickstartTest(bs_manager, '/tmp/bundle.yaml', 2)
         steps = quickstart.iter_steps()
         with patch.object(client, 'quickstart') as qs_mock:
             # Test first yield
-            with patch('jujupy.check_free_disk_space', autospec=True):
+            with patch('jujupy.client.check_free_disk_space',
+                       autospec=True):
                 with patch.object(client, 'kill_controller',
                                   autospec=True) as kill_mock:
                     step = steps.next()
@@ -103,7 +104,7 @@ class TestQuickstartTest(FakeHomeTestCase):
         with patch('deploy_stack.safe_print_status'):
             with patch('deploy_stack.BootstrapManager.tear_down'):
                 with patch('quickstart_deploy.BootstrapManager.dump_all_logs'):
-                    with patch('jujupy.EnvJujuClient.iter_model_clients',
+                    with patch('jujupy.ModelClient.iter_model_clients',
                                return_value=[]):
                         steps.close()
 
@@ -143,7 +144,7 @@ class TestQuickstartTest(FakeHomeTestCase):
         self.assertIs(True, bs_manager.exited_top)
 
     def test_iter_steps_quickstart_fail(self):
-        client = EnvJujuClient(
+        client = ModelClient(
             JujuData('foo', {'type': 'local'}), '1.234-76', None)
         bs_manager = FakeBootstrapManager(client)
         quickstart = QuickstartTest(bs_manager, '/tmp/bundle.yaml', 2)

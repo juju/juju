@@ -1,28 +1,32 @@
 from contextlib import (
     contextmanager,
-)
+    )
 import json
 import logging
 import os
 import subprocess
 from time import sleep
-import urlparse
-
+try:
+    import urlparse
+except ImportError:
+    import urllib.parse as urlparse
 from boto import ec2
 from boto.exception import EC2ResponseError
+
+from dateutil import parser as date_parser
 
 import gce
 from jujuconfig import (
     get_euca_env,
     translate_to_env,
-)
+    )
 from jujupy import (
     EnvJujuClient1X
-)
+    )
 from utility import (
     temp_dir,
     until_timeout,
-)
+    )
 import winazurearm
 
 
@@ -279,7 +283,7 @@ def convert_to_azure_ids(client, instance_ids):
 
     See: https://bugs.launchpad.net/juju-core/+bug/1586089
 
-    :param client: An EnvJujuClient instance.
+    :param client: A ModelClient instance.
     :param instance_ids: a list of Juju machine instance-ids
     :return: A list of ARM VM instance ids.
     """
@@ -484,6 +488,12 @@ class MAASAccount:
 
     SUBNET_CONNECTION_MODES = frozenset(('AUTO', 'DHCP', 'STATIC', 'LINK_UP'))
 
+    ACQUIRING = 'User acquiring node'
+
+    CREATED = 'created'
+
+    NODE = 'node'
+
     def __init__(self, profile, url, oauth):
         self.profile = profile
         self.url = urlparse.urljoin(url, self._API_PATH)
@@ -523,6 +533,17 @@ class MAASAccount:
         nodes = self._maas(*self._list_allocated_args())
         allocated = {node['hostname']: node for node in nodes}
         return allocated
+
+    def get_acquire_date(self, node):
+        events = self._maas(
+            self.profile, 'events', 'query', 'id={}'.format(node))
+        for event in events['events']:
+            if node != event[self.NODE]:
+                raise ValueError(
+                    'Node "{}" was not "{}".'.format(event[self.NODE], node))
+            if event['type'] == self.ACQUIRING:
+                return date_parser.parse(event[self.CREATED])
+        raise LookupError('Unable to find acquire date for "{}".'.format(node))
 
     def get_allocated_ips(self):
         """Return a dict of allocated ips with the hostname as keys.

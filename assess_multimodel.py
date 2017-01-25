@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+"""Assess multimodel support."""
 
 from argparse import ArgumentParser
 from contextlib import contextmanager
@@ -22,10 +23,10 @@ from utility import (
     add_basic_testing_arguments,
     ensure_dir,
     print_now,
-)
+    )
 
 
-def test_jes_deploy(client, charm_series, log_dir, base_env):
+def assess_multimodel_deploy(client, charm_series, log_dir, base_env):
     """Deploy the dummy stack in two hosted environments."""
     # deploy into system env
     deploy_dummy_stack(client, charm_series)
@@ -41,8 +42,17 @@ def test_jes_deploy(client, charm_series, log_dir, base_env):
             check_services(env2_client)
 
 
+def assess_destroy_current(client):
+    model_name = client.model_name
+    new_model = client.add_model('delete-me')
+    new_model.switch('delete-me')
+    new_model.destroy_model()
+    new_model.show_controller()
+    client.switch(model_name)
+
+
 @contextmanager
-def jes_setup(args):
+def multimodel_setup(args):
     """
     Sets up the juju client and its environment.
 
@@ -81,7 +91,7 @@ def env_token(env_name):
 @contextmanager
 def hosted_environment(system_client, log_dir, suffix):
     env_name = '{}-{}'.format(system_client.env.environment, suffix)
-    client = system_client.add_model(system_client.env.clone(env_name))
+    client = system_client.add_model(env_name)
     try:
         yield client
     except:
@@ -104,12 +114,18 @@ def check_services(client):
     check_token(client, token)
 
 
-def main():
+def parse_args(argv=None):
+    """Parse all arguments."""
     parser = ArgumentParser()
     add_basic_testing_arguments(parser, using_jes=True, deadline=True)
-    args = parser.parse_args()
-    with jes_setup(args) as (client, charm_series, base_env):
-        test_jes_deploy(client, charm_series, args.logs, base_env)
+    return parser.parse_args(argv)
+
+
+def main():
+    args = parse_args()
+    with multimodel_setup(args) as (client, charm_series, base_env):
+        assess_multimodel_deploy(client, charm_series, args.logs, base_env)
+        assess_destroy_current(client)
 
 
 if __name__ == '__main__':
