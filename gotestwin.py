@@ -33,7 +33,7 @@ def main(argv=None):
             '.*.tar.gz', './'])
         job_name = os.environ.get('job_name', 'GoTestWin')
         subprocess.check_call([s3_ci_path, 'get-summary', revision, job_name])
-    tarfile = basename(downloaded)
+    tarfile = basename(downloaded).strip()
     with open('temp-config.yaml', 'w') as temp_file:
         dump({
             'install': {'ci': [
