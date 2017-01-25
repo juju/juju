@@ -1386,6 +1386,7 @@ class TestMAASAccountFromConfig(TestCase):
                     'maas', 'login', 'mas', 'http://10.0.10.10/MAAS/api/2.0/',
                     'a:password:string'])
 
+
 class TestMakeSubstrateManager(FakeHomeTestCase):
 
     def test_make_substrate_manager_aws(self):
