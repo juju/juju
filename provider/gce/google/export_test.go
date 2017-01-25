@@ -51,10 +51,6 @@ func NewNetInterface(spec NetworkSpec, name string) *compute.NetworkInterface {
 	return spec.newInterface(name)
 }
 
-func InstanceSpecRaw(spec InstanceSpec) *compute.Instance {
-	return spec.raw()
-}
-
 func ConnAddInstance(conn *Connection, inst *compute.Instance, mtype string, zones []string) error {
 	return conn.addInstance(inst, mtype, zones)
 }

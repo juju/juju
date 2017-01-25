@@ -196,3 +196,30 @@ func parsePortRange(portRange string) (PortRange, error) {
 	}
 	return result, nil
 }
+
+// CombinePortRanges groups together all port ranges according to
+// protocol, and then combines then into contiguous port ranges.
+// NOTE: Juju only allows its model to contain non-overlapping port ranges.
+// This method operates on that assumption.
+func CombinePortRanges(ranges ...PortRange) []PortRange {
+	SortPortRanges(ranges)
+	var result []PortRange
+	var current *PortRange
+	for _, pr := range ranges {
+		thispr := pr
+		if current == nil {
+			current = &thispr
+			continue
+		}
+		if pr.Protocol == current.Protocol && pr.FromPort == current.ToPort+1 {
+			current.ToPort = thispr.ToPort
+			continue
+		}
+		result = append(result, *current)
+		current = &thispr
+	}
+	if current != nil {
+		result = append(result, *current)
+	}
+	return result
+}

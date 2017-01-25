@@ -4,6 +4,8 @@
 package google
 
 import (
+	"sort"
+
 	"google.golang.org/api/compute/v1"
 
 	"github.com/juju/juju/network"
@@ -57,21 +59,30 @@ func (ns *NetworkSpec) newInterface(name string) *compute.NetworkInterface {
 
 // firewallSpec expands a port range set in to compute.FirewallAllowed
 // and returns a compute.Firewall for the provided name.
-func firewallSpec(name string, ps network.RuleSet) *compute.Firewall {
+func firewallSpec(name, target string, sourceCIDRs []string, ports protocolPorts) *compute.Firewall {
+	if len(sourceCIDRs) == 0 {
+		sourceCIDRs = []string{"0.0.0.0/0"}
+	}
 	firewall := compute.Firewall{
 		// Allowed is set below.
 		// Description is not set.
 		Name: name,
 		// Network: (defaults to global)
 		// SourceTags is not set.
-		TargetTags:   []string{name},
-		SourceRanges: []string{"0.0.0.0/0"},
+		TargetTags:   []string{target},
+		SourceRanges: sourceCIDRs,
 	}
 
-	for _, protocol := range ps.Protocols() {
+	var sortedProtocols []string
+	for protocol := range ports {
+		sortedProtocols = append(sortedProtocols, protocol)
+	}
+	sort.Strings(sortedProtocols)
+
+	for _, protocol := range sortedProtocols {
 		allowed := compute.FirewallAllowed{
 			IPProtocol: protocol,
-			Ports:      ps.PortStrings(protocol),
+			Ports:      ports.portStrings(protocol),
 		}
 		firewall.Allowed = append(firewall.Allowed, &allowed)
 	}
