@@ -156,6 +156,8 @@ def deploy_machine_and_verify(client, series="xenial"):
     client.juju('add-machine', ('--series', series))
     new_status = client.wait_for_started()
 
+    # This will iterate only once because we just added only one
+    # machine after old_status to new_status.
     for unit, machine in new_status.iter_new_machines(old_status):
         hostname = machine.get('dns-name')
         if hostname:
@@ -164,14 +166,13 @@ def deploy_machine_and_verify(client, series="xenial"):
                 "/var/lib/juju/tools/machine-{}/downloaded-tools.txt".format(unit))
             deserialized_output = json.loads(output)
 
-            client.juju('remove-machine', ('--force', unit))
-            client.wait_for(
-                ConditionList([client.make_remove_machine_condition(unit)]))
-
             if deserialized_output['sha256'] != controller_sha256:
                 raise JujuAssertionError(
                     'agent-metadata-url mismatch. Expected: {} Got: {}'.format(
                         controller_sha256, deserialized_output))
+        else:
+            raise JujuAssertionError(
+                'Unable to get information about added machine')
 
     log.info("add-machine verification done successfully")
 
@@ -191,8 +192,6 @@ def deploy_charm_and_verify(client, series="xenial", charm_app="dummy-source"):
     client.set_config(charm_app, {'token': 'one'})
     client.wait_for_workloads()
     verify_deployed_charm(charm_app, client)
-    client.remove_service(charm_app)
-    client.wait_for_started()
 
 
 def verify_deployed_tool(agent_dir, client, agent_stream):
@@ -237,7 +236,7 @@ def assess_metadata(args, agent_dir, agent_stream):
     bs_manager = BootstrapManager.from_args(args)
     client = bs_manager.client
     agent_metadata_url = os.path.join(agent_dir, "tools")
-    serial_ver = ['xenial', 'trusty']
+    current_series = ['xenial', 'trusty']
 
     client.env.discard_option('tools-metadata-url')
     client.env.update_config(
@@ -267,8 +266,8 @@ def assess_metadata(args, agent_dir, agent_stream):
                 "dummy-source", controller_series))
 
         # Deploy machine of series different that of controller
-        serial_ver.remove(controller_series)
-        deploy_machine_and_verify(client, serial_ver[0])
+        current_series.remove(controller_series)
+        deploy_machine_and_verify(client, current_series[0])
 
 
 def get_cloud_details(client, agent_metadata_url, agent_stream):
