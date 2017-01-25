@@ -68,14 +68,19 @@ var getInstances = func(env *environ) ([]instance.Instance, error) {
 	return env.instances()
 }
 
+func (env *environ) gceInstances() ([]google.Instance, error) {
+	prefix := env.namespace.Prefix()
+	instances, err := env.gce.Instances(prefix, instStatuses...)
+	return instances, errors.Trace(err)
+}
+
 // instances returns a list of all "alive" instances in the environment.
 // This means only instances where the IDs match
 // "juju-<env name>-machine-*". This is important because otherwise juju
 // will see they are not tracked in state, assume they're stale/rogue,
 // and shut them down.
 func (env *environ) instances() ([]instance.Instance, error) {
-	prefix := env.namespace.Prefix()
-	instances, err := env.gce.Instances(prefix, instStatuses...)
+	instances, err := env.gceInstances()
 	err = errors.Trace(err)
 
 	// Turn google.Instance values into *environInstance values,
@@ -95,8 +100,7 @@ func (env *environ) instances() ([]instance.Instance, error) {
 // ControllerInstances returns the IDs of the instances corresponding
 // to juju controllers.
 func (env *environ) ControllerInstances(controllerUUID string) ([]instance.Id, error) {
-	prefix := env.namespace.Prefix()
-	instances, err := env.gce.Instances(prefix, instStatuses...)
+	instances, err := env.gceInstances()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -116,6 +120,15 @@ func (env *environ) ControllerInstances(controllerUUID string) ([]instance.Id, e
 		return nil, environs.ErrNotBootstrapped
 	}
 	return results, nil
+}
+
+// AdoptInstances is part of the environs.Environ interface.
+func (env *environ) AdoptInstances(ids []instance.Id, controllerUUID string) error {
+	stringIds := make([]string, len(ids))
+	for i, id := range ids {
+		stringIds[i] = string(id)
+	}
+	return errors.Trace(env.gce.UpdateMetadata(tags.JujuController, controllerUUID, stringIds...))
 }
 
 // TODO(ericsnow) Turn into an interface.

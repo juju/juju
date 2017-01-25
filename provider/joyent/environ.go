@@ -142,6 +142,12 @@ func (env *joyentEnviron) ControllerInstances(controllerUUID string) ([]instance
 	return instanceIds, nil
 }
 
+// AdoptInstances is part of the Environ interface.
+func (env *joyentEnviron) AdoptInstances(ids []instance.Id, controllerUUID string) error {
+	// This provider doesn't track instance -> controller.
+	return nil
+}
+
 func (env *joyentEnviron) Destroy() error {
 	return errors.Trace(common.Destroy(env))
 }

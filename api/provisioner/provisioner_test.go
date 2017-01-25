@@ -120,11 +120,11 @@ func (s *provisionerSuite) TestGetSetInstanceStatus(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(instanceStatus, gc.Equals, status.Pending)
 	c.Assert(info, gc.Equals, "")
-	err = apiMachine.SetInstanceStatus(status.Started, "blah", nil)
+	err = apiMachine.SetInstanceStatus(status.Running, "blah", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	instanceStatus, info, err = apiMachine.InstanceStatus()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(instanceStatus, gc.Equals, status.Started)
+	c.Assert(instanceStatus, gc.Equals, status.Running)
 	c.Assert(info, gc.Equals, "blah")
 	statusInfo, err := s.machine.InstanceStatus()
 	c.Assert(err, jc.ErrorIsNil)
@@ -152,12 +152,12 @@ func (s *provisionerSuite) TestMachinesWithTransientErrors(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	now := time.Now()
 	sInfo := status.StatusInfo{
-		Status:  status.Error,
+		Status:  status.ProvisioningError,
 		Message: "blah",
 		Data:    map[string]interface{}{"transient": true},
 		Since:   &now,
 	}
-	err = machine.SetStatus(sInfo)
+	err = machine.SetInstanceStatus(sInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	machines, info, err := s.provisioner.MachinesWithTransientErrors()
 	c.Assert(err, jc.ErrorIsNil)
@@ -167,7 +167,7 @@ func (s *provisionerSuite) TestMachinesWithTransientErrors(c *gc.C) {
 	c.Assert(info[0], gc.DeepEquals, params.StatusResult{
 		Id:     "1",
 		Life:   "alive",
-		Status: "error",
+		Status: "provisioning error",
 		Info:   "blah",
 		Data:   map[string]interface{}{"transient": true},
 	})
@@ -672,4 +672,49 @@ func (s *provisionerSuite) testFindTools(c *gc.C, matchArch bool, apiError, logi
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(apiList, jc.SameContents, toolsList)
 	}
+}
+
+func (s *provisionerSuite) TestHostChangesForContainer(c *gc.C) {
+	// Create a machine, put it in "default" space with a single NIC. Create
+	// a container that is also in the "default" space, and request the
+	// HostChangesForContainer to see that it wants to bridge that NIC
+	_, err := s.State.AddSpace("default", network.Id("default"), nil, true)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddSubnet(state.SubnetInfo{
+		CIDR:      "10.0.0.0/24",
+		SpaceName: "default",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.machine.SetLinkLayerDevices(
+		state.LinkLayerDeviceArgs{
+			Name:       "ens3",
+			Type:       state.EthernetDevice,
+			ParentName: "",
+			IsUp:       true,
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.machine.SetDevicesAddresses(
+		state.LinkLayerDeviceAddress{
+			DeviceName:   "ens3",
+			CIDRAddress:  "10.0.0.10/24",
+			ConfigMethod: state.StaticAddress,
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	containerTemplate := state.MachineTemplate{
+		Series: "quantal",
+		Jobs:   []state.MachineJob{state.JobHostUnits},
+	}
+	container, err := s.State.AddMachineInsideMachine(containerTemplate, s.machine.Id(), instance.LXD)
+	c.Assert(err, jc.ErrorIsNil)
+
+	changes, err := s.provisioner.HostChangesForContainer(container.MachineTag())
+	c.Assert(err, gc.ErrorMatches, "dummy provider network config not supported.*")
+	c.Skip("can't test without network support")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(changes, gc.DeepEquals, []network.DeviceToBridge{{
+		BridgeName: "br-ens3",
+		DeviceName: "ens3",
+	}})
 }

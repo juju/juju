@@ -889,6 +889,12 @@ func (e *environ) SetConfig(cfg *config.Config) error {
 	return nil
 }
 
+// AdoptInstances is part of the Environ interface.
+func (e *environ) AdoptInstances(ids []instance.Id, controllerUUID string) error {
+	// This provider doesn't track instance -> controller.
+	return nil
+}
+
 func (e *environ) Destroy() (res error) {
 	defer delay()
 	estate, err := e.state()
