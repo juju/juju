@@ -48,9 +48,9 @@ Connect to a jenkins unit as user jenkins:
 See also: 
     scp`
 
-func newSSHCommand(hostDialer jujussh.Dialer) cmd.Command {
+func newSSHCommand(hostChecker jujussh.ReachableChecker) cmd.Command {
 	c := new(sshCommand)
-	c.setHostDialer(hostDialer)
+	c.setHostChecker(hostChecker)
 	return modelcmd.Wrap(c)
 }
 

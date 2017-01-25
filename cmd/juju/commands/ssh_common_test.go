@@ -5,13 +5,10 @@ package commands
 
 import (
 	"fmt"
-	"io"
-	"net"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
-	"time"
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
@@ -118,7 +115,7 @@ type SSHCommonSuite struct {
 	testing.JujuConnSuite
 	knownHostsDir string
 	binDir        string
-	hostDialer    jujussh.Dialer
+	hostChecker   jujussh.ReachableChecker
 }
 
 // Commands to patch
@@ -143,44 +140,28 @@ var fakecommand = `#!/bin/bash
 }| tee $0.args
 `
 
-type dialerFunc func(address string) error
-
-type fakeDialer struct {
-	dialWith dialerFunc
+type fakeHostChecker struct {
+	acceptedAddresses set.Strings
 }
 
-func (f *fakeDialer) Dial(network, address string) (net.Conn, error) {
-	if f.dialWith == nil {
-		return &fakeConn{}, nil
-	}
+var _ jujussh.ReachableChecker = (*fakeHostChecker)(nil)
 
-	err := f.dialWith(address)
-	if err != nil {
-		return nil, err
+func (f *fakeHostChecker) FindHost(hostPorts []network.HostPort, publicKeys []string) (network.HostPort, error) {
+	// TODO(jam): The real reachable checker won't give deterministic ordering
+	// for hostPorts, maybe we should do a random return value?
+	for _, hostPort := range hostPorts {
+		if f.acceptedAddresses.Contains(hostPort.Address.Value) {
+			return hostPort, nil
+		}
 	}
-
-	return &fakeConn{}, nil
+	return network.HostPort{}, errors.Errorf("cannot connect to any address: %v", hostPorts)
 }
 
-type fakeConn struct{}
-
-func (*fakeConn) Close() error                       { return nil }
-func (*fakeConn) Write(b []byte) (int, error)        { return 0, io.EOF }
-func (*fakeConn) Read(b []byte) (int, error)         { return 0, io.EOF }
-func (*fakeConn) LocalAddr() net.Addr                { return &fakeAddr{} }
-func (*fakeConn) RemoteAddr() net.Addr               { return &fakeAddr{} }
-func (*fakeConn) SetDeadline(t time.Time) error      { return errors.Errorf("deadline not supported") }
-func (*fakeConn) SetReadDeadline(t time.Time) error  { return errors.Errorf("deadline not supported") }
-func (*fakeConn) SetWriteDeadline(t time.Time) error { return errors.Errorf("deadline not supported") }
-
-var _ net.Conn = (*fakeConn)(nil)
-
-type fakeAddr struct{}
-
-func (*fakeAddr) Network() string { return "" }
-func (*fakeAddr) String() string  { return "" }
-
-var _ net.Addr = (*fakeAddr)(nil)
+func validAddresses(acceptedAddresses ...string) *fakeHostChecker {
+	return &fakeHostChecker{
+		acceptedAddresses: set.NewStrings(acceptedAddresses...),
+	}
+}
 
 func (s *SSHCommonSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
@@ -211,22 +192,8 @@ func (s *SSHCommonSuite) setForceAPIv1(enabled bool) {
 	}
 }
 
-func (s *SSHCommonSuite) setHostDialerFunc(dialWith dialerFunc) {
-	s.hostDialer = &fakeDialer{dialWith: dialWith}
-}
-
-func dialerFuncFor(allowedAddresses ...string) dialerFunc {
-	allowedSet := set.NewStrings(allowedAddresses...)
-
-	return func(address string) error {
-		if strings.HasSuffix(address, ":22") {
-			address, _, _ = net.SplitHostPort(address)
-		}
-		if allowedSet.Contains(address) {
-			return nil
-		}
-		return errors.Errorf("not dialing %q", address)
-	}
+func (s *SSHCommonSuite) setHostChecker(hostChecker jujussh.ReachableChecker) {
+	s.hostChecker = hostChecker
 }
 
 func (s *SSHCommonSuite) setupModel(c *gc.C) {

@@ -39,7 +39,7 @@ type SSHCommon struct {
 	apiClient       sshAPIClient
 	apiAddr         string
 	knownHostsPath  string
-	hostDialer      jujussh.Dialer
+	hostChecker     jujussh.ReachableChecker
 	forceAPIv1      bool
 }
 
@@ -116,16 +116,17 @@ func (c *SSHCommon) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.noHostKeyChecks, "no-host-key-checks", false, "Skip host key checking (INSECURE)")
 }
 
-// defaultHostDialer returns a jujussh.Dialer with timeout set to SSHRetryDelay.
-func defaultHostDialer() jujussh.Dialer {
-	return &net.Dialer{Timeout: SSHRetryDelay}
+// defaultReachableChecker returns a jujussh.ReachableChecker with a connection
+// timeout of SSHRetryDelay and an overall timout of SSHTimeout
+func defaultReachableChecker() jujussh.ReachableChecker {
+	return jujussh.NewReachableChecker(&net.Dialer{Timeout: SSHRetryDelay}, SSHTimeout)
 }
 
-func (c *SSHCommon) setHostDialer(dialer jujussh.Dialer) {
-	if dialer == nil {
-		dialer = defaultHostDialer()
+func (c *SSHCommon) setHostChecker(checker jujussh.ReachableChecker) {
+	if checker == nil {
+		checker = defaultReachableChecker()
 	}
-	c.hostDialer = dialer
+	c.hostChecker = checker
 }
 
 // initRun initializes the API connection if required, and determines
@@ -393,15 +394,22 @@ func (c *SSHCommon) reachableAddressGetter(entity string) (string, error) {
 	} else if len(addresses) == 0 {
 		return "", network.NoAddressError("available")
 	}
-	publicKeys, err := c.apiClient.PublicKeys(entity)
-	if err != nil {
-		// XXX(jam): 2017-01-23 Should we continue anyway
-		return "", errors.Trace(err)
+	publicKeys := []string{}
+	if !c.noHostKeyChecks {
+		publicKeys, err = c.apiClient.PublicKeys(entity)
+		if err != nil {
+			// We ignore NotFound errors, as we may not have finished registering
+			// keys. If they are truly important, they'll be trapped in the
+			// generateKnownHosts section.
+			if !errors.IsNotFound(err) && !params.IsCodeNotFound(err) {
+				return "", errors.Trace(err)
+			}
+		}
 	}
 
 	hostPorts := network.NewHostPorts(SSHPort, addresses...)
 	usableHPs := network.FilterUnusableHostPorts(hostPorts)
-	bestHP, err := jujussh.ReachableHostPort(usableHPs, publicKeys, c.hostDialer, SSHTimeout)
+	bestHP, err := c.hostChecker.FindHost(usableHPs, publicKeys)
 	if err != nil {
 		return "", errors.Trace(err)
 	}

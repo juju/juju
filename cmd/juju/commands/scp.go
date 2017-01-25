@@ -73,9 +73,9 @@ causes the transfer to be made via the client):
 See also: 
     ssh`
 
-func newSCPCommand(hostDialer jujussh.Dialer) cmd.Command {
+func newSCPCommand(hostChecker jujussh.ReachableChecker) cmd.Command {
 	c := new(scpCommand)
-	c.setHostDialer(hostDialer)
+	c.setHostChecker(hostChecker)
 	return modelcmd.Wrap(c)
 }
 

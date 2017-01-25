@@ -19,9 +19,9 @@ import (
 	unitdebug "github.com/juju/juju/worker/uniter/runner/debug"
 )
 
-func newDebugHooksCommand(hostDialer ssh.Dialer) cmd.Command {
+func newDebugHooksCommand(hostChecker ssh.ReachableChecker) cmd.Command {
 	c := new(debugHooksCommand)
-	c.setHostDialer(hostDialer)
+	c.setHostChecker(hostChecker)
 	return modelcmd.Wrap(c)
 }
 
