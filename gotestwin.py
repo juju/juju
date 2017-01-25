@@ -25,7 +25,6 @@ def main(argv=None):
 
     if args.revision_or_tarfile.endswith('tar.gz'):
         downloaded = args.revision_or_tarfile
-        (tarfile,) = [basename(l) for l in downloaded.splitlines()]
     else:
         revision = args.revision_or_tarfile
         s3_ci_path = join(SCRIPTS, 's3ci.py')
