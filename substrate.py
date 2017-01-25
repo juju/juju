@@ -726,7 +726,7 @@ def maas_account_from_boot_config(env):
         manager = MAAS1Account(*args)
         manager.login()
     yield manager
-    manager.logout()
+    # We do not call manager.logout() because it can break concurrent procs.
 
 
 class LXDAccount:

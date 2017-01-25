@@ -204,7 +204,6 @@ class TestTerminateInstances(TestCase):
         self.assertEquals(cc_mock.call_args_list, [
             call(['maas', 'login', 'mas', 'http://10.0.10.10/MAAS/api/2.0/',
                   'a:password:string']),
-            call(['maas', 'logout', 'mas']),
         ])
         co_mock.assert_called_once_with(
             ('maas', 'mas', 'machine', 'release', 'node-3d'))
@@ -946,10 +945,10 @@ class TestMAASAccount(TestCase):
 
     def make_event(self, acquire_date, type_=MAASAccount.ACQUIRING):
         return {
-           'type': type_,
-           MAASAccount.CREATED: acquire_date.isoformat(),
-           MAASAccount.NODE: 'asdf',
-           }
+            'type': type_,
+            MAASAccount.CREATED: acquire_date.isoformat(),
+            MAASAccount.NODE: 'asdf',
+            }
 
     def test_get_acquire_date(self):
         acquire_date = datetime(2016, 10, 25)
@@ -1326,13 +1325,9 @@ class TestMAASAccountFromConfig(TestCase):
                 self.assertEqual(maas.profile, 'mas')
                 self.assertEqual(maas.url, 'http://10.0.10.10/MAAS/api/2.0/')
                 self.assertEqual(maas.oauth, 'a:password:string')
-                # The login call has happened on context manager enter, reset
-                # the mock after to verify the logout call.
                 cc_mock.assert_called_once_with([
                     'maas', 'login', 'mas', 'http://10.0.10.10/MAAS/api/2.0/',
                     'a:password:string'])
-                cc_mock.reset_mock()
-        cc_mock.assert_called_once_with(['maas', 'logout', 'mas'])
 
     def test_login_fallback(self):
         boot_config = get_maas_env()
@@ -1354,8 +1349,6 @@ class TestMAASAccountFromConfig(TestCase):
                           'http://10.0.10.10/MAAS/api/1.0/',
                           'a:password:string']),
                 ])
-                cc_mock.reset_mock()
-        cc_mock.assert_called_once_with(['maas', 'logout', 'mas'])
         self.assertEqual(
             self.log_stream.getvalue(),
             'INFO Could not login with MAAS 2.0 API, trying 1.0\n')
@@ -1389,14 +1382,9 @@ class TestMAASAccountFromConfig(TestCase):
                 self.assertEqual(maas.profile, 'mas')
                 self.assertEqual(maas.url, 'http://10.0.10.10/MAAS/api/2.0/')
                 self.assertEqual(maas.oauth, 'a:password:string')
-                # The login call has happened on context manager enter, reset
-                # the mock after to verify the logout call.
                 cc_mock.assert_called_once_with([
                     'maas', 'login', 'mas', 'http://10.0.10.10/MAAS/api/2.0/',
                     'a:password:string'])
-                cc_mock.reset_mock()
-        cc_mock.assert_called_once_with(['maas', 'logout', 'mas'])
-
 
 class TestMakeSubstrateManager(FakeHomeTestCase):
 
