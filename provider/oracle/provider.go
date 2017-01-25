@@ -1,8 +1,6 @@
 package oracle
 
 import (
-	"os"
-
 	"github.com/juju/errors"
 	"github.com/juju/jsonschema"
 	"github.com/juju/juju/cloud"
@@ -46,7 +44,6 @@ func (e environProvider) PrepareConfig(config environs.PrepareConfigParams) (*co
 	if err := e.checkSpec(config.Cloud); err != nil {
 		return nil, errors.Annotatef(err, "validating cloud spec")
 	}
-	os.Exit(1)
 	return config.Config, nil
 }
 
@@ -76,9 +73,14 @@ func (e environProvider) checkSpec(spec environs.CloudSpec) error {
 // passed through PrepareConfig at some point in its lifecycle.
 //
 // This operation is not performing any expensive operation.
-func (e environProvider) Open(params environs.OpenParams) (environs.Environ, error) {
+func (e *environProvider) Open(params environs.OpenParams) (environs.Environ, error) {
 	logger.Debugf("opening model %q", params.Config.Name())
-	return nil, nil
+	if err := e.checkSpec(params.Cloud); err != nil {
+		return nil, errors.Annotatef(err, "validating cloud spec")
+	}
+
+	environ := newOracleEnviron(e, params)
+	return environ, nil
 }
 
 // Validate method will validate model configuration

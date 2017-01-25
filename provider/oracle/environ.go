@@ -1,6 +1,9 @@
 package oracle
 
 import (
+	"fmt"
+	"os"
+
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -14,11 +17,23 @@ import (
 // and has behaviour specific to the
 // description that the interface provides.
 type oracleEnviron struct {
-	p *environProvider
+	p    *environProvider
+	spec environs.CloudSpec
 }
 
-func newOracleEnviron() *oracleEnviron {
-	return &oracleEnviron{}
+func newOracleEnviron(p *environProvider, args environs.OpenParams) *oracleEnviron {
+	env := &oracleEnviron{
+		p:    p,
+		spec: args.Cloud,
+	}
+	//TODO
+	fmt.Printf("%+v", args.Config)
+	os.Exit(1)
+	return env
+}
+
+func (o oracleEnviron) PrepareForBootstrap(ctx environs.BootstrapContext) error {
+	return nil
 }
 
 func (o oracleEnviron) Validate(cfg, old *config.Config) (valid *config.Config, _ error) {
@@ -53,8 +68,8 @@ func (o oracleEnviron) Config() *config.Config {
 	return nil
 }
 
-func (o oracleEnviron) Bootstrap(ctx environs.BootstrapContext, params environs.BootstrapParams) string {
-	return ""
+func (o oracleEnviron) Bootstrap(ctx environs.BootstrapContext, params environs.BootstrapParams) (*environs.BootstrapResult, error) {
+	return nil, nil
 }
 
 func (o oracleEnviron) BootstrapMessage() string {
