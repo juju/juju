@@ -623,7 +623,6 @@ def get_lxd_config():
 
 
 class TestLXDAccount(TestCase):
-
     def test_from_boot_config(self):
         boot_config = SimpleEnvironment('foo', get_lxd_config())
         with LXDAccount.from_boot_config(boot_config) as account:
@@ -1640,3 +1639,30 @@ class EucaTestCase(TestCase):
                 destroy_job_instances('foo')
         gji_mock.assert_called_with('foo')
         cc_mock.assert_called_with(['euca-terminate-instances', 'i-bar'])
+
+
+class TestEnsureCleanup(TestCase):
+    def test_lxd_ensure_cleanup(self):
+        substrate_account = LXDAccount()
+        self.assertEqual([], substrate_account.ensure_cleanup([]))
+
+    def test_aws_ensure_cleanup(self):
+        substrate_account = AWSAccount('euca_environ', 'region', 'client')
+        self.assertEqual([], substrate_account.ensure_cleanup([]))
+
+    def test_openstack_ensure_cleanup(self):
+        substrate_account = OpenStackAccount(
+            'username', 'password', 'tenant_name', 'auth_url', 'region_name')
+        self.assertEqual([], substrate_account.ensure_cleanup([]))
+
+    def test_rax_ensure_cleanup(self):
+        substrate_account = JoyentAccount('client')
+        self.assertEqual([], substrate_account.ensure_cleanup([]))
+
+    def test_gce_ensure_cleanup(self):
+        substrate_account = GCEAccount('client')
+        self.assertEqual([], substrate_account.ensure_cleanup([]))
+
+    def test_maas_ensure_cleanup(self):
+        substrate_account = MAASAccount('profile', 'url', 'oauth')
+        self.assertEqual([], substrate_account.ensure_cleanup([]))

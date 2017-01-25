@@ -62,6 +62,7 @@ from substrate import (
     start_libvirt_domain,
     stop_libvirt_domain,
     verify_libvirt_domain,
+    make_substrate_manager,
 )
 from utility import (
     add_basic_testing_arguments,
@@ -659,6 +660,44 @@ class BootstrapManager:
         self.controller_strategy = controller_strategy
         self.logged_exception_exit = logged_exception_exit
         self.has_controller = False
+        self.resource_details = None
+
+    def ensure_cleanup(self):
+        """
+        Ensure any required cleanup for the current substrate is done.
+        returns list of resource cleanup errors.
+        """
+        if self.resource_details is not None:
+            with make_substrate_manager(self.client.env) as substrate:
+                if substrate is not None:
+                    return substrate.ensure_cleanup(self.resource_details)
+                logging.warning(
+                    '{} is an unknown provider.'
+                    ' Unable to ensure cleanup.'.format(
+                        self.client.env.provider))
+        return []
+
+    def collect_resource_details(self):
+        """
+        Collect and store resource information for the bootstrapped instance.
+        """
+        resource_details = {}
+        try:
+            controller_uuid = self.client.get_controller_uuid()
+            resource_details['controller-uuid'] = controller_uuid
+        except Exception:
+            logging.debug('Unable to retrieve controller uuid.')
+
+        try:
+            members = self.client.get_controller_members()
+            resource_details['instances'] = [
+                (m.info['instance-id'], m.info['dns-name'])
+                for m in members]
+        except Exception:
+            logging.debug('Unable to retrieve members list.')
+
+        if resource_details:
+            self.resource_details = resource_details
 
     @property
     def client(self):
@@ -901,7 +940,10 @@ class BootstrapManager:
                     except KeyboardInterrupt:
                         pass
                     if not self.keep_env:
+                        if self.has_controller:
+                            self.collect_resource_details()
                         self.tear_down(self.jes_enabled)
+                        self.ensure_cleanup()
 
     # GZ 2016-08-11: Should this method be elsewhere to avoid poking backend?
     def _should_dump(self):

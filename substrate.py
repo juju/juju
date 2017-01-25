@@ -160,6 +160,15 @@ class AWSAccount:
                     break
         return unclean
 
+    def ensure_cleanup(self, resource_details):
+        """
+        Do AWS specific clean-up activity.
+        :param resource_details: The list of resource to be cleaned up
+        :return: list of resources that were not cleaned up
+        """
+        uncleaned_resource = []
+        return uncleaned_resource
+
 
 class OpenStackAccount:
     """Represent the credentials/region of an OpenStack account."""
@@ -222,6 +231,15 @@ class OpenStackAccount:
         return ((k, v) for k, v in self.iter_security_groups()
                 if v in group_names)
 
+    def ensure_cleanup(self, resource_details):
+        """
+        Do OpenStack specific clean-up activity.
+        :param resource_details: The list of resource to be cleaned up
+        :return: list of resources that were not cleaned up
+        """
+        uncleaned_resource = []
+        return uncleaned_resource
+
 
 class JoyentAccount:
     """Represent a Joyent account."""
@@ -272,6 +290,15 @@ class JoyentAccount:
             raise Exception('Instance did not stop: {}'.format(machine_id))
         log.info('Terminating instance {}'.format(machine_id))
         self.client.delete_machine(machine_id)
+
+    def ensure_cleanup(self, resource_details):
+        """
+        Do Joyent specific clean-up activity.
+        :param resource_details: The list of resource to be cleaned up
+        :return: list of resources that were not cleaned up
+        """
+        uncleaned_resource = []
+        return uncleaned_resource
 
 
 def convert_to_azure_ids(client, instance_ids):
@@ -332,6 +359,15 @@ class GCEAccount:
                 raise Exception('Failed to delete {}: deleted {}'.format(
                     instance_id, count))
 
+    def ensure_cleanup(self, resource_details):
+        """
+        Do GCE specific clean-up activity.
+        :param resource_details: The list of resource to be cleaned up
+        :return: list of resources that were not cleaned up
+        """
+        uncleaned_resource = []
+        return uncleaned_resource
+
 
 class AzureARMAccount:
     """Represent an Azure ARM Account."""
@@ -382,6 +418,15 @@ class AzureARMAccount:
         for instance_id in instance_ids:
             winazurearm.delete_instance(
                 self.arm_client, instance_id, resource_group=None)
+
+    def ensure_cleanup(self, resource_details):
+        """
+        Do AzureARM specific clean-up activity.
+        :param resource_details: The list of resource to be cleaned up
+        :return: list of resources that were not cleaned up
+        """
+        uncleaned_resource = []
+        return uncleaned_resource
 
 
 class AzureAccount:
@@ -477,6 +522,15 @@ class AzureAccount:
         """
         with self.terminate_instances_cxt(instance_ids):
             return
+
+    def ensure_cleanup(self, resource_details):
+        """
+        Do Azure specific clean-up activity.
+        :param resource_details: The list of resource to be cleaned up
+        :return: list of resources that were not cleaned up
+        """
+        uncleaned_resource = []
+        return uncleaned_resource
 
 
 class MAASAccount:
@@ -696,6 +750,15 @@ class MAASAccount:
         return self._maas(
             self.profile, 'subnet', 'delete', str(subnet_id))
 
+    def ensure_cleanup(self, resource_details):
+        """
+        Do MAAS specific clean-up activity.
+        :param resource_details: The list of resource to be cleaned up
+        :return: list of resources that were not cleaned up
+        """
+        uncleaned_resource = []
+        return uncleaned_resource
+
 
 class MAAS1Account(MAASAccount):
     """Represent a MAAS 1.X account."""
@@ -750,6 +813,15 @@ class LXDAccount:
             if self.remote:
                 instance_id = '{}:{}'.format(self.remote, instance_id)
             subprocess.check_call(['lxc', 'delete', '--force', instance_id])
+
+    def ensure_cleanup(self, resource_details):
+        """
+        Do LXD specific clean-up activity.
+        :param resource_details: The list of resource to be cleaned up
+        :return: list of resources that were not cleaned up
+        """
+        uncleaned_resource = []
+        return uncleaned_resource
 
 
 def get_config(boot_config):

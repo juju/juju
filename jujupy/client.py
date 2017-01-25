@@ -2182,8 +2182,8 @@ class ModelClient:
         name = self.env.controller.name
         output_yaml = self.get_juju_output(
             'show-controller',
-            '--format', 'yaml',
             name,
+            '--format', 'yaml',
             include_e=False)
         output = yaml.safe_load(output_yaml)
         return output[name]['details']['uuid']

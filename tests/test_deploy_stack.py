@@ -20,6 +20,7 @@ from mock import (
     call,
     MagicMock,
     patch,
+    Mock,
     )
 import yaml
 
@@ -69,6 +70,7 @@ from jujupy import (
     SimpleEnvironment,
     SoftDeadlineExceeded,
     Status,
+    Machine,
     )
 from remote import (
     _Remote,
@@ -2177,6 +2179,86 @@ class TestBootstrapManager(FakeHomeTestCase):
                     pass
         self.assertEqual(djt_mock.call_count, 0)
 
+    def test_collect_resource_details_collects_expected_details(self):
+        controller_uuid = 'eb67e1eb-6c54-45f5-8b6a-b6243be97202'
+        members = [
+            Machine('0', {'dns-name': '10.0.0.0',
+                          'instance-id': 'juju-aaaa-machine-0'}),
+            Machine('1', {'dns-name': '10.0.0.1',
+                          'instance-id': 'juju-dddd-machine-1'}),
+        ]
+        client = fake_juju_client()
+        bs_manager = BootstrapManager(
+            'foobar', client, client, None, [], None, None, None, None,
+            client.env.juju_home, False, False, False)
+        result = {
+            'controller-uuid': controller_uuid,
+            'instances': [(m.info['instance-id'], m.info['dns-name'])
+                          for m in members]
+        }
+
+        with patch.object(client, 'get_controller_uuid', autospec=True,
+                          return_value=controller_uuid):
+            with patch.object(client, 'get_controller_members', autospec=True,
+                              return_value=members):
+                bs_manager.collect_resource_details()
+                self.assertEqual(bs_manager.resource_details, result)
+
+    def test_ensure_cleanup(self):
+        client = fake_juju_client()
+        with temp_dir() as root:
+            log_dir = os.path.join(root, 'log-dir')
+            os.mkdir(log_dir)
+            bs_manager = BootstrapManager(
+                'controller', client, client,
+                None, [], None, None, None, None, log_dir, False,
+                True, True)
+            mock_substrate = Mock()
+            mock_details = {}
+            with patch('deploy_stack.make_substrate_manager', autospec=True)\
+                    as msm:
+                msm.return_value.__enter__.return_value = mock_substrate
+                bs_manager.resource_details = mock_details
+                bs_manager.ensure_cleanup()
+            mock_substrate.ensure_cleanup.assert_called_once_with(
+                mock_details)
+            msm.assert_called_once_with(client.env)
+
+    def test_ensure_cleanup_resource_details_empty(self):
+        client = fake_juju_client()
+        with temp_dir() as root:
+            log_dir = os.path.join(root, 'log-dir')
+            os.mkdir(log_dir)
+            bs_manager = BootstrapManager(
+                'controller', client, client,
+                None, [], None, None, None, None, log_dir, False,
+                True, True)
+            with patch('deploy_stack.make_substrate_manager', autospec=True) \
+                    as msm:
+                rl = bs_manager.ensure_cleanup()
+                self.assertEquals(0, msm.call_count)
+                self.assertEquals(rl, [])
+
+    def test_ensure_cleanup_substrate_none(self):
+        client = fake_juju_client()
+        with temp_dir() as root:
+            log_dir = os.path.join(root, 'log-dir')
+            os.mkdir(log_dir)
+            bs_manager = BootstrapManager(
+                'controller', client, client,
+                None, [], None, None, None, None, log_dir, False,
+                True, True)
+            mock_details = {}
+            bs_manager.resource_details = mock_details
+            with patch('deploy_stack.make_substrate_manager', autospec=True)\
+                    as msm:
+                msm.return_value.__enter__.return_value = None
+                rl = bs_manager.ensure_cleanup()
+                self.assertIn("foo is an unknown provider."
+                              " Unable to ensure cleanup",
+                              self.log_stream.getvalue())
+                self.assertEquals(rl, [])
+
 
 class TestBootContext(FakeHomeTestCase):
 
@@ -2190,6 +2272,9 @@ class TestBootContext(FakeHomeTestCase):
             patch('deploy_stack.BootstrapManager.dump_all_logs'))
         self.addContext(patch('deploy_stack.get_machine_dns_name',
                               return_value='foo', autospec=True))
+        self.addContext(patch(
+            'deploy_stack.BootstrapManager.collect_resource_details',
+            autospec=True))
         if isinstance(client, EnvJujuClient1X):
             models = []
         else:
