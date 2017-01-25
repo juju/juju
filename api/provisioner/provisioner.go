@@ -271,6 +271,7 @@ func (st *State) HostChangesForContainer(containerTag names.MachineTag) ([]netwo
 	for i, bridgeInfo := range newBridges {
 		res[i].BridgeName = bridgeInfo.BridgeName
 		res[i].DeviceName = bridgeInfo.HostDeviceName
+		res[i].BondRaiseDelay = bridgeInfo.BondRaiseDelay
 	}
 	return res, nil
 }

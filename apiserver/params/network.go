@@ -137,6 +137,7 @@ type NetworkConfig struct {
 type DeviceBridgeInfo struct {
 	HostDeviceName string `json:"host-device-name"`
 	BridgeName     string `json:"bridge-name"`
+	BondRaiseDelay int    `json:"bond-raise-delay"`
 }
 
 // ProviderInterfaceInfoResults holds the results of a

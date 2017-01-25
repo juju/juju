@@ -327,8 +327,12 @@ type DeviceToBridge struct {
 	// be bridged.
 	DeviceName string
 
-	// BridgeName is the name of the bride that we want created.
+	// BridgeName is the name of the bridge that we want created.
 	BridgeName string
+
+	// BondRaiseDelay is the duration to sleep (in seconds) before
+	// bringing the bridged interface up.
+	BondRaiseDelay int
 }
 
 // LXCNetDefaultConfig is the location of the default network config
