@@ -288,7 +288,25 @@ var defaultConfigValues = map[string]interface{}{
 	IgnoreMachineAddresses:       false,
 	"ssl-hostname-verification":  true,
 	"proxy-ssh":                  false,
-	BondReconfigureDelayKey:      17,
+
+	// Why is bond-reconfigure-delay set to 17 seconds?
+	//
+	// The value represents the amount of time in seconds to sleep
+	// between ifdown and ifup when bridging bonded interfaces;
+	// this is a platform bug and all of this can go away when bug
+	// #1657579 (and #1594855 and #1269921) are fixed.
+	//
+	// For a long time the bridge script hardcoded a value of 3s
+	// but some setups now require an even longer period. The last
+	// reported issue was fixed with a 10s timeout, however, we're
+	// increasing that because this issue (and solution) is not
+	// very discoverable and we would like bridging to work
+	// out-of-the-box.
+	//
+	// This value can be further tweaked via:
+	//
+	// $ juju model-config bond-reconfigure-delay=30
+	BondReconfigureDelayKey: 17,
 
 	"default-series":           series.LatestLts(),
 	ProvisionerHarvestModeKey:  HarvestDestroyed.String(),
