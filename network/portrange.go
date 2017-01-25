@@ -196,18 +196,3 @@ func parsePortRange(portRange string) (PortRange, error) {
 	}
 	return result, nil
 }
-
-// ParsePortRanges splits the provided string on commas and extracts a
-// PortRange from each part of the split string. Whitespace is ignored.
-// Example strings: "80/tcp", "80,443,1234/udp", "123-456, 25/tcp".
-func ParsePortRanges(inPortRanges string) ([]PortRange, error) {
-	var portRanges []PortRange
-	for _, portRange := range strings.Split(inPortRanges, ",") {
-		portRange, err := ParsePortRange(strings.TrimSpace(portRange))
-		if err != nil {
-			return portRanges, errors.Trace(err)
-		}
-		portRanges = append(portRanges, portRange)
-	}
-	return portRanges, nil
-}

@@ -844,7 +844,6 @@ func (env *azureEnviron) waitCommonResourcesCreatedLocked() error {
 		MaxDuration: 5 * time.Minute,
 		Clock:       env.provider.config.RetryClock,
 	})
-	return errors.Errorf("timed out waiting for common resources to be created")
 }
 
 // createAvailabilitySet creates the availability set for a machine to use
@@ -1406,18 +1405,18 @@ var errNoFwGlobal = errors.New("global firewall mode is not supported")
 
 // OpenPorts is specified in the Environ interface. However, Azure does not
 // support the global firewall mode.
-func (env *azureEnviron) OpenPorts(ports []jujunetwork.PortRange) error {
+func (env *azureEnviron) OpenPorts(ports []jujunetwork.IngressRule) error {
 	return errNoFwGlobal
 }
 
 // ClosePorts is specified in the Environ interface. However, Azure does not
 // support the global firewall mode.
-func (env *azureEnviron) ClosePorts(ports []jujunetwork.PortRange) error {
+func (env *azureEnviron) ClosePorts(ports []jujunetwork.IngressRule) error {
 	return errNoFwGlobal
 }
 
 // Ports is specified in the Environ interface.
-func (env *azureEnviron) Ports() ([]jujunetwork.PortRange, error) {
+func (env *azureEnviron) IngressRules() ([]jujunetwork.IngressRule, error) {
 	return nil, errNoFwGlobal
 }
 

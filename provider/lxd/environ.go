@@ -157,12 +157,12 @@ func (env *environ) BootstrapMessage() string {
 // Destroy shuts down all known machines and destroys the rest of the
 // known environment.
 func (env *environ) Destroy() error {
-	ports, err := env.Ports()
+	rules, err := env.IngressRules()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if len(ports) > 0 {
-		if err := env.ClosePorts(ports); err != nil {
+	if len(rules) > 0 {
+		if err := env.ClosePorts(rules); err != nil {
 			return errors.Trace(err)
 		}
 	}

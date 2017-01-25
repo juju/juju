@@ -47,7 +47,7 @@ github.com/juju/terms-client	git	9b925afd677234e4146dde3cb1a11e187cbed64e	2016-0
 github.com/juju/testing	git	5ea77166c8c6a8f56f258565288c4714aa399283	2016-11-24T00:43:14Z
 github.com/juju/txn	git	28898197906200d603394d8e4ce537436529f1c5	2016-11-16T04:07:55Z
 github.com/juju/usso	git	68a59c96c178fbbad65926e7f93db50a2cd14f33	2016-04-01T10:44:24Z
-github.com/juju/utils	git	e5eb4d99a51c3ded8e4e8bdfe527260ceeec997d	2017-01-16T11:32:47Z
+github.com/juju/utils	git	184c22068b8b8bfc5faf83b1acef9343f5f8da77	2016-11-22T15:00:28Z
 github.com/juju/version	git	1f41e27e54f21acccf9b2dddae063a782a8a7ceb	2016-10-31T05:19:06Z
 github.com/juju/webbrowser	git	54b8c57083b4afb7dc75da7f13e2967b2606a507	2016-03-09T14:36:29Z
 github.com/juju/xml	git	eb759a627588d35166bc505fceb51b88500e291e	2015-04-13T13:11:21Z
@@ -98,3 +98,8 @@ gopkg.in/tomb.v1	git	dd632973f1e7218eb1089048e0798ec9ae7dceb8	2014-10-24T13:56:1
 gopkg.in/yaml.v1	git	9f9df34309c04878acc86042b16630b0f696e1de	2014-09-24T16:16:07Z
 gopkg.in/yaml.v2	git	a83829b6f1293c91addabc89d0571c246397bbf4	2016-03-01T20:40:22Z
 golang.org/x/text	git	2910a502d2bf9e43193af9d68ca516529614eed3	2016-07-26T16:48:57Z
+github.com/masterzen/azure-sdk-for-go	git	ee4f0065d00cd12b542f18f5bc45799e88163b12	2016-07-20T05:16:58Z
+github.com/masterzen/simplexml	git	4572e39b1ab9fe03ee513ce6fc7e289e98482190	2016-06-08T18:30:07Z
+github.com/masterzen/winrm	git	7a535cd943fccaeed196718896beec3fb51aff41	2016-08-04T09:38:27Z
+github.com/masterzen/xmlpath	git	13f4951698adc0fa9c1dda3e275d489a24201161	2014-02-18T18:59:01Z
+github.com/nu7hatch/gouuid	git	179d4d0c4d8d407a32af483c2354df1d2c91e6c3	2016-05-03T22:05:32Z

@@ -190,17 +190,17 @@ func (e *fakeEnviron) DestroyController(controllerUUID string) error {
 	return nil
 }
 
-func (e *fakeEnviron) OpenPorts(ports []network.PortRange) error {
-	e.Push("OpenPorts", ports)
+func (e *fakeEnviron) OpenPorts(rules []network.IngressRule) error {
+	e.Push("OpenPorts", rules)
 	return nil
 }
 
-func (e *fakeEnviron) ClosePorts(ports []network.PortRange) error {
-	e.Push("ClosePorts", ports)
+func (e *fakeEnviron) ClosePorts(rules []network.IngressRule) error {
+	e.Push("ClosePorts", rules)
 	return nil
 }
 
-func (e *fakeEnviron) Ports() ([]network.PortRange, error) {
+func (e *fakeEnviron) IngressRules() ([]network.IngressRule, error) {
 	e.Push("Ports")
 	return nil, nil
 }
@@ -253,13 +253,13 @@ func (e *fakeConfigurator) ConfigureExternalIpAddress(apiPort int) error {
 	return nil
 }
 
-func (e *fakeConfigurator) ChangePorts(ipAddress string, insert bool, ports []network.PortRange) error {
-	e.Push("ChangePorts", ipAddress, insert, ports)
+func (e *fakeConfigurator) ChangeIngressRules(ipAddress string, insert bool, rules []network.IngressRule) error {
+	e.Push("ChangeIngressRules", ipAddress, insert, rules)
 	return nil
 }
 
-func (e *fakeConfigurator) FindOpenPorts() ([]network.PortRange, error) {
-	e.Push("FindOpenPorts")
+func (e *fakeConfigurator) FindIngressRules() ([]network.IngressRule, error) {
+	e.Push("FindIngressRules")
 	return nil, nil
 }
 
@@ -314,17 +314,17 @@ func (e *fakeInstance) Addresses() ([]network.Address, error) {
 	}}, nil
 }
 
-func (e *fakeInstance) OpenPorts(machineId string, ports []network.PortRange) error {
+func (e *fakeInstance) OpenPorts(machineId string, ports []network.IngressRule) error {
 	e.Push("OpenPorts", machineId, ports)
 	return nil
 }
 
-func (e *fakeInstance) ClosePorts(machineId string, ports []network.PortRange) error {
+func (e *fakeInstance) ClosePorts(machineId string, ports []network.IngressRule) error {
 	e.Push("ClosePorts", machineId, ports)
 	return nil
 }
 
-func (e *fakeInstance) Ports(machineId string) ([]network.PortRange, error) {
+func (e *fakeInstance) IngressRules(machineId string) ([]network.IngressRule, error) {
 	e.Push("Ports", machineId)
 	return nil, nil
 }

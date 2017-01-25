@@ -195,14 +195,14 @@ type OpOpenPorts struct {
 	Env        string
 	MachineId  string
 	InstanceId instance.Id
-	Ports      []network.PortRange
+	Rules      []network.IngressRule
 }
 
 type OpClosePorts struct {
 	Env        string
 	MachineId  string
 	InstanceId instance.Id
-	Ports      []network.PortRange
+	Rules      []network.IngressRule
 }
 
 type OpPutFile struct {
@@ -239,7 +239,7 @@ type environState struct {
 	maxId          int // maximum instance id allocated so far.
 	maxAddr        int // maximum allocated address last byte
 	insts          map[instance.Id]*dummyInstance
-	globalPorts    map[network.PortRange]bool
+	globalRules    network.IngressRuleSlice
 	bootstrapped   bool
 	apiListener    net.Listener
 	apiServer      *apiserver.Server
@@ -416,7 +416,6 @@ func newState(name string, ops chan<- Operation, newStatePolicy state.NewPolicyF
 		ops:            ops,
 		newStatePolicy: newStatePolicy,
 		insts:          make(map[instance.Id]*dummyInstance),
-		globalPorts:    make(map[network.PortRange]bool),
 		creator:        string(buf),
 	}
 	return s
@@ -729,7 +728,6 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 	i := &dummyInstance{
 		id:           BootstrapInstanceId,
 		addresses:    network.NewAddresses("localhost"),
-		ports:        make(map[network.PortRange]bool),
 		machineId:    agent.BootstrapMachineId,
 		series:       series,
 		firewallMode: e.Config().FirewallMode(),
@@ -1002,7 +1000,6 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 	i := &dummyInstance{
 		id:           instance.Id(idString),
 		addresses:    addrs,
-		ports:        make(map[network.PortRange]bool),
 		machineId:    machineId,
 		series:       series,
 		firewallMode: e.Config().FirewallMode(),
@@ -1393,7 +1390,7 @@ func (e *environ) AllInstances() ([]instance.Instance, error) {
 	return insts, nil
 }
 
-func (e *environ) OpenPorts(ports []network.PortRange) error {
+func (e *environ) OpenPorts(rules []network.IngressRule) error {
 	if mode := e.ecfg().FirewallMode(); mode != config.FwGlobal {
 		return fmt.Errorf("invalid firewall mode %q for opening ports on model", mode)
 	}
@@ -1403,13 +1400,25 @@ func (e *environ) OpenPorts(ports []network.PortRange) error {
 	}
 	estate.mu.Lock()
 	defer estate.mu.Unlock()
-	for _, p := range ports {
-		estate.globalPorts[p] = true
+	for _, r := range rules {
+		if len(r.SourceCIDRs) == 0 {
+			r.SourceCIDRs = []string{"0.0.0.0/0"}
+		}
+		found := false
+		for _, rule := range estate.globalRules {
+			if r.String() == rule.String() {
+				found = true
+			}
+		}
+		if !found {
+			estate.globalRules = append(estate.globalRules, r)
+		}
 	}
+
 	return nil
 }
 
-func (e *environ) ClosePorts(ports []network.PortRange) error {
+func (e *environ) ClosePorts(rules []network.IngressRule) error {
 	if mode := e.ecfg().FirewallMode(); mode != config.FwGlobal {
 		return fmt.Errorf("invalid firewall mode %q for closing ports on model", mode)
 	}
@@ -1419,15 +1428,19 @@ func (e *environ) ClosePorts(ports []network.PortRange) error {
 	}
 	estate.mu.Lock()
 	defer estate.mu.Unlock()
-	for _, p := range ports {
-		delete(estate.globalPorts, p)
+	for _, r := range rules {
+		for i, rule := range estate.globalRules {
+			if r.String() == rule.String() {
+				estate.globalRules = estate.globalRules[:i+copy(estate.globalRules[i:], estate.globalRules[i+1:])]
+			}
+		}
 	}
 	return nil
 }
 
-func (e *environ) Ports() (ports []network.PortRange, err error) {
+func (e *environ) IngressRules() (rules []network.IngressRule, err error) {
 	if mode := e.ecfg().FirewallMode(); mode != config.FwGlobal {
-		return nil, fmt.Errorf("invalid firewall mode %q for retrieving ports from model", mode)
+		return nil, fmt.Errorf("invalid firewall mode %q for retrieving ingress rules from model", mode)
 	}
 	estate, err := e.state()
 	if err != nil {
@@ -1435,10 +1448,10 @@ func (e *environ) Ports() (ports []network.PortRange, err error) {
 	}
 	estate.mu.Lock()
 	defer estate.mu.Unlock()
-	for p := range estate.globalPorts {
-		ports = append(ports, p)
+	for _, r := range estate.globalRules {
+		rules = append(rules, r)
 	}
-	network.SortPortRanges(ports)
+	network.SortIngressRules(rules)
 	return
 }
 
@@ -1448,7 +1461,7 @@ func (*environ) Provider() environs.EnvironProvider {
 
 type dummyInstance struct {
 	state        *environState
-	ports        map[network.PortRange]bool
+	rules        network.IngressRuleSlice
 	id           instance.Id
 	status       string
 	machineId    string
@@ -1530,9 +1543,9 @@ func (inst *dummyInstance) Addresses() ([]network.Address, error) {
 	return append([]network.Address{}, inst.addresses...), nil
 }
 
-func (inst *dummyInstance) OpenPorts(machineId string, ports []network.PortRange) error {
+func (inst *dummyInstance) OpenPorts(machineId string, rules []network.IngressRule) error {
 	defer delay()
-	logger.Infof("openPorts %s, %#v", machineId, ports)
+	logger.Infof("openPorts %s, %#v", machineId, rules)
 	if inst.firewallMode != config.FwInstance {
 		return fmt.Errorf("invalid firewall mode %q for opening ports on instance",
 			inst.firewallMode)
@@ -1549,15 +1562,26 @@ func (inst *dummyInstance) OpenPorts(machineId string, ports []network.PortRange
 		Env:        inst.state.name,
 		MachineId:  machineId,
 		InstanceId: inst.Id(),
-		Ports:      ports,
+		Rules:      rules,
 	}
-	for _, p := range ports {
-		inst.ports[p] = true
+	for _, r := range rules {
+		if len(r.SourceCIDRs) == 0 {
+			r.SourceCIDRs = []string{"0.0.0.0/0"}
+		}
+		found := false
+		for _, rule := range inst.rules {
+			if r.String() == rule.String() {
+				found = true
+			}
+		}
+		if !found {
+			inst.rules = append(inst.rules, r)
+		}
 	}
 	return nil
 }
 
-func (inst *dummyInstance) ClosePorts(machineId string, ports []network.PortRange) error {
+func (inst *dummyInstance) ClosePorts(machineId string, rules []network.IngressRule) error {
 	defer delay()
 	if inst.firewallMode != config.FwInstance {
 		return fmt.Errorf("invalid firewall mode %q for closing ports on instance",
@@ -1575,32 +1599,36 @@ func (inst *dummyInstance) ClosePorts(machineId string, ports []network.PortRang
 		Env:        inst.state.name,
 		MachineId:  machineId,
 		InstanceId: inst.Id(),
-		Ports:      ports,
+		Rules:      rules,
 	}
-	for _, p := range ports {
-		delete(inst.ports, p)
+	for _, r := range rules {
+		for i, rule := range inst.rules {
+			if r.String() == rule.String() {
+				inst.rules = inst.rules[:i+copy(inst.rules[i:], inst.rules[i+1:])]
+			}
+		}
 	}
 	return nil
 }
 
-func (inst *dummyInstance) Ports(machineId string) (ports []network.PortRange, err error) {
+func (inst *dummyInstance) IngressRules(machineId string) (rules []network.IngressRule, err error) {
 	defer delay()
 	if inst.firewallMode != config.FwInstance {
-		return nil, fmt.Errorf("invalid firewall mode %q for retrieving ports from instance",
+		return nil, fmt.Errorf("invalid firewall mode %q for retrieving ingress rules from instance",
 			inst.firewallMode)
 	}
 	if inst.machineId != machineId {
-		panic(fmt.Errorf("Ports with mismatched machine id, expected %q got %q", inst.machineId, machineId))
+		panic(fmt.Errorf("Rules with mismatched machine id, expected %q got %q", inst.machineId, machineId))
 	}
 	inst.state.mu.Lock()
 	defer inst.state.mu.Unlock()
-	if err := inst.checkBroken("Ports"); err != nil {
+	if err := inst.checkBroken("IngressRules"); err != nil {
 		return nil, err
 	}
-	for p := range inst.ports {
-		ports = append(ports, p)
+	for _, r := range inst.rules {
+		rules = append(rules, r)
 	}
-	network.SortPortRanges(ports)
+	network.SortIngressRules(rules)
 	return
 }
 

@@ -206,7 +206,7 @@ func MakeCredentials(c *gc.C, endpoint string, cloudCredential cloud.Credential)
 	return creds
 }
 
-var GetPorts = getPorts
+var GetPorts = getRules
 
 var CreateFirewallRuleAll = createFirewallRuleAll
 

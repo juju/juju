@@ -1367,20 +1367,13 @@ func (a *MachineAgent) ensureMongoServer(agentConfig agent.Config) (err error) {
 		}
 	}()
 
-	mongoInstalled, err := mongo.IsServiceInstalled()
+	// EnsureMongoServer installs/upgrades the init config as necessary.
+	ensureServerParams, err := cmdutil.NewEnsureServerParams(agentConfig)
 	if err != nil {
-		return errors.Annotate(err, "error while checking if mongodb service is installed")
+		return err
 	}
-
-	if !mongoInstalled {
-		// EnsureMongoServer installs/upgrades the init config as necessary.
-		ensureServerParams, err := cmdutil.NewEnsureServerParams(agentConfig)
-		if err != nil {
-			return err
-		}
-		if err := cmdutil.EnsureMongoServer(ensureServerParams); err != nil {
-			return err
-		}
+	if err := cmdutil.EnsureMongoServer(ensureServerParams); err != nil {
+		return err
 	}
 	logger.Debugf("mongodb service is installed")
 

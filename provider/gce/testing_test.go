@@ -119,7 +119,7 @@ type BaseSuiteUnpatched struct {
 	StartInstArgs   environs.StartInstanceParams
 	InstanceType    instances.InstanceType
 
-	Ports []network.PortRange
+	Rules []network.IngressRule
 }
 
 var _ environs.Environ = (*environ)(nil)
@@ -214,11 +214,7 @@ func (s *BaseSuiteUnpatched) initInst(c *gc.C) {
 }
 
 func (s *BaseSuiteUnpatched) initNet(c *gc.C) {
-	s.Ports = []network.PortRange{{
-		FromPort: 80,
-		ToPort:   80,
-		Protocol: "tcp",
-	}}
+	s.Rules = []network.IngressRule{network.MustNewIngressRule("tcp", 80, 80)}
 }
 
 func (s *BaseSuiteUnpatched) setConfig(c *gc.C, cfg *config.Config) {
@@ -459,7 +455,7 @@ type fakeConnCall struct {
 	Statuses     []string
 	InstanceSpec google.InstanceSpec
 	FirewallName string
-	PortRanges   []network.PortRange
+	Rules        []network.IngressRule
 	Region       string
 	Disks        []google.DiskSpec
 	VolumeName   string
@@ -472,10 +468,10 @@ type fakeConnCall struct {
 type fakeConn struct {
 	Calls []fakeConnCall
 
-	Inst       *google.Instance
-	Insts      []google.Instance
-	PortRanges []network.PortRange
-	Zones      []google.AvailabilityZone
+	Inst  *google.Instance
+	Insts []google.Instance
+	Rules []network.IngressRule
+	Zones []google.AvailabilityZone
 
 	GoogleDisks   []*google.Disk
 	GoogleDisk    *google.Disk
@@ -546,28 +542,28 @@ func (fc *fakeConn) UpdateMetadata(key, value string, ids ...string) error {
 	return fc.err()
 }
 
-func (fc *fakeConn) Ports(fwname string) ([]network.PortRange, error) {
+func (fc *fakeConn) IngressRules(fwname string) ([]network.IngressRule, error) {
 	fc.Calls = append(fc.Calls, fakeConnCall{
 		FuncName:     "Ports",
 		FirewallName: fwname,
 	})
-	return fc.PortRanges, fc.err()
+	return fc.Rules, fc.err()
 }
 
-func (fc *fakeConn) OpenPorts(fwname string, ports ...network.PortRange) error {
+func (fc *fakeConn) OpenPorts(fwname string, rules ...network.IngressRule) error {
 	fc.Calls = append(fc.Calls, fakeConnCall{
 		FuncName:     "OpenPorts",
 		FirewallName: fwname,
-		PortRanges:   ports,
+		Rules:        rules,
 	})
 	return fc.err()
 }
 
-func (fc *fakeConn) ClosePorts(fwname string, ports ...network.PortRange) error {
+func (fc *fakeConn) ClosePorts(fwname string, rules ...network.IngressRule) error {
 	fc.Calls = append(fc.Calls, fakeConnCall{
 		FuncName:     "ClosePorts",
 		FirewallName: fwname,
-		PortRanges:   ports,
+		Rules:        rules,
 	})
 	return fc.err()
 }

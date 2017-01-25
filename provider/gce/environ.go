@@ -30,9 +30,9 @@ type gceConnection interface {
 	RemoveInstances(prefix string, ids ...string) error
 	UpdateMetadata(key, value string, ids ...string) error
 
-	Ports(fwname string) ([]network.PortRange, error)
-	OpenPorts(fwname string, ports ...network.PortRange) error
-	ClosePorts(fwname string, ports ...network.PortRange) error
+	IngressRules(fwname string) ([]network.IngressRule, error)
+	OpenPorts(fwname string, rules ...network.IngressRule) error
+	ClosePorts(fwname string, rules ...network.IngressRule) error
 
 	AvailabilityZones(region string) ([]google.AvailabilityZone, error)
 
@@ -194,12 +194,12 @@ func (env *environ) Bootstrap(ctx environs.BootstrapContext, params environs.Boo
 	// Ensure the API server port is open (globally for all instances
 	// on the network, not just for the specific node of the state
 	// server). See LP bug #1436191 for details.
-	ports := network.PortRange{
-		FromPort: params.ControllerConfig.APIPort(),
-		ToPort:   params.ControllerConfig.APIPort(),
-		Protocol: "tcp",
-	}
-	if err := env.gce.OpenPorts(env.globalFirewallName(), ports); err != nil {
+	rule := network.NewOpenIngressRule(
+		"tcp",
+		params.ControllerConfig.APIPort(),
+		params.ControllerConfig.APIPort(),
+	)
+	if err := env.gce.OpenPorts(env.globalFirewallName(), rule); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return bootstrap(ctx, env, params)
@@ -213,7 +213,7 @@ func (env *environ) BootstrapMessage() string {
 // Destroy shuts down all known machines and destroys the rest of the
 // known environment.
 func (env *environ) Destroy() error {
-	ports, err := env.Ports()
+	ports, err := env.IngressRules()
 	if err != nil {
 		return errors.Trace(err)
 	}

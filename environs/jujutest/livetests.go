@@ -306,88 +306,169 @@ func (t *LiveTests) TestPorts(c *gc.C) {
 	inst1, _ := jujutesting.AssertStartInstance(c, t.Env, t.ControllerUUID, "1")
 	c.Assert(inst1, gc.NotNil)
 	defer t.Env.StopInstances(inst1.Id())
-	ports, err := inst1.Ports("1")
+	rules, err := inst1.IngressRules("1")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ports, gc.HasLen, 0)
+	c.Assert(rules, gc.HasLen, 0)
 
 	inst2, _ := jujutesting.AssertStartInstance(c, t.Env, t.ControllerUUID, "2")
 	c.Assert(inst2, gc.NotNil)
-	ports, err = inst2.Ports("2")
+	rules, err = inst2.IngressRules("2")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ports, gc.HasLen, 0)
+	c.Assert(rules, gc.HasLen, 0)
 	defer t.Env.StopInstances(inst2.Id())
 
 	// Open some ports and check they're there.
-	err = inst1.OpenPorts("1", []network.PortRange{{67, 67, "udp"}, {45, 45, "tcp"}, {80, 100, "tcp"}})
-	c.Assert(err, jc.ErrorIsNil)
-	ports, err = inst1.Ports("1")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ports, gc.DeepEquals, []network.PortRange{{45, 45, "tcp"}, {80, 100, "tcp"}, {67, 67, "udp"}})
-	ports, err = inst2.Ports("2")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ports, gc.HasLen, 0)
+	err = inst1.OpenPorts(
+		"1", []network.IngressRule{
+			network.MustNewIngressRule("udp", 67, 67),
+			network.MustNewIngressRule("tcp", 45, 45),
+			network.MustNewIngressRule("tcp", 80, 100),
+		})
 
-	err = inst2.OpenPorts("2", []network.PortRange{{89, 89, "tcp"}, {45, 45, "tcp"}, {20, 30, "tcp"}})
+	c.Assert(err, jc.ErrorIsNil)
+	rules, err = inst1.IngressRules("1")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(
+		rules, jc.DeepEquals,
+		[]network.IngressRule{
+			network.MustNewIngressRule("tcp", 45, 45, "0.0.0.0/0"),
+			network.MustNewIngressRule("tcp", 80, 100, "0.0.0.0/0"),
+			network.MustNewIngressRule("udp", 67, 67, "0.0.0.0/0"),
+		},
+	)
+	rules, err = inst2.IngressRules("2")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(rules, gc.HasLen, 0)
+
+	err = inst2.OpenPorts(
+		"2", []network.IngressRule{
+			network.MustNewIngressRule("tcp", 89, 89),
+			network.MustNewIngressRule("tcp", 45, 45),
+			network.MustNewIngressRule("tcp", 20, 30),
+		})
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check there's no crosstalk to another machine
-	ports, err = inst2.Ports("2")
+	rules, err = inst2.IngressRules("2")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ports, gc.DeepEquals, []network.PortRange{{20, 30, "tcp"}, {45, 45, "tcp"}, {89, 89, "tcp"}})
-	ports, err = inst1.Ports("1")
+	c.Assert(
+		rules, jc.DeepEquals,
+		[]network.IngressRule{
+			network.MustNewIngressRule("tcp", 20, 30, "0.0.0.0/0"),
+			network.MustNewIngressRule("tcp", 45, 45, "0.0.0.0/0"),
+			network.MustNewIngressRule("tcp", 89, 89, "0.0.0.0/0"),
+		},
+	)
+	rules, err = inst1.IngressRules("1")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ports, gc.DeepEquals, []network.PortRange{{45, 45, "tcp"}, {80, 100, "tcp"}, {67, 67, "udp"}})
+	c.Assert(
+		rules, jc.DeepEquals,
+		[]network.IngressRule{
+			network.MustNewIngressRule("tcp", 45, 45, "0.0.0.0/0"),
+			network.MustNewIngressRule("tcp", 80, 100, "0.0.0.0/0"),
+			network.MustNewIngressRule("udp", 67, 67, "0.0.0.0/0"),
+		},
+	)
 
 	// Check that opening the same port again is ok.
-	oldPorts, err := inst2.Ports("2")
+	oldRules, err := inst2.IngressRules("2")
 	c.Assert(err, jc.ErrorIsNil)
-	err = inst2.OpenPorts("2", []network.PortRange{{45, 45, "tcp"}})
+	err = inst2.OpenPorts(
+		"2", []network.IngressRule{
+			network.MustNewIngressRule("tcp", 45, 45),
+		})
 	c.Assert(err, jc.ErrorIsNil)
-	err = inst2.OpenPorts("2", []network.PortRange{{20, 30, "tcp"}})
+	err = inst2.OpenPorts(
+		"2", []network.IngressRule{
+			network.MustNewIngressRule("tcp", 20, 30),
+		})
 	c.Assert(err, jc.ErrorIsNil)
-	ports, err = inst2.Ports("2")
+	rules, err = inst2.IngressRules("2")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ports, gc.DeepEquals, oldPorts)
+	c.Assert(rules, jc.DeepEquals, oldRules)
 
 	// Check that opening the same port again and another port is ok.
-	err = inst2.OpenPorts("2", []network.PortRange{{45, 45, "tcp"}, {99, 99, "tcp"}})
+	err = inst2.OpenPorts(
+		"2", []network.IngressRule{
+			network.MustNewIngressRule("tcp", 45, 45),
+			network.MustNewIngressRule("tcp", 99, 99),
+		})
 	c.Assert(err, jc.ErrorIsNil)
-	ports, err = inst2.Ports("2")
+	rules, err = inst2.IngressRules("2")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ports, gc.DeepEquals, []network.PortRange{{20, 30, "tcp"}, {45, 45, "tcp"}, {89, 89, "tcp"}, {99, 99, "tcp"}})
-
-	err = inst2.ClosePorts("2", []network.PortRange{{45, 45, "tcp"}, {99, 99, "tcp"}, {20, 30, "tcp"}})
+	c.Assert(
+		rules, jc.DeepEquals,
+		[]network.IngressRule{
+			network.MustNewIngressRule("tcp", 20, 30, "0.0.0.0/0"),
+			network.MustNewIngressRule("tcp", 45, 45, "0.0.0.0/0"),
+			network.MustNewIngressRule("tcp", 89, 89, "0.0.0.0/0"),
+			network.MustNewIngressRule("tcp", 99, 99, "0.0.0.0/0"),
+		},
+	)
+	err = inst2.ClosePorts(
+		"2", []network.IngressRule{
+			network.MustNewIngressRule("tcp", 45, 45),
+			network.MustNewIngressRule("tcp", 99, 99),
+			network.MustNewIngressRule("tcp", 20, 30),
+		})
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check that we can close ports and that there's no crosstalk.
-	ports, err = inst2.Ports("2")
+	rules, err = inst2.IngressRules("2")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ports, gc.DeepEquals, []network.PortRange{{89, 89, "tcp"}})
-	ports, err = inst1.Ports("1")
+	c.Assert(
+		rules, jc.DeepEquals,
+		[]network.IngressRule{
+			network.MustNewIngressRule("tcp", 89, 89, "0.0.0.0/0"),
+		},
+	)
+	rules, err = inst1.IngressRules("1")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ports, gc.DeepEquals, []network.PortRange{{45, 45, "tcp"}, {80, 100, "tcp"}, {67, 67, "udp"}})
+	c.Assert(
+		rules, jc.DeepEquals,
+		[]network.IngressRule{
+			network.MustNewIngressRule("tcp", 45, 45, "0.0.0.0/0"),
+			network.MustNewIngressRule("tcp", 80, 100, "0.0.0.0/0"),
+			network.MustNewIngressRule("udp", 67, 67, "0.0.0.0/0"),
+		},
+	)
 
 	// Check that we can close multiple ports.
-	err = inst1.ClosePorts("1", []network.PortRange{{45, 45, "tcp"}, {67, 67, "udp"}, {80, 100, "tcp"}})
+	err = inst1.ClosePorts(
+		"1", []network.IngressRule{
+			network.MustNewIngressRule("tcp", 45, 45),
+			network.MustNewIngressRule("udp", 67, 67),
+			network.MustNewIngressRule("tcp", 80, 100),
+		})
 	c.Assert(err, jc.ErrorIsNil)
-	ports, err = inst1.Ports("1")
-	c.Assert(ports, gc.HasLen, 0)
+	rules, err = inst1.IngressRules("1")
+	c.Assert(rules, gc.HasLen, 0)
 
 	// Check that we can close ports that aren't there.
-	err = inst2.ClosePorts("2", []network.PortRange{{111, 111, "tcp"}, {222, 222, "udp"}, {600, 700, "tcp"}})
+	err = inst2.ClosePorts(
+		"2", []network.IngressRule{
+			network.MustNewIngressRule("tcp", 111, 111),
+			network.MustNewIngressRule("udp", 222, 222),
+			network.MustNewIngressRule("tcp", 600, 700),
+		})
 	c.Assert(err, jc.ErrorIsNil)
-	ports, err = inst2.Ports("2")
-	c.Assert(ports, gc.DeepEquals, []network.PortRange{{89, 89, "tcp"}})
+	rules, err = inst2.IngressRules("2")
+	c.Assert(
+		rules, jc.DeepEquals,
+		[]network.IngressRule{
+			network.MustNewIngressRule("tcp", 89, 89, "0.0.0.0/0"),
+		},
+	)
 
 	// Check errors when acting on environment.
-	err = t.Env.OpenPorts([]network.PortRange{{80, 80, "tcp"}})
+	err = t.Env.OpenPorts([]network.IngressRule{network.MustNewIngressRule("tcp", 80, 80)})
 	c.Assert(err, gc.ErrorMatches, `invalid firewall mode "instance" for opening ports on model`)
 
-	err = t.Env.ClosePorts([]network.PortRange{{80, 80, "tcp"}})
+	err = t.Env.ClosePorts([]network.IngressRule{network.MustNewIngressRule("tcp", 80, 80)})
 	c.Assert(err, gc.ErrorMatches, `invalid firewall mode "instance" for closing ports on model`)
 
-	_, err = t.Env.Ports()
-	c.Assert(err, gc.ErrorMatches, `invalid firewall mode "instance" for retrieving ports from model`)
+	_, err = t.Env.IngressRules()
+	c.Assert(err, gc.ErrorMatches, `invalid firewall mode "instance" for retrieving ingress rules from model`)
 }
 
 func (t *LiveTests) TestGlobalPorts(c *gc.C) {
@@ -410,48 +491,86 @@ func (t *LiveTests) TestGlobalPorts(c *gc.C) {
 	// Create instances and check open ports on both instances.
 	inst1, _ := jujutesting.AssertStartInstance(c, t.Env, t.ControllerUUID, "1")
 	defer t.Env.StopInstances(inst1.Id())
-	ports, err := t.Env.Ports()
+	rules, err := t.Env.IngressRules()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ports, gc.HasLen, 0)
+	c.Assert(rules, gc.HasLen, 0)
 
 	inst2, _ := jujutesting.AssertStartInstance(c, t.Env, t.ControllerUUID, "2")
-	ports, err = t.Env.Ports()
+	rules, err = t.Env.IngressRules()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ports, gc.HasLen, 0)
+	c.Assert(rules, gc.HasLen, 0)
 	defer t.Env.StopInstances(inst2.Id())
 
-	err = t.Env.OpenPorts([]network.PortRange{{67, 67, "udp"}, {45, 45, "tcp"}, {89, 89, "tcp"}, {99, 99, "tcp"}, {100, 110, "tcp"}})
+	err = t.Env.OpenPorts([]network.IngressRule{
+		network.MustNewIngressRule("udp", 67, 67),
+		network.MustNewIngressRule("tcp", 45, 45),
+		network.MustNewIngressRule("tcp", 89, 89),
+		network.MustNewIngressRule("tcp", 99, 99),
+		network.MustNewIngressRule("tcp", 100, 110),
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	ports, err = t.Env.Ports()
+	rules, err = t.Env.IngressRules()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ports, gc.DeepEquals, []network.PortRange{{45, 45, "tcp"}, {89, 89, "tcp"}, {99, 99, "tcp"}, {100, 110, "tcp"}, {67, 67, "udp"}})
+	c.Assert(
+		rules, jc.DeepEquals,
+		[]network.IngressRule{
+			network.MustNewIngressRule("tcp", 45, 45, "0.0.0.0/0"),
+			network.MustNewIngressRule("tcp", 89, 89, "0.0.0.0/0"),
+			network.MustNewIngressRule("tcp", 99, 99, "0.0.0.0/0"),
+			network.MustNewIngressRule("tcp", 100, 110, "0.0.0.0/0"),
+			network.MustNewIngressRule("udp", 67, 67, "0.0.0.0/0"),
+		},
+	)
 
 	// Check closing some ports.
-	err = t.Env.ClosePorts([]network.PortRange{{99, 99, "tcp"}, {67, 67, "udp"}})
+	err = t.Env.ClosePorts([]network.IngressRule{
+		network.MustNewIngressRule("tcp", 99, 99),
+		network.MustNewIngressRule("udp", 67, 67),
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	ports, err = t.Env.Ports()
+	rules, err = t.Env.IngressRules()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ports, gc.DeepEquals, []network.PortRange{{45, 45, "tcp"}, {89, 89, "tcp"}, {100, 110, "tcp"}})
+	c.Assert(
+		rules, jc.DeepEquals,
+		[]network.IngressRule{
+			network.MustNewIngressRule("tcp", 45, 45, "0.0.0.0/0"),
+			network.MustNewIngressRule("tcp", 89, 89, "0.0.0.0/0"),
+			network.MustNewIngressRule("tcp", 100, 110, "0.0.0.0/0"),
+		},
+	)
 
 	// Check that we can close ports that aren't there.
-	err = t.Env.ClosePorts([]network.PortRange{{111, 111, "tcp"}, {222, 222, "udp"}, {2000, 2500, "tcp"}})
+	err = t.Env.ClosePorts([]network.IngressRule{
+		network.MustNewIngressRule("tcp", 111, 111),
+		network.MustNewIngressRule("udp", 222, 222),
+		network.MustNewIngressRule("tcp", 2000, 2500),
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	ports, err = t.Env.Ports()
+	rules, err = t.Env.IngressRules()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ports, gc.DeepEquals, []network.PortRange{{45, 45, "tcp"}, {89, 89, "tcp"}, {100, 110, "tcp"}})
+	c.Assert(
+		rules, jc.DeepEquals,
+		[]network.IngressRule{
+			network.MustNewIngressRule("tcp", 45, 45, "0.0.0.0/0"),
+			network.MustNewIngressRule("tcp", 89, 89, "0.0.0.0/0"),
+			network.MustNewIngressRule("tcp", 100, 110, "0.0.0.0/0"),
+		},
+	)
 
 	// Check errors when acting on instances.
-	err = inst1.OpenPorts("1", []network.PortRange{{80, 80, "tcp"}})
+	err = inst1.OpenPorts(
+		"1", []network.IngressRule{network.MustNewIngressRule("tcp", 80, 80)})
 	c.Assert(err, gc.ErrorMatches, `invalid firewall mode "global" for opening ports on instance`)
 
-	err = inst1.ClosePorts("1", []network.PortRange{{80, 80, "tcp"}})
+	err = inst1.ClosePorts(
+		"1", []network.IngressRule{network.MustNewIngressRule("tcp", 80, 80)})
 	c.Assert(err, gc.ErrorMatches, `invalid firewall mode "global" for closing ports on instance`)
 
-	_, err = inst1.Ports("1")
-	c.Assert(err, gc.ErrorMatches, `invalid firewall mode "global" for retrieving ports from instance`)
+	_, err = inst1.IngressRules("1")
+	c.Assert(err, gc.ErrorMatches, `invalid firewall mode "global" for retrieving ingress rules from instance`)
 }
 
 func (t *LiveTests) TestBootstrapMultiple(c *gc.C) {

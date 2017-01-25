@@ -24,51 +24,51 @@ func (s *environNetSuite) TestGlobalFirewallName(c *gc.C) {
 }
 
 func (s *environNetSuite) TestOpenPorts(c *gc.C) {
-	err := s.Env.OpenPorts(s.Ports)
+	err := s.Env.OpenPorts(s.Rules)
 
 	c.Check(err, jc.ErrorIsNil)
 }
 
 func (s *environNetSuite) TestOpenPortsAPI(c *gc.C) {
 	fwname := gce.GlobalFirewallName(s.Env)
-	err := s.Env.OpenPorts(s.Ports)
+	err := s.Env.OpenPorts(s.Rules)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(s.FakeConn.Calls, gc.HasLen, 1)
 	c.Check(s.FakeConn.Calls[0].FuncName, gc.Equals, "OpenPorts")
 	c.Check(s.FakeConn.Calls[0].FirewallName, gc.Equals, fwname)
-	c.Check(s.FakeConn.Calls[0].PortRanges, jc.DeepEquals, s.Ports)
+	c.Check(s.FakeConn.Calls[0].Rules, jc.DeepEquals, s.Rules)
 }
 
 func (s *environNetSuite) TestClosePorts(c *gc.C) {
-	err := s.Env.ClosePorts(s.Ports)
+	err := s.Env.ClosePorts(s.Rules)
 
 	c.Check(err, jc.ErrorIsNil)
 }
 
 func (s *environNetSuite) TestClosePortsAPI(c *gc.C) {
 	fwname := gce.GlobalFirewallName(s.Env)
-	err := s.Env.ClosePorts(s.Ports)
+	err := s.Env.ClosePorts(s.Rules)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(s.FakeConn.Calls, gc.HasLen, 1)
 	c.Check(s.FakeConn.Calls[0].FuncName, gc.Equals, "ClosePorts")
 	c.Check(s.FakeConn.Calls[0].FirewallName, gc.Equals, fwname)
-	c.Check(s.FakeConn.Calls[0].PortRanges, jc.DeepEquals, s.Ports)
+	c.Check(s.FakeConn.Calls[0].Rules, jc.DeepEquals, s.Rules)
 }
 
 func (s *environNetSuite) TestPorts(c *gc.C) {
-	s.FakeConn.PortRanges = s.Ports
+	s.FakeConn.Rules = s.Rules
 
-	ports, err := s.Env.Ports()
+	ports, err := s.Env.IngressRules()
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(ports, jc.DeepEquals, s.Ports)
+	c.Check(ports, jc.DeepEquals, s.Rules)
 }
 
 func (s *environNetSuite) TestPortsAPI(c *gc.C) {
 	fwname := gce.GlobalFirewallName(s.Env)
-	_, err := s.Env.Ports()
+	_, err := s.Env.IngressRules()
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(s.FakeConn.Calls, gc.HasLen, 1)

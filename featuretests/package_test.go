@@ -52,7 +52,6 @@ func init() {
 	gc.Suite(&CmdRelationSuite{})
 	gc.Suite(&remoteRelationsSuite{})
 	gc.Suite(&crossmodelSuite{})
-	gc.Suite(&cmdAddCloudInteractiveSuite{})
 
 	// TODO (anastasiamac 2016-07-19) Bug#1603585
 	// These tests cannot run on windows - they require a bootstrapped controller.

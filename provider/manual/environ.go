@@ -361,15 +361,15 @@ func (e *manualEnviron) seriesAndHardwareCharacteristics() (_ *instance.Hardware
 	return e.hw, e.series, nil
 }
 
-func (e *manualEnviron) OpenPorts(ports []network.PortRange) error {
+func (e *manualEnviron) OpenPorts(rules []network.IngressRule) error {
 	return nil
 }
 
-func (e *manualEnviron) ClosePorts(ports []network.PortRange) error {
+func (e *manualEnviron) ClosePorts(rules []network.IngressRule) error {
 	return nil
 }
 
-func (e *manualEnviron) Ports() ([]network.PortRange, error) {
+func (e *manualEnviron) IngressRules() ([]network.IngressRule, error) {
 	return nil, nil
 }
 

@@ -323,17 +323,20 @@ type Firewaller interface {
 	// OpenPorts opens the given port ranges for the whole environment.
 	// Must only be used if the environment was setup with the
 	// FwGlobal firewall mode.
-	OpenPorts(ports []network.PortRange) error
+	OpenPorts(rules []network.IngressRule) error
 
 	// ClosePorts closes the given port ranges for the whole environment.
 	// Must only be used if the environment was setup with the
 	// FwGlobal firewall mode.
-	ClosePorts(ports []network.PortRange) error
+	ClosePorts(rules []network.IngressRule) error
 
-	// Ports returns the port ranges opened for the whole environment.
+	// IngressRules returns the ingress rules applied to the whole environment.
 	// Must only be used if the environment was setup with the
 	// FwGlobal firewall mode.
-	Ports() ([]network.PortRange, error)
+	// It is expected that there be only one ingress rule result for a given
+	// port range - the rule's SourceCIDRs will contain all applicable source
+	// address rules for that port range.
+	IngressRules() ([]network.IngressRule, error)
 }
 
 // InstanceTagger is an interface that can be used for tagging instances.
