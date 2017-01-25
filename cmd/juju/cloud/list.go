@@ -134,7 +134,11 @@ func listCloudDetails() (*cloudList, error) {
 	}
 
 	// Add in built in clouds like localhost (lxd).
-	for name, cloud := range common.BuiltInClouds() {
+	builtinClouds, err := common.BuiltInClouds()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	for name, cloud := range builtinClouds {
 		cloudDetails := makeCloudDetails(cloud)
 		cloudDetails.Source = "built-in"
 		details.builtin[name] = cloudDetails

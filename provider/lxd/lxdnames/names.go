@@ -7,6 +7,10 @@ package lxdnames
 // NOTE: this package exists to get around circular imports from cloud and
 // provider/lxd.
 
+// DefaultCloud is the name of the default lxd cloud, which corresponds to
+// the local lxd daemon.
+const DefaultCloud = "localhost"
+
 // DefaultRegion is the name of the only "region" we support in lxd currently,
 // which corresponds to the local lxd daemon.
 const DefaultRegion = "localhost"

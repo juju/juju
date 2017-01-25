@@ -121,7 +121,7 @@ type FinalizeCredentialContext interface {
 // FinalizeCredentialParams contains the parameters for
 // ProviderCredentials.FinalizeCredential.
 type FinalizeCredentialParams struct {
-	// Credential is the credential that the provider should finalize.`
+	// Credential is the credential that the provider should finalize.
 	Credential cloud.Credential
 
 	// CloudEndpoint is the endpoint for the cloud that the credentials are
@@ -135,10 +135,32 @@ type FinalizeCredentialParams struct {
 	CloudIdentityEndpoint string
 }
 
+// CloudDetector is an interface that an EnvironProvider implements
+// in order to automatically detect clouds from the environment.
+type CloudDetector interface {
+	// DetectCloud attempts to detect a cloud with the given name
+	// from the environment. This may involve, for example,
+	// inspecting environment variables, or returning special
+	// hard-coded regions (e.g. "localhost" for lxd).
+	//
+	// If no cloud can be detected, DetectCloud should return
+	// an error satisfying errors.IsNotFound.
+	//
+	// DetectCloud should be used in preference to DetectClouds
+	// when a specific cloud is identified, as this may be more
+	// efficient.
+	DetectCloud(name string) (cloud.Cloud, error)
+
+	// DetectClouds detects clouds from the environment. This may
+	// involve, for example, inspecting environment variables, or
+	// returning special hard-coded regions (e.g. "localhost" for lxd).
+	DetectClouds() ([]cloud.Cloud, error)
+}
+
 // CloudRegionDetector is an interface that an EnvironProvider implements
 // in order to automatically detect cloud regions from the environment.
 type CloudRegionDetector interface {
-	// DetectRetions automatically detects one or more regions
+	// DetectRegions automatically detects one or more regions
 	// from the environment. This may involve, for example, inspecting
 	// environment variables, or returning special hard-coded regions
 	// (e.g. "localhost" for lxd). The first item in the list will be
@@ -148,14 +170,6 @@ type CloudRegionDetector interface {
 	// If no regions can be detected, DetectRegions should return
 	// an error satisfying errors.IsNotFound.
 	DetectRegions() ([]cloud.Region, error)
-}
-
-// DefaultCloudNamer is an interface that a provider implements to
-// specify what an implicitly-created cloud ahould be named.
-type DefaultCloudNamer interface {
-	// DefaultCloudName returns the name that should be used for the
-	// cloud instead of falling back to the provider name.
-	DefaultCloudName() string
 }
 
 // ModelConfigUpgrader is an interface that an EnvironProvider may
