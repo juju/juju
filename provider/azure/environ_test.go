@@ -1359,3 +1359,7 @@ func (s *environSuite) TestInstanceInformation(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(types.InstanceTypes, gc.HasLen, 2)
 }
+
+func (s *environSuite) TestAdoptResources(c *gc.C) {
+	c.Fatalf("writeme")
+}

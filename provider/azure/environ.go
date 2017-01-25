@@ -1074,7 +1074,56 @@ func (env *azureEnviron) instances(
 
 // AdoptResources is part of the Environ interface.
 func (env *azureEnviron) AdoptResources(controllerUUID string, fromVersion version.Number) error {
-	return errors.NotImplementedf("AdoptResources")
+	groupClient := resources.GroupsClient{env.resources}
+	resourceClient := resources.Client{env.resources}
+	var failed []string
+
+	resources, err := groupClient.ListResources(env.resourceGroup, "", nil)
+	if err != nil {
+		return errors.Annotate(err, "listing resources")
+	}
+	for resources.Value != nil {
+		for _, resource := range *resources.Value {
+
+			providerNamespace, parentPath, err := splitResourceType(*resource.Type)
+			if err != nil {
+				failed = append(failed, *resource.Name)
+				logger.Errorf("error getting namespace and path for type %q: %v", *resource.Type, err)
+			}
+
+			(*resource.Tags)[tags.JujuController] = &controllerUUID
+			_, err = resourceClient.CreateOrUpdate(
+				env.resourceGroup,
+				providerNamespace,
+				parentPath,
+				*resource.Type,
+				*resource.Name,
+				resource,
+			)
+
+			if err != nil {
+				failed = append(failed, *resource.Name)
+				logger.Errorf("error updating controller for %q: %v", *resource.Name, err)
+			}
+		}
+		resources, err = groupClient.ListResourcesNextResults(resources)
+		if err != nil {
+			return errors.Annotate(err, "getting next page of resources")
+		}
+	}
+
+	if len(failed) > 0 {
+		return errors.Errorf("failed to update controller for some resources: %v", failed)
+	}
+	return nil
+}
+
+func splitResourceType(resourceType string) (string, string, error) {
+	parts := strings.SplitN(resourceType, "/", 2)
+	if len(parts) != 2 {
+		return "", "", errors.Errorf("expected 2 parts in resource type %q", resourceType)
+	}
+	return parts[0], parts[1], nil
 }
 
 // AllInstances is specified in the InstanceBroker interface.
