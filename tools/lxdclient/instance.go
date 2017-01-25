@@ -35,11 +35,30 @@ const (
 )
 
 func resolveConfigKey(name string, namespace ...string) string {
-	parts := append(namespace, name)
-	return strings.Join(parts, ".")
+	prefix := strings.Join(namespace, ".") + "."
+	if !shouldNamespace(name, prefix) {
+		return name
+	}
+	return prefix + name
 }
 
-func splitConfigKey(key string) (string, string) {
+func shouldNamespace(name, prefix string) bool {
+	// already in namespace
+	if strings.HasPrefix(name, prefix) {
+		return false
+	}
+	// never namespace lxd limit configuration
+	if strings.HasPrefix(name, "limits.") {
+		return false
+	}
+	// never namespace boot config
+	if name == "boot.autostart" {
+		return false
+	}
+	return true
+}
+
+func splitConfigKey(key string) (namespace, name string) {
 	parts := strings.SplitN(key, ".", 2)
 	if len(parts) == 1 {
 		return "", parts[0]
