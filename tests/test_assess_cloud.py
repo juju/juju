@@ -57,14 +57,14 @@ def mocked_bs_manager(juju_home):
 def strip_calls(calls):
     """Strip out irrelevant / non-action calls."""
     new_calls = []
-    for num, call in enumerate(calls):
-        cls, args, kwargs = call
+    for num, juju_call in enumerate(calls):
+        cls, args, kwargs = juju_call
         # Ignore initial teardown
         if num == 0 and args[0] == 'kill-controller':
             continue
         if args[0] in('list-controllers', 'list-models', 'show-status'):
             continue
-        new_calls.append(call)
+        new_calls.append(juju_call)
     return new_calls
 
 
