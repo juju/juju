@@ -61,7 +61,7 @@ func (rc *runCommands) Prepare(state State) (*State, error) {
 // state change.
 // Execute is part of the Operation interface.
 func (rc *runCommands) Execute(state State) (*State, error) {
-	logger.Debugf("run commands: %s", rc)
+	logger.Tracef("run commands: %s", rc)
 	if err := rc.callbacks.SetExecutingStatus("running commands"); err != nil {
 		return nil, errors.Trace(err)
 	}

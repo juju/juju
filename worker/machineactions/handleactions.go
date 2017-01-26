@@ -43,7 +43,7 @@ func HandleAction(name string, params map[string]interface{}) (results map[strin
 func handleJujuRunAction(params map[string]interface{}) (results map[string]interface{}, err error) {
 	// The spec checks that the parameters are available so we don't need to check again here
 	command, _ := params["command"].(string)
-	logger.Debugf("juju run %q", command)
+	logger.Tracef("juju run %q", command)
 
 	// The timeout is passed in in nanoseconds(which are represented in go as int64)
 	// But due to serialization it comes out as float64
