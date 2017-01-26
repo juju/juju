@@ -97,7 +97,7 @@ func (s *pingerSuite) TestAgentConnectionShutsDownWithNoPing(c *gc.C) {
 	server, clock := s.newServerWithTestClock(c)
 	conn, _ := s.OpenAPIAsNewMachine(c, server)
 
-	waitAndAdvance(c, clock, apiserver.MaxClientPingInterval)
+	waitAndAdvance(c, clock, apiserver.MaxClientPingInterval * 2)
 	checkConnectionDies(c, conn)
 }
 
@@ -113,7 +113,7 @@ func (s *pingerSuite) TestAgentConnectionDelaysShutdownWithPing(c *gc.C) {
 	}
 
 	// However, once we stop pinging for too long, the connection dies
-	waitAndAdvance(c, clock, apiserver.MaxClientPingInterval)
+	waitAndAdvance(c, clock, apiserver.MaxClientPingInterval * 2)
 	checkConnectionDies(c, conn)
 }
 
