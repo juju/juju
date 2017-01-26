@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"net"
 	"strings"
-	"time"
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
