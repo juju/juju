@@ -65,7 +65,7 @@ func (x *executor) State() State {
 }
 
 // Run is part of the Executor interface.
-func (x *executor) Run(op Operation) (runErr error) {
+func (x *executor) Run(op Operation) error {
 	logger.Debugf("running operation %v", op)
 
 	if op.NeedsGlobalMachineLock() {

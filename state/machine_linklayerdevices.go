@@ -929,6 +929,7 @@ func (m *Machine) LinkLayerDevicesForSpaces(spaces []string) (map[string][]*Link
 		container.DefaultKvmBridge,
 	)
 	spaceToDevices := make(map[string]map[string]*LinkLayerDevice, 0)
+	skipped := make(map[string]*LinkLayerDevice, 0)
 	// TODO(jam): 2016-12-08 We look up each subnet one-by-one, and then look
 	// up each Link-Layer-Device one-by-one, it feels like we should
 	// 'aggregate all subnet CIDR' and then grab them in one pass, and then
@@ -969,6 +970,7 @@ func (m *Machine) LinkLayerDevicesForSpaces(spaces []string) (map[string][]*Link
 		}
 		if device.Type() == LoopbackDevice || devicesToSkip.Contains(device.Name()) {
 			// We skip loopback devices here
+			skipped[device.Name()] = device
 			continue
 		}
 		spaceInfo, ok := spaceToDevices[spaceName]
