@@ -96,6 +96,10 @@ const (
 	// NoProxyKey stores the key for this setting.
 	NoProxyKey = "no-proxy"
 
+	// NetBondReconfigureDelay is the key to pass when bridging
+	// the network for containers.
+	NetBondReconfigureDelayKey = "net-bond-reconfigure-delay"
+
 	// The default block storage source.
 	StorageDefaultBlockSourceKey = "storage-default-block-source"
 
@@ -128,10 +132,6 @@ const (
 	// TransmitVendorMetricsKey is the key for whether the controller sends
 	// metrics collected in this model for anonymized aggregate analytics.
 	TransmitVendorMetricsKey = "transmit-vendor-metrics"
-
-	// NetBondReconfigureDelay is the key to pass when bridging the network
-	// for containers.
-	NetBondReconfigureDelayKey = "net-bond-reconfigure-delay"
 
 	//
 	// Deprecated Settings Attributes
