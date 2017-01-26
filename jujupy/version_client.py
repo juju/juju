@@ -128,7 +128,14 @@ class ModelClient2_1(ModelClient):
     REGION_ENDPOINT_PROMPT = 'Enter the API endpoint url for the region:'
 
 
-class ModelClientRC(ModelClient2_1):
+class ModelClient2_0(ModelClient2_1):
+    """Client for Juju 2.0"""
+    # Outcome and output differs to 2.1 tests cannot assume 2.0 and 2.1 are
+    # identical.
+    pass
+
+
+class ModelClientRC(ModelClient2_0):
 
     def get_bootstrap_args(
             self, upload_tools, config_filename, bootstrap_series=None,
@@ -674,7 +681,9 @@ def get_client_class(version):
         raise VersionNotTestedError(version)
     elif re.match('^2\.0-rc[1-3]', version):
         client_class = ModelClientRC
-    elif re.match('^2\.[0-1][.-]', version):
+    elif re.match('^2\.0[.-]', version):
+        client_class = ModelClient2_0
+    elif re.match('^2\.1[.-]', version):
         client_class = ModelClient2_1
     else:
         client_class = ModelClient
