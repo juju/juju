@@ -381,11 +381,8 @@ func (c *Charm) Destroy() error {
 // inaccessible to future clients. It will fail unless the charm is
 // already Dying (indicating that someone has called Destroy).
 func (c *Charm) Remove() error {
-	switch c.doc.Life {
-	case Alive:
+	if c.doc.Life == Alive {
 		return errors.New("still alive")
-	case Dead:
-		return nil
 	}
 
 	stor := storage.NewStorage(c.st.ModelUUID(), c.st.MongoSession())
@@ -397,18 +394,15 @@ func (c *Charm) Remove() error {
 		return errors.Annotate(err, "deleting archive")
 	}
 
-	buildTxn := func(_ int) ([]txn.Op, error) {
-		ops, err := charmRemoveOps(c.st, c.doc.URL)
-		switch errors.Cause(err) {
-		case nil:
-		case errAlreadyDead:
-			return nil, jujutxn.ErrNoOperations
-		default:
-			return nil, errors.Trace(err)
-		}
-		return ops, nil
-	}
-	if err := c.st.run(buildTxn); err != nil {
+	// We know the charm is already dying, dead or removed at this
+	// point (life can *never* go backwards) so an unasserted remove
+	// is safe.
+	removeOps := []txn.Op{{
+		C:      charmsC,
+		Id:     c.doc.URL.String(),
+		Remove: true,
+	}}
+	if err := c.st.runTransaction(removeOps); err != nil {
 		return errors.Trace(err)
 	}
 	c.doc.Life = Dead
@@ -528,12 +522,12 @@ func (st *State) AddCharm(info CharmInfo) (stch *Charm, err error) {
 		return nil, errors.Trace(err)
 	}
 
-	query := charms.FindId(info.ID.String()).Select(bson.M{"placeholder": 1})
-
+	query := charms.FindId(info.ID.String()).Select(bson.M{
+		"placeholder":   1,
+		"pendingupload": 1,
+	})
 	buildTxn := func(attempt int) ([]txn.Op, error) {
-		var doc struct {
-			Placeholder bool `bson:"placeholder"`
-		}
+		var doc charmDoc
 		if err := query.One(&doc); err == mgo.ErrNotFound {
 			if info.ID.Schema == "local" {
 				curl, err := st.PrepareLocalCharmUpload(info.ID)
@@ -546,6 +540,8 @@ func (st *State) AddCharm(info CharmInfo) (stch *Charm, err error) {
 			return insertCharmOps(st, info)
 		} else if err != nil {
 			return nil, errors.Trace(err)
+		} else if doc.PendingUpload {
+			return updateCharmOps(st, info, stillPending)
 		} else if doc.Placeholder {
 			return updateCharmOps(st, info, stillPlaceholder)
 		}

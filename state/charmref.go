@@ -154,17 +154,16 @@ func charmDestroyOps(st modelBackend, curl *charm.URL) ([]txn.Op, error) {
 
 // charmRemoveOps implements the logic of charm.Remove.
 func charmRemoveOps(st modelBackend, curl *charm.URL) ([]txn.Op, error) {
-
 	charms, closer := st.getCollection(charmsC)
 	defer closer()
 
-	// NOTE: we don't actually remove the charm document.  The
-	// "remove" terminology refers to the client's view of the change
-	// (after which the charm really will be inaccessible).
 	charmKey := curl.String()
-	charmOp, err := nsLife.dieOp(charms, charmKey, nil)
+
+	// Remove the charm document as long as the charm is dying.
+	charmOp, err := nsLife.dyingOp(charms, charmKey)
 	if err != nil {
 		return nil, errors.Annotate(err, "charm")
 	}
+	charmOp.Remove = true
 	return []txn.Op{charmOp}, nil
 }
