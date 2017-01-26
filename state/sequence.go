@@ -207,7 +207,7 @@ func (su *dbSeqUpdater) ensure(next int) error {
 		ok, err = su.set(curVal, next)
 	}
 	if !ok {
-		return errors.New("unexpected contention")
+		return errors.New("unexpected contention while updating sequence")
 	}
 	return errors.Trace(err)
 }

@@ -373,6 +373,13 @@ func SequenceWithMin(st *State, name string, minVal int) (int, error) {
 	return st.sequenceWithMin(name, minVal)
 }
 
+func SequenceEnsure(st *State, name string, nextVal int) error {
+	sequences, closer := st.getRawCollection(sequenceC)
+	defer closer()
+	updater := newDbSeqUpdater(sequences, st.ModelUUID(), name)
+	return updater.ensure(nextVal)
+}
+
 func SetModelLifeDead(st *State, modelUUID string) error {
 	ops := []txn.Op{{
 		C:      modelsC,
