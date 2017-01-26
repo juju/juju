@@ -500,7 +500,7 @@ LXC_BRIDGE="ignored"`[1:])
 	s.State.StartSync()
 	errCh := make(chan error, 0)
 	go func() {
-		errCh <-mr.Wait()
+		errCh <- mr.Wait()
 	}()
 	select {
 	case err = <-errCh:
