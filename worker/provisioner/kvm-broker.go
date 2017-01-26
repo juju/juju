@@ -6,6 +6,7 @@ package provisioner
 import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cloudconfig/instancecfg"
@@ -13,11 +14,14 @@ import (
 	"github.com/juju/juju/container/kvm"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
 )
 
 var kvmLogger = loggo.GetLogger("juju.provisioner.kvm")
 
 func NewKvmBroker(
+	bridger network.Bridger,
+	hostMachineID string,
 	api APICalls,
 	agentConfig agent.Config,
 	managerConfig container.ManagerConfig,
@@ -27,23 +31,27 @@ func NewKvmBroker(
 		return nil, err
 	}
 	return &kvmBroker{
-		manager:     manager,
-		api:         api,
-		agentConfig: agentConfig,
+		bridger:       bridger,
+		hostMachineID: hostMachineID,
+		manager:       manager,
+		api:           api,
+		agentConfig:   agentConfig,
 	}, nil
 }
 
 type kvmBroker struct {
-	manager     container.Manager
-	api         APICalls
-	agentConfig agent.Config
+	bridger       network.Bridger
+	hostMachineID string
+	manager       container.Manager
+	api           APICalls
+	agentConfig   agent.Config
 }
 
 // StartInstance is specified in the Broker interface.
 func (broker *kvmBroker) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
 	// TODO: refactor common code out of the container brokers.
-	machineId := args.InstanceConfig.MachineId
-	kvmLogger.Infof("starting kvm container for machineId: %s", machineId)
+	containerMachineID := args.InstanceConfig.MachineId
+	kvmLogger.Infof("starting kvm container for containerMachineID: %s", containerMachineID)
 
 	// TODO: Default to using the host network until we can configure.  Yes,
 	// this is using the LxcBridge value, we should put it in the api call for
@@ -59,18 +67,22 @@ func (broker *kvmBroker) StartInstance(args environs.StartInstanceParams) (*envi
 		return nil, err
 	}
 
+	err = prepareHost(broker.bridger, broker.hostMachineID, names.NewMachineTag(containerMachineID), broker.api, kvmLogger)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	preparedInfo, err := prepareOrGetContainerInterfaceInfo(
 		broker.api,
-		machineId,
+		containerMachineID,
 		bridgeDevice,
 		true, // allocate if possible, do not maintain existing.
-		args.NetworkInfo,
 		kvmLogger,
 	)
 	if err != nil {
 		// It's not fatal (yet) if we couldn't pre-allocate addresses for the
 		// container.
-		logger.Warningf("failed to prepare container %q network config: %v", machineId, err)
+		logger.Warningf("failed to prepare container %q network config: %v", containerMachineID, err)
 	} else {
 		args.NetworkInfo = preparedInfo
 	}
@@ -126,7 +138,7 @@ func (broker *kvmBroker) StartInstance(args environs.StartInstanceParams) (*envi
 		kvmLogger.Errorf("failed to start container: %v", err)
 		return nil, err
 	}
-	kvmLogger.Infof("started kvm container for machineId: %s, %s, %s", machineId, inst.Id(), hardware.String())
+	kvmLogger.Infof("started kvm container for containerMachineID: %s, %s, %s", containerMachineID, inst.Id(), hardware.String())
 	return &environs.StartInstanceResult{
 		Instance:    inst,
 		Hardware:    hardware,
@@ -152,7 +164,6 @@ func (broker *kvmBroker) MaintainInstance(args environs.StartInstanceParams) err
 		machineID,
 		bridgeDevice,
 		false, // maintain, do not allocate.
-		args.NetworkInfo,
 		kvmLogger,
 	)
 	return err

@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package maas
+package network_test
 
 import (
 	"fmt"
@@ -15,6 +15,7 @@ import (
 	"github.com/juju/utils/exec"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/network"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -51,11 +52,11 @@ func (s *bridgeConfigSuite) SetUpTest(c *gc.C) {
 	c.Assert(s.pythonVersions, gc.Not(gc.HasLen), 0)
 
 	s.testConfigPath = filepath.Join(c.MkDir(), "network-config")
-	s.testPythonScript = filepath.Join(c.MkDir(), bridgeScriptName)
+	s.testPythonScript = filepath.Join(c.MkDir(), "add-bridge.py")
 	s.testConfig = "# test network config\n"
 	err := ioutil.WriteFile(s.testConfigPath, []byte(s.testConfig), 0644)
 	c.Assert(err, jc.ErrorIsNil)
-	err = ioutil.WriteFile(s.testPythonScript, []byte(bridgeScriptPython), 0644)
+	err = ioutil.WriteFile(s.testPythonScript, []byte(network.BridgeScriptPythonContent), 0644)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -229,13 +230,19 @@ func (s *bridgeConfigSuite) runScriptWithActivationAndDryRun(c *gc.C, pythonBina
 
 func (s *bridgeConfigSuite) dryRunExpectedOutputHelper(isBonded, isAlreadyBridged bool, bridgePrefix string, interfacesToBridge []string) []string {
 	output := make([]string, 0)
+	bridgedNames := make([]string, len(interfacesToBridge))
+	for i, s := range interfacesToBridge {
+		bridgedNames[i] = bridgePrefix + s
+	}
 	if isAlreadyBridged {
 		output = append(output, "already bridged, or nothing to do.")
 	} else {
 		output = append(output, "**** Original configuration")
 		output = append(output, fmt.Sprintf("cat %s", s.testConfigPath))
-		output = append(output, "ifconfig -a")
-		output = append(output, fmt.Sprintf("ifdown --exclude=lo --interfaces=%[1]s $(ifquery --interfaces=%[1]s --exclude=lo --list)", s.testConfigPath))
+		output = append(output, "ip -d link show")
+		output = append(output, "ip route show")
+		output = append(output, "brctl show")
+		output = append(output, fmt.Sprintf("ifdown --exclude=lo --interfaces=%[1]s %s", s.testConfigPath, strings.Join(interfacesToBridge, " ")))
 		output = append(output, "**** Activating new configuration")
 		if isBonded {
 			output = append(output, "working around https://bugs.launchpad.net/ubuntu/+source/ifenslave/+bug/1269921")
@@ -243,9 +250,8 @@ func (s *bridgeConfigSuite) dryRunExpectedOutputHelper(isBonded, isAlreadyBridge
 			output = append(output, "sleep 3")
 		}
 		output = append(output, fmt.Sprintf("cat %s", s.testConfigPath))
-		output = append(output, fmt.Sprintf("ifup --exclude=lo --interfaces=%[1]s $(ifquery --interfaces=%[1]s --exclude=lo --list)", s.testConfigPath))
-		output = append(output, "ip link show up")
-		output = append(output, "ifconfig -a")
+		output = append(output, fmt.Sprintf("ifup --exclude=lo --interfaces=%[1]s -a", s.testConfigPath))
+		output = append(output, "ip -d link show")
 		output = append(output, "ip route show")
 		output = append(output, "brctl show")
 	}

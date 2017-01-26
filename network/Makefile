@@ -7,9 +7,8 @@ all: bridgescript.go
 bridgescript.go: add-juju-bridge.py Makefile
 	$(RM) $@
 	echo -n '// This file is auto generated. Edits will be lost.\n\n' >> $@
-	echo -n 'package maas\n\n' >> $@
-	echo -n 'const bridgeScriptName = "add-juju-bridge.py"\n\n' >> $@
-	echo -n "const bridgeScriptPython = \`" >> $@
+	echo -n 'package network\n\n' >> $@
+	echo -n "const BridgeScriptPythonContent = \`" >> $@
 	cat add-juju-bridge.py >> $@
 	echo -n '`\n' >> $@
 

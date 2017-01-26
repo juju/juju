@@ -26,11 +26,12 @@ func GetRetryWatcher(p Provisioner) (watcher.NotifyWatcher, error) {
 }
 
 var (
-	ContainerManagerConfig = containerManagerConfig
-	GetToolsFinder         = &getToolsFinder
-	ResolvConf             = &resolvConf
-	RetryStrategyDelay     = &retryStrategyDelay
-	RetryStrategyCount     = &retryStrategyCount
+	ContainerManagerConfig   = containerManagerConfig
+	GetToolsFinder           = &getToolsFinder
+	ResolvConf               = &resolvConf
+	RetryStrategyDelay       = &retryStrategyDelay
+	RetryStrategyCount       = &retryStrategyCount
+	GetObservedNetworkConfig = &getObservedNetworkConfig
 )
 
 var ClassifyMachine = classifyMachine

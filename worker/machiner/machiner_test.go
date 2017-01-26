@@ -17,8 +17,8 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/common"
 	apimachiner "github.com/juju/juju/api/machiner"
-	"github.com/juju/juju/apiserver/common/networkingcommon"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
@@ -55,7 +55,7 @@ func (s *MachinerSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(machiner.InterfaceAddrs, func() ([]net.Addr, error) {
 		return s.addresses, nil
 	})
-	s.PatchValue(machiner.GetObservedNetworkConfig, func(_ networkingcommon.NetworkConfigSource) ([]params.NetworkConfig, error) {
+	s.PatchValue(machiner.GetObservedNetworkConfig, func(_ common.NetworkConfigSource) ([]params.NetworkConfig, error) {
 		return nil, nil
 	})
 }
@@ -295,7 +295,7 @@ func (s *MachinerStateSuite) SetUpTest(c *gc.C) {
 	})
 	s.PatchValue(&network.LXCNetDefaultConfig, "")
 	s.getObservedNetworkConfigError = nil
-	s.PatchValue(machiner.GetObservedNetworkConfig, func(_ networkingcommon.NetworkConfigSource) ([]params.NetworkConfig, error) {
+	s.PatchValue(machiner.GetObservedNetworkConfig, func(_ common.NetworkConfigSource) ([]params.NetworkConfig, error) {
 		return nil, s.getObservedNetworkConfigError
 	})
 }
