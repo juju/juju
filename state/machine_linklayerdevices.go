@@ -1216,11 +1216,11 @@ func (m *Machine) FindMissingBridgesForContainer(containerMachine *Machine, netB
 				// pick the host device
 				hostDeviceNames = network.NaturallySortDeviceNames(hostDeviceNames...)
 				hostDeviceNamesToBridge = append(hostDeviceNamesToBridge, hostDeviceNames[0])
-				// if hostDeviceByName[deviceName].Type() == BondDevice {
-				// 	if reconfigureDelay < netBondReconfigureDelay {
-				// 		reconfigureDelay = netBondReconfigureDelay
-				// 	}
-				// }
+				if hostDeviceByName[hostDeviceNames[0]].Type() == BondDevice {
+					if reconfigureDelay < netBondReconfigureDelay {
+						reconfigureDelay = netBondReconfigureDelay
+					}
+				}
 			}
 		}
 	}
