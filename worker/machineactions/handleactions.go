@@ -18,6 +18,9 @@ import (
 	"github.com/juju/juju/core/actions"
 )
 
+// RunAsUser is the user that the machine juju-run action is executed as.
+var RunAsUser = "ubuntu"
+
 // HandleAction receives a name and a map of parameters for a given machine action.
 // It will handle that action in a specific way and return a results map suitable for ActionFinish.
 func HandleAction(name string, params map[string]interface{}) (results map[string]interface{}, err error) {
@@ -40,6 +43,7 @@ func HandleAction(name string, params map[string]interface{}) (results map[strin
 func handleJujuRunAction(params map[string]interface{}) (results map[string]interface{}, err error) {
 	// The spec checks that the parameters are available so we don't need to check again here
 	command, _ := params["command"].(string)
+	logger.Tracef("juju run %q", command)
 
 	// The timeout is passed in in nanoseconds(which are represented in go as int64)
 	// But due to serialization it comes out as float64
@@ -63,6 +67,7 @@ func runCommandWithTimeout(command string, timeout time.Duration, clock clock.Cl
 		Commands:    command,
 		Environment: os.Environ(),
 		Clock:       clock,
+		User:        RunAsUser,
 	}
 
 	err := cmd.Run()

@@ -9,6 +9,7 @@ import (
 	"sync"
 
 	"github.com/juju/errors"
+	"github.com/juju/version"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -121,8 +122,8 @@ func (env *environ) BootstrapMessage() string {
 //this variable is exported, because it has to be rewritten in external unit tests
 var DestroyEnv = common.Destroy
 
-// AdoptInstances is part of the Environ interface.
-func (env *environ) AdoptInstances(ids []instance.Id, controllerUUID string) error {
+// AdoptResources is part of the Environ interface.
+func (env *environ) AdoptResources(controllerUUID string, fromVersion version.Number) error {
 	// This provider doesn't track instance -> controller.
 	return nil
 }

@@ -58,6 +58,10 @@ const UnknownId = ""
 // DefaultLXDBridge is the bridge that gets used for LXD containers
 const DefaultLXDBridge = "lxdbr0"
 
+// DefaultKVMBridge is the bridge that is set up by installing libvirt-bin
+// Note: we don't import this from 'container' to avoid import loops
+const DefaultKVMBridge = "virbr0"
+
 var dashPrefix = regexp.MustCompile("^-*")
 var dashSuffix = regexp.MustCompile("-*$")
 var multipleDashes = regexp.MustCompile("--+")
@@ -320,6 +324,17 @@ type ProviderInterfaceInfo struct {
 	MACAddress string
 }
 
+// DeviceToBridge gives the information about a particular device that
+// should be bridged.
+type DeviceToBridge struct {
+	// DeviceName is the name of the device on the machine that should
+	// be bridged.
+	DeviceName string
+
+	// BridgeName is the name of the bride that we want created.
+	BridgeName string
+}
+
 // LXCNetDefaultConfig is the location of the default network config
 // of the lxc package. It's exported to allow cross-package testing.
 var LXCNetDefaultConfig = "/etc/default/lxc-net"
@@ -334,77 +349,90 @@ var InterfaceByNameAddrs = func(name string) ([]net.Addr, error) {
 	return iface.Addrs()
 }
 
-// filterAddrs looks at all of the addresses in allAddresses and removes ones
-// that line up with removeAddresses. Note that net.Addr may be just an IP or
-// may be a CIDR.
-func filterAddrs(bridgeName string, allAddresses []Address, removeAddresses []net.Addr) []Address {
-	filtered := make([]Address, 0, len(allAddresses))
-	// TODO(jam) ips could be turned into a map[string]bool rather than
-	// iterating over all of them, as we only compare against ip.String()
-	ips := make([]net.IP, 0, len(removeAddresses))
-	ipNets := make([]*net.IPNet, 0, len(removeAddresses))
-	for _, ifaceAddr := range removeAddresses {
-		// First check if this is a CIDR, as
-		// net.InterfaceAddrs might return this instead of
-		// a plain IP.
-		ip, ipNet, err := net.ParseCIDR(ifaceAddr.String())
-		if err != nil {
-			// It's not a CIDR, try parsing as IP.
-			ip = net.ParseIP(ifaceAddr.String())
-		}
-		if ip == nil {
-			logger.Debugf("cannot parse %q as IP, ignoring", ifaceAddr)
-			continue
-		}
-		ips = append(ips, ip)
-		if ipNet != nil {
-			ipNets = append(ipNets, ipNet)
+type ipNetAndName struct {
+	ipnet *net.IPNet
+	name  string
+}
+
+func addrMapToIPNetAndName(bridgeToAddrs map[string][]net.Addr) []ipNetAndName {
+	ipNets := make([]ipNetAndName, 0, len(bridgeToAddrs))
+	for bridgeName, addrList := range bridgeToAddrs {
+		for _, ifaceAddr := range addrList {
+			ip, ipNet, err := net.ParseCIDR(ifaceAddr.String())
+			if err != nil {
+				// Not a valid CIDR, check as an IP
+				ip = net.ParseIP(ifaceAddr.String())
+			}
+			if ip == nil {
+				logger.Debugf("cannot parse %q as IP, ignoring", ifaceAddr)
+				continue
+			}
+			if ipNet == nil {
+				// convert the IP into an IPNet
+				if ip.To4() != nil {
+					_, ipNet, err = net.ParseCIDR(ip.String() + "/32")
+					if err != nil {
+						logger.Debugf("error creating a /32 CIDR for %q", ifaceAddr)
+					}
+				} else if ip.To16() != nil {
+					_, ipNet, err = net.ParseCIDR(ip.String() + "/128")
+					if err != nil {
+						logger.Debugf("error creating a /128 CIDR for %q", ifaceAddr)
+					}
+				} else {
+					logger.Debugf("failed to convert %q to a v4 or v6 address, ignoring", ifaceAddr)
+				}
+			}
+			ipNets = append(ipNets, ipNetAndName{ipnet: ipNet, name: bridgeName})
 		}
 	}
+	return ipNets
+}
+
+// filterAddrs looks at all of the addresses in allAddresses and removes ones
+// that line up with removeAddresses. Note that net.Addr may be just an IP or
+// may be a CIDR.  removeAddresses should be a map of 'bridge name' to list of
+// addresses, so that we can report why the address was filtered.
+func filterAddrs(allAddresses []Address, removeAddresses map[string][]net.Addr) []Address {
+	filtered := make([]Address, 0, len(allAddresses))
+	// Convert all
+	ipNets := addrMapToIPNetAndName(removeAddresses)
 	for _, addr := range allAddresses {
-		found := false
-		// Filter all known IPs
-		for _, ip := range ips {
-			if ip.String() == addr.Value {
-				found = true
-				break
-			}
-		}
-		if !found {
-			// Then check if it is in one of the CIDRs
-			for _, ipNet := range ipNets {
-				if ipNet.Contains(net.ParseIP(addr.Value)) {
-					found = true
+		bridgeName := ""
+		// Then check if it is in one of the CIDRs
+		ip := net.ParseIP(addr.Value)
+		if ip == nil {
+			logger.Debugf("not filtering invalid IP: %q", addr.Value)
+		} else {
+			for _, ipNetName := range ipNets {
+				if ipNetName.ipnet.Contains(ip) {
+					bridgeName = ipNetName.name
 					break
 				}
 			}
 		}
-		if found {
-			logger.Debugf("filtering %q address %s for machine", bridgeName, addr.String())
-		} else {
-			logger.Debugf("not filtering address %s for machine", addr)
+		if bridgeName == "" {
+			logger.Debugf("including address %v for machine", addr)
 			filtered = append(filtered, addr)
+		} else {
+			logger.Debugf("filtering %q address %s for machine", bridgeName, addr.String())
 		}
 	}
-	logger.Debugf("addresses after filtering: %v", filtered)
 	return filtered
 }
 
-// filterLXCAddresses tries to discover the default lxc bridge name
-// and all of its addresses, then filters those addresses out of the
-// given ones and returns the result. Any errors encountered during
-// this process are logged, but not considered fatal. See LP bug
-// #1416928.
-func filterLXCAddresses(addresses []Address) []Address {
+// gatherLXCAddresses tries to discover the default lxc bridge name
+// and all of its addresses. See LP bug #1416928.
+func gatherLXCAddresses(toRemove map[string][]net.Addr) {
 	file, err := os.Open(LXCNetDefaultConfig)
 	if os.IsNotExist(err) {
 		// No lxc-net config found, nothing to do.
 		logger.Debugf("no lxc bridge addresses to filter for machine")
-		return addresses
+		return
 	} else if err != nil {
 		// Just log it, as it's not fatal.
 		logger.Errorf("cannot open %q: %v", LXCNetDefaultConfig, err)
-		return addresses
+		return
 	}
 	defer file.Close()
 
@@ -422,33 +450,25 @@ func filterLXCAddresses(addresses []Address) []Address {
 				continue
 			}
 			bridgeName := strings.TrimSpace(parts[1])
-			// Discover all addresses of bridgeName interface.
-			addrs, err := InterfaceByNameAddrs(bridgeName)
-			if err != nil {
-				logger.Debugf("cannot get %q addresses: %v (ignoring)", bridgeName, err)
-				continue
-			}
-			logger.Debugf("%q has addresses %v", bridgeName, addrs)
-			return filterAddrs(bridgeName, addresses, addrs)
+			gatherBridgeAddresses(bridgeName, toRemove)
+			return
 		}
 	}
 	if err := scanner.Err(); err != nil {
 		logger.Debugf("failed to read %q: %v (ignoring)", LXCNetDefaultConfig, err)
 	}
-	return addresses
+	return
 }
 
-// filterLXDAddresses removes addresses on the LXD bridge from the list to be
-// considered.
-func filterLXDAddresses(addresses []Address) []Address {
-	// Should we be getting this from LXD instead?
-	addrs, err := InterfaceByNameAddrs(DefaultLXDBridge)
+func gatherBridgeAddresses(bridgeName string, toRemove map[string][]net.Addr) {
+	addrs, err := InterfaceByNameAddrs(bridgeName)
 	if err != nil {
-		logger.Warningf("cannot get %q addresses: %v (ignoring)", DefaultLXDBridge, err)
-		return addresses
+		logger.Debugf("cannot get %q addresses: %v (ignoring)", bridgeName, err)
+		return
 	}
-	logger.Debugf("%q has addresses %v", DefaultLXDBridge, addrs)
-	return filterAddrs(DefaultLXDBridge, addresses, addrs)
+	logger.Debugf("%q has addresses %v", bridgeName, addrs)
+	toRemove[bridgeName] = addrs
+	return
 
 }
 
@@ -456,7 +476,11 @@ func filterLXDAddresses(addresses []Address) []Address {
 // address used only to connect to local containers), rather than a remote
 // accessible address.
 func FilterBridgeAddresses(addresses []Address) []Address {
-	addresses = filterLXCAddresses(addresses)
-	addresses = filterLXDAddresses(addresses)
-	return addresses
+	addressesToRemove := make(map[string][]net.Addr)
+	gatherLXCAddresses(addressesToRemove)
+	gatherBridgeAddresses(DefaultLXDBridge, addressesToRemove)
+	gatherBridgeAddresses(DefaultKVMBridge, addressesToRemove)
+	filtered := filterAddrs(addresses, addressesToRemove)
+	logger.Debugf("addresses after filtering: %v", filtered)
+	return filtered
 }

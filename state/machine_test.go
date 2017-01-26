@@ -748,6 +748,99 @@ func (s *MachineSuite) TestMachineInstanceIdBlank(c *gc.C) {
 	c.Assert(string(iid), gc.Equals, "")
 }
 
+func (s *MachineSuite) TestDesiredSpacesNone(c *gc.C) {
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	spaces, err := machine.DesiredSpaces()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(spaces.SortedValues(), gc.DeepEquals, []string{})
+}
+
+func (s *MachineSuite) TestDesiredSpacesSimpleConstraints(c *gc.C) {
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	err = machine.SetConstraints(constraints.Value{
+		Spaces: &[]string{"foo", "bar", "^baz"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	spaces, err := machine.DesiredSpaces()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(spaces.SortedValues(), gc.DeepEquals, []string{"bar", "foo"})
+}
+
+func (s *MachineSuite) TestDesiredSpacesEndpoints(c *gc.C) {
+	_, err := s.State.AddSpace("db", "", nil, true)
+	c.Assert(err, jc.ErrorIsNil)
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	svc := s.AddTestingServiceWithBindings(c, "mysql",
+		s.AddTestingCharm(c, "mysql"), map[string]string{"server": "db"})
+	unit, err := svc.AddUnit()
+	c.Assert(err, jc.ErrorIsNil)
+	err = unit.AssignToMachine(machine)
+	c.Assert(err, jc.ErrorIsNil)
+	spaces, err := machine.DesiredSpaces()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(spaces.SortedValues(), gc.DeepEquals, []string{"db"})
+}
+
+func (s *MachineSuite) TestDesiredSpacesEndpointsAndConstraints(c *gc.C) {
+	_, err := s.State.AddSpace("foo", "", nil, true)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddSpace("db", "", nil, true)
+	c.Assert(err, jc.ErrorIsNil)
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	err = machine.SetConstraints(constraints.Value{
+		Spaces: &[]string{"foo"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	svc := s.AddTestingServiceWithBindings(c, "mysql",
+		s.AddTestingCharm(c, "mysql"), map[string]string{"server": "db"})
+	unit, err := svc.AddUnit()
+	c.Assert(err, jc.ErrorIsNil)
+	err = unit.AssignToMachine(machine)
+	c.Assert(err, jc.ErrorIsNil)
+	spaces, err := machine.DesiredSpaces()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(spaces.SortedValues(), gc.DeepEquals, []string{"db", "foo"})
+}
+
+func (s *MachineSuite) TestDesiredSpacesNegativeConstraints(c *gc.C) {
+	_, err := s.State.AddSpace("foo", "", nil, true)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddSpace("db", "", nil, true)
+	c.Assert(err, jc.ErrorIsNil)
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	err = machine.SetConstraints(constraints.Value{
+		Spaces: &[]string{"^foo,^db"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	spaces, err := machine.DesiredSpaces()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(spaces.SortedValues(), gc.DeepEquals, []string{})
+}
+
+func (s *MachineSuite) TestDesiredSpacesNothingRequested(c *gc.C) {
+	_, err := s.State.AddSpace("foo", "", nil, true)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddSpace("db", "", nil, true)
+	c.Assert(err, jc.ErrorIsNil)
+	// No space constraints
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	// And empty bindings
+	svc := s.AddTestingServiceWithBindings(c, "mysql",
+		s.AddTestingCharm(c, "mysql"), map[string]string{})
+	unit, err := svc.AddUnit()
+	c.Assert(err, jc.ErrorIsNil)
+	err = unit.AssignToMachine(machine)
+	c.Assert(err, jc.ErrorIsNil)
+	spaces, err := machine.DesiredSpaces()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(spaces.SortedValues(), gc.DeepEquals, []string{})
+}
+
 func (s *MachineSuite) TestMachineSetProvisionedUpdatesCharacteristics(c *gc.C) {
 	// Before provisioning, there is no hardware characteristics.
 	_, err := s.machine.HardwareCharacteristics()

@@ -23,6 +23,7 @@ import (
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/os"
 	jujuseries "github.com/juju/utils/series"
+	"github.com/juju/version"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/cloudconfig/instancecfg"
@@ -1069,6 +1070,11 @@ func (env *azureEnviron) instances(
 		return matching, environs.ErrPartialInstances
 	}
 	return matching, nil
+}
+
+// AdoptResources is part of the Environ interface.
+func (env *azureEnviron) AdoptResources(controllerUUID string, fromVersion version.Number) error {
+	return errors.NotImplementedf("AdoptResources")
 }
 
 // AllInstances is specified in the InstanceBroker interface.

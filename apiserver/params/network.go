@@ -132,10 +132,11 @@ type NetworkConfig struct {
 	GatewayAddress string `json:"gateway-address,omitempty"`
 }
 
-// NetworkConfigs holds the network configuration for multiple networks
-type NetworkConfigs struct {
-	Results []NetworkConfig `json:"results"`
-	Errors  []error         `json:"errors,omitempty"`
+// DeviceBridgeInfo lists the host device and the expected bridge to be
+// created.
+type DeviceBridgeInfo struct {
+	HostDeviceName string `json:"host-device-name"`
+	BridgeName     string `json:"bridge-name"`
 }
 
 // ProviderInterfaceInfoResults holds the results of a
@@ -443,7 +444,7 @@ type UnitNetworkConfigResult struct {
 	Config []NetworkConfig `json:"info"`
 }
 
-// UnitNetworkConfigResults holds network configuration for multiple machines.
+// UnitNetworkConfigResults holds network configuration for multiple units.
 type UnitNetworkConfigResults struct {
 	Results []UnitNetworkConfigResult `json:"results"`
 }
@@ -459,6 +460,21 @@ type MachineNetworkConfigResult struct {
 // MachineNetworkConfigResults holds network configuration for multiple machines.
 type MachineNetworkConfigResults struct {
 	Results []MachineNetworkConfigResult `json:"results"`
+}
+
+// HostNetworkChange holds the information about how a host machine should be
+// modified to prepare for a container.
+type HostNetworkChange struct {
+	Error *Error `json:"error,omitempty"`
+
+	// NewBridges lists the bridges that need to be created and what host
+	// device they should be connected to.
+	NewBridges []DeviceBridgeInfo `json:"new-bridges"`
+}
+
+// HostNetworkChangeResults holds the network changes that are necessary for multiple containers to be created.
+type HostNetworkChangeResults struct {
+	Results []HostNetworkChange `json:"results"`
 }
 
 // MachinePortsParams holds the arguments for making a

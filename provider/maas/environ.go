@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"path"
 	"regexp"
 	"strconv"
 	"strings"
@@ -21,6 +20,7 @@ import (
 	"github.com/juju/utils/os"
 	"github.com/juju/utils/series"
 	"github.com/juju/utils/set"
+	"github.com/juju/version"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/cloudconfig/cloudinit"
@@ -32,7 +32,6 @@ import (
 	"github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/state/multiwatcher"
@@ -985,15 +984,7 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 		return nil, errors.Trace(err)
 	}
 
-	// We need to extract the names of all interfaces of the selected node,
-	// which are both linked to subnets, and have an IP address, in order to
-	// pass those to the bridge script.
-	interfaceNamesToBridge, err := instanceConfiguredInterfaceNames(environ.usingMAAS2(), inst, subnetsMap)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	cloudcfg, err := environ.newCloudinitConfig(hostname, series, interfaceNamesToBridge)
+	cloudcfg, err := environ.newCloudinitConfig(hostname, series)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1320,63 +1311,9 @@ func (environ *maasEnviron) selectNode2(args selectNodeArgs) (maasInstance, erro
 	return inst, nil
 }
 
-// bridgeScriptWrapperForCloudInit returns a string representing the script
-// to run in order to prepare the Juju-specific networking config on a
-// node during cloud-init.
-func bridgeScriptWrapperForCloudInit(bridgeScriptPath string, interfacesToBridge []string) string {
-	// For ubuntu series < xenial we prefer python2 over python3
-	// as we don't want to invalidate lots of testing against
-	// known cloud-image contents. A summary of Ubuntu releases
-	// and python inclusion in the default install of Ubuntu
-	// Server is as follows:
-	//
-	// 12.04 precise:  python 2 (2.7.3)
-	// 14.04 trusty:   python 2 (2.7.5) and python3 (3.4.0)
-	// 14.10 utopic:   python 2 (2.7.8) and python3 (3.4.2)
-	// 15.04 vivid:    python 2 (2.7.9) and python3 (3.4.3)
-	// 15.10 wily:     python 2 (2.7.9) and python3 (3.4.3)
-	// 16.04 xenial:   python 3 only (3.5.1)
-	//
-	// going forward:  python 3 only
-
-	return fmt.Sprintf(`
-if [ -x /usr/bin/python2 ]; then
-    juju_networking_preferred_python_binary=/usr/bin/python2
-elif [ -x /usr/bin/python3 ]; then
-    juju_networking_preferred_python_binary=/usr/bin/python3
-elif [ -x /usr/bin/python ]; then
-    juju_networking_preferred_python_binary=/usr/bin/python
-fi
-
-if [ ! -z "${juju_networking_preferred_python_binary:-}" ]; then
-    if [ -f %[1]q ]; then
-# We are sharing this code between 2.0 and 1.25.
-# For the moment we want 2.0 to bridge all interfaces linked
-# to a subnet, while for 1.25 we only bridge the default route interface.
-# This setting allows us to easily switch the behaviour when merging
-# the code between those various branches.
-        juju_bridge_linked_interfaces=1
-        if [ $juju_bridge_linked_interfaces -eq 1 ]; then
-            $juju_networking_preferred_python_binary %[1]q --bridge-prefix=%[2]q --interfaces-to-bridge=%[5]q --one-time-backup --activate %[4]q
-        else
-            juju_ipv4_interface_to_bridge=$(ip -4 route list exact default | head -n1 | cut -d' ' -f5)
-            $juju_networking_preferred_python_binary %[1]q --bridge-name=%[3]q --interfaces-to-bridge="${juju_ipv4_interface_to_bridge:-unknown}" --one-time-backup --activate %[4]q
-        fi
-    fi
-else
-    echo "error: no Python installation found; cannot run Juju's bridge script"
-fi`,
-		bridgeScriptPath,
-		instancecfg.DefaultBridgePrefix,
-		instancecfg.DefaultBridgeName,
-		"/etc/network/interfaces",
-		strings.Join(interfacesToBridge, " "),
-	)
-}
-
 // newCloudinitConfig creates a cloudinit.Config structure suitable as a base
 // for initialising a MAAS node.
-func (environ *maasEnviron) newCloudinitConfig(hostname, forSeries string, interfacesToBridge []string) (cloudinit.CloudConfig, error) {
+func (environ *maasEnviron) newCloudinitConfig(hostname, forSeries string) (cloudinit.CloudConfig, error) {
 	cloudcfg, err := cloudinit.New(forSeries)
 	if err != nil {
 		return nil, err
@@ -1406,15 +1343,7 @@ func (environ *maasEnviron) newCloudinitConfig(hostname, forSeries string, inter
 			)
 			break
 		}
-
-		bridgeScriptPath, err := bridgeScriptPathForSeries(forSeries)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-
 		cloudcfg.AddPackage("bridge-utils")
-		cloudcfg.AddBootTextFile(bridgeScriptPath, bridgeScriptPython, 0755)
-		cloudcfg.AddScripts(bridgeScriptWrapperForCloudInit(bridgeScriptPath, interfacesToBridge))
 	}
 	return cloudcfg, nil
 }
@@ -2418,23 +2347,15 @@ func (env *maasEnviron) releaseContainerAddresses2(macAddresses []string) error 
 	return nil
 }
 
-func bridgeScriptPathForSeries(series string) (string, error) {
-	dataDir, err := paths.DataDir(series)
-	if err != nil {
-		return "", err
-	}
-	return path.Join(dataDir, bridgeScriptName), nil
-}
-
-// AdoptInstances updates the instances to indicate they
-// are now associated with the specified controller. Part of the
-// Environ interface.
-func (env *maasEnviron) AdoptInstances(ids []instance.Id, controllerUUID string) error {
+// AdoptResources updates all the instances to indicate they
+// are now associated with the specified controller.
+func (env *maasEnviron) AdoptResources(controllerUUID string, fromVersion version.Number) error {
 	if !env.usingMAAS2() {
 		// We don't track instance -> controller for MAAS1.
 		return nil
 	}
-	instances, err := env.Instances(ids)
+
+	instances, err := env.AllInstances()
 	if err != nil {
 		return errors.Trace(err)
 	}
