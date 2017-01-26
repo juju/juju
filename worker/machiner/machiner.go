@@ -87,7 +87,7 @@ func (mr *Machiner) SetUp() (watcher.NotifyWatcher, error) {
 	mr.machine = m
 
 	if mr.config.ClearMachineAddressesOnStart {
-		logger.Debugf("machiner configured to reset machine %q addresses to empty", m.config.Tag)
+		logger.Debugf("machiner configured to reset machine %q addresses to empty", mr.config.Tag)
 		if err := m.SetMachineAddresses(nil); err != nil {
 			return nil, errors.Annotate(err, "reseting machine addresses")
 		}
