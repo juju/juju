@@ -87,7 +87,7 @@ func (mr *Machiner) SetUp() (watcher.NotifyWatcher, error) {
 	mr.machine = m
 
 	if mr.config.ClearMachineAddressesOnStart {
-		logger.Debugf("machine addresses ignored on start - resetting machine addresses")
+		logger.Debugf("machiner configured to reset machine %q addresses to empty", m.config.Tag)
 		if err := m.SetMachineAddresses(nil); err != nil {
 			return nil, errors.Annotate(err, "reseting machine addresses")
 		}
@@ -139,11 +139,12 @@ func setMachineAddresses(tag names.MachineTag, m Machine) error {
 	}
 	// Filter out any LXC or LXD bridge addresses.
 	hostAddresses = network.FilterBridgeAddresses(hostAddresses)
-	logger.Infof("setting addresses for %v to %q", tag, hostAddresses)
+	logger.Infof("setting addresses for %q to %v", tag, hostAddresses)
 	return m.SetMachineAddresses(hostAddresses)
 }
 
 func (mr *Machiner) Handle(_ <-chan struct{}) error {
+	logger.Infof("got a Machiner.Handle() event")
 	if err := mr.machine.Refresh(); params.IsCodeNotFoundOrCodeUnauthorized(err) {
 		// NOTE(axw) we can distinguish between NotFound and CodeUnauthorized,
 		// so we could call NotifyMachineDead here in case the agent failed to
@@ -168,7 +169,7 @@ func (mr *Machiner) Handle(_ <-chan struct{}) error {
 				return errors.Annotate(err, "cannot update observed network config")
 			}
 		}
-		logger.Debugf("observed network config updated")
+		logger.Debugf("observed network config updated for %q to %v", mr.config.Tag, observedConfig)
 
 		return nil
 	}
