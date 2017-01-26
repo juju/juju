@@ -127,12 +127,12 @@ func (f *fakeAPI) SetHostMachineNetworkConfig(hostMachineID string, netConfig []
 	return nil
 }
 
-func (f *fakeAPI) HostChangesForContainer(machineID names.MachineTag) ([]network.DeviceToBridge, error) {
+func (f *fakeAPI) HostChangesForContainer(machineID names.MachineTag) ([]network.DeviceToBridge, int, error) {
 	f.MethodCall(f, "HostChangesForContainer", machineID)
 	if err := f.NextErr(); err != nil {
-		return nil, err
+		return nil, 0, err
 	}
-	return []network.DeviceToBridge{f.fakeDeviceToBridge}, nil
+	return []network.DeviceToBridge{f.fakeDeviceToBridge}, 0, nil
 }
 
 type patcher interface {
@@ -233,7 +233,7 @@ func newFakeBridgerNeverErrors() *fakeBridger {
 	}
 }
 
-func (f *fakeBridger) Bridge(devices []network.DeviceToBridge) error {
+func (f *fakeBridger) Bridge(devices []network.DeviceToBridge, reconfigureDelay int) error {
 	if f.returnError {
 		return errors.New(f.errorMessage)
 	}

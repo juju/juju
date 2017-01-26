@@ -797,18 +797,19 @@ type hostChangesContext struct {
 }
 
 func (ctx *hostChangesContext) ProcessOneContainer(netEnv environs.NetworkingEnviron, idx int, host, container *state.Machine) error {
-	bridges, err := host.FindMissingBridgesForContainer(container)
+	netBondReconfigureDelay := netEnv.Config().NetBondReconfigureDelay()
+	bridges, reconfigureDelay, err := host.FindMissingBridgesForContainer(container, netBondReconfigureDelay)
 	if err != nil {
 		return err
 	}
-	netBondReconfigureDelay := netEnv.Config().NetBondReconfigureDelay()
+
+	ctx.result.Results[idx].ReconfigureDelay = reconfigureDelay
 	for _, bridgeInfo := range bridges {
 		ctx.result.Results[idx].NewBridges = append(
 			ctx.result.Results[idx].NewBridges,
 			params.DeviceBridgeInfo{
-				HostDeviceName:          bridgeInfo.DeviceName,
-				BridgeName:              bridgeInfo.BridgeName,
-				NetBondReconfigureDelay: netBondReconfigureDelay,
+				HostDeviceName: bridgeInfo.DeviceName,
+				BridgeName:     bridgeInfo.BridgeName,
 			})
 	}
 	return nil

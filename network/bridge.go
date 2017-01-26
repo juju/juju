@@ -19,7 +19,7 @@ type Bridger interface {
 	// TODO(frobware) - we may want a different type to encompass
 	// and reflect how bridging should be done vis-a-vis what
 	// needs to be bridged.
-	Bridge(devices []DeviceToBridge) error
+	Bridge(devices []DeviceToBridge, reconfigureDelay int) error
 }
 
 type etcNetworkInterfacesBridger struct {
@@ -64,9 +64,9 @@ func pythonInterpreters() []string {
 	return result
 }
 
-func (b *etcNetworkInterfacesBridger) Bridge(devices []DeviceToBridge) error {
-	cmd := bridgeCmd(devices, b.PythonInterpreter, b.BridgePrefix, b.Filename, BridgeScriptPythonContent, b.DryRun)
-	infoCmd := bridgeCmd(devices, b.PythonInterpreter, b.BridgePrefix, b.Filename, "<script-redacted>", b.DryRun)
+func (b *etcNetworkInterfacesBridger) Bridge(devices []DeviceToBridge, reconfigureDelay int) error {
+	cmd := bridgeCmd(devices, b.PythonInterpreter, b.BridgePrefix, b.Filename, BridgeScriptPythonContent, b.DryRun, reconfigureDelay)
+	infoCmd := bridgeCmd(devices, b.PythonInterpreter, b.BridgePrefix, b.Filename, "<script-redacted>", b.DryRun, reconfigureDelay)
 	logger.Infof("bridgescript command=%s", infoCmd)
 	result, err := runCommand(cmd, b.Environ, b.Clock, b.Timeout)
 	if err != nil {
@@ -86,7 +86,7 @@ func (b *etcNetworkInterfacesBridger) Bridge(devices []DeviceToBridge) error {
 	return nil
 }
 
-func bridgeCmd(devices []DeviceToBridge, pythonInterpreter, bridgePrefix, filename, pythonScript string, dryRun bool) string {
+func bridgeCmd(devices []DeviceToBridge, pythonInterpreter, bridgePrefix, filename, pythonScript string, dryRun bool, reconfigureDelay int) string {
 	dryRunOption := ""
 
 	if bridgePrefix != "" {
@@ -97,20 +97,16 @@ func bridgeCmd(devices []DeviceToBridge, pythonInterpreter, bridgePrefix, filena
 		dryRunOption = "--dry-run"
 	}
 
-	netBondReconfigureDelay := 0
-	netBondReconfigureDelayOption := ""
+	reconfigureDelayOption := ""
 
 	deviceNames := make([]string, len(devices))
 
 	for i, d := range devices {
-		if d.NetBondReconfigureDelay > netBondReconfigureDelay {
-			netBondReconfigureDelay = d.NetBondReconfigureDelay
-		}
 		deviceNames[i] = d.DeviceName
 	}
 
-	if netBondReconfigureDelay > 0 {
-		netBondReconfigureDelayOption = fmt.Sprintf("--net-bond-reconfigure-delay=%v", netBondReconfigureDelay)
+	if reconfigureDelay >= 0 {
+		reconfigureDelayOption = fmt.Sprintf("--reconfigure-delay=%v", reconfigureDelay)
 	}
 
 	return fmt.Sprintf(`
@@ -122,7 +118,7 @@ EOF
 		strings.Join(deviceNames, " "),
 		bridgePrefix,
 		dryRunOption,
-		netBondReconfigureDelayOption,
+		reconfigureDelayOption,
 		filename,
 		pythonScript)
 }

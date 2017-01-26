@@ -24,7 +24,7 @@ type APICalls interface {
 	GetContainerInterfaceInfo(names.MachineTag) ([]network.InterfaceInfo, error)
 	ReleaseContainerAddresses(names.MachineTag) error
 	SetHostMachineNetworkConfig(string, []params.NetworkConfig) error
-	HostChangesForContainer(containerTag names.MachineTag) ([]network.DeviceToBridge, error)
+	HostChangesForContainer(containerTag names.MachineTag) ([]network.DeviceToBridge, int, error)
 }
 
 type hostArchToolsFinder struct {
@@ -44,7 +44,7 @@ var resolvConf = "/etc/resolv.conf"
 var getObservedNetworkConfig = common.GetObservedNetworkConfig
 
 func prepareHost(bridger network.Bridger, hostMachineID string, containerTag names.MachineTag, api APICalls, log loggo.Logger) error {
-	devicesToBridge, err := api.HostChangesForContainer(containerTag)
+	devicesToBridge, reconfigureDelay, err := api.HostChangesForContainer(containerTag)
 
 	if err != nil {
 		return errors.Annotate(err, "unable to setup network")
@@ -55,9 +55,9 @@ func prepareHost(bridger network.Bridger, hostMachineID string, containerTag nam
 		return nil
 	}
 
-	log.Tracef("Bridging %+v devices on host %q", devicesToBridge, hostMachineID)
+	log.Tracef("Bridging %+v devices on host %q with delay=%v", devicesToBridge, hostMachineID, reconfigureDelay)
 
-	err = bridger.Bridge(devicesToBridge)
+	err = bridger.Bridge(devicesToBridge, reconfigureDelay)
 
 	if err != nil {
 		return errors.Annotate(err, "failed to bridge devices")

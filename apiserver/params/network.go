@@ -135,9 +135,8 @@ type NetworkConfig struct {
 // DeviceBridgeInfo lists the host device and the expected bridge to be
 // created.
 type DeviceBridgeInfo struct {
-	HostDeviceName          string `json:"host-device-name"`
-	BridgeName              string `json:"bridge-name"`
-	NetBondReconfigureDelay int    `json:"net-bond-reconfigure-delay"`
+	HostDeviceName string `json:"host-device-name"`
+	BridgeName     string `json:"bridge-name"`
 }
 
 // ProviderInterfaceInfoResults holds the results of a
@@ -471,6 +470,10 @@ type HostNetworkChange struct {
 	// NewBridges lists the bridges that need to be created and what host
 	// device they should be connected to.
 	NewBridges []DeviceBridgeInfo `json:"new-bridges"`
+
+	// ReconfigureDelay is the duration in seconds to sleep before
+	// raising the bridged interface
+	ReconfigureDelay int `json:"reconfigure-delay"`
 }
 
 // HostNetworkChangeResults holds the network changes that are necessary for multiple containers to be created.
