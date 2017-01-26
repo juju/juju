@@ -5,7 +5,6 @@ package provisioner
 
 import (
 	"fmt"
-	"os"
 	"sync/atomic"
 	"time"
 
@@ -208,10 +207,10 @@ func (cs *ContainerSetup) getContainerArtifacts(
 		return nil, nil, nil, err
 	}
 
-	bridger := network.NewEtcNetworkInterfacesBridger(os.Environ(), clock.WallClock,
-		activateBridgesTimeout, instancecfg.DefaultBridgePrefix, systemNetworkInterfacesFile,
-		false, // --dry-run
-	)
+	bridger, err := network.DefaultEtcNetworkInterfacesBridger(activateBridgesTimeout, instancecfg.DefaultBridgePrefix, systemNetworkInterfacesFile)
+	if err != nil {
+		return nil, nil, nil, err
+	}
 
 	switch containerType {
 	case instance.KVM:
