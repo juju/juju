@@ -421,19 +421,33 @@ func (s *upgradesSuite) TestAddMigrationAttempt(c *gc.C) {
 }
 
 func (s *upgradesSuite) TestAddLocalCharmSequences(c *gc.C) {
-	mkInput := func(uuid, curl string) bson.M {
-		return bson.M{"_id": uuid + ":" + curl, "url": curl}
+	uuid0 := s.state.ModelUUID()
+	st1 := s.newState(c)
+	uuid1 := st1.ModelUUID()
+	// Sort model UUIDs so that result ordering matches expected test
+	// results.
+	if uuid0 > uuid1 {
+		uuid0, uuid1 = uuid1, uuid0
+	}
+
+	mkInput := func(uuid, curl string, life Life) bson.M {
+		return bson.M{
+			"_id":  uuid + ":" + curl,
+			"url":  curl,
+			"life": life,
+		}
 	}
 
 	charms, closer := s.state.getRawCollection(charmsC)
 	defer closer()
 	err := charms.Insert(
-		mkInput("uuid0", "local:trusty/bar-2"),
-		mkInput("uuid0", "local:xenial/foo-1"),
-		mkInput("uuid0", "cs:xenial/moo-2"), // Should be ignored
-		mkInput("uuid1", "local:trusty/aaa-3"),
-		mkInput("uuid1", "local:xenial/bbb-5"),
-		mkInput("uuid1", "cs:xenial/boo-2"), // Should be ignored
+		mkInput(uuid0, "local:trusty/bar-2", Alive),
+		mkInput(uuid0, "local:trusty/bar-1", Dead),
+		mkInput(uuid0, "local:xenial/foo-1", Alive),
+		mkInput(uuid0, "cs:xenial/moo-2", Alive), // Should be ignored
+		mkInput(uuid1, "local:trusty/aaa-3", Alive),
+		mkInput(uuid1, "local:xenial/bbb-5", Dead), //Should be handled and removed.
+		mkInput(uuid1, "cs:xenial/boo-2", Alive),   // Should be ignored
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -450,12 +464,29 @@ func (s *upgradesSuite) TestAddLocalCharmSequences(c *gc.C) {
 		}
 	}
 	expected := []bson.M{
-		mkExpected("uuid0", "local:trusty/bar", 3),
-		mkExpected("uuid0", "local:xenial/foo", 2),
-		mkExpected("uuid1", "local:trusty/aaa", 4),
-		mkExpected("uuid1", "local:xenial/bbb", 6),
+		mkExpected(uuid0, "local:trusty/bar", 3),
+		mkExpected(uuid0, "local:xenial/foo", 2),
+		mkExpected(uuid1, "local:trusty/aaa", 4),
+		mkExpected(uuid1, "local:xenial/bbb", 6),
 	}
 	s.assertUpgradedData(c, AddLocalCharmSequences, sequences, expected)
+
+	// Expect Dead charm documents to be removed.
+	var docs []bson.M
+	c.Assert(charms.Find(nil).All(&docs), jc.ErrorIsNil)
+	var ids []string
+	for _, doc := range docs {
+		ids = append(ids, doc["_id"].(string))
+	}
+	c.Check(ids, jc.SameContents, []string{
+		uuid0 + ":local:trusty/bar-2",
+		// uuid0:local:trusty/bar-1 is gone
+		uuid0 + ":local:xenial/foo-1",
+		uuid0 + ":cs:xenial/moo-2",
+		uuid1 + ":local:trusty/aaa-3",
+		// uuid1:local:xenial/bbb-5 is gone
+		uuid1 + ":cs:xenial/boo-2",
+	})
 }
 
 func hasIndex(coll *mgo.Collection, key []string) (bool, error) {

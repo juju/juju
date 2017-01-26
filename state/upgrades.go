@@ -304,13 +304,17 @@ func AddLocalCharmSequences(st *State) error {
 		"url": bson.M{"$regex": "^local:"},
 	}
 	var docs []bson.M
-	err := charmsColl.Find(query).Select(bson.M{"_id": 1}).All(&docs)
+	err := charmsColl.Find(query).Select(bson.M{
+		"_id":  1,
+		"life": 1,
+	}).All(&docs)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
 	// model UUID -> charm URL base -> max revision
 	maxRevs := make(map[string]map[string]int)
+	var deadIds []string
 	for _, doc := range docs {
 		id, ok := doc["_id"].(string)
 		if !ok {
@@ -328,7 +332,7 @@ func AddLocalCharmSequences(st *State) error {
 			continue
 		}
 
-		if _, ok := maxRevs[modelUUID]; !ok {
+		if _, exists := maxRevs[modelUUID]; !exists {
 			maxRevs[modelUUID] = make(map[string]int)
 		}
 
@@ -337,6 +341,14 @@ func AddLocalCharmSequences(st *State) error {
 		if url.Revision > curRev {
 			maxRevs[modelUUID][baseURL] = url.Revision
 		}
+
+		if life, ok := doc["life"].(int); !ok {
+			upgradesLogger.Errorf("invalid life for charm: %s", id)
+			continue
+		} else if life == int(Dead) {
+			deadIds = append(deadIds, id)
+		}
+
 	}
 
 	sequences, closer := st.getRawCollection(sequenceC)
@@ -352,5 +364,16 @@ func AddLocalCharmSequences(st *State) error {
 		}
 
 	}
-	return nil
+
+	// Remove dead charm documents
+	var ops []txn.Op
+	for _, id := range deadIds {
+		ops = append(ops, txn.Op{
+			C:      charmsC,
+			Id:     id,
+			Remove: true,
+		})
+	}
+	err = st.runRawTransaction(ops)
+	return errors.Annotate(err, "removing dead charms")
 }
