@@ -442,8 +442,6 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 			AdminSecret:    config.bootstrap.AdminSecret,
 		},
 	)
-	fmt.Printf("%+v", environ)
-	os.Exit(1)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -522,6 +520,10 @@ See `[1:] + "`juju kill-controller`" + `.`)
 
 	// Merge environ and bootstrap-specific constraints.
 	constraintsValidator, err := environ.ConstraintsValidator()
+	//TODO(implement a type that implements constraints Validator)
+	fmt.Println(constraintsValidator)
+	fmt.Println(err)
+	os.Exit(1)
 	if err != nil {
 		return errors.Trace(err)
 	}
