@@ -129,9 +129,9 @@ const (
 	// metrics collected in this model for anonymized aggregate analytics.
 	TransmitVendorMetricsKey = "transmit-vendor-metrics"
 
-	// BondReconfigureDelay is the key to pass when bridging the network
+	// NetBondReconfigureDelay is the key to pass when bridging the network
 	// for containers.
-	BondReconfigureDelayKey = "bond-reconfigure-delay"
+	NetBondReconfigureDelayKey = "net-bond-reconfigure-delay"
 
 	//
 	// Deprecated Settings Attributes
@@ -289,7 +289,7 @@ var defaultConfigValues = map[string]interface{}{
 	"ssl-hostname-verification":  true,
 	"proxy-ssh":                  false,
 
-	// Why is bond-reconfigure-delay set to 17 seconds?
+	// Why is net-bond-reconfigure-delay set to 17 seconds?
 	//
 	// The value represents the amount of time in seconds to sleep
 	// between ifdown and ifup when bridging bonded interfaces;
@@ -305,8 +305,8 @@ var defaultConfigValues = map[string]interface{}{
 	//
 	// This value can be further tweaked via:
 	//
-	// $ juju model-config bond-reconfigure-delay=30
-	BondReconfigureDelayKey: 17,
+	// $ juju model-config net-bond-reconfigure-delay=30
+	NetBondReconfigureDelayKey: 17,
 
 	"default-series":           series.LatestLts(),
 	ProvisionerHarvestModeKey:  HarvestDestroyed.String(),
@@ -579,10 +579,10 @@ func (c *Config) ProxySSH() bool {
 	return value
 }
 
-// BondReconfigureDelay returns the duration in seconds that should be
+// NetBondReconfigureDelay returns the duration in seconds that should be
 // passed to the bridge script when bridging bonded interfaces.
-func (c *Config) BondReconfigureDelay() int {
-	value, _ := c.defined[BondReconfigureDelayKey].(int)
+func (c *Config) NetBondReconfigureDelay() int {
+	value, _ := c.defined[NetBondReconfigureDelayKey].(int)
 	return value
 }
 
@@ -991,7 +991,7 @@ var alwaysOptional = schema.Defaults{
 	AutomaticallyRetryHooks:      schema.Omit,
 	"test-mode":                  schema.Omit,
 	TransmitVendorMetricsKey:     schema.Omit,
-	BondReconfigureDelayKey:      schema.Omit,
+	NetBondReconfigureDelayKey:   schema.Omit,
 }
 
 func allowEmpty(attr string) bool {
@@ -1347,7 +1347,7 @@ data of the store. (default false)`,
 		Type:        environschema.Tbool,
 		Group:       environschema.EnvironGroup,
 	},
-	BondReconfigureDelayKey: {
+	NetBondReconfigureDelayKey: {
 		Description: "The amount of time in seconds to sleep between ifdown and ifup when bridging",
 		Type:        environschema.Tint,
 		Group:       environschema.EnvironGroup,

@@ -393,7 +393,7 @@ def arg_parser():
     parser.add_argument('--interfaces-to-bridge', help="interfaces to bridge; space delimited", type=str, required=True)
     parser.add_argument('--dry-run', help="dry run, no activation", action='store_true', default=False, required=False)
     parser.add_argument('--bridge-name', help="bridge name", type=str, required=False)
-    parser.add_argument('--bond-reconfigure-delay', help="delay in seconds before raising bonded interfaces", type=int, required=False, default=30)
+    parser.add_argument('--net-bond-reconfigure-delay', help="delay in seconds before raising bonded interfaces", type=int, required=False, default=30)
     parser.add_argument('filename', help="interfaces(5) based filename")
     return parser
 
@@ -453,7 +453,7 @@ def main(args):
             print("working around https://bugs.launchpad.net/ubuntu/+source/ifenslave/+bug/1269921")
             print("working around https://bugs.launchpad.net/juju-core/+bug/1594855")
             if args.dry_run and args.dry_run > 0:
-                shell_cmd("sleep {}".format(args.bond_reconfigure_delay, dry_run=args.dry_run))
+                shell_cmd("sleep {}".format(args.net_bond_reconfigure_delay, dry_run=args.dry_run))
             break
 
     shell_cmd("cat {}".format(args.filename), dry_run=args.dry_run)

@@ -116,7 +116,7 @@ func BootstrapInstance(ctx environs.BootstrapContext, env environs.Environ, args
 	}
 	instanceConfig.EnableOSRefreshUpdate = env.Config().EnableOSRefreshUpdate()
 	instanceConfig.EnableOSUpgrade = env.Config().EnableOSUpgrade()
-	instanceConfig.BondReconfigureDelay = env.Config().BondReconfigureDelay()
+	instanceConfig.NetBondReconfigureDelay = env.Config().NetBondReconfigureDelay()
 
 	instanceConfig.Tags = instancecfg.InstanceTags(envCfg.UUID(), args.ControllerConfig.ControllerUUID(), envCfg, instanceConfig.Jobs)
 	maybeSetBridge := func(icfg *instancecfg.InstanceConfig) {

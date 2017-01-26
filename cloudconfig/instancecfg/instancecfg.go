@@ -149,11 +149,11 @@ type InstanceConfig struct {
 	// available as part of its provisioning.
 	EnableOSUpgrade bool
 
-	// BondReconfigureDelay defines the duration in seconds that the
+	// NetBondReconfigureDelay defines the duration in seconds that the
 	// networking bridgescript should pause between ifdown, then
 	// ifup when bridging bonded interfaces. See bugs #1594855 and
 	// #1269921.
-	BondReconfigureDelay int
+	NetBondReconfigureDelay int
 }
 
 // ControllerConfig represents controller-specific initialization information

@@ -801,14 +801,14 @@ func (ctx *hostChangesContext) ProcessOneContainer(netEnv environs.NetworkingEnv
 	if err != nil {
 		return err
 	}
-	bondReconfigureDelay := netEnv.Config().BondReconfigureDelay()
+	netBondReconfigureDelay := netEnv.Config().NetBondReconfigureDelay()
 	for _, bridgeInfo := range bridges {
 		ctx.result.Results[idx].NewBridges = append(
 			ctx.result.Results[idx].NewBridges,
 			params.DeviceBridgeInfo{
-				HostDeviceName:       bridgeInfo.DeviceName,
-				BridgeName:           bridgeInfo.BridgeName,
-				BondReconfigureDelay: bondReconfigureDelay,
+				HostDeviceName:          bridgeInfo.DeviceName,
+				BridgeName:              bridgeInfo.BridgeName,
+				NetBondReconfigureDelay: netBondReconfigureDelay,
 			})
 	}
 	return nil

@@ -330,9 +330,9 @@ type DeviceToBridge struct {
 	// BridgeName is the name of the bridge that we want created.
 	BridgeName string
 
-	// BondReconfigureDelay is the duration to sleep (in seconds) before
+	// NetBondReconfigureDelay is the duration to sleep (in seconds) before
 	// bringing the bridged interface up.
-	BondReconfigureDelay int
+	NetBondReconfigureDelay int
 }
 
 // LXCNetDefaultConfig is the location of the default network config

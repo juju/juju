@@ -74,14 +74,14 @@ func (s *bridgeConfigSuite) assertScript(c *gc.C, initialConfig, expectedConfig,
 	}
 }
 
-func (s *bridgeConfigSuite) assertScriptWithActivationAndDryRun(c *gc.C, isBonded, isAlreadyBridged bool, initialConfig, bridgePrefix string, bondReconfigureDelay int, interfacesToBridge []string) {
-	expectedConfig := s.dryRunExpectedOutputHelper(isBonded, isAlreadyBridged, bridgePrefix, bondReconfigureDelay, interfacesToBridge)
+func (s *bridgeConfigSuite) assertScriptWithActivationAndDryRun(c *gc.C, isBonded, isAlreadyBridged bool, initialConfig, bridgePrefix string, netBondReconfigureDelay int, interfacesToBridge []string) {
+	expectedConfig := s.dryRunExpectedOutputHelper(isBonded, isAlreadyBridged, bridgePrefix, netBondReconfigureDelay, interfacesToBridge)
 
 	for i, python := range s.pythonVersions {
 		c.Logf("test #%v using %s", i, python)
 		err := ioutil.WriteFile(s.testConfigPath, []byte(strings.TrimSuffix(initialConfig, "\n")), 0644)
 		c.Check(err, jc.ErrorIsNil)
-		output, retcode := s.runScriptWithActivationAndDryRun(c, python, bridgePrefix, bondReconfigureDelay, interfacesToBridge)
+		output, retcode := s.runScriptWithActivationAndDryRun(c, python, bridgePrefix, netBondReconfigureDelay, interfacesToBridge)
 		c.Check(retcode, gc.Equals, 0)
 		c.Check(len(output), gc.Equals, len(expectedConfig))
 		c.Check(output, gc.DeepEquals, expectedConfig)
@@ -200,13 +200,13 @@ func (s *bridgeConfigSuite) runScriptWithoutActivation(c *gc.C, pythonBinary, co
 	return stdout, result.Code
 }
 
-func (s *bridgeConfigSuite) runScriptWithActivationAndDryRun(c *gc.C, pythonBinary, bridgePrefix string, bondReconfigureDelay int, interfacesToBridge []string) (output []string, exitCode int) {
+func (s *bridgeConfigSuite) runScriptWithActivationAndDryRun(c *gc.C, pythonBinary, bridgePrefix string, netBondReconfigureDelay int, interfacesToBridge []string) (output []string, exitCode int) {
 	if bridgePrefix != "" {
 		bridgePrefix = fmt.Sprintf("--bridge-prefix=%q", bridgePrefix)
 	}
 
-	script := fmt.Sprintf("%q %q --activate --dry-run %s %s --bond-reconfigure-delay=%v --interfaces-to-bridge=%q",
-		pythonBinary, s.testPythonScript, bridgePrefix, s.testConfigPath, bondReconfigureDelay, strings.Join(interfacesToBridge, " "))
+	script := fmt.Sprintf("%q %q --activate --dry-run %s %s --net-bond-reconfigure-delay=%v --interfaces-to-bridge=%q",
+		pythonBinary, s.testPythonScript, bridgePrefix, s.testConfigPath, netBondReconfigureDelay, strings.Join(interfacesToBridge, " "))
 	c.Log(script)
 	result, err := exec.RunCommands(exec.RunParams{Commands: script})
 	c.Assert(err, jc.ErrorIsNil, gc.Commentf("script failed unexpectedly"))
@@ -228,7 +228,7 @@ func (s *bridgeConfigSuite) runScriptWithActivationAndDryRun(c *gc.C, pythonBina
 	return output, result.Code
 }
 
-func (s *bridgeConfigSuite) dryRunExpectedOutputHelper(isBonded, isAlreadyBridged bool, bridgePrefix string, bondReconfigureDelay int, interfacesToBridge []string) []string {
+func (s *bridgeConfigSuite) dryRunExpectedOutputHelper(isBonded, isAlreadyBridged bool, bridgePrefix string, netBondReconfigureDelay int, interfacesToBridge []string) []string {
 	output := make([]string, 0)
 	bridgedNames := make([]string, len(interfacesToBridge))
 	for i, s := range interfacesToBridge {
@@ -244,10 +244,10 @@ func (s *bridgeConfigSuite) dryRunExpectedOutputHelper(isBonded, isAlreadyBridge
 		output = append(output, "brctl show")
 		output = append(output, fmt.Sprintf("ifdown --exclude=lo --interfaces=%[1]s %s", s.testConfigPath, strings.Join(interfacesToBridge, " ")))
 		output = append(output, "**** Activating new configuration")
-		if isBonded && bondReconfigureDelay > 0 {
+		if isBonded && netBondReconfigureDelay > 0 {
 			output = append(output, "working around https://bugs.launchpad.net/ubuntu/+source/ifenslave/+bug/1269921")
 			output = append(output, "working around https://bugs.launchpad.net/juju-core/+bug/1594855")
-			output = append(output, fmt.Sprintf("sleep %v", bondReconfigureDelay))
+			output = append(output, fmt.Sprintf("sleep %v", netBondReconfigureDelay))
 		}
 		output = append(output, fmt.Sprintf("cat %s", s.testConfigPath))
 		output = append(output, fmt.Sprintf("ifup --exclude=lo --interfaces=%[1]s -a", s.testConfigPath))
