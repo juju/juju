@@ -233,6 +233,7 @@ func StoreCharmArchive(st *state.State, archive CharmArchive) error {
 			// state before us. This is not an error.
 			return nil
 		}
+		return errors.Trace(err)
 	}
 	return nil
 }

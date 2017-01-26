@@ -858,11 +858,12 @@ func (s *ConfigSuite) addJujuFiles(c *gc.C) {
 func (s *ConfigSuite) TestValidateUnknownAttrs(c *gc.C) {
 	s.addJujuFiles(c)
 	cfg, err := config.New(config.UseDefaults, map[string]interface{}{
-		"name":    "myenv",
-		"type":    "other",
-		"uuid":    testing.ModelTag.Id(),
-		"known":   "this",
-		"unknown": "that",
+		"name":       "myenv",
+		"type":       "other",
+		"uuid":       testing.ModelTag.Id(),
+		"extra-info": "official extra user data",
+		"known":      "this",
+		"unknown":    "that",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 

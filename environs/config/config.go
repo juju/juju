@@ -133,6 +133,10 @@ const (
 	// metrics collected in this model for anonymized aggregate analytics.
 	TransmitVendorMetricsKey = "transmit-vendor-metrics"
 
+	// ExtraInfoKey is the key for arbitrary user specified string data that
+	// is stored against the model.
+	ExtraInfoKey = "extra-info"
+
 	//
 	// Deprecated Settings Attributes
 	//
@@ -952,6 +956,7 @@ var fields = func() schema.Fields {
 var alwaysOptional = schema.Defaults{
 	AgentVersionKey:   schema.Omit,
 	AuthorizedKeysKey: schema.Omit,
+	ExtraInfoKey:      schema.Omit,
 
 	LogForwardEnabled:      schema.Omit,
 	LogFwdSyslogHost:       schema.Omit,
@@ -1203,6 +1208,11 @@ var configSchema = environschema.Fields{
 	"enable-os-upgrade": {
 		Description: `Whether newly provisioned instances should run their respective OS's upgrade capability.`,
 		Type:        environschema.Tbool,
+		Group:       environschema.EnvironGroup,
+	},
+	ExtraInfoKey: {
+		Description: "Arbitrary user specified string data that is stored against the model.",
+		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},
 	"firewall-mode": {

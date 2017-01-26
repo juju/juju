@@ -116,6 +116,7 @@ func (api *MetricsManagerAPI) CleanupOldMetrics(args params.Entities) (params.Er
 				result.Results[i].Error = common.ServerError(err)
 				continue
 			}
+			defer modelState.Close()
 		}
 
 		err = modelState.CleanupOldMetrics()
@@ -157,6 +158,7 @@ func (api *MetricsManagerAPI) SendMetrics(args params.Entities) (params.ErrorRes
 				result.Results[i].Error = common.ServerError(err)
 				continue
 			}
+			defer modelState.Close()
 		}
 		txVendorMetrics, err := transmitVendorMetrics(modelState)
 		if err != nil {

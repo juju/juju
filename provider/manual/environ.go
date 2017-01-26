@@ -18,6 +18,7 @@ import (
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/featureflag"
 	"github.com/juju/utils/ssh"
+	"github.com/juju/version"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cloudconfig/instancecfg"
@@ -178,8 +179,8 @@ func (e *manualEnviron) verifyBootstrapHost() error {
 	return nil
 }
 
-// MoveInstancesToController implements environs.Environ.
-func (e *manualEnviron) MoveInstancesToController(ids []instance.Id, controllerUUID string) error {
+// AdoptResources is part of the Environ interface.
+func (e *manualEnviron) AdoptResources(controllerUUID string, fromVersion version.Number) error {
 	// This provider doesn't track instance -> controller.
 	return nil
 }

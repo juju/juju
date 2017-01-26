@@ -20,6 +20,7 @@ import (
 	"github.com/juju/utils/os"
 	"github.com/juju/utils/series"
 	"github.com/juju/utils/set"
+	"github.com/juju/version"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/cloudconfig/cloudinit"
@@ -2342,6 +2343,42 @@ func (env *maasEnviron) releaseContainerAddresses2(macAddresses []string) error 
 		if err != nil {
 			return errors.Annotatef(err, "deleting device %s", device.SystemID())
 		}
+	}
+	return nil
+}
+
+// AdoptResources updates all the instances to indicate they
+// are now associated with the specified controller.
+func (env *maasEnviron) AdoptResources(controllerUUID string, fromVersion version.Number) error {
+	if !env.usingMAAS2() {
+		// We don't track instance -> controller for MAAS1.
+		return nil
+	}
+
+	instances, err := env.AllInstances()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	var failed []instance.Id
+	for _, instance := range instances {
+		maas2Instance, ok := instance.(*maas2Instance)
+		if !ok {
+			// This should never happen.
+			return errors.Errorf("instance %q wasn't a maas2Instance", instance.Id())
+		}
+		// From the MAAS docs: "[SetOwnerData] will not remove any
+		// previous keys unless explicitly passed with an empty
+		// string." So not passing all of the keys here is fine.
+		// https://maas.ubuntu.com/docs2.0/api.html#machine
+		err := maas2Instance.machine.SetOwnerData(map[string]string{tags.JujuController: controllerUUID})
+		if err != nil {
+			logger.Errorf("error setting controller uuid tag for %q: %v", instance.Id(), err)
+			failed = append(failed, instance.Id())
+		}
+	}
+
+	if failed != nil {
+		return errors.Errorf("failed to update controller for some instances: %v", failed)
 	}
 	return nil
 }

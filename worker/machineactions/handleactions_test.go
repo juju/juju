@@ -22,6 +22,13 @@ type HandleSuite struct {
 
 var _ = gc.Suite(&HandleSuite{})
 
+func (s *HandleSuite) SetUpTest(c *gc.C) {
+	s.IsolationSuite.SetUpTest(c)
+	// For testing purposes, don't set the user to run as.
+	// Most developers don't have rights to use 'su'.
+	s.PatchValue(&machineactions.RunAsUser, "")
+}
+
 func (s *HandleSuite) TestInvalidAction(c *gc.C) {
 	results, err := machineactions.HandleAction("invalid", nil)
 	c.Assert(err, gc.ErrorMatches, "unexpected action invalid")

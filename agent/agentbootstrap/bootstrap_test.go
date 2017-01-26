@@ -85,6 +85,9 @@ LXC_BRIDGE="ignored"`[1:])
 				&net.IPAddr{IP: net.IPv4(10, 0, 4, 1)},
 				&net.IPAddr{IP: net.IPv4(10, 0, 4, 4)},
 			}, nil
+		} else if name == network.DefaultKVMBridge {
+			// claim we don't have a virbr0 bridge
+			return nil, nil
 		}
 		c.Fatalf("unknown bridge in testing: %v", name)
 		return nil, nil
