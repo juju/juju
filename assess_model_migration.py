@@ -7,8 +7,6 @@ import argparse
 from contextlib import contextmanager
 import logging
 import os
-# from packaging import version
-from distutils.version import LooseVersion
 from subprocess import CalledProcessError
 import sys
 from time import sleep
@@ -20,6 +18,7 @@ from deploy_stack import (
     BootstrapManager,
     get_random_string
     )
+from jujupy.version_client import ModelClient2_0
 from jujucharm import local_charm_path
 from remote import remote_from_address
 from utility import (
@@ -89,7 +88,7 @@ def assess_development_branch_migrations(source_client, dest_client):
 
 def client_is_at_least_2_1(client):
     """Return true of the given ModelClient is version 2.1 or greater."""
-    return LooseVersion(client.version) >= LooseVersion('2.1')
+    return not isinstance(client, ModelClient2_0)
 
 
 def parse_args(argv):
