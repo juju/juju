@@ -222,7 +222,8 @@ func InstallAndStart(svc ServiceActions) error {
 		if err != nil {
 			logger.Errorf("retrying start request (%v)", errors.Cause(err))
 		}
-		if err = restartOrStart(svc); err == nil {
+
+		if err = svc.Start(); err == nil {
 			break
 		}
 	}
@@ -246,26 +247,6 @@ func Restart(name string) error {
 		return errors.Annotatef(err, "failed to restart service %q", name)
 	}
 	return nil
-}
-
-func restartOrStart(svc ServiceActions) error {
-	// Use the Restart method, if there is one.
-	if svc, ok := svc.(RestartableService); ok {
-		if err := svc.Restart(); err != nil {
-			return errors.Trace(err)
-		}
-		return nil
-	}
-
-	// Otherwise explicitly stop and start the service.
-	if err := svc.Stop(); err != nil {
-		logger.Errorf("could not stop service: %v", err)
-	}
-	if err := svc.Start(); err != nil {
-		return errors.Trace(err)
-	}
-	return nil
-
 }
 
 func restart(svc Service) error {
