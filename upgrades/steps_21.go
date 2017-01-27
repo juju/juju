@@ -31,5 +31,12 @@ func stateStepsFor21() []Step {
 				return state.AddLocalCharmSequences(context.State())
 			},
 		},
+		&upgradeStep{
+			description: "update lxd cloud/credentials",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return updateLXDCloudCredentials(context.State())
+			},
+		},
 	}
 }
