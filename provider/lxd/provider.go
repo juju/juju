@@ -9,6 +9,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/jsonschema"
 	"github.com/juju/schema"
+	"github.com/juju/utils"
 	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/cloud"
@@ -25,10 +26,16 @@ var providerInstance environProvider
 
 // Open implements environs.EnvironProvider.
 func (environProvider) Open(args environs.OpenParams) (environs.Environ, error) {
-	if err := validateCloudSpec(args.Cloud); err != nil {
+	local, err := validateCloudSpec(args.Cloud)
+	if err != nil {
 		return nil, errors.Annotate(err, "validating cloud spec")
 	}
-	env, err := newEnviron(args.Cloud, args.Config, newRawProvider)
+	env, err := newEnviron(
+		local,
+		args.Cloud,
+		args.Config,
+		newRawProvider,
+	)
 	return env, errors.Trace(err)
 }
 
@@ -45,7 +52,8 @@ func (p environProvider) Ping(endpoint string) error {
 
 // PrepareConfig implements environs.EnvironProvider.
 func (p environProvider) PrepareConfig(args environs.PrepareConfigParams) (*config.Config, error) {
-	if err := validateCloudSpec(args.Cloud); err != nil {
+	_, err := validateCloudSpec(args.Cloud)
+	if err != nil {
 		return nil, errors.Annotate(err, "validating cloud spec")
 	}
 	return args.Config, nil
@@ -81,14 +89,23 @@ func (environProvider) DetectCloud(name string) (cloud.Cloud, error) {
 }
 
 func localhostCloud() (cloud.Cloud, error) {
+	p, err := newLocalRawProvider()
+	if err != nil {
+		return cloud.Cloud{}, errors.Trace(err)
+	}
+	hostAddress, err := utils.GetAddressForInterface(p.DefaultProfileBridgeName())
+	if err != nil {
+		return cloud.Cloud{}, errors.Trace(err)
+	}
 	return cloud.Cloud{
 		Name: lxdnames.DefaultCloud,
 		Type: lxdnames.ProviderType,
 		AuthTypes: []cloud.AuthType{
-			cloud.EmptyAuthType,
+			cloud.CertificateAuthType,
 		},
 		Regions: []cloud.Region{{
-			Name: lxdnames.DefaultRegion,
+			Name:     lxdnames.DefaultRegion,
+			Endpoint: hostAddress,
 		}},
 		Description: cloud.DefaultCloudDescription(lxdnames.ProviderType),
 	}, nil
@@ -111,16 +128,41 @@ func (environProvider) Schema() environschema.Fields {
 	return fields
 }
 
-func validateCloudSpec(spec environs.CloudSpec) error {
+func validateCloudSpec(spec environs.CloudSpec) (local bool, _ error) {
 	if err := spec.Validate(); err != nil {
-		return errors.Trace(err)
+		return false, errors.Trace(err)
 	}
-	if spec.Credential != nil {
-		if authType := spec.Credential.AuthType(); authType != cloud.EmptyAuthType {
-			return errors.NotSupportedf("%q auth-type", authType)
+	if spec.Credential == nil {
+		return false, errors.NotValidf("missing credential")
+	}
+	if spec.Endpoint != "" {
+		var err error
+		local, err = isLocalEndpoint(spec.Endpoint)
+		if err != nil {
+			return false, errors.Trace(err)
 		}
+	} else {
+		// No endpoint specified, so assume we're local. This
+		// will happen, for example, when destroying a 2.0
+		// LXD controller.
+		local = true
 	}
-	return nil
+	switch authType := spec.Credential.AuthType(); authType {
+	case cloud.EmptyAuthType:
+		if !local {
+			// The empty auth-type is only valid
+			// when the endpoint is local to the
+			// machine running this process.
+			return false, errors.NotSupportedf("%q auth-type for non-local LXD", authType)
+		}
+	case cloud.CertificateAuthType:
+		if _, _, ok := getCerts(spec); !ok {
+			return false, errors.NotValidf("certificate credentials")
+		}
+	default:
+		return false, errors.NotSupportedf("%q auth-type", authType)
+	}
+	return local, nil
 }
 
 // ConfigSchema returns extra config attributes specific

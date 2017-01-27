@@ -20,9 +20,7 @@ import (
 type environRawSuite struct {
 	testing.IsolationSuite
 	testing.Stub
-	readFile   readFileFunc
-	runCommand runCommandFunc
-	spec       environs.CloudSpec
+	spec environs.CloudSpec
 }
 
 var _ = gc.Suite(&environRawSuite{})
@@ -30,20 +28,6 @@ var _ = gc.Suite(&environRawSuite{})
 func (s *environRawSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.Stub.ResetCalls()
-	s.readFile = func(path string) ([]byte, error) {
-		s.AddCall("readFile", path)
-		if err := s.NextErr(); err != nil {
-			return nil, err
-		}
-		return []byte("content:" + path), nil
-	}
-	s.runCommand = func(command string, args ...string) (string, error) {
-		s.AddCall("runCommand", command, args)
-		if err := s.NextErr(); err != nil {
-			return "", err
-		}
-		return "default via 10.0.8.1 dev eth0", nil
-	}
 	s.spec = environs.CloudSpec{
 		Type: "lxd",
 		Name: "localhost",

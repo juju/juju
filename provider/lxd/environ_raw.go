@@ -6,28 +6,13 @@
 package lxd
 
 import (
-	"io/ioutil"
-	"os"
-	"path"
-	"strings"
-
 	"github.com/juju/errors"
-	"github.com/juju/utils"
-	"github.com/juju/utils/series"
 	lxdshared "github.com/lxc/lxd/shared"
 
 	"github.com/juju/juju/environs"
-	jujupaths "github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/tools/lxdclient"
-)
-
-var (
-	jujuConfDir    = jujupaths.MustSucceed(jujupaths.ConfDir(series.LatestLts()))
-	clientCertPath = path.Join(jujuConfDir, "lxd-client.crt")
-	clientKeyPath  = path.Join(jujuConfDir, "lxd-client.key")
-	serverCertPath = path.Join(jujuConfDir, "lxd-server.crt")
 )
 
 type rawProvider struct {
@@ -37,10 +22,13 @@ type rawProvider struct {
 	lxdProfiles
 	lxdImages
 	common.Firewaller
+
+	remote lxdclient.Remote
 }
 
 type lxdCerts interface {
 	AddCert(lxdclient.Cert) error
+	CertByFingerprint(string) (lxdshared.CertInfo, error)
 	RemoveCertByFingerprint(string) error
 }
 
@@ -57,6 +45,7 @@ type lxdInstances interface {
 }
 
 type lxdProfiles interface {
+	DefaultProfileBridgeName() string
 	CreateProfile(string, map[string]string) error
 	HasProfile(string) (bool, error)
 }
@@ -65,103 +54,77 @@ type lxdImages interface {
 	EnsureImageExists(series string, sources []lxdclient.Remote, copyProgressHandler func(string)) error
 }
 
-func newRawProvider(spec environs.CloudSpec) (*rawProvider, error) {
-	client, err := newClient(spec, ioutil.ReadFile, utils.RunCommand)
-	if err != nil {
-		return nil, errors.Annotate(err, "creating LXD client")
+func newRawProvider(spec environs.CloudSpec, local bool) (*rawProvider, error) {
+	if local {
+		return newLocalRawProvider()
 	}
+	return newRemoteRawProvider(spec)
+}
 
-	raw := &rawProvider{
+func newLocalRawProvider() (*rawProvider, error) {
+	config := lxdclient.Config{Remote: lxdclient.Local}
+	return newRawProviderFromConfig(config)
+}
+
+func newRemoteRawProvider(spec environs.CloudSpec) (*rawProvider, error) {
+	config, err := getRemoteConfig(spec)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return newRawProviderFromConfig(*config)
+}
+
+func newRawProviderFromConfig(config lxdclient.Config) (*rawProvider, error) {
+	client, err := lxdclient.Connect(config, true)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &rawProvider{
 		lxdCerts:     client,
 		lxdConfig:    client,
 		lxdInstances: client,
 		lxdProfiles:  client,
 		lxdImages:    client,
 		Firewaller:   common.NewFirewaller(),
-	}
-	return raw, nil
+		remote:       config.Remote,
+	}, nil
 }
 
-type readFileFunc func(string) ([]byte, error)
-type runCommandFunc func(string, ...string) (string, error)
-
-func newClient(
-	spec environs.CloudSpec,
-	readFile readFileFunc,
-	runCommand runCommandFunc,
-) (*lxdclient.Client, error) {
-	config, err := getRemoteConfig(readFile, runCommand, spec)
-	if errors.IsNotFound(err) {
-		config = &lxdclient.Config{Remote: lxdclient.Local}
-	} else if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	client, err := lxdclient.Connect(*config, true)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return client, nil
-}
-
-// getRemoteConfig returns a lxdclient.Config using a TCP-based remote
-// if called from within an instance started by the LXD provider. Otherwise,
-// it returns an errors satisfying errors.IsNotFound.
-func getRemoteConfig(readFile readFileFunc, runCommand runCommandFunc, spec environs.CloudSpec) (*lxdclient.Config, error) {
-	readFileOrig := readFile
-	readFile = func(path string) ([]byte, error) {
-		data, err := readFileOrig(path)
-		if err != nil {
-			if os.IsNotExist(err) {
-				err = errors.NotFoundf("%s", path)
-			}
-			return nil, err
-		}
-		return data, nil
-	}
-	clientCert, err := readFile(clientCertPath)
-	if err != nil {
-		return nil, errors.Annotate(err, "reading client certificate")
-	}
-	clientKey, err := readFile(clientKeyPath)
-	if err != nil {
-		return nil, errors.Annotate(err, "reading client key")
-	}
-	serverCert, err := readFile(serverCertPath)
-	if err != nil {
-		return nil, errors.Annotate(err, "reading server certificate")
-	}
-	cert := lxdclient.NewCert(clientCert, clientKey)
-	if err != nil {
-		return nil, errors.Annotate(err, "getting gateway address")
-	}
-	hostAddress := spec.Endpoint
-	if hostAddress == "" {
-		var err error
-		hostAddress, err = getDefaultGateway(runCommand)
-		if err != nil {
-			return nil, errors.Annotate(err, "getting gateway address")
-		}
+// getRemoteConfig returns a lxdclient.Config using a TCP-based remote.
+func getRemoteConfig(spec environs.CloudSpec) (*lxdclient.Config, error) {
+	clientCert, serverCert, ok := getCerts(spec)
+	if !ok {
+		return nil, errors.NotValidf("credentials")
 	}
 	return &lxdclient.Config{
 		lxdclient.Remote{
 			Name:          "remote",
-			Host:          hostAddress,
+			Host:          spec.Endpoint,
 			Protocol:      lxdclient.LXDProtocol,
-			Cert:          &cert,
-			ServerPEMCert: string(serverCert),
+			Cert:          clientCert,
+			ServerPEMCert: serverCert,
 		},
 	}, nil
 }
 
-func getDefaultGateway(runCommand runCommandFunc) (string, error) {
-	out, err := runCommand("ip", "route", "list", "match", "0/0")
-	if err != nil {
-		return "", errors.Trace(err)
+func getCerts(spec environs.CloudSpec) (client *lxdclient.Cert, server string, ok bool) {
+	credAttrs := spec.Credential.Attributes()
+	clientCertPEM, ok := credAttrs[credAttrClientCert]
+	if !ok {
+		return nil, "", false
 	}
-	if !strings.HasPrefix(string(out), "default via") {
-		return "", errors.Errorf(`unexpected output from "ip route": %s`, out)
+	clientKeyPEM, ok := credAttrs[credAttrClientKey]
+	if !ok {
+		return nil, "", false
 	}
-	fields := strings.Fields(string(out))
-	return fields[2], nil
+	serverCertPEM, ok := credAttrs[credAttrServerCert]
+	if !ok {
+		return nil, "", false
+	}
+	clientCert := &lxdclient.Cert{
+		Name:    "juju",
+		CertPEM: []byte(clientCertPEM),
+		KeyPEM:  []byte(clientKeyPEM),
+	}
+	return clientCert, serverCertPEM, true
 }

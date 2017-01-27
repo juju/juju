@@ -29,10 +29,12 @@ type baseProvider interface {
 }
 
 type environ struct {
-	name string
-	uuid string
-	raw  *rawProvider
-	base baseProvider
+	cloud environs.CloudSpec
+	local bool
+	name  string
+	uuid  string
+	raw   *rawProvider
+	base  baseProvider
 
 	// namespace is used to create the machine and device hostnames.
 	namespace instance.Namespace
@@ -41,9 +43,14 @@ type environ struct {
 	ecfg *environConfig
 }
 
-type newRawProviderFunc func(environs.CloudSpec) (*rawProvider, error)
+type newRawProviderFunc func(environs.CloudSpec, bool) (*rawProvider, error)
 
-func newEnviron(spec environs.CloudSpec, cfg *config.Config, newRawProvider newRawProviderFunc) (*environ, error) {
+func newEnviron(
+	local bool,
+	spec environs.CloudSpec,
+	cfg *config.Config,
+	newRawProvider newRawProviderFunc,
+) (*environ, error) {
 	ecfg, err := newValidConfig(cfg)
 	if err != nil {
 		return nil, errors.Annotate(err, "invalid config")
@@ -54,12 +61,14 @@ func newEnviron(spec environs.CloudSpec, cfg *config.Config, newRawProvider newR
 		return nil, errors.Trace(err)
 	}
 
-	raw, err := newRawProvider(spec)
+	raw, err := newRawProvider(spec, local)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	env := &environ{
+		cloud:     spec,
+		local:     local,
 		name:      ecfg.Name(),
 		uuid:      ecfg.UUID(),
 		raw:       raw,
@@ -143,9 +152,31 @@ func (env *environ) Create(environs.CreateParams) error {
 
 // Bootstrap implements environs.Environ.
 func (env *environ) Bootstrap(ctx environs.BootstrapContext, params environs.BootstrapParams) (*environs.BootstrapResult, error) {
-	// Using the Bootstrap func from provider/common should be fine.
-	// Local provider does its own thing because it has to deal directly
-	// with localhost rather than using SSH.
+	if env.local {
+		// Add the client certificate to the LXD server, so the
+		// controller containers can authenticate. We can only
+		// do this for local LXD. For non-local, the user must
+		// do this themselves, until we support using trust
+		// passwords.
+		clientCert, _, ok := getCerts(env.cloud)
+		if !ok {
+			return nil, errors.New("cannot bootstrap without client certificate")
+		}
+		fingerprint, err := clientCert.Fingerprint()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		_, err = env.raw.CertByFingerprint(fingerprint)
+		if errors.IsNotFound(err) {
+			if err := env.raw.AddCert(*clientCert); err != nil {
+				return nil, errors.Annotatef(
+					err, "adding certificate %q", clientCert.Name,
+				)
+			}
+		} else if err != nil {
+			return nil, errors.Annotate(err, "querying certificates")
+		}
+	}
 	return env.base.BootstrapEnv(ctx, params)
 }
 
@@ -177,7 +208,19 @@ func (env *environ) DestroyController(controllerUUID string) error {
 	if err := env.Destroy(); err != nil {
 		return errors.Trace(err)
 	}
-	return env.destroyHostedModelResources(controllerUUID)
+	if err := env.destroyHostedModelResources(controllerUUID); err != nil {
+		return errors.Trace(err)
+	}
+	if env.local {
+		// When we're running locally to the LXD host, remove the
+		// certificate from LXD. It will get added back in at
+		// bootstrap time as necessary. For remote LXD, the user
+		// needs to have added the certificate to LXD themselves.
+		if err := env.removeCertificate(); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return nil
 }
 
 func (env *environ) destroyHostedModelResources(controllerUUID string) error {
@@ -200,8 +243,23 @@ func (env *environ) destroyHostedModelResources(controllerUUID string) error {
 		}
 		names = append(names, string(inst.Id()))
 	}
-	if err := removeInstances(env.raw, prefix, names); err != nil {
+	if err := env.raw.RemoveInstances(prefix, names...); err != nil {
 		return errors.Annotate(err, "removing hosted model instances")
+	}
+	return nil
+}
+
+func (env *environ) removeCertificate() error {
+	if env.raw.remote.Cert == nil {
+		return nil
+	}
+	fingerprint, err := env.raw.remote.Cert.Fingerprint()
+	if err != nil {
+		return errors.Annotate(err, "generating certificate fingerprint")
+	}
+	err = env.raw.RemoveCertByFingerprint(fingerprint)
+	if err != nil && !errors.IsNotFound(err) {
+		return errors.Annotate(err, "removing certificate")
 	}
 	return nil
 }

@@ -48,3 +48,19 @@ func (c certClient) RemoveCertByFingerprint(fingerprint string) error {
 	}
 	return nil
 }
+
+// CertByFingerprint returns information about a certificate with the
+// matching fingerprint. If there is no such certificate, an errors
+// satisfying errors.IsNotFound is returned.
+func (c certClient) CertByFingerprint(fingerprint string) (shared.CertInfo, error) {
+	certs, err := c.raw.CertificateList()
+	if err != nil {
+		return shared.CertInfo{}, errors.Trace(err)
+	}
+	for _, cert := range certs {
+		if cert.Fingerprint == fingerprint {
+			return cert, nil
+		}
+	}
+	return shared.CertInfo{}, errors.NotFoundf("certificate with fingerprint %q", fingerprint)
+}
