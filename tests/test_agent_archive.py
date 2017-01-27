@@ -142,13 +142,16 @@ class TestAgentArchive(TestCase):
 
     def test_is_new_version(self):
         agent = 's3://juju-qa-fake/agent-archive/juju-1.21.0-win2012-amd64.tgz'
-        with patch('agent_archive.run', return_value='') as mock:
-            result = is_new_version(
-                'juju-1.21.0-win2012-amd64.tgz', 'config',
-                S3_CONTAINER_FAKE, verbose=False)
-        self.assertTrue(result)
-        mock.assert_called_with(
-            ['ls', '--list-md5', agent], config='config', verbose=False)
+        with temp_dir() as base:
+            local_agent = os.path.join(base, 'juju-1.21.0-win2012-amd64.tgz')
+            with open(local_agent, 'w') as f:
+                f.write('agent')
+            with patch('agent_archive.run', return_value='') as mock:
+                result = is_new_version(
+                    local_agent, 'config', S3_CONTAINER_FAKE, verbose=False)
+            self.assertTrue(result)
+            mock.assert_called_with(
+                ['ls', '--list-md5', agent], config='config', verbose=False)
 
     def test_is_new_version_idential(self):
         listing = (
@@ -174,7 +177,8 @@ class TestAgentArchive(TestCase):
             with patch('agent_archive.run', return_value=listing):
                 with self.assertRaises(ValueError) as e:
                     is_new_version(local_agent, 'config', S3_CONTAINER_FAKE)
-        self.assertIn('Agents cannot be changed', str(e.exception))
+        self.assertIn(
+            'already exists. Cannot overwrite with', str(e.exception))
 
     def test_add_agent_with_bad_source_raises_error(self):
         cmd_args = FakeArgs(source_agent='juju-1.21.0-trusty-amd64.tgz')
@@ -254,7 +258,8 @@ class TestAgentArchive(TestCase):
         self.assertIn('No 1.21.0 agents found', str(e.exception))
         args, kwargs = mock.call_args
         self.assertEqual(
-            (['ls', 's3://juju-qa-fake/agent-archive/juju-1.21.0*'], ),
+            (['ls', '--list-md5',
+              's3://juju-qa-fake/agent-archive/juju-1.21.0*'], ),
             args)
         self.assertIs(None, kwargs['config'], )
 
@@ -267,7 +272,8 @@ class TestAgentArchive(TestCase):
         self.assertEqual(1, mock.call_count)
         args, kwargs = mock.call_args
         self.assertEqual(
-            (['ls', 's3://juju-qa-fake/agent-archive/juju-1.21.0*'], ),
+            (['ls', '--list-md5',
+              's3://juju-qa-fake/agent-archive/juju-1.21.0*'], ),
             args)
 
     def test_delete_agent_with_yes(self):
@@ -287,7 +293,8 @@ class TestAgentArchive(TestCase):
         self.assertEqual(3, mock.call_count)
         output, args, kwargs = mock.mock_calls[0]
         self.assertEqual(
-            ['ls', 's3://juju-qa-fake/agent-archive/juju-1.21.0*'],
+            ['ls', '--list-md5',
+             's3://juju-qa-fake/agent-archive/juju-1.21.0*'],
             args[0])
         output, args, kwargs = mock.mock_calls[1]
         self.assertEqual(
