@@ -7,6 +7,7 @@ import (
 	"reflect"
 	"time"
 
+	"github.com/juju/juju/cloud"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2"
@@ -295,25 +296,32 @@ func (s *upgradesSuite) TestStripLocalUserDomainLastConnection(c *gc.C) {
 }
 
 func (s *upgradesSuite) assertStrippedUserData(c *gc.C, coll *mgo.Collection, expected []bson.M) {
-	s.assertUpgradedData(c, StripLocalUserDomain, coll, expected)
+	s.assertUpgradedData(c, StripLocalUserDomain, expectUpgradedData{coll, expected})
 }
 
-func (s *upgradesSuite) assertUpgradedData(c *gc.C, upgrade func(*State) error, coll *mgo.Collection, expected []bson.M) {
+type expectUpgradedData struct {
+	coll     *mgo.Collection
+	expected []bson.M
+}
+
+func (s *upgradesSuite) assertUpgradedData(c *gc.C, upgrade func(*State) error, expect ...expectUpgradedData) {
 	// Two rounds to check idempotency.
 	for i := 0; i < 2; i++ {
 		err := upgrade(s.state)
 		c.Assert(err, jc.ErrorIsNil)
 
-		var docs []bson.M
-		err = coll.Find(nil).Sort("_id").All(&docs)
-		c.Assert(err, jc.ErrorIsNil)
-		for i, d := range docs {
-			doc := d
-			delete(doc, "txn-queue")
-			delete(doc, "txn-revno")
-			docs[i] = doc
+		for _, expect := range expect {
+			var docs []bson.M
+			err = expect.coll.Find(nil).Sort("_id").All(&docs)
+			c.Assert(err, jc.ErrorIsNil)
+			for i, d := range docs {
+				doc := d
+				delete(doc, "txn-queue")
+				delete(doc, "txn-revno")
+				docs[i] = doc
+			}
+			c.Assert(docs, jc.DeepEquals, expect.expected)
 		}
-		c.Assert(docs, jc.DeepEquals, expected)
 	}
 }
 
@@ -360,7 +368,7 @@ func (s *upgradesSuite) TestRenameAddModelPermission(c *gc.C) {
 		"subject-global-key": "mary@external",
 		"access":             "add-model",
 	}}
-	s.assertUpgradedData(c, RenameAddModelPermission, coll, expected)
+	s.assertUpgradedData(c, RenameAddModelPermission, expectUpgradedData{coll, expected})
 }
 
 func (s *upgradesSuite) TestDropOldLogIndex(c *gc.C) {
@@ -417,7 +425,7 @@ func (s *upgradesSuite) TestAddMigrationAttempt(c *gc.C) {
 			"attempt": 2,
 		},
 	}
-	s.assertUpgradedData(c, AddMigrationAttempt, coll, expected)
+	s.assertUpgradedData(c, AddMigrationAttempt, expectUpgradedData{coll, expected})
 }
 
 func hasIndex(coll *mgo.Collection, key []string) (bool, error) {
@@ -431,4 +439,180 @@ func hasIndex(coll *mgo.Collection, key []string) (bool, error) {
 		}
 	}
 	return false, nil
+}
+
+func (s *upgradesSuite) TestUpdateLegacyLXDCloud(c *gc.C) {
+	cloudColl, cloudCloser := s.state.getRawCollection(cloudsC)
+	defer cloudCloser()
+	cloudCredColl, cloudCredCloser := s.state.getRawCollection(cloudCredentialsC)
+	defer cloudCredCloser()
+
+	_, err := cloudColl.RemoveAll(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = cloudCredColl.RemoveAll(nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = cloudColl.Insert(bson.M{
+		"_id":        "localhost",
+		"name":       "localhost",
+		"type":       "lxd",
+		"auth-types": []string{"empty"},
+		"endpoint":   "",
+		"regions": bson.M{
+			"localhost": bson.M{
+				"endpoint": "",
+			},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = cloudCredColl.Insert(bson.M{
+		"_id":       "localhost#admin#streetcred",
+		"owner":     "admin",
+		"cloud":     "localhost",
+		"name":      "streetcred",
+		"revoked":   false,
+		"auth-type": "empty",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	expectedClouds := []bson.M{{
+		"_id":        "localhost",
+		"name":       "localhost",
+		"type":       "lxd",
+		"auth-types": []interface{}{"certificate"},
+		"endpoint":   "foo",
+		"regions": bson.M{
+			"localhost": bson.M{
+				"endpoint": "foo",
+			},
+		},
+	}}
+
+	expectedCloudCreds := []bson.M{{
+		"_id":       "localhost#admin#streetcred",
+		"owner":     "admin",
+		"cloud":     "localhost",
+		"name":      "streetcred",
+		"revoked":   false,
+		"auth-type": "certificate",
+		"attributes": bson.M{
+			"foo": "bar",
+			"baz": "qux",
+		},
+	}}
+
+	newCred := cloud.NewCredential(cloud.CertificateAuthType, map[string]string{
+		"foo": "bar",
+		"baz": "qux",
+	})
+	f := func(st *State) error {
+		return UpdateLegacyLXDCloudCredentials(st, "foo", newCred)
+	}
+	s.assertUpgradedData(c, f,
+		expectUpgradedData{cloudColl, expectedClouds},
+		expectUpgradedData{cloudCredColl, expectedCloudCreds},
+	)
+}
+
+func (s *upgradesSuite) TestUpdateLegacyLXDCloudUnchanged(c *gc.C) {
+	cloudColl, cloudCloser := s.state.getRawCollection(cloudsC)
+	defer cloudCloser()
+	cloudCredColl, cloudCredCloser := s.state.getRawCollection(cloudCredentialsC)
+	defer cloudCredCloser()
+
+	_, err := cloudColl.RemoveAll(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = cloudCredColl.RemoveAll(nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = cloudColl.Insert(bson.M{
+		// Non-LXD clouds should be altogether unchanged.
+		"_id":        "foo",
+		"name":       "foo",
+		"type":       "dummy",
+		"auth-types": []string{"empty"},
+		"endpoint":   "unchanged",
+	}, bson.M{
+		// A LXD cloud with endpoints already set should
+		// only have its auth-types updated.
+		"_id":        "localhost",
+		"name":       "localhost",
+		"type":       "lxd",
+		"auth-types": []string{"empty"},
+		"endpoint":   "unchanged",
+		"regions": bson.M{
+			"localhost": bson.M{
+				"endpoint": "unchanged",
+			},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = cloudCredColl.Insert(bson.M{
+		// Credentials for non-LXD clouds should be unchanged.
+		"_id":       "foo#admin#default",
+		"owner":     "admin",
+		"cloud":     "foo",
+		"name":      "default",
+		"revoked":   false,
+		"auth-type": "empty",
+	}, bson.M{
+		// LXD credentials with an auth-type other than
+		// "empty" should be unchanged.
+		"_id":       "localhost#admin#streetcred",
+		"owner":     "admin",
+		"cloud":     "localhost",
+		"name":      "streetcred",
+		"revoked":   false,
+		"auth-type": "unchanged",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	expectedClouds := []bson.M{{
+		"_id":        "foo",
+		"name":       "foo",
+		"type":       "dummy",
+		"auth-types": []interface{}{"empty"},
+		"endpoint":   "unchanged",
+	}, {
+		"_id":        "localhost",
+		"name":       "localhost",
+		"type":       "lxd",
+		"auth-types": []interface{}{"certificate"},
+		"endpoint":   "unchanged",
+		"regions": bson.M{
+			"localhost": bson.M{
+				"endpoint": "unchanged",
+			},
+		},
+	}}
+
+	expectedCloudCreds := []bson.M{{
+		"_id":       "foo#admin#default",
+		"owner":     "admin",
+		"cloud":     "foo",
+		"name":      "default",
+		"revoked":   false,
+		"auth-type": "empty",
+	}, {
+		"_id":       "localhost#admin#streetcred",
+		"owner":     "admin",
+		"cloud":     "localhost",
+		"name":      "streetcred",
+		"revoked":   false,
+		"auth-type": "unchanged",
+	}}
+
+	newCred := cloud.NewCredential(cloud.CertificateAuthType, map[string]string{
+		"foo": "bar",
+		"baz": "qux",
+	})
+	f := func(st *State) error {
+		return UpdateLegacyLXDCloudCredentials(st, "foo", newCred)
+	}
+	s.assertUpgradedData(c, f,
+		expectUpgradedData{cloudColl, expectedClouds},
+		expectUpgradedData{cloudCredColl, expectedCloudCreds},
+	)
 }

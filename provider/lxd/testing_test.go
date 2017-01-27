@@ -6,6 +6,7 @@
 package lxd
 
 import (
+	"net"
 	"os"
 
 	"github.com/juju/errors"
@@ -15,6 +16,7 @@ import (
 	"github.com/lxc/lxd/shared"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/providerinit"
 	"github.com/juju/juju/constraints"
@@ -93,6 +95,7 @@ type BaseSuiteUnpatched struct {
 
 	Config    *config.Config
 	EnvConfig *environConfig
+	Provider  *environProvider
 	Env       *environ
 
 	Addresses     []network.Address
@@ -104,6 +107,9 @@ type BaseSuiteUnpatched struct {
 	Metadata      map[string]string
 	StartInstArgs environs.StartInstanceParams
 	//InstanceType  instances.InstanceType
+
+	EndpointAddrs  []string
+	InterfaceAddrs []net.Addr
 
 	Rules []network.IngressRule
 }
@@ -124,17 +130,43 @@ func (s *BaseSuiteUnpatched) SetUpSuite(c *gc.C) {
 func (s *BaseSuiteUnpatched) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
+	s.initProvider(c)
 	s.initEnv(c)
 	s.initInst(c)
 	s.initNet(c)
 }
 
+func (s *BaseSuiteUnpatched) initProvider(c *gc.C) {
+	s.Provider = &environProvider{}
+	s.EndpointAddrs = []string{"1.2.3.4"}
+	s.InterfaceAddrs = []net.Addr{
+		&net.IPNet{IP: net.ParseIP("127.0.0.1")},
+		&net.IPNet{IP: net.ParseIP("1.2.3.4")},
+	}
+}
+
 func (s *BaseSuiteUnpatched) initEnv(c *gc.C) {
+	certCred := cloud.NewCredential(cloud.CertificateAuthType, map[string]string{
+		"client-cert": testing.CACert,
+		"client-key":  testing.CAKey,
+		"server-cert": testing.ServerCert,
+	})
 	s.Env = &environ{
-		name: "lxd",
+		local: true,
+		cloud: environs.CloudSpec{
+			Name:       "localhost",
+			Type:       "lxd",
+			Credential: &certCred,
+		},
+		provider: s.Provider,
+		name:     "lxd",
 	}
 	cfg := s.NewConfig(c, nil)
 	s.setConfig(c, cfg)
+}
+
+func (s *BaseSuiteUnpatched) SetEnvironLocal(local bool) {
+	s.Env.local = local
 }
 
 func (s *BaseSuiteUnpatched) Prefix() string {
@@ -303,14 +335,53 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	s.Common = &stubCommon{stub: s.Stub}
 
 	// Patch out all expensive external deps.
-	s.Env.raw = &rawProvider{
+	raw := &rawProvider{
 		lxdCerts:     s.Client,
 		lxdConfig:    s.Client,
 		lxdInstances: s.Client,
+		lxdProfiles:  s.Client,
 		lxdImages:    s.Client,
 		Firewaller:   s.Firewaller,
+		remote: lxdclient.Remote{
+			Cert: &lxdclient.Cert{
+				Name:    "juju",
+				CertPEM: []byte(testing.CACert),
+				KeyPEM:  []byte(testing.CAKey),
+			},
+		},
+	}
+	s.Env.raw = raw
+	s.Provider.generateMemCert = func(client bool) (cert, key []byte, _ error) {
+		s.Stub.AddCall("GenerateMemCert", client)
+		return []byte("client.crt"), []byte("client.key"), s.Stub.NextErr()
+	}
+	s.Provider.newLocalRawProvider = func() (*rawProvider, error) {
+		return raw, nil
+	}
+	s.Provider.lookupHost = func(host string) ([]string, error) {
+		s.Stub.AddCall("LookupHost", host)
+		return s.EndpointAddrs, s.Stub.NextErr()
+	}
+	s.Provider.interfaceAddress = func(iface string) (string, error) {
+		s.Stub.AddCall("InterfaceAddress", iface)
+		return "1.2.3.4", s.Stub.NextErr()
+	}
+	s.Provider.interfaceAddrs = func() ([]net.Addr, error) {
+		s.Stub.AddCall("InterfaceAddrs")
+		return s.InterfaceAddrs, s.Stub.NextErr()
 	}
 	s.Env.base = s.Common
+}
+
+func (s *BaseSuite) TestingCert(c *gc.C) (lxdclient.Cert, string) {
+	cert := lxdclient.Cert{
+		Name:    "juju",
+		CertPEM: []byte(testing.CACert),
+		KeyPEM:  []byte(testing.CAKey),
+	}
+	fingerprint, err := cert.Fingerprint()
+	c.Assert(err, jc.ErrorIsNil)
+	return cert, fingerprint
 }
 
 func (s *BaseSuite) CheckNoAPI(c *gc.C) {
@@ -466,6 +537,11 @@ func (conn *StubClient) RemoveCertByFingerprint(fingerprint string) error {
 	return conn.NextErr()
 }
 
+func (conn *StubClient) CertByFingerprint(fingerprint string) (shared.CertInfo, error) {
+	conn.AddCall("CertByFingerprint", fingerprint)
+	return shared.CertInfo{}, conn.NextErr()
+}
+
 func (conn *StubClient) ServerStatus() (*shared.ServerState, error) {
 	conn.AddCall("ServerStatus")
 	if err := conn.NextErr(); err != nil {
@@ -481,6 +557,21 @@ func (conn *StubClient) ServerStatus() (*shared.ServerState, error) {
 func (conn *StubClient) SetConfig(k, v string) error {
 	conn.AddCall("SetConfig", k, v)
 	return conn.NextErr()
+}
+
+func (conn *StubClient) DefaultProfileBridgeName() string {
+	conn.AddCall("DefaultProfileBridgeName")
+	return "test-bridge"
+}
+
+func (conn *StubClient) CreateProfile(name string, attrs map[string]string) error {
+	conn.AddCall("CreateProfile", name, attrs)
+	return conn.NextErr()
+}
+
+func (conn *StubClient) HasProfile(name string) (bool, error) {
+	conn.AddCall("HasProfile", name)
+	return false, conn.NextErr()
 }
 
 // TODO(ericsnow) Move stubFirewaller to environs/testing or provider/common/testing.

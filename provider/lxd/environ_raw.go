@@ -108,6 +108,9 @@ func getRemoteConfig(spec environs.CloudSpec) (*lxdclient.Config, error) {
 }
 
 func getCerts(spec environs.CloudSpec) (client *lxdclient.Cert, server string, ok bool) {
+	if spec.Credential == nil {
+		return nil, "", false
+	}
 	credAttrs := spec.Credential.Attributes()
 	clientCertPEM, ok := credAttrs[credAttrClientCert]
 	if !ok {

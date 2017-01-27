@@ -9,7 +9,6 @@ import (
 	"net"
 
 	"github.com/juju/errors"
-	lxdshared "github.com/lxc/lxd/shared"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
@@ -22,7 +21,12 @@ const (
 	credAttrClientKey  = "client-key"
 )
 
-type environProviderCredentials struct{}
+type environProviderCredentials struct {
+	generateMemCert     func(bool) ([]byte, []byte, error)
+	newLocalRawProvider func() (*rawProvider, error)
+	lookupHost          func(string) ([]string, error)
+	interfaceAddrs      func() ([]net.Addr, error)
+}
 
 // CredentialSchemas is part of the environs.ProviderCredentials interface.
 func (environProviderCredentials) CredentialSchemas() map[cloud.AuthType]cloud.CredentialSchema {
@@ -52,12 +56,12 @@ func (environProviderCredentials) DetectCredentials() (*cloud.CloudCredential, e
 }
 
 // FinalizeCredential is part of the environs.ProviderCredentials interface.
-func (environProviderCredentials) FinalizeCredential(_ environs.FinalizeCredentialContext, args environs.FinalizeCredentialParams) (*cloud.Credential, error) {
+func (p environProviderCredentials) FinalizeCredential(_ environs.FinalizeCredentialContext, args environs.FinalizeCredentialParams) (*cloud.Credential, error) {
 	if args.Credential.AuthType() != cloud.EmptyAuthType {
 		return &args.Credential, nil
 	}
 
-	isLocalEndpoint, err := isLocalEndpoint(args.CloudEndpoint)
+	isLocalEndpoint, err := p.isLocalEndpoint(args.CloudEndpoint)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -66,7 +70,7 @@ func (environProviderCredentials) FinalizeCredential(_ environs.FinalizeCredenti
 		// certificate credential.
 		return &args.Credential, nil
 	}
-	raw, err := newLocalRawProvider()
+	raw, err := p.newLocalRawProvider()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -78,7 +82,7 @@ func (environProviderCredentials) FinalizeCredential(_ environs.FinalizeCredenti
 	// credential generation in "juju add-model". We *also* upload during
 	// bootstrap, in case the user does a "rebootstrap" with the *same*
 	// credentials (e.g. juju restore-backup).
-	certPEM, keyPEM, err := lxdshared.GenerateMemCert(true)
+	certPEM, keyPEM, err := p.generateMemCert(true)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -103,12 +107,12 @@ func (environProviderCredentials) FinalizeCredential(_ environs.FinalizeCredenti
 	return &out, nil
 }
 
-func isLocalEndpoint(endpoint string) (bool, error) {
-	endpointAddrs, err := net.LookupHost(endpoint)
+func (p environProviderCredentials) isLocalEndpoint(endpoint string) (bool, error) {
+	endpointAddrs, err := p.lookupHost(endpoint)
 	if err != nil {
 		return false, errors.Trace(err)
 	}
-	localAddrs, err := net.InterfaceAddrs()
+	localAddrs, err := p.interfaceAddrs()
 	if err != nil {
 		return false, errors.Trace(err)
 	}

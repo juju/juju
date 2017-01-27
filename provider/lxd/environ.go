@@ -29,12 +29,13 @@ type baseProvider interface {
 }
 
 type environ struct {
-	cloud environs.CloudSpec
-	local bool
-	name  string
-	uuid  string
-	raw   *rawProvider
-	base  baseProvider
+	cloud    environs.CloudSpec
+	provider *environProvider
+	local    bool
+	name     string
+	uuid     string
+	raw      *rawProvider
+	base     baseProvider
 
 	// namespace is used to create the machine and device hostnames.
 	namespace instance.Namespace
@@ -46,6 +47,7 @@ type environ struct {
 type newRawProviderFunc func(environs.CloudSpec, bool) (*rawProvider, error)
 
 func newEnviron(
+	provider *environProvider,
 	local bool,
 	spec environs.CloudSpec,
 	cfg *config.Config,
@@ -113,8 +115,8 @@ func (env *environ) Name() string {
 }
 
 // Provider returns the environment provider that created this env.
-func (*environ) Provider() environs.EnvironProvider {
-	return providerInstance
+func (env *environ) Provider() environs.EnvironProvider {
+	return env.provider
 }
 
 // SetConfig updates the env's configuration.
@@ -243,8 +245,10 @@ func (env *environ) destroyHostedModelResources(controllerUUID string) error {
 		}
 		names = append(names, string(inst.Id()))
 	}
-	if err := env.raw.RemoveInstances(prefix, names...); err != nil {
-		return errors.Annotate(err, "removing hosted model instances")
+	if len(names) > 0 {
+		if err := env.raw.RemoveInstances(prefix, names...); err != nil {
+			return errors.Annotate(err, "removing hosted model instances")
+		}
 	}
 	return nil
 }
