@@ -202,7 +202,7 @@ class TestAgentArchive(TestCase):
         nv_mock.assert_called_with(agent_path, None, S3_CONTAINER_FAKE,
                                    verbose=False)
 
-    def test_add_agent_puts_and_copies_win(self):
+    def test_add_agent_puts_win(self):
         cmd_args = FakeArgs(source_agent='juju-1.21.0-win2012-amd64.tgz')
         with patch('agent_archive.run', return_value='') as mock:
             with patch('agent_archive.is_new_version', autopec=True,
@@ -211,26 +211,12 @@ class TestAgentArchive(TestCase):
         nv_mock.assert_called_with(
             os.path.abspath('juju-1.21.0-win2012-amd64.tgz'),
             None, S3_CONTAINER_FAKE, verbose=False)
-        self.assertEqual(10, mock.call_count)
+        self.assertEqual(1, mock.call_count)
         output, args, kwargs = mock.mock_calls[0]
         agent_path = os.path.abspath(cmd_args.source_agent)
         self.assertEqual(
             ['put', agent_path,
              's3://juju-qa-fake/agent-archive/juju-1.21.0-win2012-amd64.tgz'],
-            args[0])
-        # The remaining calls after the put is a fast cp to the other names.
-        output, args, kwargs = mock.mock_calls[1]
-        self.assertEqual(
-            ['cp',
-             's3://juju-qa-fake/agent-archive/juju-1.21.0-win2012-amd64.tgz',
-             's3://juju-qa-fake/agent-archive/'
-             'juju-1.21.0-win2012hvr2-amd64.tgz'],
-            args[0])
-        output, args, kwargs = mock.mock_calls[8]
-        self.assertEqual(
-            ['cp',
-             's3://juju-qa-fake/agent-archive/juju-1.21.0-win2012-amd64.tgz',
-             's3://juju-qa-fake/agent-archive/juju-1.21.0-win81-amd64.tgz'],
             args[0])
 
     def test_add_agent_puts_centos(self):

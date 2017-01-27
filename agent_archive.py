@@ -150,15 +150,6 @@ def add_agents(args):
     remote_source = '%s/%s' % (args.s3_container, source_agent)
     run(['put', source_path, remote_source],
         config=args.config, dry_run=args.dry_run, verbose=args.verbose)
-    agent_versions.remove(source_agent)
-    os_name = get_source_agent_os(source_agent)
-    agent_versions = [a for a in agent_versions if os_name in a]
-    for agent_version in agent_versions:
-        destination = '%s/%s' % (args.s3_container, agent_version)
-        if args.verbose:
-            print('Copying %s to %s' % (remote_source, destination))
-        run(['cp', remote_source, destination],
-            config=args.config, dry_run=args.dry_run, verbose=args.verbose)
 
 
 def get_agents(args):
