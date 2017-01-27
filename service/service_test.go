@@ -104,7 +104,7 @@ func (s *serviceSuite) TestInstallAndStartOkay(c *gc.C) {
 	err := service.InstallAndStart(s.Service)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.Service.CheckCallNames(c, "Install", "Stop", "Start")
+	s.Service.CheckCallNames(c, "Install", "Start")
 }
 
 func (s *serviceSuite) TestInstallAndStartRetry(c *gc.C) {
@@ -114,17 +114,17 @@ func (s *serviceSuite) TestInstallAndStartRetry(c *gc.C) {
 	err := service.InstallAndStart(s.Service)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.Service.CheckCallNames(c, "Install", "Stop", "Start", "Stop", "Start")
+	s.Service.CheckCallNames(c, "Install", "Start", "Start", "Start")
 }
 
 func (s *serviceSuite) TestInstallAndStartFail(c *gc.C) {
 	s.PatchAttempts(3)
-	s.Service.SetErrors(nil, s.Failure, s.Failure, s.Failure, s.Failure, s.Failure, s.Failure)
+	s.Service.SetErrors(nil, s.Failure, s.Failure, s.Failure)
 
 	err := service.InstallAndStart(s.Service)
 
 	s.CheckFailure(c, err)
-	s.Service.CheckCallNames(c, "Install", "Stop", "Start", "Stop", "Start", "Stop", "Start")
+	s.Service.CheckCallNames(c, "Install", "Start", "Start", "Start")
 }
 
 type restartSuite struct {
