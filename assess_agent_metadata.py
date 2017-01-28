@@ -43,9 +43,6 @@ from remote import (
 from jujucharm import (
     local_charm_path,
 )
-from jujupy import (
-    ConditionList,
-)
 
 log = logging.getLogger("assess_agent_metadata")
 
@@ -163,7 +160,8 @@ def deploy_machine_and_verify(client, series="xenial"):
         if hostname:
             remote = remote_from_address(hostname, machine.get('series'))
             output = remote.cat(
-                "/var/lib/juju/tools/machine-{}/downloaded-tools.txt".format(unit))
+                "/var/lib/juju/tools/machine-{}/downloaded-tools.txt".format(
+                    unit))
             deserialized_output = json.loads(output)
 
             if deserialized_output['sha256'] != controller_sha256:
