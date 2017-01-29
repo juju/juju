@@ -185,6 +185,14 @@ func (s *legacySuite) TestWatchAllModels(c *gc.C) {
 			modelInfo.Config[config.ResourceTagsKey] = tagStrings
 		}
 
+		// Integer values are unmarshalled as float64 across
+		// the (JSON) api boundary. Explicitly convert to int
+		// for the following attributes.
+		switch val := modelInfo.Config[config.NetBondReconfigureDelayKey].(type) {
+		case float64:
+			modelInfo.Config[config.NetBondReconfigureDelayKey] = int(val)
+		}
+
 		expectedStatus := multiwatcher.StatusInfo{
 			Current: status.Status,
 			Message: status.Message,

@@ -351,6 +351,26 @@ func (s *CharmSuite) assertPendingCharmExists(c *gc.C, curl *charm.URL) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
+func (s *CharmSuite) TestAddCharmWithInvalidMetaData(c *gc.C) {
+	check := func(munge func(meta *charm.Meta)) {
+		info := s.dummyCharm(c, "")
+		meta := info.Charm.Meta()
+		munge(meta)
+		_, err := s.State.AddCharm(info)
+		c.Assert(err, gc.ErrorMatches, `invalid charm data: "\$foo" is not a valid field name`)
+	}
+
+	check(func(meta *charm.Meta) {
+		meta.Provides = map[string]charm.Relation{"$foo": charm.Relation{}}
+	})
+	check(func(meta *charm.Meta) {
+		meta.Requires = map[string]charm.Relation{"$foo": charm.Relation{}}
+	})
+	check(func(meta *charm.Meta) {
+		meta.Peers = map[string]charm.Relation{"$foo": charm.Relation{}}
+	})
+}
+
 func (s *CharmSuite) TestPrepareLocalCharmUpload(c *gc.C) {
 	// First test the sanity checks.
 	curl, err := s.State.PrepareLocalCharmUpload(charm.MustParseURL("local:quantal/dummy"))
@@ -529,6 +549,19 @@ func (s *CharmSuite) assertPlaceholderCharmExists(c *gc.C, curl *charm.URL) {
 	// Make sure we can't find it with st.Charm().
 	_, err = s.State.Charm(curl)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
+func (s *CharmSuite) TestUpdateUploadedCharmRejectsInvalidMetadata(c *gc.C) {
+	info := s.dummyCharm(c, "")
+	_, err := s.State.PrepareLocalCharmUpload(info.ID)
+	c.Assert(err, jc.ErrorIsNil)
+
+	meta := info.Charm.Meta()
+	meta.Provides = map[string]charm.Relation{
+		"foo.bar": charm.Relation{},
+	}
+	_, err = s.State.UpdateUploadedCharm(info)
+	c.Assert(err, gc.ErrorMatches, `invalid charm data: "foo.bar" is not a valid field name`)
 }
 
 func (s *CharmSuite) TestLatestPlaceholderCharm(c *gc.C) {

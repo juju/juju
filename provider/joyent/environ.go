@@ -10,6 +10,7 @@ import (
 
 	"github.com/joyent/gosdc/cloudapi"
 	"github.com/juju/errors"
+	"github.com/juju/version"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
@@ -140,6 +141,12 @@ func (env *joyentEnviron) ControllerInstances(controllerUUID string) ([]instance
 	}
 
 	return instanceIds, nil
+}
+
+// AdoptResources is part of the Environ interface.
+func (env *joyentEnviron) AdoptResources(controllerUUID string, fromVersion version.Number) error {
+	// This provider doesn't track instance -> controller.
+	return nil
 }
 
 func (env *joyentEnviron) Destroy() error {

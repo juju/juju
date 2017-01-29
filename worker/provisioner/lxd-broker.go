@@ -6,6 +6,7 @@ package provisioner
 import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cloudconfig/instancecfg"
@@ -18,25 +19,31 @@ import (
 var lxdLogger = loggo.GetLogger("juju.provisioner.lxd")
 
 var NewLxdBroker = func(
+	bridger network.Bridger,
+	hostMachineID string,
 	api APICalls,
 	manager container.Manager,
 	agentConfig agent.Config,
 ) (environs.InstanceBroker, error) {
 	return &lxdBroker{
-		manager:     manager,
-		api:         api,
-		agentConfig: agentConfig,
+		bridger:       bridger,
+		hostMachineID: hostMachineID,
+		manager:       manager,
+		api:           api,
+		agentConfig:   agentConfig,
 	}, nil
 }
 
 type lxdBroker struct {
-	manager     container.Manager
-	api         APICalls
-	agentConfig agent.Config
+	bridger       network.Bridger
+	hostMachineID string
+	manager       container.Manager
+	api           APICalls
+	agentConfig   agent.Config
 }
 
 func (broker *lxdBroker) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
-	machineId := args.InstanceConfig.MachineId
+	containerMachineID := args.InstanceConfig.MachineId
 	bridgeDevice := broker.agentConfig.Value(agent.LxdBridge)
 	if bridgeDevice == "" {
 		bridgeDevice = network.DefaultLXDBridge
@@ -48,18 +55,22 @@ func (broker *lxdBroker) StartInstance(args environs.StartInstanceParams) (*envi
 		return nil, err
 	}
 
+	err = prepareHost(broker.bridger, broker.hostMachineID, names.NewMachineTag(containerMachineID), broker.api, kvmLogger)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	preparedInfo, err := prepareOrGetContainerInterfaceInfo(
 		broker.api,
-		machineId,
+		containerMachineID,
 		bridgeDevice,
 		true, // allocate if possible, do not maintain existing.
-		args.NetworkInfo,
 		lxdLogger,
 	)
 	if err != nil {
 		// It's not fatal (yet) if we couldn't pre-allocate addresses for the
 		// container.
-		logger.Warningf("failed to prepare container %q network config: %v", machineId, err)
+		logger.Warningf("failed to prepare container %q network config: %v", containerMachineID, err)
 	} else {
 		args.NetworkInfo = preparedInfo
 	}
@@ -153,7 +164,6 @@ func (broker *lxdBroker) MaintainInstance(args environs.StartInstanceParams) err
 		machineID,
 		bridgeDevice,
 		false, // maintain, do not allocate.
-		args.NetworkInfo,
 		lxdLogger,
 	)
 	return err

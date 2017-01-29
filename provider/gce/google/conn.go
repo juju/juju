@@ -31,6 +31,10 @@ type rawConnectionWrapper interface {
 	// with the provided ID (in the specified zone). The call blocks until
 	// the instance is removed (or the request fails).
 	RemoveInstance(projectID, id, zone string) error
+	// SetMetadata sends a request to the GCE API to update one
+	// instance's metadata. The call blocks until the request is
+	// completed or fails.
+	SetMetadata(projectID, zone, instanceID string, metadata *compute.Metadata) error
 	// GetFirewall sends an API request to GCE for the information about
 	// the named firewall and returns it. If the firewall is not found,
 	// errors.NotFound is returned.
