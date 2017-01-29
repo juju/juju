@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/Azure/azure-sdk-for-go/arm/resources/resources"
 	"github.com/Azure/go-autorest/autorest"
 	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/juju/errors"
@@ -107,4 +108,35 @@ func deleteResource(callAPI callAPIFunc, deleter resourceDeleter, resourceGroup,
 
 type resourceDeleter interface {
 	Delete(resourceGroup, name string, cancel <-chan struct{}) (autorest.Response, error)
+}
+
+// collectAPIVersions returns a map of the latest API version for each
+// possible resource type. This is needed to use the Azure Resource
+// Management API, because the API version requested must match the
+// type of the resource being manipulated through the API, rather than
+// being able to use the API version specified statically in the
+// resource client code.
+func collectAPIVersions(mclient resources.ManagementClient) (map[string]string, error) {
+	result := make(map[string]string)
+	pclient := resources.ProvidersClient{mclient}
+
+	res, err := pclient.List(nil)
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+	for res.Value != nil {
+		for _, provider := range *res.Value {
+			for _, resourceType := range *provider.ResourceTypes {
+				key := *provider.Namespace + "/" + *resourceType.ResourceType
+				versions := *resourceType.APIVersions
+				latestVersion := versions[0]
+				result[key] = latestVersion
+			}
+		}
+		res, err = pclient.ListNextResults(res)
+		if err != nil {
+			return map[string]string{}, errors.Trace(err)
+		}
+	}
+	return result, nil
 }
