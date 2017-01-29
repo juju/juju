@@ -4,8 +4,10 @@
 package network
 
 var (
-	NetLookupIP = &netLookupIP
-	NetListen   = &netListen
-	RunCommand  = runCommand
-	BridgeCmd   = bridgeCmd
+	NetLookupIP                    = &netLookupIP
+	NetListen                      = &netListen
+	RunCommand                     = runCommand
+	BridgeCmd                      = bridgeCmd
+	PythonInterpreters             = pythonInterpreters
+	NewEtcNetworkInterfacesBridger = newEtcNetworkInterfacesBridger
 )

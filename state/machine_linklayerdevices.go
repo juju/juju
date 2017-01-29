@@ -1154,10 +1154,11 @@ func possibleBridgeTarget(dev *LinkLayerDevice) (bool, error) {
 // This will return an Error if the container wants a space that the host
 // machine cannot provide.
 // TODO(jam): 2016-12-28 Move this off of machine
-func (m *Machine) FindMissingBridgesForContainer(containerMachine *Machine) ([]network.DeviceToBridge, error) {
+func (m *Machine) FindMissingBridgesForContainer(containerMachine *Machine, netBondReconfigureDelay int) ([]network.DeviceToBridge, int, error) {
+	reconfigureDelay := 0
 	containerSpaces, devicesPerSpace, err := m.findSpacesAndDevicesForContainer(containerMachine)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, 0, errors.Trace(err)
 	}
 	// TODO(jam): 2016-12-28 The formatting for the spaces can look a bit
 	// screwy, because it does [name] instead of quoting it. But if we use
@@ -1178,20 +1179,22 @@ func (m *Machine) FindMissingBridgesForContainer(containerMachine *Machine) ([]n
 	notFound := containerSpaces.Difference(spacesFound)
 	if notFound.IsEmpty() {
 		// Nothing to do, just return success
-		return nil, nil
+		return nil, 0, nil
 	}
 	hostDeviceNamesToBridge := make([]string, 0)
 	for _, spaceName := range notFound.Values() {
 		hostDeviceNames := make([]string, 0)
+		hostDeviceByName := make(map[string]*LinkLayerDevice, 0)
 		for _, hostDevice := range devicesPerSpace[spaceName] {
 			possible, err := possibleBridgeTarget(hostDevice)
 			if err != nil {
-				return nil, err
+				return nil, 0, err
 			}
 			if !possible {
 				continue
 			}
 			hostDeviceNames = append(hostDeviceNames, hostDevice.Name())
+			hostDeviceByName[hostDevice.Name()] = hostDevice
 			spacesFound.Add(spaceName)
 		}
 		if len(hostDeviceNames) > 0 {
@@ -1201,6 +1204,11 @@ func (m *Machine) FindMissingBridgesForContainer(containerMachine *Machine) ([]n
 				// don't know what the exact spaces are going to be.
 				for _, deviceName := range hostDeviceNames {
 					hostDeviceNamesToBridge = append(hostDeviceNamesToBridge, deviceName)
+					if hostDeviceByName[deviceName].Type() == BondDevice {
+						if reconfigureDelay < netBondReconfigureDelay {
+							reconfigureDelay = netBondReconfigureDelay
+						}
+					}
 				}
 			} else {
 				// This should already be sorted from
@@ -1208,6 +1216,11 @@ func (m *Machine) FindMissingBridgesForContainer(containerMachine *Machine) ([]n
 				// pick the host device
 				hostDeviceNames = network.NaturallySortDeviceNames(hostDeviceNames...)
 				hostDeviceNamesToBridge = append(hostDeviceNamesToBridge, hostDeviceNames[0])
+				if hostDeviceByName[hostDeviceNames[0]].Type() == BondDevice {
+					if reconfigureDelay < netBondReconfigureDelay {
+						reconfigureDelay = netBondReconfigureDelay
+					}
+				}
 			}
 		}
 	}
@@ -1222,7 +1235,7 @@ func (m *Machine) FindMissingBridgesForContainer(containerMachine *Machine) ([]n
 		logger.Warningf("container %q wants spaces %s, but host machine %q has %s missing %s",
 			containerMachine.Id(), quoteSpaces(containerSpaces),
 			m.Id(), quoteSpaces(hostSpaces), quoteSpaces(notFound))
-		return nil, errors.Errorf("host machine %q has no available device in space(s) %s",
+		return nil, 0, errors.Errorf("host machine %q has no available device in space(s) %s",
 			m.Id(), quoteSpaces(notFound))
 	}
 	hostToBridge := make([]network.DeviceToBridge, 0, len(hostDeviceNamesToBridge))
@@ -1233,7 +1246,7 @@ func (m *Machine) FindMissingBridgesForContainer(containerMachine *Machine) ([]n
 			BridgeName: fmt.Sprintf("br-%s", hostName),
 		})
 	}
-	return hostToBridge, nil
+	return hostToBridge, reconfigureDelay, nil
 }
 
 func quoteSpaces(vals set.Strings) string {

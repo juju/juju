@@ -1794,9 +1794,10 @@ func (s *linkLayerDevicesStateSuite) TestFindMissingBridgesForContainerNoneMissi
 		Spaces: &[]string{"default"},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	missing, err := s.machine.FindMissingBridgesForContainer(s.containerMachine)
+	missing, reconfigureDelay, err := s.machine.FindMissingBridgesForContainer(s.containerMachine, 0)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(missing, jc.DeepEquals, []network.DeviceToBridge{})
+	c.Check(reconfigureDelay, gc.Equals, 0)
 }
 
 func (s *linkLayerDevicesStateSuite) TestFindMissingBridgesForContainerDefaultUnbridged(c *gc.C) {
@@ -1807,12 +1808,13 @@ func (s *linkLayerDevicesStateSuite) TestFindMissingBridgesForContainerDefaultUn
 		Spaces: &[]string{"default"},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	missing, err := s.machine.FindMissingBridgesForContainer(s.containerMachine)
+	missing, reconfigureDelay, err := s.machine.FindMissingBridgesForContainer(s.containerMachine, 0)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(missing, gc.DeepEquals, []network.DeviceToBridge{{
 		DeviceName: "eth0",
 		BridgeName: "br-eth0",
 	}})
+	c.Check(reconfigureDelay, gc.Equals, 0)
 }
 
 func (s *linkLayerDevicesStateSuite) TestFindMissingBridgesForContainerNoHostDevices(c *gc.C) {
@@ -1824,8 +1826,9 @@ func (s *linkLayerDevicesStateSuite) TestFindMissingBridgesForContainerNoHostDev
 		Spaces: &[]string{"dmz", "third"},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.machine.FindMissingBridgesForContainer(s.containerMachine)
+	_, reconfigureDelay, err := s.machine.FindMissingBridgesForContainer(s.containerMachine, 0)
 	c.Assert(err.Error(), gc.Equals, `host machine "0" has no available device in space(s) "dmz", "third"`)
+	c.Check(reconfigureDelay, gc.Equals, 0)
 }
 
 func (s *linkLayerDevicesStateSuite) TestFindMissingBridgesForContainerTwoSpacesOneMissing(c *gc.C) {
@@ -1836,7 +1839,7 @@ func (s *linkLayerDevicesStateSuite) TestFindMissingBridgesForContainerTwoSpaces
 	err := s.containerMachine.SetConstraints(constraints.Value{
 		Spaces: &[]string{"default", "dmz"},
 	})
-	_, err = s.machine.FindMissingBridgesForContainer(s.containerMachine)
+	_, _, err = s.machine.FindMissingBridgesForContainer(s.containerMachine, 0)
 	// both default and dmz are needed, but default is missing
 	c.Assert(err.Error(), gc.Equals, `host machine "0" has no available device in space(s) "default"`)
 }
@@ -1853,7 +1856,7 @@ func (s *linkLayerDevicesStateSuite) TestFindMissingBridgesForContainerNoSpaces(
 	s.addContainerMachine(c)
 	// No defined spaces for the container, no *known* spaces for the host
 	// machine. Triggers the fallback code to have us bridge all devices.
-	missing, err := s.machine.FindMissingBridgesForContainer(s.containerMachine)
+	missing, reconfigureDelay, err := s.machine.FindMissingBridgesForContainer(s.containerMachine, 0)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(missing, gc.DeepEquals, []network.DeviceToBridge{{
 		DeviceName: "ens3",
@@ -1862,6 +1865,7 @@ func (s *linkLayerDevicesStateSuite) TestFindMissingBridgesForContainerNoSpaces(
 		DeviceName: "ens4",
 		BridgeName: "br-ens4",
 	}})
+	c.Check(reconfigureDelay, gc.Equals, 0)
 }
 
 func (s *linkLayerDevicesStateSuite) TestFindMissingBridgesForContainerUnknownWithConstraint(c *gc.C) {
@@ -1877,7 +1881,7 @@ func (s *linkLayerDevicesStateSuite) TestFindMissingBridgesForContainerUnknownWi
 		Spaces: &[]string{"default"},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.machine.FindMissingBridgesForContainer(s.containerMachine)
+	_, _, err = s.machine.FindMissingBridgesForContainer(s.containerMachine, 0)
 	c.Assert(err.Error(), gc.Equals,
 		`host machine "0" has no available device in space(s) "default"`)
 }
@@ -1893,12 +1897,13 @@ func (s *linkLayerDevicesStateSuite) TestFindMissingBridgesForContainerUnknownAn
 	s.createAllDefaultDevices(c, s.machine)
 	s.addContainerMachine(c)
 	// We don't need a container constraint, as the host machine is in a single space.
-	missing, err := s.machine.FindMissingBridgesForContainer(s.containerMachine)
+	missing, reconfigureDelay, err := s.machine.FindMissingBridgesForContainer(s.containerMachine, 0)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(missing, gc.DeepEquals, []network.DeviceToBridge{{
 		DeviceName: "ens3",
 		BridgeName: "br-ens3",
 	}})
+	c.Check(reconfigureDelay, gc.Equals, 0)
 }
 
 func (s *linkLayerDevicesStateSuite) TestFindMissingBridgesForContainerOneOfTwoBridged(c *gc.C) {
@@ -1921,13 +1926,14 @@ func (s *linkLayerDevicesStateSuite) TestFindMissingBridgesForContainerOneOfTwoB
 		Spaces: &[]string{"default"},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	missing, err := s.machine.FindMissingBridgesForContainer(s.containerMachine)
+	missing, reconfigureDelay, err := s.machine.FindMissingBridgesForContainer(s.containerMachine, 0)
 	c.Assert(err, jc.ErrorIsNil)
 	// Only the first device (by sort order) should be selected
 	c.Check(missing, gc.DeepEquals, []network.DeviceToBridge{{
 		DeviceName: "ens2.1",
 		BridgeName: "br-ens2.1",
 	}})
+	c.Check(reconfigureDelay, gc.Equals, 0)
 }
 
 func (s *linkLayerDevicesStateSuite) TestFindMissingBridgesForContainerTwoHostDevicesOneBridged(c *gc.C) {
@@ -1941,9 +1947,10 @@ func (s *linkLayerDevicesStateSuite) TestFindMissingBridgesForContainerTwoHostDe
 		Spaces: &[]string{"default"},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	missing, err := s.machine.FindMissingBridgesForContainer(s.containerMachine)
+	missing, reconfigureDelay, err := s.machine.FindMissingBridgesForContainer(s.containerMachine, 0)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(missing, jc.DeepEquals, []network.DeviceToBridge{})
+	c.Check(reconfigureDelay, gc.Equals, 0)
 }
 
 func (s *linkLayerDevicesStateSuite) TestFindMissingBridgesForContainerNoConstraintsDefaultNotSpecial(c *gc.C) {
@@ -1956,9 +1963,10 @@ func (s *linkLayerDevicesStateSuite) TestFindMissingBridgesForContainerNoConstra
 	// DMZ
 	s.createNICWithIP(c, s.machine, "eth1", "10.10.0.20/24")
 	s.addContainerMachine(c)
-	missing, err := s.machine.FindMissingBridgesForContainer(s.containerMachine)
+	missing, reconfigureDelay, err := s.machine.FindMissingBridgesForContainer(s.containerMachine, 0)
 	c.Assert(err, gc.ErrorMatches, "no obvious space for container.*")
 	c.Assert(missing, gc.IsNil)
+	c.Check(reconfigureDelay, gc.Equals, 0)
 }
 
 func (s *linkLayerDevicesStateSuite) TestFindMissingBridgesForContainerTwoSpacesOneBridged(c *gc.C) {
@@ -1971,13 +1979,14 @@ func (s *linkLayerDevicesStateSuite) TestFindMissingBridgesForContainerTwoSpaces
 	err := s.containerMachine.SetConstraints(constraints.Value{
 		Spaces: &[]string{"default", "dmz"},
 	})
-	missing, err := s.machine.FindMissingBridgesForContainer(s.containerMachine)
+	missing, reconfigureDelay, err := s.machine.FindMissingBridgesForContainer(s.containerMachine, 0)
 	c.Assert(err, jc.ErrorIsNil)
 	// both default and dmz are needed, but default needs to be bridged
 	c.Check(missing, jc.DeepEquals, []network.DeviceToBridge{{
 		DeviceName: "eth0",
 		BridgeName: "br-eth0",
 	}})
+	c.Check(reconfigureDelay, gc.Equals, 0)
 }
 
 func (s *linkLayerDevicesStateSuite) TestFindMissingBridgesForContainerMultipleSpacesNoneBridged(c *gc.C) {
@@ -1993,7 +2002,7 @@ func (s *linkLayerDevicesStateSuite) TestFindMissingBridgesForContainerMultipleS
 	err := s.containerMachine.SetConstraints(constraints.Value{
 		Spaces: &[]string{"default", "dmz", "abba"},
 	})
-	missing, err := s.machine.FindMissingBridgesForContainer(s.containerMachine)
+	missing, reconfigureDelay, err := s.machine.FindMissingBridgesForContainer(s.containerMachine, 0)
 	c.Assert(err, jc.ErrorIsNil)
 	// both default and dmz are needed, but default needs to be bridged
 	c.Check(missing, jc.DeepEquals, []network.DeviceToBridge{{
@@ -2006,6 +2015,7 @@ func (s *linkLayerDevicesStateSuite) TestFindMissingBridgesForContainerMultipleS
 		DeviceName: "eth1",
 		BridgeName: "br-eth1",
 	}})
+	c.Check(reconfigureDelay, gc.Equals, 0)
 }
 
 func (s *linkLayerDevicesStateSuite) TestFindMissingBridgesForContainerBondedNICs(c *gc.C) {
@@ -2062,13 +2072,14 @@ func (s *linkLayerDevicesStateSuite) TestFindMissingBridgesForContainerBondedNIC
 	err = s.containerMachine.SetConstraints(constraints.Value{
 		Spaces: &[]string{"default"},
 	})
-	missing, err := s.machine.FindMissingBridgesForContainer(s.containerMachine)
+	missing, reconfigureDelay, err := s.machine.FindMissingBridgesForContainer(s.containerMachine, 0)
 	c.Assert(err, jc.ErrorIsNil)
 	// both default and dmz are needed, but default needs to be bridged
 	c.Check(missing, jc.DeepEquals, []network.DeviceToBridge{{
 		DeviceName: "zbond0",
 		BridgeName: "br-zbond0",
 	}})
+	c.Check(reconfigureDelay, gc.Equals, 0)
 }
 
 func (s *linkLayerDevicesStateSuite) TestFindMissingBridgesForContainerVLAN(c *gc.C) {
@@ -2103,7 +2114,7 @@ func (s *linkLayerDevicesStateSuite) TestFindMissingBridgesForContainerVLAN(c *g
 		Spaces: &[]string{"default", "dmz"},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	missing, err := s.machine.FindMissingBridgesForContainer(s.containerMachine)
+	missing, reconfigureDelay, err := s.machine.FindMissingBridgesForContainer(s.containerMachine, 0)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(missing, jc.DeepEquals, []network.DeviceToBridge{{
 		DeviceName: "eth0",
@@ -2112,6 +2123,7 @@ func (s *linkLayerDevicesStateSuite) TestFindMissingBridgesForContainerVLAN(c *g
 		DeviceName: "eth0.100",
 		BridgeName: "br-eth0.100",
 	}})
+	c.Check(reconfigureDelay, gc.Equals, 0)
 }
 
 func (s *linkLayerDevicesStateSuite) TestFindMissingBridgesForContainerVLANOnBond(c *gc.C) {
@@ -2168,7 +2180,7 @@ func (s *linkLayerDevicesStateSuite) TestFindMissingBridgesForContainerVLANOnBon
 		Spaces: &[]string{"default", "dmz"},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	missing, err := s.machine.FindMissingBridgesForContainer(s.containerMachine)
+	missing, reconfigureDelay, err := s.machine.FindMissingBridgesForContainer(s.containerMachine, 0)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(missing, jc.DeepEquals, []network.DeviceToBridge{{
 		DeviceName: "bond0",
@@ -2177,4 +2189,5 @@ func (s *linkLayerDevicesStateSuite) TestFindMissingBridgesForContainerVLANOnBon
 		DeviceName: "bond0.100",
 		BridgeName: "br-bond0.100",
 	}})
+	c.Check(reconfigureDelay, gc.Equals, 0)
 }

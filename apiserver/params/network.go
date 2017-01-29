@@ -470,6 +470,10 @@ type HostNetworkChange struct {
 	// NewBridges lists the bridges that need to be created and what host
 	// device they should be connected to.
 	NewBridges []DeviceBridgeInfo `json:"new-bridges"`
+
+	// ReconfigureDelay is the duration in seconds to sleep before
+	// raising the bridged interface
+	ReconfigureDelay int `json:"reconfigure-delay"`
 }
 
 // HostNetworkChangeResults holds the network changes that are necessary for multiple containers to be created.

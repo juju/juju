@@ -446,7 +446,7 @@ func (s *kvmProvisionerSuite) TestContainerStartedAndStopped(c *gc.C) {
 	// TODO(jam): 2016-12-22 recent changes to check for networking changes
 	// when starting a container cause this test to start failing, because
 	// the Dummy provider does not support Networking configuration.
-	_, err := s.provisioner.HostChangesForContainer(container.MachineTag())
+	_, _, err := s.provisioner.HostChangesForContainer(container.MachineTag())
 	c.Assert(err, gc.ErrorMatches, "dummy provider network config not supported.*")
 	c.Skip("dummy provider doesn't support network config. https://pad.lv/1651974")
 	instId := s.expectStarted(c, container)

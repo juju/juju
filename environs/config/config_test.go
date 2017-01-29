@@ -521,6 +521,12 @@ var configTests = []configTest{
 		}),
 		err: `invalid syslog forwarding config: validating TLS config: parsing client key pair: (crypto/)?tls: private key does not match public key`,
 	}, {
+		about:       "net-bond-reconfigure-delay value",
+		useDefaults: config.UseDefaults,
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
+			config.NetBondReconfigureDelayKey: 1234,
+		}),
+	}, {
 		about:       "transmit-vendor-metrics asserted with default value",
 		useDefaults: config.UseDefaults,
 		attrs: minimalConfigAttrs.Merge(testing.Attrs{
@@ -719,6 +725,10 @@ func (test configTest) check(c *gc.C, home *gitjujutesting.FakeHome) {
 		c.Check(xmit, gc.Equals, expectedXmit)
 	} else {
 		c.Check(xmit, jc.IsTrue)
+	}
+
+	if val, ok := test.attrs[config.NetBondReconfigureDelayKey].(int); ok {
+		c.Assert(cfg.NetBondReconfigureDelay(), gc.Equals, val)
 	}
 }
 

@@ -331,7 +331,7 @@ type DeviceToBridge struct {
 	// be bridged.
 	DeviceName string
 
-	// BridgeName is the name of the bride that we want created.
+	// BridgeName is the name of the bridge that we want created.
 	BridgeName string
 }
 
