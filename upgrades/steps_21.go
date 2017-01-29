@@ -20,12 +20,5 @@ func stateStepsFor21() []Step {
 				return context.State().AddMigrationAttempt()
 			},
 		},
-		&upgradeStep{
-			description: "add attempt to migration docs",
-			targets:     []Target{DatabaseMaster},
-			run: func(context Context) error {
-				return state.AddMigrationAttempt(context.State())
-			},
-		},
 	}
 }
