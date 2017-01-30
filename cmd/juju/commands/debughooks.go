@@ -15,13 +15,13 @@ import (
 
 	"github.com/juju/juju/api/application"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/network"
+	"github.com/juju/juju/network/ssh"
 	unitdebug "github.com/juju/juju/worker/uniter/runner/debug"
 )
 
-func newDebugHooksCommand(hostDialer network.Dialer) cmd.Command {
+func newDebugHooksCommand(hostChecker ssh.ReachableChecker) cmd.Command {
 	c := new(debugHooksCommand)
-	c.setHostDialer(hostDialer)
+	c.setHostChecker(hostChecker)
 	return modelcmd.Wrap(c)
 }
 
