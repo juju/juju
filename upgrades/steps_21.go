@@ -24,5 +24,12 @@ func stateStepsFor21() []Step {
 				return state.AddMigrationAttempt(context.State())
 			},
 		},
+		&upgradeStep{
+			description: "add sequences to track used local charm revisions",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return state.AddLocalCharmSequences(context.State())
+			},
+		},
 	}
 }
