@@ -155,6 +155,7 @@ type cloudSet struct {
 
 // cloud is equivalent to Cloud, for marshalling and unmarshalling.
 type cloud struct {
+	Name             string                 `yaml:"name,omitempty"`
 	Type             string                 `yaml:"type"`
 	Description      string                 `yaml:"description,omitempty"`
 	AuthTypes        []AuthType             `yaml:"auth-types,omitempty,flow"`
@@ -347,7 +348,7 @@ func IsSameCloudMetadata(meta1, meta2 map[string]Cloud) (bool, error) {
 func marshalCloudMetadata(cloudsMap map[string]Cloud) ([]byte, error) {
 	clouds := cloudSet{make(map[string]*cloud)}
 	for name, metadata := range cloudsMap {
-		clouds.Clouds[name] = cloudToInternal(metadata)
+		clouds.Clouds[name] = cloudToInternal(metadata, false)
 	}
 	data, err := yaml.Marshal(clouds)
 	if err != nil {
@@ -358,7 +359,7 @@ func marshalCloudMetadata(cloudsMap map[string]Cloud) ([]byte, error) {
 
 // MarshalCloud marshals a Cloud to an opaque byte array.
 func MarshalCloud(cloud Cloud) ([]byte, error) {
-	return yaml.Marshal(cloudToInternal(cloud))
+	return yaml.Marshal(cloudToInternal(cloud, true))
 }
 
 // UnmarshalCloud unmarshals a Cloud from a byte array produced by MarshalCloud.
@@ -370,7 +371,7 @@ func UnmarshalCloud(in []byte) (Cloud, error) {
 	return cloudFromInternal(&internal), nil
 }
 
-func cloudToInternal(in Cloud) *cloud {
+func cloudToInternal(in Cloud, withName bool) *cloud {
 	var regions regions
 	for _, r := range in.Regions {
 		regions.Slice = append(regions.Slice, yaml.MapItem{
@@ -381,7 +382,12 @@ func cloudToInternal(in Cloud) *cloud {
 			},
 		})
 	}
+	name := in.Name
+	if !withName {
+		name = ""
+	}
 	return &cloud{
+		Name:             name,
 		Type:             in.Type,
 		AuthTypes:        in.AuthTypes,
 		Endpoint:         in.Endpoint,
@@ -414,6 +420,7 @@ func cloudFromInternal(in *cloud) Cloud {
 		}
 	}
 	meta := Cloud{
+		Name:             in.Name,
 		Type:             in.Type,
 		AuthTypes:        in.AuthTypes,
 		Endpoint:         in.Endpoint,

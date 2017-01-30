@@ -52,6 +52,13 @@ func (s *CharmSuite) checkRemoved(c *gc.C) {
 	_, err := s.State.Charm(s.curl)
 	c.Check(err, gc.ErrorMatches, `charm ".*" not found`)
 	c.Check(err, jc.Satisfies, errors.IsNotFound)
+
+	// Ensure the document is actually gone.
+	coll, closer := state.GetCollection(s.State, "charms")
+	defer closer()
+	count, err := coll.FindId(s.curl.String()).Count()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(count, gc.Equals, 0)
 }
 
 func (s *CharmSuite) TestAliveCharm(c *gc.C) {

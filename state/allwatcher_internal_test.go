@@ -11,7 +11,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
@@ -22,7 +21,6 @@ import (
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/status"
-	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testing"
 )
 
@@ -48,22 +46,6 @@ options:
 
 type allWatcherBaseSuite struct {
 	internalStateSuite
-	modelCount int
-}
-
-func (s *allWatcherBaseSuite) newState(c *gc.C) *State {
-	s.modelCount++
-	cfg := testing.CustomModelConfig(c, testing.Attrs{
-		"name": fmt.Sprintf("testenv%d", s.modelCount),
-		"uuid": utils.MustNewUUID().String(),
-	})
-	_, st, err := s.state.NewModel(ModelArgs{
-		CloudName: "dummy", CloudRegion: "dummy-region", Config: cfg, Owner: s.owner,
-		StorageProviderRegistry: storage.StaticProviderRegistry{},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	s.AddCleanup(func(*gc.C) { st.Close() })
-	return st
 }
 
 // setUpScenario adds some entities to the state so that

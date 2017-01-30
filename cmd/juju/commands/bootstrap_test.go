@@ -73,7 +73,6 @@ func init() {
 	environs.RegisterProvider("no-cloud-regions", noCloudRegionsProvider{dummyProvider})
 	environs.RegisterProvider("no-credentials", noCredentialsProvider{})
 	environs.RegisterProvider("many-credentials", manyCredentialsProvider{dummyProvider})
-	environs.RegisterProvider("default-cloud-name", defaultCloudNameProvider{})
 }
 
 func (s *BootstrapSuite) SetUpSuite(c *gc.C) {
@@ -1356,7 +1355,6 @@ func (s *BootstrapSuite) TestBootstrapProviderDetectCloud(c *gc.C) {
 
 	s.patchVersionAndSeries(c, "raring")
 	coretesting.RunCommand(c, s.newBootstrapCommand(), "bruce", "ctrl")
-	c.Assert(bootstrap.args.CloudName, gc.Equals, "bruce")
 	c.Assert(bootstrap.args.CloudRegion, gc.Equals, "gazza")
 	c.Assert(bootstrap.args.CloudCredentialName, gc.Equals, "default")
 	sort.Sort(bootstrap.args.Cloud.AuthTypes)
@@ -1879,16 +1877,4 @@ type cloudRegionDetectorFunc func() ([]cloud.Region, error)
 
 func (c cloudRegionDetectorFunc) DetectRegions() ([]cloud.Region, error) {
 	return c()
-}
-
-type defaultCloudNameProvider struct {
-	manyCredentialsProvider
-}
-
-func (defaultCloudNameProvider) DetectCredentials() (*cloud.CloudCredential, error) {
-	return &cloud.CloudCredential{
-		AuthCredentials: map[string]cloud.Credential{
-			"one": cloud.NewCredential("one", nil),
-		},
-	}, nil
 }

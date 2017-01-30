@@ -129,7 +129,6 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	// Get the bootstrap machine's addresses from the provider.
 	cloudSpec, err := environs.MakeCloudSpec(
 		args.ControllerCloud,
-		args.ControllerCloudName,
 		args.ControllerCloudRegion,
 		args.ControllerCloudCredential,
 	)

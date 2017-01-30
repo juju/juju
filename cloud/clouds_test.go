@@ -125,6 +125,21 @@ func (s *cloudSuite) TestParseCloudsRegionConfig(c *gc.C) {
 	})
 }
 
+func (s *cloudSuite) TestParseCloudsIgnoresNameField(c *gc.C) {
+	clouds, err := cloud.ParseCloudMetadata([]byte(`clouds:
+  testing:
+    name: ignored
+    type: dummy
+`))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(clouds, gc.HasLen, 1)
+	testingCloud := clouds["testing"]
+	c.Assert(testingCloud, jc.DeepEquals, cloud.Cloud{
+		Name: "testing",
+		Type: "dummy",
+	})
+}
+
 func (s *cloudSuite) TestPublicCloudsMetadataFallback(c *gc.C) {
 	clouds, fallbackUsed, err := cloud.PublicCloudMetadata("badfile.yaml")
 	c.Assert(err, jc.ErrorIsNil)
@@ -187,6 +202,27 @@ func (s *cloudSuite) TestWritePublicCloudsMetadata(c *gc.C) {
 	c.Assert(publicClouds, jc.DeepEquals, clouds)
 }
 
+func (s *cloudSuite) TestWritePublicCloudsMetadataCloudNameIgnored(c *gc.C) {
+	awsMeCloud := cloud.Cloud{
+		Name:        "ignored",
+		Type:        "aws",
+		Description: "Amazon Web Services",
+		AuthTypes:   []cloud.AuthType{"userpass"},
+	}
+	clouds := map[string]cloud.Cloud{"aws-me": awsMeCloud}
+	err := cloud.WritePublicCloudMetadata(clouds)
+	c.Assert(err, jc.ErrorIsNil)
+	publicClouds, _, err := cloud.PublicCloudMetadata(cloud.JujuPublicCloudsPath())
+	c.Assert(err, jc.ErrorIsNil)
+
+	// The clouds.yaml file does not include the cloud name as a property
+	// of the cloud object, so the cloud.Name field is ignored. On the way
+	// out it should be set to the same as the map key.
+	awsMeCloud.Name = "aws-me"
+	clouds["aws-me"] = awsMeCloud
+	c.Assert(publicClouds, jc.DeepEquals, clouds)
+}
+
 func (s *cloudSuite) assertCompareClouds(c *gc.C, meta2 string, expected bool) {
 	meta1 := `
 clouds:
@@ -246,4 +282,38 @@ func (s *cloudSuite) TestRegionNames(c *gc.C) {
 
 	c.Assert(cloud.RegionNames([]cloud.Region{}), gc.HasLen, 0)
 	c.Assert(cloud.RegionNames(nil), gc.HasLen, 0)
+}
+
+func (s *cloudSuite) TestMarshalCloud(c *gc.C) {
+	in := cloud.Cloud{
+		Name:      "foo",
+		Type:      "bar",
+		AuthTypes: []cloud.AuthType{"baz"},
+		Endpoint:  "qux",
+	}
+	marshalled, err := cloud.MarshalCloud(in)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(string(marshalled), gc.Equals, `
+name: foo
+type: bar
+auth-types: [baz]
+endpoint: qux
+`[1:])
+}
+
+func (s *cloudSuite) TestUnmarshalCloud(c *gc.C) {
+	in := []byte(`
+name: foo
+type: bar
+auth-types: [baz]
+endpoint: qux
+`)
+	out, err := cloud.UnmarshalCloud(in)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(out, jc.DeepEquals, cloud.Cloud{
+		Name:      "foo",
+		Type:      "bar",
+		AuthTypes: []cloud.AuthType{"baz"},
+		Endpoint:  "qux",
+	})
 }
