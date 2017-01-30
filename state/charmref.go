@@ -120,10 +120,6 @@ func finalAppCharmRemoveOps(appName string, curl *charm.URL) []txn.Op {
 func charmDestroyOps(st modelBackend, curl *charm.URL) ([]txn.Op, error) {
 
 	if curl.Schema != "local" {
-		// local charms keep a document around to prevent reuse
-		// of charm URLs, which several components believe to be
-		// unique keys (this is always true within a model).
-		//
 		// it's not so much that it's bad to delete store
 		// charms; but we don't have a way to reinstate them
 		// once purged, so we don't allow removal in the first
@@ -158,18 +154,16 @@ func charmDestroyOps(st modelBackend, curl *charm.URL) ([]txn.Op, error) {
 
 // charmRemoveOps implements the logic of charm.Remove.
 func charmRemoveOps(st modelBackend, curl *charm.URL) ([]txn.Op, error) {
-
 	charms, closer := st.getCollection(charmsC)
 	defer closer()
 
-	// NOTE: we do *not* actually remove the charm document, to
-	// prevent its URL from being recycled, and breaking caches.
-	// The "remove" terminology refers to the client's view of the
-	// change (after which the charm really will be inaccessible).
 	charmKey := curl.String()
-	charmOp, err := nsLife.dieOp(charms, charmKey, nil)
+
+	// Remove the charm document as long as the charm is dying.
+	charmOp, err := nsLife.dyingOp(charms, charmKey)
 	if err != nil {
 		return nil, errors.Annotate(err, "charm")
 	}
+	charmOp.Remove = true
 	return []txn.Op{charmOp}, nil
 }

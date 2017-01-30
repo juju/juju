@@ -153,6 +153,30 @@ func (s *sequenceSuite) TestContention(c *gc.C) {
 	}
 }
 
+func (s *sequenceSuite) TestEnsureCreate(c *gc.C) {
+	err := state.SequenceEnsure(s.State, "foo", 3)
+	c.Assert(err, jc.ErrorIsNil)
+	s.incAndCheck(c, s.State, "foo", 3)
+}
+
+func (s *sequenceSuite) TestEnsureSet(c *gc.C) {
+	s.incAndCheck(c, s.State, "foo", 0)
+	err := state.SequenceEnsure(s.State, "foo", 5)
+	c.Assert(err, jc.ErrorIsNil)
+	s.incAndCheck(c, s.State, "foo", 5)
+}
+
+func (s *sequenceSuite) TestEnsureBackwards(c *gc.C) {
+	s.incAndCheck(c, s.State, "foo", 0)
+	s.incAndCheck(c, s.State, "foo", 1)
+	s.incAndCheck(c, s.State, "foo", 2)
+
+	err := state.SequenceEnsure(s.State, "foo", 1)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.incAndCheck(c, s.State, "foo", 3)
+}
+
 func (s *sequenceSuite) incAndCheck(c *gc.C, st *state.State, name string, expectedCount int) {
 	value, err := state.Sequence(st, name)
 	c.Assert(err, jc.ErrorIsNil)

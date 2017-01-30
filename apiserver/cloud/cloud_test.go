@@ -34,6 +34,7 @@ func (s *cloudSuite) SetUpTest(c *gc.C) {
 	}
 	s.backend = mockBackend{
 		cloud: cloud.Cloud{
+			Name:      "dummy",
 			Type:      "dummy",
 			AuthTypes: []cloud.AuthType{cloud.EmptyAuthType, cloud.UserPassAuthType},
 			Regions:   []cloud.Region{{Name: "nether", Endpoint: "endpoint"}},

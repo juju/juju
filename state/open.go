@@ -161,10 +161,6 @@ type InitializeParams struct {
 	// the controller model.
 	ControllerModelArgs ModelArgs
 
-	// CloudName is the name of the cloud that the controller
-	// runs in.
-	CloudName string
-
 	// Cloud contains the properties of the cloud that the
 	// controller runs in.
 	Cloud cloud.Cloud
@@ -217,19 +213,13 @@ func (p InitializeParams) Validate() error {
 	if p.MongoInfo == nil {
 		return errors.NotValidf("nil MongoInfo")
 	}
-	if p.CloudName == "" {
-		return errors.NotValidf("empty CloudName")
-	}
-	if p.Cloud.Type == "" {
-		return errors.NotValidf("empty Cloud")
-	}
 	if err := validateCloud(p.Cloud); err != nil {
 		return errors.Annotate(err, "validating cloud")
 	}
-	if _, err := validateCloudRegion(p.Cloud, p.CloudName, p.ControllerModelArgs.CloudRegion); err != nil {
+	if _, err := validateCloudRegion(p.Cloud, p.ControllerModelArgs.CloudRegion); err != nil {
 		return errors.Annotate(err, "validating controller model cloud region")
 	}
-	if _, err := validateCloudCredentials(p.Cloud, p.CloudName, p.CloudCredentials); err != nil {
+	if _, err := validateCloudCredentials(p.Cloud, p.CloudCredentials); err != nil {
 		return errors.Annotate(err, "validating cloud credentials")
 	}
 	creds := make(map[string]cloud.Credential, len(p.CloudCredentials))
@@ -238,7 +228,6 @@ func (p InitializeParams) Validate() error {
 	}
 	if _, err := validateCloudCredential(
 		p.Cloud,
-		p.CloudName,
 		creds,
 		p.ControllerModelArgs.CloudCredential,
 	); err != nil {
@@ -312,11 +301,11 @@ func Initialize(args InitializeParams) (_ *State, err error) {
 			Id:     modelGlobalKey,
 			Assert: txn.DocMissing,
 			Insert: &controllersDoc{
-				CloudName: args.CloudName,
+				CloudName: args.Cloud.Name,
 				ModelUUID: st.ModelUUID(),
 			},
 		},
-		createCloudOp(args.Cloud, args.CloudName),
+		createCloudOp(args.Cloud),
 		txn.Op{
 			C:      controllersC,
 			Id:     apiHostPortsKey,
@@ -342,7 +331,7 @@ func Initialize(args InitializeParams) (_ *State, err error) {
 		// Create an entry keyed on cloudname#<key>, value for each region in
 		// region-config. The values here are themselves
 		// map[string]interface{}.
-		ops = append(ops, createSettingsOp(globalSettingsC, regionSettingsGlobalKey(args.CloudName, k), v))
+		ops = append(ops, createSettingsOp(globalSettingsC, regionSettingsGlobalKey(args.Cloud.Name, k), v))
 	}
 
 	for tag, cred := range args.CloudCredentials {

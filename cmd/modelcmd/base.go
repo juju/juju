@@ -410,6 +410,7 @@ func (g bootstrapConfigGetter) getBootstrapConfigParams(controllerName string) (
 	var credential *cloud.Credential
 	if bootstrapConfig.Credential != "" {
 		bootstrapCloud := cloud.Cloud{
+			Name:             bootstrapConfig.Cloud,
 			Type:             bootstrapConfig.CloudType,
 			Endpoint:         bootstrapConfig.CloudEndpoint,
 			IdentityEndpoint: bootstrapConfig.CloudIdentityEndpoint,
@@ -425,7 +426,6 @@ func (g bootstrapConfigGetter) getBootstrapConfigParams(controllerName string) (
 			g.ctx, g.store,
 			GetCredentialsParams{
 				Cloud:          bootstrapCloud,
-				CloudName:      bootstrapConfig.Cloud,
 				CloudRegion:    bootstrapConfig.CloudRegion,
 				CredentialName: bootstrapConfig.Credential,
 			},
@@ -435,10 +435,11 @@ func (g bootstrapConfigGetter) getBootstrapConfigParams(controllerName string) (
 		}
 	} else {
 		// The credential was auto-detected; run auto-detection again.
-		cloudCredential, err := DetectCredential(
-			bootstrapConfig.Cloud,
-			bootstrapConfig.CloudType,
-		)
+		provider, err := environs.Provider(bootstrapConfig.CloudType)
+		if err != nil {
+			return nil, nil, errors.Trace(err)
+		}
+		cloudCredential, err := DetectCredential(bootstrapConfig.Cloud, provider)
 		if err != nil {
 			return nil, nil, errors.Trace(err)
 		}

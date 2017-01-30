@@ -38,12 +38,12 @@ func (s *metricsDebugSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *metricsDebugSuite) TestSetMeterStatus(c *gc.C) {
-	testCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "local:quantal/metered"})
+	testCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "local:quantal/metered-1"})
 	testService := s.Factory.MakeApplication(c, &factory.ApplicationParams{Charm: testCharm})
 	testUnit1 := s.Factory.MakeUnit(c, &factory.UnitParams{Application: testService, SetCharmURL: true})
 	testUnit2 := s.Factory.MakeUnit(c, &factory.UnitParams{Application: testService, SetCharmURL: true})
 
-	csCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "cs:quantal/metered"})
+	csCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "cs:quantal/metered-1"})
 	csService := s.Factory.MakeApplication(c, &factory.ApplicationParams{Name: "cs-service", Charm: csCharm})
 	csUnit1 := s.Factory.MakeUnit(c, &factory.UnitParams{Application: csService, SetCharmURL: true})
 
@@ -170,7 +170,7 @@ func (s *metricsDebugSuite) TestSetMeterStatus(c *gc.C) {
 }
 
 func (s *metricsDebugSuite) TestGetMetrics(c *gc.C) {
-	meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "local:quantal/metered"})
+	meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "local:quantal/metered-1"})
 	meteredService := s.Factory.MakeApplication(c, &factory.ApplicationParams{Charm: meteredCharm})
 	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Application: meteredService, SetCharmURL: true})
 	t0 := time.Now().Round(time.Second)
@@ -200,7 +200,7 @@ func (s *metricsDebugSuite) TestGetMetrics(c *gc.C) {
 }
 
 func (s *metricsDebugSuite) TestGetMetricsFiltersCorrectly(c *gc.C) {
-	meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "local:quantal/metered"})
+	meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "local:quantal/metered-1"})
 	meteredService := s.Factory.MakeApplication(c, &factory.ApplicationParams{Charm: meteredCharm})
 	unit0 := s.Factory.MakeUnit(c, &factory.UnitParams{Application: meteredService, SetCharmURL: true})
 	unit1 := s.Factory.MakeUnit(c, &factory.UnitParams{Application: meteredService, SetCharmURL: true})
@@ -241,7 +241,7 @@ func (s *metricsDebugSuite) TestGetMetricsFiltersCorrectly(c *gc.C) {
 }
 
 func (s *metricsDebugSuite) TestGetMetricsFiltersCorrectlyWhenNotAllMetricsInEachBatch(c *gc.C) {
-	meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "local:quantal/metered"})
+	meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "local:quantal/metered-1"})
 	meteredService := s.Factory.MakeApplication(c, &factory.ApplicationParams{Charm: meteredCharm})
 	unit0 := s.Factory.MakeUnit(c, &factory.UnitParams{Application: meteredService, SetCharmURL: true})
 	unit1 := s.Factory.MakeUnit(c, &factory.UnitParams{Application: meteredService, SetCharmURL: true})
@@ -277,7 +277,7 @@ func (s *metricsDebugSuite) TestGetMetricsFiltersCorrectlyWhenNotAllMetricsInEac
 }
 
 func (s *metricsDebugSuite) TestGetMetricsFiltersCorrectlyWithMultipleBatchesPerUnit(c *gc.C) {
-	meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "local:quantal/metered"})
+	meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "local:quantal/metered-1"})
 	meteredService := s.Factory.MakeApplication(c, &factory.ApplicationParams{Charm: meteredCharm})
 	unit0 := s.Factory.MakeUnit(c, &factory.UnitParams{Application: meteredService, SetCharmURL: true})
 	unit1 := s.Factory.MakeUnit(c, &factory.UnitParams{Application: meteredService, SetCharmURL: true})
@@ -314,7 +314,7 @@ func (s *metricsDebugSuite) TestGetMetricsFiltersCorrectlyWithMultipleBatchesPer
 }
 
 func (s *metricsDebugSuite) TestGetMultipleMetricsNoMocks(c *gc.C) {
-	meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "local:quantal/metered"})
+	meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "local:quantal/metered-1"})
 	meteredService := s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Charm: meteredCharm,
 	})
@@ -351,7 +351,7 @@ func (s *metricsDebugSuite) TestGetMultipleMetricsNoMocks(c *gc.C) {
 }
 
 func (s *metricsDebugSuite) TestGetMultipleMetricsNoMocksWithService(c *gc.C) {
-	meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "local:quantal/metered"})
+	meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "local:quantal/metered-1"})
 	meteredService := s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Charm: meteredCharm,
 	})
@@ -383,7 +383,7 @@ func (s *metricsDebugSuite) TestGetMultipleMetricsNoMocksWithService(c *gc.C) {
 }
 
 func (s *metricsDebugSuite) TestGetModelNoMocks(c *gc.C) {
-	meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "local:quantal/metered"})
+	meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "local:quantal/metered-1"})
 	meteredService := s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Charm: meteredCharm,
 	})

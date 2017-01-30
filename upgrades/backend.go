@@ -19,6 +19,7 @@ type StateBackend interface {
 	RenameAddModelPermission() error
 	DropOldLogIndex() error
 	AddMigrationAttempt() error
+	AddLocalCharmSequences() error
 }
 
 // Model is an interface providing access to the details of a model within the
@@ -63,6 +64,10 @@ func (s stateBackend) DropOldLogIndex() error {
 
 func (s stateBackend) AddMigrationAttempt() error {
 	return state.AddMigrationAttempt(s.st)
+}
+
+func (s stateBackend) AddLocalCharmSequences() error {
+	return state.AddLocalCharmSequences(s.st)
 }
 
 type modelShim struct {
