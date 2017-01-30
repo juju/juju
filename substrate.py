@@ -172,17 +172,17 @@ class AWSAccount:
         instance_groups = dict(self.iter_instance_security_groups())
         non_instance_groups = dict((k, v) for k, v in all_groups.items()
                                    if k not in instance_groups)
-        unclean_interface = self.delete_detached_interfaces(
+        unclean_interfaces = self.delete_detached_interfaces(
             non_instance_groups.keys())
-        for group_id in unclean_interface:
+        for group_id in unclean_interfaces:
             non_instance_groups.pop(group_id, None)
-        unclean_security_grp = self.destroy_security_groups(
+        unclean_security_grps = self.destroy_security_groups(
             non_instance_groups.values())
 
-        if unclean_interface:
-            uncleaned_resource.append(["interfaces", list(unclean_interface)])
-        if unclean_security_grp:
-            uncleaned_resource.append(["security group", unclean_security_grp])
+        if unclean_interfaces:
+            uncleaned_resource.append(["interfaces", list(unclean_interfaces)])
+        if unclean_security_grps:
+            uncleaned_resource.append(["security group", unclean_security_grps])
         return uncleaned_resource
 
 
@@ -282,7 +282,7 @@ class JoyentAccount:
                 config['manta-key-id'], key_path, '')
             yield cls(client)
 
-    def terminate_instances(self, instance_ids, unclean=[]):
+    def terminate_instances(self, instance_ids):
         """Terminate the specified instances."""
         provisioning = []
         for instance_id in instance_ids:
@@ -290,11 +290,11 @@ class JoyentAccount:
             if machine_info['state'] == 'provisioning':
                 provisioning.append(instance_id)
                 continue
-            self._terminate_instance(instance_id, unclean)
+            self._terminate_instance(instance_id)
         if len(provisioning) > 0:
             raise StillProvisioning(provisioning)
 
-    def _terminate_instance(self, machine_id, unclean=[]):
+    def _terminate_instance(self, machine_id):
         log.info('Stopping instance {}'.format(machine_id))
         self.client.stop_machine(machine_id)
         for ignored in until_timeout(30):
@@ -303,8 +303,7 @@ class JoyentAccount:
                 break
             sleep(3)
         else:
-            unclean.append(["machine_id", machine_id])
-            return
+            raise Exception('Instance did not stop: {}'.format(machine_id))
         log.info('Terminating instance {}'.format(machine_id))
         self.client.delete_machine(machine_id)
 
@@ -315,10 +314,13 @@ class JoyentAccount:
         :return: list of resources that were not cleaned up
         """
         uncleaned_resource = []
-        if resource_details["instances"]:
-            instance_ids = [
-                instance[0] for instance in resource_details['instances']]
-            self.terminate_instances(instance_ids, uncleaned_resource)
+        instance_ids = [instance[0] for instance in resource_details.get(
+            'instances', [])]
+        for instance_id in instance_ids:
+            try:
+                self.terminate_instances(instance_id)
+            except Exception:
+                uncleaned_resource.append(["instance_id", instance_id])
         return uncleaned_resource
 
 
@@ -371,13 +373,14 @@ class GCEAccount:
                 config['project-id'])
             yield cls(client)
 
-    def terminate_instances(self, instance_ids, unclean=[]):
+    def terminate_instances(self, instance_ids):
         """Terminate the specified instances."""
         for instance_id in instance_ids:
             # Pass old_age=0 to mean delete now.
             count = gce.delete_instances(self.client, instance_id, old_age=0)
             if count != 1:
-                unclean.append(["instance_id", instance_id])
+                raise Exception('Failed to delete {}: deleted {}'.format(
+                    instance_id, count))
 
     def ensure_cleanup(self, resource_details):
         """
@@ -386,10 +389,13 @@ class GCEAccount:
         :return: list of resources that were not cleaned up
         """
         uncleaned_resource = []
-        if resource_details["instances"]:
-            instance_ids = [
-                instance[0] for instance in resource_details['instances']]
-            self.terminate_instances(instance_ids, uncleaned_resource)
+        instance_ids = [instance[0] for instance in resource_details.get(
+            'instances', [])]
+        for instance_id in instance_ids:
+            try:
+                self.terminate_instances(instance_id)
+            except Exception:
+                uncleaned_resource.append(["instance_id", instance_id])
         return uncleaned_resource
 
 
@@ -437,14 +443,11 @@ class AzureARMAccount:
             vm_ids.append(vm.vm_id)
         return vm_ids
 
-    def terminate_instances(self, instance_ids, unclean=[]):
+    def terminate_instances(self, instance_ids):
         """Terminate the specified instances."""
         for instance_id in instance_ids:
-            try:
-                winazurearm.delete_instance(
-                    self.arm_client, instance_id, resource_group=None)
-            except Exception:
-                unclean.append(["instance_id", instance_id])
+            winazurearm.delete_instance(
+                self.arm_client, instance_id, resource_group=None)
 
     def ensure_cleanup(self, resource_details):
         """
@@ -453,10 +456,13 @@ class AzureARMAccount:
         :return: list of resources that were not cleaned up
         """
         uncleaned_resource = []
-        if resource_details["instances"]:
-            instance_ids = [
-                instance[0] for instance in resource_details['instances']]
-            self.terminate_instances(instance_ids, uncleaned_resource)
+        instance_ids = [instance[0] for instance in resource_details.get(
+            'instances', [])]
+        for instance_id in instance_ids:
+            try:
+                self.terminate_instances(instance_id)
+            except Exception:
+                uncleaned_resource.append(["instance_id", instance_id])
         return uncleaned_resource
 
 
@@ -561,6 +567,13 @@ class AzureAccount:
         :return: list of resources that were not cleaned up
         """
         uncleaned_resource = []
+        instance_ids = [instance[0] for instance in resource_details.get(
+            'instances', [])]
+        for instance_id in instance_ids:
+            try:
+                self.terminate_instances(instance_id)
+            except Exception:
+                uncleaned_resource.append(["instance_id", instance_id])
         return uncleaned_resource
 
 
@@ -788,6 +801,13 @@ class MAASAccount:
         :return: list of resources that were not cleaned up
         """
         uncleaned_resource = []
+        instance_ids = [instance[0] for instance in resource_details.get(
+            'instances', [])]
+        for instance_id in instance_ids:
+            try:
+                self.terminate_instances(instance_id)
+            except Exception:
+                uncleaned_resource.append(["instance_id", instance_id])
         return uncleaned_resource
 
 
@@ -837,17 +857,13 @@ class LXDAccount:
         remote = config.get('region', None)
         yield cls(remote=remote)
 
-    def terminate_instances(self, instance_ids, unclean=[]):
+    def terminate_instances(self, instance_ids):
         """Terminate the specified instances."""
         for instance_id in instance_ids:
-            try:
-                subprocess.check_call(['lxc', 'stop', '--force', instance_id])
-                if self.remote:
-                    instance_id = '{}:{}'.format(self.remote, instance_id)
-                subprocess.check_call(['lxc', 'delete', '--force', instance_id])
-            except subprocess.CalledProcessError:
-                unclean.append(["instance_id", instance_id])
-        return unclean
+            subprocess.check_call(['lxc', 'stop', '--force', instance_id])
+            if self.remote:
+                instance_id = '{}:{}'.format(self.remote, instance_id)
+            subprocess.check_call(['lxc', 'delete', '--force', instance_id])
 
     def ensure_cleanup(self, resource_details):
         """
@@ -856,10 +872,13 @@ class LXDAccount:
         :return: list of resources that were not cleaned up
         """
         uncleaned_resource = []
-        if resource_details["instances"]:
-            instance_ids = [
-                instance[0] for instance in resource_details['instances']]
-            self.terminate_instances(instance_ids, uncleaned_resource)
+        instance_ids = [instance[0] for instance in resource_details.get(
+            'instances', [])]
+        for instance_id in instance_ids:
+            try:
+                self.terminate_instances(instance_id)
+            except Exception:
+                uncleaned_resource.append(["instance_id", instance_id])
         return uncleaned_resource
 
 

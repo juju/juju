@@ -659,6 +659,16 @@ class BootstrapManager:
         self.has_controller = False
         self.resource_details = None
 
+    def error_if_unclean(self, unclean_resources):
+        """
+        List all the resource that were not cleanup programmatically.
+        :param unclean_resources: List of unclean resources
+        """
+        if unclean_resources:
+            logging.critical("following resource requires manual cleanup")
+            for res in unclean_resources:
+                logging.critical(res)
+
     def ensure_cleanup(self):
         """
         Ensure any required cleanup for the current substrate is done.
@@ -667,14 +677,7 @@ class BootstrapManager:
         if self.resource_details is not None:
             with make_substrate_manager(self.client.env) as substrate:
                 if substrate is not None:
-                    unclean = substrate.ensure_cleanup(self.resource_details)
-                    if unclean:
-                        logging.warning(
-                            "Following list of resource requires "
-                            "manual cleanup")
-                        for resource in unclean:
-                            logging.warning(resource)
-                    return unclean
+                    return substrate.ensure_cleanup(self.resource_details)
                 logging.warning(
                     '{} is an unknown provider.'
                     ' Unable to ensure cleanup.'.format(
@@ -947,7 +950,8 @@ class BootstrapManager:
                         if self.has_controller:
                             self.collect_resource_details()
                         self.tear_down(self.jes_enabled)
-                        self.ensure_cleanup()
+                        unclean_resources = self.ensure_cleanup()
+                        self.error_if_unclean(unclean_resources)
 
     # GZ 2016-08-11: Should this method be elsewhere to avoid poking backend?
     def _should_dump(self):
