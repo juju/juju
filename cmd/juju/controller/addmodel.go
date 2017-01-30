@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/cmd/output"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/jujuclient"
 )
@@ -36,15 +37,17 @@ func NewAddModelCommand() cmd.Command {
 		newCloudAPI: func(caller base.APICallCloser) CloudAPI {
 			return cloudapi.NewClient(caller)
 		},
+		providerRegistry: environs.GlobalProviderRegistry(),
 	})
 }
 
 // addModelCommand calls the API to add a new model.
 type addModelCommand struct {
 	modelcmd.ControllerCommandBase
-	apiRoot        api.Connection
-	newAddModelAPI func(base.APICallCloser) AddModelAPI
-	newCloudAPI    func(base.APICallCloser) CloudAPI
+	apiRoot          api.Connection
+	newAddModelAPI   func(base.APICallCloser) AddModelAPI
+	newCloudAPI      func(base.APICallCloser) CloudAPI
+	providerRegistry environs.ProviderRegistry
 
 	Name           string
 	Owner          string
@@ -195,22 +198,21 @@ func (c *addModelCommand) Run(ctx *cmd.Context) error {
 		if err != nil {
 			return errors.Trace(err)
 		}
+	} else {
+		if cloudTag, cloud, err = defaultCloud(cloudClient); err != nil {
+			return errors.Trace(err)
+		}
 	}
 
 	// If the user has specified a credential, then we will upload it if
 	// it doesn't already exist in the controller, and it exists locally.
-	var credentialTag names.CloudCredentialTag
-	if c.CredentialName != "" {
-		var err error
-		if c.CloudRegion == "" {
-			if cloudTag, cloud, err = defaultCloud(cloudClient); err != nil {
-				return errors.Trace(err)
-			}
-		}
-		credentialTag, err = c.maybeUploadCredential(ctx, cloudClient, cloudTag, cloudRegion, cloud, modelOwner)
-		if err != nil {
-			return errors.Trace(err)
-		}
+	//
+	// If no credential is specified, but there is exactly one on the
+	// client, then we use that; otherwise we attempt to detect one from
+	// the environment.
+	credentialTag, err := c.maybeUploadCredential(ctx, cloudClient, cloudTag, cloudRegion, cloud, modelOwner)
+	if err != nil {
+		return errors.Trace(err)
 	}
 
 	addModelClient := c.newAddModelAPI(api)
@@ -396,6 +398,23 @@ there is no default cloud defined, please specify one using:
 	return cloudTag, cloud, nil
 }
 
+var ambiguousDetectedCredentialError = errors.New(`
+more than one credential detected. Add all detected credentials
+to the client with:
+
+    juju autoload-credentials
+
+and then run the add-model command again with the --credential flag.`[1:],
+)
+
+var ambiguousCredentialError = errors.New(`
+more than one credential is available. List credentials with:
+
+    juju credentials
+
+and then run the add-model command again with the --credential flag.`[1:],
+)
+
 func (c *addModelCommand) maybeUploadCredential(
 	ctx *cmd.Context,
 	cloudClient CloudAPI,
@@ -405,47 +424,80 @@ func (c *addModelCommand) maybeUploadCredential(
 	modelOwner string,
 ) (names.CloudCredentialTag, error) {
 
-	modelOwnerTag := names.NewUserTag(modelOwner)
-	credentialTag, err := common.ResolveCloudCredentialTag(
-		modelOwnerTag, cloudTag, c.CredentialName,
-	)
-	if err != nil {
-		return names.CloudCredentialTag{}, errors.Trace(err)
+	// If the user has not specified a credential, and the cloud advertises
+	// itself as supporting the "empty" auth-type, then return immediately.
+	if c.CredentialName == "" {
+		for _, authType := range cloud.AuthTypes {
+			if authType == jujucloud.EmptyAuthType {
+				return names.CloudCredentialTag{}, nil
+			}
+		}
 	}
 
 	// Check if the credential is already in the controller.
-	//
-	// TODO(axw) consider implementing a call that can check
-	// that the credential exists without fetching all of the
-	// names.
+	modelOwnerTag := names.NewUserTag(modelOwner)
 	credentialTags, err := cloudClient.UserCredentials(modelOwnerTag, cloudTag)
 	if err != nil {
 		return names.CloudCredentialTag{}, errors.Trace(err)
 	}
-	credentialId := credentialTag.Id()
-	for _, tag := range credentialTags {
-		if tag.Id() != credentialId {
-			continue
+	if c.CredentialName != "" {
+		credentialTag, err := common.ResolveCloudCredentialTag(
+			modelOwnerTag, cloudTag, c.CredentialName,
+		)
+		if err != nil {
+			return names.CloudCredentialTag{}, errors.Trace(err)
 		}
-		ctx.Infof("Using credential '%s' cached in controller", c.CredentialName)
-		return credentialTag, nil
+		credentialId := credentialTag.Id()
+		for _, tag := range credentialTags {
+			if tag.Id() != credentialId {
+				continue
+			}
+			ctx.Infof("Using credential '%s' cached in controller", c.CredentialName)
+			return credentialTag, nil
+		}
+		if credentialTag.Owner().Id() != modelOwner {
+			// Another user's credential was specified, so
+			// we cannot automatically upload.
+			return names.CloudCredentialTag{}, errors.NotFoundf(
+				"credential '%s'", c.CredentialName,
+			)
+		}
 	}
 
-	if credentialTag.Owner().Id() != modelOwner {
-		// Another user's credential was specified, so
-		// we cannot automatically upload.
-		return names.CloudCredentialTag{}, errors.NotFoundf(
-			"credential '%s'", c.CredentialName,
-		)
+	// The user has either not specified a credential, or if they have, it
+	// is not cached in the controller, and isn't qualified with another
+	// user name.
+
+	if c.CredentialName == "" && len(credentialTags) == 1 {
+		tag := credentialTags[0]
+		ctx.Infof("Using credential '%s' cached in controller", tag.Name())
+		return tag, nil
 	}
 
 	// Upload the credential from the client, if it exists locally.
-	credential, _, _, err := modelcmd.GetCredentials(
-		ctx, c.ClientStore(), modelcmd.GetCredentialsParams{
+	provider, err := c.providerRegistry.Provider(cloud.Type)
+	if err != nil {
+		return names.CloudCredentialTag{}, errors.Trace(err)
+	}
+	credential, credentialName, _, _, err := common.GetOrDetectCredential(
+		ctx, c.ClientStore(), provider, modelcmd.GetCredentialsParams{
 			Cloud:          cloud,
 			CloudRegion:    cloudRegion,
-			CredentialName: credentialTag.Name(),
+			CredentialName: c.CredentialName,
 		},
+	)
+	switch errors.Cause(err) {
+	case nil:
+	case modelcmd.ErrMultipleCredentials:
+		return names.CloudCredentialTag{}, ambiguousCredentialError
+	case common.ErrMultipleDetectedCredentials:
+		return names.CloudCredentialTag{}, ambiguousDetectedCredentialError
+	default:
+		return names.CloudCredentialTag{}, errors.Trace(err)
+	}
+
+	credentialTag, err := common.ResolveCloudCredentialTag(
+		modelOwnerTag, cloudTag, credentialName,
 	)
 	if err != nil {
 		return names.CloudCredentialTag{}, errors.Trace(err)

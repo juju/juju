@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/controller"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	_ "github.com/juju/juju/provider/ec2"
@@ -30,9 +31,11 @@ import (
 
 type AddModelSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
-	fakeAddModelAPI *fakeAddClient
-	fakeCloudAPI    *fakeCloudAPI
-	store           *jujuclienttesting.MemStore
+	fakeAddModelAPI      *fakeAddClient
+	fakeCloudAPI         *fakeCloudAPI
+	fakeProvider         *fakeProvider
+	fakeProviderRegistry *fakeProviderRegistry
+	store                *jujuclienttesting.MemStore
 }
 
 var _ = gc.Suite(&AddModelSuite{})
@@ -46,7 +49,22 @@ func (s *AddModelSuite) SetUpTest(c *gc.C) {
 			Owner: "ignored-for-now",
 		},
 	}
-	s.fakeCloudAPI = &fakeCloudAPI{}
+	s.fakeCloudAPI = &fakeCloudAPI{
+		authTypes: []cloud.AuthType{
+			cloud.EmptyAuthType,
+			cloud.AccessKeyAuthType,
+		},
+		credentials: []names.CloudCredentialTag{
+			names.NewCloudCredentialTag("cloud/admin/default"),
+			names.NewCloudCredentialTag("aws/other/secrets"),
+		},
+	}
+	s.fakeProvider = &fakeProvider{
+		detected: cloud.NewEmptyCloudCredential(),
+	}
+	s.fakeProviderRegistry = &fakeProviderRegistry{
+		provider: s.fakeProvider,
+	}
 
 	// Set up the current controller, and write just enough info
 	// so we don't try to refresh
@@ -76,7 +94,13 @@ func (*fakeAPIConnection) Close() error {
 }
 
 func (s *AddModelSuite) run(c *gc.C, args ...string) (*cmd.Context, error) {
-	command, _ := controller.NewAddModelCommandForTest(&fakeAPIConnection{}, s.fakeAddModelAPI, s.fakeCloudAPI, s.store)
+	command, _ := controller.NewAddModelCommandForTest(
+		&fakeAPIConnection{},
+		s.fakeAddModelAPI,
+		s.fakeCloudAPI,
+		s.store,
+		s.fakeProviderRegistry,
+	)
 	return testing.RunCommand(c, command, args...)
 }
 
@@ -131,7 +155,7 @@ func (s *AddModelSuite) TestInit(c *gc.C) {
 		},
 	} {
 		c.Logf("test %d", i)
-		wrappedCommand, command := controller.NewAddModelCommandForTest(nil, nil, nil, s.store)
+		wrappedCommand, command := controller.NewAddModelCommandForTest(nil, nil, nil, s.store, nil)
 		err := testing.InitCommand(wrappedCommand, test.args)
 		if test.err != "" {
 			c.Assert(err, gc.ErrorMatches, test.err)
@@ -201,12 +225,93 @@ func (s *AddModelSuite) TestCredentialsOtherUserPassedThroughWhenCloud(c *gc.C) 
 	c.Assert(s.fakeAddModelAPI.cloudCredential, gc.Equals, names.NewCloudCredentialTag("aws/other/secrets"))
 }
 
+func (s *AddModelSuite) TestCredentialsOtherUserCredentialNotFound(c *gc.C) {
+	// Have the API respond with no credentials.
+	s.PatchValue(&s.fakeCloudAPI.credentials, []names.CloudCredentialTag{})
+
+	_, err := s.run(c, "test", "--credential", "other/secrets")
+	c.Assert(err, gc.ErrorMatches, "credential 'other/secrets' not found")
+
+	// There should be no detection or UpdateCredentials call.
+	s.fakeCloudAPI.CheckCallNames(c, "DefaultCloud", "Cloud", "UserCredentials")
+}
+
 func (s *AddModelSuite) TestCredentialsNoDefaultCloud(c *gc.C) {
 	s.fakeCloudAPI.SetErrors(&params.Error{Code: params.CodeNotFound})
 	_, err := s.run(c, "test", "--credential", "secrets")
 	c.Assert(err, gc.ErrorMatches, `there is no default cloud defined, please specify one using:
 
     juju add-model \[flags\] \<model-name\> cloud\[/region\]`)
+}
+
+func (s *AddModelSuite) TestCredentialsOneCached(c *gc.C) {
+	// Disable empty auth and clear the local credentials,
+	// forcing a check for credentials in the controller.
+	s.PatchValue(&s.fakeCloudAPI.authTypes, []cloud.AuthType{cloud.AccessKeyAuthType})
+	delete(s.store.Credentials, "aws")
+
+	// Cache just a single credential in the controller,
+	// so it is selected automatically.
+	credentialTag := names.NewCloudCredentialTag("aws/foo/secrets")
+	s.PatchValue(&s.fakeCloudAPI.credentials, []names.CloudCredentialTag{credentialTag})
+
+	_, err := s.run(c, "test")
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(s.fakeAddModelAPI.cloudCredential, gc.Equals, credentialTag)
+}
+
+func (s *AddModelSuite) TestCredentialsDetected(c *gc.C) {
+	// Disable empty auth and clear the local credentials,
+	// forcing a check for credentials in the controller.
+	// There are multiple credentials in the controller,
+	// so none of them will be chosen by default.
+	s.PatchValue(&s.fakeCloudAPI.authTypes, []cloud.AuthType{cloud.AccessKeyAuthType})
+
+	// Delete all local credentials, so we don't choose
+	// any of them to upload. This will force credential
+	// detection.
+	delete(s.store.Credentials, "aws")
+
+	_, err := s.run(c, "test")
+	c.Assert(err, jc.ErrorIsNil)
+
+	credentialTag := names.NewCloudCredentialTag("aws/bob/default")
+	credential := cloud.NewCredential(cloud.AccessKeyAuthType, map[string]string{})
+	credential.Label = "finalized"
+
+	c.Assert(s.fakeAddModelAPI.cloudCredential, gc.Equals, credentialTag)
+	s.fakeCloudAPI.CheckCallNames(c, "DefaultCloud", "Cloud", "UserCredentials", "UpdateCredential")
+	s.fakeCloudAPI.CheckCall(c, 3, "UpdateCredential", credentialTag, credential)
+}
+
+func (s *AddModelSuite) TestCredentialsDetectedAmbiguous(c *gc.C) {
+	// Disable empty auth and clear the local credentials,
+	// forcing a check for credentials in the controller.
+	// There are multiple credentials in the controller,
+	// so none of them will be chosen by default.
+	s.PatchValue(&s.fakeCloudAPI.authTypes, []cloud.AuthType{cloud.AccessKeyAuthType})
+
+	// Delete all local credentials, so we don't choose
+	// any of them to upload. This will force credential
+	// detection.
+	delete(s.store.Credentials, "aws")
+
+	s.PatchValue(&s.fakeProvider.detected, &cloud.CloudCredential{
+		AuthCredentials: map[string]cloud.Credential{
+			"one": {},
+			"two": {},
+		},
+	})
+
+	_, err := s.run(c, "test")
+	c.Assert(err, gc.ErrorMatches, `
+more than one credential detected. Add all detected credentials
+to the client with:
+
+    juju autoload-credentials
+
+and then run the add-model command again with the --credential flag.`[1:])
 }
 
 func (s *AddModelSuite) TestCloudRegionPassedThrough(c *gc.C) {
@@ -221,8 +326,8 @@ func (s *AddModelSuite) TestDefaultCloudPassedThrough(c *gc.C) {
 	_, err := s.run(c, "test")
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.fakeCloudAPI.CheckCallNames(c /*none*/)
-	c.Assert(s.fakeAddModelAPI.cloudName, gc.Equals, "")
+	s.fakeCloudAPI.CheckCallNames(c, "DefaultCloud", "Cloud")
+	c.Assert(s.fakeAddModelAPI.cloudName, gc.Equals, "aws")
 	c.Assert(s.fakeAddModelAPI.cloudRegion, gc.Equals, "")
 }
 
@@ -445,6 +550,8 @@ func (f *fakeAddClient) CreateModel(name, owner, cloudName, cloudRegion string, 
 type fakeCloudAPI struct {
 	controller.CloudAPI
 	gitjujutesting.Stub
+	authTypes   []cloud.AuthType
+	credentials []names.CloudCredentialTag
 }
 
 func (c *fakeCloudAPI) DefaultCloud() (names.CloudTag, error) {
@@ -456,7 +563,8 @@ func (c *fakeCloudAPI) Clouds() (map[names.CloudTag]cloud.Cloud, error) {
 	c.MethodCall(c, "Clouds")
 	return map[names.CloudTag]cloud.Cloud{
 		names.NewCloudTag("aws"): {
-			Name: "aws",
+			Name:      "aws",
+			AuthTypes: c.authTypes,
 			Regions: []cloud.Region{
 				{Name: "us-east-1"},
 				{Name: "us-west-1"},
@@ -474,7 +582,7 @@ func (c *fakeCloudAPI) Cloud(tag names.CloudTag) (cloud.Cloud, error) {
 	return cloud.Cloud{
 		Name:      "aws",
 		Type:      "ec2",
-		AuthTypes: []cloud.AuthType{cloud.AccessKeyAuthType},
+		AuthTypes: c.authTypes,
 		Regions: []cloud.Region{
 			{Name: "us-east-1"},
 			{Name: "us-west-1"},
@@ -484,13 +592,42 @@ func (c *fakeCloudAPI) Cloud(tag names.CloudTag) (cloud.Cloud, error) {
 
 func (c *fakeCloudAPI) UserCredentials(user names.UserTag, cloud names.CloudTag) ([]names.CloudCredentialTag, error) {
 	c.MethodCall(c, "UserCredentials", user, cloud)
-	return []names.CloudCredentialTag{
-		names.NewCloudCredentialTag("cloud/admin/default"),
-		names.NewCloudCredentialTag("aws/other/secrets"),
-	}, c.NextErr()
+	return c.credentials, c.NextErr()
 }
 
 func (c *fakeCloudAPI) UpdateCredential(credentialTag names.CloudCredentialTag, credential cloud.Credential) error {
 	c.MethodCall(c, "UpdateCredential", credentialTag, credential)
 	return c.NextErr()
+}
+
+type fakeProviderRegistry struct {
+	gitjujutesting.Stub
+	environs.ProviderRegistry
+	provider environs.EnvironProvider
+}
+
+func (r *fakeProviderRegistry) Provider(providerType string) (environs.EnvironProvider, error) {
+	r.MethodCall(r, "Provider", providerType)
+	return r.provider, r.NextErr()
+}
+
+type fakeProvider struct {
+	gitjujutesting.Stub
+	environs.EnvironProvider
+	detected *cloud.CloudCredential
+}
+
+func (p *fakeProvider) DetectCredentials() (*cloud.CloudCredential, error) {
+	p.MethodCall(p, "DetectCredentials")
+	return p.detected, p.NextErr()
+}
+
+func (p *fakeProvider) FinalizeCredential(
+	ctx environs.FinalizeCredentialContext,
+	args environs.FinalizeCredentialParams,
+) (*cloud.Credential, error) {
+	p.MethodCall(p, "FinalizeCredential", ctx, args)
+	out := cloud.NewCredential(cloud.AccessKeyAuthType, map[string]string{})
+	out.Label = "finalized"
+	return &out, p.NextErr()
 }

@@ -435,10 +435,11 @@ func (g bootstrapConfigGetter) getBootstrapConfigParams(controllerName string) (
 		}
 	} else {
 		// The credential was auto-detected; run auto-detection again.
-		cloudCredential, err := DetectCredential(
-			bootstrapConfig.Cloud,
-			bootstrapConfig.CloudType,
-		)
+		provider, err := environs.Provider(bootstrapConfig.CloudType)
+		if err != nil {
+			return nil, nil, errors.Trace(err)
+		}
+		cloudCredential, err := DetectCredential(bootstrapConfig.Cloud, provider)
 		if err != nil {
 			return nil, nil, errors.Trace(err)
 		}

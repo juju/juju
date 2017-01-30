@@ -28,7 +28,6 @@ func (environProvider) Open(args environs.OpenParams) (environs.Environ, error) 
 	if err := validateCloudSpec(args.Cloud); err != nil {
 		return nil, errors.Annotate(err, "validating cloud spec")
 	}
-	// TODO(ericsnow) verify prerequisites (see provider/local/prereq.go)?
 	env, err := newEnviron(args.Cloud, args.Config, newRawProvider)
 	return env, errors.Trace(err)
 }
@@ -53,6 +52,41 @@ func (environProvider) Validate(cfg, old *config.Config) (valid *config.Config, 
 		return nil, errors.Annotate(err, "invalid base config")
 	}
 	return cfg, nil
+}
+
+// DetectClouds implements environs.CloudDetector.
+func (environProvider) DetectClouds() ([]cloud.Cloud, error) {
+	localhostCloud, err := localhostCloud()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return []cloud.Cloud{localhostCloud}, nil
+}
+
+// DetectCloud implements environs.CloudDetector.
+func (environProvider) DetectCloud(name string) (cloud.Cloud, error) {
+	// For now we just return a hard-coded "localhost" cloud,
+	// i.e. the local LXD daemon. We may later want to detect
+	// locally-configured remotes.
+	switch name {
+	case "lxd", "localhost":
+		return localhostCloud()
+	}
+	return cloud.Cloud{}, errors.NotFoundf("cloud %s", name)
+}
+
+func localhostCloud() (cloud.Cloud, error) {
+	return cloud.Cloud{
+		Name: lxdnames.DefaultCloud,
+		Type: lxdnames.ProviderType,
+		AuthTypes: []cloud.AuthType{
+			cloud.EmptyAuthType,
+		},
+		Regions: []cloud.Region{{
+			Name: lxdnames.DefaultRegion,
+		}},
+		Description: cloud.DefaultCloudDescription(lxdnames.ProviderType),
+	}, nil
 }
 
 // DetectRegions implements environs.CloudRegionDetector.
@@ -94,11 +128,4 @@ func (p environProvider) ConfigSchema() schema.Fields {
 // provider specific config attributes.
 func (p environProvider) ConfigDefaults() schema.Defaults {
 	return configDefaults
-}
-
-// DefaultCloudName specifies what name should be used for the cloud
-// implicitly created when the provider is specified directly at
-// bootstrap time. Implements environs.DefaultCloudNamer.
-func (p environProvider) DefaultCloudName() string {
-	return cloud.DefaultLXD
 }
