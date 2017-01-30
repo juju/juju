@@ -18,19 +18,7 @@ class TestActiveCollector(TestCase):
             pc.ActiveCollector(client, 'test')
         iic.assert_called_once_with(client, 'test')
 
-    def test_creates_personalised_url_func(self):
-        client = Mock()
-        with patch.object(
-                pc, 'install_introspection_charm',
-                return_value='123.123.123.123',
-                autospec=True):
-            with patch.object(pc, 'partial', autospec=True) as pp:
-                pc.ActiveCollector(client, 'test')
-
-        pp.assert_called_once_with(
-            pc.get_profile_url, '123.123.123.123', 'test')
-
-    def test__collect_profile_uses_personalised_url_path(self):
+    def test__collect_profile_uses_correct_profile_url(self):
         client = Mock()
         expected_url = pc.get_profile_url(
             '123.123.123.123', 'test', 'test_profile', '12')
@@ -45,8 +33,9 @@ class TestActiveCollector(TestCase):
 
     @contextmanager
     def mocked_collector(self, machine_id='test'):
-        """Create an ActiveCollector with patched _collect_profile to test
-        collect_* methods.
+        """Create an ActiveCollector with patched _collect_profile.
+
+        Used to test collect_* methods.
         """
         client = Mock()
         with patch.object(

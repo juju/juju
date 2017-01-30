@@ -3,7 +3,6 @@
 from __future__ import print_function
 
 from datetime import datetime
-from functools import partial
 import logging
 import os
 import requests
@@ -61,13 +60,14 @@ class ActiveCollector(NoopCollector):
         :machine_id: ID of the juju machine with which to install pprof
           software/charm.
         """
-        introspection_ip = install_introspection_charm(
+        self.machine_id = machine_id
+        self.introspection_ip = install_introspection_charm(
             client, machine_id)
-        self._get_url_func = partial(
-            get_profile_url, introspection_ip, machine_id)
 
     def _collect_profile(self, profile, filepath, seconds):
-        get_profile_reading(self._get_url_func(profile, seconds), filepath)
+        profile_url = get_profile_url(
+            self.introspection_ip, self.machine_id, profile, seconds)
+        get_profile_reading(profile_url, filepath)
 
     def collect_profile(self, filepath, seconds):
         """Collect `seconds` worth of CPU profile."""
