@@ -73,6 +73,7 @@ from jujupy.client import (
     StatusItem,
     StatusNotMet,
     StatusTimeout,
+    StuckAllocatingError,
     SYSTEM,
     temp_bootstrap_env,
     temp_yaml_file,
@@ -3813,6 +3814,10 @@ class TestStatusErrorTree(TestCase):
     def test_priority_pairs(self):
         self.assertLess(MachineError.priority(), UnitError.priority())
         self.assertLess(UnitError.priority(), AppError.priority())
+        self.assertLess(StuckAllocatingError.priority(),
+                        MachineError.priority())
+        self.assertLess(ProvisioningError.priority(),
+                        StuckAllocatingError.priority())
 
 
 class TestStatusItem(TestCase):
@@ -3853,6 +3858,19 @@ class TestStatusItem(TestCase):
         item = self.make_status_item(StatusItem.MACHINE, '0',
                                      current='provisioning error')
         self.assertIsType(item.to_exception(), ProvisioningError)
+
+    def test_to_exception_stuck_allocating(self):
+        item = self.make_status_item(StatusItem.MACHINE, '0',
+                                     current='allocating', message='foo')
+        with self.assertRaisesRegexp(
+                StuckAllocatingError,
+                "\('0', 'Stuck allocating.  Last message: foo'\)"):
+            raise item.to_exception()
+
+    def test_to_exception_allocating_unit(self):
+        item = self.make_status_item(StatusItem.JUJU, '0',
+                                     current='allocating', message='foo')
+        self.assertIs(None, item.to_exception())
 
     def test_to_exception_app_error(self):
         item = self.make_status_item(StatusItem.APPLICATION, '0',
