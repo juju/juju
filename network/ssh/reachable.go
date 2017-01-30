@@ -225,8 +225,3 @@ func (r *reachableChecker) FindHost(hostPorts []network.HostPort, publicKeys []s
 	close(stop)
 	return network.HostPort{}, errors.Errorf("cannot connect to any address: %v", hostPorts)
 }
-
-func ReachableHostPort(hostPorts []network.HostPort, publicKeys []string, dialer Dialer, timeout time.Duration) (network.HostPort, error) {
-	checker := NewReachableChecker(dialer, timeout)
-	return checker.FindHost(hostPorts, publicKeys)
-}
