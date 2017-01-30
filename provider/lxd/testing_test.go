@@ -478,8 +478,13 @@ func (conn *StubClient) ServerStatus() (*shared.ServerState, error) {
 	}, nil
 }
 
-func (conn *StubClient) SetConfig(k, v string) error {
-	conn.AddCall("SetConfig", k, v)
+func (conn *StubClient) SetServerConfig(k, v string) error {
+	conn.AddCall("SetServerConfig", k, v)
+	return conn.NextErr()
+}
+
+func (conn *StubClient) SetContainerConfig(container, k, v string) error {
+	conn.AddCall("SetContainerConfig", container, k, v)
 	return conn.NextErr()
 }
 

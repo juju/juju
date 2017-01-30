@@ -1279,6 +1279,11 @@ func (e *Environ) Instances(ids []instance.Id) ([]instance.Instance, error) {
 	return insts, err
 }
 
+// AdoptResources is part of the Environ interface.
+func (e *Environ) AdoptResources(controllerUUID string, fromVersion version.Number) error {
+	return errors.NotImplementedf("AdoptResources")
+}
+
 // AllInstances returns all instances in this environment.
 func (e *Environ) AllInstances() ([]instance.Instance, error) {
 	tagFilter := tagValue{tags.JujuModel, e.ecfg().UUID()}

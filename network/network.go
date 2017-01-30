@@ -55,6 +55,9 @@ const AnySubnet Id = ""
 // UnknownId can be used whenever an Id is needed but not known.
 const UnknownId = ""
 
+// DefaultLXCBridge is the bridge that gets used for LXC containers
+const DefaultLXCBridge = "lxcbr0"
+
 // DefaultLXDBridge is the bridge that gets used for LXD containers
 const DefaultLXDBridge = "lxdbr0"
 
@@ -322,6 +325,17 @@ type ProviderInterfaceInfo struct {
 	// MACAddress is the network interface's hardware MAC address
 	// (e.g. "aa:bb:cc:dd:ee:ff").
 	MACAddress string
+}
+
+// DeviceToBridge gives the information about a particular device that
+// should be bridged.
+type DeviceToBridge struct {
+	// DeviceName is the name of the device on the machine that should
+	// be bridged.
+	DeviceName string
+
+	// BridgeName is the name of the bridge that we want created.
+	BridgeName string
 }
 
 // LXCNetDefaultConfig is the location of the default network config

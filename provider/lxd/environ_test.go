@@ -157,6 +157,6 @@ func (s *environSuite) TestPrepareForBootstrap(c *gc.C) {
 	err := s.Env.PrepareForBootstrap(envtesting.BootstrapContext(c))
 	c.Assert(err, jc.ErrorIsNil)
 	s.Stub.CheckCalls(c, []gitjujutesting.StubCall{
-		{"SetConfig", []interface{}{"core.https_address", "[::]"}},
+		{"SetServerConfig", []interface{}{"core.https_address", "[::]"}},
 	})
 }

@@ -17,6 +17,7 @@ import (
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/mongo"
+	mongoutils "github.com/juju/juju/mongo/utils"
 	"github.com/juju/juju/state/storage"
 	jujuversion "github.com/juju/juju/version"
 )
@@ -114,6 +115,10 @@ func insertCharmOps(st *State, info CharmInfo) ([]txn.Op, error) {
 		BundleSha256: info.SHA256,
 		StoragePath:  info.StoragePath,
 	}
+	if err := checkCharmDataIsStorable(doc); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	if info.Macaroon != nil {
 		mac, err := info.Macaroon.MarshalBinary()
 		if err != nil {
@@ -220,6 +225,10 @@ func updateCharmOps(
 		{"pendingupload", false},
 		{"placeholder", false},
 	}
+	if err := checkCharmDataIsStorable(data); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	if len(info.Macaroon) > 0 {
 		mac, err := info.Macaroon.MarshalBinary()
 		if err != nil {
@@ -287,6 +296,11 @@ func deleteOldPlaceholderCharmsOps(st *State, charms mongo.Collection, curl *cha
 		})
 	}
 	return ops, nil
+}
+
+func checkCharmDataIsStorable(charmData interface{}) error {
+	err := mongoutils.CheckStorable(charmData)
+	return errors.Annotate(err, "invalid charm data")
 }
 
 // safeConfig is a travesty which attempts to work around our continued failure

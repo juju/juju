@@ -208,6 +208,10 @@ func (task *provisionerTask) processMachinesWithTransientErrors() error {
 			logger.Errorf("cannot reset status of machine %q: %v", statusResult.Id, err)
 			continue
 		}
+		if err := machine.SetInstanceStatus(status.Provisioning, "", nil); err != nil {
+			logger.Errorf("cannot reset instance status of machine %q: %v", statusResult.Id, err)
+			continue
+		}
 		task.machines[machine.Tag().String()] = machine
 		pending = append(pending, machine)
 	}
@@ -358,6 +362,7 @@ type ClassifiableMachine interface {
 	InstanceId() (instance.Id, error)
 	EnsureDead() error
 	Status() (status.Status, string, error)
+	InstanceStatus() (status.Status, string, error)
 	Id() string
 }
 
@@ -399,6 +404,15 @@ func classifyMachine(machine ClassifiableMachine) (
 		}
 		if machineStatus == status.Pending {
 			logger.Infof("found machine pending provisioning id:%s, details:%v", machine.Id(), machine)
+			return Pending, nil
+		}
+		instanceStatus, _, err := machine.InstanceStatus()
+		if err != nil {
+			logger.Infof("cannot read instance status id:%s, details:%v, err:%v", machine.Id(), machine, err)
+			return None, nil
+		}
+		if instanceStatus == status.Provisioning {
+			logger.Infof("found machine provisioning id:%s, details:%v", machine.Id(), machine)
 			return Pending, nil
 		}
 		return None, nil
@@ -685,9 +699,9 @@ func (task *provisionerTask) startMachines(machines []*apiprovisioner.Machine) e
 
 func (task *provisionerTask) setErrorStatus(message string, machine *apiprovisioner.Machine, err error) error {
 	logger.Errorf(message, machine, err)
-	if err1 := machine.SetStatus(status.Error, err.Error(), nil); err1 != nil {
+	if err := machine.SetInstanceStatus(status.ProvisioningError, err.Error(), nil); err != nil {
 		// Something is wrong with this machine, better report it back.
-		return errors.Annotatef(err1, "cannot set error status for machine %q", machine)
+		return errors.Annotatef(err, "cannot set error status for machine %q", machine)
 	}
 	return nil
 }
@@ -698,6 +712,10 @@ func (task *provisionerTask) startMachine(
 	startInstanceParams environs.StartInstanceParams,
 ) error {
 	var result *environs.StartInstanceResult
+	// TODO (jam): 2017-01-19 Should we be setting this earlier in the cycle?
+	if err := machine.SetInstanceStatus(status.Provisioning, "starting", nil); err != nil {
+		logger.Errorf("%v", err)
+	}
 	for attemptsLeft := task.retryStartInstanceStrategy.retryCount; attemptsLeft >= 0; attemptsLeft-- {
 		attemptResult, err := task.broker.StartInstance(startInstanceParams)
 		if err == nil {
@@ -710,12 +728,12 @@ func (task *provisionerTask) startMachine(
 			return task.setErrorStatus("cannot start instance for machine %q: %v", machine, err)
 		}
 
-		logger.Warningf("%v", errors.Annotate(err, "starting instance"))
-		retryMsg := fmt.Sprintf("will retry to start instance in %v", task.retryStartInstanceStrategy.retryDelay)
-		if err2 := machine.SetStatus(status.Pending, retryMsg, nil); err2 != nil {
+		retryMsg := fmt.Sprintf("failed to start instance (%s), retrying in %v (%d more attempts)",
+			err.Error(), task.retryStartInstanceStrategy.retryDelay, attemptsLeft)
+		logger.Warningf(retryMsg)
+		if err2 := machine.SetInstanceStatus(status.Provisioning, retryMsg, nil); err2 != nil {
 			logger.Errorf("%v", err2)
 		}
-		logger.Infof(retryMsg)
 
 		select {
 		case <-task.catacomb.Dying():

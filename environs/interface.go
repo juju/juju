@@ -250,6 +250,19 @@ type Environ interface {
 	// the Bootstrap method's job to create the controller model.
 	Create(CreateParams) error
 
+	// AdoptResources is called when the model is moved from one
+	// controller to another using model migration. Some providers tag
+	// instances, disks, and cloud storage with the controller UUID to
+	// aid in clean destruction. This method will be called on the
+	// environ for the target controller so it can update the
+	// controller tags for all of those things. For providers that do
+	// not track the controller UUID, a simple method returning nil
+	// will suffice. The version number of the source controller is
+	// provided for backwards compatibility - if the technique used to
+	// tag items changes, the version number can be used to decide how
+	// to remove the old tags correctly.
+	AdoptResources(controllerUUID string, fromVersion version.Number) error
+
 	// InstanceBroker defines methods for starting and stopping
 	// instances.
 	InstanceBroker

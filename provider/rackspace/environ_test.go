@@ -175,6 +175,11 @@ func (e *fakeEnviron) ControllerInstances(_ string) ([]instance.Id, error) {
 	return nil, nil
 }
 
+func (e *fakeEnviron) AdoptResources(controllerUUID string, fromVersion version.Number) error {
+	e.Push("AdoptResources")
+	return nil
+}
+
 func (e *fakeEnviron) Destroy() error {
 	e.Push("Destroy")
 	return nil
