@@ -1754,6 +1754,7 @@ class TestModelClient(ClientTest):
 
     def test_wait_for_workload(self):
         initial_status = Status.from_text("""\
+            machines: {}
             applications:
               jenkins:
                 units:
@@ -2385,7 +2386,7 @@ class TestModelClient(ClientTest):
         never_satisfied = self.NeverSatisfied()
         with self.assertRaises(never_satisfied.NeverSatisfiedException):
             with patch.object(client, 'status_until', return_value=iter(
-                    [Status({}, '')])) as mock_su:
+                    [Status({'machines': {}}, '')])) as mock_su:
                 client.wait_for(never_satisfied, quiet=True)
         mock_su.assert_called_once_with(1234)
 
@@ -2439,10 +2440,13 @@ class TestModelClient(ClientTest):
         client.bootstrap()
 
         never_satisfied = self.NeverSatisfied()
-        bad_status = Status({'applications': {'0': {StatusItem.APPLICATION: {
-            'current': 'error'
-            }}}}, '')
-        good_status = Status({}, '')
+        bad_status = Status({
+            'machines': {},
+            'applications': {'0': {StatusItem.APPLICATION: {
+                'current': 'error'
+                }}}
+            }, '')
+        good_status = Status({'machines': {}}, '')
         with self.assertRaises(never_satisfied.NeverSatisfiedException):
             with patch.object(client, 'status_until', lambda timeout: iter(
                     [bad_status, good_status])):
@@ -2453,9 +2457,12 @@ class TestModelClient(ClientTest):
         client.bootstrap()
 
         never_satisfied = self.NeverSatisfied()
-        bad_status = Status({'applications': {'0': {StatusItem.APPLICATION: {
-            'current': 'error'
-            }}}}, '')
+        bad_status = Status({
+            'machines': {},
+            'applications': {'0': {StatusItem.APPLICATION: {
+                'current': 'error'
+                }}}
+            }, '')
         with self.assertRaises(AppError):
             with patch.object(client, 'status_until', lambda timeout: iter(
                     [bad_status])):
@@ -4682,6 +4689,48 @@ class TestStatus(FakeHomeTestCase):
                 cur_set = set(status_item.status.keys())
                 self.assertTrue(min_set < cur_set)
                 self.assertTrue(cur_set < max_set)
+
+    def test_iter_status_container(self):
+        status_dict = {'machines': {'0': {
+            'containers': {'0/lxd/0': {
+                'machine-status': 'foo',
+                'juju-status': 'bar',
+                }}
+            }}}
+        status = Status(status_dict, '')
+        machine_0_data = status.status['machines']['0']
+        container_data = machine_0_data['containers']['0/lxd/0']
+        self.assertEqual([
+            StatusItem(StatusItem.MACHINE, '0', machine_0_data),
+            StatusItem(StatusItem.JUJU, '0', machine_0_data),
+            StatusItem(StatusItem.MACHINE, '0/lxd/0', container_data),
+            StatusItem(StatusItem.JUJU, '0/lxd/0', container_data),
+            ], list(status.iter_status()))
+
+    def test_iter_status_subordinate(self):
+        status_dict = {
+            'machines': {},
+            'applications': {
+                'dummy': {
+                    'units': {'dummy/0': {
+                        'subordinates': {
+                            'dummy-sub/0': {}
+                            }
+                        }},
+                    }
+                },
+            }
+        status = Status(status_dict, '')
+        dummy_data = status.status['applications']['dummy']
+        dummy_0_data = dummy_data['units']['dummy/0']
+        dummy_sub_0_data = dummy_0_data['subordinates']['dummy-sub/0']
+        self.assertEqual([
+            StatusItem(StatusItem.APPLICATION, 'dummy', dummy_data),
+            StatusItem(StatusItem.WORKLOAD, 'dummy/0', dummy_0_data),
+            StatusItem(StatusItem.JUJU, 'dummy/0', dummy_0_data),
+            StatusItem(StatusItem.WORKLOAD, 'dummy-sub/0', dummy_sub_0_data),
+            StatusItem(StatusItem.JUJU, 'dummy-sub/0', dummy_sub_0_data),
+            ], list(status.iter_status()))
 
     def test_iter_errors(self):
         status = Status({}, '')

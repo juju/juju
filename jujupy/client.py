@@ -738,6 +738,21 @@ class StatusItem:
         self.item_name = item_name
         self.status = item_value.get(status_name, item_value)
 
+    def __eq__(self, other):
+        if type(other) != type(self):
+            return False
+        elif self.status_name != other.status_name:
+            return False
+        elif self.item_name != other.item_name:
+            return False
+        elif self.status != other.status:
+            return False
+        else:
+            return True
+
+    def __ne__(self, other):
+        return bool(not self == other)
+
     @property
     def message(self):
         return self.status.get('message')
@@ -969,12 +984,13 @@ class Status:
 
     def iter_status(self):
         """Iterate through every status field in the larger status data."""
-        for machine_name, machine_value in self.get_machines({}).items():
+        for machine_name, machine_value in self.iter_machines(containers=True):
             yield StatusItem(StatusItem.MACHINE, machine_name, machine_value)
             yield StatusItem(StatusItem.JUJU, machine_name, machine_value)
         for app_name, app_value in self.get_applications().items():
             yield StatusItem(StatusItem.APPLICATION, app_name, app_value)
-            for unit_name, unit_value in app_value.get('units', {}).items():
+            unit_iterator = self._iter_units_in_application(app_value)
+            for unit_name, unit_value in unit_iterator:
                 yield StatusItem(StatusItem.WORKLOAD, unit_name, unit_value)
                 yield StatusItem(StatusItem.JUJU, unit_name, unit_value)
 
