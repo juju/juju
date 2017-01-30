@@ -57,22 +57,29 @@ func NewReachableChecker(dialer Dialer, timeout time.Duration) *reachableChecker
 // it uses the golang/x/crypto/ssh/HostKeyCallback to find the host keys on a
 // given connection.
 type hostKeyChecker struct {
+
 	// AcceptedKeys is a set of the Marshalled PublicKey content.
 	AcceptedKeys set.Strings
+
 	// Stop will be polled for whether we should stop trying to do any work
 	Stop <-chan struct{}
+
 	// HostPort is the identifier that corresponds to this connection
 	HostPort network.HostPort
+
 	// Accepted will be passed HostPort if it validated the connection
 	Accepted chan network.HostPort
+
 	// Dialer is a Dialer that allows us to initiate the underlying TCP connection
 	Dialer Dialer
+
 	// Finished will be set an event when we've finished our check (success or failure)
 	Finished chan struct{}
 }
 
 var hostKeyNotInList = errors.New("host key not in expected set")
 var hostKeyAccepted = errors.New("host key was accepted, retry")
+var hostKeyAcceptedButStopped = errors.New("host key was accepted, but search was stopped")
 
 func (h *hostKeyChecker) hostKeyCallback(hostname string, remote net.Addr, key ssh.PublicKey) error {
 	// Note: we don't do any advanced checking of the PublicKey, like whether
@@ -92,11 +99,12 @@ func (h *hostKeyChecker) hostKeyCallback(hostname string, remote net.Addr, key s
 		// first, still exit.
 		select {
 		case h.Accepted <- h.HostPort:
+			return hostKeyAccepted
 		case <-h.Stop:
+			return hostKeyAcceptedButStopped
 		}
-		return hostKeyAccepted
 	}
-	logger.Debugf("host key for %s not in our accepted set: use --debug --log-level=TRACE to see actual key", debugName)
+	logger.Debugf("host key for %s not in our accepted set: log at TRACE to see raw keys", debugName)
 	return hostKeyNotInList
 }
 
@@ -132,7 +140,9 @@ func (h *hostKeyChecker) Check() {
 	// TODO(jam): 2017-01-24 One limitation of our algorithm, is that we don't
 	// try to limit the negotiation of the keys to our set of possible keys.
 	// For example, say we only know about the RSA key for the remote host, but
-	// it has been updated to use a ECDSA key as well. We
+	// it has been updated to use a ECDSA key as well. Gocrypto/ssh might
+	// negotiate to use the "more secure" ECDSA key and we will see that
+	// as an invalid key.
 	sshconfig := &ssh.ClientConfig{
 		HostKeyCallback: h.hostKeyCallback,
 	}
@@ -172,10 +182,16 @@ type reachableChecker struct {
 	timeout time.Duration
 }
 
+// FindHost takes a list of possible host+port combinations and possible public
+// keys that the SSH server could be using. We make an attempt to connect to
+// each of those addresses and do an SSH handshake negotiation. We then check
+// if the SSH server's negotiated public key is in our allowed set. The first
+// address to successfully negotiate will be returned. If none of them succeed,
+// and error will be returned.
 func (r *reachableChecker) FindHost(hostPorts []network.HostPort, publicKeys []string) (network.HostPort, error) {
 	uniqueHPs := network.UniqueHostPorts(hostPorts)
 	successful := make(chan network.HostPort, 1)
-	stop := make(chan struct{}, 0)
+	stop := make(chan struct{})
 	// We use a channel instead of a sync.WaitGroup so that we can return as
 	// soon as we get one connected. We'll signal the rest to stop via the
 	// 'stop' channel.

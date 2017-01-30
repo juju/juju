@@ -398,12 +398,7 @@ func (c *SSHCommon) reachableAddressGetter(entity string) (string, error) {
 	if !c.noHostKeyChecks {
 		publicKeys, err = c.apiClient.PublicKeys(entity)
 		if err != nil {
-			// We ignore NotFound errors, as we may not have finished registering
-			// keys. If they are truly important, they'll be trapped in the
-			// generateKnownHosts section.
-			if !errors.IsNotFound(err) && !params.IsCodeNotFound(err) {
-				return "", errors.Trace(err)
-			}
+			return "", errors.Annotatef(err, "retrieving SSH host keys for %q", entity)
 		}
 	}
 

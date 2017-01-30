@@ -244,41 +244,34 @@ func (s *SSHSuite) TestSSHWillWorkInUpgrade(c *gc.C) {
 
 /// XXX(jam): 2017-01-25 do we need these functions anymore? We don't really
 //support ssh'ing to V1 anymore
-/// func (s *SSHSuite) TestSSHCommandHostAddressRetryAPIv1(c *gc.C) {
-/// 	s.setHostDialerFunc(func(address string) error {
-/// 		return network.NoAddressError("public")
-/// 	})
-/// 	s.setForceAPIv1(true)
-///
-/// 	s.testSSHCommandHostAddressRetry(c, false)
-/// }
-///
-/// func (s *SSHSuite) TestSSHCommandHostAddressRetryAPIv2(c *gc.C) {
-/// 	s.setHostDialerFunc(func(address string) error {
-/// 		return network.NoAddressError("available")
-/// 	})
-/// 	s.setForceAPIv1(false)
-///
-/// 	s.testSSHCommandHostAddressRetry(c, false)
-/// }
-///
-/// func (s *SSHSuite) TestSSHCommandHostAddressRetryProxyAPIv1(c *gc.C) {
-/// 	s.setHostDialerFunc(func(address string) error {
-/// 		return network.NoAddressError("private")
-/// 	})
-/// 	s.setForceAPIv1(true)
-///
-/// 	s.testSSHCommandHostAddressRetry(c, true)
-/// }
-///
-/// func (s *SSHSuite) TestSSHCommandHostAddressRetryProxyAPIv2(c *gc.C) {
-/// 	s.setHostDialerFunc(func(address string) error {
-/// 		return network.NoAddressError("available")
-/// 	})
-/// 	s.setForceAPIv1(false)
-///
-/// 	s.testSSHCommandHostAddressRetry(c, true)
-/// }
+func (s *SSHSuite) TestSSHCommandHostAddressRetryAPIv1(c *gc.C) {
+	// Start with nothing valid to connect to.
+	s.setHostChecker(validAddresses())
+	s.setForceAPIv1(true)
+
+	s.testSSHCommandHostAddressRetry(c, false)
+}
+
+func (s *SSHSuite) TestSSHCommandHostAddressRetryAPIv2(c *gc.C) {
+	s.setHostChecker(validAddresses())
+	s.setForceAPIv1(false)
+
+	s.testSSHCommandHostAddressRetry(c, false)
+}
+
+func (s *SSHSuite) TestSSHCommandHostAddressRetryProxyAPIv1(c *gc.C) {
+	s.setHostChecker(validAddresses())
+	s.setForceAPIv1(true)
+
+	s.testSSHCommandHostAddressRetry(c, true)
+}
+
+func (s *SSHSuite) TestSSHCommandHostAddressRetryProxyAPIv2(c *gc.C) {
+	s.setHostChecker(validAddresses())
+	s.setForceAPIv1(false)
+
+	s.testSSHCommandHostAddressRetry(c, true)
+}
 
 func (s *SSHSuite) testSSHCommandHostAddressRetry(c *gc.C, proxy bool) {
 	m := s.Factory.MakeMachine(c, nil)

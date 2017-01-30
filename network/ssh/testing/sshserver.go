@@ -41,23 +41,12 @@ func denyPublicKey(conn ssh.ConnMetadata, key ssh.PublicKey) (*ssh.Permissions, 
 	return nil, errors.Errorf("public key denied")
 }
 
-// CreateSSHServer launches an SSH server that will use the described private
-// key to allow SSH connections. Note that it explicitly doesn't actually
-// support any Auth mechanisms, so nobody can complete connections, but it will
-// do Key exchange to set up the encrypted conversation.
-// We return the address where the SSH service is listening, and a channel
-// callers must close when they want the service to stop.
-func CreateSSHServer(c *gc.C, privateKeys ...string) (string, chan struct{}) {
-	serverConf := &ssh.ServerConfig{
-		// We have to set up at least one Auth method, or the SSH server
-		// doesn't even try to do key-exchange
-		PublicKeyCallback: denyPublicKey,
-	}
-	for _, privateStr := range privateKeys {
-		privateKey, err := ssh.ParsePrivateKey([]byte(privateStr))
-		c.Assert(err, jc.ErrorIsNil)
-		serverConf.AddHostKey(privateKey)
-	}
+// CreateTCPServer launches a TCP server that just Accepts connections and
+// triggers the callback function. The callback assumes responsibility for
+// closing the connection.
+// We return the address+port of the TCP server, and a channel that can be
+// closed when you want the TCP server to stop.
+func CreateTCPServer(c *gc.C, callback func(net.Conn)) (string, chan struct{}) {
 	// We explicitly listen on IPv4 loopback instead of 'localhost'
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	c.Assert(err, jc.ErrorIsNil)
@@ -93,16 +82,41 @@ func CreateSSHServer(c *gc.C, privateKeys ...string) (string, chan struct{}) {
 				continue
 			}
 			remoteAddress := tcpConn.RemoteAddr().String()
-			c.Logf("accepted tcp connection for ssh on %s from %s", localAddress, remoteAddress)
-			sshConn, _, _, err := ssh.NewServerConn(tcpConn, serverConf)
-			if err != nil {
-				// TODO: some errors are expected, as we don't support Auth
-				c.Logf("error initiating ssh connection for %s: %v", remoteAddress, err)
-			} else {
-				// We don't expect to get here, but if we do, make sure we close the connection.
-				sshConn.Close()
-			}
+			c.Logf("accepted tcp connection on %s from %s", localAddress, remoteAddress)
+			callback(tcpConn)
 		}
 	}()
 	return localAddress, shutdown
+}
+
+// CreateSSHServer launches an SSH server that will use the described private
+// key to allow SSH connections. Note that it explicitly doesn't actually
+// support any Auth mechanisms, so nobody can complete connections, but it will
+// do Key exchange to set up the encrypted conversation.
+// We return the address where the SSH service is listening, and a channel
+// callers must close when they want the service to stop.
+func CreateSSHServer(c *gc.C, privateKeys ...string) (string, chan struct{}) {
+	serverConf := &ssh.ServerConfig{
+		// We have to set up at least one Auth method, or the SSH server
+		// doesn't even try to do key-exchange
+		PublicKeyCallback: denyPublicKey,
+	}
+	for _, privateStr := range privateKeys {
+		privateKey, err := ssh.ParsePrivateKey([]byte(privateStr))
+		c.Assert(err, jc.ErrorIsNil)
+		serverConf.AddHostKey(privateKey)
+	}
+	return CreateTCPServer(c, func(tcpConn net.Conn) {
+		remoteAddress := tcpConn.RemoteAddr().String()
+		c.Logf("initiating ssh handshake for %s", remoteAddress)
+		sshConn, _, _, err := ssh.NewServerConn(tcpConn, serverConf)
+		if err != nil {
+			// TODO: some errors are expected, as we don't support Auth, we
+			// should probably not log things that aren't genuine errors.
+			c.Logf("error initiating ssh connection for %s: %v", remoteAddress, err)
+		} else {
+			// We don't expect to get here, but if we do, make sure we close the connection.
+			sshConn.Close()
+		}
+	})
 }

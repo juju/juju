@@ -137,49 +137,12 @@ type Cleaner interface {
 
 // testTCPServer only listens on the socket, but doesn't speak SSH
 func testTCPServer(c *gc.C, cleaner Cleaner) network.HostPort {
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
-	c.Assert(err, jc.ErrorIsNil)
-
-	listenAddress := listener.Addr().String()
+	listenAddress, shutdown := sshtesting.CreateTCPServer(c, func(tcpConn net.Conn) {
+		// We accept a connection, but then immediately close.
+		tcpConn.Close()
+	})
 	hostPort, err := network.ParseHostPort(listenAddress)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Logf("listening on %q", hostPort)
-
-	shutdown := make(chan struct{}, 0)
-
-	go func() {
-		for {
-			select {
-			case <-shutdown:
-				// no more listening
-				c.Logf("shutting down %s", listenAddress)
-				listener.Close()
-				return
-			default:
-			}
-			// Don't get hung on Accept, set a deadline
-			if tcpListener, ok := listener.(*net.TCPListener); ok {
-				tcpListener.SetDeadline(time.Now().Add(1 * time.Second))
-			}
-			tcpConn, err := listener.Accept()
-			if err != nil {
-				if netErr, ok := err.(net.Error); ok {
-					if netErr.Timeout() {
-						// Try again, so we reevaluate if we need to shut down
-						continue
-					}
-				}
-			}
-			if err != nil {
-				c.Logf("failed to accept connection on %s: %v", listenAddress, err)
-				continue
-			}
-			if tcpConn != nil {
-				c.Logf("accepted tcp connection on %q from %s", hostPort, tcpConn.RemoteAddr())
-				tcpConn.Close()
-			}
-		}
-	}()
 	cleaner.AddCleanup(func(*gc.C) { close(shutdown) })
 
 	return *hostPort
