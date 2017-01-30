@@ -90,7 +90,7 @@ func main() {
 	logger.Infof("found %d known hosts\n", len(pubKeys))
 	logger.Debugf("known hosts: %v\n", pubKeys)
 	dialer := &net.Dialer{Timeout: time.Duration(dialTimeout) * time.Millisecond}
-	checker := jujussh.NewReachableChecker(dialer, time.Duration(waitTimeout)* time.Millisecond)
+	checker := jujussh.NewReachableChecker(dialer, time.Duration(waitTimeout)*time.Millisecond)
 	found, err := checker.FindHost(hostPorts, pubKeys)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "could not find valid host: %v\n", err)
