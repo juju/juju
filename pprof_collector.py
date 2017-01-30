@@ -2,6 +2,7 @@
 
 from __future__ import print_function
 
+from datetime import datetime
 from functools import partial
 import logging
 import os
@@ -109,6 +110,8 @@ def _get_introspection_charm_url():
 
 class PPROFCollector:
 
+    FILE_TIMESTAMP = '%y%m%d-%H%M%S'
+
     def __init__(self, client, machine_id, logs_dir, active=False):
         """Collector of pprof profiles from a machine.
 
@@ -153,14 +156,25 @@ class PPROFCollector:
                 self._client, self._machine_id)
         self._collector = self._noop_collector
 
+    def _get_profile_file_path(self, dir_path):
+        """Given a directory create a timestamped file path."""
+        ts_file = datetime.utcnow().strftime(self.FILE_TIMESTAMP)
+        return os.path.join(dir_path, '{}.pprof'.format(ts_file))
+
     def collect_profile(self, seconds=5):
         """Collect `seconds` worth of CPU profile."""
-        self._collector.collect_profile(self._cpu_profile_path, seconds)
+        self._collector.collect_profile(
+            self._get_profile_file_path(self._cpu_profile_path),
+            seconds)
 
     def collect_heap(self, seconds=5):
         """Collect `seconds` worth of heap profile."""
-        self._collector.collect_heap(self._heap_profile_path, seconds)
+        self._collector.collect_heap(
+            self._get_profile_file_path(self._heap_profile_path),
+            seconds)
 
     def collect_goroutines(self, seconds=5):
         """Collect `seconds` worth of goroutines profile."""
-        self._collector.collect_goroutines(self._goroutines_path, seconds)
+        self._collector.collect_goroutines(
+            self._get_profile_file_path(self._goroutines_path),
+            seconds)

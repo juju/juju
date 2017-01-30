@@ -1,6 +1,7 @@
 """Tests for assess_perf_test_simple module."""
 
 from contextlib import contextmanager
+from datetime import datetime
 import os
 from mock import call, patch, Mock, mock_open
 
@@ -165,11 +166,15 @@ class TestPPROFCollector(TestCase):
     def test_collect_profile(selfm):
         client = Mock()
         log_dir = '/test/logs/dir'
-        profile_log = os.path.join(log_dir, 'cpu_profile')
+        file_name = '170130-092626.pprof'
+        profile_log = os.path.join(log_dir, 'cpu_profile', file_name)
         with patch.object(pc.os, 'makedirs', autospec=True):
             with patch.object(pc, 'NoopCollector', autospec=True):
-                collector = pc.PPROFCollector(client, 'test', log_dir)
-                collector.collect_profile()
+                with patch.object(pc, 'datetime') as p_dt:
+                    p_dt.utcnow.return_value = datetime(
+                        2017, 1, 30, 9, 26, 26, 587930)
+                    collector = pc.PPROFCollector(client, 'test', log_dir)
+                    collector.collect_profile()
         collector._collector.collect_profile.assert_called_once_with(
             profile_log, 5
         )
@@ -177,11 +182,15 @@ class TestPPROFCollector(TestCase):
     def test_collect_heap(selfm):
         client = Mock()
         log_dir = '/test/logs/dir'
-        profile_log = os.path.join(log_dir, 'heap_profile')
+        file_name = '170130-092626.pprof'
+        profile_log = os.path.join(log_dir, 'heap_profile', file_name)
         with patch.object(pc.os, 'makedirs', autospec=True):
             with patch.object(pc, 'NoopCollector', autospec=True):
-                collector = pc.PPROFCollector(client, 'test', log_dir)
-                collector.collect_heap()
+                with patch.object(pc, 'datetime') as p_dt:
+                    p_dt.utcnow.return_value = datetime(
+                        2017, 1, 30, 9, 26, 26, 587930)
+                    collector = pc.PPROFCollector(client, 'test', log_dir)
+                    collector.collect_heap()
         collector._collector.collect_heap.assert_called_once_with(
             profile_log, 5
         )
@@ -189,11 +198,15 @@ class TestPPROFCollector(TestCase):
     def test_collect_goroutines(selfm):
         client = Mock()
         log_dir = '/test/logs/dir'
-        profile_log = os.path.join(log_dir, 'goroutines_profile')
+        file_name = '170130-092626.pprof'
+        profile_log = os.path.join(log_dir, 'goroutines_profile', file_name)
         with patch.object(pc.os, 'makedirs', autospec=True):
             with patch.object(pc, 'NoopCollector', autospec=True):
-                collector = pc.PPROFCollector(client, 'test', log_dir)
-                collector.collect_goroutines()
+                with patch.object(pc, 'datetime') as p_dt:
+                    p_dt.utcnow.return_value = datetime(
+                        2017, 1, 30, 9, 26, 26, 587930)
+                    collector = pc.PPROFCollector(client, 'test', log_dir)
+                    collector.collect_goroutines()
         collector._collector.collect_goroutines.assert_called_once_with(
             profile_log, 5
         )
