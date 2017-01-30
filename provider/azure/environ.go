@@ -1094,7 +1094,7 @@ func (env *azureEnviron) AdoptResources(controllerUUID string, fromVersion versi
 			// as the version for the Microsoft.Resources provider we
 			// get NoRegisteredProviderFound errors.
 			resourceClient.APIVersion = apiVersions[*resource.Type]
-			err := env.updateResourceTags(&resourceClient, resource, controllerUUID)
+			err := env.updateResourceControllerTag(&resourceClient, resource, controllerUUID)
 			if err != nil {
 				logger.Errorf("error updating resource tags for %q: %v", *resource.Name, err)
 				failed = append(failed, *resource.Name)
@@ -1112,7 +1112,7 @@ func (env *azureEnviron) AdoptResources(controllerUUID string, fromVersion versi
 	return nil
 }
 
-func (env *azureEnviron) updateResourceTags(client *resources.Client, stubResource resources.GenericResource, controllerUUID string) error {
+func (env *azureEnviron) updateResourceControllerTag(client *resources.Client, stubResource resources.GenericResource, controllerUUID string) error {
 	stubTags := *stubResource.Tags
 	if *stubTags[tags.JujuController] == controllerUUID {
 		// No update needed.
@@ -1145,6 +1145,9 @@ func (env *azureEnviron) updateResourceTags(client *resources.Client, stubResour
 	return errors.Annotatef(err, "updating controller for %q", *resource.Name)
 }
 
+// splitResourceType breaks the resource type into provider namespace,
+// parent path and subtype so we can pass the components to the
+// resource CreateOrUpdate method.
 func splitResourceType(resourceType string) (string, string, string, error) {
 	parts := strings.Split(resourceType, "/")
 	if len(parts) < 2 {

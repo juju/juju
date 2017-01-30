@@ -114,8 +114,7 @@ type resourceDeleter interface {
 // possible resource type. This is needed to use the Azure Resource
 // Management API, because the API version requested must match the
 // type of the resource being manipulated through the API, rather than
-// being able to use the API version specified statically in the
-// resource client code.
+// the API version specified statically in the resource client code.
 func collectAPIVersions(mclient resources.ManagementClient) (map[string]string, error) {
 	result := make(map[string]string)
 	pclient := resources.ProvidersClient{mclient}
