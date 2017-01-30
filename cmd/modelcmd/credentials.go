@@ -26,10 +26,6 @@ type GetCredentialsParams struct {
 	// Cloud is the cloud definition.
 	Cloud cloud.Cloud
 
-	// CloudName is the name of the cloud for which credentials are being
-	// obtained.
-	CloudName string
-
 	// CloudRegion is the name of the region that the user has specified.
 	// If this is empty, then GetCredentials will determine the default
 	// region, and return that. The default region is the one set by the
@@ -52,7 +48,7 @@ func GetCredentials(
 ) (_ *cloud.Credential, chosenCredentialName, regionName string, _ error) {
 
 	credential, credentialName, defaultRegion, err := credentialByName(
-		store, args.CloudName, args.CredentialName,
+		store, args.Cloud.Name, args.CredentialName,
 	)
 	if err != nil {
 		return nil, "", "", errors.Trace(err)
@@ -99,7 +95,7 @@ func GetCredentials(
 	if err != nil {
 		return nil, "", "", errors.Annotatef(
 			err, "finalizing %q credential for cloud %q",
-			credentialName, args.CloudName,
+			credentialName, args.Cloud.Name,
 		)
 	}
 
@@ -113,7 +109,7 @@ func GetCredentials(
 	if err != nil {
 		return nil, "", "", errors.Annotatef(
 			err, "finalizing %q credential for cloud %q",
-			credentialName, args.CloudName,
+			credentialName, args.Cloud.Name,
 		)
 	}
 

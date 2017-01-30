@@ -4494,8 +4494,8 @@ func (s *SetAdminMongoPasswordSuite) TestSetAdminMongoPassword(c *gc.C) {
 			Config:                  cfg,
 			StorageProviderRegistry: storage.StaticProviderRegistry{},
 		},
-		CloudName: "dummy",
 		Cloud: cloud.Cloud{
+			Name:      "dummy",
 			Type:      "dummy",
 			AuthTypes: []cloud.AuthType{cloud.EmptyAuthType},
 		},

@@ -443,7 +443,6 @@ func (c *addModelCommand) maybeUploadCredential(
 	credential, _, _, err := modelcmd.GetCredentials(
 		ctx, c.ClientStore(), modelcmd.GetCredentialsParams{
 			Cloud:          cloud,
-			CloudName:      cloudTag.Id(),
 			CloudRegion:    cloudRegion,
 			CredentialName: credentialTag.Name(),
 		},

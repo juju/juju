@@ -456,6 +456,7 @@ func (c *fakeCloudAPI) Clouds() (map[names.CloudTag]cloud.Cloud, error) {
 	c.MethodCall(c, "Clouds")
 	return map[names.CloudTag]cloud.Cloud{
 		names.NewCloudTag("aws"): {
+			Name: "aws",
 			Regions: []cloud.Region{
 				{Name: "us-east-1"},
 				{Name: "us-west-1"},
@@ -471,6 +472,7 @@ func (c *fakeCloudAPI) Cloud(tag names.CloudTag) (cloud.Cloud, error) {
 		return cloud.Cloud{}, &params.Error{Code: params.CodeNotFound}
 	}
 	return cloud.Cloud{
+		Name:      "aws",
 		Type:      "ec2",
 		AuthTypes: []cloud.AuthType{cloud.AccessKeyAuthType},
 		Regions: []cloud.Region{

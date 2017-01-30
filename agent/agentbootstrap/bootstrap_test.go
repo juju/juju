@@ -167,12 +167,12 @@ LXC_BRIDGE="ignored"`[1:])
 			BootstrapMachineInstanceId:              "i-bootstrap",
 			BootstrapMachineHardwareCharacteristics: &expectHW,
 			ControllerCloud: cloud.Cloud{
+				Name:         "dummy",
 				Type:         "dummy",
 				AuthTypes:    []cloud.AuthType{cloud.EmptyAuthType},
 				Regions:      []cloud.Region{{Name: "dummy-region"}},
 				RegionConfig: regionConfig,
 			},
-			ControllerCloudName:       "dummy",
 			ControllerCloudRegion:     "dummy-region",
 			ControllerConfig:          controllerCfg,
 			ControllerModelConfig:     modelCfg,
@@ -395,10 +395,10 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 		StateInitializationParams: instancecfg.StateInitializationParams{
 			BootstrapMachineInstanceId: "i-bootstrap",
 			ControllerCloud: cloud.Cloud{
+				Name:      "dummy",
 				Type:      "dummy",
 				AuthTypes: []cloud.AuthType{cloud.EmptyAuthType},
 			},
-			ControllerCloudName:   "dummy",
 			ControllerConfig:      testing.FakeControllerConfig(),
 			ControllerModelConfig: modelCfg,
 			HostedModelConfig:     hostedModelConfigAttrs,

@@ -74,8 +74,8 @@ func (s *internalStateSuite) SetUpTest(c *gc.C) {
 			Config:                  modelCfg,
 			StorageProviderRegistry: provider.CommonStorageProviders(),
 		},
-		CloudName: "dummy",
 		Cloud: cloud.Cloud{
+			Name:      "dummy",
 			Type:      "dummy",
 			AuthTypes: []cloud.AuthType{cloud.EmptyAuthType},
 			Regions: []cloud.Region{

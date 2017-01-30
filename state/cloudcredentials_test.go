@@ -21,7 +21,8 @@ type CloudCredentialsSuite struct {
 var _ = gc.Suite(&CloudCredentialsSuite{})
 
 func (s *CloudCredentialsSuite) TestUpdateCloudCredentialNew(c *gc.C) {
-	err := s.State.AddCloud("stratus", cloud.Cloud{
+	err := s.State.AddCloud(cloud.Cloud{
+		Name:      "stratus",
 		Type:      "low",
 		AuthTypes: cloud.AuthTypes{cloud.AccessKeyAuthType, cloud.UserPassAuthType},
 	})
@@ -45,7 +46,8 @@ func (s *CloudCredentialsSuite) TestUpdateCloudCredentialNew(c *gc.C) {
 }
 
 func (s *CloudCredentialsSuite) TestUpdateCloudCredentialsExisting(c *gc.C) {
-	err := s.State.AddCloud("stratus", cloud.Cloud{
+	err := s.State.AddCloud(cloud.Cloud{
+		Name:      "stratus",
 		Type:      "low",
 		AuthTypes: cloud.AuthTypes{cloud.AccessKeyAuthType, cloud.UserPassAuthType},
 	})
@@ -77,7 +79,8 @@ func (s *CloudCredentialsSuite) TestUpdateCloudCredentialsExisting(c *gc.C) {
 }
 
 func (s *CloudCredentialsSuite) TestUpdateCloudCredentialInvalidAuthType(c *gc.C) {
-	err := s.State.AddCloud("stratus", cloud.Cloud{
+	err := s.State.AddCloud(cloud.Cloud{
+		Name:      "stratus",
 		Type:      "low",
 		AuthTypes: cloud.AuthTypes{cloud.AccessKeyAuthType},
 	})
@@ -94,7 +97,8 @@ func (s *CloudCredentialsSuite) TestCloudCredentialsEmpty(c *gc.C) {
 }
 
 func (s *CloudCredentialsSuite) TestCloudCredentials(c *gc.C) {
-	err := s.State.AddCloud("stratus", cloud.Cloud{
+	err := s.State.AddCloud(cloud.Cloud{
+		Name:      "stratus",
 		Type:      "low",
 		AuthTypes: cloud.AuthTypes{cloud.AccessKeyAuthType, cloud.UserPassAuthType},
 	})
@@ -135,7 +139,8 @@ func (s *CloudCredentialsSuite) TestCloudCredentials(c *gc.C) {
 
 func (s *CloudCredentialsSuite) TestRemoveCredentials(c *gc.C) {
 	// Create it.
-	err := s.State.AddCloud("stratus", cloud.Cloud{
+	err := s.State.AddCloud(cloud.Cloud{
+		Name:      "stratus",
 		Type:      "low",
 		AuthTypes: cloud.AuthTypes{cloud.AccessKeyAuthType, cloud.UserPassAuthType},
 	})

@@ -68,8 +68,8 @@ func InitializeWithArgs(c *gc.C, args InitializeArgs) *state.State {
 			StorageProviderRegistry: StorageProviders(),
 		},
 		ControllerInheritedConfig: args.ControllerInheritedConfig,
-		CloudName:                 "dummy",
 		Cloud: cloud.Cloud{
+			Name:      "dummy",
 			Type:      "dummy",
 			AuthTypes: []cloud.AuthType{cloud.EmptyAuthType},
 			Regions: []cloud.Region{

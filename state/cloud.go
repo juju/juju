@@ -39,7 +39,7 @@ type cloudRegionSubdoc struct {
 
 // createCloudOp returns a list of txn.Ops that will initialize
 // the cloud definition for the controller.
-func createCloudOp(cloud cloud.Cloud, cloudName string) txn.Op {
+func createCloudOp(cloud cloud.Cloud) txn.Op {
 	authTypes := make([]string, len(cloud.AuthTypes))
 	for i, authType := range cloud.AuthTypes {
 		authTypes[i] = string(authType)
@@ -54,10 +54,10 @@ func createCloudOp(cloud cloud.Cloud, cloudName string) txn.Op {
 	}
 	return txn.Op{
 		C:      cloudsC,
-		Id:     cloudName,
+		Id:     cloud.Name,
 		Assert: txn.DocMissing,
 		Insert: &cloudDoc{
-			Name:             cloudName,
+			Name:             cloud.Name,
 			Type:             cloud.Type,
 			AuthTypes:        authTypes,
 			Endpoint:         cloud.Endpoint,
@@ -88,6 +88,7 @@ func (d cloudDoc) toCloud() cloud.Cloud {
 		}
 	}
 	return cloud.Cloud{
+		Name:             d.Name,
 		Type:             d.Type,
 		AuthTypes:        authTypes,
 		Endpoint:         d.Endpoint,
@@ -133,14 +134,14 @@ func (st *State) Cloud(name string) (cloud.Cloud, error) {
 // AddCloud creates a cloud with the given name and details.
 // Note that the Config is deliberately ignored - it's only
 // relevant when bootstrapping.
-func (st *State) AddCloud(name string, c cloud.Cloud) error {
+func (st *State) AddCloud(c cloud.Cloud) error {
 	if err := validateCloud(c); err != nil {
 		return errors.Annotate(err, "invalid cloud")
 	}
-	ops := []txn.Op{createCloudOp(c, name)}
+	ops := []txn.Op{createCloudOp(c)}
 	if err := st.runTransaction(ops); err != nil {
 		if err == txn.ErrAborted {
-			err = errors.AlreadyExistsf("cloud %q", name)
+			err = errors.AlreadyExistsf("cloud %q", c.Name)
 		}
 		return err
 	}
@@ -149,6 +150,9 @@ func (st *State) AddCloud(name string, c cloud.Cloud) error {
 
 // validateCloud checks that the supplied cloud is valid.
 func validateCloud(cloud cloud.Cloud) error {
+	if cloud.Name == "" {
+		return errors.NotValidf("empty Name")
+	}
 	if cloud.Type == "" {
 		return errors.NotValidf("empty Type")
 	}

@@ -544,7 +544,6 @@ See `[1:] + "`juju kill-controller`" + `.`)
 		AgentVersion:              c.AgentVersion,
 		MetadataDir:               metadataDir,
 		Cloud:                     *cloud,
-		CloudName:                 cloud.Name,
 		CloudRegion:               region.Name,
 		CloudCredential:           credentials.credential,
 		CloudCredentialName:       credentials.name,
@@ -706,7 +705,6 @@ func (c *bootstrapCommand) credentialsAndRegionName(
 	creds.credential, creds.name, regionName, err = modelcmd.GetCredentials(
 		ctx, store, modelcmd.GetCredentialsParams{
 			Cloud:          *cloud,
-			CloudName:      c.Cloud,
 			CloudRegion:    c.Region,
 			CredentialName: c.CredentialName,
 		},

@@ -19,6 +19,7 @@ type CloudSuite struct {
 var _ = gc.Suite(&CloudSuite{})
 
 var lowCloud = cloud.Cloud{
+	Name:             "stratus",
 	Type:             "low",
 	AuthTypes:        cloud.AuthTypes{cloud.AccessKeyAuthType, cloud.UserPassAuthType},
 	Endpoint:         "global-endpoint",
@@ -47,7 +48,7 @@ func (s *CloudSuite) TestCloudNotFound(c *gc.C) {
 func (s *CloudSuite) TestClouds(c *gc.C) {
 	dummyCloud, err := s.State.Cloud("dummy")
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.State.AddCloud("stratus", lowCloud)
+	err = s.State.AddCloud(lowCloud)
 	c.Assert(err, jc.ErrorIsNil)
 
 	clouds, err := s.State.Clouds()
@@ -59,7 +60,7 @@ func (s *CloudSuite) TestClouds(c *gc.C) {
 }
 
 func (s *CloudSuite) TestAddCloud(c *gc.C) {
-	err := s.State.AddCloud("stratus", lowCloud)
+	err := s.State.AddCloud(lowCloud)
 	c.Assert(err, jc.ErrorIsNil)
 	cloud, err := s.State.Cloud("stratus")
 	c.Assert(err, jc.ErrorIsNil)
@@ -67,12 +68,14 @@ func (s *CloudSuite) TestAddCloud(c *gc.C) {
 }
 
 func (s *CloudSuite) TestAddCloudDuplicate(c *gc.C) {
-	err := s.State.AddCloud("stratus", cloud.Cloud{
+	err := s.State.AddCloud(cloud.Cloud{
+		Name:      "stratus",
 		Type:      "low",
 		AuthTypes: cloud.AuthTypes{cloud.AccessKeyAuthType, cloud.UserPassAuthType},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.State.AddCloud("stratus", cloud.Cloud{
+	err = s.State.AddCloud(cloud.Cloud{
+		Name:      "stratus",
 		Type:      "low",
 		AuthTypes: cloud.AuthTypes{cloud.AccessKeyAuthType, cloud.UserPassAuthType},
 	})
@@ -80,15 +83,24 @@ func (s *CloudSuite) TestAddCloudDuplicate(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsAlreadyExists)
 }
 
+func (s *CloudSuite) TestAddCloudNoName(c *gc.C) {
+	err := s.State.AddCloud(cloud.Cloud{
+		AuthTypes: cloud.AuthTypes{cloud.AccessKeyAuthType, cloud.UserPassAuthType},
+	})
+	c.Assert(err, gc.ErrorMatches, `invalid cloud: empty Name not valid`)
+}
+
 func (s *CloudSuite) TestAddCloudNoType(c *gc.C) {
-	err := s.State.AddCloud("stratus", cloud.Cloud{
+	err := s.State.AddCloud(cloud.Cloud{
+		Name:      "stratus",
 		AuthTypes: cloud.AuthTypes{cloud.AccessKeyAuthType, cloud.UserPassAuthType},
 	})
 	c.Assert(err, gc.ErrorMatches, `invalid cloud: empty Type not valid`)
 }
 
 func (s *CloudSuite) TestAddCloudNoAuthTypes(c *gc.C) {
-	err := s.State.AddCloud("stratus", cloud.Cloud{
+	err := s.State.AddCloud(cloud.Cloud{
+		Name: "stratus",
 		Type: "foo",
 	})
 	c.Assert(err, gc.ErrorMatches, `invalid cloud: empty auth-types not valid`)
