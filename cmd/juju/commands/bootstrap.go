@@ -326,6 +326,10 @@ func (c *bootstrapCommand) parseConstraints(ctx *cmd.Context) (err error) {
 // a juju in that environment if none already exists. If there is as yet no environments.yaml file,
 // the user is informed how to create one.
 func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
+	defer func() {
+		resultErr = handleChooseCloudRegionError(ctx, resultErr)
+	}()
+
 	if err := c.parseConstraints(ctx); err != nil {
 		return err
 	}
@@ -367,15 +371,12 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 
 	credentials, regionName, err := c.credentialsAndRegionName(ctx, provider, cloud)
 	if err != nil {
-		if err == cmd.ErrSilent {
-			return err
-		}
 		return errors.Trace(err)
 	}
 
-	region, err := getRegion(cloud, regionName)
+	region, err := common.ChooseCloudRegion(*cloud, regionName)
 	if err != nil {
-		return handleGetRegionError(ctx, err)
+		return errors.Trace(err)
 	}
 	if c.controllerName == "" {
 		c.controllerName = defaultControllerName(cloud.Name, region.Name)
@@ -728,65 +729,34 @@ func (c *bootstrapCommand) credentialsAndRegionName(
 	regionName string,
 	err error,
 ) {
+	var detected bool
 	store := c.ClientStore()
-	creds.credential, creds.name, regionName, err = modelcmd.GetCredentials(
-		ctx, store, modelcmd.GetCredentialsParams{
+	creds.credential, creds.name, regionName, detected, err = common.GetOrDetectCredential(
+		ctx, store, provider, modelcmd.GetCredentialsParams{
 			Cloud:          *cloud,
 			CloudName:      c.Cloud,
 			CloudRegion:    c.Region,
 			CredentialName: c.CredentialName,
 		},
 	)
-	if errors.Cause(err) == modelcmd.ErrMultipleCredentials {
+	switch errors.Cause(err) {
+	case nil:
+	case modelcmd.ErrMultipleCredentials:
 		return bootstrapCredentials{}, "", ambiguousCredentialError
-	}
-	if errors.IsNotFound(err) && c.CredentialName == "" {
-		// No credential was explicitly specified, and no credential
-		// was found in credentials.yaml; have the provider detect
-		// credentials from the environment.
-		ctx.Verbosef("no credentials found, checking environment")
-		detected, err := modelcmd.DetectCredential(c.Cloud, cloud.Type)
-		if errors.Cause(err) == modelcmd.ErrMultipleCredentials {
-			return bootstrapCredentials{}, "", ambiguousDetectedCredentialError
-		} else if err != nil {
-			return bootstrapCredentials{}, "", errors.Trace(err)
-		}
-
-		// We have one credential so extract it from the map.
-		var oneCredential jujucloud.Credential
-		for creds.detectedName, oneCredential = range detected.AuthCredentials {
-		}
-		creds.credential = &oneCredential
-		regionName = c.Region
-		if regionName == "" {
-			regionName = detected.DefaultRegion
-		}
-
-		// Finalize the credential against the cloud/region.
-		region, err := getRegion(cloud, regionName)
-		if err != nil {
-			return bootstrapCredentials{}, "", handleGetRegionError(ctx, err)
-		}
-		creds.credential, err = provider.FinalizeCredential(
-			ctx, environs.FinalizeCredentialParams{
-				Credential:            oneCredential,
-				CloudEndpoint:         region.Endpoint,
-				CloudIdentityEndpoint: region.IdentityEndpoint,
-			},
-		)
-		if err != nil {
-			return bootstrapCredentials{}, "", errors.Trace(err)
-		}
-
-		logger.Debugf(
-			"authenticating with region %q and credential %q (%v)",
-			regionName, creds.detectedName, creds.credential.Label,
-		)
-		logger.Tracef("credential: %v", creds.credential)
-	} else if err != nil {
+	case common.ErrMultipleDetectedCredentials:
+		return bootstrapCredentials{}, "", ambiguousDetectedCredentialError
+	default:
 		return bootstrapCredentials{}, "", errors.Trace(err)
 	}
-
+	logger.Debugf(
+		"authenticating with region %q and credential %q (%v)",
+		regionName, creds.name, creds.credential.Label,
+	)
+	if detected {
+		creds.detectedName = creds.name
+		creds.name = ""
+	}
+	logger.Tracef("credential: %v", creds.credential)
 	return creds, regionName, nil
 }
 
@@ -1034,29 +1004,6 @@ func (c *bootstrapCommand) runInteractive(ctx *cmd.Context) error {
 	return nil
 }
 
-// getRegion returns the cloud.Region to use, based on the specified
-// region name.  If no region name is specified, and there is at least
-// one region, we use the first region in the list.
-func getRegion(cloud *jujucloud.Cloud, regionName string) (jujucloud.Region, error) {
-	if regionName != "" {
-		region, err := jujucloud.RegionByName(cloud.Regions, regionName)
-		if err != nil {
-			return jujucloud.Region{}, errors.Trace(err)
-		}
-		return *region, nil
-	}
-	if len(cloud.Regions) > 0 {
-		// No region was specified, use the first region in the list.
-		return cloud.Regions[0], nil
-	}
-	return jujucloud.Region{
-		"", // no region name
-		cloud.Endpoint,
-		cloud.IdentityEndpoint,
-		cloud.StorageEndpoint,
-	}, nil
-}
-
 // checkProviderType ensures the provider type is okay.
 func checkProviderType(envType string) error {
 	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
@@ -1084,7 +1031,10 @@ func handleBootstrapError(ctx *cmd.Context, err error, cleanup func() error) {
 	}
 }
 
-func handleGetRegionError(ctx *cmd.Context, err error) error {
+func handleChooseCloudRegionError(ctx *cmd.Context, err error) error {
+	if !common.IsChooseCloudRegionError(err) {
+		return err
+	}
 	fmt.Fprintf(ctx.GetStderr(),
 		"%s\n\nSpecify an alternative region, or try %q.\n",
 		err, "juju update-clouds",
