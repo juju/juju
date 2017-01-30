@@ -5,6 +5,7 @@ package upgrades
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
@@ -19,6 +20,7 @@ type StateBackend interface {
 	RenameAddModelPermission() error
 	DropOldLogIndex() error
 	AddMigrationAttempt() error
+	UpdateLegacyLXDCloudCredentials(string, cloud.Credential) error
 }
 
 // Model is an interface providing access to the details of a model within the
@@ -63,6 +65,10 @@ func (s stateBackend) DropOldLogIndex() error {
 
 func (s stateBackend) AddMigrationAttempt() error {
 	return state.AddMigrationAttempt(s.st)
+}
+
+func (s stateBackend) UpdateLegacyLXDCloudCredentials(endpoint string, cred cloud.Credential) error {
+	return state.UpdateLegacyLXDCloudCredentials(s.st, endpoint, cred)
 }
 
 type modelShim struct {

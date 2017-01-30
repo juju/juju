@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+	"github.com/juju/juju/cloud"
 	"github.com/juju/loggo"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
@@ -291,4 +292,86 @@ func extractMigrationAttempt(id interface{}) (int, error) {
 	}
 
 	return attempt, nil
+}
+
+// UpdateLegacyLXDCloudCredentials updates the cloud credentials for the
+// LXD-based controller, and updates the cloud endpoint with the given
+// value.
+func UpdateLegacyLXDCloudCredentials(
+	st *State,
+	endpoint string,
+	credential cloud.Credential,
+) error {
+	cloudOps, err := updateLegacyLXDCloudsOps(st, endpoint)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	credOps, err := updateLegacyLXDCredentialsOps(st, credential)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return st.runTransaction(append(cloudOps, credOps...))
+}
+
+func updateLegacyLXDCloudsOps(st *State, endpoint string) ([]txn.Op, error) {
+	clouds, err := st.Clouds()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	var ops []txn.Op
+	for _, c := range clouds {
+		if c.Type != "lxd" {
+			continue
+		}
+		authTypes := []string{string(cloud.CertificateAuthType)}
+		set := bson.D{{"auth-types", authTypes}}
+		if c.Endpoint == "" {
+			set = append(set, bson.DocElem{"endpoint", endpoint})
+		}
+		for _, region := range c.Regions {
+			if region.Endpoint == "" {
+				set = append(set, bson.DocElem{
+					"regions." + region.Name + ".endpoint",
+					endpoint,
+				})
+			}
+		}
+		upgradesLogger.Infof("updating cloud %q: %v", c.Name, set)
+		ops = append(ops, txn.Op{
+			C:      cloudsC,
+			Id:     c.Name,
+			Assert: txn.DocExists,
+			Update: bson.D{{"$set", set}},
+		})
+	}
+	return ops, nil
+}
+
+func updateLegacyLXDCredentialsOps(st *State, cred cloud.Credential) ([]txn.Op, error) {
+	var ops []txn.Op
+	coll, closer := st.getRawCollection(cloudCredentialsC)
+	defer closer()
+	iter := coll.Find(bson.M{"auth-type": "empty"}).Iter()
+	var doc cloudCredentialDoc
+	for iter.Next(&doc) {
+		cloudCredentialTag, err := doc.cloudCredentialTag()
+		if err != nil {
+			upgradesLogger.Debugf("%v", err)
+			continue
+		}
+		c, err := st.Cloud(doc.Cloud)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if c.Type != "lxd" {
+			continue
+		}
+		op := updateCloudCredentialOp(cloudCredentialTag, cred)
+		upgradesLogger.Infof("updating credential %q: %v", cloudCredentialTag, op)
+		ops = append(ops, op)
+	}
+	if err := iter.Err(); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return ops, nil
 }

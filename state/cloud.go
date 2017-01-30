@@ -88,6 +88,7 @@ func (d cloudDoc) toCloud() cloud.Cloud {
 		}
 	}
 	return cloud.Cloud{
+		Name:             d.Name,
 		Type:             d.Type,
 		AuthTypes:        authTypes,
 		Endpoint:         d.Endpoint,
@@ -149,6 +150,9 @@ func (st *State) AddCloud(name string, c cloud.Cloud) error {
 
 // validateCloud checks that the supplied cloud is valid.
 func validateCloud(cloud cloud.Cloud) error {
+	if cloud.Name == "" {
+		return errors.NotValidf("empty Name")
+	}
 	if cloud.Type == "" {
 		return errors.NotValidf("empty Type")
 	}

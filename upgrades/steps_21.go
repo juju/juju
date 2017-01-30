@@ -20,5 +20,12 @@ func stateStepsFor21() []Step {
 				return context.State().AddMigrationAttempt()
 			},
 		},
+		&upgradeStep{
+			description: "update lxd cloud/credentials",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return updateLXDCloudCredentials(context.State())
+			},
+		},
 	}
 }
