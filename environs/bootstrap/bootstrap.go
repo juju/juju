@@ -70,9 +70,6 @@ type BootstrapParams struct {
 	// initial bootstrap machine.
 	BootstrapImage string
 
-	// CloudName is the name of the cloud that Juju will be bootstrapped in.
-	CloudName string
-
 	// Cloud contains the properties of the cloud that Juju will be
 	// bootstrapped in.
 	Cloud cloud.Cloud
@@ -360,7 +357,7 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 	ctx.Verbosef("Starting new instance for initial controller")
 
 	result, err := environ.Bootstrap(ctx, environs.BootstrapParams{
-		CloudName:            args.CloudName,
+		CloudName:            args.Cloud.Name,
 		CloudRegion:          args.CloudRegion,
 		ControllerConfig:     args.ControllerConfig,
 		ModelConstraints:     args.ModelConstraints,
@@ -470,7 +467,6 @@ func finalizeInstanceBootstrapConfig(
 
 	icfg.Bootstrap.ControllerModelConfig = cfg
 	icfg.Bootstrap.CustomImageMetadata = customImageMetadata
-	icfg.Bootstrap.ControllerCloudName = args.CloudName
 	icfg.Bootstrap.ControllerCloud = args.Cloud
 	icfg.Bootstrap.ControllerCloudRegion = args.CloudRegion
 	icfg.Bootstrap.ControllerCloudCredential = args.CloudCredential

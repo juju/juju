@@ -127,7 +127,7 @@ func (c *addCloudCommand) Run(ctxt *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	return addCloud(c.cloudMetadataStore, c.Cloud, newCloud)
+	return addCloud(c.cloudMetadataStore, newCloud)
 }
 
 func (c *addCloudCommand) runInteractive(ctxt *cmd.Context) error {
@@ -161,8 +161,9 @@ func (c *addCloudCommand) runInteractive(ctxt *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
+	newCloud.Name = name
 	newCloud.Type = cloudType
-	if err := addCloud(c.cloudMetadataStore, name, newCloud); err != nil {
+	if err := addCloud(c.cloudMetadataStore, newCloud); err != nil {
 		return errors.Trace(err)
 	}
 	ctxt.Infof("Cloud %q successfully added", name)
@@ -295,7 +296,7 @@ func nameExists(name string, public map[string]cloud.Cloud) string {
 	return ""
 }
 
-func addCloud(cloudMetadataStore CloudMetadataStore, name string, newCloud cloud.Cloud) error {
+func addCloud(cloudMetadataStore CloudMetadataStore, newCloud cloud.Cloud) error {
 	personalClouds, err := cloudMetadataStore.PersonalCloudMetadata()
 	if err != nil {
 		return err
@@ -303,6 +304,6 @@ func addCloud(cloudMetadataStore CloudMetadataStore, name string, newCloud cloud
 	if personalClouds == nil {
 		personalClouds = make(map[string]cloud.Cloud)
 	}
-	personalClouds[name] = newCloud
+	personalClouds[newCloud.Name] = newCloud
 	return cloudMetadataStore.WritePersonalCloudMetadata(personalClouds)
 }

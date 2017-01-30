@@ -200,10 +200,6 @@ type StateInitializationParams struct {
 	// ControllerModelConfig holds the initial controller model configuration.
 	ControllerModelConfig *config.Config
 
-	// ControllerCloudName is the name of the cloud that Juju will be
-	// bootstrapped in.
-	ControllerCloudName string
-
 	// ControllerCloud contains the properties of the cloud that Juju will
 	// be bootstrapped in.
 	ControllerCloud cloud.Cloud
@@ -270,7 +266,6 @@ type stateInitializationParamsInternal struct {
 	BootstrapMachineHardwareCharacteristics *instance.HardwareCharacteristics `yaml:"bootstrap-machine-hardware,omitempty"`
 	ModelConstraints                        constraints.Value                 `yaml:"model-constraints"`
 	CustomImageMetadataJSON                 string                            `yaml:"custom-image-metadata,omitempty"`
-	ControllerCloudName                     string                            `yaml:"controller-cloud-name"`
 	ControllerCloud                         string                            `yaml:"controller-cloud"`
 	ControllerCloudRegion                   string                            `yaml:"controller-cloud-region"`
 	ControllerCloudCredentialName           string                            `yaml:"controller-cloud-credential-name,omitempty"`
@@ -298,7 +293,6 @@ func (p *StateInitializationParams) Marshal() ([]byte, error) {
 		p.BootstrapMachineHardwareCharacteristics,
 		p.ModelConstraints,
 		string(customImageMetadataJSON),
-		p.ControllerCloudName,
 		string(controllerCloud),
 		p.ControllerCloudRegion,
 		p.ControllerCloudCredentialName,
@@ -337,7 +331,6 @@ func (p *StateInitializationParams) Unmarshal(data []byte) error {
 		BootstrapMachineHardwareCharacteristics: internal.BootstrapMachineHardwareCharacteristics,
 		ModelConstraints:                        internal.ModelConstraints,
 		CustomImageMetadata:                     imageMetadata,
-		ControllerCloudName:                     internal.ControllerCloudName,
 		ControllerCloud:                         controllerCloud,
 		ControllerCloudRegion:                   internal.ControllerCloudRegion,
 		ControllerCloudCredentialName:           internal.ControllerCloudCredentialName,

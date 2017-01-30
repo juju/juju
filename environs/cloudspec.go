@@ -52,10 +52,10 @@ func (cs CloudSpec) Validate() error {
 
 // MakeCloudSpec returns a CloudSpec from the given
 // Cloud, cloud and region names, and credential.
-func MakeCloudSpec(cloud jujucloud.Cloud, cloudName, cloudRegionName string, credential *jujucloud.Credential) (CloudSpec, error) {
+func MakeCloudSpec(cloud jujucloud.Cloud, cloudRegionName string, credential *jujucloud.Credential) (CloudSpec, error) {
 	cloudSpec := CloudSpec{
 		Type:             cloud.Type,
-		Name:             cloudName,
+		Name:             cloud.Name,
 		Region:           cloudRegionName,
 		Endpoint:         cloud.Endpoint,
 		IdentityEndpoint: cloud.IdentityEndpoint,

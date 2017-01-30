@@ -748,7 +748,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 			if icfg.Bootstrap.ControllerCloudCredentialName != "" {
 				cloudCredentialTag = names.NewCloudCredentialTag(fmt.Sprintf(
 					"%s/%s/%s",
-					icfg.Bootstrap.ControllerCloudName,
+					icfg.Bootstrap.ControllerCloud.Name,
 					adminUser.Id(),
 					icfg.Bootstrap.ControllerCloudCredentialName,
 				))
@@ -771,13 +771,12 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 					Owner:                   adminUser,
 					Config:                  icfg.Bootstrap.ControllerModelConfig,
 					Constraints:             icfg.Bootstrap.BootstrapMachineConstraints,
-					CloudName:               icfg.Bootstrap.ControllerCloudName,
+					CloudName:               icfg.Bootstrap.ControllerCloud.Name,
 					CloudRegion:             icfg.Bootstrap.ControllerCloudRegion,
 					CloudCredential:         cloudCredentialTag,
 					StorageProviderRegistry: e,
 				},
 				Cloud:            icfg.Bootstrap.ControllerCloud,
-				CloudName:        icfg.Bootstrap.ControllerCloudName,
 				CloudCredentials: cloudCredentials,
 				MongoInfo:        info,
 				MongoDialOpts:    mongotest.DialOpts(),

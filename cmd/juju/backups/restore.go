@@ -255,6 +255,7 @@ func (c *restoreCommand) rebootstrap(ctx *cmd.Context, meta *params.BackupsMetad
 			authTypes = append(authTypes, authType)
 		}
 		cloudParam = &cloud.Cloud{
+			Name:      params.Cloud.Name,
 			Type:      params.Cloud.Type,
 			AuthTypes: authTypes,
 			Endpoint:  cloudEndpoint,
@@ -315,7 +316,6 @@ func (c *restoreCommand) rebootstrap(ctx *cmd.Context, meta *params.BackupsMetad
 	bootVers := version.Current
 	args := bootstrap.BootstrapParams{
 		Cloud:               *cloudParam,
-		CloudName:           params.Cloud.Name,
 		CloudRegion:         params.Cloud.Region,
 		CloudCredentialName: params.CredentialName,
 		CloudCredential:     params.Cloud.Credential,

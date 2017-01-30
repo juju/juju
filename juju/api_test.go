@@ -104,8 +104,8 @@ func (s *NewAPIClientSuite) bootstrapModel(c *gc.C) (environs.Environ, jujuclien
 
 	err = bootstrap.Bootstrap(ctx, env, bootstrap.BootstrapParams{
 		ControllerConfig: coretesting.FakeControllerConfig(),
-		CloudName:        "dummy",
 		Cloud: cloud.Cloud{
+			Name:      "dummy",
 			Type:      "dummy",
 			AuthTypes: []cloud.AuthType{cloud.EmptyAuthType},
 		},
