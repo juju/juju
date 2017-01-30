@@ -210,6 +210,10 @@ func allCollections() collectionSchema {
 		// Local collections
 		// =================
 
+		// This collection holds persistent aggregate information for displaying
+		// summaries of the metrics collected by the units.
+		metricSummaryC: {},
+
 		// This collection holds users related to a model and will be used as one
 		// of the intersection axis of permissionsC
 		modelUsersC: {},
@@ -467,6 +471,7 @@ const (
 	meterStatusC             = "meterStatus"
 	metricsC                 = "metrics"
 	metricsManagerC          = "metricsmanager"
+	metricSummaryC           = "metricsummary"
 	minUnitsC                = "minunits"
 	migrationsActiveC        = "migrations.active"
 	migrationsC              = "migrations"

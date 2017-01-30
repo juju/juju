@@ -151,6 +151,11 @@ func (st *State) AddMetrics(batch BatchParam) (*MetricBatch, error) {
 			Assert: txn.DocMissing,
 			Insert: &metric.doc,
 		}}
+		summaryOps, err := st.metricSummaryOps(metric)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		ops = append(ops, summaryOps...)
 		return ops, nil
 	}
 	err = st.run(buildTxn)
@@ -180,37 +185,26 @@ func (st *State) AllMetricBatches() ([]MetricBatch, error) {
 	return results, nil
 }
 
-func (st *State) queryMetricBatches(query bson.M) ([]MetricBatch, error) {
-	c, closer := st.getCollection(metricsC)
-	defer closer()
-	docs := []metricBatchDoc{}
-	err := c.Find(query).Sort("created").All(&docs)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	results := make([]MetricBatch, len(docs))
-	for i, doc := range docs {
-		results[i] = MetricBatch{st: st, doc: doc}
-	}
-	return results, nil
+func (st *State) queryMetricBatches(query bson.M) ([]MetricSummary, error) {
+	return st.queryMetricSummaries(query)
 }
 
-// MetricBatchesForUnit returns metric batches for the given unit.
-func (st *State) MetricBatchesForUnit(unit string) ([]MetricBatch, error) {
+// MetricSummariesForUnit returns metric batches for the given unit.
+func (st *State) MetricSummariesForUnit(unit string) ([]MetricSummary, error) {
 	_, err := st.Unit(unit)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return st.queryMetricBatches(bson.M{"unit": unit})
+	return st.queryMetricSummaries(bson.M{"unit": unit})
 }
 
-// MetricBatchesForModel returns metric batches for all the units in the model.
-func (st *State) MetricBatchesForModel() ([]MetricBatch, error) {
-	return st.queryMetricBatches(bson.M{"model-uuid": st.ModelUUID()})
+// MetricSummariesForModel returns metric batches for all the units in the model.
+func (st *State) MetricSummariesForModel() ([]MetricSummary, error) {
+	return st.queryMetricSummaries(bson.M{}) // Don't need to specify model because we're querying a model based collection.
 }
 
-// MetricBatchesForApplication returns metric batches for the given application.
-func (st *State) MetricBatchesForApplication(application string) ([]MetricBatch, error) {
+// MetricSummariesForApplication returns metric batches for the given application.
+func (st *State) MetricSummariesForApplication(application string) ([]MetricSummary, error) {
 	svc, err := st.Application(application)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -223,7 +217,7 @@ func (st *State) MetricBatchesForApplication(application string) ([]MetricBatch,
 	for i, u := range units {
 		unitNames[i] = bson.M{"unit": u.Name()}
 	}
-	return st.queryMetricBatches(bson.M{"$or": unitNames})
+	return st.queryMetricSummaries(bson.M{"$or": unitNames})
 }
 
 // MetricBatch returns the metric batch with the given id.

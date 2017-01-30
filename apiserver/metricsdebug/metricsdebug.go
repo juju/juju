@@ -6,9 +6,6 @@
 package metricsdebug
 
 import (
-	"fmt"
-	"sort"
-
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
@@ -23,14 +20,14 @@ func init() {
 }
 
 type metricsDebug interface {
-	// MetricBatchesForUnit returns metric batches for the given unit.
-	MetricBatchesForUnit(unit string) ([]state.MetricBatch, error)
+	// MetricSummariesForUnit returns metric summaries for the given unit.
+	MetricSummariesForUnit(unit string) ([]state.MetricSummary, error)
 
-	// MetricBatchesForApplication returns metric batches for the given application.
-	MetricBatchesForApplication(application string) ([]state.MetricBatch, error)
+	// MetricSummariesForApplication returns metric summaries for the given application.
+	MetricSummariesForApplication(application string) ([]state.MetricSummary, error)
 
-	//MetricBatchesForModel returns all metrics batches in the model.
-	MetricBatchesForModel() ([]state.MetricBatch, error)
+	//MetricSummariesForModel returns all metrics summaries in the model.
+	MetricSummariesForModel() ([]state.MetricSummary, error)
 
 	// Unit returns the unit based on its name.
 	Unit(string) (*state.Unit, error)
@@ -77,13 +74,13 @@ func (api *MetricsDebugAPI) GetMetrics(args params.Entities) (params.MetricResul
 		Results: make([]params.EntityMetrics, len(args.Entities)),
 	}
 	if len(args.Entities) == 0 {
-		batches, err := api.state.MetricBatchesForModel()
+		summaries, err := api.state.MetricSummariesForModel()
 		if err != nil {
 			return results, errors.Annotate(err, "failed to get metrics")
 		}
 		return params.MetricResults{
 			Results: []params.EntityMetrics{{
-				Metrics: api.filterLastValuePerKeyPerUnit(batches),
+				Metrics: metricSummaryToMetricResult(summaries),
 			}},
 		}, nil
 	}
@@ -93,17 +90,17 @@ func (api *MetricsDebugAPI) GetMetrics(args params.Entities) (params.MetricResul
 			results.Results[i].Error = common.ServerError(err)
 			continue
 		}
-		var batches []state.MetricBatch
+		var summaries []state.MetricSummary
 		switch tag.Kind() {
 		case names.UnitTagKind:
-			batches, err = api.state.MetricBatchesForUnit(tag.Id())
+			summaries, err = api.state.MetricSummariesForUnit(tag.Id())
 			if err != nil {
 				err = errors.Annotate(err, "failed to get metrics")
 				results.Results[i].Error = common.ServerError(err)
 				continue
 			}
 		case names.ApplicationTagKind:
-			batches, err = api.state.MetricBatchesForApplication(tag.Id())
+			summaries, err = api.state.MetricSummariesForApplication(tag.Id())
 			if err != nil {
 				err = errors.Annotate(err, "failed to get metrics")
 				results.Results[i].Error = common.ServerError(err)
@@ -113,7 +110,7 @@ func (api *MetricsDebugAPI) GetMetrics(args params.Entities) (params.MetricResul
 			err := errors.Errorf("invalid tag %v", arg.Tag)
 			results.Results[i].Error = common.ServerError(err)
 		}
-		results.Results[i].Metrics = api.filterLastValuePerKeyPerUnit(batches)
+		results.Results[i].Metrics = metricSummaryToMetricResult(summaries)
 	}
 	return results, nil
 }
@@ -126,31 +123,18 @@ func (t byUnit) Less(i, j int) bool {
 	return t[i].Unit < t[j].Unit
 }
 
-func (api *MetricsDebugAPI) filterLastValuePerKeyPerUnit(batches []state.MetricBatch) []params.MetricResult {
-	metrics := []params.MetricResult{}
-	for _, mb := range batches {
-		for _, m := range mb.UniqueMetrics() {
-			metrics = append(metrics, params.MetricResult{
-				Key:   m.Key,
-				Value: m.Value,
-				Time:  m.Time,
-				Unit:  mb.Unit(),
-			})
+func metricSummaryToMetricResult(summaries []state.MetricSummary) []params.MetricResult {
+	results := make([]params.MetricResult, len(summaries))
+	for i, s := range summaries {
+		results[i] = params.MetricResult{
+			Key:   s.Key(),
+			Value: s.Value(),
+			Time:  s.Time(),
+			Unit:  s.Unit(),
 		}
 	}
-	uniq := map[string]params.MetricResult{}
-	for _, m := range metrics {
-		// we want unique keys per unit
-		uniq[fmt.Sprintf("%s-%s", m.Key, m.Unit)] = m
-	}
-	results := make([]params.MetricResult, len(uniq))
-	i := 0
-	for _, m := range uniq {
-		results[i] = m
-		i++
-	}
-	sort.Sort(byUnit(results))
 	return results
+
 }
 
 // SetMeterStatus sets meter statuses for entities.

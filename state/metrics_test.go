@@ -15,6 +15,9 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
+	//"github.com/juju/juju/testcharms"
+	"gopkg.in/juju/charm.v6-unstable"
+	repotesting "gopkg.in/juju/charmrepo.v2-unstable/testing"
 )
 
 type MetricSuite struct {
@@ -258,13 +261,13 @@ func (s *MetricSuite) TestAllMetricBatches(c *gc.C) {
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	metricBatches, err := s.State.AllMetricBatches()
+	summaries, err := s.State.AllMetricBatches()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(metricBatches, gc.HasLen, 1)
-	c.Assert(metricBatches[0].Unit(), gc.Equals, "metered/0")
-	c.Assert(metricBatches[0].CharmURL(), gc.Equals, "cs:quantal/metered")
-	c.Assert(metricBatches[0].Sent(), jc.IsFalse)
-	c.Assert(metricBatches[0].Metrics(), gc.HasLen, 1)
+	c.Assert(summaries, gc.HasLen, 1)
+	c.Assert(summaries[0].Unit(), gc.Equals, "metered/0")
+	c.Assert(summaries[0].CharmURL(), gc.Equals, "cs:quantal/metered")
+	c.Assert(summaries[0].Sent(), jc.IsFalse)
+	c.Assert(summaries[0].Metrics(), gc.HasLen, 1)
 }
 
 func (s *MetricSuite) TestAllMetricBatchesCustomCharmURLAndUUID(c *gc.C) {
@@ -583,19 +586,103 @@ func (s *MetricSuite) TestUnitMetricBatchesMatchesAllCharms(c *gc.C) {
 	)
 
 	c.Assert(err, jc.ErrorIsNil)
-	metricBatches, err := s.State.MetricBatchesForUnit("metered/0")
-	c.Assert(metricBatches, gc.HasLen, 1)
-	metricBatches, err = s.State.MetricBatchesForUnit("localmetered/0")
-	c.Assert(metricBatches, gc.HasLen, 1)
+	summaries, err := s.State.MetricSummariesForUnit("metered/0")
+	c.Assert(summaries, gc.HasLen, 1)
+	summaries, err = s.State.MetricSummariesForUnit("localmetered/0")
+	c.Assert(summaries, gc.HasLen, 1)
+}
+
+func (s *MetricSuite) TestUnitMetricSummaryForDestroyedUnit(c *gc.C) {
+	now := s.State.NowToTheSecond()
+	m := state.Metric{"pings", "5", now}
+	localMeteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "local:quantal/metered"})
+	application := s.Factory.MakeApplication(c, &factory.ApplicationParams{Name: "localmetered", Charm: localMeteredCharm})
+	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Application: application, SetCharmURL: true})
+	_, err := s.State.AddMetrics(
+		state.BatchParam{
+			UUID:     utils.MustNewUUID().String(),
+			Created:  now,
+			CharmURL: localMeteredCharm.URL().String(),
+			Metrics:  []state.Metric{m},
+			Unit:     unit.UnitTag(),
+		},
+	)
+
+	c.Assert(err, jc.ErrorIsNil)
+	summaries, err := s.State.MetricSummariesForModel()
+	c.Assert(summaries, gc.HasLen, 1)
+	err = unit.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	summaries, err = s.State.MetricSummariesForModel()
+	c.Assert(summaries, gc.HasLen, 0)
+}
+
+func (s *MetricSuite) TestUnitMetricBatchesMatchesAbsoluteMetrics(c *gc.C) {
+	metricsYAML := `
+plan:
+  required: false
+metrics:
+  pings:
+    type: gauge
+    description: pings 
+  pongs:
+    type: absolute
+    description: pongs
+`
+	meteredMetaYAML := `
+name: metered
+description: metered charm
+summary: summary
+`
+	ch := repotesting.NewCharm(c, repotesting.CharmSpec{
+		Meta:     meteredMetaYAML,
+		Metrics:  metricsYAML,
+		Revision: 1,
+	})
+
+	url := "local:quantal/absolutemetered"
+
+	now := s.State.NowToTheSecond()
+	curl := charm.MustParseURL(url)
+	stCharm, err := s.State.AddCharm(state.CharmInfo{
+		Charm: ch,
+		ID:    curl,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	application := s.Factory.MakeApplication(c, &factory.ApplicationParams{Name: "localmetered", Charm: stCharm})
+	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Application: application, SetCharmURL: true})
+	metricTime := now
+	for i := 0; i < 2; i++ {
+		metricTime = metricTime.Add(time.Second)
+		pings := state.Metric{"pings", "5", metricTime}
+		pongs := state.Metric{"pongs", "5.6", metricTime}
+		_, err = s.State.AddMetrics(
+			state.BatchParam{
+				UUID:     utils.MustNewUUID().String(),
+				Created:  metricTime,
+				CharmURL: curl.String(),
+				Metrics:  []state.Metric{pings, pongs},
+				Unit:     unit.UnitTag(),
+			},
+		)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
+	summaries, err := s.State.MetricSummariesForUnit("localmetered/0")
+	c.Assert(summaries, gc.HasLen, 2)
+	c.Assert(summaries[0].Key(), gc.Equals, "pings")
+	c.Assert(summaries[0].Value(), gc.Equals, "5")
+	c.Assert(summaries[1].Key(), gc.Equals, "pongs")
+	c.Assert(summaries[1].Value(), gc.Equals, "11.20")
 }
 
 func (s *MetricSuite) TestNoSuchUnitMetricBatches(c *gc.C) {
-	_, err := s.State.MetricBatchesForUnit("chimerical-unit/0")
+	_, err := s.State.MetricSummariesForUnit("chimerical-unit/0")
 	c.Assert(err, gc.ErrorMatches, `unit "chimerical-unit/0" not found`)
 }
 
 func (s *MetricSuite) TestNoSuchApplicationMetricBatches(c *gc.C) {
-	_, err := s.State.MetricBatchesForApplication("unicorn-app")
+	_, err := s.State.MetricSummariesForApplication("unicorn-app")
 	c.Assert(err, gc.ErrorMatches, `application "unicorn-app" not found`)
 }
 
@@ -642,23 +729,21 @@ func (s *MetricLocalCharmSuite) TestUnitMetricBatches(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	metricBatches, err := s.State.MetricBatchesForUnit("metered/0")
+	summaries, err := s.State.MetricSummariesForUnit("metered/0")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(metricBatches, gc.HasLen, 1)
-	c.Check(metricBatches[0].Unit(), gc.Equals, "metered/0")
-	c.Check(metricBatches[0].CharmURL(), gc.Equals, "local:quantal/metered")
-	c.Check(metricBatches[0].Sent(), jc.IsFalse)
-	c.Assert(metricBatches[0].Metrics(), gc.HasLen, 1)
-	c.Check(metricBatches[0].Metrics()[0].Value, gc.Equals, "5")
+	c.Assert(summaries, gc.HasLen, 1)
+	c.Check(summaries[0].Unit(), gc.Equals, "metered/0")
+	c.Check(summaries[0].CharmURL(), gc.Equals, "local:quantal/metered")
+	c.Assert(summaries[0].Key, gc.Equals, "pings")
+	c.Check(summaries[0].Value(), gc.Equals, "5")
 
-	metricBatches, err = s.State.MetricBatchesForUnit("metered/1")
+	summaries, err = s.State.MetricSummariesForUnit("metered/1")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(metricBatches, gc.HasLen, 1)
-	c.Check(metricBatches[0].Unit(), gc.Equals, "metered/1")
-	c.Check(metricBatches[0].CharmURL(), gc.Equals, "local:quantal/metered")
-	c.Check(metricBatches[0].Sent(), jc.IsFalse)
-	c.Assert(metricBatches[0].Metrics(), gc.HasLen, 1)
-	c.Check(metricBatches[0].Metrics()[0].Value, gc.Equals, "10")
+	c.Assert(summaries, gc.HasLen, 1)
+	c.Check(summaries[0].Unit(), gc.Equals, "metered/1")
+	c.Check(summaries[0].CharmURL(), gc.Equals, "local:quantal/metered")
+	c.Assert(summaries[0].Key, gc.Equals, "pings")
+	c.Check(summaries[0].Value(), gc.Equals, "10")
 }
 
 func (s *MetricLocalCharmSuite) TestApplicationMetricBatches(c *gc.C) {
@@ -688,21 +773,19 @@ func (s *MetricLocalCharmSuite) TestApplicationMetricBatches(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	metricBatches, err := s.State.MetricBatchesForApplication("metered")
+	summaries, err := s.State.MetricSummariesForApplication("metered")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(metricBatches, gc.HasLen, 2)
+	c.Assert(summaries, gc.HasLen, 2)
 
-	c.Check(metricBatches[0].Unit(), gc.Equals, "metered/0")
-	c.Check(metricBatches[0].CharmURL(), gc.Equals, "local:quantal/metered")
-	c.Check(metricBatches[0].Sent(), jc.IsFalse)
-	c.Assert(metricBatches[0].Metrics(), gc.HasLen, 1)
-	c.Check(metricBatches[0].Metrics()[0].Value, gc.Equals, "5")
+	c.Check(summaries[0].Unit(), gc.Equals, "metered/0")
+	c.Check(summaries[0].CharmURL(), gc.Equals, "local:quantal/metered")
+	c.Assert(summaries[0].Key, gc.Equals, "pings")
+	c.Check(summaries[0].Value(), gc.Equals, "5")
 
-	c.Check(metricBatches[1].Unit(), gc.Equals, "metered/1")
-	c.Check(metricBatches[1].CharmURL(), gc.Equals, "local:quantal/metered")
-	c.Check(metricBatches[1].Sent(), jc.IsFalse)
-	c.Assert(metricBatches[1].Metrics(), gc.HasLen, 1)
-	c.Check(metricBatches[1].Metrics()[0].Value, gc.Equals, "10")
+	c.Check(summaries[1].Unit(), gc.Equals, "metered/1")
+	c.Check(summaries[1].CharmURL(), gc.Equals, "local:quantal/metered")
+	c.Assert(summaries[0].Key, gc.Equals, "pings")
+	c.Check(summaries[0].Value(), gc.Equals, "10")
 }
 
 func (s *MetricLocalCharmSuite) TestModelMetricBatches(c *gc.C) {
@@ -752,12 +835,12 @@ func (s *MetricLocalCharmSuite) TestModelMetricBatches(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// We expect 2 metric batches in our first model.
-	metricBatches, err := s.State.MetricBatchesForModel()
+	summaries, err := s.State.MetricSummariesForModel()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(metricBatches, gc.HasLen, 2)
+	c.Assert(summaries, gc.HasLen, 2)
 
-	var first, second state.MetricBatch
-	for _, m := range metricBatches {
+	var first, second state.MetricSummary
+	for _, m := range summaries {
 		if m.Unit() == "metered/0" {
 			first = m
 		}
@@ -771,21 +854,19 @@ func (s *MetricLocalCharmSuite) TestModelMetricBatches(c *gc.C) {
 	c.Check(first.Unit(), gc.Equals, "metered/0")
 	c.Check(first.CharmURL(), gc.Equals, "local:quantal/metered")
 	c.Check(first.ModelUUID(), gc.Equals, s.State.ModelUUID())
-	c.Check(first.Sent(), jc.IsFalse)
-	c.Assert(first.Metrics(), gc.HasLen, 1)
-	c.Check(first.Metrics()[0].Value, gc.Equals, "5")
+	c.Check(first.Key(), gc.Equals, "pings")
+	c.Check(first.Value(), gc.Equals, "5")
 
 	c.Check(second.Unit(), gc.Equals, "metered/1")
 	c.Check(second.CharmURL(), gc.Equals, "local:quantal/metered")
 	c.Check(second.ModelUUID(), gc.Equals, s.State.ModelUUID())
-	c.Check(second.Sent(), jc.IsFalse)
-	c.Assert(second.Metrics(), gc.HasLen, 1)
-	c.Check(second.Metrics()[0].Value, gc.Equals, "10")
+	c.Check(second.Key(), gc.Equals, "pings")
+	c.Check(second.Value(), gc.Equals, "10")
 
 	// And a single metric batch in the second model.
-	metricBatches, err = st.MetricBatchesForModel()
+	summaries, err = st.MetricSummariesForModel()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(metricBatches, gc.HasLen, 1)
+	c.Assert(summaries, gc.HasLen, 1)
 }
 
 func (s *MetricLocalCharmSuite) TestMetricsSorted(c *gc.C) {
@@ -822,25 +903,25 @@ func (s *MetricLocalCharmSuite) TestMetricsSorted(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
-	metricBatches, err := s.State.MetricBatchesForUnit("metered/0")
+	summaries, err := s.State.MetricSummariesForUnit("metered/0")
 	c.Assert(err, jc.ErrorIsNil)
-	assertMetricBatchesTimeAscending(c, metricBatches)
+	assertMetricBatchesTimeAscending(c, summaries)
 
-	metricBatches, err = s.State.MetricBatchesForUnit("metered/1")
+	summaries, err = s.State.MetricSummariesForUnit("metered/1")
 	c.Assert(err, jc.ErrorIsNil)
-	assertMetricBatchesTimeAscending(c, metricBatches)
+	assertMetricBatchesTimeAscending(c, summaries)
 
-	metricBatches, err = s.State.MetricBatchesForApplication("metered")
+	summaries, err = s.State.MetricSummariesForApplication("metered")
 	c.Assert(err, jc.ErrorIsNil)
-	assertMetricBatchesTimeAscending(c, metricBatches)
+	assertMetricBatchesTimeAscending(c, summaries)
 
-	metricBatches, err = s.State.MetricBatchesForModel()
+	summaries, err = s.State.MetricSummariesForModel()
 	c.Assert(err, jc.ErrorIsNil)
-	assertMetricBatchesTimeAscending(c, metricBatches)
+	assertMetricBatchesTimeAscending(c, summaries)
 
 }
 
-func assertMetricBatchesTimeAscending(c *gc.C, batches []state.MetricBatch) {
+func assertMetricBatchesTimeAscending(c *gc.C, batches []state.MetricSummary) {
 	var tPrev time.Time
 
 	for i := range batches {
@@ -849,11 +930,9 @@ func assertMetricBatchesTimeAscending(c *gc.C, batches []state.MetricBatch) {
 				return t.After(tPrev) || t.Equal(tPrev)
 			}
 			desc := gc.Commentf("%+v <= %+v", batches[i-1], batches[i])
-			c.Assert(batches[i].Created(), jc.Satisfies, afterOrEqualPrev, desc)
-			c.Assert(batches[i].Metrics(), gc.HasLen, 1)
-			c.Assert(batches[i].Metrics()[0].Time, jc.Satisfies, afterOrEqualPrev, desc)
+			c.Assert(batches[i].Time(), jc.Satisfies, afterOrEqualPrev, desc)
 		}
-		tPrev = batches[i].Created()
+		tPrev = batches[i].Time()
 	}
 }
 
@@ -884,10 +963,10 @@ func (s *MetricLocalCharmSuite) TestUnitMetricBatchesReturnsAllCharms(c *gc.C) {
 	)
 
 	c.Assert(err, jc.ErrorIsNil)
-	metricBatches, err := s.State.MetricBatchesForUnit("metered/0")
-	c.Assert(metricBatches, gc.HasLen, 1)
-	metricBatches, err = s.State.MetricBatchesForUnit("csmetered/0")
-	c.Assert(metricBatches, gc.HasLen, 1)
+	summaries, err := s.State.MetricSummariesForUnit("metered/0")
+	c.Assert(summaries, gc.HasLen, 1)
+	summaries, err = s.State.MetricSummariesForUnit("csmetered/0")
+	c.Assert(summaries, gc.HasLen, 1)
 }
 
 func (s *MetricLocalCharmSuite) TestUnique(c *gc.C) {
