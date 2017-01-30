@@ -1068,6 +1068,7 @@ class TestEnvJujuClient1X(ClientTest):
 
     def test_wait_for_workload(self):
         initial_status = Status1X.from_text("""\
+            machines: {}
             services:
               jenkins:
                 units:
@@ -2230,6 +2231,49 @@ class TestStatus1X(FakeHomeTestCase):
         self.assertEqual(iterator.next().status,
                          dict(current='started', message='all good',
                               version='1.25.1'))
+
+    def test_iter_status_container(self):
+        status_dict = {'machines': {'0': {
+            'containers': {'0/lxd/0': {
+                'juju-status': 'bar',
+                }}
+            }}}
+        status = Status1X(status_dict, '')
+        self.assertEqual([
+            StatusItem(StatusItem.JUJU, '0', {}),
+            StatusItem(StatusItem.JUJU, '0/lxd/0', {}),
+            ], list(status.iter_status()))
+
+    def test_iter_status_subordinate(self):
+        status_dict = {
+            'machines': {},
+            'services': {
+                'dummy': {
+                    'service-status': {},
+                    'units': {'dummy/0': {
+                        'workload-status': {},
+                        'agent-status': {},
+                        'subordinates': {
+                            'dummy-sub/0': {
+                                'workload-status': {},
+                                'agent-status': {},
+                                }
+                            }
+                        }},
+                    }
+                },
+            }
+        status = Status1X(status_dict, '')
+        dummy_data = status.status['services']['dummy']
+        dummy_0_data = dummy_data['units']['dummy/0']
+        dummy_sub_0_data = dummy_0_data['subordinates']['dummy-sub/0']
+        self.assertEqual([
+            StatusItem(StatusItem.APPLICATION, 'dummy', {}),
+            StatusItem(StatusItem.WORKLOAD, 'dummy/0', dummy_0_data),
+            StatusItem(StatusItem.JUJU, 'dummy/0', {}),
+            StatusItem(StatusItem.WORKLOAD, 'dummy-sub/0', dummy_sub_0_data),
+            StatusItem(StatusItem.JUJU, 'dummy-sub/0', {}),
+            ], list(status.iter_status()))
 
 
 def fast_timeout(count):

@@ -1754,6 +1754,7 @@ class TestModelClient(ClientTest):
 
     def test_wait_for_workload(self):
         initial_status = Status.from_text("""\
+            machines: {}
             applications:
               jenkins:
                 units:
@@ -2385,7 +2386,7 @@ class TestModelClient(ClientTest):
         never_satisfied = self.NeverSatisfied()
         with self.assertRaises(never_satisfied.NeverSatisfiedException):
             with patch.object(client, 'status_until', return_value=iter(
-                    [Status({}, '')])) as mock_su:
+                    [Status({'machines': {}}, '')])) as mock_su:
                 client.wait_for(never_satisfied, quiet=True)
         mock_su.assert_called_once_with(1234)
 
@@ -2439,10 +2440,13 @@ class TestModelClient(ClientTest):
         client.bootstrap()
 
         never_satisfied = self.NeverSatisfied()
-        bad_status = Status({'applications': {'0': {StatusItem.APPLICATION: {
-            'current': 'error'
-            }}}}, '')
-        good_status = Status({}, '')
+        bad_status = Status({
+            'machines': {},
+            'applications': {'0': {StatusItem.APPLICATION: {
+                'current': 'error'
+                }}}
+            }, '')
+        good_status = Status({'machines': {}}, '')
         with self.assertRaises(never_satisfied.NeverSatisfiedException):
             with patch.object(client, 'status_until', lambda timeout: iter(
                     [bad_status, good_status])):
@@ -2453,9 +2457,12 @@ class TestModelClient(ClientTest):
         client.bootstrap()
 
         never_satisfied = self.NeverSatisfied()
-        bad_status = Status({'applications': {'0': {StatusItem.APPLICATION: {
-            'current': 'error'
-            }}}}, '')
+        bad_status = Status({
+            'machines': {},
+            'applications': {'0': {StatusItem.APPLICATION: {
+                'current': 'error'
+                }}}
+            }, '')
         with self.assertRaises(AppError):
             with patch.object(client, 'status_until', lambda timeout: iter(
                     [bad_status])):

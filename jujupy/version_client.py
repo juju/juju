@@ -101,7 +101,7 @@ class Status1X(Status):
     def iter_status(self):
         SERVICE = 'service-status'
         AGENT = 'agent-status'
-        for machine_name, machine_value in self.get_machines({}).items():
+        for machine_name, machine_value in self.iter_machines(containers=True):
             yield StatusItem(StatusItem.JUJU, machine_name,
                              self.condense_status(machine_value))
         for app_name, app_value in self.get_applications().items():
@@ -109,7 +109,8 @@ class Status1X(Status):
                 yield StatusItem(
                     StatusItem.APPLICATION, app_name,
                     {StatusItem.APPLICATION: app_value[SERVICE]})
-            for unit_name, unit_value in app_value.get('units', {}).items():
+            unit_iterator = self._iter_units_in_application(app_value)
+            for unit_name, unit_value in unit_iterator:
                 if StatusItem.WORKLOAD in unit_value:
                     yield StatusItem(StatusItem.WORKLOAD,
                                      unit_name, unit_value)
