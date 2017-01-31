@@ -484,3 +484,22 @@ func FilterBridgeAddresses(addresses []Address) []Address {
 	logger.Debugf("addresses after filtering: %v", filtered)
 	return filtered
 }
+
+// QuoteSpaces takes a slice of space names, and returns a nicely formatted
+// form so they show up legible in log messages, etc.
+func QuoteSpaces(vals []string) string {
+	out := []string{}
+	if len(vals) == 0 {
+		return "<none>"
+	}
+	for _, space := range vals {
+		out = append(out, fmt.Sprintf("%q", space))
+	}
+	return strings.Join(out, ", ")
+}
+
+// QuoteSpaceSet is the same as QuoteSpaces, but ensures that a set.Strings
+// gets sorted values output.
+func QuoteSpaceSet(vals set.Strings) string {
+	return QuoteSpaces(vals.SortedValues())
+}

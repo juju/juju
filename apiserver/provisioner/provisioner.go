@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/network/containerizer"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
 	"github.com/juju/juju/state/watcher"
@@ -677,7 +678,13 @@ func (ctx *prepareOrGetContext) ProcessOneContainer(netEnv environs.NetworkingEn
 		return err
 	}
 
-	if err := host.SetContainerLinkLayerDevices(container); err != nil {
+	bridgePolicy := containerizer.BridgePolicy{}
+
+	// TODO(jam): 2017-01-31 PopulateContainerLinkLayerDevices should really
+	// just be returning the ones we'd like to exist, and then we turn those
+	// into things we'd like to tell the Host machine to create, and then *it*
+	// reports back what actually exists when its done.
+	if err := bridgePolicy.PopulateContainerLinkLayerDevices(host, container); err != nil {
 		return err
 	}
 
@@ -798,7 +805,10 @@ type hostChangesContext struct {
 
 func (ctx *hostChangesContext) ProcessOneContainer(netEnv environs.NetworkingEnviron, idx int, host, container *state.Machine) error {
 	netBondReconfigureDelay := netEnv.Config().NetBondReconfigureDelay()
-	bridges, reconfigureDelay, err := host.FindMissingBridgesForContainer(container, netBondReconfigureDelay)
+	bridgePolicy := containerizer.BridgePolicy{
+		NetBondReconfigureDelay: netBondReconfigureDelay,
+	}
+	bridges, reconfigureDelay, err := bridgePolicy.FindMissingBridgesForContainer(host, container)
 	if err != nil {
 		return err
 	}
