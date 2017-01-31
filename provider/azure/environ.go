@@ -1074,7 +1074,116 @@ func (env *azureEnviron) instances(
 
 // AdoptResources is part of the Environ interface.
 func (env *azureEnviron) AdoptResources(controllerUUID string, fromVersion version.Number) error {
-	return errors.NotImplementedf("AdoptResources")
+	groupClient := resources.GroupsClient{env.resources}
+	resourceClient := resources.Client{env.resources}
+	var failed []string
+
+	apiVersions, err := collectAPIVersions(env.callAPI, env.resources)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	var res resources.ResourceListResult
+	err = env.callAPI(func() (autorest.Response, error) {
+		var err error
+		res, err = groupClient.ListResources(env.resourceGroup, "", nil)
+		return res.Response, err
+	})
+	if err != nil {
+		return errors.Annotate(err, "listing resources")
+	}
+	for res.Value != nil {
+		for _, resource := range *res.Value {
+			// We need to set the API version to a value that's
+			// correct for the specific resource type. If we leave it
+			// as the version for the Microsoft.Resources provider we
+			// get NoRegisteredProviderFound errors.
+			resourceClient.APIVersion = apiVersions[to.String(resource.Type)]
+			err := env.updateResourceControllerTag(&resourceClient, resource, controllerUUID)
+			if err != nil {
+				name := to.String(resource.Name)
+				logger.Errorf("error updating resource tags for %q: %v", name, err)
+				failed = append(failed, name)
+			}
+		}
+		err = env.callAPI(func() (autorest.Response, error) {
+			var err error
+			res, err = groupClient.ListResourcesNextResults(res)
+			return res.Response, err
+		})
+		if err != nil {
+			return errors.Annotate(err, "getting next page of resources")
+		}
+	}
+
+	if len(failed) > 0 {
+		return errors.Errorf("failed to update controller for some resources: %v", failed)
+	}
+	return nil
+}
+
+func (env *azureEnviron) updateResourceControllerTag(client *resources.Client, stubResource resources.GenericResource, controllerUUID string) error {
+	stubTags := toTags(stubResource.Tags)
+	if stubTags[tags.JujuController] == controllerUUID {
+		// No update needed.
+		return nil
+	}
+
+	namespace, parentPath, subtype, err := splitResourceType(to.String(stubResource.Type))
+	if err != nil {
+		return errors.Annotatef(err, "splitting resource type")
+	}
+
+	// Need to get the resource individually to ensure that the
+	// properties are populated.
+	var resource resources.GenericResource
+	err = env.callAPI(func() (autorest.Response, error) {
+		var err error
+		resource, err = client.Get(
+			env.resourceGroup,
+			namespace,
+			parentPath,
+			subtype,
+			to.String(stubResource.Name),
+		)
+		return resource.Response, err
+	})
+	if err != nil {
+		return errors.Annotatef(err, "getting full resource %q", to.String(stubResource.Name))
+	}
+
+	logger.Debugf("updating %s (%s) juju controller uuid to %s",
+		to.String(resource.Name), to.String(resource.Type), controllerUUID)
+	resourceTags := toTags(resource.Tags)
+	resourceTags[tags.JujuController] = controllerUUID
+	resource.Tags = to.StringMapPtr(resourceTags)
+
+	err = env.callAPI(func() (autorest.Response, error) {
+		res, err := client.CreateOrUpdate(
+			env.resourceGroup,
+			namespace,
+			parentPath,
+			subtype,
+			to.String(resource.Name),
+			resource,
+		)
+		return res.Response, err
+	})
+	return errors.Annotatef(err, "updating controller for %q", to.String(resource.Name))
+}
+
+// splitResourceType breaks the resource type into provider namespace,
+// parent path and subtype so we can pass the components to the
+// resource CreateOrUpdate method.
+func splitResourceType(resourceType string) (string, string, string, error) {
+	parts := strings.Split(resourceType, "/")
+	if len(parts) < 2 {
+		return "", "", "", errors.Errorf("expected at least 2 parts in resource type %q", resourceType)
+	}
+	namespace := parts[0]
+	subtype := parts[len(parts)-1]
+	parentPath := strings.Join(parts[1:len(parts)-1], "/")
+	return namespace, parentPath, subtype, nil
 }
 
 // AllInstances is specified in the InstanceBroker interface.
