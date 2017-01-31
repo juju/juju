@@ -193,8 +193,8 @@ func (e *UserModel) LastConnection() (time.Time, error) {
 	return lastConnDoc.LastConnection, nil
 }
 
-// AllUserModels returns a list of all models with the user they belong to.
-func (st *State) AllUserModels() ([]*UserModel, error) {
+// allUserModels returns a list of all models with the user they belong to.
+func (st *State) allUserModels() ([]*UserModel, error) {
 	models, err := st.AllModels()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -209,6 +209,17 @@ func (st *State) AllUserModels() ([]*UserModel, error) {
 // ModelsForUser returns a list of models that the user
 // is able to access.
 func (st *State) ModelsForUser(user names.UserTag) ([]*UserModel, error) {
+	// Consider the controller permissions overriding Model permission, for
+	// this case the only relevant one is superuser.
+	// The mgo query below wont work for superuser case because it needs at
+	// least one model user per model.
+	access, err := st.UserAccess(user, st.controllerTag)
+	if err == nil && access.Access == permission.SuperuserAccess {
+		return st.allUserModels()
+	}
+	if err != nil && !errors.IsNotFound(err) {
+		return nil, errors.Trace(err)
+	}
 	// Since there are no groups at this stage, the simplest way to get all
 	// the models that a particular user can see is to look through the
 	// model user collection. A raw collection is required to support
@@ -217,7 +228,7 @@ func (st *State) ModelsForUser(user names.UserTag) ([]*UserModel, error) {
 	defer userCloser()
 
 	var userSlice []userAccessDoc
-	err := modelUsers.Find(bson.D{{"user", user.Id()}}).Select(bson.D{{"object-uuid", 1}, {"_id", 1}}).All(&userSlice)
+	err = modelUsers.Find(bson.D{{"user", user.Id()}}).Select(bson.D{{"object-uuid", 1}, {"_id", 1}}).All(&userSlice)
 	if err != nil {
 		return nil, err
 	}
