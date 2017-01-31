@@ -13,6 +13,7 @@ import (
 	"github.com/juju/utils/set"
 
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/instance"
 	// Used for some constants and things like LinkLayerDevice[Args]
 	"github.com/juju/juju/state"
 )
@@ -49,6 +50,7 @@ var _ Machine = (*state.Machine)(nil)
 // *state.Machine should fulfill the interface.
 type Container interface {
 	Machine
+	ContainerType() instance.ContainerType
 	DesiredSpaces() (set.Strings, error)
 	SetLinkLayerDevices(...state.LinkLayerDeviceArgs) error
 }
@@ -204,7 +206,7 @@ func (b *BridgePolicy) FindMissingBridgesForContainer(m Machine, containerMachin
 	for spaceName, devices := range devicesPerSpace {
 		for _, device := range devices {
 			if device.Type() == state.BridgeDevice {
-				if skippedDeviceNames.Contains(device.Name()) {
+				if !b.UseLocalBridges && skippedDeviceNames.Contains(device.Name()) {
 					continue
 				}
 				spacesFound.Add(spaceName)
@@ -301,6 +303,10 @@ func (p *BridgePolicy) PopulateContainerLinkLayerDevices(m Machine, containerMac
 	logger.Debugf("for container %q, found host devices spaces: %s",
 		containerMachine.Id(), formatDeviceMap(devicesPerSpace))
 
+	localBridgeForType := map[instance.ContainerType]string{
+		instance.LXD: network.DefaultLXDBridge,
+		instance.KVM: network.DefaultKVMBridge,
+	}
 	spacesFound := set.NewStrings()
 	devicesByName := make(map[string]*state.LinkLayerDevice)
 	bridgeDeviceNames := make([]string, 0)
@@ -316,6 +322,19 @@ func (p *BridgePolicy) PopulateContainerLinkLayerDevices(m Machine, containerMac
 		}
 	}
 	missingSpace := containerSpaces.Difference(spacesFound)
+	// Check if we are missing "" and can fill it in with a local bridge
+	if len(missingSpace) == 1 && missingSpace.Contains("") && p.UseLocalBridges {
+		localBridgeName := localBridgeForType[containerMachine.ContainerType()]
+		for _, hostDevice := range devicesPerSpace[""] {
+			name := hostDevice.Name()
+			if hostDevice.Type() == state.BridgeDevice && name == localBridgeName {
+				missingSpace.Remove("")
+				devicesByName[name] = hostDevice
+				bridgeDeviceNames = append(bridgeDeviceNames, name)
+				spacesFound.Add("")
+			}
+		}
+	}
 	if len(missingSpace) > 0 {
 		logger.Warningf("container %q wants spaces %s could not find host %q bridges for %s, found bridges %s",
 			containerMachine.Id(), network.QuoteSpaceSet(containerSpaces),
