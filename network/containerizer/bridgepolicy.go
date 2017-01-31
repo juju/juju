@@ -5,6 +5,8 @@ package containerizer
 
 import (
 	"fmt"
+	"sort"
+	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -27,6 +29,9 @@ type BridgePolicy struct {
 	// one of the devices being bridged is a BondDevice. This exists because of
 	// https://bugs.launchpad.net/juju/+bug/1657579
 	NetBondReconfigureDelay int
+	// UseLocalBridges decides if we should use local-only bridges ("lxdbr0", "virbr0"),
+	// to handle unnamed space requests.
+	UseLocalBridges bool
 }
 
 // Machine describes either a host machine, or a container machine. Either way
@@ -120,7 +125,7 @@ func (p *BridgePolicy) findSpacesAndDevicesForContainer(m Machine, containerMach
 
 func possibleBridgeTarget(dev *state.LinkLayerDevice) (bool, error) {
 	// LoopbackDevices can never be bridged
-	if dev.Type() == state.LoopbackDevice {
+	if dev.Type() == state.LoopbackDevice || dev.Type() == state.BridgeDevice {
 		return false, nil
 	}
 	// Devices that have no parent entry are direct host devices that can be
@@ -149,6 +154,38 @@ func possibleBridgeTarget(dev *state.LinkLayerDevice) (bool, error) {
 	return false, nil
 }
 
+func formatDeviceMap(spacesToDevices map[string][]*state.LinkLayerDevice) string {
+	spaceNames := make([]string, len(spacesToDevices))
+	i := 0
+	for spaceName := range spacesToDevices {
+		spaceNames[i] = spaceName
+		i++
+	}
+	sort.Strings(spaceNames)
+	out := []string{}
+	for _, name := range spaceNames {
+		start := fmt.Sprintf("%q:[", name)
+		devices := spacesToDevices[name]
+		deviceNames := make([]string, len(devices))
+		for i, dev := range devices {
+			deviceNames[i] = dev.Name()
+		}
+		deviceNames = network.NaturallySortDeviceNames(deviceNames...)
+		quotedNames := make([]string, len(deviceNames))
+		for i, name := range deviceNames {
+			quotedNames[i] = fmt.Sprintf("%q", name)
+		}
+		out = append(out, start + strings.Join(quotedNames, ",") + "]")
+	}
+	return "map{" + strings.Join(out, ", ") + "}"
+}
+
+var skippedDeviceNames = set.NewStrings(
+		network.DefaultLXCBridge,
+		network.DefaultLXDBridge,
+		network.DefaultKVMBridge,
+	)
+
 // FindMissingBridgesForContainer looks at the spaces that the container
 // wants to be in, and sees if there are any host devices that should be
 // bridged.
@@ -161,11 +198,15 @@ func (b *BridgePolicy) FindMissingBridgesForContainer(m Machine, containerMachin
 		return nil, 0, errors.Trace(err)
 	}
 	logger.Debugf("FindMissingBridgesForContainer(%q) spaces %s devices %v",
-		containerMachine.Id(), network.QuoteSpaceSet(containerSpaces), devicesPerSpace)
+		containerMachine.Id(), network.QuoteSpaceSet(containerSpaces),
+		formatDeviceMap(devicesPerSpace))
 	spacesFound := set.NewStrings()
 	for spaceName, devices := range devicesPerSpace {
 		for _, device := range devices {
 			if device.Type() == state.BridgeDevice {
+				if skippedDeviceNames.Contains(device.Name()) {
+					continue
+				}
 				spacesFound.Add(spaceName)
 			}
 		}
@@ -258,7 +299,7 @@ func (p *BridgePolicy) PopulateContainerLinkLayerDevices(m Machine, containerMac
 		return errors.Trace(err)
 	}
 	logger.Debugf("for container %q, found host devices spaces: %s",
-		containerMachine.Id(), devicesPerSpace)
+		containerMachine.Id(), formatDeviceMap(devicesPerSpace))
 
 	spacesFound := set.NewStrings()
 	devicesByName := make(map[string]*state.LinkLayerDevice)
@@ -267,7 +308,7 @@ func (p *BridgePolicy) PopulateContainerLinkLayerDevices(m Machine, containerMac
 	for spaceName, hostDevices := range devicesPerSpace {
 		for _, hostDevice := range hostDevices {
 			deviceType, name := hostDevice.Type(), hostDevice.Name()
-			if deviceType == state.BridgeDevice {
+			if deviceType == state.BridgeDevice && !skippedDeviceNames.Contains(name) {
 				devicesByName[name] = hostDevice
 				bridgeDeviceNames = append(bridgeDeviceNames, name)
 				spacesFound.Add(spaceName)
@@ -284,8 +325,8 @@ func (p *BridgePolicy) PopulateContainerLinkLayerDevices(m Machine, containerMac
 	}
 
 	sortedBridgeDeviceNames := network.NaturallySortDeviceNames(bridgeDeviceNames...)
-	logger.Debugf("for container %q using host machine %q bridge devices: %v",
-		containerMachine.Id(), m.Id(), sortedBridgeDeviceNames)
+	logger.Debugf("for container %q using host machine %q bridge devices: %s",
+		containerMachine.Id(), m.Id(), network.QuoteSpaces(sortedBridgeDeviceNames))
 	containerDevicesArgs := make([]state.LinkLayerDeviceArgs, len(bridgeDeviceNames))
 
 	for i, hostBridgeName := range sortedBridgeDeviceNames {

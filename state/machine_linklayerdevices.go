@@ -14,7 +14,6 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
-	"github.com/juju/juju/container"
 	"github.com/juju/juju/network"
 )
 
@@ -916,17 +915,15 @@ func deviceMapToSortedList(deviceMap map[string]*LinkLayerDevice) []*LinkLayerDe
 // on this machine that are in that space. (We currently only return devices
 // that have an address, which are thus targets for being bridged, or are
 // themselves a bridge that can be used.)
+// Note that devices like 'lxdbr0' that are bridges that might might not be
+// externally accessible may be returned if "" is listed as one of the desired
+// spaces.
 func (m *Machine) LinkLayerDevicesForSpaces(spaces []string) (map[string][]*LinkLayerDevice, error) {
 	addresses, err := m.AllAddresses()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	requestedSpaces := set.NewStrings(spaces...)
-	devicesToSkip := set.NewStrings(
-		container.DefaultLxcBridge,
-		container.DefaultLxdBridge,
-		container.DefaultKvmBridge,
-	)
 	spaceToDevices := make(map[string]map[string]*LinkLayerDevice, 0)
 	// TODO(jam): 2016-12-08 We look up each subnet one-by-one, and then look
 	// up each Link-Layer-Device one-by-one, it feels like we should
@@ -966,7 +963,7 @@ func (m *Machine) LinkLayerDevicesForSpaces(spaces []string) (map[string][]*Link
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		if device.Type() == LoopbackDevice || devicesToSkip.Contains(device.Name()) {
+		if device.Type() == LoopbackDevice {
 			// We skip loopback devices here
 			continue
 		}
@@ -975,7 +972,6 @@ func (m *Machine) LinkLayerDevicesForSpaces(spaces []string) (map[string][]*Link
 			spaceInfo = make(map[string]*LinkLayerDevice)
 			spaceToDevices[spaceName] = spaceInfo
 		}
-		// TODO(jam): handle seeing a device with the same name twice?
 		spaceInfo[device.Name()] = device
 	}
 	result := make(map[string][]*LinkLayerDevice, len(spaceToDevices))
@@ -1050,7 +1046,7 @@ func (m *Machine) SetDevicesAddressesIdempotently(devicesAddresses []LinkLayerDe
 
 func DefineEthernetDeviceOnBridge(name string, hostBridge *LinkLayerDevice) (LinkLayerDeviceArgs, error) {
 	if hostBridge.Type() != BridgeDevice {
-		return LinkLayerDeviceArgs{}, errors.Errorf("can only create an Ethernet device on a bridge not %q", hostBridge.Type())
+		return LinkLayerDeviceArgs{}, errors.Errorf("hostBridge must be a Bridge Device not %q", hostBridge.Type())
 	}
 	return LinkLayerDeviceArgs{
 		Name:        name,
