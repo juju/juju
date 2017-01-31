@@ -460,12 +460,7 @@ func (m *ModelManagerAPI) ListModels(user params.Entity) (params.UserModelList, 
 		return result, errors.Trace(err)
 	}
 
-	var models []*state.UserModel
-	if m.isAdmin {
-		models, err = m.state.AllUserModels()
-	} else {
-		models, err = m.state.ModelsForUser(userTag)
-	}
+	models, err := m.state.ModelsForUser(userTag)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
