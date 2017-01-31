@@ -108,33 +108,3 @@ func (p IngressRuleSlice) Less(i, j int) bool {
 func SortIngressRules(IngressRules []IngressRule) {
 	sort.Sort(IngressRuleSlice(IngressRules))
 }
-
-// RulesFromPortRanges returns a slice of IngressRules
-// corresponding to the specified port ranges, each rule
-// having no source ranges respecified.
-func RulesFromPortRanges(ports ...PortRange) []IngressRule {
-	if ports == nil {
-		return nil
-	}
-	rules := make([]IngressRule, len(ports))
-	for i, p := range ports {
-		// Since there are no source CIDRs, err will be nil.
-		rules[i], _ = NewIngressRule(p.Protocol, p.FromPort, p.ToPort)
-	}
-	return rules
-}
-
-// PortRangesFromRules returns a slice of port ranges for the
-// specified ingress rules, ignoring the source ranges.
-// NB this method is used by the firewaller worker until updates
-// are made to cater for source ranges in firewall rules.
-func PortRangesFromRules(rules []IngressRule) []PortRange {
-	if rules == nil {
-		return nil
-	}
-	ports := make([]PortRange, len(rules))
-	for i, r := range rules {
-		ports[i] = PortRange{Protocol: r.Protocol, FromPort: r.FromPort, ToPort: r.ToPort}
-	}
-	return ports
-}

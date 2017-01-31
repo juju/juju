@@ -65,7 +65,7 @@ func (s *firewallerBaseSuite) setUpTest(c *gc.C, firewallMode string) {
 
 // assertPorts retrieves the open ports of the instance and compares them
 // to the expected.
-func (s *firewallerBaseSuite) assertPorts(c *gc.C, inst instance.Instance, machineId string, expected []network.PortRange) {
+func (s *firewallerBaseSuite) assertPorts(c *gc.C, inst instance.Instance, machineId string, expected []network.IngressRule) {
 	s.BackingState.StartSync()
 	start := time.Now()
 	for {
@@ -74,15 +74,14 @@ func (s *firewallerBaseSuite) assertPorts(c *gc.C, inst instance.Instance, machi
 			c.Fatal(err)
 			return
 		}
-		gotPorts := network.PortRangesFromRules(got)
-		network.SortPortRanges(gotPorts)
-		network.SortPortRanges(expected)
-		if reflect.DeepEqual(gotPorts, expected) {
+		network.SortIngressRules(got)
+		network.SortIngressRules(expected)
+		if reflect.DeepEqual(got, expected) {
 			c.Succeed()
 			return
 		}
 		if time.Since(start) > coretesting.LongWait {
-			c.Fatalf("timed out: expected %q; got %q", expected, gotPorts)
+			c.Fatalf("timed out: expected %q; got %q", expected, got)
 			return
 		}
 		time.Sleep(coretesting.ShortWait)
@@ -91,7 +90,7 @@ func (s *firewallerBaseSuite) assertPorts(c *gc.C, inst instance.Instance, machi
 
 // assertEnvironPorts retrieves the open ports of environment and compares them
 // to the expected.
-func (s *firewallerBaseSuite) assertEnvironPorts(c *gc.C, expected []network.PortRange) {
+func (s *firewallerBaseSuite) assertEnvironPorts(c *gc.C, expected []network.IngressRule) {
 	s.BackingState.StartSync()
 	start := time.Now()
 	for {
@@ -100,15 +99,14 @@ func (s *firewallerBaseSuite) assertEnvironPorts(c *gc.C, expected []network.Por
 			c.Fatal(err)
 			return
 		}
-		gotPorts := network.PortRangesFromRules(got)
-		network.SortPortRanges(gotPorts)
-		network.SortPortRanges(expected)
-		if reflect.DeepEqual(gotPorts, expected) {
+		network.SortIngressRules(got)
+		network.SortIngressRules(expected)
+		if reflect.DeepEqual(got, expected) {
 			c.Succeed()
 			return
 		}
 		if time.Since(start) > coretesting.LongWait {
-			c.Fatalf("timed out: expected %q; got %q", expected, gotPorts)
+			c.Fatalf("timed out: expected %q; got %q", expected, got)
 			return
 		}
 		time.Sleep(coretesting.ShortWait)
@@ -196,12 +194,17 @@ func (s *InstanceModeSuite) TestExposedService(c *gc.C) {
 	err = u.OpenPort("tcp", 8080)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.assertPorts(c, inst, m.Id(), []network.PortRange{{80, 90, "tcp"}, {8080, 8080, "tcp"}})
+	s.assertPorts(c, inst, m.Id(), []network.IngressRule{
+		network.MustNewIngressRule("tcp", 80, 90, "0.0.0.0/0"),
+		network.MustNewIngressRule("tcp", 8080, 8080, "0.0.0.0/0"),
+	})
 
 	err = u.ClosePorts("tcp", 80, 90)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.assertPorts(c, inst, m.Id(), []network.PortRange{{8080, 8080, "tcp"}})
+	s.assertPorts(c, inst, m.Id(), []network.IngressRule{
+		network.MustNewIngressRule("tcp", 8080, 8080, "0.0.0.0/0"),
+	})
 }
 
 func (s *InstanceModeSuite) TestMultipleExposedServices(c *gc.C) {
@@ -229,15 +232,22 @@ func (s *InstanceModeSuite) TestMultipleExposedServices(c *gc.C) {
 	err = u2.OpenPort("tcp", 3306)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.assertPorts(c, inst1, m1.Id(), []network.PortRange{{80, 80, "tcp"}, {8080, 8080, "tcp"}})
-	s.assertPorts(c, inst2, m2.Id(), []network.PortRange{{3306, 3306, "tcp"}})
+	s.assertPorts(c, inst1, m1.Id(), []network.IngressRule{
+		network.MustNewIngressRule("tcp", 80, 80, "0.0.0.0/0"),
+		network.MustNewIngressRule("tcp", 8080, 8080, "0.0.0.0/0"),
+	})
+	s.assertPorts(c, inst2, m2.Id(), []network.IngressRule{
+		network.MustNewIngressRule("tcp", 3306, 3306, "0.0.0.0/0"),
+	})
 
 	err = u1.ClosePort("tcp", 80)
 	c.Assert(err, jc.ErrorIsNil)
 	err = u2.ClosePort("tcp", 3306)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.assertPorts(c, inst1, m1.Id(), []network.PortRange{{8080, 8080, "tcp"}})
+	s.assertPorts(c, inst1, m1.Id(), []network.IngressRule{
+		network.MustNewIngressRule("tcp", 8080, 8080, "0.0.0.0/0"),
+	})
 	s.assertPorts(c, inst2, m2.Id(), nil)
 }
 
@@ -257,12 +267,16 @@ func (s *InstanceModeSuite) TestMachineWithoutInstanceId(c *gc.C) {
 	inst2 := s.startInstance(c, m2)
 	err = u2.OpenPort("tcp", 80)
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertPorts(c, inst2, m2.Id(), []network.PortRange{{80, 80, "tcp"}})
+	s.assertPorts(c, inst2, m2.Id(), []network.IngressRule{
+		network.MustNewIngressRule("tcp", 80, 80, "0.0.0.0/0"),
+	})
 
 	inst1 := s.startInstance(c, m1)
 	err = u1.OpenPort("tcp", 8080)
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertPorts(c, inst1, m1.Id(), []network.PortRange{{8080, 8080, "tcp"}})
+	s.assertPorts(c, inst1, m1.Id(), []network.IngressRule{
+		network.MustNewIngressRule("tcp", 8080, 8080, "0.0.0.0/0"),
+	})
 }
 
 func (s *InstanceModeSuite) TestMultipleUnits(c *gc.C) {
@@ -283,8 +297,12 @@ func (s *InstanceModeSuite) TestMultipleUnits(c *gc.C) {
 	err = u2.OpenPort("tcp", 80)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.assertPorts(c, inst1, m1.Id(), []network.PortRange{{80, 80, "tcp"}})
-	s.assertPorts(c, inst2, m2.Id(), []network.PortRange{{80, 80, "tcp"}})
+	s.assertPorts(c, inst1, m1.Id(), []network.IngressRule{
+		network.MustNewIngressRule("tcp", 80, 80, "0.0.0.0/0"),
+	})
+	s.assertPorts(c, inst2, m2.Id(), []network.IngressRule{
+		network.MustNewIngressRule("tcp", 80, 80, "0.0.0.0/0"),
+	})
 
 	err = u1.ClosePort("tcp", 80)
 	c.Assert(err, jc.ErrorIsNil)
@@ -314,7 +332,10 @@ func (s *InstanceModeSuite) TestStartWithState(c *gc.C) {
 	fw := s.newFirewaller(c)
 	defer statetesting.AssertKillAndWait(c, fw)
 
-	s.assertPorts(c, inst, m.Id(), []network.PortRange{{80, 80, "tcp"}, {8080, 8080, "tcp"}})
+	s.assertPorts(c, inst, m.Id(), []network.IngressRule{
+		network.MustNewIngressRule("tcp", 80, 80, "0.0.0.0/0"),
+		network.MustNewIngressRule("tcp", 8080, 8080, "0.0.0.0/0"),
+	})
 
 	err = app.SetExposed()
 	c.Assert(err, jc.ErrorIsNil)
@@ -343,7 +364,9 @@ func (s *InstanceModeSuite) TestStartWithPartialState(c *gc.C) {
 	err = u.OpenPort("tcp", 80)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.assertPorts(c, inst, m.Id(), []network.PortRange{{80, 80, "tcp"}})
+	s.assertPorts(c, inst, m.Id(), []network.IngressRule{
+		network.MustNewIngressRule("tcp", 80, 80, "0.0.0.0/0"),
+	})
 }
 
 func (s *InstanceModeSuite) TestStartWithUnexposedService(c *gc.C) {
@@ -368,7 +391,9 @@ func (s *InstanceModeSuite) TestStartWithUnexposedService(c *gc.C) {
 	// Expose service.
 	err = app.SetExposed()
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertPorts(c, inst, m.Id(), []network.PortRange{{80, 80, "tcp"}})
+	s.assertPorts(c, inst, m.Id(), []network.IngressRule{
+		network.MustNewIngressRule("tcp", 80, 80, "0.0.0.0/0"),
+	})
 }
 
 func (s *InstanceModeSuite) TestSetClearExposedService(c *gc.C) {
@@ -391,7 +416,10 @@ func (s *InstanceModeSuite) TestSetClearExposedService(c *gc.C) {
 	err = app.SetExposed()
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.assertPorts(c, inst, m.Id(), []network.PortRange{{80, 80, "tcp"}, {8080, 8080, "tcp"}})
+	s.assertPorts(c, inst, m.Id(), []network.IngressRule{
+		network.MustNewIngressRule("tcp", 80, 80, "0.0.0.0/0"),
+		network.MustNewIngressRule("tcp", 8080, 8080, "0.0.0.0/0"),
+	})
 
 	// ClearExposed closes the ports again.
 	err = app.ClearExposed()
@@ -418,8 +446,12 @@ func (s *InstanceModeSuite) TestRemoveUnit(c *gc.C) {
 	err = u2.OpenPort("tcp", 80)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.assertPorts(c, inst1, m1.Id(), []network.PortRange{{80, 80, "tcp"}})
-	s.assertPorts(c, inst2, m2.Id(), []network.PortRange{{80, 80, "tcp"}})
+	s.assertPorts(c, inst1, m1.Id(), []network.IngressRule{
+		network.MustNewIngressRule("tcp", 80, 80, "0.0.0.0/0"),
+	})
+	s.assertPorts(c, inst2, m2.Id(), []network.IngressRule{
+		network.MustNewIngressRule("tcp", 80, 80, "0.0.0.0/0"),
+	})
 
 	// Remove unit.
 	err = u1.EnsureDead()
@@ -428,7 +460,9 @@ func (s *InstanceModeSuite) TestRemoveUnit(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.assertPorts(c, inst1, m1.Id(), nil)
-	s.assertPorts(c, inst2, m2.Id(), []network.PortRange{{80, 80, "tcp"}})
+	s.assertPorts(c, inst2, m2.Id(), []network.IngressRule{
+		network.MustNewIngressRule("tcp", 80, 80, "0.0.0.0/0"),
+	})
 }
 
 func (s *InstanceModeSuite) TestRemoveService(c *gc.C) {
@@ -444,7 +478,9 @@ func (s *InstanceModeSuite) TestRemoveService(c *gc.C) {
 	err = u.OpenPort("tcp", 80)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.assertPorts(c, inst, m.Id(), []network.PortRange{{80, 80, "tcp"}})
+	s.assertPorts(c, inst, m.Id(), []network.IngressRule{
+		network.MustNewIngressRule("tcp", 80, 80, "0.0.0.0/0"),
+	})
 
 	// Remove service.
 	err = u.EnsureDead()
@@ -478,8 +514,12 @@ func (s *InstanceModeSuite) TestRemoveMultipleServices(c *gc.C) {
 	err = u2.OpenPort("tcp", 3306)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.assertPorts(c, inst1, m1.Id(), []network.PortRange{{80, 80, "tcp"}})
-	s.assertPorts(c, inst2, m2.Id(), []network.PortRange{{3306, 3306, "tcp"}})
+	s.assertPorts(c, inst1, m1.Id(), []network.IngressRule{
+		network.MustNewIngressRule("tcp", 80, 80, "0.0.0.0/0"),
+	})
+	s.assertPorts(c, inst2, m2.Id(), []network.IngressRule{
+		network.MustNewIngressRule("tcp", 3306, 3306, "0.0.0.0/0"),
+	})
 
 	// Remove services.
 	err = u2.EnsureDead()
@@ -513,7 +553,9 @@ func (s *InstanceModeSuite) TestDeadMachine(c *gc.C) {
 	err = u.OpenPort("tcp", 80)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.assertPorts(c, inst, m.Id(), []network.PortRange{{80, 80, "tcp"}})
+	s.assertPorts(c, inst, m.Id(), []network.IngressRule{
+		network.MustNewIngressRule("tcp", 80, 80, "0.0.0.0/0"),
+	})
 
 	// Remove unit and service, also tested without. Has no effect.
 	err = u.EnsureDead()
@@ -545,7 +587,9 @@ func (s *InstanceModeSuite) TestRemoveMachine(c *gc.C) {
 	err = u.OpenPort("tcp", 80)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.assertPorts(c, inst, m.Id(), []network.PortRange{{80, 80, "tcp"}})
+	s.assertPorts(c, inst, m.Id(), []network.IngressRule{
+		network.MustNewIngressRule("tcp", 80, 80, "0.0.0.0/0"),
+	})
 
 	// Remove unit.
 	err = u.EnsureDead()
@@ -647,17 +691,25 @@ func (s *GlobalModeSuite) TestGlobalMode(c *gc.C) {
 	err = u2.OpenPorts("tcp", 80, 90)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.assertEnvironPorts(c, []network.PortRange{{80, 90, "tcp"}, {8080, 8080, "tcp"}})
+	s.assertEnvironPorts(c, []network.IngressRule{
+		network.MustNewIngressRule("tcp", 80, 90, "0.0.0.0/0"),
+		network.MustNewIngressRule("tcp", 8080, 8080, "0.0.0.0/0"),
+	})
 
 	// Closing a port opened by a different unit won't touch the environment.
 	err = u1.ClosePorts("tcp", 80, 90)
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertEnvironPorts(c, []network.PortRange{{80, 90, "tcp"}, {8080, 8080, "tcp"}})
+	s.assertEnvironPorts(c, []network.IngressRule{
+		network.MustNewIngressRule("tcp", 80, 90, "0.0.0.0/0"),
+		network.MustNewIngressRule("tcp", 8080, 8080, "0.0.0.0/0"),
+	})
 
 	// Closing a port used just once changes the environment.
 	err = u1.ClosePort("tcp", 8080)
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertEnvironPorts(c, []network.PortRange{{80, 90, "tcp"}})
+	s.assertEnvironPorts(c, []network.IngressRule{
+		network.MustNewIngressRule("tcp", 80, 90, "0.0.0.0/0"),
+	})
 
 	// Closing the last port also modifies the environment.
 	err = u2.ClosePorts("tcp", 80, 90)
@@ -687,7 +739,9 @@ func (s *GlobalModeSuite) TestStartWithUnexposedService(c *gc.C) {
 	// Expose service.
 	err = app.SetExposed()
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertEnvironPorts(c, []network.PortRange{{80, 80, "tcp"}})
+	s.assertEnvironPorts(c, []network.IngressRule{
+		network.MustNewIngressRule("tcp", 80, 80, "0.0.0.0/0"),
+	})
 }
 
 func (s *GlobalModeSuite) TestRestart(c *gc.C) {
@@ -705,7 +759,10 @@ func (s *GlobalModeSuite) TestRestart(c *gc.C) {
 	err = u.OpenPort("tcp", 8080)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.assertEnvironPorts(c, []network.PortRange{{80, 90, "tcp"}, {8080, 8080, "tcp"}})
+	s.assertEnvironPorts(c, []network.IngressRule{
+		network.MustNewIngressRule("tcp", 80, 90, "0.0.0.0/0"),
+		network.MustNewIngressRule("tcp", 8080, 8080, "0.0.0.0/0"),
+	})
 
 	// Stop firewaller and close one and open a different port.
 	err = worker.Stop(fw)
@@ -720,7 +777,10 @@ func (s *GlobalModeSuite) TestRestart(c *gc.C) {
 	fw = s.newFirewaller(c)
 	defer statetesting.AssertKillAndWait(c, fw)
 
-	s.assertEnvironPorts(c, []network.PortRange{{80, 90, "tcp"}, {8888, 8888, "tcp"}})
+	s.assertEnvironPorts(c, []network.IngressRule{
+		network.MustNewIngressRule("tcp", 80, 90, "0.0.0.0/0"),
+		network.MustNewIngressRule("tcp", 8888, 8888, "0.0.0.0/0"),
+	})
 }
 
 func (s *GlobalModeSuite) TestRestartUnexposedService(c *gc.C) {
@@ -738,7 +798,10 @@ func (s *GlobalModeSuite) TestRestartUnexposedService(c *gc.C) {
 	err = u.OpenPort("tcp", 8080)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.assertEnvironPorts(c, []network.PortRange{{80, 80, "tcp"}, {8080, 8080, "tcp"}})
+	s.assertEnvironPorts(c, []network.IngressRule{
+		network.MustNewIngressRule("tcp", 80, 80, "0.0.0.0/0"),
+		network.MustNewIngressRule("tcp", 8080, 8080, "0.0.0.0/0"),
+	})
 
 	// Stop firewaller and clear exposed flag on service.
 	err = worker.Stop(fw)
@@ -769,7 +832,10 @@ func (s *GlobalModeSuite) TestRestartPortCount(c *gc.C) {
 	err = u1.OpenPort("tcp", 8080)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.assertEnvironPorts(c, []network.PortRange{{80, 80, "tcp"}, {8080, 8080, "tcp"}})
+	s.assertEnvironPorts(c, []network.IngressRule{
+		network.MustNewIngressRule("tcp", 80, 80, "0.0.0.0/0"),
+		network.MustNewIngressRule("tcp", 8080, 8080, "0.0.0.0/0"),
+	})
 
 	// Stop firewaller and add another service using the port.
 	err = worker.Stop(fw)
@@ -788,17 +854,25 @@ func (s *GlobalModeSuite) TestRestartPortCount(c *gc.C) {
 	fw = s.newFirewaller(c)
 	defer statetesting.AssertKillAndWait(c, fw)
 
-	s.assertEnvironPorts(c, []network.PortRange{{80, 80, "tcp"}, {8080, 8080, "tcp"}})
+	s.assertEnvironPorts(c, []network.IngressRule{
+		network.MustNewIngressRule("tcp", 80, 80, "0.0.0.0/0"),
+		network.MustNewIngressRule("tcp", 8080, 8080, "0.0.0.0/0"),
+	})
 
 	// Closing a port opened by a different unit won't touch the environment.
 	err = u1.ClosePort("tcp", 80)
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertEnvironPorts(c, []network.PortRange{{80, 80, "tcp"}, {8080, 8080, "tcp"}})
+	s.assertEnvironPorts(c, []network.IngressRule{
+		network.MustNewIngressRule("tcp", 80, 80, "0.0.0.0/0"),
+		network.MustNewIngressRule("tcp", 8080, 8080, "0.0.0.0/0"),
+	})
 
 	// Closing a port used just once changes the environment.
 	err = u1.ClosePort("tcp", 8080)
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertEnvironPorts(c, []network.PortRange{{80, 80, "tcp"}})
+	s.assertEnvironPorts(c, []network.IngressRule{
+		network.MustNewIngressRule("tcp", 80, 80, "0.0.0.0/0"),
+	})
 
 	// Closing the last port also modifies the environment.
 	err = u2.ClosePort("tcp", 80)
