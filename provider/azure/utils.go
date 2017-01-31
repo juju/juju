@@ -115,24 +115,39 @@ type resourceDeleter interface {
 // Management API, because the API version requested must match the
 // type of the resource being manipulated through the API, rather than
 // the API version specified statically in the resource client code.
-func collectAPIVersions(mclient resources.ManagementClient) (map[string]string, error) {
+func collectAPIVersions(callAPI callAPIFunc, mclient resources.ManagementClient) (map[string]string, error) {
 	result := make(map[string]string)
 	pclient := resources.ProvidersClient{mclient}
 
-	res, err := pclient.List(nil)
+	var res resources.ProviderListResult
+	err := callAPI(func() (autorest.Response, error) {
+		var err error
+		res, err = pclient.List(nil)
+		return res.Response, err
+	})
 	if err != nil {
 		return result, errors.Trace(err)
 	}
 	for res.Value != nil {
 		for _, provider := range *res.Value {
+			if provider.ResourceTypes == nil {
+				continue
+			}
 			for _, resourceType := range *provider.ResourceTypes {
-				key := *provider.Namespace + "/" + *resourceType.ResourceType
-				versions := *resourceType.APIVersions
-				latestVersion := versions[0]
-				result[key] = latestVersion
+				key := to.String(provider.Namespace) + "/" + to.String(resourceType.ResourceType)
+				versions := to.StringSlice(resourceType.APIVersions)
+				if len(versions) == 0 {
+					continue
+				}
+				// The versions are newest-first.
+				result[key] = versions[0]
 			}
 		}
-		res, err = pclient.ListNextResults(res)
+		err = callAPI(func() (autorest.Response, error) {
+			var err error
+			res, err = pclient.ListNextResults(res)
+			return res.Response, err
+		})
 		if err != nil {
 			return map[string]string{}, errors.Trace(err)
 		}

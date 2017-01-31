@@ -1078,29 +1078,39 @@ func (env *azureEnviron) AdoptResources(controllerUUID string, fromVersion versi
 	resourceClient := resources.Client{env.resources}
 	var failed []string
 
-	apiVersions, err := collectAPIVersions(env.resources)
+	apiVersions, err := collectAPIVersions(env.callAPI, env.resources)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	resources, err := groupClient.ListResources(env.resourceGroup, "", nil)
+	var res resources.ResourceListResult
+	err = env.callAPI(func() (autorest.Response, error) {
+		var err error
+		res, err = groupClient.ListResources(env.resourceGroup, "", nil)
+		return res.Response, err
+	})
 	if err != nil {
 		return errors.Annotate(err, "listing resources")
 	}
-	for resources.Value != nil {
-		for _, resource := range *resources.Value {
+	for res.Value != nil {
+		for _, resource := range *res.Value {
 			// We need to set the API version to a value that's
 			// correct for the specific resource type. If we leave it
 			// as the version for the Microsoft.Resources provider we
 			// get NoRegisteredProviderFound errors.
-			resourceClient.APIVersion = apiVersions[*resource.Type]
+			resourceClient.APIVersion = apiVersions[to.String(resource.Type)]
 			err := env.updateResourceControllerTag(&resourceClient, resource, controllerUUID)
 			if err != nil {
-				logger.Errorf("error updating resource tags for %q: %v", *resource.Name, err)
-				failed = append(failed, *resource.Name)
+				name := to.String(resource.Name)
+				logger.Errorf("error updating resource tags for %q: %v", name, err)
+				failed = append(failed, name)
 			}
 		}
-		resources, err = groupClient.ListResourcesNextResults(resources)
+		err = env.callAPI(func() (autorest.Response, error) {
+			var err error
+			res, err = groupClient.ListResourcesNextResults(res)
+			return res.Response, err
+		})
 		if err != nil {
 			return errors.Annotate(err, "getting next page of resources")
 		}
@@ -1113,36 +1123,53 @@ func (env *azureEnviron) AdoptResources(controllerUUID string, fromVersion versi
 }
 
 func (env *azureEnviron) updateResourceControllerTag(client *resources.Client, stubResource resources.GenericResource, controllerUUID string) error {
-	stubTags := *stubResource.Tags
-	if *stubTags[tags.JujuController] == controllerUUID {
+	stubTags := toTags(stubResource.Tags)
+	if stubTags[tags.JujuController] == controllerUUID {
 		// No update needed.
 		return nil
 	}
 
-	namespace, parentPath, subtype, err := splitResourceType(*stubResource.Type)
+	namespace, parentPath, subtype, err := splitResourceType(to.String(stubResource.Type))
 	if err != nil {
 		return errors.Annotatef(err, "splitting resource type")
 	}
 
 	// Need to get the resource individually to ensure that the
 	// properties are populated.
-	resource, err := client.Get(env.resourceGroup, namespace, parentPath, subtype, *stubResource.Name)
+	var resource resources.GenericResource
+	err = env.callAPI(func() (autorest.Response, error) {
+		var err error
+		resource, err = client.Get(
+			env.resourceGroup,
+			namespace,
+			parentPath,
+			subtype,
+			to.String(stubResource.Name),
+		)
+		return resource.Response, err
+	})
 	if err != nil {
-		return errors.Annotatef(err, "getting full resource %q", *stubResource.Name)
+		return errors.Annotatef(err, "getting full resource %q", to.String(stubResource.Name))
 	}
 
 	logger.Debugf("updating %s (%s) juju controller uuid to %s",
-		*resource.Name, *resource.Type, controllerUUID)
-	(*resource.Tags)[tags.JujuController] = &controllerUUID
-	_, err = client.CreateOrUpdate(
-		env.resourceGroup,
-		namespace,
-		parentPath,
-		subtype,
-		*resource.Name,
-		resource,
-	)
-	return errors.Annotatef(err, "updating controller for %q", *resource.Name)
+		to.String(resource.Name), to.String(resource.Type), controllerUUID)
+	resourceTags := toTags(resource.Tags)
+	resourceTags[tags.JujuController] = controllerUUID
+	resource.Tags = to.StringMapPtr(resourceTags)
+
+	err = env.callAPI(func() (autorest.Response, error) {
+		res, err := client.CreateOrUpdate(
+			env.resourceGroup,
+			namespace,
+			parentPath,
+			subtype,
+			to.String(resource.Name),
+			resource,
+		)
+		return res.Response, err
+	})
+	return errors.Annotatef(err, "updating controller for %q", to.String(resource.Name))
 }
 
 // splitResourceType breaks the resource type into provider namespace,
