@@ -27,6 +27,7 @@ def get_default_args(**kwargs):
         logs='/tmp/logs',
         temp_env_name='an-env-mod',
         enable_ha=False,
+        enable_pprof=False,
         debug=False,
         agent_stream=None,
         agent_url=None,
@@ -50,9 +51,11 @@ class TestAddBasicPerfscaleArguments(TestCase):
         gpr.add_basic_perfscale_arguments(parser)
         parsed_args = parser.parse_args([])
         self.assertEqual(parsed_args.enable_ha, False)
+        self.assertEqual(parsed_args.enable_pprof, False)
 
-        parsed_args = parser.parse_args(['--enable-ha'])
+        parsed_args = parser.parse_args(['--enable-ha', '--enable-pprof'])
         self.assertEqual(parsed_args.enable_ha, True)
+        self.assertEqual(parsed_args.enable_pprof, True)
 
     def test_includes_basic_default_arguments(self):
         parser = argparse.ArgumentParser()

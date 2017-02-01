@@ -116,6 +116,10 @@ def add_basic_perfscale_arguments(parser):
         '--enable-ha',
         help='Enable HA before running perfscale test.',
         action='store_true')
+    parser.add_argument(
+        '--enable-pprof',
+        help='Enable pprof profile collection during test run.',
+        action='store_true')
 
 
 def run_perfscale_test(target_test, bs_manager, args):
