@@ -91,17 +91,9 @@ func NewWorker(config Config) (worker.Worker, error) {
 
 func (w *socketListener) serve() {
 	mux := http.NewServeMux()
-	mux.Handle("/debug/pprof/", http.HandlerFunc(pprof.Index))
-	mux.Handle("/debug/pprof/cmdline", http.HandlerFunc(pprof.Cmdline))
-	mux.Handle("/debug/pprof/profile", http.HandlerFunc(pprof.Profile))
-	mux.Handle("/debug/pprof/symbol", http.HandlerFunc(pprof.Symbol))
-	mux.Handle("/depengine/", http.HandlerFunc(w.depengineReport))
-	mux.Handle("/metrics", promhttp.HandlerFor(w.prometheusGatherer, promhttp.HandlerOpts{}))
+	RegisterHTTPHandlers(w.reporter, w.prometheusGatherer, mux.Handle)
 
-	srv := http.Server{
-		Handler: mux,
-	}
-
+	srv := http.Server{Handler: mux}
 	logger.Debugf("stats worker now serving")
 	defer logger.Debugf("stats worker serving finished")
 	defer close(w.done)
@@ -128,13 +120,35 @@ func (w *socketListener) Wait() error {
 	return w.tomb.Wait()
 }
 
-func (s *socketListener) depengineReport(w http.ResponseWriter, r *http.Request) {
-	if s.reporter == nil {
+// AddHandlers calls the given function with http.Handlers
+// that serve agent introspection requests. The function will
+// be called with a path; the function may alter the path
+// as it sees fit.
+func RegisterHTTPHandlers(
+	reporter DepEngineReporter,
+	prometheusGatherer prometheus.Gatherer,
+	handle func(path string, h http.Handler),
+) {
+	handle("/debug/pprof/", http.HandlerFunc(pprof.Index))
+	handle("/debug/pprof/cmdline", http.HandlerFunc(pprof.Cmdline))
+	handle("/debug/pprof/profile", http.HandlerFunc(pprof.Profile))
+	handle("/debug/pprof/symbol", http.HandlerFunc(pprof.Symbol))
+	handle("/depengine/", depengineHandler{reporter})
+	handle("/metrics", promhttp.HandlerFor(prometheusGatherer, promhttp.HandlerOpts{}))
+}
+
+type depengineHandler struct {
+	reporter DepEngineReporter
+}
+
+// ServeHTTP is part of the http.Handler interface.
+func (h depengineHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if h.reporter == nil {
 		w.WriteHeader(http.StatusNotFound)
 		fmt.Fprintln(w, "missing reporter")
 		return
 	}
-	bytes, err := yaml.Marshal(s.reporter.Report())
+	bytes, err := yaml.Marshal(h.reporter.Report())
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		fmt.Fprintf(w, "error: %v\n", err)

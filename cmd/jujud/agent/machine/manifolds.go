@@ -131,6 +131,9 @@ type ManifoldsConfig struct {
 	// PrometheusRegisterer is a prometheus.Registerer that may be used
 	// by workers to register Prometheus metric collectors.
 	PrometheusRegisterer prometheus.Registerer
+
+	// DepEngineReporter is a dependency engine reporter.
+	DepEngineReporter dependency.Reporter
 }
 
 // Manifolds returns a set of co-configured manifolds covering the
