@@ -28,7 +28,7 @@ from utility import (
 __metaclass__ = type
 
 
-def assess_deployment_perf(client, args):
+def assess_deployment_perf(client, pprof_collector, args):
     """Deploy supplied bundle wait for it to come up."""
     deploy_start = datetime.utcnow()
 
