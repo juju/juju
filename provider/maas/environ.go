@@ -315,6 +315,11 @@ func (env *maasEnviron) SupportsSpaceDiscovery() (bool, error) {
 	return true, nil
 }
 
+// SupportsContainerAddresses is specified on environs.Networking.
+func (env *maasEnviron) SupportsContainerAddresses() (bool, error) {
+	return true, nil
+}
+
 // allArchitectures2 uses the MAAS2 controller to get architectures from boot
 // resources.
 func (env *maasEnviron) allArchitectures2() ([]string, error) {

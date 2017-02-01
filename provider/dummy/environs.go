@@ -1164,6 +1164,11 @@ func (env *environ) SupportsSpaceDiscovery() (bool, error) {
 	return true, nil
 }
 
+// SupportsContainerAddresses is specified on environs.Networking.
+func (env *environ) SupportsContainerAddresses() (bool, error) {
+	return false, errors.NotSupportedf("container addresses")
+}
+
 // Spaces is specified on environs.Networking.
 func (env *environ) Spaces() ([]network.SpaceInfo, error) {
 	if err := env.checkBroken("Spaces"); err != nil {
