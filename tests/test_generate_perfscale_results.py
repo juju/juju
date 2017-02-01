@@ -108,13 +108,21 @@ class TestRunPerfscaleTest(TestCase):
             deploy_details = gpr.DeployDetails('test', dict(), timing)
             noop_test = Mock(return_value=deploy_details)
 
+            pprof_collector = Mock()
+
             with patch.object(gpr, 'dump_performance_metrics_logs',
                               autospec=True):
                 with patch.object(gpr, 'generate_reports', autospec=True):
-                    gpr.run_perfscale_test(noop_test, bs_manager,
-                                           get_default_args())
+                    with patch.object(
+                            gpr, 'PPROFCollector', autospec=True) as p_pc:
+                        p_pc.return_value = pprof_collector
+                        gpr.run_perfscale_test(
+                            noop_test,
+                            bs_manager,
+                            get_default_args())
 
-            noop_test.assert_called_once_with(client, get_default_args())
+            noop_test.assert_called_once_with(
+                client, pprof_collector, get_default_args())
 
 
 class TestGetControllerMachines(TestCase):

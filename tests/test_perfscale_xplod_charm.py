@@ -32,8 +32,9 @@ class TestAssessXplodPerf(TestCase):
         # Deploy zero so we don't have to add times for each deploy.
         args = _get_default_args(deploy_amount=0)
         client = Mock()
+        pprof_collector = Mock()
 
-        deploy_details = pxc.assess_xplod_perf(client, args)
+        deploy_details = pxc.assess_xplod_perf(client, pprof_collector, args)
 
         self.assertIs(type(deploy_details), DeployDetails)
         self.assertEqual(deploy_details.name, 'Xplod charm')
@@ -42,11 +43,12 @@ class TestAssessXplodPerf(TestCase):
         # Deploy zero so we don't have to add times for each deploy.
         args = _get_default_args(deploy_amount=0)
         client = Mock()
+        pprof_collector = Mock()
 
         with patch.object(pxc, 'deploy_xplod_charm', autospec=True) as m_dxc:
             with patch.object(
                     pxc, 'add_multiple_units', autospec=True) as m_amu:
-                pxc.assess_xplod_perf(client, args)
+                pxc.assess_xplod_perf(client, pprof_collector, args)
         m_dxc.assert_called_once_with(client)
         m_amu.assert_called_once_with(client, args)
 
@@ -58,10 +60,12 @@ class TestAssessXplodPerf(TestCase):
         # Deploy zero so we don't have to add times for each deploy.
         args = _get_default_args(deploy_amount=0)
         client = Mock()
+        pprof_collector = Mock()
 
         with patch.object(pxc, 'datetime', autospec=True) as m_dt:
             m_dt.utcnow.side_effect = times
-            deploy_details = pxc.assess_xplod_perf(client, args)
+            deploy_details = pxc.assess_xplod_perf(
+                client, pprof_collector, args)
         deploy_timing = deploy_details.timings
         self.assertEqual(deploy_timing.start, comparison_timing.start)
         self.assertEqual(deploy_timing.end, comparison_timing.end)

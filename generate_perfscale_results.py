@@ -29,6 +29,7 @@ from logbreakdown import (
     breakdown_log_by_timeframes,
 )
 import perf_graphing
+from pprof_collector import PPROFCollector
 from utility import add_basic_testing_arguments
 
 
@@ -128,8 +129,9 @@ def run_perfscale_test(target_test, bs_manager, args):
     Run the callable `target_test` and collect timing data and system metrics
     for the controller during the test run.
 
-    :param target_test: A callable that takes 2 arguments:
+    :param target_test: A callable that takes 3 arguments:
         - ModelClient client object  (bootstrapped)
+        - PPROFCollector object
         - argparse args object
       This callable must return a `DeployDetails` object.
 
@@ -158,7 +160,12 @@ def run_perfscale_test(target_test, bs_manager, args):
 
             machine_ids = setup_system_monitoring(admin_client)
 
-            deploy_details = target_test(client, args)
+            pprof_collector = PPROFCollector(
+                admin_client,
+                machine_ids[0],
+                bs_manager.log_dir,
+                args.enable_pprof)
+            deploy_details = target_test(client, pprof_collector, args)
         finally:
             results_dir = dump_performance_metrics_logs(
                 bs_manager.log_dir, admin_client, machine_ids)
