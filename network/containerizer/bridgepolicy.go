@@ -12,8 +12,8 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils/set"
 
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
 	// Used for some constants and things like LinkLayerDevice[Args]
 	"github.com/juju/juju/state"
 )
@@ -177,16 +177,16 @@ func formatDeviceMap(spacesToDevices map[string][]*state.LinkLayerDevice) string
 		for i, name := range deviceNames {
 			quotedNames[i] = fmt.Sprintf("%q", name)
 		}
-		out = append(out, start + strings.Join(quotedNames, ",") + "]")
+		out = append(out, start+strings.Join(quotedNames, ",")+"]")
 	}
 	return "map{" + strings.Join(out, ", ") + "}"
 }
 
 var skippedDeviceNames = set.NewStrings(
-		network.DefaultLXCBridge,
-		network.DefaultLXDBridge,
-		network.DefaultKVMBridge,
-	)
+	network.DefaultLXCBridge,
+	network.DefaultLXDBridge,
+	network.DefaultKVMBridge,
+)
 
 // FindMissingBridgesForContainer looks at the spaces that the container
 // wants to be in, and sees if there are any host devices that should be

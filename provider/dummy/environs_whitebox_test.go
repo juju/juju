@@ -19,7 +19,7 @@ var (
 
 var _ = gc.Suite(&environWhiteboxSuite{})
 
-type environWhiteboxSuite struct {}
+type environWhiteboxSuite struct{}
 
 func (s *environWhiteboxSuite) TestSupportsContainerAddresses(c *gc.C) {
 	// For now this is a static method so we can use a nil environ

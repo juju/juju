@@ -75,7 +75,7 @@ func (s *bridgePolicyStateSuite) SetUpTest(c *gc.C) {
 
 	s.bridgePolicy = &containerizer.BridgePolicy{
 		NetBondReconfigureDelay: 13,
-		UseLocalBridges: false,
+		UseLocalBridges:         false,
 	}
 }
 
@@ -602,7 +602,7 @@ func (s *bridgePolicyStateSuite) TestPopulateContainerLinkLayerDevicesNoLocal(c 
 
 	bridgePolicy := &containerizer.BridgePolicy{
 		NetBondReconfigureDelay: 13,
-		UseLocalBridges: false,
+		UseLocalBridges:         false,
 	}
 	err := bridgePolicy.PopulateContainerLinkLayerDevices(s.machine, s.containerMachine)
 	c.Assert(err.Error(), gc.Equals, `unable to find host bridge for space(s) "" for container "0/lxd/0"`)
@@ -620,7 +620,7 @@ func (s *bridgePolicyStateSuite) TestPopulateContainerLinkLayerDevicesUseLocal(c
 
 	bridgePolicy := &containerizer.BridgePolicy{
 		NetBondReconfigureDelay: 13,
-		UseLocalBridges: true,
+		UseLocalBridges:         true,
 	}
 	err := bridgePolicy.PopulateContainerLinkLayerDevices(s.machine, s.containerMachine)
 	c.Assert(err, jc.ErrorIsNil)
@@ -727,7 +727,7 @@ func (s *bridgePolicyStateSuite) TestFindMissingBridgesForContainerUseLocalBridg
 	s.addContainerMachine(c)
 	bridgePolicy := &containerizer.BridgePolicy{
 		NetBondReconfigureDelay: 13,
-		UseLocalBridges: true,
+		UseLocalBridges:         true,
 	}
 	// No defined spaces for the container, no *known* spaces for the host
 	// machine. Triggers the fallback code to have us bridge all devices.
@@ -736,7 +736,6 @@ func (s *bridgePolicyStateSuite) TestFindMissingBridgesForContainerUseLocalBridg
 	c.Check(missing, jc.DeepEquals, []network.DeviceToBridge{})
 	c.Check(reconfigureDelay, gc.Equals, 0)
 }
-
 
 func (s *bridgePolicyStateSuite) TestFindMissingBridgesForContainerUnknownWithConstraint(c *gc.C) {
 	// If we have a host machine where we don't understand its spaces, but

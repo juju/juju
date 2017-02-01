@@ -681,7 +681,7 @@ func (ctx *prepareOrGetContext) ProcessOneContainer(env environs.Environ, idx in
 	supportContainerAddresses := environs.SupportsContainerAddresses(env)
 	bridgePolicy := containerizer.BridgePolicy{
 		NetBondReconfigureDelay: env.Config().NetBondReconfigureDelay(),
-		UseLocalBridges: !supportContainerAddresses,
+		UseLocalBridges:         !supportContainerAddresses,
 	}
 
 	// TODO(jam): 2017-01-31 PopulateContainerLinkLayerDevices should really

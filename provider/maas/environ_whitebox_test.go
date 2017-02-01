@@ -480,7 +480,6 @@ func (suite *environSuite) TestSupportsContainerAddresses(c *gc.C) {
 	c.Check(env, jc.Satisfies, environs.SupportsContainerAddresses)
 }
 
-
 func (suite *environSuite) TestSubnetsWithInstanceIdAndSubnetIds(c *gc.C) {
 	server := suite.testMAASObject.TestServer
 	var subnetIDs []network.Id
