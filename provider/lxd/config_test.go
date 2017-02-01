@@ -10,6 +10,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/environschema.v1"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/provider/lxd"
@@ -19,13 +20,16 @@ import (
 type configSuite struct {
 	lxd.BaseSuite
 
-	config *config.Config
+	provider environs.EnvironProvider
+	config   *config.Config
 }
 
 var _ = gc.Suite(&configSuite{})
 
 func (s *configSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
+
+	s.provider = lxd.NewProvider()
 
 	cfg, err := testing.ModelConfig(c).Apply(lxd.ConfigAttrs)
 	c.Assert(err, jc.ErrorIsNil)
@@ -163,7 +167,7 @@ func (s *configSuite) TestValidateNewConfig(c *gc.C) {
 		c.Logf("test %d: %s", i, test.info)
 
 		testConfig := test.newConfig(c)
-		validatedConfig, err := lxd.Provider.Validate(testConfig, nil)
+		validatedConfig, err := s.provider.Validate(testConfig, nil)
 
 		// Check the result
 		if test.err != "" {
@@ -182,14 +186,14 @@ func (s *configSuite) TestValidateOldConfig(c *gc.C) {
 
 		oldcfg := test.newConfig(c)
 		var err error
-		oldcfg, err = lxd.Provider.Validate(oldcfg, nil)
+		oldcfg, err = s.provider.Validate(oldcfg, nil)
 		c.Assert(err, jc.ErrorIsNil)
 		newcfg := test.fixCfg(c, s.config)
 		expected := updateAttrs(lxd.ConfigAttrs, test.insert)
 
 		// Validate the new config (relative to the old one) using the
 		// provider.
-		validatedConfig, err := lxd.Provider.Validate(newcfg, oldcfg)
+		validatedConfig, err := s.provider.Validate(newcfg, oldcfg)
 
 		// Check the result.
 		if test.err != "" {
@@ -221,7 +225,7 @@ func (s *configSuite) TestValidateChange(c *gc.C) {
 		c.Logf("test %d: %s", i, test.info)
 
 		testConfig := test.newConfig(c)
-		validatedConfig, err := lxd.Provider.Validate(testConfig, s.config)
+		validatedConfig, err := s.provider.Validate(testConfig, s.config)
 
 		// Check the result.
 		if test.err != "" {
@@ -256,7 +260,7 @@ func (s *configSuite) TestSetConfig(c *gc.C) {
 		// Check the result.
 		if test.err != "" {
 			test.checkFailure(c, err, "invalid config change")
-			expected, err := lxd.Provider.Validate(s.config, nil)
+			expected, err := s.provider.Validate(s.config, nil)
 			c.Assert(err, jc.ErrorIsNil)
 			test.checkAttrs(c, environ.Config().AllAttrs(), expected)
 		} else {
@@ -265,8 +269,8 @@ func (s *configSuite) TestSetConfig(c *gc.C) {
 	}
 }
 
-func (*configSuite) TestSchema(c *gc.C) {
-	fields := lxd.Provider.(interface {
+func (s *configSuite) TestSchema(c *gc.C) {
+	fields := s.provider.(interface {
 		Schema() environschema.Fields
 	}).Schema()
 	// Check that all the fields defined in environs/config
@@ -279,8 +283,14 @@ func (*configSuite) TestSchema(c *gc.C) {
 }
 
 func lxdCloudSpec() environs.CloudSpec {
+	cred := cloud.NewCredential(cloud.CertificateAuthType, map[string]string{
+		"client-cert": "client.crt",
+		"client-key":  "client.key",
+		"server-cert": "servert.crt",
+	})
 	return environs.CloudSpec{
-		Type: "lxd",
-		Name: "localhost",
+		Type:       "lxd",
+		Name:       "localhost",
+		Credential: &cred,
 	}
 }
