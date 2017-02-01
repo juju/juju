@@ -44,10 +44,6 @@ type lxdBroker struct {
 
 func (broker *lxdBroker) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
 	containerMachineID := args.InstanceConfig.MachineId
-	bridgeDevice := broker.agentConfig.Value(agent.LxdBridge)
-	if bridgeDevice == "" {
-		bridgeDevice = network.DefaultLXDBridge
-	}
 
 	config, err := broker.api.ContainerConfig()
 	if err != nil {
@@ -63,19 +59,19 @@ func (broker *lxdBroker) StartInstance(args environs.StartInstanceParams) (*envi
 	preparedInfo, err := prepareOrGetContainerInterfaceInfo(
 		broker.api,
 		containerMachineID,
-		bridgeDevice,
 		true, // allocate if possible, do not maintain existing.
 		lxdLogger,
 	)
 	if err != nil {
-		// It's not fatal (yet) if we couldn't pre-allocate addresses for the
-		// container.
-		logger.Warningf("failed to prepare container %q network config: %v", containerMachineID, err)
-	} else {
-		args.NetworkInfo = preparedInfo
+		return errors.Trace(err)
 	}
 
-	network := container.BridgeNetworkConfig(bridgeDevice, 0, args.NetworkInfo)
+	network := &container.NetworkConfig{
+		NetworkType: container.BridgeNetwork,
+		Device: "", // we intentionally use "" because we are being concrete about our interfaces
+		MTU: 0,
+		interfaces: preparedInfo,
+	}
 	interfaces, err := finishNetworkConfig(bridgeDevice, args.NetworkInfo)
 	if err != nil {
 		return nil, errors.Trace(err)
