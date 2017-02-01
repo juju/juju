@@ -62,6 +62,9 @@ type mockState struct {
 	addStorageForUnit                   func(u names.UnitTag, name string, cons state.StorageConstraints) error
 	getBlockForType                     func(t state.BlockType) (state.Block, bool, error)
 	blockDevices                        func(names.MachineTag) ([]state.BlockDeviceInfo, error)
+	destroyVolume                       func(names.VolumeTag) error
+	destroyFilesystem                   func(names.FilesystemTag) error
+	destroyStorageInstance              func(names.StorageTag) error
 }
 
 func (st *mockState) StorageInstance(s names.StorageTag) (state.StorageInstance, error) {
@@ -165,6 +168,18 @@ func (st *mockState) BlockDevices(m names.MachineTag) ([]state.BlockDeviceInfo, 
 		return st.blockDevices(m)
 	}
 	return []state.BlockDeviceInfo{}, nil
+}
+
+func (st *mockState) DestroyVolume(tag names.VolumeTag) error {
+	return st.destroyVolume(tag)
+}
+
+func (st *mockState) DestroyFilesystem(tag names.FilesystemTag) error {
+	return st.destroyFilesystem(tag)
+}
+
+func (st *mockState) DestroyStorageInstance(tag names.StorageTag) error {
+	return st.destroyStorageInstance(tag)
 }
 
 type mockNotifyWatcher struct {
