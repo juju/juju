@@ -16,22 +16,26 @@ import (
 // Bridger creates network bridges to support addressable containers.
 type Bridger interface {
 	// Turns existing devices into bridged devices.
-	Bridge(deviceNames []string) error
+	// TODO(frobware) - we may want a different type to encompass
+	// and reflect how bridging should be done vis-a-vis what
+	// needs to be bridged.
+	Bridge(devices []DeviceToBridge, reconfigureDelay int) error
 }
 
 type etcNetworkInterfacesBridger struct {
-	BridgePrefix string
-	Clock        clock.Clock
-	DryRun       bool
-	Environ      []string
-	Filename     string
-	Timeout      time.Duration
+	PythonInterpreter string
+	BridgePrefix      string
+	Clock             clock.Clock
+	DryRun            bool
+	Environ           []string
+	Filename          string
+	Timeout           time.Duration
 }
 
 var _ Bridger = (*etcNetworkInterfacesBridger)(nil)
 
-// bestPythonVersion returns a string to the best python interpreter
-// found.
+// pythonInterpreters returns a slice of all the Python interpreters
+// found on the machine.
 //
 // For ubuntu series < xenial we prefer python2 over python3 as we
 // don't want to invalidate lots of testing against known cloud-image
@@ -46,22 +50,23 @@ var _ Bridger = (*etcNetworkInterfacesBridger)(nil)
 // 16.04 xenial:   python 3 only (3.5.1)
 //
 // going forward:  python 3 only
-func bestPythonVersion() string {
+func pythonInterpreters() []string {
+	result := []string{}
 	for _, version := range []string{
 		"/usr/bin/python2",
 		"/usr/bin/python3",
 		"/usr/bin/python",
 	} {
 		if _, err := os.Stat(version); err == nil {
-			return version
+			result = append(result, version)
 		}
 	}
-	return ""
+	return result
 }
 
-func (b *etcNetworkInterfacesBridger) Bridge(deviceNames []string) error {
-	cmd := bridgeCmd(deviceNames, b.BridgePrefix, b.Filename, BridgeScriptPythonContent, b.DryRun)
-	infoCmd := bridgeCmd(deviceNames, b.BridgePrefix, b.Filename, "<script-redacted>", b.DryRun)
+func (b *etcNetworkInterfacesBridger) Bridge(devices []DeviceToBridge, reconfigureDelay int) error {
+	cmd := bridgeCmd(devices, b.PythonInterpreter, b.BridgePrefix, b.Filename, BridgeScriptPythonContent, b.DryRun, reconfigureDelay)
+	infoCmd := bridgeCmd(devices, b.PythonInterpreter, b.BridgePrefix, b.Filename, "<script-redacted>", b.DryRun, reconfigureDelay)
 	logger.Infof("bridgescript command=%s", infoCmd)
 	result, err := runCommand(cmd, b.Environ, b.Clock, b.Timeout)
 	if err != nil {
@@ -81,7 +86,7 @@ func (b *etcNetworkInterfacesBridger) Bridge(deviceNames []string) error {
 	return nil
 }
 
-func bridgeCmd(deviceNames []string, bridgePrefix, filename, pythonScript string, dryRun bool) string {
+func bridgeCmd(devices []DeviceToBridge, pythonInterpreter, bridgePrefix, filename, pythonScript string, dryRun bool, reconfigureDelay int) string {
 	dryRunOption := ""
 
 	if bridgePrefix != "" {
@@ -92,32 +97,51 @@ func bridgeCmd(deviceNames []string, bridgePrefix, filename, pythonScript string
 		dryRunOption = "--dry-run"
 	}
 
+	reconfigureDelayOption := ""
+
+	deviceNames := make([]string, len(devices))
+
+	for i, d := range devices {
+		deviceNames[i] = d.DeviceName
+	}
+
+	if reconfigureDelay >= 0 {
+		reconfigureDelayOption = fmt.Sprintf("--reconfigure-delay=%v", reconfigureDelay)
+	}
+
 	return fmt.Sprintf(`
-%s - --interfaces-to-bridge=%q --activate %s %s %s <<'EOF'
+%s - --interfaces-to-bridge=%q --activate %s %s %s %s <<'EOF'
 %s
 EOF
 `[1:],
-		bestPythonVersion(),
+		pythonInterpreter,
 		strings.Join(deviceNames, " "),
 		bridgePrefix,
 		dryRunOption,
+		reconfigureDelayOption,
 		filename,
 		pythonScript)
 }
 
-// NewEtcNetworkInterfacesBridger returns a Bridger that can parse
-// /etc/network/interfaces and create new stanzas to bridge existing
-// interfaces.
-//
-// TODO(frobware): We shouldn't expose DryRun; once we implement the
-// Python-based bridge script in Go this interface can change.
-func NewEtcNetworkInterfacesBridger(environ []string, clock clock.Clock, timeout time.Duration, bridgePrefix, filename string, dryRun bool) Bridger {
+func newEtcNetworkInterfacesBridger(pythonInterpreter string, environ []string, clock clock.Clock, timeout time.Duration, bridgePrefix, filename string, dryRun bool) Bridger {
 	return &etcNetworkInterfacesBridger{
-		BridgePrefix: bridgePrefix,
-		Clock:        clock,
-		DryRun:       dryRun,
-		Environ:      environ,
-		Filename:     filename,
-		Timeout:      timeout,
+		PythonInterpreter: pythonInterpreter,
+		BridgePrefix:      bridgePrefix,
+		Clock:             clock,
+		DryRun:            dryRun,
+		Environ:           environ,
+		Filename:          filename,
+		Timeout:           timeout,
 	}
+}
+
+// DefaultEtcNetworkInterfacesBridger returns a Bridger instance that
+// can parse an interfaces(5) to transform existing devices into
+// bridged devices.
+func DefaultEtcNetworkInterfacesBridger(timeout time.Duration, bridgePrefix, filename string) (Bridger, error) {
+	pythonVersions := pythonInterpreters()
+	if len(pythonVersions) == 0 {
+		return nil, errors.Errorf("no python interpreter found")
+	}
+	return newEtcNetworkInterfacesBridger(pythonVersions[0], os.Environ(), clock.WallClock, timeout, bridgePrefix, filename, false), nil
 }

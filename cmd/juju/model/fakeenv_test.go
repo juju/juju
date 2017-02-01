@@ -107,6 +107,7 @@ func (s *fakeModelDefaultEnvSuite) SetUpTest(c *gc.C) {
 	s.fakeCloudAPI = &fakeCloudAPI{
 		clouds: map[string]jujucloud.Cloud{
 			"cloud-dummy": {
+				Name: "dummy",
 				Type: "dummy-cloud",
 				Regions: []jujucloud.Region{
 					{Name: "dummy-region"},

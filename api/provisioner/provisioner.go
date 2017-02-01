@@ -252,19 +252,19 @@ func (st *State) SetHostMachineNetworkConfig(hostMachineID string, netConfig []p
 	return nil
 }
 
-func (st *State) HostChangesForContainer(containerTag names.MachineTag) ([]network.DeviceToBridge, error) {
+func (st *State) HostChangesForContainer(containerTag names.MachineTag) ([]network.DeviceToBridge, int, error) {
 	var result params.HostNetworkChangeResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: containerTag.String()}},
 	}
 	if err := st.facade.FacadeCall("HostChangesForContainers", args, &result); err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	if len(result.Results) != 1 {
-		return nil, errors.Errorf("expected 1 result, got %d", len(result.Results))
+		return nil, 0, errors.Errorf("expected 1 result, got %d", len(result.Results))
 	}
 	if err := result.Results[0].Error; err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	newBridges := result.Results[0].NewBridges
 	res := make([]network.DeviceToBridge, len(newBridges))
@@ -272,5 +272,5 @@ func (st *State) HostChangesForContainer(containerTag names.MachineTag) ([]netwo
 		res[i].BridgeName = bridgeInfo.BridgeName
 		res[i].DeviceName = bridgeInfo.HostDeviceName
 	}
-	return res, nil
+	return res, result.Results[0].ReconfigureDelay, nil
 }

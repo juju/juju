@@ -73,7 +73,6 @@ func init() {
 	environs.RegisterProvider("no-cloud-regions", noCloudRegionsProvider{dummyProvider})
 	environs.RegisterProvider("no-credentials", noCredentialsProvider{})
 	environs.RegisterProvider("many-credentials", manyCredentialsProvider{dummyProvider})
-	environs.RegisterProvider("default-cloud-name", defaultCloudNameProvider{})
 }
 
 func (s *BootstrapSuite) SetUpSuite(c *gc.C) {
@@ -1338,6 +1337,35 @@ func (s *BootstrapSuite) TestManyAvailableCredentialsNoneSpecified(c *gc.C) {
 	c.Assert(msg, gc.Matches, "more than one credential is available.*")
 }
 
+func (s *BootstrapSuite) TestBootstrapProviderDetectCloud(c *gc.C) {
+	resetJujuXDGDataHome(c)
+
+	var bootstrap fakeBootstrapFuncs
+	bootstrap.cloudDetector = cloudDetectorFunc(func() ([]cloud.Cloud, error) {
+		return []cloud.Cloud{{
+			Name:      "bruce",
+			Type:      "dummy",
+			AuthTypes: []cloud.AuthType{cloud.CertificateAuthType},
+			Regions:   []cloud.Region{{Name: "gazza", Endpoint: "endpoint"}},
+		}}, nil
+	})
+	s.PatchValue(&getBootstrapFuncs, func() BootstrapInterface {
+		return &bootstrap
+	})
+
+	s.patchVersionAndSeries(c, "raring")
+	coretesting.RunCommand(c, s.newBootstrapCommand(), "bruce", "ctrl")
+	c.Assert(bootstrap.args.CloudRegion, gc.Equals, "gazza")
+	c.Assert(bootstrap.args.CloudCredentialName, gc.Equals, "default")
+	sort.Sort(bootstrap.args.Cloud.AuthTypes)
+	c.Assert(bootstrap.args.Cloud, jc.DeepEquals, cloud.Cloud{
+		Name:      "bruce",
+		Type:      "dummy",
+		AuthTypes: []cloud.AuthType{cloud.CertificateAuthType},
+		Regions:   []cloud.Region{{Name: "gazza", Endpoint: "endpoint"}},
+	})
+}
+
 func (s *BootstrapSuite) TestBootstrapProviderDetectRegions(c *gc.C) {
 	resetJujuXDGDataHome(c)
 
@@ -1382,24 +1410,6 @@ func (s *BootstrapSuite) TestBootstrapProviderDetectNoRegions(c *gc.C) {
 		Type:      "dummy",
 		AuthTypes: []cloud.AuthType{cloud.EmptyAuthType, cloud.UserPassAuthType},
 	})
-}
-
-func (s *BootstrapSuite) TestBootstrapProviderUsesDefaultCloudName(c *gc.C) {
-	s.patchVersionAndSeries(c, "xenial")
-
-	var prepareParams bootstrap.PrepareParams
-	s.PatchValue(&bootstrapPrepare, func(
-		ctx environs.BootstrapContext,
-		stor jujuclient.ClientStore,
-		params bootstrap.PrepareParams,
-	) (environs.Environ, error) {
-		prepareParams = params
-		return nil, errors.New("mock-prepare")
-	})
-
-	_, err := coretesting.RunCommand(c, s.newBootstrapCommand(), "default-cloud-name", "ctrl")
-	c.Assert(err, gc.ErrorMatches, "mock-prepare")
-	c.Assert(prepareParams.Cloud.Name, gc.Equals, "mykonos")
 }
 
 func (s *BootstrapSuite) TestBootstrapProviderCaseInsensitiveRegionCheck(c *gc.C) {
@@ -1765,12 +1775,18 @@ func joinBinaryVersions(versions ...[]version.Binary) []version.Binary {
 // file which execute large amounts of external functionality.
 type fakeBootstrapFuncs struct {
 	args                bootstrap.BootstrapParams
+	cloudDetector       environs.CloudDetector
 	cloudRegionDetector environs.CloudRegionDetector
 }
 
 func (fake *fakeBootstrapFuncs) Bootstrap(ctx environs.BootstrapContext, env environs.Environ, args bootstrap.BootstrapParams) error {
 	fake.args = args
 	return nil
+}
+
+func (fake *fakeBootstrapFuncs) CloudDetector(environs.EnvironProvider) (environs.CloudDetector, bool) {
+	detector := fake.cloudDetector
+	return detector, detector != nil
 }
 
 func (fake *fakeBootstrapFuncs) CloudRegionDetector(environs.EnvironProvider) (environs.CloudRegionDetector, bool) {
@@ -1781,10 +1797,6 @@ func (fake *fakeBootstrapFuncs) CloudRegionDetector(environs.EnvironProvider) (e
 		})
 	}
 	return detector, true
-}
-
-func (fake *fakeBootstrapFuncs) DefaultCloudName(environs.EnvironProvider) (string, bool) {
-	return "", false
 }
 
 type noCloudRegionDetectionProvider struct {
@@ -1840,24 +1852,27 @@ func (manyCredentialsProvider) CredentialSchemas() map[cloud.AuthType]cloud.Cred
 	return map[cloud.AuthType]cloud.CredentialSchema{"one": {}, "two": {}}
 }
 
+type cloudDetectorFunc func() ([]cloud.Cloud, error)
+
+func (c cloudDetectorFunc) DetectCloud(name string) (cloud.Cloud, error) {
+	clouds, err := c.DetectClouds()
+	if err != nil {
+		return cloud.Cloud{}, err
+	}
+	for _, cloud := range clouds {
+		if cloud.Name == name {
+			return cloud, nil
+		}
+	}
+	return cloud.Cloud{}, errors.NotFoundf("cloud %s", name)
+}
+
+func (c cloudDetectorFunc) DetectClouds() ([]cloud.Cloud, error) {
+	return c()
+}
+
 type cloudRegionDetectorFunc func() ([]cloud.Region, error)
 
 func (c cloudRegionDetectorFunc) DetectRegions() ([]cloud.Region, error) {
 	return c()
-}
-
-type defaultCloudNameProvider struct {
-	manyCredentialsProvider
-}
-
-func (defaultCloudNameProvider) DefaultCloudName() string {
-	return "mykonos"
-}
-
-func (defaultCloudNameProvider) DetectCredentials() (*cloud.CloudCredential, error) {
-	return &cloud.CloudCredential{
-		AuthCredentials: map[string]cloud.Credential{
-			"one": cloud.NewCredential("one", nil),
-		},
-	}, nil
 }

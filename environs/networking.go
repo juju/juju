@@ -42,6 +42,11 @@ type Networking interface {
 	// provider that have subnets available.
 	Spaces() ([]network.SpaceInfo, error)
 
+	// SupportsContainerAddresses returns true if the current environment is
+	// able to allocate addresses for containers. If returning false, we also
+	// return an IsNotSupported error.
+	SupportsContainerAddresses() (bool, error)
+
 	// AllocateContainerAddresses allocates a static address for each of the
 	// container NICs in preparedInfo, hosted by the hostInstanceID. Returns the
 	// network config including all allocated addresses on success.
@@ -78,6 +83,23 @@ func SupportsSpaces(env Environ) bool {
 	if err != nil {
 		if !errors.IsNotSupported(err) {
 			logger.Errorf("checking model spaces support failed with: %v", err)
+		}
+		return false
+	}
+	return ok
+}
+
+// SupportsContainerAddresses checks if the environment will let us allocate
+// addresses for containers from the host ranges.
+func SupportsContainerAddresses(env Environ) bool {
+	netEnv, ok := supportsNetworking(env)
+	if !ok {
+		return false
+	}
+	ok, err := netEnv.SupportsContainerAddresses()
+	if err != nil {
+		if !errors.IsNotSupported(err) {
+			logger.Errorf("checking model container address support failed with: %v", err)
 		}
 		return false
 	}

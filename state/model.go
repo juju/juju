@@ -237,7 +237,7 @@ func (st *State) NewModel(args ModelArgs) (_ *Model, _ *State, err error) {
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
-	assertCloudRegionOp, err := validateCloudRegion(controllerCloud, args.CloudName, args.CloudRegion)
+	assertCloudRegionOp, err := validateCloudRegion(controllerCloud, args.CloudRegion)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
@@ -251,7 +251,7 @@ func (st *State) NewModel(args ModelArgs) (_ *Model, _ *State, err error) {
 		return nil, nil, errors.Trace(err)
 	}
 	assertCloudCredentialOp, err := validateCloudCredential(
-		controllerCloud, args.CloudName, cloudCredentials, args.CloudCredential,
+		controllerCloud, cloudCredentials, args.CloudCredential,
 	)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
@@ -340,12 +340,12 @@ func (st *State) NewModel(args ModelArgs) (_ *Model, _ *State, err error) {
 // validateCloudRegion validates the given region name against the
 // provided Cloud definition, and returns a txn.Op to include in a
 // transaction to assert the same.
-func validateCloudRegion(cloud jujucloud.Cloud, cloudName, regionName string) (txn.Op, error) {
+func validateCloudRegion(cloud jujucloud.Cloud, regionName string) (txn.Op, error) {
 	// Ensure that the cloud region is valid, or if one is not specified,
 	// that the cloud does not support regions.
 	assertCloudRegionOp := txn.Op{
 		C:  cloudsC,
-		Id: cloudName,
+		Id: cloud.Name,
 	}
 	if regionName != "" {
 		region, err := jujucloud.RegionByName(cloud.Regions, regionName)
@@ -373,12 +373,11 @@ func validateCloudRegion(cloud jujucloud.Cloud, cloudName, regionName string) (t
 // will be asserted.
 func validateCloudCredential(
 	cloud jujucloud.Cloud,
-	cloudName string,
 	cloudCredentials map[string]jujucloud.Credential,
 	cloudCredential names.CloudCredentialTag,
 ) (txn.Op, error) {
 	if cloudCredential != (names.CloudCredentialTag{}) {
-		if cloudCredential.Cloud().Id() != cloudName {
+		if cloudCredential.Cloud().Id() != cloud.Name {
 			return txn.Op{}, errors.NotValidf("credential %q", cloudCredential.Id())
 		}
 		var found bool
@@ -414,7 +413,7 @@ func validateCloudCredential(
 	}
 	return txn.Op{
 		C:      cloudsC,
-		Id:     cloudName,
+		Id:     cloud.Name,
 		Assert: bson.D{{"auth-types", string(jujucloud.EmptyAuthType)}},
 	}, nil
 }

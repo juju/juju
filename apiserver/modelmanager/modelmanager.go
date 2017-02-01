@@ -283,7 +283,7 @@ func (m *ModelManagerAPI) CreateModel(args params.ModelCreateArgs) (params.Model
 		credential = &credentialValue
 	}
 
-	cloudSpec, err := environs.MakeCloudSpec(cloud, cloudTag.Id(), cloudRegionName, credential)
+	cloudSpec, err := environs.MakeCloudSpec(cloud, cloudRegionName, credential)
 	if err != nil {
 		return result, errors.Trace(err)
 	}

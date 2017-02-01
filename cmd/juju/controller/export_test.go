@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/jujuclient"
 )
 
@@ -46,6 +47,7 @@ func NewAddModelCommandForTest(
 	api AddModelAPI,
 	cloudAPI CloudAPI,
 	store jujuclient.ClientStore,
+	providerRegistry environs.ProviderRegistry,
 ) (cmd.Command, *AddModelCommand) {
 	c := &addModelCommand{
 		apiRoot: apiRoot,
@@ -55,6 +57,7 @@ func NewAddModelCommandForTest(
 		newCloudAPI: func(base.APICallCloser) CloudAPI {
 			return cloudAPI
 		},
+		providerRegistry: providerRegistry,
 	}
 	c.SetClientStore(store)
 	return modelcmd.WrapController(c), &AddModelCommand{c}

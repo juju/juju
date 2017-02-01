@@ -104,8 +104,8 @@ func (s *InitializeSuite) TestInitialize(c *gc.C) {
 			CloudCredential:         userPassCredentialTag,
 			StorageProviderRegistry: storage.StaticProviderRegistry{},
 		},
-		CloudName: "dummy",
 		Cloud: cloud.Cloud{
+			Name: "dummy",
 			Type: "dummy",
 			AuthTypes: []cloud.AuthType{
 				cloud.EmptyAuthType, cloud.UserPassAuthType,
@@ -195,8 +195,8 @@ func (s *InitializeSuite) TestInitializeWithInvalidCredentialType(c *gc.C) {
 			Config:                  modelCfg,
 			StorageProviderRegistry: storage.StaticProviderRegistry{},
 		},
-		CloudName: "dummy",
 		Cloud: cloud.Cloud{
+			Name: "dummy",
 			Type: "dummy",
 			AuthTypes: []cloud.AuthType{
 				cloud.AccessKeyAuthType, cloud.OAuth1AuthType,
@@ -232,8 +232,8 @@ func (s *InitializeSuite) TestInitializeWithControllerInheritedConfig(c *gc.C) {
 			Config:                  cfg,
 			StorageProviderRegistry: storage.StaticProviderRegistry{},
 		},
-		CloudName: "dummy",
 		Cloud: cloud.Cloud{
+			Name:      "dummy",
 			Type:      "dummy",
 			AuthTypes: []cloud.AuthType{cloud.EmptyAuthType},
 		},
@@ -284,8 +284,8 @@ func (s *InitializeSuite) TestDoubleInitializeConfig(c *gc.C) {
 			Config:                  cfg,
 			StorageProviderRegistry: storage.StaticProviderRegistry{},
 		},
-		CloudName: "dummy",
 		Cloud: cloud.Cloud{
+			Name:      "dummy",
 			Type:      "dummy",
 			AuthTypes: []cloud.AuthType{cloud.EmptyAuthType},
 		},
@@ -343,8 +343,8 @@ func (s *InitializeSuite) testBadModelConfig(c *gc.C, update map[string]interfac
 			Config:                  bad,
 			StorageProviderRegistry: storage.StaticProviderRegistry{},
 		},
-		CloudName: "dummy",
 		Cloud: cloud.Cloud{
+			Name:      "dummy",
 			Type:      "dummy",
 			AuthTypes: []cloud.AuthType{cloud.EmptyAuthType},
 			Regions:   []cloud.Region{{Name: "dummy-region"}},
@@ -393,8 +393,8 @@ func (s *InitializeSuite) TestCloudConfigWithForbiddenValues(c *gc.C) {
 			Config:                  modelCfg,
 			StorageProviderRegistry: storage.StaticProviderRegistry{},
 		},
-		CloudName: "dummy",
 		Cloud: cloud.Cloud{
+			Name:      "dummy",
 			Type:      "dummy",
 			AuthTypes: []cloud.AuthType{cloud.EmptyAuthType},
 		},
@@ -435,8 +435,8 @@ func (s *InitializeSuite) TestInitializeWithCloudRegionConfig(c *gc.C) {
 			Config:                  cfg,
 			StorageProviderRegistry: storage.StaticProviderRegistry{},
 		},
-		CloudName: "dummy",
 		Cloud: cloud.Cloud{
+			Name:         "dummy",
 			Type:         "dummy",
 			AuthTypes:    []cloud.AuthType{cloud.EmptyAuthType},
 			RegionConfig: regionInheritedConfigIn, // Init with phony region-config
@@ -493,8 +493,8 @@ func (s *InitializeSuite) TestInitializeWithCloudRegionMisses(c *gc.C) {
 			Config:                  cfg,
 			StorageProviderRegistry: storage.StaticProviderRegistry{},
 		},
-		CloudName: "dummy",
 		Cloud: cloud.Cloud{
+			Name:         "dummy",
 			Type:         "dummy",
 			AuthTypes:    []cloud.AuthType{cloud.EmptyAuthType},
 			RegionConfig: regionInheritedConfigIn, // Init with phony region-config
@@ -547,8 +547,8 @@ func (s *InitializeSuite) TestInitializeWithCloudRegionHits(c *gc.C) {
 			Config:                  cfg,
 			StorageProviderRegistry: storage.StaticProviderRegistry{},
 		},
-		CloudName: "dummy",
 		Cloud: cloud.Cloud{
+			Name:         "dummy",
 			Type:         "dummy",
 			AuthTypes:    []cloud.AuthType{cloud.EmptyAuthType},
 			RegionConfig: regionInheritedConfigIn, // Init with phony region-config

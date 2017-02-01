@@ -397,6 +397,7 @@ def arg_parser():
     parser.add_argument('--interfaces-to-bridge', help="interfaces to bridge; space delimited", type=str, required=True)
     parser.add_argument('--dry-run', help="dry run, no activation", action='store_true', default=False, required=False)
     parser.add_argument('--bridge-name', help="bridge name", type=str, required=False)
+    parser.add_argument('--reconfigure-delay', help="delay in seconds before raising interfaces", type=int, required=False, default=10)
     parser.add_argument('filename', help="interfaces(5) based filename")
     return parser
 
@@ -443,21 +444,8 @@ def main(args):
             print_stanzas(stanzas, f)
             f.close()
 
-    # On configurations that have bonds in 802.3ad mode there is a
-    # race condition betweeen an immediate ifdown then ifup.
-    #
-    # On the h/w I have a 'sleep 0.1' is sufficient but to accommodate
-    # other setups we arbitrarily choose something larger. We don't
-    # want to massively slow bootstrap down but, equally, 0.1 may be
-    # too small for other configurations.
-
-    for s in stanzas:
-        if s.is_logical_interface and s.iface.is_bonded:
-            print("working around https://bugs.launchpad.net/ubuntu/+source/ifenslave/+bug/1269921")
-            print("working around https://bugs.launchpad.net/juju-core/+bug/1594855")
-            shell_cmd("sleep 3", dry_run=args.dry_run)
-            break
-
+    if args.reconfigure_delay and args.reconfigure_delay > 0 :
+        shell_cmd("sleep {}".format(args.reconfigure_delay), dry_run=args.dry_run)
     shell_cmd("cat {}".format(args.filename), dry_run=args.dry_run)
     shell_cmd("ifup --exclude=lo --interfaces={} -a".format(args.filename), dry_run=args.dry_run)
     shell_cmd("ip -d link show", dry_run=args.dry_run)

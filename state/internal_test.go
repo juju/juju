@@ -4,9 +4,12 @@
 package state
 
 import (
+	"fmt"
+
 	"github.com/juju/errors"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
@@ -31,8 +34,9 @@ var _ = gc.Suite(&internalStateSuite{})
 type internalStateSuite struct {
 	jujutesting.MgoSuite
 	testing.BaseSuite
-	state *State
-	owner names.UserTag
+	state      *State
+	owner      names.UserTag
+	modelCount int
 }
 
 func (s *internalStateSuite) SetUpSuite(c *gc.C) {
@@ -70,8 +74,8 @@ func (s *internalStateSuite) SetUpTest(c *gc.C) {
 			Config:                  modelCfg,
 			StorageProviderRegistry: provider.CommonStorageProviders(),
 		},
-		CloudName: "dummy",
 		Cloud: cloud.Cloud{
+			Name:      "dummy",
 			Type:      "dummy",
 			AuthTypes: []cloud.AuthType{cloud.EmptyAuthType},
 			Regions: []cloud.Region{
@@ -94,6 +98,24 @@ func (s *internalStateSuite) SetUpTest(c *gc.C) {
 func (s *internalStateSuite) TearDownTest(c *gc.C) {
 	s.BaseSuite.TearDownTest(c)
 	s.MgoSuite.TearDownTest(c)
+}
+
+func (s *internalStateSuite) newState(c *gc.C) *State {
+	s.modelCount++
+	cfg := testing.CustomModelConfig(c, testing.Attrs{
+		"name": fmt.Sprintf("testmodel%d", s.modelCount),
+		"uuid": utils.MustNewUUID().String(),
+	})
+	_, st, err := s.state.NewModel(ModelArgs{
+		CloudName:   "dummy",
+		CloudRegion: "dummy-region",
+		Config:      cfg,
+		Owner:       s.owner,
+		StorageProviderRegistry: storage.StaticProviderRegistry{},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	s.AddCleanup(func(*gc.C) { st.Close() })
+	return st
 }
 
 type internalStatePolicy struct{}

@@ -18,7 +18,6 @@ import (
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/juju/osenv"
-	"github.com/juju/juju/provider/lxd/lxdnames"
 )
 
 //go:generate go run ../generate/filetoconst/filetoconst.go fallbackPublicCloudInfo fallback-public-cloud.yaml fallback_public_cloud.go 2015 cloud
@@ -156,6 +155,7 @@ type cloudSet struct {
 
 // cloud is equivalent to Cloud, for marshalling and unmarshalling.
 type cloud struct {
+	Name             string                 `yaml:"name,omitempty"`
 	Type             string                 `yaml:"type"`
 	Description      string                 `yaml:"description,omitempty"`
 	AuthTypes        []AuthType             `yaml:"auth-types,omitempty,flow"`
@@ -189,20 +189,6 @@ type region struct {
 	StorageEndpoint  string `yaml:"storage-endpoint,omitempty"`
 }
 
-//DefaultLXD is the name of the default lxd cloud.
-const DefaultLXD = "localhost"
-
-// BuiltInClouds work out of the box.
-var BuiltInClouds = map[string]Cloud{
-	DefaultLXD: {
-		Name:        DefaultLXD,
-		Type:        lxdnames.ProviderType,
-		AuthTypes:   []AuthType{EmptyAuthType},
-		Regions:     []Region{{Name: lxdnames.DefaultRegion}},
-		Description: defaultCloudDescription[lxdnames.ProviderType],
-	},
-}
-
 // CloudByName returns the cloud with the specified name.
 // If there exists no cloud with the specified name, an
 // error satisfying errors.IsNotFound will be returned.
@@ -222,9 +208,6 @@ func CloudByName(name string) (*Cloud, error) {
 		return nil, errors.Trace(err)
 	}
 	if cloud, ok := clouds[name]; ok {
-		return &cloud, nil
-	}
-	if cloud, ok := BuiltInClouds[name]; ok {
 		return &cloud, nil
 	}
 	return nil, errors.NotFoundf("cloud %s", name)
@@ -315,6 +298,12 @@ func ParseCloudMetadata(data []byte) (map[string]Cloud, error) {
 	return clouds, nil
 }
 
+// DefaultCloudDescription returns the description for the specified cloud
+// type, or an empty string if the cloud type is unknown.
+func DefaultCloudDescription(cloudType string) string {
+	return defaultCloudDescription[cloudType]
+}
+
 var defaultCloudDescription = map[string]string{
 	"aws":         "Amazon Web Services",
 	"aws-china":   "Amazon China",
@@ -359,7 +348,7 @@ func IsSameCloudMetadata(meta1, meta2 map[string]Cloud) (bool, error) {
 func marshalCloudMetadata(cloudsMap map[string]Cloud) ([]byte, error) {
 	clouds := cloudSet{make(map[string]*cloud)}
 	for name, metadata := range cloudsMap {
-		clouds.Clouds[name] = cloudToInternal(metadata)
+		clouds.Clouds[name] = cloudToInternal(metadata, false)
 	}
 	data, err := yaml.Marshal(clouds)
 	if err != nil {
@@ -370,7 +359,7 @@ func marshalCloudMetadata(cloudsMap map[string]Cloud) ([]byte, error) {
 
 // MarshalCloud marshals a Cloud to an opaque byte array.
 func MarshalCloud(cloud Cloud) ([]byte, error) {
-	return yaml.Marshal(cloudToInternal(cloud))
+	return yaml.Marshal(cloudToInternal(cloud, true))
 }
 
 // UnmarshalCloud unmarshals a Cloud from a byte array produced by MarshalCloud.
@@ -382,7 +371,7 @@ func UnmarshalCloud(in []byte) (Cloud, error) {
 	return cloudFromInternal(&internal), nil
 }
 
-func cloudToInternal(in Cloud) *cloud {
+func cloudToInternal(in Cloud, withName bool) *cloud {
 	var regions regions
 	for _, r := range in.Regions {
 		regions.Slice = append(regions.Slice, yaml.MapItem{
@@ -393,7 +382,12 @@ func cloudToInternal(in Cloud) *cloud {
 			},
 		})
 	}
+	name := in.Name
+	if !withName {
+		name = ""
+	}
 	return &cloud{
+		Name:             name,
 		Type:             in.Type,
 		AuthTypes:        in.AuthTypes,
 		Endpoint:         in.Endpoint,
@@ -426,6 +420,7 @@ func cloudFromInternal(in *cloud) Cloud {
 		}
 	}
 	meta := Cloud{
+		Name:             in.Name,
 		Type:             in.Type,
 		AuthTypes:        in.AuthTypes,
 		Endpoint:         in.Endpoint,

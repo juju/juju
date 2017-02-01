@@ -939,11 +939,11 @@ func (s *bootstrapSuite) TestBootstrapCloudCredential(c *gc.C) {
 		AdminSecret:      "admin-secret",
 		CAPrivateKey:     coretesting.CAKey,
 		Cloud: cloud.Cloud{
+			Name:      "cloud-name",
 			Type:      "dummy",
 			AuthTypes: []cloud.AuthType{cloud.EmptyAuthType},
 			Regions:   []cloud.Region{{Name: "region-name"}},
 		},
-		CloudName:           "cloud-name",
 		CloudRegion:         "region-name",
 		CloudCredentialName: "credential-name",
 		CloudCredential:     &credential,
@@ -953,7 +953,6 @@ func (s *bootstrapSuite) TestBootstrapCloudCredential(c *gc.C) {
 	c.Assert(env.bootstrapCount, gc.Equals, 1)
 	c.Assert(env.instanceConfig, gc.NotNil)
 	c.Assert(env.instanceConfig.Bootstrap.ControllerCloud, jc.DeepEquals, args.Cloud)
-	c.Assert(env.instanceConfig.Bootstrap.ControllerCloudName, jc.DeepEquals, args.CloudName)
 	c.Assert(env.instanceConfig.Bootstrap.ControllerCloudRegion, jc.DeepEquals, args.CloudRegion)
 	c.Assert(env.instanceConfig.Bootstrap.ControllerCloudCredential, jc.DeepEquals, args.CloudCredential)
 	c.Assert(env.instanceConfig.Bootstrap.ControllerCloudCredentialName, jc.DeepEquals, args.CloudCredentialName)
@@ -981,8 +980,8 @@ func (s *bootstrapSuite) TestFinishBootstrapConfig(c *gc.C) {
 
 	password := "lisboan-pork"
 
-	cloudName := "dummy"
 	dummyCloud := cloud.Cloud{
+		Name: "dummy",
 		RegionConfig: cloud.RegionConfig{
 			"a-region": cloud.Attrs{
 				"a-key": "a-value",
@@ -997,10 +996,9 @@ func (s *bootstrapSuite) TestFinishBootstrapConfig(c *gc.C) {
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
 		ControllerConfig:          coretesting.FakeControllerConfig(),
 		ControllerInheritedConfig: map[string]interface{}{"ftp-proxy": "http://proxy"},
-		CloudName:                 cloudName,
-		Cloud:                     dummyCloud,
-		AdminSecret:               password,
-		CAPrivateKey:              coretesting.CAKey,
+		Cloud:        dummyCloud,
+		AdminSecret:  password,
+		CAPrivateKey: coretesting.CAKey,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	icfg := env.instanceConfig

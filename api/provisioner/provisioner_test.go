@@ -709,7 +709,7 @@ func (s *provisionerSuite) TestHostChangesForContainer(c *gc.C) {
 	container, err := s.State.AddMachineInsideMachine(containerTemplate, s.machine.Id(), instance.LXD)
 	c.Assert(err, jc.ErrorIsNil)
 
-	changes, err := s.provisioner.HostChangesForContainer(container.MachineTag())
+	changes, reconfigureDelay, err := s.provisioner.HostChangesForContainer(container.MachineTag())
 	c.Assert(err, gc.ErrorMatches, "dummy provider network config not supported.*")
 	c.Skip("can't test without network support")
 	c.Assert(err, jc.ErrorIsNil)
@@ -717,4 +717,5 @@ func (s *provisionerSuite) TestHostChangesForContainer(c *gc.C) {
 		BridgeName: "br-ens3",
 		DeviceName: "ens3",
 	}})
+	c.Check(reconfigureDelay, gc.Equals, 0)
 }

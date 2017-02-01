@@ -143,6 +143,11 @@ func (e *environ) SupportsSpaces() (bool, error) {
 	return true, nil
 }
 
+// SupportsContainerAddresses is specified on environs.Networking.
+func (e *environ) SupportsContainerAddresses() (bool, error) {
+	return false, errors.NotSupportedf("container address allocation")
+}
+
 // SupportsSpaceDiscovery is specified on environs.Networking.
 func (e *environ) SupportsSpaceDiscovery() (bool, error) {
 	return false, nil

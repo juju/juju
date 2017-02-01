@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
@@ -256,7 +257,7 @@ func AddMigrationAttempt(st *State) error {
 		id := doc["_id"]
 		attempt, err := extractMigrationAttempt(id)
 		if err != nil {
-			logger.Warningf("%s (skipping)", err)
+			upgradesLogger.Warningf("%s (skipping)", err)
 			continue
 		}
 
@@ -291,4 +292,88 @@ func extractMigrationAttempt(id interface{}) (int, error) {
 	}
 
 	return attempt, nil
+}
+
+// AddLocalCharmSequences creates any missing sequences in the
+// database for tracking already used local charm revisions.
+func AddLocalCharmSequences(st *State) error {
+	charmsColl, closer := st.getRawCollection(charmsC)
+	defer closer()
+
+	query := bson.M{
+		"url": bson.M{"$regex": "^local:"},
+	}
+	var docs []bson.M
+	err := charmsColl.Find(query).Select(bson.M{
+		"_id":  1,
+		"life": 1,
+	}).All(&docs)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	// model UUID -> charm URL base -> max revision
+	maxRevs := make(map[string]map[string]int)
+	var deadIds []string
+	for _, doc := range docs {
+		id, ok := doc["_id"].(string)
+		if !ok {
+			upgradesLogger.Errorf("invalid charm id: %v", doc["_id"])
+			continue
+		}
+		modelUUID, urlStr, ok := splitDocID(id)
+		if !ok {
+			upgradesLogger.Errorf("unable to split charm _id: %v", id)
+			continue
+		}
+		url, err := charm.ParseURL(urlStr)
+		if err != nil {
+			upgradesLogger.Errorf("unable to parse charm URL: %v", err)
+			continue
+		}
+
+		if _, exists := maxRevs[modelUUID]; !exists {
+			maxRevs[modelUUID] = make(map[string]int)
+		}
+
+		baseURL := url.WithRevision(-1).String()
+		curRev := maxRevs[modelUUID][baseURL]
+		if url.Revision > curRev {
+			maxRevs[modelUUID][baseURL] = url.Revision
+		}
+
+		if life, ok := doc["life"].(int); !ok {
+			upgradesLogger.Errorf("invalid life for charm: %s", id)
+			continue
+		} else if life == int(Dead) {
+			deadIds = append(deadIds, id)
+		}
+
+	}
+
+	sequences, closer := st.getRawCollection(sequenceC)
+	defer closer()
+	for modelUUID, modelRevs := range maxRevs {
+		for baseURL, maxRevision := range modelRevs {
+			name := charmRevSeqName(baseURL)
+			updater := newDbSeqUpdater(sequences, modelUUID, name)
+			err := updater.ensure(maxRevision + 1)
+			if err != nil {
+				return errors.Annotatef(err, "setting sequence %s", name)
+			}
+		}
+
+	}
+
+	// Remove dead charm documents
+	var ops []txn.Op
+	for _, id := range deadIds {
+		ops = append(ops, txn.Op{
+			C:      charmsC,
+			Id:     id,
+			Remove: true,
+		})
+	}
+	err = st.runRawTransaction(ops)
+	return errors.Annotate(err, "removing dead charms")
 }

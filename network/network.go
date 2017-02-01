@@ -55,6 +55,9 @@ const AnySubnet Id = ""
 // UnknownId can be used whenever an Id is needed but not known.
 const UnknownId = ""
 
+// DefaultLXCBridge is the bridge that gets used for LXC containers
+const DefaultLXCBridge = "lxcbr0"
+
 // DefaultLXDBridge is the bridge that gets used for LXD containers
 const DefaultLXDBridge = "lxdbr0"
 
@@ -331,7 +334,7 @@ type DeviceToBridge struct {
 	// be bridged.
 	DeviceName string
 
-	// BridgeName is the name of the bride that we want created.
+	// BridgeName is the name of the bridge that we want created.
 	BridgeName string
 }
 
@@ -483,4 +486,23 @@ func FilterBridgeAddresses(addresses []Address) []Address {
 	filtered := filterAddrs(addresses, addressesToRemove)
 	logger.Debugf("addresses after filtering: %v", filtered)
 	return filtered
+}
+
+// QuoteSpaces takes a slice of space names, and returns a nicely formatted
+// form so they show up legible in log messages, etc.
+func QuoteSpaces(vals []string) string {
+	out := []string{}
+	if len(vals) == 0 {
+		return "<none>"
+	}
+	for _, space := range vals {
+		out = append(out, fmt.Sprintf("%q", space))
+	}
+	return strings.Join(out, ", ")
+}
+
+// QuoteSpaceSet is the same as QuoteSpaces, but ensures that a set.Strings
+// gets sorted values output.
+func QuoteSpaceSet(vals set.Strings) string {
+	return QuoteSpaces(vals.SortedValues())
 }
