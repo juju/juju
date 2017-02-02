@@ -137,7 +137,8 @@ class TestAssessCloudProvisioning(FakeHomeTestCase):
             client = bs_manager.client
             yield bs_manager
             juju_wrapper = client._backend.juju
-        test_case.assertEqual([
+        actual = strip_calls(juju_wrapper.mock_calls)
+        expected = [
             backend_call(
                 client, 'bootstrap', (
                     '--constraints', 'mem=2G', 'foo/bar', 'foo', '--config',
@@ -147,12 +148,16 @@ class TestAssessCloudProvisioning(FakeHomeTestCase):
                          'foo:foo'),
             backend_call(client, 'add-machine', ('--series', 'trusty'),
                          'foo:foo'),
+            backend_call(client, 'add-machine', ('--series', 'centos7'),
+                         'foo:foo'),
             backend_call(client, 'remove-machine', ('0',), 'foo:foo'),
             backend_call(client, 'remove-machine', ('1',), 'foo:foo'),
+            backend_call(client, 'remove-machine', ('2',), 'foo:foo'),
             backend_call(
                 client, 'destroy-controller',
                 ('foo', '-y', '--destroy-all-models'), timeout=600),
-            ], strip_calls(juju_wrapper.mock_calls))
+            ]
+        test_case.assertEqual(expected, actual)
 
 
 class TestClientFromArgs(FakeHomeTestCase):
@@ -254,6 +259,7 @@ class TestParseArgs(TestCase):
             juju_bin='baz', keep_env=False, logs=log_dir, machine=[],
             region=None, series=None, temp_env_name='qux', upload_tools=False,
             verbose=logging.INFO, test='provisioning', config=None,
+            machine_series=None,
             ))
 
     def test_parse_args_provisioning_config(self):
@@ -261,6 +267,13 @@ class TestParseArgs(TestCase):
             args = parse_args(['provisioning', 'foo', 'bar', 'baz', log_dir,
                                'qux', '--config', 'quxx'])
         self.assertEqual('quxx', args.config)
+
+    def test_parse_args_provisioning_machine_series(self):
+        with temp_dir() as log_dir:
+            args = parse_args(['provisioning', 'foo', 'bar', 'baz', log_dir,
+                               'qux', '--machine-series', 'quxx',
+                               '--machine-series', 'quxxx'])
+            self.assertEqual(args.machine_series, ['quxx', 'quxxx'])
 
 
 class TestMain(FakeHomeTestCase):

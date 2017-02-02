@@ -80,7 +80,7 @@ def assess_cloud_provisioning(bs_manager, series=None):
     bootstrap by default.
     """
     if series is None:
-	series = ['win2012r2' 'trusty', 'centos7']
+        series = ['win2012r2', 'trusty', 'centos7']
     logging.info(
         'Testing provisioning for series: {}'.format(', '.join(series)))
     client = bs_manager.client
@@ -125,8 +125,8 @@ def parse_args(args):
         add_basic_testing_arguments(subparser, env=False)
         subparser.add_argument('--config')
         if test == 'provisioning':
-            subparser.add_argument('--machine-series',
-            help='A machine series to add.', action='append')
+            subparser.add_argument('--machine-series', action='append',
+                                   help='A machine series to add.')
     return parser.parse_args(args)
 
 
