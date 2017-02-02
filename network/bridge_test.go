@@ -33,10 +33,10 @@ for arg in sys.argv[1:]: print(arg)
 `
 
 func (s *BridgeSuite) SetUpSuite(c *gc.C) {
+	s.IsolationSuite.SetUpSuite(c)
 	if runtime.GOOS == "windows" {
 		c.Skip("skipping BridgeSuite tests on windows")
 	}
-	s.IsolationSuite.SetUpSuite(c)
 }
 
 func assertCmdResult(c *gc.C, cmd, expected string) {
