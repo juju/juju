@@ -230,11 +230,16 @@ func (i *importer) sequences() error {
 	sequenceValues := i.model.Sequences()
 	docs := make([]interface{}, 0, len(sequenceValues))
 	for key, value := range sequenceValues {
-		docs = append(docs, sequenceDoc{
-			DocID:   key,
-			Name:    key,
-			Counter: value,
-		})
+		// The sequences which track charm revisions aren't imported
+		// here because they get set when charm binaries are imported
+		// later. Importing them here means the wrong values get used.
+		if !isCharmRevSeqName(key) {
+			docs = append(docs, sequenceDoc{
+				DocID:   key,
+				Name:    key,
+				Counter: value,
+			})
+		}
 	}
 
 	// In reality, we will almost always have sequences to migrate.
