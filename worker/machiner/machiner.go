@@ -144,7 +144,6 @@ func setMachineAddresses(tag names.MachineTag, m Machine) error {
 }
 
 func (mr *Machiner) Handle(_ <-chan struct{}) error {
-	logger.Infof("got a Machiner.Handle() event")
 	if err := mr.machine.Refresh(); params.IsCodeNotFoundOrCodeUnauthorized(err) {
 		// NOTE(axw) we can distinguish between NotFound and CodeUnauthorized,
 		// so we could call NotifyMachineDead here in case the agent failed to
