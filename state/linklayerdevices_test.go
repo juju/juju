@@ -980,6 +980,33 @@ func (s *linkLayerDevicesStateSuite) TestLinkLayerDevicesForSpacesWithUnknown(c 
 	c.Check(devices[0].Type(), gc.Equals, state.BridgeDevice)
 }
 
+func (s *linkLayerDevicesStateSuite) TestLinkLayerDevicesForSpacesWithNoAddress(c *gc.C) {
+	// We create a record for the 'lxdbr0' bridge, but it doesn't have an
+	// address yet (which is the case when we first show up on a machine.)
+	err := s.machine.SetLinkLayerDevices(
+		state.LinkLayerDeviceArgs{
+			Name:       "lxdbr0",
+			Type:       state.BridgeDevice,
+			ParentName: "",
+			IsUp:       true,
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	// unknown space
+	s.createNICWithIP(c, s.machine, "ens5", "192.168.10.12/24")
+	res, err := s.machine.LinkLayerDevicesForSpaces([]string{""})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(res, gc.HasLen, 1)
+	devices, ok := res[""]
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(devices, gc.HasLen, 2)
+	names := make([]string, len(devices))
+	for i, dev := range devices {
+		names[i] = dev.Name()
+	}
+	c.Check(names, gc.DeepEquals, []string{"ens5", "lxdbr0"})
+}
+
 func (s *linkLayerDevicesStateSuite) TestLinkLayerDevicesForSpacesUnknownIgnoresLoopAndIncludesKnownBridges(c *gc.C) {
 	// TODO(jam): 2016-12-28 arguably we should also be aware of Docker
 	// devices, possibly the better plan is to look at whether there are
