@@ -45,6 +45,14 @@ func InstanceSecurityGroups(e environs.Environ, ids []instance.Id, states ...str
 	return e.(*environ).instanceSecurityGroups(ids, states...)
 }
 
+func AllModelVolumes(e environs.Environ) ([]string, error) {
+	return e.(*environ).allModelVolumes(true)
+}
+
+func AllModelGroups(e environs.Environ) ([]string, error) {
+	return e.(*environ).modelSecurityGroupIDs()
+}
+
 var (
 	EC2AvailabilityZones        = &ec2AvailabilityZones
 	AvailabilityZoneAllocations = &availabilityZoneAllocations

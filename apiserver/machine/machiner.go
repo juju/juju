@@ -162,15 +162,13 @@ func (api *MachinerAPI) SetObservedNetworkConfig(args params.SetMachineNetworkCo
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if len(providerConfig) == 0 {
-		logger.Infof("not updating machine network config: no provider network config found")
-		return nil
+	finalConfig := observedConfig
+	if len(providerConfig) != 0 {
+		finalConfig = networkingcommon.MergeProviderAndObservedNetworkConfigs(providerConfig, observedConfig)
+		logger.Tracef("merged observed and provider network config: %+v", finalConfig)
 	}
 
-	mergedConfig := networkingcommon.MergeProviderAndObservedNetworkConfigs(providerConfig, observedConfig)
-	logger.Tracef("merged observed and provider network config: %+v", mergedConfig)
-
-	return api.setOneMachineNetworkConfig(m, mergedConfig)
+	return api.setOneMachineNetworkConfig(m, finalConfig)
 }
 
 func (api *MachinerAPI) getMachineForSettingNetworkConfig(machineTag string) (*state.Machine, error) {
@@ -262,7 +260,7 @@ func (api *MachinerAPI) getOneMachineProviderNetworkConfig(m *state.Machine) ([]
 		stateenvirons.EnvironConfigGetter{api.st},
 	)
 	if errors.IsNotSupported(err) {
-		logger.Infof("not updating provider network config: %v", err)
+		logger.Infof("provider network config not supported: %v", err)
 		return nil, nil
 	} else if err != nil {
 		return nil, errors.Annotate(err, "cannot get provider network config")

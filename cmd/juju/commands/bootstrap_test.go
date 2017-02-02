@@ -607,7 +607,7 @@ func checkConfigs(
 	ctx *cmd.Context, cloud *cloud.Cloud, provider environs.EnvironProvider,
 	expect map[string]map[string]interface{}) {
 
-	configs, err := bootstrapCmd.bootstrapConfigs(ctx, cloud, provider)
+	configs, err := bootstrapCmd.bootstrapConfigs(ctx, *cloud, provider)
 
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1340,28 +1340,36 @@ func (s *BootstrapSuite) TestManyAvailableCredentialsNoneSpecified(c *gc.C) {
 func (s *BootstrapSuite) TestBootstrapProviderDetectCloud(c *gc.C) {
 	resetJujuXDGDataHome(c)
 
+	dummyProvider, err := environs.Provider("dummy")
+	c.Assert(err, jc.ErrorIsNil)
+
 	var bootstrap fakeBootstrapFuncs
-	bootstrap.cloudDetector = cloudDetectorFunc(func() ([]cloud.Cloud, error) {
-		return []cloud.Cloud{{
-			Name:      "bruce",
-			Type:      "dummy",
-			AuthTypes: []cloud.AuthType{cloud.CertificateAuthType},
-			Regions:   []cloud.Region{{Name: "gazza", Endpoint: "endpoint"}},
-		}}, nil
-	})
+	bootstrap.newCloudDetector = func(p environs.EnvironProvider) (environs.CloudDetector, bool) {
+		if p != dummyProvider {
+			return nil, false
+		}
+		return cloudDetectorFunc(func() ([]cloud.Cloud, error) {
+			return []cloud.Cloud{{
+				Name:      "bruce",
+				Type:      "dummy",
+				AuthTypes: []cloud.AuthType{cloud.EmptyAuthType},
+				Regions:   []cloud.Region{{Name: "gazza", Endpoint: "endpoint"}},
+			}}, nil
+		}), true
+	}
 	s.PatchValue(&getBootstrapFuncs, func() BootstrapInterface {
 		return &bootstrap
 	})
 
 	s.patchVersionAndSeries(c, "raring")
 	coretesting.RunCommand(c, s.newBootstrapCommand(), "bruce", "ctrl")
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(bootstrap.args.CloudRegion, gc.Equals, "gazza")
 	c.Assert(bootstrap.args.CloudCredentialName, gc.Equals, "default")
-	sort.Sort(bootstrap.args.Cloud.AuthTypes)
 	c.Assert(bootstrap.args.Cloud, jc.DeepEquals, cloud.Cloud{
 		Name:      "bruce",
 		Type:      "dummy",
-		AuthTypes: []cloud.AuthType{cloud.CertificateAuthType},
+		AuthTypes: []cloud.AuthType{cloud.EmptyAuthType},
 		Regions:   []cloud.Region{{Name: "gazza", Endpoint: "endpoint"}},
 	})
 }
@@ -1409,6 +1417,32 @@ func (s *BootstrapSuite) TestBootstrapProviderDetectNoRegions(c *gc.C) {
 		Name:      "dummy",
 		Type:      "dummy",
 		AuthTypes: []cloud.AuthType{cloud.EmptyAuthType, cloud.UserPassAuthType},
+	})
+}
+
+func (s *BootstrapSuite) TestBootstrapProviderFinalizeCloud(c *gc.C) {
+	resetJujuXDGDataHome(c)
+
+	var bootstrap fakeBootstrapFuncs
+	bootstrap.cloudFinalizer = cloudFinalizerFunc(func(ctx environs.FinalizeCloudContext, in cloud.Cloud) (cloud.Cloud, error) {
+		c.Assert(in, jc.DeepEquals, cloud.Cloud{
+			Name:      "dummy",
+			Type:      "dummy",
+			AuthTypes: []cloud.AuthType{"empty", "userpass"},
+		})
+		in.Name = "override"
+		return in, nil
+	})
+	s.PatchValue(&getBootstrapFuncs, func() BootstrapInterface {
+		return &bootstrap
+	})
+
+	s.patchVersionAndSeries(c, "raring")
+	coretesting.RunCommand(c, s.newBootstrapCommand(), "dummy", "ctrl")
+	c.Assert(bootstrap.args.Cloud, jc.DeepEquals, cloud.Cloud{
+		Name:      "override",
+		Type:      "dummy",
+		AuthTypes: []cloud.AuthType{"empty", "userpass"},
 	})
 }
 
@@ -1777,8 +1811,9 @@ func joinBinaryVersions(versions ...[]version.Binary) []version.Binary {
 // file which execute large amounts of external functionality.
 type fakeBootstrapFuncs struct {
 	args                bootstrap.BootstrapParams
-	cloudDetector       environs.CloudDetector
+	newCloudDetector    func(environs.EnvironProvider) (environs.CloudDetector, bool)
 	cloudRegionDetector environs.CloudRegionDetector
+	cloudFinalizer      environs.CloudFinalizer
 }
 
 func (fake *fakeBootstrapFuncs) Bootstrap(ctx environs.BootstrapContext, env environs.Environ, args bootstrap.BootstrapParams) error {
@@ -1786,9 +1821,11 @@ func (fake *fakeBootstrapFuncs) Bootstrap(ctx environs.BootstrapContext, env env
 	return nil
 }
 
-func (fake *fakeBootstrapFuncs) CloudDetector(environs.EnvironProvider) (environs.CloudDetector, bool) {
-	detector := fake.cloudDetector
-	return detector, detector != nil
+func (fake *fakeBootstrapFuncs) CloudDetector(p environs.EnvironProvider) (environs.CloudDetector, bool) {
+	if fake.newCloudDetector != nil {
+		return fake.newCloudDetector(p)
+	}
+	return nil, false
 }
 
 func (fake *fakeBootstrapFuncs) CloudRegionDetector(environs.EnvironProvider) (environs.CloudRegionDetector, bool) {
@@ -1799,6 +1836,11 @@ func (fake *fakeBootstrapFuncs) CloudRegionDetector(environs.EnvironProvider) (e
 		})
 	}
 	return detector, true
+}
+
+func (fake *fakeBootstrapFuncs) CloudFinalizer(environs.EnvironProvider) (environs.CloudFinalizer, bool) {
+	finalizer := fake.cloudFinalizer
+	return finalizer, finalizer != nil
 }
 
 type noCloudRegionDetectionProvider struct {
@@ -1877,4 +1919,10 @@ type cloudRegionDetectorFunc func() ([]cloud.Region, error)
 
 func (c cloudRegionDetectorFunc) DetectRegions() ([]cloud.Region, error) {
 	return c()
+}
+
+type cloudFinalizerFunc func(environs.FinalizeCloudContext, cloud.Cloud) (cloud.Cloud, error)
+
+func (c cloudFinalizerFunc) FinalizeCloud(ctx environs.FinalizeCloudContext, in cloud.Cloud) (cloud.Cloud, error) {
+	return c(ctx, in)
 }

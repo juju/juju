@@ -5,6 +5,7 @@ package state
 
 import (
 	"regexp"
+	"strings"
 
 	"github.com/juju/errors"
 	jujutxn "github.com/juju/txn"
@@ -666,8 +667,14 @@ func (st *State) PrepareLocalCharmUpload(curl *charm.URL) (chosenURL *charm.URL,
 	return allocatedURL, nil
 }
 
+const charmRevSeqPrefix = "charmrev-"
+
 func charmRevSeqName(baseURL string) string {
-	return "charmrev-" + baseURL
+	return charmRevSeqPrefix + baseURL
+}
+
+func isCharmRevSeqName(name string) bool {
+	return strings.HasPrefix(name, charmRevSeqPrefix)
 }
 
 // PrepareStoreCharmUpload must be called before a charm store charm

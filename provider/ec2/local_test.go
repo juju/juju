@@ -18,6 +18,7 @@ import (
 	"github.com/juju/utils/series"
 	"github.com/juju/utils/set"
 	"github.com/juju/utils/ssh"
+	"github.com/juju/version"
 	"gopkg.in/amz.v3/aws"
 	amzec2 "gopkg.in/amz.v3/ec2"
 	"gopkg.in/amz.v3/ec2/ec2test"
@@ -1498,6 +1499,134 @@ func (s *localServerSuite) TestBootstrapInstanceConstraints(c *gc.C) {
 	// Controllers should be started with a burstable
 	// instance if possible, and a 32 GiB disk.
 	c.Assert(ec2inst.InstanceType, gc.Equals, "t2.medium")
+}
+
+func controllerTag(allTags []amzec2.Tag) string {
+	for _, tag := range allTags {
+		if tag.Key == tags.JujuController {
+			return tag.Value
+		}
+	}
+	return ""
+}
+
+func makeFilter(key string, values ...string) *amzec2.Filter {
+	result := amzec2.NewFilter()
+	result.Add(key, values...)
+	return result
+}
+
+func (s *localServerSuite) TestAdoptResources(c *gc.C) {
+	controllerEnv := s.prepareAndBootstrap(c)
+	controllerInsts, err := controllerEnv.AllInstances()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(controllerInsts, gc.HasLen, 1)
+
+	controllerVolumes, err := ec2.AllModelVolumes(controllerEnv)
+	c.Assert(err, jc.ErrorIsNil)
+
+	controllerGroups, err := ec2.AllModelGroups(controllerEnv)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Create a hosted model environment with an instance and a volume.
+	hostedModelUUID := "7e386e08-cba7-44a4-a76e-7c1633584210"
+	s.srv.ec2srv.SetInitialInstanceState(ec2test.Running)
+	cfg, err := controllerEnv.Config().Apply(map[string]interface{}{
+		"uuid":          hostedModelUUID,
+		"firewall-mode": "global",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	env, err := environs.New(environs.OpenParams{
+		Cloud:  s.CloudSpec(),
+		Config: cfg,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	inst, _ := testing.AssertStartInstance(c, env, s.ControllerUUID, "0")
+	c.Assert(err, jc.ErrorIsNil)
+	ebsProvider, err := env.StorageProvider(ec2.EBS_ProviderType)
+	c.Assert(err, jc.ErrorIsNil)
+	vs, err := ebsProvider.VolumeSource(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	volumeResults, err := vs.CreateVolumes([]storage.VolumeParams{{
+		Tag:      names.NewVolumeTag("0"),
+		Size:     1024,
+		Provider: ec2.EBS_ProviderType,
+		ResourceTags: map[string]string{
+			tags.JujuController: s.ControllerUUID,
+			tags.JujuModel:      hostedModelUUID,
+		},
+		Attachment: &storage.VolumeAttachmentParams{
+			AttachmentParams: storage.AttachmentParams{
+				InstanceId: inst.Id(),
+			},
+		},
+	}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(volumeResults, gc.HasLen, 1)
+	c.Assert(volumeResults[0].Error, jc.ErrorIsNil)
+
+	modelVolumes, err := ec2.AllModelVolumes(env)
+	c.Assert(err, jc.ErrorIsNil)
+	allVolumes := append([]string{}, controllerVolumes...)
+	allVolumes = append(allVolumes, modelVolumes...)
+
+	modelGroups, err := ec2.AllModelGroups(env)
+	c.Assert(err, jc.ErrorIsNil)
+	allGroups := append([]string{}, controllerGroups...)
+	allGroups = append(allGroups, modelGroups...)
+
+	ec2conn := ec2.EnvironEC2(env)
+
+	origController := coretesting.ControllerTag.Id()
+
+	checkInstanceTags := func(controllerUUID string, expectedIds ...string) {
+		resp, err := ec2conn.Instances(
+			nil, makeFilter("tag:"+tags.JujuController, controllerUUID))
+		c.Assert(err, jc.ErrorIsNil)
+		actualIds := set.NewStrings()
+		for _, reservation := range resp.Reservations {
+			for _, instance := range reservation.Instances {
+				actualIds.Add(instance.InstanceId)
+			}
+		}
+		c.Check(actualIds, gc.DeepEquals, set.NewStrings(expectedIds...))
+	}
+
+	checkVolumeTags := func(controllerUUID string, expectedIds ...string) {
+		resp, err := ec2conn.Volumes(
+			nil, makeFilter("tag:"+tags.JujuController, controllerUUID))
+		c.Assert(err, jc.ErrorIsNil)
+		actualIds := set.NewStrings()
+		for _, vol := range resp.Volumes {
+			actualIds.Add(vol.Id)
+		}
+		c.Check(actualIds, gc.DeepEquals, set.NewStrings(expectedIds...))
+	}
+
+	checkGroupTags := func(controllerUUID string, expectedIds ...string) {
+		resp, err := ec2conn.SecurityGroups(
+			nil, makeFilter("tag:"+tags.JujuController, controllerUUID))
+		c.Assert(err, jc.ErrorIsNil)
+		actualIds := set.NewStrings()
+		for _, group := range resp.Groups {
+			actualIds.Add(group.Id)
+		}
+		c.Check(actualIds, gc.DeepEquals, set.NewStrings(expectedIds...))
+	}
+
+	checkInstanceTags(origController, string(inst.Id()), string(controllerInsts[0].Id()))
+	checkVolumeTags(origController, allVolumes...)
+	checkGroupTags(origController, allGroups...)
+
+	err = env.AdoptResources("new-controller", version.MustParse("0.0.1"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	checkInstanceTags("new-controller", string(inst.Id()))
+	checkInstanceTags(origController, string(controllerInsts[0].Id()))
+	checkVolumeTags("new-controller", modelVolumes...)
+	checkVolumeTags(origController, controllerVolumes...)
+	checkGroupTags("new-controller", modelGroups...)
+	checkGroupTags(origController, controllerGroups...)
 }
 
 // localNonUSEastSuite is similar to localServerSuite but the S3 mock server

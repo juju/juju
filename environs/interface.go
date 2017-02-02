@@ -135,6 +135,23 @@ type FinalizeCredentialParams struct {
 	CloudIdentityEndpoint string
 }
 
+// FinalizeCloudContext is an interface passed into FinalizeCloud
+// to provide a means of interacting with the user when finalizing
+// a cloud definition.
+type FinalizeCloudContext interface {
+	// Verbosef will write the formatted string to Stderr if the
+	// verbose flag is true, and to the logger if not.
+	Verbosef(string, ...interface{})
+}
+
+// CloudFinalizer is an interface that an EnvironProvider implements
+// in order to finalize a cloud.Cloud definition before bootstrapping.
+type CloudFinalizer interface {
+	// FinalizeCloud finalizes a cloud definition, updating any attributes
+	// as necessary. This is always done client-side, before bootstrapping.
+	FinalizeCloud(FinalizeCloudContext, cloud.Cloud) (cloud.Cloud, error)
+}
+
 // CloudDetector is an interface that an EnvironProvider implements
 // in order to automatically detect clouds from the environment.
 type CloudDetector interface {

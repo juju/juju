@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/network/containerizer"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
 	"github.com/juju/juju/state/watcher"
@@ -600,12 +601,12 @@ type perContainerHandler interface {
 	// ProcessOneContainer is called once we've assured ourselves that all of
 	// the access permissions are correct and the container is ready to be
 	// processed.
-	// netEnv is the Environment you are working, idx is the index for this
+	// env is the Environment you are working, idx is the index for this
 	// container (used for deciding where to store results), host is the
 	// machine that is hosting the container.
 	// Any errors that are returned from ProcessOneContainer will be turned
 	// into ServerError and handed to SetError
-	ProcessOneContainer(netEnv environs.NetworkingEnviron, idx int, host, container *state.Machine) error
+	ProcessOneContainer(env environs.Environ, idx int, host, container *state.Machine) error
 	// SetError will be called whenever there is a problem with the a given
 	// request. Generally this just does result.Results[i].Error = error
 	// but the Result type is opaque so we can't do it ourselves.
@@ -613,7 +614,7 @@ type perContainerHandler interface {
 }
 
 func (p *ProvisionerAPI) processEachContainer(args params.Entities, handler perContainerHandler) error {
-	netEnviron, hostMachine, canAccess, err := p.prepareContainerAccessEnvironment()
+	env, hostMachine, canAccess, err := p.prepareContainerAccessEnvironment()
 	if err != nil {
 		// Overall error
 		return errors.Trace(err)
@@ -645,7 +646,7 @@ func (p *ProvisionerAPI) processEachContainer(args params.Entities, handler perC
 			continue
 		}
 
-		if err := handler.ProcessOneContainer(netEnviron, i, hostMachine, container); err != nil {
+		if err := handler.ProcessOneContainer(env, i, hostMachine, container); err != nil {
 			handler.SetError(i, common.ServerError(err))
 			continue
 		}
@@ -662,7 +663,7 @@ func (ctx *prepareOrGetContext) SetError(idx int, err *params.Error) {
 	ctx.result.Results[idx].Error = err
 }
 
-func (ctx *prepareOrGetContext) ProcessOneContainer(netEnv environs.NetworkingEnviron, idx int, host, container *state.Machine) error {
+func (ctx *prepareOrGetContext) ProcessOneContainer(env environs.Environ, idx int, host, container *state.Machine) error {
 	containerId, err := container.InstanceId()
 	if ctx.maintain {
 		if err == nil {
@@ -677,7 +678,17 @@ func (ctx *prepareOrGetContext) ProcessOneContainer(netEnv environs.NetworkingEn
 		return err
 	}
 
-	if err := host.SetContainerLinkLayerDevices(container); err != nil {
+	supportContainerAddresses := environs.SupportsContainerAddresses(env)
+	bridgePolicy := containerizer.BridgePolicy{
+		NetBondReconfigureDelay: env.Config().NetBondReconfigureDelay(),
+		UseLocalBridges:         !supportContainerAddresses,
+	}
+
+	// TODO(jam): 2017-01-31 PopulateContainerLinkLayerDevices should really
+	// just be returning the ones we'd like to exist, and then we turn those
+	// into things we'd like to tell the Host machine to create, and then *it*
+	// reports back what actually exists when its done.
+	if err := bridgePolicy.PopulateContainerLinkLayerDevices(host, container); err != nil {
 		return err
 	}
 
@@ -713,19 +724,25 @@ func (ctx *prepareOrGetContext) ProcessOneContainer(netEnv environs.NetworkingEn
 
 		if len(parentAddrs) > 0 {
 			logger.Infof("host machine device %q has addresses %v", parentDevice.Name(), parentAddrs)
-
 			firstAddress := parentAddrs[0]
-			parentDeviceSubnet, err := firstAddress.Subnet()
-			if err != nil {
-				return errors.Annotatef(err,
-					"cannot get subnet %q used by address %q of host machine device %q",
-					firstAddress.SubnetCIDR(), firstAddress.Value(), parentDevice.Name(),
-				)
+			if supportContainerAddresses {
+				parentDeviceSubnet, err := firstAddress.Subnet()
+				if err != nil {
+					return errors.Annotatef(err,
+						"cannot get subnet %q used by address %q of host machine device %q",
+						firstAddress.SubnetCIDR(), firstAddress.Value(), parentDevice.Name(),
+					)
+				}
+				info.ConfigType = network.ConfigStatic
+				info.CIDR = parentDeviceSubnet.CIDR()
+				info.ProviderSubnetId = parentDeviceSubnet.ProviderId()
+				info.VLANTag = parentDeviceSubnet.VLANTag()
+			} else {
+				info.ConfigType = network.ConfigDHCP
+				info.CIDR = firstAddress.SubnetCIDR()
+				info.ProviderSubnetId = ""
+				info.VLANTag = 0
 			}
-			info.ConfigType = network.ConfigStatic
-			info.CIDR = parentDeviceSubnet.CIDR()
-			info.ProviderSubnetId = parentDeviceSubnet.ProviderId()
-			info.VLANTag = parentDeviceSubnet.VLANTag()
 		} else {
 			logger.Infof("host machine device %q has no addresses %v", parentDevice.Name(), parentAddrs)
 		}
@@ -739,11 +756,16 @@ func (ctx *prepareOrGetContext) ProcessOneContainer(netEnv environs.NetworkingEn
 		// this should have already been checked in the processEachContainer helper
 		return err
 	}
-	allocatedInfo, err := netEnv.AllocateContainerAddresses(hostInstanceId, container.MachineTag(), preparedInfo)
-	if err != nil {
-		return err
+	allocatedInfo := preparedInfo
+	if supportContainerAddresses {
+		// supportContainerAddresses already checks that we can cast to an environ.Networking
+		networking := env.(environs.Networking)
+		allocatedInfo, err = networking.AllocateContainerAddresses(hostInstanceId, container.MachineTag(), preparedInfo)
+		if err != nil {
+			return err
+		}
+		logger.Debugf("got allocated info from provider: %+v", allocatedInfo)
 	}
-	logger.Debugf("got allocated info from provider: %+v", allocatedInfo)
 
 	allocatedConfig := networkingcommon.NetworkConfigFromInterfaceInfo(allocatedInfo)
 	logger.Tracef("allocated network config: %+v", allocatedConfig)
@@ -767,10 +789,14 @@ func (p *ProvisionerAPI) prepareOrGetContainerInterfaceInfo(args params.Entities
 
 // prepareContainerAccessEnvironment retrieves the environment, host machine, and access
 // for working with containers.
-func (p *ProvisionerAPI) prepareContainerAccessEnvironment() (environs.NetworkingEnviron, *state.Machine, common.AuthFunc, error) {
-	netEnviron, err := networkingcommon.NetworkingEnvironFromModelConfig(p.configGetter)
+func (p *ProvisionerAPI) prepareContainerAccessEnvironment() (environs.Environ, *state.Machine, common.AuthFunc, error) {
+	env, err := environs.GetEnviron(p.configGetter, environs.New)
 	if err != nil {
 		return nil, nil, nil, errors.Trace(err)
+	}
+	// TODO(jam): 2017-02-01 NetworkingEnvironFromModelConfig used to do this, but it doesn't feel good
+	if env.Config().Type() == "dummy" {
+		return nil, nil, nil, errors.NotSupportedf("dummy provider network config")
 	}
 
 	canAccess, err := p.getAuthFunc()
@@ -789,16 +815,19 @@ func (p *ProvisionerAPI) prepareContainerAccessEnvironment() (environs.Networkin
 	if err != nil {
 		return nil, nil, nil, errors.Trace(err)
 	}
-	return netEnviron, host, canAccess, nil
+	return env, host, canAccess, nil
 }
 
 type hostChangesContext struct {
 	result params.HostNetworkChangeResults
 }
 
-func (ctx *hostChangesContext) ProcessOneContainer(netEnv environs.NetworkingEnviron, idx int, host, container *state.Machine) error {
-	netBondReconfigureDelay := netEnv.Config().NetBondReconfigureDelay()
-	bridges, reconfigureDelay, err := host.FindMissingBridgesForContainer(container, netBondReconfigureDelay)
+func (ctx *hostChangesContext) ProcessOneContainer(env environs.Environ, idx int, host, container *state.Machine) error {
+	bridgePolicy := containerizer.BridgePolicy{
+		NetBondReconfigureDelay: env.Config().NetBondReconfigureDelay(),
+		UseLocalBridges:         !environs.SupportsContainerAddresses(env),
+	}
+	bridges, reconfigureDelay, err := bridgePolicy.FindMissingBridgesForContainer(host, container)
 	if err != nil {
 		return err
 	}
@@ -1040,9 +1069,7 @@ func (p *ProvisionerAPI) getOneMachineProviderNetworkConfig(m *state.Machine) ([
 		return nil, errors.Trace(err)
 	}
 
-	netEnviron, err := networkingcommon.NetworkingEnvironFromModelConfig(
-		stateenvirons.EnvironConfigGetter{p.st},
-	)
+	netEnviron, err := networkingcommon.NetworkingEnvironFromModelConfig(p.configGetter)
 	if errors.IsNotSupported(err) {
 		logger.Infof("not updating provider network config: %v", err)
 		return nil, nil
