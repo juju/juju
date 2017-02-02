@@ -31,10 +31,10 @@ type bridgeConfigSuite struct {
 var _ = gc.Suite(&bridgeConfigSuite{})
 
 func (s *bridgeConfigSuite) SetUpSuite(c *gc.C) {
+	s.BaseSuite.SetUpSuite(c)
 	if runtime.GOOS == "windows" {
 		c.Skip("Skipping bridge config tests on windows")
 	}
-	s.BaseSuite.SetUpSuite(c)
 
 	for _, version := range []string{
 		"/usr/bin/python2",
@@ -48,6 +48,7 @@ func (s *bridgeConfigSuite) SetUpSuite(c *gc.C) {
 }
 
 func (s *bridgeConfigSuite) SetUpTest(c *gc.C) {
+	s.BaseSuite.SetUpTest(c)
 	// We need at least one Python package installed.
 	c.Assert(s.pythonVersions, gc.Not(gc.HasLen), 0)
 
