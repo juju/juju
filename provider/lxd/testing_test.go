@@ -89,7 +89,7 @@ var (
 )
 
 type BaseSuiteUnpatched struct {
-	gitjujutesting.IsolationSuite
+	testing.BaseSuite
 
 	osPathOrig string
 
@@ -117,17 +117,17 @@ func (s *BaseSuiteUnpatched) SetUpSuite(c *gc.C) {
 	s.osPathOrig = os.Getenv("PATH")
 	if s.osPathOrig == "" {
 		// TODO(ericsnow) This shouldn't happen. However, an undiagnosed
-		// bug in testing.IsolationSuite is causing $PATH to remain unset
+		// bug in testing.BaseSuite is causing $PATH to remain unset
 		// sometimes.  Once that is cleared up this special-case can go
 		// away.
 		s.osPathOrig =
 			"/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin"
 	}
-	s.IsolationSuite.SetUpSuite(c)
+	s.BaseSuite.SetUpSuite(c)
 }
 
 func (s *BaseSuiteUnpatched) SetUpTest(c *gc.C) {
-	s.IsolationSuite.SetUpTest(c)
+	s.BaseSuite.SetUpTest(c)
 
 	s.initProvider(c)
 	s.initEnv(c)
@@ -151,7 +151,6 @@ func (s *BaseSuiteUnpatched) initEnv(c *gc.C) {
 		"server-cert": testing.ServerCert,
 	})
 	s.Env = &environ{
-		local: true,
 		cloud: environs.CloudSpec{
 			Name:       "localhost",
 			Type:       "lxd",
@@ -162,10 +161,6 @@ func (s *BaseSuiteUnpatched) initEnv(c *gc.C) {
 	}
 	cfg := s.NewConfig(c, nil)
 	s.setConfig(c, cfg)
-}
-
-func (s *BaseSuiteUnpatched) SetEnvironLocal(local bool) {
-	s.Env.local = local
 }
 
 func (s *BaseSuiteUnpatched) Prefix() string {

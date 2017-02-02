@@ -1040,7 +1040,7 @@ func (s *BootstrapSuite) TestAutoSyncLocalSource(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	bootstrapConfig, params, err := modelcmd.NewGetBootstrapConfigParamsFunc(
-		coretesting.Context(c), s.store,
+		coretesting.Context(c), s.store, environs.GlobalProviderRegistry(),
 	)("devcontroller")
 	c.Assert(err, jc.ErrorIsNil)
 	provider, err := environs.Provider(bootstrapConfig.CloudType)
