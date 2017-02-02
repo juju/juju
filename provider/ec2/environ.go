@@ -946,7 +946,32 @@ func (e *environ) Subnets(instId instance.Id, subnetIds []network.Id) ([]network
 
 // AdoptResources is part of the Environ interface.
 func (e *environ) AdoptResources(controllerUUID string, fromVersion version.Number) error {
-	return errors.NotImplementedf("AdoptResources")
+	// Gather resource ids for instances, volumes and security groups tagged with this model.
+	instances, err := e.AllInstances()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	// We want to update the controller tags on root disks even though
+	// they are destroyed automatically with the instance they're
+	// attached to.
+	volumeIds, err := e.allModelVolumes(true)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	groupIds, err := e.modelSecurityGroupIDs()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	resourceIds := make([]string, len(instances))
+	for i, instance := range instances {
+		resourceIds[i] = string(instance.Id())
+	}
+	resourceIds = append(resourceIds, volumeIds...)
+	resourceIds = append(resourceIds, groupIds...)
+
+	tags := map[string]string{tags.JujuController: controllerUUID}
+	return errors.Annotate(tagResources(e.ec2, tags, resourceIds...), "updating tags")
 }
 
 // AllInstances is part of the environs.InstanceBroker interface.
@@ -1082,8 +1107,8 @@ func (e *environ) destroyControllerManagedEnvirons(controllerUUID string) error 
 		return errors.Annotate(err, "terminating instances")
 	}
 
-	// Delete all volumes managed by the controller.
-	volIds, err := e.allControllerManagedVolumes(controllerUUID)
+	// Delete all volumes managed by the controller. (No need to delete root disks manually.)
+	volIds, err := e.allControllerManagedVolumes(controllerUUID, false)
 	if err != nil {
 		return errors.Annotate(err, "listing volumes")
 	}
@@ -1111,10 +1136,16 @@ func (e *environ) destroyControllerManagedEnvirons(controllerUUID string) error 
 	return nil
 }
 
-func (e *environ) allControllerManagedVolumes(controllerUUID string) ([]string, error) {
+func (e *environ) allControllerManagedVolumes(controllerUUID string, includeRootDisks bool) ([]string, error) {
 	filter := ec2.NewFilter()
 	e.addControllerFilter(filter, controllerUUID)
-	return listVolumes(e.ec2, filter)
+	return listVolumes(e.ec2, filter, includeRootDisks)
+}
+
+func (e *environ) allModelVolumes(includeRootDisks bool) ([]string, error) {
+	filter := ec2.NewFilter()
+	e.addModelFilter(filter)
+	return listVolumes(e.ec2, filter, includeRootDisks)
 }
 
 func portsToIPPerms(ports []network.PortRange) []ec2.IPPerm {
@@ -1274,6 +1305,20 @@ func (e *environ) controllerSecurityGroups(controllerUUID string) ([]ec2.Securit
 		groups[i] = ec2.SecurityGroup{Id: info.Id, Name: info.Name}
 	}
 	return groups, nil
+}
+
+func (e *environ) modelSecurityGroupIDs() ([]string, error) {
+	filter := ec2.NewFilter()
+	e.addModelFilter(filter)
+	resp, err := e.ec2.SecurityGroups(nil, filter)
+	if err != nil {
+		return nil, errors.Annotate(err, "listing security groups")
+	}
+	groupIDs := make([]string, len(resp.Groups))
+	for i, info := range resp.Groups {
+		groupIDs[i] = info.Id
+	}
+	return groupIDs, nil
 }
 
 // cleanEnvironmentSecurityGroups attempts to delete all security groups owned
