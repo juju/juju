@@ -35,10 +35,10 @@ type rawConnectionWrapper interface {
 	// instance's metadata. The call blocks until the request is
 	// completed or fails.
 	SetMetadata(projectID, zone, instanceID string, metadata *compute.Metadata) error
-	// GetFirewall sends an API request to GCE for the information about
-	// the named firewall and returns it. If the firewall is not found,
-	// errors.NotFound is returned.
-	GetFirewall(projectID, name string) (*compute.Firewall, error)
+	// GetFirewalls sends an API request to GCE for the information about
+	// the firewalls with the namePrefix and returns them.
+	// If no firewalls are not found, errors.NotFound is returned.
+	GetFirewalls(projectID, namePrefix string) ([]*compute.Firewall, error)
 	// AddFirewall requests GCE to add a firewall with the provided info.
 	// If the firewall already exists then an error will be returned.
 	// The call blocks until the firewall is added or the request fails.

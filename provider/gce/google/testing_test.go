@@ -170,7 +170,7 @@ type fakeConn struct {
 	Project       *compute.Project
 	Instance      *compute.Instance
 	Instances     []*compute.Instance
-	Firewall      *compute.Firewall
+	Firewalls     []*compute.Firewall
 	Zones         []*compute.Zone
 	Err           error
 	FailOnCall    int
@@ -258,9 +258,9 @@ func (rc *fakeConn) RemoveInstance(projectID, zone, id string) error {
 	return err
 }
 
-func (rc *fakeConn) GetFirewall(projectID, name string) (*compute.Firewall, error) {
+func (rc *fakeConn) GetFirewalls(projectID, name string) ([]*compute.Firewall, error) {
 	call := fakeCall{
-		FuncName:  "GetFirewall",
+		FuncName:  "GetFirewalls",
 		ProjectID: projectID,
 		Name:      name,
 	}
@@ -270,7 +270,7 @@ func (rc *fakeConn) GetFirewall(projectID, name string) (*compute.Firewall, erro
 	if len(rc.Calls) != rc.FailOnCall+1 {
 		err = nil
 	}
-	return rc.Firewall, err
+	return rc.Firewalls, err
 }
 
 func (rc *fakeConn) AddFirewall(projectID string, firewall *compute.Firewall) error {

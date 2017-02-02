@@ -115,18 +115,23 @@ func (rc *rawConn) RemoveInstance(projectID, zone, id string) error {
 	return errors.Trace(err)
 }
 
-func (rc *rawConn) GetFirewall(projectID, name string) (*compute.Firewall, error) {
+func (rc *rawConn) GetFirewalls(projectID, namePrefix string) ([]*compute.Firewall, error) {
 	call := rc.Firewalls.List(projectID)
-	call = call.Filter("name eq " + name)
 	firewallList, err := call.Do()
 	if err != nil {
 		return nil, errors.Annotate(err, "while getting firewall from GCE")
 	}
 
 	if len(firewallList.Items) == 0 {
-		return nil, errors.NotFoundf("firewall %q", name)
+		return nil, errors.NotFoundf("firewall %q", namePrefix)
 	}
-	return firewallList.Items[0], nil
+	var result []*compute.Firewall
+	for _, fw := range firewallList.Items {
+		if strings.HasPrefix(fw.Name, namePrefix) {
+			result = append(result, fw)
+		}
+	}
+	return result, nil
 }
 
 func (rc *rawConn) AddFirewall(projectID string, firewall *compute.Firewall) error {

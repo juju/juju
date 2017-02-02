@@ -497,10 +497,10 @@ func securityRuleName(prefix string, rule jujunetwork.IngressRule) string {
 	// The rule parameter must have a single source cidr.
 	// Ensure the rule name can be a valid URL path component.
 	cidr := rule.SourceCIDRs[0]
-	cidr = strings.Replace(cidr, ".", "-", -1)
-	cidr = strings.Replace(cidr, "::", "-", -1)
-	cidr = strings.Replace(cidr, "/", "-", -1)
-	if cidr != "*" {
+	if cidr != "0.0.0.0/0" && cidr != "*" {
+		cidr = strings.Replace(cidr, ".", "-", -1)
+		cidr = strings.Replace(cidr, "::", "-", -1)
+		cidr = strings.Replace(cidr, "/", "-", -1)
 		ruleName = fmt.Sprintf("%s-cidr-%s", ruleName, cidr)
 	}
 	return ruleName
