@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/utils"
 	"github.com/juju/version"
 	"gopkg.in/juju/charm.v6-unstable"
 
@@ -183,6 +184,11 @@ func streamThroughTempFile(r io.Reader) (_ io.ReadSeeker, cleanup func(), err er
 }
 
 func uploadCharms(config UploadBinariesConfig) error {
+	// It is critical that charms are uploaded in ascending charm URL
+	// order so that charm revisions end up the same in the target as
+	// they were in the source.
+	utils.SortStringsNaturally(config.Charms)
+
 	for _, charmURL := range config.Charms {
 		logger.Debugf("sending charm %s to target", charmURL)
 
@@ -203,8 +209,11 @@ func uploadCharms(config UploadBinariesConfig) error {
 		}
 		defer cleanup()
 
-		if _, err := config.CharmUploader.UploadCharm(curl, content); err != nil {
+		if usedCurl, err := config.CharmUploader.UploadCharm(curl, content); err != nil {
 			return errors.Annotate(err, "cannot upload charm")
+		} else if usedCurl.String() != curl.String() {
+			// The target controller shouldn't assign a different charm URL.
+			return errors.Errorf("charm %s unexpectedly assigned %s", curl, usedCurl)
 		}
 	}
 	return nil
