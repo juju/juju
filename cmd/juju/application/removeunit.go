@@ -36,14 +36,14 @@ Juju will also remove the machine if the removed unit was the only unit left
 on that machine (including units in containers).
 
 Removing all units of a service is not equivalent to removing the service
-itself; for that, the ` + "`juju remove-service`" + ` command is used.
+itself; for that, the ` + "`juju remove-application`" + ` command is used.
 
 Examples:
 
     juju remove-unit wordpress/2 wordpress/3 wordpress/4
 
 See also:
-    remove-service
+    remove-application
 `
 
 func (c *removeUnitCommand) Info() *cmd.Info {
