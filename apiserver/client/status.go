@@ -407,7 +407,7 @@ func fetchMachines(st Backend, machineIds set.Strings) (map[string][]*state.Mach
 }
 
 // fetchNetworkInterfaces returns maps from machine id to ip.addresses, machine
-// if to a map of interface names from space names, and machine id to
+// id to a map of interface names from space names, and machine id to
 // linklayerdevices.
 //
 // All are required to determine a machine's network interfaces configuration,
@@ -420,28 +420,31 @@ func fetchNetworkInterfaces(st Backend) (map[string][]*state.Address, map[string
 		return nil, nil, nil, err
 	}
 	for _, ipAddr := range ipAddrs {
-		if !ipAddr.LoopbackConfigMethod() {
-			machineID := ipAddr.MachineID()
-			ipAddresses[machineID] = append(ipAddresses[machineID], ipAddr)
-			subnet, err := st.Subnet(ipAddr.SubnetCIDR())
-			spaceName := ""
-			if errors.IsNotFound(err) {
-				// No worries; no subnets means no spaces.
-			} else if err != nil {
-				return nil, nil, nil, err
-			} else {
-				spaceName = subnet.SpaceName()
+		if ipAddr.LoopbackConfigMethod() {
+			continue
+		}
+		machineID := ipAddr.MachineID()
+		ipAddresses[machineID] = append(ipAddresses[machineID], ipAddr)
+		subnet, err := st.Subnet(ipAddr.SubnetCIDR())
+		if errors.IsNotFound(err) {
+			// No worries; no subnets means no spaces.
+			continue
+		} else if err != nil {
+			return nil, nil, nil, err
+		}
+		if spaceName := subnet.SpaceName(); spaceName != "" {
+			devices, ok := spaces[machineID]
+			if !ok {
+				devices = make(map[string]set.Strings)
+				spaces[machineID] = devices
 			}
-			if spaceName != "" {
-				deviceName := ipAddr.DeviceName()
-				spacesSet, ok := spaces[machineID][deviceName]
-				if !ok {
-					spaces[machineID] = make(map[string]set.Strings)
-					spacesSet = make(set.Strings)
-				}
-				spacesSet.Add(spaceName)
-				spaces[machineID][deviceName] = spacesSet
+			deviceName := ipAddr.DeviceName()
+			spacesSet, ok := devices[deviceName]
+			if !ok {
+				spacesSet = make(set.Strings)
+				devices[deviceName] = spacesSet
 			}
+			spacesSet.Add(spaceName)
 		}
 	}
 
@@ -458,6 +461,8 @@ func fetchNetworkInterfaces(st Backend) (map[string][]*state.Address, map[string
 		if err != nil {
 			return nil, nil, nil, err
 		}
+		// We don't want to see bond slaves or bridge ports, only the
+		// IP-addressed devices.
 		if len(addrs) > 0 {
 			machineID := llDev.MachineID()
 			linkLayerDevices[machineID] = append(linkLayerDevices[machineID], llDev)
@@ -643,31 +648,29 @@ func makeMachineStatus(
 			ns := []string{}
 			sp := make(set.Strings)
 			for _, ipAddress := range ipAddresses {
-				if ipAddress.DeviceName() == device {
-					ips = append(ips, ipAddress.Value())
-					// We don't expect to find more than
-					// one ipAddress on a device with a
-					// list of nameservers, but append in
-					// any case.
-					if len(ipAddress.DNSServers()) > 0 {
-						ns = append(ns, ipAddress.DNSServers()...)
-					}
-					// There should only be one gateway per
-					// device (per machine, in fact, as we
-					// don't store metrics). If we find
-					// more than one we should show them
-					// all.
-					if ipAddress.GatewayAddress() != "" {
-						gw = append(gw, ipAddress.GatewayAddress())
-					}
-					// There should only be one space per
-					// address, but it's technically
-					// possible to have more than one
-					// address on an interface. If we find
-					// that happens, we need to show all
-					// spaces, to be safe.
-					sp = spaces[device]
+				if ipAddress.DeviceName() != device {
+					continue
 				}
+				ips = append(ips, ipAddress.Value())
+				// We don't expect to find more than one
+				// ipAddress on a device with a list of
+				// nameservers, but append in any case.
+				if len(ipAddress.DNSServers()) > 0 {
+					ns = append(ns, ipAddress.DNSServers()...)
+				}
+				// There should only be one gateway per device
+				// (per machine, in fact, as we don't store
+				// metrics). If we find more than one we should
+				// show them all.
+				if ipAddress.GatewayAddress() != "" {
+					gw = append(gw, ipAddress.GatewayAddress())
+				}
+				// There should only be one space per address,
+				// but it's technically possible to have more
+				// than one address on an interface. If we find
+				// that happens, we need to show all spaces, to
+				// be safe.
+				sp = spaces[device]
 			}
 			status.NetworkInterfaces[device] = params.NetworkInterface{
 				IPAddresses:    ips,
