@@ -1130,7 +1130,7 @@ func (m *Machine) DesiredSpaces() (set.Strings, error) {
 		}
 	}
 	logger.Tracef("machine %q found constraints %s and bindings %s",
-		m.Id(), quoteSpaces(spaces), quoteSpaces(bindings))
+		m.Id(), network.QuoteSpaceSet(spaces), network.QuoteSpaceSet(bindings))
 	return spaces.Union(bindings), nil
 }
 

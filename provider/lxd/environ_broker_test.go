@@ -6,14 +6,12 @@
 package lxd_test
 
 import (
-	"github.com/juju/errors"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/provider/lxd"
-	"github.com/juju/juju/tools/lxdclient"
 )
 
 type environBrokerSuite struct {
@@ -54,41 +52,12 @@ func (s *environBrokerSuite) TestStopInstances(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.Stub.CheckCalls(c, []gitjujutesting.StubCall{{
-		FuncName: "Instances",
-		Args: []interface{}{
-			"juju-f75cba-",
-			[]string(nil),
-		},
-	}, {
 		FuncName: "RemoveInstances",
 		Args: []interface{}{
 			"juju-f75cba-",
 			[]string{"spam"},
 		},
 	}})
-}
-
-func (s *environBrokerSuite) TestStopInstancesRemoveCertificate(c *gc.C) {
-	s.RawInstance.InstanceSummary.Metadata[lxdclient.CertificateFingerprintKey] = "foo"
-	s.Client.Insts = []lxdclient.Instance{*s.RawInstance}
-
-	err := s.Env.StopInstances(s.Instance.Id())
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.Stub.CheckCallNames(c, "Instances", "RemoveCertByFingerprint", "RemoveInstances")
-	s.Stub.CheckCall(c, 1, "RemoveCertByFingerprint", "foo")
-}
-
-func (s *environBrokerSuite) TestStopInstancesRemoveCertificateNotFound(c *gc.C) {
-	s.RawInstance.InstanceSummary.Metadata[lxdclient.CertificateFingerprintKey] = "foo"
-	s.Client.Insts = []lxdclient.Instance{*s.RawInstance}
-
-	s.Stub.SetErrors(nil, errors.NotFoundf("certificate"))
-	err := s.Env.StopInstances(s.Instance.Id())
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.Stub.CheckCallNames(c, "Instances", "RemoveCertByFingerprint", "RemoveInstances")
-	s.Stub.CheckCall(c, 1, "RemoveCertByFingerprint", "foo")
 }
 
 func (s *environBrokerSuite) TestImageMetadataURL(c *gc.C) {
