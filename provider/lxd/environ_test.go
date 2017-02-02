@@ -6,7 +6,6 @@
 package lxd_test
 
 import (
-	"github.com/juju/errors"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -87,54 +86,6 @@ func (s *environSuite) TestBootstrapAPI(c *gc.C) {
 	_, err := s.Env.Bootstrap(ctx, params)
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, fingerprint := s.TestingCert(c)
-	s.Stub.CheckCalls(c, []gitjujutesting.StubCall{{
-		FuncName: "CertByFingerprint",
-		Args: []interface{}{
-			fingerprint,
-		},
-	}, {
-		FuncName: "Bootstrap",
-		Args: []interface{}{
-			ctx,
-			params,
-		},
-	}})
-}
-
-func (s *environSuite) TestBootstrapAddsCertLocal(c *gc.C) {
-	s.Stub.SetErrors(errors.NotFoundf("cert"), errors.New("upload fails"))
-	ctx := envtesting.BootstrapContext(c)
-	params := environs.BootstrapParams{
-		ControllerConfig: coretesting.FakeControllerConfig(),
-	}
-	_, err := s.Env.Bootstrap(ctx, params)
-	c.Assert(err, gc.ErrorMatches, `adding certificate "juju": upload fails`)
-
-	cert, fingerprint := s.TestingCert(c)
-	s.Stub.CheckCalls(c, []gitjujutesting.StubCall{{
-		FuncName: "CertByFingerprint",
-		Args: []interface{}{
-			fingerprint,
-		},
-	}, {
-		FuncName: "AddCert",
-		Args: []interface{}{
-			cert,
-		},
-	}})
-}
-
-func (s *environSuite) TestBootstrapAddsCertNonLocal(c *gc.C) {
-	// non-local never attempts to upload the cert
-	s.SetEnvironLocal(false)
-	ctx := envtesting.BootstrapContext(c)
-	params := environs.BootstrapParams{
-		ControllerConfig: coretesting.FakeControllerConfig(),
-	}
-	_, err := s.Env.Bootstrap(ctx, params)
-	c.Assert(err, jc.ErrorIsNil)
-
 	s.Stub.CheckCalls(c, []gitjujutesting.StubCall{{
 		FuncName: "Bootstrap",
 		Args: []interface{}{
@@ -190,28 +141,12 @@ func (s *environSuite) TestDestroyHostedModels(c *gc.C) {
 	err := s.Env.DestroyController(s.Config.UUID())
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, fingerprint := s.TestingCert(c)
 	fwname := common.EnvFullName(s.Env.Config().UUID())
 	s.Stub.CheckCalls(c, []gitjujutesting.StubCall{
 		{"Ports", []interface{}{fwname}},
 		{"Destroy", nil},
 		{"Instances", []interface{}{"juju-", lxdclient.AliveStatuses}},
 		{"RemoveInstances", []interface{}{"juju-", []string{machine1.Name}}},
-		{"RemoveCertByFingerprint", []interface{}{fingerprint}},
-	})
-}
-
-func (s *environSuite) TestDestroyControllerNonLocal(c *gc.C) {
-	// non-local never attempts to remove the cert
-	s.SetEnvironLocal(false)
-	err := s.Env.DestroyController(s.Config.UUID())
-	c.Assert(err, jc.ErrorIsNil)
-
-	fwname := common.EnvFullName(s.Env.Config().UUID())
-	s.Stub.CheckCalls(c, []gitjujutesting.StubCall{
-		{"Ports", []interface{}{fwname}},
-		{"Destroy", nil},
-		{"Instances", []interface{}{"juju-", lxdclient.AliveStatuses}},
 	})
 }
 
