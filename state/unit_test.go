@@ -179,9 +179,12 @@ func (s *UnitSuite) addSubordinateUnit(c *gc.C) *state.Unit {
 }
 
 func (s *UnitSuite) setAssignedMachineAddresses(c *gc.C, u *state.Unit) {
-	err := u.AssignToNewMachine()
-	c.Assert(err, jc.ErrorIsNil)
 	mid, err := u.AssignedMachineId()
+	if errors.IsNotAssigned(err) {
+		err = u.AssignToNewMachine()
+		c.Assert(err, jc.ErrorIsNil)
+		mid, err = u.AssignedMachineId()
+	}
 	c.Assert(err, jc.ErrorIsNil)
 	machine, err := s.State.Machine(mid)
 	c.Assert(err, jc.ErrorIsNil)
@@ -683,13 +686,15 @@ func (s *UnitSuite) TestSetCharmURLRetriesWithDifferentURL(c *gc.C) {
 
 func (s *UnitSuite) TestDestroySetStatusRetry(c *gc.C) {
 	defer state.SetRetryHooks(c, s.State, func() {
+		err := s.unit.AssignToNewMachine()
+		c.Assert(err, jc.ErrorIsNil)
 		now := coretesting.NonZeroTime()
 		sInfo := status.StatusInfo{
 			Status:  status.Idle,
 			Message: "",
 			Since:   &now,
 		}
-		err := s.unit.SetAgentStatus(sInfo)
+		err = s.unit.SetAgentStatus(sInfo)
 		c.Assert(err, jc.ErrorIsNil)
 	}, func() {
 		assertLife(c, s.unit, state.Dying)
@@ -766,6 +771,36 @@ func (s *UnitSuite) TestDestroyUnassignRetry(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *UnitSuite) TestDestroyAssignErrorRetry(c *gc.C) {
+	now := coretesting.NonZeroTime()
+	sInfo := status.StatusInfo{
+		Status:  status.Error,
+		Message: "failed to assign",
+		Since:   &now,
+	}
+	err := s.unit.SetAgentStatus(sInfo)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.unit.AssignedMachineId()
+	c.Assert(err, jc.Satisfies, errors.IsNotAssigned)
+
+	defer state.SetRetryHooks(c, s.State, func() {
+		err := s.unit.AssignToNewMachine()
+		c.Assert(err, jc.ErrorIsNil)
+		now := coretesting.NonZeroTime()
+		sInfo := status.StatusInfo{
+			Status:  status.Idle,
+			Message: "",
+			Since:   &now,
+		}
+		err = s.unit.SetAgentStatus(sInfo)
+		c.Assert(err, jc.ErrorIsNil)
+	}, func() {
+		assertLife(c, s.unit, state.Dying)
+	}).Check()
+	err = s.unit.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *UnitSuite) TestShortCircuitDestroyUnit(c *gc.C) {
 	// A unit that has not set any status is removed directly.
 	err := s.unit.Destroy()
@@ -774,10 +809,45 @@ func (s *UnitSuite) TestShortCircuitDestroyUnit(c *gc.C) {
 	assertRemoved(c, s.unit)
 }
 
+func (s *UnitSuite) TestShortCircuitDestroyUnitNotAssigned(c *gc.C) {
+	// A unit that has not been assigned is removed directly.
+	now := coretesting.NonZeroTime()
+	err := s.unit.SetAgentStatus(status.StatusInfo{
+		Status:  status.Error,
+		Message: "cannot assign",
+		Since:   &now,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.unit.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.unit.Life(), gc.Equals, state.Dying)
+	assertRemoved(c, s.unit)
+}
+
+func (s *UnitSuite) TestCannotShortCircuitDestroyAssignedUnit(c *gc.C) {
+	// This test is similar to TestShortCircuitDestroyUnitNotAssigned but
+	// the unit is assigned to a machine.
+	err := s.unit.AssignToNewMachine()
+	c.Assert(err, jc.ErrorIsNil)
+	now := coretesting.NonZeroTime()
+	err = s.unit.SetAgentStatus(status.StatusInfo{
+		Status:  status.Error,
+		Message: "some error",
+		Since:   &now,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.unit.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.unit.Life(), gc.Equals, state.Dying)
+	assertLife(c, s.unit, state.Dying)
+}
+
 func (s *UnitSuite) TestCannotShortCircuitDestroyWithSubordinates(c *gc.C) {
 	// A unit with subordinates is just set to Dying.
 	s.AddTestingService(c, "logging", s.AddTestingCharm(c, "logging"))
 	eps, err := s.State.InferEndpoints("logging", "wordpress")
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.unit.AssignToNewMachine()
 	c.Assert(err, jc.ErrorIsNil)
 	rel, err := s.State.AddRelation(eps...)
 	c.Assert(err, jc.ErrorIsNil)
@@ -806,6 +876,8 @@ func (s *UnitSuite) TestCannotShortCircuitDestroyWithAgentStatus(c *gc.C) {
 	}} {
 		c.Logf("test %d: %s", i, test.status)
 		unit, err := s.service.AddUnit()
+		c.Assert(err, jc.ErrorIsNil)
+		err = unit.AssignToNewMachine()
 		c.Assert(err, jc.ErrorIsNil)
 		now := coretesting.NonZeroTime()
 		sInfo := status.StatusInfo{
@@ -853,7 +925,11 @@ func assertRemoved(c *gc.C, entity state.Living) {
 		err = entity.EnsureDead()
 		c.Assert(err, jc.ErrorIsNil)
 		err = entity.Remove()
-		c.Assert(err, jc.ErrorIsNil)
+		if err != nil {
+			c.Assert(err, gc.ErrorMatches, ".*already removed.*")
+		}
+		err = entity.Refresh()
+		c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	}
 }
 
@@ -1602,7 +1678,6 @@ func (s *UnitSuite) TestWatchSubordinates(c *gc.C) {
 }
 
 func (s *UnitSuite) TestWatchUnit(c *gc.C) {
-	preventUnitDestroyRemove(c, s.unit)
 	w := s.unit.Watch()
 	defer testing.AssertStop(c, w)
 
@@ -1619,6 +1694,7 @@ func (s *UnitSuite) TestWatchUnit(c *gc.C) {
 	// Make two changes, check one event.
 	err = unit.SetPassword("arble-farble-dying-yarble")
 	c.Assert(err, jc.ErrorIsNil)
+	preventUnitDestroyRemove(c, unit)
 	err = unit.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()

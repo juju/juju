@@ -52,19 +52,26 @@ import (
 var goodPassword = "foo-12345678901234567890"
 var alternatePassword = "bar-12345678901234567890"
 
-// preventUnitDestroyRemove sets a non-pending status on the unit, and hence
+// preventUnitDestroyRemove sets a non-allocating status on the unit, and hence
 // prevents it from being unceremoniously removed from state on Destroy. This
 // is useful because several tests go through a unit's lifecycle step by step,
 // asserting the behaviour of a given method in each state, and the unit quick-
 // remove change caused many of these to fail.
 func preventUnitDestroyRemove(c *gc.C, u *state.Unit) {
+	// To have a non-allocating status, a unit needs to
+	// be assigned to a machine.
+	_, err := u.AssignedMachineId()
+	if errors.IsNotAssigned(err) {
+		err = u.AssignToNewMachine()
+	}
+	c.Assert(err, jc.ErrorIsNil)
 	now := time.Now()
 	sInfo := status.StatusInfo{
 		Status:  status.Idle,
 		Message: "",
 		Since:   &now,
 	}
-	err := u.SetAgentStatus(sInfo)
+	err = u.SetAgentStatus(sInfo)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

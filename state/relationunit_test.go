@@ -76,7 +76,7 @@ func (s *RelationUnitSuite) TestReadSettingsErrors(c *gc.C) {
 }
 
 func (s *RelationUnitSuite) TestPeerSettings(c *gc.C) {
-	pr := NewPeerRelation(c, s.State)
+	pr := newPeerRelation(c, s.State)
 	rus := RUs{pr.ru0, pr.ru1}
 
 	// Check missing settings cannot be read by any RU.
@@ -191,12 +191,12 @@ func (s *RelationUnitSuite) TestRemoteUnitErrors(c *gc.C) {
 }
 
 func (s *RelationUnitSuite) TestProReqSettings(c *gc.C) {
-	prr := NewProReqRelation(c, &s.ConnSuite, charm.ScopeGlobal)
+	prr := newProReqRelation(c, &s.ConnSuite, charm.ScopeGlobal)
 	s.testProReqSettings(c, prr.pru0, prr.pru1, prr.rru0, prr.rru1)
 }
 
 func (s *RelationUnitSuite) TestRemoteProReqSettings(c *gc.C) {
-	prr := NewRemoteProReqRelation(c, &s.ConnSuite)
+	prr := newRemoteProReqRelation(c, &s.ConnSuite)
 	s.testProReqSettings(c, prr.pru0, prr.pru1, prr.rru0, prr.rru1)
 }
 
@@ -230,7 +230,7 @@ func (s *RelationUnitSuite) testProReqSettings(c *gc.C, pru0, pru1, rru0, rru1 *
 }
 
 func (s *RelationUnitSuite) TestContainerSettings(c *gc.C) {
-	prr := NewProReqRelation(c, &s.ConnSuite, charm.ScopeContainer)
+	prr := newProReqRelation(c, &s.ConnSuite, charm.ScopeContainer)
 	rus := RUs{prr.pru0, prr.pru1, prr.rru0, prr.rru1}
 
 	// Check missing settings cannot be read by any RU.
@@ -343,7 +343,8 @@ func (s *RelationUnitSuite) TestContainerCreateSubordinate(c *gc.C) {
 }
 
 func (s *RelationUnitSuite) TestDestroyRelationWithUnitsInScope(c *gc.C) {
-	pr := NewPeerRelation(c, s.State)
+	pr := newPeerRelation(c, s.State)
+	preventPeerUnitsDestroyRemove(c, pr)
 	rel := pr.ru0.Relation()
 
 	// Enter two units, and check that Destroying the service sets the
@@ -356,7 +357,7 @@ func (s *RelationUnitSuite) TestDestroyRelationWithUnitsInScope(c *gc.C) {
 	err = pr.ru1.EnterScope(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	assertJoined(c, pr.ru1)
-	err = pr.svc.Destroy()
+	err = pr.app.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	err = rel.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
@@ -377,7 +378,7 @@ func (s *RelationUnitSuite) TestDestroyRelationWithUnitsInScope(c *gc.C) {
 	err = pr.ru0.LeaveScope()
 	c.Assert(err, jc.ErrorIsNil)
 	assertNotInScope(c, pr.ru0)
-	err = pr.svc.Destroy()
+	err = pr.app.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check that unit settings for the original unit still exist, and have
@@ -410,7 +411,7 @@ func (s *RelationUnitSuite) TestDestroyRelationWithUnitsInScope(c *gc.C) {
 }
 
 func (s *RelationUnitSuite) TestAliveRelationScope(c *gc.C) {
-	pr := NewPeerRelation(c, s.State)
+	pr := newPeerRelation(c, s.State)
 	rel := pr.ru0.Relation()
 
 	// Two units enter...
@@ -461,7 +462,7 @@ func (s *RelationUnitSuite) TestAliveRelationScope(c *gc.C) {
 
 func (s *StateSuite) TestWatchWatchScopeDiesOnStateClose(c *gc.C) {
 	testWatcherDiesWhenStateCloses(c, s.modelTag, s.State.ControllerTag(), func(c *gc.C, st *state.State) waiter {
-		pr := NewPeerRelation(c, st)
+		pr := newPeerRelation(c, st)
 		w := pr.ru0.WatchScope()
 		<-w.Changes()
 		return w
@@ -469,7 +470,7 @@ func (s *StateSuite) TestWatchWatchScopeDiesOnStateClose(c *gc.C) {
 }
 
 func (s *RelationUnitSuite) TestPeerWatchScope(c *gc.C) {
-	pr := NewPeerRelation(c, s.State)
+	pr := newPeerRelation(c, s.State)
 
 	// Test empty initial event.
 	w0 := pr.ru0.WatchScope()
@@ -530,12 +531,12 @@ func (s *RelationUnitSuite) TestPeerWatchScope(c *gc.C) {
 }
 
 func (s *RelationUnitSuite) TestProReqWatchScope(c *gc.C) {
-	prr := NewProReqRelation(c, &s.ConnSuite, charm.ScopeGlobal)
+	prr := newProReqRelation(c, &s.ConnSuite, charm.ScopeGlobal)
 	s.testProReqWatchScope(c, prr.pru0, prr.pru1, prr.rru0, prr.rru1, prr.watches)
 }
 
 func (s *RelationUnitSuite) TestRemoteProReqWatchScope(c *gc.C) {
-	prr := NewRemoteProReqRelation(c, &s.ConnSuite)
+	prr := newRemoteProReqRelation(c, &s.ConnSuite)
 	s.testProReqWatchScope(c, prr.pru0, prr.pru1, prr.rru0, prr.rru1, prr.watches)
 }
 
@@ -627,7 +628,7 @@ func (s *RelationUnitSuite) testProReqWatchScope(
 }
 
 func (s *RelationUnitSuite) TestContainerWatchScope(c *gc.C) {
-	prr := NewProReqRelation(c, &s.ConnSuite, charm.ScopeContainer)
+	prr := newProReqRelation(c, &s.ConnSuite, charm.ScopeContainer)
 
 	// Test empty initial events for all RUs.
 	ws := prr.watches()
@@ -697,7 +698,7 @@ func (s *RelationUnitSuite) TestContainerWatchScope(c *gc.C) {
 }
 
 func (s *RelationUnitSuite) TestCoalesceWatchScope(c *gc.C) {
-	pr := NewPeerRelation(c, s.State)
+	pr := newPeerRelation(c, s.State)
 
 	// Test empty initial event.
 	w0 := pr.ru0.WatchScope()
@@ -731,12 +732,12 @@ func (s *RelationUnitSuite) TestCoalesceWatchScope(c *gc.C) {
 }
 
 func (s *RelationUnitSuite) TestPrepareLeaveScope(c *gc.C) {
-	prr := NewProReqRelation(c, &s.ConnSuite, charm.ScopeGlobal)
+	prr := newProReqRelation(c, &s.ConnSuite, charm.ScopeGlobal)
 	s.testPrepareLeaveScope(c, prr.rel, prr.pru0, prr.pru1, prr.rru0, prr.rru1)
 }
 
 func (s *RelationUnitSuite) TestPrepareLeaveScopeRemote(c *gc.C) {
-	prr := NewRemoteProReqRelation(c, &s.ConnSuite)
+	prr := newRemoteProReqRelation(c, &s.ConnSuite)
 	s.testPrepareLeaveScope(c, prr.rel, prr.pru0, prr.pru1, prr.rru0, prr.rru1)
 }
 
@@ -814,18 +815,25 @@ func (s *RelationUnitSuite) assertNoScopeChange(c *gc.C, ws ...*state.RelationSc
 
 type PeerRelation struct {
 	rel                *state.Relation
-	svc                *state.Application
+	app                *state.Application
 	u0, u1, u2, u3     *state.Unit
 	ru0, ru1, ru2, ru3 *state.RelationUnit
 }
 
-func NewPeerRelation(c *gc.C, st *state.State) *PeerRelation {
+func preventPeerUnitsDestroyRemove(c *gc.C, pr *PeerRelation) {
+	preventUnitDestroyRemove(c, pr.u0)
+	preventUnitDestroyRemove(c, pr.u1)
+	preventUnitDestroyRemove(c, pr.u2)
+	preventUnitDestroyRemove(c, pr.u3)
+}
+
+func newPeerRelation(c *gc.C, st *state.State) *PeerRelation {
 	svc := state.AddTestingService(c, st, "riak", state.AddTestingCharm(c, st, "riak"))
 	ep, err := svc.Endpoint("ring")
 	c.Assert(err, jc.ErrorIsNil)
 	rel, err := st.EndpointsRelation(ep)
 	c.Assert(err, jc.ErrorIsNil)
-	pr := &PeerRelation{rel: rel, svc: svc}
+	pr := &PeerRelation{rel: rel, app: svc}
 	pr.u0, pr.ru0 = addRU(c, svc, rel, nil)
 	pr.u1, pr.ru1 = addRU(c, svc, rel, nil)
 	pr.u2, pr.ru2 = addRU(c, svc, rel, nil)
@@ -840,27 +848,34 @@ type ProReqRelation struct {
 	pru0, pru1, rru0, rru1 *state.RelationUnit
 }
 
-func NewProReqRelation(c *gc.C, s *ConnSuite, scope charm.RelationScope) *ProReqRelation {
-	psvc := s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
-	var rsvc *state.Application
+func preventProReqUnitsDestroyRemove(c *gc.C, prr *ProReqRelation) {
+	preventUnitDestroyRemove(c, prr.pu0)
+	preventUnitDestroyRemove(c, prr.pu1)
+	preventUnitDestroyRemove(c, prr.ru0)
+	preventUnitDestroyRemove(c, prr.ru1)
+}
+
+func newProReqRelation(c *gc.C, s *ConnSuite, scope charm.RelationScope) *ProReqRelation {
+	papp := s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	var rapp *state.Application
 	if scope == charm.ScopeGlobal {
-		rsvc = s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+		rapp = s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	} else {
-		rsvc = s.AddTestingService(c, "logging", s.AddTestingCharm(c, "logging"))
+		rapp = s.AddTestingService(c, "logging", s.AddTestingCharm(c, "logging"))
 	}
-	eps, err := s.State.InferEndpoints("mysql", rsvc.Name())
+	eps, err := s.State.InferEndpoints("mysql", rapp.Name())
 	c.Assert(err, jc.ErrorIsNil)
 	rel, err := s.State.AddRelation(eps...)
 	c.Assert(err, jc.ErrorIsNil)
-	prr := &ProReqRelation{rel: rel, psvc: psvc, rsvc: rsvc}
-	prr.pu0, prr.pru0 = addRU(c, psvc, rel, nil)
-	prr.pu1, prr.pru1 = addRU(c, psvc, rel, nil)
+	prr := &ProReqRelation{rel: rel, psvc: papp, rsvc: rapp}
+	prr.pu0, prr.pru0 = addRU(c, papp, rel, nil)
+	prr.pu1, prr.pru1 = addRU(c, papp, rel, nil)
 	if scope == charm.ScopeGlobal {
-		prr.ru0, prr.rru0 = addRU(c, rsvc, rel, nil)
-		prr.ru1, prr.rru1 = addRU(c, rsvc, rel, nil)
+		prr.ru0, prr.rru0 = addRU(c, rapp, rel, nil)
+		prr.ru1, prr.rru1 = addRU(c, rapp, rel, nil)
 	} else {
-		prr.ru0, prr.rru0 = addRU(c, rsvc, rel, prr.pu0)
-		prr.ru1, prr.rru1 = addRU(c, rsvc, rel, prr.pu1)
+		prr.ru0, prr.rru0 = addRU(c, rapp, rel, prr.pu0)
+		prr.ru1, prr.rru1 = addRU(c, rapp, rel, prr.pu1)
 	}
 	return prr
 }
@@ -908,7 +923,6 @@ func addRU(c *gc.C, svc *state.Application, rel *state.Relation, principal *stat
 		}
 		c.Assert(u, gc.NotNil)
 	}
-	preventUnitDestroyRemove(c, u)
 	ru, err := rel.Unit(u)
 	c.Assert(err, jc.ErrorIsNil)
 	return u, ru
@@ -921,7 +935,7 @@ type RemoteProReqRelation struct {
 	pru0, pru1, rru0, rru1 *state.RelationUnit
 }
 
-func NewRemoteProReqRelation(c *gc.C, s *ConnSuite) *RemoteProReqRelation {
+func newRemoteProReqRelation(c *gc.C, s *ConnSuite) *RemoteProReqRelation {
 	psvc, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name:        "mysql",
 		URL:         "local:/u/me/mysql",
