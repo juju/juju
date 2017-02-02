@@ -737,6 +737,32 @@ func (s *bridgePolicyStateSuite) TestFindMissingBridgesForContainerUseLocalBridg
 	c.Check(reconfigureDelay, gc.Equals, 0)
 }
 
+func (s *bridgePolicyStateSuite) TestFindMissingBridgesForContainerUseLocalBridgesNoAddress(c *gc.C) {
+	// We should only use 'lxdbr0' instead of bridging the host device.
+	s.setupTwoSpaces(c)
+	s.createNICWithIP(c, s.machine, "ens3", "172.12.0.10/24")
+	err := s.machine.SetLinkLayerDevices(
+		state.LinkLayerDeviceArgs{
+			Name:       "lxdbr0",
+			Type:       state.BridgeDevice,
+			ParentName: "",
+			IsUp:       true,
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	s.addContainerMachine(c)
+	bridgePolicy := &containerizer.BridgePolicy{
+		NetBondReconfigureDelay: 13,
+		UseLocalBridges:         true,
+	}
+	// No defined spaces for the container, no *known* spaces for the host
+	// machine. Triggers the fallback code to have us bridge all devices.
+	missing, reconfigureDelay, err := bridgePolicy.FindMissingBridgesForContainer(s.machine, s.containerMachine)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(missing, jc.DeepEquals, []network.DeviceToBridge{})
+	c.Check(reconfigureDelay, gc.Equals, 0)
+}
+
 func (s *bridgePolicyStateSuite) TestFindMissingBridgesForContainerUnknownWithConstraint(c *gc.C) {
 	// If we have a host machine where we don't understand its spaces, but
 	// the container requests a specific space, we won't use the unknown

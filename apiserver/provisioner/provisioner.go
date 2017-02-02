@@ -825,6 +825,7 @@ type hostChangesContext struct {
 func (ctx *hostChangesContext) ProcessOneContainer(env environs.Environ, idx int, host, container *state.Machine) error {
 	bridgePolicy := containerizer.BridgePolicy{
 		NetBondReconfigureDelay: env.Config().NetBondReconfigureDelay(),
+		UseLocalBridges:         !environs.SupportsContainerAddresses(env),
 	}
 	bridges, reconfigureDelay, err := bridgePolicy.FindMissingBridgesForContainer(host, container)
 	if err != nil {

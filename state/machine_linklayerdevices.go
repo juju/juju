@@ -911,10 +911,11 @@ func deviceMapToSortedList(deviceMap map[string]*LinkLayerDevice) []*LinkLayerDe
 	return result
 }
 
-// LinkLayerDevicesForSpaces takes a list of spaces, and returns the devices
-// on this machine that are in that space. (We currently only return devices
-// that have an address, which are thus targets for being bridged, or are
-// themselves a bridge that can be used.)
+// LinkLayerDevicesForSpaces takes a list of spaces, and returns the devices on
+// this machine that are in that space that we feel would be useful for
+// containers to know about.  (eg, if there is a host device that has been
+// bridged, we return the bridge, rather than the underlying device, but if we
+// have only the host device, we return that.)
 // Note that devices like 'lxdbr0' that are bridges that might might not be
 // externally accessible may be returned if "" is listed as one of the desired
 // spaces.
@@ -923,50 +924,18 @@ func (m *Machine) LinkLayerDevicesForSpaces(spaces []string) (map[string][]*Link
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	devices, err := m.AllLinkLayerDevices()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	deviceByName := make(map[string]*LinkLayerDevice, len(devices))
+	for _, dev := range devices {
+		deviceByName[dev.Name()] = dev
+	}
 	requestedSpaces := set.NewStrings(spaces...)
 	spaceToDevices := make(map[string]map[string]*LinkLayerDevice, 0)
-	// TODO(jam): 2016-12-08 We look up each subnet one-by-one, and then look
-	// up each Link-Layer-Device one-by-one, it feels like we should
-	// 'aggregate all subnet CIDR' and then grab them in one pass, and then
-	// filter them to find the link layer devices we care about, and ask for
-	// them in a single pass again.
-	// Further, we should be tracking this more by Layer 2 connections, rather
-	// than requiring CIDR. Eventually we want to get rid of host network
-	// devices from having an IP address at all, so that only the containers
-	// have Layer 3 addresses.
-	for _, addr := range addresses {
-		subnet, err := addr.Subnet()
-		spaceName := ""
-		if err != nil {
-			if errors.IsNotFound(err) {
-				// We record all addresses that we find on the
-				// machine. However, some devices may have IP
-				// addresses that are not in known subnets or spaces.
-				// (loopback devices aren't in a space, arbitrary
-				// application based addresses, etc.)
-				// The caller can request those devices by asking us for the
-				// "" space.
-				if !requestedSpaces.Contains("") {
-					continue
-				}
-			} else {
-				// We don't understand the error, so error out for now
-				return nil, errors.Trace(err)
-			}
-		} else {
-			spaceName = subnet.SpaceName()
-		}
-		if !requestedSpaces.Contains(spaceName) {
-			continue
-		}
-		device, err := addr.Device()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		if device.Type() == LoopbackDevice {
-			// We skip loopback devices here
-			continue
-		}
+	processedDeviceNames := set.NewStrings()
+	includeDevice := func(spaceName string, device *LinkLayerDevice) {
 		spaceInfo, ok := spaceToDevices[spaceName]
 		if !ok {
 			spaceInfo = make(map[string]*LinkLayerDevice)
@@ -974,8 +943,53 @@ func (m *Machine) LinkLayerDevicesForSpaces(spaces []string) (map[string][]*Link
 		}
 		spaceInfo[device.Name()] = device
 	}
+	// First pass, iterate the addresses, lookup the associated spaces, and
+	// gather the devices.
+	for _, addr := range addresses {
+		subnet, err := addr.Subnet()
+		spaceName := ""
+		if err != nil {
+			if errors.IsNotFound(err) {
+				// unknown subnets are considered part of the "unknown" space
+				spaceName = ""
+			} else {
+				// We don't understand the error, so error out for now
+				return nil, errors.Trace(err)
+			}
+		} else {
+			spaceName = subnet.SpaceName()
+		}
+		device, ok := deviceByName[addr.DeviceName()]
+		if !ok {
+			return nil, errors.Errorf("address %v for machine %q refers to a missing device %q",
+				addr, m.Id(), addr.DeviceName())
+		}
+		processedDeviceNames.Add(device.Name())
+		if device.Type() == LoopbackDevice {
+			// We skip loopback devices here
+			continue
+		}
+		includeDevice(spaceName, device)
+	}
+	// Now grab any devices we may have missed. For now, any device without an
+	// address must be in the "unknown" space.
+	for devName, device := range deviceByName {
+		if processedDeviceNames.Contains(devName) {
+			continue
+		}
+		// Loopback devices aren't considered part of the empty space
+		// Also, devices that are attached to another device also aren't
+		// considered to be in the unknown space.
+		if device.Type() == LoopbackDevice || device.ParentName() != "" {
+			continue
+		}
+		includeDevice("", device)
+	}
 	result := make(map[string][]*LinkLayerDevice, len(spaceToDevices))
 	for spaceName, deviceMap := range spaceToDevices {
+		if !requestedSpaces.Contains(spaceName) {
+			continue
+		}
 		result[spaceName] = deviceMapToSortedList(deviceMap)
 	}
 	return result, nil
