@@ -37,6 +37,13 @@ import (
 	coretesting "github.com/juju/juju/testing"
 )
 
+// ensure we conform to the right interfaces
+var (
+	_ environs.NetworkingEnviron = (*maasEnviron)(nil)
+	// Should maasEnviron implement this? It needs ConfigDefaults
+	// _ config.ConfigSchemaSource  = (*maasEnviron)(nil)
+)
+
 type environSuite struct {
 	providerSuite
 }
@@ -455,6 +462,7 @@ func (suite *environSuite) TestSupportsSpaces(c *gc.C) {
 	supported, err := env.SupportsSpaces()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(supported, jc.IsTrue)
+	c.Check(env, jc.Satisfies, environs.SupportsSpaces)
 }
 
 func (suite *environSuite) TestSupportsSpaceDiscovery(c *gc.C) {
@@ -462,6 +470,14 @@ func (suite *environSuite) TestSupportsSpaceDiscovery(c *gc.C) {
 	supported, err := env.SupportsSpaceDiscovery()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(supported, jc.IsTrue)
+}
+
+func (suite *environSuite) TestSupportsContainerAddresses(c *gc.C) {
+	env := suite.makeEnviron()
+	supported, err := env.SupportsContainerAddresses()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(supported, jc.IsTrue)
+	c.Check(env, jc.Satisfies, environs.SupportsContainerAddresses)
 }
 
 func (suite *environSuite) TestSubnetsWithInstanceIdAndSubnetIds(c *gc.C) {

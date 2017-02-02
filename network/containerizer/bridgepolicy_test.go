@@ -75,6 +75,7 @@ func (s *bridgePolicyStateSuite) SetUpTest(c *gc.C) {
 
 	s.bridgePolicy = &containerizer.BridgePolicy{
 		NetBondReconfigureDelay: 13,
+		UseLocalBridges:         false,
 	}
 }
 
@@ -590,6 +591,49 @@ func (s *bridgePolicyStateSuite) TestPopulateContainerLinkLayerDevicesTwoBridges
 	c.Check(containerDevice.ParentName(), gc.Equals, `m#0#d#br-ens4`)
 }
 
+func (s *bridgePolicyStateSuite) TestPopulateContainerLinkLayerDevicesNoLocal(c *gc.C) {
+	// The host machine has 1 network device and only local bridges, but none of them
+	// are in a known space. The container also has no requested space.
+	s.setupTwoSpaces(c)
+	s.createNICWithIP(c, s.machine, "ens3", "172.12.1.10/24")
+	s.createAllDefaultDevices(c, s.machine)
+	s.addContainerMachine(c)
+	s.assertNoDevicesOnMachine(c, s.containerMachine)
+
+	bridgePolicy := &containerizer.BridgePolicy{
+		NetBondReconfigureDelay: 13,
+		UseLocalBridges:         false,
+	}
+	err := bridgePolicy.PopulateContainerLinkLayerDevices(s.machine, s.containerMachine)
+	c.Assert(err.Error(), gc.Equals, `unable to find host bridge for space(s) "" for container "0/lxd/0"`)
+	s.assertNoDevicesOnMachine(c, s.containerMachine)
+}
+
+func (s *bridgePolicyStateSuite) TestPopulateContainerLinkLayerDevicesUseLocal(c *gc.C) {
+	// The host machine has 1 network device and only local bridges, but none of them
+	// are in a known space. The container also has no requested space.
+	s.setupTwoSpaces(c)
+	s.createNICWithIP(c, s.machine, "ens3", "172.12.1.10/24")
+	s.createAllDefaultDevices(c, s.machine)
+	s.addContainerMachine(c)
+	s.assertNoDevicesOnMachine(c, s.containerMachine)
+
+	bridgePolicy := &containerizer.BridgePolicy{
+		NetBondReconfigureDelay: 13,
+		UseLocalBridges:         true,
+	}
+	err := bridgePolicy.PopulateContainerLinkLayerDevices(s.machine, s.containerMachine)
+	c.Assert(err, jc.ErrorIsNil)
+
+	containerDevices, err := s.containerMachine.AllLinkLayerDevices()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(containerDevices, gc.HasLen, 1)
+
+	containerDevice := containerDevices[0]
+	c.Check(containerDevice.Name(), gc.Matches, "eth0")
+	c.Check(containerDevice.ParentName(), gc.Equals, `m#0#d#lxdbr0`)
+}
+
 func (s *bridgePolicyStateSuite) TestFindMissingBridgesForContainerNoneMissing(c *gc.C) {
 	s.setupTwoSpaces(c)
 	s.createNICAndBridgeWithIP(c, s.machine, "eth0", "br-eth0", "10.0.0.20/24")
@@ -669,6 +713,27 @@ func (s *bridgePolicyStateSuite) TestFindMissingBridgesForContainerNoSpaces(c *g
 		DeviceName: "ens4",
 		BridgeName: "br-ens4",
 	}})
+	c.Check(reconfigureDelay, gc.Equals, 0)
+}
+
+func (s *bridgePolicyStateSuite) TestFindMissingBridgesForContainerUseLocalBridges(c *gc.C) {
+	// There is a "default" and "dmz" space, our machine has 1 network
+	// interface, but is not part of a known space. We have UseLocalBridges
+	// set, which means we should fall back to using 'lxdbr0' instead of
+	// bridging the host device.
+	s.setupTwoSpaces(c)
+	s.createNICWithIP(c, s.machine, "ens3", "172.12.0.10/24")
+	s.createAllDefaultDevices(c, s.machine)
+	s.addContainerMachine(c)
+	bridgePolicy := &containerizer.BridgePolicy{
+		NetBondReconfigureDelay: 13,
+		UseLocalBridges:         true,
+	}
+	// No defined spaces for the container, no *known* spaces for the host
+	// machine. Triggers the fallback code to have us bridge all devices.
+	missing, reconfigureDelay, err := bridgePolicy.FindMissingBridgesForContainer(s.machine, s.containerMachine)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(missing, jc.DeepEquals, []network.DeviceToBridge{})
 	c.Check(reconfigureDelay, gc.Equals, 0)
 }
 
@@ -996,3 +1061,7 @@ func (s *bridgePolicyStateSuite) TestFindMissingBridgesForContainerVLANOnBond(c 
 	}})
 	c.Check(reconfigureDelay, gc.Equals, 13)
 }
+
+// TODO(jam): 2017-01-31 Make sure KVM guests default to virbr0, and LXD guests use lxdbr0
+// Add tests for UseLocal = True, but we have named spaces
+// Add tests for UseLocal = True, but the host device is bridged

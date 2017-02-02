@@ -980,10 +980,7 @@ func (s *linkLayerDevicesStateSuite) TestLinkLayerDevicesForSpacesWithUnknown(c 
 	c.Check(devices[0].Type(), gc.Equals, state.BridgeDevice)
 }
 
-func (s *linkLayerDevicesStateSuite) TestLinkLayerDevicesForSpacesUnknownIgnoresLoopAndKnownBridges(c *gc.C) {
-	// When we ask for unknown devices, we still skip lxdbr0 and virbr0,
-	// because we don't want to put containers there as they won't be
-	// routable.
+func (s *linkLayerDevicesStateSuite) TestLinkLayerDevicesForSpacesUnknownIgnoresLoopAndIncludesKnownBridges(c *gc.C) {
 	// TODO(jam): 2016-12-28 arguably we should also be aware of Docker
 	// devices, possibly the better plan is to look at whether there are
 	// routes from the given bridge out into the rest of the world.
@@ -1001,7 +998,7 @@ func (s *linkLayerDevicesStateSuite) TestLinkLayerDevicesForSpacesUnknownIgnores
 	for i, dev := range devices {
 		names[i] = dev.Name()
 	}
-	c.Check(names, gc.DeepEquals, []string{"br-ens4", "ens3"})
+	c.Check(names, gc.DeepEquals, []string{"br-ens4", "ens3", "lxcbr0", "lxdbr0", "virbr0"})
 }
 
 func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesWithLightStateChurn(c *gc.C) {

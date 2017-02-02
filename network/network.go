@@ -55,6 +55,9 @@ const AnySubnet Id = ""
 // UnknownId can be used whenever an Id is needed but not known.
 const UnknownId = ""
 
+// DefaultLXCBridge is the bridge that gets used for LXC containers
+const DefaultLXCBridge = "lxcbr0"
+
 // DefaultLXDBridge is the bridge that gets used for LXD containers
 const DefaultLXDBridge = "lxdbr0"
 
