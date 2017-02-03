@@ -8,6 +8,7 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/storage"
+	"github.com/juju/version"
 )
 
 // oracleEnviron implements the environs.Environ interface
@@ -102,6 +103,11 @@ func (o oracleEnviron) DestroyController(controllerUUID string) error {
 
 func (o oracleEnviron) Provider() environs.EnvironProvider {
 	return o.p
+}
+
+func (e oracleEnviron) AdoptResources(controllerUUID string, fromVersion version.Number) error {
+
+	return nil
 }
 
 func (o oracleEnviron) PrecheckInstance(series string, cons constraints.Value, placement string) error {
