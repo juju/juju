@@ -134,9 +134,11 @@ func (s *CleanupSuite) TestCleanupModelMachines(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Create a relation with a unit in scope and assigned to the hosted machine.
-	pr := NewPeerRelation(c, s.State)
+	pr := newPeerRelation(c, s.State)
 	err = pr.u0.AssignToMachine(machine)
 	c.Assert(err, jc.ErrorIsNil)
+	preventPeerUnitsDestroyRemove(c, pr)
+
 	err = pr.ru0.EnterScope(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertDoesNotNeedCleanup(c)
@@ -208,14 +210,15 @@ func (s *CleanupSuite) TestCleanupModelServices(c *gc.C) {
 
 func (s *CleanupSuite) TestCleanupRelationSettings(c *gc.C) {
 	// Create a relation with a unit in scope.
-	pr := NewPeerRelation(c, s.State)
+	pr := newPeerRelation(c, s.State)
+	preventPeerUnitsDestroyRemove(c, pr)
 	rel := pr.ru0.Relation()
 	err := pr.ru0.EnterScope(map[string]interface{}{"some": "settings"})
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertDoesNotNeedCleanup(c)
 
 	// Destroy the service, check the relation's still around.
-	err = pr.svc.Destroy()
+	err = pr.app.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertCleanupCount(c, 2)
 	err = rel.Refresh()
@@ -254,9 +257,10 @@ func (s *CleanupSuite) TestCleanupForceDestroyedMachineUnit(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Create a relation with a unit in scope and assigned to the machine.
-	pr := NewPeerRelation(c, s.State)
+	pr := newPeerRelation(c, s.State)
 	err = pr.u0.AssignToMachine(machine)
 	c.Assert(err, jc.ErrorIsNil)
+	preventPeerUnitsDestroyRemove(c, pr)
 	err = pr.ru0.EnterScope(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertDoesNotNeedCleanup(c)
@@ -333,7 +337,7 @@ func (s *CleanupSuite) TestCleanupForceDestroyedMachineWithContainer(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Create active units (in relation scope, with subordinates).
-	prr := NewProReqRelation(c, &s.ConnSuite, charm.ScopeContainer)
+	prr := newProReqRelation(c, &s.ConnSuite, charm.ScopeContainer)
 	err = prr.pru0.EnterScope(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	err = prr.pru1.EnterScope(nil)
@@ -348,6 +352,7 @@ func (s *CleanupSuite) TestCleanupForceDestroyedMachineWithContainer(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = prr.pu1.AssignToMachine(container)
 	c.Assert(err, jc.ErrorIsNil)
+	preventProReqUnitsDestroyRemove(c, prr)
 	s.assertDoesNotNeedCleanup(c)
 
 	// Force removal of the top-level machine.
@@ -385,7 +390,8 @@ func (s *CleanupSuite) TestCleanupForceDestroyedMachineWithContainer(c *gc.C) {
 
 func (s *CleanupSuite) TestCleanupDyingUnit(c *gc.C) {
 	// Create active unit, in a relation.
-	prr := NewProReqRelation(c, &s.ConnSuite, charm.ScopeGlobal)
+	prr := newProReqRelation(c, &s.ConnSuite, charm.ScopeGlobal)
+	preventProReqUnitsDestroyRemove(c, prr)
 	err := prr.pru0.EnterScope(nil)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -419,7 +425,8 @@ func (s *CleanupSuite) TestCleanupDyingUnit(c *gc.C) {
 
 func (s *CleanupSuite) TestCleanupDyingUnitAlreadyRemoved(c *gc.C) {
 	// Create active unit, in a relation.
-	prr := NewProReqRelation(c, &s.ConnSuite, charm.ScopeGlobal)
+	prr := newProReqRelation(c, &s.ConnSuite, charm.ScopeGlobal)
+	preventProReqUnitsDestroyRemove(c, prr)
 	err := prr.pru0.EnterScope(nil)
 	c.Assert(err, jc.ErrorIsNil)
 
