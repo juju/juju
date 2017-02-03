@@ -6,6 +6,7 @@ package agent
 import (
 	"fmt"
 	"net"
+	"net/http"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -503,6 +504,10 @@ func (a *MachineAgent) makeEngineCreator(previousAgentVersion version.Number) fu
 		if err != nil {
 			return nil, err
 		}
+		startStateWorkers := func(st *state.State) (worker.Worker, error) {
+			var reporter dependency.Reporter = engine
+			return a.startStateWorkers(st, reporter)
+		}
 		manifolds := machineManifolds(machine.ManifoldsConfig{
 			PreviousAgentVersion: previousAgentVersion,
 			Agent:                agent.APIHostPortsSetter{Agent: a},
@@ -512,7 +517,7 @@ func (a *MachineAgent) makeEngineCreator(previousAgentVersion version.Number) fu
 			UpgradeCheckLock:     a.initialUpgradeCheckComplete,
 			OpenState:            a.initState,
 			OpenStateForUpgrade:  a.openStateForUpgrade,
-			StartStateWorkers:    a.startStateWorkers,
+			StartStateWorkers:    startStateWorkers,
 			StartAPIWorkers:      a.startAPIWorkers,
 			PreUpgradeSteps:      upgrades.PreUpgradeSteps,
 			LogSource:            a.bufferedLogger.Logs(),
@@ -938,7 +943,10 @@ func (a *MachineAgent) initState(agentConfig agent.Config) (*state.State, error)
 
 // startStateWorkers returns a worker running all the workers that
 // require a *state.State connection.
-func (a *MachineAgent) startStateWorkers(st *state.State) (worker.Worker, error) {
+func (a *MachineAgent) startStateWorkers(
+	st *state.State,
+	dependencyReporter dependency.Reporter,
+) (worker.Worker, error) {
 	agentConfig := a.CurrentConfig()
 
 	m, err := getMachine(st, agentConfig.Tag())
@@ -1026,7 +1034,11 @@ func (a *MachineAgent) startStateWorkers(st *state.State) (worker.Worker, error)
 				)
 				return st, err
 			}
-			runner.StartWorker("apiserver", a.apiserverWorkerStarter(stateOpener, certChangedChan))
+			runner.StartWorker("apiserver", a.apiserverWorkerStarter(
+				stateOpener,
+				certChangedChan,
+				dependencyReporter,
+			))
 			var stateServingSetter certupdater.StateServingInfoSetter = func(info params.StateServingInfo, done <-chan struct{}) error {
 				return a.ChangeConfig(func(config agent.ConfigSetter) error {
 					config.SetStateServingInfo(info)
@@ -1110,18 +1122,24 @@ func (a *MachineAgent) startModelWorkers(controllerUUID, modelUUID string) (work
 var stateWorkerDialOpts mongo.DialOpts
 
 func (a *MachineAgent) apiserverWorkerStarter(
-	stateOpener func() (*state.State, error), certChanged chan params.StateServingInfo,
+	stateOpener func() (*state.State, error),
+	certChanged chan params.StateServingInfo,
+	dependencyReporter dependency.Reporter,
 ) func() (worker.Worker, error) {
 	return func() (worker.Worker, error) {
 		st, err := stateOpener()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		return a.newAPIserverWorker(st, certChanged)
+		return a.newAPIserverWorker(st, certChanged, dependencyReporter)
 	}
 }
 
-func (a *MachineAgent) newAPIserverWorker(st *state.State, certChanged chan params.StateServingInfo) (worker.Worker, error) {
+func (a *MachineAgent) newAPIserverWorker(
+	st *state.State,
+	certChanged chan params.StateServingInfo,
+	dependencyReporter dependency.Reporter,
+) (worker.Worker, error) {
 	agentConfig := a.CurrentConfig()
 	// If the configuration does not have the required information,
 	// it is currently not a recoverable error, so we kill the whole
@@ -1172,20 +1190,29 @@ func (a *MachineAgent) newAPIserverWorker(st *state.State, certChanged chan para
 		return nil, errors.Annotate(err, "cannot create RPC observer factory")
 	}
 
+	registerIntrospectionHandlers := func(f func(string, http.Handler)) {
+		introspection.RegisterHTTPHandlers(
+			dependencyReporter,
+			a.prometheusRegistry,
+			f,
+		)
+	}
+
 	server, err := apiserver.NewServer(st, listener, apiserver.ServerConfig{
-		Clock:            clock.WallClock,
-		Cert:             cert,
-		Key:              key,
-		Tag:              tag,
-		DataDir:          dataDir,
-		LogDir:           logDir,
-		Validator:        a.limitLogins,
-		Hub:              a.centralHub,
-		CertChanged:      certChanged,
-		AutocertURL:      controllerConfig.AutocertURL(),
-		AutocertDNSName:  controllerConfig.AutocertDNSName(),
-		AllowModelAccess: controllerConfig.AllowModelAccess(),
-		NewObserver:      newObserver,
+		Clock:                         clock.WallClock,
+		Cert:                          cert,
+		Key:                           key,
+		Tag:                           tag,
+		DataDir:                       dataDir,
+		LogDir:                        logDir,
+		Validator:                     a.limitLogins,
+		Hub:                           a.centralHub,
+		CertChanged:                   certChanged,
+		AutocertURL:                   controllerConfig.AutocertURL(),
+		AutocertDNSName:               controllerConfig.AutocertDNSName(),
+		AllowModelAccess:              controllerConfig.AllowModelAccess(),
+		NewObserver:                   newObserver,
+		RegisterIntrospectionHandlers: registerIntrospectionHandlers,
 	})
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot start api server worker")
