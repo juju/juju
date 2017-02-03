@@ -69,8 +69,8 @@ func FormatTabular(value interface{}) ([]byte, error) {
 			u.AgentStatusInfo.Current,
 			u.AgentStatusInfo.Version,
 			u.Machine,
-			strings.Join(u.OpenedPorts, ","),
 			u.PublicAddress,
+			strings.Join(u.OpenedPorts, ","),
 			message,
 		)
 	}
@@ -85,9 +85,9 @@ func FormatTabular(value interface{}) ([]byte, error) {
 	}
 	var header []string
 	if newStatus {
-		header = []string{"ID", "WORKLOAD-STATE", "AGENT-STATE", "VERSION", "MACHINE", "PORTS", "PUBLIC-ADDRESS", "MESSAGE"}
+		header = []string{"ID", "WORKLOAD-STATE", "AGENT-STATE", "VERSION", "MACHINE", "PUBLIC-ADDRESS", "PORTS", "MESSAGE"}
 	} else {
-		header = []string{"ID", "STATE", "VERSION", "MACHINE", "PORTS", "PUBLIC-ADDRESS"}
+		header = []string{"ID", "STATE", "VERSION", "MACHINE", "PUBLIC-ADDRESS", "PORTS"}
 	}
 
 	p("\n[Units]")
