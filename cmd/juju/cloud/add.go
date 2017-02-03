@@ -284,7 +284,6 @@ func queryCloudType(pollster *interact.Pollster) (string, error) {
 	sort.Strings(providers)
 
 	supportedCloud := interact.VerifyOptions("cloud type", providers, false)
-
 	cloudVerify := func(s string) (ok bool, errmsg string, err error) {
 		ok, errmsg, err = supportedCloud(s)
 		if err != nil {

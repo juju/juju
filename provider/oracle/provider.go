@@ -28,8 +28,35 @@ type environProvider struct {
 	client *oci.Client
 }
 
+// CloudSchema returns the schema used to validate input for add-cloud.  Since
+// this provider does support custom clouds, this always returns non-nil
 func (e environProvider) CloudSchema() *jsonschema.Schema {
-	return nil
+	return &jsonschema.Schema{
+		Type:     []jsonschema.Type{jsonschema.ObjectType},
+		Required: []string{cloud.EndpointKey, cloud.AuthTypesKey, cloud.RegionsKey},
+		Order:    []string{cloud.EndpointKey, cloud.AuthTypesKey, cloud.RegionsKey},
+		Properties: map[string]*jsonschema.Schema{
+			cloud.EndpointKey: {
+				Singular: "the API endpoint url for the cloud",
+				Type:     []jsonschema.Type{jsonschema.StringType},
+				Format:   jsonschema.FormatURI,
+			},
+			cloud.AuthTypesKey: &jsonschema.Schema{
+				// don't need a prompt, since there's only one choice.
+				Type: []jsonschema.Type{jsonschema.ArrayType},
+				Enum: []interface{}{[]string{string(cloud.UserPassAuthType)}},
+			},
+			cloud.RegionsKey: {
+				Type:     []jsonschema.Type{jsonschema.ObjectType},
+				Singular: "region",
+				Plural:   "regions",
+				AdditionalProperties: &jsonschema.Schema{
+					Type:          []jsonschema.Type{jsonschema.ObjectType},
+					MaxProperties: jsonschema.Int(0),
+				},
+			},
+		},
+	}
 }
 
 // Ping tests the connection to the oracle cloud to verify the endoint is valid.
