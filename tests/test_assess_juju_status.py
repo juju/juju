@@ -1,7 +1,6 @@
 """Tests for assess_juju_status module."""
 
 import logging
-import StringIO
 
 from mock import (
     Mock,
@@ -15,7 +14,6 @@ from assess_juju_status import (
     )
 from jujupy import fake_juju_client
 from tests import (
-    parse_error,
     TestCase,
     )
 from jujupy.client import (
@@ -43,14 +41,6 @@ class TestParseArgs(TestCase):
         self.assertEqual("dummy-source", args.charm_app)
         self.assertEquals("foo", args.series)
 
-    def test_help(self):
-        fake_stdout = StringIO.StringIO()
-        with parse_error(self) as fake_stderr:
-            with patch("sys.stdout", fake_stdout):
-                parse_args(["--help"])
-        self.assertEqual("", fake_stderr.getvalue())
-        self.assertNotIn("TODO", fake_stdout.getvalue())
-
 
 class TestMain(TestCase):
 
@@ -76,13 +66,9 @@ class TestMain(TestCase):
 class TestAssess(TestCase):
 
     def test_juju_status(self):
-        # Using fake_client means that deploy and get_status have plausible
-        # results.  Wrapping it in a Mock causes every call to be recorded, and
-        # allows assertions to be made about calls.  Mocks and the fake client
-        # can also be used separately.
         fake_client = Mock(wraps=fake_juju_client())
         fake_client.bootstrap()
-        assess_juju_status(fake_client)
+        assess_juju_status(fake_client, 'dummy-source', 'xenial')
         fake_client.deploy.assert_called_once_with(
             'dummy-source')
         fake_client.wait_for_started.assert_called_once_with()
@@ -92,7 +78,7 @@ class TestAssess(TestCase):
     def test_juju_status_application_status(self):
         fake_client = Mock(wraps=fake_juju_client())
         fake_client.bootstrap()
-        assess_juju_status(fake_client)
+        assess_juju_status(fake_client, 'dummy-source', 'xenial')
         self.assertIn("verified juju application status successfully",
                       self.log_stream.getvalue())
 
@@ -114,7 +100,7 @@ class TestAssess(TestCase):
             },
         }, '')
         fake_client.bootstrap()
-        assess_juju_status(fake_client)
+        assess_juju_status(fake_client, 'dummy-source', 'xenial')
         with patch.object(fake_client, 'get_status', autospec=True) as ags:
             ags.return_value = app_status
             verify_application_status(fake_client, "fakejob")
@@ -136,29 +122,9 @@ class TestAssess(TestCase):
             },
         }, '')
         fake_client.bootstrap()
-        assess_juju_status(fake_client)
+        assess_juju_status(fake_client, 'dummy-source', 'xenial')
         with patch.object(fake_client, 'get_status', autospec=True) as ags:
             ags.return_value = app_status
             with self.assertRaisesRegexp(
                     JujuAssertionError, "application status not found"):
-                verify_application_status(fake_client, "fakejob")
-
-    def test_juju_status_application_status_invalid_key(self):
-        fake_client = Mock(wraps=fake_juju_client())
-        app_status = Status({
-            'applications': {
-                'fakejob': {
-                    'units': {
-                        'fakejob/0': {
-                        },
-                    },
-                }
-            },
-        }, '')
-        fake_client.bootstrap()
-        assess_juju_status(fake_client)
-        with patch.object(fake_client, 'get_status', autospec=True) as ags:
-            ags.return_value = app_status
-            with self.assertRaisesRegexp(
-                    ValueError, "Attribute not found"):
                 verify_application_status(fake_client, "fakejob")
