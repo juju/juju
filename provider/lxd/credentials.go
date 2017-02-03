@@ -196,10 +196,24 @@ func (p environProviderCredentials) FinalizeCredential(ctx environs.FinalizeCred
 		return nil, errors.Trace(err)
 	}
 	if _, err := raw.CertByFingerprint(fingerprint); errors.IsNotFound(err) {
-		if err := raw.AddCert(clientCert); err != nil {
-			return nil, errors.Annotatef(
-				err, "adding certificate %q", clientCert.Name,
-			)
+		if addCertErr := raw.AddCert(clientCert); addCertErr != nil {
+			// There is no specific error code returned when
+			// attempting to add a certificate that already
+			// exists in the database. We can just check
+			// again to see if another process added the
+			// certificate concurrently with us checking the
+			// first time.
+			if _, err := raw.CertByFingerprint(fingerprint); errors.IsNotFound(err) {
+				// The cert still isn't there, so report the AddCert error.
+				return nil, errors.Annotatef(
+					addCertErr, "adding certificate %q", clientCert.Name,
+				)
+			} else if err != nil {
+				return nil, errors.Annotate(err, "querying certificates")
+			}
+			// The certificate is there now, which implies
+			// there was a concurrent AddCert by another
+			// process. Carry on.
 		}
 	} else if err != nil {
 		return nil, errors.Annotate(err, "querying certificates")
