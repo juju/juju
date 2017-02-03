@@ -206,7 +206,7 @@ func (s *ProviderFunctionalSuite) TestPrepareConfigEmptyAuthNonLocal(c *gc.C) {
 			Credential: &cred,
 		},
 	})
-	c.Assert(err, gc.ErrorMatches, `validating cloud spec: "empty" auth-type for non-local LXD not supported`)
+	c.Assert(err, gc.ErrorMatches, `validating cloud spec: "empty" auth-type not supported`)
 }
 
 type mockContext struct {

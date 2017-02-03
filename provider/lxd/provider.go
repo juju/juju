@@ -191,26 +191,11 @@ func (p *environProvider) validateCloudSpec(spec environs.CloudSpec) (local bool
 	if spec.Credential == nil {
 		return false, errors.NotValidf("missing credential")
 	}
-	if spec.Endpoint != "" {
-		var err error
-		local, err = p.isLocalEndpoint(spec.Endpoint)
-		if err != nil {
-			return false, errors.Trace(err)
-		}
-	} else {
-		// No endpoint specified, so assume we're local. This
-		// will happen, for example, when destroying a 2.0
-		// LXD controller.
-		local = true
+	local, err := p.isLocalEndpoint(spec.Endpoint)
+	if err != nil {
+		return false, errors.Trace(err)
 	}
 	switch authType := spec.Credential.AuthType(); authType {
-	case cloud.EmptyAuthType:
-		if !local {
-			// The empty auth-type is only valid
-			// when the endpoint is local to the
-			// machine running this process.
-			return false, errors.NotSupportedf("%q auth-type for non-local LXD", authType)
-		}
 	case cloud.CertificateAuthType:
 		if _, _, ok := getCerts(spec); !ok {
 			return false, errors.NotValidf("certificate credentials")

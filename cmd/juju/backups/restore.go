@@ -159,7 +159,9 @@ func (c *restoreCommand) getRebootstrapParams(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	config, params, err := modelcmd.NewGetBootstrapConfigParamsFunc(ctx, store)(controllerName)
+	config, params, err := modelcmd.NewGetBootstrapConfigParamsFunc(
+		ctx, store, environs.GlobalProviderRegistry(),
+	)(controllerName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
