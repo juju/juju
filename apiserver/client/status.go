@@ -639,7 +639,21 @@ func makeMachineStatus(
 			logger.Debugf("error fetching public address: %q", err)
 		}
 		status.DNSName = addr.Value
-
+		mAddrs := machine.Addresses()
+		if len(mAddrs) == 0 {
+			logger.Debugf("no IP addresses fetched for machine %q", instid)
+			// At least give it the newly created DNSName address, if it exists.
+			if addr.Value != "" {
+				mAddrs = append(mAddrs, addr)
+			}
+		}
+		for _, mAddr := range mAddrs {
+			switch mAddr.Scope {
+			case network.ScopeMachineLocal, network.ScopeLinkLocal:
+				continue
+			}
+			status.IPAddresses = append(status.IPAddresses, mAddr.Value)
+		}
 		status.NetworkInterfaces = make(map[string]params.NetworkInterface, len(linkLayerDevices))
 		for _, llDev := range linkLayerDevices {
 			device := llDev.Name()

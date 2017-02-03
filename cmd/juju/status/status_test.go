@@ -175,8 +175,9 @@ var (
 			"current": "started",
 			"since":   "01 Apr 15 01:23+10:00",
 		},
-		"dns-name":    "10.0.0.1",
-		"instance-id": "controller-0",
+		"dns-name":     "10.0.0.1",
+		"ip-addresses": []string{"10.0.0.1"},
+		"instance-id":  "controller-0",
 		"machine-status": M{
 			"current": "pending",
 			"since":   "01 Apr 15 01:23+10:00",
@@ -197,8 +198,9 @@ var (
 			"current": "started",
 			"since":   "01 Apr 15 01:23+10:00",
 		},
-		"dns-name":    "10.0.1.1",
-		"instance-id": "controller-1",
+		"dns-name":     "10.0.1.1",
+		"ip-addresses": []string{"10.0.1.1"},
+		"instance-id":  "controller-1",
 		"machine-status": M{
 			"current": "pending",
 			"since":   "01 Apr 15 01:23+10:00",
@@ -218,8 +220,9 @@ var (
 			"current": "started",
 			"since":   "01 Apr 15 01:23+10:00",
 		},
-		"dns-name":    "10.0.2.1",
-		"instance-id": "controller-2",
+		"dns-name":     "10.0.2.1",
+		"ip-addresses": []string{"10.0.2.1"},
+		"instance-id":  "controller-2",
 		"machine-status": M{
 			"current": "pending",
 			"since":   "01 Apr 15 01:23+10:00",
@@ -239,8 +242,9 @@ var (
 			"current": "started",
 			"since":   "01 Apr 15 01:23+10:00",
 		},
-		"dns-name":    "10.0.3.1",
-		"instance-id": "controller-3",
+		"dns-name":     "10.0.3.1",
+		"ip-addresses": []string{"10.0.3.1"},
+		"instance-id":  "controller-3",
 		"machine-status": M{
 			"current": "pending",
 			"since":   "01 Apr 15 01:23+10:00",
@@ -260,8 +264,9 @@ var (
 			"current": "started",
 			"since":   "01 Apr 15 01:23+10:00",
 		},
-		"dns-name":    "10.0.4.1",
-		"instance-id": "controller-4",
+		"dns-name":     "10.0.4.1",
+		"ip-addresses": []string{"10.0.4.1"},
+		"instance-id":  "controller-4",
 		"machine-status": M{
 			"current": "pending",
 			"since":   "01 Apr 15 01:23+10:00",
@@ -293,8 +298,9 @@ var (
 							"current": "started",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
-						"dns-name":    "10.0.3.1",
-						"instance-id": "controller-3",
+						"dns-name":     "10.0.3.1",
+						"ip-addresses": []string{"10.0.3.1"},
+						"instance-id":  "controller-3",
 						"machine-status": M{
 							"current": "pending",
 							"since":   "01 Apr 15 01:23+10:00",
@@ -309,8 +315,9 @@ var (
 						},
 					},
 				},
-				"dns-name":    "10.0.2.1",
-				"instance-id": "controller-2",
+				"dns-name":     "10.0.2.1",
+				"ip-addresses": []string{"10.0.2.1"},
+				"instance-id":  "controller-2",
 				"machine-status": M{
 					"current": "pending",
 					"since":   "01 Apr 15 01:23+10:00",
@@ -337,8 +344,9 @@ var (
 				"series": "quantal",
 			},
 		},
-		"dns-name":    "10.0.1.1",
-		"instance-id": "controller-1",
+		"dns-name":     "10.0.1.1",
+		"ip-addresses": []string{"10.0.1.1"},
+		"instance-id":  "controller-1",
 		"machine-status": M{
 			"current": "pending",
 			"since":   "01 Apr 15 01:23+10:00",
@@ -448,8 +456,9 @@ var statusTests = []testCase{
 							"current": "pending",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
-						"dns-name":    "10.0.0.1",
-						"instance-id": "controller-0",
+						"dns-name":     "10.0.0.1",
+						"ip-addresses": []string{"10.0.0.1", "10.0.0.2"},
+						"instance-id":  "controller-0",
 						"machine-status": M{
 							"current": "pending",
 							"since":   "01 Apr 15 01:23+10:00",
@@ -486,8 +495,9 @@ var statusTests = []testCase{
 							"current": "started",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
-						"dns-name":    "10.0.0.1",
-						"instance-id": "controller-0",
+						"dns-name":     "10.0.0.1",
+						"ip-addresses": []string{"10.0.0.1", "10.0.0.2"},
+						"instance-id":  "controller-0",
 						"machine-status": M{
 							"current": "pending",
 							"since":   "01 Apr 15 01:23+10:00",
@@ -520,8 +530,9 @@ var statusTests = []testCase{
 				"model": model,
 				"machines": M{
 					"0": M{
-						"dns-name":    "10.0.0.1",
-						"instance-id": "controller-0",
+						"dns-name":     "10.0.0.1",
+						"ip-addresses": []string{"10.0.0.1", "10.0.0.2"},
+						"instance-id":  "controller-0",
 						"machine-status": M{
 							"current": "pending",
 							"since":   "01 Apr 15 01:23+10:00",
@@ -571,8 +582,9 @@ var statusTests = []testCase{
 							"current": "started",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
-						"dns-name":    "10.0.0.1",
-						"instance-id": "controller-0",
+						"dns-name":     "10.0.0.1",
+						"ip-addresses": []string{"10.0.0.1", "10.0.0.2"},
+						"instance-id":  "controller-0",
 						"machine-status": M{
 							"current": "pending",
 							"since":   "01 Apr 15 01:23+10:00",
@@ -844,8 +856,9 @@ var statusTests = []testCase{
 					"1": machine1,
 					"2": machine2,
 					"3": M{
-						"dns-name":    "10.0.3.1",
-						"instance-id": "controller-3",
+						"dns-name":     "10.0.3.1",
+						"ip-addresses": []string{"10.0.3.1"},
+						"instance-id":  "controller-3",
 						"machine-status": M{
 							"current": "pending",
 							"since":   "01 Apr 15 01:23+10:00",
@@ -866,8 +879,9 @@ var statusTests = []testCase{
 						"hardware": "arch=amd64 cores=1 mem=1024M root-disk=8192M",
 					},
 					"4": M{
-						"dns-name":    "10.0.4.1",
-						"instance-id": "controller-4",
+						"dns-name":     "10.0.4.1",
+						"ip-addresses": []string{"10.0.4.1"},
+						"instance-id":  "controller-4",
 						"machine-status": M{
 							"current": "pending",
 							"since":   "01 Apr 15 01:23+10:00",
@@ -2115,8 +2129,9 @@ var statusTests = []testCase{
 									"current": "started",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
-								"dns-name":    "10.0.2.1",
-								"instance-id": "controller-2",
+								"dns-name":     "10.0.2.1",
+								"ip-addresses": []string{"10.0.2.1"},
+								"instance-id":  "controller-2",
 								"machine-status": M{
 									"current": "pending",
 									"since":   "01 Apr 15 01:23+10:00",
@@ -2132,8 +2147,9 @@ var statusTests = []testCase{
 								},
 							},
 						},
-						"dns-name":    "10.0.1.1",
-						"instance-id": "controller-1",
+						"dns-name":     "10.0.1.1",
+						"ip-addresses": []string{"10.0.1.1"},
+						"instance-id":  "controller-1",
 						"machine-status": M{
 							"current": "pending",
 							"since":   "01 Apr 15 01:23+10:00",
@@ -2736,8 +2752,9 @@ var statusTests = []testCase{
 							"current": "started",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
-						"dns-name":    "2001:db8::1",
-						"instance-id": "controller-0",
+						"dns-name":     "2001:db8::1",
+						"ip-addresses": []string{"2001:db8::1"},
+						"instance-id":  "controller-0",
 						"machine-status": M{
 							"current": "pending",
 							"since":   "01 Apr 15 01:23+10:00",
@@ -4252,6 +4269,8 @@ func (s *StatusSuite) TestFilterToContainer(c *gc.C) {
 		"      current: started\n" +
 		"      since: 01 Apr 15 01:23+10:00\n" +
 		"    dns-name: 10.0.0.1\n" +
+		"    ip-addresses:\n" +
+		"    - 10.0.0.1\n" +
 		"    instance-id: controller-0\n" +
 		"    machine-status:\n" +
 		"      current: pending\n" +

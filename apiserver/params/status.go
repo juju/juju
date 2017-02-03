@@ -42,17 +42,17 @@ type ModelStatusInfo struct {
 // space name for any device with at least one associated IP address.
 type NetworkInterface struct {
 	// IPAddresses holds the IP addresses bound to this machine.
-	IPAddresses    []string `json:"ip-addresses" yaml:"ip-addresses"`
-	MACAddress     string   `json:"mac-address" yaml:"mac-address"`
-	Gateway        string   `json:"gateway,omitempty" yaml:"gateway,omitempty"`
-	DNSNameservers []string `json:"dns-nameservers,omitempty" yaml:"dns-nameservers,omitempty"`
+	IPAddresses    []string `json:"ip-addresses"`
+	MACAddress     string   `json:"mac-address"`
+	Gateway        string   `json:"gateway,omitempty"`
+	DNSNameservers []string `json:"dns-nameservers,omitempty"`
 
 	// Space holds the name of a space in which this devices IP addr's
 	// subnet belongs.
-	Space string `json:"space,omitempty" yaml:"space,omitempty"`
+	Space string `json:"space,omitempty"`
 
 	// Is this interface up?
-	IsUp bool `json:"is-up" yaml:"is-up"`
+	IsUp bool `json:"is-up"`
 }
 
 // MachineStatus holds status info about a machine.
@@ -60,6 +60,13 @@ type MachineStatus struct {
 	AgentStatus    DetailedStatus `json:"agent-status"`
 	InstanceStatus DetailedStatus `json:"instance-status"`
 	DNSName        string         `json:"dns-name"`
+
+	// IPAddresses holds the IP addresses known for this machine. It is
+	// here for backwards compatibility. It should be similar to its
+	// namesakes in NetworkInterfaces, but may also include any
+	// public/floating IP addresses not actually bound to the machine but
+	// known to the provider.
+	IPAddresses []string `json:"ip-addresses,omitempty"`
 
 	// InstanceId holds the unique identifier for this machine, based on
 	// what is supplied by the provider.
@@ -73,7 +80,7 @@ type MachineStatus struct {
 	Id string `json:"id"`
 
 	// NetworkInterfaces holds a map of NetworkInterface for this machine.
-	NetworkInterfaces map[string]NetworkInterface `json:"network-interfaces,omitempty" yaml:"network-interfaces,omitempty"`
+	NetworkInterfaces map[string]NetworkInterface `json:"network-interfaces,omitempty"`
 
 	// Containers holds the MachineStatus of any containers hosted on this
 	// machine.

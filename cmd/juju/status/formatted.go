@@ -52,6 +52,7 @@ type machineStatus struct {
 	Err               error                       `json:"-" yaml:",omitempty"`
 	JujuStatus        statusInfoContents          `json:"juju-status,omitempty" yaml:"juju-status,omitempty"`
 	DNSName           string                      `json:"dns-name,omitempty" yaml:"dns-name,omitempty"`
+	IPAddresses       []string                    `json:"ip-addresses,omitempty" yaml:"ip-addresses,omitempty"`
 	InstanceId        instance.Id                 `json:"instance-id,omitempty" yaml:"instance-id,omitempty"`
 	MachineStatus     statusInfoContents          `json:"machine-status,omitempty" yaml:"machine-status,omitempty"`
 	Series            string                      `json:"series,omitempty" yaml:"series,omitempty"`
