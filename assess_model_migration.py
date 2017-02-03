@@ -337,6 +337,7 @@ def deploy_simple_resource_server(client, resource_contents=None):
 
     client.wait_for_started()
     client.wait_for_workloads()
+    client.juju('expose', (application_name))
     return application_name
 
 

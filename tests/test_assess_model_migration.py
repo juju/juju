@@ -126,6 +126,19 @@ class TestDeploySimpleResourceServer(TestCase):
                     amm.deploy_simple_resource_server(client, ''),
                     'simple-resource-http')
 
+    def test_waits_and_exposes(self):
+        client = Mock()
+        with temp_dir() as tmp_dir:
+            with patch.object(
+                    amm, 'temp_dir', autospec=True) as m_td:
+                m_td.return_value.__enter__.return_value = tmp_dir
+                amm.deploy_simple_resource_server(client, '')
+
+        client.wait_for_started.assert_called_once_with()
+        client.wait_for_workloads.assert_called_once_with()
+        client.juju.assert_called_once_with(
+            'expose', ('simple-resource-http'))
+
 
 class TestGetServerResponse(TestCase):
 
