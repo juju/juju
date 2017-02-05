@@ -149,6 +149,8 @@ func (s *DeployLocalSuite) TestDeployWithSomeSpecifiedBindings(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.assertBindings(c, service, map[string]string{
+		// default binding
+		"": "public",
 		// relation names
 		"url":             "public",
 		"logging-dir":     "public",
@@ -185,6 +187,7 @@ func (s *DeployLocalSuite) TestDeployWithBoundRelationNamesAndExtraBindingsNames
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.assertBindings(c, service, map[string]string{
+		"":                "public",
 		"url":             "public",
 		"logging-dir":     "public",
 		"monitoring-port": "public",
@@ -195,6 +198,61 @@ func (s *DeployLocalSuite) TestDeployWithBoundRelationNamesAndExtraBindingsNames
 		"cluster":         "public",
 		"foo-bar":         "public", // like for relations, uses the application-default.
 	})
+
+}
+
+func (s *DeployLocalSuite) TestDeployWithInvalidSpace(c *gc.C) {
+	wordpressCharm := s.addWordpressCharm(c)
+	_, err := s.State.AddSpace("db", "", nil, false)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddSpace("public", "", nil, false)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddSpace("internal", "", nil, false)
+	c.Assert(err, jc.ErrorIsNil)
+
+	service, err := juju.DeployApplication(s.State,
+		juju.DeployApplicationParams{
+			ApplicationName: "bob",
+			Charm:           wordpressCharm,
+			EndpointBindings: map[string]string{
+				"":   "public",
+				"db": "intranel", //typo 'intranel'
+			},
+		})
+	c.Assert(err, gc.ErrorMatches, `cannot add application "bob": unknown space "intranel" not valid`)
+	c.Check(service, gc.IsNil)
+	// The service should not have been added
+	_, err = s.State.Application("bob")
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+
+}
+
+func (s *DeployLocalSuite) TestDeployWithInvalidBinding(c *gc.C) {
+	wordpressCharm := s.addWordpressCharm(c)
+	_, err := s.State.AddSpace("db", "", nil, false)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddSpace("public", "", nil, false)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddSpace("internal", "", nil, false)
+	c.Assert(err, jc.ErrorIsNil)
+
+	service, err := juju.DeployApplication(s.State,
+		juju.DeployApplicationParams{
+			ApplicationName: "bob",
+			Charm:           wordpressCharm,
+			EndpointBindings: map[string]string{
+				"":      "public",
+				"bd":    "internal", // typo 'bd'
+				"pubic": "public",   // typo 'pubic'
+			},
+		})
+	c.Assert(err, gc.ErrorMatches,
+		`invalid binding\(s\) supplied "bd", "pubic", valid binding names are "admin-api", .* "url"`)
+	c.Check(service, gc.IsNil)
+	// The service should not have been added
+	_, err = s.State.Application("bob")
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+
 }
 
 func (s *DeployLocalSuite) TestDeployResources(c *gc.C) {
@@ -205,8 +263,7 @@ func (s *DeployLocalSuite) TestDeployResources(c *gc.C) {
 			ApplicationName: "bob",
 			Charm:           s.charm,
 			EndpointBindings: map[string]string{
-				"":   "public",
-				"db": "db",
+				"": "public",
 			},
 			Resources: map[string]string{"foo": "bar"},
 		})

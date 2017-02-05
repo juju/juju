@@ -261,7 +261,7 @@ func validateEndpointBindingsForCharm(st *State, bindings map[string]string, cha
 	// in bindings. In follow-up, this will be enforced by using refcounts on
 	// spaces.
 	for endpoint, space := range bindings {
-		if !endpointsNamesSet.Contains(endpoint) {
+		if endpoint != "" && !endpointsNamesSet.Contains(endpoint) {
 			return errors.NotValidf("unknown endpoint %q", endpoint)
 		}
 		if space != "" && !spacesNamesSet.Contains(space) {

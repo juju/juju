@@ -1119,6 +1119,7 @@ func (s *DeployCharmStoreSuite) TestDeployCharmWithSomeEndpointBindingsSpecified
 	s.assertDeployedServiceBindings(c, map[string]serviceInfo{
 		"wordpress-extra-bindings": {
 			endpointBindings: map[string]string{
+				"":                "public",
 				"cache":           "public",
 				"url":             "public",
 				"logging-dir":     "public",
