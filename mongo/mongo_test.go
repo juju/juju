@@ -259,6 +259,34 @@ func (s *MongoSuite) TestEnsureServerServerExistsAndRunning(c *gc.C) {
 	s.data.CheckCallNames(c, "Installed", "Exists", "Running")
 }
 
+func (s *MongoSuite) TestEnsureServerSetsSysctlValues(c *gc.C) {
+	dataDir := c.MkDir()
+	dataFilePath := filepath.Join(dataDir, "mongoKernalTweaks")
+	dataFile, err := os.Create(dataFilePath)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = dataFile.WriteString("original value")
+	c.Assert(err, jc.ErrorIsNil)
+	dataFile.Close()
+
+	pm, err := coretesting.GetPackageManager()
+	c.Assert(err, jc.ErrorIsNil)
+	testing.PatchExecutableAsEchoArgs(c, s, pm.PackageManager)
+
+	s.data.SetStatus(mongo.ServiceName, "running")
+
+	contents, err := ioutil.ReadFile(dataFilePath)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(string(contents), gc.Equals, "original value")
+
+	err = mongo.SysctlEditableEnsureServer(makeEnsureServerParams(dataDir),
+		map[string]string{dataFilePath: "new value"})
+	c.Assert(err, jc.ErrorIsNil)
+
+	contents, err = ioutil.ReadFile(dataFilePath)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(string(contents), gc.Equals, "new value")
+}
+
 func (s *MongoSuite) TestEnsureServerServerExistsNotRunningIsStarted(c *gc.C) {
 	dataDir := c.MkDir()
 
