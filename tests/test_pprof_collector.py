@@ -124,7 +124,7 @@ class TestPPROFCollector(TestCase):
         with patch.object(pc.os, 'makedirs', autospec=True):
             collector = pc.PPROFCollector(client, ['test'], log_dir)
 
-            self.assertTrue(type(collector._collectors[0]), pc.NoopCollector)
+            self.assertIs(type(collector._collectors[0]), pc.NoopCollector)
             self.assertListEqual(collector._active_collectors, [])
 
     def test_creates_active_collector(self):
@@ -136,7 +136,7 @@ class TestPPROFCollector(TestCase):
                     autospec=True):
                 collector = pc.PPROFCollector(
                     client, ['test'], log_dir, active=True)
-                self.assertTrue(
+                self.assertIs(
                     type(collector._collectors[0]),
                     pc.ActiveCollector)
                 self.assertListEqual(collector._noop_collectors, [])
@@ -146,14 +146,14 @@ class TestPPROFCollector(TestCase):
         log_dir = '/test/logs/dir'
         with patch.object(pc.os, 'makedirs', autospec=True):
             collector = pc.PPROFCollector(client, ['test'], log_dir)
-            self.assertTrue(type(collector._collectors[0]), pc.NoopCollector)
+            self.assertIs(type(collector._collectors[0]), pc.NoopCollector)
             with patch.object(
                     pc, 'install_introspection_charm',
                     autospec=True):
                 self.assertListEqual(collector._active_collectors, [])
                 collector.set_active()
-                self.assertTrue(
-                    type(collector._collectors[0]), pc.NoopCollector)
+                self.assertIs(
+                    type(collector._collectors[0]), pc.ActiveCollector)
 
     def test_collect_profile(self):
         client = Mock()
