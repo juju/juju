@@ -526,6 +526,7 @@ func (env *azureEnviron) createVirtualMachine(
 	osProfile, seriesOS, err := newOSProfile(
 		vmName, instanceConfig,
 		env.provider.config.RandomWindowsAdminPassword,
+		env.provider.config.GenerateSSHKey,
 	)
 	if err != nil {
 		return errors.Annotate(err, "creating OS profile")
@@ -792,6 +793,7 @@ func newOSProfile(
 	vmName string,
 	instanceConfig *instancecfg.InstanceConfig,
 	randomAdminPassword func() string,
+	generateSSHKey func(string) (string, string, error),
 ) (*compute.OSProfile, os.OSType, error) {
 	logger.Debugf("creating OS profile for %q", vmName)
 
@@ -814,9 +816,24 @@ func newOSProfile(
 		// SSH keys are handled by custom data, but must also be
 		// specified in order to forego providing a password, and
 		// disable password authentication.
+		authorizedKeys := instanceConfig.AuthorizedKeys
+		if len(authorizedKeys) == 0 {
+			// Azure requires that machines be provisioned with
+			// either a password or at least one SSH key. We
+			// generate a key-pair to make Azure happy, but throw
+			// away the private key so that nobody will be able
+			// to log into the machine directly unless the keys
+			// are updated with one that Juju tracks.
+			_, public, err := generateSSHKey("")
+			if err != nil {
+				return nil, os.Unknown, errors.Trace(err)
+			}
+			authorizedKeys = public
+		}
+
 		publicKeys := []compute.SSHPublicKey{{
 			Path:    to.StringPtr("/home/ubuntu/.ssh/authorized_keys"),
-			KeyData: to.StringPtr(instanceConfig.AuthorizedKeys),
+			KeyData: to.StringPtr(authorizedKeys),
 		}}
 		osProfile.AdminUsername = to.StringPtr("ubuntu")
 		osProfile.LinuxConfiguration = &compute.LinuxConfiguration{

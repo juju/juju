@@ -112,6 +112,9 @@ func newProvider(c *gc.C, config azure.ProviderConfig) environs.EnvironProvider 
 		config.InteractiveCreateServicePrincipal = azureauth.InteractiveCreateServicePrincipal
 	}
 	config.RandomWindowsAdminPassword = func() string { return "sorandom" }
+	config.GenerateSSHKey = func(string) (string, string, error) {
+		return "private", "public", nil
+	}
 	environProvider, err := azure.NewProvider(config)
 	c.Assert(err, jc.ErrorIsNil)
 	return environProvider
