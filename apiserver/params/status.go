@@ -38,15 +38,35 @@ type ModelStatusInfo struct {
 	ModelStatus      DetailedStatus `json:"model-status"`
 }
 
+// NetworkInterfaceStatus holds a /etc/network/interfaces-type data and the
+// space name for any device with at least one associated IP address.
+type NetworkInterface struct {
+	// IPAddresses holds the IP addresses bound to this machine.
+	IPAddresses    []string `json:"ip-addresses"`
+	MACAddress     string   `json:"mac-address"`
+	Gateway        string   `json:"gateway,omitempty"`
+	DNSNameservers []string `json:"dns-nameservers,omitempty"`
+
+	// Space holds the name of a space in which this devices IP addr's
+	// subnet belongs.
+	Space string `json:"space,omitempty"`
+
+	// Is this interface up?
+	IsUp bool `json:"is-up"`
+}
+
 // MachineStatus holds status info about a machine.
 type MachineStatus struct {
 	AgentStatus    DetailedStatus `json:"agent-status"`
 	InstanceStatus DetailedStatus `json:"instance-status"`
+	DNSName        string         `json:"dns-name"`
 
-	DNSName string `json:"dns-name"`
-
-	// IPAddresses holds the IP addresses bound to this machine.
-	IPAddresses []string `json:"ip-addresses"`
+	// IPAddresses holds the IP addresses known for this machine. It is
+	// here for backwards compatibility. It should be similar to its
+	// namesakes in NetworkInterfaces, but may also include any
+	// public/floating IP addresses not actually bound to the machine but
+	// known to the provider.
+	IPAddresses []string `json:"ip-addresses,omitempty"`
 
 	// InstanceId holds the unique identifier for this machine, based on
 	// what is supplied by the provider.
@@ -59,6 +79,9 @@ type MachineStatus struct {
 	// Id is the Juju identifier for this machine in this model.
 	Id string `json:"id"`
 
+	// NetworkInterfaces holds a map of NetworkInterface for this machine.
+	NetworkInterfaces map[string]NetworkInterface `json:"network-interfaces,omitempty"`
+
 	// Containers holds the MachineStatus of any containers hosted on this
 	// machine.
 	Containers map[string]MachineStatus `json:"containers"`
@@ -67,7 +90,7 @@ type MachineStatus struct {
 	// each constraint datum.
 	Constraints string `json:"constraints"`
 
-	// Hardware holds a string of space-separated key=value pairs of
+	// Hardware holds a string of space-separated key=value pairs for each
 	// hardware specification datum.
 	Hardware string `json:"hardware"`
 
