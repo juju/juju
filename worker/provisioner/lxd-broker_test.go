@@ -242,7 +242,7 @@ func (m *fakeContainerManager) CreateContainer(instanceConfig *instancecfg.Insta
 	series string,
 	network *container.NetworkConfig,
 	storage *container.StorageConfig,
-	callback container.StatusCallback,
+	callback environs.StatusCallbackFunc,
 ) (instance.Instance, *instance.HardwareCharacteristics, error) {
 	m.MethodCall(m, "CreateContainer", instanceConfig, cons, series, network, storage, callback)
 	return nil, nil, m.NextErr()

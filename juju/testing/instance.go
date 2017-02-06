@@ -135,7 +135,7 @@ func StartInstanceWithConstraints(
 	instance.Instance, *instance.HardwareCharacteristics, []network.InterfaceInfo, error,
 ) {
 	params := environs.StartInstanceParams{ControllerUUID: controllerUUID, Constraints: cons, StatusCallback: fakeCallback}
-	result, err := StartInstanceWithParams(env, machineId, params, networks)
+	result, err := StartInstanceWithParams(env, machineId, params)
 	if err != nil {
 		return nil, nil, nil, errors.Trace(err)
 	}
@@ -225,7 +225,7 @@ func fillinStartInstanceParams(env environs.Environ, machineId string, isControl
 	if params.StatusCallback == nil {
 		params.StatusCallback = fakeCallback
 	}
-	return env.StartInstance(params)
+	return nil
 }
 
 func SetImageMetadata(env environs.Environ, series, arches []string, out *[]*imagemetadata.ImageMetadata) error {
