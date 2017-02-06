@@ -11,6 +11,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"path"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -79,6 +80,12 @@ type Server struct {
 
 	// certDNSNames holds the DNS names associated with cert.
 	certDNSNames []string
+
+	// registerIntrospectionHandlers is a function that will
+	// call a function with (path, http.Handler) tuples. This
+	// is to support registering the handlers underneath the
+	// "/introspection" prefix.
+	registerIntrospectionHandlers func(func(string, http.Handler))
 }
 
 // LoginValidator functions are used to decide whether login requests
@@ -118,6 +125,12 @@ type ServerConfig struct {
 	// is used per-connection to instantiate a new observer to be
 	// notified of key events during API requests.
 	NewObserver observer.ObserverFactory
+
+	// RegisterIntrospectionHandlers is a function that will
+	// call a function with (path, http.Handler) tuples. This
+	// is to support registering the handlers underneath the
+	// "/introspection" prefix.
+	RegisterIntrospectionHandlers func(func(string, http.Handler))
 
 	// StatePool only exists to support testing.
 	StatePool *state.StatePool
@@ -189,9 +202,10 @@ func newServer(s *state.State, lis net.Listener, cfg ServerConfig) (_ *Server, e
 		adminAPIFactories: map[int]adminAPIFactory{
 			3: newAdminAPIV3,
 		},
-		centralHub:       cfg.Hub,
-		certChanged:      cfg.CertChanged,
-		allowModelAccess: cfg.AllowModelAccess,
+		centralHub:                    cfg.Hub,
+		certChanged:                   cfg.CertChanged,
+		allowModelAccess:              cfg.AllowModelAccess,
+		registerIntrospectionHandlers: cfg.RegisterIntrospectionHandlers,
 	}
 
 	srv.tlsConfig = srv.newTLSConfig(cfg)
@@ -508,6 +522,19 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 	// pat muxer special-cases / so that it does not serve all
 	// possible endpoints, but only / itself.
 	add("/", mainAPIHandler)
+
+	// Register the introspection endpoints.
+	if srv.registerIntrospectionHandlers != nil {
+		handle := func(subpath string, handler http.Handler) {
+			add(path.Join("/introspection/", subpath),
+				introspectionHandler{
+					httpCtxt,
+					handler,
+				},
+			)
+		}
+		srv.registerIntrospectionHandlers(handle)
+	}
 
 	// Add HTTP handlers for local-user macaroon authentication.
 	localLoginHandlers := &localLoginHandlers{srv.authCtxt, srv.state}

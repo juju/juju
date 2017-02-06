@@ -9,9 +9,11 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"fmt"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/testing"
+	"github.com/juju/juju/testing/factory"
 )
 
 type StatusUnitAgentSuite struct {
@@ -62,6 +64,38 @@ func (s *StatusUnitAgentSuite) TestSetErrorStatusWithoutInfo(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, `cannot set status "error" without info`)
 
 	s.checkInitialStatus(c)
+}
+
+func (s *StatusUnitAgentSuite) TestSetAllocatingStatusAlreadyAssigned(c *gc.C) {
+	now := testing.ZeroTime()
+	sInfo := status.StatusInfo{
+		Status:  status.Allocating,
+		Message: "",
+		Since:   &now,
+	}
+	err := s.agent.SetStatus(sInfo)
+	c.Check(err, gc.ErrorMatches, `cannot set status "allocating" as unit is already assigned`)
+
+	s.checkInitialStatus(c)
+}
+
+func (s *StatusUnitAgentSuite) TestSetStatusUnassigned(c *gc.C) {
+	app := s.Factory.MakeApplication(c, &factory.ApplicationParams{Name: "foo"})
+	u, err := app.AddUnit()
+	c.Assert(err, jc.ErrorIsNil)
+	agent := u.Agent()
+	for _, value := range []status.Status{status.Idle, status.Executing, status.Rebooting, status.Failed} {
+		now := testing.ZeroTime()
+		sInfo := status.StatusInfo{
+			Status:  value,
+			Message: "",
+			Since:   &now,
+		}
+		err := agent.SetStatus(sInfo)
+		c.Check(err, gc.ErrorMatches, fmt.Sprintf(`cannot set status %q until unit is assigned`, value))
+
+		s.checkInitialStatus(c)
+	}
 }
 
 func (s *StatusUnitAgentSuite) TestSetOverwritesData(c *gc.C) {

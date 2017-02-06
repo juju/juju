@@ -163,6 +163,58 @@ func (s *credentialsSuite) TestFinalizeCredentialLocalAddCert(c *gc.C) {
 	)
 }
 
+func (s *credentialsSuite) TestFinalizeCredentialLocalAddCertAlreadyThere(c *gc.C) {
+	// If we get back an error from AddCert, we'll make another call
+	// to CertByFingerprint. If that call succeeds, then we assume
+	// that the AddCert failure was due to a concurrent AddCert.
+	s.Stub.SetErrors(
+		errors.NotFoundf("certificate"),
+		errors.New("UNIQUE constraint failed: certificates.fingerprint"),
+	)
+	cert, _ := s.TestingCert(c)
+	out, err := s.Provider.FinalizeCredential(nil, environs.FinalizeCredentialParams{
+		CloudEndpoint: "", // skips host lookup
+		Credential: cloud.NewCredential(cloud.CertificateAuthType, map[string]string{
+			"client-cert": string(cert.CertPEM),
+			"client-key":  string(cert.KeyPEM),
+		}),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(out.AuthType(), gc.Equals, cloud.CertificateAuthType)
+	c.Assert(out.Attributes(), jc.DeepEquals, map[string]string{
+		"client-cert": string(cert.CertPEM),
+		"client-key":  string(cert.KeyPEM),
+		"server-cert": "server-cert",
+	})
+	s.Stub.CheckCallNames(c,
+		"CertByFingerprint",
+		"AddCert",
+		"CertByFingerprint",
+		"ServerStatus",
+	)
+}
+
+func (s *credentialsSuite) TestFinalizeCredentialLocalAddCertFatal(c *gc.C) {
+	// If we get back an error from AddCert, we'll make another call
+	// to CertByFingerprint. If that call fails with "not found", then
+	// we assume that the AddCert failure is fatal.
+	s.Stub.SetErrors(
+		errors.NotFoundf("certificate"),
+		errors.New("some fatal error"),
+		errors.NotFoundf("certificate"),
+	)
+	cert, _ := s.TestingCert(c)
+	_, err := s.Provider.FinalizeCredential(nil, environs.FinalizeCredentialParams{
+		CloudEndpoint: "", // skips host lookup
+		Credential: cloud.NewCredential(cloud.CertificateAuthType, map[string]string{
+			"client-cert": string(cert.CertPEM),
+			"client-key":  string(cert.KeyPEM),
+		}),
+	})
+	c.Assert(err, gc.ErrorMatches, `adding certificate "juju": some fatal error`)
+}
+
 func (s *credentialsSuite) TestFinalizeCredentialNonLocal(c *gc.C) {
 	// Patch the interface addresses for the calling machine, so
 	// it appears that we're not on the LXD server host.

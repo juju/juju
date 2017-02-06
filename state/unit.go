@@ -405,6 +405,7 @@ func (u *Unit) destroyOps() ([]txn.Op, error) {
 
 	// See if the unit agent has started running.
 	// If so then we can't set directly to dead.
+	isAssigned := u.doc.MachineId != ""
 	agentStatusDocId := u.globalAgentKey()
 	agentStatusInfo, agentErr := getStatus(u.st, agentStatusDocId, "agent")
 	if errors.IsNotFound(agentErr) {
@@ -412,27 +413,36 @@ func (u *Unit) destroyOps() ([]txn.Op, error) {
 	} else if agentErr != nil {
 		return nil, errors.Trace(agentErr)
 	}
-	if agentStatusInfo.Status != status.Allocating {
+	if isAssigned && agentStatusInfo.Status != status.Allocating {
 		return setDyingOps, nil
 	}
+	if agentStatusInfo.Status != status.Error && agentStatusInfo.Status != status.Allocating {
+		return nil, errors.Errorf("unexpected unit state - unit with status %v is not assigned to a machine", agentStatusInfo.Status)
+	}
 
-	ops := []txn.Op{{
+	statusOp := txn.Op{
 		C:      statusesC,
 		Id:     u.st.docID(agentStatusDocId),
-		Assert: bson.D{{"status", status.Allocating}},
-	}, minUnitsOp}
+		Assert: bson.D{{"status", agentStatusInfo.Status}},
+	}
 	removeAsserts := append(isAliveDoc, bson.DocElem{
 		"$and", []bson.D{
 			unitHasNoSubordinates,
 			unitHasNoStorageAttachments,
 		},
 	})
+	// If the unit is unassigned, ensure it is not assigned in the interim.
+	if !isAssigned {
+		removeAsserts = append(removeAsserts, bson.DocElem{"machineid", ""})
+	}
+
 	removeOps, err := u.removeOps(removeAsserts)
 	if err == errAlreadyRemoved {
 		return nil, errAlreadyDying
 	} else if err != nil {
 		return nil, err
 	}
+	ops := []txn.Op{statusOp, minUnitsOp}
 	return append(ops, removeOps...), nil
 }
 
@@ -530,14 +540,14 @@ func (u *Unit) destroyHostOps(s *Application) (ops []txn.Op, err error) {
 // removeOps returns the operations necessary to remove the unit, assuming
 // the supplied asserts apply to the unit document.
 func (u *Unit) removeOps(asserts bson.D) ([]txn.Op, error) {
-	svc, err := u.st.Application(u.doc.Application)
+	app, err := u.st.Application(u.doc.Application)
 	if errors.IsNotFound(err) {
-		// If the service has been removed, the unit must already have been.
+		// If the application has been removed, the unit must already have been.
 		return nil, errAlreadyRemoved
 	} else if err != nil {
 		return nil, err
 	}
-	return svc.removeUnitOps(u, asserts)
+	return app.removeUnitOps(u, asserts)
 }
 
 // ErrUnitHasSubordinates is a standard error to indicate that a Unit

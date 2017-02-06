@@ -57,13 +57,30 @@ func (u *UnitAgent) Status() (status.StatusInfo, error) {
 // SetStatus sets the status of the unit agent. The optional values
 // allow to pass additional helpful status data.
 func (u *UnitAgent) SetStatus(unitAgentStatus status.StatusInfo) (err error) {
+	unit, err := u.st.Unit(u.name)
+	if errors.IsNotFound(err) {
+		return errors.Annotate(errors.NotFoundf("agent"), "cannot set status")
+	}
+	if err != nil {
+		return errors.Trace(err)
+	}
+	isAssigned := unit.doc.MachineId != ""
+	isPrincipal := unit.doc.Principal == ""
+
 	switch unitAgentStatus.Status {
 	case status.Idle, status.Executing, status.Rebooting, status.Failed:
+		if !isAssigned && isPrincipal {
+			return errors.Errorf("cannot set status %q until unit is assigned", unitAgentStatus.Status)
+		}
 	case status.Error:
 		if unitAgentStatus.Message == "" {
 			return errors.Errorf("cannot set status %q without info", unitAgentStatus.Status)
 		}
-	case status.Allocating, status.Lost:
+	case status.Allocating:
+		if isAssigned {
+			return errors.Errorf("cannot set status %q as unit is already assigned", unitAgentStatus.Status)
+		}
+	case status.Lost:
 		return errors.Errorf("cannot set status %q", unitAgentStatus.Status)
 	default:
 		return errors.Errorf("cannot set invalid status %q", unitAgentStatus.Status)
