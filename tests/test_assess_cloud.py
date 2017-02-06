@@ -86,7 +86,7 @@ class TestAssessCloudCombined(FakeHomeTestCase):
         test_case.assertEqual([
             backend_call(
                 client, 'bootstrap', (
-                    '--constraints', 'mem=2G', 'foo/bar', 'foo', '--config',
+                    'foo/bar', 'foo', '--config',
                     config_file.name, '--default-model', 'foo',
                     '--agent-version', client.version)),
             backend_call(client, 'deploy', 'ubuntu', 'foo:foo'),
@@ -114,7 +114,7 @@ class TestAssessCloudKillController(FakeHomeTestCase):
         test_case.assertEqual([
             backend_call(
                 client, 'bootstrap', (
-                    '--constraints', 'mem=2G', 'foo/bar', 'foo', '--config',
+                    'foo/bar', 'foo', '--config',
                     config_file.name, '--default-model', 'foo',
                     '--agent-version', client.version)),
             backend_call(
@@ -140,7 +140,7 @@ class TestAssessCloudProvisioning(FakeHomeTestCase):
         test_case.assertEqual([
             backend_call(
                 client, 'bootstrap', (
-                    '--constraints', 'mem=2G', 'foo/bar', 'foo', '--config',
+                    'foo/bar', 'foo', '--config',
                     config_file.name, '--default-model', 'foo',
                     '--agent-version', client.version)),
             backend_call(client, 'add-machine', ('--series', 'win2012r2'),

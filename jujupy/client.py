@@ -1599,12 +1599,14 @@ class ModelClient:
         constraints = self._get_substrate_constraints()
         cloud_region = self.get_cloud_region(self.env.get_cloud(),
                                              self.env.get_region())
+        args = []
+        if constraints:
+            args.extend(['--constraints', constraints])
         # Note cloud_region before controller name
-        args = ['--constraints', constraints,
-                cloud_region,
-                self.env.environment,
-                '--config', config_filename,
-                '--default-model', self.env.environment]
+        args.extend([cloud_region,
+                     self.env.environment,
+                     '--config', config_filename,
+                     '--default-model', self.env.environment])
         if upload_tools:
             if agent_version is not None:
                 raise ValueError(
@@ -2047,20 +2049,19 @@ class ModelClient:
     def _get_substrate_constraints(self):
         if self.env.joyent:
             # Only accept kvm packages by requiring >1 cpu core, see lp:1446264
-            return 'mem=2G cpu-cores=1'
+            return 'cpu-cores=1'
         elif self.env.maas and self._maas_spaces_enabled():
             # For now only maas support spaces in a meaningful way.
-            return 'mem=2G spaces={}'.format(','.join(
+            return 'spaces={}'.format(','.join(
                 '^' + space for space in sorted(self.excluded_spaces)))
         else:
-            return 'mem=2G'
+            return None
 
     def quickstart(self, bundle_template, upload_tools=False):
         bundle = self.format_bundle(bundle_template)
-        constraints = 'mem=2G'
-        args = ('--constraints', constraints)
+        args = ()
         if upload_tools:
-            args = ('--upload-tools',) + args
+            args = ('--upload-tools',)
         args = args + ('--no-browser', bundle,)
         self.juju('quickstart', args, extra_env={'JUJU': self.full_path})
 
@@ -2411,11 +2412,10 @@ class ModelClient:
     def restore_backup(self, backup_file):
         self.juju(
             'restore-backup',
-            ('-b', '--constraints', 'mem=2G', '--file', backup_file))
+            ('-b', '--file', backup_file))
 
     def restore_backup_async(self, backup_file):
-        return self.juju_async('restore-backup', ('-b', '--constraints',
-                               'mem=2G', '--file', backup_file))
+        return self.juju_async('restore-backup', ('-b', '--file', backup_file))
 
     def enable_ha(self):
         self.juju(

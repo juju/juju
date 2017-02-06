@@ -330,8 +330,7 @@ class TestModelClientRC(ClientTest):
                 client = ModelClientRC(env, '2.0-zeta1', None)
                 client.bootstrap()
                 mock.assert_called_with(
-                    'bootstrap', ('--constraints', 'mem=2G',
-                                  'foo', 'bar/baz',
+                    'bootstrap', ('foo', 'bar/baz',
                                   '--config', config_file.name,
                                   '--default-model', 'foo',
                                   '--agent-version', '2.0'), include_e=False)
@@ -1674,7 +1673,7 @@ class TestEnvJujuClient1X(ClientTest):
         with patch.object(EnvJujuClient1X, 'juju') as mock:
             client.quickstart('bundle:~juju-qa/some-bundle')
         mock.assert_called_with(
-            'quickstart', ('--constraints', 'mem=2G', '--no-browser',
+            'quickstart', ('--no-browser',
                            'bundle:~juju-qa/some-bundle'),
             extra_env={'JUJU': '/juju'})
 
@@ -1684,7 +1683,7 @@ class TestEnvJujuClient1X(ClientTest):
         with patch.object(EnvJujuClient1X, 'juju') as mock:
             client.quickstart('bundle:~juju-qa/some-bundle')
         mock.assert_called_with(
-            'quickstart', ('--constraints', 'mem=2G', '--no-browser',
+            'quickstart', ('--no-browser',
                            'bundle:~juju-qa/some-bundle'),
             extra_env={'JUJU': '/juju'})
 
@@ -1695,7 +1694,7 @@ class TestEnvJujuClient1X(ClientTest):
             client.quickstart('bundle:~juju-qa/some-{container}-bundle')
         mock.assert_called_with(
             'quickstart', (
-                '--constraints', 'mem=2G', '--no-browser',
+                '--no-browser',
                 'bundle:~juju-qa/some-lxc-bundle'),
             extra_env={'JUJU': '/juju'})
 

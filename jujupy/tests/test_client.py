@@ -533,7 +533,7 @@ class TestModelClient(ClientTest):
                     client.bootstrap()
             mock.assert_called_with(
                 'bootstrap', (
-                    '--constraints', 'mem=2G spaces=^endpoint-bindings-data,'
+                    '--constraints', 'spaces=^endpoint-bindings-data,'
                     '^endpoint-bindings-public',
                     'foo/asdf', 'maas',
                     '--config', config_file.name, '--default-model', 'maas',
@@ -551,9 +551,9 @@ class TestModelClient(ClientTest):
                     client.bootstrap()
             mock.assert_called_with(
                 'bootstrap', (
-                    '--constraints', 'mem=2G',
                     'foo/asdf', 'maas',
-                    '--config', config_file.name, '--default-model', 'maas',
+                    '--config', config_file.name,
+                    '--default-model', 'maas',
                     '--agent-version', '2.0'),
                 include_e=False)
 
@@ -567,7 +567,7 @@ class TestModelClient(ClientTest):
                     client.bootstrap()
             mock.assert_called_once_with(
                 client, 'bootstrap', (
-                    '--constraints', 'mem=2G cpu-cores=1',
+                    '--constraints', 'cpu-cores=1',
                     'joyent/foo', 'joyent',
                     '--config', config_file.name,
                     '--default-model', 'joyent', '--agent-version', '2.0',
@@ -580,8 +580,7 @@ class TestModelClient(ClientTest):
                 client = ModelClient(env, '2.0-zeta1', None)
                 client.bootstrap()
                 mock.assert_called_with(
-                    'bootstrap', ('--constraints', 'mem=2G',
-                                  'bar/baz', 'foo',
+                    'bootstrap', ('bar/baz', 'foo',
                                   '--config', config_file.name,
                                   '--default-model', 'foo',
                                   '--agent-version', '2.0'), include_e=False)
@@ -597,7 +596,7 @@ class TestModelClient(ClientTest):
                 client.bootstrap(upload_tools=True)
         mock.assert_called_with(
             'bootstrap', (
-                '--upload-tools', '--constraints', 'mem=2G',
+                '--upload-tools',
                 'foo/baz', 'foo',
                 '--config', config_file.name,
                 '--default-model', 'foo'), include_e=False)
@@ -610,7 +609,6 @@ class TestModelClient(ClientTest):
                 client.bootstrap(credential='credential_name')
         mock.assert_called_with(
             'bootstrap', (
-                '--constraints', 'mem=2G',
                 'foo/baz', 'foo',
                 '--config', config_file.name,
                 '--default-model', 'foo', '--agent-version', '2.0',
@@ -624,7 +622,6 @@ class TestModelClient(ClientTest):
                 client.bootstrap(bootstrap_series='angsty')
         mock.assert_called_with(
             'bootstrap', (
-                '--constraints', 'mem=2G',
                 'bar/baz', 'foo',
                 '--config', config_file.name, '--default-model', 'foo',
                 '--agent-version', '2.0',
@@ -638,7 +635,6 @@ class TestModelClient(ClientTest):
                 client.bootstrap(auto_upgrade=True)
         mock.assert_called_with(
             'bootstrap', (
-                '--constraints', 'mem=2G',
                 'bar/baz', 'foo',
                 '--config', config_file.name, '--default-model', 'foo',
                 '--agent-version', '2.0', '--auto-upgrade'), include_e=False)
@@ -651,7 +647,6 @@ class TestModelClient(ClientTest):
                 client.bootstrap(no_gui=True)
         mock.assert_called_with(
             'bootstrap', (
-                '--constraints', 'mem=2G',
                 'bar/baz', 'foo',
                 '--config', config_file.name, '--default-model', 'foo',
                 '--agent-version', '2.0', '--no-gui'), include_e=False)
@@ -664,7 +659,6 @@ class TestModelClient(ClientTest):
                 client.bootstrap(metadata_source='/var/test-source')
         mock.assert_called_with(
             'bootstrap', (
-                '--constraints', 'mem=2G',
                 'bar/baz', 'foo',
                 '--config', config_file.name, '--default-model', 'foo',
                 '--agent-version', '2.0',
@@ -678,7 +672,6 @@ class TestModelClient(ClientTest):
                 client.bootstrap(to='target')
         mock.assert_called_with(
             'bootstrap', (
-                '--constraints', 'mem=2G',
                 'bar/baz', 'foo',
                 '--config', config_file.name, '--default-model', 'foo',
                 '--agent-version', '2.0', '--to', 'target'), include_e=False)
@@ -692,7 +685,6 @@ class TestModelClient(ClientTest):
                 with client.bootstrap_async():
                     mock.assert_called_once_with(
                         client, 'bootstrap', (
-                            '--constraints', 'mem=2G',
                             'bar/baz', 'foo',
                             '--config', config_file.name,
                             '--default-model', 'foo',
@@ -706,7 +698,7 @@ class TestModelClient(ClientTest):
                 with client.bootstrap_async(upload_tools=True):
                     mock.assert_called_with(
                         client, 'bootstrap', (
-                            '--upload-tools', '--constraints', 'mem=2G',
+                            '--upload-tools',
                             'bar/baz', 'foo',
                             '--config', config_file.name,
                             '--default-model', 'foo',
@@ -720,7 +712,7 @@ class TestModelClient(ClientTest):
                                          config_filename='config',
                                          bootstrap_series='angsty')
         self.assertEqual(args, (
-            '--upload-tools', '--constraints', 'mem=2G',
+            '--upload-tools',
             'bar/baz', 'foo',
             '--config', 'config', '--default-model', 'foo',
             '--bootstrap-series', 'angsty'))
@@ -731,8 +723,7 @@ class TestModelClient(ClientTest):
         args = client.get_bootstrap_args(upload_tools=False,
                                          config_filename='config',
                                          agent_version='2.0-lambda1')
-        self.assertEqual(('--constraints', 'mem=2G',
-                          'bar/baz', 'foo',
+        self.assertEqual(('bar/baz', 'foo',
                           '--config', 'config', '--default-model', 'foo',
                           '--agent-version', '2.0-lambda1'), args)
 
@@ -2768,7 +2759,7 @@ class TestModelClient(ClientTest):
             client.restore_backup('quxx')
         gjo_mock.assert_called_once_with(
             'restore-backup',
-            ('-b', '--constraints', 'mem=2G', '--file', 'quxx'))
+            ('-b', '--file', 'quxx'))
 
     def test_restore_backup_async(self):
         env = JujuData('qux')
@@ -2776,7 +2767,7 @@ class TestModelClient(ClientTest):
         with patch.object(client, 'juju_async') as gjo_mock:
             result = client.restore_backup_async('quxx')
         gjo_mock.assert_called_once_with('restore-backup', (
-            '-b', '--constraints', 'mem=2G', '--file', 'quxx'))
+            '-b', '--file', 'quxx'))
         self.assertIs(gjo_mock.return_value, result)
 
     def test_enable_ha(self):
@@ -2890,7 +2881,7 @@ class TestModelClient(ClientTest):
         with patch.object(ModelClient, 'juju') as mock:
             client.quickstart('bundle:~juju-qa/some-bundle')
         mock.assert_called_with(
-            'quickstart', ('--constraints', 'mem=2G', '--no-browser',
+            'quickstart', ('--no-browser',
                            'bundle:~juju-qa/some-bundle'),
             extra_env={'JUJU': '/juju'})
 
@@ -2900,8 +2891,7 @@ class TestModelClient(ClientTest):
         with patch.object(ModelClient, 'juju') as mock:
             client.quickstart('bundle:~juju-qa/some-bundle')
         mock.assert_called_with(
-            'quickstart', ('--constraints', 'mem=2G', '--no-browser',
-                           'bundle:~juju-qa/some-bundle'),
+            'quickstart', ('--no-browser', 'bundle:~juju-qa/some-bundle'),
             extra_env={'JUJU': '/juju'})
 
     def test_quickstart_template(self):
@@ -2910,8 +2900,7 @@ class TestModelClient(ClientTest):
         with patch.object(ModelClient, 'juju') as mock:
             client.quickstart('bundle:~juju-qa/some-{container}-bundle')
         mock.assert_called_with(
-            'quickstart', ('--constraints', 'mem=2G', '--no-browser',
-                           'bundle:~juju-qa/some-lxd-bundle'),
+            'quickstart', ('--no-browser', 'bundle:~juju-qa/some-lxd-bundle'),
             extra_env={'JUJU': '/juju'})
 
     def test_action_do(self):
