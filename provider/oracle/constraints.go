@@ -30,4 +30,5 @@ func (c Constraints) Merge(consFallback, cons constraints.Value) (constraints.Va
 }
 
 func (c Constraints) UpdateVocabulary(attributeName string, newValues interface{}) {
+
 }

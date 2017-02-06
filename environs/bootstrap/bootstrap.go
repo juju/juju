@@ -260,7 +260,6 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 		return err
 	}
 	constraintsValidator.UpdateVocabulary(constraints.Arch, architectures.SortedValues())
-
 	bootstrapConstraints, err := constraintsValidator.Merge(
 		args.ModelConstraints, args.BootstrapConstraints,
 	)
@@ -268,7 +267,6 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 		return errors.Trace(err)
 	}
 	bootstrapConstraints = withDefaultControllerConstraints(args.BootstrapConstraints)
-
 	// The arch we use to find tools isn't the boostrapConstraints arch.
 	// We copy the constraints arch to a separate variable and
 	// update it from the host arch if not specified.
@@ -335,7 +333,6 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 	if len(availableTools) == 0 {
 		return errors.New(noToolsMessage)
 	}
-
 	// If we're uploading, we must override agent-version;
 	// if we're not uploading, we want to ensure we have an
 	// agent-version set anyway, to appease FinishInstanceConfig.
@@ -355,7 +352,7 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 	}
 
 	ctx.Verbosef("Starting new instance for initial controller")
-
+	os.Exit(1)
 	result, err := environ.Bootstrap(ctx, environs.BootstrapParams{
 		CloudName:            args.Cloud.Name,
 		CloudRegion:          args.CloudRegion,
@@ -514,7 +511,6 @@ func bootstrapImageMetadata(
 	bootstrapImageId string,
 	customImageMetadata *[]*imagemetadata.ImageMetadata,
 ) ([]*imagemetadata.ImageMetadata, error) {
-
 	hasRegion, ok := environ.(simplestreams.HasRegion)
 	if !ok {
 		if bootstrapImageId != "" {

@@ -1,10 +1,13 @@
 package oracle
 
 import (
+	"sync"
+
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/instances"
+	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/storage"
@@ -14,7 +17,9 @@ import (
 // oracleEnviron implements the environs.Environ interface
 // and has behaviour specific that the interface provides.
 type oracleEnviron struct {
-	p    *environProvider
+	p *environProvider
+
+	mu   sync.Mutex
 	spec environs.CloudSpec
 	cfg  *config.Config
 }
@@ -76,9 +81,32 @@ func (o oracleEnviron) Create(params environs.CreateParams) error {
 	return nil
 }
 
-//TODO
+// ConstraintsValidator returns a constraints.Validator instance which
+// is used to validate and merge constraints.
+//
+// Validator defines operations on constraints attributes which are
+// used to ensure a constraints value is valid, as well as being able
+// to handle overridden attributes.
+//
+// This will use the default validator implementation from the constraints package.
 func (o oracleEnviron) ConstraintsValidator() (constraints.Validator, error) {
-	return nil, nil
+	unsupportedConstraints := []string{
+		constraints.VirtType,
+		constraints.Spaces,
+		constraints.RootDisk,
+		constraints.CpuPower,
+		constraints.Container,
+		constraints.Arch,
+	}
+
+	// we choose to use the default validator implementation
+	validator := constraints.NewValidator()
+
+	// we must feed the validator that the oracle cloud
+	// provider does not support these constraints
+	validator.RegisterUnsupported(unsupportedConstraints)
+
+	return validator, nil
 }
 
 func (o oracleEnviron) SetConfig(cfg *config.Config) error {
@@ -129,4 +157,15 @@ func (o oracleEnviron) IngressRules() ([]network.IngressRule, error) {
 func (o oracleEnviron) InstanceTypes(constraints.Value) (instances.InstanceTypesWithCostMetadata, error) {
 	var i instances.InstanceTypesWithCostMetadata
 	return i, nil
+}
+
+// Providing this methods oracleEnviron implements also the simplestreams.HasRegion
+// interface
+//
+// Region returns the necessary attributes to uniquely identify this cloud instance.
+func (o oracleEnviron) Region() (simplestreams.CloudSpec, error) {
+	return simplestreams.CloudSpec{
+		Region:   o.spec.Region,
+		Endpoint: o.spec.Endpoint,
+	}, nil
 }

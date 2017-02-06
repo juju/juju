@@ -520,10 +520,6 @@ See `[1:] + "`juju kill-controller`" + `.`)
 
 	// Merge environ and bootstrap-specific constraints.
 	constraintsValidator, err := environ.ConstraintsValidator()
-	//TODO
-	//TODO(implement a type that implements constraints Validator)
-	//TODO
-	//TODO
 	if err != nil {
 		return errors.Trace(err)
 	}

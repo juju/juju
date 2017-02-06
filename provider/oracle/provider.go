@@ -136,7 +136,7 @@ func (e environProvider) CredentialSchemas() map[cloud.AuthType]cloud.Credential
 // DetectCredentials automatically detects one or more oracle credentials from the environmnet. This may involve, for example inspecting environmnet variables, or reading configuration files in well-defined locations.
 // If no credentials can be detected, the func will return an error satisfying errors.IsNotFound
 func (e environProvider) DetectCredentials() (*cloud.CloudCredential, error) {
-	return nil, nil
+	return nil, errors.NotFoundf("credentials")
 }
 
 // FinalizeCredential finalizes a oracle credential, updating any attributes as
