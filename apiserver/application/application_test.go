@@ -2102,6 +2102,8 @@ func (s *serviceSuite) TestDestroyPrincipalUnits(c *gc.C) {
 	for i := range units {
 		unit, err := wordpress.AddUnit()
 		c.Assert(err, jc.ErrorIsNil)
+		unit.AssignToNewMachine()
+		c.Assert(err, jc.ErrorIsNil)
 		now := time.Now()
 		sInfo := status.StatusInfo{
 			Status:  status.Idle,
@@ -2184,6 +2186,8 @@ func (s *serviceSuite) setupDestroyPrincipalUnits(c *gc.C) []*state.Unit {
 	wordpress := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	for i := range units {
 		unit, err := wordpress.AddUnit()
+		c.Assert(err, jc.ErrorIsNil)
+		err = unit.AssignToNewMachine()
 		c.Assert(err, jc.ErrorIsNil)
 		now := time.Now()
 		sInfo := status.StatusInfo{

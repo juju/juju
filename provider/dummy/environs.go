@@ -20,7 +20,9 @@ package dummy
 
 import (
 	"fmt"
+	"io"
 	"net"
+	"net/http"
 	"os"
 	"runtime"
 	"strconv"
@@ -826,6 +828,11 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 				NewObserver: func() observer.Observer { return &fakeobserver.Instance{} },
 				// Should never be used but prevent external access just in case.
 				AutocertURL: "https://0.1.2.3/no-autocert-here",
+				RegisterIntrospectionHandlers: func(f func(path string, h http.Handler)) {
+					f("navel", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+						io.WriteString(w, "gazing")
+					}))
+				},
 			})
 			if err != nil {
 				panic(err)
