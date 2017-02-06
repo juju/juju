@@ -7,7 +7,7 @@ package lxdclient
 
 import (
 	"bytes"
-	"regexp"
+	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/series"
@@ -66,7 +66,7 @@ func IsRunningLocally() (bool, error) {
 	return running, nil
 }
 
-const errIPV6NotSupported = `cannot listen on https socket: listen tcp \[::\]:\d*: socket: address family not supported by protocol`
+const errIPV6NotSupported = `socket: address family not supported by protocol`
 
 // EnableHTTPSListener configures LXD to listen for HTTPS requests,
 // rather than only via the Unix socket.
@@ -82,15 +82,11 @@ func EnableHTTPSListener(client interface {
 	err := client.SetServerConfig("core.https_address", "[::]")
 
 	if err != nil {
-		// if the error hints that the problem might be a protocol unsopported
+		// if the error hints that the problem might be a protocol unsoported
 		// such as what happens when IPV6 is disabled in kernel, we try IPV4
 		// as a fallback.
 		cause := errors.Cause(err)
-		matched, merr := regexp.MatchString(errIPV6NotSupported, cause.Error())
-		if merr != nil {
-			logger.Errorf("cant match error: %v", merr)
-		}
-		if matched {
+		if strings.HasSuffix(cause.Error(), errIPV6NotSupported) {
 			return errors.Trace(client.SetServerConfig("core.https_address", "0.0.0.0"))
 		}
 		return errors.Trace(err)
