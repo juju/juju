@@ -15,7 +15,7 @@ services:
     num_units: 0
   haproxy:
     series: trusty
-    charm: "./trusty/haproxy"
+    charm: "haproxy"
     constraints: mem=2G
     num_units: 1
     to:
