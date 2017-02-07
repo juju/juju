@@ -351,6 +351,27 @@ func mongoPath(version Version, stat func(string) (os.FileInfo, error), lookPath
 
 }
 
+/*
+Values set as per bug:
+https://bugs.launchpad.net/juju/+bug/1656430
+net.ipv4.tcp_max_syn_backlog = 4096
+net.core.somaxconn = 16384
+net.core.netdev_max_backlog = 1000
+net.ipv4.tcp_fin_timeout = 30
+
+Values set as per mongod recommendation (see syslog on default mongod run)
+/sys/kernel/mm/transparent_hugepage/enabled 'always' > 'never'
+/sys/kernel/mm/transparent_hugepage/defrag 'always' > 'never'
+*/
+var mongoKernalTweaks = map[string]string{
+	"/sys/kernel/mm/transparent_hugepage/enabled": "never",
+	"/sys/kernel/mm/transparent_hugepage/defrag":  "never",
+	"/proc/sys/net/ipv4/tcp_max_syn_backlog":      "4096",
+	"/proc/sys/net/core/somaxconn":                "16384",
+	"/proc/sys/net/core/netdev_max_backlog":       "1000",
+	"/proc/sys/net/ipv4/tcp_fin_timeout":          "30",
+}
+
 // EnsureServerParams is a parameter struct for EnsureServer.
 type EnsureServerParams struct {
 	// APIPort is the port to connect to the api server.
@@ -398,6 +419,11 @@ type EnsureServerParams struct {
 // This method will remove old versions of the mongo init service as necessary
 // before installing the new version.
 func EnsureServer(args EnsureServerParams) error {
+	return ensureServer(args, mongoKernalTweaks)
+}
+
+func ensureServer(args EnsureServerParams, mongoKernalTweaks map[string]string) error {
+	tweakSysctlForMongo(mongoKernalTweaks)
 	logger.Infof(
 		"Ensuring mongo server is running; data directory %s; port %d",
 		args.DataDir, args.StatePort,
@@ -504,6 +530,28 @@ func EnsureServer(args EnsureServerParams) error {
 		return errors.Trace(err)
 	}
 	return nil
+}
+
+func truncateAndWriteIfExists(procFile, value string) error {
+	if _, err := os.Stat(procFile); os.IsNotExist(err) {
+		logger.Debugf("%q does not exist, will not set %q", procFile, value)
+		return errors.Errorf("%q does not exist, will not set %q", procFile, value)
+	}
+	f, err := os.OpenFile(procFile, os.O_WRONLY|os.O_TRUNC, 0600)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defer f.Close()
+	_, err = f.WriteString(value)
+	return errors.Trace(err)
+}
+
+func tweakSysctlForMongo(editables map[string]string) {
+	for editableFile, value := range editables {
+		if err := truncateAndWriteIfExists(editableFile, value); err != nil {
+			logger.Errorf("could not set the value of %q to %q because of: %v\n", editableFile, value, err)
+		}
+	}
 }
 
 // UpdateSSLKey writes a new SSL key used by mongo to validate connections from Juju controller(s)
