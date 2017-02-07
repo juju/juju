@@ -1,0 +1,16 @@
+#!/bin/bash
+
+# Make sure we have lxd installed to use
+snap install lxd || true
+
+# copy bash completions to host system
+cp -a $SNAP/bash_completions/* /usr/share/bash-completion/completions/. || true
+
+# setup sysctl defaults for lxd
+mkdir -p /usr/lib/sysctl.d
+cat <<EOF>/usr/lib/sysctl.d/juju-2.conf
+fs.inotify.max_user_watches = 524288
+fs.inotify.max_user_instances = 256
+EOF
+
+sysctl -p /usr/lib/sysctl.d/juju-2.conf

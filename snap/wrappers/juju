@@ -1,0 +1,8 @@
+#!/bin/bash
+
+export LXD_DIR=/var/snap/lxd/common/lxd
+
+# Make sure we access snap binaries first
+export PATH=$SNAP/bin:$SNAP/usr/bin:/snap/bin:$PATH
+
+exec $SNAP/bin/juju "$@"
