@@ -1165,6 +1165,10 @@ func (s *allModelWatcherStateSuite) Reset(c *gc.C) {
 	s.SetUpTest(c)
 }
 
+func (s *allModelWatcherStateSuite) NewAllModelWatcherStateBacking() Backing {
+	return NewAllModelWatcherStateBacking(s.state, NewStatePool(s.state))
+}
+
 // performChangeTestCases runs a passed number of test cases for changes.
 func (s *allModelWatcherStateSuite) performChangeTestCases(c *gc.C, changeTestFuncs []changeTestFunc) {
 	for i, changeTestFunc := range changeTestFuncs {
@@ -1174,7 +1178,7 @@ func (s *allModelWatcherStateSuite) performChangeTestCases(c *gc.C, changeTestFu
 			test0 := changeTestFunc(c, s.state)
 
 			c.Logf("test %d. %s", i, test0.about)
-			b := NewAllModelWatcherStateBacking(s.state)
+			b := s.NewAllModelWatcherStateBacking()
 			defer b.Release()
 			all := newStore()
 
@@ -1378,7 +1382,7 @@ func (s *allModelWatcherStateSuite) TestChangeForDeadModel(c *gc.C) {
 	// Ensure an entity is removed when a change is seen but
 	// the model the entity belonged to has already died.
 
-	b := NewAllModelWatcherStateBacking(s.state)
+	b := s.NewAllModelWatcherStateBacking()
 	defer b.Release()
 	all := newStore()
 
@@ -1451,7 +1455,7 @@ func (s *allModelWatcherStateSuite) TestGetAll(c *gc.C) {
 		},
 	)
 
-	b := NewAllModelWatcherStateBacking(s.state)
+	b := s.NewAllModelWatcherStateBacking()
 	all := newStore()
 	err = b.GetAll(all)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1464,7 +1468,7 @@ func (s *allModelWatcherStateSuite) TestGetAll(c *gc.C) {
 
 func (s *allModelWatcherStateSuite) TestModelSettings(c *gc.C) {
 	// Init the test model.
-	b := NewAllModelWatcherStateBacking(s.state)
+	b := s.NewAllModelWatcherStateBacking()
 	all := newStore()
 	setModelConfigAttr(c, s.state, "http-proxy", "http://invalid")
 	setModelConfigAttr(c, s.state, "foo", "bar")
@@ -3334,7 +3338,7 @@ func newTestAllWatcher(st *State, c *gc.C) *testWatcher {
 }
 
 func newTestAllModelWatcher(st *State, c *gc.C) *testWatcher {
-	return newTestWatcher(NewAllModelWatcherStateBacking(st), st, c)
+	return newTestWatcher(NewAllModelWatcherStateBacking(st, NewStatePool(st)), st, c)
 }
 
 type testWatcher struct {

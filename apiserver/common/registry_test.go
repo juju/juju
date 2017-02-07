@@ -62,22 +62,34 @@ func (s *facadeRegistrySuite) TestRegisterFacadePanicsOnDoubleRegistry(c *gc.C) 
 }
 
 func (*facadeRegistrySuite) TestValidateNewFacade(c *gc.C) {
+	badSigErrorRegex := "does not have the signature func " +
+		"\\(facace.Context\\) \\(\\*Type, error\\), or " +
+		"\\(\\*state.State, facade.Resources, facade.Authorizer\\) \\(\\*Type, error\\)"
+
 	checkValidateNewFacadeFailsWith(c, nil,
 		`cannot wrap nil`)
 	checkValidateNewFacadeFailsWith(c, "notafunc",
 		`wrong type "string" is not a function`)
 	checkValidateNewFacadeFailsWith(c, noArgs,
-		`function ".*noArgs" does not take 3 parameters and return 2`)
+		`function ".*noArgs" `+badSigErrorRegex)
 	checkValidateNewFacadeFailsWith(c, badCountIn,
-		`function ".*badCountIn" does not take 3 parameters and return 2`)
+		`function ".*badCountIn" `+badSigErrorRegex)
 	checkValidateNewFacadeFailsWith(c, badCountOut,
-		`function ".*badCountOut" does not take 3 parameters and return 2`)
+		`function ".*badCountOut" `+badSigErrorRegex)
 	checkValidateNewFacadeFailsWith(c, wrongIn,
-		`function ".*wrongIn" does not have the signature func \(\*state.State, facade.Resources, facade.Authorizer\) \(\*Type, error\)`)
+		`function ".*wrongIn" `+badSigErrorRegex)
 	checkValidateNewFacadeFailsWith(c, wrongOut,
-		`function ".*wrongOut" does not have the signature func \(\*state.State, facade.Resources, facade.Authorizer\) \(\*Type, error\)`)
-	err := common.ValidateNewFacade(reflect.ValueOf(validFactory))
+		`function ".*wrongOut" `+badSigErrorRegex)
+	checkValidateNewFacadeFailsWith(c, oneArgNotContext,
+		`function ".*oneArgNotContext" `+badSigErrorRegex)
+
+	nice, err := common.ValidateNewFacade(reflect.ValueOf(validFactory))
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(nice, jc.IsFalse)
+
+	nice, err = common.ValidateNewFacade(reflect.ValueOf(validContextFactory))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(nice, jc.IsTrue)
 }
 
 func (*facadeRegistrySuite) TestWrapNewFacadeFailure(c *gc.C) {
@@ -96,11 +108,13 @@ func (*facadeRegistrySuite) TestWrapNewFacadeHandlesId(c *gc.C) {
 }
 
 func (*facadeRegistrySuite) TestWrapNewFacadeCallsFunc(c *gc.C) {
-	wrapped, _, err := common.WrapNewFacade(validFactory)
-	c.Assert(err, jc.ErrorIsNil)
-	val, err := wrapped(facadetest.Context{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(*(val.(*int)), gc.Equals, 100)
+	for _, function := range []interface{}{validFactory, validContextFactory} {
+		wrapped, _, err := common.WrapNewFacade(function)
+		c.Assert(err, jc.ErrorIsNil)
+		val, err := wrapped(facadetest.Context{})
+		c.Assert(err, jc.ErrorIsNil)
+		c.Check(*(val.(*int)), gc.Equals, 100)
+	}
 }
 
 func (*facadeRegistrySuite) TestWrapNewFacadeCallsWithRightParams(c *gc.C) {
@@ -128,6 +142,23 @@ func (*facadeRegistrySuite) TestWrapNewFacadeCallsWithRightParams(c *gc.C) {
 	c.Check(asResult.auth, gc.Equals, authorizer)
 }
 
+func (s *facadeRegistrySuite) TestRegisteredFuncGetsContext(c *gc.C) {
+	common.SanitizeFacades(s)
+
+	testFunc := func(ctx facade.Context) (facadetest.Context, error) {
+		return ctx.(facadetest.Context), nil
+	}
+	common.RegisterStandardFacade("testing", 1, testFunc)
+
+	wrapped, err := common.Facades.GetFactory("testing", 1)
+	c.Assert(err, jc.ErrorIsNil)
+
+	ctx := facadetest.Context{Identity: "special"}
+	val, err := wrapped(ctx)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(val.(facadetest.Context).Identity, gc.Equals, "special")
+}
+
 func (s *facadeRegistrySuite) TestRegisterStandardFacade(c *gc.C) {
 	common.SanitizeFacades(s)
 	common.RegisterStandardFacade("testing", 0, validFactory)
@@ -143,7 +174,7 @@ func (s *facadeRegistrySuite) TestRegisterStandardFacadePanic(c *gc.C) {
 	c.Assert(
 		func() { common.RegisterStandardFacade("badtest", 0, noArgs) },
 		gc.PanicMatches,
-		`function ".*noArgs" does not take 3 parameters and return 2`)
+		`function ".*noArgs" does not have the signature .* or .*`)
 	_, err := common.Facades.GetFactory("badtest", 0)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	c.Assert(err, gc.ErrorMatches, `badtest\(0\) not found`)
@@ -178,7 +209,7 @@ type myResult struct {
 }
 
 func checkValidateNewFacadeFailsWith(c *gc.C, obj interface{}, errMsg string) {
-	err := common.ValidateNewFacade(reflect.ValueOf(obj))
+	_, err := common.ValidateNewFacade(reflect.ValueOf(obj))
 	c.Check(err, gc.NotNil)
 	c.Check(err, gc.ErrorMatches, errMsg)
 }
@@ -203,6 +234,15 @@ func wrongOut(*state.State, facade.Resources, facade.Authorizer) (error, *int) {
 }
 
 func validFactory(*state.State, facade.Resources, facade.Authorizer) (*int, error) {
+	var i = 100
+	return &i, nil
+}
+
+func oneArgNotContext(string) (*int, error) {
+	return nil, nil
+}
+
+func validContextFactory(facade.Context) (*int, error) {
 	var i = 100
 	return &i, nil
 }
