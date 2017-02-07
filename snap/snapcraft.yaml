@@ -1,5 +1,5 @@
 name: juju
-version: 2.2-alpha1
+version: 2.1-rc1
 summary: juju client
 description: Through the use of charms, juju provides you with shareable, re-usable, and repeatable expressions of devops best practices.
 confinement: classic
@@ -19,7 +19,7 @@ parts:
     #The source can be your local tree or github
     #source: https://github.com/juju/juju.git
     #If you pull a remote, set source-depth to 1 to make the fetch shorter
-    source-depth: 1
+    #source-depth: 1
     #source: file:///full/file/path
     #By default, reuse existing tree
     source: .
@@ -28,7 +28,7 @@ parts:
     #You can grab a specific tag, commit, or branch
     #source-tag: juju-2.0.2
     #source-commit: a83896d913d7e43c960e441c1e41612116d92d46
-    source-branch: develop
+    #source-branch: develop
     go-packages:
       - github.com/juju/juju/cmd/juju
       #If you are releasing a build with public streams, you don't need to build the agent
