@@ -22,20 +22,27 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
-func newRunCommand() cmd.Command {
-	return modelcmd.Wrap(&runCommand{})
+func newDefaultRunCommand() cmd.Command {
+	return newRunCommand(time.After)
+}
+
+func newRunCommand(timeAfter func(time.Duration) <-chan time.Time) cmd.Command {
+	return modelcmd.Wrap(&runCommand{
+		timeAfter: timeAfter,
+	})
 }
 
 // runCommand is responsible for running arbitrary commands on remote machines.
 type runCommand struct {
 	modelcmd.ModelCommandBase
-	out      cmd.Output
-	all      bool
-	timeout  time.Duration
-	machines []string
-	services []string
-	units    []string
-	commands string
+	out       cmd.Output
+	all       bool
+	timeout   time.Duration
+	machines  []string
+	services  []string
+	units     []string
+	commands  string
+	timeAfter func(time.Duration) <-chan time.Time
 }
 
 const runDoc = `
@@ -250,6 +257,7 @@ func (c *runCommand) Run(ctx *cmd.Context) error {
 		return errors.New("no actions were successfully enqueued, aborting")
 	}
 
+	timeout := c.timeAfter(c.timeout)
 	values := []interface{}{}
 	for len(actionsToQuery) > 0 {
 		actionResults, err := client.Actions(entities(actionsToQuery))
@@ -269,17 +277,28 @@ func (c *runCommand) Run(ctx *cmd.Context) error {
 
 			values = append(values, ConvertActionResults(result, actionsToQuery[i]))
 		}
-
 		actionsToQuery = newActionsToQuery
 
-		// TODO: use a watcher instead of sleeping
-		// this should be easier once we implement action grouping
-		<-afterFunc(1 * time.Second)
+		if len(actionsToQuery) > 0 {
+			var timedOut bool
+			select {
+			case <-timeout:
+				timedOut = true
+			case <-c.timeAfter(1 * time.Second):
+				// TODO(axw) 2017-02-07 #1662451
+				// use a watcher instead of polling.
+				// this should be easier once we implement
+				// action grouping
+			}
+			if timedOut {
+				break
+			}
+		}
 	}
 
 	// If we are just dealing with one result, AND we are using the default
 	// format, then pretend we were running it locally.
-	if len(values) == 1 && c.out.Name() == "default" {
+	if len(actionsToQuery) == 0 && len(values) == 1 && c.out.Name() == "default" {
 		result, ok := values[0].(map[string]interface{})
 		if !ok {
 			return errors.New("couldn't read action output")
@@ -300,7 +319,28 @@ func (c *runCommand) Run(ctx *cmd.Context) error {
 		return nil
 	}
 
-	return c.out.Write(ctx, values)
+	if len(values) > 0 {
+		if err := c.out.Write(ctx, values); err != nil {
+			return err
+		}
+	}
+
+	if n := len(actionsToQuery); n > 0 {
+		// There are action results remaining, so return an error.
+		suffix := ""
+		if n > 1 {
+			suffix = "s"
+		}
+		receivers := make([]string, n)
+		for i, actionToQuery := range actionsToQuery {
+			receivers[i] = names.ReadableString(actionToQuery.receiver.tag)
+		}
+		return errors.Errorf(
+			"timed out waiting for result%s from: %s",
+			suffix, strings.Join(receivers, ", "),
+		)
+	}
+	return nil
 }
 
 type actionReceiver struct {
@@ -333,10 +373,6 @@ var getRunAPIClient = func(c *runCommand) (RunClient, error) {
 // getActionResult abstracts over the action CLI function that we use here to fetch results
 var getActionResult = func(c RunClient, actionId string, wait *time.Timer) (params.ActionResult, error) {
 	return action.GetActionResult(c, actionId, wait)
-}
-
-var afterFunc = func(d time.Duration) <-chan time.Time {
-	return time.After(d)
 }
 
 // entities is a convenience constructor for params.Entities.
