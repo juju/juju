@@ -77,10 +77,15 @@ juju-engine-report () {
   jujuMachineOrUnit depengine/ $@
 }
 
+juju-statepool-report () {
+  jujuMachineOrUnit statepool/ $@
+}
+
 export -f jujuAgentCall
 export -f jujuMachineAgentName
 export -f jujuMachineOrUnit
 export -f juju-goroutines
 export -f juju-heap-profile
 export -f juju-engine-report
+export -f juju-statepool-report
 `

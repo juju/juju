@@ -236,6 +236,7 @@ func newServerWithHub(c *gc.C, st *state.State, hub *pubsub.StructuredHub) (*api
 		LogDir:      c.MkDir(),
 		Hub:         hub,
 		NewObserver: func() observer.Observer { return &fakeobserver.Instance{} },
+		StatePool:   state.NewStatePool(st),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	port := listener.Addr().(*net.TCPAddr).Port

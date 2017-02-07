@@ -524,7 +524,7 @@ func (s *serverSuite) TestAPIHandlerConnectedModel(c *gc.C) {
 
 func (s *serverSuite) TestClosesStateFromPool(c *gc.C) {
 	pool := state.NewStatePool(s.State)
-	cfg := defaultServerConfig(c)
+	cfg := defaultServerConfig(c, s.State)
 	cfg.StatePool = pool
 	_, server := newServerWithConfig(c, s.State, cfg)
 	defer assertStop(c, server)
@@ -549,10 +549,9 @@ func (s *serverSuite) TestClosesStateFromPool(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Ensure the model's in the pool but not referenced.
-	st, err := pool.Get(otherState.ModelUUID())
+	st, releaser, err := pool.Get(otherState.ModelUUID())
 	c.Assert(err, jc.ErrorIsNil)
-	err = pool.Release(otherState.ModelUUID())
-	c.Assert(err, jc.ErrorIsNil)
+	releaser()
 
 	// Make a request for the model API to check it releases
 	// state back into the pool once the connection is closed.
@@ -607,7 +606,7 @@ func (s *serverSuite) checkAPIHandlerTeardown(c *gc.C, srvSt, st *state.State) {
 }
 
 // defaultServerConfig returns the default configuration for starting a test server.
-func defaultServerConfig(c *gc.C) apiserver.ServerConfig {
+func defaultServerConfig(c *gc.C, st *state.State) apiserver.ServerConfig {
 	fakeOrigin := names.NewMachineTag("0")
 	hub := centralhub.New(fakeOrigin)
 	return apiserver.ServerConfig{
@@ -619,6 +618,7 @@ func defaultServerConfig(c *gc.C) apiserver.ServerConfig {
 		Hub:         hub,
 		NewObserver: func() observer.Observer { return &fakeobserver.Instance{} },
 		AutocertURL: "https://0.1.2.3/no-autocert-here",
+		StatePool:   state.NewStatePool(st),
 	}
 }
 
@@ -630,11 +630,11 @@ func defaultServerConfig(c *gc.C) apiserver.ServerConfig {
 // without any authentication information or model tag, and the server
 // that's been started.
 func newServer(c *gc.C, st *state.State) (*api.Info, *apiserver.Server) {
-	return newServerWithConfig(c, st, defaultServerConfig(c))
+	return newServerWithConfig(c, st, defaultServerConfig(c, st))
 }
 
 func newServerWithHub(c *gc.C, st *state.State, hub *pubsub.StructuredHub) (*api.Info, *apiserver.Server) {
-	cfg := defaultServerConfig(c)
+	cfg := defaultServerConfig(c, st)
 	cfg.Hub = hub
 	return newServerWithConfig(c, st, cfg)
 }

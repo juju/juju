@@ -74,7 +74,7 @@ func (s *introspectionSuite) startWorker(c *gc.C) {
 	s.name = fmt.Sprintf("introspection-test-%d", os.Getpid())
 	w, err := introspection.NewWorker(introspection.Config{
 		SocketName:         s.name,
-		Reporter:           s.reporter,
+		DepEngine:          s.reporter,
 		PrometheusGatherer: s.gatherer,
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -110,10 +110,16 @@ func (s *introspectionSuite) TestGoroutineProfile(c *gc.C) {
 	matches(c, buf, `^goroutine profile: total \d+`)
 }
 
-func (s *introspectionSuite) TestMissingReporter(c *gc.C) {
+func (s *introspectionSuite) TestMissingDepEngineReporter(c *gc.C) {
 	buf := s.call(c, "/depengine/")
 	matches(c, buf, "404 Not Found")
-	matches(c, buf, "missing reporter")
+	matches(c, buf, "missing dependency engine reporter")
+}
+
+func (s *introspectionSuite) TestMissingStatePoolReporter(c *gc.C) {
+	buf := s.call(c, "/statepool/")
+	matches(c, buf, "404 Not Found")
+	matches(c, buf, "State Pool Report: missing reporter")
 }
 
 func (s *introspectionSuite) TestEngineReporter(c *gc.C) {
