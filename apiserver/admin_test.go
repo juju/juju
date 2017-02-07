@@ -516,7 +516,7 @@ func (s *loginSuite) TestLoginValidationDuringUpgrade(c *gc.C) {
 }
 
 func (s *loginSuite) TestFailedLoginDuringMaintenance(c *gc.C) {
-	cfg := defaultServerConfig(c)
+	cfg := defaultServerConfig(c, s.State)
 	cfg.Validator = func(params.LoginRequest) error {
 		return errors.New("something")
 	}
@@ -536,7 +536,7 @@ func (s *loginSuite) TestFailedLoginDuringMaintenance(c *gc.C) {
 type validationChecker func(c *gc.C, err error, st api.Connection)
 
 func (s *baseLoginSuite) checkLoginWithValidator(c *gc.C, validator apiserver.LoginValidator, checker validationChecker) {
-	cfg := defaultServerConfig(c)
+	cfg := defaultServerConfig(c, s.State)
 	cfg.Validator = validator
 	info, srv := newServerWithConfig(c, s.State, cfg)
 	defer assertStop(c, srv)
@@ -1004,7 +1004,7 @@ func (s *macaroonLoginSuite) TestRemoteUserLoginToModelWithExplicitAccessAndAllo
 }
 
 func (s *macaroonLoginSuite) testRemoteUserLoginToModelWithExplicitAccess(c *gc.C, allowModelAccess bool) {
-	cfg := defaultServerConfig(c)
+	cfg := defaultServerConfig(c, s.State)
 	cfg.AllowModelAccess = allowModelAccess
 
 	info, srv := newServerWithConfig(c, s.State, cfg)

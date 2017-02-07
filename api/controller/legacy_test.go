@@ -226,6 +226,7 @@ func (s *legacySuite) TestAPIServerCanShutdownWithOutstandingNext(c *gc.C) {
 		LogDir:      c.MkDir(),
 		NewObserver: func() observer.Observer { return &fakeobserver.Instance{} },
 		AutocertURL: "https://0.1.2.3/no-autocert-here",
+		StatePool:   state.NewStatePool(s.State),
 	})
 	c.Assert(err, gc.IsNil)
 

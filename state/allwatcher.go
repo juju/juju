@@ -1252,7 +1252,7 @@ func (b *allModelWatcherStateBacking) Changed(all *multiwatcherStore, change wat
 
 	doc := reflect.New(c.docType).Interface().(backingEntityDoc)
 
-	st, err := b.getState(modelUUID)
+	st, releaser, err := b.getState(modelUUID)
 	if err != nil {
 		_, modelErr := b.st.GetModel(names.NewModelTag(modelUUID))
 		if errors.IsNotFound(modelErr) {
@@ -1263,7 +1263,7 @@ func (b *allModelWatcherStateBacking) Changed(all *multiwatcherStore, change wat
 		}
 		return errors.Trace(err)
 	}
-	defer b.stPool.Release(modelUUID)
+	defer releaser()
 
 	col, closer := st.getCollection(c.name)
 	defer closer()
@@ -1293,16 +1293,12 @@ func (b *allModelWatcherStateBacking) idForChange(change watcher.Change) (string
 	return modelUUID, id, nil
 }
 
-func (b *allModelWatcherStateBacking) getState(modelUUID string) (*State, error) {
-	if b.st.ModelUUID() == modelUUID {
-		return b.st, nil
-	}
-
-	st, err := b.stPool.Get(modelUUID)
+func (b *allModelWatcherStateBacking) getState(modelUUID string) (*State, func(), error) {
+	st, releaser, err := b.stPool.Get(modelUUID)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, nil, errors.Trace(err)
 	}
-	return st, nil
+	return st, releaser, nil
 }
 
 // Release implements the Backing interface.

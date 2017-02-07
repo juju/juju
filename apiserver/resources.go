@@ -20,20 +20,20 @@ import (
 // resourceUploadHandler handles resources uploads for model migrations.
 type resourceUploadHandler struct {
 	ctxt          httpContext
-	stateAuthFunc func(*http.Request) (*state.State, error)
+	stateAuthFunc func(*http.Request) (*state.State, func(), error)
 }
 
 func (h *resourceUploadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Validate before authenticate because the authentication is dependent
 	// on the state connection that is determined during the validation.
-	st, err := h.stateAuthFunc(r)
+	st, releaser, err := h.stateAuthFunc(r)
 	if err != nil {
 		if err := sendError(w, err); err != nil {
 			logger.Errorf("%v", err)
 		}
 		return
 	}
-	defer h.ctxt.release(st)
+	defer releaser()
 
 	switch r.Method {
 	case "POST":
