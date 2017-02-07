@@ -261,7 +261,7 @@ func (s *MongoSuite) TestEnsureServerServerExistsAndRunning(c *gc.C) {
 
 func (s *MongoSuite) TestEnsureServerSetsSysctlValues(c *gc.C) {
 	dataDir := c.MkDir()
-	dataFilePath := filepath.Join(dataDir, "editablesysctlfile")
+	dataFilePath := filepath.Join(dataDir, "mongoKernelTweaks")
 	dataFile, err := os.Create(dataFilePath)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = dataFile.WriteString("original value")
