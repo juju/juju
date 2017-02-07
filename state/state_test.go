@@ -1597,11 +1597,7 @@ func (s *StateSuite) TestAddServiceWithInvalidBindings(c *gc.C) {
 	}, {
 		about:         "empty endpoint bound to unknown space",
 		bindings:      map[string]string{"": "anything"},
-		expectedError: `unknown endpoint "" not valid`,
-	}, {
-		about:         "empty endpoint not bound to a space",
-		bindings:      map[string]string{"": ""},
-		expectedError: `unknown endpoint "" not valid`,
+		expectedError: `unknown space "anything" not valid`,
 	}, {
 		about:         "known endpoint bound to unknown space",
 		bindings:      map[string]string{"server": "invalid"},
