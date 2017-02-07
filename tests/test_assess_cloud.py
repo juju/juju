@@ -129,27 +129,32 @@ class TestAssessCloudProvisioning(FakeHomeTestCase):
         with self.check_assess_cloud_provisioning(self) as bs_manager:
             assess_cloud_provisioning(bs_manager)
 
+    def test_assess_cloud_provisioning_specified_series(self):
+        with self.check_assess_cloud_provisioning(self, ['foo', 'bar',
+                                                         'baz']) as bs_manager:
+            assess_cloud_provisioning(bs_manager, ['foo', 'bar', 'baz'])
+
     @staticmethod
     @contextmanager
-    def check_assess_cloud_provisioning(test_case):
+    def check_assess_cloud_provisioning(test_case, series=None):
+        if series is None:
+            series = ['win2012r2', 'trusty', 'centos7']
         with mocked_bs_manager(test_case.juju_home) as (bs_manager,
                                                         config_file):
             client = bs_manager.client
             yield bs_manager
             juju_wrapper = client._backend.juju
         actual = strip_calls(juju_wrapper.mock_calls)
+        series_calls = [
+            backend_call(client, 'add-machine', ('--series', s), 'foo:foo')
+            for s in series]
         expected = [
             backend_call(
                 client, 'bootstrap', (
                     '--constraints', 'mem=2G', 'foo/bar', 'foo', '--config',
                     config_file.name, '--default-model', 'foo',
                     '--agent-version', client.version)),
-            backend_call(client, 'add-machine', ('--series', 'win2012r2'),
-                         'foo:foo'),
-            backend_call(client, 'add-machine', ('--series', 'trusty'),
-                         'foo:foo'),
-            backend_call(client, 'add-machine', ('--series', 'centos7'),
-                         'foo:foo'),
+            ] + series_calls + [
             backend_call(client, 'remove-machine', ('0',), 'foo:foo'),
             backend_call(client, 'remove-machine', ('1',), 'foo:foo'),
             backend_call(client, 'remove-machine', ('2',), 'foo:foo'),
