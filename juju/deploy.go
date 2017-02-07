@@ -138,8 +138,8 @@ func getEffectiveBindingsForCharmMeta(charmMeta *charm.Meta, givenBindings map[s
 		return nil, err
 	}
 
-	// Get the application-level default binding for all unspecified endpoint, if
-	// set, otherwise use the empty default.
+	// Get the application-level default binding for all unspecified endpoints, if
+	// set. Otherwise use the empty default.
 	applicationDefaultSpace, defaultSupplied := givenBindings[""]
 	if defaultSupplied {
 		// Record that a default binding was requested
