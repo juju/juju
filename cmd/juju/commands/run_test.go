@@ -10,8 +10,10 @@ import (
 	"time"
 
 	"github.com/juju/cmd"
+	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"github.com/juju/utils/clock"
 	"github.com/juju/utils/exec"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
@@ -28,6 +30,10 @@ type RunSuite struct {
 }
 
 var _ = gc.Suite(&RunSuite{})
+
+func newTestRunCommand(clock clock.Clock) cmd.Command {
+	return newRunCommand(clock.After)
+}
 
 func (*RunSuite) TestTargetArgParsing(c *gc.C) {
 	for i, test := range []struct {
@@ -258,7 +264,7 @@ func (s *RunSuite) TestRunForMachineAndUnit(c *gc.C) {
 	err := cmd.FormatJson(buff, unformatted)
 	c.Assert(err, jc.ErrorIsNil)
 
-	context, err := testing.RunCommand(c, newRunCommand(),
+	context, err := testing.RunCommand(c, newTestRunCommand(&mockClock{}),
 		"--format=json", "--machine=0", "--unit=unit/0", "hostname",
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -270,7 +276,7 @@ func (s *RunSuite) TestBlockRunForMachineAndUnit(c *gc.C) {
 	mock := s.setupMockAPI()
 	// Block operation
 	mock.block = true
-	_, err := testing.RunCommand(c, newRunCommand(),
+	_, err := testing.RunCommand(c, newTestRunCommand(&mockClock{}),
 		"--format=json", "--machine=0", "--unit=unit/0", "hostname",
 	)
 	testing.AssertOperationWasBlocked(c, err, ".*To enable changes.*")
@@ -318,18 +324,102 @@ func (s *RunSuite) TestAllMachines(c *gc.C) {
 	err := cmd.FormatJson(buff, unformatted)
 	c.Assert(err, jc.ErrorIsNil)
 
-	context, err := testing.RunCommand(c, newRunCommand(), "--format=json", "--all", "hostname")
+	context, err := testing.RunCommand(c, newTestRunCommand(&mockClock{}), "--format=json", "--all", "hostname")
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(testing.Stdout(context), gc.Equals, buff.String())
 	c.Check(testing.Stderr(context), gc.Equals, "")
 }
 
+func (s *RunSuite) TestTimeout(c *gc.C) {
+	mock := s.setupMockAPI()
+	mock.setMachinesAlive("0", "1", "2")
+	response0 := mockResponse{
+		stdout:     "megatron\n",
+		machineTag: "machine-0",
+	}
+	response1 := mockResponse{
+		machineTag: "machine-1",
+		status:     params.ActionPending,
+	}
+	response2 := mockResponse{
+		machineTag: "machine-2",
+		status:     params.ActionRunning,
+	}
+	mock.setResponse("0", response0)
+	mock.setResponse("1", response1)
+	mock.setResponse("2", response2)
+
+	machine0Result := mock.runResponses["0"]
+	machine1Result := mock.runResponses["1"]
+	machine2Result := mock.runResponses["1"]
+	mock.actionResponses = map[string]params.ActionResult{
+		mock.receiverIdMap["0"]: machine0Result,
+		mock.receiverIdMap["1"]: machine1Result,
+		mock.receiverIdMap["2"]: machine2Result,
+	}
+
+	machine0Query := makeActionQuery(mock.receiverIdMap["0"], "MachineId", names.NewMachineTag("0"))
+
+	var buf bytes.Buffer
+	err := cmd.FormatJson(&buf, []interface{}{
+		ConvertActionResults(machine0Result, machine0Query),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	var clock mockClock
+	context, err := testing.RunCommand(
+		c, newTestRunCommand(&clock),
+		"--format=json", "--all", "hostname", "--timeout", "99s",
+	)
+	c.Assert(err, gc.ErrorMatches, "timed out waiting for results from: machine 1, machine 2")
+
+	c.Check(testing.Stdout(context), gc.Equals, buf.String())
+	c.Check(testing.Stderr(context), gc.Equals, "")
+	clock.CheckCalls(c, []gitjujutesting.StubCall{
+		{"After", []interface{}{99 * time.Second}},
+		{"After", []interface{}{1 * time.Second}},
+		{"After", []interface{}{1 * time.Second}},
+	})
+}
+
+type mockClock struct {
+	gitjujutesting.Stub
+	clock.Clock
+	timeoutCh chan time.Time
+}
+
+func (c *mockClock) After(d time.Duration) <-chan time.Time {
+	c.MethodCall(c, "After", d)
+	ch := make(chan time.Time)
+	if d == time.Second {
+		// This is a sleepy sleep call, while we're waiting
+		// for actions to be run. We simulate sleeping a
+		// couple of times, and then close the timeout
+		// channel.
+		if len(c.Calls()) >= 3 {
+			close(c.timeoutCh)
+		} else {
+			close(ch)
+		}
+	} else {
+		// This is the initial time.After call for the timeout.
+		// Once we've gone through the loop waiting for results
+		// a couple of times, we'll close this to indicate that
+		// a timeout occurred.
+		if c.timeoutCh != nil {
+			panic("time.After called for timeout multiple times")
+		}
+		c.timeoutCh = ch
+	}
+	return ch
+}
+
 func (s *RunSuite) TestBlockAllMachines(c *gc.C) {
 	mock := s.setupMockAPI()
 	// Block operation
 	mock.block = true
-	_, err := testing.RunCommand(c, newRunCommand(), "--format=json", "--all", "hostname")
+	_, err := testing.RunCommand(c, newTestRunCommand(&mockClock{}), "--format=json", "--all", "hostname")
 	testing.AssertOperationWasBlocked(c, err, ".*To enable changes.*")
 }
 
@@ -388,7 +478,7 @@ func (s *RunSuite) TestSingleResponse(c *gc.C) {
 			args = append(args, "--format", test.format)
 		}
 		args = append(args, "--all", "ignored")
-		context, err := testing.RunCommand(c, newRunCommand(), args...)
+		context, err := testing.RunCommand(c, newTestRunCommand(&mockClock{}), args...)
 		if test.errorMatch != "" {
 			c.Check(err, gc.ErrorMatches, test.errorMatch)
 		} else {
@@ -428,6 +518,7 @@ type mockResponse struct {
 	message    string
 	machineTag string
 	unitTag    string
+	status     string
 }
 
 var _ RunClient = (*mockRunAPI)(nil)
@@ -467,6 +558,7 @@ func makeActionResult(mock mockResponse, actionTag string) params.ActionResult {
 			Receiver: receiverTag,
 		},
 		Message: mock.message,
+		Status:  mock.status,
 		Error:   mock.error,
 		Output: map[string]interface{}{
 			"Stdout": mock.stdout,
