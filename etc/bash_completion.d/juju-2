@@ -341,6 +341,9 @@ export _JUJU_2_cache_TTL=2
 # Detect juju built from source (highest priority)
 if [ -x "$GOPATH/bin/juju" ]; then 
     export _juju_cmd_JUJU_2="$GOPATH/bin/juju"
+# Snap version of juju
+elif [ -x "/snap/bin/juju" ]; then
+    export _juju_cmd_JUJU_2="/snap/bin/juju"
 # Detect installed juju-2 binary (next highest priority)
 elif [ -x "/usr/bin/juju-2" ]; then
     export _juju_cmd_JUJU_2="/usr/bin/juju-2"
