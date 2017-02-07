@@ -363,7 +363,7 @@ Values set as per mongod recommendation (see syslog on default mongod run)
 /sys/kernel/mm/transparent_hugepage/enabled 'always' > 'never'
 /sys/kernel/mm/transparent_hugepage/defrag 'always' > 'never'
 */
-var editableSysctlFiles = map[string]string{
+var mongoKernelTweaks = map[string]string{
 	"/sys/kernel/mm/transparent_hugepage/enabled": "never",
 	"/sys/kernel/mm/transparent_hugepage/defrag":  "never",
 	"/proc/sys/net/ipv4/tcp_max_syn_backlog":      "4096",
@@ -454,11 +454,11 @@ type EnsureServerParams struct {
 // This method will remove old versions of the mongo init service as necessary
 // before installing the new version.
 func EnsureServer(args EnsureServerParams) error {
-	return ensureServer(args, editableSysctlFiles)
+	return ensureServer(args, mongoKernelTweaks)
 }
 
-func ensureServer(args EnsureServerParams, sysctlFiles map[string]string) error {
-	tweakSysctlForMongo(sysctlFiles)
+func ensureServer(args EnsureServerParams, mongoKernelTweaks map[string]string) error {
+	tweakSysctlForMongo(mongoKernelTweaks)
 	logger.Infof(
 		"Ensuring mongo server is running; data directory %s; port %d",
 		args.DataDir, args.StatePort,

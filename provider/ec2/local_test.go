@@ -1385,12 +1385,12 @@ func (t *localServerSuite) TestInstanceInformation(c *gc.C) {
 	env := t.prepareEnviron(c)
 	types, err := env.InstanceTypes(constraints.Value{})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(types.InstanceTypes, gc.HasLen, 45)
+	c.Assert(types.InstanceTypes, gc.HasLen, 53)
 
 	cons := constraints.MustParse("mem=4G")
 	types, err = env.InstanceTypes(cons)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(types.InstanceTypes, gc.HasLen, 40)
+	c.Assert(types.InstanceTypes, gc.HasLen, 48)
 }
 
 func validateSubnets(c *gc.C, subnets []network.SubnetInfo) {

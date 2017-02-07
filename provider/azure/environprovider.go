@@ -41,6 +41,10 @@ type ProviderConfig struct {
 	// a random password for the Windows admin user.
 	RandomWindowsAdminPassword func() string
 
+	// GneerateSSHKey is a functio nused to generate a new SSH
+	// key pair for provisioning Linux machines.
+	GenerateSSHKey func(comment string) (private, public string, _ error)
+
 	// InteractiveCreateServicePrincipal is a function used to
 	// interactively create/update service principals with
 	// password credentials.
@@ -57,6 +61,9 @@ func (cfg ProviderConfig) Validate() error {
 	}
 	if cfg.RandomWindowsAdminPassword == nil {
 		return errors.NotValidf("nil RandomWindowsAdminPassword")
+	}
+	if cfg.GenerateSSHKey == nil {
+		return errors.NotValidf("nil GenerateSSHKey")
 	}
 	if cfg.InteractiveCreateServicePrincipal == nil {
 		return errors.NotValidf("nil InteractiveCreateServicePrincipal")

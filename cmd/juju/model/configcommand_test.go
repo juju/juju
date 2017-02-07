@@ -3,6 +3,9 @@
 package model_test
 
 import (
+	"io/ioutil"
+	"path/filepath"
+
 	"github.com/juju/cmd"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -91,11 +94,25 @@ func (s *ConfigCommandSuite) TestInit(c *gc.C) {
 }
 
 func (s *ConfigCommandSuite) TestSingleValue(c *gc.C) {
+	s.fake.values["special"] = "multi\nline"
+
 	context, err := s.run(c, "special")
 	c.Assert(err, jc.ErrorIsNil)
 
 	output := testing.Stdout(context)
-	c.Assert(output, gc.Equals, "special value\n")
+	c.Assert(output, gc.Equals, "multi\nline\n")
+}
+
+func (s *ConfigCommandSuite) TestSingleValueOutputFile(c *gc.C) {
+	s.fake.values["special"] = "multi\nline"
+
+	outpath := filepath.Join(c.MkDir(), "out")
+	_, err := s.run(c, "--output", outpath, "special")
+	c.Assert(err, jc.ErrorIsNil)
+
+	output, err := ioutil.ReadFile(outpath)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(string(output), gc.Equals, "multi\nline\n")
 }
 
 func (s *ConfigCommandSuite) TestGetUnknownValue(c *gc.C) {

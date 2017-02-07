@@ -44,11 +44,11 @@ func (s *GetConfigSuite) TestInit(c *gc.C) {
 }
 
 func (s *GetConfigSuite) TestSingleValue(c *gc.C) {
-	context, err := s.run(c, "controller-uuid")
+	context, err := s.run(c, "ca-cert")
 	c.Assert(err, jc.ErrorIsNil)
 
 	output := strings.TrimSpace(testing.Stdout(context))
-	c.Assert(output, gc.Equals, "uuid")
+	c.Assert(output, gc.Equals, "multi\nline")
 }
 
 func (s *GetConfigSuite) TestSingleValueJSON(c *gc.C) {
@@ -64,9 +64,13 @@ func (s *GetConfigSuite) TestAllValues(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	output := strings.TrimSpace(testing.Stdout(context))
-	expected := "" +
-		"api-port: 1234\n" +
-		"controller-uuid: uuid"
+	expected := `
+Attribute  Value
+api-port   1234
+ca-cert    |-
+  multi
+  line
+controller-uuid  uuid`[1:]
 	c.Assert(output, gc.Equals, expected)
 }
 
@@ -75,7 +79,7 @@ func (s *GetConfigSuite) TestAllValuesJSON(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	output := strings.TrimSpace(testing.Stdout(context))
-	expected := `{"api-port":1234,"controller-uuid":"uuid"}`
+	expected := `{"api-port":1234,"ca-cert":"multi\nline","controller-uuid":"uuid"}`
 	c.Assert(output, gc.Equals, expected)
 }
 
@@ -100,5 +104,6 @@ func (f *fakeControllerAPI) ControllerConfig() (jujucontroller.Config, error) {
 	return map[string]interface{}{
 		"controller-uuid": "uuid",
 		"api-port":        1234,
+		"ca-cert":         "multi\nline",
 	}, nil
 }

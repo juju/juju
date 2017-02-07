@@ -72,21 +72,6 @@ var (
 		Version:   to.StringPtr("latest"),
 	}
 
-	sshPublicKeys = []compute.SSHPublicKey{{
-		Path:    to.StringPtr("/home/ubuntu/.ssh/authorized_keys"),
-		KeyData: to.StringPtr(testing.FakeAuthKeys),
-	}}
-	linuxOsProfile = compute.OSProfile{
-		ComputerName:  to.StringPtr("machine-0"),
-		CustomData:    to.StringPtr("<juju-goes-here>"),
-		AdminUsername: to.StringPtr("ubuntu"),
-		LinuxConfiguration: &compute.LinuxConfiguration{
-			DisablePasswordAuthentication: to.BoolPtr(true),
-			SSH: &compute.SSHConfiguration{
-				PublicKeys: &sshPublicKeys,
-			},
-		},
-	}
 	windowsOsProfile = compute.OSProfile{
 		ComputerName:  to.StringPtr("machine-0"),
 		CustomData:    to.StringPtr("<juju-goes-here>"),
@@ -119,6 +104,8 @@ type environSuite struct {
 	ubuntuServerSKUs   []compute.VirtualMachineImageResource
 	commonDeployment   *resources.DeploymentExtended
 	deployment         *resources.Deployment
+	sshPublicKeys      []compute.SSHPublicKey
+	linuxOsProfile     compute.OSProfile
 }
 
 var _ = gc.Suite(&environSuite{})
@@ -221,6 +208,22 @@ func (s *environSuite) SetUpTest(c *gc.C) {
 	}
 
 	s.deployment = nil
+
+	s.sshPublicKeys = []compute.SSHPublicKey{{
+		Path:    to.StringPtr("/home/ubuntu/.ssh/authorized_keys"),
+		KeyData: to.StringPtr(testing.FakeAuthKeys),
+	}}
+	s.linuxOsProfile = compute.OSProfile{
+		ComputerName:  to.StringPtr("machine-0"),
+		CustomData:    to.StringPtr("<juju-goes-here>"),
+		AdminUsername: to.StringPtr("ubuntu"),
+		LinuxConfiguration: &compute.LinuxConfiguration{
+			DisablePasswordAuthentication: to.BoolPtr(true),
+			SSH: &compute.SSHConfiguration{
+				PublicKeys: &s.sshPublicKeys,
+			},
+		},
+	}
 }
 
 func (s *environSuite) openEnviron(c *gc.C, attrs ...testing.Attrs) environs.Environ {
@@ -489,7 +492,31 @@ func (s *environSuite) TestStartInstance(c *gc.C) {
 	s.assertStartInstanceRequests(c, s.requests, assertStartInstanceRequestsParams{
 		imageReference: &quantalImageReference,
 		diskSizeGB:     32,
-		osProfile:      &linuxOsProfile,
+		osProfile:      &s.linuxOsProfile,
+		instanceType:   "Standard_A1",
+	})
+}
+
+func (s *environSuite) TestStartInstanceNoAuthorizedKeys(c *gc.C) {
+	env := s.openEnviron(c)
+	cfg, err := env.Config().Remove([]string{"authorized-keys"})
+	c.Assert(err, jc.ErrorIsNil)
+	err = env.SetConfig(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.sender = s.startInstanceSenders(false)
+	s.requests = nil
+	_, err = env.StartInstance(makeStartInstanceParams(c, s.controllerUUID, "quantal"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.PatchValue(&s.sshPublicKeys, []compute.SSHPublicKey{{
+		Path:    to.StringPtr("/home/ubuntu/.ssh/authorized_keys"),
+		KeyData: to.StringPtr("public"),
+	}})
+	s.assertStartInstanceRequests(c, s.requests, assertStartInstanceRequestsParams{
+		imageReference: &quantalImageReference,
+		diskSizeGB:     32,
+		osProfile:      &s.linuxOsProfile,
 		instanceType:   "Standard_A1",
 	})
 }
@@ -568,7 +595,7 @@ func (s *environSuite) TestStartInstanceCentOS(c *gc.C) {
 			AutoUpgradeMinorVersion: to.BoolPtr(true),
 			Settings:                &vmExtensionSettings,
 		},
-		osProfile:    &linuxOsProfile,
+		osProfile:    &s.linuxOsProfile,
 		instanceType: "Standard_A1",
 	})
 }
@@ -604,7 +631,7 @@ func (s *environSuite) TestStartInstanceTooManyRequests(c *gc.C) {
 	s.assertStartInstanceRequests(c, s.requests[:numExpectedStartInstanceRequests], assertStartInstanceRequestsParams{
 		imageReference: &quantalImageReference,
 		diskSizeGB:     32,
-		osProfile:      &linuxOsProfile,
+		osProfile:      &s.linuxOsProfile,
 		instanceType:   "Standard_A1",
 	})
 
@@ -734,7 +761,7 @@ func (s *environSuite) TestStartInstanceServiceAvailabilitySet(c *gc.C) {
 		availabilitySetName: "mysql",
 		imageReference:      &quantalImageReference,
 		diskSizeGB:          32,
-		osProfile:           &linuxOsProfile,
+		osProfile:           &s.linuxOsProfile,
 		instanceType:        "Standard_A1",
 	})
 }
@@ -1078,7 +1105,7 @@ func (s *environSuite) TestBootstrap(c *gc.C) {
 		availabilitySetName: "juju-controller",
 		imageReference:      &quantalImageReference,
 		diskSizeGB:          32,
-		osProfile:           &linuxOsProfile,
+		osProfile:           &s.linuxOsProfile,
 		instanceType:        "Standard_D1",
 	})
 }
@@ -1127,7 +1154,7 @@ func (s *environSuite) TestBootstrapInstanceConstraints(c *gc.C) {
 		availabilitySetName: "juju-controller",
 		imageReference:      &quantalImageReference,
 		diskSizeGB:          32,
-		osProfile:           &linuxOsProfile,
+		osProfile:           &s.linuxOsProfile,
 		needsProviderInit:   true,
 		instanceType:        "Standard_D1",
 	})
