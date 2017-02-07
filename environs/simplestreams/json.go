@@ -17,6 +17,11 @@ type itemCollection struct {
 	Series     string                      `json:"release,omitempty"`
 	RegionName string                      `json:"region,omitempty"`
 	Endpoint   string                      `json:"endpoint,omitempty"`
+
+	// Multiple items may share a common ID. For example,
+	// we may have multiple items which differ only by region
+	// and endpoint.
+	Id string `json:"id,omitempty"`
 }
 
 // ItemsCollection.UnmarshalJSON unmarshals the ItemCollection,
@@ -34,6 +39,7 @@ func (c *ItemCollection) UnmarshalJSON(b []byte) error {
 	c.Series = raw.Series
 	c.RegionName = raw.RegionName
 	c.Endpoint = raw.Endpoint
+	c.Id = raw.Id
 	for key, rawv := range raw.Items {
 		var v interface{}
 		if err := json.Unmarshal([]byte(*rawv), &v); err != nil {

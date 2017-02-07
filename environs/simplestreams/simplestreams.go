@@ -149,6 +149,7 @@ type ItemCollection struct {
 	Series     string                 `json:"release,omitempty"`
 	Version    string                 `json:"version,omitempty"`
 	RegionName string                 `json:"region,omitempty"`
+	Id         string                 `json:"id,omitempty"`
 	Endpoint   string                 `json:"endpoint,omitempty"`
 	Storage    string                 `json:"root_store,omitempty"`
 	VirtType   string                 `json:"virt,omitempty"`

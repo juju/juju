@@ -10,8 +10,8 @@ import (
 	"github.com/juju/utils/arch"
 
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
-	"github.com/juju/juju/provider/azure/internal/imageutils"
 )
 
 const defaultMem = 1024 // 1GiB
@@ -124,11 +124,8 @@ func mbToMib(mb uint64) uint64 {
 
 // findInstanceSpec returns the InstanceSpec that best satisfies the supplied
 // InstanceConstraint.
-//
-// NOTE(axw) for now we ignore simplestreams altogether, and go straight to
-// Azure's image registry.
 func findInstanceSpec(
-	client compute.VirtualMachineImagesClient,
+	imageMetadata []*imagemetadata.ImageMetadata,
 	instanceTypesMap map[string]instances.InstanceType,
 	constraint *instances.InstanceConstraint,
 	imageStream string,
@@ -138,13 +135,7 @@ func findInstanceSpec(
 		// Azure only supports AMD64.
 		return nil, errors.NotFoundf("%s in arch constraints", arch.AMD64)
 	}
-
-	image, err := imageutils.SeriesImage(constraint.Series, imageStream, constraint.Region, client)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	images := []instances.Image{*image}
-
+	images := instances.ImageMetadataToImages(imageMetadata)
 	instanceTypes := make([]instances.InstanceType, 0, len(instanceTypesMap))
 	for _, instanceType := range instanceTypesMap {
 		instanceTypes = append(instanceTypes, instanceType)

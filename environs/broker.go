@@ -66,6 +66,7 @@ type StartInstanceParams struct {
 	// provider-specific space IDs. It is populated when provisioning a machine
 	// to host a unit of a service with endpoint bindings.
 	EndpointBindings map[string]network.Id
+
 	// ImageMetadata is a collection of image metadata
 	// that may be used to start this instance.
 	ImageMetadata []*imagemetadata.ImageMetadata
