@@ -138,7 +138,7 @@ def iter_clouds(clouds, endpoint_validation):
             variant_name = 'long-endpoint-{}'.format(cloud_name)
             spec = cloud_spec(variant_name, cloud_name, variant,
                               InvalidEndpoint)
-            if variant['type'] == 'vsphere' or not endpoint_validation:
+            if not endpoint_validation:
                 spec = xfail(spec, 1641970, CloudMismatch)
             yield spec
 
