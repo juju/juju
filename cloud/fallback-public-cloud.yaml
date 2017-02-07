@@ -56,9 +56,13 @@ clouds:
         endpoint: https://www.googleapis.com
       us-central1:
         endpoint: https://www.googleapis.com
+      us-west1:
+        endpoint: https://www.googleapis.com
       europe-west1:
         endpoint: https://www.googleapis.com
       asia-east1:
+        endpoint: https://www.googleapis.com
+      asia-northeast1:
         endpoint: https://www.googleapis.com
   azure:
     type: azure
