@@ -143,16 +143,19 @@ class ModelClientRC(ModelClient2_0):
             credential=None, auto_upgrade=False, metadata_source=None,
             to=None, no_gui=False, agent_version=None):
         """Return the bootstrap arguments for the substrate."""
+        if self.env.joyent:
+            # Only accept kvm packages by requiring >1 cpu core, see lp:1446264
+            constraints = 'mem=2G cpu-cores=1'
+        else:
+            constraints = 'mem=2G'
         cloud_region = self.get_cloud_region(self.env.get_cloud(),
                                              self.env.get_region())
         # Note controller name before cloud_region
-        args = [self.env.environment,
+        args = ['--constraints', constraints,
+                self.env.environment,
                 cloud_region,
                 '--config', config_filename,
                 '--default-model', self.env.environment]
-        if self.env.joyent:
-            # Only accept kvm packages by requiring >1 cpu core, see lp:1446264
-            args.extend(['--constraints', 'cpu-cores=1'])
         if upload_tools:
             if agent_version is not None:
                 raise ValueError(

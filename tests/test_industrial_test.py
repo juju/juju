@@ -1212,7 +1212,7 @@ class TestBootstrapAttempt(JujuPyTestCase):
             with patch('subprocess.Popen') as popen_mock:
                 self.assertEqual(boot_iter.next(), {'test_id': 'bootstrap'})
             assert_juju_call(self, popen_mock, client, (
-                'juju', '--show-log', 'bootstrap',
+                'juju', '--show-log', 'bootstrap', '--constraints', 'mem=2G',
                 'fake/regionx', 'steve', '--config', config_file.name,
                 '--default-model', 'steve', '--agent-version', '1.2'))
             statuses = [
@@ -1967,7 +1967,7 @@ class TestPrepareUpgradeJujuAttempt(JujuPyTestCase):
                 self.assertEqual({'test_id': 'prepare-upgrade-juju'},
                                  puj_iterator.next())
             assert_juju_call(self, po_mock, future_client, (
-                'juju', '--show-log', 'bootstrap',
+                'juju', '--show-log', 'bootstrap', '--constraints', 'mem=2G',
                 'fake/regionx', 'steve', '--config', config_file.name,
                 '--default-model', 'steve', '--agent-version', '2.0.0'))
             po_mock.return_value.wait.return_value = 0

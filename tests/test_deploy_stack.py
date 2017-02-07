@@ -2310,8 +2310,8 @@ class TestBootContext(FakeHomeTestCase):
                                   upload_tools=False):
                     pass
         assert_juju_call(self, cc_mock, client, (
-            'path', '--show-log', 'bootstrap', 'paas/qux',
-            'bar', '--config', config_file.name,
+            'path', '--show-log', 'bootstrap', '--constraints',
+            'mem=2G', 'paas/qux', 'bar', '--config', config_file.name,
             '--default-model', 'bar', '--agent-version', '1.23'), 0)
         assert_juju_call(self, cc_mock, client, (
             'path', '--show-log', 'list-controllers'), 1)
@@ -2349,8 +2349,8 @@ class TestBootContext(FakeHomeTestCase):
                                   None, keep_env=True, upload_tools=False):
                     pass
         assert_juju_call(self, cc_mock, client, (
-            'path', '--show-log', 'bootstrap', 'paas/qux',
-            'bar', '--config', config_file.name,
+            'path', '--show-log', 'bootstrap', '--constraints',
+            'mem=2G', 'paas/qux', 'bar', '--config', config_file.name,
             '--default-model', 'bar', '--agent-version', '1.23'), 0)
         assert_juju_call(self, cc_mock, client, (
             'path', '--show-log', 'list-controllers'), 1)
@@ -2389,8 +2389,8 @@ class TestBootContext(FakeHomeTestCase):
                     pass
         assert_juju_call(self, cc_mock, client, (
             'path', '--show-log', 'bootstrap', '--upload-tools',
-            'paas/qux', 'bar', '--config', config_file.name,
-            '--default-model', 'bar'), 0)
+            '--constraints', 'mem=2G', 'paas/qux', 'bar', '--config',
+            config_file.name, '--default-model', 'bar'), 0)
 
     def test_upload_tools_non_jes(self):
         cc_mock = self.addContext(patch('subprocess.check_call'))
@@ -2420,8 +2420,8 @@ class TestBootContext(FakeHomeTestCase):
             client.env, 'bar', agent_url='url', agent_stream='devel',
             series='wacky', bootstrap_host=None, region=None)
         assert_juju_call(self, cc_mock, client, (
-            'path', '--show-log', 'bootstrap', 'paas/qux',
-            'bar', '--config', config_file.name,
+            'path', '--show-log', 'bootstrap', '--constraints', 'mem=2G',
+            'paas/qux', 'bar', '--config', config_file.name,
             '--default-model', 'bar', '--agent-version', '1.23',
             '--bootstrap-series', 'wacky'), 0)
 
@@ -2584,8 +2584,8 @@ class TestBootContext(FakeHomeTestCase):
                         pass
                 self.assertIs(ctx.exception, error)
         assert_juju_call(self, cc_mock, client, (
-            'path', '--show-log', 'bootstrap', 'paas/qux',
-            'bar', '--config', config_file.name,
+            'path', '--show-log', 'bootstrap', '--constraints',
+            'mem=2G', 'paas/qux', 'bar', '--config', config_file.name,
             '--default-model', 'bar', '--agent-version', '1.23'), 0)
         assert_juju_call(self, cc_mock, client, (
             'path', '--show-log', 'list-controllers'), 1)
