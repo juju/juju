@@ -13,6 +13,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"github.com/juju/utils"
 	"gopkg.in/juju/names.v2"
 
 	actionapi "github.com/juju/juju/api/action"
@@ -46,7 +47,7 @@ type runCommand struct {
 }
 
 const runDoc = `
-Run the commands on the specified targets. Only admin users of a model
+Run a shell command on the specified targets. Only admin users of a model
 are able to use this command.
 
 Targets are specified using either machine ids, application names or unit
@@ -74,6 +75,12 @@ targets.
 
 Since juju run creates actions, you can query for the status of commands
 started with juju run by calling "juju show-action-status --name juju-run".
+
+If you need to pass flags to the command being run, you must precede the
+command and its arguments with "--", to tell "juju run" to stop processing
+those arguments. For example:
+
+    juju run --all -- hostname -f
 `
 
 func (c *runCommand) Info() *cmd.Info {
@@ -104,7 +111,16 @@ func (c *runCommand) Init(args []string) error {
 	if len(args) == 0 {
 		return errors.Errorf("no commands specified")
 	}
-	c.commands, args = args[0], args[1:]
+	if len(args) == 1 {
+		// If just one argument is specified, we don't pass it through
+		// utils.CommandString in case it contains multiple arguments
+		// (e.g. juju run --all "sudo whatever"). Passing it through
+		// utils.CommandString would quote the string, which the backend
+		// does not expect.
+		c.commands = args[0]
+	} else {
+		c.commands = utils.CommandString(args...)
+	}
 
 	if c.all {
 		if len(c.machines) != 0 {
@@ -143,7 +159,7 @@ func (c *runCommand) Init(args []string) error {
 			strings.Join(nameErrors, "\n"))
 	}
 
-	return cmd.CheckEmpty(args)
+	return nil
 }
 
 // ConvertActionResults takes the results from the api and creates a map

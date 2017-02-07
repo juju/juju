@@ -53,14 +53,15 @@ func (*RunSuite) TestTargetArgParsing(c *gc.C) {
 		args:     []string{"sudo reboot"},
 		errMatch: "You must specify a target, either through --all, --machine, --application or --unit",
 	}, {
-		message:  "too many args",
-		args:     []string{"--all", "sudo reboot", "oops"},
-		errMatch: `unrecognized args: \["oops"\]`,
-	}, {
 		message:  "command to all machines",
 		args:     []string{"--all", "sudo reboot"},
 		all:      true,
 		commands: "sudo reboot",
+	}, {
+		message:  "multiple args",
+		args:     []string{"--all", "echo", "la lia"},
+		all:      true,
+		commands: `echo "la lia"`,
 	}, {
 		message:  "all and defined machines",
 		args:     []string{"--all", "--machine=1,2", "sudo reboot"},
