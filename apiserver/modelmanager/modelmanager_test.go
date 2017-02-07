@@ -876,10 +876,10 @@ func (s *modelManagerStateSuite) TestListModelsAdminSelf(c *gc.C) {
 func (s *modelManagerStateSuite) TestListModelsAdminListsOther(c *gc.C) {
 	user := s.AdminUserTag(c)
 	s.setAPIUser(c, user)
-	other := names.NewUserTag("external@remote")
+	other := names.NewUserTag("admin")
 	result, err := s.modelmanager.ListModels(params.Entity{Tag: other.String()})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.UserModels, gc.HasLen, 0)
+	c.Assert(result.UserModels, gc.HasLen, 1)
 }
 
 func (s *modelManagerStateSuite) TestListModelsDenied(c *gc.C) {
