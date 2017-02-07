@@ -1261,6 +1261,43 @@ func (e *Environ) Instances(ids []instance.Id) ([]instance.Instance, error) {
 
 // AdoptResources is part of the Environ interface.
 func (e *Environ) AdoptResources(controllerUUID string, fromVersion version.Number) error {
+	var failed []string
+	controllerTag := map[string]string{tags.JujuController: controllerUUID}
+
+	instances, err := e.AllInstances()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	for _, instance := range instances {
+		err := e.TagInstance(instance.Id(), controllerTag)
+		if err != nil {
+			logger.Errorf("error updating controller tag for instance %s: %v", instance.Id(), err)
+			failed = append(failed, string(instance.Id()))
+		}
+	}
+
+	cinder, err := e.cinderProvider()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	// I'm not sure about this - where should I get a *storage.Config
+	// to pass in?
+	volumeSource, err := cinder.VolumeSource(nil)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	volumeIds, err := volumeSource.ListVolumes()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	for _, volumeId := range volumeIds {
+		_, err := cinder.storageAdapter.SetVolumeMetadata(volumeId, controllerTag)
+		if err != nil {
+			logger.Errorf("error updating controller tag for volume %s: %v", volumeId, err)
+			failed = append(failed, volumeId)
+		}
+	}
+
 	return errors.NotImplementedf("AdoptResources")
 }
 
