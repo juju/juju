@@ -21,6 +21,13 @@ import (
 	"github.com/juju/juju/network"
 )
 
+const (
+	validUUID              = `[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}`
+	GroupControllerPattern = `^(?P<prefix>juju-)(?P<controllerUUID>` + validUUID + `)(?P<suffix>-.*)$`
+)
+
+var extractControllerRe = regexp.MustCompile(GroupControllerPattern)
+
 //factory for obtaining firawaller object.
 type FirewallerFactory interface {
 	GetFirewaller(env environs.Environ) Firewaller
@@ -38,18 +45,25 @@ type Firewaller interface {
 	// Ports returns the port ranges opened for the whole environment.
 	Ports() ([]network.PortRange, error)
 
-	// Implementations are expected to delete all security groups for the
-	// environment.
+	// DeleteAllModelGroups deletes all security groups for the
+	// model.
 	DeleteAllModelGroups() error
 
-	// Implementations are expected to delete all security groups for the
+	// DeleteAllControllerGroups deletes all security groups for the
 	// controller, ie those for all hosted models.
 	DeleteAllControllerGroups(controllerUUID string) error
 
 	// DeleteGroups deletes the security groups with the specified names.
 	DeleteGroups(names ...string) error
 
-	// Implementations should return list of security groups, that belong to given instances.
+	// UpdateGroupController updates all of the security groups for
+	// this model to refer to the specified controller, such that
+	// DeleteAllControllerGroups will remove them only when called
+	// with the specified controller ID.
+	UpdateGroupController(controllerUUID string) error
+
+	// GetSecurityGroups returns a list of the security groups that
+	// belong to given instances.
 	GetSecurityGroups(ids ...instance.Id) ([]string, error)
 
 	// SetUpGroups sets up initial security groups, if any, and returns
@@ -144,6 +158,13 @@ func (f *switchingFirewaller) DeleteGroups(names ...string) error {
 		return errors.Trace(err)
 	}
 	return f.fw.DeleteGroups(names...)
+}
+
+func (f *switchingFirewaller) UpdateGroupController(controllerUUID string) error {
+	if err := f.initFirewaller(); err != nil {
+		return errors.Trace(err)
+	}
+	return f.fw.UpdateGroupController(controllerUUID)
 }
 
 func (f *switchingFirewaller) GetSecurityGroups(ids ...instance.Id) ([]string, error) {
@@ -646,6 +667,45 @@ func (c *neutronFirewaller) DeleteAllModelGroups() error {
 	return deleteSecurityGroupsMatchingName(c.deleteSecurityGroups, c.jujuGroupRegexp())
 }
 
+// UpdateGroupController implements Firewaller interface.
+func (c *neutronFirewaller) UpdateGroupController(controllerUUID string) error {
+	neutronClient := c.environ.neutron()
+	groups, err := neutronClient.ListSecurityGroupsV2()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	re, err := regexp.Compile(c.jujuGroupRegexp())
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	var failed []string
+	for _, group := range groups {
+		if !re.MatchString(group.Name) {
+			continue
+		}
+		err := c.updateGroupControllerUUID(&group, controllerUUID)
+		if err != nil {
+			logger.Errorf("error updating controller for security group %s: %v", group.Id, err)
+			failed = append(failed, group.Id)
+		}
+	}
+	if len(failed) != 0 {
+		return errors.Errorf("errors updating controller for security groups: %v", failed)
+	}
+	return nil
+}
+
+func (c *neutronFirewaller) updateGroupControllerUUID(group *neutron.SecurityGroupV2, controllerUUID string) error {
+	newName, err := replaceControllerUUID(group.Name, controllerUUID)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	client := c.environ.neutron()
+	_, err = client.UpdateSecurityGroupV2(group.Id, newName, group.Description)
+	return errors.Trace(err)
+}
+
 // OpenPorts implements Firewaller interface.
 func (c *neutronFirewaller) OpenPorts(ports []network.PortRange) error {
 	return c.openPorts(c.openPortsInGroup, ports)
@@ -776,4 +836,15 @@ func (c *neutronFirewaller) portsInGroup(nameRegexp string) (portRanges []networ
 	}
 	network.SortPortRanges(portRanges)
 	return portRanges, nil
+}
+
+func replaceControllerUUID(oldName, controllerUUID string) (string, error) {
+	if !extractControllerRe.MatchString(oldName) {
+		return "", errors.Errorf("unexpected security group name format for %q", oldName)
+	}
+	newName := extractControllerRe.ReplaceAllString(
+		oldName,
+		"${prefix}"+controllerUUID+"${suffix}",
+	)
+	return newName, nil
 }

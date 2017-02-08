@@ -169,6 +169,37 @@ func (c *legacyNovaFirewaller) DeleteGroups(names ...string) error {
 	return deleteSecurityGroupsOneOfNames(c.deleteSecurityGroups, names...)
 }
 
+// UpdateGroupController implements Firewaller interface.
+func (c *legacyNovaFirewaller) UpdateGroupController(controllerUUID string) error {
+	novaClient := c.environ.nova()
+	groups, err := novaClient.ListSecurityGroups()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	var failed []string
+	for _, group := range groups {
+		err := c.updateGroupControllerUUID(&group, controllerUUID)
+		if err != nil {
+			logger.Errorf("error updating controller for security group %s: %v", group.Id, err)
+			failed = append(failed, group.Id)
+		}
+	}
+	if len(failed) != 0 {
+		return errors.Errorf("errors updating controller for security groups: %v", failed)
+	}
+	return nil
+}
+
+func (c *legacyNovaFirewaller) updateGroupControllerUUID(group *nova.SecurityGroup, controllerUUID string) error {
+	newName, err := replaceControllerUUID(group.Name, controllerUUID)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	client := c.environ.nova()
+	_, err = client.UpdateSecurityGroup(group.Id, newName, group.Description)
+	return errors.Trace(err)
+}
+
 // OpenPorts implements Firewaller interface.
 func (c *legacyNovaFirewaller) OpenPorts(ports []network.PortRange) error {
 	return c.openPorts(c.openPortsInGroup, ports)

@@ -59,6 +59,10 @@ func (c *rackspaceFirewaller) DeleteAllControllerGroups(controllerUUID string) e
 	return nil
 }
 
+func (c *rackspaceFirewaller) UpdateGroupController(controllerUUID string) error {
+	return nil
+}
+
 // GetSecurityGroups implements OpenstackFirewaller interface.
 func (c *rackspaceFirewaller) GetSecurityGroups(ids ...instance.Id) ([]string, error) {
 	return nil, nil
