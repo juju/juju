@@ -786,7 +786,8 @@ class FakeBackend:
         self.log.log(level, u' '.join(full_args))
 
     def juju(self, command, args, used_feature_flags,
-             juju_home, model=None, check=True, timeout=None, extra_env=None):
+             juju_home, model=None, check=True, timeout=None, extra_env=None,
+             suppress_err=False):
         if 'service' in command:
             raise Exception('Command names must not contain "service".')
 
