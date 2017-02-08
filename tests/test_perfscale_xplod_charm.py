@@ -50,7 +50,7 @@ class TestAssessXplodPerf(TestCase):
                     pxc, 'add_multiple_units', autospec=True) as m_amu:
                 pxc.assess_xplod_perf(client, pprof_collector, args)
         m_dxc.assert_called_once_with(client)
-        m_amu.assert_called_once_with(client, args)
+        m_amu.assert_called_once_with(client, args, pprof_collector)
 
     def test_stores_deploytimes(self):
         start = datetime(2016, 11, 1, 2, 17, 48)
@@ -91,10 +91,11 @@ class TestAddMultipleUnits(TestCase):
 
     def test_returns_deploy_results(self):
         client = Mock()
+        pprof_collector = Mock()
         deploy_amount = 3
         args = _get_default_args(deploy_amount=deploy_amount)
 
-        unit_deploys = pxc.add_multiple_units(client, args)
+        unit_deploys = pxc.add_multiple_units(client, args, pprof_collector)
 
         unit_keys = unit_deploys.keys()
         self.assertEqual(len(unit_keys), deploy_amount)
@@ -104,16 +105,18 @@ class TestAddMultipleUnits(TestCase):
 
     def test_adds_requested_unit_amount(self):
         client = Mock()
+        pprof_collector = Mock()
         deploy_amount = 3
         args = _get_default_args(deploy_amount=deploy_amount)
 
-        pxc.add_multiple_units(client, args)
+        pxc.add_multiple_units(client, args, pprof_collector)
 
         self.assertItemsEqual(
             client.juju.call_args_list,
             [call('add-unit', ('peer-xplod', '-n', '1'))] * 3)
         self.assertEqual(client.wait_for_started.call_count, 3)
         self.assertEqual(client.wait_for_workloads.call_count, 3)
+        self.assertEqual(pprof_collector.collect_profile.call_count, 3)
 
 
 class TestSingularUnit(TestCase):

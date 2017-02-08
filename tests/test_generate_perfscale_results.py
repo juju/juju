@@ -237,9 +237,7 @@ class TestDumpPerformanceMetricsLogs(TestCase):
         machine_ids = ['0']
 
         with patch.object(gpr.os, 'makedirs', autospec=True) as m_makedirs:
-            self.assertEqual(
-                res_dir,
-                gpr.dump_performance_metrics_logs('/foo', client, machine_ids))
+            gpr.dump_performance_metrics_logs(res_dir, client, machine_ids)
         m_makedirs.assert_called_once_with(expected_dir)
         expected_calls = [
             call(
@@ -260,9 +258,7 @@ class TestDumpPerformanceMetricsLogs(TestCase):
         machine_ids = ['0', '1', '2']
 
         with patch.object(gpr.os, 'makedirs', autospec=True) as m_makedirs:
-            self.assertEqual(
-                res_dir,
-                gpr.dump_performance_metrics_logs('/foo', client, machine_ids))
+            gpr.dump_performance_metrics_logs(res_dir, client, machine_ids)
 
         makedir_calls = [
             call('/foo/performance_results/machine-0'),

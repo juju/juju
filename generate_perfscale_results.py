@@ -147,6 +147,9 @@ def run_perfscale_test(target_test, bs_manager, args):
     # XXX
 
     bs_start = datetime.utcnow()
+    results_dir = os.path.join(
+        os.path.abspath(bs_manager.log_dir), 'performance_results/')
+
     with bs_manager.booted_context(args.upload_tools):
         client = bs_manager.client
         admin_client = client.get_controller_client()
@@ -163,12 +166,12 @@ def run_perfscale_test(target_test, bs_manager, args):
             pprof_collector = PPROFCollector(
                 admin_client,
                 machine_ids,
-                bs_manager.log_dir,
+                results_dir,
                 args.enable_pprof)
             deploy_details = target_test(client, pprof_collector, args)
         finally:
-            results_dir = dump_performance_metrics_logs(
-                bs_manager.log_dir, admin_client, machine_ids)
+            dump_performance_metrics_logs(
+                results_dir, admin_client, machine_ids)
             cleanup_start = datetime.utcnow()
     # Cleanup happens when we move out of context
     cleanup_end = datetime.utcnow()
@@ -212,7 +215,7 @@ def _determine_graph_period(seconds):
     return perf_graphing.GraphPeriod.hours
 
 
-def dump_performance_metrics_logs(log_dir, admin_client, machine_ids):
+def dump_performance_metrics_logs(base_results_dir, admin_client, machine_ids):
     """Pull metric logs and data off every controller machine in action.
 
     Store the retrieved data in a machine-id named directory underneath the
@@ -221,8 +224,6 @@ def dump_performance_metrics_logs(log_dir, admin_client, machine_ids):
     :return: Path string indicating the base path of data retrieved from the
       controllers.
     """
-    base_results_dir = os.path.join(
-        os.path.abspath(log_dir), 'performance_results/')
 
     for machine_id in machine_ids:
         results_dir = os.path.join(

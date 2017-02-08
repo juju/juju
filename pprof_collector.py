@@ -72,14 +72,17 @@ class ActiveCollector(NoopCollector):
 
     def collect_profile(self, filepath, seconds):
         """Collect `seconds` worth of CPU profile."""
+        log.info('Collecting CPU profile data.')
         self._collect_profile('profile', filepath, seconds)
 
     def collect_heap(self, filepath, seconds):
         """Collect `seconds` worth of heap profile."""
+        log.info('Collecting heap profile data.')
         self._collect_profile('heap', filepath, seconds)
 
     def collect_goroutines(self, filepath, seconds):
         """Collect `seconds` worth of goroutines profile."""
+        log.info('Collecting goroutines profile data.')
         self._collect_profile('goroutines', filepath, seconds)
 
 
@@ -155,6 +158,7 @@ class PPROFCollector:
             self.unset_active()
 
     def set_active(self):
+        log.info('Setting PPROF collection to ACTIVE.')
         if not self._active_collectors:
             for m_id in self._machine_ids:
                 self._active_collectors.append(
@@ -163,6 +167,7 @@ class PPROFCollector:
         self._active = True
 
     def unset_active(self):
+        log.info('Setting PPROF collection to INACTIVE.')
         if not self._noop_collectors:
             for m_id in self._machine_ids:
                 self._noop_collectors.append(
