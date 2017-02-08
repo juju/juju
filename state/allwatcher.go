@@ -1303,8 +1303,7 @@ func (b *allModelWatcherStateBacking) getState(modelUUID string) (*State, func()
 
 // Release implements the Backing interface.
 func (b *allModelWatcherStateBacking) Release() error {
-	err := b.stPool.Close()
-	return errors.Trace(err)
+	return nil
 }
 
 func loadAllWatcherEntities(st *State, collectionByName map[string]allWatcherStateCollection, all *multiwatcherStore) error {
