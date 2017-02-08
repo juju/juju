@@ -32,6 +32,7 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/ec2/internal/ec2instancetypes"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/tools"
 )
 
@@ -360,11 +361,13 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 		return nil, errors.New("missing controller UUID")
 	}
 	var inst *ec2Instance
+	callback := args.StatusCallback
 	defer func() {
 		if resultErr == nil || inst == nil {
 			return
 		}
 		if err := e.StopInstances(inst.Id()); err != nil {
+			callback(status.Error, fmt.Sprintf("error stopping failed instance: %v", err), nil)
 			logger.Errorf("error stopping failed instance: %v", err)
 		}
 	}()
@@ -381,6 +384,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 		availabilityZones = append(availabilityZones, placement.availabilityZone.Name)
 	}
 
+	callback(status.Allocating, "Determining availability zones", nil)
 	// If no availability zone is specified, then automatically spread across
 	// the known zones for optimal spread across the instance distribution
 	// group.
@@ -444,6 +448,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 		return nil, err
 	}
 
+	callback(status.Allocating, "Making user data", nil)
 	userData, err := providerinit.ComposeUserData(args.InstanceConfig, nil, AmazonRenderer{})
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot make user data")
@@ -455,7 +460,9 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 	} else {
 		apiPort = args.InstanceConfig.APIInfo.Ports()[0]
 	}
+	callback(status.Allocating, "Setting up groups", nil)
 	groups, err := e.setUpGroups(args.ControllerUUID, args.InstanceConfig.MachineId, apiPort)
+
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot set up groups")
 	}
@@ -531,7 +538,8 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 			logger.Infof("selected subnet %q in zone %q", runArgs.SubnetId, zone)
 		}
 
-		instResp, err = runInstances(e.ec2, runArgs)
+		callback(status.Allocating, fmt.Sprintf("Trying to start instance in availability zone %q", zone), nil)
+		instResp, err = runInstances(e.ec2, runArgs, callback)
 		if err == nil || !isZoneOrSubnetConstrainedError(err) {
 			break
 		}
@@ -665,12 +673,15 @@ var runInstances = _runInstances
 // runInstances calls ec2.RunInstances for a fixed number of attempts until
 // RunInstances returns an error code that does not indicate an error that
 // may be caused by eventual consistency.
-func _runInstances(e *ec2.EC2, ri *ec2.RunInstances) (resp *ec2.RunInstancesResp, err error) {
+func _runInstances(e *ec2.EC2, ri *ec2.RunInstances, c environs.StatusCallbackFunc) (resp *ec2.RunInstancesResp, err error) {
+	try := 1
 	for a := shortAttempt.Start(); a.Next(); {
+		c(status.Allocating, fmt.Sprintf("Start instance attempt %d", try), nil)
 		resp, err = e.RunInstances(ri)
 		if err == nil || !isNotFoundError(err) {
 			break
 		}
+		try++
 	}
 	return resp, err
 }
