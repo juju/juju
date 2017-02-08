@@ -1272,9 +1272,7 @@ func (e *Environ) AdoptResources(controllerUUID string, fromVersion version.Numb
 	if err != nil {
 		return errors.Trace(err)
 	}
-	// I'm not sure about this - it works at the moment because
-	// there's no validation on the config passed. Where should I
-	// get a *storage.Config to pass in?
+	// TODO(axw): fix the storage API.
 	volumeSource, err := cinder.VolumeSource(nil)
 	if err != nil {
 		return errors.Trace(err)

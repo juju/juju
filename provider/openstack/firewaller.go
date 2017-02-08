@@ -21,10 +21,12 @@ import (
 	"github.com/juju/juju/network"
 )
 
-var (
-	validUUID                = `[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}`
-	ExtractGroupControllerRe = regexp.MustCompile(`^(?P<prefix>juju-)(?P<controllerUUID>` + validUUID + `)(?P<suffix>-.*)$`)
+const (
+	validUUID              = `[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}`
+	GroupControllerPattern = `^(?P<prefix>juju-)(?P<controllerUUID>` + validUUID + `)(?P<suffix>-.*)$`
 )
+
+var extractControllerRe = regexp.MustCompile(GroupControllerPattern)
 
 //factory for obtaining firawaller object.
 type FirewallerFactory interface {
@@ -43,22 +45,25 @@ type Firewaller interface {
 	// Ports returns the port ranges opened for the whole environment.
 	Ports() ([]network.PortRange, error)
 
-	// Implementations are expected to delete all security groups for the
-	// environment.
+	// DeleteAllModelGroups deletes all security groups for the
+	// model.
 	DeleteAllModelGroups() error
 
-	// Implementations are expected to delete all security groups for the
+	// DeleteAllControllerGroups deletes all security groups for the
 	// controller, ie those for all hosted models.
 	DeleteAllControllerGroups(controllerUUID string) error
 
 	// DeleteGroups deletes the security groups with the specified names.
 	DeleteGroups(names ...string) error
 
-	// Implementations are expected to update all of the security
-	// groups for this model to refer to the specified controller.
+	// UpdateGroupController updates all of the security groups for
+	// this model to refer to the specified controller, such that
+	// DeleteAllControllerGroups will remove them only when called
+	// with the specified controller ID.
 	UpdateGroupController(controllerUUID string) error
 
-	// Implementations should return list of security groups, that belong to given instances.
+	// GetSecurityGroups returns a list of the security groups that
+	// belong to given instances.
 	GetSecurityGroups(ids ...instance.Id) ([]string, error)
 
 	// SetUpGroups sets up initial security groups, if any, and returns
@@ -834,10 +839,10 @@ func (c *neutronFirewaller) portsInGroup(nameRegexp string) (portRanges []networ
 }
 
 func replaceControllerUUID(oldName, controllerUUID string) (string, error) {
-	if !ExtractGroupControllerRe.MatchString(oldName) {
+	if !extractControllerRe.MatchString(oldName) {
 		return "", errors.Errorf("unexpected security group name format for %q", oldName)
 	}
-	newName := ExtractGroupControllerRe.ReplaceAllString(
+	newName := extractControllerRe.ReplaceAllString(
 		oldName,
 		"${prefix}"+controllerUUID+"${suffix}",
 	)

@@ -1978,9 +1978,11 @@ func (s *localServerSuite) checkGroupController(c *gc.C, env environs.Environ, e
 	groupNames, err := openstack.GetModelGroupNames(env)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(groupNames, gc.Not(gc.HasLen), 0)
+	extractControllerRe, err := regexp.Compile(openstack.GroupControllerPattern)
+	c.Assert(err, jc.ErrorIsNil)
 	for _, group := range groupNames {
 		c.Logf(group)
-		controller := openstack.ExtractGroupControllerRe.ReplaceAllString(group, "$controllerUUID")
+		controller := extractControllerRe.ReplaceAllString(group, "$controllerUUID")
 		c.Check(controller, gc.Equals, expectedController)
 	}
 }
