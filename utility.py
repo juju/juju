@@ -320,7 +320,10 @@ def _generate_default_temp_env_name():
 
 
 def _generate_default_binary():
-    """Returns GOPATH juju binary if it exists, otherwise /usr/bin/juju"""
+    """Checks for juju binary in GOPATH, then default paths for juju
+       debian and snap packages. Returns in priority order GO>DEB>SNAP.
+       Raises ValueError if no juju binary is found.
+       """
     if os.getenv('GOPATH'):
         go_bin = os.getenv('GOPATH') + '/bin/juju'
         if os.path.isfile(go_bin):
