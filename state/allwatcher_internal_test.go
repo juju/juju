@@ -1166,7 +1166,13 @@ func (s *allModelWatcherStateSuite) Reset(c *gc.C) {
 }
 
 func (s *allModelWatcherStateSuite) NewAllModelWatcherStateBacking() Backing {
-	return NewAllModelWatcherStateBacking(s.state, NewStatePool(s.state))
+	return s.NewAllModelWatcherStateBackingForState(s.state)
+}
+
+func (s *allModelWatcherStateSuite) NewAllModelWatcherStateBackingForState(st *State) Backing {
+	pool := NewStatePool(st)
+	s.AddCleanup(func(*gc.C) { pool.Close() })
+	return NewAllModelWatcherStateBacking(st, pool)
 }
 
 // performChangeTestCases runs a passed number of test cases for changes.
@@ -1527,7 +1533,8 @@ func (s *allModelWatcherStateSuite) TestStateWatcher(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m10.Id(), gc.Equals, "0")
 
-	tw := newTestAllModelWatcher(st0, c)
+	backing := s.NewAllModelWatcherStateBackingForState(st0)
+	tw := newTestWatcher(backing, st0, c)
 	defer tw.Stop()
 
 	// Expect to see events for the already created models and
@@ -3335,10 +3342,6 @@ func testChangeRemoteApplications(c *gc.C, runChangeTests func(*gc.C, []changeTe
 
 func newTestAllWatcher(st *State, c *gc.C) *testWatcher {
 	return newTestWatcher(newAllWatcherStateBacking(st), st, c)
-}
-
-func newTestAllModelWatcher(st *State, c *gc.C) *testWatcher {
-	return newTestWatcher(NewAllModelWatcherStateBacking(st, NewStatePool(st)), st, c)
 }
 
 type testWatcher struct {
