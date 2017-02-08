@@ -46,17 +46,17 @@ func NewKVMBroker(
 ) (environs.InstanceBroker, error) {
 	return &kvmBroker{
 		prepareHost: prepareHost,
-		manager:       manager,
-		api:           api,
-		agentConfig:   agentConfig,
+		manager:     manager,
+		api:         api,
+		agentConfig: agentConfig,
 	}, nil
 }
 
 type kvmBroker struct {
-	prepareHost   PrepareHostFunc
-	manager       container.Manager
-	api           APICalls
-	agentConfig   agent.Config
+	prepareHost PrepareHostFunc
+	manager     container.Manager
+	api         APICalls
+	agentConfig agent.Config
 }
 
 // StartInstance is specified in the Broker interface.

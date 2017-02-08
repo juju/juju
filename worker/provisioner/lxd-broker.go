@@ -49,20 +49,20 @@ func NewLXDBroker(
 	api APICalls,
 	manager container.Manager,
 	agentConfig agent.Config,
- ) (environs.InstanceBroker, error) {
+) (environs.InstanceBroker, error) {
 	return &lxdBroker{
 		prepareHost: prepareHost,
-		manager:       manager,
-		api:           api,
-		agentConfig:   agentConfig,
+		manager:     manager,
+		api:         api,
+		agentConfig: agentConfig,
 	}, nil
 }
 
 type lxdBroker struct {
-	prepareHost	  PrepareHostFunc
-	manager       container.Manager
-	api           APICalls
-	agentConfig   agent.Config
+	prepareHost PrepareHostFunc
+	manager     container.Manager
+	api         APICalls
+	agentConfig agent.Config
 }
 
 func (broker *lxdBroker) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
