@@ -21,6 +21,7 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/series"
+	"github.com/juju/utils/set"
 	"github.com/juju/utils/ssh"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
@@ -1916,7 +1917,9 @@ func (s *localServerSuite) TestAdoptResources(c *gc.C) {
 	s.checkGroupController(c, s.env, originalController)
 	s.checkGroupController(c, env, originalController)
 
-	newController := "new-controller"
+	// Needs to be a correctly formatted uuid so we can get it out of
+	// group names.
+	newController := "aaaaaaaa-bbbb-cccc-dddd-0123456789ab"
 	err = env.AdoptResources(newController, version.MustParse("1.2.3"))
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1972,6 +1975,39 @@ func (s *localServerSuite) checkVolumeTags(c *gc.C, env environs.Environ, expect
 }
 
 func (s *localServerSuite) checkGroupController(c *gc.C, env environs.Environ, expectedController string) {
+	groupNames, err := openstack.GetModelGroupNames(env)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(groupNames, gc.Not(gc.HasLen), 0)
+	for _, group := range groupNames {
+		c.Logf(group)
+		controller := openstack.ExtractGroupControllerRe.ReplaceAllString(group, "$controllerUUID")
+		c.Check(controller, gc.Equals, expectedController)
+	}
+}
+
+func (s *localServerSuite) TestUpdateGroupController(c *gc.C) {
+	err := bootstrapEnv(c, s.env)
+	c.Assert(err, jc.ErrorIsNil)
+
+	groupNames, err := openstack.GetModelGroupNames(s.env)
+	c.Assert(err, jc.ErrorIsNil)
+	groupNamesBefore := set.NewStrings(groupNames...)
+	c.Assert(groupNamesBefore, gc.DeepEquals, set.NewStrings(
+		"juju-deadbeef-1bad-500d-9000-4b1d0d06f00d-deadbeef-0bad-400d-8000-4b1d0d06f00d",
+		"juju-deadbeef-1bad-500d-9000-4b1d0d06f00d-deadbeef-0bad-400d-8000-4b1d0d06f00d-0",
+	))
+
+	firewaller := openstack.GetFirewaller(s.env)
+	err = firewaller.UpdateGroupController("aabbccdd-eeee-ffff-0000-0123456789ab")
+	c.Assert(err, jc.ErrorIsNil)
+
+	groupNames, err = openstack.GetModelGroupNames(s.env)
+	c.Assert(err, jc.ErrorIsNil)
+	groupNamesAfter := set.NewStrings(groupNames...)
+	c.Assert(groupNamesAfter, gc.DeepEquals, set.NewStrings(
+		"juju-aabbccdd-eeee-ffff-0000-0123456789ab-deadbeef-0bad-400d-8000-4b1d0d06f00d",
+		"juju-aabbccdd-eeee-ffff-0000-0123456789ab-deadbeef-0bad-400d-8000-4b1d0d06f00d-0",
+	))
 }
 
 func prepareParams(attrs map[string]interface{}, cred *identity.Credentials) bootstrap.PrepareParams {

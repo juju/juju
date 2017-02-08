@@ -21,6 +21,11 @@ import (
 	"github.com/juju/juju/network"
 )
 
+var (
+	validUUID                = `[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}`
+	ExtractGroupControllerRe = regexp.MustCompile(`^(?P<prefix>juju-)(?P<controllerUUID>` + validUUID + `)(?P<suffix>-.*)$`)
+)
+
 //factory for obtaining firawaller object.
 type FirewallerFactory interface {
 	GetFirewaller(env environs.Environ) Firewaller
@@ -829,10 +834,12 @@ func (c *neutronFirewaller) portsInGroup(nameRegexp string) (portRanges []networ
 }
 
 func replaceControllerUUID(oldName, controllerUUID string) (string, error) {
-	parts := strings.SplitN(oldName, "-", 3)
-	if len(parts) < 2 || parts[0] != "juju" {
+	if !ExtractGroupControllerRe.MatchString(oldName) {
 		return "", errors.Errorf("unexpected security group name format for %q", oldName)
 	}
-	parts[1] = controllerUUID
-	return strings.Join(parts, "-"), nil
+	newName := ExtractGroupControllerRe.ReplaceAllString(
+		oldName,
+		"${prefix}"+controllerUUID+"${suffix}",
+	)
+	return newName, nil
 }

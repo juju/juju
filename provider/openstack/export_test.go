@@ -6,6 +6,7 @@ package openstack
 import (
 	"bytes"
 	"fmt"
+	"regexp"
 	"strings"
 	"text/template"
 
@@ -523,3 +524,32 @@ var RuleMatchesPortRange = ruleMatchesPortRange
 var MakeServiceURL = &makeServiceURL
 
 var GetVolumeEndpointURL = getVolumeEndpointURL
+
+func GetModelGroupNames(e environs.Environ) ([]string, error) {
+	env := e.(*Environ)
+	rawFirewaller := env.firewaller.(*switchingFirewaller).fw
+	neutronFw, ok := rawFirewaller.(*neutronFirewaller)
+	if !ok {
+		return nil, fmt.Errorf("requires an env with a neutron firewaller")
+	}
+	groups, err := env.neutron().ListSecurityGroupsV2()
+	if err != nil {
+		return nil, err
+	}
+	modelPattern, err := regexp.Compile(neutronFw.jujuGroupRegexp())
+	if err != nil {
+		return nil, err
+	}
+	var results []string
+	for _, group := range groups {
+		if modelPattern.MatchString(group.Name) {
+			results = append(results, group.Name)
+		}
+	}
+	return results, nil
+}
+
+func GetFirewaller(e environs.Environ) Firewaller {
+	env := e.(*Environ)
+	return env.firewaller
+}
