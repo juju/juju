@@ -45,7 +45,9 @@ def patch_local(target, **kwargs):
 class TestParseArgs(TestCase):
 
     def test_parse_args(self):
-        args = parse_args([])
+        with patch('utility.os.getenv', return_value=False):
+            with patch('utility.os.path.isfile', return_value=True):
+                args = parse_args([])
         self.assertEqual(Namespace(
             deadline=None, debug=False, juju_bin='/usr/bin/juju', logs=None,
             start=0,

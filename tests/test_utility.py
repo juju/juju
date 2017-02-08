@@ -363,9 +363,11 @@ class TestAddBasicTestingArguments(TestCase):
 
     def test_no_args(self):
         cmd_line = []
-        parser = add_basic_testing_arguments(ArgumentParser(), deadline=True)
-        with patch('utility.os.getenv', return_value=''):
-            args = parser.parse_args(cmd_line)
+        with patch('utility.os.getenv', return_value=False):
+            with patch('utility.os.path.isfile', return_value=True):
+                parser = add_basic_testing_arguments(ArgumentParser(),
+                                                     deadline=True)
+                args = parser.parse_args(cmd_line)
         self.assertEqual(args.env, 'lxd')
         self.assertEqual(args.juju_bin, '/usr/bin/juju')
 
@@ -379,7 +381,30 @@ class TestAddBasicTestingArguments(TestCase):
         self.assertEqual(temp_env_name_arg[2:4], ['temp', 'env'])
         self.assertIs(None, args.deadline)
 
-    def test_default_binary(self):
+    def test_no_default_juju_binary(self):
+        cmd_line = []
+        with self.assertRaises(ValueError):
+            with patch('utility.os.getenv', return_value=False):
+                with patch('utility.os.path.isfile', return_value=False):
+                    parser = add_basic_testing_arguments(ArgumentParser(),
+                                                         deadline=True)
+                    parser.parse_args(cmd_line)
+
+    def test_juju_binary_snap(self):
+        def juju_snap_path(path):
+            if path == '/snap/bin/juju':
+                return True
+            return False
+
+        cmd_line = []
+        with patch('utility.os.getenv', return_value=False):
+            with patch('utility.os.path.isfile', side_effect=juju_snap_path):
+                parser = add_basic_testing_arguments(ArgumentParser(),
+                                                     deadline=True)
+                args = parser.parse_args(cmd_line)
+        self.assertEqual(args.juju_bin, '/snap/bin/juju')
+
+    def test_default_binary_gopath(self):
         cmd_line = []
         with patch('utility.os.getenv', return_value='/tmp'):
             with patch('utility.os.path.isfile', return_value=True):
