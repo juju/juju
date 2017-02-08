@@ -156,9 +156,9 @@ func (cs *ContainerSetup) initialiseAndStartProvisioner(abort <-chan struct{}, c
 	return StartProvisioner(cs.runner, containerType, cs.provisioner, cs.config, broker, toolsFinder)
 }
 
-// runInitialiser runs the container initialiser with the initialisation hook held.
-func (cs *ContainerSetup) runInitialiser(abort <-chan struct{}, containerType instance.ContainerType, initialiser container.Initialiser) error {
-	logger.Debugf("running initialiser for %s containers", containerType)
+// acquireLock tries to grab the machine lock (initLockName), and either
+// returns it in a locked state, or returns an error.
+func (cs *ContainerSetup) acquireLock(abort <-chan struct{}) (mutex.Releaser, error) {
 	spec := mutex.Spec{
 		Name:  cs.initLockName,
 		Clock: clock.WallClock,
@@ -167,8 +167,13 @@ func (cs *ContainerSetup) runInitialiser(abort <-chan struct{}, containerType in
 		Delay:  time.Second,
 		Cancel: abort,
 	}
-	logger.Debugf("acquire lock %q for container initialisation", cs.initLockName)
-	releaser, err := mutex.Acquire(spec)
+	return mutex.Acquire(spec)
+}
+
+// runInitialiser runs the container initialiser with the initialisation hook held.
+func (cs *ContainerSetup) runInitialiser(abort <-chan struct{}, containerType instance.ContainerType, initialiser container.Initialiser) error {
+	logger.Debugf("running initialiser for %s containers, acquiring lock %q", containerType, cs.initLockName)
+	releaser, err := cs.acquireLock(abort)
 	if err != nil {
 		return errors.Annotate(err, "failed to acquire initialization lock")
 	}
@@ -200,13 +205,22 @@ func (cs *ContainerSetup) prepareHost(containerTag names.MachineTag, log loggo.L
 		return nil
 	}
 
-	log.Debugf("Bridging %+v devices on host %q with delay=%v", devicesToBridge, cs.machine.MachineTag().String(), reconfigureDelay)
-
 	bridger, err := network.DefaultEtcNetworkInterfacesBridger(activateBridgesTimeout, instancecfg.DefaultBridgePrefix, systemNetworkInterfacesFile)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
+	log.Debugf("Bridging %+v devices on host %q with delay=%v, acquiring lock %q",
+		devicesToBridge, cs.machine.MachineTag().String(), reconfigureDelay, cs.initLockName)
+	// TODO(jam): 2017-02-08 figure out how to thread catacomb.Dying() into
+	// this function, so that we can stop trying to acquire the lock if we are
+	// stopping.
+	releaser, err := cs.acquireLock(nil)
+	if err != nil {
+		return errors.Annotatef(err, "failed to acquire lock %q for bridging", cs.initLockName)
+	}
+	defer log.Debugf("releasing lock %q for bridging", cs.initLockName)
+	defer releaser.Release()
 	err = bridger.Bridge(devicesToBridge, reconfigureDelay)
 	if err != nil {
 		return errors.Annotate(err, "failed to bridge devices")
