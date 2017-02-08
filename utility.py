@@ -326,12 +326,12 @@ def _generate_default_binary():
         if os.path.isfile(go_bin):
             return go_bin
 
-    if os.path.isfile('/usr/bin/juju'):
-        return '/usr/bin/juju'
-    elif os.path.isfile('/snap/bin/juju'):
-        return '/snap/bin/juju'
-    else:
-        raise ValueError("Juju binary not found. Please specify path to juju")
+    juju_paths = ['/usr/bin/juju', '/snap/bin/juju']
+    for path in juju_paths:
+        if os.path.isfile(path):
+            return path
+
+    raise ValueError("Juju binary not found. Please specify path to juju")
 
 
 def _to_deadline(timeout):
