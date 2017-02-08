@@ -53,14 +53,6 @@ func (broker *kvmBroker) StartInstance(args environs.StartInstanceParams) (*envi
 	containerMachineID := args.InstanceConfig.MachineId
 	kvmLogger.Infof("starting kvm container for containerMachineID: %s", containerMachineID)
 
-	// TODO: Default to using the host network until we can configure.  Yes,
-	// this is using the LxcBridge value, we should put it in the api call for
-	// container config.
-	bridgeDevice := broker.agentConfig.Value(agent.LxcBridge)
-	if bridgeDevice == "" {
-		bridgeDevice = container.DefaultKvmBridge
-	}
-
 	config, err := broker.api.ContainerConfig()
 	if err != nil {
 		kvmLogger.Errorf("failed to get container config: %v", err)
@@ -75,24 +67,28 @@ func (broker *kvmBroker) StartInstance(args environs.StartInstanceParams) (*envi
 	preparedInfo, err := prepareOrGetContainerInterfaceInfo(
 		broker.api,
 		containerMachineID,
-		bridgeDevice,
 		true, // allocate if possible, do not maintain existing.
 		kvmLogger,
 	)
 	if err != nil {
-		// It's not fatal (yet) if we couldn't pre-allocate addresses for the
-		// container.
-		logger.Infof("failed to prepare container %q network config: %v", containerMachineID, err)
-	} else {
-		args.NetworkInfo = preparedInfo
+		return nil, errors.Trace(err)
 	}
 
-	network := container.BridgeNetworkConfig(bridgeDevice, 0, args.NetworkInfo)
-	interfaces, err := finishNetworkConfig(bridgeDevice, args.NetworkInfo)
+	// Something to fallback to if there are no devices given in args.NetworkInfo
+	// TODO(jam): 2017-02-07, this feels like something that should never need
+	// to be invoked, because either StartInstance or
+	// prepareOrGetContainerInterfaceInfo should always return a value. The
+	// test suite currently doesn't think so, and I'm hesitant to munge it too
+	// much.
+	bridgeDevice := broker.agentConfig.Value(agent.LxcBridge)
+	if bridgeDevice == "" {
+		bridgeDevice = container.DefaultKvmBridge
+	}
+	interfaces, err := finishNetworkConfig(bridgeDevice, preparedInfo)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	network.Interfaces = interfaces
+	network := container.BridgeNetworkConfig(bridgeDevice, 0, interfaces)
 
 	// The provisioner worker will provide all tools it knows about
 	// (after applying explicitly specified constraints), which may
@@ -152,17 +148,10 @@ func (broker *kvmBroker) StartInstance(args environs.StartInstanceParams) (*envi
 func (broker *kvmBroker) MaintainInstance(args environs.StartInstanceParams) error {
 	machineID := args.InstanceConfig.MachineId
 
-	// Default to using the host network until we can configure.
-	bridgeDevice := broker.agentConfig.Value(agent.LxcBridge)
-	if bridgeDevice == "" {
-		bridgeDevice = container.DefaultKvmBridge
-	}
-
 	// There's no InterfaceInfo we expect to get below.
 	_, err := prepareOrGetContainerInterfaceInfo(
 		broker.api,
 		machineID,
-		bridgeDevice,
 		false, // maintain, do not allocate.
 		kvmLogger,
 	)
