@@ -86,6 +86,7 @@ func prepareHost(bridger network.Bridger, hostMachineID string, containerTag nam
 func prepareOrGetContainerInterfaceInfo(
 	api APICalls,
 	machineID string,
+	bridgeDevice string,
 	allocateOrMaintain bool,
 	log loggo.Logger,
 ) ([]network.InterfaceInfo, error) {
