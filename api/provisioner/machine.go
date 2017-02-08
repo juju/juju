@@ -27,6 +27,11 @@ func (m *Machine) Tag() names.Tag {
 	return m.tag
 }
 
+// MachineTag returns the identifier for the machine as the most specific type
+func (m *Machine) MachineTag() names.MachineTag {
+	return m.tag
+}
+
 // Id returns the machine id.
 func (m *Machine) Id() string {
 	return m.tag.Id()

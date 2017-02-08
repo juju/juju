@@ -18,16 +18,29 @@ import (
 
 var lxdLogger = loggo.GetLogger("juju.provisioner.lxd")
 
-var NewLxdBroker = func(
+type PrepareHostFunc func(containerTag names.MachineTag, log loggo.Logger) error
+
+func NewLxdBroker(
 	bridger network.Bridger,
-	hostMachineID string,
+	hostMachineTag names.MachineTag,
 	api APICalls,
 	manager container.Manager,
 	agentConfig agent.Config,
 ) (environs.InstanceBroker, error) {
+	prepareWrapper := func(containerTag names.MachineTag, log loggo.Logger) error {
+		return prepareHost(bridger, hostMachineTag, containerTag, api, log)
+	}
+	return NewLXDBroker(prepareWrapper, api, manager, agentConfig)
+}
+
+func NewLXDBroker(
+	prepareHost PrepareHostFunc,
+	api APICalls,
+	manager container.Manager,
+	agentConfig agent.Config,
+ ) (environs.InstanceBroker, error) {
 	return &lxdBroker{
-		bridger:       bridger,
-		hostMachineID: hostMachineID,
+		prepareHost: prepareHost,
 		manager:       manager,
 		api:           api,
 		agentConfig:   agentConfig,
@@ -35,8 +48,7 @@ var NewLxdBroker = func(
 }
 
 type lxdBroker struct {
-	bridger       network.Bridger
-	hostMachineID string
+	prepareHost	  PrepareHostFunc
 	manager       container.Manager
 	api           APICalls
 	agentConfig   agent.Config
@@ -51,7 +63,7 @@ func (broker *lxdBroker) StartInstance(args environs.StartInstanceParams) (*envi
 		return nil, err
 	}
 
-	err = prepareHost(broker.bridger, broker.hostMachineID, names.NewMachineTag(containerMachineID), broker.api, kvmLogger)
+	err = broker.prepareHost(names.NewMachineTag(containerMachineID), logger)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

@@ -119,8 +119,8 @@ func (f *fakeAPI) ReleaseContainerAddresses(tag names.MachineTag) error {
 	return nil
 }
 
-func (f *fakeAPI) SetHostMachineNetworkConfig(hostMachineID string, netConfig []params.NetworkConfig) error {
-	f.MethodCall(f, "SetHostMachineNetworkConfig", hostMachineID, netConfig)
+func (f *fakeAPI) SetHostMachineNetworkConfig(hostMachineTag names.MachineTag, netConfig []params.NetworkConfig) error {
+	f.MethodCall(f, "SetHostMachineNetworkConfig", hostMachineTag.String(), netConfig)
 	if err := f.NextErr(); err != nil {
 		return err
 	}

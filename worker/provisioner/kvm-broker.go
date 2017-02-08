@@ -21,7 +21,7 @@ var kvmLogger = loggo.GetLogger("juju.provisioner.kvm")
 
 func NewKvmBroker(
 	bridger network.Bridger,
-	hostMachineID string,
+	hostMachineTag names.MachineTag,
 	api APICalls,
 	agentConfig agent.Config,
 	managerConfig container.ManagerConfig,
@@ -32,7 +32,7 @@ func NewKvmBroker(
 	}
 	return &kvmBroker{
 		bridger:       bridger,
-		hostMachineID: hostMachineID,
+		hostMachineTag: hostMachineTag,
 		manager:       manager,
 		api:           api,
 		agentConfig:   agentConfig,
@@ -41,7 +41,7 @@ func NewKvmBroker(
 
 type kvmBroker struct {
 	bridger       network.Bridger
-	hostMachineID string
+	hostMachineTag names.MachineTag
 	manager       container.Manager
 	api           APICalls
 	agentConfig   agent.Config
@@ -59,7 +59,7 @@ func (broker *kvmBroker) StartInstance(args environs.StartInstanceParams) (*envi
 		return nil, err
 	}
 
-	err = prepareHost(broker.bridger, broker.hostMachineID, names.NewMachineTag(containerMachineID), broker.api, kvmLogger)
+	err = prepareHost(broker.bridger, broker.hostMachineTag, names.NewMachineTag(containerMachineID), broker.api, kvmLogger)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
