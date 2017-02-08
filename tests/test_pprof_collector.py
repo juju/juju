@@ -107,7 +107,7 @@ class TestPPROFCollector(TestCase):
         client = Mock()
         log_dir = '/test/logs/dir'
         with patch.object(pc.os, 'makedirs', autospec=True) as p_md:
-            pc.PPROFCollector(client, 'test', log_dir)
+            pc.PPROFCollector(client, ['test'], log_dir)
 
         self.assertListEqual(
             p_md.call_args_list,
@@ -122,10 +122,10 @@ class TestPPROFCollector(TestCase):
         client = Mock()
         log_dir = '/test/logs/dir'
         with patch.object(pc.os, 'makedirs', autospec=True):
-            collector = pc.PPROFCollector(client, 'test', log_dir)
+            collector = pc.PPROFCollector(client, ['test'], log_dir)
 
-            self.assertTrue(type(collector._collector), pc.NoopCollector)
-            self.assertIsNone(collector._active_collector)
+            self.assertIs(type(collector._collectors[0]), pc.NoopCollector)
+            self.assertListEqual(collector._active_collectors, [])
 
     def test_creates_active_collector(self):
         client = Mock()
@@ -135,67 +135,79 @@ class TestPPROFCollector(TestCase):
                     pc, 'install_introspection_charm',
                     autospec=True):
                 collector = pc.PPROFCollector(
-                    client, 'test', log_dir, active=True)
-                self.assertTrue(type(collector._collector), pc.ActiveCollector)
-                self.assertIsNone(collector._noop_collector)
+                    client, ['test'], log_dir, active=True)
+                self.assertIs(
+                    type(collector._collectors[0]),
+                    pc.ActiveCollector)
+                self.assertListEqual(collector._noop_collectors, [])
 
     def test_initiates_active_collector_after_creation(self):
         client = Mock()
         log_dir = '/test/logs/dir'
         with patch.object(pc.os, 'makedirs', autospec=True):
-            collector = pc.PPROFCollector(client, 'test', log_dir)
-            self.assertTrue(type(collector._collector), pc.NoopCollector)
+            collector = pc.PPROFCollector(client, ['test'], log_dir)
+            self.assertIs(type(collector._collectors[0]), pc.NoopCollector)
             with patch.object(
                     pc, 'install_introspection_charm',
                     autospec=True):
-                self.assertIsNone(collector._active_collector)
+                self.assertListEqual(collector._active_collectors, [])
                 collector.set_active()
-                self.assertTrue(type(collector._collector), pc.NoopCollector)
+                self.assertIs(
+                    type(collector._collectors[0]), pc.ActiveCollector)
 
-    def test_collect_profile(selfm):
+    def test_collect_profile(self):
         client = Mock()
         log_dir = '/test/logs/dir'
-        file_name = '170130-092626.pprof'
+        file_name = 'machine-42-170130-092626.pprof'
         profile_log = os.path.join(log_dir, 'cpu_profile', file_name)
         with patch.object(pc.os, 'makedirs', autospec=True):
-            with patch.object(pc, 'NoopCollector', autospec=True):
+            with patch.object(pc, 'NoopCollector', autospec=True) as m_nc:
+                mock_noop = Mock()
+                mock_noop.machine_id = 42
+                m_nc.return_value = mock_noop
                 with patch.object(pc, 'datetime') as p_dt:
                     p_dt.utcnow.return_value = datetime(
                         2017, 1, 30, 9, 26, 26, 587930)
-                    collector = pc.PPROFCollector(client, 'test', log_dir)
+                    collector = pc.PPROFCollector(client, ['test'], log_dir)
                     collector.collect_profile()
-        collector._collector.collect_profile.assert_called_once_with(
+        collector._collectors[0].collect_profile.assert_called_once_with(
             profile_log, 5
         )
 
     def test_collect_heap(selfm):
         client = Mock()
         log_dir = '/test/logs/dir'
-        file_name = '170130-092626.pprof'
+        file_name = 'machine-42-170130-092626.pprof'
         profile_log = os.path.join(log_dir, 'heap_profile', file_name)
         with patch.object(pc.os, 'makedirs', autospec=True):
-            with patch.object(pc, 'NoopCollector', autospec=True):
+            with patch.object(pc, 'NoopCollector', autospec=True) as m_nc:
+                mock_noop = Mock()
+                mock_noop.machine_id = 42
+                m_nc.return_value = mock_noop
                 with patch.object(pc, 'datetime') as p_dt:
                     p_dt.utcnow.return_value = datetime(
                         2017, 1, 30, 9, 26, 26, 587930)
-                    collector = pc.PPROFCollector(client, 'test', log_dir)
+                    collector = pc.PPROFCollector(client, ['test'], log_dir)
                     collector.collect_heap()
-        collector._collector.collect_heap.assert_called_once_with(
+        collector._collectors[0].collect_heap.assert_called_once_with(
             profile_log, 5
         )
 
     def test_collect_goroutines(selfm):
         client = Mock()
         log_dir = '/test/logs/dir'
-        file_name = '170130-092626.pprof'
+        file_name = 'machine-42-170130-092626.pprof'
         profile_log = os.path.join(log_dir, 'goroutines_profile', file_name)
         with patch.object(pc.os, 'makedirs', autospec=True):
-            with patch.object(pc, 'NoopCollector', autospec=True):
+            with patch.object(pc, 'NoopCollector', autospec=True) as m_nc:
+                mock_noop = Mock()
+                mock_noop.machine_id = 42
+                m_nc.return_value = mock_noop
                 with patch.object(pc, 'datetime') as p_dt:
                     p_dt.utcnow.return_value = datetime(
                         2017, 1, 30, 9, 26, 26, 587930)
-                    collector = pc.PPROFCollector(client, 'test', log_dir)
+                    collector = pc.PPROFCollector(client, ['test'], log_dir)
                     collector.collect_goroutines()
-        collector._collector.collect_goroutines.assert_called_once_with(
+        collector._collectors[0].collect_goroutines.assert_called_once_with(
             profile_log, 5
         )

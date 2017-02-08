@@ -162,7 +162,7 @@ def run_perfscale_test(target_test, bs_manager, args):
 
             pprof_collector = PPROFCollector(
                 admin_client,
-                machine_ids[0],
+                machine_ids,
                 bs_manager.log_dir,
                 args.enable_pprof)
             deploy_details = target_test(client, pprof_collector, args)
