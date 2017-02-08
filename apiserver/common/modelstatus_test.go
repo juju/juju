@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/controller"
+	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/instance"
@@ -44,7 +45,12 @@ func (s *modelStatusSuite) SetUpTest(c *gc.C) {
 		AdminTag: s.Owner,
 	}
 
-	controller, err := controller.NewControllerAPI(s.State, s.resources, s.authorizer)
+	controller, err := controller.NewControllerAPI(
+		facadetest.Context{
+			State_:     s.State,
+			Resources_: s.resources,
+			Auth_:      s.authorizer,
+		})
 	c.Assert(err, jc.ErrorIsNil)
 	s.controller = controller
 
@@ -57,7 +63,12 @@ func (s *modelStatusSuite) TestModelStatusNonAuth(c *gc.C) {
 	anAuthoriser := apiservertesting.FakeAuthorizer{
 		Tag: user.Tag(),
 	}
-	endpoint, err := controller.NewControllerAPI(s.State, s.resources, anAuthoriser)
+	endpoint, err := controller.NewControllerAPI(
+		facadetest.Context{
+			State_:     s.State,
+			Resources_: s.resources,
+			Auth_:      anAuthoriser,
+		})
 	c.Assert(err, jc.ErrorIsNil)
 	controllerModelTag := s.State.ModelTag().String()
 
@@ -76,7 +87,12 @@ func (s *modelStatusSuite) TestModelStatusOwnerAllowed(c *gc.C) {
 	}
 	st := s.Factory.MakeModel(c, &factory.ModelParams{Owner: owner.Tag()})
 	defer st.Close()
-	endpoint, err := controller.NewControllerAPI(s.State, s.resources, anAuthoriser)
+	endpoint, err := controller.NewControllerAPI(
+		facadetest.Context{
+			State_:     s.State,
+			Resources_: s.resources,
+			Auth_:      anAuthoriser,
+		})
 	c.Assert(err, jc.ErrorIsNil)
 
 	req := params.Entities{

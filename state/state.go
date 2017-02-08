@@ -552,10 +552,10 @@ func (st *State) Watch() *Multiwatcher {
 	return NewMultiwatcher(st.allManager)
 }
 
-func (st *State) WatchAllModels() *Multiwatcher {
+func (st *State) WatchAllModels(pool *StatePool) *Multiwatcher {
 	st.mu.Lock()
 	if st.allModelManager == nil {
-		st.allModelWatcherBacking = NewAllModelWatcherStateBacking(st)
+		st.allModelWatcherBacking = NewAllModelWatcherStateBacking(st, pool)
 		st.allModelManager = newStoreManager(st.allModelWatcherBacking)
 	}
 	st.mu.Unlock()

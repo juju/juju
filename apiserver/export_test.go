@@ -86,7 +86,7 @@ func NewErrRoot(err error) *errRoot {
 // *barely* connected to anything.  Just enough to let you probe some
 // of the interfaces, but not enough to actually do any RPC calls.
 func TestingAPIRoot(st *state.State) rpc.Root {
-	return newAPIRoot(st, common.NewResources(), nil)
+	return newAPIRoot(st, state.NewStatePool(st), common.NewResources(), nil)
 }
 
 // TestingAPIHandler gives you an APIHandler that isn't connected to
