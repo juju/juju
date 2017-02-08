@@ -27,6 +27,7 @@ def get_default_args(**kwargs):
         logs='/tmp/logs',
         temp_env_name='an-env-mod',
         enable_ha=False,
+        enable_pprof=False,
         debug=False,
         agent_stream=None,
         agent_url=None,
@@ -50,9 +51,11 @@ class TestAddBasicPerfscaleArguments(TestCase):
         gpr.add_basic_perfscale_arguments(parser)
         parsed_args = parser.parse_args([])
         self.assertEqual(parsed_args.enable_ha, False)
+        self.assertEqual(parsed_args.enable_pprof, False)
 
-        parsed_args = parser.parse_args(['--enable-ha'])
+        parsed_args = parser.parse_args(['--enable-ha', '--enable-pprof'])
         self.assertEqual(parsed_args.enable_ha, True)
+        self.assertEqual(parsed_args.enable_pprof, True)
 
     def test_includes_basic_default_arguments(self):
         parser = argparse.ArgumentParser()
@@ -105,13 +108,21 @@ class TestRunPerfscaleTest(TestCase):
             deploy_details = gpr.DeployDetails('test', dict(), timing)
             noop_test = Mock(return_value=deploy_details)
 
+            pprof_collector = Mock()
+
             with patch.object(gpr, 'dump_performance_metrics_logs',
                               autospec=True):
                 with patch.object(gpr, 'generate_reports', autospec=True):
-                    gpr.run_perfscale_test(noop_test, bs_manager,
-                                           get_default_args())
+                    with patch.object(
+                            gpr, 'PPROFCollector', autospec=True) as p_pc:
+                        p_pc.return_value = pprof_collector
+                        gpr.run_perfscale_test(
+                            noop_test,
+                            bs_manager,
+                            get_default_args())
 
-            noop_test.assert_called_once_with(client, get_default_args())
+            noop_test.assert_called_once_with(
+                client, pprof_collector, get_default_args())
 
 
 class TestGetControllerMachines(TestCase):

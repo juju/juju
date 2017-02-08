@@ -29,7 +29,7 @@ from utility import (
 __metaclass__ = type
 
 
-def assess_xplod_perf(client, args):
+def assess_xplod_perf(client, pprof_collector, args):
     """Deploy xplod charm many times."""
     deploy_start = datetime.utcnow()
 
