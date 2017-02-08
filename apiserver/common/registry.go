@@ -47,6 +47,16 @@ func RegisterFacadeForFeature(name string, version int, factory facade.Factory, 
 	logger.Tracef("Registered facade %q v%d", name, version)
 }
 
+type niceFactory func(facade.Context) (interface{}, error)
+
+type nastyFactory func(
+	st *state.State,
+	resources facade.Resources,
+	authorizer facade.Authorizer,
+) (
+	interface{}, error,
+)
+
 // validateNewFacade ensures that the facade factory we have has the right
 // input and output parameters for being used as a NewFoo function.
 func validateNewFacade(funcValue reflect.Value) (bool, error) {
@@ -60,9 +70,9 @@ func validateNewFacade(funcValue reflect.Value) (bool, error) {
 	funcName := runtime.FuncForPC(funcValue.Pointer()).Name()
 
 	badSigError := errors.Errorf(""+
-		"function %q does not have the signature func "+
-		"(facace.Context) (*Type, error), or "+
-		"(*state.State, facade.Resources, facade.Authorizer) (*Type, error)", funcName)
+		"function %q does not have the signature "+
+		"func (facade.Context) (*Type, error), or "+
+		"func (*state.State, facade.Resources, facade.Authorizer) (*Type, error)", funcName)
 
 	if funcType.NumOut() != 2 {
 		return false, errors.Trace(badSigError)
@@ -75,17 +85,9 @@ func validateNewFacade(funcValue reflect.Value) (bool, error) {
 
 	switch inArgCount {
 	case 1:
-		type niceFactory func(facade.Context) (interface{}, error)
 		facadeType = reflect.TypeOf((*niceFactory)(nil)).Elem()
 		nice = true
 	case 3:
-		type nastyFactory func(
-			st *state.State,
-			resources facade.Resources,
-			authorizer facade.Authorizer,
-		) (
-			interface{}, error,
-		)
 		facadeType = reflect.TypeOf((*nastyFactory)(nil)).Elem()
 	default:
 		return false, errors.Trace(badSigError)

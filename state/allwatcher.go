@@ -1303,6 +1303,7 @@ func (b *allModelWatcherStateBacking) getState(modelUUID string) (*State, func()
 
 // Release implements the Backing interface.
 func (b *allModelWatcherStateBacking) Release() error {
+	// Nothing to release.
 	return nil
 }
 

@@ -62,9 +62,9 @@ func (s *facadeRegistrySuite) TestRegisterFacadePanicsOnDoubleRegistry(c *gc.C) 
 }
 
 func (*facadeRegistrySuite) TestValidateNewFacade(c *gc.C) {
-	badSigErrorRegex := "does not have the signature func " +
-		"\\(facace.Context\\) \\(\\*Type, error\\), or " +
-		"\\(\\*state.State, facade.Resources, facade.Authorizer\\) \\(\\*Type, error\\)"
+	badSigErrorRegex := "does not have the signature " +
+		`func \(facade.Context\) \(\*Type, error\), or ` +
+		`func \(\*state.State, facade.Resources, facade.Authorizer\) \(\*Type, error\)`
 
 	checkValidateNewFacadeFailsWith(c, nil,
 		`cannot wrap nil`)
