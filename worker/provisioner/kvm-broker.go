@@ -19,9 +19,11 @@ import (
 
 var kvmLogger = loggo.GetLogger("juju.provisioner.kvm")
 
+// TODO(jam): 2017-02-08 update test suite to use NewKVMBroker directly instead
+// of this compatibility function.
 func NewKvmBroker(
 	bridger network.Bridger,
-	hostMachineID string,
+	hostMachineTag names.MachineTag,
 	api APICalls,
 	agentConfig agent.Config,
 	managerConfig container.ManagerConfig,
@@ -30,21 +32,31 @@ func NewKvmBroker(
 	if err != nil {
 		return nil, err
 	}
+	prepareWrapper := func(containerTag names.MachineTag, log loggo.Logger) error {
+		return prepareHost(bridger, hostMachineTag, containerTag, api, log)
+	}
+	return NewKVMBroker(prepareWrapper, api, manager, agentConfig)
+}
+
+func NewKVMBroker(
+	prepareHost PrepareHostFunc,
+	api APICalls,
+	manager container.Manager,
+	agentConfig agent.Config,
+) (environs.InstanceBroker, error) {
 	return &kvmBroker{
-		bridger:       bridger,
-		hostMachineID: hostMachineID,
-		manager:       manager,
-		api:           api,
-		agentConfig:   agentConfig,
+		prepareHost: prepareHost,
+		manager:     manager,
+		api:         api,
+		agentConfig: agentConfig,
 	}, nil
 }
 
 type kvmBroker struct {
-	bridger       network.Bridger
-	hostMachineID string
-	manager       container.Manager
-	api           APICalls
-	agentConfig   agent.Config
+	prepareHost PrepareHostFunc
+	manager     container.Manager
+	api         APICalls
+	agentConfig agent.Config
 }
 
 // StartInstance is specified in the Broker interface.
@@ -67,7 +79,7 @@ func (broker *kvmBroker) StartInstance(args environs.StartInstanceParams) (*envi
 		return nil, err
 	}
 
-	err = prepareHost(broker.bridger, broker.hostMachineID, names.NewMachineTag(containerMachineID), broker.api, kvmLogger)
+	err = broker.prepareHost(names.NewMachineTag(containerMachineID), kvmLogger)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

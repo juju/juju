@@ -97,7 +97,9 @@ func (s *kvmBrokerSuite) startInstance(c *gc.C, broker environs.InstanceBroker, 
 
 func (s *kvmBrokerSuite) newKVMBroker(c *gc.C, bridger network.Bridger) (environs.InstanceBroker, error) {
 	managerConfig := container.ManagerConfig{container.ConfigModelUUID: coretesting.ModelTag.Id()}
-	return provisioner.NewKvmBroker(bridger, "machine-1", s.api, s.agentConfig, managerConfig)
+	tag, err := names.ParseMachineTag("machine-1")
+	c.Assert(err, jc.ErrorIsNil)
+	return provisioner.NewKvmBroker(bridger, tag, s.api, s.agentConfig, managerConfig)
 }
 
 func (s *kvmBrokerSuite) maintainInstance(c *gc.C, broker environs.InstanceBroker, machineId string) {
@@ -391,7 +393,9 @@ func (s *kvmProvisionerSuite) newKvmProvisioner(c *gc.C) provisioner.Provisioner
 	machineTag := names.NewMachineTag("0")
 	agentConfig := s.AgentConfigForTag(c, machineTag)
 	managerConfig := container.ManagerConfig{container.ConfigModelUUID: coretesting.ModelTag.Id()}
-	broker, brokerErr := provisioner.NewKvmBroker(newFakeBridgerNeverErrors(), "machine-0", s.provisioner, agentConfig, managerConfig)
+	tag, err := names.ParseMachineTag("machine-0")
+	c.Assert(err, jc.ErrorIsNil)
+	broker, brokerErr := provisioner.NewKvmBroker(newFakeBridgerNeverErrors(), tag, s.provisioner, agentConfig, managerConfig)
 	c.Assert(brokerErr, jc.ErrorIsNil)
 	toolsFinder := (*provisioner.GetToolsFinder)(s.provisioner)
 	w, err := provisioner.NewContainerProvisioner(instance.KVM, s.provisioner, agentConfig, broker, toolsFinder)

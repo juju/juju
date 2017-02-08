@@ -70,7 +70,9 @@ func (s *lxdBrokerSuite) startInstance(c *gc.C, broker environs.InstanceBroker, 
 }
 
 func (s *lxdBrokerSuite) newLXDBroker(c *gc.C, bridger network.Bridger) (environs.InstanceBroker, error) {
-	return provisioner.NewLxdBroker(bridger, "machine-1", s.api, s.manager, s.agentConfig)
+	tag, err := names.ParseMachineTag("machine-1")
+	c.Assert(err, jc.ErrorIsNil)
+	return provisioner.NewLxdBroker(bridger, tag, s.api, s.manager, s.agentConfig)
 }
 
 func (s *lxdBrokerSuite) TestStartInstanceGetObservedNetworkConfigFails(c *gc.C) {
