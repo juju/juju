@@ -1268,20 +1268,13 @@ func (e *Environ) AdoptResources(controllerUUID string, fromVersion version.Numb
 	if err != nil {
 		return errors.Trace(err)
 	}
-	for _, instance := range instances {
-		err := e.TagInstance(instance.Id(), controllerTag)
-		if err != nil {
-			logger.Errorf("error updating controller tag for instance %s: %v", instance.Id(), err)
-			failed = append(failed, string(instance.Id()))
-		}
-	}
-
 	cinder, err := e.cinderProvider()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	// I'm not sure about this - where should I get a *storage.Config
-	// to pass in?
+	// I'm not sure about this - it works at the moment because
+	// there's no validation on the config passed. Where should I
+	// get a *storage.Config to pass in?
 	volumeSource, err := cinder.VolumeSource(nil)
 	if err != nil {
 		return errors.Trace(err)
@@ -1290,6 +1283,15 @@ func (e *Environ) AdoptResources(controllerUUID string, fromVersion version.Numb
 	if err != nil {
 		return errors.Trace(err)
 	}
+
+	for _, instance := range instances {
+		err := e.TagInstance(instance.Id(), controllerTag)
+		if err != nil {
+			logger.Errorf("error updating controller tag for instance %s: %v", instance.Id(), err)
+			failed = append(failed, string(instance.Id()))
+		}
+	}
+
 	for _, volumeId := range volumeIds {
 		_, err := cinder.storageAdapter.SetVolumeMetadata(volumeId, controllerTag)
 		if err != nil {
@@ -1298,7 +1300,14 @@ func (e *Environ) AdoptResources(controllerUUID string, fromVersion version.Numb
 		}
 	}
 
-	return errors.NotImplementedf("AdoptResources")
+	err = e.firewaller.UpdateGroupController(controllerUUID)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if len(failed) != 0 {
+		return errors.Errorf("error updating controller tag for some resources: %v", failed)
+	}
+	return nil
 }
 
 // AllInstances returns all instances in this environment.
