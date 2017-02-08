@@ -3,12 +3,12 @@ package oracle
 import (
 	"github.com/juju/errors"
 	"github.com/juju/jsonschema"
-	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/loggo"
 
 	oci "github.com/hoenirvili/go-oracle-cloud/api"
+	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
 )
 
 var logger = loggo.GetLogger("juju.provider.oracle")
@@ -16,6 +16,15 @@ var logger = loggo.GetLogger("juju.provider.oracle")
 const (
 	providerType = "oracle"
 )
+
+type shapes map[string]shape
+
+type shape struct {
+	// cpu field shows the number of CPU threads
+	cpus uint64
+	// ram field shows the amount of memory in MB
+	ram uint64
+}
 
 // provide friendly aliases for the register provider function
 var providerAliases = []string{"ocl", "orcl", "oci"}
@@ -25,7 +34,11 @@ var providerAliases = []string{"ocl", "orcl", "oci"}
 // alongiside environs.EnvironProvider this implements config.Validator interface and
 // environs.ProviderCredentials also.
 type environProvider struct {
+	// client for oracle cloud api connection
 	client *oci.Client
+	// oracle proivder shapes
+	// shapes
+	shapes shapes
 }
 
 // CloudSchema returns the schema used to validate input for add-cloud.  Since
@@ -106,6 +119,17 @@ func (e *environProvider) Open(params environs.OpenParams) (environs.Environ, er
 		return nil, errors.Annotatef(err, "validating cloud spec")
 	}
 
+	cli, err := oci.NewClient(oci.Config{
+		Username: params.Cloud.Credential.Attributes()["username"],
+		Password: params.Cloud.Credential.Attributes()["password"],
+		Endpoint: params.Cloud.Endpoint,
+		Identify: params.Cloud.Credential.Attributes()["identity-domain"],
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	e.client = cli
+
 	environ := newOracleEnviron(e, params)
 	return environ, nil
 }
@@ -129,6 +153,10 @@ func (e environProvider) CredentialSchemas() map[cloud.AuthType]cloud.Credential
 				Description: "account password",
 				Hidden:      true,
 			},
+		}, {
+			"identity-domain", cloud.CredentialAttr{
+				Description: "indetity domain of the oracle account",
+			},
 		}},
 	}
 }
@@ -142,11 +170,17 @@ func (e environProvider) DetectCredentials() (*cloud.CloudCredential, error) {
 // FinalizeCredential finalizes a oracle credential, updating any attributes as
 // necessarry. This is done clinet-side, when adding the credential to credentials.yaml
 // and before uploading crdentials to the controller.
-// The provider may completely alter a credential, even goiing as far as changing the auth-type, but the output must be a fully formed credential that is orcale complaint.
+// The provider may completely alter a credential, even going as far as changing the auth-type,
+// but the output must be a fully formed credential that is orcale complaint.
 func (e environProvider) FinalizeCredential(
 	cfx environs.FinalizeCredentialContext,
 	params environs.FinalizeCredentialParams,
 ) (*cloud.Credential, error) {
-	// we will return the exact credentials that we have entered from the interactive form.
+	_, ok := params.Credential.Attributes()["identity-domain"]
+	if !ok {
+		return nil,
+			errors.NotFoundf("%s", "Cannot find any identity-domain in the credentials")
+	}
+	// return the exact credentials that we have entered from the interactive form.
 	return &params.Credential, nil
 }

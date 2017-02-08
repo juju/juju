@@ -352,7 +352,6 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 	}
 
 	ctx.Verbosef("Starting new instance for initial controller")
-	os.Exit(1)
 	result, err := environ.Bootstrap(ctx, environs.BootstrapParams{
 		CloudName:            args.Cloud.Name,
 		CloudRegion:          args.CloudRegion,
@@ -364,6 +363,9 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 		AvailableTools:       availableTools,
 		ImageMetadata:        imageMetadata,
 	})
+	fmt.Println(err)
+	fmt.Println(result)
+	os.Exit(1)
 	if err != nil {
 		return err
 	}

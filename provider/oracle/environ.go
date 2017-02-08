@@ -1,7 +1,10 @@
 package oracle
 
 import (
+	"fmt"
 	"sync"
+
+	"github.com/juju/version"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
@@ -11,15 +14,14 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/storage"
-	"github.com/juju/version"
 )
 
 // oracleEnviron implements the environs.Environ interface
 // and has behaviour specific that the interface provides.
 type oracleEnviron struct {
-	p *environProvider
+	mu *sync.Mutex
 
-	mu   sync.Mutex
+	p    *environProvider
 	spec environs.CloudSpec
 	cfg  *config.Config
 }
@@ -27,9 +29,11 @@ type oracleEnviron struct {
 func newOracleEnviron(p *environProvider, args environs.OpenParams) *oracleEnviron {
 	env := &oracleEnviron{
 		p:    p,
+		mu:   &sync.Mutex{},
 		spec: args.Cloud,
 		cfg:  args.Config,
 	}
+
 	return env
 }
 
@@ -70,6 +74,11 @@ func (o oracleEnviron) Config() *config.Config {
 }
 
 func (o oracleEnviron) Bootstrap(ctx environs.BootstrapContext, params environs.BootstrapParams) (*environs.BootstrapResult, error) {
+	fmt.Println("=============JDSUHDUSHUDSHD================")
+	fmt.Printf("%+v\n", ctx)
+	fmt.Println("=============================")
+	fmt.Printf("%+v\n", params)
+	fmt.Println("=============================")
 	return nil, nil
 }
 
@@ -90,13 +99,15 @@ func (o oracleEnviron) Create(params environs.CreateParams) error {
 //
 // This will use the default validator implementation from the constraints package.
 func (o oracleEnviron) ConstraintsValidator() (constraints.Validator, error) {
+	// list of unsupported oracle provider constraints
 	unsupportedConstraints := []string{
+		constraints.Container,
+		constraints.CpuPower,
+		constraints.RootDisk,
+		constraints.Arch,
+		constraints.InstanceType,
 		constraints.VirtType,
 		constraints.Spaces,
-		constraints.RootDisk,
-		constraints.CpuPower,
-		constraints.Container,
-		constraints.Arch,
 	}
 
 	// we choose to use the default validator implementation
@@ -106,7 +117,7 @@ func (o oracleEnviron) ConstraintsValidator() (constraints.Validator, error) {
 	// provider does not support these constraints
 	validator.RegisterUnsupported(unsupportedConstraints)
 
-	return validator, nil
+	return newConstraintsAdaptor(validator), nil
 }
 
 func (o oracleEnviron) SetConfig(cfg *config.Config) error {

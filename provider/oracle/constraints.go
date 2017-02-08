@@ -2,33 +2,69 @@ package oracle
 
 import "github.com/juju/juju/constraints"
 
-// Constraints
-//TODO(Oracle cloud services) when powering up instances dosen't support special constraints values
-type Constraints struct {
-	//TODO(add attributes if needed)
+// cons provides a wrapper-adaptor arount the default constraints
+// implementation inside the constrains pakage.
+// this type implements the constrains.Validator interface
+type cons struct {
+	c constraints.Validator
 }
 
-func newConstraints() *Constraints {
-	return &Constraints{}
+func newConstraintsAdaptor(validator constraints.Validator) *cons {
+	return &cons{c: validator}
 }
 
-func (c Constraints) RegisterConflicts(reds, blues []string) {
+func (c *cons) RegisterConflicts(reds, blues []string) {
+	c.c.RegisterConflicts(reds, blues)
 }
 
-func (c Constraints) RegisterUnsupported(unsupported []string) {
+func (c *cons) RegisterUnsupported(unsupported []string) {
+	c.c.RegisterUnsupported(unsupported)
 }
 
-func (c Constraints) RegisterVocabulary(attributeName string, allowedValues interface{}) {
+func (c *cons) RegisterVocabulary(attributeName string, allowedValues interface{}) {
+	c.c.RegisterVocabulary(attributeName, allowedValues)
 }
 
-func (c Constraints) Validate(cons constraints.Value) ([]string, error) {
-	return nil, nil
+func (c *cons) Validate(cons constraints.Value) ([]string, error) {
+	return c.c.Validate(cons)
 }
 
-func (c Constraints) Merge(consFallback, cons constraints.Value) (constraints.Value, error) {
-	return constraints.Value{}, nil
+func (c *cons) Merge(consFallback, cons constraints.Value) (constraints.Value, error) {
+	logger.Infof("Checking provided constrains before merging")
+	if consFallback.Arch != nil {
+		if *consFallback.Arch != "" && *consFallback.Arch != "amd64" {
+			logger.Warningf("Oracle provider does not support Arch constraint other than amd64")
+			*consFallback.Arch = "amd64"
+		}
+	}
+
+	if consFallback.HasCpuPower() {
+		logger.Warningf("Oracle provider does not support Cpu power constraint, skipping this constraint")
+		consFallback.CpuPower = nil
+	}
+
+	if consFallback.HaveSpaces() {
+		logger.Warningf("Oracle provider does not support Spaces constraints, skipping this constraint")
+		consFallback.Spaces = nil
+	}
+
+	if consFallback.HasContainer() {
+		logger.Warningf("Oracle provider does not support Contianer constraints, skipping this constraint")
+		consFallback.Container = nil
+	}
+
+	if consFallback.HasVirtType() {
+		logger.Warningf("Oracle provider does not support HasVirtType constraints, skipping this constrain")
+		consFallback.VirtType = nil
+	}
+
+	if consFallback.HasInstanceType() {
+		logger.Warningf("Oracle provider does not support HasInstanceType constraints, skipping this constraint")
+		consFallback.InstanceType = nil
+	}
+	return c.c.Merge(consFallback, cons)
 }
 
-func (c Constraints) UpdateVocabulary(attributeName string, newValues interface{}) {
-
+func (c *cons) UpdateVocabulary(attributeName string, newValues interface{}) {
+	c.c.UpdateVocabulary(attributeName, newValues)
 }
