@@ -1037,7 +1037,7 @@ func (s *MachineSuite) TestMachineAgentDoesNotRunsCertificateUpdateWorkerForNonC
 }
 
 func (s *MachineSuite) TestCertificateUpdateWorkerUpdatesCertificate(c *gc.C) {
-    coretesting.SkipFlaky(c, "lp:1466514")
+	coretesting.SkipFlaky(c, "lp:1466514")
 	// Set up the machine agent.
 	m, _, _ := s.primeAgent(c, state.JobManageModel)
 	a := s.newAgent(c, m)

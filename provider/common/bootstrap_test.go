@@ -387,7 +387,7 @@ func (ac *addressesChange) Addresses() ([]network.Address, error) {
 }
 
 func (s *BootstrapSuite) TestWaitSSHRefreshAddresses(c *gc.C) {
-    coretesting.SkipIfWindowsBug(c, "lp:1604961")
+	coretesting.SkipIfWindowsBug(c, "lp:1604961")
 	ctx := coretesting.Context(c)
 	_, err := common.WaitSSH(ctx.Stderr, nil, ssh.DefaultClient, "", &addressesChange{addrs: [][]string{
 		nil,
