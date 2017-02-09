@@ -412,6 +412,7 @@ func (s *UnitSuite) TestChangeConfig(c *gc.C) {
 }
 
 func (s *UnitSuite) TestWorkers(c *gc.C) {
+    coretesting.SkipIfWindowsBug(c, "lp:1610993")
 	tracker := NewEngineTracker()
 	instrumented := TrackUnits(c, tracker, unitManifolds)
 	s.PatchValue(&unitManifolds, instrumented)
