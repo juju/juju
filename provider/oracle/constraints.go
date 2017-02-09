@@ -31,6 +31,24 @@ func (c *cons) Validate(cons constraints.Value) ([]string, error) {
 
 func (c *cons) Merge(consFallback, cons constraints.Value) (constraints.Value, error) {
 	logger.Infof("Checking provided constrains before merging")
+
+	if !consFallback.HasMem() {
+		logger.Infof("No memory specified, using the default mem shape")
+		if consFallback.Mem == nil {
+			consFallback.Mem = new(uint64)
+		}
+		*consFallback.Mem = 1024
+	}
+
+	if !consFallback.HasCpuCores() {
+		logger.Infof("No cpu cores specified, using the default cpu shape")
+		if consFallback.CpuCores == nil {
+			consFallback.CpuCores = new(uint64)
+		}
+		*consFallback.CpuCores = 1
+
+	}
+
 	if consFallback.Arch != nil {
 		if *consFallback.Arch != "" && *consFallback.Arch != "amd64" {
 			logger.Warningf("Oracle provider does not support Arch constraint other than amd64")
@@ -62,6 +80,7 @@ func (c *cons) Merge(consFallback, cons constraints.Value) (constraints.Value, e
 		logger.Warningf("Oracle provider does not support HasInstanceType constraints, skipping this constraint")
 		consFallback.InstanceType = nil
 	}
+
 	return c.c.Merge(consFallback, cons)
 }
 

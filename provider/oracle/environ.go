@@ -2,8 +2,10 @@ package oracle
 
 import (
 	"fmt"
+	"os"
 	"sync"
 
+	"github.com/juju/errors"
 	"github.com/juju/version"
 
 	"github.com/juju/juju/constraints"
@@ -74,10 +76,30 @@ func (o oracleEnviron) Config() *config.Config {
 }
 
 func (o oracleEnviron) Bootstrap(ctx environs.BootstrapContext, params environs.BootstrapParams) (*environs.BootstrapResult, error) {
-	fmt.Println("=============JDSUHDUSHUDSHD================")
-	fmt.Printf("%+v\n", ctx)
+	logger.Infof("Loging into the oracle cloud infrastructure")
+	if err := o.p.client.Authenticate(); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	shapes, err := o.p.client.AllShapeDetails()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	shape, err := findShape(shapes.Result, params.BootstrapConstraints)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	logger.Infof(
+		"Choosing the %s with %d cores and %d MB ram",
+		shape.name, shape.cpus, shape.ram,
+	)
+
+	os.Exit(1)
+
 	fmt.Println("=============================")
-	fmt.Printf("%+v\n", params)
+	fmt.Printf("%+v\n", params.BootstrapConstraints)
 	fmt.Println("=============================")
 	return nil, nil
 }

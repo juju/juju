@@ -17,15 +17,6 @@ const (
 	providerType = "oracle"
 )
 
-type shapes map[string]shape
-
-type shape struct {
-	// cpu field shows the number of CPU threads
-	cpus uint64
-	// ram field shows the amount of memory in MB
-	ram uint64
-}
-
 // provide friendly aliases for the register provider function
 var providerAliases = []string{"ocl", "orcl", "oci"}
 
@@ -36,9 +27,6 @@ var providerAliases = []string{"ocl", "orcl", "oci"}
 type environProvider struct {
 	// client for oracle cloud api connection
 	client *oci.Client
-	// oracle proivder shapes
-	// shapes
-	shapes shapes
 }
 
 // CloudSchema returns the schema used to validate input for add-cloud.  Since
@@ -119,6 +107,7 @@ func (e *environProvider) Open(params environs.OpenParams) (environs.Environ, er
 		return nil, errors.Annotatef(err, "validating cloud spec")
 	}
 
+	logger.Debugf("creating the oracle client for %q cloud", params.Cloud.Name)
 	cli, err := oci.NewClient(oci.Config{
 		Username: params.Cloud.Credential.Attributes()["username"],
 		Password: params.Cloud.Credential.Attributes()["password"],
