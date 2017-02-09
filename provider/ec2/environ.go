@@ -246,7 +246,7 @@ func (e *environ) InstanceAvailabilityZoneNames(ids []instance.Id) ([]string, er
 
 type ec2Placement struct {
 	availabilityZone *ec2.AvailabilityZoneInfo
-	subnet *ec2.Subnet
+	subnet           *ec2.Subnet
 }
 
 func (e *environ) parsePlacement(placement string) (*ec2Placement, error) {
@@ -272,43 +272,7 @@ func (e *environ) parsePlacement(placement string) (*ec2Placement, error) {
 		return nil, fmt.Errorf("invalid availability zone %q", availabilityZone)
 	case "subnet":
 		logger.Debugf("searching for subnet matching placement directive %q", value)
-		matchFunc := func(s ec2.Subnet) bool { return false }
-		_, ipNet, err := net.ParseCIDR(value)
-		if err == nil {
-			// Valid CIDR, treat it as such
-			desiredCIDR := ipNet.String()
-			matchFunc = func(s ec2.Subnet) bool {
-				_, existingIPNet, err := net.ParseCIDR(s.CIDRBlock)
-				if err != nil {
-					return false
-				}
-				if desiredCIDR == existingIPNet.String() {
-					logger.Debugf("found subnet %q by matching subnet CIDR: %s", s.Id, desiredCIDR)
-					return true
-				}
-				return false
-			}
-		} else if strings.HasPrefix(value, "subnet-") {
-			desiredSubnetID := value
-			matchFunc = func(s ec2.Subnet) bool {
-				if s.Id == desiredSubnetID {
-					logger.Debugf("found subnet %q by ID", s.Id)
-					return true
-				}
-				return false
-			}
-		} else {
-			desiredSubnetName := value
-			matchFunc = func(s ec2.Subnet) bool {
-				for _, tag := range s.Tags {
-					if tag.Key == "Name" && tag.Value == desiredSubnetName {
-						logger.Debugf("found subnet %q matching name %q", s.Id, desiredSubnetName)
-						return true
-					}
-				}
-				return false
-			}
-		}
+		matcher := CreateSubnetMatcher(value)
 		// Get all known subnets, look for a match
 		allSubnets := []string{}
 		subnetResp, err := e.ec2.Subnets(nil, nil)
@@ -321,20 +285,15 @@ func (e *environ) parsePlacement(placement string) (*ec2Placement, error) {
 			return nil, errors.Trace(err)
 		}
 		for _, subnet := range subnetResp.Subnets {
-			_, _, err := net.ParseCIDR(subnet.CIDRBlock)
-			if err != nil {
-				logger.Debugf("EC2.Subnets() returned a subnet with an invalid CIDR: %q", subnet.CIDRBlock)
-				continue
-			}
-			allSubnets = append(allSubnets, fmt.Sprintf("%s %s", subnet.Id, subnet.CIDRBlock))
-			if matchFunc(subnet) {
+			allSubnets = append(allSubnets, fmt.Sprintf("%q:%q", subnet.Id, subnet.CIDRBlock))
+			if matcher.Match(subnet) {
 				// We found the CIDR, now see if we can find the AZ
 				for _, zone := range zones {
 					if zone.Name() == subnet.AvailZone {
 						ec2AZ := zone.(*ec2AvailabilityZone)
 						return &ec2Placement{
 							availabilityZone: &ec2AZ.AvailabilityZoneInfo,
-							subnet: &subnet,
+							subnet:           &subnet,
 						}, nil
 					}
 				}
@@ -452,12 +411,12 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 			return nil, err
 		}
 		if placement.availabilityZone.State != availableState {
-			return nil, errors.Errorf("availability zone %q is %s", placement.availabilityZone.Name, placement.availabilityZone.State)
+			return nil, errors.Errorf("availability zone %q is %q", placement.availabilityZone.Name, placement.availabilityZone.State)
 		}
 		availabilityZones = append(availabilityZones, placement.availabilityZone.Name)
-		if placement.subnet != nil{
+		if placement.subnet != nil {
 			if placement.subnet.State != availableState {
-				return nil, errors.Errorf("subnet %q is %s", placement.subnet.CIDRBlock, placement.subnet.State)
+				return nil, errors.Errorf("subnet %q is %q", placement.subnet.CIDRBlock, placement.subnet.State)
 			}
 			placementSubnetID = placement.subnet.Id
 		}
