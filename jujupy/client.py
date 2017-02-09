@@ -2728,7 +2728,10 @@ class ModelClient:
                 child.expect('Enter the API endpoint url for the cloud:')
                 child.sendline(cloud['endpoint'])
                 for num, (name, values) in enumerate(cloud['regions'].items()):
-                    child.expect('Enter region name:')
+                    child.expect("(Enter region name:)|"
+                                 "(Can't validate endpoint)")
+                    if child.match.group(2) is not None:
+                        raise InvalidEndpoint()
                     child.sendline(name)
                     child.expect('Enter another region\? \(Y/n\):')
                     if num + 1 < len(cloud['regions']):

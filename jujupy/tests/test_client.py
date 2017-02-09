@@ -3355,6 +3355,19 @@ class TestModelClient(ClientTest):
         client.add_cloud_interactive('foo', clouds['foo'])
         self.assertEqual(client._backend.clouds, clouds)
 
+    def test_add_cloud_interactive_vsphere_invalid_endpoint(self):
+        client = fake_juju_client()
+        clouds = {'foo': {
+            'type': 'vsphere',
+            'endpoint': 'B' * 4000,
+            'regions': {
+                'harvey': {},
+                'steve': {},
+                }
+            }}
+        with self.assertRaises(InvalidEndpoint):
+            client.add_cloud_interactive('foo', clouds['foo'])
+
     def test_add_cloud_interactive_bogus(self):
         client = fake_juju_client()
         clouds = {'foo': {'type': 'bogus'}}
