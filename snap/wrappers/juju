@@ -1,0 +1,18 @@
+#!/bin/bash
+
+debian_socket=/var/lib/lxd
+snap_lxd_socket=/var/snap/lxd/common/lxd
+
+lxd_binary=$(which lxd)
+
+# Prefer debian installed lxd, if availible
+if [ "$lxd_binary" = "/usr/bin/lxd" ]; then
+    export LXD_DIR=$debian_socket
+elif [ "$lxd_binary" = "/snap/bin/lxd" ]; then
+    export LXD_DIR=$snap_lxd_socket
+fi
+
+# Make sure we access snap binaries first
+export PATH=$SNAP/bin:$SNAP/usr/bin:/snap/bin:$PATH
+
+exec $SNAP/bin/juju "$@"
