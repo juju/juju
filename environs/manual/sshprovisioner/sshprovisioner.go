@@ -185,7 +185,13 @@ func checkProvisioned(host string) (bool, error) {
 // detect the OS series and hardware characteristics.
 const detectionScript = `#!/bin/bash
 set -e
-lsb_release -cs
+os_id=$(grep '^ID=' /etc/os-release | tr -d '"' | cut -d= -f2)
+if [ "$os_id" = 'centos' ]; then
+  os_version=$(grep '^VERSION_ID=' /etc/os-release | tr -d '"' | cut -d= -f2)
+  echo "centos$os_version"
+else
+  lsb_release -cs
+fi
 uname -m
 grep MemTotal /proc/meminfo
 cat /proc/cpuinfo`
