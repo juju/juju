@@ -21,6 +21,9 @@ import (
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/introspection"
 	"github.com/juju/juju/worker/workertest"
+
+	// Bring in the state package for the tracker profile.
+	_ "github.com/juju/juju/state"
 )
 
 type suite struct {
@@ -122,10 +125,10 @@ func (s *introspectionSuite) TestMissingStatePoolReporter(c *gc.C) {
 	matches(c, buf, "State Pool Report: missing reporter")
 }
 
-func (s *introspectionSuite) TestMissingStateTrackerReporter(c *gc.C) {
-	buf := s.call(c, "/statetracker/")
-	matches(c, buf, "404 Not Found")
-	matches(c, buf, "State Instance Report: missing reporter")
+func (s *introspectionSuite) TestStateTrackerReporter(c *gc.C) {
+	buf := s.call(c, "/debug/pprof/juju/state/tracker")
+	matches(c, buf, "200 OK")
+	matches(c, buf, "juju/state/tracker profile: total")
 }
 
 func (s *introspectionSuite) TestEngineReporter(c *gc.C) {
