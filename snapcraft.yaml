@@ -2,12 +2,12 @@ name: juju
 version: 2.2-alpha1
 summary: juju client
 description: Through the use of charms, juju provides you with shareable, re-usable, and repeatable expressions of devops best practices.
-confinement: devmode
+confinement: classic
+grade: devel
 
 apps:
   juju:
     command: bin/juju
-    plugs: [network, network-bind, home]
 
 parts:
   juju:
@@ -16,10 +16,11 @@ parts:
     source: https://github.com/juju/juju.git
     source-type: git
     build-packages: [gcc]
-    #If you want to grab a specific revision tag, include it here
-    #source-tag: juju-2.0.0
-    snap:
+    source-branch: develop
+    #If you want, you can target a tag instead of a branch
+    #source-tag: juju-2.0.2
+    prime:
     - -bin/filetoconst
     - -bin/winuserdata
-    #If you are releasing a build with public streams, also remove the agent
+    #If this version of juju will have public streams, you can remove the agent as well
     #- -bin/jujud
