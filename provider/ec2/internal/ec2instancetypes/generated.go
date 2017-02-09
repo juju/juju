@@ -1,4 +1,4 @@
-// Copyright 2016 Canonical Ltd.
+// Copyright 2017 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package ec2instancetypes
@@ -795,19 +795,6 @@ var allInstanceTypes = map[string][]instances.InstanceType{
 
 	"ap-northeast-2": {
 
-		// SKU: 3MBNRY22Y6A2W6WY
-		// Instance family: General purpose
-		// Storage: 1 x 4 SSD
-		{
-			Name:     "m3.medium",
-			Arches:   amd64,
-			CpuCores: 1,
-			CpuPower: instances.CpuPower(350),
-			Mem:      3840,
-			VirtType: &hvm,
-			Cost:     91,
-		},
-
 		// SKU: 3UWMR4BVSMJ3PTQ5
 		// Instance family: Storage optimized
 		// Storage: 1 x 800 SSD
@@ -819,19 +806,6 @@ var allInstanceTypes = map[string][]instances.InstanceType{
 			Mem:      31232,
 			VirtType: &hvm,
 			Cost:     1000,
-		},
-
-		// SKU: 45D7HY2M47KUYJXR
-		// Instance family: Compute optimized
-		// Storage: 2 x 320 SSD
-		{
-			Name:     "c3.8xlarge",
-			Arches:   amd64,
-			CpuCores: 32,
-			CpuPower: instances.CpuPower(12543),
-			Mem:      61440,
-			VirtType: &hvm,
-			Cost:     1839,
 		},
 
 		// SKU: 5CB9VHZSJWQTZN3W
@@ -873,19 +847,6 @@ var allInstanceTypes = map[string][]instances.InstanceType{
 			Cost:     19341,
 		},
 
-		// SKU: 6K25ZNG5NAXQC5AB
-		// Instance family: GPU instance
-		// Storage: 1 x 60 SSD
-		{
-			Name:     "g2.2xlarge",
-			Arches:   amd64,
-			CpuCores: 8,
-			CpuPower: instances.CpuPower(2911),
-			Mem:      15360,
-			VirtType: &hvm,
-			Cost:     898,
-		},
-
 		// SKU: 6NSPY3BTJRX47KWG
 		// Instance family: General purpose
 		// Storage: EBS only
@@ -925,32 +886,6 @@ var allInstanceTypes = map[string][]instances.InstanceType{
 			Cost:     200,
 		},
 
-		// SKU: 7GTTQXNXREPMU7WY
-		// Instance family: General purpose
-		// Storage: 2 x 40 SSD
-		{
-			Name:     "m3.xlarge",
-			Arches:   amd64,
-			CpuCores: 4,
-			CpuPower: instances.CpuPower(1400),
-			Mem:      15360,
-			VirtType: &hvm,
-			Cost:     366,
-		},
-
-		// SKU: 7MQ7AMJWV8BPWH88
-		// Instance family: Compute optimized
-		// Storage: 2 x 160 SSD
-		{
-			Name:     "c3.4xlarge",
-			Arches:   amd64,
-			CpuCores: 16,
-			CpuPower: instances.CpuPower(6271),
-			Mem:      30720,
-			VirtType: &hvm,
-			Cost:     919,
-		},
-
 		// SKU: 7VFMGFAWZ9QPBHST
 		// Instance family: General purpose
 		// Storage: EBS only
@@ -975,19 +910,6 @@ var allInstanceTypes = map[string][]instances.InstanceType{
 			Mem:      31232,
 			VirtType: &hvm,
 			Cost:     844,
-		},
-
-		// SKU: 98ZFCFAZXXRGF7CG
-		// Instance family: GPU instance
-		// Storage: 2 x 120 SSD
-		{
-			Name:     "g2.8xlarge",
-			Arches:   amd64,
-			CpuCores: 32,
-			CpuPower: instances.CpuPower(11647),
-			Mem:      61440,
-			VirtType: &hvm,
-			Cost:     3592,
 		},
 
 		// SKU: 9DY7H84NVAJTABAD
@@ -1068,32 +990,6 @@ var allInstanceTypes = map[string][]instances.InstanceType{
 			Cost:     128,
 		},
 
-		// SKU: CFXCUT5A22XNZ43Y
-		// Instance family: Compute optimized
-		// Storage: 2 x 16 SSD
-		{
-			Name:     "c3.large",
-			Arches:   both,
-			CpuCores: 2,
-			CpuPower: instances.CpuPower(783),
-			Mem:      3840,
-			VirtType: &hvm,
-			Cost:     115,
-		},
-
-		// SKU: DTEVN35HD43BM5ST
-		// Instance family: General purpose
-		// Storage: 2 x 80 SSD
-		{
-			Name:     "m3.2xlarge",
-			Arches:   amd64,
-			CpuCores: 8,
-			CpuPower: instances.CpuPower(2800),
-			Mem:      30720,
-			VirtType: &hvm,
-			Cost:     732,
-		},
-
 		// SKU: EGXGRBT8ERK49SBP
 		// Instance family: General purpose
 		// Storage: EBS only
@@ -1157,19 +1053,6 @@ var allInstanceTypes = map[string][]instances.InstanceType{
 			Mem:      62464,
 			VirtType: &hvm,
 			Cost:     1688,
-		},
-
-		// SKU: K79C7JVTDAKRA842
-		// Instance family: General purpose
-		// Storage: 1 x 32 SSD
-		{
-			Name:     "m3.large",
-			Arches:   amd64,
-			CpuCores: 2,
-			CpuPower: instances.CpuPower(700),
-			Mem:      7680,
-			VirtType: &hvm,
-			Cost:     183,
 		},
 
 		// SKU: KF2B96YA25ZRC292
@@ -1287,32 +1170,6 @@ var allInstanceTypes = map[string][]instances.InstanceType{
 			Mem:      2048,
 			VirtType: &hvm,
 			Cost:     32,
-		},
-
-		// SKU: R7GFV82WRF8QTZYP
-		// Instance family: Compute optimized
-		// Storage: 2 x 40 SSD
-		{
-			Name:     "c3.xlarge",
-			Arches:   amd64,
-			CpuCores: 4,
-			CpuPower: instances.CpuPower(1567),
-			Mem:      7680,
-			VirtType: &hvm,
-			Cost:     230,
-		},
-
-		// SKU: RM2KHQ9S45BW6B7M
-		// Instance family: Compute optimized
-		// Storage: 2 x 80 SSD
-		{
-			Name:     "c3.2xlarge",
-			Arches:   amd64,
-			CpuCores: 8,
-			CpuPower: instances.CpuPower(3135),
-			Mem:      15360,
-			VirtType: &hvm,
-			Cost:     460,
 		},
 
 		// SKU: WFBUYA3WPRPDVNEH
