@@ -60,8 +60,8 @@ func (s *clientSuite) SetUpTest(c *gc.C) {
 	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
 
 	s.authoriser = apiservertesting.FakeAuthorizer{
-		Tag:            s.AdminUserTag(c),
-		EnvironManager: true,
+		Tag:        s.AdminUserTag(c),
+		Controller: true,
 	}
 
 	var err error

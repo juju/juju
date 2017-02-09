@@ -45,8 +45,8 @@ func (s *SpacesSuite) SetUpTest(c *gc.C) {
 
 	s.resources = common.NewResources()
 	s.authorizer = apiservertesting.FakeAuthorizer{
-		Tag:            names.NewUserTag("admin"),
-		EnvironManager: false,
+		Tag:        names.NewUserTag("admin"),
+		Controller: false,
 	}
 
 	var err error

@@ -35,8 +35,8 @@ func (f *fakeModelMachinesWatcher) WatchModelMachines() state.StringsWatcher {
 
 func (s *modelMachinesWatcherSuite) TestWatchModelMachines(c *gc.C) {
 	authorizer := apiservertesting.FakeAuthorizer{
-		Tag:            names.NewMachineTag("0"),
-		EnvironManager: true,
+		Tag:        names.NewMachineTag("0"),
+		Controller: true,
 	}
 	resources := common.NewResources()
 	s.AddCleanup(func(_ *gc.C) { resources.StopAll() })
@@ -53,8 +53,8 @@ func (s *modelMachinesWatcherSuite) TestWatchModelMachines(c *gc.C) {
 
 func (s *modelMachinesWatcherSuite) TestWatchAuthError(c *gc.C) {
 	authorizer := apiservertesting.FakeAuthorizer{
-		Tag:            names.NewMachineTag("1"),
-		EnvironManager: false,
+		Tag:        names.NewMachineTag("1"),
+		Controller: false,
 	}
 	resources := common.NewResources()
 	s.AddCleanup(func(_ *gc.C) { resources.StopAll() })

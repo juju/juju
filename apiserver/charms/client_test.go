@@ -28,8 +28,8 @@ func (s *charmsSuite) SetUpTest(c *gc.C) {
 
 	var err error
 	auth := testing.FakeAuthorizer{
-		Tag:            s.AdminUserTag(c),
-		EnvironManager: true,
+		Tag:        s.AdminUserTag(c),
+		Controller: true,
 	}
 	s.api, err = charms.NewAPI(s.State, common.NewResources(), auth)
 	c.Assert(err, jc.ErrorIsNil)
