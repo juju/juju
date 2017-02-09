@@ -13,13 +13,15 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	coremigration "github.com/juju/juju/core/migration"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/migration"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/stateenvirons"
 )
 
 func init() {
-	common.RegisterStandardFacade("MigrationTarget", 1, NewAPI)
+	common.RegisterStandardFacade("MigrationTarget", 1, newAPIWithRealEnviron)
 }
 
 // API implements the API required for the model migration
@@ -28,22 +30,31 @@ type API struct {
 	state      *state.State
 	authorizer facade.Authorizer
 	resources  facade.Resources
+	pool       *state.StatePool
+	getEnviron stateenvirons.NewEnvironFunc
 }
 
-// NewAPI returns a new API.
-func NewAPI(
-	st *state.State,
-	resources facade.Resources,
-	authorizer facade.Authorizer,
-) (*API, error) {
-	if err := checkAuth(authorizer, st); err != nil {
+// NewAPI returns a new API. Accepts a NewEnvironFunc for testing
+// purposes.
+func NewAPI(ctx facade.Context, getEnviron stateenvirons.NewEnvironFunc) (*API, error) {
+	auth := ctx.Auth()
+	st := ctx.State()
+	if err := checkAuth(auth, st); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return &API{
 		state:      st,
-		authorizer: authorizer,
-		resources:  resources,
+		authorizer: auth,
+		resources:  ctx.Resources(),
+		pool:       ctx.StatePool(),
+		getEnviron: getEnviron,
 	}, nil
+}
+
+// newAPIWithRealEnviron creates an API with a real environ factory
+// function.
+func newAPIWithRealEnviron(ctx facade.Context) (*API, error) {
+	return NewAPI(ctx, stateenvirons.GetNewEnvironFunc(environs.New))
 }
 
 func checkAuth(authorizer facade.Authorizer, st *state.State) error {
@@ -97,8 +108,8 @@ func (api *API) Import(serialized params.SerializedModel) error {
 	return err
 }
 
-func (api *API) getModel(args params.ModelArgs) (*state.Model, error) {
-	tag, err := names.ParseModelTag(args.ModelTag)
+func (api *API) getModel(modelTag string) (*state.Model, error) {
+	tag, err := names.ParseModelTag(modelTag)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -110,7 +121,7 @@ func (api *API) getModel(args params.ModelArgs) (*state.Model, error) {
 }
 
 func (api *API) getImportingModel(args params.ModelArgs) (*state.Model, error) {
-	model, err := api.getModel(args)
+	model, err := api.getModel(args.ModelTag)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -167,7 +178,7 @@ func (api *API) Activate(args params.ModelArgs) error {
 //
 // Returns the zero time if no logs have been transferred.
 func (api *API) LatestLogTime(args params.ModelArgs) (time.Time, error) {
-	model, err := api.getModel(args)
+	model, err := api.getModel(args.ModelTag)
 	if err != nil {
 		return time.Time{}, errors.Trace(err)
 	}
@@ -181,4 +192,25 @@ func (api *API) LatestLogTime(args params.ModelArgs) (time.Time, error) {
 		return time.Time{}, errors.Trace(err)
 	}
 	return time.Unix(0, timestamp).In(time.UTC), nil
+}
+
+// AdoptResources asks the cloud provider to update the controller
+// tags for a model's resources. This prevents the resources from
+// being destroyed if the source controller is destroyed after the
+// model is migrated away.
+func (api *API) AdoptResources(args params.AdoptResourcesArgs) error {
+	model, err := api.getModel(args.ModelTag)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	st, release, err := api.pool.Get(model.UUID())
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defer release()
+	env, err := api.getEnviron(st)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return errors.Trace(env.AdoptResources(model.ControllerUUID(), args.SourceControllerVersion))
 }

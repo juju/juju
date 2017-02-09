@@ -93,18 +93,20 @@ func CreateMachine(params CreateMachineParams) error {
 	if params.RootDisk != 0 {
 		args = append(args, "--disk", fmt.Sprint(params.RootDisk))
 	}
-	if len(params.Interfaces) != 0 {
-		templateDir := filepath.Dir(params.UserDataFile)
+	if params.NetworkBridge != "" {
+		if len(params.Interfaces) != 0 {
+			templateDir := filepath.Dir(params.UserDataFile)
 
-		templatePath := filepath.Join(templateDir, "kvm-template.xml")
-		err := WriteTemplate(templatePath, params)
-		if err != nil {
-			return errors.Trace(err)
+			templatePath := filepath.Join(templateDir, "kvm-template.xml")
+			err := WriteTemplate(templatePath, params)
+			if err != nil {
+				return errors.Trace(err)
+			}
+
+			args = append(args, "--template", templatePath)
+		} else {
+			args = append(args, "--bridge", params.NetworkBridge)
 		}
-
-		args = append(args, "--template", templatePath)
-	} else if params.NetworkBridge != "" {
-		args = append(args, "--bridge", params.NetworkBridge)
 	}
 
 	args = append(args, params.Hostname)

@@ -21,7 +21,7 @@ type mockAuth struct {
 }
 
 // AuthModelManager is part of the facade.Authorizer interface.
-func (mock mockAuth) AuthModelManager() bool {
+func (mock mockAuth) AuthController() bool {
 	return !mock.nonManager
 }
 

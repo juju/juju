@@ -97,7 +97,9 @@ func (s *kvmBrokerSuite) startInstance(c *gc.C, broker environs.InstanceBroker, 
 
 func (s *kvmBrokerSuite) newKVMBroker(c *gc.C, bridger network.Bridger) (environs.InstanceBroker, error) {
 	managerConfig := container.ManagerConfig{container.ConfigModelUUID: coretesting.ModelTag.Id()}
-	return provisioner.NewKvmBroker(bridger, "machine-1", s.api, s.agentConfig, managerConfig)
+	tag, err := names.ParseMachineTag("machine-1")
+	c.Assert(err, jc.ErrorIsNil)
+	return provisioner.NewKvmBroker(bridger, tag, s.api, s.agentConfig, managerConfig)
 }
 
 func (s *kvmBrokerSuite) maintainInstance(c *gc.C, broker environs.InstanceBroker, machineId string) {
@@ -302,8 +304,18 @@ func (s *kvmBrokerSuite) TestStartInstancePopulatesFallbackNetworkInfo(c *gc.C) 
 		nil, // HostChangesForContainer succeeds
 		errors.NotSupportedf("container address allocation"),
 	)
-	_, err := s.startInstance(c, broker, "1/kvm/2")
-	c.Assert(err, gc.ErrorMatches, "container address allocation not supported")
+	result, err := s.startInstance(c, broker, "1/kvm/2")
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(result.NetworkInfo, jc.DeepEquals, []network.InterfaceInfo{{
+		DeviceIndex:         0,
+		InterfaceName:       "eth0",
+		InterfaceType:       network.EthernetInterface,
+		ConfigType:          network.ConfigDHCP,
+		ParentInterfaceName: "virbr0",
+		DNSServers:          network.NewAddresses("ns1.dummy", "ns2.dummy"),
+		DNSSearchDomains:    []string{"dummy", "invalid"},
+	}})
 }
 
 type kvmProvisionerSuite struct {
@@ -381,7 +393,9 @@ func (s *kvmProvisionerSuite) newKvmProvisioner(c *gc.C) provisioner.Provisioner
 	machineTag := names.NewMachineTag("0")
 	agentConfig := s.AgentConfigForTag(c, machineTag)
 	managerConfig := container.ManagerConfig{container.ConfigModelUUID: coretesting.ModelTag.Id()}
-	broker, brokerErr := provisioner.NewKvmBroker(newFakeBridgerNeverErrors(), "machine-0", s.provisioner, agentConfig, managerConfig)
+	tag, err := names.ParseMachineTag("machine-0")
+	c.Assert(err, jc.ErrorIsNil)
+	broker, brokerErr := provisioner.NewKvmBroker(newFakeBridgerNeverErrors(), tag, s.provisioner, agentConfig, managerConfig)
 	c.Assert(brokerErr, jc.ErrorIsNil)
 	toolsFinder := (*provisioner.GetToolsFinder)(s.provisioner)
 	w, err := provisioner.NewContainerProvisioner(instance.KVM, s.provisioner, agentConfig, broker, toolsFinder)

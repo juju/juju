@@ -31,7 +31,7 @@ func NewUndertakerAPI(st *state.State, resources facade.Resources, authorizer fa
 }
 
 func newUndertakerAPI(st State, resources facade.Resources, authorizer facade.Authorizer) (*UndertakerAPI, error) {
-	if !authorizer.AuthMachineAgent() || !authorizer.AuthModelManager() {
+	if !authorizer.AuthMachineAgent() || !authorizer.AuthController() {
 		return nil, common.ErrPerm
 	}
 	model, err := st.Model()

@@ -10,6 +10,7 @@ import (
 	jujutxn "github.com/juju/txn"
 	txntesting "github.com/juju/txn/testing"
 	"github.com/juju/utils/clock"
+	"github.com/juju/utils/clock/monotonic"
 	gc "gopkg.in/check.v1"
 
 	corelease "github.com/juju/juju/core/lease"
@@ -27,11 +28,12 @@ var _ = gc.Suite(&ClientSimpleRaceSuite{})
 func (s *ClientSimpleRaceSuite) TestNewClient_WorksDespite_CreateClockRace(c *gc.C) {
 	config := func(id string) lease.ClientConfig {
 		return lease.ClientConfig{
-			Id:         id,
-			Namespace:  "ns",
-			Collection: "leases",
-			Mongo:      NewMongo(s.db),
-			Clock:      clock.WallClock,
+			Id:           id,
+			Namespace:    "ns",
+			Collection:   "leases",
+			Mongo:        NewMongo(s.db),
+			Clock:        clock.WallClock,
+			MonotonicNow: monotonic.Now,
 		}
 	}
 	sutConfig := config("sut")
@@ -299,32 +301,4 @@ func (s *ClientTrickyRaceSuite) TestExpireLease_BlockedBy_ExpireThenReclaim(c *g
 
 	// The SUT has been refreshed, and you can see why the operation was invalid.
 	c.Check("name", s.sut.Expiry(), s.sut.Zero.Add(150*time.Second))
-}
-
-// ClientNTPSuite tests what happens when ntp messes with the clock.
-type ClientNTPSuite struct {
-	FixtureSuite
-}
-
-var _ = gc.Suite(&ClientNTPSuite{})
-
-func (s *ClientNTPSuite) TestTimeGoesForwards(c *gc.C) {
-	f := s.EasyFixture(c)
-	f.Clock.step = 2 * time.Millisecond
-	err := f.Client.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *ClientNTPSuite) TestTimeGoesBackwardsALittle(c *gc.C) {
-	f := s.EasyFixture(c)
-	f.Clock.step = -2 * time.Millisecond
-	err := f.Client.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *ClientNTPSuite) TestTimeGoesBackwardsALot(c *gc.C) {
-	f := s.EasyFixture(c)
-	f.Clock.step = -20 * time.Millisecond
-	err := f.Client.Refresh()
-	c.Assert(err.Error(), gc.Equals, "end of read window preceded beginning (20ms)")
 }

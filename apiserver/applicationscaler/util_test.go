@@ -21,7 +21,7 @@ type mockAuth struct {
 	modelManager bool
 }
 
-func (mock mockAuth) AuthModelManager() bool {
+func (mock mockAuth) AuthController() bool {
 	return mock.modelManager
 }
 

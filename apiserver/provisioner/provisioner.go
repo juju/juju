@@ -65,11 +65,11 @@ type ProvisionerAPI struct {
 
 // NewProvisionerAPI creates a new server-side ProvisionerAPI facade.
 func NewProvisionerAPI(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*ProvisionerAPI, error) {
-	if !authorizer.AuthMachineAgent() && !authorizer.AuthModelManager() {
+	if !authorizer.AuthMachineAgent() && !authorizer.AuthController() {
 		return nil, common.ErrPerm
 	}
 	getAuthFunc := func() (common.AuthFunc, error) {
-		isModelManager := authorizer.AuthModelManager()
+		isModelManager := authorizer.AuthController()
 		isMachineAgent := authorizer.AuthMachineAgent()
 		authEntityTag := authorizer.GetAuthTag()
 
@@ -515,7 +515,7 @@ func (p *ProvisionerAPI) SetInstanceInfo(args params.InstancesInfo) (params.Erro
 // the provisioner should retry provisioning machines with transient errors.
 func (p *ProvisionerAPI) WatchMachineErrorRetry() (params.NotifyWatchResult, error) {
 	result := params.NotifyWatchResult{}
-	if !p.authorizer.AuthModelManager() {
+	if !p.authorizer.AuthController() {
 		return result, common.ErrPerm
 	}
 	watch := newWatchMachineErrorRetry()
@@ -723,7 +723,7 @@ func (ctx *prepareOrGetContext) ProcessOneContainer(env environs.Environ, idx in
 		}
 
 		if len(parentAddrs) > 0 {
-			logger.Debugf("host machine device %q has addresses %v", parentDevice.Name(), parentAddrs)
+			logger.Infof("host machine device %q has addresses %v", parentDevice.Name(), parentAddrs)
 			firstAddress := parentAddrs[0]
 			if supportContainerAddresses {
 				parentDeviceSubnet, err := firstAddress.Subnet()
@@ -744,10 +744,7 @@ func (ctx *prepareOrGetContext) ProcessOneContainer(env environs.Environ, idx in
 				info.VLANTag = 0
 			}
 		} else {
-			logger.Debugf("host machine device %q has no addresses %v", parentDevice.Name(), parentAddrs)
-			info.ConfigType = network.ConfigDHCP
-			info.ProviderSubnetId = ""
-			info.VLANTag = 0
+			logger.Infof("host machine device %q has no addresses %v", parentDevice.Name(), parentAddrs)
 		}
 
 		logger.Tracef("prepared info for container interface %q: %+v", info.InterfaceName, info)
@@ -768,12 +765,10 @@ func (ctx *prepareOrGetContext) ProcessOneContainer(env environs.Environ, idx in
 			return err
 		}
 		logger.Debugf("got allocated info from provider: %+v", allocatedInfo)
-	} else {
-		logger.Debugf("using dhcp allocated addresses")
 	}
 
 	allocatedConfig := networkingcommon.NetworkConfigFromInterfaceInfo(allocatedInfo)
-	logger.Debugf("allocated network config: %+v", allocatedConfig)
+	logger.Tracef("allocated network config: %+v", allocatedConfig)
 	ctx.result.Results[idx].Config = allocatedConfig
 	return nil
 }

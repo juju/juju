@@ -62,6 +62,10 @@ type Context interface {
 	// capabilities will migrate towards access via Resources.
 	State() *state.State
 
+	// StatePool returns the state pool used by the apiserver to minimise the
+	// creation of the expensive *State instances.
+	StatePool() *state.StatePool
+
 	// ID returns a string that should almost always be "", unless
 	// this is a watcher facade, in which case it exists in lieu of
 	// actual arguments in the Next() call, and is used as a key
@@ -76,12 +80,12 @@ type Authorizer interface {
 	// GetAuthTag returns the entity's tag.
 	GetAuthTag() names.Tag
 
-	// AuthModelManager returns whether the authenticated entity is
-	// a machine running the environment manager job. Can't be
-	// removed from this interface without introducing a dependency
-	// on something else to look up that property: it's not inherent
-	// in the result of GetAuthTag, as the other methods all are.
-	AuthModelManager() bool
+	// AuthController returns whether the authenticated entity is
+	// a machine acting as a controller. Can't be removed from this
+	// interface without introducing a dependency on something else
+	// to look up that property: it's not inherent in the result of
+	// GetAuthTag, as the other methods all are.
+	AuthController() bool
 
 	// AuthMachineAgent returns true if the entity is a machine
 	// agent. Doesn't need to be on this interface, should be a

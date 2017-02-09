@@ -31,11 +31,11 @@ func (h introspectionHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 }
 
 func (h introspectionHandler) checkAuth(r *http.Request) error {
-	st, entity, err := h.ctx.stateAndEntityForRequestAuthenticatedUser(r)
+	st, releaser, entity, err := h.ctx.stateAndEntityForRequestAuthenticatedUser(r)
 	if err != nil {
 		return err
 	}
-	defer h.ctx.release(st)
+	defer releaser()
 
 	// Users with "superuser" access on the controller,
 	// or "read" access on the controller model, can

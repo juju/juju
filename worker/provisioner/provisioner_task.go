@@ -652,6 +652,12 @@ func (task *provisionerTask) maintainMachines(machines []*apiprovisioner.Machine
 
 func (task *provisionerTask) startMachines(machines []*apiprovisioner.Machine) error {
 	for _, m := range machines {
+		// Make sure we shouldn't be stopping before we start the next machine
+		select {
+		case <-task.catacomb.Dying():
+			return task.catacomb.ErrDying()
+		default:
+		}
 
 		pInfo, err := m.ProvisioningInfo()
 		if err != nil {

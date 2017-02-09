@@ -47,6 +47,7 @@ type LoggingStrategy interface {
 type agentLoggingStrategy struct {
 	ctxt       httpContext
 	st         *state.State
+	releaser   func()
 	version    version.Number
 	entity     names.Tag
 	filePrefix string
@@ -61,7 +62,7 @@ func newAgentLoggingStrategy(ctxt httpContext, fileLogger io.Writer) LoggingStra
 // Authenticate checks that this is request is from a machine
 // agent. Part of LoggingStrategy.
 func (s *agentLoggingStrategy) Authenticate(req *http.Request) error {
-	st, entity, err := s.ctxt.stateForRequestAuthenticatedAgent(req)
+	st, releaser, entity, err := s.ctxt.stateForRequestAuthenticatedAgent(req)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -75,10 +76,11 @@ func (s *agentLoggingStrategy) Authenticate(req *http.Request) error {
 	// address this caveat appropriately.
 	ver, err := jujuClientVersionFromReq(req)
 	if err != nil {
-		s.ctxt.release(st)
+		releaser()
 		return errors.Trace(err)
 	}
 	s.st = st
+	s.releaser = releaser
 	s.version = ver
 	s.entity = entity.Tag()
 	return nil
@@ -112,7 +114,8 @@ func (s *agentLoggingStrategy) Log(m params.LogRecord) bool {
 // been called again. Part of LoggingStrategy.
 func (s *agentLoggingStrategy) Stop() {
 	s.dbLogger.Close()
-	s.ctxt.release(s.st)
+	s.releaser()
+	// Should we clear out s.st, s.releaser, s.entity here?
 }
 
 func newLogSinkHandler(h httpContext, w io.Writer, newStrategy func(httpContext, io.Writer) LoggingStrategy) http.Handler {

@@ -55,8 +55,8 @@ func (s *provisionerSuite) SetUpTest(c *gc.C) {
 	pm := poolmanager.New(state.NewStateSettings(s.State), registry)
 
 	s.authorizer = &apiservertesting.FakeAuthorizer{
-		Tag:            names.NewMachineTag("0"),
-		EnvironManager: true,
+		Tag:        names.NewMachineTag("0"),
+		Controller: true,
 	}
 	backend := storageprovisioner.NewStateBackend(s.State)
 	s.api, err = storageprovisioner.NewStorageProvisionerAPI(backend, s.resources, s.authorizer, registry, pm)
@@ -163,7 +163,7 @@ func (s *provisionerSuite) setupFilesystems(c *gc.C) {
 
 func (s *provisionerSuite) TestVolumesMachine(c *gc.C) {
 	s.setupVolumes(c)
-	s.authorizer.EnvironManager = false
+	s.authorizer.Controller = false
 
 	results, err := s.api.Volumes(params.Entities{
 		Entities: []params.Entity{{"volume-0-0"}, {"volume-1"}, {"volume-42"}},
@@ -253,7 +253,7 @@ func (s *provisionerSuite) TestFilesystems(c *gc.C) {
 
 func (s *provisionerSuite) TestVolumeAttachments(c *gc.C) {
 	s.setupVolumes(c)
-	s.authorizer.EnvironManager = false
+	s.authorizer.Controller = false
 
 	err := s.State.SetVolumeAttachmentInfo(
 		names.NewMachineTag("0"),
@@ -295,7 +295,7 @@ func (s *provisionerSuite) TestVolumeAttachments(c *gc.C) {
 
 func (s *provisionerSuite) TestFilesystemAttachments(c *gc.C) {
 	s.setupFilesystems(c)
-	s.authorizer.EnvironManager = false
+	s.authorizer.Controller = false
 
 	err := s.State.SetFilesystemAttachmentInfo(
 		names.NewMachineTag("0"),
@@ -1081,7 +1081,7 @@ func (s *provisionerSuite) TestRemoveFilesystemsEnvironManager(c *gc.C) {
 
 func (s *provisionerSuite) TestRemoveVolumesMachineAgent(c *gc.C) {
 	s.setupVolumes(c)
-	s.authorizer.EnvironManager = false
+	s.authorizer.Controller = false
 	args := params.Entities{Entities: []params.Entity{
 		{"volume-0-0"}, {"volume-0-42"}, {"volume-42"},
 		{"volume-invalid"}, {"machine-0"},
@@ -1109,7 +1109,7 @@ func (s *provisionerSuite) TestRemoveVolumesMachineAgent(c *gc.C) {
 
 func (s *provisionerSuite) TestRemoveFilesystemsMachineAgent(c *gc.C) {
 	s.setupFilesystems(c)
-	s.authorizer.EnvironManager = false
+	s.authorizer.Controller = false
 	args := params.Entities{Entities: []params.Entity{
 		{"filesystem-0-0"}, {"filesystem-0-42"}, {"filesystem-42"},
 		{"filesystem-invalid"}, {"machine-0"},
@@ -1137,7 +1137,7 @@ func (s *provisionerSuite) TestRemoveFilesystemsMachineAgent(c *gc.C) {
 
 func (s *provisionerSuite) TestRemoveVolumeAttachments(c *gc.C) {
 	s.setupVolumes(c)
-	s.authorizer.EnvironManager = false
+	s.authorizer.Controller = false
 
 	err := s.State.DetachVolume(names.NewMachineTag("0"), names.NewVolumeTag("1"))
 	c.Assert(err, jc.ErrorIsNil)
@@ -1170,7 +1170,7 @@ func (s *provisionerSuite) TestRemoveVolumeAttachments(c *gc.C) {
 
 func (s *provisionerSuite) TestRemoveFilesystemAttachments(c *gc.C) {
 	s.setupFilesystems(c)
-	s.authorizer.EnvironManager = false
+	s.authorizer.Controller = false
 
 	err := s.State.DetachFilesystem(names.NewMachineTag("0"), names.NewFilesystemTag("1"))
 	c.Assert(err, jc.ErrorIsNil)

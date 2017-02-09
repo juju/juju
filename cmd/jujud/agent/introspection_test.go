@@ -90,7 +90,7 @@ func (s *introspectionSuite) TestStartSuccess(c *gc.C) {
 	err = startIntrospection(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(fake.config.Reporter, gc.Equals, engine)
+	c.Check(fake.config.DepEngine, gc.Equals, engine)
 	c.Check(fake.config.SocketName, gc.Equals, "bananas")
 
 	// Stopping the engine causes the introspection worker to stop.

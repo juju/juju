@@ -473,6 +473,7 @@ type mockAdapter struct {
 	volumeStatusNotifier  func(string, string, int, time.Duration) <-chan error
 	detachVolume          func(string, string) error
 	listVolumeAttachments func(string) ([]nova.VolumeAttachment, error)
+	setVolumeMetadata     func(string, map[string]string) (map[string]string, error)
 }
 
 func (ma *mockAdapter) GetVolume(volumeId string) (*cinder.Volume, error) {
@@ -530,6 +531,14 @@ func (ma *mockAdapter) ListVolumeAttachments(serverId string) ([]nova.VolumeAtta
 	ma.MethodCall(ma, "ListVolumeAttachments", serverId)
 	if ma.listVolumeAttachments != nil {
 		return ma.listVolumeAttachments(serverId)
+	}
+	return nil, nil
+}
+
+func (ma *mockAdapter) SetVolumeMetadata(volumeId string, metadata map[string]string) (map[string]string, error) {
+	ma.MethodCall(ma, "SetVolumeMetadata", volumeId, metadata)
+	if ma.setVolumeMetadata != nil {
+		return ma.setVolumeMetadata(volumeId, metadata)
 	}
 	return nil, nil
 }

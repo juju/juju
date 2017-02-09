@@ -44,12 +44,13 @@ func NewPublicFacade(st *corestate.State, _ facade.Resources, authorizer facade.
 func NewApplicationHandler(args apihttp.NewHandlerArgs) http.Handler {
 	return server.NewHTTPHandler(
 		func(req *http.Request) (server.DataStore, server.Closer, names.Tag, error) {
-			st, entity, err := args.Connect(req)
+			st, releaser, entity, err := args.Connect(req)
 			if err != nil {
 				return nil, nil, nil, errors.Trace(err)
 			}
 			closer := func() error {
-				return args.Release(st)
+				releaser()
+				return nil
 			}
 			resources, err := st.Resources()
 			if err != nil {
@@ -66,7 +67,6 @@ func NewApplicationHandler(args apihttp.NewHandlerArgs) http.Handler {
 func NewDownloadHandler(args apihttp.NewHandlerArgs) http.Handler {
 	extractor := &httpDownloadRequestExtractor{
 		connect: args.Connect,
-		release: args.Release,
 	}
 	deps := internalserver.NewHTTPHandlerDeps(extractor)
 	return internalserver.NewHTTPHandler(deps)
@@ -80,20 +80,20 @@ type stateConnector interface {
 // httpDownloadRequestExtractor provides the functionality needed to
 // handle a resource download HTTP request.
 type httpDownloadRequestExtractor struct {
-	connect func(*http.Request) (*corestate.State, corestate.Entity, error)
-	release func(*corestate.State) error
+	connect func(*http.Request) (*corestate.State, func(), corestate.Entity, error)
 }
 
 // NewResourceOpener returns a new resource.Opener for the given
 // HTTP request.
 func (ex *httpDownloadRequestExtractor) NewResourceOpener(req *http.Request) (opener resource.Opener, err error) {
-	st, _, err := ex.connect(req)
+	st, releaser, _, err := ex.connect(req)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	closer := func() error {
-		return ex.release(st)
+		releaser()
+		return nil
 	}
 
 	defer func() {
