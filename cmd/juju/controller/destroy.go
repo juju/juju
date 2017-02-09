@@ -300,7 +300,7 @@ func (c *destroyCommandBase) Init(args []string) error {
 	case 0:
 		return errors.New("no controller specified")
 	case 1:
-		return c.SetControllerName(args[0])
+		return c.SetControllerName(args[0], false)
 	default:
 		return cmd.CheckEmpty(args[1:])
 	}

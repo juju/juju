@@ -13,6 +13,15 @@ import (
 	"github.com/juju/juju/jujuclient"
 )
 
+var (
+	APIOpen          = &apiOpen
+	ListModels       = &listModels
+	NewAPIConnection = &newAPIConnection
+	LoginClientStore = &loginClientStore
+)
+
+const NoModelsMessage = noModelsMessage
+
 type AddCommand struct {
 	*addCommand
 }
@@ -71,17 +80,6 @@ func NewChangePasswordCommandForTest(
 	}
 	c.SetClientStore(store)
 	return modelcmd.WrapController(c), &ChangePasswordCommand{c}
-}
-
-// NewLoginCommand returns a LoginCommand with the api
-// and writer provided as specified.
-func NewLoginCommandForTest(
-	newLoginAPI func(juju.NewAPIConnectionParams) (LoginAPI, ConnectionAPI, error),
-	store jujuclient.ClientStore,
-) (cmd.Command, *LoginCommand) {
-	c := &loginCommand{newLoginAPI: newLoginAPI}
-	c.SetClientStore(store)
-	return modelcmd.WrapController(c), &LoginCommand{c}
 }
 
 // NewLogoutCommand returns a LogoutCommand with the api
