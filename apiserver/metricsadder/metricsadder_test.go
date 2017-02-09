@@ -226,7 +226,7 @@ func (s *metricsAdderSuite) TestNewMetricsAdderAPIRefusesNonAgent(c *gc.C) {
 		c.Logf("test %d", i)
 
 		anAuthoriser := s.authorizer
-		anAuthoriser.EnvironManager = test.environManager
+		anAuthoriser.Controller = test.environManager
 		anAuthoriser.Tag = test.tag
 		endPoint, err := metricsadder.NewMetricsAdderAPI(s.State, nil, anAuthoriser)
 		if test.expectedError == "" {

@@ -37,7 +37,7 @@ type Backend interface {
 // NewFacade returns a singular-controller API facade, backed by the supplied
 // state, so long as the authorizer represents a controller machine.
 func NewFacade(backend Backend, auth facade.Authorizer) (*Facade, error) {
-	if !auth.AuthModelManager() {
+	if !auth.AuthController() {
 		return nil, common.ErrPerm
 	}
 	return &Facade{

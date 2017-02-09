@@ -59,12 +59,12 @@ func (s *Suite) SetUpTest(c *gc.C) {
 	s.AddCleanup(func(*gc.C) { s.resources.StopAll() })
 
 	s.authorizer = apiservertesting.FakeAuthorizer{
-		EnvironManager: true,
+		Controller: true,
 	}
 }
 
 func (s *Suite) TestNotEnvironManager(c *gc.C) {
-	s.authorizer.EnvironManager = false
+	s.authorizer.Controller = false
 
 	api, err := s.makeAPI()
 	c.Assert(api, gc.IsNil)

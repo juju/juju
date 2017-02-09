@@ -53,7 +53,7 @@ func NewInstancePollerAPI(
 	clock clock.Clock,
 ) (*InstancePollerAPI, error) {
 
-	if !authorizer.AuthModelManager() {
+	if !authorizer.AuthController() {
 		// InstancePoller must run as environment manager.
 		return nil, common.ErrPerm
 	}

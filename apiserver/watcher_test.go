@@ -106,7 +106,7 @@ func (s *watcherSuite) TestFilesystemAttachmentsWatcher(c *gc.C) {
 func (s *watcherSuite) TestRemoteApplicationWatcher(c *gc.C) {
 	ch := make(chan params.RemoteApplicationChange, 1)
 	id := s.resources.Register(&fakeRemoteApplicationWatcher{ch: ch})
-	s.authorizer.EnvironManager = true
+	s.authorizer.Controller = true
 
 	ch <- params.RemoteApplicationChange{
 		ApplicationTag: names.NewApplicationTag("foo").String(),
@@ -150,7 +150,7 @@ func (w *fakeRemoteApplicationWatcher) Stop() error {
 func (s *watcherSuite) TestRemoteRelationsWatcher(c *gc.C) {
 	ch := make(chan params.RemoteRelationsChange, 1)
 	id := s.resources.Register(&fakeRemoteRelationsWatcher{ch: ch})
-	s.authorizer.EnvironManager = true
+	s.authorizer.Controller = true
 
 	ch <- params.RemoteRelationsChange{
 		RemovedRelations: []int{1, 2, 3},
@@ -168,7 +168,7 @@ func (s *watcherSuite) TestRemoteRelationsWatcher(c *gc.C) {
 
 func (s *watcherSuite) TestStopDiscards(c *gc.C) {
 	id := s.resources.Register(&fakeRemoteRelationsWatcher{})
-	s.authorizer.EnvironManager = true
+	s.authorizer.Controller = true
 	var disposed bool
 	facade := s.getFacade(c, "RemoteRelationsWatcher", 1, id, func() {
 		disposed = true

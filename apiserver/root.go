@@ -357,7 +357,7 @@ func (r *apiHandler) AuthOwner(tag names.Tag) bool {
 
 // AuthModelManager returns whether the authenticated user is a
 // machine with running the ManageEnviron job.
-func (r *apiHandler) AuthModelManager() bool {
+func (r *apiHandler) AuthController() bool {
 	return isMachineWithJob(r.entity, state.JobManageModel)
 }
 

@@ -33,7 +33,7 @@ type API struct {
 // find out what provider-level resources need to be cleaned up when a
 // machine goes away.
 func NewAPI(backend Backend, resources facade.Resources, authorizer facade.Authorizer) (*API, error) {
-	if !authorizer.AuthModelManager() {
+	if !authorizer.AuthController() {
 		return nil, errors.Trace(common.ErrPerm)
 	}
 
