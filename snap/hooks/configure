@@ -1,7 +1,9 @@
 #!/bin/bash
 
 # Make sure we have lxd installed to use
-snap install lxd || true
+if [ "$(which lxd)" = "" ]; then
+    snap install lxd || true
+fi
 
 # copy bash completions to host system
 cp -a $SNAP/bash_completions/* /usr/share/bash-completion/completions/. || true
