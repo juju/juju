@@ -122,6 +122,12 @@ func (s *introspectionSuite) TestMissingStatePoolReporter(c *gc.C) {
 	matches(c, buf, "State Pool Report: missing reporter")
 }
 
+func (s *introspectionSuite) TestMissingStateTrackerReporter(c *gc.C) {
+	buf := s.call(c, "/statetracker/")
+	matches(c, buf, "404 Not Found")
+	matches(c, buf, "State Instance Report: missing reporter")
+}
+
 func (s *introspectionSuite) TestEngineReporter(c *gc.C) {
 	// We need to make sure the existing worker is shut down
 	// so we can connect to the socket.
