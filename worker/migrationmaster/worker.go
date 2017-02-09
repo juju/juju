@@ -479,7 +479,7 @@ func (w *Worker) doSUCCESS(status coremigration.MigrationStatus) (coremigration.
 }
 
 func (w *Worker) transferResources(targetInfo coremigration.TargetInfo, modelUUID string) error {
-	w.setInfoStatus("transferring cloud resources to target controller")
+	w.setInfoStatus("transferring ownership of cloud resources to target controller")
 	conn, err := w.openAPIConn(targetInfo)
 	if err != nil {
 		return errors.Trace(err)
