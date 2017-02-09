@@ -1958,7 +1958,7 @@ class ModelClient:
                                         self.env.juju_home, model, timeout)
 
     def deploy(self, charm, repository=None, to=None, series=None,
-               service=None, force=False, resource=None,
+               service=None, force=False, resource=None, num=None,
                storage=None, constraints=None):
         args = [charm]
         if service is not None:
@@ -1971,6 +1971,8 @@ class ModelClient:
             args.extend(['--force'])
         if resource is not None:
             args.extend(['--resource', resource])
+        if num is not None:
+            args.extend(['-n', str(num)])
         if storage is not None:
             args.extend(['--storage', storage])
         if constraints is not None:
