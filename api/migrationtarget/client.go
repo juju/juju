@@ -208,3 +208,15 @@ func (c *Client) LatestLogTime(modelUUID string) (time.Time, error) {
 	}
 	return result, nil
 }
+
+// AdoptResources asks the cloud provider to update the controller
+// tags for a model's resources. This prevents the resources from
+// being destroyed if the source controller is destroyed after the
+// model is migrated away.
+func (c *Client) AdoptResources(modelUUID string) error {
+	args := params.AdoptResourcesArgs{
+		ModelTag:                names.NewModelTag(modelUUID).String(),
+		SourceControllerVersion: jujuversion.Current,
+	}
+	return errors.Trace(c.caller.FacadeCall("AdoptResources", args, nil))
+}
