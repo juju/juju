@@ -468,10 +468,27 @@ func (w *Worker) doSUCCESS(status coremigration.MigrationStatus) (coremigration.
 	if err != nil {
 		return coremigration.UNKNOWN, errors.Trace(err)
 	}
+	err = w.transferResources(status.TargetInfo, status.ModelUUID)
+	if err != nil {
+		return coremigration.UNKNOWN, errors.Trace(err)
+	}
 	// There's no turning back from SUCCESS - any problems should have
 	// been picked up in VALIDATION. After the minion wait in the
 	// SUCCESS phase, the migration can only proceed to LOGTRANSFER.
 	return coremigration.LOGTRANSFER, nil
+}
+
+func (w *Worker) transferResources(targetInfo coremigration.TargetInfo, modelUUID string) error {
+	w.setInfoStatus("transferring cloud resources to target controller")
+	conn, err := w.openAPIConn(targetInfo)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defer conn.Close()
+
+	targetClient := migrationtarget.NewClient(conn)
+	err = targetClient.AdoptResources(modelUUID)
+	return errors.Trace(err)
 }
 
 func (w *Worker) doLOGTRANSFER(targetInfo coremigration.TargetInfo, modelUUID string) (coremigration.Phase, error) {
