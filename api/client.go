@@ -56,9 +56,10 @@ func (c *Client) StatusHistory(kind status.HistoryKind, tag names.Tag, filter st
 	args := params.StatusHistoryRequest{
 		Kind: string(kind),
 		Filter: params.StatusHistoryFilter{
-			Size:  filter.Size,
-			Date:  filter.Date,
-			Delta: filter.Delta,
+			Size:    filter.Size,
+			Date:    filter.FromDate,
+			Delta:   filter.Delta,
+			Exclude: filter.Exclude.Values(),
 		},
 		Tag: tag.String(),
 	}

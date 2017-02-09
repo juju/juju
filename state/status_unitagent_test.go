@@ -264,7 +264,7 @@ func (s *StatusUnitAgentSuite) TestStatusHistoryInitial(c *gc.C) {
 }
 
 func (s *StatusUnitAgentSuite) TestStatusHistoryShort(c *gc.C) {
-	primeUnitAgentStatusHistory(c, s.agent, 5, 0)
+	primeUnitAgentStatusHistory(c, s.agent, 5, 0, "")
 
 	history, err := s.agent.StatusHistory(status.StatusHistoryFilter{Size: 10})
 	c.Check(err, jc.ErrorIsNil)
@@ -278,7 +278,7 @@ func (s *StatusUnitAgentSuite) TestStatusHistoryShort(c *gc.C) {
 }
 
 func (s *StatusUnitAgentSuite) TestStatusHistoryLong(c *gc.C) {
-	primeUnitAgentStatusHistory(c, s.agent, 25, 0)
+	primeUnitAgentStatusHistory(c, s.agent, 25, 0, "")
 
 	history, err := s.agent.StatusHistory(status.StatusHistoryFilter{Size: 15})
 	c.Check(err, jc.ErrorIsNil)

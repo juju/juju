@@ -109,9 +109,10 @@ func (c *Client) StatusHistory(request params.StatusHistoryRequests) params.Stat
 	// a oneHistory method for clarity.
 	for _, request := range request.Requests {
 		filter := status.StatusHistoryFilter{
-			Size:  request.Filter.Size,
-			Date:  request.Filter.Date,
-			Delta: request.Filter.Delta,
+			Size:     request.Filter.Size,
+			FromDate: request.Filter.Date,
+			Delta:    request.Filter.Delta,
+			Exclude:  set.NewStrings(request.Filter.Exclude...),
 		}
 		if err := c.checkCanRead(); err != nil {
 			history := params.StatusHistoryResult{
