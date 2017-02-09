@@ -443,6 +443,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleInvalidSpace(c *gc.C) {
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleWatcherTimeout(c *gc.C) {
+    coretesting.SkipFlaky(c, "lp:1625213")
 	// Inject an "AllWatcher" that never delivers a result.
 	ch := make(chan struct{})
 	defer close(ch)
