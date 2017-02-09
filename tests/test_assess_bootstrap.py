@@ -127,7 +127,7 @@ class TestPrepareMetadata(TestCase):
         with patch.object(client, 'sync_tools') as sync_mock:
             with temp_dir() as metadata_dir:
                 prepare_metadata(client, metadata_dir)
-        sync_mock.assert_called_once_with(metadata_dir)
+        sync_mock.assert_called_once_with(metadata_dir, None, None)
 
     def test_prepare_temp_metadata(self):
         client = fake_juju_client()
@@ -135,7 +135,28 @@ class TestPrepareMetadata(TestCase):
                    autospec=True) as prepare_mock:
             with prepare_temp_metadata(client) as metadata_dir:
                 pass
-        prepare_mock.assert_called_once_with(client, metadata_dir)
+        prepare_mock.assert_called_once_with(client, metadata_dir, None, None)
+
+    def test_prepare_metadata_with_stream(self):
+        client = fake_juju_client()
+        with patch.object(client, 'sync_tools') as sync_mock:
+            with temp_dir() as metadata_dir:
+                prepare_metadata(client, metadata_dir, "testing")
+        sync_mock.assert_called_once_with(metadata_dir, "testing", None)
+
+    def test_prepare_metadata_with_version(self):
+        client = fake_juju_client()
+        with patch.object(client, 'sync_tools') as sync_mock:
+            with temp_dir() as metadata_dir:
+                prepare_metadata(client, metadata_dir, None, "2.0")
+        sync_mock.assert_called_once_with(metadata_dir, None, "2.0")
+
+    def test_prepare_metadata_with_all_args(self):
+        client = fake_juju_client()
+        with patch.object(client, 'sync_tools') as sync_mock:
+            with temp_dir() as metadata_dir:
+                prepare_metadata(client, metadata_dir, "testing", "2.0")
+        sync_mock.assert_called_once_with(metadata_dir, "testing", "2.0")
 
     def test_prepare_temp_metadata_source(self):
         client = fake_juju_client()
