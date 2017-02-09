@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	commontesting "github.com/juju/juju/apiserver/common/testing"
 	"github.com/juju/juju/apiserver/controller"
+	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -51,7 +52,12 @@ func (s *destroyControllerSuite) SetUpTest(c *gc.C) {
 	authoriser := apiservertesting.FakeAuthorizer{
 		Tag: s.AdminUserTag(c),
 	}
-	controller, err := controller.NewControllerAPI(s.State, resources, authoriser)
+	controller, err := controller.NewControllerAPI(
+		facadetest.Context{
+			State_:     s.State,
+			Resources_: resources,
+			Auth_:      authoriser,
+		})
 	c.Assert(err, jc.ErrorIsNil)
 	s.controller = controller
 

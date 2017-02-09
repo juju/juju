@@ -264,9 +264,8 @@ func (s *stubSource) newSource(req *http.Request) (logStreamSource, closerFunc, 
 		return nil, nil, errors.Trace(err)
 	}
 
-	closer := func() error {
+	closer := func() {
 		s.stub.AddCall("close")
-		return s.stub.NextErr()
 	}
 	return s, closer, nil
 }

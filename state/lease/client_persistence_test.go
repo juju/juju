@@ -8,6 +8,7 @@ import (
 
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/clock"
+	"github.com/juju/utils/clock/monotonic"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2/bson"
 
@@ -25,11 +26,12 @@ var _ = gc.Suite(&ClientPersistenceSuite{})
 
 func (s *ClientPersistenceSuite) TestNewClientInvalidClockDoc(c *gc.C) {
 	config := lease.ClientConfig{
-		Id:         "client",
-		Namespace:  "namespace",
-		Collection: "collection",
-		Mongo:      NewMongo(s.db),
-		Clock:      clock.WallClock,
+		Id:           "client",
+		Namespace:    "namespace",
+		Collection:   "collection",
+		Mongo:        NewMongo(s.db),
+		Clock:        clock.WallClock,
+		MonotonicNow: monotonic.Now,
 	}
 	dbKey := "clock#namespace#"
 	err := s.db.C("collection").Insert(bson.M{"_id": dbKey})
@@ -42,11 +44,12 @@ func (s *ClientPersistenceSuite) TestNewClientInvalidClockDoc(c *gc.C) {
 
 func (s *ClientPersistenceSuite) TestNewClientInvalidLeaseDoc(c *gc.C) {
 	config := lease.ClientConfig{
-		Id:         "client",
-		Namespace:  "namespace",
-		Collection: "collection",
-		Mongo:      NewMongo(s.db),
-		Clock:      clock.WallClock,
+		Id:           "client",
+		Namespace:    "namespace",
+		Collection:   "collection",
+		Mongo:        NewMongo(s.db),
+		Clock:        clock.WallClock,
+		MonotonicNow: monotonic.Now,
 	}
 	err := s.db.C("collection").Insert(bson.M{
 		"_id":       "snagglepuss",

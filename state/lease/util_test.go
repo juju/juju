@@ -47,6 +47,23 @@ func (clock *Clock) Advance(duration time.Duration) {
 	clock.now = clock.now.Add(duration)
 }
 
+type monotonicClock struct {
+	now  time.Duration
+	step time.Duration
+}
+
+func (m *monotonicClock) Now() time.Duration {
+	m.now += m.step
+	return m.now
+}
+
+// newMonotonicClock returns a monotonic clock instance whose
+// Now() method returns a duration advance by step each time
+// it is called.
+func newMonotonicClock(step time.Duration) *monotonicClock {
+	return &monotonicClock{step: step}
+}
+
 // Mongo exposes database operations. It uses a real database -- we can't mock
 // mongo out, we need to check it really actually works -- but it's good to
 // have the runner accessible for adversarial transaction tests.

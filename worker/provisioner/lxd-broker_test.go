@@ -70,7 +70,9 @@ func (s *lxdBrokerSuite) startInstance(c *gc.C, broker environs.InstanceBroker, 
 }
 
 func (s *lxdBrokerSuite) newLXDBroker(c *gc.C, bridger network.Bridger) (environs.InstanceBroker, error) {
-	return provisioner.NewLxdBroker(bridger, "machine-1", s.api, s.manager, s.agentConfig)
+	tag, err := names.ParseMachineTag("machine-1")
+	c.Assert(err, jc.ErrorIsNil)
+	return provisioner.NewLxdBroker(bridger, tag, s.api, s.manager, s.agentConfig)
 }
 
 func (s *lxdBrokerSuite) TestStartInstanceGetObservedNetworkConfigFails(c *gc.C) {
@@ -204,8 +206,18 @@ func (s *lxdBrokerSuite) TestStartInstancePopulatesFallbackNetworkInfo(c *gc.C) 
 		nil, // HostChangesForContainer succeeds
 		errors.NotSupportedf("container address allocation"),
 	)
-	_, err := s.startInstance(c, broker, "1/lxd/0")
-	c.Assert(err, gc.ErrorMatches, "container address allocation not supported")
+	result, err := s.startInstance(c, broker, "1/lxd/0")
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(result.NetworkInfo, jc.DeepEquals, []network.InterfaceInfo{{
+		DeviceIndex:         0,
+		InterfaceName:       "eth0",
+		InterfaceType:       network.EthernetInterface,
+		ConfigType:          network.ConfigDHCP,
+		ParentInterfaceName: "lxdbr0",
+		DNSServers:          network.NewAddresses("ns1.dummy", "ns2.dummy"),
+		DNSSearchDomains:    []string{"dummy", "invalid"},
+	}})
 }
 
 func (s *lxdBrokerSuite) TestStartInstanceNoHostArchTools(c *gc.C) {

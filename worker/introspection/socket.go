@@ -29,10 +29,18 @@ type DepEngineReporter interface {
 	Report() map[string]interface{}
 }
 
+// IntrospectionReporter provides a simple method that the introspection
+// worker will output for the entity.
+type IntrospectionReporter interface {
+	IntrospectionReport() string
+}
+
 // Config describes the arguments required to create the introspection worker.
 type Config struct {
 	SocketName         string
-	Reporter           DepEngineReporter
+	DepEngine          DepEngineReporter
+	StatePool          IntrospectionReporter
+	StateTracker       IntrospectionReporter
 	PrometheusGatherer prometheus.Gatherer
 }
 
@@ -51,7 +59,9 @@ func (c *Config) Validate() error {
 type socketListener struct {
 	tomb               tomb.Tomb
 	listener           *net.UnixListener
-	reporter           DepEngineReporter
+	depEngine          DepEngineReporter
+	statePool          IntrospectionReporter
+	stateTracker       IntrospectionReporter
 	prometheusGatherer prometheus.Gatherer
 	done               chan struct{}
 }
@@ -80,7 +90,9 @@ func NewWorker(config Config) (worker.Worker, error) {
 
 	w := &socketListener{
 		listener:           l,
-		reporter:           config.Reporter,
+		depEngine:          config.DepEngine,
+		statePool:          config.StatePool,
+		stateTracker:       config.StateTracker,
 		prometheusGatherer: config.PrometheusGatherer,
 		done:               make(chan struct{}),
 	}
@@ -91,7 +103,13 @@ func NewWorker(config Config) (worker.Worker, error) {
 
 func (w *socketListener) serve() {
 	mux := http.NewServeMux()
-	RegisterHTTPHandlers(w.reporter, w.prometheusGatherer, mux.Handle)
+	RegisterHTTPHandlers(
+		ReportSources{
+			DependencyEngine:   w.depEngine,
+			StatePool:          w.statePool,
+			StateTracker:       w.stateTracker,
+			PrometheusGatherer: w.prometheusGatherer,
+		}, mux.Handle)
 
 	srv := http.Server{Handler: mux}
 	logger.Debugf("stats worker now serving")
@@ -120,21 +138,37 @@ func (w *socketListener) Wait() error {
 	return w.tomb.Wait()
 }
 
+// ReportSources are the various information sources that are exposed
+// through the introspection facility.
+type ReportSources struct {
+	DependencyEngine   DepEngineReporter
+	StatePool          IntrospectionReporter
+	StateTracker       IntrospectionReporter
+	PrometheusGatherer prometheus.Gatherer
+}
+
 // AddHandlers calls the given function with http.Handlers
 // that serve agent introspection requests. The function will
 // be called with a path; the function may alter the path
 // as it sees fit.
 func RegisterHTTPHandlers(
-	reporter DepEngineReporter,
-	prometheusGatherer prometheus.Gatherer,
+	sources ReportSources,
 	handle func(path string, h http.Handler),
 ) {
 	handle("/debug/pprof/", http.HandlerFunc(pprof.Index))
 	handle("/debug/pprof/cmdline", http.HandlerFunc(pprof.Cmdline))
 	handle("/debug/pprof/profile", http.HandlerFunc(pprof.Profile))
 	handle("/debug/pprof/symbol", http.HandlerFunc(pprof.Symbol))
-	handle("/depengine/", depengineHandler{reporter})
-	handle("/metrics", promhttp.HandlerFor(prometheusGatherer, promhttp.HandlerOpts{}))
+	handle("/depengine/", depengineHandler{sources.DependencyEngine})
+	handle("/statepool/", introspectionReporterHandler{
+		name:     "State Pool Report",
+		reporter: sources.StatePool,
+	})
+	handle("/statetracker/", introspectionReporterHandler{
+		name:     "State Instance Report",
+		reporter: sources.StateTracker,
+	})
+	handle("/metrics", promhttp.HandlerFor(sources.PrometheusGatherer, promhttp.HandlerOpts{}))
 }
 
 type depengineHandler struct {
@@ -145,7 +179,7 @@ type depengineHandler struct {
 func (h depengineHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if h.reporter == nil {
 		w.WriteHeader(http.StatusNotFound)
-		fmt.Fprintln(w, "missing reporter")
+		fmt.Fprintln(w, "missing dependency engine reporter")
 		return
 	}
 	bytes, err := yaml.Marshal(h.reporter.Report())
@@ -159,4 +193,23 @@ func (h depengineHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	fmt.Fprint(w, "Dependency Engine Report\n\n")
 	w.Write(bytes)
+}
+
+type introspectionReporterHandler struct {
+	name     string
+	reporter IntrospectionReporter
+}
+
+// ServeHTTP is part of the http.Handler interface.
+func (h introspectionReporterHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if h.reporter == nil {
+		w.WriteHeader(http.StatusNotFound)
+		fmt.Fprintf(w, "%s: missing reporter\n", h.name)
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+
+	fmt.Fprintf(w, "%s:\n\n", h.name)
+	fmt.Fprint(w, h.reporter.IntrospectionReport())
 }
