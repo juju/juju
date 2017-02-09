@@ -1092,6 +1092,15 @@ func (env *azureEnviron) instances(
 // AdoptResources is part of the Environ interface.
 func (env *azureEnviron) AdoptResources(controllerUUID string, fromVersion version.Number) error {
 	groupClient := resources.GroupsClient{env.resources}
+
+	err := env.updateGroupControllerTag(&groupClient, env.resourceGroup, controllerUUID)
+	if err != nil {
+		// If we can't update the group there's no point updating the
+		// contained resources - the group will be killed if the
+		// controller is destroyed, taking the other things with it.
+		return errors.Trace(err)
+	}
+
 	resourceClient := resources.Client{env.resources}
 	var failed []string
 
@@ -1137,6 +1146,30 @@ func (env *azureEnviron) AdoptResources(controllerUUID string, fromVersion versi
 		return errors.Errorf("failed to update controller for some resources: %v", failed)
 	}
 	return nil
+}
+
+func (env *azureEnviron) updateGroupControllerTag(client *resources.GroupsClient, groupName, controllerUUID string) error {
+	var group resources.ResourceGroup
+	err := env.callAPI(func() (autorest.Response, error) {
+		var err error
+		group, err = client.Get(groupName)
+		return group.Response, err
+	})
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	logger.Debugf("updating resource group %s juju controller uuid to %s",
+		to.String(group.Name), controllerUUID)
+	groupTags := toTags(group.Tags)
+	groupTags[tags.JujuController] = controllerUUID
+	group.Tags = to.StringMapPtr(groupTags)
+
+	err = env.callAPI(func() (autorest.Response, error) {
+		res, err := client.CreateOrUpdate(groupName, group)
+		return res.Response, err
+	})
+	return errors.Annotatef(err, "updating controller for resource group %q", groupName)
 }
 
 func (env *azureEnviron) updateResourceControllerTag(client *resources.Client, stubResource resources.GenericResource, controllerUUID string) error {
