@@ -45,7 +45,7 @@ func (s *MachineWithCharmsSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *MachineWithCharmsSuite) TestManageModelRunsCharmRevisionUpdater(c *gc.C) {
-    coretesting.SkipFlaky(c, "lp:1466514")
+	coretesting.SkipFlaky(c, "lp:1466514")
 	m, _, _ := s.primeAgent(c, state.JobManageModel)
 
 	s.SetupScenario(c)
