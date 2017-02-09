@@ -157,6 +157,7 @@ var localhostCloud = cloud.Cloud{
 	Name: lxdnames.DefaultCloud,
 	Type: lxdnames.ProviderType,
 	AuthTypes: []cloud.AuthType{
+		interactiveAuthType,
 		cloud.CertificateAuthType,
 	},
 	Endpoint: "",

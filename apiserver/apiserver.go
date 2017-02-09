@@ -126,14 +126,14 @@ type ServerConfig struct {
 	// notified of key events during API requests.
 	NewObserver observer.ObserverFactory
 
+	// StatePool is created by the machine agent and passed in.
+	StatePool *state.StatePool
+
 	// RegisterIntrospectionHandlers is a function that will
 	// call a function with (path, http.Handler) tuples. This
 	// is to support registering the handlers underneath the
 	// "/introspection" prefix.
 	RegisterIntrospectionHandlers func(func(string, http.Handler))
-
-	// StatePool only exists to support testing.
-	StatePool *state.StatePool
 }
 
 func (c *ServerConfig) Validate() error {
@@ -145,6 +145,9 @@ func (c *ServerConfig) Validate() error {
 	}
 	if c.NewObserver == nil {
 		return errors.NotValidf("missing NewObserver")
+	}
+	if c.StatePool == nil {
+		return errors.NotValidf("missing StatePool")
 	}
 
 	return nil
@@ -580,11 +583,8 @@ func (srv *Server) newHandlerArgs(spec apihttp.HandlerConstraints) apihttp.NewHa
 		controllerModelOnly: spec.ControllerModelOnly,
 	}
 	return apihttp.NewHandlerArgs{
-		Connect: func(req *http.Request) (*state.State, state.Entity, error) {
+		Connect: func(req *http.Request) (*state.State, func(), state.Entity, error) {
 			return ctxt.stateForRequestAuthenticatedTag(req, spec.AuthKinds...)
-		},
-		Release: func(st *state.State) error {
-			return ctxt.release(st)
 		},
 	}
 }
@@ -670,20 +670,16 @@ func (srv *Server) serveConn(wsConn *websocket.Conn, modelUUID string, apiObserv
 		modelUUID: modelUUID,
 	})
 	var (
-		st *state.State
-		h  *apiHandler
+		st       *state.State
+		h        *apiHandler
+		releaser func()
 	)
 	if err == nil {
-		st, err = srv.statePool.Get(resolvedModelUUID)
+		st, releaser, err = srv.statePool.Get(resolvedModelUUID)
 	}
 
 	if err == nil {
-		defer func() {
-			err := srv.statePool.Release(resolvedModelUUID)
-			if err != nil {
-				logger.Errorf("error releasing %v back into the state pool: %v", resolvedModelUUID, err)
-			}
-		}()
+		defer releaser()
 		h, err = newAPIHandler(srv, st, conn, modelUUID, host)
 	}
 

@@ -74,12 +74,12 @@ func (h *debugLogHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			socket := &debugLogSocketImpl{conn}
 			defer conn.Close()
 
-			st, _, err := h.ctxt.stateForRequestAuthenticatedTag(req, names.MachineTagKind, names.UserTagKind)
+			st, releaser, _, err := h.ctxt.stateForRequestAuthenticatedTag(req, names.MachineTagKind, names.UserTagKind)
 			if err != nil {
 				socket.sendError(err)
 				return
 			}
-			defer h.ctxt.release(st)
+			defer releaser()
 
 			params, err := readDebugLogParams(req.URL.Query())
 			if err != nil {

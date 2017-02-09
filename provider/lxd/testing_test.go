@@ -347,7 +347,9 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	s.Env.raw = raw
 	s.Provider.generateMemCert = func(client bool) (cert, key []byte, _ error) {
 		s.Stub.AddCall("GenerateMemCert", client)
-		return []byte("client.crt"), []byte("client.key"), s.Stub.NextErr()
+		cert = []byte(testing.CACert + "generated")
+		key = []byte(testing.CAKey + "generated")
+		return cert, key, s.Stub.NextErr()
 	}
 	s.Provider.newLocalRawProvider = func() (*rawProvider, error) {
 		return raw, nil

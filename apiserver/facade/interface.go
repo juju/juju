@@ -62,6 +62,10 @@ type Context interface {
 	// capabilities will migrate towards access via Resources.
 	State() *state.State
 
+	// StatePool returns the state pool used by the apiserver to minimise the
+	// creation of the expensive *State instances.
+	StatePool() *state.StatePool
+
 	// ID returns a string that should almost always be "", unless
 	// this is a watcher facade, in which case it exists in lieu of
 	// actual arguments in the Next() call, and is used as a key

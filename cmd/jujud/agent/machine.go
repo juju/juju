@@ -305,6 +305,7 @@ func NewMachineAgent(
 		prometheusRegistry:          prometheusRegistry,
 		txnmetricsCollector:         txnmetrics.New(),
 		preUpgradeSteps:             preUpgradeSteps,
+		statePool:                   &statePoolHolder{},
 	}
 	if err := a.prometheusRegistry.Register(
 		logsendermetrics.BufferedLogWriterMetrics{bufferedLogger},
@@ -354,6 +355,17 @@ type MachineAgent struct {
 	// Only API servers have hubs. This is temporary until the apiserver and
 	// peergrouper have manifolds.
 	centralHub *pubsub.StructuredHub
+
+	// The statePool holder holds a reference to the current state pool.
+	// The statePool is created by the machine agent and passed to the
+	// apiserver. This object adds a level of indirection so the introspection
+	// worker can have a single thing to hold that can report on the state pool.
+	// The content of the state pool holder is updated as the pool changes.
+	statePool *statePoolHolder
+}
+
+type statePoolHolder struct {
+	pool *state.StatePool
 }
 
 // IsRestorePreparing returns bool representing if we are in restore mode
@@ -538,6 +550,7 @@ func (a *MachineAgent) makeEngineCreator(previousAgentVersion version.Number) fu
 		if err := startIntrospection(introspectionConfig{
 			Agent:              a,
 			Engine:             engine,
+			StatePoolReporter:  a.statePool,
 			NewSocketName:      a.newIntrospectionSocketName,
 			PrometheusGatherer: a.prometheusRegistry,
 			WorkerFunc:         introspection.NewWorker,
@@ -1192,13 +1205,16 @@ func (a *MachineAgent) newAPIserverWorker(
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot create RPC observer factory")
 	}
+	statePool := state.NewStatePool(st)
+	a.statePool.pool = statePool
 
 	registerIntrospectionHandlers := func(f func(string, http.Handler)) {
 		introspection.RegisterHTTPHandlers(
-			dependencyReporter,
-			a.prometheusRegistry,
-			f,
-		)
+			introspection.ReportSources{
+				DependencyEngine:   dependencyReporter,
+				StatePool:          statePool,
+				PrometheusGatherer: a.prometheusRegistry,
+			}, f)
 	}
 
 	server, err := apiserver.NewServer(st, listener, apiserver.ServerConfig{
@@ -1215,6 +1231,7 @@ func (a *MachineAgent) newAPIserverWorker(
 		AutocertDNSName:               controllerConfig.AutocertDNSName(),
 		AllowModelAccess:              controllerConfig.AllowModelAccess(),
 		NewObserver:                   newObserver,
+		StatePool:                     statePool,
 		RegisterIntrospectionHandlers: registerIntrospectionHandlers,
 	})
 	if err != nil {

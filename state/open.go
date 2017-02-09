@@ -548,6 +548,8 @@ func newState(
 	if newPolicy != nil {
 		st.policy = newPolicy(st)
 	}
+	// Record this State instance with the global tracker.
+	GlobalTracker.Add(st)
 	return st, nil
 }
 
@@ -595,5 +597,6 @@ func (st *State) Close() (err error) {
 		return errs[0]
 	}
 	logger.Debugf("closed state without error")
+	GlobalTracker.RecordClosed(st)
 	return nil
 }

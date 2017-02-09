@@ -58,7 +58,12 @@ func (s *controllerSuite) SetUpTest(c *gc.C) {
 		AdminTag: s.Owner,
 	}
 
-	controller, err := controller.NewControllerAPI(s.State, s.resources, s.authorizer)
+	controller, err := controller.NewControllerAPI(
+		facadetest.Context{
+			State_:     s.State,
+			Resources_: s.resources,
+			Auth_:      s.authorizer,
+		})
 	c.Assert(err, jc.ErrorIsNil)
 	s.controller = controller
 
@@ -69,7 +74,12 @@ func (s *controllerSuite) TestNewAPIRefusesNonClient(c *gc.C) {
 	anAuthoriser := apiservertesting.FakeAuthorizer{
 		Tag: names.NewUnitTag("mysql/0"),
 	}
-	endPoint, err := controller.NewControllerAPI(s.State, s.resources, anAuthoriser)
+	endPoint, err := controller.NewControllerAPI(
+		facadetest.Context{
+			State_:     s.State,
+			Resources_: s.resources,
+			Auth_:      anAuthoriser,
+		})
 	c.Assert(endPoint, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
@@ -240,7 +250,13 @@ func (s *controllerSuite) TestModelConfigFromNonController(c *gc.C) {
 		Tag:      s.Owner,
 		AdminTag: s.Owner,
 	}
-	controller, err := controller.NewControllerAPI(st, common.NewResources(), authorizer)
+	controller, err := controller.NewControllerAPI(
+		facadetest.Context{
+			State_:     st,
+			Resources_: common.NewResources(),
+			Auth_:      authorizer,
+		})
+
 	c.Assert(err, jc.ErrorIsNil)
 	cfg, err := controller.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
@@ -263,7 +279,12 @@ func (s *controllerSuite) TestControllerConfigFromNonController(c *gc.C) {
 	defer st.Close()
 
 	authorizer := &apiservertesting.FakeAuthorizer{Tag: s.Owner}
-	controller, err := controller.NewControllerAPI(st, common.NewResources(), authorizer)
+	controller, err := controller.NewControllerAPI(
+		facadetest.Context{
+			State_:     st,
+			Resources_: common.NewResources(),
+			Auth_:      authorizer,
+		})
 	c.Assert(err, jc.ErrorIsNil)
 	cfg, err := controller.ControllerConfig()
 	c.Assert(err, jc.ErrorIsNil)
@@ -789,7 +810,12 @@ func (s *controllerSuite) TestGetControllerAccessPermissions(c *gc.C) {
 	anAuthoriser := apiservertesting.FakeAuthorizer{
 		Tag: user.Tag(),
 	}
-	endpoint, err := controller.NewControllerAPI(s.State, s.resources, anAuthoriser)
+	endpoint, err := controller.NewControllerAPI(
+		facadetest.Context{
+			State_:     s.State,
+			Resources_: s.resources,
+			Auth_:      anAuthoriser,
+		})
 	c.Assert(err, jc.ErrorIsNil)
 	args := params.ModifyControllerAccessRequest{
 		Changes: []params.ModifyControllerAccess{{

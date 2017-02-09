@@ -54,6 +54,13 @@ func (s *ClientValidationSuite) TestNewClientClock(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, "missing clock")
 }
 
+func (s *ClientValidationSuite) TestNewMonotonicClock(c *gc.C) {
+	fix := s.EasyFixture(c)
+	fix.Config.MonotonicNow = nil
+	_, err := lease.NewClient(fix.Config)
+	c.Check(err, gc.ErrorMatches, "missing monotonic clock")
+}
+
 func (s *ClientValidationSuite) TestClaimLeaseName(c *gc.C) {
 	fix := s.EasyFixture(c)
 	err := fix.Client.ClaimLease("$name", corelease.Request{"holder", time.Minute})

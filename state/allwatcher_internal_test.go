@@ -1165,6 +1165,16 @@ func (s *allModelWatcherStateSuite) Reset(c *gc.C) {
 	s.SetUpTest(c)
 }
 
+func (s *allModelWatcherStateSuite) NewAllModelWatcherStateBacking() Backing {
+	return s.NewAllModelWatcherStateBackingForState(s.state)
+}
+
+func (s *allModelWatcherStateSuite) NewAllModelWatcherStateBackingForState(st *State) Backing {
+	pool := NewStatePool(st)
+	s.AddCleanup(func(*gc.C) { pool.Close() })
+	return NewAllModelWatcherStateBacking(st, pool)
+}
+
 // performChangeTestCases runs a passed number of test cases for changes.
 func (s *allModelWatcherStateSuite) performChangeTestCases(c *gc.C, changeTestFuncs []changeTestFunc) {
 	for i, changeTestFunc := range changeTestFuncs {
@@ -1174,7 +1184,7 @@ func (s *allModelWatcherStateSuite) performChangeTestCases(c *gc.C, changeTestFu
 			test0 := changeTestFunc(c, s.state)
 
 			c.Logf("test %d. %s", i, test0.about)
-			b := NewAllModelWatcherStateBacking(s.state)
+			b := s.NewAllModelWatcherStateBacking()
 			defer b.Release()
 			all := newStore()
 
@@ -1378,7 +1388,7 @@ func (s *allModelWatcherStateSuite) TestChangeForDeadModel(c *gc.C) {
 	// Ensure an entity is removed when a change is seen but
 	// the model the entity belonged to has already died.
 
-	b := NewAllModelWatcherStateBacking(s.state)
+	b := s.NewAllModelWatcherStateBacking()
 	defer b.Release()
 	all := newStore()
 
@@ -1451,7 +1461,7 @@ func (s *allModelWatcherStateSuite) TestGetAll(c *gc.C) {
 		},
 	)
 
-	b := NewAllModelWatcherStateBacking(s.state)
+	b := s.NewAllModelWatcherStateBacking()
 	all := newStore()
 	err = b.GetAll(all)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1464,7 +1474,7 @@ func (s *allModelWatcherStateSuite) TestGetAll(c *gc.C) {
 
 func (s *allModelWatcherStateSuite) TestModelSettings(c *gc.C) {
 	// Init the test model.
-	b := NewAllModelWatcherStateBacking(s.state)
+	b := s.NewAllModelWatcherStateBacking()
 	all := newStore()
 	setModelConfigAttr(c, s.state, "http-proxy", "http://invalid")
 	setModelConfigAttr(c, s.state, "foo", "bar")
@@ -1523,7 +1533,8 @@ func (s *allModelWatcherStateSuite) TestStateWatcher(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m10.Id(), gc.Equals, "0")
 
-	tw := newTestAllModelWatcher(st0, c)
+	backing := s.NewAllModelWatcherStateBackingForState(st0)
+	tw := newTestWatcher(backing, st0, c)
 	defer tw.Stop()
 
 	// Expect to see events for the already created models and
@@ -3331,10 +3342,6 @@ func testChangeRemoteApplications(c *gc.C, runChangeTests func(*gc.C, []changeTe
 
 func newTestAllWatcher(st *State, c *gc.C) *testWatcher {
 	return newTestWatcher(newAllWatcherStateBacking(st), st, c)
-}
-
-func newTestAllModelWatcher(st *State, c *gc.C) *testWatcher {
-	return newTestWatcher(NewAllModelWatcherStateBacking(st), st, c)
 }
 
 type testWatcher struct {

@@ -75,9 +75,12 @@ func (s *providerSuite) TestDetectCloudError(c *gc.C) {
 
 func (s *providerSuite) assertLocalhostCloud(c *gc.C, found cloud.Cloud) {
 	c.Assert(found, jc.DeepEquals, cloud.Cloud{
-		Name:      "localhost",
-		Type:      "lxd",
-		AuthTypes: []cloud.AuthType{cloud.CertificateAuthType},
+		Name: "localhost",
+		Type: "lxd",
+		AuthTypes: []cloud.AuthType{
+			"interactive",
+			cloud.CertificateAuthType,
+		},
 		Regions: []cloud.Region{{
 			Name: "localhost",
 		}},
