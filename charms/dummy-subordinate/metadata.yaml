@@ -1,0 +1,20 @@
+name: dummy-subordinate
+maintainer: Aaron Bentley <aaron.bentley@canonical.com>
+subordinate: true
+summary: Dummy subordinate charm that accepts data
+description: |
+  This dummy subordinate charm is used to verify that a relationship is created correctly
+requires:
+  sink:
+    interface: dummy-token 
+    scope: container 
+categories:
+  - misc
+series:
+  - trusty
+  - precise
+  - utopic
+  - vivid
+  - wily
+  - xenial
+  - yakkety
