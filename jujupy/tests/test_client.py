@@ -1862,14 +1862,18 @@ class TestModelClient(ClientTest):
             - name: bar
               model-uuid: bbbb
               owner: admin
+            - name: baz
+              model-uuid: bbbb
+              owner: user1
             current-model: foo
         """
         client = ModelClient(JujuData('foo', {}), None, None)
         with patch.object(client, 'get_juju_output', return_value=data):
             model_clients = list(client.iter_model_clients())
-        self.assertEqual(2, len(model_clients))
+        self.assertEqual(3, len(model_clients))
         self.assertIs(client, model_clients[0])
         self.assertEqual('bar', model_clients[1].env.environment)
+        self.assertEqual('user1/baz', model_clients[2].env.environment)
 
     def test__acquire_model_client_returns_self_when_match(self):
         client = ModelClient(JujuData('foo', {}), None, None)

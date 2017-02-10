@@ -2177,7 +2177,7 @@ class ModelClient:
         if not models:
             yield self
         for model in models:
-            yield self._acquire_model_client(model['name'])
+            yield self._acquire_model_client(model['name'], model.get('owner'))
 
     def get_controller_model_name(self):
         """Return the name of the 'controller' model.
@@ -2198,7 +2198,7 @@ class ModelClient:
         if name == self.env.environment:
             return self
         else:
-            if owner != self.env.user_name:
+            if owner and owner != 'admin' and owner != self.env.user_name:
                 model_name = '{}/{}'.format(owner, name)
             else:
                 model_name = name
