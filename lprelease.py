@@ -11,6 +11,7 @@ from __future__ import print_function
 from argparse import ArgumentParser
 import datetime
 import os
+import re
 import subprocess
 import sys
 import traceback
@@ -107,7 +108,15 @@ def defer_bugs(milestone, deferred_milestone, dry_run, verbose):
             bug_task.lp_save()
 
 
+STABLE_PATTERN = re.compile(r'^[\d\.]+$')
+
+
 def close_bugs(milestone, dry_run, verbose):
+    if not STABLE_PATTERN.match(milestone.name):
+        print('Refusing to close bugs for this devel version.')
+        print('Bugs targeted to {} can be closed by people.'.format(
+            milestone.name))
+        return
     fixed_bug_tasks = milestone.searchTasks(status=FIX_COMMITTED)
     for bug_task in fixed_bug_tasks:
         if verbose:
