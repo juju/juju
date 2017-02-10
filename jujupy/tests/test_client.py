@@ -1872,7 +1872,7 @@ class TestModelClient(ClientTest):
             model_clients = list(client.iter_model_clients())
         self.assertEqual(3, len(model_clients))
         self.assertIs(client, model_clients[0])
-        self.assertEqual('bar', model_clients[1].env.environment)
+        self.assertEqual('admin/bar', model_clients[1].env.environment)
         self.assertEqual('user1/baz', model_clients[2].env.environment)
 
     def test__acquire_model_client_returns_self_when_match(self):
