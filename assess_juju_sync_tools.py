@@ -30,6 +30,8 @@ def verify_agent_tools(agent_dir, agent_stream, agent_version):
     sync_tool_dir = os.path.join(agent_dir, "tools", agent_stream)
     for agent_file in os.listdir(sync_tool_dir):
         if agent_file.endswith(".tgz"):
+            log.warning("file: {} and version {}".format(agent_file,
+                                                         agent_version))
             if not agent_file.startswith("juju-{}".format(agent_version)):
                 log.debug(agent_file)
                 file_verified = False
@@ -43,8 +45,6 @@ def assess_juju_sync_tools(args, agent_stream, agent_version):
     source = client.env.get_option('tools-metadata-url')
     with prepare_temp_metadata(
             client, args.agent_dir, agent_stream, source) as agent_dir:
-        import pdb
-        pdb.set_trace()
         verify_agent_tools(agent_dir, agent_stream, agent_version)
 
 
@@ -65,6 +65,7 @@ def main(argv=None):
     juju_bin = args.juju_bin
     agent_version = ModelClient.get_version(juju_bin).split('-', 1)[0]
     agent_stream = args.agent_stream if args.agent_stream else 'devel'
+    log.warning("Need to verify juju sync-tool version {}".format(agent_version))
     assess_juju_sync_tools(args, agent_stream, agent_version)
     return 0
 
