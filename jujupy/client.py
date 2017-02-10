@@ -2788,13 +2788,13 @@ class ModelClient:
         """Enable a command-set."""
         return self.juju('enable-command', args)
 
-    def sync_tools(self, local_dir=None, stream=None, version=None):
+    def sync_tools(self, local_dir=None, stream=None, source=None):
         """Copy tools into a local directory or model."""
         args = ()
         if stream is not None:
             args += ('--stream', stream)
-        if version is not None:
-            args += ('--version', version)
+        if source is not None:
+            args += ('--source', source)
         if local_dir is None:
             return self.juju('sync-tools', args)
         else:

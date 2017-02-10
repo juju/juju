@@ -39,9 +39,12 @@ def verify_agent_tools(agent_dir, agent_stream, agent_version):
 
 def assess_juju_sync_tools(args, agent_stream, agent_version):
     client = client_from_config(args.env, args.juju_bin, False)
+    client.env.update_config({'agent-stream:': agent_stream})
+    source = client.env.get_option('tools-metadata-url')
     with prepare_temp_metadata(
-            client, agent_stream=agent_stream,
-            agent_version=agent_version) as agent_dir:
+            client, args.agent_dir, agent_stream, source) as agent_dir:
+        import pdb
+        pdb.set_trace()
         verify_agent_tools(agent_dir, agent_stream, agent_version)
 
 
@@ -50,19 +53,17 @@ def parse_args(argv):
     parser = argparse.ArgumentParser(
         description="Test to download juju agent using sync-tool and verify")
     add_basic_testing_arguments(parser)
-    parser.add_argument('--agent-version', action='store',
-                        help='Juju agent version to download.')
+    parser.add_argument('--agent-dir',
+                        action='store', default=None,
+                        help='tool dir to be used during bootstrap.')
     return parser.parse_args(argv)
 
 
 def main(argv=None):
     args = parse_args(argv)
     configure_logging(args.verbose)
-    if not args.agent_version:
-        juju_bin = args.juju_bin
-        agent_version = ModelClient.get_version(juju_bin).rsplit('.', 1)[0]
-    else:
-        agent_version = args.agent_version
+    juju_bin = args.juju_bin
+    agent_version = ModelClient.get_version(juju_bin).split('-', 1)[0]
     agent_stream = args.agent_stream if args.agent_stream else 'devel'
     assess_juju_sync_tools(args, agent_stream, agent_version)
     return 0
