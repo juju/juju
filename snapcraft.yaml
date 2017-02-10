@@ -15,7 +15,7 @@ parts:
     go-importpath: github.com/juju/juju
     source: https://github.com/juju/juju.git
     source-type: git
-    build-packages: [gcc]
+    build-packages: [gcc, libc6-dev]
     #If you want to grab a specific revision tag, include it here
     #source-tag: juju-2.0.0
     snap:
