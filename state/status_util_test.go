@@ -20,8 +20,7 @@ type statusSetter interface {
 	SetStatus(status.StatusInfo) error
 }
 
-func primeStatusHistory(c *gc.C, entity statusSetter, statusVal status.Status, count int, nextData func(int) map[string]interface{}, delta time.Duration) {
-	info := ""
+func primeStatusHistory(c *gc.C, entity statusSetter, statusVal status.Status, count int, nextData func(int) map[string]interface{}, delta time.Duration, info string) {
 	now := time.Now().Add(-delta)
 	for i := 0; i < count; i++ {
 		c.Logf("setting status for %v", entity)
@@ -52,7 +51,7 @@ func checkInitialWorkloadStatus(c *gc.C, statusInfo status.StatusInfo) {
 func primeUnitStatusHistory(c *gc.C, unit *state.Unit, count int, delta time.Duration) {
 	primeStatusHistory(c, unit, status.Active, count, func(i int) map[string]interface{} {
 		return map[string]interface{}{"$foo": i, "$delta": delta}
-	}, delta)
+	}, delta, "")
 }
 
 func checkPrimedUnitStatus(c *gc.C, statusInfo status.StatusInfo, expect int, expectDelta time.Duration) {
@@ -69,15 +68,19 @@ func checkInitialUnitAgentStatus(c *gc.C, statusInfo status.StatusInfo) {
 	c.Assert(statusInfo.Since, gc.NotNil)
 }
 
-func primeUnitAgentStatusHistory(c *gc.C, agent *state.UnitAgent, count int, delta time.Duration) {
+func primeUnitAgentStatusHistory(c *gc.C, agent *state.UnitAgent, count int, delta time.Duration, info string) {
 	primeStatusHistory(c, agent, status.Executing, count, func(i int) map[string]interface{} {
 		return map[string]interface{}{"$bar": i, "$delta": delta}
-	}, delta)
+	}, delta, info)
 }
 
 func checkPrimedUnitAgentStatus(c *gc.C, statusInfo status.StatusInfo, expect int, expectDelta time.Duration) {
+	checkPrimedUnitAgentStatusWithCustomMessage(c, statusInfo, expect, expectDelta, "")
+}
+
+func checkPrimedUnitAgentStatusWithCustomMessage(c *gc.C, statusInfo status.StatusInfo, expect int, expectDelta time.Duration, info string) {
+	c.Check(statusInfo.Message, gc.Equals, info)
 	c.Check(statusInfo.Status, gc.Equals, status.Executing)
-	c.Check(statusInfo.Message, gc.Equals, "")
 	c.Check(statusInfo.Data, jc.DeepEquals, map[string]interface{}{"$bar": expect, "$delta": int64(expectDelta)})
 	c.Check(statusInfo.Since, gc.NotNil)
 }

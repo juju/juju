@@ -182,7 +182,14 @@ var (
 			"current": "pending",
 			"since":   "01 Apr 15 01:23+10:00",
 		},
-		"series":                   "quantal",
+		"series": "quantal",
+		"network-interfaces": M{
+			"eth0": M{
+				"ip-addresses": []string{"10.0.0.1"},
+				"mac-address":  "aa:bb:cc:dd:ee:ff",
+				"is-up":        true,
+			},
+		},
 		"hardware":                 "arch=amd64 cores=1 mem=1024M root-disk=8192M",
 		"controller-member-status": "adding-vote",
 	}
@@ -198,7 +205,14 @@ var (
 			"current": "pending",
 			"since":   "01 Apr 15 01:23+10:00",
 		},
-		"series":   "quantal",
+		"series": "quantal",
+		"network-interfaces": M{
+			"eth0": M{
+				"ip-addresses": []string{"10.0.1.1"},
+				"mac-address":  "aa:bb:cc:dd:ee:ff",
+				"is-up":        true,
+			},
+		},
 		"hardware": "arch=amd64 cores=1 mem=1024M root-disk=8192M",
 	}
 	machine2 = M{
@@ -213,7 +227,14 @@ var (
 			"current": "pending",
 			"since":   "01 Apr 15 01:23+10:00",
 		},
-		"series":   "quantal",
+		"series": "quantal",
+		"network-interfaces": M{
+			"eth0": M{
+				"ip-addresses": []string{"10.0.2.1"},
+				"mac-address":  "aa:bb:cc:dd:ee:ff",
+				"is-up":        true,
+			},
+		},
 		"hardware": "arch=amd64 cores=1 mem=1024M root-disk=8192M",
 	}
 	machine3 = M{
@@ -228,7 +249,14 @@ var (
 			"current": "pending",
 			"since":   "01 Apr 15 01:23+10:00",
 		},
-		"series":   "quantal",
+		"series": "quantal",
+		"network-interfaces": M{
+			"eth0": M{
+				"ip-addresses": []string{"10.0.3.1"},
+				"mac-address":  "aa:bb:cc:dd:ee:ff",
+				"is-up":        true,
+			},
+		},
 		"hardware": "arch=amd64 cores=1 mem=1024M root-disk=8192M",
 	}
 	machine4 = M{
@@ -243,7 +271,14 @@ var (
 			"current": "pending",
 			"since":   "01 Apr 15 01:23+10:00",
 		},
-		"series":   "quantal",
+		"series": "quantal",
+		"network-interfaces": M{
+			"eth0": M{
+				"ip-addresses": []string{"10.0.4.1"},
+				"mac-address":  "aa:bb:cc:dd:ee:ff",
+				"is-up":        true,
+			},
+		},
 		"hardware": "arch=amd64 cores=1 mem=1024M root-disk=8192M",
 	}
 	machine1WithContainers = M{
@@ -271,6 +306,13 @@ var (
 							"since":   "01 Apr 15 01:23+10:00",
 						},
 						"series": "quantal",
+						"network-interfaces": M{
+							"eth0": M{
+								"ip-addresses": []string{"10.0.3.1"},
+								"mac-address":  "aa:bb:cc:dd:ee:ff",
+								"is-up":        true,
+							},
+						},
 					},
 				},
 				"dns-name":     "10.0.2.1",
@@ -281,6 +323,13 @@ var (
 					"since":   "01 Apr 15 01:23+10:00",
 				},
 				"series": "quantal",
+				"network-interfaces": M{
+					"eth0": M{
+						"ip-addresses": []string{"10.0.2.1"},
+						"mac-address":  "aa:bb:cc:dd:ee:ff",
+						"is-up":        true,
+					},
+				},
 			},
 			"1/lxd/1": M{
 				"juju-status": M{
@@ -302,8 +351,14 @@ var (
 			"current": "pending",
 			"since":   "01 Apr 15 01:23+10:00",
 		},
-
-		"series":   "quantal",
+		"series": "quantal",
+		"network-interfaces": M{
+			"eth0": M{
+				"ip-addresses": []string{"10.0.1.1"},
+				"mac-address":  "aa:bb:cc:dd:ee:ff",
+				"is-up":        true,
+			},
+		},
 		"hardware": "arch=amd64 cores=1 mem=1024M root-disk=8192M",
 	}
 	unexposedService = dummyCharm(M{
@@ -388,8 +443,8 @@ var statusTests = []testCase{
 
 		startAliveMachine{"0"},
 		setAddresses{"0", []network.Address{
-			network.NewAddress("10.0.0.2"),
 			network.NewScopedAddress("10.0.0.1", network.ScopePublic),
+			network.NewAddress("10.0.0.2"),
 		}},
 		expect{
 			"simulate the PA starting an instance in response to the state change",
@@ -408,7 +463,19 @@ var statusTests = []testCase{
 							"current": "pending",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
-						"series":                   "quantal",
+						"series": "quantal",
+						"network-interfaces": M{
+							"eth0": M{
+								"ip-addresses": []string{"10.0.0.1"},
+								"mac-address":  "aa:bb:cc:dd:ee:ff",
+								"is-up":        true,
+							},
+							"eth1": M{
+								"ip-addresses": []string{"10.0.0.2"},
+								"mac-address":  "aa:bb:cc:dd:ee:ff",
+								"is-up":        true,
+							},
+						},
 						"hardware":                 "arch=amd64 cores=1 mem=1024M root-disk=8192M",
 						"controller-member-status": "adding-vote",
 					},
@@ -435,7 +502,19 @@ var statusTests = []testCase{
 							"current": "pending",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
-						"series":                   "quantal",
+						"series": "quantal",
+						"network-interfaces": M{
+							"eth0": M{
+								"ip-addresses": []string{"10.0.0.1"},
+								"mac-address":  "aa:bb:cc:dd:ee:ff",
+								"is-up":        true,
+							},
+							"eth1": M{
+								"ip-addresses": []string{"10.0.0.2"},
+								"mac-address":  "aa:bb:cc:dd:ee:ff",
+								"is-up":        true,
+							},
+						},
 						"hardware":                 "arch=amd64 cores=1 mem=1024M root-disk=8192M",
 						"controller-member-status": "adding-vote",
 					},
@@ -463,7 +542,19 @@ var statusTests = []testCase{
 							"since":   "01 Apr 15 01:23+10:00",
 							"version": "1.2.3",
 						},
-						"series":                   "quantal",
+						"series": "quantal",
+						"network-interfaces": M{
+							"eth0": M{
+								"ip-addresses": []string{"10.0.0.1"},
+								"mac-address":  "aa:bb:cc:dd:ee:ff",
+								"is-up":        true,
+							},
+							"eth1": M{
+								"ip-addresses": []string{"10.0.0.2"},
+								"mac-address":  "aa:bb:cc:dd:ee:ff",
+								"is-up":        true,
+							},
+						},
 						"hardware":                 "arch=amd64 cores=1 mem=1024M root-disk=8192M",
 						"controller-member-status": "adding-vote",
 					},
@@ -476,8 +567,8 @@ var statusTests = []testCase{
 		"instance with different hardware characteristics",
 		addMachine{machineId: "0", cons: machineCons, job: state.JobManageModel},
 		setAddresses{"0", []network.Address{
-			network.NewAddress("10.0.0.2"),
 			network.NewScopedAddress("10.0.0.1", network.ScopePublic),
+			network.NewAddress("10.0.0.2"),
 		}},
 		startAliveMachine{"0"},
 		setMachineStatus{"0", status.Started, ""},
@@ -498,7 +589,19 @@ var statusTests = []testCase{
 							"current": "pending",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
-						"series":                   "quantal",
+						"series": "quantal",
+						"network-interfaces": M{
+							"eth0": M{
+								"ip-addresses": []string{"10.0.0.1"},
+								"mac-address":  "aa:bb:cc:dd:ee:ff",
+								"is-up":        true,
+							},
+							"eth1": M{
+								"ip-addresses": []string{"10.0.0.2"},
+								"mac-address":  "aa:bb:cc:dd:ee:ff",
+								"is-up":        true,
+							},
+						},
 						"constraints":              "cores=2 mem=8192M root-disk=8192M",
 						"hardware":                 "arch=amd64 cores=2 mem=8192M root-disk=8192M",
 						"controller-member-status": "adding-vote",
@@ -765,7 +868,14 @@ var statusTests = []testCase{
 							"message": "Really?",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
-						"series":   "quantal",
+						"series": "quantal",
+						"network-interfaces": M{
+							"eth0": M{
+								"ip-addresses": []string{"10.0.3.1"},
+								"mac-address":  "aa:bb:cc:dd:ee:ff",
+								"is-up":        true,
+							},
+						},
 						"hardware": "arch=amd64 cores=1 mem=1024M root-disk=8192M",
 					},
 					"4": M{
@@ -781,7 +891,14 @@ var statusTests = []testCase{
 							"message": "Beware the red toys",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
-						"series":   "quantal",
+						"series": "quantal",
+						"network-interfaces": M{
+							"eth0": M{
+								"ip-addresses": []string{"10.0.4.1"},
+								"mac-address":  "aa:bb:cc:dd:ee:ff",
+								"is-up":        true,
+							},
+						},
 						"hardware": "arch=amd64 cores=1 mem=1024M root-disk=8192M",
 					},
 					"5": M{
@@ -2021,6 +2138,13 @@ var statusTests = []testCase{
 								},
 
 								"series": "quantal",
+								"network-interfaces": M{
+									"eth0": M{
+										"ip-addresses": []string{"10.0.2.1"},
+										"mac-address":  "aa:bb:cc:dd:ee:ff",
+										"is-up":        true,
+									},
+								},
 							},
 						},
 						"dns-name":     "10.0.1.1",
@@ -2031,7 +2155,14 @@ var statusTests = []testCase{
 							"since":   "01 Apr 15 01:23+10:00",
 						},
 
-						"series":   "quantal",
+						"series": "quantal",
+						"network-interfaces": M{
+							"eth0": M{
+								"ip-addresses": []string{"10.0.1.1"},
+								"mac-address":  "aa:bb:cc:dd:ee:ff",
+								"is-up":        true,
+							},
+						},
 						"hardware": "arch=amd64 cores=1 mem=1024M root-disk=8192M",
 					},
 				},
@@ -2577,11 +2708,14 @@ var statusTests = []testCase{
 	),
 	test( // 21
 		"instance with localhost addresses",
-		addMachine{machineId: "0", cons: machineCons, job: state.JobManageModel},
+		addMachine{machineId: "0", job: state.JobManageModel},
 		setAddresses{"0", []network.Address{
+			network.NewScopedAddress("10.0.0.1", network.ScopeCloudLocal),
 			network.NewScopedAddress("127.0.0.1", network.ScopeMachineLocal),
-			network.NewScopedAddress("::1", network.ScopeMachineLocal),
-			network.NewScopedAddress("10.0.0.2", network.ScopeCloudLocal),
+			// TODO(macgreagoir) setAddresses step method needs to
+			// set netmask correctly before we can test IPv6
+			// loopback.
+			// network.NewScopedAddress("::1", network.ScopeMachineLocal),
 		}},
 		startAliveMachine{"0"},
 		setMachineStatus{"0", status.Started, ""},
@@ -2590,23 +2724,7 @@ var statusTests = []testCase{
 			M{
 				"model": model,
 				"machines": M{
-					"0": M{
-						"juju-status": M{
-							"current": "started",
-							"since":   "01 Apr 15 01:23+10:00",
-						},
-						"dns-name":     "10.0.0.2",
-						"ip-addresses": []string{"10.0.0.2"},
-						"instance-id":  "controller-0",
-						"machine-status": M{
-							"current": "pending",
-							"since":   "01 Apr 15 01:23+10:00",
-						},
-						"series":                   "quantal",
-						"constraints":              "cores=2 mem=8192M root-disk=8192M",
-						"hardware":                 "arch=amd64 cores=2 mem=8192M root-disk=8192M",
-						"controller-member-status": "adding-vote",
-					},
+					"0": machine0,
 				},
 				"applications": M{},
 			},
@@ -2616,8 +2734,11 @@ var statusTests = []testCase{
 		"instance with IPv6 addresses",
 		addMachine{machineId: "0", cons: machineCons, job: state.JobManageModel},
 		setAddresses{"0", []network.Address{
-			network.NewScopedAddress("::1", network.ScopeMachineLocal),
-			network.NewScopedAddress("2001:db8::0:1", network.ScopeCloudLocal),
+			network.NewScopedAddress("2001:db8::1", network.ScopeCloudLocal),
+			// TODO(macgreagoir) setAddresses step method needs to
+			// set netmask correctly before we can test IPv6
+			// loopback.
+			// network.NewScopedAddress("::1", network.ScopeMachineLocal),
 		}},
 		startAliveMachine{"0"},
 		setMachineStatus{"0", status.Started, ""},
@@ -2631,14 +2752,21 @@ var statusTests = []testCase{
 							"current": "started",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
-						"dns-name":     "2001:db8::0:1",
-						"ip-addresses": []string{"2001:db8::0:1"},
+						"dns-name":     "2001:db8::1",
+						"ip-addresses": []string{"2001:db8::1"},
 						"instance-id":  "controller-0",
 						"machine-status": M{
 							"current": "pending",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
-						"series":                   "quantal",
+						"series": "quantal",
+						"network-interfaces": M{
+							"eth0": M{
+								"ip-addresses": []string{"2001:db8::1"},
+								"mac-address":  "aa:bb:cc:dd:ee:ff",
+								"is-up":        true,
+							},
+						},
 						"constraints":              "cores=2 mem=8192M root-disk=8192M",
 						"hardware":                 "arch=amd64 cores=2 mem=8192M root-disk=8192M",
 						"controller-member-status": "adding-vote",
@@ -2912,6 +3040,41 @@ func (sa setAddresses) step(c *gc.C, ctx *context) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = m.SetProviderAddresses(sa.addresses...)
 	c.Assert(err, jc.ErrorIsNil)
+	addrs := make([]state.LinkLayerDeviceAddress, len(sa.addresses))
+	lldevs := make([]state.LinkLayerDeviceArgs, len(sa.addresses))
+	for i, address := range sa.addresses {
+		devName := fmt.Sprintf("eth%d", i)
+		macAddr := "aa:bb:cc:dd:ee:ff"
+		configMethod := state.StaticAddress
+		devType := state.EthernetDevice
+		if address.Scope == network.ScopeMachineLocal ||
+			address.Value == "localhost" {
+			devName = "lo"
+			macAddr = "00:00:00:00:00:00"
+			configMethod = state.LoopbackAddress
+			devType = state.LoopbackDevice
+		}
+		lldevs[i] = state.LinkLayerDeviceArgs{
+			Name:       devName,
+			MACAddress: macAddr, // TODO(macgreagoir) Enough for first pass
+			IsUp:       true,
+			Type:       devType,
+		}
+		addrs[i] = state.LinkLayerDeviceAddress{
+			DeviceName:   devName,
+			ConfigMethod: configMethod,
+			// TODO(macgreagoir) Enough for first pass, but
+			// incorrect for IPv4 loopback, and breaks IPv6
+			// loopback.
+			CIDRAddress: fmt.Sprintf("%s/24", address.Value)}
+	}
+	// TODO(macgreagoir) Let these go for now, before this turns into a test for setting lldevs and addrs.
+	// err = m.SetLinkLayerDevices(lldevs...)
+	// c.Assert(err, jc.ErrorIsNil)
+	_ = m.SetLinkLayerDevices(lldevs...)
+	// err = m.SetDevicesAddresses(addrs...)
+	// c.Assert(err, jc.ErrorIsNil)
+	_ = m.SetDevicesAddresses(addrs...)
 }
 
 type setTools struct {
@@ -3575,7 +3738,7 @@ func (s *StatusSuite) TestStatusWithFormatSummary(c *gc.C) {
 		addService{name: "mysql", charm: "mysql"},
 		setServiceExposed{"mysql", true},
 		addMachine{machineId: "2", job: state.JobHostUnits},
-		setAddresses{"2", network.NewAddresses("10.0.0.2")},
+		setAddresses{"2", network.NewAddresses("10.0.2.1")},
 		startAliveMachine{"2"},
 		setMachineStatus{"2", status.Started, ""},
 		addAliveUnit{"mysql", "2"},
@@ -3600,7 +3763,7 @@ func (s *StatusSuite) TestStatusWithFormatSummary(c *gc.C) {
 	c.Check(code, gc.Equals, 0)
 	c.Check(string(stderr), gc.Equals, "")
 	c.Assert(string(stdout), gc.Equals, `
-Running on subnets:  127.0.0.1/8, 10.0.0.2/8  
+Running on subnets:  127.0.0.1/8, 10.0.2.1/8  
  Utilizing ports:                             
       # Machines:  (3)
          started:   3 
@@ -4113,6 +4276,12 @@ func (s *StatusSuite) TestFilterToContainer(c *gc.C) {
 		"      current: pending\n" +
 		"      since: 01 Apr 15 01:23+10:00\n" +
 		"    series: quantal\n" +
+		"    network-interfaces:\n" +
+		"      eth0:\n" +
+		"        ip-addresses:\n" +
+		"        - 10.0.0.1\n" +
+		"        mac-address: aa:bb:cc:dd:ee:ff\n" +
+		"        is-up: true\n" +
 		"    containers:\n" +
 		"      0/lxd/0:\n" +
 		"        juju-status:\n" +
@@ -4215,8 +4384,8 @@ func (s *StatusSuite) TestFilterOnSubnet(c *gc.C) {
 
 	// Given the address for machine "1" is "localhost"
 	setAddresses{"1", network.NewAddresses("localhost", "127.0.0.1")}.step(c, ctx)
-	// And the address for machine "2" is "10.0.0.2"
-	setAddresses{"2", network.NewAddresses("10.0.0.2")}.step(c, ctx)
+	// And the address for machine "2" is "10.0.2.1"
+	setAddresses{"2", network.NewAddresses("10.0.2.1")}.step(c, ctx)
 	// When I run juju status --format oneline 127.0.0.1
 	_, stdout, stderr := runStatus(c, "--format", "oneline", "127.0.0.1")
 	c.Assert(stderr, gc.IsNil)
@@ -4236,8 +4405,8 @@ func (s *StatusSuite) TestFilterOnPorts(c *gc.C) {
 
 	// Given the address for machine "1" is "localhost"
 	setAddresses{"1", network.NewAddresses("localhost")}.step(c, ctx)
-	// And the address for machine "2" is "10.0.0.2"
-	setAddresses{"2", network.NewAddresses("10.0.0.2")}.step(c, ctx)
+	// And the address for machine "2" is "10.0.2.1"
+	setAddresses{"2", network.NewAddresses("10.0.2.1")}.step(c, ctx)
 	openUnitPort{"wordpress/0", "tcp", 80}.step(c, ctx)
 	// When I run juju status --format oneline 80/tcp
 	_, stdout, stderr := runStatus(c, "--format", "oneline", "80/tcp")
@@ -4471,11 +4640,12 @@ func (s *StatusSuite) TestFormatProvisioningError(c *gc.C) {
 		},
 		Machines: map[string]machineStatus{
 			"1": {
-				JujuStatus: statusInfoContents{Current: "error", Message: "<error while provisioning>"},
-				InstanceId: "pending",
-				Series:     "trusty",
-				Id:         "1",
-				Containers: map[string]machineStatus{},
+				JujuStatus:        statusInfoContents{Current: "error", Message: "<error while provisioning>"},
+				InstanceId:        "pending",
+				Series:            "trusty",
+				Id:                "1",
+				Containers:        map[string]machineStatus{},
+				NetworkInterfaces: map[string]networkInterface{},
 			},
 		},
 		Applications:       map[string]applicationStatus{},

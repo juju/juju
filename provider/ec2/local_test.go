@@ -18,6 +18,7 @@ import (
 	"github.com/juju/utils/series"
 	"github.com/juju/utils/set"
 	"github.com/juju/utils/ssh"
+	"github.com/juju/version"
 	"gopkg.in/amz.v3/aws"
 	amzec2 "gopkg.in/amz.v3/ec2"
 	"gopkg.in/amz.v3/ec2/ec2test"
@@ -44,6 +45,7 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/ec2"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage"
 	coretesting "github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
@@ -54,6 +56,10 @@ var localConfigAttrs = coretesting.FakeConfig().Merge(coretesting.Attrs{
 	"type":          "ec2",
 	"agent-version": coretesting.FakeVersionNumber.String(),
 })
+
+func fakeCallback(_ status.Status, _ string, _ map[string]interface{}) error {
+	return nil
+}
 
 func registerLocalTests() {
 	// N.B. Make sure the region we use here
@@ -757,7 +763,7 @@ func (t *localServerSuite) TestStartInstanceAvailZoneUnknown(c *gc.C) {
 func (t *localServerSuite) testStartInstanceAvailZone(c *gc.C, zone string) (instance.Instance, error) {
 	env := t.prepareAndBootstrap(c)
 
-	params := environs.StartInstanceParams{ControllerUUID: t.ControllerUUID, Placement: "zone=" + zone}
+	params := environs.StartInstanceParams{ControllerUUID: t.ControllerUUID, Placement: "zone=" + zone, StatusCallback: fakeCallback}
 	result, err := testing.StartInstanceWithParams(env, "1", params)
 	if err != nil {
 		return nil, err
@@ -855,6 +861,7 @@ func (t *localServerSuite) TestStartInstanceDistributionParams(c *gc.C) {
 		DistributionGroup: func() ([]instance.Id, error) {
 			return expectedInstances, nil
 		},
+		StatusCallback: fakeCallback,
 	}
 	_, err := testing.StartInstanceWithParams(env, "1", params)
 	c.Assert(err, jc.ErrorIsNil)
@@ -878,6 +885,7 @@ func (t *localServerSuite) TestStartInstanceDistributionErrors(c *gc.C) {
 		DistributionGroup: func() ([]instance.Id, error) {
 			return nil, dgErr
 		},
+		StatusCallback: fakeCallback,
 	}
 	_, err = testing.StartInstanceWithParams(env, "1", params)
 	c.Assert(errors.Cause(err), gc.Equals, dgErr)
@@ -943,7 +951,8 @@ func (t *localServerSuite) testStartInstanceAvailZoneAllConstrained(c *gc.C, run
 	t.PatchValue(ec2.AvailabilityZoneAllocations, mock.AvailabilityZoneAllocations)
 
 	var azArgs []string
-	t.PatchValue(ec2.RunInstances, func(e *amzec2.EC2, ri *amzec2.RunInstances) (*amzec2.RunInstancesResp, error) {
+
+	t.PatchValue(ec2.RunInstances, func(e *amzec2.EC2, ri *amzec2.RunInstances, c environs.StatusCallbackFunc) (*amzec2.RunInstancesResp, error) {
 		azArgs = append(azArgs, ri.AvailZone)
 		return nil, runInstancesError
 	})
@@ -1017,6 +1026,7 @@ func (t *localServerSuite) TestSpaceConstraintsSpaceNotInPlacementZone(c *gc.C) 
 			subIDs[1]: []string{"zone3"},
 			subIDs[2]: []string{"zone4"},
 		},
+		StatusCallback: fakeCallback,
 	}
 	_, err := testing.StartInstanceWithParams(env, "1", params)
 	c.Assert(err, gc.ErrorMatches, `unable to resolve constraints: space and/or subnet unavailable in zones \[test-available\]`)
@@ -1035,6 +1045,7 @@ func (t *localServerSuite) TestSpaceConstraintsSpaceInPlacementZone(c *gc.C) {
 			subIDs[0]: []string{"test-available"},
 			subIDs[1]: []string{"zone3"},
 		},
+		StatusCallback: fakeCallback,
 	}
 	_, err := testing.StartInstanceWithParams(env, "1", params)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1052,6 +1063,7 @@ func (t *localServerSuite) TestSpaceConstraintsNoPlacement(c *gc.C) {
 			subIDs[0]: []string{"test-available"},
 			subIDs[1]: []string{"zone3"},
 		},
+		StatusCallback: fakeCallback,
 	}
 	_, err := testing.StartInstanceWithParams(env, "1", params)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1071,6 +1083,7 @@ func (t *localServerSuite) TestSpaceConstraintsNoAvailableSubnets(c *gc.C) {
 		SubnetsToZones: map[network.Id][]string{
 			subIDs[0]: []string{""},
 		},
+		StatusCallback: fakeCallback,
 	}
 	_, err := testing.StartInstanceWithParams(env, "1", params)
 	c.Assert(err, gc.ErrorMatches, `unable to resolve constraints: space and/or subnet unavailable in zones \[test-available\]`)
@@ -1102,12 +1115,13 @@ func (t *localServerSuite) testStartInstanceAvailZoneOneConstrained(c *gc.C, run
 	// is constrained. The second attempt succeeds, and so allocates to az2.
 	var azArgs []string
 	realRunInstances := *ec2.RunInstances
-	t.PatchValue(ec2.RunInstances, func(e *amzec2.EC2, ri *amzec2.RunInstances) (*amzec2.RunInstancesResp, error) {
+
+	t.PatchValue(ec2.RunInstances, func(e *amzec2.EC2, ri *amzec2.RunInstances, c environs.StatusCallbackFunc) (*amzec2.RunInstancesResp, error) {
 		azArgs = append(azArgs, ri.AvailZone)
 		if len(azArgs) == 1 {
 			return nil, runInstancesError
 		}
-		return realRunInstances(e, ri)
+		return realRunInstances(e, ri, fakeCallback)
 	})
 	inst, hwc := testing.AssertStartInstance(c, env, t.ControllerUUID, "1")
 	c.Assert(azArgs, gc.DeepEquals, []string{"az1", "az2"})
@@ -1384,12 +1398,12 @@ func (t *localServerSuite) TestInstanceInformation(c *gc.C) {
 	env := t.prepareEnviron(c)
 	types, err := env.InstanceTypes(constraints.Value{})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(types.InstanceTypes, gc.HasLen, 45)
+	c.Assert(types.InstanceTypes, gc.HasLen, 53)
 
 	cons := constraints.MustParse("mem=4G")
 	types, err = env.InstanceTypes(cons)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(types.InstanceTypes, gc.HasLen, 40)
+	c.Assert(types.InstanceTypes, gc.HasLen, 48)
 }
 
 func validateSubnets(c *gc.C, subnets []network.SubnetInfo) {
@@ -1498,6 +1512,134 @@ func (s *localServerSuite) TestBootstrapInstanceConstraints(c *gc.C) {
 	// Controllers should be started with a burstable
 	// instance if possible, and a 32 GiB disk.
 	c.Assert(ec2inst.InstanceType, gc.Equals, "t2.medium")
+}
+
+func controllerTag(allTags []amzec2.Tag) string {
+	for _, tag := range allTags {
+		if tag.Key == tags.JujuController {
+			return tag.Value
+		}
+	}
+	return ""
+}
+
+func makeFilter(key string, values ...string) *amzec2.Filter {
+	result := amzec2.NewFilter()
+	result.Add(key, values...)
+	return result
+}
+
+func (s *localServerSuite) TestAdoptResources(c *gc.C) {
+	controllerEnv := s.prepareAndBootstrap(c)
+	controllerInsts, err := controllerEnv.AllInstances()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(controllerInsts, gc.HasLen, 1)
+
+	controllerVolumes, err := ec2.AllModelVolumes(controllerEnv)
+	c.Assert(err, jc.ErrorIsNil)
+
+	controllerGroups, err := ec2.AllModelGroups(controllerEnv)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Create a hosted model environment with an instance and a volume.
+	hostedModelUUID := "7e386e08-cba7-44a4-a76e-7c1633584210"
+	s.srv.ec2srv.SetInitialInstanceState(ec2test.Running)
+	cfg, err := controllerEnv.Config().Apply(map[string]interface{}{
+		"uuid":          hostedModelUUID,
+		"firewall-mode": "global",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	env, err := environs.New(environs.OpenParams{
+		Cloud:  s.CloudSpec(),
+		Config: cfg,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	inst, _ := testing.AssertStartInstance(c, env, s.ControllerUUID, "0")
+	c.Assert(err, jc.ErrorIsNil)
+	ebsProvider, err := env.StorageProvider(ec2.EBS_ProviderType)
+	c.Assert(err, jc.ErrorIsNil)
+	vs, err := ebsProvider.VolumeSource(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	volumeResults, err := vs.CreateVolumes([]storage.VolumeParams{{
+		Tag:      names.NewVolumeTag("0"),
+		Size:     1024,
+		Provider: ec2.EBS_ProviderType,
+		ResourceTags: map[string]string{
+			tags.JujuController: s.ControllerUUID,
+			tags.JujuModel:      hostedModelUUID,
+		},
+		Attachment: &storage.VolumeAttachmentParams{
+			AttachmentParams: storage.AttachmentParams{
+				InstanceId: inst.Id(),
+			},
+		},
+	}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(volumeResults, gc.HasLen, 1)
+	c.Assert(volumeResults[0].Error, jc.ErrorIsNil)
+
+	modelVolumes, err := ec2.AllModelVolumes(env)
+	c.Assert(err, jc.ErrorIsNil)
+	allVolumes := append([]string{}, controllerVolumes...)
+	allVolumes = append(allVolumes, modelVolumes...)
+
+	modelGroups, err := ec2.AllModelGroups(env)
+	c.Assert(err, jc.ErrorIsNil)
+	allGroups := append([]string{}, controllerGroups...)
+	allGroups = append(allGroups, modelGroups...)
+
+	ec2conn := ec2.EnvironEC2(env)
+
+	origController := coretesting.ControllerTag.Id()
+
+	checkInstanceTags := func(controllerUUID string, expectedIds ...string) {
+		resp, err := ec2conn.Instances(
+			nil, makeFilter("tag:"+tags.JujuController, controllerUUID))
+		c.Assert(err, jc.ErrorIsNil)
+		actualIds := set.NewStrings()
+		for _, reservation := range resp.Reservations {
+			for _, instance := range reservation.Instances {
+				actualIds.Add(instance.InstanceId)
+			}
+		}
+		c.Check(actualIds, gc.DeepEquals, set.NewStrings(expectedIds...))
+	}
+
+	checkVolumeTags := func(controllerUUID string, expectedIds ...string) {
+		resp, err := ec2conn.Volumes(
+			nil, makeFilter("tag:"+tags.JujuController, controllerUUID))
+		c.Assert(err, jc.ErrorIsNil)
+		actualIds := set.NewStrings()
+		for _, vol := range resp.Volumes {
+			actualIds.Add(vol.Id)
+		}
+		c.Check(actualIds, gc.DeepEquals, set.NewStrings(expectedIds...))
+	}
+
+	checkGroupTags := func(controllerUUID string, expectedIds ...string) {
+		resp, err := ec2conn.SecurityGroups(
+			nil, makeFilter("tag:"+tags.JujuController, controllerUUID))
+		c.Assert(err, jc.ErrorIsNil)
+		actualIds := set.NewStrings()
+		for _, group := range resp.Groups {
+			actualIds.Add(group.Id)
+		}
+		c.Check(actualIds, gc.DeepEquals, set.NewStrings(expectedIds...))
+	}
+
+	checkInstanceTags(origController, string(inst.Id()), string(controllerInsts[0].Id()))
+	checkVolumeTags(origController, allVolumes...)
+	checkGroupTags(origController, allGroups...)
+
+	err = env.AdoptResources("new-controller", version.MustParse("0.0.1"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	checkInstanceTags("new-controller", string(inst.Id()))
+	checkInstanceTags(origController, string(controllerInsts[0].Id()))
+	checkVolumeTags("new-controller", modelVolumes...)
+	checkVolumeTags(origController, controllerVolumes...)
+	checkGroupTags("new-controller", modelGroups...)
+	checkGroupTags(origController, controllerGroups...)
 }
 
 // localNonUSEastSuite is similar to localServerSuite but the S3 mock server

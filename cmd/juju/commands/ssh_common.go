@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/network"
+	jujussh "github.com/juju/juju/network/ssh"
 )
 
 // SSHCommon implements functionality shared by sshCommand, SCPCommand
@@ -38,7 +39,7 @@ type SSHCommon struct {
 	apiClient       sshAPIClient
 	apiAddr         string
 	knownHostsPath  string
-	hostDialer      network.Dialer
+	hostChecker     jujussh.ReachableChecker
 	forceAPIv1      bool
 }
 
@@ -96,7 +97,7 @@ const (
 	SSHRetryDelay = 500 * time.Millisecond
 
 	// SSHTimeout is the time to wait for before giving up trying to establish
-	// an SSH connection to a target, after retriying.
+	// an SSH connection to a target, after retrying.
 	SSHTimeout = 5 * time.Second
 
 	// SSHPort is the TCP port used for SSH connections.
@@ -115,16 +116,17 @@ func (c *SSHCommon) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.noHostKeyChecks, "no-host-key-checks", false, "Skip host key checking (INSECURE)")
 }
 
-// defaultHostDialer returns a network.Dialer with timeout set to SSHRetryDelay.
-func defaultHostDialer() network.Dialer {
-	return &net.Dialer{Timeout: SSHRetryDelay}
+// defaultReachableChecker returns a jujussh.ReachableChecker with a connection
+// timeout of SSHRetryDelay and an overall timout of SSHTimeout
+func defaultReachableChecker() jujussh.ReachableChecker {
+	return jujussh.NewReachableChecker(&net.Dialer{Timeout: SSHRetryDelay}, SSHTimeout)
 }
 
-func (c *SSHCommon) setHostDialer(dialer network.Dialer) {
-	if dialer == nil {
-		dialer = defaultHostDialer()
+func (c *SSHCommon) setHostChecker(checker jujussh.ReachableChecker) {
+	if checker == nil {
+		checker = defaultReachableChecker()
 	}
-	c.hostDialer = dialer
+	c.hostChecker = checker
 }
 
 // initRun initializes the API connection if required, and determines
@@ -392,10 +394,17 @@ func (c *SSHCommon) reachableAddressGetter(entity string) (string, error) {
 	} else if len(addresses) == 0 {
 		return "", network.NoAddressError("available")
 	}
+	publicKeys := []string{}
+	if !c.noHostKeyChecks {
+		publicKeys, err = c.apiClient.PublicKeys(entity)
+		if err != nil {
+			return "", errors.Annotatef(err, "retrieving SSH host keys for %q", entity)
+		}
+	}
 
 	hostPorts := network.NewHostPorts(SSHPort, addresses...)
 	usableHPs := network.FilterUnusableHostPorts(hostPorts)
-	bestHP, err := network.ReachableHostPort(usableHPs, c.hostDialer, SSHTimeout)
+	bestHP, err := c.hostChecker.FindHost(usableHPs, publicKeys)
 	if err != nil {
 		return "", errors.Trace(err)
 	}

@@ -20,7 +20,9 @@ package dummy
 
 import (
 	"fmt"
+	"io"
 	"net"
+	"net/http"
 	"os"
 	"runtime"
 	"strconv"
@@ -38,6 +40,7 @@ import (
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/clock"
 	"github.com/juju/utils/series"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/environschema.v1"
 	"gopkg.in/juju/names.v2"
@@ -750,7 +753,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 			if icfg.Bootstrap.ControllerCloudCredentialName != "" {
 				cloudCredentialTag = names.NewCloudCredentialTag(fmt.Sprintf(
 					"%s/%s/%s",
-					icfg.Bootstrap.ControllerCloudName,
+					icfg.Bootstrap.ControllerCloud.Name,
 					adminUser.Id(),
 					icfg.Bootstrap.ControllerCloudCredentialName,
 				))
@@ -773,13 +776,12 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 					Owner:                   adminUser,
 					Config:                  icfg.Bootstrap.ControllerModelConfig,
 					Constraints:             icfg.Bootstrap.BootstrapMachineConstraints,
-					CloudName:               icfg.Bootstrap.ControllerCloudName,
+					CloudName:               icfg.Bootstrap.ControllerCloud.Name,
 					CloudRegion:             icfg.Bootstrap.ControllerCloudRegion,
 					CloudCredential:         cloudCredentialTag,
 					StorageProviderRegistry: e,
 				},
 				Cloud:            icfg.Bootstrap.ControllerCloud,
-				CloudName:        icfg.Bootstrap.ControllerCloudName,
 				CloudCredentials: cloudCredentials,
 				MongoInfo:        info,
 				MongoDialOpts:    mongotest.DialOpts(),
@@ -826,6 +828,11 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 				NewObserver: func() observer.Observer { return &fakeobserver.Instance{} },
 				// Should never be used but prevent external access just in case.
 				AutocertURL: "https://0.1.2.3/no-autocert-here",
+				RegisterIntrospectionHandlers: func(f func(path string, h http.Handler)) {
+					f("navel", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+						io.WriteString(w, "gazing")
+					}))
+				},
 			})
 			if err != nil {
 				panic(err)
@@ -886,6 +893,12 @@ func (e *environ) SetConfig(cfg *config.Config) error {
 	e.ecfgMutex.Lock()
 	e.ecfgUnlocked = ecfg
 	e.ecfgMutex.Unlock()
+	return nil
+}
+
+// AdoptResources is part of the Environ interface.
+func (e *environ) AdoptResources(controllerUUID string, fromVersion version.Number) error {
+	// This provider doesn't track instance -> controller.
 	return nil
 }
 
@@ -1158,6 +1171,11 @@ func (env *environ) SupportsSpaceDiscovery() (bool, error) {
 		return false, nil
 	}
 	return true, nil
+}
+
+// SupportsContainerAddresses is specified on environs.Networking.
+func (env *environ) SupportsContainerAddresses() (bool, error) {
+	return false, errors.NotSupportedf("container addresses")
 }
 
 // Spaces is specified on environs.Networking.

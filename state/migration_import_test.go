@@ -389,6 +389,39 @@ func (s *MigrationImportSuite) TestApplicationLeaders(c *gc.C) {
 	})
 }
 
+func (s *MigrationImportSuite) TestCharmRevSequencesNotImported(c *gc.C) {
+	s.Factory.MakeApplication(c, &factory.ApplicationParams{
+		Charm: s.Factory.MakeCharm(c, &factory.CharmParams{
+			Name: "mysql",
+			URL:  "local:trusty/mysql-2",
+		}),
+	})
+	// Sequence should be set in the source model.
+	const charmSeqName = "charmrev-local:trusty/mysql"
+	nextVal, err := state.Sequence(s.State, charmSeqName)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(nextVal, gc.Equals, 3)
+
+	out, err := s.State.Export()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(len(out.Applications()), gc.Equals, 1)
+
+	uuid := utils.MustNewUUID().String()
+	in := newModel(out, uuid, "new")
+
+	_, newSt, err := s.State.Import(in)
+	c.Assert(err, jc.ErrorIsNil)
+	defer newSt.Close()
+
+	// Charm revision sequence shouldn't have been imported. The
+	// import of the charm binaries (done separately later) will
+	// handle this.
+	nextVal, err = state.Sequence(newSt, charmSeqName)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(nextVal, gc.Equals, 0)
+}
+
 func (s *MigrationImportSuite) TestApplicationsSubordinatesAfter(c *gc.C) {
 	// Test for https://bugs.launchpad.net/juju/+bug/1650249
 	subordinate := s.Factory.MakeApplication(c, &factory.ApplicationParams{

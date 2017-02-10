@@ -8,6 +8,7 @@ package lxd_test
 import (
 	"fmt"
 
+	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
@@ -49,32 +50,83 @@ type providerSuite struct {
 
 func (s *providerSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
+}
 
-	provider, err := environs.Provider("lxd")
+func (s *providerSuite) TestDetectClouds(c *gc.C) {
+	clouds, err := s.Provider.DetectClouds()
 	c.Assert(err, jc.ErrorIsNil)
-	s.provider = provider
+	c.Assert(clouds, gc.HasLen, 1)
+	s.assertLocalhostCloud(c, clouds[0])
+}
+
+func (s *providerSuite) TestDetectCloud(c *gc.C) {
+	cloud, err := s.Provider.DetectCloud("localhost")
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertLocalhostCloud(c, cloud)
+	cloud, err = s.Provider.DetectCloud("lxd")
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertLocalhostCloud(c, cloud)
+}
+
+func (s *providerSuite) TestDetectCloudError(c *gc.C) {
+	_, err := s.Provider.DetectCloud("foo")
+	c.Assert(err, gc.ErrorMatches, `cloud foo not found`)
+}
+
+func (s *providerSuite) assertLocalhostCloud(c *gc.C, found cloud.Cloud) {
+	c.Assert(found, jc.DeepEquals, cloud.Cloud{
+		Name: "localhost",
+		Type: "lxd",
+		AuthTypes: []cloud.AuthType{
+			"interactive",
+			cloud.CertificateAuthType,
+		},
+		Regions: []cloud.Region{{
+			Name: "localhost",
+		}},
+		Description: "LXD Container Hypervisor",
+	})
+}
+
+func (s *providerSuite) TestFinalizeCloud(c *gc.C) {
+	in := cloud.Cloud{
+		Name:      "foo",
+		Type:      "lxd",
+		AuthTypes: []cloud.AuthType{cloud.CertificateAuthType},
+		Regions: []cloud.Region{{
+			Name: "bar",
+		}},
+	}
+
+	var ctx mockContext
+	out, err := s.Provider.FinalizeCloud(&ctx, in)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(out, jc.DeepEquals, cloud.Cloud{
+		Name:      "foo",
+		Type:      "lxd",
+		AuthTypes: []cloud.AuthType{cloud.CertificateAuthType},
+		Endpoint:  "1.2.3.4",
+		Regions: []cloud.Region{{
+			Name:     "bar",
+			Endpoint: "1.2.3.4",
+		}},
+	})
+	ctx.CheckCallNames(c, "Verbosef")
+	ctx.CheckCall(
+		c, 0, "Verbosef", "Resolved LXD host address on bridge %s: %s",
+		[]interface{}{"test-bridge", "1.2.3.4"},
+	)
 }
 
 func (s *providerSuite) TestDetectRegions(c *gc.C) {
-	c.Assert(s.provider, gc.Implements, new(environs.CloudRegionDetector))
-	regions, err := s.provider.(environs.CloudRegionDetector).DetectRegions()
+	regions, err := s.Provider.DetectRegions()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(regions, jc.DeepEquals, []cloud.Region{{Name: lxdnames.DefaultRegion}})
 }
 
-func (s *providerSuite) TestDefaultCloudName(c *gc.C) {
-	c.Assert(s.provider, gc.Implements, new(environs.DefaultCloudNamer))
-	name := s.provider.(environs.DefaultCloudNamer).DefaultCloudName()
-	c.Assert(name, gc.Equals, "localhost")
-	c.Assert(cloud.BuiltInClouds[name].Type, gc.Equals, "lxd")
-}
-
-func (s *providerSuite) TestRegistered(c *gc.C) {
-	c.Check(s.provider, gc.Equals, lxd.Provider)
-}
-
 func (s *providerSuite) TestValidate(c *gc.C) {
-	validCfg, err := s.provider.Validate(s.Config, nil)
+	validCfg, err := s.Provider.Validate(s.Config, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	validAttrs := validCfg.AllAttrs()
 
@@ -124,7 +176,7 @@ func (s *ProviderFunctionalSuite) TestPrepareConfig(c *gc.C) {
 }
 
 func (s *ProviderFunctionalSuite) TestPrepareConfigUnsupportedAuthType(c *gc.C) {
-	cred := cloud.NewCredential(cloud.CertificateAuthType, nil)
+	cred := cloud.NewCredential("foo", nil)
 	_, err := s.provider.PrepareConfig(environs.PrepareConfigParams{
 		Cloud: environs.CloudSpec{
 			Type:       "lxd",
@@ -132,5 +184,38 @@ func (s *ProviderFunctionalSuite) TestPrepareConfigUnsupportedAuthType(c *gc.C) 
 			Credential: &cred,
 		},
 	})
-	c.Assert(err, gc.ErrorMatches, `validating cloud spec: "certificate" auth-type not supported`)
+	c.Assert(err, gc.ErrorMatches, `validating cloud spec: "foo" auth-type not supported`)
+}
+
+func (s *ProviderFunctionalSuite) TestPrepareConfigInvalidCertificateAttrs(c *gc.C) {
+	cred := cloud.NewCredential(cloud.CertificateAuthType, map[string]string{})
+	_, err := s.provider.PrepareConfig(environs.PrepareConfigParams{
+		Cloud: environs.CloudSpec{
+			Type:       "lxd",
+			Name:       "remotehost",
+			Credential: &cred,
+		},
+	})
+	c.Assert(err, gc.ErrorMatches, `validating cloud spec: certificate credentials not valid`)
+}
+
+func (s *ProviderFunctionalSuite) TestPrepareConfigEmptyAuthNonLocal(c *gc.C) {
+	cred := cloud.NewEmptyCredential()
+	_, err := s.provider.PrepareConfig(environs.PrepareConfigParams{
+		Cloud: environs.CloudSpec{
+			Type:       "lxd",
+			Name:       "remotehost",
+			Endpoint:   "8.8.8.8",
+			Credential: &cred,
+		},
+	})
+	c.Assert(err, gc.ErrorMatches, `validating cloud spec: "empty" auth-type not supported`)
+}
+
+type mockContext struct {
+	gitjujutesting.Stub
+}
+
+func (c *mockContext) Verbosef(f string, args ...interface{}) {
+	c.MethodCall(c, "Verbosef", f, args)
 }

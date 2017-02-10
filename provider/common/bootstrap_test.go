@@ -116,6 +116,7 @@ func (s *BootstrapSuite) TestCannotStartInstance(c *gc.C) {
 			"juju-controller-uuid": coretesting.ControllerTag.Id(),
 			"juju-is-controller":   "true",
 		}
+		expectedMcfg.NetBondReconfigureDelay = env.Config().NetBondReconfigureDelay()
 
 		c.Assert(icfg, jc.DeepEquals, expectedMcfg)
 		return nil, nil, nil, errors.Errorf("meh, not started")
@@ -386,6 +387,7 @@ func (ac *addressesChange) Addresses() ([]network.Address, error) {
 }
 
 func (s *BootstrapSuite) TestWaitSSHRefreshAddresses(c *gc.C) {
+	coretesting.SkipIfWindowsBug(c, "lp:1604961")
 	ctx := coretesting.Context(c)
 	_, err := common.WaitSSH(ctx.Stderr, nil, ssh.DefaultClient, "", &addressesChange{addrs: [][]string{
 		nil,

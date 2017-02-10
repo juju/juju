@@ -29,6 +29,7 @@ func (s *ControllerConfigSuite) TestControllerAndModelConfigInitialisation(c *gc
 		controller.AutocertURLKey:      true,
 		controller.AutocertDNSNameKey:  true,
 		controller.AllowModelAccessKey: true,
+		controller.MongoMemoryProfile:  true,
 	}
 	for _, controllerAttr := range controller.ControllerOnlyConfigAttributes {
 		v, ok := controllerSettings.Get(controllerAttr)

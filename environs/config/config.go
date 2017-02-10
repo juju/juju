@@ -96,6 +96,10 @@ const (
 	// NoProxyKey stores the key for this setting.
 	NoProxyKey = "no-proxy"
 
+	// NetBondReconfigureDelay is the key to pass when bridging
+	// the network for containers.
+	NetBondReconfigureDelayKey = "net-bond-reconfigure-delay"
+
 	// The default block storage source.
 	StorageDefaultBlockSourceKey = "storage-default-block-source"
 
@@ -128,6 +132,10 @@ const (
 	// TransmitVendorMetricsKey is the key for whether the controller sends
 	// metrics collected in this model for anonymized aggregate analytics.
 	TransmitVendorMetricsKey = "transmit-vendor-metrics"
+
+	// ExtraInfoKey is the key for arbitrary user specified string data that
+	// is stored against the model.
+	ExtraInfoKey = "extra-info"
 
 	//
 	// Deprecated Settings Attributes
@@ -284,6 +292,25 @@ var defaultConfigValues = map[string]interface{}{
 	IgnoreMachineAddresses:       false,
 	"ssl-hostname-verification":  true,
 	"proxy-ssh":                  false,
+
+	// Why is net-bond-reconfigure-delay set to 17 seconds?
+	//
+	// The value represents the amount of time in seconds to sleep
+	// between ifdown and ifup when bridging bonded interfaces;
+	// this is a platform bug and all of this can go away when bug
+	// #1657579 (and #1594855 and #1269921) are fixed.
+	//
+	// For a long time the bridge script hardcoded a value of 3s
+	// but some setups now require an even longer period. The last
+	// reported issue was fixed with a 10s timeout, however, we're
+	// increasing that because this issue (and solution) is not
+	// very discoverable and we would like bridging to work
+	// out-of-the-box.
+	//
+	// This value can be further tweaked via:
+	//
+	// $ juju model-config net-bond-reconfigure-delay=30
+	NetBondReconfigureDelayKey: 17,
 
 	"default-series":           series.LatestLts(),
 	ProvisionerHarvestModeKey:  HarvestDestroyed.String(),
@@ -512,17 +539,6 @@ func (c *Config) mustString(name string) string {
 	return value
 }
 
-// mustInt returns the named attribute as an integer, panicking if
-// it is not found or is zero. Zero values should have been
-// diagnosed at Validate time.
-func (c *Config) mustInt(name string) int {
-	value, _ := c.defined[name].(int)
-	if value == 0 {
-		panic(fmt.Errorf("empty value for %q found in configuration", name))
-	}
-	return value
-}
-
 // Type returns the model's cloud provider type.
 func (c *Config) Type() string {
 	return c.mustString(TypeKey)
@@ -564,6 +580,13 @@ func (c *Config) AuthorizedKeys() string {
 // should be proxied through the API server.
 func (c *Config) ProxySSH() bool {
 	value, _ := c.defined["proxy-ssh"].(bool)
+	return value
+}
+
+// NetBondReconfigureDelay returns the duration in seconds that should be
+// passed to the bridge script when bridging bonded interfaces.
+func (c *Config) NetBondReconfigureDelay() int {
+	value, _ := c.defined[NetBondReconfigureDelayKey].(int)
 	return value
 }
 
@@ -933,6 +956,7 @@ var fields = func() schema.Fields {
 var alwaysOptional = schema.Defaults{
 	AgentVersionKey:   schema.Omit,
 	AuthorizedKeysKey: schema.Omit,
+	ExtraInfoKey:      schema.Omit,
 
 	LogForwardEnabled:      schema.Omit,
 	LogFwdSyslogHost:       schema.Omit,
@@ -972,6 +996,7 @@ var alwaysOptional = schema.Defaults{
 	AutomaticallyRetryHooks:      schema.Omit,
 	"test-mode":                  schema.Omit,
 	TransmitVendorMetricsKey:     schema.Omit,
+	NetBondReconfigureDelayKey:   schema.Omit,
 }
 
 func allowEmpty(attr string) bool {
@@ -1185,6 +1210,11 @@ var configSchema = environschema.Fields{
 		Type:        environschema.Tbool,
 		Group:       environschema.EnvironGroup,
 	},
+	ExtraInfoKey: {
+		Description: "Arbitrary user specified string data that is stored against the model.",
+		Type:        environschema.Tstring,
+		Group:       environschema.EnvironGroup,
+	},
 	"firewall-mode": {
 		Description: `The mode to use for network firewalling.
 
@@ -1325,6 +1355,11 @@ data of the store. (default false)`,
 	TransmitVendorMetricsKey: {
 		Description: "Determines whether metrics declared by charms deployed into this model are sent for anonymized aggregate analytics",
 		Type:        environschema.Tbool,
+		Group:       environschema.EnvironGroup,
+	},
+	NetBondReconfigureDelayKey: {
+		Description: "The amount of time in seconds to sleep between ifdown and ifup when bridging",
+		Type:        environschema.Tint,
 		Group:       environschema.EnvironGroup,
 	},
 }

@@ -32,6 +32,7 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/provider/lxd/lxdnames"
 	jujuversion "github.com/juju/juju/version"
 )
 
@@ -247,9 +248,20 @@ func (c *bootstrapCommand) Init(args []string) (err error) {
 
 // BootstrapInterface provides bootstrap functionality that Run calls to support cleaner testing.
 type BootstrapInterface interface {
+	// Bootstrap bootstraps a controller.
 	Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args bootstrap.BootstrapParams) error
+
+	// CloudDetector returns a CloudDetector for the given provider,
+	// if the provider supports it.
+	CloudDetector(environs.EnvironProvider) (environs.CloudDetector, bool)
+
+	// CloudRegionDetector returns a CloudRegionDetector for the given provider,
+	// if the provider supports it.
 	CloudRegionDetector(environs.EnvironProvider) (environs.CloudRegionDetector, bool)
-	DefaultCloudName(environs.EnvironProvider) (string, bool)
+
+	// CloudFinalizer returns a CloudFinalizer for the given provider,
+	// if the provider supports it.
+	CloudFinalizer(environs.EnvironProvider) (environs.CloudFinalizer, bool)
 }
 
 type bootstrapFuncs struct{}
@@ -258,17 +270,19 @@ func (b bootstrapFuncs) Bootstrap(ctx environs.BootstrapContext, env environs.En
 	return bootstrap.Bootstrap(ctx, env, args)
 }
 
+func (b bootstrapFuncs) CloudDetector(provider environs.EnvironProvider) (environs.CloudDetector, bool) {
+	detector, ok := provider.(environs.CloudDetector)
+	return detector, ok
+}
+
 func (b bootstrapFuncs) CloudRegionDetector(provider environs.EnvironProvider) (environs.CloudRegionDetector, bool) {
 	detector, ok := provider.(environs.CloudRegionDetector)
 	return detector, ok
 }
 
-func (b bootstrapFuncs) DefaultCloudName(provider environs.EnvironProvider) (string, bool) {
-	namer, ok := provider.(environs.DefaultCloudNamer)
-	if !ok {
-		return "", false
-	}
-	return namer.DefaultCloudName(), true
+func (b bootstrapFuncs) CloudFinalizer(provider environs.EnvironProvider) (environs.CloudFinalizer, bool) {
+	finalizer, ok := provider.(environs.CloudFinalizer)
+	return finalizer, ok
 }
 
 var getBootstrapFuncs = func() BootstrapInterface {
@@ -321,6 +335,10 @@ func (c *bootstrapCommand) parseConstraints(ctx *cmd.Context) (err error) {
 // a juju in that environment if none already exists. If there is as yet no environments.yaml file,
 // the user is informed how to create one.
 func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
+	defer func() {
+		resultErr = handleChooseCloudRegionError(ctx, resultErr)
+	}()
+
 	if err := c.parseConstraints(ctx); err != nil {
 		return err
 	}
@@ -342,15 +360,11 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		// now run normal bootstrap using info gained above.
 	}
 
-	cloud, err := c.cloud(ctx)
+	cloud, provider, err := c.cloud(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	provider, err := environs.Provider(cloud.Type)
-	if err != nil {
-		return errors.Trace(err)
-	}
 	// Custom clouds may not have explicitly declared support for any auth-
 	// types, in which case we'll assume that they support everything that
 	// the provider supports.
@@ -360,18 +374,17 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		}
 	}
 
-	credentials, regionName, err := c.credentialsAndRegionName(ctx, cloud)
+	credentials, regionName, err := c.credentialsAndRegionName(ctx, provider, cloud)
 	if err != nil {
+		if err == cmd.ErrSilent {
+			return err
+		}
 		return errors.Trace(err)
 	}
 
-	region, err := getRegion(cloud, regionName)
+	region, err := common.ChooseCloudRegion(cloud, regionName)
 	if err != nil {
-		fmt.Fprintf(ctx.GetStderr(),
-			"%s\n\nSpecify an alternative region, or try %q.\n",
-			err, "juju update-clouds",
-		)
-		return cmd.ErrSilent
+		return errors.Trace(err)
 	}
 	if c.controllerName == "" {
 		c.controllerName = defaultControllerName(cloud.Name, region.Name)
@@ -543,8 +556,7 @@ See `[1:] + "`juju kill-controller`" + `.`)
 		BuildAgentTarball:         sync.BuildAgentTarball,
 		AgentVersion:              c.AgentVersion,
 		MetadataDir:               metadataDir,
-		Cloud:                     *cloud,
-		CloudName:                 cloud.Name,
+		Cloud:                     cloud,
 		CloudRegion:               region.Name,
 		CloudCredential:           credentials.credential,
 		CloudCredentialName:       credentials.name,
@@ -607,83 +619,128 @@ func (c *bootstrapCommand) handleCommandLineErrorsAndInfoRequests(ctx *cmd.Conte
 	return false, nil
 }
 
-func (c *bootstrapCommand) cloud(ctx *cmd.Context) (*jujucloud.Cloud, error) {
+func (c *bootstrapCommand) cloud(ctx *cmd.Context) (jujucloud.Cloud, environs.EnvironProvider, error) {
 	bootstrapFuncs := getBootstrapFuncs()
+	fail := func(err error) (jujucloud.Cloud, environs.EnvironProvider, error) {
+		return jujucloud.Cloud{}, nil, err
+	}
 
 	// Get the cloud definition identified by c.Cloud. If c.Cloud does not
-	// identify a cloud in clouds.yaml, but is the name of a provider, and
-	// that provider implements environs.CloudRegionDetector, we'll
-	// synthesise a Cloud structure with the detected regions and no auth-
-	// types.
-	cloud, err := jujucloud.CloudByName(c.Cloud)
+	// identify a cloud in clouds.yaml, then we check if any of the
+	// providers can detect a cloud with the given name. Otherwise, if the
+	// cloud name identifies a provider *type* (e.g. "openstack"), then we
+	// check if that provider can detect cloud regions, and synthesise a
+	// cloud with those regions.
+	var provider environs.EnvironProvider
+	var cloud jujucloud.Cloud
+	cloudptr, err := jujucloud.CloudByName(c.Cloud)
 	if errors.IsNotFound(err) {
-		ctx.Verbosef("cloud %q not found, trying as a provider name", c.Cloud)
-		provider, err := environs.Provider(c.Cloud)
-		if errors.IsNotFound(err) {
-			return nil, errors.NewNotFound(nil, fmt.Sprintf("unknown cloud %q, please try %q", c.Cloud, "juju update-clouds"))
-		} else if err != nil {
-			return nil, errors.Trace(err)
+		cloud, provider, err = c.detectCloud(ctx, bootstrapFuncs)
+		if err != nil {
+			return fail(errors.Trace(err))
 		}
-		detector, ok := bootstrapFuncs.CloudRegionDetector(provider)
+	} else if err != nil {
+		return fail(errors.Trace(err))
+	} else {
+		cloud = *cloudptr
+		if err := checkProviderType(cloud.Type); err != nil {
+			return fail(errors.Trace(err))
+		}
+		provider, err = environs.Provider(cloud.Type)
+		if err != nil {
+			return fail(errors.Trace(err))
+		}
+	}
+
+	if finalizer, ok := bootstrapFuncs.CloudFinalizer(provider); ok {
+		cloud, err = finalizer.FinalizeCloud(ctx, cloud)
+		if err != nil {
+			return fail(errors.Trace(err))
+		}
+	}
+
+	return cloud, provider, nil
+}
+
+func (c *bootstrapCommand) detectCloud(
+	ctx *cmd.Context,
+	bootstrapFuncs BootstrapInterface,
+) (jujucloud.Cloud, environs.EnvironProvider, error) {
+	fail := func(err error) (jujucloud.Cloud, environs.EnvironProvider, error) {
+		return jujucloud.Cloud{}, nil, err
+	}
+
+	// Check if any of the registered providers can give us a cloud with
+	// the specified name. The first one wins.
+	for _, providerType := range environs.RegisteredProviders() {
+		provider, err := environs.Provider(providerType)
+		if err != nil {
+			return fail(errors.Trace(err))
+		}
+		cloudDetector, ok := bootstrapFuncs.CloudDetector(provider)
 		if !ok {
-			ctx.Verbosef(
-				"provider %q does not support detecting regions",
-				c.Cloud,
-			)
-			return nil, errors.NewNotFound(nil, fmt.Sprintf("unknown cloud %q, please try %q", c.Cloud, "juju update-clouds"))
+			continue
 		}
-		var cloudEndpoint string
-		regions, err := detector.DetectRegions()
+		cloud, err := cloudDetector.DetectCloud(c.Cloud)
 		if errors.IsNotFound(err) {
-			// It's not an error to have no regions. If the
-			// provider does not support regions, then we
-			// reinterpret the supplied region name as the
-			// cloud's endpoint. This enables the user to
-			// supply, for example, maas/<IP> or manual/<IP>.
-			if c.Region != "" {
-				ctx.Verbosef("interpreting %q as the cloud endpoint", c.Region)
-				cloudEndpoint = c.Region
-				c.Region = ""
-			}
+			continue
 		} else if err != nil {
-			return nil, errors.Annotatef(err,
-				"detecting regions for %q cloud provider",
-				c.Cloud,
-			)
+			return fail(errors.Trace(err))
 		}
-		schemas := provider.CredentialSchemas()
-		authTypes := make([]jujucloud.AuthType, 0, len(schemas))
-		for authType := range schemas {
-			authTypes = append(authTypes, authType)
-		}
-
-		// Give the provider a chance to specify what the cloud name should be.
-		cloudName := c.Cloud
-		if defaultName, ok := bootstrapFuncs.DefaultCloudName(provider); ok {
-			ctx.Verbosef("using default cloud name %q from %s provider", defaultName, c.Cloud)
-			cloudName = defaultName
-		}
-
-		// Since we are iterating over a map, lets sort the authTypes so
-		// they are always in a consistent order.
-		sort.Sort(jujucloud.AuthTypes(authTypes))
-		cloud = &jujucloud.Cloud{
-			Name:      cloudName,
-			Type:      c.Cloud,
-			AuthTypes: authTypes,
-			Endpoint:  cloudEndpoint,
-			Regions:   regions,
-		}
-	} else if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if err := checkProviderType(cloud.Type); errors.IsNotFound(err) {
-		// This error will get handled later.
-	} else if err != nil {
-		return nil, errors.Trace(err)
+		return cloud, provider, nil
 	}
 
-	return cloud, nil
+	ctx.Verbosef("cloud %q not found, trying as a provider name", c.Cloud)
+	provider, err := environs.Provider(c.Cloud)
+	if errors.IsNotFound(err) {
+		return fail(errors.NewNotFound(nil, fmt.Sprintf("unknown cloud %q, please try %q", c.Cloud, "juju update-clouds")))
+	} else if err != nil {
+		return fail(errors.Trace(err))
+	}
+	regionDetector, ok := bootstrapFuncs.CloudRegionDetector(provider)
+	if !ok {
+		ctx.Verbosef(
+			"provider %q does not support detecting regions",
+			c.Cloud,
+		)
+		return fail(errors.NewNotFound(nil, fmt.Sprintf("unknown cloud %q, please try %q", c.Cloud, "juju update-clouds")))
+	}
+
+	var cloudEndpoint string
+	regions, err := regionDetector.DetectRegions()
+	if errors.IsNotFound(err) {
+		// It's not an error to have no regions. If the
+		// provider does not support regions, then we
+		// reinterpret the supplied region name as the
+		// cloud's endpoint. This enables the user to
+		// supply, for example, maas/<IP> or manual/<IP>.
+		if c.Region != "" {
+			ctx.Verbosef("interpreting %q as the cloud endpoint", c.Region)
+			cloudEndpoint = c.Region
+			c.Region = ""
+		}
+	} else if err != nil {
+		return fail(errors.Annotatef(err,
+			"detecting regions for %q cloud provider",
+			c.Cloud,
+		))
+	}
+	schemas := provider.CredentialSchemas()
+	authTypes := make([]jujucloud.AuthType, 0, len(schemas))
+	for authType := range schemas {
+		authTypes = append(authTypes, authType)
+	}
+
+	// Since we are iterating over a map, lets sort the authTypes so
+	// they are always in a consistent order.
+	sort.Sort(jujucloud.AuthTypes(authTypes))
+	return jujucloud.Cloud{
+		Name:      c.Cloud,
+		Type:      c.Cloud,
+		AuthTypes: authTypes,
+		Endpoint:  cloudEndpoint,
+		Regions:   regions,
+	}, provider, nil
 }
 
 type bootstrapCredentials struct {
@@ -695,54 +752,40 @@ type bootstrapCredentials struct {
 // Get the credentials and region name.
 func (c *bootstrapCommand) credentialsAndRegionName(
 	ctx *cmd.Context,
-	cloud *jujucloud.Cloud,
+	provider environs.EnvironProvider,
+	cloud jujucloud.Cloud,
 ) (
 	creds bootstrapCredentials,
 	regionName string,
 	err error,
 ) {
-
+	var detected bool
 	store := c.ClientStore()
-	creds.credential, creds.name, regionName, err = modelcmd.GetCredentials(
-		ctx, store, modelcmd.GetCredentialsParams{
-			Cloud:          *cloud,
-			CloudName:      c.Cloud,
+	creds.credential, creds.name, regionName, detected, err = common.GetOrDetectCredential(
+		ctx, store, provider, modelcmd.GetCredentialsParams{
+			Cloud:          cloud,
 			CloudRegion:    c.Region,
 			CredentialName: c.CredentialName,
 		},
 	)
-	if errors.Cause(err) == modelcmd.ErrMultipleCredentials {
+	switch errors.Cause(err) {
+	case nil:
+	case modelcmd.ErrMultipleCredentials:
 		return bootstrapCredentials{}, "", ambiguousCredentialError
-	}
-	if errors.IsNotFound(err) && c.CredentialName == "" {
-		// No credential was explicitly specified, and no credential
-		// was found in credentials.yaml; have the provider detect
-		// credentials from the environment.
-		ctx.Verbosef("no credentials found, checking environment")
-		detected, err := modelcmd.DetectCredential(c.Cloud, cloud.Type)
-		if errors.Cause(err) == modelcmd.ErrMultipleCredentials {
-			return bootstrapCredentials{}, "", ambiguousDetectedCredentialError
-		} else if err != nil {
-			return bootstrapCredentials{}, "", errors.Trace(err)
-		}
-		// We have one credential so extract it from the map.
-		var oneCredential jujucloud.Credential
-		for creds.detectedName, oneCredential = range detected.AuthCredentials {
-		}
-		creds.credential = &oneCredential
-		regionName = c.Region
-		if regionName == "" {
-			regionName = detected.DefaultRegion
-		}
-		logger.Debugf(
-			"authenticating with region %q and credential %q (%v)",
-			regionName, creds.detectedName, creds.credential.Label,
-		)
-		logger.Tracef("credential: %v", creds.credential)
-	} else if err != nil {
+	case common.ErrMultipleDetectedCredentials:
+		return bootstrapCredentials{}, "", ambiguousDetectedCredentialError
+	default:
 		return bootstrapCredentials{}, "", errors.Trace(err)
 	}
-
+	logger.Debugf(
+		"authenticating with region %q and credential %q (%v)",
+		regionName, creds.name, creds.credential.Label,
+	)
+	if detected {
+		creds.detectedName = creds.name
+		creds.name = ""
+	}
+	logger.Tracef("credential: %v", creds.credential)
 	return creds, regionName, nil
 }
 
@@ -756,7 +799,7 @@ type bootstrapConfigs struct {
 
 func (c *bootstrapCommand) bootstrapConfigs(
 	ctx *cmd.Context,
-	cloud *jujucloud.Cloud,
+	cloud jujucloud.Cloud,
 	provider environs.EnvironProvider,
 ) (
 	bootstrapConfigs,
@@ -959,7 +1002,7 @@ func (c *bootstrapCommand) runInteractive(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	c.Cloud, err = queryCloud(clouds, jujucloud.DefaultLXD, scanner, ctx.Stdout)
+	c.Cloud, err = queryCloud(clouds, lxdnames.DefaultCloud, scanner, ctx.Stdout)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -990,29 +1033,6 @@ func (c *bootstrapCommand) runInteractive(ctx *cmd.Context) error {
 	return nil
 }
 
-// getRegion returns the cloud.Region to use, based on the specified
-// region name.  If no region name is specified, and there is at least
-// one region, we use the first region in the list.
-func getRegion(cloud *jujucloud.Cloud, regionName string) (jujucloud.Region, error) {
-	if regionName != "" {
-		region, err := jujucloud.RegionByName(cloud.Regions, regionName)
-		if err != nil {
-			return jujucloud.Region{}, errors.Trace(err)
-		}
-		return *region, nil
-	}
-	if len(cloud.Regions) > 0 {
-		// No region was specified, use the first region in the list.
-		return cloud.Regions[0], nil
-	}
-	return jujucloud.Region{
-		"", // no region name
-		cloud.Endpoint,
-		cloud.IdentityEndpoint,
-		cloud.StorageEndpoint,
-	}, nil
-}
-
 // checkProviderType ensures the provider type is okay.
 func checkProviderType(envType string) error {
 	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
@@ -1038,4 +1058,15 @@ func handleBootstrapError(ctx *cmd.Context, err error, cleanup func() error) {
 	if err := cleanup(); err != nil {
 		logger.Errorf("error cleaning up: %v", err)
 	}
+}
+
+func handleChooseCloudRegionError(ctx *cmd.Context, err error) error {
+	if !common.IsChooseCloudRegionError(err) {
+		return err
+	}
+	fmt.Fprintf(ctx.GetStderr(),
+		"%s\n\nSpecify an alternative region, or try %q.\n",
+		err, "juju update-clouds",
+	)
+	return cmd.ErrSilent
 }

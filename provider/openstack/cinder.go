@@ -481,6 +481,7 @@ type OpenstackStorage interface {
 	AttachVolume(serverId, volumeId, mountPoint string) (*nova.VolumeAttachment, error)
 	DetachVolume(serverId, attachmentId string) error
 	ListVolumeAttachments(serverId string) ([]nova.VolumeAttachment, error)
+	SetVolumeMetadata(volumeId string, metadata map[string]string) (map[string]string, error)
 }
 
 type endpointResolver interface {
@@ -546,4 +547,9 @@ func (ga *openstackStorageAdapter) GetVolume(volumeId string) (*cinder.Volume, e
 		return nil, err
 	}
 	return &resp.Volume, nil
+}
+
+// SetVolumeMetadata is part of the OpenstackStorage interface.
+func (ga *openstackStorageAdapter) SetVolumeMetadata(volumeId string, metadata map[string]string) (map[string]string, error) {
+	return ga.cinderClient.SetVolumeMetadata(volumeId, metadata)
 }

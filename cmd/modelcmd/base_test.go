@@ -6,15 +6,20 @@ package modelcmd_test
 import (
 	"strings"
 
+	gc "gopkg.in/check.v1"
+
 	"github.com/juju/errors"
 	"github.com/juju/testing"
-	gc "gopkg.in/check.v1"
+	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
+	coretesting "github.com/juju/juju/testing"
 )
 
 type BaseCommandSuite struct {
@@ -66,4 +71,59 @@ func (s *BaseCommandSuite) TestUnknownModel(c *gc.C) {
 
 func (s *BaseCommandSuite) TestUnknownModelNotCurrent(c *gc.C) {
 	s.assertUnknownModel(c, "admin/goodmodel", "admin/goodmodel")
+}
+
+type NewGetBootstrapConfigParamsFuncSuite struct {
+	testing.IsolationSuite
+}
+
+var _ = gc.Suite(&NewGetBootstrapConfigParamsFuncSuite{})
+
+func (NewGetBootstrapConfigParamsFuncSuite) TestDetectCredentials(c *gc.C) {
+	clientStore := jujuclienttesting.NewMemStore()
+	clientStore.Controllers["foo"] = jujuclient.ControllerDetails{}
+	clientStore.BootstrapConfig["foo"] = jujuclient.BootstrapConfig{
+		Cloud:               "cloud",
+		CloudType:           "cloud-type",
+		ControllerModelUUID: coretesting.ModelTag.Id(),
+		Config: map[string]interface{}{
+			"name": "foo",
+			"type": "cloud-type",
+		},
+	}
+	var registry mockProviderRegistry
+
+	f := modelcmd.NewGetBootstrapConfigParamsFunc(
+		coretesting.Context(c),
+		clientStore,
+		&registry,
+	)
+	_, params, err := f("foo")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(params.Cloud.Credential.Label, gc.Equals, "finalized")
+}
+
+type mockProviderRegistry struct {
+	environs.ProviderRegistry
+}
+
+func (r *mockProviderRegistry) Provider(t string) (environs.EnvironProvider, error) {
+	return &mockEnvironProvider{}, nil
+}
+
+type mockEnvironProvider struct {
+	environs.EnvironProvider
+}
+
+func (p *mockEnvironProvider) DetectCredentials() (*cloud.CloudCredential, error) {
+	return cloud.NewEmptyCloudCredential(), nil
+}
+
+func (p *mockEnvironProvider) FinalizeCredential(
+	_ environs.FinalizeCredentialContext,
+	args environs.FinalizeCredentialParams,
+) (*cloud.Credential, error) {
+	out := args.Credential
+	out.Label = "finalized"
+	return &out, nil
 }

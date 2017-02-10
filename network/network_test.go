@@ -184,3 +184,22 @@ func (s *NetworkSuite) TestNoAddressError(c *gc.C) {
 	c.Assert(network.IsNoAddressError(err), jc.IsTrue)
 	c.Assert(network.IsNoAddressError(errors.New("address found")), jc.IsFalse)
 }
+
+func checkQuoteSpaceSet(c *gc.C, expected string, spaces ...string) {
+	spaceSet := set.NewStrings(spaces...)
+	c.Check(network.QuoteSpaceSet(spaceSet), gc.Equals, expected)
+}
+
+func (s *NetworkSuite) TestQuoteSpaceSet(c *gc.C) {
+	// Only the 'empty string' space
+	checkQuoteSpaceSet(c, `""`, "")
+	// No spaces
+	checkQuoteSpaceSet(c, `<none>`)
+	// One space
+	checkQuoteSpaceSet(c, `"a"`, "a")
+	// Two spaces are sorted
+	checkQuoteSpaceSet(c, `"a", "b"`, "a", "b")
+	checkQuoteSpaceSet(c, `"a", "b"`, "b", "a")
+	// Mixed
+	checkQuoteSpaceSet(c, `"", "b"`, "b", "")
+}

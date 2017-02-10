@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+	"github.com/juju/version"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
@@ -68,14 +69,19 @@ var getInstances = func(env *environ) ([]instance.Instance, error) {
 	return env.instances()
 }
 
+func (env *environ) gceInstances() ([]google.Instance, error) {
+	prefix := env.namespace.Prefix()
+	instances, err := env.gce.Instances(prefix, instStatuses...)
+	return instances, errors.Trace(err)
+}
+
 // instances returns a list of all "alive" instances in the environment.
 // This means only instances where the IDs match
 // "juju-<env name>-machine-*". This is important because otherwise juju
 // will see they are not tracked in state, assume they're stale/rogue,
 // and shut them down.
 func (env *environ) instances() ([]instance.Instance, error) {
-	prefix := env.namespace.Prefix()
-	instances, err := env.gce.Instances(prefix, instStatuses...)
+	instances, err := env.gceInstances()
 	err = errors.Trace(err)
 
 	// Turn google.Instance values into *environInstance values,
@@ -95,8 +101,7 @@ func (env *environ) instances() ([]instance.Instance, error) {
 // ControllerInstances returns the IDs of the instances corresponding
 // to juju controllers.
 func (env *environ) ControllerInstances(controllerUUID string) ([]instance.Id, error) {
-	prefix := env.namespace.Prefix()
-	instances, err := env.gce.Instances(prefix, instStatuses...)
+	instances, err := env.gceInstances()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -116,6 +121,20 @@ func (env *environ) ControllerInstances(controllerUUID string) ([]instance.Id, e
 		return nil, environs.ErrNotBootstrapped
 	}
 	return results, nil
+}
+
+// AdoptResources is part of the Environ interface.
+func (env *environ) AdoptResources(controllerUUID string, fromVersion version.Number) error {
+	instances, err := env.AllInstances()
+	if err != nil {
+		return errors.Annotate(err, "all instances")
+	}
+
+	var stringIds []string
+	for _, id := range instances {
+		stringIds = append(stringIds, string(id.Id()))
+	}
+	return errors.Trace(env.gce.UpdateMetadata(tags.JujuController, controllerUUID, stringIds...))
 }
 
 // TODO(ericsnow) Turn into an interface.

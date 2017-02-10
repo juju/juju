@@ -57,16 +57,15 @@ func (s ByIPProtocol) Less(i, j int) bool {
 }
 
 func (s *networkSuite) TestFirewallSpec(c *gc.C) {
-	rules := network.NewRuleSet(
-		network.MustNewIngressRule("tcp", 80, 81),
-		network.MustNewIngressRule("tcp", 8888, 8888),
-		network.MustNewIngressRule("udp", 1234, 1234),
-	)
-	fw := google.FirewallSpec("spam", rules)
+	ports := map[string][]network.PortRange{
+		"tcp": {{FromPort: 80, ToPort: 81}, {FromPort: 8888, ToPort: 8888}},
+		"udp": {{FromPort: 1234, ToPort: 1234}},
+	}
+	fw := google.FirewallSpec("spam", "target", []string{"192.168.1.0/24", "10.0.0.0/24"}, ports)
 
 	allowed := []*compute.FirewallAllowed{{
 		IPProtocol: "tcp",
-		Ports:      []string{"80", "81", "8888"},
+		Ports:      []string{"80-81", "8888"},
 	}, {
 		IPProtocol: "udp",
 		Ports:      []string{"1234"},
@@ -77,8 +76,8 @@ func (s *networkSuite) TestFirewallSpec(c *gc.C) {
 	}
 	c.Check(fw, jc.DeepEquals, &compute.Firewall{
 		Name:         "spam",
-		TargetTags:   []string{"spam"},
-		SourceRanges: []string{"0.0.0.0/0"},
+		TargetTags:   []string{"target"},
+		SourceRanges: []string{"192.168.1.0/24", "10.0.0.0/24"},
 		Allowed:      allowed,
 	})
 }

@@ -186,7 +186,7 @@ func (commandWrapperSuite) TestDestroyMachineFails(c *gc.C) {
 	})
 	log := c.GetTestLog()
 	c.Check(log, jc.Contains, "`virsh destroy aname` failed")
-	c.Check(log, jc.Contains, "`virsh undefine aname` failed")
+	c.Check(log, jc.Contains, "`virsh undefine --nvram aname` failed")
 	c.Assert(err, jc.ErrorIsNil)
 
 }

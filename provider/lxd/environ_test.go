@@ -32,9 +32,7 @@ func (s *environSuite) TestName(c *gc.C) {
 }
 
 func (s *environSuite) TestProvider(c *gc.C) {
-	provider := s.Env.Provider()
-
-	c.Check(provider, gc.Equals, lxd.Provider)
+	c.Assert(s.Env.Provider(), gc.Equals, s.Provider)
 }
 
 func (s *environSuite) TestSetConfigOkay(c *gc.C) {
@@ -148,7 +146,6 @@ func (s *environSuite) TestDestroyHostedModels(c *gc.C) {
 		{"Ports", []interface{}{fwname}},
 		{"Destroy", nil},
 		{"Instances", []interface{}{"juju-", lxdclient.AliveStatuses}},
-		{"Instances", []interface{}{"juju-", []string{}}},
 		{"RemoveInstances", []interface{}{"juju-", []string{machine1.Name}}},
 	})
 }
@@ -157,6 +154,6 @@ func (s *environSuite) TestPrepareForBootstrap(c *gc.C) {
 	err := s.Env.PrepareForBootstrap(envtesting.BootstrapContext(c))
 	c.Assert(err, jc.ErrorIsNil)
 	s.Stub.CheckCalls(c, []gitjujutesting.StubCall{
-		{"SetConfig", []interface{}{"core.https_address", "[::]"}},
+		{"SetServerConfig", []interface{}{"core.https_address", "[::]"}},
 	})
 }

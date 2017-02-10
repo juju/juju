@@ -11,6 +11,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/jsonschema"
 	"github.com/juju/loggo"
+	"golang.org/x/net/context"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
@@ -67,11 +68,49 @@ func (p environProvider) CloudSchema() *jsonschema.Schema {
 	return cloudSchema
 }
 
+const failedLoginMsg = "ServerFaultCode: Cannot complete login due to an incorrect user name or password."
+
 // Ping tests the connection to the cloud, to verify the endpoint is valid.
 func (p environProvider) Ping(endpoint string) error {
-	// a stub for now until we get a real implementation.
-	_, err := url.Parse(endpoint)
-	return errors.Trace(err)
+	// try to be smart and not punish people for adding or forgetting http
+	u, err := url.Parse(endpoint)
+	if err != nil {
+		return errors.New("Invalid endpoint format, please give a full url or IP/hostname.")
+	}
+	switch u.Scheme {
+	case "http", "https":
+		// good!
+	case "":
+		u, err = url.Parse("https://" + endpoint + "/sdk")
+		if err != nil {
+			return errors.New("Invalid endpoint format, please give a full url or IP/hostname.")
+		}
+	default:
+		return errors.New("Invalid endpoint format, please use an http or https URL.")
+	}
+
+	client, logout, err := newConnection(u)
+	if err != nil {
+		logger.Errorf("Unexpected error from creating vsphere client: %v", err)
+		return errors.Errorf("No VSphere server running at %s", endpoint)
+	}
+	defer logout()
+	err = client.Login(context.TODO(), nil)
+	if err == nil {
+		// shouldn't happen, since we haven't used any credentials, but can't
+		// really complain if it does.  The liklihood that the SOAP conversation
+		// will succeed with a random incorrect server is miniscule.
+		return nil
+	}
+	// There's no way to get at any type information in the returned error, so
+	// we have to just look at the string value.
+	if err.Error() == failedLoginMsg {
+		// This is our expected error for trying to log into VSphere without any
+		// creds, so return nil.
+		return nil
+	}
+	logger.Errorf("Unexpected error from endpoint: %v", err)
+	return errors.Errorf("No VSphere server running at %s", endpoint)
 }
 
 // PrepareConfig implements environs.EnvironProvider.

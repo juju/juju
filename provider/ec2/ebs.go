@@ -376,10 +376,10 @@ func (v *ebsVolumeSource) createVolume(p storage.VolumeParams, instances instanc
 func (v *ebsVolumeSource) ListVolumes() ([]string, error) {
 	filter := ec2.NewFilter()
 	filter.Add("tag:"+tags.JujuModel, v.modelUUID)
-	return listVolumes(v.env.ec2, filter)
+	return listVolumes(v.env.ec2, filter, false)
 }
 
-func listVolumes(client *ec2.EC2, filter *ec2.Filter) ([]string, error) {
+func listVolumes(client *ec2.EC2, filter *ec2.Filter, includeRootDisks bool) ([]string, error) {
 	resp, err := client.Volumes(nil, filter)
 	if err != nil {
 		return nil, err
@@ -393,7 +393,7 @@ func listVolumes(client *ec2.EC2, filter *ec2.Filter) ([]string, error) {
 				break
 			}
 		}
-		if isRootDisk {
+		if isRootDisk && !includeRootDisks {
 			// We don't want to list root disks in the output.
 			// These are managed by the instance provisioning
 			// code; they will be created and destroyed with

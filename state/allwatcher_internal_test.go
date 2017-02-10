@@ -11,7 +11,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
@@ -22,7 +21,6 @@ import (
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/status"
-	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testing"
 )
 
@@ -48,22 +46,6 @@ options:
 
 type allWatcherBaseSuite struct {
 	internalStateSuite
-	modelCount int
-}
-
-func (s *allWatcherBaseSuite) newState(c *gc.C) *State {
-	s.modelCount++
-	cfg := testing.CustomModelConfig(c, testing.Attrs{
-		"name": fmt.Sprintf("testenv%d", s.modelCount),
-		"uuid": utils.MustNewUUID().String(),
-	})
-	_, st, err := s.state.NewModel(ModelArgs{
-		CloudName: "dummy", CloudRegion: "dummy-region", Config: cfg, Owner: s.owner,
-		StorageProviderRegistry: storage.StaticProviderRegistry{},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	s.AddCleanup(func(*gc.C) { st.Close() })
-	return st
 }
 
 // setUpScenario adds some entities to the state so that
@@ -1183,6 +1165,16 @@ func (s *allModelWatcherStateSuite) Reset(c *gc.C) {
 	s.SetUpTest(c)
 }
 
+func (s *allModelWatcherStateSuite) NewAllModelWatcherStateBacking() Backing {
+	return s.NewAllModelWatcherStateBackingForState(s.state)
+}
+
+func (s *allModelWatcherStateSuite) NewAllModelWatcherStateBackingForState(st *State) Backing {
+	pool := NewStatePool(st)
+	s.AddCleanup(func(*gc.C) { pool.Close() })
+	return NewAllModelWatcherStateBacking(st, pool)
+}
+
 // performChangeTestCases runs a passed number of test cases for changes.
 func (s *allModelWatcherStateSuite) performChangeTestCases(c *gc.C, changeTestFuncs []changeTestFunc) {
 	for i, changeTestFunc := range changeTestFuncs {
@@ -1192,7 +1184,7 @@ func (s *allModelWatcherStateSuite) performChangeTestCases(c *gc.C, changeTestFu
 			test0 := changeTestFunc(c, s.state)
 
 			c.Logf("test %d. %s", i, test0.about)
-			b := NewAllModelWatcherStateBacking(s.state)
+			b := s.NewAllModelWatcherStateBacking()
 			defer b.Release()
 			all := newStore()
 
@@ -1396,7 +1388,7 @@ func (s *allModelWatcherStateSuite) TestChangeForDeadModel(c *gc.C) {
 	// Ensure an entity is removed when a change is seen but
 	// the model the entity belonged to has already died.
 
-	b := NewAllModelWatcherStateBacking(s.state)
+	b := s.NewAllModelWatcherStateBacking()
 	defer b.Release()
 	all := newStore()
 
@@ -1469,7 +1461,7 @@ func (s *allModelWatcherStateSuite) TestGetAll(c *gc.C) {
 		},
 	)
 
-	b := NewAllModelWatcherStateBacking(s.state)
+	b := s.NewAllModelWatcherStateBacking()
 	all := newStore()
 	err = b.GetAll(all)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1482,7 +1474,7 @@ func (s *allModelWatcherStateSuite) TestGetAll(c *gc.C) {
 
 func (s *allModelWatcherStateSuite) TestModelSettings(c *gc.C) {
 	// Init the test model.
-	b := NewAllModelWatcherStateBacking(s.state)
+	b := s.NewAllModelWatcherStateBacking()
 	all := newStore()
 	setModelConfigAttr(c, s.state, "http-proxy", "http://invalid")
 	setModelConfigAttr(c, s.state, "foo", "bar")
@@ -1541,7 +1533,8 @@ func (s *allModelWatcherStateSuite) TestStateWatcher(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m10.Id(), gc.Equals, "0")
 
-	tw := newTestAllModelWatcher(st0, c)
+	backing := s.NewAllModelWatcherStateBackingForState(st0)
+	tw := newTestWatcher(backing, st0, c)
 	defer tw.Stop()
 
 	// Expect to see events for the already created models and
@@ -2814,6 +2807,8 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 			wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
 			u, err := wordpress.AddUnit()
 			c.Assert(err, jc.ErrorIsNil)
+			err = u.AssignToNewMachine()
+			c.Assert(err, jc.ErrorIsNil)
 			now := testing.ZeroTime()
 			sInfo := status.StatusInfo{
 				Status:  status.Idle,
@@ -2873,6 +2868,8 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 				Message: "",
 				Since:   &now,
 			}
+			err = u.AssignToNewMachine()
+			c.Assert(err, jc.ErrorIsNil)
 			err = u.SetAgentStatus(sInfo)
 			c.Assert(err, jc.ErrorIsNil)
 			sInfo = status.StatusInfo{
@@ -2986,6 +2983,8 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 		func(c *gc.C, st *State) changeTestCase {
 			wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
 			u, err := wordpress.AddUnit()
+			c.Assert(err, jc.ErrorIsNil)
+			err = u.AssignToNewMachine()
 			c.Assert(err, jc.ErrorIsNil)
 			now := testing.ZeroTime()
 			sInfo := status.StatusInfo{
@@ -3343,10 +3342,6 @@ func testChangeRemoteApplications(c *gc.C, runChangeTests func(*gc.C, []changeTe
 
 func newTestAllWatcher(st *State, c *gc.C) *testWatcher {
 	return newTestWatcher(newAllWatcherStateBacking(st), st, c)
-}
-
-func newTestAllModelWatcher(st *State, c *gc.C) *testWatcher {
-	return newTestWatcher(NewAllModelWatcherStateBacking(st), st, c)
 }
 
 type testWatcher struct {

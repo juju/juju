@@ -18,6 +18,7 @@ import (
 type migrationLoggingStrategy struct {
 	ctxt       httpContext
 	st         *state.State
+	releaser   func()
 	filePrefix string
 	dbLogger   *state.DbLogger
 	tracker    *logTracker
@@ -33,7 +34,7 @@ func newMigrationLoggingStrategy(ctxt httpContext, fileLogger io.Writer) Logging
 func (s *migrationLoggingStrategy) Authenticate(req *http.Request) error {
 	// Require MigrationModeNone because logtransfer happens after the
 	// model proper is completely imported.
-	st, err := s.ctxt.stateForMigration(req, state.MigrationModeNone)
+	st, releaser, err := s.ctxt.stateForMigration(req, state.MigrationModeNone)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -46,9 +47,11 @@ func (s *migrationLoggingStrategy) Authenticate(req *http.Request) error {
 	// conversion of log messages from an old client.
 	_, err = jujuClientVersionFromReq(req)
 	if err != nil {
+		releaser()
 		return errors.Trace(err)
 	}
 	s.st = st
+	s.releaser = releaser
 	return nil
 }
 
@@ -84,7 +87,8 @@ func (s *migrationLoggingStrategy) Log(m params.LogRecord) bool {
 func (s *migrationLoggingStrategy) Stop() {
 	s.dbLogger.Close()
 	s.tracker.Close()
-	s.ctxt.release(s.st)
+	s.releaser()
+	// Perhaps clear s.st and s.releaser?
 }
 
 const trackingPeriod = 2 * time.Minute

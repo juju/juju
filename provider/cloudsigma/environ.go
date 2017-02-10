@@ -8,6 +8,7 @@ import (
 
 	"github.com/altoros/gosigma"
 	"github.com/juju/errors"
+	"github.com/juju/version"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
@@ -98,8 +99,15 @@ func (env *environ) BootstrapMessage() string {
 	return ""
 }
 
+// ControllerInstances is part of the Environ interface.
 func (e *environ) ControllerInstances(controllerUUID string) ([]instance.Id, error) {
 	return e.client.getControllerIds()
+}
+
+// AdoptResources is part of the Environ interface.
+func (e *environ) AdoptResources(controllerUUID string, fromVersion version.Number) error {
+	// This provider doesn't track instance -> controller.
+	return nil
 }
 
 // Destroy shuts down all known machines and destroys the

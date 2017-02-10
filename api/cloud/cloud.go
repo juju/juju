@@ -38,7 +38,7 @@ func (c *Client) Clouds() (map[names.CloudTag]jujucloud.Cloud, error) {
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		clouds[tag] = cloudFromParams(cloud)
+		clouds[tag] = cloudFromParams(tag.Id(), cloud)
 	}
 	return clouds, nil
 }
@@ -56,10 +56,10 @@ func (c *Client) Cloud(tag names.CloudTag) (jujucloud.Cloud, error) {
 	if results.Results[0].Error != nil {
 		return jujucloud.Cloud{}, results.Results[0].Error
 	}
-	return cloudFromParams(*results.Results[0].Cloud), nil
+	return cloudFromParams(tag.Id(), *results.Results[0].Cloud), nil
 }
 
-func cloudFromParams(p params.Cloud) jujucloud.Cloud {
+func cloudFromParams(cloudName string, p params.Cloud) jujucloud.Cloud {
 	authTypes := make([]jujucloud.AuthType, len(p.AuthTypes))
 	for i, authType := range p.AuthTypes {
 		authTypes[i] = jujucloud.AuthType(authType)
@@ -74,6 +74,7 @@ func cloudFromParams(p params.Cloud) jujucloud.Cloud {
 		}
 	}
 	return jujucloud.Cloud{
+		Name:             cloudName,
 		Type:             p.Type,
 		AuthTypes:        authTypes,
 		Endpoint:         p.Endpoint,

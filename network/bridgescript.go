@@ -1,12 +1,8 @@
 // This file is auto generated. Edits will be lost.
 
-package maas
+package network
 
-const bridgeScriptName = "add-juju-bridge.py"
-
-const bridgeScriptPython = `#!/usr/bin/env python
-
-# Copyright 2015 Canonical Ltd.
+const BridgeScriptPythonContent = `# Copyright 2015 Canonical Ltd.
 # Licensed under the AGPLv3, see LICENCE file for details.
 
 #
@@ -21,6 +17,7 @@ import re
 import shutil
 import subprocess
 import sys
+import time
 
 # StringIO: accommodate Python2 & Python3
 
@@ -396,11 +393,11 @@ def shell_cmd(s, verbose=True, exit_on_error=False, dry_run=False):
 def arg_parser():
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('--bridge-prefix', help="bridge prefix", type=str, required=False, default='br-')
-    parser.add_argument('--one-time-backup', help='A one time backup of filename', action='store_true', default=True, required=False)
     parser.add_argument('--activate', help='activate new configuration', action='store_true', default=False, required=False)
     parser.add_argument('--interfaces-to-bridge', help="interfaces to bridge; space delimited", type=str, required=True)
     parser.add_argument('--dry-run', help="dry run, no activation", action='store_true', default=False, required=False)
     parser.add_argument('--bridge-name', help="bridge name", type=str, required=False)
+    parser.add_argument('--reconfigure-delay', help="delay in seconds before raising interfaces", type=int, required=False, default=10)
     parser.add_argument('filename', help="interfaces(5) based filename")
     return parser
 
@@ -433,17 +430,12 @@ def main(args):
         print("already bridged, or nothing to do.")
         exit(0)
 
-    if not args.dry_run and args.one_time_backup:
-        backup_file = "{}-before-add-juju-bridge".format(args.filename)
-        if not os.path.isfile(backup_file):
-            shutil.copy2(args.filename, backup_file)
-
-    ifquery = "$(ifquery --interfaces={} --exclude=lo --list)".format(args.filename)
-
     print("**** Original configuration")
     shell_cmd("cat {}".format(args.filename), dry_run=args.dry_run)
-    shell_cmd("ifconfig -a", dry_run=args.dry_run)
-    shell_cmd("ifdown --exclude=lo --interfaces={} {}".format(args.filename, ifquery), dry_run=args.dry_run)
+    shell_cmd("ip -d link show", dry_run=args.dry_run)
+    shell_cmd("ip route show", dry_run=args.dry_run)
+    shell_cmd("brctl show", dry_run=args.dry_run)
+    shell_cmd("ifdown --exclude=lo --interfaces={} {}".format(args.filename, " ".join(interfaces)), dry_run=args.dry_run)
 
     print("**** Activating new configuration")
 
@@ -452,25 +444,11 @@ def main(args):
             print_stanzas(stanzas, f)
             f.close()
 
-    # On configurations that have bonds in 802.3ad mode there is a
-    # race condition betweeen an immediate ifdown then ifup.
-    #
-    # On the h/w I have a 'sleep 0.1' is sufficient but to accommodate
-    # other setups we arbitrarily choose something larger. We don't
-    # want to massively slow bootstrap down but, equally, 0.1 may be
-    # too small for other configurations.
-
-    for s in stanzas:
-        if s.is_logical_interface and s.iface.is_bonded:
-            print("working around https://bugs.launchpad.net/ubuntu/+source/ifenslave/+bug/1269921")
-            print("working around https://bugs.launchpad.net/juju-core/+bug/1594855")
-            shell_cmd("sleep 3", dry_run=args.dry_run)
-            break
-
+    if args.reconfigure_delay and args.reconfigure_delay > 0 :
+        shell_cmd("sleep {}".format(args.reconfigure_delay), dry_run=args.dry_run)
     shell_cmd("cat {}".format(args.filename), dry_run=args.dry_run)
-    shell_cmd("ifup --exclude=lo --interfaces={} {}".format(args.filename, ifquery), dry_run=args.dry_run)
-    shell_cmd("ip link show up", dry_run=args.dry_run)
-    shell_cmd("ifconfig -a", dry_run=args.dry_run)
+    shell_cmd("ifup --exclude=lo --interfaces={} -a".format(args.filename), dry_run=args.dry_run)
+    shell_cmd("ip -d link show", dry_run=args.dry_run)
     shell_cmd("ip route show", dry_run=args.dry_run)
     shell_cmd("brctl show", dry_run=args.dry_run)
 
@@ -478,5 +456,8 @@ def main(args):
 # either all active interfaces, or a specific interface.
 
 if __name__ == '__main__':
+    sleep_preamble = os.getenv("ADD_JUJU_BRIDGE_SLEEP_PREAMBLE_FOR_TESTING", 0)
+    if int(sleep_preamble) > 0:
+        time.sleep(int(sleep_preamble))
     main(arg_parser().parse_args())
 `

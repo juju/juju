@@ -29,6 +29,9 @@ type baseProvider interface {
 }
 
 type environ struct {
+	cloud    environs.CloudSpec
+	provider *environProvider
+
 	name string
 	uuid string
 	raw  *rawProvider
@@ -41,9 +44,15 @@ type environ struct {
 	ecfg *environConfig
 }
 
-type newRawProviderFunc func(environs.CloudSpec) (*rawProvider, error)
+type newRawProviderFunc func(environs.CloudSpec, bool) (*rawProvider, error)
 
-func newEnviron(spec environs.CloudSpec, cfg *config.Config, newRawProvider newRawProviderFunc) (*environ, error) {
+func newEnviron(
+	provider *environProvider,
+	local bool,
+	spec environs.CloudSpec,
+	cfg *config.Config,
+	newRawProvider newRawProviderFunc,
+) (*environ, error) {
 	ecfg, err := newValidConfig(cfg)
 	if err != nil {
 		return nil, errors.Annotate(err, "invalid config")
@@ -54,12 +63,13 @@ func newEnviron(spec environs.CloudSpec, cfg *config.Config, newRawProvider newR
 		return nil, errors.Trace(err)
 	}
 
-	raw, err := newRawProvider(spec)
+	raw, err := newRawProvider(spec, local)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	env := &environ{
+		cloud:     spec,
 		name:      ecfg.Name(),
 		uuid:      ecfg.UUID(),
 		raw:       raw,
@@ -104,8 +114,8 @@ func (env *environ) Name() string {
 }
 
 // Provider returns the environment provider that created this env.
-func (*environ) Provider() environs.EnvironProvider {
-	return providerInstance
+func (env *environ) Provider() environs.EnvironProvider {
+	return env.provider
 }
 
 // SetConfig updates the env's configuration.
@@ -143,9 +153,6 @@ func (env *environ) Create(environs.CreateParams) error {
 
 // Bootstrap implements environs.Environ.
 func (env *environ) Bootstrap(ctx environs.BootstrapContext, params environs.BootstrapParams) (*environs.BootstrapResult, error) {
-	// Using the Bootstrap func from provider/common should be fine.
-	// Local provider does its own thing because it has to deal directly
-	// with localhost rather than using SSH.
 	return env.base.BootstrapEnv(ctx, params)
 }
 
@@ -177,7 +184,10 @@ func (env *environ) DestroyController(controllerUUID string) error {
 	if err := env.Destroy(); err != nil {
 		return errors.Trace(err)
 	}
-	return env.destroyHostedModelResources(controllerUUID)
+	if err := env.destroyHostedModelResources(controllerUUID); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }
 
 func (env *environ) destroyHostedModelResources(controllerUUID string) error {
@@ -200,8 +210,10 @@ func (env *environ) destroyHostedModelResources(controllerUUID string) error {
 		}
 		names = append(names, string(inst.Id()))
 	}
-	if err := removeInstances(env.raw, prefix, names); err != nil {
-		return errors.Annotate(err, "removing hosted model instances")
+	if len(names) > 0 {
+		if err := env.raw.RemoveInstances(prefix, names...); err != nil {
+			return errors.Annotate(err, "removing hosted model instances")
+		}
 	}
 	return nil
 }
