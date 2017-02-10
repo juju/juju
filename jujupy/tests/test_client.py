@@ -1871,6 +1871,21 @@ class TestModelClient(ClientTest):
         self.assertIs(client, model_clients[0])
         self.assertEqual('bar', model_clients[1].env.environment)
 
+    def test__acquire_model_client_returns_self_when_match(self):
+        client = ModelClient(JujuData('foo', {}), None, None)
+
+        self.assertEqual(client._acquire_model_client('foo'), client)
+        self.assertEqual(client._acquire_model_client('foo', None), client)
+
+    def test__acquire_model_client_adds_username_component(self):
+        client = ModelClient(JujuData('foo', {}), None, None)
+
+        new_client = client._acquire_model_client('bar', None)
+        self.assertEqual(new_client.model_name, 'bar')
+
+        new_client = client._acquire_model_client('bar', 'user1')
+        self.assertEqual(new_client.model_name, 'user1/bar')
+
     def test_get_controller_model_name(self):
         models = {
             'models': [

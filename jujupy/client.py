@@ -2187,15 +2187,22 @@ class ModelClient:
         """
         return 'controller'
 
-    def _acquire_model_client(self, name):
+    def _acquire_model_client(self, name, owner=None):
         """Get a client for a model with the supplied name.
 
         If the name matches self, self is used.  Otherwise, a clone is used.
+        If the owner of the model is different to the user_name of the client
+        provide a fully qualified model name.
+
         """
         if name == self.env.environment:
             return self
         else:
-            env = self.env.clone(model_name=name)
+            if owner != self.env.user_name:
+                model_name = '{}/{}'.format(owner, name)
+            else:
+                model_name = name
+            env = self.env.clone(model_name=model_name)
             return self.clone(env=env)
 
     def get_model_uuid(self):
