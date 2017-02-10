@@ -14,6 +14,7 @@ import yaml
 
 from assess_public_clouds import (
     bootstrap_cloud_regions,
+    CLOUD_CONFIGS,
     default_log_dir,
     iter_cloud_regions,
     main,
@@ -196,20 +197,27 @@ class TestBootstrapCloudRegions(FakeHomeTestCase):
                                          side_effect=lambda x, y, z: y):
                             yield (iter_mock, bootstrap_mock, info_mock)
 
-    def run_test_bootstrap_cloud_regions(self, start=0, error=None):
+    def run_test_bootstrap_cloud_regions(self, start=0, error=None,
+                                         cloud_regions=None):
         pc_key = 'public_clouds'
         cred_key = 'credentials'
-        cloud_regions = [('aws', 'foo'), ('google', 'bar')]
+        default_cloud_regions = [('aws', 'foo'), ('google', 'bar')]
         args = Namespace(start=start, debug=True, deadline=None,
-                         juju_bin='juju', logs='/tmp/log', cloud_region=None)
+                         juju_bin='juju', logs='/tmp/log',
+                         cloud_region=cloud_regions)
+        if cloud_regions is None:
+            cloud_regions = default_cloud_regions
         fake_client = fake_juju_client()
-        config_regions = [('default-aws', 'foo'),
-                          ('default-gce', 'bar')]
-        with self.patch_for_test(cloud_regions, fake_client, error) as (
+        config_regions = [(CLOUD_CONFIGS[c], r) for (c, r) in cloud_regions]
+        with self.patch_for_test(default_cloud_regions, fake_client,
+                                 error) as (
                 iter_mock, bootstrap_mock, info_mock):
             errors = list(bootstrap_cloud_regions(pc_key, cred_key, args))
 
-        iter_mock.assert_called_once_with(pc_key, cred_key)
+        if cloud_regions is default_cloud_regions:
+            iter_mock.assert_called_once_with(pc_key, cred_key)
+        else:
+            self.assertEqual(0, iter_mock.call_count)
         for num, (config, region) in enumerate(config_regions[start:]):
             acc_call = bootstrap_mock.mock_calls[num]
             name, args, kwargs = acc_call
@@ -218,7 +226,8 @@ class TestBootstrapCloudRegions(FakeHomeTestCase):
             self.assertIsInstance(bs_manager, BootstrapManager)
             self.assertEqual(bs_manager.region, region)
             self.assertEqual(bs_manager.log_dir, config)
-        self.assertEqual(len(cloud_regions) - start, info_mock.call_count)
+        self.assertEqual(len(default_cloud_regions) - start,
+                         info_mock.call_count)
         if error is None:
             self.assertEqual([], errors)
         else:
@@ -233,3 +242,9 @@ class TestBootstrapCloudRegions(FakeHomeTestCase):
 
     def test_bootstrap_cloud_regions_error(self):
         self.run_test_bootstrap_cloud_regions(error=Exception('test'))
+
+    def test_bootstrap_cloud_regions_specific_regions(self):
+        self.run_test_bootstrap_cloud_regions(cloud_regions=[
+            ('aws', 'us-perpendicular-1'),
+            ('rackspace', 'tla'),
+            ])
