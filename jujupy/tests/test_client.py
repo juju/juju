@@ -1890,6 +1890,10 @@ class TestModelClient(ClientTest):
         new_client = client._acquire_model_client('bar', 'user1')
         self.assertEqual(new_client.model_name, 'user1/bar')
 
+        client.env.user_name = 'admin'
+        new_client = client._acquire_model_client('baz', 'admin')
+        self.assertEqual(new_client.model_name, 'baz')
+
     def test_get_controller_model_name(self):
         models = {
             'models': [
