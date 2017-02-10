@@ -5,15 +5,11 @@
 
 package lxd
 
-import (
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/tools/lxdclient"
-)
+import "github.com/juju/juju/tools/lxdclient"
 
 var (
-	Provider           environs.EnvironProvider = providerInstance
-	GlobalFirewallName                          = (*environ).globalFirewallName
-	NewInstance                                 = newInstance
+	GlobalFirewallName = (*environ).globalFirewallName
+	NewInstance        = newInstance
 )
 
 func ExposeInstRaw(inst *environInstance) *lxdclient.Instance {

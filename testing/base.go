@@ -101,6 +101,11 @@ func SkipIfWindowsBug(c *gc.C, bugID string) {
 	}
 }
 
+// SkipFlaky skips the test if there is an open bug for intermittent test failures
+func SkipFlaky(c *gc.C, bugID string) {
+	c.Skip(fmt.Sprintf("Test disabled until flakiness is fixed - see bug %s", bugID))
+}
+
 // SetInitialFeatureFlags sets the feature flags to be in effect for
 // the next call to SetUpTest.
 func (s *JujuOSEnvSuite) SetInitialFeatureFlags(flags ...string) {

@@ -98,7 +98,7 @@ func InitializeState(
 	if args.ControllerCloudCredential != nil && args.ControllerCloudCredentialName != "" {
 		cloudCredentialTag = names.NewCloudCredentialTag(fmt.Sprintf(
 			"%s/%s/%s",
-			args.ControllerCloudName,
+			args.ControllerCloud.Name,
 			adminUser.Id(),
 			args.ControllerCloudCredentialName,
 		))
@@ -112,12 +112,11 @@ func InitializeState(
 			Owner:                   adminUser,
 			Config:                  args.ControllerModelConfig,
 			Constraints:             args.ModelConstraints,
-			CloudName:               args.ControllerCloudName,
+			CloudName:               args.ControllerCloud.Name,
 			CloudRegion:             args.ControllerCloudRegion,
 			CloudCredential:         cloudCredentialTag,
 			StorageProviderRegistry: args.StorageProviderRegistry,
 		},
-		CloudName:                 args.ControllerCloudName,
 		Cloud:                     args.ControllerCloud,
 		CloudCredentials:          cloudCredentials,
 		ControllerConfig:          args.ControllerConfig,
@@ -167,7 +166,6 @@ func InitializeState(
 	// Construct a CloudSpec to pass on to NewModelConfig below.
 	cloudSpec, err := environs.MakeCloudSpec(
 		args.ControllerCloud,
-		args.ControllerCloudName,
 		args.ControllerCloudRegion,
 		args.ControllerCloudCredential,
 	)
@@ -204,7 +202,7 @@ func InitializeState(
 		Owner:                   adminUser,
 		Config:                  hostedModelConfig,
 		Constraints:             args.ModelConstraints,
-		CloudName:               args.ControllerCloudName,
+		CloudName:               args.ControllerCloud.Name,
 		CloudRegion:             args.ControllerCloudRegion,
 		CloudCredential:         cloudCredentialTag,
 		StorageProviderRegistry: args.StorageProviderRegistry,

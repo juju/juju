@@ -54,8 +54,8 @@ func checkBridgeConfig(client rawNetworkClient, bridge string) error {
 	if err != nil {
 		return err
 	}
-
-	if n.Managed && n.Config["ipv6.address"] != "none" {
+	ipv6AddressConfig := n.Config["ipv6.address"]
+	if n.Managed && ipv6AddressConfig != "none" && ipv6AddressConfig != "" {
 		return errors.Errorf(`juju doesn't support ipv6. Please disable LXD's IPV6:
 
 	$ lxc network set %s ipv6.address none

@@ -12,7 +12,7 @@ import (
 	"github.com/juju/utils/ssh"
 
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/network"
+	jujussh "github.com/juju/juju/network/ssh"
 )
 
 var usageSCPSummary = `
@@ -73,9 +73,9 @@ causes the transfer to be made via the client):
 See also: 
     ssh`
 
-func newSCPCommand(hostDialer network.Dialer) cmd.Command {
+func newSCPCommand(hostChecker jujussh.ReachableChecker) cmd.Command {
 	c := new(scpCommand)
-	c.setHostDialer(hostDialer)
+	c.setHostChecker(hostChecker)
 	return modelcmd.Wrap(c)
 }
 

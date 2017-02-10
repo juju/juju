@@ -461,6 +461,8 @@ type fakeConnCall struct {
 	VolumeName   string
 	InstanceId   string
 	Mode         string
+	Key          string
+	Value        string
 }
 
 type fakeConn struct {
@@ -525,6 +527,16 @@ func (fc *fakeConn) RemoveInstances(prefix string, ids ...string) error {
 	fc.Calls = append(fc.Calls, fakeConnCall{
 		FuncName: "RemoveInstances",
 		Prefix:   prefix,
+		IDs:      ids,
+	})
+	return fc.err()
+}
+
+func (fc *fakeConn) UpdateMetadata(key, value string, ids ...string) error {
+	fc.Calls = append(fc.Calls, fakeConnCall{
+		FuncName: "UpdateMetadata",
+		Key:      key,
+		Value:    value,
 		IDs:      ids,
 	})
 	return fc.err()

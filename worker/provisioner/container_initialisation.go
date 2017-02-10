@@ -9,20 +9,30 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/mutex"
 	"github.com/juju/utils/clock"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/api/common"
 	apiprovisioner "github.com/juju/juju/api/provisioner"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/container/kvm"
 	"github.com/juju/juju/container/lxd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker"
+)
+
+var (
+	systemNetworkInterfacesFile = "/etc/network/interfaces"
+	activateBridgesTimeout      = 5 * time.Minute
 )
 
 // ContainerSetup is a StringsWatchHandler that is notified when containers
@@ -146,19 +156,24 @@ func (cs *ContainerSetup) initialiseAndStartProvisioner(abort <-chan struct{}, c
 	return StartProvisioner(cs.runner, containerType, cs.provisioner, cs.config, broker, toolsFinder)
 }
 
-// runInitialiser runs the container initialiser with the initialisation hook held.
-func (cs *ContainerSetup) runInitialiser(abort <-chan struct{}, containerType instance.ContainerType, initialiser container.Initialiser) error {
-	logger.Debugf("running initialiser for %s containers", containerType)
+// acquireLock tries to grab the machine lock (initLockName), and either
+// returns it in a locked state, or returns an error.
+func (cs *ContainerSetup) acquireLock(abort <-chan struct{}) (mutex.Releaser, error) {
 	spec := mutex.Spec{
 		Name:  cs.initLockName,
 		Clock: clock.WallClock,
-		// If we don't get the lock straigh away, there is no point trying multiple
+		// If we don't get the lock straight away, there is no point trying multiple
 		// times per second for an operation that is likelty to take multiple seconds.
 		Delay:  time.Second,
 		Cancel: abort,
 	}
-	logger.Debugf("acquire lock %q for container initialisation", cs.initLockName)
-	releaser, err := mutex.Acquire(spec)
+	return mutex.Acquire(spec)
+}
+
+// runInitialiser runs the container initialiser with the initialisation hook held.
+func (cs *ContainerSetup) runInitialiser(abort <-chan struct{}, containerType instance.ContainerType, initialiser container.Initialiser) error {
+	logger.Debugf("running initialiser for %s containers, acquiring lock %q", containerType, cs.initLockName)
+	releaser, err := cs.acquireLock(abort)
 	if err != nil {
 		return errors.Annotate(err, "failed to acquire initialization lock")
 	}
@@ -176,6 +191,56 @@ func (cs *ContainerSetup) runInitialiser(abort <-chan struct{}, containerType in
 // TearDown is defined on the StringsWatchHandler interface.
 func (cs *ContainerSetup) TearDown() error {
 	// Nothing to do here.
+	return nil
+}
+
+func (cs *ContainerSetup) prepareHost(containerTag names.MachineTag, log loggo.Logger) error {
+	devicesToBridge, reconfigureDelay, err := cs.provisioner.HostChangesForContainer(containerTag)
+	if err != nil {
+		return errors.Annotate(err, "unable to setup network")
+	}
+
+	if len(devicesToBridge) == 0 {
+		log.Debugf("container %q requires no additional bridges", containerTag)
+		return nil
+	}
+
+	bridger, err := network.DefaultEtcNetworkInterfacesBridger(activateBridgesTimeout, instancecfg.DefaultBridgePrefix, systemNetworkInterfacesFile)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	log.Debugf("Bridging %+v devices on host %q with delay=%v, acquiring lock %q",
+		devicesToBridge, cs.machine.MachineTag().String(), reconfigureDelay, cs.initLockName)
+	// TODO(jam): 2017-02-08 figure out how to thread catacomb.Dying() into
+	// this function, so that we can stop trying to acquire the lock if we are
+	// stopping.
+	releaser, err := cs.acquireLock(nil)
+	if err != nil {
+		return errors.Annotatef(err, "failed to acquire lock %q for bridging", cs.initLockName)
+	}
+	defer log.Debugf("releasing lock %q for bridging", cs.initLockName)
+	defer releaser.Release()
+	err = bridger.Bridge(devicesToBridge, reconfigureDelay)
+	if err != nil {
+		return errors.Annotate(err, "failed to bridge devices")
+	}
+
+	// We just changed the hosts' network setup so discover new
+	// interfaces/devices and propagate to state.
+	observedConfig, err := getObservedNetworkConfig(common.DefaultNetworkConfigSource())
+	if err != nil {
+		return errors.Annotate(err, "cannot discover observed network config")
+	}
+
+	if len(observedConfig) > 0 {
+		err := cs.provisioner.SetHostMachineNetworkConfig(cs.machine.MachineTag(), observedConfig)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		logger.Debugf("observed network config updated")
+	}
+
 	return nil
 }
 
@@ -200,9 +265,16 @@ func (cs *ContainerSetup) getContainerArtifacts(
 		return nil, nil, nil, err
 	}
 
+	bridger, err := network.DefaultEtcNetworkInterfacesBridger(activateBridgesTimeout, instancecfg.DefaultBridgePrefix, systemNetworkInterfacesFile)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
 	switch containerType {
 	case instance.KVM:
 		broker, err = NewKvmBroker(
+			bridger,
+			cs.machine.MachineTag(),
 			cs.provisioner,
 			cs.config,
 			managerConfig,
@@ -221,7 +293,8 @@ func (cs *ContainerSetup) getContainerArtifacts(
 		if err != nil {
 			return nil, nil, nil, err
 		}
-		broker, err = NewLxdBroker(
+		broker, err = NewLXDBroker(
+			cs.prepareHost,
 			cs.provisioner,
 			manager,
 			cs.config,

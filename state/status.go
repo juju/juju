@@ -196,49 +196,67 @@ type statusHistoryArgs struct {
 	filter    status.StatusHistoryFilter
 }
 
-func statusHistory(args *statusHistoryArgs) ([]status.StatusInfo, error) {
-	filter := args.filter
-	if err := args.filter.Validate(); err != nil {
-		return nil, errors.Annotate(err, "validating arguments")
-	}
-	statusHistory, closer := args.st.getCollection(statusesHistoryC)
-	defer closer()
-
+// fetchNStatusResults will return status for the given key filtered with the
+// given filter or error.
+func fetchNStatusResults(col mongo.Collection, key string,
+	filter status.StatusHistoryFilter) ([]historicalStatusDoc, error) {
 	var (
 		docs  []historicalStatusDoc
 		query mongo.Query
 	)
-	baseQuery := bson.M{"globalkey": args.globalKey}
+	baseQuery := bson.M{"globalkey": key}
 	if filter.Delta != nil {
 		delta := *filter.Delta
-		// TODO(perrito666) 2016-05-02 lp:1558657
+		// TODO(perrito666) 2016-10-06 lp:1558657
 		updated := time.Now().Add(-delta)
-		baseQuery = bson.M{"updated": bson.M{"$gt": updated.UnixNano()}, "globalkey": args.globalKey}
+		baseQuery["updated"] = bson.M{"$gt": updated.UnixNano()}
 	}
-	if filter.Date != nil {
-		baseQuery = bson.M{"updated": bson.M{"$gt": filter.Date.UnixNano()}, "globalkey": args.globalKey}
+	if filter.FromDate != nil {
+		baseQuery["updated"] = bson.M{"$gt": filter.FromDate.UnixNano()}
 	}
-	query = statusHistory.Find(baseQuery).Sort("-updated")
+	excludes := []string{}
+	excludes = append(excludes, filter.Exclude.Values()...)
+	if len(excludes) > 0 {
+		baseQuery["statusinfo"] = bson.M{"$nin": excludes}
+	}
+
+	query = col.Find(baseQuery).Sort("-updated")
 	if filter.Size > 0 {
 		query = query.Limit(filter.Size)
 	}
 	err := query.All(&docs)
 
 	if err == mgo.ErrNotFound {
-		return []status.StatusInfo{}, errors.NotFoundf("status history")
+		return []historicalStatusDoc{}, errors.NotFoundf("status history")
 	} else if err != nil {
-		return []status.StatusInfo{}, errors.Annotatef(err, "cannot get status history")
+		return []historicalStatusDoc{}, errors.Annotatef(err, "cannot get status history")
 	}
+	return docs, nil
 
-	results := make([]status.StatusInfo, len(docs))
-	for i, doc := range docs {
-		results[i] = status.StatusInfo{
+}
+
+func statusHistory(args *statusHistoryArgs) ([]status.StatusInfo, error) {
+	if err := args.filter.Validate(); err != nil {
+		return nil, errors.Annotate(err, "validating arguments")
+	}
+	statusHistory, closer := args.st.getCollection(statusesHistoryC)
+	defer closer()
+
+	var results []status.StatusInfo
+	docs, err := fetchNStatusResults(statusHistory, args.globalKey, args.filter)
+	partial := []status.StatusInfo{}
+	if err != nil {
+		return []status.StatusInfo{}, errors.Trace(err)
+	}
+	for _, doc := range docs {
+		partial = append(partial, status.StatusInfo{
 			Status:  doc.Status,
 			Message: doc.StatusInfo,
 			Data:    utils.UnescapeKeys(doc.StatusData),
 			Since:   unixNanoToTime(doc.Updated),
-		}
+		})
 	}
+	results = partial
 	return results, nil
 }
 

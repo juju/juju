@@ -4,6 +4,8 @@
 package lease
 
 import (
+	"time"
+
 	"github.com/juju/errors"
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils/clock"
@@ -21,6 +23,9 @@ type Mongo interface {
 	// GetCollection should probably call the mongo.CollectionFromName func.
 	GetCollection(name string) (collection mongo.Collection, closer func())
 }
+
+// MonotonicNow exposes monotonic clock Now() for use by the lease manager.
+type MonotonicClockFunc func() time.Duration
 
 // ClientConfig contains the resources and information required to create
 // a Client. Multiple clients can collaborate if they share a collection and
@@ -44,6 +49,9 @@ type ClientConfig struct {
 
 	// Clock exposes the wall-clock time to a Client.
 	Clock clock.Clock
+
+	// MonotonicNow exposes the monotonic clock Now() func to a client.
+	MonotonicNow MonotonicClockFunc
 }
 
 // validate returns an error if the supplied config is not valid.
@@ -62,6 +70,9 @@ func (config ClientConfig) validate() error {
 	}
 	if config.Clock == nil {
 		return errors.New("missing clock")
+	}
+	if config.MonotonicNow == nil {
+		return errors.New("missing monotonic clock")
 	}
 	return nil
 }

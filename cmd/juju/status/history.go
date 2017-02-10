@@ -12,6 +12,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"github.com/juju/utils/set"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/cmd/juju/common"
@@ -30,14 +31,15 @@ func NewStatusHistoryCommand() cmd.Command {
 
 type statusHistoryCommand struct {
 	modelcmd.ModelCommandBase
-	out             cmd.Output
-	outputContent   string
-	backlogSize     int
-	backlogSizeDays int
-	backlogDate     string
-	isoTime         bool
-	entityName      string
-	date            time.Time
+	out                  cmd.Output
+	outputContent        string
+	backlogSize          int
+	backlogSizeDays      int
+	backlogDate          string
+	isoTime              bool
+	entityName           string
+	date                 time.Time
+	includeStatusUpdates bool
 }
 
 var statusHistoryDoc = `
@@ -70,8 +72,9 @@ func (c *statusHistoryCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.outputContent, "type", "unit", "Type of statuses to be displayed [agent|workload|combined|machine|machineInstance|container|containerinstance]")
 	f.IntVar(&c.backlogSize, "n", 0, "Returns the last N logs (cannot be combined with --days or --date)")
 	f.IntVar(&c.backlogSizeDays, "days", 0, "Returns the logs for the past <days> days (cannot be combined with -n or --date)")
-	f.StringVar(&c.backlogDate, "date", "", "Returns logs for any date after the passed one, the expected date format is YYYY-MM-DD (cannot be combined with -n or --days)")
+	f.StringVar(&c.backlogDate, "from-date", "", "Returns logs for any date after the passed one, the expected date format is YYYY-MM-DD (cannot be combined with -n or --days)")
 	f.BoolVar(&c.isoTime, "utc", false, "Display time as UTC in RFC3339 format")
+	f.BoolVar(&c.includeStatusUpdates, "include-status-updates", false, "Inlcude update status hook messages in the returned logs")
 }
 
 func (c *statusHistoryCommand) Init(args []string) error {
@@ -118,6 +121,8 @@ func (c *statusHistoryCommand) Init(args []string) error {
 	return errors.Errorf("unexpected status type %q", c.outputContent)
 }
 
+const runningHookMSG = "running update-status hook"
+
 func (c *statusHistoryCommand) Run(ctx *cmd.Context) error {
 	apiclient, err := c.NewAPIClient()
 	if err != nil {
@@ -135,8 +140,12 @@ func (c *statusHistoryCommand) Run(ctx *cmd.Context) error {
 		Size:  c.backlogSize,
 		Delta: delta,
 	}
+	if !c.includeStatusUpdates {
+		filterArgs.Exclude = set.NewStrings(runningHookMSG)
+	}
+
 	if !c.date.IsZero() {
-		filterArgs.Date = &c.date
+		filterArgs.FromDate = &c.date
 	}
 	var tag names.Tag
 	switch kind {

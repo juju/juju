@@ -363,7 +363,7 @@ Values set as per mongod recommendation (see syslog on default mongod run)
 /sys/kernel/mm/transparent_hugepage/enabled 'always' > 'never'
 /sys/kernel/mm/transparent_hugepage/defrag 'always' > 'never'
 */
-var editableSysctlFiles = map[string]string{
+var mongoKernelTweaks = map[string]string{
 	"/sys/kernel/mm/transparent_hugepage/enabled": "never",
 	"/sys/kernel/mm/transparent_hugepage/defrag":  "never",
 	"/proc/sys/net/ipv4/tcp_max_syn_backlog":      "4096",
@@ -371,6 +371,37 @@ var editableSysctlFiles = map[string]string{
 	"/proc/sys/net/core/netdev_max_backlog":       "1000",
 	"/proc/sys/net/ipv4/tcp_fin_timeout":          "30",
 }
+
+// NewMemoryProfile returns a Memory Profile from the passed value.
+func NewMemoryProfile(m string) (MemoryProfile, error) {
+	mp := MemoryProfile(m)
+	if err := mp.Validate(); err != nil {
+		return MemoryProfile(""), err
+	}
+	return mp, nil
+}
+
+// MemoryProfile represents a type of meory configuration for Mongo.
+type MemoryProfile string
+
+// String returns a string representation of this profile value.
+func (m MemoryProfile) String() string {
+	return string(m)
+}
+
+func (m MemoryProfile) Validate() error {
+	if m != MemoryProfileLow && m != MemoryProfileDefault {
+		return errors.NotValidf("memory profile %q", m)
+	}
+	return nil
+}
+
+const (
+	// MemoryProfileLow will use as little memory as possible in mongo.
+	MemoryProfileLow MemoryProfile = "low"
+	// MemoryProfileDefault will use mongo config ootb.
+	MemoryProfileDefault = "default"
+)
 
 // EnsureServerParams is a parameter struct for EnsureServer.
 type EnsureServerParams struct {
@@ -411,6 +442,10 @@ type EnsureServerParams struct {
 	// SetNUMAControlPolicy preference - whether the user
 	// wants to set the numa control policy when starting mongo.
 	SetNUMAControlPolicy bool
+
+	// MemoryProfile determines which value is going to be used by
+	// the cache and future memory tweaks.
+	MemoryProfile MemoryProfile
 }
 
 // EnsureServer ensures that the MongoDB server is installed,
@@ -419,11 +454,11 @@ type EnsureServerParams struct {
 // This method will remove old versions of the mongo init service as necessary
 // before installing the new version.
 func EnsureServer(args EnsureServerParams) error {
-	return ensureServer(args, editableSysctlFiles)
+	return ensureServer(args, mongoKernelTweaks)
 }
 
-func ensureServer(args EnsureServerParams, sysctlFiles map[string]string) error {
-	tweakSysctlForMongo(sysctlFiles)
+func ensureServer(args EnsureServerParams, mongoKernelTweaks map[string]string) error {
+	tweakSysctlForMongo(mongoKernelTweaks)
 	logger.Infof(
 		"Ensuring mongo server is running; data directory %s; port %d",
 		args.DataDir, args.StatePort,
@@ -481,15 +516,16 @@ func ensureServer(args EnsureServerParams, sysctlFiles map[string]string) error 
 	}
 
 	svcConf := newConf(ConfigArgs{
-		DataDir:     args.DataDir,
-		DBDir:       dbDir,
-		MongoPath:   mongoPath,
-		Port:        args.StatePort,
-		OplogSizeMB: oplogSizeMB,
-		WantNUMACtl: args.SetNUMAControlPolicy,
-		Version:     mgoVersion,
-		Auth:        true,
-		IPv6:        network.SupportsIPv6(),
+		DataDir:       args.DataDir,
+		DBDir:         dbDir,
+		MongoPath:     mongoPath,
+		Port:          args.StatePort,
+		OplogSizeMB:   oplogSizeMB,
+		WantNUMACtl:   args.SetNUMAControlPolicy,
+		Version:       mgoVersion,
+		Auth:          true,
+		IPv6:          network.SupportsIPv6(),
+		MemoryProfile: args.MemoryProfile,
 	})
 	svc, err := newService(ServiceName, svcConf)
 	if err != nil {

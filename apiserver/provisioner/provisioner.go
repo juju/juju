@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/network/containerizer"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
 	"github.com/juju/juju/state/watcher"
@@ -59,6 +60,7 @@ type ProvisionerAPI struct {
 	storagePoolManager      poolmanager.PoolManager
 	configGetter            environs.EnvironConfigGetter
 	getAuthFunc             common.GetAuthFunc
+	getCanModify            common.GetAuthFunc
 }
 
 // NewProvisionerAPI creates a new server-side ProvisionerAPI facade.
@@ -94,6 +96,9 @@ func NewProvisionerAPI(st *state.State, resources facade.Resources, authorizer f
 				return false
 			}
 		}, nil
+	}
+	getCanModify := func() (common.AuthFunc, error) {
+		return authorizer.AuthOwner, nil
 	}
 	getAuthOwner := func() (common.AuthFunc, error) {
 		return authorizer.AuthOwner, nil
@@ -131,6 +136,7 @@ func NewProvisionerAPI(st *state.State, resources facade.Resources, authorizer f
 		storageProviderRegistry: storageProviderRegistry,
 		storagePoolManager:      poolmanager.New(state.NewStateSettings(st), storageProviderRegistry),
 		getAuthFunc:             getAuthFunc,
+		getCanModify:            getCanModify,
 	}, nil
 }
 
@@ -213,6 +219,7 @@ func (p *ProvisionerAPI) SetSupportedContainers(args params.MachineContainersPar
 	for i, arg := range args.Params {
 		tag, err := names.ParseMachineTag(arg.MachineTag)
 		if err != nil {
+			logger.Warningf("SetSupportedContainers called with %q which is not a valid machine tag: %v", arg.MachineTag, err)
 			result.Results[i].Error = common.ServerError(common.ErrPerm)
 			continue
 		}
@@ -298,14 +305,14 @@ func (p *ProvisionerAPI) MachinesWithTransientErrors() (params.StatusResults, er
 			continue
 		}
 		var result params.StatusResult
-		statusInfo, err := machine.Status()
+		statusInfo, err := machine.InstanceStatus()
 		if err != nil {
 			continue
 		}
 		result.Status = statusInfo.Status.String()
 		result.Info = statusInfo.Message
 		result.Data = statusInfo.Data
-		if statusInfo.Status != status.Error {
+		if statusInfo.Status != status.Error && statusInfo.Status != status.ProvisioningError {
 			continue
 		}
 		// Transient errors are marked as such in the status data.
@@ -588,27 +595,42 @@ func (p *ProvisionerAPI) GetContainerInterfaceInfo(args params.Entities) (
 	return p.prepareOrGetContainerInterfaceInfo(args, true)
 }
 
-func (p *ProvisionerAPI) prepareOrGetContainerInterfaceInfo(args params.Entities, maintain bool) (params.MachineNetworkConfigResults, error) {
-	result := params.MachineNetworkConfigResults{
-		Results: make([]params.MachineNetworkConfigResult, len(args.Entities)),
-	}
+// perContainerHandler is the interface we need to trigger processing on
+// every container passed in as a list of things to process.
+type perContainerHandler interface {
+	// ProcessOneContainer is called once we've assured ourselves that all of
+	// the access permissions are correct and the container is ready to be
+	// processed.
+	// env is the Environment you are working, idx is the index for this
+	// container (used for deciding where to store results), host is the
+	// machine that is hosting the container.
+	// Any errors that are returned from ProcessOneContainer will be turned
+	// into ServerError and handed to SetError
+	ProcessOneContainer(env environs.Environ, idx int, host, container *state.Machine) error
+	// SetError will be called whenever there is a problem with the a given
+	// request. Generally this just does result.Results[i].Error = error
+	// but the Result type is opaque so we can't do it ourselves.
+	SetError(resultIndex int, err *params.Error)
+}
 
-	netEnviron, hostMachine, canAccess, err := p.prepareContainerAccessEnvironment()
+func (p *ProvisionerAPI) processEachContainer(args params.Entities, handler perContainerHandler) error {
+	env, hostMachine, canAccess, err := p.prepareContainerAccessEnvironment()
 	if err != nil {
-		return result, errors.Trace(err)
+		// Overall error
+		return errors.Trace(err)
 	}
-	instId, err := hostMachine.InstanceId()
+	_, err = hostMachine.InstanceId()
 	if errors.IsNotProvisioned(err) {
 		err = errors.NotProvisionedf("cannot prepare container network config: host machine %q", hostMachine)
-		return result, err
+		return err
 	} else if err != nil {
-		return result, errors.Trace(err)
+		return errors.Trace(err)
 	}
 
 	for i, entity := range args.Entities {
 		machineTag, err := names.ParseMachineTag(entity.Tag)
 		if err != nil {
-			result.Results[i].Error = common.ServerError(err)
+			handler.SetError(i, common.ServerError(err))
 			continue
 		}
 		// The auth function (canAccess) checks that the machine is a
@@ -616,124 +638,165 @@ func (p *ProvisionerAPI) prepareOrGetContainerInterfaceInfo(args params.Entities
 		// machine has the host as a parent.
 		container, err := p.getMachine(canAccess, machineTag)
 		if err != nil {
-			result.Results[i].Error = common.ServerError(err)
+			handler.SetError(i, common.ServerError(err))
 			continue
 		} else if !container.IsContainer() {
 			err = errors.Errorf("cannot prepare network config for %q: not a container", machineTag)
-			result.Results[i].Error = common.ServerError(err)
+			handler.SetError(i, common.ServerError(err))
 			continue
-		} else if ciid, cerr := container.InstanceId(); maintain == true && cerr == nil {
+		}
+
+		if err := handler.ProcessOneContainer(env, i, hostMachine, container); err != nil {
+			handler.SetError(i, common.ServerError(err))
+			continue
+		}
+	}
+	return nil
+}
+
+type prepareOrGetContext struct {
+	result   params.MachineNetworkConfigResults
+	maintain bool
+}
+
+func (ctx *prepareOrGetContext) SetError(idx int, err *params.Error) {
+	ctx.result.Results[idx].Error = err
+}
+
+func (ctx *prepareOrGetContext) ProcessOneContainer(env environs.Environ, idx int, host, container *state.Machine) error {
+	containerId, err := container.InstanceId()
+	if ctx.maintain {
+		if err == nil {
 			// Since we want to configure and create NICs on the
 			// container before it starts, it must also be not
 			// provisioned yet.
-			err = errors.Errorf("container %q already provisioned as %q", container, ciid)
-			result.Results[i].Error = common.ServerError(err)
-			continue
-		} else if cerr != nil && !errors.IsNotProvisioned(cerr) {
-			// Any other error needs to be reported.
-			result.Results[i].Error = common.ServerError(cerr)
-			continue
+			return errors.Errorf("container %q already provisioned as %q", container, containerId)
 		}
+	}
+	// The only error we allow is NotProvisioned
+	if err != nil && !errors.IsNotProvisioned(err) {
+		return err
+	}
 
-		// XXX(jam): this looks to be the point where we need to know the collection
-		// of endpoint bindings and space constraints for this container
-		// By the time we've gotten here, we've probably already done the work for
-		// StartInstance to have EndpointBindings described, but that information
-		// hasn't been passed back to us.
-		if err := hostMachine.SetContainerLinkLayerDevices(container); err != nil {
-			result.Results[i].Error = common.ServerError(err)
-			continue
+	supportContainerAddresses := environs.SupportsContainerAddresses(env)
+	bridgePolicy := containerizer.BridgePolicy{
+		NetBondReconfigureDelay: env.Config().NetBondReconfigureDelay(),
+		UseLocalBridges:         !supportContainerAddresses,
+	}
+
+	// TODO(jam): 2017-01-31 PopulateContainerLinkLayerDevices should really
+	// just be returning the ones we'd like to exist, and then we turn those
+	// into things we'd like to tell the Host machine to create, and then *it*
+	// reports back what actually exists when its done.
+	if err := bridgePolicy.PopulateContainerLinkLayerDevices(host, container); err != nil {
+		return err
+	}
+
+	containerDevices, err := container.AllLinkLayerDevices()
+	if err != nil {
+		return err
+	}
+
+	preparedInfo := make([]network.InterfaceInfo, len(containerDevices))
+	for j, device := range containerDevices {
+		parentDevice, err := device.ParentDevice()
+		if err != nil || parentDevice == nil {
+			return errors.Errorf(
+				"cannot get parent %q of container device %q: %v",
+				device.ParentName(), device.Name(), err,
+			)
 		}
-
-		containerDevices, err := container.AllLinkLayerDevices()
+		parentAddrs, err := parentDevice.Addresses()
 		if err != nil {
-			result.Results[i].Error = common.ServerError(err)
-			continue
+			return err
 		}
 
-		preparedInfo := make([]network.InterfaceInfo, len(containerDevices))
-		preparedOK := true
-		for j, device := range containerDevices {
-			parentDevice, err := device.ParentDevice()
-			if err != nil || parentDevice == nil {
-				err = errors.Errorf(
-					"cannot get parent %q of container device %q: %v",
-					device.ParentName(), device.Name(), err,
-				)
-				result.Results[i].Error = common.ServerError(err)
-				preparedOK = false
-				break
-			}
-			parentAddrs, err := parentDevice.Addresses()
-			if err != nil {
-				result.Results[i].Error = common.ServerError(err)
-				preparedOK = false
-				break
-			}
+		info := network.InterfaceInfo{
+			InterfaceName:       device.Name(),
+			MACAddress:          device.MACAddress(),
+			ConfigType:          network.ConfigManual,
+			InterfaceType:       network.InterfaceType(device.Type()),
+			NoAutoStart:         !device.IsAutoStart(),
+			Disabled:            !device.IsUp(),
+			MTU:                 int(device.MTU()),
+			ParentInterfaceName: parentDevice.Name(),
+		}
 
-			info := network.InterfaceInfo{
-				InterfaceName:       device.Name(),
-				MACAddress:          device.MACAddress(),
-				ConfigType:          network.ConfigManual,
-				InterfaceType:       network.InterfaceType(device.Type()),
-				NoAutoStart:         !device.IsAutoStart(),
-				Disabled:            !device.IsUp(),
-				MTU:                 int(device.MTU()),
-				ParentInterfaceName: parentDevice.Name(),
-			}
-
-			if len(parentAddrs) > 0 {
-				logger.Infof("host machine device %q has addresses %v", parentDevice.Name(), parentAddrs)
-
-				firstAddress := parentAddrs[0]
+		if len(parentAddrs) > 0 {
+			logger.Infof("host machine device %q has addresses %v", parentDevice.Name(), parentAddrs)
+			firstAddress := parentAddrs[0]
+			if supportContainerAddresses {
 				parentDeviceSubnet, err := firstAddress.Subnet()
 				if err != nil {
-					err = errors.Annotatef(err,
+					return errors.Annotatef(err,
 						"cannot get subnet %q used by address %q of host machine device %q",
 						firstAddress.SubnetCIDR(), firstAddress.Value(), parentDevice.Name(),
 					)
-					result.Results[i].Error = common.ServerError(err)
-					preparedOK = false
-					break
 				}
 				info.ConfigType = network.ConfigStatic
 				info.CIDR = parentDeviceSubnet.CIDR()
 				info.ProviderSubnetId = parentDeviceSubnet.ProviderId()
 				info.VLANTag = parentDeviceSubnet.VLANTag()
 			} else {
-				logger.Infof("host machine device %q has no addresses %v", parentDevice.Name(), parentAddrs)
+				info.ConfigType = network.ConfigDHCP
+				info.CIDR = firstAddress.SubnetCIDR()
+				info.ProviderSubnetId = ""
+				info.VLANTag = 0
 			}
-
-			logger.Tracef("prepared info for container interface %q: %+v", info.InterfaceName, info)
-			preparedOK = true
-			preparedInfo[j] = info
+		} else {
+			logger.Infof("host machine device %q has no addresses %v", parentDevice.Name(), parentAddrs)
 		}
 
-		if !preparedOK {
-			// Error result is already set.
-			continue
-		}
+		logger.Tracef("prepared info for container interface %q: %+v", info.InterfaceName, info)
+		preparedInfo[j] = info
+	}
 
-		allocatedInfo, err := netEnviron.AllocateContainerAddresses(instId, machineTag, preparedInfo)
+	hostInstanceId, err := host.InstanceId()
+	if err != nil {
+		// this should have already been checked in the processEachContainer helper
+		return err
+	}
+	allocatedInfo := preparedInfo
+	if supportContainerAddresses {
+		// supportContainerAddresses already checks that we can cast to an environ.Networking
+		networking := env.(environs.Networking)
+		allocatedInfo, err = networking.AllocateContainerAddresses(hostInstanceId, container.MachineTag(), preparedInfo)
 		if err != nil {
-			result.Results[i].Error = common.ServerError(err)
-			continue
+			return err
 		}
 		logger.Debugf("got allocated info from provider: %+v", allocatedInfo)
-
-		allocatedConfig := networkingcommon.NetworkConfigFromInterfaceInfo(allocatedInfo)
-		logger.Tracef("allocated network config: %+v", allocatedConfig)
-		result.Results[i].Config = allocatedConfig
 	}
-	return result, nil
+
+	allocatedConfig := networkingcommon.NetworkConfigFromInterfaceInfo(allocatedInfo)
+	logger.Tracef("allocated network config: %+v", allocatedConfig)
+	ctx.result.Results[idx].Config = allocatedConfig
+	return nil
+}
+
+func (p *ProvisionerAPI) prepareOrGetContainerInterfaceInfo(args params.Entities, maintain bool) (params.MachineNetworkConfigResults, error) {
+	ctx := &prepareOrGetContext{
+		result: params.MachineNetworkConfigResults{
+			Results: make([]params.MachineNetworkConfigResult, len(args.Entities)),
+		},
+		maintain: maintain,
+	}
+
+	if err := p.processEachContainer(args, ctx); err != nil {
+		return ctx.result, errors.Trace(err)
+	}
+	return ctx.result, nil
 }
 
 // prepareContainerAccessEnvironment retrieves the environment, host machine, and access
 // for working with containers.
-func (p *ProvisionerAPI) prepareContainerAccessEnvironment() (environs.NetworkingEnviron, *state.Machine, common.AuthFunc, error) {
-	netEnviron, err := networkingcommon.NetworkingEnvironFromModelConfig(p.configGetter)
+func (p *ProvisionerAPI) prepareContainerAccessEnvironment() (environs.Environ, *state.Machine, common.AuthFunc, error) {
+	env, err := environs.GetEnviron(p.configGetter, environs.New)
 	if err != nil {
 		return nil, nil, nil, errors.Trace(err)
+	}
+	// TODO(jam): 2017-02-01 NetworkingEnvironFromModelConfig used to do this, but it doesn't feel good
+	if env.Config().Type() == "dummy" {
+		return nil, nil, nil, errors.NotSupportedf("dummy provider network config")
 	}
 
 	canAccess, err := p.getAuthFunc()
@@ -752,7 +815,52 @@ func (p *ProvisionerAPI) prepareContainerAccessEnvironment() (environs.Networkin
 	if err != nil {
 		return nil, nil, nil, errors.Trace(err)
 	}
-	return netEnviron, host, canAccess, nil
+	return env, host, canAccess, nil
+}
+
+type hostChangesContext struct {
+	result params.HostNetworkChangeResults
+}
+
+func (ctx *hostChangesContext) ProcessOneContainer(env environs.Environ, idx int, host, container *state.Machine) error {
+	bridgePolicy := containerizer.BridgePolicy{
+		NetBondReconfigureDelay: env.Config().NetBondReconfigureDelay(),
+		UseLocalBridges:         !environs.SupportsContainerAddresses(env),
+	}
+	bridges, reconfigureDelay, err := bridgePolicy.FindMissingBridgesForContainer(host, container)
+	if err != nil {
+		return err
+	}
+
+	ctx.result.Results[idx].ReconfigureDelay = reconfigureDelay
+	for _, bridgeInfo := range bridges {
+		ctx.result.Results[idx].NewBridges = append(
+			ctx.result.Results[idx].NewBridges,
+			params.DeviceBridgeInfo{
+				HostDeviceName: bridgeInfo.DeviceName,
+				BridgeName:     bridgeInfo.BridgeName,
+			})
+	}
+	return nil
+}
+
+func (ctx *hostChangesContext) SetError(idx int, err *params.Error) {
+	ctx.result.Results[idx].Error = err
+}
+
+// HostChangesForContainers returns the set of changes that need to be done
+// to the host machine to prepare it for the containers to be created.
+// Pass in a list of the containers that you want the changes for.
+func (p *ProvisionerAPI) HostChangesForContainers(args params.Entities) (params.HostNetworkChangeResults, error) {
+	ctx := &hostChangesContext{
+		result: params.HostNetworkChangeResults{
+			Results: make([]params.HostNetworkChange, len(args.Entities)),
+		},
+	}
+	if err := p.processEachContainer(args, ctx); err != nil {
+		return ctx.result, errors.Trace(err)
+	}
+	return ctx.result, nil
 }
 
 // InstanceStatus returns the instance status for each given entity.
@@ -769,7 +877,8 @@ func (p *ProvisionerAPI) InstanceStatus(args params.Entities) (params.StatusResu
 	for i, arg := range args.Entities {
 		mTag, err := names.ParseMachineTag(arg.Tag)
 		if err != nil {
-			result.Results[i].Error = common.ServerError(err)
+			logger.Warningf("InstanceStatus called with %q which is not a valid machine tag: %v", arg.Tag, err)
+			result.Results[i].Error = common.ServerError(common.ErrPerm)
 			continue
 		}
 		machine, err := p.getMachine(canAccess, mTag)
@@ -786,6 +895,44 @@ func (p *ProvisionerAPI) InstanceStatus(args params.Entities) (params.StatusResu
 	return result, nil
 }
 
+func (p *ProvisionerAPI) setOneInstanceStatus(canAccess common.AuthFunc, arg params.EntityStatusArgs) error {
+	logger.Debugf("SetInstanceStatus called with: %#v", arg)
+	mTag, err := names.ParseMachineTag(arg.Tag)
+	if err != nil {
+		logger.Warningf("SetInstanceStatus called with %q which is not a valid machine tag: %v", arg.Tag, err)
+		return common.ErrPerm
+	}
+	machine, err := p.getMachine(canAccess, mTag)
+	if err != nil {
+		logger.Debugf("SetInstanceStatus unable to get machine %q", mTag)
+		return err
+	}
+	// TODO(perrito666) 2016-05-02 lp:1558657
+	now := time.Now()
+	s := status.StatusInfo{
+		Status:  status.Status(arg.Status),
+		Message: arg.Info,
+		Data:    arg.Data,
+		Since:   &now,
+	}
+
+	// TODO(jam): 2017-01-29 These two status should be set in a single
+	//	transaction, not in two separate transactions. Otherwise you can see
+	//	one toggle, but not the other.
+	if err = machine.SetInstanceStatus(s); err != nil {
+		logger.Debugf("failed to SetInstanceStatus for %q: %v", mTag, err)
+		return err
+	}
+	if status.Status(arg.Status) == status.ProvisioningError {
+		s.Status = status.Error
+		logger.Debugf("SetInstanceStatus triggering SetStatus for %#v", s)
+		if err = machine.SetStatus(s); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // SetInstanceStatus updates the instance status for each given
 // entity. Only machine tags are accepted.
 func (p *ProvisionerAPI) SetInstanceStatus(args params.SetStatus) (params.ErrorResults, error) {
@@ -798,29 +945,7 @@ func (p *ProvisionerAPI) SetInstanceStatus(args params.SetStatus) (params.ErrorR
 		return result, errors.Trace(err)
 	}
 	for i, arg := range args.Entities {
-		mTag, err := names.ParseMachineTag(arg.Tag)
-		if err != nil {
-			result.Results[i].Error = common.ServerError(err)
-			continue
-		}
-		machine, err := p.getMachine(canAccess, mTag)
-		if err == nil {
-			// TODO(perrito666) 2016-05-02 lp:1558657
-			now := time.Now()
-			s := status.StatusInfo{
-				Status:  status.Status(arg.Status),
-				Message: arg.Info,
-				Data:    arg.Data,
-				Since:   &now,
-			}
-			err = machine.SetInstanceStatus(s)
-			if status.Status(arg.Status) == status.ProvisioningError {
-				s.Status = status.Error
-				if err == nil {
-					err = machine.SetStatus(s)
-				}
-			}
-		}
+		err = p.setOneInstanceStatus(canAccess, arg)
 		result.Results[i].Error = common.ServerError(err)
 	}
 	return result, nil
@@ -852,4 +977,121 @@ func (p *ProvisionerAPI) markOneMachineForRemoval(machineTag string, canAccess c
 		return errors.Trace(err)
 	}
 	return machine.MarkForRemoval()
+}
+
+func (p *ProvisionerAPI) SetObservedNetworkConfig(args params.SetMachineNetworkConfig) error {
+	m, err := p.getMachineForSettingNetworkConfig(args.Tag)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if m.IsContainer() {
+		return nil
+	}
+	observedConfig := args.Config
+	logger.Tracef("observed network config of machine %q: %+v", m.Id(), observedConfig)
+	if len(observedConfig) == 0 {
+		logger.Infof("not updating machine network config: no observed network config found")
+		return nil
+	}
+
+	providerConfig, err := p.getOneMachineProviderNetworkConfig(m)
+	if errors.IsNotProvisioned(err) {
+		logger.Infof("not updating provider network config: %v", err)
+		return nil
+	}
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if len(providerConfig) == 0 {
+		logger.Infof("not updating machine network config: no provider network config found")
+		return nil
+	}
+
+	mergedConfig := networkingcommon.MergeProviderAndObservedNetworkConfigs(providerConfig, observedConfig)
+	logger.Tracef("merged observed and provider network config: %+v", mergedConfig)
+
+	return p.setOneMachineNetworkConfig(m, mergedConfig)
+}
+
+func (p *ProvisionerAPI) getMachineForSettingNetworkConfig(machineTag string) (*state.Machine, error) {
+	canModify, err := p.getCanModify()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	tag, err := names.ParseMachineTag(machineTag)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if !canModify(tag) {
+		return nil, errors.Trace(common.ErrPerm)
+	}
+
+	canAccess, err := p.getAuthFunc()
+	if err != nil {
+		return nil, err
+	}
+
+	m, err := p.getMachine(canAccess, tag)
+	if errors.IsNotFound(err) {
+		return nil, errors.Trace(common.ErrPerm)
+	} else if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	if m.IsContainer() {
+		logger.Warningf("not updating network config for container %q", m.Id())
+	}
+
+	return m, nil
+}
+
+func (p *ProvisionerAPI) setOneMachineNetworkConfig(m *state.Machine, networkConfig []params.NetworkConfig) error {
+	devicesArgs, devicesAddrs := networkingcommon.NetworkConfigsToStateArgs(networkConfig)
+
+	logger.Debugf("setting devices: %+v", devicesArgs)
+	if err := m.SetParentLinkLayerDevicesBeforeTheirChildren(devicesArgs); err != nil {
+		return errors.Trace(err)
+	}
+
+	logger.Debugf("setting addresses: %+v", devicesAddrs)
+	if err := m.SetDevicesAddressesIdempotently(devicesAddrs); err != nil {
+		return errors.Trace(err)
+	}
+
+	logger.Debugf("updated machine %q network config", m.Id())
+	return nil
+}
+
+func (p *ProvisionerAPI) getOneMachineProviderNetworkConfig(m *state.Machine) ([]params.NetworkConfig, error) {
+	instId, err := m.InstanceId()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	netEnviron, err := networkingcommon.NetworkingEnvironFromModelConfig(p.configGetter)
+	if errors.IsNotSupported(err) {
+		logger.Infof("not updating provider network config: %v", err)
+		return nil, nil
+	} else if err != nil {
+		return nil, errors.Annotate(err, "cannot get provider network config")
+	}
+
+	interfaceInfos, err := netEnviron.NetworkInterfaces(instId)
+	if err != nil {
+		return nil, errors.Annotatef(err, "cannot get network interfaces of %q", instId)
+	}
+	if len(interfaceInfos) == 0 {
+		logger.Infof("not updating provider network config: no interfaces returned")
+		return nil, nil
+	}
+
+	providerConfig := networkingcommon.NetworkConfigFromInterfaceInfo(interfaceInfos)
+	logger.Tracef("provider network config instance %q: %+v", instId, providerConfig)
+
+	return providerConfig, nil
+}
+
+func (p *ProvisionerAPI) SetHostMachineNetworkConfig(args params.SetMachineNetworkConfig) error {
+	return p.SetObservedNetworkConfig(args)
 }

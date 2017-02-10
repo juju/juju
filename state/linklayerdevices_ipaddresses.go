@@ -157,6 +157,12 @@ func (addr *Address) ConfigMethod() AddressConfigMethod {
 	return addr.doc.ConfigMethod
 }
 
+// LoopbackConfigMethod returns whether AddressConfigMethod used for this IP
+// address was loopback.
+func (addr *Address) LoopbackConfigMethod() bool {
+	return addr.doc.ConfigMethod == LoopbackAddress
+}
+
 // Value returns the value of this IP address.
 func (addr *Address) Value() string {
 	return addr.doc.Value

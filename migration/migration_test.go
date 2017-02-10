@@ -116,7 +116,6 @@ func (s *ImportSuite) TestUploadBinariesConfigValidate(c *gc.C) {
 func (s *ImportSuite) TestBinariesMigration(c *gc.C) {
 	downloader := &fakeDownloader{}
 	uploader := &fakeUploader{
-		charms:    make(map[string]string),
 		tools:     make(map[version.Binary]string),
 		resources: make(map[string]string),
 	}
@@ -141,7 +140,12 @@ func (s *ImportSuite) TestBinariesMigration(c *gc.C) {
 	}
 
 	config := migration.UploadBinariesConfig{
-		Charms:             []string{"local:trusty/magic", "cs:trusty/postgresql-42"},
+		Charms: []string{
+			// These 2 are out of order. Rev 2 must be uploaded first.
+			"local:trusty/magic-10",
+			"local:trusty/magic-2",
+			"cs:trusty/postgresql-42",
+		},
 		CharmDownloader:    downloader,
 		CharmUploader:      uploader,
 		Tools:              toolsMap,
@@ -154,14 +158,14 @@ func (s *ImportSuite) TestBinariesMigration(c *gc.C) {
 	err := migration.UploadBinaries(config)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(downloader.charms, jc.DeepEquals, []string{
-		"local:trusty/magic",
+	expectedCharms := []string{
+		// Note ordering.
 		"cs:trusty/postgresql-42",
-	})
-	c.Assert(uploader.charms, jc.DeepEquals, map[string]string{
-		"local:trusty/magic":      "local:trusty/magic content",
-		"cs:trusty/postgresql-42": "cs:trusty/postgresql-42 content",
-	})
+		"local:trusty/magic-2",
+		"local:trusty/magic-10",
+	}
+	c.Assert(downloader.charms, jc.DeepEquals, expectedCharms)
+	c.Assert(uploader.charms, jc.DeepEquals, expectedCharms)
 
 	c.Assert(downloader.uris, jc.SameContents, []string{
 		"/tools/0",
@@ -179,6 +183,26 @@ func (s *ImportSuite) TestBinariesMigration(c *gc.C) {
 		"app2/blob2": "<placeholder>",
 	})
 	c.Assert(uploader.unitResources, jc.SameContents, []string{"app1/99-blob1"})
+}
+
+func (s *ImportSuite) TestWrongCharmURLAssigned(c *gc.C) {
+	downloader := &fakeDownloader{}
+	uploader := &fakeUploader{
+		reassignCharmURL: true,
+	}
+
+	config := migration.UploadBinariesConfig{
+		Charms:             []string{"local:foo/bar-2"},
+		CharmDownloader:    downloader,
+		CharmUploader:      uploader,
+		ToolsDownloader:    downloader,
+		ToolsUploader:      uploader,
+		ResourceDownloader: downloader,
+		ResourceUploader:   uploader,
+	}
+	err := migration.UploadBinaries(config)
+	c.Assert(err, gc.ErrorMatches,
+		"charm local:foo/bar-2 unexpectedly assigned local:foo/bar-1")
 }
 
 type fakeDownloader struct {
@@ -210,10 +234,11 @@ func (d *fakeDownloader) OpenResource(app, name string) (io.ReadCloser, error) {
 }
 
 type fakeUploader struct {
-	tools         map[version.Binary]string
-	charms        map[string]string
-	resources     map[string]string
-	unitResources []string
+	tools            map[version.Binary]string
+	charms           []string
+	resources        map[string]string
+	unitResources    []string
+	reassignCharmURL bool
 }
 
 func (f *fakeUploader) UploadTools(r io.ReadSeeker, v version.Binary, _ ...string) (tools.List, error) {
@@ -230,9 +255,16 @@ func (f *fakeUploader) UploadCharm(u *charm.URL, r io.ReadSeeker) (*charm.URL, e
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	if string(data) != u.String()+" content" {
+		panic(fmt.Sprintf("unexpected charm body for %s: %s", u.String(), data))
+	}
+	f.charms = append(f.charms, u.String())
 
-	f.charms[u.String()] = string(data)
-	return u, nil
+	outU := *u
+	if f.reassignCharmURL {
+		outU.Revision--
+	}
+	return &outU, nil
 }
 
 func (f *fakeUploader) UploadResource(res resource.Resource, r io.ReadSeeker) error {

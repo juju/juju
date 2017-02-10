@@ -52,19 +52,26 @@ import (
 var goodPassword = "foo-12345678901234567890"
 var alternatePassword = "bar-12345678901234567890"
 
-// preventUnitDestroyRemove sets a non-pending status on the unit, and hence
+// preventUnitDestroyRemove sets a non-allocating status on the unit, and hence
 // prevents it from being unceremoniously removed from state on Destroy. This
 // is useful because several tests go through a unit's lifecycle step by step,
 // asserting the behaviour of a given method in each state, and the unit quick-
 // remove change caused many of these to fail.
 func preventUnitDestroyRemove(c *gc.C, u *state.Unit) {
+	// To have a non-allocating status, a unit needs to
+	// be assigned to a machine.
+	_, err := u.AssignedMachineId()
+	if errors.IsNotAssigned(err) {
+		err = u.AssignToNewMachine()
+	}
+	c.Assert(err, jc.ErrorIsNil)
 	now := time.Now()
 	sInfo := status.StatusInfo{
 		Status:  status.Idle,
 		Message: "",
 		Since:   &now,
 	}
-	err := u.SetAgentStatus(sInfo)
+	err = u.SetAgentStatus(sInfo)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -249,8 +256,9 @@ func (s *StateSuite) TestWatchAllModels(c *gc.C) {
 	// The allModelWatcher infrastructure is comprehensively tested
 	// elsewhere. This just ensures things are hooked up correctly in
 	// State.WatchAllModels()
-
-	w := s.State.WatchAllModels()
+	pool := state.NewStatePool(s.State)
+	defer pool.Close()
+	w := s.State.WatchAllModels(pool)
 	defer w.Stop()
 	deltasC := makeMultiwatcherOutput(w)
 
@@ -1590,11 +1598,7 @@ func (s *StateSuite) TestAddServiceWithInvalidBindings(c *gc.C) {
 	}, {
 		about:         "empty endpoint bound to unknown space",
 		bindings:      map[string]string{"": "anything"},
-		expectedError: `unknown endpoint "" not valid`,
-	}, {
-		about:         "empty endpoint not bound to a space",
-		bindings:      map[string]string{"": ""},
-		expectedError: `unknown endpoint "" not valid`,
+		expectedError: `unknown space "anything" not valid`,
 	}, {
 		about:         "known endpoint bound to unknown space",
 		bindings:      map[string]string{"server": "invalid"},
@@ -4494,8 +4498,8 @@ func (s *SetAdminMongoPasswordSuite) TestSetAdminMongoPassword(c *gc.C) {
 			Config:                  cfg,
 			StorageProviderRegistry: storage.StaticProviderRegistry{},
 		},
-		CloudName: "dummy",
 		Cloud: cloud.Cloud{
+			Name:      "dummy",
 			Type:      "dummy",
 			AuthTypes: []cloud.AuthType{cloud.EmptyAuthType},
 		},

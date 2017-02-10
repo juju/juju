@@ -141,6 +141,9 @@ type ManifoldsConfig struct {
 
 	// CentralHub is the primary hub that exists in the apiserver.
 	CentralHub *pubsub.StructuredHub
+
+	// DepEngineReporter is a dependency engine reporter.
+	DepEngineReporter dependency.Reporter
 }
 
 // Manifolds returns a set of co-configured manifolds covering the

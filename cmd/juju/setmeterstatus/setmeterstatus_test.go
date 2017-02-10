@@ -81,7 +81,7 @@ func (s *DebugMetricsCommandSuite) TestDebugNoArgs(c *gc.C) {
 }
 
 func (s *DebugMetricsCommandSuite) TestUnits(c *gc.C) {
-	charm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "mysql", URL: "local:quantal/mysql"})
+	charm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "mysql", URL: "local:quantal/mysql-1"})
 	service := s.Factory.MakeApplication(c, &factory.ApplicationParams{Charm: charm})
 	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Application: service, SetCharmURL: true})
 	_, err := coretesting.RunCommand(c, setmeterstatus.New(), unit.Name(), "RED", "--info", "foobar")
@@ -93,7 +93,7 @@ func (s *DebugMetricsCommandSuite) TestUnits(c *gc.C) {
 }
 
 func (s *DebugMetricsCommandSuite) TestService(c *gc.C) {
-	charm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "mysql", URL: "local:quantal/mysql"})
+	charm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "mysql", URL: "local:quantal/mysql-1"})
 	service := s.Factory.MakeApplication(c, &factory.ApplicationParams{Charm: charm})
 	unit0, err := service.AddUnit()
 	c.Assert(err, jc.ErrorIsNil)

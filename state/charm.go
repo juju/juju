@@ -5,6 +5,7 @@ package state
 
 import (
 	"regexp"
+	"strings"
 
 	"github.com/juju/errors"
 	jujutxn "github.com/juju/txn"
@@ -17,6 +18,7 @@ import (
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/mongo"
+	mongoutils "github.com/juju/juju/mongo/utils"
 	"github.com/juju/juju/state/storage"
 	jujuversion "github.com/juju/juju/version"
 )
@@ -51,14 +53,7 @@ type charmDoc struct {
 
 	// Life manages charm lifetime in the usual way, but only local
 	// charms can actually be "destroyed"; store charms are
-	// immortal. When a local charm is removed, its document is left
-	// in place, with Life set to Dead, to ensure we don't
-	// accidentally reuse the charm URL, which must be unique within
-	// a model.
-	//
-	// Note that this aligns with the existing contract implied by
-	// Dead: that most clients should see it as not existing at all.
-	// Nothing strictly obliges us to clean up the doc.
+	// immortal.
 	Life Life `bson:"life"`
 
 	// These fields are flags; if any of them is set, the charm
@@ -114,6 +109,10 @@ func insertCharmOps(st *State, info CharmInfo) ([]txn.Op, error) {
 		BundleSha256: info.SHA256,
 		StoragePath:  info.StoragePath,
 	}
+	if err := checkCharmDataIsStorable(doc); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	if info.Macaroon != nil {
 		mac, err := info.Macaroon.MarshalBinary()
 		if err != nil {
@@ -220,6 +219,10 @@ func updateCharmOps(
 		{"pendingupload", false},
 		{"placeholder", false},
 	}
+	if err := checkCharmDataIsStorable(data); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	if len(info.Macaroon) > 0 {
 		mac, err := info.Macaroon.MarshalBinary()
 		if err != nil {
@@ -287,6 +290,11 @@ func deleteOldPlaceholderCharmsOps(st *State, charms mongo.Collection, curl *cha
 		})
 	}
 	return ops, nil
+}
+
+func checkCharmDataIsStorable(charmData interface{}) error {
+	err := mongoutils.CheckStorable(charmData)
+	return errors.Annotate(err, "invalid charm data")
 }
 
 // safeConfig is a travesty which attempts to work around our continued failure
@@ -374,11 +382,8 @@ func (c *Charm) Destroy() error {
 // inaccessible to future clients. It will fail unless the charm is
 // already Dying (indicating that someone has called Destroy).
 func (c *Charm) Remove() error {
-	switch c.doc.Life {
-	case Alive:
+	if c.doc.Life == Alive {
 		return errors.New("still alive")
-	case Dead:
-		return nil
 	}
 
 	stor := storage.NewStorage(c.st.ModelUUID(), c.st.MongoSession())
@@ -390,18 +395,15 @@ func (c *Charm) Remove() error {
 		return errors.Annotate(err, "deleting archive")
 	}
 
-	buildTxn := func(_ int) ([]txn.Op, error) {
-		ops, err := charmRemoveOps(c.st, c.doc.URL)
-		switch errors.Cause(err) {
-		case nil:
-		case errAlreadyDead:
-			return nil, jujutxn.ErrNoOperations
-		default:
-			return nil, errors.Trace(err)
-		}
-		return ops, nil
-	}
-	if err := c.st.run(buildTxn); err != nil {
+	// We know the charm is already dying, dead or removed at this
+	// point (life can *never* go backwards) so an unasserted remove
+	// is safe.
+	removeOps := []txn.Op{{
+		C:      charmsC,
+		Id:     c.doc.URL.String(),
+		Remove: true,
+	}}
+	if err := c.st.runTransaction(removeOps); err != nil {
 		return errors.Trace(err)
 	}
 	c.doc.Life = Dead
@@ -521,18 +523,27 @@ func (st *State) AddCharm(info CharmInfo) (stch *Charm, err error) {
 		return nil, errors.Trace(err)
 	}
 
-	query := charms.FindId(info.ID.String()).Select(bson.D{{"placeholder", 1}})
-
+	query := charms.FindId(info.ID.String()).Select(bson.M{
+		"placeholder":   1,
+		"pendingupload": 1,
+	})
 	buildTxn := func(attempt int) ([]txn.Op, error) {
-		var placeholderDoc struct {
-			Placeholder bool `bson:"placeholder"`
-		}
-		if err := query.One(&placeholderDoc); err == mgo.ErrNotFound {
-
+		var doc charmDoc
+		if err := query.One(&doc); err == mgo.ErrNotFound {
+			if info.ID.Schema == "local" {
+				curl, err := st.PrepareLocalCharmUpload(info.ID)
+				if err != nil {
+					return nil, errors.Trace(err)
+				}
+				info.ID = curl
+				return updateCharmOps(st, info, stillPending)
+			}
 			return insertCharmOps(st, info)
 		} else if err != nil {
 			return nil, errors.Trace(err)
-		} else if placeholderDoc.Placeholder {
+		} else if doc.PendingUpload {
+			return updateCharmOps(st, info, stillPending)
+		} else if doc.Placeholder {
 			return updateCharmOps(st, info, stillPlaceholder)
 		}
 		return nil, errors.AlreadyExistsf("charm %q", info.ID)
@@ -637,42 +648,33 @@ func (st *State) PrepareLocalCharmUpload(curl *charm.URL) (chosenURL *charm.URL,
 	if curl.Revision < 0 {
 		return nil, errors.Errorf("expected charm URL with revision, got %q", curl)
 	}
-	// Get a regex with the charm URL and no revision.
-	noRevURL := curl.WithRevision(-1)
-	curlRegex := "^" + regexp.QuoteMeta(st.docID(noRevURL.String()))
 
-	charms, closer := st.getCollection(charmsC)
-	defer closer()
-
-	buildTxn := func(attempt int) ([]txn.Op, error) {
-		// Find the highest revision of that charm in state.
-		var docs []charmDoc
-		query := bson.D{{"_id", bson.D{{"$regex", curlRegex}}}}
-		err = charms.Find(query).Select(bson.D{{"_id", 1}, {"url", 1}}).All(&docs)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		// Find the highest revision.
-		maxRevision := -1
-		for _, doc := range docs {
-			if doc.URL.Revision > maxRevision {
-				maxRevision = doc.URL.Revision
-			}
-		}
-
-		// Respect the local charm's revision first.
-		chosenRevision := curl.Revision
-		if maxRevision >= chosenRevision {
-			// More recent revision exists in state, pick the next.
-			chosenRevision = maxRevision + 1
-		}
-		chosenURL = curl.WithRevision(chosenRevision)
-		return insertPendingCharmOps(st, chosenURL)
+	revisionSeq := charmRevSeqName(curl.WithRevision(-1).String())
+	revision, err := st.sequenceWithMin(revisionSeq, curl.Revision)
+	if err != nil {
+		return nil, errors.Annotate(err, "unable to allocate charm revision")
 	}
-	if err = st.run(buildTxn); err == nil {
-		return chosenURL, nil
+	allocatedURL := curl.WithRevision(revision)
+
+	ops, err := insertPendingCharmOps(st, allocatedURL)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
-	return nil, errors.Trace(err)
+
+	if err := st.runTransaction(ops); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return allocatedURL, nil
+}
+
+const charmRevSeqPrefix = "charmrev-"
+
+func charmRevSeqName(baseURL string) string {
+	return charmRevSeqPrefix + baseURL
+}
+
+func isCharmRevSeqName(name string) bool {
+	return strings.HasPrefix(name, charmRevSeqPrefix)
 }
 
 // PrepareStoreCharmUpload must be called before a charm store charm

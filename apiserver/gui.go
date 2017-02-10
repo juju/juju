@@ -136,11 +136,11 @@ func (gr *guiRouter) ensureFileHandler(h func(gh *guiHandler, w http.ResponseWri
 // and archive hash.
 func (gr *guiRouter) ensureFiles(req *http.Request) (rootDir string, hash string, err error) {
 	// Retrieve the Juju GUI info from the GUI storage.
-	st, err := gr.ctxt.stateForRequestUnauthenticated(req)
+	st, releaser, err := gr.ctxt.stateForRequestUnauthenticated(req)
 	if err != nil {
 		return "", "", errors.Annotate(err, "cannot open state")
 	}
-	defer gr.ctxt.release(st)
+	defer releaser()
 	storage, err := st.GUIStorage()
 	if err != nil {
 		return "", "", errors.Annotate(err, "cannot open GUI storage")
@@ -415,11 +415,11 @@ func (h *guiArchiveHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) 
 // handleGet returns information on Juju GUI archives in the controller.
 func (h *guiArchiveHandler) handleGet(w http.ResponseWriter, req *http.Request) error {
 	// Open the GUI archive storage.
-	st, err := h.ctxt.stateForRequestUnauthenticated(req)
+	st, releaser, err := h.ctxt.stateForRequestUnauthenticated(req)
 	if err != nil {
 		return errors.Annotate(err, "cannot open state")
 	}
-	defer h.ctxt.release(st)
+	defer releaser()
 	storage, err := st.GUIStorage()
 	if err != nil {
 		return errors.Annotate(err, "cannot open GUI storage")
@@ -483,11 +483,11 @@ func (h *guiArchiveHandler) handlePost(w http.ResponseWriter, req *http.Request)
 	}
 
 	// Open the GUI archive storage.
-	st, err := h.ctxt.stateForRequestAuthenticatedUser(req)
+	st, releaser, err := h.ctxt.stateForRequestAuthenticatedUser(req)
 	if err != nil {
 		return errors.Annotate(err, "cannot open state")
 	}
-	defer h.ctxt.release(st)
+	defer releaser()
 	storage, err := st.GUIStorage()
 	if err != nil {
 		return errors.Annotate(err, "cannot open GUI storage")
@@ -559,11 +559,11 @@ func (h *guiVersionHandler) handlePut(w http.ResponseWriter, req *http.Request) 
 	}
 
 	// Authenticate the request and retrieve the Juju state.
-	st, err := h.ctxt.stateForRequestAuthenticatedUser(req)
+	st, releaser, err := h.ctxt.stateForRequestAuthenticatedUser(req)
 	if err != nil {
 		return errors.Annotate(err, "cannot open state")
 	}
-	defer h.ctxt.release(st)
+	defer releaser()
 
 	var selected params.GUIVersionRequest
 	decoder := json.NewDecoder(req.Body)

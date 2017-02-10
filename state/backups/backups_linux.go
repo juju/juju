@@ -50,6 +50,7 @@ func ensureMongoService(agentConfig agent.Config) error {
 		numaCtlPolicy,
 		agentConfig.MongoVersion(),
 		true,
+		mongo.MemoryProfileDefault,
 	); err != nil {
 		return errors.Annotate(err, "cannot ensure that mongo service start/stop scripts are in place")
 	}

@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/arch"
-	lxdshared "github.com/lxc/lxd/shared"
 
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/cloudconfig/instancecfg"
@@ -181,43 +180,9 @@ func (env *environ) newRawInstance(args environs.StartInstanceParams) (*lxdclien
 		return nil, errors.Trace(err)
 	}
 
-	var certificateFingerprint string
-	if args.InstanceConfig.Controller != nil {
-		// For controller machines, generate a certificate pair and write
-		// them to the instance's disk in a well-defined location, along
-		// with the server's certificate.
-		certPEM, keyPEM, err := lxdshared.GenerateMemCert(true)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		cert := lxdclient.NewCert(certPEM, keyPEM)
-		cert.Name = hostname
-
-		// We record the certificate's fingerprint in metadata, so we can
-		// remove the certificate along with the instance.
-		certificateFingerprint, err = cert.Fingerprint()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-
-		if err := env.raw.AddCert(cert); err != nil {
-			return nil, errors.Annotatef(err, "adding certificate %q", cert.Name)
-		}
-		serverState, err := env.raw.ServerStatus()
-		if err != nil {
-			return nil, errors.Annotate(err, "getting server status")
-		}
-		cloudcfg.AddRunTextFile(clientCertPath, string(certPEM), 0600)
-		cloudcfg.AddRunTextFile(clientKeyPath, string(keyPEM), 0600)
-		cloudcfg.AddRunTextFile(serverCertPath, serverState.Environment.Certificate, 0600)
-	}
-
 	metadata, err := getMetadata(cloudcfg, args)
 	if err != nil {
 		return nil, errors.Trace(err)
-	}
-	if certificateFingerprint != "" {
-		metadata[metadataKeyCertificateFingerprint] = certificateFingerprint
 	}
 
 	// TODO(ericsnow) Use the env ID for the network name (instead of default)?
@@ -330,38 +295,7 @@ func (env *environ) StopInstances(instances ...instance.Id) error {
 	for _, id := range instances {
 		ids = append(ids, string(id))
 	}
-
 	prefix := env.namespace.Prefix()
-	err := removeInstances(env.raw, prefix, ids)
+	err := env.raw.RemoveInstances(prefix, ids...)
 	return errors.Trace(err)
-}
-
-func removeInstances(raw *rawProvider, prefix string, ids []string) error {
-	// We must first list the instances so we can remove any
-	// controller certificates.
-	allInstances, err := raw.Instances(prefix)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	for _, inst := range allInstances {
-		certificateFingerprint := inst.Metadata()[lxdclient.CertificateFingerprintKey]
-		if certificateFingerprint == "" {
-			continue
-		}
-		var found bool
-		for _, id := range ids {
-			if inst.Name == id {
-				found = true
-				break
-			}
-		}
-		if !found {
-			continue
-		}
-		err := raw.RemoveCertByFingerprint(certificateFingerprint)
-		if err != nil && !errors.IsNotFound(err) {
-			return errors.Annotatef(err, "removing certificate for %q", inst.Name)
-		}
-	}
-	return raw.RemoveInstances(prefix, ids...)
 }

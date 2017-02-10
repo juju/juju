@@ -78,6 +78,7 @@ var _ = gc.Suite(&credentialsSuite{})
 func (s *credentialsSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.cloud = cloud.Cloud{
+		Name: "cloud",
 		Type: "fake",
 		Regions: []cloud.Region{
 			{Name: "first-region"},
@@ -110,7 +111,6 @@ func (s *credentialsSuite) assertGetCredentials(c *gc.C, cred, region string) {
 	credential, credentialName, regionName, err := modelcmd.GetCredentials(
 		jujutesting.Context(c), s.store, modelcmd.GetCredentialsParams{
 			Cloud:          s.cloud,
-			CloudName:      "cloud",
 			CloudRegion:    region,
 			CredentialName: cred,
 		},

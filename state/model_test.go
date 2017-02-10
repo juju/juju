@@ -983,8 +983,8 @@ func (s *ModelCloudValidationSuite) initializeState(
 			CloudCredential:         controllerCredential,
 			StorageProviderRegistry: storage.StaticProviderRegistry{},
 		},
-		CloudName: "dummy",
 		Cloud: cloud.Cloud{
+			Name:      "dummy",
 			Type:      "dummy",
 			AuthTypes: authTypes,
 			Regions:   regions,

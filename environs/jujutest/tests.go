@@ -192,8 +192,8 @@ func (t *Tests) TestBootstrap(c *gc.C) {
 
 	args := bootstrap.BootstrapParams{
 		ControllerConfig: coretesting.FakeControllerConfig(),
-		CloudName:        t.TestConfig["type"].(string),
 		Cloud: cloud.Cloud{
+			Name:      t.TestConfig["type"].(string),
 			Type:      t.TestConfig["type"].(string),
 			AuthTypes: []cloud.AuthType{credential.AuthType()},
 			Regions:   regions,

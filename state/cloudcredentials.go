@@ -84,7 +84,7 @@ func (st *State) UpdateCloudCredential(tag names.CloudCredentialTag, credential 
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		ops, err := validateCloudCredentials(cloud, cloudName, credentials)
+		ops, err := validateCloudCredentials(cloud, credentials)
 		if err != nil {
 			return nil, errors.Annotate(err, "validating cloud credentials")
 		}
@@ -201,15 +201,14 @@ func (c cloudCredentialDoc) toCredential() cloud.Credential {
 // perhaps all this code is unnecessary.
 func validateCloudCredentials(
 	cloud cloud.Cloud,
-	cloudName string,
 	credentials map[names.CloudCredentialTag]cloud.Credential,
 ) ([]txn.Op, error) {
 	requiredAuthTypes := make(set.Strings)
 	for tag, credential := range credentials {
-		if tag.Cloud().Id() != cloudName {
+		if tag.Cloud().Id() != cloud.Name {
 			return nil, errors.NewNotValid(nil, fmt.Sprintf(
 				"credential %q for non-matching cloud is not valid (expected %q)",
-				tag.Id(), cloudName,
+				tag.Id(), cloud.Name,
 			))
 		}
 		var found bool
@@ -231,7 +230,7 @@ func validateCloudCredentials(
 	for i, authType := range requiredAuthTypes.SortedValues() {
 		ops[i] = txn.Op{
 			C:      cloudsC,
-			Id:     cloudName,
+			Id:     cloud.Name,
 			Assert: bson.D{{"auth-types", authType}},
 		}
 	}
