@@ -48,12 +48,17 @@ class TestParseArgs(TestCase):
         args = parse_args([])
         self.assertEqual(Namespace(
             deadline=None, debug=False, juju_bin='/usr/bin/juju', logs=None,
-            start=0,
+            start=0, cloud_region=None,
             ), args)
 
     def test_parse_args_start(self):
         args = parse_args(['--start', '7'])
         self.assertEqual(7, args.start)
+
+    def test_parse_args_cloud_region(self):
+        args = parse_args(['--cloud-region', 'foo/bar',
+                           '--cloud-region', 'baz/qux'])
+        self.assertEqual([('foo', 'bar'), ('baz', 'qux')], args.cloud_region)
 
 
 class TestMain(TestCase):
@@ -163,8 +168,8 @@ class TestIterCloudRegions(TestCase):
             'google': {'regions': ['west']},
             }
         regions = list(iter_cloud_regions(public_clouds, credentials))
-        self.assertEqual([('default-aws', 'north'), ('default-aws', 'south'),
-                          ('default-gce', 'west')], regions)
+        self.assertEqual([('aws', 'north'), ('aws', 'south'),
+                          ('google', 'west')], regions)
 
     def test_iter_cloud_regions_credential_skip(self):
         credentials = {}
@@ -194,18 +199,18 @@ class TestBootstrapCloudRegions(FakeHomeTestCase):
     def run_test_bootstrap_cloud_regions(self, start=0, error=None):
         pc_key = 'public_clouds'
         cred_key = 'credentials'
-        cloud_regions = [('foo.config', 'foo'), ('bar.config', 'bar')]
+        cloud_regions = [('aws', 'foo'), ('google', 'bar')]
         args = Namespace(start=start, debug=True, deadline=None,
-                         juju_bin='juju', logs='/tmp/log')
+                         juju_bin='juju', logs='/tmp/log', cloud_region=None)
         fake_client = fake_juju_client()
-        expect_values = [('foo.config', 'foo'),
-                         ('bar.config', 'bar')]
+        config_regions = [('default-aws', 'foo'),
+                          ('default-gce', 'bar')]
         with self.patch_for_test(cloud_regions, fake_client, error) as (
                 iter_mock, bootstrap_mock, info_mock):
             errors = list(bootstrap_cloud_regions(pc_key, cred_key, args))
 
         iter_mock.assert_called_once_with(pc_key, cred_key)
-        for num, (config, region) in enumerate(expect_values[start:]):
+        for num, (config, region) in enumerate(config_regions[start:]):
             acc_call = bootstrap_mock.mock_calls[num]
             name, args, kwargs = acc_call
             self.assertEqual({}, kwargs)
@@ -217,7 +222,7 @@ class TestBootstrapCloudRegions(FakeHomeTestCase):
         if error is None:
             self.assertEqual([], errors)
         else:
-            expect_errors = [cr + (error,) for cr in cloud_regions]
+            expect_errors = [cr + (error,) for cr in config_regions]
             self.assertEqual(expect_errors, errors)
 
     def test_bootstrap_cloud_regions(self):
