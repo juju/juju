@@ -1165,6 +1165,11 @@ func (env *azureEnviron) updateGroupControllerTag(client *resources.GroupsClient
 	groupTags[tags.JujuController] = controllerUUID
 	group.Tags = to.StringMapPtr(groupTags)
 
+	// The Azure API forbids specifying ProvisioningState on the update.
+	if group.Properties != nil {
+		(*group.Properties).ProvisioningState = nil
+	}
+
 	err = env.callAPI(func() (autorest.Response, error) {
 		res, err := client.CreateOrUpdate(groupName, group)
 		return res.Response, err

@@ -1462,6 +1462,9 @@ func (s *environSuite) TestAdoptResources(c *gc.C) {
 	err = json.Unmarshal(data, &group)
 	c.Assert(err, jc.ErrorIsNil)
 
+	// Check that the provisioning state wasn't sent back.
+	c.Check((*group.Properties).ProvisioningState, gc.IsNil)
+
 	gTags := to.StringMap(*group.Tags)
 	c.Check(gTags["something else"], gc.Equals, "good")
 	c.Check(gTags[tags.JujuController], gc.Equals, "new-controller")
@@ -1512,6 +1515,9 @@ func makeResourcesResult() resources.ResourceListResult {
 func makeResourceGroupResult() resources.ResourceGroup {
 	return resources.ResourceGroup{
 		Name: to.StringPtr("charles"),
+		Properties: &resources.ResourceGroupProperties{
+			ProvisioningState: to.StringPtr("very yes"),
+		},
 		Tags: to.StringMapPtr(map[string]string{
 			tags.JujuController: "old-controller",
 			"something else":    "good",
