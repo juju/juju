@@ -1168,6 +1168,7 @@ class Juju2Backend:
         # Mutate os.environ instead of supplying env parameter so Windows can
         # search env['PATH']
         with scoped_environ(env):
+            log.debug('Running juju with env: {}'.format(env))
             with self._check_timeouts():
                 rval = call_func(args)
         self.juju_timings.setdefault(args, []).append(
