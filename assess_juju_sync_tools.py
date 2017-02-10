@@ -14,7 +14,10 @@ from utility import (
     add_basic_testing_arguments,
     configure_logging,
     )
-from jujupy import client_from_config
+from jujupy import (
+    client_from_config,
+    ModelClient,
+    )
 
 __metaclass__ = type
 
@@ -34,29 +37,34 @@ def verify_agent_tools(agent_dir, agent_stream, agent_version):
         log.info('juju sync-tool verification done successfully')
 
 
-def assess_juju_sync_tools(args, agent_stream):
+def assess_juju_sync_tools(args, agent_stream, agent_version):
     client = client_from_config(args.env, args.juju_bin, False)
     with prepare_temp_metadata(
             client, agent_stream=agent_stream,
-            agent_version=args.agent_version) as agent_dir:
-        verify_agent_tools(agent_dir, agent_stream, args.agent_version)
+            agent_version=agent_version) as agent_dir:
+        verify_agent_tools(agent_dir, agent_stream, agent_version)
 
 
 def parse_args(argv):
     """Parse all arguments."""
     parser = argparse.ArgumentParser(
-        description="Test to download juju tool using sync-tool and verify")
+        description="Test to download juju agent using sync-tool and verify")
     add_basic_testing_arguments(parser)
-    parser.add_argument('--agent-version', action='store', required=True,
-                        help='Juju tool version to download.')
+    parser.add_argument('--agent-version', action='store',
+                        help='Juju agent version to download.')
     return parser.parse_args(argv)
 
 
 def main(argv=None):
     args = parse_args(argv)
     configure_logging(args.verbose)
+    if not args.agent_version:
+        juju_bin = args.juju_bin
+        agent_version = ModelClient.get_version(juju_bin).rsplit('.', 1)[0]
+    else:
+        agent_version = args.agent_version
     agent_stream = args.agent_stream if args.agent_stream else 'devel'
-    assess_juju_sync_tools(args, agent_stream)
+    assess_juju_sync_tools(args, agent_stream, agent_version)
     return 0
 
 
