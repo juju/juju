@@ -5,6 +5,7 @@ package state
 
 import (
 	"fmt"
+	"runtime/pprof"
 	"strings"
 
 	"github.com/juju/errors"
@@ -25,6 +26,9 @@ import (
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/worker"
 )
+
+// Register the state tracker as a new profile.
+var profileTracker = pprof.NewProfile("juju/state/tracker")
 
 // OpenParams contains the parameters for opening the state database.
 type OpenParams struct {
@@ -549,7 +553,7 @@ func newState(
 		st.policy = newPolicy(st)
 	}
 	// Record this State instance with the global tracker.
-	GlobalTracker.Add(st)
+	profileTracker.Add(st, 1)
 	return st, nil
 }
 
@@ -597,6 +601,7 @@ func (st *State) Close() (err error) {
 		return errs[0]
 	}
 	logger.Debugf("closed state without error")
-	GlobalTracker.RecordClosed(st)
+	// Remove the reference.
+	profileTracker.Remove(st)
 	return nil
 }
