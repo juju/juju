@@ -49,17 +49,17 @@ class TestParseArgs(TestCase):
         args = parse_args([])
         self.assertEqual(Namespace(
             deadline=None, debug=False, juju_bin='/usr/bin/juju', logs=None,
-            start=0, cloud_region=None,
+            start=0, cloud_regions=None,
             ), args)
 
     def test_parse_args_start(self):
         args = parse_args(['--start', '7'])
         self.assertEqual(7, args.start)
 
-    def test_parse_args_cloud_region(self):
+    def test_parse_args_cloud_regions(self):
         args = parse_args(['--cloud-region', 'foo/bar',
                            '--cloud-region', 'baz/qux'])
-        self.assertEqual([('foo', 'bar'), ('baz', 'qux')], args.cloud_region)
+        self.assertEqual([('foo', 'bar'), ('baz', 'qux')], args.cloud_regions)
 
 
 class TestMain(TestCase):
@@ -204,7 +204,7 @@ class TestBootstrapCloudRegions(FakeHomeTestCase):
         default_cloud_regions = [('aws', 'foo'), ('google', 'bar')]
         args = Namespace(start=start, debug=True, deadline=None,
                          juju_bin='juju', logs='/tmp/log',
-                         cloud_region=cloud_regions)
+                         cloud_regions=cloud_regions)
         if cloud_regions is None:
             cloud_regions = default_cloud_regions
         fake_client = fake_juju_client()

@@ -71,7 +71,7 @@ def iter_cloud_regions(public_clouds, credentials):
 
 
 def bootstrap_cloud_regions(public_clouds, credentials, args):
-    cloud_regions = args.cloud_region
+    cloud_regions = args.cloud_regions
     if cloud_regions is None:
         cloud_regions = list(iter_cloud_regions(public_clouds, credentials))
     for num, (cloud, region) in enumerate(cloud_regions):
@@ -93,8 +93,8 @@ def bootstrap_cloud_regions(public_clouds, credentials, args):
             yield config, region, error
 
 
-def make_cloud_region(cloud_region):
-    return tuple(cloud_region.split('/'))
+def make_cloud_regions(cloud_regions):
+    return tuple(cloud_regions.split('/'))
 
 
 def parse_args(argv):
@@ -108,8 +108,8 @@ def parse_args(argv):
     parser.add_argument('logs', nargs='?', type=_clean_dir,
                         help='A directory in which to store logs. By default,'
                         ' this will use the current directory', default=None)
-    parser.add_argument('--cloud-region', type=make_cloud_region, default=None,
-                        action='append')
+    parser.add_argument('-c', '--cloud-region', type=make_cloud_regions,
+                        default=None, action='append', dest='cloud_regions')
     parser.add_argument('--start', type=int, default=0)
     parser.add_argument('--debug', action='store_true', default=False,
                         help='Pass --debug to Juju.')
