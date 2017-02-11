@@ -213,16 +213,6 @@ func (a *admin) login(req params.LoginRequest, loginVersion int) (params.LoginRe
 func (a *admin) checkUserPermissions(userTag names.UserTag, controllerOnlyLogin bool) (*params.AuthUserInfo, error) {
 
 	modelAccess := permission.NoAccess
-	if !controllerOnlyLogin {
-		// Only grab modelUser permissions if this is not a controller only
-		// login. In all situations, if the model user is not found, they have
-		// no authorisation to access this model.
-		modelUser, err := a.root.state.UserAccess(userTag, a.root.state.ModelTag())
-		if err != nil {
-			return nil, errors.Wrap(err, common.ErrPerm)
-		}
-		modelAccess = modelUser.Access
-	}
 
 	// TODO(perrito666) remove the following section about everyone group
 	// when groups are implemented, this accounts only for the lack of a local
@@ -247,6 +237,23 @@ func (a *admin) checkUserPermissions(userTag names.UserTag, controllerOnlyLogin 
 	} else {
 		return nil, errors.Annotatef(err, "obtaining ControllerUser for logged in user %s", userTag.Id())
 	}
+	if !controllerOnlyLogin {
+		// Only grab modelUser permissions if this is not a controller only
+		// login. In all situations, if the model user is not found, they have
+		// no authorisation to access this model, unless the user is controller
+		// admin.
+
+		modelUser, err := a.root.state.UserAccess(userTag, a.root.state.ModelTag())
+		if err != nil && controllerAccess != permission.SuperuserAccess {
+			return nil, errors.Wrap(err, common.ErrPerm)
+		}
+		if err != nil && controllerAccess == permission.SuperuserAccess {
+			modelAccess = permission.AdminAccess
+		} else {
+			modelAccess = modelUser.Access
+		}
+	}
+
 	// It is possible that the everyoneGroup permissions are more capable than an
 	// individuals. If they are, use them.
 	if everyoneGroupAccess.GreaterControllerAccessThan(controllerAccess) {

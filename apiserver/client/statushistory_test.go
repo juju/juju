@@ -232,6 +232,10 @@ func (m *mockState) ModelTag() names.ModelTag {
 	return names.NewModelTag("deadbeef-0bad-400d-8000-4b1d0d06f00d")
 }
 
+func (m *mockState) ControllerTag() names.ControllerTag {
+	return names.NewControllerTag("deadbeef-0bad-400d-8000-4b1d0d06f00d")
+}
+
 func (m *mockState) Unit(name string) (client.Unit, error) {
 	if name != "unit/0" {
 		return nil, errors.NotFoundf("%v", name)
