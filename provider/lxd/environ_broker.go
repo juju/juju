@@ -140,10 +140,6 @@ func (env *environ) newRawInstance(args environs.StartInstanceParams) (*lxdclien
 		return nil, errors.Trace(err)
 	}
 
-	series := args.InstanceConfig.Series
-	// TODO(jam): We should get this information from EnsureImageExists, or
-	// something given to us from 'raw', not assume it ourselves.
-	image := "ubuntu-" + series
 	// TODO: support args.Constraints.Arch, we'll want to map from
 
 	// Keep track of StatusCallback output so we may clean up later.
@@ -170,7 +166,9 @@ func (env *environ) newRawInstance(args environs.StartInstanceParams) (*lxdclien
 	imageCallback := func(copyProgress string) {
 		statusCallback(status.Allocating, copyProgress)
 	}
-	if err := env.raw.EnsureImageExists(series, imageSources, imageCallback); err != nil {
+	series := args.InstanceConfig.Series
+	image, err := env.raw.EnsureImageExists(series, imageSources, imageCallback)
+	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	cleanupCallback() // Clean out any long line of completed download status

@@ -8,6 +8,7 @@ package lxd
 import (
 	"net"
 	"os"
+	"path"
 
 	"github.com/juju/errors"
 	gitjujutesting "github.com/juju/testing"
@@ -505,13 +506,13 @@ func (conn *StubClient) RemoveInstances(prefix string, ids ...string) error {
 	return nil
 }
 
-func (conn *StubClient) EnsureImageExists(series string, _ []lxdclient.Remote, _ func(string)) error {
+func (conn *StubClient) EnsureImageExists(series string, _ []lxdclient.Remote, _ func(string)) (string, error) {
 	conn.AddCall("EnsureImageExists", series)
 	if err := conn.NextErr(); err != nil {
-		return errors.Trace(err)
+		return "", errors.Trace(err)
 	}
 
-	return nil
+	return path.Join("juju", series, "amd64"), nil
 }
 
 func (conn *StubClient) Addresses(name string) ([]network.Address, error) {

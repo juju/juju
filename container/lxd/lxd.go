@@ -108,11 +108,13 @@ func (manager *containerManager) CreateContainer(
 		}
 	}
 
-	err = manager.client.EnsureImageExists(series,
+	imageName, err := manager.client.EnsureImageExists(
+		series,
 		lxdclient.DefaultImageSources,
 		func(progress string) {
 			callback(status.Provisioning, progress, nil)
-		})
+		},
+	)
 	if err != nil {
 		err = errors.Annotatef(err, "failed to ensure LXD image")
 		return
@@ -171,7 +173,7 @@ func (manager *containerManager) CreateContainer(
 
 	spec := lxdclient.InstanceSpec{
 		Name:     name,
-		Image:    manager.client.ImageNameForSeries(series),
+		Image:    imageName,
 		Metadata: metadata,
 		Devices:  nics,
 		Profiles: profiles,
