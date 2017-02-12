@@ -33,7 +33,7 @@ type Facade struct {
 
 // NewFacade creates a new authorized Facade.
 func NewFacade(backend Backend, res facade.Resources, auth facade.Authorizer) (*Facade, error) {
-	if !auth.AuthModelManager() {
+	if !auth.AuthController() {
 		return nil, common.ErrPerm
 	}
 	return &Facade{

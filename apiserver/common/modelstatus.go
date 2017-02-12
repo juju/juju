@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/permission"
 )
 
 // ModelStatusAPI implements the ModelStatus() API.
@@ -27,37 +26,6 @@ func NewModelStatusAPI(st ModelManagerBackend, authorizer facade.Authorizer, api
 		apiUser:    apiUser,
 		backend:    st,
 	}
-}
-
-func (s *ModelStatusAPI) checkHasAdmin() error {
-	isAdmin, err := s.authorizer.HasPermission(permission.SuperuserAccess, s.backend.ControllerTag())
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if !isAdmin {
-		return ServerError(ErrPerm)
-	}
-	return nil
-}
-
-// modelAuthCheck checks if the user is acting on their own behalf, or if they
-// are an administrator acting on behalf of another user.
-func (s *ModelStatusAPI) modelAuthCheck(modelTag names.ModelTag, owner names.UserTag) error {
-	if err := s.checkHasAdmin(); err == nil {
-		logger.Tracef("%q is a controller admin", s.apiUser.Id())
-		return nil
-	}
-	if s.apiUser == owner {
-		return nil
-	}
-	isAdmin, err := s.authorizer.HasPermission(permission.AdminAccess, modelTag)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if isAdmin {
-		return nil
-	}
-	return ErrPerm
 }
 
 // ModelStatus returns a summary of the model.
@@ -95,8 +63,12 @@ func (c *ModelStatusAPI) modelStatus(tag string) (params.ModelStatus, error) {
 	if err != nil {
 		return status, errors.Trace(err)
 	}
-	if err := c.modelAuthCheck(modelTag, model.Owner()); err != nil {
+	isAdmin, err := HasModelAdmin(c.authorizer, c.apiUser, c.backend.ControllerTag(), model)
+	if err != nil {
 		return status, errors.Trace(err)
+	}
+	if !isAdmin {
+		return status, ErrPerm
 	}
 
 	machines, err := st.AllMachines()

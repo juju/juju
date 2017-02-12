@@ -45,8 +45,8 @@ func (s *ProxyUpdaterSuite) SetUpTest(c *gc.C) {
 	s.resources = common.NewResources()
 	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
 	s.authorizer = apiservertesting.FakeAuthorizer{
-		Tag:            names.NewMachineTag("1"),
-		EnvironManager: false,
+		Tag:        names.NewMachineTag("1"),
+		Controller: false,
 	}
 	s.tag = names.NewMachineTag("1")
 	s.state = &stubBackend{}

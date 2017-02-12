@@ -243,8 +243,8 @@ func (s *agentSuite) TestClearReboot(c *gc.C) {
 
 func (s *agentSuite) TestWatchCredentials(c *gc.C) {
 	authorizer := apiservertesting.FakeAuthorizer{
-		Tag:            names.NewMachineTag("0"),
-		EnvironManager: true,
+		Tag:        names.NewMachineTag("0"),
+		Controller: true,
 	}
 	api, err := agent.NewAgentAPIV2(s.State, s.resources, authorizer)
 	c.Assert(err, jc.ErrorIsNil)
@@ -267,8 +267,8 @@ func (s *agentSuite) TestWatchCredentials(c *gc.C) {
 
 func (s *agentSuite) TestWatchAuthError(c *gc.C) {
 	authorizer := apiservertesting.FakeAuthorizer{
-		Tag:            names.NewMachineTag("1"),
-		EnvironManager: false,
+		Tag:        names.NewMachineTag("1"),
+		Controller: false,
 	}
 	api, err := agent.NewAgentAPIV2(s.State, s.resources, authorizer)
 	c.Assert(err, jc.ErrorIsNil)

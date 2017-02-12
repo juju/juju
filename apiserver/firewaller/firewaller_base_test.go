@@ -62,7 +62,7 @@ func (s *firewallerBaseSuite) setUpTest(c *gc.C) {
 	// Create a FakeAuthorizer so we can check permissions,
 	// set up assuming we logged in as the environment manager.
 	s.authorizer = apiservertesting.FakeAuthorizer{
-		EnvironManager: true,
+		Controller: true,
 	}
 
 	// Create the resource registry separately to track invocations to
@@ -75,7 +75,7 @@ func (s *firewallerBaseSuite) testFirewallerFailsWithNonEnvironManagerUser(
 	factory func(_ *state.State, _ facade.Resources, _ facade.Authorizer) error,
 ) {
 	anAuthorizer := s.authorizer
-	anAuthorizer.EnvironManager = false
+	anAuthorizer.Controller = false
 	err := factory(s.State, s.resources, anAuthorizer)
 	c.Assert(err, gc.NotNil)
 	c.Assert(err, gc.ErrorMatches, "permission denied")

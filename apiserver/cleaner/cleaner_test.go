@@ -31,7 +31,7 @@ func (s *CleanerSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	s.authoriser = apiservertesting.FakeAuthorizer{
-		EnvironManager: true,
+		Controller: true,
 	}
 	s.st = &mockState{&testing.Stub{}, false}
 	cleaner.PatchState(s, s.st)
@@ -44,7 +44,7 @@ func (s *CleanerSuite) SetUpTest(c *gc.C) {
 
 func (s *CleanerSuite) TestNewCleanerAPIRequiresEnvironManager(c *gc.C) {
 	anAuthoriser := s.authoriser
-	anAuthoriser.EnvironManager = false
+	anAuthoriser.Controller = false
 	api, err := cleaner.NewCleanerAPI(nil, nil, anAuthoriser)
 	c.Assert(api, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "permission denied")

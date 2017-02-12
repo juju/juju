@@ -274,7 +274,7 @@ func newRemoteApplicationWatcher(context facade.Context) (facade.Facade, error) 
 	resources := context.Resources()
 	auth := context.Auth()
 
-	if !auth.AuthModelManager() {
+	if !auth.AuthController() {
 		return nil, common.ErrPerm
 	}
 	watcher, ok := resources.Get(id).(state.RemoteApplicationWatcher)
