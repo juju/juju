@@ -13,7 +13,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/introspection"
@@ -54,7 +53,6 @@ func startIntrospection(cfg introspectionConfig) error {
 		SocketName:         socketName,
 		DepEngine:          cfg.Engine,
 		StatePool:          cfg.StatePoolReporter,
-		StateTracker:       state.GlobalTracker,
 		PrometheusGatherer: cfg.PrometheusGatherer,
 	})
 	if err != nil {

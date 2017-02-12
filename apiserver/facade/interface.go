@@ -80,12 +80,12 @@ type Authorizer interface {
 	// GetAuthTag returns the entity's tag.
 	GetAuthTag() names.Tag
 
-	// AuthModelManager returns whether the authenticated entity is
-	// a machine running the environment manager job. Can't be
-	// removed from this interface without introducing a dependency
-	// on something else to look up that property: it's not inherent
-	// in the result of GetAuthTag, as the other methods all are.
-	AuthModelManager() bool
+	// AuthController returns whether the authenticated entity is
+	// a machine acting as a controller. Can't be removed from this
+	// interface without introducing a dependency on something else
+	// to look up that property: it's not inherent in the result of
+	// GetAuthTag, as the other methods all are.
+	AuthController() bool
 
 	// AuthMachineAgent returns true if the entity is a machine
 	// agent. Doesn't need to be on this interface, should be a

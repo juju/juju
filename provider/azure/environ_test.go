@@ -1481,6 +1481,9 @@ func (s *environSuite) TestAdoptResources(c *gc.C) {
 	env := s.openEnviron(c)
 
 	s.sender = azuretesting.Senders{
+		s.makeSender(".*/resourcegroups/juju-testenv-.*", makeResourceGroupResult()),
+		s.makeSender(".*/resourcegroups/juju-testenv-.*", nil),
+
 		s.makeSender(".*/providers", providersResult),
 		s.makeSender(".*/resourceGroups/juju-testenv-.*/resources", resourcesResult),
 
@@ -1504,10 +1507,14 @@ func (s *environSuite) TestAdoptResources(c *gc.C) {
 		c.Check(req.Method, gc.Equals, expectedMethod)
 		c.Check(req.URL.Query().Get("api-version"), gc.Equals, expectedVersion)
 	}
-	checkAPIVersion(2, "GET", "2016-12-17")
-	checkAPIVersion(3, "PUT", "2016-12-17")
-	checkAPIVersion(4, "GET", "2016-12-13")
-	checkAPIVersion(5, "PUT", "2016-12-13")
+	// Resource group get and update.
+	checkAPIVersion(0, "GET", "2016-02-01")
+	checkAPIVersion(1, "PUT", "2016-02-01")
+	// Resources.
+	checkAPIVersion(4, "GET", "2016-12-17")
+	checkAPIVersion(5, "PUT", "2016-12-17")
+	checkAPIVersion(6, "GET", "2016-12-13")
+	checkAPIVersion(7, "PUT", "2016-12-13")
 
 	checkTagsAndProperties := func(ix uint) {
 		req := s.requests[ix]
@@ -1519,11 +1526,29 @@ func (s *environSuite) TestAdoptResources(c *gc.C) {
 		err = json.Unmarshal(data, &resource)
 		c.Assert(err, jc.ErrorIsNil)
 
-		c.Check(*(*resource.Tags)["something else"], gc.Equals, "good")
+		rTags := to.StringMap(*resource.Tags)
+		c.Check(rTags["something else"], gc.Equals, "good")
+		c.Check(rTags[tags.JujuController], gc.Equals, "new-controller")
 		c.Check(*resource.Properties, gc.DeepEquals, map[string]interface{}{"has-properties": true})
 	}
-	checkTagsAndProperties(3)
 	checkTagsAndProperties(5)
+	checkTagsAndProperties(7)
+
+	// Also check the tags are right for the resource group.
+	req := s.requests[1] // the resource group update.
+	data := make([]byte, req.ContentLength)
+	_, err = req.Body.Read(data)
+	c.Assert(err, jc.ErrorIsNil)
+	var group resources.ResourceGroup
+	err = json.Unmarshal(data, &group)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Check that the provisioning state wasn't sent back.
+	c.Check((*group.Properties).ProvisioningState, gc.IsNil)
+
+	gTags := to.StringMap(*group.Tags)
+	c.Check(gTags["something else"], gc.Equals, "good")
+	c.Check(gTags[tags.JujuController], gc.Equals, "new-controller")
 }
 
 func makeProvidersResult() resources.ProviderListResult {
@@ -1553,24 +1578,37 @@ func makeResourcesResult() resources.ResourceListResult {
 	theResources := []resources.GenericResource{{
 		Name: to.StringPtr("boxing-day-blues"),
 		Type: to.StringPtr("Beck.Replica/liars/scissor"),
-		Tags: &map[string]*string{
-			tags.JujuController: to.StringPtr("old-controller"),
-			"something else":    to.StringPtr("good"),
-		},
+		Tags: to.StringMapPtr(map[string]string{
+			tags.JujuController: "old-controller",
+			"something else":    "good",
+		}),
 	}, {
 		Name: to.StringPtr("drop-dead"),
 		Type: to.StringPtr("Tuneyards.Bizness/micachu"),
-		Tags: &map[string]*string{
-			tags.JujuController: to.StringPtr("old-controller"),
-			"something else":    to.StringPtr("good"),
-		},
+		Tags: to.StringMapPtr(map[string]string{
+			tags.JujuController: "old-controller",
+			"something else":    "good",
+		}),
 	}}
 	return resources.ResourceListResult{Value: &theResources}
 }
 
-func (s *environSuite) TestAdoptResourcesErrorGettingVersions(c *gc.C) {
+func makeResourceGroupResult() resources.ResourceGroup {
+	return resources.ResourceGroup{
+		Name: to.StringPtr("charles"),
+		Properties: &resources.ResourceGroupProperties{
+			ProvisioningState: to.StringPtr("very yes"),
+		},
+		Tags: to.StringMapPtr(map[string]string{
+			tags.JujuController: "old-controller",
+			"something else":    "good",
+		}),
+	}
+}
+
+func (s *environSuite) TestAdoptResourcesErrorGettingGroup(c *gc.C) {
 	env := s.openEnviron(c)
-	sender := s.makeSender(".*/providers", nil)
+	sender := s.makeSender(".*/resourcegroups/juju-testenv-.*", nil)
 	sender.SetError(errors.New("uhoh"))
 	s.sender = azuretesting.Senders{sender}
 
@@ -1579,18 +1617,49 @@ func (s *environSuite) TestAdoptResourcesErrorGettingVersions(c *gc.C) {
 	c.Assert(s.requests, gc.HasLen, 1)
 }
 
+func (s *environSuite) TestAdoptResourcesErrorUpdatingGroup(c *gc.C) {
+	env := s.openEnviron(c)
+	errorSender := s.makeSender(".*/resourcegroups/juju-testenv-.*", nil)
+	errorSender.SetError(errors.New("uhoh"))
+	s.sender = azuretesting.Senders{
+		s.makeSender(".*/resourcegroups/juju-testenv-.*", makeResourceGroupResult()),
+		errorSender,
+	}
+
+	err := env.AdoptResources("new-controller", version.MustParse("1.0.0"))
+	c.Assert(err, gc.ErrorMatches, ".*uhoh$")
+	c.Assert(s.requests, gc.HasLen, 2)
+}
+
+func (s *environSuite) TestAdoptResourcesErrorGettingVersions(c *gc.C) {
+	env := s.openEnviron(c)
+	errorSender := s.makeSender(".*/providers", nil)
+	errorSender.SetError(errors.New("uhoh"))
+	s.sender = azuretesting.Senders{
+		s.makeSender(".*/resourcegroups/juju-testenv-.*", makeResourceGroupResult()),
+		s.makeSender(".*/resourcegroups/juju-testenv-.*", nil),
+		errorSender,
+	}
+
+	err := env.AdoptResources("new-controller", version.MustParse("1.0.0"))
+	c.Assert(err, gc.ErrorMatches, ".*uhoh$")
+	c.Assert(s.requests, gc.HasLen, 3)
+}
+
 func (s *environSuite) TestAdoptResourcesErrorListingResources(c *gc.C) {
 	env := s.openEnviron(c)
 	errorSender := s.makeSender(".*/resourceGroups/juju-testenv-.*/resources", nil)
 	errorSender.SetError(errors.New("ouch!"))
 	s.sender = azuretesting.Senders{
+		s.makeSender(".*/resourcegroups/juju-testenv-.*", makeResourceGroupResult()),
+		s.makeSender(".*/resourcegroups/juju-testenv-.*", nil),
 		s.makeSender(".*/providers", resources.ProviderListResult{}),
 		errorSender,
 	}
 
 	err := env.AdoptResources("new-controller", version.MustParse("1.0.0"))
 	c.Assert(err, gc.ErrorMatches, ".*ouch!$")
-	c.Assert(s.requests, gc.HasLen, 2)
+	c.Assert(s.requests, gc.HasLen, 4)
 }
 
 func (s *environSuite) TestAdoptResourcesNoUpdateNeeded(c *gc.C) {
@@ -1605,6 +1674,8 @@ func (s *environSuite) TestAdoptResourcesNoUpdateNeeded(c *gc.C) {
 	env := s.openEnviron(c)
 
 	s.sender = azuretesting.Senders{
+		s.makeSender(".*/resourcegroups/juju-testenv-.*", makeResourceGroupResult()),
+		s.makeSender(".*/resourcegroups/juju-testenv-.*", nil),
 		s.makeSender(".*/providers", providersResult),
 		s.makeSender(".*/resourceGroups/juju-testenv-.*/resources", resourcesResult),
 
@@ -1615,7 +1686,7 @@ func (s *environSuite) TestAdoptResourcesNoUpdateNeeded(c *gc.C) {
 
 	err := env.AdoptResources("new-controller", version.MustParse("1.2.4"))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(s.requests, gc.HasLen, 4)
+	c.Check(s.requests, gc.HasLen, 6)
 }
 
 func (s *environSuite) TestAdoptResourcesErrorGettingFullResource(c *gc.C) {
@@ -1631,6 +1702,8 @@ func (s *environSuite) TestAdoptResourcesErrorGettingFullResource(c *gc.C) {
 	errorSender.SetError(errors.New("flagrant error! virus=very yes"))
 
 	s.sender = azuretesting.Senders{
+		s.makeSender(".*/resourcegroups/juju-testenv-.*", makeResourceGroupResult()),
+		s.makeSender(".*/resourcegroups/juju-testenv-.*", nil),
 		s.makeSender(".*/providers", providersResult),
 		s.makeSender(".*/resourceGroups/juju-testenv-.*/resources", resourcesResult),
 
@@ -1643,7 +1716,7 @@ func (s *environSuite) TestAdoptResourcesErrorGettingFullResource(c *gc.C) {
 
 	err := env.AdoptResources("new-controller", version.MustParse("1.2.4"))
 	c.Check(err, gc.ErrorMatches, `failed to update controller for some resources: \[boxing-day-blues\]`)
-	c.Check(s.requests, gc.HasLen, 5)
+	c.Check(s.requests, gc.HasLen, 7)
 }
 
 func (s *environSuite) TestAdoptResourcesErrorUpdating(c *gc.C) {
@@ -1660,6 +1733,8 @@ func (s *environSuite) TestAdoptResourcesErrorUpdating(c *gc.C) {
 	errorSender.SetError(errors.New("oopsie"))
 
 	s.sender = azuretesting.Senders{
+		s.makeSender(".*/resourcegroups/juju-testenv-.*", makeResourceGroupResult()),
+		s.makeSender(".*/resourcegroups/juju-testenv-.*", nil),
 		s.makeSender(".*/providers", providersResult),
 		s.makeSender(".*/resourceGroups/juju-testenv-.*/resources", resourcesResult),
 
@@ -1673,5 +1748,5 @@ func (s *environSuite) TestAdoptResourcesErrorUpdating(c *gc.C) {
 
 	err := env.AdoptResources("new-controller", version.MustParse("1.2.4"))
 	c.Check(err, gc.ErrorMatches, `failed to update controller for some resources: \[boxing-day-blues\]`)
-	c.Check(s.requests, gc.HasLen, 6)
+	c.Check(s.requests, gc.HasLen, 8)
 }

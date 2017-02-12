@@ -2,7 +2,7 @@
 _juju_complete_ver() {
     case "$(juju version)" in
       2.*)
-        # See /etc/bash_completion.d/juju-2
+        # See /etc/bash_completion.d/juju
         _juju_complete_2 "$@"
         return $?
         ;;

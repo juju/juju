@@ -29,8 +29,8 @@ func (s *undertakerSuite) setupStateAndAPI(c *gc.C, isSystem bool, envName strin
 	}
 
 	authorizer := apiservertesting.FakeAuthorizer{
-		Tag:            names.NewMachineTag(machineNo),
-		EnvironManager: true,
+		Tag:        names.NewMachineTag(machineNo),
+		Controller: true,
 	}
 
 	st := newMockState(names.NewUserTag("admin"), envName, isSystem)
@@ -41,12 +41,12 @@ func (s *undertakerSuite) setupStateAndAPI(c *gc.C, isSystem bool, envName strin
 
 func (s *undertakerSuite) TestNoPerms(c *gc.C) {
 	for _, authorizer := range []apiservertesting.FakeAuthorizer{
-		apiservertesting.FakeAuthorizer{
+		{
 			Tag: names.NewMachineTag("0"),
 		},
-		apiservertesting.FakeAuthorizer{
-			Tag:            names.NewUserTag("bob"),
-			EnvironManager: true,
+		{
+			Tag:        names.NewUserTag("bob"),
+			Controller: true,
 		},
 	} {
 		st := newMockState(names.NewUserTag("admin"), "admin", true)

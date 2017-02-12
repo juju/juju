@@ -17,7 +17,7 @@ type Backend interface {
 }
 
 func NewFacade(backend Backend, resources facade.Resources, authorizer facade.Authorizer) (*Facade, error) {
-	if !authorizer.AuthModelManager() {
+	if !authorizer.AuthController() {
 		return nil, common.ErrPerm
 	}
 	expect := names.NewModelTag(backend.ModelUUID())

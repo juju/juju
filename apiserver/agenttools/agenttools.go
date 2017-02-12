@@ -137,7 +137,7 @@ func updateToolsAvailability(modelGetter ModelGetter, newEnviron newEnvironFunc,
 // UpdateToolsAvailable invokes a lookup and further update in environ
 // for new patches of the current tool versions.
 func (api *AgentToolsAPI) UpdateToolsAvailable() error {
-	if !api.authorizer.AuthModelManager() {
+	if !api.authorizer.AuthController() {
 		return common.ErrPerm
 	}
 	return updateToolsAvailability(api.modelGetter, api.newEnviron, api.findTools, api.envVersionUpdate)

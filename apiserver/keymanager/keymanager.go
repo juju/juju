@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 )
 
@@ -44,8 +45,7 @@ type KeyManagerAPI struct {
 	state      *state.State
 	resources  facade.Resources
 	authorizer facade.Authorizer
-	canRead    func(string) bool
-	canWrite   func(string) bool
+	apiUser    *names.UserTag
 	check      *common.BlockChecker
 }
 
@@ -53,47 +53,74 @@ var _ KeyManager = (*KeyManagerAPI)(nil)
 
 // NewKeyManagerAPI creates a new server-side keyupdater API end point.
 func NewKeyManagerAPI(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*KeyManagerAPI, error) {
-	// Only clients and environment managers can access the key manager service.
-	if !authorizer.AuthClient() && !authorizer.AuthModelManager() {
+	// Only clients and controllers can access the key manager service.
+	if !authorizer.AuthClient() && !authorizer.AuthController() {
 		return nil, common.ErrPerm
 	}
-	env, err := st.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	// For gccgo interface comparisons, we need a Tag.
-	owner := names.Tag(env.Owner())
-	// TODO(wallyworld) - replace stub with real canRead function
-	// For now, only admins can read authorised ssh keys.
-	canRead := func(user string) bool {
-		// Are we a machine agent operating as the system identity?
-		if user == config.JujuSystemKey {
-			_, ismachinetag := authorizer.GetAuthTag().(names.MachineTag)
-			return ismachinetag
-		}
-		return authorizer.GetAuthTag() == owner
-	}
-	// TODO(wallyworld) - replace stub with real canWrite function
-	// For now, only admins can write authorised ssh keys for users.
-	// Machine agents can write the juju-system-key.
-	canWrite := func(user string) bool {
-		// Are we a machine agent writing the Juju system key.
-		if user == config.JujuSystemKey {
-			_, ismachinetag := authorizer.GetAuthTag().(names.MachineTag)
-			return ismachinetag
-		}
-		// No point looking to see if the user exists as we are not
-		// yet storing keys on the user.
-		return authorizer.GetAuthTag() == owner
+	var apiUser *names.UserTag
+	if authorizer.AuthClient() {
+		u, _ := authorizer.GetAuthTag().(names.UserTag)
+		apiUser = &u
 	}
 	return &KeyManagerAPI{
 		state:      st,
 		resources:  resources,
 		authorizer: authorizer,
-		canRead:    canRead,
-		canWrite:   canWrite,
+		apiUser:    apiUser,
 		check:      common.NewBlockChecker(st),
 	}, nil
+}
+
+func (api *KeyManagerAPI) checkCanRead(sshUser string) error {
+	if err := api.checkCanWrite(sshUser); err == nil {
+		return nil
+	} else if err != common.ErrPerm {
+		return errors.Trace(err)
+	}
+	if api.apiUser == nil || sshUser == config.JujuSystemKey {
+		// users cannot read the system key.
+		return common.ErrPerm
+	}
+	ok, err := common.HasPermission(
+		api.state.UserAccess,
+		*api.apiUser,
+		permission.ReadAccess,
+		api.state.ModelTag(),
+	)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if !ok {
+		return common.ErrPerm
+	}
+	return nil
+}
+
+func (api *KeyManagerAPI) checkCanWrite(sshUser string) error {
+	// Are we a machine agent writing the Juju system key.
+	if api.apiUser == nil {
+		if sshUser == config.JujuSystemKey {
+			return nil
+		}
+		// controllers can only modify the system key.
+		return common.ErrPerm
+	}
+	if sshUser == config.JujuSystemKey {
+		// users cannot modify the system key.
+		return common.ErrPerm
+	}
+	model, err := api.state.Model()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	ok, err := common.HasModelAdmin(api.authorizer, *api.apiUser, api.state.ControllerTag(), model)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if !ok {
+		return common.ErrPerm
+	}
+	return nil
 }
 
 // ListKeys returns the authorised ssh keys for the specified users.
@@ -113,8 +140,8 @@ func (api *KeyManagerAPI) ListKeys(arg params.ListSSHKeys) (params.StringsResult
 
 	for i, entity := range arg.Entities.Entities {
 		// NOTE: entity.Tag isn't a tag, but a username.
-		if !api.canRead(entity.Tag) {
-			results[i].Error = common.ServerError(common.ErrPerm)
+		if err := api.checkCanRead(entity.Tag); err != nil {
+			results[i].Error = common.ServerError(err)
 			continue
 		}
 		// All keys are global, no need to look up the user.
@@ -194,8 +221,8 @@ func (api *KeyManagerAPI) AddKeys(arg params.ModifyUserSSHKeys) (params.ErrorRes
 		return result, nil
 	}
 
-	if !api.canWrite(arg.User) {
-		return params.ErrorResults{}, common.ServerError(common.ErrPerm)
+	if err := api.checkCanWrite(arg.User); err != nil {
+		return params.ErrorResults{}, common.ServerError(err)
 	}
 
 	// For now, authorised keys are global, common to all users.
@@ -285,8 +312,8 @@ func (api *KeyManagerAPI) ImportKeys(arg params.ModifyUserSSHKeys) (params.Error
 		return result, nil
 	}
 
-	if !api.canWrite(arg.User) {
-		return params.ErrorResults{}, common.ServerError(common.ErrPerm)
+	if err := api.checkCanWrite(arg.User); err != nil {
+		return params.ErrorResults{}, common.ServerError(err)
 	}
 
 	// For now, authorised keys are global, common to all users.
@@ -364,8 +391,8 @@ func (api *KeyManagerAPI) DeleteKeys(arg params.ModifyUserSSHKeys) (params.Error
 		return result, nil
 	}
 
-	if !api.canWrite(arg.User) {
-		return params.ErrorResults{}, common.ServerError(common.ErrPerm)
+	if err := api.checkCanWrite(arg.User); err != nil {
+		return params.ErrorResults{}, common.ServerError(err)
 	}
 
 	allKeys, byFingerprint, byComment, err := api.currentKeyDataForDelete()

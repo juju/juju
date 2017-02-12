@@ -67,8 +67,8 @@ func (s *environWatcherSuite) TestWatchSuccess(c *gc.C) {
 
 func (*environWatcherSuite) TestModelConfigSuccess(c *gc.C) {
 	authorizer := apiservertesting.FakeAuthorizer{
-		Tag:            names.NewMachineTag("0"),
-		EnvironManager: true,
+		Tag:        names.NewMachineTag("0"),
+		Controller: true,
 	}
 	testingEnvConfig := testingEnvConfig(c)
 	e := common.NewModelWatcher(
@@ -85,8 +85,8 @@ func (*environWatcherSuite) TestModelConfigSuccess(c *gc.C) {
 
 func (*environWatcherSuite) TestModelConfigFetchError(c *gc.C) {
 	authorizer := apiservertesting.FakeAuthorizer{
-		Tag:            names.NewMachineTag("0"),
-		EnvironManager: true,
+		Tag:        names.NewMachineTag("0"),
+		Controller: true,
 	}
 	e := common.NewModelWatcher(
 		&fakeModelAccessor{
