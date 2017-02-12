@@ -8,6 +8,7 @@ import urllib2
 from mock import patch
 
 from jujuci import (
+    acquire_binary,
     add_artifacts,
     clean_environment,
     Credentials,
@@ -448,3 +449,23 @@ class TestJobNamer(TestNamer):
         self.assertEqual(
             JobNamer('ppc64el', '42.34', 'wacky').get_build_binary_job(),
             'build-binary-wacky-ppc64el')
+
+
+class TestAcquireBinary(TestCase):
+
+    def fake_call(self, args, parent='bin'):
+        dest = args[3]
+        parent_path = os.path.join(dest, 'bar', parent)
+        os.makedirs(parent_path)
+        bin_path = os.path.join(parent_path, 'juju')
+        open(bin_path, 'w').close()
+
+    def fake_call_completion(self, args):
+        return self.fake_call(args, parent='bash_completion.d')
+
+    def test_avoids_bash_completion(self):
+        with temp_dir() as workspace:
+            with patch('subprocess.check_call',
+                       side_effect=self.fake_call_completion):
+                result = acquire_binary(None, workspace)
+        self.assertIs(None, result)

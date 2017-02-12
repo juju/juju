@@ -474,6 +474,9 @@ class AddCloud(PromptingExpectChild):
         elif self.provider == 'manual':
             msg = 'ssh: Could not resolve hostname {}'.format(endpoint)
             reprompt = self.HOST
+        elif self.provider == 'vsphere':
+            msg = '{}: invalid domain name'.format(endpoint)
+            reprompt = self.CLOUD_ENDPOINT
         return "Can't validate endpoint: {}\n{}".format(
             msg, reprompt)
 
@@ -518,6 +521,9 @@ class AddCloud(PromptingExpectChild):
                 yield self.ANOTHER_REGION
         if self.values['Select cloud type:'] == 'vsphere':
             yield self.CLOUD_ENDPOINT
+            endpoint = self.values[self.CLOUD_ENDPOINT]
+            if len(endpoint) > 1000:
+                yield self.cant_validate(endpoint)
             while self.values.get(self.ANOTHER_REGION) != 'n':
                 yield self.REGION_NAME
                 yield self.ANOTHER_REGION

@@ -29,7 +29,7 @@ from utility import (
 __metaclass__ = type
 
 
-def assess_controller_stress(client, args):
+def assess_controller_stress(client, pprof_collector, args):
     """Deploy observable-swarm charm many times to stress test controller
     machines.
     """

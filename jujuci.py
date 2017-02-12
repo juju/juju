@@ -107,7 +107,7 @@ def acquire_binary(package_path, workspace):
     bin_dir = os.path.join(workspace, 'extracted-bin')
     extract_deb(package_path, bin_dir)
     for root, dirs, files in os.walk(bin_dir):
-        if 'juju' in files:
+        if 'juju' in files and os.path.basename(root) == 'bin':
             return os.path.join(root, 'juju')
 
 

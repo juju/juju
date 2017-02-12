@@ -28,7 +28,8 @@ class NoopCollector:
         :machine_id: ID of the juju machine with which to install pprof
           software/charm.
         """
-        pass
+        self.client = client
+        self.machine_id = machine_id
 
     def collect_profile(self, filepath, seconds):
         """Collect `seconds` worth of CPU profile."""
@@ -71,14 +72,17 @@ class ActiveCollector(NoopCollector):
 
     def collect_profile(self, filepath, seconds):
         """Collect `seconds` worth of CPU profile."""
+        log.info('Collecting CPU profile data.')
         self._collect_profile('profile', filepath, seconds)
 
     def collect_heap(self, filepath, seconds):
         """Collect `seconds` worth of heap profile."""
+        log.info('Collecting heap profile data.')
         self._collect_profile('heap', filepath, seconds)
 
     def collect_goroutines(self, filepath, seconds):
         """Collect `seconds` worth of goroutines profile."""
+        log.info('Collecting goroutines profile data.')
         self._collect_profile('goroutines', filepath, seconds)
 
 
@@ -112,7 +116,7 @@ class PPROFCollector:
 
     FILE_TIMESTAMP = '%y%m%d-%H%M%S'
 
-    def __init__(self, client, machine_id, logs_dir, active=False):
+    def __init__(self, client, machine_ids, logs_dir, active=False):
         """Collector of pprof profiles from a machine.
 
         Defaults to being non-active meaning that any attempt to collect a
@@ -123,9 +127,18 @@ class PPROFCollector:
         (Note. first time going active will result in the introspection charm
         being deployed to the `machine_id.)
 
+        :param client: ModelClient to use to communicate with machine_ids.
+        :param machine_ids: List of machine IDs to have collections for.
+        :param logs_dir: Directory in which to store profile data.
+        :param active: Bool indicating wherever to enable collection of data or
+          not.
+
         """
-        self._active_collector = None
-        self._noop_collector = None
+        if not isinstance(machine_ids, list):
+            raise ValueError('List of machine IDs required.')
+
+        self._active_collectors = []
+        self._noop_collectors = []
         self._active = active
 
         self._cpu_profile_path = os.path.join(logs_dir, 'cpu_profile')
@@ -137,7 +150,7 @@ class PPROFCollector:
 
         # Store in case we need to activate a collector at a later date.
         self._client = client
-        self._machine_id = machine_id
+        self._machine_ids = machine_ids
 
         if self._active:
             self.set_active()
@@ -145,36 +158,61 @@ class PPROFCollector:
             self.unset_active()
 
     def set_active(self):
-        if self._active_collector is None:
-            self._active_collector = ActiveCollector(
-                self._client, self._machine_id)
-        self._collector = self._active_collector
+        log.info('Setting PPROF collection to ACTIVE.')
+        if not self._active_collectors:
+            for m_id in self._machine_ids:
+                self._active_collectors.append(
+                    ActiveCollector(self._client, m_id))
+        self._collectors = self._active_collectors
+        self._active = True
 
     def unset_active(self):
-        if self._noop_collector is None:
-            self._noop_collector = NoopCollector(
-                self._client, self._machine_id)
-        self._collector = self._noop_collector
+        log.info('Setting PPROF collection to INACTIVE.')
+        if not self._noop_collectors:
+            for m_id in self._machine_ids:
+                self._noop_collectors.append(
+                    NoopCollector(self._client, m_id))
+        self._collectors = self._noop_collectors
+        self._active = False
 
-    def _get_profile_file_path(self, dir_path):
+    def _get_profile_file_path(self, dir_path, machine_id):
         """Given a directory create a timestamped file path."""
         ts_file = datetime.utcnow().strftime(self.FILE_TIMESTAMP)
-        return os.path.join(dir_path, '{}.pprof'.format(ts_file))
+        return os.path.join(
+            dir_path,
+            'machine-{}-{}.pprof'.format(
+                machine_id,
+                ts_file))
 
     def collect_profile(self, seconds=5):
         """Collect `seconds` worth of CPU profile."""
-        self._collector.collect_profile(
-            self._get_profile_file_path(self._cpu_profile_path),
-            seconds)
+        for collector in self._collectors:
+            collector.collect_profile(
+                self._get_profile_file_path(
+                    self._cpu_profile_path,
+                    collector.machine_id,
+                ),
+                seconds
+            )
 
     def collect_heap(self, seconds=5):
         """Collect `seconds` worth of heap profile."""
-        self._collector.collect_heap(
-            self._get_profile_file_path(self._heap_profile_path),
-            seconds)
+        for collector in self._collectors:
+            collector.collect_heap(
+                self._get_profile_file_path(
+                    self._heap_profile_path,
+                    collector.machine_id,
+                ),
+                seconds
+            )
 
     def collect_goroutines(self, seconds=5):
         """Collect `seconds` worth of goroutines profile."""
-        self._collector.collect_goroutines(
-            self._get_profile_file_path(self._goroutines_path),
-            seconds)
+        for collector in self._collectors:
+            collector.collect_goroutines(
+                self._get_profile_file_path(
+                    self._goroutines_path,
+                    collector.machine_id,
+                ),
+                seconds
+            )
