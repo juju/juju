@@ -84,15 +84,6 @@ type RelationUnitsWatcher interface {
 	Changes() <-chan params.RelationUnitsChange
 }
 
-// RemoteApplicationWatcher is a watcher that reports on remote changes to the
-// lifecycle, status, relations and relation units for a specified remote
-// application.
-type RemoteApplicationWatcher interface {
-	Watcher
-
-	Changes() <-chan params.RemoteApplicationChange
-}
-
 // newCommonWatcher exists so that all embedders have a place from which
 // to get a single TxnLogWatcher that will not be replaced in the lifetime
 // of the embedder (and also to restrict the width of the interface by
@@ -1329,7 +1320,7 @@ func (m *Machine) Watch() NotifyWatcher {
 	return newEntityWatcher(m.st, machinesC, m.doc.DocID)
 }
 
-// Watch returns a watcher for observing changes to a service.
+// Watch returns a watcher for observing changes to an application.
 func (s *Application) Watch() NotifyWatcher {
 	return newEntityWatcher(s.st, applicationsC, s.doc.DocID)
 }
@@ -2732,4 +2723,64 @@ func (w *offeredApplicationsWatcher) loop() (err error) {
 
 func (w *offeredApplicationsWatcher) Changes() <-chan []string {
 	return w.out
+}
+
+// WatchRemoteRelations returns a StringsWatcher that notifies of changes to
+// the lifecycles of the remote relations in the model.
+func (st *State) WatchRemoteRelations() StringsWatcher {
+	// Use a no-op transform func to record the known ids.
+	known := make(map[interface{}]bool)
+	tr := func(id string) string {
+		known[id] = true
+		return id
+	}
+
+	filter := func(id interface{}) bool {
+		id, err := st.strictLocalID(id.(string))
+		if err != nil {
+			return false
+		}
+
+		// Gather the remote app names.
+		remoteApps, closer := st.getCollection(remoteApplicationsC)
+		defer closer()
+
+		type remoteAppDoc struct {
+			Name string
+		}
+		remoteAppNameField := bson.D{{"name", 1}}
+		var apps []remoteAppDoc
+		err = remoteApps.Find(nil).Select(remoteAppNameField).All(&apps)
+		if err != nil {
+			watchLogger.Errorf("could not lookup remote application names: %v", err)
+			return false
+		}
+		remoteAppNames := set.NewStrings()
+		for _, a := range apps {
+			remoteAppNames.Add(a.Name)
+		}
+
+		// Run a query to pickup any relations to those remote apps.
+		relations, closer := st.getCollection(relationsC)
+		defer closer()
+
+		query := bson.D{
+			{"key", id},
+			{"endpoints.applicationname", bson.D{{"$in", remoteAppNames.Values()}}},
+		}
+		num, err := relations.Find(query).Count()
+		if err != nil {
+			watchLogger.Errorf("could not lookup remote relations: %v", err)
+			return false
+		}
+		// The relation (or remote app) may have been deleted, but if it has been
+		// seen previously, return true.
+		if num == 0 {
+			_, seen := known[id]
+			delete(known, id)
+			return seen
+		}
+		return num > 0
+	}
+	return newLifecycleWatcher(st, relationsC, nil, filter, tr)
 }

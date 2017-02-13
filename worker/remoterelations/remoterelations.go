@@ -251,8 +251,9 @@ type remoteApplicationWorker struct {
 }
 
 type relation struct {
-	params.RemoteRelationChange
-	ruw *relationUnitsWatcher
+	relationId int
+	life       params.Life
+	ruw        *relationUnitsWatcher
 }
 
 type remoteRelationInfo struct {
@@ -367,8 +368,8 @@ func (w *remoteApplicationWorker) relationChanged(
 	// relation is now dead, stop the watcher.
 	relationTag := names.NewRelationTag(key)
 	if r := relations[key]; r != nil {
-		r.Life = remoteRelation.Life
-		if r.Life == params.Dead {
+		r.life = remoteRelation.Life
+		if r.life == params.Dead {
 			return w.killRelationUnitWatcher(key, relations)
 		}
 		// Nothing to do, we have previously started the watcher.
@@ -429,11 +430,9 @@ func (w *remoteApplicationWorker) relationChanged(
 		return errors.Trace(err)
 	}
 	relations[key] = &relation{
-		RemoteRelationChange: params.RemoteRelationChange{
-			RelationId: remoteRelation.Id,
-			Life:       remoteRelation.Life,
-		},
-		ruw: relationUnitsWatcher,
+		relationId: remoteRelation.Id,
+		life:       remoteRelation.Life,
+		ruw:        relationUnitsWatcher,
 	}
 	return nil
 }

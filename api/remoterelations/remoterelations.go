@@ -239,3 +239,18 @@ func (c *Client) WatchLocalRelationUnits(relationKey string) (watcher.RelationUn
 	w := apiwatcher.NewRelationUnitsWatcher(c.facade.RawAPICaller(), result)
 	return w, nil
 }
+
+// WatchRemoteRelations returns a strings watcher that notifies of the addition,
+// removal, and lifecycle changes of remote relations in the model.
+func (c *Client) WatchRemoteRelations() (watcher.StringsWatcher, error) {
+	var result params.StringsWatchResult
+	err := c.facade.FacadeCall("WatchRemoteRelations", nil, &result)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	w := apiwatcher.NewStringsWatcher(c.facade.RawAPICaller(), result)
+	return w, nil
+}
