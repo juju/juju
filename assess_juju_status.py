@@ -40,47 +40,72 @@ __metaclass__ = type
 log = logging.getLogger("assess_juju_status")
 
 
-def verify_application_status(client, charm_app):
+def verify_app_status(charm_details):
     """
     Verify the deployed charm application status
-    :param client: Juju client
-    :param charm_app: String representing the default application name
+    :param charm_details: Deployed charm application details
     """
-    app_details = client.get_status().get_applications()[charm_app]
-    app_status = app_details.get('units').get(charm_app + '/0').get(
+
+    app_status = charm_details.get('units').get('dummy-sink/0').get(
         'juju-status')
     if not app_status:
-        raise JujuAssertionError("application status not found")
+        raise JujuAssertionError("charm app status not found")
     else:
-        log.info("verified juju application status successfully")
+        log.info("verified charm app status successfully")
 
 
-def deploy_charm_app(client, charm_app, series):
+def verify_subordinate_app_status(charm_details):
     """
-    Deploy the charm
+    Verify the deployed subordinate charm application status
+    :param charm_details: Deployed charm application details
+    """
+    sub_status = charm_details.get('units').get('dummy-sink/0').get(
+        'subordinates').get('dummy-subordinate/0').get('juju-status')
+    if not sub_status:
+        raise JujuAssertionError("charm subordinate status not found")
+    else:
+        log.info("verified charm subordinate status successfully")
+
+
+def verify_charm_status(client):
+    charm_details = client.get_status().get_applications()['dummy-sink']
+    if charm_details:
+        verify_app_status(charm_details)
+        verify_subordinate_app_status(charm_details)
+    else:
+        raise JujuAssertionError("Failed to get charm details")
+
+
+def deploy_charm_app(client, series):
+    """
+    Deploy dummy charm and dummy subordinate charm from local
+    repository
+    option
     :param client: Juju client
-    :param charm_app: The charm app to be deployed
     :param series: The charm series to deploy
-    :return:
     """
-    charm_source = local_charm_path(
-        charm=charm_app, juju_ver=client.version, series=series)
-    client.deploy(charm_source)
+    token = "canonical"
+    charm_sink = local_charm_path(
+        charm='dummy-sink', series=series, juju_ver=client.version)
+    client.deploy(charm_sink)
     client.wait_for_started()
-    client.set_config(charm_app, {'token': 'one'})
-    client.wait_for_workloads()
-    log.info("Charm {} deployed successfully".format(charm_app))
+    charm_subordinate = local_charm_path(
+        charm='dummy-subordinate', series=series, juju_ver=client.version)
+    client.deploy(charm_subordinate)
+    client.wait_for_started()
+    client.set_config('dummy-subordinate', {'token': token})
+    client.juju('add-relation', ('dummy-subordinate', 'dummy-sink'))
+    client.juju('expose', ('dummy-sink',))
 
 
-def assess_juju_status(client, charm_app, series):
+def assess_juju_status(client, series):
     """
-       Deploy specified charm app and verify the application-status
+       Deploy charm and subordinate charm and verify there status
        :param client: Juju client
-       :param charm_app: The name of the charm app to be deployed
        :param series: The charm series to deploy
     """
-    deploy_charm_app(client, charm_app, series)
-    verify_application_status(client, charm_app)
+    deploy_charm_app(client, series)
+    verify_charm_status(client)
 
 
 def parse_args(argv):
@@ -88,9 +113,6 @@ def parse_args(argv):
     parser = argparse.ArgumentParser(
         description="Juju application-status check")
     add_basic_testing_arguments(parser)
-    parser.add_argument('--charm-app', action='store', default="dummy-source",
-                        help='The charm to be deployed.')
-
     return parser.parse_args(argv)
 
 
@@ -100,7 +122,7 @@ def main(argv=None):
     configure_logging(args.verbose)
     bs_manager = BootstrapManager.from_args(args)
     with bs_manager.booted_context(args.upload_tools):
-        assess_juju_status(bs_manager.client, args.charm_app, series)
+        assess_juju_status(bs_manager.client, series)
     return 0
 
 

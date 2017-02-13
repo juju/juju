@@ -1,19 +1,24 @@
 """Tests for assess_juju_status module."""
 
 import logging
+import StringIO
 
 from mock import (
+    call,
     Mock,
     patch,
     )
 from assess_juju_status import (
-    assess_juju_status,
-    verify_application_status,
+    verify_charm_status,
+    deploy_charm_app,
+    verify_app_status,
+    verify_subordinate_app_status,
     parse_args,
     main,
     )
 from jujupy import fake_juju_client
 from tests import (
+    parse_error,
     TestCase,
     )
 from jujupy.client import (
@@ -34,12 +39,12 @@ class TestParseArgs(TestCase):
         self.assertEqual("an-env-mod", args.temp_env_name)
         self.assertEqual(False, args.debug)
 
-    def test_optional_args(self):
-        args = parse_args(["an-env", "/bin/juju", "/tmp/logs", "an-env-mod",
-                           "--charm-app", "dummy-source",
-                           "--series", "foo"])
-        self.assertEqual("dummy-source", args.charm_app)
-        self.assertEquals("foo", args.series)
+    def test_help(self):
+        fake_stdout = StringIO.StringIO()
+        with parse_error(self) as fake_stderr:
+            with patch("sys.stdout", fake_stdout):
+                parse_args(["--help"])
+        self.assertEqual("", fake_stderr.getvalue())
 
 
 class TestMain(TestCase):
@@ -60,7 +65,7 @@ class TestMain(TestCase):
         mock_cfc.assert_called_once_with('an-env', "/bin/juju", debug=False,
                                          soft_deadline=None)
         self.assertEqual(mock_bc.call_count, 1)
-        mock_assess.assert_called_once_with(client, "dummy-source", "xenial")
+        mock_assess.assert_called_once_with(client, "xenial")
 
 
 class TestAssess(TestCase):
@@ -68,63 +73,142 @@ class TestAssess(TestCase):
     def test_juju_status(self):
         fake_client = Mock(wraps=fake_juju_client())
         fake_client.bootstrap()
-        assess_juju_status(fake_client, 'dummy-source', 'xenial')
-        fake_client.deploy.assert_called_once_with(
-            'dummy-source')
-        fake_client.wait_for_started.assert_called_once_with()
-        self.assertEqual(
-            1, fake_client.get_status().get_service_unit_count('dummy-source'))
+        deploy_charm_app(fake_client, 'xenial')
+        fake_client.deploy.assert_has_calls([call('dummy-sink'),
+                                             call('dummy-subordinate')])
+        fake_client.wait_for_started.assert_has_calls([call()] * 2)
 
-    def test_juju_status_application_status(self):
-        fake_client = Mock(wraps=fake_juju_client())
-        fake_client.bootstrap()
-        assess_juju_status(fake_client, 'dummy-source', 'xenial')
-        self.assertIn("verified juju application status successfully",
-                      self.log_stream.getvalue())
-
-    def test_juju_status_application_successfully(self):
+    def test_verify_app_status(self):
         fake_client = Mock(wraps=fake_juju_client())
         app_status = Status({
             'applications': {
-                'fakejob': {
+                'dummy-sink': {
                     'units': {
-                        'fakejob/0': {
+                        'dummy-sink/0': {
+                            'juju-status': {
+                                'current': 'idle',
+                                'since': 'DD MM YYYY hh:mm:ss',
+                                'version': '2.0.0',
+                            }
+                        }
+                    }
+                }
+            }
+        }, '')
+        fake_client.bootstrap()
+        with patch.object(fake_client, 'get_status', autospec=True) as ags:
+            ags.return_value = app_status
+            deploy_charm_app(fake_client, 'xenial')
+            charm_details = fake_client.get_status().get_applications()[
+                'dummy-sink']
+            verify_app_status(charm_details)
+            self.assertIn("verified charm app status successfully",
+                          self.log_stream.getvalue())
+
+    def test_verify_app_status_to_fail(self):
+        fake_client = Mock(wraps=fake_juju_client())
+        app_status = Status({
+            'applications': {
+                'dummy-sink': {
+                    'units': {
+                        'dummy-sink/0': {
+                            'juju-status': {
+                            }
+                        }
+                    }
+                }
+            }
+        }, '')
+        fake_client.bootstrap()
+        with patch.object(fake_client, 'get_status', autospec=True) as ags:
+            ags.return_value = app_status
+            deploy_charm_app(fake_client, 'xenial')
+            charm_details = fake_client.get_status().get_applications()[
+                'dummy-sink']
+            with self.assertRaisesRegexp(
+                    JujuAssertionError, "charm app status not found"):
+                verify_app_status(charm_details)
+
+    def test_verify_subordinate_app_status(self):
+        fake_client = Mock(wraps=fake_juju_client())
+        app_status = Status({
+            'applications': {
+                'dummy-sink': {
+                    'units': {
+                        'dummy-sink/0': {
                             'juju-status': {
                                 'current': 'idle',
                                 'since': 'DD MM YYYY hh:mm:ss',
                                 'version': '2.0.0',
                             },
-                        },
-                    },
+                            'subordinates': {
+                                'dummy-subordinate/0': {
+                                    'juju-status': {
+                                        'current': 'idle',
+                                        'since': 'DD MM YYYY hh:mm:ss',
+                                        'version': '2.0.0'
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
-            },
+            }
         }, '')
         fake_client.bootstrap()
-        assess_juju_status(fake_client, 'dummy-source', 'xenial')
         with patch.object(fake_client, 'get_status', autospec=True) as ags:
             ags.return_value = app_status
-            verify_application_status(fake_client, "fakejob")
-            self.assertIn("verified juju application status successfully",
+            deploy_charm_app(fake_client, 'xenial')
+            charm_details = fake_client.get_status().get_applications()[
+                'dummy-sink']
+            verify_subordinate_app_status(charm_details)
+            self.assertIn("verified charm subordinate status successfully",
                           self.log_stream.getvalue())
 
-    def test_juju_status_application_status_not_found(self):
+    def test_verify_subordinate_app_status_to_fail(self):
         fake_client = Mock(wraps=fake_juju_client())
         app_status = Status({
             'applications': {
-                'fakejob': {
+                'dummy-sink': {
                     'units': {
-                        'fakejob/0': {
+                        'dummy-sink/0': {
                             'juju-status': {
+                                'current': 'idle',
+                                'since': 'DD MM YYYY hh:mm:ss',
+                                'version': '2.0.0',
                             },
-                        },
-                    },
+                            'subordinates': {
+                                'dummy-subordinate/0': {
+                                    'juju-status': {
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
+            }
+        }, '')
+        fake_client.bootstrap()
+        with patch.object(fake_client, 'get_status', autospec=True) as ags:
+            ags.return_value = app_status
+            deploy_charm_app(fake_client, 'xenial')
+            charm_details = fake_client.get_status().get_applications()[
+                'dummy-sink']
+            with self.assertRaisesRegexp(
+                    JujuAssertionError, "charm subordinate status not found"):
+                verify_subordinate_app_status(charm_details)
+
+    def test_verify_charm_status_to_fail(self):
+        fake_client = Mock(wraps=fake_juju_client())
+        app_status = Status({
+            'applications': {
+                'dummy-sink': {
+                },
             },
         }, '')
         fake_client.bootstrap()
-        assess_juju_status(fake_client, 'dummy-source', 'xenial')
         with patch.object(fake_client, 'get_status', autospec=True) as ags:
             ags.return_value = app_status
             with self.assertRaisesRegexp(
-                    JujuAssertionError, "application status not found"):
-                verify_application_status(fake_client, "fakejob")
+                    JujuAssertionError, "Failed to get charm details"):
+                verify_charm_status(fake_client)
