@@ -156,10 +156,26 @@ class TestIterClouds(FakeHomeTestCase):
                              exception=NameNotAccepted), 1641981, None),
             xfail(cloud_spec('long-name-foo', 'A' * 4096, cloud,
                              exception=None), 1641970, NameMismatch),
+            make_long_endpoint(spec, regions=True, endpoint_validation=True),
+            ], iter_clouds({'foo': cloud}, endpoint_validation=True))
+
+    def test_vsphere_no_validation(self):
+        cloud = {
+            'type': 'vsphere',
+            'endpoint': '1.2.3.4',
+            'regions': {'q': {'endpoint': '1.2.3.4'}},
+            }
+        spec = cloud_spec('foo', 'foo', cloud, exception=None)
+        self.assertItemsEqual([
+            self.bogus_type, spec,
+            xfail(cloud_spec('invalid-name-foo', 'invalid/name', cloud,
+                             exception=NameNotAccepted), 1641981, None),
+            xfail(cloud_spec('long-name-foo', 'A' * 4096, cloud,
+                             exception=None), 1641970, NameMismatch),
             xfail(make_long_endpoint(spec, regions=True,
                                      endpoint_validation=True),
                   1641970, CloudMismatch),
-            ], iter_clouds({'foo': cloud}, endpoint_validation=True))
+            ], iter_clouds({'foo': cloud}, endpoint_validation=False))
 
     def test_maas(self):
         cloud = {

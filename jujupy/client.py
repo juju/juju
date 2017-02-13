@@ -1170,6 +1170,7 @@ class Juju2Backend:
         # search env['PATH']
         stderr = subprocess.PIPE if suppress_err else None
         with scoped_environ(env):
+            log.debug('Running juju with env: {}'.format(env))
             with self._check_timeouts():
                 rval = call_func(args, stderr=stderr)
         self.juju_timings.setdefault(args, []).append(
@@ -2179,7 +2180,7 @@ class ModelClient:
         if not models:
             yield self
         for model in models:
-            yield self._acquire_model_client(model['name'])
+            yield self._acquire_model_client(model['name'], model.get('owner'))
 
     def get_controller_model_name(self):
         """Return the name of the 'controller' model.
@@ -2189,15 +2190,22 @@ class ModelClient:
         """
         return 'controller'
 
-    def _acquire_model_client(self, name):
+    def _acquire_model_client(self, name, owner=None):
         """Get a client for a model with the supplied name.
 
         If the name matches self, self is used.  Otherwise, a clone is used.
+        If the owner of the model is different to the user_name of the client
+        provide a fully qualified model name.
+
         """
         if name == self.env.environment:
             return self
         else:
-            env = self.env.clone(model_name=name)
+            if owner and owner != self.env.user_name:
+                model_name = '{}/{}'.format(owner, name)
+            else:
+                model_name = name
+            env = self.env.clone(model_name=model_name)
             return self.clone(env=env)
 
     def get_model_uuid(self):
@@ -2730,7 +2738,10 @@ class ModelClient:
                 child.expect('Enter the API endpoint url for the cloud:')
                 child.sendline(cloud['endpoint'])
                 for num, (name, values) in enumerate(cloud['regions'].items()):
-                    child.expect('Enter region name:')
+                    child.expect("(Enter region name:)|"
+                                 "(Can't validate endpoint)")
+                    if child.match.group(2) is not None:
+                        raise InvalidEndpoint()
                     child.sendline(name)
                     child.expect('Enter another region\? \(Y/n\):')
                     if num + 1 < len(cloud['regions']):

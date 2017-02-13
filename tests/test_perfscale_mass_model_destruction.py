@@ -24,21 +24,25 @@ class TestPerfscaleAssessModelDestruction(TestCase):
     def test_returns_DeployDetails(self):
         client = fake_juju_client()
         client.bootstrap()
+        pprof_collector = Mock()
 
         args = argparse.Namespace(model_count=1)
 
         with patch.object(pmmd, 'sleep', autospec=True):
-            results = pmmd.perfscale_assess_model_destruction(client, args)
+            results = pmmd.perfscale_assess_model_destruction(
+                client, pprof_collector, args)
         self.assertIsInstance(results, DeployDetails)
 
     def test_returns_creates_requested_model_amount(self):
         client = fake_juju_client()
         client.bootstrap()
+        pprof_collector = Mock()
 
         args = argparse.Namespace(model_count=12)
 
         with patch.object(pmmd, 'sleep', autospec=True):
-            results = pmmd.perfscale_assess_model_destruction(client, args)
+            results = pmmd.perfscale_assess_model_destruction(
+                client, pprof_collector, args)
         self.assertEqual(results.applications['Model Count'], 12)
 
 
