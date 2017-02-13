@@ -39,7 +39,7 @@ class Rest:
     really_long = MINUTE * 120
 
 
-def perfscale_longrun_perf(client, args):
+def perfscale_longrun_perf(client, pprof_collector, args):
     test_length = args.run_length * (60 * MINUTE)
     longrun_start = datetime.utcnow()
     run_count = 0

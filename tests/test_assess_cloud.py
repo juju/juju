@@ -37,7 +37,8 @@ def backend_call(client, cmd, args, model=None, check=True, timeout=None,
                  extra_env=None):
     """Return the mock.call for this command."""
     return call(cmd, args, client.used_feature_flags,
-                client.env.juju_home, model, check, timeout, extra_env)
+                client.env.juju_home, model, check, timeout, extra_env,
+                suppress_err=False)
 
 
 @contextmanager
