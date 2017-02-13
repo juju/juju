@@ -3280,12 +3280,17 @@ class TestModelClient(ClientTest):
         fake_client.bootstrap()
         # fake_client_environ = fake_client._shell_environ()
         controller_name = 'user_controller'
-        cloned = fake_client.create_cloned_environment(
-            'fakehome',
-            controller_name
-        )
+
+        with temp_dir() as path:
+            cloned = fake_client.create_cloned_environment(
+                path,
+                controller_name
+            )
+            self.assertEqual(cloned.env.juju_home, path)
+            self.assertItemsEqual(
+                os.listdir(path),
+                ['credentials.yaml', 'clouds.yaml'])
         self.assertIs(fake_client.__class__, type(cloned))
-        self.assertEqual(cloned.env.juju_home, 'fakehome')
         self.assertEqual(cloned.env.controller.name, controller_name)
         self.assertEqual(fake_client.env.controller.name, 'name')
 
