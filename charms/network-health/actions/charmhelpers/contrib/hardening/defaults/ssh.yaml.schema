@@ -1,0 +1,42 @@
+# NOTE: this schema must contain all valid keys from it's associated defaults
+#       file. It is used to validate user-provided overrides.
+common:
+    service_name:
+    network_ipv6_enable:
+    ports:
+    remote_hosts:
+client:
+    package:
+    cbc_required:
+    weak_hmac:
+    weak_kex:
+    roaming:
+    password_authentication:
+server:
+    host_key_files:
+    cbc_required:
+    weak_hmac:
+    weak_kex:
+    allow_root_with_key:
+    allow_tcp_forwarding:
+    allow_agent_forwarding:
+    allow_x11_forwarding:
+    use_privilege_separation:
+    listen_to:
+    use_pam:
+    package:
+    password_authentication:
+    alive_interval:
+    alive_count:
+    sftp_enable:
+    sftp_group:
+    sftp_chroot:
+    deny_users:
+    allow_users:
+    deny_groups:
+    allow_groups:
+    print_motd:
+    print_last_log:
+    use_dns:
+    max_auth_tries:
+    max_sessions:

@@ -1,0 +1,49 @@
+# NOTE: this file contains the default configuration for the 'ssh' hardening
+#       code. If you want to override any settings you must add them to a file
+#       called hardening.yaml in the root directory of your charm using the
+#       name 'ssh' as the root key followed by any of the following with new
+#       values.
+
+common:
+    service_name: 'ssh'
+    network_ipv6_enable: False  # (type:boolean)
+    ports: [22]
+    remote_hosts: []
+
+client:
+    package: 'openssh-client'
+    cbc_required: False  # (type:boolean)
+    weak_hmac: False  # (type:boolean)
+    weak_kex: False  # (type:boolean)
+    roaming: False
+    password_authentication: 'no'
+
+server:
+    host_key_files: ['/etc/ssh/ssh_host_rsa_key', '/etc/ssh/ssh_host_dsa_key',
+                     '/etc/ssh/ssh_host_ecdsa_key']
+    cbc_required: False  # (type:boolean)
+    weak_hmac: False  # (type:boolean)
+    weak_kex: False  # (type:boolean)
+    allow_root_with_key: False  # (type:boolean)
+    allow_tcp_forwarding: 'no'
+    allow_agent_forwarding: 'no'
+    allow_x11_forwarding: 'no'
+    use_privilege_separation: 'sandbox'
+    listen_to: ['0.0.0.0']
+    use_pam: 'no'
+    package: 'openssh-server'
+    password_authentication: 'no'
+    alive_interval: '600'
+    alive_count: '3'
+    sftp_enable: False  # (type:boolean)
+    sftp_group: 'sftponly'
+    sftp_chroot: '/home/%u'
+    deny_users: []
+    allow_users: []
+    deny_groups: []
+    allow_groups: []
+    print_motd: 'no'
+    print_last_log: 'no'
+    use_dns: 'no'
+    max_auth_tries: 2
+    max_sessions: 10

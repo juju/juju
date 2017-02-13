@@ -1,0 +1,20 @@
+{% if auth_host -%}
+[keystone_authtoken]
+auth_uri = {{ service_protocol }}://{{ service_host }}:{{ service_port }}
+auth_url = {{ auth_protocol }}://{{ auth_host }}:{{ auth_port }}
+auth_type = password
+{% if api_version == "3" -%}
+project_domain_name = {{ admin_domain_name }}
+user_domain_name = {{ admin_domain_name }}
+{% else -%}
+project_domain_name = default
+user_domain_name = default
+{% endif -%}
+project_name = {{ admin_tenant_name }}
+username = {{ admin_user }}
+password = {{ admin_password }}
+signing_dir = {{ signing_dir }}
+{% if use_memcache == true %}
+memcached_servers = {{ memcache_url }}
+{% endif -%}
+{% endif -%}

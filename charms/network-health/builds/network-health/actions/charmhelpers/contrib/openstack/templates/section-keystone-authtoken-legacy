@@ -1,0 +1,10 @@
+{% if auth_host -%}
+[keystone_authtoken]
+# Juno specific config (Bug #1557223)
+auth_uri = {{ service_protocol }}://{{ service_host }}:{{ service_port }}/{{ service_admin_prefix }}
+identity_uri = {{ auth_protocol }}://{{ auth_host }}:{{ auth_port }}
+admin_tenant_name = {{ admin_tenant_name }}
+admin_user = {{ admin_user }}
+admin_password = {{ admin_password }}
+signing_dir = {{ signing_dir }}
+{% endif -%}

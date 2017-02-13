@@ -1,0 +1,23 @@
+name: network-health
+summary: Subordinate charm used for Juju networking tests
+maintainer: Michael Skalka <Michael.Skalka@canonical.com>
+description: |
+  Subordinate charm used for Juju networking tests
+tags:
+  - misc
+subordinate: true
+series:
+  - trusty
+  - precise
+  - utopic
+  - vivid
+  - wily
+  - xenial
+
+requires:
+  juju-info:
+    interface: juju-info
+    scope: container
+peers:
+  network-test-peer:
+    interface: network-test

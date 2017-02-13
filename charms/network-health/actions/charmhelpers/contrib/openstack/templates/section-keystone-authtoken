@@ -1,0 +1,12 @@
+{% if auth_host -%}
+[keystone_authtoken]
+auth_uri = {{ service_protocol }}://{{ service_host }}:{{ service_port }}
+auth_url = {{ auth_protocol }}://{{ auth_host }}:{{ auth_port }}
+auth_plugin = password
+project_domain_id = default
+user_domain_id = default
+project_name = {{ admin_tenant_name }}
+username = {{ admin_user }}
+password = {{ admin_password }}
+signing_dir = {{ signing_dir }}
+{% endif -%}

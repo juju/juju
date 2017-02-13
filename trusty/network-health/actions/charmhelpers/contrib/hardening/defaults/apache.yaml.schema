@@ -1,0 +1,9 @@
+# NOTE: this schema must contain all valid keys from it's associated defaults
+#       file. It is used to validate user-provided overrides.
+common:
+    apache_dir:
+    traceenable:
+
+hardening:
+    allowed_http_methods:
+    modules_to_disable:
