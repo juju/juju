@@ -772,7 +772,8 @@ class TestModelClient(ClientTest):
         juju_mock.assert_called_once_with('add-model', (
             '-c', 'name', 'new-model', 'foo/bar', '--credential', 'creds',
             '--config', config_file.name),
-            frozenset({'migration'}), 'foo', None, True, None, None)
+            frozenset({'migration'}), 'foo', None, True, None, None,
+            suppress_err=False)
 
     def test_add_model_by_name(self):
         client = fake_juju_client()
@@ -782,7 +783,8 @@ class TestModelClient(ClientTest):
                 client.add_model('new-model')
         juju_mock.assert_called_once_with('add-model', (
             '-c', 'name', 'new-model', '--config', config_file.name),
-            frozenset({'migration'}), 'foo', None, True, None, None)
+            frozenset({'migration'}), 'foo', None, True, None, None,
+            suppress_err=False)
 
     def test_destroy_environment(self):
         env = JujuData('foo')
@@ -2540,7 +2542,7 @@ class TestModelClient(ClientTest):
         environ['JUJU_HOME'] = client.env.juju_home
         mock.assert_called_with(
             ('juju', '--show-log', 'model-config', '-m', 'foo:foo',
-             'tools-metadata-url=https://example.org/juju/tools'))
+             'tools-metadata-url=https://example.org/juju/tools'), stderr=None)
 
     def test_unset_env_option(self):
         env = JujuData('foo')
@@ -2551,7 +2553,7 @@ class TestModelClient(ClientTest):
         environ['JUJU_HOME'] = client.env.juju_home
         mock.assert_called_with(
             ('juju', '--show-log', 'model-config', '-m', 'foo:foo',
-             '--reset', 'tools-metadata-url'))
+             '--reset', 'tools-metadata-url'), stderr=None)
 
     def test__format_cloud_region(self):
         fcr = ModelClient._format_cloud_region
@@ -2641,7 +2643,7 @@ class TestModelClient(ClientTest):
         environ = dict(os.environ)
         environ['JUJU_HOME'] = client.env.juju_home
         mock.assert_called_with(('juju', '--show-log', 'foo', '-m', 'qux:qux',
-                                 'bar', 'baz'))
+                                 'bar', 'baz'), stderr=None)
 
     def test_expect_returns_pexpect_spawn_object(self):
         env = JujuData('qux')
@@ -2682,7 +2684,7 @@ class TestModelClient(ClientTest):
         with patch('subprocess.call') as mock:
             client.juju('foo', ('bar', 'baz'), check=False)
         mock.assert_called_with(('juju', '--show-log', 'foo', '-m', 'qux:qux',
-                                 'bar', 'baz'))
+                                 'bar', 'baz'), stderr=None)
 
     def test_juju_no_check_env(self):
         env = JujuData('qux')
@@ -2730,7 +2732,7 @@ class TestModelClient(ClientTest):
             client.juju('quickstart', ('bar', 'baz'), extra_env=extra_env)
         mock.assert_called_with(
             ('juju', '--show-log', 'quickstart', '-m', 'qux:qux',
-             'bar', 'baz'))
+             'bar', 'baz'), stderr=None)
 
     def test_juju_backup_with_tgz(self):
         env = JujuData('qux')

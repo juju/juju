@@ -97,9 +97,12 @@ def assess_cloud_kill_controller(bs_manager):
     client = bs_manager.client
     with bs_manager.booted_context(upload_tools=False):
         controller_client = client.get_controller_client()
+        # We expect juju to die with a connection error (because we just
+        # stopped its jujud).  This would normally be seen as a bug, so we
+        # suppress it.
         controller_client.juju('run', (
             '--machine', '0', 'sudo service jujud-machine-0 stop'),
-            check=False)
+            check=False, suppress_err=True)
         bs_manager.has_controller = False
 
 

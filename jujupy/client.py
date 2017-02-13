@@ -1153,7 +1153,8 @@ class Juju2Backend:
                 args)
 
     def juju(self, command, args, used_feature_flags,
-             juju_home, model=None, check=True, timeout=None, extra_env=None):
+             juju_home, model=None, check=True, timeout=None, extra_env=None,
+             suppress_err=False):
         """Run a command under juju for the current environment."""
         args = self.full_args(command, args, model, timeout)
         log.info(' '.join(args))
@@ -1167,10 +1168,11 @@ class Juju2Backend:
         start_time = time.time()
         # Mutate os.environ instead of supplying env parameter so Windows can
         # search env['PATH']
+        stderr = subprocess.PIPE if suppress_err else None
         with scoped_environ(env):
             log.debug('Running juju with env: {}'.format(env))
             with self._check_timeouts():
-                rval = call_func(args)
+                rval = call_func(args, stderr=stderr)
         self.juju_timings.setdefault(args, []).append(
             (time.time() - start_time))
         return rval
@@ -1914,12 +1916,12 @@ class ModelClient:
             self.set_env_option(self.agent_metadata_url, testing_url)
 
     def juju(self, command, args, check=True, include_e=True,
-             timeout=None, extra_env=None):
+             timeout=None, extra_env=None, suppress_err=False):
         """Run a command under juju for the current environment."""
         model = self._cmd_model(include_e, controller=False)
         return self._backend.juju(
             command, args, self.used_feature_flags, self.env.juju_home,
-            model, check, timeout, extra_env)
+            model, check, timeout, extra_env, suppress_err=suppress_err)
 
     def expect(self, command, args=(), include_e=True,
                timeout=None, extra_env=None):

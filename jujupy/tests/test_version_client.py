@@ -1341,7 +1341,8 @@ class TestEnvJujuClient1X(ClientTest):
         environ['JUJU_HOME'] = client.env.juju_home
         mock.assert_called_with(
             ('juju', '--show-log', 'set-env', '-e', 'foo',
-             'tools-metadata-url=https://example.org/juju/tools'))
+             'tools-metadata-url=https://example.org/juju/tools'),
+            stderr=None)
 
     def test_unset_env_option(self):
         env = SimpleEnvironment('foo')
@@ -1352,7 +1353,7 @@ class TestEnvJujuClient1X(ClientTest):
         environ['JUJU_HOME'] = client.env.juju_home
         mock.assert_called_with(
             ('juju', '--show-log', 'set-env', '-e', 'foo',
-             'tools-metadata-url='))
+             'tools-metadata-url='), stderr=None)
 
     @contextmanager
     def run_model_defaults_test(self, operation_name):
@@ -1405,7 +1406,7 @@ class TestEnvJujuClient1X(ClientTest):
         environ = dict(os.environ)
         environ['JUJU_HOME'] = client.env.juju_home
         mock.assert_called_with(('juju', '--show-log', 'foo', '-e', 'qux',
-                                 'bar', 'baz'))
+                                 'bar', 'baz'), stderr=None)
 
     def test_juju_env(self):
         env = SimpleEnvironment('qux')
@@ -1424,7 +1425,7 @@ class TestEnvJujuClient1X(ClientTest):
         with patch('subprocess.call') as mock:
             client.juju('foo', ('bar', 'baz'), check=False)
         mock.assert_called_with(('juju', '--show-log', 'foo', '-e', 'qux',
-                                 'bar', 'baz'))
+                                 'bar', 'baz'), stderr=None)
 
     def test_juju_no_check_env(self):
         env = SimpleEnvironment('qux')
@@ -1471,7 +1472,8 @@ class TestEnvJujuClient1X(ClientTest):
         with patch('subprocess.check_call', side_effect=check_env) as mock:
             client.juju('quickstart', ('bar', 'baz'), extra_env=extra_env)
         mock.assert_called_with(
-            ('juju', '--show-log', 'quickstart', '-e', 'qux', 'bar', 'baz'))
+            ('juju', '--show-log', 'quickstart', '-e', 'qux', 'bar', 'baz'),
+            stderr=None)
 
     def test_juju_backup_with_tgz(self):
         env = SimpleEnvironment('qux')
