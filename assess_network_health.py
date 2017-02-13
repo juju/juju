@@ -10,6 +10,9 @@ import json
 from deploy_stack import (
     BootstrapManager,
     )
+from jujucharm import (
+    local_charm_path,
+)
 from utility import (
     add_basic_testing_arguments,
     configure_logging,
@@ -28,16 +31,30 @@ def assess_network_health(client, bundle=None):
     # Else deploy two dummy charms to test on
     else:
         client.deploy('ubuntu', num=2)
-    client.deploy('/trusty/network-health')
+    charm_path = local_charm_path(charm='network-health', series='trusty',
+                                  juju_ver=client.version)
+    client.deploy(charm_path)
     # Wait for the deployment to finish.
     client.wait_for_started()
-    # Grab apps from status
-    apps = client.get_status()['applications']
-    for service in apps.keys():
-        self.client.juju('add-relation', service, 'network-health')
+    client.wait_for_workloads()
+    # Grab services from status
+    services = client.get_status().status['applications'].keys()
+    log.info('Known applications: {}'.format(services))
+    for service in services:
+        try:
+            client.juju('add-relation', (service, 'network-health'))
+        except:
+            log.info('Could not relate {} & network-health'.format(service))
+
+    # Wait again for network-health to deploy
+    client.wait_for_workloads()
     log.info("Starting network tests")
+    # Get full status info from juju
+    apps = client.get_status().status['applications']
+    # Formulate a list of targets from status info
+    log.info('App dict: {}'.format(apps))
     targets = parse_targets(apps)
-    log.info(neighbor_visibility(client, targets))
+    log.info(neighbor_visibility(client, apps, targets))
     # Expose dummy charm if no bundle is specified
     if bundle is None:
         client.juju('expose', ('ubuntu',))
@@ -48,7 +65,7 @@ def assess_network_health(client, bundle=None):
         log.info(ensure_exposed(client, targets, exposed))
 
 
-def neighbor_visibility(client, targets):
+def neighbor_visibility(client, apps, targets):
     """Check if each application's units are visible, including our own.
     :param targets: Dict of units & public-addresses by application
     """
@@ -58,10 +75,7 @@ def neighbor_visibility(client, targets):
         service_resuts = {}
         for service, units in targets.items():
             # Change our dictionary into a json string
-            units = json.dumps(units, separators=(',', '='))
-            # Replace curly brackets so juju doesn't puke
-            units.replace('{', '(')
-            units.replace('}', ')')
+            units = to_json(units)
             retval = new_client.action_do_fetch(unit, 'ping',
                                                 'targets={}'.format(units))
             service_results[service] = retval
@@ -79,12 +93,12 @@ def ensure_exposed(client, targets, exposed):
     new_client.deploy('local:trusty/ubuntu')
     new_client.deploy('local:trusty/network-health')
     new_client.juju('add-relation' ('ubuntu', 'network-health'))
+    client.wait_for_workloads()
+
     # For each service, try to ping it from the outside model.
     service_results = {}
     for service, units in targets.items():
-        units = json.dumps(units, separators=(',', '='))
-        units.replace('{', '(')
-        units.replace('}', ')')
+        units = to_json(units)
         retval = new_client.action_do_fetch('network-health/0', 'ping',
                                             'targets={}'.format(units))
         service_results[service] = retval
@@ -99,16 +113,28 @@ def ensure_exposed(client, targets, exposed):
     return passes, failures
 
 
+def to_json(units):
+    """Returns a formatted json string to be passed through juju run-action
+    :param units: Dict of units
+    """
+    json_string = json.dumps(units, separators=(',', '='))
+    # Replace curly brackets so juju doesn't puke
+    json_string = json_string.replace('{', '(')
+    json_string = json_string.replace('}', ')')
+    return json_string
+
+
 def parse_targets(apps):
     """Returns targets based on supplied juju status information.
     :param apps: Dict of applications via 'juju status --format yaml'
     """
     targets = {}
-    for app, units in dic.items():
+    for app, units in apps.items():
         target_units = {}
-        for unit_id, info in units.get('units').items():
-            target_units[unit_id] = info.get('public-address')
-        targets[app] = target_units
+        if 'units' in units:
+            for unit_id, info in units.get('units').items():
+                target_units[unit_id] = info['public-address']
+            targets[app] = target_units
     return targets
 
 
