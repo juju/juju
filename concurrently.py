@@ -30,10 +30,7 @@ class Task:
     def __init__(self, name, command, log_dir='.'):
         self.name = name
         self.command = command
-        self.out_log_name = os.path.join(
-            log_dir, '{}-out.log'.format(self.name))
-        self.err_log_name = os.path.join(
-            log_dir, '{}-err.log'.format(self.name))
+        self.log_name = os.path.join(log_dir, '{}.log'.format(self.name))
         self.returncode = None
         self.proc = None
 
@@ -46,18 +43,16 @@ class Task:
             return False
         return (self.name == other.name and
                 self.command == other.command and
-                self.out_log_name == other.out_log_name and
-                self.err_log_name == other.err_log_name)
+                self.log_name == other.log_name)
 
     @contextmanager
     def start(self):
         """Yield the running proc, then wait to set the returncode."""
-        with open(self.out_log_name, 'ab') as out_log:
-            with open(self.err_log_name, 'ab') as err_log:
-                self.proc = subprocess.Popen(
-                    self.command, stdout=out_log, stderr=err_log)
-                log.debug('Started {}'.format(self.name))
-                yield self.proc
+        with open(self.log_name, 'ab') as out_log:
+            self.proc = subprocess.Popen(
+                self.command, stdout=out_log, stderr=out_log)
+            log.debug('Started {}'.format(self.name))
+            yield self.proc
 
     def finish(self):
         log.debug('Waiting for {} to finish'.format(self.name))
@@ -89,7 +84,7 @@ def summarise_tasks(tasks):
         for task in tasks:
             if task.returncode != 0:
                 log.error('{} failed with {}\nSee {}'.format(
-                          task.name, task.returncode, task.err_log_name))
+                          task.name, task.returncode, task.log_name))
     return failed_count
 
 

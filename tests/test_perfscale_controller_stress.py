@@ -30,8 +30,10 @@ class TestAssessControllerStress(TestCase):
     def test_returns_DeployDetails(self):
         args = _get_default_args(deploy_amount=0)
         client = Mock()
+        pprof_collector = Mock()
 
-        deploy_details = pcs.assess_controller_stress(client, args)
+        deploy_details = pcs.assess_controller_stress(
+            client, pprof_collector, args)
 
         self.assertIs(type(deploy_details), DeployDetails)
         self.assertEqual(deploy_details.name, 'Controller Stress.')
@@ -39,10 +41,11 @@ class TestAssessControllerStress(TestCase):
     def test_deploys_and_adds_units(self):
         args = _get_default_args(deploy_amount=1)
         client = Mock()
+        pprof_collector = Mock()
 
         with patch.object(
                 pcs, 'deploy_swarm_to_new_model', autospec=True) as m_dsnm:
-            pcs.assess_controller_stress(client, args)
+            pcs.assess_controller_stress(client, pprof_collector, args)
         m_dsnm.assert_called_once_with(client, 'swarm-model-0')
 
     def test_stores_deploytimes(self):
@@ -52,10 +55,12 @@ class TestAssessControllerStress(TestCase):
         comparison_timing = TimingData(start, end)
         args = _get_default_args(deploy_amount=0)
         client = Mock()
+        pprof_collector = Mock()
 
         with patch.object(pcs, 'datetime', autospec=True) as m_dt:
             m_dt.utcnow.side_effect = times
-            deploy_details = pcs.assess_controller_stress(client, args)
+            deploy_details = pcs.assess_controller_stress(
+                client, pprof_collector, args)
         deploy_timing = deploy_details.timings
         self.assertEqual(deploy_timing.start, comparison_timing.start)
         self.assertEqual(deploy_timing.end, comparison_timing.end)

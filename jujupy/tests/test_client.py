@@ -772,7 +772,8 @@ class TestModelClient(ClientTest):
         juju_mock.assert_called_once_with('add-model', (
             '-c', 'name', 'new-model', 'foo/bar', '--credential', 'creds',
             '--config', config_file.name),
-            frozenset({'migration'}), 'foo', None, True, None, None)
+            frozenset({'migration'}), 'foo', None, True, None, None,
+            suppress_err=False)
 
     def test_add_model_by_name(self):
         client = fake_juju_client()
@@ -782,7 +783,8 @@ class TestModelClient(ClientTest):
                 client.add_model('new-model')
         juju_mock.assert_called_once_with('add-model', (
             '-c', 'name', 'new-model', '--config', config_file.name),
-            frozenset({'migration'}), 'foo', None, True, None, None)
+            frozenset({'migration'}), 'foo', None, True, None, None,
+            suppress_err=False)
 
     def test_destroy_environment(self):
         env = JujuData('foo')
@@ -1862,14 +1864,37 @@ class TestModelClient(ClientTest):
             - name: bar
               model-uuid: bbbb
               owner: admin
+            - name: baz
+              model-uuid: bbbb
+              owner: user1
             current-model: foo
         """
         client = ModelClient(JujuData('foo', {}), None, None)
         with patch.object(client, 'get_juju_output', return_value=data):
             model_clients = list(client.iter_model_clients())
-        self.assertEqual(2, len(model_clients))
+        self.assertEqual(3, len(model_clients))
         self.assertIs(client, model_clients[0])
-        self.assertEqual('bar', model_clients[1].env.environment)
+        self.assertEqual('admin/bar', model_clients[1].env.environment)
+        self.assertEqual('user1/baz', model_clients[2].env.environment)
+
+    def test__acquire_model_client_returns_self_when_match(self):
+        client = ModelClient(JujuData('foo', {}), None, None)
+
+        self.assertEqual(client._acquire_model_client('foo'), client)
+        self.assertEqual(client._acquire_model_client('foo', None), client)
+
+    def test__acquire_model_client_adds_username_component(self):
+        client = ModelClient(JujuData('foo', {}), None, None)
+
+        new_client = client._acquire_model_client('bar', None)
+        self.assertEqual(new_client.model_name, 'bar')
+
+        new_client = client._acquire_model_client('bar', 'user1')
+        self.assertEqual(new_client.model_name, 'user1/bar')
+
+        client.env.user_name = 'admin'
+        new_client = client._acquire_model_client('baz', 'admin')
+        self.assertEqual(new_client.model_name, 'baz')
 
     def test_get_controller_model_name(self):
         models = {
@@ -2517,7 +2542,7 @@ class TestModelClient(ClientTest):
         environ['JUJU_HOME'] = client.env.juju_home
         mock.assert_called_with(
             ('juju', '--show-log', 'model-config', '-m', 'foo:foo',
-             'tools-metadata-url=https://example.org/juju/tools'))
+             'tools-metadata-url=https://example.org/juju/tools'), stderr=None)
 
     def test_unset_env_option(self):
         env = JujuData('foo')
@@ -2528,7 +2553,7 @@ class TestModelClient(ClientTest):
         environ['JUJU_HOME'] = client.env.juju_home
         mock.assert_called_with(
             ('juju', '--show-log', 'model-config', '-m', 'foo:foo',
-             '--reset', 'tools-metadata-url'))
+             '--reset', 'tools-metadata-url'), stderr=None)
 
     def test__format_cloud_region(self):
         fcr = ModelClient._format_cloud_region
@@ -2618,7 +2643,7 @@ class TestModelClient(ClientTest):
         environ = dict(os.environ)
         environ['JUJU_HOME'] = client.env.juju_home
         mock.assert_called_with(('juju', '--show-log', 'foo', '-m', 'qux:qux',
-                                 'bar', 'baz'))
+                                 'bar', 'baz'), stderr=None)
 
     def test_expect_returns_pexpect_spawn_object(self):
         env = JujuData('qux')
@@ -2659,7 +2684,7 @@ class TestModelClient(ClientTest):
         with patch('subprocess.call') as mock:
             client.juju('foo', ('bar', 'baz'), check=False)
         mock.assert_called_with(('juju', '--show-log', 'foo', '-m', 'qux:qux',
-                                 'bar', 'baz'))
+                                 'bar', 'baz'), stderr=None)
 
     def test_juju_no_check_env(self):
         env = JujuData('qux')
@@ -2707,7 +2732,7 @@ class TestModelClient(ClientTest):
             client.juju('quickstart', ('bar', 'baz'), extra_env=extra_env)
         mock.assert_called_with(
             ('juju', '--show-log', 'quickstart', '-m', 'qux:qux',
-             'bar', 'baz'))
+             'bar', 'baz'), stderr=None)
 
     def test_juju_backup_with_tgz(self):
         env = JujuData('qux')
@@ -3354,6 +3379,19 @@ class TestModelClient(ClientTest):
             }}
         client.add_cloud_interactive('foo', clouds['foo'])
         self.assertEqual(client._backend.clouds, clouds)
+
+    def test_add_cloud_interactive_vsphere_invalid_endpoint(self):
+        client = fake_juju_client()
+        clouds = {'foo': {
+            'type': 'vsphere',
+            'endpoint': 'B' * 4000,
+            'regions': {
+                'harvey': {},
+                'steve': {},
+                }
+            }}
+        with self.assertRaises(InvalidEndpoint):
+            client.add_cloud_interactive('foo', clouds['foo'])
 
     def test_add_cloud_interactive_bogus(self):
         client = fake_juju_client()

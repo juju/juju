@@ -32,7 +32,7 @@ log = logging.getLogger("perfscale_mass_model_destruction")
 __metaclass__ = type
 
 
-def perfscale_assess_model_destruction(client, args):
+def perfscale_assess_model_destruction(client, pprof_collector, args):
     """Create a bunch of models and then destroy them all."""
     model_count = args.model_count
 

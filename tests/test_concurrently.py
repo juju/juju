@@ -117,10 +117,7 @@ class TaskTest(TestCase):
             task = concurrently.Task.from_arg('one=foo a b c', log_dir=base)
             self.assertEqual('one', task.name)
             self.assertEqual(['foo', 'a', 'b', 'c'], task.command)
-            self.assertEqual(
-                os.path.join(base, 'one-out.log'), task.out_log_name)
-            self.assertEqual(
-                os.path.join(base, 'one-err.log'), task.err_log_name)
+            self.assertEqual(os.path.join(base, 'one.log'), task.log_name)
             self.assertIsNone(task.returncode)
             self.assertIsNone(task.proc)
 
@@ -141,14 +138,14 @@ class TaskTest(TestCase):
                     self.assertEqual(1, p_mock.call_count)
                     args, kwargs = p_mock.call_args
                     self.assertEqual((['foo', 'a'], ), args)
-                    kwargs['stdout'].write('out')
-                    kwargs['stderr'].write('err')
-            self.assertIs(
-                True,
-                os.path.exists(os.path.join(base, 'one-out.log')))
-            self.assertIs(
-                True,
-                os.path.exists(os.path.join(base, 'one-out.log')))
+                    kwargs['stdout'].write('out\n')
+                    kwargs['stderr'].write('err\n')
+            log_path = os.path.join(base, 'one.log')
+            self.assertIs(True, os.path.exists(log_path))
+            with open(log_path, 'r') as one_log:
+                messages = one_log.read().splitlines()
+        self.assertIn('out', messages[0])
+        self.assertIn('err', messages[1])
 
     def test_finish(self):
         task = concurrently.Task.from_arg('one=foo a')

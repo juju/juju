@@ -29,12 +29,14 @@ from utility import (
 __metaclass__ = type
 
 
-def assess_xplod_perf(client, args):
+def assess_xplod_perf(client, pprof_collector, args):
     """Deploy xplod charm many times."""
     deploy_start = datetime.utcnow()
 
+    pprof_collector.collect_profile()
     deploy_xplod_charm(client)
-    client_details = add_multiple_units(client, args)
+    pprof_collector.collect_profile()
+    client_details = add_multiple_units(client, args, pprof_collector)
 
     deploy_end = datetime.utcnow()
     deploy_timing = TimingData(deploy_start, deploy_end)
@@ -50,7 +52,7 @@ def deploy_xplod_charm(client):
     client.wait_for_workloads()
 
 
-def add_multiple_units(client, args):
+def add_multiple_units(client, args, pprof_collector):
     unit_deploys = dict()
     total_units = 0
     # We will want to add units in different ways (e.g. 2 at a time). Keep this
@@ -68,6 +70,7 @@ def add_multiple_units(client, args):
         total_units += additional_amount
         unit_deploys['unit-{}'.format(total_units)] = '{} Seconds'.format(
             total_seconds)
+        pprof_collector.collect_profile()
     return unit_deploys
 
 

@@ -135,13 +135,15 @@ class TestPerfscaleLongrunPerf(TestCase):
 
     def test_must_use_test_length_in_seconds(self):
         client = Mock()
+        pprof_collector = Mock()
         args = argparse.Namespace(run_length=1)
         with patch.object(pl, 'until_timeout', autospec=True) as m_ut:
-            pl.perfscale_longrun_perf(client, args)
+            pl.perfscale_longrun_perf(client, pprof_collector, args)
         m_ut.assert_called_once_with(3600)
 
     def test_perfscale_longrun_perf(self):
         client = Mock()
+        pprof_collector = Mock()
         new_client = Mock()
         new_models = [Mock(), Mock()]
         args = argparse.Namespace(run_length=1)
@@ -159,7 +161,8 @@ class TestPerfscaleLongrunPerf(TestCase):
                             with patch.object(
                                     pl, 'action_cleanup',
                                     autospec=True) as m_acu:
-                                pl.perfscale_longrun_perf(client, args)
+                                pl.perfscale_longrun_perf(
+                                    client, pprof_collector, args)
 
         m_ac.assert_called_once_with(client)
         m_ab.assert_called_once_with(new_client, ['dummy-sink'])

@@ -131,9 +131,19 @@ class ModelClient2_1(ModelClient):
 
 class ModelClient2_0(ModelClient2_1):
     """Client for Juju 2.0"""
-    # Outcome and output differs to 2.1 tests cannot assume 2.0 and 2.1 are
-    # identical.
-    pass
+
+    def _acquire_model_client(self, name, owner=None):
+        """Get a client for a model with the supplied name.
+
+        If the name matches self, self is used.  Otherwise, a clone is used.
+
+        Note: owner is ignored for all clients before 2.1.
+        """
+        if name == self.env.environment:
+            return self
+        else:
+            env = self.env.clone(model_name=name)
+            return self.clone(env=env)
 
 
 class ModelClientRC(ModelClient2_0):
