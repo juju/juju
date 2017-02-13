@@ -28,12 +28,12 @@ def main():
     targets = json.loads(targets)
     results = {}
     # Get unit names from targets dict and ping their public address
-    for unit, ip in targets.items():
-        results[unit] = pingOK(ip)
-    action_set({'result': results})
+    for target, ip in targets.items():
+        results[target] = ping_check(ip)
+    action_set({'results': results})
 
 
-def pingOK(target):
+def ping_check(target):
     # If ping returns anything but success, return False
     try:
         output = subprocess.check_output("ping -c 1 " + target, shell=True)
