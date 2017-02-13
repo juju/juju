@@ -4,6 +4,7 @@
 package state_test
 
 import (
+	"regexp"
 	"time"
 
 	"github.com/juju/testing"
@@ -155,9 +156,10 @@ func (s *StatusHistorySuite) TestStatusHistoryFilterRunningUpdateStatusHook(c *g
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(history, gc.HasLen, 200)
 	stateNumber := 0
-	for i := 0; i < len(history); i += 2 {
-		checkPrimedUnitAgentStatusWithCustomMessage(c, history[i], 99-stateNumber, 0, "doing something else")
-		checkPrimedUnitAgentStatusWithCustomMessage(c, history[i+1], 99-stateNumber, 0, "running update-status hook")
+	message, err := regexp.Compile("doing something else|running update-status hook")
+	c.Assert(err, jc.ErrorIsNil)
+	for _, h := range history {
+		checkPrimedUnitAgentStatusWithRegexMessage(c, h, message)
 		stateNumber++
 	}
 }

@@ -4,6 +4,7 @@
 package state_test
 
 import (
+	"regexp"
 	"runtime"
 	"time"
 
@@ -82,5 +83,11 @@ func checkPrimedUnitAgentStatusWithCustomMessage(c *gc.C, statusInfo status.Stat
 	c.Check(statusInfo.Message, gc.Equals, info)
 	c.Check(statusInfo.Status, gc.Equals, status.Executing)
 	c.Check(statusInfo.Data, jc.DeepEquals, map[string]interface{}{"$bar": expect, "$delta": int64(expectDelta)})
+	c.Check(statusInfo.Since, gc.NotNil)
+}
+
+func checkPrimedUnitAgentStatusWithRegexMessage(c *gc.C, statusInfo status.StatusInfo, message *regexp.Regexp) {
+	c.Check(message.MatchString(statusInfo.Message), jc.IsTrue)
+	c.Check(statusInfo.Status, gc.Equals, status.Executing)
 	c.Check(statusInfo.Since, gc.NotNil)
 }
