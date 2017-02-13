@@ -72,6 +72,7 @@ from tests import (
     TestCase
     )
 from utility import (
+    get_juju_path,
     get_timeout_path,
     )
 
@@ -96,7 +97,8 @@ class TestClientFromConfig(ClientTest):
     @patch.object(JujuData, 'from_config', return_value=JujuData('', {}))
     @patch.object(SimpleEnvironment, 'from_config',
                   return_value=SimpleEnvironment('', {}))
-    @patch.object(ModelClient, 'get_full_path', return_value='fake-path')
+    #@patch('utility.get_juju_path.subprocess.check_output', return_value='fake-path')
+    @patch.object(subprocess, 'check_output', autospec=True)
     def test_from_config(self, gfp_mock, se_fc_mock, jd_fc_mock):
         def juju_cmd_iterator():
             yield '1.17'
