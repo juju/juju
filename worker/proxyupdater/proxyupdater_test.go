@@ -123,7 +123,7 @@ func (s *ProxyUpdaterSuite) waitProxySettings(c *gc.C, expected proxy.Settings) 
 			if c.Check(inProcSettings, gc.Equals, expected) {
 				gotInProc = true
 			}
-		case <-time.After(10 * time.Millisecond):
+		case <-time.After(coretesting.ShortWait):
 			envSettings = proxy.DetectProxies()
 			if envSettings == expected {
 				gotEnv = true

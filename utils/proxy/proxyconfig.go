@@ -67,8 +67,9 @@ func (pc *ProxyConfig) GetProxy(req *http.Request) (*url.URL, error) {
 }
 
 // useProxy reports whether requests to addr should use a proxy,
-// according to the NO_PROXY or no_proxy environment variable.
+// according to the NoProxy value of the proxy setting.
 // addr is always a canonicalAddr with a host and port.
+// (Implementation copied from net/http.useProxy.)
 func (pc *ProxyConfig) useProxy(addr string) bool {
 	if len(addr) == 0 {
 		return true
@@ -162,7 +163,7 @@ var portMap = map[string]string{
 func canonicalAddr(url *url.URL) string {
 	addr := url.Host
 	if !hasPort(addr) {
-		return addr + ":" + portMap[url.Scheme]
+		return net.JoinHostPort(addr, portMap[url.Scheme])
 	}
 	return addr
 }
