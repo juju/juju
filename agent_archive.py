@@ -98,23 +98,25 @@ def is_new_version(source_path, config, s3_container, verbose=False):
     :raises: ValueError if the version exists and is different.
     :return: True when the version is new, else False.
     """
-    if verbose:
-        print('Checking that %s does not already exist.' % source_path)
     source_agent = os.path.basename(source_path)
     agent_path = '%s/%s' % (s3_container, source_agent)
     existing_version = run(
         ['ls', '--list-md5', agent_path], config=config, verbose=verbose)
-    if not existing_version:
-        return True
-    remote_hash = existing_version.strip().split()[3]
     md5 = hashlib.md5()
     with open(source_path, mode='rb') as local_file:
         md5.update(local_file.read())
     local_hash = str(md5.hexdigest())
+    if verbose:
+        print('Checking that %s and hash %s does not already exist.' % (source_agent, local_hash))
+    if not existing_version:
+        if verbose:
+            print('No existing version found compared to %s and hash %s' % (source_path, local_hash))
+        return True
+    remote_hash = existing_version.strip().split()[3]
     if remote_hash != local_hash:
         raise ValueError(
-            '%s already exists. Agents cannot be changed to %s.' %
-            (existing_version, local_hash))
+            '%s already exists. Cannot overwrite with %s and hash %s.' %
+            (existing_version, source_path, local_hash))
     if verbose:
         print('This exact agent is archived. No need to upload.')
     return False
@@ -150,15 +152,6 @@ def add_agents(args):
     remote_source = '%s/%s' % (args.s3_container, source_agent)
     run(['put', source_path, remote_source],
         config=args.config, dry_run=args.dry_run, verbose=args.verbose)
-    agent_versions.remove(source_agent)
-    os_name = get_source_agent_os(source_agent)
-    agent_versions = [a for a in agent_versions if os_name in a]
-    for agent_version in agent_versions:
-        destination = '%s/%s' % (args.s3_container, agent_version)
-        if args.verbose:
-            print('Copying %s to %s' % (remote_source, destination))
-        run(['cp', remote_source, destination],
-            config=args.config, dry_run=args.dry_run, verbose=args.verbose)
 
 
 def get_agents(args):
@@ -182,7 +175,7 @@ def delete_agents(args):
     version = args.version
     agent_glob = '%s/juju-%s*' % (args.s3_container, version)
     existing_versions = run(
-        ['ls', agent_glob], config=args.config, verbose=args.verbose)
+        ['ls','--list-md5', agent_glob], config=args.config, verbose=args.verbose)
     if args.verbose:
         print('Checking for matching agents.')
     if version not in existing_versions:
