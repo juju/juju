@@ -9,10 +9,10 @@ from mock import (
     patch,
     )
 from assess_juju_status import (
+    deploy_charm_with_subordinate_charm,
+    verify_subordinate_status,
     verify_charm_status,
-    deploy_charm_app,
-    verify_app_status,
-    verify_subordinate_app_status,
+    assess_juju_status,
     parse_args,
     main,
     )
@@ -73,12 +73,12 @@ class TestAssess(TestCase):
     def test_juju_status(self):
         fake_client = Mock(wraps=fake_juju_client())
         fake_client.bootstrap()
-        deploy_charm_app(fake_client, 'xenial')
+        deploy_charm_with_subordinate_charm(fake_client, 'xenial')
         fake_client.deploy.assert_has_calls([call('dummy-sink'),
                                              call('dummy-subordinate')])
         fake_client.wait_for_started.assert_has_calls([call()] * 2)
 
-    def test_verify_app_status(self):
+    def test_verify_charm_status(self):
         fake_client = Mock(wraps=fake_juju_client())
         app_status = Status({
             'applications': {
@@ -98,14 +98,13 @@ class TestAssess(TestCase):
         fake_client.bootstrap()
         with patch.object(fake_client, 'get_status', autospec=True) as ags:
             ags.return_value = app_status
-            deploy_charm_app(fake_client, 'xenial')
             charm_details = fake_client.get_status().get_applications()[
                 'dummy-sink']
-            verify_app_status(charm_details)
+            verify_charm_status(charm_details)
             self.assertIn("verified charm app status successfully",
                           self.log_stream.getvalue())
 
-    def test_verify_app_status_to_fail(self):
+    def test_verify_charm_status_to_fail(self):
         fake_client = Mock(wraps=fake_juju_client())
         app_status = Status({
             'applications': {
@@ -122,12 +121,11 @@ class TestAssess(TestCase):
         fake_client.bootstrap()
         with patch.object(fake_client, 'get_status', autospec=True) as ags:
             ags.return_value = app_status
-            deploy_charm_app(fake_client, 'xenial')
             charm_details = fake_client.get_status().get_applications()[
                 'dummy-sink']
             with self.assertRaisesRegexp(
                     JujuAssertionError, "charm app status not found"):
-                verify_app_status(charm_details)
+                verify_charm_status(charm_details)
 
     def test_verify_subordinate_app_status(self):
         fake_client = Mock(wraps=fake_juju_client())
@@ -158,10 +156,9 @@ class TestAssess(TestCase):
         fake_client.bootstrap()
         with patch.object(fake_client, 'get_status', autospec=True) as ags:
             ags.return_value = app_status
-            deploy_charm_app(fake_client, 'xenial')
             charm_details = fake_client.get_status().get_applications()[
                 'dummy-sink']
-            verify_subordinate_app_status(charm_details)
+            verify_subordinate_status(charm_details)
             self.assertIn("verified charm subordinate status successfully",
                           self.log_stream.getvalue())
 
@@ -191,24 +188,41 @@ class TestAssess(TestCase):
         fake_client.bootstrap()
         with patch.object(fake_client, 'get_status', autospec=True) as ags:
             ags.return_value = app_status
-            deploy_charm_app(fake_client, 'xenial')
             charm_details = fake_client.get_status().get_applications()[
                 'dummy-sink']
             with self.assertRaisesRegexp(
                     JujuAssertionError, "charm subordinate status not found"):
-                verify_subordinate_app_status(charm_details)
+                verify_subordinate_status(charm_details)
 
-    def test_verify_charm_status_to_fail(self):
+    def test_assess_juju_status(self):
         fake_client = Mock(wraps=fake_juju_client())
         app_status = Status({
             'applications': {
                 'dummy-sink': {
-                },
-            },
+                    'units': {
+                        'dummy-sink/0': {
+                            'juju-status': {
+                                'current': 'idle',
+                                'since': 'DD MM YYYY hh:mm:ss',
+                                'version': '2.0.0',
+                            },
+                            'subordinates': {
+                                'dummy-subordinate/0': {
+                                    'juju-status': {
+                                        'current': 'idle',
+                                        'since': 'DD MM YYYY hh:mm:ss',
+                                        'version': '2.0.0'
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }, '')
         fake_client.bootstrap()
         with patch.object(fake_client, 'get_status', autospec=True) as ags:
             ags.return_value = app_status
-            with self.assertRaisesRegexp(
-                    JujuAssertionError, "Failed to get charm details"):
-                verify_charm_status(fake_client)
+            assess_juju_status(fake_client, "xenial")
+            self.assertIn('assess juju-status done successfully',
+                          self.log_stream.getvalue())
