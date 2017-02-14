@@ -1,9 +1,9 @@
 # "run"time juju completion by version
 _juju_complete_ver() {
     case "$(juju version)" in
-      2.0*)
-        # See /etc/bash_completion.d/juju-2.0
-        _juju_complete_2_0 "$@"
+      2.*)
+        # See /etc/bash_completion.d/juju
+        _juju_complete_2 "$@"
         return $?
         ;;
       1.*)
@@ -17,7 +17,7 @@ _juju_complete_ver() {
 # Hook _juju_complete_ver for 'juju' cmd
 # If juju-1 is also installed, it'll override it's completion
 # as this "juju-version" named file will be loaded after
-# "juju-2.0" and "juju-core".
+# "juju-2" and "juju-core".
 complete -F _juju juju-1
 complete -F _juju_complete_ver juju
 

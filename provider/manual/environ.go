@@ -18,6 +18,7 @@ import (
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/featureflag"
 	"github.com/juju/utils/ssh"
+	"github.com/juju/version"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cloudconfig/instancecfg"
@@ -174,6 +175,12 @@ func (e *manualEnviron) verifyBootstrapHost() error {
 		logger.Infof(err.Error())
 		return err
 	}
+	return nil
+}
+
+// AdoptResources is part of the Environ interface.
+func (e *manualEnviron) AdoptResources(controllerUUID string, fromVersion version.Number) error {
+	// This provider doesn't track instance -> controller.
 	return nil
 }
 
@@ -355,15 +362,15 @@ func (e *manualEnviron) seriesAndHardwareCharacteristics() (_ *instance.Hardware
 	return e.hw, e.series, nil
 }
 
-func (e *manualEnviron) OpenPorts(ports []network.PortRange) error {
+func (e *manualEnviron) OpenPorts(rules []network.IngressRule) error {
 	return nil
 }
 
-func (e *manualEnviron) ClosePorts(ports []network.PortRange) error {
+func (e *manualEnviron) ClosePorts(rules []network.IngressRule) error {
 	return nil
 }
 
-func (e *manualEnviron) Ports() ([]network.PortRange, error) {
+func (e *manualEnviron) IngressRules() ([]network.IngressRule, error) {
 	return nil, nil
 }
 

@@ -21,9 +21,11 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/series"
+	"github.com/juju/utils/set"
 	"github.com/juju/utils/ssh"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/goose.v1/cinder"
 	"gopkg.in/goose.v1/client"
 	"gopkg.in/goose.v1/identity"
 	"gopkg.in/goose.v1/neutron"
@@ -32,6 +34,7 @@ import (
 	"gopkg.in/goose.v1/testservices/neutronservice"
 	"gopkg.in/goose.v1/testservices/novaservice"
 	"gopkg.in/goose.v1/testservices/openstackservice"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig/instancecfg"
@@ -45,7 +48,8 @@ import (
 	"github.com/juju/juju/environs/jujutest"
 	"github.com/juju/juju/environs/simplestreams"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
-	"github.com/juju/juju/environs/storage"
+	envstorage "github.com/juju/juju/environs/storage"
+	"github.com/juju/juju/environs/tags"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
@@ -56,6 +60,7 @@ import (
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/openstack"
 	"github.com/juju/juju/status"
+	"github.com/juju/juju/storage"
 	coretesting "github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
 )
@@ -150,9 +155,47 @@ type localLiveSuite struct {
 	srv localServer
 }
 
-func overrideCinderProvider(c *gc.C, s *gitjujutesting.CleanupSuite) {
+func makeMockAdapter() *mockAdapter {
+	volumes := make(map[string]*cinder.Volume)
+	return &mockAdapter{
+		createVolume: func(args cinder.CreateVolumeVolumeParams) (*cinder.Volume, error) {
+			metadata := args.Metadata.(map[string]string)
+			volume := cinder.Volume{
+				ID:       args.Name,
+				Metadata: metadata,
+				Status:   "cool",
+			}
+			volumes[volume.ID] = &volume
+			return &volume, nil
+		},
+		getVolumesDetail: func() ([]cinder.Volume, error) {
+			var result []cinder.Volume
+			for _, volume := range volumes {
+				result = append(result, *volume)
+			}
+			return result, nil
+		},
+		getVolume: func(volumeId string) (*cinder.Volume, error) {
+			if volume, ok := volumes[volumeId]; ok {
+				return volume, nil
+			}
+			return nil, errors.New("not found")
+		},
+		setVolumeMetadata: func(volumeId string, metadata map[string]string) (map[string]string, error) {
+			if volume, ok := volumes[volumeId]; ok {
+				for k, v := range metadata {
+					volume.Metadata[k] = v
+				}
+				return volume.Metadata, nil
+			}
+			return nil, errors.New("not found")
+		},
+	}
+}
+
+func overrideCinderProvider(c *gc.C, s *gitjujutesting.CleanupSuite, adapter *mockAdapter) {
 	s.PatchValue(openstack.NewOpenstackStorage, func(*openstack.Environ) (openstack.OpenstackStorage, error) {
-		return &mockAdapter{}, nil
+		return adapter, nil
 	})
 }
 
@@ -172,7 +215,7 @@ func (s *localLiveSuite) SetUpSuite(c *gc.C) {
 	openstack.UseTestImageData(openstack.ImageMetadataStorage(s.Env), s.cred)
 	restoreFinishBootstrap := envtesting.DisableFinishBootstrap()
 	s.AddCleanup(func(*gc.C) { restoreFinishBootstrap() })
-	overrideCinderProvider(c, &s.CleanupSuite)
+	overrideCinderProvider(c, &s.CleanupSuite, &mockAdapter{})
 }
 
 func (s *localLiveSuite) TearDownSuite(c *gc.C) {
@@ -203,15 +246,15 @@ type localServerSuite struct {
 	cred                 *identity.Credentials
 	srv                  localServer
 	env                  environs.Environ
-	toolsMetadataStorage storage.Storage
-	imageMetadataStorage storage.Storage
+	toolsMetadataStorage envstorage.Storage
+	imageMetadataStorage envstorage.Storage
+	storageAdapter       *mockAdapter
 }
 
 func (s *localServerSuite) SetUpSuite(c *gc.C) {
 	s.BaseSuite.SetUpSuite(c)
 	restoreFinishBootstrap := envtesting.DisableFinishBootstrap()
 	s.AddCleanup(func(*gc.C) { restoreFinishBootstrap() })
-	overrideCinderProvider(c, &s.CleanupSuite)
 	c.Logf("Running local tests")
 }
 
@@ -246,6 +289,8 @@ func (s *localServerSuite) SetUpTest(c *gc.C) {
 	envtesting.UploadFakeTools(c, s.toolsMetadataStorage, s.env.Config().AgentStream(), s.env.Config().AgentStream())
 	s.imageMetadataStorage = openstack.ImageMetadataStorage(s.env)
 	openstack.UseTestImageData(s.imageMetadataStorage, s.cred)
+	s.storageAdapter = makeMockAdapter()
+	overrideCinderProvider(c, &s.CleanupSuite, s.storageAdapter)
 }
 
 func (s *localServerSuite) TearDownTest(c *gc.C) {
@@ -1249,7 +1294,7 @@ type localHTTPSServerSuite struct {
 
 func (s *localHTTPSServerSuite) SetUpSuite(c *gc.C) {
 	s.BaseSuite.SetUpSuite(c)
-	overrideCinderProvider(c, &s.CleanupSuite)
+	overrideCinderProvider(c, &s.CleanupSuite, &mockAdapter{})
 }
 
 func (s *localHTTPSServerSuite) createConfigAttrs(c *gc.C) map[string]interface{} {
@@ -1842,6 +1887,129 @@ func (t *localServerSuite) TestTagInstance(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	assertMetadata(extraKey, extraValue)
+}
+
+func (s *localServerSuite) TestAdoptResources(c *gc.C) {
+	err := bootstrapEnv(c, s.env)
+	c.Assert(err, jc.ErrorIsNil)
+
+	hostedModelUUID := "7e386e08-cba7-44a4-a76e-7c1633584210"
+	cfg, err := s.env.Config().Apply(map[string]interface{}{
+		"uuid": hostedModelUUID,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	env, err := environs.New(environs.OpenParams{
+		Cloud:  makeCloudSpec(s.cred),
+		Config: cfg,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	originalController := coretesting.ControllerTag.Id()
+	_, _, _, err = testing.StartInstance(env, originalController, "0")
+	c.Assert(err, jc.ErrorIsNil)
+
+	addVolume(c, s.env, originalController, "99/9")
+	addVolume(c, env, originalController, "23/9")
+
+	s.checkInstanceTags(c, s.env, originalController)
+	s.checkInstanceTags(c, env, originalController)
+	s.checkVolumeTags(c, s.env, originalController)
+	s.checkVolumeTags(c, env, originalController)
+	s.checkGroupController(c, s.env, originalController)
+	s.checkGroupController(c, env, originalController)
+
+	// Needs to be a correctly formatted uuid so we can get it out of
+	// group names.
+	newController := "aaaaaaaa-bbbb-cccc-dddd-0123456789ab"
+	err = env.AdoptResources(newController, version.MustParse("1.2.3"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.checkInstanceTags(c, s.env, originalController)
+	s.checkInstanceTags(c, env, newController)
+	s.checkVolumeTags(c, s.env, originalController)
+	s.checkVolumeTags(c, env, newController)
+	s.checkGroupController(c, s.env, originalController)
+	s.checkGroupController(c, env, newController)
+}
+
+func addVolume(c *gc.C, env environs.Environ, controllerUUID, name string) {
+	storageAdapter, err := (*openstack.NewOpenstackStorage)(env.(*openstack.Environ))
+	c.Assert(err, jc.ErrorIsNil)
+	modelUUID := env.Config().UUID()
+	source := openstack.NewCinderVolumeSourceForModel(storageAdapter, modelUUID)
+	result, err := source.CreateVolumes([]storage.VolumeParams{{
+		Tag: names.NewVolumeTag(name),
+		ResourceTags: tags.ResourceTags(
+			names.NewModelTag(modelUUID),
+			names.NewControllerTag(controllerUUID),
+		),
+	}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.HasLen, 1)
+	c.Assert(result[0].Error, jc.ErrorIsNil)
+}
+
+func (s *localServerSuite) checkInstanceTags(c *gc.C, env environs.Environ, expectedController string) {
+	instances, err := env.AllInstances()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(instances, gc.Not(gc.HasLen), 0)
+	for _, instance := range instances {
+		server := openstack.InstanceServerDetail(instance)
+		c.Logf(string(instance.Id()))
+		c.Check(server.Metadata[tags.JujuController], gc.Equals, expectedController)
+	}
+}
+
+func (s *localServerSuite) checkVolumeTags(c *gc.C, env environs.Environ, expectedController string) {
+	storage, err := (*openstack.NewOpenstackStorage)(env.(*openstack.Environ))
+	c.Assert(err, jc.ErrorIsNil)
+	source := openstack.NewCinderVolumeSourceForModel(storage, env.Config().UUID())
+	volumeIds, err := source.ListVolumes()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(volumeIds, gc.Not(gc.HasLen), 0)
+	for _, volumeId := range volumeIds {
+		c.Logf(volumeId)
+		volume, err := storage.GetVolume(volumeId)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Check(volume.Metadata[tags.JujuController], gc.Equals, expectedController)
+	}
+}
+
+func (s *localServerSuite) checkGroupController(c *gc.C, env environs.Environ, expectedController string) {
+	groupNames, err := openstack.GetModelGroupNames(env)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(groupNames, gc.Not(gc.HasLen), 0)
+	extractControllerRe, err := regexp.Compile(openstack.GroupControllerPattern)
+	c.Assert(err, jc.ErrorIsNil)
+	for _, group := range groupNames {
+		c.Logf(group)
+		controller := extractControllerRe.ReplaceAllString(group, "$controllerUUID")
+		c.Check(controller, gc.Equals, expectedController)
+	}
+}
+
+func (s *localServerSuite) TestUpdateGroupController(c *gc.C) {
+	err := bootstrapEnv(c, s.env)
+	c.Assert(err, jc.ErrorIsNil)
+
+	groupNames, err := openstack.GetModelGroupNames(s.env)
+	c.Assert(err, jc.ErrorIsNil)
+	groupNamesBefore := set.NewStrings(groupNames...)
+	c.Assert(groupNamesBefore, gc.DeepEquals, set.NewStrings(
+		"juju-deadbeef-1bad-500d-9000-4b1d0d06f00d-deadbeef-0bad-400d-8000-4b1d0d06f00d",
+		"juju-deadbeef-1bad-500d-9000-4b1d0d06f00d-deadbeef-0bad-400d-8000-4b1d0d06f00d-0",
+	))
+
+	firewaller := openstack.GetFirewaller(s.env)
+	err = firewaller.UpdateGroupController("aabbccdd-eeee-ffff-0000-0123456789ab")
+	c.Assert(err, jc.ErrorIsNil)
+
+	groupNames, err = openstack.GetModelGroupNames(s.env)
+	c.Assert(err, jc.ErrorIsNil)
+	groupNamesAfter := set.NewStrings(groupNames...)
+	c.Assert(groupNamesAfter, gc.DeepEquals, set.NewStrings(
+		"juju-aabbccdd-eeee-ffff-0000-0123456789ab-deadbeef-0bad-400d-8000-4b1d0d06f00d",
+		"juju-aabbccdd-eeee-ffff-0000-0123456789ab-deadbeef-0bad-400d-8000-4b1d0d06f00d-0",
+	))
 }
 
 func prepareParams(attrs map[string]interface{}, cred *identity.Credentials) bootstrap.PrepareParams {

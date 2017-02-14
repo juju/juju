@@ -278,38 +278,40 @@ func (*PortRangeSuite) TestMustParsePortRangeInvalid(c *gc.C) {
 	c.Check(f, gc.PanicMatches, `invalid port range "10-55-100".*`)
 }
 
-func (*PortRangeSuite) TestParsePortRanges(c *gc.C) {
-	portRanges, err := network.ParsePortRanges("80/tcp,8000-8099/tcp")
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Assert(portRanges, gc.HasLen, 2)
-	c.Check(portRanges[0].Protocol, gc.Equals, "tcp")
-	c.Check(portRanges[0].FromPort, gc.Equals, 80)
-	c.Check(portRanges[0].ToPort, gc.Equals, 80)
-	c.Check(portRanges[1].Protocol, gc.Equals, "tcp")
-	c.Check(portRanges[1].FromPort, gc.Equals, 8000)
-	c.Check(portRanges[1].ToPort, gc.Equals, 8099)
-}
-
-func (*PortRangeSuite) TestParsePortRangesSingle(c *gc.C) {
-	portRanges, err := network.ParsePortRanges("80")
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Assert(portRanges, gc.HasLen, 1)
-	c.Check(portRanges[0].Protocol, gc.Equals, "tcp")
-	c.Check(portRanges[0].FromPort, gc.Equals, 80)
-	c.Check(portRanges[0].ToPort, gc.Equals, 80)
-}
-
-func (*PortRangeSuite) TestParsePortRangesSpaces(c *gc.C) {
-	portRanges, err := network.ParsePortRanges(" 80, 	8000-8099  ")
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Assert(portRanges, gc.HasLen, 2)
-	c.Check(portRanges[0].Protocol, gc.Equals, "tcp")
-	c.Check(portRanges[0].FromPort, gc.Equals, 80)
-	c.Check(portRanges[0].ToPort, gc.Equals, 80)
-	c.Check(portRanges[1].Protocol, gc.Equals, "tcp")
-	c.Check(portRanges[1].FromPort, gc.Equals, 8000)
-	c.Check(portRanges[1].ToPort, gc.Equals, 8099)
+func (*PortRangeSuite) TestCombinePortRanges(c *gc.C) {
+	testCases := []struct {
+		in       []network.PortRange
+		expected []network.PortRange
+	}{{
+		[]network.PortRange{{80, 80, "tcp"}},
+		[]network.PortRange{{80, 80, "tcp"}},
+	}, {
+		[]network.PortRange{{80, 82, "tcp"}, {83, 85, "tcp"}},
+		[]network.PortRange{{80, 85, "tcp"}},
+	}, {
+		[]network.PortRange{{83, 85, "tcp"}, {80, 82, "tcp"}},
+		[]network.PortRange{{80, 85, "tcp"}},
+	}, {
+		[]network.PortRange{{80, 83, "tcp"}, {85, 87, "tcp"}},
+		[]network.PortRange{{80, 83, "tcp"}, {85, 87, "tcp"}},
+	}, {
+		[]network.PortRange{{85, 87, "tcp"}, {80, 83, "tcp"}},
+		[]network.PortRange{{80, 83, "tcp"}, {85, 87, "tcp"}},
+	}, {
+		[]network.PortRange{{85, 87, "tcp"}, {80, 83, "tcp"}},
+		[]network.PortRange{{80, 83, "tcp"}, {85, 87, "tcp"}},
+	}, {
+		[]network.PortRange{{80, 83, "tcp"}, {84, 87, "udp"}},
+		[]network.PortRange{{80, 83, "tcp"}, {84, 87, "udp"}},
+	}, {
+		[]network.PortRange{{80, 82, "tcp"}, {80, 80, "udp"}, {83, 83, "tcp"}, {81, 84, "udp"}, {84, 85, "tcp"}},
+		[]network.PortRange{{80, 85, "tcp"}, {80, 84, "udp"}},
+	}, {
+		[]network.PortRange{{80, 82, "tcp"}, {81, 84, "udp"}, {84, 84, "tcp"}, {86, 87, "udp"}, {80, 80, "udp"}},
+		[]network.PortRange{{80, 82, "tcp"}, {84, 84, "tcp"}, {80, 84, "udp"}, {86, 87, "udp"}},
+	}}
+	for i, t := range testCases {
+		c.Logf("test %d", i)
+		c.Check(network.CombinePortRanges(t.in...), jc.DeepEquals, t.expected)
+	}
 }

@@ -11,6 +11,7 @@ import (
 
 	"github.com/joyent/gosdc/cloudapi"
 
+	"github.com/juju/errors"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/network"
 )
@@ -25,7 +26,7 @@ var (
 )
 
 // Helper method to create a firewall rule string for the given port
-func createFirewallRuleAll(envName string, portRange network.PortRange) string {
+func createFirewallRuleAll(envName string, portRange network.IngressRule) string {
 	ports := []string{}
 	for p := portRange.FromPort; p <= portRange.ToPort; p++ {
 		ports = append(ports, fmt.Sprintf("PORT %d", p))
@@ -51,9 +52,9 @@ func ruleExists(rules []cloudapi.FirewallRule, rule string) (bool, string) {
 }
 
 // Helper method to get port from the given firewall rules
-func getPorts(envName string, rules []cloudapi.FirewallRule) []network.PortRange {
-	portRanges := []network.PortRange{}
-	for _, r := range rules {
+func getRules(envName string, fwrules []cloudapi.FirewallRule) ([]network.IngressRule, error) {
+	rules := []network.IngressRule{}
+	for _, r := range fwrules {
 		rule := r.Rule
 		if r.Enabled && strings.HasPrefix(rule, "FROM tag "+envName) && strings.Contains(rule, "PORT") {
 			if firewallSinglePortRule.MatchString(rule) {
@@ -63,7 +64,11 @@ func getPorts(envName string, rules []cloudapi.FirewallRule) []network.PortRange
 				}
 				protocol := parts[1]
 				n, _ := strconv.Atoi(parts[2])
-				portRanges = append(portRanges, network.PortRange{Protocol: protocol, FromPort: n, ToPort: n})
+				rule, err := network.NewIngressRule(protocol, n, n, "0.0.0.0/0")
+				if err != nil {
+					return nil, errors.Trace(err)
+				}
+				rules = append(rules, rule)
 			} else if firewallMultiPortRule.MatchString(rule) {
 				parts := firewallMultiPortRule.FindStringSubmatch(rule)
 				if len(parts) != 3 {
@@ -77,16 +82,20 @@ func getPorts(envName string, rules []cloudapi.FirewallRule) []network.PortRange
 					port, _ := strconv.Atoi(portString)
 					ports = append(ports, network.Port{protocol, port})
 				}
-				portRanges = append(portRanges, network.CollapsePorts(ports)...)
+				portRange := network.CollapsePorts(ports)
+				for _, port := range portRange {
+					rule, _ := network.NewIngressRule(port.Protocol, port.FromPort, port.ToPort, "0.0.0.0/0")
+					rules = append(rules, rule)
+				}
 			}
 		}
 	}
 
-	network.SortPortRanges(portRanges)
-	return portRanges
+	network.SortIngressRules(rules)
+	return rules, nil
 }
 
-func (env *joyentEnviron) OpenPorts(ports []network.PortRange) error {
+func (env *joyentEnviron) OpenPorts(ports []network.IngressRule) error {
 	if env.Config().FirewallMode() != config.FwGlobal {
 		return fmt.Errorf("invalid firewall mode %q for opening ports on model", env.Config().FirewallMode())
 	}
@@ -119,7 +128,7 @@ func (env *joyentEnviron) OpenPorts(ports []network.PortRange) error {
 	return nil
 }
 
-func (env *joyentEnviron) ClosePorts(ports []network.PortRange) error {
+func (env *joyentEnviron) ClosePorts(ports []network.IngressRule) error {
 	if env.Config().FirewallMode() != config.FwGlobal {
 		return fmt.Errorf("invalid firewall mode %q for closing ports on model", env.Config().FirewallMode())
 	}
@@ -152,9 +161,9 @@ func (env *joyentEnviron) ClosePorts(ports []network.PortRange) error {
 	return nil
 }
 
-func (env *joyentEnviron) Ports() ([]network.PortRange, error) {
+func (env *joyentEnviron) IngressRules() ([]network.IngressRule, error) {
 	if env.Config().FirewallMode() != config.FwGlobal {
-		return nil, fmt.Errorf("invalid firewall mode %q for retrieving ports from model", env.Config().FirewallMode())
+		return nil, fmt.Errorf("invalid firewall mode %q for retrieving ingress rules from model", env.Config().FirewallMode())
 	}
 
 	fwRules, err := env.compute.cloudapi.ListFirewallRules()
@@ -162,5 +171,5 @@ func (env *joyentEnviron) Ports() ([]network.PortRange, error) {
 		return nil, fmt.Errorf("cannot get firewall rules: %v", err)
 	}
 
-	return getPorts(env.Config().Name(), fwRules), nil
+	return getRules(env.Config().Name(), fwRules)
 }

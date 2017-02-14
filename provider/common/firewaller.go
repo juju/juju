@@ -11,14 +11,14 @@ import (
 
 // Firewaller provides the functionality to firewalls in a cloud.
 type Firewaller interface {
-	// Ports returns the list of open ports on the named firewall.
-	Ports(fwname string) ([]network.PortRange, error)
+	// IngressRules returns the list of open ports on the named firewall.
+	IngressRules(fwname string) ([]network.IngressRule, error)
 
 	// OpenPorts opens the specified ports on the named firewall.
-	OpenPorts(fwname string, ports ...network.PortRange) error
+	OpenPorts(fwname string, rules ...network.IngressRule) error
 
 	// ClosePorts closes the specified ports on the named firewall.
-	ClosePorts(fwname string, ports ...network.PortRange) error
+	ClosePorts(fwname string, rules ...network.IngressRule) error
 }
 
 // TODO(ericsnow) A generic implementation will likely look a lot like
@@ -32,17 +32,17 @@ func NewFirewaller() Firewaller {
 
 type notImplementedFirewaller struct{}
 
-// Ports implements Firewaller.
-func (notImplementedFirewaller) Ports(fwname string) ([]network.PortRange, error) {
-	return nil, errors.NotImplementedf("Ports method")
+// IngressRules implements Firewaller.
+func (notImplementedFirewaller) IngressRules(fwname string) ([]network.IngressRule, error) {
+	return nil, errors.NotImplementedf("Rules method")
 }
 
 // OpenPorts implements Firewaller.
-func (notImplementedFirewaller) OpenPorts(fwname string, ports ...network.PortRange) error {
+func (notImplementedFirewaller) OpenPorts(fwname string, rules ...network.IngressRule) error {
 	return errors.NotImplementedf("OpenPorts method")
 }
 
 // ClosePorts implements Firewaller.
-func (notImplementedFirewaller) ClosePorts(fwname string, ports ...network.PortRange) error {
+func (notImplementedFirewaller) ClosePorts(fwname string, ports ...network.IngressRule) error {
 	return errors.NotImplementedf("ClosePorts method")
 }

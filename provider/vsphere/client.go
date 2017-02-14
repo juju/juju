@@ -45,7 +45,6 @@ var newConnection = func(url *url.URL) (*govmomi.Client, func() error, error) {
 	logout := func() error {
 		return conn.Logout(context.TODO())
 	}
-
 	return conn, logout, nil
 
 }

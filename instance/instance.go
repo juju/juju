@@ -42,16 +42,19 @@ type Instance interface {
 
 	// OpenPorts opens the given port ranges on the instance, which
 	// should have been started with the given machine id.
-	OpenPorts(machineId string, ports []network.PortRange) error
+	OpenPorts(machineId string, rules []network.IngressRule) error
 
 	// ClosePorts closes the given port ranges on the instance, which
 	// should have been started with the given machine id.
-	ClosePorts(machineId string, ports []network.PortRange) error
+	ClosePorts(machineId string, rules []network.IngressRule) error
 
-	// Ports returns the set of port ranges open on the instance,
-	// which should have been started with the given machine id. The
-	// port ranges are returned as sorted by network.SortPortRanges().
-	Ports(machineId string) ([]network.PortRange, error)
+	// IngressRules returns the set of ingress rules for the instance,
+	// which should have been applied to the given machine id. The
+	// rules are returned as sorted by network.SortIngressRules().
+	// It is expected that there be only one ingress rule result for a given
+	// port range - the rule's SourceCIDRs will contain all applicable source
+	// address rules for that port range.
+	IngressRules(machineId string) ([]network.IngressRule, error)
 }
 
 // HardwareCharacteristics represents the characteristics of the instance (if known).

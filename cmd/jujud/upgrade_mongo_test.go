@@ -262,14 +262,15 @@ func (f *fakeRunCommand) reStartServiceFail() error {
 	f.ranCommands = append(f.ranCommands, []string{"mongo.ReStartServiceFail"})
 	return errors.New("failing restart")
 }
-func (f *fakeRunCommand) ensureServiceInstalled(dataDir string, statePort, oplogSizeMB int, setNUMAControlPolicy bool, version mongo.Version, auth bool) error {
+func (f *fakeRunCommand) ensureServiceInstalled(dataDir string, statePort, oplogSizeMB int, setNUMAControlPolicy bool, version mongo.Version, auth bool, mmprof mongo.MemoryProfile) error {
 	ran := []string{"mongo.EnsureServiceInstalled",
 		dataDir,
 		strconv.Itoa(statePort),
 		strconv.Itoa(oplogSizeMB),
 		strconv.FormatBool(setNUMAControlPolicy),
 		version.String(),
-		strconv.FormatBool(auth)}
+		strconv.FormatBool(auth),
+		mmprof.String()}
 
 	f.ranCommands = append(f.ranCommands, ran)
 	return nil
@@ -460,25 +461,25 @@ func (s *UpgradeMongoCommandSuite) TestRun(c *gc.C) {
 		[]string{"mongo.StartService"},
 		[]string{"mongo.StopService"},
 		[]string{"/usr/lib/juju/bin/mongod", "--dbpath", "/var/lib/juju/db", "--replSet", "juju", "--upgrade"},
-		[]string{"mongo.EnsureServiceInstalled", testDir, "69", "0", "false", "2.6/mmapv1", "true"},
+		[]string{"mongo.EnsureServiceInstalled", testDir, "69", "0", "false", "2.6/mmapv1", "true", "low"},
 		[]string{"mongo.StartService"},
 		[]string{"DialAndlogin"},
 		[]string{"mongo.ReStartService"},
 		[]string{"/usr/lib/juju/mongo2.6/bin/mongodump", "--ssl", "-u", "admin", "-p", "sekrit", "--port", "69", "--host", "localhost", "--out", "/fake/temp/dir/migrateTo30dump"},
 		[]string{"mongo.StopService"},
-		[]string{"mongo.EnsureServiceInstalled", testDir, "69", "0", "false", "3.2/mmapv1", "true"},
+		[]string{"mongo.EnsureServiceInstalled", testDir, "69", "0", "false", "3.2/mmapv1", "true", "low"},
 		[]string{"mongo.StartService"},
 		[]string{"/usr/lib/juju/mongo3.2/bin/mongodump", "--ssl", "-u", "admin", "-p", "sekrit", "--port", "69", "--host", "localhost", "--out", "/fake/temp/dir/migrateToTigerdump"},
 		[]string{"mongo.StopService"},
 		[]string{"stat", dbDir},
 		[]string{"remove", dbDir},
 		[]string{"mkdir", dbDir},
-		[]string{"mongo.EnsureServiceInstalled", testDir, "69", "0", "false", "3.2/wiredTiger", "false"},
+		[]string{"mongo.EnsureServiceInstalled", testDir, "69", "0", "false", "3.2/wiredTiger", "false", "low"},
 		[]string{"mongo.DialInfo"},
 		[]string{"mongo.StartService"},
 		[]string{"peergrouper.InitiateMongoServer"},
 		[]string{"/usr/lib/juju/mongo3.2/bin/mongorestore", "--ssl", "--port", "69", "--host", "localhost", "--sslAllowInvalidCertificates", "--batchSize", "100", "/fake/temp/dir/migrateToTigerdump"},
-		[]string{"mongo.EnsureServiceInstalled", testDir, "69", "0", "false", "3.2/wiredTiger", "true"},
+		[]string{"mongo.EnsureServiceInstalled", testDir, "69", "0", "false", "3.2/wiredTiger", "true", "low"},
 		[]string{"mongo.ReStartService"},
 	}
 	c.Assert(command.ranCommands, jc.DeepEquals, expectedCommands)
@@ -547,7 +548,7 @@ func (s *UpgradeMongoCommandSuite) TestRunRollback(c *gc.C) {
 		[]string{"mongo.StartService"},
 		[]string{"mongo.StopService"},
 		[]string{"/usr/lib/juju/bin/mongod", "--dbpath", "/var/lib/juju/db", "--replSet", "juju", "--upgrade"},
-		[]string{"mongo.EnsureServiceInstalled", tempDir, "69", "0", "false", "2.6/mmapv1", "true"},
+		[]string{"mongo.EnsureServiceInstalled", tempDir, "69", "0", "false", "2.6/mmapv1", "true", "low"},
 		[]string{"mongo.StartService"},
 		[]string{"DialAndlogin"},
 		[]string{"mongo.ReStartServiceFail"},
@@ -616,19 +617,19 @@ func (s *UpgradeMongoCommandSuite) TestRunContinuesWhereLeft(c *gc.C) {
 		[]string{"SatisfyPrerequisites"},
 		[]string{"/usr/lib/juju/mongo2.6/bin/mongodump", "--ssl", "-u", "admin", "-p", "sekrit", "--port", "69", "--host", "localhost", "--out", "/fake/temp/dir/migrateTo30dump"},
 		[]string{"mongo.StopService"},
-		[]string{"mongo.EnsureServiceInstalled", testDir, "69", "0", "false", "3.2/mmapv1", "true"},
+		[]string{"mongo.EnsureServiceInstalled", testDir, "69", "0", "false", "3.2/mmapv1", "true", "low"},
 		[]string{"mongo.StartService"},
 		[]string{"/usr/lib/juju/mongo3.2/bin/mongodump", "--ssl", "-u", "admin", "-p", "sekrit", "--port", "69", "--host", "localhost", "--out", "/fake/temp/dir/migrateToTigerdump"},
 		[]string{"mongo.StopService"},
 		[]string{"stat", dbDir},
 		[]string{"remove", dbDir},
 		[]string{"mkdir", dbDir},
-		[]string{"mongo.EnsureServiceInstalled", testDir, "69", "0", "false", "3.2/wiredTiger", "false"},
+		[]string{"mongo.EnsureServiceInstalled", testDir, "69", "0", "false", "3.2/wiredTiger", "false", "low"},
 		[]string{"mongo.DialInfo"},
 		[]string{"mongo.StartService"},
 		[]string{"peergrouper.InitiateMongoServer"},
 		[]string{"/usr/lib/juju/mongo3.2/bin/mongorestore", "--ssl", "--port", "69", "--host", "localhost", "--sslAllowInvalidCertificates", "--batchSize", "100", "/fake/temp/dir/migrateToTigerdump"},
-		[]string{"mongo.EnsureServiceInstalled", testDir, "69", "0", "false", "3.2/wiredTiger", "true"},
+		[]string{"mongo.EnsureServiceInstalled", testDir, "69", "0", "false", "3.2/wiredTiger", "true", "low"},
 		[]string{"mongo.ReStartService"},
 	}
 	c.Assert(command.ranCommands, gc.DeepEquals, expectedCommands)

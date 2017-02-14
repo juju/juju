@@ -39,19 +39,29 @@ type modelStatus struct {
 	Status           statusInfoContents `json:"model-status,omitempty" yaml:"model-status,omitempty"`
 }
 
+type networkInterface struct {
+	IPAddresses    []string `json:"ip-addresses" yaml:"ip-addresses"`
+	MACAddress     string   `json:"mac-address" yaml:"mac-address"`
+	Gateway        string   `json:"gateway,omitempty" yaml:"gateway,omitempty"`
+	DNSNameservers []string `json:"dns-nameservers,omitempty" yaml:"dns-nameservers,omitempty"`
+	Space          string   `json:"space,omitempty" yaml:"space,omitempty"`
+	IsUp           bool     `json:"is-up" yaml:"is-up"`
+}
+
 type machineStatus struct {
-	Err           error                    `json:"-" yaml:",omitempty"`
-	JujuStatus    statusInfoContents       `json:"juju-status,omitempty" yaml:"juju-status,omitempty"`
-	DNSName       string                   `json:"dns-name,omitempty" yaml:"dns-name,omitempty"`
-	IPAddresses   []string                 `json:"ip-addresses,omitempty" yaml:"ip-addresses,omitempty"`
-	InstanceId    instance.Id              `json:"instance-id,omitempty" yaml:"instance-id,omitempty"`
-	MachineStatus statusInfoContents       `json:"machine-status,omitempty" yaml:"machine-status,omitempty"`
-	Series        string                   `json:"series,omitempty" yaml:"series,omitempty"`
-	Id            string                   `json:"-" yaml:"-"`
-	Containers    map[string]machineStatus `json:"containers,omitempty" yaml:"containers,omitempty"`
-	Constraints   string                   `json:"constraints,omitempty" yaml:"constraints,omitempty"`
-	Hardware      string                   `json:"hardware,omitempty" yaml:"hardware,omitempty"`
-	HAStatus      string                   `json:"controller-member-status,omitempty" yaml:"controller-member-status,omitempty"`
+	Err               error                       `json:"-" yaml:",omitempty"`
+	JujuStatus        statusInfoContents          `json:"juju-status,omitempty" yaml:"juju-status,omitempty"`
+	DNSName           string                      `json:"dns-name,omitempty" yaml:"dns-name,omitempty"`
+	IPAddresses       []string                    `json:"ip-addresses,omitempty" yaml:"ip-addresses,omitempty"`
+	InstanceId        instance.Id                 `json:"instance-id,omitempty" yaml:"instance-id,omitempty"`
+	MachineStatus     statusInfoContents          `json:"machine-status,omitempty" yaml:"machine-status,omitempty"`
+	Series            string                      `json:"series,omitempty" yaml:"series,omitempty"`
+	Id                string                      `json:"-" yaml:"-"`
+	NetworkInterfaces map[string]networkInterface `json:"network-interfaces,omitempty" yaml:"network-interfaces,omitempty"`
+	Containers        map[string]machineStatus    `json:"containers,omitempty" yaml:"containers,omitempty"`
+	Constraints       string                      `json:"constraints,omitempty" yaml:"constraints,omitempty"`
+	Hardware          string                      `json:"hardware,omitempty" yaml:"hardware,omitempty"`
+	HAStatus          string                      `json:"controller-member-status,omitempty" yaml:"controller-member-status,omitempty"`
 }
 
 // A goyaml bug means we can't declare these types

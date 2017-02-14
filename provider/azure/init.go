@@ -6,6 +6,7 @@ package azure
 import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/clock"
+	"github.com/juju/utils/ssh"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/provider/azure/internal/azureauth"
@@ -31,6 +32,7 @@ func init() {
 		NewStorageClient:                  azurestorage.NewClient,
 		RetryClock:                        &clock.WallClock,
 		RandomWindowsAdminPassword:        randomAdminPassword,
+		GenerateSSHKey:                    ssh.GenerateKey,
 		InteractiveCreateServicePrincipal: azureauth.InteractiveCreateServicePrincipal,
 	})
 	if err != nil {

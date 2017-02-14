@@ -69,6 +69,7 @@ func (s *addSuite) TestAddBadArgs(c *gc.C) {
 
 var (
 	homestackCloud = cloudfile.Cloud{
+		Name:      "homestack",
 		Type:      "openstack",
 		AuthTypes: []cloudfile.AuthType{"userpass", "access-key"},
 		Endpoint:  "http://homestack",
@@ -79,8 +80,12 @@ var (
 			},
 		},
 	}
-	localhostCloud = cloudfile.Cloud{Type: "lxd"}
-	awsCloud       = cloudfile.Cloud{
+	localhostCloud = cloudfile.Cloud{
+		Name: "localhost",
+		Type: "lxd",
+	}
+	awsCloud = cloudfile.Cloud{
+		Name:      "aws",
 		Type:      "ec2",
 		AuthTypes: []cloudfile.AuthType{"acccess-key"},
 		Regions: []cloudfile.Region{
@@ -91,12 +96,14 @@ var (
 		},
 	}
 	garageMAASCloud = cloudfile.Cloud{
+		Name:      "garage-maas",
 		Type:      "maas",
 		AuthTypes: []cloudfile.AuthType{"oauth"},
 		Endpoint:  "http://garagemaas",
 	}
 
 	manualCloud = cloudfile.Cloud{
+		Name:      "manual",
 		Type:      "manual",
 		AuthTypes: []cloudfile.AuthType{"manual"},
 		Endpoint:  "192.168.1.6",
@@ -237,6 +244,7 @@ func (*addSuite) TestInteractiveOpenstack(c *gc.C) {
 	fake.Call("PublicCloudMetadata", []string(nil)).Returns(map[string]cloudfile.Cloud{}, false, nil)
 	fake.Call("PersonalCloudMetadata").Returns(map[string]cloudfile.Cloud{}, nil)
 	myOpenstack := cloudfile.Cloud{
+		Name:      "os1",
 		Type:      "openstack",
 		AuthTypes: []cloudfile.AuthType{"userpass", "access-key"},
 		Endpoint:  "http://myopenstack",
@@ -295,7 +303,9 @@ func (*addSuite) TestInteractiveMaas(c *gc.C) {
 		"- oauth1\n" +
 		"endpoint: http://mymaas\n"
 	fake.Call("ParseOneCloud", []byte(expectedYAMLarg)).Returns(garageMAASCloud, nil)
-	m1Metadata := map[string]cloudfile.Cloud{"m1": garageMAASCloud}
+	m1Cloud := garageMAASCloud
+	m1Cloud.Name = "m1"
+	m1Metadata := map[string]cloudfile.Cloud{"m1": m1Cloud}
 	numCallsToWrite := fake.Call("WritePersonalCloudMetadata", m1Metadata).Returns(nil)
 
 	command := cloud.NewAddCloudCommand(fake)
@@ -322,11 +332,13 @@ func (*addSuite) TestInteractiveMaas(c *gc.C) {
 }
 
 func (*addSuite) TestInteractiveManual(c *gc.C) {
+	manCloud := manualCloud
+	manCloud.Name = "man"
 	fake := newFakeCloudMetadataStore()
 	fake.Call("PublicCloudMetadata", []string(nil)).Returns(map[string]cloudfile.Cloud{}, false, nil)
 	fake.Call("PersonalCloudMetadata").Returns(map[string]cloudfile.Cloud{}, nil)
-	fake.Call("ParseOneCloud", []byte("endpoint: 192.168.1.6\n")).Returns(manualCloud, nil)
-	manMetadata := map[string]cloudfile.Cloud{"man": manualCloud}
+	fake.Call("ParseOneCloud", []byte("endpoint: 192.168.1.6\n")).Returns(manCloud, nil)
+	manMetadata := map[string]cloudfile.Cloud{"man": manCloud}
 	numCallsToWrite := fake.Call("WritePersonalCloudMetadata", manMetadata).Returns(nil)
 
 	command := cloud.NewAddCloudCommand(fake)
@@ -357,6 +369,7 @@ func (*addSuite) TestInteractiveVSphere(c *gc.C) {
 	fake.Call("PublicCloudMetadata", []string(nil)).Returns(map[string]cloudfile.Cloud{}, false, nil)
 	fake.Call("PersonalCloudMetadata").Returns(map[string]cloudfile.Cloud{}, nil)
 	vsphereCloud := cloudfile.Cloud{
+		Name:      "mvs",
 		Type:      "vsphere",
 		AuthTypes: []cloudfile.AuthType{"userpass", "access-key"},
 		Endpoint:  "192.168.1.6",
@@ -410,6 +423,9 @@ func (*addSuite) TestInteractiveVSphere(c *gc.C) {
 }
 
 func (*addSuite) TestInteractiveExistingNameOverride(c *gc.C) {
+	manualCloud := manualCloud
+	manualCloud.Name = "homestack"
+
 	fake := newFakeCloudMetadataStore()
 	fake.Call("PublicCloudMetadata", []string(nil)).Returns(map[string]cloudfile.Cloud{}, false, nil)
 	fake.Call("PersonalCloudMetadata").Returns(homestackMetadata(), nil)
@@ -446,6 +462,7 @@ func (*addSuite) TestInteractiveExistingNameNoOverride(c *gc.C) {
 	fake.Call("PublicCloudMetadata", []string(nil)).Returns(map[string]cloudfile.Cloud{}, false, nil)
 	fake.Call("PersonalCloudMetadata").Returns(homestackMetadata(), nil)
 	homestack2Cloud := cloudfile.Cloud{
+		Name:     "homestack2",
 		Type:     "manual",
 		Endpoint: "192.168.1.6",
 	}

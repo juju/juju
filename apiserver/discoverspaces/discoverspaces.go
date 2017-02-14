@@ -29,7 +29,7 @@ func NewDiscoverSpacesAPI(st *state.State, resources facade.Resources, authorize
 }
 
 func NewDiscoverSpacesAPIWithBacking(st networkingcommon.NetworkBacking, resources facade.Resources, authorizer facade.Authorizer) (*DiscoverSpacesAPI, error) {
-	if !authorizer.AuthModelManager() {
+	if !authorizer.AuthController() {
 		return nil, common.ErrPerm
 	}
 	return &DiscoverSpacesAPI{

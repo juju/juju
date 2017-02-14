@@ -88,7 +88,7 @@ func (s *statusHistoryTestSuite) TestSizeRequired(c *gc.C) {
 			Filter: params.StatusHistoryFilter{Size: 0},
 		}}})
 	c.Assert(r.Results, gc.HasLen, 1)
-	c.Assert(r.Results[0].Error.Message, gc.Equals, "cannot validate status history filter: empty struct not valid")
+	c.Assert(r.Results[0].Error.Message, gc.Equals, "cannot validate status history filter: missing filter parameters not valid")
 }
 
 func (s *statusHistoryTestSuite) TestNoConflictingFilters(c *gc.C) {
@@ -230,6 +230,10 @@ func (m *mockState) ModelUUID() string {
 
 func (m *mockState) ModelTag() names.ModelTag {
 	return names.NewModelTag("deadbeef-0bad-400d-8000-4b1d0d06f00d")
+}
+
+func (m *mockState) ControllerTag() names.ControllerTag {
+	return names.NewControllerTag("deadbeef-0bad-400d-8000-4b1d0d06f00d")
 }
 
 func (m *mockState) Unit(name string) (client.Unit, error) {

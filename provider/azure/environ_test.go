@@ -72,21 +72,6 @@ var (
 		Version:   to.StringPtr("latest"),
 	}
 
-	sshPublicKeys = []compute.SSHPublicKey{{
-		Path:    to.StringPtr("/home/ubuntu/.ssh/authorized_keys"),
-		KeyData: to.StringPtr(testing.FakeAuthKeys),
-	}}
-	linuxOsProfile = compute.OSProfile{
-		ComputerName:  to.StringPtr("machine-0"),
-		CustomData:    to.StringPtr("<juju-goes-here>"),
-		AdminUsername: to.StringPtr("ubuntu"),
-		LinuxConfiguration: &compute.LinuxConfiguration{
-			DisablePasswordAuthentication: to.BoolPtr(true),
-			SSH: &compute.SSHConfiguration{
-				PublicKeys: &sshPublicKeys,
-			},
-		},
-	}
 	windowsOsProfile = compute.OSProfile{
 		ComputerName:  to.StringPtr("machine-0"),
 		CustomData:    to.StringPtr("<juju-goes-here>"),
@@ -119,6 +104,8 @@ type environSuite struct {
 	ubuntuServerSKUs   []compute.VirtualMachineImageResource
 	commonDeployment   *resources.DeploymentExtended
 	deployment         *resources.Deployment
+	sshPublicKeys      []compute.SSHPublicKey
+	linuxOsProfile     compute.OSProfile
 }
 
 var _ = gc.Suite(&environSuite{})
@@ -221,6 +208,22 @@ func (s *environSuite) SetUpTest(c *gc.C) {
 	}
 
 	s.deployment = nil
+
+	s.sshPublicKeys = []compute.SSHPublicKey{{
+		Path:    to.StringPtr("/home/ubuntu/.ssh/authorized_keys"),
+		KeyData: to.StringPtr(testing.FakeAuthKeys),
+	}}
+	s.linuxOsProfile = compute.OSProfile{
+		ComputerName:  to.StringPtr("machine-0"),
+		CustomData:    to.StringPtr("<juju-goes-here>"),
+		AdminUsername: to.StringPtr("ubuntu"),
+		LinuxConfiguration: &compute.LinuxConfiguration{
+			DisablePasswordAuthentication: to.BoolPtr(true),
+			SSH: &compute.SSHConfiguration{
+				PublicKeys: &s.sshPublicKeys,
+			},
+		},
+	}
 }
 
 func (s *environSuite) openEnviron(c *gc.C, attrs ...testing.Attrs) environs.Environ {
@@ -489,7 +492,31 @@ func (s *environSuite) TestStartInstance(c *gc.C) {
 	s.assertStartInstanceRequests(c, s.requests, assertStartInstanceRequestsParams{
 		imageReference: &quantalImageReference,
 		diskSizeGB:     32,
-		osProfile:      &linuxOsProfile,
+		osProfile:      &s.linuxOsProfile,
+		instanceType:   "Standard_A1",
+	})
+}
+
+func (s *environSuite) TestStartInstanceNoAuthorizedKeys(c *gc.C) {
+	env := s.openEnviron(c)
+	cfg, err := env.Config().Remove([]string{"authorized-keys"})
+	c.Assert(err, jc.ErrorIsNil)
+	err = env.SetConfig(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.sender = s.startInstanceSenders(false)
+	s.requests = nil
+	_, err = env.StartInstance(makeStartInstanceParams(c, s.controllerUUID, "quantal"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.PatchValue(&s.sshPublicKeys, []compute.SSHPublicKey{{
+		Path:    to.StringPtr("/home/ubuntu/.ssh/authorized_keys"),
+		KeyData: to.StringPtr("public"),
+	}})
+	s.assertStartInstanceRequests(c, s.requests, assertStartInstanceRequestsParams{
+		imageReference: &quantalImageReference,
+		diskSizeGB:     32,
+		osProfile:      &s.linuxOsProfile,
 		instanceType:   "Standard_A1",
 	})
 }
@@ -568,7 +595,7 @@ func (s *environSuite) TestStartInstanceCentOS(c *gc.C) {
 			AutoUpgradeMinorVersion: to.BoolPtr(true),
 			Settings:                &vmExtensionSettings,
 		},
-		osProfile:    &linuxOsProfile,
+		osProfile:    &s.linuxOsProfile,
 		instanceType: "Standard_A1",
 	})
 }
@@ -604,7 +631,7 @@ func (s *environSuite) TestStartInstanceTooManyRequests(c *gc.C) {
 	s.assertStartInstanceRequests(c, s.requests[:numExpectedStartInstanceRequests], assertStartInstanceRequestsParams{
 		imageReference: &quantalImageReference,
 		diskSizeGB:     32,
-		osProfile:      &linuxOsProfile,
+		osProfile:      &s.linuxOsProfile,
 		instanceType:   "Standard_A1",
 	})
 
@@ -734,7 +761,7 @@ func (s *environSuite) TestStartInstanceServiceAvailabilitySet(c *gc.C) {
 		availabilitySetName: "mysql",
 		imageReference:      &quantalImageReference,
 		diskSizeGB:          32,
-		osProfile:           &linuxOsProfile,
+		osProfile:           &s.linuxOsProfile,
 		instanceType:        "Standard_A1",
 	})
 }
@@ -1078,7 +1105,7 @@ func (s *environSuite) TestBootstrap(c *gc.C) {
 		availabilitySetName: "juju-controller",
 		imageReference:      &quantalImageReference,
 		diskSizeGB:          32,
-		osProfile:           &linuxOsProfile,
+		osProfile:           &s.linuxOsProfile,
 		instanceType:        "Standard_D1",
 	})
 }
@@ -1127,7 +1154,7 @@ func (s *environSuite) TestBootstrapInstanceConstraints(c *gc.C) {
 		availabilitySetName: "juju-controller",
 		imageReference:      &quantalImageReference,
 		diskSizeGB:          32,
-		osProfile:           &linuxOsProfile,
+		osProfile:           &s.linuxOsProfile,
 		needsProviderInit:   true,
 		instanceType:        "Standard_D1",
 	})
@@ -1439,4 +1466,287 @@ func (s *environSuite) TestInstanceInformation(c *gc.C) {
 	types, err = env.InstanceTypes(cons)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(types.InstanceTypes, gc.HasLen, 2)
+}
+
+func (s *environSuite) TestAdoptResources(c *gc.C) {
+	providersResult := makeProvidersResult()
+	resourcesResult := makeResourcesResult()
+
+	res1 := (*resourcesResult.Value)[0]
+	res1.Properties = &map[string]interface{}{"has-properties": true}
+
+	res2 := (*resourcesResult.Value)[1]
+	res2.Properties = &map[string]interface{}{"has-properties": true}
+
+	env := s.openEnviron(c)
+
+	s.sender = azuretesting.Senders{
+		s.makeSender(".*/resourcegroups/juju-testenv-.*", makeResourceGroupResult()),
+		s.makeSender(".*/resourcegroups/juju-testenv-.*", nil),
+
+		s.makeSender(".*/providers", providersResult),
+		s.makeSender(".*/resourceGroups/juju-testenv-.*/resources", resourcesResult),
+
+		// First request is the get, second is the update. (The
+		// lowercase resourcegroups here is a quirk of the
+		// autogenerated Go SDK.)
+		s.makeSender(".*/resourcegroups/.*/providers/Beck.Replica/liars/scissor/boxing-day-blues", res1),
+		s.makeSender(".*/resourcegroups/.*/providers/Beck.Replica/liars/scissor/boxing-day-blues", res1),
+
+		s.makeSender(".*/resourcegroups/.*/providers/Tuneyards.Bizness//micachu/drop-dead", res2),
+		s.makeSender(".*/resourcegroups/.*/providers/Tuneyards.Bizness//micachu/drop-dead", res2),
+	}
+
+	err := env.AdoptResources("new-controller", version.MustParse("1.2.4"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Check that properties and tags are preserved and the correct
+	// API version is sent.
+	checkAPIVersion := func(ix uint, expectedMethod, expectedVersion string) {
+		req := s.requests[ix]
+		c.Check(req.Method, gc.Equals, expectedMethod)
+		c.Check(req.URL.Query().Get("api-version"), gc.Equals, expectedVersion)
+	}
+	// Resource group get and update.
+	checkAPIVersion(0, "GET", "2016-02-01")
+	checkAPIVersion(1, "PUT", "2016-02-01")
+	// Resources.
+	checkAPIVersion(4, "GET", "2016-12-17")
+	checkAPIVersion(5, "PUT", "2016-12-17")
+	checkAPIVersion(6, "GET", "2016-12-13")
+	checkAPIVersion(7, "PUT", "2016-12-13")
+
+	checkTagsAndProperties := func(ix uint) {
+		req := s.requests[ix]
+		data := make([]byte, req.ContentLength)
+		_, err := req.Body.Read(data)
+		c.Assert(err, jc.ErrorIsNil)
+
+		var resource resources.GenericResource
+		err = json.Unmarshal(data, &resource)
+		c.Assert(err, jc.ErrorIsNil)
+
+		rTags := to.StringMap(*resource.Tags)
+		c.Check(rTags["something else"], gc.Equals, "good")
+		c.Check(rTags[tags.JujuController], gc.Equals, "new-controller")
+		c.Check(*resource.Properties, gc.DeepEquals, map[string]interface{}{"has-properties": true})
+	}
+	checkTagsAndProperties(5)
+	checkTagsAndProperties(7)
+
+	// Also check the tags are right for the resource group.
+	req := s.requests[1] // the resource group update.
+	data := make([]byte, req.ContentLength)
+	_, err = req.Body.Read(data)
+	c.Assert(err, jc.ErrorIsNil)
+	var group resources.ResourceGroup
+	err = json.Unmarshal(data, &group)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Check that the provisioning state wasn't sent back.
+	c.Check((*group.Properties).ProvisioningState, gc.IsNil)
+
+	gTags := to.StringMap(*group.Tags)
+	c.Check(gTags["something else"], gc.Equals, "good")
+	c.Check(gTags[tags.JujuController], gc.Equals, "new-controller")
+}
+
+func makeProvidersResult() resources.ProviderListResult {
+	providers := []resources.Provider{{
+		Namespace: to.StringPtr("Beck.Replica"),
+		ResourceTypes: &[]resources.ProviderResourceType{{
+			ResourceType: to.StringPtr("battles/ladida"),
+			APIVersions:  &[]string{"2016-12-15", "2014-02-02"},
+		}, {
+			ResourceType: to.StringPtr("liars/scissor"),
+			APIVersions:  &[]string{"2016-12-17", "2015-03-02"},
+		}},
+	}, {
+		Namespace: to.StringPtr("Tuneyards.Bizness"),
+		ResourceTypes: &[]resources.ProviderResourceType{{
+			ResourceType: to.StringPtr("slaves/debbie"),
+			APIVersions:  &[]string{"2016-12-14", "2014-04-02"},
+		}, {
+			ResourceType: to.StringPtr("micachu"),
+			APIVersions:  &[]string{"2016-12-13", "2015-05-02"},
+		}},
+	}}
+	return resources.ProviderListResult{Value: &providers}
+}
+
+func makeResourcesResult() resources.ResourceListResult {
+	theResources := []resources.GenericResource{{
+		Name: to.StringPtr("boxing-day-blues"),
+		Type: to.StringPtr("Beck.Replica/liars/scissor"),
+		Tags: to.StringMapPtr(map[string]string{
+			tags.JujuController: "old-controller",
+			"something else":    "good",
+		}),
+	}, {
+		Name: to.StringPtr("drop-dead"),
+		Type: to.StringPtr("Tuneyards.Bizness/micachu"),
+		Tags: to.StringMapPtr(map[string]string{
+			tags.JujuController: "old-controller",
+			"something else":    "good",
+		}),
+	}}
+	return resources.ResourceListResult{Value: &theResources}
+}
+
+func makeResourceGroupResult() resources.ResourceGroup {
+	return resources.ResourceGroup{
+		Name: to.StringPtr("charles"),
+		Properties: &resources.ResourceGroupProperties{
+			ProvisioningState: to.StringPtr("very yes"),
+		},
+		Tags: to.StringMapPtr(map[string]string{
+			tags.JujuController: "old-controller",
+			"something else":    "good",
+		}),
+	}
+}
+
+func (s *environSuite) TestAdoptResourcesErrorGettingGroup(c *gc.C) {
+	env := s.openEnviron(c)
+	sender := s.makeSender(".*/resourcegroups/juju-testenv-.*", nil)
+	sender.SetError(errors.New("uhoh"))
+	s.sender = azuretesting.Senders{sender}
+
+	err := env.AdoptResources("new-controller", version.MustParse("1.0.0"))
+	c.Assert(err, gc.ErrorMatches, ".*uhoh$")
+	c.Assert(s.requests, gc.HasLen, 1)
+}
+
+func (s *environSuite) TestAdoptResourcesErrorUpdatingGroup(c *gc.C) {
+	env := s.openEnviron(c)
+	errorSender := s.makeSender(".*/resourcegroups/juju-testenv-.*", nil)
+	errorSender.SetError(errors.New("uhoh"))
+	s.sender = azuretesting.Senders{
+		s.makeSender(".*/resourcegroups/juju-testenv-.*", makeResourceGroupResult()),
+		errorSender,
+	}
+
+	err := env.AdoptResources("new-controller", version.MustParse("1.0.0"))
+	c.Assert(err, gc.ErrorMatches, ".*uhoh$")
+	c.Assert(s.requests, gc.HasLen, 2)
+}
+
+func (s *environSuite) TestAdoptResourcesErrorGettingVersions(c *gc.C) {
+	env := s.openEnviron(c)
+	errorSender := s.makeSender(".*/providers", nil)
+	errorSender.SetError(errors.New("uhoh"))
+	s.sender = azuretesting.Senders{
+		s.makeSender(".*/resourcegroups/juju-testenv-.*", makeResourceGroupResult()),
+		s.makeSender(".*/resourcegroups/juju-testenv-.*", nil),
+		errorSender,
+	}
+
+	err := env.AdoptResources("new-controller", version.MustParse("1.0.0"))
+	c.Assert(err, gc.ErrorMatches, ".*uhoh$")
+	c.Assert(s.requests, gc.HasLen, 3)
+}
+
+func (s *environSuite) TestAdoptResourcesErrorListingResources(c *gc.C) {
+	env := s.openEnviron(c)
+	errorSender := s.makeSender(".*/resourceGroups/juju-testenv-.*/resources", nil)
+	errorSender.SetError(errors.New("ouch!"))
+	s.sender = azuretesting.Senders{
+		s.makeSender(".*/resourcegroups/juju-testenv-.*", makeResourceGroupResult()),
+		s.makeSender(".*/resourcegroups/juju-testenv-.*", nil),
+		s.makeSender(".*/providers", resources.ProviderListResult{}),
+		errorSender,
+	}
+
+	err := env.AdoptResources("new-controller", version.MustParse("1.0.0"))
+	c.Assert(err, gc.ErrorMatches, ".*ouch!$")
+	c.Assert(s.requests, gc.HasLen, 4)
+}
+
+func (s *environSuite) TestAdoptResourcesNoUpdateNeeded(c *gc.C) {
+	providersResult := makeProvidersResult()
+	resourcesResult := makeResourcesResult()
+
+	// Give the first resource the right controller tag so it doesn't need updating.
+	res1 := (*resourcesResult.Value)[0]
+	(*res1.Tags)[tags.JujuController] = to.StringPtr("new-controller")
+	res2 := (*resourcesResult.Value)[1]
+
+	env := s.openEnviron(c)
+
+	s.sender = azuretesting.Senders{
+		s.makeSender(".*/resourcegroups/juju-testenv-.*", makeResourceGroupResult()),
+		s.makeSender(".*/resourcegroups/juju-testenv-.*", nil),
+		s.makeSender(".*/providers", providersResult),
+		s.makeSender(".*/resourceGroups/juju-testenv-.*/resources", resourcesResult),
+
+		// Doesn't bother updating res1, continues to do res2.
+		s.makeSender(".*/resourcegroups/.*/providers/Tuneyards.Bizness//micachu/drop-dead", res2),
+		s.makeSender(".*/resourcegroups/.*/providers/Tuneyards.Bizness//micachu/drop-dead", res2),
+	}
+
+	err := env.AdoptResources("new-controller", version.MustParse("1.2.4"))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(s.requests, gc.HasLen, 6)
+}
+
+func (s *environSuite) TestAdoptResourcesErrorGettingFullResource(c *gc.C) {
+	providersResult := makeProvidersResult()
+	resourcesResult := makeResourcesResult()
+
+	res2 := (*resourcesResult.Value)[1]
+
+	env := s.openEnviron(c)
+
+	errorSender := s.makeSender(
+		".*/resourcegroups/.*/providers/Beck.Replica/liars/scissor/boxing-day-blues", nil)
+	errorSender.SetError(errors.New("flagrant error! virus=very yes"))
+
+	s.sender = azuretesting.Senders{
+		s.makeSender(".*/resourcegroups/juju-testenv-.*", makeResourceGroupResult()),
+		s.makeSender(".*/resourcegroups/juju-testenv-.*", nil),
+		s.makeSender(".*/providers", providersResult),
+		s.makeSender(".*/resourceGroups/juju-testenv-.*/resources", resourcesResult),
+
+		// The first resource yields an error but the update continues.
+		errorSender,
+
+		s.makeSender(".*/resourcegroups/.*/providers/Tuneyards.Bizness//micachu/drop-dead", res2),
+		s.makeSender(".*/resourcegroups/.*/providers/Tuneyards.Bizness//micachu/drop-dead", res2),
+	}
+
+	err := env.AdoptResources("new-controller", version.MustParse("1.2.4"))
+	c.Check(err, gc.ErrorMatches, `failed to update controller for some resources: \[boxing-day-blues\]`)
+	c.Check(s.requests, gc.HasLen, 7)
+}
+
+func (s *environSuite) TestAdoptResourcesErrorUpdating(c *gc.C) {
+	providersResult := makeProvidersResult()
+	resourcesResult := makeResourcesResult()
+
+	res1 := (*resourcesResult.Value)[0]
+	res2 := (*resourcesResult.Value)[1]
+
+	env := s.openEnviron(c)
+
+	errorSender := s.makeSender(
+		".*/resourcegroups/.*/providers/Beck.Replica/liars/scissor/boxing-day-blues", nil)
+	errorSender.SetError(errors.New("oopsie"))
+
+	s.sender = azuretesting.Senders{
+		s.makeSender(".*/resourcegroups/juju-testenv-.*", makeResourceGroupResult()),
+		s.makeSender(".*/resourcegroups/juju-testenv-.*", nil),
+		s.makeSender(".*/providers", providersResult),
+		s.makeSender(".*/resourceGroups/juju-testenv-.*/resources", resourcesResult),
+
+		// Updating the first resource yields an error but the update continues.
+		s.makeSender(".*/resourcegroups/.*/providers/Beck.Replica/liars/scissor/boxing-day-blues", res1),
+		errorSender,
+
+		s.makeSender(".*/resourcegroups/.*/providers/Tuneyards.Bizness//micachu/drop-dead", res2),
+		s.makeSender(".*/resourcegroups/.*/providers/Tuneyards.Bizness//micachu/drop-dead", res2),
+	}
+
+	err := env.AdoptResources("new-controller", version.MustParse("1.2.4"))
+	c.Check(err, gc.ErrorMatches, `failed to update controller for some resources: \[boxing-day-blues\]`)
+	c.Check(s.requests, gc.HasLen, 8)
 }

@@ -102,12 +102,8 @@ func (s *environSuite) TestBootstrapOpensAPIPort(c *gc.C) {
 	c.Check(called, gc.Equals, true)
 	c.Check(calls, gc.HasLen, 1)
 	c.Check(calls[0].FirewallName, gc.Equals, gce.GlobalFirewallName(s.Env))
-	expectPorts := []network.PortRange{{
-		FromPort: apiPort,
-		ToPort:   apiPort,
-		Protocol: "tcp",
-	}}
-	c.Check(calls[0].PortRanges, jc.DeepEquals, expectPorts)
+	expectRules := []network.IngressRule{network.MustNewIngressRule("tcp", apiPort, apiPort)}
+	c.Check(calls[0].Rules, jc.DeepEquals, expectRules)
 }
 
 func (s *environSuite) TestBootstrapCommon(c *gc.C) {

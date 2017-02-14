@@ -7,7 +7,6 @@ import (
 	"net"
 	"sort"
 	"strconv"
-	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/set"
@@ -240,41 +239,4 @@ func UniqueHostPorts(hostPorts []HostPort) []HostPort {
 	}
 
 	return results
-}
-
-// Dialer defines a Dial() method matching the signature of net.Dial().
-type Dialer interface {
-	Dial(network, address string) (net.Conn, error)
-}
-
-// ReachableHostPort dials the entries in the given hostPorts, in parallel,
-// using the given dialer, closing successfully established connections
-// immediately. Individual connection errors are discarded, and an error is
-// returned only if none of the hostPorts can be reached when the given timeout
-// expires.
-//
-// Usually, a net.Dialer initialized with a non-empty Timeout field is passed
-// for dialer.
-func ReachableHostPort(hostPorts []HostPort, dialer Dialer, timeout time.Duration) (HostPort, error) {
-	uniqueHPs := UniqueHostPorts(hostPorts)
-	successful := make(chan HostPort, 1)
-
-	for _, hostPort := range uniqueHPs {
-		go func(hp HostPort) {
-			conn, err := dialer.Dial("tcp", hp.NetAddr())
-			if err == nil {
-				conn.Close()
-				successful <- hp
-			}
-		}(hostPort)
-	}
-
-	select {
-	case result := <-successful:
-		logger.Infof("dialed %q successfully", result)
-		return result, nil
-
-	case <-time.After(timeout):
-		return HostPort{}, errors.Errorf("cannot connect to any address: %v", hostPorts)
-	}
 }

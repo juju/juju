@@ -146,45 +146,11 @@ func (*environSuite) TestNewCloudinitConfig(c *gc.C) {
 	cfg := getSimpleTestConfig(c, nil)
 	env, err := maas.NewEnviron(getSimpleCloudSpec(), cfg, fakeGetCapabilities)
 	c.Assert(err, jc.ErrorIsNil)
-	var path string
-	path, err = maas.BridgeScriptPathForSeries("quantal")
-	c.Assert(err, jc.ErrorIsNil)
-	modifyNetworkScript := maas.BridgeScriptWrapperForCloudInit(path, []string{"eth0", "eth1"})
 	script := expectedCloudinitConfig
-	script = append(script, modifyNetworkScript)
-	cloudcfg, err := maas.NewCloudinitConfig(env, "testing.invalid", "quantal", []string{"eth0", "eth1"})
+	cloudcfg, err := maas.NewCloudinitConfig(env, "testing.invalid", "quantal")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cloudcfg.SystemUpdate(), jc.IsTrue)
 	c.Assert(cloudcfg.RunCmds(), jc.DeepEquals, script)
-}
-
-func (*environSuite) TestNewCloudinitConfigWithDisabledNetworkManagement(c *gc.C) {
-	attrs := coretesting.Attrs{
-		"disable-network-management": true,
-	}
-	cfg := getSimpleTestConfig(c, attrs)
-	env, err := maas.NewEnviron(getSimpleCloudSpec(), cfg, fakeGetCapabilities)
-	c.Assert(err, jc.ErrorIsNil)
-	cloudcfg, err := maas.NewCloudinitConfig(env, "testing.invalid", "quantal", nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cloudcfg.SystemUpdate(), jc.IsTrue)
-	c.Assert(cloudcfg.RunCmds(), jc.DeepEquals, expectedCloudinitConfig)
-}
-
-func (*environSuite) TestRenderEtcNetworkInterfacesScriptMultipleNames(c *gc.C) {
-	path, err := maas.BridgeScriptPathForSeries("quantal")
-	c.Assert(err, jc.ErrorIsNil)
-	script := maas.BridgeScriptWrapperForCloudInit(path, []string{"eth0", "eth0:1", "eth2", "eth1"})
-	c.Check(script, jc.Contains, `--interfaces-to-bridge="eth0 eth0:1 eth2 eth1"`)
-	c.Check(script, jc.Contains, `--bridge-prefix="br-"`)
-}
-
-func (*environSuite) TestRenderEtcNetworkInterfacesScriptSingleName(c *gc.C) {
-	path, err := maas.BridgeScriptPathForSeries("quantal")
-	c.Assert(err, jc.ErrorIsNil)
-	script := maas.BridgeScriptWrapperForCloudInit(path, []string{"eth0"})
-	c.Check(script, jc.Contains, `--interfaces-to-bridge="eth0"`)
-	c.Check(script, jc.Contains, `--bridge-prefix="br-"`)
 }
 
 type badEndpointSuite struct {

@@ -148,6 +148,12 @@ type InstanceConfig struct {
 	// instances. If enabled, the OS will perform any upgrades
 	// available as part of its provisioning.
 	EnableOSUpgrade bool
+
+	// NetBondReconfigureDelay defines the duration in seconds that the
+	// networking bridgescript should pause between ifdown, then
+	// ifup when bridging bonded interfaces. See bugs #1594855 and
+	// #1269921.
+	NetBondReconfigureDelay int
 }
 
 // ControllerConfig represents controller-specific initialization information
@@ -193,10 +199,6 @@ type BootstrapConfig struct {
 type StateInitializationParams struct {
 	// ControllerModelConfig holds the initial controller model configuration.
 	ControllerModelConfig *config.Config
-
-	// ControllerCloudName is the name of the cloud that Juju will be
-	// bootstrapped in.
-	ControllerCloudName string
 
 	// ControllerCloud contains the properties of the cloud that Juju will
 	// be bootstrapped in.
@@ -264,7 +266,6 @@ type stateInitializationParamsInternal struct {
 	BootstrapMachineHardwareCharacteristics *instance.HardwareCharacteristics `yaml:"bootstrap-machine-hardware,omitempty"`
 	ModelConstraints                        constraints.Value                 `yaml:"model-constraints"`
 	CustomImageMetadataJSON                 string                            `yaml:"custom-image-metadata,omitempty"`
-	ControllerCloudName                     string                            `yaml:"controller-cloud-name"`
 	ControllerCloud                         string                            `yaml:"controller-cloud"`
 	ControllerCloudRegion                   string                            `yaml:"controller-cloud-region"`
 	ControllerCloudCredentialName           string                            `yaml:"controller-cloud-credential-name,omitempty"`
@@ -292,7 +293,6 @@ func (p *StateInitializationParams) Marshal() ([]byte, error) {
 		p.BootstrapMachineHardwareCharacteristics,
 		p.ModelConstraints,
 		string(customImageMetadataJSON),
-		p.ControllerCloudName,
 		string(controllerCloud),
 		p.ControllerCloudRegion,
 		p.ControllerCloudCredentialName,
@@ -331,7 +331,6 @@ func (p *StateInitializationParams) Unmarshal(data []byte) error {
 		BootstrapMachineHardwareCharacteristics: internal.BootstrapMachineHardwareCharacteristics,
 		ModelConstraints:                        internal.ModelConstraints,
 		CustomImageMetadata:                     imageMetadata,
-		ControllerCloudName:                     internal.ControllerCloudName,
 		ControllerCloud:                         controllerCloud,
 		ControllerCloudRegion:                   internal.ControllerCloudRegion,
 		ControllerCloudCredentialName:           internal.ControllerCloudCredentialName,

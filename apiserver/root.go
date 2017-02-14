@@ -137,6 +137,7 @@ func (s *srvCaller) Call(objId string, arg reflect.Value) (reflect.Value, error)
 // apiRoot implements basic method dispatching to the facade registry.
 type apiRoot struct {
 	state       *state.State
+	pool        *state.StatePool
 	resources   *common.Resources
 	authorizer  facade.Authorizer
 	objectMutex sync.RWMutex
@@ -144,9 +145,10 @@ type apiRoot struct {
 }
 
 // newAPIRoot returns a new apiRoot.
-func newAPIRoot(st *state.State, resources *common.Resources, authorizer facade.Authorizer) *apiRoot {
+func newAPIRoot(st *state.State, pool *state.StatePool, resources *common.Resources, authorizer facade.Authorizer) *apiRoot {
 	r := &apiRoot{
 		state:       st,
+		pool:        pool,
 		resources:   resources,
 		authorizer:  authorizer,
 		objectCache: make(map[objectKey]reflect.Value),
@@ -266,6 +268,11 @@ func (ctx *facadeContext) State() *state.State {
 	return ctx.r.state
 }
 
+// StatePool is part of of the facade.Context interface.
+func (ctx *facadeContext) StatePool() *state.StatePool {
+	return ctx.r.pool
+}
+
 // ID is part of of the facade.Context interface.
 func (ctx *facadeContext) ID() string {
 	return ctx.key.objId
@@ -348,9 +355,9 @@ func (r *apiHandler) AuthOwner(tag names.Tag) bool {
 	return r.entity.Tag() == tag
 }
 
-// AuthModelManager returns whether the authenticated user is a
+// AuthController returns whether the authenticated user is a
 // machine with running the ManageEnviron job.
-func (r *apiHandler) AuthModelManager() bool {
+func (r *apiHandler) AuthController() bool {
 	return isMachineWithJob(r.entity, state.JobManageModel)
 }
 

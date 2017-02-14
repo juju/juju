@@ -88,12 +88,12 @@ func (s *instanceSuite) TestInstanceAddresses(c *gc.C) {
 	c.Check(len(addrs), gc.Equals, 0)
 }
 
-func (s *instanceSuite) TestInstancePorts(c *gc.C) {
+func (s *instanceSuite) TestIngressRules(c *gc.C) {
 	c.Check(s.inst.OpenPorts("", nil), gc.ErrorMatches, "OpenPorts not implemented")
 	c.Check(s.inst.ClosePorts("", nil), gc.ErrorMatches, "ClosePorts not implemented")
 
-	_, err := s.inst.Ports("")
-	c.Check(err, gc.ErrorMatches, "Ports not implemented")
+	_, err := s.inst.IngressRules("")
+	c.Check(err, gc.ErrorMatches, "InstanceRules not implemented")
 }
 
 func (s *instanceSuite) TestInstanceHardware(c *gc.C) {

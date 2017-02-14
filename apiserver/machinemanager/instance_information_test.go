@@ -32,7 +32,7 @@ func (p *instanceTypesSuite) TestInstanceTypes(c *gc.C) {
 		cloudSpec: environs.CloudSpec{},
 	}
 	authorizer := testing.FakeAuthorizer{Tag: names.NewUserTag("admin"),
-		EnvironManager: true}
+		Controller: true}
 	itCons := constraints.Value{CpuCores: &over9kCPUCores}
 	failureCons := constraints.Value{}
 	env := mockEnviron{

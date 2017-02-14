@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/version"
@@ -19,10 +20,12 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/description"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/stateenvirons"
 	statetesting "github.com/juju/juju/state/testing"
-	"github.com/juju/juju/testing"
+	jujutesting "github.com/juju/juju/testing"
 )
 
 type Suite struct {
@@ -36,7 +39,7 @@ var _ = gc.Suite(&Suite{})
 func (s *Suite) SetUpTest(c *gc.C) {
 	// Set up InitialConfig with a dummy provider configuration. This
 	// is required to allow model import test to work.
-	s.InitialConfig = testing.CustomModelConfig(c, dummy.SampleConfig())
+	s.InitialConfig = jujutesting.CustomModelConfig(c, dummy.SampleConfig())
 
 	// The call up to StateSuite's SetUpTest uses s.InitialConfig so
 	// it has to happen here.
@@ -55,7 +58,7 @@ func (s *Suite) TestFacadeRegistered(c *gc.C) {
 	factory, err := common.Facades.GetFactory("MigrationTarget", 1)
 	c.Assert(err, jc.ErrorIsNil)
 
-	api, err := factory(facadetest.Context{
+	api, err := factory(&facadetest.Context{
 		State_:     s.State,
 		Resources_: s.resources,
 		Auth_:      s.authorizer,
@@ -66,13 +69,13 @@ func (s *Suite) TestFacadeRegistered(c *gc.C) {
 
 func (s *Suite) TestNotUser(c *gc.C) {
 	s.authorizer.Tag = names.NewMachineTag("0")
-	_, err := s.newAPI()
+	_, _, err := s.newAPI(nil)
 	c.Assert(errors.Cause(err), gc.Equals, common.ErrPerm)
 }
 
 func (s *Suite) TestNotControllerAdmin(c *gc.C) {
 	s.authorizer.Tag = names.NewUserTag("jrandomuser")
-	_, err := s.newAPI()
+	_, _, err := s.newAPI(nil)
 	c.Assert(errors.Cause(err), gc.Equals, common.ErrPerm)
 }
 
@@ -224,12 +227,41 @@ func (s *Suite) TestLatestLogTimeNeverSet(c *gc.C) {
 	c.Assert(latest, gc.Equals, time.Time{})
 }
 
-func (s *Suite) newAPI() (*migrationtarget.API, error) {
-	return migrationtarget.NewAPI(s.State, s.resources, s.authorizer)
+func (s *Suite) TestAdoptResources(c *gc.C) {
+	st := s.Factory.MakeModel(c, nil)
+	defer st.Close()
+
+	env := mockEnviron{Stub: &testing.Stub{}}
+	api, ctx, err := s.newAPI(func(envSt *state.State) (environs.Environ, error) {
+		c.Assert(envSt.ModelUUID(), gc.Equals, st.ModelUUID())
+		return &env, nil
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	defer ctx.StatePool().Close()
+
+	err = api.AdoptResources(params.AdoptResourcesArgs{
+		ModelTag:                st.ModelTag().String(),
+		SourceControllerVersion: version.MustParse("3.2.1"),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(env.Stub.Calls(), gc.HasLen, 1)
+	env.Stub.CheckCall(c, 0, "AdoptResources", st.ControllerUUID(), version.MustParse("3.2.1"))
+}
+
+func (s *Suite) newAPI(environFunc stateenvirons.NewEnvironFunc) (*migrationtarget.API, *facadetest.Context, error) {
+	ctx := facadetest.Context{
+		State_:     s.State,
+		Resources_: s.resources,
+		Auth_:      s.authorizer,
+		StatePool_: state.NewStatePool(s.State),
+	}
+	api, err := migrationtarget.NewAPI(ctx, environFunc)
+	return api, &ctx, err
 }
 
 func (s *Suite) mustNewAPI(c *gc.C) *migrationtarget.API {
-	api, err := s.newAPI()
+	api, _, err := s.newAPI(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	return api
 }
@@ -255,4 +287,14 @@ func (s *Suite) controllerVersion(c *gc.C) version.Number {
 	vers, ok := cfg.AgentVersion()
 	c.Assert(ok, jc.IsTrue)
 	return vers
+}
+
+type mockEnviron struct {
+	environs.Environ
+	*testing.Stub
+}
+
+func (e *mockEnviron) AdoptResources(controllerUUID string, sourceVersion version.Number) error {
+	e.MethodCall(e, "AdoptResources", controllerUUID, sourceVersion)
+	return e.NextErr()
 }

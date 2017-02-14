@@ -34,12 +34,33 @@ const (
 	megabyte = 1024 * 1024
 )
 
-func resolveConfigKey(name string, namespace ...string) string {
-	parts := append(namespace, name)
-	return strings.Join(parts, ".")
+// ResolveConfigKey applies the specified namespaces to the config key
+// name to return the fully-qualified key.
+func ResolveConfigKey(name string, namespace ...string) string {
+	prefix := strings.Join(namespace, ".") + "."
+	if !shouldNamespace(name, prefix) {
+		return name
+	}
+	return prefix + name
 }
 
-func splitConfigKey(key string) (string, string) {
+func shouldNamespace(name, prefix string) bool {
+	// already in namespace
+	if strings.HasPrefix(name, prefix) {
+		return false
+	}
+	// never namespace lxd limit configuration
+	if strings.HasPrefix(name, "limits.") {
+		return false
+	}
+	// never namespace boot config
+	if name == "boot.autostart" {
+		return false
+	}
+	return true
+}
+
+func splitConfigKey(key string) (namespace, name string) {
 	parts := strings.SplitN(key, ".", 2)
 	if len(parts) == 1 {
 		return "", parts[0]
@@ -258,7 +279,7 @@ func resolveMetadata(metadata map[string]string) map[string]string {
 	config := make(map[string]string)
 
 	for name, val := range metadata {
-		key := resolveConfigKey(name, MetadataNamespace)
+		key := ResolveConfigKey(name, MetadataNamespace)
 		config[key] = val
 	}
 

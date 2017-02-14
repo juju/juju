@@ -50,7 +50,7 @@ func NewRemoteRelationsAPI(
 	resources facade.Resources,
 	authorizer facade.Authorizer,
 ) (*RemoteRelationsAPI, error) {
-	if !authorizer.AuthModelManager() {
+	if !authorizer.AuthController() {
 		return nil, common.ErrPerm
 	}
 	return &RemoteRelationsAPI{
@@ -341,7 +341,7 @@ func (api *RemoteRelationsAPI) publishRelationChange(change params.RemoteRelatio
 	logger.Debugf("remote applocation for changed relation %v is %v", relationTag.Id(), applicationTag.Id())
 
 	for _, id := range change.DepartedUnits {
-		unitTag := names.NewUnitTag(fmt.Sprintf("%s/%d", applicationTag.Id(), id))
+		unitTag := names.NewUnitTag(fmt.Sprintf("%s/%v", applicationTag.Id(), id))
 		logger.Debugf("unit %v has departed relation %v", unitTag.Id(), relationTag.Id())
 		ru, err := rel.RemoteUnit(unitTag.Id())
 		if err != nil {
@@ -354,7 +354,7 @@ func (api *RemoteRelationsAPI) publishRelationChange(change params.RemoteRelatio
 	}
 
 	for _, change := range change.ChangedUnits {
-		unitTag := names.NewUnitTag(fmt.Sprintf("%s/%d", applicationTag.Id(), change.UnitId))
+		unitTag := names.NewUnitTag(fmt.Sprintf("%s/%v", applicationTag.Id(), change.UnitId))
 		logger.Debugf("changed unit tag for remote id %v is %v", change.UnitId, unitTag)
 		ru, err := rel.RemoteUnit(unitTag.Id())
 		if err != nil {

@@ -8,8 +8,10 @@ import (
 	"crypto/x509"
 	"io"
 	"io/ioutil"
+	"log"
 	"net"
 	"net/http"
+	"path"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -78,6 +80,12 @@ type Server struct {
 
 	// certDNSNames holds the DNS names associated with cert.
 	certDNSNames []string
+
+	// registerIntrospectionHandlers is a function that will
+	// call a function with (path, http.Handler) tuples. This
+	// is to support registering the handlers underneath the
+	// "/introspection" prefix.
+	registerIntrospectionHandlers func(func(string, http.Handler))
 }
 
 // LoginValidator functions are used to decide whether login requests
@@ -118,8 +126,14 @@ type ServerConfig struct {
 	// notified of key events during API requests.
 	NewObserver observer.ObserverFactory
 
-	// StatePool only exists to support testing.
+	// StatePool is created by the machine agent and passed in.
 	StatePool *state.StatePool
+
+	// RegisterIntrospectionHandlers is a function that will
+	// call a function with (path, http.Handler) tuples. This
+	// is to support registering the handlers underneath the
+	// "/introspection" prefix.
+	RegisterIntrospectionHandlers func(func(string, http.Handler))
 }
 
 func (c *ServerConfig) Validate() error {
@@ -131,6 +145,9 @@ func (c *ServerConfig) Validate() error {
 	}
 	if c.NewObserver == nil {
 		return errors.NotValidf("missing NewObserver")
+	}
+	if c.StatePool == nil {
+		return errors.NotValidf("missing StatePool")
 	}
 
 	return nil
@@ -188,9 +205,10 @@ func newServer(s *state.State, lis net.Listener, cfg ServerConfig) (_ *Server, e
 		adminAPIFactories: map[int]adminAPIFactory{
 			3: newAdminAPIV3,
 		},
-		centralHub:       cfg.Hub,
-		certChanged:      cfg.CertChanged,
-		allowModelAccess: cfg.AllowModelAccess,
+		centralHub:                    cfg.Hub,
+		certChanged:                   cfg.CertChanged,
+		allowModelAccess:              cfg.AllowModelAccess,
+		registerIntrospectionHandlers: cfg.RegisterIntrospectionHandlers,
 	}
 
 	srv.tlsConfig = srv.newTLSConfig(cfg)
@@ -279,6 +297,21 @@ func (srv *Server) Wait() error {
 	return srv.tomb.Wait()
 }
 
+// loggoWrapper is an io.Writer() that forwards the messages to a loggo.Logger.
+// Unfortunately http takes a concrete stdlib log.Logger struct, and not an
+// interface, so we can't just proxy all of the log levels without inspecting
+// the string content. For now, we just want to get the messages into the log
+// file.
+type loggoWrapper struct {
+	logger loggo.Logger
+	level  loggo.Level
+}
+
+func (w *loggoWrapper) Write(content []byte) (int, error) {
+	w.logger.Logf(w.level, "%s", string(content))
+	return len(content), nil
+}
+
 func (srv *Server) run() {
 	logger.Infof("listening on %q", srv.lis.Addr())
 
@@ -335,6 +368,10 @@ func (srv *Server) run() {
 		httpSrv := &http.Server{
 			Handler:   mux,
 			TLSConfig: srv.tlsConfig,
+			ErrorLog: log.New(&loggoWrapper{
+				level:  loggo.WARNING,
+				logger: logger,
+			}, "", 0), // no prefix and no flags so log.Logger doesn't add extra prefixes
 		}
 		err := httpSrv.Serve(srv.lis)
 		// Normally logging an error at debug level would be grounds for a beating,
@@ -489,6 +526,19 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 	// possible endpoints, but only / itself.
 	add("/", mainAPIHandler)
 
+	// Register the introspection endpoints.
+	if srv.registerIntrospectionHandlers != nil {
+		handle := func(subpath string, handler http.Handler) {
+			add(path.Join("/introspection/", subpath),
+				introspectionHandler{
+					httpCtxt,
+					handler,
+				},
+			)
+		}
+		srv.registerIntrospectionHandlers(handle)
+	}
+
 	// Add HTTP handlers for local-user macaroon authentication.
 	localLoginHandlers := &localLoginHandlers{srv.authCtxt, srv.state}
 	dischargeMux := http.NewServeMux()
@@ -533,11 +583,8 @@ func (srv *Server) newHandlerArgs(spec apihttp.HandlerConstraints) apihttp.NewHa
 		controllerModelOnly: spec.ControllerModelOnly,
 	}
 	return apihttp.NewHandlerArgs{
-		Connect: func(req *http.Request) (*state.State, state.Entity, error) {
+		Connect: func(req *http.Request) (*state.State, func(), state.Entity, error) {
 			return ctxt.stateForRequestAuthenticatedTag(req, spec.AuthKinds...)
-		},
-		Release: func(st *state.State) error {
-			return ctxt.release(st)
 		},
 	}
 }
@@ -623,20 +670,16 @@ func (srv *Server) serveConn(wsConn *websocket.Conn, modelUUID string, apiObserv
 		modelUUID: modelUUID,
 	})
 	var (
-		st *state.State
-		h  *apiHandler
+		st       *state.State
+		h        *apiHandler
+		releaser func()
 	)
 	if err == nil {
-		st, err = srv.statePool.Get(resolvedModelUUID)
+		st, releaser, err = srv.statePool.Get(resolvedModelUUID)
 	}
 
 	if err == nil {
-		defer func() {
-			err := srv.statePool.Release(resolvedModelUUID)
-			if err != nil {
-				logger.Errorf("error releasing %v back into the state pool: %v", resolvedModelUUID, err)
-			}
-		}()
+		defer releaser()
 		h, err = newAPIHandler(srv, st, conn, modelUUID, host)
 	}
 

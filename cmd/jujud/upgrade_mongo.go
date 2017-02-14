@@ -98,7 +98,7 @@ type dialAndLogger func(*mongo.MongoInfo, retry.CallArgs) (mgoSession, mgoDb, er
 type requisitesSatisfier func(string) error
 
 type mongoService func() error
-type mongoEnsureService func(string, int, int, bool, mongo.Version, bool) error
+type mongoEnsureService func(string, int, int, bool, mongo.Version, bool, mongo.MemoryProfile) error
 type mongoDialInfo func(mongo.Info, mongo.DialOpts) (*mgo.DialInfo, error)
 
 type initiateMongoServerFunc func(peergrouper.InitiateMongoParams) error
@@ -358,7 +358,8 @@ func (u *UpgradeMongoCommand) UpdateService(auth bool) error {
 		oplogSize,
 		numaCtlPolicy,
 		u.agentConfig.MongoVersion(),
-		auth)
+		auth,
+		mongo.MemoryProfileLow)
 	return errors.Annotate(err, "cannot ensure mongodb service script is properly installed")
 }
 

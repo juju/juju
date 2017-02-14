@@ -8,6 +8,8 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/utils/os"
+	"github.com/juju/utils/series"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/application"
@@ -18,6 +20,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/manual/sshprovisioner"
+	"github.com/juju/juju/environs/manual/winrmprovisioner"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/permission"
@@ -62,22 +65,32 @@ type Client struct {
 }
 
 func (c *Client) checkCanRead() error {
+	isAdmin, err := c.api.auth.HasPermission(permission.SuperuserAccess, c.api.stateAccessor.ControllerTag())
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	canRead, err := c.api.auth.HasPermission(permission.ReadAccess, c.api.stateAccessor.ModelTag())
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if !canRead {
+	if !canRead && !isAdmin {
 		return common.ErrPerm
 	}
 	return nil
 }
 
 func (c *Client) checkCanWrite() error {
+	isAdmin, err := c.api.auth.HasPermission(permission.SuperuserAccess, c.api.stateAccessor.ControllerTag())
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	canWrite, err := c.api.auth.HasPermission(permission.WriteAccess, c.api.stateAccessor.ModelTag())
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if !canWrite {
+	if !canWrite && !isAdmin {
 		return common.ErrPerm
 	}
 	return nil
@@ -392,7 +405,18 @@ func (c *Client) ProvisioningScript(args params.ProvisioningScriptParams) (param
 		icfg.EnableOSRefreshUpdate = cfg.EnableOSRefreshUpdate()
 	}
 
-	result.Script, err = sshprovisioner.ProvisioningScript(icfg)
+	osSeries, err := series.GetOSFromSeries(icfg.Series)
+	if err != nil {
+		return result, common.ServerError(errors.Annotatef(err,
+			"cannot decide which provisioning script to generate based on this series %q", icfg.Series))
+	}
+
+	getProvisioningScript := sshprovisioner.ProvisioningScript
+	if osSeries == os.Windows {
+		getProvisioningScript = winrmprovisioner.ProvisioningScript
+	}
+
+	result.Script, err = getProvisioningScript(icfg)
 	if err != nil {
 		return result, common.ServerError(errors.Annotate(
 			err, "getting provisioning script",

@@ -377,13 +377,18 @@ func newAPIConnectionParams(
 
 // NewGetBootstrapConfigParamsFunc returns a function that, given a controller name,
 // returns the params needed to bootstrap a fresh copy of that controller in the given client store.
-func NewGetBootstrapConfigParamsFunc(ctx *cmd.Context, store jujuclient.ClientStore) func(string) (*jujuclient.BootstrapConfig, *environs.PrepareConfigParams, error) {
-	return bootstrapConfigGetter{ctx, store}.getBootstrapConfigParams
+func NewGetBootstrapConfigParamsFunc(
+	ctx *cmd.Context,
+	store jujuclient.ClientStore,
+	providerRegistry environs.ProviderRegistry,
+) func(string) (*jujuclient.BootstrapConfig, *environs.PrepareConfigParams, error) {
+	return bootstrapConfigGetter{ctx, store, providerRegistry}.getBootstrapConfigParams
 }
 
 type bootstrapConfigGetter struct {
-	ctx   *cmd.Context
-	store jujuclient.ClientStore
+	ctx      *cmd.Context
+	store    jujuclient.ClientStore
+	registry environs.ProviderRegistry
 }
 
 func (g bootstrapConfigGetter) getBootstrapConfig(controllerName string) (*config.Config, error) {
@@ -391,7 +396,7 @@ func (g bootstrapConfigGetter) getBootstrapConfig(controllerName string) (*confi
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	provider, err := environs.Provider(bootstrapConfig.CloudType)
+	provider, err := g.registry.Provider(bootstrapConfig.CloudType)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -399,7 +404,8 @@ func (g bootstrapConfigGetter) getBootstrapConfig(controllerName string) (*confi
 }
 
 func (g bootstrapConfigGetter) getBootstrapConfigParams(controllerName string) (*jujuclient.BootstrapConfig, *environs.PrepareConfigParams, error) {
-	if _, err := g.store.ControllerByName(controllerName); err != nil {
+	controllerDetails, err := g.store.ControllerByName(controllerName)
+	if err != nil {
 		return nil, nil, errors.Annotate(err, "resolving controller name")
 	}
 	bootstrapConfig, err := g.store.BootstrapConfigForController(controllerName)
@@ -410,6 +416,7 @@ func (g bootstrapConfigGetter) getBootstrapConfigParams(controllerName string) (
 	var credential *cloud.Credential
 	if bootstrapConfig.Credential != "" {
 		bootstrapCloud := cloud.Cloud{
+			Name:             bootstrapConfig.Cloud,
 			Type:             bootstrapConfig.CloudType,
 			Endpoint:         bootstrapConfig.CloudEndpoint,
 			IdentityEndpoint: bootstrapConfig.CloudIdentityEndpoint,
@@ -425,7 +432,6 @@ func (g bootstrapConfigGetter) getBootstrapConfigParams(controllerName string) (
 			g.ctx, g.store,
 			GetCredentialsParams{
 				Cloud:          bootstrapCloud,
-				CloudName:      bootstrapConfig.Cloud,
 				CloudRegion:    bootstrapConfig.CloudRegion,
 				CredentialName: bootstrapConfig.Credential,
 			},
@@ -435,10 +441,11 @@ func (g bootstrapConfigGetter) getBootstrapConfigParams(controllerName string) (
 		}
 	} else {
 		// The credential was auto-detected; run auto-detection again.
-		cloudCredential, err := DetectCredential(
-			bootstrapConfig.Cloud,
-			bootstrapConfig.CloudType,
-		)
+		provider, err := g.registry.Provider(bootstrapConfig.CloudType)
+		if err != nil {
+			return nil, nil, errors.Trace(err)
+		}
+		cloudCredential, err := DetectCredential(bootstrapConfig.Cloud, provider)
 		if err != nil {
 			return nil, nil, errors.Trace(err)
 		}
@@ -447,13 +454,19 @@ func (g bootstrapConfigGetter) getBootstrapConfigParams(controllerName string) (
 		for _, one := range cloudCredential.AuthCredentials {
 			credential = &one
 		}
+		credential, err = provider.FinalizeCredential(
+			g.ctx, environs.FinalizeCredentialParams{
+				Credential:            *credential,
+				CloudEndpoint:         bootstrapConfig.CloudEndpoint,
+				CloudIdentityEndpoint: bootstrapConfig.CloudIdentityEndpoint,
+			},
+		)
+		if err != nil {
+			return nil, nil, errors.Trace(err)
+		}
 	}
 
 	// Add attributes from the controller details.
-	controllerDetails, err := g.store.ControllerByName(controllerName)
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
 
 	// TODO(wallyworld) - remove after beta18
 	controllerModelUUID := bootstrapConfig.ControllerModelUUID

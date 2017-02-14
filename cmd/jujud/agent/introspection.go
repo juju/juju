@@ -30,6 +30,7 @@ func DefaultIntrospectionSocketName(entityTag names.Tag) string {
 type introspectionConfig struct {
 	Agent              agent.Agent
 	Engine             *dependency.Engine
+	StatePoolReporter  introspection.IntrospectionReporter
 	PrometheusGatherer prometheus.Gatherer
 	NewSocketName      func(names.Tag) string
 	WorkerFunc         func(config introspection.Config) (worker.Worker, error)
@@ -50,7 +51,8 @@ func startIntrospection(cfg introspectionConfig) error {
 	socketName := cfg.NewSocketName(cfg.Agent.CurrentConfig().Tag())
 	w, err := cfg.WorkerFunc(introspection.Config{
 		SocketName:         socketName,
-		Reporter:           cfg.Engine,
+		DepEngine:          cfg.Engine,
+		StatePool:          cfg.StatePoolReporter,
 		PrometheusGatherer: cfg.PrometheusGatherer,
 	})
 	if err != nil {
@@ -80,4 +82,11 @@ func newPrometheusRegistry() (*prometheus.Registry, error) {
 		return nil, errors.Trace(err)
 	}
 	return r, nil
+}
+
+func (h *statePoolHolder) IntrospectionReport() string {
+	if h.pool == nil {
+		return "agent has no pool set"
+	}
+	return h.pool.IntrospectionReport()
 }

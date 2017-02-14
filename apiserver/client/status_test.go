@@ -84,10 +84,12 @@ func (s *statusUnitTestSuite) TestProcessMachinesWithOneMachineAndOneContainer(c
 		host.Id(): {host, container},
 	}
 
-	statuses := client.ProcessMachines(machines)
+	// TODO(macgreagoir) Pass in more than nil
+	statuses := client.ProcessMachines(machines, nil, nil, nil)
 	c.Assert(statuses, gc.Not(gc.IsNil))
 
-	containerStatus := client.MakeMachineStatus(container)
+	// TODO(macgreagoir) Pass in more than nil
+	containerStatus := client.MakeMachineStatus(container, nil, nil, nil)
 	c.Check(statuses[host.Id()].Containers[container.Id()].Id, gc.Equals, containerStatus.Id)
 }
 
@@ -103,7 +105,8 @@ func (s *statusUnitTestSuite) TestProcessMachinesWithEmbeddedContainers(c *gc.C)
 		},
 	}
 
-	statuses := client.ProcessMachines(machines)
+	// TODO(macgreagoir) Pass in more than nil
+	statuses := client.ProcessMachines(machines, nil, nil, nil)
 	c.Assert(statuses, gc.Not(gc.IsNil))
 
 	hostContainer := statuses[host.Id()].Containers
@@ -383,7 +386,7 @@ func (s *statusUpgradeUnitSuite) SetUpTest(c *gc.C) {
 	s.resources = common.NewResources()
 	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
 	s.authoriser = apiservertesting.FakeAuthorizer{
-		EnvironManager: true,
+		Controller: true,
 	}
 	var err error
 	s.charmrevisionupdater, err = charmrevisionupdater.NewCharmRevisionUpdaterAPI(s.State, s.resources, s.authoriser)

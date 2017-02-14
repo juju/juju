@@ -289,7 +289,14 @@ func (c *configCommand) getConfig(client configCommandAPI, ctx *cmd.Context) err
 		key := c.keys[0]
 		if value, found := attrs[key]; found {
 			if c.out.Name() == "tabular" {
-				return cmd.FormatYaml(ctx.Stdout, value.Value)
+				// The user has not specified that they want
+				// YAML or JSON formatting, so we print out
+				// the value unadorned.
+				return c.out.WriteFormatter(
+					ctx,
+					cmd.FormatSmart,
+					value.Value,
+				)
 			}
 			attrs = config.ConfigValues{
 				key: config.ConfigValue{

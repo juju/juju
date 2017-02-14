@@ -28,6 +28,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils"
+	"github.com/juju/utils/arch"
 	"github.com/juju/utils/series"
 
 	"github.com/juju/juju/container/kvm/libvirt"
@@ -40,6 +41,12 @@ const (
 	kvm      = "kvm"
 	metadata = "meta-data"
 	userdata = "user-data"
+
+	// This path is only valid on ubuntu, and xenial at this point.
+	// TODO(ro) 2017-01-20 Determine if we will support trusty and update this
+	// as necessary if so. It seems it will require some serious acrobatics to
+	// get trusty to work properly and that may be out of scope for juju.
+	nvramCode = "/usr/share/AAVMF/AAVMF_CODE.fd"
 )
 
 var (
@@ -54,17 +61,33 @@ var (
 type CreateMachineParams struct {
 	Hostname      string
 	Series        string
-	Arch          string
 	UserDataFile  string
 	NetworkBridge string
 	Memory        uint64
 	CpuCores      uint64
 	RootDisk      uint64
 	Interfaces    []libvirt.InterfaceInfo
-	disks         []libvirt.DiskInfo
-	findPath      func(string) (string, error)
-	runCmd        runFunc
-	runCmdAsRoot  runFunc
+
+	disks    []libvirt.DiskInfo
+	findPath func(string) (string, error)
+
+	runCmd       runFunc
+	runCmdAsRoot runFunc
+	arch         string
+}
+
+// Arch returns the architecture to be used.
+func (p CreateMachineParams) Arch() string {
+	if p.arch != "" {
+		return p.arch
+	}
+	return arch.HostArch()
+}
+
+// Loader is the path to the binary firmware blob used in UEFI booting. At the
+// time of this writing only ARM64 requires this to run.
+func (p CreateMachineParams) Loader() string {
+	return nvramCode
 }
 
 // Host implements libvirt.domainParams.
@@ -146,15 +169,7 @@ func CreateMachine(params CreateMachineParams) error {
 		return fmt.Errorf("hostname is required")
 	}
 
-	if params.findPath == nil {
-		params.findPath = paths.DataDir
-	}
-	if params.runCmd == nil {
-		params.runCmd = runAsLibvirt
-	}
-	if params.runCmdAsRoot == nil {
-		params.runCmdAsRoot = run
-	}
+	setDefaults(&params)
 
 	templateDir := filepath.Dir(params.UserDataFile)
 
@@ -196,6 +211,19 @@ func CreateMachine(params CreateMachineParams) error {
 	return err
 }
 
+// Setup the default values for params.
+func setDefaults(p *CreateMachineParams) {
+	if p.findPath == nil {
+		p.findPath = paths.DataDir
+	}
+	if p.runCmd == nil {
+		p.runCmd = runAsLibvirt
+	}
+	if p.runCmdAsRoot == nil {
+		p.runCmdAsRoot = run
+	}
+}
+
 // DestroyMachine destroys the virtual machine represented by the kvmContainer.
 func DestroyMachine(c *kvmContainer) error {
 	if c.runCmd == nil {
@@ -217,9 +245,13 @@ func DestroyMachine(c *kvmContainer) error {
 		logger.Infof("`virsh destroy %s` failed: %q", c.Name(), err)
 	}
 
-	_, err = c.runCmd("virsh", "undefine", c.Name())
+	// The nvram flag here removes the pflash drive for us. There is also a
+	// `remove-all-storage` flag, but it is unclear if that would also remove
+	// the backing store which we don't want to do. So we remove those manually
+	// after undefining.
+	_, err = c.runCmd("virsh", "undefine", "--nvram", c.Name())
 	if err != nil {
-		logger.Infof("`virsh undefine %s` failed: %q", c.Name(), err)
+		logger.Infof("`virsh undefine --nvram %s` failed: %q", c.Name(), err)
 	}
 	guestBase, err := guestPath(c.pathfinder)
 	if err != nil {
@@ -414,7 +446,7 @@ func writeRootDisk(params CreateMachineParams) (string, error) {
 	imgPath := filepath.Join(guestBase, fmt.Sprintf("%s.qcow", params.Host()))
 	backingPath := filepath.Join(
 		guestBase,
-		backingFileName(params.Series, params.Arch))
+		backingFileName(params.Series, params.Arch()))
 
 	out, err := params.runCmd(
 		"qemu-img",

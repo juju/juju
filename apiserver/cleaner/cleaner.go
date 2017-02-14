@@ -30,7 +30,7 @@ func NewCleanerAPI(
 	res facade.Resources,
 	authorizer facade.Authorizer,
 ) (*CleanerAPI, error) {
-	if !authorizer.AuthModelManager() {
+	if !authorizer.AuthController() {
 		return nil, common.ErrPerm
 	}
 	return &CleanerAPI{

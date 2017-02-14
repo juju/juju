@@ -67,7 +67,7 @@ func (s *environSuite) TestBase(c *gc.C) {
 
 	c.Check(env.OpenPorts(nil), gc.IsNil)
 	c.Check(env.ClosePorts(nil), gc.IsNil)
-	ports, err := env.Ports()
+	ports, err := env.IngressRules()
 	c.Assert(err, gc.IsNil)
 	c.Check(ports, gc.IsNil)
 }

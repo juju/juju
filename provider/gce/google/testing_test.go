@@ -97,10 +97,13 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 		Type:  network.IPv4Address,
 		Scope: network.ScopeCloudLocal,
 	}}
-	s.RawMetadata = compute.Metadata{Items: []*compute.MetadataItems{{
-		Key:   "eggs",
-		Value: "steak",
-	}}}
+	s.RawMetadata = compute.Metadata{
+		Items: []*compute.MetadataItems{{
+			Key:   "eggs",
+			Value: "steak",
+		}},
+		Fingerprint: "heymumwatchthis",
+	}
 	s.Metadata = map[string]string{
 		"eggs": "steak",
 	}
@@ -158,6 +161,7 @@ type fakeCall struct {
 	AttachedDisk *compute.AttachedDisk
 	DeviceName   string
 	ComputeDisk  *compute.Disk
+	Metadata     *compute.Metadata
 }
 
 type fakeConn struct {
@@ -166,7 +170,7 @@ type fakeConn struct {
 	Project       *compute.Project
 	Instance      *compute.Instance
 	Instances     []*compute.Instance
-	Firewall      *compute.Firewall
+	Firewalls     []*compute.Firewall
 	Zones         []*compute.Zone
 	Err           error
 	FailOnCall    int
@@ -254,9 +258,9 @@ func (rc *fakeConn) RemoveInstance(projectID, zone, id string) error {
 	return err
 }
 
-func (rc *fakeConn) GetFirewall(projectID, name string) (*compute.Firewall, error) {
+func (rc *fakeConn) GetFirewalls(projectID, name string) ([]*compute.Firewall, error) {
 	call := fakeCall{
-		FuncName:  "GetFirewall",
+		FuncName:  "GetFirewalls",
 		ProjectID: projectID,
 		Name:      name,
 	}
@@ -266,7 +270,7 @@ func (rc *fakeConn) GetFirewall(projectID, name string) (*compute.Firewall, erro
 	if len(rc.Calls) != rc.FailOnCall+1 {
 		err = nil
 	}
-	return rc.Firewall, err
+	return rc.Firewalls, err
 }
 
 func (rc *fakeConn) AddFirewall(projectID string, firewall *compute.Firewall) error {
@@ -458,4 +462,21 @@ func (rc *fakeConn) ListMachineTypes(projectID, zone string) (*compute.MachineTy
 	}
 	return &machineType, nil
 
+}
+
+func (rc *fakeConn) SetMetadata(projectID, zone, instanceID string, metadata *compute.Metadata) error {
+	call := fakeCall{
+		FuncName:   "SetMetadata",
+		ProjectID:  projectID,
+		ZoneName:   zone,
+		InstanceId: instanceID,
+		Metadata:   metadata,
+	}
+	rc.Calls = append(rc.Calls, call)
+
+	err := rc.Err
+	if len(rc.Calls) != rc.FailOnCall+1 {
+		err = nil
+	}
+	return err
 }

@@ -82,7 +82,7 @@ var diffCloudsTests = []struct {
 	}, {
 		description: "added 1 cloud",
 		old:         map[string]jujucloud.Cloud{},
-		new:         map[string]jujucloud.Cloud{"one": jujucloud.Cloud{}},
+		new:         map[string]jujucloud.Cloud{"one": jujucloud.Cloud{Name: "one"}},
 		expected: `
 1 cloud added:
 
@@ -92,8 +92,8 @@ var diffCloudsTests = []struct {
 		description: "added 2 cloud",
 		old:         map[string]jujucloud.Cloud{},
 		new: map[string]jujucloud.Cloud{
-			"one": jujucloud.Cloud{},
-			"two": jujucloud.Cloud{},
+			"one": jujucloud.Cloud{Name: "one"},
+			"two": jujucloud.Cloud{Name: "two"},
 		},
 		expected: `
 2 clouds added:
@@ -103,7 +103,7 @@ var diffCloudsTests = []struct {
         - two`[1:],
 	}, {
 		description: "deleted 1 cloud",
-		old:         map[string]jujucloud.Cloud{"one": jujucloud.Cloud{}},
+		old:         map[string]jujucloud.Cloud{"one": jujucloud.Cloud{Name: "one"}},
 		new:         map[string]jujucloud.Cloud{},
 		expected: `
 1 cloud deleted:
@@ -113,8 +113,8 @@ var diffCloudsTests = []struct {
 	}, {
 		description: "deleted 2 cloud",
 		old: map[string]jujucloud.Cloud{
-			"one": jujucloud.Cloud{},
-			"two": jujucloud.Cloud{},
+			"one": jujucloud.Cloud{Name: "one"},
+			"two": jujucloud.Cloud{Name: "two"},
 		},
 		new: map[string]jujucloud.Cloud{},
 		expected: `
@@ -125,8 +125,13 @@ var diffCloudsTests = []struct {
         - two`[1:],
 	}, {
 		description: "cloud attributes change: endpoint",
-		old:         map[string]jujucloud.Cloud{"one": jujucloud.Cloud{}},
-		new:         map[string]jujucloud.Cloud{"one": jujucloud.Cloud{Endpoint: "old_endpoint"}},
+		old: map[string]jujucloud.Cloud{"one": jujucloud.Cloud{
+			Name: "one",
+		}},
+		new: map[string]jujucloud.Cloud{"one": jujucloud.Cloud{
+			Name:     "one",
+			Endpoint: "old_endpoint",
+		}},
 		expected: `
 1 cloud attribute changed:
 
@@ -134,8 +139,13 @@ var diffCloudsTests = []struct {
         - one`[1:],
 	}, {
 		description: "cloud attributes change: identity endpoint",
-		old:         map[string]jujucloud.Cloud{"one": jujucloud.Cloud{}},
-		new:         map[string]jujucloud.Cloud{"one": jujucloud.Cloud{IdentityEndpoint: "old_endpoint"}},
+		old: map[string]jujucloud.Cloud{"one": jujucloud.Cloud{
+			Name: "one",
+		}},
+		new: map[string]jujucloud.Cloud{"one": jujucloud.Cloud{
+			Name:             "one",
+			IdentityEndpoint: "old_endpoint"},
+		},
 		expected: `
 1 cloud attribute changed:
 
@@ -143,8 +153,13 @@ var diffCloudsTests = []struct {
         - one`[1:],
 	}, {
 		description: "cloud attributes change: storage endpoint",
-		old:         map[string]jujucloud.Cloud{"one": jujucloud.Cloud{}},
-		new:         map[string]jujucloud.Cloud{"one": jujucloud.Cloud{StorageEndpoint: "old_endpoint"}},
+		old: map[string]jujucloud.Cloud{"one": jujucloud.Cloud{
+			Name: "one",
+		}},
+		new: map[string]jujucloud.Cloud{"one": jujucloud.Cloud{
+			Name:            "one",
+			StorageEndpoint: "old_endpoint"},
+		},
 		expected: `
 1 cloud attribute changed:
 
@@ -152,8 +167,13 @@ var diffCloudsTests = []struct {
         - one`[1:],
 	}, {
 		description: "cloud attributes change: type",
-		old:         map[string]jujucloud.Cloud{"one": jujucloud.Cloud{}},
-		new:         map[string]jujucloud.Cloud{"one": jujucloud.Cloud{Type: "type"}},
+		old: map[string]jujucloud.Cloud{"one": jujucloud.Cloud{
+			Name: "one",
+		}},
+		new: map[string]jujucloud.Cloud{"one": jujucloud.Cloud{
+			Name: "one",
+			Type: "type",
+		}},
 		expected: `
 1 cloud attribute changed:
 
@@ -161,8 +181,13 @@ var diffCloudsTests = []struct {
         - one`[1:],
 	}, {
 		description: "cloud attributes change: auth type added",
-		old:         map[string]jujucloud.Cloud{"one": jujucloud.Cloud{}},
-		new:         map[string]jujucloud.Cloud{"one": jujucloud.Cloud{AuthTypes: []jujucloud.AuthType{jujucloud.AccessKeyAuthType}}},
+		old: map[string]jujucloud.Cloud{"one": jujucloud.Cloud{
+			Name: "one",
+		}},
+		new: map[string]jujucloud.Cloud{"one": jujucloud.Cloud{
+			Name:      "one",
+			AuthTypes: []jujucloud.AuthType{jujucloud.AccessKeyAuthType}},
+		},
 		expected: `
 1 cloud attribute changed:
 
@@ -170,8 +195,13 @@ var diffCloudsTests = []struct {
         - one`[1:],
 	}, {
 		description: "cloud attributes change: auth type deleted",
-		old:         map[string]jujucloud.Cloud{"one": jujucloud.Cloud{AuthTypes: []jujucloud.AuthType{jujucloud.AccessKeyAuthType}}},
-		new:         map[string]jujucloud.Cloud{"one": jujucloud.Cloud{}},
+		old: map[string]jujucloud.Cloud{"one": jujucloud.Cloud{
+			Name:      "one",
+			AuthTypes: []jujucloud.AuthType{jujucloud.AccessKeyAuthType}},
+		},
+		new: map[string]jujucloud.Cloud{"one": jujucloud.Cloud{
+			Name: "one",
+		}},
 		expected: `
 1 cloud attribute changed:
 
@@ -179,8 +209,14 @@ var diffCloudsTests = []struct {
         - one`[1:],
 	}, {
 		description: "cloud attributes change: auth type changed",
-		old:         map[string]jujucloud.Cloud{"one": jujucloud.Cloud{AuthTypes: []jujucloud.AuthType{jujucloud.AccessKeyAuthType}}},
-		new:         map[string]jujucloud.Cloud{"one": jujucloud.Cloud{AuthTypes: []jujucloud.AuthType{jujucloud.JSONFileAuthType}}},
+		old: map[string]jujucloud.Cloud{"one": jujucloud.Cloud{
+			Name:      "one",
+			AuthTypes: []jujucloud.AuthType{jujucloud.AccessKeyAuthType}},
+		},
+		new: map[string]jujucloud.Cloud{"one": jujucloud.Cloud{
+			Name:      "one",
+			AuthTypes: []jujucloud.AuthType{jujucloud.JSONFileAuthType}},
+		},
 		expected: `
 1 cloud attribute changed:
 
@@ -188,8 +224,13 @@ var diffCloudsTests = []struct {
         - one`[1:],
 	}, {
 		description: "cloud attributes change: region added",
-		old:         map[string]jujucloud.Cloud{"one": jujucloud.Cloud{}},
-		new:         map[string]jujucloud.Cloud{"one": jujucloud.Cloud{Regions: []jujucloud.Region{jujucloud.Region{Name: "a"}}}},
+		old: map[string]jujucloud.Cloud{"one": jujucloud.Cloud{
+			Name: "one",
+		}},
+		new: map[string]jujucloud.Cloud{"one": jujucloud.Cloud{
+			Name:    "one",
+			Regions: []jujucloud.Region{jujucloud.Region{Name: "a"}}},
+		},
 		expected: `
 1 cloud region added:
 
@@ -197,8 +238,13 @@ var diffCloudsTests = []struct {
         - one/a`[1:],
 	}, {
 		description: "cloud attributes change: region deleted",
-		old:         map[string]jujucloud.Cloud{"one": jujucloud.Cloud{Regions: []jujucloud.Region{jujucloud.Region{Name: "a"}}}},
-		new:         map[string]jujucloud.Cloud{"one": jujucloud.Cloud{}},
+		old: map[string]jujucloud.Cloud{"one": jujucloud.Cloud{
+			Name:    "one",
+			Regions: []jujucloud.Region{jujucloud.Region{Name: "a"}}},
+		},
+		new: map[string]jujucloud.Cloud{"one": jujucloud.Cloud{
+			Name: "one",
+		}},
 		expected: `
 1 cloud region deleted:
 
@@ -206,8 +252,14 @@ var diffCloudsTests = []struct {
         - one/a`[1:],
 	}, {
 		description: "cloud attributes change: region changed",
-		old:         map[string]jujucloud.Cloud{"one": jujucloud.Cloud{Regions: []jujucloud.Region{jujucloud.Region{Name: "a"}}}},
-		new:         map[string]jujucloud.Cloud{"one": jujucloud.Cloud{Regions: []jujucloud.Region{jujucloud.Region{Name: "a", Endpoint: "old_endpoint"}}}},
+		old: map[string]jujucloud.Cloud{"one": jujucloud.Cloud{
+			Name:    "one",
+			Regions: []jujucloud.Region{jujucloud.Region{Name: "a"}}},
+		},
+		new: map[string]jujucloud.Cloud{"one": jujucloud.Cloud{
+			Name:    "one",
+			Regions: []jujucloud.Region{jujucloud.Region{Name: "a", Endpoint: "old_endpoint"}}},
+		},
 		expected: `
 1 cloud region changed:
 
@@ -215,8 +267,14 @@ var diffCloudsTests = []struct {
         - one/a`[1:],
 	}, {
 		description: "cloud attributes change: region changed",
-		old:         map[string]jujucloud.Cloud{"one": jujucloud.Cloud{Regions: []jujucloud.Region{jujucloud.Region{Name: "a", Endpoint: "old_endpoint"}}}},
-		new:         map[string]jujucloud.Cloud{"one": jujucloud.Cloud{Regions: []jujucloud.Region{jujucloud.Region{Name: "a"}}}},
+		old: map[string]jujucloud.Cloud{"one": jujucloud.Cloud{
+			Name:    "one",
+			Regions: []jujucloud.Region{jujucloud.Region{Name: "a", Endpoint: "old_endpoint"}}},
+		},
+		new: map[string]jujucloud.Cloud{"one": jujucloud.Cloud{
+			Name:    "one",
+			Regions: []jujucloud.Region{jujucloud.Region{Name: "a"}}},
+		},
 		expected: `
 1 cloud region changed:
 
@@ -224,8 +282,14 @@ var diffCloudsTests = []struct {
         - one/a`[1:],
 	}, {
 		description: "cloud attributes change: region changed",
-		old:         map[string]jujucloud.Cloud{"one": jujucloud.Cloud{Regions: []jujucloud.Region{jujucloud.Region{Name: "a", Endpoint: "old_endpoint"}}}},
-		new:         map[string]jujucloud.Cloud{"one": jujucloud.Cloud{Regions: []jujucloud.Region{jujucloud.Region{Name: "a", Endpoint: "new_endpoint"}}}},
+		old: map[string]jujucloud.Cloud{"one": jujucloud.Cloud{
+			Name:    "one",
+			Regions: []jujucloud.Region{jujucloud.Region{Name: "a", Endpoint: "old_endpoint"}}},
+		},
+		new: map[string]jujucloud.Cloud{"one": jujucloud.Cloud{
+			Name:    "one",
+			Regions: []jujucloud.Region{jujucloud.Region{Name: "a", Endpoint: "new_endpoint"}}},
+		},
 		expected: `
 1 cloud region changed:
 
@@ -233,8 +297,14 @@ var diffCloudsTests = []struct {
         - one/a`[1:],
 	}, {
 		description: "cloud attributes change: region changed",
-		old:         map[string]jujucloud.Cloud{"one": jujucloud.Cloud{Regions: []jujucloud.Region{jujucloud.Region{Name: "a"}}}},
-		new:         map[string]jujucloud.Cloud{"one": jujucloud.Cloud{Regions: []jujucloud.Region{jujucloud.Region{Name: "a", StorageEndpoint: "old_endpoint"}}}},
+		old: map[string]jujucloud.Cloud{"one": jujucloud.Cloud{
+			Name:    "one",
+			Regions: []jujucloud.Region{jujucloud.Region{Name: "a"}}},
+		},
+		new: map[string]jujucloud.Cloud{"one": jujucloud.Cloud{
+			Name:    "one",
+			Regions: []jujucloud.Region{jujucloud.Region{Name: "a", StorageEndpoint: "old_endpoint"}}},
+		},
 		expected: `
 1 cloud region changed:
 
@@ -242,8 +312,14 @@ var diffCloudsTests = []struct {
         - one/a`[1:],
 	}, {
 		description: "cloud attributes change: region changed",
-		old:         map[string]jujucloud.Cloud{"one": jujucloud.Cloud{Regions: []jujucloud.Region{jujucloud.Region{Name: "a", StorageEndpoint: "old_endpoint"}}}},
-		new:         map[string]jujucloud.Cloud{"one": jujucloud.Cloud{Regions: []jujucloud.Region{jujucloud.Region{Name: "a"}}}},
+		old: map[string]jujucloud.Cloud{"one": jujucloud.Cloud{
+			Name:    "one",
+			Regions: []jujucloud.Region{jujucloud.Region{Name: "a", StorageEndpoint: "old_endpoint"}}},
+		},
+		new: map[string]jujucloud.Cloud{"one": jujucloud.Cloud{
+			Name:    "one",
+			Regions: []jujucloud.Region{jujucloud.Region{Name: "a"}}},
+		},
 		expected: `
 1 cloud region changed:
 
@@ -251,8 +327,14 @@ var diffCloudsTests = []struct {
         - one/a`[1:],
 	}, {
 		description: "cloud attributes change: region changed",
-		old:         map[string]jujucloud.Cloud{"one": jujucloud.Cloud{Regions: []jujucloud.Region{jujucloud.Region{Name: "a", StorageEndpoint: "old_endpoint"}}}},
-		new:         map[string]jujucloud.Cloud{"one": jujucloud.Cloud{Regions: []jujucloud.Region{jujucloud.Region{Name: "a", StorageEndpoint: "new_endpoint"}}}},
+		old: map[string]jujucloud.Cloud{"one": jujucloud.Cloud{
+			Name:    "one",
+			Regions: []jujucloud.Region{jujucloud.Region{Name: "a", StorageEndpoint: "old_endpoint"}}},
+		},
+		new: map[string]jujucloud.Cloud{"one": jujucloud.Cloud{
+			Name:    "one",
+			Regions: []jujucloud.Region{jujucloud.Region{Name: "a", StorageEndpoint: "new_endpoint"}}},
+		},
 		expected: `
 1 cloud region changed:
 
@@ -260,8 +342,13 @@ var diffCloudsTests = []struct {
         - one/a`[1:],
 	}, {
 		description: "cloud details changed",
-		old:         map[string]jujucloud.Cloud{"one": jujucloud.Cloud{Type: "type", Regions: []jujucloud.Region{jujucloud.Region{Name: "a"}}}},
-		new:         map[string]jujucloud.Cloud{"one": jujucloud.Cloud{}},
+		old: map[string]jujucloud.Cloud{"one": jujucloud.Cloud{
+			Name: "one",
+			Type: "type", Regions: []jujucloud.Region{jujucloud.Region{Name: "a"}}},
+		},
+		new: map[string]jujucloud.Cloud{"one": jujucloud.Cloud{
+			Name: "one",
+		}},
 		expected: `
 1 cloud attribute changed as well as 1 cloud region deleted:
 
@@ -271,8 +358,13 @@ var diffCloudsTests = []struct {
         - one/a`[1:],
 	}, {
 		description: "cloud details changed, another way",
-		old:         map[string]jujucloud.Cloud{"one": jujucloud.Cloud{}},
-		new:         map[string]jujucloud.Cloud{"one": jujucloud.Cloud{Type: "type", Regions: []jujucloud.Region{jujucloud.Region{Name: "a"}}}},
+		old: map[string]jujucloud.Cloud{"one": jujucloud.Cloud{
+			Name: "one",
+		}},
+		new: map[string]jujucloud.Cloud{"one": jujucloud.Cloud{
+			Name: "one",
+			Type: "type", Regions: []jujucloud.Region{jujucloud.Region{Name: "a"}}},
+		},
 		expected: `
 1 cloud region added as well as 1 cloud attribute changed:
 
@@ -283,12 +375,15 @@ var diffCloudsTests = []struct {
 	}, {
 		description: "all cloud change types",
 		old: map[string]jujucloud.Cloud{
-			"one":   jujucloud.Cloud{Type: "type", Regions: []jujucloud.Region{jujucloud.Region{Name: "a"}}},
-			"three": jujucloud.Cloud{}, // deleting
+			"one": jujucloud.Cloud{
+				Name: "one",
+				Type: "type", Regions: []jujucloud.Region{jujucloud.Region{Name: "a"}},
+			},
+			"three": jujucloud.Cloud{Name: "three"}, // deleting
 		},
 		new: map[string]jujucloud.Cloud{
-			"one": jujucloud.Cloud{}, // updating
-			"two": jujucloud.Cloud{}, // adding
+			"one": jujucloud.Cloud{Name: "one"}, // updating
+			"two": jujucloud.Cloud{Name: "two"}, // adding
 		},
 		expected: `
 1 cloud added; 1 cloud attribute changed as well as 1 cloud and 1 cloud region deleted:
@@ -304,12 +399,18 @@ var diffCloudsTests = []struct {
 	}, {
 		description: "all cloud change types, another way",
 		old: map[string]jujucloud.Cloud{
-			"one": jujucloud.Cloud{}, // updating
-			"two": jujucloud.Cloud{}, // deleting
+			"one": jujucloud.Cloud{Name: "one"}, // updating
+			"two": jujucloud.Cloud{Name: "two"}, // deleting
 		},
 		new: map[string]jujucloud.Cloud{
-			"one":   jujucloud.Cloud{Type: "type", Regions: []jujucloud.Region{jujucloud.Region{Name: "a"}}},
-			"three": jujucloud.Cloud{}, // adding
+			"one": jujucloud.Cloud{
+				Name:    "three",
+				Type:    "type",
+				Regions: []jujucloud.Region{jujucloud.Region{Name: "a"}},
+			},
+			"three": jujucloud.Cloud{
+				Name: "three",
+			}, // adding
 		},
 		expected: `
 1 cloud and 1 cloud region added; 1 cloud attribute changed as well as 1 cloud deleted:

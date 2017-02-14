@@ -8,6 +8,10 @@ tags
 !tags/
 TAGS
 !TAGS/
+parts/
+prime/
+stage/
+*.snap
 .emacs.desktop
 .emacs.desktop.lock
 *.test

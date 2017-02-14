@@ -74,20 +74,20 @@ func (inst *ec2Instance) Addresses() ([]network.Address, error) {
 	return addresses, nil
 }
 
-func (inst *ec2Instance) OpenPorts(machineId string, ports []network.PortRange) error {
+func (inst *ec2Instance) OpenPorts(machineId string, rules []network.IngressRule) error {
 	if inst.e.Config().FirewallMode() != config.FwInstance {
 		return fmt.Errorf("invalid firewall mode %q for opening ports on instance",
 			inst.e.Config().FirewallMode())
 	}
 	name := inst.e.machineGroupName(machineId)
-	if err := inst.e.openPortsInGroup(name, ports); err != nil {
+	if err := inst.e.openPortsInGroup(name, rules); err != nil {
 		return err
 	}
-	logger.Infof("opened ports in security group %s: %v", name, ports)
+	logger.Infof("opened ports in security group %s: %v", name, rules)
 	return nil
 }
 
-func (inst *ec2Instance) ClosePorts(machineId string, ports []network.PortRange) error {
+func (inst *ec2Instance) ClosePorts(machineId string, ports []network.IngressRule) error {
 	if inst.e.Config().FirewallMode() != config.FwInstance {
 		return fmt.Errorf("invalid firewall mode %q for closing ports on instance",
 			inst.e.Config().FirewallMode())
@@ -100,13 +100,13 @@ func (inst *ec2Instance) ClosePorts(machineId string, ports []network.PortRange)
 	return nil
 }
 
-func (inst *ec2Instance) Ports(machineId string) ([]network.PortRange, error) {
+func (inst *ec2Instance) IngressRules(machineId string) ([]network.IngressRule, error) {
 	if inst.e.Config().FirewallMode() != config.FwInstance {
-		return nil, fmt.Errorf("invalid firewall mode %q for retrieving ports from instance",
+		return nil, fmt.Errorf("invalid firewall mode %q for retrieving ingress rules from instance",
 			inst.e.Config().FirewallMode())
 	}
 	name := inst.e.machineGroupName(machineId)
-	ranges, err := inst.e.portsInGroup(name)
+	ranges, err := inst.e.ingressRulesInGroup(name)
 	if err != nil {
 		return nil, err
 	}

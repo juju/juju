@@ -59,6 +59,7 @@ type ControllerAPI struct {
 	cloudspec.CloudSpecAPI
 
 	state      *state.State
+	statePool  *state.StatePool
 	authorizer facade.Authorizer
 	apiUser    names.UserTag
 	resources  facade.Resources
@@ -68,11 +69,8 @@ var _ Controller = (*ControllerAPI)(nil)
 
 // NewControllerAPI creates a new api server endpoint for managing
 // environments.
-func NewControllerAPI(
-	st *state.State,
-	resources facade.Resources,
-	authorizer facade.Authorizer,
-) (*ControllerAPI, error) {
+func NewControllerAPI(ctx facade.Context) (*ControllerAPI, error) {
+	authorizer := ctx.Auth()
 	if !authorizer.AuthClient() {
 		return nil, errors.Trace(common.ErrPerm)
 	}
@@ -81,15 +79,17 @@ func NewControllerAPI(
 	// we just do the type assertion to the UserTag.
 	apiUser, _ := authorizer.GetAuthTag().(names.UserTag)
 
+	st := ctx.State()
 	environConfigGetter := stateenvirons.EnvironConfigGetter{st}
 	return &ControllerAPI{
 		ControllerConfigAPI: common.NewControllerConfig(st),
 		ModelStatusAPI:      common.NewModelStatusAPI(common.NewModelManagerBackend(st), authorizer, apiUser),
 		CloudSpecAPI:        cloudspec.NewCloudSpec(environConfigGetter.CloudSpec, common.AuthFuncForTag(st.ModelTag())),
 		state:               st,
+		statePool:           ctx.StatePool(),
 		authorizer:          authorizer,
 		apiUser:             apiUser,
-		resources:           resources,
+		resources:           ctx.Resources(),
 	}, nil
 }
 
@@ -298,7 +298,7 @@ func (c *ControllerAPI) WatchAllModels() (params.AllWatcherId, error) {
 	if err := c.checkHasAdmin(); err != nil {
 		return params.AllWatcherId{}, errors.Trace(err)
 	}
-	w := c.state.WatchAllModels()
+	w := c.state.WatchAllModels(c.statePool)
 	return params.AllWatcherId{
 		AllWatcherId: c.resources.Register(w),
 	}, nil

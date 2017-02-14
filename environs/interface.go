@@ -121,7 +121,7 @@ type FinalizeCredentialContext interface {
 // FinalizeCredentialParams contains the parameters for
 // ProviderCredentials.FinalizeCredential.
 type FinalizeCredentialParams struct {
-	// Credential is the credential that the provider should finalize.`
+	// Credential is the credential that the provider should finalize.
 	Credential cloud.Credential
 
 	// CloudEndpoint is the endpoint for the cloud that the credentials are
@@ -135,10 +135,49 @@ type FinalizeCredentialParams struct {
 	CloudIdentityEndpoint string
 }
 
+// FinalizeCloudContext is an interface passed into FinalizeCloud
+// to provide a means of interacting with the user when finalizing
+// a cloud definition.
+type FinalizeCloudContext interface {
+	// Verbosef will write the formatted string to Stderr if the
+	// verbose flag is true, and to the logger if not.
+	Verbosef(string, ...interface{})
+}
+
+// CloudFinalizer is an interface that an EnvironProvider implements
+// in order to finalize a cloud.Cloud definition before bootstrapping.
+type CloudFinalizer interface {
+	// FinalizeCloud finalizes a cloud definition, updating any attributes
+	// as necessary. This is always done client-side, before bootstrapping.
+	FinalizeCloud(FinalizeCloudContext, cloud.Cloud) (cloud.Cloud, error)
+}
+
+// CloudDetector is an interface that an EnvironProvider implements
+// in order to automatically detect clouds from the environment.
+type CloudDetector interface {
+	// DetectCloud attempts to detect a cloud with the given name
+	// from the environment. This may involve, for example,
+	// inspecting environment variables, or returning special
+	// hard-coded regions (e.g. "localhost" for lxd).
+	//
+	// If no cloud can be detected, DetectCloud should return
+	// an error satisfying errors.IsNotFound.
+	//
+	// DetectCloud should be used in preference to DetectClouds
+	// when a specific cloud is identified, as this may be more
+	// efficient.
+	DetectCloud(name string) (cloud.Cloud, error)
+
+	// DetectClouds detects clouds from the environment. This may
+	// involve, for example, inspecting environment variables, or
+	// returning special hard-coded regions (e.g. "localhost" for lxd).
+	DetectClouds() ([]cloud.Cloud, error)
+}
+
 // CloudRegionDetector is an interface that an EnvironProvider implements
 // in order to automatically detect cloud regions from the environment.
 type CloudRegionDetector interface {
-	// DetectRetions automatically detects one or more regions
+	// DetectRegions automatically detects one or more regions
 	// from the environment. This may involve, for example, inspecting
 	// environment variables, or returning special hard-coded regions
 	// (e.g. "localhost" for lxd). The first item in the list will be
@@ -148,14 +187,6 @@ type CloudRegionDetector interface {
 	// If no regions can be detected, DetectRegions should return
 	// an error satisfying errors.IsNotFound.
 	DetectRegions() ([]cloud.Region, error)
-}
-
-// DefaultCloudNamer is an interface that a provider implements to
-// specify what an implicitly-created cloud ahould be named.
-type DefaultCloudNamer interface {
-	// DefaultCloudName returns the name that should be used for the
-	// cloud instead of falling back to the provider name.
-	DefaultCloudName() string
 }
 
 // ModelConfigUpgrader is an interface that an EnvironProvider may
@@ -235,6 +266,19 @@ type Environ interface {
 	// Create is not called for the initial controller model; it is
 	// the Bootstrap method's job to create the controller model.
 	Create(CreateParams) error
+
+	// AdoptResources is called when the model is moved from one
+	// controller to another using model migration. Some providers tag
+	// instances, disks, and cloud storage with the controller UUID to
+	// aid in clean destruction. This method will be called on the
+	// environ for the target controller so it can update the
+	// controller tags for all of those things. For providers that do
+	// not track the controller UUID, a simple method returning nil
+	// will suffice. The version number of the source controller is
+	// provided for backwards compatibility - if the technique used to
+	// tag items changes, the version number can be used to decide how
+	// to remove the old tags correctly.
+	AdoptResources(controllerUUID string, fromVersion version.Number) error
 
 	// InstanceBroker defines methods for starting and stopping
 	// instances.
@@ -323,17 +367,20 @@ type Firewaller interface {
 	// OpenPorts opens the given port ranges for the whole environment.
 	// Must only be used if the environment was setup with the
 	// FwGlobal firewall mode.
-	OpenPorts(ports []network.PortRange) error
+	OpenPorts(rules []network.IngressRule) error
 
 	// ClosePorts closes the given port ranges for the whole environment.
 	// Must only be used if the environment was setup with the
 	// FwGlobal firewall mode.
-	ClosePorts(ports []network.PortRange) error
+	ClosePorts(rules []network.IngressRule) error
 
-	// Ports returns the port ranges opened for the whole environment.
+	// IngressRules returns the ingress rules applied to the whole environment.
 	// Must only be used if the environment was setup with the
 	// FwGlobal firewall mode.
-	Ports() ([]network.PortRange, error)
+	// It is expected that there be only one ingress rule result for a given
+	// port range - the rule's SourceCIDRs will contain all applicable source
+	// address rules for that port range.
+	IngressRules() ([]network.IngressRule, error)
 }
 
 // InstanceTagger is an interface that can be used for tagging instances.

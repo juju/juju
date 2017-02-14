@@ -9,23 +9,29 @@ import "strings"
 // can utilize them to mock behavior.
 
 var (
+	// KVMPath is exported for use in tests.
 	KVMPath = &kvmPath
 
 	// Used to export the parameters used to call Start on the KVM Container
 	TestStartParams = &startParams
 )
 
-func MakeCreateMachineParamsTestable(params *CreateMachineParams, pathfinder func(string) (string, error), runCmd runFunc) {
+// MakeCreateMachineParamsTestable adds test values to non exported values on
+// CreateMachineParams.
+func MakeCreateMachineParamsTestable(params *CreateMachineParams, pathfinder func(string) (string, error), runCmd runFunc, arch string) {
 	params.findPath = pathfinder
 	params.runCmd = runCmd
 	params.runCmdAsRoot = runCmd
+	params.arch = arch
 	return
 }
 
+// NewEmptyKvmContainer returns an empty kvmContainer for testing.
 func NewEmptyKvmContainer() *kvmContainer {
 	return &kvmContainer{}
 }
 
+// NewTestContainer returns a new container for testing.
 func NewTestContainer(name string, runCmd runFunc, pathfinder func(string) (string, error)) *kvmContainer {
 	return &kvmContainer{name: name, runCmd: runCmd, pathfinder: pathfinder}
 }
@@ -41,6 +47,7 @@ type runStub struct {
 	calls  []string
 }
 
+// Run fakes running commands, instead recording calls made for use in testing.
 func (s *runStub) Run(cmd string, args ...string) (string, error) {
 	call := []string{cmd}
 	call = append(call, args...)
@@ -51,6 +58,7 @@ func (s *runStub) Run(cmd string, args ...string) (string, error) {
 	return s.output, nil
 }
 
+// Calls returns the calls made on a runStub.
 func (s *runStub) Calls() []string {
 	return s.calls
 }

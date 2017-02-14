@@ -100,3 +100,20 @@ func (s *instanceSuite) TestNewInstanceSummaryArchitectures(c *gc.C) {
 	summary = lxdclient.NewInstanceSummary(&info)
 	c.Check(summary.Hardware.Architecture, gc.Equals, "unknown")
 }
+
+func (*instanceSuite) TestNamespaceMetadata(c *gc.C) {
+	spec := lxdclient.InstanceSpec{
+		Metadata: map[string]string{
+			"user.foo":       "bar",
+			"boot.autostart": "true",
+			"limits.memory":  "1024MB",
+			"baz":            "boo",
+		},
+	}
+
+	sum := spec.Summary("abc")
+	c.Assert(sum.Metadata, gc.DeepEquals, map[string]string{
+		"foo": "bar",
+		"baz": "boo",
+	})
+}

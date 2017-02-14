@@ -4,11 +4,14 @@
 package controller
 
 import (
+	"bytes"
+	"io"
 	"strings"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"github.com/juju/utils/set"
 
 	apicontroller "github.com/juju/juju/api/controller"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -54,7 +57,11 @@ func (c *getConfigCommand) Info() *cmd.Info {
 
 func (c *getConfigCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ControllerCommandBase.SetFlags(f)
-	c.out.AddFlags(f, "yaml", output.DefaultFormatters)
+	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
+		"json":    cmd.FormatJson,
+		"tabular": formatConfigTabular,
+		"yaml":    cmd.FormatYaml,
+	})
 }
 
 func (c *getConfigCommand) Init(args []string) (err error) {
@@ -92,10 +99,49 @@ func (c *getConfigCommand) Run(ctx *cmd.Context) error {
 
 	if c.key != "" {
 		if value, found := attrs[c.key]; found {
+			if c.out.Name() == "tabular" {
+				// The user has not specified that they want
+				// YAML or JSON formatting, so we print out
+				// the value unadorned.
+				return c.out.WriteFormatter(ctx, cmd.FormatSmart, value)
+			}
 			return c.out.Write(ctx, value)
 		}
 		return errors.Errorf("key %q not found in %q controller.", c.key, c.ControllerName())
 	}
 	// If key is empty, write out the whole lot.
 	return c.out.Write(ctx, attrs)
+}
+
+func formatConfigTabular(writer io.Writer, value interface{}) error {
+	controllerConfig, ok := value.(controller.Config)
+	if !ok {
+		return errors.Errorf("expected value of type %T, got %T", controllerConfig, value)
+	}
+
+	tw := output.TabWriter(writer)
+	w := output.Wrapper{tw}
+
+	valueNames := make(set.Strings)
+	for name := range controllerConfig {
+		valueNames.Add(name)
+	}
+	w.Println("Attribute", "Value")
+
+	for _, name := range valueNames.SortedValues() {
+		value := controllerConfig[name]
+
+		var out bytes.Buffer
+		err := cmd.FormatYaml(&out, value)
+		if err != nil {
+			return errors.Annotatef(err, "formatting value for %q", name)
+		}
+		// Some attribute values have a newline appended
+		// which makes the output messy.
+		valString := strings.TrimSuffix(out.String(), "\n")
+		w.Println(name, valString)
+	}
+
+	w.Flush()
+	return nil
 }

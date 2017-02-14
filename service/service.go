@@ -222,8 +222,9 @@ func InstallAndStart(svc ServiceActions) error {
 		if err != nil {
 			logger.Errorf("retrying start request (%v)", errors.Cause(err))
 		}
-
-		if err = svc.Start(); err == nil {
+		// we attempt restart if the service is running in case daemon parameters
+		// have changed, if its not running a regular start will happen.
+		if err = restartOrStart(svc); err == nil {
 			break
 		}
 	}
@@ -247,6 +248,19 @@ func Restart(name string) error {
 		return errors.Annotatef(err, "failed to restart service %q", name)
 	}
 	return nil
+}
+
+func restartOrStart(svc ServiceActions) error {
+	// Explicitly omit Restart as it is not properly supported on trusty.
+	// Otherwise explicitly stop and start the service.
+	if err := svc.Stop(); err != nil {
+		logger.Errorf("could not stop service: %v", err)
+	}
+	if err := svc.Start(); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+
 }
 
 func restart(svc Service) error {

@@ -256,6 +256,10 @@ type Config interface {
 	// MongoVersion returns the version of mongo that the state server
 	// is using.
 	MongoVersion() mongo.Version
+
+	// MongoMemoryProfile returns the profile to be used when setting
+	// mongo memory usage.
+	MongoMemoryProfile() mongo.MemoryProfile
 }
 
 type configSetterOnly interface {
@@ -292,6 +296,10 @@ type configSetterOnly interface {
 
 	// SetMongoVersion sets the passed version as currently in use.
 	SetMongoVersion(mongo.Version)
+
+	// SetMongoMemoryProfile sets the passed policy as the one to be
+	// used.
+	SetMongoMemoryProfile(mongo.MemoryProfile)
 }
 
 // LogFileName returns the filename for the Agent's log file.
@@ -335,39 +343,41 @@ func (d *connectionDetails) clone() *connectionDetails {
 }
 
 type configInternal struct {
-	configFilePath    string
-	paths             Paths
-	tag               names.Tag
-	nonce             string
-	controller        names.ControllerTag
-	model             names.ModelTag
-	jobs              []multiwatcher.MachineJob
-	upgradedToVersion version.Number
-	caCert            string
-	stateDetails      *connectionDetails
-	apiDetails        *connectionDetails
-	oldPassword       string
-	servingInfo       *params.StateServingInfo
-	values            map[string]string
-	mongoVersion      string
+	configFilePath     string
+	paths              Paths
+	tag                names.Tag
+	nonce              string
+	controller         names.ControllerTag
+	model              names.ModelTag
+	jobs               []multiwatcher.MachineJob
+	upgradedToVersion  version.Number
+	caCert             string
+	stateDetails       *connectionDetails
+	apiDetails         *connectionDetails
+	oldPassword        string
+	servingInfo        *params.StateServingInfo
+	values             map[string]string
+	mongoVersion       string
+	mongoMemoryProfile string
 }
 
 // AgentConfigParams holds the parameters required to create
 // a new AgentConfig.
 type AgentConfigParams struct {
-	Paths             Paths
-	Jobs              []multiwatcher.MachineJob
-	UpgradedToVersion version.Number
-	Tag               names.Tag
-	Password          string
-	Nonce             string
-	Controller        names.ControllerTag
-	Model             names.ModelTag
-	StateAddresses    []string
-	APIAddresses      []string
-	CACert            string
-	Values            map[string]string
-	MongoVersion      mongo.Version
+	Paths              Paths
+	Jobs               []multiwatcher.MachineJob
+	UpgradedToVersion  version.Number
+	Tag                names.Tag
+	Password           string
+	Nonce              string
+	Controller         names.ControllerTag
+	Model              names.ModelTag
+	StateAddresses     []string
+	APIAddresses       []string
+	CACert             string
+	Values             map[string]string
+	MongoVersion       mongo.Version
+	MongoMemoryProfile mongo.MemoryProfile
 }
 
 // NewAgentConfig returns a new config object suitable for use for a
@@ -411,17 +421,18 @@ func NewAgentConfig(configParams AgentConfigParams) (ConfigSetterWriter, error) 
 	// When/if this connection is successful, apicaller worker will generate
 	// a new secure password and update this agent's config.
 	config := &configInternal{
-		paths:             NewPathsWithDefaults(configParams.Paths),
-		jobs:              configParams.Jobs,
-		upgradedToVersion: configParams.UpgradedToVersion,
-		tag:               configParams.Tag,
-		nonce:             configParams.Nonce,
-		controller:        configParams.Controller,
-		model:             configParams.Model,
-		caCert:            configParams.CACert,
-		oldPassword:       configParams.Password,
-		values:            configParams.Values,
-		mongoVersion:      configParams.MongoVersion.String(),
+		paths:              NewPathsWithDefaults(configParams.Paths),
+		jobs:               configParams.Jobs,
+		upgradedToVersion:  configParams.UpgradedToVersion,
+		tag:                configParams.Tag,
+		nonce:              configParams.Nonce,
+		controller:         configParams.Controller,
+		model:              configParams.Model,
+		caCert:             configParams.CACert,
+		oldPassword:        configParams.Password,
+		values:             configParams.Values,
+		mongoVersion:       configParams.MongoVersion.String(),
+		mongoMemoryProfile: configParams.MongoMemoryProfile.String(),
 	}
 
 	if len(configParams.StateAddresses) > 0 {
@@ -692,9 +703,23 @@ func (c *configInternal) MongoVersion() mongo.Version {
 	return v
 }
 
+// MongoMemoryProfile implements Config.
+func (c *configInternal) MongoMemoryProfile() mongo.MemoryProfile {
+	mprof := mongo.MemoryProfile(c.mongoMemoryProfile)
+	if err := mprof.Validate(); err != nil {
+		return mongo.MemoryProfileLow
+	}
+	return mongo.MemoryProfile(c.mongoMemoryProfile)
+}
+
 // SetMongoVersion implements configSetterOnly.
 func (c *configInternal) SetMongoVersion(v mongo.Version) {
 	c.mongoVersion = v.String()
+}
+
+// SetMongoMemoryProfile implements configSetterOnly.
+func (c *configInternal) SetMongoMemoryProfile(v mongo.MemoryProfile) {
+	c.mongoMemoryProfile = v.String()
 }
 
 var validAddr = regexp.MustCompile("^.+:[0-9]+$")

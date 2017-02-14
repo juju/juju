@@ -146,3 +146,58 @@ func (gce *Connection) RemoveInstances(prefix string, ids ...string) error {
 	}
 	return nil
 }
+
+// UpdateMetadata sets the metadata key to the specified value for
+// all of the instance ids given. The call blocks until all
+// of the instances are updated or the request fails.
+func (gce *Connection) UpdateMetadata(key, value string, ids ...string) error {
+	if len(ids) == 0 {
+		return nil
+	}
+
+	instances, err := gce.raw.ListInstances(gce.projectID, "")
+	if err != nil {
+		return errors.Annotatef(err, "updating metadata for instances %v", ids)
+	}
+	var failed []string
+	for _, instID := range ids {
+		for _, inst := range instances {
+			if inst.Name == instID {
+				if err := gce.updateInstanceMetadata(inst, key, value); err != nil {
+					failed = append(failed, instID)
+					logger.Errorf("while updating metadata for instance %q (%v=%q): %v",
+						instID, key, value, err)
+				}
+				break
+			}
+		}
+	}
+	if len(failed) != 0 {
+		return errors.Errorf("some metadata updates failed: %v", failed)
+	}
+	return nil
+
+}
+
+func (gce *Connection) updateInstanceMetadata(instance *compute.Instance, key, value string) error {
+	metadata := instance.Metadata
+	existingItem := findMetadataItem(metadata.Items, key)
+	if existingItem != nil && existingItem.Value == value {
+		// The value's already right.
+		return nil
+	} else if existingItem == nil {
+		metadata.Items = append(metadata.Items, &compute.MetadataItems{Key: key, Value: value})
+	} else {
+		existingItem.Value = value
+	}
+	return errors.Trace(gce.raw.SetMetadata(gce.projectID, instance.Zone, instance.Name, metadata))
+}
+
+func findMetadataItem(items []*compute.MetadataItems, key string) *compute.MetadataItems {
+	for _, item := range items {
+		if item.Key == key {
+			return item
+		}
+	}
+	return nil
+}

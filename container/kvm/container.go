@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils/arch"
 
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/container/kvm/libvirt"
@@ -40,10 +41,15 @@ func (c *kvmContainer) Start(params StartParams) error {
 			return imagedownloads.NewDataSource(params.ImageDownloadURL)
 		}
 	}
+	var ftype = BIOSFType
+	if params.Arch == arch.ARM64 {
+		ftype = UEFIFType
+	}
+
 	sp := syncParams{
 		arch:    params.Arch,
 		series:  params.Series,
-		ftype:   FType,
+		ftype:   ftype,
 		srcFunc: srcFunc,
 	}
 	logger.Debugf("synchronise images for %s %s %s", sp.arch, sp.series, params.ImageDownloadURL)
@@ -71,7 +77,6 @@ func (c *kvmContainer) Start(params StartParams) error {
 	if err := CreateMachine(CreateMachineParams{
 		Hostname:      c.name,
 		Series:        params.Series,
-		Arch:          params.Arch,
 		UserDataFile:  params.UserDataFile,
 		NetworkBridge: bridge,
 		Memory:        params.Memory,

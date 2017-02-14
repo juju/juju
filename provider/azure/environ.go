@@ -25,6 +25,7 @@ import (
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/os"
 	jujuseries "github.com/juju/utils/series"
+	"github.com/juju/version"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/cloudconfig/instancecfg"
@@ -606,6 +607,7 @@ func (env *azureEnviron) createVirtualMachine(
 	osProfile, seriesOS, err := newOSProfile(
 		vmName, instanceConfig,
 		env.provider.config.RandomWindowsAdminPassword,
+		env.provider.config.GenerateSSHKey,
 	)
 	if err != nil {
 		return errors.Annotate(err, "creating OS profile")
@@ -844,7 +846,6 @@ func (env *azureEnviron) waitCommonResourcesCreatedLocked() error {
 		MaxDuration: 5 * time.Minute,
 		Clock:       env.provider.config.RetryClock,
 	})
-	return errors.Errorf("timed out waiting for common resources to be created")
 }
 
 // createAvailabilitySet creates the availability set for a machine to use
@@ -940,6 +941,7 @@ func newOSProfile(
 	vmName string,
 	instanceConfig *instancecfg.InstanceConfig,
 	randomAdminPassword func() string,
+	generateSSHKey func(string) (string, string, error),
 ) (*compute.OSProfile, os.OSType, error) {
 	logger.Debugf("creating OS profile for %q", vmName)
 
@@ -962,9 +964,24 @@ func newOSProfile(
 		// SSH keys are handled by custom data, but must also be
 		// specified in order to forego providing a password, and
 		// disable password authentication.
+		authorizedKeys := instanceConfig.AuthorizedKeys
+		if len(authorizedKeys) == 0 {
+			// Azure requires that machines be provisioned with
+			// either a password or at least one SSH key. We
+			// generate a key-pair to make Azure happy, but throw
+			// away the private key so that nobody will be able
+			// to log into the machine directly unless the keys
+			// are updated with one that Juju tracks.
+			_, public, err := generateSSHKey("")
+			if err != nil {
+				return nil, os.Unknown, errors.Trace(err)
+			}
+			authorizedKeys = public
+		}
+
 		publicKeys := []compute.SSHPublicKey{{
 			Path:    to.StringPtr("/home/ubuntu/.ssh/authorized_keys"),
-			KeyData: to.StringPtr(instanceConfig.AuthorizedKeys),
+			KeyData: to.StringPtr(authorizedKeys),
 		}}
 		osProfile.AdminUsername = to.StringPtr("ubuntu")
 		osProfile.LinuxConfiguration = &compute.LinuxConfiguration{
@@ -1220,6 +1237,158 @@ func (env *azureEnviron) instances(
 	return matching, nil
 }
 
+// AdoptResources is part of the Environ interface.
+func (env *azureEnviron) AdoptResources(controllerUUID string, fromVersion version.Number) error {
+	groupClient := resources.GroupsClient{env.resources}
+
+	err := env.updateGroupControllerTag(&groupClient, env.resourceGroup, controllerUUID)
+	if err != nil {
+		// If we can't update the group there's no point updating the
+		// contained resources - the group will be killed if the
+		// controller is destroyed, taking the other things with it.
+		return errors.Trace(err)
+	}
+
+	resourceClient := resources.Client{env.resources}
+	var failed []string
+
+	apiVersions, err := collectAPIVersions(env.callAPI, env.resources)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	var res resources.ResourceListResult
+	err = env.callAPI(func() (autorest.Response, error) {
+		var err error
+		res, err = groupClient.ListResources(env.resourceGroup, "", nil)
+		return res.Response, err
+	})
+	if err != nil {
+		return errors.Annotate(err, "listing resources")
+	}
+	for res.Value != nil {
+		for _, resource := range *res.Value {
+			// We need to set the API version to a value that's
+			// correct for the specific resource type. If we leave it
+			// as the version for the Microsoft.Resources provider we
+			// get NoRegisteredProviderFound errors.
+			resourceClient.APIVersion = apiVersions[to.String(resource.Type)]
+			err := env.updateResourceControllerTag(&resourceClient, resource, controllerUUID)
+			if err != nil {
+				name := to.String(resource.Name)
+				logger.Errorf("error updating resource tags for %q: %v", name, err)
+				failed = append(failed, name)
+			}
+		}
+		err = env.callAPI(func() (autorest.Response, error) {
+			var err error
+			res, err = groupClient.ListResourcesNextResults(res)
+			return res.Response, err
+		})
+		if err != nil {
+			return errors.Annotate(err, "getting next page of resources")
+		}
+	}
+
+	if len(failed) > 0 {
+		return errors.Errorf("failed to update controller for some resources: %v", failed)
+	}
+	return nil
+}
+
+func (env *azureEnviron) updateGroupControllerTag(client *resources.GroupsClient, groupName, controllerUUID string) error {
+	var group resources.ResourceGroup
+	err := env.callAPI(func() (autorest.Response, error) {
+		var err error
+		group, err = client.Get(groupName)
+		return group.Response, err
+	})
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	logger.Debugf("updating resource group %s juju controller uuid to %s",
+		to.String(group.Name), controllerUUID)
+	groupTags := toTags(group.Tags)
+	groupTags[tags.JujuController] = controllerUUID
+	group.Tags = to.StringMapPtr(groupTags)
+
+	// The Azure API forbids specifying ProvisioningState on the update.
+	if group.Properties != nil {
+		(*group.Properties).ProvisioningState = nil
+	}
+
+	err = env.callAPI(func() (autorest.Response, error) {
+		res, err := client.CreateOrUpdate(groupName, group)
+		return res.Response, err
+	})
+	return errors.Annotatef(err, "updating controller for resource group %q", groupName)
+}
+
+func (env *azureEnviron) updateResourceControllerTag(client *resources.Client, stubResource resources.GenericResource, controllerUUID string) error {
+	stubTags := toTags(stubResource.Tags)
+	if stubTags[tags.JujuController] == controllerUUID {
+		// No update needed.
+		return nil
+	}
+
+	namespace, parentPath, subtype, err := splitResourceType(to.String(stubResource.Type))
+	if err != nil {
+		return errors.Annotatef(err, "splitting resource type")
+	}
+
+	// Need to get the resource individually to ensure that the
+	// properties are populated.
+	var resource resources.GenericResource
+	err = env.callAPI(func() (autorest.Response, error) {
+		var err error
+		resource, err = client.Get(
+			env.resourceGroup,
+			namespace,
+			parentPath,
+			subtype,
+			to.String(stubResource.Name),
+		)
+		return resource.Response, err
+	})
+	if err != nil {
+		return errors.Annotatef(err, "getting full resource %q", to.String(stubResource.Name))
+	}
+
+	logger.Debugf("updating %s (%s) juju controller uuid to %s",
+		to.String(resource.Name), to.String(resource.Type), controllerUUID)
+	resourceTags := toTags(resource.Tags)
+	resourceTags[tags.JujuController] = controllerUUID
+	resource.Tags = to.StringMapPtr(resourceTags)
+
+	err = env.callAPI(func() (autorest.Response, error) {
+		res, err := client.CreateOrUpdate(
+			env.resourceGroup,
+			namespace,
+			parentPath,
+			subtype,
+			to.String(resource.Name),
+			resource,
+		)
+		return res.Response, err
+	})
+	return errors.Annotatef(err, "updating controller for %q", to.String(resource.Name))
+}
+
+// splitResourceType breaks the resource type into provider namespace,
+// parent path and subtype so we can pass the components to the
+// resource CreateOrUpdate method.
+func splitResourceType(resourceType string) (string, string, string, error) {
+	parts := strings.Split(resourceType, "/")
+	if len(parts) < 2 {
+		return "", "", "", errors.Errorf("expected at least 2 parts in resource type %q", resourceType)
+	}
+	namespace := parts[0]
+	subtype := parts[len(parts)-1]
+	parentPath := strings.Join(parts[1:len(parts)-1], "/")
+	return namespace, parentPath, subtype, nil
+}
+
 // AllInstances is specified in the InstanceBroker interface.
 func (env *azureEnviron) AllInstances() ([]instance.Instance, error) {
 	return env.allInstances(env.resourceGroup, true /* refresh addresses */, false /* all instances */)
@@ -1406,18 +1575,18 @@ var errNoFwGlobal = errors.New("global firewall mode is not supported")
 
 // OpenPorts is specified in the Environ interface. However, Azure does not
 // support the global firewall mode.
-func (env *azureEnviron) OpenPorts(ports []jujunetwork.PortRange) error {
+func (env *azureEnviron) OpenPorts(ports []jujunetwork.IngressRule) error {
 	return errNoFwGlobal
 }
 
 // ClosePorts is specified in the Environ interface. However, Azure does not
 // support the global firewall mode.
-func (env *azureEnviron) ClosePorts(ports []jujunetwork.PortRange) error {
+func (env *azureEnviron) ClosePorts(ports []jujunetwork.IngressRule) error {
 	return errNoFwGlobal
 }
 
 // Ports is specified in the Environ interface.
-func (env *azureEnviron) Ports() ([]jujunetwork.PortRange, error) {
+func (env *azureEnviron) IngressRules() ([]jujunetwork.IngressRule, error) {
 	return nil, errNoFwGlobal
 }
 

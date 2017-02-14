@@ -23,10 +23,9 @@ type libvirtInternalSuite struct {
 var _ = gc.Suite(&libvirtInternalSuite{})
 
 func (libvirtInternalSuite) TestWriteMetadata(c *gc.C) {
-	d, err := ioutil.TempDir("", "juju-libvirtInternalSuite")
-	defer removeAll(d, c)
-	c.Check(err, jc.ErrorIsNil)
-	err = writeMetadata(d)
+	d := c.MkDir()
+
+	err := writeMetadata(d)
 	c.Check(err, jc.ErrorIsNil)
 	b, err := ioutil.ReadFile(filepath.Join(d, metadata))
 	c.Check(err, jc.ErrorIsNil)
@@ -34,9 +33,7 @@ func (libvirtInternalSuite) TestWriteMetadata(c *gc.C) {
 }
 
 func (libvirtInternalSuite) TestWriteDomainXMLSucceeds(c *gc.C) {
-	d, err := ioutil.TempDir("", "juju-libvirtInternalSuite-")
-	c.Assert(err, jc.ErrorIsNil)
-	defer removeAll(d, c)
+	d := c.MkDir()
 
 	stub := &runStub{}
 
@@ -55,13 +52,11 @@ func (libvirtInternalSuite) TestWriteDomainXMLSucceeds(c *gc.C) {
 
 	got, err := writeDomainXML(d, p)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(got, gc.Matches, "/tmp/juju-libvirtInternalSuite-.*/host00.xml")
+	c.Assert(got, gc.Matches, `/tmp/check-.*/\d+/host00.xml`)
 }
 
 func (libvirtInternalSuite) TestWriteDomainXMLMissingValidSystemDisk(c *gc.C) {
-	d, err := ioutil.TempDir("", "juju-libvirtInternalSuite-")
-	c.Assert(err, jc.ErrorIsNil)
-	defer removeAll(d, c)
+	d := c.MkDir()
 
 	stub := &runStub{}
 
@@ -84,9 +79,7 @@ func (libvirtInternalSuite) TestWriteDomainXMLMissingValidSystemDisk(c *gc.C) {
 }
 
 func (libvirtInternalSuite) TestWriteDomainXMLMissingOneDisk(c *gc.C) {
-	d, err := ioutil.TempDir("", "juju-libvirtInternalSuite-")
-	c.Assert(err, jc.ErrorIsNil)
-	defer removeAll(d, c)
+	d := c.MkDir()
 
 	stub := &runStub{}
 
@@ -106,9 +99,7 @@ func (libvirtInternalSuite) TestWriteDomainXMLMissingOneDisk(c *gc.C) {
 }
 
 func (libvirtInternalSuite) TestWriteDomainXMLMissingBothDisk(c *gc.C) {
-	d, err := ioutil.TempDir("", "juju-libvirtInternalSuite-")
-	c.Assert(err, jc.ErrorIsNil)
-	defer removeAll(d, c)
+	d := c.MkDir()
 
 	stub := &runStub{}
 
@@ -124,9 +115,7 @@ func (libvirtInternalSuite) TestWriteDomainXMLMissingBothDisk(c *gc.C) {
 }
 
 func (libvirtInternalSuite) TestWriteDomainXMLNoHostname(c *gc.C) {
-	d, err := ioutil.TempDir("", "juju-libvirtInternalSuite-")
-	c.Assert(err, jc.ErrorIsNil)
-	defer removeAll(d, c)
+	d := c.MkDir()
 
 	stub := &runStub{}
 

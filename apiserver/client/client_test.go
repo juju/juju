@@ -63,8 +63,8 @@ func (s *serverSuite) SetUpTest(c *gc.C) {
 
 func (s *serverSuite) clientForState(c *gc.C, st *state.State) *client.Client {
 	auth := testing.FakeAuthorizer{
-		Tag:            s.AdminUserTag(c),
-		EnvironManager: true,
+		Tag:        s.AdminUserTag(c),
+		Controller: true,
 	}
 	urlGetter := common.NewToolsURLGetter(st.ModelUUID(), st)
 	configGetter := stateenvirons.EnvironConfigGetter{st}

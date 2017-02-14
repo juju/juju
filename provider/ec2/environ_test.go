@@ -4,6 +4,8 @@
 package ec2
 
 import (
+	"github.com/juju/errors"
+	jc "github.com/juju/testing/checkers"
 	amzec2 "gopkg.in/amz.v3/ec2"
 	gc "gopkg.in/check.v1"
 
@@ -109,15 +111,11 @@ func pInt(i uint64) *uint64 {
 func (*Suite) TestPortsToIPPerms(c *gc.C) {
 	testCases := []struct {
 		about    string
-		ports    []network.PortRange
+		rules    []network.IngressRule
 		expected []amzec2.IPPerm
 	}{{
 		about: "single port",
-		ports: []network.PortRange{{
-			FromPort: 80,
-			ToPort:   80,
-			Protocol: "tcp",
-		}},
+		rules: []network.IngressRule{network.MustNewIngressRule("tcp", 80, 80)},
 		expected: []amzec2.IPPerm{{
 			Protocol:  "tcp",
 			FromPort:  80,
@@ -126,11 +124,7 @@ func (*Suite) TestPortsToIPPerms(c *gc.C) {
 		}},
 	}, {
 		about: "multiple ports",
-		ports: []network.PortRange{{
-			FromPort: 80,
-			ToPort:   82,
-			Protocol: "tcp",
-		}},
+		rules: []network.IngressRule{network.MustNewIngressRule("tcp", 80, 82)},
 		expected: []amzec2.IPPerm{{
 			Protocol:  "tcp",
 			FromPort:  80,
@@ -139,15 +133,10 @@ func (*Suite) TestPortsToIPPerms(c *gc.C) {
 		}},
 	}, {
 		about: "multiple port ranges",
-		ports: []network.PortRange{{
-			FromPort: 80,
-			ToPort:   82,
-			Protocol: "tcp",
-		}, {
-			FromPort: 100,
-			ToPort:   120,
-			Protocol: "tcp",
-		}},
+		rules: []network.IngressRule{
+			network.MustNewIngressRule("tcp", 80, 82),
+			network.MustNewIngressRule("tcp", 100, 120),
+		},
 		expected: []amzec2.IPPerm{{
 			Protocol:  "tcp",
 			FromPort:  80,
@@ -159,11 +148,55 @@ func (*Suite) TestPortsToIPPerms(c *gc.C) {
 			ToPort:    120,
 			SourceIPs: []string{"0.0.0.0/0"},
 		}},
+	}, {
+		about: "source ranges",
+		rules: []network.IngressRule{network.MustNewIngressRule("tcp", 80, 82, "192.168.1.0/24", "0.0.0.0/0")},
+		expected: []amzec2.IPPerm{{
+			Protocol:  "tcp",
+			FromPort:  80,
+			ToPort:    82,
+			SourceIPs: []string{"192.168.1.0/24", "0.0.0.0/0"},
+		}},
 	}}
 
 	for i, t := range testCases {
 		c.Logf("test %d: %s", i, t.about)
-		ipperms := portsToIPPerms(t.ports)
+		ipperms := rulesToIPPerms(t.rules)
 		c.Assert(ipperms, gc.DeepEquals, t.expected)
 	}
+}
+
+// These Support checks are currently valid with a 'nil' environ pointer. If
+// that changes, the tests will need to be updated. (we know statically what is
+// supported.)
+func (*Suite) TestSupportsNetworking(c *gc.C) {
+	var env *environ
+	_, supported := environs.SupportsNetworking(env)
+	c.Assert(supported, jc.IsTrue)
+}
+
+func (*Suite) TestSupportsSpaces(c *gc.C) {
+	var env *environ
+	supported, err := env.SupportsSpaces()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(supported, jc.IsTrue)
+	c.Check(env, jc.Satisfies, environs.SupportsSpaces)
+}
+
+func (*Suite) TestSupportsSpaceDiscovery(c *gc.C) {
+	var env *environ
+	supported, err := env.SupportsSpaceDiscovery()
+	// TODO(jam): 2016-02-01 the comment on the interface says the error should
+	// conform to IsNotSupported, but all of the implementations just return
+	// nil for error and 'false' for supported.
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(supported, jc.IsFalse)
+}
+
+func (*Suite) TestSupportsContainerAddresses(c *gc.C) {
+	var env *environ
+	supported, err := env.SupportsContainerAddresses()
+	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
+	c.Assert(supported, jc.IsFalse)
+	c.Check(env, gc.Not(jc.Satisfies), environs.SupportsContainerAddresses)
 }
