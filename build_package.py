@@ -345,8 +345,8 @@ def make_ubuntu_version(series, version, upatch=1,
                 epoch=epoch, version=version, release=release, upatch=upatch,
                 date=date, build=build, revid=revid)
         return DAILY_VERSION_TEMPLATE.format(
-                version=version, release=release, upatch=upatch,
-                date=date, build=build, revid=revid)
+            version=version, release=release, upatch=upatch,
+            date=date, build=build, revid=revid)
 
     else:
         if epoch:

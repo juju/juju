@@ -5,24 +5,24 @@ from argparse import ArgumentParser
 from copy import deepcopy
 from datetime import datetime
 import logging
-# Done early to prevent Simplestreams from messing with the log configuration.
-logging.basicConfig(level=logging.INFO)
 import os
 import sys
 from textwrap import dedent
 import yaml
 
 from boto import ec2
+# Done early to prevent Simplestreams from messing with the log configuration.
+logging.basicConfig(level=logging.INFO)
 from simplestreams.generate_simplestreams import (
     FileNamer,
     generate_index,
     items2content_trees,
     json_dump,
-    )
+)
 from simplestreams.json2streams import (
     Item,
     JujuFileNamer,
-    )
+)
 from simplestreams import util
 
 log = logging.getLogger(
@@ -76,7 +76,7 @@ def make_aws_credentials(creds):
         return {
             'aws_access_key_id': creds['access-key'],
             'aws_secret_access_key': creds['secret-key'],
-            }
+        }
     else:
         raise LookupError('No credentials found!')
 
@@ -116,7 +116,7 @@ def iter_centos_images(credentials, china_credentials):
             'owner_alias': 'aws-marketplace',
             'product_code': 'aw0evgkw8e5c1q413zgy5pjce',
             # 'name': 'CentOS Linux 7*',
-            })
+        })
         for image in images:
             yield image
 
