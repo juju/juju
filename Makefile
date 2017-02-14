@@ -3,7 +3,7 @@ test:
 	TMPDIR=/tmp python -m unittest discover -vv ./tests -p "$(p)"
 lint:
 	flake8 --max-line-length=80 $$(find . -name '*.py') \
-	  --builtins=raw_input
+	  --builtins=raw_input --ignore=E123,E402
 cover:
 	python -m coverage run --source="./" --omit "./tests/*" -m unittest discover -vv ./tests
 	python -m coverage report

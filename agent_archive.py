@@ -30,7 +30,7 @@ AGENT_TEMPLATES = (
     'juju-{}-ubuntu-arm64.tgz',
     'juju-{}-ubuntu-ppc64el.tgz',
     'juju-{}-ubuntu-s390x.tgz',
-    )
+)
 
 
 AGENT_PATTERN = re.compile(
@@ -107,10 +107,12 @@ def is_new_version(source_path, config, s3_container, verbose=False):
         md5.update(local_file.read())
     local_hash = str(md5.hexdigest())
     if verbose:
-        print('Checking that %s and hash %s does not already exist.' % (source_agent, local_hash))
+        print('Checking that %s and hash %s does not already exist.' %
+              (source_agent, local_hash))
     if not existing_version:
         if verbose:
-            print('No existing version found compared to %s and hash %s' % (source_path, local_hash))
+            print('No existing version found compared to %s and hash %s' %
+                  (source_path, local_hash))
         return True
     remote_hash = existing_version.strip().split()[3]
     if remote_hash != local_hash:
@@ -175,7 +177,8 @@ def delete_agents(args):
     version = args.version
     agent_glob = '%s/juju-%s*' % (args.s3_container, version)
     existing_versions = run(
-        ['ls','--list-md5', agent_glob], config=args.config, verbose=args.verbose)
+        ['ls', '--list-md5', agent_glob],
+        config=args.config, verbose=args.verbose)
     if args.verbose:
         print('Checking for matching agents.')
     if version not in existing_versions:
