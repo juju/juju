@@ -52,7 +52,7 @@ type lxdProfiles interface {
 }
 
 type lxdImages interface {
-	EnsureImageExists(series string, sources []lxdclient.Remote, copyProgressHandler func(string)) error
+	EnsureImageExists(series, arch string, sources []lxdclient.Remote, copyProgressHandler func(string)) (string, error)
 }
 
 func newRawProvider(spec environs.CloudSpec, local bool) (*rawProvider, error) {

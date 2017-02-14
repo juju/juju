@@ -7,16 +7,22 @@ package lxdclient
 
 import (
 	"fmt"
+	"path"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	jujuarch "github.com/juju/utils/arch"
+	"github.com/juju/utils/os"
+	jujuseries "github.com/juju/utils/series"
 	"github.com/lxc/lxd"
+	"github.com/lxc/lxd/shared"
 
 	"github.com/juju/juju/utils/stringforwarder"
 )
 
 type rawImageClient interface {
 	GetAlias(string) string
+	GetImageInfo(string) (*shared.ImageInfo, error)
 }
 
 type remoteClient interface {
@@ -84,7 +90,7 @@ func (p *progressContext) copyProgress(progress string) {
 // EnsureImageExists makes sure we have a local image so we can launch a
 // container.
 // @param series: OS series (trusty, precise, etc)
-// @param architecture: (TODO) The architecture of the image we want to use
+// @param architecture: The architecture of the image we want to use
 // @param trustLocal: (TODO) check if we already have an image with the right alias.
 // Setting this to False means we will always check the remote sources and only
 // launch the newest version.
@@ -92,13 +98,37 @@ func (p *progressContext) copyProgress(progress string) {
 // @param copyProgressHandler: a callback function. If we have to download an
 // image, we will call this with messages indicating how much of the download
 // we have completed (and where we are downloading it from).
-func (i *imageClient) EnsureImageExists(series string, sources []Remote, copyProgressHandler func(string)) error {
+func (i *imageClient) EnsureImageExists(
+	series, arch string,
+	sources []Remote,
+	copyProgressHandler func(string),
+) (string, error) {
 	// TODO(jam) Find a way to test this, even though lxd.Client can't
 	// really be stubbed out because CopyImage takes one directly and pokes
 	// at private methods so we can't easily tweak it.
-	name := i.ImageNameForSeries(series)
 
-	lastErr := errors.New("image not imported!")
+	// First check if the image exists locally.
+	//
+	// NOTE(axw) if/when we cache images at the controller, we should
+	// revisit the policy around locally cached images. The images will
+	// auto-update *eventually*, but we may not want to allow them to
+	// be out-of-sync for an extended period of time.
+	var lastErr error
+	imageName := seriesLocalAlias(series, arch)
+	target := i.raw.GetAlias(imageName)
+	if target != "" {
+		// We already have an image with the given alias,
+		// so just use that.
+		return imageName, nil
+	}
+
+	// We don't have an image locally with the juju-specific alias,
+	// so look in each of the provided remote sources for any of
+	// the expected aliases.
+	aliases, err := seriesRemoteAliases(series, arch)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
 	for _, remote := range sources {
 		source, err := i.connectToSource(remote)
 		if err != nil {
@@ -106,42 +136,73 @@ func (i *imageClient) EnsureImageExists(series string, sources []Remote, copyPro
 			lastErr = err
 			continue
 		}
-
-		// TODO(jam): there are multiple possible spellings for aliases,
-		// unfortunately. cloud-images only hosts ubuntu images, and
-		// aliases them as "trusty" or "trusty/amd64" or
-		// "trusty/amd64/20160304". However, we should be more
-		// explicit. and use "ubuntu/trusty/amd64" as our default
-		// naming scheme, and only fall back for synchronization.
-		target := source.GetAlias(series)
-		if target == "" {
-			logger.Infof("no image for %s found in %s", name, source.URL())
-			// TODO(jam) Add a test that we skip sources that don't
-			// have what we are looking for
+		err = i.ensureImage(series, imageName, aliases, source, copyProgressHandler)
+		if errors.IsNotFound(err) {
 			continue
 		}
-		logger.Infof("found image from %s for %s = %s",
-			source.URL(), series, target)
-		forwarder := stringforwarder.New(copyProgressHandler)
-		defer func() {
-			dropCount := forwarder.Stop()
-			logger.Debugf("dropped %d progress messages", dropCount)
-		}()
-		adapter := &progressContext{
-			logger:  logger,
-			level:   loggo.INFO,
-			context: fmt.Sprintf("copying image for %s from %s: %%s", name, source.URL()),
-			forward: forwarder.Forward,
+		if lastErr = err; lastErr == nil {
+			break
 		}
-		err = source.CopyImage(series, i.raw, []string{name}, adapter.copyProgress)
-		return errors.Annotatef(err, "unable to get LXD image for %s", name)
 	}
-	return lastErr
+	return imageName, lastErr
 }
 
-// A common place to compute image names (aliases) based on the series
-func (i imageClient) ImageNameForSeries(series string) string {
-	// TODO(jam) Do we need 'ubuntu' in there? We only need it if "series"
-	// would collide, but all our supported series are disjoint
-	return fmt.Sprintf("ubuntu-%s", series)
+func (i *imageClient) ensureImage(
+	series, imageName string,
+	aliases []string,
+	source remoteClient,
+	copyProgressHandler func(string),
+) error {
+	// Look for an image with any of the aliases.
+	var alias, target string
+	for _, alias = range aliases {
+		if target = source.GetAlias(alias); target != "" {
+			break
+		}
+	}
+	if target == "" {
+		// TODO(jam) Add a test that we skip sources that don't
+		// have what we are looking for
+		logger.Infof("no image for %s found in %s", imageName, source.URL())
+		return errors.NotFoundf("image for %s in %s", imageName, source.URL())
+	}
+
+	logger.Infof("found image from %s for %s = %s", source.URL(), imageName, target)
+	forwarder := stringforwarder.New(copyProgressHandler)
+	defer func() {
+		dropCount := forwarder.Stop()
+		logger.Debugf("dropped %d progress messages", dropCount)
+	}()
+	adapter := &progressContext{
+		logger:  logger,
+		level:   loggo.INFO,
+		context: fmt.Sprintf("copying image for %s from %s: %%s", imageName, source.URL()),
+		forward: forwarder.Forward,
+	}
+	err := source.CopyImage(alias, i.raw, []string{imageName}, adapter.copyProgress)
+	return errors.Annotatef(err, "unable to get LXD image for %s", imageName)
+}
+
+// seriesLocalAlias returns the alias to assign to images for the
+// specified series. The alias is juju-specific, to support the
+// user supplying a customised image (e.g. CentOS with cloud-init).
+func seriesLocalAlias(series, arch string) string {
+	return fmt.Sprintf("juju/%s/%s", series, arch)
+}
+
+// seriesRemoteAliases returns the aliases to look for in remotes.
+func seriesRemoteAliases(series, arch string) ([]string, error) {
+	seriesOS, err := jujuseries.GetOSFromSeries(series)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	switch seriesOS {
+	case os.Ubuntu:
+		return []string{path.Join(series, arch)}, nil
+	case os.CentOS:
+		if series == "centos7" && arch == jujuarch.AMD64 {
+			return []string{"centos/7/amd64"}, nil
+		}
+	}
+	return nil, errors.NotSupportedf("series %q", series)
 }
