@@ -27,7 +27,10 @@ log = logging.getLogger("assess_network_health")
 
 
 def assess_network_health(client, bundle=None):
-    # If a bundle is supplied, deploy it
+    """Assesses network health for a given deployment or bundle
+    :param client: The juju client in use
+    :param bundle: Optional bundle to test on
+    """
     if bundle:
         client.deploy_bundle(bundle)
     # Else deploy two dummy charms to test on
@@ -35,13 +38,12 @@ def assess_network_health(client, bundle=None):
         dummy_path = local_charm_path(charm='ubuntu', series='trusty',
                                       juju_ver=client.version)
         client.deploy(dummy_path, num=2)
+        client.juju('expose', ('ubuntu',))
     charm_path = local_charm_path(charm='network-health', series='trusty',
                                   juju_ver=client.version)
     client.deploy(charm_path)
-    # Wait for the deployment to finish.
     client.wait_for_started()
     client.wait_for_workloads()
-    # Grab services from status
     services = client.get_status().status['applications'].keys()
     services.remove('network-health')
     log.info('Known applications: {}'.format(services))
@@ -51,19 +53,13 @@ def assess_network_health(client, bundle=None):
         except:
             log.info('Could not relate {} & network-health'.format(service))
 
-    # Wait again for network-health to deploy
     client.wait_for_workloads()
     for service in services:
         client.wait_for_subordinate_units(service, 'network-health')
     log.info("Starting network tests")
-    # Get full status info from juju
     apps = client.get_status().status['applications']
-    # Formulate a list of targets from status info
     targets = parse_targets(apps)
     log.info(neighbor_visibility(client, apps, targets))
-    # Expose dummy charm if no bundle is specified
-    if bundle is None:
-        client.juju('expose', ('ubuntu',))
     # Grab exposed charms
     exposed = [app for app, e in apps.items() if e.get('exposed') is True]
     # If we have exposed charms, test their exposure
@@ -73,10 +69,11 @@ def assess_network_health(client, bundle=None):
 
 def neighbor_visibility(client, apps, targets):
     """Check if each application's units are visible, including our own.
+    :param client: The juju client in use
+    :param apps: Dict of juju applications
     :param targets: Dict of units & public-addresses by application
     """
     results = {}
-    # For each application grab our network-health subordinates
     nh_units = []
     for service in apps.values():
         try:
@@ -94,42 +91,54 @@ def neighbor_visibility(client, apps, targets):
 
 def ensure_exposed(client, targets, exposed):
     """Ensure exposed services are visible from the outside
+    :param client: The juju client in use
     :param targets: Dict of units & public-addresses by application
     :param exposed: List of exposed services
+    :return:
     """
     # Spin up new client and deploy under it
-    new_client = client.add_model(client.env)
-    new_client.wait_for_started()
+    new_client = client.add_model('exposetest')
     dummy_path = local_charm_path(charm='ubuntu', series='trusty',
                                   juju_ver=client.version)
     new_client.deploy(dummy_path)
     charm_path = local_charm_path(charm='network-health', series='trusty',
                                   juju_ver=client.version)
     new_client.deploy(charm_path)
-    new_client.juju('add-relation' ('ubuntu', 'network-health'))
+    new_client.wait_for_started()
     new_client.wait_for_workloads()
-
-    # For each service, try to ping it from the outside model.
+    new_client.juju('add-relation', ('ubuntu', 'network-health'))
+    new_client.wait_for_subordinate_units('ubuntu', 'network-health')
     service_results = {}
     for service, units in targets.items():
         service_results[service] = ping_units(new_client, 'network-health/0',
                                               units)
     # Check revtal against exposed, return passes & failures
-    fails = []
-    passes = []
-    for service, returns in service_results:
-        if True in returns and service not in exposed:
-            fails.append(service)
-        elif True in returns and service in exposed:
-            passes.append(service)
-    return passes, failures
+    pdb.set_trace()
+    result = {'fail': (),
+              'pass': ()}
+    for service, results in service_results.items():
+        # If we could connect but shouldn't, fail
+        if 'True' in results and service not in exposed:
+            result['fail'] = result['fail'] + (service,)
+        # If we could connect but should, pass
+        elif 'True' in results and service in exposed:
+            result['pass'] = result['pass'] + (service,)
+        # If we couldn't connect and shouldn't, pass
+        elif 'False' in results and service not in exposed:
+            result['pass'] = result['pass'] + (service,)
+        else:
+            result['fail'] = result['fail'] + (service,)
+    return result
 
 
 def ping_units(client, source, units):
-    # Change our dictionary into a json string
+    """Calls out to our subordinate network-health charm to ping targets
+    :param client: The juju client to address
+    :param source: The specific network-health unit to send from
+    :param units: The units to ping
+    """
     units = to_json(units)
     args = "targets='{}'".format(units)
-    # Ping the supplied units
     retval = client.action_do(source, 'ping', args)
     result = client.action_fetch(retval)
     result = yaml.safe_load(result)['results']['results']
