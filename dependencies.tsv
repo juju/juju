@@ -95,6 +95,5 @@ gopkg.in/natefinch/lumberjack.v2	git	514cbda263a734ae8caac038dadf05f8f3f9f738	20
 gopkg.in/natefinch/npipe.v2	git	c1b8fa8bdccecb0b8db834ee0b92fdbcfa606dd6	2016-06-21T03:49:01Z
 gopkg.in/retry.v1	git	c09f6b86ba4d5d2cf5bdf0665364aec9fd4815db	2016-10-25T18:14:30Z
 gopkg.in/tomb.v1	git	dd632973f1e7218eb1089048e0798ec9ae7dceb8	2014-10-24T13:56:13Z
-gopkg.in/yaml.v1	git	9f9df34309c04878acc86042b16630b0f696e1de	2014-09-24T16:16:07Z
-gopkg.in/yaml.v2	git	a83829b6f1293c91addabc89d0571c246397bbf4	2016-03-01T20:40:22Z
+gopkg.in/yaml.v2	git	a3f3340b5840cee44f372bddb5880fcbc419b46a	2017-02-08T14:18:51Z
 golang.org/x/text	git	2910a502d2bf9e43193af9d68ca516529614eed3	2016-07-26T16:48:57Z
