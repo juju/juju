@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	jujuarch "github.com/juju/utils/arch"
 	"github.com/juju/utils/os"
 	jujuseries "github.com/juju/utils/series"
 	"github.com/lxc/lxd"
@@ -89,7 +90,7 @@ func (p *progressContext) copyProgress(progress string) {
 // EnsureImageExists makes sure we have a local image so we can launch a
 // container.
 // @param series: OS series (trusty, precise, etc)
-// @param architecture: (TODO) The architecture of the image we want to use
+// @param architecture: The architecture of the image we want to use
 // @param trustLocal: (TODO) check if we already have an image with the right alias.
 // Setting this to False means we will always check the remote sources and only
 // launch the newest version.
@@ -97,17 +98,21 @@ func (p *progressContext) copyProgress(progress string) {
 // @param copyProgressHandler: a callback function. If we have to download an
 // image, we will call this with messages indicating how much of the download
 // we have completed (and where we are downloading it from).
-func (i *imageClient) EnsureImageExists(series string, sources []Remote, copyProgressHandler func(string)) (string, error) {
+func (i *imageClient) EnsureImageExists(
+	series, arch string,
+	sources []Remote,
+	copyProgressHandler func(string),
+) (string, error) {
 	// TODO(jam) Find a way to test this, even though lxd.Client can't
 	// really be stubbed out because CopyImage takes one directly and pokes
 	// at private methods so we can't easily tweak it.
 
-	// NOTE(axw) architecture should be passed into this function, as
-	// indicated by the TODO in the function's doc comment. When it is,
-	// use get rid of this.
-	const arch = "amd64"
-
 	// First check if the image exists locally.
+	//
+	// NOTE(axw) if/when we cache images at the controller, we should
+	// revisit the policy around locally cached images. The images will
+	// auto-update *eventually*, but we may not want to allow them to
+	// be out-of-sync for an extended period of time.
 	var lastErr error
 	imageName := seriesLocalAlias(series, arch)
 	target := i.raw.GetAlias(imageName)
@@ -195,7 +200,7 @@ func seriesRemoteAliases(series, arch string) ([]string, error) {
 	case os.Ubuntu:
 		return []string{path.Join(series, arch)}, nil
 	case os.CentOS:
-		if series == "centos7" && arch == "amd64" {
+		if series == "centos7" && arch == jujuarch.AMD64 {
 			return []string{"centos/7/amd64"}, nil
 		}
 	}

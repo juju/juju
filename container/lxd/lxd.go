@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/utils/arch"
 
 	"github.com/juju/juju/cloudconfig/containerinit"
 	"github.com/juju/juju/cloudconfig/instancecfg"
@@ -108,8 +109,13 @@ func (manager *containerManager) CreateContainer(
 		}
 	}
 
+	// It is only possible to provision LXD containers
+	// of the same architecture as the host.
+	hostArch := arch.HostArch()
+
 	imageName, err := manager.client.EnsureImageExists(
 		series,
+		hostArch,
 		lxdclient.DefaultImageSources,
 		func(progress string) {
 			callback(status.Provisioning, progress, nil)

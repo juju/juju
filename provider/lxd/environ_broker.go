@@ -39,13 +39,14 @@ func (env *environ) StartInstance(args environs.StartInstanceParams) (*environs.
 	series := args.Tools.OneSeries()
 	logger.Debugf("StartInstance: %q, %s", args.InstanceConfig.MachineId, series)
 
-	if err := env.finishInstanceConfig(args); err != nil {
+	arch, err := env.finishInstanceConfig(args)
+	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	// TODO(ericsnow) Handle constraints?
 
-	raw, err := env.newRawInstance(args)
+	raw, err := env.newRawInstance(args, arch)
 	if err != nil {
 		if args.StatusCallback != nil {
 			args.StatusCallback(status.ProvisioningError, err.Error(), nil)
@@ -64,23 +65,22 @@ func (env *environ) StartInstance(args environs.StartInstanceParams) (*environs.
 	return &result, nil
 }
 
-func (env *environ) finishInstanceConfig(args environs.StartInstanceParams) error {
+func (env *environ) finishInstanceConfig(args environs.StartInstanceParams) (string, error) {
 	// TODO(natefinch): This is only correct so long as the lxd is running on
 	// the local machine.  If/when we support a remote lxd environment, we'll
 	// need to change this to match the arch of the remote machine.
-	tools, err := args.Tools.Match(tools.Filter{Arch: arch.HostArch()})
+	arch := arch.HostArch()
+	tools, err := args.Tools.Match(tools.Filter{Arch: arch})
 	if err != nil {
-		return errors.Trace(err)
+		return "", errors.Trace(err)
 	}
 	if err := args.InstanceConfig.SetTools(tools); err != nil {
-		return errors.Trace(err)
+		return "", errors.Trace(err)
 	}
-
 	if err := instancecfg.FinishInstanceConfig(args.InstanceConfig, env.ecfg.Config); err != nil {
-		return errors.Trace(err)
+		return "", errors.Trace(err)
 	}
-
-	return nil
+	return arch, nil
 }
 
 func (env *environ) getImageSources() ([]lxdclient.Remote, error) {
@@ -125,7 +125,10 @@ func (env *environ) getImageSources() ([]lxdclient.Remote, error) {
 // newRawInstance is where the new physical instance is actually
 // provisioned, relative to the provided args and spec. Info for that
 // low-level instance is returned.
-func (env *environ) newRawInstance(args environs.StartInstanceParams) (*lxdclient.Instance, error) {
+func (env *environ) newRawInstance(
+	args environs.StartInstanceParams,
+	arch string,
+) (*lxdclient.Instance, error) {
 	hostname, err := env.namespace.Hostname(args.InstanceConfig.MachineId)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -167,7 +170,7 @@ func (env *environ) newRawInstance(args environs.StartInstanceParams) (*lxdclien
 		statusCallback(status.Allocating, copyProgress)
 	}
 	series := args.InstanceConfig.Series
-	image, err := env.raw.EnsureImageExists(series, imageSources, imageCallback)
+	image, err := env.raw.EnsureImageExists(series, arch, imageSources, imageCallback)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

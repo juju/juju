@@ -506,13 +506,13 @@ func (conn *StubClient) RemoveInstances(prefix string, ids ...string) error {
 	return nil
 }
 
-func (conn *StubClient) EnsureImageExists(series string, _ []lxdclient.Remote, _ func(string)) (string, error) {
-	conn.AddCall("EnsureImageExists", series)
+func (conn *StubClient) EnsureImageExists(series, arch string, _ []lxdclient.Remote, _ func(string)) (string, error) {
+	conn.AddCall("EnsureImageExists", series, arch)
 	if err := conn.NextErr(); err != nil {
 		return "", errors.Trace(err)
 	}
 
-	return path.Join("juju", series, "amd64"), nil
+	return path.Join("juju", series, arch), nil
 }
 
 func (conn *StubClient) Addresses(name string) ([]network.Address, error) {

@@ -127,11 +127,11 @@ func (s *stubConnector) connectToSource(remote Remote) (remoteClient, error) {
 }
 
 func (s *imageSuite) TestEnsureImageExistsAlreadyPresent(c *gc.C) {
-	s.testEnsureImageExistsAlreadyPresent(c, "trusty", "juju/trusty/amd64")
-	s.testEnsureImageExistsAlreadyPresent(c, "centos7", "juju/centos7/amd64")
+	s.testEnsureImageExistsAlreadyPresent(c, "trusty", "ppc64el", "juju/trusty/ppc64el")
+	s.testEnsureImageExistsAlreadyPresent(c, "centos7", "ppc64el", "juju/centos7/ppc64el")
 }
 
-func (s *imageSuite) testEnsureImageExistsAlreadyPresent(c *gc.C, series, localAlias string) {
+func (s *imageSuite) testEnsureImageExistsAlreadyPresent(c *gc.C, series, arch, localAlias string) {
 	connector := MakeConnector(s.Stub, s.remoteWithTrusty)
 	raw := &stubClient{
 		stub:    s.Stub,
@@ -142,7 +142,7 @@ func (s *imageSuite) testEnsureImageExistsAlreadyPresent(c *gc.C, series, localA
 		connectToSource: connector.connectToSource,
 	}
 	s.Stub.ResetCalls()
-	image, err := client.EnsureImageExists(series, []Remote{s.remoteWithTrusty.AsRemote()}, nil)
+	image, err := client.EnsureImageExists(series, arch, []Remote{s.remoteWithTrusty.AsRemote()}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(image, gc.Equals, localAlias)
 	s.Stub.CheckCalls(c, []testing.StubCall{
@@ -166,7 +166,7 @@ func (s *imageSuite) TestEnsureImageExistsFirstRemote(c *gc.C) {
 	}
 	remotes := []Remote{s.remoteWithTrusty.AsRemote()}
 	s.Stub.ResetCalls()
-	_, err := client.EnsureImageExists("trusty", remotes, nil)
+	_, err := client.EnsureImageExists("trusty", "amd64", remotes, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	// We didn't find it locally
 	s.Stub.CheckCalls(c, []testing.StubCall{
@@ -211,7 +211,7 @@ func (s *imageSuite) TestEnsureImageExistsUnableToConnect(c *gc.C) {
 	s.Stub.ResetCalls()
 	s.Stub.SetErrors(nil, errors.Errorf("unable-to-connect"))
 	remotes := []Remote{badRemote, s.remoteWithTrusty.AsRemote()}
-	_, err := client.EnsureImageExists("trusty", remotes, nil)
+	_, err := client.EnsureImageExists("trusty", "amd64", remotes, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	// We didn't find it locally
 	s.Stub.CheckCalls(c, []testing.StubCall{
@@ -255,7 +255,7 @@ func (s *imageSuite) TestEnsureImageExistsNotPresentInFirstRemote(c *gc.C) {
 	}
 	s.Stub.ResetCalls()
 	remotes := []Remote{s.remoteWithNothing.AsRemote(), s.remoteWithTrusty.AsRemote()}
-	_, err := client.EnsureImageExists("trusty", remotes, nil)
+	_, err := client.EnsureImageExists("trusty", "amd64", remotes, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	// We didn't find it locally
 	s.Stub.CheckCalls(c, []testing.StubCall{
@@ -309,7 +309,7 @@ func (s *imageSuite) TestEnsureImageExistsCallbackIncludesSourceURL(c *gc.C) {
 		connectToSource: connector.connectToSource,
 	}
 	remotes := []Remote{s.remoteWithTrusty.AsRemote()}
-	_, err := client.EnsureImageExists("trusty", remotes, callback)
+	_, err := client.EnsureImageExists("trusty", "amd64", remotes, callback)
 	c.Assert(err, jc.ErrorIsNil)
 	select {
 	case message := <-calls:
