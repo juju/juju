@@ -745,6 +745,9 @@ func (ctx *prepareOrGetContext) ProcessOneContainer(env environs.Environ, idx in
 			}
 		} else {
 			logger.Infof("host machine device %q has no addresses %v", parentDevice.Name(), parentAddrs)
+			info.ConfigType = network.ConfigDHCP
+			info.ProviderSubnetId = ""
+			info.VLANTag = 0
 		}
 
 		logger.Tracef("prepared info for container interface %q: %+v", info.InterfaceName, info)
