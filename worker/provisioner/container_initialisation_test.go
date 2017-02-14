@@ -344,7 +344,7 @@ func (s *ContainerSetupSuite) TestContainerInitLockError(c *gc.C) {
 	err = m.SetAgentVersion(current)
 	c.Assert(err, jc.ErrorIsNil)
 
-	handler, runner := s.setupContainerWorker(c, m.Tag().(names.MachineTag))
+	handler, runner := s.setupContainerWorker(c, m.MachineTag())
 	runner.Kill()
 	err = runner.Wait()
 	c.Assert(err, jc.ErrorIsNil)
@@ -357,6 +357,102 @@ func (s *ContainerSetupSuite) TestContainerInitLockError(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, ".*failed to acquire initialization lock:.*")
 
 }
+
+func (s *ContainerSetupSuite) TestPrepareHostLockError(c *gc.C) {
+	spec := mutex.Spec{
+		Name:  s.lockName,
+		Clock: clock.WallClock,
+		Delay: coretesting.ShortWait,
+	}
+	releaser, err := mutex.Acquire(spec)
+	c.Assert(err, jc.ErrorIsNil)
+	defer releaser.Release()
+}
+
+/// TODO(jam) Move this to a prepareHost test
+/// func (s *kvmBrokerSuite) TestStartInstanceGetObservedNetworkConfigFails(c *gc.C) {
+/// 	broker, brokerErr := s.newKVMBroker(c)
+/// 	c.Assert(brokerErr, jc.ErrorIsNil)
+/// 	s.PatchValue(provisioner.GetObservedNetworkConfig, func(_ common.NetworkConfigSource) ([]params.NetworkConfig, error) {
+/// 		return nil, errors.New("TestStartInstanceObservedNetworkConfigFails no network")
+/// 	})
+/// 	machineId := "1/kvm/0"
+/// 	_, err := s.startInstance(c, broker, machineId)
+/// 	c.Check(err, gc.ErrorMatches, ".*TestStartInstanceObservedNetworkConfigFails no network")
+/// 	s.api.CheckCalls(c, []gitjujutesting.StubCall{{
+/// 		FuncName: "ContainerConfig",
+/// 	}, {
+/// 		FuncName: "HostChangesForContainer",
+/// 		Args:     []interface{}{names.NewMachineTag("1-kvm-0")},
+/// 	}})
+/// }
+///
+/// func (s *kvmBrokerSuite) TestStartInstanceWithoutNetworkChanges(c *gc.C) {
+/// 	broker, brokerErr := s.newKVMBroker(c)
+/// 	c.Assert(brokerErr, jc.ErrorIsNil)
+/// 	s.PatchValue(provisioner.GetObservedNetworkConfig, func(_ common.NetworkConfigSource) ([]params.NetworkConfig, error) {
+/// 		return nil, nil
+/// 	})
+/// 	machineId := "1/kvm/0"
+/// 	result, err := s.startInstance(c, broker, machineId)
+/// 	c.Assert(err, jc.ErrorIsNil)
+/// 	s.api.CheckCalls(c, []gitjujutesting.StubCall{{
+/// 		FuncName: "ContainerConfig",
+/// 	}, {
+/// 		FuncName: "HostChangesForContainer",
+/// 		Args:     []interface{}{names.NewMachineTag("1-kvm-0")},
+/// 	}, {
+/// 		FuncName: "PrepareContainerInterfaceInfo",
+/// 		Args:     []interface{}{names.NewMachineTag("1-kvm-0")},
+/// 	}})
+/// 	c.Assert(result.Instance.Id(), gc.Equals, instance.Id("juju-06f00d-1-kvm-0"))
+/// 	s.assertResults(c, broker, result)
+/// }
+///
+/// func (s *kvmBrokerSuite) TestStartInstanceWithHostNetworkChanges(c *gc.C) {
+/// 	broker, brokerErr := s.newKVMBroker(c)
+/// 	c.Assert(brokerErr, jc.ErrorIsNil)
+///
+/// 	observedNetworkConfig := []params.NetworkConfig{
+/// 		params.NetworkConfig{
+/// 			DeviceIndex:    0,
+/// 			MACAddress:     "aa:bb:cc:dd:ee:ff",
+/// 			CIDR:           "0.1.2.3/24",
+/// 			InterfaceName:  "dummy0",
+/// 			Disabled:       false,
+/// 			NoAutoStart:    false,
+/// 			Address:        "0.1.2.3",
+/// 			GatewayAddress: "0.1.2.1",
+/// 		},
+/// 	}
+///
+/// 	s.PatchValue(provisioner.GetObservedNetworkConfig, func(_ common.NetworkConfigSource) ([]params.NetworkConfig, error) {
+/// 		return observedNetworkConfig, nil
+/// 	})
+///
+/// 	machineId := "1/kvm/0"
+/// 	result, err := s.startInstance(c, broker, machineId)
+/// 	c.Assert(err, jc.ErrorIsNil)
+/// 	s.api.CheckCalls(c, []gitjujutesting.StubCall{{
+/// 		FuncName: "ContainerConfig",
+/// 	}, {
+/// 		FuncName: "HostChangesForContainer",
+/// 		Args: []interface{}{
+/// 			names.NewMachineTag("1-kvm-0"),
+/// 		},
+/// 	}, {
+/// 		FuncName: "SetHostMachineNetworkConfig",
+/// 		Args: []interface{}{
+/// 			"machine-1",
+/// 			observedNetworkConfig,
+/// 		},
+/// 	}, {
+/// 		FuncName: "PrepareContainerInterfaceInfo",
+/// 		Args:     []interface{}{names.NewMachineTag("1-kvm-0")},
+/// 	}})
+/// 	c.Assert(result.Instance.Id(), gc.Equals, instance.Id("juju-06f00d-1-kvm-0"))
+/// 	s.assertResults(c, broker, result)
+/// }
 
 type toolsFinderFunc func(v version.Number, series string, arch string) (tools.List, error)
 
