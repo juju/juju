@@ -18,7 +18,7 @@ import (
 	csparams "gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon.v1"
-	"gopkg.in/yaml.v1"
+	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/application"
