@@ -70,90 +70,114 @@ func (s *lxdBrokerSuite) startInstance(c *gc.C, broker environs.InstanceBroker, 
 }
 
 func (s *lxdBrokerSuite) newLXDBroker(c *gc.C) (environs.InstanceBroker, error) {
-	return provisioner.NewLXDBroker(noopPrepareHostFunc, s.api, s.manager, s.agentConfig)
+	return provisioner.NewLXDBroker(s.api.PrepareHost, s.api, s.manager, s.agentConfig)
 }
 
-func (s *lxdBrokerSuite) TestStartInstanceGetObservedNetworkConfigFails(c *gc.C) {
-	broker, brokerErr := s.newLXDBroker(c)
-	c.Assert(brokerErr, jc.ErrorIsNil)
-	s.PatchValue(provisioner.GetObservedNetworkConfig, func(_ common.NetworkConfigSource) ([]params.NetworkConfig, error) {
-		return nil, errors.New("TestStartInstanceWithHostNetworkChanges no network")
-	})
-
-	machineId := "1/lxd/0"
-	_, err := s.startInstance(c, broker, machineId)
-	c.Check(err, gc.ErrorMatches, ".*TestStartInstanceWithHostNetworkChanges no network")
-
-	s.api.CheckCalls(c, []gitjujutesting.StubCall{{
-		FuncName: "ContainerConfig",
-	}, {
-		FuncName: "HostChangesForContainer",
-		Args:     []interface{}{names.NewMachineTag("1-lxd-0")},
-	}})
-}
+/// TODO(jam) Move this to a prepareHost test
+/// func (s *lxdBrokerSuite) TestStartInstanceGetObservedNetworkConfigFails(c *gc.C) {
+/// 	broker, brokerErr := s.newLXDBroker(c)
+/// 	c.Assert(brokerErr, jc.ErrorIsNil)
+/// 	s.PatchValue(provisioner.GetObservedNetworkConfig, func(_ common.NetworkConfigSource) ([]params.NetworkConfig, error) {
+/// 		return nil, errors.New("TestStartInstanceWithHostNetworkChanges no network")
+/// 	})
+///
+/// 	machineId := "1/lxd/0"
+/// 	_, err := s.startInstance(c, broker, machineId)
+/// 	c.Check(err, gc.ErrorMatches, ".*TestStartInstanceWithHostNetworkChanges no network")
+///
+/// 	s.api.CheckCalls(c, []gitjujutesting.StubCall{{
+/// 		FuncName: "ContainerConfig",
+/// 	}, {
+/// 		FuncName: "HostChangesForContainer",
+/// 		Args:     []interface{}{names.NewMachineTag("1-lxd-0")},
+/// 	}})
+/// }
+///
+/// func (s *lxdBrokerSuite) TestStartInstanceWithoutHostNetworkChanges(c *gc.C) {
+/// 	broker, brokerErr := s.newLXDBroker(c)
+/// 	c.Assert(brokerErr, jc.ErrorIsNil)
+/// 	s.PatchValue(provisioner.GetObservedNetworkConfig, func(_ common.NetworkConfigSource) ([]params.NetworkConfig, error) {
+/// 		return nil, nil
+/// 	})
+/// 	machineId := "1/lxd/0"
+/// 	s.startInstance(c, broker, machineId)
+/// 	s.api.CheckCalls(c, []gitjujutesting.StubCall{{
+/// 		FuncName: "ContainerConfig",
+/// 	}, {
+/// 		FuncName: "HostChangesForContainer",
+/// 		Args:     []interface{}{names.NewMachineTag("1-lxd-0")},
+/// 	}, {
+/// 		FuncName: "PrepareContainerInterfaceInfo",
+/// 		Args:     []interface{}{names.NewMachineTag("1-lxd-0")},
+/// 	}})
+/// 	s.manager.CheckCallNames(c, "CreateContainer")
+/// 	call := s.manager.Calls()[0]
+/// 	c.Assert(call.Args[0], gc.FitsTypeOf, &instancecfg.InstanceConfig{})
+/// 	instanceConfig := call.Args[0].(*instancecfg.InstanceConfig)
+/// 	c.Assert(instanceConfig.ToolsList(), gc.HasLen, 1)
+/// 	c.Assert(instanceConfig.ToolsList().Arches(), jc.DeepEquals, []string{"amd64"})
+/// }
+///
+/// func (s *lxdBrokerSuite) TestStartInstanceWithHostNetworkChanges(c *gc.C) {
+/// 	broker, brokerErr := s.newLXDBroker(c)
+/// 	c.Assert(brokerErr, jc.ErrorIsNil)
+///
+/// 	observedNetworkConfig := []params.NetworkConfig{
+/// 		params.NetworkConfig{
+/// 			DeviceIndex:    0,
+/// 			MACAddress:     "aa:bb:cc:dd:ee:ff",
+/// 			CIDR:           "0.1.2.3/24",
+/// 			InterfaceName:  "dummy0",
+/// 			Disabled:       false,
+/// 			NoAutoStart:    false,
+/// 			Address:        "0.1.2.3",
+/// 			GatewayAddress: "0.1.2.1",
+/// 		},
+/// 	}
+///
+/// 	s.PatchValue(provisioner.GetObservedNetworkConfig, func(_ common.NetworkConfigSource) ([]params.NetworkConfig, error) {
+/// 		return observedNetworkConfig, nil
+/// 	})
+///
+/// 	machineId := "1/lxd/0"
+/// 	s.startInstance(c, broker, machineId)
+///
+/// 	s.api.CheckCalls(c, []gitjujutesting.StubCall{{
+/// 		FuncName: "ContainerConfig",
+/// 	}, {
+/// 		FuncName: "HostChangesForContainer",
+/// 		Args: []interface{}{
+/// 			names.NewMachineTag("1-lxd-0"),
+/// 		},
+/// 	}, {
+/// 		FuncName: "SetHostMachineNetworkConfig",
+/// 		Args: []interface{}{
+/// 			"machine-1",
+/// 			observedNetworkConfig,
+/// 		},
+/// 	}, {
+/// 		FuncName: "PrepareContainerInterfaceInfo",
+/// 		Args:     []interface{}{names.NewMachineTag("1-lxd-0")},
+/// 	}})
+/// 	s.manager.CheckCallNames(c, "CreateContainer")
+/// 	call := s.manager.Calls()[0]
+/// 	c.Assert(call.Args[0], gc.FitsTypeOf, &instancecfg.InstanceConfig{})
+/// 	instanceConfig := call.Args[0].(*instancecfg.InstanceConfig)
+/// 	c.Assert(instanceConfig.ToolsList(), gc.HasLen, 1)
+/// 	c.Assert(instanceConfig.ToolsList().Arches(), jc.DeepEquals, []string{"amd64"})
+/// }
 
 func (s *lxdBrokerSuite) TestStartInstanceWithoutHostNetworkChanges(c *gc.C) {
 	broker, brokerErr := s.newLXDBroker(c)
 	c.Assert(brokerErr, jc.ErrorIsNil)
-	s.PatchValue(provisioner.GetObservedNetworkConfig, func(_ common.NetworkConfigSource) ([]params.NetworkConfig, error) {
-		return nil, nil
-	})
 	machineId := "1/lxd/0"
+	containerTag := names.NewMachineTag("1-lxd-0")
 	s.startInstance(c, broker, machineId)
 	s.api.CheckCalls(c, []gitjujutesting.StubCall{{
 		FuncName: "ContainerConfig",
 	}, {
-		FuncName: "HostChangesForContainer",
-		Args:     []interface{}{names.NewMachineTag("1-lxd-0")},
-	}, {
-		FuncName: "PrepareContainerInterfaceInfo",
-		Args:     []interface{}{names.NewMachineTag("1-lxd-0")},
-	}})
-	s.manager.CheckCallNames(c, "CreateContainer")
-	call := s.manager.Calls()[0]
-	c.Assert(call.Args[0], gc.FitsTypeOf, &instancecfg.InstanceConfig{})
-	instanceConfig := call.Args[0].(*instancecfg.InstanceConfig)
-	c.Assert(instanceConfig.ToolsList(), gc.HasLen, 1)
-	c.Assert(instanceConfig.ToolsList().Arches(), jc.DeepEquals, []string{"amd64"})
-}
-
-func (s *lxdBrokerSuite) TestStartInstanceWithHostNetworkChanges(c *gc.C) {
-	broker, brokerErr := s.newLXDBroker(c)
-	c.Assert(brokerErr, jc.ErrorIsNil)
-
-	observedNetworkConfig := []params.NetworkConfig{
-		params.NetworkConfig{
-			DeviceIndex:    0,
-			MACAddress:     "aa:bb:cc:dd:ee:ff",
-			CIDR:           "0.1.2.3/24",
-			InterfaceName:  "dummy0",
-			Disabled:       false,
-			NoAutoStart:    false,
-			Address:        "0.1.2.3",
-			GatewayAddress: "0.1.2.1",
-		},
-	}
-
-	s.PatchValue(provisioner.GetObservedNetworkConfig, func(_ common.NetworkConfigSource) ([]params.NetworkConfig, error) {
-		return observedNetworkConfig, nil
-	})
-
-	machineId := "1/lxd/0"
-	s.startInstance(c, broker, machineId)
-
-	s.api.CheckCalls(c, []gitjujutesting.StubCall{{
-		FuncName: "ContainerConfig",
-	}, {
-		FuncName: "HostChangesForContainer",
-		Args: []interface{}{
-			names.NewMachineTag("1-lxd-0"),
-		},
-	}, {
-		FuncName: "SetHostMachineNetworkConfig",
-		Args: []interface{}{
-			"machine-1",
-			observedNetworkConfig,
-		},
+		FuncName: "PrepareHost",
+		Args:     []interface{}{containerTag},
 	}, {
 		FuncName: "PrepareContainerInterfaceInfo",
 		Args:     []interface{}{names.NewMachineTag("1-lxd-0")},

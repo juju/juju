@@ -9,6 +9,7 @@ import (
 	"net"
 	"path/filepath"
 
+	"github.com/juju/loggo"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
@@ -49,6 +50,7 @@ type fakeAPI struct {
 	fakeInterfaceInfo   network.InterfaceInfo
 	fakeDeviceToBridge  network.DeviceToBridge
 	fakeBridger         network.Bridger
+	fakePreparer        provisioner.PrepareHostFunc
 }
 
 var _ provisioner.APICalls = (*fakeAPI)(nil)
@@ -127,12 +129,26 @@ func (f *fakeAPI) SetHostMachineNetworkConfig(hostMachineTag names.MachineTag, n
 	return nil
 }
 
-func (f *fakeAPI) HostChangesForContainer(machineID names.MachineTag) ([]network.DeviceToBridge, int, error) {
-	f.MethodCall(f, "HostChangesForContainer", machineID)
+func (f *fakeAPI) HostChangesForContainer(machineTag names.MachineTag) ([]network.DeviceToBridge, int, error) {
+	f.MethodCall(f, "HostChangesForContainer", machineTag)
 	if err := f.NextErr(); err != nil {
 		return nil, 0, err
 	}
 	return []network.DeviceToBridge{f.fakeDeviceToBridge}, 0, nil
+}
+
+func (f *fakeAPI) PrepareHost(containerTag names.MachineTag, log loggo.Logger) error {
+	// This is not actually part of the API, however it is something that the
+	// Brokers should be calling, and putting it here means we get a wholistic
+	// view of when what function is getting called.
+	f.MethodCall(f, "PrepareHost", containerTag)
+	if err := f.NextErr(); err != nil {
+		return err
+	}
+	if f.fakePreparer != nil {
+		return f.fakePreparer(containerTag, log)
+	}
+	return nil
 }
 
 type patcher interface {
