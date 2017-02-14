@@ -16,7 +16,9 @@ from tests import (
     )
 from utility import (
     JujuAssertionError,
-    temp_dir,
+    )
+from jujupy import (
+    fake_juju_client,
     )
 
 
@@ -31,58 +33,59 @@ class TestParseArgs(TestCase):
         self.assertEqual(False, args.debug)
 
 
-class TestAssess(TestCase):
-    def test_get_agent_version_without_rc(self):
-        juju_bin = "/path/juju"
-        with patch('jujupy.ModelClient.get_version',
-                   return_value='1.25-arch-series'):
-            agent_version = get_agent_version(juju_bin)
-            self.assertEquals(agent_version, "1.25")
-
-    def test_get_agent_version_with_rc(self):
-        juju_bin = "/path/juju"
-        with patch('jujupy.ModelClient.get_version',
-                   return_value='2.0-rc2-arch-series'):
-            agent_version = get_agent_version(juju_bin)
-            self.assertEquals(agent_version, "2.0")
-
-    def test_get_agent_version_with_major_minor(self):
-        juju_bin = "/path/juju"
-        with patch('jujupy.ModelClient.get_version',
-                   return_value='2.0.1-xenial-amd64'):
-            agent_version = get_agent_version(juju_bin)
-            self.assertEquals(agent_version, "2.0.1")
-
-    def test_assert_file_version_matches_agent_version(self):
-        with self.assertRaises(JujuAssertionError):
+class TestAssertFileVersionMatchesAgentVersion(TestCase):
+    def test_assert_file_version_matches_agent_version_valid(self):
+        for version in [["2.0.1-xenial-amd64", "2.0.1"],
+                        ["2.0.2-rc2", "2.0.2"],
+                        ["2.0-rc2-arch-series", "2.0"]]:
             assert_file_version_matches_agent_version(
-                "2.0.1-xenial-amd64", "2.0.2")
+                version[0], version[1])
+
+    def test_raises_exception_when_versions_dont_match(self):
+        for version in [["2.0.1-xenial-amd64", "2.2.1"],
+                        ["2.0.2-rc2", "2.0.1"],
+                        ["2.0-rc2-arch-series", "2.1"]]:
+            with self.assertRaises(JujuAssertionError):
+                    assert_file_version_matches_agent_version(
+                        version[0], version[1])
+
+
+class TestAssess(TestCase):
+    def test_get_agent_version(self):
+        for version in [["1.25-arch-series", "1.25"],
+                        ["2.0-rc2-arch-series", "2.0-rc2"],
+                        ["2.0.2-rc2-arch-series", "2.0.2-rc2"],
+                        ["juju-2.1-beta1-zesty-amd64.tgz", "juju-2.1-beta1"]]:
+            client = fake_juju_client(version=version[0])
+            agent_version = get_agent_version(client)
+            self.assertEquals(agent_version, version[1])
 
     def test_verify_agent_tools(self):
-        with temp_dir() as base_dir:
-            agent_dir = os.path.join(base_dir, "tools", "released")
-            os.makedirs(agent_dir)
-            for filename in ['juju-2.0.1-centos7-amd64.tgz',
-                             'juju-2.0.1-precise-amd64.tgz',
-                             'juju-2.0.1-win2016-amd64.tgz']:
-                agent_file = os.path.join(agent_dir, filename)
-                open(agent_file, 'a').close()
-            verify_agent_tools(base_dir, "released", "2.0.1")
-            self.assertItemsEqual(['juju-2.0.1-centos7-amd64.tgz',
-                                   'juju-2.0.1-precise-amd64.tgz',
-                                   'juju-2.0.1-win2016-amd64.tgz'],
-                                  os.listdir(agent_dir))
+        with patch.object(os, 'listdir') as lstdir:
+            lstdir.return_value = [
+                'juju-2.0.1-centos7-amd64.tgz',
+                'juju-2.0.1-precise-amd64.tgz',
+                'juju-2.0.1-win2016-amd64.tgz']
+            verify_agent_tools("foo", "2.0.1")
             self.assertIn("juju sync-tool verification done successfully",
                           self.log_stream.getvalue())
 
-    def test_verify_agent_tools_fail(self):
-        with temp_dir() as base_dir:
-            agent_dir = os.path.join(base_dir, "tools", "released")
-            os.makedirs(agent_dir)
-            for filename in ['juju-2.0.1-centos7-amd64.tgz',
-                             'juju-2.0.2-precise-amd64.tgz',
-                             'juju-2.0.1-win2016-amd64.tgz']:
-                agent_file = os.path.join(agent_dir, filename)
-                open(agent_file, 'a').close()
+    def test_verify_agent_tools_with_txt_file(self):
+        with patch.object(os, 'listdir') as lstdir:
+            lstdir.return_value = [
+                'juju-2.0.1-centos7-amd64.tgz',
+                'juju-2.0.1-precise-amd64.tgz',
+                'juju-2.0.1-win2016-amd64.tgz',
+                'juju-2.0.1-win2016-amd64.txt']
+            verify_agent_tools("foo", "2.0.1")
+            self.assertIn("juju sync-tool verification done successfully",
+                          self.log_stream.getvalue())
+
+    def test_verify_agent_tools_to_raise_assertion(self):
+        with patch.object(os, 'listdir') as lstdir:
+            lstdir.return_value = [
+                'juju-2.0.1-centos7-amd64.tgz',
+                'juju-2.0.2-precise-amd64.tgz',
+                'juju-2.0.1-win2016-amd64.tgz']
             with self.assertRaises(JujuAssertionError):
-                verify_agent_tools(base_dir, "released", "2.0.1")
+                verify_agent_tools("foo", "2.0.1")
