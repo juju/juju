@@ -1,5 +1,5 @@
 name: dummy-subordinate
-maintainer: Aaron Bentley <aaron.bentley@canonical.com>
+maintainer: Juju-QA <aaron.bentley+cjqa@canonical.com>
 subordinate: true
 summary: Dummy subordinate charm that accepts data
 description: |
@@ -11,10 +11,8 @@ requires:
 categories:
   - misc
 series:
+  - xenial
   - trusty
   - precise
-  - utopic
-  - vivid
-  - wily
-  - xenial
   - yakkety
+  - zesty

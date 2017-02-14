@@ -1,3 +1,10 @@
-This is a simple workaround to allow jenkins-slave to use a Jenkins in another
-environment.  Typically, you deploy this charm to the same machine as
-jenkins-slave, set master_url to the URL of the actual master and add-relation.
+This is dummy-subordinate charm used to bring subordinate charm
+for dummy-sink charm.
+
+Deploy dummy-subordinate charm:
+-------------------------------
+
+juju deploy dummy-sink
+juju deploy dummy-subordinate
+juju add-relation dummy-sink dummy-subordinate
+juju config dummy-subordinate token="Canonical"
