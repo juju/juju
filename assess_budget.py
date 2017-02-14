@@ -30,10 +30,12 @@ __metaclass__ = type
 
 log = logging.getLogger("assess_budget")
 
-
-def list_budgets(client):
-    """Return defined budgets as json."""
-    return client.get_juju_output('list-budgets', '--format', 'json', include_e=False)
+def assert_equal(found, expected):
+    found = sorted(found)
+    expected = sorted(expected)
+    if found != expected:
+        raise JujuAssertionError(
+            'Found: {}\nExpected: {}'.format(found, expected))
 
 def _get_new_budget_limit(client):
     """Return availible limit for new budget"""
@@ -41,6 +43,16 @@ def _get_new_budget_limit(client):
     log.debug('Found credit limit {}, currently used {}'.format(
         budgets['credit'], budgets['total']['limit']))
     return int(budgets['credit']) - int(budgets['total']['limit'])
+
+def _get_budgets(client):
+    budgets = []
+    for budget in json.loads(list_budgets(client))['budgets']:
+        budgets.append(budget)
+    return budgets
+
+def list_budgets(client):
+    """Return defined budgets as json."""
+    return client.get_juju_output('list-budgets', '--format', 'json', include_e=False)
 
 def show_budget(client, name):
     """Return specified budget as json."""
@@ -62,7 +74,7 @@ def _try_setting_budget(client, name, value):
         raise JujuAssertionError('Could not set budget {}'.format(output))
     else:
         if 'budget limit updated' in output:
-            log.info('Set budget {} to value {}'.format(name, value))
+            log.info('Set budget "{}" to value {}'.format(name, value))
             pass
         else:
             raise JujuAssertionError('Error testing set-budget {}'.format(
@@ -86,12 +98,11 @@ def _try_creating_budget(client, name, value):
     else:
         raise JujuAssertionError('Added duplicate budget')
 
-def assess_create_budget(client, budget_name, budget_limit):
-    """Test create budget command"""
-    log.info('Testing create budget on "{}" with limit {}'.format(
-        budget_name, budget_limit))
-
-    budget_value = str(randint(1,budget_limit/2))
+def assess_create_budget(client, budget_name, budget_value, budget_limit):
+    """Test create-budget command"""
+    log.info('create-budget "{}" with value {}, limit {}'.format(budget_name,
+                                                                 budget_value,
+                                                                 budget_limit))
     
     # Do this twice, to ensure budget exists and we can check for
     # duplicate message. Ideally, once lp:1663258 is fixed, we will
@@ -101,10 +112,13 @@ def assess_create_budget(client, budget_name, budget_limit):
     # Assert on ERROR failed to create the budget: budget "*" already exists
     _try_creating_budget(client, budget_name, budget_value)
 
-def assess_set_budget(client, budget_name, budget_limit):
-    """Test set, show, and list budget commands"""
-    log.info('Testing set, show and list budget on "{}" with limit {}'.format(
-        budget_name, budget_limit))
+    # check bounds
+
+def assess_set_budget(client, budget_name, budget_value, budget_limit):
+    """Test set-budget command"""
+    log.info('set-budget "{}" with value {}, limit {}'.format(budget_name,
+                                                              budget_value,
+                                                              budget_limit))
 
     # Check some bounds
     # failed to set the budget: budget limits cannot exceed the credit limit
@@ -118,16 +132,7 @@ def assess_set_budget(client, budget_name, budget_limit):
     else:
         raise JujuAssertionError('Credit limit exceeded {}'.format(e))
 
-    budget_value = str(randint(budget_limit/2+1,budget_limit))
     _try_setting_budget(client, budget_name, budget_value)
-
-    # juju list-budgets
-    # assert budget value 
-    list_budgets(client)
-
-    show_budget(client, budget_name)
-    # assert budget value
-    # assert on usage (0% until we use it)
 
 def assess_budget_limit(client, budget_limit):
     log.info('Budget limit found {}'.format(budget_limit))
@@ -135,24 +140,61 @@ def assess_budget_limit(client, budget_limit):
     if budget_limit < 0:
         raise JujuAssertionError('Negative Budget Limit found')
 
-def assess_budget(client):
-    # Deploy charms, there are several under ./repository
-    # client.deploy('local:trusty/my-charm')
-    # Wait for the deployment to finish.
-    #client.wait_for_started()
+def assess_show_budget(client, budget_name, budget_value):
+    log.info('show-budget "{}" with value {}'.format(budget_name,
+                                                     budget_value))
+    
+    budget = json.loads(show_budget(client, budget_name))
+    # assert budget value
+    if budget['limit'] != budget_value:
+        raise JujuAssertionError('show-budget found {}, expected {}'.format(
+            budget['limit'], budget_value))
 
+    # assert on usage (0% until we use it)
+    if budget['total']['usage'] != '0%':
+        raise JujuAssertionError('show-budget found {}, expected {}'.format(
+            budget['total']['usage'], '0%'))
+
+
+def assess_list_budgets(client, expected_budgets):
+    # Since we can't remove budgets until lp:1663258
+    # is fixed, we don't modify the list contents or count
+    # Nonetheless, we assert on it for future use
+    budgets = _get_budgets(client)
+    assert_equal(budgets, expected_budgets)
+
+def _set_budget_value_expectations(expected_budgets, name, value):
+    # Update our expectations accordingly
+    for budget in expected_budgets:
+        if budget['budget'] == name:
+            # For now, we assume we aren't spending down the budget
+            budget['limit'] = unicode(value)
+            budget['unallocated'] = unicode(value)
+            # .00 is appended to availible for some reason
+            budget['available'] = unicode(value+'.00')
+            log.info('Expected budget updated: "{}" to value {}'.format(name,
+                                                                        value))
+
+def assess_budget(client):
     # Since we can't remove budgets until lp:1663258
     # is fixed, we avoid creating new random budgets and hardcode.
     # We also, zero out the previous budget
     budget_name = 'test'
     _try_setting_budget(client, budget_name, '0')
-    
-    budget_limit = _get_new_budget_limit(client)
-    assess_budget_limit(client, budget_limit)
 
-    # randomize budget setting, but ensure unique
-    assess_create_budget(client, budget_name, budget_limit)
-    assess_set_budget(client, budget_name, budget_limit)
+    budget_limit = _get_new_budget_limit(client)
+    expected_budgets = _get_budgets(client)
+    
+    assess_budget_limit(client, budget_limit)
+    budget_value = str(randint(1,budget_limit/2))
+    assess_create_budget(client, budget_name, budget_value, budget_limit)
+
+    budget_value = str(randint(budget_limit/2+1,budget_limit))
+    _set_budget_value_expectations(expected_budgets, budget_name, budget_value)
+    assess_set_budget(client, budget_name, budget_value, budget_limit)
+    
+    assess_show_budget(client, budget_name, budget_value)
+    assess_list_budgets(client, expected_budgets)
 
 def parse_args(argv):
     """Parse all arguments."""
@@ -165,11 +207,7 @@ def main(argv=None):
     args = parse_args(argv)
     configure_logging(args.verbose)                                                     
     client = client_from_config(args.env, args.juju_bin, False)
-    #client.env.load_yaml()
     assess_budget(client)
-    #bs_manager = BootstrapManager.from_args(args)
-    #with bs_manager.booted_context(args.upload_tools):
-    #    assess_budget(bs_manager.client)
     return 0
 
 
