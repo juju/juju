@@ -676,9 +676,11 @@ func newCredentials(spec environs.CloudSpec) (identity.Credentials, identity.Aut
 		// TODO(axw) we need a way of saying to use legacy auth.
 		cred.User = credAttrs[CredAttrUserName]
 		cred.Secrets = credAttrs[CredAttrPassword]
-		cred.DomainName = credAttrs[CredAttrDomainName]
+		cred.ProjectDomain = credAttrs[CredAttrProjectDomainName]
+		cred.UserDomain = credAttrs[CredAttrUserDomainName]
+		cred.Domain = credAttrs[CredAttrDomainName]
 		authMode = identity.AuthUserPass
-		if cred.DomainName != "" {
+		if cred.Domain != "" || cred.UserDomain != "" || cred.ProjectDomain != "" {
 			authMode = identity.AuthUserPassV3
 		}
 	case cloud.AccessKeyAuthType:
