@@ -1,0 +1,14 @@
+###############################################################################
+# WARNING: This configuration file is maintained by Juju. Local changes may
+#          be overwritten.
+###############################################################################
+Name: tally2 lockout after failed attempts enforcement
+Default: yes
+Priority: 1024
+Conflicts: cracklib
+Auth-Type: Primary
+Auth-Initial:
+  required      pam_tally2.so deny={{ auth_retries }} onerr=fail unlock_time={{ auth_lockout_time }}
+Account-Type: Primary
+Account-Initial:
+  required      pam_tally2.so

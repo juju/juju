@@ -1,0 +1,15 @@
+# NOTE: this schema must contain all valid keys from it's associated defaults
+#       file. It is used to validate user-provided overrides.
+hardening:
+    mysql-conf:
+    hardening-conf:
+security:
+    chroot:
+    safe-user-create:
+    secure-auth:
+    skip-symbolic-links:
+    skip-show-database:
+    local-infile:
+    allow-suspicious-udfs:
+    automatic-sp-privileges:
+    secure-file-priv:

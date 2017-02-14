@@ -1,0 +1,67 @@
+# NOTE: this file contains the default configuration for the 'os' hardening
+#       code. If you want to override any settings you must add them to a file
+#       called hardening.yaml in the root directory of your charm using the
+#       name 'os' as the root key followed by any of the following with new
+#       values.
+
+general:
+    desktop_enable: False  # (type:boolean)
+
+environment:
+    extra_user_paths: []
+    umask: 027
+    root_path: /
+
+auth:
+    pw_max_age: 60
+    # discourage password cycling
+    pw_min_age: 7
+    retries: 5
+    lockout_time: 600
+    timeout: 60
+    allow_homeless: False  # (type:boolean)
+    pam_passwdqc_enable: True  # (type:boolean)
+    pam_passwdqc_options: 'min=disabled,disabled,16,12,8'
+    root_ttys:
+        console
+        tty1
+        tty2
+        tty3
+        tty4
+        tty5
+        tty6
+    uid_min: 1000
+    gid_min: 1000
+    sys_uid_min: 100
+    sys_uid_max: 999
+    sys_gid_min: 100
+    sys_gid_max: 999
+    chfn_restrict:
+
+security:
+    users_allow: []
+    suid_sgid_enforce: True  # (type:boolean)
+    # user-defined blacklist and whitelist
+    suid_sgid_blacklist: []
+    suid_sgid_whitelist: []
+    # if this is True, remove any suid/sgid bits from files that were not in the whitelist
+    suid_sgid_dry_run_on_unknown: False  # (type:boolean)
+    suid_sgid_remove_from_unknown: False  # (type:boolean)
+    # remove packages with known issues
+    packages_clean: True  # (type:boolean)
+    packages_list:
+        xinetd
+        inetd
+        ypserv
+        telnet-server
+        rsh-server
+        rsync
+    kernel_enable_module_loading: True  # (type:boolean)
+    kernel_enable_core_dump: False  # (type:boolean)
+
+sysctl:
+    kernel_secure_sysrq: 244  # 4 + 16 + 32 + 64 + 128
+    kernel_enable_sysrq: False  # (type:boolean)
+    forwarding: False  # (type:boolean)
+    ipv6_enable: False  # (type:boolean)
+    arp_restricted: True  # (type:boolean)

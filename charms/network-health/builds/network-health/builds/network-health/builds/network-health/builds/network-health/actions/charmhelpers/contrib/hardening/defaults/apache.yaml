@@ -1,0 +1,13 @@
+# NOTE: this file contains the default configuration for the 'apache' hardening
+#       code. If you want to override any settings you must add them to a file
+#       called hardening.yaml in the root directory of your charm using the
+#       name 'apache' as the root key followed by any of the following with new
+#       values.
+
+common:
+    apache_dir: '/etc/apache2'
+
+hardening:
+    traceenable: 'off'
+    allowed_http_methods: "GET POST"
+    modules_to_disable: [ cgi, cgid ]

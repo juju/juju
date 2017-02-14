@@ -1,0 +1,42 @@
+# NOTE: this schema must contain all valid keys from it's associated defaults
+#       file. It is used to validate user-provided overrides.
+general:
+    desktop_enable:
+environment:
+    extra_user_paths:
+    umask:
+    root_path:
+auth:
+    pw_max_age:
+    pw_min_age:
+    retries:
+    lockout_time:
+    timeout:
+    allow_homeless:
+    pam_passwdqc_enable:
+    pam_passwdqc_options:
+    root_ttys:
+    uid_min:
+    gid_min:
+    sys_uid_min:
+    sys_uid_max:
+    sys_gid_min:
+    sys_gid_max:
+    chfn_restrict:
+security:
+    users_allow:
+    suid_sgid_enforce:
+    suid_sgid_blacklist:
+    suid_sgid_whitelist:
+    suid_sgid_dry_run_on_unknown:
+    suid_sgid_remove_from_unknown:
+    packages_clean:
+    packages_list:
+    kernel_enable_module_loading:
+    kernel_enable_core_dump:
+sysctl:
+    kernel_secure_sysrq:
+    kernel_enable_sysrq:
+    forwarding:
+    ipv6_enable:
+    arp_restricted:
