@@ -43,7 +43,7 @@ class TestMain(TestCase):
 
     def test_main(self):
         argv = ["an-env", "/bin/juju", "/tmp/logs", "an-env-mod", "--verbose"]
-        env = object()
+        # env = object()
         client = Mock(spec=["is_jes_enabled"])
         with patch("assess_budget.configure_logging",
                    autospec=True) as mock_cl:
