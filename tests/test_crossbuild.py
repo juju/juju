@@ -105,6 +105,16 @@ class CrossBuildTestCase(TestCase):
         self.assertEqual('386', env['GOARCH'])
         self.assertEqual('windows', env['GOOS'])
 
+    def test_go_build_ppc64le(self):
+        # Juju arch ppc64le is called ppc64 in GOARCH.
+        with patch('crossbuild.run_command') as mock:
+            go_build(
+                './...', './foo', './bar.1.2', 'ppc64el', 'linux',
+                verbose=True, dry_run=True)
+        args, kwargs = mock.call_args
+        env = kwargs['env']
+        self.assertEqual('ppc64le', env['GOARCH'])
+
     def test_run_command(self):
         with patch('subprocess.call', autospec=True, return_value=0) as mock:
             run_command(
@@ -222,7 +232,7 @@ class CrossBuildTestCase(TestCase):
         self.assertEqual({'dry_run': False, 'verbose': False}, kwargs)
         self.assertEqual(
             ('win2012', 'baz/bar_1.2.3/bin/windows_amd64/jujud.exe',
-             '1.2.3',
+             '1.2.3', 'amd64',
              os.getcwd()),
             mt_mock.call_args[0])
 
@@ -233,7 +243,8 @@ class CrossBuildTestCase(TestCase):
             jujud_binary = os.path.join(agent_dir, 'jujud.exe')
             with open(jujud_binary, 'w') as jb:
                 jb.write('jujud')
-            make_agent_tarball('win2012', jujud_binary, '1.2.3', base_dir)
+            make_agent_tarball(
+                'win2012', jujud_binary, '1.2.3', 'amd64', base_dir)
             agent_tarball_path = os.path.join(
                 base_dir, 'juju-1.2.3-win2012-amd64.tgz')
             self.assertTrue(os.path.isfile(agent_tarball_path))
@@ -243,7 +254,8 @@ class CrossBuildTestCase(TestCase):
     def test_make_agent_tarball_with_dry_run(self):
         with patch('tarfile.open') as mock:
             make_agent_tarball(
-                'win2012', 'foo/jujud.exe', '1.2.3', './bar', dry_run=True)
+                'win2012', 'foo/jujud.exe', '1.2.3', 'amd64', './bar',
+                dry_run=True)
         self.assertEqual(0, mock.call_count)
 
     def test_build_osx_client(self):
@@ -325,8 +337,8 @@ class CrossBuildTestCase(TestCase):
             'centos7', bin_paths, '1.2.3', os.getcwd(),
             dry_run=False, verbose=False)
         at_mock.assert_called_once_with(
-            'centos7', 'baz/bar_1.2.3/bin/jujud', '1.2.3', os.getcwd(),
-            dry_run=False, verbose=False)
+            'centos7', 'baz/bar_1.2.3/bin/jujud', '1.2.3', 'amd64',
+            os.getcwd(), dry_run=False, verbose=False)
 
     def test_build_ubuntu_agent(self):
         with patch('crossbuild.go_tarball',
@@ -346,7 +358,7 @@ class CrossBuildTestCase(TestCase):
         self.assertEqual({'dry_run': False, 'verbose': False}, kwargs)
         self.assertEqual(
             ('ubuntu', 'baz/bar_1.2.3/bin/jujud',
-             '1.2.3',
+             '1.2.3', 'arm64',
              os.getcwd()),
             mt_mock.call_args[0])
 

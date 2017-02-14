@@ -73,6 +73,9 @@ def run_command(command, env=None, dry_run=False, verbose=False):
 def go_build(package, goroot, gopath, goarch, goos,
              dry_run=False, verbose=False):
     """Build and install a go package."""
+    if goarch == 'ppc64el':
+        # The debian/juju ppc64el arch is called ppc64le by Go.
+        goarch = 'ppc64le'
     env = dict(os.environ)
     env['GOROOT'] = goroot
     env['GOPATH'] = gopath
@@ -154,14 +157,14 @@ def build_win_agent(tarball_path, build_dir, dry_run=False, verbose=False):
         built_agent_path = os.path.join(
             gopath, 'bin', 'windows_amd64', 'jujud.exe')
         make_agent_tarball(
-            'win2012', built_agent_path, version, cwd,
+            'win2012', built_agent_path, version, 'amd64', cwd,
             dry_run=dry_run, verbose=verbose)
 
 
-def make_agent_tarball(series, built_agent_path, version, dest_dir,
+def make_agent_tarball(series, built_agent_path, version, arch, dest_dir,
                        dry_run=False, verbose=False):
     """Create a agent tgz for a jujud."""
-    agent_tarball_name = 'juju-%s-%s-amd64.tgz' % (version, series)
+    agent_tarball_name = 'juju-%s-%s-%s.tgz' % (version, series, arch)
     agent_tarball_path = os.path.join(dest_dir, agent_tarball_name)
     if not dry_run:
         if verbose:
@@ -241,7 +244,7 @@ def build_centos(tarball_path, build_dir, dry_run=False, verbose=False):
             'centos7', binary_paths, version, cwd,
             dry_run=dry_run, verbose=verbose)
         make_agent_tarball(
-            'centos7', built_agent_path, version, cwd,
+            'centos7', built_agent_path, version, 'amd64', cwd,
             dry_run=dry_run, verbose=verbose)
 
 
@@ -258,14 +261,13 @@ def build_ubuntu_agent(tarball_path, build_dir, goarch,
             dry_run=False, verbose=verbose)
         built_agent_path = os.path.join(gopath, 'bin', 'jujud')
         make_agent_tarball(
-            'ubuntu', built_agent_path, version, cwd,
+            'ubuntu', built_agent_path, version, goarch, cwd,
             dry_run=dry_run, verbose=verbose)
 
 
 def parse_args(args=None):
     """Return the argument parser for this program."""
-    parser = ArgumentParser(
-        "Build juju for windows and darwin on 386 and amd64.")
+    parser = ArgumentParser(description="Build juju agents and clients.")
     parser.add_argument(
         '-d', '--dry-run', action='store_true', default=False,
         help='Do not make changes.')
