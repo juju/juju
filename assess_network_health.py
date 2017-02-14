@@ -7,7 +7,6 @@ import logging
 import sys
 import json
 import yaml
-import pdb
 
 from deploy_stack import (
     BootstrapManager,
@@ -26,6 +25,10 @@ __metaclass__ = type
 log = logging.getLogger("assess_network_health")
 
 
+class ConnectionError(Exception):
+    """Connection failed in some way"""
+
+
 def assess_network_health(client, bundle=None):
     """Assesses network health for a given deployment or bundle
     :param client: The juju client in use
@@ -33,7 +36,6 @@ def assess_network_health(client, bundle=None):
     """
     if bundle:
         client.deploy_bundle(bundle)
-    # Else deploy two dummy charms to test on
     else:
         dummy_path = local_charm_path(charm='ubuntu', series='trusty',
                                       juju_ver=client.version)
@@ -59,12 +61,15 @@ def assess_network_health(client, bundle=None):
     log.info("Starting network tests")
     apps = client.get_status().status['applications']
     targets = parse_targets(apps)
-    log.info(neighbor_visibility(client, apps, targets))
+    with neighbor_visibility(client, apps, targets) as visibility_result:
+        log.info(visibility_result)
     # Grab exposed charms
     exposed = [app for app, e in apps.items() if e.get('exposed') is True]
     # If we have exposed charms, test their exposure
     if len(exposed) > 0:
-        log.info(ensure_exposed(client, targets, exposed))
+        with ensure_exposed(client, targets, exposed) as exposed_result:
+            log.info(exposed_result)
+    parse_results(visibility_result, exposed_result)
 
 
 def neighbor_visibility(client, apps, targets):
@@ -73,7 +78,7 @@ def neighbor_visibility(client, apps, targets):
     :param apps: Dict of juju applications
     :param targets: Dict of units & public-addresses by application
     """
-    results = {}
+    result = {}
     nh_units = []
     for service in apps.values():
         try:
@@ -85,8 +90,8 @@ def neighbor_visibility(client, apps, targets):
         service_results = {}
         for service, units in targets.items():
             service_results[service] = ping_units(client, nh_unit, units)
-        results[nh_unit] = service_results
-    return results
+        result[nh_unit] = service_results
+    return result
 
 
 def ensure_exposed(client, targets, exposed):
@@ -113,7 +118,6 @@ def ensure_exposed(client, targets, exposed):
         service_results[service] = ping_units(new_client, 'network-health/0',
                                               units)
     # Check revtal against exposed, return passes & failures
-    pdb.set_trace()
     result = {'fail': (),
               'pass': ()}
     for service, results in service_results.items():
@@ -129,6 +133,28 @@ def ensure_exposed(client, targets, exposed):
         else:
             result['fail'] = result['fail'] + (service,)
     return result
+
+
+def parse_results(visibility, exposed):
+    """Parses test results and raises an error if any failed
+    :param visibility: Visibility test result
+    :param exposed: Exposure test result
+    """
+    error_string = ''
+    for nh_source, service_result in visibility.items():
+            for service, unit_res in service_result.items():
+                if 'False' in unit_res.values():
+                    failed = [u for u, r in unit_res.items() if r is 'False']
+                    error = 'NH-Unit {0} failed to contact ' \
+                            'unit(s): {1}\n'.format(nh_source, failed)
+                    error_string += error
+
+    if exposed['fail'] is not ():
+        error = 'Service(s) {} failed expose test'.format(exposed['fail'])
+        error_string += error
+
+    if error_string is not '':
+        raise ConnectionError(error_string)
 
 
 def ping_units(client, source, units):
@@ -148,9 +174,10 @@ def ping_units(client, source, units):
 def to_json(units):
     """Returns a formatted json string to be passed through juju run-action
     :param units: Dict of units
+    :return: A "JSON-like" string that can be passed to Juju without it puking
     """
     json_string = json.dumps(units, separators=(',', '='))
-    # Replace curly brackets so juju doesn't puke
+    # Replace curly brackets so juju doesn't think it's YAML or JSON and puke
     json_string = json_string.replace('{', '(')
     json_string = json_string.replace('}', ')')
     return json_string
