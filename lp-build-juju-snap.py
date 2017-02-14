@@ -7,7 +7,7 @@ from datetime import datetime
 from launchpadlib.launchpad import Launchpad
 
 # basic data
-arches = ['amd64', 'arm64', 'ppc64el']
+arches = ['amd64', 'arm64', 'ppc64el', 's390x']
 series = 'xenial'
 
 # basic paths
@@ -15,6 +15,10 @@ home = os.getenv("HOME")
 workdir = os.path.join(home, "juju-daily-snap")
 
 # we need to store credentials once for cronned builds
+# To get the initial credentials, run this script manually
+# On a server, first install elinks
+# This will enable you to complete the authorization process
+# launchpad will require through the console browser
 cachedir = os.path.join(workdir, "cache")
 creds = os.path.join(workdir, "credentials")
 
@@ -25,7 +29,7 @@ launchpad = Launchpad.login_with('Juju Snap Builds',
                                  version='devel')
 
 # get team data and ppa
-jujuqa = launchpad.people['jujuisquality']
+jujuqa = launchpad.people['juju-qa-bot']
 
 # get snap
 juju_snap = launchpad.snaps.getByName(name='juju-edge',
