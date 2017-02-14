@@ -69,14 +69,12 @@ func (s *lxdBrokerSuite) startInstance(c *gc.C, broker environs.InstanceBroker, 
 	return callStartInstance(c, s, broker, machineId)
 }
 
-func (s *lxdBrokerSuite) newLXDBroker(c *gc.C, bridger network.Bridger) (environs.InstanceBroker, error) {
-	tag, err := names.ParseMachineTag("machine-1")
-	c.Assert(err, jc.ErrorIsNil)
-	return provisioner.NewLxdBroker(bridger, tag, s.api, s.manager, s.agentConfig)
+func (s *lxdBrokerSuite) newLXDBroker(c *gc.C) (environs.InstanceBroker, error) {
+	return provisioner.NewLXDBroker(noopPrepareHostFunc, s.api, s.manager, s.agentConfig)
 }
 
 func (s *lxdBrokerSuite) TestStartInstanceGetObservedNetworkConfigFails(c *gc.C) {
-	broker, brokerErr := s.newLXDBroker(c, newFakeBridgerNeverErrors())
+	broker, brokerErr := s.newLXDBroker(c)
 	c.Assert(brokerErr, jc.ErrorIsNil)
 	s.PatchValue(provisioner.GetObservedNetworkConfig, func(_ common.NetworkConfigSource) ([]params.NetworkConfig, error) {
 		return nil, errors.New("TestStartInstanceWithHostNetworkChanges no network")
@@ -95,7 +93,7 @@ func (s *lxdBrokerSuite) TestStartInstanceGetObservedNetworkConfigFails(c *gc.C)
 }
 
 func (s *lxdBrokerSuite) TestStartInstanceWithoutHostNetworkChanges(c *gc.C) {
-	broker, brokerErr := s.newLXDBroker(c, newFakeBridgerNeverErrors())
+	broker, brokerErr := s.newLXDBroker(c)
 	c.Assert(brokerErr, jc.ErrorIsNil)
 	s.PatchValue(provisioner.GetObservedNetworkConfig, func(_ common.NetworkConfigSource) ([]params.NetworkConfig, error) {
 		return nil, nil
@@ -120,7 +118,7 @@ func (s *lxdBrokerSuite) TestStartInstanceWithoutHostNetworkChanges(c *gc.C) {
 }
 
 func (s *lxdBrokerSuite) TestStartInstanceWithHostNetworkChanges(c *gc.C) {
-	broker, brokerErr := s.newLXDBroker(c, newFakeBridgerNeverErrors())
+	broker, brokerErr := s.newLXDBroker(c)
 	c.Assert(brokerErr, jc.ErrorIsNil)
 
 	observedNetworkConfig := []params.NetworkConfig{
@@ -169,7 +167,7 @@ func (s *lxdBrokerSuite) TestStartInstanceWithHostNetworkChanges(c *gc.C) {
 }
 
 func (s *lxdBrokerSuite) TestStartInstancePopulatesNetworkInfo(c *gc.C) {
-	broker, brokerErr := s.newLXDBroker(c, newFakeBridgerNeverErrors())
+	broker, brokerErr := s.newLXDBroker(c)
 	c.Assert(brokerErr, jc.ErrorIsNil)
 
 	patchResolvConf(s, c)
@@ -192,7 +190,7 @@ func (s *lxdBrokerSuite) TestStartInstancePopulatesNetworkInfo(c *gc.C) {
 }
 
 func (s *lxdBrokerSuite) TestStartInstancePopulatesFallbackNetworkInfo(c *gc.C) {
-	broker, brokerErr := s.newLXDBroker(c, newFakeBridgerNeverErrors())
+	broker, brokerErr := s.newLXDBroker(c)
 	c.Assert(brokerErr, jc.ErrorIsNil)
 
 	s.PatchValue(provisioner.GetObservedNetworkConfig, func(_ common.NetworkConfigSource) ([]params.NetworkConfig, error) {
@@ -221,7 +219,7 @@ func (s *lxdBrokerSuite) TestStartInstancePopulatesFallbackNetworkInfo(c *gc.C) 
 }
 
 func (s *lxdBrokerSuite) TestStartInstanceNoHostArchTools(c *gc.C) {
-	broker, brokerErr := s.newLXDBroker(c, newFakeBridgerNeverErrors())
+	broker, brokerErr := s.newLXDBroker(c)
 	c.Assert(brokerErr, jc.ErrorIsNil)
 
 	_, err := broker.StartInstance(environs.StartInstanceParams{

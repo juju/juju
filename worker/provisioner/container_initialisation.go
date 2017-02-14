@@ -194,6 +194,10 @@ func (cs *ContainerSetup) TearDown() error {
 	return nil
 }
 
+// getObservedNetworkConfig is here to allow us to override it for testing.
+// TODO(jam): Find a way to pass it into ContainerSetup instead of a global variable
+var getObservedNetworkConfig = common.GetObservedNetworkConfig
+
 func (cs *ContainerSetup) prepareHost(containerTag names.MachineTag, log loggo.Logger) error {
 	devicesToBridge, reconfigureDelay, err := cs.provisioner.HostChangesForContainer(containerTag)
 	if err != nil {
