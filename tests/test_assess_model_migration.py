@@ -437,8 +437,6 @@ class TestWaitForMigration(TestCase):
 
 
 class TestWaitForModel(TestCase):
-    # Check that it returns an error if the model never comes up.
-    # Pass in a timeout for the model check
     def test_raises_exception_when_timeout_occurs(self):
         mock_client = _get_time_noop_mock_client()
         with patch.object(until_timeout, 'next', side_effect=StopIteration()):
@@ -876,3 +874,32 @@ class TestAssessModelMigration(TestCase):
         m_am.assert_called_once_with(mig_client, app, resource_string)
 
         self.assertEqual(m_rollback.call_count, 0)
+
+
+class TestAssertLogsAppearInClientModel(TestCase):
+
+    def test_raises_exception_when_timeout_occurs(self):
+        mock_client = Mock()
+        with patch.object(until_timeout, 'next', side_effect=StopIteration()):
+            with self.assertRaises(JujuAssertionError):
+                amm.assert_logs_appear_in_client_model(
+                    mock_client, 'test logs', timeout=60)
+
+    def test_returns_early_when_logs_found(self):
+        mock_client = Mock()
+        mock_client.get_juju_output.return_value = 'test logs'
+        with patch.object(amm, 'sleep', autospec=True) as m_sleep:
+            amm.assert_logs_appear_in_client_model(
+                mock_client, 'test logs', timeout=60)
+        self.assertEqual(m_sleep.call_count, 0)
+
+    def test_tries_multiple_times_to_get_log_output(self):
+        mock_client = Mock()
+        mock_client.get_juju_output.side_effect = ['', 'test logs']
+        with patch.object(
+                until_timeout, 'next',
+                side_effect=[None, None, StopIteration()]):
+            with patch.object(amm, 'sleep', autospec=True) as m_sleep:
+                amm.assert_logs_appear_in_client_model(
+                    mock_client, 'test logs', timeout=60)
+                self.assertEqual(m_sleep.call_count, 1)

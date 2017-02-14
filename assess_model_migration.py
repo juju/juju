@@ -394,18 +394,41 @@ def raise_if_shared_machines(unit_machines):
         raise JujuAssertionError('Appliction units reside on the same machine')
 
 
-def ensure_model_logs_are_migrated(source_client, dest_client):
+def ensure_model_logs_are_migrated(source_client, dest_client, timeout=60):
+    """Ensure logs are migrated when a model is migrated between controllers.
+
+    :param source_client: ModelClient representing source controller to create
+      model on and migrate that model from.
+    :param dest_client: ModelClient for destination controller to migrate to.
+    :param timeout: int seconds to wait for logs to appear in migrated model.
+    """
     new_model_client = deploy_dummy_source_to_new_model(
         source_client, 'log-migration')
     before_migration_logs = new_model_client.get_juju_output(
         'debug-log', '--no-tail', '-l', 'DEBUG')
     log.info('Attempting migration process')
     migrated_model = migrate_model_to_controller(new_model_client, dest_client)
-    after_migration_logs = migrated_model.get_juju_output(
-        'debug-log', '--no-tail', '--replay', '-l', 'DEBUG')
-    if before_migration_logs not in after_migration_logs:
-        raise JujuAssertionError('Logs failed to be migrated.')
-    log.info('SUCCESS: logs migrated.')
+
+    assert_logs_appear_in_client_model(
+        migrated_model, before_migration_logs, timeout)
+
+
+def assert_logs_appear_in_client_model(client, expected_logs, timeout):
+    """Assert that `expected_logs` appear in client logs within timeout.
+
+    :param client: ModelClient object to query logs of.
+    :param expected_logs: string containing log contents to check for.
+    :param timeout: int seconds to wait for before raising JujuAssertionError.
+    """
+    for _ in until_timeout(timeout):
+        current_logs = client.get_juju_output(
+            'debug-log', '--no-tail', '--replay', '-l', 'DEBUG')
+        if expected_logs in current_logs:
+            log.info('SUCCESS: logs migrated.')
+            return
+        sleep(1)
+    raise JujuAssertionError(
+        'Logs failed to be migrated after {}'.format(timeout))
 
 
 def ensure_migration_rolls_back_on_failure(source_client, dest_client):
