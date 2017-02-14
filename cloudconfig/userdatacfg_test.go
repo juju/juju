@@ -337,8 +337,11 @@ mkdir -p /var/log/juju
 chown syslog:adm /var/log/juju
 bin='/var/lib/juju/tools/1\.2\.3-precise-amd64'
 mkdir -p \$bin
+install -D -m 644 /dev/null '/var/lib/juju/tools/1\.2\.3-precise-amd64/download\.py'
+printf '%s\\n' '.*' > '/var/lib/juju/tools/1\.2\.3-precise-amd64/download\.py'
+python=\$\(which python3 \|\| which python\)
 echo 'Fetching Juju agent version.*
-curl .* '.*' --retry 10 -o \$bin/tools\.tar\.gz 'http://foo\.com/tools/released/juju1\.2\.3-precise-amd64\.tgz'
+\$python .*/download\.py -o \$bin/tools\.tar\.gz 'http://foo\.com/tools/released/juju1\.2\.3-precise-amd64\.tgz'
 sha256sum \$bin/tools\.tar\.gz > \$bin/juju1\.2\.3-precise-amd64\.sha256
 grep '1234' \$bin/juju1\.2\.3-precise-amd64.sha256 \|\| \(echo "Tools checksum mismatch"; exit 1\)
 tar zxf \$bin/tools.tar.gz -C \$bin
@@ -365,7 +368,8 @@ rm \$bin/tools\.tar\.gz && rm \$bin/juju1\.2\.3-precise-amd64\.sha256
 		inexactMatch: true,
 		expectScripts: `
 bin='/var/lib/juju/tools/1\.2\.3-raring-amd64'
-curl .* '.*' --retry 10 -o \$bin/tools\.tar\.gz 'http://foo\.com/tools/released/juju1\.2\.3-raring-amd64\.tgz'
+python=\$\(which python3 || which python\)
+\$python .*/download\.py -o \$bin/tools\.tar\.gz 'http://foo\.com/tools/released/juju1\.2\.3-raring-amd64\.tgz'
 sha256sum \$bin/tools\.tar\.gz > \$bin/juju1\.2\.3-raring-amd64\.sha256
 grep '1234' \$bin/juju1\.2\.3-raring-amd64.sha256 \|\| \(echo "Tools checksum mismatch"; exit 1\)
 printf %s '{"version":"1\.2\.3-raring-amd64","url":"http://foo\.com/tools/released/juju1\.2\.3-raring-amd64\.tgz","sha256":"1234","size":10}' > \$bin/downloaded-tools\.txt
@@ -394,8 +398,11 @@ mkdir -p /var/log/juju
 chown syslog:adm /var/log/juju
 bin='/var/lib/juju/tools/1\.2\.3-quantal-amd64'
 mkdir -p \$bin
+install -D -m 644 /dev/null '/var/lib/juju/tools/1\.2\.3-quantal-amd64/download\.py'
+printf '%s\\n' '.*' > '/var/lib/juju/tools/1\.2\.3-quantal-amd64/download\.py'
+python=\$\(which python3 || which python\)
 echo 'Fetching Juju agent version.*
-curl .* --noproxy "\*" --insecure -o \$bin/tools\.tar\.gz 'https://state-addr\.testing\.invalid:54321/deadbeef-0bad-400d-8000-4b1d0d06f00d/tools/1\.2\.3-quantal-amd64'
+\$python .*/download\.py --noproxy --insecure -o \$bin/tools\.tar\.gz 'https://state-addr\.testing\.invalid:54321/deadbeef-0bad-400d-8000-4b1d0d06f00d/tools/1\.2\.3-quantal-amd64'
 sha256sum \$bin/tools\.tar\.gz > \$bin/juju1\.2\.3-quantal-amd64\.sha256
 grep '1234' \$bin/juju1\.2\.3-quantal-amd64.sha256 \|\| \(echo "Tools checksum mismatch"; exit 1\)
 tar zxf \$bin/tools.tar.gz -C \$bin
@@ -460,7 +467,7 @@ start jujud-machine-2-lxd-1
 		}),
 		inexactMatch: true,
 		expectScripts: `
-curl .* --noproxy "\*" --insecure -o \$bin/tools\.tar\.gz 'https://state-addr\.testing\.invalid:54321/deadbeef-0bad-400d-8000-4b1d0d06f00d/tools/1\.2\.3-quantal-amd64'
+\$python .*/download\.py --noproxy --insecure -o \$bin/tools\.tar\.gz 'https://state-addr\.testing\.invalid:54321/deadbeef-0bad-400d-8000-4b1d0d06f00d/tools/1\.2\.3-quantal-amd64'
 `,
 	},
 
@@ -1283,16 +1290,8 @@ func (*cloudinitSuite) TestToolsDownloadCommand(c *gc.C) {
 	expected := `
 n=1
 while true; do
-
-    printf "Attempt $n to download tools from %s...\n" 'a'
-    download 'a' && echo "Tools downloaded successfully." && break
-
-    printf "Attempt $n to download tools from %s...\n" 'b'
-    download 'b' && echo "Tools downloaded successfully." && break
-
-    printf "Attempt $n to download tools from %s...\n" 'c'
-    download 'c' && echo "Tools downloaded successfully." && break
-
+    echo "Attempt $n to download agent..."
+    download 'a' 'b' 'c' && echo "Agent downloaded successfully." && break
     echo "Download failed, retrying in 15s"
     sleep 15
     n=$((n+1))

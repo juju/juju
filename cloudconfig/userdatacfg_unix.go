@@ -4,6 +4,8 @@
 
 package cloudconfig
 
+//go:generate go run ../generate/filetoconst/filetoconst.go DownloadParallelScript unixuserdatafiles/download_parallel.py download_parallel.go 2017 cloudconfig
+
 import (
 	"bytes"
 	"encoding/base64"
@@ -37,22 +39,17 @@ import (
 var logger = loggo.GetLogger("juju.cloudconfig")
 
 const (
-	// curlCommand is the base curl command used to download tools.
-	curlCommand = "curl -sSfw 'tools from %{url_effective} downloaded: HTTP %{http_code}; time %{time_total}s; size %{size_download} bytes; speed %{speed_download} bytes/s '"
-
 	// toolsDownloadWaitTime is the number of seconds to wait between
 	// each iterations of download attempts.
 	toolsDownloadWaitTime = 15
 
 	// toolsDownloadTemplate is a bash template that generates a
 	// bash command to cycle through a list of URLs to download tools.
-	toolsDownloadTemplate = `{{$curl := .ToolsDownloadCommand}}
+	toolsDownloadTemplate = `{{$download := .ToolsDownloadCommand}}
 n=1
 while true; do
-{{range .URLs}}
-    printf "Attempt $n to download tools from %s...\n" {{shquote .}}
-    {{$curl}} {{shquote .}} && echo "Tools downloaded successfully." && break
-{{end}}
+    echo "Attempt $n to download agent..."
+    {{$download}}{{range .URLs}} {{shquote .}}{{end}} && echo "Agent downloaded successfully." && break
     echo "Download failed, retrying in {{.ToolsDownloadWaitTime}}s"
     sleep {{.ToolsDownloadWaitTime}}
     n=$((n+1))
@@ -321,30 +318,33 @@ func (w *unixConfigure) addDownloadToolsCmds() error {
 		}
 		w.conf.AddRunBinaryFile(path.Join(w.icfg.JujuTools(), "tools.tar.gz"), []byte(toolsData), 0644)
 	} else {
-		curlCommand := curlCommand
+		downloadScript := path.Join(w.icfg.JujuTools(), "download.py")
+		w.conf.AddRunTextFile(downloadScript, DownloadParallelScript, 0644)
+		w.conf.AddRunCmd("python=$(which python3 || which python)")
+		downloadCommand := "$python " + downloadScript
+
 		var urls []string
 		for _, tools := range w.icfg.ToolsList() {
 			urls = append(urls, tools.URL)
 		}
 		if w.icfg.Bootstrap != nil {
-			curlCommand += " --retry 10"
 			if w.icfg.DisableSSLHostnameVerification {
-				curlCommand += " --insecure"
+				downloadCommand += " --insecure"
 			}
 		} else {
 			// Don't go through the proxy when downloading tools from the controllers
-			curlCommand += ` --noproxy "*"`
+			downloadCommand += ` --noproxy`
 
-			// Our API server certificates are unusable by curl (invalid subject name),
-			// so we must disable certificate validation. It doesn't actually
+			// Disable certificate validation. The certificates may not be verifiable
+			// by the client due to invalid subjectg names. It doesn't actually
 			// matter, because there is no sensitive information being transmitted
 			// and we verify the tools' hash after.
-			curlCommand += " --insecure"
+			downloadCommand += " --insecure"
 		}
-		curlCommand += " -o $bin/tools.tar.gz"
+		downloadCommand += " -o $bin/tools.tar.gz"
 		w.conf.AddRunCmd(cloudinit.LogProgressCmd("Fetching Juju agent version %s for %s", tools.Version.Number, tools.Version.Arch))
-		logger.Infof("Fetching agent: %s <%s>", curlCommand, urls)
-		w.conf.AddRunCmd(toolsDownloadCommand(curlCommand, urls))
+		logger.Infof("Fetching agent: %s <%s>", downloadCommand, urls)
+		w.conf.AddRunCmd(toolsDownloadCommand(downloadCommand, urls))
 	}
 
 	w.conf.AddScripts(
@@ -420,10 +420,10 @@ func (w *unixConfigure) setUpGUI() (func(), error) {
 
 }
 
-// toolsDownloadCommand takes a curl command minus the source URL,
-// and generates a command that will cycle through the URLs until
-// one succeeds.
-func toolsDownloadCommand(curlCommand string, urls []string) string {
+// toolsDownloadCommand takes a command for fetching a URL, minus the
+// source URL, and generates a command that will cycle through the URLs
+// until one succeeds.
+func toolsDownloadCommand(downloadCommand string, urls []string) string {
 	parsedTemplate := template.Must(
 		template.New("ToolsDownload").Funcs(
 			template.FuncMap{"shquote": shquote},
@@ -431,7 +431,7 @@ func toolsDownloadCommand(curlCommand string, urls []string) string {
 	)
 	var buf bytes.Buffer
 	err := parsedTemplate.Execute(&buf, map[string]interface{}{
-		"ToolsDownloadCommand":  curlCommand,
+		"ToolsDownloadCommand":  downloadCommand,
 		"ToolsDownloadWaitTime": toolsDownloadWaitTime,
 		"URLs":                  urls,
 	})
