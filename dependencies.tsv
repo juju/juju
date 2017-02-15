@@ -7,7 +7,6 @@ github.com/bmizerany/pat	git	c068ca2f0aacee5ac3681d68e4d0a003b7d1fd2c	2016-02-17
 github.com/coreos/go-systemd	git	7b2428fec40033549c68f54e26e89e7ca9a9ce31	2016-02-02T21:14:25Z
 github.com/dgrijalva/jwt-go	git	01aeca54ebda6e0fbfafd0a524d234159c05ec20	2016-07-05T20:30:06Z
 github.com/dustin/go-humanize	git	145fabdb1ab757076a70a886d092a3af27f66f4c	2014-12-28T07:11:48Z
-github.com/gabriel-samfira/sys	git	9ddc60d56b511544223adecea68da1e4f2153beb	2015-06-08T13:21:19Z
 github.com/godbus/dbus	git	32c6cc29c14570de4cf6d7e7737d68fb2d01ad15	2016-05-06T22:25:50Z
 github.com/golang/protobuf	git	34a5f244f1c01cdfee8e60324258cfbb97a42aec	2015-05-26T01:21:09Z
 github.com/google/go-querystring	git	9235644dd9e52eeae6fa48efd539fdc351a0af53	2016-04-01T23:30:42Z
@@ -47,7 +46,7 @@ github.com/juju/terms-client	git	9b925afd677234e4146dde3cb1a11e187cbed64e	2016-0
 github.com/juju/testing	git	44f495fbd6d645be114105945fdf75c9e7648b67	2017-02-14T22:39:22Z
 github.com/juju/txn	git	28898197906200d603394d8e4ce537436529f1c5	2016-11-16T04:07:55Z
 github.com/juju/usso	git	68a59c96c178fbbad65926e7f93db50a2cd14f33	2016-04-01T10:44:24Z
-github.com/juju/utils	git	c42a5b184ca1fe8d21ea96b1edacf280ed7032c9	2017-02-14T00:59:05Z
+github.com/juju/utils	git	9f8aeb9b09e2d8c769be8317ccfa23f7eec62c26	2017-02-15T08:19:00Z
 github.com/juju/version	git	1f41e27e54f21acccf9b2dddae063a782a8a7ceb	2016-10-31T05:19:06Z
 github.com/juju/webbrowser	git	54b8c57083b4afb7dc75da7f13e2967b2606a507	2016-03-09T14:36:29Z
 github.com/juju/xml	git	eb759a627588d35166bc505fceb51b88500e291e	2015-04-13T13:11:21Z
@@ -96,4 +95,5 @@ gopkg.in/natefinch/npipe.v2	git	c1b8fa8bdccecb0b8db834ee0b92fdbcfa606dd6	2016-06
 gopkg.in/retry.v1	git	c09f6b86ba4d5d2cf5bdf0665364aec9fd4815db	2016-10-25T18:14:30Z
 gopkg.in/tomb.v1	git	dd632973f1e7218eb1089048e0798ec9ae7dceb8	2014-10-24T13:56:13Z
 gopkg.in/yaml.v2	git	a3f3340b5840cee44f372bddb5880fcbc419b46a	2017-02-08T14:18:51Z
+golang.org/x/sys	git	7a6e5648d140666db5d920909e082ca00a87ba2c	2017-02-01T05:12:45Z
 golang.org/x/text	git	2910a502d2bf9e43193af9d68ca516529614eed3	2016-07-26T16:48:57Z

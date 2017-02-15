@@ -8,7 +8,7 @@ package windows
 
 import "unsafe"
 import "syscall"
-import "github.com/gabriel-samfira/sys/windows"
+import "golang.org/x/sys/windows"
 
 var _ unsafe.Pointer
 
