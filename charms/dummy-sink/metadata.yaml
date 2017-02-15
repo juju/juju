@@ -9,10 +9,8 @@ provides:
 categories:
   - misc
 series:
+  - xenial
   - trusty
   - precise
-  - utopic
-  - vivid
-  - wily
-  - xenial
   - yakkety
+  - zesty
