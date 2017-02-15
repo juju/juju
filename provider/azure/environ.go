@@ -390,7 +390,8 @@ func (env *azureEnviron) StartInstance(args environs.StartInstanceParams) (*envi
 	// If the user has not specified a root-disk size, then
 	// set a sensible default.
 	var rootDisk uint64
-	if args.Constraints.RootDisk != nil {
+	// Azure complains if we try and specify a root disk size less than the default.
+	if args.Constraints.RootDisk != nil && *args.Constraints.RootDisk > defaultRootDiskSize {
 		rootDisk = *args.Constraints.RootDisk
 	} else {
 		rootDisk = defaultRootDiskSize
