@@ -12,6 +12,7 @@ from mock import (
 
 from assess_budget import (
     assess_budget,
+    assess_budget_limit,
     assess_create_budget,
     assess_list_budgets,    
     assess_set_budget,
@@ -72,13 +73,12 @@ class TestAssess(TestCase):
 
     def setUp(self):
         super(TestAssess, self).setUp()
+        self.fake_client = fake_juju_client()
         self.budget_name = 'test'
         self.budget_limit = randint(1000,10000)
         self.budget_value = str(randint(100,900))
 
-    def test_assess_budget(self):
-        fake_client = Mock(wraps=fake_juju_client())
-          
+    def test_assess_budget(self):         
         show_b = patch("assess_budget.assess_show_budget",
                       autospec=True)
         list_b = patch("assess_budget.assess_list_budgets",
@@ -102,22 +102,22 @@ class TestAssess(TestCase):
                 with patch("assess_budget.json.loads"):
                     with patch("assess_budget.randint",
                         return_value=self.budget_value):
-                        assess_budget(fake_client)
+                        assess_budget(self.fake_client)
                         
-                        init_b_mock.assert_called_once_with(fake_client,
+                        init_b_mock.assert_called_once_with(self.fake_client,
                             self.budget_name, '0')
                         expect_b_mock.assert_called_once_with(
-                            update_e_mock(fake_client),
+                            update_e_mock(self.fake_client),
                             self.budget_name, self.budget_value)
-                        b_limit_mock.assert_called_once_with(fake_client, 0)
-                        create_b_mock.assert_called_once_with(fake_client,
+                        b_limit_mock.assert_called_once_with(self.fake_client, 0)
+                        create_b_mock.assert_called_once_with(self.fake_client,
                             self.budget_name, self.budget_value, 0)
-                        set_b_mock.assert_called_once_with(fake_client,
+                        set_b_mock.assert_called_once_with(self.fake_client,
                             self.budget_name, self.budget_value, 0)
-                        show_b_mock.assert_called_once_with(fake_client,
+                        show_b_mock.assert_called_once_with(self.fake_client,
                             self.budget_name, self.budget_value)
-                        list_b_mock.assert_called_once_with(fake_client,
-                            update_e_mock(fake_client))
+                        list_b_mock.assert_called_once_with(self.fake_client,
+                            update_e_mock(self.fake_client))
                             
                         self.assertEqual(init_b_mock.call_count, 1)
                         self.assertEqual(expect_b_mock.call_count, 1)
@@ -131,8 +131,7 @@ class TestAssess(TestCase):
 class TestAssessShowBudget(TestAssess):
 
     def setUp(self):
-        super(TestAssessShowBudget, self).setUp()
-        self.fake_client = fake_juju_client()                
+        super(TestAssessShowBudget, self).setUp()          
         self.fake_json = json.loads('{"limit":"0","total":{"usage":"0%"}}')
         self.fake_json['limit'] = self.budget_value
     
@@ -171,7 +170,6 @@ class TestAssessListBudgets(TestAssess):
 
     def setUp(self):
         super(TestAssessListBudgets, self).setUp()
-        self.fake_client = fake_juju_client()
         snippet = '[{"budget": "test", "limit": "300"}]'
         self.fake_budgets_json = json.loads('{"budgets":' + snippet + '}')
         self.fake_budget_json = json.loads(snippet)
@@ -187,7 +185,6 @@ class TestAssessListBudgets(TestAssess):
                 assess_list_budgets(self.fake_client, self.fake_budget_json)
 
     def test_raises_list_mismatch(self):
-        self.fake_json = json.loads('{"limit":"0","total":{"usage":"0%"}}')
         with patch.object(self.fake_client, 'get_juju_output'):
             with patch("assess_budget.json.loads",
                 return_value=self.fake_unexpected_budgets_json):
@@ -197,8 +194,63 @@ class TestAssessListBudgets(TestAssess):
                     'Found: {}\nExpected: {}'.format(
                     self.fake_unexpected_budget_json, self.fake_budget_json))
 
-    #def test_assess_set_budget(self):
+class TestAssessSetBudget(TestAssess):
 
-    #def test_assess_create_budget(self):        
+    def test_assess_set_budget(self):
+        with patch.object(self.fake_client, 'get_juju_output'):
+            with patch("assess_budget.json.loads"):
+                with patch("assess_budget._try_setting_budget", return_value=):
+                    assess_set_budget(self.fake_client, self.budget_name,
+                        self.budget_value, self.budget_limit)
 
-    #def test_assess_budget_limt(self):
+    def test_raises_on_exceed_credit_limit(self):
+        with patch.object(self.fake_client, 'get_juju_output'):
+            with patch("assess_budget.json.loads"):
+                with patch("assess_budget._try_setting_budget"):
+                    with self.assertRaises(JujuAssertionError) as ex:
+                        assess_set_budget(self.fake_client, self.budget_name,
+                            self.budget_value, self.budget_limit)
+                    self.assertEqual(ex.exception.message,
+                        'Credit limit exceeded')
+
+    def test_raises_on_negative_budget(self):
+        self.budget_limit = -abs(self.budget_limit)
+        with patch.object(self.fake_client, 'get_juju_output'):
+            with patch("assess_budget.json.loads"):
+                with patch("assess_budget._try_setting_budget"):
+                    with self.assertRaises(JujuAssertionError) as ex:
+                        assess_set_budget(self.fake_client, self.budget_name,
+                            self.budget_value, self.budget_limit)
+                    self.assertEqual(ex.exception.message,
+                        'Negative budget allowed')
+
+#class TestAssessCreateBudget(TestAssess):
+    
+    #def test_assess_create_budget(self):
+        #with patch.object(self.fake_client, 'get_juju_output'):
+            #with patch("assess_budget.json.loads",
+                #return_value=self.fake_unexpected_budgets_json):
+                #with patch("assess_budget._try_setting_budget"):
+                    #with self.assertRaises(JujuAssertionError) as ex:
+                        #assess_set_budget(self.fake_client, self.budget_name,
+                            #self.budget_value, self.budget_limit)
+                    #self.assertIn('Negative budget allowed',
+                        #ex.exception.message)
+
+    #def test_raises_duplicate_budget(self):
+
+    #def test_raises_creation_error(self):
+        
+class TestAssessBudgetLimit(TestAssess):
+
+    def test_assess_budget_limt(self):
+        budget_limit = randint(1,10000)
+        assess_budget_limit(self.fake_client, budget_limit)
+
+    def test_raises_error_on_negative_limit(self):
+        neg_budget_limit = randint(-1000,-1)
+        with self.assertRaises(JujuAssertionError) as ex:
+            assess_budget_limit(self.fake_client, neg_budget_limit)
+        self.assertEqual(ex.exception.message,
+            'Negative Budget Limit {}'.format(neg_budget_limit))
+        
