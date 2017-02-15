@@ -3,7 +3,6 @@ package oracle
 import (
 	"fmt"
 	"os"
-	"sync"
 
 	"github.com/juju/errors"
 	"github.com/juju/version"
@@ -11,18 +10,19 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/storage"
+
+	oci "github.com/hoenirvili/go-oracle-cloud/api"
 )
 
 // oracleEnviron implements the environs.Environ interface
 // and has behaviour specific that the interface provides.
 type oracleEnviron struct {
-	mu *sync.Mutex
-
 	p    *environProvider
 	spec environs.CloudSpec
 	cfg  *config.Config
@@ -31,7 +31,6 @@ type oracleEnviron struct {
 func newOracleEnviron(p *environProvider, args environs.OpenParams) *oracleEnviron {
 	env := &oracleEnviron{
 		p:    p,
-		mu:   &sync.Mutex{},
 		spec: args.Cloud,
 		cfg:  args.Config,
 	}
@@ -75,7 +74,28 @@ func (o oracleEnviron) Config() *config.Config {
 	return o.cfg
 }
 
-func (o oracleEnviron) Bootstrap(ctx environs.BootstrapContext, params environs.BootstrapParams) (*environs.BootstrapResult, error) {
+// Bootstrap creates a new environment, and an instance inside the
+// oracle cloud infrastracture to host the controller for that
+// environment. The instnace will have have the series and architecture
+// of the Environ's choice, constrained to those of the available tools.
+// Bootstrap will return the instance's
+// architecture, series, and a function that must be called to finalize
+// the bootstrap process by transferring the tools and installing the
+// initial Juju controller.
+//
+// Bootstrap will use just one specific architecture because the oracle
+// cloud only supports amd64.
+func (o oracleEnviron) Bootstrap(
+	ctx environs.BootstrapContext,
+	params environs.BootstrapParams,
+) (*environs.BootstrapResult, error) {
+	// in order too make the entire bootstrap process prossible
+	// we must take into accounting some things:
+	// validate if we have a shape based on the bootstrap constraints
+	// and pick the right one
+	// validate if we have in the imagelist a image correspoding to the
+	// image tools specified.
+
 	logger.Infof("Loging into the oracle cloud infrastructure")
 	if err := o.p.client.Authenticate(); err != nil {
 		return nil, errors.Trace(err)
@@ -96,16 +116,67 @@ func (o oracleEnviron) Bootstrap(ctx environs.BootstrapContext, params environs.
 		shape.name, shape.cpus, shape.ram,
 	)
 
-	os.Exit(1)
+	fmt.Printf("%+v\n", params)
 
-	fmt.Println("=============================")
-	fmt.Printf("%+v\n", params.BootstrapConstraints)
-	fmt.Println("=============================")
+	imagelist, err := checkImageList(o.p.client, params.ImageMetadata)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	os.Exit(1)
+	//TODO
+
+	instance, err := launchBootstrapConstroller(o.p.client, []oci.InstanceParams{
+		{
+			Shape:     shape.name,
+			Imagelist: imagelist,
+			Label:     "",
+			SSHKeys:   nil,
+			Name:      "Bootstrap Juju Controller",
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	os.Exit(1)
 	return nil, nil
 }
 
+func checkImageList(c *oci.Client, tools []*imagemetadata.ImageMetadata) (string, error) {
+	var defaultImage string
+	if c == nil {
+		return "", errors.NotFoundf("Cannot use nil client")
+	}
+
+	if tools == nil {
+		return "", errors.NotFoundf("No tools imagemedatada provided")
+	}
+	fmt.Println(tools)
+
+	return defaultImage, nil
+}
+
+func launchBootstrapConstroller(c *oci.Client, params []oci.InstanceParams) (instance.Instance, error) {
+	if c == nil {
+		return nil, errors.NotFoundf("Cannot use nil client")
+	}
+
+	resp, err := c.CreateInstance(params)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	instance, err := newInstance(resp)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return instance, nil
+}
+
 func (o oracleEnviron) BootstrapMessage() string {
-	return ""
+	return "SomeBootstrapMessage"
 }
 
 func (o oracleEnviron) Create(params environs.CreateParams) error {

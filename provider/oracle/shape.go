@@ -1,10 +1,9 @@
 package oracle
 
 import (
-	"fmt"
-
 	"github.com/hoenirvili/go-oracle-cloud/response"
 	"github.com/juju/errors"
+
 	"github.com/juju/juju/constraints"
 )
 
@@ -37,7 +36,6 @@ func findShape(shapes []response.Shape, cons constraints.Value) (*shape, error) 
 	// we'll take the most the most closest ram value
 	// based on the constraints mem value
 	for key, val := range shapes {
-		fmt.Println(val)
 		// because the oracle api has the cpu core number being a float
 		// we cast it here avoiding extra casting between the code
 		cpus = uint64(val.Cpus)
