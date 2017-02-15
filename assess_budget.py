@@ -26,7 +26,7 @@ __metaclass__ = type
 
 
 log = logging.getLogger("assess_budget")
-      
+
 
 def _get_new_budget_limit(client):
     """Return availible limit for new budget"""
@@ -42,6 +42,7 @@ def _get_budgets(client):
         budgets.append(budget)
     return budgets
 
+
 def _set_budget_value_expectations(expected_budgets, name, value):
     # Update our expectations accordingly
     for budget in expected_budgets:
@@ -53,6 +54,7 @@ def _set_budget_value_expectations(expected_budgets, name, value):
             budget['available'] = value + '.00'
             log.info('Expected budget updated: "{}" to value {}'.format(name,
                                                                         value))
+
 
 def _try_setting_budget(client, name, value):
     try:
@@ -95,17 +97,19 @@ def _try_greater_than_limit_budget(client, name, limit):
     error_strings = {}
     error_strings['pass'] = 'exceed the credit limit'
     error_strings['unknown'] = 'Error testing budget greater than' \
-                'credit limit'
+        'credit limit'
     error_strings['fail'] = 'Credit limit exceeded'
-    assert_set_budget(client, name, str(limit + randint(1,100)), error_strings)
+    assert_set_budget(
+        client, name, str(limit + randint(1, 100)), error_strings)
 
 
 def _try_negative_budget(client, name):
     error_strings = {}
     error_strings['pass'] = 'Could not set budget'
     error_strings['unknown'] = 'Error testing negative budget'
-    error_strings['fail'] = 'Negative budget allowed'    
-    assert_set_budget(client, name, str(randint(-1000,-1)), error_strings)
+    error_strings['fail'] = 'Negative budget allowed'
+    assert_set_budget(client, name, str(randint(-1000, -1)), error_strings)
+
 
 def assert_sorted_equal(found, expected):
     found = sorted(found)
@@ -114,6 +118,7 @@ def assert_sorted_equal(found, expected):
         raise JujuAssertionError(
             'Found: {}\nExpected: {}'.format(found, expected))
 
+
 def assert_set_budget(client, name, limit, error_strings):
     try:
         _try_setting_budget(client, name, limit)
@@ -121,9 +126,10 @@ def assert_set_budget(client, name, limit, error_strings):
         if error_strings['pass'] in e.message:
             pass
         else:
-            raise JujuAssertionError(error_strings['unknown']+ e)
+            raise JujuAssertionError(error_strings['unknown'] + e)
     else:
         raise JujuAssertionError(error_strings['fail'])
+
 
 def create_budget(client, name, value):
     """Create a budget."""
@@ -177,6 +183,7 @@ def assess_budget_limit(client, budget_limit):
         raise JujuAssertionError('Negative Budget Limit {}'.format(
             budget_limit))
 
+
 def assess_create_budget(client, budget_name, budget_value, budget_limit):
     """Test create-budget command"""
     log.info('create-budget "{}" with value {}, limit {}'.format(budget_name,
@@ -206,7 +213,6 @@ def assess_set_budget(client, budget_name, budget_value, budget_limit):
     log.info('set-budget "{}" with value {}, limit {}'.format(budget_name,
                                                               budget_value,
                                                               budget_limit))
-    error_strings = {}
     _try_setting_budget(client, budget_name, budget_value)
 
     # Check some bounds
@@ -224,7 +230,7 @@ def assess_show_budget(client, budget_name, budget_value):
                                                      budget_value))
 
     budget = json.loads(show_budget(client, budget_name))
-    
+
     # assert budget value
     if budget['limit'] != budget_value:
         raise JujuAssertionError('Budget limit found {}, expected {}'.format(
