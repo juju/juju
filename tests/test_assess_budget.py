@@ -4,6 +4,7 @@ import logging
 import json
 from random import randint
 import StringIO
+from subprocess import CalledProcessError
 
 from mock import (
     Mock,
@@ -228,22 +229,32 @@ class TestAssessSetBudget(TestAssess):
                     self.assertEqual(ex.exception.message,
                         'Negative budget allowed')
 
-#class TestAssessCreateBudget(TestAssess):
+class TestAssessCreateBudget(TestAssess):
     
-    #def test_assess_create_budget(self):
-        #with patch.object(self.fake_client, 'get_juju_output'):
-            #with patch("assess_budget.json.loads",
-                #return_value=self.fake_unexpected_budgets_json):
-                #with patch("assess_budget._try_setting_budget"):
-                    #with self.assertRaises(JujuAssertionError) as ex:
-                        #assess_set_budget(self.fake_client, self.budget_name,
-                            #self.budget_value, self.budget_limit)
-                    #self.assertIn('Negative budget allowed',
-                        #ex.exception.message)
+    def test_assess_create_budget(self):
+        with patch.object(self.fake_client, 'get_juju_output'):
+            with patch("assess_budget.create_budget"):
+                assess_create_budget(self.fake_client, self.budget_name,
+                    self.budget_value, self.budget_limit)
 
-    #def test_raises_duplicate_budget(self):
+    def test_raises_duplicate_budget(self):
+        with patch.object(self.fake_client, 'get_juju_output'):
+            with patch("assess_budget.create_budget",
+                side_effect=JujuAssertionError):
+                with self.assertRaises(JujuAssertionError) as ex:
+                    assess_create_budget(self.fake_client, self.budget_name, 
+                            self.budget_value, self.budget_limit)
+                self.assertEqual(ex.exception.message,
+                    'Added duplicate budget')
 
-    #def test_raises_creation_error(self):
+    def test_raises_creation_error(self):
+        with patch.object(self.fake_client, 'get_juju_output'):
+            with patch("assess_budget.create_budget", side_effect=CalledProcessError(1, 'foo','bar')):
+                with self.assertRaises(JujuAssertionError) as ex:
+                    assess_create_budget(self.fake_client, self.budget_name, 
+                            self.budget_value, self.budget_limit)
+                self.assertEqual(ex.exception.message,
+                    'Error testing create-budget: bar')
         
 class TestAssessBudgetLimit(TestAssess):
 
