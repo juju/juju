@@ -1,8 +1,9 @@
 """Tests for assess_budget module."""
 
 import logging
-import StringIO
+import json
 from random import randint
+import StringIO
 
 from mock import (
     Mock,
@@ -127,15 +128,74 @@ class TestAssess(TestCase):
                         self.assertEqual(list_b_mock.call_count, 1)
 
 
-    def test_assess_show_budget(self):
-        fake_client = fake_juju_client()
-        with patch.object(fake_client, 'get_juju_output'):
-            with patch("assess_budget.json.loads"):
-                with self.assertRaises(JujuAssertionError):
-                    assess_show_budget(fake_client, self.budget_name,
-                        self.budget_value)
+class TestAssessShowBudget(TestAssess):
 
-    #def test_assess_list_budgets(self):
+    def setUp(self):
+        super(TestAssessShowBudget, self).setUp()
+        self.fake_client = fake_juju_client()                
+        self.fake_json = json.loads('{"limit":"0","total":{"usage":"0%"}}')
+        self.fake_json['limit'] = self.budget_value
+    
+    def test_assess_show_budget(self):
+        with patch.object(self.fake_client, 'get_juju_output'):
+            with patch("assess_budget.json.loads",
+                return_value=self.fake_json):
+                    assess_show_budget(self.fake_client, self.budget_name,
+                            self.budget_value)
+
+    def test_raises_budget_usage_error(self):
+        error_usage = randint(1,100)
+        self.fake_json['total']['usage'] = error_usage
+        with patch.object(self.fake_client, 'get_juju_output'):
+            with patch("assess_budget.json.loads",
+                return_value=self.fake_json):
+                with self.assertRaises(JujuAssertionError) as ex:
+                    assess_show_budget(self.fake_client, self.budget_name,
+                        self.budget_value)
+                self.assertEqual(ex.exception.message,
+                    'Budget usage found {}, expected 0%'.format(error_usage))
+                    
+    def test_raises_budget_limit_error(self):
+        self.fake_json['limit'] = 0        
+        with patch.object(self.fake_client, 'get_juju_output'):
+            with patch("assess_budget.json.loads",
+                return_value=self.fake_json):
+                with self.assertRaises(JujuAssertionError) as ex:
+                    assess_show_budget(self.fake_client, self.budget_name,
+                        self.budget_value)
+                self.assertEqual(ex.exception.message,
+                    'Budget limit found 0, expected {}'.format(
+                    self.budget_value))
+
+class TestAssessListBudgets(TestAssess):
+
+    def setUp(self):
+        super(TestAssessListBudgets, self).setUp()
+        self.fake_client = fake_juju_client()
+        snippet = '[{"budget": "test", "limit": "300"}]'
+        self.fake_budgets_json = json.loads('{"budgets":' + snippet + '}')
+        self.fake_budget_json = json.loads(snippet)
+        unexpected_snippet = '[{"budget": "test", "limit": "100"}]'
+        self.fake_unexpected_budgets_json = json.loads('{"budgets":'
+            + unexpected_snippet + '}')
+        self.fake_unexpected_budget_json = json.loads(unexpected_snippet)
+
+    def test_assess_list_budgets(self):
+        with patch.object(self.fake_client, 'get_juju_output'):
+            with patch("assess_budget.json.loads",
+                return_value=self.fake_budgets_json):
+                assess_list_budgets(self.fake_client, self.fake_budget_json)
+
+    def test_raises_list_mismatch(self):
+        self.fake_json = json.loads('{"limit":"0","total":{"usage":"0%"}}')
+        with patch.object(self.fake_client, 'get_juju_output'):
+            with patch("assess_budget.json.loads",
+                return_value=self.fake_unexpected_budgets_json):
+                with self.assertRaises(JujuAssertionError) as ex:
+                    assess_list_budgets(self.fake_client, self.fake_budget_json)
+                self.assertEqual(ex.exception.message,
+                    'Found: {}\nExpected: {}'.format(
+                    self.fake_unexpected_budget_json, self.fake_budget_json))
 
     #def test_assess_set_budget(self):
 

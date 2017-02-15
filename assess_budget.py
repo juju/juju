@@ -46,8 +46,10 @@ def _get_new_budget_limit(client):
 
 def _get_budgets(client):
     budgets = []
+    log.info(json.loads(list_budgets(client)))
     for budget in json.loads(list_budgets(client))['budgets']:
         budgets.append(budget)
+    log.info(budgets)
     return budgets
 
 
@@ -158,14 +160,15 @@ def assess_show_budget(client, budget_name, budget_value):
                                                      budget_value))
 
     budget = json.loads(show_budget(client, budget_name))
+    
     # assert budget value
     if budget['limit'] != budget_value:
-        raise JujuAssertionError('show-budget found {}, expected {}'.format(
+        raise JujuAssertionError('Budget limit found {}, expected {}'.format(
             budget['limit'], budget_value))
 
     # assert on usage (0% until we use it)
     if budget['total']['usage'] != '0%':
-        raise JujuAssertionError('show-budget found {}, expected {}'.format(
+        raise JujuAssertionError('Budget usage found {}, expected {}'.format(
             budget['total']['usage'], '0%'))
 
 
