@@ -124,6 +124,12 @@ settings:
 }
 
 func (s *cmdJujuSuite) TestServiceGetWeirdYAML(c *gc.C) {
+	// This test has been confirmed to pass with the patch/goyaml-pr-241.diff
+	// applied to the current gopkg.in/yaml.v2 revision, however since our standard
+	// local test tooling doesn't apply patches, this test would fail without it.
+	// When the goyaml has merged pr #241 and the dependencies updated, we can
+	// remove the skip.
+	c.Skip("Remove skip when goyaml has PR #241.")
 	expected := `application: yaml-config
 charm: yaml-config
 settings:
@@ -134,10 +140,9 @@ settings:
     value: "0xD06F00D"
   nonoctal:
     default: true
-    description: TODO remove the quotes. Number that isn't valid octal, so should
-      be a string.
+    description: Number that isn't valid octal, so should be a string.
     type: string
-    value: "01182252"
+    value: 01182252
   numberstring:
     default: true
     description: A string that happens to contain a number.

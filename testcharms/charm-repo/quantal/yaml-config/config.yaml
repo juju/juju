@@ -8,6 +8,6 @@ options:
     description: A string that happens to contain a number.
     type: string
   nonoctal:
-    default: "01182252"
-    description: TODO remove the quotes. Number that isn't valid octal, so should be a string.
+    default: 01182252
+    description: Number that isn't valid octal, so should be a string.
     type: string
