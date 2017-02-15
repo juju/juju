@@ -27,57 +27,57 @@ func (s *environNetSuite) TestGlobalFirewallName(c *gc.C) {
 }
 
 func (s *environNetSuite) TestOpenPortsOkay(c *gc.C) {
-	err := s.Env.OpenPorts(s.Ports)
+	err := s.Env.OpenPorts(s.Rules)
 
 	c.Check(err, jc.ErrorIsNil)
 }
 
 func (s *environNetSuite) TestOpenPortsAPI(c *gc.C) {
 	fwname := lxd.GlobalFirewallName(s.Env)
-	err := s.Env.OpenPorts(s.Ports)
+	err := s.Env.OpenPorts(s.Rules)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.Stub.CheckCalls(c, []gitjujutesting.StubCall{{
 		FuncName: "OpenPorts",
 		Args: []interface{}{
 			fwname,
-			s.Ports,
+			s.Rules,
 		},
 	}})
 }
 
 func (s *environNetSuite) TestClosePortsOkay(c *gc.C) {
-	err := s.Env.ClosePorts(s.Ports)
+	err := s.Env.ClosePorts(s.Rules)
 
 	c.Check(err, jc.ErrorIsNil)
 }
 
 func (s *environNetSuite) TestClosePortsAPI(c *gc.C) {
 	fwname := lxd.GlobalFirewallName(s.Env)
-	err := s.Env.ClosePorts(s.Ports)
+	err := s.Env.ClosePorts(s.Rules)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.Stub.CheckCalls(c, []gitjujutesting.StubCall{{
 		FuncName: "ClosePorts",
 		Args: []interface{}{
 			fwname,
-			s.Ports,
+			s.Rules,
 		},
 	}})
 }
 
 func (s *environNetSuite) TestPortsOkay(c *gc.C) {
-	s.Firewaller.PortRanges = s.Ports
+	s.Firewaller.PortRanges = s.Rules
 
-	ports, err := s.Env.Ports()
+	ports, err := s.Env.IngressRules()
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(ports, jc.DeepEquals, s.Ports)
+	c.Check(ports, jc.DeepEquals, s.Rules)
 }
 
 func (s *environNetSuite) TestPortsAPI(c *gc.C) {
 	fwname := lxd.GlobalFirewallName(s.Env)
-	_, err := s.Env.Ports()
+	_, err := s.Env.IngressRules()
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.Stub.CheckCalls(c, []gitjujutesting.StubCall{{

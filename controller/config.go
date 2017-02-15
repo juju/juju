@@ -19,6 +19,13 @@ import (
 var logger = loggo.GetLogger("juju.controller")
 
 const (
+	// MongoProfLow represents the most conservative mongo memory profile.
+	MongoProfLow = "low"
+	// MongoProfDefault represents the mongo memory profile shipped by default.
+	MongoProfDefault = "default"
+)
+
+const (
 	// APIPort is the port used for api connections.
 	APIPort = "api-port"
 
@@ -62,6 +69,10 @@ const (
 	// they don't have any access rights to the controller itself.
 	AllowModelAccessKey = "allow-model-access"
 
+	// MongoMemoryProfile sets whether mongo uses the least possible memory or the
+	// detault
+	MongoMemoryProfile = "mongo-memory-profile"
+
 	// Attribute Defaults
 
 	// DefaultAuditingEnabled contains the default value for the
@@ -77,6 +88,9 @@ const (
 
 	// DefaultAPIPort is the default port the API server is listening on.
 	DefaultAPIPort int = 17070
+
+	// DefaultMongoMemoryProfile is the default profile used by mongo.
+	DefaultMongoMemoryProfile = MongoProfLow
 )
 
 // ControllerOnlyConfigAttributes are attributes which are only relevant
@@ -92,6 +106,7 @@ var ControllerOnlyConfigAttributes = []string{
 	IdentityURL,
 	SetNUMAControlPolicyKey,
 	StatePort,
+	MongoMemoryProfile,
 }
 
 // ControllerOnlyAttribute returns true if the specified attribute name
@@ -230,6 +245,14 @@ func (c Config) IdentityPublicKey() *bakery.PublicKey {
 	return &pubKey
 }
 
+// MongoMemoryProfile returns the selected profile or low.
+func (c Config) MongoMemoryProfile() string {
+	if profile, ok := c[MongoMemoryProfile]; ok {
+		return profile.(string)
+	}
+	return MongoProfLow
+}
+
 // NUMACtlPreference returns if numactl is preferred.
 func (c Config) NUMACtlPreference() bool {
 	if numa, ok := c[SetNUMAControlPolicyKey]; ok {
@@ -281,6 +304,12 @@ func Validate(c Config) error {
 		return errors.Errorf("controller-uuid: expected UUID, got string(%q)", uuid)
 	}
 
+	if mgoMemProfile, ok := c[MongoMemoryProfile].(string); ok {
+		if mgoMemProfile != MongoProfLow && mgoMemProfile != MongoProfDefault {
+			return errors.Errorf("mongo-memory-profile: expected one of %s or %s got string(%q)", MongoProfLow, MongoProfDefault, mgoMemProfile)
+		}
+	}
+
 	return nil
 }
 
@@ -300,6 +329,7 @@ var configChecker = schema.FieldMap(schema.Fields{
 	AutocertURLKey:          schema.String(),
 	AutocertDNSNameKey:      schema.String(),
 	AllowModelAccessKey:     schema.Bool(),
+	MongoMemoryProfile:      schema.String(),
 }, schema.Defaults{
 	APIPort:                 DefaultAPIPort,
 	AuditingEnabled:         DefaultAuditingEnabled,
@@ -310,4 +340,5 @@ var configChecker = schema.FieldMap(schema.Fields{
 	AutocertURLKey:          schema.Omit,
 	AutocertDNSNameKey:      schema.Omit,
 	AllowModelAccessKey:     schema.Omit,
+	MongoMemoryProfile:      schema.Omit,
 })

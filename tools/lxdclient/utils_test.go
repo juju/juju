@@ -27,7 +27,7 @@ func (s *utilsSuite) TestEnableHTTPSListener(c *gc.C) {
 	var client mockConfigSetter
 	err := lxdclient.EnableHTTPSListener(&client)
 	c.Assert(err, jc.ErrorIsNil)
-	client.CheckCall(c, 0, "SetConfig", "core.https_address", "[::]")
+	client.CheckCall(c, 0, "SetServerConfig", "core.https_address", "[::]")
 }
 
 func (s *utilsSuite) TestEnableHTTPSListenerError(c *gc.C) {
@@ -37,11 +37,20 @@ func (s *utilsSuite) TestEnableHTTPSListenerError(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "uh oh")
 }
 
+func (s *utilsSuite) TestEnableHTTPSListenerIPV4Fallback(c *gc.C) {
+	var client mockConfigSetter
+	client.SetErrors(errors.New("any error string added by lxd: socket: address family not supported by protocol"))
+	err := lxdclient.EnableHTTPSListener(&client)
+	c.Assert(err, jc.ErrorIsNil)
+	client.CheckCall(c, 0, "SetServerConfig", "core.https_address", "[::]")
+	client.CheckCall(c, 1, "SetServerConfig", "core.https_address", "0.0.0.0")
+}
+
 type mockConfigSetter struct {
 	testing.Stub
 }
 
-func (m *mockConfigSetter) SetConfig(k, v string) error {
-	m.MethodCall(m, "SetConfig", k, v)
+func (m *mockConfigSetter) SetServerConfig(k, v string) error {
+	m.MethodCall(m, "SetServerConfig", k, v)
 	return m.NextErr()
 }

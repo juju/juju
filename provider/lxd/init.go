@@ -11,5 +11,5 @@ import (
 )
 
 func init() {
-	environs.RegisterProvider(lxdnames.ProviderType, providerInstance)
+	environs.RegisterProvider(lxdnames.ProviderType, NewProvider())
 }

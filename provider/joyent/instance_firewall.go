@@ -18,7 +18,7 @@ const (
 )
 
 // Helper method to create a firewall rule string for the given machine Id and port
-func createFirewallRuleVm(envName string, machineId string, portRange network.PortRange) string {
+func createFirewallRuleVm(envName string, machineId string, portRange network.IngressRule) string {
 	ports := []string{}
 	for p := portRange.FromPort; p <= portRange.ToPort; p++ {
 		ports = append(ports, fmt.Sprintf("PORT %d", p))
@@ -32,7 +32,7 @@ func createFirewallRuleVm(envName string, machineId string, portRange network.Po
 	return fmt.Sprintf(firewallRuleVm, envName, machineId, strings.ToLower(portRange.Protocol), portList)
 }
 
-func (inst *joyentInstance) OpenPorts(machineId string, ports []network.PortRange) error {
+func (inst *joyentInstance) OpenPorts(machineId string, ports []network.IngressRule) error {
 	if inst.env.Config().FirewallMode() != config.FwInstance {
 		return fmt.Errorf("invalid firewall mode %q for opening ports on instance", inst.env.Config().FirewallMode())
 	}
@@ -66,7 +66,7 @@ func (inst *joyentInstance) OpenPorts(machineId string, ports []network.PortRang
 	return nil
 }
 
-func (inst *joyentInstance) ClosePorts(machineId string, ports []network.PortRange) error {
+func (inst *joyentInstance) ClosePorts(machineId string, ports []network.IngressRule) error {
 	if inst.env.Config().FirewallMode() != config.FwInstance {
 		return fmt.Errorf("invalid firewall mode %q for closing ports on instance", inst.env.Config().FirewallMode())
 	}
@@ -100,9 +100,9 @@ func (inst *joyentInstance) ClosePorts(machineId string, ports []network.PortRan
 	return nil
 }
 
-func (inst *joyentInstance) Ports(machineId string) ([]network.PortRange, error) {
+func (inst *joyentInstance) IngressRules(machineId string) ([]network.IngressRule, error) {
 	if inst.env.Config().FirewallMode() != config.FwInstance {
-		return nil, fmt.Errorf("invalid firewall mode %q for retrieving ports from instance", inst.env.Config().FirewallMode())
+		return nil, fmt.Errorf("invalid firewall mode %q for retrieving ingress rules from instance", inst.env.Config().FirewallMode())
 	}
 
 	machineId = string(inst.Id())
@@ -111,5 +111,5 @@ func (inst *joyentInstance) Ports(machineId string) ([]network.PortRange, error)
 		return nil, fmt.Errorf("cannot get firewall rules: %v", err)
 	}
 
-	return getPorts(inst.env.Config().Name(), fwRules), nil
+	return getRules(inst.env.Config().Name(), fwRules)
 }

@@ -42,6 +42,8 @@ type Backend interface {
 	AllApplications() ([]*state.Application, error)
 	AllRemoteApplications() ([]*state.RemoteApplication, error)
 	AllMachines() ([]*state.Machine, error)
+	AllIPAddresses() ([]*state.Address, error)
+	AllLinkLayerDevices() ([]*state.LinkLayerDevice, error)
 	AllModels() ([]*state.Model, error)
 	AllRelations() ([]*state.Relation, error)
 	Annotations(state.GlobalEntity) (map[string]string, error)
@@ -49,6 +51,7 @@ type Backend interface {
 	Application(string) (*state.Application, error)
 	ApplicationLeaders() (map[string]string, error)
 	Charm(*charm.URL) (*state.Charm, error)
+	ControllerTag() names.ControllerTag
 	EndpointsRelation(...state.Endpoint) (*state.Relation, error)
 	FindEntity(names.Tag) (state.Entity, error)
 	ForModel(tag names.ModelTag) (*state.State, error)
@@ -67,6 +70,7 @@ type Backend interface {
 	SetAnnotations(state.GlobalEntity, map[string]string) error
 	SetModelAgentVersion(version.Number) error
 	SetModelConstraints(constraints.Value) error
+	Subnet(string) (*state.Subnet, error)
 	Unit(string) (Unit, error)
 	UpdateModelConfig(map[string]interface{}, []string, state.ValidateConfigFunc) error
 	Watch() *state.Multiwatcher

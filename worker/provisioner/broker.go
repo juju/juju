@@ -10,6 +10,7 @@ import (
 	"github.com/juju/version"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/instance"
@@ -22,6 +23,8 @@ type APICalls interface {
 	PrepareContainerInterfaceInfo(names.MachineTag) ([]network.InterfaceInfo, error)
 	GetContainerInterfaceInfo(names.MachineTag) ([]network.InterfaceInfo, error)
 	ReleaseContainerAddresses(names.MachineTag) error
+	SetHostMachineNetworkConfig(names.MachineTag, []params.NetworkConfig) error
+	HostChangesForContainer(containerTag names.MachineTag) ([]network.DeviceToBridge, int, error)
 }
 
 type hostArchToolsFinder struct {
@@ -38,17 +41,66 @@ func (h hostArchToolsFinder) FindTools(v version.Number, series, _ string) (tool
 // system. Defined here so it can be overriden for testing.
 var resolvConf = "/etc/resolv.conf"
 
+var getObservedNetworkConfig = common.GetObservedNetworkConfig
+
+// prepareHost makes changes to the host's configuration (bridging network
+// interfaces, etc) in preparation for a container.
+// TODO(jam): 2017-02-08 This arguably should be passed into the broker as a
+// callback from the Host object, rather than have StartInstance directly be
+// responsible for how to set up the host.
+func prepareHost(bridger network.Bridger, hostMachineTag names.MachineTag, containerTag names.MachineTag, api APICalls, log loggo.Logger) error {
+	devicesToBridge, reconfigureDelay, err := api.HostChangesForContainer(containerTag)
+
+	if err != nil {
+		return errors.Annotate(err, "unable to setup network")
+	}
+
+	if len(devicesToBridge) == 0 {
+		log.Tracef("container %q requires no additional bridges", containerTag)
+		return nil
+	}
+
+	log.Tracef("Bridging %+v devices on host %q with delay=%v", devicesToBridge, hostMachineTag.String(), reconfigureDelay)
+
+	err = bridger.Bridge(devicesToBridge, reconfigureDelay)
+
+	if err != nil {
+		return errors.Annotate(err, "failed to bridge devices")
+	}
+
+	// We just changed the hosts' network setup so discover new
+	// interfaces/devices and propagate to state.
+
+	observedConfig, err := getObservedNetworkConfig(common.DefaultNetworkConfigSource())
+
+	if err != nil {
+		return errors.Annotate(err, "cannot discover observed network config")
+	}
+
+	if len(observedConfig) > 0 {
+		err := api.SetHostMachineNetworkConfig(hostMachineTag, observedConfig)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		logger.Debugf("observed network config updated")
+	}
+
+	return nil
+}
+
 func prepareOrGetContainerInterfaceInfo(
 	api APICalls,
 	machineID string,
 	bridgeDevice string,
 	allocateOrMaintain bool,
-	startingNetworkInfo []network.InterfaceInfo,
 	log loggo.Logger,
 ) ([]network.InterfaceInfo, error) {
 	maintain := !allocateOrMaintain
 
 	if maintain {
+		// TODO(jam): 2016-12-14 The function is called
+		// 'prepareOrGet', but the only time we would handle the 'Get'
+		// side, we explicitly abort. Something seems wrong.
 		log.Debugf("not running maintenance for machine %q", machineID)
 		return nil, nil
 	}

@@ -85,6 +85,9 @@ LXC_BRIDGE="ignored"`[1:])
 				&net.IPAddr{IP: net.IPv4(10, 0, 4, 1)},
 				&net.IPAddr{IP: net.IPv4(10, 0, 4, 4)},
 			}, nil
+		} else if name == network.DefaultKVMBridge {
+			// claim we don't have a virbr0 bridge
+			return nil, nil
 		}
 		c.Fatalf("unknown bridge in testing: %v", name)
 		return nil, nil
@@ -164,12 +167,12 @@ LXC_BRIDGE="ignored"`[1:])
 			BootstrapMachineInstanceId:              "i-bootstrap",
 			BootstrapMachineHardwareCharacteristics: &expectHW,
 			ControllerCloud: cloud.Cloud{
+				Name:         "dummy",
 				Type:         "dummy",
 				AuthTypes:    []cloud.AuthType{cloud.EmptyAuthType},
 				Regions:      []cloud.Region{{Name: "dummy-region"}},
 				RegionConfig: regionConfig,
 			},
-			ControllerCloudName:       "dummy",
 			ControllerCloudRegion:     "dummy-region",
 			ControllerConfig:          controllerCfg,
 			ControllerModelConfig:     modelCfg,
@@ -392,10 +395,10 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 		StateInitializationParams: instancecfg.StateInitializationParams{
 			BootstrapMachineInstanceId: "i-bootstrap",
 			ControllerCloud: cloud.Cloud{
+				Name:      "dummy",
 				Type:      "dummy",
 				AuthTypes: []cloud.AuthType{cloud.EmptyAuthType},
 			},
-			ControllerCloudName:   "dummy",
 			ControllerConfig:      testing.FakeControllerConfig(),
 			ControllerModelConfig: modelCfg,
 			HostedModelConfig:     hostedModelConfigAttrs,

@@ -51,7 +51,7 @@ func CloudSpec(
 		credential = &credentialValue
 	}
 
-	return environs.MakeCloudSpec(modelCloud, cloudName, regionName, credential)
+	return environs.MakeCloudSpec(modelCloud, regionName, credential)
 }
 
 // NewEnvironFunc defines the type of a function that, given a state.State,

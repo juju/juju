@@ -89,6 +89,41 @@ sa-east-1:
 `[1:])
 }
 
+func (s *regionsSuite) TestListGCERegions(c *gc.C) {
+	ctx, err := testing.RunCommand(c, cloud.NewListRegionsCommand(), "google")
+	c.Assert(err, jc.ErrorIsNil)
+	out := testing.Stdout(ctx)
+	c.Assert(out, jc.DeepEquals, `
+us-east1
+us-central1
+us-west1
+europe-west1
+asia-east1
+asia-northeast1
+
+`[1:])
+}
+
+func (s *regionsSuite) TestListGCERegionsYaml(c *gc.C) {
+	ctx, err := testing.RunCommand(c, cloud.NewListRegionsCommand(), "google", "--format", "yaml")
+	c.Assert(err, jc.ErrorIsNil)
+	out := testing.Stdout(ctx)
+	c.Assert(out, jc.DeepEquals, `
+us-east1:
+  endpoint: https://www.googleapis.com
+us-central1:
+  endpoint: https://www.googleapis.com
+us-west1:
+  endpoint: https://www.googleapis.com
+europe-west1:
+  endpoint: https://www.googleapis.com
+asia-east1:
+  endpoint: https://www.googleapis.com
+asia-northeast1:
+  endpoint: https://www.googleapis.com
+`[1:])
+}
+
 type regionDetails struct {
 	Endpoint         string `json:"endpoint"`
 	IdentityEndpoint string `json:"identity-endpoint"`

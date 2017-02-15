@@ -6,6 +6,11 @@
 package vsphere_test
 
 import (
+	"fmt"
+	"net/http"
+	"net/http/httptest"
+
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
@@ -106,4 +111,72 @@ regions:
 	p, err := environs.Provider("vsphere")
 	err = p.CloudSchema().Validate(v)
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+type pingSuite struct {
+	testing.IsolationSuite
+}
+
+var _ = gc.Suite(pingSuite{})
+
+func (pingSuite) TestPingInvalidHost(c *gc.C) {
+	tests := []string{
+		"foo.com",
+		"http://foo.test",
+		"http://foo.test:77",
+	}
+
+	provider, err := environs.Provider("vsphere")
+	c.Assert(err, jc.ErrorIsNil)
+
+	for _, t := range tests {
+		err := provider.Ping(t)
+		if err == nil {
+			c.Errorf("ping %q: expected error, but got nil.", t)
+			continue
+		}
+		expected := "No VSphere server running at " + t
+		if err.Error() != expected {
+			c.Errorf("ping %q: expected %q got %v", t, expected, err)
+		}
+	}
+}
+
+func (pingSuite) TestPingInvalidURL(c *gc.C) {
+	provider, err := environs.Provider("vsphere")
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = provider.Ping("abc%sdef")
+	c.Assert(err, gc.ErrorMatches, "Invalid endpoint format, please give a full url or IP/hostname.")
+}
+
+func (pingSuite) TestPingInvalidScheme(c *gc.C) {
+	provider, err := environs.Provider("vsphere")
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = provider.Ping("gopher://abcdef.com")
+	c.Assert(err, gc.ErrorMatches, "Invalid endpoint format, please use an http or https URL.")
+}
+
+func (pingSuite) TestPingNoEndpoint(c *gc.C) {
+	server := httptest.NewServer(http.HandlerFunc(http.NotFound))
+	defer server.Close()
+
+	provider, err := environs.Provider("vsphere")
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = provider.Ping(server.URL)
+	c.Assert(err, gc.ErrorMatches, "No VSphere server running at "+server.URL)
+}
+
+func (pingSuite) TestPingInvalidResponse(c *gc.C) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, "Hi!")
+	}))
+	defer server.Close()
+	provider, err := environs.Provider("vsphere")
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = provider.Ping(server.URL)
+	c.Assert(err, gc.ErrorMatches, "No VSphere server running at "+server.URL)
 }

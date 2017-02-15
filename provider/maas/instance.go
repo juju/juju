@@ -263,17 +263,17 @@ func (mi *maas1Instance) hostname() (string, error) {
 }
 
 // MAAS does not do firewalling so these port methods do nothing.
-func (mi *maas1Instance) OpenPorts(machineId string, ports []network.PortRange) error {
+func (mi *maas1Instance) OpenPorts(machineId string, rules []network.IngressRule) error {
 	logger.Debugf("unimplemented OpenPorts() called")
 	return nil
 }
 
-func (mi *maas1Instance) ClosePorts(machineId string, ports []network.PortRange) error {
+func (mi *maas1Instance) ClosePorts(machineId string, rules []network.IngressRule) error {
 	logger.Debugf("unimplemented ClosePorts() called")
 	return nil
 }
 
-func (mi *maas1Instance) Ports(machineId string) ([]network.PortRange, error) {
-	logger.Debugf("unimplemented Ports() called")
+func (mi *maas1Instance) IngressRules(machineId string) ([]network.IngressRule, error) {
+	logger.Debugf("unimplemented Rules() called")
 	return nil, nil
 }

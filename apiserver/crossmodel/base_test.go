@@ -52,7 +52,7 @@ func (s *baseCrossmodelSuite) addApplication(c *gc.C, name string) jujucrossmode
 func (s *baseCrossmodelSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	s.resources = common.NewResources()
-	s.authorizer = testing.FakeAuthorizer{Tag: names.NewUserTag("testuser"), EnvironManager: true}
+	s.authorizer = testing.FakeAuthorizer{Tag: names.NewUserTag("testuser"), Controller: true}
 
 	s.applicationDirectory = &mockApplicationOffersAPI{}
 

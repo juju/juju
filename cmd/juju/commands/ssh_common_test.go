@@ -5,7 +5,6 @@ package commands
 
 import (
 	"fmt"
-	"net"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -19,6 +18,7 @@ import (
 
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
+	jujussh "github.com/juju/juju/network/ssh"
 	"github.com/juju/juju/state"
 )
 
@@ -115,7 +115,7 @@ type SSHCommonSuite struct {
 	testing.JujuConnSuite
 	knownHostsDir string
 	binDir        string
-	hostDialer    network.Dialer
+	hostChecker   jujussh.ReachableChecker
 }
 
 // Commands to patch
@@ -140,30 +140,28 @@ var fakecommand = `#!/bin/bash
 }| tee $0.args
 `
 
-type dialerFunc func(address string) error
-
-type fakeDialer struct {
-	dialWith dialerFunc
+type fakeHostChecker struct {
+	acceptedAddresses set.Strings
 }
 
-func (f *fakeDialer) Dial(network, address string) (net.Conn, error) {
-	if f.dialWith == nil {
-		return &fakeConn{}, nil
+var _ jujussh.ReachableChecker = (*fakeHostChecker)(nil)
+
+func (f *fakeHostChecker) FindHost(hostPorts []network.HostPort, publicKeys []string) (network.HostPort, error) {
+	// TODO(jam): The real reachable checker won't give deterministic ordering
+	// for hostPorts, maybe we should do a random return value?
+	for _, hostPort := range hostPorts {
+		if f.acceptedAddresses.Contains(hostPort.Address.Value) {
+			return hostPort, nil
+		}
 	}
+	return network.HostPort{}, errors.Errorf("cannot connect to any address: %v", hostPorts)
+}
 
-	err := f.dialWith(address)
-	if err != nil {
-		return nil, err
+func validAddresses(acceptedAddresses ...string) *fakeHostChecker {
+	return &fakeHostChecker{
+		acceptedAddresses: set.NewStrings(acceptedAddresses...),
 	}
-
-	return &fakeConn{}, nil
 }
-
-type fakeConn struct {
-	net.Conn
-}
-
-func (f *fakeConn) Close() error { return nil }
 
 func (s *SSHCommonSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
@@ -194,22 +192,8 @@ func (s *SSHCommonSuite) setForceAPIv1(enabled bool) {
 	}
 }
 
-func (s *SSHCommonSuite) setHostDialerFunc(dialWith dialerFunc) {
-	s.hostDialer = &fakeDialer{dialWith: dialWith}
-}
-
-func dialerFuncFor(allowedAddresses ...string) dialerFunc {
-	allowedSet := set.NewStrings(allowedAddresses...)
-
-	return func(address string) error {
-		if strings.HasSuffix(address, ":22") {
-			address, _, _ = net.SplitHostPort(address)
-		}
-		if allowedSet.Contains(address) {
-			return nil
-		}
-		return errors.Errorf("not dialing %q", address)
-	}
+func (s *SSHCommonSuite) setHostChecker(hostChecker jujussh.ReachableChecker) {
+	s.hostChecker = hostChecker
 }
 
 func (s *SSHCommonSuite) setupModel(c *gc.C) {
@@ -272,7 +256,7 @@ func (s *SSHCommonSuite) setLinkLayerDevicesAddresses(c *gc.C, m *state.Machine)
 		ConfigMethod: state.LoopbackAddress,
 	}, {
 		DeviceName:   "eth0",
-		CIDRAddress:  "0.1.2.3/24", // needs the be a valid CIDR
+		CIDRAddress:  "0.1.2.3/24", // needs to be a valid CIDR
 		ConfigMethod: state.StaticAddress,
 	}}
 	err = m.SetDevicesAddresses(addressesArgs...)

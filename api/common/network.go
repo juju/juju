@@ -196,7 +196,7 @@ func interfaceAddressToNetworkConfig(interfaceName, configType string, address n
 
 	ip, ipNet, err := net.ParseCIDR(cidrAddress)
 	if err != nil {
-		logger.Infof("cannot parse %q on interface %q as CIDR, trying as IP address: %v", cidrAddress, interfaceName, err)
+		logger.Tracef("cannot parse %q on interface %q as CIDR, trying as IP address: %v", cidrAddress, interfaceName, err)
 		if ip = net.ParseIP(cidrAddress); ip == nil {
 			return config, errors.Errorf("cannot parse IP address %q on interface %q", cidrAddress, interfaceName)
 		} else {
@@ -205,7 +205,7 @@ func interfaceAddressToNetworkConfig(interfaceName, configType string, address n
 	}
 	if ip.To4() == nil && ip.IsLinkLocalUnicast() {
 		// TODO(macgreagoir) IPv6. Skip link-local for now until we decide how to handle them.
-		logger.Debugf("skipping observed IPv6 link-local address %q on %q", ip, interfaceName)
+		logger.Tracef("skipping observed IPv6 link-local address %q on %q", ip, interfaceName)
 		return config, nil
 	}
 

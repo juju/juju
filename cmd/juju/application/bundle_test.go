@@ -414,7 +414,36 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleInvalidSeries(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `cannot deploy bundle: cannot add unit for application "django": adding new machine to host unit "django/0": cannot assign unit "django/0" to machine 0: series does not match`)
 }
 
+func (s *BundleDeployCharmStoreSuite) TestDeployBundleInvalidBinding(c *gc.C) {
+	testcharms.UploadCharm(c, s.client, "xenial/wordpress-42", "wordpress")
+	_, err := s.DeployBundleYAML(c, `
+        applications:
+            wp:
+                charm: xenial/wordpress-42
+                num_units: 1
+                bindings:
+                  noturl: public
+    `)
+	c.Assert(err, gc.ErrorMatches, `cannot deploy bundle: cannot deploy application "wp": invalid binding\(s\) supplied "noturl", valid binding names are "admin-api",.* "url"`)
+}
+
+func (s *BundleDeployCharmStoreSuite) TestDeployBundleInvalidSpace(c *gc.C) {
+	testcharms.UploadCharm(c, s.client, "xenial/wordpress-42", "wordpress")
+	_, err := s.DeployBundleYAML(c, `
+        applications:
+            wp:
+                charm: xenial/wordpress-42
+                num_units: 1
+                bindings:
+                  url: public
+    `)
+	// TODO(jam): 2017-02-05 double repeating "cannot deploy application" and "cannot add application" is a bit ugly
+	// https://pad.lv/1661937
+	c.Assert(err, gc.ErrorMatches, `cannot deploy bundle: cannot deploy application "wp": cannot add application "wp": unknown space "public" not valid`)
+}
+
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleWatcherTimeout(c *gc.C) {
+	coretesting.SkipFlaky(c, "lp:1625213")
 	// Inject an "AllWatcher" that never delivers a result.
 	ch := make(chan struct{})
 	defer close(ch)

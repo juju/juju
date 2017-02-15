@@ -139,16 +139,16 @@ func (a *Application) Destroy() (err error) {
 			a.doc.Life = Dying
 		}
 	}()
-	svc := &Application{st: a.st, doc: a.doc}
+	app := &Application{st: a.st, doc: a.doc}
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
-			if err := svc.Refresh(); errors.IsNotFound(err) {
+			if err := app.Refresh(); errors.IsNotFound(err) {
 				return nil, jujutxn.ErrNoOperations
 			} else if err != nil {
 				return nil, err
 			}
 		}
-		switch ops, err := svc.destroyOps(); err {
+		switch ops, err := app.destroyOps(); err {
 		case errRefresh:
 		case errAlreadyDying:
 			return nil, jujutxn.ErrNoOperations

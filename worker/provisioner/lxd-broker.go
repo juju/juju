@@ -6,6 +6,7 @@ package provisioner
 import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cloudconfig/instancecfg"
@@ -17,12 +18,40 @@ import (
 
 var lxdLogger = loggo.GetLogger("juju.provisioner.lxd")
 
-var NewLxdBroker = func(
+type PrepareHostFunc func(containerTag names.MachineTag, log loggo.Logger) error
+
+// TODO(jam): 2017-02-08 should be removed, only here for legacy testing, etc.
+func NewLxdBroker(
+	bridger network.Bridger,
+	hostMachineTag names.MachineTag,
+	api APICalls,
+	manager container.Manager,
+	agentConfig agent.Config,
+) (environs.InstanceBroker, error) {
+	prepareWrapper := func(containerTag names.MachineTag, log loggo.Logger) error {
+		return prepareHost(bridger, hostMachineTag, containerTag, api, log)
+	}
+	return NewLXDBroker(prepareWrapper, api, manager, agentConfig)
+}
+
+// NewLXDBroker creates a Broker that can be used to start LXD containers in a
+// similar fashion to normal StartInstance requests.
+// prepareHost is a callback that will be called when a new container is about
+// to be started. It provides the intersection point where the host can update
+// itself to be ready for whatever changes are necessary to have a functioning
+// container. (such as bridging host devices.)
+// manager is the infrastructure to actually launch the container.
+// agentConfig is currently only used to find out the 'default' bridge to use
+// when a specific network device is not specified in StartInstanceParams. This
+// should be deprecated. And hopefully removed in the future.
+func NewLXDBroker(
+	prepareHost PrepareHostFunc,
 	api APICalls,
 	manager container.Manager,
 	agentConfig agent.Config,
 ) (environs.InstanceBroker, error) {
 	return &lxdBroker{
+		prepareHost: prepareHost,
 		manager:     manager,
 		api:         api,
 		agentConfig: agentConfig,
@@ -30,13 +59,14 @@ var NewLxdBroker = func(
 }
 
 type lxdBroker struct {
+	prepareHost PrepareHostFunc
 	manager     container.Manager
 	api         APICalls
 	agentConfig agent.Config
 }
 
 func (broker *lxdBroker) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
-	machineId := args.InstanceConfig.MachineId
+	containerMachineID := args.InstanceConfig.MachineId
 	bridgeDevice := broker.agentConfig.Value(agent.LxdBridge)
 	if bridgeDevice == "" {
 		bridgeDevice = network.DefaultLXDBridge
@@ -48,18 +78,22 @@ func (broker *lxdBroker) StartInstance(args environs.StartInstanceParams) (*envi
 		return nil, err
 	}
 
+	err = broker.prepareHost(names.NewMachineTag(containerMachineID), lxdLogger)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	preparedInfo, err := prepareOrGetContainerInterfaceInfo(
 		broker.api,
-		machineId,
+		containerMachineID,
 		bridgeDevice,
 		true, // allocate if possible, do not maintain existing.
-		args.NetworkInfo,
 		lxdLogger,
 	)
 	if err != nil {
 		// It's not fatal (yet) if we couldn't pre-allocate addresses for the
 		// container.
-		logger.Warningf("failed to prepare container %q network config: %v", machineId, err)
+		logger.Warningf("failed to prepare container %q network config: %v", containerMachineID, err)
 	} else {
 		args.NetworkInfo = preparedInfo
 	}
@@ -153,7 +187,6 @@ func (broker *lxdBroker) MaintainInstance(args environs.StartInstanceParams) err
 		machineID,
 		bridgeDevice,
 		false, // maintain, do not allocate.
-		args.NetworkInfo,
 		lxdLogger,
 	)
 	return err

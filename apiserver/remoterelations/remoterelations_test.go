@@ -36,8 +36,8 @@ func (s *remoteRelationsSuite) SetUpTest(c *gc.C) {
 	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
 
 	s.authorizer = &apiservertesting.FakeAuthorizer{
-		Tag:            names.NewMachineTag("0"),
-		EnvironManager: true,
+		Tag:        names.NewMachineTag("0"),
+		Controller: true,
 	}
 
 	s.st = newMockState()

@@ -72,7 +72,7 @@ func (s *MigrationBaseSuite) setRandSequenceValue(c *gc.C, name string) int {
 func (s *MigrationBaseSuite) primeStatusHistory(c *gc.C, entity statusSetter, statusVal status.Status, count int) {
 	primeStatusHistory(c, entity, statusVal, count, func(i int) map[string]interface{} {
 		return map[string]interface{}{"index": count - i}
-	}, 0)
+	}, 0, "")
 }
 
 func (s *MigrationBaseSuite) makeApplicationWithLeader(c *gc.C, applicationname string, count int, leader int) {

@@ -331,7 +331,9 @@ func (c *destroyCommandBase) getControllerEnvironFromStore(
 	store jujuclient.ClientStore,
 	controllerName string,
 ) (environs.Environ, error) {
-	bootstrapConfig, params, err := modelcmd.NewGetBootstrapConfigParamsFunc(ctx, store)(controllerName)
+	bootstrapConfig, params, err := modelcmd.NewGetBootstrapConfigParamsFunc(
+		ctx, store, environs.GlobalProviderRegistry(),
+	)(controllerName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

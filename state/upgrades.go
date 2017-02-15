@@ -9,10 +9,13 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
+
+	"github.com/juju/juju/cloud"
 )
 
 var upgradesLogger = loggo.GetLogger("juju.state.upgrade")
@@ -256,7 +259,7 @@ func AddMigrationAttempt(st *State) error {
 		id := doc["_id"]
 		attempt, err := extractMigrationAttempt(id)
 		if err != nil {
-			logger.Warningf("%s (skipping)", err)
+			upgradesLogger.Warningf("%s (skipping)", err)
 			continue
 		}
 
@@ -291,4 +294,170 @@ func extractMigrationAttempt(id interface{}) (int, error) {
 	}
 
 	return attempt, nil
+}
+
+// AddLocalCharmSequences creates any missing sequences in the
+// database for tracking already used local charm revisions.
+func AddLocalCharmSequences(st *State) error {
+	charmsColl, closer := st.getRawCollection(charmsC)
+	defer closer()
+
+	query := bson.M{
+		"url": bson.M{"$regex": "^local:"},
+	}
+	var docs []bson.M
+	err := charmsColl.Find(query).Select(bson.M{
+		"_id":  1,
+		"life": 1,
+	}).All(&docs)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	// model UUID -> charm URL base -> max revision
+	maxRevs := make(map[string]map[string]int)
+	var deadIds []string
+	for _, doc := range docs {
+		id, ok := doc["_id"].(string)
+		if !ok {
+			upgradesLogger.Errorf("invalid charm id: %v", doc["_id"])
+			continue
+		}
+		modelUUID, urlStr, ok := splitDocID(id)
+		if !ok {
+			upgradesLogger.Errorf("unable to split charm _id: %v", id)
+			continue
+		}
+		url, err := charm.ParseURL(urlStr)
+		if err != nil {
+			upgradesLogger.Errorf("unable to parse charm URL: %v", err)
+			continue
+		}
+
+		if _, exists := maxRevs[modelUUID]; !exists {
+			maxRevs[modelUUID] = make(map[string]int)
+		}
+
+		baseURL := url.WithRevision(-1).String()
+		curRev := maxRevs[modelUUID][baseURL]
+		if url.Revision > curRev {
+			maxRevs[modelUUID][baseURL] = url.Revision
+		}
+
+		if life, ok := doc["life"].(int); !ok {
+			upgradesLogger.Errorf("invalid life for charm: %s", id)
+			continue
+		} else if life == int(Dead) {
+			deadIds = append(deadIds, id)
+		}
+
+	}
+
+	sequences, closer := st.getRawCollection(sequenceC)
+	defer closer()
+	for modelUUID, modelRevs := range maxRevs {
+		for baseURL, maxRevision := range modelRevs {
+			name := charmRevSeqName(baseURL)
+			updater := newDbSeqUpdater(sequences, modelUUID, name)
+			err := updater.ensure(maxRevision + 1)
+			if err != nil {
+				return errors.Annotatef(err, "setting sequence %s", name)
+			}
+		}
+
+	}
+
+	// Remove dead charm documents
+	var ops []txn.Op
+	for _, id := range deadIds {
+		ops = append(ops, txn.Op{
+			C:      charmsC,
+			Id:     id,
+			Remove: true,
+		})
+	}
+	err = st.runRawTransaction(ops)
+	return errors.Annotate(err, "removing dead charms")
+}
+
+// UpdateLegacyLXDCloudCredentials updates the cloud credentials for the
+// LXD-based controller, and updates the cloud endpoint with the given
+// value.
+func UpdateLegacyLXDCloudCredentials(
+	st *State,
+	endpoint string,
+	credential cloud.Credential,
+) error {
+	cloudOps, err := updateLegacyLXDCloudsOps(st, endpoint)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	credOps, err := updateLegacyLXDCredentialsOps(st, credential)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return st.runTransaction(append(cloudOps, credOps...))
+}
+
+func updateLegacyLXDCloudsOps(st *State, endpoint string) ([]txn.Op, error) {
+	clouds, err := st.Clouds()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	var ops []txn.Op
+	for _, c := range clouds {
+		if c.Type != "lxd" {
+			continue
+		}
+		authTypes := []string{string(cloud.CertificateAuthType)}
+		set := bson.D{{"auth-types", authTypes}}
+		if c.Endpoint == "" {
+			set = append(set, bson.DocElem{"endpoint", endpoint})
+		}
+		for _, region := range c.Regions {
+			if region.Endpoint == "" {
+				set = append(set, bson.DocElem{
+					"regions." + region.Name + ".endpoint",
+					endpoint,
+				})
+			}
+		}
+		upgradesLogger.Infof("updating cloud %q: %v", c.Name, set)
+		ops = append(ops, txn.Op{
+			C:      cloudsC,
+			Id:     c.Name,
+			Assert: txn.DocExists,
+			Update: bson.D{{"$set", set}},
+		})
+	}
+	return ops, nil
+}
+
+func updateLegacyLXDCredentialsOps(st *State, cred cloud.Credential) ([]txn.Op, error) {
+	var ops []txn.Op
+	coll, closer := st.getRawCollection(cloudCredentialsC)
+	defer closer()
+	iter := coll.Find(bson.M{"auth-type": "empty"}).Iter()
+	var doc cloudCredentialDoc
+	for iter.Next(&doc) {
+		cloudCredentialTag, err := doc.cloudCredentialTag()
+		if err != nil {
+			upgradesLogger.Debugf("%v", err)
+			continue
+		}
+		c, err := st.Cloud(doc.Cloud)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if c.Type != "lxd" {
+			continue
+		}
+		op := updateCloudCredentialOp(cloudCredentialTag, cred)
+		upgradesLogger.Infof("updating credential %q: %v", cloudCredentialTag, op)
+		ops = append(ops, op)
+	}
+	if err := iter.Err(); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return ops, nil
 }

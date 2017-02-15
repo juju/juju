@@ -9,7 +9,7 @@ import (
 	"github.com/juju/utils/ssh"
 
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/network"
+	jujussh "github.com/juju/juju/network/ssh"
 )
 
 var usageSSHSummary = `
@@ -48,9 +48,9 @@ Connect to a jenkins unit as user jenkins:
 See also: 
     scp`
 
-func newSSHCommand(hostDialer network.Dialer) cmd.Command {
+func newSSHCommand(hostChecker jujussh.ReachableChecker) cmd.Command {
 	c := new(sshCommand)
-	c.setHostDialer(hostDialer)
+	c.setHostChecker(hostChecker)
 	return modelcmd.Wrap(c)
 }
 

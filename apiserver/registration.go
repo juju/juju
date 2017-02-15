@@ -40,14 +40,14 @@ func (h *registerUserHandler) ServeHTTP(w http.ResponseWriter, req *http.Request
 		}
 		return
 	}
-	st, err := h.ctxt.stateForRequestUnauthenticated(req)
+	st, releaser, err := h.ctxt.stateForRequestUnauthenticated(req)
 	if err != nil {
 		if err := sendError(w, err); err != nil {
 			logger.Errorf("%v", err)
 		}
 		return
 	}
-	defer h.ctxt.release(st)
+	defer releaser()
 	userTag, response, err := h.processPost(req, st)
 	if err != nil {
 		if err := sendError(w, err); err != nil {

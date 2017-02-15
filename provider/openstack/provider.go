@@ -433,16 +433,16 @@ func convertNovaAddresses(publicIP string, addresses map[string][]nova.IPAddress
 	return machineAddresses
 }
 
-func (inst *openstackInstance) OpenPorts(machineId string, ports []network.PortRange) error {
-	return inst.e.firewaller.OpenInstancePorts(inst, machineId, ports)
+func (inst *openstackInstance) OpenPorts(machineId string, rules []network.IngressRule) error {
+	return inst.e.firewaller.OpenInstancePorts(inst, machineId, rules)
 }
 
-func (inst *openstackInstance) ClosePorts(machineId string, ports []network.PortRange) error {
-	return inst.e.firewaller.CloseInstancePorts(inst, machineId, ports)
+func (inst *openstackInstance) ClosePorts(machineId string, rules []network.IngressRule) error {
+	return inst.e.firewaller.CloseInstancePorts(inst, machineId, rules)
 }
 
-func (inst *openstackInstance) Ports(machineId string) ([]network.PortRange, error) {
-	return inst.e.firewaller.InstancePorts(inst, machineId)
+func (inst *openstackInstance) IngressRules(machineId string) ([]network.IngressRule, error) {
+	return inst.e.firewaller.InstanceIngressRules(inst, machineId)
 }
 
 func (e *Environ) ecfg() *environConfig {
@@ -1279,6 +1279,55 @@ func (e *Environ) Instances(ids []instance.Id) ([]instance.Instance, error) {
 	return insts, err
 }
 
+// AdoptResources is part of the Environ interface.
+func (e *Environ) AdoptResources(controllerUUID string, fromVersion version.Number) error {
+	var failed []string
+	controllerTag := map[string]string{tags.JujuController: controllerUUID}
+
+	instances, err := e.AllInstances()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	cinder, err := e.cinderProvider()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	// TODO(axw): fix the storage API.
+	volumeSource, err := cinder.VolumeSource(nil)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	volumeIds, err := volumeSource.ListVolumes()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	for _, instance := range instances {
+		err := e.TagInstance(instance.Id(), controllerTag)
+		if err != nil {
+			logger.Errorf("error updating controller tag for instance %s: %v", instance.Id(), err)
+			failed = append(failed, string(instance.Id()))
+		}
+	}
+
+	for _, volumeId := range volumeIds {
+		_, err := cinder.storageAdapter.SetVolumeMetadata(volumeId, controllerTag)
+		if err != nil {
+			logger.Errorf("error updating controller tag for volume %s: %v", volumeId, err)
+			failed = append(failed, volumeId)
+		}
+	}
+
+	err = e.firewaller.UpdateGroupController(controllerUUID)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if len(failed) != 0 {
+		return errors.Errorf("error updating controller tag for some resources: %v", failed)
+	}
+	return nil
+}
+
 // AllInstances returns all instances in this environment.
 func (e *Environ) AllInstances() ([]instance.Instance, error) {
 	tagFilter := tagValue{tags.JujuModel, e.ecfg().UUID()}
@@ -1415,32 +1464,39 @@ func jujuMachineFilter() *nova.Filter {
 	return filter
 }
 
-// portsToRuleInfo maps port ranges to nova rules
-func portsToRuleInfo(groupId string, ports []network.PortRange) []neutron.RuleInfoV2 {
-	rules := make([]neutron.RuleInfoV2, len(ports))
-	for i, portRange := range ports {
-		rules[i] = neutron.RuleInfoV2{
-			Direction:      "ingress",
-			ParentGroupId:  groupId,
-			PortRangeMin:   portRange.FromPort,
-			PortRangeMax:   portRange.ToPort,
-			IPProtocol:     portRange.Protocol,
-			RemoteIPPrefix: "0.0.0.0/0",
+// rulesToRuleInfo maps ingress rules to nova rules
+func rulesToRuleInfo(groupId string, rules []network.IngressRule) []neutron.RuleInfoV2 {
+	var result []neutron.RuleInfoV2
+	for _, r := range rules {
+		ruleInfo := neutron.RuleInfoV2{
+			Direction:     "ingress",
+			ParentGroupId: groupId,
+			PortRangeMin:  r.FromPort,
+			PortRangeMax:  r.ToPort,
+			IPProtocol:    r.Protocol,
+		}
+		sourceCIDRs := r.SourceCIDRs
+		if len(sourceCIDRs) == 0 {
+			sourceCIDRs = []string{"0.0.0.0/0"}
+		}
+		for _, sr := range sourceCIDRs {
+			ruleInfo.RemoteIPPrefix = sr
+			result = append(result, ruleInfo)
 		}
 	}
-	return rules
+	return result
 }
 
-func (e *Environ) OpenPorts(ports []network.PortRange) error {
-	return e.firewaller.OpenPorts(ports)
+func (e *Environ) OpenPorts(rules []network.IngressRule) error {
+	return e.firewaller.OpenPorts(rules)
 }
 
-func (e *Environ) ClosePorts(ports []network.PortRange) error {
-	return e.firewaller.ClosePorts(ports)
+func (e *Environ) ClosePorts(rules []network.IngressRule) error {
+	return e.firewaller.ClosePorts(rules)
 }
 
-func (e *Environ) Ports() ([]network.PortRange, error) {
-	return e.firewaller.Ports()
+func (e *Environ) IngressRules() ([]network.IngressRule, error) {
+	return e.firewaller.IngressRules()
 }
 
 func (e *Environ) Provider() environs.EnvironProvider {

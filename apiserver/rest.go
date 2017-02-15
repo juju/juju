@@ -44,7 +44,7 @@ func (h *RestHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 type modelRestHandler struct {
 	ctxt          httpContext
 	dataDir       string
-	stateAuthFunc func(*http.Request) (*state.State, error)
+	stateAuthFunc func(*http.Request) (*state.State, func(), error)
 }
 
 // ServeGet handles http GET requests.
@@ -53,11 +53,11 @@ func (h *modelRestHandler) ServeGet(w http.ResponseWriter, r *http.Request) erro
 		return errors.Trace(emitUnsupportedMethodErr(r.Method))
 	}
 
-	st, _, err := h.ctxt.stateForRequestAuthenticated(r)
+	st, releaser, _, err := h.ctxt.stateForRequestAuthenticated(r)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	defer h.ctxt.release(st)
+	defer releaser()
 
 	return errors.Trace(h.processGet(r, w, st))
 }
@@ -93,11 +93,11 @@ func (h *modelRestHandler) processRemoteApplication(r *http.Request, w http.Resp
 	// Get the backend state for the source model so we can lookup the app in that model to get the charm details.
 	offer := remoteApp.OfferName()
 	sourceModelUUID := remoteApp.SourceModel().Id()
-	sourceSt, err := h.ctxt.srv.statePool.Get(sourceModelUUID)
+	sourceSt, releaser, err := h.ctxt.srv.statePool.Get(sourceModelUUID)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	defer h.ctxt.srv.statePool.Release(sourceModelUUID)
+	defer releaser()
 
 	app, err := sourceSt.Application(offer)
 	if err != nil {

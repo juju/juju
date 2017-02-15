@@ -521,6 +521,12 @@ var configTests = []configTest{
 		}),
 		err: `invalid syslog forwarding config: validating TLS config: parsing client key pair: (crypto/)?tls: private key does not match public key`,
 	}, {
+		about:       "net-bond-reconfigure-delay value",
+		useDefaults: config.UseDefaults,
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
+			config.NetBondReconfigureDelayKey: 1234,
+		}),
+	}, {
 		about:       "transmit-vendor-metrics asserted with default value",
 		useDefaults: config.UseDefaults,
 		attrs: minimalConfigAttrs.Merge(testing.Attrs{
@@ -720,6 +726,10 @@ func (test configTest) check(c *gc.C, home *gitjujutesting.FakeHome) {
 	} else {
 		c.Check(xmit, jc.IsTrue)
 	}
+
+	if val, ok := test.attrs[config.NetBondReconfigureDelayKey].(int); ok {
+		c.Assert(cfg.NetBondReconfigureDelay(), gc.Equals, val)
+	}
 }
 
 func (test configTest) assertDuration(c *gc.C, name string, actual time.Duration, defaultInSeconds int) {
@@ -848,11 +858,12 @@ func (s *ConfigSuite) addJujuFiles(c *gc.C) {
 func (s *ConfigSuite) TestValidateUnknownAttrs(c *gc.C) {
 	s.addJujuFiles(c)
 	cfg, err := config.New(config.UseDefaults, map[string]interface{}{
-		"name":    "myenv",
-		"type":    "other",
-		"uuid":    testing.ModelTag.Id(),
-		"known":   "this",
-		"unknown": "that",
+		"name":       "myenv",
+		"type":       "other",
+		"uuid":       testing.ModelTag.Id(),
+		"extra-info": "official extra user data",
+		"known":      "this",
+		"unknown":    "that",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 

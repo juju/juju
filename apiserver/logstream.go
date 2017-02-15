@@ -22,7 +22,7 @@ type logStreamSource interface {
 	newTailer(*state.LogTailerParams) (state.LogTailer, error)
 }
 
-type closerFunc func() error
+type closerFunc func()
 
 // logStreamEndpointHandler takes requests to stream logs from the DB.
 type logStreamEndpointHandler struct {
@@ -32,14 +32,11 @@ type logStreamEndpointHandler struct {
 
 func newLogStreamEndpointHandler(ctxt httpContext) *logStreamEndpointHandler {
 	newSource := func(req *http.Request) (logStreamSource, closerFunc, error) {
-		st, _, err := ctxt.stateForRequestAuthenticatedAgent(req)
+		st, releaser, _, err := ctxt.stateForRequestAuthenticatedAgent(req)
 		if err != nil {
 			return nil, nil, errors.Trace(err)
 		}
-		closer := func() error {
-			return ctxt.release(st)
-		}
-		return &logStreamState{st}, closer, nil
+		return &logStreamState{st}, releaser, nil
 	}
 	return &logStreamEndpointHandler{
 		stopCh:    ctxt.stop(),

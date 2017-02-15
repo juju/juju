@@ -324,3 +324,139 @@ func (s *connSuite) TestConnectionRemoveInstancesRemoveFailed(c *gc.C) {
 
 	c.Check(err, gc.ErrorMatches, ".*some instance removals failed: .*")
 }
+
+func (s *connSuite) TestUpdateMetadataNewAttribute(c *gc.C) {
+	s.FakeConn.Instances = []*compute.Instance{&s.RawInstanceFull}
+
+	err := s.Conn.UpdateMetadata("business", "time", s.RawInstanceFull.Name)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(s.FakeConn.Calls, gc.HasLen, 2)
+	c.Check(s.FakeConn.Calls[0].FuncName, gc.Equals, "ListInstances")
+
+	call := s.FakeConn.Calls[1]
+	c.Check(call.FuncName, gc.Equals, "SetMetadata")
+	c.Check(call.ProjectID, gc.Equals, "spam")
+	c.Check(call.ZoneName, gc.Equals, "a-zone")
+	c.Check(call.InstanceId, gc.Equals, "spam")
+
+	md := call.Metadata
+	c.Check(md.Fingerprint, gc.Equals, "heymumwatchthis")
+	c.Assert(md.Items, gc.HasLen, 2)
+	c.Check(*md.Items[0], gc.DeepEquals, compute.MetadataItems{"eggs", "steak"})
+	c.Check(*md.Items[1], gc.DeepEquals, compute.MetadataItems{"business", "time"})
+}
+
+func (s *connSuite) TestUpdateMetadataExistingAttribute(c *gc.C) {
+	s.FakeConn.Instances = []*compute.Instance{&s.RawInstanceFull}
+
+	err := s.Conn.UpdateMetadata("eggs", "beans", s.RawInstanceFull.Name)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(s.FakeConn.Calls, gc.HasLen, 2)
+	c.Check(s.FakeConn.Calls[0].FuncName, gc.Equals, "ListInstances")
+
+	call := s.FakeConn.Calls[1]
+	c.Check(call.FuncName, gc.Equals, "SetMetadata")
+	c.Check(call.ProjectID, gc.Equals, "spam")
+	c.Check(call.ZoneName, gc.Equals, "a-zone")
+	c.Check(call.InstanceId, gc.Equals, "spam")
+
+	md := call.Metadata
+	c.Check(md.Fingerprint, gc.Equals, "heymumwatchthis")
+	c.Assert(md.Items, gc.HasLen, 1)
+	c.Check(*md.Items[0], gc.DeepEquals, compute.MetadataItems{"eggs", "beans"})
+}
+
+func (s *connSuite) TestUpdateMetadataMultipleInstances(c *gc.C) {
+	instance2 := s.RawInstanceFull
+	instance2.Name = "trucks"
+	instance2.Metadata = &compute.Metadata{
+		Fingerprint: "faroffalienplanet",
+		Items: []*compute.MetadataItems{
+			{"eggs", "beans"},
+			{"rick", "moranis"},
+		},
+	}
+
+	instance3 := s.RawInstanceFull
+	instance3.Name = "boats"
+	instance3.Metadata = &compute.Metadata{
+		Fingerprint: "imprisoned",
+		Items: []*compute.MetadataItems{
+			{"eggs", "milk"},
+			{"rick", "moranis"},
+		},
+	}
+
+	s.FakeConn.Instances = []*compute.Instance{&s.RawInstanceFull, &instance2, &instance3}
+
+	err := s.Conn.UpdateMetadata("rick", "morty", "spam", "boats")
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(s.FakeConn.Calls, gc.HasLen, 3)
+	c.Check(s.FakeConn.Calls[0].FuncName, gc.Equals, "ListInstances")
+
+	call := s.FakeConn.Calls[1]
+	c.Check(call.FuncName, gc.Equals, "SetMetadata")
+	c.Check(call.ProjectID, gc.Equals, "spam")
+	c.Check(call.ZoneName, gc.Equals, "a-zone")
+	c.Check(call.InstanceId, gc.Equals, "spam")
+
+	md := call.Metadata
+	c.Check(md.Fingerprint, gc.Equals, "heymumwatchthis")
+	c.Assert(md.Items, gc.HasLen, 2)
+	c.Check(*md.Items[0], gc.DeepEquals, compute.MetadataItems{"eggs", "steak"})
+	c.Check(*md.Items[1], gc.DeepEquals, compute.MetadataItems{"rick", "morty"})
+
+	call = s.FakeConn.Calls[2]
+	c.Check(call.FuncName, gc.Equals, "SetMetadata")
+	c.Check(call.ProjectID, gc.Equals, "spam")
+	c.Check(call.ZoneName, gc.Equals, "a-zone")
+	c.Check(call.InstanceId, gc.Equals, "boats")
+
+	md = call.Metadata
+	c.Check(md.Fingerprint, gc.Equals, "imprisoned")
+	c.Assert(md.Items, gc.HasLen, 2)
+	c.Check(*md.Items[0], gc.DeepEquals, compute.MetadataItems{"eggs", "milk"})
+	c.Check(*md.Items[1], gc.DeepEquals, compute.MetadataItems{"rick", "morty"})
+}
+
+func (s *connSuite) TestUpdateMetadataError(c *gc.C) {
+	instance2 := s.RawInstanceFull
+	instance2.Name = "trucks"
+	instance2.Metadata = &compute.Metadata{
+		Fingerprint: "faroffalienplanet",
+		Items: []*compute.MetadataItems{
+			{"eggs", "beans"},
+			{"rick", "moranis"},
+		},
+	}
+	s.FakeConn.Instances = []*compute.Instance{&s.RawInstanceFull, &instance2}
+	s.FakeConn.Err = errors.New("kablooey")
+	s.FakeConn.FailOnCall = 1
+
+	err := s.Conn.UpdateMetadata("rick", "morty", "spam", "trucks")
+	c.Assert(err, gc.ErrorMatches, `some metadata updates failed: \[spam\]`)
+
+	c.Assert(s.FakeConn.Calls, gc.HasLen, 3)
+	c.Check(s.FakeConn.Calls[0].FuncName, gc.Equals, "ListInstances")
+
+	call := s.FakeConn.Calls[1]
+	c.Check(call.FuncName, gc.Equals, "SetMetadata")
+	c.Check(call.InstanceId, gc.Equals, "spam")
+	call = s.FakeConn.Calls[2]
+	c.Check(call.FuncName, gc.Equals, "SetMetadata")
+	c.Check(call.InstanceId, gc.Equals, "trucks")
+}
+
+func (s *connSuite) TestUpdateMetadataChecksCurrentValue(c *gc.C) {
+	s.FakeConn.Instances = []*compute.Instance{&s.RawInstanceFull}
+	err := s.Conn.UpdateMetadata("eggs", "steak", "spam")
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Since the instance already has the right value we don't issue
+	// the update.
+	c.Assert(s.FakeConn.Calls, gc.HasLen, 1)
+	c.Check(s.FakeConn.Calls[0].FuncName, gc.Equals, "ListInstances")
+}

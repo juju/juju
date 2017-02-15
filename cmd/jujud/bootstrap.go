@@ -129,7 +129,6 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	// Get the bootstrap machine's addresses from the provider.
 	cloudSpec, err := environs.MakeCloudSpec(
 		args.ControllerCloud,
-		args.ControllerCloudName,
 		args.ControllerCloudRegion,
 		args.ControllerCloudCredential,
 	)
@@ -216,6 +215,12 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	info.SystemIdentity = privateKey
 	err = c.ChangeConfig(func(agentConfig agent.ConfigSetter) error {
 		agentConfig.SetStateServingInfo(info)
+		mmprof, err := mongo.NewMemoryProfile(args.ControllerConfig.MongoMemoryProfile())
+		if err != nil {
+			logger.Errorf("could not set requested memory profile: %v", err)
+		} else {
+			agentConfig.SetMongoMemoryProfile(mmprof)
+		}
 		return nil
 	})
 	if err != nil {

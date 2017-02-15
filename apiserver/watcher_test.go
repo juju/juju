@@ -106,7 +106,7 @@ func (s *watcherSuite) TestFilesystemAttachmentsWatcher(c *gc.C) {
 func (s *watcherSuite) TestRemoteApplicationWatcher(c *gc.C) {
 	ch := make(chan params.RemoteApplicationChange, 1)
 	id := s.resources.Register(&fakeRemoteApplicationWatcher{ch: ch})
-	s.authorizer.EnvironManager = true
+	s.authorizer.Controller = true
 
 	ch <- params.RemoteApplicationChange{
 		ApplicationTag: names.NewApplicationTag("foo").String(),

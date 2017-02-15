@@ -21,8 +21,13 @@ import (
 	"github.com/juju/juju/juju/paths"
 )
 
-// FType is the file type we want to fetch and use for kvm instances.
-const FType = "disk1.img"
+// BIOSFType is the file type we want to fetch and use for kvm instances which
+// boot using a legacy BIOS boot loader.
+const BIOSFType = "disk1.img"
+
+// UEFIFType is teh file type we want to fetch and use for kvm instances which
+// boot using UEFI. In our case this is ARM64.
+const UEFIFType = "uefi1.img"
 
 // Oner gets the one matching item from simplestreams.
 type Oner interface {

@@ -15,6 +15,7 @@ import (
 	"github.com/juju/retry"
 	"github.com/juju/utils"
 	"github.com/juju/utils/clock"
+	"github.com/juju/version"
 	"gopkg.in/amz.v3/aws"
 	"gopkg.in/amz.v3/ec2"
 	"gopkg.in/juju/names.v2"
@@ -31,6 +32,7 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/ec2/internal/ec2instancetypes"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/tools"
 )
 
@@ -140,6 +142,11 @@ func (e *environ) BootstrapMessage() string {
 // SupportsSpaces is specified on environs.Networking.
 func (e *environ) SupportsSpaces() (bool, error) {
 	return true, nil
+}
+
+// SupportsContainerAddresses is specified on environs.Networking.
+func (e *environ) SupportsContainerAddresses() (bool, error) {
+	return false, errors.NotSupportedf("container address allocation")
 }
 
 // SupportsSpaceDiscovery is specified on environs.Networking.
@@ -354,11 +361,13 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 		return nil, errors.New("missing controller UUID")
 	}
 	var inst *ec2Instance
+	callback := args.StatusCallback
 	defer func() {
 		if resultErr == nil || inst == nil {
 			return
 		}
 		if err := e.StopInstances(inst.Id()); err != nil {
+			callback(status.Error, fmt.Sprintf("error stopping failed instance: %v", err), nil)
 			logger.Errorf("error stopping failed instance: %v", err)
 		}
 	}()
@@ -375,6 +384,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 		availabilityZones = append(availabilityZones, placement.availabilityZone.Name)
 	}
 
+	callback(status.Allocating, "Determining availability zones", nil)
 	// If no availability zone is specified, then automatically spread across
 	// the known zones for optimal spread across the instance distribution
 	// group.
@@ -438,6 +448,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 		return nil, err
 	}
 
+	callback(status.Allocating, "Making user data", nil)
 	userData, err := providerinit.ComposeUserData(args.InstanceConfig, nil, AmazonRenderer{})
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot make user data")
@@ -449,7 +460,9 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 	} else {
 		apiPort = args.InstanceConfig.APIInfo.Ports()[0]
 	}
+	callback(status.Allocating, "Setting up groups", nil)
 	groups, err := e.setUpGroups(args.ControllerUUID, args.InstanceConfig.MachineId, apiPort)
+
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot set up groups")
 	}
@@ -525,7 +538,8 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 			logger.Infof("selected subnet %q in zone %q", runArgs.SubnetId, zone)
 		}
 
-		instResp, err = runInstances(e.ec2, runArgs)
+		callback(status.Allocating, fmt.Sprintf("Trying to start instance in availability zone %q", zone), nil)
+		instResp, err = runInstances(e.ec2, runArgs, callback)
 		if err == nil || !isZoneOrSubnetConstrainedError(err) {
 			break
 		}
@@ -659,12 +673,15 @@ var runInstances = _runInstances
 // runInstances calls ec2.RunInstances for a fixed number of attempts until
 // RunInstances returns an error code that does not indicate an error that
 // may be caused by eventual consistency.
-func _runInstances(e *ec2.EC2, ri *ec2.RunInstances) (resp *ec2.RunInstancesResp, err error) {
+func _runInstances(e *ec2.EC2, ri *ec2.RunInstances, c environs.StatusCallbackFunc) (resp *ec2.RunInstancesResp, err error) {
+	try := 1
 	for a := shortAttempt.Start(); a.Next(); {
+		c(status.Allocating, fmt.Sprintf("Start instance attempt %d", try), nil)
 		resp, err = e.RunInstances(ri)
 		if err == nil || !isNotFoundError(err) {
 			break
 		}
+		try++
 	}
 	return resp, err
 }
@@ -943,6 +960,36 @@ func (e *environ) Subnets(instId instance.Id, subnetIds []network.Id) ([]network
 	return results, nil
 }
 
+// AdoptResources is part of the Environ interface.
+func (e *environ) AdoptResources(controllerUUID string, fromVersion version.Number) error {
+	// Gather resource ids for instances, volumes and security groups tagged with this model.
+	instances, err := e.AllInstances()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	// We want to update the controller tags on root disks even though
+	// they are destroyed automatically with the instance they're
+	// attached to.
+	volumeIds, err := e.allModelVolumes(true)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	groupIds, err := e.modelSecurityGroupIDs()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	resourceIds := make([]string, len(instances))
+	for i, instance := range instances {
+		resourceIds[i] = string(instance.Id())
+	}
+	resourceIds = append(resourceIds, volumeIds...)
+	resourceIds = append(resourceIds, groupIds...)
+
+	tags := map[string]string{tags.JujuController: controllerUUID}
+	return errors.Annotate(tagResources(e.ec2, tags, resourceIds...), "updating tags")
+}
+
 // AllInstances is part of the environs.InstanceBroker interface.
 func (e *environ) AllInstances() ([]instance.Instance, error) {
 	return e.AllInstancesByState("pending", "running")
@@ -1076,8 +1123,8 @@ func (e *environ) destroyControllerManagedEnvirons(controllerUUID string) error 
 		return errors.Annotate(err, "terminating instances")
 	}
 
-	// Delete all volumes managed by the controller.
-	volIds, err := e.allControllerManagedVolumes(controllerUUID)
+	// Delete all volumes managed by the controller. (No need to delete root disks manually.)
+	volIds, err := e.allControllerManagedVolumes(controllerUUID, false)
 	if err != nil {
 		return errors.Annotate(err, "listing volumes")
 	}
@@ -1105,27 +1152,38 @@ func (e *environ) destroyControllerManagedEnvirons(controllerUUID string) error 
 	return nil
 }
 
-func (e *environ) allControllerManagedVolumes(controllerUUID string) ([]string, error) {
+func (e *environ) allControllerManagedVolumes(controllerUUID string, includeRootDisks bool) ([]string, error) {
 	filter := ec2.NewFilter()
 	e.addControllerFilter(filter, controllerUUID)
-	return listVolumes(e.ec2, filter)
+	return listVolumes(e.ec2, filter, includeRootDisks)
 }
 
-func portsToIPPerms(ports []network.PortRange) []ec2.IPPerm {
-	ipPerms := make([]ec2.IPPerm, len(ports))
-	for i, p := range ports {
+func (e *environ) allModelVolumes(includeRootDisks bool) ([]string, error) {
+	filter := ec2.NewFilter()
+	e.addModelFilter(filter)
+	return listVolumes(e.ec2, filter, includeRootDisks)
+}
+
+func rulesToIPPerms(rules []network.IngressRule) []ec2.IPPerm {
+	ipPerms := make([]ec2.IPPerm, len(rules))
+	for i, r := range rules {
 		ipPerms[i] = ec2.IPPerm{
-			Protocol:  p.Protocol,
-			FromPort:  p.FromPort,
-			ToPort:    p.ToPort,
-			SourceIPs: []string{"0.0.0.0/0"},
+			Protocol: r.Protocol,
+			FromPort: r.FromPort,
+			ToPort:   r.ToPort,
+		}
+		if len(r.SourceCIDRs) == 0 {
+			ipPerms[i].SourceIPs = []string{defaultRouteCIDRBlock}
+		} else {
+			ipPerms[i].SourceIPs = make([]string, len(r.SourceCIDRs))
+			copy(ipPerms[i].SourceIPs, r.SourceCIDRs)
 		}
 	}
 	return ipPerms
 }
 
-func (e *environ) openPortsInGroup(name string, ports []network.PortRange) error {
-	if len(ports) == 0 {
+func (e *environ) openPortsInGroup(name string, rules []network.IngressRule) error {
+	if len(rules) == 0 {
 		return nil
 	}
 	// Give permissions for anyone to access the given ports.
@@ -1133,10 +1191,10 @@ func (e *environ) openPortsInGroup(name string, ports []network.PortRange) error
 	if err != nil {
 		return err
 	}
-	ipPerms := portsToIPPerms(ports)
+	ipPerms := rulesToIPPerms(rules)
 	_, err = e.ec2.AuthorizeSecurityGroup(g, ipPerms)
 	if err != nil && ec2ErrCode(err) == "InvalidPermission.Duplicate" {
-		if len(ports) == 1 {
+		if len(rules) == 1 {
 			return nil
 		}
 		// If there's more than one port and we get a duplicate error,
@@ -1157,8 +1215,8 @@ func (e *environ) openPortsInGroup(name string, ports []network.PortRange) error
 	return nil
 }
 
-func (e *environ) closePortsInGroup(name string, ports []network.PortRange) error {
-	if len(ports) == 0 {
+func (e *environ) closePortsInGroup(name string, rules []network.IngressRule) error {
+	if len(rules) == 0 {
 		return nil
 	}
 	// Revoke permissions for anyone to access the given ports.
@@ -1168,60 +1226,60 @@ func (e *environ) closePortsInGroup(name string, ports []network.PortRange) erro
 	if err != nil {
 		return err
 	}
-	_, err = e.ec2.RevokeSecurityGroup(g, portsToIPPerms(ports))
+	_, err = e.ec2.RevokeSecurityGroup(g, rulesToIPPerms(rules))
 	if err != nil {
 		return fmt.Errorf("cannot close ports: %v", err)
 	}
 	return nil
 }
 
-func (e *environ) portsInGroup(name string) (ports []network.PortRange, err error) {
+func (e *environ) ingressRulesInGroup(name string) (rules []network.IngressRule, err error) {
 	group, err := e.groupInfoByName(name)
 	if err != nil {
 		return nil, err
 	}
 	for _, p := range group.IPPerms {
-		if len(p.SourceIPs) != 1 {
-			logger.Errorf("expected exactly one IP permission, found: %v", p)
-			continue
+		ips := p.SourceIPs
+		if len(ips) == 0 {
+			ips = []string{defaultRouteCIDRBlock}
 		}
-		ports = append(ports, network.PortRange{
-			Protocol: p.Protocol,
-			FromPort: p.FromPort,
-			ToPort:   p.ToPort,
-		})
+		rule, err := network.NewIngressRule(p.Protocol, p.FromPort, p.ToPort, ips...)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		rules = append(rules, rule)
 	}
-	network.SortPortRanges(ports)
-	return ports, nil
+	network.SortIngressRules(rules)
+	return rules, nil
 }
 
-func (e *environ) OpenPorts(ports []network.PortRange) error {
+func (e *environ) OpenPorts(rules []network.IngressRule) error {
 	if e.Config().FirewallMode() != config.FwGlobal {
 		return errors.Errorf("invalid firewall mode %q for opening ports on model", e.Config().FirewallMode())
 	}
-	if err := e.openPortsInGroup(e.globalGroupName(), ports); err != nil {
+	if err := e.openPortsInGroup(e.globalGroupName(), rules); err != nil {
 		return errors.Trace(err)
 	}
-	logger.Infof("opened ports in global group: %v", ports)
+	logger.Infof("opened ports in global group: %v", rules)
 	return nil
 }
 
-func (e *environ) ClosePorts(ports []network.PortRange) error {
+func (e *environ) ClosePorts(rules []network.IngressRule) error {
 	if e.Config().FirewallMode() != config.FwGlobal {
 		return errors.Errorf("invalid firewall mode %q for closing ports on model", e.Config().FirewallMode())
 	}
-	if err := e.closePortsInGroup(e.globalGroupName(), ports); err != nil {
+	if err := e.closePortsInGroup(e.globalGroupName(), rules); err != nil {
 		return errors.Trace(err)
 	}
-	logger.Infof("closed ports in global group: %v", ports)
+	logger.Infof("closed ports in global group: %v", rules)
 	return nil
 }
 
-func (e *environ) Ports() ([]network.PortRange, error) {
+func (e *environ) IngressRules() ([]network.IngressRule, error) {
 	if e.Config().FirewallMode() != config.FwGlobal {
-		return nil, errors.Errorf("invalid firewall mode %q for retrieving ports from model", e.Config().FirewallMode())
+		return nil, errors.Errorf("invalid firewall mode %q for retrieving ingress rules from model", e.Config().FirewallMode())
 	}
-	return e.portsInGroup(e.globalGroupName())
+	return e.ingressRulesInGroup(e.globalGroupName())
 }
 
 func (*environ) Provider() environs.EnvironProvider {
@@ -1268,6 +1326,20 @@ func (e *environ) controllerSecurityGroups(controllerUUID string) ([]ec2.Securit
 		groups[i] = ec2.SecurityGroup{Id: info.Id, Name: info.Name}
 	}
 	return groups, nil
+}
+
+func (e *environ) modelSecurityGroupIDs() ([]string, error) {
+	filter := ec2.NewFilter()
+	e.addModelFilter(filter)
+	resp, err := e.ec2.SecurityGroups(nil, filter)
+	if err != nil {
+		return nil, errors.Annotate(err, "listing security groups")
+	}
+	groupIDs := make([]string, len(resp.Groups))
+	for i, info := range resp.Groups {
+		groupIDs[i] = info.Id
+	}
+	return groupIDs, nil
 }
 
 // cleanEnvironmentSecurityGroups attempts to delete all security groups owned

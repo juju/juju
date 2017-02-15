@@ -48,14 +48,15 @@ type format_2_0Serialization struct {
 	Values      map[string]string `yaml:"values"`
 
 	// Only controller machines have these next items set.
-	ControllerCert string `yaml:"controllercert,omitempty"`
-	ControllerKey  string `yaml:"controllerkey,omitempty"`
-	CAPrivateKey   string `yaml:"caprivatekey,omitempty"`
-	APIPort        int    `yaml:"apiport,omitempty"`
-	StatePort      int    `yaml:"stateport,omitempty"`
-	SharedSecret   string `yaml:"sharedsecret,omitempty"`
-	SystemIdentity string `yaml:"systemidentity,omitempty"`
-	MongoVersion   string `yaml:"mongoversion,omitempty"`
+	ControllerCert     string `yaml:"controllercert,omitempty"`
+	ControllerKey      string `yaml:"controllerkey,omitempty"`
+	CAPrivateKey       string `yaml:"caprivatekey,omitempty"`
+	APIPort            int    `yaml:"apiport,omitempty"`
+	StatePort          int    `yaml:"stateport,omitempty"`
+	SharedSecret       string `yaml:"sharedsecret,omitempty"`
+	SystemIdentity     string `yaml:"systemidentity,omitempty"`
+	MongoVersion       string `yaml:"mongoversion,omitempty"`
+	MongoMemoryProfile string `yaml:"mongomemoryprofile,omitempty"`
 }
 
 func init() {
@@ -151,6 +152,9 @@ func (formatter_2_0) unmarshal(data []byte) (*configInternal, error) {
 		// Mongo version is set, we might be running a version other than default.
 		config.mongoVersion = format.MongoVersion
 	}
+	if format.MongoMemoryProfile != "" {
+		config.mongoMemoryProfile = format.MongoMemoryProfile
+	}
 	return config, nil
 }
 
@@ -194,6 +198,9 @@ func (formatter_2_0) marshal(config *configInternal) ([]byte, error) {
 	}
 	if config.mongoVersion != "" {
 		format.MongoVersion = string(config.mongoVersion)
+	}
+	if config.mongoMemoryProfile != "" {
+		format.MongoMemoryProfile = config.mongoMemoryProfile
 	}
 	return goyaml.Marshal(format)
 }

@@ -65,7 +65,11 @@ func (p *lxdLogProxy) render(msg string, ctx []interface{}) string {
 }
 
 func (p *lxdLogProxy) Debug(msg string, ctx ...interface{}) {
-	p.logger.Debugf(p.render(msg, ctx))
+	// NOTE(axw) the LXD client logs a lot of detail at
+	// "debug" level, which is its highest level of logging.
+	// We transform this to Trace, to avoid spamming our
+	// logs with too much information.
+	p.logger.Tracef(p.render(msg, ctx))
 }
 
 func (p *lxdLogProxy) Info(msg string, ctx ...interface{}) {
@@ -92,7 +96,7 @@ const LXDBridgeFile = "/etc/default/lxd-bridge"
 
 // Client is a high-level wrapper around the LXD API client.
 type Client struct {
-	*serverConfigClient
+	*configClient
 	*certClient
 	*profileClient
 	*instanceClient
@@ -148,7 +152,7 @@ func Connect(cfg Config, verifyBridgeConfig bool) (*Client, error) {
 	}
 
 	conn := &Client{
-		serverConfigClient:       &serverConfigClient{raw},
+		configClient:             &configClient{raw},
 		certClient:               &certClient{raw},
 		profileClient:            &profileClient{raw},
 		instanceClient:           &instanceClient{raw, remoteID},

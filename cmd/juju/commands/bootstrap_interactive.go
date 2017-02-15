@@ -28,7 +28,12 @@ func assembleClouds() ([]string, error) {
 		return nil, errors.Trace(err)
 	}
 
-	return sortClouds(public, common.BuiltInClouds(), personal), nil
+	builtin, err := common.BuiltInClouds()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return sortClouds(public, builtin, personal), nil
 }
 
 // queryCloud asks the user to choose a cloud.

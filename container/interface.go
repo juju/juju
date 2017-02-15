@@ -6,8 +6,8 @@ package container
 import (
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/status"
 )
 
 const (
@@ -18,8 +18,6 @@ const (
 // ManagerConfig contains the initialization parameters for the ContainerManager.
 // The name of the manager is used to namespace the containers on the machine.
 type ManagerConfig map[string]string
-
-type StatusCallback func(settableStatus status.Status, info string, data map[string]interface{}) error
 
 // Manager is responsible for starting containers, and stopping and listing
 // containers that it has started.
@@ -32,7 +30,7 @@ type Manager interface {
 		series string,
 		network *NetworkConfig,
 		storage *StorageConfig,
-		callback StatusCallback) (instance.Instance, *instance.HardwareCharacteristics, error)
+		callback environs.StatusCallbackFunc) (instance.Instance, *instance.HardwareCharacteristics, error)
 
 	// DestroyContainer stops and destroyes the container identified by
 	// instance id.

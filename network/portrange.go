@@ -197,17 +197,29 @@ func parsePortRange(portRange string) (PortRange, error) {
 	return result, nil
 }
 
-// ParsePortRanges splits the provided string on commas and extracts a
-// PortRange from each part of the split string. Whitespace is ignored.
-// Example strings: "80/tcp", "80,443,1234/udp", "123-456, 25/tcp".
-func ParsePortRanges(inPortRanges string) ([]PortRange, error) {
-	var portRanges []PortRange
-	for _, portRange := range strings.Split(inPortRanges, ",") {
-		portRange, err := ParsePortRange(strings.TrimSpace(portRange))
-		if err != nil {
-			return portRanges, errors.Trace(err)
+// CombinePortRanges groups together all port ranges according to
+// protocol, and then combines then into contiguous port ranges.
+// NOTE: Juju only allows its model to contain non-overlapping port ranges.
+// This method operates on that assumption.
+func CombinePortRanges(ranges ...PortRange) []PortRange {
+	SortPortRanges(ranges)
+	var result []PortRange
+	var current *PortRange
+	for _, pr := range ranges {
+		thispr := pr
+		if current == nil {
+			current = &thispr
+			continue
 		}
-		portRanges = append(portRanges, portRange)
+		if pr.Protocol == current.Protocol && pr.FromPort == current.ToPort+1 {
+			current.ToPort = thispr.ToPort
+			continue
+		}
+		result = append(result, *current)
+		current = &thispr
 	}
-	return portRanges, nil
+	if current != nil {
+		result = append(result, *current)
+	}
+	return result
 }

@@ -269,7 +269,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(status.NewStatusHistoryCommand())
 
 	// Error resolution and debugging commands.
-	r.Register(newRunCommand())
+	r.Register(newDefaultRunCommand())
 	r.Register(newSCPCommand(nil))
 	r.Register(newSSHCommand(nil))
 	r.Register(newResolvedCommand())

@@ -118,6 +118,7 @@ func (s *NetworkSuite) TestFilterBridgeAddresses(c *gc.C) {
 	// 10.0.3.4 and 10.0.3.5/24 on that bridge.
 	// We also put 10.0.4.1 and 10.0.5.1/24 onto whatever bridge LXD is
 	// configured to use.
+	// And 192.168.122.1 on virbr0
 	netConf := []byte(`
   # comments ignored
 LXC_BR= ignored
@@ -141,6 +142,10 @@ LXC_BRIDGE="ignored"`[1:])
 				// Try a CIDR 10.0.5.1/24 as well.
 				&net.IPNet{IP: net.IPv4(10, 0, 5, 1), Mask: net.IPv4Mask(255, 255, 255, 0)},
 			}, nil
+		} else if name == network.DefaultKVMBridge {
+			return []net.Addr{
+				&net.IPAddr{IP: net.IPv4(192, 168, 122, 1)},
+			}, nil
 		}
 		c.Fatalf("unknown bridge name: %q", name)
 		return nil, nil
@@ -151,14 +156,16 @@ LXC_BRIDGE="ignored"`[1:])
 		"127.0.0.1",
 		"2001:db8::1",
 		"10.0.0.1",
-		"10.0.3.1",  // filtered (directly as IP)
-		"10.0.3.3",  // filtered (by the 10.0.3.5/24 CIDR)
-		"10.0.3.5",  // filtered (directly)
-		"10.0.3.4",  // filtered (directly)
-		"10.0.4.1",  // filtered (directly from LXD bridge)
-		"10.0.5.10", // filtered (from LXD bridge, 10.0.5.1/24)
-		"10.0.6.10", // unfiltered
+		"10.0.3.1",      // filtered (directly as IP)
+		"10.0.3.3",      // filtered (by the 10.0.3.5/24 CIDR)
+		"10.0.3.5",      // filtered (directly)
+		"10.0.3.4",      // filtered (directly)
+		"10.0.4.1",      // filtered (directly from LXD bridge)
+		"10.0.5.10",     // filtered (from LXD bridge, 10.0.5.1/24)
+		"10.0.6.10",     // unfiltered
+		"192.168.122.1", // filtered (from virbr0 bridge, 192.168.122.1)
 		"192.168.123.42",
+		"localhost", // unfiltered because it isn't an IP address
 	)
 	filteredAddresses := network.NewAddresses(
 		"127.0.0.1",
@@ -166,6 +173,7 @@ LXC_BRIDGE="ignored"`[1:])
 		"10.0.0.1",
 		"10.0.6.10",
 		"192.168.123.42",
+		"localhost",
 	)
 	c.Assert(network.FilterBridgeAddresses(inputAddresses), jc.DeepEquals, filteredAddresses)
 }
@@ -175,4 +183,23 @@ func (s *NetworkSuite) TestNoAddressError(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `no fake address\(es\)`)
 	c.Assert(network.IsNoAddressError(err), jc.IsTrue)
 	c.Assert(network.IsNoAddressError(errors.New("address found")), jc.IsFalse)
+}
+
+func checkQuoteSpaceSet(c *gc.C, expected string, spaces ...string) {
+	spaceSet := set.NewStrings(spaces...)
+	c.Check(network.QuoteSpaceSet(spaceSet), gc.Equals, expected)
+}
+
+func (s *NetworkSuite) TestQuoteSpaceSet(c *gc.C) {
+	// Only the 'empty string' space
+	checkQuoteSpaceSet(c, `""`, "")
+	// No spaces
+	checkQuoteSpaceSet(c, `<none>`)
+	// One space
+	checkQuoteSpaceSet(c, `"a"`, "a")
+	// Two spaces are sorted
+	checkQuoteSpaceSet(c, `"a", "b"`, "a", "b")
+	checkQuoteSpaceSet(c, `"a", "b"`, "b", "a")
+	// Mixed
+	checkQuoteSpaceSet(c, `"", "b"`, "b", "")
 }

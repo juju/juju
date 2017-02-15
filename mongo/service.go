@@ -30,6 +30,10 @@ const (
 	// ReplicaSetName is the name of the replica set that juju uses for its
 	// controllers.
 	ReplicaSetName = "juju"
+
+	// LowCacheSize expressed in GB sets the max value Mongo WiredTiger cache can
+	// reach.
+	LowCacheSize = 1
 )
 
 var (
@@ -144,6 +148,7 @@ type ConfigArgs struct {
 	Version                   Version
 	Auth                      bool
 	IPv6                      bool
+	MemoryProfile             MemoryProfile
 }
 
 // newConf returns the init system config for the mongo state service.
@@ -184,6 +189,11 @@ func newConf(args ConfigArgs) common.Conf {
 	} else {
 		mongoCmd = mongoCmd +
 			" --storageEngine wiredTiger"
+		// TODO(perrito666) make LowCacheSize 0,25 when mongo version goes
+		// to 3.4
+		if args.MemoryProfile == MemoryProfileLow {
+			mongoCmd = mongoCmd + " --wiredTigerCacheSizeGB " + fmt.Sprint(LowCacheSize)
+		}
 	}
 	extraScript := ""
 	if args.WantNUMACtl {
@@ -205,7 +215,7 @@ func newConf(args ConfigArgs) common.Conf {
 
 // EnsureServiceInstalled is a convenience method to [re]create
 // the mongo service.
-func EnsureServiceInstalled(dataDir string, statePort, oplogSizeMB int, setNUMAControlPolicy bool, version Version, auth bool) error {
+func EnsureServiceInstalled(dataDir string, statePort, oplogSizeMB int, setNUMAControlPolicy bool, version Version, auth bool, memProfile MemoryProfile) error {
 	mongoPath, err := Path(version)
 	if err != nil {
 		return errors.Annotate(err, "cannot get mongo path")
@@ -221,15 +231,16 @@ func EnsureServiceInstalled(dataDir string, statePort, oplogSizeMB int, setNUMAC
 	}
 
 	svcConf := newConf(ConfigArgs{
-		DataDir:     dataDir,
-		DBDir:       dbDir,
-		MongoPath:   mongoPath,
-		Port:        statePort,
-		OplogSizeMB: oplogSizeMB,
-		WantNUMACtl: setNUMAControlPolicy,
-		Version:     version,
-		Auth:        auth,
-		IPv6:        network.SupportsIPv6(),
+		DataDir:       dataDir,
+		DBDir:         dbDir,
+		MongoPath:     mongoPath,
+		Port:          statePort,
+		OplogSizeMB:   oplogSizeMB,
+		WantNUMACtl:   setNUMAControlPolicy,
+		Version:       version,
+		Auth:          auth,
+		IPv6:          network.SupportsIPv6(),
+		MemoryProfile: memProfile,
 	})
 	svc, err := newService(ServiceName, svcConf)
 	if err != nil {

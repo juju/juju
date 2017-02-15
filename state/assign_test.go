@@ -5,12 +5,14 @@ package state_test
 
 import (
 	"fmt"
+	"runtime"
 	"sort"
 	"strconv"
 	"time" // Only used to Sleep().
 
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/txn"
+	"github.com/juju/utils/arch"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
@@ -1253,7 +1255,10 @@ func (s *assignCleanSuite) TestAssignUnitPolicyConcurrently(c *gc.C) {
 	_, err := s.State.AddMachine("quantal", state.JobManageModel) // bootstrap machine
 	c.Assert(err, jc.ErrorIsNil)
 	unitCount := 50
-	if raceDetector {
+	// On arm with 50 concurrent attempts, this test takes over 90s.
+	if arch.NormaliseArch(runtime.GOARCH) == arch.ARM {
+		unitCount = 5
+	} else if raceDetector {
 		unitCount = 10
 	}
 	us := make([]*state.Unit, unitCount)

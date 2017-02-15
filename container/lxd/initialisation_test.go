@@ -167,7 +167,7 @@ type mockConfigSetter struct {
 	values []string
 }
 
-func (m *mockConfigSetter) SetConfig(key, value string) error {
+func (m *mockConfigSetter) SetServerConfig(key, value string) error {
 	m.keys = append(m.keys, key)
 	m.values = append(m.values, value)
 	return nil

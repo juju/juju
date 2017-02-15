@@ -223,6 +223,8 @@ func NewEnsureServerParams(agentConfig agent.Config) (mongo.EnsureServerParams, 
 		DataDir:              agentConfig.DataDir(),
 		OplogSize:            oplogSize,
 		SetNUMAControlPolicy: numaCtlPolicy,
+
+		MemoryProfile: agentConfig.MongoMemoryProfile(),
 	}
 	return params, nil
 }

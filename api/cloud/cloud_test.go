@@ -51,6 +51,7 @@ func (s *cloudSuite) TestCloud(c *gc.C) {
 	result, err := client.Cloud(names.NewCloudTag("foo"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, cloud.Cloud{
+		Name:      "foo",
 		Type:      "dummy",
 		AuthTypes: []cloud.AuthType{cloud.EmptyAuthType, cloud.UserPassAuthType},
 		Regions:   []cloud.Region{{Name: "nether", Endpoint: "endpoint"}},
@@ -89,9 +90,11 @@ func (s *cloudSuite) TestClouds(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(clouds, jc.DeepEquals, map[names.CloudTag]cloud.Cloud{
 		names.NewCloudTag("foo"): {
+			Name: "foo",
 			Type: "bar",
 		},
 		names.NewCloudTag("baz"): {
+			Name:      "baz",
 			Type:      "qux",
 			AuthTypes: []cloud.AuthType{cloud.EmptyAuthType, cloud.UserPassAuthType},
 			Regions:   []cloud.Region{{Name: "nether", Endpoint: "endpoint"}},

@@ -59,7 +59,7 @@ func NewStorageProvisionerAPI(
 		}
 		parentId := state.ParentId(tag.Id())
 		if parentId == "" {
-			return allowEnvironManager && authorizer.AuthModelManager()
+			return allowEnvironManager && authorizer.AuthController()
 		}
 		// All containers with the authenticated
 		// machine as a parent are accessible by it.
@@ -71,7 +71,7 @@ func NewStorageProvisionerAPI(
 			case names.ModelTag:
 				// Environment managers can access all volumes
 				// and filesystems scoped to the environment.
-				isModelManager := authorizer.AuthModelManager()
+				isModelManager := authorizer.AuthController()
 				return isModelManager && tag == st.ModelTag()
 			case names.MachineTag:
 				return canAccessStorageMachine(tag, false)
@@ -87,13 +87,13 @@ func NewStorageProvisionerAPI(
 			if ok {
 				return canAccessStorageMachine(machineTag, false)
 			}
-			return authorizer.AuthModelManager()
+			return authorizer.AuthController()
 		case names.FilesystemTag:
 			machineTag, ok := names.FilesystemMachine(tag)
 			if ok {
 				return canAccessStorageMachine(machineTag, false)
 			}
-			return authorizer.AuthModelManager()
+			return authorizer.AuthController()
 		case names.MachineTag:
 			return allowMachines && canAccessStorageMachine(tag, true)
 		default:
@@ -124,7 +124,7 @@ func NewStorageProvisionerAPI(
 			// volumes and volumes scoped to their own machines.
 			// Other machine agents can access volumes regardless
 			// of their scope.
-			if !authorizer.AuthModelManager() {
+			if !authorizer.AuthController() {
 				return true
 			}
 			var machineScope names.MachineTag
