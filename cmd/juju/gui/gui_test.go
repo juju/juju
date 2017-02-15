@@ -64,7 +64,7 @@ func (s *guiSuite) TestGUISuccessWithBrowser(c *gc.C) {
 		browserURL = u.String()
 		return nil
 	})
-	out, err := s.run(c)
+	out, err := s.run(c, "--browser")
 	c.Assert(err, jc.ErrorIsNil)
 	guiURL := s.guiURL(c)
 	expectOut := "Opening the Juju GUI in your browser.\nIf it does not open, open this URL:\n" + guiURL
@@ -73,7 +73,15 @@ func (s *guiSuite) TestGUISuccessWithBrowser(c *gc.C) {
 	c.Assert(browserURL, gc.Equals, guiURL)
 }
 
-func (s *guiSuite) TestGUISuccessWithCredentials(c *gc.C) {
+func (s *guiSuite) TestGUISuccessWithCredential(c *gc.C) {
+	s.patchClient(nil)
+	s.patchBrowser(nil)
+	out, err := s.run(c, "--show-credential")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(out, jc.Contains, "Username: admin\nPassword: dummy-secret")
+}
+
+func (s *guiSuite) TestGUISuccessWithCredentialsDeprecated(c *gc.C) {
 	s.patchClient(nil)
 	s.patchBrowser(nil)
 	out, err := s.run(c, "--show-credentials")
@@ -82,6 +90,14 @@ func (s *guiSuite) TestGUISuccessWithCredentials(c *gc.C) {
 }
 
 func (s *guiSuite) TestGUISuccessNoBrowser(c *gc.C) {
+	s.patchClient(nil)
+	// There is no need to patch the browser open function here.
+	out, err := s.run(c)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(out, gc.Equals, s.guiURL(c))
+}
+
+func (s *guiSuite) TestGUISuccessNoBrowserDeprecated(c *gc.C) {
 	s.patchClient(nil)
 	// There is no need to patch the browser open function here.
 	out, err := s.run(c, "--no-browser")
@@ -94,7 +110,7 @@ func (s *guiSuite) TestGUISuccessBrowserNotFound(c *gc.C) {
 	s.patchBrowser(func(u *url.URL) error {
 		return webbrowser.ErrNoBrowser
 	})
-	out, err := s.run(c)
+	out, err := s.run(c, "--browser")
 	c.Assert(err, jc.ErrorIsNil)
 	expectOut := "Open this URL in your browser:\n" + s.guiURL(c)
 	c.Assert(out, gc.Equals, expectOut)
@@ -105,7 +121,7 @@ func (s *guiSuite) TestGUIErrorBrowser(c *gc.C) {
 	s.patchBrowser(func(u *url.URL) error {
 		return errors.New("bad wolf")
 	})
-	out, err := s.run(c)
+	out, err := s.run(c, "--browser")
 	c.Assert(err, gc.ErrorMatches, "cannot open web browser: bad wolf")
 	c.Assert(out, gc.Equals, "")
 }
@@ -114,7 +130,7 @@ func (s *guiSuite) TestGUIErrorUnavailable(c *gc.C) {
 	s.patchClient(func(client *httprequest.Client, u string) error {
 		return errors.New("bad wolf")
 	})
-	out, err := s.run(c)
+	out, err := s.run(c, "--browser")
 	c.Assert(err, gc.ErrorMatches, "Juju GUI is not available: bad wolf")
 	c.Assert(out, gc.Equals, "")
 }

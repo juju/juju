@@ -27,21 +27,27 @@ type guiCommand struct {
 	modelcmd.ModelCommandBase
 
 	showCreds bool
+	browser   bool
+	// Deprecated - used with --no-browser
 	noBrowser bool
 }
 
 const guiDoc = `
-Open the Juju GUI in the default browser:
+Print the Juju GUI URL:
 
 	juju gui
 
-Open the GUI and show admin credentials to use to log into it:
+Print the Juju GUI URL and show admin credential to use to log into it:
 
-	juju gui --show-credentials
+	juju gui --show-credential
 
-Do not open the browser, just output the GUI URL:
+Open the Juju GUI in the default browser:
 
-	juju gui --no-browser
+	juju gui --browser
+
+Open the GUI and show admin credential to use to log into it:
+
+	juju gui --show-credential --browser
 
 An error is returned if the Juju GUI is not available in the controller.
 `
@@ -50,7 +56,7 @@ An error is returned if the Juju GUI is not available in the controller.
 func (c *guiCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "gui",
-		Purpose: "Open the Juju GUI in the default browser.",
+		Purpose: "Print the Juju GUI URL, or open the Juju GUI in the default browser.",
 		Doc:     guiDoc,
 	}
 }
@@ -58,8 +64,10 @@ func (c *guiCommand) Info() *cmd.Info {
 // SetFlags implements the cmd.Command interface.
 func (c *guiCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
-	f.BoolVar(&c.showCreds, "show-credentials", false, "Show admin credentials to use for logging into the Juju GUI")
-	f.BoolVar(&c.noBrowser, "no-browser", false, "Do not try to open the web browser, just print the Juju GUI URL")
+	f.BoolVar(&c.showCreds, "show-credentials", false, "DEPRECATED. Use --show-credential. Show admin credential to use for logging into the Juju GUI")
+	f.BoolVar(&c.showCreds, "show-credential", false, "Show admin credential to use for logging into the Juju GUI")
+	f.BoolVar(&c.noBrowser, "no-browser", true, "DEPRECATED. --no-browser is now the default. Use --browser to open the web browser")
+	f.BoolVar(&c.browser, "browser", false, "Open the web browser, instead of just printing the Juju GUI URL")
 }
 
 // Run implements the cmd.Command interface.
@@ -112,7 +120,7 @@ func (c *guiCommand) openBrowser(ctx *cmd.Context, rawURL string) error {
 	if err != nil {
 		return errors.Annotate(err, "cannot parse Juju GUI URL")
 	}
-	if c.noBrowser {
+	if c.noBrowser && !c.browser {
 		ctx.Infof(u.String())
 		return nil
 	}
