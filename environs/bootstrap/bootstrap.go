@@ -363,9 +363,6 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 		AvailableTools:       availableTools,
 		ImageMetadata:        imageMetadata,
 	})
-	fmt.Println(err)
-	fmt.Println(result)
-	os.Exit(1)
 	if err != nil {
 		return err
 	}

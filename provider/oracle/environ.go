@@ -11,7 +11,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
-	"github.com/juju/juju/environs/instances"
+	envinstance "github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
@@ -116,16 +116,14 @@ func (o oracleEnviron) Bootstrap(
 		shape.name, shape.cpus, shape.ram,
 	)
 
-	fmt.Printf("%+v\n", params)
-
 	imagelist, err := checkImageList(o.p.client, params.ImageMetadata)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	os.Exit(1)
-	//TODO
 
+	//TODO
 	instance, err := launchBootstrapConstroller(o.p.client, []oci.InstanceParams{
 		{
 			Shape:     shape.name,
@@ -139,12 +137,15 @@ func (o oracleEnviron) Bootstrap(
 		return nil, err
 	}
 
-	os.Exit(1)
+	_ = instance
 	return nil, nil
 }
 
+// here we should check with the client if the we have already a ubuntu/centos/what ever image is specified int he tools metadata
+// if there already exists then we should return it
 func checkImageList(c *oci.Client, tools []*imagemetadata.ImageMetadata) (string, error) {
-	var defaultImage string
+	var imageVersion string
+
 	if c == nil {
 		return "", errors.NotFoundf("Cannot use nil client")
 	}
@@ -152,11 +153,33 @@ func checkImageList(c *oci.Client, tools []*imagemetadata.ImageMetadata) (string
 	if tools == nil {
 		return "", errors.NotFoundf("No tools imagemedatada provided")
 	}
-	fmt.Println(tools)
 
-	return defaultImage, nil
+	for _, val := range tools {
+		if len(val.Version) > 0 {
+			imageVersion = val.Version
+			logger.Infof("Found tools %s and searching tghourgh the oracle imagelist", val)
+			break
+		}
+	}
+
+	if imageVersion == "" {
+		return "", errors.NotFoundf("No version found in the tools")
+	}
+
+	resp, err := c.AllImageList()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	for _, val := range resp.Result {
+		//TODO
+	}
+	fmt.Printf("%+v", resp)
+	return imageVersion, nil
 }
 
+// launchBootstrapController creates a new vm inside
+// the oracle infrastracuture and parses the response into a instance.Instance
 func launchBootstrapConstroller(c *oci.Client, params []oci.InstanceParams) (instance.Instance, error) {
 	if c == nil {
 		return nil, errors.NotFoundf("Cannot use nil client")
@@ -258,8 +281,8 @@ func (o oracleEnviron) IngressRules() ([]network.IngressRule, error) {
 	return nil, nil
 }
 
-func (o oracleEnviron) InstanceTypes(constraints.Value) (instances.InstanceTypesWithCostMetadata, error) {
-	var i instances.InstanceTypesWithCostMetadata
+func (o oracleEnviron) InstanceTypes(constraints.Value) (envinstance.InstanceTypesWithCostMetadata, error) {
+	var i envinstance.InstanceTypesWithCostMetadata
 	return i, nil
 }
 
