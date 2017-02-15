@@ -1,26 +1,26 @@
 #!/usr/bin/env python
 """This will test the budget commands utilized for commercial charm billing.
 These commands are linked to a ubuntu one account, and as such, require the
-user account to be setup before test execution (including authentication)."""
+user account to be setup before test execution (including authentication).
+You can use charm login to do this, or let juju authenticate with a browser"""
 
 from __future__ import print_function
 
 import argparse
+import json
 import logging
+from random import randint
 import sys
 import subprocess
-import json
-from random import randint
 
+from jujupy import (
+    client_from_config,
+)
 from utility import (
     add_basic_testing_arguments,
     JujuAssertionError,
     configure_logging,
 )
-from jujupy import (
-    client_from_config,
-)
-
 
 __metaclass__ = type
 
@@ -28,7 +28,7 @@ __metaclass__ = type
 log = logging.getLogger("assess_budget")
 
 
-def assert_equal(found, expected):
+def assert_sorted_equal(found, expected):
     found = sorted(found)
     expected = sorted(expected)
     if found != expected:
@@ -175,7 +175,7 @@ def assess_list_budgets(client, expected_budgets):
     # is fixed, we don't modify the list contents or count
     # Nonetheless, we assert on it for future use
     budgets = _get_budgets(client)
-    assert_equal(budgets, expected_budgets)
+    assert_sorted_equal(budgets, expected_budgets)
 
 
 def _set_budget_value_expectations(expected_budgets, name, value):
@@ -189,8 +189,7 @@ def _set_budget_value_expectations(expected_budgets, name, value):
             budget['available'] = value + '.00'
             log.info('Expected budget updated: "{}" to value {}'.format(name,
                                                                         value))
-
-
+                                                                        
 def assess_budget(client):
     # Since we can't remove budgets until lp:1663258
     # is fixed, we avoid creating new random budgets and hardcode.
