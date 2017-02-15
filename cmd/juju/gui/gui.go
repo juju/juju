@@ -151,7 +151,7 @@ func (c *guiCommand) openBrowser(ctx *cmd.Context, rawURL string, vers *version.
 		if vers != nil {
 			versInfo = fmt.Sprintf("%v ", vers)
 		}
-		ctx.Infof("GUI %sfor model %s is enabled at:\n  %s", versInfo, c.ModelName(), u.String())
+		ctx.Infof("GUI %sis enabled at:\n  %s", versInfo, u.String())
 		return nil
 	}
 	err = webbrowserOpen(u)
