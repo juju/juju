@@ -48,9 +48,10 @@ import (
 const (
 	jujuMachineNameTag = tags.JujuTagPrefix + "machine-name"
 
-	// defaultRootDiskSize is the default root disk size to give
-	// to a VM, if none is specified.
-	defaultRootDiskSize = 30 * 1024 // 30 GiB
+	// minRootDiskSize is the minimum root disk size Azure
+	// accepts for a VM's OS disk.
+	// It will be used if none is specified by the user.
+	minRootDiskSize = 30 * 1024 // 30 GiB
 
 	// serviceErrorCodeDeploymentCannotBeCancelled is the error code for
 	// service errors in response to an attempt to cancel a deployment
@@ -390,11 +391,12 @@ func (env *azureEnviron) StartInstance(args environs.StartInstanceParams) (*envi
 	// If the user has not specified a root-disk size, then
 	// set a sensible default.
 	var rootDisk uint64
-	// Azure complains if we try and specify a root disk size less than the default.
-	if args.Constraints.RootDisk != nil && *args.Constraints.RootDisk > defaultRootDiskSize {
+	// Azure complains if we try and specify a root disk size less than the minimum.
+	// See http://pad.lv/1645408
+	if args.Constraints.RootDisk != nil && *args.Constraints.RootDisk > minRootDiskSize {
 		rootDisk = *args.Constraints.RootDisk
 	} else {
-		rootDisk = defaultRootDiskSize
+		rootDisk = minRootDiskSize
 		args.Constraints.RootDisk = &rootDisk
 	}
 

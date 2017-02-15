@@ -456,10 +456,35 @@ func (s *environSuite) TestCloudEndpointManagementURI(c *gc.C) {
 }
 
 func (s *environSuite) TestStartInstance(c *gc.C) {
+	s.assertStartInstance(c, nil)
+}
+
+func (s *environSuite) TestStartInstanceRootDiskSmallerThanMin(c *gc.C) {
+	wantedRootDisk := 22
+	s.assertStartInstance(c, &wantedRootDisk)
+}
+
+func (s *environSuite) TestStartInstanceRootDiskLargerThanMin(c *gc.C) {
+	wantedRootDisk := 40
+	s.assertStartInstance(c, &wantedRootDisk)
+}
+
+func (s *environSuite) assertStartInstance(c *gc.C, wantedRootDisk *int) {
 	env := s.openEnviron(c)
 	s.sender = s.startInstanceSenders(false)
 	s.requests = nil
-	result, err := env.StartInstance(makeStartInstanceParams(c, s.controllerUUID, "quantal"))
+	args := makeStartInstanceParams(c, s.controllerUUID, "quantal")
+	expectedRootDisk := uint64(30 * 1024) // 30 GiB
+	expectedDiskSize := 32
+	if wantedRootDisk != nil {
+		cons := constraints.MustParse(fmt.Sprintf("root-disk=%dG", *wantedRootDisk))
+		args.Constraints = cons
+		if *wantedRootDisk > 30 {
+			expectedRootDisk = uint64(*wantedRootDisk * 1024)
+			expectedDiskSize = *wantedRootDisk + 2
+		}
+	}
+	result, err := env.StartInstance(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.NotNil)
 	c.Assert(result.Instance, gc.NotNil)
@@ -469,17 +494,16 @@ func (s *environSuite) TestStartInstance(c *gc.C) {
 
 	arch := "amd64"
 	mem := uint64(1792)
-	rootDisk := uint64(30 * 1024) // 30 GiB
 	cpuCores := uint64(1)
 	c.Assert(result.Hardware, jc.DeepEquals, &instance.HardwareCharacteristics{
 		Arch:     &arch,
 		Mem:      &mem,
-		RootDisk: &rootDisk,
+		RootDisk: &expectedRootDisk,
 		CpuCores: &cpuCores,
 	})
 	s.assertStartInstanceRequests(c, s.requests, assertStartInstanceRequestsParams{
 		imageReference: &quantalImageReference,
-		diskSizeGB:     32,
+		diskSizeGB:     expectedDiskSize,
 		osProfile:      &s.linuxOsProfile,
 		instanceType:   "Standard_A1",
 	})
