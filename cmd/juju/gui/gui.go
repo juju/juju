@@ -11,9 +11,12 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/httprequest"
+	"github.com/juju/version"
 	"github.com/juju/webbrowser"
 
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/controller"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
@@ -26,22 +29,31 @@ func NewGUICommand() cmd.Command {
 type guiCommand struct {
 	modelcmd.ModelCommandBase
 
-	showCreds bool
+	// Deprecated - used with --no-browser
 	noBrowser bool
+
+	hideCreds bool
+	browser   bool
+
+	getGUIVersions func(connection api.Connection) ([]params.GUIArchiveVersion, error)
 }
 
 const guiDoc = `
-Open the Juju GUI in the default browser:
+Print the Juju GUI URL and show admin credential to use to log into it:
 
 	juju gui
 
-Open the GUI and show admin credentials to use to log into it:
+Print the Juju GUI URL only:
 
-	juju gui --show-credentials
+	juju gui --hide-credential
 
-Do not open the browser, just output the GUI URL:
+Open the Juju GUI in the default browser and show admin credential to use to log into it:
 
-	juju gui --no-browser
+	juju gui --browser
+
+Open the Juju GUI in the default browser without printing the login credential:
+
+	juju gui --hide-credential --browser
 
 An error is returned if the Juju GUI is not available in the controller.
 `
@@ -50,7 +62,7 @@ An error is returned if the Juju GUI is not available in the controller.
 func (c *guiCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "gui",
-		Purpose: "Open the Juju GUI in the default browser.",
+		Purpose: "Print the Juju GUI URL, or open the Juju GUI in the default browser.",
 		Doc:     guiDoc,
 	}
 }
@@ -58,8 +70,17 @@ func (c *guiCommand) Info() *cmd.Info {
 // SetFlags implements the cmd.Command interface.
 func (c *guiCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
-	f.BoolVar(&c.showCreds, "show-credentials", false, "Show admin credentials to use for logging into the Juju GUI")
-	f.BoolVar(&c.noBrowser, "no-browser", false, "Do not try to open the web browser, just print the Juju GUI URL")
+	f.BoolVar(&c.hideCreds, "hide-credential", false, "Do not show admin credential to use for logging into the Juju GUI")
+	f.BoolVar(&c.noBrowser, "no-browser", true, "DEPRECATED. --no-browser is now the default. Use --browser to open the web browser")
+	f.BoolVar(&c.browser, "browser", false, "Open the web browser, instead of just printing the Juju GUI URL")
+}
+
+func (c *guiCommand) guiVersions(conn api.Connection) ([]params.GUIArchiveVersion, error) {
+	if c.getGUIVersions == nil {
+		client := controller.NewClient(conn)
+		return client.GUIArchives()
+	}
+	return c.getGUIVersions(conn)
 }
 
 // Run implements the cmd.Command interface.
@@ -81,8 +102,21 @@ func (c *guiCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
+	// Get the GUI version to print.
+	versions, err := c.guiVersions(conn)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	var vers *version.Number
+	for _, v := range versions {
+		if v.Current {
+			vers = &v.Version
+			break
+		}
+	}
+
 	// Open the Juju GUI in the browser.
-	if err = c.openBrowser(ctx, rawURL); err != nil {
+	if err = c.openBrowser(ctx, rawURL, vers); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -107,13 +141,17 @@ func (c *guiCommand) checkAvailable(rawURL string, conn api.Connection) error {
 }
 
 // openBrowser opens the Juju GUI at the given URL.
-func (c *guiCommand) openBrowser(ctx *cmd.Context, rawURL string) error {
+func (c *guiCommand) openBrowser(ctx *cmd.Context, rawURL string, vers *version.Number) error {
 	u, err := url.Parse(rawURL)
 	if err != nil {
 		return errors.Annotate(err, "cannot parse Juju GUI URL")
 	}
-	if c.noBrowser {
-		ctx.Infof(u.String())
+	if c.noBrowser && !c.browser {
+		versInfo := ""
+		if vers != nil {
+			versInfo = fmt.Sprintf("%v ", vers)
+		}
+		ctx.Infof("GUI %sfor model %s is enabled at:\n  %s", versInfo, c.ModelName(), u.String())
 		return nil
 	}
 	err = webbrowserOpen(u)
@@ -131,7 +169,7 @@ func (c *guiCommand) openBrowser(ctx *cmd.Context, rawURL string) error {
 
 // showCredentials shows the admin username and password.
 func (c *guiCommand) showCredentials(ctx *cmd.Context) error {
-	if !c.showCreds {
+	if c.hideCreds {
 		return nil
 	}
 	// TODO(wallyworld) - what to do if we are using a macaroon.
@@ -139,7 +177,7 @@ func (c *guiCommand) showCredentials(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Annotate(err, "cannot retrieve credentials")
 	}
-	ctx.Infof("Username: %s\nPassword: %s", accountDetails.User, accountDetails.Password)
+	ctx.Infof("Your login credential is:\n  username: %s\n  password: %s", accountDetails.User, accountDetails.Password)
 	return nil
 }
 
