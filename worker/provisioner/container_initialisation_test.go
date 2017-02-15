@@ -358,18 +358,6 @@ func (s *ContainerSetupSuite) TestContainerInitLockError(c *gc.C) {
 
 }
 
-func (s *ContainerSetupSuite) TestPrepareHostLockError(c *gc.C) {
-	spec := mutex.Spec{
-		Name:  s.lockName,
-		Clock: clock.WallClock,
-		Delay: coretesting.ShortWait,
-	}
-	releaser, err := mutex.Acquire(spec)
-	c.Assert(err, jc.ErrorIsNil)
-	defer releaser.Release()
-}
-
-/// TODO(jam) Move this to a prepareHost test
 /// func (s *kvmBrokerSuite) TestStartInstanceGetObservedNetworkConfigFails(c *gc.C) {
 /// 	broker, brokerErr := s.newKVMBroker(c)
 /// 	c.Assert(brokerErr, jc.ErrorIsNil)
