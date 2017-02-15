@@ -11,11 +11,14 @@ from mock import (
     )
 
 from assess_budget import (
+    _try_greater_than_limit_budget,
+    _try_negative_budget,
     assess_budget,
     assess_budget_limit,
     assess_create_budget,
-    assess_list_budgets,    
-    assess_set_budget,
+    assess_list_budgets,
+    assert_set_budget,
+    assess_set_budget,    
     assess_show_budget,
     main,
     parse_args,
@@ -199,17 +202,18 @@ class TestAssessSetBudget(TestAssess):
     def test_assess_set_budget(self):
         with patch.object(self.fake_client, 'get_juju_output'):
             with patch("assess_budget.json.loads"):
-                with patch("assess_budget._try_setting_budget", return_value=):
-                    assess_set_budget(self.fake_client, self.budget_name,
-                        self.budget_value, self.budget_limit)
+                with patch("assess_budget._try_setting_budget"):
+                    with patch("assess_budget.assert_set_budget"):
+                        assess_set_budget(self.fake_client, self.budget_name,
+                            self.budget_value, self.budget_limit)
 
     def test_raises_on_exceed_credit_limit(self):
         with patch.object(self.fake_client, 'get_juju_output'):
             with patch("assess_budget.json.loads"):
                 with patch("assess_budget._try_setting_budget"):
                     with self.assertRaises(JujuAssertionError) as ex:
-                        assess_set_budget(self.fake_client, self.budget_name,
-                            self.budget_value, self.budget_limit)
+                        _try_greater_than_limit_budget(self.fake_client,
+                            self.budget_name, self.budget_limit)
                     self.assertEqual(ex.exception.message,
                         'Credit limit exceeded')
 
@@ -219,8 +223,8 @@ class TestAssessSetBudget(TestAssess):
             with patch("assess_budget.json.loads"):
                 with patch("assess_budget._try_setting_budget"):
                     with self.assertRaises(JujuAssertionError) as ex:
-                        assess_set_budget(self.fake_client, self.budget_name,
-                            self.budget_value, self.budget_limit)
+                        _try_negative_budget(self.fake_client,
+                            self.budget_name)
                     self.assertEqual(ex.exception.message,
                         'Negative budget allowed')
 

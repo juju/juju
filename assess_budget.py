@@ -47,6 +47,21 @@ def assert_set_budget(client, name, limit, error_strings):
         raise JujuAssertionError(error_strings['fail'])
         
 
+def _try_greater_than_limit_budget(client, name, limit):
+    error_strings = {}
+    error_strings['pass'] = 'exceed the credit limit'
+    error_strings['unknown'] = 'Error testing budget greater than' \
+                'credit limit'
+    error_strings['fail'] = 'Credit limit exceeded'
+    assert_set_budget(client, name, str(limit + randint(1,100)), error_strings)
+
+def _try_negative_budget(client, name):
+    error_strings = {}
+    error_strings['pass'] = 'Could not set budget'
+    error_strings['unknown'] = 'Error testing negative budget'
+    error_strings['fail'] = 'Negative budget allowed'    
+    assert_set_budget(client, name, str(randint(-1000,-1)), error_strings)
+
 def _get_new_budget_limit(client):
     """Return availible limit for new budget"""
     budgets = json.loads(list_budgets(client))
@@ -146,19 +161,10 @@ def assess_set_budget(client, budget_name, budget_value, budget_limit):
     # Since budgetting is important, and the functional test is cheap,
     # let's test some basic bounds
     log.info('Trying set-budget with value greater than budget limit')
-    error_strings['pass'] = 'exceed the credit limit'
-    error_strings['unknown'] = 'Error testing budget greater than' \
-                'credit limit'
-    error_strings['fail'] = 'Credit limit exceeded'
-    assert_set_budget(client, budget_name,
-        str(budget_limit + randint(1,100)), error_strings)
+    _try_greater_than_limit_budget(client, budget_name, budget_limit)
 
     log.info('Trying set-budget with negative value')
-    error_strings['pass'] = 'Could not set budget'
-    error_strings['unknown'] = 'Error testing negative budget'
-    error_strings['fail'] = 'Negative budget allowed'    
-    assert_set_budget(client, budget_name, str(randint(-1000,-1)),
-        error_strings)
+    _try_negative_budget(client, budget_name)
 
 
 def assess_budget_limit(client, budget_limit):
