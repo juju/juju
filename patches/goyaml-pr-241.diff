@@ -1,0 +1,27 @@
+diff --git a/decode_test.go b/decode_test.go
+index a6fea0f..11c1278 100644
+--- a/gopkg.in/yaml.v2/decode_test.go
++++ b/gopkg.in/yaml.v2/decode_test.go
+@@ -43,6 +43,9 @@ var unmarshalTests = []struct {
+ 		"v: 0xA",
+ 		map[string]interface{}{"v": 10},
+ 	}, {
++		"v: 01182252",
++		map[string]interface{}{"v": "01182252"},
++	}, {
+ 		"v: 4294967296",
+ 		map[string]int64{"v": 4294967296},
+ 	}, {
+diff --git a/resolve.go b/resolve.go
+index 232313c..34d559b 100644
+--- a/gopkg.in/yaml.v2/resolve.go
++++ b/gopkg.in/yaml.v2/resolve.go
+@@ -81,7 +81,7 @@ func resolvableTag(tag string) bool {
+ 	return false
+ }
+ 
+-var yamlStyleFloat = regexp.MustCompile(`^[-+]?[0-9]*\.?[0-9]+([eE][-+][0-9]+)?$`)
++var yamlStyleFloat = regexp.MustCompile(`^[-+]?(0|[1-9][0-9]*)?(\.[0-9]+)?([eE][-+][0-9]+)?$`)
+ 
+ func resolve(tag string, in string) (rtag string, out interface{}) {
+ 	if !resolvableTag(tag) {
