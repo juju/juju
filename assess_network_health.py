@@ -9,7 +9,6 @@ import json
 import yaml
 import ast
 import subprocess
-import pdb
 
 from jujupy import client_from_config
 from deploy_stack import (
@@ -92,7 +91,8 @@ def setup_testing_environment(client, bundle, target_model):
 
 def connect_to_existing_model(client, target_model):
     """Connects to an existing Juju model
-
+    :param client: Juju client object without bootstrapped controller
+    :param target_model: Model to connect to for testing
     """
     log.info("Connecting to existing model: {}".format(target_model))
     if client.show_model().keys()[0] is not target_model:
@@ -100,6 +100,9 @@ def connect_to_existing_model(client, target_model):
 
 
 def setup_dummy_deployment(client):
+    """Sets up a dummy test environment with 2 ubuntu charms
+    :param client: Bootstrapped juju client
+    """
     log.info("Deploying dummy charm for basic testing")
     dummy_path = local_charm_path(charm='ubuntu', series='trusty',
                                   juju_ver=client.version)
@@ -108,11 +111,17 @@ def setup_dummy_deployment(client):
 
 
 def setup_bundle_deployment(client, bundle):
+    """Deploys a test environment with supplied bundle
+    :param bundle: Path to a bundle.yaml
+    """
     log.info("Deploying bundle specified at {}".format(bundle))
     client.deploy_bundle(bundle)
 
 
 def get_juju_status(client):
+    """Gets juju status dict for supplied client
+    :param client: Juju client object
+    """
     return client.get_status().status
 
 
@@ -121,8 +130,8 @@ def ensure_juju_agnostic_visibility(client):
     :param machine: List of machine IPs to test
     :return: Connection attempt results
     """
+    log.info('Starting agnostic visibility test')
     machines = get_juju_status(client)['machines']
-    pdb.set_trace()
     result = {}
     for machine, info in machines.items():
         result[machine] = {}
@@ -138,9 +147,8 @@ def ensure_juju_agnostic_visibility(client):
 def neighbor_visibility(client):
     """Check if each application's units are visible, including our own.
     :param client: The juju client in use
-    :param apps: Dict of juju applications
-    :param targets: Dict of units & public-addresses by application
     """
+    log.info('Starting neighbor visibility test')
     apps = get_juju_status(client)['applications']
     targets = parse_targets(apps)
     result = {}
@@ -160,9 +168,7 @@ def neighbor_visibility(client):
 def ensure_exposed(client):
     """Ensure exposed services are visible from the outside
     :param client: The juju client in use
-    :param targets: Dict of units & public-addresses by application
-    :param exposed: List of exposed services
-    :return:
+    :return: Exposure test results in dict by pass/fail
     """
     log.info('Starting test of exposed units')
     apps = get_juju_status(client)['applications']
@@ -180,6 +186,10 @@ def ensure_exposed(client):
 
 
 def setup_expose_test(client):
+    """Sets up new model to run exposure test
+    :param client: The juju client in use
+    :return: New juju client object
+    """
     new_client = client.add_model('exposetest')
     dummy_path = local_charm_path(charm='ubuntu', series='trusty',
                                   juju_ver=client.version)
@@ -195,6 +205,10 @@ def setup_expose_test(client):
 
 
 def parse_expose_results(service_results, exposed):
+    """Parses expose test results into dict of pass/fail
+    :param service_results: Raw results from expose test
+    :return: Parsed results dict
+    """
     result = {'fail': (),
               'pass': ()}
     for service, results in service_results.items():
@@ -214,6 +228,7 @@ def parse_expose_results(service_results, exposed):
 
 def parse_final_results(agnostic, visibility, exposed=None):
     """Parses test results and raises an error if any failed
+    :param agnostic: Agnostic test result
     :param visibility: Visibility test result
     :param exposed: Exposure test result
     """

@@ -1,3 +1,6 @@
+import json
+import yaml
+
 from mock import (
     call,
     patch,
@@ -19,68 +22,114 @@ from assess_network_health import (
     ping_units,
     )
 
+apps = {'foo':
+        {'charm-name': 'foo',
+         'exposed': True,
+         'units': {
+            'foo/0': {'machine': '0',
+                      'public-address': '1.1.1.1',
+                      'subordinates': {
+                        'bar/0': {
+                            'public-address': '1.1.1.1'}}},
+            'foo/1': {'machine': '1',
+                      'public-address': '1.1.1.2',
+                      'subordinates': {
+                        'bar/1': {
+                            'public-address': '1.1.1.2'}}}}},
+        'bar':
+        {'charm-name': 'bar',
+         'exposed': False}}
+
+
+bundle_string = dedent("""\
+services:
+  foo:
+    charm: local:trusty/foo
+    num_units: 1
+    expose: true
+  bar:
+    charm: local:trusty/bar
+    num_units: 1
+series: trusty
+relations:
+- - foo:baz
+  - bar:baz
+""")
+
+bundle_yaml = yaml.safe_load(bundle_string)
+
 
 class TestAssessNetworkHealth(TestCase):
 
-    @contextmanager
-    def prepare_deploy_mock(self):
-        # Using fake_client means that deploy and get_status have plausible
-        # results.  Wrapping it in a Mock causes every call to be recorded, and
-        # allows assertions to be made about calls.  Mocks and the fake client
-        # can also be used separately.
-        """Mock a client and the deploy function."""
-        fake_client = fake_juju_client()
-        env = fake_client.env
-        fake_client = Mock(wraps=fake_client)
-        # force the real env, because attribute access on a wrapped one is
-        # weird.
-        fake_client.env = env
-        fake_client.bootstrap()
-        with patch('jujupy.ModelClient.deploy',
-                   autospec=True) as deploy_mock:
-            yield fake_client, deploy_mock
-
-    def test_assess_network_health_deploy_without_bundle(self):
-        with self.prepare_deploy_mock() as (fake_client, deploy_mock):
-            assess_network_health(fake_client, bundle=None)
-            deploy_mock.assert_called_once_with(fake_client,
-                ('--show-log', 'deploy', '-m', 'nettemp:nettemp',
-                 './repository/charms/ubuntu', '-n', '2'))
-
-    def test_assess_network_health_deploy_with_bundle(self):
-        fake_bundle = 'bundle.yaml'
-        with self.prepare_deploy_mock() as (fake_client, deploy_mock):
-            assess_network_health(fake_client, bundle=fake_bundle)
-            deploy_mock.assert_called_once_with(fake_client,
-                ('--show-log', 'deploy', '-m', 'nettemp:nettemp',
-                 'bundle.yaml'))
-
-    def test_nodes_return_unreachable(self):
+    def test_assess_network_health(self):
         pass
 
-    def test_raises_when_visibility_contains_failure(self):
+    def test_agonostic(self):
         pass
 
-    def test_passes_when_returns_match_exposed(self):
+    def test_visibility(self):
         pass
 
-    def test_raises_when_returns_show_unexposed(self):
+    def test_exposure(self):
         pass
 
-    def test_parse_results_matches_expectation(self):
-        vis_input = {'foo/0': {'bar': {'bar/0': True, 'bar/1': True},
-                               'baz': {'baz/0': True, 'baz/1': False}},
-                     'foo/1': {'bar': {'bar/0': True, 'bar/1': True},
-                               'baz': {'baz/0': False, 'baz/1': False}}}
-        exp_input = {'fail': ('bar', 'baz'), 'pass': ('foo',)}
-        exposed = ['bar', 'baz']
-        expected_message_lines = [
-            "NH-Unit foo/1 failed to contact unit(s): ['baz/0', 'baz/1']",
-            "NH-Unit foo/0 failed to contact unit(s): ['baz/0', 'baz/1']",
-            "Service(s) ('bar', 'baz') failed expose test"
-            ]
-        for line in expected_message_lines:
-            assert line in output
+    def test_setup_testing_environment(self):
+        pass
+
+    def test_connect_to_existing_model(self):
+        pass
+
+    def test_dummy_deployment(self):
+        client = fake_juju_client()
+        client.bootstrap()
+        client.deploy(dummy_charm)
+
+    def test_bundle_deployment(self):
+        client = fake_juju_client()
+        client.bootstrap()
+        client.deploy_bundle()
+
+    def test_expose_test_deployment(self):
+        client = fake_juju_client()
+        new_client = setup_expose_test(client)
+
+    def test_get_juju_status(self):
+        client = fake_juju_client()
+        expected = client.get_status().status
+        test = get_juju_status(client)
+        self.assertEqual(expected, test)
+
+    def test_parse_expose_results(self):
+        pass
+
+    def test_parse_final_results_with_fail(self):
+        agnostic = {"0": {"1.1.1.1": True}, "1": {"1.1.1.2": True}}
+        visible = {"bar/0": {"foo": {"foo/0": False, "foo/1": True}},
+                   "bar/1": {"foo": {"bar/0": True, "bar/1": True}}}
+        exposed = {"fail": ("foo"), "pass": ("bar", "baz")}
+        expected = [""]
+        out = parse_final_results(agnostic, visible, exposed)
+        self.assertRaises()
+
+    def test_parse_final_results_without_fail(self):
+        agnostic = {"0": {"1.1.1.1": True}, "1": {"1.1.1.2": True}}
+        visible = {"bar/0": {"foo": {"foo/0": True, "foo/1": True}},
+                   "bar/1": {"foo": {"bar/0": True, "bar/1": True}}}
+        exposed = {"fail": (), "pass": ("foo", "bar", "baz")}
+
+        out = parse_final_results(agnostic, visible, exposed)
+        self.assertEqual(out, expected)
+
+    def test_ping_units(self):
+        pass
+
+    def test_to_json(self):
+        pass
+
+    def test_parse_targets(self):
+        expected = {}
+        targets = parse_targets(apps)
+        self.assertEqual(expected, targets)
 
 
 class TestMain(TestCase):
@@ -107,12 +156,18 @@ class TestMain(TestCase):
 class TestParseArgs(TestCase):
 
     def test_common_args(self):
-        args = parse_args(["an-env", "/bin/juju", "/tmp/logs", "an-env-mod"])
+        # Test common args
+        common = ["an-env", "/bin/juju", "/tmp/logs", "an-env-mod"]
+        args = parse_args(common)
         self.assertEqual("an-env", args.env)
         self.assertEqual("/bin/juju", args.juju_bin)
         self.assertEqual("/tmp/logs", args.logs)
         self.assertEqual("an-env-mod", args.temp_env_name)
         self.assertEqual(False, args.debug)
+        # Test specific args
+        nh_args = parse_args([common, "--model", "foo", "--bundle", "bar"])
+        self.assertEqual("foo", nh_args.model)
+        self.assertEqual("bar", nh_args.bundle)
 
     def test_help(self):
         fake_stdout = StringIO.StringIO()
