@@ -129,13 +129,13 @@ func (spec InstanceSpec) info(namespace string) *api.Container {
 
 	return &api.Container{
 		ContainerPut: api.ContainerPut{
-			Architecture:    "",
-			Config:          spec.config(),
-			Devices:         map[string]map[string]string{},
-			Ephemeral:       spec.Ephemeral,
-			Profiles:        spec.Profiles,
+			Architecture: "",
+			Config:       spec.config(),
+			Devices:      map[string]map[string]string{},
+			Ephemeral:    spec.Ephemeral,
+			Profiles:     spec.Profiles,
 		},
-		CreatedAt:    time.Time{},
+		CreatedAt:       time.Time{},
 		ExpandedConfig:  map[string]string{},
 		ExpandedDevices: map[string]map[string]string{},
 		Name:            name,
