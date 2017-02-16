@@ -65,7 +65,12 @@ func (s *guiSuite) patchBrowser(f func(*url.URL) error) {
 
 func (s *guiSuite) guiURL(c *gc.C) string {
 	info := s.APIInfo(c)
-	return fmt.Sprintf("https://%s/gui/%s/", info.Addrs[0], info.ModelTag.Id())
+	return fmt.Sprintf("https://%s/gui/u/%s/%s", info.Addrs[0], "admin", "controller")
+}
+
+func (s *guiSuite) guiOldURL(c *gc.C) string {
+	info := s.APIInfo(c)
+	return fmt.Sprintf("https://%s/gui/%s/", info.Addrs[0], s.State.ModelUUID())
 }
 
 func (s *guiSuite) TestGUISuccessWithBrowser(c *gc.C) {
@@ -112,8 +117,23 @@ func (s *guiSuite) TestGUISuccessNoBrowser(c *gc.C) {
 	out, err := s.run(c, "--hide-credential")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(out, gc.Equals, fmt.Sprintf(`
-GUI 4.5.6 is enabled at:
+GUI 4.5.6 for model "controller" is enabled at:
   %s`[1:], s.guiURL(c)))
+}
+
+func (s *guiSuite) TestGUISuccessOldGUI(c *gc.C) {
+	s.patchClient(func(client *httprequest.Client, u string) error {
+		if strings.Contains(u, "/u/") {
+			return errors.New("bad wolf")
+		}
+		return nil
+	})
+	// There is no need to patch the browser open function here.
+	out, err := s.run(c, "--hide-credential")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(out, gc.Equals, fmt.Sprintf(`
+GUI 4.5.6 for model "controller" is enabled at:
+  %s`[1:], s.guiOldURL(c)))
 }
 
 func (s *guiSuite) TestGUISuccessNoBrowserDeprecated(c *gc.C) {
@@ -122,7 +142,7 @@ func (s *guiSuite) TestGUISuccessNoBrowserDeprecated(c *gc.C) {
 	out, err := s.run(c, "--no-browser", "--hide-credential")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(out, gc.Equals, fmt.Sprintf(`
-GUI 4.5.6 is enabled at:
+GUI 4.5.6 for model "controller" is enabled at:
   %s`[1:], s.guiURL(c)))
 }
 

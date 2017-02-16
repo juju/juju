@@ -32,6 +32,9 @@ type guiCommand struct {
 	// Deprecated - used with --no-browser
 	noBrowser bool
 
+	// Deprecated - used with --show-credentials
+	showCreds bool
+
 	hideCreds bool
 	browser   bool
 
@@ -71,6 +74,7 @@ func (c *guiCommand) Info() *cmd.Info {
 func (c *guiCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
 	f.BoolVar(&c.hideCreds, "hide-credential", false, "Do not show admin credential to use for logging into the Juju GUI")
+	f.BoolVar(&c.showCreds, "show-credentials", true, "DEPRECATED. Show admin credential to use for logging into the Juju GUI")
 	f.BoolVar(&c.noBrowser, "no-browser", true, "DEPRECATED. --no-browser is now the default. Use --browser to open the web browser")
 	f.BoolVar(&c.browser, "browser", false, "Open the web browser, instead of just printing the Juju GUI URL")
 }
@@ -91,14 +95,24 @@ func (c *guiCommand) Run(ctx *cmd.Context) error {
 		return errors.Annotate(err, "cannot establish API connection")
 	}
 	defer conn.Close()
-	details, err := c.ClientStore().ModelByName(c.ControllerName(), c.ModelName())
+
+	store := modelcmd.QualifyingClientStore{c.ClientStore()}
+	details, err := store.ModelByName(c.ControllerName(), c.ModelName())
 	if err != nil {
 		return errors.Annotate(err, "cannot retrieve model details")
 	}
+
+	// Make 2 URLs to try - the old and the new.
 	rawURL := fmt.Sprintf("https://%s/gui/%s/", conn.Addr(), details.ModelUUID)
+	qualifiedModelName, err := store.QualifiedModelName(c.ControllerName(), c.ModelName())
+	if err != nil {
+		return errors.Annotate(err, "cannot construct model name")
+	}
+	newRawURL := fmt.Sprintf("https://%s/gui/u/%s", conn.Addr(), qualifiedModelName)
 
 	// Check that the Juju GUI is available.
-	if err = c.checkAvailable(rawURL, conn); err != nil {
+	var guiURL string
+	if guiURL, err = c.checkAvailable(rawURL, newRawURL, conn); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -116,7 +130,7 @@ func (c *guiCommand) Run(ctx *cmd.Context) error {
 	}
 
 	// Open the Juju GUI in the browser.
-	if err = c.openBrowser(ctx, rawURL, vers); err != nil {
+	if err = c.openBrowser(ctx, guiURL, vers); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -127,17 +141,20 @@ func (c *guiCommand) Run(ctx *cmd.Context) error {
 	return nil
 }
 
-// checkAvailable ensures the Juju GUI is available on the controller at the
-// given URL.
-func (c *guiCommand) checkAvailable(rawURL string, conn api.Connection) error {
+// checkAvailable ensures the Juju GUI is available on the controller at
+// one of the given URLs, returning the successful URL.
+func (c *guiCommand) checkAvailable(rawURL, newRawURL string, conn api.Connection) (string, error) {
 	client, err := conn.HTTPClient()
 	if err != nil {
-		return errors.Annotate(err, "cannot retrieve HTTP client")
+		return "", errors.Annotate(err, "cannot retrieve HTTP client")
+	}
+	if err = clientGet(client, newRawURL); err == nil {
+		return newRawURL, nil
 	}
 	if err = clientGet(client, rawURL); err != nil {
-		return errors.Annotate(err, "Juju GUI is not available")
+		return "", errors.Annotate(err, "Juju GUI is not available")
 	}
-	return nil
+	return rawURL, nil
 }
 
 // openBrowser opens the Juju GUI at the given URL.
@@ -151,7 +168,7 @@ func (c *guiCommand) openBrowser(ctx *cmd.Context, rawURL string, vers *version.
 		if vers != nil {
 			versInfo = fmt.Sprintf("%v ", vers)
 		}
-		ctx.Infof("GUI %sis enabled at:\n  %s", versInfo, u.String())
+		ctx.Infof("GUI %sfor model %q is enabled at:\n  %s", versInfo, c.ModelName(), u.String())
 		return nil
 	}
 	err = webbrowserOpen(u)
@@ -169,7 +186,7 @@ func (c *guiCommand) openBrowser(ctx *cmd.Context, rawURL string, vers *version.
 
 // showCredentials shows the admin username and password.
 func (c *guiCommand) showCredentials(ctx *cmd.Context) error {
-	if c.hideCreds {
+	if c.hideCreds || !c.showCreds {
 		return nil
 	}
 	// TODO(wallyworld) - what to do if we are using a macaroon.
@@ -177,7 +194,12 @@ func (c *guiCommand) showCredentials(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Annotate(err, "cannot retrieve credentials")
 	}
-	ctx.Infof("Your login credential is:\n  username: %s\n  password: %s", accountDetails.User, accountDetails.Password)
+	password := accountDetails.Password
+	if password == "" {
+		// TODO(wallyworld) - fix this
+		password = "<unknown> (password has been changed by the user)"
+	}
+	ctx.Infof("Your login credential is:\n  username: %s\n  password: %s", accountDetails.User, password)
 	return nil
 }
 
