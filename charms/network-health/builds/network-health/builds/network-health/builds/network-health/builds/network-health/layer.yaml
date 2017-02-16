@@ -1,9 +1,0 @@
-"options":
-  "basic":
-    "use_venv": !!bool "false"
-    "packages": []
-    "include_system_packages": !!bool "false"
-  "network-health": {}
-"includes":
-- "layer:basic"
-"is": "network-health"

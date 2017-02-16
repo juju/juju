@@ -1,0 +1,3 @@
+charms/network-health/builds/*
+../*.assert
+../*.snap
