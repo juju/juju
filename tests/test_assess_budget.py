@@ -113,8 +113,7 @@ class TestAssess(TestCase):
                         expect_b_mock.assert_called_once_with(
                             update_e_mock(self.fake_client),
                             self.budget_name, self.budget_value)
-                        b_limit_mock.assert_called_once_with(
-                            self.fake_client, 0)
+                        b_limit_mock.assert_called_once_with(0)
                         create_b_mock.assert_called_once_with(
                             self.fake_client, self.budget_name,
                             self.budget_value, 0)
@@ -140,8 +139,8 @@ class TestAssessShowBudget(TestAssess):
 
     def setUp(self):
         super(TestAssessShowBudget, self).setUp()
-        self.fake_json = json.loads('{"limit":"0","total":{"usage":"0%"}}')
-        self.fake_json['limit'] = self.budget_value
+        self.fake_json = json.loads('{"limit":"' + self.budget_value +
+                                    '","total":{"usage":"0%"}}')
 
     def test_assess_show_budget(self):
         with patch.object(self.fake_client, 'get_juju_output'):
@@ -273,11 +272,11 @@ class TestAssessBudgetLimit(TestAssess):
 
     def test_assess_budget_limt(self):
         budget_limit = randint(1, 10000)
-        assess_budget_limit(self.fake_client, budget_limit)
+        assess_budget_limit(budget_limit)
 
     def test_raises_error_on_negative_limit(self):
         neg_budget_limit = randint(-1000, -1)
         with self.assertRaises(JujuAssertionError) as ex:
-            assess_budget_limit(self.fake_client, neg_budget_limit)
+            assess_budget_limit(neg_budget_limit)
         self.assertEqual(ex.exception.message,
                          'Negative Budget Limit {}'.format(neg_budget_limit))
