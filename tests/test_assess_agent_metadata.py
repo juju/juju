@@ -13,6 +13,7 @@ from assess_agent_metadata import (
     deploy_charm_and_verify,
     verify_deployed_charm,
     deploy_machine_and_verify,
+    get_controller_and_non_controller_series,
     parse_args,
     )
 
@@ -275,20 +276,22 @@ class TestAssessMetadata(TestCase):
         charm_app = 'dummy-source'
         series = 'xenial'
         with patch('assess_agent_metadata.verify_deployed_charm'):
-            deploy_charm_and_verify(mock_client)
-            mock_client.deploy.assert_called_once_with(
-                'local:{}/{}'.format(series, charm_app))
-            mock_client.wait_for_started.assert_called_once_with()
-            mock_client.set_config.assert_called_once_with(
-                charm_app, {'token': 'one'})
-            mock_client.wait_for_workloads.assert_called_once_with()
+            with patch('assess_agent_metadata.remote_from_unit'):
+                deploy_charm_and_verify(mock_client)
+                mock_client.deploy.assert_called_once_with(
+                    'local:{}/{}'.format(series, charm_app))
+                mock_client.wait_for_started.assert_called_once_with()
+                mock_client.set_config.assert_called_once_with(
+                    charm_app, {'token': 'one'})
+                mock_client.wait_for_workloads.assert_called_once_with()
 
     def test_deploy_charm_and_verify_series_charm(self):
         mock_client = Mock()
         with patch('assess_agent_metadata.verify_deployed_charm'):
-            deploy_charm_and_verify(mock_client, "trusty", "demo")
-            mock_client.deploy.assert_called_once_with('local:trusty/demo')
-            mock_client.wait_for_started.assert_called_once_with()
+            with patch('assess_agent_metadata.remote_from_unit'):
+                deploy_charm_and_verify(mock_client, "trusty", "demo")
+                mock_client.deploy.assert_called_once_with('local:trusty/demo')
+                mock_client.wait_for_started.assert_called_once_with()
 
     def test_verify_deployed_charm(self):
         mock_client = Mock()
@@ -305,7 +308,7 @@ class TestAssessMetadata(TestCase):
                    return_value=mock_remote):
             with patch('assess_agent_metadata.get_controller_url_and_sha256',
                        return_value=controller_url_sha, autospec=True):
-                verify_deployed_charm("app", mock_client)
+                verify_deployed_charm(mock_client, mock_remote)
 
     def test_verify_deployed_charm_invalid_sha256(self):
         mock_client = Mock()
@@ -323,4 +326,36 @@ class TestAssessMetadata(TestCase):
             with patch('assess_agent_metadata.get_controller_url_and_sha256',
                        return_value=controller_url_sha, autospec=True):
                 with self.assertRaises(JujuAssertionError):
-                    verify_deployed_charm("app", mock_client)
+                    verify_deployed_charm(mock_client, mock_remote)
+
+
+class TestGetControllerAndNonController(TestCase):
+    def test_xenial_controller_to_get_non_controller_as_trusty(self):
+        fake_client = Mock(wraps=fake_juju_client())
+        get_status_output = Status({
+            'machines': {
+                '0': {
+                    'series': 'xenial'
+                }
+            }
+        }, '')
+        fake_client.get_status.return_value = get_status_output
+        controller_series, non_controller_series = \
+            get_controller_and_non_controller_series(fake_client)
+        self.assertEquals(controller_series, "xenial")
+        self.assertEquals(non_controller_series, "trusty")
+
+    def test_vivid_controller_to_get_non_controller_xenial_or_trusty(self):
+        fake_client = Mock(wraps=fake_juju_client())
+        get_status_output = Status({
+            'machines': {
+                '0': {
+                    'series': 'vivid'
+                }
+            }
+        }, '')
+        fake_client.get_status.return_value = get_status_output
+        controller_series, non_controller_series = \
+            get_controller_and_non_controller_series(fake_client)
+        self.assertEquals(controller_series, "vivid")
+        self.assertEquals(non_controller_series, "xenial")
