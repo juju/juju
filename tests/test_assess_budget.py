@@ -265,7 +265,7 @@ class TestAssessCreateBudget(TestAssess):
                     assess_create_budget(self.fake_client, self.budget_name,
                                          self.budget_value, self.budget_limit)
                 self.assertEqual(ex.exception.message,
-                                 'Error testing create-budget: bar')
+                                 "Error testing create-budget: ['bar', '']")
 
 
 class TestAssessBudgetLimit(TestAssess):

@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """
-This will test the budget commands utilized for commercial charm billing.
+This tests the budget commands utilized for commercial charm billing.
 These commands are linked to a ubuntu sso account, and as such, require the
 user account to be setup before test execution (including authentication).
 You can use charm login to do this, or let juju authenticate with a browser.
@@ -61,10 +61,7 @@ def _try_setting_budget(client, name, value):
     try:
         output = set_budget(client, name, value)
     except subprocess.CalledProcessError as e:
-        if hasattr(e, 'stderr'):
-            output = [e.output, e.stderr]
-        else:
-            output = e.output
+        output = [e.output, getattr(e, 'stderr', '')]
         raise JujuAssertionError('Could not set budget {}'.format(output))
 
     if 'budget limit updated' not in output:
@@ -77,10 +74,7 @@ def _try_creating_budget(client, name, value):
         log.info('Created new budget "{}" with value {}'.format(name,
                                                                 value))
     except subprocess.CalledProcessError as e:
-        if hasattr(e, 'stderr'):
-            output = [e.output, e.stderr]
-        else:
-            output = e.output
+        output = [e.output, getattr(e, 'stderr', '')]
         if any('already exists' in message for message in output):
             log.info('Reusing budget "{}" with value {}'.format(name, value))
             pass  # this will be a failure once lp:1663258 is fixed
