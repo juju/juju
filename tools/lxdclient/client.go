@@ -193,11 +193,14 @@ func newRawClient(remote Remote) (*lxd.Client, error) {
 
 	if remote.ID() == remoteIDForLocal && host == "" {
 		host = "unix://" + lxdshared.VarPath("unix.socket")
-	} else if !strings.HasPrefix(host, "unix://") {
-		_, _, err := net.SplitHostPort(host)
-		if err != nil {
-			// There is no port here
-			host = net.JoinHostPort(host, lxdshared.DefaultPort)
+	} else {
+		// If it's a URL, leave it alone. Otherwise, we
+		// assume it's a hostname, optionally with port.
+		url, err := url.Parse(host)
+		if err != nil || url.Scheme == "" {
+			if _, _, err := net.SplitHostPort(host); err != nil {
+				host = net.JoinHostPort(host, lxdshared.DefaultPort)
+			}
 		}
 	}
 	logger.Debugf("connecting to LXD remote %q: %q", remote.ID(), host)
