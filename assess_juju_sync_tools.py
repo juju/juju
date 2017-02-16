@@ -31,13 +31,12 @@ def assert_file_version_matches_agent_version(agent_file, agent_version):
     :param agent_file: String representing agent file name
     :param agent_version: String representing agent version
     """
-    log.warning("Match {} with {}".format(agent_file, agent_version))
     agent_file_parts = agent_file.split('-')
     if len(agent_file_parts) == 4:
         agent_file_version = '-'.join(agent_file_parts[1:2])
     if len(agent_file_parts) == 5:
         agent_file_version = '-'.join(agent_file_parts[1:3])
-    log.warning("Match2 {} with {}".format(agent_file_version, agent_version))
+
     if agent_file_version != agent_version:
         raise JujuAssertionError(
             "Mismatch agent file {} version found. Expected version {}".format(
