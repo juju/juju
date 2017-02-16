@@ -14,6 +14,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/arch"
 	"github.com/lxc/lxd/shared"
+	"github.com/lxc/lxd/shared/api"
 )
 
 // Constants related to user metadata.
@@ -120,22 +121,24 @@ func (spec InstanceSpec) config() map[string]string {
 	return resolveMetadata(spec.Metadata)
 }
 
-func (spec InstanceSpec) info(namespace string) *shared.ContainerInfo {
+func (spec InstanceSpec) info(namespace string) *api.Container {
 	name := spec.Name
 	if namespace != "" {
 		name = namespace + "-" + name
 	}
 
-	return &shared.ContainerInfo{
-		Architecture:    "",
-		Config:          spec.config(),
-		CreationDate:    time.Time{},
-		Devices:         shared.Devices{},
-		Ephemeral:       spec.Ephemeral,
+	return &api.Container{
+		ContainerPut: api.ContainerPut{
+			Architecture:    "",
+			Config:          spec.config(),
+			Devices:         map[string]map[string]string{},
+			Ephemeral:       spec.Ephemeral,
+			Profiles:        spec.Profiles,
+		},
+		CreatedAt:    time.Time{},
 		ExpandedConfig:  map[string]string{},
-		ExpandedDevices: shared.Devices{},
+		ExpandedDevices: map[string]map[string]string{},
 		Name:            name,
-		Profiles:        spec.Profiles,
 		Status:          "",
 		StatusCode:      0,
 	}
@@ -177,7 +180,7 @@ type InstanceSummary struct {
 	Metadata map[string]string
 }
 
-func newInstanceSummary(info *shared.ContainerInfo) InstanceSummary {
+func newInstanceSummary(info *api.Container) InstanceSummary {
 	archStr := arch.NormaliseArch(info.Architecture)
 
 	var numCores uint = 0 // default to all
@@ -234,7 +237,7 @@ type Instance struct {
 	spec *InstanceSpec
 }
 
-func newInstance(info *shared.ContainerInfo, spec *InstanceSpec) *Instance {
+func newInstance(info *api.Container, spec *InstanceSpec) *Instance {
 	summary := newInstanceSummary(info)
 	return NewInstance(summary, spec)
 }
