@@ -37,7 +37,9 @@ def ping_check(target):
     # If ping returns anything but success, return False
     try:
         output = subprocess.check_output("ping -c 1 " + target, shell=True)
-    except Exception, e:
+    except CalledProcessError, e:
+        hookenv.log('Ping to target {} failed for exception {}'.format(target,
+                                                                       e))
         return False
 
     return True

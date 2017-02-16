@@ -7,12 +7,9 @@ tags:
   - misc
 subordinate: true
 series:
+  - xenial
   - trusty
   - precise
-  - utopic
-  - vivid
-  - wily
-  - xenial
 
 requires:
   juju-info:

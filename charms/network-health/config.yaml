@@ -1,5 +1,0 @@
-options:
-  string-option:
-    type: string
-    default: "Default Value"
-    description: "A short description of the configuration option"
