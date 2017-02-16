@@ -48,14 +48,14 @@ type ControllerCommand interface {
 	// associated with.
 	ClientStore() jujuclient.ClientStore
 
-	// SetControllerName is called prior to the wrapped command's Init method with
-	// the active controller name. The controller name is guaranteed to be non-empty
-	// at entry of Init. It records the current model name in the
-	// ControllerCommandBase.
-	SetControllerName(controllerName string) error
+	// SetControllerName sets the value returned by ControllerName.
+	// It returns an error if the controller with the given name
+	// is not found, unless the name is empty and allowDefault is true,
+	// in which case the name of the current controller will be used.
+	SetControllerName(controllerName string, allowDefault bool) error
 
-	// ControllerName returns the name of the controller or model used to
-	// determine that API end point.
+	// ControllerName returns the name of the controller
+	// that the command should use.
 	ControllerName() string
 
 	// SetAPIOpener allows the replacement of the default API opener,
@@ -85,9 +85,16 @@ func (c *ControllerCommandBase) ClientStore() jujuclient.ClientStore {
 	return c.store
 }
 
-// SetControllerName implements the ControllerCommand interface.
-func (c *ControllerCommandBase) SetControllerName(controllerName string) error {
-	if _, err := c.ClientStore().ControllerByName(controllerName); err != nil {
+// SetControllerName implements ControllerCommand.SetControllerName.
+func (c *ControllerCommandBase) SetControllerName(controllerName string, allowDefault bool) error {
+	store := c.ClientStore()
+	if controllerName == "" && allowDefault {
+		currentController, err := store.CurrentController()
+		if err != nil {
+			return translateControllerError(store, err)
+		}
+		controllerName = currentController
+	} else if _, err := store.ControllerByName(controllerName); err != nil {
 		return errors.Trace(err)
 	}
 	c.controllerName = controllerName
@@ -271,21 +278,8 @@ func (w *sysCommandWrapper) Init(args []string) error {
 	w.SetClientStore(store)
 
 	if w.setControllerFlags {
-		if w.controllerName == "" && w.useDefaultController {
-			store := w.ClientStore()
-			currentController, err := store.CurrentController()
-			if err != nil {
-				return translateControllerError(store, err)
-			}
-			w.controllerName = currentController
-		}
-		if w.controllerName == "" && !w.useDefaultController {
-			return ErrNoControllersDefined
-		}
-	}
-	if w.controllerName != "" {
-		if err := w.SetControllerName(w.controllerName); err != nil {
-			return translateControllerError(w.ClientStore(), err)
+		if err := w.SetControllerName(w.controllerName, w.useDefaultController); err != nil {
+			return errors.Trace(err)
 		}
 	}
 	return w.ControllerCommand.Init(args)
