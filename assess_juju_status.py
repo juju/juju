@@ -35,11 +35,13 @@ __metaclass__ = type
 log = logging.getLogger("assess_juju_status")
 
 
-def verify_juju_status_attribute_of_charm(charm_details):
+def verify_juju_status_attribute_of_charm(client):
     """Verify the juju-status of the deployed charm
 
     :param charm_details: Deployed charm application details
     """
+    charm_details = client.get_status().get_applications()['dummy-sink']
+    log.warning(charm_details)
     try:
         app_status = charm_details['units']['dummy-sink/0']['juju-status']
     except KeyError:
@@ -48,11 +50,13 @@ def verify_juju_status_attribute_of_charm(charm_details):
         raise JujuAssertionError("Charm App status is not set")
 
 
-def verify_juju_status_attribute_of_subordinate_charm(charm_details):
+def verify_juju_status_attribute_of_subordinate_charm(client):
     """Verify the juju-status of deployed subordinate charm
 
     :param charm_details: Dictionary representing charm application details
     """
+    charm_details = client.get_status().get_applications()['dummy-sink']
+    log.warning(charm_details)
     try:
         sub_status = charm_details['units']['dummy-sink/0']['subordinates'][
             'dummy-subordinate/0']['juju-status']
@@ -89,12 +93,9 @@ def assess_juju_status_attribute(client, series):
     :param series: String representing charm series
     """
     deploy_charm_with_subordinate_charm(client, series)
-    charm_details = client.get_status().get_applications()['dummy-sink']
-    log.warning(charm_details)
-    verify_juju_status_attribute_of_charm(charm_details)
+    verify_juju_status_attribute_of_charm(client)
     log.warning("Completed - verify_juju_status_attribute_of_charm")
-    log.warning(charm_details)
-    verify_juju_status_attribute_of_subordinate_charm(charm_details)
+    verify_juju_status_attribute_of_subordinate_charm(client)
     log.warning("assess juju-status attribute done successfully")
 
 
