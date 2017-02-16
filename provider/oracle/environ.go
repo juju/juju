@@ -3,7 +3,10 @@ package oracle
 import (
 	"fmt"
 	"os"
+	"strings"
 
+	oci "github.com/hoenirvili/go-oracle-cloud/api"
+	"github.com/hoenirvili/go-oracle-cloud/response"
 	"github.com/juju/errors"
 	"github.com/juju/version"
 
@@ -16,8 +19,6 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/storage"
-
-	oci "github.com/hoenirvili/go-oracle-cloud/api"
 )
 
 // oracleEnviron implements the environs.Environ interface
@@ -116,21 +117,26 @@ func (o oracleEnviron) Bootstrap(
 		shape.name, shape.cpus, shape.ram,
 	)
 
-	imagelist, err := checkImageList(o.p.client, params.ImageMetadata)
+	imagelist, err := checkImageList(o.p.client, params.ImageMetadata, shape)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	os.Exit(1)
-
-	//TODO
+	// we are using just the juju ssh keys, no other keys
+	keys := strings.Split(o.cfg.AuthorizedKeys(), "\n")
+	// before bootstraping we must upload or check
+	// if the ssh keys from juju their are already uploaded
+	nameKey, err := uploadSSHControllerKeys(o.p.client, keys[0])
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	instance, err := launchBootstrapConstroller(o.p.client, []oci.InstanceParams{
 		{
 			Shape:     shape.name,
 			Imagelist: imagelist,
-			Label:     "",
-			SSHKeys:   nil,
-			Name:      "Bootstrap Juju Controller",
+			Label:     o.cfg.UUID(),
+			SSHKeys:   []string{nameKey},
+			Name:      o.cfg.Name(),
 		},
 	})
 	if err != nil {
@@ -141,10 +147,54 @@ func (o oracleEnviron) Bootstrap(
 	return nil, nil
 }
 
-// here we should check with the client if the we have already a ubuntu/centos/what ever image is specified int he tools metadata
+func uploadSSHControllerKeys(c *oci.Client, key string) (string, error) {
+	if c == nil {
+		return "", errors.Errorf("cannot use nil error client to upload ssh keys")
+	}
+
+	if len(key) == 0 {
+		return "", errors.Errorf("cannot use empty key in order to upload it")
+	}
+
+	resp, err := c.SSHKeyDetails("juju-client-key")
+	if err != nil {
+		if strings.Contains(err.Error(), "does not exist") {
+			// the keys does not exist, we should upload them
+			resp, err = c.AddSHHKey("juju-client-key", key, true)
+			if err != nil {
+				return "", errors.Errorf("cannot upload the juju client keys")
+			}
+		} else {
+			return "", errors.Errorf("cannot get details of the juju-client-key")
+		}
+	}
+
+	if !resp.Enabled {
+		// if it's not true we should enable the key
+		resp, err = c.UpdateSSHKey("juju-client-key", key, true)
+		if err != nil {
+			return "", errors.Errorf("cannot enable the ssh juju-client-key")
+		}
+		if !resp.Enabled {
+			return "", errors.Errorf("juju client key is not enabled after previously tried to enable")
+		}
+	}
+
+	return resp.Name, nil
+}
+
+// here we should check with the client if the we have already a ubuntu/centos/ whatever image is specified in the tools metadata
 // if there already exists then we should return it
-func checkImageList(c *oci.Client, tools []*imagemetadata.ImageMetadata) (string, error) {
-	var imageVersion string
+func checkImageList(
+	c *oci.Client,
+	tools []*imagemetadata.ImageMetadata,
+	shape *shape,
+) (string, error) {
+
+	var (
+		imageVersion string
+		imageArch    string
+	)
 
 	if c == nil {
 		return "", errors.NotFoundf("Cannot use nil client")
@@ -154,35 +204,84 @@ func checkImageList(c *oci.Client, tools []*imagemetadata.ImageMetadata) (string
 		return "", errors.NotFoundf("No tools imagemedatada provided")
 	}
 
-	for _, val := range tools {
-		if len(val.Version) > 0 {
-			imageVersion = val.Version
-			logger.Infof("Found tools %s and searching tghourgh the oracle imagelist", val)
-			break
-		}
-	}
-
-	if imageVersion == "" {
-		return "", errors.NotFoundf("No version found in the tools")
-	}
-
+	// take a list of all images that are in the oracle cloud account
 	resp, err := c.AllImageList()
 	if err != nil {
 		return "", errors.Trace(err)
 	}
 
-	for _, val := range resp.Result {
-		//TODO
+	// filter through all the image list and if we found one complaint with
+	// the tools just return it
+	for _, val := range tools {
+		if len(val.Version) > 0 && len(val.Arch) > 0 {
+			imageVersion = val.Version
+			imageVersion = "16.10" // TODO REMOVE THIS
+			imageArch = val.Arch
+		}
+
+		if imageVersion == "" {
+			continue
+		}
+
+		if imageArch == "" {
+			continue
+		}
+
+		for _, val := range resp.Result {
+			if isComplaint(val, shape.name, imageVersion, imageArch) {
+				return theName(val.Name), nil
+			}
+		}
 	}
-	fmt.Printf("%+v", resp)
-	return imageVersion, nil
+
+	return "", errors.Errorf(
+		"Cannot find any image in the oracle cloud that is complaint with the image tools",
+	)
+
+}
+
+// extracts the name of a imagelist name
+// the imagelist names contains the indenity, the username of the client and after
+// the actual name of the imagelist all are separted with "/"
+func theName(name string) string {
+	names := strings.Split(name, "/")
+	return names[len(names)-1]
+}
+
+func isComplaint(
+	list response.ImageList,
+	shapeName, imageVersion, imageArch string,
+) bool {
+
+	i := 0
+
+	for _, val := range list.Entries {
+		if strings.Contains(val.Attributes.SupportedShapes, shapeName) {
+			i++
+			break
+		}
+	}
+
+	if strings.Contains(list.Name, imageVersion) {
+		i++
+	}
+
+	if strings.Contains(list.Name, imageArch) {
+		i++
+	}
+
+	if i == 3 {
+		return true
+	}
+
+	return false
 }
 
 // launchBootstrapController creates a new vm inside
 // the oracle infrastracuture and parses the response into a instance.Instance
 func launchBootstrapConstroller(c *oci.Client, params []oci.InstanceParams) (instance.Instance, error) {
 	if c == nil {
-		return nil, errors.NotFoundf("Cannot use nil client")
+		return nil, errors.NotFoundf("client")
 	}
 
 	resp, err := c.CreateInstance(params)
@@ -190,6 +289,8 @@ func launchBootstrapConstroller(c *oci.Client, params []oci.InstanceParams) (ins
 		return nil, errors.Trace(err)
 	}
 
+	fmt.Printf("%v\n", resp)
+	os.Exit(1)
 	instance, err := newInstance(resp)
 	if err != nil {
 		return nil, errors.Trace(err)
