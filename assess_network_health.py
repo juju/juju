@@ -54,7 +54,7 @@ def assess_network_health(client, bundle=None, target_model=None):
     log.info('Exposure result:\n {}'.format(json.dumps(exposed_result,
                                                        indent=4,
                                                        sort_keys=True)) or e)
-    parse_final_results(visibility_result, exposed_result)
+    parse_final_results(agnostic_result, visibility_result, exposed_result)
 
 
 def setup_testing_environment(client, bundle, target_model):
@@ -212,12 +212,18 @@ def parse_expose_results(service_results, exposed):
     return result
 
 
-def parse_final_results(visibility, exposed=None):
+def parse_final_results(agnostic, visibility, exposed=None):
     """Parses test results and raises an error if any failed
     :param visibility: Visibility test result
     :param exposed: Exposure test result
     """
     error_string = ''
+    for machine, machine_result in agnostic.items():
+        for ip, res in machine_result.items():
+            if res is False:
+                error = 'Failed to ping machine {0} '\
+                        'at address {1}\n'.format(machine, ip)
+                error_string += error
     for nh_source, service_result in visibility.items():
             for service, unit_res in service_result.items():
                 if False in unit_res.values():
