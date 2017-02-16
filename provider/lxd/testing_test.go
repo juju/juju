@@ -111,6 +111,7 @@ type BaseSuiteUnpatched struct {
 
 	Ports          []network.PortRange
 	EndpointAddrs  []string
+	InterfaceAddr  string
 	InterfaceAddrs []net.Addr
 }
 
@@ -139,6 +140,7 @@ func (s *BaseSuiteUnpatched) SetUpTest(c *gc.C) {
 func (s *BaseSuiteUnpatched) initProvider(c *gc.C) {
 	s.Provider = &environProvider{}
 	s.EndpointAddrs = []string{"1.2.3.4"}
+	s.InterfaceAddr = "1.2.3.4"
 	s.InterfaceAddrs = []net.Addr{
 		&net.IPNet{IP: net.ParseIP("127.0.0.1")},
 		&net.IPNet{IP: net.ParseIP("1.2.3.4")},
@@ -329,7 +331,15 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	s.BaseSuiteUnpatched.SetUpTest(c)
 
 	s.Stub = &gitjujutesting.Stub{}
-	s.Client = &StubClient{Stub: s.Stub}
+	s.Client = &StubClient{
+		Stub: s.Stub,
+		ServerState: &shared.ServerState{
+			Config: map[string]interface{}{},
+			Environment: shared.ServerStateEnvironment{
+				Certificate: "server-cert",
+			},
+		},
+	}
 	s.Firewaller = &stubFirewaller{stub: s.Stub}
 	s.Common = &stubCommon{stub: s.Stub}
 
@@ -365,7 +375,7 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	}
 	s.Provider.interfaceAddress = func(iface string) (string, error) {
 		s.Stub.AddCall("InterfaceAddress", iface)
-		return "1.2.3.4", s.Stub.NextErr()
+		return s.InterfaceAddr, s.Stub.NextErr()
 	}
 	s.Provider.interfaceAddrs = func() ([]net.Addr, error) {
 		s.Stub.AddCall("InterfaceAddrs")
@@ -475,8 +485,9 @@ func (sc *stubCommon) DestroyEnv() error {
 type StubClient struct {
 	*gitjujutesting.Stub
 
-	Insts []lxdclient.Instance
-	Inst  *lxdclient.Instance
+	Insts       []lxdclient.Instance
+	Inst        *lxdclient.Instance
+	ServerState *shared.ServerState
 }
 
 func (conn *StubClient) Instances(prefix string, statuses ...string) ([]lxdclient.Instance, error) {
@@ -548,11 +559,15 @@ func (conn *StubClient) ServerStatus() (*shared.ServerState, error) {
 	if err := conn.NextErr(); err != nil {
 		return nil, err
 	}
-	return &shared.ServerState{
-		Environment: shared.ServerStateEnvironment{
-			Certificate: "server-cert",
-		},
-	}, nil
+	return conn.ServerState, nil
+}
+
+func (conn *StubClient) ServerAddresses() ([]string, error) {
+	conn.AddCall("ServerAddresses")
+	return []string{
+		"127.0.0.1:1234",
+		"1.2.3.4:1234",
+	}, conn.NextErr()
 }
 
 func (conn *StubClient) SetServerConfig(k, v string) error {
