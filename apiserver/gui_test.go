@@ -507,6 +507,10 @@ func (s *guiSuite) TestGUIConfigOldURL(c *gc.C) {
 	s.assertGUIConfig(c, "2.3.0", "/config.js?new-path=false", "/gui/"+s.modelUUID)
 }
 
+func (s *guiSuite) TestGUIConfigOldGUI(c *gc.C) {
+	s.assertGUIConfig(c, "2.0.0", "/config.js?new-path=false", "/gui/"+s.modelUUID)
+}
+
 func (s *guiSuite) TestGUIConfigNewURL(c *gc.C) {
 	s.assertGUIConfig(c, "2.3.0", "/config.js", "/gui/")
 }

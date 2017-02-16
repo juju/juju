@@ -153,11 +153,12 @@ func (gr *guiRouter) ensureFileHandler(h func(gh *guiHandler, w http.ResponseWri
 			// request is old style with model UUID directly in path
 			baseGUIURLPath = baseGUIURLPath + modelUUID
 		} else if oldGUI {
-			// GUI version is < 2.3.0 so we need to include /u/user/model in the GUI URL.
+			// GUI version is < 2.3.0 so we need to account for /u/user/model in the GUI URL.
 			user := req.URL.Query().Get(":user")
 			model := req.URL.Query().Get(":modelname")
 			baseGUIURLPath = strings.Replace(gr.pattern, ":user", user, -1)
 			baseGUIURLPath = strings.Replace(baseGUIURLPath, ":modelname", model, -1)
+			baseGUIURLPath = strings.Replace(baseGUIURLPath, ":modeluuid", modelUUID, -1)
 		}
 
 		gh := &guiHandler{
