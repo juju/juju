@@ -36,18 +36,18 @@ class TestParseArgs(TestCase):
 
 class TestAssertFileVersionMatchesAgentVersion(TestCase):
     def test_assert_file_version_matches_agent_version_valid(self):
-        for version in [("2.0.1-xenial-amd64", "2.0.1"),
-                        ("2.1-beta1-zesty-amd64.tgz", "2.1-beta1"),
-                        ("2.0-rc2-arch-series", "2.0-rc2"),
-                        ("2.0-xenial-amd64", "2.0"),
-                        ("2.1-rc1", "2.1-rc1")]:
+        for version in [("juju-2.0.1-xenial-amd64.tgz", "2.0.1"),
+                        ("juju-2.1-beta1-zesty-amd64.tgz", "2.1-beta1"),
+                        ("juju-2.0-rc2-arch-series.tgz", "2.0-rc2"),
+                        ("juju-2.0-xenial-amd64.tgz", "2.0"),
+                        ("juju-2.1-rc1-win10-amd64.tgz", "2.1-rc1")]:
             assert_file_version_matches_agent_version(
                 version[0], version[1])
 
     def test_raises_exception_when_versions_dont_match(self):
-        for version in [("2.0.1-xenial-amd64", "2.2.1"),
-                        ("2.0.2-rc2", "2.0.1"),
-                        ("2.0-rc2-arch-series", "2.1")]:
+        for version in [("juju-2.0.1-xenial-amd64.tgz", "2.2.1"),
+                        ("juju-2.0-rc2-arch-series", "2.1"),
+                        ("juju-2.1-rc1-win10-amd64.tgz", "2.1-rc2")]:
             with self.assertRaises(JujuAssertionError):
                     assert_file_version_matches_agent_version(
                         version[0], version[1])
@@ -95,12 +95,9 @@ class TestVerifyAgentTools(TestCase):
                     'juju-2.0.1-win2016-amd64.tgz',
                     'juju-2.0.1-win2016-amd64.txt']
                 verify_agent_tools("foo", juju_bin_ver)
-                calls = [call('juju-2.0.1-centos7-amd64.tgz',
-                              "juju-{}".format(juju_bin_ver)),
-                         call('juju-2.0.1-precise-amd64.tgz',
-                              "juju-{}".format(juju_bin_ver)),
-                         call('juju-2.0.1-win2016-amd64.tgz',
-                              "juju-{}".format(juju_bin_ver))]
+                calls = [call('juju-2.0.1-centos7-amd64.tgz', juju_bin_ver),
+                         call('juju-2.0.1-precise-amd64.tgz', juju_bin_ver),
+                         call('juju-2.0.1-win2016-amd64.tgz', juju_bin_ver)]
                 self.assertEquals(asm.call_count, 3)
                 for x in range(len(call)):
                     self.assertEquals(asm.call_args_list[x], calls[x])
@@ -109,8 +106,8 @@ class TestVerifyAgentTools(TestCase):
         juju_bin_ver = "2.0.1"
         with patch.object(os, 'listdir') as lstdir:
             lstdir.return_value = [
-                'juju-2.0.1-centos7-amd64.tgz',
-                'juju-2.0.2-precise-amd64.tgz',
+                'juju-2.0.2-centos7-amd64.tgz',
+                'juju-2.0.1-precise-amd64.tgz',
                 'juju-2.0.1-win2016-amd64.tgz']
             with self.assertRaises(JujuAssertionError):
                 verify_agent_tools("foo", juju_bin_ver)

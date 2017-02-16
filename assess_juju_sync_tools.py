@@ -32,13 +32,13 @@ def assert_file_version_matches_agent_version(agent_file, agent_version):
     :param agent_version: String representing agent version
     """
     log.warning("Match {} with {}".format(agent_file, agent_version))
-    version_parts = agent_file.split('-')
-    if len(version_parts) == 4:
-        agent_file = '-'.join(version_parts[0:2])
-    else:
-        agent_file = version_parts[0]
-    log.warning("Match(2) {} with {}".format(agent_file, agent_version))
-    if agent_file != agent_version:
+    agent_file_parts = agent_file.split('-')
+    if len(agent_file_parts) == 4:
+        agent_file_version = '-'.join(agent_file_parts[1:2])
+    if len(agent_file_parts) == 5:
+        agent_file_version = '-'.join(agent_file_parts[1:3])
+    log.warning("Match2 {} with {}".format(agent_file_version, agent_version))
+    if agent_file_version != agent_version:
         raise JujuAssertionError(
             "Mismatch agent file {} version found. Expected version {}".format(
                 agent_file, agent_version))
@@ -53,7 +53,7 @@ def verify_agent_tools(agent_dir, agent_version):
     agent_files = [f for f in os.listdir(agent_dir) if f.endswith('.tgz')]
     for agent_file in agent_files:
         assert_file_version_matches_agent_version(
-            agent_file, "juju-{}".format(agent_version))
+            agent_file, agent_version)
     log.info('juju sync-tool verification done successfully')
 
 
