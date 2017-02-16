@@ -27,6 +27,7 @@ log = logging.getLogger("assess_juju_sync_tools")
 
 def assert_file_version_matches_agent_version(agent_file, agent_version):
     """Verify the agent_file start with the specified agent version.
+
     :param agent_file: String representing agent file name
     :param agent_version: String representing agent version
     """
@@ -38,6 +39,7 @@ def assert_file_version_matches_agent_version(agent_file, agent_version):
 
 def verify_agent_tools(agent_dir, agent_version):
     """Verify all the files in agent directory were of specific agent version
+
     :param agent_dir: String representing agent directory path
     :param agent_version: String representing agent version
     """
@@ -50,6 +52,7 @@ def verify_agent_tools(agent_dir, agent_version):
 
 def assess_juju_sync_tools(client, agent_stream, agent_version):
     """ Do sync-tool and verify the downloaded agent version.
+
     :param client: ModelClient juju
     :param agent_stream: String representing agent stream
     :param agent_version: String representing agent version
@@ -63,6 +66,7 @@ def assess_juju_sync_tools(client, agent_stream, agent_version):
 
 def get_agent_version(client):
     """Get juju agent version
+
     :param client: ModelClient juju
     :return: The juju agent version
     """
@@ -72,6 +76,7 @@ def get_agent_version(client):
 
 def parse_args(argv):
     """Parse all arguments."""
+    
     parser = argparse.ArgumentParser(
         description="Testing sync tools operates correctly")
     add_basic_testing_arguments(parser)
