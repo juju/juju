@@ -54,9 +54,8 @@ def verify_juju_status_attribute_of_subordinate_charm(charm_details):
     :param charm_details: Dictionary representing charm application details
     """
     try:
-        sub_status = charm_details[
-            'units']['dummy-sink/0']['subordinates']['dummy-subordinate/0'][
-            'juju-status']
+        sub_status = charm_details['units']['dummy-sink/0']['subordinates'][
+            'dummy-subordinate/0']['juju-status']
     except KeyError:
         raise ValueError("Attribute not found")
     if not sub_status:
@@ -91,7 +90,10 @@ def assess_juju_status_attribute(client, series):
     """
     deploy_charm_with_subordinate_charm(client, series)
     charm_details = client.get_status().get_applications()['dummy-sink']
+    log.warning(charm_details)
     verify_juju_status_attribute_of_charm(charm_details)
+    log.warning("Completed - verify_juju_status_attribute_of_charm")
+    log.warning(charm_details)
     verify_juju_status_attribute_of_subordinate_charm(charm_details)
     log.warning("assess juju-status attribute done successfully")
 
