@@ -84,6 +84,7 @@ def deploy_charm_with_subordinate_charm(client, series):
     client.set_config('dummy-subordinate', {'token': token})
     client.juju('add-relation', ('dummy-subordinate', 'dummy-sink'))
     client.juju('expose', ('dummy-sink',))
+    client.wait_for_workloads()
 
 
 def assess_juju_status_attribute(client, series):
