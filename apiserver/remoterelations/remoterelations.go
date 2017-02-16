@@ -618,3 +618,18 @@ func (api *RemoteRelationsAPI) WatchRemoteApplicationRelations(args params.Entit
 	}
 	return results, nil
 }
+
+// WatchRemoteRelations starts a strings watcher that notifies of the addition,
+// removal, and lifecycle changes of remote relations in the model; and
+// returns the watcher ID and initial IDs of remote relations, or an error if
+// watching failed.
+func (api *RemoteRelationsAPI) WatchRemoteRelations() (params.StringsWatchResult, error) {
+	w := api.st.WatchRemoteRelations()
+	if changes, ok := <-w.Changes(); ok {
+		return params.StringsWatchResult{
+			StringsWatcherId: api.resources.Register(w),
+			Changes:          changes,
+		}, nil
+	}
+	return params.StringsWatchResult{}, watcher.EnsureErr(w)
+}

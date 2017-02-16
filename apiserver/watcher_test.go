@@ -103,44 +103,6 @@ func (s *watcherSuite) TestFilesystemAttachmentsWatcher(c *gc.C) {
 	})
 }
 
-func (s *watcherSuite) TestRemoteApplicationWatcher(c *gc.C) {
-	ch := make(chan params.RemoteApplicationChange, 1)
-	id := s.resources.Register(&fakeRemoteApplicationWatcher{ch: ch})
-	s.authorizer.Controller = true
-
-	ch <- params.RemoteApplicationChange{
-		ApplicationTag: names.NewApplicationTag("foo").String(),
-		Life:           params.Life("alive"),
-	}
-	facade := s.getFacade(c, "RemoteApplicationWatcher", 1, id, nopDispose).(remoteApplicationWatcher)
-	result, err := facade.Next()
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Assert(result, jc.DeepEquals, params.RemoteApplicationWatchResult{
-		Change: &params.RemoteApplicationChange{
-			ApplicationTag: names.NewApplicationTag("foo").String(),
-			Life:           params.Life("alive"),
-		},
-	})
-}
-
-type remoteApplicationWatcher interface {
-	Next() (params.RemoteApplicationWatchResult, error)
-}
-
-type fakeRemoteApplicationWatcher struct {
-	state.RemoteApplicationWatcher
-	ch chan params.RemoteApplicationChange
-}
-
-func (w *fakeRemoteApplicationWatcher) Changes() <-chan params.RemoteApplicationChange {
-	return w.ch
-}
-
-func (w *fakeRemoteApplicationWatcher) Stop() error {
-	return nil
-}
-
 func (s *watcherSuite) TestMigrationStatusWatcher(c *gc.C) {
 	w := apiservertesting.NewFakeNotifyWatcher()
 	id := s.resources.Register(w)
