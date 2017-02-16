@@ -31,7 +31,12 @@ def assert_file_version_matches_agent_version(agent_file, agent_version):
     :param agent_file: String representing agent file name
     :param agent_version: String representing agent version
     """
-    if not agent_file.startswith(agent_version):
+    version_parts = agent_file.split('-')
+    if len(version_parts) == 4:
+        agent_file = '-'.join(version_parts[0:2])
+    else:
+        agent_file = version_parts[0]
+    if agent_file != agent_version:
         raise JujuAssertionError(
             "Mismatch agent file {} version found. Expected version {}".format(
                 agent_file, agent_version))
@@ -70,13 +75,13 @@ def get_agent_version(client):
     :param client: ModelClient juju
     :return: The juju agent version
     """
-    agent_version = client.version.rsplit('-', 2)[0]
+    agent_version = client.get_matching_agent_version()
     return agent_version
 
 
 def parse_args(argv):
     """Parse all arguments."""
-    
+
     parser = argparse.ArgumentParser(
         description="Testing sync tools operates correctly")
     add_basic_testing_arguments(parser)
