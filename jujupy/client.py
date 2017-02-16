@@ -2648,6 +2648,7 @@ class ModelClient:
             user_client.env.user_name = user_name
             user_client.env.environment = qualified_model_name(
                 user_client.env.environment, self.env.user_name)
+        user_client.env.dump_yaml(user_client.env.juju_home, None)
         # New user names the controller.
         user_client.env.controller = Controller(controller_name)
         return user_client
