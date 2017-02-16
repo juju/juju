@@ -39,7 +39,8 @@ class TestAssertFileVersionMatchesAgentVersion(TestCase):
         for version in [("2.0.1-xenial-amd64", "2.0.1"),
                         ("2.1-beta1-zesty-amd64.tgz", "2.1-beta1"),
                         ("2.0-rc2-arch-series", "2.0-rc2"),
-                        ("2.0-xenial-amd64", "2.0")]:
+                        ("2.0-xenial-amd64", "2.0"),
+                        ("2.1-rc1", "2.1-rc1")]:
             assert_file_version_matches_agent_version(
                 version[0], version[1])
 
