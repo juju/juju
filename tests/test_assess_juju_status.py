@@ -10,9 +10,9 @@ from mock import (
     )
 from assess_juju_status import (
     deploy_charm_with_subordinate_charm,
-    verify_subordinate_status,
-    verify_charm_status,
-    assess_juju_status,
+    verify_juju_status_attribute_of_subordinate_charm,
+    verify_juju_status_attribute_of_charm,
+    assess_juju_status_attribute,
     parse_args,
     main,
     )
@@ -58,7 +58,8 @@ class TestMain(TestCase):
                        autospec=True) as mock_bc:
                 with patch('deploy_stack.client_from_config',
                            return_value=client) as mock_cfc:
-                    with patch("assess_juju_status.assess_juju_status",
+                    with patch("assess_juju_status."
+                               "assess_juju_status_attribute",
                                autospec=True) as mock_assess:
                         main(argv)
         mock_cl.assert_called_once_with(logging.DEBUG)
@@ -68,9 +69,8 @@ class TestMain(TestCase):
         mock_assess.assert_called_once_with(client, "xenial")
 
 
-class TestAssess(TestCase):
-
-    def test_juju_status(self):
+class TestVerifyJujuStatusAttrubuteOfCharm(TestCase):
+    def test_deploy_charm_with_subordinate_charm(self):
         fake_client = Mock(wraps=fake_juju_client())
         fake_client.bootstrap()
         deploy_charm_with_subordinate_charm(fake_client, 'xenial')
@@ -78,123 +78,112 @@ class TestAssess(TestCase):
                                              call('dummy-subordinate')])
         fake_client.wait_for_started.assert_has_calls([call()] * 2)
 
-    def test_verify_charm_status(self):
-        fake_client = Mock(wraps=fake_juju_client())
-        app_status = Status({
-            'applications': {
-                'dummy-sink': {
-                    'units': {
-                        'dummy-sink/0': {
+    def test_verify_juju_status_attribute_of_charm(self):
+        charm_details = {
+            'units': {
+                'dummy-sink/0': {
+                    'juju-status': {
+                        'current': 'idle',
+                        'since': 'DD MM YYYY hh:mm:ss',
+                        'version': '2.0.0',
+                    }
+                }
+            }
+        }
+        verify_juju_status_attribute_of_charm(charm_details)
+
+    def test_verify_juju_status_attribute_of_charm_raise_assertion(self):
+        charm_details = {
+            'units': {
+                'dummy-sink/0': {
+                    'juju-status': {
+                    }
+                }
+            }
+        }
+        with self.assertRaisesRegexp(
+                JujuAssertionError, "Charm App status is not set"):
+            verify_juju_status_attribute_of_charm(charm_details)
+
+    def test_verify_juju_status_attribute_of_charm_raise_value_error(self):
+        charm_details = {
+            'units': {
+                'dummy-sink/0': {
+                }
+            }
+        }
+        with self.assertRaises(ValueError):
+            verify_juju_status_attribute_of_charm(charm_details)
+
+
+class TestVerifyJujuStatusAttributeOfSubordinateCharm(TestCase):
+    def test_juju_status_attribute_of_subordinate(self):
+        charm_details = {
+            'units': {
+                'dummy-sink/0': {
+                    'juju-status': {
+                        'current': 'idle',
+                        'since': 'DD MM YYYY hh:mm:ss',
+                        'version': '2.0.0',
+                    },
+                    'subordinates': {
+                        'dummy-subordinate/0': {
                             'juju-status': {
                                 'current': 'idle',
                                 'since': 'DD MM YYYY hh:mm:ss',
-                                'version': '2.0.0',
+                                'version': '2.0.0'
                             }
                         }
                     }
                 }
             }
-        }, '')
-        fake_client.bootstrap()
-        with patch.object(fake_client, 'get_status', autospec=True) as ags:
-            ags.return_value = app_status
-            charm_details = fake_client.get_status().get_applications()[
-                'dummy-sink']
-            verify_charm_status(charm_details)
-            self.assertIn("verified charm app status successfully",
-                          self.log_stream.getvalue())
+        }
+        verify_juju_status_attribute_of_subordinate_charm(charm_details)
 
-    def test_verify_charm_status_to_fail(self):
-        fake_client = Mock(wraps=fake_juju_client())
-        app_status = Status({
-            'applications': {
-                'dummy-sink': {
-                    'units': {
-                        'dummy-sink/0': {
+    def test_juju_status_attribute_of_subordinate_raise_exception(self):
+        charm_details = {
+            'units': {
+                'dummy-sink/0': {
+                    'juju-status': {
+                        'current': 'idle',
+                        'since': 'DD MM YYYY hh:mm:ss',
+                        'version': '2.0.0',
+                    },
+                    'subordinates': {
+                        'dummy-subordinate/0': {
                             'juju-status': {
                             }
                         }
                     }
                 }
             }
-        }, '')
-        fake_client.bootstrap()
-        with patch.object(fake_client, 'get_status', autospec=True) as ags:
-            ags.return_value = app_status
-            charm_details = fake_client.get_status().get_applications()[
-                'dummy-sink']
-            with self.assertRaisesRegexp(
-                    JujuAssertionError, "charm app status not found"):
-                verify_charm_status(charm_details)
+        }
+        with self.assertRaisesRegexp(
+                JujuAssertionError, "Charm Subordinate status is not set"):
+            verify_juju_status_attribute_of_subordinate_charm(charm_details)
 
-    def test_verify_subordinate_app_status(self):
-        fake_client = Mock(wraps=fake_juju_client())
-        app_status = Status({
-            'applications': {
-                'dummy-sink': {
-                    'units': {
-                        'dummy-sink/0': {
-                            'juju-status': {
-                                'current': 'idle',
-                                'since': 'DD MM YYYY hh:mm:ss',
-                                'version': '2.0.0',
-                            },
-                            'subordinates': {
-                                'dummy-subordinate/0': {
-                                    'juju-status': {
-                                        'current': 'idle',
-                                        'since': 'DD MM YYYY hh:mm:ss',
-                                        'version': '2.0.0'
-                                    }
-                                }
-                            }
+    def test_juju_status_attribute_of_subordinate_raise_value_error(self):
+        charm_details = {
+            'units': {
+                'dummy-sink/0': {
+                    'juju-status': {
+                        'current': 'idle',
+                        'since': 'DD MM YYYY hh:mm:ss',
+                        'version': '2.0.0',
+                    },
+                    'subordinates': {
+                        'dummy-subordinate/0': {
                         }
                     }
                 }
             }
-        }, '')
-        fake_client.bootstrap()
-        with patch.object(fake_client, 'get_status', autospec=True) as ags:
-            ags.return_value = app_status
-            charm_details = fake_client.get_status().get_applications()[
-                'dummy-sink']
-            verify_subordinate_status(charm_details)
-            self.assertIn("verified charm subordinate status successfully",
-                          self.log_stream.getvalue())
+        }
+        with self.assertRaises(ValueError):
+            verify_juju_status_attribute_of_subordinate_charm(charm_details)
 
-    def test_verify_subordinate_app_status_to_fail(self):
-        fake_client = Mock(wraps=fake_juju_client())
-        app_status = Status({
-            'applications': {
-                'dummy-sink': {
-                    'units': {
-                        'dummy-sink/0': {
-                            'juju-status': {
-                                'current': 'idle',
-                                'since': 'DD MM YYYY hh:mm:ss',
-                                'version': '2.0.0',
-                            },
-                            'subordinates': {
-                                'dummy-subordinate/0': {
-                                    'juju-status': {
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }, '')
-        fake_client.bootstrap()
-        with patch.object(fake_client, 'get_status', autospec=True) as ags:
-            ags.return_value = app_status
-            charm_details = fake_client.get_status().get_applications()[
-                'dummy-sink']
-            with self.assertRaisesRegexp(
-                    JujuAssertionError, "charm subordinate status not found"):
-                verify_subordinate_status(charm_details)
 
-    def test_assess_juju_status(self):
+class TestAssessJujuStatuAttribute(TestCase):
+    def test_assess_juju_status_attribute_successfully(self):
         fake_client = Mock(wraps=fake_juju_client())
         app_status = Status({
             'applications': {
@@ -221,8 +210,7 @@ class TestAssess(TestCase):
             }
         }, '')
         fake_client.bootstrap()
-        with patch.object(fake_client, 'get_status', autospec=True) as ags:
-            ags.return_value = app_status
-            assess_juju_status(fake_client, "xenial")
-            self.assertIn('assess juju-status done successfully',
-                          self.log_stream.getvalue())
+        fake_client.get_status.return_value = app_status
+        assess_juju_status_attribute(fake_client, "xenial")
+        self.assertIn('assess juju-status attribute done successfully',
+                      self.log_stream.getvalue())
