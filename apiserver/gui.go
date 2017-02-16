@@ -33,7 +33,8 @@ import (
 )
 
 const (
-	bzMimeType = "application/x-tar-bzip2"
+	bzMimeType       = "application/x-tar-bzip2"
+	guiURLPathPrefix = "/gui/"
 )
 
 var (
@@ -118,12 +119,53 @@ func (gr *guiRouter) ensureFileHandler(h func(gh *guiHandler, w http.ResponseWri
 			}
 			return
 		}
-		uuid := req.URL.Query().Get(":modeluuid")
+
+		modelUUID, useLegacyPathPath, err := gr.ctxt.modelUUIDFromRequest(req)
+		if err != nil {
+			if err := sendError(w, err); err != nil {
+				logger.Errorf("%v", err)
+			}
+			return
+		}
+		if useLegacyPathPath {
+			newPath := req.URL.Query().Get("new-path")
+			useLegacyPathPath = newPath == "false"
+		}
+
+		// We need to know if the old GUI < 2.3.0 is running so that
+		// the correct GUI URL path can be set.
+		oldGUI := false
+		st, releaser, err := gr.ctxt.srv.statePool.Get(modelUUID)
+		if err == nil {
+			defer releaser()
+			vers, err := st.GUIVersion()
+			if err == nil {
+				oldGUI = vers.Major < 2 || vers.Minor < 3
+			} else {
+				logger.Warningf("cannot retrieve GUI version: %v", err)
+			}
+		} else {
+			logger.Warningf("cannot retrieve GUI version: %v", err)
+		}
+
+		baseGUIURLPath := guiURLPathPrefix
+		if useLegacyPathPath {
+			// request is old style with model UUID directly in path
+			baseGUIURLPath = baseGUIURLPath + modelUUID
+		} else if oldGUI {
+			// GUI version is < 2.3.0 so we need to include /u/user/model in the GUI URL.
+			user := req.URL.Query().Get(":user")
+			model := req.URL.Query().Get(":modelname")
+			baseGUIURLPath = strings.Replace(gr.pattern, ":user", user, -1)
+			baseGUIURLPath = strings.Replace(baseGUIURLPath, ":modelname", model, -1)
+		}
+
 		gh := &guiHandler{
-			rootDir:     rootDir,
-			baseURLPath: strings.Replace(gr.pattern, ":modeluuid", uuid, -1),
-			hash:        hash,
-			uuid:        uuid,
+			rootDir:          rootDir,
+			baseModelURLPath: guiURLPathPrefix + modelUUID,
+			baseGUIURLPath:   baseGUIURLPath,
+			hash:             hash,
+			uuid:             modelUUID,
 		}
 		h(gh, w, req)
 	})
@@ -247,10 +289,11 @@ func uncompressGUI(r io.Reader, sourceDir, targetDir string) error {
 
 // guiHandler serves the Juju GUI.
 type guiHandler struct {
-	baseURLPath string
-	rootDir     string
-	hash        string
-	uuid        string
+	baseModelURLPath string
+	baseGUIURLPath   string
+	rootDir          string
+	hash             string
+	uuid             string
 }
 
 // serveStatic serves the GUI static files.
@@ -332,13 +375,23 @@ func (h *guiHandler) serveIndex(w http.ResponseWriter, req *http.Request) {
 		}
 		return
 	}
+
+	// Record whether e need to use a legacy URL in the config.
+	// The default config URL path without the extra query param
+	// generates the new base path.
+	uuid := req.URL.Query().Get(":modeluuid")
+	configPath := "config.js"
+	if uuid != "" {
+		configPath += "?new-path=false"
+	}
+
 	tmpl := filepath.Join(h.rootDir, "templates", "index.html.go")
 	if err := renderGUITemplate(w, tmpl, map[string]interface{}{
 		// staticURL holds the root of the static hierarchy, hence why the
 		// empty string is used here.
 		"staticURL": h.hashedPath(""),
 		"comboURL":  h.hashedPath("combo"),
-		"configURL": h.hashedPath("config.js"),
+		"configURL": h.hashedPath(configPath),
 		// TODO frankban: make it possible to enable debug.
 		"debug":         false,
 		"spriteContent": string(spriteContent),
@@ -354,7 +407,7 @@ func (h *guiHandler) serveConfig(w http.ResponseWriter, req *http.Request) {
 	w.Header().Set("Content-Type", jsMimeType)
 	tmpl := filepath.Join(h.rootDir, "templates", "config.js.go")
 	if err := renderGUITemplate(w, tmpl, map[string]interface{}{
-		"base":             h.baseURLPath,
+		"base":             h.baseGUIURLPath,
 		"host":             req.Host,
 		"controllerSocket": "/api",
 		"socket":           "/model/$uuid/api",
@@ -373,7 +426,7 @@ func (h *guiHandler) serveConfig(w http.ResponseWriter, req *http.Request) {
 // hashedPath returns the gull path (including the GUI archive hash) to the
 // given path, that must not start with a slash.
 func (h *guiHandler) hashedPath(p string) string {
-	return path.Join(h.baseURLPath, h.hash, p)
+	return path.Join(h.baseModelURLPath, h.hash, p)
 }
 
 func renderGUITemplate(w http.ResponseWriter, tmpl string, ctx map[string]interface{}) error {

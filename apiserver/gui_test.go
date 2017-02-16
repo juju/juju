@@ -45,6 +45,22 @@ var _ = gc.Suite(&guiSuite{})
 // the given hash and pathAndquery.
 func (s *guiSuite) guiURL(c *gc.C, hash, pathAndquery string) string {
 	u := s.baseURL(c)
+	model, err := s.State.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	path := fmt.Sprintf("/gui/u/%s/%s", model.Owner().Name(), model.Name())
+	if hash != "" {
+		path += "/" + hash
+	}
+	parts := strings.SplitN(pathAndquery, "?", 2)
+	u.Path = path + parts[0]
+	if len(parts) == 2 {
+		u.RawQuery = parts[1]
+	}
+	return u.String()
+}
+
+func (s *guiSuite) guiOldURL(c *gc.C, hash, pathAndquery string) string {
+	u := s.baseURL(c)
 	path := "/gui/" + s.modelUUID
 	if hash != "" {
 		path += "/" + hash
@@ -363,7 +379,7 @@ func (s *guiSuite) TestGUIHandler(c *gc.C) {
 			pathAndquery = "/"
 		}
 		return s.sendRequest(c, httpRequestParams{
-			url: s.guiURL(c, hash, pathAndquery),
+			url: s.guiOldURL(c, hash, pathAndquery),
 		})
 	}
 
@@ -487,7 +503,15 @@ func (s *guiSuite) TestGUIIndexVersions(c *gc.C) {
 	c.Assert(string(body), gc.Equals, "index version 3.0.0")
 }
 
-func (s *guiSuite) TestGUIConfig(c *gc.C) {
+func (s *guiSuite) TestGUIConfigOldURL(c *gc.C) {
+	s.assertGUIConfig(c, "2.3.0", "/config.js?new-path=false", "/gui/"+s.modelUUID)
+}
+
+func (s *guiSuite) TestGUIConfigNewURL(c *gc.C) {
+	s.assertGUIConfig(c, "2.3.0", "/config.js", "/gui/")
+}
+
+func (s *guiSuite) assertGUIConfig(c *gc.C, guiVersion, configPath, expectedBaseURL string) {
 	storage, err := s.State.GUIStorage()
 	c.Assert(err, jc.ErrorIsNil)
 	defer storage.Close()
@@ -504,7 +528,7 @@ var config = {
     uuid: '{{.uuid}}',
     version: '{{.version}}'
 };`
-	vers := version.MustParse("2.0.0")
+	vers := version.MustParse(guiVersion)
 	hash := setupGUIArchive(c, storage, vers.String(), map[string]string{
 		guiConfigPath: configContent,
 	})
@@ -514,18 +538,18 @@ var config = {
 	expectedConfigContent := fmt.Sprintf(`
 var config = {
     // This is just an example and does not reflect the real Juju GUI config.
-    base: '/gui/%[1]s/',
+    base: '%[5]s',
     host: '%[2]s',
     controllerSocket: '/api',
     socket: '/model/$uuid/api',
     staticURL: '/gui/%[1]s/%[3]s',
     uuid: '%[1]s',
     version: '%[4]s'
-};`, s.modelUUID, s.baseURL(c).Host, hash, jujuversion.Current)
+};`, s.modelUUID, s.baseURL(c).Host, hash, jujuversion.Current, expectedBaseURL)
 
 	// Make a request for the Juju GUI config.
 	resp := s.sendRequest(c, httpRequestParams{
-		url: s.guiURL(c, hash, "/config.js"),
+		url: s.guiOldURL(c, hash, configPath),
 	})
 	body := assertResponse(c, resp, http.StatusOK, apiserver.JSMimeType)
 	c.Assert(string(body), gc.Equals, expectedConfigContent)
