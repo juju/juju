@@ -10,7 +10,7 @@ import (
 
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/lxc/lxd/shared"
+	"github.com/lxc/lxd/shared/api"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/tools/lxdclient"
@@ -59,18 +59,20 @@ func (s *utilsSuite) TestEnableHTTPSListenerIPV4Fallback(c *gc.C) {
 
 type mockConfigSetter struct {
 	testing.Stub
-	ServerState *shared.ServerState
+	ServerState *api.Server
 }
 
 func newMockConfigSetter() *mockConfigSetter {
 	return &mockConfigSetter{
-		ServerState: &shared.ServerState{
-			Config: map[string]interface{}{},
+		ServerState: &api.Server{
+			ServerPut: api.ServerPut{
+				Config: map[string]interface{}{},
+			},
 		},
 	}
 }
 
-func (m *mockConfigSetter) ServerStatus() (*shared.ServerState, error) {
+func (m *mockConfigSetter) ServerStatus() (*api.Server, error) {
 	m.MethodCall(m, "ServerStatus")
 	return m.ServerState, m.NextErr()
 }

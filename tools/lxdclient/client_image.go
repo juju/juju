@@ -15,14 +15,14 @@ import (
 	"github.com/juju/utils/os"
 	jujuseries "github.com/juju/utils/series"
 	"github.com/lxc/lxd"
-	"github.com/lxc/lxd/shared"
+	"github.com/lxc/lxd/shared/api"
 
 	"github.com/juju/juju/utils/stringforwarder"
 )
 
 type rawImageClient interface {
 	GetAlias(string) string
-	GetImageInfo(string) (*shared.ImageInfo, error)
+	GetImageInfo(string) (*api.Image, error)
 }
 
 type remoteClient interface {
