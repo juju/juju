@@ -1,4 +1,4 @@
-"""Tests for assess_juju_status module."""
+"""Tests for assess_juju_output module."""
 
 import logging
 import StringIO
@@ -8,11 +8,11 @@ from mock import (
     Mock,
     patch,
     )
-from assess_juju_status import (
+from assess_juju_output import (
     deploy_charm_with_subordinate_charm,
     verify_juju_status_attribute_of_subordinate_charm,
     verify_juju_status_attribute_of_charm,
-    assess_juju_status_attribute,
+    assess_juju_output,
     parse_args,
     main,
     )
@@ -52,14 +52,13 @@ class TestMain(TestCase):
     def test_main(self):
         argv = ["an-env", "/bin/juju", "/tmp/logs", "an-env-mod", "--verbose"]
         client = Mock(spec=["is_jes_enabled"])
-        with patch("assess_juju_status.configure_logging",
+        with patch("assess_juju_output.configure_logging",
                    autospec=True) as mock_cl:
-            with patch("assess_juju_status.BootstrapManager.booted_context",
+            with patch("assess_juju_output.BootstrapManager.booted_context",
                        autospec=True) as mock_bc:
                 with patch('deploy_stack.client_from_config',
                            return_value=client) as mock_cfc:
-                    with patch("assess_juju_status."
-                               "assess_juju_status_attribute",
+                    with patch("assess_juju_output.assess_juju_output",
                                autospec=True) as mock_assess:
                         main(argv)
         mock_cl.assert_called_once_with(logging.DEBUG)
@@ -102,7 +101,7 @@ class TestVerifyJujuStatusAttrubuteOfCharm(TestCase):
             }
         }
         with self.assertRaisesRegexp(
-                JujuAssertionError, "Charm App status is not set"):
+                JujuAssertionError, "App status for dummy-sink is not set"):
             verify_juju_status_attribute_of_charm(charm_details)
 
     def test_verify_juju_status_attribute_of_charm_raise_value_error(self):
@@ -112,7 +111,9 @@ class TestVerifyJujuStatusAttrubuteOfCharm(TestCase):
                 }
             }
         }
-        with self.assertRaises(ValueError):
+        with self.assertRaisesRegexp(
+                JujuAssertionError,
+                "juju-status for dummy-sink was not found"):
             verify_juju_status_attribute_of_charm(charm_details)
 
 
@@ -159,7 +160,8 @@ class TestVerifyJujuStatusAttributeOfSubordinateCharm(TestCase):
             }
         }
         with self.assertRaisesRegexp(
-                JujuAssertionError, "Charm Subordinate status is not set"):
+                JujuAssertionError,
+                "App status for dummy-subordinate is not set"):
             verify_juju_status_attribute_of_subordinate_charm(charm_details)
 
     def test_juju_status_attribute_of_subordinate_raise_value_error(self):
@@ -178,12 +180,14 @@ class TestVerifyJujuStatusAttributeOfSubordinateCharm(TestCase):
                 }
             }
         }
-        with self.assertRaises(ValueError):
+        with self.assertRaisesRegexp(
+                JujuAssertionError,
+                "juju-status for dummy-subordinate was not found"):
             verify_juju_status_attribute_of_subordinate_charm(charm_details)
 
 
-class TestAssessJujuStatuAttribute(TestCase):
-    def test_assess_juju_status_attribute_successfully(self):
+class TestAssessJujuOutput(TestCase):
+    def test_assess_juju_output_successfully(self):
         fake_client = Mock(wraps=fake_juju_client())
         app_status = Status({
             'applications': {
@@ -211,6 +215,6 @@ class TestAssessJujuStatuAttribute(TestCase):
         }, '')
         fake_client.bootstrap()
         fake_client.get_status.return_value = app_status
-        assess_juju_status_attribute(fake_client, "xenial")
+        assess_juju_output(fake_client, "xenial")
         self.assertIn('assess juju-status attribute done successfully',
                       self.log_stream.getvalue())

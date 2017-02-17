@@ -1,11 +1,11 @@
 #!/usr/bin/env python
 """
-    Deploy a charm and subordinate charm and verify juju-status of the
-    deployed charms.
+    Deploy a charm and subordinate charm and verify juju-status attribute of
+    the deployed charms.
     Usage:
-        python assess_juju_status.py
+        python assess_juju_output.py
 
-    NOTE: Currently assess_juju_status looks only for "juju-status" attribute
+    NOTE: Currently assess_juju_output looks only for "juju-status" attribute
     of the deployed application under application-<charm-name>-units
 """
 
@@ -32,7 +32,7 @@ from assess_min_version import (
 __metaclass__ = type
 
 
-log = logging.getLogger("assess_juju_status")
+log = logging.getLogger("assess_juju_output")
 
 
 def verify_juju_status_attribute_of_charm(charm_details):
@@ -43,9 +43,11 @@ def verify_juju_status_attribute_of_charm(charm_details):
     try:
         app_status = charm_details['units']['dummy-sink/0']['juju-status']
     except KeyError:
-        raise ValueError("Attribute not found")
+        raise JujuAssertionError(
+            "juju-status for {} was not found".format('dummy-sink'))
     if not app_status:
-        raise JujuAssertionError("Charm App status is not set")
+        raise JujuAssertionError(
+            "App status for {} is not set".format('dummy-sink'))
 
 
 def verify_juju_status_attribute_of_subordinate_charm(charm_details):
@@ -57,9 +59,11 @@ def verify_juju_status_attribute_of_subordinate_charm(charm_details):
         sub_status = charm_details['units']['dummy-sink/0']['subordinates'][
             'dummy-subordinate/0']['juju-status']
     except KeyError:
-        raise ValueError("Attribute not found")
+        raise JujuAssertionError(
+            "juju-status for {} was not found".format('dummy-subordinate'))
     if not sub_status:
-        raise JujuAssertionError("Charm Subordinate status is not set")
+        raise JujuAssertionError(
+            "App status for {} is not set".format('dummy-subordinate'))
 
 
 def deploy_charm_with_subordinate_charm(client, series):
@@ -83,7 +87,7 @@ def deploy_charm_with_subordinate_charm(client, series):
     client.wait_for_workloads()
 
 
-def assess_juju_status_attribute(client, series):
+def assess_juju_output(client, series):
     """Deploy charm and subordinate charm and verify its juju-status attribute
 
     :param client: ModelClient object
@@ -111,7 +115,7 @@ def main(argv=None):
     configure_logging(args.verbose)
     bs_manager = BootstrapManager.from_args(args)
     with bs_manager.booted_context(args.upload_tools):
-        assess_juju_status_attribute(bs_manager.client, series)
+        assess_juju_output(bs_manager.client, series)
     return 0
 
 
