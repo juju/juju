@@ -1,5 +1,8 @@
 import json
 import yaml
+import StringIO
+import logging
+from textwrap import dedent
 
 from mock import (
     call,
@@ -7,19 +10,29 @@ from mock import (
     Mock,
     )
 from tests import (
-    TestCase
+    TestCase,
+    parse_error
     )
 from jujupy import (
     fake_juju_client
 )
 from assess_network_health import (
     main,
-    parse_args,
     assess_network_health,
+    setup_testing_environment,
+    connect_to_existing_model,
+    setup_dummy_deployment,
+    setup_bundle_deployment,
+    get_juju_status,
+    ensure_juju_agnostic_visibility,
     neighbor_visibility,
     ensure_exposed,
-    parse_results,
-    ping_units,
+    setup_expose_test,
+    parse_expose_results,
+    parse_final_results,
+    parse_targets,
+    parse_args,
+    ConnectionError
     )
 
 apps = {'foo':
@@ -57,7 +70,8 @@ relations:
 """)
 
 bundle_yaml = yaml.safe_load(bundle_string)
-
+dummy_charm = 'dummy'
+series = 'trusty'
 
 class TestAssessNetworkHealth(TestCase):
 
@@ -87,17 +101,13 @@ class TestAssessNetworkHealth(TestCase):
     def test_bundle_deployment(self):
         client = fake_juju_client()
         client.bootstrap()
-        client.deploy_bundle()
+        client.deploy_bundle(bundle_string)
 
     def test_expose_test_deployment(self):
-        client = fake_juju_client()
-        new_client = setup_expose_test(client)
+        pass
 
     def test_get_juju_status(self):
         client = fake_juju_client()
-        expected = client.get_status().status
-        test = get_juju_status(client)
-        self.assertEqual(expected, test)
 
     def test_parse_expose_results(self):
         exposed = ['bar', 'baz']
@@ -111,8 +121,8 @@ class TestAssessNetworkHealth(TestCase):
         with self.assertRaises(ConnectionError) as context:
             parse_final_results(agnostic, visible, exposed)
         error_strings = ["Failed to ping machine 0 at address 1.1.1.1",
-                         "NH-Unit bar/0 failed to contact unit(s): [foo/0]",
-                         "Service(s) foo failed expose test"]
+                         "NH-Unit bar/0 failed to contact unit(s): ['foo/0']",
+                         "Application(s) foo failed expose test"]
         for line in error_strings:
             self.assertTrue(line in context.exception.message)
 
@@ -129,7 +139,7 @@ class TestAssessNetworkHealth(TestCase):
         pass
 
     def test_parse_targets(self):
-        expected = {}
+        expected = {'foo': {'foo/0': '1.1.1.1', 'foo/1': '1.1.1.2'}}
         targets = parse_targets(apps)
         self.assertEqual(expected, targets)
 
@@ -138,21 +148,23 @@ class TestMain(TestCase):
 
     def test_main(self):
         argv = ["an-env", "/bin/juju", "/tmp/logs", "an-env-mod", "--verbose"]
+        env = object()
         client = Mock(spec=["is_jes_enabled"])
-        with patch("assess_min_version.configure_logging",
+        with patch("assess_network_health.configure_logging",
                    autospec=True) as mock_cl:
-            with patch("assess_min_version.BootstrapManager.booted_context",
+            with patch("assess_network_health.BootstrapManager.booted_context",
                        autospec=True) as mock_bc:
-                with patch("deploy_stack.client_from_config",
-                           return_value=client) as mock_c:
-                    with patch("assess_min_version.assess_min_version",
+                with patch('deploy_stack.client_from_config',
+                           return_value=client) as mock_cfc:
+                    with patch("assess_network_health.assess_network_health",
                                autospec=True) as mock_assess:
                         main(argv)
         mock_cl.assert_called_once_with(logging.DEBUG)
-        mock_c.assert_called_once_with('an-env', "/bin/juju", debug=False,
-                                       soft_deadline=None)
+        mock_cfc.assert_called_once_with('an-env', "/bin/juju", debug=False,
+                                         soft_deadline=None)
         self.assertEqual(mock_bc.call_count, 1)
-        mock_assess.assert_called_once_with(client)
+        mock_assess.assert_called_once_with(client, bundle=None,
+                                            series='trusty')
 
 
 class TestParseArgs(TestCase):
@@ -177,4 +189,4 @@ class TestParseArgs(TestCase):
             with patch("sys.stdout", fake_stdout):
                 parse_args(["--help"])
         self.assertEqual("", fake_stderr.getvalue())
-        self.assertIn("network health", fake_stdout.getvalue())
+        self.assertIn("Network Health", fake_stdout.getvalue())

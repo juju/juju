@@ -256,23 +256,23 @@ def parse_final_results(agnostic, visibility, exposed=None):
     for machine, machine_result in agnostic.items():
         for ip, res in machine_result.items():
             if res is False:
-                error = ('Failed to ping machine {0} ',
-                         'at address {1}\n').format(machine, ip)
+                error = ('Failed to ping machine {0} '
+                         'at address {1}\n'.format(machine, ip))
                 error_string.append(error)
     for nh_source, service_result in visibility.items():
             for service, unit_res in service_result.items():
                 if False in unit_res.values():
                     failed = [u for u, r in unit_res.items() if r is False]
-                    error = ('NH-Unit {0} failed to contact ',
-                             'unit(s): {1}\n').format(nh_source, failed)
+                    error = ('NH-Unit {0} failed to contact '
+                             'unit(s): {1}\n'.format(nh_source, failed))
                     error_string.append(error)
 
     if exposed and exposed['fail'] is not ():
-        error = ('Application(s) {0} failed expose ',
-                 'test\n').format(exposed['fail'])
+        error = ('Application(s) {0} failed expose '
+                 'test\n'.format(exposed['fail']))
         error_string.append(error)
 
-    if error_string is not '':
+    if error_string:
         raise ConnectionError('\n'.join(error_string))
 
     return
