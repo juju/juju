@@ -1,0 +1,8 @@
+ping:
+  description: Ping a target or series of targets given as a dict
+  params:
+    targets:
+      type: string
+      description: |
+        Dict holding targets. Format as 'juju status --format json'
+        Only unit and public-address are used for now.
