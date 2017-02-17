@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	oci "github.com/hoenirvili/go-oracle-cloud/api"
+
 	"github.com/hoenirvili/go-oracle-cloud/response"
 	"github.com/juju/errors"
 	"github.com/juju/juju/environs/imagemetadata"
@@ -19,6 +20,7 @@ func launchBootstrapConstroller(c *oci.Client, params []oci.InstanceParams) (ins
 		return nil, errors.NotFoundf("client")
 	}
 
+	logger.Infof("Launching tbe bootstrap creation method")
 	resp, err := c.CreateInstance(params)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -60,11 +62,12 @@ func uploadSSHControllerKeys(c *oci.Client, key string) (string, error) {
 		}
 	}
 
-	if !resp.Enabled || resp.Key != key {
+	keyrsponse := key[:strings.Index(key, "juju-client-key")-1]
+	if !resp.Enabled || resp.Key != keyrsponse {
 		if !resp.Enabled {
 			logger.Debugf("The Enabled flag is set to false on the key, setting it to true")
 		}
-		if resp.Key != key {
+		if resp.Key != keyrsponse {
 			logger.Debugf("The key provided with the oracle one does not match, update the key content")
 		}
 		resp, err = c.UpdateSSHKey("juju-client-key", key, true)
@@ -143,6 +146,7 @@ func checkImageList(
 	for _, val := range tools {
 		if len(val.Version) > 0 && len(val.Arch) > 0 {
 			imageVersion = val.Version
+			/////////////////////////////////////////
 			imageVersion = "16.10" // TODO REMOVE THIS
 			imageArch = val.Arch
 		}
@@ -154,7 +158,7 @@ func checkImageList(
 				// extract the name of the imagelist
 				// the imagelist name contains the idenity, the username appended
 				// to the actual image list name
-				names := strings(name, "/")
+				names := strings.Split(val.Name, "/")
 				// so we need the last element separated with "/"
 				return names[len(names)-1], nil
 			}
@@ -165,12 +169,4 @@ func checkImageList(
 		"Cannot find any image in the oracle cloud that is complaint with the image tools",
 	)
 
-}
-
-// extracts the name of a imagelist name
-// the imagelist names contains the indenity, the username of the client and after
-// the actual name of the imagelist all are separted with "/"
-func theName(name string) string {
-	names := strings.Split(name, "/")
-	return names[len(names)-1]
 }
