@@ -7,8 +7,8 @@ tags:
   - misc
 subordinate: true
 series:
-  - xenial
   - trusty
+  - xenial
   - precise
 
 requires:
