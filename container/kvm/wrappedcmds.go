@@ -24,7 +24,7 @@ import (
 	"regexp"
 	"strings"
 
-	"gopkg.in/yaml.v1"
+	"gopkg.in/yaml.v2"
 
 	"github.com/juju/errors"
 	"github.com/juju/utils"

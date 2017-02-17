@@ -91,20 +91,48 @@ func (s *credentialsSuite) TestDetectCredentialsAccessKeyEnvironmentVariables(c 
 
 func (s *credentialsSuite) TestDetectCredentialsUserPassEnvironmentVariables(c *gc.C) {
 	s.PatchEnvironment("USER", "fred")
-	s.PatchEnvironment("OS_TENANT_NAME", "gary")
+	s.PatchEnvironment("OS_PROJECT_NAME", "gary")
 	s.PatchEnvironment("OS_USERNAME", "bob")
 	s.PatchEnvironment("OS_PASSWORD", "dobbs")
 	s.PatchEnvironment("OS_REGION_NAME", "west")
+	s.PatchEnvironment("OS_USER_DOMAIN_NAME", "user-domain")
 
 	credentials, err := s.provider.DetectCredentials()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(credentials.DefaultRegion, gc.Equals, "west")
 	expected := cloud.NewCredential(
 		cloud.UserPassAuthType, map[string]string{
-			"username":    "bob",
-			"password":    "dobbs",
-			"tenant-name": "gary",
-			"domain-name": "",
+			"username":            "bob",
+			"password":            "dobbs",
+			"tenant-name":         "gary",
+			"domain-name":         "",
+			"project-domain-name": "",
+			"user-domain-name":    "user-domain",
+		},
+	)
+	expected.Label = `openstack region "west" project "gary" user "bob"`
+	c.Assert(credentials.AuthCredentials["bob"], jc.DeepEquals, expected)
+}
+
+func (s *credentialsSuite) TestDetectCredentialsUserPassDefaultDomain(c *gc.C) {
+	s.PatchEnvironment("USER", "fred")
+	s.PatchEnvironment("OS_PROJECT_NAME", "gary")
+	s.PatchEnvironment("OS_USERNAME", "bob")
+	s.PatchEnvironment("OS_PASSWORD", "dobbs")
+	s.PatchEnvironment("OS_REGION_NAME", "west")
+	s.PatchEnvironment("OS_DEFAULT_DOMAIN_NAME", "default-domain")
+
+	credentials, err := s.provider.DetectCredentials()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(credentials.DefaultRegion, gc.Equals, "west")
+	expected := cloud.NewCredential(
+		cloud.UserPassAuthType, map[string]string{
+			"username":            "bob",
+			"password":            "dobbs",
+			"tenant-name":         "gary",
+			"domain-name":         "",
+			"project-domain-name": "default-domain",
+			"user-domain-name":    "default-domain",
 		},
 	)
 	expected.Label = `openstack region "west" project "gary" user "bob"`
@@ -129,7 +157,8 @@ func (s *credentialsSuite) TestDetectCredentialsNovarc(c *gc.C) {
 export OS_TENANT_NAME=gary
 EXPORT OS_USERNAME=bob
   export  OS_PASSWORD = dobbs
-OS_REGION_NAME=region  
+OS_REGION_NAME=region
+OS_PROJECT_DOMAIN_NAME=project-domain
 `[1:]
 	novarc := filepath.Join(dir, ".novarc")
 	err = ioutil.WriteFile(novarc, []byte(content), 0600)
@@ -139,10 +168,12 @@ OS_REGION_NAME=region
 	c.Assert(credentials.DefaultRegion, gc.Equals, "region")
 	expected := cloud.NewCredential(
 		cloud.UserPassAuthType, map[string]string{
-			"username":    "bob",
-			"password":    "dobbs",
-			"tenant-name": "gary",
-			"domain-name": "",
+			"username":            "bob",
+			"password":            "dobbs",
+			"tenant-name":         "gary",
+			"domain-name":         "",
+			"project-domain-name": "project-domain",
+			"user-domain-name":    "",
 		},
 	)
 	expected.Label = `openstack region "region" project "gary" user "bob"`

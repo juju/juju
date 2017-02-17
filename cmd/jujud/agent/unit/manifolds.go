@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/api/base"
 	msapi "github.com/juju/juju/api/meterstatus"
 	"github.com/juju/juju/cmd/jujud/agent/engine"
+	"github.com/juju/juju/utils/proxy"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/agent"
 	"github.com/juju/juju/worker/apiaddressupdater"
@@ -183,9 +184,10 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		// coincidence. Probably we ought to be making components that might
 		// need proxy config into explicit dependencies of the proxy updater...
 		proxyConfigUpdaterName: ifNotMigrating(proxyupdater.Manifold(proxyupdater.ManifoldConfig{
-			AgentName:     agentName,
-			APICallerName: apiCallerName,
-			WorkerFunc:    proxyupdater.NewWorker,
+			AgentName:       agentName,
+			APICallerName:   apiCallerName,
+			WorkerFunc:      proxyupdater.NewWorker,
+			InProcessUpdate: proxy.DefaultConfig.Set,
 		})),
 
 		// The charmdir resource coordinates whether the charm directory is

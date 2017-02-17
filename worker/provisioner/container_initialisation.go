@@ -210,8 +210,8 @@ func (cs *ContainerSetup) prepareHost(containerTag names.MachineTag, log loggo.L
 		return errors.Trace(err)
 	}
 
-	log.Debugf("Bridging %+v devices on host %q with delay=%v, acquiring lock %q",
-		devicesToBridge, cs.machine.MachineTag().String(), reconfigureDelay, cs.initLockName)
+	log.Debugf("Bridging %+v devices on host %q for container %q with delay=%v, acquiring lock %q",
+		devicesToBridge, cs.machine.MachineTag().String(), containerTag.String(), reconfigureDelay, cs.initLockName)
 	// TODO(jam): 2017-02-08 figure out how to thread catacomb.Dying() into
 	// this function, so that we can stop trying to acquire the lock if we are
 	// stopping.
@@ -219,7 +219,7 @@ func (cs *ContainerSetup) prepareHost(containerTag names.MachineTag, log loggo.L
 	if err != nil {
 		return errors.Annotatef(err, "failed to acquire lock %q for bridging", cs.initLockName)
 	}
-	defer log.Debugf("releasing lock %q for bridging", cs.initLockName)
+	defer log.Debugf("releasing lock %q for bridging machine %q for container %q", cs.initLockName, cs.machine.MachineTag().String(), containerTag.String())
 	defer releaser.Release()
 	err = bridger.Bridge(devicesToBridge, reconfigureDelay)
 	if err != nil {
@@ -265,19 +265,17 @@ func (cs *ContainerSetup) getContainerArtifacts(
 		return nil, nil, nil, err
 	}
 
-	bridger, err := network.DefaultEtcNetworkInterfacesBridger(activateBridgesTimeout, instancecfg.DefaultBridgePrefix, systemNetworkInterfacesFile)
-	if err != nil {
-		return nil, nil, nil, err
-	}
-
 	switch containerType {
 	case instance.KVM:
-		broker, err = NewKvmBroker(
-			bridger,
-			cs.machine.MachineTag(),
+		manager, err := kvm.NewContainerManager(managerConfig)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		broker, err = NewKVMBroker(
+			cs.prepareHost,
 			cs.provisioner,
+			manager,
 			cs.config,
-			managerConfig,
 		)
 		if err != nil {
 			logger.Errorf("failed to create new kvm broker")

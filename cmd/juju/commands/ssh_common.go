@@ -285,6 +285,7 @@ func (c *SSHCommon) setProxyCommand(options *ssh.Options) error {
 	// this extra level of checking.
 	options.SetProxyCommand(
 		juju, "ssh",
+		"--model="+c.ModelName(),
 		"--proxy=false",
 		"--no-host-key-checks",
 		"--pty=false",
