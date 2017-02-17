@@ -11,8 +11,8 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/testing"
-	"github.com/lxc/lxd"
 	"github.com/lxc/lxd/shared"
+	"github.com/lxc/lxd/shared/api"
 	gc "gopkg.in/check.v1"
 )
 
@@ -46,10 +46,10 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 type stubClient struct {
 	stub *testing.Stub
 
-	Instance   *shared.ContainerState
-	Instances  []shared.ContainerInfo
+	Instance   *api.ContainerState
+	Instances  []api.Container
 	ReturnCode int
-	Response   *lxd.Response
+	Response   *api.Response
 	Aliases    map[string]string
 }
 
@@ -62,7 +62,7 @@ func (s *stubClient) WaitForSuccess(waitURL string) error {
 	return nil
 }
 
-func (s *stubClient) SetServerConfig(key string, value string) (*lxd.Response, error) {
+func (s *stubClient) SetServerConfig(key string, value string) (*api.Response, error) {
 	s.stub.AddCall("SetServerConfig", key, value)
 	if err := s.stub.NextErr(); err != nil {
 		return nil, errors.Trace(err)
@@ -80,7 +80,7 @@ func (s *stubClient) CertificateAdd(cert *x509.Certificate, name string) error {
 	return nil
 }
 
-func (s *stubClient) ContainerState(name string) (*shared.ContainerState, error) {
+func (s *stubClient) ContainerState(name string) (*api.ContainerState, error) {
 	s.stub.AddCall("ContainerState", name)
 	if err := s.stub.NextErr(); err != nil {
 		return nil, errors.Trace(err)
@@ -89,7 +89,7 @@ func (s *stubClient) ContainerState(name string) (*shared.ContainerState, error)
 	return s.Instance, nil
 }
 
-func (s *stubClient) ListContainers() ([]shared.ContainerInfo, error) {
+func (s *stubClient) ListContainers() ([]api.Container, error) {
 	s.stub.AddCall("ListContainers")
 	if err := s.stub.NextErr(); err != nil {
 		return nil, errors.Trace(err)
@@ -106,7 +106,7 @@ func (s *stubClient) GetAlias(alias string) string {
 	return s.Aliases[alias]
 }
 
-func (s *stubClient) Init(name, remote, image string, profiles *[]string, ephem bool) (*lxd.Response, error) {
+func (s *stubClient) Init(name, remote, image string, profiles *[]string, ephem bool) (*api.Response, error) {
 	s.stub.AddCall("AddInstance", name, remote, image, profiles, ephem)
 	if err := s.stub.NextErr(); err != nil {
 		return nil, errors.Trace(err)
@@ -115,7 +115,7 @@ func (s *stubClient) Init(name, remote, image string, profiles *[]string, ephem 
 	return s.Response, nil
 }
 
-func (s *stubClient) Delete(name string) (*lxd.Response, error) {
+func (s *stubClient) Delete(name string) (*api.Response, error) {
 	s.stub.AddCall("Delete", name)
 	if err := s.stub.NextErr(); err != nil {
 		return nil, errors.Trace(err)
@@ -124,7 +124,7 @@ func (s *stubClient) Delete(name string) (*lxd.Response, error) {
 	return s.Response, nil
 }
 
-func (s *stubClient) Action(name string, action shared.ContainerAction, timeout int, force bool, stateful bool) (*lxd.Response, error) {
+func (s *stubClient) Action(name string, action shared.ContainerAction, timeout int, force bool, stateful bool) (*api.Response, error) {
 	s.stub.AddCall("Action", name, action, timeout, force, stateful)
 	if err := s.stub.NextErr(); err != nil {
 		return nil, errors.Trace(err)

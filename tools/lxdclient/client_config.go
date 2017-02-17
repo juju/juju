@@ -7,16 +7,15 @@ package lxdclient
 
 import (
 	"github.com/juju/errors"
-	"github.com/lxc/lxd"
-	"github.com/lxc/lxd/shared"
+	"github.com/lxc/lxd/shared/api"
 )
 
 type rawConfigClient interface {
-	SetServerConfig(key, value string) (*lxd.Response, error)
+	SetServerConfig(key, value string) (*api.Response, error)
 	SetContainerConfig(container, key, value string) error
 
 	WaitForSuccess(waitURL string) error
-	ServerStatus() (*shared.ServerState, error)
+	ServerStatus() (*api.Server, error)
 }
 
 type configClient struct {
@@ -48,6 +47,6 @@ func (c configClient) SetContainerConfig(container, key, value string) error {
 }
 
 // ServerStatus reports the state of the server.
-func (c configClient) ServerStatus() (*shared.ServerState, error) {
+func (c configClient) ServerStatus() (*api.Server, error) {
 	return c.raw.ServerStatus()
 }

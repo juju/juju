@@ -13,7 +13,7 @@ import (
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
-	"github.com/lxc/lxd/shared"
+	"github.com/lxc/lxd/shared/api"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
@@ -533,18 +533,18 @@ func (conn *StubClient) RemoveCertByFingerprint(fingerprint string) error {
 	return conn.NextErr()
 }
 
-func (conn *StubClient) CertByFingerprint(fingerprint string) (shared.CertInfo, error) {
+func (conn *StubClient) CertByFingerprint(fingerprint string) (api.Certificate, error) {
 	conn.AddCall("CertByFingerprint", fingerprint)
-	return shared.CertInfo{}, conn.NextErr()
+	return api.Certificate{}, conn.NextErr()
 }
 
-func (conn *StubClient) ServerStatus() (*shared.ServerState, error) {
+func (conn *StubClient) ServerStatus() (*api.Server, error) {
 	conn.AddCall("ServerStatus")
 	if err := conn.NextErr(); err != nil {
 		return nil, err
 	}
-	return &shared.ServerState{
-		Environment: shared.ServerStateEnvironment{
+	return &api.Server{
+		Environment: api.ServerEnvironment{
 			Certificate: "server-cert",
 		},
 	}, nil

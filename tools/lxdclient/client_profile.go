@@ -7,18 +7,17 @@ package lxdclient
 
 import (
 	"github.com/juju/errors"
-	"github.com/lxc/lxd"
-	"github.com/lxc/lxd/shared"
+	"github.com/lxc/lxd/shared/api"
 )
 
 type rawProfileClient interface {
 	ProfileCreate(name string) error
-	ListProfiles() ([]shared.ProfileConfig, error)
+	ListProfiles() ([]api.Profile, error)
 	SetProfileConfigItem(profile, key, value string) error
 	GetProfileConfig(profile string) (map[string]string, error)
 	ProfileDelete(profile string) error
-	ProfileDeviceAdd(profile, devname, devtype string, props []string) (*lxd.Response, error)
-	ProfileConfig(profile string) (*shared.ProfileConfig, error)
+	ProfileDeviceAdd(profile, devname, devtype string, props []string) (*api.Response, error)
+	ProfileConfig(profile string) (*api.Profile, error)
 }
 
 type profileClient struct {
@@ -37,7 +36,7 @@ func (p profileClient) ProfileDelete(profile string) error {
 // ProfileDeviceAdd adds a profile device, such as a disk or a nic, to
 // the specified profile. No check is made to verify the profile
 // exists.
-func (p profileClient) ProfileDeviceAdd(profile, devname, devtype string, props []string) (*lxd.Response, error) {
+func (p profileClient) ProfileDeviceAdd(profile, devname, devtype string, props []string) (*api.Response, error) {
 	resp, err := p.raw.ProfileDeviceAdd(profile, devname, devtype, props)
 	if err != nil {
 		return resp, errors.Trace(err)
@@ -92,6 +91,6 @@ func (p profileClient) GetProfileConfig(profile string) (map[string]string, erro
 	return config, nil
 }
 
-func (p profileClient) ProfileConfig(profile string) (*shared.ProfileConfig, error) {
+func (p profileClient) ProfileConfig(profile string) (*api.Profile, error) {
 	return p.raw.ProfileConfig(profile)
 }
