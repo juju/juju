@@ -13,7 +13,7 @@ from assess_agent_metadata import (
     deploy_charm_and_verify,
     verify_deployed_charm,
     deploy_machine_and_verify,
-    get_controller_and_non_controller_series,
+    get_controller_series_and_alternative_series,
     parse_args,
     )
 
@@ -236,7 +236,7 @@ class TestAssessMetadata(TestCase):
                    return_value=controller_url_sha, autospec=True):
             with patch('assess_agent_metadata.remote_from_address',
                        autospec=True, return_value=mock_remote):
-                # deploy add-machine of different series that of bootstrap
+                # deploy add-machine of alternative series that of controller
                 deploy_machine_and_verify(client, series="trusty")
 
     def test_deploy_machine_and_verify_invalid_sha256(self):
@@ -329,8 +329,9 @@ class TestAssessMetadata(TestCase):
                     verify_deployed_charm(mock_client, mock_remote)
 
 
-class TestGetControllerAndNonController(TestCase):
-    def test_xenial_controller_to_get_non_controller_as_trusty(self):
+class TestGetControllerAndAlternativeControllerSeries(TestCase):
+
+    def test_xenial_controller_and_get_alternative_controller_series(self):
         fake_client = Mock(wraps=fake_juju_client())
         get_status_output = Status({
             'machines': {
@@ -340,12 +341,27 @@ class TestGetControllerAndNonController(TestCase):
             }
         }, '')
         fake_client.get_status.return_value = get_status_output
-        controller_series, non_controller_series = \
-            get_controller_and_non_controller_series(fake_client)
+        controller_series, alt_controller_series = \
+            get_controller_series_and_alternative_series(fake_client)
         self.assertEquals(controller_series, "xenial")
-        self.assertEquals(non_controller_series, "trusty")
+        self.assertEquals(alt_controller_series, "trusty")
 
-    def test_vivid_controller_to_get_non_controller_xenial_or_trusty(self):
+    def test_zesty_controller_to_get_alt_controller_xenial_or_trusty(self):
+        fake_client = Mock(wraps=fake_juju_client())
+        get_status_output = Status({
+            'machines': {
+                '0': {
+                    'series': 'zesty'
+                }
+            }
+        }, '')
+        fake_client.get_status.return_value = get_status_output
+        controller_series, alt_controller_series = \
+            get_controller_series_and_alternative_series(fake_client)
+        self.assertEquals(controller_series, "zesty")
+        self.assertIn(alt_controller_series, ["xenial", "trusty"])
+
+    def test_vivid_controller_to_raise_value_error(self):
         fake_client = Mock(wraps=fake_juju_client())
         get_status_output = Status({
             'machines': {
@@ -355,7 +371,5 @@ class TestGetControllerAndNonController(TestCase):
             }
         }, '')
         fake_client.get_status.return_value = get_status_output
-        controller_series, non_controller_series = \
-            get_controller_and_non_controller_series(fake_client)
-        self.assertEquals(controller_series, "vivid")
-        self.assertEquals(non_controller_series, "xenial")
+        with self.assertRaises(ValueError):
+            get_controller_series_and_alternative_series(fake_client)
