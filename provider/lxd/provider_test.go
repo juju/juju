@@ -147,7 +147,7 @@ func (s *providerSuite) TestFinalizeCloudNotListening(c *gc.C) {
 }
 
 func (s *providerSuite) TestFinalizeCloudAlreadyListeningHTTPS(c *gc.C) {
-	s.Client.ServerState.Config["core.https_address"] = "[::]:9999"
+	s.Client.Server.Config["core.https_address"] = "[::]:9999"
 	var ctx mockContext
 	_, err := s.Provider.FinalizeCloud(&ctx, cloud.Cloud{
 		Name:      "foo",
@@ -162,6 +162,7 @@ func (s *providerSuite) TestFinalizeCloudAlreadyListeningHTTPS(c *gc.C) {
 		{"DefaultProfileBridgeName", nil},
 		{"InterfaceAddress", []interface{}{"test-bridge"}},
 		{"ServerStatus", nil},
+		{"SetServerConfig", []interface{}{"core.https_address", "[::]"}},
 		{"ServerAddresses", nil},
 	})
 }

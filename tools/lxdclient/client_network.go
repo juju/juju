@@ -9,15 +9,14 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
-	"github.com/lxc/lxd"
-	"github.com/lxc/lxd/shared"
+	"github.com/lxc/lxd/shared/api"
 
 	"github.com/juju/juju/network"
 )
 
 type rawNetworkClient interface {
 	NetworkCreate(name string, config map[string]string) error
-	NetworkGet(name string) (shared.NetworkConfig, error)
+	NetworkGet(name string) (api.Network, error)
 }
 
 type networkClient struct {
@@ -35,9 +34,9 @@ func (c *networkClient) NetworkCreate(name string, config map[string]string) err
 }
 
 // NetworkGet returns the specified network's configuration.
-func (c *networkClient) NetworkGet(name string) (shared.NetworkConfig, error) {
+func (c *networkClient) NetworkGet(name string) (api.Network, error) {
 	if !c.supported {
-		return shared.NetworkConfig{}, errors.NotSupportedf("network API not supported on this remote")
+		return api.Network{}, errors.NotSupportedf("network API not supported on this remote")
 	}
 
 	return c.raw.NetworkGet(name)
@@ -45,8 +44,8 @@ func (c *networkClient) NetworkGet(name string) (shared.NetworkConfig, error) {
 
 type creator interface {
 	rawNetworkClient
-	ProfileDeviceAdd(profile, devname, devtype string, props []string) (*lxd.Response, error)
-	ProfileConfig(profile string) (*shared.ProfileConfig, error)
+	ProfileDeviceAdd(profile, devname, devtype string, props []string) (*api.Response, error)
+	ProfileConfig(profile string) (*api.Profile, error)
 }
 
 func checkBridgeConfig(client rawNetworkClient, bridge string) error {

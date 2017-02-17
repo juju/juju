@@ -14,7 +14,7 @@ import (
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
-	"github.com/lxc/lxd/shared"
+	"github.com/lxc/lxd/shared/api"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
@@ -333,9 +333,11 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	s.Stub = &gitjujutesting.Stub{}
 	s.Client = &StubClient{
 		Stub: s.Stub,
-		ServerState: &shared.ServerState{
-			Config: map[string]interface{}{},
-			Environment: shared.ServerStateEnvironment{
+		Server: &api.Server{
+			ServerPut: api.ServerPut{
+				Config: map[string]interface{}{},
+			},
+			Environment: api.ServerEnvironment{
 				Certificate: "server-cert",
 			},
 		},
@@ -485,9 +487,9 @@ func (sc *stubCommon) DestroyEnv() error {
 type StubClient struct {
 	*gitjujutesting.Stub
 
-	Insts       []lxdclient.Instance
-	Inst        *lxdclient.Instance
-	ServerState *shared.ServerState
+	Insts  []lxdclient.Instance
+	Inst   *lxdclient.Instance
+	Server *api.Server
 }
 
 func (conn *StubClient) Instances(prefix string, statuses ...string) ([]lxdclient.Instance, error) {
@@ -549,17 +551,21 @@ func (conn *StubClient) RemoveCertByFingerprint(fingerprint string) error {
 	return conn.NextErr()
 }
 
-func (conn *StubClient) CertByFingerprint(fingerprint string) (shared.CertInfo, error) {
+func (conn *StubClient) CertByFingerprint(fingerprint string) (api.Certificate, error) {
 	conn.AddCall("CertByFingerprint", fingerprint)
-	return shared.CertInfo{}, conn.NextErr()
+	return api.Certificate{}, conn.NextErr()
 }
 
-func (conn *StubClient) ServerStatus() (*shared.ServerState, error) {
+func (conn *StubClient) ServerStatus() (*api.Server, error) {
 	conn.AddCall("ServerStatus")
 	if err := conn.NextErr(); err != nil {
 		return nil, err
 	}
-	return conn.ServerState, nil
+	return &api.Server{
+		Environment: api.ServerEnvironment{
+			Certificate: "server-cert",
+		},
+	}, nil
 }
 
 func (conn *StubClient) ServerAddresses() ([]string, error) {
