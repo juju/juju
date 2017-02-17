@@ -11,6 +11,7 @@ import (
 )
 
 type rawConfigClient interface {
+	Addresses() ([]string, error)
 	SetServerConfig(key, value string) (*api.Response, error)
 	SetContainerConfig(container, key, value string) error
 
@@ -49,4 +50,9 @@ func (c configClient) SetContainerConfig(container, key, value string) error {
 // ServerStatus reports the state of the server.
 func (c configClient) ServerStatus() (*api.Server, error) {
 	return c.raw.ServerStatus()
+}
+
+// ServerAddresses reports the addresses that the server is listening on.
+func (c configClient) ServerAddresses() ([]string, error) {
+	return c.raw.Addresses()
 }

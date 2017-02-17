@@ -141,3 +141,11 @@ func (s *stubClient) SetContainerConfig(name, key, value string) error {
 
 	return nil
 }
+
+func (s *stubClient) GetImageInfo(imageTarget string) (*api.Image, error) {
+	s.stub.AddCall("GetImageInfo", imageTarget)
+	if err := s.stub.NextErr(); err != nil {
+		return nil, err
+	}
+	return &api.Image{}, nil
+}
