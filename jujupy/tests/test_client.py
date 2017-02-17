@@ -1161,6 +1161,14 @@ class TestModelClient(ClientTest):
         mock_juju.assert_called_with(
             'deploy', ('local:blah', '--series', 'xenial'))
 
+    def test_deploy_multiple(self):
+        env = ModelClient(
+            JujuData('foo', {'type': 'local'}), '1.234-76', None)
+        with patch.object(env, 'juju') as mock_juju:
+            env.deploy('local:blah', num=2)
+        mock_juju.assert_called_with(
+            'deploy', ('local:blah', '-n', '2'))
+
     def test_deploy_resource(self):
         env = ModelClient(JujuData('foo', {'type': 'local'}), None, None)
         with patch.object(env, 'juju') as mock_juju:
