@@ -100,25 +100,27 @@ class TestAssessNetworkHealth(TestCase):
         self.assertEqual(expected, test)
 
     def test_parse_expose_results(self):
-        pass
+        exposed = ['bar', 'baz']
+        results = {}
+        expected = {"fail": ("foo"), "pass": ("bar", "baz")}
 
     def test_parse_final_results_with_fail(self):
-        agnostic = {"0": {"1.1.1.1": True}, "1": {"1.1.1.2": True}}
-        visible = {"bar/0": {"foo": {"foo/0": False, "foo/1": True}},
-                   "bar/1": {"foo": {"bar/0": True, "bar/1": True}}}
+        agnostic = {"0": {"1.1.1.1": False}}
+        visible = {"bar/0": {"foo": {"foo/0": False, "foo/1": True}}}
         exposed = {"fail": ("foo"), "pass": ("bar", "baz")}
-        expected = [""]
-        out = parse_final_results(agnostic, visible, exposed)
-        self.assertRaises()
+        with self.assertRaises(ConnectionError) as context:
+            parse_final_results(agnostic, visible, exposed)
+        error_strings = ["Failed to ping machine 0 at address 1.1.1.1",
+                         "NH-Unit bar/0 failed to contact unit(s): [foo/0]",
+                         "Service(s) foo failed expose test"]
+        for line in error_strings:
+            self.assertTrue(line in context.exception.message)
 
     def test_parse_final_results_without_fail(self):
-        agnostic = {"0": {"1.1.1.1": True}, "1": {"1.1.1.2": True}}
-        visible = {"bar/0": {"foo": {"foo/0": True, "foo/1": True}},
-                   "bar/1": {"foo": {"bar/0": True, "bar/1": True}}}
+        agnostic = {"0": {"1.1.1.1": True}}
+        visible = {"bar/0": {"foo": {"foo/0": True, "foo/1": True}}}
         exposed = {"fail": (), "pass": ("foo", "bar", "baz")}
-
-        out = parse_final_results(agnostic, visible, exposed)
-        self.assertEqual(out, expected)
+        parse_final_results(agnostic, visible, exposed)
 
     def test_ping_units(self):
         pass

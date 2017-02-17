@@ -9,6 +9,7 @@ import json
 import yaml
 import ast
 import subprocess
+import pdb
 
 from jujupy import client_from_config
 from deploy_stack import (
@@ -27,18 +28,23 @@ __metaclass__ = type
 
 log = logging.getLogger("assess_network_health")
 
+NO_EXPOSED_UNITS = 'No exposed units'
+
 
 class ConnectionError(Exception):
     """Connection failed in some way"""
+    def __init__(self, message):
+        self.message = message
 
 
-def assess_network_health(client, bundle=None, target_model=None):
-    """Assesses network health for a given deployment or bundle
+def assess_network_health(client, bundle=None, target_model=None, series=None):
+    """Assesses network health for a given deployment or bundle.
+
     :param client: The juju client in use
     :param bundle: Optional bundle to test on
     :param model: Optional existing model to test under
     """
-    setup_testing_environment(client, bundle, target_model)
+    setup_testing_environment(client, bundle, target_model, series)
     log.info("Starting network tests")
     agnostic_result = ensure_juju_agnostic_visibility(client)
     log.info('Agnostic result:\n {}'.format(json.dumps(agnostic_result,
@@ -48,18 +54,20 @@ def assess_network_health(client, bundle=None, target_model=None):
     log.info('Visibility result:\n {}'.format(json.dumps(visibility_result,
                                                          indent=4,
                                                          sort_keys=True)))
-    exposed_result = ensure_exposed(client)
-    e = 'No exposed units'
+    exposed_result = ensure_exposed(client, series)
     log.info('Exposure result:\n {}'.format(json.dumps(exposed_result,
                                                        indent=4,
-                                                       sort_keys=True)) or e)
+                                                       sort_keys=True)) or
+                                                       NO_EXPOSED_UNITS)
+    log.info('Network tests complete, parsing results.')
     parse_final_results(agnostic_result, visibility_result, exposed_result)
 
 
-def setup_testing_environment(client, bundle, target_model):
-    """Sets up the testing environment given an option bundle and/or model
+def setup_testing_environment(client, bundle, target_model, series=None):
+    """Sets up the testing environment given an option bundle and/or model.
+
     :param client: The juju client in use
-    :param bundle: Optional bundle to test on
+    :param bundle: Optional bundle to test on or None
     :param model: Optional existing model to test under
     """
     log.info("Setting up test environment")
@@ -68,29 +76,30 @@ def setup_testing_environment(client, bundle, target_model):
     if bundle:
         setup_bundle_deployment(client, bundle)
     elif bundle is None and target_model is None:
-        setup_dummy_deployment(client)
+        setup_dummy_deployment(client, series)
 
-    charm_path = local_charm_path(charm='network-health', series='trusty',
+    charm_path = local_charm_path(charm='network-health', series=series,
                                   juju_ver=client.version)
     client.deploy(charm_path)
     client.wait_for_started()
     client.wait_for_workloads()
-    services = get_juju_status(client)['applications'].keys()
-    services.remove('network-health')
-    log.info('Known applications: {}'.format(services))
-    for service in services:
+    applications = get_juju_status(client)['applications'].keys()
+    applications.remove('network-health')
+    log.info('Known applications: {}'.format(applications))
+    for app in applications:
         try:
-            client.juju('add-relation', (service, 'network-health'))
-        except:
-            log.info('Could not relate {} & network-health'.format(service))
+            client.juju('add-relation', (app, 'network-health'))
+        except subprocess.CalledProcessError:
+            log.error('Could not relate {} & network-health'.format(app))
 
     client.wait_for_workloads()
-    for service in services:
-        client.wait_for_subordinate_units(service, 'network-health')
+    for app in applications:
+        client.wait_for_subordinate_units(app, 'network-health')
 
 
 def connect_to_existing_model(client, target_model):
-    """Connects to an existing Juju model
+    """Connects to an existing Juju model.
+
     :param client: Juju client object without bootstrapped controller
     :param target_model: Model to connect to for testing
     """
@@ -99,19 +108,21 @@ def connect_to_existing_model(client, target_model):
         client.switch(target_model)
 
 
-def setup_dummy_deployment(client):
-    """Sets up a dummy test environment with 2 ubuntu charms
+def setup_dummy_deployment(client, series):
+    """Sets up a dummy test environment with 2 ubuntu charms.
+
     :param client: Bootstrapped juju client
     """
     log.info("Deploying dummy charm for basic testing")
-    dummy_path = local_charm_path(charm='ubuntu', series='trusty',
+    dummy_path = local_charm_path(charm='ubuntu', series=series,
                                   juju_ver=client.version)
     client.deploy(dummy_path, num=2)
     client.juju('expose', ('ubuntu',))
 
 
 def setup_bundle_deployment(client, bundle):
-    """Deploys a test environment with supplied bundle
+    """Deploys a test environment with supplied bundle.
+
     :param bundle: Path to a bundle.yaml
     """
     log.info("Deploying bundle specified at {}".format(bundle))
@@ -119,14 +130,16 @@ def setup_bundle_deployment(client, bundle):
 
 
 def get_juju_status(client):
-    """Gets juju status dict for supplied client
+    """Gets juju status dict for supplied client.
+
     :param client: Juju client object
     """
     return client.get_status().status
 
 
 def ensure_juju_agnostic_visibility(client):
-    """Determine if known juju machines are visible
+    """Determine if known juju machines are visible.
+
     :param machine: List of machine IPs to test
     :return: Connection attempt results
     """
@@ -138,7 +151,8 @@ def ensure_juju_agnostic_visibility(client):
         for ip in info['ip-addresses']:
             try:
                 output = subprocess.check_output("ping -c 1 " + ip, shell=True)
-            except Exception, e:
+            except subprocess.CalledProcessError, e:
+                log.error('Error with ping attempt to {}: {}'.format(ip, e))
                 result[machine][ip] = False
             result[machine][ip] = True
     return result
@@ -146,6 +160,7 @@ def ensure_juju_agnostic_visibility(client):
 
 def neighbor_visibility(client):
     """Check if each application's units are visible, including our own.
+
     :param client: The juju client in use
     """
     log.info('Starting neighbor visibility test')
@@ -165,8 +180,9 @@ def neighbor_visibility(client):
     return result
 
 
-def ensure_exposed(client):
-    """Ensure exposed services are visible from the outside
+def ensure_exposed(client, series):
+    """Ensure exposed applications are visible from the outside.
+
     :param client: The juju client in use
     :return: Exposure test results in dict by pass/fail
     """
@@ -177,24 +193,26 @@ def ensure_exposed(client):
     if len(exposed) is 0:
         log.info('No exposed units, aboring test.')
         return None
-    new_client = setup_expose_test(client)
+    new_client = setup_expose_test(client, series)
     service_results = {}
     for service, units in targets.items():
         service_results[service] = ping_units(new_client, 'network-health/0',
                                               units)
+    log.info(service_results)
     return parse_expose_results(service_results, exposed)
 
 
-def setup_expose_test(client):
-    """Sets up new model to run exposure test
+def setup_expose_test(client, series):
+    """Sets up new model to run exposure test.
+
     :param client: The juju client in use
     :return: New juju client object
     """
     new_client = client.add_model('exposetest')
-    dummy_path = local_charm_path(charm='ubuntu', series='trusty',
+    dummy_path = local_charm_path(charm='ubuntu', series=series,
                                   juju_ver=client.version)
     new_client.deploy(dummy_path)
-    charm_path = local_charm_path(charm='network-health', series='trusty',
+    charm_path = local_charm_path(charm='network-health', series=series,
                                   juju_ver=client.version)
     new_client.deploy(charm_path)
     new_client.wait_for_started()
@@ -205,7 +223,8 @@ def setup_expose_test(client):
 
 
 def parse_expose_results(service_results, exposed):
-    """Parses expose test results into dict of pass/fail
+    """Parses expose test results into dict of pass/fail.
+
     :param service_results: Raw results from expose test
     :return: Parsed results dict
     """
@@ -227,42 +246,48 @@ def parse_expose_results(service_results, exposed):
 
 
 def parse_final_results(agnostic, visibility, exposed=None):
-    """Parses test results and raises an error if any failed
+    """Parses test results and raises an error if any failed.
+
     :param agnostic: Agnostic test result
     :param visibility: Visibility test result
     :param exposed: Exposure test result
     """
-    error_string = ''
+    error_string = []
     for machine, machine_result in agnostic.items():
         for ip, res in machine_result.items():
             if res is False:
-                error = 'Failed to ping machine {0} '\
-                        'at address {1}\n'.format(machine, ip)
-                error_string += error
+                error = ('Failed to ping machine {0} ',
+                         'at address {1}\n').format(machine, ip)
+                error_string.append(error)
     for nh_source, service_result in visibility.items():
             for service, unit_res in service_result.items():
                 if False in unit_res.values():
                     failed = [u for u, r in unit_res.items() if r is False]
-                    error = 'NH-Unit {0} failed to contact ' \
-                            'unit(s): {1}\n'.format(nh_source, failed)
-                    error_string += error
+                    error = ('NH-Unit {0} failed to contact ',
+                             'unit(s): {1}\n').format(nh_source, failed)
+                    error_string.append(error)
 
     if exposed and exposed['fail'] is not ():
-        error = 'Service(s) {} failed expose test\n'.format(exposed['fail'])
-        error_string += error
+        error = ('Application(s) {0} failed expose ',
+                 'test\n').format(exposed['fail'])
+        error_string.append(error)
 
     if error_string is not '':
-        raise ConnectionError(error_string)
+        raise ConnectionError('\n'.join(error_string))
+
+    return
 
 
 def ping_units(client, source, units):
-    """Calls out to our subordinate network-health charm to ping targets
+    """Calls out to our subordinate network-health charm to ping targets.
+
     :param client: The juju client to address
     :param source: The specific network-health unit to send from
     :param units: The units to ping
     """
     units = to_json(units)
     args = "targets='{}'".format(units)
+    pdb.set_trace()
     retval = client.action_do(source, 'ping', args)
     result = client.action_fetch(retval)
     result = yaml.safe_load(result)['results']['results']
@@ -270,7 +295,8 @@ def ping_units(client, source, units):
 
 
 def to_json(units):
-    """Returns a formatted json string to be passed through juju run-action
+    """Returns a formatted json string to be passed through juju run-action.
+
     :param units: Dict of units
     :return: A "JSON-like" string that can be passed to Juju without it puking
     """
@@ -283,6 +309,7 @@ def to_json(units):
 
 def parse_targets(apps):
     """Returns targets based on supplied juju status information.
+
     :param apps: Dict of applications via 'juju status --format yaml'
     """
     targets = {}
@@ -311,10 +338,12 @@ def main(argv=None):
     if args.model is None:
         bs_manager = BootstrapManager.from_args(args)
         with bs_manager.booted_context(args.upload_tools):
-            assess_network_health(bs_manager.client, bundle=args.bundle)
+            assess_network_health(bs_manager.client, bundle=args.bundle,
+                                  series=args.series)
     else:
         client = client_from_config(args.env, args.juju_bin)
-        assess_network_health(client, args.bundle, args.model)
+        assess_network_health(client, bundle=args.bundle,
+                              target_model=args.model, series=args.series)
     return 0
 
 
