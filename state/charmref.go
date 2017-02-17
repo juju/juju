@@ -118,15 +118,6 @@ func finalAppCharmRemoveOps(appName string, curl *charm.URL) []txn.Op {
 
 // charmDestroyOps implements the logic of charm.Destroy.
 func charmDestroyOps(st modelBackend, curl *charm.URL) ([]txn.Op, error) {
-
-	if curl.Schema != "local" {
-		// it's not so much that it's bad to delete store
-		// charms; but we don't have a way to reinstate them
-		// once purged, so we don't allow removal in the first
-		// place.
-		return nil, errors.New("cannot destroy non-local charms")
-	}
-
 	charms, closer := st.getCollection(charmsC)
 	defer closer()
 

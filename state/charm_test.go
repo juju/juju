@@ -151,14 +151,6 @@ func (s *CharmSuite) dummyCharm(c *gc.C, curlOverride string) state.CharmInfo {
 	return info
 }
 
-func (s *CharmSuite) TestDestroyStoreCharm(c *gc.C) {
-	info := s.dummyCharm(c, "cs:precise/dummy-2")
-	sch, err := s.State.AddCharm(info)
-	c.Assert(err, jc.ErrorIsNil)
-	err = sch.Destroy()
-	c.Assert(err, gc.ErrorMatches, "cannot destroy non-local charms")
-}
-
 func (s *CharmSuite) TestRemoveDeletesStorage(c *gc.C) {
 	// We normally don't actually set up charm storage in state
 	// tests, but we need it here.

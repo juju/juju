@@ -288,10 +288,6 @@ func (st *State) cleanupCharm(charmURL string) error {
 	if err != nil {
 		return errors.Annotatef(err, "invalid charm URL %v", charmURL)
 	}
-	if curl.Schema != "local" {
-		// No cleanup necessary or possible.
-		return nil
-	}
 
 	ch, err := st.Charm(curl)
 	if errors.IsNotFound(err) {
