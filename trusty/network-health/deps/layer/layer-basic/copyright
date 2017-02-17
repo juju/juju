@@ -1,9 +1,0 @@
-Format: http://www.debian.org/doc/packaging-manuals/copyright-format/1.0
-
-Files: *
-Copyright: 2015, Canonical Ltd.
-License: GPL-3
-
-License: GPL-3
- On Debian GNU/Linux system you can find the complete text of the
- GPL-3 license in '/usr/share/common-licenses/GPL-3'
