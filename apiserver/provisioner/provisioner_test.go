@@ -1393,3 +1393,14 @@ func (s *withoutControllerSuite) TestMarkMachinesForRemoval(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(removals, jc.SameContents, []string{"0", "2"})
 }
+
+// TODO(jam): 2017-02-15 We seem to be lacking most of direct unit tests around ProcessOneContainer
+// Some of the use cases we need to be testing are:
+// 1) Provider can allocate addresses, should result in a container with
+//    addresses requested from the provider, and 'static' configuration on those
+//    devices.
+// 2) Provider cannot allocate addresses, currently this should make us use
+//    'lxdbr0' and DHCP allocated addresses.
+// 3) Provider could allocate DHCP based addresses on the host device, which would let us
+//    use a bridge on the device and DHCP. (Currently not supported, but desirable for
+//    vSphere and Manual and probably LXD providers.)

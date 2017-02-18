@@ -11,11 +11,11 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/lxc/lxd"
-	"github.com/lxc/lxd/shared"
+	"github.com/lxc/lxd/shared/api"
 )
 
 type rawCertClient interface {
-	CertificateList() ([]shared.CertInfo, error)
+	CertificateList() ([]api.Certificate, error)
 	CertificateAdd(cert *x509.Certificate, name string) error
 	CertificateRemove(fingerprint string) error
 }
@@ -52,15 +52,15 @@ func (c certClient) RemoveCertByFingerprint(fingerprint string) error {
 // CertByFingerprint returns information about a certificate with the
 // matching fingerprint. If there is no such certificate, an error
 // satisfying errors.IsNotFound is returned.
-func (c certClient) CertByFingerprint(fingerprint string) (shared.CertInfo, error) {
+func (c certClient) CertByFingerprint(fingerprint string) (api.Certificate, error) {
 	certs, err := c.raw.CertificateList()
 	if err != nil {
-		return shared.CertInfo{}, errors.Trace(err)
+		return api.Certificate{}, errors.Trace(err)
 	}
 	for _, cert := range certs {
 		if cert.Fingerprint == fingerprint {
 			return cert, nil
 		}
 	}
-	return shared.CertInfo{}, errors.NotFoundf("certificate with fingerprint %q", fingerprint)
+	return api.Certificate{}, errors.NotFoundf("certificate with fingerprint %q", fingerprint)
 }

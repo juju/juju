@@ -405,3 +405,23 @@ func (s *remoteRelationsSuite) TestImportRemoteEntityCount(c *gc.C) {
 	err := client.ImportRemoteEntity(coretesting.ModelTag.Id(), names.NewApplicationTag("app"), "token")
 	c.Check(err, gc.ErrorMatches, `expected 1 result, got 2`)
 }
+
+func (s *remoteRelationsSuite) TestWatchRemoteRelations(c *gc.C) {
+	var callCount int
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "RemoteRelations")
+		c.Check(version, gc.Equals, 0)
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, "WatchRemoteRelations")
+		c.Assert(result, gc.FitsTypeOf, &params.StringsWatchResult{})
+		*(result.(*params.StringsWatchResult)) = params.StringsWatchResult{
+			Error: &params.Error{Message: "FAIL"},
+		}
+		callCount++
+		return nil
+	})
+	client := remoterelations.NewClient(apiCaller)
+	_, err := client.WatchRemoteRelations()
+	c.Check(err, gc.ErrorMatches, "FAIL")
+	c.Check(callCount, gc.Equals, 1)
+}

@@ -91,6 +91,20 @@ func (s *remoteRelationsSuite) TestWatchRemoteApplicationRelations(c *gc.C) {
 	})
 }
 
+func (s *remoteRelationsSuite) TestWatchRemoteRelations(c *gc.C) {
+	relationsIds := []string{"1", "2"}
+	s.st.remoteRelationsWatcher.changes <- relationsIds
+	result, err := s.api.WatchRemoteRelations()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Error, gc.IsNil)
+	c.Assert(result.StringsWatcherId, gc.Equals, "1")
+	c.Assert(result.Changes, jc.DeepEquals, relationsIds)
+
+	resource := s.resources.Get("1")
+	c.Assert(resource, gc.NotNil)
+	c.Assert(resource, gc.Implements, new(state.StringsWatcher))
+}
+
 func (s *remoteRelationsSuite) TestPublishLocalRelationsChange(c *gc.C) {
 	s.st.remoteApplications["db2"] = newMockRemoteApplication("db2", "db2url")
 	s.st.remoteEntities[names.NewApplicationTag("db2")] = "token-db2"

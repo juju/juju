@@ -7,6 +7,7 @@ package lxd
 
 import (
 	"net"
+	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/jsonschema"
@@ -19,6 +20,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/provider/lxd/lxdnames"
+	"github.com/juju/juju/tools/lxdclient"
 )
 
 type environProvider struct {
@@ -106,35 +108,22 @@ func (p *environProvider) FinalizeCloud(
 	in cloud.Cloud,
 ) (cloud.Cloud, error) {
 
-	var hostAddress string
-	getHostAddress := func() (string, error) {
-		raw, err := p.newLocalRawProvider()
-		if err != nil {
-			return "", errors.Trace(err)
-		}
-		bridgeName := raw.DefaultProfileBridgeName()
-		hostAddress, err = p.interfaceAddress(bridgeName)
-		if err != nil {
-			return "", errors.Trace(err)
-		}
-		ctx.Verbosef(
-			"Resolved LXD host address on bridge %s: %s",
-			bridgeName, hostAddress,
-		)
-		return hostAddress, nil
-	}
+	var endpoint string
 	resolveEndpoint := func(ep *string) error {
 		if *ep != "" {
 			return nil
 		}
-		if hostAddress == "" {
+		if endpoint == "" {
+			// The cloud endpoint is empty, which means
+			// that we should connect to the local LXD.
 			var err error
-			hostAddress, err = getHostAddress()
+			hostAddress, err := p.getLocalHostAddress(ctx)
 			if err != nil {
 				return err
 			}
+			endpoint = hostAddress
 		}
-		*ep = hostAddress
+		*ep = endpoint
 		return nil
 	}
 
@@ -147,6 +136,48 @@ func (p *environProvider) FinalizeCloud(
 		}
 	}
 	return in, nil
+}
+
+func (p *environProvider) getLocalHostAddress(ctx environs.FinalizeCloudContext) (string, error) {
+	raw, err := p.newLocalRawProvider()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	bridgeName := raw.DefaultProfileBridgeName()
+	hostAddress, err := p.interfaceAddress(bridgeName)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	// LXD itself reports the host:ports that is listens on.
+	// Cross-check the address we have with the values
+	// reported by LXD.
+	if err := lxdclient.EnableHTTPSListener(raw); err != nil {
+		return "", errors.Annotate(err, "enabling HTTPS listener")
+	}
+	serverAddresses, err := raw.ServerAddresses()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	var found bool
+	for _, addr := range serverAddresses {
+		if strings.HasPrefix(addr, hostAddress+":") {
+			hostAddress = addr
+			found = true
+			break
+		}
+	}
+	if !found {
+		return "", errors.Errorf(
+			"LXD is not listening on address %s ("+
+				"reported addresses: %s)",
+			hostAddress, serverAddresses,
+		)
+	}
+	ctx.Verbosef(
+		"Resolved LXD host address on bridge %s: %s",
+		bridgeName, hostAddress,
+	)
+	return hostAddress, nil
 }
 
 // localhostCloud is the predefined "localhost" LXD cloud. We leave the
@@ -192,9 +223,15 @@ func (p *environProvider) validateCloudSpec(spec environs.CloudSpec) (local bool
 	if spec.Credential == nil {
 		return false, errors.NotValidf("missing credential")
 	}
-	local, err := p.isLocalEndpoint(spec.Endpoint)
-	if err != nil {
-		return false, errors.Trace(err)
+	if spec.Endpoint == "" {
+		// If we're dealing with an old controller, or we're preparing
+		// a local LXD, we'll have an empty endpoint. Connect to the
+		// default Unix socket.
+		local = true
+	} else {
+		if _, err := endpointURL(spec.Endpoint); err != nil {
+			return false, errors.Trace(err)
+		}
 	}
 	switch authType := spec.Credential.AuthType(); authType {
 	case cloud.CertificateAuthType:
