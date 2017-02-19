@@ -168,7 +168,7 @@ def wait_until_model_disappears(client, model_name, timeout=60):
         _wait_for_model_check(client, model_check, timeout)
     except ModelCheckFailed:
         raise JujuAssertionError(
-            'Model \'{}\' failed to be removed after {} seconds'.format(
+            'Model "{}" failed to be removed after {} seconds'.format(
                 model_name, timeout))
 
 
@@ -186,7 +186,7 @@ def wait_for_model(client, model_name, timeout=60):
         _wait_for_model_check(client, model_check, timeout)
     except ModelCheckFailed:
         raise JujuAssertionError(
-            'Model \'{}\' failed to appear after {} seconds'.format(
+            'Model "{}" failed to appear after {} seconds'.format(
                 model_name, timeout))
 
 
