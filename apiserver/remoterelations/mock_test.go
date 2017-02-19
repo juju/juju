@@ -26,6 +26,7 @@ type mockState struct {
 	remoteApplications           map[string]*mockRemoteApplication
 	applications                 map[string]*mockApplication
 	remoteApplicationsWatcher    *mockStringsWatcher
+	remoteRelationsWatcher       *mockStringsWatcher
 	applicationRelationsWatchers map[string]*mockStringsWatcher
 	remoteEntities               map[names.Tag]string
 }
@@ -36,6 +37,7 @@ func newMockState() *mockState {
 		remoteApplications:           make(map[string]*mockRemoteApplication),
 		applications:                 make(map[string]*mockApplication),
 		remoteApplicationsWatcher:    newMockStringsWatcher(),
+		remoteRelationsWatcher:       newMockStringsWatcher(),
 		applicationRelationsWatchers: make(map[string]*mockStringsWatcher),
 		remoteEntities:               make(map[names.Tag]string),
 	}
@@ -183,6 +185,11 @@ func (st *mockState) WatchRemoteApplicationRelations(applicationName string) (st
 		return nil, errors.NotFoundf("application %q", applicationName)
 	}
 	return w, nil
+}
+
+func (st *mockState) WatchRemoteRelations() state.StringsWatcher {
+	st.MethodCall(st, "WatchRemoteRelations")
+	return st.remoteRelationsWatcher
 }
 
 type mockRelation struct {

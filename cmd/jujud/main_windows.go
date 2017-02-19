@@ -9,8 +9,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/gabriel-samfira/sys/windows/svc"
 	"github.com/juju/utils/featureflag"
+	"golang.org/x/sys/windows/svc"
 
 	"github.com/juju/juju/cmd/service"
 	"github.com/juju/juju/juju/names"

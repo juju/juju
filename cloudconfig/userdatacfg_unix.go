@@ -332,6 +332,15 @@ func (w *unixConfigure) addDownloadToolsCmds() error {
 				curlCommand += " --insecure"
 			}
 		} else {
+			// Allow up to 20 seconds for curl to make a connection. This prevents
+			// slow/broken routes from holding up others.
+			//
+			// TODO(axw) 2017-02-14 #1654943
+			// When we model spaces everywhere, we should give
+			// priority to the URLs that we know are accessible
+			// based on space overlap.
+			curlCommand += " --connect-timeout 20"
+
 			// Don't go through the proxy when downloading tools from the controllers
 			curlCommand += ` --noproxy "*"`
 

@@ -7,7 +7,7 @@ package lxd
 
 import (
 	"github.com/juju/errors"
-	lxdshared "github.com/lxc/lxd/shared"
+	lxdapi "github.com/lxc/lxd/shared/api"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/network"
@@ -28,12 +28,13 @@ type rawProvider struct {
 
 type lxdCerts interface {
 	AddCert(lxdclient.Cert) error
-	CertByFingerprint(string) (lxdshared.CertInfo, error)
+	CertByFingerprint(string) (lxdapi.Certificate, error)
 	RemoveCertByFingerprint(string) error
 }
 
 type lxdConfig interface {
-	ServerStatus() (*lxdshared.ServerState, error)
+	ServerAddresses() ([]string, error)
+	ServerStatus() (*lxdapi.Server, error)
 	SetServerConfig(k, v string) error
 	SetContainerConfig(container, key, value string) error
 }
@@ -52,7 +53,7 @@ type lxdProfiles interface {
 }
 
 type lxdImages interface {
-	EnsureImageExists(series string, sources []lxdclient.Remote, copyProgressHandler func(string)) error
+	EnsureImageExists(series, arch string, sources []lxdclient.Remote, copyProgressHandler func(string)) (string, error)
 }
 
 func newRawProvider(spec environs.CloudSpec, local bool) (*rawProvider, error) {

@@ -8,7 +8,7 @@ import (
 	"sort"
 	"strings"
 
-	yaml "gopkg.in/yaml.v1"
+	"gopkg.in/yaml.v2"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"

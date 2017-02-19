@@ -381,16 +381,6 @@ type RemoteRelationsChanges struct {
 	Changes []RemoteRelationChangeEvent `json:"changes,omitempty"`
 }
 
-// RemoteRelationChange describes changes to a relation involving
-// a remote application.
-type RemoteRelationChange struct {
-	// RelationId is the numeric ID of the relation.
-	RelationId int `json:"id"`
-
-	// Life is the current lifecycle state of the relation.
-	Life Life `json:"life"`
-}
-
 // RemoteRelationUnitChange describes a relation unit change
 // which has occurred in a remote model.
 type RemoteRelationUnitChange struct {

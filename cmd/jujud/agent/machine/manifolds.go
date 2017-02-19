@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/container/lxd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/state"
+	proxyconfig "github.com/juju/juju/utils/proxy"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/agent"
 	"github.com/juju/juju/worker/apiaddressupdater"
@@ -381,10 +382,11 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		// The proxy config updater is a leaf worker that sets http/https/apt/etc
 		// proxy settings.
 		proxyConfigUpdater: ifNotMigrating(proxyupdater.Manifold(proxyupdater.ManifoldConfig{
-			AgentName:      agentName,
-			APICallerName:  apiCallerName,
-			WorkerFunc:     proxyupdater.NewWorker,
-			ExternalUpdate: externalUpdateProxyFunc,
+			AgentName:       agentName,
+			APICallerName:   apiCallerName,
+			WorkerFunc:      proxyupdater.NewWorker,
+			ExternalUpdate:  externalUpdateProxyFunc,
+			InProcessUpdate: proxyconfig.DefaultConfig.Set,
 		})),
 
 		// The api address updater is a leaf worker that rewrites agent config

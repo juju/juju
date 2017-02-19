@@ -51,6 +51,10 @@ type RemoteRelationsState interface {
 	// application.
 	WatchRemoteApplicationRelations(applicationName string) (state.StringsWatcher, error)
 
+	// WatchRemoteRelations returns a StringsWatcher that notifies of changes to
+	// the lifecycles of remote relations in the model.
+	WatchRemoteRelations() state.StringsWatcher
+
 	// ExportLocalEntity adds an entity to the remote entities collection,
 	// returning an opaque token that uniquely identifies the entity within
 	// the model.

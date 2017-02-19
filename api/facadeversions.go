@@ -71,7 +71,6 @@ var facadeVersions = map[string]int{
 	"ProxyUpdater":                 1,
 	"Reboot":                       2,
 	"RelationUnitsWatcher":         1,
-	"RemoteApplicationWatcher":     1,
 	"RemoteRelations":              1,
 	"Resources":                    1,
 	"ResourcesHookContext":         1,
