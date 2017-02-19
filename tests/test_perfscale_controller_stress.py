@@ -44,9 +44,9 @@ class TestAssessControllerStress(TestCase):
         pprof_collector = Mock()
 
         with patch.object(
-                pcs, 'deploy_swarm_to_new_model', autospec=True) as m_dsnm:
+                pcs, 'deploy_bundle_to_new_model', autospec=True) as m_dbnm:
             pcs.assess_controller_stress(client, pprof_collector, args)
-        m_dsnm.assert_called_once_with(client, 'swarm-model-0')
+        m_dbnm.assert_called_once_with(client, 'kafka-model-0')
 
     def test_stores_deploytimes(self):
         start = datetime(2016, 11, 1, 2, 17, 48)
@@ -66,7 +66,7 @@ class TestAssessControllerStress(TestCase):
         self.assertEqual(deploy_timing.end, comparison_timing.end)
 
 
-class DeploySwarmToNewModel(TestCase):
+class DeployBundleToNewModel(TestCase):
 
     def test_returns_elapsed_seconds(self):
         client = Mock()
@@ -74,7 +74,7 @@ class DeploySwarmToNewModel(TestCase):
         end = start + timedelta(seconds=10)
         with patch.object(pcs, 'datetime', autospec=True) as m_dt:
             m_dt.utcnow.side_effect = [start, end]
-            elapsed = pcs.deploy_swarm_to_new_model(client, 'testing')
+            elapsed = pcs.deploy_bundle_to_new_model(client, 'testing')
         self.assertEqual(elapsed, int((end - start).total_seconds()))
 
     def test_deploys_charm_to_new_model(self):
@@ -82,11 +82,10 @@ class DeploySwarmToNewModel(TestCase):
         new_client = Mock()
         client.add_model.return_value = new_client
 
-        pcs.deploy_swarm_to_new_model(client, 'testing')
+        pcs.deploy_bundle_to_new_model(client, 'testing')
 
         client.add_model.assert_called_once_with('testing')
-        new_client.deploy.assert_called_once_with(
-            'cs:~containers/observable-swarm')
+        new_client.deploy.assert_called_once_with('cs:bundle/hadoop-kafka')
         self.assertEqual(new_client.wait_for_started.call_count, 1)
         self.assertEqual(new_client.wait_for_workloads.call_count, 1)
 
@@ -94,8 +93,7 @@ class DeploySwarmToNewModel(TestCase):
 class TestGetCharmUrl(TestCase):
 
     def test_returns_correct_url(self):
-        self.assertEqual(
-            pcs.get_charm_url(), 'cs:~containers/observable-swarm')
+        self.assertEqual(pcs.get_charm_url(), 'cs:bundle/hadoop-kafka')
 
 
 class TestParseArgs(TestCase):
