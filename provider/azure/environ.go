@@ -234,11 +234,6 @@ func (env *azureEnviron) Bootstrap(
 	return result, nil
 }
 
-// BootstrapMessage is part of the Environ interface.
-func (env *azureEnviron) BootstrapMessage() string {
-	return ""
-}
-
 // initResourceGroup creates a resource group for this environment.
 func (env *azureEnviron) initResourceGroup(controllerUUID string, controller bool) error {
 	resourceGroupsClient := resources.GroupsClient{env.resources}

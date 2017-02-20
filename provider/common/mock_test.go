@@ -46,10 +46,6 @@ func (env *mockEnviron) AllInstances() ([]instance.Instance, error) {
 	return env.allInstances()
 }
 
-func (env *mockEnviron) BootstrapMessage() string {
-	return "Some message"
-}
-
 func (env *mockEnviron) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
 	inst, hw, networkInfo, err := env.startInstance(
 		args.Placement,

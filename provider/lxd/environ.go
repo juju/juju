@@ -149,12 +149,8 @@ func (env *environ) Create(environs.CreateParams) error {
 
 // Bootstrap implements environs.Environ.
 func (env *environ) Bootstrap(ctx environs.BootstrapContext, params environs.BootstrapParams) (*environs.BootstrapResult, error) {
+	ctx.Infof("%s", bootstrapMessage)
 	return env.base.BootstrapEnv(ctx, params)
-}
-
-// BootstrapMessage is part of the Environ interface.
-func (env *environ) BootstrapMessage() string {
-	return bootstrapMessage
 }
 
 // Destroy shuts down all known machines and destroys the rest of the
