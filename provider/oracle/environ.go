@@ -135,13 +135,23 @@ func (o oracleEnviron) Bootstrap(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	instance, err := launchBootstrapConstroller(o.p.client, []oci.InstanceParams{
-		{
-			Shape:     shape.name,
-			Imagelist: imagelist,
-			Label:     o.cfg.UUID(),
-			SSHKeys:   []string{nameKey},
-			Name:      o.cfg.Name(),
+
+	instance, err := launchBootstrapConstroller(o.p.client, oci.InstanceParams{
+		Relationships: nil,
+		Instances: []oci.Instances{
+			{
+				Shape:     shape.name,
+				Imagelist: imagelist,
+				Name:      o.cfg.Name(),
+				Label:     o.cfg.UUID(),
+				SSHKeys:   []string{nameKey},
+				Hostname:  o.cfg.Name(),
+				Tags:      []string{o.cfg.UUID()},
+				// TODO(sgiulitti): add here the userdata
+				Attributes:  nil,
+				Reverse_dns: false,
+				// TODO(sgiulitti): make vm generate a public address
+			},
 		},
 	})
 	if err != nil {

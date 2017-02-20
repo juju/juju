@@ -18,7 +18,7 @@ import (
 
 // launchBootstrapController creates a new vm inside
 // the oracle infrastracuture and parses the response into a instance.Instance
-func launchBootstrapConstroller(c *oci.Client, params []oci.InstanceParams) (instance.Instance, error) {
+func launchBootstrapConstroller(c *oci.Client, params oci.InstanceParams) (instance.Instance, error) {
 	if c == nil {
 		return nil, errors.NotFoundf("client")
 	}
