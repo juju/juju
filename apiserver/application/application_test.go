@@ -6,6 +6,7 @@ package application_test
 import (
 	"fmt"
 	"io"
+	"io/ioutil"
 	"regexp"
 	"sync"
 	"time"
@@ -339,6 +340,11 @@ func (s *applicationSuite) TestApplicationDeploy(c *gc.C) {
 	units, err := svc.AllUnits()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(units, gc.HasLen, 1)
+
+	// Check that the charm cache dir is cleared out.
+	files, err := ioutil.ReadDir(charmrepo.CacheDir)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(files, gc.HasLen, 0)
 }
 
 func (s *applicationSuite) TestApplicationDeployWithInvalidPlacement(c *gc.C) {
