@@ -46,10 +46,14 @@ class TestAssertFileVersionMatchesAgentVersion(TestCase):
 
     def test_raises_exception_when_versions_dont_match(self):
         for version in [("juju-2.0.1-xenial-amd64.tgz", "2.2.1"),
-                        ("juju-2.0-rc2-arch-series", "2.1"),
+                        ("juju-2.0-rc2-arch-series.tgz", "2.1"),
                         ("juju-2.1-rc1-win10-amd64.tgz", "2.1-rc2"),
-                        ("juju-2.0-rc2-arch-series", "2.0"),
-                        ("juju-2.0-arch-series", "2.0-rc1")]:
+                        ("juju-2.0-rc2-arch-series.tgz", "2.0"),
+                        ("juju-2.0-arch-series.tgz", "2.0-rc1"),
+                        ("juju-2.0.1-arch-series.tgz", "2.0"),
+                        ("juju-2.0.1-arch-series.tgz", "2.0.2"),
+                        ("juju-2.1-beta1-arch-series.tgz", "2.1-beta"),
+                        ("juju-1.25-win-x86.tgz", "1.25.0")]:
             with self.assertRaises(JujuAssertionError):
                     assert_file_version_matches_agent_version(
                         version[0], version[1])
@@ -60,8 +64,10 @@ class TestAgentVersion(TestCase):
         for version in [("1.25-arch-series", "1.25"),
                         ("2.0-rc2-arch-series", "2.0-rc2"),
                         ("2.0.2-rc2-arch-series", "2.0.2-rc2"),
-                        ("2.1-beta12", "2.1"),
-                        ("2.1.1-beta1", "2.1.1")]:
+                        ("2.1-beta12-arch-series", "2.1-beta12"),
+                        ("2.1.1-beta1-arch-series", "2.1.1-beta1"),
+                        ("2.0-arch-series", "2.0"),
+                        ("2.0.1-arch-series", "2.0.1")]:
             client = fake_juju_client(version=version[0])
             agent_version = get_agent_version(client)
             self.assertEquals(agent_version, version[1])
