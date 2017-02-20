@@ -43,19 +43,20 @@ def assess_base_bootstrap(bs_manager):
         log.info('Environment successfully bootstrapped.')
 
 
-def prepare_metadata(client, local_dir):
+def prepare_metadata(client, local_dir, agent_stream=None, source=None):
     """Fill the given directory with metadata using sync_tools."""
-    client.sync_tools(local_dir)
+    client.sync_tools(local_dir, agent_stream, source)
 
 
 @contextmanager
-def prepare_temp_metadata(client, source_dir=None):
+def prepare_temp_metadata(client, source_dir=None, agent_stream=None,
+                          source=None):
     """Fill a temporary directory with metadata using sync_tools."""
     if source_dir is not None:
         yield source_dir
     else:
         with temp_dir() as md_dir:
-            prepare_metadata(client, md_dir)
+            prepare_metadata(client, md_dir, agent_stream, source)
             yield md_dir
 
 
