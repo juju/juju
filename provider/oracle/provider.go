@@ -1,3 +1,6 @@
+// Copyright 2017 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package oracle
 
 import (
@@ -16,9 +19,6 @@ var logger = loggo.GetLogger("juju.provider.oracle")
 const (
 	providerType = "oracle"
 )
-
-// provide friendly aliases for the register provider function
-var providerAliases = []string{"ocl", "orcl", "oci"}
 
 // environProvider type implements environs.EnvironProvider interface
 // this will represent a computing and storage provider of the orcale cloud
@@ -69,14 +69,14 @@ func (e environProvider) Ping(endpoint string) error {
 // the provided arguments. PrepareConfig is expected to produce a
 // deterministic output
 func (e environProvider) PrepareConfig(config environs.PrepareConfigParams) (*config.Config, error) {
-	if err := e.checkSpec(config.Cloud); err != nil {
+	if err := e.validateCloudSpec(config.Cloud); err != nil {
 		return nil, errors.Annotatef(err, "validating cloud spec")
 	}
 	return config.Config, nil
 }
 
-// checkSpec will try and see if the config cloud that is generated is on point with the cloudspec.
-func (e environProvider) checkSpec(spec environs.CloudSpec) error {
+// validateCloudSpec will try and see if the config cloud that is generated is on point with the cloudspec.
+func (e environProvider) validateCloudSpec(spec environs.CloudSpec) error {
 	// also every spec has a internal validate function
 	// so we must call it in order to know if everything is ok in this state
 	if err := spec.Validate(); err != nil {
@@ -103,7 +103,7 @@ func (e environProvider) checkSpec(spec environs.CloudSpec) error {
 // This operation is not performing any expensive operation.
 func (e *environProvider) Open(params environs.OpenParams) (environs.Environ, error) {
 	logger.Debugf("opening model %q", params.Config.Name())
-	if err := e.checkSpec(params.Cloud); err != nil {
+	if err := e.validateCloudSpec(params.Cloud); err != nil {
 		return nil, errors.Annotatef(err, "validating cloud spec")
 	}
 

@@ -162,6 +162,7 @@ func prepare(
 	if err := env.PrepareForBootstrap(ctx); err != nil {
 		return nil, details, errors.Trace(err)
 	}
+
 	// We store the base configuration only; we don't want the
 	// default attributes, generated secrets/certificates, or
 	// UUIDs stored in the bootstrap config. Make a copy, so

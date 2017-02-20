@@ -340,6 +340,7 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	if err := c.parseConstraints(ctx); err != nil {
 		return err
 	}
+
 	// Start by checking for usage errors, requests for information
 	finished, err := c.handleCommandLineErrorsAndInfoRequests(ctx)
 	if err != nil {
@@ -383,7 +384,6 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	if err != nil {
 		return errors.Trace(err)
 	}
-
 	if c.controllerName == "" {
 		c.controllerName = defaultControllerName(cloud.Name, region.Name)
 	}
@@ -930,14 +930,12 @@ func (c *bootstrapCommand) bootstrapConfigs(
 	}
 
 	bootstrapConfig, err := bootstrap.NewConfig(bootstrapConfigAttrs)
-
 	if err != nil {
 		return bootstrapConfigs{}, errors.Annotate(err, "constructing bootstrap config")
 	}
 	controllerConfig, err := controller.NewConfig(
 		controllerUUID.String(), bootstrapConfig.CACert, controllerConfigAttrs,
 	)
-
 	if err != nil {
 		return bootstrapConfigs{}, errors.Annotate(err, "constructing controller config")
 	}

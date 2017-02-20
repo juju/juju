@@ -1,3 +1,6 @@
+// Copyright 2017 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package oracle
 
 import (
@@ -152,7 +155,7 @@ func (o oracleEnviron) Bootstrap(
 // BootstrapMessage optionally provides a message to be displayed to
 // the user at bootstrap time.
 func (o oracleEnviron) BootstrapMessage() string {
-	return "SomeBootstrapMessage"
+	return ""
 }
 
 // Create creates the environment for a new hosted model.
