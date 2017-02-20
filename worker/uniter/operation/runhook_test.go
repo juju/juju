@@ -212,10 +212,16 @@ func (s *RunHookSuite) TestExecuteMissingHookError(c *gc.C) {
 		c.Assert(*runnerFactory.MockNewHookRunner.runner.MockRunHook.gotName, gc.Equals, "some-hook-name")
 		c.Assert(callbacks.MockNotifyHookCompleted.gotName, gc.IsNil)
 		c.Assert(callbacks.MockNotifyHookFailed.gotName, gc.IsNil)
-
-		status, err := runnerFactory.MockNewHookRunner.runner.Context().UnitStatus()
-		c.Assert(err, jc.ErrorIsNil)
-		testAfterHookStatus(c, kind, status, false)
+		if kind == hooks.Install {
+			executingQuene := callbacks.PrepareHookCallbacks.executingQueue
+			c.Assert(executingQuene, gc.HasLen, 2)
+			message := executingQuene[0]
+			c.Assert(message, gc.Equals, "installing charm software")
+		} else {
+			status, err := runnerFactory.MockNewHookRunner.runner.Context().UnitStatus()
+			c.Assert(err, jc.ErrorIsNil)
+			testAfterHookStatus(c, kind, status, false)
+		}
 	}
 }
 
@@ -337,9 +343,6 @@ func (s *RunHookSuite) testExecuteThenCharmStatus(
 
 func testBeforeHookStatus(c *gc.C, kind hooks.Kind, status *jujuc.StatusInfo) {
 	switch kind {
-	case hooks.Install:
-		c.Assert(status.Status, gc.Equals, "maintenance")
-		c.Assert(status.Info, gc.Equals, "installing charm software")
 	case hooks.Stop:
 		c.Assert(string(status.Status), gc.Equals, "maintenance")
 		c.Assert(status.Info, gc.Equals, "cleaning up prior to charm deletion")
@@ -350,9 +353,6 @@ func testBeforeHookStatus(c *gc.C, kind hooks.Kind, status *jujuc.StatusInfo) {
 
 func testAfterHookStatus(c *gc.C, kind hooks.Kind, status *jujuc.StatusInfo, statusSetCalled bool) {
 	switch kind {
-	case hooks.Install:
-		c.Assert(status.Status, gc.Equals, "maintenance")
-		c.Assert(status.Info, gc.Equals, "installing charm software")
 	case hooks.Start:
 		if statusSetCalled {
 			c.Assert(string(status.Status), gc.Equals, "")
@@ -371,7 +371,7 @@ func (s *RunHookSuite) testBeforeHookExecute(c *gc.C, newHook newHook, kind hook
 	// so that it does not complete successfully and thus afterHook() does not run,
 	// overwriting the values.
 	runErr := errors.New("graaargh")
-	op, _, runnerFactory := s.getExecuteRunnerTest(c, newHook, kind, runErr)
+	op, callbacks, runnerFactory := s.getExecuteRunnerTest(c, newHook, kind, runErr)
 	_, err := op.Prepare(operation.State{})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -379,9 +379,16 @@ func (s *RunHookSuite) testBeforeHookExecute(c *gc.C, newHook newHook, kind hook
 	c.Assert(err, gc.Equals, operation.ErrHookFailed)
 	c.Assert(newState, gc.IsNil)
 
-	status, err := runnerFactory.MockNewHookRunner.runner.Context().UnitStatus()
-	c.Assert(err, jc.ErrorIsNil)
-	testBeforeHookStatus(c, kind, status)
+	if kind == hooks.Install {
+		executingQuene := callbacks.PrepareHookCallbacks.executingQueue
+		c.Assert(executingQuene, gc.HasLen, 2)
+		message := executingQuene[0]
+		c.Assert(message, gc.Equals, "installing charm software")
+	} else {
+		status, err := runnerFactory.MockNewHookRunner.runner.Context().UnitStatus()
+		c.Assert(err, jc.ErrorIsNil)
+		testBeforeHookStatus(c, kind, status)
+	}
 }
 
 func (s *RunHookSuite) TestBeforeHookStatus(c *gc.C) {
