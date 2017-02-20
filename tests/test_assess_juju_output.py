@@ -12,7 +12,7 @@ from assess_juju_output import (
     deploy_charm_with_subordinate_charm,
     verify_juju_status_attribute_of_subordinate_charm,
     verify_juju_status_attribute_of_charm,
-    assess_juju_output,
+    assess_juju_status,
     parse_args,
     main,
     )
@@ -58,7 +58,7 @@ class TestMain(TestCase):
                        autospec=True) as mock_bc:
                 with patch('deploy_stack.client_from_config',
                            return_value=client) as mock_cfc:
-                    with patch("assess_juju_output.assess_juju_output",
+                    with patch("assess_juju_output.assess_juju_status",
                                autospec=True) as mock_assess:
                         main(argv)
         mock_cl.assert_called_once_with(logging.DEBUG)
@@ -215,6 +215,6 @@ class TestAssessJujuOutput(TestCase):
         }, '')
         fake_client.bootstrap()
         fake_client.get_status.return_value = app_status
-        assess_juju_output(fake_client, "xenial")
+        assess_juju_status(fake_client, "xenial")
         self.assertIn('assess juju-status attribute done successfully',
                       self.log_stream.getvalue())

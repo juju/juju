@@ -44,10 +44,10 @@ def verify_juju_status_attribute_of_charm(charm_details):
         app_status = charm_details['units']['dummy-sink/0']['juju-status']
     except KeyError:
         raise JujuAssertionError(
-            "juju-status for {} was not found".format('dummy-sink'))
+            "juju-status for dummy-sink was not found")
     if not app_status:
         raise JujuAssertionError(
-            "App status for {} is not set".format('dummy-sink'))
+            "App status for dummy-sink is not set")
 
 
 def verify_juju_status_attribute_of_subordinate_charm(charm_details):
@@ -60,10 +60,10 @@ def verify_juju_status_attribute_of_subordinate_charm(charm_details):
             'dummy-subordinate/0']['juju-status']
     except KeyError:
         raise JujuAssertionError(
-            "juju-status for {} was not found".format('dummy-subordinate'))
+            "juju-status for dummy-subordinate was not found")
     if not sub_status:
         raise JujuAssertionError(
-            "App status for {} is not set".format('dummy-subordinate'))
+            "App status for dummy-subordinate is not set")
 
 
 def deploy_charm_with_subordinate_charm(client, series):
@@ -87,7 +87,7 @@ def deploy_charm_with_subordinate_charm(client, series):
     client.wait_for_workloads()
 
 
-def assess_juju_output(client, series):
+def assess_juju_status(client, series):
     """Deploy charm and subordinate charm and verify its juju-status attribute
 
     :param client: ModelClient object
@@ -115,7 +115,7 @@ def main(argv=None):
     configure_logging(args.verbose)
     bs_manager = BootstrapManager.from_args(args)
     with bs_manager.booted_context(args.upload_tools):
-        assess_juju_output(bs_manager.client, series)
+        assess_juju_status(bs_manager.client, series)
     return 0
 
 
