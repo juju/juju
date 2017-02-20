@@ -268,8 +268,8 @@ def assess_metadata(args, agent_dir, agent_stream):
         assert_metadata_is_correct(agent_metadata_url, client)
         verify_deployed_tool(agent_dir, client, agent_stream)
         log.info("Successfully deployed and verified agent-metadata-url")
-        controller_series, alt_controller_series = \
-            get_controller_series_and_alternative_series(client)
+        series_details = get_controller_series_and_alternative_series(client)
+        controller_series, alt_controller_series = series_details
         deploy_charm_and_verify(client, controller_series, "dummy-source")
         deploy_machine_and_verify(client, alt_controller_series)
 
