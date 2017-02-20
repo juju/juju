@@ -129,6 +129,10 @@ func (s *cmdStorageSuite) TestStorageList(c *gc.C) {
 Unit             Id      Location  Status   Message  
 storage-block/0  data/0            pending           
 
+[Volumes]
+Machine  Unit             Storage  Id   Provider Id  Device  Size  State    Message
+0        storage-block/0  data/0   0/0                             pending  
+
 `[1:]
 	runList(c, expected)
 }
@@ -142,6 +146,10 @@ func (s *cmdStorageSuite) TestStorageListPersistent(c *gc.C) {
 [Storage]        
 Unit             Id      Location  Status   Message  
 storage-block/0  data/0            pending           
+
+[Volumes]
+Machine  Unit             Storage  Id   Provider Id  Device  Size  State    Message
+0        storage-block/0  data/0   0/0                             pending  
 
 `[1:]
 	runList(c, expected)
@@ -443,6 +451,7 @@ func (s *cmdStorageSuite) TestListVolumeTabularFilterMatch(c *gc.C) {
 	stdout, _, err := runVolumeList(c, "0")
 	c.Assert(err, jc.ErrorIsNil)
 	expected := `
+[Volumes]
 Machine  Unit             Storage  Id   Provider Id  Device  Size  State    Message
 0        storage-block/0  data/0   0/0                             pending  
 
@@ -544,12 +553,20 @@ func (s *cmdStorageSuite) TestStorageAddToUnitHasVolumes(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(volumesBefore, gc.HasLen, 1)
 
-	context, err := runJujuCommand(c, "storage", "list")
+	context, err := runJujuCommand(c, "storage")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, `
 [Storage]             
 Unit                  Id      Location  Status   Message  
 storage-filesystem/0  data/0            pending           
+
+[Filesystems]
+Machine  Unit                  Storage  Id   Volume  Provider id  Mountpoint  Size  State    Message
+0        storage-filesystem/0  data/0   0/0  0                                      pending  
+
+[Volumes]
+Machine  Unit                  Storage  Id  Provider Id  Device  Size  State    Message
+0        storage-filesystem/0  data/0   0                              pending  
 
 `[1:])
 	c.Assert(testing.Stderr(context), gc.Equals, "")
@@ -574,6 +591,16 @@ storage-filesystem/0  data/0            pending
 Unit                  Id      Location  Status   Message  
 storage-filesystem/0  data/0            pending           
 storage-filesystem/0  data/1            pending           
+
+[Filesystems]
+Machine  Unit                  Storage  Id   Volume  Provider id  Mountpoint  Size  State    Message
+0        storage-filesystem/0  data/0   0/0  0                                      pending  
+0        storage-filesystem/0  data/1   0/1  1                                      pending  
+
+[Volumes]
+Machine  Unit                  Storage  Id  Provider Id  Device  Size  State    Message
+0        storage-filesystem/0  data/0   0                              pending  
+0        storage-filesystem/0  data/1   1                              pending  
 
 `[1:])
 	c.Assert(testing.Stderr(context), gc.Equals, "")

@@ -52,9 +52,9 @@ type MachineFilesystemAttachment struct {
 }
 
 // generateListFilesystemOutput returns a map filesystem IDs to filesystem info
-func (c *listCommand) generateListFilesystemsOutput(ctx *cmd.Context, api StorageListAPI) (output interface{}, err error) {
+func generateListFilesystemsOutput(ctx *cmd.Context, api StorageListAPI, ids []string) (map[string]FilesystemInfo, error) {
 
-	results, err := api.ListFilesystems(c.ids)
+	results, err := api.ListFilesystems(ids)
 	if err != nil {
 		return nil, err
 	}
@@ -72,18 +72,7 @@ func (c *listCommand) generateListFilesystemsOutput(ctx *cmd.Context, api Storag
 	if len(valid) == 0 {
 		return nil, nil
 	}
-	info, err := convertToFilesystemInfo(valid)
-	if err != nil {
-		return nil, err
-	}
-	switch c.out.Name() {
-	case "yaml", "json":
-		output = map[string]map[string]FilesystemInfo{"filesystems": info}
-	default:
-		output = info
-	}
-
-	return output, nil
+	return convertToFilesystemInfo(valid)
 }
 
 // convertToFilesystemInfo returns a map of filesystem IDs to filesystem info.
