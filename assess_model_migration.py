@@ -160,9 +160,7 @@ def wait_until_model_disappears(client, model_name, timeout=60):
             # it's being removed.
             # We can't consider the model gone yet until we don't get this
             # error and the model is no longer in the output.
-            if 'cannot get model details' in e.stderr:
-                pass
-            else:
+            if 'cannot get model details' not in e.stderr:
                 raise
         else:
             if model_name not in [m['name'] for m in models['models']]:
