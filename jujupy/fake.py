@@ -9,7 +9,6 @@ import logging
 import re
 import subprocess
 import uuid
-import pdb
 
 import pexpect
 import yaml
@@ -594,6 +593,7 @@ class FakeBackend:
         self._past_deadline = past_deadline
         self._ignore_soft_deadline = False
         self.clouds = {}
+        self.action_results = {}
         self.action_queue = {}
 
     def clone(self, full_path=None, version=None, debug=None,
@@ -788,29 +788,21 @@ class FakeBackend:
         return {model_name: data}
 
     def set_action_result(self, unit_id, action_id, result):
-        try:
-            try:
-                self.action_results[unit_id][action_id] = result
-            except KeyError:
-                self.action_results[unit_id] = {}
-                self.action_results[unit_id][action_id] = result
-        except AttributeError:
-            self.action_results = {}
-            self.set_action_result(unit_id, action_id, result)
+        self.action_results.setdefault(unit_id, {})[action_id] = result
 
     def run_action(self, unit_id, action, args):
         action_uuid = '{}'.format(uuid.uuid1())
         if args:
-            action_id = action + ' ' + ' '.join(args)
+            action_id = '{} {}'.format(action, ' '.join(args))
         else:
             action_id = action
         try:
             result = self.action_results[unit_id][action]
             self.action_queue[action_uuid] = result
         except KeyError:
-            raise Exception('No such action "{0}"'
-                            ' specified for unit {1}.'.format(action_id,
-                                                              unit_id))
+            raise ValueError('No such action "{0}"'
+                             ' specified for unit {1}.'.format(action_id,
+                                                               unit_id))
         return ('Action queued with id: {}'.format(action_uuid))
 
     def show_action_output(self, action_uuid):
