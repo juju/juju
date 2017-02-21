@@ -280,7 +280,8 @@ def assess_multiple_provider(client, charm_series, amount, charm_name,
 
 def check_storage_list(client, expected):
     storage_list_derived = storage_list(client)
-    if storage_list_derived != expected:
+    if not all(item in storage_list_derived.items()
+               for item in expected.items()):
         raise JujuAssertionError(
             'Found: {} \nExpected: {}'.format(storage_list_derived, expected))
 
@@ -302,7 +303,7 @@ def assess_storage(client, charm_series):
             expected_pool = dict(DEFAULT_STORAGE_POOL_DETAILS)
         expected_pool.update(storage_pool_details)
     pool_list = storage_pool_list(client)
-    if pool_list != expected_pool:
+    if not all(item in pool_list.items() for item in expected_pool.items()):
         raise JujuAssertionError(
             'Found: {} \nExpected: {}'.format(pool_list, expected_pool))
     log.info('Storage pool PASSED')
