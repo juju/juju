@@ -13,9 +13,9 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/gorilla/websocket"
 	"github.com/juju/errors"
 	"github.com/juju/version"
-	"golang.org/x/net/websocket"
 	"gopkg.in/juju/charm.v6-unstable"
 	csparams "gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
 	"gopkg.in/juju/names.v2"
@@ -501,26 +501,14 @@ func (c *Client) AgentVersion() (version.Number, error) {
 	return result.Version, nil
 }
 
-// websocketDialConfig is called instead of websocket.DialConfig so we can
-// override it in tests.
-var websocketDialConfig = func(config *websocket.Config) (base.Stream, error) {
-	c, err := websocket.DialConfig(config)
+// websocketDial is called instead of dialer.Dial so we can override it in
+// tests.
+var websocketDial = func(dialer *websocket.Dialer, urlStr string, requestHeader http.Header) (base.Stream, error) {
+	c, _, err := dialer.Dial(urlStr, requestHeader)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return websocketStream{c}, nil
-}
-
-type websocketStream struct {
-	*websocket.Conn
-}
-
-func (c websocketStream) ReadJSON(v interface{}) error {
-	return websocket.JSON.Receive(c.Conn, v)
-}
-
-func (c websocketStream) WriteJSON(v interface{}) error {
-	return websocket.JSON.Send(c.Conn, v)
+	return c, nil
 }
 
 // WatchDebugLog returns a channel of structured Log Messages. Only log entries

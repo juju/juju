@@ -4,19 +4,19 @@
 package apiserver
 
 import (
-	"io"
+	"fmt"
 	"net"
 	"net/http"
 	"net/url"
 	"time"
 
 	"github.com/google/go-querystring/query"
+	"github.com/gorilla/websocket"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/clock"
-	"golang.org/x/net/websocket"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
@@ -48,7 +48,7 @@ func (s *LogStreamIntSuite) TestParamConversion(c *gc.C) {
 		newSource: source.newSource,
 	}
 
-	reqHandler, err := handler.newLogStreamRequestHandler(req, clock.WallClock)
+	reqHandler, err := handler.newLogStreamRequestHandler(nil, req, clock.WallClock)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(reqHandler.sendModelUUID, jc.IsTrue)
@@ -88,7 +88,7 @@ func (s *LogStreamIntSuite) TestParamStartTruncate(c *gc.C) {
 	now := time.Now()
 	clock := &mockClock{now: now}
 
-	reqHandler, err := handler.newLogStreamRequestHandler(req, clock)
+	reqHandler, err := handler.newLogStreamRequestHandler(nil, req, clock)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(reqHandler.sendModelUUID, jc.IsFalse)
@@ -167,16 +167,14 @@ func (s *LogStreamIntSuite) TestFullRequest(c *gc.C) {
 		defer close(serverDone)
 		defer conn.Close()
 
-		stream, err := initStream(conn, nil)
-		if !c.Check(err, jc.ErrorIsNil) {
-			return
-		}
+		sendInitialErrorV0(conn, nil)
 		handler := &logStreamRequestHandler{
+			conn:          conn,
 			req:           req,
 			tailer:        tailer,
 			sendModelUUID: true,
 		}
-		handler.serveWebsocket(conn, stream, abortServer)
+		handler.serveWebsocket(abortServer)
 	})
 	defer waitFor(c, serverDone)
 	defer close(abortServer)
@@ -192,12 +190,12 @@ func (s *LogStreamIntSuite) TestFullRequest(c *gc.C) {
 		defer close(clientDone)
 
 		var result params.ErrorResult
-		err := websocket.JSON.Receive(client, &result)
+		err := client.ReadJSON(&result)
 		ok := c.Check(err, jc.ErrorIsNil)
 		if ok && c.Check(result, jc.DeepEquals, params.ErrorResult{}) {
 			for {
 				var apiRec params.LogStreamRecords
-				err = websocket.JSON.Receive(client, &apiRec)
+				err = client.ReadJSON(&apiRec)
 				if err != nil {
 					break
 				}
@@ -206,7 +204,10 @@ func (s *LogStreamIntSuite) TestFullRequest(c *gc.C) {
 		}
 
 		c.Logf("client stopped: %v", err)
-		if err == io.EOF {
+		if websocket.IsCloseError(err,
+			websocket.CloseNormalClosure,
+			websocket.CloseGoingAway,
+			websocket.CloseNoStatusReceived) {
 			return // this is fine
 		}
 		if _, ok := err.(*net.OpError); ok {
@@ -322,23 +323,27 @@ func (s *stubLogTailer) Err() error {
 	return nil
 }
 
-func newWebsocketServer(c *gc.C, h websocket.Handler) *websocket.Conn {
-	cfg, err := websocket.NewConfig("ws://localhost:12345/", "http://localhost/")
-	c.Assert(err, jc.ErrorIsNil)
-
-	go func() {
-		err = http.ListenAndServe(":12345", websocket.Server{
-			Config:  *cfg,
-			Handler: h,
-		})
-		c.Assert(err, jc.ErrorIsNil)
-	}()
-
-	return newWebsocketClient(c, cfg)
+type testStreamHandler struct {
+	handler func(*websocket.Conn)
 }
 
-func newWebsocketClient(c *gc.C, cfg *websocket.Config) *websocket.Conn {
-	client, err := websocket.DialConfig(cfg)
+func (h *testStreamHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	websocketServer(w, req, h.handler)
+}
+
+func newWebsocketServer(c *gc.C, h func(*websocket.Conn)) *websocket.Conn {
+	listener, err := net.Listen("tcp", ":0")
+	c.Assert(err, jc.ErrorIsNil)
+	port := listener.Addr().(*net.TCPAddr).Port
+
+	go http.Serve(listener, &testStreamHandler{h})
+
+	return newWebsocketClient(c, port)
+}
+
+func newWebsocketClient(c *gc.C, port int) *websocket.Conn {
+	address := fmt.Sprintf("ws://localhost:%d/", port)
+	client, _, err := websocket.DefaultDialer.Dial(address, nil)
 	if err == nil {
 		return client
 	}
@@ -347,15 +352,15 @@ func newWebsocketClient(c *gc.C, cfg *websocket.Config) *websocket.Conn {
 	for {
 		select {
 		case <-timeoutCh:
-			c.Assert(err, jc.ErrorIsNil)
+			c.Fatalf("unable to connect to %s", address)
 		case <-time.After(coretesting.ShortWait):
 		}
 
-		client, err = websocket.DialConfig(cfg)
-		if _, ok := err.(*websocket.DialError); ok {
+		client, _, err = websocket.DefaultDialer.Dial(address, nil)
+		if err != nil {
+			c.Logf("failed attempt to connect to %s", address)
 			continue
 		}
-		c.Assert(err, jc.ErrorIsNil)
 		return client
 	}
 }

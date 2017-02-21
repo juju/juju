@@ -7,7 +7,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"strings"
 
@@ -251,19 +250,6 @@ func (ctxt *httpContext) loginRequest(r *http.Request) (params.LoginRequest, err
 // exit.
 func (ctxt *httpContext) stop() <-chan struct{} {
 	return ctxt.srv.tomb.Dying()
-}
-
-// sendJSON writes a JSON-encoded response value
-// to the given writer along with a trailing newline.
-func sendJSON(w io.Writer, response interface{}) error {
-	body, err := json.Marshal(response)
-	if err != nil {
-		logger.Errorf("cannot marshal JSON result %#v: %v", response, err)
-		return err
-	}
-	body = append(body, '\n')
-	_, err = w.Write(body)
-	return err
 }
 
 // sendStatusAndJSON sends an HTTP status code and

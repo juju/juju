@@ -325,7 +325,7 @@ func (conn *Conn) input() {
 	conn.mutex.Lock()
 	defer conn.mutex.Unlock()
 
-	if conn.closing || err == io.EOF {
+	if conn.closing || errors.Cause(err) == io.EOF {
 		err = ErrShutdown
 	} else {
 		// Make the error available for Conn.Close to see.
@@ -341,13 +341,15 @@ func (conn *Conn) input() {
 	close(conn.dead)
 }
 
+var errRemoteClosed = errors.New("remote closed connection")
+
 // loop implements the looping part of Conn.input.
 func (conn *Conn) loop() error {
 	for {
 		var hdr Header
 		err := conn.codec.ReadHeader(&hdr)
 		switch {
-		case err == io.EOF:
+		case errors.Cause(err) == io.EOF:
 			// handle sentinel error specially
 			return err
 		case err != nil:

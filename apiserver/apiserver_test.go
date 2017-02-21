@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net"
 
+	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/clock"
@@ -34,6 +35,7 @@ type apiserverBaseSuite struct {
 
 func (s *apiserverBaseSuite) SetUpTest(c *gc.C) {
 	s.StateSuite.SetUpTest(c)
+	loggo.GetLogger("juju.apiserver").SetLogLevel(loggo.TRACE)
 	u, err := s.State.User(s.Owner)
 	c.Assert(err, jc.ErrorIsNil)
 	err = u.SetPassword(ownerPassword)
