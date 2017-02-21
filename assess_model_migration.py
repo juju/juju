@@ -158,11 +158,13 @@ def wait_until_model_disappears(client, model_name, timeout=60):
         except CalledProcessError as e:
             # It's possible that we've tried to get status from the model as
             # it's being removed.
-            if 'cannot get model details' in e.stderr:
+            # We can't consider the model gone yet until we don't get this
+            # error and the model is no longer in the output.
+            if 'cannot get model details' not in e.stderr:
+                raise
+        else:
+            if model_name not in [m['name'] for m in models['models']]:
                 return True
-            raise
-        if model_name not in [m['name'] for m in models['models']]:
-            return True
 
     try:
         _wait_for_model_check(client, model_check, timeout)
