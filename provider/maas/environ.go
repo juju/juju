@@ -194,11 +194,6 @@ func (env *maasEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.B
 	return bsResult, nil
 }
 
-// BootstrapMessage is part of the Environ interface.
-func (env *maasEnviron) BootstrapMessage() string {
-	return ""
-}
-
 // ControllerInstances is specified in the Environ interface.
 func (env *maasEnviron) ControllerInstances(controllerUUID string) ([]instance.Id, error) {
 	if !env.usingMAAS2() {
