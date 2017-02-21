@@ -278,11 +278,21 @@ def assess_multiple_provider(client, charm_series, amount, charm_name,
         client.wait_for_started()
 
 
+def assert_dict_is_subset(sub_dict, super_dict):
+    """Assert that every item in the sub_dict is in the super_dict.
+
+    :raises JujuAssertionError: when sub_dict items are missing.
+    :return: True when when sub_dict is a subset of super_dict
+    """
+    if not all(item in super_dict.items() for item in sub_dict.items()):
+        raise JujuAssertionError(
+            'Found: {} \nExpected: {}'.format(super_dict, sub_dict))
+    return True
+
+
 def check_storage_list(client, expected):
     storage_list_derived = storage_list(client)
-    if storage_list_derived != expected:
-        raise JujuAssertionError(
-            'Found: {} \nExpected: {}'.format(storage_list_derived, expected))
+    assert_dict_is_subset(expected, storage_list_derived)
 
 
 def assess_storage(client, charm_series):
@@ -302,9 +312,7 @@ def assess_storage(client, charm_series):
             expected_pool = dict(DEFAULT_STORAGE_POOL_DETAILS)
         expected_pool.update(storage_pool_details)
     pool_list = storage_pool_list(client)
-    if pool_list != expected_pool:
-        raise JujuAssertionError(
-            'Found: {} \nExpected: {}'.format(pool_list, expected_pool))
+    assert_dict_is_subset(expected_pool, pool_list)
     log.info('Storage pool PASSED')
 
     log.info('Assessing filesystem rootfs')
