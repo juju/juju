@@ -266,6 +266,7 @@ type RemoteRelation struct {
 	ApplicationName    string         `json:"application-name"`
 	Endpoint           RemoteEndpoint `json:"endpoint"`
 	RemoteEndpointName string         `json:"remote-endpoint-name"`
+	SourceModelUUID    string         `json:"source-model-uuid"`
 }
 
 // RemoteRelationResult holds a remote relation and an error.
@@ -471,4 +472,25 @@ type ConsumeApplicationResult struct {
 // ConsumeApplicationResults is the result of a Consume call.
 type ConsumeApplicationResults struct {
 	Results []ConsumeApplicationResult `json:"results"`
+}
+
+// IngressSubnetInfo is the result of an IngressSubnetsForRelation call.
+type IngressSubnetInfo struct {
+	// ApplicationName is the name of the local application.
+	ApplicationName string `json:"application-name"`
+
+	// CIDRs is the set if CIDRs which need to be allowed ingress to the application.
+	CIDRs []string `json:"cidrs,omitempty"`
+}
+
+// IngressSubnetResult holds ingress network information and an error.
+type IngressSubnetResult struct {
+	Error  *Error             `json:"error,omitempty"`
+	Result *IngressSubnetInfo `json:"result,omitempty"`
+}
+
+// IngressSubnetResults holds the result of an API call that returns
+// information about ingress networks for multiple remote relations.
+type IngressSubnetResults struct {
+	Results []IngressSubnetResult `json:"results"`
 }

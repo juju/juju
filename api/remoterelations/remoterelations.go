@@ -151,6 +151,24 @@ func (c *Client) Relations(keys []string) ([]params.RemoteRelationResult, error)
 	return results.Results, nil
 }
 
+// IngressSubnetsForRelation returns any CIDRs for which ingress is required to allow
+// the specified relation to properly function.
+func (c *Client) IngressSubnetsForRelation(key string) (*params.IngressSubnetInfo, error) {
+	args := params.Entities{Entities: []params.Entity{{Tag: names.NewRelationTag(key).String()}}}
+	var results params.IngressSubnetResults
+	err := c.facade.FacadeCall("IngressSubnetsForRelation", args, &results)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if len(results.Results) != 1 {
+		return nil, errors.Errorf("expected %d result(s), got %d", 1, len(results.Results))
+	}
+	if err := results.Results[0].Error; err != nil {
+		return nil, err
+	}
+	return results.Results[0].Result, nil
+}
+
 // RemoteApplications returns the current state of the remote applications with
 // the specified names in the local model.
 func (c *Client) RemoteApplications(applications []string) ([]params.RemoteApplicationResult, error) {

@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/firewaller"
+	"github.com/juju/juju/api/remoterelations"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/worker"
@@ -48,8 +49,9 @@ func Manifold(cfg ManifoldConfig) dependency.Manifold {
 
 // manifoldStart creates a firewaller worker, given a base.APICaller.
 func manifoldStart(env environs.Environ, apiCaller base.APICaller, firewallMode string) (worker.Worker, error) {
-	api := firewaller.NewState(apiCaller)
-	w, err := NewFirewaller(env, api, firewallMode)
+	firewallerApi := firewaller.NewState(apiCaller)
+	remoteRelationsApi := remoterelations.NewClient(apiCaller)
+	w, err := NewFirewaller(env, firewallerApi, firewallMode, remoteRelationsApi)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

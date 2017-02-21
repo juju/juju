@@ -11,6 +11,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/firewaller"
+	"github.com/juju/juju/api/remoterelations"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -28,36 +29,43 @@ type portRanges map[network.PortRange]bool
 // Uses Firewaller API V1.
 type Firewaller struct {
 	catacomb             catacomb.Catacomb
-	st                   *firewaller.State
+	firewallerApi        *firewaller.State
+	remoteRelationsApi   *remoterelations.Client
 	environ              environs.Environ
 	machinesWatcher      watcher.StringsWatcher
 	portsWatcher         watcher.StringsWatcher
 	machineds            map[names.MachineTag]*machineData
 	unitsChange          chan *unitsChange
 	unitds               map[names.UnitTag]*unitData
-	applicationids       map[names.ApplicationTag]*serviceData
+	applicationids       map[names.ApplicationTag]*applicationData
 	exposedChange        chan *exposedChange
 	globalMode           bool
 	globalIngressRuleRef map[string]int // map of rule names to count of occurrences
-	machinePorts         map[names.MachineTag]portRanges
+
+	remoteRelationsWatcher watcher.StringsWatcher
+	remoteRelationsChange  chan *remoteRelationData
+	applicationIngress     map[names.RelationTag]*remoteRelationData
 }
 
 // NewFirewaller returns a new Firewaller or a new FirewallerV0,
 // depending on what the API supports.
 func NewFirewaller(
 	env environs.Environ,
-	st *firewaller.State,
+	firewallerApi *firewaller.State,
 	mode string,
+	remoteRelationsApi *remoterelations.Client,
 ) (worker.Worker, error) {
 	fw := &Firewaller{
-		st:             st,
-		environ:        env,
-		machineds:      make(map[names.MachineTag]*machineData),
-		unitsChange:    make(chan *unitsChange),
-		unitds:         make(map[names.UnitTag]*unitData),
-		applicationids: make(map[names.ApplicationTag]*serviceData),
-		exposedChange:  make(chan *exposedChange),
-		machinePorts:   make(map[names.MachineTag]portRanges),
+		firewallerApi:         firewallerApi,
+		remoteRelationsApi:    remoteRelationsApi,
+		environ:               env,
+		machineds:             make(map[names.MachineTag]*machineData),
+		unitsChange:           make(chan *unitsChange),
+		unitds:                make(map[names.UnitTag]*unitData),
+		applicationids:        make(map[names.ApplicationTag]*applicationData),
+		applicationIngress:    make(map[names.RelationTag]*remoteRelationData),
+		remoteRelationsChange: make(chan *remoteRelationData, 1),
+		exposedChange:         make(chan *exposedChange),
 	}
 
 	switch mode {
@@ -81,7 +89,7 @@ func NewFirewaller(
 
 func (fw *Firewaller) setUp() error {
 	var err error
-	fw.machinesWatcher, err = fw.st.WatchModelMachines()
+	fw.machinesWatcher, err = fw.firewallerApi.WatchModelMachines()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -89,11 +97,19 @@ func (fw *Firewaller) setUp() error {
 		return errors.Trace(err)
 	}
 
-	fw.portsWatcher, err = fw.st.WatchOpenedPorts()
+	fw.portsWatcher, err = fw.firewallerApi.WatchOpenedPorts()
 	if err != nil {
 		return errors.Annotatef(err, "failed to start ports watcher")
 	}
 	if err := fw.catacomb.Add(fw.portsWatcher); err != nil {
+		return errors.Trace(err)
+	}
+
+	fw.remoteRelationsWatcher, err = fw.remoteRelationsApi.WatchRemoteRelations()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if err := fw.catacomb.Add(fw.remoteRelationsWatcher); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -145,14 +161,37 @@ func (fw *Firewaller) loop() error {
 					return errors.Trace(err)
 				}
 			}
+		case change, ok := <-fw.remoteRelationsWatcher.Changes():
+			if !ok {
+				return errors.New("remote relations watcher closed")
+			}
+			for _, relationId := range change {
+				if err := fw.relationLifeChanged(names.NewRelationTag(relationId)); err != nil {
+					return err
+				}
+			}
+		case change := <-fw.remoteRelationsChange:
+			logger.Debugf("process remote relation change for %v", change.localApplicationTag)
+			appData, ok := fw.applicationids[change.localApplicationTag]
+			if !ok {
+				logger.Debugf("ignoring deleted application: %v", change.localApplicationTag)
+				continue
+			}
+			unitds := []*unitData{}
+			for _, unitd := range appData.unitds {
+				unitds = append(unitds, unitd)
+			}
+			if err := fw.flushUnits(unitds); err != nil {
+				return errors.Annotate(err, "cannot change firewall ports")
+			}
 		case change := <-fw.unitsChange:
 			if err := fw.unitsChanged(change); err != nil {
 				return errors.Trace(err)
 			}
 		case change := <-fw.exposedChange:
-			change.serviced.exposed = change.exposed
+			change.applicationd.exposed = change.exposed
 			unitds := []*unitData{}
-			for _, unitd := range change.serviced.unitds {
+			for _, unitd := range change.applicationd.unitds {
 				unitds = append(unitds, unitd)
 			}
 			if err := fw.flushUnits(unitds); err != nil {
@@ -246,14 +285,14 @@ func (fw *Firewaller) startUnit(unit *firewaller.Unit, machineTag names.MachineT
 	unitd.machined = fw.machineds[machineTag]
 	unitd.machined.unitds[unitTag] = unitd
 	if fw.applicationids[applicationTag] == nil {
-		err := fw.startService(application)
+		err := fw.startApplication(application)
 		if err != nil {
 			delete(fw.unitds, unitTag)
 			return err
 		}
 	}
-	unitd.serviced = fw.applicationids[applicationTag]
-	unitd.serviced.unitds[unitTag] = unitd
+	unitd.applicationd = fw.applicationids[applicationTag]
+	unitd.applicationd.unitds[unitTag] = unitd
 
 	m, err := unitd.machined.machine()
 	if err != nil {
@@ -275,37 +314,37 @@ func (fw *Firewaller) startUnit(unit *firewaller.Unit, machineTag names.MachineT
 	return nil
 }
 
-// startService creates a new data value for tracking details of the
-// service and starts watching the service for exposure changes.
-func (fw *Firewaller) startService(service *firewaller.Application) error {
-	exposed, err := service.IsExposed()
+// startApplication creates a new data value for tracking details of the
+// application and starts watching the application for exposure changes.
+func (fw *Firewaller) startApplication(app *firewaller.Application) error {
+	exposed, err := app.IsExposed()
 	if err != nil {
 		return err
 	}
-	serviced := &serviceData{
+	applicationd := &applicationData{
 		fw:          fw,
-		application: service,
+		application: app,
 		exposed:     exposed,
 		unitds:      make(map[names.UnitTag]*unitData),
 	}
 	err = catacomb.Invoke(catacomb.Plan{
-		Site: &serviced.catacomb,
+		Site: &applicationd.catacomb,
 		Work: func() error {
-			return serviced.watchLoop(exposed)
+			return applicationd.watchLoop(exposed)
 		},
 	})
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if err := fw.catacomb.Add(serviced); err != nil {
+	if err := fw.catacomb.Add(applicationd); err != nil {
 		return errors.Trace(err)
 	}
-	fw.applicationids[service.Tag()] = serviced
+	fw.applicationids[app.Tag()] = applicationd
 	return nil
 }
 
 // reconcileGlobal compares the initially started watcher for machines,
-// units and services with the opened and closed ports globally and
+// units and applications with the opened and closed ports globally and
 // opens and closes the appropriate ports for the whole environment.
 func (fw *Firewaller) reconcileGlobal() error {
 	var machines []*machineData
@@ -336,7 +375,7 @@ func (fw *Firewaller) reconcileGlobal() error {
 }
 
 // reconcileInstances compares the initially started watcher for machines,
-// units and services with the opened and closed ports of the instances and
+// units and appications with the opened and closed ports of the instances and
 // opens and closes the appropriate ports for each instance.
 func (fw *Firewaller) reconcileInstances() error {
 	for _, machined := range fw.machineds {
@@ -398,7 +437,7 @@ func (fw *Firewaller) unitsChanged(change *unitsChange) error {
 	changed := []*unitData{}
 	for _, name := range change.units {
 		unitTag := names.NewUnitTag(name)
-		unit, err := fw.st.Unit(unitTag)
+		unit, err := fw.firewallerApi.Unit(unitTag)
 		if err != nil && !params.IsCodeNotFound(err) {
 			return err
 		}
@@ -555,12 +594,15 @@ func (fw *Firewaller) gatherIngressRules(machines ...*machineData) ([]network.In
 
 			cidrs := set.NewStrings()
 			// If the unit is exposed, allow access from everywhere.
-			if unitd.serviced.exposed {
+			if unitd.applicationd.exposed {
 				cidrs.Add("0.0.0.0/0")
 			}
 
 			// Add any ingress rules required by remote relations.
-			fw.updateForRemoteRelationIngress(unitd.serviced.application.Tag(), cidrs)
+			if err := fw.updateForRemoteRelationIngress(unitd.applicationd.application.Tag(), cidrs); err != nil {
+				return nil, errors.Trace(err)
+			}
+			logger.Debugf("CIDRS for %v: %v", unitTag, cidrs.Values())
 			if cidrs.Size() > 0 {
 				for portRange := range portRanges {
 					sourceCidrs := cidrs.SortedValues()
@@ -576,9 +618,28 @@ func (fw *Firewaller) gatherIngressRules(machines ...*machineData) ([]network.In
 	return want, nil
 }
 
-func (fw *Firewaller) updateForRemoteRelationIngress(tag names.ApplicationTag, cidrs set.Strings) {
-	// TODO(wallyworld) - implement this.
-	return
+func (fw *Firewaller) updateForRemoteRelationIngress(appTag names.ApplicationTag, cidrs set.Strings) error {
+	logger.Debugf("finding ingress rules for %v", appTag)
+	// Now create the rules for any remote relations of which the
+	// unit's application is a part.
+	appProcessed := false
+	for _, data := range fw.applicationIngress {
+		if data.localApplicationTag != appTag {
+			continue
+		}
+		appProcessed = true
+		for _, cidr := range data.networks.Values() {
+			cidrs.Add(cidr)
+		}
+	}
+	// This is a fallback for providers which have not yet implemented the
+	// network interface, or where the network information is not yet available.
+	// TODO(wallyworld) - remove fallback when proivders are all updated
+	if appProcessed && len(cidrs) == 0 {
+		logger.Warningf("adding default CIDR 0.0.0.0/0 for: %v", appTag)
+		cidrs.Add("0.0.0.0/0")
+	}
+	return nil
 }
 
 // flushGlobalPorts opens and closes global ports in the environment.
@@ -671,7 +732,7 @@ func (fw *Firewaller) flushInstancePorts(machined *machineData, toOpen, toClose 
 // is starting, or when new machines come to life, and stops watching
 // machines that are dying.
 func (fw *Firewaller) machineLifeChanged(tag names.MachineTag) error {
-	m, err := fw.st.Machine(tag)
+	m, err := fw.firewallerApi.Machine(tag)
 	found := !params.IsCodeNotFound(err)
 	if found && err != nil {
 		return err
@@ -711,29 +772,29 @@ func (fw *Firewaller) forgetMachine(machined *machineData) error {
 
 // forgetUnit cleans the unit data after the unit is removed.
 func (fw *Firewaller) forgetUnit(unitd *unitData) {
-	serviced := unitd.serviced
+	applicationd := unitd.applicationd
 	machined := unitd.machined
 
-	// If it's the last unit in the service, we'll need to stop the serviced.
-	stoppedService := false
-	if len(serviced.unitds) == 1 {
-		if _, found := serviced.unitds[unitd.tag]; found {
+	// If it's the last unit in the application, we'll need to stop the applicationd.
+	stoppedApplication := false
+	if len(applicationd.unitds) == 1 {
+		if _, found := applicationd.unitds[unitd.tag]; found {
 			// Unusually, it's fine to ignore this error, because we know the
-			// serviced is being tracked in fw.catacomb. But we do still want
+			// applicationd is being tracked in fw.catacomb. But we do still want
 			// to wait until the watch loop has stopped before we nuke the last
 			// data and return.
-			worker.Stop(serviced)
-			stoppedService = true
+			worker.Stop(applicationd)
+			stoppedApplication = true
 		}
 	}
 
 	// Clean up after stopping.
 	delete(fw.unitds, unitd.tag)
 	delete(machined.unitds, unitd.tag)
-	delete(serviced.unitds, unitd.tag)
+	delete(applicationd.unitds, unitd.tag)
 	logger.Debugf("stopped watching %q", unitd.tag)
-	if stoppedService {
-		applicationTag := serviced.application.Tag()
+	if stoppedApplication {
+		applicationTag := applicationd.application.Tag()
 		delete(fw.applicationids, applicationTag)
 		logger.Debugf("stopped watching %q", applicationTag)
 	}
@@ -767,7 +828,7 @@ type machineData struct {
 }
 
 func (md *machineData) machine() (*firewaller.Machine, error) {
-	return md.fw.st.Machine(md.tag)
+	return md.fw.firewallerApi.Machine(md.tag)
 }
 
 // watchLoop watches the machine for units added or removed.
@@ -804,21 +865,21 @@ func (md *machineData) Wait() error {
 
 // unitData holds unit details.
 type unitData struct {
-	fw       *Firewaller
-	tag      names.UnitTag
-	unit     *firewaller.Unit
-	serviced *serviceData
-	machined *machineData
+	fw           *Firewaller
+	tag          names.UnitTag
+	unit         *firewaller.Unit
+	applicationd *applicationData
+	machined     *machineData
 }
 
-// exposedChange contains the changed exposed flag for one specific service.
+// exposedChange contains the changed exposed flag for one specific application.
 type exposedChange struct {
-	serviced *serviceData
-	exposed  bool
+	applicationd *applicationData
+	exposed      bool
 }
 
-// serviceData holds service details and watches exposure changes.
-type serviceData struct {
+// applicationData holds application details and watches exposure changes.
+type applicationData struct {
 	catacomb    catacomb.Catacomb
 	fw          *Firewaller
 	application *firewaller.Application
@@ -826,22 +887,22 @@ type serviceData struct {
 	unitds      map[names.UnitTag]*unitData
 }
 
-// watchLoop watches the service's exposed flag for changes.
-func (sd *serviceData) watchLoop(exposed bool) error {
-	serviceWatcher, err := sd.application.Watch()
+// watchLoop watches the application's exposed flag for changes.
+func (sd *applicationData) watchLoop(exposed bool) error {
+	appWatcher, err := sd.application.Watch()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if err := sd.catacomb.Add(serviceWatcher); err != nil {
+	if err := sd.catacomb.Add(appWatcher); err != nil {
 		return errors.Trace(err)
 	}
 	for {
 		select {
 		case <-sd.catacomb.Dying():
 			return sd.catacomb.ErrDying()
-		case _, ok := <-serviceWatcher.Changes():
+		case _, ok := <-appWatcher.Changes():
 			if !ok {
-				return errors.New("service watcher closed")
+				return errors.New("application watcher closed")
 			}
 			if err := sd.application.Refresh(); err != nil {
 				if !params.IsCodeNotFound(err) {
@@ -868,12 +929,12 @@ func (sd *serviceData) watchLoop(exposed bool) error {
 }
 
 // Kill is part of the worker.Worker interface.
-func (sd *serviceData) Kill() {
+func (sd *applicationData) Kill() {
 	sd.catacomb.Kill(nil)
 }
 
 // Wait is part of the worker.Worker interface.
-func (sd *serviceData) Wait() error {
+func (sd *applicationData) Wait() error {
 	return sd.catacomb.Wait()
 }
 
@@ -951,4 +1012,63 @@ func diffRanges(currentRules, wantedRules []network.IngressRule) (toOpen, toClos
 	network.SortIngressRules(toOpen)
 	network.SortIngressRules(toClose)
 	return toOpen, toClose
+}
+
+type remoteRelationData struct {
+	localApplicationTag names.ApplicationTag
+	networks            set.Strings
+}
+
+// relationLifeChanged looks up the required ingress CIDRs to allow
+// the specified relation to accept traffic from another model.
+// TODO(wallyworld) - listen for network changes as the networks may not be known
+// when the relation change is first noticed
+func (fw *Firewaller) relationLifeChanged(tag names.RelationTag) error {
+	rel, err := fw.firewallerApi.Relation(tag)
+	found := !params.IsCodeNotFound(err)
+	if found && err != nil {
+		return err
+	}
+	dead := !found || rel.Life() == params.Dead
+
+	data, known := fw.applicationIngress[tag]
+	logger.Debugf("relation %v has existing data: %+v", tag, data)
+
+	change := false
+	if !known && dead {
+		return nil
+	}
+	if known && dead {
+		logger.Debugf("relation was known but has died")
+		delete(fw.applicationIngress, tag)
+		change = true
+	}
+	if !known && !dead {
+		logger.Debugf("relation is new")
+		networks, err := fw.remoteRelationsApi.IngressSubnetsForRelation(tag.Id())
+		if err != nil {
+			return errors.Trace(err)
+		}
+		logger.Debugf("ingress networks: %+v", networks)
+
+		data = &remoteRelationData{
+			localApplicationTag: names.NewApplicationTag(networks.ApplicationName),
+			networks:            set.NewStrings(networks.CIDRs...),
+		}
+		fw.applicationIngress[tag] = data
+		change = true
+	}
+	_, ok := fw.applicationids[data.localApplicationTag]
+	if !change || !ok {
+		logger.Debugf("exit early, no changes for local app: %v", data.localApplicationTag)
+		return nil
+	}
+	logger.Debugf("remote relations ingress changes for %v: %+v", data.localApplicationTag, data)
+
+	select {
+	case <-fw.catacomb.Dying():
+		return fw.catacomb.ErrDying()
+	case fw.remoteRelationsChange <- data:
+	}
+	return nil
 }
