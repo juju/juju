@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net"
+	"net/http"
 	"net/url"
 	"os"
 	"strconv"
@@ -23,6 +24,7 @@ import (
 	"github.com/lxc/lxd/shared/api"
 
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/utils/proxy"
 )
 
 var logger = loggo.GetLogger("juju.tools.lxdclient")
@@ -260,6 +262,12 @@ func newRawClient(remote Remote) (*lxd.Client, error) {
 			return nil, errors.Annotate(err, "can't connect to the local LXD server")
 		}
 		return nil, errors.Trace(err)
+	}
+
+	// Replace the proxy handler with the one managed
+	// by Juju's worker/proxyupdater.
+	if tr, ok := client.Http.Transport.(*http.Transport); ok {
+		tr.Proxy = proxy.DefaultConfig.GetProxy
 	}
 
 	if remote.Protocol != SimplestreamsProtocol {
