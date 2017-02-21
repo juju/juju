@@ -3,7 +3,11 @@
 
 package oracle
 
-import "github.com/juju/juju/constraints"
+import (
+	"fmt"
+
+	"github.com/juju/juju/constraints"
+)
 
 // cons provides a wrapper-adaptor arount the default constraints
 // implementation inside the constrains pakage.
@@ -84,6 +88,8 @@ func (c *cons) Merge(consFallback, cons constraints.Value) (constraints.Value, e
 		consFallback.InstanceType = nil
 	}
 
+	fmt.Printf("%+v\n", consFallback)
+	fmt.Printf("%+v\n", cons)
 	return c.c.Merge(consFallback, cons)
 }
 

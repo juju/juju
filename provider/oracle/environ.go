@@ -4,20 +4,21 @@
 package oracle
 
 import (
+	"fmt"
+	"os"
 	"strings"
 
 	oci "github.com/hoenirvili/go-oracle-cloud/api"
 	"github.com/juju/errors"
-	"github.com/juju/version"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	envinstance "github.com/juju/juju/environs/instances"
-	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/storage"
+	"github.com/juju/version"
 )
 
 // oracleEnviron implements the environs.Environ interface
@@ -97,27 +98,29 @@ func (o oracleEnviron) Bootstrap(
 		return nil, errors.Trace(err)
 	}
 
-	// make api request to oracle cloud to give us a list of
-	// all supported shapes
-	shapes, err := o.p.client.AllShapeDetails()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	// find the best suitable shape returned from the api
-	shape, err := findShape(shapes.Result, params.BootstrapConstraints)
+	types, err := getInstanceTypes(o.p.client)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	logger.Infof(
-		"Choosing the %s with %d cores and %d MB ram",
-		shape.name, shape.cpus, shape.ram,
+	imagemetadata, err := checkImageList(
+		o.p.client, params.BootstrapConstraints,
 	)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 
-	// make api request to oracle cloud to give us a list of iamges that are
-	// stored there, if we don't have a image complaint with the metadata provided
-	// by juju, if the shape picked up above is supported, we should bail out
-	imagelist, err := checkImageList(o.p.client, params.ImageMetadata, shape)
+	//find the best suitable instance returned from the api
+	spec, imagelist, err := findInstanceSpec(
+		o.p.client,
+		imagemetadata,
+		types,
+		&envinstance.InstanceConstraint{
+			Region:      o.spec.Region,
+			Arches:      []string{"amd64"},
+			Constraints: params.BootstrapConstraints,
+		},
+	)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -140,13 +143,13 @@ func (o oracleEnviron) Bootstrap(
 		Relationships: nil,
 		Instances: []oci.Instances{
 			{
-				Shape:     shape.name,
+				Shape:     spec.InstanceType.Name,
 				Imagelist: imagelist,
 				Name:      o.cfg.Name(),
-				Label:     o.cfg.UUID(),
+				Label:     o.cfg.Name(),
 				SSHKeys:   []string{nameKey},
 				Hostname:  o.cfg.Name(),
-				Tags:      []string{o.cfg.UUID()},
+				Tags:      []string{o.cfg.Name()},
 				// TODO(sgiulitti): add here the userdata
 				Attributes:  nil,
 				Reverse_dns: false,
@@ -154,6 +157,9 @@ func (o oracleEnviron) Bootstrap(
 			},
 		},
 	})
+	fmt.Println(instance)
+	fmt.Println(err)
+	os.Exit(1)
 	if err != nil {
 		return nil, err
 	}
@@ -246,19 +252,17 @@ func (o oracleEnviron) ConstraintsValidator() (constraints.Validator, error) {
 		constraints.CpuPower,
 		constraints.RootDisk,
 		constraints.Arch,
-		constraints.InstanceType,
 		constraints.VirtType,
 		constraints.Spaces,
 	}
 
 	// we choose to use the default validator implementation
 	validator := constraints.NewValidator()
-
 	// we must feed the validator that the oracle cloud
 	// provider does not support these constraints
 	validator.RegisterUnsupported(unsupportedConstraints)
 
-	return newConstraintsAdaptor(validator), nil
+	return validator, nil
 }
 
 // SetConfig updates the Environ's configuration.
@@ -367,12 +371,12 @@ func (o oracleEnviron) InstanceTypes(constraints.Value) (envinstance.InstanceTyp
 // interface
 //
 // Region returns the necessary attributes to uniquely identify this cloud instance.
-func (o oracleEnviron) Region() (simplestreams.CloudSpec, error) {
-	return simplestreams.CloudSpec{
-		Region:   o.spec.Region,
-		Endpoint: o.spec.Endpoint,
-	}, nil
-}
+// func (o oracleEnviron) Region() (simplestreams.CloudSpec, error) {
+// 	return simplestreams.CloudSpec{
+// 		Region:   o.spec.Region,
+// 		Endpoint: o.spec.Endpoint,
+// 	}, nil
+// }
 
 // Validate ensures that cfg is a valid configuration.
 // If old is not nil, Validate should use it to determine
