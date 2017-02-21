@@ -512,6 +512,35 @@ class TestWaitUntilModelDisappears(TestCase):
                 amm.wait_until_model_disappears(
                     mock_client, 'test_model', timeout=60)
 
+    def test_ignores_model_detail_exceptions(self):
+        """ignore errors for model details as this might happen many times."""
+        mock_client = _get_time_noop_mock_client()
+        model_data = {'models': [{'name': ''}]}
+
+        exp = CalledProcessError(-1, 'blah')
+        exp.stderr = 'cannot get model details'
+        controller_client = Mock()
+        controller_client.get_models.side_effect = [
+            exp,
+            model_data]
+        mock_client.get_controller_client.return_value = controller_client
+        with patch.object(amm, 'sleep') as mock_sleep:
+            amm.wait_until_model_disappears(
+                mock_client, 'test_model', timeout=60)
+            mock_sleep.assert_called_once_with(1)
+
+    def test_fails_on_non_expected_exception(self):
+        mock_client = _get_time_noop_mock_client()
+
+        exp = CalledProcessError(-1, 'blah')
+        exp.stderr = '"" is not a valid tag'
+        controller_client = Mock()
+        controller_client.get_models.side_effect = [exp]
+        mock_client.get_controller_client.return_value = controller_client
+        with self.assertRaises(CalledProcessError):
+            amm.wait_until_model_disappears(
+                mock_client, 'test_model', timeout=60)
+
 
 class TestWaitForModel(TestCase):
 
