@@ -219,7 +219,7 @@ class TestAssess(TestCase):
         expected_pool = dict(AWS_DEFAULT_STORAGE_POOL_DETAILS)
         expected_pool.update(storage_pool_details)
         aws_pool = dict(expected_pool)
-        aws_pool['filesystems'] = {u'0/0': 'baz'}
+        aws_pool['filesystems'] = {'0/0': 'baz'}
         aws_pool['Volume'] = ''
         mock_client.list_storage_pool.side_effect = [
             json.dumps(aws_pool)
