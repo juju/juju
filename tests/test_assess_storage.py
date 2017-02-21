@@ -8,6 +8,7 @@ import json
 
 from assess_storage import (
     AWS_DEFAULT_STORAGE_POOL_DETAILS,
+    assert_dict_is_subset,
     assess_storage,
     parse_args,
     main,
@@ -25,6 +26,7 @@ from tests import (
     parse_error,
     TestCase,
 )
+from utility import JujuAssertionError
 
 
 class TestParseArgs(TestCase):
@@ -68,6 +70,28 @@ class TestMain(TestCase):
 
 
 class TestAssess(TestCase):
+
+    def test_assert_dict_is_subset(self):
+        # Identical dicts.
+        self.assertIsTrue(
+            assert_dict_is_subset(
+                {'a': 1, 'b': 2},
+                {'a': 1, 'b': 2}))
+        # super dict has an extra item.
+        self.assertIsTrue(
+            assert_dict_is_subset(
+                {'a': 1, 'b': 2},
+                {'a': 1, 'b': 2, 'c': 3}))
+        # A key is missing.
+        with self.assertRaises(JujuAssertionError):
+            assert_dict_is_subset(
+                {'a': 1, 'b': 2},
+                {'a': 1, 'c': 2})
+        # A value is different.
+        with self.assertRaises(JujuAssertionError):
+            assert_dict_is_subset(
+                {'a': 1, 'b': 2},
+                {'a': 1, 'b': 4})
 
     def test_storage_1x(self):
         mock_client = Mock(spec=["juju", "wait_for_started",
