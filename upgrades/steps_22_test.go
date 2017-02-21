@@ -4,6 +4,9 @@
 package upgrades_test
 
 import (
+	"io/ioutil"
+	"path/filepath"
+
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
@@ -24,4 +27,29 @@ func (s *steps22Suite) TestAddNonDetachableStorageMachineId(c *gc.C) {
 	step := findStateStep(c, v220, "add machineid to non-detachable storage docs")
 	// Logic for step itself is tested in state package.
 	c.Assert(step.Targets(), jc.DeepEquals, []upgrades.Target{upgrades.DatabaseMaster})
+}
+
+func (s *steps22Suite) TestMeterStatusFile(c *gc.C) {
+	// Create a meter status file.
+	dataDir := c.MkDir()
+	statusFile := filepath.Join(dataDir, "meter-status.yaml")
+	err := ioutil.WriteFile(statusFile, []byte("things"), 0777)
+	c.Assert(err, jc.ErrorIsNil)
+
+	step := findStep(c, v220, "remove meter status file")
+
+	check := func() {
+		context := &mockContext{
+			agentConfig: &mockAgentConfig{dataDir: dataDir},
+		}
+		err = step.Run(context)
+		c.Assert(err, jc.ErrorIsNil)
+
+		// Status file should be gone.
+		c.Check(pathExists(statusFile), jc.IsFalse)
+		c.Check(pathExists(dataDir), jc.IsTrue)
+	}
+
+	check()
+	check() // Check OK when file not present.
 }
