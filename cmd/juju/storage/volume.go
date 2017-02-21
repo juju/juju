@@ -60,9 +60,9 @@ type MachineVolumeAttachment struct {
 }
 
 //generateListVolumeOutput returns a map of volume info
-func (c *listCommand) generateListVolumeOutput(ctx *cmd.Context, api StorageListAPI) (output interface{}, err error) {
+func generateListVolumeOutput(ctx *cmd.Context, api StorageListAPI, ids []string) (map[string]VolumeInfo, error) {
 
-	results, err := api.ListVolumes(c.ids)
+	results, err := api.ListVolumes(ids)
 	if err != nil {
 		return nil, err
 	}
@@ -79,17 +79,7 @@ func (c *listCommand) generateListVolumeOutput(ctx *cmd.Context, api StorageList
 	if len(valid) == 0 {
 		return nil, nil
 	}
-	info, err := convertToVolumeInfo(valid)
-	if err != nil {
-		return nil, err
-	}
-	switch c.out.Name() {
-	case "yaml", "json":
-		output = map[string]map[string]VolumeInfo{"volumes": info}
-	default:
-		output = info
-	}
-	return output, nil
+	return convertToVolumeInfo(valid)
 }
 
 // convertToVolumeInfo returns a map of volume IDs to volume info.

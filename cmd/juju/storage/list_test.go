@@ -47,6 +47,24 @@ transcode/0   db-dir/1000  thither   pending
 transcode/0   shared-fs/0  there     attached           
 transcode/1   shared-fs/0  here      attached           
 
+\[Filesystems\]
+Machine  Unit         Storage      Id   Volume  Provider id                       Mountpoint  Size    State      Message
+0        abc/0        db-dir/1001  0/0  0/1     provider-supplied-filesystem-0-0  /mnt/fuji   512MiB  attached   
+0        transcode/0  shared-fs/0  4            provider-supplied-filesystem-4    /mnt/doom   1.0GiB  attached   
+0                                  1            provider-supplied-filesystem-1                2.0GiB  attaching  failed to attach, will retry
+1        transcode/1  shared-fs/0  4            provider-supplied-filesystem-4    /mnt/huang  1.0GiB  attached   
+1                                  2            provider-supplied-filesystem-2    /mnt/zion   3.0MiB  attached   
+1                                  3                                                          42MiB   pending    
+
+\[Volumes\]
+Machine  Unit         Storage      Id   Provider Id                   Device  Size    State      Message
+0        abc/0        db-dir/1001  0/0  provider-supplied-volume-0-0  loop0   512MiB  attached   
+0        transcode/0  shared-fs/0  4    provider-supplied-volume-4    xvdf2   1.0GiB  attached   
+0                                  1    provider-supplied-volume-1            2.0GiB  attaching  failed to attach, will retry
+1        transcode/1  shared-fs/0  4    provider-supplied-volume-4    xvdf3   1.0GiB  attached   
+1                                  2    provider-supplied-volume-2    xvdf1   3.0MiB  attached   
+1                                  3                                          42MiB   pending    
+
 `[1:])
 }
 
@@ -88,23 +106,173 @@ storage:
           location: there
         transcode/1:
           location: here
+filesystems:
+  0/0:
+    provider-id: provider-supplied-filesystem-0-0
+    volume: 0/1
+    storage: db-dir/1001
+    attachments:
+      machines:
+        "0":
+          mount-point: /mnt/fuji
+          read-only: false
+      units:
+        abc/0:
+          machine: "0"
+          location: /mnt/fuji
+    size: 512
+    status:
+      current: attached
+      since: .*
+  "1":
+    provider-id: provider-supplied-filesystem-1
+    volume: ""
+    storage: ""
+    attachments:
+      machines:
+        "0":
+          mount-point: ""
+          read-only: false
+    size: 2048
+    status:
+      current: attaching
+      message: failed to attach, will retry
+      since: .*
+  "2":
+    provider-id: provider-supplied-filesystem-2
+    volume: ""
+    storage: ""
+    attachments:
+      machines:
+        "1":
+          mount-point: /mnt/zion
+          read-only: false
+    size: 3
+    status:
+      current: attached
+      since: .*
+  "3":
+    volume: ""
+    storage: ""
+    attachments:
+      machines:
+        "1":
+          mount-point: ""
+          read-only: false
+    size: 42
+    status:
+      current: pending
+      since: .*
+  "4":
+    provider-id: provider-supplied-filesystem-4
+    volume: ""
+    storage: shared-fs/0
+    attachments:
+      machines:
+        "0":
+          mount-point: /mnt/doom
+          read-only: true
+        "1":
+          mount-point: /mnt/huang
+          read-only: true
+      units:
+        transcode/0:
+          machine: "0"
+          location: /mnt/bits
+        transcode/1:
+          machine: "1"
+          location: /mnt/pieces
+    size: 1024
+    status:
+      current: attached
+      since: .*
+volumes:
+  0/0:
+    provider-id: provider-supplied-volume-0-0
+    storage: db-dir/1001
+    attachments:
+      machines:
+        "0":
+          device: loop0
+          read-only: false
+      units:
+        abc/0:
+          machine: "0"
+          location: /dev/loop0
+    size: 512
+    persistent: false
+    status:
+      current: attached
+      since: .*
+  "1":
+    provider-id: provider-supplied-volume-1
+    attachments:
+      machines:
+        "0":
+          read-only: false
+    hardware-id: serial blah blah
+    size: 2048
+    persistent: true
+    status:
+      current: attaching
+      message: failed to attach, will retry
+      since: .*
+  "2":
+    provider-id: provider-supplied-volume-2
+    attachments:
+      machines:
+        "1":
+          device: xvdf1
+          read-only: false
+    size: 3
+    persistent: false
+    status:
+      current: attached
+      since: .*
+  "3":
+    attachments:
+      machines:
+        "1":
+          read-only: false
+    size: 42
+    persistent: false
+    status:
+      current: pending
+      since: .*
+  "4":
+    provider-id: provider-supplied-volume-4
+    storage: shared-fs/0
+    attachments:
+      machines:
+        "0":
+          device: xvdf2
+          read-only: true
+        "1":
+          device: xvdf3
+          read-only: true
+      units:
+        transcode/0:
+          machine: "0"
+          location: /mnt/bits
+        transcode/1:
+          machine: "1"
+          location: /mnt/pieces
+    size: 1024
+    persistent: true
+    status:
+      current: attached
+      since: .*
 `[1:])
 }
 
-func (s *ListSuite) TestListOwnerStorageIdSort(c *gc.C) {
-	s.assertValidList(
-		c,
-		nil,
-		// Default format is tabular
-		`
-\[Storage\]     
-Unit          Id           Location  Status    Message  
-postgresql/0  db-dir/1100  hither    attached           
-transcode/0   db-dir/1000  thither   pending            
-transcode/0   shared-fs/0  there     attached           
-transcode/1   shared-fs/0  here      attached           
+func (s *ListSuite) TestListInitErrors(c *gc.C) {
+	s.testListInitError(c, []string{"--filesystem", "--volume"}, "--filesystem and --volume can not be used together")
+	s.testListInitError(c, []string{"storage-id"}, "specifying IDs only supported with --filesystem and --volume flags")
+}
 
-`[1:])
+func (s *ListSuite) testListInitError(c *gc.C, args []string, expectedErr string) {
+	_, err := s.runList(c, args)
+	c.Assert(err, gc.ErrorMatches, expectedErr)
 }
 
 func (s *ListSuite) TestListError(c *gc.C) {
