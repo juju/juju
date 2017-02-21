@@ -341,8 +341,6 @@ func (conn *Conn) input() {
 	close(conn.dead)
 }
 
-var errRemoteClosed = errors.New("remote closed connection")
-
 // loop implements the looping part of Conn.input.
 func (conn *Conn) loop() error {
 	for {

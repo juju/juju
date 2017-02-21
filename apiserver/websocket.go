@@ -11,8 +11,17 @@ import (
 	"github.com/juju/juju/apiserver/params"
 )
 
+// Use a 64k frame size for the websockets while we need to deal
+// with x/net/websocket connections that don't deal with recieving
+// fragmented messages.
+const websocketFrameSize = 65536
+
 var websocketUpgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool { return true },
+	// In order to deal with the remote side not handling message
+	// fragmentation, we default to largeish frames.
+	ReadBufferSize:  websocketFrameSize,
+	WriteBufferSize: websocketFrameSize,
 }
 
 func websocketServer(w http.ResponseWriter, req *http.Request, handler func(ws *websocket.Conn)) {

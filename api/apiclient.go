@@ -47,6 +47,11 @@ const pingTimeout = 30 * time.Second
 // modelRoot is the prefix that all model API paths begin with.
 const modelRoot = "/model/"
 
+// Use a 64k frame size for the websockets while we need to deal
+// with x/net/websocket connections that don't deal with recieving
+// fragmented messages.
+const websocketFrameSize = 65536
+
 var logger = loggo.GetLogger("juju.api")
 
 type rpcConnection interface {
@@ -359,6 +364,10 @@ func (st *state) connectStream(path string, attrs url.Values, extraHeaders http.
 	dialer := &websocket.Dialer{
 		Proxy:           http.ProxyFromEnvironment,
 		TLSClientConfig: st.tlsConfig,
+		// In order to deal with the remote side not handling message
+		// fragmentation, we default to largeish frames.
+		ReadBufferSize:  websocketFrameSize,
+		WriteBufferSize: websocketFrameSize,
 	}
 	var requestHeader http.Header
 	if st.tag != "" {
@@ -540,6 +549,10 @@ func dialAPI(info *Info, opts DialOpts) (*dialResult, error) {
 			&websocket.Dialer{
 				Proxy:           http.ProxyFromEnvironment,
 				TLSClientConfig: tlsConfig,
+				// In order to deal with the remote side not handling message
+				// fragmentation, we default to largeish frames.
+				ReadBufferSize:  websocketFrameSize,
+				WriteBufferSize: websocketFrameSize,
 			},
 		}
 		opts.DialWebsocket = dialer.Dial
