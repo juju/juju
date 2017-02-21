@@ -266,7 +266,7 @@ class TestAssessMetadata(TestCase):
         client.bootstrap()
         with patch('assess_agent_metadata.get_controller_url_and_sha256',
                    return_value=controller_url_sha, autospec=True):
-            with patch('jujupy.EnvJujuClient.wait_for_started', autospec=True,
+            with patch('jujupy.ModelClient.wait_for_started', autospec=True,
                        return_value=status):
                 with self.assertRaises(JujuAssertionError):
                     deploy_machine_and_verify(client)

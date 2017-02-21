@@ -230,7 +230,8 @@ def get_controller_series_and_alternative_series(client):
     """
     supported_series = ['xenial', 'trusty', 'zesty']
     controller_status = client.get_status(controller=True)
-    controller_series = controller_status.get_machines()['0']['series']
+    machines = dict(controller_status.iter_machines())
+    controller_series = machines['0']['series']
     try:
         supported_series.remove(controller_series)
     except:
@@ -392,7 +393,7 @@ def main(argv=None):
 
     if not os.path.isfile(args.agent_file):
         raise Exception(
-           "Unable to find juju agent file {}".format(args.agent_file))
+            "Unable to find juju agent file {}".format(args.agent_file))
 
     agent_stream = args.agent_stream if args.agent_stream else 'testing'
 
