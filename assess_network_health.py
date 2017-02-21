@@ -9,7 +9,6 @@ import json
 import yaml
 import ast
 import subprocess
-import pdb
 
 from jujupy import client_from_config
 from deploy_stack import (
@@ -287,7 +286,6 @@ def ping_units(client, source, units):
     """
     units = to_json(units)
     args = "targets='{}'".format(units)
-    pdb.set_trace()
     retval = client.action_do(source, 'ping', args)
     result = client.action_fetch(retval)
     result = yaml.safe_load(result)['results']['results']

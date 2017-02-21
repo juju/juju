@@ -8,6 +8,8 @@ import json
 import logging
 import re
 import subprocess
+import uuid
+import pdb
 
 import pexpect
 import yaml
@@ -592,6 +594,7 @@ class FakeBackend:
         self._past_deadline = past_deadline
         self._ignore_soft_deadline = False
         self.clouds = {}
+        self.action_queue = {}
 
     def clone(self, full_path=None, version=None, debug=None,
               feature_flags=None):
@@ -783,6 +786,35 @@ class FakeBackend:
             'users': self.get_users(),
             }
         return {model_name: data}
+
+    def set_action_result(self, unit_id, action_id, result):
+        try:
+            try:
+                self.action_results[unit_id][action_id] = result
+            except KeyError:
+                self.action_results[unit_id] = {}
+                self.action_results[unit_id][action_id] = result
+        except AttributeError:
+            self.action_results = {}
+            self.set_action_result(unit_id, action_id, result)
+
+    def run_action(self, unit_id, action, args):
+        action_uuid = '{}'.format(uuid.uuid1())
+        if args:
+            action_id = action + ' ' + ' '.join(args)
+        else:
+            action_id = action
+        try:
+            result = self.action_results[unit_id][action]
+            self.action_queue[action_uuid] = result
+        except KeyError:
+            raise Exception('No such action "{0}"'
+                            ' specified for unit {1}.'.format(action_id,
+                                                              unit_id))
+        return ('Action queued with id: {}'.format(action_uuid))
+
+    def show_action_output(self, action_uuid):
+        return self.action_queue.get(action_uuid, None)
 
     def _log_command(self, command, args, model, level=logging.INFO):
         full_args = ['juju', command]
@@ -986,6 +1018,13 @@ class FakeBackend:
                 return model_state.remove_ssh_key(args)
             if command == 'import-ssh-key':
                 return model_state.import_ssh_key(args)
+            if command == 'run-action':
+                unit_id = args[0]
+                action = args[1]
+                arg = (args[2],)
+                return self.run_action(unit_id, action, arg)
+            if command == 'show-action-output':
+                return self.show_action_output(args[0])
             return ''
 
     def expect(self, command, args, used_feature_flags, juju_home, model=None,
