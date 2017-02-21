@@ -134,11 +134,6 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 	return common.Bootstrap(ctx, e, args)
 }
 
-// BootstrapMessage is part of the Environ interface.
-func (e *environ) BootstrapMessage() string {
-	return ""
-}
-
 // SupportsSpaces is specified on environs.Networking.
 func (e *environ) SupportsSpaces() (bool, error) {
 	return true, nil

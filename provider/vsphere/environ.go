@@ -114,11 +114,6 @@ func (env *environ) Bootstrap(ctx environs.BootstrapContext, params environs.Boo
 	return Bootstrap(ctx, env, params)
 }
 
-// BootstrapMessage is part of the Environ interface.
-func (env *environ) BootstrapMessage() string {
-	return ""
-}
-
 //this variable is exported, because it has to be rewritten in external unit tests
 var DestroyEnv = common.Destroy
 

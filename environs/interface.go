@@ -253,10 +253,6 @@ type Environ interface {
 	// architecture.
 	Bootstrap(ctx BootstrapContext, params BootstrapParams) (*BootstrapResult, error)
 
-	// BootstrapMessage optionally provides a message to be displayed to
-	// the user at bootstrap time.
-	BootstrapMessage() string
-
 	// Create creates the environment for a new hosted model.
 	//
 	// This will be called before any workers begin operating on the
