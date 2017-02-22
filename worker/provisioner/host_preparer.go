@@ -13,13 +13,22 @@ import (
 	"github.com/juju/juju/network"
 )
 
-// we could pull this from
-// github.com/juju/juju/cloudconfig/instancecfg.DefaultBridgePrefix, but it
-// feels bad to import that whole package for a single constant.
+// DefaultBridgePrefix is the standard prefix we apply to a device to find a
+// name for the associated bridge. (eg when bridging ens3 we create br-ens3)
 const DefaultBridgePrefix = "br-"
 
+// PrepareAPI is the functional interface that we need to be able to ask what
+// changes are necessary, and to then report back what changes have been done
+// to the host machine.
 type PrepareAPI interface {
+	// HostChangesForContainer returns the list of bridges to be created on the
+	// host machine, and the time to sleep after creating the bridges before
+	// bringing them up.
 	HostChangesForContainer(names.MachineTag) ([]network.DeviceToBridge, int, error)
+	// SetHostMachineNetworkConfig allows us to report back the host machine's
+	// current networking config. This is called after we've created new
+	// bridges to inform the Controller what the current networking interfaces
+	// are.
 	SetHostMachineNetworkConfig(names.MachineTag, []params.NetworkConfig) error
 }
 
@@ -32,6 +41,7 @@ type HostPreparerParams struct {
 	CreateBridger      func() (network.Bridger, error)
 	AbortChan          <-chan struct{}
 	MachineTag         names.MachineTag
+	Logger			   loggo.Logger
 }
 
 // HostPreparer calls out to the PrepareAPI to find out what changes need to be
@@ -44,6 +54,7 @@ type HostPreparer struct {
 	createBridger      func() (network.Bridger, error)
 	abortChan          <-chan struct{}
 	machineTag         names.MachineTag
+	logger			   loggo.Logger
 }
 
 // NewHostPreparer creates a HostPreparer using the supplied parameters
@@ -56,6 +67,7 @@ func NewHostPreparer(params HostPreparerParams) *HostPreparer {
 		createBridger:      params.CreateBridger,
 		abortChan:          params.AbortChan,
 		machineTag:         params.MachineTag,
+		logger:			    params.Logger,
 	}
 }
 
@@ -66,16 +78,16 @@ func DefaultBridgeCreator() func() (network.Bridger, error) {
 	}
 }
 
-// Prepare applies changes to the host machine in that are necessary to create
+// Prepare applies changes to the host machine that are necessary to create
 // the requested container.
-func (hp *HostPreparer) Prepare(containerTag names.MachineTag, log loggo.Logger) error {
+func (hp *HostPreparer) Prepare(containerTag names.MachineTag) error {
 	devicesToBridge, reconfigureDelay, err := hp.api.HostChangesForContainer(containerTag)
 	if err != nil {
 		return errors.Annotate(err, "unable to setup network")
 	}
 
 	if len(devicesToBridge) == 0 {
-		log.Debugf("container %q requires no additional bridges", containerTag)
+		hp.logger.Debugf("container %q requires no additional bridges", containerTag)
 		return nil
 	}
 
@@ -84,16 +96,13 @@ func (hp *HostPreparer) Prepare(containerTag names.MachineTag, log loggo.Logger)
 		return errors.Trace(err)
 	}
 
-	log.Debugf("Bridging %+v devices on host %q for container %q with delay=%v, acquiring lock %q",
+	hp.logger.Debugf("Bridging %+v devices on host %q for container %q with delay=%v, acquiring lock %q",
 		devicesToBridge, hp.machineTag.String(), containerTag.String(), reconfigureDelay, hp.lockName)
-	// TODO(jam): 2017-02-08 figure out how to thread catacomb.Dying() into
-	// this function, so that we can stop trying to acquire the lock if we are
-	// stopping.
 	releaser, err := hp.acquireLockFunc(hp.abortChan)
 	if err != nil {
 		return errors.Annotatef(err, "failed to acquire lock %q for bridging", hp.lockName)
 	}
-	defer log.Debugf("releasing lock %q for bridging machine %q for container %q", hp.lockName, hp.machineTag.String(), containerTag.String())
+	defer hp.logger.Debugf("releasing lock %q for bridging machine %q for container %q", hp.lockName, hp.machineTag.String(), containerTag.String())
 	defer releaser.Release()
 	// TODO(jam): 2017-02-15 bridger.Bridge should probably also take AbortChan
 	// if it is going to have reconfigureDelay
@@ -114,7 +123,7 @@ func (hp *HostPreparer) Prepare(containerTag names.MachineTag, log loggo.Logger)
 		if err != nil {
 			return errors.Trace(err)
 		}
-		logger.Debugf("observed network config updated")
+		hp.logger.Debugf("observed network config updated")
 	}
 
 	return nil
