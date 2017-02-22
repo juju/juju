@@ -25,7 +25,7 @@ const addRelationDocCrossModel = `
 Add a relation between 2 local application endpoints or a local endpoint and a remote application endpoint.
 Adding a relation between two remote application endpoints is not supported.
 
-Service endpoints can be identified either by:
+Application endpoints can be identified either by:
     <application name>[:<relation name>]
         where application name supplied without relation will be internally expanded to be well-formed
 or
