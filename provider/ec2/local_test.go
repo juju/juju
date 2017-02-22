@@ -125,6 +125,7 @@ type localServer struct {
 
 	defaultVPC *amzec2.VPC
 	zones      []amzec2.AvailabilityZoneInfo
+	subnets    []amzec2.Subnet
 }
 
 func (srv *localServer) startServer(c *gc.C) {
@@ -752,7 +753,7 @@ func (t *localServerSuite) TestStartInstanceAvailZone(c *gc.C) {
 
 func (t *localServerSuite) TestStartInstanceAvailZoneImpaired(c *gc.C) {
 	_, err := t.testStartInstanceAvailZone(c, "test-impaired")
-	c.Assert(err, gc.ErrorMatches, `availability zone "test-impaired" is impaired`)
+	c.Assert(err, gc.ErrorMatches, `availability zone "test-impaired" is "impaired"`)
 }
 
 func (t *localServerSuite) TestStartInstanceAvailZoneUnknown(c *gc.C) {
@@ -764,6 +765,45 @@ func (t *localServerSuite) testStartInstanceAvailZone(c *gc.C, zone string) (ins
 	env := t.prepareAndBootstrap(c)
 
 	params := environs.StartInstanceParams{ControllerUUID: t.ControllerUUID, Placement: "zone=" + zone, StatusCallback: fakeCallback}
+	result, err := testing.StartInstanceWithParams(env, "1", params)
+	if err != nil {
+		return nil, err
+	}
+	return result.Instance, nil
+}
+
+func (t *localServerSuite) TestStartInstanceSubnet(c *gc.C) {
+	inst, err := t.testStartInstanceSubnet(c, "0.1.2.0/24")
+	c.Assert(err, jc.ErrorIsNil)
+	ec2Inst := ec2.InstanceEC2(inst)
+	c.Assert(ec2Inst.AvailZone, gc.Equals, "test-available")
+}
+
+func (t *localServerSuite) TestStartInstanceSubnetUnavailable(c *gc.C) {
+	// See addTestingSubnets, 0.1.3.0/24 is in state "unavailable", but is in
+	// an AZ that would otherwise be available
+	_, err := t.testStartInstanceSubnet(c, "0.1.3.0/24")
+	c.Assert(err, gc.ErrorMatches, `subnet "0.1.3.0/24" is "unavailable"`)
+}
+
+func (t *localServerSuite) TestStartInstanceSubnetAZUnavailable(c *gc.C) {
+	// See addTestingSubnets, 0.1.4.0/24 is in an AZ that is unavailable
+	_, err := t.testStartInstanceSubnet(c, "0.1.4.0/24")
+	c.Assert(err, gc.ErrorMatches, `availability zone "test-unavailable" is "unavailable"`)
+}
+
+func (t *localServerSuite) testStartInstanceSubnet(c *gc.C, subnet string) (instance.Instance, error) {
+	env := t.prepareAndBootstrap(c)
+	subIDs := t.addTestingSubnets(c)
+	params := environs.StartInstanceParams{
+		ControllerUUID: t.ControllerUUID,
+		Placement:      fmt.Sprintf("subnet=%s", subnet),
+		SubnetsToZones: map[network.Id][]string{
+			subIDs[0]: []string{"test-available"},
+			subIDs[1]: []string{"test-available"},
+			subIDs[2]: []string{"test-unavailable"},
+		},
+	}
 	result, err := testing.StartInstanceWithParams(env, "1", params)
 	if err != nil {
 		return nil, err
@@ -978,6 +1018,7 @@ func (t *localServerSuite) addTestingSubnets(c *gc.C) []network.Id {
 		VPCId:        vpc.Id,
 		CIDRBlock:    "0.1.2.0/24",
 		AvailZone:    "test-available",
+		State:        "available",
 		DefaultForAZ: true,
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -986,6 +1027,7 @@ func (t *localServerSuite) addTestingSubnets(c *gc.C) []network.Id {
 		VPCId:     vpc.Id,
 		CIDRBlock: "0.1.3.0/24",
 		AvailZone: "test-available",
+		State:     "unavailable",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	results[1] = network.Id(sub2.Id)
@@ -994,6 +1036,7 @@ func (t *localServerSuite) addTestingSubnets(c *gc.C) []network.Id {
 		CIDRBlock:    "0.1.4.0/24",
 		AvailZone:    "test-unavailable",
 		DefaultForAZ: true,
+		State:        "unavailable",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	results[2] = network.Id(sub3.Id)
