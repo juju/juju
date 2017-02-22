@@ -130,11 +130,6 @@ func (e *manualEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.B
 	return result, nil
 }
 
-// BootstrapMessage is part of the Environ interface.
-func (e *manualEnviron) BootstrapMessage() string {
-	return ""
-}
-
 // ControllerInstances is specified in the Environ interface.
 func (e *manualEnviron) ControllerInstances(controllerUUID string) ([]instance.Id, error) {
 	if !isRunningController() {

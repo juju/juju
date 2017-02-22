@@ -125,10 +125,6 @@ func (e *fakeEnviron) Bootstrap(ctx environs.BootstrapContext, params environs.B
 	return nil, nil
 }
 
-func (e *fakeEnviron) BootstrapMessage() string {
-	return ""
-}
-
 func (e *fakeEnviron) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
 	e.Push("StartInstance", args)
 	return &environs.StartInstanceResult{

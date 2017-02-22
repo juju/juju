@@ -30,11 +30,6 @@ func (e environ) Bootstrap(ctx environs.BootstrapContext, params environs.Bootst
 	return bootstrap(ctx, e, params)
 }
 
-// BootstrapMessage is part of the Environ interface.
-func (e environ) BootstrapMessage() string {
-	return ""
-}
-
 var waitSSH = common.WaitSSH
 
 // StartInstance implements environs.Environ.

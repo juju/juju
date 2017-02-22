@@ -652,11 +652,6 @@ func (e *Environ) supportsNeutron() bool {
 	return ok
 }
 
-// BootstrapMessage is part of the Environ interface.
-func (e *Environ) BootstrapMessage() string {
-	return ""
-}
-
 func (e *Environ) ControllerInstances(controllerUUID string) ([]instance.Id, error) {
 	// Find all instances tagged with tags.JujuIsController.
 	instances, err := e.allControllerManagedInstances(controllerUUID, e.ecfg().useFloatingIP())
