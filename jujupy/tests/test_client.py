@@ -23,11 +23,6 @@ from mock import (
     )
 import yaml
 
-from jujuconfig import (
-    get_environments_path,
-    get_jenv_path,
-    NoSuchEnvironment,
-    )
 from jujupy import (
     FakeControllerState,
     fake_juju_client,
@@ -46,6 +41,8 @@ from jujupy.client import (
     ErroredUnit,
     GroupReporter,
     get_cache_path,
+    get_environments_path,
+    get_jenv_path,
     get_local_root,
     get_machine_dns_name,
     get_timeout_path,
@@ -64,6 +61,7 @@ from jujupy.client import (
     ModelClient,
     NameNotAccepted,
     NoProvider,
+    NoSuchEnvironment,
     parse_new_state_server_from_error,
     ProvisioningError,
     SimpleEnvironment,
@@ -4948,7 +4946,7 @@ class TestSimpleEnvironment(TestCase):
         with temp_config():
             os.environ['JUJU_ENV'] = 'foo'
             # GZ 2015-10-15: Currently default_env calls the juju on path here.
-            with patch('jujuconfig.default_env', autospec=True,
+            with patch('jujupy.client.default_env', autospec=True,
                        return_value='foo') as cde_mock:
                 env = SimpleEnvironment.from_config(None)
             self.assertEqual(env.environment, 'foo')

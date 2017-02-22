@@ -17,9 +17,6 @@ from mock import (
     )
 import yaml
 
-from jujuconfig import (
-    get_jenv_path,
-    )
 from jujupy import (
     AuthNotAccepted,
     fake_juju_client,
@@ -36,6 +33,7 @@ from jujupy import (
     )
 from jujupy.client import (
     CannotConnectEnv,
+    get_jenv_path,
     GroupReporter,
     StatusItem,
     StatusNotMet,

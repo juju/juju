@@ -86,8 +86,6 @@ class NoSuchEnvironment(Exception):
     """Raised when a specified environment does not exist."""
 
 
-
-
 def default_env():
     """Determine Juju's default environment."""
     output = subprocess.check_output(['juju', 'switch'])
