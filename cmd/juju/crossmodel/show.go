@@ -14,7 +14,7 @@ import (
 )
 
 const showCommandDoc = `
-Show extended information about an exported service.
+Show extended information about an exported application.
 
 This command is aimed for a user who wants to see more detail about what’s offered behind a particular URL.
 

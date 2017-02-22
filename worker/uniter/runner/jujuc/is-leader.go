@@ -25,12 +25,12 @@ func NewIsLeaderCommand(ctx Context) (cmd.Command, error) {
 func (c *isLeaderCommand) Info() *cmd.Info {
 	doc := `
 is-leader prints a boolean indicating whether the local unit is guaranteed to
-be service leader for at least 30 seconds. If it fails, you should assume that
+be application leader for at least 30 seconds. If it fails, you should assume that
 there is no such guarantee.
 `
 	return &cmd.Info{
 		Name:    "is-leader",
-		Purpose: "print service leadership status",
+		Purpose: "print application leadership status",
 		Doc:     doc,
 	}
 }

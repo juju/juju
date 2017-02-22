@@ -56,7 +56,7 @@ func setFakeServiceStatus(ctx *Context) {
 	ctx.info.Status.SetApplicationStatus(
 		jujuc.StatusInfo{
 			Status: "active",
-			Info:   "this is a service status",
+			Info:   "this is a application status",
 			Data:   nil,
 		},
 		[]jujuc.StatusInfo{{
@@ -155,7 +155,7 @@ func (s *statusGetSuite) TestServiceStatus(c *gc.C) {
 					"status-data": map[interface{}]interface{}{},
 				},
 			},
-			"message": "this is a service status",
+			"message": "this is a application status",
 			"status":  "active"},
 	}
 	hctx := s.GetStatusHookContext(c)

@@ -33,7 +33,7 @@ is given, or if the key is "-", all keys and values will be printed.
 	return &cmd.Info{
 		Name:    "leader-get",
 		Args:    "[<key>]",
-		Purpose: "print service leadership settings",
+		Purpose: "print application leadership settings",
 		Doc:     doc,
 	}
 }

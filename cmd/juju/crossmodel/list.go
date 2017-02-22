@@ -16,7 +16,7 @@ import (
 )
 
 const listCommandDoc = `
-List information about services' endpoints that have been shared.
+List information about applications' endpoints that have been shared.
 
 options:
 -o, --output (= "")
@@ -133,7 +133,7 @@ func (c *listCommand) Run(ctx *cmd.Context) (err error) {
 
 	data, err := formatOfferedApplicationDetails(valid)
 	if err != nil {
-		return errors.Annotate(err, "failed to format found services")
+		return errors.Annotate(err, "failed to format found applications")
 	}
 
 	return c.out.Write(ctx, data)
