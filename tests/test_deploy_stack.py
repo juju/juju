@@ -52,17 +52,13 @@ from deploy_stack import (
     update_env,
     wait_for_state_server_to_shutdown,
     )
-from jujuconfig import (
-    get_environments_path,
-    get_jenv_path,
-    get_juju_home,
-    )
 from jujupy import (
     EnvJujuClient1X,
     EnvJujuClient25,
     fake_juju_client,
     fake_juju_client_optional_jes,
     get_cache_path,
+    get_juju_home,
     get_timeout_prefix,
     JujuData,
     KILL_CONTROLLER,
@@ -71,6 +67,10 @@ from jujupy import (
     SoftDeadlineExceeded,
     Status,
     Machine,
+    )
+from jujupy.client import (
+    get_environments_path,
+    get_jenv_path,
     )
 from remote import (
     _Remote,

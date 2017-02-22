@@ -128,7 +128,6 @@ def get_juju_home():
     return home
 
 
-
 class StatusTimeout(Exception):
     """Raised when 'juju status' timed out."""
 

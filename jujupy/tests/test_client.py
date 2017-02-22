@@ -151,6 +151,13 @@ class TestTempYamlFile(TestCase):
                 self.assertEqual({'foo': 'bar'}, yaml.safe_load(f))
 
 
+class TestGetJenvPath(TestCase):
+
+    def test_get_jenv_path(self):
+        self.assertEqual('home/environments/envname.jenv',
+                         get_jenv_path('home', 'envname'))
+
+
 class TestJuju2Backend(TestCase):
 
     test_environ = {'PATH': 'foo:bar'}

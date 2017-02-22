@@ -7,9 +7,9 @@ import yaml
 from deploy_stack import (
     BootstrapManager,
     )
-from jujuconfig import get_juju_home
 from jujupy import (
     ConditionList,
+    get_juju_home,
     ModelClient,
     FakeBackend,
     FakeControllerState,
