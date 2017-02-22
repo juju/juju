@@ -344,7 +344,7 @@ func (s *ContainerSetupSuite) TestContainerInitLockError(c *gc.C) {
 	err = m.SetAgentVersion(current)
 	c.Assert(err, jc.ErrorIsNil)
 
-	handler, runner := s.setupContainerWorker(c, m.Tag().(names.MachineTag))
+	handler, runner := s.setupContainerWorker(c, m.MachineTag())
 	runner.Kill()
 	err = runner.Wait()
 	c.Assert(err, jc.ErrorIsNil)
