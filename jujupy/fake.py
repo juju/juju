@@ -640,10 +640,12 @@ class FakeBackend:
             if self._past_deadline and not self._ignore_soft_deadline:
                 raise SoftDeadlineExceeded()
 
-    def deploy(self, model_state, charm_name, service_name=None, series=None):
+    def deploy(self, model_state, charm_name, num, service_name=None,
+               series=None):
         if service_name is None:
             service_name = charm_name.split(':')[-1].split('/')[-1]
-        model_state.deploy(charm_name, service_name)
+        for i in range(num):
+            model_state.deploy(charm_name, service_name)
 
     def bootstrap(self, args):
         parser = ArgumentParser()
@@ -787,21 +789,17 @@ class FakeBackend:
             }
         return {model_name: data}
 
-    def set_action_result(self, unit_id, action_id, result):
-        self.action_results.setdefault(unit_id, {})[action_id] = result
+    def set_action_result(self, unit_id, action, result):
+        self.action_results.setdefault(unit_id, {})[action] = result
 
-    def run_action(self, unit_id, action, args):
+    def run_action(self, unit_id, action):
         action_uuid = '{}'.format(uuid.uuid1())
-        if args:
-            action_id = '{} {}'.format(action, ' '.join(args))
-        else:
-            action_id = action
         try:
             result = self.action_results[unit_id][action]
             self.action_queue[action_uuid] = result
         except KeyError:
             raise ValueError('No such action "{0}"'
-                             ' specified for unit {1}.'.format(action_id,
+                             ' specified for unit {1}.'.format(action,
                                                                unit_id))
         return ('Action queued with id: {}'.format(action_uuid))
 
@@ -839,8 +837,10 @@ class FakeBackend:
                 parser.add_argument('service_name', nargs='?')
                 parser.add_argument('--to')
                 parser.add_argument('--series')
+                parser.add_argument('-n')
                 parsed = parser.parse_args(args)
-                self.deploy(model_state, parsed.charm_name,
+                num = int(parsed.n or 1)
+                self.deploy(model_state, parsed.charm_name, num,
                             parsed.service_name, parsed.series)
             if command == 'remove-application':
                 model_state.destroy_service(*args)
@@ -1013,8 +1013,7 @@ class FakeBackend:
             if command == 'run-action':
                 unit_id = args[0]
                 action = args[1]
-                arg = (args[2],)
-                return self.run_action(unit_id, action, arg)
+                return self.run_action(unit_id, action)
             if command == 'show-action-output':
                 return self.show_action_output(args[0])
             return ''
