@@ -32,6 +32,11 @@ func (s *InterfaceInfoSuite) SetUpTest(c *gc.C) {
 		{Address: network.NewAddress("0.1.2.3")},
 		{DNSServers: network.NewAddresses("1.1.1.1", "2.2.2.2")},
 		{GatewayAddress: network.NewAddress("4.3.2.1")},
+		{Routes: []network.Route{{
+			DestinationCIDR: "0.1.2.3/24",
+			GatewayIP:       "0.1.2.1",
+			Metric:          0,
+		}}},
 		{AvailabilityZones: []string{"foo", "bar"}},
 	}
 }
@@ -76,6 +81,88 @@ func (s *InterfaceInfoSuite) TestSortInterfaceInfo(c *gc.C) {
 	}
 	network.SortInterfaceInfo(info)
 	c.Assert(info, jc.DeepEquals, expectedInfo)
+}
+
+type RouteSuite struct{}
+
+var _ = gc.Suite(&RouteSuite{})
+
+func checkRouteIsValid(c *gc.C, r network.Route) {
+	c.Check(r.Validate(), jc.ErrorIsNil)
+}
+
+func checkRouteErrEquals(c *gc.C, r network.Route, errString string) {
+	err := r.Validate()
+	c.Assert(err, gc.NotNil)
+	c.Check(err.Error(), gc.Equals, errString)
+}
+
+func (s *RouteSuite) TestValidIPv4(c *gc.C) {
+	checkRouteIsValid(c, network.Route{
+		DestinationCIDR: "0.1.2.3/24",
+		GatewayIP:       "0.1.2.1",
+		Metric:          20,
+	})
+}
+
+func (s *RouteSuite) TestValidIPv6(c *gc.C) {
+	checkRouteIsValid(c, network.Route{
+		DestinationCIDR: "2001:db8:a0b:12f0::1/64",
+		GatewayIP:       "2001:db8:a0b:12f0::1",
+		Metric:          10,
+	})
+}
+
+func (s *RouteSuite) TestInvalidMixedIP(c *gc.C) {
+	checkRouteErrEquals(c, network.Route{
+		DestinationCIDR: "0.1.2.3/24",
+		GatewayIP:       "2001:db8::1",
+		Metric:          10,
+	}, "DestinationCIDR is IPv4 (0.1.2.3/24) but GatewayIP is IPv6 (2001:db8::1)")
+	checkRouteErrEquals(c, network.Route{
+		DestinationCIDR: "2001:db8::1/64",
+		GatewayIP:       "0.1.2.1",
+		Metric:          10,
+	}, "DestinationCIDR is IPv6 (2001:db8::1/64) but GatewayIP is IPv4 (0.1.2.1)")
+}
+
+func (s *RouteSuite) TestInvalidNotCIDR(c *gc.C) {
+	checkRouteErrEquals(c, network.Route{
+		DestinationCIDR: "0.1.2.3",
+		GatewayIP:       "0.1.2.1",
+		Metric:          10,
+	}, "DestinationCIDR not valid: invalid CIDR address: 0.1.2.3")
+	checkRouteErrEquals(c, network.Route{
+		DestinationCIDR: "2001:db8::2",
+		GatewayIP:       "2001:db8::1",
+		Metric:          10,
+	}, "DestinationCIDR not valid: invalid CIDR address: 2001:db8::2")
+}
+
+func (s *RouteSuite) TestInvalidNotIP(c *gc.C) {
+	checkRouteErrEquals(c, network.Route{
+		DestinationCIDR: "0.1.2.3/24",
+		GatewayIP:       "0.1.2.1/16",
+		Metric:          10,
+	}, `GatewayIP is not a valid IP address: "0.1.2.1/16"`)
+	checkRouteErrEquals(c, network.Route{
+		DestinationCIDR: "0.1.2.3/24",
+		GatewayIP:       "",
+		Metric:          10,
+	}, `GatewayIP is not a valid IP address: ""`)
+	checkRouteErrEquals(c, network.Route{
+		DestinationCIDR: "2001:db8::2/64",
+		GatewayIP:       "",
+		Metric:          10,
+	}, `GatewayIP is not a valid IP address: ""`)
+}
+
+func (s *RouteSuite) TestInvalidMetric(c *gc.C) {
+	checkRouteErrEquals(c, network.Route{
+		DestinationCIDR: "0.1.2.3/24",
+		GatewayIP:       "0.1.2.1",
+		Metric:          -1,
+	}, `Metric is not a non-negative integer: -1`)
 }
 
 type NetworkSuite struct {
