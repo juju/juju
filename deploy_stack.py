@@ -44,9 +44,9 @@ from jujupy import (
     temp_bootstrap_env,
     )
 from jujupy.client import (
-    get_jenv_path,
     get_local_root,
 )
+from jujupy.configuration import get_jenv_path
 from remote import (
     remote_from_address,
     remote_from_unit,

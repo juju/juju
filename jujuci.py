@@ -18,8 +18,8 @@ import urllib2
 from deploy_stack import destroy_environment
 from jujupy import (
     client_from_config,
+    NoSuchEnvironment,
 )
-from jujupy.client import NoSuchEnvironment
 try:
     from lsb_release import get_distro_information
 except ImportError:

@@ -33,7 +33,6 @@ from jujupy import (
     )
 from jujupy.client import (
     CannotConnectEnv,
-    get_jenv_path,
     GroupReporter,
     StatusItem,
     StatusNotMet,
@@ -41,6 +40,7 @@ from jujupy.client import (
     UpgradeMongoNotSupported,
     WaitMachineNotPresent,
     )
+from jujupy.configuration import get_jenv_path
 from jujupy.fake import (
     FakeBackend2_1,
     )

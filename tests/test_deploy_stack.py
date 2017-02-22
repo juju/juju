@@ -68,7 +68,7 @@ from jujupy import (
     Status,
     Machine,
     )
-from jujupy.client import (
+from jujupy.configuration import (
     get_environments_path,
     get_jenv_path,
     )

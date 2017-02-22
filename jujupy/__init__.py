@@ -3,7 +3,6 @@ from jujupy.client import (
     AuthNotAccepted,
     ConditionList,
     get_cache_path,
-    get_juju_home,
     get_machine_dns_name,
     get_timeout_prefix,
     InvalidEndpoint,
@@ -20,7 +19,6 @@ from jujupy.client import (
     ModelClient,
     NameNotAccepted,
     NoProvider,
-    NoSuchEnvironment,
     parse_new_state_server_from_error,
     SimpleEnvironment,
     SoftDeadlineExceeded,
@@ -29,6 +27,10 @@ from jujupy.client import (
     _temp_env,
     TypeNotAccepted,
     uniquify_local,
+    )
+from jujupy.configuration import (
+    get_juju_home,
+    NoSuchEnvironment,
     )
 from jujupy.fake import (
     FakeBackend,

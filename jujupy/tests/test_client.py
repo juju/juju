@@ -23,6 +23,11 @@ from mock import (
     )
 import yaml
 
+from jujupy.configuration import (
+    get_environments_path,
+    get_jenv_path,
+    NoSuchEnvironment,
+    )
 from jujupy import (
     FakeControllerState,
     fake_juju_client,
@@ -41,8 +46,6 @@ from jujupy.client import (
     ErroredUnit,
     GroupReporter,
     get_cache_path,
-    get_environments_path,
-    get_jenv_path,
     get_local_root,
     get_machine_dns_name,
     get_timeout_path,
@@ -61,7 +64,6 @@ from jujupy.client import (
     ModelClient,
     NameNotAccepted,
     NoProvider,
-    NoSuchEnvironment,
     parse_new_state_server_from_error,
     ProvisioningError,
     SimpleEnvironment,
@@ -149,13 +151,6 @@ class TestTempYamlFile(TestCase):
         with temp_yaml_file({'foo': 'bar'}) as yaml_file:
             with open(yaml_file) as f:
                 self.assertEqual({'foo': 'bar'}, yaml.safe_load(f))
-
-
-class TestGetJenvPath(TestCase):
-
-    def test_get_jenv_path(self):
-        self.assertEqual('home/environments/envname.jenv',
-                         get_jenv_path('home', 'envname'))
 
 
 class TestJuju2Backend(TestCase):
@@ -4953,7 +4948,7 @@ class TestSimpleEnvironment(TestCase):
         with temp_config():
             os.environ['JUJU_ENV'] = 'foo'
             # GZ 2015-10-15: Currently default_env calls the juju on path here.
-            with patch('jujupy.client.default_env', autospec=True,
+            with patch('jujupy.configuration.default_env', autospec=True,
                        return_value='foo') as cde_mock:
                 env = SimpleEnvironment.from_config(None)
             self.assertEqual(env.environment, 'foo')

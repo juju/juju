@@ -12,7 +12,7 @@ from jujupy import (
     fake_juju_client,
     JujuData,
     )
-from jujupy.client import get_environments
+from jujupy.configuration import get_environments
 
 
 def write_new_config(env, out):
