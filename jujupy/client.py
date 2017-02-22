@@ -28,7 +28,7 @@ from dateutil import tz
 import pexpect
 import yaml
 
-from jujuconfig import (
+from jujupy.configuration import (
     get_environments_path,
     get_jenv_path,
     get_juju_home,
@@ -1225,9 +1225,9 @@ class Juju2Backend:
                     proc.returncode, args, sub_output)
                 e.stderr = sub_error
                 if sub_error and (
-                    'Unable to connect to environment' in sub_error or
-                        'MissingOrIncorrectVersionHeader' in sub_error or
-                        '307: Temporary Redirect' in sub_error):
+                    b'Unable to connect to environment' in sub_error or
+                        b'MissingOrIncorrectVersionHeader' in sub_error or
+                        b'307: Temporary Redirect' in sub_error):
                     raise CannotConnectEnv(e)
                 raise e
         return sub_output
@@ -1424,7 +1424,7 @@ class ModelClient:
     def get_full_path(cls):
         if sys.platform == 'win32':
             return WIN_JUJU_CMD
-        return subprocess.check_output(('which', 'juju')).rstrip('\n')
+        return subprocess.check_output(('which', 'juju')).rstrip(b'\n')
 
     def clone_path_cls(self, juju_path):
         """Clone using the supplied path to determine the class."""

@@ -23,7 +23,7 @@ from mock import (
     )
 import yaml
 
-from jujuconfig import (
+from jujupy.configuration import (
     get_environments_path,
     get_jenv_path,
     NoSuchEnvironment,
@@ -4948,7 +4948,7 @@ class TestSimpleEnvironment(TestCase):
         with temp_config():
             os.environ['JUJU_ENV'] = 'foo'
             # GZ 2015-10-15: Currently default_env calls the juju on path here.
-            with patch('jujuconfig.default_env', autospec=True,
+            with patch('jujupy.configuration.default_env', autospec=True,
                        return_value='foo') as cde_mock:
                 env = SimpleEnvironment.from_config(None)
             self.assertEqual(env.environment, 'foo')

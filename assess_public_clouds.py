@@ -13,9 +13,9 @@ import yaml
 from deploy_stack import (
     BootstrapManager,
     )
-from jujuconfig import get_juju_home
 from jujupy import (
     client_from_config,
+    get_juju_home,
     )
 from assess_cloud import (
     assess_cloud_combined,
