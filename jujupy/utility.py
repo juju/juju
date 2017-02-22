@@ -178,8 +178,8 @@ def temp_yaml_file(yaml_dict, encoding="utf-8"):
 
 
 def get_timeout_path():
-    import timeout
-    return os.path.abspath(timeout.__file__)
+    import jujupy.timeout
+    return os.path.abspath(jujupy.timeout.__file__)
 
 
 def unqualified_model_name(model_name):
