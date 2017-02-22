@@ -69,7 +69,7 @@ from tests import (
     observable_temp_file,
     TestCase
     )
-from utility import (
+from jujupy.utility import (
     get_timeout_path,
     )
 

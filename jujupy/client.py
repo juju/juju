@@ -34,7 +34,7 @@ from jujupy.configuration import (
     get_juju_home,
     get_selected_environment,
     )
-from utility import (
+from jujupy.utility import (
     check_free_disk_space,
     ensure_dir,
     get_timeout_path,
