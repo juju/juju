@@ -124,7 +124,7 @@ func (s *hostPreparerSuite) createPreparerParams(bridges []network.DeviceToBridg
 		CreateBridger:      s.createStubBridger,
 		ObserveNetworkFunc: observer.ObserveNetwork,
 		MachineTag:         names.NewMachineTag("1"),
-		Logger: loggo.GetLogger("prepare-host.test"),
+		Logger:             loggo.GetLogger("prepare-host.test"),
 	}
 }
 

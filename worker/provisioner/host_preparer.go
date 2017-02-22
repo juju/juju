@@ -41,7 +41,7 @@ type HostPreparerParams struct {
 	CreateBridger      func() (network.Bridger, error)
 	AbortChan          <-chan struct{}
 	MachineTag         names.MachineTag
-	Logger			   loggo.Logger
+	Logger             loggo.Logger
 }
 
 // HostPreparer calls out to the PrepareAPI to find out what changes need to be
@@ -54,7 +54,7 @@ type HostPreparer struct {
 	createBridger      func() (network.Bridger, error)
 	abortChan          <-chan struct{}
 	machineTag         names.MachineTag
-	logger			   loggo.Logger
+	logger             loggo.Logger
 }
 
 // NewHostPreparer creates a HostPreparer using the supplied parameters
@@ -67,7 +67,7 @@ func NewHostPreparer(params HostPreparerParams) *HostPreparer {
 		createBridger:      params.CreateBridger,
 		abortChan:          params.AbortChan,
 		machineTag:         params.MachineTag,
-		logger:			    params.Logger,
+		logger:             params.Logger,
 	}
 }
 

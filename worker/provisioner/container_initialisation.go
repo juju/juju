@@ -216,9 +216,9 @@ func (cs *ContainerSetup) prepareHost(containerTag names.MachineTag, log loggo.L
 		// TODO(jam): 2017-02-08 figure out how to thread catacomb.Dying() into
 		// this function, so that we can stop trying to acquire the lock if we
 		// are stopping.
-		AbortChan:          nil,
-		MachineTag:         cs.machine.MachineTag(),
-		Logger:				log,
+		AbortChan:  nil,
+		MachineTag: cs.machine.MachineTag(),
+		Logger:     log,
 	})
 	return preparer.Prepare(containerTag)
 }
