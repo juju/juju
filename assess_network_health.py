@@ -122,7 +122,7 @@ def setup_dummy_deployment(client, series):
 def setup_bundle_deployment(client, bundle):
     """Deploys a test environment with supplied bundle.
 
-    :param bundle: Path to a bundle.yaml
+    :param bundle: Path to a bundle
     """
     log.info("Deploying bundle specified at {}".format(bundle))
     client.deploy_bundle(bundle)
