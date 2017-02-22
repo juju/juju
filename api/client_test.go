@@ -15,12 +15,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gorilla/websocket"
 	"github.com/juju/errors"
 	"github.com/juju/httprequest"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version"
-	"golang.org/x/net/websocket"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
@@ -370,7 +370,7 @@ func (s *clientSuite) TestConnectStreamRequiresSlashPathPrefix(c *gc.C) {
 }
 
 func (s *clientSuite) TestConnectStreamErrorBadConnection(c *gc.C) {
-	s.PatchValue(api.WebsocketDialConfig, func(_ *websocket.Config) (base.Stream, error) {
+	s.PatchValue(api.WebsocketDial, func(_ *websocket.Dialer, _ string, _ http.Header) (base.Stream, error) {
 		return nil, fmt.Errorf("bad connection")
 	})
 	reader, err := s.APIState.ConnectStream("/", nil)
@@ -379,7 +379,7 @@ func (s *clientSuite) TestConnectStreamErrorBadConnection(c *gc.C) {
 }
 
 func (s *clientSuite) TestConnectStreamErrorNoData(c *gc.C) {
-	s.PatchValue(api.WebsocketDialConfig, func(_ *websocket.Config) (base.Stream, error) {
+	s.PatchValue(api.WebsocketDial, func(_ *websocket.Dialer, _ string, _ http.Header) (base.Stream, error) {
 		return fakeStreamReader{&bytes.Buffer{}}, nil
 	})
 	reader, err := s.APIState.ConnectStream("/", nil)
@@ -388,7 +388,7 @@ func (s *clientSuite) TestConnectStreamErrorNoData(c *gc.C) {
 }
 
 func (s *clientSuite) TestConnectStreamErrorBadData(c *gc.C) {
-	s.PatchValue(api.WebsocketDialConfig, func(_ *websocket.Config) (base.Stream, error) {
+	s.PatchValue(api.WebsocketDial, func(_ *websocket.Dialer, _ string, _ http.Header) (base.Stream, error) {
 		return fakeStreamReader{strings.NewReader("junk\n")}, nil
 	})
 	reader, err := s.APIState.ConnectStream("/", nil)
@@ -397,7 +397,7 @@ func (s *clientSuite) TestConnectStreamErrorBadData(c *gc.C) {
 }
 
 func (s *clientSuite) TestConnectStreamErrorReadError(c *gc.C) {
-	s.PatchValue(api.WebsocketDialConfig, func(_ *websocket.Config) (base.Stream, error) {
+	s.PatchValue(api.WebsocketDial, func(_ *websocket.Dialer, _ string, _ http.Header) (base.Stream, error) {
 		err := fmt.Errorf("bad read")
 		return fakeStreamReader{&badReader{err}}, nil
 	})
@@ -423,7 +423,7 @@ func (s *clientSuite) TestConnectControllerStreamAppliesHeaders(c *gc.C) {
 	headers := http.Header{}
 	headers.Add("thomas", "cromwell")
 	headers.Add("anne", "boleyn")
-	s.PatchValue(api.WebsocketDialConfig, catcher.recordLocation)
+	s.PatchValue(api.WebsocketDial, catcher.recordLocation)
 
 	_, err := s.APIState.ConnectControllerStream("/something", nil, headers)
 	c.Assert(err, jc.ErrorIsNil)
@@ -434,7 +434,7 @@ func (s *clientSuite) TestConnectControllerStreamAppliesHeaders(c *gc.C) {
 
 func (s *clientSuite) TestWatchDebugLogParamsEncoded(c *gc.C) {
 	catcher := urlCatcher{}
-	s.PatchValue(api.WebsocketDialConfig, catcher.recordLocation)
+	s.PatchValue(api.WebsocketDial, catcher.recordLocation)
 
 	params := common.DebugLogParams{
 		IncludeEntity: []string{"a", "b"},
@@ -453,7 +453,9 @@ func (s *clientSuite) TestWatchDebugLogParamsEncoded(c *gc.C) {
 	_, err := client.WatchDebugLog(params)
 	c.Assert(err, jc.ErrorIsNil)
 
-	connectURL := catcher.location
+	connectURL, err := url.Parse(catcher.location)
+	c.Assert(err, jc.ErrorIsNil)
+
 	values := connectURL.Query()
 	c.Assert(values, jc.DeepEquals, url.Values{
 		"includeEntity": params.IncludeEntity,
@@ -471,7 +473,7 @@ func (s *clientSuite) TestWatchDebugLogParamsEncoded(c *gc.C) {
 
 func (s *clientSuite) TestConnectStreamAtUUIDPath(c *gc.C) {
 	catcher := urlCatcher{}
-	s.PatchValue(api.WebsocketDialConfig, catcher.recordLocation)
+	s.PatchValue(api.WebsocketDial, catcher.recordLocation)
 	model, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	info := s.APIInfo(c)
@@ -481,7 +483,8 @@ func (s *clientSuite) TestConnectStreamAtUUIDPath(c *gc.C) {
 	defer apistate.Close()
 	_, err = apistate.ConnectStream("/path", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	connectURL := catcher.location
+	connectURL, err := url.Parse(catcher.location)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(connectURL.Path, gc.Matches, fmt.Sprintf("/model/%s/path", model.UUID()))
 }
 
@@ -559,13 +562,13 @@ func (r *badReader) Read(p []byte) (n int, err error) {
 }
 
 type urlCatcher struct {
-	location *url.URL
+	location string
 	headers  http.Header
 }
 
-func (u *urlCatcher) recordLocation(config *websocket.Config) (base.Stream, error) {
-	u.location = config.Location
-	u.headers = config.Header
+func (u *urlCatcher) recordLocation(d *websocket.Dialer, urlStr string, header http.Header) (base.Stream, error) {
+	u.location = urlStr
+	u.headers = header
 	pr, pw := io.Pipe()
 	go func() {
 		fmt.Fprintf(pw, "null\n")
@@ -582,6 +585,10 @@ func (s fakeStreamReader) Close() error {
 		return c.Close()
 	}
 	return nil
+}
+
+func (s fakeStreamReader) NextReader() (messageType int, r io.Reader, err error) {
+	return websocket.TextMessage, s.Reader, nil
 }
 
 func (s fakeStreamReader) Write([]byte) (int, error) {
