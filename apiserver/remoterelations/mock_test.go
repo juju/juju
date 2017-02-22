@@ -20,6 +20,14 @@ import (
 	coretesting "github.com/juju/juju/testing"
 )
 
+type mockStatePool struct {
+	st *mockState
+}
+
+func (st *mockStatePool) Get(modelUUID string) (remoterelations.RemoteRelationsState, func(), error) {
+	return st.st, func() {}, nil
+}
+
 type mockState struct {
 	testing.Stub
 	relations                    map[string]*mockRelation
@@ -29,6 +37,7 @@ type mockState struct {
 	remoteRelationsWatcher       *mockStringsWatcher
 	applicationRelationsWatchers map[string]*mockStringsWatcher
 	remoteEntities               map[names.Tag]string
+	subnets                      []remoterelations.Subnet
 }
 
 func newMockState() *mockState {
@@ -53,6 +62,11 @@ func (st *mockState) ListOffers(filter ...crossmodel.OfferedApplicationFilter) (
 
 func (st *mockState) ModelUUID() string {
 	return coretesting.ModelTag.Id()
+}
+
+func (st *mockState) AllSubnets() ([]remoterelations.Subnet, error) {
+	st.MethodCall(st, "AllSubnets")
+	return st.subnets, nil
 }
 
 func (st *mockState) AddRelation(eps ...state.Endpoint) (remoterelations.Relation, error) {
@@ -479,4 +493,12 @@ func (u *mockRelationUnit) ReplaceSettings(settings map[string]interface{}) erro
 		u.settings[k] = v
 	}
 	return nil
+}
+
+type mockSubnet struct {
+	cidr string
+}
+
+func (a *mockSubnet) CIDR() string {
+	return a.cidr
 }

@@ -491,6 +491,11 @@ func (w *lifecycleWatcher) initial() (set.Strings, error) {
 	var doc lifeDoc
 	iter := coll.Find(w.members).Select(lifeFields).Iter()
 	for iter.Next(&doc) {
+		// If no members criteria is specified, use the filter
+		// to reject any unsuitable initial elements.
+		if w.members == nil && w.filter != nil && !w.filter(doc.Id) {
+			continue
+		}
 		id := w.st.localID(doc.Id)
 		ids.Add(id)
 		if doc.Life != Dead {

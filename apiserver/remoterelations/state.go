@@ -12,12 +12,22 @@ import (
 	"github.com/juju/juju/status"
 )
 
+// StatePool provides the subset of a state pool required by the
+// remote relations facade.
+type StatePool interface {
+	// Get returns a State for a given model from the pool.
+	Get(modelUUID string) (RemoteRelationsState, func(), error)
+}
+
 // RemoteRelationState provides the subset of global state required by the
 // remote relations facade.
 type RemoteRelationsState interface {
 	// ModelUUID returns the model UUID for the model
 	// controlled by this state instance.
 	ModelUUID() string
+
+	// AllSubnets returns all known subnets in the model.
+	AllSubnets() (subnets []Subnet, err error)
 
 	// KeyRelation returns the existing relation with the given key (which can
 	// be derived unambiguously from the relation's endpoints).
@@ -174,8 +184,45 @@ type Application interface {
 	Endpoints() ([]state.Endpoint, error)
 }
 
+// Subnet provides access to a subnet in global state.
+type Subnet interface {
+	// CIDR returns the CIDR of the subnet.
+	CIDR() string
+}
+
+type statePoolShim struct {
+	*state.StatePool
+}
+
+func (pool statePoolShim) Get(modelUUID string) (RemoteRelationsState, func(), error) {
+	st, closer, err := pool.StatePool.Get(modelUUID)
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+	return stateShim{st}, closer, nil
+}
+
 type stateShim struct {
 	*state.State
+}
+
+func (st stateShim) AllSubnets() (subnets []Subnet, err error) {
+	all, err := st.State.AllSubnets()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	for _, s := range all {
+		subnets = append(subnets, subnetShim{s})
+	}
+	return subnets, nil
+}
+
+type subnetShim struct {
+	*state.Subnet
+}
+
+func (a subnetShim) CIDR() string {
+	return a.Subnet.CIDR()
 }
 
 func (st stateShim) ListOffers(filter ...crossmodel.OfferedApplicationFilter) ([]crossmodel.OfferedApplication, error) {

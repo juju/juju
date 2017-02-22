@@ -3384,6 +3384,24 @@ func (s *StateSuite) setupWatchRemoteRelations(c *gc.C, wc statetesting.StringsW
 	return remoteApp, app, rel
 }
 
+func (s *StateSuite) TestWatchRemoteRelationsIgnoresLocal(c *gc.C) {
+	// Set up a non-remote relation to ensure it is properly filtered out.
+	s.AddTestingService(c, "wplocal", s.AddTestingCharm(c, "wordpress"))
+	s.AddTestingService(c, "mysqllocal", s.AddTestingCharm(c, "mysql"))
+	eps, err := s.State.InferEndpoints("wplocal", "mysqllocal")
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddRelation(eps...)
+	c.Assert(err, jc.ErrorIsNil)
+
+	w := s.State.WatchRemoteRelations()
+	defer statetesting.AssertStop(c, w)
+	wc := statetesting.NewStringsWatcherC(c, s.State, w)
+	// Check initial event.
+	wc.AssertChange()
+	// No change for local relation.
+	wc.AssertNoChange()
+}
+
 func (s *StateSuite) TestWatchRemoteRelationsDestroyRelation(c *gc.C) {
 	w := s.State.WatchRemoteRelations()
 	defer statetesting.AssertStop(c, w)
