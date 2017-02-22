@@ -28,7 +28,7 @@ from jujupy.client import (
     unqualified_model_name,
     UpgradeMongoNotSupported,
     )
-from utility import (
+from jujupy.utility import (
     ensure_deleted,
     scoped_environ,
     split_address_port,
