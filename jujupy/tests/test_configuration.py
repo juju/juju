@@ -1,6 +1,6 @@
 from unittest import TestCase
 
-from jujuconfig import (
+from jujupy.configuration import (
     get_jenv_path,
 )
 

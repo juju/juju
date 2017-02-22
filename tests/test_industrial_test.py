@@ -2041,7 +2041,7 @@ class TestUpgradeCharmAttempt(JujuPyTestCase):
         self.assertEqual(uc_iterator.next(),
                          {'test_id': 'prepare-upgrade-charm'})
         temp_repository = mkdtemp()
-        with patch('utility.mkdtemp', return_value=temp_repository):
+        with patch('jujupy.utility.mkdtemp', return_value=temp_repository):
             with patch('subprocess.check_call') as cc_mock:
                 self.assertEqual(uc_iterator.next(),
                                  {'test_id': 'prepare-upgrade-charm'})

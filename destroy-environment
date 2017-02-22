@@ -5,7 +5,6 @@ import os.path
 import subprocess
 import sys
 
-from jujuconfig import NoSuchEnvironment
 import jujupy
 from deploy_stack import destroy_environment
 
@@ -15,7 +14,7 @@ def main():
     for env_name in sys.argv[1:]:
         try:
             client = jujupy.client_from_config(env_name, None)
-        except NoSuchEnvironment as e:
+        except jujupy.NoSuchEnvironment as e:
             no_failures = False
             sys.stderr.write(str(e) + '\n')
             continue

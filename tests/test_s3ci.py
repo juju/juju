@@ -23,7 +23,7 @@ from jujuci import (
     JobNamer,
     PackageNamer,
     )
-from jujuconfig import get_juju_home
+from jujupy import get_juju_home
 from s3ci import (
     fetch_files,
     fetch_juju_binary,

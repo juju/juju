@@ -31,15 +31,12 @@ from chaos import background_chaos
 from jujucharm import (
     local_charm_path,
 )
-from jujuconfig import (
-    get_jenv_path,
-    get_juju_home,
-)
 from jujupy import (
     client_from_config,
     EnvJujuClient1X,
     FakeBackend,
     fake_juju_client,
+    get_juju_home,
     get_machine_dns_name,
     jes_home_path,
     NoProvider,
@@ -49,6 +46,7 @@ from jujupy import (
 from jujupy.client import (
     get_local_root,
 )
+from jujupy.configuration import get_jenv_path
 from remote import (
     remote_from_address,
     remote_from_unit,

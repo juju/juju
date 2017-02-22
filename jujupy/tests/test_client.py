@@ -23,7 +23,7 @@ from mock import (
     )
 import yaml
 
-from jujuconfig import (
+from jujupy.configuration import (
     get_environments_path,
     get_jenv_path,
     NoSuchEnvironment,
@@ -99,7 +99,7 @@ from tests import (
     TestCase,
     )
 from tests.test_assess_resources import make_resource_list
-from utility import (
+from jujupy.utility import (
     JujuResourceTimeout,
     scoped_environ,
     temp_dir,
@@ -3732,7 +3732,7 @@ class TestTempBootstrapEnv(FakeHomeTestCase):
             os.mkdir(juju_home)
             return juju_home
 
-        with patch('utility.mkdtemp', side_effect=side_effect):
+        with patch('jujupy.utility.mkdtemp', side_effect=side_effect):
             with patch('jujupy.client.check_free_disk_space', autospec=True):
                 with temp_bootstrap_env(self.home_dir, client) as temp_home:
                     pass
@@ -4956,7 +4956,7 @@ class TestSimpleEnvironment(TestCase):
         with temp_config():
             os.environ['JUJU_ENV'] = 'foo'
             # GZ 2015-10-15: Currently default_env calls the juju on path here.
-            with patch('jujuconfig.default_env', autospec=True,
+            with patch('jujupy.configuration.default_env', autospec=True,
                        return_value='foo') as cde_mock:
                 env = SimpleEnvironment.from_config(None)
             self.assertEqual(env.environment, 'foo')
@@ -5747,7 +5747,7 @@ class TestGetMachineDNSName(TestCase):
         status = Status.from_text(self.machine_0_ipv6)
         fake_client = Mock(spec=['status_until'])
         fake_client.status_until.return_value = [status]
-        with patch('utility.socket', wraps=socket) as wrapped_socket:
+        with patch('jujupy.utility.socket', wraps=socket) as wrapped_socket:
             del wrapped_socket.inet_pton
             host = get_machine_dns_name(fake_client, '0')
         self.assertEqual(host, "2001:db8::3")

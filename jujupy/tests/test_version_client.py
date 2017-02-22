@@ -17,9 +17,6 @@ from mock import (
     )
 import yaml
 
-from jujuconfig import (
-    get_jenv_path,
-    )
 from jujupy import (
     AuthNotAccepted,
     fake_juju_client,
@@ -43,6 +40,7 @@ from jujupy.client import (
     UpgradeMongoNotSupported,
     WaitMachineNotPresent,
     )
+from jujupy.configuration import get_jenv_path
 from jujupy.fake import (
     FakeBackend2_1,
     )
@@ -71,7 +69,7 @@ from tests import (
     observable_temp_file,
     TestCase
     )
-from utility import (
+from jujupy.utility import (
     get_timeout_path,
     )
 

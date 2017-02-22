@@ -187,7 +187,7 @@ def observable_temp_file():
     temporary_file = NamedTemporaryFile(delete=False)
     try:
         with temporary_file as temp_file:
-            with patch('utility.NamedTemporaryFile',
+            with patch('jujupy.utility.NamedTemporaryFile',
                        return_value=temp_file):
                 with patch.object(temp_file, '__exit__'):
                     yield temp_file
