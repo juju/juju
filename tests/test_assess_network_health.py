@@ -193,11 +193,18 @@ class TestAssessNetworkHealth(TestCase):
              call.wait_for_subordinate_units('ubuntu', 'network-health')],
             client.mock_calls)
 
-    def test_assess_network_health_with_bundle(self):
-        pass
-
     def test_ensure_juju_agnostic_visibility(self):
-        pass
+        client = fake_juju_client()
+        client.bootstrap()
+        ag_return = True
+        now = datetime.now() + timedelta(days=1)
+        with patch('utility.until_timeout.now', return_value=now):
+            with patch.object(client, 'get_status', return_value=status):
+                with patch('subprocess.check_output',
+                           return_value=0):
+                    out = ensure_juju_agnostic_visibility(client)
+        expected = {'1': {'1.1.1.2': True}, '0': {'1.1.1.1': True}}
+        self.assertEqual(expected, out)
 
     def test_assess_network_health_with_existing_model(self):
         # Feature is not fully implimented, pass for now.
@@ -216,6 +223,11 @@ class TestAssessNetworkHealth(TestCase):
                 client.deploy('ubuntu', num=2)
                 client.deploy('network-health')
                 out = neighbor_visibility(client)
+        expected = {'network-health/0': {'ubuntu': {u'ubuntu/0': True,
+                                                    u'ubuntu/1': True}},
+                    'network-health/1': {'ubuntu': {u'ubuntu/0': True,
+                                                    u'ubuntu/1': True}}}
+        self.assertEqual(expected, out)
 
     def test_ensure_exposed(self):
         client = Mock(wraps=fake_juju_client())
@@ -234,9 +246,6 @@ class TestAssessNetworkHealth(TestCase):
                     out = ensure_exposed(client, series)
         expected = {'fail': (), 'pass': ('ubuntu',)}
         self.assertEqual(out, expected)
-
-    def test_environment_setup(self):
-        pass
 
     def test_connect_to_existing_model(self):
         # Pass for now as this is not fully implimented
