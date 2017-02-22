@@ -137,6 +137,10 @@ func (api *ProxyUpdaterAPI) proxyConfig() params.ProxyConfigResult {
 	noProxySet := set.NewStrings(noProxy...)
 	for _, host := range apiHostPorts {
 		for _, hp := range host {
+			if hp.Address.Scope == network.ScopeMachineLocal ||
+				hp.Address.Scope == network.ScopeLinkLocal {
+				continue
+			}
 			noProxySet.Add(hp.Address.Value)
 		}
 	}
