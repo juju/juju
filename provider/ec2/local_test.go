@@ -748,7 +748,7 @@ func (t *localServerSuite) TestStartInstanceAvailZone(c *gc.C) {
 
 func (t *localServerSuite) TestStartInstanceAvailZoneImpaired(c *gc.C) {
 	_, err := t.testStartInstanceAvailZone(c, "test-impaired")
-	c.Assert(err, gc.ErrorMatches, `availability zone "test-impaired" is impaired`)
+	c.Assert(err, gc.ErrorMatches, `availability zone "test-impaired" is "impaired"`)
 }
 
 func (t *localServerSuite) TestStartInstanceAvailZoneUnknown(c *gc.C) {
