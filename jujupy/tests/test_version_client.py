@@ -42,15 +42,19 @@ from jujupy.client import (
     )
 from jujupy.configuration import get_jenv_path
 from jujupy.fake import (
+    FakeBackend,
+    FakeControllerState,
     FakeBackend2_1,
     )
 from jujupy.version_client import (
     BootstrapMismatch,
+    client_for_existing,
     client_from_config,
     EnvJujuClient1X,
     EnvJujuClient22,
     EnvJujuClient24,
     EnvJujuClient25,
+    get_client_class,
     ModelClientRC,
     IncompatibleConfigClass,
     Juju1XBackend,
@@ -212,6 +216,26 @@ class TestClientFromConfig(ClientTest):
                 client = client_from_config(
                     'foo', 'foo/bar/qux', soft_deadline=deadline)
         self.assertEqual(client._backend.soft_deadline, deadline)
+
+
+class TestClientForExisting(ClientTest):
+
+    def test_client_for_existing(self):
+        state = FakeControllerState()
+        state.name = 'ctrl1'
+        state.active_model = 'model1'
+        backend = FakeBackend(state, version='2.0.73', full_path='/path/juju')
+        with patch.object(ModelClient, 'get_version',
+                          return_value=backend.version) as gv_mock:
+            client_class = get_client_class(backend.version)
+            with patch.object(client_class, 'default_backend',
+                              return_value=backend) as db_mock:
+                client = client_for_existing(backend.full_path, '/juju-data')
+        self.assertEqual(client.model_name, 'model1')
+        self.assertEqual(client.env.controller.name, 'ctrl1')
+        gv_mock.assert_called_once_with(backend.full_path)
+        db_mock.assert_called_once_with(backend.full_path, backend.version,
+                                        set(), debug=False, soft_deadline=None)
 
 
 class TestModelClient2_1(ClientTest):

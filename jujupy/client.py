@@ -1232,6 +1232,14 @@ class Juju2Backend:
                 raise e
         return sub_output
 
+    def get_active_model(self, juju_data_dir):
+        """Determine the active model in a juju data dir."""
+        current = self.get_juju_output(
+            'switch', (), set(), juju_data_dir, model=None).decode('ascii')
+        controller_name, user_model = current.split(':', 1)
+        user_name, model_name = user_model.split('/', 1)
+        return controller_name, user_name, model_name.rstrip('\n')
+
     def pause(self, seconds):
         pause(seconds)
 

@@ -59,6 +59,7 @@ class FakeControllerState:
             }
         }
         self.shares = ['admin']
+        self.active_model = None
 
     def add_model(self, name):
         state = FakeEnvironmentState(self)
@@ -639,6 +640,10 @@ class FakeBackend:
         finally:
             if self._past_deadline and not self._ignore_soft_deadline:
                 raise SoftDeadlineExceeded()
+
+    def get_active_model(self, juju_home):
+        return (self.controller_state.name, None,
+                self.controller_state.active_model)
 
     def deploy(self, model_state, charm_name, num, service_name=None,
                series=None):
