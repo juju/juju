@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/juju/api"
 	apifirewaller "github.com/juju/juju/api/firewaller"
+	"github.com/juju/juju/api/remotefirewaller"
 	"github.com/juju/juju/api/remoterelations"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
@@ -36,9 +37,10 @@ type firewallerBaseSuite struct {
 	op    <-chan dummy.Operation
 	charm *state.Charm
 
-	st              api.Connection
-	firewaller      *apifirewaller.State
-	remoteRelations *remoterelations.Client
+	st               api.Connection
+	firewaller       *apifirewaller.State
+	remoteRelations  *remoterelations.Client
+	remotefirewaller *remotefirewaller.Client
 }
 
 var _ worker.Worker = (*firewaller.Firewaller)(nil)
@@ -67,6 +69,8 @@ func (s *firewallerBaseSuite) setUpTest(c *gc.C, firewallMode string) {
 	c.Assert(s.firewaller, gc.NotNil)
 	s.remoteRelations = remoterelations.NewClient(s.st)
 	c.Assert(s.remoteRelations, gc.NotNil)
+	s.remotefirewaller = remotefirewaller.NewClient(s.st)
+	c.Assert(s.remotefirewaller, gc.NotNil)
 }
 
 // assertPorts retrieves the open ports of the instance and compares them
@@ -153,7 +157,18 @@ func (s *InstanceModeSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *InstanceModeSuite) newFirewaller(c *gc.C) worker.Worker {
-	fw, err := firewaller.NewFirewaller(s.Environ, s.firewaller, config.FwInstance, s.remoteRelations)
+	cfg := firewaller.Config{
+		ModelUUID:          s.State.ModelUUID(),
+		Mode:               config.FwInstance,
+		EnvironFirewaller:  s.Environ,
+		EnvironInstances:   s.Environ,
+		FirewallerAPI:      s.firewaller,
+		RemoteRelationsApi: s.remoteRelations,
+		NewRemoteFirewallerAPIFunc: func(modelUUID string) (firewaller.RemoteFirewallerAPICloser, error) {
+			return s.remotefirewaller, nil
+		},
+	}
+	fw, err := firewaller.NewFirewaller(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 	return fw
 }
@@ -716,7 +731,18 @@ func (s *GlobalModeSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *GlobalModeSuite) newFirewaller(c *gc.C) worker.Worker {
-	fw, err := firewaller.NewFirewaller(s.Environ, s.firewaller, config.FwGlobal, s.remoteRelations)
+	cfg := firewaller.Config{
+		ModelUUID:          s.State.ModelUUID(),
+		Mode:               config.FwGlobal,
+		EnvironFirewaller:  s.Environ,
+		EnvironInstances:   s.Environ,
+		FirewallerAPI:      s.firewaller,
+		RemoteRelationsApi: s.remoteRelations,
+		NewRemoteFirewallerAPIFunc: func(modelUUID string) (firewaller.RemoteFirewallerAPICloser, error) {
+			return s.remotefirewaller, nil
+		},
+	}
+	fw, err := firewaller.NewFirewaller(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 	return fw
 }
@@ -952,6 +978,17 @@ func (s *NoneModeSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *NoneModeSuite) TestStopImmediately(c *gc.C) {
-	_, err := firewaller.NewFirewaller(s.Environ, s.firewaller, config.FwNone, s.remoteRelations)
+	cfg := firewaller.Config{
+		ModelUUID:          s.State.ModelUUID(),
+		Mode:               config.FwNone,
+		EnvironFirewaller:  s.Environ,
+		EnvironInstances:   s.Environ,
+		FirewallerAPI:      s.firewaller,
+		RemoteRelationsApi: s.remoteRelations,
+		NewRemoteFirewallerAPIFunc: func(modelUUID string) (firewaller.RemoteFirewallerAPICloser, error) {
+			return s.remotefirewaller, nil
+		},
+	}
+	_, err := firewaller.NewFirewaller(cfg)
 	c.Assert(err, gc.ErrorMatches, `invalid firewall-mode "none"`)
 }

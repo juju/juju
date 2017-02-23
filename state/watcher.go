@@ -2789,3 +2789,9 @@ func (st *State) WatchRemoteRelations() StringsWatcher {
 	}
 	return newLifecycleWatcher(st, relationsC, nil, filter, tr)
 }
+
+// WatchSubnets returns a StringsWatcher that notifies of changes to
+// the lifecycles of the subnets in the model.
+func (st *State) WatchSubnets() StringsWatcher {
+	return newLifecycleWatcher(st, subnetsC, nil, isLocalID(st), nil)
+}

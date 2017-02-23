@@ -630,6 +630,17 @@ func (s *MultiModelStateSuite) TestWatchTwoModels(c *gc.C) {
 				err := offeredApplications.SetOfferRegistered("local:/u/me/mysql", false)
 				c.Assert(err, jc.ErrorIsNil)
 			},
+		}, {
+			about: "subnets",
+			getWatcher: func(st *state.State) interface{} {
+				return st.WatchSubnets()
+			},
+			triggerEvent: func(st *state.State) {
+				_, err := st.AddSubnet(state.SubnetInfo{
+					CIDR: "10.0.0.0/24",
+				})
+				c.Assert(err, jc.ErrorIsNil)
+			},
 		},
 	} {
 		c.Logf("Test %d: %s", i, test.about)
@@ -3360,6 +3371,21 @@ func (s *StateSuite) TestWatchOfferedApplicationsDiesOnStateClose(c *gc.C) {
 		<-w.Changes()
 		return w
 	})
+}
+
+func (s *StateSuite) TestWatchSubnets(c *gc.C) {
+	w := s.State.WatchSubnets()
+	defer statetesting.AssertStop(c, w)
+	wc := statetesting.NewStringsWatcherC(c, s.State, w)
+
+	// Check initial event.
+	wc.AssertChange()
+	wc.AssertNoChange()
+
+	_, err := s.State.AddSubnet(state.SubnetInfo{CIDR: "10.0.0.0/24"})
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChange("10.0.0.0/24")
+	wc.AssertNoChange()
 }
 
 func (s *StateSuite) setupWatchRemoteRelations(c *gc.C, wc statetesting.StringsWatcherC) (*state.RemoteApplication, *state.Application, *state.Relation) {
