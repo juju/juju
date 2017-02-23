@@ -295,6 +295,16 @@ class TestJuju2Backend(TestCase):
                                              'Operation exceeded deadline.'):
                     backend.get_juju_output('cmd', ('args',), [], 'home')
 
+    def test_get_active_model(self):
+        backend = Juju2Backend('/bin/path', '2.0', set(), debug=False,
+                               soft_deadline=None)
+        with patch('subprocess.Popen') as mock_popen:
+            mock_popen.return_value.communicate.return_value = (
+                'ctrl1:user1/model1', '')
+            mock_popen.return_value.returncode = 0
+            result = backend.get_active_model('/foo/bar')
+        self.assertEqual(('ctrl1', 'user1', 'model1'), result)
+
 
 class TestBaseCondition(ClientTest):
 

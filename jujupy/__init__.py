@@ -40,6 +40,7 @@ from jujupy.fake import (
     )
 from jujupy.version_client import (
     client_from_config,
+    client_for_existing,
     EnvJujuClient1X,
     EnvJujuClient25,
     get_client_class,
@@ -50,6 +51,7 @@ __all__ = [
     'AgentsNotStarted',
     'AuthNotAccepted',
     'client_from_config',
+    'client_for_existing',
     'ConditionList',
     'EnvJujuClient1X',
     'EnvJujuClient25',
