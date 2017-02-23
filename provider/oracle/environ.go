@@ -17,6 +17,7 @@ import (
 	envinstance "github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/storage"
 	"github.com/juju/version"
 )
@@ -66,6 +67,12 @@ func (o oracleEnviron) StorageProvider(t storage.ProviderType) (storage.Provider
 // give an Environ a chance to perform interactive operations that
 // are required for bootstrapping.
 func (o oracleEnviron) PrepareForBootstrap(ctx environs.BootstrapContext) error {
+	if ctx.ShouldVerifyCredentials() {
+		logger.Infof("Loging into the oracle cloud infrastructure")
+		if err := o.p.client.Authenticate(); err != nil {
+			return errors.Trace(err)
+		}
+	}
 	return nil
 }
 
@@ -80,31 +87,67 @@ func (o oracleEnviron) PrepareForBootstrap(ctx environs.BootstrapContext) error 
 //
 // Bootstrap will use just one specific architecture because the oracle
 // cloud only supports amd64.
-func (o oracleEnviron) Bootstrap(
+func (o *oracleEnviron) Bootstrap(
 	ctx environs.BootstrapContext,
 	params environs.BootstrapParams,
 ) (*environs.BootstrapResult, error) {
-	// in order too make the entire bootstrap process prossible
-	// we must take into accounting some things:
-	// validate if we have a shape based on the bootstrap constraints
-	// and pick the right one
-	// validate if we have in the imagelist a image correspoding to the
-	// image tools specified.
-	// validate if we have already the ssh keys and if we don't have them
-	// upload them into the oracle infrstracture and enable the flag
+	return common.Bootstrap(ctx, o, params)
+}
 
-	logger.Infof("Loging into the oracle cloud infrastructure")
-	if err := o.p.client.Authenticate(); err != nil {
-		return nil, errors.Trace(err)
+// BootstrapMessage optionally provides a message to be displayed to
+// the user at bootstrap time.
+func (o oracleEnviron) BootstrapMessage() string {
+	return ""
+}
+
+// Create creates the environment for a new hosted model.
+//
+// This will be called before any workers begin operating on the
+// Environ, to give an Environ a chance to perform operations that
+// are required for further use.
+//
+// Create is not called for the initial controller model; it is
+// the Bootstrap method's job to create the controller model.
+func (o oracleEnviron) Create(params environs.CreateParams) error {
+	return nil
+}
+
+// AdoptResources is called when the model is moved from one
+// controller to another using model migration. Some providers tag
+// instances, disks, and cloud storage with the controller UUID to
+// aid in clean destruction. This method will be called on the
+// environ for the target controller so it can update the
+// controller tags for all of those things. For providers that do
+// not track the controller UUID, a simple method returning nil
+// will suffice. The version number of the source controller is
+// provided for backwards compatibility - if the technique used to
+// tag items changes, the version number can be used to decide how
+// to remove the old tags correctly.
+func (e oracleEnviron) AdoptResources(controllerUUID string, fromVersion version.Number) error {
+
+	return nil
+}
+
+// StartInstance asks for a new instance to be created, associated with
+// the provided config in machineConfig. The given config describes the juju
+// state for the new instance to connect to. The config MachineNonce, which must be
+// unique within an environment, is used by juju to protect against the
+// consequences of multiple instances being started with the same machine
+// id.
+func (o oracleEnviron) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
+	if args.ControllerUUID == "" {
+		return nil, errors.NotFoundf("Controller UUID")
 	}
 
+	fmt.Printf("%+v\n", args)
+	os.Exit(1)
 	types, err := getInstanceTypes(o.p.client)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	imagemetadata, err := checkImageList(
-		o.p.client, params.BootstrapConstraints,
+		o.p.client, args.Constraints,
 	)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -118,7 +161,7 @@ func (o oracleEnviron) Bootstrap(
 		&envinstance.InstanceConstraint{
 			Region:      o.spec.Region,
 			Arches:      []string{"amd64"},
-			Constraints: params.BootstrapConstraints,
+			Constraints: args.Constraints,
 		},
 	)
 	if err != nil {
@@ -164,14 +207,12 @@ func (o oracleEnviron) Bootstrap(
 		return nil, err
 	}
 
-	_ = instance
-	return nil, nil
-}
+	result := &environs.StartInstanceResult{
+		Instance: instance,
+	}
 
-// BootstrapMessage optionally provides a message to be displayed to
-// the user at bootstrap time.
-func (o oracleEnviron) BootstrapMessage() string {
-	return ""
+	_ = instance
+	return result, nil
 }
 
 // Create creates the environment for a new hosted model.
@@ -186,32 +227,6 @@ func (o oracleEnviron) Create(params environs.CreateParams) error {
 	return nil
 }
 
-// AdoptResources is called when the model is moved from one
-// controller to another using model migration. Some providers tag
-// instances, disks, and cloud storage with the controller UUID to
-// aid in clean destruction. This method will be called on the
-// environ for the target controller so it can update the
-// controller tags for all of those things. For providers that do
-// not track the controller UUID, a simple method returning nil
-// will suffice. The version number of the source controller is
-// provided for backwards compatibility - if the technique used to
-// tag items changes, the version number can be used to decide how
-// to remove the old tags correctly.
-func (e oracleEnviron) AdoptResources(controllerUUID string, fromVersion version.Number) error {
-
-	return nil
-}
-
-// StartInstance asks for a new instance to be created, associated with
-// the provided config in machineConfig. The given config describes the juju
-// state for the new instance to connect to. The config MachineNonce, which must be
-// unique within an environment, is used by juju to protect against the
-// consequences of multiple instances being started with the same machine
-// id.
-func (o oracleEnviron) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
-	return nil, nil
-}
-
 // StopInstances shuts down the instances with the specified IDs.
 // Unknown instance IDs are ignored, to enable idempotency.
 func (o oracleEnviron) StopInstances(...instance.Id) error {
@@ -220,7 +235,25 @@ func (o oracleEnviron) StopInstances(...instance.Id) error {
 
 // AllInstances returns all instances currently known to the broker.
 func (o oracleEnviron) AllInstances() ([]instance.Instance, error) {
-	return nil, nil
+	resp, err := o.p.client.AllInstances()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	if len(resp.Result) == 0 {
+		return nil, environs.ErrNoInstances
+	}
+
+	all := make([]instance.Instance, 0, len(resp.Result))
+	for _, val := range resp.Result {
+		inst, err := newInstance(&val)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		all = append(all, inst)
+	}
+
+	return all, nil
 }
 
 // MaintainInstance is used to run actions on jujud startup for existing
@@ -269,8 +302,15 @@ func (o oracleEnviron) ConstraintsValidator() (constraints.Validator, error) {
 //
 // Calls to SetConfig do not affect the configuration of
 // values previously obtained from Storage.
-
-func (o oracleEnviron) SetConfig(cfg *config.Config) error {
+func (o *oracleEnviron) SetConfig(cfg *config.Config) error {
+	var old *config.Config
+	if o.cfg != nil {
+		old = o.cfg
+	}
+	if err := config.Validate(cfg, old); err != nil {
+		return errors.Trace(err)
+	}
+	o.cfg = cfg
 	return nil
 }
 
@@ -366,24 +406,3 @@ func (o oracleEnviron) InstanceTypes(constraints.Value) (envinstance.InstanceTyp
 	var i envinstance.InstanceTypesWithCostMetadata
 	return i, nil
 }
-
-// Providing this methods oracleEnviron implements also the simplestreams.HasRegion
-// interface
-//
-// Region returns the necessary attributes to uniquely identify this cloud instance.
-// func (o oracleEnviron) Region() (simplestreams.CloudSpec, error) {
-// 	return simplestreams.CloudSpec{
-// 		Region:   o.spec.Region,
-// 		Endpoint: o.spec.Endpoint,
-// 	}, nil
-// }
-
-// Validate ensures that cfg is a valid configuration.
-// If old is not nil, Validate should use it to determine
-// whether a configuration change is valid.
-//
-// TODO(axw) Validate should just return an error. We should
-// use a separate mechanism for updating config.
-// func (o oracleEnviron) Validate(cfg, old *config.Config) (valid *config.Config, _ error) {
-// 	return nil, nil
-// }

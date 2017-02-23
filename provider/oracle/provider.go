@@ -62,7 +62,7 @@ func (e environProvider) CloudSchema() *jsonschema.Schema {
 
 // Ping tests the connection to the oracle cloud to verify the endoint is valid.
 func (e environProvider) Ping(endpoint string) error {
-	return nil
+	return errors.NotSupportedf("ping")
 }
 
 // PrepareConfig prepares the configuration for the new model, based on
