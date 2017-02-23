@@ -7,7 +7,7 @@ import subprocess
 import sys
 import time
 
-from jujupy.utility import until_timeout
+from utility import until_timeout
 
 
 # Generate a list of all signals that can be used with Popen.send_signal on
