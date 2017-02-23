@@ -9,6 +9,7 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
+	"math/rand"
 	"net"
 	"os"
 	"os/exec"
@@ -293,6 +294,9 @@ func ensureDependencies(series string) error {
 	return err
 }
 
+// randomizedOctetRange is a variable for testing purposes.
+var randomizedOctetRange = func() []int { return rand.Perm(255) }
+
 // findNextAvailableIPv4Subnet scans the list of interfaces on the machine
 // looking for 10.0.0.0/16 networks and returns the next subnet not in
 // use, having first detected the highest subnet. The next subnet can
@@ -304,47 +308,38 @@ func ensureDependencies(series string) error {
 //
 // TODO(frobware): this only caters for IPv4 setups.
 func findNextAvailableIPv4Subnet() (string, error) {
-	_, ip10network, err := net.ParseCIDR("10.0.0.0/16")
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-
 	addrs, err := interfaceAddrs()
 	if err != nil {
 		return "", errors.Annotatef(err, "cannot get network interface addresses")
 	}
 
-	max := 0
-	usedSubnets := make(map[int]bool)
-
-	for _, address := range addrs {
-		addr, network, err := net.ParseCIDR(address.String())
+	randomized3rdSegment := randomizedOctetRange()
+	for _, i := range randomized3rdSegment {
+		// lxd randomizes the 2nd and 3rd segments, we should be fine with the
+		// 3rd only
+		_, ip10network, err := net.ParseCIDR(fmt.Sprintf("10.0.%d.0/24", i))
 		if err != nil {
-			logger.Debugf("cannot parse address %q: %v (ignoring)", address.String(), err)
-			continue
+			return "", errors.Trace(err)
 		}
-		if !ip10network.Contains(addr) {
-			logger.Debugf("find available subnet, skipping %q", network.String())
-			continue
+
+		collides := false
+		for _, address := range addrs {
+			addr, network, err := net.ParseCIDR(address.String())
+			if err != nil {
+				logger.Debugf("cannot parse address %q: %v (ignoring)", address.String(), err)
+				continue
+			}
+
+			if ip10network.Contains(addr) {
+				logger.Debugf("find available subnet, skipping %q", network.String())
+				collides = true
+				break
+			}
 		}
-		subnet := int(network.IP[2])
-		usedSubnets[subnet] = true
-		if subnet > max {
-			max = subnet
+		if !collides {
+			return fmt.Sprintf("%d", i), nil
 		}
 	}
-
-	if len(usedSubnets) == 0 {
-		return "0", nil
-	}
-
-	for i := 0; i < 256; i++ {
-		max = (max + 1) % 256
-		if _, inUse := usedSubnets[max]; !inUse {
-			return fmt.Sprintf("%d", max), nil
-		}
-	}
-
 	return "", errors.New("could not find unused subnet")
 }
 
