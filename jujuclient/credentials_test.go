@@ -108,7 +108,6 @@ func (s *CredentialsSuite) TestUpdateCredentialRemovesCloudWhenNoCredentialLeft(
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, exists := creds[s.cloudName]
-	c.Assert(creds[s.cloudName].AuthCredentials, gc.HasLen, 0)
 	c.Assert(exists, jc.IsFalse)
 }
 

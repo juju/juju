@@ -627,12 +627,9 @@ func (s *store) UpdateCredential(cloudName string, details cloud.CloudCredential
 			details.DefaultCredential = ""
 		}
 	}
-
-	all[cloudName] = details
-
-	// If cloud has no credentials now, delete cloud references from
-	// credentials file as well.
-	if len(all[cloudName].AuthCredentials) == 0 {
+	if len(details.AuthCredentials) > 0 {
+		all[cloudName] = details
+	} else {
 		delete(all, cloudName)
 	}
 
