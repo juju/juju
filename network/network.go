@@ -274,10 +274,12 @@ type Route struct {
 
 // Validate that this Route is properly formed.
 func (r Route) Validate() error {
+	// Make sure the CIDR is actually a CIDR not just an IP or hostname
 	destinationIP, _, err := net.ParseCIDR(r.DestinationCIDR)
 	if err != nil {
 		return errors.Errorf("DestinationCIDR not valid: %v", err)
 	}
+	// Make sure the Gateway is just an IP, not a CIDR, etc.
 	gatewayIP := net.ParseIP(r.GatewayIP)
 	if gatewayIP == nil {
 		return errors.Errorf("GatewayIP is not a valid IP address: %q", r.GatewayIP)
@@ -285,6 +287,7 @@ func (r Route) Validate() error {
 	if r.Metric < 0 {
 		return errors.Errorf("Metric is not a non-negative integer: %d", r.Metric)
 	}
+	// Make sure that either both are IPv4 or both are IPv6, not mixed.
 	destIP4 := destinationIP.To4()
 	gatewayIP4 := gatewayIP.To4()
 	if destIP4 != nil {
