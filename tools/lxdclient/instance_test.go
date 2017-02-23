@@ -33,7 +33,24 @@ var templateContainerInfo = lxdapi.Container{
 			"limits.memory":  "256MB",
 			"user.something": "something value",
 		},
-		Devices:   nil,
+		Devices: map[string]map[string]string{
+			"disk0": {
+				"type":   "disk",
+				"source": "disk0",
+				"path":   "/mnt/disk0",
+				"pool":   "radiance",
+			},
+			"disk1": {
+				"type":     "disk",
+				"source":   "/tmp/disk1",
+				"path":     "/mnt/disk1",
+				"readonly": "true",
+			},
+			"fun": {
+				"type": "unix-char",
+				"path": "/dev/mem",
+			},
+		},
 		Ephemeral: false,
 		Profiles:  []string{""},
 	},
@@ -118,5 +135,24 @@ func (*instanceSuite) TestNamespaceMetadata(c *gc.C) {
 	c.Assert(sum.Metadata, gc.DeepEquals, map[string]string{
 		"foo": "bar",
 		"baz": "boo",
+	})
+}
+
+func (*instanceSuite) TestDisks(c *gc.C) {
+	summary := lxdclient.NewInstanceSummary(&templateContainerInfo)
+	inst := lxdclient.NewInstance(summary, nil)
+
+	disks := inst.Disks()
+	c.Assert(disks, jc.DeepEquals, map[string]lxdclient.DiskDevice{
+		"disk0": {
+			Source: "disk0",
+			Path:   "/mnt/disk0",
+			Pool:   "radiance",
+		},
+		"disk1": {
+			Source:   "/tmp/disk1",
+			Path:     "/mnt/disk1",
+			ReadOnly: true,
+		},
 	})
 }

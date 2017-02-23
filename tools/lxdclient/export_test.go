@@ -11,12 +11,22 @@ import (
 
 var NewInstanceSummary = newInstanceSummary
 
-type RawInstanceClient rawInstanceClient
+type (
+	RawInstanceClient rawInstanceClient
+	RawStorageClient  rawStorageClient
+)
 
 func NewInstanceClient(raw RawInstanceClient) *instanceClient {
 	return &instanceClient{
 		raw:    rawInstanceClient(raw),
 		remote: "",
+	}
+}
+
+func NewStorageClient(raw RawStorageClient, supported bool) *storageClient {
+	return &storageClient{
+		raw:       raw,
+		supported: supported,
 	}
 }
 

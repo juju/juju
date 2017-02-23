@@ -105,6 +105,7 @@ type Client struct {
 	*instanceClient
 	*imageClient
 	*networkClient
+	*storageClient
 	baseURL                  string
 	defaultProfileBridgeName string
 }
@@ -180,6 +181,7 @@ func Connect(cfg Config, verifyBridgeConfig bool) (*Client, error) {
 		instanceClient:           &instanceClient{raw, remoteID},
 		imageClient:              &imageClient{raw, connectToRaw},
 		networkClient:            &networkClient{raw, networkAPISupported},
+		storageClient:            &storageClient{raw, storageAPISupported},
 		baseURL:                  raw.BaseURL,
 		defaultProfileBridgeName: bridgeName,
 	}

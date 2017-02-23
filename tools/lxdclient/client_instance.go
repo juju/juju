@@ -23,6 +23,13 @@ import (
 type Device map[string]string
 type Devices map[string]Device
 
+type DiskDevice struct {
+	Path     string
+	Source   string
+	Pool     string
+	ReadOnly bool
+}
+
 type File struct {
 	Content []byte
 	Path    string
@@ -45,6 +52,7 @@ type rawInstanceClient interface {
 	WaitForSuccess(waitURL string) error
 	ContainerState(name string) (*api.ContainerState, error)
 	ContainerDeviceAdd(container, devname, devtype string, props []string) (*api.Response, error)
+	ContainerDeviceDelete(container, devname string) (*api.Response, error)
 	PushFile(container, path string, gid int, uid int, mode string, buf io.ReadSeeker) error
 }
 
@@ -326,4 +334,35 @@ func (client *instanceClient) Addresses(name string) ([]network.Address, error) 
 		}
 	}
 	return addrs, nil
+}
+
+// AttachDisk attaches a disk to an instance.
+func (client *instanceClient) AttachDisk(instanceName, deviceName string, disk DiskDevice) error {
+	props := []string{"path=" + disk.Path, "source=" + disk.Source}
+	if disk.Pool != "" {
+		props = append(props, "pool="+disk.Pool)
+	}
+	if disk.ReadOnly {
+		props = append(props, "readonly=true")
+	}
+	resp, err := client.raw.ContainerDeviceAdd(instanceName, deviceName, "disk", props)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if err := client.raw.WaitForSuccess(resp.Operation); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
+// RemoveDevice removes a device from an instance.
+func (client *instanceClient) RemoveDevice(instanceName, deviceName string) error {
+	resp, err := client.raw.ContainerDeviceDelete(instanceName, deviceName)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if err := client.raw.WaitForSuccess(resp.Operation); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }
