@@ -627,8 +627,12 @@ func (s *store) UpdateCredential(cloudName string, details cloud.CloudCredential
 			details.DefaultCredential = ""
 		}
 	}
+	if len(details.AuthCredentials) > 0 {
+		all[cloudName] = details
+	} else {
+		delete(all, cloudName)
+	}
 
-	all[cloudName] = details
 	return WriteCredentialsFile(all)
 }
 

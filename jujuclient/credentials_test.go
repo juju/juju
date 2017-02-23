@@ -93,6 +93,24 @@ func (s *CredentialsSuite) TestUpdateCredentialRemovesDefaultIfNecessary(c *gc.C
 	c.Assert(creds[s.cloudName].DefaultCredential, gc.Equals, "")
 }
 
+func (s *CredentialsSuite) TestUpdateCredentialRemovesCloudWhenNoCredentialLeft(c *gc.C) {
+	s.cloudName = firstTestCloudName(c)
+
+	store := jujuclient.NewFileCredentialStore()
+	err := store.UpdateCredential(s.cloudName, s.credentials)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// delete all
+	err = store.UpdateCredential(s.cloudName, cloud.CloudCredential{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	creds, err := store.AllCredentials()
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, exists := creds[s.cloudName]
+	c.Assert(exists, jc.IsFalse)
+}
+
 func (s *CredentialsSuite) assertCredentialsNotExists(c *gc.C) {
 	all := writeTestCredentialsFile(c)
 	_, exists := all[s.cloudName]
