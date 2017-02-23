@@ -175,7 +175,7 @@ If you update a repo that juju depends on, you will need to recreate
 `dependencies.tsv`:
 
 ```shell
-$ godeps -t $(go list github.com/juju/juju/...) > dependencies.tsv
+make rebuild-dependencies.tsv
 ```
 
 
