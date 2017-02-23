@@ -4,9 +4,11 @@
 package firewaller
 
 import (
+	"io"
 	"strings"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils/featureflag"
 	"github.com/juju/utils/set"
 	"gopkg.in/juju/names.v2"
 
@@ -15,6 +17,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/watcher"
@@ -22,16 +25,87 @@ import (
 	"github.com/juju/juju/worker/catacomb"
 )
 
+// FirewallerAPI exposes functionality off the firewaller API facade to a worker.
+type FirewallerAPI interface {
+	WatchModelMachines() (watcher.StringsWatcher, error)
+	WatchOpenedPorts() (watcher.StringsWatcher, error)
+	Machine(tag names.MachineTag) (*firewaller.Machine, error)
+	Unit(tag names.UnitTag) (*firewaller.Unit, error)
+	Relation(tag names.RelationTag) (*firewaller.Relation, error)
+}
+
+// RemoteFirewallerAPI exposes remote firewaller functionality to a worker.
+type RemoteFirewallerAPI interface {
+	WatchSubnets() (watcher.StringsWatcher, error)
+}
+
+// RemoteFirewallerAPICloser implements RemoteFirewallerAPI
+// and adds a Close() method.
+type RemoteFirewallerAPICloser interface {
+	io.Closer
+	RemoteFirewallerAPI
+}
+
+// EnvironFirewaller defines methods to allow the worker to perform
+// firewall operations (open/close ports) on a Juju cloud environment.
+type EnvironFirewaller interface {
+	environs.Firewaller
+}
+
+// EnvironInstances defines methods to allow the worker to perform
+// operations on instances in a Juju cloud environment.
+type EnvironInstances interface {
+	Instances(ids []instance.Id) ([]instance.Instance, error)
+}
+
+// Config defines the operation of a Worker.
+type Config struct {
+	ModelUUID          string
+	Mode               string
+	FirewallerAPI      FirewallerAPI
+	RemoteRelationsApi *remoterelations.Client
+	EnvironFirewaller  EnvironFirewaller
+	EnvironInstances   EnvironInstances
+
+	NewRemoteFirewallerAPIFunc func(modelUUID string) (RemoteFirewallerAPICloser, error)
+}
+
+// Validate returns an error if cfg cannot drive a Worker.
+func (config Config) Validate() error {
+	if config.ModelUUID == "" {
+		return errors.NotValidf("empty model uuid")
+	}
+	if config.FirewallerAPI == nil {
+		return errors.NotValidf("nil Firewaller Facade")
+	}
+	if config.RemoteRelationsApi == nil {
+		return errors.NotValidf("nil RemoteRelations Facade")
+	}
+	if config.EnvironFirewaller == nil {
+		return errors.NotValidf("nil EnvironFirewaller")
+	}
+	if config.EnvironInstances == nil {
+		return errors.NotValidf("nil EnvironInstances")
+	}
+	if config.NewRemoteFirewallerAPIFunc == nil {
+		return errors.NotValidf("nil Remote Firewaller func")
+	}
+	return nil
+}
+
 type portRanges map[network.PortRange]bool
 
 // Firewaller watches the state for port ranges opened or closed on
 // machines and reflects those changes onto the backing environment.
 // Uses Firewaller API V1.
 type Firewaller struct {
-	catacomb             catacomb.Catacomb
-	firewallerApi        *firewaller.State
-	remoteRelationsApi   *remoterelations.Client
-	environ              environs.Environ
+	catacomb           catacomb.Catacomb
+	firewallerApi      FirewallerAPI
+	remoteRelationsApi *remoterelations.Client
+	environFirewaller  EnvironFirewaller
+	environInstances   EnvironInstances
+	networks           RemoteFirewallerAPI
+
 	machinesWatcher      watcher.StringsWatcher
 	portsWatcher         watcher.StringsWatcher
 	machineds            map[names.MachineTag]*machineData
@@ -47,18 +121,16 @@ type Firewaller struct {
 	applicationIngress     map[names.RelationTag]*remoteRelationData
 }
 
-// NewFirewaller returns a new Firewaller or a new FirewallerV0,
-// depending on what the API supports.
-func NewFirewaller(
-	env environs.Environ,
-	firewallerApi *firewaller.State,
-	mode string,
-	remoteRelationsApi *remoterelations.Client,
-) (worker.Worker, error) {
+// NewFirewaller returns a new Firewaller.
+func NewFirewaller(cfg Config) (worker.Worker, error) {
+	if err := cfg.Validate(); err != nil {
+		return nil, errors.Trace(err)
+	}
 	fw := &Firewaller{
-		firewallerApi:         firewallerApi,
-		remoteRelationsApi:    remoteRelationsApi,
-		environ:               env,
+		firewallerApi:         cfg.FirewallerAPI,
+		remoteRelationsApi:    cfg.RemoteRelationsApi,
+		environFirewaller:     cfg.EnvironFirewaller,
+		environInstances:      cfg.EnvironInstances,
 		machineds:             make(map[names.MachineTag]*machineData),
 		unitsChange:           make(chan *unitsChange),
 		unitds:                make(map[names.UnitTag]*unitData),
@@ -68,13 +140,13 @@ func NewFirewaller(
 		exposedChange:         make(chan *exposedChange),
 	}
 
-	switch mode {
+	switch cfg.Mode {
 	case config.FwInstance:
 	case config.FwGlobal:
 		fw.globalMode = true
 		fw.globalIngressRuleRef = make(map[string]int)
 	default:
-		return nil, errors.Errorf("invalid firewall-mode %q", mode)
+		return nil, errors.Errorf("invalid firewall-mode %q", cfg.Mode)
 	}
 
 	err := catacomb.Invoke(catacomb.Plan{
@@ -85,6 +157,16 @@ func NewFirewaller(
 		return nil, errors.Trace(err)
 	}
 	return fw, nil
+}
+
+// stubWatcher is used when the cross model feature flag is not turned on.
+type stubWatcher struct {
+	watcher.StringsWatcher
+	changes watcher.StringsChannel
+}
+
+func (stubWatcher *stubWatcher) Changes() watcher.StringsChannel {
+	return stubWatcher.changes
 }
 
 func (fw *Firewaller) setUp() error {
@@ -105,12 +187,16 @@ func (fw *Firewaller) setUp() error {
 		return errors.Trace(err)
 	}
 
-	fw.remoteRelationsWatcher, err = fw.remoteRelationsApi.WatchRemoteRelations()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if err := fw.catacomb.Add(fw.remoteRelationsWatcher); err != nil {
-		return errors.Trace(err)
+	if featureflag.Enabled(feature.CrossModelRelations) {
+		fw.remoteRelationsWatcher, err = fw.remoteRelationsApi.WatchRemoteRelations()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if err := fw.catacomb.Add(fw.remoteRelationsWatcher); err != nil {
+			return errors.Trace(err)
+		}
+	} else {
+		fw.remoteRelationsWatcher = &stubWatcher{changes: make(watcher.StringsChannel)}
 	}
 
 	logger.Debugf("started watching opened port ranges for the environment")
@@ -352,7 +438,7 @@ func (fw *Firewaller) reconcileGlobal() error {
 		machines = append(machines, machined)
 	}
 	want, err := fw.gatherIngressRules(machines...)
-	initialPortRanges, err := fw.environ.IngressRules()
+	initialPortRanges, err := fw.environFirewaller.IngressRules()
 	if err != nil {
 		return err
 	}
@@ -361,13 +447,13 @@ func (fw *Firewaller) reconcileGlobal() error {
 	toOpen, toClose := diffRanges(initialPortRanges, want)
 	if len(toOpen) > 0 {
 		logger.Infof("opening global ports %v", toOpen)
-		if err := fw.environ.OpenPorts(toOpen); err != nil {
+		if err := fw.environFirewaller.OpenPorts(toOpen); err != nil {
 			return err
 		}
 	}
 	if len(toClose) > 0 {
 		logger.Infof("closing global ports %v", toClose)
-		if err := fw.environ.ClosePorts(toClose); err != nil {
+		if err := fw.environFirewaller.ClosePorts(toClose); err != nil {
 			return err
 		}
 	}
@@ -397,7 +483,7 @@ func (fw *Firewaller) reconcileInstances() error {
 		if err != nil {
 			return err
 		}
-		instances, err := fw.environ.Instances([]instance.Id{instanceId})
+		instances, err := fw.environInstances.Instances([]instance.Id{instanceId})
 		if err == environs.ErrNoInstances {
 			return nil
 		}
@@ -665,7 +751,7 @@ func (fw *Firewaller) flushGlobalPorts(rawOpen, rawClose []network.IngressRule) 
 	}
 	// Open and close the ports.
 	if len(toOpen) > 0 {
-		if err := fw.environ.OpenPorts(toOpen); err != nil {
+		if err := fw.environFirewaller.OpenPorts(toOpen); err != nil {
 			// TODO(mue) Add local retry logic.
 			return err
 		}
@@ -673,7 +759,7 @@ func (fw *Firewaller) flushGlobalPorts(rawOpen, rawClose []network.IngressRule) 
 		logger.Infof("opened port ranges %v in environment", toOpen)
 	}
 	if len(toClose) > 0 {
-		if err := fw.environ.ClosePorts(toClose); err != nil {
+		if err := fw.environFirewaller.ClosePorts(toClose); err != nil {
 			// TODO(mue) Add local retry logic.
 			return err
 		}
@@ -704,7 +790,7 @@ func (fw *Firewaller) flushInstancePorts(machined *machineData, toOpen, toClose 
 	if err != nil {
 		return err
 	}
-	instances, err := fw.environ.Instances([]instance.Id{instanceId})
+	instances, err := fw.environInstances.Instances([]instance.Id{instanceId})
 	if err != nil {
 		return err
 	}

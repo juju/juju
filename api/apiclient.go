@@ -258,6 +258,25 @@ func open(
 	return st, nil
 }
 
+type NewConnectionForModelFunc func(*Info) (func(string) (Connection, error), error)
+
+// NewConnectionForModel returns a function which returns a model API
+// connection for a specified model UUID, based on the specified api info.
+// Currently, such a connection will always be to a single controller.
+func NewConnectionForModel(apiInfo *Info) (func(string) (Connection, error), error) {
+	return func(modelUUID string) (Connection, error) {
+		apiInfo.ModelTag = names.NewModelTag(modelUUID)
+		conn, err := Open(apiInfo, DialOpts{
+			Timeout:    time.Second,
+			RetryDelay: 200 * time.Millisecond,
+		})
+		if err != nil {
+			return nil, errors.Annotatef(err, "failed to open API to model %s", modelUUID)
+		}
+		return conn, nil
+	}, nil
+}
+
 // hostSwitchingTransport provides an http.RoundTripper
 // that chooses an actual RoundTripper to use
 // depending on the destination host.
