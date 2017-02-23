@@ -135,6 +135,10 @@ func (st *State) Export() (description.Model, error) {
 		return nil, errors.Trace(err)
 	}
 
+	if err := export.remoteApplications(); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	if err := export.model.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1328,6 +1332,47 @@ func (e *exporter) logExtras() {
 	for key, doc := range e.annotations {
 		e.logger.Warningf("unexported annotation for %s, %s", doc.Tag, key)
 	}
+}
+
+func (e *exporter) remoteApplications() error {
+	remoteApps, err := e.st.AllRemoteApplications()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	e.logger.Debugf("read %d remote applications", len(remoteApps))
+	for _, remoteApp := range remoteApps {
+		err := e.addRemoteApplication(remoteApp)
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return nil
+}
+
+func (e *exporter) addRemoteApplication(app *RemoteApplication) error {
+	url, _ := app.URL()
+	args := description.RemoteApplicationArgs{
+		Tag:         app.Tag().(names.ApplicationTag),
+		OfferName:   app.OfferName(),
+		URL:         url,
+		SourceModel: app.SourceModel(),
+		Registered:  app.Registered(),
+	}
+	descApp := e.model.AddRemoteApplication(args)
+	endpoints, err := app.Endpoints()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	for _, ep := range endpoints {
+		descApp.AddEndpoint(description.RemoteEndpointArgs{
+			Name:      ep.Name,
+			Role:      string(ep.Role),
+			Interface: ep.Interface,
+			Limit:     ep.Limit,
+			Scope:     string(ep.Scope),
+		})
+	}
+	return nil
 }
 
 func (e *exporter) storage() error {
