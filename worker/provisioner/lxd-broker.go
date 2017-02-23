@@ -20,20 +20,6 @@ var lxdLogger = loggo.GetLogger("juju.provisioner.lxd")
 
 type PrepareHostFunc func(containerTag names.MachineTag, log loggo.Logger) error
 
-// TODO(jam): 2017-02-08 should be removed, only here for legacy testing, etc.
-func NewLxdBroker(
-	bridger network.Bridger,
-	hostMachineTag names.MachineTag,
-	api APICalls,
-	manager container.Manager,
-	agentConfig agent.Config,
-) (environs.InstanceBroker, error) {
-	prepareWrapper := func(containerTag names.MachineTag, log loggo.Logger) error {
-		return prepareHost(bridger, hostMachineTag, containerTag, api, log)
-	}
-	return NewLXDBroker(prepareWrapper, api, manager, agentConfig)
-}
-
 // NewLXDBroker creates a Broker that can be used to start LXD containers in a
 // similar fashion to normal StartInstance requests.
 // prepareHost is a callback that will be called when a new container is about
