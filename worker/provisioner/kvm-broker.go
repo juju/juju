@@ -11,7 +11,6 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/container"
-	"github.com/juju/juju/container/kvm"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
@@ -19,25 +18,16 @@ import (
 
 var kvmLogger = loggo.GetLogger("juju.provisioner.kvm")
 
-// TODO(jam): 2017-02-08 update test suite to use NewKVMBroker directly instead
-// of this compatibility function.
-func NewKvmBroker(
-	bridger network.Bridger,
-	hostMachineTag names.MachineTag,
-	api APICalls,
-	agentConfig agent.Config,
-	managerConfig container.ManagerConfig,
-) (environs.InstanceBroker, error) {
-	manager, err := kvm.NewContainerManager(managerConfig)
-	if err != nil {
-		return nil, err
-	}
-	prepareWrapper := func(containerTag names.MachineTag, log loggo.Logger) error {
-		return prepareHost(bridger, hostMachineTag, containerTag, api, log)
-	}
-	return NewKVMBroker(prepareWrapper, api, manager, agentConfig)
-}
-
+// NewKVMBroker creates a Broker that can be used to start KVM guests in a
+// similar fashion to normal StartInstance requests.
+// prepareHost is a callback that will be called when a new container is about
+// to be started. It provides the intersection point where the host can update
+// itself to be ready for whatever changes are necessary to have a functioning
+// container. (such as bridging host devices.)
+// manager is the infrastructure to actually launch the container.
+// agentConfig is currently only used to find out the 'default' bridge to use
+// when a specific network device is not specified in StartInstanceParams. This
+// should be deprecated. And hopefully removed in the future.
 func NewKVMBroker(
 	prepareHost PrepareHostFunc,
 	api APICalls,
@@ -70,7 +60,7 @@ func (broker *kvmBroker) StartInstance(args environs.StartInstanceParams) (*envi
 	// container config.
 	bridgeDevice := broker.agentConfig.Value(agent.LxcBridge)
 	if bridgeDevice == "" {
-		bridgeDevice = container.DefaultKvmBridge
+		bridgeDevice = network.DefaultKVMBridge
 	}
 
 	config, err := broker.api.ContainerConfig()
