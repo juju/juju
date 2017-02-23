@@ -4,16 +4,15 @@
 package apiserver
 
 import (
+	"io"
 	"net/http"
 
-	"github.com/gorilla/websocket"
 	"github.com/juju/errors"
 	"github.com/juju/pubsub"
-	"github.com/juju/utils/featureflag"
+	"golang.org/x/net/websocket"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/state"
 )
 
@@ -61,35 +60,37 @@ func (h *pubsubHandler) authenticate(req *http.Request) error {
 
 // ServeHTTP implements the http.Handler interface.
 func (h *pubsubHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	handler := func(socket *websocket.Conn) {
-		logger.Debugf("start of *pubsubHandler.ServeHTTP")
-		defer socket.Close()
+	server := websocket.Server{
+		Handler: func(socket *websocket.Conn) {
+			logger.Debugf("start of *pubsubHandler.ServeHTTP")
+			defer socket.Close()
 
-		if err := h.authenticate(req); err != nil {
-			h.sendError(socket, req, err)
-			return
-		}
-
-		// If we get to here, no more errors to report, so we report a nil
-		// error.  This way the first line of the socket is always a json
-		// formatted simple error.
-		h.sendError(socket, req, nil)
-
-		messageCh := h.receiveMessages(socket)
-		for {
-			select {
-			case <-h.ctxt.stop():
+			if err := h.authenticate(req); err != nil {
+				h.sendError(socket, req, err)
 				return
-			case m := <-messageCh:
-				logger.Tracef("topic: %q, data: %v", m.Topic, m.Data)
-				_, err := h.hub.Publish(pubsub.Topic(m.Topic), m.Data)
-				if err != nil {
-					logger.Errorf("publish failed: %v", err)
+			}
+
+			// If we get to here, no more errors to report, so we report a nil
+			// error.  This way the first line of the socket is always a json
+			// formatted simple error.
+			h.sendError(socket, req, nil)
+
+			messageCh := h.receiveMessages(socket)
+			for {
+				select {
+				case <-h.ctxt.stop():
+					return
+				case m := <-messageCh:
+					logger.Tracef("topic: %q, data: %v", m.Topic, m.Data)
+					_, err := h.hub.Publish(pubsub.Topic(m.Topic), m.Data)
+					if err != nil {
+						logger.Errorf("publish failed: %v", err)
+					}
 				}
 			}
-		}
+		},
 	}
-	websocketServer(w, req, handler)
+	server.ServeHTTP(w, req)
 }
 
 func (h *pubsubHandler) receiveMessages(socket *websocket.Conn) <-chan params.PubSubMessage {
@@ -103,7 +104,7 @@ func (h *pubsubHandler) receiveMessages(socket *websocket.Conn) <-chan params.Pu
 			// Receive() blocks until data arrives but will also be
 			// unblocked when the API handler calls socket.Close as it
 			// finishes.
-			if err := socket.ReadJSON(&m); err != nil {
+			if err := websocket.JSON.Receive(socket, &m); err != nil {
 				logger.Errorf("pubsub receive error: %v", err)
 				return
 			}
@@ -121,15 +122,11 @@ func (h *pubsubHandler) receiveMessages(socket *websocket.Conn) <-chan params.Pu
 }
 
 // sendError sends a JSON-encoded error response.
-func (h *pubsubHandler) sendError(ws *websocket.Conn, req *http.Request, err error) {
-	// There is no need to log the error for normal operators as there is nothing
-	// they can action. This is for developers.
-	if err != nil && featureflag.Enabled(feature.DeveloperMode) {
+func (h *pubsubHandler) sendError(w io.Writer, req *http.Request, err error) {
+	if err != nil {
 		logger.Errorf("returning error from %s %s: %s", req.Method, req.URL.Path, errors.Details(err))
 	}
-	if sendErr := sendInitialErrorV0(ws, err); sendErr != nil {
-		logger.Errorf("closing websocket, %v", err)
-		ws.Close()
-		return
-	}
+	sendJSON(w, &params.ErrorResult{
+		Error: common.ServerError(err),
+	})
 }

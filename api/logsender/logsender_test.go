@@ -5,7 +5,6 @@ package logsender_test
 
 import (
 	"errors"
-	"io"
 	"net/url"
 
 	jc "github.com/juju/testing/checkers"
@@ -107,9 +106,14 @@ func (s mockStream) ReadJSON(v interface{}) error {
 	return nil
 }
 
-func (s mockStream) NextReader() (messageType int, r io.Reader, err error) {
-	s.conn.c.Errorf("NextReader called unexpectedly")
-	return 0, nil, nil
+func (s mockStream) Read([]byte) (int, error) {
+	s.conn.c.Errorf("Read called unexpectedly")
+	return 0, nil
+}
+
+func (s mockStream) Write([]byte) (int, error) {
+	s.conn.c.Errorf("Write called unexpectedly")
+	return 0, nil
 }
 
 func (s mockStream) Close() error {

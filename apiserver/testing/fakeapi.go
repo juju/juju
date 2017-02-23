@@ -8,8 +8,8 @@ import (
 	"reflect"
 
 	"github.com/bmizerany/pat"
-	"github.com/gorilla/websocket"
 	"github.com/juju/utils"
+	"golang.org/x/net/websocket"
 
 	"github.com/juju/juju/apiserver/observer/fakeobserver"
 	"github.com/juju/juju/rpc"
@@ -67,12 +67,12 @@ func NewAPIServer(newRoot func(modelUUID string) interface{}) *Server {
 }
 
 func (srv *Server) serveAPI(w http.ResponseWriter, req *http.Request) {
-	var websocketUpgrader = websocket.Upgrader{}
-	conn, err := websocketUpgrader.Upgrade(w, req, nil)
-	if err != nil {
-		return
+	wsServer := websocket.Server{
+		Handler: func(conn *websocket.Conn) {
+			srv.serveConn(conn, req.URL.Query().Get(":modeluuid"))
+		},
 	}
-	srv.serveConn(conn, req.URL.Query().Get(":modeluuid"))
+	wsServer.ServeHTTP(w, req)
 }
 
 func (srv *Server) serveConn(wsConn *websocket.Conn, modelUUID string) {

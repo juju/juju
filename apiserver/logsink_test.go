@@ -4,6 +4,8 @@
 package apiserver_test
 
 import (
+	"bufio"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -12,10 +14,10 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/gorilla/websocket"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"golang.org/x/net/websocket"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2/bson"
@@ -59,9 +61,9 @@ func (s *logsinkSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *logsinkSuite) TestRejectsBadModelUUID(c *gc.C) {
-	ws := s.openWebsocketCustomPath(c, "/model/does-not-exist/logsink")
-	assertJSONError(c, ws, `unknown model: "does-not-exist"`)
-	assertWebsocketClosed(c, ws)
+	reader := s.openWebsocketCustomPath(c, "/model/does-not-exist/logsink")
+	assertJSONError(c, reader, `unknown model: "does-not-exist"`)
+	assertWebsocketClosed(c, reader)
 }
 
 func (s *logsinkSuite) TestNoAuth(c *gc.C) {
@@ -93,19 +95,22 @@ func (s *logsinkSuite) checkAuthFailsWithEntityError(c *gc.C, header http.Header
 func (s *logsinkSuite) checkAuthFails(c *gc.C, header http.Header, message string) {
 	conn := s.dialWebsocketInternal(c, header)
 	defer conn.Close()
-	assertJSONError(c, conn, message)
-	assertWebsocketClosed(c, conn)
+	reader := bufio.NewReader(conn)
+	assertJSONError(c, reader, message)
+	assertWebsocketClosed(c, reader)
 }
 
 func (s *logsinkSuite) TestLogging(c *gc.C) {
 	conn := s.dialWebsocket(c)
 	defer conn.Close()
+	reader := bufio.NewReader(conn)
 
 	// Read back the nil error, indicating that all is well.
-	assertJSONInitialErrorNil(c, conn)
+	errResult := readJSONErrorLine(c, reader)
+	c.Assert(errResult.Error, gc.IsNil)
 
 	t0 := time.Date(2015, time.June, 1, 23, 2, 1, 0, time.UTC)
-	err := conn.WriteJSON(&params.LogRecord{
+	err := websocket.JSON.Send(conn, &params.LogRecord{
 		Time:     t0,
 		Module:   "some.where",
 		Location: "foo.go:42",
@@ -115,7 +120,7 @@ func (s *logsinkSuite) TestLogging(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	t1 := time.Date(2015, time.June, 1, 23, 2, 2, 0, time.UTC)
-	err = conn.WriteJSON(&params.LogRecord{
+	err = websocket.JSON.Send(conn, &params.LogRecord{
 		Time:     t1,
 		Module:   "else.where",
 		Location: "bar.go:99",
@@ -198,14 +203,17 @@ func (s *logsinkSuite) TestReceiveErrorBreaksConn(c *gc.C) {
 	defer conn.Close()
 
 	// Read back the nil error, indicating that all is well.
-	assertJSONInitialErrorNil(c, conn)
+	reader := bufio.NewReader(conn)
+	errResult := readJSONErrorLine(c, reader)
+	c.Assert(errResult.Error, gc.IsNil)
 
 	// The logsink handler expects JSON messages. Send some
 	// junk to verify that the server closes the connection.
-	err := conn.WriteMessage(websocket.TextMessage, []byte("junk!"))
+	err := websocket.Message.Send(conn, "junk!")
 	c.Assert(err, jc.ErrorIsNil)
 
-	assertWebsocketClosed(c, conn)
+	_, err = conn.Read(make([]byte, 1024))
+	c.Assert(err, gc.Equals, io.EOF)
 }
 
 func (s *logsinkSuite) dialWebsocket(c *gc.C) *websocket.Conn {
@@ -217,12 +225,12 @@ func (s *logsinkSuite) dialWebsocketInternal(c *gc.C, header http.Header) *webso
 	return dialWebsocketFromURL(c, server, header)
 }
 
-func (s *logsinkSuite) openWebsocketCustomPath(c *gc.C, path string) *websocket.Conn {
+func (s *logsinkSuite) openWebsocketCustomPath(c *gc.C, path string) *bufio.Reader {
 	server := s.logsinkURL(c, "wss")
 	server.Path = path
 	conn := dialWebsocketFromURL(c, server.String(), s.makeAuthHeader())
 	s.AddCleanup(func(_ *gc.C) { conn.Close() })
-	return conn
+	return bufio.NewReader(conn)
 }
 
 func (s *logsinkSuite) makeAuthHeader() http.Header {

@@ -11,11 +11,12 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/gorilla/websocket"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"golang.org/x/net/websocket"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
 )
@@ -68,32 +69,34 @@ func newDebugLogHandler(
 //   noTail -> string - one of [true, false], if true, existing logs are sent back,
 //      - but the command does not wait for new ones.
 func (h *debugLogHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	handler := func(conn *websocket.Conn) {
-		socket := &debugLogSocketImpl{conn}
-		defer conn.Close()
+	server := websocket.Server{
+		Handler: func(conn *websocket.Conn) {
+			socket := &debugLogSocketImpl{conn}
+			defer conn.Close()
 
-		st, releaser, _, err := h.ctxt.stateForRequestAuthenticatedTag(req, names.MachineTagKind, names.UserTagKind)
-		if err != nil {
-			socket.sendError(err)
-			return
-		}
-		defer releaser()
-
-		params, err := readDebugLogParams(req.URL.Query())
-		if err != nil {
-			socket.sendError(err)
-			return
-		}
-
-		if err := h.handle(st, params, socket, h.ctxt.stop()); err != nil {
-			if isBrokenPipe(err) {
-				logger.Tracef("debug-log handler stopped (client disconnected)")
-			} else {
-				logger.Errorf("debug-log handler error: %v", err)
+			st, releaser, _, err := h.ctxt.stateForRequestAuthenticatedTag(req, names.MachineTagKind, names.UserTagKind)
+			if err != nil {
+				socket.sendError(err)
+				return
 			}
-		}
+			defer releaser()
+
+			params, err := readDebugLogParams(req.URL.Query())
+			if err != nil {
+				socket.sendError(err)
+				return
+			}
+
+			if err := h.handle(st, params, socket, h.ctxt.stop()); err != nil {
+				if isBrokenPipe(err) {
+					logger.Tracef("debug-log handler stopped (client disconnected)")
+				} else {
+					logger.Errorf("debug-log handler error: %v", err)
+				}
+			}
+		},
 	}
-	websocketServer(w, req, handler)
+	server.ServeHTTP(w, req)
 }
 
 func isBrokenPipe(err error) bool {
@@ -131,15 +134,13 @@ func (s *debugLogSocketImpl) sendOk() {
 
 // sendError implements debugLogSocket.
 func (s *debugLogSocketImpl) sendError(err error) {
-	if sendErr := sendInitialErrorV0(s.conn, err); sendErr != nil {
-		logger.Errorf("closing websocket, %v", err)
-		s.conn.Close()
-		return
-	}
+	sendJSON(s.conn, &params.ErrorResult{
+		Error: common.ServerError(err),
+	})
 }
 
 func (s *debugLogSocketImpl) sendLogRecord(record *params.LogMessage) error {
-	return s.conn.WriteJSON(record)
+	return sendJSON(s.conn, record)
 }
 
 // debugLogParams contains the parsed debuglog API request parameters.

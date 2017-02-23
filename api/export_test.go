@@ -4,7 +4,6 @@
 package api
 
 import (
-	"github.com/gorilla/websocket"
 	"github.com/juju/errors"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/network"
@@ -17,19 +16,12 @@ import (
 var (
 	CertDir             = &certDir
 	NewWebsocketDialer  = newWebsocketDialer
-	WebsocketDial       = &websocketDial
+	WebsocketDialConfig = &websocketDialConfig
 	SlideAddressToFront = slideAddressToFront
 	BestVersion         = bestVersion
 	FacadeVersions      = &facadeVersions
+	DialAPI             = dialAPI
 )
-
-func DialAPI(info *Info, opts DialOpts) (*websocket.Conn, string, error) {
-	result, err := dialAPI(info, opts)
-	if err != nil {
-		return nil, "", err
-	}
-	return result.conn, result.urlStr, nil
-}
 
 // RPCConnection defines the methods that are called on the rpc.Conn instance.
 type RPCConnection rpcConnection
