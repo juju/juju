@@ -43,6 +43,10 @@ if [[ $VERSION =~ ^2\..*$ && $extra_args = "--upgrade" ]]; then
         exit 0
     fi
 fi
+if [[ $VERSION =~ ^2\..*$ && $ENV = "local" ]]; then
+    echo "Juju $VERSION does not support lxc local-provider."
+    exit 0
+fi
 
 timeout -s INT $timeout $SCRIPTS/deploy_job.py --series $series\
    $ENV $JUJU_BIN $WORKSPACE/artifacts $JOB_NAME $extra_args "$@"
