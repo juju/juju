@@ -28,7 +28,7 @@ Trigger metrics collection
 
 This command waits for the metric collection to finish before returning.
 You may abort this command and it will continue to run asynchronously.
-Results may be checked by 'juju show-action-status'.
+Results may be checked  by 'juju show-action-status'.
 `
 
 const (
