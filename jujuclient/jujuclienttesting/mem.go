@@ -301,6 +301,11 @@ func (c *MemStore) RemoveAccount(controllerName string) error {
 // UpdateCredential implements CredentialsUpdater.
 func (c *MemStore) UpdateCredential(cloudName string, details cloud.CloudCredential) error {
 	c.Credentials[cloudName] = details
+	// If cloud has no credentials now, delete cloud references from
+	// credentials file as well.
+	if len(c.Credentials[cloudName]) == 0 {
+		delete(c.Credentials, cloudName)
+	}
 	return nil
 }
 
