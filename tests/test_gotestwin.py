@@ -14,6 +14,8 @@ from utility import temp_dir
 S3_CI_PATH = os.path.join(gotestwin.SCRIPTS, 's3ci.py')
 JUJU_HOME = os.path.normpath(os.path.join(
     gotestwin.SCRIPTS, '..', 'cloud-city'))
+REMOTE_SCRIPT = (
+    'c:\\\\Users\\\\Administrator\\\\juju-ci-tools\\\\gotesttarfile.py')
 
 
 @contextlib.contextmanager
@@ -38,7 +40,7 @@ class GoTestWinTestCase(TestCase):
                 with open('temp-config.yaml') as f:
                     data = json.load(f)
         self.assertEqual(
-            ['python', 'ci/gotesttarfile.py', '-v', '-g', 'go.exe', '-p',
+            ['python', REMOTE_SCRIPT, '-v', '-g', 'go.exe', '-p',
              'github.com/juju/juju', '--remove', 'ci/foo.tar.gz'],
             data['command'])
         co_mock.assert_called_once_with(
@@ -62,7 +64,7 @@ class GoTestWinTestCase(TestCase):
                 with open('temp-config.yaml') as f:
                     data = json.load(f)
         self.assertEqual(
-            ['python', 'ci/gotesttarfile.py', '-v', '-g', 'go.exe', '-p',
+            ['python', REMOTE_SCRIPT, '-v', '-g', 'go.exe', '-p',
              'github.com/juju/juju/cmd', '--remove', 'ci/bar.tar.gz'],
             data['command'])
         cc_mock.assert_called_once_with(
