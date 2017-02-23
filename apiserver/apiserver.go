@@ -18,7 +18,6 @@ import (
 	"sync/atomic"
 
 	"github.com/bmizerany/pat"
-	"github.com/gorilla/websocket"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/pubsub"
@@ -26,6 +25,7 @@ import (
 	"github.com/juju/utils/clock"
 	"golang.org/x/crypto/acme"
 	"golang.org/x/crypto/acme/autocert"
+	"golang.org/x/net/websocket"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 	"gopkg.in/tomb.v1"
@@ -647,18 +647,21 @@ func (srv *Server) apiHandler(w http.ResponseWriter, req *http.Request) {
 	apiObserver.Join(req, connectionID)
 	defer apiObserver.Leave()
 
-	handler := func(conn *websocket.Conn) {
-		modelUUID := req.URL.Query().Get(":modeluuid")
-		logger.Tracef("got a request for model %q", modelUUID)
-		if err := srv.serveConn(conn, modelUUID, apiObserver, req.Host); err != nil {
-			logger.Errorf("error serving RPCs: %v", err)
-		}
+	wsServer := websocket.Server{
+		Handler: func(conn *websocket.Conn) {
+			modelUUID := req.URL.Query().Get(":modeluuid")
+			logger.Tracef("got a request for model %q", modelUUID)
+			if err := srv.serveConn(conn, modelUUID, apiObserver, req.Host); err != nil {
+				logger.Errorf("error serving RPCs: %v", err)
+			}
+		},
 	}
-	websocketServer(w, req, handler)
+	wsServer.ServeHTTP(w, req)
 }
 
 func (srv *Server) serveConn(wsConn *websocket.Conn, modelUUID string, apiObserver observer.Observer, host string) error {
 	codec := jsoncodec.NewWebsocket(wsConn)
+
 	conn := rpc.NewConn(codec, apiObserver)
 
 	// Note that we don't overwrite modelUUID here because

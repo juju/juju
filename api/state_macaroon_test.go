@@ -66,7 +66,7 @@ func (s *macaroonLoginSuite) TestUnknownUserLogin(c *gc.C) {
 
 func (s *macaroonLoginSuite) TestConnectStream(c *gc.C) {
 	catcher := urlCatcher{}
-	s.PatchValue(api.WebsocketDial, catcher.recordLocation)
+	s.PatchValue(api.WebsocketDialConfig, catcher.recordLocation)
 
 	dischargeCount := 0
 	s.DischargerLogin = func() string {
@@ -83,15 +83,14 @@ func (s *macaroonLoginSuite) TestConnectStream(c *gc.C) {
 	conn, err := s.client.ConnectStream("/path", nil)
 	c.Assert(err, gc.IsNil)
 	defer conn.Close()
-	connectURL, err := url.Parse(catcher.location)
-	c.Assert(err, jc.ErrorIsNil)
+	connectURL := catcher.location
 	c.Assert(connectURL.Path, gc.Equals, "/model/"+s.State.ModelTag().Id()+"/path")
 	c.Assert(dischargeCount, gc.Equals, 1)
 }
 
 func (s *macaroonLoginSuite) TestConnectStreamWithoutLogin(c *gc.C) {
 	catcher := urlCatcher{}
-	s.PatchValue(api.WebsocketDial, catcher.recordLocation)
+	s.PatchValue(api.WebsocketDialConfig, catcher.recordLocation)
 
 	conn, err := s.client.ConnectStream("/path", nil)
 	c.Assert(err, gc.ErrorMatches, `cannot use ConnectStream without logging in`)
@@ -142,7 +141,7 @@ func (s *macaroonLoginSuite) TestConnectStreamWithDischargedMacaroons(c *gc.C) {
 	// wouldn't get attached to the websocket request.
 	// https://bugs.launchpad.net/juju/+bug/1650451
 	catcher := urlCatcher{}
-	s.PatchValue(api.WebsocketDial, catcher.recordLocation)
+	s.PatchValue(api.WebsocketDialConfig, catcher.recordLocation)
 
 	mac, err := macaroon.New([]byte("abc-123"), "aurora gone", "shankil butchers")
 	c.Assert(err, jc.ErrorIsNil)

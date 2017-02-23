@@ -8,9 +8,9 @@ import (
 	"net/http"
 	"net/http/httptest"
 
-	"github.com/gorilla/websocket"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
+	"golang.org/x/net/websocket"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/rpc"
@@ -39,27 +39,12 @@ func (s *dispatchSuite) SetUpSuite(c *gc.C) {
 
 		<-conn.Dead()
 	}
-	http.Handle("/rpc", websocketHandler(rpcServer))
+	http.Handle("/rpc", websocket.Handler(rpcServer))
 	s.server = httptest.NewServer(nil)
 	s.serverAddr = s.server.Listener.Addr().String()
 	s.ready = make(chan struct{}, 1)
 	s.AddCleanup(func(*gc.C) {
 		s.server.Close()
-	})
-}
-
-var wsUpgrader = &websocket.Upgrader{
-	CheckOrigin: func(*http.Request) bool {
-		return true
-	},
-}
-
-func websocketHandler(f func(*websocket.Conn)) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		c, err := wsUpgrader.Upgrade(w, req, nil)
-		if err == nil {
-			f(c)
-		}
 	})
 }
 
@@ -70,42 +55,38 @@ func (s *dispatchSuite) SetUpTest(c *gc.C) {
 
 func (s *dispatchSuite) TestWSWithoutParamsV0(c *gc.C) {
 	resp := s.request(c, `{"RequestId":1,"Type": "DispatchDummy","Id": "without","Request":"DoSomething"}`)
-	s.assertResponse(c, resp, `{"RequestId":1,"Response":{}}`)
+	c.Assert(resp, gc.Equals, `{"RequestId":1,"Response":{}}`)
 }
 
 func (s *dispatchSuite) TestWSWithParamsV0(c *gc.C) {
 	resp := s.request(c, `{"RequestId":2,"Type": "DispatchDummy","Id": "with","Request":"DoSomething", "Params": {}}`)
-	s.assertResponse(c, resp, `{"RequestId":2,"Response":{}}`)
+	c.Assert(resp, gc.Equals, `{"RequestId":2,"Response":{}}`)
 }
 
 func (s *dispatchSuite) TestWSWithoutParamsV1(c *gc.C) {
 	resp := s.request(c, `{"request-id":1,"type": "DispatchDummy","id": "without","request":"DoSomething"}`)
-	s.assertResponse(c, resp, `{"request-id":1,"response":{}}`)
+	c.Assert(resp, gc.Equals, `{"request-id":1,"response":{}}`)
 }
 
 func (s *dispatchSuite) TestWSWithParamsV1(c *gc.C) {
 	resp := s.request(c, `{"request-id":2,"type": "DispatchDummy","id": "with","request":"DoSomething", "params": {}}`)
-	s.assertResponse(c, resp, `{"request-id":2,"response":{}}`)
-}
-
-func (s *dispatchSuite) assertResponse(c *gc.C, obtained, expected string) {
-	c.Assert(obtained, gc.Equals, expected+"\n")
+	c.Assert(resp, gc.Equals, `{"request-id":2,"response":{}}`)
 }
 
 // request performs one request to the test server via websockets.
 func (s *dispatchSuite) request(c *gc.C, req string) string {
 	url := fmt.Sprintf("ws://%s/rpc", s.serverAddr)
-	ws, _, err := websocket.DefaultDialer.Dial(url, http.Header{
-		"Origin": {"http://localhost"},
-	})
+	ws, err := websocket.Dial(url, "", "http://localhost")
 	c.Assert(err, jc.ErrorIsNil)
 
 	reqdata := []byte(req)
-	err = ws.WriteMessage(websocket.TextMessage, reqdata)
+	_, err = ws.Write(reqdata)
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, resp, err := ws.ReadMessage()
+	var resp = make([]byte, 512)
+	n, err := ws.Read(resp)
 	c.Assert(err, jc.ErrorIsNil)
+	resp = resp[0:n]
 
 	err = ws.Close()
 	c.Assert(err, jc.ErrorIsNil)

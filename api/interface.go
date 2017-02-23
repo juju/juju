@@ -4,14 +4,12 @@
 package api
 
 import (
-	"crypto/tls"
-	"net/http"
 	"net/url"
 	"time"
 
-	"github.com/gorilla/websocket"
 	"github.com/juju/errors"
 	"github.com/juju/version"
+	"golang.org/x/net/websocket"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 	"gopkg.in/macaroon.v1"
@@ -151,10 +149,7 @@ type DialOpts struct {
 	// If DialWebsocket is nil, webaocket.DialConfig will be used.
 	//
 	// This field is provided for testing purposes only.
-	DialWebsocket func(urlStr string, tlsConfig *tls.Config, requestHeader http.Header) (*websocket.Conn, *http.Response, error)
-
-	// Internal use only.
-	tlsConfig *tls.Config
+	DialWebsocket func(cfg *websocket.Config) (*websocket.Conn, error)
 }
 
 // DefaultDialOpts returns a DialOpts representing the default

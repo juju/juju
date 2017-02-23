@@ -4,11 +4,14 @@
 package apiserver_test
 
 import (
+	"bufio"
+	"io/ioutil"
 	"net/http"
 	"net/url"
 
-	"github.com/gorilla/websocket"
+	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"golang.org/x/net/websocket"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/params"
@@ -48,9 +51,10 @@ func (s *debugLogDBSuite) TestWithHTTPS(c *gc.C) {
 func (s *debugLogDBSuite) TestNoAuth(c *gc.C) {
 	conn := s.dialWebsocketInternal(c, nil, nil)
 	defer conn.Close()
+	reader := bufio.NewReader(conn)
 
-	assertJSONError(c, conn, "no credentials provided")
-	assertWebsocketClosed(c, conn)
+	assertJSONError(c, reader, "no credentials provided")
+	assertWebsocketClosed(c, reader)
 }
 
 func (s *debugLogDBSuite) TestUnitLoginsRejected(c *gc.C) {
@@ -58,9 +62,10 @@ func (s *debugLogDBSuite) TestUnitLoginsRejected(c *gc.C) {
 	header := utils.BasicAuthHeader(u.Tag().String(), password)
 	conn := s.dialWebsocketInternal(c, nil, header)
 	defer conn.Close()
+	reader := bufio.NewReader(conn)
 
-	assertJSONError(c, conn, "tag kind unit not valid")
-	assertWebsocketClosed(c, conn)
+	assertJSONError(c, reader, "tag kind unit not valid")
+	assertWebsocketClosed(c, reader)
 }
 
 var noResultsPlease = url.Values{"maxLines": {"0"}, "noTail": {"true"}}
@@ -73,9 +78,12 @@ func (s *debugLogDBSuite) TestUserLoginsAccepted(c *gc.C) {
 	header := utils.BasicAuthHeader(u.Tag().String(), "gardener")
 	conn := s.dialWebsocketInternal(c, noResultsPlease, header)
 	defer conn.Close()
+	reader := bufio.NewReader(conn)
 
-	result := readJSONErrorLine(c, conn)
+	result := readJSONErrorLine(c, reader)
 	c.Assert(result.Error, gc.IsNil)
+	_, err := ioutil.ReadAll(reader)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *debugLogDBSuite) TestMachineLoginsAccepted(c *gc.C) {
@@ -86,24 +94,27 @@ func (s *debugLogDBSuite) TestMachineLoginsAccepted(c *gc.C) {
 	header.Add(params.MachineNonceHeader, "foo-nonce")
 	conn := s.dialWebsocketInternal(c, noResultsPlease, header)
 	defer conn.Close()
+	reader := bufio.NewReader(conn)
 
-	result := readJSONErrorLine(c, conn)
+	result := readJSONErrorLine(c, reader)
 	c.Assert(result.Error, gc.IsNil)
+	_, err := ioutil.ReadAll(reader)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *debugLogDBSuite) openWebsocket(c *gc.C, values url.Values) *websocket.Conn {
+func (s *debugLogDBSuite) openWebsocket(c *gc.C, values url.Values) *bufio.Reader {
 	conn := s.dialWebsocket(c, values)
 	s.AddCleanup(func(_ *gc.C) { conn.Close() })
-	return conn
+	return bufio.NewReader(conn)
 }
 
-func (s *debugLogDBSuite) openWebsocketCustomPath(c *gc.C, path string) *websocket.Conn {
+func (s *debugLogDBSuite) openWebsocketCustomPath(c *gc.C, path string) *bufio.Reader {
 	server := s.logURL(c, "wss", nil)
 	server.Path = path
 	header := utils.BasicAuthHeader(s.userTag.String(), s.password)
 	conn := dialWebsocketFromURL(c, server.String(), header)
 	s.AddCleanup(func(_ *gc.C) { conn.Close() })
-	return conn
+	return bufio.NewReader(conn)
 }
 
 func (s *debugLogDBSuite) logURL(c *gc.C, scheme string, queryParams url.Values) *url.URL {

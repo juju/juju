@@ -69,11 +69,7 @@ type ControllerStreamConnector interface {
 
 // Stream represents a streaming connection to the API.
 type Stream interface {
-	io.Closer
-
-	// NextReader is used to get direct access to the underlying Read methods
-	// on the websocket. Mostly just to read the initial error resonse.
-	NextReader() (messageType int, r io.Reader, err error)
+	io.ReadWriteCloser
 
 	// WriteJSON encodes the given value as JSON
 	// and writes it to the connection.
