@@ -379,6 +379,7 @@ func findNextAvailableIPv4Subnet() (string, error) {
 		}
 		if !collides {
 			return fmt.Sprintf("%d", i), nil
+
 		}
 	}
 	return "", errors.New("could not find unused subnet")
