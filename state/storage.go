@@ -307,7 +307,7 @@ func removeStorageInstanceOps(
 			C:      c,
 			Id:     id,
 			Assert: bson.D{{"storageid", tag.Id()}},
-			Update: bson.D{{"$set", bson.D{{"storageid", ""}}}},
+			Update: bson.D{{"$unset", bson.D{{"storageid", nil}}}},
 		}
 	}
 
@@ -320,7 +320,7 @@ func removeStorageInstanceOps(
 			volumesC, volume.Tag().Id(),
 		))
 		if volume.LifeBinding() == tag {
-			ops = append(ops, destroyVolumeOps(st, volume)...)
+			ops = append(ops, destroyVolumeOps(st, volume, nil)...)
 		}
 	} else if !errors.IsNotFound(err) {
 		return nil, errors.Trace(err)
@@ -331,13 +331,13 @@ func removeStorageInstanceOps(
 			filesystemsC, filesystem.Tag().Id(),
 		))
 		if filesystem.LifeBinding() == tag {
-			ops = append(ops, destroyFilesystemOps(st, filesystem)...)
+			ops = append(ops, destroyFilesystemOps(st, filesystem, nil)...)
 		}
 	} else if !errors.IsNotFound(err) {
 		return nil, errors.Trace(err)
 	}
 
-	// Decrement the charm storage reference count.
+	// Decrement the storage reference count.
 	refcounts, closer := st.getCollection(refcountsC)
 	defer closer()
 	storageName, err := names.StorageName(tag.Id())

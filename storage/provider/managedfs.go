@@ -50,9 +50,10 @@ func NewManagedFilesystemSource(
 
 // ValidateFilesystemParams is defined on storage.FilesystemSource.
 func (s *managedFilesystemSource) ValidateFilesystemParams(arg storage.FilesystemParams) error {
-	if _, err := s.backingVolumeBlockDevice(arg.Volume); err != nil {
-		return errors.Trace(err)
-	}
+	// NOTE(axw) the parameters may be for destroying a filesystem, which
+	// may be called when the backing volume is detached from the machine.
+	// We must not perform any validation here that would fail if the
+	// volume is detached.
 	return nil
 }
 

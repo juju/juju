@@ -95,6 +95,12 @@ type modelEntityRefsDoc struct {
 
 	// Applicatons contains the names of the applications in the model.
 	Applications []string `bson:"applications"`
+
+	// Volumes contains the IDs of the volumes in the model.
+	Volumes []string `bson:"volumes"`
+
+	// Filesystems contains the IDs of the filesystems in the model.
+	Filesystems []string `bson:"filesystems"`
 }
 
 // ControllerModel returns the model that was bootstrapped.
@@ -857,15 +863,22 @@ func (m *Model) destroyOps(ensureNoHostedModels, ensureEmpty bool) ([]txn.Op, er
 		ops = append(ops, cleanupOp)
 	}
 	if !isEmpty {
-		// We only need to destroy machines and models if the model is
-		// non-empty. It wouldn't normally be harmful to enqueue the
-		// cleanups otherwise, except for when we're destroying an empty
+		// We only need to destroy resources if the model is non-empty.
+		// It wouldn't normally be harmful to enqueue the cleanups
+		// otherwise, except for when we're destroying an empty
 		// hosted model in the course of destroying the controller. In
 		// that case we'll get errors if we try to enqueue hosted-model
 		// cleanups, because the cleanups collection is non-global.
 		cleanupMachinesOp := newCleanupOp(cleanupMachinesForDyingModel, modelUUID)
-		cleanupServicesOp := newCleanupOp(cleanupApplicationsForDyingModel, modelUUID)
-		ops = append(ops, cleanupMachinesOp, cleanupServicesOp)
+		cleanupApplicationsOp := newCleanupOp(cleanupApplicationsForDyingModel, modelUUID)
+		cleanupVolumesOp := newCleanupOp(cleanupVolumesForDyingModel, modelUUID)
+		cleanupFilesystemsOp := newCleanupOp(cleanupFilesystemsForDyingModel, modelUUID)
+		ops = append(ops,
+			cleanupMachinesOp,
+			cleanupApplicationsOp,
+			cleanupVolumesOp,
+			cleanupFilesystemsOp,
+		)
 	}
 	return append(prereqOps, ops...), nil
 }
@@ -894,42 +907,63 @@ func (m *Model) checkEmpty() error {
 		return errors.Errorf("model not empty, found %d machine(s)", n)
 	}
 	if n := len(doc.Applications); n > 0 {
-		return errors.Errorf("model not empty, found %d applications(s)", n)
+		return errors.Errorf("model not empty, found %d application(s)", n)
+	}
+	if n := len(doc.Volumes); n > 0 {
+		return errors.Errorf("model not empty, found %d volume(s)", n)
+	}
+	if n := len(doc.Filesystems); n > 0 {
+		return errors.Errorf("model not empty, found %d filesystem(s)", n)
 	}
 	return nil
 }
 
 func addModelMachineRefOp(st *State, machineId string) txn.Op {
-	return txn.Op{
-		C:      modelEntityRefsC,
-		Id:     st.ModelUUID(),
-		Assert: txn.DocExists,
-		Update: bson.D{{"$addToSet", bson.D{{"machines", machineId}}}},
-	}
+	return addModelEntityRefOp(st, "machines", machineId)
 }
 
 func removeModelMachineRefOp(st *State, machineId string) txn.Op {
-	return txn.Op{
-		C:      modelEntityRefsC,
-		Id:     st.ModelUUID(),
-		Update: bson.D{{"$pull", bson.D{{"machines", machineId}}}},
-	}
+	return removeModelEntityRefOp(st, "machines", machineId)
 }
 
 func addModelApplicationRefOp(st *State, applicationname string) txn.Op {
+	return addModelEntityRefOp(st, "applications", applicationname)
+}
+
+func removeModelApplicationRefOp(st *State, applicationname string) txn.Op {
+	return removeModelEntityRefOp(st, "applications", applicationname)
+}
+
+func addModelVolumeRefOp(st *State, volumeId string) txn.Op {
+	return addModelEntityRefOp(st, "volumes", volumeId)
+}
+
+func removeModelVolumeRefOp(st *State, volumeId string) txn.Op {
+	return removeModelEntityRefOp(st, "volumes", volumeId)
+}
+
+func addModelFilesystemRefOp(st *State, filesystemId string) txn.Op {
+	return addModelEntityRefOp(st, "filesystems", filesystemId)
+}
+
+func removeModelFilesystemRefOp(st *State, filesystemId string) txn.Op {
+	return removeModelEntityRefOp(st, "filesystems", filesystemId)
+}
+
+func addModelEntityRefOp(st *State, entityField, entityId string) txn.Op {
 	return txn.Op{
 		C:      modelEntityRefsC,
 		Id:     st.ModelUUID(),
 		Assert: txn.DocExists,
-		Update: bson.D{{"$addToSet", bson.D{{"applications", applicationname}}}},
+		Update: bson.D{{"$addToSet", bson.D{{entityField, entityId}}}},
 	}
 }
 
-func removeModelApplicationRefOp(st *State, applicationname string) txn.Op {
+func removeModelEntityRefOp(st *State, entityField, entityId string) txn.Op {
 	return txn.Op{
 		C:      modelEntityRefsC,
 		Id:     st.ModelUUID(),
-		Update: bson.D{{"$pull", bson.D{{"applications", applicationname}}}},
+		Update: bson.D{{"$pull", bson.D{{entityField, entityId}}}},
 	}
 }
 
