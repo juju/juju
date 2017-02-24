@@ -168,18 +168,18 @@ def juju_controller_visibility(client):
     :return: Connection attempt results
     """
     controller_client = client.get_controller_client()
-    log.info('Starting agnostic visibility test')
+    log.info('Starting controller visibility test')
     machines = get_juju_status(client)['machines']
     result = {}
     for machine, info in machines.items():
         result[machine] = {}
         for ip in info['ip-addresses']:
+            result[machine][ip] = False
             try:
                 ssh(controller_client, '0', "ping -c 1 " + ip)
+                result[machine][ip] = True
             except subprocess.CalledProcessError as e:
                 log.error('Error with ping attempt to {}: {}'.format(ip, e))
-                result[machine][ip] = False
-            result[machine][ip] = True
     return result
 
 
