@@ -14,8 +14,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/kr/pretty"
-
 	"github.com/juju/errors"
 	"github.com/juju/gomaasapi"
 	"github.com/juju/utils"
@@ -2187,7 +2185,7 @@ func (env *maasEnviron) allocateContainerAddresses2(hostInstanceID instance.Id, 
 			subnetToStaticRoutes[sourceCIDR] = append(subnetToStaticRoutes[sourceCIDR], route)
 		}
 	}
-	logger.Debugf("found static routes: %# v", pretty.Formatter(subnetToStaticRoutes))
+	logger.Debugf("found static routes: %# v", subnetToStaticRoutes)
 
 	// Containers always use 'eth0' as their primary NIC
 	var primaryNICInfo network.InterfaceInfo
