@@ -27,7 +27,7 @@ func createInstance(c *oci.Client, params oci.InstanceParams) (instance.Instance
 		return nil, errors.Trace(err)
 	}
 
-	instance, err := newInstance(resp)
+	instance, err := newInstance(&resp.Instances[0])
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

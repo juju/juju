@@ -5,8 +5,11 @@ package oracle
 
 import (
 	"github.com/hoenirvili/go-oracle-cloud/response"
+	"github.com/pkg/errors"
+
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/status"
 )
 
 // oracleInstance represents the realization of amachine instate
@@ -19,9 +22,21 @@ type oracleInstance struct {
 }
 
 // newInstance returns a new instance.Instance implementation
-// for the response.LaunchPlan
-func newInstance(params response.LaunchPlan) (instance.Instance, error) {
-	return nil, nil
+// for the response.Instance
+func newInstance(params *response.Instance) (instance.Instance, error) {
+	if params == nil {
+		return nil, errors.Errorf("Instance response is nil")
+	}
+
+	instance := oracleInstance{
+		name: params.Id,
+		status: instance.InstanceStatus{
+			Status:  status.Status(params.State),
+			Message: "",
+		},
+	}
+
+	return instance, nil
 }
 
 // Id returns a provider generated indentifier for the Instance
@@ -58,6 +73,6 @@ func (o oracleInstance) ClosePorts(machineId string, rules []network.IngressRule
 // It is expected that there be only one ingress rule result for a given
 // port range - the rule's SourceCIDRs will contain all applicable source
 // address rules for that port range.
-func IngressRule(machineId string) ([]network.IngressRule, error) {
+func (o oracleInstance) IngressRules(machineId string) ([]network.IngressRule, error) {
 	return nil, nil
 }

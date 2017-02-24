@@ -94,6 +94,10 @@ func (e environProvider) validateCloudSpec(spec environs.CloudSpec) error {
 		return errors.NotSupportedf("%q auth-type ", authType)
 	}
 
+	if _, ok := spec.Credential.Attributes()["identity-domain"]; !ok {
+		return errors.NotFoundf("identity-domain in the credentials")
+	}
+
 	return nil
 }
 
@@ -165,11 +169,6 @@ func (e environProvider) FinalizeCredential(
 	cfx environs.FinalizeCredentialContext,
 	params environs.FinalizeCredentialParams,
 ) (*cloud.Credential, error) {
-	_, ok := params.Credential.Attributes()["identity-domain"]
-	if !ok {
-		return nil,
-			errors.NotFoundf("%s", "Cannot find any identity-domain in the credentials")
-	}
 	// return the exact credentials that we have entered from the interactive form.
 	return &params.Credential, nil
 }

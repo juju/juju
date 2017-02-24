@@ -224,18 +224,6 @@ func (o oracleEnviron) StartInstance(args environs.StartInstanceParams) (*enviro
 	return result, nil
 }
 
-// Create creates the environment for a new hosted model.
-//
-// This will be called before any workers begin operating on the
-// Environ, to give an Environ a chance to perform operations that
-// are required for further use.
-//
-// Create is not called for the initial controller model; it is
-// the Bootstrap method's job to create the controller model.
-func (o oracleEnviron) Create(params environs.CreateParams) error {
-	return nil
-}
-
 // StopInstances shuts down the instances with the specified IDs.
 // Unknown instance IDs are ignored, to enable idempotency.
 func (o oracleEnviron) StopInstances(...instance.Id) error {
