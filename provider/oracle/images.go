@@ -40,7 +40,8 @@ func getInstanceTypes(c *oci.Client) ([]instances.InstanceType, error) {
 	return types, nil
 }
 
-// findInstanceSpec returns an *InstanceType imagelist name satisfying the supplied instanceConstraint
+// findInstanceSpec returns an *InstanceSpec, imagelist name
+// satisfying the supplied instanceConstraint
 func findInstanceSpec(
 	c *oci.Client,
 	allImageMetadata []*imagemetadata.ImageMetadata,

@@ -6,11 +6,11 @@ package oracle
 import (
 	"fmt"
 	"os"
-	"strings"
 
 	oci "github.com/hoenirvili/go-oracle-cloud/api"
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/storage"
+	"github.com/juju/juju/tools"
 	"github.com/juju/version"
 )
 
@@ -139,28 +140,34 @@ func (o oracleEnviron) StartInstance(args environs.StartInstanceParams) (*enviro
 		return nil, errors.NotFoundf("Controller UUID")
 	}
 
-	fmt.Printf("%+v\n", args)
-	os.Exit(1)
+	// TODO(sgiulitti): for know adding additional arguments are not supported
+	if args.Placement != "" {
+		return nil, errors.NotSupportedf("Adding placements")
+	}
+
+	series := args.Tools.OneSeries()
+	arches := args.Tools.Arches()
+
 	types, err := getInstanceTypes(o.p.client)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	imagemetadata, err := checkImageList(
+	if args.ImageMetadata, err = checkImageList(
 		o.p.client, args.Constraints,
-	)
-	if err != nil {
+	); err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	//find the best suitable instance returned from the api
 	spec, imagelist, err := findInstanceSpec(
 		o.p.client,
-		imagemetadata,
+		args.ImageMetadata,
 		types,
 		&envinstance.InstanceConstraint{
 			Region:      o.spec.Region,
-			Arches:      []string{"amd64"},
+			Series:      series,
+			Arches:      arches,
 			Constraints: args.Constraints,
 		},
 	)
@@ -168,31 +175,33 @@ func (o oracleEnviron) StartInstance(args environs.StartInstanceParams) (*enviro
 		return nil, errors.Trace(err)
 	}
 
-	// we are using just the juju ssh keys, no other keys
-	keys := strings.Split(o.cfg.AuthorizedKeys(), "\n")
-	// we should try to determine if we need to upload the keys or if
-	// there is already the set of keys there if we found the ssh key
-	// then we should check if the key has the flag enabled on true
-	// if not, change it to true
-	// if the key is not present in the oracle infrstracture then we should
-	// make a request and upload it to make use for further bootstraping the
-	// controller or adding other machines
-	nameKey, err := uploadSSHControllerKeys(o.p.client, keys[0])
+	tools, err := args.Tools.Match(tools.Filter{Arch: spec.Image.Arch})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	instance, err := launchBootstrapConstroller(o.p.client, oci.InstanceParams{
+	if err = args.InstanceConfig.SetTools(tools); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	if err = instancecfg.FinishInstanceConfig(args.InstanceConfig, o.Config()); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	fmt.Println(err)
+	os.Exit(1)
+
+	instance, err := createInstance(o.p.client, oci.InstanceParams{
 		Relationships: nil,
 		Instances: []oci.Instances{
 			{
 				Shape:     spec.InstanceType.Name,
 				Imagelist: imagelist,
-				Name:      o.cfg.Name(),
+				Name:      args.InstanceConfig.MachineAgentServiceName,
 				Label:     o.cfg.Name(),
-				SSHKeys:   []string{nameKey},
-				Hostname:  o.cfg.Name(),
-				Tags:      []string{o.cfg.Name()},
+				//SSHKeys:   []string{nameKey},
+				Hostname: o.cfg.Name(),
+				Tags:     []string{args.InstanceConfig.ControllerTag.String()},
 				// TODO(sgiulitti): add here the userdata
 				Attributes:  nil,
 				Reverse_dns: false,

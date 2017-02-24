@@ -52,7 +52,11 @@ func (e oracleEnviron) Spaces() ([]network.SpaceInfo, error) {
 // AllocateContainerAddresses allocates a static address for each of the
 // container NICs in preparedInfo, hosted by the hostInstanceID. Returns the
 // network config including all allocated addresses on success.
-func (e oracleEnviron) AllocateContainerAddresses(hostInstanceID instance.Id, containerTag names.MachineTag, preparedInfo []network.InterfaceInfo) ([]network.InterfaceInfo, error) {
+func (e oracleEnviron) AllocateContainerAddresses(
+	hostInstanceID instance.Id,
+	containerTag names.MachineTag,
+	preparedInfo []network.InterfaceInfo,
+) ([]network.InterfaceInfo, error) {
 	return nil, nil
 }
 

@@ -12,12 +12,16 @@ import (
 	"github.com/juju/juju/instance"
 )
 
-// launchBootstrapController creates a new vm inside
+// createInstance creates a new vm inside
 // the oracle infrastracuture and parses  the response into a instance.Instance
-func launchBootstrapConstroller(c *oci.Client, params oci.InstanceParams) (instance.Instance, error) {
+func createInstance(c *oci.Client, params oci.InstanceParams) (instance.Instance, error) {
+	if len(params.Instances) > 1 {
+		return nil, errors.NotSupportedf("launching multiple controllers")
+	}
 
 	logger.Infof("Launching tbe bootstrap creation method")
 
+	// make the api request to create the instance
 	resp, err := c.CreateInstance(params)
 	if err != nil {
 		return nil, errors.Trace(err)
