@@ -11,7 +11,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/errors"
 	"github.com/juju/utils/arch"
 	"github.com/lxc/lxd/shared"
 	"github.com/lxc/lxd/shared/api"
@@ -178,6 +177,9 @@ type InstanceSummary struct {
 
 	// Metadata is the instance metadata.
 	Metadata map[string]string
+
+	// Devices is the instance's devices.
+	Devices map[string]map[string]string
 }
 
 func newInstanceSummary(info *api.Container) InstanceSummary {
@@ -221,6 +223,7 @@ func newInstanceSummary(info *api.Container) InstanceSummary {
 		Name:     info.Name,
 		Status:   statusStr,
 		Metadata: metadata,
+		Devices:  info.Devices,
 		Hardware: InstanceHardware{
 			Architecture: archStr,
 			NumCores:     numCores,
@@ -257,25 +260,31 @@ func NewInstance(summary InstanceSummary, spec *InstanceSpec) *Instance {
 }
 
 // Status returns a string identifying the status of the instance.
-func (gi Instance) Status() string {
-	return gi.InstanceSummary.Status
-}
-
-// CurrentStatus returns a string identifying the status of the instance.
-func (gi Instance) CurrentStatus(client *Client) (string, error) {
-	// TODO(ericsnow) Do this a better way?
-
-	inst, err := client.Instance(gi.Name)
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	return inst.Status(), nil
+func (i *Instance) Status() string {
+	return i.InstanceSummary.Status
 }
 
 // Metadata returns the user-specified metadata for the instance.
-func (gi Instance) Metadata() map[string]string {
+func (i *Instance) Metadata() map[string]string {
 	// TODO*ericsnow) return a copy?
-	return gi.InstanceSummary.Metadata
+	return i.InstanceSummary.Metadata
+}
+
+// Disks returns the disk devices attached to the instance.
+func (i *Instance) Disks() map[string]DiskDevice {
+	disks := make(map[string]DiskDevice)
+	for name, device := range i.InstanceSummary.Devices {
+		if device["type"] != "disk" {
+			continue
+		}
+		disks[name] = DiskDevice{
+			Path:     device["path"],
+			Source:   device["source"],
+			Pool:     device["pool"],
+			ReadOnly: device["readonly"] == "true",
+		}
+	}
+	return disks
 }
 
 func resolveMetadata(metadata map[string]string) map[string]string {
