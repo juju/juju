@@ -9,14 +9,13 @@ import sys
 import traceback
 
 from candidate import run_command
+from jujupy import get_juju_home
 from jujuci import (
     add_artifacts,
-    add_credential_args,
-    get_artifacts,
-    get_credentials,
     BUILD_REVISION,
     setup_workspace,
 )
+import s3ci
 
 
 DEFAULT_JUJU_RELEASE_TOOLS = os.path.realpath(
@@ -42,8 +41,17 @@ def get_crossbuild_script(juju_release_tools=None):
     return script
 
 
+def get_juju_tarfile(s3cfg_path, build, workspace_dir):
+    bucket = s3ci.get_qa_data_bucket(s3cfg_path)
+    files = s3ci.fetch_files(
+        bucket, build, BUILD_REVISION, 'juju-core_.*.tar.gz',
+        workspace_dir)
+    return files[0]
+
+
 def build_juju(credentials, product, workspace_dir, build,
-               juju_release_tools=None, dry_run=False, verbose=False):
+               juju_release_tools=None, goarch=None,
+               dry_run=False, verbose=False):
     """Build the juju product from a Juju CI build-revision in a workspace.
 
     The product is passed to juju-release-tools/crossbuild.py. The options
@@ -53,13 +61,12 @@ def build_juju(credentials, product, workspace_dir, build,
     to crossbuild.py.
     """
     setup_workspace(workspace_dir, dry_run=dry_run, verbose=verbose)
-    artifacts = get_artifacts(
-        credentials, BUILD_REVISION, build, 'juju-core_*.tar.gz',
-        workspace_dir, archive=False, dry_run=dry_run, verbose=verbose)
-    tar_artifact = artifacts[0]
+    tarfile = get_juju_tarfile(credentials, build, workspace_dir)
     crossbuild = get_crossbuild_script(juju_release_tools)
-    command = [
-        crossbuild, product, '-b', '~/crossbuild', tar_artifact.file_name]
+    command = [crossbuild, product, '-b', '~/crossbuild']
+    if product == 'ubuntu-agent' and goarch:
+        command.extend(['--goarch', goarch])
+    command.append(tarfile)
     run_command(command, dry_run=dry_run, verbose=verbose)
     add_artifacts(workspace_dir, ARTIFACT_GLOBS, dry_run=dry_run,
                   verbose=verbose)
@@ -68,6 +75,7 @@ def build_juju(credentials, product, workspace_dir, build,
 def parse_args(args=None):
     """Return the argument parser for this program."""
     parser = ArgumentParser("Build and package juju for an non-debian OS.")
+    default_config = os.path.join(get_juju_home(), 'juju-qa.s3cfg')
     parser.add_argument(
         '-d', '--dry-run', action='store_true', default=False,
         help='Do not make changes.')
@@ -82,23 +90,29 @@ def parse_args(args=None):
         help='The path to the juju-release-tools dir, default: %s' %
               DEFAULT_JUJU_RELEASE_TOOLS)
     parser.add_argument(
+        '-c', '--config', default=default_config,
+        help=('s3cmd config file for credentials.  Default to '
+              'juju-qa.s3cfg in juju home.'))
+    parser.add_argument(
+        '-a', '--goarch', default=os.environ.get('GOARCH', None),
+        help=('The GOARCH. Defaults to GOARCH in the env.'))
+    parser.add_argument(
         'product', choices=['win-client', 'win-agent', 'osx-client', 'centos',
                             'ubuntu-agent'],
         help='the kind of juju to make and package.')
     parser.add_argument(
-        'workspace',  help='The path to the workspace to build in.')
-    add_credential_args(parser)
+        'workspace', help='The path to the workspace to build in.')
     parsed = parser.parse_args(args)
-    return parsed, get_credentials(parsed)
+    return parsed
 
 
 def main(argv):
     """Build and package juju for an non-debian OS."""
-    args, credentials = parse_args(argv)
+    args = parse_args(argv)
     try:
         build_juju(
-            credentials, args.product, args.workspace, args.build,
-            juju_release_tools=args.juju_release_tools,
+            args.config, args.product, args.workspace, args.build,
+            juju_release_tools=args.juju_release_tools, goarch=args.goarch,
             dry_run=args.dry_run, verbose=args.verbose)
     except Exception as e:
         print(e)
