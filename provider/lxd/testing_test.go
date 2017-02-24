@@ -348,6 +348,7 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 		lxdInstances: s.Client,
 		lxdProfiles:  s.Client,
 		lxdImages:    s.Client,
+		lxdStorage:   s.Client,
 		Firewaller:   s.Firewaller,
 		remote: lxdclient.Remote{
 			Cert: &lxdclient.Cert{
@@ -483,9 +484,11 @@ func (sc *stubCommon) DestroyEnv() error {
 type StubClient struct {
 	*gitjujutesting.Stub
 
-	Insts  []lxdclient.Instance
-	Inst   *lxdclient.Instance
-	Server *api.Server
+	Insts              []lxdclient.Instance
+	Inst               *lxdclient.Instance
+	Server             *api.Server
+	StorageIsSupported bool
+	Volumes            map[string][]api.StorageVolume
 }
 
 func (conn *StubClient) Instances(prefix string, statuses ...string) ([]lxdclient.Instance, error) {
@@ -595,6 +598,39 @@ func (conn *StubClient) CreateProfile(name string, attrs map[string]string) erro
 func (conn *StubClient) HasProfile(name string) (bool, error) {
 	conn.AddCall("HasProfile", name)
 	return false, conn.NextErr()
+}
+
+func (conn *StubClient) AttachDisk(container, device string, disk lxdclient.DiskDevice) error {
+	conn.AddCall("AttachDisk", container, device, disk)
+	return conn.NextErr()
+}
+
+func (conn *StubClient) RemoveDevice(container, device string) error {
+	conn.AddCall("RemoveDevice", container, device)
+	return conn.NextErr()
+}
+
+func (conn *StubClient) StorageSupported() bool {
+	conn.AddCall("StorageSupported")
+	return conn.StorageIsSupported
+}
+
+func (conn *StubClient) VolumeCreate(pool, volume string, config map[string]string) error {
+	conn.AddCall("VolumeCreate", pool, volume, config)
+	return conn.NextErr()
+}
+
+func (conn *StubClient) VolumeDelete(pool, volume string) error {
+	conn.AddCall("VolumeDelete", pool, volume)
+	return conn.NextErr()
+}
+
+func (conn *StubClient) VolumeList(pool string) ([]api.StorageVolume, error) {
+	conn.AddCall("VolumeList", pool)
+	if err := conn.NextErr(); err != nil {
+		return nil, err
+	}
+	return conn.Volumes[pool], nil
 }
 
 // TODO(ericsnow) Move stubFirewaller to environs/testing or provider/common/testing.
