@@ -66,6 +66,11 @@ func (s *UserDataSuite) SetUpTest(c *gc.C) {
 		DNSSearchDomains: []string{"foo", "bar"},
 		GatewayAddress:   network.NewAddress("0.2.2.1"),
 		MACAddress:       "aa:bb:cc:dd:ee:f1",
+		Routes: []network.Route{{
+			DestinationCIDR: "0.5.6.0/24",
+			GatewayIP:       "0.2.2.1",
+			Metric:          50,
+		}},
 	}, {
 		InterfaceName: "any2",
 		ConfigType:    network.ConfigDHCP,
@@ -92,6 +97,8 @@ iface any0 inet static
 
 iface any1 inet static
   address 0.2.2.4/24
+  post-up ip route add 0.5.6.0/24 via 0.2.2.1 metric 50
+  pre-down ip route del 0.5.6.0/24 via 0.2.2.1 metric 50
 
 iface any2 inet dhcp
 
@@ -117,6 +124,8 @@ bootcmd:
 
   iface any1 inet static
     address 0.2.2.4/24
+    post-up ip route add 0.5.6.0/24 via 0.2.2.1 metric 50
+    pre-down ip route del 0.5.6.0/24 via 0.2.2.1 metric 50
 
   iface any2 inet dhcp
 

@@ -124,6 +124,12 @@ func GenerateNetworkConfig(networkConfig *container.NetworkConfig) (string, erro
 				gatewayHandled = true // write it only once
 			}
 		}
+		for _, route := range prepared.NameToRoutes[name] {
+			output.WriteString(fmt.Sprintf("  post-up ip route add %s via %s metric %d\n",
+				route.DestinationCIDR, route.GatewayIP, route.Metric))
+			output.WriteString(fmt.Sprintf("  pre-down ip route del %s via %s metric %d\n",
+				route.DestinationCIDR, route.GatewayIP, route.Metric))
+		}
 	}
 
 	generatedConfig := output.String()
@@ -144,6 +150,7 @@ type PreparedConfig struct {
 	DNSServers       []string
 	DNSSearchDomains []string
 	NameToAddress    map[string]string
+	NameToRoutes     map[string][]network.Route
 	GatewayAddress   string
 }
 
@@ -156,6 +163,7 @@ func PrepareNetworkConfigFromInterfaces(interfaces []network.InterfaceInfo) *Pre
 	gatewayAddress := ""
 	namesInOrder := make([]string, 1, len(interfaces)+1)
 	nameToAddress := make(map[string]string)
+	nameToRoutes := make(map[string][]network.Route)
 
 	// Always include the loopback.
 	namesInOrder[0] = "lo"
@@ -171,6 +179,7 @@ func PrepareNetworkConfigFromInterfaces(interfaces []network.InterfaceInfo) *Pre
 		} else if info.ConfigType == network.ConfigDHCP {
 			nameToAddress[info.InterfaceName] = string(network.ConfigDHCP)
 		}
+		nameToRoutes[info.InterfaceName] = info.Routes
 
 		for _, dns := range info.DNSServers {
 			dnsServers.Add(dns.Value)
@@ -188,6 +197,7 @@ func PrepareNetworkConfigFromInterfaces(interfaces []network.InterfaceInfo) *Pre
 	prepared := &PreparedConfig{
 		InterfaceNames:   namesInOrder,
 		NameToAddress:    nameToAddress,
+		NameToRoutes:     nameToRoutes,
 		AutoStarted:      autoStarted.SortedValues(),
 		DNSServers:       dnsServers.SortedValues(),
 		DNSSearchDomains: dnsSearchDomains.SortedValues(),
