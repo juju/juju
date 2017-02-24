@@ -9,14 +9,14 @@ import json
 import yaml
 import ast
 import subprocess
+import re
+import time
 
 from jujupy import client_from_config
 from deploy_stack import (
     BootstrapManager,
     )
-from jujucharm import (
-    local_charm_path,
-    )
+
 from utility import (
     add_basic_testing_arguments,
     configure_logging,
@@ -36,7 +36,8 @@ class ConnectionError(Exception):
         self.message = message
 
 
-def assess_network_health(client, bundle=None, target_model=None, series=None):
+def assess_network_health(client, bundle=None, target_model=None, reboot=False,
+                          series=None):
     """Assesses network health for a given deployment or bundle.
 
     :param client: The juju client in use
@@ -44,22 +45,50 @@ def assess_network_health(client, bundle=None, target_model=None, series=None):
     :param model: Optional existing model to test under
     """
     setup_testing_environment(client, bundle, target_model, series)
-    log.info("Starting network tests")
-    agnostic_result = ensure_juju_agnostic_visibility(client)
-    log.info('Agnostic result:\n {}'.format(json.dumps(agnostic_result,
-                                                       indent=4,
-                                                       sort_keys=True)))
-    visibility_result = neighbor_visibility(client)
-    log.info('Visibility result:\n {}'.format(json.dumps(visibility_result,
+    log.info('Starting network tests')
+    testing_iterations(client, series, '')
+    if not reboot:
+        return
+    log.info('Units passed pre-reboot tests, rebooting machines')
+    # TODO: Need to use itermachines and need to divide containers
+    # from reboot cycle
+    machines = get_juju_status(client)['machines']
+    client.run('sudo reboot', machines=machines)
+    log.info('Waiting for units to restart')
+    client.wait_for_started()
+    client.wait_for_workloads()
+    log.info('Starting post-reboot network tests')
+    testing_iterations(client, series, 'Post-reboot ')
+
+
+def testing_iterations(client, series, reboot_msg):
+    """Runs through each test given for a given client and series
+
+    :param client: Client
+    """
+    con_result = juju_controller_visibility(client)
+    log.info('{}Controller Visibility '
+             'result:\n {}'.format(reboot_msg, json.dumps(con_result,
+                                                          indent=4,
+                                                          sort_keys=True)))
+    int_result = internet_connection(client)
+    log.info('{}Internet Test result:\n {}'.format(reboot_msg,
+                                                   json.dumps(int_result,
+                                                              indent=4,
+                                                              sort_keys=True)))
+    vis_result = neighbor_visibility(client)
+    log.info('{}Visibility result:\n {}'.format(reboot_msg,
+                                                json.dumps(vis_result,
+                                                           indent=4,
+                                                           sort_keys=True)))
+    exp_result = ensure_exposed(client, series)
+    log.info('{}Exposure result:\n {}'.format(reboot_msg,
+                                              json.dumps(exp_result,
                                                          indent=4,
-                                                         sort_keys=True)))
-    exposed_result = ensure_exposed(client, series)
-    log.info('Exposure result:\n {}'.format(json.dumps(exposed_result,
-                                                       indent=4,
-                                                       sort_keys=True)) or
-                                                       NO_EXPOSED_UNITS)
-    log.info('Network tests complete, parsing results.')
-    parse_final_results(agnostic_result, visibility_result, exposed_result)
+                                                         sort_keys=True)) or
+             NO_EXPOSED_UNITS)
+    log.info('Tests complete.')
+    parse_final_results(con_result, vis_result, int_result, exp_result)
 
 
 def setup_testing_environment(client, bundle, target_model, series=None):
@@ -77,9 +106,7 @@ def setup_testing_environment(client, bundle, target_model, series=None):
     elif bundle is None and target_model is None:
         setup_dummy_deployment(client, series)
 
-    charm_path = local_charm_path(charm='network-health', series=series,
-                                  juju_ver=client.version)
-    client.deploy(charm_path)
+    client.deploy('~juju-qa/network-health', series=series)
     client.wait_for_started()
     client.wait_for_workloads()
     applications = get_juju_status(client)['applications'].keys()
@@ -88,7 +115,7 @@ def setup_testing_environment(client, bundle, target_model, series=None):
     for app in applications:
         try:
             client.juju('add-relation', (app, 'network-health'))
-        except subprocess.CalledProcessError:
+        except subprocess.cessError:
             log.error('Could not relate {} & network-health'.format(app))
 
     client.wait_for_workloads()
@@ -113,9 +140,7 @@ def setup_dummy_deployment(client, series):
     :param client: Bootstrapped juju client
     """
     log.info("Deploying dummy charm for basic testing")
-    dummy_path = local_charm_path(charm='ubuntu', series=series,
-                                  juju_ver=client.version)
-    client.deploy(dummy_path, num=2)
+    client.deploy('ubuntu', num=2, series=series)
     client.juju('expose', ('ubuntu',))
 
 
@@ -136,12 +161,13 @@ def get_juju_status(client):
     return client.get_status().status
 
 
-def ensure_juju_agnostic_visibility(client):
-    """Determine if known juju machines are visible.
+def juju_controller_visibility(client):
+    """Determine if known juju machines are visible from controller.
 
     :param machine: List of machine IPs to test
     :return: Connection attempt results
     """
+    controller_client = client.get_controller_client()
     log.info('Starting agnostic visibility test')
     machines = get_juju_status(client)['machines']
     result = {}
@@ -149,12 +175,38 @@ def ensure_juju_agnostic_visibility(client):
         result[machine] = {}
         for ip in info['ip-addresses']:
             try:
-                output = subprocess.check_output("ping -c 1 " + ip, shell=True)
-            except subprocess.CalledProcessError, e:
+                ssh(controller_client, '0', "ping -c 1 " + ip)
+            except subprocess.CalledProcessError as e:
                 log.error('Error with ping attempt to {}: {}'.format(ip, e))
                 result[machine][ip] = False
             result[machine][ip] = True
     return result
+
+
+def internet_connection(client):
+    """Test that targets can ping their default route.
+
+    :param client: Juju client
+    :return: Dict of results by machine
+    """
+    log.info('Assessing internet connection.')
+    results = {}
+    units = get_juju_status(client)['machines']
+    for unit in units:
+        log.info("Assessing internet connection for {}".format(unit))
+        routes = ssh(client, unit, 'ip route show')
+        d = re.search(r'^default\s+via\s+([\d\.]+)\s+', routes, re.MULTILINE)
+        if d:
+            rc = client.juju('ssh', ('--proxy', unit,
+                                     'ping -c1 -q ' + d.group(1)), check=False)
+            if rc != 0:
+                log.error('{0} unable to ping default route'.format(unit))
+                results[unit] = False
+        else:
+            log.error("Default route not found")
+            results[unit] = False
+        results[unit] = True
+    return results
 
 
 def neighbor_visibility(client):
@@ -208,12 +260,8 @@ def setup_expose_test(client, series):
     :return: New juju client object
     """
     new_client = client.add_model('exposetest')
-    dummy_path = local_charm_path(charm='ubuntu', series=series,
-                                  juju_ver=client.version)
-    new_client.deploy(dummy_path)
-    charm_path = local_charm_path(charm='network-health', series=series,
-                                  juju_ver=client.version)
-    new_client.deploy(charm_path)
+    new_client.deploy('ubuntu', series=series)
+    new_client.deploy('~juju-qa/network-health', series=series)
     new_client.wait_for_started()
     new_client.wait_for_workloads()
     new_client.juju('add-relation', ('ubuntu', 'network-health'))
@@ -244,18 +292,19 @@ def parse_expose_results(service_results, exposed):
     return result
 
 
-def parse_final_results(agnostic, visibility, exposed=None):
+def parse_final_results(controller, visibility, internet, exposed=None):
     """Parses test results and raises an error if any failed.
 
-    :param agnostic: Agnostic test result
+    :param controller: Controller test result
     :param visibility: Visibility test result
     :param exposed: Exposure test result
     """
+    log.info('Parsing final results.')
     error_string = []
-    for machine, machine_result in agnostic.items():
+    for machine, machine_result in controller.items():
         for ip, res in machine_result.items():
             if res is False:
-                error = ('Failed to ping machine {0} '
+                error = ('Failed to contact controller from machine {0} '
                          'at address {1}\n'.format(machine, ip))
                 error_string.append(error)
     for nh_source, service_result in visibility.items():
@@ -265,16 +314,42 @@ def parse_final_results(agnostic, visibility, exposed=None):
                     error = ('NH-Unit {0} failed to contact '
                              'unit(s): {1}\n'.format(nh_source, failed))
                     error_string.append(error)
-
+    for machine, res in internet.items():
+        if not res:
+            error = 'Machine {} failed internet connection.'.format(machine)
+            error_string.append(error)
     if exposed and exposed['fail'] is not ():
         error = ('Application(s) {0} failed expose '
                  'test\n'.format(exposed['fail']))
         error_string.append(error)
-
     if error_string:
         raise ConnectionError('\n'.join(error_string))
 
     return
+
+
+def ssh(client, machine, cmd):
+    """Convenience function: run a juju ssh command and get back the output
+    :param client: A Juju client
+    :param machine: ID of the machine on which to run a command
+    :param cmd: the command to run
+    :return: text output of the command
+    """
+    back_off = 2
+    attempts = 4
+    for attempt in range(attempts):
+        try:
+            return client.get_juju_output('ssh', '--proxy', machine, cmd)
+        except subprocess.CalledProcessError as e:
+            # If the connection to the host failed, try again in a couple of
+            # seconds. This is usually due to heavy load.
+            if(attempt < attempts - 1 and
+                re.search('ssh_exchange_identification: '
+                          'Connection closed by remote host', e.stderr)):
+                time.sleep(back_off)
+                back_off *= 2
+            else:
+                raise
 
 
 def ping_units(client, source, units):
@@ -286,8 +361,8 @@ def ping_units(client, source, units):
     """
     units = to_json(units)
     args = "targets='{}'".format(units)
-    retval = client.action_do(source, 'ping', args)
-    result = client.action_fetch(retval)
+    action_id = client.action_do(source, 'ping', args)
+    result = client.action_fetch(action_id)
     result = yaml.safe_load(result)['results']['results']
     return result
 
@@ -326,6 +401,9 @@ def parse_args(argv):
     add_basic_testing_arguments(parser)
     parser.add_argument('--bundle', help='Bundle to test network against')
     parser.add_argument('--model', help='Existing Juju model to test under')
+    parser.add_argument('--reboot', help='Reboot machines and re-run tests'
+                        'default=False')
+    parser.set_defaults(reboot=False)
     parser.set_defaults(series='trusty')
     return parser.parse_args(argv)
 

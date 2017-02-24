@@ -1,4 +1,3 @@
-import json
 import yaml
 import StringIO
 import logging
@@ -24,13 +23,12 @@ from jujupy import (
 )
 from assess_network_health import (
     main,
-    assess_network_health,
     setup_testing_environment,
-    connect_to_existing_model,
     setup_dummy_deployment,
     setup_bundle_deployment,
     get_juju_status,
-    ensure_juju_agnostic_visibility,
+    juju_controller_visibility,
+    internet_connection,
     neighbor_visibility,
     ensure_exposed,
     setup_expose_test,
@@ -118,14 +116,9 @@ status_value = dedent("""\
           since: 01 Jan 2017 00:00:00-00:00
         subordinate-to:
         - ubuntu
-
-    relations:
-      juju-info:
-      - network-health
-      network-health:
-        exposed: false
-        application-status:
-          current: unknown
+        relations:
+          juju-info:
+          - network-health
 """)
 status = Status(yaml.safe_load(status_value), status_value)
 
@@ -162,12 +155,11 @@ class TestAssessNetworkHealth(TestCase):
                                       series)
             return mock_client
 
-        client = setup_iteration(bundle=None,
-                                 target_model=None, series=series)
+        client = setup_iteration(bundle=None, target_model=None, series=series)
         self.assertEqual(
-            [call.deploy('ubuntu', num=2),
+            [call.deploy('ubuntu', num=2, series='trusty'),
              call.juju('expose', ('ubuntu',)),
-             call.deploy('network-health'),
+             call.deploy('~juju-qa/network-health', series='trusty'),
              call.wait_for_started(),
              call.wait_for_workloads(),
              call.get_status(),
@@ -175,8 +167,8 @@ class TestAssessNetworkHealth(TestCase):
              call.wait_for_workloads(),
              call.wait_for_subordinate_units('ubuntu', 'network-health')],
             client.mock_calls)
-        client = setup_iteration(bundle=bundle_string,
-                                 target_model=None, series=series)
+        client = setup_iteration(bundle=bundle_string, target_model=None,
+                                 series=series)
         self.assertEqual(
             [call.deploy_bundle('services:\n  foo:\n    '
                                 'charm: local:trusty/foo\n    '
@@ -184,7 +176,7 @@ class TestAssessNetworkHealth(TestCase):
                                 'bar:\n    charm: local:trusty/bar\n    '
                                 'num_units: 1\nseries: trusty\nrelations:\n'
                                 '- - foo:baz\n  - bar:baz\n'),
-             call.deploy('network-health'),
+             call.deploy('~juju-qa/network-health', series='trusty'),
              call.wait_for_started(),
              call.wait_for_workloads(),
              call.get_status(),
@@ -193,16 +185,15 @@ class TestAssessNetworkHealth(TestCase):
              call.wait_for_subordinate_units('ubuntu', 'network-health')],
             client.mock_calls)
 
-    def test_ensure_juju_agnostic_visibility(self):
+    def test_juju_controller_visibility(self):
         client = fake_juju_client()
         client.bootstrap()
-        ag_return = True
         now = datetime.now() + timedelta(days=1)
         with patch('utility.until_timeout.now', return_value=now):
             with patch.object(client, 'get_status', return_value=status):
                 with patch('subprocess.check_output',
                            return_value=0):
-                    out = ensure_juju_agnostic_visibility(client)
+                    out = juju_controller_visibility(client)
         expected = {'1': {'1.1.1.2': True}, '0': {'1.1.1.1': True}}
         self.assertEqual(expected, out)
 
@@ -220,13 +211,25 @@ class TestAssessNetworkHealth(TestCase):
         now = datetime.now() + timedelta(days=1)
         with patch('utility.until_timeout.now', return_value=now):
             with patch.object(client, 'get_status', return_value=status):
-                client.deploy('ubuntu', num=2)
-                client.deploy('network-health')
+                client.deploy('ubuntu', num=2, series='trusty')
+                client.deploy('network-health', series='trusty')
                 out = neighbor_visibility(client)
         expected = {'network-health/0': {'ubuntu': {u'ubuntu/0': True,
                                                     u'ubuntu/1': True}},
                     'network-health/1': {'ubuntu': {u'ubuntu/0': True,
                                                     u'ubuntu/1': True}}}
+        self.assertEqual(expected, out)
+
+    def test_internet_connection(self):
+        client = fake_juju_client()
+        client.bootstrap()
+        now = datetime.now() + timedelta(days=1)
+        with patch('utility.until_timeout.now', return_value=now):
+            with patch.object(client, 'get_status', return_value=status):
+                with patch('subprocess.check_output',
+                           return_value=0):
+                    out = internet_connection(client)
+        expected = {'1': True, '0': True}
         self.assertEqual(expected, out)
 
     def test_ensure_exposed(self):
@@ -236,8 +239,8 @@ class TestAssessNetworkHealth(TestCase):
         new_client.bootstrap()
         new_client._backend.set_action_result('network-health/0', 'ping',
                                               ping_result)
-        new_client.deploy('ubuntu', num=2)
-        new_client.deploy('network-health')
+        new_client.deploy('ubuntu', num=2, series='trusty')
+        new_client.deploy('network-health', series='trusty')
         now = datetime.now() + timedelta(days=1)
         with patch('utility.until_timeout.now', return_value=now):
             with patch.object(client, 'get_status', return_value=status):
@@ -255,7 +258,7 @@ class TestAssessNetworkHealth(TestCase):
         client = Mock(wraps=fake_juju_client())
         client.bootstrap()
         setup_dummy_deployment(client, series)
-        client.deploy.assert_called_once_with('ubuntu', num=2)
+        client.deploy.assert_called_once_with('ubuntu', num=2, series='trusty')
 
     def test_bundle_deployment(self):
         client = Mock(wraps=fake_juju_client())
@@ -275,8 +278,9 @@ class TestAssessNetworkHealth(TestCase):
         setup_expose_test(mock_client, series)
         self.assertEqual(
             [call.add_model('exposetest'),
-             call.add_model().deploy('ubuntu'),
-             call.add_model().deploy('network-health'),
+             call.add_model().deploy('ubuntu', series='trusty'),
+             call.add_model().deploy('~juju-qa/network-health',
+                                     series='trusty'),
              call.add_model().wait_for_started(),
              call.add_model().wait_for_workloads(),
              call.add_model().juju('add-relation', ('ubuntu',
@@ -302,22 +306,27 @@ class TestAssessNetworkHealth(TestCase):
         self.assertEqual(expected, result)
 
     def test_parse_final_results_with_fail(self):
-        agnostic = {"0": {"1.1.1.1": False}}
+        controller = {"0": {"1.1.1.1": False},
+                      "1": {"1.1.1.2": True}}
         visible = {"bar/0": {"foo": {"foo/0": False, "foo/1": True}}}
+        internet = {"0": False, "1": True}
         exposed = {"fail": ("foo"), "pass": ("bar", "baz")}
         with self.assertRaises(ConnectionError) as context:
-            parse_final_results(agnostic, visible, exposed)
-        error_strings = ["Failed to ping machine 0 at address 1.1.1.1",
+            parse_final_results(controller, visible, internet, exposed)
+        error_strings = ["Failed to contact controller from machine 0 "
+                         "at address 1.1.1.1",
+                         "Machine 0 failed internet connection.",
                          "NH-Unit bar/0 failed to contact unit(s): ['foo/0']",
                          "Application(s) foo failed expose test"]
         for line in error_strings:
             self.assertTrue(line in context.exception.message)
 
     def test_parse_final_results_without_fail(self):
-        agnostic = {"0": {"1.1.1.1": True}}
+        controller = {"0": {"1.1.1.1": True}}
         visible = {"bar/0": {"foo": {"foo/0": True, "foo/1": True}}}
+        internet = {"0": True, "1": True}
         exposed = {"fail": (), "pass": ("foo", "bar", "baz")}
-        parse_final_results(agnostic, visible, exposed)
+        parse_final_results(controller, visible, internet, exposed)
 
     def test_ping_units(self):
         client = fake_juju_client()
@@ -344,7 +353,6 @@ class TestMain(TestCase):
 
     def test_main(self):
         argv = ["an-env", "/bin/juju", "/tmp/logs", "an-env-mod", "--verbose"]
-        env = object()
         client = Mock(spec=["is_jes_enabled"])
         with patch("assess_network_health.configure_logging",
                    autospec=True) as mock_cl:
