@@ -95,12 +95,6 @@ func (o *oracleEnviron) Bootstrap(
 	return common.Bootstrap(ctx, o, params)
 }
 
-// BootstrapMessage optionally provides a message to be displayed to
-// the user at bootstrap time.
-func (o oracleEnviron) BootstrapMessage() string {
-	return ""
-}
-
 // Create creates the environment for a new hosted model.
 //
 // This will be called before any workers begin operating on the
@@ -188,9 +182,7 @@ func (o oracleEnviron) StartInstance(args environs.StartInstanceParams) (*enviro
 		return nil, errors.Trace(err)
 	}
 
-	fmt.Println(err)
-	os.Exit(1)
-
+	//TODO
 	instance, err := createInstance(o.p.client, oci.InstanceParams{
 		Relationships: nil,
 		Instances: []oci.Instances{
