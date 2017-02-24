@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/utils/set"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
@@ -16,6 +17,7 @@ import (
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/environs/config"
 )
 
 var upgradesLogger = loggo.GetLogger("juju.state.upgrade")
@@ -460,4 +462,45 @@ func updateLegacyLXDCredentialsOps(st *State, cred cloud.Credential) ([]txn.Op, 
 		return nil, errors.Trace(err)
 	}
 	return ops, nil
+}
+func upgradeNoProxy(np string) string {
+	if np == "" {
+		return "127.0.0.1,localhost,::1"
+	}
+	nps := set.NewStrings("127.0.0.1", "localhost", "::1")
+	for _, i := range strings.Split(np, ",") {
+		nps.Add(i)
+	}
+	// sorting is not a big overhead in this case and eases testing.
+	return strings.Join(nps.SortedValues(), ",")
+}
+
+// UpgradeNoProxyDefaults changes the default values of no_proxy
+// to hold localhost values as defaults.
+func UpgradeNoProxyDefaults(st *State) error {
+	var ops []txn.Op
+	coll, closer := st.getRawCollection(settingsC)
+	defer closer()
+	iter := coll.Find(bson.D{}).Iter()
+	var doc settingsDoc
+	for iter.Next(&doc) {
+		noProxyVal := doc.Settings[config.NoProxyKey]
+		noProxy, ok := noProxyVal.(string)
+		if !ok {
+			continue
+		}
+		noProxy = upgradeNoProxy(noProxy)
+		doc.Settings[config.NoProxyKey] = noProxy
+		ops = append(ops,
+			txn.Op{
+				C:      settingsC,
+				Id:     doc.DocID,
+				Assert: txn.DocExists,
+				Update: bson.M{"$set": bson.M{"settings": doc.Settings}},
+			})
+	}
+	if len(ops) > 0 {
+		return errors.Trace(st.runRawTransaction(ops))
+	}
+	return nil
 }

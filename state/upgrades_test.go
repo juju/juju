@@ -688,3 +688,45 @@ func (s *upgradesSuite) TestUpdateLegacyLXDCloudUnchanged(c *gc.C) {
 		expectUpgradedData{cloudCredColl, expectedCloudCreds},
 	)
 }
+
+func (s *upgradesSuite) TestUpgradeNoProxy(c *gc.C) {
+	settingsColl, settingsCloser := s.state.getRawCollection(settingsC)
+	defer settingsCloser()
+	_, err := settingsColl.RemoveAll(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	err = settingsColl.Insert(bson.M{
+		"_id": "foo",
+		"settings": bson.M{
+			"no-proxy": "127.0.0.1,localhost,::1"},
+	}, bson.M{
+		"_id": "bar",
+		"settings": bson.M{
+			"no-proxy": "localhost"},
+	}, bson.M{
+		"_id": "baz",
+		"settings": bson.M{
+			"no-proxy":        "192.168.1.1,10.0.0.2",
+			"another-setting": "anothervalue"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	expectedSettings := []bson.M{
+		{
+			"_id": "bar",
+			"settings": bson.M{
+				"no-proxy": "127.0.0.1,::1,localhost"},
+		}, {
+			"_id": "baz",
+			"settings": bson.M{
+				"no-proxy":        "10.0.0.2,127.0.0.1,192.168.1.1,::1,localhost",
+				"another-setting": "anothervalue"},
+		}, {
+			"_id": "foo",
+			"settings": bson.M{
+				"no-proxy": "127.0.0.1,::1,localhost"},
+		}}
+
+	s.assertUpgradedData(c, UpgradeNoProxyDefaults,
+		expectUpgradedData{settingsColl, expectedSettings},
+	)
+}
