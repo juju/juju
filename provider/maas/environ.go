@@ -14,6 +14,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/kr/pretty"
+
 	"github.com/juju/errors"
 	"github.com/juju/gomaasapi"
 	"github.com/juju/utils"
@@ -2171,7 +2173,23 @@ func (env *maasEnviron) allocateContainerAddresses2(hostInstanceID instance.Id, 
 			subnetCIDRToSubnet[subnet.CIDR()] = subnet
 		}
 	}
+	// map from the source subnet (what subnet is the device in), to what
+	// static routes should be used.
+	subnetToStaticRoutes := make(map[string][]gomaasapi.StaticRoute)
+	staticRoutes, err := env.maasController.StaticRoutes()
+	if err != nil {
+		// Warning?
+		logger.Debugf("got an error looking for static-routes: %v", err)
+	} else if err == nil {
+		for _, route := range staticRoutes {
+			source := route.Source()
+			sourceCIDR := source.CIDR()
+			subnetToStaticRoutes[sourceCIDR] = append(subnetToStaticRoutes[sourceCIDR], route)
+		}
+	}
+	logger.Debugf("found static routes: %# v", pretty.Formatter(subnetToStaticRoutes))
 
+	// Containers always use 'eth0' as their primary NIC
 	var primaryNICInfo network.InterfaceInfo
 	primaryNICName := "eth0"
 	for _, nic := range preparedInfo {
@@ -2237,7 +2255,7 @@ func (env *maasEnviron) allocateContainerAddresses2(hostInstanceID instance.Id, 
 
 			subnet, knownSubnet := subnetCIDRToSubnet[nic.CIDR]
 			if !knownSubnet {
-				logger.Warningf("NIC %v has no subnet - setting to manual and using untagged VLAN", nic.InterfaceName)
+				logger.Warningf("NIC %v has no subnet - setting to manual and using 'primaryNIC' VLAN %d", nic.InterfaceName, primaryNICVLAN.ID())
 				createArgs.VLAN = primaryNICVLAN
 			} else {
 				createArgs.VLAN = subnet.VLAN()
@@ -2267,7 +2285,7 @@ func (env *maasEnviron) allocateContainerAddresses2(hostInstanceID instance.Id, 
 		}
 	}
 
-	finalInterfaces, err := env.deviceInterfaceInfo2(device.SystemID(), nameToParentName)
+	finalInterfaces, err := env.deviceInterfaceInfo2(device.SystemID(), nameToParentName, subnetToStaticRoutes)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot get device interfaces")
 	}

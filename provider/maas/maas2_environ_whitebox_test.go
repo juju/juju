@@ -979,6 +979,13 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesSingleNic(c *gc.C)
 		cidr:       "192.168.1.0/24",
 		dnsServers: []string{"10.20.19.2", "10.20.19.3"},
 	}
+	staticRoute2to1 := fakeStaticRoute{
+		id:          1,
+		source:      subnet2,
+		destination: subnet1,
+		gatewayIP:   "192.168.1.1",
+		metric:      100,
+	}
 
 	interfaces := []gomaasapi.Interface{
 		&fakeInterface{
@@ -1041,7 +1048,8 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesSingleNic(c *gc.C)
 				subnets: []gomaasapi.Subnet{subnet1, subnet2},
 			},
 		},
-		devices: []gomaasapi.Device{device},
+		devices:      []gomaasapi.Device{device},
+		staticRoutes: []gomaasapi.StaticRoute{staticRoute2to1},
 	}
 	suite.injectController(controller)
 	suite.setupFakeTools(c)
@@ -1071,6 +1079,11 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesSingleNic(c *gc.C)
 		DNSServers:        network.NewAddressesOnSpace("freckles", "10.20.19.2", "10.20.19.3"),
 		MTU:               1500,
 		GatewayAddress:    network.NewAddressOnSpace("freckles", "192.168.1.1"),
+		Routes: []network.Route{{
+			DestinationCIDR: subnet1.CIDR(),
+			GatewayIP:       "192.168.1.1",
+			Metric:          100,
+		}},
 	}}
 	c.Assert(result, jc.DeepEquals, expected)
 }
@@ -1099,6 +1112,13 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesDualNic(c *gc.C) {
 		gateway:    "192.168.1.1",
 		cidr:       "192.168.1.0/24",
 		dnsServers: []string{"10.20.19.2", "10.20.19.3"},
+	}
+	staticRoute2to1 := fakeStaticRoute{
+		id:          1,
+		source:      subnet2,
+		destination: subnet1,
+		gatewayIP:   "192.168.1.1",
+		metric:      100,
 	}
 
 	interfaces := []gomaasapi.Interface{
@@ -1197,7 +1217,8 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesDualNic(c *gc.C) {
 				subnets: []gomaasapi.Subnet{subnet1, subnet2},
 			},
 		},
-		devices: []gomaasapi.Device{device},
+		devices:      []gomaasapi.Device{device},
+		staticRoutes: []gomaasapi.StaticRoute{staticRoute2to1},
 	}
 	suite.injectController(controller)
 	env := suite.makeEnviron(c, nil)
@@ -1241,6 +1262,11 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesDualNic(c *gc.C) {
 		DNSServers:        network.NewAddressesOnSpace("freckles", "10.20.19.2", "10.20.19.3"),
 		MTU:               1500,
 		GatewayAddress:    network.NewAddressOnSpace("freckles", "192.168.1.1"),
+		Routes: []network.Route{{
+			DestinationCIDR: "10.20.19.0/24",
+			GatewayIP:       "192.168.1.1",
+			Metric:          100,
+		}},
 	}}
 	ignored := names.NewMachineTag("1/lxd/0")
 	result, err := env.AllocateContainerAddresses(instance.Id("1"), ignored, prepared)

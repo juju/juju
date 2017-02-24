@@ -244,7 +244,7 @@ func (env *maasEnviron) deviceInterfaceInfo(deviceID instance.Id, nameToParentNa
 	return interfaceInfo, nil
 }
 
-func (env *maasEnviron) deviceInterfaceInfo2(deviceID string, nameToParentName map[string]string) ([]network.InterfaceInfo, error) {
+func (env *maasEnviron) deviceInterfaceInfo2(deviceID string, nameToParentName map[string]string, subnetToStaticRoutes map[string][]gomaasapi.StaticRoute) ([]network.InterfaceInfo, error) {
 	args := gomaasapi.DevicesArgs{SystemIDs: []string{deviceID}}
 	devices, err := env.maasController.Devices(args)
 	if err != nil {
@@ -275,6 +275,19 @@ func (env *maasEnviron) deviceInterfaceInfo2(deviceID string, nameToParentName m
 			Disabled:            !nic.Enabled(),
 			NoAutoStart:         !nic.Enabled(),
 			ParentInterfaceName: nameToParentName[nic.Name()],
+		}
+		for _, link := range nic.Links() {
+			subnet := link.Subnet()
+			if subnet != nil {
+				routes := subnetToStaticRoutes[subnet.CIDR()]
+				for _, route := range routes {
+					nicInfo.Routes = append(nicInfo.Routes, network.Route{
+						DestinationCIDR: route.Destination().CIDR(),
+						GatewayIP:       route.GatewayIP(),
+						Metric:          route.Metric(),
+					})
+				}
+			}
 		}
 
 		if len(nic.Links()) == 0 {
