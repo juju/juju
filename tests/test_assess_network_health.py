@@ -157,9 +157,9 @@ class TestAssessNetworkHealth(TestCase):
 
         client = setup_iteration(bundle=None, target_model=None, series=series)
         self.assertEqual(
-            [call.deploy('ubuntu', num=2),
+            [call.deploy('ubuntu', num=2, series='trusty'),
              call.juju('expose', ('ubuntu',)),
-             call.deploy('~juju-qa/network-health'),
+             call.deploy('~juju-qa/network-health', series='trusty'),
              call.wait_for_started(),
              call.wait_for_workloads(),
              call.get_status(),
@@ -176,7 +176,7 @@ class TestAssessNetworkHealth(TestCase):
                                 'bar:\n    charm: local:trusty/bar\n    '
                                 'num_units: 1\nseries: trusty\nrelations:\n'
                                 '- - foo:baz\n  - bar:baz\n'),
-             call.deploy('~juju-qa/network-health'),
+             call.deploy('~juju-qa/network-health', series='trusty'),
              call.wait_for_started(),
              call.wait_for_workloads(),
              call.get_status(),
@@ -211,8 +211,8 @@ class TestAssessNetworkHealth(TestCase):
         now = datetime.now() + timedelta(days=1)
         with patch('utility.until_timeout.now', return_value=now):
             with patch.object(client, 'get_status', return_value=status):
-                client.deploy('ubuntu', num=2)
-                client.deploy('network-health')
+                client.deploy('ubuntu', num=2, series='trusty')
+                client.deploy('network-health', series='trusty')
                 out = neighbor_visibility(client)
         expected = {'network-health/0': {'ubuntu': {u'ubuntu/0': True,
                                                     u'ubuntu/1': True}},
@@ -239,8 +239,8 @@ class TestAssessNetworkHealth(TestCase):
         new_client.bootstrap()
         new_client._backend.set_action_result('network-health/0', 'ping',
                                               ping_result)
-        new_client.deploy('ubuntu', num=2)
-        new_client.deploy('network-health')
+        new_client.deploy('ubuntu', num=2, series='trusty')
+        new_client.deploy('network-health', series='trusty')
         now = datetime.now() + timedelta(days=1)
         with patch('utility.until_timeout.now', return_value=now):
             with patch.object(client, 'get_status', return_value=status):
@@ -258,7 +258,7 @@ class TestAssessNetworkHealth(TestCase):
         client = Mock(wraps=fake_juju_client())
         client.bootstrap()
         setup_dummy_deployment(client, series)
-        client.deploy.assert_called_once_with('ubuntu', num=2)
+        client.deploy.assert_called_once_with('ubuntu', num=2, series='trusty')
 
     def test_bundle_deployment(self):
         client = Mock(wraps=fake_juju_client())
@@ -278,8 +278,9 @@ class TestAssessNetworkHealth(TestCase):
         setup_expose_test(mock_client, series)
         self.assertEqual(
             [call.add_model('exposetest'),
-             call.add_model().deploy('ubuntu'),
-             call.add_model().deploy('~juju-qa/network-health'),
+             call.add_model().deploy('ubuntu', series='trusty'),
+             call.add_model().deploy('~juju-qa/network-health',
+                                     series='trusty'),
              call.add_model().wait_for_started(),
              call.add_model().wait_for_workloads(),
              call.add_model().juju('add-relation', ('ubuntu',

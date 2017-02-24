@@ -127,7 +127,6 @@ def make_machines(client, container_types):
         host, type, id = c[0].split('/')
         if type in containers and host in containers[type]:
             containers[type][host].append(c[0])
-    print(containers)
     return hosts, containers
 
 

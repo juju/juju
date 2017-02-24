@@ -50,6 +50,8 @@ def assess_network_health(client, bundle=None, target_model=None, reboot=False,
     if not reboot:
         return
     log.info('Units passed pre-reboot tests, rebooting machines')
+    # TODO: Need to use itermachines and need to divide containers
+    # from reboot cycle
     machines = get_juju_status(client)['machines']
     client.run('sudo reboot', machines=machines)
     log.info('Waiting for units to restart')
@@ -60,6 +62,10 @@ def assess_network_health(client, bundle=None, target_model=None, reboot=False,
 
 
 def testing_iterations(client, series, reboot_msg):
+    """Runs through each test given for a given client and series
+
+    :param client: Client
+    """
     con_result = juju_controller_visibility(client)
     log.info('{}Controller Visibility '
              'result:\n {}'.format(reboot_msg, json.dumps(con_result,
@@ -100,7 +106,7 @@ def setup_testing_environment(client, bundle, target_model, series=None):
     elif bundle is None and target_model is None:
         setup_dummy_deployment(client, series)
 
-    client.deploy('~juju-qa/network-health')
+    client.deploy('~juju-qa/network-health', series=series)
     client.wait_for_started()
     client.wait_for_workloads()
     applications = get_juju_status(client)['applications'].keys()
@@ -134,7 +140,7 @@ def setup_dummy_deployment(client, series):
     :param client: Bootstrapped juju client
     """
     log.info("Deploying dummy charm for basic testing")
-    client.deploy('ubuntu', num=2)
+    client.deploy('ubuntu', num=2, series=series)
     client.juju('expose', ('ubuntu',))
 
 
@@ -178,7 +184,8 @@ def juju_controller_visibility(client):
 
 
 def internet_connection(client):
-    """Test that targets can ping their default route
+    """Test that targets can ping their default route.
+
     :param client: Juju client
     :return: Dict of results by machine
     """
@@ -253,8 +260,8 @@ def setup_expose_test(client, series):
     :return: New juju client object
     """
     new_client = client.add_model('exposetest')
-    new_client.deploy('ubuntu')
-    new_client.deploy('~juju-qa/network-health')
+    new_client.deploy('ubuntu', series=series)
+    new_client.deploy('~juju-qa/network-health', series=series)
     new_client.wait_for_started()
     new_client.wait_for_workloads()
     new_client.juju('add-relation', ('ubuntu', 'network-health'))
