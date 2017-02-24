@@ -326,6 +326,8 @@ func (s *connSuite) TestConnectionRemoveInstancesRemoveFailed(c *gc.C) {
 }
 
 func (s *connSuite) TestUpdateMetadataNewAttribute(c *gc.C) {
+	// Ensure we extract the name from the URL we get on the raw instance.
+	s.RawInstanceFull.Zone = "http://eels/lone/wolf/a-zone"
 	s.FakeConn.Instances = []*compute.Instance{&s.RawInstanceFull}
 
 	err := s.Conn.UpdateMetadata("business", "time", s.RawInstanceFull.Name)
@@ -348,6 +350,8 @@ func (s *connSuite) TestUpdateMetadataNewAttribute(c *gc.C) {
 }
 
 func (s *connSuite) TestUpdateMetadataExistingAttribute(c *gc.C) {
+	// Ensure we extract the name from the URL we get on the raw instance.
+	s.RawInstanceFull.Zone = "http://eels/lone/wolf/a-zone"
 	s.FakeConn.Instances = []*compute.Instance{&s.RawInstanceFull}
 
 	err := s.Conn.UpdateMetadata("eggs", "beans", s.RawInstanceFull.Name)
@@ -369,6 +373,9 @@ func (s *connSuite) TestUpdateMetadataExistingAttribute(c *gc.C) {
 }
 
 func (s *connSuite) TestUpdateMetadataMultipleInstances(c *gc.C) {
+	// Ensure we extract the name from the URL we get on the raw instance.
+	s.RawInstanceFull.Zone = "http://eels/lone/wolf/a-zone"
+
 	instance2 := s.RawInstanceFull
 	instance2.Name = "trucks"
 	instance2.Metadata = &compute.Metadata{
