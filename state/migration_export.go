@@ -7,13 +7,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/description"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/set"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2/bson"
 
-	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/payload"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/storage/poolmanager"

@@ -6,11 +6,11 @@ package common
 import (
 	"time"
 
+	"github.com/juju/description"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/metricsender"
 	"github.com/juju/juju/controller"
-	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/permission"
