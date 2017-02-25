@@ -630,8 +630,8 @@ class BootstrapManager:
 
     def __init__(self, temp_env_name, client, tear_down_client, bootstrap_host,
                  machines, series, agent_url, agent_stream, region, log_dir,
-                 keep_env, permanent, jes_enabled, controller_strategy=None,
-                 logged_exception_exit=True):
+                 keep_env, permanent, jes_enabled, to=None,
+                 controller_strategy=None, logged_exception_exit=True):
         """Constructor.
 
         Please see see `BootstrapManager` for argument descriptions.
@@ -643,6 +643,7 @@ class BootstrapManager:
         self.agent_url = agent_url
         self.agent_stream = agent_stream
         self.region = region
+        self.to = to
         self.log_dir = log_dir
         self.keep_env = keep_env
         if jes_enabled and not permanent:
@@ -746,8 +747,8 @@ class BootstrapManager:
         return cls(
             args.temp_env_name, client, client, args.bootstrap_host,
             args.machine, args.series, args.agent_url, args.agent_stream,
-            args.region, args.logs, args.keep_env, permanent=jes_enabled,
-            jes_enabled=jes_enabled)
+            args.region, args.logs, args.keep_env, to=args.to,
+            permanent=jes_enabled, jes_enabled=jes_enabled)
 
     @contextmanager
     def maas_machines(self):
@@ -1051,7 +1052,7 @@ class BootstrapManager:
 @contextmanager
 def boot_context(temp_env_name, client, bootstrap_host, machines, series,
                  agent_url, agent_stream, log_dir, keep_env, upload_tools,
-                 region=None):
+                 region=None, to=None):
     """Create a temporary environment in a context manager to run tests in.
 
     Bootstrap a new environment from a temporary config that is suitable to
@@ -1106,9 +1107,9 @@ def _deploy_job(args, charm_series, series):
     bs_manager = BootstrapManager(
         args.temp_env_name, client, client, args.bootstrap_host, args.machine,
         series, args.agent_url, args.agent_stream, args.region, args.logs,
-        args.keep_env, permanent=jes_enabled, jes_enabled=jes_enabled,
-        controller_strategy=controller_strategy)
-    with bs_manager.booted_context(args.upload_tools):
+        args.keep_env, permanent=jes_enabled, to=args.to,
+        jes_enabled=jes_enabled, controller_strategy=controller_strategy)
+    with bs_manager.booted_context(args.upload_tools, to=args.to):
         if args.with_chaos > 0:
             manager = background_chaos(args.temp_env_name, client,
                                        args.logs, args.with_chaos)
