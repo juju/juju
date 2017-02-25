@@ -90,9 +90,14 @@ func (s *UserSuite) TestUserEnable(c *gc.C) {
 
 func (s *UserSuite) TestRemoveUserPrompt(c *gc.C) {
 	expected := `
-WARNING! This command will remove the user "jjam" from the "kontroll" controller.
+WARNING! This command will permanently archive the user "jjam" on the "kontroll"
+controller.
 
-Continue (y/N)? `[1:]
+This action is irreversible. If you wish to temporarily disable the
+user please use the`[1:] + " `juju disable-user` " + `command. See
+` + " `juju help disable-user` " + `for more details.
+
+Continue (y/N)? `
 	_ = s.Factory.MakeUser(c, &factory.UserParams{Name: "jjam"})
 	ctx, _ := s.RunUserCommand(c, "", "remove-user", "jjam")
 	c.Assert(testing.Stdout(ctx), jc.DeepEquals, expected)
