@@ -47,106 +47,87 @@ AWS_DEFAULT_STORAGE_POOL_DETAILS = {
         'provider': 'loop'},
     'rootfs': {
         'provider': 'rootfs'}
-}
+    }
 
 
 storage_pool_details = {
-    "loopy":
-        {
-            "provider": "loop",
-            "attrs":
-                {
-                    "size": "1G"
-                }},
-    "rooty":
-        {
-            "provider": "rootfs",
-            "attrs":
-                {
-                    "size": "1G"
-                }},
-    "tempy":
-        {
-            "provider": "tmpfs",
-            "attrs":
-                {
-                    "size": "1G"
-                }},
-    "ebsy":
-        {
-            "provider": "ebs",
-            "attrs":
-                {
-                    "size": "1G"
-                }}
-}
-
+    "loopy": {
+        "provider": "loop",
+        "attrs": {"size": "1G"}
+        },
+    "rooty": {
+        "provider": "rootfs",
+        "attrs": {"size": "1G"}
+        },
+    "tempy": {
+        "provider": "tmpfs",
+        "attrs": {"size": "1G"}
+        },
+    "ebsy": {
+        "provider": "ebs",
+        "attrs": {"size": "1G"}
+        },
+    }
 storage_pool_1x = copy.deepcopy(storage_pool_details)
 storage_pool_1x["ebs-ssd"] = {
     "provider": "ebs",
-    "attrs":
-        {
-            "volume-type": "ssd"
-        }
-}
+    "attrs": {"volume-type": "ssd"}
+    }
 
 storage_list_expected = {
-    "storage":
-        {"data/0":
-            {
-                "kind": "filesystem",
-                "attachments":
-                    {
-                        "units":
-                            {
-                                "dummy-storage-fs/0":
-                                    {"location": "/srv/data"}}}}}}
-
-storage_list_expected_2 = copy.deepcopy(storage_list_expected)
-storage_list_expected_2["storage"]["disks/1"] = {
-    "kind": "block",
-    "attachments":
-        {
-            "units":
-                {"dummy-storage-lp/0":
-                    {
-                        "location": ""}}}}
+    "storage": {
+        "data/0": {
+            "kind": "filesystem",
+            "attachments": {
+                "units": {"dummy-storage-fs/0": {"location": "/srv/data"}}}
+            }
+        }
+    }
+storage_list_expected_2 = {
+    "storage": {
+        "disks/1": {
+            "kind": "block",
+            "attachments": {
+                "units": {"dummy-storage-lp/0": {"location": ""}}}
+            }
+        }
+    }
 storage_list_expected_3 = copy.deepcopy(storage_list_expected_2)
 storage_list_expected_3["storage"]["disks/2"] = {
     "kind": "block",
-    "attachments":
-        {
-            "units":
-                {"dummy-storage-lp/0":
-                    {
-                        "location": ""}}}}
-storage_list_expected_4 = copy.deepcopy(storage_list_expected_3)
-storage_list_expected_4["storage"]["data/3"] = {
-    "kind": "filesystem",
-    "attachments":
-        {
-            "units":
-                {"dummy-storage-tp/0":
-                    {
-                        "location": "/srv/data"}}}}
-storage_list_expected_5 = copy.deepcopy(storage_list_expected_4)
-storage_list_expected_5["storage"]["data/4"] = {
-    "kind": "filesystem",
-    "attachments":
-        {
-            "units":
-                {"dummy-storage-np/0":
-                    {
-                        "location": "/srv/data"}}}}
-storage_list_expected_6 = copy.deepcopy(storage_list_expected_5)
-storage_list_expected_6["storage"]["data/5"] = {
-    "kind": "filesystem",
-    "attachments":
-        {
-            "units":
-                {"dummy-storage-mp/0":
-                    {
-                        "location": "/srv/data"}}}}
+    "attachments": {
+        "units": {
+            "dummy-storage-lp/0": {"location": ""}
+            }
+        }
+    }
+storage_list_expected_4 = {
+    "storage": {
+        "data/3": {
+            "kind": "filesystem",
+            "attachments": {
+                "units": {"dummy-storage-tp/0": {"location": "/srv/data"}}}
+            }
+        }
+    }
+storage_list_expected_5 = {
+    "storage": {
+        "data/4": {
+            "kind": "filesystem",
+            "attachments": {
+                "units": {"dummy-storage-np/0": {"location": "/srv/data"}}}
+            }
+        }
+    }
+storage_list_expected_6 = {
+    "storage": {
+        "data/5": {
+            "kind": "filesystem",
+            "attachments": {
+                "units": {"dummy-storage-mp/0": {"location": "/srv/data"}}}
+            }
+        }
+    }
 
 
 def storage_list(client):
@@ -296,7 +277,11 @@ def check_storage_list(client, expected):
 
 
 def assess_storage(client, charm_series):
-    """Test the storage feature."""
+    """Test the storage feature.
+
+    Each storage test is deployed as a charm. The application is removed
+    when the test succeeds. Logs will be retrieved from failing machines.
+    """
 
     log.info('Assessing create-pool')
     assess_create_pool(client)
@@ -320,6 +305,7 @@ def assess_storage(client, charm_series):
                           'dummy-storage-fs', 'filesystem', 'rootfs')
     check_storage_list(client, storage_list_expected)
     log.info('Filesystem rootfs PASSED')
+    client.remove_service('dummy-storage-fs')
 
     log.info('Assessing block loop')
     assess_deploy_storage(client, charm_series,
@@ -331,27 +317,29 @@ def assess_storage(client, charm_series):
     assess_add_storage(client, 'dummy-storage-lp/0', 'disks', "1")
     check_storage_list(client, storage_list_expected_3)
     log.info('Disk 1 PASSED')
+    client.remove_service('dummy-storage-lp')
 
     log.info('Assessing filesystem tmpfs')
     assess_deploy_storage(client, charm_series,
                           'dummy-storage-tp', 'filesystem', 'tmpfs')
     check_storage_list(client, storage_list_expected_4)
     log.info('Filesystem tmpfs PASSED')
+    client.remove_service('dummy-storage-tp')
 
     log.info('Assessing filesystem')
     assess_deploy_storage(client, charm_series,
                           'dummy-storage-np', 'filesystem')
     check_storage_list(client, storage_list_expected_5)
     log.info('Filesystem tmpfs PASSED')
+    client.remove_service('dummy-storage-np')
 
     log.info('Assessing multiple filesystem, block, rootfs, loop')
     assess_multiple_provider(client, charm_series, "1G", 'dummy-storage-mp',
                              'filesystem', 'block', 'rootfs', 'loop')
     check_storage_list(client, storage_list_expected_6)
     log.info('Multiple filesystem, block, rootfs, loop PASSED')
-    # storage with provider 'ebs' is only available under 'aws'
-    # assess_deploy_storage(client, charm_series,
-    #                       'dummy-storage-eb', 'filesystem', 'ebs')
+    client.remove_service('dummy-storage-mp')
+    log.info('All storage tests PASSED')
 
 
 def parse_args(argv):

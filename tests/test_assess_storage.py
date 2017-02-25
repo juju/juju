@@ -95,7 +95,7 @@ class TestAssess(TestCase):
 
     def test_storage_1x(self):
         mock_client = Mock(spec=["juju", "wait_for_started",
-                                 "create_storage_pool",
+                                 "create_storage_pool", "remove_service",
                                  "list_storage_pool", "deploy",
                                  "get_juju_output", "add_storage",
                                  "list_storage", "is_juju1x"])
@@ -132,7 +132,7 @@ class TestAssess(TestCase):
 
     def test_storage_2x(self):
         mock_client = Mock(spec=["juju", "wait_for_started",
-                                 "create_storage_pool",
+                                 "create_storage_pool", "remove_service",
                                  "list_storage_pool", "deploy",
                                  "get_juju_output", "add_storage",
                                  "list_storage", "is_juju1x"])
@@ -169,7 +169,7 @@ class TestAssess(TestCase):
 
     def test_storage_2x_with_aws(self):
         mock_client = Mock(spec=["juju", "wait_for_started",
-                                 "create_storage_pool",
+                                 "create_storage_pool", "remove_service",
                                  "list_storage_pool", "deploy",
                                  "get_juju_output", "add_storage",
                                  "list_storage", "is_juju1x"])
@@ -208,7 +208,7 @@ class TestAssess(TestCase):
 
     def test_storage_2_2_with_aws(self):
         mock_client = Mock(spec=["juju", "wait_for_started",
-                                 "create_storage_pool",
+                                 "create_storage_pool", "remove_service",
                                  "list_storage_pool", "deploy",
                                  "get_juju_output", "add_storage",
                                  "list_storage", "is_juju1x"])
