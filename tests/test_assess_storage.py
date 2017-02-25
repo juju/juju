@@ -12,13 +12,13 @@ from assess_storage import (
     assess_storage,
     parse_args,
     main,
-    storage_list_expected,
+    expected_filesystem,
     storage_pool_1x,
-    storage_list_expected_2,
-    storage_list_expected_3,
-    storage_list_expected_4,
-    storage_list_expected_5,
-    storage_list_expected_6,
+    expected_block1,
+    expected_block2,
+    expected_tmpfs,
+    expected_default_tmpfs,
+    expected_mulitfilesystem,
     storage_pool_details,
 )
 from jujupy import JujuData
@@ -95,7 +95,7 @@ class TestAssess(TestCase):
 
     def test_storage_1x(self):
         mock_client = Mock(spec=["juju", "wait_for_started",
-                                 "create_storage_pool",
+                                 "create_storage_pool", "remove_service",
                                  "list_storage_pool", "deploy",
                                  "get_juju_output", "add_storage",
                                  "list_storage", "is_juju1x"])
@@ -107,12 +107,12 @@ class TestAssess(TestCase):
             json.dumps(storage_pool_1x)
         ]
         mock_client.list_storage.side_effect = [
-            json.dumps(storage_list_expected),
-            json.dumps(storage_list_expected_2),
-            json.dumps(storage_list_expected_3),
-            json.dumps(storage_list_expected_4),
-            json.dumps(storage_list_expected_5),
-            json.dumps(storage_list_expected_6)
+            json.dumps(expected_filesystem),
+            json.dumps(expected_block1),
+            json.dumps(expected_block2),
+            json.dumps(expected_tmpfs),
+            json.dumps(expected_default_tmpfs),
+            json.dumps(expected_mulitfilesystem)
         ]
         assess_storage(mock_client, mock_client.series)
         self.assertEqual(
@@ -132,7 +132,7 @@ class TestAssess(TestCase):
 
     def test_storage_2x(self):
         mock_client = Mock(spec=["juju", "wait_for_started",
-                                 "create_storage_pool",
+                                 "create_storage_pool", "remove_service",
                                  "list_storage_pool", "deploy",
                                  "get_juju_output", "add_storage",
                                  "list_storage", "is_juju1x"])
@@ -144,12 +144,12 @@ class TestAssess(TestCase):
             json.dumps(storage_pool_details)
         ]
         mock_client.list_storage.side_effect = [
-            json.dumps(storage_list_expected),
-            json.dumps(storage_list_expected_2),
-            json.dumps(storage_list_expected_3),
-            json.dumps(storage_list_expected_4),
-            json.dumps(storage_list_expected_5),
-            json.dumps(storage_list_expected_6)
+            json.dumps(expected_filesystem),
+            json.dumps(expected_block1),
+            json.dumps(expected_block2),
+            json.dumps(expected_tmpfs),
+            json.dumps(expected_default_tmpfs),
+            json.dumps(expected_mulitfilesystem)
         ]
         assess_storage(mock_client, mock_client.series)
         self.assertEqual(
@@ -169,7 +169,7 @@ class TestAssess(TestCase):
 
     def test_storage_2x_with_aws(self):
         mock_client = Mock(spec=["juju", "wait_for_started",
-                                 "create_storage_pool",
+                                 "create_storage_pool", "remove_service",
                                  "list_storage_pool", "deploy",
                                  "get_juju_output", "add_storage",
                                  "list_storage", "is_juju1x"])
@@ -183,12 +183,12 @@ class TestAssess(TestCase):
             json.dumps(expected_pool)
         ]
         mock_client.list_storage.side_effect = [
-            json.dumps(storage_list_expected),
-            json.dumps(storage_list_expected_2),
-            json.dumps(storage_list_expected_3),
-            json.dumps(storage_list_expected_4),
-            json.dumps(storage_list_expected_5),
-            json.dumps(storage_list_expected_6)
+            json.dumps(expected_filesystem),
+            json.dumps(expected_block1),
+            json.dumps(expected_block2),
+            json.dumps(expected_tmpfs),
+            json.dumps(expected_default_tmpfs),
+            json.dumps(expected_mulitfilesystem)
         ]
         assess_storage(mock_client, mock_client.series)
         self.assertEqual(
@@ -208,7 +208,7 @@ class TestAssess(TestCase):
 
     def test_storage_2_2_with_aws(self):
         mock_client = Mock(spec=["juju", "wait_for_started",
-                                 "create_storage_pool",
+                                 "create_storage_pool", "remove_service",
                                  "list_storage_pool", "deploy",
                                  "get_juju_output", "add_storage",
                                  "list_storage", "is_juju1x"])
@@ -225,11 +225,11 @@ class TestAssess(TestCase):
             json.dumps(aws_pool)
         ]
         mock_client.list_storage.side_effect = [
-            json.dumps(storage_list_expected),
-            json.dumps(storage_list_expected_2),
-            json.dumps(storage_list_expected_3),
-            json.dumps(storage_list_expected_4),
-            json.dumps(storage_list_expected_5),
-            json.dumps(storage_list_expected_6)
+            json.dumps(expected_filesystem),
+            json.dumps(expected_block1),
+            json.dumps(expected_block2),
+            json.dumps(expected_tmpfs),
+            json.dumps(expected_default_tmpfs),
+            json.dumps(expected_mulitfilesystem)
         ]
         assess_storage(mock_client, mock_client.series)
