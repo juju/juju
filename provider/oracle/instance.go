@@ -4,6 +4,9 @@
 package oracle
 
 import (
+	jErr "github.com/juju/errors"
+
+	oci "github.com/hoenirvili/go-oracle-cloud/api"
 	"github.com/hoenirvili/go-oracle-cloud/response"
 	"github.com/pkg/errors"
 
@@ -18,22 +21,27 @@ type oracleInstance struct {
 	// name of the instance, generated after the vm creation
 	name string
 	// status represents the status for a provider instance
-	status instance.InstanceStatus
+	status          instance.InstanceStatus
+	machine         *response.Instance
+	client          *oci.Client
+	publicAddresses []response.IpAssociation
 }
 
 // newInstance returns a new instance.Instance implementation
 // for the response.Instance
-func newInstance(params *response.Instance) (instance.Instance, error) {
+func newInstance(params *response.Instance, client *oci.Client) (*oracleInstance, error) {
 	if params == nil {
 		return nil, errors.Errorf("Instance response is nil")
 	}
 
-	instance := oracleInstance{
-		name: params.Id,
+	instance := &oracleInstance{
+		name: params.Name,
 		status: instance.InstanceStatus{
 			Status:  status.Status(params.State),
 			Message: "",
 		},
+		machine: params,
+		client:  client,
 	}
 
 	return instance, nil
@@ -49,13 +57,44 @@ func (o oracleInstance) Status() instance.InstanceStatus {
 	return o.status
 }
 
-// OpenPorts opens the given port ranges on the instance, which
-// should have been started with the given machine id.
-func (o oracleInstance) Addresses() ([]network.Address, error) {
-	return nil, nil
+func (o oracleInstance) getPublicAddresses() ([]response.IpAssociation, error) {
+	ipAssoc := []response.IpAssociation{}
+	if len(o.publicAddresses) == 0 {
+		assoc, err := o.client.AllIpAssociation()
+		if err != nil {
+			return nil, jErr.Trace(err)
+		}
+		for _, val := range assoc.Result {
+			if o.machine.Vcable_id == val.Vcable {
+				ipAssoc = append(ipAssoc, val)
+			}
+		}
+		o.publicAddresses = ipAssoc
+	}
+	return o.publicAddresses, nil
 }
 
-// ClosePorts closes the given port ranges on the instance, which
+// Addresses returns a list of hostnames or ip addresses
+// associated with the instance.
+func (o oracleInstance) Addresses() ([]network.Address, error) {
+	addresses := []network.Address{}
+	ips, err := o.getPublicAddresses()
+	if err != nil {
+		return nil, jErr.Trace(err)
+	}
+	alloc := len(ips)
+	if o.machine.Ip != "" {
+		address := network.NewScopedAddress(o.machine.Ip, network.ScopeCloudLocal)
+		addresses = append(addresses, address)
+	}
+	for _, val := range ips {
+		address := network.NewScopedAddress(val.Ip, network.ScopePublic)
+		addresses = append(addresses, address)
+	}
+	return addresses, nil
+}
+
+// OpenPorts opens the given port ranges on the instance, which
 // should have been started with the given machine id.
 func (o oracleInstance) OpenPorts(machineId string, rules []network.IngressRule) error {
 	return nil

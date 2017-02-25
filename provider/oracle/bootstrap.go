@@ -7,14 +7,15 @@ import (
 	"strings"
 
 	oci "github.com/hoenirvili/go-oracle-cloud/api"
+	// "github.com/hoenirvili/go-oracle-cloud/response"
 
 	"github.com/juju/errors"
-	"github.com/juju/juju/instance"
+	// "github.com/juju/juju/instance"
 )
 
 // createInstance creates a new vm inside
 // the oracle infrastracuture and parses  the response into a instance.Instance
-func createInstance(c *oci.Client, params oci.InstanceParams) (instance.Instance, error) {
+func createInstance(c *oci.Client, params oci.InstanceParams) (*oracleInstance, error) {
 	if len(params.Instances) > 1 {
 		return nil, errors.NotSupportedf("launching multiple controllers")
 	}
@@ -27,7 +28,7 @@ func createInstance(c *oci.Client, params oci.InstanceParams) (instance.Instance
 		return nil, errors.Trace(err)
 	}
 
-	instance, err := newInstance(&resp.Instances[0])
+	instance, err := newInstance(&resp.Instances[0], c)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
