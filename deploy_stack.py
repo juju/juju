@@ -747,8 +747,8 @@ class BootstrapManager:
         return cls(
             args.temp_env_name, client, client, args.bootstrap_host,
             args.machine, args.series, args.agent_url, args.agent_stream,
-            args.region, args.logs, args.keep_env, to=args.to,
-            permanent=jes_enabled, jes_enabled=jes_enabled)
+            args.region, args.logs, args.keep_env,
+            permanent=jes_enabled, jes_enabled=jes_enabled, to=args.to)
 
     @contextmanager
     def maas_machines(self):
