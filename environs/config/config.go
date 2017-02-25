@@ -336,7 +336,7 @@ var defaultConfigValues = map[string]interface{}{
 	HTTPProxyKey:     "",
 	HTTPSProxyKey:    "",
 	FTPProxyKey:      "",
-	NoProxyKey:       "",
+	NoProxyKey:       "127.0.0.1,localhost,::1",
 	AptHTTPProxyKey:  "",
 	AptHTTPSProxyKey: "",
 	AptFTPProxyKey:   "",
