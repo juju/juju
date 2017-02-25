@@ -289,6 +289,8 @@ def add_basic_testing_arguments(parser, using_jes=False, deadline=True,
                         default=logging.INFO, const=logging.DEBUG,
                         help='Verbose test harness output.')
     parser.add_argument('--region', help='Override environment region.')
+    parser.add_argument('--to', default=None,
+                        help='Place the controller at a location.')
     parser.add_argument('--agent-url', action='store', default=None,
                         help='URL for retrieving agent binaries.')
     parser.add_argument('--agent-stream', action='store', default=None,

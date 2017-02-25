@@ -160,7 +160,7 @@ class TestTestDebugLog(TestCase):
 
     def test_happy_log(self):
         client = Mock()
-        client.get_juju_output.return_value = '\n'*100
+        client.get_juju_output.return_value = '\n' * 100
         # Ensure that no exception is raised
         assess_debug_log(client, timeout=120)
         client.get_juju_output.assert_called_once_with(
@@ -206,7 +206,7 @@ class TestParseArgs(TestCase):
         self.assertEqual(args, Namespace(
             agent='machine', env='b', juju_bin='c/juju', logs='d',
             temp_env_name='e', debug=False, agent_stream=None, agent_url=None,
-            bootstrap_host=None, machine=[], keep_env=False,
+            bootstrap_host=None, machine=[], keep_env=False, to=None,
             region=None, series=None, upload_tools=False, verbose=20))
 
     def test_parse_args_unit(self):

@@ -122,8 +122,6 @@ def parse_args(argv=None):
     parser.add_argument('--local-metadata-source',
                         action='store', default=None,
                         help='Directory with pre-loaded metadata.')
-    parser.add_argument('--to', action='store', default=None,
-                        help='bootstrap to (when part=to only)')
     return parser.parse_args(argv)
 
 

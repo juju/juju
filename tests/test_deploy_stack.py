@@ -2621,6 +2621,7 @@ class TestDeployJobParseArgs(FakeHomeTestCase):
             with_chaos=0,
             jes=False,
             region=None,
+            to=None,
             deadline=None,
             controller_host=None,
             use_charmstore=False,

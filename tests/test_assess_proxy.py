@@ -30,7 +30,7 @@ class TestParseArgs(TestCase):
             agent_stream=None, agent_url=None, bootstrap_host=None,
             client_interface='eth0', controller_interface='lxdbr0',
             deadline=None, debug=False, env='an-env', juju_bin='/bin/juju',
-            keep_env=False, logs=log_dir, machine=[], region=None,
+            keep_env=False, logs=log_dir, machine=[], region=None, to=None,
             scenario='both-proxied', series=None, temp_env_name='an-env-mod',
             upload_tools=False, verbose=20)
         self.assertEqual(expected_args, args)
