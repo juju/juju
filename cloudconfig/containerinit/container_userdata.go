@@ -364,14 +364,19 @@ func shutdownInitCommands(initSystem, series string) ([]string, error) {
 func raiseJujuNetworkInterfacesScript(oldInterfacesFile, newInterfacesFile string) string {
 	return fmt.Sprintf(`
 if [ -f %[2]s ]; then
+    echo "stopping all interfaces"
     ifdown -a
     sleep 1.5
     if ifup -a --interfaces=%[2]s; then
+        echo "ifup with %[2]s succeeded, renaming to %[1]s"
         cp %[1]s %[1]s-orig
         cp %[2]s %[1]s
     else
+        echo "ifup with %[2]s failed, leaving old %[1]s alone"
         ifup -a
     fi
+else
+    echo "did not find %[2]s, not reconfiguring networking"
 fi`[1:],
 		oldInterfacesFile, newInterfacesFile)
 }
