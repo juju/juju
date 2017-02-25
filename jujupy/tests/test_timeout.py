@@ -10,7 +10,7 @@ from mock import (
     patch,
     )
 
-from timeout import (
+from jujupy.timeout import (
     main,
     parse_args,
     run_command,
@@ -47,7 +47,7 @@ class TestMain(TestCase):
 
     def test_main(self):
         signal_name, signal_value = random.choice(signals.items())
-        with patch('timeout.run_command', autospec=True) as rc_mock:
+        with patch('jujupy.timeout.run_command', autospec=True) as rc_mock:
             main(['500', '--signal', signal_name, 'foo', 'bar'])
         rc_mock.assert_called_once_with(500, signal_value, ['foo', 'bar'])
 
