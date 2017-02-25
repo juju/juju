@@ -12,13 +12,13 @@ from assess_storage import (
     assess_storage,
     parse_args,
     main,
-    storage_list_expected,
+    expected_filesystem,
     storage_pool_1x,
-    storage_list_expected_2,
-    storage_list_expected_3,
-    storage_list_expected_4,
-    storage_list_expected_5,
-    storage_list_expected_6,
+    expected_block1,
+    expected_block2,
+    expected_tmpfs,
+    expected_default_tmpfs,
+    expected_mulitfilesystem,
     storage_pool_details,
 )
 from jujupy import JujuData
@@ -107,12 +107,12 @@ class TestAssess(TestCase):
             json.dumps(storage_pool_1x)
         ]
         mock_client.list_storage.side_effect = [
-            json.dumps(storage_list_expected),
-            json.dumps(storage_list_expected_2),
-            json.dumps(storage_list_expected_3),
-            json.dumps(storage_list_expected_4),
-            json.dumps(storage_list_expected_5),
-            json.dumps(storage_list_expected_6)
+            json.dumps(expected_filesystem),
+            json.dumps(expected_block1),
+            json.dumps(expected_block2),
+            json.dumps(expected_tmpfs),
+            json.dumps(expected_default_tmpfs),
+            json.dumps(expected_mulitfilesystem)
         ]
         assess_storage(mock_client, mock_client.series)
         self.assertEqual(
@@ -144,12 +144,12 @@ class TestAssess(TestCase):
             json.dumps(storage_pool_details)
         ]
         mock_client.list_storage.side_effect = [
-            json.dumps(storage_list_expected),
-            json.dumps(storage_list_expected_2),
-            json.dumps(storage_list_expected_3),
-            json.dumps(storage_list_expected_4),
-            json.dumps(storage_list_expected_5),
-            json.dumps(storage_list_expected_6)
+            json.dumps(expected_filesystem),
+            json.dumps(expected_block1),
+            json.dumps(expected_block2),
+            json.dumps(expected_tmpfs),
+            json.dumps(expected_default_tmpfs),
+            json.dumps(expected_mulitfilesystem)
         ]
         assess_storage(mock_client, mock_client.series)
         self.assertEqual(
@@ -183,12 +183,12 @@ class TestAssess(TestCase):
             json.dumps(expected_pool)
         ]
         mock_client.list_storage.side_effect = [
-            json.dumps(storage_list_expected),
-            json.dumps(storage_list_expected_2),
-            json.dumps(storage_list_expected_3),
-            json.dumps(storage_list_expected_4),
-            json.dumps(storage_list_expected_5),
-            json.dumps(storage_list_expected_6)
+            json.dumps(expected_filesystem),
+            json.dumps(expected_block1),
+            json.dumps(expected_block2),
+            json.dumps(expected_tmpfs),
+            json.dumps(expected_default_tmpfs),
+            json.dumps(expected_mulitfilesystem)
         ]
         assess_storage(mock_client, mock_client.series)
         self.assertEqual(
@@ -225,11 +225,11 @@ class TestAssess(TestCase):
             json.dumps(aws_pool)
         ]
         mock_client.list_storage.side_effect = [
-            json.dumps(storage_list_expected),
-            json.dumps(storage_list_expected_2),
-            json.dumps(storage_list_expected_3),
-            json.dumps(storage_list_expected_4),
-            json.dumps(storage_list_expected_5),
-            json.dumps(storage_list_expected_6)
+            json.dumps(expected_filesystem),
+            json.dumps(expected_block1),
+            json.dumps(expected_block2),
+            json.dumps(expected_tmpfs),
+            json.dumps(expected_default_tmpfs),
+            json.dumps(expected_mulitfilesystem)
         ]
         assess_storage(mock_client, mock_client.series)

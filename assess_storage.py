@@ -74,7 +74,7 @@ storage_pool_1x["ebs-ssd"] = {
     "attrs": {"volume-type": "ssd"}
     }
 
-storage_list_expected = {
+expected_filesystem = {
     "storage": {
         "data/0": {
             "kind": "filesystem",
@@ -83,7 +83,7 @@ storage_list_expected = {
             }
         }
     }
-storage_list_expected_2 = {
+expected_block1 = {
     "storage": {
         "disks/1": {
             "kind": "block",
@@ -92,8 +92,8 @@ storage_list_expected_2 = {
             }
         }
     }
-storage_list_expected_3 = copy.deepcopy(storage_list_expected_2)
-storage_list_expected_3["storage"]["disks/2"] = {
+expected_block2 = copy.deepcopy(expected_block1)
+expected_block2["storage"]["disks/2"] = {
     "kind": "block",
     "attachments": {
         "units": {
@@ -101,7 +101,7 @@ storage_list_expected_3["storage"]["disks/2"] = {
             }
         }
     }
-storage_list_expected_4 = {
+expected_tmpfs = {
     "storage": {
         "data/3": {
             "kind": "filesystem",
@@ -110,7 +110,7 @@ storage_list_expected_4 = {
             }
         }
     }
-storage_list_expected_5 = {
+expected_default_tmpfs = {
     "storage": {
         "data/4": {
             "kind": "filesystem",
@@ -119,7 +119,7 @@ storage_list_expected_5 = {
             }
         }
     }
-storage_list_expected_6 = {
+expected_mulitfilesystem = {
     "storage": {
         "data/5": {
             "kind": "filesystem",
@@ -303,40 +303,40 @@ def assess_storage(client, charm_series):
     log.info('Assessing filesystem rootfs')
     assess_deploy_storage(client, charm_series,
                           'dummy-storage-fs', 'filesystem', 'rootfs')
-    check_storage_list(client, storage_list_expected)
+    check_storage_list(client, expected_filesystem)
     log.info('Filesystem rootfs PASSED')
     client.remove_service('dummy-storage-fs')
 
-    log.info('Assessing block loop')
+    log.info('Assessing block loop disk 1')
     assess_deploy_storage(client, charm_series,
                           'dummy-storage-lp', 'block', 'loop')
-    check_storage_list(client, storage_list_expected_2)
-    log.info('Block loop PASSED')
+    check_storage_list(client, expected_block1)
+    log.info('Block loop disk 1 PASSED')
 
-    log.info('Assessing disk 1')
+    log.info('Assessing block loop disk 2')
     assess_add_storage(client, 'dummy-storage-lp/0', 'disks', "1")
-    check_storage_list(client, storage_list_expected_3)
-    log.info('Disk 1 PASSED')
+    check_storage_list(client, expected_block2)
+    log.info('Block loop disk 2 PASSED')
     client.remove_service('dummy-storage-lp')
 
     log.info('Assessing filesystem tmpfs')
     assess_deploy_storage(client, charm_series,
                           'dummy-storage-tp', 'filesystem', 'tmpfs')
-    check_storage_list(client, storage_list_expected_4)
+    check_storage_list(client, expected_tmpfs)
     log.info('Filesystem tmpfs PASSED')
     client.remove_service('dummy-storage-tp')
 
     log.info('Assessing filesystem')
     assess_deploy_storage(client, charm_series,
                           'dummy-storage-np', 'filesystem')
-    check_storage_list(client, storage_list_expected_5)
+    check_storage_list(client, expected_default_tmpfs)
     log.info('Filesystem tmpfs PASSED')
     client.remove_service('dummy-storage-np')
 
     log.info('Assessing multiple filesystem, block, rootfs, loop')
     assess_multiple_provider(client, charm_series, "1G", 'dummy-storage-mp',
                              'filesystem', 'block', 'rootfs', 'loop')
-    check_storage_list(client, storage_list_expected_6)
+    check_storage_list(client, expected_mulitfilesystem)
     log.info('Multiple filesystem, block, rootfs, loop PASSED')
     client.remove_service('dummy-storage-mp')
     log.info('All storage tests PASSED')
