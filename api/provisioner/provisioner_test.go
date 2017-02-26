@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
@@ -21,6 +22,8 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/base"
+	apibasetesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/provisioner"
 	apitesting "github.com/juju/juju/api/testing"
 	"github.com/juju/juju/apiserver/common"
@@ -718,4 +721,134 @@ func (s *provisionerSuite) TestHostChangesForContainer(c *gc.C) {
 		DeviceName: "ens3",
 	}})
 	c.Check(reconfigureDelay, gc.Equals, 0)
+}
+
+var _ = gc.Suite(&prepareContainerSuite{})
+
+type prepareContainerSuite struct {
+	coretesting.BaseSuite
+
+	*gitjujutesting.Stub
+}
+
+type prepareFacade struct {
+	*gitjujutesting.Stub
+
+	prepareResult []params.NetworkConfig
+	prepareError  error
+}
+
+func (f *prepareFacade) FacadeCall(objType string, version int, id, request string, requestParams, response interface{}) error {
+	// We only support PrepareContainerInterfaceInfo
+	if objType != "Provisioner" {
+		return errors.Errorf("bad facade name: %q", objType)
+	}
+	if version != 0 {
+		return errors.Errorf("bad version: %d", version)
+	}
+	if request != "PrepareContainerInterfaceInfo" {
+		return errors.Errorf("bad method name: %q", request)
+	}
+	entities, ok := requestParams.(params.Entities)
+	if !ok {
+		return errors.Errorf("unknown request type: %t", requestParams)
+	}
+	f.Stub.AddCall("api.PrepareContainerInterfaceInfo", entities.Entities)
+	if len(entities.Entities) != 1 {
+		return errors.Errorf("only support a single entity not: %v", entities.Entities)
+	}
+	result, ok := response.(*params.MachineNetworkConfigResults)
+	if !ok {
+		return errors.Errorf("invalid return type: %t", response)
+	}
+	result.Results = make([]params.MachineNetworkConfigResult, len(entities.Entities))
+	if f.prepareError != nil {
+		result.Results[0].Error = common.ServerError(f.prepareError)
+	} else {
+		result.Results[0].Config = f.prepareResult
+	}
+	return nil
+}
+
+func (s *prepareContainerSuite) SetUpTest(c *gc.C) {
+	s.BaseSuite.SetUpTest(c)
+
+	s.Stub = &gitjujutesting.Stub{}
+}
+
+func (s *prepareContainerSuite) apiForPrepareContainer(config []params.NetworkConfig, err error) base.APICaller {
+	facade := &prepareFacade{
+		Stub:          s.Stub,
+		prepareResult: config,
+		prepareError:  err,
+	}
+	return apibasetesting.APICallerFunc(facade.FacadeCall)
+}
+
+func (s *prepareContainerSuite) TestPrepareContainerInterfaceInfoNoValues(c *gc.C) {
+	apicaller := s.apiForPrepareContainer(nil, nil)
+	st := provisioner.NewState(apicaller)
+	networkInfo, err := st.PrepareContainerInterfaceInfo(names.NewMachineTag("machine-0/lxd/0"))
+	c.Assert(err, gc.IsNil)
+	c.Check(networkInfo, jc.DeepEquals, []network.InterfaceInfo{})
+}
+
+func (s *prepareContainerSuite) TestPrepareContainerInterfaceInfoSingleNIC(c *gc.C) {
+	apicaller := s.apiForPrepareContainer([]params.NetworkConfig{{
+		DeviceIndex:         1,
+		MACAddress:          "de:ad:be:ff:11:22",
+		CIDR:                "192.168.0.5/24",
+		MTU:                 9000,
+		ProviderId:          "prov-id",
+		ProviderSubnetId:    "prov-sub-id",
+		ProviderSpaceId:     "prov-space-id",
+		ProviderAddressId:   "prov-address-id",
+		ProviderVLANId:      "prov-vlan-id",
+		VLANTag:             25,
+		InterfaceName:       "eth5",
+		ParentInterfaceName: "parent#br-eth5",
+		InterfaceType:       "ethernet",
+		Disabled:            false,
+		NoAutoStart:         false,
+		ConfigType:          "static",
+		Address:             "192.168.0.6",
+		DNSServers:          []string{"8.8.8.8"},
+		DNSSearchDomains:    []string{"mydomain"},
+		GatewayAddress:      "192.168.0.1",
+		Routes: []params.NetworkRoute{{
+			DestinationCIDR: "10.0.0.0/16",
+			GatewayIP:       "192.168.0.1",
+			Metric:          55,
+		}},
+	}}, nil)
+	st := provisioner.NewState(apicaller)
+	networkInfo, err := st.PrepareContainerInterfaceInfo(names.NewMachineTag("machine-0/lxd/0"))
+	c.Assert(err, gc.IsNil)
+	c.Check(networkInfo, jc.DeepEquals, []network.InterfaceInfo{{
+		DeviceIndex:         1,
+		MACAddress:          "de:ad:be:ff:11:22",
+		CIDR:                "192.168.0.5/24",
+		MTU:                 9000,
+		ProviderId:          "prov-id",
+		ProviderSubnetId:    "prov-sub-id",
+		ProviderSpaceId:     "prov-space-id",
+		ProviderAddressId:   "prov-address-id",
+		ProviderVLANId:      "prov-vlan-id",
+		VLANTag:             25,
+		InterfaceName:       "eth5",
+		ParentInterfaceName: "parent#br-eth5",
+		InterfaceType:       "ethernet",
+		Disabled:            false,
+		NoAutoStart:         false,
+		ConfigType:          "static",
+		Address:             network.NewAddress("192.168.0.6"),
+		DNSServers:          network.NewAddresses("8.8.8.8"),
+		DNSSearchDomains:    []string{"mydomain"},
+		GatewayAddress:      network.NewAddress("192.168.0.1"),
+		Routes: []network.Route{{
+			DestinationCIDR: "10.0.0.0/16",
+			GatewayIP:       "192.168.0.1",
+			Metric:          55,
+		}},
+	}})
 }

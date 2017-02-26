@@ -216,8 +216,8 @@ func (st *State) prepareOrGetContainerInterfaceInfo(
 		for j, route := range cfg.Routes {
 			routes[j] = network.Route{
 				DestinationCIDR: route.DestinationCIDR,
-				GatewayIP: route.GatewayIP,
-				Metric: route.Metric,
+				GatewayIP:       route.GatewayIP,
+				Metric:          route.Metric,
 			}
 		}
 		ifaceInfo[i] = network.InterfaceInfo{
@@ -241,7 +241,7 @@ func (st *State) prepareOrGetContainerInterfaceInfo(
 			DNSServers:          network.NewAddresses(cfg.DNSServers...),
 			DNSSearchDomains:    cfg.DNSSearchDomains,
 			GatewayAddress:      network.NewAddress(cfg.GatewayAddress),
-			Routes:				 routes,
+			Routes:              routes,
 		}
 	}
 	return ifaceInfo, nil

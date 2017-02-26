@@ -161,8 +161,8 @@ func NetworkConfigFromInterfaceInfo(interfaceInfos []network.InterfaceInfo) []pa
 		for j, route := range v.Routes {
 			routes[j] = params.NetworkRoute{
 				DestinationCIDR: route.DestinationCIDR,
-				GatewayIP: route.GatewayIP,
-				Metric: route.Metric,
+				GatewayIP:       route.GatewayIP,
+				Metric:          route.Metric,
 			}
 		}
 		result[i] = params.NetworkConfig{
@@ -186,7 +186,7 @@ func NetworkConfigFromInterfaceInfo(interfaceInfos []network.InterfaceInfo) []pa
 			DNSServers:          dnsServers,
 			DNSSearchDomains:    v.DNSSearchDomains,
 			GatewayAddress:      v.GatewayAddress.Value,
-			Routes:				 routes,
+			Routes:              routes,
 		}
 	}
 	return result
