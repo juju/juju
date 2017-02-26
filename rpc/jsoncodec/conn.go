@@ -43,7 +43,8 @@ func (conn *wsJSONConn) Receive(msg interface{}) error {
 		if websocket.IsCloseError(err,
 			websocket.CloseNormalClosure,
 			websocket.CloseGoingAway,
-			websocket.CloseNoStatusReceived) {
+			websocket.CloseNoStatusReceived,
+			websocket.CloseAbnormalClosure) {
 			err = errors.Wrap(err, io.EOF)
 		}
 	}
