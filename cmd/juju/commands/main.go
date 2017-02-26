@@ -12,9 +12,11 @@ import (
 	"text/template"
 
 	"github.com/juju/cmd"
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/featureflag"
 	utilsos "github.com/juju/utils/os"
+	proxyutils "github.com/juju/utils/proxy"
 	"github.com/juju/utils/series"
 	"github.com/juju/version"
 
@@ -44,6 +46,7 @@ import (
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/utils/proxy"
 	jujuversion "github.com/juju/juju/version"
 	// Import the providers.
 	cloudfile "github.com/juju/juju/cloud"
@@ -141,6 +144,11 @@ func (m main) Run(args []string) int {
 		return 2
 	}
 
+	if err := installProxy(); err != nil {
+		fmt.Fprintf(os.Stderr, "error: %s\n", err)
+		return 2
+	}
+
 	if newInstall {
 		fmt.Fprintf(ctx.Stderr, "Since Juju %v is being run for the first time, downloading latest cloud information.\n", jujuversion.Current.Major)
 		updateCmd := cloud.NewUpdateCloudsCommand()
@@ -159,6 +167,18 @@ func (m main) Run(args []string) int {
 
 	jcmd := NewJujuCommand(ctx)
 	return cmd.Main(jcmd, ctx, args[1:])
+}
+
+func installProxy() error {
+	// Set the default transport to use the in-process proxy
+	// configuration.
+	if err := proxy.DefaultConfig.Set(proxyutils.DetectProxies()); err != nil {
+		return errors.Trace(err)
+	}
+	if err := proxy.DefaultConfig.InstallInDefaultTransport(); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }
 
 func (m main) maybeWarnJuju1x() (newInstall bool) {

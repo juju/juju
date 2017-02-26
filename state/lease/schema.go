@@ -168,18 +168,6 @@ func (doc clockDoc) skews(beginning, end time.Time) (map[string]Skew, error) {
 	if err := doc.validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
-	// beginning is expected to be earlier than end.
-	// If it isn't, it could be ntp rolling the clock back slowly, so we add
-	// a little wiggle room here.
-	if end.Before(beginning) {
-		// A later time, subtract an earlier time will give a positive duration.
-		difference := beginning.Sub(end)
-		if difference > 10*time.Millisecond {
-			return nil, errors.Errorf("end of read window preceded beginning (%s)", difference)
-
-		}
-		beginning = end
-	}
 	skews := make(map[string]Skew)
 	for writer, written := range doc.Writers {
 		skews[writer] = Skew{

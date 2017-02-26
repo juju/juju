@@ -89,6 +89,41 @@ sa-east-1:
 `[1:])
 }
 
+func (s *regionsSuite) TestListGCERegions(c *gc.C) {
+	ctx, err := testing.RunCommand(c, cloud.NewListRegionsCommand(), "google")
+	c.Assert(err, jc.ErrorIsNil)
+	out := testing.Stdout(ctx)
+	c.Assert(out, jc.DeepEquals, `
+us-east1
+us-central1
+us-west1
+europe-west1
+asia-east1
+asia-northeast1
+
+`[1:])
+}
+
+func (s *regionsSuite) TestListGCERegionsYaml(c *gc.C) {
+	ctx, err := testing.RunCommand(c, cloud.NewListRegionsCommand(), "google", "--format", "yaml")
+	c.Assert(err, jc.ErrorIsNil)
+	out := testing.Stdout(ctx)
+	c.Assert(out, jc.DeepEquals, `
+us-east1:
+  endpoint: https://www.googleapis.com
+us-central1:
+  endpoint: https://www.googleapis.com
+us-west1:
+  endpoint: https://www.googleapis.com
+europe-west1:
+  endpoint: https://www.googleapis.com
+asia-east1:
+  endpoint: https://www.googleapis.com
+asia-northeast1:
+  endpoint: https://www.googleapis.com
+`[1:])
+}
+
 type regionDetails struct {
 	Endpoint         string `json:"endpoint"`
 	IdentityEndpoint string `json:"identity-endpoint"`
@@ -106,7 +141,9 @@ func (s *regionsSuite) TestListRegionsJson(c *gc.C) {
 		"northeurope":        {Endpoint: "https://management.azure.com", IdentityEndpoint: "https://graph.windows.net", StorageEndpoint: "https://core.windows.net"},
 		"eastasia":           {Endpoint: "https://management.azure.com", IdentityEndpoint: "https://graph.windows.net", StorageEndpoint: "https://core.windows.net"},
 		"japanwest":          {Endpoint: "https://management.azure.com", IdentityEndpoint: "https://graph.windows.net", StorageEndpoint: "https://core.windows.net"},
+		"westcentralus":      {Endpoint: "https://management.azure.com", IdentityEndpoint: "https://graph.windows.net", StorageEndpoint: "https://core.windows.net"},
 		"centralus":          {Endpoint: "https://management.azure.com", IdentityEndpoint: "https://graph.windows.net", StorageEndpoint: "https://core.windows.net"},
+		"westus2":            {Endpoint: "https://management.azure.com", IdentityEndpoint: "https://graph.windows.net", StorageEndpoint: "https://core.windows.net"},
 		"eastus2":            {Endpoint: "https://management.azure.com", IdentityEndpoint: "https://graph.windows.net", StorageEndpoint: "https://core.windows.net"},
 		"japaneast":          {Endpoint: "https://management.azure.com", IdentityEndpoint: "https://graph.windows.net", StorageEndpoint: "https://core.windows.net"},
 		"northcentralus":     {Endpoint: "https://management.azure.com", IdentityEndpoint: "https://graph.windows.net", StorageEndpoint: "https://core.windows.net"},
@@ -121,5 +158,9 @@ func (s *regionsSuite) TestListRegionsJson(c *gc.C) {
 		"australiasoutheast": {Endpoint: "https://management.azure.com", IdentityEndpoint: "https://graph.windows.net", StorageEndpoint: "https://core.windows.net"},
 		"eastus":             {Endpoint: "https://management.azure.com", IdentityEndpoint: "https://graph.windows.net", StorageEndpoint: "https://core.windows.net"},
 		"southeastasia":      {Endpoint: "https://management.azure.com", IdentityEndpoint: "https://graph.windows.net", StorageEndpoint: "https://core.windows.net"},
+		"canadacentral":      {Endpoint: "https://management.azure.com", IdentityEndpoint: "https://graph.windows.net", StorageEndpoint: "https://core.windows.net"},
+		"canadaeast":         {Endpoint: "https://management.azure.com", IdentityEndpoint: "https://graph.windows.net", StorageEndpoint: "https://core.windows.net"},
+		"uksouth":            {Endpoint: "https://management.azure.com", IdentityEndpoint: "https://graph.windows.net", StorageEndpoint: "https://core.windows.net"},
+		"ukwest":             {Endpoint: "https://management.azure.com", IdentityEndpoint: "https://graph.windows.net", StorageEndpoint: "https://core.windows.net"},
 	})
 }

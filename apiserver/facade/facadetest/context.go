@@ -15,7 +15,11 @@ type Context struct {
 	Dispose_   func()
 	Resources_ facade.Resources
 	State_     *state.State
+	StatePool_ *state.StatePool
 	ID_        string
+	// Identity is not part of the facade.Context interface, but is instead
+	// used to make sure that the context objects are the same.
+	Identity string
 }
 
 // Abort is part of the facade.Context interface.
@@ -41,6 +45,11 @@ func (context Context) Resources() facade.Resources {
 // State is part of the facade.Context interface.
 func (context Context) State() *state.State {
 	return context.State_
+}
+
+// StatePool is part of of the facade.Context interface.
+func (context Context) StatePool() *state.StatePool {
+	return context.StatePool_
 }
 
 // ID is part of the facade.Context interface.

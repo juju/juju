@@ -149,11 +149,3 @@ func (s *environSuite) TestDestroyHostedModels(c *gc.C) {
 		{"RemoveInstances", []interface{}{"juju-", []string{machine1.Name}}},
 	})
 }
-
-func (s *environSuite) TestPrepareForBootstrap(c *gc.C) {
-	err := s.Env.PrepareForBootstrap(envtesting.BootstrapContext(c))
-	c.Assert(err, jc.ErrorIsNil)
-	s.Stub.CheckCalls(c, []gitjujutesting.StubCall{
-		{"SetServerConfig", []interface{}{"core.https_address", "[::]"}},
-	})
-}

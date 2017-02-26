@@ -73,7 +73,7 @@ func Main() (int, error) {
 		defer fout.Close()
 	}
 
-	tmpl, err := template.New("instanceTypes").Parse(`
+	tmpl := template.Must(template.New("instanceTypes").Parse(`
 // Copyright {{.Year}} Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
@@ -117,10 +117,7 @@ var allInstanceTypes = map[string][]instances.InstanceType{
 {{end}}{{end}}
 },
 {{end}}
-}`)
-	if err != nil {
-		panic(err)
-	}
+}`))
 
 	fmt.Fprintln(os.Stderr, "Processing", infilename)
 	instanceTypes, meta, err := process(fin)
@@ -247,11 +244,33 @@ func process(in io.Reader) (map[string][]instanceType, metadata, error) {
 		if !ok {
 			return nil, metadata{}, errors.Errorf("unknown location %q", productInfo.Location)
 		}
+		if !supported(region, instanceType.Name) {
+			continue
+		}
+
 		regionInstanceTypes := instanceTypes[region]
 		regionInstanceTypes = append(regionInstanceTypes, instanceType)
 		instanceTypes[region] = regionInstanceTypes
 	}
 	return instanceTypes, meta, nil
+}
+
+// It appears that instances sometimes show up in the offer list which aren't
+// available in actual regions. e.g. m3.medium is in the offer list for
+// ap-northeast-2, but attempting to launch one returns an unsupported error.
+// See: https://bugs.launchpad.net/juju/+bug/1663047
+func supported(region, instanceType string) bool {
+	switch region {
+	case "ap-northeast-2":
+		switch instanceType[:2] {
+		case "c3", "g2", "m3":
+			return false
+		default:
+			return true
+		}
+	default:
+		return true
+	}
 }
 
 func calculateCPUPower(info productInfo) (uint64, error) {

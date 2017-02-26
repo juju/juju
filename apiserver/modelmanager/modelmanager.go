@@ -18,7 +18,7 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/version"
 	"gopkg.in/juju/names.v2"
-	"gopkg.in/yaml.v1"
+	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"

@@ -11,9 +11,12 @@ import (
 
 	"github.com/juju/httprequest"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/version"
 	"github.com/juju/webbrowser"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/api"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/gui"
 	jujutesting "github.com/juju/juju/juju/testing"
 	coretesting "github.com/juju/juju/testing"
@@ -27,7 +30,18 @@ var _ = gc.Suite(&guiSuite{})
 
 // run executes the gui command passing the given args.
 func (s *guiSuite) run(c *gc.C, args ...string) (string, error) {
-	ctx, err := coretesting.RunCommand(c, gui.NewGUICommand(), args...)
+	ctx, err := coretesting.RunCommand(c, gui.NewGUICommandForTest(
+		func(connection api.Connection) ([]params.GUIArchiveVersion, error) {
+			return []params.GUIArchiveVersion{
+				{
+					Version: version.MustParse("1.2.3"),
+					Current: false,
+				}, {
+					Version: version.MustParse("4.5.6"),
+					Current: true,
+				},
+			}, nil
+		}), args...)
 	return strings.Trim(coretesting.Stderr(ctx), "\n"), err
 }
 
@@ -51,7 +65,12 @@ func (s *guiSuite) patchBrowser(f func(*url.URL) error) {
 
 func (s *guiSuite) guiURL(c *gc.C) string {
 	info := s.APIInfo(c)
-	return fmt.Sprintf("https://%s/gui/%s/", info.Addrs[0], info.ModelTag.Id())
+	return fmt.Sprintf("https://%s/gui/u/%s/%s", info.Addrs[0], "admin", "controller")
+}
+
+func (s *guiSuite) guiOldURL(c *gc.C) string {
+	info := s.APIInfo(c)
+	return fmt.Sprintf("https://%s/gui/%s/", info.Addrs[0], s.State.ModelUUID())
 }
 
 func (s *guiSuite) TestGUISuccessWithBrowser(c *gc.C) {
@@ -64,7 +83,7 @@ func (s *guiSuite) TestGUISuccessWithBrowser(c *gc.C) {
 		browserURL = u.String()
 		return nil
 	})
-	out, err := s.run(c)
+	out, err := s.run(c, "--browser", "--hide-credential")
 	c.Assert(err, jc.ErrorIsNil)
 	guiURL := s.guiURL(c)
 	expectOut := "Opening the Juju GUI in your browser.\nIf it does not open, open this URL:\n" + guiURL
@@ -73,20 +92,58 @@ func (s *guiSuite) TestGUISuccessWithBrowser(c *gc.C) {
 	c.Assert(browserURL, gc.Equals, guiURL)
 }
 
-func (s *guiSuite) TestGUISuccessWithCredentials(c *gc.C) {
+func (s *guiSuite) TestGUISuccessWithCredential(c *gc.C) {
 	s.patchClient(nil)
 	s.patchBrowser(nil)
-	out, err := s.run(c, "--show-credentials")
+	out, err := s.run(c)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(out, jc.Contains, "Username: admin\nPassword: dummy-secret")
+	c.Assert(out, jc.Contains, `
+Your login credential is:
+  username: admin
+  password: dummy-secret`[1:])
+}
+
+func (s *guiSuite) TestGUISuccessNoCredential(c *gc.C) {
+	s.patchClient(nil)
+	s.patchBrowser(nil)
+	out, err := s.run(c, "--hide-credential")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(out, gc.Not(jc.Contains), "Password")
 }
 
 func (s *guiSuite) TestGUISuccessNoBrowser(c *gc.C) {
 	s.patchClient(nil)
 	// There is no need to patch the browser open function here.
-	out, err := s.run(c, "--no-browser")
+	out, err := s.run(c, "--hide-credential")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(out, gc.Equals, s.guiURL(c))
+	c.Assert(out, gc.Equals, fmt.Sprintf(`
+GUI 4.5.6 for model "controller" is enabled at:
+  %s`[1:], s.guiURL(c)))
+}
+
+func (s *guiSuite) TestGUISuccessOldGUI(c *gc.C) {
+	s.patchClient(func(client *httprequest.Client, u string) error {
+		if strings.Contains(u, "/u/") {
+			return errors.New("bad wolf")
+		}
+		return nil
+	})
+	// There is no need to patch the browser open function here.
+	out, err := s.run(c, "--hide-credential")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(out, gc.Equals, fmt.Sprintf(`
+GUI 4.5.6 for model "controller" is enabled at:
+  %s`[1:], s.guiOldURL(c)))
+}
+
+func (s *guiSuite) TestGUISuccessNoBrowserDeprecated(c *gc.C) {
+	s.patchClient(nil)
+	// There is no need to patch the browser open function here.
+	out, err := s.run(c, "--no-browser", "--hide-credential")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(out, gc.Equals, fmt.Sprintf(`
+GUI 4.5.6 for model "controller" is enabled at:
+  %s`[1:], s.guiURL(c)))
 }
 
 func (s *guiSuite) TestGUISuccessBrowserNotFound(c *gc.C) {
@@ -94,7 +151,7 @@ func (s *guiSuite) TestGUISuccessBrowserNotFound(c *gc.C) {
 	s.patchBrowser(func(u *url.URL) error {
 		return webbrowser.ErrNoBrowser
 	})
-	out, err := s.run(c)
+	out, err := s.run(c, "--browser", "--hide-credential")
 	c.Assert(err, jc.ErrorIsNil)
 	expectOut := "Open this URL in your browser:\n" + s.guiURL(c)
 	c.Assert(out, gc.Equals, expectOut)
@@ -105,7 +162,7 @@ func (s *guiSuite) TestGUIErrorBrowser(c *gc.C) {
 	s.patchBrowser(func(u *url.URL) error {
 		return errors.New("bad wolf")
 	})
-	out, err := s.run(c)
+	out, err := s.run(c, "--browser")
 	c.Assert(err, gc.ErrorMatches, "cannot open web browser: bad wolf")
 	c.Assert(out, gc.Equals, "")
 }
@@ -114,7 +171,7 @@ func (s *guiSuite) TestGUIErrorUnavailable(c *gc.C) {
 	s.patchClient(func(client *httprequest.Client, u string) error {
 		return errors.New("bad wolf")
 	})
-	out, err := s.run(c)
+	out, err := s.run(c, "--browser")
 	c.Assert(err, gc.ErrorMatches, "Juju GUI is not available: bad wolf")
 	c.Assert(out, gc.Equals, "")
 }

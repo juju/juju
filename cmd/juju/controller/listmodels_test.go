@@ -35,6 +35,7 @@ type fakeModelMgrAPIClient struct {
 	models       []base.UserModel
 	all          bool
 	inclMachines bool
+	denyAccess   bool
 }
 
 func (f *fakeModelMgrAPIClient) Close() error {
@@ -99,6 +100,12 @@ func (f *fakeModelMgrAPIClient) ModelInfo(tags []names.ModelTag) ([]params.Model
 					}}
 				}
 			case "test-model3":
+				if f.denyAccess {
+					results[i].Error = &params.Error{
+						Message: "permission denied",
+						Code:    params.CodeUnauthorized,
+					}
+				}
 				result.Status.Status = status.Destroying
 			}
 			results[i].Result = result
@@ -228,6 +235,19 @@ func (s *ModelsSuite) TestModelsMachineInfo(c *gc.C) {
 		"test-model1*                 dummy         active             2      1  read    2015-03-20\n"+
 		"carlotta/test-model2         dummy         active             0      -  write   2015-03-01\n"+
 		"daiwik@external/test-model3  dummy         destroying         0      -          never connected\n"+
+		"\n")
+}
+
+func (s *ModelsSuite) TestAllModelsWithOneUnauthorised(c *gc.C) {
+	s.api.denyAccess = true
+	context, err := testing.RunCommand(c, s.newCommand())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(testing.Stdout(context), gc.Equals, ""+
+		"Controller: fake\n"+
+		"\n"+
+		"Model                 Cloud/Region  Status  Access  Last connection\n"+
+		"test-model1*          dummy         active  read    2015-03-20\n"+
+		"carlotta/test-model2  dummy         active  write   2015-03-01\n"+
 		"\n")
 }
 

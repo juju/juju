@@ -65,11 +65,11 @@ type ProvisionerAPI struct {
 
 // NewProvisionerAPI creates a new server-side ProvisionerAPI facade.
 func NewProvisionerAPI(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*ProvisionerAPI, error) {
-	if !authorizer.AuthMachineAgent() && !authorizer.AuthModelManager() {
+	if !authorizer.AuthMachineAgent() && !authorizer.AuthController() {
 		return nil, common.ErrPerm
 	}
 	getAuthFunc := func() (common.AuthFunc, error) {
-		isModelManager := authorizer.AuthModelManager()
+		isModelManager := authorizer.AuthController()
 		isMachineAgent := authorizer.AuthMachineAgent()
 		authEntityTag := authorizer.GetAuthTag()
 
@@ -515,7 +515,7 @@ func (p *ProvisionerAPI) SetInstanceInfo(args params.InstancesInfo) (params.Erro
 // the provisioner should retry provisioning machines with transient errors.
 func (p *ProvisionerAPI) WatchMachineErrorRetry() (params.NotifyWatchResult, error) {
 	result := params.NotifyWatchResult{}
-	if !p.authorizer.AuthModelManager() {
+	if !p.authorizer.AuthController() {
 		return result, common.ErrPerm
 	}
 	watch := newWatchMachineErrorRetry()
@@ -744,7 +744,9 @@ func (ctx *prepareOrGetContext) ProcessOneContainer(env environs.Environ, idx in
 				info.VLANTag = 0
 			}
 		} else {
-			logger.Debugf("host machine device %q has no addresses %v", parentDevice.Name(), parentAddrs)
+			logger.Infof("host machine device %q has no addresses %v", parentDevice.Name(), parentAddrs)
+			// TODO(jam): 2017-02-15, have a concrete test for this case, as it
+			// seems to be the common case in the wild.
 			info.ConfigType = network.ConfigDHCP
 			info.ProviderSubnetId = ""
 			info.VLANTag = 0

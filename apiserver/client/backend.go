@@ -49,6 +49,7 @@ type Backend interface {
 	Application(string) (*state.Application, error)
 	ApplicationLeaders() (map[string]string, error)
 	Charm(*charm.URL) (*state.Charm, error)
+	ControllerTag() names.ControllerTag
 	EndpointsRelation(...state.Endpoint) (*state.Relation, error)
 	FindEntity(names.Tag) (state.Entity, error)
 	ForModel(tag names.ModelTag) (*state.State, error)

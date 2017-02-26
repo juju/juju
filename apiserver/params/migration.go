@@ -209,3 +209,18 @@ type MinionReports struct {
 	// failed to complete a given migration phase.
 	Failed []string `json:"failed"`
 }
+
+// AdoptResourcesArgs holds the information required to ask the
+// provider to update the controller tags for a model's
+// resources.
+type AdoptResourcesArgs struct {
+	// ModelTag identifies the model that owns the resources.
+	ModelTag string `json:"model-tag"`
+
+	// SourceControllerVersion indicates the version of the calling
+	// controller. This is needed in case the way the resources are
+	// tagged has changed between versions - the provider should
+	// ensure it looks for the original tags in the correct format for
+	// that version.
+	SourceControllerVersion version.Number `json:"source-controller-version"`
+}

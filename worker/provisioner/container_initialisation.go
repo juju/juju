@@ -9,10 +9,13 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/mutex"
 	"github.com/juju/utils/clock"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/api/common"
 	apiprovisioner "github.com/juju/juju/api/provisioner"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloudconfig/instancecfg"
@@ -153,19 +156,24 @@ func (cs *ContainerSetup) initialiseAndStartProvisioner(abort <-chan struct{}, c
 	return StartProvisioner(cs.runner, containerType, cs.provisioner, cs.config, broker, toolsFinder)
 }
 
-// runInitialiser runs the container initialiser with the initialisation hook held.
-func (cs *ContainerSetup) runInitialiser(abort <-chan struct{}, containerType instance.ContainerType, initialiser container.Initialiser) error {
-	logger.Debugf("running initialiser for %s containers", containerType)
+// acquireLock tries to grab the machine lock (initLockName), and either
+// returns it in a locked state, or returns an error.
+func (cs *ContainerSetup) acquireLock(abort <-chan struct{}) (mutex.Releaser, error) {
 	spec := mutex.Spec{
 		Name:  cs.initLockName,
 		Clock: clock.WallClock,
-		// If we don't get the lock straigh away, there is no point trying multiple
+		// If we don't get the lock straight away, there is no point trying multiple
 		// times per second for an operation that is likelty to take multiple seconds.
 		Delay:  time.Second,
 		Cancel: abort,
 	}
-	logger.Debugf("acquire lock %q for container initialisation", cs.initLockName)
-	releaser, err := mutex.Acquire(spec)
+	return mutex.Acquire(spec)
+}
+
+// runInitialiser runs the container initialiser with the initialisation hook held.
+func (cs *ContainerSetup) runInitialiser(abort <-chan struct{}, containerType instance.ContainerType, initialiser container.Initialiser) error {
+	logger.Debugf("running initialiser for %s containers, acquiring lock %q", containerType, cs.initLockName)
+	releaser, err := cs.acquireLock(abort)
 	if err != nil {
 		return errors.Annotate(err, "failed to acquire initialization lock")
 	}
@@ -184,6 +192,35 @@ func (cs *ContainerSetup) runInitialiser(abort <-chan struct{}, containerType in
 func (cs *ContainerSetup) TearDown() error {
 	// Nothing to do here.
 	return nil
+}
+
+// getObservedNetworkConfig is here to allow us to override it for testing.
+// TODO(jam): Find a way to pass it into ContainerSetup instead of a global variable
+var getObservedNetworkConfig = common.GetObservedNetworkConfig
+
+func observeNetwork() ([]params.NetworkConfig, error) {
+	return getObservedNetworkConfig(common.DefaultNetworkConfigSource())
+}
+
+func defaultBridger() (network.Bridger, error) {
+	return network.DefaultEtcNetworkInterfacesBridger(activateBridgesTimeout, instancecfg.DefaultBridgePrefix, systemNetworkInterfacesFile)
+}
+
+func (cs *ContainerSetup) prepareHost(containerTag names.MachineTag, log loggo.Logger) error {
+	preparer := NewHostPreparer(HostPreparerParams{
+		API:                cs.provisioner,
+		ObserveNetworkFunc: observeNetwork,
+		LockName:           cs.initLockName,
+		AcquireLockFunc:    cs.acquireLock,
+		CreateBridger:      defaultBridger,
+		// TODO(jam): 2017-02-08 figure out how to thread catacomb.Dying() into
+		// this function, so that we can stop trying to acquire the lock if we
+		// are stopping.
+		AbortChan:  nil,
+		MachineTag: cs.machine.MachineTag(),
+		Logger:     log,
+	})
+	return preparer.Prepare(containerTag)
 }
 
 // getContainerArtifacts returns type-specific interfaces for
@@ -207,20 +244,18 @@ func (cs *ContainerSetup) getContainerArtifacts(
 		return nil, nil, nil, err
 	}
 
-	bridger, err := network.DefaultEtcNetworkInterfacesBridger(activateBridgesTimeout, instancecfg.DefaultBridgePrefix, systemNetworkInterfacesFile)
-	if err != nil {
-		return nil, nil, nil, err
-	}
-
 	switch containerType {
 	case instance.KVM:
 		initialiser = kvm.NewContainerInitialiser()
-		broker, err = NewKvmBroker(
-			bridger,
-			cs.machine.Tag().String(),
+		manager, err := kvm.NewContainerManager(managerConfig)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		broker, err = NewKVMBroker(
+			cs.prepareHost,
 			cs.provisioner,
+			manager,
 			cs.config,
-			managerConfig,
 		)
 		if err != nil {
 			logger.Errorf("failed to create new kvm broker")
@@ -237,9 +272,8 @@ func (cs *ContainerSetup) getContainerArtifacts(
 		if err != nil {
 			return nil, nil, nil, err
 		}
-		broker, err = NewLxdBroker(
-			bridger,
-			cs.machine.Tag().String(),
+		broker, err = NewLXDBroker(
+			cs.prepareHost,
 			cs.provisioner,
 			manager,
 			cs.config,

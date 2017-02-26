@@ -1168,7 +1168,7 @@ func (b *allWatcherStateBacking) Release() error {
 	return nil
 }
 
-func NewAllModelWatcherStateBacking(st *State) Backing {
+func NewAllModelWatcherStateBacking(st *State, pool *StatePool) Backing {
 	collections := makeAllWatcherCollectionInfo(
 		modelsC,
 		machinesC,
@@ -1190,7 +1190,7 @@ func NewAllModelWatcherStateBacking(st *State) Backing {
 	return &allModelWatcherStateBacking{
 		st:               st,
 		watcher:          st.workers.TxnLogWatcher(),
-		stPool:           NewStatePool(st),
+		stPool:           pool,
 		collectionByName: collections,
 	}
 }
@@ -1303,8 +1303,8 @@ func (b *allModelWatcherStateBacking) getState(modelUUID string) (*State, func()
 
 // Release implements the Backing interface.
 func (b *allModelWatcherStateBacking) Release() error {
-	err := b.stPool.Close()
-	return errors.Trace(err)
+	// Nothing to release.
+	return nil
 }
 
 func loadAllWatcherEntities(st *State, collectionByName map[string]allWatcherStateCollection, all *multiwatcherStore) error {

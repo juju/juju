@@ -13,33 +13,41 @@ import (
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/network"
 )
 
 var lxdLogger = loggo.GetLogger("juju.provisioner.lxd")
 
-var NewLxdBroker = func(
-	bridger network.Bridger,
-	hostMachineID string,
+type PrepareHostFunc func(containerTag names.MachineTag, log loggo.Logger) error
+
+// NewLXDBroker creates a Broker that can be used to start LXD containers in a
+// similar fashion to normal StartInstance requests.
+// prepareHost is a callback that will be called when a new container is about
+// to be started. It provides the intersection point where the host can update
+// itself to be ready for whatever changes are necessary to have a functioning
+// container. (such as bridging host devices.)
+// manager is the infrastructure to actually launch the container.
+// agentConfig is currently only used to find out the 'default' bridge to use
+// when a specific network device is not specified in StartInstanceParams. This
+// should be deprecated. And hopefully removed in the future.
+func NewLXDBroker(
+	prepareHost PrepareHostFunc,
 	api APICalls,
 	manager container.Manager,
 	agentConfig agent.Config,
 ) (environs.InstanceBroker, error) {
 	return &lxdBroker{
-		bridger:       bridger,
-		hostMachineID: hostMachineID,
-		manager:       manager,
-		api:           api,
-		agentConfig:   agentConfig,
+		prepareHost: prepareHost,
+		manager:     manager,
+		api:         api,
+		agentConfig: agentConfig,
 	}, nil
 }
 
 type lxdBroker struct {
-	bridger       network.Bridger
-	hostMachineID string
-	manager       container.Manager
-	api           APICalls
-	agentConfig   agent.Config
+	prepareHost PrepareHostFunc
+	manager     container.Manager
+	api         APICalls
+	agentConfig agent.Config
 }
 
 func (broker *lxdBroker) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
@@ -51,7 +59,7 @@ func (broker *lxdBroker) StartInstance(args environs.StartInstanceParams) (*envi
 		return nil, err
 	}
 
-	err = prepareHost(broker.bridger, broker.hostMachineID, names.NewMachineTag(containerMachineID), broker.api, kvmLogger)
+	err = broker.prepareHost(names.NewMachineTag(containerMachineID), lxdLogger)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

@@ -48,9 +48,10 @@ import (
 const (
 	jujuMachineNameTag = tags.JujuTagPrefix + "machine-name"
 
-	// defaultRootDiskSize is the default root disk size to give
-	// to a VM, if none is specified.
-	defaultRootDiskSize = 30 * 1024 // 30 GiB
+	// minRootDiskSize is the minimum root disk size Azure
+	// accepts for a VM's OS disk.
+	// It will be used if none is specified by the user.
+	minRootDiskSize = 30 * 1024 // 30 GiB
 
 	// serviceErrorCodeDeploymentCannotBeCancelled is the error code for
 	// service errors in response to an attempt to cancel a deployment
@@ -390,10 +391,12 @@ func (env *azureEnviron) StartInstance(args environs.StartInstanceParams) (*envi
 	// If the user has not specified a root-disk size, then
 	// set a sensible default.
 	var rootDisk uint64
-	if args.Constraints.RootDisk != nil {
+	// Azure complains if we try and specify a root disk size less than the minimum.
+	// See http://pad.lv/1645408
+	if args.Constraints.RootDisk != nil && *args.Constraints.RootDisk > minRootDiskSize {
 		rootDisk = *args.Constraints.RootDisk
 	} else {
-		rootDisk = defaultRootDiskSize
+		rootDisk = minRootDiskSize
 		args.Constraints.RootDisk = &rootDisk
 	}
 
@@ -1092,6 +1095,15 @@ func (env *azureEnviron) instances(
 // AdoptResources is part of the Environ interface.
 func (env *azureEnviron) AdoptResources(controllerUUID string, fromVersion version.Number) error {
 	groupClient := resources.GroupsClient{env.resources}
+
+	err := env.updateGroupControllerTag(&groupClient, env.resourceGroup, controllerUUID)
+	if err != nil {
+		// If we can't update the group there's no point updating the
+		// contained resources - the group will be killed if the
+		// controller is destroyed, taking the other things with it.
+		return errors.Trace(err)
+	}
+
 	resourceClient := resources.Client{env.resources}
 	var failed []string
 
@@ -1137,6 +1149,35 @@ func (env *azureEnviron) AdoptResources(controllerUUID string, fromVersion versi
 		return errors.Errorf("failed to update controller for some resources: %v", failed)
 	}
 	return nil
+}
+
+func (env *azureEnviron) updateGroupControllerTag(client *resources.GroupsClient, groupName, controllerUUID string) error {
+	var group resources.ResourceGroup
+	err := env.callAPI(func() (autorest.Response, error) {
+		var err error
+		group, err = client.Get(groupName)
+		return group.Response, err
+	})
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	logger.Debugf("updating resource group %s juju controller uuid to %s",
+		to.String(group.Name), controllerUUID)
+	groupTags := toTags(group.Tags)
+	groupTags[tags.JujuController] = controllerUUID
+	group.Tags = to.StringMapPtr(groupTags)
+
+	// The Azure API forbids specifying ProvisioningState on the update.
+	if group.Properties != nil {
+		(*group.Properties).ProvisioningState = nil
+	}
+
+	err = env.callAPI(func() (autorest.Response, error) {
+		res, err := client.CreateOrUpdate(groupName, group)
+		return res.Response, err
+	})
+	return errors.Annotatef(err, "updating controller for resource group %q", groupName)
 }
 
 func (env *azureEnviron) updateResourceControllerTag(client *resources.Client, stubResource resources.GenericResource, controllerUUID string) error {

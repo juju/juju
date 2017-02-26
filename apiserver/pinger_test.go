@@ -94,6 +94,7 @@ func (s *pingerSuite) TestClientNoNeedToPing(c *gc.C) {
 }
 
 func (s *pingerSuite) TestAgentConnectionShutsDownWithNoPing(c *gc.C) {
+	coretesting.SkipFlaky(c, "lp:1627086")
 	server, clock := s.newServerWithTestClock(c)
 	conn, _ := s.OpenAPIAsNewMachine(c, server)
 
@@ -102,6 +103,7 @@ func (s *pingerSuite) TestAgentConnectionShutsDownWithNoPing(c *gc.C) {
 }
 
 func (s *pingerSuite) TestAgentConnectionDelaysShutdownWithPing(c *gc.C) {
+	coretesting.SkipFlaky(c, "lp:1632485")
 	server, clock := s.newServerWithTestClock(c)
 	conn, _ := s.OpenAPIAsNewMachine(c, server)
 

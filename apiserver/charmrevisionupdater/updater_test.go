@@ -51,7 +51,7 @@ func (s *charmVersionSuite) SetUpTest(c *gc.C) {
 	s.resources = common.NewResources()
 	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
 	s.authoriser = apiservertesting.FakeAuthorizer{
-		EnvironManager: true,
+		Controller: true,
 	}
 	var err error
 	s.charmrevisionupdater, err = charmrevisionupdater.NewCharmRevisionUpdaterAPI(s.State, s.resources, s.authoriser)
@@ -71,7 +71,7 @@ func (s *charmVersionSuite) TestNewCharmRevisionUpdaterAPIAcceptsStateManager(c 
 
 func (s *charmVersionSuite) TestNewCharmRevisionUpdaterAPIRefusesNonStateManager(c *gc.C) {
 	anAuthoriser := s.authoriser
-	anAuthoriser.EnvironManager = false
+	anAuthoriser.Controller = false
 	endPoint, err := charmrevisionupdater.NewCharmRevisionUpdaterAPI(s.State, s.resources, anAuthoriser)
 	c.Assert(endPoint, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "permission denied")

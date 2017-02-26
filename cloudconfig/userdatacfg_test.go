@@ -395,7 +395,7 @@ chown syslog:adm /var/log/juju
 bin='/var/lib/juju/tools/1\.2\.3-quantal-amd64'
 mkdir -p \$bin
 echo 'Fetching Juju agent version.*
-curl .* --noproxy "\*" --insecure -o \$bin/tools\.tar\.gz 'https://state-addr\.testing\.invalid:54321/deadbeef-0bad-400d-8000-4b1d0d06f00d/tools/1\.2\.3-quantal-amd64'
+curl -sSfw '.*' --connect-timeout 20 --noproxy "\*" --insecure -o \$bin/tools\.tar\.gz 'https://state-addr\.testing\.invalid:54321/deadbeef-0bad-400d-8000-4b1d0d06f00d/tools/1\.2\.3-quantal-amd64'
 sha256sum \$bin/tools\.tar\.gz > \$bin/juju1\.2\.3-quantal-amd64\.sha256
 grep '1234' \$bin/juju1\.2\.3-quantal-amd64.sha256 \|\| \(echo "Tools checksum mismatch"; exit 1\)
 tar zxf \$bin/tools.tar.gz -C \$bin
@@ -1144,7 +1144,7 @@ func (s *cloudinitSuite) TestAptProxyWritten(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	cmds := cloudcfg.BootCmds()
-	expected := "printf '%s\\n' 'Acquire::http::Proxy \"http://user@10.0.0.1\";' > /etc/apt/apt.conf.d/42-juju-proxy-settings"
+	expected := "printf '%s\\n' 'Acquire::http::Proxy \"http://user@10.0.0.1\";' > /etc/apt/apt.conf.d/95-juju-proxy-settings"
 	c.Assert(cmds, jc.DeepEquals, []string{expected})
 }
 

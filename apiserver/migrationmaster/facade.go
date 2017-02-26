@@ -42,7 +42,7 @@ func NewAPI(
 	resources facade.Resources,
 	authorizer facade.Authorizer,
 ) (*API, error) {
-	if !authorizer.AuthModelManager() {
+	if !authorizer.AuthController() {
 		return nil, common.ErrPerm
 	}
 	return &API{

@@ -75,9 +75,12 @@ func (s *providerSuite) TestDetectCloudError(c *gc.C) {
 
 func (s *providerSuite) assertLocalhostCloud(c *gc.C, found cloud.Cloud) {
 	c.Assert(found, jc.DeepEquals, cloud.Cloud{
-		Name:      "localhost",
-		Type:      "lxd",
-		AuthTypes: []cloud.AuthType{cloud.CertificateAuthType},
+		Name: "localhost",
+		Type: "lxd",
+		AuthTypes: []cloud.AuthType{
+			"interactive",
+			cloud.CertificateAuthType,
+		},
 		Regions: []cloud.Region{{
 			Name: "localhost",
 		}},
@@ -103,17 +106,65 @@ func (s *providerSuite) TestFinalizeCloud(c *gc.C) {
 		Name:      "foo",
 		Type:      "lxd",
 		AuthTypes: []cloud.AuthType{cloud.CertificateAuthType},
-		Endpoint:  "1.2.3.4",
+		Endpoint:  "1.2.3.4:1234",
 		Regions: []cloud.Region{{
 			Name:     "bar",
-			Endpoint: "1.2.3.4",
+			Endpoint: "1.2.3.4:1234",
 		}},
 	})
 	ctx.CheckCallNames(c, "Verbosef")
 	ctx.CheckCall(
 		c, 0, "Verbosef", "Resolved LXD host address on bridge %s: %s",
-		[]interface{}{"test-bridge", "1.2.3.4"},
+		[]interface{}{"test-bridge", "1.2.3.4:1234"},
 	)
+
+	// Finalizing a CloudSpec with an empty endpoint involves
+	// configuring the local LXD to listen for HTTPS.
+	s.Stub.CheckCalls(c, []gitjujutesting.StubCall{
+		{"DefaultProfileBridgeName", nil},
+		{"InterfaceAddress", []interface{}{"test-bridge"}},
+		{"ServerStatus", nil},
+		{"SetServerConfig", []interface{}{"core.https_address", "[::]"}},
+		{"ServerAddresses", nil},
+	})
+}
+
+func (s *providerSuite) TestFinalizeCloudNotListening(c *gc.C) {
+	var ctx mockContext
+	s.PatchValue(&s.InterfaceAddr, "8.8.8.8")
+	_, err := s.Provider.FinalizeCloud(&ctx, cloud.Cloud{
+		Name:      "foo",
+		Type:      "lxd",
+		AuthTypes: []cloud.AuthType{cloud.CertificateAuthType},
+		Regions: []cloud.Region{{
+			Name: "bar",
+		}},
+	})
+	c.Assert(err, gc.NotNil)
+	c.Assert(err.Error(), gc.Equals,
+		`LXD is not listening on address 8.8.8.8 `+
+			`(reported addresses: [127.0.0.1:1234 1.2.3.4:1234])`)
+}
+
+func (s *providerSuite) TestFinalizeCloudAlreadyListeningHTTPS(c *gc.C) {
+	s.Client.Server.Config["core.https_address"] = "[::]:9999"
+	var ctx mockContext
+	_, err := s.Provider.FinalizeCloud(&ctx, cloud.Cloud{
+		Name:      "foo",
+		Type:      "lxd",
+		AuthTypes: []cloud.AuthType{cloud.CertificateAuthType},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// The LXD is already listening on HTTPS, so there should be
+	// no SetServerConfig call.
+	s.Stub.CheckCalls(c, []gitjujutesting.StubCall{
+		{"DefaultProfileBridgeName", nil},
+		{"InterfaceAddress", []interface{}{"test-bridge"}},
+		{"ServerStatus", nil},
+		{"SetServerConfig", []interface{}{"core.https_address", "[::]"}},
+		{"ServerAddresses", nil},
+	})
 }
 
 func (s *providerSuite) TestDetectRegions(c *gc.C) {
@@ -170,6 +221,16 @@ func (s *ProviderFunctionalSuite) TestPrepareConfig(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(cfg, gc.NotNil)
+}
+
+func (s *ProviderFunctionalSuite) TestPrepareConfigUnsupportedEndpointScheme(c *gc.C) {
+	cloudSpec := lxdCloudSpec()
+	cloudSpec.Endpoint = "unix://foo"
+	_, err := s.provider.PrepareConfig(environs.PrepareConfigParams{
+		Cloud:  cloudSpec,
+		Config: s.Config,
+	})
+	c.Assert(err, gc.ErrorMatches, `validating cloud spec: invalid URL "unix://foo": only HTTPS is supported`)
 }
 
 func (s *ProviderFunctionalSuite) TestPrepareConfigUnsupportedAuthType(c *gc.C) {

@@ -148,6 +148,7 @@ func (s *bridgeConfigSuite) TestBridgeScriptWithDefaultPrefixTransformation(c *g
 		{networkWithEmptyDNSValuesInterfacesToBridge, networkWithEmptyDNSValuesInitial, networkWithEmptyDNSValuesExpected},
 		{networkWithMultipleDNSValuesInterfacesToBridge, networkWithMultipleDNSValuesInitial, networkWithMultipleDNSValuesExpected},
 		{networkPartiallyBridgedInterfacesToBridge, networkPartiallyBridgedInitial, networkPartiallyBridgedExpected},
+		{networkWithInetAndInet6LP1650304InterfacesToBridge, networkWithInetAndInet6LP1650304Initial, networkWithInetAndInet6LP1650304Expected},
 	} {
 		c.Logf("test #%v - expected transformation", i)
 		s.assertScriptWithDefaultPrefix(c, v.initial, v.expected, v.interfaceToBridge)
@@ -1681,3 +1682,70 @@ iface br-eth1 inet static
     netmask 255.255.255.0
     gateway 4.3.2.1
     bridge_ports eth1`
+
+const networkWithInetAndInet6LP1650304Initial = `auto lo
+iface lo inet loopback
+
+# Label public
+auto eth0
+iface eth0 inet static
+    address 166.78.47.19
+    netmask 255.255.255.0
+    gateway 166.78.47.1
+iface eth0 inet6 static
+    address 2001:4800:7817:101:be76:4eff:fe02:8ffa
+    netmask 64
+    gateway fe80::def
+    dns-nameservers 72.3.128.241 72.3.128.240
+
+# Label private
+auto eth1
+iface eth1 inet static
+    address 10.208.132.254
+    netmask 255.255.192.0
+    dns-nameservers 72.3.128.241 72.3.128.240
+    post-up route add -net 10.208.0.0 netmask 255.240.0.0 gw 10.183.128.1 || true
+    pre-down route del -net 10.208.0.0 netmask 255.240.0.0 gw 10.183.128.1 || true
+    post-up route add -net 10.176.0.0 netmask 255.240.0.0 gw 10.183.128.1 || true
+    pre-down route del -net 10.176.0.0 netmask 255.240.0.0 gw 10.183.128.1 || true`
+
+const networkWithInetAndInet6LP1650304InterfacesToBridge = "eth0 eth1"
+
+const networkWithInetAndInet6LP1650304Expected = `auto lo
+iface lo inet loopback
+
+auto eth0
+iface eth0 inet manual
+
+iface eth0 inet6 manual
+
+auto br-eth0
+iface br-eth0 inet static
+    address 166.78.47.19
+    netmask 255.255.255.0
+    gateway 166.78.47.1
+    bridge_ports eth0
+
+iface br-eth0 inet6 static
+    address 2001:4800:7817:101:be76:4eff:fe02:8ffa
+    netmask 64
+    gateway fe80::def
+    dns-nameservers 72.3.128.241 72.3.128.240
+
+auto eth1
+iface eth1 inet manual
+    post-up route add -net 10.208.0.0 netmask 255.240.0.0 gw 10.183.128.1 || true
+    pre-down route del -net 10.208.0.0 netmask 255.240.0.0 gw 10.183.128.1 || true
+    post-up route add -net 10.176.0.0 netmask 255.240.0.0 gw 10.183.128.1 || true
+    pre-down route del -net 10.176.0.0 netmask 255.240.0.0 gw 10.183.128.1 || true
+
+auto br-eth1
+iface br-eth1 inet static
+    address 10.208.132.254
+    netmask 255.255.192.0
+    post-up route add -net 10.208.0.0 netmask 255.240.0.0 gw 10.183.128.1 || true
+    pre-down route del -net 10.208.0.0 netmask 255.240.0.0 gw 10.183.128.1 || true
+    post-up route add -net 10.176.0.0 netmask 255.240.0.0 gw 10.183.128.1 || true
+    pre-down route del -net 10.176.0.0 netmask 255.240.0.0 gw 10.183.128.1 || true
+    bridge_ports eth1
+    dns-nameservers 72.3.128.241 72.3.128.240`

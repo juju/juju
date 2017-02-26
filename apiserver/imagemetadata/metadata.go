@@ -45,7 +45,7 @@ func createAPI(
 	resources facade.Resources,
 	authorizer facade.Authorizer,
 ) (*API, error) {
-	if !authorizer.AuthClient() && !authorizer.AuthModelManager() {
+	if !authorizer.AuthClient() && !authorizer.AuthController() {
 		return nil, common.ErrPerm
 	}
 

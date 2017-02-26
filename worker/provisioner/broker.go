@@ -10,7 +10,6 @@ import (
 	"github.com/juju/version"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/instance"
@@ -23,7 +22,7 @@ type APICalls interface {
 	PrepareContainerInterfaceInfo(names.MachineTag) ([]network.InterfaceInfo, error)
 	GetContainerInterfaceInfo(names.MachineTag) ([]network.InterfaceInfo, error)
 	ReleaseContainerAddresses(names.MachineTag) error
-	SetHostMachineNetworkConfig(string, []params.NetworkConfig) error
+	SetHostMachineNetworkConfig(names.MachineTag, []params.NetworkConfig) error
 	HostChangesForContainer(containerTag names.MachineTag) ([]network.DeviceToBridge, int, error)
 }
 
@@ -40,48 +39,6 @@ func (h hostArchToolsFinder) FindTools(v version.Number, series, _ string) (tool
 // resolvConf is the full path to the resolv.conf file on the local
 // system. Defined here so it can be overriden for testing.
 var resolvConf = "/etc/resolv.conf"
-
-var getObservedNetworkConfig = common.GetObservedNetworkConfig
-
-func prepareHost(bridger network.Bridger, hostMachineID string, containerTag names.MachineTag, api APICalls, log loggo.Logger) error {
-	devicesToBridge, reconfigureDelay, err := api.HostChangesForContainer(containerTag)
-
-	if err != nil {
-		return errors.Annotate(err, "unable to setup network")
-	}
-
-	if len(devicesToBridge) == 0 {
-		log.Tracef("container %q requires no additional bridges", containerTag)
-		return nil
-	}
-
-	log.Tracef("Bridging %+v devices on host %q with delay=%v", devicesToBridge, hostMachineID, reconfigureDelay)
-
-	err = bridger.Bridge(devicesToBridge, reconfigureDelay)
-
-	if err != nil {
-		return errors.Annotate(err, "failed to bridge devices")
-	}
-
-	// We just changed the hosts' network setup so discover new
-	// interfaces/devices and propagate to state.
-
-	observedConfig, err := getObservedNetworkConfig(common.DefaultNetworkConfigSource())
-
-	if err != nil {
-		return errors.Annotate(err, "cannot discover observed network config")
-	}
-
-	if len(observedConfig) > 0 {
-		err := api.SetHostMachineNetworkConfig(hostMachineID, observedConfig)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		logger.Debugf("observed network config updated")
-	}
-
-	return nil
-}
 
 func prepareOrGetContainerInterfaceInfo(
 	api APICalls,

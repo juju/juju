@@ -11,7 +11,6 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/container"
-	"github.com/juju/juju/container/kvm"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
@@ -19,32 +18,35 @@ import (
 
 var kvmLogger = loggo.GetLogger("juju.provisioner.kvm")
 
-func NewKvmBroker(
-	bridger network.Bridger,
-	hostMachineID string,
+// NewKVMBroker creates a Broker that can be used to start KVM guests in a
+// similar fashion to normal StartInstance requests.
+// prepareHost is a callback that will be called when a new container is about
+// to be started. It provides the intersection point where the host can update
+// itself to be ready for whatever changes are necessary to have a functioning
+// container. (such as bridging host devices.)
+// manager is the infrastructure to actually launch the container.
+// agentConfig is currently only used to find out the 'default' bridge to use
+// when a specific network device is not specified in StartInstanceParams. This
+// should be deprecated. And hopefully removed in the future.
+func NewKVMBroker(
+	prepareHost PrepareHostFunc,
 	api APICalls,
+	manager container.Manager,
 	agentConfig agent.Config,
-	managerConfig container.ManagerConfig,
 ) (environs.InstanceBroker, error) {
-	manager, err := kvm.NewContainerManager(managerConfig)
-	if err != nil {
-		return nil, err
-	}
 	return &kvmBroker{
-		bridger:       bridger,
-		hostMachineID: hostMachineID,
-		manager:       manager,
-		api:           api,
-		agentConfig:   agentConfig,
+		prepareHost: prepareHost,
+		manager:     manager,
+		api:         api,
+		agentConfig: agentConfig,
 	}, nil
 }
 
 type kvmBroker struct {
-	bridger       network.Bridger
-	hostMachineID string
-	manager       container.Manager
-	api           APICalls
-	agentConfig   agent.Config
+	prepareHost PrepareHostFunc
+	manager     container.Manager
+	api         APICalls
+	agentConfig agent.Config
 }
 
 // StartInstance is specified in the Broker interface.
@@ -53,13 +55,21 @@ func (broker *kvmBroker) StartInstance(args environs.StartInstanceParams) (*envi
 	containerMachineID := args.InstanceConfig.MachineId
 	kvmLogger.Infof("starting kvm container for containerMachineID: %s", containerMachineID)
 
+	// TODO: Default to using the host network until we can configure.  Yes,
+	// this is using the LxcBridge value, we should put it in the api call for
+	// container config.
+	bridgeDevice := broker.agentConfig.Value(agent.LxcBridge)
+	if bridgeDevice == "" {
+		bridgeDevice = network.DefaultKVMBridge
+	}
+
 	config, err := broker.api.ContainerConfig()
 	if err != nil {
 		kvmLogger.Errorf("failed to get container config: %v", err)
 		return nil, err
 	}
 
-	err = prepareHost(broker.bridger, broker.hostMachineID, names.NewMachineTag(containerMachineID), broker.api, kvmLogger)
+	err = broker.prepareHost(names.NewMachineTag(containerMachineID), kvmLogger)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -80,10 +90,6 @@ func (broker *kvmBroker) StartInstance(args environs.StartInstanceParams) (*envi
 	// prepareOrGetContainerInterfaceInfo should always return a value. The
 	// test suite currently doesn't think so, and I'm hesitant to munge it too
 	// much.
-	bridgeDevice := broker.agentConfig.Value(agent.LxcBridge)
-	if bridgeDevice == "" {
-		bridgeDevice = container.DefaultKvmBridge
-	}
 	interfaces, err := finishNetworkConfig(bridgeDevice, preparedInfo)
 	if err != nil {
 		return nil, errors.Trace(err)

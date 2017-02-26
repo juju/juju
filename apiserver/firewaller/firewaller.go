@@ -47,7 +47,7 @@ func NewFirewallerAPI(
 	resources facade.Resources,
 	authorizer facade.Authorizer,
 ) (*FirewallerAPI, error) {
-	if !authorizer.AuthModelManager() {
+	if !authorizer.AuthController() {
 		// Firewaller must run as environment manager.
 		return nil, common.ErrPerm
 	}

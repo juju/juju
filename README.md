@@ -134,18 +134,22 @@ Building Juju as a Snap Package
 
 Building
 --------
-This requires the godeps plugin -- make sure your snapcraft version is > 2.13.1. Run snapcraft at the root of the repository. A snap will build.
+Make sure your snapcraft version is >= 2.26. Run snapcraft at the root of the repository. A snap will build.
 
 Current State
 -------------
-Needs devmode per the known issues below. The resulting snap itself works perfectly in developer mode. Do note however credentials are not shared with a debian packaged juju, and any installed juju's will own `juju` on your `$PATH` over the snap.
+Classic mode.
 
 Known Issues
-----------------
- * Missing support for abstract mutex socket (https://bugs.launchpad.net/snappy/+bug/1604967)
- * Needs LXD interface
+------------
+None. The snap shares your current credentials and environments as expected with a debian installed version.
+
+Needed for confinement
+----------------------
+To enable strict mode, the following bugs need to be resolved, and the snap updated accordingly.
+
+ * Missing support for abstract unix sockets (https://bugs.launchpad.net/snappy/+bug/1604967)
  * Needs SSH interface (https://bugs.launchpad.net/snappy/+bug/1606574)
  * Bash completion doesn't work (https://launchpad.net/bugs/1612303)
- * Snap doesn't use local source as part for snapcraft
-
+ * Juju plugin support (https://bugs.launchpad.net/juju/+bug/1628538)
 

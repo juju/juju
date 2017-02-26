@@ -144,6 +144,16 @@ func (s *ClientSuite) TestLatestLogTimeError(c *gc.C) {
 	s.AssertModelCall(c, stub, names.NewModelTag("fake"), "LatestLogTime", err, true)
 }
 
+func (s *ClientSuite) TestAdoptResources(c *gc.C) {
+	client, stub := s.getClientAndStub(c)
+	err := client.AdoptResources("the-model")
+	c.Assert(err, gc.ErrorMatches, "boom")
+	stub.CheckCall(c, 0, "MigrationTarget.AdoptResources", "", params.AdoptResourcesArgs{
+		ModelTag:                "model-the-model",
+		SourceControllerVersion: jujuversion.Current,
+	})
+}
+
 func (s *ClientSuite) TestUploadCharm(c *gc.C) {
 	const charmBody = "charming"
 	curl := charm.MustParseURL("cs:~user/foo-2")
