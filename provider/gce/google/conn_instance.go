@@ -190,7 +190,9 @@ func (gce *Connection) updateInstanceMetadata(instance *compute.Instance, key, v
 	} else {
 		existingItem.Value = value
 	}
-	return errors.Trace(gce.raw.SetMetadata(gce.projectID, instance.Zone, instance.Name, metadata))
+	// The GCE API won't accept a full URL for the zone (lp:1667172).
+	zoneName := path.Base(instance.Zone)
+	return errors.Trace(gce.raw.SetMetadata(gce.projectID, zoneName, instance.Name, metadata))
 }
 
 func findMetadataItem(items []*compute.MetadataItems, key string) *compute.MetadataItems {
