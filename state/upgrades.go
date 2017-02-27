@@ -504,3 +504,98 @@ func UpgradeNoProxyDefaults(st *State) error {
 	}
 	return nil
 }
+
+// AddNonDetachableStorageMachineId sets the "machineid" field on
+// volume and filesystem docs that are inherently bound to that
+// machine.
+func AddNonDetachableStorageMachineId(st *State) error {
+	return runForAllModelStates(st, addNonDetachableStorageMachineId)
+}
+
+func addNonDetachableStorageMachineId(st *State) error {
+	var ops []txn.Op
+	volumes, err := st.volumes(
+		bson.D{{"machineid", bson.D{{"$exists", false}}}},
+	)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	for _, v := range volumes {
+		var pool string
+		if v.doc.Info != nil {
+			pool = v.doc.Info.Pool
+		} else if v.doc.Params != nil {
+			pool = v.doc.Params.Pool
+		}
+		detachable, err := isDetachableVolumePool(st, pool)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if detachable {
+			continue
+		}
+		attachments, err := st.VolumeAttachments(v.VolumeTag())
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if len(attachments) != 1 {
+			// There should be exactly one attachment since the
+			// filesystem is non-detachable, but be defensive
+			// and leave the document alone if our expectations
+			// are not met.
+			continue
+		}
+		machineId := attachments[0].Machine().Id()
+		ops = append(ops, txn.Op{
+			C:      volumesC,
+			Id:     v.doc.Name,
+			Assert: txn.DocExists,
+			Update: bson.D{{"$set", bson.D{
+				{"machineid", machineId},
+			}}},
+		})
+	}
+	filesystems, err := st.filesystems(
+		bson.D{{"machineid", bson.D{{"$exists", false}}}},
+	)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	for _, f := range filesystems {
+		var pool string
+		if f.doc.Info != nil {
+			pool = f.doc.Info.Pool
+		} else if f.doc.Params != nil {
+			pool = f.doc.Params.Pool
+		}
+		if detachable, err := isDetachableFilesystemPool(st, pool); err != nil {
+			return errors.Trace(err)
+		} else if detachable {
+			continue
+		}
+		attachments, err := st.FilesystemAttachments(f.FilesystemTag())
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if len(attachments) != 1 {
+			// There should be exactly one attachment since the
+			// filesystem is non-detachable, but be defensive
+			// and leave the document alone if our expectations
+			// are not met.
+			continue
+		}
+		machineId := attachments[0].Machine().Id()
+		ops = append(ops, txn.Op{
+			C:      filesystemsC,
+			Id:     f.doc.DocID,
+			Assert: txn.DocExists,
+			Update: bson.D{{"$set", bson.D{
+				{"machineid", machineId},
+			}}},
+		})
+	}
+	if len(ops) > 0 {
+		return errors.Trace(st.runTransaction(ops))
+	}
+	return nil
+}

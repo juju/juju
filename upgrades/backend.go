@@ -23,6 +23,7 @@ type StateBackend interface {
 	AddLocalCharmSequences() error
 	UpdateLegacyLXDCloudCredentials(string, cloud.Credential) error
 	UpgradeNoProxyDefaults() error
+	AddNonDetachableStorageMachineId() error
 }
 
 // Model is an interface providing access to the details of a model within the
@@ -79,6 +80,10 @@ func (s stateBackend) UpdateLegacyLXDCloudCredentials(endpoint string, credentia
 
 func (s stateBackend) UpgradeNoProxyDefaults() error {
 	return state.UpgradeNoProxyDefaults(s.st)
+}
+
+func (s stateBackend) AddNonDetachableStorageMachineId() error {
+	return state.AddNonDetachableStorageMachineId(s.st)
 }
 
 type modelShim struct {

@@ -38,7 +38,7 @@ func (s *StorageStateSuiteBase) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Create a pool that creates persistent block devices.
-	_, err = pm.Create("persistent-block", "environscoped-block", map[string]interface{}{
+	_, err = pm.Create("persistent-block", "modelscoped-block", map[string]interface{}{
 		"persistent": true,
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -97,7 +97,7 @@ storage:
 
 func (s *StorageStateSuiteBase) setupMixedScopeStorageService(c *gc.C, kind string) *state.Application {
 	storageCons := map[string]state.StorageConstraints{
-		"multi1to10": makeStorageCons("environscoped", 1024, 1),
+		"multi1to10": makeStorageCons("modelscoped", 1024, 1),
 		"multi2up":   makeStorageCons("machinescoped", 2048, 2),
 	}
 	ch := s.AddTestingCharm(c, "storage-"+kind+"2")

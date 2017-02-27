@@ -541,6 +541,12 @@ func cleanupDyingMachineResources(m *Machine) error {
 		return errors.Annotate(err, "getting machine volume attachments")
 	}
 	for _, va := range volumeAttachments {
+		if detachable, err := isDetachableVolumeTag(m.st, va.Volume()); err != nil {
+			return errors.Trace(err)
+		} else if !detachable {
+			// Non-detachable volumes will be removed along with the machine.
+			continue
+		}
 		if err := m.st.DetachVolume(va.Machine(), va.Volume()); err != nil {
 			if IsContainsFilesystem(err) {
 				// The volume will be destroyed when the
@@ -556,6 +562,12 @@ func cleanupDyingMachineResources(m *Machine) error {
 		return errors.Annotate(err, "getting machine filesystem attachments")
 	}
 	for _, fsa := range filesystemAttachments {
+		if detachable, err := isDetachableFilesystemTag(m.st, fsa.Filesystem()); err != nil {
+			return errors.Trace(err)
+		} else if !detachable {
+			// Non-detachable filesystems will be removed along with the machine.
+			continue
+		}
 		if err := m.st.DetachFilesystem(fsa.Machine(), fsa.Filesystem()); err != nil {
 			return errors.Trace(err)
 		}

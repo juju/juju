@@ -673,7 +673,7 @@ func (s *ModelSuite) TestProcessDyingModelWithVolumeBackedFilesystems(c *gc.C) {
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 		Filesystems: []state.MachineFilesystemParams{{
 			Filesystem: state.FilesystemParams{
-				Pool: "environscoped-block",
+				Pool: "modelscoped-block",
 				Size: 123,
 			},
 		}},
@@ -685,7 +685,7 @@ func (s *ModelSuite) TestProcessDyingModelWithVolumeBackedFilesystems(c *gc.C) {
 	c.Assert(filesystems, gc.HasLen, 1)
 
 	c.Assert(model.Destroy(), jc.ErrorIsNil)
-	err = st.DetachFilesystem(machine.MachineTag(), names.NewFilesystemTag("0/0"))
+	err = st.DestroyFilesystem(names.NewFilesystemTag("0/0"))
 	c.Assert(err, jc.ErrorIsNil)
 	err = st.RemoveFilesystemAttachment(machine.MachineTag(), names.NewFilesystemTag("0/0"))
 	c.Assert(err, jc.ErrorIsNil)
@@ -714,7 +714,7 @@ func (s *ModelSuite) TestProcessDyingModelWithVolumes(c *gc.C) {
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 		Volumes: []state.MachineVolumeParams{{
 			Volume: state.VolumeParams{
-				Pool: "environscoped",
+				Pool: "modelscoped",
 				Size: 123,
 			},
 		}},

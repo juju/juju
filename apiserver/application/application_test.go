@@ -210,7 +210,7 @@ func (s *serviceSuite) TestServiceDeployWithStorage(c *gc.C) {
 		"data": {
 			Count: 1,
 			Size:  1024,
-			Pool:  "environscoped-block",
+			Pool:  "modelscoped-block",
 		},
 	}
 
@@ -236,7 +236,7 @@ func (s *serviceSuite) TestServiceDeployWithStorage(c *gc.C) {
 		"data": {
 			Count: 1,
 			Size:  1024,
-			Pool:  "environscoped-block",
+			Pool:  "modelscoped-block",
 		},
 		"allecto": {
 			Count: 0,

@@ -297,7 +297,7 @@ func (s *FilesystemStateSuite) TestFilesystemInfo(c *gc.C) {
 }
 
 func (s *FilesystemStateSuite) TestVolumeBackedFilesystemScope(c *gc.C) {
-	_, unit, storageTag := s.setupSingleStorage(c, "filesystem", "environscoped-block")
+	_, unit, storageTag := s.setupSingleStorage(c, "filesystem", "modelscoped-block")
 	err := s.State.AssignUnit(unit, state.AssignCleanEmpty)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -417,7 +417,8 @@ func (s *FilesystemStateSuite) TestWatchMachineFilesystemAttachments(c *gc.C) {
 	// machine-scoped volumes.
 	wc.AssertNoChange()
 
-	err = s.State.DetachFilesystem(names.NewMachineTag("0"), names.NewFilesystemTag("0/1"))
+	removeFilesystemStorageInstance(c, s.State, names.NewFilesystemTag("0/1"))
+	err = s.State.DestroyFilesystem(names.NewFilesystemTag("0/1"))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChangeInSingleEvent("0:0/1") // dying
 	wc.AssertNoChange()
@@ -548,7 +549,7 @@ func (s *FilesystemStateSuite) TestDestroyFilesystemStorageAssigned(c *gc.C) {
 }
 
 func (s *FilesystemStateSuite) TestDestroyFilesystemNoAttachments(c *gc.C) {
-	filesystem, machine := s.setupFilesystemAttachment(c, "rootfs")
+	filesystem, machine := s.setupFilesystemAttachment(c, "modelscoped")
 
 	err := s.State.DetachFilesystem(machine.MachineTag(), filesystem.FilesystemTag())
 	c.Assert(err, jc.ErrorIsNil)
@@ -582,7 +583,7 @@ func (s *FilesystemStateSuite) TestRemoveFilesystem(c *gc.C) {
 }
 
 func (s *FilesystemStateSuite) TestRemoveFilesystemVolumeBacked(c *gc.C) {
-	filesystem, machine := s.setupFilesystemAttachment(c, "loop")
+	filesystem, machine := s.setupFilesystemAttachment(c, "modelscoped-block")
 	volume := s.filesystemVolume(c, filesystem.FilesystemTag())
 	assertVolumeLife := func(life state.Life) {
 		volume := s.volume(c, volume.VolumeTag())
@@ -662,7 +663,7 @@ func (s *FilesystemStateSuite) TestRemoveFilesystemNotDead(c *gc.C) {
 }
 
 func (s *FilesystemStateSuite) TestDetachFilesystem(c *gc.C) {
-	filesystem, machine := s.setupFilesystemAttachment(c, "rootfs")
+	filesystem, machine := s.setupFilesystemAttachment(c, "modelscoped")
 	assertDetach := func() {
 		err := s.State.DetachFilesystem(machine.MachineTag(), filesystem.FilesystemTag())
 		c.Assert(err, jc.ErrorIsNil)
@@ -674,7 +675,7 @@ func (s *FilesystemStateSuite) TestDetachFilesystem(c *gc.C) {
 }
 
 func (s *FilesystemStateSuite) TestRemoveLastFilesystemAttachment(c *gc.C) {
-	filesystem, machine := s.setupFilesystemAttachment(c, "rootfs")
+	filesystem, machine := s.setupFilesystemAttachment(c, "modelscoped")
 
 	err := s.State.DetachFilesystem(machine.MachineTag(), filesystem.FilesystemTag())
 	c.Assert(err, jc.ErrorIsNil)
@@ -688,7 +689,7 @@ func (s *FilesystemStateSuite) TestRemoveLastFilesystemAttachment(c *gc.C) {
 }
 
 func (s *FilesystemStateSuite) TestRemoveLastFilesystemAttachmentConcurrently(c *gc.C) {
-	filesystem, machine := s.setupFilesystemAttachment(c, "rootfs")
+	filesystem, machine := s.setupFilesystemAttachment(c, "modelscoped")
 
 	err := s.State.DetachFilesystem(machine.MachineTag(), filesystem.FilesystemTag())
 	c.Assert(err, jc.ErrorIsNil)
@@ -714,7 +715,7 @@ func (s *FilesystemStateSuite) TestRemoveFilesystemAttachmentNotFound(c *gc.C) {
 }
 
 func (s *FilesystemStateSuite) TestRemoveFilesystemAttachmentConcurrently(c *gc.C) {
-	filesystem, machine := s.setupFilesystemAttachment(c, "rootfs")
+	filesystem, machine := s.setupFilesystemAttachment(c, "modelscoped")
 	err := s.State.DetachFilesystem(machine.MachineTag(), filesystem.FilesystemTag())
 	c.Assert(err, jc.ErrorIsNil)
 	remove := func() {
@@ -749,17 +750,27 @@ func (s *FilesystemStateSuite) TestRemoveMachineRemovesFilesystems(c *gc.C) {
 }
 
 func (s *FilesystemStateSuite) TestFilesystemBindingMachine(c *gc.C) {
-	// Filesystems created unassigned to a storage instance are
-	// bound to the initially attached machine.
+	// Machine-scoped filesystems created unassigned to a storage
+	// instance are bound to the machine.
 	filesystem, machine := s.setupFilesystemAttachment(c, "rootfs")
 	c.Assert(filesystem.LifeBinding(), gc.Equals, machine.Tag())
 
 	err := s.State.DetachFilesystem(machine.MachineTag(), filesystem.FilesystemTag())
+	c.Assert(err, gc.ErrorMatches, "detaching filesystem 0/0 from machine 0: filesystem is not detachable")
+	err = machine.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.State.RemoveFilesystemAttachment(machine.MachineTag(), filesystem.FilesystemTag())
+	err = machine.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
-	filesystem = s.filesystem(c, filesystem.FilesystemTag())
-	c.Assert(filesystem.Life(), gc.Equals, state.Dead)
+	err = machine.Remove()
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.State.Filesystem(filesystem.FilesystemTag())
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	_, err = s.State.FilesystemAttachment(
+		machine.MachineTag(),
+		filesystem.FilesystemTag(),
+	)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *FilesystemStateSuite) TestFilesystemBindingStorage(c *gc.C) {
@@ -936,7 +947,7 @@ func (s *FilesystemStateSuite) testFilesystemAttachmentParamsConcurrent(c *gc.C,
 
 func (s *FilesystemStateSuite) TestFilesystemAttachmentParamsConcurrentRemove(c *gc.C) {
 	// this creates a filesystem mounted at "/srv".
-	filesystem, machine := s.setupFilesystemAttachment(c, "rootfs")
+	filesystem, machine := s.setupFilesystemAttachment(c, "modelscoped")
 
 	ch := s.createStorageCharm(c, "storage-filesystem", charm.Storage{
 		Name:     "data",
@@ -1022,6 +1033,14 @@ func (s *FilesystemStateSuite) setupFilesystemAttachment(c *gc.C, pool string) (
 	c.Assert(err, jc.ErrorIsNil)
 	assertMachineStorageRefs(c, s.State, machine.MachineTag())
 	return s.filesystem(c, attachments[0].Filesystem()), machine
+}
+
+func removeFilesystemStorageInstance(c *gc.C, st *state.State, filesystemTag names.FilesystemTag) {
+	filesystem, err := st.Filesystem(filesystemTag)
+	c.Assert(err, jc.ErrorIsNil)
+	storageTag, err := filesystem.Storage()
+	c.Assert(err, jc.ErrorIsNil)
+	removeStorageInstance(c, st, storageTag)
 }
 
 func (s *FilesystemStateSuite) assertDestroyFilesystem(c *gc.C, tag names.FilesystemTag, life state.Life) {
