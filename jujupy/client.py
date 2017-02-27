@@ -1635,6 +1635,8 @@ class ModelClient:
             args.append('--auto-upgrade')
         if to is not None:
             args.extend(['--to', to])
+        if self.env.bootstrap_to is not None:
+            args.extend(['--to', self.env.bootstrap_to])
         if no_gui:
             args.append('--no-gui')
         return tuple(args)

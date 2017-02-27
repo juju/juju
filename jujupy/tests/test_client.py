@@ -754,6 +754,18 @@ class TestModelClient(ClientTest):
                                       config_filename='config',
                                       agent_version='2.0-lambda1')
 
+    def test_get_bootstrap_args_bootstrap_to(self):
+        env = JujuData(
+            'foo', {'type': 'bar', 'region': 'baz'}, bootstrap_to='zone=fnord')
+        client = ModelClient(env, '2.0-zeta1', None)
+        args = client.get_bootstrap_args(
+            upload_tools=False, config_filename='config')
+        self.assertEqual(
+            ('--constraints', 'mem=2G', 'bar/baz', 'foo',
+             '--config', 'config', '--default-model', 'foo',
+             '--agent-version', '2.0', '--to', 'zone=fnord'),
+            args)
+
     def test_add_model_hypenated_controller(self):
         self.do_add_model(
             'kill-controller', 'add-model', ('-c', 'foo'))
