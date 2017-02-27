@@ -35,6 +35,7 @@ func (c *StorageCommandBase) NewStorageAPI() (*storage.Client, error) {
 // StorageInfo defines the serialization behaviour of the storage information.
 type StorageInfo struct {
 	Kind        string              `yaml:"kind" json:"kind"`
+	Life        string              `yaml:"life,omitempty" json:"life,omitempty"`
 	Status      EntityStatus        `yaml:"status" json:"status"`
 	Persistent  bool                `yaml:"persistent" json:"persistent"`
 	Attachments *StorageAttachments `yaml:"attachments" json:"attachments"`
@@ -57,6 +58,9 @@ type UnitStorageAttachment struct {
 
 	// Location is the location of the storage attachment.
 	Location string `yaml:"location,omitempty" json:"location,omitempty"`
+
+	// Life is the lifecycle state of the storage attachment.
+	Life string `yaml:"life,omitempty" json:"life,omitempty"`
 
 	// TODO(axw) per-unit status when we have it in state.
 }
@@ -95,6 +99,7 @@ func createStorageInfo(details params.StorageDetails) (names.StorageTag, names.T
 
 	info := StorageInfo{
 		Kind: details.Kind.String(),
+		Life: string(details.Life),
 		Status: EntityStatus{
 			details.Status.Status,
 			details.Status.Info,
@@ -122,6 +127,7 @@ func createStorageInfo(details params.StorageDetails) (names.StorageTag, names.T
 			unitStorageAttachments[unitTag.Id()] = UnitStorageAttachment{
 				machineId,
 				attachmentDetails.Location,
+				string(attachmentDetails.Life),
 			}
 		}
 		info.Attachments = &StorageAttachments{unitStorageAttachments}

@@ -42,6 +42,9 @@ type FilesystemInfo struct {
 	// from params.FilesystemInfo
 	Size uint64 `yaml:"size" json:"size"`
 
+	// Life is the lifecycle state of the filesystem.
+	Life string `yaml:"life,omitempty" json:"life,omitempty"`
+
 	// from params.FilesystemInfo.
 	Status EntityStatus `yaml:"status,omitempty" json:"status,omitempty"`
 }
@@ -54,6 +57,7 @@ type FilesystemAttachments struct {
 type MachineFilesystemAttachment struct {
 	MountPoint string `yaml:"mount-point" json:"mount-point"`
 	ReadOnly   bool   `yaml:"read-only" json:"read-only"`
+	Life       string `yaml:"life,omitempty" json:"life,omitempty"`
 }
 
 // generateListFilesystemOutput returns a map filesystem IDs to filesystem info
@@ -102,6 +106,7 @@ func createFilesystemInfo(details params.FilesystemDetails) (names.FilesystemTag
 	var info FilesystemInfo
 	info.ProviderFilesystemId = details.Info.FilesystemId
 	info.Size = details.Info.Size
+	info.Life = string(details.Life)
 	info.Status = EntityStatus{
 		details.Status.Status,
 		details.Status.Info,
@@ -127,6 +132,7 @@ func createFilesystemInfo(details params.FilesystemDetails) (names.FilesystemTag
 			machineAttachments[machineId] = MachineFilesystemAttachment{
 				attachment.MountPoint,
 				attachment.ReadOnly,
+				string(attachment.Life),
 			}
 		}
 		info.Attachments = &FilesystemAttachments{
