@@ -76,6 +76,16 @@ def terminate_instances(env, instance_ids):
     subprocess.check_call(command_args, env=environ)
 
 
+def cleanup_instances(obj, instance_ids):
+    uncleaned_instances = []
+    for instance_id in instance_ids:
+        try:
+            obj.terminate_instances([instance_id])
+        except Exception:
+            uncleaned_instances.append(instance_id)
+    return uncleaned_instances
+
+
 class AWSAccount:
     """Represent the credentials of an AWS account."""
 
@@ -160,30 +170,69 @@ class AWSAccount:
                     break
         return unclean
 
+    def only_any_instances_in_this_list_are_using_this_security_group(
+            self, instances, sg_instances):
+        has_extra_instance = set(sg_instances) - set(instances)
+        if len(has_extra_instance) == 0:
+            return True
+        return False
+
+    def cleanup_security_groups(self, instances, secgroups):
+        del_secgroups = []
+        failures = []
+        for secgroup in secgroups.items():
+            if self.only_any_instances_in_this_list_are_using_this_security_group(
+                    instances, secgroup[1]):
+                # No other instances were mapped to this security group
+                del_secgroups.append(secgroup[0])
+
+        if del_secgroups:
+            for secgroup in del_secgroups:
+                try:
+                    failures = self.destroy_security_groups([secgroup])
+                except EC2ResponseError as e:
+                    failures.append(secgroup)
+                    log.debug("{}".format(e.message))
+        return failures
+
+    def get_security_groups(self):
+        secgroups = dict()
+
+        reservations = self.client.get_all_instances()
+        for reservation in reservations:
+            for instance in reservation.instances:
+                if instance.state == 'terminate':
+                    continue
+                for group in instance.groups:
+                    if group.id in secgroups.keys():
+                        instances = secgroups[group.id]
+                        instances.append(instance.id)
+                        secgroups[group.id] = instances
+                    else:
+                        secgroups[group.id] = [instance.id]
+        return secgroups
+
     def ensure_cleanup(self, resource_details):
         """
         Do AWS specific clean-up activity.
         :param resource_details: The list of resource to be cleaned up
         :return: list of resources that were not cleaned up
         """
-        uncleaned_resource = []
+        uncleaned_resources = []
+        security_grps = self.get_security_groups()
 
-        all_groups = dict(self.iter_security_groups())
-        instance_groups = dict(self.iter_instance_security_groups())
-        non_instance_groups = dict((k, v) for k, v in all_groups.items()
-                                   if k not in instance_groups)
-        unclean_interfaces = self.delete_detached_interfaces(
-            non_instance_groups.keys())
-        for group_id in unclean_interfaces:
-            non_instance_groups.pop(group_id, None)
-        unclean_security_grps = self.destroy_security_groups(
-            non_instance_groups.values())
+        uncleaned_instances = cleanup_instances(
+            self, resource_details.get('instances', []))
 
-        if unclean_interfaces:
-            uncleaned_resource.append(["interfaces", list(unclean_interfaces)])
-        if unclean_security_grps:
-            uncleaned_resource.append(["security group", unclean_security_grps])
-        return uncleaned_resource
+        uncleaned_security_grps = self.cleanup_security_groups(
+            resource_details.get('instances', []), security_grps)
+
+        if uncleaned_instances:
+            uncleaned_resources.append(["instances", uncleaned_instances])
+        if uncleaned_security_grps:
+            uncleaned_resources.append(
+                ["security group", uncleaned_security_grps])
+        return uncleaned_resources
 
 
 class OpenStackAccount:
@@ -313,14 +362,9 @@ class JoyentAccount:
         :param resource_details: The list of resource to be cleaned up
         :return: list of resources that were not cleaned up
         """
-        uncleaned_resource = []
-        instance_ids = [instance[0] for instance in resource_details.get(
-            'instances', [])]
-        for instance_id in instance_ids:
-            try:
-                self.terminate_instances(instance_id)
-            except Exception:
-                uncleaned_resource.append(["instance_id", instance_id])
+        uncleaned_resource = cleanup_instances(
+            self, resource_details.get('instances', []))
+
         return uncleaned_resource
 
 
@@ -388,14 +432,9 @@ class GCEAccount:
         :param resource_details: The list of resource to be cleaned up
         :return: list of resources that were not cleaned up
         """
-        uncleaned_resource = []
-        instance_ids = [instance[0] for instance in resource_details.get(
-            'instances', [])]
-        for instance_id in instance_ids:
-            try:
-                self.terminate_instances(instance_id)
-            except Exception:
-                uncleaned_resource.append(["instance_id", instance_id])
+        uncleaned_resource = cleanup_instances(
+            self, resource_details.get('instances', []))
+
         return uncleaned_resource
 
 
@@ -455,14 +494,9 @@ class AzureARMAccount:
         :param resource_details: The list of resource to be cleaned up
         :return: list of resources that were not cleaned up
         """
-        uncleaned_resource = []
-        instance_ids = [instance[0] for instance in resource_details.get(
-            'instances', [])]
-        for instance_id in instance_ids:
-            try:
-                self.terminate_instances(instance_id)
-            except Exception:
-                uncleaned_resource.append(["instance_id", instance_id])
+        uncleaned_resource = cleanup_instances(
+            self, resource_details.get('instances', []))
+
         return uncleaned_resource
 
 
@@ -566,14 +600,9 @@ class AzureAccount:
         :param resource_details: The list of resource to be cleaned up
         :return: list of resources that were not cleaned up
         """
-        uncleaned_resource = []
-        instance_ids = [instance[0] for instance in resource_details.get(
-            'instances', [])]
-        for instance_id in instance_ids:
-            try:
-                self.terminate_instances(instance_id)
-            except Exception:
-                uncleaned_resource.append(["instance_id", instance_id])
+        uncleaned_resource = cleanup_instances(
+            self, resource_details.get('instances', []))
+
         return uncleaned_resource
 
 
@@ -800,14 +829,9 @@ class MAASAccount:
         :param resource_details: The list of resource to be cleaned up
         :return: list of resources that were not cleaned up
         """
-        uncleaned_resource = []
-        instance_ids = [instance[0] for instance in resource_details.get(
-            'instances', [])]
-        for instance_id in instance_ids:
-            try:
-                self.terminate_instances(instance_id)
-            except Exception:
-                uncleaned_resource.append(["instance_id", instance_id])
+        uncleaned_resource = cleanup_instances(
+            self, resource_details.get('instances', []))
+
         return uncleaned_resource
 
 
@@ -871,14 +895,9 @@ class LXDAccount:
         :param resource_details: The list of resource to be cleaned up
         :return: list of resources that were not cleaned up
         """
-        uncleaned_resource = []
-        instance_ids = [instance[0] for instance in resource_details.get(
-            'instances', [])]
-        for instance_id in instance_ids:
-            try:
-                self.terminate_instances(instance_id)
-            except Exception:
-                uncleaned_resource.append(["instance_id", instance_id])
+        uncleaned_resource = cleanup_instances(
+            self, resource_details.get('instances', []))
+
         return uncleaned_resource
 
 

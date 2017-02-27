@@ -1653,27 +1653,165 @@ class EucaTestCase(TestCase):
 
 
 class TestEnsureCleanup(TestCase):
+    resource_details = dict()
+    resource_details['instances'] = []
+
     def test_lxd_ensure_cleanup(self):
         substrate_account = LXDAccount()
-        self.assertEqual([], substrate_account.ensure_cleanup([]))
+        self.assertEqual([], substrate_account.ensure_cleanup(
+            self.resource_details))
 
     def test_aws_ensure_cleanup(self):
         substrate_account = AWSAccount('euca_environ', 'region', 'client')
-        self.assertEqual([], substrate_account.ensure_cleanup([]))
+        self.assertEqual([],  substrate_account.ensure_cleanup(
+            self.resource_details))
 
     def test_openstack_ensure_cleanup(self):
         substrate_account = OpenStackAccount(
             'username', 'password', 'tenant_name', 'auth_url', 'region_name')
-        self.assertEqual([], substrate_account.ensure_cleanup([]))
+        self.assertEqual([],  substrate_account.ensure_cleanup(
+            self.resource_details))
 
     def test_rax_ensure_cleanup(self):
         substrate_account = JoyentAccount('client')
-        self.assertEqual([], substrate_account.ensure_cleanup([]))
+        self.assertEqual([],  substrate_account.ensure_cleanup(
+            self.resource_details))
 
     def test_gce_ensure_cleanup(self):
         substrate_account = GCEAccount('client')
-        self.assertEqual([], substrate_account.ensure_cleanup([]))
+        self.assertEqual([],  substrate_account.ensure_cleanup(
+            self.resource_details))
 
     def test_maas_ensure_cleanup(self):
         substrate_account = MAASAccount('profile', 'url', 'oauth')
-        self.assertEqual([], substrate_account.ensure_cleanup([]))
+        self.assertEqual([],  substrate_account.ensure_cleanup(
+            self.resource_details))
+
+
+class TestAWSSecGroupCleanup(TestCase):
+
+    def test_delete_all_instances_mapped_to_single_sg(self):
+        group_foo = SecurityGroup(id='foo', name='bar')
+        instances = [
+            MagicMock(instances=[MagicMock(groups=[group_foo])]),
+            MagicMock(instances=[MagicMock(groups=[group_foo])]),
+        ]
+        resource_details = dict()
+        instances_res = [
+            instance.instances[0].id for instance in instances]
+        resource_details['instances'] = instances_res
+        client = MagicMock(spec=['get_all_instances', 'delete_security_group'])
+        client.get_all_instances.return_value = instances
+        client.delete_security_group.return_value = True
+        with patch('substrate.ec2.connect_to_region',
+                   return_value=client):
+            with AWSAccount.from_boot_config(get_aws_env()) as aws:
+                with patch('substrate.cleanup_instances', return_value=[]):
+                    uncleaned_resources = aws.ensure_cleanup(resource_details)
+                self.assertEquals(uncleaned_resources, [])
+                self.assertEquals(
+                    client.delete_security_group.call_args_list,
+                    [call(name='foo')])
+
+    def test_delete_first_two_instances_mapped_to_same_sg(self):
+        group_foo = SecurityGroup(id='sg-foo', name='foo')
+        group_bar = SecurityGroup(id='sg-bar', name='bar')
+        instances = [
+            MagicMock(instances=[MagicMock(groups=[group_foo])]),
+            MagicMock(instances=[MagicMock(groups=[group_foo])]),
+            MagicMock(instances=[MagicMock(groups=[group_bar])]),
+        ]
+        resource_details = dict()
+        instances_res = [
+            instance.instances[0].id for instance in instances[:2]]
+        resource_details['instances'] = instances_res
+        client = MagicMock(spec=['get_all_instances', 'delete_security_group'])
+        client.get_all_instances.return_value = instances
+        client.delete_security_group.return_value = True
+        with patch('substrate.ec2.connect_to_region',
+                   return_value=client):
+            with AWSAccount.from_boot_config(get_aws_env()) as aws:
+                with patch('substrate.cleanup_instances', return_value=[]):
+                    uncleaned_resources = aws.ensure_cleanup(resource_details)
+                self.assertEquals(uncleaned_resources, [])
+                self.assertEquals(
+                    client.delete_security_group.call_args_list,
+                    [call(name='sg-foo')])
+
+    def test_get_security_groups_with_all_running(self):
+        group_foo = SecurityGroup(id='sg-foo', name='foo')
+        group_bar = SecurityGroup(id='sg-bar', name='bar')
+        instances = [
+            MagicMock(instances=[
+                MagicMock(groups=[group_foo], state="running"),
+                MagicMock(groups=[group_bar, group_foo])]),
+        ]
+
+        client = MagicMock(spec=['get_all_instances'])
+        client.get_all_instances.return_value = instances
+        with patch('substrate.ec2.connect_to_region',
+                   return_value=client):
+            with AWSAccount.from_boot_config(get_aws_env()) as aws:
+                secgroups = aws.get_security_groups()
+                self.assertDictEqual(secgroups, {
+                    'sg-bar': [instances[0].instances[1].id],
+                    'sg-foo': [instances[0].instances[0].id,
+                               instances[0].instances[1].id]
+                })
+
+    def test_get_security_groups_with_some_terminated(self):
+        group_foo = SecurityGroup(id='sg-foo', name='foo')
+        group_bar = SecurityGroup(id='sg-bar', name='bar')
+        instances = [
+            MagicMock(instances=[
+                MagicMock(groups=[group_foo], state="terminate"),
+                MagicMock(groups=[group_bar, group_foo])]),
+        ]
+
+        client = MagicMock(spec=['get_all_instances'])
+        client.get_all_instances.return_value = instances
+        with patch('substrate.ec2.connect_to_region',
+                   return_value=client):
+            with AWSAccount.from_boot_config(get_aws_env()) as aws:
+                secgroups = aws.get_security_groups()
+                self.assertDictEqual(secgroups, {
+                    'sg-bar': [instances[0].instances[1].id],
+                    'sg-foo': [instances[0].instances[1].id]
+                })
+
+
+class TestOnlyAnyInstancesInThisListAreUsingThisSecurityGroup(TestCase):
+    delete_sg = True
+
+    def test_sg_has_same_instances_as_instances_list_so_delete_sg(self):
+        instances = ["foo", "bar", "qnx"]
+        sg_list = ["foo", "bar", "qnx"]
+        client = MagicMock()
+        with patch('substrate.ec2.connect_to_region',
+                   return_value=client):
+            with AWSAccount.from_boot_config(get_aws_env()) as aws:
+                self.assertEquals(
+                    aws.only_any_instances_in_this_list_are_using_this_security_group(
+                        instances, sg_list), self.delete_sg)
+
+    def test_sg_contains_all_instance_of_instances_list_so_delete_it(self):
+        instances = ["foo", "bar", "qnx", "foo1"]
+        sg_list = ["foo", "bar", "qnx"]
+        client = MagicMock()
+        with patch('substrate.ec2.connect_to_region',
+                   return_value=client):
+            with AWSAccount.from_boot_config(get_aws_env()) as aws:
+                self.assertEquals(
+                    aws.only_any_instances_in_this_list_are_using_this_security_group(
+                        instances, sg_list), self.delete_sg)
+
+    def test_sg_manages_more_instances_than_instances_list_so_dont_delete_it(self):
+        instances = ["foo", "qnx"]
+        sg_list = ["foo", "bar"]
+        client = MagicMock()
+        with patch('substrate.ec2.connect_to_region',
+                   return_value=client):
+            with AWSAccount.from_boot_config(get_aws_env()) as aws:
+                self.assertEquals(
+                    aws.only_any_instances_in_this_list_are_using_this_security_group(
+                        instances, sg_list), not self.delete_sg)
