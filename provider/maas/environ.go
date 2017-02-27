@@ -2176,7 +2176,24 @@ func (env *maasEnviron) allocateContainerAddresses2(hostInstanceID instance.Id, 
 	subnetToStaticRoutes := make(map[string][]gomaasapi.StaticRoute)
 	staticRoutes, err := env.maasController.StaticRoutes()
 	if err != nil {
-		return nil, errors.Annotate(err, "unable to look up static-routes")
+		// maas 2.0 does not support static-routes, so we just treat it as not
+		// having any static routes to worry about.
+		// Ideally we would know from the API version, or from the capabilities
+		// struct, but I don't see anything useful in 2.1 that indicates
+		// static-routes are a supported feature.
+		// {"capabilities": [
+		// "networks-management", "static-ipaddresses", "ipv6-deployment-ubuntu", "devices-management",
+		// "storage-deployment-ubuntu", "network-deployment-ubuntu", "bridging-interface-ubuntu",
+		// "bridging-automatic-ubuntu"],
+		// "version": "2.1.3+bzr5573-0ubuntu1", "subversion": "16.04.1"}
+		// TODO(jam) 2017-02-28 Is there a better test for this? The full error we were creating was:
+		// failed to prepare container "0/lxd/1" network config: unable to look up static-routes: unexpected: ServerError: 404 NOT FOUND (Unknown API endpoint: /MAAS/api/2.0/static-routes/.)
+		// ServerError and 404 look like something maybe we could use?
+		if strings.Contains(err.Error(), "Unknown API endpoint: /MAAS/api/2.0/static-routes/") {
+			staticRoutes = nil
+		} else {
+			return nil, errors.Annotate(err, "unable to look up static-routes")
+		}
 	}
 	for _, route := range staticRoutes {
 		source := route.Source()
