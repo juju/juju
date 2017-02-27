@@ -133,6 +133,16 @@ func (ctx *context) run(c *gc.C, steps []stepper) {
 		if ctx.uniter != nil {
 			err := worker.Stop(ctx.uniter)
 			if ctx.err == "" {
+				if errors.Cause(err) == mutex.ErrCancelled {
+					// This can happen if the uniter lock acquire was
+					// temporarily blocked by test code holding the
+					// lock (like in waitHooks). The acquire call is
+					// delaying but then gets cancelled, and that
+					// error bubbles up to here.
+					// lp:1635664
+					c.Logf("ignoring lock acquire cancelled by stop")
+					return
+				}
 				c.Assert(err, jc.ErrorIsNil)
 			} else {
 				c.Assert(err, gc.ErrorMatches, ctx.err)
