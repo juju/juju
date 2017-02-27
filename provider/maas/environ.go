@@ -2188,8 +2188,11 @@ func (env *maasEnviron) allocateContainerAddresses2(hostInstanceID instance.Id, 
 		// "version": "2.1.3+bzr5573-0ubuntu1", "subversion": "16.04.1"}
 		// TODO(jam) 2017-02-28 Is there a better test for this? The full error we were creating was:
 		// failed to prepare container "0/lxd/1" network config: unable to look up static-routes: unexpected: ServerError: 404 NOT FOUND (Unknown API endpoint: /MAAS/api/2.0/static-routes/.)
-		// ServerError and 404 look like something maybe we could use?
-		if strings.Contains(err.Error(), "Unknown API endpoint: /MAAS/api/2.0/static-routes/") {
+		// We don't check the full string, because the MAAS server may not be strictly hosted at /MAAS (though that is the default).
+		serverError, ok := gomaasapi.GetServerError(err)
+		if ok && serverError.StatusCode == http.StatusNotFound &&
+			strings.Contains(err.Error(), "Unknown API endpoint:") &&
+			strings.Contains(err.Error(), "/api/2.0/static-routes/") {
 			staticRoutes = nil
 		} else {
 			return nil, errors.Annotate(err, "unable to look up static-routes")
