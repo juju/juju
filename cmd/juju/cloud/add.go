@@ -139,6 +139,10 @@ func (c *AddCloudCommand) Run(ctxt *cmd.Context) error {
 		return errors.Errorf("cloud %q not found in file %q", c.Cloud, c.CloudFile)
 	}
 
+	// validate cloud data
+	if err := cloud.VerifyAuthTypes(newCloud.AuthTypes); err != nil {
+		return errors.Trace(err)
+	}
 	if err := c.verifyName(c.Cloud); err != nil {
 		return errors.Trace(err)
 	}

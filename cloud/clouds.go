@@ -189,6 +189,35 @@ type region struct {
 	StorageEndpoint  string `yaml:"storage-endpoint,omitempty"`
 }
 
+var supportedAuthTypes = func(authType AuthType) bool {
+	switch authType {
+	case
+		AccessKeyAuthType,
+		UserPassAuthType,
+		OAuth1AuthType,
+		OAuth2AuthType,
+		JSONFileAuthType,
+		CertificateAuthType:
+		return true
+	}
+	return false
+}
+
+// VerifyAuthTypes validates if given auth types are supported by Juju.
+func VerifyAuthTypes(authTypes []AuthType) error {
+	unsupported := []AuthType{}
+	for _, authType := range authTypes {
+		if supportedAuthTypes(authType) {
+			continue
+		}
+		unsupported = append(unsupported, authType)
+	}
+	if len(unsupported) != 0 {
+		return errors.NotSupportedf("auth types %q ", unsupported)
+	}
+	return nil
+}
+
 // CloudByName returns the cloud with the specified name.
 // If there exists no cloud with the specified name, an
 // error satisfying errors.IsNotFound will be returned.

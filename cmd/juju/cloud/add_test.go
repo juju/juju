@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"io"
 	"io/ioutil"
+	"regexp"
 	"strings"
 
 	"github.com/juju/cmd"
@@ -87,7 +88,7 @@ var (
 	awsCloud = cloudfile.Cloud{
 		Name:      "aws",
 		Type:      "ec2",
-		AuthTypes: []cloudfile.AuthType{"acccess-key"},
+		AuthTypes: []cloudfile.AuthType{"access-key"},
 		Regions: []cloudfile.Region{
 			{
 				Name:     "us-east-1",
@@ -98,7 +99,7 @@ var (
 	garageMAASCloud = cloudfile.Cloud{
 		Name:      "garage-maas",
 		Type:      "maas",
-		AuthTypes: []cloudfile.AuthType{"oauth"},
+		AuthTypes: []cloudfile.AuthType{"oauth1"},
 		Endpoint:  "http://garagemaas",
 	}
 
@@ -210,6 +211,21 @@ func (*addSuite) TestAddNew(c *gc.C) {
 	_, err := testing.RunCommand(c, cloud.NewAddCloudCommand(fake), "garage-maas", "fake.yaml")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(numCallsToWrite(), gc.Equals, 1)
+}
+
+func (*addSuite) TestAddNewInvalidAuthType(c *gc.C) {
+	fake := newFakeCloudMetadataStore()
+	fakeCloud := cloudfile.Cloud{
+		Name:      "garage-maas",
+		Type:      "maas",
+		AuthTypes: []cloudfile.AuthType{"oauth1", "user-pass"},
+		Endpoint:  "http://garagemaas",
+	}
+	fileClouds := map[string]cloudfile.Cloud{"fakecloud": fakeCloud}
+	fake.Call("ParseCloudMetadataFile", "fake.yaml").Returns(fileClouds, nil)
+
+	_, err := testing.RunCommand(c, cloud.NewAddCloudCommand(fake), "fakecloud", "fake.yaml")
+	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta(`auth types ["user-pass"]  not supported`))
 }
 
 func (*addSuite) TestInteractive(c *gc.C) {
