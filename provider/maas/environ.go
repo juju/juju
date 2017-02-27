@@ -2176,14 +2176,12 @@ func (env *maasEnviron) allocateContainerAddresses2(hostInstanceID instance.Id, 
 	subnetToStaticRoutes := make(map[string][]gomaasapi.StaticRoute)
 	staticRoutes, err := env.maasController.StaticRoutes()
 	if err != nil {
-		// Warning?
-		logger.Debugf("got an error looking for static-routes: %v", err)
-	} else if err == nil {
-		for _, route := range staticRoutes {
-			source := route.Source()
-			sourceCIDR := source.CIDR()
-			subnetToStaticRoutes[sourceCIDR] = append(subnetToStaticRoutes[sourceCIDR], route)
-		}
+		return nil, errors.Annotate(err, "unable to look up static-routes")
+	}
+	for _, route := range staticRoutes {
+		source := route.Source()
+		sourceCIDR := source.CIDR()
+		subnetToStaticRoutes[sourceCIDR] = append(subnetToStaticRoutes[sourceCIDR], route)
 	}
 	logger.Debugf("found static routes: %# v", subnetToStaticRoutes)
 

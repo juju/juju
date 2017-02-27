@@ -278,15 +278,16 @@ func (env *maasEnviron) deviceInterfaceInfo2(deviceID string, nameToParentName m
 		}
 		for _, link := range nic.Links() {
 			subnet := link.Subnet()
-			if subnet != nil {
-				routes := subnetToStaticRoutes[subnet.CIDR()]
-				for _, route := range routes {
-					nicInfo.Routes = append(nicInfo.Routes, network.Route{
-						DestinationCIDR: route.Destination().CIDR(),
-						GatewayIP:       route.GatewayIP(),
-						Metric:          route.Metric(),
-					})
-				}
+			if subnet == nil {
+				continue
+			}
+			routes := subnetToStaticRoutes[subnet.CIDR()]
+			for _, route := range routes {
+				nicInfo.Routes = append(nicInfo.Routes, network.Route{
+					DestinationCIDR: route.Destination().CIDR(),
+					GatewayIP:       route.GatewayIP(),
+					Metric:          route.Metric(),
+				})
 			}
 		}
 

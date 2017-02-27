@@ -32,12 +32,12 @@ func (s *InterfaceInfoSuite) SetUpTest(c *gc.C) {
 		{Address: network.NewAddress("0.1.2.3")},
 		{DNSServers: network.NewAddresses("1.1.1.1", "2.2.2.2")},
 		{GatewayAddress: network.NewAddress("4.3.2.1")},
+		{AvailabilityZones: []string{"foo", "bar"}},
 		{Routes: []network.Route{{
 			DestinationCIDR: "0.1.2.3/24",
 			GatewayIP:       "0.1.2.1",
 			Metric:          0,
 		}}},
-		{AvailabilityZones: []string{"foo", "bar"}},
 	}
 }
 
@@ -66,6 +66,11 @@ func (s *InterfaceInfoSuite) TestAdditionalFields(c *gc.C) {
 	c.Check(s.info[5].DNSServers, jc.DeepEquals, network.NewAddresses("1.1.1.1", "2.2.2.2"))
 	c.Check(s.info[6].GatewayAddress, jc.DeepEquals, network.NewAddress("4.3.2.1"))
 	c.Check(s.info[7].AvailabilityZones, jc.DeepEquals, []string{"foo", "bar"})
+	c.Check(s.info[8].Routes, jc.DeepEquals, []network.Route{{
+		DestinationCIDR: "0.1.2.3/24",
+		GatewayIP: "0.1.2.1",
+		Metric: 0,
+	}})
 }
 
 func (s *InterfaceInfoSuite) TestSortInterfaceInfo(c *gc.C) {
@@ -162,7 +167,7 @@ func (s *RouteSuite) TestInvalidMetric(c *gc.C) {
 		DestinationCIDR: "0.1.2.3/24",
 		GatewayIP:       "0.1.2.1",
 		Metric:          -1,
-	}, `Metric is not a non-negative integer: -1`)
+	}, `Metric is negative: -1`)
 }
 
 type NetworkSuite struct {
