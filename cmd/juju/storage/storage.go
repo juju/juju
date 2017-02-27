@@ -69,7 +69,7 @@ func formatStorageDetails(storages []params.StorageDetails) (map[string]StorageI
 	}
 	output := make(map[string]StorageInfo)
 	for _, details := range storages {
-		storageTag, storageInfo, err := createStorageInfo(details)
+		storageTag, _, storageInfo, err := createStorageInfo(details)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -78,10 +78,19 @@ func formatStorageDetails(storages []params.StorageDetails) (map[string]StorageI
 	return output, nil
 }
 
-func createStorageInfo(details params.StorageDetails) (names.StorageTag, StorageInfo, error) {
+func createStorageInfo(details params.StorageDetails) (names.StorageTag, names.Tag, StorageInfo, error) {
+	fail := func(err error) (names.StorageTag, names.Tag, StorageInfo, error) {
+		return names.StorageTag{}, nil, StorageInfo{}, err
+	}
+
 	storageTag, err := names.ParseStorageTag(details.StorageTag)
 	if err != nil {
-		return names.StorageTag{}, StorageInfo{}, errors.Trace(err)
+		return fail(errors.Trace(err))
+	}
+
+	ownerTag, err := names.ParseTag(details.OwnerTag)
+	if err != nil {
+		return fail(errors.Trace(err))
 	}
 
 	info := StorageInfo{
@@ -100,13 +109,13 @@ func createStorageInfo(details params.StorageDetails) (names.StorageTag, Storage
 		for unitTagString, attachmentDetails := range details.Attachments {
 			unitTag, err := names.ParseUnitTag(unitTagString)
 			if err != nil {
-				return names.StorageTag{}, StorageInfo{}, errors.Trace(err)
+				return fail(errors.Trace(err))
 			}
 			var machineId string
 			if attachmentDetails.MachineTag != "" {
 				machineTag, err := names.ParseMachineTag(attachmentDetails.MachineTag)
 				if err != nil {
-					return names.StorageTag{}, StorageInfo{}, errors.Trace(err)
+					return fail(errors.Trace(err))
 				}
 				machineId = machineTag.Id()
 			}
@@ -118,5 +127,5 @@ func createStorageInfo(details params.StorageDetails) (names.StorageTag, Storage
 		info.Attachments = &StorageAttachments{unitStorageAttachments}
 	}
 
-	return storageTag, info, nil
+	return storageTag, ownerTag, info, nil
 }

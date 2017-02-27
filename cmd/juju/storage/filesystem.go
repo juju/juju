@@ -25,11 +25,16 @@ type FilesystemInfo struct {
 	ProviderFilesystemId string `yaml:"provider-id,omitempty" json:"provider-id,omitempty"`
 
 	// Volume is the ID of the volume that the filesystem is backed by, if any.
-	Volume string
+	Volume string `yaml:"volume,omitempty" json:"volume,omitempty"`
 
 	// Storage is the ID of the storage instance that the filesystem is
 	// assigned to, if any.
-	Storage string
+	Storage string `yaml:"storage,omitempty" json:"storage,omitempty"`
+
+	// Binding is a reference to an entity to which the lifecycle of
+	// the volume is bound, if any. This can be "model", "machine",
+	// "application", or "unit".
+	Binding string `yaml:"binding,omitempty" json:"binding,omitempty"`
 
 	// Attachments is the set of entities attached to the filesystem.
 	Attachments *FilesystemAttachments
@@ -130,7 +135,7 @@ func createFilesystemInfo(details params.FilesystemDetails) (names.FilesystemTag
 	}
 
 	if details.Storage != nil {
-		storageTag, storageInfo, err := createStorageInfo(*details.Storage)
+		storageTag, ownerTag, storageInfo, err := createStorageInfo(*details.Storage)
 		if err != nil {
 			return names.FilesystemTag{}, FilesystemInfo{}, errors.Trace(err)
 		}
@@ -138,6 +143,16 @@ func createFilesystemInfo(details params.FilesystemDetails) (names.FilesystemTag
 		if storageInfo.Attachments != nil {
 			info.Attachments.Units = storageInfo.Attachments.Units
 		}
+		if details.BindingTag == details.Storage.StorageTag {
+			info.Binding = ownerTag.Kind()
+		}
+	}
+	if info.Binding == "" && details.BindingTag != "" {
+		tag, err := names.ParseTag(details.BindingTag)
+		if err != nil {
+			return names.FilesystemTag{}, FilesystemInfo{}, errors.Trace(err)
+		}
+		info.Binding = tag.Kind()
 	}
 
 	return filesystemTag, info, nil

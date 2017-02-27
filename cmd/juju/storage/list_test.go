@@ -126,8 +126,6 @@ filesystems:
       since: .*
   "1":
     provider-id: provider-supplied-filesystem-1
-    volume: ""
-    storage: ""
     attachments:
       machines:
         "0":
@@ -140,8 +138,6 @@ filesystems:
       since: .*
   "2":
     provider-id: provider-supplied-filesystem-2
-    volume: ""
-    storage: ""
     attachments:
       machines:
         "1":
@@ -152,8 +148,6 @@ filesystems:
       current: attached
       since: .*
   "3":
-    volume: ""
-    storage: ""
     attachments:
       machines:
         "1":
@@ -165,7 +159,6 @@ filesystems:
       since: .*
   "4":
     provider-id: provider-supplied-filesystem-4
-    volume: ""
     storage: shared-fs/0
     attachments:
       machines:
@@ -190,6 +183,7 @@ volumes:
   0/0:
     provider-id: provider-supplied-volume-0-0
     storage: db-dir/1001
+    binding: unit
     attachments:
       machines:
         "0":
@@ -206,6 +200,7 @@ volumes:
       since: .*
   "1":
     provider-id: provider-supplied-volume-1
+    binding: machine
     attachments:
       machines:
         "0":
@@ -242,6 +237,7 @@ volumes:
   "4":
     provider-id: provider-supplied-volume-4
     storage: shared-fs/0
+    binding: application
     attachments:
       machines:
         "0":

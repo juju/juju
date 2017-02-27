@@ -24,6 +24,11 @@ type VolumeInfo struct {
 	// assigned to, if any.
 	Storage string `yaml:"storage,omitempty" json:"storage,omitempty"`
 
+	// Binding is a reference to an entity to which the lifecycle of
+	// the volume is bound, if any. This can be "model", "machine",
+	// "application", or "unit".
+	Binding string `yaml:"binding,omitempty" json:"binding,omitempty"`
+
 	// Attachments is the set of entities attached to the volume.
 	Attachments *VolumeAttachments `yaml:"attachments,omitempty" json:"attachments,omitempty"`
 
@@ -141,7 +146,7 @@ func createVolumeInfo(details params.VolumeDetails) (names.VolumeTag, VolumeInfo
 	}
 
 	if details.Storage != nil {
-		storageTag, storageInfo, err := createStorageInfo(*details.Storage)
+		storageTag, ownerTag, storageInfo, err := createStorageInfo(*details.Storage)
 		if err != nil {
 			return names.VolumeTag{}, VolumeInfo{}, errors.Trace(err)
 		}
@@ -149,6 +154,16 @@ func createVolumeInfo(details params.VolumeDetails) (names.VolumeTag, VolumeInfo
 		if storageInfo.Attachments != nil {
 			info.Attachments.Units = storageInfo.Attachments.Units
 		}
+		if details.BindingTag == details.Storage.StorageTag {
+			info.Binding = ownerTag.Kind()
+		}
+	}
+	if info.Binding == "" && details.BindingTag != "" {
+		tag, err := names.ParseTag(details.BindingTag)
+		if err != nil {
+			return names.VolumeTag{}, VolumeInfo{}, errors.Trace(err)
+		}
+		info.Binding = tag.Kind()
 	}
 
 	return volumeTag, info, nil

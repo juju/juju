@@ -49,6 +49,7 @@ func NewAPI(
 		authorizer:  authorizer,
 	}, nil
 }
+
 func (api *API) checkCanRead() error {
 	canRead, err := api.authorizer.HasPermission(permission.ReadAccess, api.storage.ModelTag())
 	if err != nil {
@@ -471,7 +472,8 @@ func createVolumeDetails(
 ) (*params.VolumeDetails, error) {
 
 	details := &params.VolumeDetails{
-		VolumeTag: v.VolumeTag().String(),
+		VolumeTag:  v.VolumeTag().String(),
+		BindingTag: v.LifeBinding().String(),
 	}
 
 	if info, err := v.Info(); err == nil {
@@ -620,6 +622,7 @@ func createFilesystemDetails(
 
 	details := &params.FilesystemDetails{
 		FilesystemTag: f.FilesystemTag().String(),
+		BindingTag:    f.LifeBinding().String(),
 	}
 
 	if volumeTag, err := f.Volume(); err == nil {

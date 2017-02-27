@@ -544,6 +544,10 @@ type VolumeDetails struct {
 	// VolumeTag is the tag for the volume.
 	VolumeTag string `json:"volume-tag"`
 
+	// BindingTag is the tag of an entity to which the
+	// volume's lifetime is bound.
+	BindingTag string `json:"binding-tag,omitempty"`
+
 	// Info contains information about the volume.
 	Info VolumeInfo `json:"info"`
 
@@ -599,6 +603,10 @@ type FilesystemDetails struct {
 	// VolumeTag is the tag for the volume backing the
 	// filesystem, if any.
 	VolumeTag string `json:"volume-tag,omitempty"`
+
+	// BindingTag is the tag of an entity to which the
+	// filesystem's lifetime is bound.
+	BindingTag string `json:"binding-tag,omitempty"`
 
 	// Info contains information about the filesystem.
 	Info FilesystemInfo `json:"info"`
