@@ -29,6 +29,7 @@ import pexpect
 import yaml
 
 from jujupy.configuration import (
+    get_bootstrap_config_path,
     get_environments_path,
     get_jenv_path,
     get_juju_home,
@@ -576,6 +577,23 @@ class JujuData(SimpleEnvironment):
             if len(regions) > 0:
                 region = regions[0]
         data.set_region(region)
+        return data
+
+    @classmethod
+    def for_existing(cls, juju_data_dir, controller_name, model_name):
+        with open(get_bootstrap_config_path(juju_data_dir)) as f:
+            all_bootstrap = yaml.load(f)
+        ctrl_config = all_bootstrap['controllers'][controller_name]
+        config = ctrl_config['controller-config']
+        # config is expected to have a 1.x style of config, so mash up
+        # controller and model config.
+        config.update(ctrl_config['model-config'])
+        config['type'] = ctrl_config['type']
+        data = cls(
+            model_name, config, juju_data_dir, Controller(controller_name),
+            ctrl_config['cloud']
+            )
+        data.set_region(ctrl_config['region'])
         return data
 
     def dump_yaml(self, path, config):
