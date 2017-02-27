@@ -136,14 +136,19 @@ bootcmd:
 runcmd:
 - |-
   if [ -f %[1]s ]; then
+      echo "stopping all interfaces"
       ifdown -a
       sleep 1.5
       if ifup -a --interfaces=%[1]s; then
+          echo "ifup with %[1]s succeeded, renaming to %[2]s"
           cp %[2]s %[2]s-orig
           cp %[1]s %[2]s
       else
+          echo "ifup with %[1]s failed, leaving old %[2]s alone"
           ifup -a
       fi
+  else
+      echo "did not find %[1]s, not reconfiguring networking"
   fi
 `[1:]
 
@@ -169,14 +174,19 @@ bootcmd:
 runcmd:
 - |-
   if [ -f %[1]s ]; then
+      echo "stopping all interfaces"
       ifdown -a
       sleep 1.5
       if ifup -a --interfaces=%[1]s; then
+          echo "ifup with %[1]s succeeded, renaming to %[2]s"
           cp %[2]s %[2]s-orig
           cp %[1]s %[2]s
       else
+          echo "ifup with %[1]s failed, leaving old %[2]s alone"
           ifup -a
       fi
+  else
+      echo "did not find %[1]s, not reconfiguring networking"
   fi
 `[1:]
 
