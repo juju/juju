@@ -73,7 +73,7 @@ func (c *listRegionsCommand) Init(args []string) error {
 
 // Run implements Command.Run.
 func (c *listRegionsCommand) Run(ctxt *cmd.Context) error {
-	cloud, err := common.AnyCloudByName(c.cloudName)
+	cloud, err := common.CloudByName(c.cloudName)
 	if err != nil {
 		return errors.Trace(err)
 	}
