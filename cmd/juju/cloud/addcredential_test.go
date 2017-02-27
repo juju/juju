@@ -8,6 +8,7 @@ import (
 	"io"
 	"io/ioutil"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/juju/cmd"
@@ -92,16 +93,20 @@ func (s *addCredentialSuite) TestNoCredentialsRequired(c *gc.C) {
 }
 
 func (s *addCredentialSuite) createTestCredentialData(c *gc.C) string {
+	return s.createTestCredentialDataWithAuthType(c, "access-key")
+}
+
+func (s *addCredentialSuite) createTestCredentialDataWithAuthType(c *gc.C, authType string) string {
 	dir := c.MkDir()
 	credsFile := filepath.Join(dir, "cred.yaml")
-	data := `
+	data := fmt.Sprintf(`
 credentials:
   somecloud:
     me:
-      auth-type: access-key
+      auth-type: %v
       access-key: <key>
       secret-key: <secret>
-`[1:]
+`[1:], authType)
 	err := ioutil.WriteFile(credsFile, []byte(data), 0600)
 	c.Assert(err, jc.ErrorIsNil)
 	return credsFile
@@ -159,6 +164,14 @@ func (s *addCredentialSuite) TestAddNewFromFile(c *gc.C) {
 				})},
 		},
 	})
+}
+
+func (s *addCredentialSuite) TestAddInvalidAuth(c *gc.C) {
+	s.authTypes = []jujucloud.AuthType{jujucloud.AccessKeyAuthType}
+	sourceFile := s.createTestCredentialDataWithAuthType(c, "invalid auth")
+	_, err := s.run(c, nil, "somecloud", "-f", sourceFile)
+	c.Assert(err, gc.ErrorMatches,
+		regexp.QuoteMeta(`credential "me" contains invalid auth type "invalid auth", valid auth types for cloud "somecloud" are [access-key]`))
 }
 
 // TODO(wallyworld) - these tests should also validate that the prompts and messages are as expected.
