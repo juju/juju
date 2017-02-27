@@ -6,7 +6,6 @@ package cloud_test
 import (
 	"io/ioutil"
 	"path/filepath"
-	"regexp"
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -317,41 +316,4 @@ endpoint: qux
 		AuthTypes: []cloud.AuthType{"baz"},
 		Endpoint:  "qux",
 	})
-}
-
-func (s *cloudSuite) TestVerifyAuthTypesNoneSupplied(c *gc.C) {
-	c.Check(cloud.VerifyAuthTypes(nil), jc.ErrorIsNil)
-	c.Check(cloud.VerifyAuthTypes([]cloud.AuthType{}), jc.ErrorIsNil)
-}
-
-func (s *cloudSuite) TestVerifyAuthTypesOneInvalid(c *gc.C) {
-	c.Check(
-		cloud.VerifyAuthTypes([]cloud.AuthType{cloud.AccessKeyAuthType, "invalid"}),
-		gc.ErrorMatches,
-		regexp.QuoteMeta(`auth types ["invalid"]  not supported`),
-	)
-}
-
-func (s *cloudSuite) TestVerifyAuthTypesManyInvalid(c *gc.C) {
-	c.Check(
-		cloud.VerifyAuthTypes([]cloud.AuthType{cloud.AccessKeyAuthType, "invalid", "another", "one"}),
-		gc.ErrorMatches,
-		regexp.QuoteMeta(`auth types ["invalid" "another" "one"]  not supported`),
-	)
-}
-
-func (s *cloudSuite) TestVerifyAuthTypesOneValid(c *gc.C) {
-	c.Check(cloud.VerifyAuthTypes([]cloud.AuthType{cloud.AccessKeyAuthType}), jc.ErrorIsNil)
-}
-
-func (s *cloudSuite) TestVerifyAuthTypesAllSuppliedValid(c *gc.C) {
-	c.Check(cloud.VerifyAuthTypes([]cloud.AuthType{cloud.AccessKeyAuthType, cloud.CertificateAuthType}), jc.ErrorIsNil)
-}
-
-func (s *cloudSuite) TestVerifyAuthTypesEmptyInvalid(c *gc.C) {
-	c.Check(
-		cloud.VerifyAuthTypes([]cloud.AuthType{cloud.EmptyAuthType}),
-		gc.ErrorMatches,
-		regexp.QuoteMeta(`auth types ["empty"]  not supported`),
-	)
 }

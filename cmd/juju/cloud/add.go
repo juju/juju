@@ -140,8 +140,15 @@ func (c *AddCloudCommand) Run(ctxt *cmd.Context) error {
 	}
 
 	// validate cloud data
-	if err := cloud.VerifyAuthTypes(newCloud.AuthTypes); err != nil {
+	provider, err := environs.Provider(newCloud.Type)
+	if err != nil {
 		return errors.Trace(err)
+	}
+	schemas := provider.CredentialSchemas()
+	for _, authType := range newCloud.AuthTypes {
+		if _, defined := schemas[authType]; !defined {
+			return errors.NotSupportedf("auth type %q", authType)
+		}
 	}
 	if err := c.verifyName(c.Cloud); err != nil {
 		return errors.Trace(err)

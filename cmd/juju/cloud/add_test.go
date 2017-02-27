@@ -225,7 +225,7 @@ func (*addSuite) TestAddNewInvalidAuthType(c *gc.C) {
 	fake.Call("ParseCloudMetadataFile", "fake.yaml").Returns(fileClouds, nil)
 
 	_, err := testing.RunCommand(c, cloud.NewAddCloudCommand(fake), "fakecloud", "fake.yaml")
-	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta(`auth types ["user-pass"]  not supported`))
+	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta(`auth type "user-pass" not supported`))
 }
 
 func (*addSuite) TestInteractive(c *gc.C) {
