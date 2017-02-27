@@ -34,6 +34,7 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/jsoncodec"
+	"github.com/juju/juju/utils/proxy"
 )
 
 // PingPeriod defines how often the internal connection health check
@@ -381,7 +382,7 @@ func (st *state) connectStream(path string, attrs url.Values, extraHeaders http.
 	// in any case (lp:1644009). Review.
 
 	dialer := &websocket.Dialer{
-		Proxy:           http.ProxyFromEnvironment,
+		Proxy:           proxy.DefaultConfig.GetProxy,
 		TLSClientConfig: st.tlsConfig,
 		// In order to deal with the remote side not handling message
 		// fragmentation, we default to largeish frames.
@@ -566,7 +567,7 @@ func dialAPI(info *Info, opts DialOpts) (*dialResult, error) {
 	if opts.DialWebsocket == nil {
 		dialer := &websocketDialerAdapter{
 			&websocket.Dialer{
-				Proxy:           http.ProxyFromEnvironment,
+				Proxy:           proxy.DefaultConfig.GetProxy,
 				TLSClientConfig: tlsConfig,
 				// In order to deal with the remote side not handling message
 				// fragmentation, we default to largeish frames.
