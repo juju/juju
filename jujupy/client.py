@@ -240,7 +240,7 @@ class SimpleEnvironment:
     """Represents a model in a JUJU_HOME directory for juju 1."""
 
     def __init__(self, environment, config=None, juju_home=None,
-                 controller=None):
+                 controller=None, bootstrap_to=None):
         """Constructor.
 
         :param environment: Name of the environment.
@@ -255,6 +255,7 @@ class SimpleEnvironment:
         self.environment = environment
         self._config = config
         self.juju_home = juju_home
+        self.bootstrap_to = bootstrap_to
         if self._config is not None:
             try:
                 provider = self.provider
@@ -489,11 +490,10 @@ class JujuData(SimpleEnvironment):
         if juju_home is None:
             juju_home = get_juju_home()
         super(JujuData, self).__init__(environment, config, juju_home,
-                                       controller)
+                                       controller, bootstrap_to)
         self.credentials = {}
         self.clouds = {}
         self._cloud_name = cloud_name
-        self.bootstrap_to = bootstrap_to
 
     def clone(self, model_name=None):
         result = super(JujuData, self).clone(model_name)
