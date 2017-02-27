@@ -24,6 +24,7 @@ from mock import (
 import yaml
 
 from jujupy.configuration import (
+    get_bootstrap_config_path,
     get_environments_path,
     get_jenv_path,
     NoSuchEnvironment,
@@ -5190,6 +5191,37 @@ class TestJujuData(TestCase):
 
     def test_from_cloud_region_vsphere(self):
         self.from_cloud_region('vsphere', None)
+
+    def test_for_existing(self):
+        with temp_dir() as juju_home:
+            with open(get_bootstrap_config_path(juju_home), 'w') as f:
+                yaml.safe_dump({'controllers': {'foo': {
+                    'controller-config': {
+                        'ctrl1': 'ctrl2',
+                        'duplicated1': 'duplicated2',
+                        },
+                    'model-config': {
+                        'model1': 'model2',
+                        'type': 'provider2',
+                        'duplicated1': 'duplicated3',
+                        },
+                    'cloud': 'cloud1',
+                    'region': 'region1',
+                    'type': 'provider1',
+                    }}}, f)
+            data = JujuData.for_existing(juju_home, 'foo', 'bar')
+        self.assertEqual(data.get_cloud(), 'cloud1')
+        self.assertEqual(data.get_region(), 'region1')
+        self.assertEqual(data.provider, 'provider1')
+        self.assertEqual(data._config, {
+            'model1': 'model2',
+            'ctrl1': 'ctrl2',
+            'duplicated1': 'duplicated3',
+            'region': 'region1',
+            'type': 'provider1',
+            })
+        self.assertEqual(data.controller.name, 'foo')
+        self.assertEqual(data.environment, 'bar')
 
     def test_clone(self):
         orig = JujuData('foo', {'type': 'bar'}, 'myhome',

@@ -754,8 +754,7 @@ def client_for_existing(juju_path, juju_data_dir, debug=False,
                                            soft_deadline=soft_deadline)
     controller_name, user_name, model_name = backend.get_active_model(
         juju_data_dir)
-    config = client_class.config_class(
-        model_name, controller=Controller(controller_name),
-        juju_home=juju_data_dir)
+    config = client_class.config_class.for_existing(
+        juju_data_dir, controller_name, model_name)
     return client_class(config, version, full_path, debug=debug,
                         soft_deadline=soft_deadline, _backend=backend)

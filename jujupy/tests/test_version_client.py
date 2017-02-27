@@ -33,6 +33,7 @@ from jujupy import (
     )
 from jujupy.client import (
     CannotConnectEnv,
+    get_bootstrap_config_path,
     GroupReporter,
     StatusItem,
     StatusNotMet,
@@ -75,6 +76,7 @@ from tests import (
     )
 from jujupy.utility import (
     get_timeout_path,
+    temp_dir,
     )
 
 
@@ -230,9 +232,23 @@ class TestClientForExisting(ClientTest):
             client_class = get_client_class(backend.version)
             with patch.object(client_class, 'default_backend',
                               return_value=backend) as db_mock:
-                client = client_for_existing(backend.full_path, '/juju-data')
+                with temp_dir() as juju_data:
+                    with open(get_bootstrap_config_path(juju_data), 'w') as f:
+                        yaml.safe_dump({'controllers': {'ctrl1': {
+                            'controller-config': {
+                                },
+                            'model-config': {
+                                },
+                            'cloud': 'cloud1',
+                            'region': 'region1',
+                            'type': 'provider1',
+                            }}}, f)
+                    client = client_for_existing(backend.full_path, juju_data)
         self.assertEqual(client.model_name, 'model1')
         self.assertEqual(client.env.controller.name, 'ctrl1')
+        self.assertEqual(client.env.get_cloud(), 'cloud1')
+        self.assertEqual(client.env.get_region(), 'region1')
+        self.assertEqual(client.env.provider, 'provider1')
         gv_mock.assert_called_once_with(backend.full_path)
         db_mock.assert_called_once_with(backend.full_path, backend.version,
                                         set(), debug=False, soft_deadline=None)
