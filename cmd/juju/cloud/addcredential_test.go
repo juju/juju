@@ -174,6 +174,14 @@ func (s *addCredentialSuite) TestAddInvalidAuth(c *gc.C) {
 		regexp.QuoteMeta(`credential "me" contains invalid auth type "invalid auth", valid auth types for cloud "somecloud" are [access-key]`))
 }
 
+func (s *addCredentialSuite) TestAddCloudUnsupportedAuth(c *gc.C) {
+	s.authTypes = []jujucloud.AuthType{jujucloud.AccessKeyAuthType}
+	sourceFile := s.createTestCredentialDataWithAuthType(c, fmt.Sprintf("%v", jujucloud.JSONFileAuthType))
+	_, err := s.run(c, nil, "somecloud", "-f", sourceFile)
+	c.Assert(err, gc.ErrorMatches,
+		regexp.QuoteMeta(`credential "me" contains invalid auth type "jsonfile", valid auth types for cloud "somecloud" are [access-key]`))
+}
+
 // TODO(wallyworld) - these tests should also validate that the prompts and messages are as expected.
 
 func (s *addCredentialSuite) assertAddUserpassCredential(c *gc.C, input string, expected *jujucloud.Credential) {
