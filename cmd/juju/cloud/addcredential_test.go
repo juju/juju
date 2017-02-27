@@ -130,6 +130,7 @@ func (s *addCredentialSuite) TestAddFromFileExisting(c *gc.C) {
 }
 
 func (s *addCredentialSuite) TestAddFromFileExistingReplace(c *gc.C) {
+	s.authTypes = []jujucloud.AuthType{jujucloud.UserPassAuthType, jujucloud.AccessKeyAuthType}
 	s.store.Credentials = map[string]jujucloud.CloudCredential{
 		"somecloud": {
 			AuthCredentials: map[string]jujucloud.Credential{
@@ -152,6 +153,7 @@ func (s *addCredentialSuite) TestAddFromFileExistingReplace(c *gc.C) {
 }
 
 func (s *addCredentialSuite) TestAddNewFromFile(c *gc.C) {
+	s.authTypes = []jujucloud.AuthType{jujucloud.AccessKeyAuthType}
 	sourceFile := s.createTestCredentialData(c)
 	_, err := s.run(c, nil, "somecloud", "-f", sourceFile)
 	c.Assert(err, jc.ErrorIsNil)
