@@ -93,3 +93,27 @@ func BuiltInClouds() (map[string]jujucloud.Cloud, error) {
 	}
 	return allClouds, nil
 }
+
+// AnyCloudByName returns a cloud for given name
+// regardless of whether it's public, private or builtin cloud.
+// Since this method caters for builtin clouds, unlike cloud.CloudByName,
+// it should be used in cmd.
+func AnyCloudByName(cloudName string) (*jujucloud.Cloud, error) {
+	cloud, err := jujucloud.CloudByName(cloudName)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			// Check built in clouds like localhost (lxd).
+			builtinClouds, err := BuiltInClouds()
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			aCloud, found := builtinClouds[cloudName]
+			if !found {
+				return nil, errors.NotFoundf("cloud %s", cloudName)
+			}
+			return &aCloud, nil
+		}
+		return nil, errors.Trace(err)
+	}
+	return cloud, nil
+}
