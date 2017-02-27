@@ -1109,7 +1109,7 @@ def _deploy_job(args, charm_series, series):
         series, args.agent_url, args.agent_stream, args.region, args.logs,
         args.keep_env, permanent=jes_enabled, to=args.to,
         jes_enabled=jes_enabled, controller_strategy=controller_strategy)
-    with bs_manager.booted_context(args.upload_tools, to=args.to):
+    with bs_manager.booted_context(args.upload_tools):
         if args.with_chaos > 0:
             manager = background_chaos(args.temp_env_name, client,
                                        args.logs, args.with_chaos)
