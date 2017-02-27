@@ -25,11 +25,6 @@ func NewClient(st base.APICallCloser) *Client {
 	return &Client{ClientFacade: frontend, facade: backend}
 }
 
-// Close closes the api connection.
-func (c *Client) Close() error {
-	return c.ClientFacade.Close()
-}
-
 // ModelGet returns all model settings.
 func (c *Client) ModelGet() (map[string]interface{}, error) {
 	result := params.ModelConfigResults{}

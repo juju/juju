@@ -5,12 +5,10 @@ package remoterelations
 
 import (
 	"fmt"
-	"net"
 	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/utils/set"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
 
@@ -181,85 +179,6 @@ func (api *RemoteRelationsAPI) RelationUnitSettings(relationUnits params.Relatio
 			continue
 		}
 		results.Results[i].Settings = settings
-	}
-	return results, nil
-}
-
-// IngressSubnetsForRelation returns any CIDRs for which ingress is required to allow
-// the specified relations to properly function.
-func (api *RemoteRelationsAPI) IngressSubnetsForRelation(entities params.Entities) (params.IngressSubnetResults, error) {
-	results := params.IngressSubnetResults{
-		Results: make([]params.IngressSubnetResult, len(entities.Entities)),
-	}
-	one := func(relTag params.Entity) (*params.IngressSubnetInfo, error) {
-		// Load the relation details for the current tag.
-		remoteRelation, err := api.remoteRelation(relTag)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-
-		// Double check we have a source model - we should never hit this.
-		if remoteRelation.SourceModelUUID == "" {
-			return nil, errors.NotValidf("remote relation %v with empty source model UUID", remoteRelation)
-		}
-
-		var result params.IngressSubnetInfo
-		result.ApplicationName = remoteRelation.ApplicationName
-
-		// Until networking support becomes more sophisticated, for now
-		// we only care about opening access to applications with an endpoint
-		// having the "provider" role. The assumption is that such endpoints listen
-		// to incoming connections and thus require ingress. An exception to this
-		// would be applications which accept connections onto an endpoint which
-		// has a "requirer" role.
-		if remoteRelation.Endpoint.Role != charm.RoleProvider {
-			logger.Debugf(
-				"no ingress network for application %v without provides endpoint %v",
-				remoteRelation.ApplicationName, remoteRelation.Endpoint.Name)
-			return &result, nil
-		}
-
-		// Get the source model of the remote application so we can determine the
-		// required CIDRs for which we need to allow ingress to this model.
-		sourceSt, closer, err := api.pool.Get(remoteRelation.SourceModelUUID)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		defer closer()
-
-		// TODO(wallyworld) - as a first implementation, just get all CIDRs from the model
-		all, err := sourceSt.AllSubnets()
-		cidrs := set.NewStrings()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-
-		for _, subnet := range all {
-			ip, _, err := net.ParseCIDR(subnet.CIDR())
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			if ip.IsLoopback() || ip.IsMulticast() {
-				continue
-			}
-			// TODO(walluworld) - We only support IPv4 addresses as not all providers support IPv6.
-			if ip.To4() == nil {
-				continue
-			}
-			cidrs.Add(subnet.CIDR())
-		}
-		result.CIDRs = cidrs.SortedValues()
-		logger.Debugf("Ingress CIDRS for remote relation %v from model %v: %v", relTag, remoteRelation.SourceModelUUID, result.CIDRs)
-		return &result, nil
-	}
-
-	for i, entity := range entities.Entities {
-		networks, err := one(entity)
-		if err != nil {
-			results.Results[i].Error = common.ServerError(err)
-			continue
-		}
-		results.Results[i].Result = networks
 	}
 	return results, nil
 }

@@ -41,6 +41,20 @@ func (c *Client) WatchSubnets() (watcher.StringsWatcher, error) {
 	return w, nil
 }
 
-func (c *Client) Close() error {
-	return c.ClientFacade.Close()
+// IngressSubnetsForRelation returns any CIDRs for which ingress is required to allow
+// the specified relation to properly function.
+func (c *Client) IngressSubnetsForRelation(remoteRelationId params.RemoteEntityId) (*params.IngressSubnetInfo, error) {
+	args := params.RemoteEntities{[]params.RemoteEntityId{remoteRelationId}}
+	var results params.IngressSubnetResults
+	err := c.facade.FacadeCall("IngressSubnetsForRelations", args, &results)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if len(results.Results) != 1 {
+		return nil, errors.Errorf("expected %d result(s), got %d", 1, len(results.Results))
+	}
+	if err := results.Results[0].Error; err != nil {
+		return nil, err
+	}
+	return results.Results[0].Result, nil
 }

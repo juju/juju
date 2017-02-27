@@ -6,8 +6,10 @@ package firewaller
 import (
 	"io"
 	"strings"
+	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils/clock"
 	"github.com/juju/utils/featureflag"
 	"github.com/juju/utils/set"
 	"gopkg.in/juju/names.v2"
@@ -36,6 +38,7 @@ type FirewallerAPI interface {
 
 // RemoteFirewallerAPI exposes remote firewaller functionality to a worker.
 type RemoteFirewallerAPI interface {
+	IngressSubnetsForRelation(id params.RemoteEntityId) (*params.IngressSubnetInfo, error)
 	WatchSubnets() (watcher.StringsWatcher, error)
 }
 
@@ -68,6 +71,8 @@ type Config struct {
 	EnvironInstances   EnvironInstances
 
 	NewRemoteFirewallerAPIFunc func(modelUUID string) (RemoteFirewallerAPICloser, error)
+
+	Clock clock.Clock
 }
 
 // Validate returns an error if cfg cannot drive a Worker.
@@ -104,7 +109,6 @@ type Firewaller struct {
 	remoteRelationsApi *remoterelations.Client
 	environFirewaller  EnvironFirewaller
 	environInstances   EnvironInstances
-	networks           RemoteFirewallerAPI
 
 	machinesWatcher      watcher.StringsWatcher
 	portsWatcher         watcher.StringsWatcher
@@ -116,9 +120,12 @@ type Firewaller struct {
 	globalMode           bool
 	globalIngressRuleRef map[string]int // map of rule names to count of occurrences
 
-	remoteRelationsWatcher watcher.StringsWatcher
-	remoteRelationsChange  chan *remoteRelationData
-	applicationIngress     map[names.RelationTag]*remoteRelationData
+	modelUUID                  string
+	newRemoteFirewallerAPIFunc func(modelUUID string) (RemoteFirewallerAPICloser, error)
+	remoteRelationsWatcher     watcher.StringsWatcher
+	remoteRelationsChange      chan names.ApplicationTag
+	relationIngress            map[names.RelationTag]*remoteRelationData
+	pollClock                  clock.Clock
 }
 
 // NewFirewaller returns a new Firewaller.
@@ -126,18 +133,25 @@ func NewFirewaller(cfg Config) (worker.Worker, error) {
 	if err := cfg.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
+	clk := cfg.Clock
+	if clk == nil {
+		clk = clock.WallClock
+	}
 	fw := &Firewaller{
-		firewallerApi:         cfg.FirewallerAPI,
-		remoteRelationsApi:    cfg.RemoteRelationsApi,
-		environFirewaller:     cfg.EnvironFirewaller,
-		environInstances:      cfg.EnvironInstances,
-		machineds:             make(map[names.MachineTag]*machineData),
-		unitsChange:           make(chan *unitsChange),
-		unitds:                make(map[names.UnitTag]*unitData),
-		applicationids:        make(map[names.ApplicationTag]*applicationData),
-		applicationIngress:    make(map[names.RelationTag]*remoteRelationData),
-		remoteRelationsChange: make(chan *remoteRelationData, 1),
-		exposedChange:         make(chan *exposedChange),
+		firewallerApi:              cfg.FirewallerAPI,
+		remoteRelationsApi:         cfg.RemoteRelationsApi,
+		environFirewaller:          cfg.EnvironFirewaller,
+		environInstances:           cfg.EnvironInstances,
+		newRemoteFirewallerAPIFunc: cfg.NewRemoteFirewallerAPIFunc,
+		modelUUID:                  cfg.ModelUUID,
+		machineds:                  make(map[names.MachineTag]*machineData),
+		unitsChange:                make(chan *unitsChange),
+		unitds:                     make(map[names.UnitTag]*unitData),
+		applicationids:             make(map[names.ApplicationTag]*applicationData),
+		exposedChange:              make(chan *exposedChange),
+		relationIngress:            make(map[names.RelationTag]*remoteRelationData),
+		remoteRelationsChange:      make(chan names.ApplicationTag),
+		pollClock:                  clk,
 	}
 
 	switch cfg.Mode {
@@ -163,6 +177,10 @@ func NewFirewaller(cfg Config) (worker.Worker, error) {
 type stubWatcher struct {
 	watcher.StringsWatcher
 	changes watcher.StringsChannel
+}
+
+func (stubWatcher *stubWatcher) Stop() error {
+	return nil
 }
 
 func (stubWatcher *stubWatcher) Changes() watcher.StringsChannel {
@@ -257,18 +275,8 @@ func (fw *Firewaller) loop() error {
 				}
 			}
 		case change := <-fw.remoteRelationsChange:
-			logger.Debugf("process remote relation change for %v", change.localApplicationTag)
-			appData, ok := fw.applicationids[change.localApplicationTag]
-			if !ok {
-				logger.Debugf("ignoring deleted application: %v", change.localApplicationTag)
-				continue
-			}
-			unitds := []*unitData{}
-			for _, unitd := range appData.unitds {
-				unitds = append(unitds, unitd)
-			}
-			if err := fw.flushUnits(unitds); err != nil {
-				return errors.Annotate(err, "cannot change firewall ports")
+			if err := fw.remoteRelationChanged(change); err != nil {
+				return errors.Trace(err)
 			}
 		case change := <-fw.unitsChange:
 			if err := fw.unitsChanged(change); err != nil {
@@ -285,6 +293,23 @@ func (fw *Firewaller) loop() error {
 			}
 		}
 	}
+}
+
+func (fw *Firewaller) remoteRelationChanged(localApplicationTag names.ApplicationTag) error {
+	logger.Debugf("process remote relation change for local app %v", localApplicationTag)
+	appData, ok := fw.applicationids[localApplicationTag]
+	if !ok {
+		logger.Debugf("ignoring unknown application: %v", localApplicationTag)
+		return nil
+	}
+	unitds := []*unitData{}
+	for _, unitd := range appData.unitds {
+		unitds = append(unitds, unitd)
+	}
+	if err := fw.flushUnits(unitds); err != nil {
+		return errors.Annotate(err, "cannot change firewall ports")
+	}
+	return nil
 }
 
 // startMachine creates a new data value for tracking details of the
@@ -413,6 +438,8 @@ func (fw *Firewaller) startApplication(app *firewaller.Application) error {
 		exposed:     exposed,
 		unitds:      make(map[names.UnitTag]*unitData),
 	}
+	fw.applicationids[app.Tag()] = applicationd
+
 	err = catacomb.Invoke(catacomb.Plan{
 		Site: &applicationd.catacomb,
 		Work: func() error {
@@ -425,7 +452,6 @@ func (fw *Firewaller) startApplication(app *firewaller.Application) error {
 	if err := fw.catacomb.Add(applicationd); err != nil {
 		return errors.Trace(err)
 	}
-	fw.applicationids[app.Tag()] = applicationd
 	return nil
 }
 
@@ -682,13 +708,13 @@ func (fw *Firewaller) gatherIngressRules(machines ...*machineData) ([]network.In
 			// If the unit is exposed, allow access from everywhere.
 			if unitd.applicationd.exposed {
 				cidrs.Add("0.0.0.0/0")
+			} else {
+				// Not exposed, so add any ingress rules required by remote relations.
+				if err := fw.updateForRemoteRelationIngress(unitd.applicationd.application.Tag(), cidrs); err != nil {
+					return nil, errors.Trace(err)
+				}
+				logger.Debugf("CIDRS for %v: %v", unitTag, cidrs.Values())
 			}
-
-			// Add any ingress rules required by remote relations.
-			if err := fw.updateForRemoteRelationIngress(unitd.applicationd.application.Tag(), cidrs); err != nil {
-				return nil, errors.Trace(err)
-			}
-			logger.Debugf("CIDRS for %v: %v", unitTag, cidrs.Values())
 			if cidrs.Size() > 0 {
 				for portRange := range portRanges {
 					sourceCidrs := cidrs.SortedValues()
@@ -709,7 +735,7 @@ func (fw *Firewaller) updateForRemoteRelationIngress(appTag names.ApplicationTag
 	// Now create the rules for any remote relations of which the
 	// unit's application is a part.
 	appProcessed := false
-	for _, data := range fw.applicationIngress {
+	for _, data := range fw.relationIngress {
 		if data.localApplicationTag != appTag {
 			continue
 		}
@@ -974,29 +1000,29 @@ type applicationData struct {
 }
 
 // watchLoop watches the application's exposed flag for changes.
-func (sd *applicationData) watchLoop(exposed bool) error {
-	appWatcher, err := sd.application.Watch()
+func (ad *applicationData) watchLoop(exposed bool) error {
+	appWatcher, err := ad.application.Watch()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if err := sd.catacomb.Add(appWatcher); err != nil {
+	if err := ad.catacomb.Add(appWatcher); err != nil {
 		return errors.Trace(err)
 	}
 	for {
 		select {
-		case <-sd.catacomb.Dying():
-			return sd.catacomb.ErrDying()
+		case <-ad.catacomb.Dying():
+			return ad.catacomb.ErrDying()
 		case _, ok := <-appWatcher.Changes():
 			if !ok {
 				return errors.New("application watcher closed")
 			}
-			if err := sd.application.Refresh(); err != nil {
+			if err := ad.application.Refresh(); err != nil {
 				if !params.IsCodeNotFound(err) {
 					return errors.Trace(err)
 				}
 				return nil
 			}
-			change, err := sd.application.IsExposed()
+			change, err := ad.application.IsExposed()
 			if err != nil {
 				return errors.Trace(err)
 			}
@@ -1006,22 +1032,22 @@ func (sd *applicationData) watchLoop(exposed bool) error {
 
 			exposed = change
 			select {
-			case sd.fw.exposedChange <- &exposedChange{sd, change}:
-			case <-sd.catacomb.Dying():
-				return sd.catacomb.ErrDying()
+			case ad.fw.exposedChange <- &exposedChange{ad, change}:
+			case <-ad.catacomb.Dying():
+				return ad.catacomb.ErrDying()
 			}
 		}
 	}
 }
 
 // Kill is part of the worker.Worker interface.
-func (sd *applicationData) Kill() {
-	sd.catacomb.Kill(nil)
+func (ad *applicationData) Kill() {
+	ad.catacomb.Kill(nil)
 }
 
 // Wait is part of the worker.Worker interface.
-func (sd *applicationData) Wait() error {
-	return sd.catacomb.Wait()
+func (ad *applicationData) Wait() error {
+	return ad.catacomb.Wait()
 }
 
 // parsePortsKey parses a ports document global key coming from the ports
@@ -1100,61 +1126,234 @@ func diffRanges(currentRules, wantedRules []network.IngressRule) (toOpen, toClos
 	return toOpen, toClose
 }
 
+// relationLifeChanged manages the workers to process ingress changes for
+// the specified relation.
+func (fw *Firewaller) relationLifeChanged(tag names.RelationTag) error {
+	results, err := fw.remoteRelationsApi.Relations([]string{tag.Id()})
+	if err != nil {
+		return errors.Trace(err)
+	}
+	relErr := results[0].Error
+	notfound := relErr != nil && params.IsCodeNotFound(relErr)
+	if relErr != nil && !notfound {
+		return err
+	}
+
+	rel := results[0].Result
+	dead := notfound || rel.Life == params.Dead
+	data, known := fw.relationIngress[tag]
+	if known && dead {
+		logger.Debugf("relation was known but has died")
+		return fw.forgetRelation(data)
+	}
+	if !known && !dead {
+		err := fw.startRelation(rel)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 type remoteRelationData struct {
+	catacomb      catacomb.Catacomb
+	fw            *Firewaller
+	relationReady chan params.RemoteEntityId
+
+	tag                 names.RelationTag
 	localApplicationTag names.ApplicationTag
+	remoteRelationId    *params.RemoteEntityId
+	remoteModelUUID     string
 	networks            set.Strings
 }
 
-// relationLifeChanged looks up the required ingress CIDRs to allow
-// the specified relation to accept traffic from another model.
-// TODO(wallyworld) - listen for network changes as the networks may not be known
-// when the relation change is first noticed
-func (fw *Firewaller) relationLifeChanged(tag names.RelationTag) error {
-	rel, err := fw.firewallerApi.Relation(tag)
-	found := !params.IsCodeNotFound(err)
-	if found && err != nil {
-		return err
+// startRelation creates a new data value for tracking details of the
+// relation and starts watching the related models for subnets added or removed.
+func (fw *Firewaller) startRelation(rel *params.RemoteRelation) error {
+	tag := names.NewRelationTag(rel.Key)
+	data := &remoteRelationData{
+		fw:                  fw,
+		tag:                 tag,
+		remoteModelUUID:     rel.SourceModelUUID,
+		localApplicationTag: names.NewApplicationTag(rel.ApplicationName),
+		relationReady:       make(chan params.RemoteEntityId),
 	}
-	dead := !found || rel.Life() == params.Dead
+	fw.relationIngress[tag] = data
 
-	data, known := fw.applicationIngress[tag]
-	logger.Debugf("relation %v has existing data: %+v", tag, data)
+	err := catacomb.Invoke(catacomb.Plan{
+		Site: &data.catacomb,
+		Work: data.watchLoop,
+	})
+	if err != nil {
+		delete(fw.relationIngress, tag)
+		return errors.Trace(err)
+	}
 
-	change := false
-	if !known && dead {
-		return nil
+	// register the relationData with the firewaller's catacomb.
+	if err := fw.catacomb.Add(data); err != nil {
+		delete(fw.relationIngress, tag)
+		return errors.Trace(err)
 	}
-	if known && dead {
-		logger.Debugf("relation was known but has died")
-		delete(fw.applicationIngress, tag)
-		change = true
+
+	return fw.startRelationPoller(rel, data.relationReady)
+}
+
+// watchLoop watches the relation for networks added or removed.
+func (rd *remoteRelationData) watchLoop() error {
+	// TODO(wallyworld) - don't create one connection per relation
+	facade, err := rd.fw.newRemoteFirewallerAPIFunc(rd.remoteModelUUID)
+	if err != nil {
+		return errors.Trace(err)
 	}
-	if !known && !dead {
-		logger.Debugf("relation is new")
-		networks, err := fw.remoteRelationsApi.IngressSubnetsForRelation(tag.Id())
-		if err != nil {
+	defer facade.Close()
+
+	subnetsWatcher, err := facade.WatchSubnets()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	for {
+		select {
+		case <-rd.catacomb.Dying():
+			// We stop the watcher here as it is tied to the remote facade
+			// which is closed as soon as we return.
+			worker.Stop(subnetsWatcher)
+			return rd.catacomb.ErrDying()
+		case <-subnetsWatcher.Changes():
+			if rd.remoteRelationId == nil {
+				// relation not ready yet.
+				continue
+			}
+			logger.Debugf("subnets changed in model %v", rd.remoteModelUUID)
+		case remoteRelationId := <-rd.relationReady:
+			rd.remoteRelationId = &remoteRelationId
+			logger.Debugf("relation %v is ready", remoteRelationId)
+		}
+		if err := rd.updateNetworks(facade, *rd.remoteRelationId); err != nil {
 			return errors.Trace(err)
 		}
-		logger.Debugf("ingress networks: %+v", networks)
+	}
+}
 
-		data = &remoteRelationData{
-			localApplicationTag: names.NewApplicationTag(networks.ApplicationName),
-			networks:            set.NewStrings(networks.CIDRs...),
+// updateNetworks gathers the ingress CIDRs for the relation and notifies
+// that a change has occurred.
+func (rd *remoteRelationData) updateNetworks(facade RemoteFirewallerAPI, remoteRelationId params.RemoteEntityId) error {
+	networks, err := facade.IngressSubnetsForRelation(remoteRelationId)
+	if err != nil {
+		if params.IsCodeNotFound(err) || params.IsCodeNotSupported(err) {
+			return nil
 		}
-		fw.applicationIngress[tag] = data
-		change = true
+		return errors.Trace(err)
 	}
-	_, ok := fw.applicationids[data.localApplicationTag]
-	if !change || !ok {
-		logger.Debugf("exit early, no changes for local app: %v", data.localApplicationTag)
-		return nil
-	}
-	logger.Debugf("remote relations ingress changes for %v: %+v", data.localApplicationTag, data)
-
+	logger.Debugf("ingress networks for %v: %+v", remoteRelationId, networks)
+	rd.networks = set.NewStrings(networks.CIDRs...)
+	rd.fw.relationIngress[rd.tag] = rd
 	select {
-	case <-fw.catacomb.Dying():
-		return fw.catacomb.ErrDying()
-	case fw.remoteRelationsChange <- data:
+	case rd.fw.remoteRelationsChange <- rd.localApplicationTag:
+	case <-rd.catacomb.Dying():
+		return rd.catacomb.ErrDying()
 	}
 	return nil
+}
+
+// Kill is part of the worker.Worker interface.
+func (rd *remoteRelationData) Kill() {
+	rd.catacomb.Kill(nil)
+}
+
+// Wait is part of the worker.Worker interface.
+func (rd *remoteRelationData) Wait() error {
+	return rd.catacomb.Wait()
+}
+
+// forgetRelation cleans the relation data after the relation is removed.
+func (fw *Firewaller) forgetRelation(data *remoteRelationData) error {
+	logger.Debugf("forget relation %v", data.tag.Id())
+	delete(fw.relationIngress, data.tag)
+	if err := fw.remoteRelationChanged(data.localApplicationTag); err != nil {
+		return errors.Trace(err)
+	}
+
+	// TODO(wallyworld) - we need to unregister with the remote model
+
+	// Unusually, it's fine to ignore this error, because we know the relation data
+	// is being tracked in fw.catacomb. But we do still want to wait until the
+	// watch loop has stopped before we nuke the last data and return.
+	worker.Stop(data)
+	logger.Debugf("stopped watching %q", data.tag)
+	return nil
+}
+
+type remoteRelationPoller struct {
+	catacomb        catacomb.Catacomb
+	fw              *Firewaller
+	tag             names.RelationTag
+	remoteModelUUID string
+	relationReady   chan params.RemoteEntityId
+}
+
+// startRelationPoller creates a new worker which waits until a remote
+// relation is registered in both models.
+func (fw *Firewaller) startRelationPoller(rel *params.RemoteRelation, relationReady chan params.RemoteEntityId) error {
+	tag := names.NewRelationTag(rel.Key)
+	poller := &remoteRelationPoller{
+		fw:              fw,
+		tag:             tag,
+		relationReady:   relationReady,
+		remoteModelUUID: rel.SourceModelUUID,
+	}
+
+	err := catacomb.Invoke(catacomb.Plan{
+		Site: &poller.catacomb,
+		Work: poller.pollLoop,
+	})
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	// register poller with the firewaller's catacomb.
+	return fw.catacomb.Add(poller)
+}
+
+// pollLoop waits for a remote relation to be registered on both models.
+// It does this by waiting for the token to be created.
+func (p *remoteRelationPoller) pollLoop() error {
+	for {
+		select {
+		case <-p.catacomb.Dying():
+			return p.catacomb.ErrDying()
+		case <-p.fw.pollClock.After(3 * time.Second):
+			// TODO(wallyworld) - fix token generation to clean this up.
+			// Exported token may either be against the local or remote
+			// model UUID depending on which model the relation was created.
+			modelUUID := p.fw.modelUUID
+			token, err := p.fw.remoteRelationsApi.GetToken(modelUUID, p.tag)
+			if err != nil {
+				modelUUID = p.remoteModelUUID
+				token, err = p.fw.remoteRelationsApi.GetToken(modelUUID, p.tag)
+				if err != nil {
+					continue
+				}
+			}
+			// relation is ready.
+			logger.Debugf("poll token %v in model %v", token, modelUUID)
+			remoteRelationId := params.RemoteEntityId{ModelUUID: modelUUID, Token: token}
+			select {
+			case p.relationReady <- remoteRelationId:
+			case <-p.catacomb.Dying():
+				return p.catacomb.ErrDying()
+			}
+			return nil
+		}
+	}
+}
+
+// Kill is part of the worker.Worker interface.
+func (p *remoteRelationPoller) Kill() {
+	p.catacomb.Kill(nil)
+}
+
+// Wait is part of the worker.Worker interface.
+func (p *remoteRelationPoller) Wait() error {
+	return p.catacomb.Wait()
 }

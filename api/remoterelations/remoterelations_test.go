@@ -28,29 +28,6 @@ func (s *remoteRelationsSuite) TestNewClient(c *gc.C) {
 	c.Assert(client, gc.NotNil)
 }
 
-func (s *remoteRelationsSuite) TestIngressSubnetsForRelation(c *gc.C) {
-	var callCount int
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Check(objType, gc.Equals, "RemoteRelations")
-		c.Check(version, gc.Equals, 0)
-		c.Check(id, gc.Equals, "")
-		c.Check(request, gc.Equals, "IngressSubnetsForRelation")
-		c.Assert(arg, gc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "relation-db2.db#django.db"}}})
-		c.Assert(result, gc.FitsTypeOf, &params.IngressSubnetResults{})
-		*(result.(*params.IngressSubnetResults)) = params.IngressSubnetResults{
-			Results: []params.IngressSubnetResult{{
-				Error: &params.Error{Message: "FAIL"},
-			}},
-		}
-		callCount++
-		return nil
-	})
-	client := remoterelations.NewClient(apiCaller)
-	_, err := client.IngressSubnetsForRelation("db2:db django:db")
-	c.Check(err, gc.ErrorMatches, "FAIL")
-	c.Check(callCount, gc.Equals, 1)
-}
-
 func (s *remoteRelationsSuite) TestWatchRemoteApplications(c *gc.C) {
 	var callCount int
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
