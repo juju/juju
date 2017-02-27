@@ -5167,6 +5167,18 @@ class TestSimpleEnvironment(TestCase):
 
 class TestJujuData(TestCase):
 
+    def test_init(self):
+        controller = Mock()
+        with temp_dir() as juju_home:
+            juju_data = JujuData(
+                'foo', {'enable_os_upgrade': False},
+                juju_home=juju_home, controller=controller, cloud_name='bar',
+                bootstrap_to='zone=baz')
+            self.assertEqual(juju_home, juju_data.juju_home)
+            self.assertEqual('bar', juju_data._cloud_name)
+            self.assertIs(controller, juju_data.controller)
+            self.assertEqual('zone=baz', juju_data.bootstrap_to)
+
     def from_cloud_region(self, provider_type, region):
         with temp_dir() as juju_home:
             data_writer = JujuData('foo', {}, juju_home)

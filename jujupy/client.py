@@ -472,7 +472,7 @@ class JujuData(SimpleEnvironment):
     """Represents a model in a JUJU_DATA directory for juju 2."""
 
     def __init__(self, environment, config=None, juju_home=None,
-                 controller=None, cloud_name=None):
+                 controller=None, cloud_name=None, bootstrap_to=None):
         """Constructor.
 
         This extends SimpleEnvironment's constructor.
@@ -483,6 +483,8 @@ class JujuData(SimpleEnvironment):
             the home directory is autodetected.
         :param controller: Controller instance-- this model's controller.
             If not given or None, a new instance is created.
+        :param bootstrap_to: A placement directive to use when bootstrapping.
+            See Juju provider docs to examples of what Juju might expect.
         """
         if juju_home is None:
             juju_home = get_juju_home()
@@ -491,6 +493,7 @@ class JujuData(SimpleEnvironment):
         self.credentials = {}
         self.clouds = {}
         self._cloud_name = cloud_name
+        self.bootstrap_to = bootstrap_to
 
     def clone(self, model_name=None):
         result = super(JujuData, self).clone(model_name)
