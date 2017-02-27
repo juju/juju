@@ -68,8 +68,8 @@ func (s *InterfaceInfoSuite) TestAdditionalFields(c *gc.C) {
 	c.Check(s.info[7].AvailabilityZones, jc.DeepEquals, []string{"foo", "bar"})
 	c.Check(s.info[8].Routes, jc.DeepEquals, []network.Route{{
 		DestinationCIDR: "0.1.2.3/24",
-		GatewayIP: "0.1.2.1",
-		Metric: 0,
+		GatewayIP:       "0.1.2.1",
+		Metric:          0,
 	}})
 }
 
