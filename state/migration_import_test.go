@@ -1120,7 +1120,8 @@ func (s *MigrationImportSuite) TestPayloads(c *gc.C) {
 
 func (s *MigrationImportSuite) TestRemoteApplications(c *gc.C) {
 	// For now we want to prevent importing models that have remote
-	// applications.
+	// applications - cross-model relations don't support relations
+	// with the models in different controllers.
 	_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name:        "gravy-rainbow",
 		URL:         "local:/u/me/rainbow",
