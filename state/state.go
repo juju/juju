@@ -523,6 +523,18 @@ func (st *State) newDB() (Database, func()) {
 	return st.database.Copy()
 }
 
+// db returns the Database instance used by the State. It is part of
+// the modelBackend interface.
+func (st *State) db() Database {
+	return st.database
+}
+
+// txnLogWatcher returns the TxnLogWatcher for the State. It is part
+// of the modelBackend interface.
+func (st *State) txnLogWatcher() workers.TxnLogWatcher {
+	return st.workers.TxnLogWatcher()
+}
+
 // Ping probes the state's database connection to ensure
 // that it is still alive.
 func (st *State) Ping() error {
@@ -2172,4 +2184,22 @@ func (st *State) SetClockForTesting(clock clock.Clock) error {
 		return errors.Trace(err)
 	}
 	return nil
+}
+
+// getCollection delegates to the State's underlying Database.  It
+// returns the collection and a closer function for the session.
+//
+// TODO(mjs) - this should eventually go in favour of using using the
+// Database directly.
+func (st *State) getCollection(name string) (mongo.Collection, func()) {
+	return st.database.GetCollection(name)
+}
+
+// getCollectionFor delegates to the State's underlying Database.  It
+// returns the collection and a closer function for the session.
+//
+// TODO(mjs) - this should eventually go in favour of using using the
+// Database directly.
+func (st *State) getCollectionFor(modelUUID, name string) (mongo.Collection, func()) {
+	return st.database.GetCollectionFor(modelUUID, name)
 }

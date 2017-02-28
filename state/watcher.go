@@ -89,16 +89,18 @@ type RelationUnitsWatcher interface {
 // of the embedder (and also to restrict the width of the interface by
 // which they can access the rest of State, by storing st as a
 // modelBackend).
-func newCommonWatcher(st *State) commonWatcher {
+func newCommonWatcher(backend modelBackend) commonWatcher {
 	return commonWatcher{
-		st:      st,
-		watcher: st.workers.TxnLogWatcher(),
+		backend: backend,
+		db:      backend.db(),
+		watcher: backend.txnLogWatcher(),
 	}
 }
 
 // commonWatcher is part of all client watchers.
 type commonWatcher struct {
-	st      modelBackend
+	backend modelBackend
+	db      Database
 	watcher workers.TxnLogWatcher
 	tomb    tomb.Tomb
 }
@@ -496,7 +498,7 @@ func (w *lifecycleWatcher) initial() (set.Strings, error) {
 		if w.members == nil && w.filter != nil && !w.filter(doc.Id) {
 			continue
 		}
-		id := w.st.localID(doc.Id)
+		id := w.backend.localID(doc.Id)
 		ids.Add(id)
 		if doc.Life != Dead {
 			w.life[id] = doc.Life
@@ -518,7 +520,7 @@ func (w *lifecycleWatcher) merge(ids set.Strings, updates map[interface{}]bool) 
 			if exists {
 				changed = append(changed, docID)
 			} else {
-				latest[w.st.localID(docID)] = Dead
+				latest[w.backend.localID(docID)] = Dead
 			}
 		default:
 			return errors.Errorf("id is not of type string, got %T", docID)
@@ -532,7 +534,7 @@ func (w *lifecycleWatcher) merge(ids set.Strings, updates map[interface{}]bool) 
 	iter := coll.Find(bson.D{{"_id", bson.D{{"$in", changed}}}}).Select(lifeFields).Iter()
 	var doc lifeDoc
 	for iter.Next(&doc) {
-		latest[w.st.localID(doc.Id)] = doc.Life
+		latest[w.backend.localID(doc.Id)] = doc.Life
 	}
 	if err := iter.Close(); err != nil {
 		return err
@@ -647,7 +649,7 @@ func (st *State) WatchMinUnits() StringsWatcher {
 func (w *minUnitsWatcher) initial() (set.Strings, error) {
 	applicationnames := make(set.Strings)
 	var doc minUnitsDoc
-	newMinUnits, closer := w.st.getCollection(minUnitsC)
+	newMinUnits, closer := w.db.GetCollection(minUnitsC)
 	defer closer()
 
 	iter := newMinUnits.Find(nil).Iter()
@@ -659,14 +661,14 @@ func (w *minUnitsWatcher) initial() (set.Strings, error) {
 }
 
 func (w *minUnitsWatcher) merge(applicationnames set.Strings, change watcher.Change) error {
-	applicationname := w.st.localID(change.Id.(string))
+	applicationname := w.backend.localID(change.Id.(string))
 	if change.Revno == -1 {
 		delete(w.known, applicationname)
 		applicationnames.Remove(applicationname)
 		return nil
 	}
 	doc := minUnitsDoc{}
-	newMinUnits, closer := w.st.getCollection(minUnitsC)
+	newMinUnits, closer := w.db.GetCollection(minUnitsC)
 	defer closer()
 	if err := newMinUnits.FindId(change.Id).One(&doc); err != nil {
 		return err
@@ -681,7 +683,7 @@ func (w *minUnitsWatcher) merge(applicationnames set.Strings, change watcher.Cha
 
 func (w *minUnitsWatcher) loop() (err error) {
 	ch := make(chan watcher.Change)
-	w.watcher.WatchCollectionWithFilter(minUnitsC, ch, isLocalID(w.st))
+	w.watcher.WatchCollectionWithFilter(minUnitsC, ch, isLocalID(w.backend))
 	defer w.watcher.UnwatchCollection(minUnitsC, ch)
 	applicationnames, err := w.initial()
 	if err != nil {
@@ -804,7 +806,7 @@ func (w *RelationScopeWatcher) Changes() <-chan *RelationScopeChange {
 
 // initialInfo returns an uncommitted scopeInfo with the current set of units.
 func (w *RelationScopeWatcher) initialInfo() (info *scopeInfo, err error) {
-	relationScopes, closer := w.st.getCollection(relationScopesC)
+	relationScopes, closer := w.db.GetCollection(relationScopesC)
 	defer closer()
 
 	docs := []relationScopeDoc{}
@@ -832,7 +834,7 @@ func (w *RelationScopeWatcher) initialInfo() (info *scopeInfo, err error) {
 // document to be read, and whether it's treated as added or removed depends
 // on the value of the document's Departing field.
 func (w *RelationScopeWatcher) mergeChanges(info *scopeInfo, ids map[interface{}]bool) error {
-	relationScopes, closer := w.st.getCollection(relationScopesC)
+	relationScopes, closer := w.db.GetCollection(relationScopesC)
 	defer closer()
 
 	var existIds []string
@@ -842,7 +844,7 @@ func (w *RelationScopeWatcher) mergeChanges(info *scopeInfo, ids map[interface{}
 			if exists {
 				existIds = append(existIds, id)
 			} else {
-				key, err := w.st.strictLocalID(id)
+				key, err := w.backend.strictLocalID(id)
 				if err != nil {
 					return errors.Trace(err)
 				}
@@ -870,7 +872,7 @@ func (w *RelationScopeWatcher) mergeChanges(info *scopeInfo, ids map[interface{}
 
 func (w *RelationScopeWatcher) loop() error {
 	in := make(chan watcher.Change)
-	fullPrefix := w.st.docID(w.prefix)
+	fullPrefix := w.backend.docID(w.prefix)
 	filter := func(id interface{}) bool {
 		return strings.HasPrefix(id.(string), fullPrefix)
 	}
@@ -993,7 +995,7 @@ func (w *relationUnitsWatcher) mergeSettings(changes *params.RelationUnitsChange
 		TxnRevno int64 `bson:"txn-revno"`
 		Version  int64 `bson:"version"`
 	}
-	if err := readSettingsDocInto(w.st, settingsC, key, &doc); err != nil {
+	if err := readSettingsDocInto(w.backend, settingsC, key, &doc); err != nil {
 		return -1, err
 	}
 	setRelationUnitChangeVersion(changes, key, doc.Version)
@@ -1006,7 +1008,7 @@ func (w *relationUnitsWatcher) mergeSettings(changes *params.RelationUnitsChange
 func (w *relationUnitsWatcher) mergeScope(changes *params.RelationUnitsChange, c *RelationScopeChange) error {
 	for _, name := range c.Entered {
 		key := w.sw.prefix + name
-		docID := w.st.docID(key)
+		docID := w.backend.docID(key)
 		revno, err := w.mergeSettings(changes, key)
 		if err != nil {
 			return err
@@ -1017,7 +1019,7 @@ func (w *relationUnitsWatcher) mergeScope(changes *params.RelationUnitsChange, c
 	}
 	for _, name := range c.Left {
 		key := w.sw.prefix + name
-		docID := w.st.docID(key)
+		docID := w.backend.docID(key)
 		changes.Departed = append(changes.Departed, name)
 		if changes.Changed != nil {
 			delete(changes.Changed, name)
@@ -1177,7 +1179,7 @@ func (w *unitsWatcher) initial() ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	newUnits, closer := w.st.getCollection(unitsC)
+	newUnits, closer := w.db.GetCollection(unitsC)
 	defer closer()
 	query := bson.D{{"name", bson.D{{"$in", initialNames}}}}
 	docs := []lifeWatchDoc{}
@@ -1186,7 +1188,7 @@ func (w *unitsWatcher) initial() ([]string, error) {
 	}
 	changes := []string{}
 	for _, doc := range docs {
-		unitName, err := w.st.strictLocalID(doc.Id)
+		unitName, err := w.backend.strictLocalID(doc.Id)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -1222,7 +1224,7 @@ func (w *unitsWatcher) update(changes []string) ([]string, error) {
 			changes = append(changes, name)
 		}
 		delete(w.life, name)
-		w.watcher.Unwatch(unitsC, w.st.docID(name), w.in)
+		w.watcher.Unwatch(unitsC, w.backend.docID(name), w.in)
 	}
 	return changes, nil
 }
@@ -1230,10 +1232,10 @@ func (w *unitsWatcher) update(changes []string) ([]string, error) {
 // merge adds to and returns changes, such that it contains the supplied unit
 // name if that unit is unknown and non-Dead, or has changed lifecycle status.
 func (w *unitsWatcher) merge(changes []string, name string) ([]string, error) {
-	units, closer := w.st.getCollection(unitsC)
+	units, closer := w.db.GetCollection(unitsC)
 	defer closer()
 
-	unitDocID := w.st.docID(name)
+	unitDocID := w.backend.docID(name)
 	doc := lifeWatchDoc{}
 	err := units.FindId(unitDocID).Select(lifeWatchFields).One(&doc)
 	gone := false
@@ -1264,7 +1266,7 @@ func (w *unitsWatcher) merge(changes []string, name string) ([]string, error) {
 }
 
 func (w *unitsWatcher) loop(coll, id string) error {
-	collection, closer := w.st.getCollection(coll)
+	collection, closer := w.db.GetCollection(coll)
 	revno, err := getTxnRevno(collection, id)
 	closer()
 	if err != nil {
@@ -1275,14 +1277,14 @@ func (w *unitsWatcher) loop(coll, id string) error {
 	defer func() {
 		w.watcher.Unwatch(coll, id, w.in)
 		for name := range w.life {
-			w.watcher.Unwatch(unitsC, w.st.docID(name), w.in)
+			w.watcher.Unwatch(unitsC, w.backend.docID(name), w.in)
 		}
 	}()
 	changes, err := w.initial()
 	if err != nil {
 		return err
 	}
-	rootLocalID := w.st.localID(id)
+	rootLocalID := w.backend.localID(id)
 	out := w.out
 	for {
 		select {
@@ -1291,7 +1293,7 @@ func (w *unitsWatcher) loop(coll, id string) error {
 		case <-w.tomb.Dying():
 			return tomb.ErrDying
 		case c := <-w.in:
-			localID := w.st.localID(c.Id.(string))
+			localID := w.backend.localID(c.Id.(string))
 			if localID == rootLocalID {
 				changes, err = w.update(changes)
 			} else {
@@ -1487,7 +1489,7 @@ func getTxnRevno(coll mongo.Collection, id interface{}) (int64, error) {
 func (w *docWatcher) loop(docKeys []docKey) error {
 	in := make(chan watcher.Change)
 	for _, k := range docKeys {
-		coll, closer := w.st.getCollection(k.coll)
+		coll, closer := w.db.GetCollection(k.coll)
 		txnRevno, err := getTxnRevno(coll, k.docId)
 		closer()
 		if err != nil {
@@ -1578,7 +1580,7 @@ func (w *machineUnitsWatcher) updateMachine(pending []string) (new []string, err
 
 func (w *machineUnitsWatcher) merge(pending []string, unitName string) (new []string, err error) {
 	doc := unitDoc{}
-	newUnits, closer := w.st.getCollection(unitsC)
+	newUnits, closer := w.db.GetCollection(unitsC)
 	defer closer()
 	err = newUnits.FindId(unitName).One(&doc)
 	if err != nil && err != mgo.ErrNotFound {
@@ -1589,14 +1591,14 @@ func (w *machineUnitsWatcher) merge(pending []string, unitName string) (new []st
 		// Unit was removed or unassigned from w.machine.
 		if known {
 			delete(w.known, unitName)
-			w.watcher.Unwatch(unitsC, w.st.docID(unitName), w.in)
+			w.watcher.Unwatch(unitsC, w.backend.docID(unitName), w.in)
 			if life != Dead && !hasString(pending, unitName) {
 				pending = append(pending, unitName)
 			}
 			for _, subunitName := range doc.Subordinates {
 				if sublife, subknown := w.known[subunitName]; subknown {
 					delete(w.known, subunitName)
-					w.watcher.Unwatch(unitsC, w.st.docID(subunitName), w.in)
+					w.watcher.Unwatch(unitsC, w.backend.docID(subunitName), w.in)
 					if sublife != Dead && !hasString(pending, subunitName) {
 						pending = append(pending, subunitName)
 					}
@@ -1626,11 +1628,11 @@ func (w *machineUnitsWatcher) merge(pending []string, unitName string) (new []st
 func (w *machineUnitsWatcher) loop() error {
 	defer func() {
 		for unit := range w.known {
-			w.watcher.Unwatch(unitsC, w.st.docID(unit), w.in)
+			w.watcher.Unwatch(unitsC, w.backend.docID(unit), w.in)
 		}
 	}()
 
-	machines, closer := w.st.getCollection(machinesC)
+	machines, closer := w.db.GetCollection(machinesC)
 	revno, err := getTxnRevno(machines, w.machine.doc.DocID)
 	closer()
 	if err != nil {
@@ -1659,7 +1661,7 @@ func (w *machineUnitsWatcher) loop() error {
 				out = w.out
 			}
 		case c := <-w.in:
-			changes, err = w.merge(changes, w.st.localID(c.Id.(string)))
+			changes, err = w.merge(changes, w.backend.localID(c.Id.(string)))
 			if err != nil {
 				return err
 			}
@@ -1711,7 +1713,7 @@ func (w *machineAddressesWatcher) Changes() <-chan struct{} {
 }
 
 func (w *machineAddressesWatcher) loop() error {
-	machines, closer := w.st.getCollection(machinesC)
+	machines, closer := w.db.GetCollection(machinesC)
 	revno, err := getTxnRevno(machines, w.machine.doc.DocID)
 	closer()
 	if err != nil {
@@ -1801,7 +1803,7 @@ func (w *actionStatusWatcher) loop() error {
 		in      <-chan watcher.Change = w.source
 		out     chan<- []string       = w.sink
 	)
-	w.watcher.WatchCollectionWithFilter(actionsC, w.source, isLocalID(w.st))
+	w.watcher.WatchCollectionWithFilter(actionsC, w.source, isLocalID(w.backend))
 	defer w.watcher.UnwatchCollection(actionsC, w.source)
 
 	changes, err := w.initial()
@@ -1847,16 +1849,16 @@ func (w *actionStatusWatcher) initial() ([]string, error) {
 func (w *actionStatusWatcher) matchingIds(ids ...string) ([]string, error) {
 	watchLogger.Tracef("actionStatusWatcher matchingIds() ids:'%+v'", ids)
 
-	coll, closer := w.st.getCollection(actionsC)
+	coll, closer := w.db.GetCollection(actionsC)
 	defer closer()
 
-	idFilter := localIdInCollectionOp(w.st, ids...)
+	idFilter := localIdInCollectionOp(w.backend, ids...)
 	query := bson.D{{"$and", []bson.D{idFilter, w.receiverFilter, w.statusFilter}}}
 	iter := coll.Find(query).Iter()
 	var found []string
 	var doc actionDoc
 	for iter.Next(&doc) {
-		found = append(found, w.st.localID(doc.DocId))
+		found = append(found, w.backend.localID(doc.DocId))
 	}
 	watchLogger.Debugf("actionStatusWatcher matchingIds() ids:'%+v', found:'%+v'", ids, found)
 	return found, iter.Close()
@@ -1873,7 +1875,7 @@ func (w *actionStatusWatcher) filterAndMergeIds(changes *[]string, updates map[i
 	for id, exists := range updates {
 		switch id := id.(type) {
 		case string:
-			localId := w.st.localID(id)
+			localId := w.backend.localID(id)
 			chIx, idAlreadyInChangeset := indexOf(localId, *changes)
 			if exists {
 				if !idAlreadyInChangeset {
@@ -2087,14 +2089,14 @@ func (w *collectionWatcher) initial() ([]string, error) {
 	var doc struct {
 		DocId string `bson:"_id"`
 	}
-	coll, closer := w.st.getCollection(w.col)
+	coll, closer := w.db.GetCollection(w.col)
 	defer closer()
 	iter := coll.Find(nil).Iter()
 	for iter.Next(&doc) {
 		if w.filter == nil || w.filter(doc.DocId) {
 			id := doc.DocId
 			if !w.colWCfg.global {
-				id = w.st.localID(id)
+				id = w.backend.localID(id)
 			}
 			if w.idconv != nil {
 				id = w.idconv(id)
@@ -2114,7 +2116,7 @@ func (w *collectionWatcher) initial() ([]string, error) {
 // Additionally, mergeIds strips the model UUID prefix from the id
 // before emitting it through the watcher.
 func (w *collectionWatcher) mergeIds(changes *[]string, updates map[interface{}]bool) error {
-	return mergeIds(w.st, changes, updates, w.convertId)
+	return mergeIds(w.backend, changes, updates, w.convertId)
 }
 
 func (w *collectionWatcher) convertId(id string) (string, error) {
@@ -2122,7 +2124,7 @@ func (w *collectionWatcher) convertId(id string) (string, error) {
 		// Strip off the env UUID prefix.
 		// We only expect ids for a single model.
 		var err error
-		id, err = w.st.strictLocalID(id)
+		id, err = w.backend.strictLocalID(id)
 		if err != nil {
 			return "", errors.Trace(err)
 		}
@@ -2304,14 +2306,14 @@ func (w *openedPortsWatcher) transformID(globalKey string) (string, error) {
 }
 
 func (w *openedPortsWatcher) initial() (set.Strings, error) {
-	ports, closer := w.st.getCollection(openedPortsC)
+	ports, closer := w.db.GetCollection(openedPortsC)
 	defer closer()
 
 	portDocs := set.NewStrings()
 	var doc portsDoc
 	iter := ports.Find(nil).Select(bson.D{{"_id", 1}, {"txn-revno", 1}}).Iter()
 	for iter.Next(&doc) {
-		id, err := w.st.strictLocalID(doc.DocID)
+		id, err := w.backend.strictLocalID(doc.DocID)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -2333,7 +2335,7 @@ func (w *openedPortsWatcher) loop() error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	w.watcher.WatchCollectionWithFilter(openedPortsC, in, isLocalID(w.st))
+	w.watcher.WatchCollectionWithFilter(openedPortsC, in, isLocalID(w.backend))
 	defer w.watcher.UnwatchCollection(openedPortsC, in)
 
 	out := w.out
@@ -2362,7 +2364,7 @@ func (w *openedPortsWatcher) merge(ids set.Strings, change watcher.Change) error
 	if !ok {
 		return errors.Errorf("id %v is not of type string, got %T", id, id)
 	}
-	localID, err := w.st.strictLocalID(id)
+	localID, err := w.backend.strictLocalID(id)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -2376,7 +2378,7 @@ func (w *openedPortsWatcher) merge(ids set.Strings, change watcher.Change) error
 		}
 		return nil
 	}
-	openedPorts, closer := w.st.getCollection(openedPortsC)
+	openedPorts, closer := w.db.GetCollection(openedPortsC)
 	currentRevno, err := getTxnRevno(openedPorts, id)
 	closer()
 	if err != nil {
@@ -2445,8 +2447,8 @@ func (w *blockDevicesWatcher) Changes() <-chan struct{} {
 }
 
 func (w *blockDevicesWatcher) loop() error {
-	docID := w.st.docID(w.machineId)
-	coll, closer := w.st.getCollection(blockDevicesC)
+	docID := w.backend.docID(w.machineId)
+	coll, closer := w.db.GetCollection(blockDevicesC)
 	revno, err := getTxnRevno(coll, docID)
 	closer()
 	if err != nil {
@@ -2455,7 +2457,7 @@ func (w *blockDevicesWatcher) loop() error {
 	changes := make(chan watcher.Change)
 	w.watcher.Watch(blockDevicesC, docID, revno, changes)
 	defer w.watcher.Unwatch(blockDevicesC, docID, changes)
-	blockDevices, err := getBlockDevices(w.st, w.machineId)
+	blockDevices, err := getBlockDevices(w.db, w.machineId)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -2467,7 +2469,7 @@ func (w *blockDevicesWatcher) loop() error {
 		case <-w.tomb.Dying():
 			return tomb.ErrDying
 		case <-changes:
-			newBlockDevices, err := getBlockDevices(w.st, w.machineId)
+			newBlockDevices, err := getBlockDevices(w.db, w.machineId)
 			if err != nil {
 				return errors.Trace(err)
 			}
@@ -2516,7 +2518,7 @@ func (w *migrationActiveWatcher) Changes() <-chan struct{} {
 }
 
 func (w *migrationActiveWatcher) loop() error {
-	collection, closer := w.st.getCollection(w.collName)
+	collection, closer := w.db.GetCollection(w.collName)
 	revno, err := getTxnRevno(collection, w.id)
 	closer()
 	if err != nil {
@@ -2663,7 +2665,7 @@ func (w *offeredApplicationsWatcher) initial() (set.Strings, error) {
 		ApplicationURL string `bson:"application-url"`
 		TxnRevno       int64  `bson:"txn-revno"`
 	}
-	offeredCollection, closer := w.st.getCollection(applicationOffersC)
+	offeredCollection, closer := w.db.GetCollection(applicationOffersC)
 	defer closer()
 
 	iter := offeredCollection.Find(nil).Iter()
@@ -2675,7 +2677,7 @@ func (w *offeredApplicationsWatcher) initial() (set.Strings, error) {
 }
 
 func (w *offeredApplicationsWatcher) merge(applicationURLs set.Strings, change watcher.Change) error {
-	applicationURL := w.st.localID(change.Id.(string))
+	applicationURL := w.backend.localID(change.Id.(string))
 	if change.Revno == -1 {
 		delete(w.known, applicationURL)
 		applicationURLs.Remove(applicationURL)
@@ -2684,7 +2686,7 @@ func (w *offeredApplicationsWatcher) merge(applicationURLs set.Strings, change w
 	var revnoDoc struct {
 		TxnRevno int64 `bson:"txn-revno"`
 	}
-	offeredCollection, closer := w.st.getCollection(applicationOffersC)
+	offeredCollection, closer := w.db.GetCollection(applicationOffersC)
 	defer closer()
 	if err := offeredCollection.FindId(change.Id).One(&revnoDoc); err != nil {
 		return err
@@ -2699,7 +2701,7 @@ func (w *offeredApplicationsWatcher) merge(applicationURLs set.Strings, change w
 
 func (w *offeredApplicationsWatcher) loop() (err error) {
 	ch := make(chan watcher.Change)
-	w.watcher.WatchCollectionWithFilter(applicationOffersC, ch, isLocalID(w.st))
+	w.watcher.WatchCollectionWithFilter(applicationOffersC, ch, isLocalID(w.backend))
 	defer w.watcher.UnwatchCollection(applicationOffersC, ch)
 	offers, err := w.initial()
 	if err != nil {
@@ -2747,7 +2749,7 @@ func (st *State) WatchRemoteRelations() StringsWatcher {
 		}
 
 		// Gather the remote app names.
-		remoteApps, closer := st.getCollection(remoteApplicationsC)
+		remoteApps, closer := st.db().GetCollection(remoteApplicationsC)
 		defer closer()
 
 		type remoteAppDoc struct {
@@ -2766,7 +2768,7 @@ func (st *State) WatchRemoteRelations() StringsWatcher {
 		}
 
 		// Run a query to pickup any relations to those remote apps.
-		relations, closer := st.getCollection(relationsC)
+		relations, closer := st.db().GetCollection(relationsC)
 		defer closer()
 
 		query := bson.D{
@@ -2794,4 +2796,17 @@ func (st *State) WatchRemoteRelations() StringsWatcher {
 // the lifecycles of the subnets in the model.
 func (st *State) WatchSubnets() StringsWatcher {
 	return newLifecycleWatcher(st, subnetsC, nil, isLocalID(st), nil)
+}
+
+// isLocalID returns a watcher filter func that rejects ids not specific
+// to the supplied modelBackend.
+func isLocalID(st modelBackend) func(interface{}) bool {
+	return func(id interface{}) bool {
+		key, ok := id.(string)
+		if !ok {
+			return false
+		}
+		_, err := st.strictLocalID(key)
+		return err == nil
+	}
 }

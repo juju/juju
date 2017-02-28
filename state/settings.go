@@ -292,7 +292,7 @@ func readSettingsDoc(st modelBackend, collection, key string) (*settingsDoc, err
 // readSettingsDocInto reads the settings doc with the given key
 // into the provided output structure.
 func readSettingsDocInto(st modelBackend, collection, key string, out interface{}) error {
-	settings, closer := st.getCollection(collection)
+	settings, closer := st.db().GetCollection(collection)
 	defer closer()
 
 	err := settings.FindId(key).One(out)
