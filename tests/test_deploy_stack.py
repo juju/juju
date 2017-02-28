@@ -1131,8 +1131,7 @@ class TestDeployJob(FakeHomeTestCase):
             series='trusty', debug=False, agent_url=None, agent_stream=None,
             keep_env=False, upload_tools=False, with_chaos=0, jes=False,
             region='region-foo', verbose=False, upgrade=False, deadline=None,
-            controller_host=None, use_charmstore=False, to=None
-        )
+            controller_host=None, use_charmstore=False, to=None)
         with self.ds_cxt() as (client, bm_mock):
             with patch('deploy_stack.assess_juju_relations',
                        autospec=True):
@@ -1145,7 +1144,7 @@ class TestDeployJob(FakeHomeTestCase):
         bm_mock.assert_called_once_with(
             'foo', client, client, None, None, 'trusty', None, None,
             'region-foo', 'log', False,
-            permanent=jes, jes_enabled=jes, to=None,
+            permanent=jes, jes_enabled=jes,
             controller_strategy=mcs_mock.return_value)
 
     def test_deploy_job_changes_series_with_win(self):
@@ -1553,8 +1552,7 @@ class TestBootstrapManager(FakeHomeTestCase):
                 jes_enabled=True, permanent=False,
                 temp_env_name=None, client=None, tear_down_client=None,
                 bootstrap_host=None, machines=[], series=None, agent_url=None,
-                agent_stream=None, region=None, log_dir=None, keep_env=None,
-                to=None)
+                agent_stream=None, region=None, log_dir=None, keep_env=None)
 
     def test_from_args_no_host(self):
         args = Namespace(

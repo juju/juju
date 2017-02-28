@@ -630,7 +630,7 @@ class BootstrapManager:
 
     def __init__(self, temp_env_name, client, tear_down_client, bootstrap_host,
                  machines, series, agent_url, agent_stream, region, log_dir,
-                 keep_env, permanent, jes_enabled, to=None,
+                 keep_env, permanent, jes_enabled,
                  controller_strategy=None, logged_exception_exit=True):
         """Constructor.
 
@@ -643,7 +643,6 @@ class BootstrapManager:
         self.agent_url = agent_url
         self.agent_stream = agent_stream
         self.region = region
-        self.to = to
         self.log_dir = log_dir
         self.keep_env = keep_env
         if jes_enabled and not permanent:
@@ -751,7 +750,7 @@ class BootstrapManager:
             args.temp_env_name, client, client, args.bootstrap_host,
             args.machine, args.series, args.agent_url, args.agent_stream,
             args.region, args.logs, args.keep_env,
-            permanent=jes_enabled, jes_enabled=jes_enabled, to=args.to)
+            permanent=jes_enabled, jes_enabled=jes_enabled)
 
     @contextmanager
     def maas_machines(self):
@@ -1110,7 +1109,7 @@ def _deploy_job(args, charm_series, series):
     bs_manager = BootstrapManager(
         args.temp_env_name, client, client, args.bootstrap_host, args.machine,
         series, args.agent_url, args.agent_stream, args.region, args.logs,
-        args.keep_env, permanent=jes_enabled, to=args.to,
+        args.keep_env, permanent=jes_enabled,
         jes_enabled=jes_enabled, controller_strategy=controller_strategy)
     with bs_manager.booted_context(args.upload_tools):
         if args.with_chaos > 0:
