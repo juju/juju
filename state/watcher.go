@@ -193,9 +193,9 @@ type lifecycleWatcher struct {
 	life map[string]Life
 }
 
-func collFactory(st *State, collName string) func() (mongo.Collection, func()) {
+func collFactory(db Database, collName string) func() (mongo.Collection, func()) {
 	return func() (mongo.Collection, func()) {
-		return st.getCollection(collName)
+		return db.GetCollection(collName)
 	}
 }
 
@@ -204,7 +204,7 @@ func collFactory(st *State, collName string) func() (mongo.Collection, func()) {
 // model has gone away - it's based on a collectionWatcher which omits
 // these events.
 func (st *State) WatchModels() StringsWatcher {
-	return newcollectionWatcher(st, colWCfg{
+	return newCollectionWatcher(st, colWCfg{
 		col:    modelsC,
 		global: true,
 	})
@@ -387,11 +387,11 @@ func (s *RemoteApplication) WatchRelations() StringsWatcher {
 	return watchApplicationRelations(s.st, s.doc.Name)
 }
 
-func watchApplicationRelations(st *State, applicationName string) StringsWatcher {
+func watchApplicationRelations(backend modelBackend, applicationName string) StringsWatcher {
 	prefix := applicationName + ":"
 	infix := " " + prefix
 	filter := func(id interface{}) bool {
-		k, err := st.strictLocalID(id.(string))
+		k, err := backend.strictLocalID(id.(string))
 		if err != nil {
 			return false
 		}
@@ -400,7 +400,7 @@ func watchApplicationRelations(st *State, applicationName string) StringsWatcher
 	}
 
 	members := bson.D{{"endpoints.applicationname", applicationName}}
-	return newLifecycleWatcher(st, relationsC, members, filter, nil)
+	return newLifecycleWatcher(backend, relationsC, members, filter, nil)
 }
 
 // WatchModelMachines returns a StringsWatcher that notifies of changes to
@@ -449,15 +449,15 @@ func (m *Machine) containersWatcher(isChildRegexp string) StringsWatcher {
 }
 
 func newLifecycleWatcher(
-	st *State,
+	backend modelBackend,
 	collName string,
 	members bson.D,
 	filter func(key interface{}) bool,
 	transform func(id string) string,
 ) StringsWatcher {
 	w := &lifecycleWatcher{
-		commonWatcher: newCommonWatcher(st),
-		coll:          collFactory(st, collName),
+		commonWatcher: newCommonWatcher(backend),
+		coll:          collFactory(backend.db(), collName),
 		collName:      collName,
 		members:       members,
 		filter:        filter,
@@ -627,9 +627,9 @@ type minUnitsWatcher struct {
 
 var _ Watcher = (*minUnitsWatcher)(nil)
 
-func newMinUnitsWatcher(st *State) StringsWatcher {
+func newMinUnitsWatcher(backend modelBackend) StringsWatcher {
 	w := &minUnitsWatcher{
-		commonWatcher: newCommonWatcher(st),
+		commonWatcher: newCommonWatcher(backend),
 		known:         make(map[string]int),
 		out:           make(chan []string),
 	}
@@ -782,9 +782,9 @@ type RelationScopeWatcher struct {
 	out    chan *RelationScopeChange
 }
 
-func newRelationScopeWatcher(st *State, scope, ignore string) *RelationScopeWatcher {
+func newRelationScopeWatcher(backend modelBackend, scope, ignore string) *RelationScopeWatcher {
 	w := &RelationScopeWatcher{
-		commonWatcher: newCommonWatcher(st),
+		commonWatcher: newCommonWatcher(backend),
 		prefix:        scope + "#",
 		ignore:        ignore,
 		out:           make(chan *RelationScopeChange),
@@ -951,9 +951,9 @@ func (r *Relation) watchUnits(applicationName string, counterpart bool) (Relatio
 	return newRelationUnitsWatcher(r.st, rsw), nil
 }
 
-func newRelationUnitsWatcher(st *State, sw *RelationScopeWatcher) RelationUnitsWatcher {
+func newRelationUnitsWatcher(backend modelBackend, sw *RelationScopeWatcher) RelationUnitsWatcher {
 	w := &relationUnitsWatcher{
-		commonWatcher: newCommonWatcher(st),
+		commonWatcher: newCommonWatcher(backend),
 		sw:            sw,
 		watching:      make(set.Strings),
 		updates:       make(chan watcher.Change),
@@ -1135,9 +1135,9 @@ func (m *Machine) WatchPrincipalUnits() StringsWatcher {
 	return newUnitsWatcher(m.st, m.Tag(), getUnits, coll, m.doc.DocID)
 }
 
-func newUnitsWatcher(st *State, tag names.Tag, getUnits func() ([]string, error), coll, id string) StringsWatcher {
+func newUnitsWatcher(backend modelBackend, tag names.Tag, getUnits func() ([]string, error), coll, id string) StringsWatcher {
 	w := &unitsWatcher{
-		commonWatcher: newCommonWatcher(st),
+		commonWatcher: newCommonWatcher(backend),
 		tag:           tag.String(),
 		getUnits:      getUnits,
 		life:          map[string]Life{},
@@ -1370,7 +1370,7 @@ func (st *State) WatchForModelConfigChanges() NotifyWatcher {
 // WatchForUnitAssignment watches for new services that request units to be
 // assigned to machines.
 func (st *State) WatchForUnitAssignment() StringsWatcher {
-	return newcollectionWatcher(st, colWCfg{col: assignUnitC})
+	return newCollectionWatcher(st, colWCfg{col: assignUnitC})
 }
 
 // WatchAPIHostPorts returns a NotifyWatcher that notifies
@@ -1428,8 +1428,8 @@ func (u *Unit) WatchMeterStatus() NotifyWatcher {
 	})
 }
 
-func newEntityWatcher(st *State, collName string, key interface{}) NotifyWatcher {
-	return newDocWatcher(st, []docKey{{collName, key}})
+func newEntityWatcher(backend modelBackend, collName string, key interface{}) NotifyWatcher {
+	return newDocWatcher(backend, []docKey{{collName, key}})
 }
 
 // docWatcher watches for changes in 1 or more mongo documents
@@ -1451,9 +1451,9 @@ type docKey struct {
 
 // newDocWatcher returns a new docWatcher.
 // docKeys identifies the documents that should be watched (their id and which collection they are in)
-func newDocWatcher(st *State, docKeys []docKey) NotifyWatcher {
+func newDocWatcher(backend modelBackend, docKeys []docKey) NotifyWatcher {
 	w := &docWatcher{
-		commonWatcher: newCommonWatcher(st),
+		commonWatcher: newCommonWatcher(backend),
 		out:           make(chan struct{}),
 	}
 	go func() {
@@ -1766,10 +1766,10 @@ var _ StringsWatcher = (*actionStatusWatcher)(nil)
 // newActionStatusWatcher returns the StringsWatcher that will notify
 // on changes to Actions with the given ActionReceiver and ActionStatus
 // filters.
-func newActionStatusWatcher(st *State, receivers []ActionReceiver, statusSet ...ActionStatus) StringsWatcher {
+func newActionStatusWatcher(backend modelBackend, receivers []ActionReceiver, statusSet ...ActionStatus) StringsWatcher {
 	watchLogger.Debugf("newActionStatusWatcher receivers:'%+v', statuses'%+v'", receivers, statusSet)
 	w := &actionStatusWatcher{
-		commonWatcher:  newCommonWatcher(st),
+		commonWatcher:  newCommonWatcher(backend),
 		source:         make(chan watcher.Change),
 		sink:           make(chan []string),
 		receiverFilter: actionReceiverInCollectionOp(receivers...),
@@ -1965,9 +1965,9 @@ type colWCfg struct {
 	global bool
 }
 
-// newcollectionWatcher starts and returns a new StringsWatcher configured
+// newCollectionWatcher starts and returns a new StringsWatcher configured
 // with the given collection and filter function
-func newcollectionWatcher(st *State, cfg colWCfg) StringsWatcher {
+func newCollectionWatcher(backend modelBackend, cfg colWCfg) StringsWatcher {
 	if cfg.global {
 		if cfg.filter == nil {
 			cfg.filter = func(x interface{}) bool {
@@ -1977,7 +1977,7 @@ func newcollectionWatcher(st *State, cfg colWCfg) StringsWatcher {
 	} else {
 		// Always ensure that there is at least filtering on the
 		// model in place.
-		backstop := isLocalID(st)
+		backstop := isLocalID(backend)
 		if cfg.filter == nil {
 			cfg.filter = backstop
 		} else {
@@ -1993,7 +1993,7 @@ func newcollectionWatcher(st *State, cfg colWCfg) StringsWatcher {
 
 	w := &collectionWatcher{
 		colWCfg:       cfg,
-		commonWatcher: newCommonWatcher(st),
+		commonWatcher: newCommonWatcher(backend),
 		source:        make(chan watcher.Change),
 		sink:          make(chan []string),
 	}
@@ -2057,14 +2057,14 @@ func (w *collectionWatcher) loop() error {
 // makeIdFilter constructs a predicate to filter keys that have the
 // prefix matching one of the passed in ActionReceivers, or returns nil
 // if tags is empty
-func makeIdFilter(st *State, marker string, receivers ...ActionReceiver) func(interface{}) bool {
+func makeIdFilter(backend modelBackend, marker string, receivers ...ActionReceiver) func(interface{}) bool {
 	if len(receivers) == 0 {
 		return nil
 	}
 	ensureMarkerFn := ensureSuffixFn(marker)
 	prefixes := make([]string, len(receivers))
 	for ix, receiver := range receivers {
-		prefixes[ix] = st.docID(ensureMarkerFn(receiver.Tag().Id()))
+		prefixes[ix] = backend.docID(ensureMarkerFn(receiver.Tag().Id()))
 	}
 
 	return func(key interface{}) bool {
@@ -2194,7 +2194,7 @@ func ensureSuffixFn(marker string) func(string) string {
 // that notifies on new Actions being enqueued on the ActionRecevers
 // being watched.
 func (st *State) watchEnqueuedActionsFilteredBy(receivers ...ActionReceiver) StringsWatcher {
-	return newcollectionWatcher(st, colWCfg{
+	return newCollectionWatcher(st, colWCfg{
 		col:    actionNotificationsC,
 		filter: makeIdFilter(st, actionMarker, receivers...),
 		idconv: actionNotificationIdToActionId,
@@ -2205,7 +2205,7 @@ func (st *State) watchEnqueuedActionsFilteredBy(receivers ...ActionReceiver) Str
 // notifies when the status of a controller machine changes.
 // TODO(cherylj) Add unit tests for this, as per bug 1543408.
 func (st *State) WatchControllerStatusChanges() StringsWatcher {
-	return newcollectionWatcher(st, colWCfg{
+	return newCollectionWatcher(st, colWCfg{
 		col:    statusesC,
 		filter: makeControllerIdFilter(st),
 	})
@@ -2273,9 +2273,9 @@ func (st *State) WatchOpenedPorts() StringsWatcher {
 	return newOpenedPortsWatcher(st)
 }
 
-func newOpenedPortsWatcher(st *State) StringsWatcher {
+func newOpenedPortsWatcher(backend modelBackend) StringsWatcher {
 	w := &openedPortsWatcher{
-		commonWatcher: newCommonWatcher(st),
+		commonWatcher: newCommonWatcher(backend),
 		known:         make(map[string]int64),
 		out:           make(chan []string),
 	}
@@ -2427,9 +2427,9 @@ type blockDevicesWatcher struct {
 
 var _ NotifyWatcher = (*blockDevicesWatcher)(nil)
 
-func newBlockDevicesWatcher(st *State, machineId string) NotifyWatcher {
+func newBlockDevicesWatcher(backend modelBackend, machineId string) NotifyWatcher {
 	w := &blockDevicesWatcher{
-		commonWatcher: newCommonWatcher(st),
+		commonWatcher: newCommonWatcher(backend),
 		machineId:     machineId,
 		out:           make(chan struct{}),
 	}
@@ -2585,9 +2585,9 @@ type notifyCollWatcher struct {
 	sink     chan struct{}
 }
 
-func newNotifyCollWatcher(st *State, collName string, filter func(interface{}) bool) NotifyWatcher {
+func newNotifyCollWatcher(backend modelBackend, collName string, filter func(interface{}) bool) NotifyWatcher {
 	w := &notifyCollWatcher{
-		commonWatcher: newCommonWatcher(st),
+		commonWatcher: newCommonWatcher(backend),
 		collName:      collName,
 		filter:        filter,
 		sink:          make(chan struct{}),
@@ -2640,9 +2640,9 @@ type offeredApplicationsWatcher struct {
 	out   chan []string
 }
 
-func newOfferedApplicationsWatcher(st *State) StringsWatcher {
+func newOfferedApplicationsWatcher(backend modelBackend) StringsWatcher {
 	w := &offeredApplicationsWatcher{
-		commonWatcher: newCommonWatcher(st),
+		commonWatcher: newCommonWatcher(backend),
 		known:         make(map[string]int64),
 		out:           make(chan []string),
 	}
