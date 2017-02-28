@@ -247,7 +247,10 @@ class SimpleEnvironment:
         :param config: Dictionary with configuration options, default is None.
         :param juju_home: Path to JUJU_HOME directory, default is None.
         :param controller: Controller instance-- this model's controller.
-            If not given or None a new instance is created."""
+            If not given or None a new instance is created.
+        :param bootstrap_to: A placement directive to use when bootstrapping.
+            See Juju provider docs to examples of what Juju might expect.
+        """
         self.user_name = None
         if controller is None:
             controller = Controller(environment)
@@ -1605,7 +1608,7 @@ class ModelClient:
     def get_bootstrap_args(
             self, upload_tools, config_filename, bootstrap_series=None,
             credential=None, auto_upgrade=False, metadata_source=None,
-            to=None, no_gui=False, agent_version=None):
+            no_gui=False, agent_version=None):
         """Return the bootstrap arguments for the substrate."""
         constraints = self._get_substrate_constraints()
         cloud_region = self.get_cloud_region(self.env.get_cloud(),
@@ -1633,8 +1636,6 @@ class ModelClient:
             args.extend(['--metadata-source', metadata_source])
         if auto_upgrade:
             args.append('--auto-upgrade')
-        if to is not None:
-            args.extend(['--to', to])
         if self.env.bootstrap_to is not None:
             args.extend(['--to', self.env.bootstrap_to])
         if no_gui:
@@ -1709,25 +1710,25 @@ class ModelClient:
 
     def bootstrap(self, upload_tools=False, bootstrap_series=None,
                   credential=None, auto_upgrade=False, metadata_source=None,
-                  to=None, no_gui=False, agent_version=None):
+                  no_gui=False, agent_version=None):
         """Bootstrap a controller."""
         self._check_bootstrap()
         with self._bootstrap_config() as config_filename:
             args = self.get_bootstrap_args(
                 upload_tools, config_filename, bootstrap_series, credential,
-                auto_upgrade, metadata_source, to, no_gui, agent_version)
+                auto_upgrade, metadata_source, no_gui, agent_version)
             self.update_user_name()
             self.juju('bootstrap', args, include_e=False)
 
     @contextmanager
     def bootstrap_async(self, upload_tools=False, bootstrap_series=None,
-                        auto_upgrade=False, metadata_source=None, to=None,
+                        auto_upgrade=False, metadata_source=None,
                         no_gui=False):
         self._check_bootstrap()
         with self._bootstrap_config() as config_filename:
             args = self.get_bootstrap_args(
                 upload_tools, config_filename, bootstrap_series, None,
-                auto_upgrade, metadata_source, to, no_gui)
+                auto_upgrade, metadata_source, no_gui)
             self.update_user_name()
             with self.juju_async('bootstrap', args, include_e=False):
                 yield

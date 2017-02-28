@@ -739,6 +739,9 @@ class BootstrapManager:
             client = client_from_config(args.env, args.juju_bin,
                                         debug=args.debug,
                                         soft_deadline=args.deadline)
+            # XXX curtis hacked this
+            if args.to is not None:
+                client.env.bootstrap_to = args.to
         return cls.from_client(args, client)
 
     @classmethod

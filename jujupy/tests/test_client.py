@@ -680,18 +680,17 @@ class TestModelClient(ClientTest):
                 '--agent-version', '2.0',
                 '--metadata-source', '/var/test-source'), include_e=False)
 
-    def test_bootstrap_to(self):
-        env = JujuData('foo', {'type': 'bar', 'region': 'baz'})
+    def test_get_bootstrap_args_bootstrap_to(self):
+        env = JujuData(
+            'foo', {'type': 'bar', 'region': 'baz'}, bootstrap_to='zone=fnord')
         client = ModelClient(env, '2.0-zeta1', None)
-        with patch.object(client, 'juju') as mock:
-            with observable_temp_file() as config_file:
-                client.bootstrap(to='target')
-        mock.assert_called_with(
-            'bootstrap', (
-                '--constraints', 'mem=2G',
-                'bar/baz', 'foo',
-                '--config', config_file.name, '--default-model', 'foo',
-                '--agent-version', '2.0', '--to', 'target'), include_e=False)
+        args = client.get_bootstrap_args(
+            upload_tools=False, config_filename='config')
+        self.assertEqual(
+            ('--constraints', 'mem=2G', 'bar/baz', 'foo',
+             '--config', 'config', '--default-model', 'foo',
+             '--agent-version', '2.0', '--to', 'zone=fnord'),
+            args)
 
     def test_bootstrap_async(self):
         env = JujuData('foo', {'type': 'bar', 'region': 'baz'})
@@ -753,18 +752,6 @@ class TestModelClient(ClientTest):
             client.get_bootstrap_args(upload_tools=True,
                                       config_filename='config',
                                       agent_version='2.0-lambda1')
-
-    def test_get_bootstrap_args_bootstrap_to(self):
-        env = JujuData(
-            'foo', {'type': 'bar', 'region': 'baz'}, bootstrap_to='zone=fnord')
-        client = ModelClient(env, '2.0-zeta1', None)
-        args = client.get_bootstrap_args(
-            upload_tools=False, config_filename='config')
-        self.assertEqual(
-            ('--constraints', 'mem=2G', 'bar/baz', 'foo',
-             '--config', 'config', '--default-model', 'foo',
-             '--agent-version', '2.0', '--to', 'zone=fnord'),
-            args)
 
     def test_add_model_hypenated_controller(self):
         self.do_add_model(
