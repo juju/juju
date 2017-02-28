@@ -49,7 +49,7 @@ func uploadSSHControllerKeys(c *oci.Client, key string) (string, error) {
 	if err != nil {
 		if strings.Contains(err.Error(), "does not exist") {
 			// the keys does not exist, we should upload them
-			resp, err = c.AddSHHKey("juju-client-key", key, true)
+			resp, err = c.CreateSHHKey("juju-client-key", key, true)
 			if err != nil {
 				return "", errors.Errorf("cannot upload the juju client keys")
 			}
@@ -66,7 +66,7 @@ func uploadSSHControllerKeys(c *oci.Client, key string) (string, error) {
 		if resp.Key != keyrsponse {
 			logger.Debugf("The key provided with the oracle one does not match, update the key content")
 		}
-		resp, err = c.UpdateSSHKey("juju-client-key", key, true)
+		resp, err = c.UpdateSSHKey("juju-client-key", "", key, true)
 		if err != nil {
 			return "", errors.Errorf("cannot enable of update the juju-client-key content")
 		}

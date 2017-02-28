@@ -82,7 +82,6 @@ func (o oracleInstance) Addresses() ([]network.Address, error) {
 	if err != nil {
 		return nil, jErr.Trace(err)
 	}
-	alloc := len(ips)
 	if o.machine.Ip != "" {
 		address := network.NewScopedAddress(o.machine.Ip, network.ScopeCloudLocal)
 		addresses = append(addresses, address)

@@ -95,8 +95,12 @@ func (o oracleEnviron) PrepareForBootstrap(ctx environs.BootstrapContext) error 
 //
 // Bootstrap will use just one specific architecture because the oracle
 // cloud only supports amd64.
-func (o *oracleEnviron) Bootstrap(ctx environs.BootstrapContext, params environs.BootstrapParams) (*environs.BootstrapResult, error) {
-	return common.Bootstrap(ctx, o, params)
+// func (o *oracleEnviron) Bootstrap(ctx environs.BootstrapContext, params environs.BootstrapParams) (*environs.BootstrapResult, error) {
+// 	return common.Bootstrap(ctx, o, params)
+// }
+
+func (o oracleEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) (*environs.BootstrapResult, error) {
+	return common.Bootstrap(ctx, o, args)
 }
 
 // Create creates the environment for a new hosted model.
@@ -194,30 +198,26 @@ func (o oracleEnviron) StartInstance(args environs.StartInstanceParams) (*enviro
 	}
 	logger.Debugf("oracle user data: %d bytes", len(userData))
 
-	//The oracle provider expects a JSON as userdata. The oracle client
-	//accepts a map[string]interface as userdata.
-	userdata := map[string]string{
-		"cloud-init": string(userData),
-	}
 	attributes := map[string]interface{}{
-		"userdata": userdata,
+		"userdata": string(userData),
 	}
 
+	tags := make([]string, len(args.InstanceConfig.Tags))
 	for k, v := range args.InstanceConfig.Tags {
-		attributes[k] = v
+		t := tagValue{k, v}
+		tags = append(tags, t.String())
 	}
-
 	//TODO
 	instance, err := createInstance(o.p.client, oci.InstanceParams{
 		Relationships: nil,
 		Instances: []oci.Instances{
 			{
-				Shape:     spec.InstanceType.Name,
-				Imagelist: imagelist,
-				Name:      args.InstanceConfig.MachineAgentServiceName,
-				Label:     o.cfg.Name(),
-				Hostname:  o.cfg.Name(),
-				// Tags:        args.InstanceConfig.Tags,
+				Shape:       spec.InstanceType.Name,
+				Imagelist:   imagelist,
+				Name:        args.InstanceConfig.MachineAgentServiceName,
+				Label:       o.cfg.Name(),
+				Hostname:    o.cfg.Name(),
+				Tags:        tags,
 				Attributes:  attributes,
 				Reverse_dns: false,
 				// TODO(sgiulitti): make vm generate a public address
@@ -277,22 +277,22 @@ func (o oracleEnviron) StopInstances(ids ...instance.Id) error {
 	//TODO: delete public IP
 	//TODO: delete storage volumes
 	logger.Debugf("terminating instances %v", ids)
-	if err := e.terminateInstances(ids); err != nil {
+	if err := o.terminateInstances(ids...); err != nil {
 		return err
 	}
 	return nil
 }
 
 func (o oracleEnviron) terminateInstances(ids ...instance.Id) error {
-	wg := sync.WaitGroup
+	wg := sync.WaitGroup{}
 	errc := make(chan error, len(ids))
 	wg.Add(len(ids))
 	for _, id := range ids {
 		vmId := id
 		go func() {
 			defer wg.Done()
-			if err := o.p.client.DeleteInstance(vmId); err != nil {
-				if !o.p.client.IsNotFoundError(err) {
+			if err := o.p.client.DeleteInstance(string(vmId)); err != nil {
+				if !oci.IsNotFound(err) {
 					errc <- err
 				}
 			}
@@ -311,11 +311,15 @@ type tagValue struct {
 	tag, value string
 }
 
+func (t *tagValue) String() string {
+	return fmt.Sprintf("%s=%s", t.tag, t.value)
+}
+
 // allControllerManagedInstances returns all instances managed by this
 // environment's controller, matching the optionally specified filter.
 func (o *oracleEnviron) allControllerManagedInstances(controllerUUID string) ([]instance.Instance, error) {
 	tagFilter := tagValue{tags.JujuController, controllerUUID}
-	return e.allInstances(tagFilter)
+	return o.allInstances(tagFilter)
 }
 
 func (o *oracleEnviron) allInstances(tagFilter tagValue) ([]instance.Instance, error) {
@@ -329,12 +333,16 @@ func (o *oracleEnviron) allInstances(tagFilter tagValue) ([]instance.Instance, e
 	}
 	instances := []instance.Instance{}
 	for _, val := range resp.Result {
-		if attr, ok := val.Attributes[tagFilter.tag]; !ok {
-			if attr != tagFilter.value {
-				continue
+		found := false
+		for _, tag := range val.Tags {
+			if tagFilter.String() == tag {
+				found = true
+				break
 			}
-		} else {
+		}
+		if found == false {
 			continue
+
 		}
 		oracleInstance, err := newInstance(&val, o.p.client)
 		if err != nil {
@@ -399,7 +407,7 @@ func (o oracleEnviron) ConstraintsValidator() (constraints.Validator, error) {
 //
 // Calls to SetConfig do not affect the configuration of
 // values previously obtained from Storage.
-func (o *oracleEnviron) SetConfig(cfg *config.Config) error {
+func (o oracleEnviron) SetConfig(cfg *config.Config) error {
 	o.mutex.Lock()
 	defer o.mutex.Unlock()
 
@@ -434,7 +442,7 @@ func (o oracleEnviron) Instances(ids []instance.Id) ([]instance.Instance, error)
 	for i, id := range ids {
 		for _, inst := range all {
 			if inst.Id() == id {
-				instance[i] = inst
+				instances[i] = inst
 				found++
 			}
 		}
@@ -459,14 +467,21 @@ func (o oracleEnviron) ControllerInstances(controllerUUID string) ([]instance.Id
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	filter := tagValue{tags.JujuIsController, "true"}
 	ids := make([]instance.Id, 0, 1)
 	for _, val := range instances {
 		oracleInst := val.(*oracleInstance)
-		if tag, ok := oracleInst.machine.Attributes[tags.JujuIsController]; ok {
-			if tag == "true" {
-				ids = append(ids, val.Id())
+		found := false
+		for _, tag := range oracleInst.machine.Tags {
+			if tag == filter.String() {
+				found = true
+				break
 			}
 		}
+		if found == false {
+			continue
+		}
+		ids = append(ids, val.Id())
 	}
 	if len(ids) == 0 {
 		return nil, environs.ErrNoInstances
@@ -506,14 +521,14 @@ func (o oracleEnviron) DestroyController(controllerUUID string) error {
 	for i, val := range instances {
 		instIds[i] = val.Id()
 	}
-	errc := make(chan error, len(ids))
-	wg := sync.WaitGroup
+	errc := make(chan error, len(instances))
+	wg := sync.WaitGroup{}
 	wg.Add(len(instances))
 	for _, val := range instIds {
 		go func() {
 			defer wg.Done()
-			err := o.terminateInstances(instIds)
-			if !o.p.client.IsNotFoundError(err) {
+			err := o.terminateInstances(val)
+			if !oci.IsNotFound(err) {
 				errc <- err
 			}
 		}()
