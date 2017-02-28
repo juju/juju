@@ -881,9 +881,10 @@ class Status:
                 for contained, unit in machine.get('containers', {}).items():
                     yield contained, unit
 
-    def iter_new_machines(self, old_status):
-        for machine, data in self.iter_machines():
-            if machine in old_status.status['machines']:
+    def iter_new_machines(self, old_status, containers=False):
+        old = dict(old_status.iter_machines(containers=containers))
+        for machine, data in self.iter_machines(containers=containers):
+            if machine in old:
                 continue
             yield machine, data
 

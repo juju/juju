@@ -4589,6 +4589,42 @@ class TestStatus(FakeHomeTestCase):
         self.assertItemsEqual(new_status.iter_new_machines(old_status),
                               [('foo', 'foo_info')])
 
+    def test_iter_new_machines_no_containers(self):
+        bar_info = {'containers': {'bar/lxd/1': {}}}
+        old_status = Status({
+            'machines': {
+                'bar': bar_info,
+            }
+        }, '')
+        foo_info = {'containers': {'foo/lxd/1': {}}}
+        new_status = Status({
+            'machines': {
+                'foo': foo_info,
+                'bar': bar_info,
+            }
+        }, '')
+        self.assertItemsEqual(new_status.iter_new_machines(old_status,
+                                                           containers=False),
+                              [('foo', foo_info)])
+
+    def test_iter_new_machines_with_containers(self):
+        bar_info = {'containers': {'bar/lxd/1': {}}}
+        old_status = Status({
+            'machines': {
+                'bar': bar_info,
+            }
+        }, '')
+        foo_info = {'containers': {'foo/lxd/1': {}}}
+        new_status = Status({
+            'machines': {
+                'foo': foo_info,
+                'bar': bar_info,
+            }
+        }, '')
+        self.assertItemsEqual(new_status.iter_new_machines(old_status,
+                                                           containers=True),
+                              [('foo', foo_info), ('foo/lxd/1', {})])
+
     def test_get_instance_id(self):
         status = Status({
             'machines': {
