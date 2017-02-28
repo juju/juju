@@ -164,10 +164,17 @@ var configureLXDBridge = func() error {
 		return errors.Trace(err)
 	}
 
+	// If LXD itself supports managing networks (added in LXD 2.3) we can allow
+	// it to do all of the network configuration.
 	if shared.StringInSlice("network", status.APIExtensions) {
 		return lxdclient.CreateDefaultBridgeInDefaultProfile(client)
 	}
+	return configureLXDBridgeForOlderLXD()
+}
 
+// configureLXDBridgeForOlderLXD is used for LXD agents that don't support the
+// Network API (pre 2.3)
+func configureLXDBridgeForOlderLXD() error {
 	f, err := os.OpenFile(lxdBridgeFile, os.O_RDWR, 0777)
 	if err != nil {
 		/* We're using an old version of LXD which doesn't have
