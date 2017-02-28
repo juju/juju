@@ -681,18 +681,17 @@ class TestModelClient(ClientTest):
                 '--agent-version', '2.0',
                 '--metadata-source', '/var/test-source'), include_e=False)
 
-    def test_bootstrap_to(self):
-        env = JujuData('foo', {'type': 'bar', 'region': 'baz'})
+    def test_get_bootstrap_args_bootstrap_to(self):
+        env = JujuData(
+            'foo', {'type': 'bar', 'region': 'baz'}, bootstrap_to='zone=fnord')
         client = ModelClient(env, '2.0-zeta1', None)
-        with patch.object(client, 'juju') as mock:
-            with observable_temp_file() as config_file:
-                client.bootstrap(to='target')
-        mock.assert_called_with(
-            'bootstrap', (
-                '--constraints', 'mem=2G',
-                'bar/baz', 'foo',
-                '--config', config_file.name, '--default-model', 'foo',
-                '--agent-version', '2.0', '--to', 'target'), include_e=False)
+        args = client.get_bootstrap_args(
+            upload_tools=False, config_filename='config')
+        self.assertEqual(
+            ('--constraints', 'mem=2G', 'bar/baz', 'foo',
+             '--config', 'config', '--default-model', 'foo',
+             '--agent-version', '2.0', '--to', 'zone=fnord'),
+            args)
 
     def test_bootstrap_async(self):
         env = JujuData('foo', {'type': 'bar', 'region': 'baz'})
@@ -4900,6 +4899,17 @@ class TestController(TestCase):
 
 class TestSimpleEnvironment(TestCase):
 
+    def test_init(self):
+        controller = Mock()
+        with temp_dir() as juju_home:
+            juju_data = SimpleEnvironment(
+                'foo', {'enable_os_upgrade': False},
+                juju_home=juju_home, controller=controller,
+                bootstrap_to='zone=baz')
+            self.assertEqual(juju_home, juju_data.juju_home)
+            self.assertIs(controller, juju_data.controller)
+            self.assertEqual('zone=baz', juju_data.bootstrap_to)
+
     def test_default_controller(self):
         default = SimpleEnvironment('foo')
         self.assertEqual('foo', default.controller.name)
@@ -4911,6 +4921,7 @@ class TestSimpleEnvironment(TestCase):
         orig.maas = 'maas1'
         orig.joyent = 'joyent1'
         orig.user_name = 'user1'
+        orig.bootstrap_to = 'zonea'
         copy = orig.clone()
         self.assertIs(SimpleEnvironment, type(copy))
         self.assertIsNot(orig, copy)
@@ -4923,6 +4934,7 @@ class TestSimpleEnvironment(TestCase):
         self.assertEqual('maas1', copy.maas)
         self.assertEqual('joyent1', copy.joyent)
         self.assertEqual('user1', copy.user_name)
+        self.assertEqual('zonea', copy.bootstrap_to)
         self.assertIs(orig.controller, copy.controller)
 
     def test_clone_model_name(self):
@@ -5175,6 +5187,18 @@ class TestSimpleEnvironment(TestCase):
 
 class TestJujuData(TestCase):
 
+    def test_init(self):
+        controller = Mock()
+        with temp_dir() as juju_home:
+            juju_data = JujuData(
+                'foo', {'enable_os_upgrade': False},
+                juju_home=juju_home, controller=controller, cloud_name='bar',
+                bootstrap_to='zone=baz')
+            self.assertEqual(juju_home, juju_data.juju_home)
+            self.assertEqual('bar', juju_data._cloud_name)
+            self.assertIs(controller, juju_data.controller)
+            self.assertEqual('zone=baz', juju_data.bootstrap_to)
+
     def from_cloud_region(self, provider_type, region):
         with temp_dir() as juju_home:
             data_writer = JujuData('foo', {}, juju_home)
@@ -5232,7 +5256,7 @@ class TestJujuData(TestCase):
 
     def test_clone(self):
         orig = JujuData('foo', {'type': 'bar'}, 'myhome',
-                        cloud_name='cloudname')
+                        bootstrap_to='zonea', cloud_name='cloudname')
         orig.credentials = {'secret': 'password'}
         orig.clouds = {'name': {'meta': 'data'}}
         copy = orig.clone()
@@ -5242,6 +5266,7 @@ class TestJujuData(TestCase):
         self.assertIsNot(orig._config, copy._config)
         self.assertEqual({'type': 'bar'}, copy._config)
         self.assertEqual('myhome', copy.juju_home)
+        self.assertEqual('zonea', copy.bootstrap_to)
         self.assertIsNot(orig.credentials, copy.credentials)
         self.assertEqual(orig.credentials, copy.credentials)
         self.assertIsNot(orig.clouds, copy.clouds)

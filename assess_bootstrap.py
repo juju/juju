@@ -91,7 +91,7 @@ def assess_to(bs_manager, to):
     """Assess bootstraping with the --to option."""
     if to is None:
         raise ValueError('--to not given when testing to')
-    with thin_booted_context(bs_manager, to=to) as client:
+    with thin_booted_context(bs_manager) as client:
         log.info('To {} bootstrap successful.'.format(to))
         addr = get_controller_hostname(client)
     if addr != to:
@@ -122,8 +122,6 @@ def parse_args(argv=None):
     parser.add_argument('--local-metadata-source',
                         action='store', default=None,
                         help='Directory with pre-loaded metadata.')
-    parser.add_argument('--to', action='store', default=None,
-                        help='bootstrap to (when part=to only)')
     return parser.parse_args(argv)
 
 

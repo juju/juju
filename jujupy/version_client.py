@@ -151,7 +151,7 @@ class ModelClientRC(ModelClient2_0):
     def get_bootstrap_args(
             self, upload_tools, config_filename, bootstrap_series=None,
             credential=None, auto_upgrade=False, metadata_source=None,
-            to=None, no_gui=False, agent_version=None):
+            no_gui=False, agent_version=None):
         """Return the bootstrap arguments for the substrate."""
         if self.env.joyent:
             # Only accept kvm packages by requiring >1 cpu core, see lp:1446264
@@ -183,8 +183,8 @@ class ModelClientRC(ModelClient2_0):
             args.extend(['--metadata-source', metadata_source])
         if auto_upgrade:
             args.append('--auto-upgrade')
-        if to is not None:
-            args.extend(['--to', to])
+        if self.env.bootstrap_to is not None:
+            args.extend(['--to', self.env.bootstrap_to])
         if no_gui:
             args.append('--no-gui')
         return tuple(args)

@@ -27,6 +27,7 @@ def get_default_args(log_dir='/tmp/logs', run_length=12):
         machine=[],
         region=None,
         series=None,
+        to=None,
         upload_tools=False,
         verbose=20,
         deadline=None,

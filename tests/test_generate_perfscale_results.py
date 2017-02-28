@@ -36,6 +36,7 @@ def get_default_args(**kwargs):
         machine=[],
         region=None,
         series=None,
+        to=None,
         upload_tools=False,
         verbose=20,
         deadline=None)
@@ -353,7 +354,7 @@ class TestJsonSerialisation(TestCase):
         """Must serialise data for TimingData and DeployDetails objects."""
         start = datetime.utcnow()
         end = datetime.utcnow()
-        seconds = int((end-start).total_seconds())
+        seconds = int((end - start).total_seconds())
         app_details = dict(app_name=1)
         timing_data = gpr.TimingData(start, end)
         deploy_details = gpr.DeployDetails(

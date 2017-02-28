@@ -32,6 +32,7 @@ class TestParseArgs(TestCase):
                 machine=[],
                 region=None,
                 series=None,
+                to=None,
                 upload_tools=False,
                 verbose=20,
                 deadline=None,
