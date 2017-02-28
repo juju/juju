@@ -313,9 +313,9 @@ func (s *storageMockSuite) TestListVolumes(c *gc.C) {
 
 			details := params.VolumeDetails{
 				VolumeTag: "volume-0",
-				MachineAttachments: map[string]params.VolumeAttachmentInfo{
-					"machine-0": params.VolumeAttachmentInfo{},
-					"machine-1": params.VolumeAttachmentInfo{},
+				MachineAttachments: map[string]params.VolumeAttachmentDetails{
+					"machine-0": {},
+					"machine-1": {},
 				},
 			}
 			results.Results = []params.VolumeDetailsListResult{{
@@ -333,9 +333,9 @@ func (s *storageMockSuite) TestListVolumes(c *gc.C) {
 	for i := 0; i < 2; i++ {
 		c.Assert(found[i].Result, jc.DeepEquals, []params.VolumeDetails{{
 			VolumeTag: "volume-0",
-			MachineAttachments: map[string]params.VolumeAttachmentInfo{
-				"machine-0": params.VolumeAttachmentInfo{},
-				"machine-1": params.VolumeAttachmentInfo{},
+			MachineAttachments: map[string]params.VolumeAttachmentDetails{
+				"machine-0": {},
+				"machine-1": {},
 			},
 		}})
 	}
@@ -406,10 +406,12 @@ func (s *storageMockSuite) TestListFilesystems(c *gc.C) {
 		Status: params.EntityStatus{
 			Status: "attached",
 		},
-		MachineAttachments: map[string]params.FilesystemAttachmentInfo{
-			"0": params.FilesystemAttachmentInfo{
-				MountPoint: "/mnt/kinabalu",
-				ReadOnly:   false,
+		MachineAttachments: map[string]params.FilesystemAttachmentDetails{
+			"0": params.FilesystemAttachmentDetails{
+				FilesystemAttachmentInfo: params.FilesystemAttachmentInfo{
+					MountPoint: "/mnt/kinabalu",
+					ReadOnly:   false,
+				},
 			},
 		},
 	}

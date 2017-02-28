@@ -96,9 +96,13 @@ func (s *baseStorageSuite) constructState() *mockState {
 		kind:       state.StorageKindFilesystem,
 		owner:      s.unitTag,
 		storageTag: s.storageTag,
+		life:       state.Dying,
 	}
 
-	storageInstanceAttachment := &mockStorageAttachment{storage: s.storageInstance}
+	storageInstanceAttachment := &mockStorageAttachment{
+		storage: s.storageInstance,
+		life:    state.Alive,
+	}
 
 	s.machineTag = names.NewMachineTag("66")
 	s.filesystemTag = names.NewFilesystemTag("104")
@@ -106,15 +110,18 @@ func (s *baseStorageSuite) constructState() *mockState {
 	s.filesystem = &mockFilesystem{
 		tag:     s.filesystemTag,
 		storage: &s.storageTag,
+		life:    state.Alive,
 	}
 	s.filesystemAttachment = &mockFilesystemAttachment{
 		filesystem: s.filesystemTag,
 		machine:    s.machineTag,
+		life:       state.Dead,
 	}
 	s.volume = &mockVolume{tag: s.volumeTag, storage: &s.storageTag}
 	s.volumeAttachment = &mockVolumeAttachment{
 		VolumeTag:  s.volumeTag,
 		MachineTag: s.machineTag,
+		life:       state.Alive,
 	}
 
 	s.blocks = make(map[state.BlockType]state.Block)

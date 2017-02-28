@@ -85,6 +85,7 @@ func (s *cmdStorageSuite) TestStorageShow(c *gc.C) {
 	expected := `
 data/0:
   kind: block
+  life: alive
   status:
     current: pending
     since: .*
@@ -93,6 +94,7 @@ data/0:
     units:
       storage-block/0:
         machine: "0"
+        life: alive
 `[1:]
 	context, err := runJujuCommand(c, "show-storage", "data/0")
 	c.Assert(err, jc.ErrorIsNil)
@@ -169,6 +171,7 @@ func (s *cmdStorageSuite) TestStoragePersistentProvisioned(c *gc.C) {
 	expected := `
 data/0:
   kind: block
+  life: alive
   status:
     current: pending
     since: .*
@@ -177,6 +180,7 @@ data/0:
     units:
       storage-block/0:
         machine: "0"
+        life: alive
 `[1:]
 	context, err := runJujuCommand(c, "show-storage", "data/0")
 	c.Assert(err, jc.ErrorIsNil)
@@ -191,6 +195,7 @@ func (s *cmdStorageSuite) TestStoragePersistentUnprovisioned(c *gc.C) {
 	expected := `
 data/0:
   kind: block
+  life: alive
   status:
     current: pending
     since: .*
@@ -199,6 +204,7 @@ data/0:
     units:
       storage-block/0:
         machine: "0"
+        life: alive
 `[1:]
 	context, err := runJujuCommand(c, "show-storage", "data/0")
 	c.Assert(err, jc.ErrorIsNil)

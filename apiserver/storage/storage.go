@@ -474,9 +474,11 @@ func createVolumeDetails(
 ) (*params.VolumeDetails, error) {
 
 	details := &params.VolumeDetails{
-		VolumeTag:  v.VolumeTag().String(),
-		BindingTag: v.LifeBinding().String(),
-		Life:       params.Life(v.Life().String()),
+		VolumeTag: v.VolumeTag().String(),
+		Life:      params.Life(v.Life().String()),
+	}
+	if binding := v.LifeBinding(); binding != nil {
+		details.BindingTag = binding.String()
 	}
 
 	if info, err := v.Info(); err == nil {
@@ -628,8 +630,10 @@ func createFilesystemDetails(
 
 	details := &params.FilesystemDetails{
 		FilesystemTag: f.FilesystemTag().String(),
-		BindingTag:    f.LifeBinding().String(),
 		Life:          params.Life(f.Life().String()),
+	}
+	if binding := f.LifeBinding(); binding != nil {
+		details.BindingTag = binding.String()
 	}
 
 	if volumeTag, err := f.Volume(); err == nil {
