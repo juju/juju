@@ -51,6 +51,12 @@ type Database interface {
 	// model specified. As for GetCollection, a closer is also returned.
 	GetCollectionFor(modelUUID, name string) (mongo.Collection, SessionCloser)
 
+	// GetRawCollection returns the named mgo Collection. As no
+	// automatic model filtering is performed by the returned
+	// collection it should be rarely used. GetCollection() should be
+	// used in almost all cases.
+	GetRawCollection(name string) (*mgo.Collection, SessionCloser)
+
 	// TransactionRunner() returns a runner responsible for making changes to
 	// the database, and a func that must be called when the runner is no longer
 	// needed. The returned Runner might or might not have its own session,
@@ -300,6 +306,12 @@ func (db *database) GetCollectionFor(modelUUID, name string) (mongo.Collection, 
 		closer()
 		dbcloser()
 	}
+}
+
+// GetRawCollection is part of the Database interface.
+func (db *database) GetRawCollection(name string) (*mgo.Collection, SessionCloser) {
+	collection, closer := db.GetCollection(name)
+	return collection.Writeable().Underlying(), closer
 }
 
 // TransactionRunner is part of the Database interface.
