@@ -415,6 +415,8 @@ class SimpleEnvironment:
             return False
         if self.maas != other.maas:
             return False
+        if self.bootstrap_to != other.bootstrap_to:
+            return False
         return True
 
     def __ne__(self, other):
