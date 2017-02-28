@@ -4913,6 +4913,7 @@ class TestSimpleEnvironment(TestCase):
         orig.maas = 'maas1'
         orig.joyent = 'joyent1'
         orig.user_name = 'user1'
+        orig.bootstrap_to = 'zonea'
         copy = orig.clone()
         self.assertIs(SimpleEnvironment, type(copy))
         self.assertIsNot(orig, copy)
@@ -4925,6 +4926,7 @@ class TestSimpleEnvironment(TestCase):
         self.assertEqual('maas1', copy.maas)
         self.assertEqual('joyent1', copy.joyent)
         self.assertEqual('user1', copy.user_name)
+        self.assertEqual('zonea', copy.bootstrap_to)
         self.assertIs(orig.controller, copy.controller)
 
     def test_clone_model_name(self):
@@ -5215,7 +5217,7 @@ class TestJujuData(TestCase):
 
     def test_clone(self):
         orig = JujuData('foo', {'type': 'bar'}, 'myhome',
-                        cloud_name='cloudname')
+                        bootstrap_to='zonea', cloud_name='cloudname')
         orig.credentials = {'secret': 'password'}
         orig.clouds = {'name': {'meta': 'data'}}
         copy = orig.clone()
@@ -5225,6 +5227,7 @@ class TestJujuData(TestCase):
         self.assertIsNot(orig._config, copy._config)
         self.assertEqual({'type': 'bar'}, copy._config)
         self.assertEqual('myhome', copy.juju_home)
+        self.assertEqual('zonea', copy.bootstrap_to)
         self.assertIsNot(orig.credentials, copy.credentials)
         self.assertEqual(orig.credentials, copy.credentials)
         self.assertIsNot(orig.clouds, copy.clouds)

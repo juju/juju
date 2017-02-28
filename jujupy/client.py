@@ -394,8 +394,9 @@ class SimpleEnvironment:
             model_name = self.environment
         else:
             config['name'] = unqualified_model_name(model_name)
-        result = self.__class__(model_name, config, self.juju_home,
-                                self.controller)
+        result = self.__class__(model_name, config, juju_home=self.juju_home,
+                                controller=self.controller,
+                                bootstrap_to=self.bootstrap_to)
         result.local = self.local
         result.kvm = self.kvm
         result.maas = self.maas
