@@ -1118,6 +1118,48 @@ func (s *MigrationImportSuite) TestPayloads(c *gc.C) {
 	c.Check(payload.Machine, gc.Equals, machineID)
 }
 
+func (s *MigrationImportSuite) TestRemoteApplications(c *gc.C) {
+	// For now we want to prevent importing models that have remote
+	// applications - cross-model relations don't support relations
+	// with the models in different controllers.
+	_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name:        "gravy-rainbow",
+		URL:         "local:/u/me/rainbow",
+		SourceModel: s.State.ModelTag(),
+		Token:       "charisma",
+		Endpoints: []charm.Relation{{
+			Interface: "mysql",
+			Name:      "db",
+			Role:      charm.RoleProvider,
+			Scope:     charm.ScopeGlobal,
+		}, {
+			Interface: "mysql-root",
+			Name:      "db-admin",
+			Limit:     5,
+			Role:      charm.RoleProvider,
+			Scope:     charm.ScopeGlobal,
+		}, {
+			Interface: "logging",
+			Name:      "logging",
+			Role:      charm.RoleProvider,
+			Scope:     charm.ScopeGlobal,
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	out, err := s.State.Export()
+	c.Assert(err, jc.ErrorIsNil)
+
+	uuid := utils.MustNewUUID().String()
+	in := newModel(out, uuid, "new")
+
+	_, newSt, err := s.State.Import(in)
+	if err == nil {
+		defer newSt.Close()
+	}
+	c.Assert(err, gc.ErrorMatches, "can't import models with remote applications")
+}
+
 // newModel replaces the uuid and name of the config attributes so we
 // can use all the other data to validate imports. An owner and name of the
 // model are unique together in a controller.

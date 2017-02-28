@@ -53,6 +53,13 @@ func (st *State) Import(model description.Model) (_ *Model, _ *State, err error)
 		return nil, nil, errors.Trace(err)
 	}
 
+	if len(model.RemoteApplications()) != 0 {
+		// Cross-model relations are currently limited to models on
+		// the same controller, while migration is for getting the
+		// model to a new controller.
+		return nil, nil, errors.New("can't import models with remote applications")
+	}
+
 	// Create the model.
 	cfg, err := config.New(config.NoDefaults, model.Config())
 	if err != nil {
