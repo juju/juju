@@ -85,7 +85,13 @@ func pingMachine(endpoint string) error {
 	cmd.Stderr = &buf
 	if err := cmd.Run(); err != nil {
 		if buf.Len() > 0 {
-			return errors.New(buf.String())
+			received := buf.String()
+			if strings.HasPrefix(received, "Permission denied") {
+				// we have managed to reach the machine and just failed to authenticate.
+				// consider this is a successful ping
+				return nil
+			}
+			return errors.New(received)
 		}
 		return err
 	}
