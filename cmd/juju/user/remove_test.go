@@ -77,10 +77,14 @@ func (s *RemoveUserCommandSuite) TestRemove(c *gc.C) {
 
 func (s *RemoveUserCommandSuite) TestRemovePrompts(c *gc.C) {
 	username := "testing"
-	expected := `
-WARNING! This command will remove the user "testing" from the "testing" controller.
+	expected := `WARNING! This command will permanently archive the user "testing" on the "testing"
+controller.
 
-Continue (y/N)? `[1:]
+This action is irreversible. If you wish to temporarily disable the
+user please use the` + " `juju disable-user` " + `command. See
+` + " `juju help disable-user` " + `for more details.
+
+Continue (y/N)? `
 	command, _ := user.NewRemoveCommandForTest(s.mockAPI, s.store)
 	ctx, _ := testing.RunCommand(c, command, username)
 	c.Assert(testing.Stdout(ctx), jc.DeepEquals, expected)

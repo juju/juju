@@ -644,11 +644,13 @@ func (m *Model) Users() ([]permission.UserAccess, error) {
 		userTag := names.NewUserTag(doc.UserName)
 		if userTag.IsLocal() {
 			_, err := m.st.User(userTag)
-			if errors.IsUserNotFound(err) {
-				continue
-			}
 			if err != nil {
-				return nil, errors.Trace(err)
+				if _, ok := err.(DeletedUserError); !ok {
+					// We ignore deleted users for now. So if it is not a
+					// DeletedUserError we return the error.
+					return nil, errors.Trace(err)
+				}
+				continue
 			}
 		}
 		mu, err := NewModelUserAccess(m.st, doc)
