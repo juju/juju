@@ -89,7 +89,7 @@ class AssessNetworkHealth:
                                         json.dumps(vis_result,
                                                    indent=4,
                                                    sort_keys=True)))
-        exp_result = self.ensure_exposed(client, series, reboot_msg)
+        exp_result = self.ensure_exposed(client, series)
         log.info('{0}Exposure '
                  'result:\n {1}'.format(reboot_msg,
                                         json.dumps(exp_result,
@@ -118,7 +118,7 @@ class AssessNetworkHealth:
         existing_series = set([])
         apps = self.get_juju_status(client)['applications']
         for _, info in apps.items():
-            existing_series.add(info['series'])
+            existing_series.add(info.get('series', None))
         for series in existing_series:
             client.deploy('~juju-qa/network-health', series=series,
                           alias='network-health-{}'.format(series))
@@ -127,7 +127,7 @@ class AssessNetworkHealth:
         apps = self.get_juju_status(client)['applications']
         log.info('Known applications: {}'.format(apps.keys()))
         for app, info in apps.items():
-            app_series = info['series']
+            app_series = info.get('series', None)
             try:
                 client.juju('add-relation',
                             (app, 'network-health-{}'.format(app_series)))
@@ -135,7 +135,7 @@ class AssessNetworkHealth:
                 log.error('Could not relate {} & network-health'.format(app))
         client.wait_for_workloads()
         for app, info in apps.items():
-            app_series = info['series']
+            app_series = info.get('series', None)
             client.wait_for_subordinate_units(app, 'network-health'
                                               '-{}'.format(app_series))
 
@@ -244,7 +244,7 @@ class AssessNetworkHealth:
             result[nh_unit] = service_results
         return result
 
-    def ensure_exposed(self, client, series, reboot):
+    def ensure_exposed(self, client, series):
         """Ensure exposed applications are visible from the outside.
 
         :param client: The juju client in use
@@ -320,14 +320,14 @@ class AssessNetworkHealth:
             for ip, res in machine_result.items():
                 if res is False:
                     error = ('Failed to contact controller from machine {0} '
-                             'at address {1}\n'.format(machine, ip))
+                             'at address {1}'.format(machine, ip))
                     error_string.append(error)
         for nh_source, service_result in visibility.items():
                 for service, unit_res in service_result.items():
                     if False in unit_res.values():
                         failed = [u for u, r in unit_res.items() if r is False]
                         error = ('NH-Unit {0} failed to contact '
-                                 'unit(s): {1}\n'.format(nh_source, failed))
+                                 'unit(s): {1}'.format(nh_source, failed))
                         error_string.append(error)
         for unit, res in internet.items():
             if not res:
@@ -335,7 +335,7 @@ class AssessNetworkHealth:
                 error_string.append(error)
         if exposed and exposed['fail'] is not ():
             error = ('Application(s) {0} failed expose '
-                     'test\n'.format(exposed['fail']))
+                     'test'.format(exposed['fail']))
             error_string.append(error)
         return error_string
 
