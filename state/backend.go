@@ -75,15 +75,12 @@ func (st *State) strictLocalID(ID string) (string, error) {
 // If the collection stores documents for multiple models, the
 // returned collection will automatically perform model
 // filtering where possible. See modelStateCollection below.
+// XXX to go
 func (st *State) getCollection(name string) (mongo.Collection, func()) {
 	return st.database.GetCollection(name)
 }
 
+// XXX to go
 func (st *State) getCollectionFor(modelUUID, name string) (mongo.Collection, func()) {
-	database, dbcloser := st.database.CopyForModel(modelUUID)
-	collection, closer := database.GetCollection(name)
-	return collection, func() {
-		closer()
-		dbcloser()
-	}
+	return st.database.GetCollectionFor(modelUUID, name)
 }
