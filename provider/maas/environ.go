@@ -1358,7 +1358,7 @@ func (environ *maasEnviron) releaseNodes1(nodes gomaasapi.MAASObject, ids url.Va
 	if err == nil {
 		return nil
 	}
-	maasErr, ok := errors.Cause(err).(gomaasapi.ServerError)
+	maasErr, ok := gomaasapi.GetServerError(err)
 	if !ok {
 		return errors.Annotate(err, "cannot release nodes")
 	}
@@ -2176,7 +2176,19 @@ func (env *maasEnviron) allocateContainerAddresses2(hostInstanceID instance.Id, 
 	subnetToStaticRoutes := make(map[string][]gomaasapi.StaticRoute)
 	staticRoutes, err := env.maasController.StaticRoutes()
 	if err != nil {
-		return nil, errors.Annotate(err, "unable to look up static-routes")
+		// MAAS 2.0 does not support static-routes, and will return a 404. MAAS
+		// does not report support for static-routes in its capabilities, nor
+		// does it have a different API version between 2.1 and 2.0. So we make
+		// the attempt, and treat a 404 as not having any configured static
+		// routes.
+		serverError, ok := gomaasapi.GetServerError(err)
+		if ok && serverError.StatusCode == http.StatusNotFound &&
+			strings.Contains(err.Error(), "Unknown API endpoint:") &&
+			strings.Contains(err.Error(), "/static-routes/") {
+			staticRoutes = nil
+		} else {
+			return nil, errors.Annotate(err, "unable to look up static-routes")
+		}
 	}
 	for _, route := range staticRoutes {
 		source := route.Source()
