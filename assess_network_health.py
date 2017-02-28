@@ -11,12 +11,15 @@ import ast
 import subprocess
 import re
 import time
+import os
+import socket
 
-from jujupy import client_for_existing
+from jujupy import (
+    client_for_existing,
+    )
 from deploy_stack import (
     BootstrapManager,
     )
-
 from utility import (
     add_basic_testing_arguments,
     configure_logging,
@@ -41,6 +44,7 @@ class AssessNetworkHealth:
 
     def __init__(self):
         self.expose_client = None
+        self.existing_series = set([])
 
     def assess_network_health(self, client, bundle=None, target_model=None,
                               reboot=False, series=None):
@@ -52,19 +56,22 @@ class AssessNetworkHealth:
         """
         self.setup_testing_environment(client, bundle, target_model, series)
         log.info('Starting network tests')
-        results = []
-        results.extend(self.testing_iterations(client, series))
+        results_pre = []
+        results_pre.extend(self.testing_iterations(client, series))
         if not reboot:
-            if results:
-                raise ConnectionError('\n'.join(results))
+            self.cleanup(client, False)
+            if results_pre:
+                raise ConnectionError('\n'.join(results_pre))
             log.info('SUCESS')
             return
-        log.info('Units passed pre-reboot tests, rebooting machines')
+        log.info('Units completed pre-reboot tests, rebooting machines')
         self.reboot_machines(client)
-        results.extend(self.testing_iterations(client, series,
-                                               reboot_msg='Post-reboot '))
-        if results:
-            raise ConnectionError('\n'.join(results))
+        results_post = []
+        results_post.extend(self.testing_iterations(client, series,
+                                                    reboot_msg='Post-reboot '))
+        self.cleanup(client, True)
+        if results_pre:
+            raise ConnectionError('\n'.join(results_post))
         log.info('SUCESS')
         return
 
@@ -115,13 +122,16 @@ class AssessNetworkHealth:
             self.setup_bundle_deployment(client, bundle)
         elif bundle is None and target_model is None:
             self.setup_dummy_deployment(client, series)
-        existing_series = set([])
         apps = self.get_juju_status(client)['applications']
         for _, info in apps.items():
-            existing_series.add(info.get('series', None))
-        for series in existing_series:
-            client.deploy('~juju-qa/network-health', series=series,
-                          alias='network-health-{}'.format(series))
+            self.existing_series.add(info.get('series', None))
+        for series in self.existing_series:
+            try:
+                client.deploy('~juju-qa/network-health', series=series,
+                              alias='network-health-{}'.format(series))
+            except subprocess.CalledProcessError as e:
+                log.info('Could not deploy network-health-{0} '
+                         'due to error: \n{1}'.format(series, e))
         client.wait_for_started()
         client.wait_for_workloads()
         apps = self.get_juju_status(client)['applications']
@@ -131,8 +141,9 @@ class AssessNetworkHealth:
             try:
                 client.juju('add-relation',
                             (app, 'network-health-{}'.format(app_series)))
-            except subprocess.CalledProcessError:
-                log.error('Could not relate {} & network-health'.format(app))
+            except subprocess.CalledProcessError as e:
+                log.error('Could not relate {0} & network-health due '
+                          'to error: {1}'.format(app, e))
         client.wait_for_workloads()
         for app, info in apps.items():
             app_series = info.get('series', None)
@@ -166,6 +177,18 @@ class AssessNetworkHealth:
         log.info("Deploying bundle specified at {}".format(bundle))
         client.deploy_bundle(bundle)
 
+    def cleanup(self, client, reboot):
+        log.info('Cleaning up deployed test charms and models')
+        for series in self.existing_series:
+            client.remove_service('network-health-{}'.format(series))
+        if reboot:
+            try:
+                client.juju('destroy-model', ('exposetest',))
+            except subprocess.CalledProcessError as e:
+                log.error('Failed to cleanup model '
+                          '"exposetest":\n{}'.format(e))
+        log.info('Cleanup complete.')
+
     def get_juju_status(self, client):
         """Gets juju status dict for supplied client.
 
@@ -186,9 +209,13 @@ class AssessNetworkHealth:
         for machine, info in machines.items():
             result[machine] = {}
             for ip in info['ip-addresses']:
+                if self.is_ipv6(ip):
+                    cmd = 'ping6'
+                else:
+                    cmd = 'ping'
                 result[machine][ip] = False
                 try:
-                    self.ssh(cont_client, '0', "ping -c 1 " + ip)
+                    self.ssh(cont_client, '0', "{} -c 1 ".format(cmd) + ip)
                 except subprocess.CalledProcessError as e:
                     log.error('Error with ping attempt '
                               'to {}: {}'.format(ip, e))
@@ -349,25 +376,30 @@ class AssessNetworkHealth:
                     'run', ('--machine', host, 'sudo shutdown -r now'))
             client.juju('show-action-status', ('--name', 'juju-run'))
 
+            # FIXME: Figure out controller reboot pipe error.
+            """
             log.info("Restarting controller machine 0")
             cont_client = client.get_controller_client()
             cont_status = cont_client.get_status()
             cont_host = cont_status.status['machines']['0']['dns-name']
             first_uptime = self.get_uptime(cont_client, '0')
-            self.ssh(cont_client, '0', 'sudo shutdown -r now')
+            self.ssh(cont_client, '0', 'sudo shutdown -r now')"""
         except subprocess.CalledProcessError as e:
             logging.info(
                 "Error running shutdown:\nstdout: %s\nstderr: %s",
                 e.output, getattr(e, 'stderr', None))
+            self.cleanup(client, True)
             raise
 
+        # FIXME: Same as above, figure out controller reboot
         # Wait for the controller to shut down if it has not yet restarted.
         # This ensure the call to wait_for_started happens after each host
         # has restarted.
+        """
         second_uptime = self.get_uptime(cont_client, '0')
         if second_uptime > first_uptime:
             wait_for_port(cont_host, 22, closed=True, timeout=300)
-        client.wait_for_started()
+        client.wait_for_started()"""
 
         # Once Juju is up it can take a little while before ssh responds.
         for host in hosts:
@@ -423,6 +455,13 @@ class AssessNetworkHealth:
         result = yaml.safe_load(result)['results']['results']
         return result
 
+    def is_ipv6(self, address):
+        try:
+            socket.inet_pton(socket.AF_INET6, address)
+        except socket.error:
+            return False
+        return True
+
     def to_json(self, units):
         """Returns a formatted json string to be passed through juju run-action.
 
@@ -456,7 +495,7 @@ def parse_args(argv):
     parser = argparse.ArgumentParser(description="Test Network Health")
     add_basic_testing_arguments(parser)
     parser.add_argument('--bundle', help='Bundle to test network against')
-    parser.add_argument('--model', help='Path to existing Juju model')
+    parser.add_argument('--model', help='Existing Juju model to test against')
     parser.add_argument('--reboot', type=bool,
                         help='Reboot machines and re-run tests, default=False')
     parser.set_defaults(reboot=False)
@@ -475,7 +514,8 @@ def main(argv=None):
             test.assess_network_health(bs_manager.client, bundle=args.bundle,
                                        series=args.series, reboot=args.reboot)
     else:
-        client = client_for_existing(args.juju_data_dir, args.model)
+        client = client_for_existing(args.juju_bin,
+                                     os.environ['JUJU_HOME'])
         test.assess_network_health(client, bundle=args.bundle,
                                    target_model=args.model, series=args.series,
                                    reboot=args.reboot)
