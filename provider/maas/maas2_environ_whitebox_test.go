@@ -1156,7 +1156,8 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesNoStaticRoutesAPI(
 		StatusCode:  http.StatusNotFound,
 		BodyMessage: body,
 	}
-	staticRoutesErr := errors.Annotatef(notFound, "ServerError: %v (%s)", http.StatusNotFound, body)
+	wrap1 := errors.Annotatef(notFound, "ServerError: 404 NOT FOUND (%s)", body)
+	staticRoutesErr := gomaasapi.NewUnexpectedError(wrap1)
 	var env *maasEnviron
 	controller := &fakeController{
 		Stub: &testing.Stub{},

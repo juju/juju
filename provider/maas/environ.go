@@ -2181,12 +2181,25 @@ func (env *maasEnviron) allocateContainerAddresses2(hostInstanceID instance.Id, 
 		// does it have a different API version between 2.1 and 2.0. So we make
 		// the attempt, and treat a 404 as not having any configured static
 		// routes.
-		serverError, ok := gomaasapi.GetServerError(err)
-		if ok && serverError.StatusCode == http.StatusNotFound &&
-			strings.Contains(err.Error(), "Unknown API endpoint:") &&
-			strings.Contains(err.Error(), "/static-routes/") {
-			staticRoutes = nil
+		// gomaaasapi wraps a ServerError in an UnexpectedError, so we need to
+		// dig to make sure we have the right cause:
+		handled := false
+		if gomaasapi.IsUnexpectedError(err) {
+			msg := err.Error()
+			if strings.Contains(msg, "404") &&
+				strings.Contains(msg, "Unknown API endpoint:") &&
+				strings.Contains(msg, "/static-routes/") {
+				logger.Debugf("static-routes not supported: %v", err)
+				handled = true
+				staticRoutes = nil
+			} else {
+				logger.Warningf("IsUnexpectedError, but didn't match: %q %#v", msg, err)
+			}
 		} else {
+			logger.Warningf("not IsUnexpectedError: %#v", err)
+		}
+		if !handled {
+			logger.Warningf("error looking up static-routes: %v", err)
 			return nil, errors.Annotate(err, "unable to look up static-routes")
 		}
 	}
