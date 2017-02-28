@@ -53,6 +53,10 @@ func (st *State) Import(model description.Model) (_ *Model, _ *State, err error)
 		return nil, nil, errors.Trace(err)
 	}
 
+	if len(model.RemoteApplications()) != 0 {
+		return nil, nil, errors.New("can't import models with remote applications")
+	}
+
 	// Create the model.
 	cfg, err := config.New(config.NoDefaults, model.Config())
 	if err != nil {
