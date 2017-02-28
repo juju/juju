@@ -1358,7 +1358,7 @@ func (environ *maasEnviron) releaseNodes1(nodes gomaasapi.MAASObject, ids url.Va
 	if err == nil {
 		return nil
 	}
-	maasErr, ok := errors.Cause(err).(gomaasapi.ServerError)
+	maasErr, ok := gomaasapi.GetServerError(err)
 	if !ok {
 		return errors.Annotate(err, "cannot release nodes")
 	}
@@ -2176,23 +2176,15 @@ func (env *maasEnviron) allocateContainerAddresses2(hostInstanceID instance.Id, 
 	subnetToStaticRoutes := make(map[string][]gomaasapi.StaticRoute)
 	staticRoutes, err := env.maasController.StaticRoutes()
 	if err != nil {
-		// maas 2.0 does not support static-routes, so we just treat it as not
-		// having any static routes to worry about.
-		// Ideally we would know from the API version, or from the capabilities
-		// struct, but I don't see anything useful in 2.1 that indicates
-		// static-routes are a supported feature.
-		// {"capabilities": [
-		// "networks-management", "static-ipaddresses", "ipv6-deployment-ubuntu", "devices-management",
-		// "storage-deployment-ubuntu", "network-deployment-ubuntu", "bridging-interface-ubuntu",
-		// "bridging-automatic-ubuntu"],
-		// "version": "2.1.3+bzr5573-0ubuntu1", "subversion": "16.04.1"}
-		// TODO(jam) 2017-02-28 Is there a better test for this? The full error we were creating was:
-		// failed to prepare container "0/lxd/1" network config: unable to look up static-routes: unexpected: ServerError: 404 NOT FOUND (Unknown API endpoint: /MAAS/api/2.0/static-routes/.)
-		// We don't check the full string, because the MAAS server may not be strictly hosted at /MAAS (though that is the default).
+		// MAAS 2.0 does not support static-routes, and will return a 404. MAAS
+		// does not report support for static-routes in its capabilities, nor
+		// does it have a different API version between 2.1 and 2.0. So we make
+		// the attempt, and treat a 404 as not having any configured static
+		// routes.
 		serverError, ok := gomaasapi.GetServerError(err)
 		if ok && serverError.StatusCode == http.StatusNotFound &&
 			strings.Contains(err.Error(), "Unknown API endpoint:") &&
-			strings.Contains(err.Error(), "/api/2.0/static-routes/") {
+			strings.Contains(err.Error(), "/static-routes/") {
 			staticRoutes = nil
 		} else {
 			return nil, errors.Annotate(err, "unable to look up static-routes")
