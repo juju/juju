@@ -738,7 +738,9 @@ class BootstrapManager:
             client = client_from_config(args.env, args.juju_bin,
                                         debug=args.debug,
                                         soft_deadline=args.deadline)
-            # XXX curtis hacked this
+            # XXX Curtis: client_from_config and ENV.from_config could
+            # take bootstrap_to as an arg. This will require an update
+            # to 27 tests in 23 files.
             if args.to is not None:
                 client.env.bootstrap_to = args.to
         return cls.from_client(args, client)
