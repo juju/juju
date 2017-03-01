@@ -72,6 +72,7 @@ class TestParseArgs(TestCase):
                 machine=[],
                 region=None,
                 series=None,
+                to=None,
                 upload_tools=False,
                 verbose=20,
                 deadline=None,
@@ -125,6 +126,19 @@ class TestDeploySimpleResourceServer(TestCase):
                 self.assertEqual(
                     amm.deploy_simple_resource_server(client, ''),
                     'simple-resource-http')
+
+    def test_waits_and_exposes(self):
+        client = Mock()
+        with temp_dir() as tmp_dir:
+            with patch.object(
+                    amm, 'temp_dir', autospec=True) as m_td:
+                m_td.return_value.__enter__.return_value = tmp_dir
+                amm.deploy_simple_resource_server(client, '')
+
+        client.wait_for_started.assert_called_once_with()
+        client.wait_for_workloads.assert_called_once_with()
+        client.juju.assert_called_once_with(
+            'expose', ('simple-resource-http'))
 
 
 class TestGetServerResponse(TestCase):
@@ -423,35 +437,26 @@ class TestWaitForMigration(TestCase):
                         amm.wait_for_migrating(client)
 
 
-class TestWaitForModel(TestCase):
-    # Check that it returns an error if the model never comes up.
-    # Pass in a timeout for the model check
+class TestWaitForModelCheck(TestCase):
     def test_raises_exception_when_timeout_occurs(self):
         mock_client = _get_time_noop_mock_client()
         with patch.object(until_timeout, 'next', side_effect=StopIteration()):
-            with self.assertRaises(AssertionError):
-                amm.wait_for_model(mock_client, 'TestModelName')
+            with self.assertRaises(amm.ModelCheckFailed):
+                amm._wait_for_model_check(
+                    mock_client, lambda x: False, timeout=60)
 
     def test_returns_when_model_found(self):
-        controller_client = Mock()
-        controller_client.get_models.return_value = dict(
-            models=[
-                dict(name='TestModelName')])
         mock_client = _get_time_noop_mock_client()
-        mock_client.get_controller_client.return_value = controller_client
-        amm.wait_for_model(mock_client, 'TestModelName')
+        amm._wait_for_model_check(mock_client, lambda x: True, timeout=60)
 
     def test_pauses_between_failed_matches(self):
-        controller_client = Mock()
-        controller_client.get_models.side_effect = [
-            dict(models=[]),    # Failed check
-            dict(models=[dict(name='TestModelName')]),  # Successful check
-            ]
         mock_client = _get_time_noop_mock_client()
-        mock_client.get_controller_client.return_value = controller_client
+
+        test_callable = Mock()
+        test_callable.side_effect = [False, True]
 
         with patch.object(amm, 'sleep') as mock_sleep:
-            amm.wait_for_model(mock_client, 'TestModelName')
+            amm._wait_for_model_check(mock_client, test_callable, timeout=60)
             mock_sleep.assert_called_once_with(1)
 
     def test_suppresses_deadline(self):
@@ -471,22 +476,97 @@ class TestWaitForModel(TestCase):
                     client, 'get_controller_client',
                     autospec=True, return_value=controller_client):
                 with patch.object(client, 'check_timeouts', autospec=True):
-                    amm.wait_for_model(client, 'TestModelName')
+                    amm._wait_for_model_check(
+                        client, lambda x: 'test', timeout=60)
 
     def test_checks_deadline(self):
         client = ModelClient(JujuData('local', juju_home=''), None, None)
         with client_past_deadline(client):
-            def get_models():
-                return {'models': [{'name': 'TestModelName'}]}
-
-            controller_client = Mock()
-            controller_client.get_models.side_effect = get_models
-
-            with patch.object(
-                    client, 'get_controller_client',
-                    autospec=True, return_value=controller_client):
+            with patch.object(client, 'get_controller_client', autospec=True):
                 with self.assertRaises(SoftDeadlineExceeded):
-                    amm.wait_for_model(client, 'TestModelName')
+                    amm._wait_for_model_check(
+                        client, lambda x: 'test', timeout=60)
+
+
+class TestWaitUntilModelDisappears(TestCase):
+
+    def test_returns_when_model_has_disappeared(self):
+        mock_client = _get_time_noop_mock_client()
+        model_data = {'models': [{'name': ''}]}
+
+        controller_client = Mock()
+        controller_client.get_models.return_value = model_data
+        mock_client.get_controller_client.return_value = controller_client
+
+        amm.wait_until_model_disappears(mock_client, 'test_model', timeout=60)
+
+    def test_raises_when_model_doesnt_disappear(self):
+        mock_client = _get_time_noop_mock_client()
+        model_data = {'models': [{'name': 'test_model'}]}
+
+        controller_client = Mock()
+        controller_client.get_models.return_value = model_data
+        mock_client.get_controller_client.return_value = controller_client
+
+        with patch.object(until_timeout, 'next', side_effect=StopIteration()):
+            with self.assertRaises(amm.JujuAssertionError):
+                amm.wait_until_model_disappears(
+                    mock_client, 'test_model', timeout=60)
+
+    def test_ignores_model_detail_exceptions(self):
+        """ignore errors for model details as this might happen many times."""
+        mock_client = _get_time_noop_mock_client()
+        model_data = {'models': [{'name': ''}]}
+
+        exp = CalledProcessError(-1, 'blah')
+        exp.stderr = 'cannot get model details'
+        controller_client = Mock()
+        controller_client.get_models.side_effect = [
+            exp,
+            model_data]
+        mock_client.get_controller_client.return_value = controller_client
+        with patch.object(amm, 'sleep') as mock_sleep:
+            amm.wait_until_model_disappears(
+                mock_client, 'test_model', timeout=60)
+            mock_sleep.assert_called_once_with(1)
+
+    def test_fails_on_non_expected_exception(self):
+        mock_client = _get_time_noop_mock_client()
+
+        exp = CalledProcessError(-1, 'blah')
+        exp.stderr = '"" is not a valid tag'
+        controller_client = Mock()
+        controller_client.get_models.side_effect = [exp]
+        mock_client.get_controller_client.return_value = controller_client
+        with self.assertRaises(CalledProcessError):
+            amm.wait_until_model_disappears(
+                mock_client, 'test_model', timeout=60)
+
+
+class TestWaitForModel(TestCase):
+
+    def test_returns_when_model_appears(self):
+        mock_client = _get_time_noop_mock_client()
+        model_data = {'models': [{'name': 'test_model'}]}
+
+        controller_client = Mock()
+        controller_client.get_models.return_value = model_data
+        mock_client.get_controller_client.return_value = controller_client
+
+        amm.wait_for_model(mock_client, 'test_model', timeout=60)
+
+    def test_raises_when_model_doesnt_appear(self):
+        mock_client = _get_time_noop_mock_client()
+        model_data = {'models': [{'name': ''}]}
+
+        controller_client = Mock()
+        controller_client.get_models.return_value = model_data
+        mock_client.get_controller_client.return_value = controller_client
+
+        with patch.object(until_timeout, 'next', side_effect=StopIteration()):
+            with self.assertRaises(amm.JujuAssertionError):
+                amm.wait_for_model(
+                    mock_client, 'test_model', timeout=1)
 
 
 class TestEnsureApiLoginRedirects(FakeHomeTestCase):
@@ -863,3 +943,32 @@ class TestAssessModelMigration(TestCase):
         m_am.assert_called_once_with(mig_client, app, resource_string)
 
         self.assertEqual(m_rollback.call_count, 0)
+
+
+class TestAssertLogsAppearInClientModel(TestCase):
+
+    def test_raises_exception_when_timeout_occurs(self):
+        mock_client = Mock()
+        with patch.object(until_timeout, 'next', side_effect=StopIteration()):
+            with self.assertRaises(JujuAssertionError):
+                amm.assert_logs_appear_in_client_model(
+                    mock_client, 'test logs', timeout=60)
+
+    def test_returns_early_when_logs_found(self):
+        mock_client = Mock()
+        mock_client.get_juju_output.return_value = 'test logs'
+        with patch.object(amm, 'sleep', autospec=True) as m_sleep:
+            amm.assert_logs_appear_in_client_model(
+                mock_client, 'test logs', timeout=60)
+        self.assertEqual(m_sleep.call_count, 0)
+
+    def test_tries_multiple_times_to_get_log_output(self):
+        mock_client = Mock()
+        mock_client.get_juju_output.side_effect = ['', 'test logs']
+        with patch.object(
+                until_timeout, 'next',
+                side_effect=[None, None, StopIteration()]):
+            with patch.object(amm, 'sleep', autospec=True) as m_sleep:
+                amm.assert_logs_appear_in_client_model(
+                    mock_client, 'test logs', timeout=60)
+                self.assertEqual(m_sleep.call_count, 1)

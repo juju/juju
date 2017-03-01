@@ -8,16 +8,17 @@ import json
 
 from assess_storage import (
     AWS_DEFAULT_STORAGE_POOL_DETAILS,
+    assert_dict_is_subset,
     assess_storage,
     parse_args,
     main,
-    storage_list_expected,
+    expected_filesystem,
     storage_pool_1x,
-    storage_list_expected_2,
-    storage_list_expected_3,
-    storage_list_expected_4,
-    storage_list_expected_5,
-    storage_list_expected_6,
+    expected_block1,
+    expected_block2,
+    expected_tmpfs,
+    expected_default_tmpfs,
+    expected_mulitfilesystem,
     storage_pool_details,
 )
 from jujupy import JujuData
@@ -25,6 +26,7 @@ from tests import (
     parse_error,
     TestCase,
 )
+from utility import JujuAssertionError
 
 
 class TestParseArgs(TestCase):
@@ -69,9 +71,31 @@ class TestMain(TestCase):
 
 class TestAssess(TestCase):
 
+    def test_assert_dict_is_subset(self):
+        # Identical dicts.
+        self.assertIsTrue(
+            assert_dict_is_subset(
+                {'a': 1, 'b': 2},
+                {'a': 1, 'b': 2}))
+        # super dict has an extra item.
+        self.assertIsTrue(
+            assert_dict_is_subset(
+                {'a': 1, 'b': 2},
+                {'a': 1, 'b': 2, 'c': 3}))
+        # A key is missing.
+        with self.assertRaises(JujuAssertionError):
+            assert_dict_is_subset(
+                {'a': 1, 'b': 2},
+                {'a': 1, 'c': 2})
+        # A value is different.
+        with self.assertRaises(JujuAssertionError):
+            assert_dict_is_subset(
+                {'a': 1, 'b': 2},
+                {'a': 1, 'b': 4})
+
     def test_storage_1x(self):
         mock_client = Mock(spec=["juju", "wait_for_started",
-                                 "create_storage_pool",
+                                 "create_storage_pool", "remove_service",
                                  "list_storage_pool", "deploy",
                                  "get_juju_output", "add_storage",
                                  "list_storage", "is_juju1x"])
@@ -83,12 +107,12 @@ class TestAssess(TestCase):
             json.dumps(storage_pool_1x)
         ]
         mock_client.list_storage.side_effect = [
-            json.dumps(storage_list_expected),
-            json.dumps(storage_list_expected_2),
-            json.dumps(storage_list_expected_3),
-            json.dumps(storage_list_expected_4),
-            json.dumps(storage_list_expected_5),
-            json.dumps(storage_list_expected_6)
+            json.dumps(expected_filesystem),
+            json.dumps(expected_block1),
+            json.dumps(expected_block2),
+            json.dumps(expected_tmpfs),
+            json.dumps(expected_default_tmpfs),
+            json.dumps(expected_mulitfilesystem)
         ]
         assess_storage(mock_client, mock_client.series)
         self.assertEqual(
@@ -108,7 +132,7 @@ class TestAssess(TestCase):
 
     def test_storage_2x(self):
         mock_client = Mock(spec=["juju", "wait_for_started",
-                                 "create_storage_pool",
+                                 "create_storage_pool", "remove_service",
                                  "list_storage_pool", "deploy",
                                  "get_juju_output", "add_storage",
                                  "list_storage", "is_juju1x"])
@@ -120,12 +144,12 @@ class TestAssess(TestCase):
             json.dumps(storage_pool_details)
         ]
         mock_client.list_storage.side_effect = [
-            json.dumps(storage_list_expected),
-            json.dumps(storage_list_expected_2),
-            json.dumps(storage_list_expected_3),
-            json.dumps(storage_list_expected_4),
-            json.dumps(storage_list_expected_5),
-            json.dumps(storage_list_expected_6)
+            json.dumps(expected_filesystem),
+            json.dumps(expected_block1),
+            json.dumps(expected_block2),
+            json.dumps(expected_tmpfs),
+            json.dumps(expected_default_tmpfs),
+            json.dumps(expected_mulitfilesystem)
         ]
         assess_storage(mock_client, mock_client.series)
         self.assertEqual(
@@ -145,7 +169,7 @@ class TestAssess(TestCase):
 
     def test_storage_2x_with_aws(self):
         mock_client = Mock(spec=["juju", "wait_for_started",
-                                 "create_storage_pool",
+                                 "create_storage_pool", "remove_service",
                                  "list_storage_pool", "deploy",
                                  "get_juju_output", "add_storage",
                                  "list_storage", "is_juju1x"])
@@ -159,12 +183,12 @@ class TestAssess(TestCase):
             json.dumps(expected_pool)
         ]
         mock_client.list_storage.side_effect = [
-            json.dumps(storage_list_expected),
-            json.dumps(storage_list_expected_2),
-            json.dumps(storage_list_expected_3),
-            json.dumps(storage_list_expected_4),
-            json.dumps(storage_list_expected_5),
-            json.dumps(storage_list_expected_6)
+            json.dumps(expected_filesystem),
+            json.dumps(expected_block1),
+            json.dumps(expected_block2),
+            json.dumps(expected_tmpfs),
+            json.dumps(expected_default_tmpfs),
+            json.dumps(expected_mulitfilesystem)
         ]
         assess_storage(mock_client, mock_client.series)
         self.assertEqual(
@@ -181,3 +205,31 @@ class TestAssess(TestCase):
             ],
             mock_client.add_storage.mock_calls
         )
+
+    def test_storage_2_2_with_aws(self):
+        mock_client = Mock(spec=["juju", "wait_for_started",
+                                 "create_storage_pool", "remove_service",
+                                 "list_storage_pool", "deploy",
+                                 "get_juju_output", "add_storage",
+                                 "list_storage", "is_juju1x"])
+        mock_client.series = 'trusty'
+        mock_client.version = '2.2'
+        mock_client.is_juju1x.return_value = False
+        mock_client.env = JujuData('foo', {'type': 'ec2'}, 'data')
+        expected_pool = dict(AWS_DEFAULT_STORAGE_POOL_DETAILS)
+        expected_pool.update(storage_pool_details)
+        aws_pool = dict(expected_pool)
+        aws_pool['filesystems'] = {'0/0': 'baz'}
+        aws_pool['Volume'] = ''
+        mock_client.list_storage_pool.side_effect = [
+            json.dumps(aws_pool)
+        ]
+        mock_client.list_storage.side_effect = [
+            json.dumps(expected_filesystem),
+            json.dumps(expected_block1),
+            json.dumps(expected_block2),
+            json.dumps(expected_tmpfs),
+            json.dumps(expected_default_tmpfs),
+            json.dumps(expected_mulitfilesystem)
+        ]
+        assess_storage(mock_client, mock_client.series)

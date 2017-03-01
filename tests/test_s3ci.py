@@ -23,7 +23,7 @@ from jujuci import (
     JobNamer,
     PackageNamer,
     )
-from jujuconfig import get_juju_home
+from jujupy import get_juju_home
 from s3ci import (
     fetch_files,
     fetch_juju_binary,
@@ -222,8 +222,9 @@ class TestFetchJujuBinary(StrictTestCase):
         bucket = FakeBucket([key])
 
         def extract(package, out_dir):
-            os.mkdir(out_dir)
-            open(os.path.join(out_dir, 'juju'), 'w')
+            parent = os.path.join(out_dir, 'bin')
+            os.makedirs(parent)
+            open(os.path.join(parent, 'juju'), 'w')
 
         with temp_dir() as workspace:
             with patch('jujuci.extract_deb', autospec=True,
@@ -233,7 +234,7 @@ class TestFetchJujuBinary(StrictTestCase):
         key.get_contents_to_filename.assert_called_once_with(local_deb)
         eb_dir = os.path.join(workspace, 'extracted-bin')
         ed_mock.assert_called_once_with(local_deb, eb_dir)
-        self.assertEqual(os.path.join(eb_dir, 'juju'), extracted)
+        self.assertEqual(os.path.join(eb_dir, 'bin', 'juju'), extracted)
 
 
 class TestFetchFiles(StrictTestCase):

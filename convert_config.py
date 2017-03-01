@@ -8,11 +8,11 @@ from textwrap import dedent
 
 import yaml
 
-from jujuconfig import get_environments
 from jujupy import (
     fake_juju_client,
     JujuData,
     )
+from jujupy.configuration import get_environments
 
 
 def write_new_config(env, out):

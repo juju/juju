@@ -220,7 +220,7 @@ def make_args():
         agent_stream=None, agent_timeout=1800, agent_url=None,
         bootstrap_host=None, debug=False, env='an-env', juju_bin='/bin/juju',
         keep_env=False, large_test_enabled=False, logs='/tmp/logs', machine=[],
-        region=None, resource_timeout=1800, series=None,
+        region=None, resource_timeout=1800, series=None, to=None,
         temp_env_name='an-env-mod', upload_tools=False, verbose=10,
         deadline=None,)
 

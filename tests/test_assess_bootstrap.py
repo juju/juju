@@ -127,7 +127,7 @@ class TestPrepareMetadata(TestCase):
         with patch.object(client, 'sync_tools') as sync_mock:
             with temp_dir() as metadata_dir:
                 prepare_metadata(client, metadata_dir)
-        sync_mock.assert_called_once_with(metadata_dir)
+        sync_mock.assert_called_once_with(metadata_dir, None, None)
 
     def test_prepare_temp_metadata(self):
         client = fake_juju_client()
@@ -135,7 +135,28 @@ class TestPrepareMetadata(TestCase):
                    autospec=True) as prepare_mock:
             with prepare_temp_metadata(client) as metadata_dir:
                 pass
-        prepare_mock.assert_called_once_with(client, metadata_dir)
+        prepare_mock.assert_called_once_with(client, metadata_dir, None, None)
+
+    def test_prepare_metadata_with_stream(self):
+        client = fake_juju_client()
+        with patch.object(client, 'sync_tools') as sync_mock:
+            with temp_dir() as metadata_dir:
+                prepare_metadata(client, metadata_dir, "testing")
+        sync_mock.assert_called_once_with(metadata_dir, "testing", None)
+
+    def test_prepare_metadata_with_source(self):
+        client = fake_juju_client()
+        with patch.object(client, 'sync_tools') as sync_mock:
+            with temp_dir() as metadata_dir:
+                prepare_metadata(client, metadata_dir, None, "foo")
+        sync_mock.assert_called_once_with(metadata_dir, None, "foo")
+
+    def test_prepare_metadata_with_all_args(self):
+        client = fake_juju_client()
+        with patch.object(client, 'sync_tools') as sync_mock:
+            with temp_dir() as metadata_dir:
+                prepare_metadata(client, metadata_dir, "bar", "foo")
+        sync_mock.assert_called_once_with(metadata_dir, "bar", "foo")
 
     def test_prepare_temp_metadata_source(self):
         client = fake_juju_client()
@@ -335,22 +356,20 @@ class TestAssessTo(FakeHomeTestCase):
                                          use_json=False)
 
     def test_assess_to(self):
-        DEST = 'test-host'
-
-        def check(myself, to):
-            self.assertEqual({'name': 'qux', 'type': 'foo'},
-                             myself.env._config)
-            self.assertEqual(DEST, to)
+        args = parse_args(
+            ['to', 'bar', '/foo', '--region', 'baz', '--to', 'test-host'])
+        args.temp_env_name = 'qux'
         with extended_bootstrap_cxt('2.0.0'):
-            with patch('jujupy.ModelClient.bootstrap', side_effect=check,
-                       autospec=True):
+            with patch('jujupy.ModelClient.juju', autospec=True,
+                       side_effect=['', '']) as j_mock:
                 with patch('assess_bootstrap.get_controller_hostname',
-                           return_value=DEST, autospec=True):
-                    args = parse_args(['to', 'bar', '/foo',
-                                       '--to', DEST])
-                    args.temp_env_name = 'qux'
+                           return_value='test-host', autospec=True):
                     bs_manager = BootstrapManager.from_args(args)
                     assess_to(bs_manager, args.to)
+        bootstrap_args = [
+            c[1][2] for c in j_mock.mock_calls if c[1][1] == 'bootstrap'][0]
+        to_pos = bootstrap_args.index('--to')
+        self.assertEqual('test-host', bootstrap_args[to_pos + 1])
 
     def test_assess_to_requires_to(self):
         with self.assertRaises(ValueError):

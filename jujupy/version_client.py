@@ -28,7 +28,7 @@ from jujupy.client import (
     unqualified_model_name,
     UpgradeMongoNotSupported,
     )
-from utility import (
+from jujupy.utility import (
     ensure_deleted,
     scoped_environ,
     split_address_port,
@@ -131,9 +131,19 @@ class ModelClient2_1(ModelClient):
 
 class ModelClient2_0(ModelClient2_1):
     """Client for Juju 2.0"""
-    # Outcome and output differs to 2.1 tests cannot assume 2.0 and 2.1 are
-    # identical.
-    pass
+
+    def _acquire_model_client(self, name, owner=None):
+        """Get a client for a model with the supplied name.
+
+        If the name matches self, self is used.  Otherwise, a clone is used.
+
+        Note: owner is ignored for all clients before 2.1.
+        """
+        if name == self.env.environment:
+            return self
+        else:
+            env = self.env.clone(model_name=name)
+            return self.clone(env=env)
 
 
 class ModelClientRC(ModelClient2_0):
@@ -141,7 +151,7 @@ class ModelClientRC(ModelClient2_0):
     def get_bootstrap_args(
             self, upload_tools, config_filename, bootstrap_series=None,
             credential=None, auto_upgrade=False, metadata_source=None,
-            to=None, no_gui=False, agent_version=None):
+            no_gui=False, agent_version=None):
         """Return the bootstrap arguments for the substrate."""
         if self.env.joyent:
             # Only accept kvm packages by requiring >1 cpu core, see lp:1446264
@@ -173,8 +183,8 @@ class ModelClientRC(ModelClient2_0):
             args.extend(['--metadata-source', metadata_source])
         if auto_upgrade:
             args.append('--auto-upgrade')
-        if to is not None:
-            args.extend(['--to', to])
+        if self.env.bootstrap_to is not None:
+            args.extend(['--to', self.env.bootstrap_to])
         if no_gui:
             args.append('--no-gui')
         return tuple(args)
@@ -691,6 +701,18 @@ def get_client_class(version):
     return client_class
 
 
+def get_full_path(juju_path):
+    """Helper to ensure a full path is used.
+
+    If juju_path is None, ModelClient.get_full_path is used.  Otherwise,
+    the supplied path is converted to absolute.
+    """
+    if juju_path is None:
+        return ModelClient.get_full_path()
+    else:
+        return os.path.abspath(juju_path)
+
+
 def client_from_config(config, juju_path, debug=False, soft_deadline=None):
     """Create a client from an environment's configuration.
 
@@ -707,9 +729,32 @@ def client_from_config(config, juju_path, debug=False, soft_deadline=None):
         env = client_class.config_class('', {})
     else:
         env = client_class.config_class.from_config(config)
-    if juju_path is None:
-        full_path = ModelClient.get_full_path()
-    else:
-        full_path = os.path.abspath(juju_path)
+    full_path = get_full_path(juju_path)
     return client_class(env, version, full_path, debug=debug,
                         soft_deadline=soft_deadline)
+
+
+def client_for_existing(juju_path, juju_data_dir, debug=False,
+                        soft_deadline=None):
+    """Create a client for an existing controller/model.
+
+    :param juju_path: Path to juju binary the client should wrap.
+    :param juju_data_dir: Path to the juju data directory referring the the
+        controller and model.
+    :param debug=False: The debug flag for the client, False by default.
+    :param soft_deadline: A datetime representing the deadline by which
+        normal operations should complete.  If None, no deadline is
+        enforced.
+    """
+    version = ModelClient.get_version(juju_path)
+    client_class = get_client_class(str(version))
+    full_path = get_full_path(juju_path)
+    backend = client_class.default_backend(full_path, version, set(),
+                                           debug=debug,
+                                           soft_deadline=soft_deadline)
+    controller_name, user_name, model_name = backend.get_active_model(
+        juju_data_dir)
+    config = client_class.config_class.for_existing(
+        juju_data_dir, controller_name, model_name)
+    return client_class(config, version, full_path, debug=debug,
+                        soft_deadline=soft_deadline, _backend=backend)

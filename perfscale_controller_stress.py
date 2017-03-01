@@ -1,12 +1,12 @@
 #!/usr/bin/env python
-"""Perfscale test that uses the observable-swarm charm collection to exercise
+"""Perfscale test that uses the hadoop-kafka charm collection to exercise
 the controller(s).
 
 Steps taken in this test:
   - Bootstraps a new controller (installing monitoring software on it).
   - Iterate a user defined amount:
     - Add new model
-    - Deploy observable-swarm to this new model
+    - Deploy hadoop-kafka to this new model
 """
 
 import argparse
@@ -29,16 +29,16 @@ from utility import (
 __metaclass__ = type
 
 
-def assess_controller_stress(client, args):
-    """Deploy observable-swarm charm many times to stress test controller
+def assess_controller_stress(client, pprof_collector, args):
+    """Deploy hadoop-kafka charm many times to stress test controller
     machines.
     """
     test_start = datetime.utcnow()
 
     deploy_details = dict()
     for model_number in range(0, args.deploy_amount):
-        model_name = 'swarm-model-{}'.format(model_number)
-        deploy_time = deploy_swarm_to_new_model(client, model_name)
+        model_name = 'kafka-model-{}'.format(model_number)
+        deploy_time = deploy_bundle_to_new_model(client, model_name)
         deploy_details[model_name] = '{} Seconds'.format(deploy_time)
 
     test_end = datetime.utcnow()
@@ -47,7 +47,7 @@ def assess_controller_stress(client, args):
     return DeployDetails('Controller Stress.', deploy_details, deploy_timing)
 
 
-def deploy_swarm_to_new_model(client, model_name):
+def deploy_bundle_to_new_model(client, model_name):
     before_add = datetime.utcnow()
 
     new_client = client.add_model(model_name)
@@ -60,7 +60,7 @@ def deploy_swarm_to_new_model(client, model_name):
 
 
 def get_charm_url():
-    return 'cs:~containers/observable-swarm'
+    return 'cs:bundle/hadoop-kafka'
 
 
 def parse_args(argv):

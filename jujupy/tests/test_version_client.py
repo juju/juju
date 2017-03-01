@@ -17,9 +17,6 @@ from mock import (
     )
 import yaml
 
-from jujuconfig import (
-    get_jenv_path,
-    )
 from jujupy import (
     AuthNotAccepted,
     fake_juju_client,
@@ -36,6 +33,7 @@ from jujupy import (
     )
 from jujupy.client import (
     CannotConnectEnv,
+    get_bootstrap_config_path,
     GroupReporter,
     StatusItem,
     StatusNotMet,
@@ -43,16 +41,21 @@ from jujupy.client import (
     UpgradeMongoNotSupported,
     WaitMachineNotPresent,
     )
+from jujupy.configuration import get_jenv_path
 from jujupy.fake import (
+    FakeBackend,
+    FakeControllerState,
     FakeBackend2_1,
     )
 from jujupy.version_client import (
     BootstrapMismatch,
+    client_for_existing,
     client_from_config,
     EnvJujuClient1X,
     EnvJujuClient22,
     EnvJujuClient24,
     EnvJujuClient25,
+    get_client_class,
     ModelClientRC,
     IncompatibleConfigClass,
     Juju1XBackend,
@@ -71,8 +74,9 @@ from tests import (
     observable_temp_file,
     TestCase
     )
-from utility import (
+from jujupy.utility import (
     get_timeout_path,
+    temp_dir,
     )
 
 
@@ -214,6 +218,40 @@ class TestClientFromConfig(ClientTest):
                 client = client_from_config(
                     'foo', 'foo/bar/qux', soft_deadline=deadline)
         self.assertEqual(client._backend.soft_deadline, deadline)
+
+
+class TestClientForExisting(ClientTest):
+
+    def test_client_for_existing(self):
+        state = FakeControllerState()
+        state.name = 'ctrl1'
+        state.active_model = 'model1'
+        backend = FakeBackend(state, version='2.0.73', full_path='/path/juju')
+        with patch.object(ModelClient, 'get_version',
+                          return_value=backend.version) as gv_mock:
+            client_class = get_client_class(backend.version)
+            with patch.object(client_class, 'default_backend',
+                              return_value=backend) as db_mock:
+                with temp_dir() as juju_data:
+                    with open(get_bootstrap_config_path(juju_data), 'w') as f:
+                        yaml.safe_dump({'controllers': {'ctrl1': {
+                            'controller-config': {
+                                },
+                            'model-config': {
+                                },
+                            'cloud': 'cloud1',
+                            'region': 'region1',
+                            'type': 'provider1',
+                            }}}, f)
+                    client = client_for_existing(backend.full_path, juju_data)
+        self.assertEqual(client.model_name, 'model1')
+        self.assertEqual(client.env.controller.name, 'ctrl1')
+        self.assertEqual(client.env.get_cloud(), 'cloud1')
+        self.assertEqual(client.env.get_region(), 'region1')
+        self.assertEqual(client.env.provider, 'provider1')
+        gv_mock.assert_called_once_with(backend.full_path)
+        db_mock.assert_called_once_with(backend.full_path, backend.version,
+                                        set(), debug=False, soft_deadline=None)
 
 
 class TestModelClient2_1(ClientTest):
@@ -1341,7 +1379,8 @@ class TestEnvJujuClient1X(ClientTest):
         environ['JUJU_HOME'] = client.env.juju_home
         mock.assert_called_with(
             ('juju', '--show-log', 'set-env', '-e', 'foo',
-             'tools-metadata-url=https://example.org/juju/tools'))
+             'tools-metadata-url=https://example.org/juju/tools'),
+            stderr=None)
 
     def test_unset_env_option(self):
         env = SimpleEnvironment('foo')
@@ -1352,7 +1391,7 @@ class TestEnvJujuClient1X(ClientTest):
         environ['JUJU_HOME'] = client.env.juju_home
         mock.assert_called_with(
             ('juju', '--show-log', 'set-env', '-e', 'foo',
-             'tools-metadata-url='))
+             'tools-metadata-url='), stderr=None)
 
     @contextmanager
     def run_model_defaults_test(self, operation_name):
@@ -1405,7 +1444,7 @@ class TestEnvJujuClient1X(ClientTest):
         environ = dict(os.environ)
         environ['JUJU_HOME'] = client.env.juju_home
         mock.assert_called_with(('juju', '--show-log', 'foo', '-e', 'qux',
-                                 'bar', 'baz'))
+                                 'bar', 'baz'), stderr=None)
 
     def test_juju_env(self):
         env = SimpleEnvironment('qux')
@@ -1424,7 +1463,7 @@ class TestEnvJujuClient1X(ClientTest):
         with patch('subprocess.call') as mock:
             client.juju('foo', ('bar', 'baz'), check=False)
         mock.assert_called_with(('juju', '--show-log', 'foo', '-e', 'qux',
-                                 'bar', 'baz'))
+                                 'bar', 'baz'), stderr=None)
 
     def test_juju_no_check_env(self):
         env = SimpleEnvironment('qux')
@@ -1471,7 +1510,8 @@ class TestEnvJujuClient1X(ClientTest):
         with patch('subprocess.check_call', side_effect=check_env) as mock:
             client.juju('quickstart', ('bar', 'baz'), extra_env=extra_env)
         mock.assert_called_with(
-            ('juju', '--show-log', 'quickstart', '-e', 'qux', 'bar', 'baz'))
+            ('juju', '--show-log', 'quickstart', '-e', 'qux', 'bar', 'baz'),
+            stderr=None)
 
     def test_juju_backup_with_tgz(self):
         env = SimpleEnvironment('qux')

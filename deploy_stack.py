@@ -25,15 +25,12 @@ from chaos import background_chaos
 from jujucharm import (
     local_charm_path,
 )
-from jujuconfig import (
-    get_jenv_path,
-    get_juju_home,
-)
 from jujupy import (
     client_from_config,
     EnvJujuClient1X,
     FakeBackend,
     fake_juju_client,
+    get_juju_home,
     get_machine_dns_name,
     jes_home_path,
     NoProvider,
@@ -43,6 +40,7 @@ from jujupy import (
 from jujupy.client import (
     get_local_root,
 )
+from jujupy.configuration import get_jenv_path
 from remote import (
     remote_from_address,
     remote_from_unit,
@@ -717,6 +715,8 @@ class BootstrapManager:
             client = client_from_config(args.env, args.juju_bin,
                                         debug=args.debug,
                                         soft_deadline=args.deadline)
+            if args.to is not None:
+                client.env.bootstrap_to = args.to
         return cls.from_client(args, client)
 
     @classmethod
@@ -960,7 +960,7 @@ class BootstrapManager:
                     runtime_config = None
                 artifacts_dir = os.path.join(self.log_dir,
                                              client.env.environment)
-                os.mkdir(artifacts_dir)
+                os.makedirs(artifacts_dir)
                 dump_env_logs_known_hosts(
                     client, artifacts_dir, runtime_config, known_hosts)
 

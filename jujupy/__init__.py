@@ -28,6 +28,10 @@ from jujupy.client import (
     TypeNotAccepted,
     uniquify_local,
     )
+from jujupy.configuration import (
+    get_juju_home,
+    NoSuchEnvironment,
+    )
 from jujupy.fake import (
     FakeBackend,
     FakeControllerState,
@@ -36,6 +40,7 @@ from jujupy.fake import (
     )
 from jujupy.version_client import (
     client_from_config,
+    client_for_existing,
     EnvJujuClient1X,
     EnvJujuClient25,
     get_client_class,
@@ -46,6 +51,7 @@ __all__ = [
     'AgentsNotStarted',
     'AuthNotAccepted',
     'client_from_config',
+    'client_for_existing',
     'ConditionList',
     'EnvJujuClient1X',
     'EnvJujuClient25',
@@ -55,6 +61,7 @@ __all__ = [
     'fake_juju_client_optional_jes',
     'get_cache_path',
     'get_client_class',
+    'get_juju_home',
     'get_machine_dns_name',
     'get_timeout_prefix',
     'IncompatibleConfigClass',
@@ -72,6 +79,7 @@ __all__ = [
     'ModelClient',
     'NameNotAccepted',
     'NoProvider',
+    'NoSuchEnvironment',
     'parse_new_state_server_from_error',
     'SimpleEnvironment',
     'SoftDeadlineExceeded',

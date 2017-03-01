@@ -772,14 +772,21 @@ class TestAzureAccount(TestCase):
         client.delete_hosted_service.assert_called_once_with('foo')
 
 
-def get_azure_config():
+def get_azure_credentials():
     return {
-        'type': 'azure',
         'subscription-id': 'subscription-id',
         'application-id': 'application-id',
         'application-password': 'application-password',
+    }
+
+
+def get_azure_config():
+    config = {
+        'type': 'azure',
         'tenant-id': 'tenant-id'
     }
+    config.update(get_azure_credentials())
+    return config
 
 
 class TestAzureARMAccount(TestCase):
@@ -845,7 +852,9 @@ class TestAzureARMAccount(TestCase):
            autospec=True, side_effect=fake_init_services)
     def test_convert_to_azure_ids_function(self, is_mock):
         env = JujuData('controller', get_azure_config(), juju_home='data')
-        env.credentials['credentials'] = {'azure': {'credentials': {}}}
+        env.credentials['credentials'] = {'azure': {
+            'credentials': get_azure_credentials()
+            }}
         client = fake_juju_client(env=env)
         arm_client = ARMClient(
             'subscription-id', 'application-id', 'application-password',
@@ -885,7 +894,9 @@ class TestAzureARMAccount(TestCase):
            autospec=True, side_effect=fake_init_services)
     def test_convert_to_azure_ids_function_bug_1586089_fixed(self, is_mock):
         env = JujuData('controller', get_azure_config(), juju_home='data')
-        env.credentials['credentials'] = {'azure': {'credentials': {}}}
+        env.credentials['credentials'] = {'azure': {
+            'credentials': get_azure_credentials()
+            }}
         client = fake_juju_client(env=env, version='2.1')
         with patch.object(client, 'get_models') as gm_mock:
             with patch('winazurearm.list_resources') as lr_mock:

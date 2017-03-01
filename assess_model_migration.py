@@ -124,24 +124,72 @@ def _new_log_dir(log_dir, post_fix):
     return new_log_dir
 
 
-def wait_for_model(client, model_name, timeout=60):
-    """Wait for a given timeout for the client to see the model_name.
+class ModelCheckFailed(Exception):
+    """Exception used to signify a model status check failed or timed out."""
 
-    Defaults to 10 seconds timeout.
 
-    :raises AssertionError: If the named model does not appear in the specified
-        timeout.
+def _wait_for_model_check(client, model_check, timeout):
+    """Wrapper to have a client wait for a model_check callable to succeed.
+
+    :param client: ModelClient object to act on and pass into model_check
+    :param model_check: Callable that takes a ModelClient object. When the
+      callable reaches a success state it returns True. If model_check never
+      returns True within `timeout`, the exception ModelCheckFailed will be
+      raised.
     """
     with client.check_timeouts():
         with client.ignore_soft_deadline():
             for _ in until_timeout(timeout):
-                models = client.get_controller_client().get_models()
-                if model_name in [m['name'] for m in models['models']]:
+                if model_check(client):
                     return
                 sleep(1)
-            raise JujuAssertionError(
-                'Model \'{}\' failed to appear after {} seconds'.format(
-                    model_name, timeout))
+    raise ModelCheckFailed()
+
+
+def wait_until_model_disappears(client, model_name, timeout=60):
+    """Waits for a while for 'model_name' model to no longer be listed.
+
+    :raises JujuAssertionError: If the named model continues to be listed in
+      list-models after specified timeout.
+    """
+    def model_check(client):
+        try:
+            models = client.get_controller_client().get_models()
+        except CalledProcessError as e:
+            # It's possible that we've tried to get status from the model as
+            # it's being removed.
+            # We can't consider the model gone yet until we don't get this
+            # error and the model is no longer in the output.
+            if 'cannot get model details' not in e.stderr:
+                raise
+        else:
+            if model_name not in [m['name'] for m in models['models']]:
+                return True
+
+    try:
+        _wait_for_model_check(client, model_check, timeout)
+    except ModelCheckFailed:
+        raise JujuAssertionError(
+            'Model "{}" failed to be removed after {} seconds'.format(
+                model_name, timeout))
+
+
+def wait_for_model(client, model_name, timeout=60):
+    """Wait for a given timeout for the client to see the model_name.
+
+    :raises JujuAssertionError: If the named model does not appear in the
+      specified timeout.
+    """
+    def model_check(client):
+        models = client.get_controller_client().get_models()
+        if model_name in [m['name'] for m in models['models']]:
+            return True
+    try:
+        _wait_for_model_check(client, model_check, timeout)
+    except ModelCheckFailed:
+        raise JujuAssertionError(
+            'Model "{}" failed to appear after {} seconds'.format(
+                model_name, timeout))
 
 
 def wait_for_migrating(client, timeout=60):
@@ -298,6 +346,7 @@ def ensure_superuser_can_migrate_other_user_models(
     wait_for_model(
         migration_client, user_qualified_model_name)
     migration_client.wait_for_started()
+    wait_until_model_disappears(source_client, user_qualified_model_name)
 
 
 def deploy_simple_server_to_new_model(
@@ -337,6 +386,7 @@ def deploy_simple_resource_server(client, resource_contents=None):
 
     client.wait_for_started()
     client.wait_for_workloads()
+    client.juju('expose', (application_name))
     return application_name
 
 
@@ -354,6 +404,7 @@ def migrate_model_to_controller(
         dest_client.env.clone(source_client.env.environment))
     wait_for_model(migration_target_client, source_client.env.environment)
     migration_target_client.wait_for_started()
+    wait_until_model_disappears(source_client, source_client.env.environment)
     return migration_target_client
 
 
@@ -393,18 +444,41 @@ def raise_if_shared_machines(unit_machines):
         raise JujuAssertionError('Appliction units reside on the same machine')
 
 
-def ensure_model_logs_are_migrated(source_client, dest_client):
+def ensure_model_logs_are_migrated(source_client, dest_client, timeout=60):
+    """Ensure logs are migrated when a model is migrated between controllers.
+
+    :param source_client: ModelClient representing source controller to create
+      model on and migrate that model from.
+    :param dest_client: ModelClient for destination controller to migrate to.
+    :param timeout: int seconds to wait for logs to appear in migrated model.
+    """
     new_model_client = deploy_dummy_source_to_new_model(
         source_client, 'log-migration')
     before_migration_logs = new_model_client.get_juju_output(
         'debug-log', '--no-tail', '-l', 'DEBUG')
     log.info('Attempting migration process')
     migrated_model = migrate_model_to_controller(new_model_client, dest_client)
-    after_migration_logs = migrated_model.get_juju_output(
-        'debug-log', '--no-tail', '--replay', '-l', 'DEBUG')
-    if before_migration_logs not in after_migration_logs:
-        raise JujuAssertionError('Logs failed to be migrated.')
-    log.info('SUCCESS: logs migrated.')
+
+    assert_logs_appear_in_client_model(
+        migrated_model, before_migration_logs, timeout)
+
+
+def assert_logs_appear_in_client_model(client, expected_logs, timeout):
+    """Assert that `expected_logs` appear in client logs within timeout.
+
+    :param client: ModelClient object to query logs of.
+    :param expected_logs: string containing log contents to check for.
+    :param timeout: int seconds to wait for before raising JujuAssertionError.
+    """
+    for _ in until_timeout(timeout):
+        current_logs = client.get_juju_output(
+            'debug-log', '--no-tail', '--replay', '-l', 'DEBUG')
+        if expected_logs in current_logs:
+            log.info('SUCCESS: logs migrated.')
+            return
+        sleep(1)
+    raise JujuAssertionError(
+        'Logs failed to be migrated after {}'.format(timeout))
 
 
 def ensure_migration_rolls_back_on_failure(source_client, dest_client):

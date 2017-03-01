@@ -13,9 +13,9 @@ import yaml
 from deploy_stack import (
     BootstrapManager,
     )
-from jujuconfig import get_juju_home
 from jujupy import (
     client_from_config,
+    get_juju_home,
     )
 from assess_cloud import (
     assess_cloud_combined,
@@ -50,31 +50,35 @@ def make_bootstrap_manager(config, region, client, log_dir):
     return bs_manager
 
 
-def iter_cloud_regions(public_clouds, credentials):
-    configs = {
+CLOUD_CONFIGS = {
         'aws': 'default-aws',
         # sinzui: We may lose this access. No one remaining at Canonical can
         # access the account. There is talk of terminating it.
         'aws-china': 'default-aws-cn',
-        'azure': 'default-azure',
+        'azure': 'default-azure-arm',
         'google': 'default-gce',
         'joyent': 'default-joyent',
         'rackspace': 'default-rackspace',
         }
+
+
+def iter_cloud_regions(public_clouds, credentials):
     for cloud, info in sorted(public_clouds.items()):
         if cloud not in credentials:
             logging.warning('No credentials for {}.  Skipping.'.format(cloud))
             continue
-        config = configs[cloud]
         for region in sorted(info['regions']):
-            yield config, region
+            yield cloud, region
 
 
 def bootstrap_cloud_regions(public_clouds, credentials, args):
-    cloud_regions = list(iter_cloud_regions(public_clouds, credentials))
-    for num, (config, region) in enumerate(cloud_regions):
+    cloud_regions = args.cloud_regions
+    if cloud_regions is None:
+        cloud_regions = list(iter_cloud_regions(public_clouds, credentials))
+    for num, (cloud, region) in enumerate(cloud_regions):
         if num < args.start:
             continue
+        config = CLOUD_CONFIGS[cloud]
         logging.info('Bootstrapping {} {} #{}'.format(config, region, num))
         try:
             client = client_from_config(
@@ -85,7 +89,13 @@ def bootstrap_cloud_regions(public_clouds, credentials, args):
         except LoggedException as error:
             yield config, region, error.exception
         except Exception as error:
+            logging.exception(
+                'Assessment of {} {} failed.'.format(config, region))
             yield config, region, error
+
+
+def make_cloud_regions(cloud_regions):
+    return tuple(cloud_regions.split('/'))
 
 
 def parse_args(argv):
@@ -96,6 +106,8 @@ def parse_args(argv):
     parser.add_argument('logs', nargs='?', type=_clean_dir,
                         help='A directory in which to store logs. By default,'
                         ' this will use the current directory', default=None)
+    parser.add_argument('-c', '--cloud-region', type=make_cloud_regions,
+                        default=None, action='append', dest='cloud_regions')
     parser.add_argument('--start', type=int, default=0)
     parser.add_argument('--debug', action='store_true', default=False,
                         help='Pass --debug to Juju.')

@@ -1,14 +1,15 @@
 #!/usr/bin/env python
 from argparse import ArgumentParser
+import logging
 from textwrap import dedent
 import yaml
 
 from deploy_stack import (
     BootstrapManager,
     )
-from jujuconfig import get_juju_home
 from jujupy import (
     ConditionList,
+    get_juju_home,
     ModelClient,
     FakeBackend,
     FakeControllerState,
@@ -67,7 +68,7 @@ def assess_cloud_combined(bs_manager):
                            for n in new_machines]))
 
 
-def assess_cloud_provisioning(bs_manager):
+def assess_cloud_provisioning(bs_manager, series=None):
     """Assess provisioning operations on a cloud.
 
     This was created for testing Azure streams.  It tests bootstrap,
@@ -75,15 +76,18 @@ def assess_cloud_provisioning(bs_manager):
     charms.
 
     It tests "trusty" and "win2012r2" as representative series on Azure.  It
-    does not test CentOS, because that is known-broken at the moment (bug
-    #1571982).  It tests "trusty" rather than "xenial" because "xenial" will
-    be used for bootstrap by default.
+    tests "trusty" rather than "xenial" because "xenial" will be used for
+    bootstrap by default.
     """
+    if series is None:
+        series = ['win2012r2', 'trusty', 'centos7']
+    logging.info(
+        'Testing provisioning for series: {}'.format(', '.join(series)))
     client = bs_manager.client
     with bs_manager.booted_context(upload_tools=False):
         old_status = client.get_status()
-        client.juju('add-machine', ('--series', 'win2012r2'))
-        client.juju('add-machine', ('--series', 'trusty'))
+        for current_series in series:
+            client.juju('add-machine', ('--series', current_series))
         new_status = client.wait_for_started()
         new_machines = [k for k, v in new_status.iter_new_machines(old_status)]
         for machine in new_machines:
@@ -97,9 +101,12 @@ def assess_cloud_kill_controller(bs_manager):
     client = bs_manager.client
     with bs_manager.booted_context(upload_tools=False):
         controller_client = client.get_controller_client()
+        # We expect juju to die with a connection error (because we just
+        # stopped its jujud).  This would normally be seen as a bug, so we
+        # suppress it.
         controller_client.juju('run', (
             '--machine', '0', 'sudo service jujud-machine-0 stop'),
-            check=False)
+            check=False, suppress_err=True)
         bs_manager.has_controller = False
 
 
@@ -120,6 +127,9 @@ def parse_args(args):
         subparser.add_argument('cloud', help='Specific cloud to test.')
         add_basic_testing_arguments(subparser, env=False)
         subparser.add_argument('--config')
+        if test == 'provisioning':
+            subparser.add_argument('--machine-series', action='append',
+                                   help='A machine series to add.')
     return parser.parse_args(args)
 
 
@@ -131,7 +141,7 @@ def main(argv=None):
     if args.test == 'combined':
         assess_cloud_combined(bs_manager)
     elif args.test == 'provisioning':
-        assess_cloud_provisioning(bs_manager)
+        assess_cloud_provisioning(bs_manager, args.machine_series)
     else:
         assess_cloud_kill_controller(bs_manager)
 

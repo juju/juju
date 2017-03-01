@@ -12,6 +12,7 @@ import sys
 
 
 SCRIPTS = dirname(__file__)
+REMOTE_CI_TOOLS = "c:\\\\Users\\\\Administrator\\\\juju-ci-tools"
 
 
 def main(argv=None):
@@ -36,14 +37,10 @@ def main(argv=None):
     tarfile = basename(downloaded).strip()
     with open('temp-config.yaml', 'w') as temp_file:
         dump({
-            'install': {'ci': [
-                tarfile,
-                join(SCRIPTS, 'gotesttarfile.py'),
-                join(SCRIPTS, 'jujucharm.py'),
-                join(SCRIPTS, 'utility.py'),
-                ]},
+            'install': {'ci': [tarfile]},
             'command': [
-                'python', 'ci/gotesttarfile.py', '-v', '-g', 'go.exe', '-p',
+                'python', '{}\\\\gotesttarfile.py'.format(REMOTE_CI_TOOLS),
+                '-v', '-g', 'go.exe', '-p',
                 args.package, '--remove', 'ci/{}'.format(tarfile)
                 ]},
              temp_file)
