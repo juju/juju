@@ -31,6 +31,7 @@ from tests import (
     TestCase,
     )
 from utility import (
+    _generate_default_clean_dir,
     temp_dir,
     )
 
@@ -46,10 +47,9 @@ class TestParseArgs(TestCase):
 
     def test_parse_args(self):
         with patch('utility.os.getenv', return_value=False):
-            with patch('utility.os.path.isfile', return_value=True):
-                args = parse_args([])
+            args = parse_args([])
         self.assertEqual(Namespace(
-            deadline=None, debug=False, juju_bin='/usr/bin/juju', logs=None,
+            deadline=None, debug=False, juju_bin=None, logs=None,
             start=0,
             ), args)
 
@@ -113,8 +113,7 @@ class TestHelpers(TestCase):
 
     def test_default_log_dir(self):
         settings = Namespace(logs=None)
-        with patch(
-                'deploy_stack.BootstrapManager._generate_default_clean_dir',
+        with patch('utility._generate_default_clean_dir',
                 return_value='/tmp12345') as clean_dir_mock:
             default_log_dir(settings)
         self.assertEqual('/tmp12345', settings.logs)
@@ -122,9 +121,8 @@ class TestHelpers(TestCase):
 
     def test_default_log_dir_provided(self):
         settings = Namespace(logs='/tmpABCDE')
-        with patch(
-                'deploy_stack.BootstrapManager._generate_default_clean_dir',
-                autospec=True) as clean_dir_mock:
+        with patch('utility._generate_default_clean_dir',
+                   autospec=True) as clean_dir_mock:
             default_log_dir(settings)
         self.assertEqual('/tmpABCDE', settings.logs)
         self.assertFalse(clean_dir_mock.called)

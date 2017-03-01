@@ -65,6 +65,7 @@ from substrate import (
     make_substrate_manager,
 )
 from utility import (
+    _generate_default_clean_dir,
     add_basic_testing_arguments,
     configure_logging,
     ensure_deleted,
@@ -1142,22 +1143,3 @@ def wait_for_state_server_to_shutdown(host, client, instance_id, timeout=60):
         else:
             raise Exception(
                 '{} was not deleted:'.format(instance_id))
-
-def _generate_default_clean_dir(temp_env_name):
-    """Creates a new unique directory for logging and returns name"""
-    logging.info('Environment {}'.format(temp_env_name))
-    test_name = temp_env_name.split('-')[0]
-    timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
-    log_dir = os.path.join('/tmp', test_name, 'logs', timestamp)
-
-    try:
-        os.makedirs(log_dir)
-        logging.info('Created logging directory {}'.format(log_dir))
-    except OSError as e:
-        if e.errno == errno.EEXIST:
-            logging.warn('"Directory {} already exists'.format(log_dir))
-        else:
-            raise('Failed to create logging directory: {} ' +
-                  log_dir +
-                  '. Please specify empty folder or try again')
-    return log_dir

@@ -310,6 +310,24 @@ def _get_test_name_from_filename():
     except:
         return 'unknown_test'
 
+def _generate_default_clean_dir(temp_env_name):
+    """Creates a new unique directory for logging and returns name"""
+    logging.debug('Environment {}'.format(temp_env_name))
+    test_name = temp_env_name.split('-')[0]
+    timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+    log_dir = os.path.join('/tmp', test_name, 'logs', timestamp)
+
+    try:
+        os.makedirs(log_dir)
+        logging.info('Created logging directory {}'.format(log_dir))
+    except OSError as e:
+        if e.errno == errno.EEXIST:
+            logging.warn('"Directory {} already exists'.format(log_dir))
+        else:
+            raise('Failed to create logging directory: {} ' +
+                  log_dir +
+                  '. Please specify empty folder or try again')
+    return log_dir
 
 def _generate_default_temp_env_name():
     """Creates a new unique name for environment and returns the name"""
