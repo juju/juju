@@ -898,7 +898,7 @@ func (api *API) processSameControllerRemoteApplication(url jujucrossmodel.Applic
 	return remoteApp, err
 }
 
-// sameControllerOfferedApplication looks the specified model on the same controller
+// sameControllerOfferedApplication looks in the specified model on the same controller
 // and returns the specified application and a reference to its state.State.
 func (api *API) sameControllerOfferedApplication(sourceModelTag names.ModelTag, applicationName string) (
 	_ *state.Application,
@@ -945,17 +945,80 @@ func (api *API) saveRemoteApplication(
 			Scope:     ep.Scope,
 		}
 	}
-	remoteApp, err := api.backend.AddRemoteApplication(state.AddRemoteApplicationParams{
+
+	// If the a remote application with the same name and endpoints from the same
+	// source model already exists, we will use that one.
+	remoteApp, err := api.maybeUpdateExistingApplicationEndpoints(applicationName, sourceModelTag, remoteEps)
+	if err == nil {
+		return remoteApp, nil
+	} else if !errors.IsNotFound(err) {
+		return nil, errors.Trace(err)
+	}
+
+	return api.backend.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name:        applicationName,
 		OfferName:   offerName,
 		URL:         url,
 		SourceModel: sourceModelTag,
 		Endpoints:   remoteEps,
 	})
+}
+
+// maybeUpdateExistingApplicationEndpoints looks for a remote application with the
+// specified name and source model tag and tries to update its endpoints with the
+// new ones specified. If the endpoints are compatible, the newly updated remote
+// application is returned.
+func (api *API) maybeUpdateExistingApplicationEndpoints(
+	applicationName string, sourceModelTag names.ModelTag, remoteEps []charm.Relation,
+) (*state.RemoteApplication, error) {
+	existingRemoteApp, err := api.backend.RemoteApplication(applicationName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return remoteApp, nil
+	if err != nil && !errors.IsNotFound(err) {
+		return nil, errors.Trace(err)
+	}
+	if existingRemoteApp.SourceModel().Id() != sourceModelTag.Id() {
+		return nil, errors.AlreadyExistsf("remote application called %q from a different model", applicationName)
+	}
+	newEpsMap := make(map[charm.Relation]bool)
+	for _, ep := range remoteEps {
+		newEpsMap[ep] = true
+	}
+	existingEps, err := existingRemoteApp.Endpoints()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	maybeSameEndpoints := len(newEpsMap) == len(existingEps)
+	existingEpsByName := make(map[string]charm.Relation)
+	for _, ep := range existingEps {
+		existingEpsByName[ep.Name] = ep.Relation
+		delete(newEpsMap, ep.Relation)
+	}
+	sameEndpoints := maybeSameEndpoints && len(newEpsMap) == 0
+	if sameEndpoints {
+		return existingRemoteApp, nil
+	}
+
+	// Gather the new endpoints. All new endpoints passed to AddEndpoints()
+	// below must not have the same name as an existing endpoint.
+	var newEps []charm.Relation
+	for ep := range newEpsMap {
+		// See if we are attempting to update endpoints with the same name but
+		// different relation data.
+		if existing, ok := existingEpsByName[ep.Name]; ok && existing != ep {
+			return nil, errors.Errorf("conflicting endpoint %v", ep.Name)
+		}
+		newEps = append(newEps, ep)
+	}
+
+	if len(newEps) > 0 {
+		// Update the existing remote app to have the new, additional endpoints.
+		if err := existingRemoteApp.AddEndpoints(newEps); err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
+	return existingRemoteApp, nil
 }
 
 // RemoteApplicationInfo returns information about the requested remote application.

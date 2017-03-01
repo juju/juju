@@ -284,6 +284,126 @@ func (s *remoteApplicationSuite) TestAddRemoteApplicationRegistered(c *gc.C) {
 	c.Assert(foo.Registered(), jc.IsTrue)
 }
 
+func (s *remoteApplicationSuite) TestAddEndpoints(c *gc.C) {
+	origEps := []charm.Relation{
+		{Name: "ep1", Role: charm.RoleRequirer, Scope: charm.ScopeGlobal, Limit: 1},
+		{Name: "ep2", Role: charm.RoleProvider, Scope: charm.ScopeGlobal, Limit: 1},
+	}
+	foo, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name: "foo", OfferName: "bar", URL: "local:/u/me/foo", SourceModel: s.State.ModelTag(),
+		Endpoints: origEps,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	newEps := []charm.Relation{
+		{Name: "ep3", Role: charm.RoleRequirer, Scope: charm.ScopeGlobal, Limit: 1},
+		{Name: "ep4", Role: charm.RoleProvider, Scope: charm.ScopeGlobal, Limit: 1},
+	}
+
+	err = foo.AddEndpoints(newEps)
+	c.Assert(err, jc.ErrorIsNil)
+
+	eps, err := foo.Endpoints()
+	c.Assert(err, jc.ErrorIsNil)
+
+	var expected []state.Endpoint
+	for _, r := range origEps {
+		expected = append(expected, state.Endpoint{ApplicationName: "foo", Relation: r})
+	}
+	for _, r := range newEps {
+		expected = append(expected, state.Endpoint{ApplicationName: "foo", Relation: r})
+	}
+	c.Assert(eps, jc.SameContents, expected)
+}
+
+func (s *remoteApplicationSuite) TestAddEndpointsConflicting(c *gc.C) {
+	origEps := []charm.Relation{
+		{Name: "ep1", Role: charm.RoleRequirer, Scope: charm.ScopeGlobal, Limit: 1},
+		{Name: "ep2", Role: charm.RoleProvider, Scope: charm.ScopeGlobal, Limit: 1},
+	}
+	foo, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name: "foo", OfferName: "bar", URL: "local:/u/me/foo", SourceModel: s.State.ModelTag(),
+		Endpoints: origEps,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	newEps := []charm.Relation{
+		{Name: "ep1", Role: charm.RoleRequirer, Scope: charm.ScopeGlobal, Limit: 1},
+		{Name: "ep4", Role: charm.RoleProvider, Scope: charm.ScopeGlobal, Limit: 1},
+	}
+	err = foo.AddEndpoints(newEps)
+	c.Assert(err, gc.ErrorMatches, "conflicting endpoint ep1")
+}
+
+func (s *remoteApplicationSuite) TestAddEndpointsConcurrentConflictingOneAdded(c *gc.C) {
+	origEps := []charm.Relation{
+		{Name: "ep1", Role: charm.RoleRequirer, Scope: charm.ScopeGlobal, Limit: 1},
+		{Name: "ep2", Role: charm.RoleProvider, Scope: charm.ScopeGlobal, Limit: 1},
+	}
+	foo, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name: "foo", OfferName: "bar", URL: "local:/u/me/foo", SourceModel: s.State.ModelTag(),
+		Endpoints: origEps,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	defer state.SetBeforeHooks(c, s.State, func() {
+		newEps := []charm.Relation{
+			{Name: "ep3", Role: charm.RoleRequirer, Scope: charm.ScopeGlobal, Limit: 1},
+		}
+		err = foo.AddEndpoints(newEps)
+		c.Assert(err, jc.ErrorIsNil)
+	}).Check()
+
+	newEps := []charm.Relation{
+		{Name: "ep3", Role: charm.RoleRequirer, Scope: charm.ScopeGlobal, Limit: 1},
+		{Name: "ep4", Role: charm.RoleProvider, Scope: charm.ScopeGlobal, Limit: 1},
+	}
+	err = foo.AddEndpoints(newEps)
+	c.Assert(err, gc.ErrorMatches, "conflicting endpoint ep3")
+}
+
+func (s *remoteApplicationSuite) TestAddEndpointsConcurrentDifferentOneAdded(c *gc.C) {
+	origEps := []charm.Relation{
+		{Name: "ep1", Role: charm.RoleRequirer, Scope: charm.ScopeGlobal, Limit: 1},
+		{Name: "ep2", Role: charm.RoleProvider, Scope: charm.ScopeGlobal, Limit: 1},
+	}
+	foo, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name: "foo", OfferName: "bar", URL: "local:/u/me/foo", SourceModel: s.State.ModelTag(),
+		Endpoints: origEps,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	concurrrentEps := []charm.Relation{
+		{Name: "ep5", Role: charm.RoleRequirer, Scope: charm.ScopeGlobal, Limit: 1},
+	}
+	defer state.SetBeforeHooks(c, s.State, func() {
+		err = foo.AddEndpoints(concurrrentEps)
+		c.Assert(err, jc.ErrorIsNil)
+	}).Check()
+
+	newEps := []charm.Relation{
+		{Name: "ep3", Role: charm.RoleRequirer, Scope: charm.ScopeGlobal, Limit: 1},
+		{Name: "ep4", Role: charm.RoleProvider, Scope: charm.ScopeGlobal, Limit: 1},
+	}
+	err = foo.AddEndpoints(newEps)
+	c.Assert(err, jc.ErrorIsNil)
+
+	eps, err := foo.Endpoints()
+	c.Assert(err, jc.ErrorIsNil)
+
+	var expected []state.Endpoint
+	for _, r := range origEps {
+		expected = append(expected, state.Endpoint{ApplicationName: "foo", Relation: r})
+	}
+	for _, r := range newEps {
+		expected = append(expected, state.Endpoint{ApplicationName: "foo", Relation: r})
+	}
+	for _, r := range concurrrentEps {
+		expected = append(expected, state.Endpoint{ApplicationName: "foo", Relation: r})
+	}
+	c.Assert(eps, jc.SameContents, expected)
+}
+
 func (s *remoteApplicationSuite) TestAddRemoteRelationWrongScope(c *gc.C) {
 	subCharm := s.AddTestingCharm(c, "logging")
 	s.AddTestingService(c, "logging", subCharm)
