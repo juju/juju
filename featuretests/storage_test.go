@@ -236,14 +236,14 @@ block:
   provider: loop
   attrs:
     it: works
-environscoped:
-  provider: environscoped
-environscoped-block:
-  provider: environscoped-block
 loop:
   provider: loop
 machinescoped:
   provider: machinescoped
+modelscoped:
+  provider: modelscoped
+modelscoped-block:
+  provider: modelscoped-block
 rootfs:
   provider: rootfs
 static:
@@ -258,15 +258,15 @@ func (s *cmdStorageSuite) TestListPoolsTabular(c *gc.C) {
 	stdout, _, err := runPoolList(c)
 	c.Assert(err, jc.ErrorIsNil)
 	expected := `
-Name                 Provider             Attrs
-block                loop                 it=works
-environscoped        environscoped        
-environscoped-block  environscoped-block  
-loop                 loop                 
-machinescoped        machinescoped        
-rootfs               rootfs               
-static               static               
-tmpfs                tmpfs                
+Name               Provider           Attrs
+block              loop               it=works
+loop               loop               
+machinescoped      machinescoped      
+modelscoped        modelscoped        
+modelscoped-block  modelscoped-block  
+rootfs             rootfs             
+static             static             
+tmpfs              tmpfs              
 
 `[1:]
 	c.Assert(stdout, gc.Equals, expected)
@@ -340,7 +340,7 @@ block:
 }
 
 func (s *cmdStorageSuite) TestListPoolsProviderAndNotName(c *gc.C) {
-	stdout, _, err := runPoolList(c, "--name", "fluff", "--provider", "environscoped")
+	stdout, _, err := runPoolList(c, "--name", "fluff", "--provider", "modelscoped")
 	c.Assert(err, jc.ErrorIsNil)
 	// there is no pool that matches this name AND type
 	c.Assert(stdout, gc.Equals, "")
@@ -545,7 +545,7 @@ func (s *cmdStorageSuite) TestStorageAddToUnitStorageDoesntExist(c *gc.C) {
 
 func (s *cmdStorageSuite) TestStorageAddToUnitHasVolumes(c *gc.C) {
 	// Reproducing Bug1462146
-	u := createUnitWithFileSystemStorage(c, &s.JujuConnSuite, "environscoped-block")
+	u := createUnitWithFileSystemStorage(c, &s.JujuConnSuite, "modelscoped-block")
 	instancesBefore, err := s.State.AllStorageInstances()
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertStorageExist(c, instancesBefore, "data")
@@ -571,7 +571,7 @@ Machine  Unit                  Storage  Id  Provider Id  Device  Size  State    
 `[1:])
 	c.Assert(testing.Stderr(context), gc.Equals, "")
 
-	context, err = runAddToUnit(c, u, "data=environscoped-block,1G")
+	context, err = runAddToUnit(c, u, "data=modelscoped-block,1G")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, "added \"data\"\n")
 	c.Assert(testing.Stderr(context), gc.Equals, "")

@@ -320,7 +320,11 @@ func removeStorageInstanceOps(
 			volumesC, volume.Tag().Id(),
 		))
 		if volume.LifeBinding() == tag {
-			ops = append(ops, destroyVolumeOps(st, volume, nil)...)
+			volOps, err := destroyVolumeOps(st, volume, nil)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			ops = append(ops, volOps...)
 		}
 	} else if !errors.IsNotFound(err) {
 		return nil, errors.Trace(err)
@@ -331,7 +335,11 @@ func removeStorageInstanceOps(
 			filesystemsC, filesystem.Tag().Id(),
 		))
 		if filesystem.LifeBinding() == tag {
-			ops = append(ops, destroyFilesystemOps(st, filesystem, nil)...)
+			fsOps, err := destroyFilesystemOps(st, filesystem, nil)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			ops = append(ops, fsOps...)
 		}
 	} else if !errors.IsNotFound(err) {
 		return nil, errors.Trace(err)

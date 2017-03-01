@@ -1392,6 +1392,9 @@ func (i *importer) constraints(cons description.Constraints) constraints.Value {
 }
 
 func (i *importer) storage() error {
+	if err := i.storagePools(); err != nil {
+		return errors.Annotate(err, "storage pools")
+	}
 	if err := i.storageInstances(); err != nil {
 		return errors.Annotate(err, "storage instances")
 	}
@@ -1400,9 +1403,6 @@ func (i *importer) storage() error {
 	}
 	if err := i.filesystems(); err != nil {
 		return errors.Annotate(err, "filesystems")
-	}
-	if err := i.storagePools(); err != nil {
-		return errors.Annotate(err, "storage pools")
 	}
 	return nil
 }
@@ -1514,6 +1514,11 @@ func (i *importer) addVolume(volume description.Volume) error {
 		Info:            info,
 		AttachmentCount: len(attachments),
 	}
+	if detachable, err := isDetachableVolumePool(i.st, volume.Pool()); err != nil {
+		return errors.Trace(err)
+	} else if !detachable && len(attachments) == 1 {
+		doc.MachineId = attachments[0].Machine().Id()
+	}
 	status := i.makeStatusDoc(volume.Status())
 	ops := i.st.newVolumeOps(doc, status)
 
@@ -1609,6 +1614,11 @@ func (i *importer) addFilesystem(filesystem description.Filesystem) error {
 		Params:          params,
 		Info:            info,
 		AttachmentCount: len(attachments),
+	}
+	if detachable, err := isDetachableFilesystemPool(i.st, filesystem.Pool()); err != nil {
+		return errors.Trace(err)
+	} else if !detachable && len(attachments) == 1 {
+		doc.MachineId = attachments[0].Machine().Id()
 	}
 	status := i.makeStatusDoc(filesystem.Status())
 	ops := i.st.newFilesystemOps(doc, status)
