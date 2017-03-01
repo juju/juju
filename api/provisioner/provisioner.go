@@ -212,6 +212,14 @@ func (st *State) prepareOrGetContainerInterfaceInfo(
 	machineConf := result.Results[0]
 	ifaceInfo := make([]network.InterfaceInfo, len(machineConf.Config))
 	for i, cfg := range machineConf.Config {
+		routes := make([]network.Route, len(cfg.Routes))
+		for j, route := range cfg.Routes {
+			routes[j] = network.Route{
+				DestinationCIDR: route.DestinationCIDR,
+				GatewayIP:       route.GatewayIP,
+				Metric:          route.Metric,
+			}
+		}
 		ifaceInfo[i] = network.InterfaceInfo{
 			DeviceIndex:         cfg.DeviceIndex,
 			MACAddress:          cfg.MACAddress,
@@ -233,6 +241,7 @@ func (st *State) prepareOrGetContainerInterfaceInfo(
 			DNSServers:          network.NewAddresses(cfg.DNSServers...),
 			DNSSearchDomains:    cfg.DNSSearchDomains,
 			GatewayAddress:      network.NewAddress(cfg.GatewayAddress),
+			Routes:              routes,
 		}
 	}
 	return ifaceInfo, nil
