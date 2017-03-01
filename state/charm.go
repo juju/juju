@@ -154,8 +154,8 @@ func insertPendingCharmOps(st *State, curl *charm.URL) ([]txn.Op, error) {
 // insertAnyCharmOps returns the txn operations necessary to insert the supplied
 // charm document.
 func insertAnyCharmOps(st modelBackend, cdoc *charmDoc) ([]txn.Op, error) {
-
-	charms, closer := st.getCollection(charmsC)
+	db := st.db()
+	charms, closer := db.GetCollection(charmsC)
 	defer closer()
 
 	life, err := nsLife.read(charms, cdoc.DocID)
@@ -175,7 +175,7 @@ func insertAnyCharmOps(st modelBackend, cdoc *charmDoc) ([]txn.Op, error) {
 		Insert: cdoc,
 	}
 
-	refcounts, closer := st.getCollection(refcountsC)
+	refcounts, closer := db.GetCollection(refcountsC)
 	defer closer()
 
 	charmKey := charmGlobalKey(cdoc.URL)
