@@ -1,6 +1,7 @@
 import yaml
 import StringIO
 import logging
+import argparse
 from textwrap import dedent
 from datetime import (
     datetime,
@@ -23,6 +24,9 @@ from assess_network_health import (
     AssessNetworkHealth,
     main,
     parse_args,
+    )
+from utility import (
+    add_basic_testing_arguments
     )
 
 apps = {'foo':
@@ -65,10 +69,12 @@ status_value = dedent("""\
         agent-state: started
         ip-addresses:
         - 1.1.1.1
+        dns-name: 1.1.1.1
       "1":
         agent-state: started
         ip-addresses:
         - 1.1.1.2
+        dns-name: 1.1.1.2
     applications:
       ubuntu:
         units:
@@ -123,6 +129,11 @@ series = 'trusty'
 
 class TestAssessNetworkHealth(TestCase):
 
+    def parse_args(self, args):
+        parser = argparse.ArgumentParser()
+        add_basic_testing_arguments(parser)
+        return parser.parse_args(args)
+
     def test_setup_testing_environment(self):
 
         def setup_iteration(bundle, target_model, series):
@@ -131,14 +142,14 @@ class TestAssessNetworkHealth(TestCase):
                                      "get_juju_output", "get_juju_status",
                                      "wait_for_subordinate_units",
                                      "get_status", "deploy_bundle"])
-            status = Status(yaml.safe_load(status_value), status_value)
             mock_client.get_status.return_value = status
             mock_client.series = 'trusty'
             mock_client.version = '2.2'
             net_health.setup_testing_environment(mock_client, bundle,
                                                  target_model, series)
             return mock_client
-        net_health = AssessNetworkHealth()
+        args = self.parse_args([])
+        net_health = AssessNetworkHealth(args)
         client = setup_iteration(bundle=None, target_model=None, series=series)
         self.assertEqual(
             [call.deploy('ubuntu', num=2, series='trusty'),
@@ -182,7 +193,8 @@ class TestAssessNetworkHealth(TestCase):
             client.mock_calls)
 
     def test_juju_controller_visibility(self):
-        net_health = AssessNetworkHealth()
+        args = self.parse_args([])
+        net_health = AssessNetworkHealth(args)
         client = fake_juju_client()
         client.bootstrap()
         now = datetime.now() + timedelta(days=1)
@@ -194,12 +206,32 @@ class TestAssessNetworkHealth(TestCase):
         expected = {'1': {'1.1.1.2': True}, '0': {'1.1.1.1': True}}
         self.assertEqual(expected, out)
 
-    def test_assess_network_health_with_existing_model(self):
-        # Feature is not fully implimented, pass for now.
+    def test_connect_to_existing_model_when_different(self):
+        model = {'bar': 'baz'}
+        args = self.parse_args([])
+        net_health = AssessNetworkHealth(args)
+        client = Mock(spec=["juju", "show_model", "switch"])
+        with patch.object(client, 'show_model', return_value=model):
+            net_health.connect_to_existing_model(client, 'foo')
+        self.assertEqual([call.switch('foo')],
+                         client.mock_calls)
+
+    def test_connect_to_existing_model_when_same(self):
+        model = {'foo': 'baz'}
+        args = self.parse_args([])
+        net_health = AssessNetworkHealth(args)
+        client = Mock(spec=["juju", "show_model", "switch"])
+        with patch.object(client, 'show_model', return_value=model):
+            net_health.connect_to_existing_model(client, 'foo')
+        self.assertEqual([], client.mock_calls)
+
+    def test_reboot_machines(self):
+        # TODO: Skip for now, test runs into timeout issues
         pass
 
     def test_neighbor_visibility(self):
-        net_health = AssessNetworkHealth()
+        args = self.parse_args([])
+        net_health = AssessNetworkHealth(args)
         client = Mock(wraps=fake_juju_client())
         client.bootstrap()
         client._backend.set_action_result('network-health/0', 'ping',
@@ -219,7 +251,8 @@ class TestAssessNetworkHealth(TestCase):
         self.assertEqual(expected, out)
 
     def test_internet_connection(self):
-        net_health = AssessNetworkHealth()
+        args = self.parse_args([])
+        net_health = AssessNetworkHealth(args)
         client = fake_juju_client()
         client.bootstrap()
         now = datetime.now() + timedelta(days=1)
@@ -232,7 +265,8 @@ class TestAssessNetworkHealth(TestCase):
         self.assertEqual(expected, out)
 
     def test_ensure_exposed(self):
-        net_health = AssessNetworkHealth()
+        args = self.parse_args([])
+        net_health = AssessNetworkHealth(args)
         client = Mock(wraps=fake_juju_client())
         client.bootstrap()
         new_client = fake_juju_client()
@@ -250,26 +284,25 @@ class TestAssessNetworkHealth(TestCase):
         expected = {'fail': (), 'pass': ('ubuntu',)}
         self.assertEqual(out, expected)
 
-    def test_connect_to_existing_model(self):
-        # Pass for now as this is not fully implimented
-        pass
-
     def test_dummy_deployment(self):
-        net_health = AssessNetworkHealth()
+        args = self.parse_args([])
+        net_health = AssessNetworkHealth(args)
         client = Mock(wraps=fake_juju_client())
         client.bootstrap()
         net_health.setup_dummy_deployment(client, series)
         client.deploy.assert_called_once_with('ubuntu', num=2, series='trusty')
 
     def test_bundle_deployment(self):
-        net_health = AssessNetworkHealth()
+        args = self.parse_args([])
+        net_health = AssessNetworkHealth(args)
         client = Mock(wraps=fake_juju_client())
         client.bootstrap()
         net_health.setup_bundle_deployment(client, bundle_string)
         client.deploy_bundle.assert_called_once_with(bundle_string)
 
     def test_setup_expose_test(self):
-        net_health = AssessNetworkHealth()
+        args = self.parse_args([])
+        net_health = AssessNetworkHealth(args)
         mock_client = Mock(spec=["juju", "wait_for_started",
                                  "wait_for_workloads", "deploy",
                                  "get_juju_output", "get_juju_status",
@@ -293,7 +326,8 @@ class TestAssessNetworkHealth(TestCase):
             mock_client.mock_calls)
 
     def test_get_juju_status(self):
-        net_health = AssessNetworkHealth()
+        args = self.parse_args([])
+        net_health = AssessNetworkHealth(args)
         client = Mock(wraps=fake_juju_client())
         client.bootstrap()
         expected = client.get_status().status
@@ -301,7 +335,8 @@ class TestAssessNetworkHealth(TestCase):
         self.assertEqual(expected, result)
 
     def test_parse_expose_results(self):
-        net_health = AssessNetworkHealth()
+        args = self.parse_args([])
+        net_health = AssessNetworkHealth(args)
         exposed = ['bar', 'baz']
         service_results = {'foo': "{'foo/0': 'True'}",
                            'bar': "{'bar/0': 'False'}",
@@ -311,7 +346,8 @@ class TestAssessNetworkHealth(TestCase):
         self.assertEqual(expected, result)
 
     def test_parse_final_results_with_fail(self):
-        net_health = AssessNetworkHealth()
+        args = self.parse_args([])
+        net_health = AssessNetworkHealth(args)
         controller = {"0": {"1.1.1.1": False},
                       "1": {"1.1.1.2": True}}
         visible = {"bar/0": {"foo": {"foo/0": False, "foo/1": True}}}
@@ -328,7 +364,8 @@ class TestAssessNetworkHealth(TestCase):
             self.assertTrue(line in error_strings)
 
     def test_parse_final_results_without_fail(self):
-        net_health = AssessNetworkHealth()
+        args = self.parse_args([])
+        net_health = AssessNetworkHealth(args)
         controller = {"0": {"1.1.1.1": True}}
         visible = {"bar/0": {"foo": {"foo/0": True, "foo/1": True}}}
         internet = {"0": True, "1": True}
@@ -336,7 +373,8 @@ class TestAssessNetworkHealth(TestCase):
         net_health.parse_final_results(controller, visible, internet, exposed)
 
     def test_ping_units(self):
-        net_health = AssessNetworkHealth()
+        args = self.parse_args([])
+        net_health = AssessNetworkHealth(args)
         client = fake_juju_client()
         client.bootstrap()
         client._backend.set_action_result('bar/0', 'ping', ping_result)
@@ -346,16 +384,22 @@ class TestAssessNetworkHealth(TestCase):
         self.assertEqual(out, result['results']['results'])
 
     def test_to_json(self):
-        net_health = AssessNetworkHealth()
+        args = self.parse_args([])
+        net_health = AssessNetworkHealth(args)
         expected = '("foo"=("foo/0"="1.1.1.1","foo/1"="1.1.1.2"))'
         targets = {'foo': {'foo/0': '1.1.1.1', 'foo/1': '1.1.1.2'}}
         json_like = net_health.to_json(targets)
         self.assertEqual(expected, json_like)
 
     def test_parse_targets(self):
-        net_health = AssessNetworkHealth()
-        expected = {'foo': {'foo/0': '1.1.1.1', 'foo/1': '1.1.1.2'}}
-        targets = net_health.parse_targets(apps)
+        args = self.parse_args([])
+        net_health = AssessNetworkHealth(args)
+        client = fake_juju_client()
+        client.bootstrap()
+        client.deploy('foo', num=2)
+        expected = {'ubuntu': {'ubuntu/0': '1.1.1.1', 'ubuntu/1': '1.1.1.2'}}
+        with patch.object(client, 'get_status', return_value=status):
+            targets = net_health.parse_targets(client.get_status())
         self.assertEqual(expected, targets)
 
 

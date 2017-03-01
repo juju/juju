@@ -13,12 +13,14 @@ import re
 import time
 import os
 import socket
+from jujupy.configuration import get_jenv_path
 
 from jujupy import (
     client_for_existing,
     )
 from deploy_stack import (
     BootstrapManager,
+    dump_env_logs_known_hosts
     )
 from utility import (
     add_basic_testing_arguments,
@@ -42,7 +44,12 @@ class ConnectionError(Exception):
 
 class AssessNetworkHealth:
 
-    def __init__(self):
+    def __init__(self, args):
+        if args.logs:
+            self.log_dir = args.logs
+        else:
+            self.log_dir = BootstrapManager._generate_default_clean_dir(
+                            args.temp_env_name)
         self.expose_client = None
         self.existing_series = set([])
 
@@ -55,23 +62,30 @@ class AssessNetworkHealth:
         :param model: Optional existing model to test under
         """
         self.setup_testing_environment(client, bundle, target_model, series)
-        log.info('Starting network tests')
-        results_pre = []
-        results_pre.extend(self.testing_iterations(client, series))
+        log.info('Starting network tests.')
+        results_pre = self.testing_iterations(client, series)
+        error_string = ['Initial test failures:']
         if not reboot:
-            self.cleanup(client, False)
+            if target_model:
+                self.dump_logs(client)
+                self.cleanup(client, False)
             if results_pre:
-                raise ConnectionError('\n'.join(results_pre))
+                error_string.extend(results_pre)
+                raise ConnectionError('\n'.join(error_string))
             log.info('SUCESS')
             return
-        log.info('Units completed pre-reboot tests, rebooting machines')
+        log.info('Units completed pre-reboot tests, rebooting machines.')
         self.reboot_machines(client)
-        results_post = []
-        results_post.extend(self.testing_iterations(client, series,
-                                                    reboot_msg='Post-reboot '))
-        self.cleanup(client, True)
-        if results_pre:
-            raise ConnectionError('\n'.join(results_post))
+        results_post = self.testing_iterations(client, series,
+                                               reboot_msg='Post-reboot ')
+        if target_model:
+            self.dump_logs(client)
+            self.cleanup(client, False)
+        if results_pre or results_post:
+            error_string.extend(results_pre or 'No pre-reboot failures.')
+            error_string.extend(['Post-reboot test failures:'])
+            error_string.extend(results_post or 'No post-reboot failures.')
+            raise ConnectionError('\n'.join(error_string))
         log.info('SUCESS')
         return
 
@@ -115,29 +129,29 @@ class AssessNetworkHealth:
         :param bundle: Optional bundle to test on or None
         :param model: Optional existing model to test under
         """
-        log.info("Setting up test environment")
+        log.info("Setting up test environment.")
         if target_model:
             self.connect_to_existing_model(client, target_model)
         if bundle:
             self.setup_bundle_deployment(client, bundle)
         elif bundle is None and target_model is None:
             self.setup_dummy_deployment(client, series)
-        apps = self.get_juju_status(client)['applications']
+        apps = client.get_status().get_applications()
         for _, info in apps.items():
-            self.existing_series.add(info.get('series', None))
+            self.existing_series.add(info.get('series'))
         for series in self.existing_series:
             try:
                 client.deploy('~juju-qa/network-health', series=series,
                               alias='network-health-{}'.format(series))
-            except subprocess.CalledProcessError as e:
-                log.info('Could not deploy network-health-{0} '
-                         'due to error: \n{1}'.format(series, e))
+            except subprocess.CalledProcessError:
+                log.info('Could not deploy network-health-{} as it is already'
+                         ' present in the juju deployment.'.format(series))
         client.wait_for_started()
         client.wait_for_workloads()
-        apps = self.get_juju_status(client)['applications']
+        apps = client.get_status().get_applications()
         log.info('Known applications: {}'.format(apps.keys()))
         for app, info in apps.items():
-            app_series = info.get('series', None)
+            app_series = info.get('series')
             try:
                 client.juju('add-relation',
                             (app, 'network-health-{}'.format(app_series)))
@@ -146,9 +160,9 @@ class AssessNetworkHealth:
                           'to error: {1}'.format(app, e))
         client.wait_for_workloads()
         for app, info in apps.items():
-            app_series = info.get('series', None)
-            client.wait_for_subordinate_units(app, 'network-health'
-                                              '-{}'.format(app_series))
+            app_series = info.get('series')
+            client.wait_for_subordinate_units(
+                app, 'network-health-{}'.format(app_series))
 
     def connect_to_existing_model(self, client, target_model):
         """Connects to an existing Juju model.
@@ -165,7 +179,7 @@ class AssessNetworkHealth:
 
         :param client: Bootstrapped juju client
         """
-        log.info("Deploying dummy charm for basic testing")
+        log.info("Deploying dummy charm for basic testing.")
         client.deploy('ubuntu', num=2, series=series)
         client.juju('expose', ('ubuntu',))
 
@@ -177,11 +191,11 @@ class AssessNetworkHealth:
         log.info("Deploying bundle specified at {}".format(bundle))
         client.deploy_bundle(bundle)
 
-    def cleanup(self, client, reboot):
-        log.info('Cleaning up deployed test charms and models')
+    def cleanup(self, client, destroy_model):
+        log.info('Cleaning up deployed test charms and models.')
         for series in self.existing_series:
             client.remove_service('network-health-{}'.format(series))
-        if reboot:
+        if destroy_model:
             try:
                 client.juju('destroy-model', ('exposetest',))
             except subprocess.CalledProcessError as e:
@@ -204,9 +218,9 @@ class AssessNetworkHealth:
         """
         cont_client = client.get_controller_client()
         log.info('Starting controller visibility test')
-        machines = self.get_juju_status(client)['machines']
+        machines = client.get_status().iter_machines(containers=True)
         result = {}
-        for machine, info in machines.items():
+        for machine, info in machines:
             result[machine] = {}
             for ip in info['ip-addresses']:
                 if self.is_ipv6(ip):
@@ -231,23 +245,25 @@ class AssessNetworkHealth:
         """
         log.info('Assessing internet connection.')
         results = {}
-        units = self.get_juju_status(client)['machines']
+        units = client.get_status().iter_machines(containers=True)
         for unit in units:
-            log.info("Assessing internet connection for {}".format(unit))
+            log.info("Assessing internet connection for "
+                     "machine: {}".format(unit[0]))
             routes = self.ssh(client, unit, 'ip route show')
-            d = re.search(r'^default\s+via\s+([\d\.]+)\s+', routes,
-                          re.MULTILINE)
-            if d:
-                rc = client.juju('ssh', ('--proxy', unit,
-                                         'ping -c1 -q ' + d.group(1)),
+            default_route = re.search(r'^default\s+via\s+([\d\.]+)\s+', routes,
+                                      re.MULTILINE)
+            if default_route:
+                rc = client.juju('ssh', ('--proxy', unit[0],
+                                         'ping -c1 -q ' +
+                                         default_route.group(1)),
                                  check=False)
                 if rc != 0:
-                    log.error('{0} unable to ping default route'.format(unit))
-                    results[unit] = False
+                    log.error('{} unable to ping default route'.format(unit))
+                    results[unit[0]] = False
             else:
                 log.error("Default route not found")
-                results[unit] = False
-            results[unit] = True
+                results[unit[0]] = False
+            results[unit[0]] = True
         return results
 
     def neighbor_visibility(self, client):
@@ -256,8 +272,8 @@ class AssessNetworkHealth:
         :param client: The juju client in use
         """
         log.info('Starting neighbor visibility test')
-        apps = self.get_juju_status(client)['applications']
-        targets = self.parse_targets(apps)
+        apps = client.get_status().get_applications()
+        targets = self.parse_targets(client.get_status())
         result = {}
         nh_units = []
         for service in apps.values():
@@ -277,9 +293,9 @@ class AssessNetworkHealth:
         :param client: The juju client in use
         :return: Exposure test results in dict by pass/fail
         """
-        log.info('Starting test of exposed units')
-        apps = self.get_juju_status(client)['applications']
-        targets = self.parse_targets(apps)
+        log.info('Starting test of exposed units.')
+        apps = client.get_status().get_applications()
+        targets = self.parse_targets(client.get_status())
         exposed = [app for app, e in apps.items() if e.get('exposed') is True]
         if len(exposed) is 0:
             log.info('No exposed units, aboring test.')
@@ -308,7 +324,7 @@ class AssessNetworkHealth:
             new_client.juju('add-relation', ('ubuntu', 'network-health'))
             new_client.wait_for_subordinate_units('ubuntu', 'network-health')
             self.expose_client = new_client
-            return new_client
+
         return self.expose_client
 
     def parse_expose_results(self, service_results, exposed):
@@ -366,16 +382,42 @@ class AssessNetworkHealth:
             error_string.append(error)
         return error_string
 
-    def reboot_machines(self, client):
-        log.info("Starting reboot of all machines.")
-        hosts = self.get_juju_status(client)['machines'].keys()
-        try:
-            for host in hosts:
-                log.info("Restarting hosted machine: {}".format(host))
-                client.juju(
-                    'run', ('--machine', host, 'sudo shutdown -r now'))
-            client.juju('show-action-status', ('--name', 'juju-run'))
+    def dump_logs(self, client):
+        controller_client = client.get_controller_client()
+        with client.ignore_soft_deadline():
+            if client.env.environment == controller_client.env.environment:
+                known_hosts = '0'
+                if client.is_jes_enabled:
+                    runtime_config = client.get_cache_path()
+                else:
+                    runtime_config = get_jenv_path(
+                        client.env.juju_home,
+                        client.env.environment)
+            else:
+                known_hosts = {}
+                runtime_config = None
+            artifacts_dir = os.path.join(self.log_dir,
+                                         client.env.environment)
+            os.makedirs(artifacts_dir)
+            dump_env_logs_known_hosts(client, artifacts_dir, runtime_config,
+                                      known_hosts)
 
+    def reboot_machines(self, client):
+        log.info("Starting reboot of all containers.")
+        hosts = []
+        try:
+            for cont, _ in client.get_status().iter_machines(containers=True,
+                                                             machines=False):
+                log.info("Restarting container: {}".format(cont))
+                hosts.append(cont)
+                client.juju(
+                    'run', ('--machine', cont, 'sudo shutdown -r now'))
+            client.juju('show-action-status', ('--name', 'juju-run'))
+            for machine, _ in client.get_status().iter_machines():
+                hosts.append(machine)
+                log.info("Restarting machine: {}".format(machine))
+                client.juju(
+                    'run', ('--machine', machine, 'sudo shutdown -r now'))
             # FIXME: Figure out controller reboot pipe error.
             """
             log.info("Restarting controller machine 0")
@@ -429,7 +471,8 @@ class AssessNetworkHealth:
         attempts = 4
         for attempt in range(attempts):
             try:
-                return client.get_juju_output('ssh', '--proxy', machine, cmd)
+                return client.get_juju_output('ssh', '--proxy', machine[0],
+                                              cmd)
             except subprocess.CalledProcessError as e:
                 # If the connection to the host failed, try again in a couple
                 # of seconds. This is usually due to heavy load.
@@ -475,18 +518,18 @@ class AssessNetworkHealth:
         json_string = json_string.replace('}', ')')
         return json_string
 
-    def parse_targets(self, apps):
+    def parse_targets(self, status):
         """Returns targets based on supplied juju status information.
 
         :param apps: Dict of applications via 'juju status --format yaml'
         """
         targets = {}
-        for app, units in apps.items():
+        for application, units in status.get_applications().items():
             target_units = {}
             if 'units' in units:
                 for unit_id, info in units.get('units').items():
                     target_units[unit_id] = info['public-address']
-                targets[app] = target_units
+                targets[application] = target_units
         return targets
 
 
@@ -506,7 +549,7 @@ def parse_args(argv):
 def main(argv=None):
     args = parse_args(argv)
     configure_logging(args.verbose)
-    test = AssessNetworkHealth()
+    test = AssessNetworkHealth(args)
     if args.model is None:
         bs_manager = BootstrapManager.from_args(args)
         with bs_manager.booted_context(args.upload_tools):
