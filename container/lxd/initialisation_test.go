@@ -85,8 +85,9 @@ func (s *InitialiserSuite) SetUpTest(c *gc.C) {
 	})
 	nonRandomizedOctetRange := func() []int {
 		// chosen by fair dice roll
-		// guaranteed to be random
-		return []int{4, 5}
+		// guaranteed to be random :)
+		// intentionally not random to allow for deterministic tests
+		return []int{4, 5, 6, 7, 8}
 	}
 	s.PatchValue(&randomizedOctetRange, nonRandomizedOctetRange)
 	// Fake the lxc executable for all the tests.
@@ -311,11 +312,14 @@ func (s *InitialiserSuite) TestFindAvailableSubnetWithIPv4AndExisting10xNetwork(
 
 func (s *InitialiserSuite) TestFindAvailableSubnetWithExisting10xNetworks(c *gc.C) {
 	s.PatchValue(&interfaceAddrs, func() ([]net.Addr, error) {
-		return testAddresses(c, "192.168.1.0/24", "10.0.4.1/24", "::1/128", "10.0.3.1/24", "fe80::aa8e:a275:7ae0:34af/64")
+		// Note that 10.0.4.0 is a /23, so that includes 10.0.4.0/24 and 10.0.5.0/24
+		// And the one for 10.0.7.0/23 is also a /23 so it includes 10.0.6.0/24 as well as 10.0.7.0/24
+		return testAddresses(c, "192.168.1.0/24", "10.0.4.1/23", "10.0.7.5/23",
+			"::1/128", "10.0.3.1/24", "fe80::aa8e:a275:7ae0:34af/64")
 	})
 	subnet, err := findNextAvailableIPv4Subnet()
 	c.Assert(err, gc.IsNil)
-	c.Assert(subnet, gc.Equals, "5")
+	c.Assert(subnet, gc.Equals, "8")
 }
 
 func (s *InitialiserSuite) TestFindAvailableSubnetUpperBoundInUse(c *gc.C) {

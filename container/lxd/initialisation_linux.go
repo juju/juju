@@ -20,6 +20,7 @@ import (
 	"github.com/juju/utils/packaging/config"
 	"github.com/juju/utils/packaging/manager"
 	"github.com/juju/utils/proxy"
+	"github.com/juju/utils/set"
 	"github.com/lxc/lxd/shared"
 
 	"github.com/juju/juju/container"
@@ -304,6 +305,39 @@ func ensureDependencies(series string) error {
 // randomizedOctetRange is a variable for testing purposes.
 var randomizedOctetRange = func() []int { return rand.Perm(255) }
 
+
+// getKnownV4IPsAndCIDRs iterates all of the known Addresses on this machine
+// and groups them up into known CIDRs and IP addresses.
+func getKnownV4IPsAndCIDRs(addrFunc func() ([]net.Addr, error)) ([]net.IP, []*net.IPNet, error) {
+	addrs, err := addrFunc()
+	if err != nil {
+		return nil, nil, errors.Annotate(err, "cannot get network interface addresses")
+	}
+
+	knownIPs := []net.IP{}
+	seenIPs := set.NewStrings()
+	knownCIDRs := []*net.IPNet{}
+	seenCIDRs := set.NewStrings()
+	for _, netAddr := range addrs {
+		ip, ipNet, err := net.ParseCIDR(netAddr.String())
+		if err != nil {
+			continue
+		}
+		if ip.To4() == nil {
+			continue
+		}
+		if !seenIPs.Contains(ip.String()) {
+			knownIPs = append(knownIPs, ip)
+			seenIPs.Add(ip.String())
+		}
+		if !seenCIDRs.Contains(ipNet.String()) {
+			knownCIDRs = append(knownCIDRs, ipNet)
+			seenCIDRs.Add(ipNet.String())
+		}
+	}
+	return knownIPs, knownCIDRs, nil
+}
+
 // findNextAvailableIPv4Subnet scans the list of interfaces on the machine
 // looking for 10.0.0.0/16 networks and returns the next subnet not in
 // use, having first detected the highest subnet. The next subnet can
@@ -315,32 +349,33 @@ var randomizedOctetRange = func() []int { return rand.Perm(255) }
 //
 // TODO(frobware): this only caters for IPv4 setups.
 func findNextAvailableIPv4Subnet() (string, error) {
-	addrs, err := interfaceAddrs()
+	knownIPs, knownCIDRs, err := getKnownV4IPsAndCIDRs(interfaceAddrs)
 	if err != nil {
-		return "", errors.Annotatef(err, "cannot get network interface addresses")
+		return "", errors.Trace(err)
 	}
 
 	randomized3rdSegment := randomizedOctetRange()
 	for _, i := range randomized3rdSegment {
 		// lxd randomizes the 2nd and 3rd segments, we should be fine with the
 		// 3rd only
-		_, ip10network, err := net.ParseCIDR(fmt.Sprintf("10.0.%d.0/24", i))
+		ip, ip10network, err := net.ParseCIDR(fmt.Sprintf("10.0.%d.0/24", i))
 		if err != nil {
 			return "", errors.Trace(err)
 		}
 
 		collides := false
-		for _, address := range addrs {
-			addr, network, err := net.ParseCIDR(address.String())
-			if err != nil {
-				logger.Debugf("cannot parse address %q: %v (ignoring)", address.String(), err)
-				continue
-			}
-
-			if ip10network.Contains(addr) {
-				logger.Debugf("find available subnet, skipping %q", network.String())
+		for _, kIP := range knownIPs {
+			if ip10network.Contains(kIP) {
 				collides = true
 				break
+			}
+		}
+		if !collides {
+			for _, kNet := range knownCIDRs {
+				if kNet.Contains(ip) || ip10network.Contains(kNet.IP) {
+					collides = true
+					break
+				}
 			}
 		}
 		if !collides {
