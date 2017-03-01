@@ -2189,7 +2189,7 @@ func (st *State) SetClockForTesting(clock clock.Clock) error {
 // getCollection delegates to the State's underlying Database.  It
 // returns the collection and a closer function for the session.
 //
-// TODO(mjs) - this should eventually go in favour of using using the
+// TODO(mjs) - this should eventually go in favour of using the
 // Database directly.
 func (st *State) getCollection(name string) (mongo.Collection, func()) {
 	return st.database.GetCollection(name)
@@ -2198,7 +2198,7 @@ func (st *State) getCollection(name string) (mongo.Collection, func()) {
 // getCollectionFor delegates to the State's underlying Database.  It
 // returns the collection and a closer function for the session.
 //
-// TODO(mjs) - this should eventually go in favour of using using the
+// TODO(mjs) - this should eventually go in favour of using the
 // Database directly.
 func (st *State) getCollectionFor(modelUUID, name string) (mongo.Collection, func()) {
 	return st.database.GetCollectionFor(modelUUID, name)
