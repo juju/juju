@@ -27,6 +27,9 @@ type VolumeInfo struct {
 	// Attachments is the set of entities attached to the volume.
 	Attachments *VolumeAttachments `yaml:"attachments,omitempty" json:"attachments,omitempty"`
 
+	// Pool is the name of the storage pool that the volume came from.
+	Pool string `yaml:"pool,omitempty" json:"pool,omitempty"`
+
 	// from params.Volume
 	HardwareId string `yaml:"hardware-id,omitempty" json:"hardware-id,omitempty"`
 
@@ -116,6 +119,7 @@ func createVolumeInfo(details params.VolumeDetails) (names.VolumeTag, VolumeInfo
 	var info VolumeInfo
 	info.ProviderVolumeId = details.Info.VolumeId
 	info.HardwareId = details.Info.HardwareId
+	info.Pool = details.Info.Pool
 	info.Size = details.Info.Size
 	info.Persistent = details.Info.Persistent
 	info.Life = string(details.Life)

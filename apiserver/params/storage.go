@@ -172,6 +172,11 @@ type Volume struct {
 type VolumeInfo struct {
 	VolumeId   string `json:"volume-id"`
 	HardwareId string `json:"hardware-id,omitempty"`
+	// Pool is the name of the storage pool used to
+	// allocate the volume. Juju controllers older
+	// than 2.2 do not populate this field, so it may
+	// be omitted.
+	Pool string `json:"pool,omitempty"`
 	// Size is the size of the volume in MiB.
 	Size       uint64 `json:"size"`
 	Persistent bool   `json:"persistent"`
@@ -293,6 +298,11 @@ type Filesystem struct {
 // Filesystem describes a storage filesystem in the model.
 type FilesystemInfo struct {
 	FilesystemId string `json:"filesystem-id"`
+	// Pool is the name of the storage pool used to
+	// allocate the filesystem. Juju controllers older
+	// than 2.2 do not populate this field, so it may
+	// be omitted.
+	Pool string `json:"pool"`
 	// Size is the size of the filesystem in MiB.
 	Size uint64 `json:"size"`
 }
@@ -405,8 +415,8 @@ type StorageDetails struct {
 	Status EntityStatus `json:"status"`
 
 	// Life contains the lifecycle state of the storage.
-	// Old versions of the API do not populate this field,
-	// so it may be omitted.
+	// Juju controllers older than 2.2 do not populate this
+	// field, so it may be omitted.
 	Life Life `json:"life,omitempty"`
 
 	// Persistent reports whether or not the underlying volume or
@@ -469,8 +479,8 @@ type StorageAttachmentDetails struct {
 	Location string `json:"location,omitempty"`
 
 	// Life contains the lifecycle state of the storage attachment.
-	// Old versions of the API do not populate this field, so it may
-	// be omitted.
+	// Juju controllers older than 2.2 do not populate this
+	// field, so it may be omitted.
 	Life Life `json:"life,omitempty"`
 }
 
@@ -558,8 +568,8 @@ type VolumeDetails struct {
 	Info VolumeInfo `json:"info"`
 
 	// Life contains the lifecycle state of the volume.
-	// Old versions of the API do not populate this field,
-	// so it may be omitted.
+	// Juju controllers older than 2.2 do not populate this
+	// field, so it may be omitted.
 	Life Life `json:"life,omitempty"`
 
 	// Status contains the status of the volume.
@@ -578,11 +588,15 @@ type VolumeDetails struct {
 type VolumeAttachmentDetails struct {
 	// NOTE(axw) for backwards-compatibility, this must not be given a
 	// json tag. This ensures that we collapse VolumeAttachmentInfo.
+	//
+	// TODO(axw) when we can break backwards-compatibility (Juju 3.0),
+	// give this a field name of "info", like we have in VolumeDetails
+	// above.
 	VolumeAttachmentInfo
 
 	// Life contains the lifecycle state of the volume attachment.
-	// Old versions of the API do not populate this field, so it
-	// may be omitted.
+	// Juju controllers older than 2.2 do not populate this
+	// field, so it may be omitted.
 	Life Life `json:"life,omitempty"`
 }
 
@@ -631,8 +645,8 @@ type FilesystemDetails struct {
 	Info FilesystemInfo `json:"info"`
 
 	// Life contains the lifecycle state of the filesystem.
-	// Old versions of the API do not populate this field,
-	// so it may be omitted.
+	// Juju controllers older than 2.2 do not populate this
+	// field, so it may be omitted.
 	Life Life `json:"life,omitempty"`
 
 	// Status contains the status of the filesystem.
@@ -651,11 +665,15 @@ type FilesystemDetails struct {
 type FilesystemAttachmentDetails struct {
 	// NOTE(axw) for backwards-compatibility, this must not be given a
 	// json tag. This ensures that we collapse FilesystemAttachmentInfo.
+	//
+	// TODO(axw) when we can break backwards-compatibility (Juju 3.0),
+	// give this a field name of "info", like we have in FilesystemDetails
+	// above.
 	FilesystemAttachmentInfo
 
 	// Life contains the lifecycle state of the filesystem attachment.
-	// Old versions of the API do not populate this field, so it may
-	// be omitted.
+	// Juju controllers older than 2.2 do not populate this
+	// field, so it may be omitted.
 	Life Life `json:"life,omitempty"`
 }
 

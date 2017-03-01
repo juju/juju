@@ -178,6 +178,7 @@ func (s *provisionerSuite) TestVolumesMachine(c *gc.C) {
 					HardwareId: "123",
 					Size:       1024,
 					Persistent: true,
+					Pool:       "machinescoped",
 				},
 			}},
 			{Error: &params.Error{Message: "permission denied", Code: "unauthorized access"}},
@@ -209,6 +210,7 @@ func (s *provisionerSuite) TestVolumesEnviron(c *gc.C) {
 					VolumeId:   "def",
 					HardwareId: "456",
 					Size:       4096,
+					Pool:       "modelscoped",
 				},
 			}},
 			{Error: &params.Error{Message: "permission denied", Code: "unauthorized access"}},
@@ -244,6 +246,7 @@ func (s *provisionerSuite) TestFilesystems(c *gc.C) {
 				Info: params.FilesystemInfo{
 					FilesystemId: "def",
 					Size:         4096,
+					Pool:         "modelscoped",
 				},
 			}},
 			{Error: &params.Error{Message: "permission denied", Code: "unauthorized access"}},

@@ -40,30 +40,29 @@ func (s *ListSuite) TestList(c *gc.C) {
 		nil,
 		// Default format is tabular
 		`
-\[Storage\]     
-Unit          Id           Location  Status    Message  
-postgresql/0  db-dir/1100  hither    attached           
-transcode/0   db-dir/1000  thither   pending            
-transcode/0   shared-fs/0  there     attached           
-transcode/1   shared-fs/0  here      attached           
+\[Storage\]
+Unit          Id           Pool      Provider id                 Size    Status    Message
+postgresql/0  db-dir/1100                                                attached  
+transcode/0   db-dir/1000                                                pending   creating volume
+transcode/0   shared-fs/0  radiance  provider-supplied-volume-4  1.0GiB  attached  
+transcode/1   shared-fs/0  radiance  provider-supplied-volume-4  1.0GiB  attached  
 
-\[Filesystems\]
-Machine  Unit         Storage      Id   Volume  Provider id                       Mountpoint  Size    State      Message
-0        abc/0        db-dir/1001  0/0  0/1     provider-supplied-filesystem-0-0  /mnt/fuji   512MiB  attached   
-0        transcode/0  shared-fs/0  4            provider-supplied-filesystem-4    /mnt/doom   1.0GiB  attached   
-0                                  1            provider-supplied-filesystem-1                2.0GiB  attaching  failed to attach, will retry
-1        transcode/1  shared-fs/0  4            provider-supplied-filesystem-4    /mnt/huang  1.0GiB  attached   
-1                                  2            provider-supplied-filesystem-2    /mnt/zion   3.0MiB  attached   
-1                                  3                                                          42MiB   pending    
+`[1:])
+}
 
-\[Volumes\]
-Machine  Unit         Storage      Id   Provider Id                   Device  Size    State      Message
-0        abc/0        db-dir/1001  0/0  provider-supplied-volume-0-0  loop0   512MiB  attached   
-0        transcode/0  shared-fs/0  4    provider-supplied-volume-4    xvdf2   1.0GiB  attached   
-0                                  1    provider-supplied-volume-1            2.0GiB  attaching  failed to attach, will retry
-1        transcode/1  shared-fs/0  4    provider-supplied-volume-4    xvdf3   1.0GiB  attached   
-1                                  2    provider-supplied-volume-2    xvdf1   3.0MiB  attached   
-1                                  3                                          42MiB   pending    
+func (s *ListSuite) TestListNoPool(c *gc.C) {
+	s.mockAPI.omitPool = true
+	s.assertValidList(
+		c,
+		nil,
+		// Default format is tabular
+		`
+\[Storage\]
+Unit          Id           Provider id                 Size    Status    Message
+postgresql/0  db-dir/1100                                      attached  
+transcode/0   db-dir/1000                                      pending   creating volume
+transcode/0   shared-fs/0  provider-supplied-volume-4  1.0GiB  attached  
+transcode/1   shared-fs/0  provider-supplied-volume-4  1.0GiB  attached  
 
 `[1:])
 }
@@ -78,6 +77,7 @@ storage:
     kind: block
     status:
       current: pending
+      message: creating volume
       since: .*
     persistent: false
     attachments:
@@ -86,6 +86,7 @@ storage:
           location: thither
   db-dir/1100:
     kind: block
+    life: dying
     status:
       current: attached
       since: .*
@@ -94,6 +95,7 @@ storage:
       units:
         postgresql/0:
           location: hither
+          life: dying
   shared-fs/0:
     kind: filesystem
     status:
@@ -116,11 +118,13 @@ filesystems:
         "0":
           mount-point: /mnt/fuji
           read-only: false
+          life: alive
       units:
         abc/0:
           machine: "0"
           location: /mnt/fuji
     size: 512
+    life: alive
     status:
       current: attached
       since: .*
@@ -175,6 +179,7 @@ filesystems:
         transcode/1:
           machine: "1"
           location: /mnt/pieces
+    pool: radiance
     size: 1024
     status:
       current: attached
@@ -188,12 +193,15 @@ volumes:
         "0":
           device: loop0
           read-only: false
+          life: alive
       units:
         abc/0:
           machine: "0"
           location: /dev/loop0
+    pool: radiance
     size: 512
     persistent: false
+    life: alive
     status:
       current: attached
       since: .*
@@ -293,13 +301,14 @@ type mockListAPI struct {
 	listErrors      bool
 	listFilesystems func([]string) ([]params.FilesystemDetailsListResult, error)
 	listVolumes     func([]string) ([]params.VolumeDetailsListResult, error)
+	omitPool        bool
 }
 
-func (s mockListAPI) Close() error {
+func (s *mockListAPI) Close() error {
 	return nil
 }
 
-func (s mockListAPI) ListStorageDetails() ([]params.StorageDetails, error) {
+func (s *mockListAPI) ListStorageDetails() ([]params.StorageDetails, error) {
 	if s.listErrors {
 		return nil, errors.New("list fails")
 	}
@@ -317,6 +326,7 @@ func (s mockListAPI) ListStorageDetails() ([]params.StorageDetails, error) {
 		Status: params.EntityStatus{
 			Status: status.Pending,
 			Since:  &epoch,
+			Info:   "creating volume",
 		},
 		Attachments: map[string]params.StorageAttachmentDetails{
 			"unit-transcode-0": params.StorageAttachmentDetails{
@@ -327,6 +337,7 @@ func (s mockListAPI) ListStorageDetails() ([]params.StorageDetails, error) {
 		StorageTag: "storage-db-dir-1100",
 		OwnerTag:   "unit-postgresql-0",
 		Kind:       params.StorageKindBlock,
+		Life:       "dying",
 		Status: params.EntityStatus{
 			Status: status.Attached,
 			Since:  &epoch,
@@ -335,6 +346,7 @@ func (s mockListAPI) ListStorageDetails() ([]params.StorageDetails, error) {
 		Attachments: map[string]params.StorageAttachmentDetails{
 			"unit-postgresql-0": params.StorageAttachmentDetails{
 				Location: "hither",
+				Life:     "dying",
 			},
 		},
 	}, {

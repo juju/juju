@@ -34,6 +34,9 @@ type FilesystemInfo struct {
 	// Attachments is the set of entities attached to the filesystem.
 	Attachments *FilesystemAttachments
 
+	// Pool is the name of the storage pool that the filesystem came from.
+	Pool string `yaml:"pool,omitempty" json:"pool,omitempty"`
+
 	// from params.FilesystemInfo
 	Size uint64 `yaml:"size" json:"size"`
 
@@ -100,6 +103,7 @@ func createFilesystemInfo(details params.FilesystemDetails) (names.FilesystemTag
 
 	var info FilesystemInfo
 	info.ProviderFilesystemId = details.Info.FilesystemId
+	info.Pool = details.Info.Pool
 	info.Size = details.Info.Size
 	info.Life = string(details.Life)
 	info.Status = EntityStatus{

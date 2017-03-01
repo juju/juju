@@ -187,11 +187,11 @@ func createStorageDetails(st storageAccess, si state.StorageInstance) (*params.S
 				return nil, errors.Trace(err)
 			}
 			details := params.StorageAttachmentDetails{
-				a.StorageInstance().String(),
-				a.Unit().String(),
-				machineTag.String(),
-				location,
-				params.Life(a.Life().String()),
+				StorageTag: a.StorageInstance().String(),
+				UnitTag:    a.Unit().String(),
+				MachineTag: machineTag.String(),
+				Location:   location,
+				Life:       params.Life(a.Life().String()),
 			}
 			storageAttachmentDetails[a.Unit().String()] = details
 		}
