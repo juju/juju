@@ -10,6 +10,7 @@ import (
 	"github.com/hoenirvili/go-oracle-cloud/response"
 	"github.com/pkg/errors"
 
+	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/status"
@@ -25,6 +26,21 @@ type oracleInstance struct {
 	machine         *response.Instance
 	client          *oci.Client
 	publicAddresses []response.IpAssociation
+	arch            *string
+	instType        *instances.InstanceType
+}
+
+func (o *oracleInstance) hardwareCharacteristics() *instance.HardwareCharacteristics {
+	if o.arch == nil {
+		return nil
+	}
+	hc := &instance.HardwareCharacteristics{Arch: o.arch}
+	if o.instType != nil {
+		hc.Mem = &o.instType.Mem
+		hc.RootDisk = &o.instType.RootDisk
+		hc.CpuCores = &o.instType.CpuCores
+	}
+	return hc
 }
 
 // newInstance returns a new instance.Instance implementation
@@ -48,19 +64,19 @@ func newInstance(params *response.Instance, client *oci.Client) (*oracleInstance
 }
 
 // Id returns a provider generated indentifier for the Instance
-func (o oracleInstance) Id() instance.Id {
+func (o *oracleInstance) Id() instance.Id {
 	return instance.Id(o.name)
 }
 
 // Status represents the provider specific status for the instance
-func (o oracleInstance) Status() instance.InstanceStatus {
+func (o *oracleInstance) Status() instance.InstanceStatus {
 	return o.status
 }
 
-func (o oracleInstance) getPublicAddresses() ([]response.IpAssociation, error) {
+func (o *oracleInstance) getPublicAddresses() ([]response.IpAssociation, error) {
 	ipAssoc := []response.IpAssociation{}
 	if len(o.publicAddresses) == 0 {
-		assoc, err := o.client.AllIpAssociation()
+		assoc, err := o.client.AllIpAssociations()
 		if err != nil {
 			return nil, jErr.Trace(err)
 		}
@@ -76,7 +92,7 @@ func (o oracleInstance) getPublicAddresses() ([]response.IpAssociation, error) {
 
 // Addresses returns a list of hostnames or ip addresses
 // associated with the instance.
-func (o oracleInstance) Addresses() ([]network.Address, error) {
+func (o *oracleInstance) Addresses() ([]network.Address, error) {
 	addresses := []network.Address{}
 	ips, err := o.getPublicAddresses()
 	if err != nil {
@@ -95,13 +111,13 @@ func (o oracleInstance) Addresses() ([]network.Address, error) {
 
 // OpenPorts opens the given port ranges on the instance, which
 // should have been started with the given machine id.
-func (o oracleInstance) OpenPorts(machineId string, rules []network.IngressRule) error {
+func (o *oracleInstance) OpenPorts(machineId string, rules []network.IngressRule) error {
 	return nil
 }
 
 // ClosePorts closes the given port ranges on the instance, which
 // should have been started with the given machine id.
-func (o oracleInstance) ClosePorts(machineId string, rules []network.IngressRule) error {
+func (o *oracleInstance) ClosePorts(machineId string, rules []network.IngressRule) error {
 	return nil
 }
 
@@ -111,6 +127,6 @@ func (o oracleInstance) ClosePorts(machineId string, rules []network.IngressRule
 // It is expected that there be only one ingress rule result for a given
 // port range - the rule's SourceCIDRs will contain all applicable source
 // address rules for that port range.
-func (o oracleInstance) IngressRules(machineId string) ([]network.IngressRule, error) {
+func (o *oracleInstance) IngressRules(machineId string) ([]network.IngressRule, error) {
 	return nil, nil
 }

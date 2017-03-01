@@ -11,6 +11,7 @@ import (
 	"time"
 
 	oci "github.com/hoenirvili/go-oracle-cloud/api"
+	// ociCommon "github.com/hoenirvili/go-oracle-cloud/common"
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/cloudconfig/cloudinit"
@@ -24,7 +25,6 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
-	"github.com/juju/juju/storage"
 	"github.com/juju/juju/tools"
 	"github.com/juju/version"
 )
@@ -36,37 +36,23 @@ type oracleEnviron struct {
 	p     *environProvider
 	spec  environs.CloudSpec
 	cfg   *config.Config
+	// namespace instance.Namespace
 }
 
 // newOracleEnviron returns a new oracleEnviron
 // composed from a environProvider and args from environs.OpenParams,
 // usually this method is used in Open method calls of the environProvider
 func newOracleEnviron(p *environProvider, args environs.OpenParams) *oracleEnviron {
+	m := &sync.Mutex{}
+
 	env := &oracleEnviron{
-		p:    p,
-		spec: args.Cloud,
-		cfg:  args.Config,
+		p:     p,
+		spec:  args.Cloud,
+		cfg:   args.Config,
+		mutex: m,
 	}
 
 	return env
-}
-
-// StorageProviderTypes returns the storage provider types
-// contained within this registry.
-//
-// Determining the supported storage providers may be dynamic.
-// Multiple calls for the same registry must return consistent
-// results.
-func (o oracleEnviron) StorageProviderTypes() ([]storage.ProviderType, error) {
-	return nil, nil
-}
-
-// StorageProvider returns the storage provider with the given
-// provider type. StorageProvider must return an errors satisfying
-// errors.IsNotFound if the registry does not contain said the
-// specified provider type.
-func (o oracleEnviron) StorageProvider(t storage.ProviderType) (storage.Provider, error) {
-	return nil, nil
 }
 
 // PrepareForBootstrap prepares an environment for bootstrapping.
@@ -74,7 +60,7 @@ func (o oracleEnviron) StorageProvider(t storage.ProviderType) (storage.Provider
 // This will be called very early in the bootstrap procedure, to
 // give an Environ a chance to perform interactive operations that
 // are required for bootstrapping.
-func (o oracleEnviron) PrepareForBootstrap(ctx environs.BootstrapContext) error {
+func (o *oracleEnviron) PrepareForBootstrap(ctx environs.BootstrapContext) error {
 	if ctx.ShouldVerifyCredentials() {
 		logger.Infof("Loging into the oracle cloud infrastructure")
 		if err := o.p.client.Authenticate(); err != nil {
@@ -99,7 +85,7 @@ func (o oracleEnviron) PrepareForBootstrap(ctx environs.BootstrapContext) error 
 // 	return common.Bootstrap(ctx, o, params)
 // }
 
-func (o oracleEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) (*environs.BootstrapResult, error) {
+func (o *oracleEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) (*environs.BootstrapResult, error) {
 	return common.Bootstrap(ctx, o, args)
 }
 
@@ -111,7 +97,7 @@ func (o oracleEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.Bo
 //
 // Create is not called for the initial controller model; it is
 // the Bootstrap method's job to create the controller model.
-func (o oracleEnviron) Create(params environs.CreateParams) error {
+func (o *oracleEnviron) Create(params environs.CreateParams) error {
 	if err := o.p.client.Authenticate(); err != nil {
 		return errors.Trace(err)
 	}
@@ -129,7 +115,7 @@ func (o oracleEnviron) Create(params environs.CreateParams) error {
 // provided for backwards compatibility - if the technique used to
 // tag items changes, the version number can be used to decide how
 // to remove the old tags correctly.
-func (e oracleEnviron) AdoptResources(controllerUUID string, fromVersion version.Number) error {
+func (e *oracleEnviron) AdoptResources(controllerUUID string, fromVersion version.Number) error {
 	return nil
 }
 
@@ -139,7 +125,7 @@ func (e oracleEnviron) AdoptResources(controllerUUID string, fromVersion version
 // unique within an environment, is used by juju to protect against the
 // consequences of multiple instances being started with the same machine
 // id.
-func (o oracleEnviron) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
+func (o *oracleEnviron) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
 	if args.ControllerUUID == "" {
 		return nil, errors.NotFoundf("Controller UUID")
 	}
@@ -178,7 +164,7 @@ func (o oracleEnviron) StartInstance(args environs.StartInstanceParams) (*enviro
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-
+	logger.Tracef("Tools: %v", tools)
 	if err = args.InstanceConfig.SetTools(tools); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -202,21 +188,26 @@ func (o oracleEnviron) StartInstance(args environs.StartInstanceParams) (*enviro
 		"userdata": string(userData),
 	}
 
-	tags := make([]string, len(args.InstanceConfig.Tags))
+	tags := make([]string, 0, len(args.InstanceConfig.Tags))
 	for k, v := range args.InstanceConfig.Tags {
+		if k == "" || v == "" {
+			continue
+		}
 		t := tagValue{k, v}
 		tags = append(tags, t.String())
 	}
 	//TODO
+	machineName := o.p.client.ComposeName(args.InstanceConfig.MachineAgentServiceName)
+	imageName := o.p.client.ComposeName(imagelist)
 	instance, err := createInstance(o.p.client, oci.InstanceParams{
 		Relationships: nil,
 		Instances: []oci.Instances{
 			{
 				Shape:       spec.InstanceType.Name,
-				Imagelist:   imagelist,
-				Name:        args.InstanceConfig.MachineAgentServiceName,
-				Label:       o.cfg.Name(),
-				Hostname:    o.cfg.Name(),
+				Imagelist:   imageName,
+				Name:        machineName,
+				Label:       args.InstanceConfig.MachineAgentServiceName,
+				Hostname:    args.InstanceConfig.MachineAgentServiceName,
 				Tags:        tags,
 				Attributes:  attributes,
 				Reverse_dns: false,
@@ -224,6 +215,8 @@ func (o oracleEnviron) StartInstance(args environs.StartInstanceParams) (*enviro
 			},
 		},
 	})
+	instance.arch = &spec.Image.Arch
+	instance.instType = &spec.InstanceType
 
 	if err != nil {
 		return nil, err
@@ -237,6 +230,7 @@ func (o oracleEnviron) StartInstance(args environs.StartInstanceParams) (*enviro
 	for !strings.EqualFold(machine.State, "running") {
 		time.Sleep(1 * time.Second)
 
+		logger.Tracef("Fetching instance details for %q", machineId)
 		machine, err = o.p.client.InstanceDetails(machineId)
 		if err != nil {
 			return nil, errors.Annotate(err, "cannot start instances")
@@ -255,7 +249,7 @@ func (o oracleEnviron) StartInstance(args environs.StartInstanceParams) (*enviro
 
 	logger.Infof("Associating public IP %q with instance %q", reservation.Name, machineId)
 
-	assocPoolName := fmt.Sprintf("ipreservation:%s", reservation.Name)
+	assocPoolName := oci.NewIPPool(reservation.Name, oci.IPReservationType)
 	_, err = o.p.client.CreateIpAssociation(
 		assocPoolName,
 		machine.Vcable_id)
@@ -265,6 +259,7 @@ func (o oracleEnviron) StartInstance(args environs.StartInstanceParams) (*enviro
 
 	result := &environs.StartInstanceResult{
 		Instance: instance,
+		Hardware: instance.hardwareCharacteristics(),
 	}
 
 	return result, nil
@@ -272,7 +267,7 @@ func (o oracleEnviron) StartInstance(args environs.StartInstanceParams) (*enviro
 
 // StopInstances shuts down the instances with the specified IDs.
 // Unknown instance IDs are ignored, to enable idempotency.
-func (o oracleEnviron) StopInstances(ids ...instance.Id) error {
+func (o *oracleEnviron) StopInstances(ids ...instance.Id) error {
 	//TODO: delete security lists
 	//TODO: delete public IP
 	//TODO: delete storage volumes
@@ -283,7 +278,7 @@ func (o oracleEnviron) StopInstances(ids ...instance.Id) error {
 	return nil
 }
 
-func (o oracleEnviron) terminateInstances(ids ...instance.Id) error {
+func (o *oracleEnviron) terminateInstances(ids ...instance.Id) error {
 	wg := sync.WaitGroup{}
 	errc := make(chan error, len(ids))
 	wg.Add(len(ids))
@@ -325,7 +320,7 @@ func (o *oracleEnviron) allControllerManagedInstances(controllerUUID string) ([]
 func (o *oracleEnviron) allInstances(tagFilter tagValue) ([]instance.Instance, error) {
 	resp, err := o.p.client.AllInstances()
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, err
 	}
 
 	if len(resp.Result) == 0 {
@@ -354,7 +349,7 @@ func (o *oracleEnviron) allInstances(tagFilter tagValue) ([]instance.Instance, e
 }
 
 // AllInstances returns all instances currently known to the broker.
-func (o oracleEnviron) AllInstances() ([]instance.Instance, error) {
+func (o *oracleEnviron) AllInstances() ([]instance.Instance, error) {
 	tagFilter := tagValue{tags.JujuModel, o.Config().UUID()}
 	return o.allInstances(tagFilter)
 }
@@ -362,14 +357,14 @@ func (o oracleEnviron) AllInstances() ([]instance.Instance, error) {
 // MaintainInstance is used to run actions on jujud startup for existing
 // instances. It is currently only used to ensure that LXC hosts have the
 // correct network configuration.
-func (o oracleEnviron) MaintainInstance(args environs.StartInstanceParams) error {
+func (o *oracleEnviron) MaintainInstance(args environs.StartInstanceParams) error {
 	return nil
 }
 
 // Config returns the configuration data with which the Environ was created.
 // Note that this is not necessarily current; the canonical location
 // for the configuration data is stored in the state.
-func (o oracleEnviron) Config() *config.Config {
+func (o *oracleEnviron) Config() *config.Config {
 	o.mutex.Lock()
 	defer o.mutex.Unlock()
 	return o.cfg
@@ -383,7 +378,7 @@ func (o oracleEnviron) Config() *config.Config {
 // to handle overridden attributes.
 //
 // This will use the default validator implementation from the constraints package.
-func (o oracleEnviron) ConstraintsValidator() (constraints.Validator, error) {
+func (o *oracleEnviron) ConstraintsValidator() (constraints.Validator, error) {
 	// list of unsupported oracle provider constraints
 	unsupportedConstraints := []string{
 		constraints.Container,
@@ -399,7 +394,7 @@ func (o oracleEnviron) ConstraintsValidator() (constraints.Validator, error) {
 	// we must feed the validator that the oracle cloud
 	// provider does not support these constraints
 	validator.RegisterUnsupported(unsupportedConstraints)
-
+	logger.Infof("Returning constraints validator: %v", validator)
 	return validator, nil
 }
 
@@ -407,7 +402,7 @@ func (o oracleEnviron) ConstraintsValidator() (constraints.Validator, error) {
 //
 // Calls to SetConfig do not affect the configuration of
 // values previously obtained from Storage.
-func (o oracleEnviron) SetConfig(cfg *config.Config) error {
+func (o *oracleEnviron) SetConfig(cfg *config.Config) error {
 	o.mutex.Lock()
 	defer o.mutex.Unlock()
 
@@ -428,7 +423,7 @@ func (o oracleEnviron) SetConfig(cfg *config.Config) error {
 // some but not all the instances were found, the returned slice
 // will have some nil slots, and an ErrPartialInstances error
 // will be returned.
-func (o oracleEnviron) Instances(ids []instance.Id) ([]instance.Instance, error) {
+func (o *oracleEnviron) Instances(ids []instance.Id) ([]instance.Instance, error) {
 	if len(ids) == 0 {
 		return nil, nil
 	}
@@ -462,7 +457,7 @@ func (o oracleEnviron) Instances(ids []instance.Id) ([]instance.Instance, error)
 // If there are no controller instances, ErrNoInstances is returned.
 // If it can be determined that the environment has not been bootstrapped,
 // then ErrNotBootstrapped should be returned instead.
-func (o oracleEnviron) ControllerInstances(controllerUUID string) ([]instance.Id, error) {
+func (o *oracleEnviron) ControllerInstances(controllerUUID string) ([]instance.Id, error) {
 	instances, err := o.allControllerManagedInstances(controllerUUID)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -496,7 +491,7 @@ func (o oracleEnviron) ControllerInstances(controllerUUID string) ([]instance.Id
 //
 // When Destroy has been called, any Environ referring to the
 // same remote environment may become invalid.
-func (o oracleEnviron) Destroy() error {
+func (o *oracleEnviron) Destroy() error {
 	return common.Destroy(o)
 }
 
@@ -507,7 +502,7 @@ func (o oracleEnviron) Destroy() error {
 // to hosted models on the controller on which it is invoked.
 // This ensures that "kill-controller" can clean up hosted models
 // when the Juju controller process is unavailable.
-func (o oracleEnviron) DestroyController(controllerUUID string) error {
+func (o *oracleEnviron) DestroyController(controllerUUID string) error {
 	err := o.Destroy()
 	if err != nil {
 		logger.Errorf("Failed to destroy environment through controller")
@@ -515,6 +510,9 @@ func (o oracleEnviron) DestroyController(controllerUUID string) error {
 
 	instances, err := o.allControllerManagedInstances(controllerUUID)
 	if err != nil {
+		if err == environs.ErrNoInstances {
+			return nil
+		}
 		return errors.Trace(err)
 	}
 	instIds := make([]instance.Id, len(instances))
@@ -545,14 +543,14 @@ func (o oracleEnviron) DestroyController(controllerUUID string) error {
 // OpenPorts opens the given port ranges for the whole environment.
 // Must only be used if the environment was setup with the
 // FwGlobal firewall mode.
-func (o oracleEnviron) OpenPorts(rules []network.IngressRule) error {
+func (o *oracleEnviron) OpenPorts(rules []network.IngressRule) error {
 	return nil
 }
 
 // ClosePorts closes the given port ranges for the whole environment.
 // Must only be used if the environment was setup with the
 // FwGlobal firewall mode.
-func (o oracleEnviron) ClosePorts(rules []network.IngressRule) error {
+func (o *oracleEnviron) ClosePorts(rules []network.IngressRule) error {
 	return nil
 }
 
@@ -562,12 +560,12 @@ func (o oracleEnviron) ClosePorts(rules []network.IngressRule) error {
 // It is expected that there be only one ingress rule result for a given
 // port range - the rule's SourceCIDRs will contain all applicable source
 // address rules for that port range.
-func (o oracleEnviron) IngressRules() ([]network.IngressRule, error) {
+func (o *oracleEnviron) IngressRules() ([]network.IngressRule, error) {
 	return nil, nil
 }
 
 // Provider returns the EnvironProvider that created this Environ.
-func (o oracleEnviron) Provider() environs.EnvironProvider {
+func (o *oracleEnviron) Provider() environs.EnvironProvider {
 	return o.p
 }
 
@@ -584,12 +582,12 @@ func (o oracleEnviron) Provider() environs.EnvironProvider {
 // isn't environs, so both packages can refer to it. Maybe the
 // constraints package? Can't be instance, because constraints
 // import instance...
-func (o oracleEnviron) PrecheckInstance(series string, cons constraints.Value, placement string) error {
+func (o *oracleEnviron) PrecheckInstance(series string, cons constraints.Value, placement string) error {
 	return nil
 }
 
 // InstanceTypes allows for instance information from a provider to be obtained.
-func (o oracleEnviron) InstanceTypes(constraints.Value) (envinstance.InstanceTypesWithCostMetadata, error) {
+func (o *oracleEnviron) InstanceTypes(constraints.Value) (envinstance.InstanceTypesWithCostMetadata, error) {
 	var i envinstance.InstanceTypesWithCostMetadata
 	return i, nil
 }

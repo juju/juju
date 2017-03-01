@@ -16,7 +16,7 @@ type OracleRenderer struct{}
 func (OracleRenderer) Render(cfg cloudinit.CloudConfig, os jujuos.OSType) ([]byte, error) {
 	switch os {
 	case jujuos.Ubuntu:
-		return renderers.RenderYAML(cfg, renderers.ToBase64)
+		return renderers.RenderYAML(cfg)
 	default:
 		return nil, errors.Errorf("Cannot encode userdata for OS: %s", os.String())
 	}

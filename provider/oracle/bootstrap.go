@@ -7,10 +7,8 @@ import (
 	"strings"
 
 	oci "github.com/hoenirvili/go-oracle-cloud/api"
-	// "github.com/hoenirvili/go-oracle-cloud/response"
 
 	"github.com/juju/errors"
-	// "github.com/juju/juju/instance"
 )
 
 // createInstance creates a new vm inside
@@ -20,7 +18,7 @@ func createInstance(c *oci.Client, params oci.InstanceParams) (*oracleInstance, 
 		return nil, errors.NotSupportedf("launching multiple controllers")
 	}
 
-	logger.Infof("Launching tbe bootstrap creation method")
+	logger.Infof("running CreateInstance")
 
 	// make the api request to create the instance
 	resp, err := c.CreateInstance(params)

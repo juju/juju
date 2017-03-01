@@ -7,6 +7,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/jsonschema"
 	"github.com/juju/loggo"
+	"github.com/juju/schema"
 
 	oci "github.com/hoenirvili/go-oracle-cloud/api"
 	"github.com/juju/juju/cloud"
@@ -62,7 +63,7 @@ func (e environProvider) CloudSchema() *jsonschema.Schema {
 
 // Ping tests the connection to the oracle cloud to verify the endoint is valid.
 func (e environProvider) Ping(endpoint string) error {
-	return errors.NotSupportedf("ping")
+	return nil
 }
 
 // PrepareConfig prepares the configuration for the new model, based on
@@ -111,13 +112,16 @@ func (e *environProvider) Open(params environs.OpenParams) (environs.Environ, er
 		return nil, errors.Annotatef(err, "validating cloud spec")
 	}
 
-	logger.Debugf("creating the oracle client for %q cloud", params.Cloud.Name)
 	cli, err := oci.NewClient(oci.Config{
 		Username: params.Cloud.Credential.Attributes()["username"],
 		Password: params.Cloud.Credential.Attributes()["password"],
 		Endpoint: params.Cloud.Endpoint,
 		Identify: params.Cloud.Credential.Attributes()["identity-domain"],
 	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	err = cli.Authenticate()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -130,8 +134,17 @@ func (e *environProvider) Open(params environs.OpenParams) (environs.Environ, er
 // Validate method will validate model configuration
 // This will ensure that the config passed is a valid configuration for the oracle cloud.
 // If old is not nil, Validate should use it to determine whether a configuration change is valid.
-func (e environProvider) Validate(cfg, old *config.Config) (valid *config.Config, _ error) {
-	return nil, nil
+func (e environProvider) Validate(cfg, old *config.Config) (valid *config.Config, err error) {
+	if err := config.Validate(cfg, old); err != nil {
+		return nil, err
+	}
+
+	newAttrs, err := cfg.ValidateUnknownAttrs(schema.Fields{}, schema.Defaults{})
+	if err != nil {
+		return nil, err
+	}
+
+	return cfg.Apply(newAttrs)
 }
 
 // CredentialSchemas returns credential schemas, keyed on authentication type. This is used to validate existing oracle credentials, or to generate new ones.

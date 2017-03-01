@@ -20,7 +20,7 @@ func getInstanceTypes(c *oci.Client) ([]instances.InstanceType, error) {
 
 	// make api request to oracle cloud to give us a list of
 	// all supported shapes
-	shapes, err := c.AllShapeDetails()
+	shapes, err := c.AllShapes()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -69,7 +69,7 @@ func findInstanceSpec(
 func checkImageList(c *oci.Client, cons constraints.Value) ([]*imagemetadata.ImageMetadata, error) {
 
 	// take a list of all images that are in the oracle cloud account
-	resp, err := c.AllImageList()
+	resp, err := c.AllImageLists()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -77,7 +77,15 @@ func checkImageList(c *oci.Client, cons constraints.Value) ([]*imagemetadata.Ima
 	images := make([]*imagemetadata.ImageMetadata, 0, len(resp.Result))
 	for _, val := range resp.Result {
 		list := strings.Split(val.Uri, "/")
+		//TODO: parse windows images as well
+		//TODO: we expect images to be named in the following format:
+		// OS.version.ARCH.timestamp
+		// This may fail miserably, and may be an assumption that will not hold
+		// in the future. Use simplestreams instead?
 		meta := strings.Split(list[len(list)-1], ".")
+		if len(meta) < 4 {
+			continue
+		}
 		endpoint := strings.Split(list[2], ".")
 		images = append(images, &imagemetadata.ImageMetadata{
 			Id:         meta[len(meta)-1],
@@ -97,7 +105,7 @@ func getImageName(c *oci.Client, id string) (string, error) {
 		return "", errors.NotFoundf("empty id")
 	}
 
-	resp, err := c.AllImageList()
+	resp, err := c.AllImageLists()
 	if err != nil {
 		return "", errors.Trace(err)
 	}
