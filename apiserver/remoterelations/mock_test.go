@@ -95,6 +95,15 @@ func (st *mockState) ImportRemoteEntity(sourceModel names.ModelTag, entity names
 	return nil
 }
 
+func (st *mockState) RemoveRemoteEntity(sourceModel names.ModelTag, entity names.Tag) error {
+	st.MethodCall(st, "RemoveRemoteEntity", sourceModel, entity)
+	if err := st.NextErr(); err != nil {
+		return err
+	}
+	delete(st.remoteEntities, entity)
+	return nil
+}
+
 func (st *mockState) ExportLocalEntity(entity names.Tag) (string, error) {
 	st.MethodCall(st, "ExportLocalEntity", entity)
 	if err := st.NextErr(); err != nil {

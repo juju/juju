@@ -75,6 +75,9 @@ type RemoteRelationsState interface {
 	// with the specified opaque token.
 	ImportRemoteEntity(sourceModel names.ModelTag, entity names.Tag, token string) error
 
+	// RemoveRemoteEntity removes the specified entity from the remote entities collection.
+	RemoveRemoteEntity(sourceModel names.ModelTag, entity names.Tag) error
+
 	// GetToken returns the token associated with the entity with the given tag
 	// and model.
 	GetToken(names.ModelTag, names.Tag) (string, error)
@@ -167,6 +170,11 @@ type RemoteApplication interface {
 
 	// Status returns the status of the remote application.
 	Status() (status.StatusInfo, error)
+
+	// Destroy ensures that this remote application reference and all its relations
+	// will be removed at some point; if no relation involving the
+	// application has any units in scope, they are all removed immediately.
+	Destroy() error
 }
 
 // Application represents the state of a application hosted in the local model.
@@ -215,6 +223,11 @@ func (st stateShim) GetRemoteEntity(model names.ModelTag, token string) (names.T
 func (st stateShim) ImportRemoteEntity(model names.ModelTag, entity names.Tag, token string) error {
 	r := st.State.RemoteEntities()
 	return r.ImportRemoteEntity(model, entity, token)
+}
+
+func (st stateShim) RemoveRemoteEntity(model names.ModelTag, entity names.Tag) error {
+	r := st.State.RemoteEntities()
+	return r.RemoveRemoteEntity(model, entity)
 }
 
 func (st stateShim) GetToken(model names.ModelTag, entity names.Tag) (string, error) {

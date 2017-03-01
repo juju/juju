@@ -60,7 +60,7 @@ func NewRemoteRelationsAPI(
 }
 
 // ImportRemoteEntities adds entities to the remote entities collection with the specified opaque tokens.
-func (api *RemoteRelationsAPI) ImportRemoteEntities(args params.ImportEntityArgs) (params.ErrorResults, error) {
+func (api *RemoteRelationsAPI) ImportRemoteEntities(args params.RemoteEntityArgs) (params.ErrorResults, error) {
 	results := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Args)),
 	}
@@ -71,7 +71,7 @@ func (api *RemoteRelationsAPI) ImportRemoteEntities(args params.ImportEntityArgs
 	return results, nil
 }
 
-func (api *RemoteRelationsAPI) importRemoteEntity(arg params.ImportEntityArg) error {
+func (api *RemoteRelationsAPI) importRemoteEntity(arg params.RemoteEntityArg) error {
 	entityTag, err := names.ParseTag(arg.Tag)
 	if err != nil {
 		return errors.Trace(err)
@@ -107,6 +107,30 @@ func (api *RemoteRelationsAPI) ExportEntities(entities params.Entities) (params.
 		}
 	}
 	return results, nil
+}
+
+// RemoveRemoteEntities removes the specified entities from the remote entities collection.
+func (api *RemoteRelationsAPI) RemoveRemoteEntities(args params.RemoteEntityArgs) (params.ErrorResults, error) {
+	results := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.Args)),
+	}
+	for i, arg := range args.Args {
+		err := api.removeRemoteEntity(arg)
+		results.Results[i].Error = common.ServerError(err)
+	}
+	return results, nil
+}
+
+func (api *RemoteRelationsAPI) removeRemoteEntity(arg params.RemoteEntityArg) error {
+	entityTag, err := names.ParseTag(arg.Tag)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	modelTag, err := names.ParseModelTag(arg.ModelTag)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return api.st.RemoveRemoteEntity(modelTag, entityTag)
 }
 
 // GetToken returns the token associated with the entity with the given tag for the current model.
@@ -304,6 +328,10 @@ func (api *RemoteRelationsAPI) publishRelationChange(change params.RemoteRelatio
 
 	relationTag, err := api.getRemoteEntityTag(change.RelationId)
 	if err != nil {
+		if errors.IsNotFound(err) {
+			logger.Debugf("not found relation tag %+v in model %v, exit early", change.RelationId, api.st.ModelUUID())
+			return nil
+		}
 		return errors.Trace(err)
 	}
 	logger.Debugf("relation tag for remote id %+v is %v", change.RelationId, relationTag)
@@ -319,14 +347,6 @@ func (api *RemoteRelationsAPI) publishRelationChange(change params.RemoteRelatio
 		return errors.Trace(err)
 	}
 
-	// If the remote model has destroyed the relation,
-	// do it here also.
-	if change.Life != params.Alive {
-		if err := rel.Destroy(); err != nil {
-			return errors.Trace(err)
-		}
-	}
-
 	// Look up the application on the remote side of this relation
 	// ie from the model which published this change.
 	applicationTag, err := api.getRemoteEntityTag(change.ApplicationId)
@@ -334,6 +354,29 @@ func (api *RemoteRelationsAPI) publishRelationChange(change params.RemoteRelatio
 		return errors.Trace(err)
 	}
 	logger.Debugf("application tag for remote id %+v is %v", change.ApplicationId, applicationTag)
+
+	// If the remote model has destroyed the relation, do it here also.
+	if change.Life != params.Alive {
+		logger.Debugf("remote side of %v died", relationTag)
+		if err := rel.Destroy(); err != nil {
+			return errors.Trace(err)
+		}
+		// See if we need to remove the remote application proxy - we do this
+		// on the offering side as there is 1:1 between proxy and consuming app.
+		if applicationTag != nil {
+			remoteApp, err := api.st.RemoteApplication(applicationTag.Id())
+			if err != nil && !errors.IsNotFound(err) {
+				return errors.Trace(err)
+			}
+			if err == nil && remoteApp.Registered() {
+				logger.Debugf("destroy consuming app proxy for %v", remoteApp.Name())
+				if err := remoteApp.Destroy(); err != nil {
+					return errors.Trace(err)
+				}
+			}
+		}
+	}
+
 	// TODO(wallyworld) - deal with remote application being removed
 	if applicationTag == nil {
 		logger.Infof("no remote application found for %v", relationTag.Id())
