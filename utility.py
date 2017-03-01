@@ -310,6 +310,7 @@ def _get_test_name_from_filename():
     except:
         return 'unknown_test'
 
+
 def _generate_default_clean_dir(temp_env_name):
     """Creates a new unique directory for logging and returns name"""
     logging.debug('Environment {}'.format(temp_env_name))
@@ -328,6 +329,7 @@ def _generate_default_clean_dir(temp_env_name):
                   log_dir +
                   '. Please specify empty folder or try again')
     return log_dir
+
 
 def _generate_default_temp_env_name():
     """Creates a new unique name for environment and returns the name"""

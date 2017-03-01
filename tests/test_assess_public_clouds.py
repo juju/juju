@@ -31,7 +31,6 @@ from tests import (
     TestCase,
     )
 from utility import (
-    _generate_default_clean_dir,
     temp_dir,
     )
 
@@ -114,7 +113,7 @@ class TestHelpers(TestCase):
     def test_default_log_dir(self):
         settings = Namespace(logs=None)
         with patch('assess_public_clouds._generate_default_clean_dir',
-                return_value='/tmp12345') as clean_dir_mock:
+                   return_value='/tmp12345') as clean_dir_mock:
             default_log_dir(settings)
         self.assertEqual('/tmp12345', settings.logs)
         clean_dir_mock.assert_called_once_with(_LOCAL)

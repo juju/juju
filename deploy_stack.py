@@ -9,12 +9,6 @@ try:
 except ImportError:
     from contextlib import ExitStack as nested
 
-
-from datetime import (
-    datetime,
-)
-
-import errno
 import glob
 import logging
 import os
