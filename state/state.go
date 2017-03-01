@@ -1158,6 +1158,11 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 		NeverSet: true,
 	}
 
+	// When creating the settings, we ignore nils.  In other circumstances, nil
+	// means to delete the value (reset to default), so creating with nil should
+	// mean to use the default, i.e. don't set the value.
+	removeNils(args.Settings)
+
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		// If we've tried once already and failed, check that
 		// model may have been destroyed.
@@ -1186,7 +1191,7 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 			assertModelActiveOp(st.ModelUUID()),
 			endpointBindingsOp,
 		}
-		addOps, err := addApplicationOps(st, addApplicationOpsArgs{
+		addOps, err := addApplicationOps(st, app, addApplicationOpsArgs{
 			applicationDoc: appDoc,
 			statusDoc:      statusDoc,
 			constraints:    args.Constraints,
@@ -1247,6 +1252,15 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 		return app, nil
 	}
 	return nil, errors.Trace(err)
+}
+
+// removeNils removes any keys with nil values from the given map.
+func removeNils(m map[string]interface{}) {
+	for k, v := range m {
+		if v == nil {
+			delete(m, k)
+		}
+	}
 }
 
 // assignUnitOps returns the db ops to save unit assignment for use by the
