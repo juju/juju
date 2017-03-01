@@ -118,7 +118,7 @@ class TestHelpers(TestCase):
 
     def test_default_log_dir(self):
         settings = Namespace(logs=None)
-        with patch('assess_public_clouds._generate_default_clean_dir',
+        with patch('assess_public_clouds.generate_default_clean_dir',
                    return_value='/tmp12345') as clean_dir_mock:
             default_log_dir(settings)
         self.assertEqual('/tmp12345', settings.logs)
@@ -126,7 +126,7 @@ class TestHelpers(TestCase):
 
     def test_default_log_dir_provided(self):
         settings = Namespace(logs='/tmpABCDE')
-        with patch('assess_public_clouds._generate_default_clean_dir',
+        with patch('assess_public_clouds.generate_default_clean_dir',
                    autospec=True) as clean_dir_mock:
             default_log_dir(settings)
         self.assertEqual('/tmpABCDE', settings.logs)

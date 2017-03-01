@@ -208,7 +208,7 @@ def _get_test_name_from_filename():
         return 'unknown_test'
 
 
-def _generate_default_clean_dir(temp_env_name):
+def generate_default_clean_dir(temp_env_name):
     """Creates a new unique directory for logging and returns name"""
     logging.debug('Environment {}'.format(temp_env_name))
     test_name = temp_env_name.split('-')[0]

@@ -22,7 +22,7 @@ from assess_cloud import (
     )
 from utility import (
     _clean_dir,
-    _generate_default_clean_dir,
+    generate_default_clean_dir,
     add_arg_juju_bin,
     configure_logging,
     LoggedException,
@@ -124,7 +124,7 @@ def yaml_file_load(file_name):
 
 def default_log_dir(settings):
     if settings.logs is None:
-        settings.logs = _generate_default_clean_dir('assess_public_clouds')
+        settings.logs = generate_default_clean_dir('assess_public_clouds')
 
 
 def main():

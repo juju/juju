@@ -57,7 +57,7 @@ from substrate import (
     make_substrate_manager,
 )
 from utility import (
-    _generate_default_clean_dir,
+    generate_default_clean_dir,
     add_basic_testing_arguments,
     configure_logging,
     ensure_deleted,
@@ -469,7 +469,7 @@ def deploy_job():
     configure_logging(args.verbose)
     series = args.series
     if not args.logs:
-        args.logs = _generate_default_clean_dir(args.temp_env_name)
+        args.logs = generate_default_clean_dir(args.temp_env_name)
     if series is None:
         series = 'precise'
     charm_series = series
@@ -705,7 +705,7 @@ class BootstrapManager:
     @classmethod
     def from_args(cls, args):
         if not args.logs:
-            args.logs = _generate_default_clean_dir(args.temp_env_name)
+            args.logs = generate_default_clean_dir(args.temp_env_name)
 
         # GZ 2016-08-11: Move this logic into client_from_config maybe?
         if args.juju_bin == 'FAKE':
