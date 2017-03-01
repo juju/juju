@@ -305,7 +305,6 @@ func ensureDependencies(series string) error {
 // randomizedOctetRange is a variable for testing purposes.
 var randomizedOctetRange = func() []int { return rand.Perm(255) }
 
-
 // getKnownV4IPsAndCIDRs iterates all of the known Addresses on this machine
 // and groups them up into known CIDRs and IP addresses.
 func getKnownV4IPsAndCIDRs(addrFunc func() ([]net.Addr, error)) ([]net.IP, []*net.IPNet, error) {
