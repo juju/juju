@@ -9,6 +9,7 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
+	"math/rand"
 	"net"
 	"os"
 	"os/exec"
@@ -19,6 +20,7 @@ import (
 	"github.com/juju/utils/packaging/config"
 	"github.com/juju/utils/packaging/manager"
 	"github.com/juju/utils/proxy"
+	"github.com/juju/utils/set"
 	"github.com/lxc/lxd/shared"
 
 	"github.com/juju/juju/container"
@@ -163,10 +165,17 @@ var configureLXDBridge = func() error {
 		return errors.Trace(err)
 	}
 
+	// If LXD itself supports managing networks (added in LXD 2.3) we can allow
+	// it to do all of the network configuration.
 	if shared.StringInSlice("network", status.APIExtensions) {
 		return lxdclient.CreateDefaultBridgeInDefaultProfile(client)
 	}
+	return configureLXDBridgeForOlderLXD()
+}
 
+// configureLXDBridgeForOlderLXD is used for LXD agents that don't support the
+// Network API (pre 2.3)
+func configureLXDBridgeForOlderLXD() error {
 	f, err := os.OpenFile(lxdBridgeFile, os.O_RDWR, 0777)
 	if err != nil {
 		/* We're using an old version of LXD which doesn't have
@@ -293,6 +302,41 @@ func ensureDependencies(series string) error {
 	return err
 }
 
+// randomizedOctetRange is a variable for testing purposes.
+var randomizedOctetRange = func() []int { return rand.Perm(255) }
+
+// getKnownV4IPsAndCIDRs iterates all of the known Addresses on this machine
+// and groups them up into known CIDRs and IP addresses.
+func getKnownV4IPsAndCIDRs(addrFunc func() ([]net.Addr, error)) ([]net.IP, []*net.IPNet, error) {
+	addrs, err := addrFunc()
+	if err != nil {
+		return nil, nil, errors.Annotate(err, "cannot get network interface addresses")
+	}
+
+	knownIPs := []net.IP{}
+	seenIPs := set.NewStrings()
+	knownCIDRs := []*net.IPNet{}
+	seenCIDRs := set.NewStrings()
+	for _, netAddr := range addrs {
+		ip, ipNet, err := net.ParseCIDR(netAddr.String())
+		if err != nil {
+			continue
+		}
+		if ip.To4() == nil {
+			continue
+		}
+		if !seenIPs.Contains(ip.String()) {
+			knownIPs = append(knownIPs, ip)
+			seenIPs.Add(ip.String())
+		}
+		if !seenCIDRs.Contains(ipNet.String()) {
+			knownCIDRs = append(knownCIDRs, ipNet)
+			seenCIDRs.Add(ipNet.String())
+		}
+	}
+	return knownIPs, knownCIDRs, nil
+}
+
 // findNextAvailableIPv4Subnet scans the list of interfaces on the machine
 // looking for 10.0.0.0/16 networks and returns the next subnet not in
 // use, having first detected the highest subnet. The next subnet can
@@ -304,47 +348,39 @@ func ensureDependencies(series string) error {
 //
 // TODO(frobware): this only caters for IPv4 setups.
 func findNextAvailableIPv4Subnet() (string, error) {
-	_, ip10network, err := net.ParseCIDR("10.0.0.0/16")
+	knownIPs, knownCIDRs, err := getKnownV4IPsAndCIDRs(interfaceAddrs)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
 
-	addrs, err := interfaceAddrs()
-	if err != nil {
-		return "", errors.Annotatef(err, "cannot get network interface addresses")
-	}
-
-	max := 0
-	usedSubnets := make(map[int]bool)
-
-	for _, address := range addrs {
-		addr, network, err := net.ParseCIDR(address.String())
+	randomized3rdSegment := randomizedOctetRange()
+	for _, i := range randomized3rdSegment {
+		// lxd randomizes the 2nd and 3rd segments, we should be fine with the
+		// 3rd only
+		ip, ip10network, err := net.ParseCIDR(fmt.Sprintf("10.0.%d.0/24", i))
 		if err != nil {
-			logger.Debugf("cannot parse address %q: %v (ignoring)", address.String(), err)
-			continue
+			return "", errors.Trace(err)
 		}
-		if !ip10network.Contains(addr) {
-			logger.Debugf("find available subnet, skipping %q", network.String())
-			continue
+
+		collides := false
+		for _, kIP := range knownIPs {
+			if ip10network.Contains(kIP) {
+				collides = true
+				break
+			}
 		}
-		subnet := int(network.IP[2])
-		usedSubnets[subnet] = true
-		if subnet > max {
-			max = subnet
+		if !collides {
+			for _, kNet := range knownCIDRs {
+				if kNet.Contains(ip) || ip10network.Contains(kNet.IP) {
+					collides = true
+					break
+				}
+			}
+		}
+		if !collides {
+			return fmt.Sprintf("%d", i), nil
 		}
 	}
-
-	if len(usedSubnets) == 0 {
-		return "0", nil
-	}
-
-	for i := 0; i < 256; i++ {
-		max = (max + 1) % 256
-		if _, inUse := usedSubnets[max]; !inUse {
-			return fmt.Sprintf("%d", max), nil
-		}
-	}
-
 	return "", errors.New("could not find unused subnet")
 }
 
