@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/worker/catacomb"
 	"github.com/juju/juju/worker/gate"
 )
@@ -140,36 +141,41 @@ func (dw *discoverspacesWorker) handleSubnets() error {
 		logger.Debugf("not a networking environ")
 		return nil
 	}
-	if supported, err := environ.SupportsSpaceDiscovery(); err != nil {
+	canDiscoverSpaces, err := environ.SupportsSpaceDiscovery()
+	if err != nil {
 		return errors.Trace(err)
-	} else if !supported {
-		logger.Debugf("environ does not support space discovery")
-		return nil
 	}
+	if canDiscoverSpaces {
+		return errors.Trace(dw.discoverSpaces(environ))
+	}
+	logger.Debugf("environ does not support space discovery")
+	return errors.Trace(dw.discoverSubnets(environ))
+}
+
+func (dw *discoverspacesWorker) discoverSubnets(environ environs.NetworkingEnviron) error {
+	return nil
+}
+
+func (dw *discoverspacesWorker) discoverSpaces(environ environs.NetworkingEnviron) error {
 	providerSpaces, err := environ.Spaces()
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	facade := dw.config.Facade
-	listSpacesResult, err := facade.ListSpaces()
+	listSpacesResult, err := dw.config.Facade.ListSpaces()
 	if err != nil {
 		return errors.Trace(err)
-	}
-	stateSubnets, err := facade.ListSubnets(params.SubnetsFilters{})
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	stateSubnetIds := make(set.Strings)
-	for _, subnet := range stateSubnets.Results {
-		stateSubnetIds.Add(subnet.ProviderId)
 	}
 	stateSpaceMap := make(map[string]params.ProviderSpace)
 	spaceNames := make(set.Strings)
 	for _, space := range listSpacesResult.Results {
 		stateSpaceMap[space.ProviderId] = space
 		spaceNames.Add(space.Name)
+	}
+
+	stateSubnetIds, err := dw.getStateSubnets()
+	if err != nil {
+		return errors.Trace(err)
 	}
 
 	// TODO(mfoord): we need to delete spaces and subnets that no longer
@@ -208,27 +214,8 @@ func (dw *discoverspacesWorker) handleSubnets() error {
 				ProviderId: string(space.ProviderId),
 			})
 		}
-		// TODO(mfoord): currently no way of removing subnets, or
-		// changing the space they're in, so we can only add ones we
-		// don't already know about.
-		for _, subnet := range space.Subnets {
-			if stateSubnetIds.Contains(string(subnet.ProviderId)) {
-				continue
-			}
-			zones := subnet.AvailabilityZones
-			if len(zones) == 0 {
-				logger.Tracef(
-					"provider does not specify zones for subnet %q; using 'default' zone as fallback",
-					subnet.CIDR,
-				)
-				zones = []string{"default"}
-			}
-			addSubnetsArgs.Subnets = append(addSubnetsArgs.Subnets, params.AddSubnetParams{
-				SubnetProviderId: string(subnet.ProviderId),
-				SpaceTag:         spaceTag.String(),
-				Zones:            zones,
-			})
-		}
+
+		collectMissingSubnets(&addSubnetsArgs, spaceTag.String(), stateSubnetIds, space.Subnets)
 	}
 
 	if err := dw.createSpacesFromArgs(createSpacesArgs); err != nil {
@@ -296,4 +283,45 @@ func (dw *discoverspacesWorker) addSubnetsFromArgs(addSubnetsArgs params.AddSubn
 	}
 
 	return nil
+}
+
+func (dw *discoverspacesWorker) getStateSubnets() (set.Strings, error) {
+	stateSubnets, err := dw.config.Facade.ListSubnets(params.SubnetsFilters{})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	stateSubnetIds := make(set.Strings)
+	for _, subnet := range stateSubnets.Results {
+		stateSubnetIds.Add(subnet.ProviderId)
+	}
+	return stateSubnetIds, nil
+}
+
+func collectMissingSubnets(
+	addArgs *params.AddSubnetsParams,
+	spaceTag string,
+	existingSubnets set.Strings,
+	subnets []network.SubnetInfo,
+) {
+	// TODO(mfoord): currently no way of removing subnets, or
+	// changing the space they're in, so we can only add ones we
+	// don't already know about.
+	for _, subnet := range subnets {
+		if existingSubnets.Contains(string(subnet.ProviderId)) {
+			continue
+		}
+		zones := subnet.AvailabilityZones
+		if len(zones) == 0 {
+			logger.Tracef(
+				"provider does not specify zones for subnet %q; using 'default' zone as fallback",
+				subnet.CIDR,
+			)
+			zones = []string{"default"}
+		}
+		addArgs.Subnets = append(addArgs.Subnets, params.AddSubnetParams{
+			SubnetProviderId: string(subnet.ProviderId),
+			SpaceTag:         spaceTag,
+			Zones:            zones,
+		})
+	}
 }
