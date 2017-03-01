@@ -37,7 +37,6 @@ from jujuconfig import (
 from utility import (
     check_free_disk_space,
     ensure_dir,
-    get_juju_path,
     get_timeout_path,
     is_ipv6_address,
     JujuResourceTimeout,
@@ -63,6 +62,7 @@ except NameError:
     argtype = str
 
 AGENTS_READY = set(['started', 'idle'])
+WIN_JUJU_CMD = os.path.join('\\', 'Progra~2', 'Juju', 'juju.exe')
 
 JUJU_DEV_FEATURE_FLAGS = 'JUJU_DEV_FEATURE_FLAGS'
 CONTROLLER = 'controller'
@@ -1420,13 +1420,19 @@ class ModelClient:
         else:
             raise JESNotSupported()
 
+    @classmethod
+    def get_full_path(cls):
+        if sys.platform == 'win32':
+            return WIN_JUJU_CMD
+        return subprocess.check_output(('which', 'juju')).rstrip('\n')
+
     def clone_path_cls(self, juju_path):
         """Clone using the supplied path to determine the class."""
         from jujupy.version_client import get_client_class
         version = self.get_version(juju_path)
         cls = get_client_class(version)
         if juju_path is None:
-            full_path = get_juju_path()
+            full_path = self.get_full_path()
         else:
             full_path = os.path.abspath(juju_path)
         return self.clone(version=version, full_path=full_path, cls=cls)

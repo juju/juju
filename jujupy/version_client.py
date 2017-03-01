@@ -30,7 +30,6 @@ from jujupy.client import (
     )
 from utility import (
     ensure_deleted,
-    get_juju_path,
     scoped_environ,
     split_address_port,
     )
@@ -709,7 +708,7 @@ def client_from_config(config, juju_path, debug=False, soft_deadline=None):
     else:
         env = client_class.config_class.from_config(config)
     if juju_path is None:
-        full_path = get_juju_path()
+        full_path = ModelClient.get_full_path()
     else:
         full_path = os.path.abspath(juju_path)
     return client_class(env, version, full_path, debug=debug,

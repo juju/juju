@@ -34,7 +34,7 @@ quote
 # Equivalent of socket.EAI_NODATA when using windows sockets
 # <https://msdn.microsoft.com/ms740668#WSANO_DATA>
 WSANO_DATA = 11004
-WIN_JUJU_CMD = os.path.join('\\', 'Progra~2', 'Juju', 'juju.exe')
+
 
 @contextmanager
 def noop_context():
@@ -320,16 +320,19 @@ def _generate_default_temp_env_name():
 
 
 def _generate_default_binary():
-    """Checks for juju binary in GOPATH, then default to $PATH/juju.
+    """Checks for juju binary in GOPATH, then default paths for juju
+       debian and snap packages. Returns in priority order GO>DEB>SNAP.
        Raises ValueError if no juju binary is found.
        """
     if os.getenv('GOPATH'):
         go_bin = os.getenv('GOPATH') + '/bin/juju'
         if os.path.isfile(go_bin):
             return go_bin
-    path = get_juju_path()
-    if os.path.isfile(path):
-        return path
+
+    juju_paths = ['/usr/bin/juju', '/snap/bin/juju']
+    for path in juju_paths:
+        if os.path.isfile(path):
+            return path
 
     raise ValueError("Juju binary not found. Please specify path to juju")
 
@@ -341,15 +344,9 @@ def _to_deadline(timeout):
 def add_arg_juju_bin(parser):
     parser.add_argument('juju_bin', nargs='?',
                         help='Full path to the Juju binary. By default, this'
-                        ' will use $GOPATH/bin/juju or $PATH/juju in that'
+                        ' will use $GOPATH/bin/juju or /usr/bin/juju in that'
                         ' order.',
                         default=_generate_default_binary())
-
-
-def get_juju_path():
-    if sys.platform == 'win32':
-        return WIN_JUJU_CMD
-    return subprocess.check_output(('which', 'juju')).rstrip('\n')
 
 
 def add_basic_testing_arguments(parser, using_jes=False, deadline=True,

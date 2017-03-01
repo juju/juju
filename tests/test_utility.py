@@ -358,19 +358,16 @@ class TestGetDebArch(TestCase):
         co_mock.assert_called_once_with(['dpkg', '--print-architecture'])
         self.assertEqual(arch, 'amd42')
 
-#with patch('utility.get_juju_path', return_value='/usr/bin/juju'):
-    #with patch('utility.subprocess.check_output', return_value='blah'):
-#@patch.object(subprocess, 'check_output', autospec=True)
+
 class TestAddBasicTestingArguments(TestCase):
 
     def test_no_args(self):
         cmd_line = []
         with patch('utility.os.getenv', return_value=False):
-                with patch('utility.subprocess.check_output', return_value='/usr/bin/juju'):
-                    with patch('utility.os.path.isfile', return_value=True):
-                        parser = add_basic_testing_arguments(ArgumentParser(),
-                                                            deadline=True)
-                        args = parser.parse_args(cmd_line)
+            with patch('utility.os.path.isfile', return_value=True):
+                parser = add_basic_testing_arguments(ArgumentParser(),
+                                                     deadline=True)
+                args = parser.parse_args(cmd_line)
         self.assertEqual(args.env, 'lxd')
         self.assertEqual(args.juju_bin, '/usr/bin/juju')
 
@@ -388,11 +385,10 @@ class TestAddBasicTestingArguments(TestCase):
         cmd_line = []
         with self.assertRaises(ValueError):
             with patch('utility.os.getenv', return_value=False):
-                with patch('utility.subprocess.check_output'):
-                    with patch('utility.os.path.isfile', return_value=False):
-                        parser = add_basic_testing_arguments(ArgumentParser(),
-                                                             deadline=True)
-                        parser.parse_args(cmd_line)
+                with patch('utility.os.path.isfile', return_value=False):
+                    parser = add_basic_testing_arguments(ArgumentParser(),
+                                                         deadline=True)
+                    parser.parse_args(cmd_line)
 
     def test_juju_binary_snap(self):
         def juju_snap_path(path):
@@ -402,28 +398,24 @@ class TestAddBasicTestingArguments(TestCase):
 
         cmd_line = []
         with patch('utility.os.getenv', return_value=False):
-            with patch('utility.subprocess.check_output', return_value='/snap/bin/juju'):
-                with patch('utility.os.path.isfile', return_value=True):
-                    parser = add_basic_testing_arguments(ArgumentParser(),
-                                                        deadline=True)
-                    args = parser.parse_args(cmd_line)
+            with patch('utility.os.path.isfile', side_effect=juju_snap_path):
+                parser = add_basic_testing_arguments(ArgumentParser(),
+                                                     deadline=True)
+                args = parser.parse_args(cmd_line)
         self.assertEqual(args.juju_bin, '/snap/bin/juju')
 
     def test_default_binary_gopath(self):
         cmd_line = []
         with patch('utility.os.getenv', return_value='/tmp'):
-            with patch('utility.subprocess.check_output'):
-                with patch('utility.os.path.isfile', return_value=True):
-                    parser = add_basic_testing_arguments(ArgumentParser())
-                    args = parser.parse_args(cmd_line)
+            with patch('utility.os.path.isfile', return_value=True):
+                parser = add_basic_testing_arguments(ArgumentParser())
+                args = parser.parse_args(cmd_line)
         self.assertEqual(args.juju_bin, '/tmp/bin/juju')
 
     def test_positional_args(self):
         cmd_line = ['local', '/foo/juju', '/tmp/logs', 'testtest']
-        with patch('utility.subprocess.check_output'):
-            with patch('utility.os.path.isfile', return_value=True):
-                parser = add_basic_testing_arguments(ArgumentParser(), deadline=True)
-                args = parser.parse_args(cmd_line)
+        parser = add_basic_testing_arguments(ArgumentParser(), deadline=True)
+        args = parser.parse_args(cmd_line)
         expected = Namespace(
             agent_url=None, debug=False, env='local', temp_env_name='testtest',
             juju_bin='/foo/juju', logs='/tmp/logs', series=None,
@@ -434,20 +426,14 @@ class TestAddBasicTestingArguments(TestCase):
 
     def test_positional_args_add_juju_bin_name(self):
         cmd_line = ['local', '/juju', '/tmp/logs', 'testtest']
-        with patch('utility.subprocess.check_output'):
-            with patch('utility.os.path.isfile', return_value=True):
-                parser = add_basic_testing_arguments(ArgumentParser(),
-                                                    deadline=True)
-                args = parser.parse_args(cmd_line)
+        parser = add_basic_testing_arguments(ArgumentParser(), deadline=True)
+        args = parser.parse_args(cmd_line)
         self.assertEqual(args.juju_bin, '/juju')
 
     def test_positional_args_accepts_juju_exe(self):
         cmd_line = ['local', 'c:\\juju.exe', '/tmp/logs', 'testtest']
-        with patch('utility.subprocess.check_output'):
-            with patch('utility.os.path.isfile', return_value=True):
-                parser = add_basic_testing_arguments(ArgumentParser(),
-                                                    deadline=True)
-                args = parser.parse_args(cmd_line)
+        parser = add_basic_testing_arguments(ArgumentParser(), deadline=True)
+        args = parser.parse_args(cmd_line)
         self.assertEqual(args.juju_bin, 'c:\\juju.exe')
 
     def test_warns_on_dirty_logs(self):
@@ -455,9 +441,8 @@ class TestAddBasicTestingArguments(TestCase):
             with temp_dir() as log_dir:
                 open(os.path.join(log_dir, "existing.log"), "w").close()
                 cmd_line = ['local', '/a/juju', log_dir, 'testtest']
-                with patch('utility._generate_default_binary'):
-                    parser = add_basic_testing_arguments(ArgumentParser())
-                    parser.parse_args(cmd_line)
+                parser = add_basic_testing_arguments(ArgumentParser())
+                parser.parse_args(cmd_line)
             self.assertEqual(len(warned), 1)
             self.assertRegexpMatches(
                 str(warned[0].message),
@@ -470,9 +455,8 @@ class TestAddBasicTestingArguments(TestCase):
             with temp_dir() as log_dir:
                 open(os.path.join(log_dir, "empty"), "w").close()
                 cmd_line = ['local', '/a/juju', log_dir, 'testtest']
-                with patch('utility._generate_default_binary'):
-                    parser = add_basic_testing_arguments(ArgumentParser())
-                    parser.parse_args(cmd_line)
+                parser = add_basic_testing_arguments(ArgumentParser())
+                parser.parse_args(cmd_line)
             self.assertEqual(warned, [])
         self.assertEqual("", self.log_stream.getvalue())
 
@@ -480,12 +464,11 @@ class TestAddBasicTestingArguments(TestCase):
         """Special case help should not generate a warning"""
         with warnings.catch_warnings(record=True) as warned:
             with patch('utility.sys.exit'):
-                with patch('utility._generate_default_binary'):
-                    parser = add_basic_testing_arguments(ArgumentParser())
-                    cmd_line = ['-h']
-                    parser.parse_args(cmd_line)
-                    cmd_line = ['--help']
-                    parser.parse_args(cmd_line)
+                parser = add_basic_testing_arguments(ArgumentParser())
+                cmd_line = ['-h']
+                parser.parse_args(cmd_line)
+                cmd_line = ['--help']
+                parser.parse_args(cmd_line)
 
             self.assertEqual(warned, [])
 
@@ -494,9 +477,8 @@ class TestAddBasicTestingArguments(TestCase):
             log_dir = mkdtemp()
             os.rmdir(log_dir)
             cmd_line = ['local', '/foo/juju', log_dir, 'testtest']
-            with patch('utility._generate_default_binary'):
-                parser = add_basic_testing_arguments(ArgumentParser())
-                parser.parse_args(cmd_line)
+            parser = add_basic_testing_arguments(ArgumentParser())
+            parser.parse_args(cmd_line)
             self.assertEqual(len(warned), 1)
             self.assertRegexpMatches(
                 str(warned[0].message),
@@ -505,109 +487,96 @@ class TestAddBasicTestingArguments(TestCase):
 
     def test_debug(self):
         cmd_line = ['local', '/foo/juju', '/tmp/logs', 'testtest', '--debug']
-        with patch('utility._generate_default_binary'):
-            parser = add_basic_testing_arguments(ArgumentParser())
-            args = parser.parse_args(cmd_line)
+        parser = add_basic_testing_arguments(ArgumentParser())
+        args = parser.parse_args(cmd_line)
         self.assertEqual(args.debug, True)
 
     def test_verbose_logging(self):
         cmd_line = ['local', '/foo/juju', '/tmp/logs', 'testtest', '--verbose']
-        with patch('utility._generate_default_binary'):
-            parser = add_basic_testing_arguments(ArgumentParser())
-            args = parser.parse_args(cmd_line)
+        parser = add_basic_testing_arguments(ArgumentParser())
+        args = parser.parse_args(cmd_line)
         self.assertEqual(args.verbose, logging.DEBUG)
 
     def test_agent_url(self):
         cmd_line = ['local', '/foo/juju', '/tmp/logs', 'testtest',
                     '--agent-url', 'http://example.org']
-        with patch('utility._generate_default_binary'):
-            parser = add_basic_testing_arguments(ArgumentParser())
-            args = parser.parse_args(cmd_line)
+        parser = add_basic_testing_arguments(ArgumentParser())
+        args = parser.parse_args(cmd_line)
         self.assertEqual(args.agent_url, 'http://example.org')
 
     def test_agent_stream(self):
         cmd_line = ['local', '/foo/juju', '/tmp/logs', 'testtest',
                     '--agent-stream', 'testing']
-        with patch('utility._generate_default_binary'):
-            parser = add_basic_testing_arguments(ArgumentParser())
-            args = parser.parse_args(cmd_line)
+        parser = add_basic_testing_arguments(ArgumentParser())
+        args = parser.parse_args(cmd_line)
         self.assertEqual(args.agent_stream, 'testing')
 
     def test_series(self):
         cmd_line = ['local', '/foo/juju', '/tmp/logs', 'testtest', '--series',
                     'vivid']
-        with patch('utility._generate_default_binary'):
-            parser = add_basic_testing_arguments(ArgumentParser())
-            args = parser.parse_args(cmd_line)
+        parser = add_basic_testing_arguments(ArgumentParser())
+        args = parser.parse_args(cmd_line)
         self.assertEqual(args.series, 'vivid')
 
     def test_upload_tools(self):
         cmd_line = ['local', '/foo/juju', '/tmp/logs', 'testtest',
                     '--upload-tools']
-        with patch('utility._generate_default_binary'):
-            parser = add_basic_testing_arguments(ArgumentParser())
-            args = parser.parse_args(cmd_line)
+        parser = add_basic_testing_arguments(ArgumentParser())
+        args = parser.parse_args(cmd_line)
         self.assertTrue(args.upload_tools)
 
     def test_using_jes_upload_tools(self):
         cmd_line = ['local', '/foo/juju', '/tmp/logs', 'testtest',
                     '--upload-tools']
-        with patch('utility._generate_default_binary'):
-            parser = add_basic_testing_arguments(ArgumentParser())
-            with patch.object(parser, 'error') as mock_error:
-                parser.parse_args(cmd_line)
+        parser = add_basic_testing_arguments(ArgumentParser(), using_jes=True)
+        with patch.object(parser, 'error') as mock_error:
+            parser.parse_args(cmd_line)
         mock_error.assert_called_once_with(
             'unrecognized arguments: --upload-tools')
 
     def test_bootstrap_host(self):
         cmd_line = ['local', '/foo/juju', '/tmp/logs', 'testtest',
                     '--bootstrap-host', 'bar']
-        with patch('utility._generate_default_binary'):
-            parser = add_basic_testing_arguments(ArgumentParser())
-            args = parser.parse_args(cmd_line)
+        parser = add_basic_testing_arguments(ArgumentParser())
+        args = parser.parse_args(cmd_line)
         self.assertEqual(args.bootstrap_host, 'bar')
 
     def test_machine(self):
         cmd_line = ['local', '/foo/juju', '/tmp/logs', 'testtest',
                     '--machine', 'bar', '--machine', 'baz']
-        with patch('utility._generate_default_binary'):
-            parser = add_basic_testing_arguments(ArgumentParser())
-            args = parser.parse_args(cmd_line)
+        parser = add_basic_testing_arguments(ArgumentParser())
+        args = parser.parse_args(cmd_line)
         self.assertEqual(args.machine, ['bar', 'baz'])
 
     def test_keep_env(self):
         cmd_line = ['local', '/foo/juju', '/tmp/logs', 'testtest',
                     '--keep-env']
-        with patch('utility._generate_default_binary'):
-            parser = add_basic_testing_arguments(ArgumentParser())
-            args = parser.parse_args(cmd_line)
+        parser = add_basic_testing_arguments(ArgumentParser())
+        args = parser.parse_args(cmd_line)
         self.assertTrue(args.keep_env)
 
     def test_region(self):
         cmd_line = ['local', '/foo/juju', '/tmp/logs', 'testtest',
                     '--region', 'foo-bar']
-        with patch('utility._generate_default_binary'):
-            parser = add_basic_testing_arguments(ArgumentParser())
-            args = parser.parse_args(cmd_line)
+        parser = add_basic_testing_arguments(ArgumentParser())
+        args = parser.parse_args(cmd_line)
         self.assertEqual('foo-bar', args.region)
 
     def test_deadline(self):
         now = datetime(2012, 11, 10, 9, 8, 7)
         cmd_line = ['--timeout', '300']
-        with patch('utility._generate_default_binary'):
-            parser = add_basic_testing_arguments(ArgumentParser())
-            with patch('utility.datetime') as dt_class:
-                # Can't patch the utcnow method of datetime.datetime (because it's
-                # C code?) but we can patch out the whole datetime class.
-                dt_class.utcnow.return_value = now
-                args = parser.parse_args(cmd_line)
+        parser = add_basic_testing_arguments(ArgumentParser(), deadline=True)
+        with patch('utility.datetime') as dt_class:
+            # Can't patch the utcnow method of datetime.datetime (because it's
+            # C code?) but we can patch out the whole datetime class.
+            dt_class.utcnow.return_value = now
+            args = parser.parse_args(cmd_line)
         self.assertEqual(now + timedelta(seconds=300), args.deadline)
 
     def test_no_env(self):
         cmd_line = ['/foo/juju', '/tmp/logs', 'testtest']
-        with patch('utility._generate_default_binary'):
-            parser = add_basic_testing_arguments(ArgumentParser())
-            args = parser.parse_args(cmd_line)
+        parser = add_basic_testing_arguments(ArgumentParser(), env=False)
+        args = parser.parse_args(cmd_line)
         expected = Namespace(
             agent_url=None, debug=False, temp_env_name='testtest',
             juju_bin='/foo/juju', logs='/tmp/logs', series=None,
