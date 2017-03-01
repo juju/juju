@@ -6,6 +6,7 @@ package action
 import (
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
@@ -33,6 +34,8 @@ type runCommand struct {
 	actionName   string
 	paramsYAML   cmd.FileVar
 	parseStrings bool
+	wait         bool
+	timeout      time.Duration
 	out          cmd.Output
 	args         [][]string
 }
@@ -115,6 +118,9 @@ func (c *runCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.out.AddFlags(f, "yaml", output.DefaultFormatters)
 	f.Var(&c.paramsYAML, "params", "Path to yaml-formatted params file")
 	f.BoolVar(&c.parseStrings, "string-args", false, "Use raw string values of CLI args")
+	f.BoolVar(&c.wait, "wait", false, "Wait for results")
+	f.DurationVar(&c.timeout, "timeout", time.Duration(0),
+		"Timeout waiting for results")
 }
 
 func (c *runCommand) Info() *cmd.Info {
@@ -260,6 +266,28 @@ func (c *runCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 
-	output := map[string]string{"Action queued with id": tag.Id()}
+	if !c.wait && c.timeout.Nanoseconds() <= 0 {
+		// Immediate return. This is the default, although rarely
+		// what cli users want. We should consider changing this
+		// default with Juju 3.0.
+		output := map[string]string{"Action queued with id": tag.Id()}
+		return c.out.Write(ctx, output)
+	}
+
+	var wait *time.Timer
+	if c.timeout.Nanoseconds() <= 0 {
+		// Indefinite wait. Discard the tick.
+		wait = time.NewTimer(0 * time.Second)
+		_ = <-wait.C
+	} else {
+		wait = time.NewTimer(c.timeout)
+	}
+
+	result, err = GetActionResult(api, tag.Id(), wait)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	output := FormatActionResult(result)
+	output["action-id"] = tag.Id() // Action ID is required in case we timed out.
 	return c.out.Write(ctx, output)
 }
