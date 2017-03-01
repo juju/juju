@@ -475,6 +475,8 @@ def deploy_job():
     args = deploy_job_parse_args()
     configure_logging(args.verbose)
     series = args.series
+    if not args.logs:
+        args.logs = _generate_default_clean_dir(args.temp_env_name)
     if series is None:
         series = 'precise'
     charm_series = series
@@ -708,29 +710,9 @@ class BootstrapManager:
         return self.controller_strategy.tear_down_client
 
     @classmethod
-    def _generate_default_clean_dir(cls, temp_env_name):
-        """Creates a new unique directory for logging and returns name"""
-        logging.info('Environment {}'.format(temp_env_name))
-        test_name = temp_env_name.split('-')[0]
-        timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
-        log_dir = os.path.join('/tmp', test_name, 'logs', timestamp)
-
-        try:
-            os.makedirs(log_dir)
-            logging.info('Created logging directory {}'.format(log_dir))
-        except OSError as e:
-            if e.errno == errno.EEXIST:
-                logging.warn('"Directory {} already exists'.format(log_dir))
-            else:
-                raise('Failed to create logging directory: {} ' +
-                      log_dir +
-                      '. Please specify empty folder or try again')
-        return log_dir
-
-    @classmethod
     def from_args(cls, args):
         if not args.logs:
-            args.logs = cls._generate_default_clean_dir(args.temp_env_name)
+            args.logs = _generate_default_clean_dir(args.temp_env_name)
 
         # GZ 2016-08-11: Move this logic into client_from_config maybe?
         if args.juju_bin == 'FAKE':
@@ -1160,3 +1142,22 @@ def wait_for_state_server_to_shutdown(host, client, instance_id, timeout=60):
         else:
             raise Exception(
                 '{} was not deleted:'.format(instance_id))
+
+def _generate_default_clean_dir(temp_env_name):
+    """Creates a new unique directory for logging and returns name"""
+    logging.info('Environment {}'.format(temp_env_name))
+    test_name = temp_env_name.split('-')[0]
+    timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+    log_dir = os.path.join('/tmp', test_name, 'logs', timestamp)
+
+    try:
+        os.makedirs(log_dir)
+        logging.info('Created logging directory {}'.format(log_dir))
+    except OSError as e:
+        if e.errno == errno.EEXIST:
+            logging.warn('"Directory {} already exists'.format(log_dir))
+        else:
+            raise('Failed to create logging directory: {} ' +
+                  log_dir +
+                  '. Please specify empty folder or try again')
+    return log_dir

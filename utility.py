@@ -319,24 +319,6 @@ def _generate_default_temp_env_name():
     return '{}-{}-temp-env'.format(test_name, timestamp)
 
 
-def _generate_default_binary():
-    """Checks for juju binary in GOPATH, then default paths for juju
-       debian and snap packages. Returns in priority order GO>DEB>SNAP.
-       Raises ValueError if no juju binary is found.
-       """
-    if os.getenv('GOPATH'):
-        go_bin = os.getenv('GOPATH') + '/bin/juju'
-        if os.path.isfile(go_bin):
-            return go_bin
-
-    juju_paths = ['/usr/bin/juju', '/snap/bin/juju']
-    for path in juju_paths:
-        if os.path.isfile(path):
-            return path
-
-    raise ValueError("Juju binary not found. Please specify path to juju")
-
-
 def _to_deadline(timeout):
     return datetime.utcnow() + timedelta(seconds=int(timeout))
 
@@ -344,9 +326,8 @@ def _to_deadline(timeout):
 def add_arg_juju_bin(parser):
     parser.add_argument('juju_bin', nargs='?',
                         help='Full path to the Juju binary. By default, this'
-                        ' will use $GOPATH/bin/juju or /usr/bin/juju in that'
-                        ' order.',
-                        default=_generate_default_binary())
+                        ' will use $PATH/juju',
+                        default=None)
 
 
 def add_basic_testing_arguments(parser, using_jes=False, deadline=True,
