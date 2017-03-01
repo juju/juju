@@ -26,7 +26,7 @@ func createInstance(c *oci.Client, params oci.InstanceParams) (*oracleInstance, 
 		return nil, errors.Trace(err)
 	}
 
-	instance, err := newInstance(&resp.Instances[0], c)
+	instance, err := newInstance(resp.Instances[0], c)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

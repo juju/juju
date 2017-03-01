@@ -23,7 +23,7 @@ type oracleInstance struct {
 	name string
 	// status represents the status for a provider instance
 	status          instance.InstanceStatus
-	machine         *response.Instance
+	machine         response.Instance
 	client          *oci.Client
 	publicAddresses []response.IpAssociation
 	arch            *string
@@ -45,9 +45,9 @@ func (o *oracleInstance) hardwareCharacteristics() *instance.HardwareCharacteris
 
 // newInstance returns a new instance.Instance implementation
 // for the response.Instance
-func newInstance(params *response.Instance, client *oci.Client) (*oracleInstance, error) {
-	if params == nil {
-		return nil, errors.Errorf("Instance response is nil")
+func newInstance(params response.Instance, client *oci.Client) (*oracleInstance, error) {
+	if params.Name == "" {
+		return nil, errors.Errorf("Instance response does not contain a name")
 	}
 
 	instance := &oracleInstance{
@@ -75,19 +75,16 @@ func (o *oracleInstance) Status() instance.InstanceStatus {
 
 func (o *oracleInstance) getPublicAddresses() ([]response.IpAssociation, error) {
 	ipAssoc := []response.IpAssociation{}
-	if len(o.publicAddresses) == 0 {
-		assoc, err := o.client.AllIpAssociations()
-		if err != nil {
-			return nil, jErr.Trace(err)
-		}
-		for _, val := range assoc.Result {
-			if o.machine.Vcable_id == val.Vcable {
-				ipAssoc = append(ipAssoc, val)
-			}
-		}
-		o.publicAddresses = ipAssoc
+	assoc, err := o.client.AllIpAssociations()
+	if err != nil {
+		return nil, jErr.Trace(err)
 	}
-	return o.publicAddresses, nil
+	for _, val := range assoc.Result {
+		if o.machine.Vcable_id == val.Vcable {
+			ipAssoc = append(ipAssoc, val)
+		}
+	}
+	return ipAssoc, nil
 }
 
 // Addresses returns a list of hostnames or ip addresses

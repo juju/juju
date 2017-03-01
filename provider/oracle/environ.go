@@ -222,7 +222,7 @@ func (o *oracleEnviron) StartInstance(args environs.StartInstanceParams) (*envir
 		return nil, err
 	}
 
-	machine := *instance.machine
+	machine := instance.machine
 	machineId := instance.machine.Name
 
 	// wait for machine to start
@@ -339,7 +339,7 @@ func (o *oracleEnviron) allInstances(tagFilter tagValue) ([]instance.Instance, e
 			continue
 
 		}
-		oracleInstance, err := newInstance(&val, o.p.client)
+		oracleInstance, err := newInstance(val, o.p.client)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
