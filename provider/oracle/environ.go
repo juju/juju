@@ -6,12 +6,12 @@ package oracle
 import (
 	"fmt"
 	// "os"
-	"strings"
+	// "strings"
 	"sync"
 	"time"
 
 	oci "github.com/hoenirvili/go-oracle-cloud/api"
-	// ociCommon "github.com/hoenirvili/go-oracle-cloud/common"
+	ociCommon "github.com/hoenirvili/go-oracle-cloud/common"
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/cloudconfig/cloudinit"
@@ -188,7 +188,9 @@ func (o *oracleEnviron) StartInstance(args environs.StartInstanceParams) (*envir
 		"userdata": string(userData),
 	}
 
-	tags := make([]string, 0, len(args.InstanceConfig.Tags))
+	machineName := o.p.client.ComposeName(args.InstanceConfig.MachineAgentServiceName)
+	imageName := o.p.client.ComposeName(imagelist)
+	tags := make([]string, 0, len(args.InstanceConfig.Tags)+1)
 	for k, v := range args.InstanceConfig.Tags {
 		if k == "" || v == "" {
 			continue
@@ -196,9 +198,8 @@ func (o *oracleEnviron) StartInstance(args environs.StartInstanceParams) (*envir
 		t := tagValue{k, v}
 		tags = append(tags, t.String())
 	}
+	tags = append(tags, machineName)
 	//TODO
-	machineName := o.p.client.ComposeName(args.InstanceConfig.MachineAgentServiceName)
-	imageName := o.p.client.ComposeName(imagelist)
 	instance, err := createInstance(o.p.client, oci.InstanceParams{
 		Relationships: nil,
 		Instances: []oci.Instances{
@@ -222,41 +223,16 @@ func (o *oracleEnviron) StartInstance(args environs.StartInstanceParams) (*envir
 		return nil, err
 	}
 
-	machine := instance.machine
 	machineId := instance.machine.Name
-
-	// wait for machine to start
-	// TODO: cleanup all resources in case of failure.
-	for !strings.EqualFold(machine.State, "running") {
-		time.Sleep(1 * time.Second)
-
-		logger.Tracef("Fetching instance details for %q", machineId)
-		machine, err = o.p.client.InstanceDetails(machineId)
-		if err != nil {
-			return nil, errors.Annotate(err, "cannot start instances")
-		}
+	timeout := 10 * time.Minute
+	if err := instance.waitForMachineStatus(ociCommon.StateRunning, timeout); err != nil {
+		return nil, err
 	}
 	logger.Infof("started instance %q", machineId)
-	logger.Infof("Attempting to allocate public IP for instance %q", machineId)
-	// tags should help us cleanup after ourselves
-	reservationTags := []string{
-		"juju",
+	logger.Infof("Associating public IP to instance %q", machineId)
+	if err := instance.associatePublicIP(); err != nil {
+		return nil, err
 	}
-	reservation, err := o.p.client.CreateIpReservation(machineId, "", oci.PublicIPPool, true, reservationTags)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	logger.Infof("Associating public IP %q with instance %q", reservation.Name, machineId)
-
-	assocPoolName := oci.NewIPPool(reservation.Name, oci.IPReservationType)
-	_, err = o.p.client.CreateIpAssociation(
-		assocPoolName,
-		machine.Vcable_id)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	result := &environs.StartInstanceResult{
 		Instance: instance,
 		Hardware: instance.hardwareCharacteristics(),
@@ -271,22 +247,27 @@ func (o *oracleEnviron) StopInstances(ids ...instance.Id) error {
 	//TODO: delete security lists
 	//TODO: delete public IP
 	//TODO: delete storage volumes
+	oracleInstances, err := o.getOracleInstances(ids...)
+	if err == environs.ErrNoInstances {
+		return nil
+	} else if err != nil {
+		return err
+	}
 	logger.Debugf("terminating instances %v", ids)
-	if err := o.terminateInstances(ids...); err != nil {
+	if err := o.terminateInstances(oracleInstances...); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (o *oracleEnviron) terminateInstances(ids ...instance.Id) error {
+func (o *oracleEnviron) terminateInstances(instances ...*oracleInstance) error {
 	wg := sync.WaitGroup{}
-	errc := make(chan error, len(ids))
-	wg.Add(len(ids))
-	for _, id := range ids {
-		vmId := id
+	errc := make(chan error, len(instances))
+	wg.Add(len(instances))
+	for _, oInst := range instances {
 		go func() {
 			defer wg.Done()
-			if err := o.p.client.DeleteInstance(string(vmId)); err != nil {
+			if err := oInst.delete(true); err != nil {
 				if !oci.IsNotFound(err) {
 					errc <- err
 				}
@@ -296,7 +277,7 @@ func (o *oracleEnviron) terminateInstances(ids ...instance.Id) error {
 	wg.Wait()
 	select {
 	case err := <-errc:
-		return errors.Annotate(err, "cannot stop all instances")
+		return errors.Annotate(err, "cannot delete all instances")
 	default:
 	}
 	return nil
@@ -312,13 +293,25 @@ func (t *tagValue) String() string {
 
 // allControllerManagedInstances returns all instances managed by this
 // environment's controller, matching the optionally specified filter.
-func (o *oracleEnviron) allControllerManagedInstances(controllerUUID string) ([]instance.Instance, error) {
+func (o *oracleEnviron) allControllerManagedInstances(controllerUUID string) ([]*oracleInstance, error) {
 	tagFilter := tagValue{tags.JujuController, controllerUUID}
 	return o.allInstances(tagFilter)
 }
 
-func (o *oracleEnviron) allInstances(tagFilter tagValue) ([]instance.Instance, error) {
-	resp, err := o.p.client.AllInstances()
+func (o *oracleEnviron) getOracleInstances(ids ...instance.Id) ([]*oracleInstance, error) {
+	ret := make([]*oracleInstance, 0, len(ids))
+	if len(ids) == 1 {
+		inst, err := o.p.client.InstanceDetails(string(ids[0]))
+		if err != nil {
+			return nil, err
+		}
+		//environs.ErrPartialInstances
+		oInst, err := newInstance(inst, o.p.client)
+		ret = append(ret, oInst)
+		return ret, nil
+	}
+
+	resp, err := o.p.client.AllInstances(nil)
 	if err != nil {
 		return nil, err
 	}
@@ -326,19 +319,45 @@ func (o *oracleEnviron) allInstances(tagFilter tagValue) ([]instance.Instance, e
 	if len(resp.Result) == 0 {
 		return nil, environs.ErrNoInstances
 	}
-	instances := []instance.Instance{}
 	for _, val := range resp.Result {
 		found := false
-		for _, tag := range val.Tags {
-			if tagFilter.String() == tag {
+		for _, id := range ids {
+			if val.Name == string(id) {
 				found = true
 				break
 			}
 		}
 		if found == false {
 			continue
-
 		}
+		oInst, err := newInstance(val, o.p.client)
+		if err != nil {
+			return nil, err
+		}
+		ret = append(ret, oInst)
+	}
+
+	if len(ret) != len(ids) {
+		return ret, environs.ErrPartialInstances
+	}
+	return ret, nil
+}
+
+func (o *oracleEnviron) allInstances(tagFilter tagValue) ([]*oracleInstance, error) {
+	filter := []oci.Filter{
+		oci.Filter{
+			Arg:   "tags",
+			Value: tagFilter.String(),
+		},
+	}
+	logger.Infof("Looking for instances with tags: %v", filter)
+	resp, err := o.p.client.AllInstances(filter)
+	if err != nil {
+		return nil, err
+	}
+
+	instances := []*oracleInstance{}
+	for _, val := range resp.Result {
 		oracleInstance, err := newInstance(val, o.p.client)
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -351,7 +370,15 @@ func (o *oracleEnviron) allInstances(tagFilter tagValue) ([]instance.Instance, e
 // AllInstances returns all instances currently known to the broker.
 func (o *oracleEnviron) AllInstances() ([]instance.Instance, error) {
 	tagFilter := tagValue{tags.JujuModel, o.Config().UUID()}
-	return o.allInstances(tagFilter)
+	instances, err := o.allInstances(tagFilter)
+	if err != nil {
+		return nil, err
+	}
+	ret := make([]instance.Instance, len(instances))
+	for i, val := range instances {
+		ret[i] = val
+	}
+	return ret, nil
 }
 
 // MaintainInstance is used to run actions on jujud startup for existing
@@ -465,9 +492,8 @@ func (o *oracleEnviron) ControllerInstances(controllerUUID string) ([]instance.I
 	filter := tagValue{tags.JujuIsController, "true"}
 	ids := make([]instance.Id, 0, 1)
 	for _, val := range instances {
-		oracleInst := val.(*oracleInstance)
 		found := false
-		for _, tag := range oracleInst.machine.Tags {
+		for _, tag := range val.machine.Tags {
 			if tag == filter.String() {
 				found = true
 				break
@@ -515,17 +541,13 @@ func (o *oracleEnviron) DestroyController(controllerUUID string) error {
 		}
 		return errors.Trace(err)
 	}
-	instIds := make([]instance.Id, len(instances))
-	for i, val := range instances {
-		instIds[i] = val.Id()
-	}
 	errc := make(chan error, len(instances))
 	wg := sync.WaitGroup{}
 	wg.Add(len(instances))
-	for _, val := range instIds {
+	for _, val := range instances {
 		go func() {
 			defer wg.Done()
-			err := o.terminateInstances(val)
+			err := val.delete(true)
 			if !oci.IsNotFound(err) {
 				errc <- err
 			}

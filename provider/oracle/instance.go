@@ -4,10 +4,15 @@
 package oracle
 
 import (
+	"sync"
+	"time"
+
 	jErr "github.com/juju/errors"
 
 	oci "github.com/hoenirvili/go-oracle-cloud/api"
+	ociCommon "github.com/hoenirvili/go-oracle-cloud/common"
 	"github.com/hoenirvili/go-oracle-cloud/response"
+	ociResponse "github.com/hoenirvili/go-oracle-cloud/response"
 	"github.com/pkg/errors"
 
 	"github.com/juju/juju/environs/instances"
@@ -28,6 +33,7 @@ type oracleInstance struct {
 	publicAddresses []response.IpAssociation
 	arch            *string
 	instType        *instances.InstanceType
+	mutex           sync.Mutex
 }
 
 func (o *oracleInstance) hardwareCharacteristics() *instance.HardwareCharacteristics {
@@ -49,7 +55,7 @@ func newInstance(params response.Instance, client *oci.Client) (*oracleInstance,
 	if params.Name == "" {
 		return nil, errors.Errorf("Instance response does not contain a name")
 	}
-
+	mutex := sync.Mutex{}
 	instance := &oracleInstance{
 		name: params.Name,
 		status: instance.InstanceStatus{
@@ -58,6 +64,7 @@ func newInstance(params response.Instance, client *oci.Client) (*oracleInstance,
 		},
 		machine: params,
 		client:  client,
+		mutex:   mutex,
 	}
 
 	return instance, nil
@@ -65,6 +72,9 @@ func newInstance(params response.Instance, client *oci.Client) (*oracleInstance,
 
 // Id returns a provider generated indentifier for the Instance
 func (o *oracleInstance) Id() instance.Id {
+	if o.machine.Name != "" {
+		return instance.Id(o.machine.Name)
+	}
 	return instance.Id(o.name)
 }
 
@@ -73,16 +83,174 @@ func (o *oracleInstance) Status() instance.InstanceStatus {
 	return o.status
 }
 
+func (o *oracleInstance) refresh() error {
+	o.mutex.Lock()
+	defer o.mutex.Unlock()
+	machine, err := o.client.InstanceDetails(o.name)
+	if err != nil {
+		return err
+	}
+	o.machine = machine
+	return nil
+}
+
+func (o *oracleInstance) waitForMachineStatus(state ociCommon.InstanceState, timeout time.Duration) error {
+	errChan := make(chan error)
+	done := make(chan bool)
+	go func() {
+		for {
+			select {
+			case <-done:
+				return
+			default:
+				err := o.refresh()
+				if err != nil {
+					errChan <- err
+					return
+				}
+				if o.machine.State == ociCommon.StateError {
+					errChan <- errors.Errorf("Machine %v entered error state", o.machine.Name)
+					return
+				}
+				if o.machine.State == state {
+					errChan <- nil
+					return
+				}
+				time.Sleep(1 * time.Second)
+			}
+		}
+	}()
+	select {
+	case err := <-errChan:
+		return err
+	case <-time.After(timeout):
+		done <- true
+		return errors.Errorf("Timed out waiting for instance to transition from %v to %v", o.machine.State, state)
+	}
+	return nil
+}
+
+func (o *oracleInstance) delete(removeIps bool) error {
+	if removeIps {
+		err := o.disassociatePublicIps(true)
+		if err != nil {
+			return err
+		}
+	}
+	return o.client.DeleteInstance(o.name)
+}
+
+func (o *oracleInstance) deletePublicIps() error {
+	ipAssoc, err := o.getPublicAddresses()
+	if err != nil {
+		return err
+	}
+
+	for _, ip := range ipAssoc {
+		if err := o.client.DeleteIpReservation(ip.Reservation); err != nil {
+			logger.Errorf("Failed to delete IP: %s", err)
+			if oci.IsNotFound(err) {
+				continue
+			}
+			return err
+		}
+	}
+	return nil
+}
+
+func (o *oracleInstance) getUnusedPublicIps() ([]ociResponse.IpReservation, error) {
+	filter := []oci.Filter{
+		oci.Filter{
+			Arg:   "permanent",
+			Value: "true",
+		},
+		oci.Filter{
+			Arg:   "used",
+			Value: "false",
+		},
+	}
+
+	res, err := o.client.AllIpReservations(filter)
+	if err != nil {
+		return nil, err
+	}
+	return res.Result, nil
+}
+
+func (o *oracleInstance) associatePublicIP() error {
+	unusedIps, err := o.getUnusedPublicIps()
+	if err != nil {
+		return err
+	}
+	for _, val := range unusedIps {
+		assocPoolName := ociCommon.NewIPPool(ociCommon.IPPool(val.Name), ociCommon.IPReservationType)
+		if _, err := o.client.CreateIpAssociation(assocPoolName, o.machine.Vcable_id); err != nil {
+			if oci.IsBadRequest(err) {
+				//The IP probably got allocated after we fetched it
+				//from the API. Move on to the next one.
+				continue
+			}
+			return err
+		} else {
+			//TODO(gsamfira): update IP tags
+			return nil
+		}
+	}
+	//no unused IP reservations found. Allocate a new one.
+	reservation, err := o.client.CreateIpReservation(
+		o.machine.Name, "", ociCommon.PublicIPPool, true, o.machine.Tags)
+	if err != nil {
+		return err
+	}
+	assocPoolName := ociCommon.NewIPPool(ociCommon.IPPool(reservation.Name), ociCommon.IPReservationType)
+	if _, err := o.client.CreateIpAssociation(assocPoolName, o.machine.Vcable_id); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (o *oracleInstance) disassociatePublicIps(remove bool) error {
+	publicIps, err := o.getPublicAddresses()
+	if err != nil {
+		return err
+	}
+	for _, ipAssoc := range publicIps {
+		reservation := ipAssoc.Reservation
+		name := ipAssoc.Name
+		if err := o.client.DeleteIpAssociation(name); err != nil {
+			if oci.IsNotFound(err) {
+				continue
+			}
+			return err
+		}
+		if remove {
+			if err := o.client.DeleteIpReservation(reservation); err != nil {
+				if oci.IsNotFound(err) {
+					return nil
+				}
+				return err
+			}
+		}
+	}
+	return nil
+}
+
 func (o *oracleInstance) getPublicAddresses() ([]response.IpAssociation, error) {
+	o.mutex.Lock()
+	defer o.mutex.Unlock()
 	ipAssoc := []response.IpAssociation{}
-	assoc, err := o.client.AllIpAssociations()
+	filter := []oci.Filter{
+		oci.Filter{
+			Arg:   "vcable",
+			Value: string(o.machine.Vcable_id),
+		},
+	}
+	assoc, err := o.client.AllIpAssociations(filter)
 	if err != nil {
 		return nil, jErr.Trace(err)
 	}
 	for _, val := range assoc.Result {
-		if o.machine.Vcable_id == val.Vcable {
-			ipAssoc = append(ipAssoc, val)
-		}
+		ipAssoc = append(ipAssoc, val)
 	}
 	return ipAssoc, nil
 }
