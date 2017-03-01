@@ -7,8 +7,10 @@ import (
 	"reflect"
 	"time"
 
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 
@@ -17,9 +19,10 @@ import (
 	"github.com/juju/juju/api/remotefirewaller"
 	"github.com/juju/juju/api/remoterelations"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju"
-	"github.com/juju/juju/juju/testing"
+	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
@@ -33,14 +36,39 @@ import (
 // firewallerBaseSuite implements common functionality for embedding
 // into each of the other per-mode suites.
 type firewallerBaseSuite struct {
-	testing.JujuConnSuite
-	op    <-chan dummy.Operation
-	charm *state.Charm
+	jujutesting.JujuConnSuite
+	testing.OsEnvSuite
+	op                 <-chan dummy.Operation
+	charm              *state.Charm
+	controllerMachine  *state.Machine
+	controllerPassword string
 
 	st               api.Connection
 	firewaller       *apifirewaller.State
 	remoteRelations  *remoterelations.Client
 	remotefirewaller *remotefirewaller.Client
+	mockClock        *mockClock
+}
+
+func (s *firewallerBaseSuite) SetUpSuite(c *gc.C) {
+	s.OsEnvSuite.SetUpSuite(c)
+	s.JujuConnSuite.SetUpSuite(c)
+}
+
+func (s *firewallerBaseSuite) TearDownSuite(c *gc.C) {
+	s.JujuConnSuite.TearDownSuite(c)
+	s.OsEnvSuite.TearDownSuite(c)
+}
+
+func (s *firewallerBaseSuite) SetUpTest(c *gc.C) {
+	s.SetInitialFeatureFlags(feature.CrossModelRelations)
+	s.OsEnvSuite.SetUpTest(c)
+	s.JujuConnSuite.SetUpTest(c)
+}
+
+func (s *firewallerBaseSuite) TearDownTest(c *gc.C) {
+	s.JujuConnSuite.TearDownTest(c)
+	s.OsEnvSuite.TearDownTest(c)
 }
 
 var _ worker.Worker = (*firewaller.Firewaller)(nil)
@@ -53,15 +81,16 @@ func (s *firewallerBaseSuite) setUpTest(c *gc.C, firewallMode string) {
 	s.charm = s.AddTestingCharm(c, "dummy")
 
 	// Create a manager machine and login to the API.
-	machine, err := s.State.AddMachine("quantal", state.JobManageModel)
+	var err error
+	s.controllerMachine, err = s.State.AddMachine("quantal", state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
-	password, err := utils.RandomPassword()
+	s.controllerPassword, err = utils.RandomPassword()
 	c.Assert(err, jc.ErrorIsNil)
-	err = machine.SetPassword(password)
+	err = s.controllerMachine.SetPassword(s.controllerPassword)
 	c.Assert(err, jc.ErrorIsNil)
-	err = machine.SetProvisioned("i-manager", "fake_nonce", nil)
+	err = s.controllerMachine.SetProvisioned("i-manager", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	s.st = s.OpenAPIAsMachine(c, machine.Tag(), password, "fake_nonce")
+	s.st = s.OpenAPIAsMachine(c, s.controllerMachine.Tag(), s.controllerPassword, "fake_nonce")
 	c.Assert(s.st, gc.NotNil)
 
 	// Create the API facades.
@@ -69,8 +98,6 @@ func (s *firewallerBaseSuite) setUpTest(c *gc.C, firewallMode string) {
 	c.Assert(s.firewaller, gc.NotNil)
 	s.remoteRelations = remoterelations.NewClient(s.st)
 	c.Assert(s.remoteRelations, gc.NotNil)
-	s.remotefirewaller = remotefirewaller.NewClient(s.st)
-	c.Assert(s.remotefirewaller, gc.NotNil)
 }
 
 // assertPorts retrieves the open ports of the instance and compares them
@@ -136,7 +163,7 @@ func (s *firewallerBaseSuite) addUnit(c *gc.C, app *state.Application) (*state.U
 
 // startInstance starts a new instance for the given machine.
 func (s *firewallerBaseSuite) startInstance(c *gc.C, m *state.Machine) instance.Instance {
-	inst, hc := testing.AssertStartInstance(c, s.Environ, s.ControllerConfig.ControllerUUID(), m.Id())
+	inst, hc := jujutesting.AssertStartInstance(c, s.Environ, s.ControllerConfig.ControllerUUID(), m.Id())
 	err := m.SetProvisioned(inst.Id(), "fake_nonce", hc)
 	c.Assert(err, jc.ErrorIsNil)
 	return inst
@@ -156,7 +183,20 @@ func (s *InstanceModeSuite) TearDownTest(c *gc.C) {
 	s.firewallerBaseSuite.JujuConnSuite.TearDownTest(c)
 }
 
+// mockClock will panic if anything but After is called
+type mockClock struct {
+	clock.Clock
+	wait time.Duration
+	c    *gc.C
+}
+
+func (m *mockClock) After(duration time.Duration) <-chan time.Time {
+	m.wait = duration
+	return time.After(time.Millisecond)
+}
+
 func (s *InstanceModeSuite) newFirewaller(c *gc.C) worker.Worker {
+	s.mockClock = &mockClock{c: c}
 	cfg := firewaller.Config{
 		ModelUUID:          s.State.ModelUUID(),
 		Mode:               config.FwInstance,
@@ -167,6 +207,7 @@ func (s *InstanceModeSuite) newFirewaller(c *gc.C) worker.Worker {
 		NewRemoteFirewallerAPIFunc: func(modelUUID string) (firewaller.RemoteFirewallerAPICloser, error) {
 			return s.remotefirewaller, nil
 		},
+		Clock: s.mockClock,
 	}
 	fw, err := firewaller.NewFirewaller(cfg)
 	c.Assert(err, jc.ErrorIsNil)
@@ -662,13 +703,35 @@ func (s *InstanceModeSuite) TestStartWithStateOpenPortsBroken(c *gc.C) {
 }
 
 func (s *InstanceModeSuite) assertRemoteRelation(c *gc.C, remoteCIDRs []string, expectedCIDRS []string) {
+	// Set up another model to host one side of a remote relation.
 	otherState := s.Factory.MakeModel(c, &factory.ModelParams{Name: "other"})
 	defer otherState.Close()
 
+	// Create the consuming side.
+	otherFactory := factory.NewFactory(otherState)
+	ch := otherFactory.MakeCharm(c, &factory.CharmParams{Name: "wordpress"})
+	otherFactory.MakeApplication(c, &factory.ApplicationParams{Name: "wordpress", Charm: ch})
+
+	// Create an api connection to the other model.
+	apiInfo := s.APIInfo(c)
+	apiInfo.ModelTag = otherState.ModelTag()
+	apiInfo.Tag = s.controllerMachine.Tag()
+	apiInfo.Password = s.controllerPassword
+	apiInfo.Nonce = "fake_nonce"
+	apiCaller, err := api.Open(apiInfo, api.DialOpts{})
+	c.Assert(err, jc.ErrorIsNil)
+	defer apiCaller.Close()
+
+	// Use the other model api connection to create the remote firewaller facade
+	s.remotefirewaller = remotefirewaller.NewClient(apiCaller)
+	c.Assert(s.remotefirewaller, gc.NotNil)
+
+	// Create the firewaller facade on the offering model.
 	fw := s.newFirewaller(c)
 	defer statetesting.AssertKillAndWait(c, fw)
 
-	_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+	// Set up the offering model - create the remote app and relation.
+	_, err = s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name: "wordpress", URL: "local:/u/me/wordpress", SourceModel: otherState.ModelTag(),
 		Endpoints: []charm.Relation{{Name: "database", Interface: "mysql", Role: "requirer", Scope: "global"}},
 	})
@@ -683,6 +746,30 @@ func (s *InstanceModeSuite) assertRemoteRelation(c *gc.C, remoteCIDRs []string, 
 	u, m := s.addUnit(c, mysql)
 	err = u.OpenPort("tcp", 3306)
 	c.Assert(err, jc.ErrorIsNil)
+	inst := s.startInstance(c, m)
+
+	// Export the relation so the firewaller knows it's ready to be processed.
+	re := s.State.RemoteEntities()
+	token, err := re.ExportLocalEntity(rel.Tag())
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Set up the remote relation in the consuming model.
+	_, err = otherState.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name: "mysql", URL: "local:/u/me/mysql", SourceModel: otherState.ModelTag(),
+		Endpoints: []charm.Relation{{Name: "database", Interface: "mysql", Role: "provider", Scope: "global"}},
+	})
+	eps, err = otherState.InferEndpoints("wordpress", "mysql")
+	c.Assert(err, jc.ErrorIsNil)
+	otherRel, err := otherState.AddRelation(eps...)
+	c.Assert(err, jc.ErrorIsNil)
+	re = otherState.RemoteEntities()
+	err = re.ImportRemoteEntity(s.State.ModelTag(), otherRel.Tag(), token)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Wait for the initial ports to be opened without any explicit CIDRs.
+	s.assertPorts(c, inst, m.Id(), []network.IngressRule{
+		network.MustNewIngressRule("tcp", 3306, 3306, "0.0.0.0/0"),
+	})
 
 	if len(remoteCIDRs) > 0 {
 		// Add subnets to the model hosting the consuming app.
@@ -694,17 +781,17 @@ func (s *InstanceModeSuite) assertRemoteRelation(c *gc.C, remoteCIDRs []string, 
 			c.Assert(err, jc.ErrorIsNil)
 		}
 	}
-
-	inst := s.startInstance(c, m)
 	s.assertPorts(c, inst, m.Id(), []network.IngressRule{
 		network.MustNewIngressRule("tcp", 3306, 3306, expectedCIDRS...),
 	})
+
+	// Check the relation ready poll time is as expected.
+	c.Assert(s.mockClock.wait, gc.Equals, 3*time.Second)
 
 	// Ports should be closed when relation dies.
 	err = rel.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertPorts(c, inst, m.Id(), nil)
-
 }
 
 func (s *InstanceModeSuite) TestRemoteRelationDefaultCIDRs(c *gc.C) {
@@ -714,6 +801,10 @@ func (s *InstanceModeSuite) TestRemoteRelationDefaultCIDRs(c *gc.C) {
 
 func (s *InstanceModeSuite) TestRemoteRelation(c *gc.C) {
 	s.assertRemoteRelation(c, []string{"::1/0", "10.0.0.0/24"}, []string{"10.0.0.0/24"})
+}
+
+func (s *InstanceModeSuite) TestRemoveRemoteRelation(c *gc.C) {
+	// TODO(wallyworld) - implement once firewaller is fixed
 }
 
 type GlobalModeSuite struct {

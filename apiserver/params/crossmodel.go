@@ -474,11 +474,13 @@ type ConsumeApplicationResults struct {
 	Results []ConsumeApplicationResult `json:"results"`
 }
 
+// RemoteEntities identifies multiple remote entities.
+type RemoteEntities struct {
+	Entities []RemoteEntityId `json:"remote-entities"`
+}
+
 // IngressSubnetInfo is the result of an IngressSubnetsForRelation call.
 type IngressSubnetInfo struct {
-	// ApplicationName is the name of the local application.
-	ApplicationName string `json:"application-name"`
-
 	// CIDRs is the set if CIDRs which need to be allowed ingress to the application.
 	CIDRs []string `json:"cidrs,omitempty"`
 }
