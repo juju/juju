@@ -259,10 +259,11 @@ class FakeEnvironmentState:
                 machine_dict['controller-member-status'] = 'has-vote'
         for host, containers in self.containers.items():
             container_dict = dict((c, {}) for c in containers)
-            for container in containers:
+            for container, subdict in container_dict.items():
+                subdict.update({'juju-status': {'current': 'idle'}})
                 dns_name = self.machine_host_names.get(container)
                 if dns_name is not None:
-                    container_dict[container]['dns-name'] = dns_name
+                    subdict['dns-name'] = dns_name
 
             machines[host]['containers'] = container_dict
         services = {}
