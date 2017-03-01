@@ -219,7 +219,8 @@ class TestAssessBootstrap(FakeHomeTestCase):
         with assess_bootstrap_cxt():
             with self.sub_assess_mocks() as (base_mock, metadata_mock,
                                              to_mock):
-                assess_bootstrap(args)
+                with patch('jujupy.ModelClient.get_full_path'):
+                    assess_bootstrap(args)
         self.assertEqual(1, base_mock.call_count)
         self.assertEqual(0, metadata_mock.call_count)
         self.assertEqual(0, to_mock.call_count)
@@ -229,7 +230,8 @@ class TestAssessBootstrap(FakeHomeTestCase):
         with assess_bootstrap_cxt():
             with self.sub_assess_mocks() as (base_mock, metadata_mock,
                                              to_mock):
-                assess_bootstrap(args)
+                with patch('jujupy.ModelClient.get_full_path'):
+                    assess_bootstrap(args)
         self.assertEqual(0, base_mock.call_count)
         self.assertEqual(1, metadata_mock.call_count)
         self.assertEqual(0, to_mock.call_count)
@@ -239,7 +241,8 @@ class TestAssessBootstrap(FakeHomeTestCase):
         with assess_bootstrap_cxt():
             with self.sub_assess_mocks() as (base_mock, metadata_mock,
                                              to_mock):
-                assess_bootstrap(args)
+                with patch('jujupy.ModelClient.get_full_path'):
+                    assess_bootstrap(args)
         self.assertEqual(0, base_mock.call_count)
         self.assertEqual(0, metadata_mock.call_count)
         self.assertEqual(1, to_mock.call_count)

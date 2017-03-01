@@ -208,22 +208,32 @@ def _get_test_name_from_filename():
         return 'unknown_test'
 
 
+def generate_default_clean_dir(temp_env_name):
+    """Creates a new unique directory for logging and returns name"""
+    logging.debug('Environment {}'.format(temp_env_name))
+    test_name = temp_env_name.split('-')[0]
+    timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+    log_dir = os.path.join('/tmp', test_name, 'logs', timestamp)
+
+    try:
+        os.makedirs(log_dir)
+        logging.info('Created logging directory {}'.format(log_dir))
+    except OSError as e:
+        if e.errno == errno.EEXIST:
+            logging.warn('"Directory {} already exists'.format(log_dir))
+        else:
+            raise('Failed to create logging directory: {} ' +
+                  log_dir +
+                  '. Please specify empty folder or try again')
+    return log_dir
+
+
 def _generate_default_temp_env_name():
     """Creates a new unique name for environment and returns the name"""
     # we need to sanitize the name
     timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
     test_name = re.sub('[^a-zA-Z]', '', _get_test_name_from_filename())
     return '{}-{}-temp-env'.format(test_name, timestamp)
-
-
-def _generate_default_binary():
-    """Returns GOPATH juju binary if it exists, otherwise /usr/bin/juju"""
-    if os.getenv('GOPATH'):
-        go_bin = os.getenv('GOPATH') + '/bin/juju'
-        if os.path.isfile(go_bin):
-            return go_bin
-
-    return '/usr/bin/juju'
 
 
 def _to_deadline(timeout):
@@ -233,9 +243,8 @@ def _to_deadline(timeout):
 def add_arg_juju_bin(parser):
     parser.add_argument('juju_bin', nargs='?',
                         help='Full path to the Juju binary. By default, this'
-                        ' will use $GOPATH/bin/juju or /usr/bin/juju in that'
-                        ' order.',
-                        default=_generate_default_binary())
+                        ' will use $PATH/juju',
+                        default=None)
 
 
 def add_basic_testing_arguments(parser, using_jes=False, deadline=True,

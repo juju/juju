@@ -22,8 +22,9 @@ from assess_cloud import (
     )
 from utility import (
     _clean_dir,
+    generate_default_clean_dir,
+    add_arg_juju_bin,
     configure_logging,
-    _generate_default_binary,
     LoggedException,
     _to_deadline,
     )
@@ -101,10 +102,7 @@ def parse_args(argv):
     """Parse all arguments."""
     parser = ArgumentParser(
         description='Assess basic quality of public clouds.')
-    parser.add_argument('juju_bin', nargs='?',
-                        help='Full path to the Juju binary. By default, this'
-                        ' will use $GOPATH/bin/juju or /usr/bin/juju in that'
-                        ' order.', default=_generate_default_binary())
+    add_arg_juju_bin(parser)
     parser.add_argument('logs', nargs='?', type=_clean_dir,
                         help='A directory in which to store logs. By default,'
                         ' this will use the current directory', default=None)
@@ -126,8 +124,7 @@ def yaml_file_load(file_name):
 
 def default_log_dir(settings):
     if settings.logs is None:
-        settings.logs = BootstrapManager._generate_default_clean_dir(
-            'assess_public_clouds')
+        settings.logs = generate_default_clean_dir('assess_public_clouds')
 
 
 def main():

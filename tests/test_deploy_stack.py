@@ -1149,7 +1149,7 @@ class TestDeployJob(FakeHomeTestCase):
 
     def test_deploy_job_changes_series_with_win(self):
         args = Namespace(
-            series='windows', temp_env_name=None, env=None, upgrade=None,
+            series='windows', temp_env_name='windows', env=None, upgrade=None,
             charm_prefix=None, bootstrap_host=None, machine=None, logs=None,
             debug=None, juju_bin=None, agent_url=None, agent_stream=None,
             keep_env=None, upload_tools=None, with_chaos=None, jes=None,
@@ -1162,7 +1162,7 @@ class TestDeployJob(FakeHomeTestCase):
 
     def test_deploy_job_changes_series_with_centos(self):
         args = Namespace(
-            series='centos', temp_env_name=None, env=None, upgrade=None,
+            series='centos', temp_env_name='centos', env=None, upgrade=None,
             charm_prefix=None, bootstrap_host=None, machine=None, logs=None,
             debug=None, juju_bin=None, agent_url=None, agent_stream=None,
             keep_env=None, upload_tools=None, with_chaos=None, jes=None,

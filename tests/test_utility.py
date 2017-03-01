@@ -276,11 +276,11 @@ class TestAddBasicTestingArguments(TestCase):
 
     def test_no_args(self):
         cmd_line = []
-        parser = add_basic_testing_arguments(ArgumentParser(), deadline=True)
-        with patch('utility.os.getenv', return_value=''):
-            args = parser.parse_args(cmd_line)
+        parser = add_basic_testing_arguments(ArgumentParser(),
+                                             deadline=True)
+        args = parser.parse_args(cmd_line)
         self.assertEqual(args.env, 'lxd')
-        self.assertEqual(args.juju_bin, '/usr/bin/juju')
+        self.assertEqual(args.juju_bin, None)
 
         self.assertEqual(args.logs, None)
 
@@ -291,14 +291,6 @@ class TestAddBasicTestingArguments(TestCase):
                         datetime.strptime(temp_env_name_ts, "%Y%m%d%H%M%S"))
         self.assertEqual(temp_env_name_arg[2:4], ['temp', 'env'])
         self.assertIs(None, args.deadline)
-
-    def test_default_binary(self):
-        cmd_line = []
-        with patch('utility.os.getenv', return_value='/tmp'):
-            with patch('utility.os.path.isfile', return_value=True):
-                parser = add_basic_testing_arguments(ArgumentParser())
-                args = parser.parse_args(cmd_line)
-        self.assertEqual(args.juju_bin, '/tmp/bin/juju')
 
     def test_positional_args(self):
         cmd_line = ['local', '/foo/juju', '/tmp/logs', 'testtest']
