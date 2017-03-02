@@ -76,8 +76,8 @@ func (i *fakeStorageInstance) Tag() names.Tag {
 	return i.tag
 }
 
-func (i *fakeStorageInstance) Owner() names.Tag {
-	return i.owner
+func (i *fakeStorageInstance) Owner() (names.Tag, bool) {
+	return i.owner, i.owner != nil
 }
 
 func (i *fakeStorageInstance) Kind() state.StorageKind {

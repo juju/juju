@@ -480,6 +480,7 @@ var commandNames = []string{
 	"remove-machine",
 	"remove-relation",
 	"remove-ssh-key",
+	"remove-storage",
 	"remove-unit",
 	"resolved",
 	"restore-backup",
