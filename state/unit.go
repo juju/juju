@@ -130,9 +130,7 @@ func (u *Unit) ConfigSettings() (charm.Settings, error) {
 	}
 	result := chrm.Config().DefaultSettings()
 	for name, value := range settings.Map() {
-		if value != nil {
-			result[name] = value
-		}
+		result[name] = value
 	}
 	return result, nil
 }
