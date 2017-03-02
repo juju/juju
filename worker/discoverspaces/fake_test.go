@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/worker/gate"
 )
@@ -62,6 +63,7 @@ type fakeEnviron struct {
 	stub           *testing.Stub
 	spaceDiscovery bool
 	spaces         []network.SpaceInfo
+	subnets        []network.SubnetInfo
 }
 
 func (e *fakeEnviron) SupportsSpaceDiscovery() (bool, error) {
@@ -72,6 +74,11 @@ func (e *fakeEnviron) SupportsSpaceDiscovery() (bool, error) {
 func (e *fakeEnviron) Spaces() ([]network.SpaceInfo, error) {
 	e.stub.AddCall("Spaces")
 	return e.spaces, e.stub.NextErr()
+}
+
+func (e *fakeEnviron) Subnets(inst instance.Id, subnetIds []network.Id) ([]network.SubnetInfo, error) {
+	e.stub.AddCall("Subnets", inst, subnetIds)
+	return e.subnets, e.stub.NextErr()
 }
 
 func fakeNewName(_ string, _ set.Strings) string {

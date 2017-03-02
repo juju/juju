@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/worker/catacomb"
 	"github.com/juju/juju/worker/gate"
@@ -149,11 +150,22 @@ func (dw *discoverspacesWorker) handleSubnets() error {
 		return errors.Trace(dw.discoverSpaces(environ))
 	}
 	logger.Debugf("environ does not support space discovery")
-	return errors.Trace(dw.discoverSubnets(environ))
+	return errors.Trace(dw.discoverSubnetsOnly(environ))
 }
 
-func (dw *discoverspacesWorker) discoverSubnets(environ environs.NetworkingEnviron) error {
-	return nil
+func (dw *discoverspacesWorker) discoverSubnetsOnly(environ environs.NetworkingEnviron) error {
+	stateSubnetIds, err := dw.getStateSubnets()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	subnets, err := environ.Subnets(instance.UnknownId, nil)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	var addSubnetsArgs params.AddSubnetsParams
+	collectMissingSubnets(&addSubnetsArgs, "", stateSubnetIds, subnets)
+	logger.Debugf("Adding missing subnets: %#v", addSubnetsArgs)
+	return errors.Trace(dw.addSubnetsFromArgs(addSubnetsArgs))
 }
 
 func (dw *discoverspacesWorker) discoverSpaces(environ environs.NetworkingEnviron) error {

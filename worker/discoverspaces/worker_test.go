@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/discoverspaces"
@@ -72,9 +73,58 @@ func (s *WorkerSuite) TestWorkerSupportsNetworkingFalse(c *gc.C) {
 	s.unlockCheck(c, s.assertDiscoveredNoSpaces)
 }
 
-func (s *WorkerSuite) TestWorkerSupportsSpaceDiscoveryFalse(c *gc.C) {
+func (s *WorkerSuite) cannedSubnets() []network.SubnetInfo {
+	return []network.SubnetInfo{{
+		ProviderId:        network.Id("1"),
+		CIDR:              "192.168.1.0/24",
+		AvailabilityZones: []string{"zone1"},
+	}, {
+		ProviderId:        network.Id("2"),
+		CIDR:              "192.168.2.0/24",
+		AvailabilityZones: []string{"zone1"},
+	}, {
+		ProviderId:        network.Id("3"),
+		CIDR:              "192.168.3.0/24",
+		AvailabilityZones: []string{"zone1"},
+	}, {
+		ProviderId:        network.Id("4"),
+		CIDR:              "192.168.4.0/24",
+		AvailabilityZones: []string{"zone1"},
+	}, {
+		ProviderId:        network.Id("5"),
+		CIDR:              "192.168.5.0/24",
+		AvailabilityZones: []string{"zone1"},
+	}}
+}
+
+func (s *WorkerSuite) TestWorkerNoSpaceDiscoveryOnlySubnets(c *gc.C) {
 	s.environ.spaceDiscovery = false
-	s.unlockCheck(c, s.assertDiscoveredNoSpaces)
+	s.environ.subnets = s.cannedSubnets()
+	s.facade.addSubnets = makeErrorResults(nil, nil, nil, nil, nil)
+	s.unlockCheck(c, func(c *gc.C) {
+		stub := s.facade.stub
+		stub.CheckCallNames(c, "ListSubnets", "AddSubnets")
+		stub.CheckCall(c, 1, "AddSubnets", params.AddSubnetsParams{
+			Subnets: []params.AddSubnetParams{{
+				SubnetProviderId: "1",
+				Zones:            []string{"zone1"},
+			}, {
+				SubnetProviderId: "2",
+				Zones:            []string{"zone1"},
+			}, {
+				SubnetProviderId: "3",
+				Zones:            []string{"zone1"},
+			}, {
+				SubnetProviderId: "4",
+				Zones:            []string{"zone1"},
+			}, {
+				SubnetProviderId: "5",
+				Zones:            []string{"zone1"},
+			}},
+		})
+		s.environ.stub.CheckCallNames(c, "SupportsSpaceDiscovery", "Subnets")
+		s.environ.stub.CheckCall(c, 1, "Subnets", instance.UnknownId, []network.Id{})
+	})
 }
 
 func (s *WorkerSuite) cannedSpaces() []network.SpaceInfo {
