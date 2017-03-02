@@ -382,6 +382,8 @@ func allCollections() collectionSchema {
 			rawAccess: true,
 			indexes: []mgo.Index{{
 				Key: []string{"model-uuid", "globalkey", "updated"},
+			}, {
+				Key: []string{"model-uuid", "-updated"}, // used for migration
 			}},
 		},
 
