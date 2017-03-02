@@ -697,7 +697,14 @@ func (i *importer) application(a description.Application) error {
 	statusDoc := i.makeStatusDoc(status)
 	// TODO: update never set malarky... maybe...
 
-	ops, err := addApplicationOps(i.st, addApplicationOpsArgs{
+	// When creating the settings, we ignore nils.  In other circumstances, nil
+	// means to delete the value (reset to default), so creating with nil should
+	// mean to use the default, i.e. don't set the value.
+	// There may have existed some applications with settings that contained
+	// nil values, see lp#1667199. When importing, we want these stripped.
+	removeNils(a.Settings())
+
+	ops, err := addApplicationOps(i.st, app, addApplicationOpsArgs{
 		applicationDoc:     appDoc,
 		statusDoc:          statusDoc,
 		constraints:        i.constraints(a.Constraints()),

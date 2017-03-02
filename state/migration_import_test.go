@@ -1160,6 +1160,38 @@ func (s *MigrationImportSuite) TestRemoteApplications(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "can't import models with remote applications")
 }
 
+func (s *MigrationImportSuite) TestApplicationsWithNilConfigValues(c *gc.C) {
+	application := s.Factory.MakeApplication(c, &factory.ApplicationParams{
+		Settings: map[string]interface{}{
+			"foo": "bar",
+		},
+	})
+	s.primeStatusHistory(c, application, status.Active, 5)
+	// Since above factory method calls newly updated state.AddApplication(...)
+	// which removes config settings with nil value before writing
+	// application into database,
+	// strip config setting values to nil directly to simulate
+	// what could happen to some applications in 2.0 and 2.1.
+	// For more context, see https://bugs.launchpad.net/juju/+bug/1667199
+	settings := state.GetApplicationSettings(s.State, application)
+	settings.Set("foo", nil)
+	_, err := settings.Write()
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, newSt := s.importModel(c)
+
+	importedApplications, err := newSt.AllApplications()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(importedApplications, gc.HasLen, 1)
+	importedApplication := importedApplications[0]
+
+	// Ensure that during import application settings with nil config values
+	// were stripped and not written into database.
+	importedSettings := state.GetApplicationSettings(newSt, importedApplication)
+	_, importedFound := importedSettings.Get("foo")
+	c.Assert(importedFound, jc.IsFalse)
+}
+
 // newModel replaces the uuid and name of the config attributes so we
 // can use all the other data to validate imports. An owner and name of the
 // model are unique together in a controller.

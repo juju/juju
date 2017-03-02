@@ -1464,6 +1464,23 @@ func (s *StateSuite) TestAddApplication(c *gc.C) {
 	c.Assert(ch.URL(), gc.DeepEquals, ch.URL())
 }
 
+func (s *StateSuite) TestAddApplicationWithNilConfigValues(c *gc.C) {
+	ch := s.AddTestingCharm(c, "dummy")
+	insettings := charm.Settings{"tuning": nil}
+
+	wordpress, err := s.State.AddApplication(state.AddApplicationArgs{Name: "wordpress", Charm: ch, Settings: insettings})
+	c.Assert(err, jc.ErrorIsNil)
+	outsettings, err := wordpress.ConfigSettings()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(outsettings, gc.DeepEquals, insettings)
+
+	// Ensure that during creation, application settings with nil config values
+	// were stripped and not written into database.
+	dbSettings := state.GetApplicationSettings(s.State, wordpress)
+	_, dbFound := dbSettings.Get("tuning")
+	c.Assert(dbFound, jc.IsFalse)
+}
+
 func (s *StateSuite) TestAddServiceEnvironmentDying(c *gc.C) {
 	charm := s.AddTestingCharm(c, "dummy")
 	// Check that services cannot be added if the model is initially Dying.
