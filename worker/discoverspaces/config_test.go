@@ -20,18 +20,18 @@ var _ = gc.Suite(&ConfigSuite{})
 
 func (*ConfigSuite) TestAllSet(c *gc.C) {
 	config := discoverspaces.Config{
-		Facade:   fakeFacade{},
-		Environ:  fakeEnviron{},
+		Facade:   &fakeFacade{},
+		Environ:  &fakeEnviron{},
 		NewName:  fakeNewName,
-		Unlocker: fakeUnlocker{},
+		Unlocker: &fakeUnlocker{},
 	}
 	checkConfigValid(c, config)
 }
 
 func (*ConfigSuite) TestNilUnlocker(c *gc.C) {
 	config := discoverspaces.Config{
-		Facade:  fakeFacade{},
-		Environ: fakeEnviron{},
+		Facade:  &fakeFacade{},
+		Environ: &fakeEnviron{},
 		NewName: fakeNewName,
 	}
 	checkConfigValid(c, config)
@@ -43,7 +43,7 @@ func checkConfigValid(c *gc.C, config discoverspaces.Config) {
 
 func (*ConfigSuite) TestNilFacade(c *gc.C) {
 	config := discoverspaces.Config{
-		Environ: fakeEnviron{},
+		Environ: &fakeEnviron{},
 		NewName: fakeNewName,
 	}
 	checkAlwaysInvalid(c, config, "nil Facade not valid")
@@ -51,7 +51,7 @@ func (*ConfigSuite) TestNilFacade(c *gc.C) {
 
 func (*ConfigSuite) TestNilEnviron(c *gc.C) {
 	config := discoverspaces.Config{
-		Facade:  fakeFacade{},
+		Facade:  &fakeFacade{},
 		NewName: fakeNewName,
 	}
 	checkAlwaysInvalid(c, config, "nil Environ not valid")
@@ -59,8 +59,8 @@ func (*ConfigSuite) TestNilEnviron(c *gc.C) {
 
 func (*ConfigSuite) TestNilNewName(c *gc.C) {
 	config := discoverspaces.Config{
-		Facade:  fakeFacade{},
-		Environ: fakeEnviron{},
+		Facade:  &fakeFacade{},
+		Environ: &fakeEnviron{},
 	}
 	checkAlwaysInvalid(c, config, "nil NewName not valid")
 }
