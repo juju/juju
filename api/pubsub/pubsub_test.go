@@ -215,7 +215,7 @@ func (s *PubSubIntegrationSuite) TestMessages(c *gc.C) {
 	select {
 	case <-done:
 		// messages received
-	case <-time.After(coretesting.ShortWait):
+	case <-time.After(coretesting.LongWait):
 		c.Fatal("messages not received")
 	}
 	c.Assert(messages, jc.DeepEquals, []map[string]interface{}{first, second})

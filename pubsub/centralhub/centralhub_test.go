@@ -22,7 +22,7 @@ var _ = gc.Suite(&CentralHubSuite{})
 func (*CentralHubSuite) waitForSubscribers(c *gc.C, done <-chan struct{}) {
 	select {
 	case <-done:
-	case <-time.After(testing.ShortWait):
+	case <-time.After(testing.LongWait):
 		c.Fatal("subscribers not finished")
 	}
 }
