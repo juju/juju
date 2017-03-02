@@ -134,18 +134,8 @@ func (s *lxdBrokerSuite) TestStartInstancePopulatesFallbackNetworkInfo(c *gc.C) 
 		nil, // HostChangesForContainer succeeds
 		errors.NotSupportedf("container address allocation"),
 	)
-	result, err := s.startInstance(c, broker, "1/lxd/0")
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Assert(result.NetworkInfo, jc.DeepEquals, []network.InterfaceInfo{{
-		DeviceIndex:         0,
-		InterfaceName:       "eth0",
-		InterfaceType:       network.EthernetInterface,
-		ConfigType:          network.ConfigDHCP,
-		ParentInterfaceName: "lxdbr0",
-		DNSServers:          network.NewAddresses("ns1.dummy", "ns2.dummy"),
-		DNSSearchDomains:    []string{"dummy", "invalid"},
-	}})
+	_, err := s.startInstance(c, broker, "1/lxd/0")
+	c.Assert(err, gc.ErrorMatches, "container address allocation not supported")
 }
 
 func (s *lxdBrokerSuite) TestStartInstanceNoHostArchTools(c *gc.C) {

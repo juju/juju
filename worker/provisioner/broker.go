@@ -43,7 +43,6 @@ var resolvConf = "/etc/resolv.conf"
 func prepareOrGetContainerInterfaceInfo(
 	api APICalls,
 	machineID string,
-	bridgeDevice string,
 	allocateOrMaintain bool,
 	log loggo.Logger,
 ) ([]network.InterfaceInfo, error) {
