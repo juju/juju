@@ -185,6 +185,20 @@ func (cs *ContainerSetup) runInitialiser(abort <-chan struct{}, containerType in
 		return errors.Trace(err)
 	}
 
+	// At this point, Initialiser likely has changed host network information,
+	// so reprobe to have an accurate view.
+	observedConfig, err := observeNetwork()
+	if err != nil {
+		return errors.Annotate(err, "cannot discover observed network config")
+	}
+	if len(observedConfig) > 0 {
+		machineTag := cs.machine.MachineTag()
+		logger.Tracef("updating observed network config for %q %s containers to %#v", machineTag, containerType, observedConfig)
+		if err := cs.provisioner.SetHostMachineNetworkConfig(machineTag, observedConfig); err != nil {
+			return errors.Trace(err)
+		}
+	}
+
 	return nil
 }
 
