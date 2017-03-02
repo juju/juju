@@ -987,6 +987,10 @@ func (p *ProvisionerAPI) markOneMachineForRemoval(machineTag string, canAccess c
 }
 
 func (p *ProvisionerAPI) SetObservedNetworkConfig(args params.SetMachineNetworkConfig) error {
+	// TODO(jam): 2017-03-02 This is a copy of the content of
+	// Machiner.SetObservedNetworkConfig, either refactor the code to make them
+	// the same, or keep them in sync.
+	// https://bugs.launchpad.net/juju/+bug/1669397
 	m, err := p.getMachineForSettingNetworkConfig(args.Tag)
 	if err != nil {
 		return errors.Trace(err)
@@ -997,27 +1001,25 @@ func (p *ProvisionerAPI) SetObservedNetworkConfig(args params.SetMachineNetworkC
 	observedConfig := args.Config
 	logger.Tracef("observed network config of machine %q: %+v", m.Id(), observedConfig)
 	if len(observedConfig) == 0 {
-		logger.Infof("not updating machine network config: no observed network config found")
+		logger.Infof("not updating machine %q network config: no observed network config found", m.Id())
 		return nil
 	}
 
 	providerConfig, err := p.getOneMachineProviderNetworkConfig(m)
 	if errors.IsNotProvisioned(err) {
-		logger.Infof("not updating provider network config: %v", err)
+		logger.Infof("not updating machine %q network config: %v", m.Id(), err)
 		return nil
 	}
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if len(providerConfig) == 0 {
-		logger.Infof("not updating machine network config: no provider network config found")
-		return nil
+	finalConfig := observedConfig
+	if len(providerConfig) != 0 {
+		finalConfig = networkingcommon.MergeProviderAndObservedNetworkConfigs(providerConfig, observedConfig)
+		logger.Tracef("merged observed and provider network config for machine %q: %+v", m.Id(), finalConfig)
 	}
 
-	mergedConfig := networkingcommon.MergeProviderAndObservedNetworkConfigs(providerConfig, observedConfig)
-	logger.Tracef("merged observed and provider network config: %+v", mergedConfig)
-
-	return p.setOneMachineNetworkConfig(m, mergedConfig)
+	return p.setOneMachineNetworkConfig(m, finalConfig)
 }
 
 func (p *ProvisionerAPI) getMachineForSettingNetworkConfig(machineTag string) (*state.Machine, error) {
