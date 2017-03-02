@@ -100,6 +100,7 @@ status_value = dedent("""\
           current: unknown
           since: 01 Jan 2017 00:00:00-00:00
         exposed: true
+        series: trusty
       network-health:
         application-status:
           current: unknown
@@ -109,6 +110,7 @@ status_value = dedent("""\
         relations:
           juju-info:
           - network-health
+        series: trusty
 """)
 status = Status(yaml.safe_load(status_value), status_value)
 
@@ -139,7 +141,7 @@ class TestAssessNetworkHealth(TestCase):
         def setup_iteration(bundle, target_model, series):
             mock_client = Mock(spec=["juju", "wait_for_started",
                                      "wait_for_workloads", "deploy",
-                                     "get_juju_output", "get_juju_status",
+                                     "get_juju_output",
                                      "wait_for_subordinate_units",
                                      "get_status", "deploy_bundle"])
             mock_client.get_status.return_value = status
@@ -154,19 +156,22 @@ class TestAssessNetworkHealth(TestCase):
         self.assertEqual(
             [call.deploy('ubuntu', num=2, series='trusty'),
              call.juju('expose', ('ubuntu',)),
-             call.get_status(),
-             call.deploy('~juju-qa/network-health',
-                         alias='network-health-None', series=None),
              call.wait_for_started(),
              call.wait_for_workloads(),
              call.get_status(),
-             call.juju('add-relation', ('ubuntu', 'network-health-None')),
-             call.juju('add-relation', ('network-health',
-                                        'network-health-None')),
+             call.deploy('~juju-qa/network-health',
+                         alias='network-health-trusty', series='trusty'),
+             call.wait_for_started(),
              call.wait_for_workloads(),
-             call.wait_for_subordinate_units('ubuntu', 'network-health-None'),
+             call.get_status(),
+             call.juju('add-relation', ('ubuntu', 'network-health-trusty')),
+             call.juju('add-relation', ('network-health',
+                                        'network-health-trusty')),
+             call.wait_for_workloads(),
+             call.wait_for_subordinate_units('ubuntu',
+                                             'network-health-trusty'),
              call.wait_for_subordinate_units('network-health',
-                                             'network-health-None')],
+                                             'network-health-trusty')],
             client.mock_calls)
         client = setup_iteration(bundle=bundle_string, target_model=None,
                                  series=series)
@@ -177,19 +182,22 @@ class TestAssessNetworkHealth(TestCase):
                                 'charm: local:trusty/bar\n    '
                                 'num_units: 1\nseries: trusty\n'
                                 'relations:\n- - foo:baz\n  - bar:baz\n'),
-             call.get_status(),
-             call.deploy('~juju-qa/network-health',
-                         alias='network-health-None', series=None),
              call.wait_for_started(),
              call.wait_for_workloads(),
              call.get_status(),
-             call.juju('add-relation', ('ubuntu', 'network-health-None')),
-             call.juju('add-relation', ('network-health',
-                                        'network-health-None')),
+             call.deploy('~juju-qa/network-health',
+                         alias='network-health-trusty', series='trusty'),
+             call.wait_for_started(),
              call.wait_for_workloads(),
-             call.wait_for_subordinate_units('ubuntu', 'network-health-None'),
+             call.get_status(),
+             call.juju('add-relation', ('ubuntu', 'network-health-trusty')),
+             call.juju('add-relation', ('network-health',
+                                        'network-health-trusty')),
+             call.wait_for_workloads(),
+             call.wait_for_subordinate_units('ubuntu',
+                                             'network-health-trusty'),
              call.wait_for_subordinate_units('network-health',
-                                             'network-health-None')],
+                                             'network-health-trusty')],
             client.mock_calls)
 
     def test_juju_controller_visibility(self):
@@ -255,12 +263,19 @@ class TestAssessNetworkHealth(TestCase):
         net_health = AssessNetworkHealth(args)
         client = fake_juju_client()
         client.bootstrap()
+        default = dedent("""
+        default via 1.1.1.1
+        default via 1.1.1.1
+        """)
         now = datetime.now() + timedelta(days=1)
         with patch('utility.until_timeout.now', return_value=now):
             with patch.object(client, 'get_status', return_value=status):
                 with patch('subprocess.check_output',
-                           return_value=0):
-                    out = net_health.internet_connection(client)
+                           return_value=None):
+                    with patch('assess_network_health.AssessNetworkHealth.ssh',
+                               return_value=default):
+                        with patch.object(client, 'juju', return_value=0):
+                            out = net_health.internet_connection(client)
         expected = {'1': True, '0': True}
         self.assertEqual(expected, out)
 
@@ -305,7 +320,7 @@ class TestAssessNetworkHealth(TestCase):
         net_health = AssessNetworkHealth(args)
         mock_client = Mock(spec=["juju", "wait_for_started",
                                  "wait_for_workloads", "deploy",
-                                 "get_juju_output", "get_juju_status",
+                                 "get_juju_output",
                                  "wait_for_subordinate_units",
                                  "get_status", "deploy_bundle", "add_model"
                                  ])
@@ -324,15 +339,6 @@ class TestAssessNetworkHealth(TestCase):
              call.add_model().wait_for_subordinate_units('ubuntu',
                                                          'network-health')],
             mock_client.mock_calls)
-
-    def test_get_juju_status(self):
-        args = self.parse_args([])
-        net_health = AssessNetworkHealth(args)
-        client = Mock(wraps=fake_juju_client())
-        client.bootstrap()
-        expected = client.get_status().status
-        result = net_health.get_juju_status(client)
-        self.assertEqual(expected, result)
 
     def test_parse_expose_results(self):
         args = self.parse_args([])
