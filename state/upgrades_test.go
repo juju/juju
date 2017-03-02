@@ -860,3 +860,60 @@ func (s *upgradesSuite) TestAddNonDetachableStorageMachineId(c *gc.C) {
 		expectUpgradedData{filesystemsColl, expectedFilesystems},
 	)
 }
+
+func (s *upgradesSuite) TestRemoveNilValueApplicationSettings(c *gc.C) {
+	settingsColl, settingsCloser := s.state.getRawCollection(settingsC)
+	defer settingsCloser()
+	_, err := settingsColl.RemoveAll(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	err = settingsColl.Insert(bson.M{
+		"_id": "modelXXX:a#dontchangeapp",
+		// this document should not be affected
+		"settings": bson.M{
+			"keepme": "have value"},
+	}, bson.M{
+		"_id": "modelXXX:a#removeall",
+		// this settings will become empty
+		"settings": bson.M{
+			"keepme":   nil,
+			"removeme": nil,
+		},
+	}, bson.M{
+		"_id": "modelXXX:a#removeone",
+		// one setting needs to be removed
+		"settings": bson.M{
+			"keepme":   "have value",
+			"removeme": nil,
+		},
+	}, bson.M{
+		"_id": "someothersettingshouldnotbetouched",
+		// non-application setting: should not be touched
+		"settings": bson.M{
+			"keepme":   "have value",
+			"removeme": nil,
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	expectedSettings := []bson.M{
+		{
+			"_id":      "modelXXX:a#dontchangeapp",
+			"settings": bson.M{"keepme": "have value"},
+		}, {
+			"_id":      "modelXXX:a#removeall",
+			"settings": bson.M{},
+		}, {
+			"_id":      "modelXXX:a#removeone",
+			"settings": bson.M{"keepme": "have value"},
+		}, {
+			"_id": "someothersettingshouldnotbetouched",
+			"settings": bson.M{
+				"keepme":   "have value",
+				"removeme": nil,
+			},
+		}}
+
+	s.assertUpgradedData(c, RemoveNilValueApplicationSettings,
+		expectUpgradedData{settingsColl, expectedSettings},
+	)
+}
