@@ -1635,13 +1635,17 @@ class ModelClient:
             timeout = 600
         return WaitMachineNotPresent(machine, timeout)
 
-    def remove_machine(self, machine_id):
+    def remove_machine(self, machine_id, force=False):
         """Remove a machine (or container).
 
         :param machine_id: The id of the machine to remove.
         :return: A WaitMachineNotPresent instance for client.wait_for.
         """
-        self.juju('remove-machine', (machine_id,))
+        if force:
+            options = ('--force',)
+        else:
+            options = ()
+        self.juju('remove-machine', options + (machine_id,))
         return self.make_remove_machine_condition(machine_id)
 
     @staticmethod

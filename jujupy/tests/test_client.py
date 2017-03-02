@@ -1511,6 +1511,14 @@ class TestModelClient(ClientTest):
         juju_mock.assert_called_once_with(*call[1], **call[2])
         self.assertEqual(condition, WaitMachineNotPresent('0', 600))
 
+    def test_remove_machine_force(self):
+        client = fake_juju_client()
+        with patch.object(client._backend, 'juju') as juju_mock:
+            client.remove_machine('0', force=True)
+        call = backend_call(
+            client, 'remove-machine', ('--force', '0'), 'name:name')
+        juju_mock.assert_called_once_with(*call[1], **call[2])
+
     def test_remove_machine_azure(self):
         client = fake_juju_client(JujuData('name', {
             'type': 'azure',

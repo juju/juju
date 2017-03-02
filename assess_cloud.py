@@ -90,11 +90,10 @@ def assess_cloud_provisioning(bs_manager, series=None):
             client.juju('add-machine', ('--series', current_series))
         new_status = client.wait_for_started()
         new_machines = [k for k, v in new_status.iter_new_machines(old_status)]
+        conditions = []
         for machine in new_machines:
-            client.juju('remove-machine', (machine,))
-        new_status = client.wait_for(
-            ConditionList([client.make_remove_machine_condition(n)
-                           for n in new_machines]))
+            conditions.append(client.remove_machine(machine))
+        new_status = client.wait_for(ConditionList(conditions))
 
 
 def assess_cloud_kill_controller(bs_manager):
