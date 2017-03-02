@@ -1661,24 +1661,24 @@ class TestEnsureCleanup(TestCase):
 
     def test_aws_ensure_cleanup(self):
         substrate_account = AWSAccount('euca_environ', 'region', 'client')
-        self.assertEqual([],  substrate_account.ensure_cleanup([]))
+        self.assertEqual([], substrate_account.ensure_cleanup([]))
 
     def test_openstack_ensure_cleanup(self):
         substrate_account = OpenStackAccount(
             'username', 'password', 'tenant_name', 'auth_url', 'region_name')
-        self.assertEqual([],  substrate_account.ensure_cleanup([]))
+        self.assertEqual([], substrate_account.ensure_cleanup([]))
 
     def test_rax_ensure_cleanup(self):
         substrate_account = JoyentAccount('client')
-        self.assertEqual([],  substrate_account.ensure_cleanup([]))
+        self.assertEqual([], substrate_account.ensure_cleanup([]))
 
     def test_gce_ensure_cleanup(self):
         substrate_account = GCEAccount('client')
-        self.assertEqual([],  substrate_account.ensure_cleanup([]))
+        self.assertEqual([], substrate_account.ensure_cleanup([]))
 
     def test_maas_ensure_cleanup(self):
         substrate_account = MAASAccount('profile', 'url', 'oauth')
-        self.assertEqual([],  substrate_account.ensure_cleanup([]))
+        self.assertEqual([], substrate_account.ensure_cleanup([]))
 
 
 class TestAWSEnsureCleanUp(TestCase):
