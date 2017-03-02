@@ -7,6 +7,7 @@ package lxdclient
 
 import (
 	"crypto/x509"
+	"io"
 	"runtime"
 
 	"github.com/juju/errors"
@@ -106,8 +107,8 @@ func (s *stubClient) GetAlias(alias string) string {
 	return s.Aliases[alias]
 }
 
-func (s *stubClient) Init(name, remote, image string, profiles *[]string, ephem bool) (*api.Response, error) {
-	s.stub.AddCall("AddInstance", name, remote, image, profiles, ephem)
+func (s *stubClient) Init(name, remote, image string, profiles *[]string, config map[string]string, devices map[string]map[string]string, ephem bool) (*api.Response, error) {
+	s.stub.AddCall("Init", name, remote, image, profiles, config, devices, ephem)
 	if err := s.stub.NextErr(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -148,4 +149,36 @@ func (s *stubClient) GetImageInfo(imageTarget string) (*api.Image, error) {
 		return nil, err
 	}
 	return &api.Image{}, nil
+}
+
+func (s *stubClient) ContainerDeviceAdd(container, devname, devtype string, props []string) (*api.Response, error) {
+	s.stub.AddCall("ContainerDeviceAdd", container, devname, devtype, props)
+	if err := s.stub.NextErr(); err != nil {
+		return nil, err
+	}
+	return &api.Response{}, nil
+}
+
+func (s *stubClient) ContainerDeviceDelete(container, devname string) (*api.Response, error) {
+	s.stub.AddCall("ContainerDeviceDelete", container, devname)
+	if err := s.stub.NextErr(); err != nil {
+		return nil, err
+	}
+	return &api.Response{}, nil
+}
+
+func (s *stubClient) ContainerInfo(name string) (*api.Container, error) {
+	s.stub.AddCall("ContainerInfo", name)
+	if err := s.stub.NextErr(); err != nil {
+		return nil, err
+	}
+	return &api.Container{}, nil
+}
+
+func (s *stubClient) PushFile(container, path string, gid int, uid int, mode string, buf io.ReadSeeker) error {
+	s.stub.AddCall("PushFile", container, path, gid, uid, mode, buf)
+	if err := s.stub.NextErr(); err != nil {
+		return err
+	}
+	return nil
 }

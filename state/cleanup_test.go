@@ -648,11 +648,11 @@ func (s *CleanupSuite) TestCleanupStorageInstances(c *gc.C) {
 }
 
 func (s *CleanupSuite) TestCleanupMachineStorage(c *gc.C) {
-	ch := s.AddTestingCharm(c, "storage-filesystem")
+	ch := s.AddTestingCharm(c, "storage-block")
 	storage := map[string]state.StorageConstraints{
-		"data": makeStorageCons("loop", 1024, 1),
+		"data": makeStorageCons("modelscoped", 1024, 1),
 	}
-	application := s.AddTestingServiceWithStorage(c, "storage-filesystem", ch, storage)
+	application := s.AddTestingServiceWithStorage(c, "storage-block", ch, storage)
 	unit, err := application.AddUnit()
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.State.AssignUnit(unit, state.AssignCleanEmpty)
@@ -672,21 +672,16 @@ func (s *CleanupSuite) TestCleanupMachineStorage(c *gc.C) {
 	// check no cleanups
 	s.assertDoesNotNeedCleanup(c)
 
-	// destroy machine and run cleanups; the filesystem attachment
-	// should be marked dying, but the volume attachment should not
-	// since it contains the filesystem.
+	// destroy machine and run cleanups; the volume attachment
+	// should be marked dying.
 	err = machine.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertCleanupRuns(c)
 
-	fas, err := s.State.MachineFilesystemAttachments(machine.MachineTag())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(fas, gc.HasLen, 1)
-	c.Assert(fas[0].Life(), gc.Equals, state.Dying)
 	vas, err := s.State.MachineVolumeAttachments(machine.MachineTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(vas, gc.HasLen, 1)
-	c.Assert(vas[0].Life(), gc.Equals, state.Alive)
+	c.Assert(vas[0].Life(), gc.Equals, state.Dying)
 
 	// check no cleanups
 	s.assertDoesNotNeedCleanup(c)

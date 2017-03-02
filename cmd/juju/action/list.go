@@ -53,7 +53,7 @@ func (c *listCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "actions",
 		Args:    "<application name>",
-		Purpose: "List actions defined for a service.",
+		Purpose: "List actions defined for an application.",
 		Doc:     listDoc,
 		Aliases: []string{"list-actions"},
 	}

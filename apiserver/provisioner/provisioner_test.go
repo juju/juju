@@ -1174,8 +1174,13 @@ func (s *withoutControllerSuite) TestContainerConfig(c *gc.C) {
 	}
 	err := s.State.UpdateModelConfig(attrs, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	expectedProxy := proxy.Settings{
+	expectedAPTProxy := proxy.Settings{
 		Http: "http://proxy.example.com:9000",
+	}
+
+	expectedProxy := proxy.Settings{
+		Http:    "http://proxy.example.com:9000",
+		NoProxy: "127.0.0.1,localhost,::1",
 	}
 
 	results, err := s.provisioner.ContainerConfig()
@@ -1185,7 +1190,7 @@ func (s *withoutControllerSuite) TestContainerConfig(c *gc.C) {
 	c.Check(results.AuthorizedKeys, gc.Equals, s.Environ.Config().AuthorizedKeys())
 	c.Check(results.SSLHostnameVerification, jc.IsTrue)
 	c.Check(results.Proxy, gc.DeepEquals, expectedProxy)
-	c.Check(results.AptProxy, gc.DeepEquals, expectedProxy)
+	c.Check(results.AptProxy, gc.DeepEquals, expectedAPTProxy)
 	c.Check(results.AptMirror, gc.DeepEquals, "http://example.mirror.com")
 }
 

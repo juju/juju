@@ -1727,9 +1727,7 @@ type addApplicationOpsArgs struct {
 // applications collection, along with all the associated expected other application
 // entries. This method is used by both the *State.AddApplication method and the
 // migration import code.
-func addApplicationOps(st *State, args addApplicationOpsArgs) ([]txn.Op, error) {
-	app := newApplication(st, args.applicationDoc)
-
+func addApplicationOps(st *State, app *Application, args addApplicationOpsArgs) ([]txn.Op, error) {
 	charmRefOps, err := appCharmIncRefOps(st, args.applicationDoc.Name, args.applicationDoc.CharmURL, true)
 	if err != nil {
 		return nil, errors.Trace(err)

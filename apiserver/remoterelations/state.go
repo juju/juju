@@ -12,6 +12,13 @@ import (
 	"github.com/juju/juju/status"
 )
 
+// StatePool provides the subset of a state pool required by the
+// remote relations facade.
+type StatePool interface {
+	// Get returns a State for a given model from the pool.
+	Get(modelUUID string) (RemoteRelationsState, func(), error)
+}
+
 // RemoteRelationState provides the subset of global state required by the
 // remote relations facade.
 type RemoteRelationsState interface {
@@ -67,6 +74,9 @@ type RemoteRelationsState interface {
 	// ImportRemoteEntity adds an entity to the remote entities collection
 	// with the specified opaque token.
 	ImportRemoteEntity(sourceModel names.ModelTag, entity names.Tag, token string) error
+
+	// RemoveRemoteEntity removes the specified entity from the remote entities collection.
+	RemoveRemoteEntity(sourceModel names.ModelTag, entity names.Tag) error
 
 	// GetToken returns the token associated with the entity with the given tag
 	// and model.
@@ -160,6 +170,11 @@ type RemoteApplication interface {
 
 	// Status returns the status of the remote application.
 	Status() (status.StatusInfo, error)
+
+	// Destroy ensures that this remote application reference and all its relations
+	// will be removed at some point; if no relation involving the
+	// application has any units in scope, they are all removed immediately.
+	Destroy() error
 }
 
 // Application represents the state of a application hosted in the local model.
@@ -172,6 +187,18 @@ type Application interface {
 
 	// Endpoints returns the application's currently available relation endpoints.
 	Endpoints() ([]state.Endpoint, error)
+}
+
+type statePoolShim struct {
+	*state.StatePool
+}
+
+func (pool statePoolShim) Get(modelUUID string) (RemoteRelationsState, func(), error) {
+	st, closer, err := pool.StatePool.Get(modelUUID)
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+	return stateShim{st}, closer, nil
 }
 
 type stateShim struct {
@@ -196,6 +223,11 @@ func (st stateShim) GetRemoteEntity(model names.ModelTag, token string) (names.T
 func (st stateShim) ImportRemoteEntity(model names.ModelTag, entity names.Tag, token string) error {
 	r := st.State.RemoteEntities()
 	return r.ImportRemoteEntity(model, entity, token)
+}
+
+func (st stateShim) RemoveRemoteEntity(model names.ModelTag, entity names.Tag) error {
+	r := st.State.RemoteEntities()
+	return r.RemoveRemoteEntity(model, entity)
 }
 
 func (st stateShim) GetToken(model names.ModelTag, entity names.Tag) (string, error) {

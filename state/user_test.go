@@ -189,43 +189,43 @@ func (s *UserSuite) TestRemoveUser(c *gc.C) {
 	err = u.UpdateLastLogin()
 	c.Check(err, gc.NotNil)
 	c.Check(isDeletedUserError(err), jc.IsTrue)
-	c.Assert(err.Error(), jc.DeepEquals,
-		fmt.Sprintf("cannot update last login: user %q deleted", user.Name()))
+	c.Check(err.Error(), jc.DeepEquals,
+		fmt.Sprintf("cannot update last login: user %q is permanently deleted", user.Name()))
 
 	// Check that we cannot set a password.
 	err = u.SetPassword("should fail too")
 	c.Check(err, gc.NotNil)
 	c.Check(isDeletedUserError(err), jc.IsTrue)
-	c.Assert(err.Error(), jc.DeepEquals,
-		fmt.Sprintf("cannot set password: user %q deleted", user.Name()))
+	c.Check(err.Error(), jc.DeepEquals,
+		fmt.Sprintf("cannot set password: user %q is permanently deleted", user.Name()))
 
 	// Check that we cannot set the password hash.
 	err = u.SetPasswordHash("also", "fail")
 	c.Check(err, gc.NotNil)
 	c.Check(isDeletedUserError(err), jc.IsTrue)
-	c.Assert(err.Error(), jc.DeepEquals,
-		fmt.Sprintf("cannot set password hash: user %q deleted", user.Name()))
+	c.Check(err.Error(), jc.DeepEquals,
+		fmt.Sprintf("cannot set password hash: user %q is permanently deleted", user.Name()))
 
 	// Check that we cannot validate a password.
-	c.Assert(u.PasswordValid("should fail"), jc.IsFalse)
+	c.Check(u.PasswordValid("should fail"), jc.IsFalse)
 
 	// Check that we cannot enable the user.
 	err = u.Enable()
 	c.Check(err, gc.NotNil)
 	c.Check(isDeletedUserError(err), jc.IsTrue)
-	c.Assert(err.Error(), jc.DeepEquals,
-		fmt.Sprintf("cannot enable: user %q deleted", user.Name()))
+	c.Check(err.Error(), jc.DeepEquals,
+		fmt.Sprintf("cannot enable: user %q is permanently deleted", user.Name()))
 
 	// Check that we cannot disable the user.
 	err = u.Disable()
 	c.Check(err, gc.NotNil)
 	c.Check(isDeletedUserError(err), jc.IsTrue)
-	c.Assert(err.Error(), jc.DeepEquals,
-		fmt.Sprintf("cannot disable: user %q deleted", user.Name()))
+	c.Check(err.Error(), jc.DeepEquals,
+		fmt.Sprintf("cannot disable: user %q is permanently deleted", user.Name()))
 
 	// Check again to verify the user cannot be retrieved.
 	u, err = s.State.User(user.UserTag())
-	c.Check(err, jc.Satisfies, errors.IsUserNotFound)
+	c.Check(err, gc.ErrorMatches, `user "username-\d+" is permanently deleted`)
 }
 
 func (s *UserSuite) TestRemoveUserRemovesUserAccess(c *gc.C) {
@@ -238,27 +238,27 @@ func (s *UserSuite) TestRemoveUserRemovesUserAccess(c *gc.C) {
 	s.State.SetUserAccess(user.UserTag(), s.State.ControllerTag(), permission.SuperuserAccess)
 
 	uam, err := s.State.UserAccess(user.UserTag(), s.State.ModelTag())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(uam.Access, gc.Equals, permission.AdminAccess)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(uam.Access, gc.Equals, permission.AdminAccess)
 
 	uac, err := s.State.UserAccess(user.UserTag(), s.State.ControllerTag())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(uac.Access, gc.Equals, permission.SuperuserAccess)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(uac.Access, gc.Equals, permission.SuperuserAccess)
 
 	// Look for the user.
 	u, err := s.State.User(user.UserTag())
 	c.Check(err, jc.ErrorIsNil)
-	c.Assert(u, jc.DeepEquals, user)
+	c.Check(u, jc.DeepEquals, user)
 
 	// Remove the user.
 	err = s.State.RemoveUser(user.UserTag())
 	c.Check(err, jc.ErrorIsNil)
 
 	uam, err = s.State.UserAccess(user.UserTag(), s.State.ModelTag())
-	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("%q user not found", user.UserTag().Name()))
+	c.Check(err, gc.ErrorMatches, fmt.Sprintf("user %q is permanently deleted", user.UserTag().Name()))
 
 	uac, err = s.State.UserAccess(user.UserTag(), s.State.ControllerTag())
-	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("%q user not found", user.UserTag().Name()))
+	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("user %q is permanently deleted", user.UserTag().Name()))
 }
 
 func (s *UserSuite) TestDisable(c *gc.C) {
@@ -332,8 +332,7 @@ func (s *UserSuite) TestCaseSensitiveUsersErrors(c *gc.C) {
 
 	_, err := s.State.AddUser(
 		"boB", "ignored", "ignored", "ignored")
-	c.Assert(errors.IsAlreadyExists(err), jc.IsTrue)
-	c.Assert(err, gc.ErrorMatches, "user already exists")
+	c.Assert(err, gc.ErrorMatches, "username unavailable")
 }
 
 func (s *UserSuite) TestCaseInsensitiveLookup(c *gc.C) {

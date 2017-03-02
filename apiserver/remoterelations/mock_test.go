@@ -20,6 +20,14 @@ import (
 	coretesting "github.com/juju/juju/testing"
 )
 
+type mockStatePool struct {
+	st *mockState
+}
+
+func (st *mockStatePool) Get(modelUUID string) (remoterelations.RemoteRelationsState, func(), error) {
+	return st.st, func() {}, nil
+}
+
 type mockState struct {
 	testing.Stub
 	relations                    map[string]*mockRelation
@@ -84,6 +92,15 @@ func (st *mockState) ImportRemoteEntity(sourceModel names.ModelTag, entity names
 		return errors.AlreadyExistsf(entity.Id())
 	}
 	st.remoteEntities[entity] = token
+	return nil
+}
+
+func (st *mockState) RemoveRemoteEntity(sourceModel names.ModelTag, entity names.Tag) error {
+	st.MethodCall(st, "RemoveRemoteEntity", sourceModel, entity)
+	if err := st.NextErr(); err != nil {
+		return err
+	}
+	delete(st.remoteEntities, entity)
 	return nil
 }
 

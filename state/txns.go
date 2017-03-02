@@ -10,7 +10,6 @@ import (
 	"gopkg.in/mgo.v2/txn"
 )
 
-// readTxnRevno is a convenience method delegating to the state's Database.
 func (st *State) readTxnRevno(collectionName string, id interface{}) (int64, error) {
 	collection, closer := st.database.GetCollection(collectionName)
 	defer closer()
@@ -22,50 +21,24 @@ func (st *State) readTxnRevno(collectionName string, id interface{}) (int64, err
 	return result.TxnRevno, errors.Trace(err)
 }
 
-// runTransaction is a convenience method delegating to the state's Database.
 func (st *State) runTransaction(ops []txn.Op) error {
-	runner, closer := st.database.TransactionRunner()
-	defer closer()
-	return runner.RunTransaction(ops)
+	return st.database.RunTransaction(ops)
 }
 
-// runTransaction is a convenience method delegating to the state's Database
-// for the model with the given modelUUID.
 func (st *State) runTransactionFor(modelUUID string, ops []txn.Op) error {
-	database, dbcloser := st.database.CopyForModel(modelUUID)
-	defer dbcloser()
-	runner, closer := database.TransactionRunner()
-	defer closer()
-	return runner.RunTransaction(ops)
+	return st.database.RunTransactionFor(modelUUID, ops)
 }
 
-// runRawTransaction is a convenience method that will run a single
-// transaction using a "raw" transaction runner that won't perform
-// model filtering.
 func (st *State) runRawTransaction(ops []txn.Op) error {
-	runner, closer := st.database.TransactionRunner()
-	defer closer()
-	if multiRunner, ok := runner.(*multiModelRunner); ok {
-		runner = multiRunner.rawRunner
-	}
-	return runner.RunTransaction(ops)
+	return st.database.RunRawTransaction(ops)
 }
 
-// run is a convenience method delegating to the state's Database.
 func (st *State) run(transactions jujutxn.TransactionSource) error {
-	runner, closer := st.database.TransactionRunner()
-	defer closer()
-	return runner.Run(transactions)
+	return st.database.Run(transactions)
 }
 
-// runForModel is a convenience method that delegates to a Database for a different
-// modelUUID.
 func (st *State) runForModel(modelUUID string, transactions jujutxn.TransactionSource) error {
-	database, dbcloser := st.database.CopyForModel(modelUUID)
-	defer dbcloser()
-	runner, closer := database.TransactionRunner()
-	defer closer()
-	return runner.Run(transactions)
+	return st.database.RunFor(modelUUID, transactions)
 }
 
 // ResumeTransactions resumes all pending transactions.

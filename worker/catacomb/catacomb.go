@@ -5,6 +5,7 @@ package catacomb
 
 import (
 	"fmt"
+	"runtime/debug"
 	"sync"
 	"sync/atomic"
 
@@ -12,6 +13,7 @@ import (
 	"gopkg.in/tomb.v1"
 
 	"github.com/juju/juju/worker"
+	"strings"
 )
 
 // Catacomb is a variant of tomb.Tomb with its own internal goroutine, designed
@@ -248,12 +250,29 @@ func (err dyingError) Error() string {
 	return fmt.Sprintf("catacomb %p is dying", err.catacomb)
 }
 
+// errWithStackTrace holds the runtime stack associated with an error.
+// This makes test failures under the gocheck framework easier to debug.
+type errWithStackTrace struct {
+	error
+	stackTrace string
+}
+
+// StackTrace implements checkers.ErrorStacker.
+func (e *errWithStackTrace) StackTrace() []string {
+	result := strings.Split(errors.ErrorStack(e), "\n")
+	if e.stackTrace != "" {
+		result = append(result, "stacktrace:", e.stackTrace)
+	}
+	return result
+}
+
 // runSafely will ensure that the function is run, and any error is returned.
 // If there is a panic, then that will be returned as an error.
 func runSafely(f func() error) (err error) {
 	defer func() {
 		if panicResult := recover(); panicResult != nil {
 			err = errors.Errorf("panic resulted in: %v", panicResult)
+			err = &errWithStackTrace{err, string(debug.Stack())}
 		}
 	}()
 	return f()

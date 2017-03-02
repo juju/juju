@@ -37,11 +37,6 @@ func NewClient(st base.APICallCloser) *Client {
 	}
 }
 
-// Close closes the api connection.
-func (c *Client) Close() error {
-	return c.ClientFacade.Close()
-}
-
 // CreateModel creates a new model using the model config,
 // cloud region and credential specified in the args.
 func (c *Client) CreateModel(

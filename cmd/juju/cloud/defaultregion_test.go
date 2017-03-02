@@ -64,12 +64,20 @@ func (s *defaultRegionSuite) assertSetCustomDefaultRegion(c *gc.C, cmd cmd.Comma
 
 func (s *defaultRegionSuite) TestSetDefaultRegion(c *gc.C) {
 	store := jujuclienttesting.NewMemStore()
+	store.Credentials["aws"] = jujucloud.CloudCredential{
+		AuthCredentials: map[string]jujucloud.Credential{
+			"one": jujucloud.Credential{},
+		}}
 	cmd := cloud.NewSetDefaultRegionCommandForTest(store)
 	s.assertSetDefaultRegion(c, cmd, store, "aws", "")
 }
 
 func (s *defaultRegionSuite) TestSetDefaultRegionBuiltIn(c *gc.C) {
 	store := jujuclienttesting.NewMemStore()
+	store.Credentials["localhost"] = jujucloud.CloudCredential{
+		AuthCredentials: map[string]jujucloud.Credential{
+			"one": jujucloud.Credential{},
+		}}
 	cmd := cloud.NewSetDefaultRegionCommandForTest(store)
 	// Cloud 'localhost' is of type lxd.
 	s.assertSetCustomDefaultRegion(c, cmd, store, "localhost", "localhost", "")
@@ -77,14 +85,22 @@ func (s *defaultRegionSuite) TestSetDefaultRegionBuiltIn(c *gc.C) {
 
 func (s *defaultRegionSuite) TestOverwriteDefaultRegion(c *gc.C) {
 	store := jujuclienttesting.NewMemStore()
-	store.Credentials["aws"] = jujucloud.CloudCredential{DefaultRegion: "us-east-1"}
+	store.Credentials["aws"] = jujucloud.CloudCredential{
+		AuthCredentials: map[string]jujucloud.Credential{
+			"one": jujucloud.Credential{},
+		},
+		DefaultRegion: "us-east-1"}
 	cmd := cloud.NewSetDefaultRegionCommandForTest(store)
 	s.assertSetDefaultRegion(c, cmd, store, "aws", "")
 }
 
 func (s *defaultRegionSuite) TestCaseInsensitiveRegionSpecification(c *gc.C) {
 	store := jujuclienttesting.NewMemStore()
-	store.Credentials["aws"] = jujucloud.CloudCredential{DefaultRegion: "us-east-1"}
+	store.Credentials["aws"] = jujucloud.CloudCredential{
+		AuthCredentials: map[string]jujucloud.Credential{
+			"one": jujucloud.Credential{},
+		},
+		DefaultRegion: "us-east-1"}
 
 	cmd := cloud.NewSetDefaultRegionCommandForTest(store)
 	_, err := testing.RunCommand(c, cmd, "aws", "us-WEST-1")

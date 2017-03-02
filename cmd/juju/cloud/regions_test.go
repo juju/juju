@@ -53,6 +53,13 @@ sa-east-1
 `[1:])
 }
 
+func (s *regionsSuite) TestListRegionsBuiltInCloud(c *gc.C) {
+	ctx, err := testing.RunCommand(c, cloud.NewListRegionsCommand(), "localhost")
+	c.Assert(err, jc.ErrorIsNil)
+	out := testing.Stdout(ctx)
+	c.Assert(out, jc.DeepEquals, "localhost\n\n")
+}
+
 func (s *regionsSuite) TestListRegionsYaml(c *gc.C) {
 	ctx, err := testing.RunCommand(c, cloud.NewListRegionsCommand(), "aws", "--format", "yaml")
 	c.Assert(err, jc.ErrorIsNil)

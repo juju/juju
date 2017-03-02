@@ -148,7 +148,7 @@ var openPortInfo = &cmd.Info{
 	Name:    "open-port",
 	Args:    portFormat,
 	Purpose: "register a port or range to open",
-	Doc:     "The port range will only be open while the service is exposed.",
+	Doc:     "The port range will only be open while the application is exposed.",
 }
 
 func NewOpenPortCommand(ctx Context) (cmd.Command, error) {

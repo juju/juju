@@ -11,6 +11,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"github.com/juju/juju/apiserver/params"
 
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -40,9 +41,14 @@ See also:
     change-user-password`[1:]
 
 var removeUserMsg = `
-WARNING! This command will remove the user %q from the %q controller.
+WARNING! This command will permanently archive the user %q on the %q
+controller.
 
-Continue (y/N)? `[1:]
+This action is irreversible. If you wish to temporarily disable the
+user please use the`[1:] + " `juju disable-user` " + `command. See
+` + " `juju help disable-user` " + `for more details.
+
+Continue (y/N)? `
 
 // RemoveUserAPI defines the usermanager API methods that the remove command
 // uses.
@@ -112,6 +118,14 @@ func (c *removeCommand) Run(ctx *cmd.Context) error {
 
 	err := api.RemoveUser(c.UserName)
 	if err != nil {
+		// This is very awful, but it makes the user experience crisper. At
+		// least maybe more tenable until users and authn/z are overhauled.
+		if e, ok := err.(*params.Error); ok {
+			if e.Message == fmt.Sprintf("failed to delete user %q: user %q is permanently deleted", c.UserName, c.UserName) {
+				e.Message = fmt.Sprintf("failed to delete user %q: the user has already been permanently deleted", c.UserName)
+				err = e
+			}
+		}
 		return block.ProcessBlockedError(err, block.BlockChange)
 	}
 

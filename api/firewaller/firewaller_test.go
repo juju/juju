@@ -25,6 +25,7 @@ type firewallerSuite struct {
 	application *state.Application
 	charm       *state.Charm
 	units       []*state.Unit
+	relations   []*state.Relation
 
 	firewaller *firewaller.State
 }
@@ -67,6 +68,15 @@ func (s *firewallerSuite) SetUpTest(c *gc.C) {
 		err = s.units[i].AssignToMachine(s.machines[i])
 		c.Check(err, jc.ErrorIsNil)
 	}
+
+	// Create a relation.
+	s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	eps, err := s.State.InferEndpoints("wordpress", "mysql")
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.relations = make([]*state.Relation, 1)
+	s.relations[0], err = s.State.AddRelation(eps...)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Create the firewaller API facade.
 	s.firewaller = firewaller.NewState(s.st)

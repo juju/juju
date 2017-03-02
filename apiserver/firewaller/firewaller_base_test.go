@@ -24,10 +24,11 @@ import (
 type firewallerBaseSuite struct {
 	testing.JujuConnSuite
 
-	machines []*state.Machine
-	service  *state.Application
-	charm    *state.Charm
-	units    []*state.Unit
+	machines  []*state.Machine
+	service   *state.Application
+	charm     *state.Charm
+	units     []*state.Unit
+	relations []*state.Relation
 
 	authorizer apiservertesting.FakeAuthorizer
 	resources  *common.Resources
@@ -58,6 +59,15 @@ func (s *firewallerBaseSuite) setUpTest(c *gc.C) {
 		c.Check(err, jc.ErrorIsNil)
 		s.units = append(s.units, unit)
 	}
+
+	// Create a relation.
+	s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	eps, err := s.State.InferEndpoints("wordpress", "mysql")
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.relations = make([]*state.Relation, 1)
+	s.relations[0], err = s.State.AddRelation(eps...)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Create a FakeAuthorizer so we can check permissions,
 	// set up assuming we logged in as the environment manager.
@@ -101,6 +111,7 @@ func (s *firewallerBaseSuite) testLife(
 		{Tag: s.machines[0].Tag().String()},
 		{Tag: s.machines[1].Tag().String()},
 		{Tag: s.machines[2].Tag().String()},
+		{Tag: s.relations[0].Tag().String()},
 	}})
 	result, err := facade.Life(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -108,6 +119,7 @@ func (s *firewallerBaseSuite) testLife(
 		Results: []params.LifeResult{
 			{Life: "alive"},
 			{Life: "dead"},
+			{Life: "alive"},
 			{Life: "alive"},
 			{Error: apiservertesting.NotFoundError("machine 42")},
 			{Error: apiservertesting.NotFoundError(`unit "foo/0"`)},

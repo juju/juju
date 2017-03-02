@@ -630,6 +630,17 @@ func (s *MultiModelStateSuite) TestWatchTwoModels(c *gc.C) {
 				err := offeredApplications.SetOfferRegistered("local:/u/me/mysql", false)
 				c.Assert(err, jc.ErrorIsNil)
 			},
+		}, {
+			about: "subnets",
+			getWatcher: func(st *state.State) interface{} {
+				return st.WatchSubnets()
+			},
+			triggerEvent: func(st *state.State) {
+				_, err := st.AddSubnet(state.SubnetInfo{
+					CIDR: "10.0.0.0/24",
+				})
+				c.Assert(err, jc.ErrorIsNil)
+			},
 		},
 	} {
 		c.Logf("Test %d: %s", i, test.about)
@@ -1451,6 +1462,23 @@ func (s *StateSuite) TestAddApplication(c *gc.C) {
 	ch, _, err = mysql.Charm()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ch.URL(), gc.DeepEquals, ch.URL())
+}
+
+func (s *StateSuite) TestAddApplicationWithNilConfigValues(c *gc.C) {
+	ch := s.AddTestingCharm(c, "dummy")
+	insettings := charm.Settings{"tuning": nil}
+
+	wordpress, err := s.State.AddApplication(state.AddApplicationArgs{Name: "wordpress", Charm: ch, Settings: insettings})
+	c.Assert(err, jc.ErrorIsNil)
+	outsettings, err := wordpress.ConfigSettings()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(outsettings, gc.DeepEquals, insettings)
+
+	// Ensure that during creation, application settings with nil config values
+	// were stripped and not written into database.
+	dbSettings := state.GetApplicationSettings(s.State, wordpress)
+	_, dbFound := dbSettings.Get("tuning")
+	c.Assert(dbFound, jc.IsFalse)
 }
 
 func (s *StateSuite) TestAddServiceEnvironmentDying(c *gc.C) {
@@ -3362,6 +3390,21 @@ func (s *StateSuite) TestWatchOfferedApplicationsDiesOnStateClose(c *gc.C) {
 	})
 }
 
+func (s *StateSuite) TestWatchSubnets(c *gc.C) {
+	w := s.State.WatchSubnets()
+	defer statetesting.AssertStop(c, w)
+	wc := statetesting.NewStringsWatcherC(c, s.State, w)
+
+	// Check initial event.
+	wc.AssertChange()
+	wc.AssertNoChange()
+
+	_, err := s.State.AddSubnet(state.SubnetInfo{CIDR: "10.0.0.0/24"})
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChange("10.0.0.0/24")
+	wc.AssertNoChange()
+}
+
 func (s *StateSuite) setupWatchRemoteRelations(c *gc.C, wc statetesting.StringsWatcherC) (*state.RemoteApplication, *state.Application, *state.Relation) {
 	// Check initial event.
 	wc.AssertChange()
@@ -3382,6 +3425,24 @@ func (s *StateSuite) setupWatchRemoteRelations(c *gc.C, wc statetesting.StringsW
 	wc.AssertChange("wordpress:db mysql:database")
 	wc.AssertNoChange()
 	return remoteApp, app, rel
+}
+
+func (s *StateSuite) TestWatchRemoteRelationsIgnoresLocal(c *gc.C) {
+	// Set up a non-remote relation to ensure it is properly filtered out.
+	s.AddTestingService(c, "wplocal", s.AddTestingCharm(c, "wordpress"))
+	s.AddTestingService(c, "mysqllocal", s.AddTestingCharm(c, "mysql"))
+	eps, err := s.State.InferEndpoints("wplocal", "mysqllocal")
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddRelation(eps...)
+	c.Assert(err, jc.ErrorIsNil)
+
+	w := s.State.WatchRemoteRelations()
+	defer statetesting.AssertStop(c, w)
+	wc := statetesting.NewStringsWatcherC(c, s.State, w)
+	// Check initial event.
+	wc.AssertChange()
+	// No change for local relation.
+	wc.AssertNoChange()
 }
 
 func (s *StateSuite) TestWatchRemoteRelationsDestroyRelation(c *gc.C) {

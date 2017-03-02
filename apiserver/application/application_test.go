@@ -210,7 +210,7 @@ func (s *serviceSuite) TestServiceDeployWithStorage(c *gc.C) {
 		"data": {
 			Count: 1,
 			Size:  1024,
-			Pool:  "environscoped-block",
+			Pool:  "modelscoped-block",
 		},
 	}
 
@@ -236,7 +236,7 @@ func (s *serviceSuite) TestServiceDeployWithStorage(c *gc.C) {
 		"data": {
 			Count: 1,
 			Size:  1024,
-			Pool:  "environscoped-block",
+			Pool:  "modelscoped-block",
 		},
 		"allecto": {
 			Count: 0,
@@ -2609,19 +2609,13 @@ func (s *serviceSuite) addTestingCharmOtherModel(c *gc.C, name string) *state.Ch
 }
 
 func (s *serviceSuite) TestSuccessfullyAddRemoteRelationOtherModel(c *gc.C) {
-	mysql, err := s.otherModel.AddApplication(state.AddApplicationArgs{
+	_, err := s.otherModel.AddApplication(state.AddApplicationArgs{
 		Name:  "othermysql",
 		Charm: s.addTestingCharmOtherModel(c, "mysql"),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	endpoints := []string{"wordpress", "othermodel.othermysql"}
 	s.assertAddRelation(c, endpoints)
-	err = mysql.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(mysql.IsExposed(), jc.IsTrue)
-	wp, err := s.State.Application("wordpress")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(wp.IsExposed(), jc.IsTrue)
 }
 
 func (s *serviceSuite) TestSuccessfullyAddRemoteRelationWithRelName(c *gc.C) {
@@ -2631,19 +2625,13 @@ func (s *serviceSuite) TestSuccessfullyAddRemoteRelationWithRelName(c *gc.C) {
 }
 
 func (s *serviceSuite) TestSuccessfullyAddRemoteRelationOtherModelWithRelName(c *gc.C) {
-	mysql, err := s.otherModel.AddApplication(state.AddApplicationArgs{
+	_, err := s.otherModel.AddApplication(state.AddApplicationArgs{
 		Name:  "othermysql",
 		Charm: s.addTestingCharmOtherModel(c, "mysql"),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	endpoints := []string{"wordpress", "othermodel.othermysql:server"}
 	s.assertAddRelation(c, endpoints)
-	err = mysql.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(mysql.IsExposed(), jc.IsTrue)
-	wp, err := s.State.Application("wordpress")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(wp.IsExposed(), jc.IsTrue)
 }
 
 func (s *serviceSuite) TestAddRemoteRelationOnlyOneEndpoint(c *gc.C) {
@@ -2701,7 +2689,7 @@ func (s *serviceSuite) TestRemoteRelationInvalidEndpoint(c *gc.C) {
 }
 
 func (s *serviceSuite) TestRemoteRelationInvalidEndpointOtherModel(c *gc.C) {
-	mysql, err := s.otherModel.AddApplication(state.AddApplicationArgs{
+	_, err := s.otherModel.AddApplication(state.AddApplicationArgs{
 		Name:  "othermysql",
 		Charm: s.addTestingCharmOtherModel(c, "mysql"),
 	})
@@ -2710,12 +2698,6 @@ func (s *serviceSuite) TestRemoteRelationInvalidEndpointOtherModel(c *gc.C) {
 	endpoints := []string{"wordpress", "othermodel.othermysql:nope"}
 	_, err = s.applicationAPI.AddRelation(params.AddRelation{endpoints})
 	c.Assert(err, gc.ErrorMatches, `remote application "othermysql" has no "nope" relation`)
-	err = mysql.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(mysql.IsExposed(), jc.IsFalse)
-	wp, err := s.State.Application("wordpress")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(wp.IsExposed(), jc.IsFalse)
 }
 
 func (s *serviceSuite) TestRemoteRelationNoMatchingEndpoint(c *gc.C) {
@@ -2741,7 +2723,7 @@ func (s *serviceSuite) TestRemoteRelationNoMatchingEndpoint(c *gc.C) {
 }
 
 func (s *serviceSuite) TestRemoteRelationNoMatchingEndpointOtherModel(c *gc.C) {
-	mysql, err := s.otherModel.AddApplication(state.AddApplicationArgs{
+	_, err := s.otherModel.AddApplication(state.AddApplicationArgs{
 		Name:  "dummy",
 		Charm: s.addTestingCharmOtherModel(c, "dummy"),
 	})
@@ -2750,12 +2732,6 @@ func (s *serviceSuite) TestRemoteRelationNoMatchingEndpointOtherModel(c *gc.C) {
 	endpoints := []string{"wordpress", "othermodel.dummy"}
 	_, err = s.applicationAPI.AddRelation(params.AddRelation{endpoints})
 	c.Assert(err, gc.ErrorMatches, "no relations found")
-	err = mysql.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(mysql.IsExposed(), jc.IsFalse)
-	wp, err := s.State.Application("wordpress")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(wp.IsExposed(), jc.IsFalse)
 }
 
 func (s *serviceSuite) TestRemoteRelationApplicationOfferNotFound(c *gc.C) {

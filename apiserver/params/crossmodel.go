@@ -266,6 +266,7 @@ type RemoteRelation struct {
 	ApplicationName    string         `json:"application-name"`
 	Endpoint           RemoteEndpoint `json:"endpoint"`
 	RemoteEndpointName string         `json:"remote-endpoint-name"`
+	SourceModelUUID    string         `json:"source-model-uuid"`
 }
 
 // RemoteRelationResult holds a remote relation and an error.
@@ -317,21 +318,21 @@ type GetTokenArg struct {
 	Tag string `json:"tag"`
 }
 
-// ImportEntityArgs holds the arguments to an ImportRemoteEntity API call.
-type ImportEntityArgs struct {
-	Args []ImportEntityArg
+// RemoteEntityArgs holds the arguments to an API call dealing with remote entities.
+type RemoteEntityArgs struct {
+	Args []RemoteEntityArg
 }
 
-// ImportEntityArg holds the model, entity and token to be imported.
-type ImportEntityArg struct {
+// RemoteEntityArg holds the model, entity and token to be operated on.
+type RemoteEntityArg struct {
 	// ModelTag is the tag of the model hosting the entity.
 	ModelTag string `json:"model-tag"`
 
-	// Tag is the tag of the entity for which are importing the token.
+	// Tag is the tag of the entity.
 	Tag string `json:"tag"`
 
-	// Token is the token of the entity to be imported.
-	Token string `json:"token"`
+	// Token is the token of the entity.
+	Token string `json:"token,omitempty"`
 }
 
 // RemoteApplicationResult holds a remote application and an error.
@@ -471,4 +472,27 @@ type ConsumeApplicationResult struct {
 // ConsumeApplicationResults is the result of a Consume call.
 type ConsumeApplicationResults struct {
 	Results []ConsumeApplicationResult `json:"results"`
+}
+
+// RemoteEntities identifies multiple remote entities.
+type RemoteEntities struct {
+	Entities []RemoteEntityId `json:"remote-entities"`
+}
+
+// IngressSubnetInfo is the result of an IngressSubnetsForRelation call.
+type IngressSubnetInfo struct {
+	// CIDRs is the set if CIDRs which need to be allowed ingress to the application.
+	CIDRs []string `json:"cidrs,omitempty"`
+}
+
+// IngressSubnetResult holds ingress network information and an error.
+type IngressSubnetResult struct {
+	Error  *Error             `json:"error,omitempty"`
+	Result *IngressSubnetInfo `json:"result,omitempty"`
+}
+
+// IngressSubnetResults holds the result of an API call that returns
+// information about ingress networks for multiple remote relations.
+type IngressSubnetResults struct {
+	Results []IngressSubnetResult `json:"results"`
 }

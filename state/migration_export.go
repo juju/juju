@@ -7,13 +7,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/description"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/set"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2/bson"
 
-	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/payload"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/storage/poolmanager"
@@ -132,6 +132,10 @@ func (st *State) Export() (description.Model, error) {
 	}
 
 	if err := export.cloudimagemetadata(); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	if err := export.remoteApplications(); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -1328,6 +1332,47 @@ func (e *exporter) logExtras() {
 	for key, doc := range e.annotations {
 		e.logger.Warningf("unexported annotation for %s, %s", doc.Tag, key)
 	}
+}
+
+func (e *exporter) remoteApplications() error {
+	remoteApps, err := e.st.AllRemoteApplications()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	e.logger.Debugf("read %d remote applications", len(remoteApps))
+	for _, remoteApp := range remoteApps {
+		err := e.addRemoteApplication(remoteApp)
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return nil
+}
+
+func (e *exporter) addRemoteApplication(app *RemoteApplication) error {
+	url, _ := app.URL()
+	args := description.RemoteApplicationArgs{
+		Tag:         app.Tag().(names.ApplicationTag),
+		OfferName:   app.OfferName(),
+		URL:         url,
+		SourceModel: app.SourceModel(),
+		Registered:  app.Registered(),
+	}
+	descApp := e.model.AddRemoteApplication(args)
+	endpoints, err := app.Endpoints()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	for _, ep := range endpoints {
+		descApp.AddEndpoint(description.RemoteEndpointArgs{
+			Name:      ep.Name,
+			Role:      string(ep.Role),
+			Interface: ep.Interface,
+			Limit:     ep.Limit,
+			Scope:     string(ep.Scope),
+		})
+	}
+	return nil
 }
 
 func (e *exporter) storage() error {

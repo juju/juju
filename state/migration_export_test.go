@@ -9,6 +9,7 @@ import (
 	"math/rand"
 	"time"
 
+	"github.com/juju/description"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
@@ -17,7 +18,6 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/payload"
 	"github.com/juju/juju/permission"
@@ -1119,4 +1119,63 @@ func (s *MigrationExportSuite) newResource(c *gc.C, appName, name string, revisi
 	res := opened.Resource
 	res.Revision = revision
 	return res
+}
+
+func (s *MigrationExportSuite) TestRemoteApplications(c *gc.C) {
+	_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name:        "gravy-rainbow",
+		URL:         "local:/u/me/rainbow",
+		SourceModel: s.State.ModelTag(),
+		Token:       "charisma",
+		Endpoints: []charm.Relation{{
+			Interface: "mysql",
+			Name:      "db",
+			Role:      charm.RoleProvider,
+			Scope:     charm.ScopeGlobal,
+		}, {
+			Interface: "mysql-root",
+			Name:      "db-admin",
+			Limit:     5,
+			Role:      charm.RoleProvider,
+			Scope:     charm.ScopeGlobal,
+		}, {
+			Interface: "logging",
+			Name:      "logging",
+			Role:      charm.RoleProvider,
+			Scope:     charm.ScopeGlobal,
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	model, err := s.State.Export()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(model.RemoteApplications(), gc.HasLen, 1)
+	app := model.RemoteApplications()[0]
+	c.Check(app.Tag(), gc.Equals, names.NewApplicationTag("gravy-rainbow"))
+	c.Check(app.Name(), gc.Equals, "gravy-rainbow")
+	c.Check(app.OfferName(), gc.Equals, "")
+	c.Check(app.URL(), gc.Equals, "local:/u/me/rainbow")
+	c.Check(app.SourceModelTag(), gc.Equals, s.State.ModelTag())
+	c.Check(app.Registered(), jc.IsFalse)
+
+	c.Assert(app.Endpoints(), gc.HasLen, 3)
+	ep := app.Endpoints()[0]
+	c.Check(ep.Name(), gc.Equals, "db")
+	c.Check(ep.Interface(), gc.Equals, "mysql")
+	c.Check(ep.Limit(), gc.Equals, 0)
+	c.Check(ep.Role(), gc.Equals, "provider")
+	c.Check(ep.Scope(), gc.Equals, "global")
+	ep = app.Endpoints()[1]
+	c.Check(ep.Name(), gc.Equals, "db-admin")
+	c.Check(ep.Interface(), gc.Equals, "mysql-root")
+	c.Check(ep.Limit(), gc.Equals, 5)
+	c.Check(ep.Role(), gc.Equals, "provider")
+	c.Check(ep.Scope(), gc.Equals, "global")
+	ep = app.Endpoints()[2]
+	c.Check(ep.Name(), gc.Equals, "logging")
+	c.Check(ep.Interface(), gc.Equals, "logging")
+	c.Check(ep.Limit(), gc.Equals, 0)
+	c.Check(ep.Role(), gc.Equals, "provider")
+	c.Check(ep.Scope(), gc.Equals, "global")
 }

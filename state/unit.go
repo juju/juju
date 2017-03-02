@@ -1396,14 +1396,14 @@ func validateDynamicMachineStorageParams(m *Machine, params *machineStorageParam
 func machineStoragePools(st *State, params *machineStorageParams) (set.Strings, error) {
 	pools := make(set.Strings)
 	for _, v := range params.volumes {
-		v, err := st.volumeParamsWithDefaults(v.Volume)
+		v, err := st.volumeParamsWithDefaults(v.Volume, "")
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		pools.Add(v.Pool)
 	}
 	for _, f := range params.filesystems {
-		f, err := st.filesystemParamsWithDefaults(f.Filesystem)
+		f, err := st.filesystemParamsWithDefaults(f.Filesystem, "")
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -1846,6 +1846,9 @@ func machineStorageParamsForStorageInstance(
 			cons := allCons[storage.StorageName()]
 			volumeParams := VolumeParams{
 				storage: storage.StorageTag(),
+				// TODO(axw) when we have commands for removing
+				// floating storage, drop the binding so that
+				// storage is persistent by default.
 				binding: storage.StorageTag(),
 				Pool:    cons.Pool,
 				Size:    cons.Size,
@@ -1882,6 +1885,9 @@ func machineStorageParamsForStorageInstance(
 			cons := allCons[storage.StorageName()]
 			filesystemParams := FilesystemParams{
 				storage: storage.StorageTag(),
+				// TODO(axw) when we have commands for removing
+				// floating storage, drop the binding so that
+				// storage is persistent by default.
 				binding: storage.StorageTag(),
 				Pool:    cons.Pool,
 				Size:    cons.Size,

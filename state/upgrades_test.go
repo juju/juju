@@ -688,3 +688,232 @@ func (s *upgradesSuite) TestUpdateLegacyLXDCloudUnchanged(c *gc.C) {
 		expectUpgradedData{cloudCredColl, expectedCloudCreds},
 	)
 }
+
+func (s *upgradesSuite) TestUpgradeNoProxy(c *gc.C) {
+	settingsColl, settingsCloser := s.state.getRawCollection(settingsC)
+	defer settingsCloser()
+	_, err := settingsColl.RemoveAll(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	err = settingsColl.Insert(bson.M{
+		"_id": "foo",
+		"settings": bson.M{
+			"no-proxy": "127.0.0.1,localhost,::1"},
+	}, bson.M{
+		"_id": "bar",
+		"settings": bson.M{
+			"no-proxy": "localhost"},
+	}, bson.M{
+		"_id": "baz",
+		"settings": bson.M{
+			"no-proxy":        "192.168.1.1,10.0.0.2",
+			"another-setting": "anothervalue"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	expectedSettings := []bson.M{
+		{
+			"_id": "bar",
+			"settings": bson.M{
+				"no-proxy": "127.0.0.1,::1,localhost"},
+		}, {
+			"_id": "baz",
+			"settings": bson.M{
+				"no-proxy":        "10.0.0.2,127.0.0.1,192.168.1.1,::1,localhost",
+				"another-setting": "anothervalue"},
+		}, {
+			"_id": "foo",
+			"settings": bson.M{
+				"no-proxy": "127.0.0.1,::1,localhost"},
+		}}
+
+	s.assertUpgradedData(c, UpgradeNoProxyDefaults,
+		expectUpgradedData{settingsColl, expectedSettings},
+	)
+}
+
+func (s *upgradesSuite) TestAddNonDetachableStorageMachineId(c *gc.C) {
+	volumesColl, volumesCloser := s.state.getRawCollection(volumesC)
+	defer volumesCloser()
+	volumeAttachmentsColl, volumeAttachmentsCloser := s.state.getRawCollection(volumeAttachmentsC)
+	defer volumeAttachmentsCloser()
+
+	filesystemsColl, filesystemsCloser := s.state.getRawCollection(filesystemsC)
+	defer filesystemsCloser()
+	filesystemAttachmentsColl, filesystemAttachmentsCloser := s.state.getRawCollection(filesystemAttachmentsC)
+	defer filesystemAttachmentsCloser()
+
+	uuid := s.state.ModelUUID()
+
+	err := volumesColl.Insert(bson.M{
+		"_id":        uuid + ":0",
+		"name":       "0",
+		"model-uuid": uuid,
+		"machineid":  "42",
+	}, bson.M{
+		"_id":        uuid + ":1",
+		"name":       "1",
+		"model-uuid": uuid,
+		"info": bson.M{
+			"pool": "modelscoped",
+		},
+	}, bson.M{
+		"_id":        uuid + ":2",
+		"name":       "2",
+		"model-uuid": uuid,
+		"params": bson.M{
+			"pool": "static",
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = volumeAttachmentsColl.Insert(bson.M{
+		"_id":        uuid + ":123:2",
+		"model-uuid": uuid,
+		"machineid":  "123",
+		"volumeid":   "2",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = filesystemsColl.Insert(bson.M{
+		"_id":          uuid + ":0",
+		"filesystemid": "0",
+		"model-uuid":   uuid,
+		"machineid":    "42",
+	}, bson.M{
+		"_id":          uuid + ":1",
+		"filesystemid": "1",
+		"model-uuid":   uuid,
+		"info": bson.M{
+			"pool": "modelscoped",
+		},
+	}, bson.M{
+		"_id":          uuid + ":2",
+		"filesystemid": "2",
+		"model-uuid":   uuid,
+		"params": bson.M{
+			"pool": "static",
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = filesystemAttachmentsColl.Insert(bson.M{
+		"_id":          uuid + ":123:2",
+		"model-uuid":   uuid,
+		"machineid":    "123",
+		"filesystemid": "2",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// We expect that:
+	//  - volume-0 and filesystem-0 are unchanged, since they
+	//    already have machineid fields
+	//  - volume-1 and filesystem-1 are unchanged, since they
+	//    are detachable
+	//  - volume-2's and filesystem-2's machineid fields are
+	//    set to 123, the machine to which they are inherently
+	//    bound
+	expectedVolumes := []bson.M{{
+		"_id":        uuid + ":0",
+		"name":       "0",
+		"model-uuid": uuid,
+		"machineid":  "42",
+	}, {
+		"_id":        uuid + ":1",
+		"name":       "1",
+		"model-uuid": uuid,
+		"info": bson.M{
+			"pool": "modelscoped",
+		},
+	}, {
+		"_id":        uuid + ":2",
+		"name":       "2",
+		"model-uuid": uuid,
+		"params": bson.M{
+			"pool": "static",
+		},
+		"machineid": "123",
+	}}
+	expectedFilesystems := []bson.M{{
+		"_id":          uuid + ":0",
+		"filesystemid": "0",
+		"model-uuid":   uuid,
+		"machineid":    "42",
+	}, {
+		"_id":          uuid + ":1",
+		"filesystemid": "1",
+		"model-uuid":   uuid,
+		"info": bson.M{
+			"pool": "modelscoped",
+		},
+	}, {
+		"_id":          uuid + ":2",
+		"filesystemid": "2",
+		"model-uuid":   uuid,
+		"params": bson.M{
+			"pool": "static",
+		},
+		"machineid": "123",
+	}}
+
+	s.assertUpgradedData(c, AddNonDetachableStorageMachineId,
+		expectUpgradedData{volumesColl, expectedVolumes},
+		expectUpgradedData{filesystemsColl, expectedFilesystems},
+	)
+}
+
+func (s *upgradesSuite) TestRemoveNilValueApplicationSettings(c *gc.C) {
+	settingsColl, settingsCloser := s.state.getRawCollection(settingsC)
+	defer settingsCloser()
+	_, err := settingsColl.RemoveAll(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	err = settingsColl.Insert(bson.M{
+		"_id": "modelXXX:a#dontchangeapp",
+		// this document should not be affected
+		"settings": bson.M{
+			"keepme": "have value"},
+	}, bson.M{
+		"_id": "modelXXX:a#removeall",
+		// this settings will become empty
+		"settings": bson.M{
+			"keepme":   nil,
+			"removeme": nil,
+		},
+	}, bson.M{
+		"_id": "modelXXX:a#removeone",
+		// one setting needs to be removed
+		"settings": bson.M{
+			"keepme":   "have value",
+			"removeme": nil,
+		},
+	}, bson.M{
+		"_id": "someothersettingshouldnotbetouched",
+		// non-application setting: should not be touched
+		"settings": bson.M{
+			"keepme":   "have value",
+			"removeme": nil,
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	expectedSettings := []bson.M{
+		{
+			"_id":      "modelXXX:a#dontchangeapp",
+			"settings": bson.M{"keepme": "have value"},
+		}, {
+			"_id":      "modelXXX:a#removeall",
+			"settings": bson.M{},
+		}, {
+			"_id":      "modelXXX:a#removeone",
+			"settings": bson.M{"keepme": "have value"},
+		}, {
+			"_id": "someothersettingshouldnotbetouched",
+			"settings": bson.M{
+				"keepme":   "have value",
+				"removeme": nil,
+			},
+		}}
+
+	s.assertUpgradedData(c, RemoveNilValueApplicationSettings,
+		expectUpgradedData{settingsColl, expectedSettings},
+	)
+}

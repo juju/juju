@@ -649,7 +649,7 @@ func (s *userManagerSuite) TestRemoveUser(c *gc.C) {
 	// Create a user to delete.
 	jjam := s.Factory.MakeUser(c, &factory.UserParams{Name: "jimmyjam"})
 
-	expectedError := fmt.Sprintf("%q user not found", jjam.Name())
+	expectedError := fmt.Sprintf("failed to delete user %q: user %q is permanently deleted", jjam.Name(), jjam.Name())
 
 	// Remove the user
 	got, err := s.usermanager.RemoveUser(params.Entities{
@@ -670,7 +670,7 @@ func (s *userManagerSuite) TestRemoveUser(c *gc.C) {
 	c.Check(got.Results, gc.HasLen, 1)
 	c.Check(got.Results[0].Error, jc.DeepEquals, &params.Error{
 		Message: expectedError,
-		Code:    "user not found",
+		Code:    "",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 }

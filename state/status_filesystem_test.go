@@ -28,7 +28,7 @@ func (s *FilesystemStatusSuite) SetUpTest(c *gc.C) {
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 		Filesystems: []state.MachineFilesystemParams{{
 			Filesystem: state.FilesystemParams{
-				Pool: "environscoped", Size: 1024,
+				Pool: "modelscoped", Size: 1024,
 			},
 		}},
 	})

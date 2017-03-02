@@ -76,10 +76,10 @@ func (s *provisionerSuite) setupVolumes(c *gc.C) {
 		InstanceId: instance.Id("inst-id"),
 		Volumes: []state.MachineVolumeParams{
 			{Volume: state.VolumeParams{Pool: "machinescoped", Size: 1024}},
-			{Volume: state.VolumeParams{Pool: "environscoped", Size: 2048}},
-			{Volume: state.VolumeParams{Pool: "environscoped", Size: 4096}},
+			{Volume: state.VolumeParams{Pool: "modelscoped", Size: 2048}},
+			{Volume: state.VolumeParams{Pool: "modelscoped", Size: 4096}},
 			{
-				Volume: state.VolumeParams{Pool: "environscoped", Size: 4096},
+				Volume: state.VolumeParams{Pool: "modelscoped", Size: 4096},
 				Attachment: state.VolumeAttachmentParams{
 					ReadOnly: true,
 				},
@@ -111,7 +111,7 @@ func (s *provisionerSuite) setupVolumes(c *gc.C) {
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 		Volumes: []state.MachineVolumeParams{
-			{Volume: state.VolumeParams{Pool: "environscoped", Size: 2048}},
+			{Volume: state.VolumeParams{Pool: "modelscoped", Size: 2048}},
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -127,9 +127,9 @@ func (s *provisionerSuite) setupFilesystems(c *gc.C) {
 				ReadOnly: true,
 			},
 		}, {
-			Filesystem: state.FilesystemParams{Pool: "environscoped", Size: 2048},
+			Filesystem: state.FilesystemParams{Pool: "modelscoped", Size: 2048},
 		}, {
-			Filesystem: state.FilesystemParams{Pool: "environscoped", Size: 4096},
+			Filesystem: state.FilesystemParams{Pool: "modelscoped", Size: 4096},
 		}},
 	})
 
@@ -155,7 +155,7 @@ func (s *provisionerSuite) setupFilesystems(c *gc.C) {
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 		Filesystems: []state.MachineFilesystemParams{{
-			Filesystem: state.FilesystemParams{Pool: "environscoped", Size: 2048},
+			Filesystem: state.FilesystemParams{Pool: "modelscoped", Size: 2048},
 		}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -370,7 +370,7 @@ func (s *provisionerSuite) TestVolumeParams(c *gc.C) {
 			{Result: params.VolumeParams{
 				VolumeTag: "volume-1",
 				Size:      2048,
-				Provider:  "environscoped",
+				Provider:  "modelscoped",
 				Tags: map[string]string{
 					tags.JujuController: testing.ControllerTag.Id(),
 					tags.JujuModel:      testing.ModelTag.Id(),
@@ -378,14 +378,14 @@ func (s *provisionerSuite) TestVolumeParams(c *gc.C) {
 				Attachment: &params.VolumeAttachmentParams{
 					MachineTag: "machine-0",
 					VolumeTag:  "volume-1",
-					Provider:   "environscoped",
+					Provider:   "modelscoped",
 					InstanceId: "inst-id",
 				},
 			}},
 			{Result: params.VolumeParams{
 				VolumeTag: "volume-3",
 				Size:      4096,
-				Provider:  "environscoped",
+				Provider:  "modelscoped",
 				Tags: map[string]string{
 					tags.JujuController: testing.ControllerTag.Id(),
 					tags.JujuModel:      testing.ModelTag.Id(),
@@ -393,7 +393,7 @@ func (s *provisionerSuite) TestVolumeParams(c *gc.C) {
 				Attachment: &params.VolumeAttachmentParams{
 					MachineTag: "machine-0",
 					VolumeTag:  "volume-3",
-					Provider:   "environscoped",
+					Provider:   "modelscoped",
 					InstanceId: "inst-id",
 					ReadOnly:   true,
 				},
@@ -429,7 +429,7 @@ func (s *provisionerSuite) TestFilesystemParams(c *gc.C) {
 			{Result: params.FilesystemParams{
 				FilesystemTag: "filesystem-1",
 				Size:          2048,
-				Provider:      "environscoped",
+				Provider:      "modelscoped",
 				Tags: map[string]string{
 					tags.JujuController: testing.ControllerTag.Id(),
 					tags.JujuModel:      testing.ModelTag.Id(),
@@ -492,20 +492,20 @@ func (s *provisionerSuite) TestVolumeAttachmentParams(c *gc.C) {
 				MachineTag: "machine-0",
 				VolumeTag:  "volume-1",
 				InstanceId: "inst-id",
-				Provider:   "environscoped",
+				Provider:   "modelscoped",
 			}},
 			{Result: params.VolumeAttachmentParams{
 				MachineTag: "machine-0",
 				VolumeTag:  "volume-3",
 				InstanceId: "inst-id",
 				VolumeId:   "xyz",
-				Provider:   "environscoped",
+				Provider:   "modelscoped",
 				ReadOnly:   true,
 			}},
 			{Result: params.VolumeAttachmentParams{
 				MachineTag: "machine-2",
 				VolumeTag:  "volume-4",
-				Provider:   "environscoped",
+				Provider:   "modelscoped",
 			}},
 			{Error: &params.Error{Message: "permission denied", Code: "unauthorized access"}},
 		},
@@ -562,13 +562,13 @@ func (s *provisionerSuite) TestFilesystemAttachmentParams(c *gc.C) {
 				FilesystemTag: "filesystem-1",
 				InstanceId:    "inst-id",
 				FilesystemId:  "fsid",
-				Provider:      "environscoped",
+				Provider:      "modelscoped",
 				MountPoint:    "/in/the/place",
 			}},
 			{Result: params.FilesystemAttachmentParams{
 				MachineTag:    "machine-2",
 				FilesystemTag: "filesystem-3",
-				Provider:      "environscoped",
+				Provider:      "modelscoped",
 			}},
 			{Error: &params.Error{Message: "permission denied", Code: "unauthorized access"}},
 		},
@@ -1087,7 +1087,7 @@ func (s *provisionerSuite) TestRemoveVolumesMachineAgent(c *gc.C) {
 		{"volume-invalid"}, {"machine-0"},
 	}}
 
-	err := s.State.DetachVolume(names.NewMachineTag("0"), names.NewVolumeTag("0/0"))
+	err := s.State.DestroyVolume(names.NewVolumeTag("0/0"))
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.State.RemoveVolumeAttachment(names.NewMachineTag("0"), names.NewVolumeTag("0/0"))
 	c.Assert(err, jc.ErrorIsNil)
@@ -1115,11 +1115,9 @@ func (s *provisionerSuite) TestRemoveFilesystemsMachineAgent(c *gc.C) {
 		{"filesystem-invalid"}, {"machine-0"},
 	}}
 
-	err := s.State.DetachFilesystem(names.NewMachineTag("0"), names.NewFilesystemTag("0/0"))
+	err := s.State.DestroyFilesystem(names.NewFilesystemTag("0/0"))
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.State.RemoveFilesystemAttachment(names.NewMachineTag("0"), names.NewFilesystemTag("0/0"))
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.State.DestroyFilesystem(names.NewFilesystemTag("0/0"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	result, err := s.api.Remove(args)

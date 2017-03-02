@@ -4,17 +4,16 @@
 package apiserver_test
 
 import (
-	"bufio"
 	"fmt"
 	"net/http"
 	"net/url"
 	"time"
 
+	"github.com/gorilla/websocket"
 	"github.com/juju/loggo"
 	"github.com/juju/pubsub"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
-	"golang.org/x/net/websocket"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
@@ -97,9 +96,8 @@ func (s *pubsubSuite) TestRejectsIncorrectNonce(c *gc.C) {
 func (s *pubsubSuite) checkAuthFails(c *gc.C, header http.Header, message string) {
 	conn := s.dialWebsocketInternal(c, header)
 	defer conn.Close()
-	reader := bufio.NewReader(conn)
-	assertJSONError(c, reader, message)
-	assertWebsocketClosed(c, reader)
+	assertJSONError(c, conn, message)
+	assertWebsocketClosed(c, conn)
 }
 
 func (s *pubsubSuite) TestMessage(c *gc.C) {
@@ -119,11 +117,9 @@ func (s *pubsubSuite) TestMessage(c *gc.C) {
 
 	conn := s.dialWebsocket(c)
 	defer conn.Close()
-	reader := bufio.NewReader(conn)
 
 	// Read back the nil error, indicating that all is well.
-	errResult := readJSONErrorLine(c, reader)
-	c.Assert(errResult.Error, gc.IsNil)
+	assertJSONInitialErrorNil(c, conn)
 
 	message1 := params.PubSubMessage{
 		Topic: "first",
@@ -131,7 +127,7 @@ func (s *pubsubSuite) TestMessage(c *gc.C) {
 			"origin":  "other",
 			"message": "first message",
 		}}
-	err = websocket.JSON.Send(conn, &message1)
+	err = conn.WriteJSON(&message1)
 	c.Assert(err, jc.ErrorIsNil)
 
 	message2 := params.PubSubMessage{
@@ -140,18 +136,18 @@ func (s *pubsubSuite) TestMessage(c *gc.C) {
 			"origin": "other",
 			"value":  false,
 		}}
-	err = websocket.JSON.Send(conn, &message2)
+	err = conn.WriteJSON(&message2)
 	c.Assert(err, jc.ErrorIsNil)
 
 	select {
 	case <-done:
-	case <-time.After(coretesting.ShortWait):
+	case <-time.After(coretesting.LongWait):
 		c.Fatalf("no first message")
 	}
 
 	select {
 	case <-done:
-	case <-time.After(coretesting.ShortWait):
+	case <-time.After(coretesting.LongWait):
 		c.Fatalf("no second message")
 	}
 

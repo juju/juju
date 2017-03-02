@@ -523,6 +523,18 @@ func (st *State) newDB() (Database, func()) {
 	return st.database.Copy()
 }
 
+// db returns the Database instance used by the State. It is part of
+// the modelBackend interface.
+func (st *State) db() Database {
+	return st.database
+}
+
+// txnLogWatcher returns the TxnLogWatcher for the State. It is part
+// of the modelBackend interface.
+func (st *State) txnLogWatcher() workers.TxnLogWatcher {
+	return st.workers.TxnLogWatcher()
+}
+
 // Ping probes the state's database connection to ensure
 // that it is still alive.
 func (st *State) Ping() error {
@@ -1146,6 +1158,11 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 		NeverSet: true,
 	}
 
+	// When creating the settings, we ignore nils.  In other circumstances, nil
+	// means to delete the value (reset to default), so creating with nil should
+	// mean to use the default, i.e. don't set the value.
+	removeNils(args.Settings)
+
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		// If we've tried once already and failed, check that
 		// model may have been destroyed.
@@ -1174,7 +1191,7 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 			assertModelActiveOp(st.ModelUUID()),
 			endpointBindingsOp,
 		}
-		addOps, err := addApplicationOps(st, addApplicationOpsArgs{
+		addOps, err := addApplicationOps(st, app, addApplicationOpsArgs{
 			applicationDoc: appDoc,
 			statusDoc:      statusDoc,
 			constraints:    args.Constraints,
@@ -1235,6 +1252,15 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 		return app, nil
 	}
 	return nil, errors.Trace(err)
+}
+
+// removeNils removes any keys with nil values from the given map.
+func removeNils(m map[string]interface{}) {
+	for k, v := range m {
+		if v == nil {
+			delete(m, k)
+		}
+	}
 }
 
 // assignUnitOps returns the db ops to save unit assignment for use by the
@@ -2172,4 +2198,22 @@ func (st *State) SetClockForTesting(clock clock.Clock) error {
 		return errors.Trace(err)
 	}
 	return nil
+}
+
+// getCollection delegates to the State's underlying Database.  It
+// returns the collection and a closer function for the session.
+//
+// TODO(mjs) - this should eventually go in favour of using the
+// Database directly.
+func (st *State) getCollection(name string) (mongo.Collection, func()) {
+	return st.database.GetCollection(name)
+}
+
+// getCollectionFor delegates to the State's underlying Database.  It
+// returns the collection and a closer function for the session.
+//
+// TODO(mjs) - this should eventually go in favour of using the
+// Database directly.
+func (st *State) getCollectionFor(modelUUID, name string) (mongo.Collection, func()) {
+	return st.database.GetCollectionFor(modelUUID, name)
 }

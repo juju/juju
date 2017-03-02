@@ -125,7 +125,7 @@ Summary:
 register a port or range to open
 
 Details:
-The port range will only be open while the service is exposed.
+The port range will only be open while the application is exposed.
 `[1:])
 
 	close, err := jujuc.NewCommand(hctx, cmdString("close-port"))

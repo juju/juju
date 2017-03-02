@@ -15,8 +15,8 @@ var errCharmInUse = errors.New("charm in use")
 // to a charm and its per-application settings and storage constraints
 // documents. It will fail if the charm is not Alive.
 func appCharmIncRefOps(st modelBackend, appName string, curl *charm.URL, canCreate bool) ([]txn.Op, error) {
-
-	charms, closer := st.getCollection(charmsC)
+	db := st.db()
+	charms, closer := db.GetCollection(charmsC)
 	defer closer()
 
 	// If we're migrating. charm document will not be present. But
@@ -33,7 +33,7 @@ func appCharmIncRefOps(st modelBackend, appName string, curl *charm.URL, canCrea
 		checkOps = []txn.Op{checkOp}
 	}
 
-	refcounts, closer := st.getCollection(refcountsC)
+	refcounts, closer := db.GetCollection(refcountsC)
 	defer closer()
 
 	getIncRefOp := nsRefcounts.CreateOrIncRefOp
@@ -67,8 +67,7 @@ func appCharmIncRefOps(st modelBackend, appName string, curl *charm.URL, canCrea
 // to see if the charm itself is now unreferenced and can be tidied
 // away itself.
 func appCharmDecRefOps(st modelBackend, appName string, curl *charm.URL) ([]txn.Op, error) {
-
-	refcounts, closer := st.getCollection(refcountsC)
+	refcounts, closer := st.db().GetCollection(refcountsC)
 	defer closer()
 
 	charmKey := charmGlobalKey(curl)
@@ -118,7 +117,8 @@ func finalAppCharmRemoveOps(appName string, curl *charm.URL) []txn.Op {
 
 // charmDestroyOps implements the logic of charm.Destroy.
 func charmDestroyOps(st modelBackend, curl *charm.URL) ([]txn.Op, error) {
-	charms, closer := st.getCollection(charmsC)
+	db := st.db()
+	charms, closer := db.GetCollection(charmsC)
 	defer closer()
 
 	charmKey := curl.String()
@@ -127,7 +127,7 @@ func charmDestroyOps(st modelBackend, curl *charm.URL) ([]txn.Op, error) {
 		return nil, errors.Annotate(err, "charm")
 	}
 
-	refcounts, closer := st.getCollection(refcountsC)
+	refcounts, closer := db.GetCollection(refcountsC)
 	defer closer()
 
 	refcountKey := charmGlobalKey(curl)
@@ -145,7 +145,7 @@ func charmDestroyOps(st modelBackend, curl *charm.URL) ([]txn.Op, error) {
 
 // charmRemoveOps implements the logic of charm.Remove.
 func charmRemoveOps(st modelBackend, curl *charm.URL) ([]txn.Op, error) {
-	charms, closer := st.getCollection(charmsC)
+	charms, closer := st.db().GetCollection(charmsC)
 	defer closer()
 
 	charmKey := curl.String()

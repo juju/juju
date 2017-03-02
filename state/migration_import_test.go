@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"time" // only uses time.Time values
 
+	"github.com/juju/description"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -16,7 +17,6 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/payload"
 	"github.com/juju/juju/permission"
@@ -1116,6 +1116,80 @@ func (s *MigrationImportSuite) TestPayloads(c *gc.C) {
 	c.Check(payload.Labels, jc.DeepEquals, original.Labels)
 	c.Check(payload.Unit, gc.Equals, unitID)
 	c.Check(payload.Machine, gc.Equals, machineID)
+}
+
+func (s *MigrationImportSuite) TestRemoteApplications(c *gc.C) {
+	// For now we want to prevent importing models that have remote
+	// applications - cross-model relations don't support relations
+	// with the models in different controllers.
+	_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name:        "gravy-rainbow",
+		URL:         "local:/u/me/rainbow",
+		SourceModel: s.State.ModelTag(),
+		Token:       "charisma",
+		Endpoints: []charm.Relation{{
+			Interface: "mysql",
+			Name:      "db",
+			Role:      charm.RoleProvider,
+			Scope:     charm.ScopeGlobal,
+		}, {
+			Interface: "mysql-root",
+			Name:      "db-admin",
+			Limit:     5,
+			Role:      charm.RoleProvider,
+			Scope:     charm.ScopeGlobal,
+		}, {
+			Interface: "logging",
+			Name:      "logging",
+			Role:      charm.RoleProvider,
+			Scope:     charm.ScopeGlobal,
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	out, err := s.State.Export()
+	c.Assert(err, jc.ErrorIsNil)
+
+	uuid := utils.MustNewUUID().String()
+	in := newModel(out, uuid, "new")
+
+	_, newSt, err := s.State.Import(in)
+	if err == nil {
+		defer newSt.Close()
+	}
+	c.Assert(err, gc.ErrorMatches, "can't import models with remote applications")
+}
+
+func (s *MigrationImportSuite) TestApplicationsWithNilConfigValues(c *gc.C) {
+	application := s.Factory.MakeApplication(c, &factory.ApplicationParams{
+		Settings: map[string]interface{}{
+			"foo": "bar",
+		},
+	})
+	s.primeStatusHistory(c, application, status.Active, 5)
+	// Since above factory method calls newly updated state.AddApplication(...)
+	// which removes config settings with nil value before writing
+	// application into database,
+	// strip config setting values to nil directly to simulate
+	// what could happen to some applications in 2.0 and 2.1.
+	// For more context, see https://bugs.launchpad.net/juju/+bug/1667199
+	settings := state.GetApplicationSettings(s.State, application)
+	settings.Set("foo", nil)
+	_, err := settings.Write()
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, newSt := s.importModel(c)
+
+	importedApplications, err := newSt.AllApplications()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(importedApplications, gc.HasLen, 1)
+	importedApplication := importedApplications[0]
+
+	// Ensure that during import application settings with nil config values
+	// were stripped and not written into database.
+	importedSettings := state.GetApplicationSettings(newSt, importedApplication)
+	_, importedFound := importedSettings.Get("foo")
+	c.Assert(importedFound, jc.IsFalse)
 }
 
 // newModel replaces the uuid and name of the config attributes so we

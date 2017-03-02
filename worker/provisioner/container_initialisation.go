@@ -194,54 +194,33 @@ func (cs *ContainerSetup) TearDown() error {
 	return nil
 }
 
+// getObservedNetworkConfig is here to allow us to override it for testing.
+// TODO(jam): Find a way to pass it into ContainerSetup instead of a global variable
+var getObservedNetworkConfig = common.GetObservedNetworkConfig
+
+func observeNetwork() ([]params.NetworkConfig, error) {
+	return getObservedNetworkConfig(common.DefaultNetworkConfigSource())
+}
+
+func defaultBridger() (network.Bridger, error) {
+	return network.DefaultEtcNetworkInterfacesBridger(activateBridgesTimeout, instancecfg.DefaultBridgePrefix, systemNetworkInterfacesFile)
+}
+
 func (cs *ContainerSetup) prepareHost(containerTag names.MachineTag, log loggo.Logger) error {
-	devicesToBridge, reconfigureDelay, err := cs.provisioner.HostChangesForContainer(containerTag)
-	if err != nil {
-		return errors.Annotate(err, "unable to setup network")
-	}
-
-	if len(devicesToBridge) == 0 {
-		log.Debugf("container %q requires no additional bridges", containerTag)
-		return nil
-	}
-
-	bridger, err := network.DefaultEtcNetworkInterfacesBridger(activateBridgesTimeout, instancecfg.DefaultBridgePrefix, systemNetworkInterfacesFile)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	log.Debugf("Bridging %+v devices on host %q for container %q with delay=%v, acquiring lock %q",
-		devicesToBridge, cs.machine.MachineTag().String(), containerTag.String(), reconfigureDelay, cs.initLockName)
-	// TODO(jam): 2017-02-08 figure out how to thread catacomb.Dying() into
-	// this function, so that we can stop trying to acquire the lock if we are
-	// stopping.
-	releaser, err := cs.acquireLock(nil)
-	if err != nil {
-		return errors.Annotatef(err, "failed to acquire lock %q for bridging", cs.initLockName)
-	}
-	defer log.Debugf("releasing lock %q for bridging machine %q for container %q", cs.initLockName, cs.machine.MachineTag().String(), containerTag.String())
-	defer releaser.Release()
-	err = bridger.Bridge(devicesToBridge, reconfigureDelay)
-	if err != nil {
-		return errors.Annotate(err, "failed to bridge devices")
-	}
-
-	// We just changed the hosts' network setup so discover new
-	// interfaces/devices and propagate to state.
-	observedConfig, err := getObservedNetworkConfig(common.DefaultNetworkConfigSource())
-	if err != nil {
-		return errors.Annotate(err, "cannot discover observed network config")
-	}
-
-	if len(observedConfig) > 0 {
-		err := cs.provisioner.SetHostMachineNetworkConfig(cs.machine.MachineTag(), observedConfig)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		logger.Debugf("observed network config updated")
-	}
-
-	return nil
+	preparer := NewHostPreparer(HostPreparerParams{
+		API:                cs.provisioner,
+		ObserveNetworkFunc: observeNetwork,
+		LockName:           cs.initLockName,
+		AcquireLockFunc:    cs.acquireLock,
+		CreateBridger:      defaultBridger,
+		// TODO(jam): 2017-02-08 figure out how to thread catacomb.Dying() into
+		// this function, so that we can stop trying to acquire the lock if we
+		// are stopping.
+		AbortChan:  nil,
+		MachineTag: cs.machine.MachineTag(),
+		Logger:     log,
+	})
+	return preparer.Prepare(containerTag)
 }
 
 // getContainerArtifacts returns type-specific interfaces for

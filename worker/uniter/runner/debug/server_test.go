@@ -154,7 +154,7 @@ func (s *DebugHooksServerSuite) TestRunHook(c *gc.C) {
 	// and also create the .pid file. We'll populate it with
 	// an invalid PID; this will cause the server process to
 	// exit cleanly (as if the PID were real and no longer running).
-	cmd := exec.Command("flock", s.ctx.ClientExitFileLock(), "-c", "sleep 5s")
+	cmd := exec.Command("flock", s.ctx.ClientExitFileLock(), "-c", "sleep 10s")
 	c.Assert(cmd.Start(), gc.IsNil)
 	defer cmd.Process.Kill() // kill flock
 

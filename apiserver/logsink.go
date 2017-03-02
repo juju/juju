@@ -10,16 +10,17 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gorilla/websocket"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
+	"github.com/juju/utils/featureflag"
 	"github.com/juju/version"
-	"golang.org/x/net/websocket"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/natefinch/lumberjack.v2"
 
-	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/state"
 )
 
@@ -155,41 +156,39 @@ type logSinkHandler struct {
 
 // ServeHTTP implements the http.Handler interface.
 func (h *logSinkHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	server := websocket.Server{
-		Handler: func(socket *websocket.Conn) {
-			defer socket.Close()
-			strategy := h.newStrategy(h.ctxt, h.fileLogger)
-			err := strategy.Authenticate(req)
-			if err != nil {
-				h.sendError(socket, req, err)
+	handler := func(socket *websocket.Conn) {
+		defer socket.Close()
+		strategy := h.newStrategy(h.ctxt, h.fileLogger)
+		err := strategy.Authenticate(req)
+		if err != nil {
+			h.sendError(socket, req, err)
+			return
+		}
+		strategy.Start()
+		defer strategy.Stop()
+
+		// If we get to here, no more errors to report, so we report a nil
+		// error.  This way the first line of the socket is always a json
+		// formatted simple error.
+		h.sendError(socket, req, nil)
+
+		logCh := h.receiveLogs(socket)
+		for {
+			select {
+			case <-h.ctxt.stop():
 				return
-			}
-			strategy.Start()
-			defer strategy.Stop()
-
-			// If we get to here, no more errors to report, so we report a nil
-			// error.  This way the first line of the socket is always a json
-			// formatted simple error.
-			h.sendError(socket, req, nil)
-
-			logCh := h.receiveLogs(socket)
-			for {
-				select {
-				case <-h.ctxt.stop():
+			case m, ok := <-logCh:
+				if !ok {
 					return
-				case m, ok := <-logCh:
-					if !ok {
-						return
-					}
-					success := strategy.Log(m)
-					if !success {
-						return
-					}
+				}
+				success := strategy.Log(m)
+				if !success {
+					return
 				}
 			}
-		},
+		}
 	}
-	server.ServeHTTP(w, req)
+	websocketServer(w, req, handler)
 }
 
 func jujuClientVersionFromReq(req *http.Request) (version.Number, error) {
@@ -217,8 +216,16 @@ func (h *logSinkHandler) receiveLogs(socket *websocket.Conn) <-chan params.LogRe
 			// Receive() blocks until data arrives but will also be
 			// unblocked when the API handler calls socket.Close as it
 			// finishes.
-			if err := websocket.JSON.Receive(socket, &m); err != nil {
-				logger.Debugf("logsink receive error: %v", err)
+			if err := socket.ReadJSON(&m); err != nil {
+				if websocket.IsUnexpectedCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway) {
+					logger.Debugf("logsink receive error: %v", err)
+				} else {
+					logger.Debugf("disconnected")
+				}
+				// Try to tell the other end we are closing. If the other end
+				// has already disconnected from us, this will fail, but we don't
+				// care that much.
+				socket.WriteMessage(websocket.CloseMessage, []byte{})
 				return
 			}
 
@@ -235,13 +242,16 @@ func (h *logSinkHandler) receiveLogs(socket *websocket.Conn) <-chan params.LogRe
 }
 
 // sendError sends a JSON-encoded error response.
-func (h *logSinkHandler) sendError(w io.Writer, req *http.Request, err error) {
-	if err != nil {
+func (h *logSinkHandler) sendError(ws *websocket.Conn, req *http.Request, err error) {
+	// There is no need to log the error for normal operators as there is nothing
+	// they can action. This is for developers.
+	if err != nil && featureflag.Enabled(feature.DeveloperMode) {
 		logger.Errorf("returning error from %s %s: %s", req.Method, req.URL.Path, errors.Details(err))
 	}
-	sendJSON(w, &params.ErrorResult{
-		Error: common.ServerError(err),
-	})
+	if sendErr := sendInitialErrorV0(ws, err); sendErr != nil {
+		logger.Errorf("closing websocket, %v", err)
+		ws.Close()
+	}
 }
 
 // logToFile writes a single log message to the logsink log file.
