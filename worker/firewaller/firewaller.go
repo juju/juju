@@ -399,6 +399,7 @@ func (fw *Firewaller) startUnit(unit *firewaller.Unit, machineTag names.MachineT
 		err := fw.startApplication(application)
 		if err != nil {
 			delete(fw.unitds, unitTag)
+			delete(unitd.machined.unitds, unitTag)
 			return err
 		}
 	}
@@ -700,7 +701,7 @@ func (fw *Firewaller) gatherIngressRules(machines ...*machineData) ([]network.In
 		for unitTag, portRanges := range machined.definedPorts {
 			unitd, known := machined.unitds[unitTag]
 			if !known {
-				delete(machined.unitds, unitTag)
+				logger.Debugf("no ingress rules for unknown %v on %v", unitTag, machined.tag)
 				continue
 			}
 
@@ -1003,6 +1004,9 @@ type applicationData struct {
 func (ad *applicationData) watchLoop(exposed bool) error {
 	appWatcher, err := ad.application.Watch()
 	if err != nil {
+		if params.IsCodeNotFound(err) {
+			return nil
+		}
 		return errors.Trace(err)
 	}
 	if err := ad.catacomb.Add(appWatcher); err != nil {
@@ -1247,7 +1251,6 @@ func (rd *remoteRelationData) updateNetworks(facade RemoteFirewallerAPI, remoteR
 	}
 	logger.Debugf("ingress networks for %v: %+v", remoteRelationId, networks)
 	rd.networks = set.NewStrings(networks.CIDRs...)
-	rd.fw.relationIngress[rd.tag] = rd
 	select {
 	case rd.fw.remoteRelationsChange <- rd.localApplicationTag:
 	case <-rd.catacomb.Dying():

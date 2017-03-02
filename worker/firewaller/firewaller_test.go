@@ -544,7 +544,7 @@ func (s *InstanceModeSuite) TestRemoveApplication(c *gc.C) {
 		network.MustNewIngressRule("tcp", 80, 80, "0.0.0.0/0"),
 	})
 
-	// Remove service.
+	// Remove application.
 	err = u.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
 	err = u.Remove()
@@ -583,7 +583,7 @@ func (s *InstanceModeSuite) TestRemoveMultipleApplications(c *gc.C) {
 		network.MustNewIngressRule("tcp", 3306, 3306, "0.0.0.0/0"),
 	})
 
-	// Remove services.
+	// Remove applications.
 	err = u2.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
 	err = u2.Remove()
@@ -619,7 +619,7 @@ func (s *InstanceModeSuite) TestDeadMachine(c *gc.C) {
 		network.MustNewIngressRule("tcp", 80, 80, "0.0.0.0/0"),
 	})
 
-	// Remove unit and service, also tested without. Has no effect.
+	// Remove unit and application, also tested without. Has no effect.
 	err = u.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
 	err = u.Remove()
@@ -914,7 +914,7 @@ func (s *GlobalModeSuite) TestStartWithUnexposedApplication(c *gc.C) {
 
 	s.assertEnvironPorts(c, nil)
 
-	// Expose service.
+	// Expose application.
 	err = app.SetExposed()
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertEnvironPorts(c, []network.IngressRule{
@@ -981,7 +981,7 @@ func (s *GlobalModeSuite) TestRestartUnexposedApplication(c *gc.C) {
 		network.MustNewIngressRule("tcp", 8080, 8080, "0.0.0.0/0"),
 	})
 
-	// Stop firewaller and clear exposed flag on service.
+	// Stop firewaller and clear exposed flag on application.
 	err = worker.Stop(fw)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1015,7 +1015,7 @@ func (s *GlobalModeSuite) TestRestartPortCount(c *gc.C) {
 		network.MustNewIngressRule("tcp", 8080, 8080, "0.0.0.0/0"),
 	})
 
-	// Stop firewaller and add another service using the port.
+	// Stop firewaller and add another application using the port.
 	err = worker.Stop(fw)
 	c.Assert(err, jc.ErrorIsNil)
 
