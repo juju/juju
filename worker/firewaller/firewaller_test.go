@@ -803,10 +803,6 @@ func (s *InstanceModeSuite) TestRemoteRelation(c *gc.C) {
 	s.assertRemoteRelation(c, []string{"::1/0", "10.0.0.0/24"}, []string{"10.0.0.0/24"})
 }
 
-func (s *InstanceModeSuite) TestRemoveRemoteRelation(c *gc.C) {
-	// TODO(wallyworld) - implement once firewaller is fixed
-}
-
 type GlobalModeSuite struct {
 	firewallerBaseSuite
 }

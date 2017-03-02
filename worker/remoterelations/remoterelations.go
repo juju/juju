@@ -55,6 +55,9 @@ type RemoteRelationsFacade interface {
 	// for the specified model.
 	GetToken(string, names.Tag) (string, error)
 
+	// RemoveRemoteEntity removes the specified entity from the remote entities collection.
+	RemoveRemoteEntity(sourceModelUUID string, entity names.Tag) error
+
 	// RelationUnitSettings returns the relation unit settings for the
 	// given relation units in the local model.
 	RelationUnitSettings([]params.RelationUnit) ([]params.SettingsResult, error)
@@ -339,12 +342,48 @@ func (w *remoteApplicationWorker) loop() error {
 	}
 }
 
-func (w *remoteApplicationWorker) killRelationUnitWatcher(key string, relations map[string]*relation) error {
+func (w *remoteApplicationWorker) processRelationGone(
+	key string, relations map[string]*relation, publisher RemoteRelationChangePublisher,
+) error {
+	logger.Debugf("relation %v gone", key)
 	relation, ok := relations[key]
-	if ok {
-		delete(relations, key)
-		return worker.Stop(relation.ruw)
+	if !ok {
+		return nil
 	}
+	delete(relations, key)
+	if err := worker.Stop(relation.ruw); err != nil {
+		logger.Warningf("stopping relation unit watcher for %v: %v", key, err)
+	}
+
+	// Remove the remote entity record for the relation to ensure any unregister
+	// call from the remote model that may come across at the same time is short circuited.
+	remoteId := relation.ruw.remoteRelationId
+	relTag := names.NewRelationTag(key)
+	_, err := w.facade.GetToken(remoteId.ModelUUID, relTag)
+	if errors.IsNotFound(err) {
+		logger.Debugf("not found token for %v in %v, exit early", key, w.localModelUUID)
+		return nil
+	} else if err != nil {
+		return errors.Trace(err)
+	}
+
+	// We also need to remove the remote entity reference for the relation.
+	if err := w.facade.RemoveRemoteEntity(remoteId.ModelUUID, relTag); err != nil {
+		return errors.Trace(err)
+	}
+
+	// Inform the remote side the relation has died.
+	change := params.RemoteRelationChangeEvent{
+		RelationId:    remoteId,
+		Life:          params.Dead,
+		ApplicationId: w.relationInfo.applicationId,
+	}
+	if err := publisher.PublishLocalRelationChange(change); err != nil {
+		return errors.Annotatef(err, "publishing relation departed %+v to remote model %v", change, w.remoteModelUUID)
+	}
+	logger.Debugf("remote relation %v removed from remote model", key)
+
+	// TODO(wallyworld) - check that state cleanup worker properly removes the dead relation.
 	return nil
 }
 
@@ -355,10 +394,7 @@ func (w *remoteApplicationWorker) relationChanged(
 	logger.Debugf("relation %q changed: %+v", key, result)
 	if result.Error != nil {
 		if params.IsCodeNotFound(result.Error) {
-			// TODO(wallyworld) - once a relation dies, wait for
-			// it to be unregistered from remote side and then use
-			// cleanup to remove.
-			return w.killRelationUnitWatcher(key, relations)
+			return w.processRelationGone(key, relations, publisher)
 		}
 		return result.Error
 	}
@@ -370,7 +406,7 @@ func (w *remoteApplicationWorker) relationChanged(
 	if r := relations[key]; r != nil {
 		r.life = remoteRelation.Life
 		if r.life == params.Dead {
-			return w.killRelationUnitWatcher(key, relations)
+			return w.processRelationGone(key, relations, publisher)
 		}
 		// Nothing to do, we have previously started the watcher.
 		return nil

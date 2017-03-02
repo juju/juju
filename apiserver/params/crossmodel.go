@@ -318,21 +318,21 @@ type GetTokenArg struct {
 	Tag string `json:"tag"`
 }
 
-// ImportEntityArgs holds the arguments to an ImportRemoteEntity API call.
-type ImportEntityArgs struct {
-	Args []ImportEntityArg
+// RemoteEntityArgs holds the arguments to an API call dealing with remote entities.
+type RemoteEntityArgs struct {
+	Args []RemoteEntityArg
 }
 
-// ImportEntityArg holds the model, entity and token to be imported.
-type ImportEntityArg struct {
+// RemoteEntityArg holds the model, entity and token to be operated on.
+type RemoteEntityArg struct {
 	// ModelTag is the tag of the model hosting the entity.
 	ModelTag string `json:"model-tag"`
 
-	// Tag is the tag of the entity for which are importing the token.
+	// Tag is the tag of the entity.
 	Tag string `json:"tag"`
 
-	// Token is the token of the entity to be imported.
-	Token string `json:"token"`
+	// Token is the token of the entity.
+	Token string `json:"token,omitempty"`
 }
 
 // RemoteApplicationResult holds a remote application and an error.

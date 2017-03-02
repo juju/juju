@@ -123,7 +123,7 @@ type Firewaller struct {
 	modelUUID                  string
 	newRemoteFirewallerAPIFunc func(modelUUID string) (RemoteFirewallerAPICloser, error)
 	remoteRelationsWatcher     watcher.StringsWatcher
-	remoteRelationsChange      chan names.ApplicationTag
+	remoteRelationsChange      chan *remoteRelationChange
 	relationIngress            map[names.RelationTag]*remoteRelationData
 	pollClock                  clock.Clock
 }
@@ -150,7 +150,7 @@ func NewFirewaller(cfg Config) (worker.Worker, error) {
 		applicationids:             make(map[names.ApplicationTag]*applicationData),
 		exposedChange:              make(chan *exposedChange),
 		relationIngress:            make(map[names.RelationTag]*remoteRelationData),
-		remoteRelationsChange:      make(chan names.ApplicationTag),
+		remoteRelationsChange:      make(chan *remoteRelationChange),
 		pollClock:                  clk,
 	}
 
@@ -295,11 +295,15 @@ func (fw *Firewaller) loop() error {
 	}
 }
 
-func (fw *Firewaller) remoteRelationChanged(localApplicationTag names.ApplicationTag) error {
-	logger.Debugf("process remote relation change for local app %v", localApplicationTag)
-	appData, ok := fw.applicationids[localApplicationTag]
+func (fw *Firewaller) remoteRelationChanged(change *remoteRelationChange) error {
+	logger.Debugf("process remote relation change for %v", change.relationTag)
+	relData, ok := fw.relationIngress[change.relationTag]
+	if ok {
+		relData.networks = change.networks
+	}
+	appData, ok := fw.applicationids[change.localApplicationTag]
 	if !ok {
-		logger.Debugf("ignoring unknown application: %v", localApplicationTag)
+		logger.Debugf("ignoring unknown application: %v", change.localApplicationTag)
 		return nil
 	}
 	unitds := []*unitData{}
@@ -740,6 +744,9 @@ func (fw *Firewaller) updateForRemoteRelationIngress(appTag names.ApplicationTag
 		if data.localApplicationTag != appTag {
 			continue
 		}
+		if !data.ingressRequired {
+			continue
+		}
 		appProcessed = true
 		for _, cidr := range data.networks.Values() {
 			cidrs.Add(cidr)
@@ -747,7 +754,7 @@ func (fw *Firewaller) updateForRemoteRelationIngress(appTag names.ApplicationTag
 	}
 	// This is a fallback for providers which have not yet implemented the
 	// network interface, or where the network information is not yet available.
-	// TODO(wallyworld) - remove fallback when proivders are all updated
+	// TODO(wallyworld) - remove fallback when providers are all updated
 	if appProcessed && len(cidrs) == 0 {
 		logger.Warningf("adding default CIDR 0.0.0.0/0 for: %v", appTag)
 		cidrs.Add("0.0.0.0/0")
@@ -802,6 +809,7 @@ func (fw *Firewaller) flushInstancePorts(machined *machineData, toOpen, toClose 
 	// This is important because when a machine is first created,
 	// it will have no instance id but also no open ports -
 	// InstanceId will fail but we don't care.
+	logger.Debugf("flush instance ports: to open %v, to close %v", toOpen, toClose)
 	if len(toOpen) == 0 && len(toClose) == 0 {
 		return nil
 	}
@@ -1111,6 +1119,10 @@ func diffRanges(currentRules, wantedRules []network.IngressRule) (toOpen, toClos
 			rule := network.IngressRule{PortRange: portRange, SourceCIDRs: toOpenCidrs.SortedValues()}
 			toOpen = append(toOpen, rule)
 		}
+		// We we have any CIDRs for which to allow access, no need to close the port range.
+		if len(toOpenCidrs) > 0 {
+			continue
+		}
 		toCloseCidrs := existingCidrs.Difference(wantedCidrs)
 		if toCloseCidrs.Size() > 0 {
 			rule := network.IngressRule{PortRange: portRange, SourceCIDRs: toCloseCidrs.SortedValues()}
@@ -1147,7 +1159,7 @@ func (fw *Firewaller) relationLifeChanged(tag names.RelationTag) error {
 	dead := notfound || rel.Life == params.Dead
 	data, known := fw.relationIngress[tag]
 	if known && dead {
-		logger.Debugf("relation was known but has died")
+		logger.Debugf("relation %v was known but has died", tag.Id())
 		return fw.forgetRelation(data)
 	}
 	if !known && !dead {
@@ -1169,6 +1181,7 @@ type remoteRelationData struct {
 	remoteRelationId    *params.RemoteEntityId
 	remoteModelUUID     string
 	networks            set.Strings
+	ingressRequired     bool
 }
 
 // startRelation creates a new data value for tracking details of the
@@ -1239,20 +1252,33 @@ func (rd *remoteRelationData) watchLoop() error {
 	}
 }
 
+type remoteRelationChange struct {
+	relationTag         names.RelationTag
+	localApplicationTag names.ApplicationTag
+	networks            set.Strings
+}
+
 // updateNetworks gathers the ingress CIDRs for the relation and notifies
 // that a change has occurred.
 func (rd *remoteRelationData) updateNetworks(facade RemoteFirewallerAPI, remoteRelationId params.RemoteEntityId) error {
 	networks, err := facade.IngressSubnetsForRelation(remoteRelationId)
 	if err != nil {
 		if params.IsCodeNotFound(err) || params.IsCodeNotSupported(err) {
+			rd.ingressRequired = false
 			return nil
 		}
 		return errors.Trace(err)
 	}
+	rd.ingressRequired = true
 	logger.Debugf("ingress networks for %v: %+v", remoteRelationId, networks)
 	rd.networks = set.NewStrings(networks.CIDRs...)
+	change := &remoteRelationChange{
+		relationTag:         rd.tag,
+		localApplicationTag: rd.localApplicationTag,
+		networks:            rd.networks,
+	}
 	select {
-	case rd.fw.remoteRelationsChange <- rd.localApplicationTag:
+	case rd.fw.remoteRelationsChange <- change:
 	case <-rd.catacomb.Dying():
 		return rd.catacomb.ErrDying()
 	}
@@ -1273,7 +1299,11 @@ func (rd *remoteRelationData) Wait() error {
 func (fw *Firewaller) forgetRelation(data *remoteRelationData) error {
 	logger.Debugf("forget relation %v", data.tag.Id())
 	delete(fw.relationIngress, data.tag)
-	if err := fw.remoteRelationChanged(data.localApplicationTag); err != nil {
+	change := &remoteRelationChange{
+		relationTag:         data.tag,
+		localApplicationTag: data.localApplicationTag,
+	}
+	if err := fw.remoteRelationChanged(change); err != nil {
 		return errors.Trace(err)
 	}
 

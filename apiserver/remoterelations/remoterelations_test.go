@@ -210,8 +210,8 @@ func (s *remoteRelationsSuite) TestWatchLocalRelationUnits(c *gc.C) {
 }
 
 func (s *remoteRelationsSuite) TestImportRemoteEntities(c *gc.C) {
-	result, err := s.api.ImportRemoteEntities(params.ImportEntityArgs{
-		Args: []params.ImportEntityArg{
+	result, err := s.api.ImportRemoteEntities(params.RemoteEntityArgs{
+		Args: []params.RemoteEntityArg{
 			{ModelTag: coretesting.ModelTag.String(), Tag: "application-django", Token: "token"},
 		}})
 	c.Assert(err, jc.ErrorIsNil)
@@ -223,13 +223,13 @@ func (s *remoteRelationsSuite) TestImportRemoteEntities(c *gc.C) {
 }
 
 func (s *remoteRelationsSuite) TestImportRemoteEntitiesTwice(c *gc.C) {
-	_, err := s.api.ImportRemoteEntities(params.ImportEntityArgs{
-		Args: []params.ImportEntityArg{
+	_, err := s.api.ImportRemoteEntities(params.RemoteEntityArgs{
+		Args: []params.RemoteEntityArg{
 			{ModelTag: coretesting.ModelTag.String(), Tag: "application-django", Token: "token"},
 		}})
 	c.Assert(err, jc.ErrorIsNil)
-	result, err := s.api.ImportRemoteEntities(params.ImportEntityArgs{
-		Args: []params.ImportEntityArg{
+	result, err := s.api.ImportRemoteEntities(params.RemoteEntityArgs{
+		Args: []params.RemoteEntityArg{
 			{ModelTag: coretesting.ModelTag.String(), Tag: "application-django", Token: "token"},
 		}})
 	c.Assert(err, jc.ErrorIsNil)
@@ -239,6 +239,19 @@ func (s *remoteRelationsSuite) TestImportRemoteEntitiesTwice(c *gc.C) {
 	s.st.CheckCalls(c, []testing.StubCall{
 		{"ImportRemoteEntity", []interface{}{coretesting.ModelTag, names.ApplicationTag{Name: "django"}, "token"}},
 		{"ImportRemoteEntity", []interface{}{coretesting.ModelTag, names.ApplicationTag{Name: "django"}, "token"}},
+	})
+}
+
+func (s *remoteRelationsSuite) TestRemoveRemoteEntities(c *gc.C) {
+	result, err := s.api.RemoveRemoteEntities(params.RemoteEntityArgs{
+		Args: []params.RemoteEntityArg{
+			{ModelTag: coretesting.ModelTag.String(), Tag: "application-django"},
+		}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Results, gc.HasLen, 1)
+	c.Assert(result.Results[0], jc.DeepEquals, params.ErrorResult{})
+	s.st.CheckCalls(c, []testing.StubCall{
+		{"RemoveRemoteEntity", []interface{}{coretesting.ModelTag, names.ApplicationTag{Name: "django"}}},
 	})
 }
 
