@@ -546,7 +546,9 @@ func (s *StorageStateSuite) TestAllStorageInstances(c *gc.C) {
 	for _, one := range all {
 		c.Assert(one.Kind(), gc.DeepEquals, state.StorageKindBlock)
 		c.Assert(nameSet.Contains(one.StorageName()), jc.IsTrue)
-		c.Assert(ownerSet.Contains(one.Owner().String()), jc.IsTrue)
+		owner, ok := one.Owner()
+		c.Assert(ok, jc.IsTrue)
+		c.Assert(ownerSet.Contains(owner.String()), jc.IsTrue)
 	}
 }
 
@@ -733,6 +735,12 @@ func (s *StorageStateSuite) TestConcurrentDestroyStorageInstance(c *gc.C) {
 	si, err := s.State.StorageInstance(storageTag)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(si.Life(), gc.Equals, state.Dying)
+}
+
+func (s *StorageStateSuite) TestDestroyStorageInstanceNotFound(c *gc.C) {
+	err := s.State.DestroyStorageInstance(names.NewStorageTag("foo/0"))
+	c.Assert(err, gc.ErrorMatches, `cannot destroy storage "foo/0": storage instance "foo/0" not found`)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *StorageStateSuite) TestWatchStorageAttachments(c *gc.C) {

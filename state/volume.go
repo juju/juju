@@ -440,6 +440,22 @@ func (st *State) removeMachineVolumesOps(m *Machine) ([]txn.Op, error) {
 	}
 	for _, v := range machineVolumes {
 		volumeId := v.Tag().Id()
+		if v.doc.StorageId != "" {
+			// The volume is assigned to a storage instance;
+			// make sure we also remove the storage instance.
+			// There should be no storage attachments remaining,
+			// as the units must have been removed before the
+			// machine can be; and the storage attachments must
+			// have been removed before the unit can be.
+			ops = append(ops,
+				txn.Op{
+					C:      storageInstancesC,
+					Id:     v.doc.StorageId,
+					Assert: txn.DocExists,
+					Remove: true,
+				},
+			)
+		}
 		ops = append(ops,
 			txn.Op{
 				C:      volumesC,
@@ -674,7 +690,8 @@ func (st *State) DestroyVolume(tag names.VolumeTag) (err error) {
 	}
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		volume, err := st.volumeByTag(tag)
-		if errors.IsNotFound(err) {
+		if errors.IsNotFound(err) && attempt > 0 {
+			// On the first attempt, we expect it to exist.
 			return nil, jujutxn.ErrNoOperations
 		} else if err != nil {
 			return nil, errors.Trace(err)

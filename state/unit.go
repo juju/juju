@@ -1785,7 +1785,7 @@ func unitMachineStorageParams(u *Unit) (*machineStorageParams, error) {
 	volumeAttachments := make(map[names.VolumeTag]VolumeAttachmentParams)
 	filesystemAttachments := make(map[names.FilesystemTag]FilesystemAttachmentParams)
 	for _, storageAttachment := range storageAttachments {
-		storage, err := u.st.StorageInstance(storageAttachment.StorageInstance())
+		storage, err := u.st.storageInstance(storageAttachment.StorageInstance())
 		if err != nil {
 			return nil, errors.Annotatef(err, "getting storage instance")
 		}
@@ -1825,7 +1825,7 @@ func machineStorageParamsForStorageInstance(
 	unit names.UnitTag,
 	series string,
 	allCons map[string]StorageConstraints,
-	storage StorageInstance,
+	storage *storageInstance,
 ) (*machineStorageParams, error) {
 
 	charmStorage := charmMeta.Storage[storage.StorageName()]
@@ -1840,7 +1840,7 @@ func machineStorageParamsForStorageInstance(
 		volumeAttachmentParams := VolumeAttachmentParams{
 			charmStorage.ReadOnly,
 		}
-		if unit == storage.Owner() {
+		if unit == storage.maybeOwner() {
 			// The storage instance is owned by the unit, so we'll need
 			// to create a volume.
 			cons := allCons[storage.StorageName()]
@@ -1879,7 +1879,7 @@ func machineStorageParamsForStorageInstance(
 			location,
 			charmStorage.ReadOnly,
 		}
-		if unit == storage.Owner() {
+		if unit == storage.maybeOwner() {
 			// The storage instance is owned by the unit, so we'll need
 			// to create a filesystem.
 			cons := allCons[storage.StorageName()]
