@@ -22,6 +22,7 @@ from deploy_stack import (
     )
 from utility import (
     add_basic_testing_arguments,
+    generate_default_clean_dir,
     configure_logging,
     wait_for_port
     )
@@ -46,7 +47,7 @@ class AssessNetworkHealth:
         if args.logs:
             self.log_dir = args.logs
         else:
-            self.log_dir = BootstrapManager._generate_default_clean_dir(
+            self.log_dir = generate_default_clean_dir(
                             args.temp_env_name)
         self.expose_client = None
         self.existing_series = set([])
