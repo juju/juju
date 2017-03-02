@@ -706,7 +706,8 @@ class FakeBackend:
         parsed = parser.parse_args(args)
         if len(parsed.host_placement) > 0 and parsed.count != 1:
                 raise subprocess.CalledProcessError(
-                    1, 'cannot use -n when specifying a placement directive')
+                    1, 'cannot use -n when specifying a placement directive.'
+                    'See Lp #1384350.')
         if len(parsed.host_placement) == 1:
             split = parsed.host_placement[0].split(':')
             if len(split) == 1:
