@@ -463,6 +463,7 @@ func updateLegacyLXDCredentialsOps(st *State, cred cloud.Credential) ([]txn.Op, 
 	}
 	return ops, nil
 }
+
 func upgradeNoProxy(np string) string {
 	if np == "" {
 		return "127.0.0.1,localhost,::1"
@@ -596,6 +597,38 @@ func addNonDetachableStorageMachineId(st *State) error {
 	}
 	if len(ops) > 0 {
 		return errors.Trace(st.runTransaction(ops))
+	}
+	return nil
+}
+
+// RemoveNilValueApplicationSettings removes any application setting
+// key-value pairs from "settings" where value is nil.
+func RemoveNilValueApplicationSettings(st *State) error {
+	coll, closer := st.getRawCollection(settingsC)
+	defer closer()
+	iter := coll.Find(bson.M{"_id": bson.M{"$regex": "^.*:a#.*"}}).Iter()
+	var ops []txn.Op
+	var doc settingsDoc
+	for iter.Next(&doc) {
+		settingsChanged := false
+		for key, value := range doc.Settings {
+			if value != nil {
+				continue
+			}
+			settingsChanged = true
+			delete(doc.Settings, key)
+		}
+		if settingsChanged {
+			ops = append(ops, txn.Op{
+				C:      settingsC,
+				Id:     doc.DocID,
+				Assert: txn.DocExists,
+				Update: bson.M{"$set": bson.M{"settings": doc.Settings}},
+			})
+		}
+	}
+	if len(ops) > 0 {
+		return errors.Trace(st.runRawTransaction(ops))
 	}
 	return nil
 }

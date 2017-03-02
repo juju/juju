@@ -71,22 +71,6 @@ func (s *UnitSuite) TestConfigSettingsIncludeDefaults(c *gc.C) {
 	c.Assert(settings, gc.DeepEquals, charm.Settings{"blog-title": "My Title"})
 }
 
-func (s *UnitSuite) TestConfigSettingsNilTrumpedByDefaults(c *gc.C) {
-	err := s.unit.SetCharmURL(s.charm.URL())
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Should never happen again; was happening because of lp#1667199
-	settings := state.GetApplicationSettings(s.State, s.service)
-	settings.Set("blog-title", nil)
-	_, err = settings.Write()
-	c.Assert(err, jc.ErrorIsNil)
-
-	unitSettings, err := s.unit.ConfigSettings()
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Assert(unitSettings, gc.DeepEquals, charm.Settings{"blog-title": "My Title"})
-}
-
 func (s *UnitSuite) TestConfigSettingsReflectService(c *gc.C) {
 	err := s.service.UpdateConfigSettings(charm.Settings{"blog-title": "no title"})
 	c.Assert(err, jc.ErrorIsNil)

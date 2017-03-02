@@ -13,5 +13,12 @@ func stateStepsFor22() []Step {
 				return context.State().AddNonDetachableStorageMachineId()
 			},
 		},
+		&upgradeStep{
+			description: "remove application config settings with nil value",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return context.State().RemoveNilValueApplicationSettings()
+			},
+		},
 	}
 }
