@@ -36,6 +36,9 @@ type VolumeInfo struct {
 	// from params.Volume
 	Persistent bool `yaml:"persistent" json:"persistent"`
 
+	// Life is the lifecycle state of the volume.
+	Life string `yaml:"life,omitempty" json:"life,omitempty"`
+
 	// from params.Volume
 	Status EntityStatus `yaml:"status,omitempty" json:"status,omitempty"`
 }
@@ -56,6 +59,7 @@ type MachineVolumeAttachment struct {
 	DeviceLink string `yaml:"device-link,omitempty" json:"device-link,omitempty"`
 	BusAddress string `yaml:"bus-address,omitempty" json:"bus-address,omitempty"`
 	ReadOnly   bool   `yaml:"read-only" json:"read-only"`
+	Life       string `yaml:"life,omitempty" json:"life,omitempty"`
 	// TODO(axw) add machine volume attachment status when we have it
 }
 
@@ -114,6 +118,7 @@ func createVolumeInfo(details params.VolumeDetails) (names.VolumeTag, VolumeInfo
 	info.HardwareId = details.Info.HardwareId
 	info.Size = details.Info.Size
 	info.Persistent = details.Info.Persistent
+	info.Life = string(details.Life)
 	info.Status = EntityStatus{
 		details.Status.Status,
 		details.Status.Info,
@@ -133,6 +138,7 @@ func createVolumeInfo(details params.VolumeDetails) (names.VolumeTag, VolumeInfo
 				attachment.DeviceLink,
 				attachment.BusAddress,
 				attachment.ReadOnly,
+				string(attachment.Life),
 			}
 		}
 		info.Attachments = &VolumeAttachments{

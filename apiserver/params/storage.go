@@ -404,6 +404,11 @@ type StorageDetails struct {
 	// Status contains the status of the storage instance.
 	Status EntityStatus `json:"status"`
 
+	// Life contains the lifecycle state of the storage.
+	// Old versions of the API do not populate this field,
+	// so it may be omitted.
+	Life Life `json:"life,omitempty"`
+
 	// Persistent reports whether or not the underlying volume or
 	// filesystem is persistent; i.e. whether or not it outlives
 	// the machine that it is attached to.
@@ -462,6 +467,11 @@ type StorageAttachmentDetails struct {
 	// Location holds location (mount point/device path) of
 	// the attached storage.
 	Location string `json:"location,omitempty"`
+
+	// Life contains the lifecycle state of the storage attachment.
+	// Old versions of the API do not populate this field, so it may
+	// be omitted.
+	Life Life `json:"life,omitempty"`
 }
 
 // StoragePool holds data for a pool instance.
@@ -547,16 +557,33 @@ type VolumeDetails struct {
 	// Info contains information about the volume.
 	Info VolumeInfo `json:"info"`
 
+	// Life contains the lifecycle state of the volume.
+	// Old versions of the API do not populate this field,
+	// so it may be omitted.
+	Life Life `json:"life,omitempty"`
+
 	// Status contains the status of the volume.
 	Status EntityStatus `json:"status"`
 
 	// MachineAttachments contains a mapping from
 	// machine tag to volume attachment information.
-	MachineAttachments map[string]VolumeAttachmentInfo `json:"machine-attachments,omitempty"`
+	MachineAttachments map[string]VolumeAttachmentDetails `json:"machine-attachments,omitempty"`
 
 	// Storage contains details about the storage instance
 	// that the volume is assigned to, if any.
 	Storage *StorageDetails `json:"storage,omitempty"`
+}
+
+// VolumeAttachmentDetails describes a volume attachment.
+type VolumeAttachmentDetails struct {
+	// NOTE(axw) for backwards-compatibility, this must not be given a
+	// json tag. This ensures that we collapse VolumeAttachmentInfo.
+	VolumeAttachmentInfo
+
+	// Life contains the lifecycle state of the volume attachment.
+	// Old versions of the API do not populate this field, so it
+	// may be omitted.
+	Life Life `json:"life,omitempty"`
 }
 
 // VolumeDetailsResult contains details about a volume, its attachments or
@@ -603,16 +630,33 @@ type FilesystemDetails struct {
 	// Info contains information about the filesystem.
 	Info FilesystemInfo `json:"info"`
 
+	// Life contains the lifecycle state of the filesystem.
+	// Old versions of the API do not populate this field,
+	// so it may be omitted.
+	Life Life `json:"life,omitempty"`
+
 	// Status contains the status of the filesystem.
 	Status EntityStatus `json:"status"`
 
 	// MachineAttachments contains a mapping from
 	// machine tag to filesystem attachment information.
-	MachineAttachments map[string]FilesystemAttachmentInfo `json:"machine-attachments,omitempty"`
+	MachineAttachments map[string]FilesystemAttachmentDetails `json:"machine-attachments,omitempty"`
 
 	// Storage contains details about the storage instance
 	// that the volume is assigned to, if any.
 	Storage *StorageDetails `json:"storage,omitempty"`
+}
+
+// FilesystemAttachmentDetails describes a filesystem attachment.
+type FilesystemAttachmentDetails struct {
+	// NOTE(axw) for backwards-compatibility, this must not be given a
+	// json tag. This ensures that we collapse FilesystemAttachmentInfo.
+	FilesystemAttachmentInfo
+
+	// Life contains the lifecycle state of the filesystem attachment.
+	// Old versions of the API do not populate this field, so it may
+	// be omitted.
+	Life Life `json:"life,omitempty"`
 }
 
 // FilesystemDetailsResult contains details about a filesystem, its attachments or

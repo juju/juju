@@ -237,6 +237,7 @@ func (s *storageSuite) createTestStorageDetails() params.StorageDetails {
 		StorageTag: s.storageTag.String(),
 		OwnerTag:   s.unitTag.String(),
 		Kind:       params.StorageKindFilesystem,
+		Life:       "dying",
 		Status: params.EntityStatus{
 			Status: "attached",
 		},
@@ -246,6 +247,7 @@ func (s *storageSuite) createTestStorageDetails() params.StorageDetails {
 				s.unitTag.String(),
 				s.machineTag.String(),
 				"", // location
+				"alive",
 			},
 		},
 	}
@@ -293,6 +295,7 @@ func (s *storageSuite) TestShowStorage(c *gc.C) {
 		StorageTag: s.storageTag.String(),
 		OwnerTag:   s.unitTag.String(),
 		Kind:       params.StorageKindFilesystem,
+		Life:       "dying",
 		Status: params.EntityStatus{
 			Status: "attached",
 		},
@@ -302,6 +305,7 @@ func (s *storageSuite) TestShowStorage(c *gc.C) {
 				s.unitTag.String(),
 				s.machineTag.String(),
 				"",
+				"alive",
 			},
 		},
 	}
