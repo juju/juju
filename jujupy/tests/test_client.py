@@ -307,6 +307,14 @@ class TestJuju2Backend(TestCase):
         self.assertEqual(('ctrl1', 'user1', 'model1'), result)
 
 
+def backend_call(client, cmd, args, model=None, check=True, timeout=None,
+                 extra_env=None):
+    """Return the mock.call for this command."""
+    return call(cmd, args, client.used_feature_flags,
+                client.env.juju_home, model, check, timeout, extra_env,
+                suppress_err=False)
+
+
 class TestBaseCondition(ClientTest):
 
     def test_timeout(self):
@@ -1470,6 +1478,25 @@ class TestModelClient(ClientTest):
              '-m', 'foo:foo', 'ssh:m-foo'),
             1)
         self.assertEqual(cc_mock.call_count, 2)
+
+    def test_remove_machine(self):
+        client = fake_juju_client()
+        with patch.object(client._backend, 'juju') as juju_mock:
+            condition = client.remove_machine('0')
+        call = backend_call(
+            client, 'remove-machine', ('0',), 'name:name')
+        juju_mock.assert_called_once_with(*call[1], **call[2])
+        self.assertEqual(condition, WaitMachineNotPresent('0', 600))
+
+    def test_remove_machine_azure(self):
+        client = fake_juju_client(JujuData('name', {
+            'type': 'azure',
+            'location': 'usnorth',
+            }))
+        client.bootstrap()
+        client.juju('add-machine', ())
+        condition = client.remove_machine('0')
+        self.assertEqual(condition, WaitMachineNotPresent('0', 1200))
 
     def test_wait_for_started(self):
         value = self.make_status_yaml('agent-state', 'started', 'started')

@@ -1315,6 +1315,18 @@ class WaitMachineNotPresent(BaseCondition):
         super(WaitMachineNotPresent, self).__init__(timeout)
         self.machine = machine
 
+    def __eq__(self, other):
+        if not type(self) is type(other):
+            return False
+        if self.timeout != other.timeout:
+            return False
+        if self.machine != other.machine:
+            return False
+        return True
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
     def iter_blocking_state(self, status):
         for machine, info in status.iter_machines():
             if machine == self.machine:
@@ -1620,6 +1632,15 @@ class ModelClient:
         else:
             timeout = 600
         return WaitMachineNotPresent(machine, timeout)
+
+    def remove_machine(self, machine_id):
+        """Remove a machine (or container).
+
+        :param machine_id: The id of the machine to remove.
+        :return: A WaitMachineNotPresent instance for client.wait_for.
+        """
+        self.juju('remove-machine', (machine_id,))
+        return self.make_remove_machine_condition(machine_id)
 
     @staticmethod
     def get_cloud_region(cloud, region):
