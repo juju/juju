@@ -369,6 +369,29 @@ class TestWaitMachineNotPresent(ClientTest):
 
 class TestModelClient(ClientTest):
 
+    def test_get_full_path(self):
+        with patch('subprocess.check_output',
+                   return_value=b'asdf\n') as co_mock:
+            with patch('sys.platform', 'linux2'):
+                path = ModelClient.get_full_path()
+        co_mock.assert_called_once_with(('which', 'juju'))
+        expected = u'asdf'
+        self.assertEqual(expected, path)
+        self.assertIs(type(expected), type(path))
+
+    def test_get_full_path_encoding(self):
+        # Test with non-ascii-compatible encoding
+        with patch('subprocess.check_output',
+                   return_value='asdf\n'.encode('EBCDIC-CP-BE')) as co_mock:
+            with patch('sys.platform', 'linux2'):
+                with patch('jujupy.client.getpreferredencoding',
+                           return_value='EBCDIC-CP-BE'):
+                    path = ModelClient.get_full_path()
+        co_mock.assert_called_once_with(('which', 'juju'))
+        expected = u'asdf'
+        self.assertEqual(expected, path)
+        self.assertIs(type(expected), type(path))
+
     def test_no_duplicate_env(self):
         env = JujuData('foo', {})
         client = ModelClient(env, '1.25', 'full_path')

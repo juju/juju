@@ -15,6 +15,7 @@ from datetime import (
 import errno
 from itertools import chain
 import json
+from locale import getpreferredencoding
 import logging
 import os
 import re
@@ -1472,7 +1473,8 @@ class ModelClient:
     def get_full_path(cls):
         if sys.platform == 'win32':
             return WIN_JUJU_CMD
-        return subprocess.check_output(('which', 'juju')).rstrip(b'\n')
+        return subprocess.check_output(
+            ('which', 'juju')).decode(getpreferredencoding()).rstrip('\n')
 
     def clone_path_cls(self, juju_path):
         """Clone using the supplied path to determine the class."""
