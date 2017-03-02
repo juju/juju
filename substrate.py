@@ -76,14 +76,36 @@ def terminate_instances(env, instance_ids):
     subprocess.check_call(command_args, env=environ)
 
 
-def cleanup_instances(obj, instance_ids):
+def attempt_terminate_instances(handler, instance_ids):
+    """Initiate terminate instance method of specific handler
+
+    :param handler: The class handler to invoke
+    :param instance_ids: List of instances to terminate
+    :return: Any failed instances to terminate
+    """
     uncleaned_instances = []
     for instance_id in instance_ids:
         try:
-            obj.terminate_instances([instance_id])
-        except Exception:
-            uncleaned_instances.append(instance_id)
+            handler.terminate_instances([instance_id])
+        except Exception as e:
+            # Using too broad exception here because terminate_instances method
+            # is handlers specific
+            uncleaned_instances.append((instance_id, e.message))
     return uncleaned_instances
+
+
+def instances_only_contain_known(instance_id_list, known_instance_ids):
+    """ Identify instance_id_list only contains ids we know about.
+
+    :param instance_id_list: The list of instances
+    :param known_instance_ids: The list of instances
+    :return: True if instance_id_list only contains ids from
+    know_instance_ids otherwise False
+    """
+    unknown_ids = set(known_instance_ids) - set(instance_id_list)
+    if len(unknown_ids) == 0:
+        return True
+    return False
 
 
 class AWSAccount:
@@ -170,51 +192,28 @@ class AWSAccount:
                     break
         return unclean
 
-    def only_any_instances_in_this_list_are_using_this_security_group(
-            self, instances, sg_instances):
-        """Check if security group has more instances than specified instances
+    def cleanup_security_groups(self, instances, secgroups):
+        """ Destroy any security groups used only by `instances`.
 
         :param instances: The list of instances
-        :param sg_instances: The list of instances in security group
-        :return: True or False 
-        """
-        sg_has_more_instance = set(sg_instances) - set(instances)
-        if len(sg_has_more_instance) == 0:
-            return True
-        return False
-
-    def cleanup_security_groups(self, instances, secgroups):
-        """ Verify and invoke delete security group
-        Check if provided security group doesn't own any instances
-        other than specified instances.
-
-        :param instances: list of AWS instances
         :param secgroups: dict of security groups
         :return: list of failed deleted security groups
         """
-        del_secgroups = []
         failures = []
-        for secgroup in secgroups.items():
-            if self.only_any_instances_in_this_list_are_using_this_security_group(
-                    instances, secgroup[1]):
-                # No other instances were mapped to this security group
-                del_secgroups.append(secgroup[0])
-
-        if del_secgroups:
-            for secgroup in del_secgroups:
+        for sg_id, sg_instances in secgroups.items():
+            if instances_only_contain_known(instances, sg_instances):
                 try:
-                    failures = self.destroy_security_groups([secgroup])
+                    failures = self.destroy_security_groups([sg_id])
                 except EC2ResponseError as e:
-                    failures.append(secgroup)
-                    log.debug("{}".format(e.message))
+                    failures.append((sg_id, e.message))
         return failures
 
-    def get_security_groups(self, instances=None):
+    def get_security_groups(self, instances):
         """ Get AWS configured security group
         If instances list is specified then get security groups mapped
         to those instances only.
 
-        :param instances: list of AWS instance names
+        :param instances: list of instance names
         :return: dict of security group with key as security group name
          and values as list of instances configured to it.
         """
@@ -251,7 +250,7 @@ class AWSAccount:
         security_grps = self.get_security_groups(
             resource_details.get('instances', []))
 
-        uncleaned_instances = cleanup_instances(
+        uncleaned_instances = attempt_terminate_instances(
             self, resource_details.get('instances', []))
 
         uncleaned_security_grps = self.cleanup_security_groups(
@@ -333,8 +332,6 @@ class OpenStackAccount:
         :return: list of resources that were not cleaned up
         """
         uncleaned_resource = []
-        if not resource_details:
-            return uncleaned_resource
         return uncleaned_resource
 
 
@@ -395,12 +392,6 @@ class JoyentAccount:
         :return: list of resources that were not cleaned up
         """
         uncleaned_resource = []
-        if not resource_details:
-            return uncleaned_resource
-
-        uncleaned_resource = cleanup_instances(
-            self, resource_details.get('instances', []))
-
         return uncleaned_resource
 
 
@@ -469,12 +460,6 @@ class GCEAccount:
         :return: list of resources that were not cleaned up
         """
         uncleaned_resource = []
-        if not resource_details:
-            return uncleaned_resource
-
-        uncleaned_resource = cleanup_instances(
-            self, resource_details.get('instances', []))
-
         return uncleaned_resource
 
 
@@ -534,9 +519,7 @@ class AzureARMAccount:
         :param resource_details: The list of resource to be cleaned up
         :return: list of resources that were not cleaned up
         """
-        uncleaned_resource = cleanup_instances(
-            self, resource_details.get('instances', []))
-
+        uncleaned_resource = []
         return uncleaned_resource
 
 
@@ -641,12 +624,6 @@ class AzureAccount:
         :return: list of resources that were not cleaned up
         """
         uncleaned_resource = []
-        if not resource_details:
-            return uncleaned_resource
-
-        uncleaned_resource = cleanup_instances(
-            self, resource_details.get('instances', []))
-
         return uncleaned_resource
 
 
@@ -874,12 +851,6 @@ class MAASAccount:
         :return: list of resources that were not cleaned up
         """
         uncleaned_resource = []
-        if not resource_details:
-            return uncleaned_resource
-
-        uncleaned_resource = cleanup_instances(
-            self, resource_details.get('instances', []))
-
         return uncleaned_resource
 
 
@@ -944,12 +915,6 @@ class LXDAccount:
         :return: list of resources that were not cleaned up
         """
         uncleaned_resource = []
-        if not resource_details:
-            return uncleaned_resource
-
-        uncleaned_resource = cleanup_instances(
-            self, resource_details.get('instances', []))
-
         return uncleaned_resource
 
 

@@ -520,6 +520,20 @@ def make_controller_strategy(client, tear_down_client, controller_host):
             os.environ['SSO_PASSWORD'], client, tear_down_client)
 
 
+def error_if_unclean(unclean_resources):
+    """
+    List all the resource that were not cleanup programmatically.
+    :param unclean_resources: List of unclean resources
+    """
+    if unclean_resources:
+        logging.critical("following resource requires manual cleanup")
+        for resources in unclean_resources:
+            logging.critical(resources[0])
+            for resource in resources[1:]:
+                for (id, reason) in resource:
+                    logging.critical(id + " : " + reason)
+
+
 class CreateController:
     """A Controller strategy where the controller is created.
 
@@ -658,16 +672,6 @@ class BootstrapManager:
         self.logged_exception_exit = logged_exception_exit
         self.has_controller = False
         self.resource_details = None
-
-    def error_if_unclean(self, unclean_resources):
-        """
-        List all the resource that were not cleanup programmatically.
-        :param unclean_resources: List of unclean resources
-        """
-        if unclean_resources:
-            logging.critical("following resource requires manual cleanup")
-            for res in unclean_resources:
-                logging.critical(res)
 
     def ensure_cleanup(self):
         """
@@ -951,7 +955,7 @@ class BootstrapManager:
                             self.collect_resource_details()
                         self.tear_down(self.jes_enabled)
                         unclean_resources = self.ensure_cleanup()
-                        self.error_if_unclean(unclean_resources)
+                        error_if_unclean(unclean_resources)
 
     # GZ 2016-08-11: Should this method be elsewhere to avoid poking backend?
     def _should_dump(self):

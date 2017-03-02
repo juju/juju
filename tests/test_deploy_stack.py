@@ -51,6 +51,7 @@ from deploy_stack import (
     retain_config,
     update_env,
     wait_for_state_server_to_shutdown,
+    error_if_unclean,
     )
 from jujuconfig import (
     get_environments_path,
@@ -2644,3 +2645,23 @@ class TestWaitForStateServerToShutdown(FakeHomeTestCase):
         wfp_mock.assert_called_once_with('example.org', 17070, closed=True,
                                          timeout=60)
         hni_mock.assert_called_once_with(client.env, 'i-255')
+
+
+class TestErrorIfUnclean(FakeHomeTestCase):
+    def test_contain_unclean_resources(self):
+        unclean_resources = [
+            ['instances',
+             [('ifoo', 'Instance not found'),
+              ('ibar', 'Instance not found')]],
+            ['security groups',
+             [('sg-bar', 'Security group failed to delete')]
+             ]]
+        error_if_unclean(unclean_resources)
+        self.assertListEqual(self.log_stream.getvalue().splitlines(), [
+            "CRITICAL following resource requires manual cleanup",
+            "CRITICAL instances",
+            "CRITICAL ifoo : Instance not found",
+            "CRITICAL ibar : Instance not found",
+            "CRITICAL security groups",
+            "CRITICAL sg-bar : Security group failed to delete"
+        ])
