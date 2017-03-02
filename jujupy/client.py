@@ -15,6 +15,7 @@ from datetime import (
 import errno
 from itertools import chain
 import json
+from locale import getpreferredencoding
 import logging
 import os
 import re
@@ -1315,6 +1316,18 @@ class WaitMachineNotPresent(BaseCondition):
         super(WaitMachineNotPresent, self).__init__(timeout)
         self.machine = machine
 
+    def __eq__(self, other):
+        if not type(self) is type(other):
+            return False
+        if self.timeout != other.timeout:
+            return False
+        if self.machine != other.machine:
+            return False
+        return True
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
     def iter_blocking_state(self, status):
         for machine, info in status.iter_machines():
             if machine == self.machine:
@@ -1460,7 +1473,8 @@ class ModelClient:
     def get_full_path(cls):
         if sys.platform == 'win32':
             return WIN_JUJU_CMD
-        return subprocess.check_output(('which', 'juju')).rstrip(b'\n')
+        return subprocess.check_output(
+            ('which', 'juju')).decode(getpreferredencoding()).rstrip('\n')
 
     def clone_path_cls(self, juju_path):
         """Clone using the supplied path to determine the class."""
@@ -1620,6 +1634,19 @@ class ModelClient:
         else:
             timeout = 600
         return WaitMachineNotPresent(machine, timeout)
+
+    def remove_machine(self, machine_id, force=False):
+        """Remove a machine (or container).
+
+        :param machine_id: The id of the machine to remove.
+        :return: A WaitMachineNotPresent instance for client.wait_for.
+        """
+        if force:
+            options = ('--force',)
+        else:
+            options = ()
+        self.juju('remove-machine', options + (machine_id,))
+        return self.make_remove_machine_condition(machine_id)
 
     @staticmethod
     def get_cloud_region(cloud, region):

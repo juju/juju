@@ -3,7 +3,6 @@ from contextlib import contextmanager
 import logging
 
 from mock import (
-    call,
     patch,
     )
 from assess_cloud import (
@@ -22,6 +21,7 @@ from jujupy import (
     Juju2Backend,
     )
 from jujupy.version_client import ModelClient2_0
+from jujupy.tests.test_client import backend_call
 from tests import (
     FakeHomeTestCase,
     observable_temp_file,
@@ -31,14 +31,6 @@ from utility import (
     temp_dir,
     temp_yaml_file,
     )
-
-
-def backend_call(client, cmd, args, model=None, check=True, timeout=None,
-                 extra_env=None):
-    """Return the mock.call for this command."""
-    return call(cmd, args, client.used_feature_flags,
-                client.env.juju_home, model, check, timeout, extra_env,
-                suppress_err=False)
 
 
 @contextmanager

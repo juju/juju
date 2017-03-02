@@ -749,7 +749,7 @@ class DeployManyAttempt(SteppedStageAttempt):
         for application in applications:
             for unit in application['units'].values():
                 container_machines.add(unit['machine'])
-                client.juju('remove-machine', ('--force', unit['machine']))
+                client.remove_machine(unit['machine'], force=True)
         remove_timeout = {
             LXC_MACHINE: 30,
             LXD_MACHINE: 900,
