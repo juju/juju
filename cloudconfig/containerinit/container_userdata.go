@@ -170,16 +170,19 @@ func PrepareNetworkConfigFromInterfaces(interfaces []network.InterfaceInfo) *Pre
 	autoStarted := set.NewStrings("lo")
 
 	for _, info := range interfaces {
+		cleanIfaceName := strings.Replace(info.MACAddress, ":", "_", -1)
+		// prepend eth because .format of python wont like a tag starting with numbers.
+		cleanIfaceName = fmt.Sprintf("{eth%s}", cleanIfaceName)
 		if !info.NoAutoStart {
-			autoStarted.Add(info.InterfaceName)
+			autoStarted.Add(cleanIfaceName)
 		}
 
 		if cidr := info.CIDRAddress(); cidr != "" {
-			nameToAddress[info.InterfaceName] = cidr
+			nameToAddress[cleanIfaceName] = cidr
 		} else if info.ConfigType == network.ConfigDHCP {
-			nameToAddress[info.InterfaceName] = string(network.ConfigDHCP)
+			nameToAddress[cleanIfaceName] = string(network.ConfigDHCP)
 		}
-		nameToRoutes[info.InterfaceName] = info.Routes
+		nameToRoutes[cleanIfaceName] = info.Routes
 
 		for _, dns := range info.DNSServers {
 			dnsServers.Add(dns.Value)
@@ -191,7 +194,7 @@ func PrepareNetworkConfigFromInterfaces(interfaces []network.InterfaceInfo) *Pre
 			gatewayAddress = info.GatewayAddress.Value
 		}
 
-		namesInOrder = append(namesInOrder, info.InterfaceName)
+		namesInOrder = append(namesInOrder, cleanIfaceName)
 	}
 
 	prepared := &PreparedConfig{
@@ -222,8 +225,10 @@ func newCloudInitConfigWithNetworks(series string, networkConfig *container.Netw
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		cloudConfig.AddBootTextFile(networkInterfacesFile, config, 0644)
-		cloudConfig.AddRunCmd(raiseJujuNetworkInterfacesScript(systemNetworkInterfacesFile, networkInterfacesFile))
+		cloudConfig.AddBootTextFile(systemNetworkInterfacesFile, config, 0644)
+		cloudConfig.AddBootTextFile(systemNetworkInterfacesFile+".py", populateNetworkInterfacesScript(systemNetworkInterfacesFile), 0744)
+		cloudConfig.AddBootCmd(populateNetworkInterfaces())
+		//cloudConfig.AddRunCmd(raiseJujuNetworkInterfacesScript(systemNetworkInterfacesFile, networkInterfacesFile))
 	}
 
 	return cloudConfig, nil
@@ -379,4 +384,73 @@ else
     echo "did not find %[2]s, not reconfiguring networking"
 fi`[1:],
 		oldInterfacesFile, newInterfacesFile)
+}
+
+func populateNetworkInterfaces() string {
+	s := `
+if [ -f /usr/bin/python ]; then
+    python /etc/network/interfaces.py
+else
+    python3 /etc/network/interfaces.py
+fi
+`
+	return s
+}
+
+func populateNetworkInterfacesScript(networkFile string) string {
+	s := `import subprocess, re
+from string import Formatter
+INTERFACES_FILE="%s"
+IP_LINE = re.compile(r"^\d: (.*?):")
+IP_HWADDR = re.compile(r".*link/ether ((\w{2}|:){11})")
+
+
+def ip_parse(ip_output):
+    """parses the output of the ip command
+    and returns a hwaddr->nic-name dict"""
+    devices = dict()
+    print ("parsing ip command output")
+    print (ip_output)
+    for ip_line in ip_output:
+        ip_line_str = str(ip_line, 'utf-8')
+        match = IP_LINE.match(ip_line_str)
+        if match is None:
+            continue
+        nic_name = match.group(1)
+        match = IP_HWADDR.match(ip_line_str)
+        if match is None:
+            continue
+        nic_hwaddr = match.group(1)
+        devices[nic_hwaddr]=nic_name
+    print("found the following devices: " + str(devices))
+    return devices
+
+def replace_ethernets(interfaces_file, devices):
+    """check if the contents of interfaces_file contain template
+    keys corresponding to hwaddresses and replace them with
+    the proper device name"""
+    interfaces_file_descriptor = open(interfaces_file, "r")
+    interfaces = interfaces_file_descriptor.read()
+    formatter = Formatter()
+    hwaddrs = [v[1] for v in formatter.parse(interfaces) if v[1]]
+    print("found the following hwaddrs: " + str(hwaddrs))
+    device_replacements = dict()
+    for hwaddr in hwaddrs:
+        hwaddr_clean = hwaddr[3:].replace("_", ":")
+        if devices.get(hwaddr_clean, None):
+            device_replacements[hwaddr] = devices[hwaddr_clean]
+    print ("will use the values in:" + str(device_replacements))
+    print("to fix the interfaces file:")
+    print(str(interfaces))
+    formatted = interfaces.format(**device_replacements)
+    print ("into")
+    print(formatted)
+    interfaces_file_descriptor = open(interfaces_file, "w")
+    interfaces_file_descriptor.write(formatted)
+    interfaces_file_descriptor.close()
+
+ip_output = ip_parse(subprocess.check_output(["ip", "-oneline", "link"]).splitlines())
+replace_ethernets(INTERFACES_FILE, ip_output)
+`
+	return fmt.Sprintf(s, networkFile)
 }
