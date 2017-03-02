@@ -141,13 +141,13 @@ func (s *pubsubSuite) TestMessage(c *gc.C) {
 
 	select {
 	case <-done:
-	case <-time.After(coretesting.ShortWait):
+	case <-time.After(coretesting.LongWait):
 		c.Fatalf("no first message")
 	}
 
 	select {
 	case <-done:
-	case <-time.After(coretesting.ShortWait):
+	case <-time.After(coretesting.LongWait):
 		c.Fatalf("no second message")
 	}
 
