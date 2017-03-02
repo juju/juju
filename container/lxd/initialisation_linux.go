@@ -15,6 +15,7 @@ import (
 	"os/exec"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/packaging/config"
@@ -303,7 +304,10 @@ func ensureDependencies(series string) error {
 }
 
 // randomizedOctetRange is a variable for testing purposes.
-var randomizedOctetRange = func() []int { return rand.Perm(255) }
+var randomizedOctetRange = func() []int {
+	rand.Seed(time.Now().UnixNano())
+	return rand.Perm(255)
+}
 
 // getKnownV4IPsAndCIDRs iterates all of the known Addresses on this machine
 // and groups them up into known CIDRs and IP addresses.
