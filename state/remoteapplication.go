@@ -322,7 +322,7 @@ func (s *RemoteApplication) AddEndpoints(eps []charm.Relation) error {
 		}
 		for _, r := range eps {
 			if currentEndpointNames.Contains(r.Name) {
-				return errors.Errorf("conflicting endpoint %v", r.Name)
+				return errors.AlreadyExistsf("endpoint %v", r.Name)
 			}
 		}
 		return nil
@@ -341,6 +341,9 @@ func (s *RemoteApplication) AddEndpoints(eps []charm.Relation) error {
 		// model may have been destroyed.
 		if attempt > 0 {
 			if err := checkModelActive(s.st); err != nil {
+				return nil, errors.Trace(err)
+			}
+			if err = s.Refresh(); err != nil {
 				return nil, errors.Trace(err)
 			}
 			currentEndpoints, err = s.Endpoints()

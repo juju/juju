@@ -303,9 +303,6 @@ func (s *remoteApplicationSuite) TestAddEndpoints(c *gc.C) {
 	err = foo.AddEndpoints(newEps)
 	c.Assert(err, jc.ErrorIsNil)
 
-	eps, err := foo.Endpoints()
-	c.Assert(err, jc.ErrorIsNil)
-
 	var expected []state.Endpoint
 	for _, r := range origEps {
 		expected = append(expected, state.Endpoint{ApplicationName: "foo", Relation: r})
@@ -313,7 +310,16 @@ func (s *remoteApplicationSuite) TestAddEndpoints(c *gc.C) {
 	for _, r := range newEps {
 		expected = append(expected, state.Endpoint{ApplicationName: "foo", Relation: r})
 	}
-	c.Assert(eps, jc.SameContents, expected)
+
+	// Test results without and then with refresh.
+	for i := 0; i < 2; i++ {
+		eps, err := foo.Endpoints()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(eps, jc.SameContents, expected)
+
+		err = foo.Refresh()
+		c.Assert(err, jc.ErrorIsNil)
+	}
 }
 
 func (s *remoteApplicationSuite) TestAddEndpointsConflicting(c *gc.C) {
@@ -332,7 +338,62 @@ func (s *remoteApplicationSuite) TestAddEndpointsConflicting(c *gc.C) {
 		{Name: "ep4", Role: charm.RoleProvider, Scope: charm.ScopeGlobal, Limit: 1},
 	}
 	err = foo.AddEndpoints(newEps)
-	c.Assert(err, gc.ErrorMatches, "conflicting endpoint ep1")
+	c.Assert(err, jc.Satisfies, errors.IsAlreadyExists)
+	c.Assert(err, gc.ErrorMatches, "endpoint ep1 already exists")
+}
+
+func (s *remoteApplicationSuite) TestAddEndpointsConcurrentOneDeleted(c *gc.C) {
+	origEps := []charm.Relation{
+		{Name: "ep1", Role: charm.RoleRequirer, Scope: charm.ScopeGlobal, Limit: 1},
+		{Name: "ep2", Role: charm.RoleProvider, Scope: charm.ScopeGlobal, Limit: 1},
+	}
+	foo, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name: "foo", OfferName: "bar", URL: "local:/u/me/foo", SourceModel: s.State.ModelTag(),
+		Endpoints: origEps,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	reducedEps := []charm.Relation{
+		{Name: "ep1", Role: charm.RoleRequirer, Scope: charm.ScopeGlobal, Limit: 1},
+	}
+	defer state.SetBeforeHooks(c, s.State, func() {
+		// Destroy foo and recreate with fewer endpoints to simulate
+		// endpoint removal.
+		err := foo.Destroy()
+		c.Assert(err, jc.ErrorIsNil)
+		_, err = s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+			Name: "foo", OfferName: "bar", URL: "local:/u/me/foo", SourceModel: s.State.ModelTag(),
+			Endpoints: reducedEps,
+		})
+		c.Assert(err, jc.ErrorIsNil)
+	}).Check()
+
+	newEps := []charm.Relation{
+		{Name: "ep3", Role: charm.RoleRequirer, Scope: charm.ScopeGlobal, Limit: 1},
+		{Name: "ep4", Role: charm.RoleProvider, Scope: charm.ScopeGlobal, Limit: 1},
+	}
+	err = foo.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	err = foo.AddEndpoints(newEps)
+	c.Assert(err, jc.ErrorIsNil)
+
+	var expected []state.Endpoint
+	for _, r := range reducedEps {
+		expected = append(expected, state.Endpoint{ApplicationName: "foo", Relation: r})
+	}
+	for _, r := range newEps {
+		expected = append(expected, state.Endpoint{ApplicationName: "foo", Relation: r})
+	}
+
+	// Test results without and then with refresh.
+	for i := 0; i < 2; i++ {
+		eps, err := foo.Endpoints()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(eps, jc.SameContents, expected)
+
+		err = foo.Refresh()
+		c.Assert(err, jc.ErrorIsNil)
+	}
 }
 
 func (s *remoteApplicationSuite) TestAddEndpointsConcurrentConflictingOneAdded(c *gc.C) {
@@ -350,7 +411,9 @@ func (s *remoteApplicationSuite) TestAddEndpointsConcurrentConflictingOneAdded(c
 		newEps := []charm.Relation{
 			{Name: "ep3", Role: charm.RoleRequirer, Scope: charm.ScopeGlobal, Limit: 1},
 		}
-		err = foo.AddEndpoints(newEps)
+		app, err := s.State.RemoteApplication("foo")
+		c.Assert(err, jc.ErrorIsNil)
+		err = app.AddEndpoints(newEps)
 		c.Assert(err, jc.ErrorIsNil)
 	}).Check()
 
@@ -359,7 +422,8 @@ func (s *remoteApplicationSuite) TestAddEndpointsConcurrentConflictingOneAdded(c
 		{Name: "ep4", Role: charm.RoleProvider, Scope: charm.ScopeGlobal, Limit: 1},
 	}
 	err = foo.AddEndpoints(newEps)
-	c.Assert(err, gc.ErrorMatches, "conflicting endpoint ep3")
+	c.Assert(err, jc.Satisfies, errors.IsAlreadyExists)
+	c.Assert(err, gc.ErrorMatches, "endpoint ep3 already exists")
 }
 
 func (s *remoteApplicationSuite) TestAddEndpointsConcurrentDifferentOneAdded(c *gc.C) {
@@ -377,7 +441,9 @@ func (s *remoteApplicationSuite) TestAddEndpointsConcurrentDifferentOneAdded(c *
 		{Name: "ep5", Role: charm.RoleRequirer, Scope: charm.ScopeGlobal, Limit: 1},
 	}
 	defer state.SetBeforeHooks(c, s.State, func() {
-		err = foo.AddEndpoints(concurrrentEps)
+		app, err := s.State.RemoteApplication("foo")
+		c.Assert(err, jc.ErrorIsNil)
+		err = app.AddEndpoints(concurrrentEps)
 		c.Assert(err, jc.ErrorIsNil)
 	}).Check()
 
@@ -386,9 +452,6 @@ func (s *remoteApplicationSuite) TestAddEndpointsConcurrentDifferentOneAdded(c *
 		{Name: "ep4", Role: charm.RoleProvider, Scope: charm.ScopeGlobal, Limit: 1},
 	}
 	err = foo.AddEndpoints(newEps)
-	c.Assert(err, jc.ErrorIsNil)
-
-	eps, err := foo.Endpoints()
 	c.Assert(err, jc.ErrorIsNil)
 
 	var expected []state.Endpoint
@@ -401,7 +464,16 @@ func (s *remoteApplicationSuite) TestAddEndpointsConcurrentDifferentOneAdded(c *
 	for _, r := range concurrrentEps {
 		expected = append(expected, state.Endpoint{ApplicationName: "foo", Relation: r})
 	}
-	c.Assert(eps, jc.SameContents, expected)
+
+	// Test results without and then with refresh.
+	for i := 0; i < 2; i++ {
+		eps, err := foo.Endpoints()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(eps, jc.SameContents, expected)
+
+		err = foo.Refresh()
+		c.Assert(err, jc.ErrorIsNil)
+	}
 }
 
 func (s *remoteApplicationSuite) TestAddRemoteRelationWrongScope(c *gc.C) {
