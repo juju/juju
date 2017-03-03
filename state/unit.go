@@ -1846,10 +1846,6 @@ func machineStorageParamsForStorageInstance(
 			cons := allCons[storage.StorageName()]
 			volumeParams := VolumeParams{
 				storage: storage.StorageTag(),
-				// TODO(axw) when we have commands for removing
-				// floating storage, drop the binding so that
-				// storage is persistent by default.
-				binding: storage.StorageTag(),
 				Pool:    cons.Pool,
 				Size:    cons.Size,
 			}
@@ -1885,10 +1881,6 @@ func machineStorageParamsForStorageInstance(
 			cons := allCons[storage.StorageName()]
 			filesystemParams := FilesystemParams{
 				storage: storage.StorageTag(),
-				// TODO(axw) when we have commands for removing
-				// floating storage, drop the binding so that
-				// storage is persistent by default.
-				binding: storage.StorageTag(),
 				Pool:    cons.Pool,
 				Size:    cons.Size,
 			}
