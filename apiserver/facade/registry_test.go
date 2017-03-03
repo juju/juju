@@ -258,15 +258,13 @@ func (s *RegistrySuite) TestRegisterStandard(c *gc.C) {
 	c.Check(*(val.(*int)), gc.Equals, 100)
 }
 
-func (s *RegistrySuite) TestRegisterStandardPanic(c *gc.C) {
+func (s *RegistrySuite) TestRegisterStandardError(c *gc.C) {
 	registry := &facade.Registry{}
-	c.Assert(
-		func() {
-			registry.RegisterStandard("badtest", 0, noArgs, "")
-		},
-		gc.PanicMatches,
+	err := registry.RegisterStandard("badtest", 0, noArgs, "")
+	c.Assert(err, gc.ErrorMatches,
 		`function ".*noArgs" does not have the signature .* or .*`)
-	_, err := registry.GetFactory("badtest", 0)
+
+	_, err = registry.GetFactory("badtest", 0)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	c.Assert(err, gc.ErrorMatches, `badtest\(0\) not found`)
 }

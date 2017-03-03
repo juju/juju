@@ -31,21 +31,25 @@ type record struct {
 // single facade. We use a map to be able to quickly lookup a version.
 type versions map[int]record
 
-// Registry describes Facades the facades exposed by some API server.
+// Registry describes the API facades exposed by some API server.
 type Registry struct {
 	facades map[string]versions
 }
 
-// XXX
-func (f *Registry) RegisterStandard(name string, version int, newFunc interface{}, feature string) {
+// RegisterStandard is the more convenient way of registering
+// facades. newFunc should have one of the following signatures:
+//   func (facade.Context) (*Type, error)
+//   func (*state.State, facade.Resources, facade.Authorizer) (*Type, error)
+func (f *Registry) RegisterStandard(name string, version int, newFunc interface{}, feature string) error {
 	wrapped, facadeType, err := wrapNewFacade(newFunc)
 	if err != nil {
-		panic(err) // XXX
+		return errors.Trace(err)
 	}
 	err = f.Register(name, version, wrapped, facadeType, feature)
 	if err != nil {
-		panic(err) // XXX
+		return errors.Trace(err)
 	}
+	return nil
 }
 
 // Register adds a single named facade at a given version to the registry.
