@@ -48,7 +48,7 @@ func formatStorageListTabular(
 		}
 	}
 
-	w.Print("Unit", "Id")
+	w.Print("Unit", "Id", "Type")
 	if len(storagePool) > 0 {
 		// Older versions of Juju do not include
 		// the pool name in the storage details.
@@ -71,7 +71,7 @@ func formatStorageListTabular(
 			}
 			continue
 		}
-		for unitId, a := range storageInfo.Attachments.Units {
+		for unitId := range storageInfo.Attachments.Units {
 			byStorage := byUnit[unitId]
 			if byStorage == nil {
 				byStorage = make(map[string]storageAttachmentInfo)
@@ -80,7 +80,7 @@ func formatStorageListTabular(
 			byStorage[storageId] = storageAttachmentInfo{
 				storageId: storageId,
 				unitId:    unitId,
-				location:  a.Location,
+				kind:      storageInfo.Kind,
 				status:    storageInfo.Status,
 			}
 		}
@@ -110,6 +110,7 @@ func formatStorageListTabular(
 			}
 			w.Print(info.unitId)
 			w.Print(info.storageId)
+			w.Print(info.kind)
 			if len(storagePool) > 0 {
 				w.Print(storagePool[info.storageId])
 			}
@@ -129,7 +130,7 @@ func formatStorageListTabular(
 type storageAttachmentInfo struct {
 	storageId string
 	unitId    string
-	location  string
+	kind      string
 	status    EntityStatus
 }
 

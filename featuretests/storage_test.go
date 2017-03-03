@@ -128,8 +128,8 @@ func (s *cmdStorageSuite) TestStorageList(c *gc.C) {
 
 	expected := `
 [Storage]
-Unit             Id      Provider id  Size  Status   Message
-storage-block/0  data/0                     pending  
+Unit             Id      Type   Provider id  Size  Status   Message
+storage-block/0  data/0  block                     pending  
 
 `[1:]
 	runList(c, expected)
@@ -142,8 +142,8 @@ func (s *cmdStorageSuite) TestStorageListPersistent(c *gc.C) {
 	// will be persistent until it has been provisioned.
 	expected := `
 [Storage]
-Unit             Id      Provider id  Size  Status   Message
-storage-block/0  data/0                     pending  
+Unit             Id      Type   Provider id  Size  Status   Message
+storage-block/0  data/0  block                     pending  
 
 `[1:]
 	runList(c, expected)
@@ -555,8 +555,8 @@ func (s *cmdStorageSuite) TestStorageAddToUnitHasVolumes(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, `
 [Storage]
-Unit                  Id      Provider id  Size  Status   Message
-storage-filesystem/0  data/0                     pending  
+Unit                  Id      Type        Provider id  Size  Status   Message
+storage-filesystem/0  data/0  filesystem                     pending  
 
 `[1:])
 	c.Assert(testing.Stderr(context), gc.Equals, "")
@@ -578,9 +578,9 @@ storage-filesystem/0  data/0                     pending
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, `
 [Storage]
-Unit                  Id      Provider id  Size  Status   Message
-storage-filesystem/0  data/0                     pending  
-storage-filesystem/0  data/1                     pending  
+Unit                  Id      Type        Provider id  Size  Status   Message
+storage-filesystem/0  data/0  filesystem                     pending  
+storage-filesystem/0  data/1  filesystem                     pending  
 
 `[1:])
 	c.Assert(testing.Stderr(context), gc.Equals, "")

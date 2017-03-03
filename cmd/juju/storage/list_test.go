@@ -41,11 +41,11 @@ func (s *ListSuite) TestList(c *gc.C) {
 		// Default format is tabular
 		`
 \[Storage\]
-Unit          Id           Pool      Provider id                 Size    Status    Message
-postgresql/0  db-dir/1100                                                attached  
-transcode/0   db-dir/1000                                                pending   creating volume
-transcode/0   shared-fs/0  radiance  provider-supplied-volume-4  1.0GiB  attached  
-transcode/1   shared-fs/0  radiance  provider-supplied-volume-4  1.0GiB  attached  
+Unit          Id           Type        Pool      Provider id                 Size    Status    Message
+postgresql/0  db-dir/1100  block                                                     attached  
+transcode/0   db-dir/1000  block                                                     pending   creating volume
+transcode/0   shared-fs/0  filesystem  radiance  provider-supplied-volume-4  1.0GiB  attached  
+transcode/1   shared-fs/0  filesystem  radiance  provider-supplied-volume-4  1.0GiB  attached  
 
 `[1:])
 }
@@ -58,11 +58,11 @@ func (s *ListSuite) TestListNoPool(c *gc.C) {
 		// Default format is tabular
 		`
 \[Storage\]
-Unit          Id           Provider id                 Size    Status    Message
-postgresql/0  db-dir/1100                                      attached  
-transcode/0   db-dir/1000                                      pending   creating volume
-transcode/0   shared-fs/0  provider-supplied-volume-4  1.0GiB  attached  
-transcode/1   shared-fs/0  provider-supplied-volume-4  1.0GiB  attached  
+Unit          Id           Type        Provider id                 Size    Status    Message
+postgresql/0  db-dir/1100  block                                           attached  
+transcode/0   db-dir/1000  block                                           pending   creating volume
+transcode/0   shared-fs/0  filesystem  provider-supplied-volume-4  1.0GiB  attached  
+transcode/1   shared-fs/0  filesystem  provider-supplied-volume-4  1.0GiB  attached  
 
 `[1:])
 }
