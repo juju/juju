@@ -35,12 +35,6 @@ log = logging.getLogger("assess_network_health")
 NO_EXPOSED_UNITS = 'No exposed units'
 
 
-class ConnectionError(Exception):
-    """Connection failed in some way"""
-    def __init__(self, message):
-        self.message = message
-
-
 class AssessNetworkHealth:
 
     def __init__(self, args):
@@ -67,7 +61,7 @@ class AssessNetworkHealth:
         if not reboot:
             if results_pre:
                 error_string.extend(results_pre)
-                raise ConnectionError('\n'.join(error_string))
+                raise Exception('\n'.join(error_string))
             log.info('SUCESS')
             return
         log.info('Units completed pre-reboot tests, rebooting machines.')
@@ -78,7 +72,7 @@ class AssessNetworkHealth:
             error_string.extend(results_pre or 'No pre-reboot failures.')
             error_string.extend(['Post-reboot test failures:'])
             error_string.extend(results_post or 'No post-reboot failures.')
-            raise ConnectionError('\n'.join(error_string))
+            raise Exception('\n'.join(error_string))
         log.info('SUCESS')
         return
 
@@ -236,7 +230,12 @@ class AssessNetworkHealth:
             log.info("Assessing internet connection for "
                      "machine: {}".format(unit[0]))
             results[unit[0]] = False
-            routes = self.ssh(client, unit[0], 'ip route show')
+            try:
+                routes = self.ssh(client, unit[0], 'ip route show')
+            except subprocess.CalledProcessError as e:
+                log.error('Could not connect to address for unit: {0}, '
+                          'unable to find default route.'.format(unit[0]))
+                continue
             default_route = re.search(r'^default\s+via\s+([\d\.]+)\s+', routes,
                                       re.MULTILINE)
             if default_route:
@@ -265,7 +264,9 @@ class AssessNetworkHealth:
         nh_units = []
         for service in apps.values():
             for unit in service.get('units', {}).values():
-                nh_units.extend(unit.get('subordinates').keys())
+                nh_subs = [u for u in unit.get('subordinates').keys()
+                           if 'network-health' in u]
+                nh_units.extend(nh_subs)
         for nh_unit in nh_units:
             service_results = {}
             for service, units in targets.items():
@@ -371,23 +372,22 @@ class AssessNetworkHealth:
 
     def reboot_machines(self, client):
         log.info("Starting reboot of all containers.")
-
-        def reboot(unit):
-            log.info("Restarting unit: {}".format(unit))
-            client.juju(
-                'run', ('--machine', unit, 'sudo shutdown -r now'))
-
         try:
             for machine, m_info in client.get_status().iter_machines():
+                cont_ids = []
                 try:
-                    for cont, c_info in m_info['containers'].items():
-                        reboot(cont)
-                        # TODO: Find another way to ensure LXD container has
-                        # properly rebooted
+                    cont_ids.extend([c['instance-id'] for c in
+                                    m_info.get('containers').values()])
                 except KeyError:
-                    log.info('No containers to reboot for '
-                             'machine: {}'.format(machine))
-                reboot(machine)
+                    log.info('No containers for machine: {}'.format(machine))
+                if cont_ids:
+                    log.info('Restarting containers: {0} on '
+                             'machine: {1}'.format(cont_ids, machine))
+                    self.ssh(client, machine,
+                             'sudo lxc restart {}'.format(' '.join(cont_ids)))
+                log.info("Restarting machine: {}".format(machine))
+                client.juju('run', ('--machine', machine,
+                                    'sudo shutdown -r now'))
                 hostname = client.get_status().get_machine_dns_name(machine)
                 wait_for_port(hostname, 22, timeout=240)
 
@@ -395,17 +395,7 @@ class AssessNetworkHealth:
             logging.info(
                 "Error running shutdown:\nstdout: %s\nstderr: %s",
                 e.output, getattr(e, 'stderr', None))
-            raise
-
-    def get_uptime(self, client, host):
-        uptime_pattern = re.compile(r'.*(\d+)')
-        uptime_output = self.ssh(client, host, 'uptime -p')
-        log.info('uptime -p: {}'.format(uptime_output))
-        match = uptime_pattern.match(uptime_output)
-        if match:
-            return int(match.group(1))
-        else:
-            return 0
+        client.wait_for_started()
 
     def ssh(self, client, machine, cmd):
         """Convenience function: run a juju ssh command and get back the output
@@ -418,7 +408,7 @@ class AssessNetworkHealth:
         attempts = 4
         for attempt in range(attempts):
             try:
-                return client.get_juju_output('ssh', '--proxy', machine[0],
+                return client.get_juju_output('ssh', '--proxy', machine,
                                               cmd)
             except subprocess.CalledProcessError as e:
                 # If the connection to the host failed, try again in a couple
@@ -511,9 +501,6 @@ def main(argv=None):
                                        target_model=args.model,
                                        series=args.series,
                                        reboot=args.reboot)
-        except Exception as e:
-            log.error(e)
-            raise
         finally:
             test.cleanup(client)
     return 0
