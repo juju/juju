@@ -4,26 +4,58 @@
 package storage
 
 import (
-	"fmt"
 	"io"
 	"sort"
 	"strconv"
 	"strings"
 
+	"github.com/dustin/go-humanize"
 	"github.com/juju/juju/cmd/output"
 )
 
 // formatListTabular writes a tabular summary of storage instances.
-func formatStorageListTabular(writer io.Writer, storageInfo map[string]StorageInfo) error {
+func formatStorageListTabular(
+	writer io.Writer,
+	storageInfo map[string]StorageInfo,
+	filesystems map[string]FilesystemInfo,
+	volumes map[string]VolumeInfo,
+) error {
 	tw := output.TabWriter(writer)
-	p := func(values ...interface{}) {
-		for _, v := range values {
-			fmt.Fprintf(tw, "%v\t", v)
+	w := output.Wrapper{tw}
+	w.Println("[Storage]")
+
+	storageProviderId := make(map[string]string)
+	storageSize := make(map[string]uint64)
+	storagePool := make(map[string]string)
+	for _, f := range filesystems {
+		if f.Pool != "" {
+			storagePool[f.Storage] = f.Pool
 		}
-		fmt.Fprintln(tw)
+		storageProviderId[f.Storage] = f.ProviderFilesystemId
+		storageSize[f.Storage] = f.Size
 	}
-	p("[Storage]")
-	p("Unit\tId\tLocation\tStatus\tMessage")
+	for _, v := range volumes {
+		// This will intentionally override the provider ID
+		// and pool for a volume-backed filesystem.
+		if v.Pool != "" {
+			storagePool[v.Storage] = v.Pool
+		}
+		storageProviderId[v.Storage] = v.ProviderVolumeId
+		// For size, we want to use the size of the fileystem
+		// rather than the volume.
+		if _, ok := storageSize[v.Storage]; !ok {
+			storageSize[v.Storage] = v.Size
+		}
+	}
+
+	w.Print("Unit", "Id", "Type")
+	if len(storagePool) > 0 {
+		// Older versions of Juju do not include
+		// the pool name in the storage details.
+		// We omit the column in that case.
+		w.Print("Pool")
+	}
+	w.Println("Provider id", "Size", "Status", "Message")
 
 	byUnit := make(map[string]map[string]storageAttachmentInfo)
 	for storageId, storageInfo := range storageInfo {
@@ -34,26 +66,22 @@ func formatStorageListTabular(writer io.Writer, storageInfo map[string]StorageIn
 				byUnit[""] = byStorage
 			}
 			byStorage[storageId] = storageAttachmentInfo{
-				storageId:  storageId,
-				kind:       storageInfo.Kind,
-				persistent: storageInfo.Persistent,
-				status:     storageInfo.Status,
+				storageId: storageId,
+				status:    storageInfo.Status,
 			}
 			continue
 		}
-		for unitId, a := range storageInfo.Attachments.Units {
+		for unitId := range storageInfo.Attachments.Units {
 			byStorage := byUnit[unitId]
 			if byStorage == nil {
 				byStorage = make(map[string]storageAttachmentInfo)
 				byUnit[unitId] = byStorage
 			}
 			byStorage[storageId] = storageAttachmentInfo{
-				storageId:  storageId,
-				unitId:     unitId,
-				kind:       storageInfo.Kind,
-				persistent: storageInfo.Persistent,
-				location:   a.Location,
-				status:     storageInfo.Status,
+				storageId: storageId,
+				unitId:    unitId,
+				kind:      storageInfo.Kind,
+				status:    storageInfo.Status,
 			}
 		}
 	}
@@ -76,7 +104,22 @@ func formatStorageListTabular(writer io.Writer, storageInfo map[string]StorageIn
 
 		for _, storageId := range storageIds {
 			info := byStorage[storageId]
-			p(info.unitId, info.storageId, info.location, info.status.Current, info.status.Message)
+			var sizeStr string
+			if size := storageSize[storageId]; size > 0 {
+				sizeStr = humanize.IBytes(size * humanize.MiByte)
+			}
+			w.Print(info.unitId)
+			w.Print(info.storageId)
+			w.Print(info.kind)
+			if len(storagePool) > 0 {
+				w.Print(storagePool[info.storageId])
+			}
+			w.Print(
+				storageProviderId[info.storageId],
+				sizeStr,
+			)
+			w.PrintStatus(info.status.Current)
+			w.Println(info.status.Message)
 		}
 	}
 	tw.Flush()
@@ -85,12 +128,10 @@ func formatStorageListTabular(writer io.Writer, storageInfo map[string]StorageIn
 }
 
 type storageAttachmentInfo struct {
-	storageId  string
-	unitId     string
-	kind       string
-	persistent bool
-	location   string
-	status     EntityStatus
+	storageId string
+	unitId    string
+	kind      string
+	status    EntityStatus
 }
 
 type slashSeparatedIds []string
