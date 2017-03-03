@@ -49,6 +49,7 @@ func NewAPI(
 		authorizer:  authorizer,
 	}, nil
 }
+
 func (api *API) checkCanRead() error {
 	canRead, err := api.authorizer.HasPermission(permission.ReadAccess, api.storage.ModelTag())
 	if err != nil {
@@ -190,6 +191,7 @@ func createStorageDetails(st storageAccess, si state.StorageInstance) (*params.S
 				a.Unit().String(),
 				machineTag.String(),
 				location,
+				params.Life(a.Life().String()),
 			}
 			storageAttachmentDetails[a.Unit().String()] = details
 		}
@@ -199,6 +201,7 @@ func createStorageDetails(st storageAccess, si state.StorageInstance) (*params.S
 		StorageTag:  si.Tag().String(),
 		OwnerTag:    si.Owner().String(),
 		Kind:        params.StorageKind(si.Kind()),
+		Life:        params.Life(si.Life().String()),
 		Status:      common.EntityStatusFromState(status),
 		Persistent:  persistent,
 		Attachments: storageAttachmentDetails,
@@ -472,6 +475,10 @@ func createVolumeDetails(
 
 	details := &params.VolumeDetails{
 		VolumeTag: v.VolumeTag().String(),
+		Life:      params.Life(v.Life().String()),
+	}
+	if binding := v.LifeBinding(); binding != nil {
+		details.BindingTag = binding.String()
 	}
 
 	if info, err := v.Info(); err == nil {
@@ -479,14 +486,17 @@ func createVolumeDetails(
 	}
 
 	if len(attachments) > 0 {
-		details.MachineAttachments = make(map[string]params.VolumeAttachmentInfo, len(attachments))
+		details.MachineAttachments = make(map[string]params.VolumeAttachmentDetails, len(attachments))
 		for _, attachment := range attachments {
-			stateInfo, err := attachment.Info()
-			var info params.VolumeAttachmentInfo
-			if err == nil {
-				info = storagecommon.VolumeAttachmentInfoFromState(stateInfo)
+			attDetails := params.VolumeAttachmentDetails{
+				Life: params.Life(attachment.Life().String()),
 			}
-			details.MachineAttachments[attachment.Machine().String()] = info
+			if stateInfo, err := attachment.Info(); err == nil {
+				attDetails.VolumeAttachmentInfo = storagecommon.VolumeAttachmentInfoFromState(
+					stateInfo,
+				)
+			}
+			details.MachineAttachments[attachment.Machine().String()] = attDetails
 		}
 	}
 
@@ -620,6 +630,10 @@ func createFilesystemDetails(
 
 	details := &params.FilesystemDetails{
 		FilesystemTag: f.FilesystemTag().String(),
+		Life:          params.Life(f.Life().String()),
+	}
+	if binding := f.LifeBinding(); binding != nil {
+		details.BindingTag = binding.String()
 	}
 
 	if volumeTag, err := f.Volume(); err == nil {
@@ -631,14 +645,17 @@ func createFilesystemDetails(
 	}
 
 	if len(attachments) > 0 {
-		details.MachineAttachments = make(map[string]params.FilesystemAttachmentInfo, len(attachments))
+		details.MachineAttachments = make(map[string]params.FilesystemAttachmentDetails, len(attachments))
 		for _, attachment := range attachments {
-			stateInfo, err := attachment.Info()
-			var info params.FilesystemAttachmentInfo
-			if err == nil {
-				info = storagecommon.FilesystemAttachmentInfoFromState(stateInfo)
+			attDetails := params.FilesystemAttachmentDetails{
+				Life: params.Life(attachment.Life().String()),
 			}
-			details.MachineAttachments[attachment.Machine().String()] = info
+			if stateInfo, err := attachment.Info(); err == nil {
+				attDetails.FilesystemAttachmentInfo = storagecommon.FilesystemAttachmentInfoFromState(
+					stateInfo,
+				)
+			}
+			details.MachineAttachments[attachment.Machine().String()] = attDetails
 		}
 	}
 

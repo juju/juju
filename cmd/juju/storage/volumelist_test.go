@@ -178,7 +178,8 @@ func (s mockListAPI) ListVolumes(machines []string) ([]params.VolumeDetailsListR
 		// storage db-dir/1001, which is attached to unit
 		// abc/0.
 		{
-			VolumeTag: "volume-0-0",
+			VolumeTag:  "volume-0-0",
+			BindingTag: "storage-db-dir-1001",
 			Info: params.VolumeInfo{
 				VolumeId: "provider-supplied-volume-0-0",
 				Size:     512,
@@ -207,7 +208,8 @@ func (s mockListAPI) ListVolumes(machines []string) ([]params.VolumeDetailsListR
 		// volume 1 is attaching to machine 0, but is not assigned
 		// to any storage.
 		{
-			VolumeTag: "volume-1",
+			VolumeTag:  "volume-1",
+			BindingTag: "machine-0",
 			Info: params.VolumeInfo{
 				VolumeId:   "provider-supplied-volume-1",
 				HardwareId: "serial blah blah",
@@ -249,7 +251,8 @@ func (s mockListAPI) ListVolumes(machines []string) ([]params.VolumeDetailsListR
 		// volume 4 is attached to machines 0 and 1, and is assigned
 		// to shared storage.
 		{
-			VolumeTag: "volume-4",
+			VolumeTag:  "volume-4",
+			BindingTag: "storage-shared-fs-0",
 			Info: params.VolumeInfo{
 				VolumeId:   "provider-supplied-volume-4",
 				Persistent: true,

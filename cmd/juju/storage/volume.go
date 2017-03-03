@@ -24,6 +24,11 @@ type VolumeInfo struct {
 	// assigned to, if any.
 	Storage string `yaml:"storage,omitempty" json:"storage,omitempty"`
 
+	// Binding is a reference to an entity to which the lifecycle of
+	// the volume is bound, if any. This can be "model", "machine",
+	// "application", or "unit".
+	Binding string `yaml:"binding,omitempty" json:"binding,omitempty"`
+
 	// Attachments is the set of entities attached to the volume.
 	Attachments *VolumeAttachments `yaml:"attachments,omitempty" json:"attachments,omitempty"`
 
@@ -35,6 +40,9 @@ type VolumeInfo struct {
 
 	// from params.Volume
 	Persistent bool `yaml:"persistent" json:"persistent"`
+
+	// Life is the lifecycle state of the volume.
+	Life string `yaml:"life,omitempty" json:"life,omitempty"`
 
 	// from params.Volume
 	Status EntityStatus `yaml:"status,omitempty" json:"status,omitempty"`
@@ -56,6 +64,7 @@ type MachineVolumeAttachment struct {
 	DeviceLink string `yaml:"device-link,omitempty" json:"device-link,omitempty"`
 	BusAddress string `yaml:"bus-address,omitempty" json:"bus-address,omitempty"`
 	ReadOnly   bool   `yaml:"read-only" json:"read-only"`
+	Life       string `yaml:"life,omitempty" json:"life,omitempty"`
 	// TODO(axw) add machine volume attachment status when we have it
 }
 
@@ -114,6 +123,7 @@ func createVolumeInfo(details params.VolumeDetails) (names.VolumeTag, VolumeInfo
 	info.HardwareId = details.Info.HardwareId
 	info.Size = details.Info.Size
 	info.Persistent = details.Info.Persistent
+	info.Life = string(details.Life)
 	info.Status = EntityStatus{
 		details.Status.Status,
 		details.Status.Info,
@@ -133,6 +143,7 @@ func createVolumeInfo(details params.VolumeDetails) (names.VolumeTag, VolumeInfo
 				attachment.DeviceLink,
 				attachment.BusAddress,
 				attachment.ReadOnly,
+				string(attachment.Life),
 			}
 		}
 		info.Attachments = &VolumeAttachments{
@@ -141,7 +152,7 @@ func createVolumeInfo(details params.VolumeDetails) (names.VolumeTag, VolumeInfo
 	}
 
 	if details.Storage != nil {
-		storageTag, storageInfo, err := createStorageInfo(*details.Storage)
+		storageTag, ownerTag, storageInfo, err := createStorageInfo(*details.Storage)
 		if err != nil {
 			return names.VolumeTag{}, VolumeInfo{}, errors.Trace(err)
 		}
@@ -149,6 +160,16 @@ func createVolumeInfo(details params.VolumeDetails) (names.VolumeTag, VolumeInfo
 		if storageInfo.Attachments != nil {
 			info.Attachments.Units = storageInfo.Attachments.Units
 		}
+		if details.BindingTag == details.Storage.StorageTag {
+			info.Binding = ownerTag.Kind()
+		}
+	}
+	if info.Binding == "" && details.BindingTag != "" {
+		tag, err := names.ParseTag(details.BindingTag)
+		if err != nil {
+			return names.VolumeTag{}, VolumeInfo{}, errors.Trace(err)
+		}
+		info.Binding = tag.Kind()
 	}
 
 	return volumeTag, info, nil

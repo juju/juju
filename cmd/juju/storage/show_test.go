@@ -168,6 +168,7 @@ func (s mockShowAPI) StorageDetails(tags []names.StorageTag) ([]params.StorageDe
 		} else {
 			all[i].Result = &params.StorageDetails{
 				StorageTag: tag.String(),
+				OwnerTag:   "unit-postgresql-0",
 				Kind:       params.StorageKindBlock,
 				Status: params.EntityStatus{
 					Status: "pending",

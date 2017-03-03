@@ -181,6 +181,8 @@ type mockVolume struct {
 	tag     names.VolumeTag
 	storage *names.StorageTag
 	info    *state.VolumeInfo
+	life    state.Life
+	binding names.Tag
 }
 
 func (m *mockVolume) StorageInstance() (names.StorageTag, error) {
@@ -208,6 +210,14 @@ func (m *mockVolume) Info() (state.VolumeInfo, error) {
 	return state.VolumeInfo{}, errors.NotProvisionedf("%v", m.tag)
 }
 
+func (m *mockVolume) LifeBinding() names.Tag {
+	return m.binding
+}
+
+func (m *mockVolume) Life() state.Life {
+	return m.life
+}
+
 func (m *mockVolume) Status() (status.StatusInfo, error) {
 	return status.StatusInfo{Status: status.Attached}, nil
 }
@@ -218,6 +228,8 @@ type mockFilesystem struct {
 	storage *names.StorageTag
 	volume  *names.VolumeTag
 	info    *state.FilesystemInfo
+	life    state.Life
+	binding names.Tag
 }
 
 func (m *mockFilesystem) Storage() (names.StorageTag, error) {
@@ -245,6 +257,14 @@ func (m *mockFilesystem) Info() (state.FilesystemInfo, error) {
 	return state.FilesystemInfo{}, errors.NotProvisionedf("filesystem")
 }
 
+func (m *mockFilesystem) LifeBinding() names.Tag {
+	return m.binding
+}
+
+func (m *mockFilesystem) Life() state.Life {
+	return m.life
+}
+
 func (m *mockFilesystem) Status() (status.StatusInfo, error) {
 	return status.StatusInfo{Status: status.Attached}, nil
 }
@@ -254,6 +274,7 @@ type mockFilesystemAttachment struct {
 	filesystem names.FilesystemTag
 	machine    names.MachineTag
 	info       *state.FilesystemAttachmentInfo
+	life       state.Life
 }
 
 func (m *mockFilesystemAttachment) Filesystem() names.FilesystemTag {
@@ -271,11 +292,16 @@ func (m *mockFilesystemAttachment) Info() (state.FilesystemAttachmentInfo, error
 	return state.FilesystemAttachmentInfo{}, errors.NotProvisionedf("filesystem attachment")
 }
 
+func (m *mockFilesystemAttachment) Life() state.Life {
+	return m.life
+}
+
 type mockStorageInstance struct {
 	state.StorageInstance
 	kind       state.StorageKind
 	owner      names.Tag
 	storageTag names.Tag
+	life       state.Life
 }
 
 func (m *mockStorageInstance) Kind() state.StorageKind {
@@ -298,9 +324,14 @@ func (m *mockStorageInstance) CharmURL() *charm.URL {
 	panic("not implemented for test")
 }
 
+func (m *mockStorageInstance) Life() state.Life {
+	return m.life
+}
+
 type mockStorageAttachment struct {
 	state.StorageAttachment
 	storage *mockStorageInstance
+	life    state.Life
 }
 
 func (m *mockStorageAttachment) StorageInstance() names.StorageTag {
@@ -311,10 +342,15 @@ func (m *mockStorageAttachment) Unit() names.UnitTag {
 	return m.storage.Owner().(names.UnitTag)
 }
 
+func (m *mockStorageAttachment) Life() state.Life {
+	return m.life
+}
+
 type mockVolumeAttachment struct {
 	VolumeTag  names.VolumeTag
 	MachineTag names.MachineTag
 	info       *state.VolumeAttachmentInfo
+	life       state.Life
 }
 
 func (va *mockVolumeAttachment) Volume() names.VolumeTag {
@@ -326,7 +362,7 @@ func (va *mockVolumeAttachment) Machine() names.MachineTag {
 }
 
 func (va *mockVolumeAttachment) Life() state.Life {
-	panic("not implemented for test")
+	return va.life
 }
 
 func (va *mockVolumeAttachment) Info() (state.VolumeAttachmentInfo, error) {

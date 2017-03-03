@@ -35,6 +35,7 @@ func (c *StorageCommandBase) NewStorageAPI() (*storage.Client, error) {
 // StorageInfo defines the serialization behaviour of the storage information.
 type StorageInfo struct {
 	Kind        string              `yaml:"kind" json:"kind"`
+	Life        string              `yaml:"life,omitempty" json:"life,omitempty"`
 	Status      EntityStatus        `yaml:"status" json:"status"`
 	Persistent  bool                `yaml:"persistent" json:"persistent"`
 	Attachments *StorageAttachments `yaml:"attachments" json:"attachments"`
@@ -58,6 +59,9 @@ type UnitStorageAttachment struct {
 	// Location is the location of the storage attachment.
 	Location string `yaml:"location,omitempty" json:"location,omitempty"`
 
+	// Life is the lifecycle state of the storage attachment.
+	Life string `yaml:"life,omitempty" json:"life,omitempty"`
+
 	// TODO(axw) per-unit status when we have it in state.
 }
 
@@ -69,7 +73,7 @@ func formatStorageDetails(storages []params.StorageDetails) (map[string]StorageI
 	}
 	output := make(map[string]StorageInfo)
 	for _, details := range storages {
-		storageTag, storageInfo, err := createStorageInfo(details)
+		storageTag, _, storageInfo, err := createStorageInfo(details)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -78,14 +82,24 @@ func formatStorageDetails(storages []params.StorageDetails) (map[string]StorageI
 	return output, nil
 }
 
-func createStorageInfo(details params.StorageDetails) (names.StorageTag, StorageInfo, error) {
+func createStorageInfo(details params.StorageDetails) (names.StorageTag, names.Tag, StorageInfo, error) {
+	fail := func(err error) (names.StorageTag, names.Tag, StorageInfo, error) {
+		return names.StorageTag{}, nil, StorageInfo{}, err
+	}
+
 	storageTag, err := names.ParseStorageTag(details.StorageTag)
 	if err != nil {
-		return names.StorageTag{}, StorageInfo{}, errors.Trace(err)
+		return fail(errors.Trace(err))
+	}
+
+	ownerTag, err := names.ParseTag(details.OwnerTag)
+	if err != nil {
+		return fail(errors.Trace(err))
 	}
 
 	info := StorageInfo{
 		Kind: details.Kind.String(),
+		Life: string(details.Life),
 		Status: EntityStatus{
 			details.Status.Status,
 			details.Status.Info,
@@ -100,23 +114,24 @@ func createStorageInfo(details params.StorageDetails) (names.StorageTag, Storage
 		for unitTagString, attachmentDetails := range details.Attachments {
 			unitTag, err := names.ParseUnitTag(unitTagString)
 			if err != nil {
-				return names.StorageTag{}, StorageInfo{}, errors.Trace(err)
+				return fail(errors.Trace(err))
 			}
 			var machineId string
 			if attachmentDetails.MachineTag != "" {
 				machineTag, err := names.ParseMachineTag(attachmentDetails.MachineTag)
 				if err != nil {
-					return names.StorageTag{}, StorageInfo{}, errors.Trace(err)
+					return fail(errors.Trace(err))
 				}
 				machineId = machineTag.Id()
 			}
 			unitStorageAttachments[unitTag.Id()] = UnitStorageAttachment{
 				machineId,
 				attachmentDetails.Location,
+				string(attachmentDetails.Life),
 			}
 		}
 		info.Attachments = &StorageAttachments{unitStorageAttachments}
 	}
 
-	return storageTag, info, nil
+	return storageTag, ownerTag, info, nil
 }

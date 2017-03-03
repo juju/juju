@@ -25,17 +25,25 @@ type FilesystemInfo struct {
 	ProviderFilesystemId string `yaml:"provider-id,omitempty" json:"provider-id,omitempty"`
 
 	// Volume is the ID of the volume that the filesystem is backed by, if any.
-	Volume string
+	Volume string `yaml:"volume,omitempty" json:"volume,omitempty"`
 
 	// Storage is the ID of the storage instance that the filesystem is
 	// assigned to, if any.
-	Storage string
+	Storage string `yaml:"storage,omitempty" json:"storage,omitempty"`
+
+	// Binding is a reference to an entity to which the lifecycle of
+	// the volume is bound, if any. This can be "model", "machine",
+	// "application", or "unit".
+	Binding string `yaml:"binding,omitempty" json:"binding,omitempty"`
 
 	// Attachments is the set of entities attached to the filesystem.
 	Attachments *FilesystemAttachments
 
 	// from params.FilesystemInfo
 	Size uint64 `yaml:"size" json:"size"`
+
+	// Life is the lifecycle state of the filesystem.
+	Life string `yaml:"life,omitempty" json:"life,omitempty"`
 
 	// from params.FilesystemInfo.
 	Status EntityStatus `yaml:"status,omitempty" json:"status,omitempty"`
@@ -49,6 +57,7 @@ type FilesystemAttachments struct {
 type MachineFilesystemAttachment struct {
 	MountPoint string `yaml:"mount-point" json:"mount-point"`
 	ReadOnly   bool   `yaml:"read-only" json:"read-only"`
+	Life       string `yaml:"life,omitempty" json:"life,omitempty"`
 }
 
 // generateListFilesystemOutput returns a map filesystem IDs to filesystem info
@@ -97,6 +106,7 @@ func createFilesystemInfo(details params.FilesystemDetails) (names.FilesystemTag
 	var info FilesystemInfo
 	info.ProviderFilesystemId = details.Info.FilesystemId
 	info.Size = details.Info.Size
+	info.Life = string(details.Life)
 	info.Status = EntityStatus{
 		details.Status.Status,
 		details.Status.Info,
@@ -122,6 +132,7 @@ func createFilesystemInfo(details params.FilesystemDetails) (names.FilesystemTag
 			machineAttachments[machineId] = MachineFilesystemAttachment{
 				attachment.MountPoint,
 				attachment.ReadOnly,
+				string(attachment.Life),
 			}
 		}
 		info.Attachments = &FilesystemAttachments{
@@ -130,7 +141,7 @@ func createFilesystemInfo(details params.FilesystemDetails) (names.FilesystemTag
 	}
 
 	if details.Storage != nil {
-		storageTag, storageInfo, err := createStorageInfo(*details.Storage)
+		storageTag, ownerTag, storageInfo, err := createStorageInfo(*details.Storage)
 		if err != nil {
 			return names.FilesystemTag{}, FilesystemInfo{}, errors.Trace(err)
 		}
@@ -138,6 +149,16 @@ func createFilesystemInfo(details params.FilesystemDetails) (names.FilesystemTag
 		if storageInfo.Attachments != nil {
 			info.Attachments.Units = storageInfo.Attachments.Units
 		}
+		if details.BindingTag == details.Storage.StorageTag {
+			info.Binding = ownerTag.Kind()
+		}
+	}
+	if info.Binding == "" && details.BindingTag != "" {
+		tag, err := names.ParseTag(details.BindingTag)
+		if err != nil {
+			return names.FilesystemTag{}, FilesystemInfo{}, errors.Trace(err)
+		}
+		info.Binding = tag.Kind()
 	}
 
 	return filesystemTag, info, nil
