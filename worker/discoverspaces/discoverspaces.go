@@ -154,7 +154,7 @@ func (dw *discoverspacesWorker) handleSubnets() error {
 }
 
 func (dw *discoverspacesWorker) discoverSubnetsOnly(environ environs.NetworkingEnviron) error {
-	stateSubnetIds, err := dw.getStateSubnets()
+	modelSubnetIds, err := dw.getModelSubnets()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -163,7 +163,7 @@ func (dw *discoverspacesWorker) discoverSubnetsOnly(environ environs.NetworkingE
 		return errors.Trace(err)
 	}
 	var addSubnetsArgs params.AddSubnetsParams
-	collectMissingSubnets(&addSubnetsArgs, "", stateSubnetIds, subnets)
+	collectMissingSubnets(&addSubnetsArgs, "", modelSubnetIds, subnets)
 	logger.Debugf("Adding missing subnets: %#v", addSubnetsArgs)
 	return errors.Trace(dw.addSubnetsFromArgs(addSubnetsArgs))
 }
@@ -178,14 +178,14 @@ func (dw *discoverspacesWorker) discoverSpaces(environ environs.NetworkingEnviro
 	if err != nil {
 		return errors.Trace(err)
 	}
-	stateSpaceMap := make(map[string]params.ProviderSpace)
+	modelSpaceMap := make(map[string]params.ProviderSpace)
 	spaceNames := make(set.Strings)
 	for _, space := range listSpacesResult.Results {
-		stateSpaceMap[space.ProviderId] = space
+		modelSpaceMap[space.ProviderId] = space
 		spaceNames.Add(space.Name)
 	}
 
-	stateSubnetIds, err := dw.getStateSubnets()
+	modelSubnetIds, err := dw.getModelSubnets()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -197,7 +197,7 @@ func (dw *discoverspacesWorker) discoverSpaces(environ environs.NetworkingEnviro
 	for _, space := range providerSpaces {
 		// Check if the space is already in state, in which case we know
 		// its name.
-		stateSpace, ok := stateSpaceMap[string(space.ProviderId)]
+		stateSpace, ok := modelSpaceMap[string(space.ProviderId)]
 		var spaceTag names.SpaceTag
 		if ok {
 			spaceName := stateSpace.Name
@@ -227,7 +227,7 @@ func (dw *discoverspacesWorker) discoverSpaces(environ environs.NetworkingEnviro
 			})
 		}
 
-		collectMissingSubnets(&addSubnetsArgs, spaceTag.String(), stateSubnetIds, space.Subnets)
+		collectMissingSubnets(&addSubnetsArgs, spaceTag.String(), modelSubnetIds, space.Subnets)
 	}
 
 	if err := dw.createSpacesFromArgs(createSpacesArgs); err != nil {
@@ -297,16 +297,16 @@ func (dw *discoverspacesWorker) addSubnetsFromArgs(addSubnetsArgs params.AddSubn
 	return nil
 }
 
-func (dw *discoverspacesWorker) getStateSubnets() (set.Strings, error) {
-	stateSubnets, err := dw.config.Facade.ListSubnets(params.SubnetsFilters{})
+func (dw *discoverspacesWorker) getModelSubnets() (set.Strings, error) {
+	modelSubnets, err := dw.config.Facade.ListSubnets(params.SubnetsFilters{})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	stateSubnetIds := make(set.Strings)
-	for _, subnet := range stateSubnets.Results {
-		stateSubnetIds.Add(subnet.ProviderId)
+	modelSubnetIds := make(set.Strings)
+	for _, subnet := range modelSubnets.Results {
+		modelSubnetIds.Add(subnet.ProviderId)
 	}
-	return stateSubnetIds, nil
+	return modelSubnetIds, nil
 }
 
 func collectMissingSubnets(
