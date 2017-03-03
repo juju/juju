@@ -526,12 +526,15 @@ def error_if_unclean(unclean_resources):
     :param unclean_resources: List of unclean resources
     """
     if unclean_resources:
-        logging.critical("following resource requires manual cleanup")
+        logging.critical("Following resource requires manual cleanup")
         for resources in unclean_resources:
-            logging.critical(resources[0])
-            for resource in resources[1:]:
-                for (id, reason) in resource:
-                    logging.critical(id + " : " + reason)
+            resource = resources.get("resource")
+            logging.critical(resource)
+            messages = resources.get("errors")
+            for (id, reason) in messages:
+                reason_string = "\n".join(['\t{}: {}'.format(
+                    id, reason)])
+                logging.critical(reason_string)
 
 
 class CreateController:

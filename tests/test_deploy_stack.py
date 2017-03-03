@@ -2649,19 +2649,33 @@ class TestWaitForStateServerToShutdown(FakeHomeTestCase):
 
 class TestErrorIfUnclean(FakeHomeTestCase):
     def test_contain_unclean_resources(self):
+        """
         unclean_resources = [
-            ['instances',
-             [('ifoo', 'Instance not found'),
-              ('ibar', 'Instance not found')]],
-            ['security groups',
-             [('sg-bar', 'Security group failed to delete')]
-             ]]
-        error_if_unclean(unclean_resources)
+                {
+                    'resource': 'instances',
+                    'error': [('ifoo', 'Instance not found'),
+                    ('ibar', 'Instance not found')]
+                },
+                {
+                    'resource': 'security groups',
+                    'error': [('sg-bar', 'Security group failed to delete')]
+                }
+            ]
+        """
+        uncleaned_resources = []
+        uncleaned_instances = [("ifoo", "err-msg"), ("ibar", "err-msg")]
+        uncleaned_security_groups = [("sg-bar", "err-msg")]
+        uncleaned_resources.append(
+            {'resource': 'instances', 'errors': uncleaned_instances})
+        uncleaned_resources.append(
+            {'resource': 'security groups', 'errors':
+                uncleaned_security_groups})
+        error_if_unclean(uncleaned_resources)
         self.assertListEqual(self.log_stream.getvalue().splitlines(), [
-            "CRITICAL following resource requires manual cleanup",
+            "CRITICAL Following resource requires manual cleanup",
             "CRITICAL instances",
-            "CRITICAL ifoo : Instance not found",
-            "CRITICAL ibar : Instance not found",
+            "CRITICAL \tifoo: err-msg",
+            "CRITICAL \tibar: err-msg",
             "CRITICAL security groups",
-            "CRITICAL sg-bar : Security group failed to delete"
+            "CRITICAL \tsg-bar: err-msg"
         ])

@@ -79,9 +79,9 @@ def terminate_instances(env, instance_ids):
 def attempt_terminate_instances(handler, instance_ids):
     """Initiate terminate instance method of specific handler
 
-    :param handler: The class handler to invoke
-    :param instance_ids: List of instances to terminate
-    :return: Any failed instances to terminate
+    :param handler: Instance of a class handler to invoke
+    :param instance_ids: List of instance_ids to terminate
+    :return: List of instance_ids failed to terminate
     """
     uncleaned_instances = []
     for instance_id in instance_ids:
@@ -97,15 +97,13 @@ def attempt_terminate_instances(handler, instance_ids):
 def instances_only_contain_known(instance_id_list, known_instance_ids):
     """ Identify instance_id_list only contains ids we know about.
 
-    :param instance_id_list: The list of instances
-    :param known_instance_ids: The list of instances
+    :param instance_id_list: The list of instance_ids
+    :param known_instance_ids: The list of instance_ids
     :return: True if instance_id_list only contains ids from
     know_instance_ids otherwise False
     """
     unknown_ids = set(known_instance_ids) - set(instance_id_list)
-    if len(unknown_ids) == 0:
-        return True
-    return False
+    return len(unknown_ids) == 0
 
 
 class AWSAccount:
@@ -195,7 +193,7 @@ class AWSAccount:
     def cleanup_security_groups(self, instances, secgroups):
         """ Destroy any security groups used only by `instances`.
 
-        :param instances: The list of instances
+        :param instances: The list of instance_ids
         :param secgroups: dict of security groups
         :return: list of failed deleted security groups
         """
@@ -203,7 +201,7 @@ class AWSAccount:
         for sg_id, sg_instances in secgroups.items():
             if instances_only_contain_known(instances, sg_instances):
                 try:
-                    failures = self.destroy_security_groups([sg_id])
+                    self.destroy_security_groups([sg_id])
                 except EC2ResponseError as e:
                     failures.append((sg_id, e.message))
         return failures
@@ -217,23 +215,12 @@ class AWSAccount:
         :return: dict of security group with key as security group name
          and values as list of instances configured to it.
         """
-        secgroups = dict()
-
-        reservations = self.client.get_all_instances()
-        for reservation in reservations:
-            for instance in reservation.instances:
-                if instance.state == 'terminate':
-                    continue
-                if instances:
-                    if instance not in instances:
-                        continue
-                for group in instance.groups:
-                    if group.id in secgroups.keys():
-                        instances = secgroups[group.id]
-                        instances.append(instance.id)
-                        secgroups[group.id] = instances
-                    else:
-                        secgroups[group.id] = [instance.id]
+        group_names = [sg[1] for sg in self.iter_instance_security_groups(
+            instances)]
+        all_groups = self.client.get_all_security_groups(
+            groupnames=group_names)
+        secgroups = [(sg.id, [id for id in sg.instances()])
+                     for sg in all_groups]
         return secgroups
 
     def ensure_cleanup(self, resource_details):
@@ -247,20 +234,23 @@ class AWSAccount:
         if not resource_details:
             return uncleaned_resources
 
-        security_grps = self.get_security_groups(
+        security_groups = self.get_security_groups(
             resource_details.get('instances', []))
 
         uncleaned_instances = attempt_terminate_instances(
             self, resource_details.get('instances', []))
 
-        uncleaned_security_grps = self.cleanup_security_groups(
-            resource_details.get('instances', []), security_grps)
+        uncleaned_security_groups = self.cleanup_security_groups(
+            resource_details.get('instances', []), security_groups)
 
         if uncleaned_instances:
-            uncleaned_resources.append(["instances", uncleaned_instances])
-        if uncleaned_security_grps:
             uncleaned_resources.append(
-                ["security group", uncleaned_security_grps])
+                {'resource': 'instances',
+                 'errors': uncleaned_instances})
+        if uncleaned_security_groups:
+            uncleaned_resources.append(
+                {'resource': 'security groups',
+                 'errors': uncleaned_security_groups})
         return uncleaned_resources
 
 
