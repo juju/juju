@@ -467,8 +467,24 @@ func (st *State) removeMachineFilesystemsOps(m *Machine) ([]txn.Op, error) {
 			Remove: true,
 		})
 	}
-	for _, v := range machineFilesystems {
-		filesystemId := v.Tag().Id()
+	for _, f := range machineFilesystems {
+		filesystemId := f.Tag().Id()
+		if f.doc.StorageId != "" {
+			// The volume is assigned to a storage instance;
+			// make sure we also remove the storage instance.
+			// There should be no storage attachments remaining,
+			// as the units must have been removed before the
+			// machine can be; and the storage attachments must
+			// have been removed before the unit can be.
+			ops = append(ops,
+				txn.Op{
+					C:      storageInstancesC,
+					Id:     f.doc.StorageId,
+					Assert: txn.DocExists,
+					Remove: true,
+				},
+			)
+		}
 		ops = append(ops,
 			txn.Op{
 				C:      filesystemsC,
@@ -647,7 +663,8 @@ func (st *State) DestroyFilesystem(tag names.FilesystemTag) (err error) {
 	defer errors.DeferredAnnotatef(&err, "destroying filesystem %s", tag.Id())
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		filesystem, err := st.filesystemByTag(tag)
-		if errors.IsNotFound(err) {
+		if errors.IsNotFound(err) && attempt > 0 {
+			// On the first attempt, we expect it to exist.
 			return nil, jujutxn.ErrNoOperations
 		} else if err != nil {
 			return nil, errors.Trace(err)
@@ -750,22 +767,19 @@ func removeFilesystemOps(st *State, filesystem Filesystem) ([]txn.Op, error) {
 		removeStatusOp(st, filesystem.globalKey()),
 	}
 	// If the filesystem is backed by a volume, the volume should
-	// be destroyed once the filesystem is removed if it is bound
-	// to the filesystem. The volume must not be destroyed before
-	// the filesystem is removed.
+	// be destroyed once the filesystem is removed. The volume must
+	// not be destroyed before the filesystem is removed.
 	volumeTag, err := filesystem.Volume()
 	if err == nil {
 		volume, err := st.volumeByTag(volumeTag)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		if volume.LifeBinding() == filesystem.Tag() {
-			volOps, err := destroyVolumeOps(st, volume, nil)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			ops = append(ops, volOps...)
+		volOps, err := destroyVolumeOps(st, volume, nil)
+		if err != nil {
+			return nil, errors.Trace(err)
 		}
+		ops = append(ops, volOps...)
 	} else if err != ErrNoBackingVolume {
 		return nil, errors.Trace(err)
 	}

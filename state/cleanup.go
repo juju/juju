@@ -228,7 +228,11 @@ func (st *State) cleanupVolumesForDyingModel() (err error) {
 	}
 	for _, v := range volumes {
 		err := st.DestroyVolume(v.VolumeTag())
-		if err != nil && !IsContainsFilesystem(err) {
+		if errors.IsNotFound(err) {
+			continue
+		} else if IsContainsFilesystem(err) {
+			continue
+		} else if err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -245,7 +249,9 @@ func (st *State) cleanupFilesystemsForDyingModel() (err error) {
 	}
 	for _, fs := range filesystems {
 		err := st.DestroyFilesystem(fs.FilesystemTag())
-		if err != nil {
+		if errors.IsNotFound(err) {
+			continue
+		} else if err != nil {
 			return errors.Trace(err)
 		}
 	}

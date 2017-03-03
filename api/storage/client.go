@@ -147,3 +147,29 @@ func (c *Client) AddToUnit(storages []params.StorageAddParams) ([]params.ErrorRe
 	}
 	return out.Results, nil
 }
+
+// Destroy destroys specified storage entities.
+func (c *Client) Destroy(storageIds []string) ([]params.ErrorResult, error) {
+	results := params.ErrorResults{}
+	entities := make([]params.Entity, len(storageIds))
+	for i, id := range storageIds {
+		if !names.IsValidStorage(id) {
+			return nil, errors.NotValidf("storage ID %q", id)
+		}
+		entities[i] = params.Entity{Tag: names.NewStorageTag(id).String()}
+	}
+	if err := c.facade.FacadeCall(
+		"Destroy",
+		params.Entities{Entities: entities},
+		&results,
+	); err != nil {
+		return nil, errors.Trace(err)
+	}
+	if len(results.Results) != len(storageIds) {
+		return nil, errors.Errorf(
+			"expected %d result(s), got %d",
+			len(storageIds), len(results.Results),
+		)
+	}
+	return results.Results, nil
+}

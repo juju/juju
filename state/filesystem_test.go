@@ -456,7 +456,7 @@ func (s *FilesystemStateSuite) TestParseFilesystemAttachmentIdError(c *gc.C) {
 	assertError("bar:0", `invalid filesystem attachment ID "bar:0"`)
 }
 
-func (s *FilesystemStateSuite) TestRemoveStorageInstanceUnassignsFilesystem(c *gc.C) {
+func (s *FilesystemStateSuite) TestRemoveStorageInstanceDestroysAndUnassignsFilesystem(c *gc.C) {
 	filesystemAttachment, storageAttachment := s.addUnitWithFilesystem(c, "loop", true)
 	filesystem := s.filesystem(c, filesystemAttachment.Filesystem())
 	volume := s.filesystemVolume(c, filesystemAttachment.Filesystem())
@@ -483,9 +483,13 @@ func (s *FilesystemStateSuite) TestRemoveStorageInstanceUnassignsFilesystem(c *g
 	_, err = s.State.StorageInstanceVolume(storageTag)
 	c.Assert(err, gc.ErrorMatches, `volume for storage instance "data/0" not found`)
 
-	// The filesystem and volume should not have been destroyed, though.
-	s.filesystem(c, filesystem.FilesystemTag())
-	s.volume(c, volume.VolumeTag())
+	// The filesystem and volume should still exist. The filesystem
+	// should be dying; the volume will be destroyed only once the
+	// filesystem is removed.
+	f := s.filesystem(c, filesystem.FilesystemTag())
+	c.Assert(f.Life(), gc.Equals, state.Dying)
+	v := s.volume(c, volume.VolumeTag())
+	c.Assert(v.Life(), gc.Equals, state.Alive)
 }
 
 func (s *FilesystemStateSuite) TestSetFilesystemAttachmentInfoFilesystemNotProvisioned(c *gc.C) {
@@ -529,6 +533,12 @@ func (s *FilesystemStateSuite) TestDestroyFilesystem(c *gc.C) {
 	}
 	defer state.SetBeforeHooks(c, s.State, assertDestroy).Check()
 	assertDestroy()
+}
+
+func (s *FilesystemStateSuite) TestDestroyFilesystemNotFound(c *gc.C) {
+	err := s.State.DestroyFilesystem(names.NewFilesystemTag("0"))
+	c.Assert(err, gc.ErrorMatches, `destroying filesystem 0: filesystem "0" not found`)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *FilesystemStateSuite) TestDestroyFilesystemStorageAssigned(c *gc.C) {

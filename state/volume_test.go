@@ -512,13 +512,12 @@ func (s *VolumeStateSuite) assertCreateVolumes(c *gc.C) (_ *state.Machine, all, 
 	return machine, all, persistent
 }
 
-func (s *VolumeStateSuite) TestRemoveStorageInstanceUnassignsVolume(c *gc.C) {
+func (s *VolumeStateSuite) TestRemoveStorageInstanceDestroysAndUnassignsVolume(c *gc.C) {
 	_, u, storageTag := s.setupSingleStorage(c, "block", "loop-pool")
 	err := s.State.AssignUnit(u, state.AssignCleanEmpty)
 	c.Assert(err, jc.ErrorIsNil)
 	volume := s.storageInstanceVolume(c, storageTag)
 	c.Assert(err, jc.ErrorIsNil)
-	volumeTag := volume.VolumeTag()
 
 	err = s.State.DestroyStorageInstance(storageTag)
 	c.Assert(err, jc.ErrorIsNil)
@@ -537,8 +536,9 @@ func (s *VolumeStateSuite) TestRemoveStorageInstanceUnassignsVolume(c *gc.C) {
 	_, err = s.State.StorageInstanceVolume(storageTag)
 	c.Assert(err, gc.ErrorMatches, `volume for storage instance "data/0" not found`)
 
-	// The volume should not have been removed, though.
-	s.volume(c, volumeTag)
+	// The volume should still exist, but it should be dying.
+	v := s.volume(c, volume.VolumeTag())
+	c.Assert(v.Life(), gc.Equals, state.Dying)
 }
 
 func (s *VolumeStateSuite) TestSetVolumeAttachmentInfoVolumeNotProvisioned(c *gc.C) {
@@ -570,6 +570,12 @@ func (s *VolumeStateSuite) TestDestroyVolume(c *gc.C) {
 	}
 	defer state.SetBeforeHooks(c, s.State, assertDestroy).Check()
 	assertDestroy()
+}
+
+func (s *VolumeStateSuite) TestDestroyVolumeNotFound(c *gc.C) {
+	err := s.State.DestroyVolume(names.NewVolumeTag("0"))
+	c.Assert(err, gc.ErrorMatches, `destroying volume 0: volume "0" not found`)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *VolumeStateSuite) TestDestroyVolumeStorageAssigned(c *gc.C) {

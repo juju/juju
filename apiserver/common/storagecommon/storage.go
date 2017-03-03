@@ -263,7 +263,9 @@ func storageTags(
 	)
 	if storageInstance != nil {
 		storageTags[tags.JujuStorageInstance] = storageInstance.Tag().Id()
-		storageTags[tags.JujuStorageOwner] = storageInstance.Owner().Id()
+		if owner, ok := storageInstance.Owner(); ok {
+			storageTags[tags.JujuStorageOwner] = owner.Id()
+		}
 	}
 	return storageTags, nil
 }

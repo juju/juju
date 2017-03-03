@@ -34,8 +34,12 @@ type StorageInstance interface {
 	Kind() StorageKind
 
 	// Owner returns the tag of the application or unit that owns this storage
-	// instance.
-	Owner() names.Tag
+	// instance, and a boolean indicating whether or not there is an owner.
+	//
+	// When a non-shared storage instance is detached from the unit, the
+	// storage instance's owner will be cleared, allowing it to be attached
+	// to another unit.
+	Owner() (names.Tag, bool)
 
 	// StorageName returns the name of the storage, as defined in the charm
 	// storage metadata. This does not uniquely identify storage instances,
@@ -114,7 +118,15 @@ func (s *storageInstance) Kind() StorageKind {
 	return s.doc.Kind
 }
 
-func (s *storageInstance) Owner() names.Tag {
+func (s *storageInstance) Owner() (names.Tag, bool) {
+	owner := s.maybeOwner()
+	return owner, owner != nil
+}
+
+func (s *storageInstance) maybeOwner() names.Tag {
+	if s.doc.Owner == "" {
+		return nil
+	}
 	tag, err := names.ParseTag(s.doc.Owner)
 	if err != nil {
 		// This should be impossible; we do not expose
@@ -147,7 +159,7 @@ type storageInstanceDoc struct {
 	Id              string      `bson:"id"`
 	Kind            StorageKind `bson:"storagekind"`
 	Life            Life        `bson:"life"`
-	Owner           string      `bson:"owner"`
+	Owner           string      `bson:"owner,omitempty"`
 	StorageName     string      `bson:"storagename"`
 	AttachmentCount int         `bson:"attachmentcount"`
 }
@@ -238,7 +250,8 @@ func (st *State) DestroyStorageInstance(tag names.StorageTag) (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot destroy storage %q", tag.Id())
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		s, err := st.storageInstance(tag)
-		if errors.IsNotFound(err) {
+		if errors.IsNotFound(err) && attempt > 0 {
+			// On the first attempt, we expect it to exist.
 			return nil, jujutxn.ErrNoOperations
 		} else if err != nil {
 			return nil, errors.Trace(err)
@@ -264,7 +277,7 @@ func (st *State) destroyStorageInstanceOps(s *storageInstance) ([]txn.Op, error)
 		// remove the storage instance immediately.
 		hasNoAttachments := bson.D{{"attachmentcount", 0}}
 		assert := append(hasNoAttachments, isAliveDoc...)
-		return removeStorageInstanceOps(st, s.Owner(), s.StorageTag(), assert)
+		return removeStorageInstanceOps(st, s.maybeOwner(), s.StorageTag(), assert)
 	}
 	// There are still attachments: the storage instance will be removed
 	// when the last attachment is removed. We schedule a cleanup to destroy
@@ -301,6 +314,17 @@ func removeStorageInstanceOps(
 		Assert: assert,
 		Remove: true,
 	}}
+	if owner != nil {
+		storageName, err := names.StorageName(tag.Id())
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		decrefOp, err := decrefEntityStorageOp(st, owner, storageName)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		ops = append(ops, decrefOp)
+	}
 
 	machineStorageOp := func(c string, id string) txn.Op {
 		return txn.Op{
@@ -311,15 +335,34 @@ func removeStorageInstanceOps(
 		}
 	}
 
-	// If the storage instance has an assigned volume and/or filesystem,
-	// unassign them. Any volumes and filesystems bound to the storage
-	// will be destroyed.
+	// Destroy any assigned volume/filesystem, and clear the storage
+	// reference to avoid a dangling pointer while the volume/filesystem
+	// is being destroyed.
+	var haveFilesystem bool
+	filesystem, err := st.storageInstanceFilesystem(tag)
+	if err == nil {
+		ops = append(ops, machineStorageOp(
+			filesystemsC, filesystem.Tag().Id(),
+		))
+		fsOps, err := destroyFilesystemOps(st, filesystem, nil)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		ops = append(ops, fsOps...)
+		haveFilesystem = true
+	} else if !errors.IsNotFound(err) {
+		return nil, errors.Trace(err)
+	}
 	volume, err := st.storageInstanceVolume(tag)
 	if err == nil {
 		ops = append(ops, machineStorageOp(
 			volumesC, volume.Tag().Id(),
 		))
-		if volume.LifeBinding() == tag {
+		// If the storage instance has a filesystem, it may also
+		// have a volume (i.e. for volume-backed filesytems). In
+		// this case, we want to destroy only the filesystem; when
+		// the filesystem is removed, the volume will be destroyed.
+		if !haveFilesystem {
 			volOps, err := destroyVolumeOps(st, volume, nil)
 			if err != nil {
 				return nil, errors.Trace(err)
@@ -329,37 +372,23 @@ func removeStorageInstanceOps(
 	} else if !errors.IsNotFound(err) {
 		return nil, errors.Trace(err)
 	}
-	filesystem, err := st.storageInstanceFilesystem(tag)
-	if err == nil {
-		ops = append(ops, machineStorageOp(
-			filesystemsC, filesystem.Tag().Id(),
-		))
-		if filesystem.LifeBinding() == tag {
-			fsOps, err := destroyFilesystemOps(st, filesystem, nil)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			ops = append(ops, fsOps...)
-		}
-	} else if !errors.IsNotFound(err) {
-		return nil, errors.Trace(err)
-	}
 
-	// Decrement the storage reference count.
+	return ops, nil
+}
+
+// decrefEntityStorageOp returns a txn.Op that decrements the reference
+// count for a storage instance from a given application or unit. This
+// should be called when removing a shared storage instance, or when
+// detaching a non-shared storage instance from a unit.
+func decrefEntityStorageOp(st *State, owner names.Tag, storageName string) (txn.Op, error) {
 	refcounts, closer := st.getCollection(refcountsC)
 	defer closer()
-	storageName, err := names.StorageName(tag.Id())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 	storageRefcountKey := entityStorageRefcountKey(owner, storageName)
 	decRefOp, _, err := nsRefcounts.DyingDecRefOp(refcounts, storageRefcountKey)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return txn.Op{}, errors.Trace(err)
 	}
-	ops = append(ops, decRefOp)
-
-	return ops, nil
+	return decRefOp, nil
 }
 
 // machineAssignable is used by createStorageOps to determine what machine
@@ -531,7 +560,7 @@ func unitAssignedMachineStorageOps(
 	charmMeta *charm.Meta,
 	cons map[string]StorageConstraints,
 	series string,
-	storage StorageInstance,
+	storage *storageInstance,
 	machineAssignable machineAssignable,
 ) (ops []txn.Op, err error) {
 	storageParams, err := machineStorageParamsForStorageInstance(
@@ -747,31 +776,37 @@ func removeStorageAttachmentOps(
 		Assert: txn.DocExists,
 		Update: bson.D{{"$inc", bson.D{{"storageattachmentcount", -1}}}},
 	}}
+	siUpdate := bson.D{{"$inc", bson.D{{"attachmentcount", -1}}}}
 	if si.doc.AttachmentCount == 1 {
 		var hasLastRef bson.D
 		if si.doc.Life == Dying {
+			// The storage instance is dying: no more attachments
+			// can be added to the instance, so it can be removed.
 			hasLastRef = bson.D{{"life", Dying}, {"attachmentcount", 1}}
 		} else if si.doc.Owner == names.NewUnitTag(s.doc.Unit).String() {
+			// TODO(axw) if the storage instance is Alive, and is owned by
+			// the unit, disown the storage and decrement the refcount for
+			// the storage name on the unit. This will allow the user to
+			// attach the storage to another unit.
 			hasLastRef = bson.D{{"attachmentcount", 1}}
 		}
 		if len(hasLastRef) > 0 {
-			// Either the storage instance is dying, or its owner
-			// is a unit; in either case, no more attachments can
-			// be added to the instance, so it can be removed.
+			// TODO(axw) we should only remove the storage instance
+			// when the last attachment is removed if the instance
+			// is dying.
 			siOps, err := removeStorageInstanceOps(
-				st, si.Owner(), si.StorageTag(), hasLastRef,
+				st, si.maybeOwner(), si.StorageTag(), hasLastRef,
 			)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			ops = append(ops, siOps...)
-			return ops, nil
+			return append(ops, siOps...), nil
 		}
 	}
 	decrefOp := txn.Op{
 		C:      storageInstancesC,
 		Id:     si.doc.Id,
-		Update: bson.D{{"$inc", bson.D{{"attachmentcount", -1}}}},
+		Update: siUpdate,
 	}
 	if si.doc.Life == Alive {
 		// This may be the last reference, but the storage instance is

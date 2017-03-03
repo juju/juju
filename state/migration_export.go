@@ -1630,10 +1630,14 @@ func (e *exporter) storageInstances() error {
 }
 
 func (e *exporter) addStorage(instance *storageInstance, attachments []names.UnitTag) error {
+	owner, ok := instance.Owner()
+	if !ok {
+		owner = nil
+	}
 	args := description.StorageArgs{
 		Tag:         instance.StorageTag(),
 		Kind:        instance.Kind().String(),
-		Owner:       instance.Owner(),
+		Owner:       owner,
 		Name:        instance.StorageName(),
 		Attachments: attachments,
 	}

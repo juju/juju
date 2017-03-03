@@ -62,6 +62,7 @@ type mockState struct {
 	addStorageForUnit                   func(u names.UnitTag, name string, cons state.StorageConstraints) error
 	getBlockForType                     func(t state.BlockType) (state.Block, bool, error)
 	blockDevices                        func(names.MachineTag) ([]state.BlockDeviceInfo, error)
+	destroyStorageInstance              func(names.StorageTag) error
 }
 
 func (st *mockState) StorageInstance(s names.StorageTag) (state.StorageInstance, error) {
@@ -165,6 +166,10 @@ func (st *mockState) BlockDevices(m names.MachineTag) ([]state.BlockDeviceInfo, 
 		return st.blockDevices(m)
 	}
 	return []state.BlockDeviceInfo{}, nil
+}
+
+func (st *mockState) DestroyStorageInstance(tag names.StorageTag) error {
+	return st.destroyStorageInstance(tag)
 }
 
 type mockNotifyWatcher struct {
@@ -282,8 +287,8 @@ func (m *mockStorageInstance) Kind() state.StorageKind {
 	return m.kind
 }
 
-func (m *mockStorageInstance) Owner() names.Tag {
-	return m.owner
+func (m *mockStorageInstance) Owner() (names.Tag, bool) {
+	return m.owner, m.owner != nil
 }
 
 func (m *mockStorageInstance) Tag() names.Tag {
@@ -308,7 +313,7 @@ func (m *mockStorageAttachment) StorageInstance() names.StorageTag {
 }
 
 func (m *mockStorageAttachment) Unit() names.UnitTag {
-	return m.storage.Owner().(names.UnitTag)
+	return m.storage.owner.(names.UnitTag)
 }
 
 type mockVolumeAttachment struct {

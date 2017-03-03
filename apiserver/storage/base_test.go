@@ -86,6 +86,7 @@ const (
 	addStorageForUnitCall                   = "addStorageForUnit"
 	getBlockForTypeCall                     = "getBlockForType"
 	volumeAttachmentCall                    = "volumeAttachment"
+	destroyStorageInstanceCall              = "destroyStorageInstance"
 )
 
 func (s *baseStorageSuite) constructState() *mockState {
@@ -228,6 +229,10 @@ func (s *baseStorageSuite) constructState() *mockState {
 			s.calls = append(s.calls, getBlockForTypeCall)
 			val, found := s.blocks[t]
 			return val, found, nil
+		},
+		destroyStorageInstance: func(tag names.StorageTag) error {
+			s.calls = append(s.calls, destroyStorageInstanceCall)
+			return errors.New("cannae do it")
 		},
 	}
 }

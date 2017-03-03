@@ -49,6 +49,7 @@ func NewAPI(
 		authorizer:  authorizer,
 	}, nil
 }
+
 func (api *API) checkCanRead() error {
 	canRead, err := api.authorizer.HasPermission(permission.ReadAccess, api.storage.ModelTag())
 	if err != nil {
@@ -195,9 +196,14 @@ func createStorageDetails(st storageAccess, si state.StorageInstance) (*params.S
 		}
 	}
 
+	var ownerTag string
+	if owner, ok := si.Owner(); ok {
+		ownerTag = owner.String()
+	}
+
 	return &params.StorageDetails{
 		StorageTag:  si.Tag().String(),
-		OwnerTag:    si.Owner().String(),
+		OwnerTag:    ownerTag,
 		Kind:        params.StorageKind(si.Kind()),
 		Status:      common.EntityStatusFromState(status),
 		Persistent:  persistent,
@@ -708,4 +714,35 @@ func (a *API) AddToUnit(args params.StoragesAddParams) (params.ErrorResults, err
 		}
 	}
 	return params.ErrorResults{Results: result}, nil
+}
+
+// Destroy sets the specified storage entities to Dying, unless they are
+// already Dying or Dead.
+func (a *API) Destroy(args params.Entities) (params.ErrorResults, error) {
+	if err := a.checkCanWrite(); err != nil {
+		return params.ErrorResults{}, errors.Trace(err)
+	}
+
+	blockChecker := common.NewBlockChecker(a.storage)
+	if err := blockChecker.RemoveAllowed(); err != nil {
+		return params.ErrorResults{}, errors.Trace(err)
+	}
+
+	result := make([]params.ErrorResult, len(args.Entities))
+	for i, one := range args.Entities {
+		tag, err := names.ParseTag(one.Tag)
+		if err != nil {
+			result[i].Error = common.ServerError(err)
+			continue
+		}
+
+		switch tag := tag.(type) {
+		case names.StorageTag:
+			err = a.storage.DestroyStorageInstance(tag)
+		default:
+			err = errors.NotValidf("tag kind %q", tag.Kind())
+		}
+		result[i].Error = common.ServerError(err)
+	}
+	return params.ErrorResults{result}, nil
 }
