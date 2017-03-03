@@ -490,7 +490,6 @@ def main(argv=None):
     if args.model is None:
         bs_manager = BootstrapManager.from_args(args)
         with bs_manager.booted_context(args.upload_tools):
-            test = AssessNetworkHealth()
             test.assess_network_health(bs_manager.client, bundle=args.bundle,
                                        series=args.series, reboot=args.reboot)
     else:
