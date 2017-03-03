@@ -164,7 +164,7 @@ func (f *FakeSpace) Subnets() (bs []networkingcommon.BackingSubnet, err error) {
 			AvailabilityZones: zones,
 			Status:            status,
 		}
-		outputSubnets = append(outputSubnets, &FakeSubnet{info: backing})
+		outputSubnets = append(outputSubnets, &FakeSubnet{Info: backing})
 	}
 
 	return outputSubnets, nil
@@ -289,42 +289,42 @@ func (f *FakeZone) GoString() string {
 
 // FakeSubnet implements networkingcommon.BackingSubnet for testing.
 type FakeSubnet struct {
-	info networkingcommon.BackingSubnetInfo
+	Info networkingcommon.BackingSubnetInfo
 }
 
 var _ networkingcommon.BackingSubnet = (*FakeSubnet)(nil)
 
 // GoString implements fmt.GoStringer.
 func (f *FakeSubnet) GoString() string {
-	return fmt.Sprintf("&FakeSubnet{%#v}", f.info)
+	return fmt.Sprintf("&FakeSubnet{%#v}", f.Info)
 }
 
 func (f *FakeSubnet) Status() string {
-	return f.info.Status
+	return f.Info.Status
 }
 
 func (f *FakeSubnet) CIDR() string {
-	return f.info.CIDR
+	return f.Info.CIDR
 }
 
 func (f *FakeSubnet) AvailabilityZones() []string {
-	return f.info.AvailabilityZones
+	return f.Info.AvailabilityZones
 }
 
 func (f *FakeSubnet) ProviderId() network.Id {
-	return f.info.ProviderId
+	return f.Info.ProviderId
 }
 
 func (f *FakeSubnet) VLANTag() int {
-	return f.info.VLANTag
+	return f.Info.VLANTag
 }
 
 func (f *FakeSubnet) SpaceName() string {
-	return f.info.SpaceName
+	return f.Info.SpaceName
 }
 
 func (f *FakeSubnet) Life() params.Life {
-	return f.info.Life
+	return f.Info.Life
 }
 
 // ResetStub resets all recorded calls and errors of the given stub.
@@ -504,7 +504,7 @@ func (sb *StubBacking) AddSubnet(subnetInfo networkingcommon.BackingSubnetInfo) 
 	if err := sb.NextErr(); err != nil {
 		return nil, err
 	}
-	fs := &FakeSubnet{info: subnetInfo}
+	fs := &FakeSubnet{Info: subnetInfo}
 	sb.Subnets = append(sb.Subnets, fs)
 	return fs, nil
 }

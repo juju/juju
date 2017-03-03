@@ -414,12 +414,16 @@ func ListSubnets(api NetworkBacking, args params.SubnetsFilters) (results params
 			)
 			continue
 		}
+		var spaceTag string
+		if subnet.SpaceName() != "" {
+			spaceTag = names.NewSpaceTag(subnet.SpaceName()).String()
+		}
 		result := params.Subnet{
 			CIDR:       subnet.CIDR(),
 			ProviderId: string(subnet.ProviderId()),
 			VLANTag:    subnet.VLANTag(),
 			Life:       subnet.Life(),
-			SpaceTag:   names.NewSpaceTag(subnet.SpaceName()).String(),
+			SpaceTag:   spaceTag,
 			Zones:      subnet.AvailabilityZones(),
 			Status:     subnet.Status(),
 		}
