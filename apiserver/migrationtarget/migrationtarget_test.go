@@ -55,7 +55,7 @@ func (s *Suite) SetUpTest(c *gc.C) {
 }
 
 func (s *Suite) TestFacadeRegistered(c *gc.C) {
-	factory, err := common.Facades.GetFactory("MigrationTarget", 1)
+	factory, err := common.GetFacades().GetFactory("MigrationTarget", 1)
 	c.Assert(err, jc.ErrorIsNil)
 
 	api, err := factory(&facadetest.Context{

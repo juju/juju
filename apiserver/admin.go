@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/observer"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/presence"
@@ -54,7 +55,13 @@ func (a *admin) login(req params.LoginRequest, loginVersion int) (params.LoginRe
 	}
 
 	// apiRoot is the API root exposed to the client after authentication.
-	var apiRoot rpc.Root = newAPIRoot(a.root.state, a.srv.statePool, a.root.resources, a.root)
+	var apiRoot rpc.Root = newAPIRoot(
+		a.root.state,
+		a.srv.statePool,
+		a.srv.facades,
+		a.root.resources,
+		a.root,
+	)
 
 	// Use the login validation function, if one was specified.
 	if a.srv.validator != nil {
@@ -197,11 +204,11 @@ func (a *admin) login(req params.LoginRequest, loginVersion int) (params.LoginRe
 	}
 
 	if controllerOnlyLogin {
-		loginResult.Facades = filterFacades(isControllerFacade)
+		loginResult.Facades = filterFacades(a.srv.facades, isControllerFacade)
 		apiRoot = restrictRoot(apiRoot, controllerFacadesOnly)
 	} else {
 		loginResult.ModelTag = model.Tag().String()
-		loginResult.Facades = filterFacades(isModelFacade)
+		loginResult.Facades = filterFacades(a.srv.facades, isModelFacade)
 		apiRoot = restrictRoot(apiRoot, modelFacadesOnly)
 	}
 
@@ -280,8 +287,8 @@ func (a *admin) checkUserPermissions(userTag names.UserTag, controllerOnlyLogin 
 	}, nil
 }
 
-func filterFacades(allowFacade func(name string) bool) []params.FacadeVersions {
-	allFacades := DescribeFacades()
+func filterFacades(registry *facade.Registry, allowFacade func(name string) bool) []params.FacadeVersions {
+	allFacades := DescribeFacades(registry)
 	out := make([]params.FacadeVersions, 0, len(allFacades))
 	for _, facade := range allFacades {
 		if allowFacade(facade.Name) {

@@ -15,6 +15,7 @@ import (
 
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/rpc"
@@ -84,8 +85,8 @@ func NewErrRoot(err error) *errRoot {
 // TestingAPIRoot gives you an APIRoot as a rpc.Methodfinder that is
 // *barely* connected to anything.  Just enough to let you probe some
 // of the interfaces, but not enough to actually do any RPC calls.
-func TestingAPIRoot(st *state.State) rpc.Root {
-	return newAPIRoot(st, state.NewStatePool(st), common.NewResources(), nil)
+func TestingAPIRoot(facades *facade.Registry) rpc.Root {
+	return newAPIRoot(nil, state.NewStatePool(nil), facades, common.NewResources(), nil)
 }
 
 // TestingAPIHandler gives you an APIHandler that isn't connected to
@@ -114,35 +115,35 @@ func TestingAPIHandlerWithEntity(c *gc.C, srvSt, st *state.State, entity state.E
 
 // TestingUpgradingRoot returns a resricted srvRoot in an upgrade
 // scenario.
-func TestingUpgradingRoot(st *state.State) rpc.Root {
-	r := TestingAPIRoot(st)
+func TestingUpgradingRoot() rpc.Root {
+	r := TestingAPIRoot(common.GetFacades())
 	return restrictRoot(r, upgradeMethodsOnly)
 }
 
 // TestingMigratingRoot returns a resricted srvRoot in a migration
 // scenario.
-func TestingMigratingRoot(st *state.State) rpc.Root {
-	r := TestingAPIRoot(st)
+func TestingMigratingRoot() rpc.Root {
+	r := TestingAPIRoot(common.GetFacades())
 	return restrictRoot(r, migrationClientMethodsOnly)
 }
 
 // TestingControllerOnlyRoot returns a restricted srvRoot as if
 // logged in to the root of the API path.
 func TestingControllerOnlyRoot() rpc.Root {
-	r := TestingAPIRoot(nil)
+	r := TestingAPIRoot(common.GetFacades())
 	return restrictRoot(r, controllerFacadesOnly)
 }
 
 // TestingModelOnlyRoot returns a restricted srvRoot as if
 // logged in to a model.
 func TestingModelOnlyRoot() rpc.Root {
-	r := TestingAPIRoot(nil)
+	r := TestingAPIRoot(common.GetFacades())
 	return restrictRoot(r, modelFacadesOnly)
 }
 
 // TestingRestrictedRoot returns a restricted srvRoot.
 func TestingRestrictedRoot(check func(string, string) error) rpc.Root {
-	r := TestingAPIRoot(nil)
+	r := TestingAPIRoot(common.GetFacades())
 	return restrictRoot(r, check)
 }
 
@@ -162,7 +163,7 @@ func SetAdminAPIVersions(srv *Server, versions ...int) {
 // TestingAboutToRestoreRoot returns a limited root which allows
 // methods as per when a restore is about to happen.
 func TestingAboutToRestoreRoot() rpc.Root {
-	r := TestingAPIRoot(nil)
+	r := TestingAPIRoot(common.GetFacades())
 	return restrictRoot(r, aboutToRestoreMethodsOnly)
 }
 

@@ -4,9 +4,7 @@
 package common
 
 import (
-	"fmt"
 	"reflect"
-	"runtime"
 
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
@@ -21,11 +19,13 @@ import (
 // Most implementers of a facade will probably want to use
 // RegisterStandardFacade rather than Facades.Register, as it provides
 // much cleaner syntax and semantics for calling during init().
-//
-// Developers in a happy future will not want to use Facades at all,
-// eschewing globals in favour of explicitly building apis and supplying
-// them directly to an apiserver.
-var Facades = &facade.Registry{}
+var facades = &facade.Registry{}
+
+// GetFacades is temporary and will go away soon. It should only be
+// called by the apiserver.
+func GetFacades() *facade.Registry {
+	return facades
+}
 
 // RegisterFacade updates the global facade registry with a new version of a new type.
 func RegisterFacade(name string, version int, factory facade.Factory, facadeType reflect.Type) {
@@ -36,128 +36,13 @@ func RegisterFacade(name string, version int, factory facade.Factory, facadeType
 // version of a new type. If the feature is non-empty, this facade is only
 // available when the specified feature flag is set.
 func RegisterFacadeForFeature(name string, version int, factory facade.Factory, facadeType reflect.Type, feature string) {
-	err := Facades.Register(name, version, factory, facadeType, feature)
+	err := facades.Register(name, version, factory, facadeType, feature)
 	if err != nil {
 		// This is meant to be called during init() so errors should be
 		// considered fatal.
 		panic(err)
 	}
 	logger.Tracef("Registered facade %q v%d", name, version)
-}
-
-type niceFactory func(facade.Context) (interface{}, error)
-
-type nastyFactory func(
-	st *state.State,
-	resources facade.Resources,
-	authorizer facade.Authorizer,
-) (
-	interface{}, error,
-)
-
-// validateNewFacade ensures that the facade factory we have has the right
-// input and output parameters for being used as a NewFoo function.
-func validateNewFacade(funcValue reflect.Value) (bool, error) {
-	if !funcValue.IsValid() {
-		return false, fmt.Errorf("cannot wrap nil")
-	}
-	if funcValue.Kind() != reflect.Func {
-		return false, fmt.Errorf("wrong type %q is not a function", funcValue.Kind())
-	}
-	funcType := funcValue.Type()
-	funcName := runtime.FuncForPC(funcValue.Pointer()).Name()
-
-	badSigError := errors.Errorf(""+
-		"function %q does not have the signature "+
-		"func (facade.Context) (*Type, error), or "+
-		"func (*state.State, facade.Resources, facade.Authorizer) (*Type, error)", funcName)
-
-	if funcType.NumOut() != 2 {
-		return false, errors.Trace(badSigError)
-	}
-	var (
-		facadeType reflect.Type
-		nice       bool
-	)
-	inArgCount := funcType.NumIn()
-
-	switch inArgCount {
-	case 1:
-		facadeType = reflect.TypeOf((*niceFactory)(nil)).Elem()
-		nice = true
-	case 3:
-		facadeType = reflect.TypeOf((*nastyFactory)(nil)).Elem()
-	default:
-		return false, errors.Trace(badSigError)
-	}
-
-	isSame := true
-	for i := 0; i < inArgCount; i++ {
-		if funcType.In(i) != facadeType.In(i) {
-			isSame = false
-			break
-		}
-	}
-	if funcType.Out(1) != facadeType.Out(1) {
-		isSame = false
-	}
-	if !isSame {
-		return false, errors.Trace(badSigError)
-	}
-	return nice, nil
-}
-
-// wrapNewFacade turns a given NewFoo(st, resources, authorizer) (*Instance, error)
-// function and wraps it into a proper facade.Factory function.
-func wrapNewFacade(newFunc interface{}) (facade.Factory, reflect.Type, error) {
-	funcValue := reflect.ValueOf(newFunc)
-	nice, err := validateNewFacade(funcValue)
-	if err != nil {
-		return nil, reflect.TypeOf(nil), err
-	}
-	var wrapped facade.Factory
-	if nice {
-		wrapped = func(context facade.Context) (facade.Facade, error) {
-			if context.ID() != "" {
-				return nil, ErrBadId
-			}
-			in := []reflect.Value{reflect.ValueOf(context)}
-			out := funcValue.Call(in)
-			if out[1].Interface() != nil {
-				err := out[1].Interface().(error)
-				return nil, err
-			}
-			return out[0].Interface(), nil
-		}
-	} else {
-		// So we know newFunc is a func with the right args in and out, so
-		// wrap it into a helper function that matches the facade.Factory.
-		wrapped = func(context facade.Context) (facade.Facade, error) {
-			if context.ID() != "" {
-				return nil, ErrBadId
-			}
-			st := context.State()
-			auth := context.Auth()
-			resources := context.Resources()
-			// st, resources, or auth is nil, then reflect.Call dies
-			// because reflect.ValueOf(anynil) is the Zero Value.
-			// So we use &obj.Elem() which gives us a concrete Value object
-			// that can refer to nil.
-			in := []reflect.Value{
-				reflect.ValueOf(&st).Elem(),
-				reflect.ValueOf(&resources).Elem(),
-				reflect.ValueOf(&auth).Elem(),
-			}
-			out := funcValue.Call(in)
-			if out[1].Interface() != nil {
-				err := out[1].Interface().(error)
-				return nil, err
-			}
-			return out[0].Interface(), nil
-		}
-
-	}
-	return wrapped, funcValue.Type().Out(0), nil
 }
 
 // NewHookContextFacadeFn specifies the function signature that can be
@@ -200,7 +85,7 @@ func RegisterHookContextFacade(name string, version int, newHookContextFacade Ne
 		return newHookContextFacade(st, unit)
 	}
 
-	RegisterFacade(name, version, newFacade, facadeType)
+	facades.Register(name, version, newFacade, facadeType, "")
 }
 
 // RegisterStandardFacade registers a factory function for a normal New* style
@@ -220,9 +105,5 @@ func RegisterStandardFacade(name string, version int, newFunc interface{}) {
 // feature is non-empty, this facade is only available when the specified
 // feature flag is set.
 func RegisterStandardFacadeForFeature(name string, version int, newFunc interface{}, feature string) {
-	wrapped, facadeType, err := wrapNewFacade(newFunc)
-	if err != nil {
-		panic(err)
-	}
-	RegisterFacadeForFeature(name, version, wrapped, facadeType, feature)
+	facades.RegisterStandard(name, version, newFunc, feature)
 }
