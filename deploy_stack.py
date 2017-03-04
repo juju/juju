@@ -530,8 +530,8 @@ def error_if_unclean(unclean_resources):
         for resources in unclean_resources:
             resource = resources.get("resource")
             logging.critical(resource)
-            messages = resources.get("errors")
-            for (id, reason) in messages:
+            errors = resources.get("errors")
+            for (id, reason) in errors:
                 reason_string = "\n".join(['\t{}: {}'.format(
                     id, reason)])
                 logging.critical(reason_string)

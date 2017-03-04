@@ -201,9 +201,12 @@ class AWSAccount:
         for sg_id, sg_instances in secgroups.items():
             if instances_only_contain_known(instances, sg_instances):
                 try:
-                    self.destroy_security_groups([sg_id])
+                    deleted = self.client.delete_security_group(name=sg_id)
+                    if not deleted:
+                        failures.append((sg_id, "Failed to delete"))
                 except EC2ResponseError as e:
                     failures.append((sg_id, e.message))
+
         return failures
 
     def get_security_groups(self, instances):

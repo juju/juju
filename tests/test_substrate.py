@@ -1806,19 +1806,19 @@ class TestAWSCleanUpSecurityGroups(TestCase):
             "sg-bar": ["foo", "bar"]
         }
         instances = ["foo", "bar"]
-        client = MagicMock()
+        client = MagicMock(spec=["delete_security_group"])
         with patch('substrate.ec2.connect_to_region',
                    return_value=client):
             with AWSAccount.from_boot_config(get_aws_env()) as aws:
-                with patch.object(aws, 'destroy_security_groups') as dsg:
-                    err_msg = 'Security group failed to delete'
-                    dsg.side_effect = EC2ResponseError(400, "error", err_msg)
-                    failures = aws.cleanup_security_groups(instances, secgroup)
-                    self.assertEquals(dsg.call_args_list,
-                                      [call(['sg-bar']), call(['sg-foo'])])
-                    self.assertListEqual(failures,
-                                         [('sg-bar', err_msg),
-                                          ('sg-foo', err_msg)])
+                err_msg = 'Security group failed to delete'
+                client.delete_security_group.side_effect = EC2ResponseError(
+                    400, "error", err_msg)
+                failures = aws.cleanup_security_groups(instances, secgroup)
+                self.assertEquals(client.delete_security_group.call_args_list,
+                                  [call(name='sg-bar'), call(name='sg-foo')])
+                self.assertListEqual(failures,
+                                     [('sg-bar', err_msg),
+                                      ('sg-foo', err_msg)])
 
     def test_exception_on_deleting_second_secgroup(self):
         secgroup = {
@@ -1826,18 +1826,17 @@ class TestAWSCleanUpSecurityGroups(TestCase):
             "sg-bar": ["fooX", "barX"]
         }
         instances = ["foo", "bar", "fooX", "barX"]
-        client = MagicMock()
+        client = MagicMock(spec=["delete_security_group"])
         with patch('substrate.ec2.connect_to_region',
                    return_value=client):
             with AWSAccount.from_boot_config(get_aws_env()) as aws:
-                with patch.object(aws, 'destroy_security_groups') as dsg:
-                    err_msg = 'Security group failed to delete'
-                    dsg.side_effect = [None,
-                                       EC2ResponseError(400, "error", err_msg)]
-                    failures = aws.cleanup_security_groups(instances, secgroup)
-                    self.assertEquals(failures,
-                                      [('sg-foo',
-                                        'Security group failed to delete')])
+                err_msg = 'Security group failed to delete'
+                client.delete_security_group.side_effect = [
+                    True, EC2ResponseError(400, "error", err_msg)]
+                failures = aws.cleanup_security_groups(instances, secgroup)
+                self.assertEquals(failures,
+                                  [('sg-foo',
+                                    'Security group failed to delete')])
 
     def test_exception_on_deleting_first_secgroup(self):
         secgroup = {
@@ -1845,18 +1844,17 @@ class TestAWSCleanUpSecurityGroups(TestCase):
             "sg-bar": ["fooX", "barX"]
         }
         instances = ["foo", "bar", "fooX", "barX"]
-        client = MagicMock()
+        client = MagicMock(spec=["delete_security_group"])
         with patch('substrate.ec2.connect_to_region',
                    return_value=client):
             with AWSAccount.from_boot_config(get_aws_env()) as aws:
-                with patch.object(aws, 'destroy_security_groups') as dsg:
-                    err_msg = 'Security group failed to delete'
-                    dsg.side_effect = [EC2ResponseError(400, "error", err_msg),
-                                       None]
-                    failures = aws.cleanup_security_groups(instances, secgroup)
-                    self.assertEquals(failures,
-                                      [('sg-bar',
-                                        'Security group failed to delete')])
+                err_msg = 'Security group failed to delete'
+                client.delete_security_group.side_effect = [
+                    EC2ResponseError(400, "error", err_msg), True]
+                failures = aws.cleanup_security_groups(instances, secgroup)
+                self.assertEquals(failures,
+                                  [('sg-bar',
+                                    'Security group failed to delete')])
 
     def test_instance_mapped_to_more_than_one_secgroup(self):
         secgroup = {
