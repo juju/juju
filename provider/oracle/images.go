@@ -20,7 +20,7 @@ func getInstanceTypes(c *oci.Client) ([]instances.InstanceType, error) {
 
 	// make api request to oracle cloud to give us a list of
 	// all supported shapes
-	shapes, err := c.AllShapes()
+	shapes, err := c.AllShapes(nil)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -69,7 +69,7 @@ func findInstanceSpec(
 func checkImageList(c *oci.Client, cons constraints.Value) ([]*imagemetadata.ImageMetadata, error) {
 
 	// take a list of all images that are in the oracle cloud account
-	resp, err := c.AllImageLists()
+	resp, err := c.AllImageLists(nil)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -105,7 +105,7 @@ func getImageName(c *oci.Client, id string) (string, error) {
 		return "", errors.NotFoundf("empty id")
 	}
 
-	resp, err := c.AllImageLists()
+	resp, err := c.AllImageLists(nil)
 	if err != nil {
 		return "", errors.Trace(err)
 	}

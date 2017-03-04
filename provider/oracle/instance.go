@@ -277,12 +277,14 @@ func (o *oracleInstance) Addresses() ([]network.Address, error) {
 // OpenPorts opens the given port ranges on the instance, which
 // should have been started with the given machine id.
 func (o *oracleInstance) OpenPorts(machineId string, rules []network.IngressRule) error {
+	logger.Infof("machine: %v --> rules: %v", machineId, rules)
 	return nil
 }
 
 // ClosePorts closes the given port ranges on the instance, which
 // should have been started with the given machine id.
 func (o *oracleInstance) ClosePorts(machineId string, rules []network.IngressRule) error {
+	logger.Infof("machine: %v --> rules: %v", machineId, rules)
 	return nil
 }
 

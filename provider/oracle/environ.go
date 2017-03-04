@@ -32,26 +32,30 @@ import (
 // oracleEnviron implements the environs.Environ interface
 // and has behaviour specific that the interface provides.
 type oracleEnviron struct {
-	mutex *sync.Mutex
-	p     *environProvider
-	spec  environs.CloudSpec
-	cfg   *config.Config
+	mutex  *sync.Mutex
+	p      *environProvider
+	spec   environs.CloudSpec
+	cfg    *config.Config
+	client *oci.Client
+	fw     *Firewall
 	// namespace instance.Namespace
 }
 
 // newOracleEnviron returns a new oracleEnviron
 // composed from a environProvider and args from environs.OpenParams,
 // usually this method is used in Open method calls of the environProvider
-func newOracleEnviron(p *environProvider, args environs.OpenParams) *oracleEnviron {
+func newOracleEnviron(p *environProvider, args environs.OpenParams, client *oci.Client) *oracleEnviron {
 	m := &sync.Mutex{}
 
 	env := &oracleEnviron{
-		p:     p,
-		spec:  args.Cloud,
-		cfg:   args.Config,
-		mutex: m,
+		p:      p,
+		spec:   args.Cloud,
+		cfg:    args.Config,
+		mutex:  m,
+		client: client,
 	}
-
+	fw := NewFirewall(env, client)
+	env.fw = fw
 	return env
 }
 
@@ -199,7 +203,27 @@ func (o *oracleEnviron) StartInstance(args environs.StartInstanceParams) (*envir
 		tags = append(tags, t.String())
 	}
 	tags = append(tags, machineName)
-	//TODO
+
+	var apiPort int
+	if args.InstanceConfig.Controller != nil {
+		apiPort = args.InstanceConfig.Controller.Config.APIPort()
+	} else {
+		// All ports are the same so pick the first.
+		apiPort = args.InstanceConfig.APIInfo.Ports()[0]
+	}
+	secLists, err := o.fw.CreateMachineSecLists(
+		args.InstanceConfig.MachineId, apiPort)
+	if err != nil {
+		return nil, err
+	}
+	logger.Debugf("Created security lists: %v", secLists)
+
+	networking := map[string]interface{}{
+		"eth0": oci.VEthernet{
+			Nat:      oci.PublicNATPool,
+			SecLists: secLists,
+		},
+	}
 	instance, err := createInstance(o.p.client, oci.InstanceParams{
 		Relationships: nil,
 		Instances: []oci.Instances{
@@ -212,6 +236,7 @@ func (o *oracleEnviron) StartInstance(args environs.StartInstanceParams) (*envir
 				Tags:        tags,
 				Attributes:  attributes,
 				Reverse_dns: false,
+				Networking:  networking,
 				// TODO(sgiulitti): make vm generate a public address
 			},
 		},
@@ -229,6 +254,7 @@ func (o *oracleEnviron) StartInstance(args environs.StartInstanceParams) (*envir
 		return nil, err
 	}
 	logger.Infof("started instance %q", machineId)
+	//TODO: add config option for public IP allocation
 	logger.Infof("Associating public IP to instance %q", machineId)
 	if err := instance.associatePublicIP(); err != nil {
 		return nil, err
@@ -566,6 +592,7 @@ func (o *oracleEnviron) DestroyController(controllerUUID string) error {
 // Must only be used if the environment was setup with the
 // FwGlobal firewall mode.
 func (o *oracleEnviron) OpenPorts(rules []network.IngressRule) error {
+	logger.Infof("rules: %v", rules)
 	return nil
 }
 
@@ -573,6 +600,7 @@ func (o *oracleEnviron) OpenPorts(rules []network.IngressRule) error {
 // Must only be used if the environment was setup with the
 // FwGlobal firewall mode.
 func (o *oracleEnviron) ClosePorts(rules []network.IngressRule) error {
+	logger.Infof("rules: %v", rules)
 	return nil
 }
 

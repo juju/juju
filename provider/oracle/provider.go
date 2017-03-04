@@ -127,7 +127,7 @@ func (e *environProvider) Open(params environs.OpenParams) (environs.Environ, er
 	}
 	e.client = cli
 
-	environ := newOracleEnviron(e, params)
+	environ := newOracleEnviron(e, params, cli)
 	return environ, nil
 }
 
