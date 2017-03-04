@@ -214,13 +214,12 @@ func (o *oracleEnviron) StartInstance(args environs.StartInstanceParams) (*envir
 	secLists, err := o.fw.CreateMachineSecLists(
 		args.InstanceConfig.MachineId, apiPort)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	logger.Debugf("Created security lists: %v", secLists)
 
 	networking := map[string]interface{}{
 		"eth0": oci.VEthernet{
-			Nat:      oci.PublicNATPool,
 			SecLists: secLists,
 		},
 	}
@@ -241,23 +240,25 @@ func (o *oracleEnviron) StartInstance(args environs.StartInstanceParams) (*envir
 			},
 		},
 	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	logger.Debugf("Image spec: %v", spec.Image.Arch)
+	logger.Debugf("Instance type: %v", spec.InstanceType)
 	instance.arch = &spec.Image.Arch
 	instance.instType = &spec.InstanceType
-
-	if err != nil {
-		return nil, err
-	}
 
 	machineId := instance.machine.Name
 	timeout := 10 * time.Minute
 	if err := instance.waitForMachineStatus(ociCommon.StateRunning, timeout); err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	logger.Infof("started instance %q", machineId)
 	//TODO: add config option for public IP allocation
 	logger.Infof("Associating public IP to instance %q", machineId)
 	if err := instance.associatePublicIP(); err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	result := &environs.StartInstanceResult{
 		Instance: instance,
@@ -329,7 +330,7 @@ func (o *oracleEnviron) getOracleInstances(ids ...instance.Id) ([]*oracleInstanc
 	if len(ids) == 1 {
 		inst, err := o.p.client.InstanceDetails(string(ids[0]))
 		if err != nil {
-			return nil, err
+			return nil, errors.Trace(err)
 		}
 		//environs.ErrPartialInstances
 		oInst, err := newInstance(inst, o.p.client)
@@ -339,7 +340,7 @@ func (o *oracleEnviron) getOracleInstances(ids ...instance.Id) ([]*oracleInstanc
 
 	resp, err := o.p.client.AllInstances(nil)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 
 	if len(resp.Result) == 0 {
@@ -358,7 +359,7 @@ func (o *oracleEnviron) getOracleInstances(ids ...instance.Id) ([]*oracleInstanc
 		}
 		oInst, err := newInstance(val, o.p.client)
 		if err != nil {
-			return nil, err
+			return nil, errors.Trace(err)
 		}
 		ret = append(ret, oInst)
 	}
@@ -379,7 +380,7 @@ func (o *oracleEnviron) allInstances(tagFilter tagValue) ([]*oracleInstance, err
 	logger.Infof("Looking for instances with tags: %v", filter)
 	resp, err := o.p.client.AllInstances(filter)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 
 	instances := []*oracleInstance{}
@@ -398,7 +399,7 @@ func (o *oracleEnviron) AllInstances() ([]instance.Instance, error) {
 	tagFilter := tagValue{tags.JujuModel, o.Config().UUID()}
 	instances, err := o.allInstances(tagFilter)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	ret := make([]instance.Instance, len(instances))
 	for i, val := range instances {

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"reflect"
 	"sort"
+	"strconv"
 	"strings"
 
 	oci "github.com/hoenirvili/go-oracle-cloud/api"
@@ -11,6 +12,7 @@ import (
 	ociResponse "github.com/hoenirvili/go-oracle-cloud/response"
 
 	"github.com/juju/errors"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/network"
 	"github.com/juju/utils"
 )
@@ -126,6 +128,9 @@ func (f *Firewall) getAllIPLists() ([]ociResponse.SecIpList, error) {
 		return nil, errors.Trace(err)
 	}
 
+	logger.Debugf("DefaultsecIPList is: %v", defaultSecIpLists)
+	logger.Debugf("secIpLists is: %v", secIpLists)
+
 	allIpLists := []ociResponse.SecIpList{}
 	for _, val := range secIpLists.Result {
 		allIpLists = append(allIpLists, val) //[val.Name] = val
@@ -133,6 +138,7 @@ func (f *Firewall) getAllIPLists() ([]ociResponse.SecIpList, error) {
 	for _, val := range defaultSecIpLists.Result {
 		allIpLists = append(allIpLists, val) //[val.Name] = val
 	}
+	logger.Debugf("Found the following IP lists: %v", allIpLists)
 	return allIpLists, nil
 }
 
@@ -178,15 +184,17 @@ func (f *Firewall) ensureApplication(portRange network.PortRange, cache *[]ociRe
 	// rules, that we cleanup anyway when we destroy the environment
 	uuid, err := utils.NewUUID()
 	if err != nil {
-		return "", err
+		return "", errors.Trace(err)
 	}
 	secAppName := f.newResourceName(uuid.String())
 	var dport string
 	if portRange.FromPort == portRange.ToPort {
-		dport = fmt.Sprintf("%s", portRange.FromPort)
+		dport = strconv.Itoa(portRange.FromPort)
 	} else {
-		dport = fmt.Sprintf("%s-%s", portRange.FromPort, portRange.ToPort)
+		dport = fmt.Sprintf("%s-%s",
+			strconv.Itoa(portRange.FromPort), strconv.Itoa(portRange.ToPort))
 	}
+	logger.Debugf("Dport is %v of type %T", dport, dport)
 	name := f.client.ComposeName(secAppName)
 	secAppParams := oci.SecApplicationParams{
 		Description: "Juju created security application",
@@ -194,9 +202,10 @@ func (f *Firewall) ensureApplication(portRange network.PortRange, cache *[]ociRe
 		Protocol:    ociCommon.Protocol(portRange.Protocol),
 		Name:        name,
 	}
+	logger.Debugf("Creating SecApplication: %v", secAppParams)
 	application, err := f.client.CreateSecApplication(secAppParams)
 	if err != nil {
-		return "", err
+		return "", errors.Trace(err)
 	}
 	*cache = append(*cache, application)
 	return application.Name, nil
@@ -205,9 +214,12 @@ func (f *Firewall) ensureApplication(portRange network.PortRange, cache *[]ociRe
 // TODO (gsamfira):finish this
 func (f *Firewall) ensureSecIpList(cidr []string, cache *[]ociResponse.SecIpList) (string, error) {
 	sort.Strings(cidr)
+	logger.Debugf("Cache is: %v", *cache)
 	for _, val := range *cache {
 		sort.Strings(val.Secipentries)
+		logger.Debugf("Comparing %v with %v", val.Secipentries, cidr)
 		if reflect.DeepEqual(val.Secipentries, cidr) {
+			logger.Debugf("Found matching SecIPList: %v", val)
 			return val.Name, nil
 		}
 	}
@@ -229,6 +241,7 @@ func (f *Firewall) ensureSecIpList(cidr []string, cache *[]ociResponse.SecIpList
 }
 
 func (f *Firewall) ensureSecRules(seclist ociResponse.SecList, rules []network.IngressRule) error {
+	logger.Debugf("Ensuring the existance of: %v", rules)
 	secRules, err := f.getSecRules(seclist)
 	if err != nil {
 		return errors.Trace(err)
@@ -289,10 +302,17 @@ func (f *Firewall) convertToSecRules(seclist ociResponse.SecList, rules []networ
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
+		logger.Debugf("Ensuring IP list. Source CIDR %v --> cache: %v", val.SourceCIDRs, iplists)
 		ipList, err := f.ensureSecIpList(val.SourceCIDRs, &iplists)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
+		uuid, err := utils.NewUUID()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		name := f.newResourceName(uuid.String() + val.String())
+		resourceName := f.client.ComposeName(name)
 		dstList := fmt.Sprintf("seclist:%s", seclist.Name)
 		srcList := fmt.Sprintf("seciplist:%s", ipList)
 		rule := oci.SecRuleParams{
@@ -301,7 +321,7 @@ func (f *Firewall) convertToSecRules(seclist ociResponse.SecList, rules []networ
 			Description: "Juju created security rule",
 			Disabled:    false,
 			Dst_list:    dstList,
-			Name:        f.client.ComposeName(val.String()),
+			Name:        resourceName,
 			Src_list:    srcList,
 		}
 		logger.Debugf("Generated sec rule: %v", rule)
@@ -336,11 +356,15 @@ func (f *Firewall) convertFromSecRules(rules []ociResponse.SecRule) (map[string]
 	for _, val := range rules {
 		// We only care about rules that have a destination set
 		// to a security list. Those lists get attached to VMs
-		if val.Dst_is_ip {
+		// NOTE: someone decided, when writing the oracle API
+		// that some fields should be bool, some should be string.
+		// never mind they both are boolean values...but hey.
+		// I swear...some people like to watch the world burn
+		if val.Dst_is_ip == "true" {
 			continue
 		}
 		// We only care about rules that have an IP list as source
-		if !val.Src_is_ip {
+		if val.Src_is_ip == "false" {
 			continue
 		}
 		app := val.Application
@@ -391,6 +415,16 @@ func (f *Firewall) createDefaultGroupAndRules(apiPort int) (ociResponse.SecList,
 			PortRange: network.PortRange{
 				FromPort: apiPort,
 				ToPort:   apiPort,
+				Protocol: "tcp",
+			},
+			SourceCIDRs: []string{
+				"0.0.0.0/0",
+			},
+		},
+		network.IngressRule{
+			PortRange: network.PortRange{
+				FromPort: controller.DefaultStatePort,
+				ToPort:   controller.DefaultStatePort,
 				Protocol: "tcp",
 			},
 			SourceCIDRs: []string{
