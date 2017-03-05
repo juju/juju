@@ -18,7 +18,6 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/watcher"
-	"github.com/juju/juju/state/workers"
 	"github.com/juju/juju/status"
 )
 
@@ -26,7 +25,7 @@ import (
 // a single model from the State.
 type allWatcherStateBacking struct {
 	st               *State
-	watcher          workers.TxnLogWatcher
+	watcher          *watcher.Watcher
 	collectionByName map[string]allWatcherStateCollection
 }
 
@@ -34,7 +33,7 @@ type allWatcherStateBacking struct {
 // for all models from the State.
 type allModelWatcherStateBacking struct {
 	st               *State
-	watcher          workers.TxnLogWatcher
+	watcher          *watcher.Watcher
 	stPool           *StatePool
 	collectionByName map[string]allWatcherStateCollection
 }
@@ -1104,7 +1103,7 @@ func newAllWatcherStateBacking(st *State) Backing {
 	}
 	return &allWatcherStateBacking{
 		st:               st,
-		watcher:          st.workers.TxnLogWatcher(),
+		watcher:          st.workers.txnLogWatcher(),
 		collectionByName: collections,
 	}
 }
@@ -1189,7 +1188,7 @@ func NewAllModelWatcherStateBacking(st *State, pool *StatePool) Backing {
 	}
 	return &allModelWatcherStateBacking{
 		st:               st,
-		watcher:          st.workers.TxnLogWatcher(),
+		watcher:          st.workers.txnLogWatcher(),
 		stPool:           pool,
 		collectionByName: collections,
 	}

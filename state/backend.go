@@ -6,7 +6,7 @@ package state
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/state/workers"
+	"github.com/juju/juju/state/watcher"
 )
 
 // modelBackend collects together some useful internal state methods for
@@ -16,7 +16,7 @@ type modelBackend interface {
 	localID(string) string
 	strictLocalID(string) (string, error)
 	db() Database
-	txnLogWatcher() workers.TxnLogWatcher
+	txnLogWatcher() *watcher.Watcher
 }
 
 // docID generates a globally unique id value

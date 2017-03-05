@@ -502,7 +502,7 @@ func (s *applicationSuite) TestAddCharmWithAuthorization(c *gc.C) {
 	}
 	// Try again with authorization for the wrong user.
 	err = tryAs("joe")
-	c.Assert(err, gc.ErrorMatches, `cannot retrieve charm "cs:~restricted/precise/wordpress-3": cannot get archive: unauthorized: access denied for user "joe"`)
+	c.Assert(err, gc.ErrorMatches, `cannot retrieve charm "cs:~restricted/precise/wordpress-3": cannot get archive: access denied for user "joe"`)
 
 	// Try again with the correct authorization this time.
 	err = tryAs("bob")

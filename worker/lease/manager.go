@@ -21,6 +21,19 @@ var logger = loggo.GetLogger("juju.worker.lease")
 // the manager has started (and possibly finished) shutdown.
 var errStopped = errors.New("lease manager stopped")
 
+// NewDeadManager returns a manager that's already dead
+// and always returns the given error.
+func NewDeadManager(err error) *Manager {
+	var m Manager
+	catacomb.Invoke(catacomb.Plan{
+		Site: &m.catacomb,
+		Work: func() error {
+			return errors.Trace(err)
+		},
+	})
+	return &m
+}
+
 // NewManager returns a new *Manager configured as supplied. The caller takes
 // responsibility for killing, and handling errors from, the returned Worker.
 func NewManager(config ManagerConfig) (*Manager, error) {

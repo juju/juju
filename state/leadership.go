@@ -14,7 +14,7 @@ import (
 
 	"github.com/juju/juju/core/leadership"
 	corelease "github.com/juju/juju/core/lease"
-	"github.com/juju/juju/state/workers"
+	"github.com/juju/juju/worker/lease"
 )
 
 func removeLeadershipSettingsOp(applicationId string) txn.Op {
@@ -28,13 +28,13 @@ func leadershipSettingsKey(applicationId string) string {
 // LeadershipClaimer returns a leadership.Claimer for units and services in the
 // state's model.
 func (st *State) LeadershipClaimer() leadership.Claimer {
-	return leadershipClaimer{st.workers.LeadershipManager()}
+	return leadershipClaimer{st.workers.leadershipManager()}
 }
 
 // LeadershipChecker returns a leadership.Checker for units and services in the
 // state's model.
 func (st *State) LeadershipChecker() leadership.Checker {
-	return leadershipChecker{st.workers.LeadershipManager()}
+	return leadershipChecker{st.workers.leadershipManager()}
 }
 
 // buildTxnWithLeadership returns a transaction source that combines the supplied source
@@ -85,7 +85,7 @@ func (leadershipSecretary) CheckDuration(duration time.Duration) error {
 
 // leadershipChecker implements leadership.Checker by wrapping a LeaseManager.
 type leadershipChecker struct {
-	manager workers.LeaseManager
+	manager *lease.Manager
 }
 
 // LeadershipCheck is part of the leadership.Checker interface.
@@ -116,7 +116,7 @@ func (t leadershipToken) Check(out interface{}) error {
 
 // leadershipClaimer implements leadership.Claimer by wrappping a LeaseManager.
 type leadershipClaimer struct {
-	manager workers.LeaseManager
+	manager *lease.Manager
 }
 
 // ClaimLeadership is part of the leadership.Claimer interface.
