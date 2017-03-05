@@ -15,15 +15,10 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/state/watcher"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.remotefirewaller")
-
-func init() {
-	common.RegisterStandardFacadeForFeature("RemoteFirewaller", 1, NewStateRemoteFirewallerAPI, feature.CrossModelRelations)
-}
 
 // FirewallerAPI provides access to the Remote Firewaller API facade.
 type FirewallerAPI struct {

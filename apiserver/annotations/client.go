@@ -14,10 +14,6 @@ import (
 	"github.com/juju/juju/state"
 )
 
-func init() {
-	common.RegisterStandardFacade("Annotations", 2, NewAPI)
-}
-
 var getState = func(st *state.State) annotationAccess {
 	return stateShim{st}
 }

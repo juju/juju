@@ -29,10 +29,6 @@ var (
 	sender = metricsender.DefaultMetricSender()
 )
 
-func init() {
-	common.RegisterStandardFacade("MetricsManager", 1, newMetricsManagerAPI)
-}
-
 // MetricsManager defines the methods on the metricsmanager API end point.
 type MetricsManager interface {
 	CleanupOldMetrics(arg params.Entities) (params.ErrorResults, error)
@@ -50,8 +46,8 @@ type MetricsManagerAPI struct {
 
 var _ MetricsManager = (*MetricsManagerAPI)(nil)
 
-// newMetricsManagerAPI wraps NewMetricsManagerAPI for RegisterStandardFacade.
-func newMetricsManagerAPI(
+// NewFacade wraps NewMetricsManagerAPI for API registration.
+func NewFacade(
 	st *state.State,
 	resources facade.Resources,
 	authorizer facade.Authorizer,

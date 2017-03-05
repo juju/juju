@@ -29,10 +29,6 @@ import (
 	jujuversion "github.com/juju/juju/version"
 )
 
-func init() {
-	common.RegisterStandardFacade("Client", 1, newClient)
-}
-
 var logger = loggo.GetLogger("juju.apiserver.client")
 
 type API struct {
@@ -96,7 +92,7 @@ func (c *Client) checkCanWrite() error {
 	return nil
 }
 
-func newClient(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*Client, error) {
+func NewFacade(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*Client, error) {
 	urlGetter := common.NewToolsURLGetter(st.ModelUUID(), st)
 	configGetter := stateenvirons.EnvironConfigGetter{st}
 	statusSetter := common.NewStatusSetter(st, common.AuthAlways())

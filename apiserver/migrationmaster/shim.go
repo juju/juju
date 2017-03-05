@@ -13,9 +13,9 @@ import (
 	"github.com/juju/juju/state"
 )
 
-// newAPIForRegistration exists to provide the required signature for
-// RegisterStandardFacade, converting st to backend.
-func newAPIForRegistration(
+// NewFacade exists to provide the required signature for API
+// registration, converting st to backend.
+func NewFacade(
 	st *state.State,
 	resources facade.Resources,
 	authorizer facade.Authorizer,

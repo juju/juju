@@ -13,10 +13,6 @@ import (
 	"github.com/juju/juju/state/watcher"
 )
 
-func init() {
-	common.RegisterStandardFacade("Logger", 1, NewLoggerAPI)
-}
-
 // Logger defines the methods on the logger API end point.  Unfortunately, the
 // api infrastructure doesn't allow interfaces to be used as an actual
 // endpoint because our rpc mechanism panics.  However, I still feel that this

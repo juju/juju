@@ -25,10 +25,6 @@ import (
 
 var logger = loggo.GetLogger("juju.apiserver.resources")
 
-func init() {
-	common.RegisterStandardFacade("Resources", 1, NewPublicFacade)
-}
-
 // Backend is the functionality of Juju's state needed for the resources API.
 type Backend interface {
 	// ListResources returns the resources for the given application.

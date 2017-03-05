@@ -116,34 +116,34 @@ func TestingAPIHandlerWithEntity(c *gc.C, srvSt, st *state.State, entity state.E
 // TestingUpgradingRoot returns a resricted srvRoot in an upgrade
 // scenario.
 func TestingUpgradingRoot() rpc.Root {
-	r := TestingAPIRoot(common.GetFacades())
+	r := TestingAPIRoot(AllFacades())
 	return restrictRoot(r, upgradeMethodsOnly)
 }
 
 // TestingMigratingRoot returns a resricted srvRoot in a migration
 // scenario.
 func TestingMigratingRoot() rpc.Root {
-	r := TestingAPIRoot(common.GetFacades())
+	r := TestingAPIRoot(AllFacades())
 	return restrictRoot(r, migrationClientMethodsOnly)
 }
 
 // TestingControllerOnlyRoot returns a restricted srvRoot as if
 // logged in to the root of the API path.
 func TestingControllerOnlyRoot() rpc.Root {
-	r := TestingAPIRoot(common.GetFacades())
+	r := TestingAPIRoot(AllFacades())
 	return restrictRoot(r, controllerFacadesOnly)
 }
 
 // TestingModelOnlyRoot returns a restricted srvRoot as if
 // logged in to a model.
 func TestingModelOnlyRoot() rpc.Root {
-	r := TestingAPIRoot(common.GetFacades())
+	r := TestingAPIRoot(AllFacades())
 	return restrictRoot(r, modelFacadesOnly)
 }
 
 // TestingRestrictedRoot returns a restricted srvRoot.
 func TestingRestrictedRoot(check func(string, string) error) rpc.Root {
-	r := TestingAPIRoot(common.GetFacades())
+	r := TestingAPIRoot(AllFacades())
 	return restrictRoot(r, check)
 }
 
@@ -163,7 +163,7 @@ func SetAdminAPIVersions(srv *Server, versions ...int) {
 // TestingAboutToRestoreRoot returns a limited root which allows
 // methods as per when a restore is about to happen.
 func TestingAboutToRestoreRoot() rpc.Root {
-	r := TestingAPIRoot(common.GetFacades())
+	r := TestingAPIRoot(AllFacades())
 	return restrictRoot(r, aboutToRestoreMethodsOnly)
 }
 

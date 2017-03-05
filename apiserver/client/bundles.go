@@ -14,7 +14,7 @@ import (
 // This call is deprecated, clients should use the GetChanges endpoint on the
 // Bundle facade.
 func (c *Client) GetBundleChanges(args params.BundleChangesParams) (params.BundleChangesResults, error) {
-	bundleAPI, err := bundle.NewFacade(c.api.auth)
+	bundleAPI, err := bundle.NewBundle(c.api.auth)
 	if err != nil {
 		return params.BundleChangesResults{}, err
 	}

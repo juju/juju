@@ -31,8 +31,8 @@ type SSHMachine interface {
 	AllNetworkAddresses() ([]network.Address, error)
 }
 
-// newFacade wraps New to express the supplied *state.State as a Backend.
-func newFacade(st *state.State, res facade.Resources, auth facade.Authorizer) (*Facade, error) {
+// NewFacade wraps New to express the supplied *state.State as a Backend.
+func NewFacade(st *state.State, res facade.Resources, auth facade.Authorizer) (*Facade, error) {
 	return New(&backend{st}, res, auth)
 }
 

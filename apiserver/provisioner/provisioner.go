@@ -32,10 +32,6 @@ import (
 
 var logger = loggo.GetLogger("juju.apiserver.provisioner")
 
-func init() {
-	common.RegisterStandardFacade("Provisioner", 3, NewProvisionerAPI)
-}
-
 // ProvisionerAPI provides access to the Provisioner API facade.
 type ProvisionerAPI struct {
 	*common.ControllerConfigAPI

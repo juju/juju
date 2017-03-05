@@ -15,7 +15,6 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver"
-	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/rpc/rpcreflect"
 	"github.com/juju/juju/state"
@@ -366,7 +365,7 @@ func (r *rootSuite) TestFindMethodHandlesInterfaceTypes(c *gc.C) {
 }
 
 func (r *rootSuite) TestDescribeFacades(c *gc.C) {
-	facades := apiserver.DescribeFacades(common.GetFacades())
+	facades := apiserver.DescribeFacades(apiserver.AllFacades())
 	c.Check(facades, gc.Not(gc.HasLen), 0)
 	// As a sanity check, we should see that we have a Client v0 available
 	asMap := make(map[string][]int, len(facades))

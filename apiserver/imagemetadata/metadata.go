@@ -26,10 +26,6 @@ import (
 
 var logger = loggo.GetLogger("juju.apiserver.imagemetadata")
 
-func init() {
-	common.RegisterStandardFacade("ImageMetadata", 2, NewAPI)
-}
-
 // API is the concrete implementation of the api end point
 // for loud image metadata manipulations.
 type API struct {

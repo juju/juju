@@ -61,11 +61,6 @@ func (s *backupsSuite) setBackups(c *gc.C, meta *backups.Metadata, err string) *
 	return &fake
 }
 
-func (s *backupsSuite) TestRegistered(c *gc.C) {
-	_, err := common.GetFacades().GetType("Backups", 1)
-	c.Check(err, jc.ErrorIsNil)
-}
-
 func (s *backupsSuite) TestNewAPIOkay(c *gc.C) {
 	_, err := backupsAPI.NewAPI(&stateShim{s.State}, s.resources, s.authorizer)
 	c.Check(err, jc.ErrorIsNil)

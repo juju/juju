@@ -209,7 +209,7 @@ func newServer(s *state.State, lis net.Listener, cfg ServerConfig) (_ *Server, e
 		limiter:                       utils.NewLimiter(loginRateLimit),
 		validator:                     cfg.Validator,
 		adminAPIFactories:             map[int]adminAPIFactory{3: newAdminAPIV3},
-		facades:                       common.GetFacades(),
+		facades:                       AllFacades(),
 		centralHub:                    cfg.Hub,
 		certChanged:                   cfg.CertChanged,
 		allowModelAccess:              cfg.AllowModelAccess,

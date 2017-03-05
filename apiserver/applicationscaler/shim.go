@@ -6,7 +6,6 @@ package applicationscaler
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/state"
 )
@@ -16,12 +15,8 @@ import (
 // to change any part of it so that it were no longer *obviously* and
 // *trivially* correct, you would be Doing It Wrong.
 
-func init() {
-	common.RegisterStandardFacade("ApplicationScaler", 1, newFacade)
-}
-
-// newFacade wraps the supplied *state.State for the use of the Facade.
-func newFacade(st *state.State, res facade.Resources, auth facade.Authorizer) (*Facade, error) {
+// NewFacade wraps the supplied *state.State for the use of the Facade.
+func NewAPI(st *state.State, res facade.Resources, auth facade.Authorizer) (*Facade, error) {
 	return NewFacade(backendShim{st}, res, auth)
 }
 

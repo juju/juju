@@ -27,13 +27,6 @@ import (
 
 var logger = loggo.GetLogger("juju.apiserver.uniter")
 
-func init() {
-	common.RegisterStandardFacade("Uniter", 4, NewUniterAPI)
-
-	// Version 5 introduces the SLA levels.
-	common.RegisterStandardFacade("Uniter", 5, NewUniterAPI)
-}
-
 // UniterAPIV3 implements the API version 3, used by the uniter worker.
 type UniterAPIV3 struct {
 	*common.LifeGetter

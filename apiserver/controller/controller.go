@@ -31,10 +31,6 @@ import (
 
 var logger = loggo.GetLogger("juju.apiserver.controller")
 
-func init() {
-	common.RegisterStandardFacade("Controller", 3, NewControllerAPI)
-}
-
 // Controller defines the methods on the controller API end point.
 type Controller interface {
 	AllModels() (params.UserModelList, error)
