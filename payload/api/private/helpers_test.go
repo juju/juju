@@ -14,7 +14,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/payload"
-	"github.com/juju/juju/payload/api/private" // XXX
+	"github.com/juju/juju/payload/api/private"
 )
 
 type internalHelpersSuite struct {

@@ -37,9 +37,9 @@ func NewPublicClient(raw rawAPI) PublicClient {
 
 // ListFull calls the List API server method.
 func (c PublicClient) ListFull(patterns ...string) ([]payload.FullPayloadInfo, error) {
-	var result params.EnvListResults
+	var result params.PayloadListResults
 
-	args := params.EnvListArgs{
+	args := params.PayloadListArgs{
 		Patterns: patterns,
 	}
 	if err := c.FacadeCall("List", &args, &result); err != nil {

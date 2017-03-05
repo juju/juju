@@ -47,22 +47,22 @@ func NewAPI(backend payloadBackend) *API {
 // List builds the list of payloads being tracked for
 // the given unit and IDs. If no IDs are provided then all tracked
 // payloads for the unit are returned.
-func (a API) List(args params.EnvListArgs) (params.EnvListResults, error) {
-	var r params.EnvListResults
+func (a API) List(args params.PayloadListArgs) (params.PayloadListResults, error) {
+	var r params.PayloadListResults
 
 	payloads, err := a.backend.ListAll()
 	if err != nil {
 		return r, errors.Trace(err)
 	}
 
-	filters, err := payload.BuildPredicatesFor(args.Patterns) // XXX move?
+	filters, err := payload.BuildPredicatesFor(args.Patterns)
 	if err != nil {
 		return r, errors.Trace(err)
 	}
-	payloads = payload.Filter(payloads, filters...) // XXX move?
+	payloads = payload.Filter(payloads, filters...)
 
 	for _, payload := range payloads {
-		apiInfo := api.Payload2api(payload) // XXX move here?
+		apiInfo := api.Payload2api(payload)
 		r.Results = append(r.Results, apiInfo)
 	}
 	return r, nil

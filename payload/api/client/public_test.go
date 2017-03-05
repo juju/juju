@@ -44,7 +44,7 @@ func (s *publicSuite) SetUpTest(c *gc.C) {
 
 func (s *publicSuite) TestListOkay(c *gc.C) {
 	s.facade.FacadeCallFn = func(_ string, _, response interface{}) error {
-		typedResponse, ok := response.(*params.EnvListResults)
+		typedResponse, ok := response.(*params.PayloadListResults)
 		c.Assert(ok, gc.Equals, true)
 		typedResponse.Results = append(typedResponse.Results, s.payload)
 		return nil
@@ -71,10 +71,10 @@ func (s *publicSuite) TestListAPI(c *gc.C) {
 		FuncName: "FacadeCall",
 		Args: []interface{}{
 			"List",
-			&params.EnvListArgs{
+			&params.PayloadListArgs{
 				Patterns: []string{"a-tag"},
 			},
-			&params.EnvListResults{
+			&params.PayloadListResults{
 				Results: nil,
 			},
 		},

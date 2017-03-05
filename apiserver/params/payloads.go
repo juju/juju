@@ -3,15 +3,14 @@
 
 package params
 
-// XXX rename
-// EnvListArgs are the arguments for the env-based List endpoint.
-type EnvListArgs struct {
+// PayloadListArgs are the arguments for the Payloads.List endpoint.
+type PayloadListArgs struct {
 	// Patterns is the list of patterns against which to filter.
 	Patterns []string `json:"patterns"`
 }
 
-// XXX rename
-type EnvListResults struct {
+// PayloadListResults returns the result of the Payload.List endpoint.
+type PayloadListResults struct {
 	// Results is the list of payload results.
 	Results []Payload `json:"results"`
 }

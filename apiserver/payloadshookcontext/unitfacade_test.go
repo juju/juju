@@ -15,7 +15,6 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	unitfacade "github.com/juju/juju/apiserver/payloadshookcontext"
 	"github.com/juju/juju/payload"
-	// XXX move
 )
 
 var _ = gc.Suite(&suite{})
