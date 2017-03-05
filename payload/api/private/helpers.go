@@ -13,25 +13,13 @@ import (
 	"github.com/juju/juju/payload/api"
 )
 
-// NewPayloadResult builds a new PayloadResult from the provided tag
-// and error. NotFound is also set based on the error.
-func NewPayloadResult(id string, err error) params.PayloadResult {
-	result := payload.Result{
-		ID:       id,
-		Payload:  nil,
-		NotFound: errors.IsNotFound(err),
-		Error:    err,
-	}
-	return Result2api(result)
-}
-
 // API2Result converts the API result to a payload.Result.
 func API2Result(r params.PayloadResult) (payload.Result, error) {
 	result := payload.Result{
 		NotFound: r.NotFound,
 	}
 
-	id, err := API2ID(r.Tag)
+	id, err := api.API2ID(r.Tag)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
@@ -50,40 +38,6 @@ func API2Result(r params.PayloadResult) (payload.Result, error) {
 	}
 
 	return result, nil
-}
-
-// Result2api converts the payload.Result into a PayloadResult.
-func Result2api(result payload.Result) params.PayloadResult {
-	res := params.PayloadResult{
-		NotFound: result.NotFound,
-	}
-
-	if result.ID != "" {
-		res.Tag = names.NewPayloadTag(result.ID).String()
-	}
-
-	if result.Payload != nil {
-		pl := api.Payload2api(*result.Payload)
-		res.Payload = &pl
-	}
-
-	if result.Error != nil {
-		res.Error = common.ServerError(result.Error)
-	}
-
-	return res
-}
-
-// API2ID converts the given tag string into a payload ID.
-func API2ID(tagStr string) (string, error) {
-	if tagStr == "" {
-		return tagStr, nil
-	}
-	tag, err := names.ParsePayloadTag(tagStr)
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	return tag.Id(), nil
 }
 
 // Payloads2TrackArgs converts the provided payload info into arguments

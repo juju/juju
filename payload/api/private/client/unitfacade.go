@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/payload"
-	internal "github.com/juju/juju/payload/api/private" // XXX
+	internal "github.com/juju/juju/payload/api/private"
 )
 
 type facadeCaller interface {

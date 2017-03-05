@@ -12,6 +12,18 @@ import (
 	"github.com/juju/juju/payload"
 )
 
+// API2ID converts the given payload tag string into a payload ID.
+func API2ID(tagStr string) (string, error) {
+	if tagStr == "" {
+		return tagStr, nil
+	}
+	tag, err := names.ParsePayloadTag(tagStr)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	return tag.Id(), nil
+}
+
 // Payload2api converts a payload.FullPayloadInfo struct into
 // a Payload struct.
 func Payload2api(p payload.FullPayloadInfo) params.Payload {

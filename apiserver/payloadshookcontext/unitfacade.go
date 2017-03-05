@@ -8,12 +8,12 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/payload"
 	"github.com/juju/juju/payload/api"
-	internal "github.com/juju/juju/payload/api/private" // XXX temp
 	"github.com/juju/juju/state"
 )
 
@@ -78,7 +78,7 @@ func (uf UnitFacade) Track(args params.TrackPayloadArgs) (params.PayloadResults,
 		logger.Debugf("tracking payload from API: %#v", pl)
 
 		id, err := uf.track(pl.Payload)
-		res := internal.NewPayloadResult(id, err)
+		res := newPayloadResult(id, err)
 		r.Results = append(r.Results, res)
 	}
 	return r, nil
@@ -105,7 +105,7 @@ func (uf UnitFacade) List(args params.Entities) (params.PayloadResults, error) {
 
 	var ids []string
 	for _, entity := range args.Entities {
-		id, err := internal.API2ID(entity.Tag) // XXX
+		id, err := api.API2ID(entity.Tag)
 		if err != nil {
 			return params.PayloadResults{}, errors.Trace(err)
 		}
@@ -119,7 +119,7 @@ func (uf UnitFacade) List(args params.Entities) (params.PayloadResults, error) {
 
 	var r params.PayloadResults
 	for _, result := range results {
-		res := internal.Result2api(result) //XXX
+		res := Result2api(result)
 		r.Results = append(r.Results, res)
 	}
 	return r, nil
@@ -142,7 +142,7 @@ func (uf UnitFacade) listAll() (params.PayloadResults, error) {
 		}
 		apipl := api.Payload2api(*pl)
 
-		res := internal.NewPayloadResult(id, nil)
+		res := newPayloadResult(id, nil)
 		res.Payload = &apipl
 		r.Results = append(r.Results, res)
 	}
@@ -154,7 +154,7 @@ func (uf UnitFacade) LookUp(args params.LookUpPayloadArgs) (params.PayloadResult
 	var r params.PayloadResults
 	for _, arg := range args.Args {
 		id, err := uf.backend.LookUp(arg.Name, arg.ID)
-		res := internal.NewPayloadResult(id, err)
+		res := newPayloadResult(id, err)
 		r.Results = append(r.Results, res)
 	}
 	return r, nil
@@ -164,13 +164,13 @@ func (uf UnitFacade) LookUp(args params.LookUpPayloadArgs) (params.PayloadResult
 func (uf UnitFacade) SetStatus(args params.SetPayloadStatusArgs) (params.PayloadResults, error) {
 	var r params.PayloadResults
 	for _, arg := range args.Args {
-		id, err := internal.API2ID(arg.Tag)
+		id, err := api.API2ID(arg.Tag)
 		if err != nil {
 			return r, errors.Trace(err)
 		}
 
 		err = uf.backend.SetStatus(id, arg.Status)
-		res := internal.NewPayloadResult(id, err)
+		res := newPayloadResult(id, err)
 		r.Results = append(r.Results, res)
 	}
 	return r, nil
@@ -180,14 +180,48 @@ func (uf UnitFacade) SetStatus(args params.SetPayloadStatusArgs) (params.Payload
 func (uf UnitFacade) Untrack(args params.Entities) (params.PayloadResults, error) {
 	var r params.PayloadResults
 	for _, entity := range args.Entities {
-		id, err := internal.API2ID(entity.Tag)
+		id, err := api.API2ID(entity.Tag)
 		if err != nil {
 			return r, errors.Trace(err)
 		}
 
 		err = uf.backend.Untrack(id)
-		res := internal.NewPayloadResult(id, err)
+		res := newPayloadResult(id, err)
 		r.Results = append(r.Results, res)
 	}
 	return r, nil
+}
+
+// newPayloadResult builds a new PayloadResult from the provided tag
+// and error. NotFound is also set based on the error.
+func newPayloadResult(id string, err error) params.PayloadResult {
+	result := payload.Result{
+		ID:       id,
+		Payload:  nil,
+		NotFound: errors.IsNotFound(err),
+		Error:    err,
+	}
+	return Result2api(result)
+}
+
+// Result2api converts the payload.Result into a PayloadResult.
+func Result2api(result payload.Result) params.PayloadResult {
+	res := params.PayloadResult{
+		NotFound: result.NotFound,
+	}
+
+	if result.ID != "" {
+		res.Tag = names.NewPayloadTag(result.ID).String()
+	}
+
+	if result.Payload != nil {
+		pl := api.Payload2api(*result.Payload)
+		res.Payload = &pl
+	}
+
+	if result.Error != nil {
+		res.Error = common.ServerError(result.Error)
+	}
+
+	return res
 }
