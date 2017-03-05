@@ -11,14 +11,12 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/cmd/juju/commands"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/payload"
 	"github.com/juju/juju/payload/api/client"
 	internalclient "github.com/juju/juju/payload/api/private/client"
 	internalserver "github.com/juju/juju/payload/api/private/server"
-	"github.com/juju/juju/payload/api/server"
 	"github.com/juju/juju/payload/context"
 	"github.com/juju/juju/payload/status"
 	"github.com/juju/juju/state"
@@ -31,7 +29,6 @@ const payloadsHookContextFacade = "PayloadsHookContext"
 type payloads struct{}
 
 func (c payloads) registerForServer() error {
-	c.registerPublicFacade()
 	c.registerHookContext()
 	return nil
 }
@@ -39,28 +36,6 @@ func (c payloads) registerForServer() error {
 func (c payloads) registerForClient() error {
 	c.registerPublicCommands()
 	return nil
-}
-
-func (payloads) newPublicFacade(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*server.PublicAPI, error) {
-	up, err := st.ModelPayloads()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return server.NewPublicAPI(up), nil
-}
-
-func (c payloads) registerPublicFacade() {
-	if !markRegistered(payload.ComponentName, "public-facade") {
-		return
-	}
-
-	// NOTE: facade is also defined in api/facadeversions.go.
-	const version = 1
-	common.RegisterStandardFacade(
-		payload.FacadeName,
-		version,
-		c.newPublicFacade,
-	)
 }
 
 type facadeCaller struct {
@@ -96,6 +71,7 @@ func (c payloads) registerPublicCommands() {
 	})
 }
 
+// XXX move to apiserver
 func (c payloads) registerHookContext() {
 	if !markRegistered(payload.ComponentName, "hook-context") {
 		return

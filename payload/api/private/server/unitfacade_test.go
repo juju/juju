@@ -14,7 +14,6 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/payload"
-	"github.com/juju/juju/payload/api"
 	internal "github.com/juju/juju/payload/api/private"
 )
 
@@ -41,7 +40,7 @@ func (s *suite) TestTrack(c *gc.C) {
 	a := UnitFacade{s.state}
 
 	args := internal.TrackArgs{
-		Payloads: []api.Payload{{
+		Payloads: []params.Payload{{
 			Class:  "idfoo",
 			Type:   "type",
 			ID:     "bar",
@@ -102,7 +101,7 @@ func (s *suite) TestListOne(c *gc.C) {
 	results, err := a.List(args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	expected := api.Payload{
+	expected := params.Payload{
 		Class:   "foobar",
 		Type:    "type",
 		ID:      "idfoo",
@@ -149,7 +148,7 @@ func (s *suite) TestListAll(c *gc.C) {
 	results, err := a.List(args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	expected := api.Payload{
+	expected := params.Payload{
 		Class:   "foobar",
 		Type:    "type",
 		ID:      "idfoo",

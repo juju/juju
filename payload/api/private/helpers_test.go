@@ -14,7 +14,6 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/payload"
-	"github.com/juju/juju/payload/api"
 	"github.com/juju/juju/payload/api/private"
 )
 
@@ -96,7 +95,7 @@ func (internalHelpersSuite) TestAPI2ResultInfo(c *gc.C) {
 		},
 		NotFound: false,
 		Error:    nil,
-		Payload: &api.Payload{
+		Payload: &params.Payload{
 			Class:   "foobar",
 			Type:    "type",
 			ID:      "idfoo",
@@ -216,7 +215,7 @@ func (internalHelpersSuite) TestResult2apiInfo(c *gc.C) {
 		},
 		NotFound: false,
 		Error:    nil,
-		Payload: &api.Payload{
+		Payload: &params.Payload{
 			Class:   "foobar",
 			Type:    "type",
 			ID:      "idfoo",

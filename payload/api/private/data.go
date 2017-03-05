@@ -3,17 +3,12 @@
 
 package private
 
-// TODO(ericsnow) Eliminate the params import if possible.
-
-import (
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/payload/api"
-)
+import "github.com/juju/juju/apiserver/params"
 
 // TrackArgs are the arguments for the Track endpoint.
 type TrackArgs struct {
 	// Payloads is the list of Payloads to track
-	Payloads []api.Payload `json:"payloads"`
+	Payloads []params.Payload `json:"payloads"`
 }
 
 // List uses params.Entities.
@@ -60,7 +55,7 @@ type PayloadResults struct {
 type PayloadResult struct {
 	params.Entity
 	// Payload holds the details of the payload, if any.
-	Payload *api.Payload `json:"payload"`
+	Payload *params.Payload `json:"payload"`
 	// NotFound indicates that the payload was not found in state.
 	NotFound bool `json:"not-found"`
 	// Error is the error (if any) for the call referring to ID.

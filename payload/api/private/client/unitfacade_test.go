@@ -23,7 +23,7 @@ type clientSuite struct {
 
 	stub    *testing.Stub
 	facade  *stubFacade
-	payload api.Payload
+	payload params.Payload
 }
 
 var _ = gc.Suite(&clientSuite{})
@@ -34,7 +34,7 @@ func (s *clientSuite) SetUpTest(c *gc.C) {
 	s.stub = &testing.Stub{}
 	s.facade = &stubFacade{stub: s.stub}
 	s.facade.methods = &unitMethods{}
-	s.payload = api.Payload{
+	s.payload = params.Payload{
 		Class:  "foobar",
 		Type:   "type",
 		ID:     "idfoo",

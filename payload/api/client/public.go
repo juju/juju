@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/payload"
 	"github.com/juju/juju/payload/api"
 )
@@ -36,9 +37,9 @@ func NewPublicClient(raw rawAPI) PublicClient {
 
 // ListFull calls the List API server method.
 func (c PublicClient) ListFull(patterns ...string) ([]payload.FullPayloadInfo, error) {
-	var result api.EnvListResults
+	var result params.EnvListResults
 
-	args := api.EnvListArgs{
+	args := params.EnvListArgs{
 		Patterns: patterns,
 	}
 	if err := c.FacadeCall("List", &args, &result); err != nil {
