@@ -14,7 +14,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/payload"
-	"github.com/juju/juju/payload/api/private"
+	"github.com/juju/juju/payload/api/private" // XXX
 )
 
 type internalHelpersSuite struct {
@@ -27,7 +27,7 @@ func (internalHelpersSuite) TestNewPayloadResultOkay(c *gc.C) {
 	id := "ce5bc2a7-65d8-4800-8199-a7c3356ab309"
 	result := private.NewPayloadResult(id, nil)
 
-	c.Check(result, jc.DeepEquals, private.PayloadResult{
+	c.Check(result, jc.DeepEquals, params.PayloadResult{
 		Entity: params.Entity{
 			Tag: names.NewPayloadTag(id).String(),
 		},
@@ -42,7 +42,7 @@ func (internalHelpersSuite) TestNewPayloadResultError(c *gc.C) {
 	err := errors.New("<failure>")
 	result := private.NewPayloadResult(id, err)
 
-	c.Check(result, jc.DeepEquals, private.PayloadResult{
+	c.Check(result, jc.DeepEquals, params.PayloadResult{
 		Entity: params.Entity{
 			Tag: names.NewPayloadTag(id).String(),
 		},
@@ -57,7 +57,7 @@ func (internalHelpersSuite) TestNewPayloadResultNotFound(c *gc.C) {
 	err := errors.NotFoundf("payload %q", id)
 	result := private.NewPayloadResult(id, err)
 
-	c.Check(result, jc.DeepEquals, private.PayloadResult{
+	c.Check(result, jc.DeepEquals, params.PayloadResult{
 		Entity: params.Entity{
 			Tag: names.NewPayloadTag(id).String(),
 		},
@@ -69,7 +69,7 @@ func (internalHelpersSuite) TestNewPayloadResultNotFound(c *gc.C) {
 
 func (internalHelpersSuite) TestAPI2ResultOkay(c *gc.C) {
 	id := "ce5bc2a7-65d8-4800-8199-a7c3356ab309"
-	result, err := private.API2Result(private.PayloadResult{
+	result, err := private.API2Result(params.PayloadResult{
 		Entity: params.Entity{
 			Tag: names.NewPayloadTag(id).String(),
 		},
@@ -89,7 +89,7 @@ func (internalHelpersSuite) TestAPI2ResultOkay(c *gc.C) {
 
 func (internalHelpersSuite) TestAPI2ResultInfo(c *gc.C) {
 	id := "ce5bc2a7-65d8-4800-8199-a7c3356ab309"
-	result, err := private.API2Result(private.PayloadResult{
+	result, err := private.API2Result(params.PayloadResult{
 		Entity: params.Entity{
 			Tag: names.NewPayloadTag(id).String(),
 		},
@@ -128,7 +128,7 @@ func (internalHelpersSuite) TestAPI2ResultInfo(c *gc.C) {
 func (internalHelpersSuite) TestAPI2ResultError(c *gc.C) {
 	id := "ce5bc2a7-65d8-4800-8199-a7c3356ab309"
 	failure := errors.New("<failure>")
-	result, err := private.API2Result(private.PayloadResult{
+	result, err := private.API2Result(params.PayloadResult{
 		Entity: params.Entity{
 			Tag: names.NewPayloadTag(id).String(),
 		},
@@ -150,7 +150,7 @@ func (internalHelpersSuite) TestAPI2ResultError(c *gc.C) {
 func (internalHelpersSuite) TestAPI2ResultNotFound(c *gc.C) {
 	id := "ce5bc2a7-65d8-4800-8199-a7c3356ab309"
 	notFound := errors.NotFoundf("payload %q", id)
-	result, err := private.API2Result(private.PayloadResult{
+	result, err := private.API2Result(params.PayloadResult{
 		Entity: params.Entity{
 			Tag: names.NewPayloadTag(id).String(),
 		},
@@ -179,7 +179,7 @@ func (internalHelpersSuite) TestResult2apiOkay(c *gc.C) {
 		Error:    nil,
 	})
 
-	c.Check(result, jc.DeepEquals, private.PayloadResult{
+	c.Check(result, jc.DeepEquals, params.PayloadResult{
 		Entity: params.Entity{
 			Tag: names.NewPayloadTag(id).String(),
 		},
@@ -209,7 +209,7 @@ func (internalHelpersSuite) TestResult2apiInfo(c *gc.C) {
 		},
 	})
 
-	c.Check(result, jc.DeepEquals, private.PayloadResult{
+	c.Check(result, jc.DeepEquals, params.PayloadResult{
 		Entity: params.Entity{
 			Tag: names.NewPayloadTag(id).String(),
 		},
@@ -236,7 +236,7 @@ func (internalHelpersSuite) TestResult2apiError(c *gc.C) {
 		Error:    err,
 	})
 
-	c.Check(result, jc.DeepEquals, private.PayloadResult{
+	c.Check(result, jc.DeepEquals, params.PayloadResult{
 		Entity: params.Entity{
 			Tag: names.NewPayloadTag(id).String(),
 		},
@@ -256,7 +256,7 @@ func (internalHelpersSuite) TestResult2apiNotFound(c *gc.C) {
 		Error:    err,
 	})
 
-	c.Check(result, jc.DeepEquals, private.PayloadResult{
+	c.Check(result, jc.DeepEquals, params.PayloadResult{
 		Entity: params.Entity{
 			Tag: names.NewPayloadTag(id).String(),
 		},

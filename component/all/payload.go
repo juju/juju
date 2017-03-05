@@ -4,27 +4,20 @@
 package all
 
 import (
-	"reflect"
-
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/cmd/juju/commands"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/payload"
 	"github.com/juju/juju/payload/api/client"
 	internalclient "github.com/juju/juju/payload/api/private/client"
-	internalserver "github.com/juju/juju/payload/api/private/server"
 	"github.com/juju/juju/payload/context"
 	"github.com/juju/juju/payload/status"
-	"github.com/juju/juju/state"
 	unitercontext "github.com/juju/juju/worker/uniter/runner/context"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
-
-const payloadsHookContextFacade = "PayloadsHookContext"
 
 type payloads struct{}
 
@@ -52,7 +45,7 @@ func (payloads) newListAPIClient(cmd *status.ListCommand) (status.ListAPI, error
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	caller := base.NewFacadeCallerForVersion(apiCaller, payload.FacadeName, 1)
+	caller := base.NewFacadeCallerForVersion(apiCaller, "Payloads", 1)
 
 	listAPI := client.NewPublicClient(&facadeCaller{
 		FacadeCaller: caller,
@@ -71,7 +64,6 @@ func (c payloads) registerPublicCommands() {
 	})
 }
 
-// XXX move to apiserver
 func (c payloads) registerHookContext() {
 	if !markRegistered(payload.ComponentName, "hook-context") {
 		return
@@ -90,30 +82,6 @@ func (c payloads) registerHookContext() {
 	)
 
 	c.registerHookContextCommands()
-	c.registerHookContextFacade()
-}
-
-func (payloads) newUnitFacadeClient(caller base.APICaller) context.APIClient {
-	facadeCaller := base.NewFacadeCallerForVersion(caller, payloadsHookContextFacade, 1)
-	return internalclient.NewUnitFacadeClient(facadeCaller)
-}
-
-func (payloads) newHookContextFacade(st *state.State, unit *state.Unit) (interface{}, error) {
-	up, err := st.UnitPayloads(unit)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return internalserver.NewUnitFacade(up), nil
-}
-
-func (c payloads) registerHookContextFacade() {
-	const version = 1
-	common.RegisterHookContextFacade(
-		payloadsHookContextFacade,
-		version,
-		c.newHookContextFacade,
-		reflect.TypeOf(&internalserver.UnitFacade{}),
-	)
 }
 
 type payloadsHookContext struct {
@@ -131,6 +99,11 @@ func (c payloadsHookContext) Component(name string) (context.Component, error) {
 		return nil, errors.Errorf("wrong component context type registered: %T", found)
 	}
 	return compCtx, nil
+}
+
+func (payloads) newUnitFacadeClient(caller base.APICaller) context.APIClient {
+	facadeCaller := base.NewFacadeCallerForVersion(caller, "PayloadsHookContext", 1)
+	return internalclient.NewUnitFacadeClient(facadeCaller)
 }
 
 func (payloads) registerHookContextCommands() {

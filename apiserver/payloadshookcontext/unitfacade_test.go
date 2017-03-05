@@ -1,7 +1,7 @@
-// Copyright 2015 Canonical Ltd.
+// Copyright 2017 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package server
+package payloadshookcontext_test
 
 import (
 	"github.com/juju/errors"
@@ -13,8 +13,9 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
+	unitfacade "github.com/juju/juju/apiserver/payloadshookcontext"
 	"github.com/juju/juju/payload"
-	internal "github.com/juju/juju/payload/api/private"
+	// XXX move
 )
 
 var _ = gc.Suite(&suite{})
@@ -37,9 +38,9 @@ func (s *suite) TestTrack(c *gc.C) {
 	id := "ce5bc2a7-65d8-4800-8199-a7c3356ab309"
 	s.state.stateIDs = []string{id}
 
-	a := UnitFacade{s.state}
+	a := unitfacade.NewUnitFacade(s.state)
 
-	args := internal.TrackArgs{
+	args := params.TrackPayloadArgs{
 		Payloads: []params.Payload{{
 			Class:  "idfoo",
 			Type:   "type",
@@ -51,8 +52,8 @@ func (s *suite) TestTrack(c *gc.C) {
 	res, err := a.Track(args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(res, jc.DeepEquals, internal.PayloadResults{
-		Results: []internal.PayloadResult{{
+	c.Check(res, jc.DeepEquals, params.PayloadResults{
+		Results: []params.PayloadResult{{
 			Entity: params.Entity{
 				Tag: names.NewPayloadTag(id).String(),
 			},
@@ -92,7 +93,7 @@ func (s *suite) TestListOne(c *gc.C) {
 		},
 	}}
 
-	a := UnitFacade{s.state}
+	a := unitfacade.NewUnitFacade(s.state)
 	args := params.Entities{
 		Entities: []params.Entity{{
 			Tag: names.NewPayloadTag(id).String(),
@@ -111,8 +112,8 @@ func (s *suite) TestListOne(c *gc.C) {
 		Machine: "machine-1",
 	}
 
-	c.Check(results, jc.DeepEquals, internal.PayloadResults{
-		Results: []internal.PayloadResult{{
+	c.Check(results, jc.DeepEquals, params.PayloadResults{
+		Results: []params.PayloadResult{{
 			Entity: params.Entity{
 				Tag: names.NewPayloadTag(id).String(),
 			},
@@ -143,7 +144,7 @@ func (s *suite) TestListAll(c *gc.C) {
 		},
 	}}
 
-	a := UnitFacade{s.state}
+	a := unitfacade.NewUnitFacade(s.state)
 	args := params.Entities{}
 	results, err := a.List(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -157,8 +158,8 @@ func (s *suite) TestListAll(c *gc.C) {
 		Unit:    "unit-a-application-0",
 		Machine: "machine-1",
 	}
-	c.Check(results, jc.DeepEquals, internal.PayloadResults{
-		Results: []internal.PayloadResult{{
+	c.Check(results, jc.DeepEquals, params.PayloadResults{
+		Results: []params.PayloadResult{{
 			Entity: params.Entity{
 				Tag: names.NewPayloadTag(id).String(),
 			},
@@ -173,9 +174,9 @@ func (s *suite) TestLookUpOkay(c *gc.C) {
 	id := "ce5bc2a7-65d8-4800-8199-a7c3356ab309"
 	s.state.stateIDs = []string{id}
 
-	a := UnitFacade{s.state}
-	args := internal.LookUpArgs{
-		Args: []internal.LookUpArg{{
+	a := unitfacade.NewUnitFacade(s.state)
+	args := params.LookUpPayloadArgs{
+		Args: []params.LookUpPayloadArg{{
 			Name: "fooID",
 			ID:   "bar",
 		}},
@@ -188,8 +189,8 @@ func (s *suite) TestLookUpOkay(c *gc.C) {
 		Args:     []interface{}{"fooID", "bar"},
 	}})
 
-	c.Check(res, jc.DeepEquals, internal.PayloadResults{
-		Results: []internal.PayloadResult{{
+	c.Check(res, jc.DeepEquals, params.PayloadResults{
+		Results: []params.PayloadResult{{
 			Entity: params.Entity{
 				Tag: names.NewPayloadTag(id).String(),
 			},
@@ -208,9 +209,9 @@ func (s *suite) TestLookUpMixed(c *gc.C) {
 	notFound := errors.NotFoundf("payload")
 	s.stub.SetErrors(nil, notFound, nil)
 
-	a := UnitFacade{s.state}
-	args := internal.LookUpArgs{
-		Args: []internal.LookUpArg{{
+	a := unitfacade.NewUnitFacade(s.state)
+	args := params.LookUpPayloadArgs{
+		Args: []params.LookUpPayloadArg{{
 			Name: "fooID",
 			ID:   "bar",
 		}, {
@@ -225,8 +226,8 @@ func (s *suite) TestLookUpMixed(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c, "LookUp", "LookUp", "LookUp")
-	c.Check(res, jc.DeepEquals, internal.PayloadResults{
-		Results: []internal.PayloadResult{{
+	c.Check(res, jc.DeepEquals, params.PayloadResults{
+		Results: []params.PayloadResult{{
 			Entity: params.Entity{
 				Tag: names.NewPayloadTag("ce5bc2a7-65d8-4800-8199-a7c3356ab309").String(),
 			},
@@ -253,9 +254,9 @@ func (s *suite) TestSetStatus(c *gc.C) {
 	s.state.stateIDs = []string{id}
 	s.state.stateIDs = []string{"ce5bc2a7-65d8-4800-8199-a7c3356ab309"}
 
-	a := UnitFacade{s.state}
-	args := internal.SetStatusArgs{
-		Args: []internal.SetStatusArg{{
+	a := unitfacade.NewUnitFacade(s.state)
+	args := params.SetPayloadStatusArgs{
+		Args: []params.SetPayloadStatusArg{{
 			Entity: params.Entity{
 				Tag: names.NewPayloadTag(id).String(),
 			},
@@ -268,8 +269,8 @@ func (s *suite) TestSetStatus(c *gc.C) {
 	c.Check(s.state.id, gc.Equals, id)
 	c.Assert(s.state.status, gc.Equals, payload.StateRunning)
 
-	expected := internal.PayloadResults{
-		Results: []internal.PayloadResult{{
+	expected := params.PayloadResults{
+		Results: []params.PayloadResult{{
 			Entity: params.Entity{
 				Tag: names.NewPayloadTag(id).String(),
 			},
@@ -283,7 +284,7 @@ func (s *suite) TestUntrack(c *gc.C) {
 	id := "ce5bc2a7-65d8-4800-8199-a7c3356ab309"
 	s.state.stateIDs = []string{id}
 
-	a := UnitFacade{s.state}
+	a := unitfacade.NewUnitFacade(s.state)
 	args := params.Entities{
 		Entities: []params.Entity{{
 			Tag: names.NewPayloadTag(id).String(),
@@ -294,8 +295,8 @@ func (s *suite) TestUntrack(c *gc.C) {
 
 	c.Assert(s.state.id, gc.Equals, id)
 
-	expected := internal.PayloadResults{
-		Results: []internal.PayloadResult{{
+	expected := params.PayloadResults{
+		Results: []params.PayloadResult{{
 			Entity: params.Entity{
 				Tag: names.NewPayloadTag(id).String(),
 			},
@@ -306,7 +307,7 @@ func (s *suite) TestUntrack(c *gc.C) {
 }
 
 func (s *suite) TestUntrackEmptyID(c *gc.C) {
-	a := UnitFacade{s.state}
+	a := unitfacade.NewUnitFacade(s.state)
 	args := params.Entities{
 		Entities: []params.Entity{{
 			Tag: "",
@@ -317,8 +318,8 @@ func (s *suite) TestUntrackEmptyID(c *gc.C) {
 
 	c.Assert(s.state.id, gc.Equals, "")
 
-	expected := internal.PayloadResults{
-		Results: []internal.PayloadResult{{
+	expected := params.PayloadResults{
+		Results: []params.PayloadResult{{
 			Entity: params.Entity{
 				Tag: "",
 			},
@@ -332,7 +333,7 @@ func (s *suite) TestUntrackNoIDs(c *gc.C) {
 	id := "ce5bc2a7-65d8-4800-8199-a7c3356ab309"
 	s.state.id = id
 
-	a := UnitFacade{s.state}
+	a := unitfacade.NewUnitFacade(s.state)
 	args := params.Entities{
 		Entities: []params.Entity{},
 	}
@@ -341,7 +342,7 @@ func (s *suite) TestUntrackNoIDs(c *gc.C) {
 
 	c.Assert(s.state.id, gc.Equals, id)
 
-	expected := internal.PayloadResults{}
+	expected := params.PayloadResults{}
 	c.Assert(res, gc.DeepEquals, expected)
 }
 
