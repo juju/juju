@@ -14,12 +14,13 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/juju/worker"
 	"github.com/juju/loggo"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/tomb.v1"
+
+	"github.com/juju/juju/worker"
 )
 
 var logger = loggo.GetLogger("juju.state.presence")

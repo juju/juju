@@ -4,9 +4,9 @@
 package cloudsigma
 
 import (
+	"github.com/altoros/gosigma/mock"
 	gc "gopkg.in/check.v1"
 
-	"github.com/altoros/gosigma/mock"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"

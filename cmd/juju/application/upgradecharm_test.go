@@ -10,6 +10,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strings"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
@@ -25,8 +26,6 @@ import (
 	charmstore "gopkg.in/juju/charmstore.v5-unstable"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 	macaroon "gopkg.in/macaroon.v1"
-
-	"strings"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/application"

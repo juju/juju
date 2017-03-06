@@ -7,11 +7,12 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/juju/juju/cloud"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
+
+	"github.com/juju/juju/cloud"
 )
 
 type upgradesSuite struct {

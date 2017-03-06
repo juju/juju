@@ -22,6 +22,7 @@ import (
 	"github.com/juju/pubsub"
 	"github.com/juju/replicaset"
 	"github.com/juju/utils"
+	utilscert "github.com/juju/utils/cert"
 	"github.com/juju/utils/clock"
 	"github.com/juju/utils/featureflag"
 	"github.com/juju/utils/series"
@@ -96,7 +97,6 @@ import (
 	"github.com/juju/juju/worker/singular"
 	"github.com/juju/juju/worker/txnpruner"
 	"github.com/juju/juju/worker/upgradesteps"
-	utilscert "github.com/juju/utils/cert"
 )
 
 var (

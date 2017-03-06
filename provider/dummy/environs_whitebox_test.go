@@ -5,7 +5,6 @@ package dummy
 
 import (
 	// stdtesting "testing"
-
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"

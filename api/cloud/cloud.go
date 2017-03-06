@@ -4,9 +4,9 @@
 package cloud
 
 import (
+	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/errors"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
 	jujucloud "github.com/juju/juju/cloud"

@@ -24,12 +24,11 @@ import (
 	"regexp"
 	"strings"
 
-	"gopkg.in/yaml.v2"
-
 	"github.com/juju/errors"
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/series"
+	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/container/kvm/libvirt"
 	"github.com/juju/juju/juju/paths"

@@ -4,9 +4,8 @@
 package common
 
 import (
-	"gopkg.in/juju/names.v2"
-
 	"github.com/juju/errors"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"

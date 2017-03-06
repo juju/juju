@@ -7,10 +7,9 @@ import (
 	"os"
 	"runtime"
 
-	names "gopkg.in/juju/names.v2"
-
 	"github.com/juju/errors"
 	"github.com/prometheus/client_golang/prometheus"
+	names "gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/worker"

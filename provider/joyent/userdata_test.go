@@ -6,12 +6,12 @@ package joyent_test
 
 import (
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/os"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloudconfig/cloudinit/cloudinittest"
 	"github.com/juju/juju/provider/joyent"
 	"github.com/juju/juju/testing"
-	"github.com/juju/utils/os"
 )
 
 type UserdataSuite struct {

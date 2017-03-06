@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils"
+	"github.com/juju/version"
 	"gopkg.in/juju/names.v2"
 
 	apiprovisioner "github.com/juju/juju/api/provisioner"
@@ -34,7 +35,6 @@ import (
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/catacomb"
 	"github.com/juju/juju/wrench"
-	"github.com/juju/version"
 )
 
 type ProvisionerTask interface {

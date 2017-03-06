@@ -14,6 +14,7 @@ import (
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
+	"github.com/juju/version"
 	"github.com/lxc/lxd/shared/api"
 	gc "gopkg.in/check.v1"
 
@@ -29,7 +30,6 @@ import (
 	"github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/tools/lxdclient"
-	"github.com/juju/version"
 )
 
 // Ensure LXD provider supports the expected interfaces.

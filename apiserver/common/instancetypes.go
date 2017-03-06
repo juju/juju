@@ -5,6 +5,7 @@ package common
 
 import (
 	"github.com/juju/errors"
+
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"

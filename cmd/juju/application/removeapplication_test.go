@@ -6,9 +6,11 @@ package application
 import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	jutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charmrepo.v2-unstable"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 
 	"github.com/juju/juju/api/annotations"
@@ -21,8 +23,6 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/testing"
-	jutesting "github.com/juju/testing"
-	"gopkg.in/juju/names.v2"
 )
 
 type RemoveApplicationSuite struct {

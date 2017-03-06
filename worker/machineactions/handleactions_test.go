@@ -8,12 +8,13 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/juju/core/actions"
-	"github.com/juju/juju/worker/machineactions"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/exec"
 	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/core/actions"
+	"github.com/juju/juju/worker/machineactions"
 )
 
 type HandleSuite struct {

@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/ansiterm"
 	"github.com/juju/cmd"
+
 	"github.com/juju/juju/status"
 )
 

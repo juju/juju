@@ -5,6 +5,7 @@ package updateallocation
 
 import (
 	"github.com/juju/cmd"
+
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/jujuclient"
 )
