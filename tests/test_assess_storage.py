@@ -18,7 +18,15 @@ from assess_storage import (
     expected_block2,
     storage_pool_details,
 )
-from jujupy import JujuData
+from jujupy import (
+    fake_juju_client,
+    JujuData,
+    SimpleEnvironment,
+    )
+from jujupy.version_client import (
+    EnvJujuClient1X,
+    ModelClient2_1,
+    )
 from tests import (
     parse_error,
     TestCase,
@@ -90,6 +98,65 @@ class TestAssess(TestCase):
                 {'a': 1, 'b': 2},
                 {'a': 1, 'b': 4})
 
+    def test_make_expected_fs(self):
+        client = fake_juju_client()
+        data = make_expected_fs(client, 'data/0', 'foo/0')
+        expected = {
+            "storage": {
+                "data/0": {
+                    "kind": "filesystem",
+                    "attachments": {
+                        "units": {
+                            "foo/0": {
+                                "location": "/srv/data",
+                                "life": "alive"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        self.assertEqual(expected, data)
+
+    def test_make_expected_fs_2_1(self):
+        client = fake_juju_client(cls=ModelClient2_1)
+        data = make_expected_fs(client, 'data/0', 'foo/0')
+        expected = {
+            "storage": {
+                "data/0": {
+                    "kind": "filesystem",
+                    "attachments": {
+                        "units": {
+                            "foo/0": {
+                                "location": "/srv/data",
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        self.assertEqual(expected, data)
+
+    def test_make_expected_fs_1x(self):
+        env = SimpleEnvironment('foo', {'type': 'local'})
+        client = fake_juju_client(cls=EnvJujuClient1X, env=env)
+        data = make_expected_fs(client, 'data/0', 'foo/0')
+        expected = {
+            "storage": {
+                "data/0": {
+                    "kind": "filesystem",
+                    "attachments": {
+                        "units": {
+                            "foo/0": {
+                                "location": "/srv/data",
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        self.assertEqual(expected, data)
+
     def test_storage_1x(self):
         mock_client = Mock(spec=["juju", "wait_for_started",
                                  "create_storage_pool", "remove_service",
@@ -155,6 +222,7 @@ class TestAssess(TestCase):
                 make_expected_fs(mock_client, 'data/4', 'dummy-storage-np/0')),
             json.dumps(
                 make_expected_fs(mock_client, 'data/5', 'dummy-storage-mp/0'))
+            ]
         assess_storage(mock_client, mock_client.series)
         self.assertEqual(
             [

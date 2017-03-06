@@ -96,9 +96,16 @@ expected_block2["storage"]["disks/2"] = {
 
 
 def make_expected_fs(client, storage_name, unit_name):
-    unit_data = {
-        "location": "/srv/data",
-    }
+    if isinstance(client, ModelClient2_1):
+        # Juju 2.1- is missing the life field.
+        unit_data = {
+            "location": "/srv/data",
+        }
+    else:
+        unit_data = {
+            "location": "/srv/data",
+            "life": "alive"
+        }
     return {
         "storage": {
             storage_name: {
