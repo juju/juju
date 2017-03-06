@@ -33,6 +33,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"gopkg.in/juju/charmrepo.v2-unstable"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/worker.v1"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/natefinch/lumberjack.v2"
 	"gopkg.in/tomb.v1"
@@ -77,7 +78,7 @@ import (
 	"github.com/juju/juju/upgrades"
 	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/watcher"
-	"github.com/juju/juju/worker"
+	jworker "github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/apicaller"
 	"github.com/juju/juju/worker/certupdater"
 	"github.com/juju/juju/worker/conv2state"
@@ -267,7 +268,11 @@ func MachineAgentFactoryFn(
 			machineId,
 			agentConfWriter,
 			bufferedLogger,
-			worker.NewRunner(cmdutil.IsFatal, cmdutil.MoreImportant, worker.RestartDelay),
+			worker.NewRunner(worker.RunnerParams{
+				IsFatal:       cmdutil.IsFatal,
+				MoreImportant: cmdutil.MoreImportant,
+				RestartDelay:  jworker.RestartDelay,
+			}),
 			looputil.NewLoopDeviceManager(),
 			newIntrospectionSocketName,
 			preUpgradeSteps,
@@ -281,7 +286,7 @@ func NewMachineAgent(
 	machineId string,
 	agentConfWriter AgentConfigWriter,
 	bufferedLogger *logsender.BufferedLogWriter,
-	runner worker.Runner,
+	runner *worker.Runner,
 	loopDeviceManager looputil.LoopDeviceManager,
 	newIntrospectionSocketName func(names.Tag) string,
 	preUpgradeSteps upgrades.PreUpgradeStepsFunc,
@@ -325,7 +330,7 @@ type MachineAgent struct {
 
 	tomb             tomb.Tomb
 	machineId        string
-	runner           worker.Runner
+	runner           *worker.Runner
 	rootDir          string
 	bufferedLogger   *logsender.BufferedLogWriter
 	configChangedVal *voyeur.Value
@@ -491,12 +496,12 @@ func (a *MachineAgent) Run(*cmd.Context) error {
 	close(a.workersStarted)
 	err := a.runner.Wait()
 	switch errors.Cause(err) {
-	case worker.ErrTerminateAgent:
+	case jworker.ErrTerminateAgent:
 		err = a.uninstallAgent()
-	case worker.ErrRebootMachine:
+	case jworker.ErrRebootMachine:
 		logger.Infof("Caught reboot error")
 		err = a.executeRebootOrShutdown(params.ShouldReboot)
-	case worker.ErrShutdownMachine:
+	case jworker.ErrShutdownMachine:
 		logger.Infof("Caught shutdown error")
 		err = a.executeRebootOrShutdown(params.ShouldShutdown)
 	}
@@ -590,7 +595,7 @@ func (a *MachineAgent) executeRebootOrShutdown(action params.RebootAction) error
 	}
 	// On windows, the shutdown command is asynchronous. We return ErrRebootMachine
 	// so the agent will simply exit without error pending reboot/shutdown.
-	return worker.ErrRebootMachine
+	return jworker.ErrRebootMachine
 }
 
 func (a *MachineAgent) ChangeConfig(mutate agent.ConfigMutator) error {
@@ -668,7 +673,7 @@ func (a *MachineAgent) newRestoreStateWatcherWorker(st *state.State) (worker.Wor
 	rWorker := func(stopch <-chan struct{}) error {
 		return a.restoreStateWatcher(st, stopch)
 	}
-	return worker.NewSimpleWorker(rWorker), nil
+	return jworker.NewSimpleWorker(rWorker), nil
 }
 
 // restoreChanged will be called whenever restoreInfo doc changes signaling a new
@@ -737,11 +742,11 @@ func (a *MachineAgent) startAPIWorkers(apiConn api.Connection) (_ worker.Worker,
 		}
 	}
 
-	runner := worker.NewRunner(
-		cmdutil.ConnectionIsFatal(logger, apiConn),
-		cmdutil.MoreImportant,
-		worker.RestartDelay,
-	)
+	runner := worker.NewRunner(worker.RunnerParams{
+		IsFatal:       cmdutil.ConnectionIsFatal(logger, apiConn),
+		MoreImportant: cmdutil.MoreImportant,
+		RestartDelay:  jworker.RestartDelay,
+	})
 	defer func() {
 		// If startAPIWorkers exits early with an error, stop the
 		// runner so that any already started runners aren't leaked.
@@ -753,8 +758,8 @@ func (a *MachineAgent) startAPIWorkers(apiConn api.Connection) (_ worker.Worker,
 	// Perform the operations needed to set up hosting for containers.
 	if err := a.setupContainerSupport(runner, apiConn, agentConfig); err != nil {
 		cause := errors.Cause(err)
-		if params.IsCodeDead(cause) || cause == worker.ErrTerminateAgent {
-			return nil, worker.ErrTerminateAgent
+		if params.IsCodeDead(cause) || cause == jworker.ErrTerminateAgent {
+			return nil, jworker.ErrTerminateAgent
 		}
 		return nil, errors.Errorf("setting up container support: %v", err)
 	}
@@ -804,7 +809,7 @@ func (a *MachineAgent) setControllerNetworkConfig(apiConn api.Connection) error 
 	tag := agentConfig.Tag().(names.MachineTag)
 	machine, err := machinerAPI.Machine(tag)
 	if errors.IsNotFound(err) || err == nil && machine.Life() == params.Dead {
-		return worker.ErrTerminateAgent
+		return jworker.ErrTerminateAgent
 	}
 	if err != nil {
 		return errors.Annotatef(err, "cannot load machine %s from state", tag)
@@ -867,7 +872,7 @@ func (a *MachineAgent) validateMigration(apiCaller base.APICaller) error {
 
 // setupContainerSupport determines what containers can be run on this machine and
 // initialises suitable infrastructure to support such containers.
-func (a *MachineAgent) setupContainerSupport(runner worker.Runner, st api.Connection, agentConfig agent.Config) error {
+func (a *MachineAgent) setupContainerSupport(runner *worker.Runner, st api.Connection, agentConfig agent.Config) error {
 	var supportedContainers []instance.ContainerType
 	supportsContainers := container.ContainersSupported()
 	if supportsContainers {
@@ -890,7 +895,7 @@ func (a *MachineAgent) setupContainerSupport(runner worker.Runner, st api.Connec
 // the watcher is killed, the machine is set up to be able to start containers of the given type,
 // and a suitable provisioner is started.
 func (a *MachineAgent) updateSupportedContainers(
-	runner worker.Runner,
+	runner *worker.Runner,
 	st api.Connection,
 	containers []instance.ContainerType,
 	agentConfig agent.Config,
@@ -899,7 +904,7 @@ func (a *MachineAgent) updateSupportedContainers(
 	tag := agentConfig.Tag().(names.MachineTag)
 	machine, err := pr.Machine(tag)
 	if errors.IsNotFound(err) || err == nil && machine.Life() == params.Dead {
-		return worker.ErrTerminateAgent
+		return jworker.ErrTerminateAgent
 	}
 	if err != nil {
 		return errors.Annotatef(err, "cannot load machine %s from state", tag)
@@ -970,11 +975,11 @@ func (a *MachineAgent) startStateWorkers(
 		return nil, errors.Annotate(err, "machine lookup")
 	}
 
-	runner := worker.NewRunner(
-		cmdutil.PingerIsFatal(logger, st),
-		cmdutil.MoreImportant,
-		worker.RestartDelay,
-	)
+	runner := worker.NewRunner(worker.RunnerParams{
+		IsFatal:       cmdutil.PingerIsFatal(logger, st),
+		MoreImportant: cmdutil.MoreImportant,
+		RestartDelay:  jworker.RestartDelay,
+	})
 	singularRunner, err := newSingularStateRunner(runner, st, m)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -991,7 +996,7 @@ func (a *MachineAgent) startStateWorkers(
 					ControllerUUID: st.ControllerUUID(),
 					Backend:        modelworkermanager.BackendShim{st},
 					NewWorker:      a.startModelWorkers,
-					ErrorDelay:     worker.RestartDelay,
+					ErrorDelay:     jworker.RestartDelay,
 				})
 				if err != nil {
 					return nil, errors.Annotate(err, "cannot start model worker manager")
@@ -1463,20 +1468,20 @@ func openState(
 	m0, err := st.FindEntity(agentConfig.Tag())
 	if err != nil {
 		if errors.IsNotFound(err) {
-			err = worker.ErrTerminateAgent
+			err = jworker.ErrTerminateAgent
 		}
 		return nil, nil, err
 	}
 	m := m0.(*state.Machine)
 	if m.Life() == state.Dead {
-		return nil, nil, worker.ErrTerminateAgent
+		return nil, nil, jworker.ErrTerminateAgent
 	}
 	// Check the machine nonce as provisioned matches the agent.Conf value.
 	if !m.CheckProvisioned(agentConfig.Nonce()) {
 		// The agent is running on a different machine to the one it
 		// should be according to state. It must stop immediately.
 		logger.Errorf("running machine %v agent on inappropriate instance", m)
-		return nil, nil, worker.ErrTerminateAgent
+		return nil, nil, jworker.ErrTerminateAgent
 	}
 	return st, m, nil
 }
@@ -1491,7 +1496,7 @@ func getMachine(st *state.State, tag names.Tag) (*state.Machine, error) {
 
 // startWorkerAfterUpgrade starts a worker to run the specified child worker
 // but only after waiting for upgrades to complete.
-func (a *MachineAgent) startWorkerAfterUpgrade(runner worker.Runner, name string, start func() (worker.Worker, error)) {
+func (a *MachineAgent) startWorkerAfterUpgrade(runner jworker.Runner, name string, start func() (worker.Worker, error)) {
 	runner.StartWorker(name, func() (worker.Worker, error) {
 		return a.upgradeWaiterWorker(name, start), nil
 	})
@@ -1499,7 +1504,7 @@ func (a *MachineAgent) startWorkerAfterUpgrade(runner worker.Runner, name string
 
 // upgradeWaiterWorker runs the specified worker after upgrades have completed.
 func (a *MachineAgent) upgradeWaiterWorker(name string, start func() (worker.Worker, error)) worker.Worker {
-	return worker.NewSimpleWorker(func(stop <-chan struct{}) error {
+	return jworker.NewSimpleWorker(func(stop <-chan struct{}) error {
 		// Wait for the agent upgrade and upgrade steps to complete (or for us to be stopped).
 		for _, ch := range []<-chan struct{}{
 			a.upgradeComplete.Unlocked(),
@@ -1644,7 +1649,7 @@ type MongoSessioner interface {
 	MongoSession() *mgo.Session
 }
 
-func newSingularStateRunner(runner worker.Runner, st MongoSessioner, m *state.Machine) (worker.Runner, error) {
+func newSingularStateRunner(runner *worker.Runner, st MongoSessioner, m *state.Machine) (jworker.Runner, error) {
 	singularStateConn := singularStateConn{st.MongoSession(), m}
 	singularRunner, err := newSingularRunner(runner, singularStateConn)
 	if err != nil {
@@ -1686,7 +1691,7 @@ var newDeployContext = func(st *apideployer.State, agentConfig agent.Config) dep
 }
 
 func newStateMetricsWorker(st *state.State, registry *prometheus.Registry) worker.Worker {
-	return worker.NewSimpleWorker(func(stop <-chan struct{}) error {
+	return jworker.NewSimpleWorker(func(stop <-chan struct{}) error {
 		collector := statemetrics.New(statemetrics.NewState(st))
 		if err := registry.Register(collector); err != nil {
 			return errors.Annotate(err, "registering statemetrics collector")

@@ -5,12 +5,12 @@ package discoverspaces
 
 import (
 	"github.com/juju/errors"
+	worker "gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/discoverspaces"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/gate"
 )

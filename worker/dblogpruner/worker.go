@@ -7,10 +7,11 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"gopkg.in/juju/worker.v1"
 	"gopkg.in/tomb.v1"
 
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/worker"
+	jworker "github.com/juju/juju/worker"
 )
 
 // LogPruneParams specifies how logs should be pruned.
@@ -42,7 +43,7 @@ func New(st *state.State, params *LogPruneParams) worker.Worker {
 		st:     st,
 		params: params,
 	}
-	return worker.NewSimpleWorker(w.loop)
+	return jworker.NewSimpleWorker(w.loop)
 }
 
 type pruneWorker struct {

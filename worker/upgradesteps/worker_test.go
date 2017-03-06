@@ -17,6 +17,7 @@ import (
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
+	worker "gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/agent"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
@@ -33,7 +34,6 @@ import (
 	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/upgrades"
 	jujuversion "github.com/juju/juju/version"
-	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/gate"
 )
 

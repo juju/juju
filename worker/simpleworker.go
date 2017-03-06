@@ -3,7 +3,10 @@
 
 package worker
 
-import "gopkg.in/tomb.v1"
+import (
+	"gopkg.in/juju/worker.v1"
+	"gopkg.in/tomb.v1"
+)
 
 // simpleWorker implements the worker returned by NewSimpleWorker.
 type simpleWorker struct {
@@ -13,7 +16,7 @@ type simpleWorker struct {
 // NewSimpleWorker returns a worker that runs the given function.  The
 // stopCh argument will be closed when the worker is killed. The error returned
 // by the doWork function will be returned by the worker's Wait function.
-func NewSimpleWorker(doWork func(stopCh <-chan struct{}) error) Worker {
+func NewSimpleWorker(doWork func(stopCh <-chan struct{}) error) worker.Worker {
 	w := &simpleWorker{}
 	go func() {
 		defer w.tomb.Done()

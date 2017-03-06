@@ -7,8 +7,7 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
-
-	"github.com/juju/juju/worker"
+	"gopkg.in/juju/worker.v1"
 )
 
 // context encapsulates a snapshot of workers and output funcs and implements Context.

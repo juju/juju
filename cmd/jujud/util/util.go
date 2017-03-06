@@ -11,13 +11,14 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/series"
+	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/worker"
+	jworker "github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/upgrader"
 )
 
@@ -36,7 +37,7 @@ func RequiredError(name string) error {
 func IsFatal(err error) bool {
 	err = errors.Cause(err)
 	switch err {
-	case worker.ErrTerminateAgent, worker.ErrRebootMachine, worker.ErrShutdownMachine:
+	case jworker.ErrTerminateAgent, jworker.ErrRebootMachine, jworker.ErrShutdownMachine:
 		return true
 	}
 
@@ -71,11 +72,11 @@ func importance(err error) int {
 		return 1
 	case isUpgraded(err):
 		return 2
-	case err == worker.ErrRebootMachine:
+	case err == jworker.ErrRebootMachine:
 		return 3
-	case err == worker.ErrShutdownMachine:
+	case err == jworker.ErrShutdownMachine:
 		return 3
-	case err == worker.ErrTerminateAgent:
+	case err == jworker.ErrTerminateAgent:
 		return 4
 	}
 }
@@ -98,7 +99,7 @@ func MoreImportantError(err0, err1 error) error {
 func AgentDone(logger loggo.Logger, err error) error {
 	err = errors.Cause(err)
 	switch err {
-	case worker.ErrTerminateAgent, worker.ErrRebootMachine, worker.ErrShutdownMachine:
+	case jworker.ErrTerminateAgent, jworker.ErrRebootMachine, jworker.ErrShutdownMachine:
 		// These errors are swallowed here because we want to exit
 		// the agent process without error, to avoid the init system
 		// restarting us.

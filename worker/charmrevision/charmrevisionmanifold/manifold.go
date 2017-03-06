@@ -8,10 +8,10 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/clock"
+	worker "gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/charmrevisionupdater"
-	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/charmrevision"
 	"github.com/juju/juju/worker/dependency"
 )

@@ -12,6 +12,7 @@ import (
 	jujutxn "github.com/juju/txn"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
+	worker "gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
@@ -19,7 +20,6 @@ import (
 	"github.com/juju/juju/state/testing"
 	"github.com/juju/juju/status"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/worker"
 )
 
 const (

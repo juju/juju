@@ -9,9 +9,10 @@ import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/worker.v1"
 
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/worker"
+	jworker "github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/statushistorypruner"
 )
 
@@ -24,7 +25,7 @@ var _ = gc.Suite(&statusHistoryPrunerSuite{})
 func (s *statusHistoryPrunerSuite) TestWorkerCallsPrune(c *gc.C) {
 	fakeTimer := newMockTimer(coretesting.LongWait)
 
-	fakeTimerFunc := func(d time.Duration) worker.PeriodicTimer {
+	fakeTimerFunc := func(d time.Duration) jworker.PeriodicTimer {
 		// construction of timer should be with 0 because we intend it to
 		// run once before waiting.
 		c.Assert(d, gc.Equals, 0*time.Nanosecond)
@@ -69,7 +70,7 @@ func (s *statusHistoryPrunerSuite) TestWorkerCallsPrune(c *gc.C) {
 func (s *statusHistoryPrunerSuite) TestWorkerWontCallPruneBeforeFiringTimer(c *gc.C) {
 	fakeTimer := newMockTimer(coretesting.LongWait)
 
-	fakeTimerFunc := func(d time.Duration) worker.PeriodicTimer {
+	fakeTimerFunc := func(d time.Duration) jworker.PeriodicTimer {
 		// construction of timer should be with 0 because we intend it to
 		// run once before waiting.
 		c.Assert(d, gc.Equals, 0*time.Nanosecond)

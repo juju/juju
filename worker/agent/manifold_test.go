@@ -7,9 +7,9 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	worker "gopkg.in/juju/worker.v1"
 
 	coreagent "github.com/juju/juju/agent"
-	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/agent"
 )
 

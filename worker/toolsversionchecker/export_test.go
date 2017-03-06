@@ -3,7 +3,11 @@
 
 package toolsversionchecker
 
-import "github.com/juju/juju/worker"
+import (
+	"gopkg.in/juju/worker.v1"
+
+	jworker "github.com/juju/juju/worker"
+)
 
 func NewPeriodicWorkerForTests(api Facade, params *VersionCheckerParams) worker.Worker {
 	w := &toolsVersionWorker{
@@ -13,5 +17,5 @@ func NewPeriodicWorkerForTests(api Facade, params *VersionCheckerParams) worker.
 	periodicCall := func(stop <-chan struct{}) error {
 		return w.doCheck()
 	}
-	return worker.NewPeriodicWorker(periodicCall, params.CheckInterval, worker.NewTimer)
+	return jworker.NewPeriodicWorker(periodicCall, params.CheckInterval, jworker.NewTimer)
 }

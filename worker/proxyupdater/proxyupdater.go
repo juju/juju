@@ -17,9 +17,9 @@ import (
 	"github.com/juju/utils/packaging/config"
 	proxyutils "github.com/juju/utils/proxy"
 	"github.com/juju/utils/series"
+	worker "gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/watcher"
-	"github.com/juju/juju/worker"
 )
 
 var (

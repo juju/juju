@@ -6,6 +6,7 @@ package agent
 import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/api/imagemetadata"
 	"github.com/juju/juju/environs"
@@ -13,7 +14,7 @@ import (
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
-	"github.com/juju/juju/worker"
+	jworker "github.com/juju/juju/worker"
 )
 
 // MachineMockProviderSuite runs worker tests that depend
@@ -30,7 +31,7 @@ func (s *MachineMockProviderSuite) TestMachineAgentRunsMetadataWorker(c *gc.C) {
 	started := make(chan struct{})
 	newWorker := func(cl *imagemetadata.Client) worker.Worker {
 		close(started)
-		return worker.NewNoOpWorker()
+		return jworker.NewNoOpWorker()
 	}
 	s.PatchValue(&newMetadataUpdater, newWorker)
 	s.PatchValue(&newEnvirons, func(environs.OpenParams) (environs.Environ, error) {

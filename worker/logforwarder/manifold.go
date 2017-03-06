@@ -5,12 +5,12 @@ package logforwarder
 
 import (
 	"github.com/juju/errors"
+	worker "gopkg.in/juju/worker.v1"
 
 	apiagent "github.com/juju/juju/api/agent"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/logstream"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
 )
 

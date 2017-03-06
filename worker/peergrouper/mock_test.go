@@ -15,6 +15,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/replicaset"
 	"github.com/juju/utils/voyeur"
+	worker "gopkg.in/juju/worker.v1"
 	"gopkg.in/tomb.v1"
 
 	"github.com/juju/juju/apiserver/common/networkingcommon"
@@ -25,7 +26,6 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/status"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/worker"
 )
 
 // This file holds helper functions for mocking pieces of State and replicaset

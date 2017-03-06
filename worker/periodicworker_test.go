@@ -7,6 +7,7 @@ import (
 	"time"
 
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/testing"
 )
@@ -29,7 +30,7 @@ func (s *periodicWorkerSuite) TestWait(c *gc.C) {
 	}
 
 	w := NewPeriodicWorker(doWork, defaultPeriod, NewTimer)
-	defer func() { c.Assert(Stop(w), gc.Equals, testError) }()
+	defer func() { c.Assert(worker.Stop(w), gc.Equals, testError) }()
 	select {
 	case <-funcHasRun:
 	case <-time.After(testing.ShortWait):
@@ -55,7 +56,7 @@ func (s *periodicWorkerSuite) TestWaitNil(c *gc.C) {
 	}
 
 	w := NewPeriodicWorker(doWork, defaultPeriod, NewTimer)
-	defer func() { c.Assert(Stop(w), gc.IsNil) }()
+	defer func() { c.Assert(worker.Stop(w), gc.IsNil) }()
 	select {
 	case <-funcHasRun:
 	case <-time.After(defaultFireOnceWait):
@@ -95,7 +96,7 @@ func runKillTest(c *gc.C, returnValue, expected error) {
 	}
 
 	w := NewPeriodicWorker(doWork, defaultPeriod, NewTimer)
-	defer func() { c.Assert(Stop(w), gc.Equals, expected) }()
+	defer func() { c.Assert(worker.Stop(w), gc.Equals, expected) }()
 
 	select {
 	case <-ready:
@@ -127,7 +128,7 @@ func (s *periodicWorkerSuite) TestCallUntilKilled(c *gc.C) {
 	period := time.Millisecond * 500
 	unacceptableWait := time.Second * 10
 	w := NewPeriodicWorker(doWork, period, NewTimer)
-	defer func() { c.Assert(Stop(w), gc.IsNil) }()
+	defer func() { c.Assert(worker.Stop(w), gc.IsNil) }()
 	for i := 0; i < 5; i++ {
 		select {
 		case <-funcHasRun:
