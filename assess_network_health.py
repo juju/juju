@@ -56,7 +56,7 @@ class AssessNetworkHealth:
         """
         self.setup_testing_environment(client, bundle, target_model, series)
         log.info('Starting network tests.')
-        results_pre = self.testing_iterations(client, series)
+        results_pre = self.testing_iterations(client, series, target_model)
         error_string = ['Initial test failures:']
         if not reboot:
             if results_pre:
@@ -66,7 +66,7 @@ class AssessNetworkHealth:
             return
         log.info('Units completed pre-reboot tests, rebooting machines.')
         self.reboot_machines(client)
-        results_post = self.testing_iterations(client, series,
+        results_post = self.testing_iterations(client, series, target_model,
                                                reboot_msg='Post-reboot ')
         if results_pre or results_post:
             error_string.extend(results_pre or 'No pre-reboot failures.')
@@ -76,7 +76,7 @@ class AssessNetworkHealth:
         log.info('SUCESS')
         return
 
-    def testing_iterations(self, client, series, reboot_msg=''):
+    def testing_iterations(self, client, series, target_model, reboot_msg=''):
         """Runs through each test given for a given client and series
 
         :param client: Client
@@ -97,13 +97,15 @@ class AssessNetworkHealth:
                                         json.dumps(vis_result,
                                                    indent=4,
                                                    sort_keys=True)))
-        exp_result = self.ensure_exposed(client, series)
-        log.info('{0}Exposure '
-                 'result:\n {1}'.format(reboot_msg,
-                                        json.dumps(exp_result,
-                                                   indent=4,
-                                                   sort_keys=True)) or
-                 NO_EXPOSED_UNITS)
+        exp_result = None
+        if not target_model:
+            exp_result = self.ensure_exposed(client, series)
+            log.info('{0}Exposure '
+                     'result:\n {1}'.format(reboot_msg,
+                                            json.dumps(exp_result,
+                                                       indent=4,
+                                                       sort_keys=True)) or
+                     NO_EXPOSED_UNITS)
         log.info('Tests complete.')
         return self.parse_final_results(con_result, vis_result, int_result,
                                         exp_result)
@@ -338,7 +340,7 @@ class AssessNetworkHealth:
         return result
 
     def parse_final_results(self, controller, visibility, internet,
-                            exposed=None):
+                            exposed):
         """Parses test results and raises an error if any failed.
 
         :param controller: Controller test result
