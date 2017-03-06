@@ -215,13 +215,12 @@ func (f *Firewall) ensureApplication(portRange network.PortRange, cache *[]ociRe
 }
 
 func (f *Firewall) ensureSecList(name string) (ociResponse.SecList, error) {
-	resourceName := f.client.ComposeName(name)
-	details, err := f.client.SecListDetails(resourceName)
+	details, err := f.client.SecListDetails(name)
 	if err != nil {
 		if oci.IsNotFound(err) {
 			details, err := f.client.CreateSecList(
 				"Juju created security list",
-				resourceName,
+				name,
 				ociCommon.SecRulePermit,
 				ociCommon.SecRuleDeny)
 			if err != nil {
@@ -510,7 +509,7 @@ func (f *Firewall) CreateMachineSecLists(machineId string, apiPort int) ([]strin
 
 func (f *Firewall) OpenPorts(rules []network.IngressRule) error {
 	globalGroupName := f.globalGroupName()
-	seclist, err := f.ensureSecList(globalGroupName)
+	seclist, err := f.ensureSecList(f.client.ComposeName(globalGroupName))
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -606,12 +605,12 @@ func (f *Firewall) DeleteMachineSecList(machineId string) error {
 
 func (f *Firewall) ClosePorts(rules []network.IngressRule) error {
 	groupName := f.globalGroupName()
-	return f.closePortsOnList(groupName, rules)
+	return f.closePortsOnList(f.client.ComposeName(groupName), rules)
 }
 
 func (f *Firewall) OpenPortsOnInstance(machineId string, rules []network.IngressRule) error {
 	machineGroup := f.machineGroupName(machineId)
-	seclist, err := f.ensureSecList(machineGroup)
+	seclist, err := f.ensureSecList(f.client.ComposeName(machineGroup))
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -624,7 +623,7 @@ func (f *Firewall) OpenPortsOnInstance(machineId string, rules []network.Ingress
 
 func (f *Firewall) ClosePortsOnInstance(machineId string, rules []network.IngressRule) error {
 	groupName := f.machineGroupName(machineId)
-	return f.closePortsOnList(groupName, rules)
+	return f.closePortsOnList(f.client.ComposeName(groupName), rules)
 }
 
 func (f *Firewall) getIngressRules(seclist string) ([]network.IngressRule, error) {
@@ -644,10 +643,10 @@ func (f *Firewall) getIngressRules(seclist string) ([]network.IngressRule, error
 
 func (f *Firewall) GlobalIngressRules() ([]network.IngressRule, error) {
 	seclist := f.globalGroupName()
-	return f.getIngressRules(seclist)
+	return f.getIngressRules(f.client.ComposeName(seclist))
 }
 
 func (f *Firewall) MachineIngressRules(machineId string) ([]network.IngressRule, error) {
 	seclist := f.machineGroupName(machineId)
-	return f.getIngressRules(seclist)
+	return f.getIngressRules(f.client.ComposeName(seclist))
 }
