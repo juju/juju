@@ -1,0 +1,13 @@
+#!/bin/bash
+
+set -x
+
+juju-log -l INFO "Install"
+juju-log -l INFO "Data on drive: $(cat /srv/single-fs/test.txt)"
+
+for unit in $(storage-list); do
+    juju-log -l INFO "Storage details for ${unit}: $(storage-get $unit)"
+done
+
+# The storage-attached hook has fired so we can write some data there now.
+status-set maintenance "Installed" || true

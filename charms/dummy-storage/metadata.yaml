@@ -1,0 +1,19 @@
+name: dummy-storage
+maintainer: Christopher Lee <chris.lee@canonical.com>
+summary: Dummy charm that utilises storage.
+description: This dummy charm is used for testing persistent storage.
+categories:
+  - misc
+series:
+  - trusty
+  - precise
+  - utopic
+  - vivid
+  - wily
+  - xenial
+storage:
+  single-fs:
+    type: filesystem
+    description: Single instance storage of filesystem type.
+    minimum-size: 10M
+    location: /srv/single-fs

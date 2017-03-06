@@ -1,0 +1,9 @@
+#!/bin/bash
+set -x
+
+juju-log -l INFO "Storage is attached."
+juju-log -l INFO "Hook details: $(storage-list)"
+
+echo "Hello!" > /srv/single-fs/test.txt
+
+status-set active "Started" || true

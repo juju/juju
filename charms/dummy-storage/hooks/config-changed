@@ -1,0 +1,31 @@
+#!/bin/bash
+set -x
+
+# Do single-fs to start, will need to make this better in the future.
+juju-log -l INFO "Getting single-fs details."
+status-set maintenance "Setting fs tokens" || true
+
+token="$(config-get single-fs-token)"
+token_file="/srv/single-fs/token"
+
+single_fs_status=""
+
+if [ -f $token_file]; then
+    juju-log -l INFO "Using stored token details."
+    token=$(cat $token_file)
+fi
+
+if [[ -z $token ]]; then
+    # status-set blocked "Set the single-fs-token" || true
+    single_fs_token="single-fs-token: Blocked: not set"
+    juju-log -l WARNING "$single_fs_token"
+else
+    # This should get the existing status and add to it. Or set a global and
+    # consolidate afterwards.
+    single_fs_token="single-fs-token: $token"
+    echo "$token" > $token_file
+    juju-log -l INFO "$single_fs_token"
+fi
+
+# Should this be maintenance or active depending on the config/token?
+status-set active "$single_fs_token" || true
