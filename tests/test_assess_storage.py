@@ -11,14 +11,11 @@ from assess_storage import (
     assert_dict_is_subset,
     assess_storage,
     parse_args,
+    make_expected_fs,
     main,
-    expected_filesystem,
     storage_pool_1x,
     expected_block1,
     expected_block2,
-    expected_tmpfs,
-    expected_default_tmpfs,
-    expected_mulitfilesystem,
     storage_pool_details,
 )
 from jujupy import JujuData
@@ -107,12 +104,16 @@ class TestAssess(TestCase):
             json.dumps(storage_pool_1x)
         ]
         mock_client.list_storage.side_effect = [
-            json.dumps(expected_filesystem),
+            json.dumps(
+                make_expected_fs(mock_client, 'data/0', 'dummy-storage-fs/0')),
             json.dumps(expected_block1),
             json.dumps(expected_block2),
-            json.dumps(expected_tmpfs),
-            json.dumps(expected_default_tmpfs),
-            json.dumps(expected_mulitfilesystem)
+            json.dumps(
+                make_expected_fs(mock_client, 'data/3', 'dummy-storage-tp/0')),
+            json.dumps(
+                make_expected_fs(mock_client, 'data/4', 'dummy-storage-np/0')),
+            json.dumps(
+                make_expected_fs(mock_client, 'data/5', 'dummy-storage-mp/0'))
         ]
         assess_storage(mock_client, mock_client.series)
         self.assertEqual(
@@ -144,13 +145,16 @@ class TestAssess(TestCase):
             json.dumps(storage_pool_details)
         ]
         mock_client.list_storage.side_effect = [
-            json.dumps(expected_filesystem),
+            json.dumps(
+                make_expected_fs(mock_client, 'data/0', 'dummy-storage-fs/0')),
             json.dumps(expected_block1),
             json.dumps(expected_block2),
-            json.dumps(expected_tmpfs),
-            json.dumps(expected_default_tmpfs),
-            json.dumps(expected_mulitfilesystem)
-        ]
+            json.dumps(
+                make_expected_fs(mock_client, 'data/3', 'dummy-storage-tp/0')),
+            json.dumps(
+                make_expected_fs(mock_client, 'data/4', 'dummy-storage-np/0')),
+            json.dumps(
+                make_expected_fs(mock_client, 'data/5', 'dummy-storage-mp/0'))
         assess_storage(mock_client, mock_client.series)
         self.assertEqual(
             [
@@ -183,12 +187,16 @@ class TestAssess(TestCase):
             json.dumps(expected_pool)
         ]
         mock_client.list_storage.side_effect = [
-            json.dumps(expected_filesystem),
+            json.dumps(
+                make_expected_fs(mock_client, 'data/0', 'dummy-storage-fs/0')),
             json.dumps(expected_block1),
             json.dumps(expected_block2),
-            json.dumps(expected_tmpfs),
-            json.dumps(expected_default_tmpfs),
-            json.dumps(expected_mulitfilesystem)
+            json.dumps(
+                make_expected_fs(mock_client, 'data/3', 'dummy-storage-tp/0')),
+            json.dumps(
+                make_expected_fs(mock_client, 'data/4', 'dummy-storage-np/0')),
+            json.dumps(
+                make_expected_fs(mock_client, 'data/5', 'dummy-storage-mp/0'))
         ]
         assess_storage(mock_client, mock_client.series)
         self.assertEqual(
@@ -225,11 +233,15 @@ class TestAssess(TestCase):
             json.dumps(aws_pool)
         ]
         mock_client.list_storage.side_effect = [
-            json.dumps(expected_filesystem),
+            json.dumps(
+                make_expected_fs(mock_client, 'data/0', 'dummy-storage-fs/0')),
             json.dumps(expected_block1),
             json.dumps(expected_block2),
-            json.dumps(expected_tmpfs),
-            json.dumps(expected_default_tmpfs),
-            json.dumps(expected_mulitfilesystem)
+            json.dumps(
+                make_expected_fs(mock_client, 'data/3', 'dummy-storage-tp/0')),
+            json.dumps(
+                make_expected_fs(mock_client, 'data/4', 'dummy-storage-np/0')),
+            json.dumps(
+                make_expected_fs(mock_client, 'data/5', 'dummy-storage-mp/0'))
         ]
         assess_storage(mock_client, mock_client.series)

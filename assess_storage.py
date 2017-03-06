@@ -23,6 +23,7 @@ from utility import (
     JujuAssertionError,
     temp_dir,
 )
+from jujupy.version_client import ModelClient2_1
 
 
 __metaclass__ = type
@@ -74,15 +75,6 @@ storage_pool_1x["ebs-ssd"] = {
     "attrs": {"volume-type": "ssd"}
     }
 
-expected_filesystem = {
-    "storage": {
-        "data/0": {
-            "kind": "filesystem",
-            "attachments": {
-                "units": {"dummy-storage-fs/0": {"location": "/srv/data"}}}
-            }
-        }
-    }
 expected_block1 = {
     "storage": {
         "disks/1": {
@@ -101,33 +93,21 @@ expected_block2["storage"]["disks/2"] = {
             }
         }
     }
-expected_tmpfs = {
-    "storage": {
-        "data/3": {
-            "kind": "filesystem",
-            "attachments": {
-                "units": {"dummy-storage-tp/0": {"location": "/srv/data"}}}
+
+
+def make_expected_fs(client, storage_name, unit_name):
+    unit_data = {
+        "location": "/srv/data",
+    }
+    return {
+        "storage": {
+            storage_name: {
+                "kind": "filesystem",
+                "attachments": {
+                    "units": {unit_name: unit_data}}
+                }
             }
         }
-    }
-expected_default_tmpfs = {
-    "storage": {
-        "data/4": {
-            "kind": "filesystem",
-            "attachments": {
-                "units": {"dummy-storage-np/0": {"location": "/srv/data"}}}
-            }
-        }
-    }
-expected_mulitfilesystem = {
-    "storage": {
-        "data/5": {
-            "kind": "filesystem",
-            "attachments": {
-                "units": {"dummy-storage-mp/0": {"location": "/srv/data"}}}
-            }
-        }
-    }
 
 
 def storage_list(client):
@@ -303,7 +283,8 @@ def assess_storage(client, charm_series):
     log.info('Assessing filesystem rootfs')
     assess_deploy_storage(client, charm_series,
                           'dummy-storage-fs', 'filesystem', 'rootfs')
-    check_storage_list(client, expected_filesystem)
+    expected = make_expected_fs(client, 'data/0', 'dummy-storage-fs/0')
+    check_storage_list(client, expected)
     log.info('Filesystem rootfs PASSED')
     client.remove_service('dummy-storage-fs')
 
@@ -322,21 +303,24 @@ def assess_storage(client, charm_series):
     log.info('Assessing filesystem tmpfs')
     assess_deploy_storage(client, charm_series,
                           'dummy-storage-tp', 'filesystem', 'tmpfs')
-    check_storage_list(client, expected_tmpfs)
+    expected = make_expected_fs(client, 'data/3', 'dummy-storage-tp/0')
+    check_storage_list(client, expected)
     log.info('Filesystem tmpfs PASSED')
     client.remove_service('dummy-storage-tp')
 
     log.info('Assessing filesystem')
     assess_deploy_storage(client, charm_series,
                           'dummy-storage-np', 'filesystem')
-    check_storage_list(client, expected_default_tmpfs)
+    expected = make_expected_fs(client, 'data/4', 'dummy-storage-np/0')
+    check_storage_list(client, expected)
     log.info('Filesystem tmpfs PASSED')
     client.remove_service('dummy-storage-np')
 
     log.info('Assessing multiple filesystem, block, rootfs, loop')
     assess_multiple_provider(client, charm_series, "1G", 'dummy-storage-mp',
                              'filesystem', 'block', 'rootfs', 'loop')
-    check_storage_list(client, expected_mulitfilesystem)
+    expected = make_expected_fs(client, 'data/5', 'dummy-storage-mp/0')
+    check_storage_list(client, expected)
     log.info('Multiple filesystem, block, rootfs, loop PASSED')
     client.remove_service('dummy-storage-mp')
     log.info('All storage tests PASSED')
