@@ -86,14 +86,10 @@ func (f *Firewall) newResourceName(appName string) string {
 	return fmt.Sprintf("juju-%s-%s", f.environ.Config().UUID(), appName)
 }
 
-func (f *Firewall) ensureRulesExits(seclist ociResponse.SecList, rules []network.IngressRule) error {
-	return nil
-}
-
 // getSecRules retrieves the security rules for a particular security list
-func (f *Firewall) getSecRules(seclist ociResponse.SecList) ([]ociResponse.SecRule, error) {
+func (f *Firewall) getSecRules(seclist string) ([]ociResponse.SecRule, error) {
 	// We only care about ingress rules
-	name := fmt.Sprintf("seclist:%s", seclist.Name)
+	name := fmt.Sprintf("seclist:%s", seclist)
 	rulesFilter := []oci.Filter{
 		oci.Filter{
 			Arg:   "dst_list",
@@ -110,6 +106,19 @@ func (f *Firewall) getSecRules(seclist ociResponse.SecList) ([]ociResponse.SecRu
 		// gsamfira: We set a default policy of DENY. No use in worrying about
 		// DENY rules (if by any chance someone add one manually for some reason)
 		if val.Action != ociCommon.SecRulePermit {
+			continue
+		}
+		// We only care about rules that have a destination set
+		// to a security list. Those lists get attached to VMs
+		// NOTE: someone decided, when writing the oracle API
+		// that some fields should be bool, some should be string.
+		// never mind they both are boolean values...but hey.
+		// I swear...some people like to watch the world burn
+		if val.Dst_is_ip == "true" {
+			continue
+		}
+		// We only care about rules that have an IP list as source
+		if val.Src_is_ip == "false" {
 			continue
 		}
 		ret = append(ret, val)
@@ -211,6 +220,25 @@ func (f *Firewall) ensureApplication(portRange network.PortRange, cache *[]ociRe
 	return application.Name, nil
 }
 
+func (f *Firewall) ensureSecList(name string) (ociResponse.SecList, error) {
+	resourceName := f.client.ComposeName(name)
+	details, err := f.client.SecListDetails(resourceName)
+	if err != nil {
+		if oci.IsNotFound(err) {
+			details, err := f.client.CreateSecList(
+				"Juju created security list",
+				resourceName,
+				ociCommon.SecRulePermit,
+				ociCommon.SecRuleDeny)
+			if err != nil {
+				return ociResponse.SecList{}, nil
+			}
+			return details, nil
+		}
+	}
+	return details, nil
+}
+
 // TODO (gsamfira):finish this
 func (f *Firewall) ensureSecIpList(cidr []string, cache *[]ociResponse.SecIpList) (string, error) {
 	sort.Strings(cidr)
@@ -242,11 +270,11 @@ func (f *Firewall) ensureSecIpList(cidr []string, cache *[]ociResponse.SecIpList
 
 func (f *Firewall) ensureSecRules(seclist ociResponse.SecList, rules []network.IngressRule) error {
 	logger.Debugf("Ensuring the existance of: %v", rules)
-	secRules, err := f.getSecRules(seclist)
+	secRules, err := f.getSecRules(seclist.Name)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	converted, err := f.convertFromSecRules(secRules)
+	converted, err := f.convertFromSecRules(secRules...)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -302,7 +330,6 @@ func (f *Firewall) convertToSecRules(seclist ociResponse.SecList, rules []networ
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		logger.Debugf("Ensuring IP list. Source CIDR %v --> cache: %v", val.SourceCIDRs, iplists)
 		ipList, err := f.ensureSecIpList(val.SourceCIDRs, &iplists)
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -342,7 +369,7 @@ func (f *Firewall) convertApplicationToPortRange(app ociResponse.SecApplication)
 	}
 }
 
-func (f *Firewall) convertFromSecRules(rules []ociResponse.SecRule) (map[string][]network.IngressRule, error) {
+func (f *Firewall) convertFromSecRules(rules ...ociResponse.SecRule) (map[string][]network.IngressRule, error) {
 	applications, err := f.getAllApplicationsAsMap()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -354,19 +381,6 @@ func (f *Firewall) convertFromSecRules(rules []ociResponse.SecRule) (map[string]
 
 	ret := map[string][]network.IngressRule{}
 	for _, val := range rules {
-		// We only care about rules that have a destination set
-		// to a security list. Those lists get attached to VMs
-		// NOTE: someone decided, when writing the oracle API
-		// that some fields should be bool, some should be string.
-		// never mind they both are boolean values...but hey.
-		// I swear...some people like to watch the world burn
-		if val.Dst_is_ip == "true" {
-			continue
-		}
-		// We only care about rules that have an IP list as source
-		if val.Src_is_ip == "false" {
-			continue
-		}
 		app := val.Application
 		srcList := strings.TrimPrefix(val.Src_list, "seciplist:")
 		dstList := strings.TrimPrefix(val.Src_list, "seclist:")
@@ -384,6 +398,31 @@ func (f *Firewall) convertFromSecRules(rules []ociResponse.SecRule) (map[string]
 				SourceCIDRs: iplists[srcList].Secipentries,
 			}
 			ret[dstList] = append(ret[dstList], toAdd)
+		}
+	}
+	return ret, nil
+}
+
+func (f *Firewall) secRuleToIngresRule(rules ...ociResponse.SecRule) (map[string]network.IngressRule, error) {
+	applications, err := f.getAllApplicationsAsMap()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	iplists, err := f.getAllIPListsAsMap()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	ret := map[string]network.IngressRule{}
+	for _, val := range rules {
+		app := val.Application
+		srcList := strings.TrimPrefix(val.Src_list, "seciplist:")
+		portRange := f.convertApplicationToPortRange(applications[app])
+		if _, ok := ret[val.Name]; !ok {
+			ret[val.Name] = network.IngressRule{
+				PortRange:   portRange,
+				SourceCIDRs: iplists[srcList].Secipentries,
+			}
 		}
 	}
 	return ret, nil
@@ -481,4 +520,148 @@ func (f *Firewall) CreateMachineSecLists(machineId string, apiPort int) ([]strin
 		defaultSecList.Name,
 		secList.Name,
 	}, nil
+}
+
+func (f *Firewall) OpenPorts(rules []network.IngressRule) error {
+	globalGroupName := f.globalGroupName()
+	seclist, err := f.ensureSecList(globalGroupName)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	err = f.ensureSecRules(seclist, rules)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
+func (f *Firewall) closePortsOnList(list string, rules []network.IngressRule) error {
+	secrules, err := f.getSecRules(list)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	mapping, err := f.secRuleToIngresRule(secrules...)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	//TODO (gsamfira): optimize this
+	for name, rule := range mapping {
+		sort.Strings(rule.SourceCIDRs)
+		for _, ingressRule := range rules {
+			sort.Strings(ingressRule.SourceCIDRs)
+			if reflect.DeepEqual(rule, ingressRule) {
+				err := f.client.DeleteSecRule(name)
+				if err != nil {
+					return errors.Trace(err)
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func (f *Firewall) deleteAllSecRulesOnList(list string) error {
+	secrules, err := f.getSecRules(list)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	for _, rule := range secrules {
+		err := f.client.DeleteSecRule(rule.Name)
+		if err != nil {
+			if oci.IsNotFound(err) {
+				continue
+			}
+			return errors.Trace(err)
+		}
+	}
+	return nil
+}
+
+func (f *Firewall) maybeDeleteList(list string) error {
+	filter := []oci.Filter{
+		oci.Filter{
+			Arg:   "seclist",
+			Value: list,
+		},
+	}
+	assoc, err := f.client.AllSecAssociations(filter)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if len(assoc.Restul) > 0 {
+		logger.Warningf("SecList %s is still associated to an instance. Will not delete", list)
+		return nil
+	}
+	err = f.deleteAllSecRulesOnList(list)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	err = f.client.DeleteSecList(list)
+	if oci.IsNotFound(err) {
+		return nil
+	}
+	return errors.Trace(err)
+}
+
+func (f *Firewall) DeleteMachineSecList(machineId string) error {
+	listName := f.machineGroupName(machineId)
+	globalListName := f.globalGroupName()
+	err := f.maybeDeleteList(listName)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	// check if we can delete the global list as well
+	err = f.maybeDeleteList(globalListName)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
+func (f *Firewall) ClosePorts(rules []network.IngressRule) error {
+	groupName := f.globalGroupName()
+	return f.closePortsOnList(groupName, rules)
+}
+
+func (f *Firewall) OpenPortsOnInstance(machineId string, rules []network.IngressRule) error {
+	machineGroup := f.machineGroupName(machineId)
+	seclist, err := f.ensureSecList(machineGroup)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	err = f.ensureSecRules(seclist, rules)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
+func (f *Firewall) ClosePortsOnInstance(machineId string, rules []network.IngressRule) error {
+	groupName := f.machineGroupName(machineId)
+	return f.closePortsOnList(groupName, rules)
+}
+
+func (f *Firewall) getIngressRules(seclist string) ([]network.IngressRule, error) {
+	secrules, err := f.getSecRules(seclist)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	ingressRules, err := f.convertFromSecRules(secrules...)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if rules, ok := ingressRules[seclist]; ok {
+		return rules, nil
+	}
+	return []network.IngressRule{}, nil
+}
+
+func (f *Firewall) GlobalIngressRules() ([]network.IngressRule, error) {
+	seclist := f.globalGroupName()
+	return f.getIngressRules(seclist)
+}
+
+func (f *Firewall) MachineIngressRules(machineId string) ([]network.IngressRule, error) {
+	seclist := f.machineGroupName(machineId)
+	return f.getIngressRules(seclist)
 }

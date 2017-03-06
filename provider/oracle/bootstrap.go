@@ -13,7 +13,7 @@ import (
 
 // createInstance creates a new vm inside
 // the oracle infrastracuture and parses  the response into a instance.Instance
-func createInstance(c *oci.Client, params oci.InstanceParams) (*oracleInstance, error) {
+func createInstance(c *oci.Client, params oci.InstanceParams, env *oracleEnviron) (*oracleInstance, error) {
 	if len(params.Instances) > 1 {
 		return nil, errors.NotSupportedf("launching multiple controllers")
 	}
@@ -26,7 +26,7 @@ func createInstance(c *oci.Client, params oci.InstanceParams) (*oracleInstance, 
 		return nil, errors.Trace(err)
 	}
 
-	instance, err := newInstance(resp.Instances[0], c)
+	instance, err := newInstance(resp.Instances[0], env)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

@@ -67,7 +67,7 @@ func newOracleEnviron(p *environProvider, args environs.OpenParams, client *oci.
 func (o *oracleEnviron) PrepareForBootstrap(ctx environs.BootstrapContext) error {
 	if ctx.ShouldVerifyCredentials() {
 		logger.Infof("Loging into the oracle cloud infrastructure")
-		if err := o.p.client.Authenticate(); err != nil {
+		if err := o.client.Authenticate(); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -102,7 +102,7 @@ func (o *oracleEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.B
 // Create is not called for the initial controller model; it is
 // the Bootstrap method's job to create the controller model.
 func (o *oracleEnviron) Create(params environs.CreateParams) error {
-	if err := o.p.client.Authenticate(); err != nil {
+	if err := o.client.Authenticate(); err != nil {
 		return errors.Trace(err)
 	}
 	return nil
@@ -137,20 +137,20 @@ func (o *oracleEnviron) StartInstance(args environs.StartInstanceParams) (*envir
 	series := args.Tools.OneSeries()
 	arches := args.Tools.Arches()
 
-	types, err := getInstanceTypes(o.p.client)
+	types, err := getInstanceTypes(o.client)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	if args.ImageMetadata, err = checkImageList(
-		o.p.client, args.Constraints,
+		o.client, args.Constraints,
 	); err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	//find the best suitable instance returned from the api
 	spec, imagelist, err := findInstanceSpec(
-		o.p.client,
+		o.client,
 		args.ImageMetadata,
 		types,
 		&envinstance.InstanceConstraint{
@@ -192,8 +192,8 @@ func (o *oracleEnviron) StartInstance(args environs.StartInstanceParams) (*envir
 		"userdata": string(userData),
 	}
 
-	machineName := o.p.client.ComposeName(args.InstanceConfig.MachineAgentServiceName)
-	imageName := o.p.client.ComposeName(imagelist)
+	machineName := o.client.ComposeName(args.InstanceConfig.MachineAgentServiceName)
+	imageName := o.client.ComposeName(imagelist)
 	tags := make([]string, 0, len(args.InstanceConfig.Tags)+1)
 	for k, v := range args.InstanceConfig.Tags {
 		if k == "" || v == "" {
@@ -223,7 +223,7 @@ func (o *oracleEnviron) StartInstance(args environs.StartInstanceParams) (*envir
 			SecLists: secLists,
 		},
 	}
-	instance, err := createInstance(o.p.client, oci.InstanceParams{
+	instance, err := createInstance(o.client, oci.InstanceParams{
 		Relationships: nil,
 		Instances: []oci.Instances{
 			{
@@ -239,7 +239,7 @@ func (o *oracleEnviron) StartInstance(args environs.StartInstanceParams) (*envir
 				// TODO(sgiulitti): make vm generate a public address
 			},
 		},
-	})
+	}, o)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -328,17 +328,17 @@ func (o *oracleEnviron) allControllerManagedInstances(controllerUUID string) ([]
 func (o *oracleEnviron) getOracleInstances(ids ...instance.Id) ([]*oracleInstance, error) {
 	ret := make([]*oracleInstance, 0, len(ids))
 	if len(ids) == 1 {
-		inst, err := o.p.client.InstanceDetails(string(ids[0]))
+		inst, err := o.client.InstanceDetails(string(ids[0]))
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		//environs.ErrPartialInstances
-		oInst, err := newInstance(inst, o.p.client)
+		oInst, err := newInstance(inst, o)
 		ret = append(ret, oInst)
 		return ret, nil
 	}
 
-	resp, err := o.p.client.AllInstances(nil)
+	resp, err := o.client.AllInstances(nil)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -357,7 +357,7 @@ func (o *oracleEnviron) getOracleInstances(ids ...instance.Id) ([]*oracleInstanc
 		if found == false {
 			continue
 		}
-		oInst, err := newInstance(val, o.p.client)
+		oInst, err := newInstance(val, o)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -378,14 +378,14 @@ func (o *oracleEnviron) allInstances(tagFilter tagValue) ([]*oracleInstance, err
 		},
 	}
 	logger.Infof("Looking for instances with tags: %v", filter)
-	resp, err := o.p.client.AllInstances(filter)
+	resp, err := o.client.AllInstances(filter)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	instances := []*oracleInstance{}
 	for _, val := range resp.Result {
-		oracleInstance, err := newInstance(val, o.p.client)
+		oracleInstance, err := newInstance(val, o)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -593,16 +593,17 @@ func (o *oracleEnviron) DestroyController(controllerUUID string) error {
 // Must only be used if the environment was setup with the
 // FwGlobal firewall mode.
 func (o *oracleEnviron) OpenPorts(rules []network.IngressRule) error {
-	logger.Infof("rules: %v", rules)
-	return nil
+	if o.Config().FirewallMode() != config.FwGlobal {
+		return fmt.Errorf("invalid firewall mode %q for opening ports on model", o.Config().FirewallMode())
+	}
+	return o.fw.OpenPorts(rules)
 }
 
 // ClosePorts closes the given port ranges for the whole environment.
 // Must only be used if the environment was setup with the
 // FwGlobal firewall mode.
 func (o *oracleEnviron) ClosePorts(rules []network.IngressRule) error {
-	logger.Infof("rules: %v", rules)
-	return nil
+	return o.fw.ClosePorts(rules)
 }
 
 // IngressRules returns the ingress rules applied to the whole environment.
@@ -612,7 +613,7 @@ func (o *oracleEnviron) ClosePorts(rules []network.IngressRule) error {
 // port range - the rule's SourceCIDRs will contain all applicable source
 // address rules for that port range.
 func (o *oracleEnviron) IngressRules() ([]network.IngressRule, error) {
-	return nil, nil
+	return o.fw.GlobalIngressRules()
 }
 
 // Provider returns the EnvironProvider that created this Environ.
