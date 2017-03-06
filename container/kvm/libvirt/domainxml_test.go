@@ -6,13 +6,12 @@ package libvirt_test
 import (
 	"encoding/xml"
 
-	gc "gopkg.in/check.v1"
-
 	"github.com/juju/errors"
 	"github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
+	gc "gopkg.in/check.v1"
 
 	. "github.com/juju/juju/container/kvm/libvirt"
-	jc "github.com/juju/testing/checkers"
 )
 
 // gocheck boilerplate.

@@ -4,9 +4,10 @@
 package openstack
 
 import (
-	"github.com/juju/juju/instance"
 	"github.com/juju/utils"
 	"gopkg.in/goose.v1/nova"
+
+	"github.com/juju/juju/instance"
 )
 
 // LegacyNovaNetworking is an implementation of Networking that uses the legacy

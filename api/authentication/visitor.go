@@ -9,7 +9,6 @@ import (
 	"net/url"
 
 	"github.com/juju/errors"
-
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 )
 

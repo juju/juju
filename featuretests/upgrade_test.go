@@ -16,6 +16,7 @@ import (
 	"github.com/juju/utils/arch"
 	pacman "github.com/juju/utils/packaging/manager"
 	"github.com/juju/utils/series"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
@@ -39,7 +40,6 @@ import (
 	"github.com/juju/juju/worker/logsender"
 	"github.com/juju/juju/worker/upgrader"
 	"github.com/juju/juju/worker/upgradesteps"
-	"github.com/juju/version"
 )
 
 const (

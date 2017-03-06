@@ -16,13 +16,13 @@ import (
 	"github.com/juju/mutex"
 	"github.com/juju/utils/clock"
 	"github.com/juju/utils/exec"
+	jujuos "github.com/juju/utils/os"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/agent"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/juju/sockets"
 	"github.com/juju/juju/worker/uniter"
-	jujuos "github.com/juju/utils/os"
 )
 
 type RunCommand struct {

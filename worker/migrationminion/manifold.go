@@ -5,6 +5,7 @@ package migrationminion
 
 import (
 	"github.com/juju/errors"
+
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"

@@ -6,9 +6,10 @@ package status_test
 import (
 	"time"
 
-	"github.com/juju/juju/status"
 	"github.com/juju/testing"
 	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/status"
 )
 
 type statusHistorySuite struct {

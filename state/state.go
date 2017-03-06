@@ -20,6 +20,7 @@ import (
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils"
 	"github.com/juju/utils/clock"
+	"github.com/juju/utils/clock/monotonic"
 	"github.com/juju/utils/featureflag"
 	"github.com/juju/utils/os"
 	"github.com/juju/utils/series"
@@ -47,7 +48,6 @@ import (
 	"github.com/juju/juju/state/workers"
 	"github.com/juju/juju/status"
 	jujuversion "github.com/juju/juju/version"
-	"github.com/juju/utils/clock/monotonic"
 )
 
 var logger = loggo.GetLogger("juju.state")

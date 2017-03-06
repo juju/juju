@@ -4,8 +4,9 @@
 package logsendermetrics
 
 import (
-	"github.com/juju/juju/worker/logsender"
 	"github.com/prometheus/client_golang/prometheus"
+
+	"github.com/juju/juju/worker/logsender"
 )
 
 var (

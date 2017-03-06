@@ -4,13 +4,13 @@
 package diskmanager_test
 
 import (
-	apidiskmanager "github.com/juju/juju/api/diskmanager"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/agent"
 	basetesting "github.com/juju/juju/api/base/testing"
+	apidiskmanager "github.com/juju/juju/api/diskmanager"
 	"github.com/juju/juju/state/multiwatcher"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker"

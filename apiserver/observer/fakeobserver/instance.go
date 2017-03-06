@@ -6,13 +6,12 @@ package fakeobserver
 import (
 	"net/http"
 	"runtime"
-
-	"gopkg.in/juju/names.v2"
-
 	"strings"
 
-	"github.com/juju/juju/rpc"
 	"github.com/juju/testing"
+	"gopkg.in/juju/names.v2"
+
+	"github.com/juju/juju/rpc"
 )
 
 // Instance is a fake Observer used for testing.

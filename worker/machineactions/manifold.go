@@ -6,12 +6,13 @@ package machineactions
 
 import (
 	"github.com/juju/errors"
+	"gopkg.in/juju/names.v2"
+
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/cmd/jujud/agent/engine"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
-	"gopkg.in/juju/names.v2"
 )
 
 // ManifoldConfig describes the dependencies of a machine action runner.

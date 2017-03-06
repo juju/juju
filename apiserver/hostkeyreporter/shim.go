@@ -5,6 +5,7 @@ package hostkeyreporter
 
 import (
 	"github.com/juju/errors"
+
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/state"
 )

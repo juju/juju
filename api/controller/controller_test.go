@@ -7,7 +7,9 @@ import (
 	"encoding/json"
 	"errors"
 
+	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon.v1"
@@ -17,8 +19,6 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs"
-	jujutesting "github.com/juju/testing"
-	"github.com/juju/utils"
 )
 
 type Suite struct {

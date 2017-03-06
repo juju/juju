@@ -4,7 +4,6 @@
 package identityfilewriter_test
 
 import (
-	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -16,6 +15,7 @@ import (
 	"github.com/juju/juju/cmd/jujud/agent/engine/enginetest"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/worker"
+	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/identityfilewriter"
 )
 

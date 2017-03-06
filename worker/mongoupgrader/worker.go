@@ -8,11 +8,11 @@ import (
 	"strconv"
 
 	"github.com/juju/errors"
+	"github.com/juju/replicaset"
 
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker"
-	"github.com/juju/replicaset"
 )
 
 // StopMongo represents a function that can issue a stop

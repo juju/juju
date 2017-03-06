@@ -4,9 +4,9 @@
 package remoterelations
 
 import (
+	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/errors"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/status"

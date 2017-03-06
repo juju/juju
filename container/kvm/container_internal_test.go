@@ -4,10 +4,10 @@
 package kvm
 
 import (
+	"github.com/juju/testing"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/network"
-	"github.com/juju/testing"
 )
 
 // gocheck boilerplate.

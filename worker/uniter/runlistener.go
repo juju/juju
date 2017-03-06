@@ -11,10 +11,9 @@ import (
 	"net/rpc"
 	"sync"
 
-	"gopkg.in/tomb.v1"
-
 	"github.com/juju/errors"
 	"github.com/juju/utils/exec"
+	"gopkg.in/tomb.v1"
 
 	"github.com/juju/juju/juju/sockets"
 	"github.com/juju/juju/worker"

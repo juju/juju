@@ -6,12 +6,13 @@ package machineactions
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
+	"gopkg.in/juju/names.v2"
+
 	"github.com/juju/juju/api/machineactions"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker"
-	"github.com/juju/loggo"
-	"gopkg.in/juju/names.v2"
 )
 
 var logger = loggo.GetLogger("juju.worker.machineactions")

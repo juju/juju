@@ -6,6 +6,7 @@ package modelcmd
 import (
 	"os"
 
+	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/idmclient/ussologin"
@@ -13,7 +14,6 @@ import (
 	"gopkg.in/juju/environschema.v1/form"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 
-	"github.com/juju/cmd"
 	"github.com/juju/juju/jujuclient"
 )
 

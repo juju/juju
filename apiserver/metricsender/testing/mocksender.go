@@ -6,10 +6,10 @@ package testing
 import (
 	"fmt"
 
-	"github.com/juju/juju/state"
-
 	wireformat "github.com/juju/romulus/wireformat/metrics"
 	"github.com/juju/utils"
+
+	"github.com/juju/juju/state"
 )
 
 // MockSender implements the metric sender interface.

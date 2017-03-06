@@ -6,6 +6,7 @@ package proxyupdater_test
 import (
 	"time"
 
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
@@ -19,7 +20,6 @@ import (
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/workertest"
-	"github.com/juju/testing"
 )
 
 type ProxyUpdaterSuite struct {

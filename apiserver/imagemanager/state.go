@@ -4,9 +4,10 @@
 package imagemanager
 
 import (
+	names "gopkg.in/juju/names.v2"
+
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/imagestorage"
-	names "gopkg.in/juju/names.v2"
 )
 
 type stateInterface interface {

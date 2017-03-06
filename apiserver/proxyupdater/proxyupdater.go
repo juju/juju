@@ -6,6 +6,10 @@ package proxyupdater
 import (
 	"strings"
 
+	"github.com/juju/utils/proxy"
+	"github.com/juju/utils/set"
+	"gopkg.in/juju/names.v2"
+
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
@@ -13,9 +17,6 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
-	"github.com/juju/utils/proxy"
-	"github.com/juju/utils/set"
-	"gopkg.in/juju/names.v2"
 )
 
 // Backend defines the state methods this facade needs, so they can be
