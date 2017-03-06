@@ -216,11 +216,10 @@ func (o *oracleEnviron) StartInstance(args environs.StartInstanceParams) (*envir
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	logger.Debugf("Created security lists: %v", secLists)
 
-	networking := map[string]interface{}{
-		"eth0": oci.VEthernet{
-			SecLists: secLists,
+	networking := map[string]oci.Networker{
+		"eth0": oci.SharedNetwork{
+			Seclists: secLists,
 		},
 	}
 	instance, err := createInstance(o.client, oci.InstanceParams{
@@ -236,7 +235,6 @@ func (o *oracleEnviron) StartInstance(args environs.StartInstanceParams) (*envir
 				Attributes:  attributes,
 				Reverse_dns: false,
 				Networking:  networking,
-				// TODO(sgiulitti): make vm generate a public address
 			},
 		},
 	}, o)
@@ -244,8 +242,6 @@ func (o *oracleEnviron) StartInstance(args environs.StartInstanceParams) (*envir
 		return nil, errors.Trace(err)
 	}
 
-	logger.Debugf("Image spec: %v", spec.Image.Arch)
-	logger.Debugf("Instance type: %v", spec.InstanceType)
 	instance.arch = &spec.Image.Arch
 	instance.instType = &spec.InstanceType
 

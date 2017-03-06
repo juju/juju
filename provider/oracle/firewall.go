@@ -137,9 +137,6 @@ func (f *Firewall) getAllIPLists() ([]ociResponse.SecIpList, error) {
 		return nil, errors.Trace(err)
 	}
 
-	logger.Debugf("DefaultsecIPList is: %v", defaultSecIpLists)
-	logger.Debugf("secIpLists is: %v", secIpLists)
-
 	allIpLists := []ociResponse.SecIpList{}
 	for _, val := range secIpLists.Result {
 		allIpLists = append(allIpLists, val) //[val.Name] = val
@@ -147,7 +144,6 @@ func (f *Firewall) getAllIPLists() ([]ociResponse.SecIpList, error) {
 	for _, val := range defaultSecIpLists.Result {
 		allIpLists = append(allIpLists, val) //[val.Name] = val
 	}
-	logger.Debugf("Found the following IP lists: %v", allIpLists)
 	return allIpLists, nil
 }
 
@@ -203,7 +199,6 @@ func (f *Firewall) ensureApplication(portRange network.PortRange, cache *[]ociRe
 		dport = fmt.Sprintf("%s-%s",
 			strconv.Itoa(portRange.FromPort), strconv.Itoa(portRange.ToPort))
 	}
-	logger.Debugf("Dport is %v of type %T", dport, dport)
 	name := f.client.ComposeName(secAppName)
 	secAppParams := oci.SecApplicationParams{
 		Description: "Juju created security application",
@@ -211,7 +206,6 @@ func (f *Firewall) ensureApplication(portRange network.PortRange, cache *[]ociRe
 		Protocol:    ociCommon.Protocol(portRange.Protocol),
 		Name:        name,
 	}
-	logger.Debugf("Creating SecApplication: %v", secAppParams)
 	application, err := f.client.CreateSecApplication(secAppParams)
 	if err != nil {
 		return "", errors.Trace(err)
@@ -242,12 +236,9 @@ func (f *Firewall) ensureSecList(name string) (ociResponse.SecList, error) {
 // TODO (gsamfira):finish this
 func (f *Firewall) ensureSecIpList(cidr []string, cache *[]ociResponse.SecIpList) (string, error) {
 	sort.Strings(cidr)
-	logger.Debugf("Cache is: %v", *cache)
 	for _, val := range *cache {
 		sort.Strings(val.Secipentries)
-		logger.Debugf("Comparing %v with %v", val.Secipentries, cidr)
 		if reflect.DeepEqual(val.Secipentries, cidr) {
-			logger.Debugf("Found matching SecIPList: %v", val)
 			return val.Name, nil
 		}
 	}
@@ -257,7 +248,6 @@ func (f *Firewall) ensureSecIpList(cidr []string, cache *[]ociResponse.SecIpList
 	}
 	name := f.newResourceName(uuid.String())
 	resource := f.client.ComposeName(name)
-	logger.Debugf("Creating new IP list: %v", resource)
 	secList, err := f.client.CreateSecIpList(
 		"Juju created security IP list",
 		resource, cidr)
@@ -269,7 +259,6 @@ func (f *Firewall) ensureSecIpList(cidr []string, cache *[]ociResponse.SecIpList
 }
 
 func (f *Firewall) ensureSecRules(seclist ociResponse.SecList, rules []network.IngressRule) error {
-	logger.Debugf("Ensuring the existance of: %v", rules)
 	secRules, err := f.getSecRules(seclist.Name)
 	if err != nil {
 		return errors.Trace(err)
@@ -305,7 +294,6 @@ func (f *Firewall) ensureSecRules(seclist ociResponse.SecList, rules []network.I
 	}
 
 	for _, val := range asSecRule {
-		logger.Debugf("creating secrule: %v", val)
 		_, err = f.client.CreateSecRule(val)
 		if err != nil {
 			return errors.Trace(err)
@@ -338,7 +326,7 @@ func (f *Firewall) convertToSecRules(seclist ociResponse.SecList, rules []networ
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		name := f.newResourceName(uuid.String() + val.String())
+		name := f.newResourceName(uuid.String())
 		resourceName := f.client.ComposeName(name)
 		dstList := fmt.Sprintf("seclist:%s", seclist.Name)
 		srcList := fmt.Sprintf("seciplist:%s", ipList)
@@ -351,7 +339,6 @@ func (f *Firewall) convertToSecRules(seclist ociResponse.SecList, rules []networ
 			Name:        resourceName,
 			Src_list:    srcList,
 		}
-		logger.Debugf("Generated sec rule: %v", rule)
 		ret = append(ret, rule)
 	}
 	return ret, nil
@@ -489,7 +476,6 @@ func (f *Firewall) createDefaultGroupAndRules(apiPort int) (ociResponse.SecList,
 				return ociResponse.SecList{}, errors.Trace(err)
 			}
 		} else {
-			logger.Debugf("Got error of type: %T --> %v", err, err)
 			return ociResponse.SecList{}, errors.Trace(err)
 		}
 	}
@@ -606,12 +592,12 @@ func (f *Firewall) maybeDeleteList(list string) error {
 func (f *Firewall) DeleteMachineSecList(machineId string) error {
 	listName := f.machineGroupName(machineId)
 	globalListName := f.globalGroupName()
-	err := f.maybeDeleteList(listName)
+	err := f.maybeDeleteList(f.client.ComposeName(listName))
 	if err != nil {
 		return errors.Trace(err)
 	}
 	// check if we can delete the global list as well
-	err = f.maybeDeleteList(globalListName)
+	err = f.maybeDeleteList(f.client.ComposeName(globalListName))
 	if err != nil {
 		return errors.Trace(err)
 	}

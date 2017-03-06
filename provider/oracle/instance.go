@@ -59,7 +59,7 @@ func newInstance(params response.Instance, env *oracleEnviron) (*oracleInstance,
 		return nil, errors.Errorf("Instance response does not contain a name")
 	}
 	//gsamfira: there must be a better way to do this.
-	splitMachineName := strings.Split(params.Name, "-")
+	splitMachineName := strings.Split(params.Label, "-")
 	machineId := splitMachineName[len(splitMachineName)-1]
 	mutex := sync.Mutex{}
 	instance := &oracleInstance{
