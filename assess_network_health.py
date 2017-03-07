@@ -81,6 +81,9 @@ class AssessNetworkHealth:
 
         :param client: Client
         """
+        interface_info = self.get_unit_info(client)
+        log.info('{0}Interface information:\n{1}'.format(
+            reboot_msg, json.dumps(interface_info, indent=4, sort_keys=True)))
         con_result = self.juju_controller_visibility(client)
         log.info('{0}Controller Visibility '
                  'result:\n {1}'.format(reboot_msg,
@@ -192,6 +195,26 @@ class AssessNetworkHealth:
             client.get_models()['exposetest'].destroy_model()
         log.info('Cleanup complete.')
 
+    def get_unit_info(self, client):
+        """Gets the machine or container interface and dns info.
+
+        :param client: Client to get results from
+        :return: Dict of machine results as
+        <machine>:{'dns':<dns>, 'interfaces':<interfaces>}
+        """
+        results = {}
+        apps = client.get_status().get_applications()
+        nh_units = self.get_nh_units(apps, by_unit=True)
+        for app, unit in nh_units.items():
+            machine = apps[app.split('/')[0]]['units'][app]['machine']
+            results[machine] = {}
+            out = client.action_do(unit[0], 'unit-info')
+            out = client.action_fetch(out)
+            out = yaml.safe_load(out)
+            results[machine]['dns'] = out['results']['dns']
+            results[machine]['interfaces'] = out['results']['interfaces']
+        return results
+
     def juju_controller_visibility(self, client):
         """Determine if known juju machines are visible from controller.
 
@@ -254,6 +277,19 @@ class AssessNetworkHealth:
             results[unit[0]] = True
         return results
 
+    def get_nh_units(self, apps, by_unit=False):
+        nh_units = []
+        subs_by_unit = {}
+        for service, s_info in apps.items():
+            for unit, u_info in s_info.get('units', {}).items():
+                nh_subs = [u for u in u_info.get('subordinates').keys()
+                           if 'network-health' in u]
+                subs_by_unit[unit] = nh_subs
+                nh_units.extend(nh_subs)
+        if by_unit:
+            return subs_by_unit
+        return nh_units
+
     def neighbor_visibility(self, client):
         """Check if each application's units are visible, including our own.
 
@@ -263,12 +299,7 @@ class AssessNetworkHealth:
         apps = client.get_status().get_applications()
         targets = self.parse_targets(client.get_status())
         result = {}
-        nh_units = []
-        for service in apps.values():
-            for unit in service.get('units', {}).values():
-                nh_subs = [u for u in unit.get('subordinates').keys()
-                           if 'network-health' in u]
-                nh_units.extend(nh_subs)
+        nh_units = self.get_nh_units(apps)
         for nh_unit in nh_units:
             service_results = {}
             for service, units in targets.items():
