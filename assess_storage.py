@@ -23,6 +23,7 @@ from utility import (
     JujuAssertionError,
     temp_dir,
 )
+from jujupy.version_client import ModelClient2_1
 
 
 __metaclass__ = type
@@ -74,60 +75,47 @@ storage_pool_1x["ebs-ssd"] = {
     "attrs": {"volume-type": "ssd"}
     }
 
-expected_filesystem = {
-    "storage": {
-        "data/0": {
-            "kind": "filesystem",
-            "attachments": {
-                "units": {"dummy-storage-fs/0": {"location": "/srv/data"}}}
+
+def make_expected_ls(client, storage_name, unit_name, kind='filesystem'):
+    """Return the expected data from list-storage for filesystem or block."""
+    if kind == 'block':
+        location = ''
+    else:
+        location = '/srv/data'
+    data = {
+        "storage": {
+            storage_name: {
+                "kind": kind,
+                "attachments": {
+                    "units": {
+                        unit_name: {
+                            "location": location,
+                            "life": "alive"
+                            }
+                        }
+                    },
+                "life": "alive"
+                }
             }
         }
-    }
-expected_block1 = {
-    "storage": {
-        "disks/1": {
-            "kind": "block",
-            "attachments": {
-                "units": {"dummy-storage-lp/0": {"location": ""}}}
-            }
-        }
-    }
-expected_block2 = copy.deepcopy(expected_block1)
-expected_block2["storage"]["disks/2"] = {
-    "kind": "block",
-    "attachments": {
-        "units": {
-            "dummy-storage-lp/0": {"location": ""}
-            }
-        }
-    }
-expected_tmpfs = {
-    "storage": {
-        "data/3": {
-            "kind": "filesystem",
-            "attachments": {
-                "units": {"dummy-storage-tp/0": {"location": "/srv/data"}}}
-            }
-        }
-    }
-expected_default_tmpfs = {
-    "storage": {
-        "data/4": {
-            "kind": "filesystem",
-            "attachments": {
-                "units": {"dummy-storage-np/0": {"location": "/srv/data"}}}
-            }
-        }
-    }
-expected_mulitfilesystem = {
-    "storage": {
-        "data/5": {
-            "kind": "filesystem",
-            "attachments": {
-                "units": {"dummy-storage-mp/0": {"location": "/srv/data"}}}
-            }
-        }
-    }
+    # Remember that clients descend from the newest client. So 2.2 is not
+    # an instance of 2.1, but 1.25 is an instance.
+    if isinstance(client, ModelClient2_1):
+        # Juju 2.1- is missing the life field.
+        del data['storage'][storage_name]['life']
+        del data['storage'][storage_name]['attachments']['units'][
+            unit_name]['life']
+    return data
+
+
+def make_expected_disk(client, disk_num, unit_name):
+    """Return the expected data from list storage for disks."""
+    all_disk = {'storage': {}}
+    for num in range(1, disk_num + 1):
+        next_disk = make_expected_ls(
+            client, 'disks/{}'.format(num), unit_name, kind='block')
+        all_disk['storage'].update(next_disk['storage'])
+    return all_disk
 
 
 def storage_list(client):
@@ -303,18 +291,21 @@ def assess_storage(client, charm_series):
     log.info('Assessing filesystem rootfs')
     assess_deploy_storage(client, charm_series,
                           'dummy-storage-fs', 'filesystem', 'rootfs')
-    check_storage_list(client, expected_filesystem)
+    expected = make_expected_ls(client, 'data/0', 'dummy-storage-fs/0')
+    check_storage_list(client, expected)
     log.info('Filesystem rootfs PASSED')
     client.remove_service('dummy-storage-fs')
 
     log.info('Assessing block loop disk 1')
     assess_deploy_storage(client, charm_series,
                           'dummy-storage-lp', 'block', 'loop')
+    expected_block1 = make_expected_disk(client, 1, 'dummy-storage-lp/0')
     check_storage_list(client, expected_block1)
     log.info('Block loop disk 1 PASSED')
 
-    log.info('Assessing block loop disk 2')
+    log.info('Assessing add storage block loop disk 2')
     assess_add_storage(client, 'dummy-storage-lp/0', 'disks', "1")
+    expected_block2 = make_expected_disk(client, 2, 'dummy-storage-lp/0')
     check_storage_list(client, expected_block2)
     log.info('Block loop disk 2 PASSED')
     client.remove_service('dummy-storage-lp')
@@ -322,21 +313,24 @@ def assess_storage(client, charm_series):
     log.info('Assessing filesystem tmpfs')
     assess_deploy_storage(client, charm_series,
                           'dummy-storage-tp', 'filesystem', 'tmpfs')
-    check_storage_list(client, expected_tmpfs)
+    expected = make_expected_ls(client, 'data/3', 'dummy-storage-tp/0')
+    check_storage_list(client, expected)
     log.info('Filesystem tmpfs PASSED')
     client.remove_service('dummy-storage-tp')
 
     log.info('Assessing filesystem')
     assess_deploy_storage(client, charm_series,
                           'dummy-storage-np', 'filesystem')
-    check_storage_list(client, expected_default_tmpfs)
+    expected = make_expected_ls(client, 'data/4', 'dummy-storage-np/0')
+    check_storage_list(client, expected)
     log.info('Filesystem tmpfs PASSED')
     client.remove_service('dummy-storage-np')
 
     log.info('Assessing multiple filesystem, block, rootfs, loop')
     assess_multiple_provider(client, charm_series, "1G", 'dummy-storage-mp',
                              'filesystem', 'block', 'rootfs', 'loop')
-    check_storage_list(client, expected_mulitfilesystem)
+    expected = make_expected_ls(client, 'data/5', 'dummy-storage-mp/0')
+    check_storage_list(client, expected)
     log.info('Multiple filesystem, block, rootfs, loop PASSED')
     client.remove_service('dummy-storage-mp')
     log.info('All storage tests PASSED')

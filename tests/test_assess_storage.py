@@ -11,17 +11,21 @@ from assess_storage import (
     assert_dict_is_subset,
     assess_storage,
     parse_args,
+    make_expected_disk,
+    make_expected_ls,
     main,
-    expected_filesystem,
     storage_pool_1x,
-    expected_block1,
-    expected_block2,
-    expected_tmpfs,
-    expected_default_tmpfs,
-    expected_mulitfilesystem,
     storage_pool_details,
 )
-from jujupy import JujuData
+from jujupy import (
+    fake_juju_client,
+    JujuData,
+    SimpleEnvironment,
+    )
+from jujupy.version_client import (
+    EnvJujuClient1X,
+    ModelClient2_1,
+    )
 from tests import (
     parse_error,
     TestCase,
@@ -93,6 +97,136 @@ class TestAssess(TestCase):
                 {'a': 1, 'b': 2},
                 {'a': 1, 'b': 4})
 
+    def test_make_expected_ls(self):
+        client = fake_juju_client()
+        data = make_expected_ls(client, 'data/0', 'foo/0')
+        expected = {
+            "storage": {
+                "data/0": {
+                    "kind": "filesystem",
+                    "attachments": {
+                        "units": {
+                            "foo/0": {
+                                "location": "/srv/data",
+                                "life": "alive"
+                                }
+                            }
+                        },
+                    "life": "alive"
+                    }
+                }
+            }
+        self.assertEqual(expected, data)
+
+    def test_make_expected_ls_2_1(self):
+        client = fake_juju_client(cls=ModelClient2_1)
+        data = make_expected_ls(client, 'data/0', 'foo/0')
+        expected = {
+            "storage": {
+                "data/0": {
+                    "kind": "filesystem",
+                    "attachments": {
+                        "units": {
+                            "foo/0": {
+                                "location": "/srv/data",
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        self.assertEqual(expected, data)
+
+    def test_make_expected_ls_1x(self):
+        env = SimpleEnvironment('foo', {'type': 'local'})
+        client = fake_juju_client(cls=EnvJujuClient1X, env=env)
+        data = make_expected_ls(client, 'data/0', 'foo/0')
+        expected = {
+            "storage": {
+                "data/0": {
+                    "kind": "filesystem",
+                    "attachments": {
+                        "units": {
+                            "foo/0": {
+                                "location": "/srv/data",
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        self.assertEqual(expected, data)
+
+    def test_make_expected_disk_1(self):
+        client = fake_juju_client()
+        data = make_expected_disk(client, 1, 'foo/0')
+        expected = {
+            "storage": {
+                "disks/1": {
+                    "kind": "block",
+                    "attachments": {
+                        "units": {
+                            "foo/0": {
+                                "location": "",
+                                "life": "alive"
+                                }
+                            }
+                        },
+                    "life": "alive"
+                    }
+                }
+            }
+        self.assertEqual(expected, data)
+
+    def test_make_expected_disk_2(self):
+        client = fake_juju_client()
+        data = make_expected_disk(client, 2, 'foo/0')
+        expected = {
+            "storage": {
+                "disks/1": {
+                    "kind": "block",
+                    "attachments": {
+                        "units": {
+                            "foo/0": {
+                                "location": "",
+                                "life": "alive"
+                                }
+                            }
+                        },
+                    "life": "alive"
+                    },
+                "disks/2": {
+                    "kind": "block",
+                    "attachments": {
+                        "units": {
+                            "foo/0": {
+                                "location": "",
+                                "life": "alive"
+                                }
+                            }
+                        },
+                    "life": "alive"
+                    }
+                }
+            }
+        self.assertEqual(expected, data)
+
+    def make_expected_list_storage(self, client):
+        return [
+            json.dumps(
+                make_expected_ls(client, 'data/0', 'dummy-storage-fs/0')),
+            json.dumps(
+                make_expected_disk(client, 1, 'dummy-storage-lp/0')),
+            json.dumps(
+                make_expected_disk(client, 2, 'dummy-storage-lp/0')),
+            json.dumps(
+                make_expected_ls(client, 'data/3', 'dummy-storage-tp/0')),
+            json.dumps(
+                make_expected_ls(client, 'data/4', 'dummy-storage-np/0')),
+            json.dumps(
+                make_expected_ls(client, 'data/5', 'dummy-storage-mp/0'))
+        ]
+
     def test_storage_1x(self):
         mock_client = Mock(spec=["juju", "wait_for_started",
                                  "create_storage_pool", "remove_service",
@@ -106,14 +240,8 @@ class TestAssess(TestCase):
         mock_client.list_storage_pool.side_effect = [
             json.dumps(storage_pool_1x)
         ]
-        mock_client.list_storage.side_effect = [
-            json.dumps(expected_filesystem),
-            json.dumps(expected_block1),
-            json.dumps(expected_block2),
-            json.dumps(expected_tmpfs),
-            json.dumps(expected_default_tmpfs),
-            json.dumps(expected_mulitfilesystem)
-        ]
+        mock_client.list_storage.side_effect = self.make_expected_list_storage(
+            mock_client)
         assess_storage(mock_client, mock_client.series)
         self.assertEqual(
             [
@@ -143,14 +271,8 @@ class TestAssess(TestCase):
         mock_client.list_storage_pool.side_effect = [
             json.dumps(storage_pool_details)
         ]
-        mock_client.list_storage.side_effect = [
-            json.dumps(expected_filesystem),
-            json.dumps(expected_block1),
-            json.dumps(expected_block2),
-            json.dumps(expected_tmpfs),
-            json.dumps(expected_default_tmpfs),
-            json.dumps(expected_mulitfilesystem)
-        ]
+        mock_client.list_storage.side_effect = self.make_expected_list_storage(
+            mock_client)
         assess_storage(mock_client, mock_client.series)
         self.assertEqual(
             [
@@ -182,14 +304,8 @@ class TestAssess(TestCase):
         mock_client.list_storage_pool.side_effect = [
             json.dumps(expected_pool)
         ]
-        mock_client.list_storage.side_effect = [
-            json.dumps(expected_filesystem),
-            json.dumps(expected_block1),
-            json.dumps(expected_block2),
-            json.dumps(expected_tmpfs),
-            json.dumps(expected_default_tmpfs),
-            json.dumps(expected_mulitfilesystem)
-        ]
+        mock_client.list_storage.side_effect = self.make_expected_list_storage(
+            mock_client)
         assess_storage(mock_client, mock_client.series)
         self.assertEqual(
             [
@@ -224,12 +340,6 @@ class TestAssess(TestCase):
         mock_client.list_storage_pool.side_effect = [
             json.dumps(aws_pool)
         ]
-        mock_client.list_storage.side_effect = [
-            json.dumps(expected_filesystem),
-            json.dumps(expected_block1),
-            json.dumps(expected_block2),
-            json.dumps(expected_tmpfs),
-            json.dumps(expected_default_tmpfs),
-            json.dumps(expected_mulitfilesystem)
-        ]
+        mock_client.list_storage.side_effect = self.make_expected_list_storage(
+            mock_client)
         assess_storage(mock_client, mock_client.series)
