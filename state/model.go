@@ -92,7 +92,7 @@ type modelDoc struct {
 type slaLevel string
 
 const (
-	SLANone        = slaLevel("")
+	slaNone        = slaLevel("")
 	SLAUnsupported = slaLevel("unsupported")
 	SLAEssential   = slaLevel("essential")
 	SLAStandard    = slaLevel("standard")
@@ -102,7 +102,7 @@ const (
 // String implements fmt.Stringer returning the string representation of an
 // SLALevel.
 func (l slaLevel) String() string {
-	if l == SLANone {
+	if l == slaNone {
 		l = SLAUnsupported
 	}
 	return string(l)
@@ -111,7 +111,7 @@ func (l slaLevel) String() string {
 // NewSLALevel returns a new SLA level from a string representation.
 func newSLALevel(level string) (slaLevel, error) {
 	l := slaLevel(level)
-	if l == SLANone {
+	if l == slaNone {
 		l = SLAUnsupported
 	}
 	switch l {
