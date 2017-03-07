@@ -1,10 +1,11 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 import subprocess
 import os
 import sys
 import json
 from ast import literal_eval
 
+sys.path.insert(0, os.path.join(os.environ['CHARM_DIR'], 'lib'))
 
 from charmhelpers.core import (
     hookenv,
@@ -36,8 +37,8 @@ def main():
 def ping_check(target):
     # If ping returns anything but success, return False
     try:
-        output = subprocess.check_output("ping -c 1 " + target, shell=True)
-    except CalledProcessError, e:
+        subprocess.check_output("ping -c 1 " + target, shell=True)
+    except subprocess.CalledProcessError as e:
         hookenv.log('Ping to target {} failed for exception {}'.format(target,
                                                                        e))
         return False
