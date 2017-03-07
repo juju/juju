@@ -85,6 +85,7 @@ func (s *WorkerSuite) cannedSubnets() []network.SubnetInfo {
 	}, {
 		ProviderId:        network.Id("3"),
 		CIDR:              "192.168.3.0/24",
+		VLANTag:           50,
 		AvailabilityZones: []string{"zone1"},
 	}, {
 		ProviderId:        network.Id("4"),
@@ -107,18 +108,24 @@ func (s *WorkerSuite) TestWorkerNoSpaceDiscoveryOnlySubnets(c *gc.C) {
 		stub.CheckCall(c, 1, "AddSubnets", params.AddSubnetsParams{
 			Subnets: []params.AddSubnetParams{{
 				SubnetProviderId: "1",
+				SubnetTag:        "subnet-192.168.1.0/24",
 				Zones:            []string{"zone1"},
 			}, {
 				SubnetProviderId: "2",
+				SubnetTag:        "subnet-192.168.2.0/24",
 				Zones:            []string{"zone1"},
 			}, {
 				SubnetProviderId: "3",
+				SubnetTag:        "subnet-192.168.3.0/24",
+				VLANTag:          50,
 				Zones:            []string{"zone1"},
 			}, {
 				SubnetProviderId: "4",
+				SubnetTag:        "subnet-192.168.4.0/24",
 				Zones:            []string{"zone1"},
 			}, {
 				SubnetProviderId: "5",
+				SubnetTag:        "subnet-192.168.5.0/24",
 				Zones:            []string{"zone1"},
 			}},
 		})
@@ -155,6 +162,7 @@ func (s *WorkerSuite) cannedSpaces() []network.SpaceInfo {
 			ProviderId:        network.Id("4"),
 			CIDR:              "192.168.4.0/24",
 			AvailabilityZones: []string{"zone1"},
+			VLANTag:           3,
 		}},
 	}, {
 		Name:       "---",
@@ -205,22 +213,28 @@ func (s *WorkerSuite) TestWorkerDiscoversSpaces(c *gc.C) {
 		stub.CheckCall(c, 3, "AddSubnets", params.AddSubnetsParams{
 			Subnets: []params.AddSubnetParams{{
 				SubnetProviderId: "1",
+				SubnetTag:        "subnet-192.168.1.0/24",
 				SpaceTag:         "space-foo",
 				Zones:            []string{"zone1"},
 			}, {
 				SubnetProviderId: "2",
+				SubnetTag:        "subnet-192.168.2.0/24",
 				SpaceTag:         "space-foo",
 				Zones:            []string{"zone1"},
 			}, {
 				SubnetProviderId: "3",
+				SubnetTag:        "subnet-192.168.3.0/24",
 				SpaceTag:         "space-another-foo-99",
 				Zones:            []string{"zone1"},
 			}, {
 				SubnetProviderId: "4",
+				SubnetTag:        "subnet-192.168.4.0/24",
 				SpaceTag:         "space-foo-2",
+				VLANTag:          3,
 				Zones:            []string{"zone1"},
 			}, {
 				SubnetProviderId: "5",
+				SubnetTag:        "subnet-192.168.5.0/24",
 				SpaceTag:         "space-empty",
 				Zones:            []string{"zone1"},
 			}},
@@ -258,11 +272,14 @@ func (s *WorkerSuite) TestWorkerIgnoresExistingSpacesAndSubnets(c *gc.C) {
 		stub.CheckCall(c, 3, "AddSubnets", params.AddSubnetsParams{
 			Subnets: []params.AddSubnetParams{{
 				SubnetProviderId: "2",
+				SubnetTag:        "subnet-192.168.2.0/24",
 				SpaceTag:         "space-foo",
 				Zones:            []string{"zone1"},
 			}, {
 				SubnetProviderId: "4",
+				SubnetTag:        "subnet-192.168.4.0/24",
 				SpaceTag:         "space-foo-2",
+				VLANTag:          3,
 				Zones:            []string{"zone1"},
 			}},
 		})
