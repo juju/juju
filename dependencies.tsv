@@ -105,11 +105,4 @@ gopkg.in/natefinch/npipe.v2	git	c1b8fa8bdccecb0b8db834ee0b92fdbcfa606dd6	2016-06
 gopkg.in/retry.v1	git	c09f6b86ba4d5d2cf5bdf0665364aec9fd4815db	2016-10-25T18:14:30Z
 gopkg.in/tomb.v1	git	dd632973f1e7218eb1089048e0798ec9ae7dceb8	2014-10-24T13:56:13Z
 gopkg.in/yaml.v2	git	a3f3340b5840cee44f372bddb5880fcbc419b46a	2017-02-08T14:18:51Z
-golang.org/x/sys	git	7a6e5648d140666db5d920909e082ca00a87ba2c	2017-02-01T05:12:45Z
-golang.org/x/text	git	2910a502d2bf9e43193af9d68ca516529614eed3	2016-07-26T16:48:57Z
-github.com/masterzen/azure-sdk-for-go	git	ee4f0065d00cd12b542f18f5bc45799e88163b12	2016-07-20T05:16:58Z
-github.com/masterzen/simplexml	git	4572e39b1ab9fe03ee513ce6fc7e289e98482190	2016-06-08T18:30:07Z
-github.com/masterzen/winrm	git	7a535cd943fccaeed196718896beec3fb51aff41	2016-08-04T09:38:27Z
-github.com/masterzen/xmlpath	git	13f4951698adc0fa9c1dda3e275d489a24201161	2014-02-18T18:59:01Z
-github.com/nu7hatch/gouuid	git	179d4d0c4d8d407a32af483c2354df1d2c91e6c3	2016-05-03T22:05:32Z
 github.com/hoenirvili/go-oracle-cloud	git	3bf6b35b2de2be82eb42830fc22402253a7377e5	2017-05-03T22:05:32Z
