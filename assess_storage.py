@@ -82,27 +82,29 @@ def make_expected_ls(client, storage_name, unit_name, kind='filesystem'):
         location = ''
     else:
         location = '/srv/data'
-    if isinstance(client, ModelClient2_1):
-        # Juju 2.1- is missing the life field.
-        unit_data = {
-            "location": location,
-        }
-    else:
-        unit_data = {
-            "location": location,
-            "life": "alive"
-        }
     data = {
         "storage": {
             storage_name: {
                 "kind": kind,
                 "attachments": {
-                    "units": {unit_name: unit_data}}
+                    "units": {
+                        unit_name: {
+                            "location": location,
+                            "life": "alive"
+                            }
+                        }
+                    },
+                "life": "alive"
                 }
             }
         }
-    if not isinstance(client, ModelClient2_1):
-        data['storage'][storage_name]['life'] = 'alive'
+    # Remember that clients descend from the newest client. So 2.2 is not
+    # an instance of 2.1, but 1.25 is an instance.
+    if isinstance(client, ModelClient2_1):
+        # Juju 2.1- is missing the life field.
+        del data['storage'][storage_name]['life']
+        del data['storage'][storage_name]['attachments']['units'][
+            unit_name]['life']
     return data
 
 
