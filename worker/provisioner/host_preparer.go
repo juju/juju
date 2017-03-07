@@ -96,7 +96,7 @@ func (hp *HostPreparer) Prepare(containerTag names.MachineTag) error {
 		return errors.Trace(err)
 	}
 
-	hp.logger.Debugf("Bridging %+v devices on host %q for container %q with delay=%v, acquiring lock %q",
+	hp.logger.Debugf("bridging %+v devices on host %q for container %q with delay=%v, acquiring lock %q",
 		devicesToBridge, hp.machineTag.String(), containerTag.String(), reconfigureDelay, hp.lockName)
 	releaser, err := hp.acquireLockFunc(hp.abortChan)
 	if err != nil {
@@ -119,11 +119,11 @@ func (hp *HostPreparer) Prepare(containerTag names.MachineTag) error {
 	}
 
 	if len(observedConfig) > 0 {
+		hp.logger.Debugf("updating observed network config for %q to %#v", hp.machineTag.String(), observedConfig)
 		err := hp.api.SetHostMachineNetworkConfig(hp.machineTag, observedConfig)
 		if err != nil {
 			return errors.Trace(err)
 		}
-		hp.logger.Debugf("observed network config updated")
 	}
 
 	return nil

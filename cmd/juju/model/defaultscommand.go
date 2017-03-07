@@ -9,12 +9,11 @@ import (
 	"sort"
 	"strings"
 
-	"gopkg.in/juju/names.v2"
-
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/utils/keyvalues"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"

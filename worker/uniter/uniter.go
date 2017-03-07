@@ -15,6 +15,7 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/clock"
 	"github.com/juju/utils/exec"
+	jujuos "github.com/juju/utils/os"
 	corecharm "gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
 
@@ -38,7 +39,6 @@ import (
 	"github.com/juju/juju/worker/uniter/runner/context"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 	"github.com/juju/juju/worker/uniter/storage"
-	jujuos "github.com/juju/utils/os"
 )
 
 var logger = loggo.GetLogger("juju.worker.uniter")

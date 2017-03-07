@@ -25,6 +25,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
@@ -47,7 +48,6 @@ import (
 	"github.com/juju/juju/provider/azure/internal/azuretesting"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
-	"github.com/juju/version"
 )
 
 const storageAccountName = "juju400d80004b1d0d06f00d"

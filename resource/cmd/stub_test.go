@@ -7,9 +7,10 @@ import (
 	"io"
 
 	"github.com/juju/errors"
-	"github.com/juju/juju/charmstore"
 	"github.com/juju/testing"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
+
+	"github.com/juju/juju/charmstore"
 )
 
 type stubCharmStore struct {

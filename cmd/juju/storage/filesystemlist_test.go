@@ -72,7 +72,8 @@ func (s *ListSuite) TestFilesystemListJSON(c *gc.C) {
 
 func (s *ListSuite) TestFilesystemListWithErrorResults(c *gc.C) {
 	s.mockAPI.listFilesystems = func([]string) ([]params.FilesystemDetailsListResult, error) {
-		results, _ := mockListAPI{}.ListFilesystems(nil)
+		var emptyMockAPI mockListAPI
+		results, _ := emptyMockAPI.ListFilesystems(nil)
 		results = append(results, params.FilesystemDetailsListResult{
 			Error: &params.Error{Message: "bad"},
 		})
@@ -183,16 +184,21 @@ func (s mockListAPI) ListFilesystems(machines []string) ([]params.FilesystemDeta
 				FilesystemId: "provider-supplied-filesystem-0-0",
 				Size:         512,
 			},
+			Life:   "alive",
 			Status: createTestStatus(status.Attached, ""),
-			MachineAttachments: map[string]params.FilesystemAttachmentInfo{
-				"machine-0": params.FilesystemAttachmentInfo{
-					MountPoint: "/mnt/fuji",
+			MachineAttachments: map[string]params.FilesystemAttachmentDetails{
+				"machine-0": {
+					Life: "alive",
+					FilesystemAttachmentInfo: params.FilesystemAttachmentInfo{
+						MountPoint: "/mnt/fuji",
+					},
 				},
 			},
 			Storage: &params.StorageDetails{
 				StorageTag: "storage-db-dir-1001",
 				OwnerTag:   "unit-abc-0",
 				Kind:       params.StorageKindBlock,
+				Life:       "alive",
 				Status:     createTestStatus(status.Attached, ""),
 				Attachments: map[string]params.StorageAttachmentDetails{
 					"unit-abc-0": params.StorageAttachmentDetails{
@@ -213,8 +219,8 @@ func (s mockListAPI) ListFilesystems(machines []string) ([]params.FilesystemDeta
 				Size:         2048,
 			},
 			Status: createTestStatus(status.Attaching, "failed to attach, will retry"),
-			MachineAttachments: map[string]params.FilesystemAttachmentInfo{
-				"machine-0": params.FilesystemAttachmentInfo{},
+			MachineAttachments: map[string]params.FilesystemAttachmentDetails{
+				"machine-0": {},
 			},
 		},
 		// filesystem 3 is due to be attached to machine 1, but is not
@@ -225,8 +231,8 @@ func (s mockListAPI) ListFilesystems(machines []string) ([]params.FilesystemDeta
 				Size: 42,
 			},
 			Status: createTestStatus(status.Pending, ""),
-			MachineAttachments: map[string]params.FilesystemAttachmentInfo{
-				"machine-1": params.FilesystemAttachmentInfo{},
+			MachineAttachments: map[string]params.FilesystemAttachmentDetails{
+				"machine-1": {},
 			},
 		},
 		// filesystem 2 is due to be attached to machine 1, but is not
@@ -238,9 +244,11 @@ func (s mockListAPI) ListFilesystems(machines []string) ([]params.FilesystemDeta
 				Size:         3,
 			},
 			Status: createTestStatus(status.Attached, ""),
-			MachineAttachments: map[string]params.FilesystemAttachmentInfo{
-				"machine-1": params.FilesystemAttachmentInfo{
-					MountPoint: "/mnt/zion",
+			MachineAttachments: map[string]params.FilesystemAttachmentDetails{
+				"machine-1": {
+					FilesystemAttachmentInfo: params.FilesystemAttachmentInfo{
+						MountPoint: "/mnt/zion",
+					},
 				},
 			},
 		},
@@ -250,17 +258,22 @@ func (s mockListAPI) ListFilesystems(machines []string) ([]params.FilesystemDeta
 			FilesystemTag: "filesystem-4",
 			Info: params.FilesystemInfo{
 				FilesystemId: "provider-supplied-filesystem-4",
+				Pool:         "radiance",
 				Size:         1024,
 			},
 			Status: createTestStatus(status.Attached, ""),
-			MachineAttachments: map[string]params.FilesystemAttachmentInfo{
-				"machine-0": params.FilesystemAttachmentInfo{
-					MountPoint: "/mnt/doom",
-					ReadOnly:   true,
+			MachineAttachments: map[string]params.FilesystemAttachmentDetails{
+				"machine-0": {
+					FilesystemAttachmentInfo: params.FilesystemAttachmentInfo{
+						MountPoint: "/mnt/doom",
+						ReadOnly:   true,
+					},
 				},
-				"machine-1": params.FilesystemAttachmentInfo{
-					MountPoint: "/mnt/huang",
-					ReadOnly:   true,
+				"machine-1": {
+					FilesystemAttachmentInfo: params.FilesystemAttachmentInfo{
+						MountPoint: "/mnt/huang",
+						ReadOnly:   true,
+					},
 				},
 			},
 			Storage: &params.StorageDetails{
@@ -285,5 +298,13 @@ func (s mockListAPI) ListFilesystems(machines []string) ([]params.FilesystemDeta
 			},
 		},
 	}}}
+	if s.omitPool {
+		for _, result := range results {
+			for i, details := range result.Result {
+				details.Info.Pool = ""
+				result.Result[i] = details
+			}
+		}
+	}
 	return results, nil
 }

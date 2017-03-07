@@ -20,6 +20,8 @@ import (
 	"github.com/juju/utils/series"
 	"github.com/juju/version"
 
+	// Import the providers.
+	cloudfile "github.com/juju/juju/cloud"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/action"
 	"github.com/juju/juju/cmd/juju/application"
@@ -46,11 +48,9 @@ import (
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/jujuclient"
+	_ "github.com/juju/juju/provider/all"
 	"github.com/juju/juju/utils/proxy"
 	jujuversion "github.com/juju/juju/version"
-	// Import the providers.
-	cloudfile "github.com/juju/juju/cloud"
-	_ "github.com/juju/juju/provider/all"
 )
 
 var logger = loggo.GetLogger("juju.cmd.juju.commands")
@@ -388,6 +388,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(storage.NewPoolCreateCommand())
 	r.Register(storage.NewPoolListCommand())
 	r.Register(storage.NewShowCommand())
+	r.Register(storage.NewRemoveStorageCommandWithAPI())
 
 	// Manage spaces
 	r.Register(space.NewAddCommand())

@@ -5,6 +5,7 @@ package undertaker
 
 import (
 	"github.com/juju/errors"
+
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/worker"

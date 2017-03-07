@@ -5,6 +5,7 @@ package machiner
 
 import (
 	"github.com/juju/errors"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/agent"
 	apiagent "github.com/juju/juju/api/agent"
@@ -13,7 +14,6 @@ import (
 	"github.com/juju/juju/cmd/jujud/agent/engine"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
-	"gopkg.in/juju/names.v2"
 )
 
 // ManifoldConfig defines the names of the manifolds on which a

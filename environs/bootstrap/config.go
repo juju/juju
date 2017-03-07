@@ -14,10 +14,10 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/juju/cert"
 	"github.com/juju/schema"
 	"github.com/juju/utils"
 
+	"github.com/juju/juju/cert"
 	"github.com/juju/juju/juju/osenv"
 )
 

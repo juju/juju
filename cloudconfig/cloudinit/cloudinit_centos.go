@@ -8,12 +8,13 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/juju/juju/feature"
 	"github.com/juju/utils/featureflag"
 	"github.com/juju/utils/packaging"
 	"github.com/juju/utils/packaging/config"
 	"github.com/juju/utils/proxy"
 	"gopkg.in/yaml.v2"
+
+	"github.com/juju/juju/feature"
 )
 
 // centOSCloudConfig is the cloudconfig type specific to CentOS machines.

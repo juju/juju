@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/juju/loggo"
-
 	"gopkg.in/goose.v1/nova"
 )
 

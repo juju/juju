@@ -12,6 +12,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/utils"
+	"github.com/juju/version"
 
 	"github.com/juju/juju/api/block"
 	"github.com/juju/juju/apiserver/params"
@@ -22,7 +23,6 @@ import (
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/network"
-	"github.com/juju/version"
 )
 
 var allInstances = func(environ environs.Environ) ([]instance.Instance, error) {

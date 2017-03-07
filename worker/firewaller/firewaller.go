@@ -300,6 +300,7 @@ func (fw *Firewaller) remoteRelationChanged(change *remoteRelationChange) error 
 	relData, ok := fw.relationIngress[change.relationTag]
 	if ok {
 		relData.networks = change.networks
+		relData.ingressRequired = change.ingressRequired
 	}
 	appData, ok := fw.applicationids[change.localApplicationTag]
 	if !ok {
@@ -1256,26 +1257,26 @@ type remoteRelationChange struct {
 	relationTag         names.RelationTag
 	localApplicationTag names.ApplicationTag
 	networks            set.Strings
+	ingressRequired     bool
 }
 
 // updateNetworks gathers the ingress CIDRs for the relation and notifies
 // that a change has occurred.
 func (rd *remoteRelationData) updateNetworks(facade RemoteFirewallerAPI, remoteRelationId params.RemoteEntityId) error {
+	ingressRequired := true
 	networks, err := facade.IngressSubnetsForRelation(remoteRelationId)
 	if err != nil {
-		if params.IsCodeNotFound(err) || params.IsCodeNotSupported(err) {
-			rd.ingressRequired = false
-			return nil
+		if !params.IsCodeNotFound(err) && !params.IsCodeNotSupported(err) {
+			return errors.Trace(err)
 		}
-		return errors.Trace(err)
+		ingressRequired = false
 	}
-	rd.ingressRequired = true
 	logger.Debugf("ingress networks for %v: %+v", remoteRelationId, networks)
-	rd.networks = set.NewStrings(networks.CIDRs...)
 	change := &remoteRelationChange{
 		relationTag:         rd.tag,
 		localApplicationTag: rd.localApplicationTag,
-		networks:            rd.networks,
+		networks:            set.NewStrings(networks.CIDRs...),
+		ingressRequired:     ingressRequired,
 	}
 	select {
 	case rd.fw.remoteRelationsChange <- change:

@@ -7,13 +7,12 @@ import (
 	"net"
 	"strings"
 
-	"github.com/juju/gnuflag"
-
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/gnuflag"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/cmd/output"
 )

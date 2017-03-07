@@ -9,8 +9,10 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/pubsub"
+	"github.com/juju/utils/clock"
 	"github.com/juju/utils/proxy"
 	"github.com/juju/utils/voyeur"
+	"github.com/juju/version"
 	"github.com/prometheus/client_golang/prometheus"
 
 	coreagent "github.com/juju/juju/agent"
@@ -54,8 +56,6 @@ import (
 	"github.com/juju/juju/worker/toolsversionchecker"
 	"github.com/juju/juju/worker/upgrader"
 	"github.com/juju/juju/worker/upgradesteps"
-	"github.com/juju/utils/clock"
-	"github.com/juju/version"
 )
 
 // ManifoldsConfig allows specialisation of the result of Manifolds.

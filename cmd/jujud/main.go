@@ -26,9 +26,9 @@ import (
 	components "github.com/juju/juju/component/all"
 	"github.com/juju/juju/juju/names"
 	"github.com/juju/juju/juju/sockets"
-	"github.com/juju/juju/upgrades"
 	// Import the providers.
 	_ "github.com/juju/juju/provider/all"
+	"github.com/juju/juju/upgrades"
 	"github.com/juju/juju/utils/proxy"
 	"github.com/juju/juju/worker/logsender"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"

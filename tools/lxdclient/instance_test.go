@@ -12,11 +12,11 @@ import (
 
 	jc "github.com/juju/testing/checkers"
 	lxdapi "github.com/lxc/lxd/shared/api"
+	"github.com/lxc/lxd/shared/osarch"
 	gc "gopkg.in/check.v1"
 
 	jujutesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/tools/lxdclient"
-	"github.com/lxc/lxd/shared/osarch"
 )
 
 type instanceSuite struct {

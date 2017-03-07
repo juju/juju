@@ -5,12 +5,11 @@ package modelcmd_test
 
 import (
 	"fmt"
+	"io/ioutil"
+	"path/filepath"
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-
-	"io/ioutil"
-	"path/filepath"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/modelcmd"

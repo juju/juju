@@ -160,10 +160,17 @@ func formatListTabular(writer io.Writer, value interface{}) error {
 	combined := value.(combinedStorage)
 	var newline bool
 	if len(combined.StorageInstances) > 0 {
-		if err := formatStorageListTabular(writer, combined.StorageInstances); err != nil {
+		// If we're listing storage in tabular format, we combine all
+		// of the information into a list of "storage".
+		if err := formatStorageListTabular(
+			writer,
+			combined.StorageInstances,
+			combined.Filesystems,
+			combined.Volumes,
+		); err != nil {
 			return err
 		}
-		newline = true
+		return nil
 	}
 	if len(combined.Filesystems) > 0 {
 		if newline {

@@ -21,16 +21,20 @@ var _ = gc.Suite(&filesystemSuite{})
 func (s *filesystemSuite) expectedFilesystemDetails() params.FilesystemDetails {
 	return params.FilesystemDetails{
 		FilesystemTag: s.filesystemTag.String(),
+		Life:          "alive",
 		Status: params.EntityStatus{
 			Status: "attached",
 		},
-		MachineAttachments: map[string]params.FilesystemAttachmentInfo{
-			s.machineTag.String(): params.FilesystemAttachmentInfo{},
+		MachineAttachments: map[string]params.FilesystemAttachmentDetails{
+			s.machineTag.String(): params.FilesystemAttachmentDetails{
+				Life: "dead",
+			},
 		},
 		Storage: &params.StorageDetails{
 			StorageTag: "storage-data-0",
 			OwnerTag:   "unit-mysql-0",
 			Kind:       params.StorageKindFilesystem,
+			Life:       "dying",
 			Status: params.EntityStatus{
 				Status: "attached",
 			},
@@ -39,6 +43,7 @@ func (s *filesystemSuite) expectedFilesystemDetails() params.FilesystemDetails {
 					StorageTag: "storage-data-0",
 					UnitTag:    "unit-mysql-0",
 					MachineTag: "machine-66",
+					Life:       "alive",
 				},
 			},
 		},
@@ -120,9 +125,12 @@ func (s *filesystemSuite) TestListFilesystemsAttachmentInfo(c *gc.C) {
 		ReadOnly:   true,
 	}
 	expected := s.expectedFilesystemDetails()
-	expected.MachineAttachments[s.machineTag.String()] = params.FilesystemAttachmentInfo{
-		MountPoint: "/tmp",
-		ReadOnly:   true,
+	expected.MachineAttachments[s.machineTag.String()] = params.FilesystemAttachmentDetails{
+		FilesystemAttachmentInfo: params.FilesystemAttachmentInfo{
+			MountPoint: "/tmp",
+			ReadOnly:   true,
+		},
+		Life: "dead",
 	}
 	expectedStorageAttachmentDetails := expected.Storage.Attachments["unit-mysql-0"]
 	expectedStorageAttachmentDetails.Location = "/tmp"
