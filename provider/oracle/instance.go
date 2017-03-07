@@ -167,6 +167,7 @@ func (o *oracleInstance) delete(cleanup bool) error {
 				iteration++
 				continue
 			}
+			logger.Debugf("Machine %v successfully deleted", o.name)
 			break
 		}
 		err = o.env.fw.DeleteMachineSecList(o.machineId)

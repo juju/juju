@@ -262,10 +262,12 @@ func (f *Firewall) ensureSecRules(seclist ociResponse.SecList, rules []network.I
 	if err != nil {
 		return errors.Trace(err)
 	}
+	logger.Tracef("list %v has sec rules: %v", seclist.Name, secRules)
 	converted, err := f.convertFromSecRules(secRules...)
 	if err != nil {
 		return errors.Trace(err)
 	}
+	logger.Tracef("converted rules are: %v", converted)
 	asIngressRules := converted[seclist.Name]
 	missing := []network.IngressRule{}
 	for _, toAdd := range rules {
@@ -273,6 +275,7 @@ func (f *Firewall) ensureSecRules(seclist ociResponse.SecList, rules []network.I
 		for _, exists := range asIngressRules {
 			sort.Strings(toAdd.SourceCIDRs)
 			sort.Strings(exists.SourceCIDRs)
+			logger.Tracef("comparing %v to %v", toAdd.SourceCIDRs, exists.SourceCIDRs)
 			if reflect.DeepEqual(toAdd, exists) {
 				found = true
 				break
@@ -286,7 +289,7 @@ func (f *Firewall) ensureSecRules(seclist ociResponse.SecList, rules []network.I
 	if len(missing) == 0 {
 		return nil
 	}
-
+	logger.Tracef("Found missing rules: %v", missing)
 	asSecRule, err := f.convertToSecRules(seclist, missing)
 	if err != nil {
 		return errors.Trace(err)
@@ -369,7 +372,7 @@ func (f *Firewall) convertFromSecRules(rules ...ociResponse.SecRule) (map[string
 	for _, val := range rules {
 		app := val.Application
 		srcList := strings.TrimPrefix(val.Src_list, "seciplist:")
-		dstList := strings.TrimPrefix(val.Src_list, "seclist:")
+		dstList := strings.TrimPrefix(val.Dst_list, "seclist:")
 		portRange := f.convertApplicationToPortRange(applications[app])
 		if _, ok := ret[dstList]; !ok {
 			ret[dstList] = []network.IngressRule{
@@ -573,19 +576,23 @@ func (f *Firewall) maybeDeleteList(list string) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if len(assoc.Restul) > 0 {
-		logger.Warningf("SecList %s is still associated to an instance. Will not delete", list)
+	if len(assoc.Result) > 0 {
+		logger.Warningf("seclist %s is still has some associations to instance(s): %v. Will not delete", list, assoc.Result)
 		return nil
 	}
 	err = f.deleteAllSecRulesOnList(list)
 	if err != nil {
 		return errors.Trace(err)
 	}
+	logger.Tracef("deleting seclist %v", list)
 	err = f.client.DeleteSecList(list)
-	if oci.IsNotFound(err) {
-		return nil
+	if err != nil {
+		if oci.IsNotFound(err) {
+			return nil
+		}
+		return errors.Trace(err)
 	}
-	return errors.Trace(err)
+	return nil
 }
 
 func (f *Firewall) DeleteMachineSecList(machineId string) error {
