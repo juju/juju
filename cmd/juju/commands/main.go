@@ -384,6 +384,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 
 	// Manage storage
 	r.Register(storage.NewAddCommand())
+	r.Register(storage.NewAttachStorageCommandWithAPI())
 	r.Register(storage.NewListCommand())
 	r.Register(storage.NewPoolCreateCommand())
 	r.Register(storage.NewPoolListCommand())

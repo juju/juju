@@ -402,6 +402,7 @@ var commandNames = []string{
 	"agree",
 	"agreements",
 	"allocate",
+	"attach-storage",
 	"autoload-credentials",
 	"backups",
 	"bootstrap",
