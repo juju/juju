@@ -129,3 +129,20 @@ func (c *ModelConfigAPI) ModelUnset(args params.ModelUnset) error {
 	}
 	return c.backend.UpdateModelConfig(nil, args.Keys, nil)
 }
+
+// SetSupport sets the support level  on the model.
+func (c *ModelConfigAPI) SetSupport(level string, creds []byte) error {
+	if err := c.checkCanWrite(); err != nil {
+		return err
+	}
+	// TODO Set Creds when merged with cmars branch
+	return nil
+
+}
+
+// Support returns the current support level for the model.
+func (c *ModelConfigAPI) Support() (string, error) {
+	// TODO Get when merged with cmars branch
+	return "todo", nil
+
+}

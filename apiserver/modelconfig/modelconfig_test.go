@@ -153,6 +153,11 @@ func (s *modelconfigSuite) TestModelUnsetMissing(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *modelconfigSuite) TestSetSupportCredentals(c *gc.C) {
+	err := s.api.SetSupport("level", []byte("foobar"))
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 type mockBackend struct {
 	cfg config.ConfigValues
 	old *config.Config
