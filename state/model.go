@@ -83,6 +83,51 @@ type modelDoc struct {
 	// LatestAvailableTools is a string representing the newest version
 	// found while checking streams for new versions.
 	LatestAvailableTools string `bson:"available-tools,omitempty"`
+
+	// SLA is the current support level of the model.
+	SLA slaDoc `bson:"sla"`
+}
+
+// slaLevel enumerates the support levels available to a model.
+type slaLevel string
+
+const (
+	SLANone        = slaLevel("")
+	SLAUnsupported = slaLevel("unsupported")
+	SLAEssential   = slaLevel("essential")
+	SLAStandard    = slaLevel("standard")
+	SLAAdvanced    = slaLevel("advanced")
+)
+
+// String implements fmt.Stringer returning the string representation of an
+// SLALevel.
+func (l slaLevel) String() string {
+	if l == SLANone {
+		l = SLAUnsupported
+	}
+	return string(l)
+}
+
+// NewSLALevel returns a new SLA level from a string representation.
+func newSLALevel(level string) (slaLevel, error) {
+	l := slaLevel(level)
+	if l == SLANone {
+		l = SLAUnsupported
+	}
+	switch l {
+	case SLAUnsupported, SLAEssential, SLAStandard, SLAAdvanced:
+		return l, nil
+	}
+	return l, errors.NotValidf("SLA level %q", level)
+}
+
+// slaDoc represents the state of the SLA on the model.
+type slaDoc struct {
+	// Level is the current support level set on the model.
+	Level slaLevel `bson:"level"`
+
+	// Credentials authenticates the support level setting.
+	Credentials []byte `bson:"credentials"`
 }
 
 // modelEntityRefsDoc records references to the top-level entities
@@ -602,6 +647,37 @@ func (m *Model) LatestToolsVersion() version.Number {
 		return version.Zero
 	}
 	return v
+}
+
+// SLALevel returns the SLA level as a string.
+func (m *Model) SLALevel() string {
+	return m.doc.SLA.Level.String()
+}
+
+// SLACredential returns the SLA credential.
+func (m *Model) SLACredential() []byte {
+	return m.doc.SLA.Credentials
+}
+
+// SetSLA sets the SLA on the model.
+func (m *Model) SetSLA(level string, credentials []byte) error {
+	l, err := newSLALevel(level)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	ops := []txn.Op{{
+		C:  modelsC,
+		Id: m.doc.UUID,
+		Update: bson.D{{"$set", bson.D{{"sla", slaDoc{
+			Level:       l,
+			Credentials: credentials,
+		}}}}},
+	}}
+	err = m.st.runTransaction(ops)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return m.Refresh()
 }
 
 // globalKey returns the global database key for the model.

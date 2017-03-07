@@ -642,3 +642,8 @@ func AssertNoCleanups(c *gc.C, st *State, kind cleanupKind) {
 func GetApplicationSettings(st *State, app *Application) *Settings {
 	return newSettings(st, settingsC, app.settingsKey())
 }
+
+// NewSLALevel returns a new SLA level.
+func NewSLALevel(level string) (slaLevel, error) {
+	return newSLALevel(level)
+}
