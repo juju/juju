@@ -4,7 +4,7 @@
 package support
 
 import (
-	api "github.com/juju/romulus/api/plan"
+	api "github.com/juju/romulus/api/support"
 )
 
 var (

@@ -4,9 +4,7 @@
 package support_test
 
 import (
-	"encoding/json"
-	"fmt"
-	"net/url"
+	//"encoding/json"
 	stdtesting "testing"
 
 	"github.com/juju/cmd/cmdtesting"
@@ -14,15 +12,13 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/macaroon-bakery.v1/bakery"
 	"gopkg.in/macaroon-bakery.v1/bakery/checkers"
 	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/cmd/juju/romulus/support"
 	jjjtesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/testcharms"
+	// "github.com/juju/juju/state" // TODO will need this to assert value is set in model.
 	jjtesting "github.com/juju/juju/testing"
 )
 
@@ -39,7 +35,7 @@ type supportCommandSuite struct {
 	charmURL string
 }
 
-func (s *setPlanCommandSuite) SetUpTest(c *gc.C) {
+func (s *supportCommandSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 
 	mockAPI, err := newMockAPI()
@@ -49,8 +45,7 @@ func (s *setPlanCommandSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(support.NewAuthorizationClient, support.APIClientFnc(s.mockAPI))
 }
 
-func (s setPlanCommandSuite) TestSupportCommand(c *gc.C) {
-	c.Skip("not ready")
+func (s supportCommandSuite) TestSupportCommand(c *gc.C) {
 	tests := []struct {
 		about    string
 		level    string
@@ -59,34 +54,17 @@ func (s setPlanCommandSuite) TestSupportCommand(c *gc.C) {
 		apiErr   error
 		apiCalls []testing.StubCall
 	}{{
-		about:       "all is well",
-		plan:        "bob/default",
-		application: "mysql",
+		about: "all is well",
+		level: "essential",
 		apiCalls: []testing.StubCall{{
 			FuncName: "Authorize",
 			Args: []interface{}{
 				s.State.ModelUUID(),
-				s.charmURL,
-				"mysql",
+				"essential",
 			},
 		}},
-	}, {
-		about:       "invalid application name",
-		plan:        "bob/default",
-		application: "mysql-0",
-		err:         "invalid application name \"mysql-0\"",
-	}, {
-		about:       "unknown application",
-		plan:        "bob/default",
-		application: "wordpress",
-		err:         "application \"wordpress\" not found.*",
-	}, {
-		about:       "unknown application",
-		plan:        "bob/default",
-		application: "mysql",
-		apiErr:      errors.New("some strange error"),
-		err:         "some strange error",
 	},
+	// TODO Add test for budget args.
 	}
 	for i, test := range tests {
 		c.Logf("running test %d: %v", i, test.about)
@@ -94,18 +72,21 @@ func (s setPlanCommandSuite) TestSupportCommand(c *gc.C) {
 		if test.apiErr != nil {
 			s.mockAPI.SetErrors(test.apiErr)
 		}
-		_, err := cmdtesting.RunCommand(c, setplan.NewSetPlanCommand(), test.application, test.plan)
+		_, err := cmdtesting.RunCommand(c, support.NewSupportCommand(), test.level)
 		if test.err == "" {
 			c.Assert(err, jc.ErrorIsNil)
 			c.Assert(s.mockAPI.Calls(), gc.HasLen, 1)
 			s.mockAPI.CheckCalls(c, test.apiCalls)
 
-			app, err := s.State.Application("mysql")
-			c.Assert(err, jc.ErrorIsNil)
-			svcMacaroon := app.MetricCredentials()
-			data, err := json.Marshal(macaroon.Slice{s.mockAPI.macaroon})
-			c.Assert(err, jc.ErrorIsNil)
-			c.Assert(svcMacaroon, gc.DeepEquals, data)
+			/*
+				// TODO Check model level and creds are set
+				model, err := s.State.Model()
+				c.Assert(err, jc.ErrorIsNil)
+				svcMacaroon := app.MetricCredentials()
+				data, err := json.Marshal(macaroon.Slice{s.mockAPI.macaroon})
+				c.Assert(err, jc.ErrorIsNil)
+				c.Assert(svcMacaroon, gc.DeepEquals, data)
+			*/
 		} else {
 			c.Assert(err, gc.ErrorMatches, test.err)
 			c.Assert(s.mockAPI.Calls(), gc.HasLen, 0)
@@ -113,9 +94,9 @@ func (s setPlanCommandSuite) TestSupportCommand(c *gc.C) {
 	}
 }
 
-func (s *setPlanCommandSuite) TestNoArgs(c *gc.C) {
-	_, err := cmdtesting.RunCommand(c, setplan.NewSetPlanCommand())
-	c.Assert(err, gc.ErrorMatches, "need to specify application name and plan url")
+func (s *supportCommandSuite) TestNoArgs(c *gc.C) {
+	_, err := cmdtesting.RunCommand(c, support.NewSupportCommand())
+	c.Assert(err, gc.ErrorMatches, "need to specify suppot level")
 }
 
 func newMockAPI() (*mockapi, error) {
@@ -142,7 +123,7 @@ type mockapi struct {
 	macaroon *macaroon.Macaroon
 }
 
-func (m *mockapi) Authorize(modelUUID, supportLevel string, visitWebPage func(*url.URL) error) (*macaroon.Macaroon, error) {
+func (m *mockapi) Authorize(modelUUID, supportLevel string) (*macaroon.Macaroon, error) {
 	err := m.NextErr()
 	if err != nil {
 		return nil, errors.Trace(err)

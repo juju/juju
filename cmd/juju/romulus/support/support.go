@@ -14,7 +14,7 @@ import (
 	api "github.com/juju/romulus/api/support"
 	"gopkg.in/macaroon.v1"
 
-	"github.com/juju/juju/api/application"
+	"github.com/juju/juju/api/modelconfig"
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
@@ -77,7 +77,7 @@ func (c *supportCommand) Init(args []string) error {
 	return cmd.CheckEmpty(args[1:])
 }
 
-func (c *supportCommand) requestSupportCredentials(client *application.Client, ctx *cmd.Context) ([]byte, error) {
+func (c *supportCommand) requestSupportCredentials(client support.SupportAuthClient, ctx *cmd.Context) ([]byte, error) {
 	modelUUID := client.ModelUUID()
 
 	hc, err := c.BakeryClient()
@@ -102,13 +102,13 @@ func (c *supportCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	client := application.NewClient(root)
+	client := modelconfig.NewClient(root)
 	credentials, err := c.requestSupportCredentials(client, ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	// TODO Needs to be set model credentials
-	err = client.SetMetricCredentials("TODO", credentials)
+	err = client.SetSupport(c.Level, credentials)
 	if err != nil {
 		return errors.Trace(err)
 	}
