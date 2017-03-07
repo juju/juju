@@ -201,6 +201,14 @@ func (m *mockBackend) ControllerTag() names.ControllerTag {
 	return names.NewControllerTag("deadbeef-babe-4fd2-967d-db9663db7bea")
 }
 
+func (m *mockBackend) SetSLA(level string, credentials []byte) error {
+	return nil
+}
+
+func (m *mockBackend) SLALevel() (string, error) {
+	return "mock-level", nil
+}
+
 type mockBlock struct {
 	state.Block
 	t state.BlockType

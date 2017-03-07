@@ -136,13 +136,12 @@ func (c *ModelConfigAPI) SetSupport(args params.ModelSupport) error {
 		return err
 	}
 	// TODO Set Creds when merged with cmars branch
-	return nil
+	return c.backend.SetSLA(args.Level, args.Credentials)
 
 }
 
 // Support returns the current support level for the model.
 func (c *ModelConfigAPI) Support() (string, error) {
-	// TODO Get when merged with cmars branch
 	return "todo", nil
 
 }
