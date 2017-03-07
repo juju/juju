@@ -441,7 +441,7 @@ func (c *Client) DestroyMachines(args params.DestroyMachines) error {
 
 // ModelInfo returns information about the current model.
 func (c *Client) ModelInfo() (params.ModelInfo, error) {
-	if err := c.checkCanWrite(); err != nil {
+	if err := c.checkCanRead(); err != nil {
 		return params.ModelInfo{}, err
 	}
 	state := c.api.stateAccessor
