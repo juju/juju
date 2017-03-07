@@ -68,3 +68,22 @@ func (c *Client) ModelUnset(keys ...string) error {
 	args := params.ModelUnset{Keys: keys}
 	return c.facade.FacadeCall("ModelUnset", args, nil)
 }
+
+// SetSupport sets the support level for the given model.
+func (c *Client) SetSupport(level string, creds []byte) error {
+	args := params.ModelSupport{
+		Level:       level,
+		Credentials: creds,
+	}
+	return c.facade.FacadeCall("SetSupport", args, nil)
+}
+
+// Support gets the support level for the given model.
+func (c *Client) Support() (string, error) {
+	var result string
+	err := c.facade.FacadeCall("Support", nil, &result)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	return result, nil
+}

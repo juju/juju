@@ -131,7 +131,7 @@ func (c *ModelConfigAPI) ModelUnset(args params.ModelUnset) error {
 }
 
 // SetSupport sets the support level  on the model.
-func (c *ModelConfigAPI) SetSupport(level string, creds []byte) error {
+func (c *ModelConfigAPI) SetSupport(args params.ModelSupport) error {
 	if err := c.checkCanWrite(); err != nil {
 		return err
 	}

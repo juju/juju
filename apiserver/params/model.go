@@ -72,6 +72,13 @@ type ModelUnset struct {
 	Keys []string `json:"keys"`
 }
 
+// ModelSupport contains the arguments for the SetSupport client API
+// call.
+type ModelSupport struct {
+	Level       string `json:"level"`
+	Credentials []byte `json:"creds"`
+}
+
 // SetModelDefaults contains the arguments for SetModelDefaults
 // client API call.
 type SetModelDefaults struct {

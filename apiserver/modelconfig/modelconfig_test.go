@@ -154,7 +154,7 @@ func (s *modelconfigSuite) TestModelUnsetMissing(c *gc.C) {
 }
 
 func (s *modelconfigSuite) TestSetSupportCredentals(c *gc.C) {
-	err := s.api.SetSupport("level", []byte("foobar"))
+	err := s.api.SetSupport(params.ModelSupport{"level", []byte("foobar")})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
