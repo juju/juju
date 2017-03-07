@@ -111,7 +111,8 @@ class TestAssess(TestCase):
                                 "life": "alive"
                                 }
                             }
-                        }
+                        },
+                    "life": "alive"
                     }
                 }
             }
@@ -210,6 +211,22 @@ class TestAssess(TestCase):
             }
         self.assertEqual(expected, data)
 
+    def make_expected_list_storage(self, client):
+        return [
+            json.dumps(
+                make_expected_ls(client, 'data/0', 'dummy-storage-fs/0')),
+            json.dumps(
+                make_expected_disk(client, 1, 'dummy-storage-lp/0')),
+            json.dumps(
+                make_expected_disk(client, 2, 'dummy-storage-lp/0')),
+            json.dumps(
+                make_expected_ls(client, 'data/3', 'dummy-storage-tp/0')),
+            json.dumps(
+                make_expected_ls(client, 'data/4', 'dummy-storage-np/0')),
+            json.dumps(
+                make_expected_ls(client, 'data/5', 'dummy-storage-mp/0'))
+        ]
+
     def test_storage_1x(self):
         mock_client = Mock(spec=["juju", "wait_for_started",
                                  "create_storage_pool", "remove_service",
@@ -223,20 +240,8 @@ class TestAssess(TestCase):
         mock_client.list_storage_pool.side_effect = [
             json.dumps(storage_pool_1x)
         ]
-        mock_client.list_storage.side_effect = [
-            json.dumps(
-                make_expected_ls(mock_client, 'data/0', 'dummy-storage-fs/0')),
-            json.dumps(
-                make_expected_disk(mock_client, 1, 'dummy-storage-lp/0')),
-            json.dumps(
-                make_expected_disk(mock_client, 2, 'dummy-storage-lp/0')),
-            json.dumps(
-                make_expected_ls(mock_client, 'data/3', 'dummy-storage-tp/0')),
-            json.dumps(
-                make_expected_ls(mock_client, 'data/4', 'dummy-storage-np/0')),
-            json.dumps(
-                make_expected_ls(mock_client, 'data/5', 'dummy-storage-mp/0'))
-        ]
+        mock_client.list_storage.side_effect = self.make_expected_list_storage(
+            mock_client)
         assess_storage(mock_client, mock_client.series)
         self.assertEqual(
             [
@@ -266,20 +271,8 @@ class TestAssess(TestCase):
         mock_client.list_storage_pool.side_effect = [
             json.dumps(storage_pool_details)
         ]
-        mock_client.list_storage.side_effect = [
-            json.dumps(
-                make_expected_ls(mock_client, 'data/0', 'dummy-storage-fs/0')),
-            json.dumps(
-                make_expected_disk(mock_client, 1, 'dummy-storage-lp/0')),
-            json.dumps(
-                make_expected_disk(mock_client, 2, 'dummy-storage-lp/0')),
-            json.dumps(
-                make_expected_ls(mock_client, 'data/3', 'dummy-storage-tp/0')),
-            json.dumps(
-                make_expected_ls(mock_client, 'data/4', 'dummy-storage-np/0')),
-            json.dumps(
-                make_expected_ls(mock_client, 'data/5', 'dummy-storage-mp/0'))
-            ]
+        mock_client.list_storage.side_effect = self.make_expected_list_storage(
+            mock_client)
         assess_storage(mock_client, mock_client.series)
         self.assertEqual(
             [
@@ -311,20 +304,8 @@ class TestAssess(TestCase):
         mock_client.list_storage_pool.side_effect = [
             json.dumps(expected_pool)
         ]
-        mock_client.list_storage.side_effect = [
-            json.dumps(
-                make_expected_ls(mock_client, 'data/0', 'dummy-storage-fs/0')),
-            json.dumps(
-                make_expected_disk(mock_client, 1, 'dummy-storage-lp/0')),
-            json.dumps(
-                make_expected_disk(mock_client, 2, 'dummy-storage-lp/0')),
-            json.dumps(
-                make_expected_ls(mock_client, 'data/3', 'dummy-storage-tp/0')),
-            json.dumps(
-                make_expected_ls(mock_client, 'data/4', 'dummy-storage-np/0')),
-            json.dumps(
-                make_expected_ls(mock_client, 'data/5', 'dummy-storage-mp/0'))
-        ]
+        mock_client.list_storage.side_effect = self.make_expected_list_storage(
+            mock_client)
         assess_storage(mock_client, mock_client.series)
         self.assertEqual(
             [
@@ -359,18 +340,6 @@ class TestAssess(TestCase):
         mock_client.list_storage_pool.side_effect = [
             json.dumps(aws_pool)
         ]
-        mock_client.list_storage.side_effect = [
-            json.dumps(
-                make_expected_ls(mock_client, 'data/0', 'dummy-storage-fs/0')),
-            json.dumps(
-                make_expected_disk(mock_client, 1, 'dummy-storage-lp/0')),
-            json.dumps(
-                make_expected_disk(mock_client, 2, 'dummy-storage-lp/0')),
-            json.dumps(
-                make_expected_ls(mock_client, 'data/3', 'dummy-storage-tp/0')),
-            json.dumps(
-                make_expected_ls(mock_client, 'data/4', 'dummy-storage-np/0')),
-            json.dumps(
-                make_expected_ls(mock_client, 'data/5', 'dummy-storage-mp/0'))
-        ]
+        mock_client.list_storage.side_effect = self.make_expected_list_storage(
+            mock_client)
         assess_storage(mock_client, mock_client.series)
