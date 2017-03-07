@@ -77,9 +77,7 @@ func (c *supportCommand) Init(args []string) error {
 	return cmd.CheckEmpty(args[1:])
 }
 
-func (c *supportCommand) requestSupportCredentials(client support.SupportAuthClient, ctx *cmd.Context) ([]byte, error) {
-	modelUUID := client.ModelUUID()
-
+func (c *supportCommand) requestSupportCredentials(modelUUID string) ([]byte, error) {
 	hc, err := c.BakeryClient()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -102,8 +100,12 @@ func (c *supportCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
+	modelTag, ok := root.ModelTag()
+	if !ok {
+		return errors.Errorf("failed to obtain model uuid")
+	}
 	client := modelconfig.NewClient(root)
-	credentials, err := c.requestSupportCredentials(client, ctx)
+	credentials, err := c.requestSupportCredentials(modelTag.Id())
 	if err != nil {
 		return errors.Trace(err)
 	}

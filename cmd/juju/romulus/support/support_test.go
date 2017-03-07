@@ -96,7 +96,7 @@ func (s supportCommandSuite) TestSupportCommand(c *gc.C) {
 
 func (s *supportCommandSuite) TestNoArgs(c *gc.C) {
 	_, err := cmdtesting.RunCommand(c, support.NewSupportCommand())
-	c.Assert(err, gc.ErrorMatches, "need to specify suppot level")
+	c.Assert(err, gc.ErrorMatches, "need to specify support level")
 }
 
 func newMockAPI() (*mockapi, error) {
