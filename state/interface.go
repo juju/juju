@@ -40,21 +40,6 @@ type Lifer interface {
 	Life() Life
 }
 
-// LifeBinder represents an entity whose lifespan is bindable
-// to that of another entity.
-type LifeBinder interface {
-	Lifer
-
-	// LifeBinding either returns the tag of an entity to which this
-	// entity's lifespan is bound; the result may be nil, indicating
-	// that the entity's lifespan is not bound to anything.
-	//
-	// The types of tags that may be returned are depdendent on the
-	// entity type. For example, a Volume may be bound to a Filesystem,
-	// but a Filesystem may not be bound to a Filesystem.
-	LifeBinding() names.Tag
-}
-
 // AgentTooler is implemented by entities
 // that have associated agent tools.
 type AgentTooler interface {
