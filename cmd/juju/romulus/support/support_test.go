@@ -4,7 +4,7 @@
 package support_test
 
 import (
-	//"encoding/json"
+	"encoding/json"
 	stdtesting "testing"
 
 	"github.com/juju/cmd/cmdtesting"
@@ -78,15 +78,13 @@ func (s supportCommandSuite) TestSupportCommand(c *gc.C) {
 			c.Assert(s.mockAPI.Calls(), gc.HasLen, 1)
 			s.mockAPI.CheckCalls(c, test.apiCalls)
 
-			/*
-				// TODO Check model level and creds are set
-				model, err := s.State.Model()
-				c.Assert(err, jc.ErrorIsNil)
-				svcMacaroon := app.MetricCredentials()
-				data, err := json.Marshal(macaroon.Slice{s.mockAPI.macaroon})
-				c.Assert(err, jc.ErrorIsNil)
-				c.Assert(svcMacaroon, gc.DeepEquals, data)
-			*/
+			// TODO Check model level and creds are set
+			model, err := s.State.Model()
+			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(model.SLALevel(), gc.Equals, test.level)
+			data, err := json.Marshal(macaroon.Slice{s.mockAPI.macaroon})
+			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(data, jc.DeepEquals, model.SLACredential())
 		} else {
 			c.Assert(err, gc.ErrorMatches, test.err)
 			c.Assert(s.mockAPI.Calls(), gc.HasLen, 0)
