@@ -16,6 +16,7 @@ import (
 	"github.com/juju/jsonschema"
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
+	"github.com/juju/utils/clock"
 	"github.com/juju/version"
 	"gopkg.in/goose.v1/cinder"
 	"gopkg.in/goose.v1/client"
@@ -40,7 +41,6 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/tools"
-	"github.com/juju/utils/clock"
 )
 
 var logger = loggo.GetLogger("juju.provider.openstack")
@@ -652,11 +652,6 @@ func (e *Environ) supportsNeutron() bool {
 	return ok
 }
 
-// BootstrapMessage is part of the Environ interface.
-func (e *Environ) BootstrapMessage() string {
-	return ""
-}
-
 func (e *Environ) ControllerInstances(controllerUUID string) ([]instance.Id, error) {
 	// Find all instances tagged with tags.JujuIsController.
 	instances, err := e.allControllerManagedInstances(controllerUUID, e.ecfg().useFloatingIP())
@@ -696,9 +691,11 @@ func newCredentials(spec environs.CloudSpec) (identity.Credentials, identity.Aut
 		// TODO(axw) we need a way of saying to use legacy auth.
 		cred.User = credAttrs[CredAttrUserName]
 		cred.Secrets = credAttrs[CredAttrPassword]
-		cred.DomainName = credAttrs[CredAttrDomainName]
+		cred.ProjectDomain = credAttrs[CredAttrProjectDomainName]
+		cred.UserDomain = credAttrs[CredAttrUserDomainName]
+		cred.Domain = credAttrs[CredAttrDomainName]
 		authMode = identity.AuthUserPass
-		if cred.DomainName != "" {
+		if cred.Domain != "" || cred.UserDomain != "" || cred.ProjectDomain != "" {
 			authMode = identity.AuthUserPassV3
 		}
 	case cloud.AccessKeyAuthType:

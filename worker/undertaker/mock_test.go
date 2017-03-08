@@ -7,12 +7,12 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	worker "gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/watcher"
-	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/undertaker"
 	"github.com/juju/juju/worker/workertest"
 )

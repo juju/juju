@@ -14,6 +14,7 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/series"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
@@ -29,7 +30,6 @@ import (
 	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
-	"github.com/juju/version"
 )
 
 const (

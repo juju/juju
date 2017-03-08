@@ -10,6 +10,7 @@ import (
 	"io/ioutil"
 	"net/url"
 
+	"github.com/juju/description"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -18,7 +19,6 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 
 	"github.com/juju/juju/component/all"
-	"github.com/juju/juju/core/description"
 	coremigration "github.com/juju/juju/core/migration"
 	"github.com/juju/juju/migration"
 	"github.com/juju/juju/provider/dummy"

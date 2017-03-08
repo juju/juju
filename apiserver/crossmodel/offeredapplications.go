@@ -40,7 +40,7 @@ func createOfferedApplicationAPI(
 	resources facade.Resources,
 	authorizer facade.Authorizer,
 ) (*OfferedApplicationAPI, error) {
-	if !authorizer.AuthModelManager() {
+	if !authorizer.AuthController() {
 		return nil, common.ErrPerm
 	}
 

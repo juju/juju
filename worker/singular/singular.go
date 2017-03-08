@@ -9,8 +9,9 @@ import (
 	"time"
 
 	"github.com/juju/loggo"
+	"gopkg.in/juju/worker.v1"
 
-	"github.com/juju/juju/worker"
+	jworker "github.com/juju/juju/worker"
 )
 
 var logger = loggo.GetLogger("juju.worker.singular")
@@ -22,7 +23,7 @@ type runner struct {
 	pingerDied      chan struct{}
 	startPingerOnce sync.Once
 	isMaster        bool
-	worker.Runner
+	jworker.Runner
 	conn Conn
 }
 
@@ -49,7 +50,7 @@ type Conn interface {
 // start do-nothing placeholder workers on the underlying runner
 // that continually ping the connection until a ping fails and then exit
 // with that error.
-func New(underlying worker.Runner, conn Conn) (worker.Runner, error) {
+func New(underlying jworker.Runner, conn Conn) (jworker.Runner, error) {
 	isMaster, err := conn.IsMaster()
 	if err != nil {
 		return nil, fmt.Errorf("cannot get master status: %v", err)
@@ -107,7 +108,7 @@ func (r *runner) StartWorker(id string, startFunc func() (worker.Worker, error))
 		go r.pinger()
 	})
 	return r.Runner.StartWorker(id, func() (worker.Worker, error) {
-		return worker.NewSimpleWorker(r.waitPinger), nil
+		return jworker.NewSimpleWorker(r.waitPinger), nil
 	})
 }
 

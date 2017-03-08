@@ -9,9 +9,12 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/pubsub"
+	"github.com/juju/utils/clock"
 	"github.com/juju/utils/proxy"
 	"github.com/juju/utils/voyeur"
+	"github.com/juju/version"
 	"github.com/prometheus/client_golang/prometheus"
+	"gopkg.in/juju/worker.v1"
 
 	coreagent "github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
@@ -21,7 +24,8 @@ import (
 	"github.com/juju/juju/container/lxd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/worker"
+	proxyconfig "github.com/juju/juju/utils/proxy"
+	jworker "github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/agent"
 	"github.com/juju/juju/worker/apiaddressupdater"
 	"github.com/juju/juju/worker/apicaller"
@@ -53,8 +57,6 @@ import (
 	"github.com/juju/juju/worker/toolsversionchecker"
 	"github.com/juju/juju/worker/upgrader"
 	"github.com/juju/juju/worker/upgradesteps"
-	"github.com/juju/utils/clock"
-	"github.com/juju/version"
 )
 
 // ManifoldsConfig allows specialisation of the result of Manifolds.
@@ -165,7 +167,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			if err2 != nil {
 				return errors.Trace(err2)
 			}
-			return worker.ErrTerminateAgent
+			return jworker.ErrTerminateAgent
 		} else if cause == apicaller.ErrChangedPassword {
 			return dependency.ErrBounce
 		}
@@ -381,10 +383,11 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		// The proxy config updater is a leaf worker that sets http/https/apt/etc
 		// proxy settings.
 		proxyConfigUpdater: ifNotMigrating(proxyupdater.Manifold(proxyupdater.ManifoldConfig{
-			AgentName:      agentName,
-			APICallerName:  apiCallerName,
-			WorkerFunc:     proxyupdater.NewWorker,
-			ExternalUpdate: externalUpdateProxyFunc,
+			AgentName:       agentName,
+			APICallerName:   apiCallerName,
+			WorkerFunc:      proxyupdater.NewWorker,
+			ExternalUpdate:  externalUpdateProxyFunc,
+			InProcessUpdate: proxyconfig.DefaultConfig.Set,
 		})),
 
 		// The api address updater is a leaf worker that rewrites agent config

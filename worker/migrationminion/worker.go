@@ -6,6 +6,7 @@ package migrationminion
 import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	worker "gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
@@ -13,7 +14,6 @@ import (
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/watcher"
-	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/catacomb"
 	"github.com/juju/juju/worker/fortress"
 )

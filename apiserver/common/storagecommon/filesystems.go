@@ -120,6 +120,7 @@ func FilesystemFromState(f state.Filesystem) (params.Filesystem, error) {
 func FilesystemInfoFromState(info state.FilesystemInfo) params.FilesystemInfo {
 	return params.FilesystemInfo{
 		info.FilesystemId,
+		info.Pool,
 		info.Size,
 	}
 }

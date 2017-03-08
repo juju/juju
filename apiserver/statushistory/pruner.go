@@ -32,7 +32,7 @@ func NewAPI(st *state.State, _ facade.Resources, auth facade.Authorizer) (*API, 
 // only the ones newer than now - p.MaxHistoryTime remain and
 // the history is smaller than p.MaxHistoryMB.
 func (api *API) Prune(p params.StatusHistoryPruneArgs) error {
-	if !api.authorizer.AuthModelManager() {
+	if !api.authorizer.AuthController() {
 		return common.ErrPerm
 	}
 	return state.PruneStatusHistory(api.st, p.MaxHistoryTime, p.MaxHistoryMB)

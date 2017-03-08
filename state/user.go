@@ -110,9 +110,12 @@ func (st *State) addUser(name, displayName, password, creator string, secretKey 
 
 	err := st.runTransaction(ops)
 	if err == txn.ErrAborted {
-		err = errors.AlreadyExistsf("user")
+		err = errors.Errorf("username unavailable")
 	}
 	if err != nil {
+		if errors.IsAlreadyExists(err) {
+			err = errors.Errorf("username unavailable")
+		}
 		return nil, errors.Trace(err)
 	}
 	return user, nil
@@ -210,7 +213,7 @@ func (st *State) User(tag names.UserTag) (*User, error) {
 		// client. So we don't annotate with information regarding deletion.
 		// TODO(redir): We'll return a deletedUserError in the future so we can
 		// return more appropriate errors, e.g. username not available.
-		return nil, errors.UserNotFoundf("%q", user.Name())
+		return nil, DeletedUserError{UserName: user.Name()}
 	}
 	return user, nil
 }
@@ -533,7 +536,7 @@ type DeletedUserError struct {
 
 // Error implements the error interface.
 func (e DeletedUserError) Error() string {
-	return fmt.Sprintf("user %q deleted", e.UserName)
+	return fmt.Sprintf("user %q is permanently deleted", e.UserName)
 }
 
 // ensureNotDeleted refreshes the user to ensure it wasn't deleted since we

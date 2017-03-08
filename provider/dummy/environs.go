@@ -851,11 +851,6 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 	return bsResult, nil
 }
 
-// BootstrapMessage is part of the Environ interface.
-func (e *environ) BootstrapMessage() string {
-	return ""
-}
-
 func (e *environ) ControllerInstances(controllerUUID string) ([]instance.Id, error) {
 	estate, err := e.state()
 	if err != nil {
@@ -1581,9 +1576,16 @@ func (inst *dummyInstance) OpenPorts(machineId string, rules []network.IngressRu
 			r.SourceCIDRs = []string{"0.0.0.0/0"}
 		}
 		found := false
-		for _, rule := range inst.rules {
+		for i, rule := range inst.rules {
+			if r.PortRange == rule.PortRange {
+				ruleCopy := r
+				inst.rules[i] = ruleCopy
+				found = true
+				break
+			}
 			if r.String() == rule.String() {
 				found = true
+				break
 			}
 		}
 		if !found {

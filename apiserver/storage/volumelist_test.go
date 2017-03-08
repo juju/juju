@@ -25,16 +25,20 @@ var _ = gc.Suite(&volumeSuite{})
 func (s *volumeSuite) expectedVolumeDetails() params.VolumeDetails {
 	return params.VolumeDetails{
 		VolumeTag: s.volumeTag.String(),
+		Life:      "alive",
 		Status: params.EntityStatus{
 			Status: "attached",
 		},
-		MachineAttachments: map[string]params.VolumeAttachmentInfo{
-			s.machineTag.String(): params.VolumeAttachmentInfo{},
+		MachineAttachments: map[string]params.VolumeAttachmentDetails{
+			s.machineTag.String(): params.VolumeAttachmentDetails{
+				Life: "alive",
+			},
 		},
 		Storage: &params.StorageDetails{
 			StorageTag: "storage-data-0",
 			OwnerTag:   "unit-mysql-0",
 			Kind:       params.StorageKindFilesystem,
+			Life:       "dying",
 			Status: params.EntityStatus{
 				Status: "attached",
 			},
@@ -43,6 +47,7 @@ func (s *volumeSuite) expectedVolumeDetails() params.VolumeDetails {
 					StorageTag: "storage-data-0",
 					UnitTag:    "unit-mysql-0",
 					MachineTag: "machine-66",
+					Life:       "alive",
 				},
 			},
 		},
@@ -132,9 +137,12 @@ func (s *volumeSuite) TestListVolumesAttachmentInfo(c *gc.C) {
 		ReadOnly:   true,
 	}
 	expected := s.expectedVolumeDetails()
-	expected.MachineAttachments[s.machineTag.String()] = params.VolumeAttachmentInfo{
-		DeviceName: "xvdf1",
-		ReadOnly:   true,
+	expected.MachineAttachments[s.machineTag.String()] = params.VolumeAttachmentDetails{
+		VolumeAttachmentInfo: params.VolumeAttachmentInfo{
+			DeviceName: "xvdf1",
+			ReadOnly:   true,
+		},
+		Life: "alive",
 	}
 	found, err := s.api.ListVolumes(params.VolumeFilters{[]params.VolumeFilter{{}}})
 	c.Assert(err, jc.ErrorIsNil)
@@ -152,8 +160,11 @@ func (s *volumeSuite) TestListVolumesStorageLocationNoBlockDevice(c *gc.C) {
 	expected := s.expectedVolumeDetails()
 	expected.Storage.Kind = params.StorageKindBlock
 	expected.Storage.Status.Status = status.Attached
-	expected.MachineAttachments[s.machineTag.String()] = params.VolumeAttachmentInfo{
-		ReadOnly: true,
+	expected.MachineAttachments[s.machineTag.String()] = params.VolumeAttachmentDetails{
+		VolumeAttachmentInfo: params.VolumeAttachmentInfo{
+			ReadOnly: true,
+		},
+		Life: "alive",
 	}
 	found, err := s.api.ListVolumes(params.VolumeFilters{[]params.VolumeFilter{{}}})
 	c.Assert(err, jc.ErrorIsNil)
@@ -181,9 +192,12 @@ func (s *volumeSuite) TestListVolumesStorageLocationBlockDevicePath(c *gc.C) {
 	storageAttachmentDetails := expected.Storage.Attachments["unit-mysql-0"]
 	storageAttachmentDetails.Location = filepath.FromSlash("/dev/sdd")
 	expected.Storage.Attachments["unit-mysql-0"] = storageAttachmentDetails
-	expected.MachineAttachments[s.machineTag.String()] = params.VolumeAttachmentInfo{
-		BusAddress: "bus-addr",
-		ReadOnly:   true,
+	expected.MachineAttachments[s.machineTag.String()] = params.VolumeAttachmentDetails{
+		VolumeAttachmentInfo: params.VolumeAttachmentInfo{
+			BusAddress: "bus-addr",
+			ReadOnly:   true,
+		},
+		Life: "alive",
 	}
 	found, err := s.api.ListVolumes(params.VolumeFilters{[]params.VolumeFilter{{}}})
 	c.Assert(err, jc.ErrorIsNil)

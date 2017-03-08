@@ -212,7 +212,7 @@ func (c *modelsCommand) getModelInfo(userModels []base.UserModel) ([]params.Mode
 		return nil, errors.Trace(err)
 	}
 
-	info := make([]params.ModelInfo, len(tags))
+	info := []params.ModelInfo{}
 	for i, result := range results {
 		if result.Error != nil {
 			if params.IsCodeUnauthorized(result.Error) {
@@ -226,7 +226,7 @@ func (c *modelsCommand) getModelInfo(userModels []base.UserModel) ([]params.Mode
 				userModels[i].UUID, userModels[i].Name,
 			)
 		}
-		info[i] = *result.Result
+		info = append(info, *result.Result)
 	}
 	return info, nil
 }

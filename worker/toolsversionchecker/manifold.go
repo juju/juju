@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"gopkg.in/juju/names.v2"
+	worker "gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/agent"
 	apiagent "github.com/juju/juju/api/agent"
@@ -14,9 +16,7 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/cmd/jujud/agent/engine"
 	"github.com/juju/juju/state/multiwatcher"
-	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
-	"gopkg.in/juju/names.v2"
 )
 
 // ManifoldConfig defines the names of the manifolds on which a Manifold will depend.

@@ -7,12 +7,12 @@ import (
 	"strings"
 
 	"github.com/juju/cmd"
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/errors"
 	jujucmd "github.com/juju/juju/cmd/juju/commands"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/provider/dummy"
@@ -85,6 +85,7 @@ func (s *cmdStorageSuite) TestStorageShow(c *gc.C) {
 	expected := `
 data/0:
   kind: block
+  life: alive
   status:
     current: pending
     since: .*
@@ -93,6 +94,7 @@ data/0:
     units:
       storage-block/0:
         machine: "0"
+        life: alive
 `[1:]
 	context, err := runJujuCommand(c, "show-storage", "data/0")
 	c.Assert(err, jc.ErrorIsNil)
@@ -125,9 +127,9 @@ func (s *cmdStorageSuite) TestStorageList(c *gc.C) {
 	createUnitWithStorage(c, &s.JujuConnSuite, testPool)
 
 	expected := `
-[Storage]        
-Unit             Id      Location  Status   Message  
-storage-block/0  data/0            pending           
+[Storage]
+Unit             Id      Type   Provider id  Size  Status   Message
+storage-block/0  data/0  block                     pending  
 
 `[1:]
 	runList(c, expected)
@@ -139,9 +141,9 @@ func (s *cmdStorageSuite) TestStorageListPersistent(c *gc.C) {
 	// There are currently no guarantees about whether storage
 	// will be persistent until it has been provisioned.
 	expected := `
-[Storage]        
-Unit             Id      Location  Status   Message  
-storage-block/0  data/0            pending           
+[Storage]
+Unit             Id      Type   Provider id  Size  Status   Message
+storage-block/0  data/0  block                     pending  
 
 `[1:]
 	runList(c, expected)
@@ -161,6 +163,7 @@ func (s *cmdStorageSuite) TestStoragePersistentProvisioned(c *gc.C) {
 	expected := `
 data/0:
   kind: block
+  life: alive
   status:
     current: pending
     since: .*
@@ -169,6 +172,7 @@ data/0:
     units:
       storage-block/0:
         machine: "0"
+        life: alive
 `[1:]
 	context, err := runJujuCommand(c, "show-storage", "data/0")
 	c.Assert(err, jc.ErrorIsNil)
@@ -183,6 +187,7 @@ func (s *cmdStorageSuite) TestStoragePersistentUnprovisioned(c *gc.C) {
 	expected := `
 data/0:
   kind: block
+  life: alive
   status:
     current: pending
     since: .*
@@ -191,6 +196,7 @@ data/0:
     units:
       storage-block/0:
         machine: "0"
+        life: alive
 `[1:]
 	context, err := runJujuCommand(c, "show-storage", "data/0")
 	c.Assert(err, jc.ErrorIsNil)
@@ -228,14 +234,14 @@ block:
   provider: loop
   attrs:
     it: works
-environscoped:
-  provider: environscoped
-environscoped-block:
-  provider: environscoped-block
 loop:
   provider: loop
 machinescoped:
   provider: machinescoped
+modelscoped:
+  provider: modelscoped
+modelscoped-block:
+  provider: modelscoped-block
 rootfs:
   provider: rootfs
 static:
@@ -250,15 +256,15 @@ func (s *cmdStorageSuite) TestListPoolsTabular(c *gc.C) {
 	stdout, _, err := runPoolList(c)
 	c.Assert(err, jc.ErrorIsNil)
 	expected := `
-Name                 Provider             Attrs
-block                loop                 it=works
-environscoped        environscoped        
-environscoped-block  environscoped-block  
-loop                 loop                 
-machinescoped        machinescoped        
-rootfs               rootfs               
-static               static               
-tmpfs                tmpfs                
+Name               Provider           Attrs
+block              loop               it=works
+loop               loop               
+machinescoped      machinescoped      
+modelscoped        modelscoped        
+modelscoped-block  modelscoped-block  
+rootfs             rootfs             
+static             static             
+tmpfs              tmpfs              
 
 `[1:]
 	c.Assert(stdout, gc.Equals, expected)
@@ -332,7 +338,7 @@ block:
 }
 
 func (s *cmdStorageSuite) TestListPoolsProviderAndNotName(c *gc.C) {
-	stdout, _, err := runPoolList(c, "--name", "fluff", "--provider", "environscoped")
+	stdout, _, err := runPoolList(c, "--name", "fluff", "--provider", "modelscoped")
 	c.Assert(err, jc.ErrorIsNil)
 	// there is no pool that matches this name AND type
 	c.Assert(stdout, gc.Equals, "")
@@ -443,6 +449,7 @@ func (s *cmdStorageSuite) TestListVolumeTabularFilterMatch(c *gc.C) {
 	stdout, _, err := runVolumeList(c, "0")
 	c.Assert(err, jc.ErrorIsNil)
 	expected := `
+[Volumes]
 Machine  Unit             Storage  Id   Provider Id  Device  Size  State    Message
 0        storage-block/0  data/0   0/0                             pending  
 
@@ -536,7 +543,7 @@ func (s *cmdStorageSuite) TestStorageAddToUnitStorageDoesntExist(c *gc.C) {
 
 func (s *cmdStorageSuite) TestStorageAddToUnitHasVolumes(c *gc.C) {
 	// Reproducing Bug1462146
-	u := createUnitWithFileSystemStorage(c, &s.JujuConnSuite, "environscoped-block")
+	u := createUnitWithFileSystemStorage(c, &s.JujuConnSuite, "modelscoped-block")
 	instancesBefore, err := s.State.AllStorageInstances()
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertStorageExist(c, instancesBefore, "data")
@@ -544,17 +551,17 @@ func (s *cmdStorageSuite) TestStorageAddToUnitHasVolumes(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(volumesBefore, gc.HasLen, 1)
 
-	context, err := runJujuCommand(c, "storage", "list")
+	context, err := runJujuCommand(c, "storage")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, `
-[Storage]             
-Unit                  Id      Location  Status   Message  
-storage-filesystem/0  data/0            pending           
+[Storage]
+Unit                  Id      Type        Provider id  Size  Status   Message
+storage-filesystem/0  data/0  filesystem                     pending  
 
 `[1:])
 	c.Assert(testing.Stderr(context), gc.Equals, "")
 
-	context, err = runAddToUnit(c, u, "data=environscoped-block,1G")
+	context, err = runAddToUnit(c, u, "data=modelscoped-block,1G")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, "added \"data\"\n")
 	c.Assert(testing.Stderr(context), gc.Equals, "")
@@ -570,10 +577,10 @@ storage-filesystem/0  data/0            pending
 	context, err = runJujuCommand(c, "list-storage")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, `
-[Storage]             
-Unit                  Id      Location  Status   Message  
-storage-filesystem/0  data/0            pending           
-storage-filesystem/0  data/1            pending           
+[Storage]
+Unit                  Id      Type        Provider id  Size  Status   Message
+storage-filesystem/0  data/0  filesystem                     pending  
+storage-filesystem/0  data/1  filesystem                     pending  
 
 `[1:])
 	c.Assert(testing.Stderr(context), gc.Equals, "")

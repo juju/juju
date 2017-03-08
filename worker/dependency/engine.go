@@ -10,9 +10,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/set"
+	"gopkg.in/juju/worker.v1"
 	"gopkg.in/tomb.v1"
-
-	"github.com/juju/juju/worker"
 )
 
 var logger = loggo.GetLogger("juju.worker.dependency")

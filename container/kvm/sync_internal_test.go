@@ -13,12 +13,12 @@ import (
 	"strings"
 	"time"
 
-	gc "gopkg.in/check.v1"
-
 	"github.com/juju/errors"
-	"github.com/juju/juju/environs/imagedownloads"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/environs/imagedownloads"
 )
 
 // syncInternalSuite is gocheck boilerplate.

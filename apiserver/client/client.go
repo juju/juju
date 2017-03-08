@@ -65,22 +65,32 @@ type Client struct {
 }
 
 func (c *Client) checkCanRead() error {
+	isAdmin, err := c.api.auth.HasPermission(permission.SuperuserAccess, c.api.stateAccessor.ControllerTag())
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	canRead, err := c.api.auth.HasPermission(permission.ReadAccess, c.api.stateAccessor.ModelTag())
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if !canRead {
+	if !canRead && !isAdmin {
 		return common.ErrPerm
 	}
 	return nil
 }
 
 func (c *Client) checkCanWrite() error {
+	isAdmin, err := c.api.auth.HasPermission(permission.SuperuserAccess, c.api.stateAccessor.ControllerTag())
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	canWrite, err := c.api.auth.HasPermission(permission.WriteAccess, c.api.stateAccessor.ModelTag())
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if !canWrite {
+	if !canWrite && !isAdmin {
 		return common.ErrPerm
 	}
 	return nil
@@ -431,7 +441,7 @@ func (c *Client) DestroyMachines(args params.DestroyMachines) error {
 
 // ModelInfo returns information about the current model.
 func (c *Client) ModelInfo() (params.ModelInfo, error) {
-	if err := c.checkCanWrite(); err != nil {
+	if err := c.checkCanRead(); err != nil {
 		return params.ModelInfo{}, err
 	}
 	state := c.api.stateAccessor

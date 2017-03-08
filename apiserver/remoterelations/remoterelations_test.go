@@ -36,12 +36,13 @@ func (s *remoteRelationsSuite) SetUpTest(c *gc.C) {
 	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
 
 	s.authorizer = &apiservertesting.FakeAuthorizer{
-		Tag:            names.NewMachineTag("0"),
-		EnvironManager: true,
+		Tag:        names.NewMachineTag("0"),
+		Controller: true,
 	}
 
 	s.st = newMockState()
-	api, err := remoterelations.NewRemoteRelationsAPI(s.st, s.resources, s.authorizer)
+	pool := &mockStatePool{s.st}
+	api, err := remoterelations.NewRemoteRelationsAPI(s.st, pool, s.resources, s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = api
 }
@@ -89,6 +90,20 @@ func (s *remoteRelationsSuite) TestWatchRemoteApplicationRelations(c *gc.C) {
 		{"WatchRemoteApplicationRelations", []interface{}{"db2"}},
 		{"WatchRemoteApplicationRelations", []interface{}{"hadoop"}},
 	})
+}
+
+func (s *remoteRelationsSuite) TestWatchRemoteRelations(c *gc.C) {
+	relationsIds := []string{"1", "2"}
+	s.st.remoteRelationsWatcher.changes <- relationsIds
+	result, err := s.api.WatchRemoteRelations()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Error, gc.IsNil)
+	c.Assert(result.StringsWatcherId, gc.Equals, "1")
+	c.Assert(result.Changes, jc.DeepEquals, relationsIds)
+
+	resource := s.resources.Get("1")
+	c.Assert(resource, gc.NotNil)
+	c.Assert(resource, gc.Implements, new(state.StringsWatcher))
 }
 
 func (s *remoteRelationsSuite) TestPublishLocalRelationsChange(c *gc.C) {
@@ -195,8 +210,8 @@ func (s *remoteRelationsSuite) TestWatchLocalRelationUnits(c *gc.C) {
 }
 
 func (s *remoteRelationsSuite) TestImportRemoteEntities(c *gc.C) {
-	result, err := s.api.ImportRemoteEntities(params.ImportEntityArgs{
-		Args: []params.ImportEntityArg{
+	result, err := s.api.ImportRemoteEntities(params.RemoteEntityArgs{
+		Args: []params.RemoteEntityArg{
 			{ModelTag: coretesting.ModelTag.String(), Tag: "application-django", Token: "token"},
 		}})
 	c.Assert(err, jc.ErrorIsNil)
@@ -208,13 +223,13 @@ func (s *remoteRelationsSuite) TestImportRemoteEntities(c *gc.C) {
 }
 
 func (s *remoteRelationsSuite) TestImportRemoteEntitiesTwice(c *gc.C) {
-	_, err := s.api.ImportRemoteEntities(params.ImportEntityArgs{
-		Args: []params.ImportEntityArg{
+	_, err := s.api.ImportRemoteEntities(params.RemoteEntityArgs{
+		Args: []params.RemoteEntityArg{
 			{ModelTag: coretesting.ModelTag.String(), Tag: "application-django", Token: "token"},
 		}})
 	c.Assert(err, jc.ErrorIsNil)
-	result, err := s.api.ImportRemoteEntities(params.ImportEntityArgs{
-		Args: []params.ImportEntityArg{
+	result, err := s.api.ImportRemoteEntities(params.RemoteEntityArgs{
+		Args: []params.RemoteEntityArg{
 			{ModelTag: coretesting.ModelTag.String(), Tag: "application-django", Token: "token"},
 		}})
 	c.Assert(err, jc.ErrorIsNil)
@@ -224,6 +239,19 @@ func (s *remoteRelationsSuite) TestImportRemoteEntitiesTwice(c *gc.C) {
 	s.st.CheckCalls(c, []testing.StubCall{
 		{"ImportRemoteEntity", []interface{}{coretesting.ModelTag, names.ApplicationTag{Name: "django"}, "token"}},
 		{"ImportRemoteEntity", []interface{}{coretesting.ModelTag, names.ApplicationTag{Name: "django"}, "token"}},
+	})
+}
+
+func (s *remoteRelationsSuite) TestRemoveRemoteEntities(c *gc.C) {
+	result, err := s.api.RemoveRemoteEntities(params.RemoteEntityArgs{
+		Args: []params.RemoteEntityArg{
+			{ModelTag: coretesting.ModelTag.String(), Tag: "application-django"},
+		}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Results, gc.HasLen, 1)
+	c.Assert(result.Results[0], jc.DeepEquals, params.ErrorResult{})
+	s.st.CheckCalls(c, []testing.StubCall{
+		{"RemoveRemoteEntity", []interface{}{coretesting.ModelTag, names.ApplicationTag{Name: "django"}}},
 	})
 }
 
@@ -336,6 +364,7 @@ func (s *remoteRelationsSuite) TestRelations(c *gc.C) {
 			Key:                "db2:db django:db",
 			RemoteEndpointName: "data",
 			ApplicationName:    "django",
+			SourceModelUUID:    "model-uuid",
 			Endpoint: params.RemoteEndpoint{
 				Name:      "db",
 				Role:      "provides",

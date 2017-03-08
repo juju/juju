@@ -5,6 +5,7 @@ package storage_test
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
@@ -12,7 +13,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/storage"
-	"github.com/juju/juju/apiserver/testing"
+	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/state"
 	jujustorage "github.com/juju/juju/storage"
 	coretesting "github.com/juju/juju/testing"
@@ -22,7 +23,7 @@ type baseStorageSuite struct {
 	coretesting.BaseSuite
 
 	resources  *common.Resources
-	authorizer testing.FakeAuthorizer
+	authorizer apiservertesting.FakeAuthorizer
 
 	api   *storage.API
 	state *mockState
@@ -38,7 +39,7 @@ type baseStorageSuite struct {
 	filesystemTag        names.FilesystemTag
 	filesystem           *mockFilesystem
 	filesystemAttachment *mockFilesystemAttachment
-	calls                []string
+	stub                 testing.Stub
 
 	registry    jujustorage.StaticProviderRegistry
 	poolManager *mockPoolManager
@@ -50,8 +51,8 @@ type baseStorageSuite struct {
 func (s *baseStorageSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.resources = common.NewResources()
-	s.authorizer = testing.FakeAuthorizer{Tag: names.NewUserTag("admin"), EnvironManager: true}
-	s.calls = []string{}
+	s.authorizer = apiservertesting.FakeAuthorizer{Tag: names.NewUserTag("admin"), Controller: true}
+	s.stub.ResetCalls()
 	s.state = s.constructState()
 
 	s.registry = jujustorage.StaticProviderRegistry{map[jujustorage.ProviderType]jujustorage.Provider{}}
@@ -63,8 +64,9 @@ func (s *baseStorageSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+// TODO(axw) get rid of assertCalls, use stub directly everywhere.
 func (s *baseStorageSuite) assertCalls(c *gc.C, expectedCalls []string) {
-	c.Assert(s.calls, jc.SameContents, expectedCalls)
+	s.stub.CheckCallNames(c, expectedCalls...)
 }
 
 const (
@@ -86,6 +88,8 @@ const (
 	addStorageForUnitCall                   = "addStorageForUnit"
 	getBlockForTypeCall                     = "getBlockForType"
 	volumeAttachmentCall                    = "volumeAttachment"
+	destroyStorageAttachmentCall            = "destroyStorageAttachment"
+	destroyStorageInstanceCall              = "destroyStorageInstance"
 )
 
 func (s *baseStorageSuite) constructState() *mockState {
@@ -96,9 +100,13 @@ func (s *baseStorageSuite) constructState() *mockState {
 		kind:       state.StorageKindFilesystem,
 		owner:      s.unitTag,
 		storageTag: s.storageTag,
+		life:       state.Dying,
 	}
 
-	storageInstanceAttachment := &mockStorageAttachment{storage: s.storageInstance}
+	storageInstanceAttachment := &mockStorageAttachment{
+		storage: s.storageInstance,
+		life:    state.Alive,
+	}
 
 	s.machineTag = names.NewMachineTag("66")
 	s.filesystemTag = names.NewFilesystemTag("104")
@@ -106,128 +114,146 @@ func (s *baseStorageSuite) constructState() *mockState {
 	s.filesystem = &mockFilesystem{
 		tag:     s.filesystemTag,
 		storage: &s.storageTag,
+		life:    state.Alive,
 	}
 	s.filesystemAttachment = &mockFilesystemAttachment{
 		filesystem: s.filesystemTag,
 		machine:    s.machineTag,
+		life:       state.Dead,
 	}
 	s.volume = &mockVolume{tag: s.volumeTag, storage: &s.storageTag}
 	s.volumeAttachment = &mockVolumeAttachment{
 		VolumeTag:  s.volumeTag,
 		MachineTag: s.machineTag,
+		life:       state.Alive,
 	}
 
 	s.blocks = make(map[state.BlockType]state.Block)
 	return &mockState{
 		allStorageInstances: func() ([]state.StorageInstance, error) {
-			s.calls = append(s.calls, allStorageInstancesCall)
+			s.stub.AddCall(allStorageInstancesCall)
 			return []state.StorageInstance{s.storageInstance}, nil
 		},
 		storageInstance: func(sTag names.StorageTag) (state.StorageInstance, error) {
-			s.calls = append(s.calls, storageInstanceCall)
+			s.stub.AddCall(storageInstanceCall, sTag)
 			if sTag == s.storageTag {
 				return s.storageInstance, nil
 			}
 			return nil, errors.NotFoundf("%s", names.ReadableString(sTag))
 		},
 		storageInstanceAttachments: func(tag names.StorageTag) ([]state.StorageAttachment, error) {
-			s.calls = append(s.calls, storageInstanceAttachmentsCall)
+			s.stub.AddCall(storageInstanceAttachmentsCall, tag)
 			if tag == s.storageTag {
 				return []state.StorageAttachment{storageInstanceAttachment}, nil
 			}
-			return nil, errors.NotFoundf("%s", names.ReadableString(tag))
+			return []state.StorageAttachment{}, nil
 		},
 		storageInstanceFilesystem: func(sTag names.StorageTag) (state.Filesystem, error) {
-			s.calls = append(s.calls, storageInstanceFilesystemCall)
+			s.stub.AddCall(storageInstanceFilesystemCall)
 			if sTag == s.storageTag {
 				return s.filesystem, nil
 			}
 			return nil, errors.NotFoundf("%s", names.ReadableString(sTag))
 		},
 		storageInstanceFilesystemAttachment: func(m names.MachineTag, f names.FilesystemTag) (state.FilesystemAttachment, error) {
-			s.calls = append(s.calls, storageInstanceFilesystemAttachmentCall)
+			s.stub.AddCall(storageInstanceFilesystemAttachmentCall)
 			if m == s.machineTag && f == s.filesystemTag {
 				return s.filesystemAttachment, nil
 			}
 			return nil, errors.NotFoundf("filesystem attachment %s:%s", m, f)
 		},
 		storageInstanceVolume: func(t names.StorageTag) (state.Volume, error) {
-			s.calls = append(s.calls, storageInstanceVolumeCall)
+			s.stub.AddCall(storageInstanceVolumeCall)
 			if t == s.storageTag {
 				return s.volume, nil
 			}
 			return nil, errors.NotFoundf("%s", names.ReadableString(t))
 		},
 		volumeAttachment: func(names.MachineTag, names.VolumeTag) (state.VolumeAttachment, error) {
-			s.calls = append(s.calls, volumeAttachmentCall)
+			s.stub.AddCall(volumeAttachmentCall)
 			return s.volumeAttachment, nil
 		},
 		unitAssignedMachine: func(u names.UnitTag) (names.MachineTag, error) {
-			s.calls = append(s.calls, unitAssignedMachineCall)
+			s.stub.AddCall(unitAssignedMachineCall)
 			if u == s.unitTag {
 				return s.machineTag, nil
 			}
 			return names.MachineTag{}, errors.NotFoundf("%s", names.ReadableString(u))
 		},
 		volume: func(tag names.VolumeTag) (state.Volume, error) {
-			s.calls = append(s.calls, volumeCall)
+			s.stub.AddCall(volumeCall)
 			if tag == s.volumeTag {
 				return s.volume, nil
 			}
 			return nil, errors.NotFoundf("%s", names.ReadableString(tag))
 		},
 		machineVolumeAttachments: func(machine names.MachineTag) ([]state.VolumeAttachment, error) {
-			s.calls = append(s.calls, machineVolumeAttachmentsCall)
+			s.stub.AddCall(machineVolumeAttachmentsCall)
 			if machine == s.machineTag {
 				return []state.VolumeAttachment{s.volumeAttachment}, nil
 			}
 			return nil, nil
 		},
 		volumeAttachments: func(volume names.VolumeTag) ([]state.VolumeAttachment, error) {
-			s.calls = append(s.calls, volumeAttachmentsCall)
+			s.stub.AddCall(volumeAttachmentsCall)
 			if volume == s.volumeTag {
 				return []state.VolumeAttachment{s.volumeAttachment}, nil
 			}
 			return nil, nil
 		},
 		allVolumes: func() ([]state.Volume, error) {
-			s.calls = append(s.calls, allVolumesCall)
+			s.stub.AddCall(allVolumesCall)
 			return []state.Volume{s.volume}, nil
 		},
 		filesystem: func(tag names.FilesystemTag) (state.Filesystem, error) {
-			s.calls = append(s.calls, filesystemCall)
+			s.stub.AddCall(filesystemCall)
 			if tag == s.filesystemTag {
 				return s.filesystem, nil
 			}
 			return nil, errors.NotFoundf("%s", names.ReadableString(tag))
 		},
 		machineFilesystemAttachments: func(machine names.MachineTag) ([]state.FilesystemAttachment, error) {
-			s.calls = append(s.calls, machineFilesystemAttachmentsCall)
+			s.stub.AddCall(machineFilesystemAttachmentsCall)
 			if machine == s.machineTag {
 				return []state.FilesystemAttachment{s.filesystemAttachment}, nil
 			}
 			return nil, nil
 		},
 		filesystemAttachments: func(filesystem names.FilesystemTag) ([]state.FilesystemAttachment, error) {
-			s.calls = append(s.calls, filesystemAttachmentsCall)
+			s.stub.AddCall(filesystemAttachmentsCall)
 			if filesystem == s.filesystemTag {
 				return []state.FilesystemAttachment{s.filesystemAttachment}, nil
 			}
 			return nil, nil
 		},
 		allFilesystems: func() ([]state.Filesystem, error) {
-			s.calls = append(s.calls, allFilesystemsCall)
+			s.stub.AddCall(allFilesystemsCall)
 			return []state.Filesystem{s.filesystem}, nil
 		},
 		modelName: "storagetest",
 		addStorageForUnit: func(u names.UnitTag, name string, cons state.StorageConstraints) error {
-			s.calls = append(s.calls, addStorageForUnitCall)
+			s.stub.AddCall(addStorageForUnitCall)
 			return nil
 		},
 		getBlockForType: func(t state.BlockType) (state.Block, bool, error) {
-			s.calls = append(s.calls, getBlockForTypeCall)
+			s.stub.AddCall(getBlockForTypeCall, t)
 			val, found := s.blocks[t]
 			return val, found, nil
+		},
+		destroyStorageAttachment: func(storage names.StorageTag, unit names.UnitTag) error {
+			s.stub.AddCall(destroyStorageAttachmentCall, storage, unit)
+			if storage == s.storageTag && unit == s.unitTag {
+				return nil
+			}
+			return errors.NotFoundf(
+				"attachment of %s to %s",
+				names.ReadableString(storage),
+				names.ReadableString(unit),
+			)
+		},
+		destroyStorageInstance: func(tag names.StorageTag) error {
+			s.stub.AddCall(destroyStorageInstanceCall)
+			return errors.New("cannae do it")
 		},
 	}
 }

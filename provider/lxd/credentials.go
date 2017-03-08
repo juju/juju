@@ -10,6 +10,7 @@ import (
 	"io"
 	"io/ioutil"
 	"net"
+	"net/url"
 	"os"
 	"path/filepath"
 
@@ -314,7 +315,15 @@ func (p environProviderCredentials) isLocalEndpoint(endpoint string) (bool, erro
 		// LXD controller.
 		return true, nil
 	}
-	endpointAddrs, err := p.lookupHost(endpoint)
+	endpointURL, err := endpointURL(endpoint)
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	host, _, err := net.SplitHostPort(endpointURL.Host)
+	if err != nil {
+		host = endpointURL.Host
+	}
+	endpointAddrs, err := p.lookupHost(host)
 	if err != nil {
 		return false, errors.Trace(err)
 	}
@@ -323,6 +332,27 @@ func (p environProviderCredentials) isLocalEndpoint(endpoint string) (bool, erro
 		return false, errors.Trace(err)
 	}
 	return addrsContainsAny(localAddrs, endpointAddrs), nil
+}
+
+func endpointURL(endpoint string) (*url.URL, error) {
+	remoteURL, err := url.Parse(endpoint)
+	if err != nil || remoteURL.Scheme == "" {
+		remoteURL = &url.URL{
+			Scheme: "https",
+			Host:   endpoint,
+		}
+	} else {
+		// If the user specifies an endpoint, it must be either
+		// host:port, or https://host:port. We do not support
+		// unix:// endpoints at present.
+		if remoteURL.Scheme != "https" {
+			return nil, errors.Errorf(
+				"invalid URL %q: only HTTPS is supported",
+				endpoint,
+			)
+		}
+	}
+	return remoteURL, nil
 }
 
 func addrsContainsAny(haystack []net.Addr, needles []string) bool {

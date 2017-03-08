@@ -7,15 +7,15 @@ import (
 	"strings"
 
 	"github.com/juju/cmd"
+	"github.com/juju/description"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
-	"gopkg.in/yaml.v1"
+	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/cmd/juju/commands"
-	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/feature"

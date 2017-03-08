@@ -8,18 +8,23 @@ import (
 	"time"
 
 	"github.com/gorilla/schema"
+	"github.com/gorilla/websocket"
 	"github.com/juju/errors"
 	"github.com/juju/utils/clock"
-	"golang.org/x/net/websocket"
+	"github.com/juju/utils/featureflag"
 
-	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/state"
 )
 
 type logStreamSource interface {
 	getStart(sink string, allModels bool) (time.Time, error)
 	newTailer(*state.LogTailerParams) (state.LogTailer, error)
+}
+
+type messageWriter interface {
+	WriteJSON(v interface{}) error
 }
 
 type closerFunc func()
@@ -49,35 +54,31 @@ func newLogStreamEndpointHandler(ctxt httpContext) *logStreamEndpointHandler {
 // Args for the HTTP request are as follows:
 //   all -> string - one of [true, false], if true, include records from all models
 //   sink -> string - the name of the the log forwarding target
-func (eph *logStreamEndpointHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+func (h *logStreamEndpointHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	logger.Infof("log stream request handler starting")
-	server := websocket.Server{
-		Handler: func(conn *websocket.Conn) {
-			defer conn.Close()
-			reqHandler, err := eph.newLogStreamRequestHandler(req, clock.WallClock)
-			if err == nil {
-				defer reqHandler.close()
-			}
+	handler := func(conn *websocket.Conn) {
+		defer conn.Close()
+		reqHandler, err := h.newLogStreamRequestHandler(conn, req, clock.WallClock)
+		if err != nil {
+			h.sendError(conn, req, err)
+			return
+		}
+		defer reqHandler.close()
 
-			stream, initErr := initStream(conn, err)
-			if initErr != nil {
-				logger.Debugf("failed to send initial error (%v): %v", err, initErr)
-				return
-			}
-			if err != nil {
-				return
-			}
-			reqHandler.serveWebsocket(conn, stream, eph.stopCh)
-		},
+		// If we get to here, no more errors to report, so we report a nil
+		// error.  This way the first line of the connection is always a json
+		// formatted simple error.
+		h.sendError(conn, req, nil)
+		reqHandler.serveWebsocket(h.stopCh)
 	}
-	server.ServeHTTP(w, req)
+	websocketServer(w, req, handler)
 }
 
-func (eph *logStreamEndpointHandler) newLogStreamRequestHandler(req *http.Request, clock clock.Clock) (rh *logStreamRequestHandler, err error) {
+func (h *logStreamEndpointHandler) newLogStreamRequestHandler(conn messageWriter, req *http.Request, clock clock.Clock) (rh *logStreamRequestHandler, err error) {
 	// Validate before authenticate because the authentication is
 	// dependent on the state connection that is determined during the
 	// validation.
-	source, closer, err := eph.newSource(req)
+	source, closer, err := h.newSource(req)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -94,12 +95,13 @@ func (eph *logStreamEndpointHandler) newLogStreamRequestHandler(req *http.Reques
 		return nil, errors.Annotate(err, "decoding schema")
 	}
 
-	tailer, err := eph.newTailer(source, cfg, clock)
+	tailer, err := h.newTailer(source, cfg, clock)
 	if err != nil {
 		return nil, errors.Annotate(err, "creating new tailer")
 	}
 
 	reqHandler := &logStreamRequestHandler{
+		conn:          conn,
 		req:           req,
 		tailer:        tailer,
 		closer:        closer,
@@ -108,7 +110,7 @@ func (eph *logStreamEndpointHandler) newLogStreamRequestHandler(req *http.Reques
 	return reqHandler, nil
 }
 
-func (eph logStreamEndpointHandler) newTailer(source logStreamSource, cfg params.LogStreamConfig, clock clock.Clock) (state.LogTailer, error) {
+func (h *logStreamEndpointHandler) newTailer(source logStreamSource, cfg params.LogStreamConfig, clock clock.Clock) (state.LogTailer, error) {
 	start, err := source.getStart(cfg.Sink, cfg.AllModels)
 	if err != nil {
 		return nil, errors.Annotate(err, "getting log start position")
@@ -134,6 +136,19 @@ func (eph logStreamEndpointHandler) newTailer(source logStreamSource, cfg params
 		return nil, errors.Annotate(err, "tailing logs")
 	}
 	return tailer, nil
+}
+
+// sendError sends a JSON-encoded error response.
+func (h *logStreamEndpointHandler) sendError(ws *websocket.Conn, req *http.Request, err error) {
+	// There is no need to log the error for normal operators as there is nothing
+	// they can action. This is for developers.
+	if err != nil && featureflag.Enabled(feature.DeveloperMode) {
+		logger.Errorf("returning error from %s %s: %s", req.Method, req.URL.Path, errors.Details(err))
+	}
+	if sendErr := sendInitialErrorV0(ws, err); sendErr != nil {
+		logger.Errorf("closing websocket, %v", err)
+		ws.Close()
+	}
 }
 
 // logStreamState is an implementation of logStreamSource.
@@ -180,15 +195,14 @@ func (st logStreamState) newTailer(args *state.LogTailerParams) (state.LogTailer
 }
 
 type logStreamRequestHandler struct {
+	conn          messageWriter
 	req           *http.Request
 	tailer        state.LogTailer
 	sendModelUUID bool
 	closer        closerFunc
-
-	stream *apiLogStream
 }
 
-func (rh *logStreamRequestHandler) serveWebsocket(conn *websocket.Conn, stream *apiLogStream, stop <-chan struct{}) {
+func (h *logStreamRequestHandler) serveWebsocket(stop <-chan struct{}) {
 	logger.Infof("log stream request handler starting")
 
 	// TODO(wallyworld) - we currently only send one record at a time, but the API allows for
@@ -197,12 +211,12 @@ func (rh *logStreamRequestHandler) serveWebsocket(conn *websocket.Conn, stream *
 		select {
 		case <-stop:
 			return
-		case rec, ok := <-rh.tailer.Logs():
+		case rec, ok := <-h.tailer.Logs():
 			if !ok {
-				logger.Errorf("tailer stopped: %v", rh.tailer.Err())
+				logger.Errorf("tailer stopped: %v", h.tailer.Err())
 				return
 			}
-			if err := stream.sendRecords([]*state.LogRecord{rec}, rh.sendModelUUID); err != nil {
+			if err := h.sendRecords([]*state.LogRecord{rec}, h.sendModelUUID); err != nil {
 				if isBrokenPipe(err) {
 					logger.Tracef("logstream handler stopped (client disconnected)")
 				} else {
@@ -213,59 +227,17 @@ func (rh *logStreamRequestHandler) serveWebsocket(conn *websocket.Conn, stream *
 	}
 }
 
-func (rh logStreamRequestHandler) close() {
-	rh.tailer.Stop()
-	rh.closer()
+func (h *logStreamRequestHandler) close() {
+	h.tailer.Stop()
+	h.closer()
 }
 
-func initStream(conn *websocket.Conn, initial error) (*apiLogStream, error) {
-	stream := &apiLogStream{
-		conn:  conn,
-		codec: websocket.JSON,
-	}
-	if err := stream.sendInitial(initial); err != nil {
-		return nil, errors.Trace(err)
-	}
-	return stream, nil
+func (h *logStreamRequestHandler) sendRecords(rec []*state.LogRecord, sendModelUUID bool) error {
+	apiRec := h.apiFromRecords(rec, sendModelUUID)
+	return errors.Trace(h.conn.WriteJSON(apiRec))
 }
 
-type apiLogStream struct {
-	conn  *websocket.Conn
-	codec websocket.Codec
-}
-
-func (als *apiLogStream) sendInitial(err error) error {
-	// The client is waiting for an indication that the stream
-	// is ready (or that it failed).
-	// See api/apiclient.go:readInitialStreamError().
-	initialCodec := websocket.Codec{
-		Marshal: func(v interface{}) (data []byte, payloadType byte, err error) {
-			data, payloadType, err = websocket.JSON.Marshal(v)
-			if err != nil {
-				return data, payloadType, err
-			}
-			// readInitialStreamError() looks for LF.
-			return append(data, '\n'), payloadType, nil
-		},
-	}
-	return initialCodec.Send(als.conn, &params.ErrorResult{
-		Error: common.ServerError(err),
-	})
-}
-
-func (als *apiLogStream) sendRecords(rec []*state.LogRecord, sendModelUUID bool) error {
-	apiRec := als.apiFromRecords(rec, sendModelUUID)
-	if err := als.send(apiRec); err != nil {
-		return errors.Trace(err)
-	}
-	return nil
-}
-
-func (als *apiLogStream) send(rec params.LogStreamRecords) error {
-	return als.codec.Send(als.conn, rec)
-}
-
-func (als *apiLogStream) apiFromRecords(records []*state.LogRecord, sendModelUUID bool) params.LogStreamRecords {
+func (h *logStreamRequestHandler) apiFromRecords(records []*state.LogRecord, sendModelUUID bool) params.LogStreamRecords {
 	var result params.LogStreamRecords
 	result.Records = make([]params.LogStreamRecord, len(records))
 	for i, rec := range records {

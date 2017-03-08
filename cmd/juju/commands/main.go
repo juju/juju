@@ -12,12 +12,16 @@ import (
 	"text/template"
 
 	"github.com/juju/cmd"
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/featureflag"
 	utilsos "github.com/juju/utils/os"
+	proxyutils "github.com/juju/utils/proxy"
 	"github.com/juju/utils/series"
 	"github.com/juju/version"
 
+	// Import the providers.
+	cloudfile "github.com/juju/juju/cloud"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/action"
 	"github.com/juju/juju/cmd/juju/application"
@@ -44,10 +48,9 @@ import (
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/jujuclient"
-	jujuversion "github.com/juju/juju/version"
-	// Import the providers.
-	cloudfile "github.com/juju/juju/cloud"
 	_ "github.com/juju/juju/provider/all"
+	"github.com/juju/juju/utils/proxy"
+	jujuversion "github.com/juju/juju/version"
 )
 
 var logger = loggo.GetLogger("juju.cmd.juju.commands")
@@ -141,6 +144,11 @@ func (m main) Run(args []string) int {
 		return 2
 	}
 
+	if err := installProxy(); err != nil {
+		fmt.Fprintf(os.Stderr, "error: %s\n", err)
+		return 2
+	}
+
 	if newInstall {
 		fmt.Fprintf(ctx.Stderr, "Since Juju %v is being run for the first time, downloading latest cloud information.\n", jujuversion.Current.Major)
 		updateCmd := cloud.NewUpdateCloudsCommand()
@@ -159,6 +167,18 @@ func (m main) Run(args []string) int {
 
 	jcmd := NewJujuCommand(ctx)
 	return cmd.Main(jcmd, ctx, args[1:])
+}
+
+func installProxy() error {
+	// Set the default transport to use the in-process proxy
+	// configuration.
+	if err := proxy.DefaultConfig.Set(proxyutils.DetectProxies()); err != nil {
+		return errors.Trace(err)
+	}
+	if err := proxy.DefaultConfig.InstallInDefaultTransport(); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }
 
 func (m main) maybeWarnJuju1x() (newInstall bool) {
@@ -364,10 +384,13 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 
 	// Manage storage
 	r.Register(storage.NewAddCommand())
+	r.Register(storage.NewAttachStorageCommandWithAPI())
 	r.Register(storage.NewListCommand())
 	r.Register(storage.NewPoolCreateCommand())
 	r.Register(storage.NewPoolListCommand())
 	r.Register(storage.NewShowCommand())
+	r.Register(storage.NewDetachStorageCommandWithAPI())
+	r.Register(storage.NewRemoveStorageCommandWithAPI())
 
 	// Manage spaces
 	r.Register(space.NewAddCommand())

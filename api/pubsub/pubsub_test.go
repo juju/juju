@@ -6,6 +6,7 @@ package pubsub_test
 import (
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"net/url"
 	"time"
@@ -118,14 +119,9 @@ func (s mockStream) ReadJSON(v interface{}) error {
 	return nil
 }
 
-func (s mockStream) Read([]byte) (int, error) {
-	s.conn.c.Errorf("Read called unexpectedly")
-	return 0, nil
-}
-
-func (s mockStream) Write([]byte) (int, error) {
-	s.conn.c.Errorf("Write called unexpectedly")
-	return 0, nil
+func (s mockStream) NextReader() (messageType int, r io.Reader, err error) {
+	s.conn.c.Errorf("NextReader called unexpectedly")
+	return 0, nil, nil
 }
 
 func (s mockStream) Close() error {
@@ -219,7 +215,7 @@ func (s *PubSubIntegrationSuite) TestMessages(c *gc.C) {
 	select {
 	case <-done:
 		// messages received
-	case <-time.After(coretesting.ShortWait):
+	case <-time.After(coretesting.LongWait):
 		c.Fatal("messages not received")
 	}
 	c.Assert(messages, jc.DeepEquals, []map[string]interface{}{first, second})

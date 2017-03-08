@@ -236,12 +236,14 @@ func (st *State) ModelsForUser(user names.UserTag) ([]*UserModel, error) {
 	var result []*UserModel
 	for _, doc := range userSlice {
 		modelTag := names.NewModelTag(doc.ObjectUUID)
-		env, err := st.GetModel(modelTag)
+		model, err := st.GetModel(modelTag)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 
-		result = append(result, &UserModel{Model: env, User: user})
+		if model.Life() != Dead && model.MigrationMode() != MigrationModeImporting {
+			result = append(result, &UserModel{Model: model, User: user})
+		}
 	}
 
 	return result, nil

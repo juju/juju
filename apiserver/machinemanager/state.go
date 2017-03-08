@@ -4,11 +4,12 @@
 package machinemanager
 
 import (
+	names "gopkg.in/juju/names.v2"
+
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
-	names "gopkg.in/juju/names.v2"
 )
 
 type stateInterface interface {

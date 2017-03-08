@@ -4,7 +4,8 @@
 package terminationworker
 
 import (
-	"github.com/juju/juju/worker"
+	worker "gopkg.in/juju/worker.v1"
+
 	"github.com/juju/juju/worker/dependency"
 )
 

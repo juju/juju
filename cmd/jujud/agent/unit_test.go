@@ -127,7 +127,7 @@ func (s *UnitSuite) TestParseNonsense(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 
 		err = coretesting.InitCommand(a, append(args, "--data-dir", "jc"))
-		c.Check(err, gc.ErrorMatches, `--unit-name option expects "<service>/<n>" argument`)
+		c.Check(err, gc.ErrorMatches, `--unit-name option expects "<application>/<n>" argument`)
 	}
 }
 

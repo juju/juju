@@ -4,6 +4,7 @@
 package storage
 
 import (
+	"fmt"
 	"io"
 
 	"github.com/juju/cmd"
@@ -24,7 +25,7 @@ func NewListCommand() cmd.Command {
 }
 
 const listCommandDoc = `
-List information about storage instances.
+List information about storage.
 `
 
 // listCommand returns storage instances.
@@ -37,17 +38,11 @@ type listCommand struct {
 	newAPIFunc func() (StorageListAPI, error)
 }
 
-// Init implements Command.Init.
-func (c *listCommand) Init(args []string) (err error) {
-	c.ids = args
-	return nil
-}
-
 // Info implements Command.Info.
 func (c *listCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "storage",
-		Args:    "<machineID> ...",
+		Args:    "<filesystem|volume> ...",
 		Purpose: "Lists storage details.",
 		Doc:     listCommandDoc,
 		Aliases: []string{"list-storage"},
@@ -62,8 +57,22 @@ func (c *listCommand) SetFlags(f *gnuflag.FlagSet) {
 		"json":    cmd.FormatJson,
 		"tabular": formatListTabular,
 	})
+	// TODO(axw) deprecate these flags, and introduce separate commands
+	// for listing just filesystems or volumes.
 	f.BoolVar(&c.filesystem, "filesystem", false, "List filesystem storage")
 	f.BoolVar(&c.volume, "volume", false, "List volume storage")
+}
+
+// Init implements Command.Init.
+func (c *listCommand) Init(args []string) (err error) {
+	if c.filesystem && c.volume {
+		return errors.New("--filesystem and --volume can not be used together")
+	}
+	if len(args) > 0 && !c.filesystem && !c.volume {
+		return errors.New("specifying IDs only supported with --filesystem and --volume flags")
+	}
+	c.ids = args
+	return nil
 }
 
 // Run implements Command.Run.
@@ -74,22 +83,47 @@ func (c *listCommand) Run(ctx *cmd.Context) (err error) {
 	}
 	defer api.Close()
 
-	var output interface{}
-	if c.filesystem {
-		output, err = c.generateListFilesystemsOutput(ctx, api)
-	} else if c.volume {
-		output, err = c.generateListVolumeOutput(ctx, api)
-	} else {
-		output, err = c.generateListOutput(ctx, api)
+	var wantStorage, wantVolumes, wantFilesystems bool
+	switch {
+	case c.filesystem:
+		wantFilesystems = true
+	case c.volume:
+		wantVolumes = true
+	default:
+		wantStorage = true
+		wantVolumes = true
+		wantFilesystems = true
 	}
-	if err != nil {
-		return err
+
+	var combined combinedStorage
+	if wantFilesystems {
+		filesystems, err := generateListFilesystemsOutput(ctx, api, c.ids)
+		if err != nil {
+			return err
+		}
+		combined.Filesystems = filesystems
 	}
-	if output == nil && c.out.Name() == "tabular" {
-		ctx.Infof("No storage to display.")
+	if wantVolumes {
+		volumes, err := generateListVolumeOutput(ctx, api, c.ids)
+		if err != nil {
+			return err
+		}
+		combined.Volumes = volumes
+	}
+	if wantStorage {
+		storageInstances, err := generateListStorageOutput(ctx, api)
+		if err != nil {
+			return err
+		}
+		combined.StorageInstances = storageInstances
+	}
+	if combined.empty() {
+		if c.out.Name() == "tabular" {
+			ctx.Infof("No storage to display.")
+		}
 		return nil
 	}
-	return c.out.Write(ctx, output)
+	return c.out.Write(ctx, combined)
 }
 
 // StorageAPI defines the API methods that the storage commands use.
@@ -100,9 +134,8 @@ type StorageListAPI interface {
 	ListVolumes(machines []string) ([]params.VolumeDetailsListResult, error)
 }
 
-// generateListOutput returns a map of storage details
-func (c *listCommand) generateListOutput(ctx *cmd.Context, api StorageListAPI) (output interface{}, err error) {
-
+// generateListStorageOutput returns a map of storage details
+func generateListStorageOutput(ctx *cmd.Context, api StorageListAPI) (map[string]StorageInfo, error) {
 	results, err := api.ListStorageDetails()
 	if err != nil {
 		return nil, err
@@ -110,31 +143,51 @@ func (c *listCommand) generateListOutput(ctx *cmd.Context, api StorageListAPI) (
 	if len(results) == 0 {
 		return nil, nil
 	}
-	details, err := formatStorageDetails(results)
-	if err != nil {
-		return nil, err
-	}
-	switch c.out.Name() {
-	case "yaml", "json":
-		output = map[string]map[string]StorageInfo{"storage": details}
-	default:
-		output = details
-	}
-	return output, nil
+	return formatStorageDetails(results)
+}
+
+type combinedStorage struct {
+	StorageInstances map[string]StorageInfo    `yaml:"storage,omitempty" json:"storage,omitempty"`
+	Filesystems      map[string]FilesystemInfo `yaml:"filesystems,omitempty" json:"filesystems,omitempty"`
+	Volumes          map[string]VolumeInfo     `yaml:"volumes,omitempty" json:"volumes,omitempty"`
+}
+
+func (c *combinedStorage) empty() bool {
+	return len(c.StorageInstances) == 0 && len(c.Filesystems) == 0 && len(c.Volumes) == 0
 }
 
 func formatListTabular(writer io.Writer, value interface{}) error {
-	switch value := value.(type) {
-	case map[string]StorageInfo:
-		return formatStorageListTabular(writer, value)
-
-	case map[string]FilesystemInfo:
-		return formatFilesystemListTabular(writer, value)
-
-	case map[string]VolumeInfo:
-		return formatVolumeListTabular(writer, value)
-
-	default:
-		return errors.Errorf("unexpected value of type %T", value)
+	combined := value.(combinedStorage)
+	var newline bool
+	if len(combined.StorageInstances) > 0 {
+		// If we're listing storage in tabular format, we combine all
+		// of the information into a list of "storage".
+		if err := formatStorageListTabular(
+			writer,
+			combined.StorageInstances,
+			combined.Filesystems,
+			combined.Volumes,
+		); err != nil {
+			return err
+		}
+		return nil
 	}
+	if len(combined.Filesystems) > 0 {
+		if newline {
+			fmt.Fprintln(writer)
+		}
+		if err := formatFilesystemListTabular(writer, combined.Filesystems); err != nil {
+			return err
+		}
+		newline = true
+	}
+	if len(combined.Volumes) > 0 {
+		if newline {
+			fmt.Fprintln(writer)
+		}
+		if err := formatVolumeListTabular(writer, combined.Volumes); err != nil {
+			return err
+		}
+	}
+	return nil
 }

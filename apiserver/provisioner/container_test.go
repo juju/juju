@@ -5,7 +5,6 @@ package provisioner_test
 
 import (
 	jc "github.com/juju/testing/checkers"
-
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/params"
@@ -44,7 +43,7 @@ func (s *containerProvisionerSuite) TestPrepareContainerInterfaceInfoPermission(
 	addContainerToMachine(c, s.State, s.machines[2])
 
 	anAuthorizer := s.authorizer
-	anAuthorizer.EnvironManager = false
+	anAuthorizer.Controller = false
 	anAuthorizer.Tag = s.machines[1].Tag()
 	aProvisioner, err := provisioner.NewProvisionerAPI(s.State, s.resources, anAuthorizer)
 	c.Assert(err, jc.ErrorIsNil)
@@ -92,7 +91,7 @@ func (s *containerProvisionerSuite) TestHostChangesForContainersPermission(c *gc
 	addContainerToMachine(c, s.State, s.machines[2])
 
 	anAuthorizer := s.authorizer
-	anAuthorizer.EnvironManager = false
+	anAuthorizer.Controller = false
 	anAuthorizer.Tag = s.machines[1].Tag()
 	aProvisioner, err := provisioner.NewProvisionerAPI(s.State, s.resources, anAuthorizer)
 	c.Assert(err, jc.ErrorIsNil)

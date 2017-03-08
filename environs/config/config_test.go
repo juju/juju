@@ -1062,7 +1062,7 @@ func (s *ConfigSuite) TestProxyValuesNotSet(c *gc.C) {
 	c.Assert(config.AptHTTPSProxy(), gc.Equals, "")
 	c.Assert(config.FTPProxy(), gc.Equals, "")
 	c.Assert(config.AptFTPProxy(), gc.Equals, "")
-	c.Assert(config.NoProxy(), gc.Equals, "")
+	c.Assert(config.NoProxy(), gc.Equals, "127.0.0.1,localhost,::1")
 }
 
 func (s *ConfigSuite) TestProxyConfigMap(c *gc.C) {
@@ -1098,7 +1098,7 @@ func (s *ConfigSuite) TestAptProxyConfigMap(c *gc.C) {
 	cfg, err := cfg.Apply(config.AptProxyConfigMap(proxySettings))
 	c.Assert(err, jc.ErrorIsNil)
 	// The default proxy settings should still be empty.
-	c.Assert(cfg.ProxySettings(), gc.DeepEquals, proxy.Settings{})
+	c.Assert(cfg.ProxySettings(), gc.DeepEquals, proxy.Settings{NoProxy: "127.0.0.1,localhost,::1"})
 	c.Assert(cfg.AptProxySettings(), gc.DeepEquals, proxySettings)
 }
 

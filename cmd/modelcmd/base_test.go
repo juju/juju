@@ -6,11 +6,10 @@ package modelcmd_test
 import (
 	"strings"
 
-	gc "gopkg.in/check.v1"
-
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"

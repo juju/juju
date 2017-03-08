@@ -35,13 +35,13 @@ func (*undertakerSuite) TestRequiresModelManager(c *gc.C) {
 	_, err := machineundertaker.NewAPI(
 		backend,
 		nil,
-		apiservertesting.FakeAuthorizer{EnvironManager: false},
+		apiservertesting.FakeAuthorizer{Controller: false},
 	)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 	_, err = machineundertaker.NewAPI(
 		backend,
 		nil,
-		apiservertesting.FakeAuthorizer{EnvironManager: true},
+		apiservertesting.FakeAuthorizer{Controller: true},
 	)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -225,8 +225,8 @@ func makeAPI(c *gc.C, modelUUID string) (*mockBackend, *common.Resources, *machi
 		backend,
 		res,
 		apiservertesting.FakeAuthorizer{
-			EnvironManager: true,
-			ModelUUID:      modelUUID,
+			Controller: true,
+			ModelUUID:  modelUUID,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)

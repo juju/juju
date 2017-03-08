@@ -8,6 +8,7 @@ import (
 	"time"
 
 	wireformat "github.com/juju/romulus/wireformat/metrics"
+	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
@@ -17,7 +18,6 @@ import (
 	jujujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing/factory"
-	jujutesting "github.com/juju/testing"
 )
 
 type MetricSenderSuite struct {

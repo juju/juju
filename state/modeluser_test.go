@@ -391,6 +391,34 @@ func (s *ModelUserSuite) TestModelsForUser(c *gc.C) {
 	c.Assert(st.Close(), jc.ErrorIsNil)
 }
 
+func (s *ModelUserSuite) TestDeadModelsForUser(c *gc.C) {
+	user := s.Factory.MakeUser(c, nil)
+	models, err := s.State.ModelsForUser(user.UserTag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(models, gc.HasLen, 1)
+	c.Assert(models[0].UUID(), gc.Equals, s.State.ModelUUID())
+
+	err = state.SetModelLifeDead(s.State, models[0].UUID())
+	c.Assert(err, jc.ErrorIsNil)
+	models, err = s.State.ModelsForUser(user.UserTag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(models, gc.HasLen, 0)
+}
+
+func (s *ModelUserSuite) TestImportingModelsForUser(c *gc.C) {
+	user := s.Factory.MakeUser(c, nil)
+	models, err := s.State.ModelsForUser(user.UserTag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(models, gc.HasLen, 1)
+	c.Assert(models[0].UUID(), gc.Equals, s.State.ModelUUID())
+
+	err = models[0].SetMigrationMode(state.MigrationModeImporting)
+	c.Assert(err, jc.ErrorIsNil)
+	models, err = s.State.ModelsForUser(user.UserTag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(models, gc.HasLen, 0)
+}
+
 func (s *ModelUserSuite) newEnvWithOwner(c *gc.C, name string, owner names.UserTag) *state.Model {
 	// Don't use the factory to call MakeModel because it may at some
 	// time in the future be modified to do additional things.  Instead call

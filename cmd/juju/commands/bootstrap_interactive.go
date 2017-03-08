@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/juju/interact"

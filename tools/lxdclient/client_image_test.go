@@ -33,7 +33,7 @@ func (s *imageSuite) SetUpTest(c *gc.C) {
 		stub: s.Stub,
 		url:  "https://match",
 		aliases: map[string]string{
-			"trusty": "trusty-alias",
+			"trusty/amd64": "trusty-fingerprint",
 		},
 	}
 	s.remoteWithNothing = &stubRemoteClient{
@@ -127,19 +127,30 @@ func (s *stubConnector) connectToSource(remote Remote) (remoteClient, error) {
 }
 
 func (s *imageSuite) TestEnsureImageExistsAlreadyPresent(c *gc.C) {
+	s.testEnsureImageExistsAlreadyPresent(c, "trusty", "ppc64el", "juju/trusty/ppc64el")
+	s.testEnsureImageExistsAlreadyPresent(c, "centos7", "ppc64el", "juju/centos7/ppc64el")
+}
+
+func (s *imageSuite) testEnsureImageExistsAlreadyPresent(c *gc.C, series, arch, localAlias string) {
 	connector := MakeConnector(s.Stub, s.remoteWithTrusty)
 	raw := &stubClient{
-		stub: s.Stub,
-		Aliases: map[string]string{
-			"ubuntu-trusty": "dead-beef",
-		},
+		stub:    s.Stub,
+		Aliases: map[string]string{localAlias: "dead-beef"},
 	}
 	client := &imageClient{
 		raw:             raw,
 		connectToSource: connector.connectToSource,
 	}
-	err := client.EnsureImageExists("trusty", []Remote{s.remoteWithTrusty.AsRemote()}, nil)
+	s.Stub.ResetCalls()
+	image, err := client.EnsureImageExists(series, arch, []Remote{s.remoteWithTrusty.AsRemote()}, nil)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(image, gc.Equals, localAlias)
+	s.Stub.CheckCalls(c, []testing.StubCall{
+		{ // Check if we have the image already (we do)
+			FuncName: "GetAlias",
+			Args:     []interface{}{localAlias},
+		},
+	})
 }
 
 func (s *imageSuite) TestEnsureImageExistsFirstRemote(c *gc.C) {
@@ -155,26 +166,30 @@ func (s *imageSuite) TestEnsureImageExistsFirstRemote(c *gc.C) {
 	}
 	remotes := []Remote{s.remoteWithTrusty.AsRemote()}
 	s.Stub.ResetCalls()
-	err := client.EnsureImageExists("trusty", remotes, nil)
+	_, err := client.EnsureImageExists("trusty", "amd64", remotes, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	// We didn't find it locally
 	s.Stub.CheckCalls(c, []testing.StubCall{
+		{ // Check if we have the image already (we don't)
+			FuncName: "GetAlias",
+			Args:     []interface{}{"juju/trusty/amd64"},
+		},
 		{ // We didn't so connect to the first remote
 			FuncName: "connectToSource",
 			Args:     []interface{}{"https://match"},
 		},
 		{ // And check if it has trusty (which it should)
 			FuncName: "GetAlias",
-			Args:     []interface{}{"trusty"},
+			Args:     []interface{}{"trusty/amd64"},
 		},
 		{ // So Copy the Image
 			FuncName: "CopyImage",
-			Args:     []interface{}{"trusty", []string{"ubuntu-trusty"}},
+			Args:     []interface{}{"trusty/amd64", []string{"juju/trusty/amd64"}},
 		},
 	})
 	// We've updated the aliases
 	c.Assert(raw.Aliases, gc.DeepEquals, map[string]string{
-		"ubuntu-trusty": "trusty",
+		"juju/trusty/amd64": "trusty/amd64",
 	})
 }
 
@@ -194,12 +209,16 @@ func (s *imageSuite) TestEnsureImageExistsUnableToConnect(c *gc.C) {
 		Protocol: SimplestreamsProtocol,
 	}
 	s.Stub.ResetCalls()
-	s.Stub.SetErrors(errors.Errorf("unable-to-connect"))
+	s.Stub.SetErrors(nil, errors.Errorf("unable-to-connect"))
 	remotes := []Remote{badRemote, s.remoteWithTrusty.AsRemote()}
-	err := client.EnsureImageExists("trusty", remotes, nil)
+	_, err := client.EnsureImageExists("trusty", "amd64", remotes, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	// We didn't find it locally
 	s.Stub.CheckCalls(c, []testing.StubCall{
+		{ // Check if we have the image already (we don't)
+			FuncName: "GetAlias",
+			Args:     []interface{}{"juju/trusty/amd64"},
+		},
 		{ // We didn't so connect to the first remote
 			FuncName: "connectToSource",
 			Args:     []interface{}{"https://nosuch-remote.invalid"},
@@ -210,16 +229,16 @@ func (s *imageSuite) TestEnsureImageExistsUnableToConnect(c *gc.C) {
 		},
 		{ // And check if it has trusty (which it should)
 			FuncName: "GetAlias",
-			Args:     []interface{}{"trusty"},
+			Args:     []interface{}{"trusty/amd64"},
 		},
 		{ // So Copy the Image
 			FuncName: "CopyImage",
-			Args:     []interface{}{"trusty", []string{"ubuntu-trusty"}},
+			Args:     []interface{}{"trusty/amd64", []string{"juju/trusty/amd64"}},
 		},
 	})
 	// We've updated the aliases
 	c.Assert(raw.Aliases, gc.DeepEquals, map[string]string{
-		"ubuntu-trusty": "trusty",
+		"juju/trusty/amd64": "trusty/amd64",
 	})
 }
 
@@ -236,17 +255,21 @@ func (s *imageSuite) TestEnsureImageExistsNotPresentInFirstRemote(c *gc.C) {
 	}
 	s.Stub.ResetCalls()
 	remotes := []Remote{s.remoteWithNothing.AsRemote(), s.remoteWithTrusty.AsRemote()}
-	err := client.EnsureImageExists("trusty", remotes, nil)
+	_, err := client.EnsureImageExists("trusty", "amd64", remotes, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	// We didn't find it locally
 	s.Stub.CheckCalls(c, []testing.StubCall{
+		{ // Lookup the alias locally
+			FuncName: "GetAlias",
+			Args:     []interface{}{"juju/trusty/amd64"},
+		},
 		{ // We didn't so connect to the first remote
 			FuncName: "connectToSource",
 			Args:     []interface{}{s.remoteWithNothing.URL()},
 		},
-		{ // Lookup the Alias
+		{ // Lookup the alias in the remote
 			FuncName: "GetAlias",
-			Args:     []interface{}{"trusty"},
+			Args:     []interface{}{"trusty/amd64"},
 		},
 		{ // It wasn't found, so connect to second and look there
 			FuncName: "connectToSource",
@@ -254,16 +277,16 @@ func (s *imageSuite) TestEnsureImageExistsNotPresentInFirstRemote(c *gc.C) {
 		},
 		{ // And check if it has trusty (which it should)
 			FuncName: "GetAlias",
-			Args:     []interface{}{"trusty"},
+			Args:     []interface{}{"trusty/amd64"},
 		},
 		{ // So Copy the Image
 			FuncName: "CopyImage",
-			Args:     []interface{}{"trusty", []string{"ubuntu-trusty"}},
+			Args:     []interface{}{"trusty/amd64", []string{"juju/trusty/amd64"}},
 		},
 	})
 	// We've updated the aliases
 	c.Assert(raw.Aliases, gc.DeepEquals, map[string]string{
-		"ubuntu-trusty": "trusty",
+		"juju/trusty/amd64": "trusty/amd64",
 	})
 }
 
@@ -286,11 +309,11 @@ func (s *imageSuite) TestEnsureImageExistsCallbackIncludesSourceURL(c *gc.C) {
 		connectToSource: connector.connectToSource,
 	}
 	remotes := []Remote{s.remoteWithTrusty.AsRemote()}
-	err := client.EnsureImageExists("trusty", remotes, callback)
+	_, err := client.EnsureImageExists("trusty", "amd64", remotes, callback)
 	c.Assert(err, jc.ErrorIsNil)
 	select {
 	case message := <-calls:
-		c.Check(message, gc.Matches, "copying image for ubuntu-trusty from https://match: \\d+%")
+		c.Check(message, gc.Matches, "copying image for juju/trusty/amd64 from https://match: \\d+%")
 	case <-time.After(coretesting.LongWait):
 		// The callbacks are made asynchronously, and so may not
 		// have happened by the time EnsureImageExists exits.

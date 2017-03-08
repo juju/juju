@@ -6,8 +6,10 @@ package imagemetadataworker
 import (
 	"time"
 
+	"gopkg.in/juju/worker.v1"
+
 	"github.com/juju/juju/api/imagemetadata"
-	"github.com/juju/juju/worker"
+	jworker "github.com/juju/juju/worker"
 )
 
 // updatePublicImageMetadataPeriod is how frequently we check for
@@ -21,5 +23,5 @@ func NewWorker(cl *imagemetadata.Client) worker.Worker {
 	f := func(stop <-chan struct{}) error {
 		return cl.UpdateFromPublishedImages()
 	}
-	return worker.NewPeriodicWorker(f, updatePublicImageMetadataPeriod, worker.NewTimer)
+	return jworker.NewPeriodicWorker(f, updatePublicImageMetadataPeriod, jworker.NewTimer)
 }

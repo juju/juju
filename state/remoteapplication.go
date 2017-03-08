@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/errors"
 	jujutxn "github.com/juju/txn"
+	"github.com/juju/utils/set"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
@@ -288,6 +289,95 @@ func (s *RemoteApplication) Endpoint(relationName string) (Endpoint, error) {
 		}
 	}
 	return Endpoint{}, fmt.Errorf("remote application %q has no %q relation", s, relationName)
+}
+
+// AddEndpoints adds the specified endpoints to the remote application.
+// If an endpoint with the same name already exists, an error is returned.
+// If the endpoints change during the update, the operation is retried.
+func (s *RemoteApplication) AddEndpoints(eps []charm.Relation) error {
+	newEps := make([]remoteEndpointDoc, len(eps))
+	for i, ep := range eps {
+		newEps[i] = remoteEndpointDoc{
+			Name:      ep.Name,
+			Role:      ep.Role,
+			Interface: ep.Interface,
+			Limit:     ep.Limit,
+			Scope:     ep.Scope,
+		}
+	}
+
+	model, err := s.st.Model()
+	if err != nil {
+		return errors.Trace(err)
+	} else if model.Life() != Alive {
+		return errors.Errorf("model is no longer alive")
+	}
+
+	checkCompatibleEndpoints := func(currentEndpoints []Endpoint) error {
+		// Ensure there are no current endpoints with the same name as
+		// any of those we want to update.
+		currentEndpointNames := set.NewStrings()
+		for _, ep := range currentEndpoints {
+			currentEndpointNames.Add(ep.Name)
+		}
+		for _, r := range eps {
+			if currentEndpointNames.Contains(r.Name) {
+				return errors.AlreadyExistsf("endpoint %v", r.Name)
+			}
+		}
+		return nil
+	}
+
+	currentEndpoints, err := s.Endpoints()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if err := checkCompatibleEndpoints(currentEndpoints); err != nil {
+		return err
+	}
+	applicationID := s.st.docID(s.Name())
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		// If we've tried once already and failed, check that
+		// model may have been destroyed.
+		if attempt > 0 {
+			if err := checkModelActive(s.st); err != nil {
+				return nil, errors.Trace(err)
+			}
+			if err = s.Refresh(); err != nil {
+				return nil, errors.Trace(err)
+			}
+			currentEndpoints, err = s.Endpoints()
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			if err := checkCompatibleEndpoints(currentEndpoints); err != nil {
+				return nil, err
+			}
+		}
+		ops := []txn.Op{
+			model.assertActiveOp(),
+			{
+				C:  remoteApplicationsC,
+				Id: applicationID,
+				Assert: bson.D{
+					{"endpoints", bson.D{{
+						"$not", bson.D{{
+							"$elemMatch", bson.D{{
+								"$in", newEps}},
+						}},
+					}}},
+				},
+				Update: bson.D{
+					{"$addToSet", bson.D{{"endpoints", bson.D{{"$each", newEps}}}}},
+				},
+			},
+		}
+		return ops, nil
+	}
+	if err := s.st.run(buildTxn); err != nil {
+		return errors.Trace(err)
+	}
+	return s.Refresh()
 }
 
 // String returns the application name.

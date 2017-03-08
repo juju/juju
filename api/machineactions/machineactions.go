@@ -8,11 +8,12 @@ package machineactions
 
 import (
 	"github.com/juju/errors"
+	"gopkg.in/juju/names.v2"
+
 	"github.com/juju/juju/api/base"
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/watcher"
-	"gopkg.in/juju/names.v2"
 )
 
 type Client struct {

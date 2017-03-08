@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/utils/set"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
@@ -16,6 +17,7 @@ import (
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/environs/config"
 )
 
 var upgradesLogger = loggo.GetLogger("juju.state.upgrade")
@@ -460,4 +462,173 @@ func updateLegacyLXDCredentialsOps(st *State, cred cloud.Credential) ([]txn.Op, 
 		return nil, errors.Trace(err)
 	}
 	return ops, nil
+}
+
+func upgradeNoProxy(np string) string {
+	if np == "" {
+		return "127.0.0.1,localhost,::1"
+	}
+	nps := set.NewStrings("127.0.0.1", "localhost", "::1")
+	for _, i := range strings.Split(np, ",") {
+		nps.Add(i)
+	}
+	// sorting is not a big overhead in this case and eases testing.
+	return strings.Join(nps.SortedValues(), ",")
+}
+
+// UpgradeNoProxyDefaults changes the default values of no_proxy
+// to hold localhost values as defaults.
+func UpgradeNoProxyDefaults(st *State) error {
+	var ops []txn.Op
+	coll, closer := st.getRawCollection(settingsC)
+	defer closer()
+	iter := coll.Find(bson.D{}).Iter()
+	var doc settingsDoc
+	for iter.Next(&doc) {
+		noProxyVal := doc.Settings[config.NoProxyKey]
+		noProxy, ok := noProxyVal.(string)
+		if !ok {
+			continue
+		}
+		noProxy = upgradeNoProxy(noProxy)
+		doc.Settings[config.NoProxyKey] = noProxy
+		ops = append(ops,
+			txn.Op{
+				C:      settingsC,
+				Id:     doc.DocID,
+				Assert: txn.DocExists,
+				Update: bson.M{"$set": bson.M{"settings": doc.Settings}},
+			})
+	}
+	if len(ops) > 0 {
+		return errors.Trace(st.runRawTransaction(ops))
+	}
+	return nil
+}
+
+// AddNonDetachableStorageMachineId sets the "machineid" field on
+// volume and filesystem docs that are inherently bound to that
+// machine.
+func AddNonDetachableStorageMachineId(st *State) error {
+	return runForAllModelStates(st, addNonDetachableStorageMachineId)
+}
+
+func addNonDetachableStorageMachineId(st *State) error {
+	var ops []txn.Op
+	volumes, err := st.volumes(
+		bson.D{{"machineid", bson.D{{"$exists", false}}}},
+	)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	for _, v := range volumes {
+		var pool string
+		if v.doc.Info != nil {
+			pool = v.doc.Info.Pool
+		} else if v.doc.Params != nil {
+			pool = v.doc.Params.Pool
+		}
+		detachable, err := isDetachableVolumePool(st, pool)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if detachable {
+			continue
+		}
+		attachments, err := st.VolumeAttachments(v.VolumeTag())
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if len(attachments) != 1 {
+			// There should be exactly one attachment since the
+			// filesystem is non-detachable, but be defensive
+			// and leave the document alone if our expectations
+			// are not met.
+			continue
+		}
+		machineId := attachments[0].Machine().Id()
+		ops = append(ops, txn.Op{
+			C:      volumesC,
+			Id:     v.doc.Name,
+			Assert: txn.DocExists,
+			Update: bson.D{{"$set", bson.D{
+				{"machineid", machineId},
+			}}},
+		})
+	}
+	filesystems, err := st.filesystems(
+		bson.D{{"machineid", bson.D{{"$exists", false}}}},
+	)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	for _, f := range filesystems {
+		var pool string
+		if f.doc.Info != nil {
+			pool = f.doc.Info.Pool
+		} else if f.doc.Params != nil {
+			pool = f.doc.Params.Pool
+		}
+		if detachable, err := isDetachableFilesystemPool(st, pool); err != nil {
+			return errors.Trace(err)
+		} else if detachable {
+			continue
+		}
+		attachments, err := st.FilesystemAttachments(f.FilesystemTag())
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if len(attachments) != 1 {
+			// There should be exactly one attachment since the
+			// filesystem is non-detachable, but be defensive
+			// and leave the document alone if our expectations
+			// are not met.
+			continue
+		}
+		machineId := attachments[0].Machine().Id()
+		ops = append(ops, txn.Op{
+			C:      filesystemsC,
+			Id:     f.doc.DocID,
+			Assert: txn.DocExists,
+			Update: bson.D{{"$set", bson.D{
+				{"machineid", machineId},
+			}}},
+		})
+	}
+	if len(ops) > 0 {
+		return errors.Trace(st.runTransaction(ops))
+	}
+	return nil
+}
+
+// RemoveNilValueApplicationSettings removes any application setting
+// key-value pairs from "settings" where value is nil.
+func RemoveNilValueApplicationSettings(st *State) error {
+	coll, closer := st.getRawCollection(settingsC)
+	defer closer()
+	iter := coll.Find(bson.M{"_id": bson.M{"$regex": "^.*:a#.*"}}).Iter()
+	var ops []txn.Op
+	var doc settingsDoc
+	for iter.Next(&doc) {
+		settingsChanged := false
+		for key, value := range doc.Settings {
+			if value != nil {
+				continue
+			}
+			settingsChanged = true
+			delete(doc.Settings, key)
+		}
+		if settingsChanged {
+			ops = append(ops, txn.Op{
+				C:      settingsC,
+				Id:     doc.DocID,
+				Assert: txn.DocExists,
+				Update: bson.M{"$set": bson.M{"settings": doc.Settings}},
+			})
+		}
+	}
+	if len(ops) > 0 {
+		return errors.Trace(st.runRawTransaction(ops))
+	}
+	return nil
 }

@@ -13,6 +13,7 @@ import (
 	"github.com/juju/mutex"
 	"github.com/juju/utils/clock"
 	"gopkg.in/juju/names.v2"
+	worker "gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/common"
@@ -27,7 +28,6 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/watcher"
-	"github.com/juju/juju/worker"
 )
 
 var (
@@ -39,7 +39,7 @@ var (
 // are created on the given machine. It will set up the machine to be able
 // to create containers and start a suitable provisioner.
 type ContainerSetup struct {
-	runner              worker.Runner
+	runner              *worker.Runner
 	supportedContainers []instance.ContainerType
 	provisioner         *apiprovisioner.State
 	machine             *apiprovisioner.Machine
@@ -58,7 +58,7 @@ type ContainerSetup struct {
 
 // ContainerSetupParams are used to initialise a container setup handler.
 type ContainerSetupParams struct {
-	Runner              worker.Runner
+	Runner              *worker.Runner
 	WorkerName          string
 	SupportedContainers []instance.ContainerType
 	Machine             *apiprovisioner.Machine
@@ -185,6 +185,20 @@ func (cs *ContainerSetup) runInitialiser(abort <-chan struct{}, containerType in
 		return errors.Trace(err)
 	}
 
+	// At this point, Initialiser likely has changed host network information,
+	// so reprobe to have an accurate view.
+	observedConfig, err := observeNetwork()
+	if err != nil {
+		return errors.Annotate(err, "cannot discover observed network config")
+	}
+	if len(observedConfig) > 0 {
+		machineTag := cs.machine.MachineTag()
+		logger.Tracef("updating observed network config for %q %s containers to %#v", machineTag, containerType, observedConfig)
+		if err := cs.provisioner.SetHostMachineNetworkConfig(machineTag, observedConfig); err != nil {
+			return errors.Trace(err)
+		}
+	}
+
 	return nil
 }
 
@@ -194,54 +208,33 @@ func (cs *ContainerSetup) TearDown() error {
 	return nil
 }
 
+// getObservedNetworkConfig is here to allow us to override it for testing.
+// TODO(jam): Find a way to pass it into ContainerSetup instead of a global variable
+var getObservedNetworkConfig = common.GetObservedNetworkConfig
+
+func observeNetwork() ([]params.NetworkConfig, error) {
+	return getObservedNetworkConfig(common.DefaultNetworkConfigSource())
+}
+
+func defaultBridger() (network.Bridger, error) {
+	return network.DefaultEtcNetworkInterfacesBridger(activateBridgesTimeout, instancecfg.DefaultBridgePrefix, systemNetworkInterfacesFile)
+}
+
 func (cs *ContainerSetup) prepareHost(containerTag names.MachineTag, log loggo.Logger) error {
-	devicesToBridge, reconfigureDelay, err := cs.provisioner.HostChangesForContainer(containerTag)
-	if err != nil {
-		return errors.Annotate(err, "unable to setup network")
-	}
-
-	if len(devicesToBridge) == 0 {
-		log.Debugf("container %q requires no additional bridges", containerTag)
-		return nil
-	}
-
-	bridger, err := network.DefaultEtcNetworkInterfacesBridger(activateBridgesTimeout, instancecfg.DefaultBridgePrefix, systemNetworkInterfacesFile)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	log.Debugf("Bridging %+v devices on host %q with delay=%v, acquiring lock %q",
-		devicesToBridge, cs.machine.MachineTag().String(), reconfigureDelay, cs.initLockName)
-	// TODO(jam): 2017-02-08 figure out how to thread catacomb.Dying() into
-	// this function, so that we can stop trying to acquire the lock if we are
-	// stopping.
-	releaser, err := cs.acquireLock(nil)
-	if err != nil {
-		return errors.Annotatef(err, "failed to acquire lock %q for bridging", cs.initLockName)
-	}
-	defer log.Debugf("releasing lock %q for bridging", cs.initLockName)
-	defer releaser.Release()
-	err = bridger.Bridge(devicesToBridge, reconfigureDelay)
-	if err != nil {
-		return errors.Annotate(err, "failed to bridge devices")
-	}
-
-	// We just changed the hosts' network setup so discover new
-	// interfaces/devices and propagate to state.
-	observedConfig, err := getObservedNetworkConfig(common.DefaultNetworkConfigSource())
-	if err != nil {
-		return errors.Annotate(err, "cannot discover observed network config")
-	}
-
-	if len(observedConfig) > 0 {
-		err := cs.provisioner.SetHostMachineNetworkConfig(cs.machine.MachineTag(), observedConfig)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		logger.Debugf("observed network config updated")
-	}
-
-	return nil
+	preparer := NewHostPreparer(HostPreparerParams{
+		API:                cs.provisioner,
+		ObserveNetworkFunc: observeNetwork,
+		LockName:           cs.initLockName,
+		AcquireLockFunc:    cs.acquireLock,
+		CreateBridger:      defaultBridger,
+		// TODO(jam): 2017-02-08 figure out how to thread catacomb.Dying() into
+		// this function, so that we can stop trying to acquire the lock if we
+		// are stopping.
+		AbortChan:  nil,
+		MachineTag: cs.machine.MachineTag(),
+		Logger:     log,
+	})
+	return preparer.Prepare(containerTag)
 }
 
 // getContainerArtifacts returns type-specific interfaces for
@@ -265,19 +258,17 @@ func (cs *ContainerSetup) getContainerArtifacts(
 		return nil, nil, nil, err
 	}
 
-	bridger, err := network.DefaultEtcNetworkInterfacesBridger(activateBridgesTimeout, instancecfg.DefaultBridgePrefix, systemNetworkInterfacesFile)
-	if err != nil {
-		return nil, nil, nil, err
-	}
-
 	switch containerType {
 	case instance.KVM:
-		broker, err = NewKvmBroker(
-			bridger,
-			cs.machine.MachineTag(),
+		manager, err := kvm.NewContainerManager(managerConfig)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		broker, err = NewKVMBroker(
+			cs.prepareHost,
 			cs.provisioner,
+			manager,
 			cs.config,
-			managerConfig,
 		)
 		if err != nil {
 			logger.Errorf("failed to create new kvm broker")
@@ -340,7 +331,7 @@ var StartProvisioner = startProvisionerWorker
 // startProvisionerWorker kicks off a provisioner task responsible for creating containers
 // of the specified type on the machine.
 func startProvisionerWorker(
-	runner worker.Runner,
+	runner *worker.Runner,
 	containerType instance.ContainerType,
 	provisioner *apiprovisioner.State,
 	config agent.Config,

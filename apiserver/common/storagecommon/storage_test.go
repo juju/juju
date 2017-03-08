@@ -149,6 +149,15 @@ func (s *storageAttachmentInfoSuite) TestStorageAttachmentInfoNoBlockDevice(c *g
 	s.st.CheckCallNames(c, "StorageInstance", "StorageInstanceVolume", "VolumeAttachment", "BlockDevices")
 }
 
+func (s *storageAttachmentInfoSuite) TestStorageAttachmentInfoVolumeNotFound(c *gc.C) {
+	s.st.storageInstanceVolume = func(tag names.StorageTag) (state.Volume, error) {
+		return nil, errors.NotFoundf("volume for storage %s", tag.Id())
+	}
+	_, err := storagecommon.StorageAttachmentInfo(s.st, s.storageAttachment, s.machineTag)
+	c.Assert(err, jc.Satisfies, errors.IsNotProvisioned)
+	s.st.CheckCallNames(c, "StorageInstance", "StorageInstanceVolume")
+}
+
 type watchStorageAttachmentSuite struct {
 	storageTag               names.StorageTag
 	machineTag               names.MachineTag

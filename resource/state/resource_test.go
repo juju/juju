@@ -13,6 +13,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 	"gopkg.in/juju/names.v2"
@@ -20,7 +21,6 @@ import (
 
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/resourcetesting"
-	"github.com/juju/utils/clock"
 )
 
 var _ = gc.Suite(&ResourceSuite{})

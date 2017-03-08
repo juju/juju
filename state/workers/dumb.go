@@ -6,8 +6,8 @@ package workers
 import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"gopkg.in/juju/worker.v1"
 
-	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/catacomb"
 )
 

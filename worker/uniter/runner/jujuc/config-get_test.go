@@ -133,7 +133,7 @@ func (s *ConfigGetSuite) TestHelp(c *gc.C) {
 	c.Assert(bufferString(ctx.Stdout), gc.Equals, `Usage: config-get [options] [<key>]
 
 Summary:
-print service configuration
+print application configuration
 
 Options:
 -a, --all  (= false)

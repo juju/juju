@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/dustin/go-humanize"
+
 	"github.com/juju/juju/cmd/output"
 )
 
@@ -20,6 +21,7 @@ func formatFilesystemListTabular(writer io.Writer, infos map[string]FilesystemIn
 	print := func(values ...string) {
 		fmt.Fprintln(tw, strings.Join(values, "\t"))
 	}
+	print("[Filesystems]")
 	print("Machine", "Unit", "Storage", "Id", "Volume", "Provider id", "Mountpoint", "Size", "State", "Message")
 
 	filesystemAttachmentInfos := make(filesystemAttachmentInfos, 0, len(infos))

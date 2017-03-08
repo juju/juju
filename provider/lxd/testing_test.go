@@ -8,12 +8,14 @@ package lxd
 import (
 	"net"
 	"os"
+	"path"
 
 	"github.com/juju/errors"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
-	"github.com/lxc/lxd/shared"
+	"github.com/juju/version"
+	"github.com/lxc/lxd/shared/api"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
@@ -28,7 +30,6 @@ import (
 	"github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/tools/lxdclient"
-	"github.com/juju/version"
 )
 
 // Ensure LXD provider supports the expected interfaces.
@@ -110,6 +111,7 @@ type BaseSuiteUnpatched struct {
 
 	Rules          []network.IngressRule
 	EndpointAddrs  []string
+	InterfaceAddr  string
 	InterfaceAddrs []net.Addr
 }
 
@@ -138,6 +140,7 @@ func (s *BaseSuiteUnpatched) SetUpTest(c *gc.C) {
 func (s *BaseSuiteUnpatched) initProvider(c *gc.C) {
 	s.Provider = &environProvider{}
 	s.EndpointAddrs = []string{"1.2.3.4"}
+	s.InterfaceAddr = "1.2.3.4"
 	s.InterfaceAddrs = []net.Addr{
 		&net.IPNet{IP: net.ParseIP("127.0.0.1")},
 		&net.IPNet{IP: net.ParseIP("1.2.3.4")},
@@ -324,7 +327,17 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	s.BaseSuiteUnpatched.SetUpTest(c)
 
 	s.Stub = &gitjujutesting.Stub{}
-	s.Client = &StubClient{Stub: s.Stub}
+	s.Client = &StubClient{
+		Stub: s.Stub,
+		Server: &api.Server{
+			ServerPut: api.ServerPut{
+				Config: map[string]interface{}{},
+			},
+			Environment: api.ServerEnvironment{
+				Certificate: "server-cert",
+			},
+		},
+	}
 	s.Firewaller = &stubFirewaller{stub: s.Stub}
 	s.Common = &stubCommon{stub: s.Stub}
 
@@ -335,6 +348,7 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 		lxdInstances: s.Client,
 		lxdProfiles:  s.Client,
 		lxdImages:    s.Client,
+		lxdStorage:   s.Client,
 		Firewaller:   s.Firewaller,
 		remote: lxdclient.Remote{
 			Cert: &lxdclient.Cert{
@@ -360,7 +374,7 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	}
 	s.Provider.interfaceAddress = func(iface string) (string, error) {
 		s.Stub.AddCall("InterfaceAddress", iface)
-		return "1.2.3.4", s.Stub.NextErr()
+		return s.InterfaceAddr, s.Stub.NextErr()
 	}
 	s.Provider.interfaceAddrs = func() ([]net.Addr, error) {
 		s.Stub.AddCall("InterfaceAddrs")
@@ -470,8 +484,11 @@ func (sc *stubCommon) DestroyEnv() error {
 type StubClient struct {
 	*gitjujutesting.Stub
 
-	Insts []lxdclient.Instance
-	Inst  *lxdclient.Instance
+	Insts              []lxdclient.Instance
+	Inst               *lxdclient.Instance
+	Server             *api.Server
+	StorageIsSupported bool
+	Volumes            map[string][]api.StorageVolume
 }
 
 func (conn *StubClient) Instances(prefix string, statuses ...string) ([]lxdclient.Instance, error) {
@@ -501,13 +518,13 @@ func (conn *StubClient) RemoveInstances(prefix string, ids ...string) error {
 	return nil
 }
 
-func (conn *StubClient) EnsureImageExists(series string, _ []lxdclient.Remote, _ func(string)) error {
-	conn.AddCall("EnsureImageExists", series)
+func (conn *StubClient) EnsureImageExists(series, arch string, _ []lxdclient.Remote, _ func(string)) (string, error) {
+	conn.AddCall("EnsureImageExists", series, arch)
 	if err := conn.NextErr(); err != nil {
-		return errors.Trace(err)
+		return "", errors.Trace(err)
 	}
 
-	return nil
+	return path.Join("juju", series, arch), nil
 }
 
 func (conn *StubClient) Addresses(name string) ([]network.Address, error) {
@@ -533,21 +550,29 @@ func (conn *StubClient) RemoveCertByFingerprint(fingerprint string) error {
 	return conn.NextErr()
 }
 
-func (conn *StubClient) CertByFingerprint(fingerprint string) (shared.CertInfo, error) {
+func (conn *StubClient) CertByFingerprint(fingerprint string) (api.Certificate, error) {
 	conn.AddCall("CertByFingerprint", fingerprint)
-	return shared.CertInfo{}, conn.NextErr()
+	return api.Certificate{}, conn.NextErr()
 }
 
-func (conn *StubClient) ServerStatus() (*shared.ServerState, error) {
+func (conn *StubClient) ServerStatus() (*api.Server, error) {
 	conn.AddCall("ServerStatus")
 	if err := conn.NextErr(); err != nil {
 		return nil, err
 	}
-	return &shared.ServerState{
-		Environment: shared.ServerStateEnvironment{
+	return &api.Server{
+		Environment: api.ServerEnvironment{
 			Certificate: "server-cert",
 		},
 	}, nil
+}
+
+func (conn *StubClient) ServerAddresses() ([]string, error) {
+	conn.AddCall("ServerAddresses")
+	return []string{
+		"127.0.0.1:1234",
+		"1.2.3.4:1234",
+	}, conn.NextErr()
 }
 
 func (conn *StubClient) SetServerConfig(k, v string) error {
@@ -573,6 +598,39 @@ func (conn *StubClient) CreateProfile(name string, attrs map[string]string) erro
 func (conn *StubClient) HasProfile(name string) (bool, error) {
 	conn.AddCall("HasProfile", name)
 	return false, conn.NextErr()
+}
+
+func (conn *StubClient) AttachDisk(container, device string, disk lxdclient.DiskDevice) error {
+	conn.AddCall("AttachDisk", container, device, disk)
+	return conn.NextErr()
+}
+
+func (conn *StubClient) RemoveDevice(container, device string) error {
+	conn.AddCall("RemoveDevice", container, device)
+	return conn.NextErr()
+}
+
+func (conn *StubClient) StorageSupported() bool {
+	conn.AddCall("StorageSupported")
+	return conn.StorageIsSupported
+}
+
+func (conn *StubClient) VolumeCreate(pool, volume string, config map[string]string) error {
+	conn.AddCall("VolumeCreate", pool, volume, config)
+	return conn.NextErr()
+}
+
+func (conn *StubClient) VolumeDelete(pool, volume string) error {
+	conn.AddCall("VolumeDelete", pool, volume)
+	return conn.NextErr()
+}
+
+func (conn *StubClient) VolumeList(pool string) ([]api.StorageVolume, error) {
+	conn.AddCall("VolumeList", pool)
+	if err := conn.NextErr(); err != nil {
+		return nil, err
+	}
+	return conn.Volumes[pool], nil
 }
 
 // TODO(ericsnow) Move stubFirewaller to environs/testing or provider/common/testing.

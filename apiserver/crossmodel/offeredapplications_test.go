@@ -35,7 +35,7 @@ var _ = gc.Suite(&offeredApplicationsSuite{})
 func (s *offeredApplicationsSuite) SetUpTest(c *gc.C) {
 	s.SetInitialFeatureFlags(feature.CrossModelRelations)
 	s.authoriser = testing.FakeAuthorizer{
-		EnvironManager: true,
+		Controller: true,
 	}
 	s.resources = common.NewResources()
 	s.AddCleanup(func(*gc.C) { s.resources.StopAll() })
@@ -51,7 +51,7 @@ func (s *offeredApplicationsSuite) SetUpTest(c *gc.C) {
 
 func (s *offeredApplicationsSuite) TestUnauthorised(c *gc.C) {
 	s.authoriser = testing.FakeAuthorizer{
-		EnvironManager: false,
+		Controller: false,
 	}
 	_, err := crossmodel.CreateOfferedApplicationAPI(&mockState{}, s.offerLister, s.resources, s.authoriser)
 	c.Assert(err, gc.Equals, common.ErrPerm)
@@ -59,7 +59,7 @@ func (s *offeredApplicationsSuite) TestUnauthorised(c *gc.C) {
 
 func (s *offeredApplicationsSuite) TestWatchOfferedApplications(c *gc.C) {
 	authoriser := testing.FakeAuthorizer{
-		EnvironManager: true,
+		Controller: true,
 	}
 	resources := common.NewResources()
 	defer resources.StopAll()

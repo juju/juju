@@ -7,7 +7,7 @@ package lxd
 
 import (
 	"github.com/juju/errors"
-	lxdshared "github.com/lxc/lxd/shared"
+	lxdapi "github.com/lxc/lxd/shared/api"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/network"
@@ -21,6 +21,7 @@ type rawProvider struct {
 	lxdInstances
 	lxdProfiles
 	lxdImages
+	lxdStorage
 	common.Firewaller
 
 	remote lxdclient.Remote
@@ -28,12 +29,13 @@ type rawProvider struct {
 
 type lxdCerts interface {
 	AddCert(lxdclient.Cert) error
-	CertByFingerprint(string) (lxdshared.CertInfo, error)
+	CertByFingerprint(string) (lxdapi.Certificate, error)
 	RemoveCertByFingerprint(string) error
 }
 
 type lxdConfig interface {
-	ServerStatus() (*lxdshared.ServerState, error)
+	ServerAddresses() ([]string, error)
+	ServerStatus() (*lxdapi.Server, error)
 	SetServerConfig(k, v string) error
 	SetContainerConfig(container, key, value string) error
 }
@@ -43,6 +45,8 @@ type lxdInstances interface {
 	AddInstance(lxdclient.InstanceSpec) (*lxdclient.Instance, error)
 	RemoveInstances(string, ...string) error
 	Addresses(string) ([]network.Address, error)
+	AttachDisk(string, string, lxdclient.DiskDevice) error
+	RemoveDevice(string, string) error
 }
 
 type lxdProfiles interface {
@@ -52,7 +56,14 @@ type lxdProfiles interface {
 }
 
 type lxdImages interface {
-	EnsureImageExists(series string, sources []lxdclient.Remote, copyProgressHandler func(string)) error
+	EnsureImageExists(series, arch string, sources []lxdclient.Remote, copyProgressHandler func(string)) (string, error)
+}
+
+type lxdStorage interface {
+	StorageSupported() bool
+	VolumeCreate(pool, volume string, config map[string]string) error
+	VolumeDelete(pool, volume string) error
+	VolumeList(pool string) ([]lxdapi.StorageVolume, error)
 }
 
 func newRawProvider(spec environs.CloudSpec, local bool) (*rawProvider, error) {
@@ -86,6 +97,7 @@ func newRawProviderFromConfig(config lxdclient.Config) (*rawProvider, error) {
 		lxdInstances: client,
 		lxdProfiles:  client,
 		lxdImages:    client,
+		lxdStorage:   client,
 		Firewaller:   common.NewFirewaller(),
 		remote:       config.Remote,
 	}, nil

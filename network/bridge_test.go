@@ -8,10 +8,11 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/juju/juju/network"
 	"github.com/juju/testing"
 	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/network"
 )
 
 // A note regarding the use of clock.WallClock in these unit tests.

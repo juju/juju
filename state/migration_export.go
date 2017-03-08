@@ -7,13 +7,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/description"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/set"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2/bson"
 
-	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/payload"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/storage/poolmanager"
@@ -132,6 +132,10 @@ func (st *State) Export() (description.Model, error) {
 	}
 
 	if err := export.cloudimagemetadata(); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	if err := export.remoteApplications(); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -1330,6 +1334,47 @@ func (e *exporter) logExtras() {
 	}
 }
 
+func (e *exporter) remoteApplications() error {
+	remoteApps, err := e.st.AllRemoteApplications()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	e.logger.Debugf("read %d remote applications", len(remoteApps))
+	for _, remoteApp := range remoteApps {
+		err := e.addRemoteApplication(remoteApp)
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return nil
+}
+
+func (e *exporter) addRemoteApplication(app *RemoteApplication) error {
+	url, _ := app.URL()
+	args := description.RemoteApplicationArgs{
+		Tag:         app.Tag().(names.ApplicationTag),
+		OfferName:   app.OfferName(),
+		URL:         url,
+		SourceModel: app.SourceModel(),
+		Registered:  app.Registered(),
+	}
+	descApp := e.model.AddRemoteApplication(args)
+	endpoints, err := app.Endpoints()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	for _, ep := range endpoints {
+		descApp.AddEndpoint(description.RemoteEndpointArgs{
+			Name:      ep.Name,
+			Role:      string(ep.Role),
+			Interface: ep.Interface,
+			Limit:     ep.Limit,
+			Scope:     string(ep.Scope),
+		})
+	}
+	return nil
+}
+
 func (e *exporter) storage() error {
 	if err := e.volumes(); err != nil {
 		return errors.Trace(err)
@@ -1372,8 +1417,7 @@ func (e *exporter) volumes() error {
 
 func (e *exporter) addVolume(vol *volume, volAttachments []volumeAttachmentDoc) error {
 	args := description.VolumeArgs{
-		Tag:     vol.VolumeTag(),
-		Binding: vol.LifeBinding(),
+		Tag: vol.VolumeTag(),
 	}
 	if tag, err := vol.StorageInstance(); err == nil {
 		// only returns an error when no storage tag.
@@ -1489,7 +1533,6 @@ func (e *exporter) addFilesystem(fs *filesystem, fsAttachments []filesystemAttac
 		Tag:     fs.FilesystemTag(),
 		Storage: storage,
 		Volume:  volume,
-		Binding: fs.LifeBinding(),
 	}
 	logger.Debugf("addFilesystem: %#v", fs.doc)
 	if info, err := fs.Info(); err == nil {
@@ -1585,10 +1628,14 @@ func (e *exporter) storageInstances() error {
 }
 
 func (e *exporter) addStorage(instance *storageInstance, attachments []names.UnitTag) error {
+	owner, ok := instance.Owner()
+	if !ok {
+		owner = nil
+	}
 	args := description.StorageArgs{
 		Tag:         instance.StorageTag(),
 		Kind:        instance.Kind().String(),
-		Owner:       instance.Owner(),
+		Owner:       owner,
 		Name:        instance.StorageName(),
 		Attachments: attachments,
 	}

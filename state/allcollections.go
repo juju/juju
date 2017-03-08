@@ -295,6 +295,8 @@ func allCollections() collectionSchema {
 		filesystemsC: {
 			indexes: []mgo.Index{{
 				Key: []string{"model-uuid", "storageid"},
+			}, {
+				Key: []string{"model-uuid", "machineid"},
 			}},
 		},
 		filesystemAttachmentsC: {},
@@ -313,6 +315,8 @@ func allCollections() collectionSchema {
 		volumesC: {
 			indexes: []mgo.Index{{
 				Key: []string{"model-uuid", "storageid"},
+			}, {
+				Key: []string{"model-uuid", "machineid"},
 			}},
 		},
 		volumeAttachmentsC: {},
@@ -378,6 +382,8 @@ func allCollections() collectionSchema {
 			rawAccess: true,
 			indexes: []mgo.Index{{
 				Key: []string{"model-uuid", "globalkey", "updated"},
+			}, {
+				Key: []string{"model-uuid", "-updated"}, // used for migration
 			}},
 		},
 

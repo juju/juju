@@ -8,10 +8,11 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/api/logsender"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/worker"
+	jworker "github.com/juju/juju/worker"
 )
 
 const loggerName = "juju.worker.logsender"
@@ -70,5 +71,5 @@ func New(logs LogRecordCh, logSenderAPI *logsender.API) worker.Worker {
 			}
 		}
 	}
-	return worker.NewSimpleWorker(loop)
+	return jworker.NewSimpleWorker(loop)
 }

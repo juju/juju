@@ -18,13 +18,13 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/clock"
 	"github.com/juju/utils/exec"
+	jujuos "github.com/juju/utils/os"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter"
-	jujuos "github.com/juju/utils/os"
 )
 
 const testLockName = "juju-run-test"

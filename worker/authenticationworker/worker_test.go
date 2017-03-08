@@ -13,6 +13,7 @@ import (
 	sshtesting "github.com/juju/utils/ssh/testing"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
+	worker "gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
@@ -20,7 +21,6 @@ import (
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/authenticationworker"
 )
 

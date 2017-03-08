@@ -5,6 +5,7 @@ package upgrades
 
 import (
 	"github.com/juju/errors"
+
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -22,6 +23,9 @@ type StateBackend interface {
 	AddMigrationAttempt() error
 	AddLocalCharmSequences() error
 	UpdateLegacyLXDCloudCredentials(string, cloud.Credential) error
+	UpgradeNoProxyDefaults() error
+	AddNonDetachableStorageMachineId() error
+	RemoveNilValueApplicationSettings() error
 }
 
 // Model is an interface providing access to the details of a model within the
@@ -74,6 +78,18 @@ func (s stateBackend) AddLocalCharmSequences() error {
 
 func (s stateBackend) UpdateLegacyLXDCloudCredentials(endpoint string, credential cloud.Credential) error {
 	return state.UpdateLegacyLXDCloudCredentials(s.st, endpoint, credential)
+}
+
+func (s stateBackend) UpgradeNoProxyDefaults() error {
+	return state.UpgradeNoProxyDefaults(s.st)
+}
+
+func (s stateBackend) AddNonDetachableStorageMachineId() error {
+	return state.AddNonDetachableStorageMachineId(s.st)
+}
+
+func (s stateBackend) RemoveNilValueApplicationSettings() error {
+	return state.RemoveNilValueApplicationSettings(s.st)
 }
 
 type modelShim struct {

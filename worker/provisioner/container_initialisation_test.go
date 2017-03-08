@@ -20,9 +20,12 @@ import (
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/api/common"
 	apiprovisioner "github.com/juju/juju/api/provisioner"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
@@ -31,7 +34,7 @@ import (
 	"github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/watcher"
-	"github.com/juju/juju/worker"
+	jworker "github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/provisioner"
 )
 
@@ -86,8 +89,12 @@ func (s *ContainerSetupSuite) TearDownTest(c *gc.C) {
 	s.CommonProvisionerSuite.TearDownTest(c)
 }
 
-func (s *ContainerSetupSuite) setupContainerWorker(c *gc.C, tag names.MachineTag) (watcher.StringsHandler, worker.Runner) {
-	runner := worker.NewRunner(allFatal, noImportance, worker.RestartDelay)
+func (s *ContainerSetupSuite) setupContainerWorker(c *gc.C, tag names.MachineTag) (watcher.StringsHandler, *worker.Runner) {
+	runner := worker.NewRunner(worker.RunnerParams{
+		IsFatal:       allFatal,
+		MoreImportant: noImportance,
+		RestartDelay:  jworker.RestartDelay,
+	})
 	pr := apiprovisioner.NewState(s.st)
 	machine, err := pr.Machine(tag)
 	c.Assert(err, jc.ErrorIsNil)
@@ -116,7 +123,7 @@ func (s *ContainerSetupSuite) setupContainerWorker(c *gc.C, tag names.MachineTag
 
 func (s *ContainerSetupSuite) createContainer(c *gc.C, host *state.Machine, ctype instance.ContainerType) {
 	inst := s.checkStartInstance(c, host)
-	s.setupContainerWorker(c, host.Tag().(names.MachineTag))
+	s.setupContainerWorker(c, host.MachineTag())
 
 	// make a container on the host machine
 	template := state.MachineTemplate{
@@ -140,9 +147,12 @@ func (s *ContainerSetupSuite) createContainer(c *gc.C, host *state.Machine, ctyp
 func (s *ContainerSetupSuite) assertContainerProvisionerStarted(
 	c *gc.C, host *state.Machine, ctype instance.ContainerType) {
 
+	s.PatchValue(provisioner.GetObservedNetworkConfig, func(_ common.NetworkConfigSource) ([]params.NetworkConfig, error) {
+		return nil, nil
+	})
 	// A stub worker callback to record what happens.
 	var provisionerStarted uint32
-	startProvisionerWorker := func(runner worker.Runner, containerType instance.ContainerType,
+	startProvisionerWorker := func(runner *worker.Runner, containerType instance.ContainerType,
 		pr *apiprovisioner.State, cfg agent.Config, broker environs.InstanceBroker,
 		toolsFinder provisioner.ToolsFinder) error {
 		c.Assert(containerType, gc.Equals, ctype)
@@ -185,7 +195,7 @@ func (s *ContainerSetupSuite) TestContainerProvisionerStarted(c *gc.C) {
 	}
 }
 
-func (s *ContainerSetupSuite) TestKvmContainerUsesHostArch(c *gc.C) {
+func (s *ContainerSetupSuite) TestKvmContainerUsesTargetArch(c *gc.C) {
 	// KVM should do what it's told, and use the architecture in
 	// constraints.
 	s.PatchValue(&arch.HostArch, func() string { return arch.PPC64EL })
@@ -203,6 +213,9 @@ func (_ fakeContainerInitialiser) Initialise() error {
 
 func (s *ContainerSetupSuite) testContainerConstraintsArch(c *gc.C, containerType instance.ContainerType, expectArch string) {
 	var called uint32
+	s.PatchValue(provisioner.GetObservedNetworkConfig, func(_ common.NetworkConfigSource) ([]params.NetworkConfig, error) {
+		return nil, nil
+	})
 	s.PatchValue(provisioner.GetToolsFinder, func(*apiprovisioner.State) provisioner.ToolsFinder {
 		return toolsFinderFunc(func(v version.Number, series string, arch string) (tools.List, error) {
 			atomic.StoreUint32(&called, 1)
@@ -216,7 +229,7 @@ func (s *ContainerSetupSuite) testContainerConstraintsArch(c *gc.C, containerTyp
 		})
 	})
 
-	s.PatchValue(&provisioner.StartProvisioner, func(runner worker.Runner, containerType instance.ContainerType,
+	s.PatchValue(&provisioner.StartProvisioner, func(runner *worker.Runner, containerType instance.ContainerType,
 		pr *apiprovisioner.State, cfg agent.Config, broker environs.InstanceBroker,
 		toolsFinder provisioner.ToolsFinder) error {
 		toolsFinder.FindTools(jujuversion.Current, series.MustHostSeries(), arch.AMD64)
@@ -259,7 +272,7 @@ type ContainerInstance struct {
 
 func (s *ContainerSetupSuite) assertContainerInitialised(c *gc.C, cont ContainerInstance) {
 	// A noop worker callback.
-	startProvisionerWorker := func(runner worker.Runner, containerType instance.ContainerType,
+	startProvisionerWorker := func(runner *worker.Runner, containerType instance.ContainerType,
 		pr *apiprovisioner.State, cfg agent.Config, broker environs.InstanceBroker,
 		toolsFinder provisioner.ToolsFinder) error {
 		return nil
@@ -347,7 +360,7 @@ func (s *ContainerSetupSuite) TestContainerInitLockError(c *gc.C) {
 	err = m.SetAgentVersion(current)
 	c.Assert(err, jc.ErrorIsNil)
 
-	handler, runner := s.setupContainerWorker(c, m.Tag().(names.MachineTag))
+	handler, runner := s.setupContainerWorker(c, m.MachineTag())
 	runner.Kill()
 	err = runner.Wait()
 	c.Assert(err, jc.ErrorIsNil)

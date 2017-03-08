@@ -9,11 +9,12 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/metricsadder"
-	"github.com/juju/juju/worker"
+	jworker "github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/metrics/spool"
 	"github.com/juju/juju/worker/uniter"
@@ -71,7 +72,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			return spool.NewPeriodicWorker(s.Do, period, worker.NewTimer, s.stop), nil
+			return spool.NewPeriodicWorker(s.Do, period, jworker.NewTimer, s.stop), nil
 		},
 	}
 }

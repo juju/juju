@@ -13,19 +13,19 @@ import (
 
 // FakeAuthorizer implements the facade.Authorizer interface.
 type FakeAuthorizer struct {
-	Tag            names.Tag
-	EnvironManager bool
-	ModelUUID      string
-	AdminTag       names.UserTag
-	HasWriteTag    names.UserTag
+	Tag         names.Tag
+	Controller  bool
+	ModelUUID   string
+	AdminTag    names.UserTag
+	HasWriteTag names.UserTag
 }
 
 func (fa FakeAuthorizer) AuthOwner(tag names.Tag) bool {
 	return fa.Tag == tag
 }
 
-func (fa FakeAuthorizer) AuthModelManager() bool {
-	return fa.EnvironManager
+func (fa FakeAuthorizer) AuthController() bool {
+	return fa.Controller
 }
 
 // AuthMachineAgent returns whether the current client is a machine agent.

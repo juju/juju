@@ -9,13 +9,13 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	jujuos "github.com/juju/utils/os"
+	"github.com/juju/utils/series"
+	"github.com/juju/utils/ssh"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/provider/common"
-	jujuos "github.com/juju/utils/os"
-	"github.com/juju/utils/series"
-	"github.com/juju/utils/ssh"
 )
 
 type environ struct {
@@ -28,11 +28,6 @@ var bootstrap = common.Bootstrap
 func (e environ) Bootstrap(ctx environs.BootstrapContext, params environs.BootstrapParams) (*environs.BootstrapResult, error) {
 	// can't redirect to openstack provider as ussually, because correct environ should be passed for common.Bootstrap
 	return bootstrap(ctx, e, params)
-}
-
-// BootstrapMessage is part of the Environ interface.
-func (e environ) BootstrapMessage() string {
-	return ""
 }
 
 var waitSSH = common.WaitSSH
