@@ -756,3 +756,69 @@ func (a *API) Destroy(args params.Entities) (params.ErrorResults, error) {
 	}
 	return params.ErrorResults{result}, nil
 }
+
+// Detach sets the specified storage attachments to Dying, unless they are
+// already Dying or Dead. Any associated, persistent storage will remain
+// alive.
+func (a *API) Detach(args params.StorageAttachmentIds) (params.ErrorResults, error) {
+	if err := a.checkCanWrite(); err != nil {
+		return params.ErrorResults{}, errors.Trace(err)
+	}
+
+	blockChecker := common.NewBlockChecker(a.storage)
+	if err := blockChecker.ChangeAllowed(); err != nil {
+		return params.ErrorResults{}, errors.Trace(err)
+	}
+
+	detachOne := func(arg params.StorageAttachmentId) error {
+		storageTag, err := names.ParseStorageTag(arg.StorageTag)
+		if err != nil {
+			return err
+		}
+		var unitTag names.UnitTag
+		if arg.UnitTag != "" {
+			var err error
+			unitTag, err = names.ParseUnitTag(arg.UnitTag)
+			if err != nil {
+				return err
+			}
+		}
+		return a.detachStorage(storageTag, unitTag)
+	}
+
+	result := make([]params.ErrorResult, len(args.Ids))
+	for i, arg := range args.Ids {
+		result[i].Error = common.ServerError(detachOne(arg))
+	}
+	return params.ErrorResults{result}, nil
+}
+
+func (api *API) detachStorage(storageTag names.StorageTag, unitTag names.UnitTag) error {
+	if unitTag != (names.UnitTag{}) {
+		// The caller has specified a unit explicitly. Do
+		// not filter out "not found" errors in this case.
+		return api.storage.DestroyStorageAttachment(storageTag, unitTag)
+	}
+	attachments, err := api.storage.StorageAttachments(storageTag)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if len(attachments) == 0 {
+		// No attachments: check if the storage exists at all.
+		if _, err := api.storage.StorageInstance(storageTag); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	for _, a := range attachments {
+		if a.Life() != state.Alive {
+			continue
+		}
+		err := api.storage.DestroyStorageAttachment(storageTag, a.Unit())
+		if err != nil && !errors.IsNotFound(err) {
+			// We only care about NotFound errors if
+			// the user specified a unit explicitly.
+			return errors.Trace(err)
+		}
+	}
+	return nil
+}

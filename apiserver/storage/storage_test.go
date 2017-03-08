@@ -343,3 +343,94 @@ func (s *storageSuite) TestDestroy(c *gc.C) {
 		destroyStorageInstanceCall,
 	})
 }
+
+func (s *storageSuite) TestDetach(c *gc.C) {
+	results, err := s.api.Detach(params.StorageAttachmentIds{[]params.StorageAttachmentId{
+		{StorageTag: "storage-data-0", UnitTag: "unit-mysql-0"},
+		{StorageTag: "storage-data-0", UnitTag: ""},
+		{StorageTag: "volume-0", UnitTag: "unit-bar-0"},
+		{StorageTag: "filesystem-1-2", UnitTag: "unit-bar-0"},
+		{StorageTag: "machine-0", UnitTag: "unit-bar-0"},
+		{StorageTag: "storage-foo-0", UnitTag: "application-bar"},
+	}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 6)
+	c.Assert(results.Results, jc.DeepEquals, []params.ErrorResult{
+		{Error: nil},
+		{Error: nil},
+		{Error: &params.Error{Message: `"volume-0" is not a valid storage tag`}},
+		{Error: &params.Error{Message: `"filesystem-1-2" is not a valid storage tag`}},
+		{Error: &params.Error{Message: `"machine-0" is not a valid storage tag`}},
+		{Error: &params.Error{Message: `"application-bar" is not a valid unit tag`}},
+	})
+	s.assertCalls(c, []string{
+		getBlockForTypeCall, // Change
+		destroyStorageAttachmentCall,
+		storageInstanceAttachmentsCall,
+		destroyStorageAttachmentCall,
+	})
+}
+
+func (s *storageSuite) TestDetachSpecifiedNotFound(c *gc.C) {
+	results, err := s.api.Detach(params.StorageAttachmentIds{[]params.StorageAttachmentId{
+		{StorageTag: "storage-data-0", UnitTag: "unit-foo-42"},
+	}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results, jc.DeepEquals, []params.ErrorResult{
+		{Error: &params.Error{
+			Code:    params.CodeNotFound,
+			Message: "attachment of storage data/0 to unit foo/42 not found",
+		}},
+	})
+	s.assertCalls(c, []string{
+		getBlockForTypeCall, // Change
+		destroyStorageAttachmentCall,
+	})
+}
+
+func (s *storageSuite) TestDetachAttachmentNotFoundConcurrent(c *gc.C) {
+	// Simulate:
+	//  1. call StorageAttachments, and receive
+	//     a list of alive attachments
+	//  2. attachment is concurrently destroyed
+	//     and removed by another process
+	s.state.destroyStorageAttachment = func(sTag names.StorageTag, uTag names.UnitTag) error {
+		s.calls = append(s.calls, destroyStorageAttachmentCall)
+		return errors.NotFoundf(
+			"attachment of %s to %s",
+			names.ReadableString(sTag),
+			names.ReadableString(uTag),
+		)
+	}
+	results, err := s.api.Detach(params.StorageAttachmentIds{[]params.StorageAttachmentId{
+		{StorageTag: "storage-data-0"},
+	}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results, jc.DeepEquals, []params.ErrorResult{{}})
+	s.assertCalls(c, []string{
+		getBlockForTypeCall, // Change
+		storageInstanceAttachmentsCall,
+		destroyStorageAttachmentCall,
+	})
+}
+
+func (s *storageSuite) TestDetachNoAttachmentsStorageNotFound(c *gc.C) {
+	results, err := s.api.Detach(params.StorageAttachmentIds{[]params.StorageAttachmentId{
+		{StorageTag: "storage-foo-42"},
+	}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results, jc.DeepEquals, []params.ErrorResult{
+		{Error: &params.Error{
+			Code:    params.CodeNotFound,
+			Message: "storage foo/42 not found",
+		}},
+	})
+	s.assertCalls(c, []string{
+		getBlockForTypeCall, // Change
+		storageInstanceAttachmentsCall,
+		storageInstanceCall,
+	})
+}

@@ -173,3 +173,31 @@ func (c *Client) Destroy(storageIds []string) ([]params.ErrorResult, error) {
 	}
 	return results.Results, nil
 }
+
+// Detach detaches the specified storage entities.
+func (c *Client) Detach(storageIds []string) ([]params.ErrorResult, error) {
+	results := params.ErrorResults{}
+	args := make([]params.StorageAttachmentId, len(storageIds))
+	for i, id := range storageIds {
+		if !names.IsValidStorage(id) {
+			return nil, errors.NotValidf("storage ID %q", id)
+		}
+		args[i] = params.StorageAttachmentId{
+			StorageTag: names.NewStorageTag(id).String(),
+		}
+	}
+	if err := c.facade.FacadeCall(
+		"Detach",
+		params.StorageAttachmentIds{args},
+		&results,
+	); err != nil {
+		return nil, errors.Trace(err)
+	}
+	if len(results.Results) != len(storageIds) {
+		return nil, errors.Errorf(
+			"expected %d result(s), got %d",
+			len(storageIds), len(results.Results),
+		)
+	}
+	return results.Results, nil
+}
