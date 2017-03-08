@@ -6,9 +6,9 @@ package centralhub
 import (
 	"github.com/juju/errors"
 	"github.com/juju/pubsub"
+	worker "gopkg.in/juju/worker.v1"
 	"gopkg.in/tomb.v1"
 
-	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
 )
 

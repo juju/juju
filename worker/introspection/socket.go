@@ -13,10 +13,10 @@ import (
 	"github.com/juju/loggo"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"gopkg.in/juju/worker.v1"
 	"gopkg.in/tomb.v1"
 	"gopkg.in/yaml.v2"
 
-	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/introspection/pprof"
 )
 

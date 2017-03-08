@@ -29,6 +29,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charmrepo.v2-unstable"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/worker.v1"
 	"gopkg.in/natefinch/lumberjack.v2"
 	"gopkg.in/tomb.v1"
 
@@ -52,7 +53,7 @@ import (
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
-	"github.com/juju/juju/worker"
+	jworker "github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/authenticationworker"
 	"github.com/juju/juju/worker/certupdater"
 	"github.com/juju/juju/worker/dependency"
@@ -894,7 +895,7 @@ func (s *MachineSuite) TestMachineAgentRunsDiskManagerWorker(c *gc.C) {
 	started := newSignal()
 	newWorker := func(diskmanager.ListBlockDevicesFunc, diskmanager.BlockDeviceSetter) worker.Worker {
 		started.trigger()
-		return worker.NewNoOpWorker()
+		return jworker.NewNoOpWorker()
 	}
 	s.PatchValue(&diskmanager.NewWorker, newWorker)
 
@@ -911,7 +912,7 @@ func (s *MachineSuite) TestMongoUpgradeWorker(c *gc.C) {
 	started := make(chan struct{})
 	newWorker := func(*state.State, string, mongoupgrader.StopMongo) (worker.Worker, error) {
 		close(started)
-		return worker.NewNoOpWorker(), nil
+		return jworker.NewNoOpWorker(), nil
 	}
 	s.PatchValue(&newUpgradeMongoWorker, newWorker)
 
@@ -969,7 +970,7 @@ func (s *MachineSuite) checkMetadataWorkerNotRun(c *gc.C, job state.MachineJob, 
 	started := newSignal()
 	newWorker := func(cl *imagemetadata.Client) worker.Worker {
 		started.trigger()
-		return worker.NewNoOpWorker()
+		return jworker.NewNoOpWorker()
 	}
 	s.PatchValue(&newMetadataUpdater, newWorker)
 
@@ -989,7 +990,7 @@ func (s *MachineSuite) TestMachineAgentRunsMachineStorageWorker(c *gc.C) {
 		c.Check(config.Scope, gc.Equals, m.Tag())
 		c.Check(config.Validate(), jc.ErrorIsNil)
 		started.trigger()
-		return worker.NewNoOpWorker(), nil
+		return jworker.NewNoOpWorker(), nil
 	}
 	s.PatchValue(&storageprovisioner.NewStorageProvisioner, newWorker)
 
@@ -1006,7 +1007,7 @@ func (s *MachineSuite) TestMachineAgentRunsCertificateUpdateWorkerForController(
 		certupdater.APIHostPortsGetter, certupdater.StateServingInfoSetter,
 	) worker.Worker {
 		started.trigger()
-		return worker.NewNoOpWorker()
+		return jworker.NewNoOpWorker()
 	}
 	s.PatchValue(&newCertificateUpdater, newUpdater)
 
@@ -1024,7 +1025,7 @@ func (s *MachineSuite) TestMachineAgentDoesNotRunsCertificateUpdateWorkerForNonC
 		certupdater.APIHostPortsGetter, certupdater.StateServingInfoSetter,
 	) worker.Worker {
 		started.trigger()
-		return worker.NewNoOpWorker()
+		return jworker.NewNoOpWorker()
 	}
 	s.PatchValue(&newCertificateUpdater, newUpdater)
 
@@ -1097,7 +1098,7 @@ func (s *MachineSuite) testCertificateDNSUpdated(c *gc.C, a *MachineAgent) {
 	newUpdater := func(certupdater.AddressWatcher, certupdater.StateServingInfoGetter, certupdater.ControllerConfigGetter,
 		certupdater.APIHostPortsGetter, certupdater.StateServingInfoSetter,
 	) worker.Worker {
-		return worker.NewNoOpWorker()
+		return jworker.NewNoOpWorker()
 	}
 	s.PatchValue(&newCertificateUpdater, newUpdater)
 

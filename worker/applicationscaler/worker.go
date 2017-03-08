@@ -5,9 +5,9 @@ package applicationscaler
 
 import (
 	"github.com/juju/errors"
+	worker "gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/watcher"
-	"github.com/juju/juju/worker"
 )
 
 // Facade defines the capabilities required by the worker.

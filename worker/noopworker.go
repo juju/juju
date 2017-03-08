@@ -4,7 +4,11 @@
 
 package worker
 
-func NewNoOpWorker() Worker {
+import (
+	"gopkg.in/juju/worker.v1"
+)
+
+func NewNoOpWorker() worker.Worker {
 	return NewSimpleWorker(doNothing)
 }
 

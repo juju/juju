@@ -15,6 +15,7 @@ import (
 	"github.com/juju/utils/voyeur"
 	"github.com/prometheus/client_golang/prometheus"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/worker.v1"
 	"gopkg.in/natefinch/lumberjack.v2"
 	"gopkg.in/tomb.v1"
 
@@ -24,7 +25,7 @@ import (
 	"github.com/juju/juju/cmd/jujud/agent/unit"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	jujuversion "github.com/juju/juju/version"
-	"github.com/juju/juju/worker"
+	jworker "github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/introspection"
 	"github.com/juju/juju/worker/logsender"
@@ -44,7 +45,7 @@ type UnitAgent struct {
 	AgentConf
 	configChangedVal *voyeur.Value
 	UnitName         string
-	runner           worker.Runner
+	runner           *worker.Runner
 	bufferedLogger   *logsender.BufferedLogWriter
 	setupLogging     func(agent.Config) error
 	logToStdErr      bool
@@ -100,7 +101,11 @@ func (a *UnitAgent) Init(args []string) error {
 	if err := a.AgentConf.CheckArgs(args); err != nil {
 		return err
 	}
-	a.runner = worker.NewRunner(cmdutil.IsFatal, cmdutil.MoreImportant, worker.RestartDelay)
+	a.runner = worker.NewRunner(worker.RunnerParams{
+		IsFatal:       cmdutil.IsFatal,
+		MoreImportant: cmdutil.MoreImportant,
+		RestartDelay:  jworker.RestartDelay,
+	})
 
 	if !a.logToStdErr {
 		if err := a.ReadConfig(a.Tag().String()); err != nil {

@@ -8,10 +8,11 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"gopkg.in/juju/worker.v1"
 	"gopkg.in/tomb.v1"
 
 	"github.com/juju/juju/juju/sockets"
-	"github.com/juju/juju/worker"
+	jworker "github.com/juju/juju/worker"
 )
 
 const (
@@ -74,9 +75,9 @@ func (l *socketListener) loop() error {
 
 // NewPeriodicWorker returns a periodic worker, that will call a stop function
 // when it is killed.
-func NewPeriodicWorker(do worker.PeriodicWorkerCall, period time.Duration, newTimer func(time.Duration) worker.PeriodicTimer, stop func()) worker.Worker {
+func NewPeriodicWorker(do jworker.PeriodicWorkerCall, period time.Duration, newTimer func(time.Duration) jworker.PeriodicTimer, stop func()) worker.Worker {
 	return &periodicWorker{
-		Worker: worker.NewPeriodicWorker(do, period, newTimer),
+		Worker: jworker.NewPeriodicWorker(do, period, newTimer),
 		stop:   stop,
 	}
 }
