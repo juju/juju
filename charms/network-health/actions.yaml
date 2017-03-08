@@ -6,3 +6,5 @@ ping:
       description: |
         Dict holding targets. Format as 'juju status --format json'
         Only unit and public-address are used for now.
+unit-info:
+  description: Poll unit for interface and DNS info

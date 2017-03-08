@@ -1,4 +1,4 @@
-# network-health-3-machines:
+# network-health-2-machines:
 machines:
   '0':
     series: xenial
