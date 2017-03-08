@@ -1,7 +1,7 @@
-// Copyright 2015 Canonical Ltd.
+// Copyright 2017 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package server_test
+package resources_test
 
 import (
 	"io"
@@ -12,10 +12,10 @@ import (
 	gc "gopkg.in/check.v1"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/apiserver/resources"
 	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/resource"
-	"github.com/juju/juju/resource/api"
-	"github.com/juju/juju/resource/api/server"
 	"github.com/juju/juju/resource/resourcetesting"
 )
 
@@ -35,16 +35,15 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	s.csClient = &stubCSClient{Stub: s.stub}
 }
 
-func (s *BaseSuite) newCSClient() (server.CharmStore, error) {
+func (s *BaseSuite) newCSClient() (resources.CharmStore, error) {
 	s.stub.AddCall("newCSClient")
 	if err := s.stub.NextErr(); err != nil {
 		return nil, err
 	}
-
 	return s.csClient, nil
 }
 
-func newResource(c *gc.C, name, username, data string) (resource.Resource, api.Resource) {
+func newResource(c *gc.C, name, username, data string) (resource.Resource, params.Resource) {
 	opened := resourcetesting.NewResource(c, nil, name, "a-application", data)
 	res := opened.Resource
 	res.Username = username
@@ -52,8 +51,8 @@ func newResource(c *gc.C, name, username, data string) (resource.Resource, api.R
 		res.Timestamp = time.Time{}
 	}
 
-	apiRes := api.Resource{
-		CharmResource: api.CharmResource{
+	apiRes := params.Resource{
+		CharmResource: params.CharmResource{
 			Name:        name,
 			Description: name + " description",
 			Type:        "file",

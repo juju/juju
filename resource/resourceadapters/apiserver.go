@@ -9,35 +9,12 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/apihttp"
-	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/resource"
 	internalserver "github.com/juju/juju/resource/api/private/server"
 	"github.com/juju/juju/resource/api/server"
 	corestate "github.com/juju/juju/state"
 )
-
-// NewPublicFacade provides the public API facade for resources. It is
-// passed into common.RegisterStandardFacade.
-func NewPublicFacade(st *corestate.State, _ facade.Resources, authorizer facade.Authorizer) (*server.Facade, error) {
-	if !authorizer.AuthClient() {
-		return nil, common.ErrPerm
-	}
-
-	rst, err := st.Resources()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	newClient := func() (server.CharmStore, error) {
-		return newCharmStoreClient(st)
-	}
-	facade, err := server.NewFacade(rst, newClient)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return facade, nil
-}
 
 // NewApplicationHandler returns a new HTTP handler for application
 // level resource uploads and downloads.

@@ -24,7 +24,6 @@ import (
 	privateapi "github.com/juju/juju/resource/api/private"
 	internalclient "github.com/juju/juju/resource/api/private/client"
 	internalserver "github.com/juju/juju/resource/api/private/server"
-	"github.com/juju/juju/resource/api/server"
 	"github.com/juju/juju/resource/cmd"
 	"github.com/juju/juju/resource/context"
 	contextcmd "github.com/juju/juju/resource/context/cmd"
@@ -65,13 +64,7 @@ func (r resources) registerPublicFacade() {
 		return
 	}
 
-	// NOTE: facade is also defined in api/facadeversions.go.
-	common.RegisterStandardFacade(
-		resource.FacadeName,
-		server.Version,
-		resourceadapters.NewPublicFacade,
-	)
-
+	// XXX
 	common.RegisterAPIModelEndpoint(api.HTTPEndpointPattern, apihttp.HandlerSpec{
 		Constraints: apihttp.HandlerConstraints{
 			AuthKinds:           []string{names.UserTagKind, names.MachineTagKind},

@@ -11,6 +11,7 @@ import (
 	"github.com/juju/errors"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/api"
 )
@@ -59,7 +60,7 @@ type UploadHandler struct {
 }
 
 // HandleRequest handles a resource upload request.
-func (uh UploadHandler) HandleRequest(req *http.Request) (*api.UploadResult, error) {
+func (uh UploadHandler) HandleRequest(req *http.Request) (*params.UploadResult, error) {
 	defer req.Body.Close()
 
 	uploaded, err := uh.ReadResource(req)
@@ -80,7 +81,7 @@ func (uh UploadHandler) HandleRequest(req *http.Request) (*api.UploadResult, err
 		}
 	}
 
-	result := &api.UploadResult{
+	result := &params.UploadResult{
 		Resource: api.Resource2API(stored),
 	}
 	return result, nil

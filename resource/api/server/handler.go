@@ -9,11 +9,36 @@ import (
 	"net/http"
 
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/api"
+	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 )
+
+var logger = loggo.GetLogger("juju.resource.api.server")
+
+// DataStore is the functionality of Juju's state needed for the resources API.
+type DataStore interface {
+	resourceInfoStore
+	DownloadDataStore
+	UploadDataStore
+}
+
+// resourceInfoStore is the portion of Juju's "state" needed
+// for the resources facade.
+type resourceInfoStore interface {
+	// ListResources returns the resources for the given application.
+	ListResources(service string) (resource.ServiceResources, error)
+
+	// AddPendingResource adds the resource to the data store in a
+	// "pending" state. It will stay pending (and unavailable) until
+	// it is resolved. The returned ID is used to identify the pending
+	// resources when resolving it.
+	AddPendingResource(applicationID, userID string, chRes charmresource.Resource, r io.Reader) (string, error)
+}
 
 // Closer is a function that should be called to indicate that the
 // datastore is finished with and can be closed.
@@ -30,7 +55,7 @@ type HTTPHandler struct {
 	HandleDownload func(st DataStore, req *http.Request) (io.ReadCloser, int64, error)
 
 	// HandleUpload provides the upload functionality.
-	HandleUpload func(username string, st DataStore, req *http.Request) (*api.UploadResult, error)
+	HandleUpload func(username string, st DataStore, req *http.Request) (*params.UploadResult, error)
 }
 
 // NewHTTPHandler creates a new http.Handler for the application
@@ -44,7 +69,7 @@ func NewHTTPHandler(connect func(*http.Request) (DataStore, Closer, names.Tag, e
 			}
 			return dh.HandleRequest(req)
 		},
-		HandleUpload: func(username string, st DataStore, req *http.Request) (*api.UploadResult, error) {
+		HandleUpload: func(username string, st DataStore, req *http.Request) (*params.UploadResult, error) {
 			uh := UploadHandler{
 				Username: username,
 				Store:    st,

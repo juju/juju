@@ -1,7 +1,7 @@
-// Copyright 2015 Canonical Ltd.
+// Copyright 2017 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package server_test
+package resources_test
 
 import (
 	"github.com/juju/errors"
@@ -11,9 +11,8 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/apiserver/resources"
 	"github.com/juju/juju/resource"
-	"github.com/juju/juju/resource/api"
-	"github.com/juju/juju/resource/api/server"
 )
 
 var _ = gc.Suite(&ListResourcesSuite{})
@@ -62,28 +61,28 @@ func (s *ListResourcesSuite) TestOkay(c *gc.C) {
 		},
 	}
 
-	facade, err := server.NewFacade(s.data, s.newCSClient)
+	facade, err := resources.NewFacade(s.data, s.newCSClient)
 	c.Assert(err, jc.ErrorIsNil)
 
-	results, err := facade.ListResources(api.ListResourcesArgs{
+	results, err := facade.ListResources(params.ListResourcesArgs{
 		Entities: []params.Entity{{
 			Tag: "application-a-application",
 		}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(results, jc.DeepEquals, api.ResourcesResults{
-		Results: []api.ResourcesResult{{
-			Resources: []api.Resource{
+	c.Check(results, jc.DeepEquals, params.ResourcesResults{
+		Results: []params.ResourcesResult{{
+			Resources: []params.Resource{
 				apiRes1,
 				apiRes2,
 			},
-			UnitResources: []api.UnitResources{
+			UnitResources: []params.UnitResources{
 				{
 					Entity: params.Entity{
 						Tag: "unit-a-application-0",
 					},
-					Resources: []api.Resource{
+					Resources: []params.Resource{
 						apiRes1,
 						apiRes2,
 					},
@@ -96,7 +95,7 @@ func (s *ListResourcesSuite) TestOkay(c *gc.C) {
 					},
 				},
 			},
-			CharmStoreResources: []api.CharmResource{
+			CharmStoreResources: []params.CharmResource{
 				apiChRes1,
 				apiChRes2,
 			},
@@ -107,18 +106,18 @@ func (s *ListResourcesSuite) TestOkay(c *gc.C) {
 }
 
 func (s *ListResourcesSuite) TestEmpty(c *gc.C) {
-	facade, err := server.NewFacade(s.data, s.newCSClient)
+	facade, err := resources.NewFacade(s.data, s.newCSClient)
 	c.Assert(err, jc.ErrorIsNil)
 
-	results, err := facade.ListResources(api.ListResourcesArgs{
+	results, err := facade.ListResources(params.ListResourcesArgs{
 		Entities: []params.Entity{{
 			Tag: "application-a-application",
 		}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(results, jc.DeepEquals, api.ResourcesResults{
-		Results: []api.ResourcesResult{{}},
+	c.Check(results, jc.DeepEquals, params.ResourcesResults{
+		Results: []params.ResourcesResult{{}},
 	})
 	s.stub.CheckCallNames(c, "ListResources")
 }
@@ -126,18 +125,18 @@ func (s *ListResourcesSuite) TestEmpty(c *gc.C) {
 func (s *ListResourcesSuite) TestError(c *gc.C) {
 	failure := errors.New("<failure>")
 	s.stub.SetErrors(failure)
-	facade, err := server.NewFacade(s.data, s.newCSClient)
+	facade, err := resources.NewFacade(s.data, s.newCSClient)
 	c.Assert(err, jc.ErrorIsNil)
 
-	results, err := facade.ListResources(api.ListResourcesArgs{
+	results, err := facade.ListResources(params.ListResourcesArgs{
 		Entities: []params.Entity{{
 			Tag: "application-a-application",
 		}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(results, jc.DeepEquals, api.ResourcesResults{
-		Results: []api.ResourcesResult{{
+	c.Check(results, jc.DeepEquals, params.ResourcesResults{
+		Results: []params.ResourcesResult{{
 			ErrorResult: params.ErrorResult{Error: &params.Error{
 				Message: "<failure>",
 			}},
