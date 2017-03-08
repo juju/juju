@@ -96,6 +96,30 @@ func (s supportCommandSuite) TestSupportCommand(c *gc.C) {
 			Args: []interface{}{
 				s.State.ModelUUID(),
 				"invalid",
+				"",
+			},
+		}},
+		err: `SLA level "invalid" not valid`,
+	}, {
+		about:  "all is well with budget",
+		level:  "essential",
+		budget: "personal:10",
+		apiCalls: []testing.StubCall{{
+			FuncName: "Authorize",
+			Args: []interface{}{
+				s.State.ModelUUID(),
+				"essential",
+				"personal:10",
+			},
+		}},
+	}, {
+		about: "invalid level",
+		level: "invalid",
+		apiCalls: []testing.StubCall{{
+			FuncName: "Authorize",
+			Args: []interface{}{
+				s.State.ModelUUID(),
+				"invalid",
 			},
 		}},
 		err: `SLA level "invalid" not valid`,
