@@ -148,6 +148,36 @@ func (c *Client) AddToUnit(storages []params.StorageAddParams) ([]params.ErrorRe
 	return out.Results, nil
 }
 
+// Attach attaches existing storage to a unit.
+func (c *Client) Attach(unitId string, storageIds []string) ([]params.ErrorResult, error) {
+	in := params.StorageAttachmentIds{
+		make([]params.StorageAttachmentId, len(storageIds)),
+	}
+	if !names.IsValidUnit(unitId) {
+		return nil, errors.NotValidf("unit ID %q", unitId)
+	}
+	for i, storageId := range storageIds {
+		if !names.IsValidStorage(storageId) {
+			return nil, errors.NotValidf("storage ID %q", storageId)
+		}
+		in.Ids[i] = params.StorageAttachmentId{
+			StorageTag: names.NewStorageTag(storageId).String(),
+			UnitTag:    names.NewUnitTag(unitId).String(),
+		}
+	}
+	out := params.ErrorResults{}
+	if err := c.facade.FacadeCall("Attach", in, &out); err != nil {
+		return nil, errors.Trace(err)
+	}
+	if len(out.Results) != len(storageIds) {
+		return nil, errors.Errorf(
+			"expected %d result(s), got %d",
+			len(storageIds), len(out.Results),
+		)
+	}
+	return out.Results, nil
+}
+
 // Destroy destroys specified storage entities.
 func (c *Client) Destroy(storageIds []string) ([]params.ErrorResult, error) {
 	results := params.ErrorResults{}

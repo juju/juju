@@ -90,7 +90,7 @@ func (s *storageAddSuite) TestStorageAddUnitInvalidName(c *gc.C) {
 func (s *storageAddSuite) TestStorageAddUnitStateError(c *gc.C) {
 	msg := "add test directive error"
 	s.state.addStorageForUnit = func(u names.UnitTag, name string, cons state.StorageConstraints) error {
-		s.calls = append(s.calls, addStorageForUnitCall)
+		s.stub.AddCall(addStorageForUnitCall)
 		return errors.Errorf(msg)
 	}
 
@@ -119,7 +119,7 @@ func (s *storageAddSuite) TestStorageAddUnitResultOrder(c *gc.C) {
 	}
 	msg := "storage name missing error"
 	s.state.addStorageForUnit = func(u names.UnitTag, name string, cons state.StorageConstraints) error {
-		s.calls = append(s.calls, addStorageForUnitCall)
+		s.stub.AddCall(addStorageForUnitCall)
 		if name == "" {
 			return errors.Errorf(msg)
 		}
@@ -142,7 +142,7 @@ func (s *storageAddSuite) TestStorageAddUnitResultOrder(c *gc.C) {
 func (s *storageAddSuite) TestStorageAddUnitNotFoundErr(c *gc.C) {
 	msg := "sanity"
 	s.state.addStorageForUnit = func(u names.UnitTag, name string, cons state.StorageConstraints) error {
-		s.calls = append(s.calls, addStorageForUnitCall)
+		s.stub.AddCall(addStorageForUnitCall)
 		return errors.NotFoundf(msg)
 	}
 
