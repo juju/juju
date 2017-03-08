@@ -88,6 +88,17 @@ func (s supportCommandSuite) TestSupportCommand(c *gc.C) {
 				"personal:10",
 			},
 		}},
+	}, {
+		about: "invalid level",
+		level: "invalid",
+		apiCalls: []testing.StubCall{{
+			FuncName: "Authorize",
+			Args: []interface{}{
+				s.State.ModelUUID(),
+				"invalid",
+			},
+		}},
+		err: `SLA level "invalid" not valid`,
 	},
 	}
 	for i, test := range tests {
