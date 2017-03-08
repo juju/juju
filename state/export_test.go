@@ -636,3 +636,9 @@ func AssertNoCleanups(c *gc.C, st *State, kind cleanupKind) {
 		}
 	}
 }
+
+// GetApplicationSettings allows access to settings collection for a
+// given application.
+func GetApplicationSettings(st *State, app *Application) *Settings {
+	return newSettings(st, settingsC, app.settingsKey())
+}

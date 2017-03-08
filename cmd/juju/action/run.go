@@ -1,4 +1,4 @@
-// Copyright 2014, 2015 Canonical Ltd.
+// Copyright 2014-2017 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package action
@@ -6,6 +6,7 @@ package action
 import (
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
@@ -33,6 +34,7 @@ type runCommand struct {
 	actionName   string
 	paramsYAML   cmd.FileVar
 	parseStrings bool
+	wait         waitFlag
 	out          cmd.Output
 	args         [][]string
 }
@@ -55,6 +57,16 @@ If --params is passed, along with key.key...=value explicit arguments, the
 explicit arguments will override the parameter file.
 
 Examples:
+
+$ juju run-action mysql/3 backup --wait
+action-id: <ID>
+result:
+  status: success
+  file:
+    size: 873.2
+    units: GB
+    name: foo.sql
+
 
 $ juju run-action mysql/3 backup 
 action: <ID>
@@ -115,6 +127,7 @@ func (c *runCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.out.AddFlags(f, "yaml", output.DefaultFormatters)
 	f.Var(&c.paramsYAML, "params", "Path to yaml-formatted params file")
 	f.BoolVar(&c.parseStrings, "string-args", false, "Use raw string values of CLI args")
+	f.Var(&c.wait, "wait", "Wait for results, with optional timeout")
 }
 
 func (c *runCommand) Info() *cmd.Info {
@@ -260,6 +273,28 @@ func (c *runCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 
-	output := map[string]string{"Action queued with id": tag.Id()}
+	if !c.wait.forever && c.wait.d.Nanoseconds() <= 0 {
+		// Immediate return. This is the default, although rarely
+		// what cli users want. We should consider changing this
+		// default with Juju 3.0.
+		output := map[string]string{"Action queued with id": tag.Id()}
+		return c.out.Write(ctx, output)
+	}
+
+	var wait *time.Timer
+	if c.wait.d.Nanoseconds() <= 0 {
+		// Indefinite wait. Discard the tick.
+		wait = time.NewTimer(0 * time.Second)
+		_ = <-wait.C
+	} else {
+		wait = time.NewTimer(c.wait.d)
+	}
+
+	result, err = GetActionResult(api, tag.Id(), wait)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	output := FormatActionResult(result)
+	output["action-id"] = tag.Id() // Action ID is required in case we timed out.
 	return c.out.Write(ctx, output)
 }

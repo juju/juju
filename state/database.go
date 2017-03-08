@@ -47,6 +47,16 @@ type Database interface {
 	// see modelStateCollection.
 	GetCollection(name string) (mongo.Collection, SessionCloser)
 
+	// GetCollecitonFor returns the named Collection, scoped for the
+	// model specified. As for GetCollection, a closer is also returned.
+	GetCollectionFor(modelUUID, name string) (mongo.Collection, SessionCloser)
+
+	// GetRawCollection returns the named mgo Collection. As no
+	// automatic model filtering is performed by the returned
+	// collection it should be rarely used. GetCollection() should be
+	// used in almost all cases.
+	GetRawCollection(name string) (*mgo.Collection, SessionCloser)
+
 	// TransactionRunner() returns a runner responsible for making changes to
 	// the database, and a func that must be called when the runner is no longer
 	// needed. The returned Runner might or might not have its own session,
@@ -57,6 +67,26 @@ type Database interface {
 	// non-global collections; and it will ensure that non-global documents can
 	// only be inserted while the corresponding model is still Alive.
 	TransactionRunner() (jujutxn.Runner, SessionCloser)
+
+	// RunTransaction is a convenience method for running a single
+	// transaction.
+	RunTransaction(ops []txn.Op) error
+
+	// RunTransaction is a convenience method for running a single
+	// transaction for the model specified.
+	RunTransactionFor(modelUUID string, ops []txn.Op) error
+
+	// RunRawTransaction is a convenience method that will run a
+	// single transaction using a "raw" transaction runner that won't
+	// perform model filtering.
+	RunRawTransaction(ops []txn.Op) error
+
+	// Run is a convenience method running a transaction using a
+	// transaction building function.
+	Run(transactions jujutxn.TransactionSource) error
+
+	// RunFor is like Run but runs the transaction for the model specified.
+	RunFor(modelUUID string, transactions jujutxn.TransactionSource) error
 
 	// Schema returns the schema used to load the database. The returned schema
 	// is not a copy and must not be modified.
@@ -268,6 +298,22 @@ func (db *database) GetCollection(name string) (collection mongo.Collection, clo
 	return collection, closer
 }
 
+// GetCollectionFor is part of the Database interface.
+func (db *database) GetCollectionFor(modelUUID, name string) (mongo.Collection, SessionCloser) {
+	newDb, dbcloser := db.CopyForModel(modelUUID)
+	collection, closer := newDb.GetCollection(name)
+	return collection, func() {
+		closer()
+		dbcloser()
+	}
+}
+
+// GetRawCollection is part of the Database interface.
+func (db *database) GetRawCollection(name string) (*mgo.Collection, SessionCloser) {
+	collection, closer := db.GetCollection(name)
+	return collection.Writeable().Underlying(), closer
+}
+
 // TransactionRunner is part of the Database interface.
 func (db *database) TransactionRunner() (runner jujutxn.Runner, closer SessionCloser) {
 	runner = db.runner
@@ -299,6 +345,48 @@ func (db *database) TransactionRunner() (runner jujutxn.Runner, closer SessionCl
 		modelUUID: db.modelUUID,
 		schema:    db.schema,
 	}, closer
+}
+
+// RunTransaction is part of the Database interface.
+func (db *database) RunTransaction(ops []txn.Op) error {
+	runner, closer := db.TransactionRunner()
+	defer closer()
+	return runner.RunTransaction(ops)
+}
+
+// RunTransactionFor is part of the Database interface.
+func (db *database) RunTransactionFor(modelUUID string, ops []txn.Op) error {
+	newDB, dbcloser := db.CopyForModel(modelUUID)
+	defer dbcloser()
+	runner, closer := newDB.TransactionRunner()
+	defer closer()
+	return runner.RunTransaction(ops)
+}
+
+// RunRawTransaction is part of the Database interface.
+func (db *database) RunRawTransaction(ops []txn.Op) error {
+	runner, closer := db.TransactionRunner()
+	defer closer()
+	if multiRunner, ok := runner.(*multiModelRunner); ok {
+		runner = multiRunner.rawRunner
+	}
+	return runner.RunTransaction(ops)
+}
+
+// Run is part of the Database interface.
+func (db *database) Run(transactions jujutxn.TransactionSource) error {
+	runner, closer := db.TransactionRunner()
+	defer closer()
+	return runner.Run(transactions)
+}
+
+// RunFor is part of the Database interface.
+func (db *database) RunFor(modelUUID string, transactions jujutxn.TransactionSource) error {
+	newDB, dbcloser := db.CopyForModel(modelUUID)
+	defer dbcloser()
+	runner, closer := newDB.TransactionRunner()
+	defer closer()
+	return runner.Run(transactions)
 }
 
 // Schema is part of the Database interface.

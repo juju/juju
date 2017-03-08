@@ -125,19 +125,25 @@ func newCollect(config ManifoldConfig, context dependency.Context) (*collect, er
 
 	var agent agent.Agent
 	if err := context.Get(config.AgentName, &agent); err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 
 	var metricFactory spool.MetricFactory
 	err := context.Get(config.MetricSpoolName, &metricFactory)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 
 	var charmdir fortress.Guest
 	err = context.Get(config.CharmDirName, &charmdir)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
+	}
+	err = charmdir.Visit(func() error {
+		return nil
+	}, context.Abort())
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
 
 	agentConfig := agent.CurrentConfig()

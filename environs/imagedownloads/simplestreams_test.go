@@ -9,15 +9,13 @@ import (
 	"net/http/httptest"
 	"strings"
 
+	"github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/testing"
-
+	. "github.com/juju/juju/environs/imagedownloads"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
-	jc "github.com/juju/testing/checkers"
-
-	. "github.com/juju/juju/environs/imagedownloads"
 )
 
 type Suite struct {

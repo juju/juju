@@ -9,13 +9,13 @@ import (
 	"net/url"
 	"os"
 
+	"github.com/juju/description"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
 	"github.com/juju/version"
 	"gopkg.in/juju/charm.v6-unstable"
 
-	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/state"

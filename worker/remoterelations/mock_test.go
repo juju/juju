@@ -130,6 +130,14 @@ func (m *mockRelationsFacade) ImportRemoteEntity(sourceModelUUID string, entity 
 	return nil
 }
 
+func (m *mockRelationsFacade) RemoveRemoteEntity(sourceModelUUID string, entity names.Tag) error {
+	m.stub.MethodCall(m, "RemoveRemoteEntity", sourceModelUUID, entity)
+	if err := m.stub.NextErr(); err != nil {
+		return err
+	}
+	return nil
+}
+
 func (m *mockRelationsFacade) GetToken(modelUUID string, entity names.Tag) (string, error) {
 	m.stub.MethodCall(m, "GetToken", modelUUID, entity)
 	if err := m.stub.NextErr(); err != nil {

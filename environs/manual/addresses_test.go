@@ -7,12 +7,12 @@ package manual_test
 import (
 	"errors"
 
-	"github.com/juju/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs/manual"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/testing"
 )
 
 const (

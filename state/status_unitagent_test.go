@@ -4,12 +4,12 @@
 package state_test
 
 import (
+	"fmt"
 	"time" // Only used for time types.
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"fmt"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/testing"

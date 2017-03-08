@@ -6,12 +6,12 @@ package juju_test
 import (
 	"net"
 
+	"github.com/juju/version"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/testing"
-	"github.com/juju/version"
 )
 
 type mockAPIState struct {

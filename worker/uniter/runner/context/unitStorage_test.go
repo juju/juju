@@ -138,7 +138,7 @@ func setupTestStorageSupport(c *gc.C, s *state.State) {
 	poolManager := poolmanager.New(stsetts, dummy.StorageProviders())
 	_, err := poolManager.Create(testPool, provider.LoopProviderType, map[string]interface{}{"it": "works"})
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = poolManager.Create(testPersistentPool, "environscoped", map[string]interface{}{"persistent": true})
+	_, err = poolManager.Create(testPersistentPool, "modelscoped", map[string]interface{}{"persistent": true})
 	c.Assert(err, jc.ErrorIsNil)
 }
 

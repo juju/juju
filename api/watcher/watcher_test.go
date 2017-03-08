@@ -178,7 +178,7 @@ func (s *watcherSuite) TestWatchMachineStorage(c *gc.C) {
 	f.MakeMachine(c, &factory.MachineParams{
 		Volumes: []state.MachineVolumeParams{{
 			Volume: state.VolumeParams{
-				Pool: "environscoped",
+				Pool: "modelscoped",
 				Size: 1024,
 			},
 		}},

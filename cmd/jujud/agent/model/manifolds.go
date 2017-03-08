@@ -6,12 +6,12 @@ package model
 import (
 	"time"
 
-	"github.com/juju/juju/api"
 	"github.com/juju/utils/clock"
 	"github.com/juju/utils/featureflag"
 	"github.com/juju/utils/voyeur"
 
 	coreagent "github.com/juju/juju/agent"
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/jujud/agent/engine"
 	"github.com/juju/juju/core/life"
@@ -250,8 +250,14 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			Scope:         modelTag,
 		})),
 		firewallerName: ifNotMigrating(firewaller.Manifold(firewaller.ManifoldConfig{
-			APICallerName: apiCallerName,
-			EnvironName:   environTrackerName,
+			AgentName:          agentName,
+			APICallerName:      apiCallerName,
+			EnvironName:        environTrackerName,
+			NewAPIConnForModel: api.NewConnectionForModel,
+
+			NewFirewallerWorker:      firewaller.NewWorker,
+			NewFirewallerFacade:      firewaller.NewFirewallerFacade,
+			NewRemoteRelationsFacade: firewaller.NewRemoteRelationsFacade,
 		})),
 		unitAssignerName: ifNotMigrating(unitassigner.Manifold(unitassigner.ManifoldConfig{
 			APICallerName: apiCallerName,
@@ -299,7 +305,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		result[remoteRelationsName] = ifNotMigrating(remoterelations.Manifold(remoterelations.ManifoldConfig{
 			AgentName:                agentName,
 			APICallerName:            apiCallerName,
-			APIOpen:                  api.Open,
+			NewAPIConnForModel:       api.NewConnectionForModel,
 			NewRemoteRelationsFacade: remoterelations.NewRemoteRelationsFacade,
 			NewWorker:                remoterelations.NewWorker,
 		}))

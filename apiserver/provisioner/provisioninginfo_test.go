@@ -275,7 +275,7 @@ func (s *withoutControllerSuite) TestStorageProviderFallbackToType(c *gc.C) {
 		Jobs:      []state.MachineJob{state.JobHostUnits},
 		Placement: "valid",
 		Volumes: []state.MachineVolumeParams{
-			{Volume: state.VolumeParams{Size: 1000, Pool: "environscoped"}},
+			{Volume: state.VolumeParams{Size: 1000, Pool: "modelscoped"}},
 			{Volume: state.VolumeParams{Size: 1000, Pool: "static"}},
 		},
 	}

@@ -6,6 +6,9 @@
 package lxdclient_test
 
 import (
+	"errors"
+
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	lxdapi "github.com/lxc/lxd/shared/api"
 	gc "gopkg.in/check.v1"
@@ -176,4 +179,80 @@ func (s *addressesSuite) TestAddresses(c *gc.C) {
 			Scope: network.ScopeCloudLocal,
 		},
 	})
+}
+
+type devicesSuite struct {
+	lxdclient.BaseSuite
+}
+
+var _ = gc.Suite(&devicesSuite{})
+
+func (s *devicesSuite) TestAttachDisk(c *gc.C) {
+	client := lxdclient.NewInstanceClient(s.Client)
+	err := client.AttachDisk("instance", "device", lxdclient.DiskDevice{
+		Source: "source-value",
+		Path:   "path-value",
+		Pool:   "pool-value",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.Stub.CheckCalls(c, []testing.StubCall{
+		{"ContainerDeviceAdd", []interface{}{"instance", "device", "disk", []string{
+			"path=path-value", "source=source-value", "pool=pool-value",
+		}}},
+		{"WaitForSuccess", []interface{}{""}},
+	})
+}
+
+func (s *devicesSuite) TestAttachDiskReadOnly(c *gc.C) {
+	client := lxdclient.NewInstanceClient(s.Client)
+	err := client.AttachDisk("instance", "device", lxdclient.DiskDevice{
+		Source:   "source-value",
+		Path:     "path-value",
+		ReadOnly: true,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.Stub.CheckCall(c, 0, "ContainerDeviceAdd", "instance", "device", "disk", []string{
+		"path=path-value", "source=source-value", "readonly=true",
+	})
+}
+
+func (s *devicesSuite) TestAttachDiskSyncError(c *gc.C) {
+	s.Stub.SetErrors(errors.New("sync error"))
+	client := lxdclient.NewInstanceClient(s.Client)
+	err := client.AttachDisk("instance", "device", lxdclient.DiskDevice{})
+	c.Assert(err, gc.ErrorMatches, "sync error")
+}
+
+func (s *devicesSuite) TestAttachDiskAsyncError(c *gc.C) {
+	s.Stub.SetErrors(nil, errors.New("async error"))
+	client := lxdclient.NewInstanceClient(s.Client)
+	err := client.AttachDisk("instance", "device", lxdclient.DiskDevice{})
+	c.Assert(err, gc.ErrorMatches, "async error")
+}
+
+func (s *devicesSuite) TestRemoveDevice(c *gc.C) {
+	client := lxdclient.NewInstanceClient(s.Client)
+	err := client.RemoveDevice("instance", "device")
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.Stub.CheckCalls(c, []testing.StubCall{
+		{"ContainerDeviceDelete", []interface{}{"instance", "device"}},
+		{"WaitForSuccess", []interface{}{""}},
+	})
+}
+
+func (s *devicesSuite) TestRemoveDeviceSyncError(c *gc.C) {
+	s.Stub.SetErrors(errors.New("sync error"))
+	client := lxdclient.NewInstanceClient(s.Client)
+	err := client.RemoveDevice("instance", "device")
+	c.Assert(err, gc.ErrorMatches, "sync error")
+}
+
+func (s *devicesSuite) TestRemoveDeviceAsyncError(c *gc.C) {
+	s.Stub.SetErrors(nil, errors.New("async error"))
+	client := lxdclient.NewInstanceClient(s.Client)
+	err := client.RemoveDevice("instance", "device")
+	c.Assert(err, gc.ErrorMatches, "async error")
 }

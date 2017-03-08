@@ -13,7 +13,6 @@ import (
 	"strings"
 
 	"github.com/juju/gomaasapi"
-
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/set"

@@ -89,6 +89,12 @@ format:
 simplify:
 	gofmt -w -l -s .
 
+rebuild-dependencies.tsv: godeps
+	# godeps invoked this way includes 'github.com/juju/juju' as part of
+	# the content, which we want to filter out.
+	# '-t' is not needed on newer versions of godeps, but is still supported.
+	godeps -t ./... | grep -v "^github.com/juju/juju\s" > dependencies.tsv
+
 # Install packages required to develop Juju and run tests. The stable
 # PPA includes the required mongodb-server binaries.
 install-dependencies:
@@ -126,4 +132,5 @@ check-deps:
 .PHONY: build check install
 .PHONY: clean format simplify
 .PHONY: install-dependencies
+.PHONY: rebuild-dependencies.tsv
 .PHONY: check-deps

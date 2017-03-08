@@ -4,11 +4,11 @@
 package migrationmaster
 
 import (
+	"github.com/juju/version"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/migration"
 	"github.com/juju/juju/state"
-	"github.com/juju/version"
 )
 
 // Backend defines the state functionality required by the

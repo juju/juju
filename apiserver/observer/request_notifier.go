@@ -6,10 +6,9 @@ import (
 	"net/http"
 	"time"
 
-	"gopkg.in/juju/names.v2"
-
 	"github.com/juju/loggo"
 	"github.com/juju/utils/clock"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/jsoncodec"

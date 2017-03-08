@@ -7,9 +7,10 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils/clock"
+
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/worker/catacomb"
-	"github.com/juju/utils/clock"
 )
 
 // Facade exposes the capabilities required by a FlagWorker.

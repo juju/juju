@@ -8,11 +8,10 @@ import (
 	"sort"
 	"strings"
 
-	"gopkg.in/yaml.v2"
-
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/common"
@@ -139,6 +138,17 @@ func (c *AddCloudCommand) Run(ctxt *cmd.Context) error {
 		return errors.Errorf("cloud %q not found in file %q", c.Cloud, c.CloudFile)
 	}
 
+	// validate cloud data
+	provider, err := environs.Provider(newCloud.Type)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	schemas := provider.CredentialSchemas()
+	for _, authType := range newCloud.AuthTypes {
+		if _, defined := schemas[authType]; !defined {
+			return errors.NotSupportedf("auth type %q", authType)
+		}
+	}
 	if err := c.verifyName(c.Cloud); err != nil {
 		return errors.Trace(err)
 	}

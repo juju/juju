@@ -50,7 +50,7 @@ func (c *Client) PublishLocalRelationChange(change params.RemoteRelationChangeEv
 // ImportRemoteEntity adds an entity to the remote entities collection
 // with the specified opaque token.
 func (c *Client) ImportRemoteEntity(sourceModelUUID string, entity names.Tag, token string) error {
-	args := params.ImportEntityArgs{Args: []params.ImportEntityArg{
+	args := params.RemoteEntityArgs{Args: []params.RemoteEntityArg{
 		{ModelTag: names.NewModelTag(sourceModelUUID).String(), Tag: entity.String(), Token: token}},
 	}
 	var results params.ErrorResults
@@ -100,9 +100,32 @@ func (c *Client) GetToken(sourceModelUUID string, tag names.Tag) (string, error)
 	}
 	result := results.Results[0]
 	if result.Error != nil {
+		if params.IsCodeNotFound(result.Error) {
+			return "", errors.NotFoundf("token for %v in model %v", tag, sourceModelUUID)
+		}
 		return "", errors.Trace(result.Error)
 	}
 	return result.Result, nil
+}
+
+// RemoveRemoteEntity removes the specified entity from the remote entities collection.
+func (c *Client) RemoveRemoteEntity(sourceModelUUID string, entity names.Tag) error {
+	args := params.RemoteEntityArgs{Args: []params.RemoteEntityArg{
+		{ModelTag: names.NewModelTag(sourceModelUUID).String(), Tag: entity.String()}},
+	}
+	var results params.ErrorResults
+	err := c.facade.FacadeCall("RemoveRemoteEntities", args, &results)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if len(results.Results) != 1 {
+		return errors.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return errors.Trace(result.Error)
+	}
+	return nil
 }
 
 // RegisterRemoteRelations sets up the local model to participate in the specified relations.

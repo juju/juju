@@ -117,3 +117,16 @@ func (st *State) WatchOpenedPorts() (watcher.StringsWatcher, error) {
 	w := apiwatcher.NewStringsWatcher(st.facade.RawAPICaller(), result)
 	return w, nil
 }
+
+// Relation provides access to methods of a state.Relation through the
+// facade.
+func (st *State) Relation(tag names.RelationTag) (*Relation, error) {
+	life, err := st.life(tag)
+	if err != nil {
+		return nil, err
+	}
+	return &Relation{
+		tag:  tag,
+		life: life,
+	}, nil
+}

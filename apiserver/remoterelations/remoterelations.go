@@ -30,23 +30,21 @@ func init() {
 // RemoteRelationsAPI provides access to the Provisioner API facade.
 type RemoteRelationsAPI struct {
 	st         RemoteRelationsState
+	pool       StatePool
 	resources  facade.Resources
 	authorizer facade.Authorizer
 }
 
 // NewRemoteRelationsAPI creates a new server-side RemoteRelationsAPI facade
 // backed by global state.
-func NewStateRemoteRelationsAPI(
-	st *state.State,
-	resources facade.Resources,
-	authorizer facade.Authorizer,
-) (*RemoteRelationsAPI, error) {
-	return NewRemoteRelationsAPI(stateShim{st}, resources, authorizer)
+func NewStateRemoteRelationsAPI(ctx facade.Context) (*RemoteRelationsAPI, error) {
+	return NewRemoteRelationsAPI(stateShim{ctx.State()}, statePoolShim{ctx.StatePool()}, ctx.Resources(), ctx.Auth())
 }
 
 // NewRemoteRelationsAPI returns a new server-side RemoteRelationsAPI facade.
 func NewRemoteRelationsAPI(
 	st RemoteRelationsState,
+	pool StatePool,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
 ) (*RemoteRelationsAPI, error) {
@@ -55,13 +53,14 @@ func NewRemoteRelationsAPI(
 	}
 	return &RemoteRelationsAPI{
 		st:         st,
+		pool:       pool,
 		resources:  resources,
 		authorizer: authorizer,
 	}, nil
 }
 
 // ImportRemoteEntities adds entities to the remote entities collection with the specified opaque tokens.
-func (api *RemoteRelationsAPI) ImportRemoteEntities(args params.ImportEntityArgs) (params.ErrorResults, error) {
+func (api *RemoteRelationsAPI) ImportRemoteEntities(args params.RemoteEntityArgs) (params.ErrorResults, error) {
 	results := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Args)),
 	}
@@ -72,7 +71,7 @@ func (api *RemoteRelationsAPI) ImportRemoteEntities(args params.ImportEntityArgs
 	return results, nil
 }
 
-func (api *RemoteRelationsAPI) importRemoteEntity(arg params.ImportEntityArg) error {
+func (api *RemoteRelationsAPI) importRemoteEntity(arg params.RemoteEntityArg) error {
 	entityTag, err := names.ParseTag(arg.Tag)
 	if err != nil {
 		return errors.Trace(err)
@@ -108,6 +107,30 @@ func (api *RemoteRelationsAPI) ExportEntities(entities params.Entities) (params.
 		}
 	}
 	return results, nil
+}
+
+// RemoveRemoteEntities removes the specified entities from the remote entities collection.
+func (api *RemoteRelationsAPI) RemoveRemoteEntities(args params.RemoteEntityArgs) (params.ErrorResults, error) {
+	results := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.Args)),
+	}
+	for i, arg := range args.Args {
+		err := api.removeRemoteEntity(arg)
+		results.Results[i].Error = common.ServerError(err)
+	}
+	return results, nil
+}
+
+func (api *RemoteRelationsAPI) removeRemoteEntity(arg params.RemoteEntityArg) error {
+	entityTag, err := names.ParseTag(arg.Tag)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	modelTag, err := names.ParseModelTag(arg.ModelTag)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return api.st.RemoveRemoteEntity(modelTag, entityTag)
 }
 
 // GetToken returns the token associated with the entity with the given tag for the current model.
@@ -184,55 +207,57 @@ func (api *RemoteRelationsAPI) RelationUnitSettings(relationUnits params.Relatio
 	return results, nil
 }
 
+func (api *RemoteRelationsAPI) remoteRelation(entity params.Entity) (*params.RemoteRelation, error) {
+	tag, err := names.ParseRelationTag(entity.Tag)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	rel, err := api.st.KeyRelation(tag.Id())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	result := &params.RemoteRelation{
+		Id:   rel.Id(),
+		Life: params.Life(rel.Life().String()),
+		Key:  tag.Id(),
+	}
+	for _, ep := range rel.Endpoints() {
+		// Try looking up the info for the remote application.
+		remoteApp, err := api.st.RemoteApplication(ep.ApplicationName)
+		if err != nil && !errors.IsNotFound(err) {
+			return nil, errors.Trace(err)
+		} else if err == nil {
+			result.RemoteEndpointName = ep.Name
+			result.SourceModelUUID = remoteApp.SourceModel().Id()
+			continue
+		}
+		// Try looking up the info for the local application.
+		_, err = api.st.Application(ep.ApplicationName)
+		if err != nil && !errors.IsNotFound(err) {
+			return nil, errors.Trace(err)
+		} else if err == nil {
+			result.ApplicationName = ep.ApplicationName
+			result.Endpoint = params.RemoteEndpoint{
+				Name:      ep.Name,
+				Interface: ep.Interface,
+				Role:      ep.Role,
+				Scope:     ep.Scope,
+				Limit:     ep.Limit,
+			}
+			continue
+		}
+	}
+	return result, nil
+}
+
 // Relations returns information about the cross-model relations with the specified keys
 // in the local model.
 func (api *RemoteRelationsAPI) Relations(entities params.Entities) (params.RemoteRelationResults, error) {
 	results := params.RemoteRelationResults{
 		Results: make([]params.RemoteRelationResult, len(entities.Entities)),
 	}
-	one := func(entity params.Entity) (*params.RemoteRelation, error) {
-		tag, err := names.ParseRelationTag(entity.Tag)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		rel, err := api.st.KeyRelation(tag.Id())
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		result := &params.RemoteRelation{
-			Id:   rel.Id(),
-			Life: params.Life(rel.Life().String()),
-			Key:  tag.Id(),
-		}
-		for _, ep := range rel.Endpoints() {
-			// Try looking up the info for the remote application.
-			_, err := api.st.RemoteApplication(ep.ApplicationName)
-			if err != nil && !errors.IsNotFound(err) {
-				return nil, errors.Trace(err)
-			} else if err == nil {
-				result.RemoteEndpointName = ep.Name
-				continue
-			}
-			// Try looking up the info for the local application.
-			_, err = api.st.Application(ep.ApplicationName)
-			if err != nil && !errors.IsNotFound(err) {
-				return nil, errors.Trace(err)
-			} else if err == nil {
-				result.ApplicationName = ep.ApplicationName
-				result.Endpoint = params.RemoteEndpoint{
-					Name:      ep.Name,
-					Interface: ep.Interface,
-					Role:      ep.Role,
-					Scope:     ep.Scope,
-					Limit:     ep.Limit,
-				}
-				continue
-			}
-		}
-		return result, nil
-	}
 	for i, entity := range entities.Entities {
-		remoteRelation, err := one(entity)
+		remoteRelation, err := api.remoteRelation(entity)
 		if err != nil {
 			results.Results[i].Error = common.ServerError(err)
 			continue
@@ -303,6 +328,10 @@ func (api *RemoteRelationsAPI) publishRelationChange(change params.RemoteRelatio
 
 	relationTag, err := api.getRemoteEntityTag(change.RelationId)
 	if err != nil {
+		if errors.IsNotFound(err) {
+			logger.Debugf("not found relation tag %+v in model %v, exit early", change.RelationId, api.st.ModelUUID())
+			return nil
+		}
 		return errors.Trace(err)
 	}
 	logger.Debugf("relation tag for remote id %+v is %v", change.RelationId, relationTag)
@@ -318,14 +347,6 @@ func (api *RemoteRelationsAPI) publishRelationChange(change params.RemoteRelatio
 		return errors.Trace(err)
 	}
 
-	// If the remote model has destroyed the relation,
-	// do it here also.
-	if change.Life != params.Alive {
-		if err := rel.Destroy(); err != nil {
-			return errors.Trace(err)
-		}
-	}
-
 	// Look up the application on the remote side of this relation
 	// ie from the model which published this change.
 	applicationTag, err := api.getRemoteEntityTag(change.ApplicationId)
@@ -333,6 +354,29 @@ func (api *RemoteRelationsAPI) publishRelationChange(change params.RemoteRelatio
 		return errors.Trace(err)
 	}
 	logger.Debugf("application tag for remote id %+v is %v", change.ApplicationId, applicationTag)
+
+	// If the remote model has destroyed the relation, do it here also.
+	if change.Life != params.Alive {
+		logger.Debugf("remote side of %v died", relationTag)
+		if err := rel.Destroy(); err != nil {
+			return errors.Trace(err)
+		}
+		// See if we need to remove the remote application proxy - we do this
+		// on the offering side as there is 1:1 between proxy and consuming app.
+		if applicationTag != nil {
+			remoteApp, err := api.st.RemoteApplication(applicationTag.Id())
+			if err != nil && !errors.IsNotFound(err) {
+				return errors.Trace(err)
+			}
+			if err == nil && remoteApp.Registered() {
+				logger.Debugf("destroy consuming app proxy for %v", remoteApp.Name())
+				if err := remoteApp.Destroy(); err != nil {
+					return errors.Trace(err)
+				}
+			}
+		}
+	}
+
 	// TODO(wallyworld) - deal with remote application being removed
 	if applicationTag == nil {
 		logger.Infof("no remote application found for %v", relationTag.Id())

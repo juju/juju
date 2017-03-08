@@ -10,6 +10,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
+	"github.com/juju/version"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/tomb.v1"
 
@@ -26,7 +27,6 @@ import (
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/wrench"
-	"github.com/juju/version"
 )
 
 var logger = loggo.GetLogger("juju.worker.upgradesteps")

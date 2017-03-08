@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/ansiterm"
 	"github.com/juju/cmd"
+
 	"github.com/juju/juju/status"
 )
 
@@ -96,6 +97,8 @@ var statusColors = map[status.Status]*ansiterm.Context{
 	status.Idle:      GoodHighlight,
 	status.Started:   GoodHighlight,
 	status.Executing: GoodHighlight,
+	status.Attaching: GoodHighlight,
+	status.Attached:  GoodHighlight,
 	// busy
 	status.Allocating:  WarningHighlight,
 	status.Lost:        WarningHighlight,
@@ -104,6 +107,8 @@ var statusColors = map[status.Status]*ansiterm.Context{
 	status.Rebooting:   WarningHighlight,
 	status.Stopped:     WarningHighlight,
 	status.Unknown:     WarningHighlight,
+	status.Detaching:   WarningHighlight,
+	status.Detached:    WarningHighlight,
 	// bad
 	status.Blocked: ErrorHighlight,
 	status.Down:    ErrorHighlight,

@@ -6,9 +6,8 @@ package state
 import (
 	"github.com/juju/errors"
 	"github.com/juju/testing"
-	gc "gopkg.in/check.v1"
-
 	jc "github.com/juju/testing/checkers"
+	gc "gopkg.in/check.v1"
 )
 
 var _ = gc.Suite(&sequenceMinSuite{})

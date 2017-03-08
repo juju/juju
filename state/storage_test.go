@@ -38,7 +38,7 @@ func (s *StorageStateSuiteBase) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Create a pool that creates persistent block devices.
-	_, err = pm.Create("persistent-block", "environscoped-block", map[string]interface{}{
+	_, err = pm.Create("persistent-block", "modelscoped-block", map[string]interface{}{
 		"persistent": true,
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -97,7 +97,7 @@ storage:
 
 func (s *StorageStateSuiteBase) setupMixedScopeStorageService(c *gc.C, kind string) *state.Application {
 	storageCons := map[string]state.StorageConstraints{
-		"multi1to10": makeStorageCons("environscoped", 1024, 1),
+		"multi1to10": makeStorageCons("modelscoped", 1024, 1),
 		"multi2up":   makeStorageCons("machinescoped", 2048, 2),
 	}
 	ch := s.AddTestingCharm(c, "storage-"+kind+"2")
@@ -546,7 +546,9 @@ func (s *StorageStateSuite) TestAllStorageInstances(c *gc.C) {
 	for _, one := range all {
 		c.Assert(one.Kind(), gc.DeepEquals, state.StorageKindBlock)
 		c.Assert(nameSet.Contains(one.StorageName()), jc.IsTrue)
-		c.Assert(ownerSet.Contains(one.Owner().String()), jc.IsTrue)
+		owner, ok := one.Owner()
+		c.Assert(ok, jc.IsTrue)
+		c.Assert(ownerSet.Contains(owner.String()), jc.IsTrue)
 	}
 }
 
@@ -733,6 +735,12 @@ func (s *StorageStateSuite) TestConcurrentDestroyStorageInstance(c *gc.C) {
 	si, err := s.State.StorageInstance(storageTag)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(si.Life(), gc.Equals, state.Dying)
+}
+
+func (s *StorageStateSuite) TestDestroyStorageInstanceNotFound(c *gc.C) {
+	err := s.State.DestroyStorageInstance(names.NewStorageTag("foo/0"))
+	c.Assert(err, gc.ErrorMatches, `cannot destroy storage "foo/0": storage instance "foo/0" not found`)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *StorageStateSuite) TestWatchStorageAttachments(c *gc.C) {

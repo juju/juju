@@ -6,10 +6,10 @@ package google
 import (
 	"crypto/sha256"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/juju/juju/network"
-	"sort"
 )
 
 // RuleSet is used to manipulate port ranges

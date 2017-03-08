@@ -41,6 +41,17 @@ type Subnet struct {
 	Status string `json:"status,omitempty"`
 }
 
+// NetworkRoute describes a special route that should be added for a given
+// network interface.
+type NetworkRoute struct {
+	// DestinationCIDR is the Subnet CIDR of traffic that needs a custom route.
+	DestinationCIDR string `json:"destination-cidr"`
+	// GatewayIP is the target IP to use as the next-hop when sending traffic to DestinationCIDR
+	GatewayIP string `json:"gateway-ip"`
+	// Metric is the cost for this particular route.
+	Metric int `json:"metric"`
+}
+
 // NetworkConfig describes the necessary information to configure
 // a single network interface on a machine. This mostly duplicates
 // network.InterfaceInfo type and it's defined here so it can be kept
@@ -130,6 +141,10 @@ type NetworkConfig struct {
 	// configure for this network interface. For containers this
 	// usually (one of) the host address(es).
 	GatewayAddress string `json:"gateway-address,omitempty"`
+
+	// Routes is a list of routes that should be applied when this interface is
+	// active.
+	Routes []NetworkRoute `json:"routes,omitempty"`
 }
 
 // DeviceBridgeInfo lists the host device and the expected bridge to be

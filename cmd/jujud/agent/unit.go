@@ -95,7 +95,7 @@ func (a *UnitAgent) Init(args []string) error {
 		return cmdutil.RequiredError("unit-name")
 	}
 	if !names.IsValidUnit(a.UnitName) {
-		return errors.Errorf(`--unit-name option expects "<service>/<n>" argument`)
+		return errors.Errorf(`--unit-name option expects "<application>/<n>" argument`)
 	}
 	if err := a.AgentConf.CheckArgs(args); err != nil {
 		return err

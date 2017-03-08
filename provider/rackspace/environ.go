@@ -9,13 +9,13 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	jujuos "github.com/juju/utils/os"
+	"github.com/juju/utils/series"
+	"github.com/juju/utils/ssh"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/provider/common"
-	jujuos "github.com/juju/utils/os"
-	"github.com/juju/utils/series"
-	"github.com/juju/utils/ssh"
 )
 
 type environ struct {

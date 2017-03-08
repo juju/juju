@@ -5,10 +5,9 @@ package audit
 
 import (
 	"github.com/juju/errors"
-
-	"github.com/juju/juju/audit"
 	"github.com/juju/version"
 
+	"github.com/juju/juju/audit"
 	"github.com/juju/juju/mongo/utils"
 )
 

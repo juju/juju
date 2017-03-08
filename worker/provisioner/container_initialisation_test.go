@@ -22,7 +22,9 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/api/common"
 	apiprovisioner "github.com/juju/juju/api/provisioner"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
@@ -116,7 +118,7 @@ func (s *ContainerSetupSuite) setupContainerWorker(c *gc.C, tag names.MachineTag
 
 func (s *ContainerSetupSuite) createContainer(c *gc.C, host *state.Machine, ctype instance.ContainerType) {
 	inst := s.checkStartInstance(c, host)
-	s.setupContainerWorker(c, host.Tag().(names.MachineTag))
+	s.setupContainerWorker(c, host.MachineTag())
 
 	// make a container on the host machine
 	template := state.MachineTemplate{
@@ -140,6 +142,9 @@ func (s *ContainerSetupSuite) createContainer(c *gc.C, host *state.Machine, ctyp
 func (s *ContainerSetupSuite) assertContainerProvisionerStarted(
 	c *gc.C, host *state.Machine, ctype instance.ContainerType) {
 
+	s.PatchValue(provisioner.GetObservedNetworkConfig, func(_ common.NetworkConfigSource) ([]params.NetworkConfig, error) {
+		return nil, nil
+	})
 	// A stub worker callback to record what happens.
 	var provisionerStarted uint32
 	startProvisionerWorker := func(runner worker.Runner, containerType instance.ContainerType,
@@ -185,7 +190,7 @@ func (s *ContainerSetupSuite) TestContainerProvisionerStarted(c *gc.C) {
 	}
 }
 
-func (s *ContainerSetupSuite) TestKvmContainerUsesHostArch(c *gc.C) {
+func (s *ContainerSetupSuite) TestKvmContainerUsesTargetArch(c *gc.C) {
 	// KVM should do what it's told, and use the architecture in
 	// constraints.
 	s.PatchValue(&arch.HostArch, func() string { return arch.PPC64EL })
@@ -203,6 +208,9 @@ func (_ fakeContainerInitialiser) Initialise() error {
 
 func (s *ContainerSetupSuite) testContainerConstraintsArch(c *gc.C, containerType instance.ContainerType, expectArch string) {
 	var called uint32
+	s.PatchValue(provisioner.GetObservedNetworkConfig, func(_ common.NetworkConfigSource) ([]params.NetworkConfig, error) {
+		return nil, nil
+	})
 	s.PatchValue(provisioner.GetToolsFinder, func(*apiprovisioner.State) provisioner.ToolsFinder {
 		return toolsFinderFunc(func(v version.Number, series string, arch string) (tools.List, error) {
 			atomic.StoreUint32(&called, 1)
@@ -347,7 +355,7 @@ func (s *ContainerSetupSuite) TestContainerInitLockError(c *gc.C) {
 	err = m.SetAgentVersion(current)
 	c.Assert(err, jc.ErrorIsNil)
 
-	handler, runner := s.setupContainerWorker(c, m.Tag().(names.MachineTag))
+	handler, runner := s.setupContainerWorker(c, m.MachineTag())
 	runner.Kill()
 	err = runner.Wait()
 	c.Assert(err, jc.ErrorIsNil)

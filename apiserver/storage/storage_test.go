@@ -237,6 +237,7 @@ func (s *storageSuite) createTestStorageDetails() params.StorageDetails {
 		StorageTag: s.storageTag.String(),
 		OwnerTag:   s.unitTag.String(),
 		Kind:       params.StorageKindFilesystem,
+		Life:       "dying",
 		Status: params.EntityStatus{
 			Status: "attached",
 		},
@@ -246,6 +247,7 @@ func (s *storageSuite) createTestStorageDetails() params.StorageDetails {
 				s.unitTag.String(),
 				s.machineTag.String(),
 				"", // location
+				"alive",
 			},
 		},
 	}
@@ -293,6 +295,7 @@ func (s *storageSuite) TestShowStorage(c *gc.C) {
 		StorageTag: s.storageTag.String(),
 		OwnerTag:   s.unitTag.String(),
 		Kind:       params.StorageKindFilesystem,
+		Life:       "dying",
 		Status: params.EntityStatus{
 			Status: "attached",
 		},
@@ -302,6 +305,7 @@ func (s *storageSuite) TestShowStorage(c *gc.C) {
 				s.unitTag.String(),
 				s.machineTag.String(),
 				"",
+				"alive",
 			},
 		},
 	}
@@ -316,4 +320,26 @@ func (s *storageSuite) TestShowStorageInvalidId(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(found.Results, gc.HasLen, 1)
 	s.assertInstanceInfoError(c, found.Results[0], params.StorageDetailsResult{}, `"foo" is not a valid tag`)
+}
+
+func (s *storageSuite) TestDestroy(c *gc.C) {
+	results, err := s.api.Destroy(params.Entities{Entities: []params.Entity{
+		{Tag: "storage-foo-0"},
+		{Tag: "volume-0"},
+		{Tag: "filesystem-1-2"},
+		{Tag: "machine-0"},
+	}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 4)
+	c.Assert(results.Results, jc.DeepEquals, []params.ErrorResult{
+		{Error: &params.Error{Message: "cannae do it"}},
+		{Error: &params.Error{Message: `tag kind "volume" not valid`}},
+		{Error: &params.Error{Message: `tag kind "filesystem" not valid`}},
+		{Error: &params.Error{Message: `tag kind "machine" not valid`}},
+	})
+	s.assertCalls(c, []string{
+		getBlockForTypeCall, // Remove
+		getBlockForTypeCall, // Change
+		destroyStorageInstanceCall,
+	})
 }

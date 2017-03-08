@@ -137,9 +137,9 @@ func (c *addCommand) Run(ctx *cmd.Context) error {
 	// The embedded ASN.1 data is length-encoded, so the
 	// padding will not complicate decoding.
 	remainder := len(registrationData) % 3
-	for remainder > 0 {
-		registrationData = append(registrationData, 0)
-		remainder--
+	if remainder != 0 {
+		var pad [3]byte
+		registrationData = append(registrationData, pad[:3-remainder]...)
 	}
 	base64RegistrationData := base64.URLEncoding.EncodeToString(
 		registrationData,

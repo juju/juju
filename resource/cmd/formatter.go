@@ -8,11 +8,11 @@ import (
 	"strconv"
 	"strings"
 
-	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
-
 	"github.com/juju/errors"
-	"github.com/juju/juju/resource"
+	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 	"gopkg.in/juju/names.v2"
+
+	"github.com/juju/juju/resource"
 )
 
 type charmResourcesFormatter struct {
