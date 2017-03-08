@@ -10,6 +10,7 @@ import (
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
+	worker "gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/migrationminion"
@@ -22,7 +23,6 @@ import (
 	"github.com/juju/juju/testing/factory"
 	corewatcher "github.com/juju/juju/watcher"
 	"github.com/juju/juju/watcher/watchertest"
-	"github.com/juju/juju/worker"
 )
 
 type watcherSuite struct {
@@ -178,7 +178,7 @@ func (s *watcherSuite) TestWatchMachineStorage(c *gc.C) {
 	f.MakeMachine(c, &factory.MachineParams{
 		Volumes: []state.MachineVolumeParams{{
 			Volume: state.VolumeParams{
-				Pool: "environscoped",
+				Pool: "modelscoped",
 				Size: 1024,
 			},
 		}},

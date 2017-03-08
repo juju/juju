@@ -19,9 +19,10 @@ import (
 	corecharm "gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/charm.v6-unstable/hooks"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/worker"
+	jworker "github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/fortress"
 	"github.com/juju/juju/worker/metrics/spool"
@@ -105,7 +106,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			if err != nil {
 				return nil, err
 			}
-			return spool.NewPeriodicWorker(collector.Do, collector.period, worker.NewTimer, collector.stop), nil
+			return spool.NewPeriodicWorker(collector.Do, collector.period, jworker.NewTimer, collector.stop), nil
 		},
 	}
 }
@@ -125,19 +126,25 @@ func newCollect(config ManifoldConfig, context dependency.Context) (*collect, er
 
 	var agent agent.Agent
 	if err := context.Get(config.AgentName, &agent); err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 
 	var metricFactory spool.MetricFactory
 	err := context.Get(config.MetricSpoolName, &metricFactory)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 
 	var charmdir fortress.Guest
 	err = context.Get(config.CharmDirName, &charmdir)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
+	}
+	err = charmdir.Visit(func() error {
+		return nil
+	}, context.Abort())
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
 
 	agentConfig := agent.CurrentConfig()

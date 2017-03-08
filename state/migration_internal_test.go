@@ -677,12 +677,12 @@ func (s *MigrationSuite) TestVolumeDocFields(c *gc.C) {
 		"ModelUUID",
 		"DocID",
 		"Life",
+		"MachineId", // recreated from pool properties
 	)
 	migrated := set.NewStrings(
 		"Name",
 		"StorageId",
 		"AttachmentCount", // through count of attachment instances
-		"Binding",
 		"Info",
 		"Params",
 	)
@@ -719,13 +719,13 @@ func (s *MigrationSuite) TestFilesystemDocFields(c *gc.C) {
 		"ModelUUID",
 		"DocID",
 		"Life",
+		"MachineId", // recreated from pool properties
 	)
 	migrated := set.NewStrings(
 		"FilesystemId",
 		"StorageId",
 		"VolumeId",
 		"AttachmentCount", // through count of attachment instances
-		"Binding",
 		"Info",
 		"Params",
 	)

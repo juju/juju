@@ -576,16 +576,16 @@ func (s *ModelSuite) TestDestroyModelEmpty(c *gc.C) {
 }
 
 func (s *ModelSuite) TestProcessDyingServerEnvironTransitionDyingToDead(c *gc.C) {
-	s.assertDyingEnvironTransitionDyingToDead(c, s.State)
+	s.assertDyingModelTransitionDyingToDead(c, s.State)
 }
 
 func (s *ModelSuite) TestProcessDyingHostedEnvironTransitionDyingToDead(c *gc.C) {
 	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
-	s.assertDyingEnvironTransitionDyingToDead(c, st)
+	s.assertDyingModelTransitionDyingToDead(c, st)
 }
 
-func (s *ModelSuite) assertDyingEnvironTransitionDyingToDead(c *gc.C, st *state.State) {
+func (s *ModelSuite) assertDyingModelTransitionDyingToDead(c *gc.C, st *state.State) {
 	// Add a service to prevent the model from transitioning directly to Dead.
 	// Add the service before getting the Model, otherwise we'll have to run
 	// the transaction twice, and hit the hook point too early.
@@ -612,7 +612,7 @@ func (s *ModelSuite) assertDyingEnvironTransitionDyingToDead(c *gc.C, st *state.
 	c.Assert(env.Destroy(), jc.ErrorIsNil)
 }
 
-func (s *ModelSuite) TestProcessDyingEnvironWithMachinesAndServicesNoOp(c *gc.C) {
+func (s *ModelSuite) TestProcessDyingModelWithMachinesAndServicesNoOp(c *gc.C) {
 	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
 
@@ -659,6 +659,84 @@ func (s *ModelSuite) TestProcessDyingEnvironWithMachinesAndServicesNoOp(c *gc.C)
 
 	c.Assert(env.Refresh(), jc.ErrorIsNil)
 	c.Assert(env.Destroy(), jc.ErrorIsNil)
+}
+
+func (s *ModelSuite) TestProcessDyingModelWithVolumeBackedFilesystems(c *gc.C) {
+	st := s.Factory.MakeModel(c, nil)
+	defer st.Close()
+
+	model, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
+	machine, err := st.AddOneMachine(state.MachineTemplate{
+		Series: "quantal",
+		Jobs:   []state.MachineJob{state.JobHostUnits},
+		Filesystems: []state.MachineFilesystemParams{{
+			Filesystem: state.FilesystemParams{
+				Pool: "modelscoped-block",
+				Size: 123,
+			},
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	filesystems, err := st.AllFilesystems()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(filesystems, gc.HasLen, 1)
+
+	c.Assert(model.Destroy(), jc.ErrorIsNil)
+	err = st.DestroyFilesystem(names.NewFilesystemTag("0/0"))
+	c.Assert(err, jc.ErrorIsNil)
+	err = st.RemoveFilesystemAttachment(machine.MachineTag(), names.NewFilesystemTag("0/0"))
+	c.Assert(err, jc.ErrorIsNil)
+	err = st.DetachVolume(machine.MachineTag(), names.NewVolumeTag("0"))
+	c.Assert(err, jc.ErrorIsNil)
+	err = st.RemoveVolumeAttachment(machine.MachineTag(), names.NewVolumeTag("0"))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(machine.EnsureDead(), jc.ErrorIsNil)
+	c.Assert(machine.Remove(), jc.ErrorIsNil)
+
+	// The filesystem will be gone, but the volume is persistent and should
+	// not have been removed.
+	err = st.ProcessDyingModel()
+	c.Assert(err, gc.ErrorMatches, `model not empty, found 1 volume\(s\)`)
+}
+
+func (s *ModelSuite) TestProcessDyingModelWithVolumes(c *gc.C) {
+	st := s.Factory.MakeModel(c, nil)
+	defer st.Close()
+
+	model, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
+	machine, err := st.AddOneMachine(state.MachineTemplate{
+		Series: "quantal",
+		Jobs:   []state.MachineJob{state.JobHostUnits},
+		Volumes: []state.MachineVolumeParams{{
+			Volume: state.VolumeParams{
+				Pool: "modelscoped",
+				Size: 123,
+			},
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	volumes, err := st.AllVolumes()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(volumes, gc.HasLen, 1)
+
+	c.Assert(model.Destroy(), jc.ErrorIsNil)
+	err = st.DetachVolume(machine.MachineTag(), names.NewVolumeTag("0"))
+	c.Assert(err, jc.ErrorIsNil)
+	err = st.RemoveVolumeAttachment(machine.MachineTag(), names.NewVolumeTag("0"))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(machine.EnsureDead(), jc.ErrorIsNil)
+	c.Assert(machine.Remove(), jc.ErrorIsNil)
+
+	// The volume is persistent and should not have been removed along with
+	// the machine it was attached to.
+	err = st.ProcessDyingModel()
+	c.Assert(err, gc.ErrorMatches, `model not empty, found 1 volume\(s\)`)
 }
 
 func (s *ModelSuite) TestProcessDyingControllerEnvironWithHostedEnvsNoOp(c *gc.C) {

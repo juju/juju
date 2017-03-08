@@ -6,18 +6,19 @@ package model
 import (
 	"time"
 
-	"github.com/juju/juju/api"
 	"github.com/juju/utils/clock"
 	"github.com/juju/utils/featureflag"
 	"github.com/juju/utils/voyeur"
+	"gopkg.in/juju/worker.v1"
 
 	coreagent "github.com/juju/juju/agent"
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/jujud/agent/engine"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/feature"
-	"github.com/juju/juju/worker"
+	jworker "github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/agent"
 	"github.com/juju/juju/worker/apicaller"
 	"github.com/juju/juju/worker/apiconfigwatcher"
@@ -250,8 +251,14 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			Scope:         modelTag,
 		})),
 		firewallerName: ifNotMigrating(firewaller.Manifold(firewaller.ManifoldConfig{
-			APICallerName: apiCallerName,
-			EnvironName:   environTrackerName,
+			AgentName:          agentName,
+			APICallerName:      apiCallerName,
+			EnvironName:        environTrackerName,
+			NewAPIConnForModel: api.NewConnectionForModel,
+
+			NewFirewallerWorker:      firewaller.NewWorker,
+			NewFirewallerFacade:      firewaller.NewFirewallerFacade,
+			NewRemoteRelationsFacade: firewaller.NewRemoteRelationsFacade,
 		})),
 		unitAssignerName: ifNotMigrating(unitassigner.Manifold(unitassigner.ManifoldConfig{
 			APICallerName: apiCallerName,
@@ -287,7 +294,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			MaxHistoryMB:   config.StatusHistoryPrunerMaxHistoryMB,
 			PruneInterval:  config.StatusHistoryPrunerInterval,
 			// TODO(fwereade): 2016-03-17 lp:1558657
-			NewTimer: worker.NewTimer,
+			NewTimer: jworker.NewTimer,
 		})),
 		machineUndertakerName: ifNotMigrating(machineundertaker.Manifold(machineundertaker.ManifoldConfig{
 			APICallerName: apiCallerName,
@@ -299,7 +306,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		result[remoteRelationsName] = ifNotMigrating(remoterelations.Manifold(remoterelations.ManifoldConfig{
 			AgentName:                agentName,
 			APICallerName:            apiCallerName,
-			APIOpen:                  api.Open,
+			NewAPIConnForModel:       api.NewConnectionForModel,
 			NewRemoteRelationsFacade: remoterelations.NewRemoteRelationsFacade,
 			NewWorker:                remoterelations.NewWorker,
 		}))

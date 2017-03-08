@@ -11,7 +11,8 @@ import (
 	"time"
 
 	jc "github.com/juju/testing/checkers"
-	lxdshared "github.com/lxc/lxd/shared"
+	lxdapi "github.com/lxc/lxd/shared/api"
+	"github.com/lxc/lxd/shared/osarch"
 	gc "gopkg.in/check.v1"
 
 	jujutesting "github.com/juju/juju/testing"
@@ -24,26 +25,45 @@ type instanceSuite struct {
 
 var _ = gc.Suite(&instanceSuite{})
 
-var templateContainerInfo = lxdshared.ContainerInfo{
-	Architecture: "x86_64",
-	Config: map[string]string{
-		"limits.cpu":     "2",
-		"limits.memory":  "256MB",
-		"user.something": "something value",
+var templateContainerInfo = lxdapi.Container{
+	ContainerPut: lxdapi.ContainerPut{
+		Architecture: "x86_64",
+		Config: map[string]string{
+			"limits.cpu":     "2",
+			"limits.memory":  "256MB",
+			"user.something": "something value",
+		},
+		Devices: map[string]map[string]string{
+			"disk0": {
+				"type":   "disk",
+				"source": "disk0",
+				"path":   "/mnt/disk0",
+				"pool":   "radiance",
+			},
+			"disk1": {
+				"type":     "disk",
+				"source":   "/tmp/disk1",
+				"path":     "/mnt/disk1",
+				"readonly": "true",
+			},
+			"fun": {
+				"type": "unix-char",
+				"path": "/dev/mem",
+			},
+		},
+		Ephemeral: false,
+		Profiles:  []string{""},
 	},
-	CreationDate:    time.Now(),
-	Devices:         nil,
-	Ephemeral:       false,
+	CreatedAt:       time.Now(),
 	ExpandedConfig:  nil,
 	ExpandedDevices: nil,
 	Name:            "container-name",
-	Profiles:        []string{""},
-	Status:          lxdshared.Starting.String(),
-	StatusCode:      lxdshared.Starting,
+	Status:          lxdapi.Starting.String(),
+	StatusCode:      lxdapi.Starting,
 }
 
 func (s *instanceSuite) TestNewInstanceSummaryTemplate(c *gc.C) {
-	archStr, err := lxdshared.ArchitectureName(lxdshared.ARCH_64BIT_INTEL_X86)
+	archStr, err := osarch.ArchitectureName(osarch.ARCH_64BIT_INTEL_X86)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(templateContainerInfo.Architecture, gc.Equals, archStr)
 	summary := lxdclient.NewInstanceSummary(&templateContainerInfo)
@@ -57,7 +77,7 @@ func (s *instanceSuite) TestNewInstanceSummaryTemplate(c *gc.C) {
 	c.Check(summary.Metadata, gc.DeepEquals, map[string]string{"something": "something value"})
 }
 
-func infoWithMemory(mem string) *lxdshared.ContainerInfo {
+func infoWithMemory(mem string) *lxdapi.Container {
 	info := templateContainerInfo
 	info.Config = map[string]string{
 		"limits.memory": mem,
@@ -82,18 +102,18 @@ func (s *instanceSuite) TestNewInstanceSummaryMemory(c *gc.C) {
 	c.Check(summary.Hardware.MemoryMB, gc.Equals, uint(math.MaxUint32-1))
 }
 
-func infoWithArchitecture(arch int) *lxdshared.ContainerInfo {
+func infoWithArchitecture(arch int) *lxdapi.Container {
 	info := templateContainerInfo
-	info.Architecture, _ = lxdshared.ArchitectureName(arch)
+	info.Architecture, _ = osarch.ArchitectureName(arch)
 	return &info
 }
 
 func (s *instanceSuite) TestNewInstanceSummaryArchitectures(c *gc.C) {
-	summary := lxdclient.NewInstanceSummary(infoWithArchitecture(lxdshared.ARCH_32BIT_INTEL_X86))
+	summary := lxdclient.NewInstanceSummary(infoWithArchitecture(osarch.ARCH_32BIT_INTEL_X86))
 	c.Check(summary.Hardware.Architecture, gc.Equals, "i386")
-	summary = lxdclient.NewInstanceSummary(infoWithArchitecture(lxdshared.ARCH_64BIT_INTEL_X86))
+	summary = lxdclient.NewInstanceSummary(infoWithArchitecture(osarch.ARCH_64BIT_INTEL_X86))
 	c.Check(summary.Hardware.Architecture, gc.Equals, "amd64")
-	summary = lxdclient.NewInstanceSummary(infoWithArchitecture(lxdshared.ARCH_64BIT_POWERPC_LITTLE_ENDIAN))
+	summary = lxdclient.NewInstanceSummary(infoWithArchitecture(osarch.ARCH_64BIT_POWERPC_LITTLE_ENDIAN))
 	c.Check(summary.Hardware.Architecture, gc.Equals, "ppc64el")
 	info := templateContainerInfo
 	info.Architecture = "unknown"
@@ -115,5 +135,24 @@ func (*instanceSuite) TestNamespaceMetadata(c *gc.C) {
 	c.Assert(sum.Metadata, gc.DeepEquals, map[string]string{
 		"foo": "bar",
 		"baz": "boo",
+	})
+}
+
+func (*instanceSuite) TestDisks(c *gc.C) {
+	summary := lxdclient.NewInstanceSummary(&templateContainerInfo)
+	inst := lxdclient.NewInstance(summary, nil)
+
+	disks := inst.Disks()
+	c.Assert(disks, jc.DeepEquals, map[string]lxdclient.DiskDevice{
+		"disk0": {
+			Source: "disk0",
+			Path:   "/mnt/disk0",
+			Pool:   "radiance",
+		},
+		"disk1": {
+			Source:   "/tmp/disk1",
+			Path:     "/mnt/disk1",
+			ReadOnly: true,
+		},
 	})
 }

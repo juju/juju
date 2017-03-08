@@ -15,7 +15,6 @@ import (
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider/common"
-	"github.com/juju/juju/tools/lxdclient"
 )
 
 const bootstrapMessage = `To configure your system to better support LXD containers, please see: https://github.com/lxc/lxd/blob/master/doc/production-setup.md`
@@ -140,9 +139,6 @@ func (env *environ) Config() *config.Config {
 
 // PrepareForBootstrap implements environs.Environ.
 func (env *environ) PrepareForBootstrap(ctx environs.BootstrapContext) error {
-	if err := lxdclient.EnableHTTPSListener(env.raw); err != nil {
-		return errors.Annotate(err, "enabling HTTPS listener")
-	}
 	return nil
 }
 
@@ -153,12 +149,8 @@ func (env *environ) Create(environs.CreateParams) error {
 
 // Bootstrap implements environs.Environ.
 func (env *environ) Bootstrap(ctx environs.BootstrapContext, params environs.BootstrapParams) (*environs.BootstrapResult, error) {
+	ctx.Infof("%s", bootstrapMessage)
 	return env.base.BootstrapEnv(ctx, params)
-}
-
-// BootstrapMessage is part of the Environ interface.
-func (env *environ) BootstrapMessage() string {
-	return bootstrapMessage
 }
 
 // Destroy shuts down all known machines and destroys the rest of the

@@ -21,6 +21,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charmrepo.v2-unstable"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
@@ -39,7 +40,7 @@ import (
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
-	"github.com/juju/juju/worker"
+	jworker "github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/authenticationworker"
 	"github.com/juju/juju/worker/deployer"
 	"github.com/juju/juju/worker/logsender"
@@ -206,7 +207,11 @@ func NewTestMachineAgentFactory(
 			machineId,
 			agentConfWriter,
 			bufferedLogger,
-			worker.NewRunner(cmdutil.IsFatal, cmdutil.MoreImportant, worker.RestartDelay),
+			worker.NewRunner(worker.RunnerParams{
+				IsFatal:       cmdutil.IsFatal,
+				MoreImportant: cmdutil.MoreImportant,
+				RestartDelay:  jworker.RestartDelay,
+			}),
 			&mockLoopDeviceManager{},
 			DefaultIntrospectionSocketName,
 			preUpgradeSteps,
@@ -309,7 +314,7 @@ func newSingularRunnerRecord() *singularRunnerRecord {
 	}
 }
 
-func (r *singularRunnerRecord) newSingularRunner(runner worker.Runner, conn singular.Conn) (worker.Runner, error) {
+func (r *singularRunnerRecord) newSingularRunner(runner jworker.Runner, conn singular.Conn) (jworker.Runner, error) {
 	sr, err := singular.New(runner, conn)
 	if err != nil {
 		return nil, err
@@ -336,7 +341,7 @@ func (r *singularRunnerRecord) nextRunner(c *gc.C) *fakeSingularRunner {
 }
 
 type fakeSingularRunner struct {
-	worker.Runner
+	jworker.Runner
 	startC chan string
 }
 
@@ -518,7 +523,7 @@ func runWithTimeout(r runner) error {
 }
 
 func newDummyWorker() worker.Worker {
-	return worker.NewSimpleWorker(func(stop <-chan struct{}) error {
+	return jworker.NewSimpleWorker(func(stop <-chan struct{}) error {
 		<-stop
 		return nil
 	})

@@ -18,6 +18,7 @@ import (
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
+	worker "gopkg.in/juju/worker.v1"
 	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/api"
@@ -30,7 +31,6 @@ import (
 	coretesting "github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/watcher"
-	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/fortress"
 	"github.com/juju/juju/worker/migrationmaster"
 	"github.com/juju/juju/worker/workertest"
@@ -93,6 +93,15 @@ var (
 		"MigrationTarget.Activate",
 		[]interface{}{
 			params.ModelArgs{ModelTag: modelTag.String()},
+		},
+	}
+	adoptResourcesCall = jujutesting.StubCall{
+		"MigrationTarget.AdoptResources",
+		[]interface{}{
+			params.AdoptResourcesArgs{
+				ModelTag:                modelTag.String(),
+				SourceControllerVersion: jujuversion.Current,
+			},
 		},
 	}
 	latestLogTimeCall = jujutesting.StubCall{
@@ -251,6 +260,9 @@ func (s *Suite) TestSuccessfulMigration(c *gc.C) {
 			// SUCCESS
 			{"facade.WatchMinionReports", nil},
 			{"facade.MinionReports", nil},
+			apiOpenControllerCall,
+			adoptResourcesCall,
+			apiCloseCall,
 			{"facade.SetPhase", []interface{}{coremigration.LOGTRANSFER}},
 
 			// LOGTRANSFER
@@ -278,6 +290,9 @@ func (s *Suite) TestMigrationResume(c *gc.C) {
 		[]jujutesting.StubCall{
 			{"facade.WatchMinionReports", nil},
 			{"facade.MinionReports", nil},
+			apiOpenControllerCall,
+			adoptResourcesCall,
+			apiCloseCall,
 			{"facade.SetPhase", []interface{}{coremigration.LOGTRANSFER}},
 			apiOpenControllerCall,
 			latestLogTimeCall,
@@ -552,6 +567,9 @@ func (s *Suite) TestSUCCESSMinionWaitFailedMachine(c *gc.C) {
 		[]jujutesting.StubCall{
 			{"facade.WatchMinionReports", nil},
 			{"facade.MinionReports", nil},
+			apiOpenControllerCall,
+			adoptResourcesCall,
+			apiCloseCall,
 			{"facade.SetPhase", []interface{}{coremigration.LOGTRANSFER}},
 			apiOpenControllerCall,
 			latestLogTimeCall,
@@ -579,6 +597,9 @@ func (s *Suite) TestSUCCESSMinionWaitFailedUnit(c *gc.C) {
 		[]jujutesting.StubCall{
 			{"facade.WatchMinionReports", nil},
 			{"facade.MinionReports", nil},
+			apiOpenControllerCall,
+			adoptResourcesCall,
+			apiCloseCall,
 			{"facade.SetPhase", []interface{}{coremigration.LOGTRANSFER}},
 			apiOpenControllerCall,
 			latestLogTimeCall,
@@ -617,6 +638,9 @@ func (s *Suite) TestSUCCESSMinionWaitTimeout(c *gc.C) {
 		watchStatusLockdownCalls,
 		[]jujutesting.StubCall{
 			{"facade.WatchMinionReports", nil},
+			apiOpenControllerCall,
+			adoptResourcesCall,
+			apiCloseCall,
 			{"facade.SetPhase", []interface{}{coremigration.LOGTRANSFER}},
 			apiOpenControllerCall,
 			latestLogTimeCall,
@@ -1208,7 +1232,7 @@ func (c *stubConnection) APICall(objType string, version int, id, request string
 			return c.prechecksErr
 		case "Import":
 			return c.importErr
-		case "Activate":
+		case "Activate", "AdoptResources":
 			return nil
 		case "LatestLogTime":
 			responseTime := response.(*time.Time)

@@ -157,6 +157,7 @@ func (r *RemoteEntities) RemoveRemoteEntity(
 	ops := func(attempt int) ([]txn.Op, error) {
 		token, err := r.GetToken(sourceModel, entity)
 		if errors.IsNotFound(err) {
+			logger.Debugf("remote entity %v from %v in model %v not found", entity, sourceModel, r.st.ModelUUID())
 			return nil, jujutxn.ErrNoOperations
 		}
 		ops := []txn.Op{r.removeRemoteEntityOp(sourceModel, entity)}

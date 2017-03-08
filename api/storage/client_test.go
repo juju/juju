@@ -313,9 +313,9 @@ func (s *storageMockSuite) TestListVolumes(c *gc.C) {
 
 			details := params.VolumeDetails{
 				VolumeTag: "volume-0",
-				MachineAttachments: map[string]params.VolumeAttachmentInfo{
-					"machine-0": params.VolumeAttachmentInfo{},
-					"machine-1": params.VolumeAttachmentInfo{},
+				MachineAttachments: map[string]params.VolumeAttachmentDetails{
+					"machine-0": {},
+					"machine-1": {},
 				},
 			}
 			results.Results = []params.VolumeDetailsListResult{{
@@ -333,9 +333,9 @@ func (s *storageMockSuite) TestListVolumes(c *gc.C) {
 	for i := 0; i < 2; i++ {
 		c.Assert(found[i].Result, jc.DeepEquals, []params.VolumeDetails{{
 			VolumeTag: "volume-0",
-			MachineAttachments: map[string]params.VolumeAttachmentInfo{
-				"machine-0": params.VolumeAttachmentInfo{},
-				"machine-1": params.VolumeAttachmentInfo{},
+			MachineAttachments: map[string]params.VolumeAttachmentDetails{
+				"machine-0": {},
+				"machine-1": {},
 			},
 		}})
 	}
@@ -406,10 +406,12 @@ func (s *storageMockSuite) TestListFilesystems(c *gc.C) {
 		Status: params.EntityStatus{
 			Status: "attached",
 		},
-		MachineAttachments: map[string]params.FilesystemAttachmentInfo{
-			"0": params.FilesystemAttachmentInfo{
-				MountPoint: "/mnt/kinabalu",
-				ReadOnly:   false,
+		MachineAttachments: map[string]params.FilesystemAttachmentDetails{
+			"0": params.FilesystemAttachmentDetails{
+				FilesystemAttachmentInfo: params.FilesystemAttachmentInfo{
+					MountPoint: "/mnt/kinabalu",
+					ReadOnly:   false,
+				},
 			},
 		},
 	}
@@ -580,4 +582,139 @@ func (s *storageMockSuite) TestAddToUnitFacadeCallError(c *gc.C) {
 	found, err := storageClient.AddToUnit(unitStorages)
 	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
 	c.Assert(found, gc.HasLen, 0)
+}
+
+func (s *storageMockSuite) TestDestroy(c *gc.C) {
+	apiCaller := basetesting.APICallerFunc(
+		func(objType string,
+			version int,
+			id, request string,
+			a, result interface{},
+		) error {
+			c.Check(objType, gc.Equals, "Storage")
+			c.Check(id, gc.Equals, "")
+			c.Check(request, gc.Equals, "Destroy")
+			c.Check(a, jc.DeepEquals, params.Entities{[]params.Entity{
+				{"storage-foo-0"},
+				{"storage-bar-1"},
+			}})
+			c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+			results := result.(*params.ErrorResults)
+			results.Results = []params.ErrorResult{
+				{},
+				{Error: &params.Error{Message: "baz"}},
+			}
+			return nil
+		},
+	)
+	client := storage.NewClient(apiCaller)
+	results, err := client.Destroy([]string{"foo/0", "bar/1"})
+	c.Check(err, jc.ErrorIsNil)
+	c.Assert(results, gc.HasLen, 2)
+	c.Assert(results[0].Error, gc.IsNil)
+	c.Assert(results[1].Error, jc.DeepEquals, &params.Error{Message: "baz"})
+}
+
+func (s *storageMockSuite) TestDestroyInvalidStorageId(c *gc.C) {
+	client := storage.NewClient(basetesting.APICallerFunc(
+		func(_ string, _ int, _, _ string, _, _ interface{}) error {
+			return nil
+		},
+	))
+	_, err := client.Destroy([]string{"foo/bar"})
+	c.Check(err, gc.ErrorMatches, `storage ID "foo/bar" not valid`)
+}
+
+func (s *storageMockSuite) TestDetach(c *gc.C) {
+	apiCaller := basetesting.APICallerFunc(
+		func(objType string,
+			version int,
+			id, request string,
+			a, result interface{},
+		) error {
+			c.Check(objType, gc.Equals, "Storage")
+			c.Check(id, gc.Equals, "")
+			c.Check(request, gc.Equals, "Detach")
+			c.Check(a, jc.DeepEquals, params.StorageAttachmentIds{[]params.StorageAttachmentId{
+				{StorageTag: "storage-foo-0"},
+				{StorageTag: "storage-bar-1"},
+			}})
+			c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+			results := result.(*params.ErrorResults)
+			results.Results = []params.ErrorResult{
+				{},
+				{Error: &params.Error{Message: "baz"}},
+			}
+			return nil
+		},
+	)
+	client := storage.NewClient(apiCaller)
+	results, err := client.Detach([]string{"foo/0", "bar/1"})
+	c.Check(err, jc.ErrorIsNil)
+	c.Assert(results, gc.HasLen, 2)
+	c.Assert(results[0].Error, gc.IsNil)
+	c.Assert(results[1].Error, jc.DeepEquals, &params.Error{Message: "baz"})
+}
+
+func (s *storageMockSuite) TestDetachArityMismatch(c *gc.C) {
+	apiCaller := basetesting.APICallerFunc(
+		func(objType string, version int, id, request string, a, result interface{}) error {
+			results := result.(*params.ErrorResults)
+			results.Results = []params.ErrorResult{{}, {}, {}}
+			return nil
+		},
+	)
+	client := storage.NewClient(apiCaller)
+	_, err := client.Detach([]string{"foo/0", "bar/1"})
+	c.Check(err, gc.ErrorMatches, `expected 2 result\(s\), got 3`)
+}
+
+func (s *storageMockSuite) TestAttach(c *gc.C) {
+	apiCaller := basetesting.APICallerFunc(
+		func(objType string,
+			version int,
+			id, request string,
+			a, result interface{},
+		) error {
+			c.Check(objType, gc.Equals, "Storage")
+			c.Check(id, gc.Equals, "")
+			c.Check(request, gc.Equals, "Attach")
+			c.Check(a, jc.DeepEquals, params.StorageAttachmentIds{[]params.StorageAttachmentId{
+				{
+					StorageTag: "storage-bar-1",
+					UnitTag:    "unit-foo-0",
+				},
+				{
+					StorageTag: "storage-baz-2",
+					UnitTag:    "unit-foo-0",
+				},
+			}})
+			c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+			results := result.(*params.ErrorResults)
+			results.Results = []params.ErrorResult{
+				{},
+				{Error: &params.Error{Message: "qux"}},
+			}
+			return nil
+		},
+	)
+	client := storage.NewClient(apiCaller)
+	results, err := client.Attach("foo/0", []string{"bar/1", "baz/2"})
+	c.Check(err, jc.ErrorIsNil)
+	c.Assert(results, gc.HasLen, 2)
+	c.Assert(results[0].Error, gc.IsNil)
+	c.Assert(results[1].Error, jc.DeepEquals, &params.Error{Message: "qux"})
+}
+
+func (s *storageMockSuite) TestAttachArityMismatch(c *gc.C) {
+	apiCaller := basetesting.APICallerFunc(
+		func(objType string, version int, id, request string, a, result interface{}) error {
+			results := result.(*params.ErrorResults)
+			results.Results = []params.ErrorResult{{}, {}, {}}
+			return nil
+		},
+	)
+	client := storage.NewClient(apiCaller)
+	_, err := client.Attach("foo/0", []string{"bar/1", "baz/2"})
+	c.Check(err, gc.ErrorMatches, `expected 2 result\(s\), got 3`)
 }

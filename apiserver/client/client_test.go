@@ -18,10 +18,12 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
+	worker "gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/apiserver/client"
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/modelconfig"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/testing"
@@ -42,7 +44,6 @@ import (
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 	jujuversion "github.com/juju/juju/version"
-	"github.com/juju/juju/worker"
 )
 
 type serverSuite struct {
@@ -61,11 +62,7 @@ func (s *serverSuite) SetUpTest(c *gc.C) {
 	s.client = s.clientForState(c, s.State)
 }
 
-func (s *serverSuite) clientForState(c *gc.C, st *state.State) *client.Client {
-	auth := testing.FakeAuthorizer{
-		Tag:            s.AdminUserTag(c),
-		EnvironManager: true,
-	}
+func (s *serverSuite) authClientForState(c *gc.C, st *state.State, auth facade.Authorizer) *client.Client {
 	urlGetter := common.NewToolsURLGetter(st.ModelUUID(), st)
 	configGetter := stateenvirons.EnvironConfigGetter{st}
 	statusSetter := common.NewStatusSetter(st, common.AuthAlways())
@@ -93,6 +90,13 @@ func (s *serverSuite) clientForState(c *gc.C, st *state.State) *client.Client {
 	return apiserverClient
 }
 
+func (s *serverSuite) clientForState(c *gc.C, st *state.State) *client.Client {
+	return s.authClientForState(c, st, testing.FakeAuthorizer{
+		Tag:        s.AdminUserTag(c),
+		Controller: true,
+	})
+}
+
 func (s *serverSuite) setAgentPresence(c *gc.C, machineId string) *presence.Pinger {
 	m, err := s.State.Machine(machineId)
 	c.Assert(err, jc.ErrorIsNil)
@@ -111,7 +115,12 @@ func (s *serverSuite) TestModelInfo(c *gc.C) {
 	model, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	conf, _ := s.State.ModelConfig()
-	info, err := s.client.ModelInfo()
+	// Model info is available to read-only users.
+	client := s.authClientForState(c, s.State, testing.FakeAuthorizer{
+		Tag:        names.NewUserTag("read"),
+		Controller: true,
+	})
+	info, err := client.ModelInfo()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info.DefaultSeries, gc.Equals, config.PreferredSeries(conf))
 	c.Assert(info.CloudRegion, gc.Equals, model.CloudRegion())

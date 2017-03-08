@@ -1396,14 +1396,14 @@ func validateDynamicMachineStorageParams(m *Machine, params *machineStorageParam
 func machineStoragePools(st *State, params *machineStorageParams) (set.Strings, error) {
 	pools := make(set.Strings)
 	for _, v := range params.volumes {
-		v, err := st.volumeParamsWithDefaults(v.Volume)
+		v, err := st.volumeParamsWithDefaults(v.Volume, "")
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		pools.Add(v.Pool)
 	}
 	for _, f := range params.filesystems {
-		f, err := st.filesystemParamsWithDefaults(f.Filesystem)
+		f, err := st.filesystemParamsWithDefaults(f.Filesystem, "")
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -1785,7 +1785,7 @@ func unitMachineStorageParams(u *Unit) (*machineStorageParams, error) {
 	volumeAttachments := make(map[names.VolumeTag]VolumeAttachmentParams)
 	filesystemAttachments := make(map[names.FilesystemTag]FilesystemAttachmentParams)
 	for _, storageAttachment := range storageAttachments {
-		storage, err := u.st.StorageInstance(storageAttachment.StorageInstance())
+		storage, err := u.st.storageInstance(storageAttachment.StorageInstance())
 		if err != nil {
 			return nil, errors.Annotatef(err, "getting storage instance")
 		}
@@ -1825,7 +1825,7 @@ func machineStorageParamsForStorageInstance(
 	unit names.UnitTag,
 	series string,
 	allCons map[string]StorageConstraints,
-	storage StorageInstance,
+	storage *storageInstance,
 ) (*machineStorageParams, error) {
 
 	charmStorage := charmMeta.Storage[storage.StorageName()]
@@ -1840,13 +1840,12 @@ func machineStorageParamsForStorageInstance(
 		volumeAttachmentParams := VolumeAttachmentParams{
 			charmStorage.ReadOnly,
 		}
-		if unit == storage.Owner() {
+		if unit == storage.maybeOwner() {
 			// The storage instance is owned by the unit, so we'll need
 			// to create a volume.
 			cons := allCons[storage.StorageName()]
 			volumeParams := VolumeParams{
 				storage: storage.StorageTag(),
-				binding: storage.StorageTag(),
 				Pool:    cons.Pool,
 				Size:    cons.Size,
 			}
@@ -1876,13 +1875,12 @@ func machineStorageParamsForStorageInstance(
 			location,
 			charmStorage.ReadOnly,
 		}
-		if unit == storage.Owner() {
+		if unit == storage.maybeOwner() {
 			// The storage instance is owned by the unit, so we'll need
 			// to create a filesystem.
 			cons := allCons[storage.StorageName()]
 			filesystemParams := FilesystemParams{
 				storage: storage.StorageTag(),
-				binding: storage.StorageTag(),
 				Pool:    cons.Pool,
 				Size:    cons.Size,
 			}

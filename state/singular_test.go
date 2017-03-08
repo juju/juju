@@ -61,20 +61,21 @@ func (s *SingularSuite) TestExpire(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	wait := make(chan error)
 	go func() {
-		s.Clock.Advance(coretesting.ShortWait)
 		wait <- claimer.WaitUntilExpired(s.modelTag.Id())
 	}()
+
+	s.Clock.Advance(coretesting.ShortWait)
 	select {
 	case err := <-wait:
 		c.Fatalf("expired early with %v", err)
-	case <-s.Clock.After(coretesting.ShortWait):
+	case <-time.After(coretesting.ShortWait):
 	}
 
 	s.Clock.Advance(time.Hour)
 	select {
 	case err := <-wait:
 		c.Check(err, jc.ErrorIsNil)
-	case <-s.Clock.After(coretesting.LongWait):
+	case <-time.After(coretesting.LongWait):
 		c.Fatalf("never expired")
 	}
 

@@ -4,8 +4,9 @@
 package testing
 
 import (
+	worker "gopkg.in/juju/worker.v1"
+
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/workertest"
 )
 

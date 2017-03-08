@@ -4,10 +4,9 @@
 package errorutils
 
 import (
-	"github.com/juju/errors"
-
 	"github.com/Azure/go-autorest/autorest"
 	"github.com/Azure/go-autorest/autorest/azure"
+	"github.com/juju/errors"
 )
 
 // ServiceError returns the *azure.ServiceError underlying the

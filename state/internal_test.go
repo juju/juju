@@ -22,7 +22,7 @@ import (
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/mongo/mongotest"
 	"github.com/juju/juju/storage"
-	"github.com/juju/juju/storage/provider"
+	"github.com/juju/juju/storage/provider/dummy"
 	"github.com/juju/juju/testing"
 )
 
@@ -72,7 +72,7 @@ func (s *internalStateSuite) SetUpTest(c *gc.C) {
 			CloudRegion:             "dummy-region",
 			Owner:                   s.owner,
 			Config:                  modelCfg,
-			StorageProviderRegistry: provider.CommonStorageProviders(),
+			StorageProviderRegistry: dummy.StorageProviders(),
 		},
 		Cloud: cloud.Cloud{
 			Name:      "dummy",
@@ -111,7 +111,7 @@ func (s *internalStateSuite) newState(c *gc.C) *State {
 		CloudRegion: "dummy-region",
 		Config:      cfg,
 		Owner:       s.owner,
-		StorageProviderRegistry: storage.StaticProviderRegistry{},
+		StorageProviderRegistry: dummy.StorageProviders(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.AddCleanup(func(*gc.C) { st.Close() })
@@ -137,7 +137,7 @@ func (internalStatePolicy) InstanceDistributor() (instance.Distributor, error) {
 }
 
 func (internalStatePolicy) StorageProviderRegistry() (storage.ProviderRegistry, error) {
-	return provider.CommonStorageProviders(), nil
+	return dummy.StorageProviders(), nil
 }
 
 func (internalStatePolicy) ProviderConfigSchemaSource() (config.ConfigSchemaSource, error) {

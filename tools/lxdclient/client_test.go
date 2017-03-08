@@ -13,8 +13,11 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	jujuos "github.com/juju/utils/os"
+	proxyutils "github.com/juju/utils/proxy"
 	"github.com/lxc/lxd"
 	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/utils/proxy"
 )
 
 type ConnectSuite struct {
@@ -235,6 +238,31 @@ func (cs *ConnectSuite) TestGoodVersionChecks(c *gc.C) {
 	cs.CheckVersionSupported(c, "1.0", true)
 	cs.CheckVersionSupported(c, "2.0", true)
 	cs.CheckVersionSupported(c, "2.1", true)
+}
+
+func (cs *ConnectSuite) TestProxySettings(c *gc.C) {
+	cs.AddCleanup(func(c *gc.C) {
+		err := proxy.DefaultConfig.Set(proxyutils.Settings{})
+		c.Assert(err, jc.ErrorIsNil)
+	})
+
+	cfg, err := Config{Remote: Remote{
+		Name: "foo",
+		Host: "host.invalid",
+	}}.WithDefaults()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// The LXD client should use the Juju-managed proxy configuration.
+
+	// No proxy by default.
+	_, err = Connect(cfg, false)
+	c.Assert(err, gc.ErrorMatches, `.*host\.invalid.*`)
+
+	// Configure a proxy, expect it to be used.
+	err = proxy.DefaultConfig.Set(proxyutils.Settings{Https: "proxy.invalid"})
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = Connect(cfg, false)
+	c.Assert(err, gc.ErrorMatches, `.*proxy\.invalid.*`)
 }
 
 var testerr = errors.Errorf("boo!")

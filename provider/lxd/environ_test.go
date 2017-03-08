@@ -11,6 +11,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloudconfig/instancecfg"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/provider/common"
@@ -65,17 +66,20 @@ func (s *environSuite) TestBootstrapOkay(c *gc.C) {
 		},
 	}
 
-	ctx := envtesting.BootstrapContext(c)
+	ctx := coretesting.Context(c)
 	params := environs.BootstrapParams{
 		ControllerConfig: coretesting.FakeControllerConfig(),
 	}
-	result, err := s.Env.Bootstrap(ctx, params)
+	result, err := s.Env.Bootstrap(modelcmd.BootstrapContext(ctx), params)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(result.Arch, gc.Equals, "amd64")
 	c.Check(result.Series, gc.Equals, "trusty")
 	// We don't check bsFinalizer because functions cannot be compared.
 	c.Check(result.Finalize, gc.NotNil)
+
+	out := coretesting.Stderr(ctx)
+	c.Assert(out, gc.Equals, "To configure your system to better support LXD containers, please see: https://github.com/lxc/lxd/blob/master/doc/production-setup.md\n")
 }
 
 func (s *environSuite) TestBootstrapAPI(c *gc.C) {
@@ -147,13 +151,5 @@ func (s *environSuite) TestDestroyHostedModels(c *gc.C) {
 		{"Destroy", nil},
 		{"Instances", []interface{}{"juju-", lxdclient.AliveStatuses}},
 		{"RemoveInstances", []interface{}{"juju-", []string{machine1.Name}}},
-	})
-}
-
-func (s *environSuite) TestPrepareForBootstrap(c *gc.C) {
-	err := s.Env.PrepareForBootstrap(envtesting.BootstrapContext(c))
-	c.Assert(err, jc.ErrorIsNil)
-	s.Stub.CheckCalls(c, []gitjujutesting.StubCall{
-		{"SetServerConfig", []interface{}{"core.https_address", "[::]"}},
 	})
 }

@@ -140,6 +140,10 @@ func (api *MachinerAPI) Jobs(args params.Entities) (params.JobsResults, error) {
 }
 
 func (api *MachinerAPI) SetObservedNetworkConfig(args params.SetMachineNetworkConfig) error {
+	// TODO(jam): 2017-03-02 This is a copy of the content of
+	// Provisioner.SetObservedNetworkConfig, either refactor the code to make them
+	// the same, or keep them in sync.
+	// https://bugs.launchpad.net/juju/+bug/1669397
 	m, err := api.getMachineForSettingNetworkConfig(args.Tag)
 	if err != nil {
 		return errors.Trace(err)
@@ -150,13 +154,13 @@ func (api *MachinerAPI) SetObservedNetworkConfig(args params.SetMachineNetworkCo
 	observedConfig := args.Config
 	logger.Tracef("observed network config of machine %q: %+v", m.Id(), observedConfig)
 	if len(observedConfig) == 0 {
-		logger.Infof("not updating machine network config: no observed network config found")
+		logger.Infof("not updating machine %q network config: no observed network config found", m.Id())
 		return nil
 	}
 
 	providerConfig, err := api.getOneMachineProviderNetworkConfig(m)
 	if errors.IsNotProvisioned(err) {
-		logger.Infof("not updating provider network config: %v", err)
+		logger.Infof("not updating machine %q network config: %v", m.Id(), err)
 		return nil
 	}
 	if err != nil {
@@ -165,7 +169,7 @@ func (api *MachinerAPI) SetObservedNetworkConfig(args params.SetMachineNetworkCo
 	finalConfig := observedConfig
 	if len(providerConfig) != 0 {
 		finalConfig = networkingcommon.MergeProviderAndObservedNetworkConfigs(providerConfig, observedConfig)
-		logger.Tracef("merged observed and provider network config: %+v", finalConfig)
+		logger.Tracef("merged observed and provider network config for machine %q: %+v", m.Id(), finalConfig)
 	}
 
 	return api.setOneMachineNetworkConfig(m, finalConfig)

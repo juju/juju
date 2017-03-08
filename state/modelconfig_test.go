@@ -465,7 +465,7 @@ func (s *ModelConfigSourceSuite) TestUpdateModelConfigDefaults(c *gc.C) {
 			Value: "http://dummy-mirror",
 		}}}
 	expectedValues["no-proxy"] = config.AttributeDefaultValues{
-		Default: "",
+		Default: "127.0.0.1,localhost,::1",
 		Regions: []config.RegionDefaultValue{{
 			Name:  "dummy-region",
 			Value: "dummy-proxy",
@@ -520,7 +520,7 @@ func (s *ModelConfigSourceSuite) TestUpdateModelConfigRegionDefaults(c *gc.C) {
 			Value: "http://dummy-mirror",
 		}}}
 	expectedValues["no-proxy"] = config.AttributeDefaultValues{
-		Default: "",
+		Default: "127.0.0.1,localhost,::1",
 		Regions: []config.RegionDefaultValue{{
 			Name:  "dummy-region",
 			Value: "changed-proxy",
@@ -573,7 +573,7 @@ func (s *ModelConfigSourceSuite) TestUpdateModelConfigDefaultValuesUnknownRegion
 	cfg, err := s.State.ModelConfigDefaultValues()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg["no-proxy"], jc.DeepEquals, config.AttributeDefaultValues{
-		Default:    "",
+		Default:    "127.0.0.1,localhost,::1",
 		Controller: nil,
 		Regions: []config.RegionDefaultValue{
 			config.RegionDefaultValue{

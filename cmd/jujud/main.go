@@ -17,6 +17,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/exec"
+	proxyutils "github.com/juju/utils/proxy"
 
 	"github.com/juju/juju/agent"
 	jujucmd "github.com/juju/juju/cmd"
@@ -25,9 +26,10 @@ import (
 	components "github.com/juju/juju/component/all"
 	"github.com/juju/juju/juju/names"
 	"github.com/juju/juju/juju/sockets"
-	"github.com/juju/juju/upgrades"
 	// Import the providers.
 	_ "github.com/juju/juju/provider/all"
+	"github.com/juju/juju/upgrades"
+	"github.com/juju/juju/utils/proxy"
 	"github.com/juju/juju/worker/logsender"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
@@ -135,6 +137,15 @@ func jujuDMain(args []string, ctx *cmd.Context) (code int, err error) {
 	defer logger.Debugf("jujud complete, code %d, err %v", code, err)
 	bufferedLogger, err := logsender.InstallBufferedLogWriter(1048576)
 	if err != nil {
+		return 1, errors.Trace(err)
+	}
+
+	// Set the default transport to use the in-process proxy
+	// configuration.
+	if err := proxy.DefaultConfig.Set(proxyutils.DetectProxies()); err != nil {
+		return 1, errors.Trace(err)
+	}
+	if err := proxy.DefaultConfig.InstallInDefaultTransport(); err != nil {
 		return 1, errors.Trace(err)
 	}
 

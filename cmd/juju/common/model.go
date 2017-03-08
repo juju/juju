@@ -8,9 +8,10 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"gopkg.in/juju/names.v2"
+
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/status"
-	"gopkg.in/juju/names.v2"
 )
 
 // ModelInfo contains information about a model.

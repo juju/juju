@@ -1006,7 +1006,7 @@ func (c *bootstrapCommand) runInteractive(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	cloud, err := jujucloud.CloudByName(c.Cloud)
+	cloud, err := common.CloudByName(c.Cloud)
 	if err != nil {
 		return errors.Trace(err)
 	}

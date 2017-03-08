@@ -5,16 +5,13 @@ package remoterelations
 
 import (
 	"io"
-	"time"
 
 	"github.com/juju/errors"
-	"gopkg.in/juju/names.v2"
+	worker "gopkg.in/juju/worker.v1"
 
-	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/remoterelations"
-	"github.com/juju/juju/worker"
 )
 
 func NewRemoteRelationsFacade(apiCaller base.APICaller) (RemoteRelationsFacade, error) {
@@ -28,28 +25,6 @@ func NewWorker(config Config) (worker.Worker, error) {
 		return nil, errors.Trace(err)
 	}
 	return w, nil
-}
-
-func apiConnForModelFunc(
-	a agent.Agent,
-	apiOpen func(*api.Info, api.DialOpts) (api.Connection, error),
-) (func(string) (api.Connection, error), error) {
-	agentConf := a.CurrentConfig()
-	apiInfo, ok := agentConf.APIInfo()
-	if !ok {
-		return nil, errors.New("no API connection details")
-	}
-	return func(modelUUID string) (api.Connection, error) {
-		apiInfo.ModelTag = names.NewModelTag(modelUUID)
-		conn, err := apiOpen(apiInfo, api.DialOpts{
-			Timeout:    time.Second,
-			RetryDelay: 200 * time.Millisecond,
-		})
-		if err != nil {
-			return nil, errors.Annotate(err, "failed to open API to remote model")
-		}
-		return conn, nil
-	}, nil
 }
 
 // relationChangePublisherForModelFunc returns a function that

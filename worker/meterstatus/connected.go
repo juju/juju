@@ -6,10 +6,10 @@ package meterstatus
 import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/charm.v6-unstable/hooks"
+	worker "gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/api/meterstatus"
 	"github.com/juju/juju/watcher"
-	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/uniter/runner/context"
 )
 

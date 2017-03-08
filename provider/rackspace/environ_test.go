@@ -7,9 +7,11 @@ import (
 	"io"
 	"os"
 
+	"github.com/juju/errors"
+	"github.com/juju/utils/ssh"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/errors"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
@@ -23,8 +25,6 @@ import (
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
-	"github.com/juju/utils/ssh"
-	"github.com/juju/version"
 )
 
 type environSuite struct {
@@ -123,10 +123,6 @@ func (e *fakeEnviron) PrepareForBootstrap(ctx environs.BootstrapContext) error {
 func (e *fakeEnviron) Bootstrap(ctx environs.BootstrapContext, params environs.BootstrapParams) (*environs.BootstrapResult, error) {
 	e.Push("Bootstrap", ctx, params)
 	return nil, nil
-}
-
-func (e *fakeEnviron) BootstrapMessage() string {
-	return ""
 }
 
 func (e *fakeEnviron) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {

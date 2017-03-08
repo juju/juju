@@ -16,7 +16,6 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/juju/cloud"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
 	utilscert "github.com/juju/utils/cert"
@@ -27,6 +26,7 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/cert"
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/constraints"

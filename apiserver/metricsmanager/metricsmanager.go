@@ -62,7 +62,7 @@ func NewMetricsManagerAPI(
 	authorizer facade.Authorizer,
 	clock clock.Clock,
 ) (*MetricsManagerAPI, error) {
-	if !(authorizer.AuthMachineAgent() && authorizer.AuthModelManager()) {
+	if !(authorizer.AuthMachineAgent() && authorizer.AuthController()) {
 		return nil, common.ErrPerm
 	}
 

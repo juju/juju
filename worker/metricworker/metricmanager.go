@@ -5,13 +5,14 @@ package metricworker
 
 import (
 	"github.com/juju/errors"
+	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/api/metricsmanager"
-	"github.com/juju/juju/worker"
+	jworker "github.com/juju/juju/worker"
 )
 
 // NewMetricsManager creates a runner that will run the metricsmanagement workers.
-func newMetricsManager(client metricsmanager.MetricsManagerClient, notify chan string) (worker.Runner, error) {
+func newMetricsManager(client metricsmanager.MetricsManagerClient, notify chan string) (*worker.Runner, error) {
 	// TODO(fwereade): break this out into separate manifolds (with their own facades).
 
 	// Periodic workers automatically retry so none should return an error. If they do
@@ -19,12 +20,10 @@ func newMetricsManager(client metricsmanager.MetricsManagerClient, notify chan s
 	isFatal := func(error) bool {
 		return false
 	}
-	// All errors are equal
-	moreImportant := func(error, error) bool {
-		return false
-	}
-
-	runner := worker.NewRunner(isFatal, moreImportant, worker.RestartDelay)
+	runner := worker.NewRunner(worker.RunnerParams{
+		IsFatal:      isFatal,
+		RestartDelay: jworker.RestartDelay,
+	})
 	err := runner.StartWorker("sender", func() (worker.Worker, error) {
 		return newSender(client, notify), nil
 	})

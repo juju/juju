@@ -9,6 +9,7 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 )
@@ -152,4 +153,24 @@ func newControllerUserFromGroup(everyoneAccess permission.UserAccess,
 	everyoneAccess.UserID = strings.ToLower(userTag.Id())
 	everyoneAccess.UserName = userTag.Id()
 	return everyoneAccess
+}
+
+// HasModelAdmin reports whether or not a user has admin access to the specified model.
+// A user has model access if they are the model owner, if they are a controller superuser,
+// or if they have been explicitly granted admin access to the model.
+func HasModelAdmin(
+	authorizer facade.Authorizer,
+	user names.UserTag,
+	controllerTag names.ControllerTag,
+	model Model,
+) (bool, error) {
+	// superusers have admin for all models.
+	if isSuperUser, err := authorizer.HasPermission(permission.SuperuserAccess, controllerTag); err != nil || isSuperUser {
+		return isSuperUser, err
+	}
+	// model owners have admin.
+	if user.Id() == model.Owner().Id() {
+		return true, nil
+	}
+	return authorizer.HasPermission(permission.AdminAccess, model.ModelTag())
 }

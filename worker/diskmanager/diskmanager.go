@@ -9,9 +9,10 @@ import (
 	"time"
 
 	"github.com/juju/loggo"
+	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/storage"
-	"github.com/juju/juju/worker"
+	jworker "github.com/juju/juju/worker"
 )
 
 var logger = loggo.GetLogger("juju.worker.diskmanager")
@@ -47,7 +48,7 @@ var NewWorker = func(l ListBlockDevicesFunc, b BlockDeviceSetter) worker.Worker 
 	f := func(stop <-chan struct{}) error {
 		return doWork(l, b, &old)
 	}
-	return worker.NewPeriodicWorker(f, listBlockDevicesPeriod, worker.NewTimer)
+	return jworker.NewPeriodicWorker(f, listBlockDevicesPeriod, jworker.NewTimer)
 }
 
 func doWork(listf ListBlockDevicesFunc, b BlockDeviceSetter, old *[]storage.BlockDevice) error {

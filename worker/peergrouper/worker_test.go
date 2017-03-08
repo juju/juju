@@ -16,13 +16,13 @@ import (
 	"github.com/juju/utils/clock"
 	"github.com/juju/utils/voyeur"
 	gc "gopkg.in/check.v1"
+	worker "gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/pubsub/apiserver"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/workertest"
 )
 

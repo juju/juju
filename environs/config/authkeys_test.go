@@ -4,10 +4,10 @@
 package config_test
 
 import (
+	"github.com/juju/testing"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/testing"
 )
 
 type AuthKeysSuite struct {

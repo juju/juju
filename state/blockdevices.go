@@ -53,11 +53,11 @@ func (st *State) WatchBlockDevices(machine names.MachineTag) NotifyWatcher {
 
 // BlockDevices returns the BlockDeviceInfo for the specified machine.
 func (st *State) BlockDevices(machine names.MachineTag) ([]BlockDeviceInfo, error) {
-	return getBlockDevices(st, machine.Id())
+	return getBlockDevices(st.db(), machine.Id())
 }
 
-func getBlockDevices(st modelBackend, machineId string) ([]BlockDeviceInfo, error) {
-	coll, cleanup := st.getCollection(blockDevicesC)
+func getBlockDevices(db Database, machineId string) ([]BlockDeviceInfo, error) {
+	coll, cleanup := db.GetCollection(blockDevicesC)
 	defer cleanup()
 
 	var d blockDevicesDoc
@@ -73,9 +73,10 @@ func getBlockDevices(st modelBackend, machineId string) ([]BlockDeviceInfo, erro
 // setMachineBlockDevices updates the blockdevices collection with the
 // currently attached block devices. Previously recorded block devices
 // not in the list will be removed.
-func setMachineBlockDevices(st *State, machineId string, newInfo []BlockDeviceInfo) error {
+func setMachineBlockDevices(st modelBackend, machineId string, newInfo []BlockDeviceInfo) error {
+	db := st.db()
 	buildTxn := func(attempt int) ([]txn.Op, error) {
-		oldInfo, err := getBlockDevices(st, machineId)
+		oldInfo, err := getBlockDevices(db, machineId)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -94,7 +95,7 @@ func setMachineBlockDevices(st *State, machineId string, newInfo []BlockDeviceIn
 		}}
 		return ops, nil
 	}
-	return st.run(buildTxn)
+	return db.Run(buildTxn)
 }
 
 func createMachineBlockDevicesOp(machineId string) txn.Op {

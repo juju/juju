@@ -386,61 +386,6 @@ func (w *machineAttachmentsWatcher) Changes() watcher.MachineStorageIdsChannel {
 	return w.out
 }
 
-// EntitiesWatcher will send events when something changes.
-// The content for the changes is a list of tag strings.
-type entitiesWatcher struct {
-	commonWatcher
-	caller            base.APICaller
-	entitiesWatcherId string
-	out               chan []string
-}
-
-func NewEntitiesWatcher(caller base.APICaller, result params.EntitiesWatchResult) watcher.EntitiesWatcher {
-	w := &entitiesWatcher{
-		caller:            caller,
-		entitiesWatcherId: result.EntitiesWatcherId,
-		out:               make(chan []string),
-	}
-	go func() {
-		defer w.tomb.Done()
-		w.tomb.Kill(w.loop(result.Changes))
-	}()
-	return w
-}
-
-func (w *entitiesWatcher) loop(initialChanges []string) error {
-	changes := initialChanges
-	w.newResult = func() interface{} { return new(params.EntitiesWatchResult) }
-	w.call = makeWatcherAPICaller(w.caller, "EntityWatcher", w.entitiesWatcherId)
-	w.commonWatcher.init()
-	go w.commonLoop()
-
-	for {
-		select {
-		// Send the initial event or subsequent change.
-		case w.out <- changes:
-		case <-w.tomb.Dying():
-			return nil
-		}
-		// Read the next change.
-		data, ok := <-w.in
-		if !ok {
-			// The tomb is already killed with the correct error
-			// at this point, so just return.
-			return nil
-		}
-		// Changes have been transformed at the server side already.
-		changes = data.(*params.EntitiesWatchResult).Changes
-	}
-}
-
-// Changes returns a channel that receives a list of changes
-// as tags (converted to strings) of the watched entities
-// with changes.
-func (w *entitiesWatcher) Changes() watcher.StringsChannel {
-	return w.out
-}
-
 // NewMigrationStatusWatcher takes the NotifyWatcherId returns by the
 // MigrationSlave.Watch API and returns a watcher which will report
 // status changes for any migration of the model associated with the
@@ -512,14 +457,4 @@ func (w *migrationStatusWatcher) loop() error {
 // migration of a model.
 func (w *migrationStatusWatcher) Changes() <-chan watcher.MigrationStatus {
 	return w.out
-}
-
-// remoteRelationsWatcher will sends changes to relations an application
-// is involved in with another remote application, including changes to the
-// remote units involved in those relations, and their settings.
-type remoteRelationsWatcher struct {
-	commonWatcher
-	caller                   base.APICaller
-	remoteRelationsWatcherId string
-	out                      chan watcher.RemoteRelationsChange
 }

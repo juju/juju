@@ -13,10 +13,10 @@ import (
 	"github.com/juju/loggo"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"gopkg.in/juju/worker.v1"
 	"gopkg.in/tomb.v1"
 	"gopkg.in/yaml.v2"
 
-	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/introspection/pprof"
 )
 
@@ -40,7 +40,6 @@ type Config struct {
 	SocketName         string
 	DepEngine          DepEngineReporter
 	StatePool          IntrospectionReporter
-	StateTracker       IntrospectionReporter
 	PrometheusGatherer prometheus.Gatherer
 }
 
@@ -61,7 +60,6 @@ type socketListener struct {
 	listener           *net.UnixListener
 	depEngine          DepEngineReporter
 	statePool          IntrospectionReporter
-	stateTracker       IntrospectionReporter
 	prometheusGatherer prometheus.Gatherer
 	done               chan struct{}
 }
@@ -92,7 +90,6 @@ func NewWorker(config Config) (worker.Worker, error) {
 		listener:           l,
 		depEngine:          config.DepEngine,
 		statePool:          config.StatePool,
-		stateTracker:       config.StateTracker,
 		prometheusGatherer: config.PrometheusGatherer,
 		done:               make(chan struct{}),
 	}
@@ -107,7 +104,6 @@ func (w *socketListener) serve() {
 		ReportSources{
 			DependencyEngine:   w.depEngine,
 			StatePool:          w.statePool,
-			StateTracker:       w.stateTracker,
 			PrometheusGatherer: w.prometheusGatherer,
 		}, mux.Handle)
 
@@ -143,7 +139,6 @@ func (w *socketListener) Wait() error {
 type ReportSources struct {
 	DependencyEngine   DepEngineReporter
 	StatePool          IntrospectionReporter
-	StateTracker       IntrospectionReporter
 	PrometheusGatherer prometheus.Gatherer
 }
 
@@ -163,10 +158,6 @@ func RegisterHTTPHandlers(
 	handle("/statepool/", introspectionReporterHandler{
 		name:     "State Pool Report",
 		reporter: sources.StatePool,
-	})
-	handle("/statetracker/", introspectionReporterHandler{
-		name:     "State Instance Report",
-		reporter: sources.StateTracker,
 	})
 	handle("/metrics", promhttp.HandlerFor(sources.PrometheusGatherer, promhttp.HandlerOpts{}))
 }

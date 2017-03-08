@@ -47,7 +47,7 @@ func NewFirewallerAPI(
 	resources facade.Resources,
 	authorizer facade.Authorizer,
 ) (*FirewallerAPI, error) {
-	if !authorizer.AuthModelManager() {
+	if !authorizer.AuthController() {
 		// Firewaller must run as environment manager.
 		return nil, common.ErrPerm
 	}
@@ -56,12 +56,13 @@ func NewFirewallerAPI(
 	accessUnit := common.AuthFuncForTagKind(names.UnitTagKind)
 	accessApplication := common.AuthFuncForTagKind(names.ApplicationTagKind)
 	accessMachine := common.AuthFuncForTagKind(names.MachineTagKind)
-	accessUnitApplicationOrMachine := common.AuthAny(accessUnit, accessApplication, accessMachine)
+	accessRelation := common.AuthFuncForTagKind(names.RelationTagKind)
+	accessUnitApplicationOrMachineOrRelation := common.AuthAny(accessUnit, accessApplication, accessMachine, accessRelation)
 
 	// Life() is supported for units, applications or machines.
 	lifeGetter := common.NewLifeGetter(
 		st,
-		accessUnitApplicationOrMachine,
+		accessUnitApplicationOrMachineOrRelation,
 	)
 	// ModelConfig() and WatchForModelConfigChanges() are allowed
 	// with unrestriced access.

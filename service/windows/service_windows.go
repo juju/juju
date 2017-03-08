@@ -10,11 +10,11 @@ import (
 	"unsafe"
 
 	// https://bugs.launchpad.net/juju-core/+bug/1470820
-	"github.com/gabriel-samfira/sys/windows"
-	"github.com/gabriel-samfira/sys/windows/svc"
-	"github.com/gabriel-samfira/sys/windows/svc/mgr"
 	"github.com/juju/errors"
 	"github.com/juju/utils/series"
+	"golang.org/x/sys/windows"
+	"golang.org/x/sys/windows/svc"
+	"golang.org/x/sys/windows/svc/mgr"
 
 	"github.com/juju/juju/service/common"
 )

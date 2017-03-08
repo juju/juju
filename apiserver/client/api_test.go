@@ -12,6 +12,7 @@ import (
 	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
+	worker "gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/api"
 	commontesting "github.com/juju/juju/apiserver/common/testing"
@@ -27,7 +28,6 @@ import (
 	"github.com/juju/juju/status"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
-	"github.com/juju/juju/worker"
 )
 
 type baseSuite struct {

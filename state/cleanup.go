@@ -31,6 +31,8 @@ const (
 	cleanupAttachmentsForDyingFilesystem cleanupKind = "filesystemAttachments"
 	cleanupModelsForDyingController      cleanupKind = "models"
 	cleanupMachinesForDyingModel         cleanupKind = "modelMachines"
+	cleanupVolumesForDyingModel          cleanupKind = "modelVolumes"
+	cleanupFilesystemsForDyingModel      cleanupKind = "modelFilesystems"
 )
 
 // cleanupDoc originally represented a set of documents that should be
@@ -107,6 +109,10 @@ func (st *State) Cleanup() (err error) {
 			err = st.cleanupModelsForDyingController()
 		case cleanupMachinesForDyingModel:
 			err = st.cleanupMachinesForDyingModel()
+		case cleanupVolumesForDyingModel:
+			err = st.cleanupVolumesForDyingModel()
+		case cleanupFilesystemsForDyingModel:
+			err = st.cleanupFilesystemsForDyingModel()
 		default:
 			handler, ok := cleanupHandlers[doc.Kind]
 			if !ok {
@@ -212,7 +218,47 @@ func (st *State) cleanupMachinesForDyingModel() (err error) {
 	return nil
 }
 
-// cleanupServicesForDyingModel sets all services to Dying, if they are
+// cleanupVolumesForDyingModel sets all persistent volumes to Dying,
+// if they are not already Dying or Dead. It's expected to be used when
+// a model is destroyed.
+func (st *State) cleanupVolumesForDyingModel() (err error) {
+	volumes, err := st.AllVolumes()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	for _, v := range volumes {
+		err := st.DestroyVolume(v.VolumeTag())
+		if errors.IsNotFound(err) {
+			continue
+		} else if IsContainsFilesystem(err) {
+			continue
+		} else if err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return nil
+}
+
+// cleanupFilesystemsForDyingModel sets all persistent filesystems to
+// Dying, if they are not already Dying or Dead. It's expected to be used
+// when a model is destroyed.
+func (st *State) cleanupFilesystemsForDyingModel() (err error) {
+	filesystems, err := st.AllFilesystems()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	for _, fs := range filesystems {
+		err := st.DestroyFilesystem(fs.FilesystemTag())
+		if errors.IsNotFound(err) {
+			continue
+		} else if err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return nil
+}
+
+// cleanupApplicationsForDyingModel sets all applications to Dying, if they are
 // not already Dying or Dead. It's expected to be used when a model is
 // destroyed.
 func (st *State) cleanupApplicationsForDyingModel() (err error) {
@@ -224,8 +270,9 @@ func (st *State) cleanupApplicationsForDyingModel() (err error) {
 
 func (st *State) removeApplicationsForDyingModel() (err error) {
 	// This won't miss applications, because a Dying model cannot have
-	// applications added to it. But we do have to remove the applications themselves
-	// via individual transactions, because they could be in any state at all.
+	// applications added to it. But we do have to remove the applications
+	// themselves via individual transactions, because they could be in any
+	// state at all.
 	applications, closer := st.getCollection(applicationsC)
 	defer closer()
 	application := Application{st: st}
@@ -260,11 +307,11 @@ func (st *State) removeRemoteApplicationsForDyingModel() (err error) {
 
 // cleanupUnitsForDyingApplication sets all units with the given prefix to Dying,
 // if they are not already Dying or Dead. It's expected to be used when a
-// service is destroyed.
+// application is destroyed.
 func (st *State) cleanupUnitsForDyingApplication(applicationname string) (err error) {
-	// This won't miss units, because a Dying service cannot have units added
-	// to it. But we do have to remove the units themselves via individual
-	// transactions, because they could be in any state at all.
+	// This won't miss units, because a Dying application cannot have units
+	// added to it. But we do have to remove the units themselves via
+	// individual transactions, because they could be in any state at all.
 	units, closer := st.getCollection(unitsC)
 	defer closer()
 
@@ -287,10 +334,6 @@ func (st *State) cleanupCharm(charmURL string) error {
 	curl, err := charm.ParseURL(charmURL)
 	if err != nil {
 		return errors.Annotatef(err, "invalid charm URL %v", charmURL)
-	}
-	if curl.Schema != "local" {
-		// No cleanup necessary or possible.
-		return nil
 	}
 
 	ch, err := st.Charm(curl)
@@ -504,6 +547,12 @@ func cleanupDyingMachineResources(m *Machine) error {
 		return errors.Annotate(err, "getting machine volume attachments")
 	}
 	for _, va := range volumeAttachments {
+		if detachable, err := isDetachableVolumeTag(m.st, va.Volume()); err != nil {
+			return errors.Trace(err)
+		} else if !detachable {
+			// Non-detachable volumes will be removed along with the machine.
+			continue
+		}
 		if err := m.st.DetachVolume(va.Machine(), va.Volume()); err != nil {
 			if IsContainsFilesystem(err) {
 				// The volume will be destroyed when the
@@ -519,6 +568,12 @@ func cleanupDyingMachineResources(m *Machine) error {
 		return errors.Annotate(err, "getting machine filesystem attachments")
 	}
 	for _, fsa := range filesystemAttachments {
+		if detachable, err := isDetachableFilesystemTag(m.st, fsa.Filesystem()); err != nil {
+			return errors.Trace(err)
+		} else if !detachable {
+			// Non-detachable filesystems will be removed along with the machine.
+			continue
+		}
 		if err := m.st.DetachFilesystem(fsa.Machine(), fsa.Filesystem()); err != nil {
 			return errors.Trace(err)
 		}

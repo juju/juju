@@ -139,6 +139,7 @@ func VolumeInfoFromState(info state.VolumeInfo) params.VolumeInfo {
 	return params.VolumeInfo{
 		info.VolumeId,
 		info.HardwareId,
+		info.Pool,
 		info.Size,
 		info.Persistent,
 	}

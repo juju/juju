@@ -13,9 +13,10 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/utils/filestorage"
 	"github.com/juju/version"
+
+	jujuversion "github.com/juju/juju/version"
 )
 
 // checksumFormat identifies how to interpret the checksum for a backup

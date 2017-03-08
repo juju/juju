@@ -4,10 +4,11 @@
 package workers
 
 import (
+	"gopkg.in/juju/worker.v1"
+
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/state/presence"
 	"github.com/juju/juju/state/watcher"
-	"github.com/juju/juju/worker"
 )
 
 // Workers doesn't really need to exist -- it could basically just exist

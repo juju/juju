@@ -205,11 +205,6 @@ func (env *environ) Bootstrap(ctx environs.BootstrapContext, params environs.Boo
 	return bootstrap(ctx, env, params)
 }
 
-// BootstrapMessage is part of the Environ interface.
-func (env *environ) BootstrapMessage() string {
-	return ""
-}
-
 // Destroy shuts down all known machines and destroys the rest of the
 // known environment.
 func (env *environ) Destroy() error {

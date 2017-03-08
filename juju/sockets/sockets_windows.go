@@ -8,7 +8,6 @@ import (
 	"net/rpc"
 
 	"github.com/juju/errors"
-
 	"gopkg.in/natefinch/npipe.v2"
 )
 

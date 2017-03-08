@@ -9,6 +9,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
+	worker "gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/api/remoterelations"
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -18,7 +19,6 @@ import (
 	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/watcher/watchertest"
-	"github.com/juju/juju/worker"
 )
 
 // TODO(axw) this suite should be re-written as end-to-end tests using the
@@ -213,4 +213,41 @@ func assertNoRelationUnitsChange(c *gc.C, ss statetesting.SyncStarter, w watcher
 		c.Errorf("unexpected change from relations units watcher: %v, %v", change, ok)
 	case <-time.After(testing.ShortWait):
 	}
+}
+
+func (s *remoteRelationsSuite) TestWatchRemoteRelations(c *gc.C) {
+	w, err := s.client.WatchRemoteRelations()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(w, gc.NotNil)
+	defer func() {
+		c.Assert(worker.Stop(w), jc.ErrorIsNil)
+	}()
+
+	assertRemoteRelationsChange(c, s.BackingState, w, []string{})
+	assertNoRemoteRelationsChange(c, s.BackingState, w)
+
+	// Add a relation, and expect a watcher change.
+	_, err = s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name:        "mysql",
+		URL:         "local:/u/me/mysql",
+		SourceModel: testing.ModelTag,
+		Endpoints: []charm.Relation{{
+			Interface: "mysql",
+			Name:      "db",
+			Role:      charm.RoleProvider,
+			Scope:     charm.ScopeGlobal,
+		}}})
+	c.Assert(err, jc.ErrorIsNil)
+	s.Factory.MakeApplication(c, &factory.ApplicationParams{
+		Charm: s.Factory.MakeCharm(c, &factory.CharmParams{
+			Name: "wordpress",
+		}),
+	})
+	eps, err := s.State.InferEndpoints("wordpress", "mysql")
+	c.Assert(err, jc.ErrorIsNil)
+	rel, err := s.State.AddRelation(eps[0], eps[1])
+	c.Assert(err, jc.ErrorIsNil)
+
+	assertRemoteRelationsChange(c, s.BackingState, w, []string{rel.String()})
+	assertNoRemoteRelationsChange(c, s.BackingState, w)
 }

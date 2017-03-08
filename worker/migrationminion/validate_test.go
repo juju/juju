@@ -5,14 +5,15 @@ package migrationminion_test
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
+	gc "gopkg.in/check.v1"
+
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/worker/fortress"
 	"github.com/juju/juju/worker/migrationminion"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 )
 
 type ValidateSuite struct {

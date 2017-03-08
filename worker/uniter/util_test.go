@@ -28,6 +28,7 @@ import (
 	gc "gopkg.in/check.v1"
 	corecharm "gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/worker.v1"
 	goyaml "gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/api"
@@ -43,7 +44,7 @@ import (
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/worker"
+	jworker "github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/fortress"
 	"github.com/juju/juju/worker/uniter"
 	"github.com/juju/juju/worker/uniter/operation"
@@ -133,6 +134,16 @@ func (ctx *context) run(c *gc.C, steps []stepper) {
 		if ctx.uniter != nil {
 			err := worker.Stop(ctx.uniter)
 			if ctx.err == "" {
+				if errors.Cause(err) == mutex.ErrCancelled {
+					// This can happen if the uniter lock acquire was
+					// temporarily blocked by test code holding the
+					// lock (like in waitHooks). The acquire call is
+					// delaying but then gets cancelled, and that
+					// error bubbles up to here.
+					// lp:1635664
+					c.Logf("ignoring lock acquire cancelled by stop")
+					return
+				}
 				c.Assert(err, jc.ErrorIsNil)
 			} else {
 				c.Assert(err, gc.ErrorMatches, ctx.err)
@@ -533,11 +544,11 @@ func (s waitUniterDead) step(c *gc.C, ctx *context) {
 	// mimics the behaviour of the unit agent and verifies that the UA will,
 	// eventually, see the correct error and respond appropriately.
 	err := s.waitDead(c, ctx)
-	if err != worker.ErrTerminateAgent {
+	if err != jworker.ErrTerminateAgent {
 		step(c, ctx, startUniter{})
 		err = s.waitDead(c, ctx)
 	}
-	c.Assert(err, gc.Equals, worker.ErrTerminateAgent)
+	c.Assert(err, gc.Equals, jworker.ErrTerminateAgent)
 	err = ctx.unit.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ctx.unit.Life(), gc.Equals, state.Dead)

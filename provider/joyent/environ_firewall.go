@@ -10,8 +10,8 @@ import (
 	"strings"
 
 	"github.com/joyent/gosdc/cloudapi"
-
 	"github.com/juju/errors"
+
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/network"
 )

@@ -10,9 +10,10 @@ import (
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/testing"
-	"github.com/juju/juju/worker"
+	jworker "github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/singular"
 )
 
@@ -45,7 +46,7 @@ func (s *singularSuite) TestWithIsMasterTrue(c *gc.C) {
 
 	started := make(chan struct{}, 1)
 	err = r.StartWorker("worker", func() (worker.Worker, error) {
-		return worker.NewSimpleWorker(func(stop <-chan struct{}) error {
+		return jworker.NewSimpleWorker(func(stop <-chan struct{}) error {
 			started <- struct{}{}
 			<-stop
 			return nil
@@ -161,14 +162,12 @@ loop:
 	c.Assert(n, gc.Equals, 1)
 }
 
-func newRunner() worker.Runner {
-	return worker.NewRunner(
-		func(err error) bool {
+func newRunner() *worker.Runner {
+	return worker.NewRunner(worker.RunnerParams{
+		IsFatal: func(err error) bool {
 			return err == errFatal
 		},
-		func(err0, err1 error) bool { return true },
-		worker.RestartDelay,
-	)
+	})
 }
 
 type fakeConn struct {

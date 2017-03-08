@@ -11,9 +11,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/errors"
 	"github.com/juju/utils/arch"
 	"github.com/lxc/lxd/shared"
+	"github.com/lxc/lxd/shared/api"
 )
 
 // Constants related to user metadata.
@@ -120,22 +120,24 @@ func (spec InstanceSpec) config() map[string]string {
 	return resolveMetadata(spec.Metadata)
 }
 
-func (spec InstanceSpec) info(namespace string) *shared.ContainerInfo {
+func (spec InstanceSpec) info(namespace string) *api.Container {
 	name := spec.Name
 	if namespace != "" {
 		name = namespace + "-" + name
 	}
 
-	return &shared.ContainerInfo{
-		Architecture:    "",
-		Config:          spec.config(),
-		CreationDate:    time.Time{},
-		Devices:         shared.Devices{},
-		Ephemeral:       spec.Ephemeral,
+	return &api.Container{
+		ContainerPut: api.ContainerPut{
+			Architecture: "",
+			Config:       spec.config(),
+			Devices:      map[string]map[string]string{},
+			Ephemeral:    spec.Ephemeral,
+			Profiles:     spec.Profiles,
+		},
+		CreatedAt:       time.Time{},
 		ExpandedConfig:  map[string]string{},
-		ExpandedDevices: shared.Devices{},
+		ExpandedDevices: map[string]map[string]string{},
 		Name:            name,
-		Profiles:        spec.Profiles,
 		Status:          "",
 		StatusCode:      0,
 	}
@@ -175,9 +177,12 @@ type InstanceSummary struct {
 
 	// Metadata is the instance metadata.
 	Metadata map[string]string
+
+	// Devices is the instance's devices.
+	Devices map[string]map[string]string
 }
 
-func newInstanceSummary(info *shared.ContainerInfo) InstanceSummary {
+func newInstanceSummary(info *api.Container) InstanceSummary {
 	archStr := arch.NormaliseArch(info.Architecture)
 
 	var numCores uint = 0 // default to all
@@ -218,6 +223,7 @@ func newInstanceSummary(info *shared.ContainerInfo) InstanceSummary {
 		Name:     info.Name,
 		Status:   statusStr,
 		Metadata: metadata,
+		Devices:  info.Devices,
 		Hardware: InstanceHardware{
 			Architecture: archStr,
 			NumCores:     numCores,
@@ -234,7 +240,7 @@ type Instance struct {
 	spec *InstanceSpec
 }
 
-func newInstance(info *shared.ContainerInfo, spec *InstanceSpec) *Instance {
+func newInstance(info *api.Container, spec *InstanceSpec) *Instance {
 	summary := newInstanceSummary(info)
 	return NewInstance(summary, spec)
 }
@@ -254,25 +260,31 @@ func NewInstance(summary InstanceSummary, spec *InstanceSpec) *Instance {
 }
 
 // Status returns a string identifying the status of the instance.
-func (gi Instance) Status() string {
-	return gi.InstanceSummary.Status
-}
-
-// CurrentStatus returns a string identifying the status of the instance.
-func (gi Instance) CurrentStatus(client *Client) (string, error) {
-	// TODO(ericsnow) Do this a better way?
-
-	inst, err := client.Instance(gi.Name)
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	return inst.Status(), nil
+func (i *Instance) Status() string {
+	return i.InstanceSummary.Status
 }
 
 // Metadata returns the user-specified metadata for the instance.
-func (gi Instance) Metadata() map[string]string {
+func (i *Instance) Metadata() map[string]string {
 	// TODO*ericsnow) return a copy?
-	return gi.InstanceSummary.Metadata
+	return i.InstanceSummary.Metadata
+}
+
+// Disks returns the disk devices attached to the instance.
+func (i *Instance) Disks() map[string]DiskDevice {
+	disks := make(map[string]DiskDevice)
+	for name, device := range i.InstanceSummary.Devices {
+		if device["type"] != "disk" {
+			continue
+		}
+		disks[name] = DiskDevice{
+			Path:     device["path"],
+			Source:   device["source"],
+			Pool:     device["pool"],
+			ReadOnly: device["readonly"] == "true",
+		}
+	}
+	return disks
 }
 
 func resolveMetadata(metadata map[string]string) map[string]string {

@@ -5,12 +5,13 @@ package applicationscaler
 
 import (
 	"github.com/juju/errors"
+	"gopkg.in/juju/names.v2"
+
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
-	"gopkg.in/juju/names.v2"
 )
 
 // Backend exposes functionality required by Facade.
@@ -33,7 +34,7 @@ type Facade struct {
 
 // NewFacade creates a new authorized Facade.
 func NewFacade(backend Backend, res facade.Resources, auth facade.Authorizer) (*Facade, error) {
-	if !auth.AuthModelManager() {
+	if !auth.AuthController() {
 		return nil, common.ErrPerm
 	}
 	return &Facade{

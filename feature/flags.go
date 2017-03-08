@@ -39,3 +39,6 @@ const DeveloperMode = "developer-mode"
 
 // CrossModelRelations allows cross model relations functionality.
 const CrossModelRelations = "cross-model"
+
+// LXDStorage enables the LXD storage provider.
+const LXDStorage = "lxd-storage"

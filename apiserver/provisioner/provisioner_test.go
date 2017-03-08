@@ -75,7 +75,7 @@ func (s *provisionerSuite) setUpTest(c *gc.C, withController bool) {
 	// Create a FakeAuthorizer so we can check permissions,
 	// set up assuming we logged in as the environment manager.
 	s.authorizer = apiservertesting.FakeAuthorizer{
-		EnvironManager: true,
+		Controller: true,
 	}
 
 	// Create the resource registry separately to track invocations to
@@ -106,14 +106,14 @@ func (s *withoutControllerSuite) SetUpTest(c *gc.C) {
 
 func (s *withoutControllerSuite) TestProvisionerFailsWithNonMachineAgentNonManagerUser(c *gc.C) {
 	anAuthorizer := s.authorizer
-	anAuthorizer.EnvironManager = true
+	anAuthorizer.Controller = true
 	// Works with an environment manager, which is not a machine agent.
 	aProvisioner, err := provisioner.NewProvisionerAPI(s.State, s.resources, anAuthorizer)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(aProvisioner, gc.NotNil)
 
 	// But fails with neither a machine agent or an environment manager.
-	anAuthorizer.EnvironManager = false
+	anAuthorizer.Controller = false
 	aProvisioner, err = provisioner.NewProvisionerAPI(s.State, s.resources, anAuthorizer)
 	c.Assert(err, gc.NotNil)
 	c.Assert(aProvisioner, gc.IsNil)
@@ -183,7 +183,7 @@ func (s *withoutControllerSuite) TestLifeAsMachineAgent(c *gc.C) {
 
 	// Login as a machine agent for machine 0.
 	anAuthorizer := s.authorizer
-	anAuthorizer.EnvironManager = false
+	anAuthorizer.Controller = false
 	anAuthorizer.Tag = s.machines[0].Tag()
 	aProvisioner, err := provisioner.NewProvisionerAPI(s.State, s.resources, anAuthorizer)
 	c.Assert(err, jc.ErrorIsNil)
@@ -484,7 +484,7 @@ func (s *withoutControllerSuite) TestMachinesWithTransientErrors(c *gc.C) {
 func (s *withoutControllerSuite) TestMachinesWithTransientErrorsPermission(c *gc.C) {
 	// Machines where there's permission issues are omitted.
 	anAuthorizer := s.authorizer
-	anAuthorizer.EnvironManager = false
+	anAuthorizer.Controller = false
 	anAuthorizer.Tag = names.NewMachineTag("1")
 	aProvisioner, err := provisioner.NewProvisionerAPI(s.State, s.resources,
 		anAuthorizer)
@@ -671,7 +671,7 @@ func (s *withoutControllerSuite) TestModelConfigNonManager(c *gc.C) {
 	// the secret attributes are masked.
 	anAuthorizer := s.authorizer
 	anAuthorizer.Tag = names.NewMachineTag("1")
-	anAuthorizer.EnvironManager = false
+	anAuthorizer.Controller = false
 	aProvisioner, err := provisioner.NewProvisionerAPI(s.State, s.resources,
 		anAuthorizer)
 	c.Assert(err, jc.ErrorIsNil)
@@ -916,7 +916,7 @@ func (s *withoutControllerSuite) TestDistributionGroupEnvironManagerAuth(c *gc.C
 func (s *withoutControllerSuite) TestDistributionGroupMachineAgentAuth(c *gc.C) {
 	anAuthorizer := s.authorizer
 	anAuthorizer.Tag = names.NewMachineTag("1")
-	anAuthorizer.EnvironManager = false
+	anAuthorizer.Controller = false
 	provisioner, err := provisioner.NewProvisionerAPI(s.State, s.resources, anAuthorizer)
 	c.Check(err, jc.ErrorIsNil)
 	args := params.Entities{Entities: []params.Entity{
@@ -1143,7 +1143,7 @@ func (s *withoutControllerSuite) TestWatchModelMachines(c *gc.C) {
 	// Make sure WatchModelMachines fails with a machine agent login.
 	anAuthorizer := s.authorizer
 	anAuthorizer.Tag = names.NewMachineTag("1")
-	anAuthorizer.EnvironManager = false
+	anAuthorizer.Controller = false
 	aProvisioner, err := provisioner.NewProvisionerAPI(s.State, s.resources, anAuthorizer)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1174,8 +1174,13 @@ func (s *withoutControllerSuite) TestContainerConfig(c *gc.C) {
 	}
 	err := s.State.UpdateModelConfig(attrs, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	expectedProxy := proxy.Settings{
+	expectedAPTProxy := proxy.Settings{
 		Http: "http://proxy.example.com:9000",
+	}
+
+	expectedProxy := proxy.Settings{
+		Http:    "http://proxy.example.com:9000",
+		NoProxy: "127.0.0.1,localhost,::1",
 	}
 
 	results, err := s.provisioner.ContainerConfig()
@@ -1185,7 +1190,7 @@ func (s *withoutControllerSuite) TestContainerConfig(c *gc.C) {
 	c.Check(results.AuthorizedKeys, gc.Equals, s.Environ.Config().AuthorizedKeys())
 	c.Check(results.SSLHostnameVerification, jc.IsTrue)
 	c.Check(results.Proxy, gc.DeepEquals, expectedProxy)
-	c.Check(results.AptProxy, gc.DeepEquals, expectedProxy)
+	c.Check(results.AptProxy, gc.DeepEquals, expectedAPTProxy)
 	c.Check(results.AptMirror, gc.DeepEquals, "http://example.mirror.com")
 }
 
@@ -1218,7 +1223,7 @@ func (s *withoutControllerSuite) TestSetSupportedContainers(c *gc.C) {
 func (s *withoutControllerSuite) TestSetSupportedContainersPermissions(c *gc.C) {
 	// Login as a machine agent for machine 0.
 	anAuthorizer := s.authorizer
-	anAuthorizer.EnvironManager = false
+	anAuthorizer.Controller = false
 	anAuthorizer.Tag = s.machines[0].Tag()
 	aProvisioner, err := provisioner.NewProvisionerAPI(s.State, s.resources, anAuthorizer)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1334,7 +1339,7 @@ func (s *withoutControllerSuite) TestWatchMachineErrorRetry(c *gc.C) {
 	// Make sure WatchMachineErrorRetry fails with a machine agent login.
 	anAuthorizer := s.authorizer
 	anAuthorizer.Tag = names.NewMachineTag("1")
-	anAuthorizer.EnvironManager = false
+	anAuthorizer.Controller = false
 	aProvisioner, err := provisioner.NewProvisionerAPI(s.State, s.resources, anAuthorizer)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1393,3 +1398,14 @@ func (s *withoutControllerSuite) TestMarkMachinesForRemoval(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(removals, jc.SameContents, []string{"0", "2"})
 }
+
+// TODO(jam): 2017-02-15 We seem to be lacking most of direct unit tests around ProcessOneContainer
+// Some of the use cases we need to be testing are:
+// 1) Provider can allocate addresses, should result in a container with
+//    addresses requested from the provider, and 'static' configuration on those
+//    devices.
+// 2) Provider cannot allocate addresses, currently this should make us use
+//    'lxdbr0' and DHCP allocated addresses.
+// 3) Provider could allocate DHCP based addresses on the host device, which would let us
+//    use a bridge on the device and DHCP. (Currently not supported, but desirable for
+//    vSphere and Manual and probably LXD providers.)

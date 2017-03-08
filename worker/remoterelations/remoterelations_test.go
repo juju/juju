@@ -11,13 +11,13 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
+	worker "gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/watcher"
-	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/remoterelations"
 	"github.com/juju/juju/worker/workertest"
 )
@@ -205,6 +205,19 @@ func (s *remoteRelationsSuite) TestRemoteRelationsDead(c *gc.C) {
 	c.Assert(unitsWatcher.killed(), jc.IsTrue)
 	expected := []jujutesting.StubCall{
 		{"Relations", []interface{}{[]string{"db2:db django:db"}}},
+		{"GetToken", []interface{}{"model-uuid", names.NewRelationTag("db2:db django:db")}},
+		{"RemoveRemoteEntity", []interface{}{"model-uuid", names.NewRelationTag("db2:db django:db")}},
+		{"PublishLocalRelationChange", []interface{}{
+			params.RemoteRelationChangeEvent{
+				Life: params.Dead,
+				ApplicationId: params.RemoteEntityId{
+					ModelUUID: "model-uuid",
+					Token:     "token-django"},
+				RelationId: params.RemoteEntityId{
+					ModelUUID: "model-uuid",
+					Token:     "token-db2:db django:db"},
+			},
+		}},
 	}
 	s.waitForWorkerStubCalls(c, expected)
 }
@@ -228,6 +241,19 @@ func (s *remoteRelationsSuite) TestRemoteRelationsRemoved(c *gc.C) {
 	c.Assert(unitsWatcher.killed(), jc.IsTrue)
 	expected := []jujutesting.StubCall{
 		{"Relations", []interface{}{[]string{"db2:db django:db"}}},
+		{"GetToken", []interface{}{"model-uuid", names.NewRelationTag("db2:db django:db")}},
+		{"RemoveRemoteEntity", []interface{}{"model-uuid", names.NewRelationTag("db2:db django:db")}},
+		{"PublishLocalRelationChange", []interface{}{
+			params.RemoteRelationChangeEvent{
+				Life: params.Dead,
+				ApplicationId: params.RemoteEntityId{
+					ModelUUID: "model-uuid",
+					Token:     "token-django"},
+				RelationId: params.RemoteEntityId{
+					ModelUUID: "model-uuid",
+					Token:     "token-db2:db django:db"},
+			},
+		}},
 	}
 	s.waitForWorkerStubCalls(c, expected)
 }

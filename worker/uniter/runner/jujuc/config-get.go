@@ -32,7 +32,7 @@ reported as null. <key> and --all are mutually exclusive.
 	return &cmd.Info{
 		Name:    "config-get",
 		Args:    "[<key>]",
-		Purpose: "print service configuration",
+		Purpose: "print application configuration",
 		Doc:     doc,
 	}
 }

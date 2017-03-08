@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
@@ -20,7 +21,6 @@ import (
 	jujujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing/factory"
-	jujutesting "github.com/juju/testing"
 )
 
 type metricsManagerSuite struct {
@@ -37,8 +37,8 @@ var _ = gc.Suite(&metricsManagerSuite{})
 func (s *metricsManagerSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	s.authorizer = apiservertesting.FakeAuthorizer{
-		Tag:            names.NewMachineTag("0"),
-		EnvironManager: true,
+		Tag:        names.NewMachineTag("0"),
+		Controller: true,
 	}
 	s.clock = jujutesting.NewClock(time.Now())
 	manager, err := metricsmanager.NewMetricsManagerAPI(s.State, nil, s.authorizer, s.clock)
@@ -64,7 +64,7 @@ func (s *metricsManagerSuite) TestNewMetricsManagerAPIRefusesNonMachine(c *gc.C)
 		c.Logf("test %d", i)
 
 		anAuthoriser := s.authorizer
-		anAuthoriser.EnvironManager = test.environManager
+		anAuthoriser.Controller = test.environManager
 		anAuthoriser.Tag = test.tag
 		endPoint, err := metricsmanager.NewMetricsManagerAPI(s.State, nil, anAuthoriser, jujutesting.NewClock(time.Now()))
 		if test.expectedError == "" {

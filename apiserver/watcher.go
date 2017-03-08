@@ -40,10 +40,6 @@ func init() {
 		reflect.TypeOf((*srvStringsWatcher)(nil)),
 	)
 	common.RegisterFacade(
-		"RemoteApplicationWatcher", 1, newRemoteApplicationWatcher,
-		reflect.TypeOf((*srvRemoteApplicationWatcher)(nil)),
-	)
-	common.RegisterFacade(
 		"RelationUnitsWatcher", 1, newRelationUnitsWatcher,
 		reflect.TypeOf((*srvRelationUnitsWatcher)(nil)),
 	)
@@ -258,49 +254,6 @@ func (w *srvRelationUnitsWatcher) Next() (params.RelationUnitsWatchResult, error
 		err = common.ErrStoppedWatcher
 	}
 	return params.RelationUnitsWatchResult{}, err
-}
-
-// srvRemoteApplicationWatcher will sends changes to relations a service
-// is involved in, including changes to the units involved in those
-// relations, and their settings.
-// TODO(wallyworld) - we may not need this watcher
-type srvRemoteApplicationWatcher struct {
-	watcherCommon
-	watcher state.RemoteApplicationWatcher
-}
-
-func newRemoteApplicationWatcher(context facade.Context) (facade.Facade, error) {
-	id := context.ID()
-	resources := context.Resources()
-	auth := context.Auth()
-
-	if !auth.AuthModelManager() {
-		return nil, common.ErrPerm
-	}
-	watcher, ok := resources.Get(id).(state.RemoteApplicationWatcher)
-	if !ok {
-		return nil, common.ErrUnknownWatcher
-	}
-	return &srvRemoteApplicationWatcher{
-		watcherCommon: newWatcherCommon(context),
-		watcher:       watcher,
-	}, nil
-}
-
-// Next returns when a change has occured to an entity of the
-// collection being watched since the most recent call to Next
-// or the Watch call that created the srvRemoteApplicationWatcher.
-func (w *srvRemoteApplicationWatcher) Next() (params.RemoteApplicationWatchResult, error) {
-	if change, ok := <-w.watcher.Changes(); ok {
-		return params.RemoteApplicationWatchResult{
-			Change: &change,
-		}, nil
-	}
-	err := w.watcher.Err()
-	if err == nil {
-		err = common.ErrStoppedWatcher
-	}
-	return params.RemoteApplicationWatchResult{}, err
 }
 
 // srvMachineStorageIdsWatcher defines the API wrapping a state.StringsWatcher

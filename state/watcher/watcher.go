@@ -11,8 +11,8 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/juju/worker"
 	"github.com/juju/loggo"
+	"gopkg.in/juju/worker.v1"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/tomb.v1"

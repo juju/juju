@@ -11,12 +11,12 @@ import (
 	"github.com/Azure/azure-sdk-for-go/arm/network"
 	"github.com/Azure/go-autorest/autorest"
 	"github.com/Azure/go-autorest/autorest/to"
-
 	"github.com/juju/errors"
+	"gopkg.in/juju/names.v2"
+
 	"github.com/juju/juju/instance"
 	jujunetwork "github.com/juju/juju/network"
 	"github.com/juju/juju/status"
-	"gopkg.in/juju/names.v2"
 )
 
 type azureInstance struct {

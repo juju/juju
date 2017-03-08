@@ -4,10 +4,11 @@ package user_test
 
 import (
 	"github.com/juju/cmd"
-	"github.com/juju/juju/cmd/juju/user"
-	"github.com/juju/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/cmd/juju/user"
+	"github.com/juju/juju/testing"
 )
 
 type RemoveUserCommandSuite struct {
@@ -77,10 +78,14 @@ func (s *RemoveUserCommandSuite) TestRemove(c *gc.C) {
 
 func (s *RemoveUserCommandSuite) TestRemovePrompts(c *gc.C) {
 	username := "testing"
-	expected := `
-WARNING! This command will remove the user "testing" from the "testing" controller.
+	expected := `WARNING! This command will permanently archive the user "testing" on the "testing"
+controller.
 
-Continue (y/N)? `[1:]
+This action is irreversible. If you wish to temporarily disable the
+user please use the` + " `juju disable-user` " + `command. See
+` + " `juju help disable-user` " + `for more details.
+
+Continue (y/N)? `
 	command, _ := user.NewRemoveCommandForTest(s.mockAPI, s.store)
 	ctx, _ := testing.RunCommand(c, command, username)
 	c.Assert(testing.Stdout(ctx), jc.DeepEquals, expected)

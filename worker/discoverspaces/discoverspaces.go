@@ -8,10 +8,10 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils/set"
 	"gopkg.in/juju/names.v2"
+	worker "gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/catacomb"
 	"github.com/juju/juju/worker/gate"
 )

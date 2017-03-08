@@ -17,9 +17,9 @@ import (
 	"github.com/juju/utils/packaging/config"
 	proxyutils "github.com/juju/utils/proxy"
 	"github.com/juju/utils/series"
+	worker "gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/watcher"
-	"github.com/juju/juju/worker"
 )
 
 var (
@@ -27,11 +27,12 @@ var (
 )
 
 type Config struct {
-	Directory      string
-	RegistryPath   string
-	Filename       string
-	API            API
-	ExternalUpdate func(proxyutils.Settings) error
+	Directory       string
+	RegistryPath    string
+	Filename        string
+	API             API
+	ExternalUpdate  func(proxyutils.Settings) error
+	InProcessUpdate func(proxyutils.Settings) error
 }
 
 // API is an interface that is provided to New
@@ -147,6 +148,9 @@ func (w *proxyWorker) writeEnvironment() error {
 
 func (w *proxyWorker) handleProxyValues(proxySettings proxyutils.Settings) {
 	proxySettings.SetEnvironmentValues()
+	if err := w.config.InProcessUpdate(proxySettings); err != nil {
+		logger.Errorf("error updating in-process proxy settings: %v", err)
+	}
 	if proxySettings != w.proxy || w.first {
 		logger.Debugf("new proxy settings %#v", proxySettings)
 		w.proxy = proxySettings

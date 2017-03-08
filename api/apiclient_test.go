@@ -4,17 +4,20 @@
 package api_test
 
 import (
+	"crypto/tls"
 	"net"
+	"net/http"
+	"strings"
 	"sync/atomic"
 	"time"
 
+	"github.com/gorilla/websocket"
 	"github.com/juju/errors"
 	"github.com/juju/retry"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/clock"
 	"github.com/juju/utils/parallel"
-	"golang.org/x/net/websocket"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
@@ -36,19 +39,19 @@ var _ = gc.Suite(&apiclientSuite{})
 
 func (s *apiclientSuite) TestDialAPIToEnv(c *gc.C) {
 	info := s.APIInfo(c)
-	conn, _, err := api.DialAPI(info, api.DialOpts{})
+	conn, location, err := api.DialAPI(info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 	defer conn.Close()
-	assertConnAddrForModel(c, conn, info.Addrs[0], s.State.ModelUUID())
+	assertConnAddrForModel(c, location, info.Addrs[0], s.State.ModelUUID())
 }
 
 func (s *apiclientSuite) TestDialAPIToRoot(c *gc.C) {
 	info := s.APIInfo(c)
 	info.ModelTag = names.NewModelTag("")
-	conn, _, err := api.DialAPI(info, api.DialOpts{})
+	conn, location, err := api.DialAPI(info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 	defer conn.Close()
-	assertConnAddrForRoot(c, conn, info.Addrs[0])
+	assertConnAddrForRoot(c, location, info.Addrs[0])
 }
 
 func (s *apiclientSuite) TestDialAPIMultiple(c *gc.C) {
@@ -60,19 +63,19 @@ func (s *apiclientSuite) TestDialAPIMultiple(c *gc.C) {
 
 	// Check that we can use the proxy to connect.
 	info.Addrs = []string{proxy.Addr()}
-	conn, _, err := api.DialAPI(info, api.DialOpts{})
+	conn, location, err := api.DialAPI(info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 	conn.Close()
-	assertConnAddrForModel(c, conn, proxy.Addr(), s.State.ModelUUID())
+	assertConnAddrForModel(c, location, proxy.Addr(), s.State.ModelUUID())
 
 	// Now break Addrs[0], and ensure that Addrs[1]
 	// is successfully connected to.
 	proxy.Close()
 	info.Addrs = []string{proxy.Addr(), serverAddr}
-	conn, _, err = api.DialAPI(info, api.DialOpts{})
+	conn, location, err = api.DialAPI(info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 	conn.Close()
-	assertConnAddrForModel(c, conn, serverAddr, s.State.ModelUUID())
+	assertConnAddrForModel(c, location, serverAddr, s.State.ModelUUID())
 }
 
 func (s *apiclientSuite) TestDialAPIMultipleError(c *gc.C) {
@@ -95,7 +98,7 @@ func (s *apiclientSuite) TestDialAPIMultipleError(c *gc.C) {
 	addr := listener.Addr().String()
 	info.Addrs = []string{addr, addr, addr}
 	_, _, err = api.DialAPI(info, api.DialOpts{})
-	c.Assert(err, gc.ErrorMatches, `unable to connect to API: websocket.Dial wss://.*/model/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/api: .*`)
+	c.Assert(err, gc.ErrorMatches, `unable to connect to API: .*`)
 	c.Assert(atomic.LoadInt32(&count), gc.Equals, int32(3))
 }
 
@@ -113,6 +116,14 @@ func (s *apiclientSuite) TestOpen(c *gc.C) {
 	remoteVersion, versionSet := st.ServerVersion()
 	c.Assert(versionSet, jc.IsTrue)
 	c.Assert(remoteVersion, gc.Equals, jujuversion.Current)
+}
+
+func (s *apiclientSuite) splitAddressPort(c *gc.C, addr string) (string, string) {
+	pos := strings.LastIndex(addr, ":")
+	if pos == -1 {
+		panic("missing :")
+	}
+	return addr[:pos], addr[pos+1:]
 }
 
 func (s *apiclientSuite) TestOpenHonorsModelTag(c *gc.C) {
@@ -153,7 +164,7 @@ func (s *apiclientSuite) TestServerRoot(c *gc.C) {
 }
 
 func (s *apiclientSuite) TestDialWebsocketStopped(c *gc.C) {
-	f := api.NewWebsocketDialer(nil, api.DialOpts{})
+	f := api.NewWebsocketDialer("", api.DialOpts{})
 	stopped := make(chan struct{})
 	close(stopped)
 	result, err := f(stopped)
@@ -233,10 +244,17 @@ func (s *apiclientSuite) TestOpenWithSNIHostname(c *gc.C) {
 // testSNIHostName tests that when the API is dialed with the given info,
 // api.newWebsocketDialer is called with the expected information.
 func (s *apiclientSuite) testSNIHostName(c *gc.C, info *api.Info, expectDial apiDialInfo) {
-	dialed := make(chan *websocket.Config)
-	fakeDialer := func(cfg *websocket.Config) (*websocket.Conn, error) {
-		dialed <- cfg
-		return nil, errors.New("nope")
+	type config struct {
+		location  string
+		tlsConfig *tls.Config
+	}
+	dialed := make(chan config)
+	fakeDialer := func(urlStr string, tlsConfig *tls.Config, requestHeader http.Header) (*websocket.Conn, *http.Response, error) {
+		dialed <- config{
+			location:  urlStr,
+			tlsConfig: tlsConfig,
+		}
+		return nil, nil, errors.New("nope")
 	}
 	done := make(chan struct{})
 	go func() {
@@ -249,10 +267,10 @@ func (s *apiclientSuite) testSNIHostName(c *gc.C, info *api.Info, expectDial api
 	}()
 	select {
 	case cfg := <-dialed:
-		c.Check(cfg.Location.String(), gc.Equals, expectDial.location)
-		c.Assert(cfg.TlsConfig, gc.NotNil)
-		c.Check(cfg.TlsConfig.RootCAs != nil, gc.Equals, expectDial.hasRootCAs)
-		c.Check(cfg.TlsConfig.ServerName, gc.Equals, expectDial.serverName)
+		c.Check(cfg.location, gc.Equals, expectDial.location)
+		c.Assert(cfg.tlsConfig, gc.NotNil)
+		c.Check(cfg.tlsConfig.RootCAs != nil, gc.Equals, expectDial.hasRootCAs)
+		c.Check(cfg.tlsConfig.ServerName, gc.Equals, expectDial.serverName)
 	case <-time.After(jtesting.LongWait):
 		c.Fatalf("timed out waiting for dial")
 	}
@@ -278,7 +296,7 @@ func (s *apiclientSuite) TestOpenWithNoCACert(c *gc.C) {
 		Timeout:    20 * time.Second,
 		RetryDelay: 2 * time.Second,
 	})
-	c.Assert(err, gc.ErrorMatches, `unable to connect to API: websocket.Dial wss://.*/api: x509: certificate signed by unknown authority`)
+	c.Assert(err, gc.ErrorMatches, `unable to connect to API: x509: certificate signed by unknown authority`)
 
 	if time.Since(t0) > 5*time.Second {
 		c.Errorf("looks like API is retrying on connection when there is an X509 error")
@@ -507,10 +525,10 @@ func (a *redirectAPIAdmin) RedirectInfo() (params.RedirectInfoResult, error) {
 	}, nil
 }
 
-func assertConnAddrForModel(c *gc.C, conn *websocket.Conn, addr, modelUUID string) {
-	c.Assert(conn.RemoteAddr().String(), gc.Equals, "wss://"+addr+"/model/"+modelUUID+"/api")
+func assertConnAddrForModel(c *gc.C, location, addr, modelUUID string) {
+	c.Assert(location, gc.Equals, "wss://"+addr+"/model/"+modelUUID+"/api")
 }
 
-func assertConnAddrForRoot(c *gc.C, conn *websocket.Conn, addr string) {
-	c.Assert(conn.RemoteAddr().String(), gc.Matches, "wss://"+addr+"/api")
+func assertConnAddrForRoot(c *gc.C, location, addr string) {
+	c.Assert(location, gc.Matches, "wss://"+addr+"/api")
 }

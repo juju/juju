@@ -25,17 +25,23 @@ type FilesystemInfo struct {
 	ProviderFilesystemId string `yaml:"provider-id,omitempty" json:"provider-id,omitempty"`
 
 	// Volume is the ID of the volume that the filesystem is backed by, if any.
-	Volume string
+	Volume string `yaml:"volume,omitempty" json:"volume,omitempty"`
 
 	// Storage is the ID of the storage instance that the filesystem is
 	// assigned to, if any.
-	Storage string
+	Storage string `yaml:"storage,omitempty" json:"storage,omitempty"`
 
 	// Attachments is the set of entities attached to the filesystem.
 	Attachments *FilesystemAttachments
 
+	// Pool is the name of the storage pool that the filesystem came from.
+	Pool string `yaml:"pool,omitempty" json:"pool,omitempty"`
+
 	// from params.FilesystemInfo
 	Size uint64 `yaml:"size" json:"size"`
+
+	// Life is the lifecycle state of the filesystem.
+	Life string `yaml:"life,omitempty" json:"life,omitempty"`
 
 	// from params.FilesystemInfo.
 	Status EntityStatus `yaml:"status,omitempty" json:"status,omitempty"`
@@ -49,12 +55,13 @@ type FilesystemAttachments struct {
 type MachineFilesystemAttachment struct {
 	MountPoint string `yaml:"mount-point" json:"mount-point"`
 	ReadOnly   bool   `yaml:"read-only" json:"read-only"`
+	Life       string `yaml:"life,omitempty" json:"life,omitempty"`
 }
 
 // generateListFilesystemOutput returns a map filesystem IDs to filesystem info
-func (c *listCommand) generateListFilesystemsOutput(ctx *cmd.Context, api StorageListAPI) (output interface{}, err error) {
+func generateListFilesystemsOutput(ctx *cmd.Context, api StorageListAPI, ids []string) (map[string]FilesystemInfo, error) {
 
-	results, err := api.ListFilesystems(c.ids)
+	results, err := api.ListFilesystems(ids)
 	if err != nil {
 		return nil, err
 	}
@@ -72,18 +79,7 @@ func (c *listCommand) generateListFilesystemsOutput(ctx *cmd.Context, api Storag
 	if len(valid) == 0 {
 		return nil, nil
 	}
-	info, err := convertToFilesystemInfo(valid)
-	if err != nil {
-		return nil, err
-	}
-	switch c.out.Name() {
-	case "yaml", "json":
-		output = map[string]map[string]FilesystemInfo{"filesystems": info}
-	default:
-		output = info
-	}
-
-	return output, nil
+	return convertToFilesystemInfo(valid)
 }
 
 // convertToFilesystemInfo returns a map of filesystem IDs to filesystem info.
@@ -107,7 +103,9 @@ func createFilesystemInfo(details params.FilesystemDetails) (names.FilesystemTag
 
 	var info FilesystemInfo
 	info.ProviderFilesystemId = details.Info.FilesystemId
+	info.Pool = details.Info.Pool
 	info.Size = details.Info.Size
+	info.Life = string(details.Life)
 	info.Status = EntityStatus{
 		details.Status.Status,
 		details.Status.Info,
@@ -133,6 +131,7 @@ func createFilesystemInfo(details params.FilesystemDetails) (names.FilesystemTag
 			machineAttachments[machineId] = MachineFilesystemAttachment{
 				attachment.MountPoint,
 				attachment.ReadOnly,
+				string(attachment.Life),
 			}
 		}
 		info.Attachments = &FilesystemAttachments{

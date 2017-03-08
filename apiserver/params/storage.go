@@ -172,6 +172,11 @@ type Volume struct {
 type VolumeInfo struct {
 	VolumeId   string `json:"volume-id"`
 	HardwareId string `json:"hardware-id,omitempty"`
+	// Pool is the name of the storage pool used to
+	// allocate the volume. Juju controllers older
+	// than 2.2 do not populate this field, so it may
+	// be omitted.
+	Pool string `json:"pool,omitempty"`
 	// Size is the size of the volume in MiB.
 	Size       uint64 `json:"size"`
 	Persistent bool   `json:"persistent"`
@@ -293,6 +298,11 @@ type Filesystem struct {
 // Filesystem describes a storage filesystem in the model.
 type FilesystemInfo struct {
 	FilesystemId string `json:"filesystem-id"`
+	// Pool is the name of the storage pool used to
+	// allocate the filesystem. Juju controllers older
+	// than 2.2 do not populate this field, so it may
+	// be omitted.
+	Pool string `json:"pool"`
 	// Size is the size of the filesystem in MiB.
 	Size uint64 `json:"size"`
 }
@@ -404,6 +414,11 @@ type StorageDetails struct {
 	// Status contains the status of the storage instance.
 	Status EntityStatus `json:"status"`
 
+	// Life contains the lifecycle state of the storage.
+	// Juju controllers older than 2.2 do not populate this
+	// field, so it may be omitted.
+	Life Life `json:"life,omitempty"`
+
 	// Persistent reports whether or not the underlying volume or
 	// filesystem is persistent; i.e. whether or not it outlives
 	// the machine that it is attached to.
@@ -462,6 +477,11 @@ type StorageAttachmentDetails struct {
 	// Location holds location (mount point/device path) of
 	// the attached storage.
 	Location string `json:"location,omitempty"`
+
+	// Life contains the lifecycle state of the storage attachment.
+	// Juju controllers older than 2.2 do not populate this
+	// field, so it may be omitted.
+	Life Life `json:"life,omitempty"`
 }
 
 // StoragePool holds data for a pool instance.
@@ -547,16 +567,37 @@ type VolumeDetails struct {
 	// Info contains information about the volume.
 	Info VolumeInfo `json:"info"`
 
+	// Life contains the lifecycle state of the volume.
+	// Juju controllers older than 2.2 do not populate this
+	// field, so it may be omitted.
+	Life Life `json:"life,omitempty"`
+
 	// Status contains the status of the volume.
 	Status EntityStatus `json:"status"`
 
 	// MachineAttachments contains a mapping from
 	// machine tag to volume attachment information.
-	MachineAttachments map[string]VolumeAttachmentInfo `json:"machine-attachments,omitempty"`
+	MachineAttachments map[string]VolumeAttachmentDetails `json:"machine-attachments,omitempty"`
 
 	// Storage contains details about the storage instance
 	// that the volume is assigned to, if any.
 	Storage *StorageDetails `json:"storage,omitempty"`
+}
+
+// VolumeAttachmentDetails describes a volume attachment.
+type VolumeAttachmentDetails struct {
+	// NOTE(axw) for backwards-compatibility, this must not be given a
+	// json tag. This ensures that we collapse VolumeAttachmentInfo.
+	//
+	// TODO(axw) when we can break backwards-compatibility (Juju 3.0),
+	// give this a field name of "info", like we have in VolumeDetails
+	// above.
+	VolumeAttachmentInfo
+
+	// Life contains the lifecycle state of the volume attachment.
+	// Juju controllers older than 2.2 do not populate this
+	// field, so it may be omitted.
+	Life Life `json:"life,omitempty"`
 }
 
 // VolumeDetailsResult contains details about a volume, its attachments or
@@ -603,16 +644,37 @@ type FilesystemDetails struct {
 	// Info contains information about the filesystem.
 	Info FilesystemInfo `json:"info"`
 
+	// Life contains the lifecycle state of the filesystem.
+	// Juju controllers older than 2.2 do not populate this
+	// field, so it may be omitted.
+	Life Life `json:"life,omitempty"`
+
 	// Status contains the status of the filesystem.
 	Status EntityStatus `json:"status"`
 
 	// MachineAttachments contains a mapping from
 	// machine tag to filesystem attachment information.
-	MachineAttachments map[string]FilesystemAttachmentInfo `json:"machine-attachments,omitempty"`
+	MachineAttachments map[string]FilesystemAttachmentDetails `json:"machine-attachments,omitempty"`
 
 	// Storage contains details about the storage instance
 	// that the volume is assigned to, if any.
 	Storage *StorageDetails `json:"storage,omitempty"`
+}
+
+// FilesystemAttachmentDetails describes a filesystem attachment.
+type FilesystemAttachmentDetails struct {
+	// NOTE(axw) for backwards-compatibility, this must not be given a
+	// json tag. This ensures that we collapse FilesystemAttachmentInfo.
+	//
+	// TODO(axw) when we can break backwards-compatibility (Juju 3.0),
+	// give this a field name of "info", like we have in FilesystemDetails
+	// above.
+	FilesystemAttachmentInfo
+
+	// Life contains the lifecycle state of the filesystem attachment.
+	// Juju controllers older than 2.2 do not populate this
+	// field, so it may be omitted.
+	Life Life `json:"life,omitempty"`
 }
 
 // FilesystemDetailsResult contains details about a filesystem, its attachments or

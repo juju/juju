@@ -9,11 +9,12 @@ import (
 	"net/http/httptest"
 	"net/url"
 
-	"github.com/juju/juju/api/authentication"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
+
+	"github.com/juju/juju/api/authentication"
 )
 
 type VisitorSuite struct {

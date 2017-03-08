@@ -6,6 +6,7 @@ package migrationtarget_test
 import (
 	"time"
 
+	"github.com/juju/description"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -19,7 +20,6 @@ import (
 	"github.com/juju/juju/apiserver/migrationtarget"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"

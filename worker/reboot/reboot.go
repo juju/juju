@@ -11,13 +11,14 @@ import (
 	"github.com/juju/mutex"
 	"github.com/juju/utils/clock"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/worker.v1"
 	"gopkg.in/tomb.v1"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/reboot"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/watcher"
-	"github.com/juju/juju/worker"
+	jworker "github.com/juju/juju/worker"
 )
 
 var logger = loggo.GetLogger("juju.worker.reboot")
@@ -79,14 +80,14 @@ func (r *Reboot) Handle(_ <-chan struct{}) error {
 			return errors.Trace(err)
 		}
 		logger.Debugf("mutex %q acquired, won't release", r.machineLockName)
-		return worker.ErrRebootMachine
+		return jworker.ErrRebootMachine
 	case params.ShouldShutdown:
 		logger.Debugf("acquiring mutex %q for shutdown", r.machineLockName)
 		if _, err := mutex.Acquire(spec); err != nil {
 			return errors.Trace(err)
 		}
 		logger.Debugf("mutex %q acquired, won't release", r.machineLockName)
-		return worker.ErrShutdownMachine
+		return jworker.ErrShutdownMachine
 	default:
 		return nil
 	}
