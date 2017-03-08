@@ -1,7 +1,7 @@
 // Copyright 2017 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package support_test
+package sla_test
 
 import (
 	"encoding/json"
@@ -16,7 +16,7 @@ import (
 	"gopkg.in/macaroon-bakery.v1/bakery/checkers"
 	"gopkg.in/macaroon.v1"
 
-	"github.com/juju/juju/cmd/juju/romulus/support"
+	"github.com/juju/juju/cmd/juju/romulus/sla"
 	jjjtesting "github.com/juju/juju/juju/testing"
 	// "github.com/juju/juju/state" // TODO will need this to assert value is set in model.
 	jjtesting "github.com/juju/juju/testing"
@@ -42,7 +42,7 @@ func (s *supportCommandSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.mockAPI = mockAPI
 
-	s.PatchValue(support.NewAuthorizationClient, support.APIClientFnc(s.mockAPI))
+	s.PatchValue(sla.NewAuthorizationClient, sla.APIClientFnc(s.mockAPI))
 }
 
 func (s supportCommandSuite) TestSupportCommand(c *gc.C) {
@@ -61,10 +61,34 @@ func (s supportCommandSuite) TestSupportCommand(c *gc.C) {
 			Args: []interface{}{
 				s.State.ModelUUID(),
 				"essential",
+				"",
+			},
+		}},
+	}, {
+		about: "invalid level",
+		level: "invalid",
+		apiCalls: []testing.StubCall{{
+			FuncName: "Authorize",
+			Args: []interface{}{
+				s.State.ModelUUID(),
+				"invalid",
+				"",
+			},
+		}},
+		err: `SLA level "invalid" not valid`,
+	}, {
+		about:  "all is well with budget",
+		level:  "essential",
+		budget: "personal:10",
+		apiCalls: []testing.StubCall{{
+			FuncName: "Authorize",
+			Args: []interface{}{
+				s.State.ModelUUID(),
+				"essential",
+				"personal:10",
 			},
 		}},
 	},
-	// TODO Add test for budget args.
 	}
 	for i, test := range tests {
 		c.Logf("running test %d: %v", i, test.about)
@@ -72,7 +96,7 @@ func (s supportCommandSuite) TestSupportCommand(c *gc.C) {
 		if test.apiErr != nil {
 			s.mockAPI.SetErrors(test.apiErr)
 		}
-		_, err := cmdtesting.RunCommand(c, support.NewSupportCommand(), test.level)
+		_, err := cmdtesting.RunCommand(c, sla.NewSLACommand(), test.level, "--budget", test.budget)
 		if test.err == "" {
 			c.Assert(err, jc.ErrorIsNil)
 			c.Assert(s.mockAPI.Calls(), gc.HasLen, 1)
@@ -87,14 +111,14 @@ func (s supportCommandSuite) TestSupportCommand(c *gc.C) {
 			c.Assert(data, jc.DeepEquals, model.SLACredential())
 		} else {
 			c.Assert(err, gc.ErrorMatches, test.err)
-			c.Assert(s.mockAPI.Calls(), gc.HasLen, 0)
 		}
 	}
 }
 
-func (s *supportCommandSuite) TestNoArgs(c *gc.C) {
-	_, err := cmdtesting.RunCommand(c, support.NewSupportCommand())
-	c.Assert(err, gc.ErrorMatches, "need to specify support level")
+func (s *supportCommandSuite) TestDiplayCurrentLevel(c *gc.C) {
+	ctx, err := cmdtesting.RunCommand(c, sla.NewSLACommand())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cmdtesting.Stdout(ctx), jc.DeepEquals, "unsupported\n")
 }
 
 func newMockAPI() (*mockapi, error) {
@@ -121,12 +145,12 @@ type mockapi struct {
 	macaroon *macaroon.Macaroon
 }
 
-func (m *mockapi) Authorize(modelUUID, supportLevel string) (*macaroon.Macaroon, error) {
+func (m *mockapi) Authorize(modelUUID, supportLevel, budget string) (*macaroon.Macaroon, error) {
 	err := m.NextErr()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	m.AddCall("Authorize", modelUUID, supportLevel)
+	m.AddCall("Authorize", modelUUID, supportLevel, budget)
 	macaroon, err := m.service.NewMacaroon(
 		"foobar",
 		nil,

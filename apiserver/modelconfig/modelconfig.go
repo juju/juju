@@ -130,18 +130,22 @@ func (c *ModelConfigAPI) ModelUnset(args params.ModelUnset) error {
 	return c.backend.UpdateModelConfig(nil, args.Keys, nil)
 }
 
-// SetSupport sets the support level  on the model.
-func (c *ModelConfigAPI) SetSupport(args params.ModelSupport) error {
+// SetSLALevel sets the sla level on the model.
+func (c *ModelConfigAPI) SetSLALevel(args params.ModelSupport) error {
 	if err := c.checkCanWrite(); err != nil {
 		return err
 	}
-	// TODO Set Creds when merged with cmars branch
 	return c.backend.SetSLA(args.Level, args.Credentials)
 
 }
 
-// Support returns the current support level for the model.
-func (c *ModelConfigAPI) Support() (string, error) {
-	return "todo", nil
-
+// SLALevel returns the current sla level for the model.
+func (c *ModelConfigAPI) SLALevel() (params.StringResult, error) {
+	result := params.StringResult{}
+	level, err := c.backend.SLALevel()
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+	result.Result = level
+	return result, nil
 }

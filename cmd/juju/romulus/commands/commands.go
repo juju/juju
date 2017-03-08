@@ -16,7 +16,7 @@ import (
 	"github.com/juju/juju/cmd/juju/romulus/setbudget"
 	"github.com/juju/juju/cmd/juju/romulus/setplan"
 	"github.com/juju/juju/cmd/juju/romulus/showbudget"
-	"github.com/juju/juju/cmd/juju/romulus/support"
+	"github.com/juju/juju/cmd/juju/romulus/sla"
 	"github.com/juju/juju/cmd/juju/romulus/updateallocation"
 	"github.com/juju/juju/cmd/modelcmd"
 )
@@ -49,5 +49,5 @@ func RegisterAll(r commandRegister) {
 	register(setplan.NewSetPlanCommand())
 	register(showbudget.NewShowBudgetCommand())
 	register(updateallocation.NewUpdateAllocationCommand())
-	register(support.NewSupportCommand())
+	register(sla.NewSLACommand())
 }

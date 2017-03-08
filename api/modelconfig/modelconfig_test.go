@@ -138,7 +138,7 @@ func (s *modelconfigSuite) TestSetSupport(c *gc.C) {
 		) error {
 			c.Check(objType, gc.Equals, "ModelConfig")
 			c.Check(id, gc.Equals, "")
-			c.Check(request, gc.Equals, "SetSupport")
+			c.Check(request, gc.Equals, "SetSLALevel")
 			c.Check(a, jc.DeepEquals, params.ModelSupport{
 				Level:       "foobar",
 				Credentials: []byte("creds"),
@@ -148,7 +148,7 @@ func (s *modelconfigSuite) TestSetSupport(c *gc.C) {
 		},
 	)
 	client := modelconfig.NewClient(apiCaller)
-	err := client.SetSupport("foobar", []byte("creds"))
+	err := client.SetSLALevel("foobar", []byte("creds"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(called, jc.IsTrue)
 }
@@ -163,16 +163,16 @@ func (s *modelconfigSuite) TestGetSupport(c *gc.C) {
 		) error {
 			c.Check(objType, gc.Equals, "ModelConfig")
 			c.Check(id, gc.Equals, "")
-			c.Check(request, gc.Equals, "Support")
+			c.Check(request, gc.Equals, "SLALevel")
 			c.Check(a, jc.DeepEquals, nil)
-			results := result.(*string)
-			*results = "level"
+			results := result.(*params.StringResult)
+			results.Result = "level"
 			called = true
 			return nil
 		},
 	)
 	client := modelconfig.NewClient(apiCaller)
-	level, err := client.Support()
+	level, err := client.SLALevel()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(called, jc.IsTrue)
 	c.Assert(level, gc.Equals, "level")

@@ -1,17 +1,18 @@
 // Copyright 2017 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// The support package contains the implementation of the juju sla
+// The sla package contains the implementation of the juju sla
 // command.
-package support
+package sla
 
 import (
 	"encoding/json"
+	"fmt"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	api "github.com/juju/romulus/api/support"
+	api "github.com/juju/romulus/api/sla"
 	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/api/modelconfig"
@@ -22,16 +23,16 @@ import (
 // the command uses to create an sla authorization macaroon.
 type authorizationClient interface {
 	// Authorize returns the sla authorization macaroon for the specified model,
-	Authorize(modelUUID, supportLevel string) (*macaroon.Macaroon, error)
+	Authorize(modelUUID, supportLevel, budget string) (*macaroon.Macaroon, error)
 }
 
 var newAuthorizationClient = func(options ...api.ClientOption) (authorizationClient, error) {
-	return api.NewSupportAuthClient(options...)
+	return api.NewClient(options...)
 }
 
-// NewSupportCommand returns a new command that is used to set sla credentials for a
+// NewSLACommand returns a new command that is used to set sla credentials for a
 // deployed application.
-func NewSupportCommand() cmd.Command {
+func NewSLACommand() cmd.Command {
 	return modelcmd.Wrap(&supportCommand{})
 }
 
@@ -48,7 +49,7 @@ type supportCommand struct {
 func (c *supportCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
 	f.StringVar(&c.Budget, "budget", "", "the maximum spend for the model")
-
+	// TODO set the budget
 }
 
 // Info implements cmd.Command.
@@ -61,17 +62,17 @@ func (c *supportCommand) Info() *cmd.Info {
 		Doc: `
 Set the support level for the model, effective immediately.
 Examples:
-    juju sla essential # Set the support level to essential
-    juju sla standard --budget 1000 set the support level to essential witha maximum budget of $1000
+    juju sla essential              # set the support level to essential
+    juju sla standard --budget 1000 # set the support level to essential witha maximum budget of $1000
+    juju sla                        # display the current support level for the model.
 `,
 	}
 }
 
 // Init implements cmd.Command.
 func (c *supportCommand) Init(args []string) error {
-	// TODO if 0 we could just show the current level.
 	if len(args) < 1 {
-		return errors.New("need to specify support level")
+		return nil
 	}
 	c.Level = args[0]
 	return cmd.CheckEmpty(args[1:])
@@ -86,12 +87,21 @@ func (c *supportCommand) requestSupportCredentials(modelUUID string) ([]byte, er
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	m, err := authClient.Authorize(modelUUID, c.Level)
+	m, err := authClient.Authorize(modelUUID, c.Level, c.Budget)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	ms := macaroon.Slice{m}
 	return json.Marshal(ms)
+}
+
+func displayCurrentLevel(client *modelconfig.Client, ctx *cmd.Context) error {
+	level, err := client.SLALevel()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	fmt.Fprintln(ctx.Stdout, level)
+	return nil
 }
 
 // Run implements cmd.Command.
@@ -100,17 +110,20 @@ func (c *supportCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
+	client := modelconfig.NewClient(root)
+
+	if c.Level == "" {
+		return displayCurrentLevel(client, ctx)
+	}
 	modelTag, ok := root.ModelTag()
 	if !ok {
 		return errors.Errorf("failed to obtain model uuid")
 	}
-	client := modelconfig.NewClient(root)
 	credentials, err := c.requestSupportCredentials(modelTag.Id())
 	if err != nil {
 		return errors.Trace(err)
 	}
-	// TODO Needs to be set model credentials
-	err = client.SetSupport(c.Level, credentials)
+	err = client.SetSLALevel(c.Level, credentials)
 	if err != nil {
 		return errors.Trace(err)
 	}
