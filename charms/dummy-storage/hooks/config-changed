@@ -5,27 +5,46 @@ set -x
 juju-log -l INFO "Getting single-fs details."
 status-set maintenance "Setting fs tokens" || true
 
-token="$(config-get single-fs-token)"
-token_file="/srv/single-fs/token"
+function set_token() {
+    token_name=$1           # i.e. single-fs-token
+    fs_path=$2              # i.e. /srv/single-fs/ or /srv/multi-fs/multi-fs/13
 
-single_fs_status=""
+    token="$(config-get $token_name)"
+    token_file="$fs_path/token"
 
-if [ -f $token_file]; then
-    juju-log -l INFO "Using stored token details."
-    token=$(cat $token_file)
-fi
+    juju-log -l INFO "Token file: $token_file"
 
-if [[ -z $token ]]; then
-    # status-set blocked "Set the single-fs-token" || true
-    single_fs_token="single-fs-token: Blocked: not set"
-    juju-log -l WARNING "$single_fs_token"
-else
-    # This should get the existing status and add to it. Or set a global and
-    # consolidate afterwards.
-    single_fs_token="single-fs-token: $token"
-    echo "$token" > $token_file
-    juju-log -l INFO "$single_fs_token"
-fi
+    if [ -f $token_file ]; then
+        juju-log -l INFO "Using stored token details."
+        token=$(cat $token_file)
+    fi
 
-# Should this be maintenance or active depending on the config/token?
-status-set active "$single_fs_token" || true
+    if [[ -z $token ]]; then
+        fs_token="$token_name: Blocked: not set"
+        juju-log -l WARNING "$fs_token"
+    else
+        fs_token="$token_name: $token"
+        echo "$token" > $token_file
+        juju-log -l INFO "$fs_token"
+    fi
+
+    # Return the value.
+    echo "$fs_token"
+}
+
+single_fs_token=$(set_token "single-fs-token" "/srv/single-fs")
+
+# instead set the details into the file
+# status-set active "$single_fs_token" || true
+juju-log -l INFO ">> $single_fs_token"
+echo "$single_fs_token" >> /tmp/status
+
+# then multi. . .
+for unit in $(storage-list multi-fs); do
+    fs_path=$(storage-get -s $unit | grep "^location:\ " | cut -d: -f2 | tr -d ' ')
+    multi_fs_token=$(set_token "multi-fs-token" "$fs_path")
+    juju-log -l INFO ">> $multi_fs_token"
+    echo "$multi_fs_token" >> /tmp/status
+done
+
+status-set active "Stored token: /tmp/status" || true

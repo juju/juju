@@ -1,0 +1,16 @@
+#!/bin/bash
+set -x
+
+juju-log -l INFO "Storage is attached."
+juju-log -l INFO "List help: $(storage-list --help)"
+juju-log -l INFO "Get help: $(storage-get --help)"
+juju-log -l INFO "Storage details: $(storage-list)"
+
+# for unit in $(storage-list); do
+#     juju-log -l INFO "MULTI Storage details for ${unit}: $(storage-get -s $unit)"
+#     fs_path=$(storage-get -s $unit | grep "^location:\ " | cut -d: -f2 | tr -d ' ')
+#     juju-log -l INFO "Path is: $fs_path"
+#     echo "$unit" > "$fs_path/token"
+# done
+
+status-set active "Started" || true

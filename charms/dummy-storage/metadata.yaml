@@ -17,3 +17,10 @@ storage:
     description: Single instance storage of filesystem type.
     minimum-size: 10M
     location: /srv/single-fs
+  multi-fs:
+    type: filesystem
+    description: Multiple storage instances of filesystem type.
+    minimum-size: 10M
+    location: /srv/multi-fs
+    multiple:
+      range: 1-2

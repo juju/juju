@@ -4,3 +4,7 @@ options:
     type: string
     default: ''
     description: Token used to prove data stored is persistent
+  multi-fs-token:
+    type: string
+    default: ''
+    description: Token used to prove data stored is persistent
