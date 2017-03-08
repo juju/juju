@@ -15,18 +15,18 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/worker.v1"
 	"gopkg.in/mgo.v2"
 
-	"github.com/juju/juju/testing"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/worker"
+	jworker "github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/singular"
 )
 
 var logger = loggo.GetLogger("juju.singular-test")
 
 type mongoSuite struct {
-	testing.BaseSuite
+	coretesting.BaseSuite
 }
 
 var _ = gc.Suite(&mongoSuite{})
@@ -155,7 +155,7 @@ func assertAgentsQuit(c *gc.C, globalState *globalAgentState) {
 
 type testAgent struct {
 	notify *notifier
-	worker.Runner
+	*worker.Runner
 	hostPort string
 }
 
@@ -175,15 +175,16 @@ func (a *testAgent) mongoWorker() (worker.Worker, error) {
 		session:       session,
 	}
 
-	fn := func(err0, err1 error) bool { return true }
-	runner := worker.NewRunner(connectionIsFatal(mc), fn, worker.RestartDelay)
+	runner := worker.NewRunner(worker.RunnerParams{
+		IsFatal: connectionIsFatal(mc),
+	})
 	singularRunner, err := singular.New(runner, mc)
 	if err != nil {
 		return nil, fmt.Errorf("cannot start singular runner: %v", err)
 	}
 	a.notify.workerConnected()
 	singularRunner.StartWorker(fmt.Sprint("worker-", a.notify.id), func() (worker.Worker, error) {
-		return worker.NewSimpleWorker(func(stop <-chan struct{}) error {
+		return jworker.NewSimpleWorker(func(stop <-chan struct{}) error {
 			return a.worker(session, stop)
 		}), nil
 	})
@@ -387,7 +388,7 @@ func expectNotification(c *gc.C, notifyCh <-chan event, possible []event) event 
 		}
 		c.Fatalf("event %q does not match any of %q", e, possible)
 		return e
-	case <-time.After(testing.LongWait):
+	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for %q", possible)
 	}
 	panic("unreachable")
@@ -545,7 +546,7 @@ func startReplicaSet(n int) (_ []*gitjujutesting.MgoInstance, err error) {
 
 func newMongoInstance() (*gitjujutesting.MgoInstance, error) {
 	inst := &gitjujutesting.MgoInstance{Params: []string{"--replSet", replicaSetName}}
-	if err := inst.Start(testing.Certs); err != nil {
+	if err := inst.Start(coretesting.Certs); err != nil {
 		return nil, fmt.Errorf("cannot start mongo server: %s", err.Error())
 	}
 	return inst, nil

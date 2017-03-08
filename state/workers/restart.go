@@ -10,9 +10,9 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/clock"
+	worker "gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/core/lease"
-	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/catacomb"
 )
 

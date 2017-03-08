@@ -12,6 +12,7 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/clock"
 	"gopkg.in/juju/names.v2"
+	worker "gopkg.in/juju/worker.v1"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/txn"
 
@@ -24,7 +25,6 @@ import (
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
-	"github.com/juju/juju/worker"
 )
 
 // Register the state tracker as a new profile.

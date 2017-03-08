@@ -5,10 +5,10 @@ package migrationflag
 
 import (
 	"github.com/juju/errors"
+	worker "gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/cmd/jujud/agent/engine"
-	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
 )
 

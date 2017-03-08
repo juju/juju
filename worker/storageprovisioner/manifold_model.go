@@ -7,11 +7,11 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/clock"
 	"gopkg.in/juju/names.v2"
+	worker "gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/storageprovisioner"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
 )
 

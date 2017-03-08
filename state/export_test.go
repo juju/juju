@@ -18,6 +18,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
+	worker "gopkg.in/juju/worker.v1"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -32,7 +33,6 @@ import (
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/version"
-	"github.com/juju/juju/worker"
 )
 
 const (

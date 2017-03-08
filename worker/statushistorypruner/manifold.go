@@ -7,10 +7,11 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/statushistory"
-	"github.com/juju/juju/worker"
+	jworker "github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
 )
 
@@ -22,7 +23,7 @@ type ManifoldConfig struct {
 	MaxHistoryMB   uint
 	PruneInterval  time.Duration
 	// TODO(fwereade): 2016-03-17 lp:1558657
-	NewTimer worker.NewTimerFunc
+	NewTimer jworker.NewTimerFunc
 }
 
 // Manifold returns a Manifold that encapsulates the statushistorypruner worker.

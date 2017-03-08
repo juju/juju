@@ -5,11 +5,11 @@ package migrationflag
 
 import (
 	"github.com/juju/errors"
+	worker "gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/migrationflag"
 	"github.com/juju/juju/api/watcher"
-	"github.com/juju/juju/worker"
 )
 
 // NewFacade creates a *migrationflag.Facade and returns it as a Facade.

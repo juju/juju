@@ -4,11 +4,11 @@
 package legacy
 
 import (
+	worker "gopkg.in/juju/worker.v1"
 	"gopkg.in/tomb.v1"
 
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
-	"github.com/juju/juju/worker"
 )
 
 // ensureErr is defined as a variable to allow the test suite

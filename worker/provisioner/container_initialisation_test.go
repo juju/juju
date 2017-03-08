@@ -20,6 +20,7 @@ import (
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/common"
@@ -33,7 +34,7 @@ import (
 	"github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/watcher"
-	"github.com/juju/juju/worker"
+	jworker "github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/provisioner"
 )
 
@@ -88,8 +89,12 @@ func (s *ContainerSetupSuite) TearDownTest(c *gc.C) {
 	s.CommonProvisionerSuite.TearDownTest(c)
 }
 
-func (s *ContainerSetupSuite) setupContainerWorker(c *gc.C, tag names.MachineTag) (watcher.StringsHandler, worker.Runner) {
-	runner := worker.NewRunner(allFatal, noImportance, worker.RestartDelay)
+func (s *ContainerSetupSuite) setupContainerWorker(c *gc.C, tag names.MachineTag) (watcher.StringsHandler, *worker.Runner) {
+	runner := worker.NewRunner(worker.RunnerParams{
+		IsFatal:       allFatal,
+		MoreImportant: noImportance,
+		RestartDelay:  jworker.RestartDelay,
+	})
 	pr := apiprovisioner.NewState(s.st)
 	machine, err := pr.Machine(tag)
 	c.Assert(err, jc.ErrorIsNil)
@@ -147,7 +152,7 @@ func (s *ContainerSetupSuite) assertContainerProvisionerStarted(
 	})
 	// A stub worker callback to record what happens.
 	var provisionerStarted uint32
-	startProvisionerWorker := func(runner worker.Runner, containerType instance.ContainerType,
+	startProvisionerWorker := func(runner *worker.Runner, containerType instance.ContainerType,
 		pr *apiprovisioner.State, cfg agent.Config, broker environs.InstanceBroker,
 		toolsFinder provisioner.ToolsFinder) error {
 		c.Assert(containerType, gc.Equals, ctype)
@@ -224,7 +229,7 @@ func (s *ContainerSetupSuite) testContainerConstraintsArch(c *gc.C, containerTyp
 		})
 	})
 
-	s.PatchValue(&provisioner.StartProvisioner, func(runner worker.Runner, containerType instance.ContainerType,
+	s.PatchValue(&provisioner.StartProvisioner, func(runner *worker.Runner, containerType instance.ContainerType,
 		pr *apiprovisioner.State, cfg agent.Config, broker environs.InstanceBroker,
 		toolsFinder provisioner.ToolsFinder) error {
 		toolsFinder.FindTools(jujuversion.Current, series.MustHostSeries(), arch.AMD64)
@@ -267,7 +272,7 @@ type ContainerInstance struct {
 
 func (s *ContainerSetupSuite) assertContainerInitialised(c *gc.C, cont ContainerInstance) {
 	// A noop worker callback.
-	startProvisionerWorker := func(runner worker.Runner, containerType instance.ContainerType,
+	startProvisionerWorker := func(runner *worker.Runner, containerType instance.ContainerType,
 		pr *apiprovisioner.State, cfg agent.Config, broker environs.InstanceBroker,
 		toolsFinder provisioner.ToolsFinder) error {
 		return nil

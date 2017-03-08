@@ -17,10 +17,10 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/prometheus/client_golang/prometheus"
 	gc "gopkg.in/check.v1"
+	worker "gopkg.in/juju/worker.v1"
 
 	// Bring in the state package for the tracker profile.
 	_ "github.com/juju/juju/state"
-	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/introspection"
 	"github.com/juju/juju/worker/workertest"
 )

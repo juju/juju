@@ -5,8 +5,7 @@ package engine
 
 import (
 	"github.com/juju/errors"
-
-	"github.com/juju/juju/worker"
+	worker "gopkg.in/juju/worker.v1"
 )
 
 // Flag represents a single boolean used to determine whether a given

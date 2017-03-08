@@ -5,10 +5,10 @@ package discoverspaces_test
 
 import (
 	"github.com/juju/utils/set"
+	worker "gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/discoverspaces"
 	"github.com/juju/juju/worker/gate"
 )

@@ -7,9 +7,10 @@ import (
 	"time"
 
 	"github.com/juju/loggo"
+	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/api/metricsmanager"
-	"github.com/juju/juju/worker"
+	jworker "github.com/juju/juju/worker"
 )
 
 var senderLogger = loggo.GetLogger("juju.worker.metricworker.sender")
@@ -31,5 +32,5 @@ func newSender(client metricsmanager.MetricsManagerClient, notify chan string) w
 		}
 		return nil
 	}
-	return worker.NewPeriodicWorker(f, senderPeriod, worker.NewTimer)
+	return jworker.NewPeriodicWorker(f, senderPeriod, jworker.NewTimer)
 }

@@ -420,6 +420,7 @@ var commandNames = []string{
 	"controller-config",
 	"debug-hooks",
 	"debug-log",
+	"detach-storage",
 	"remove-user",
 	"deploy",
 	"destroy-controller",

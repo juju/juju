@@ -7,10 +7,10 @@ package retrystrategy
 import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
+	worker "gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/watcher"
-	"github.com/juju/juju/worker"
 )
 
 // Facade defines the capabilities required by the worker from the API.

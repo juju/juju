@@ -1436,6 +1436,10 @@ func (i *importer) addStorageInstance(storage description.Storage) error {
 	if err != nil {
 		return errors.Annotate(err, "storage owner")
 	}
+	var storageOwner string
+	if owner != nil {
+		storageOwner = owner.String()
+	}
 	attachments := storage.Attachments()
 	tag := storage.Tag()
 	var ops []txn.Op
@@ -1445,7 +1449,7 @@ func (i *importer) addStorageInstance(storage description.Storage) error {
 	doc := &storageInstanceDoc{
 		Id:              storage.Tag().Id(),
 		Kind:            kind,
-		Owner:           owner.String(),
+		Owner:           storageOwner,
 		StorageName:     storage.Name(),
 		AttachmentCount: len(attachments),
 	}
@@ -1488,14 +1492,6 @@ func (i *importer) addVolume(volume description.Volume) error {
 
 	attachments := volume.Attachments()
 	tag := volume.Tag()
-	var binding string
-	bindingTag, err := volume.Binding()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if bindingTag != nil {
-		binding = bindingTag.String()
-	}
 	var params *VolumeParams
 	var info *VolumeInfo
 	if volume.Provisioned() {
@@ -1516,7 +1512,6 @@ func (i *importer) addVolume(volume description.Volume) error {
 		Name:      tag.Id(),
 		StorageId: volume.Storage().Id(),
 		// Life: ..., // TODO: import life, default is Alive
-		Binding:         binding,
 		Params:          params,
 		Info:            info,
 		AttachmentCount: len(attachments),
@@ -1590,14 +1585,6 @@ func (i *importer) addFilesystem(filesystem description.Filesystem) error {
 
 	attachments := filesystem.Attachments()
 	tag := filesystem.Tag()
-	var binding string
-	bindingTag, err := filesystem.Binding()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if bindingTag != nil {
-		binding = bindingTag.String()
-	}
 	var params *FilesystemParams
 	var info *FilesystemInfo
 	if filesystem.Provisioned() {
@@ -1617,7 +1604,6 @@ func (i *importer) addFilesystem(filesystem description.Filesystem) error {
 		StorageId:    filesystem.Storage().Id(),
 		VolumeId:     filesystem.Volume().Id(),
 		// Life: ..., // TODO: import life, default is Alive
-		Binding:         binding,
 		Params:          params,
 		Info:            info,
 		AttachmentCount: len(attachments),

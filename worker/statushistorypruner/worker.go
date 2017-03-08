@@ -7,8 +7,9 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"gopkg.in/juju/worker.v1"
 
-	"github.com/juju/juju/worker"
+	jworker "github.com/juju/juju/worker"
 )
 
 // Facade represents an API that implements status history pruning.
@@ -23,7 +24,7 @@ type Config struct {
 	MaxHistoryMB   uint
 	PruneInterval  time.Duration
 	// TODO(fwereade): 2016-03-17 lp:1558657
-	NewTimer worker.NewTimerFunc
+	NewTimer jworker.NewTimerFunc
 }
 
 // Validate will err unless basic requirements for a valid
@@ -57,5 +58,5 @@ func New(conf Config) (worker.Worker, error) {
 		return nil
 	}
 
-	return worker.NewPeriodicWorker(doPruning, conf.PruneInterval, conf.NewTimer), nil
+	return jworker.NewPeriodicWorker(doPruning, conf.PruneInterval, conf.NewTimer), nil
 }

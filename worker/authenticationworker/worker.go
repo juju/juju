@@ -12,12 +12,13 @@ import (
 	"github.com/juju/utils/set"
 	"github.com/juju/utils/ssh"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/worker.v1"
 	"gopkg.in/tomb.v1"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/keyupdater"
 	"github.com/juju/juju/watcher"
-	"github.com/juju/juju/worker"
+	jworker "github.com/juju/juju/worker"
 )
 
 // The user name used to ssh into Juju nodes.
@@ -46,7 +47,7 @@ func NewWorker(st *keyupdater.State, agentConfig agent.Config) (worker.Worker, e
 		return nil, errors.NotValidf("machine tag %v", agentConfig.Tag())
 	}
 	if os.HostOS() == os.Windows {
-		return worker.NewNoOpWorker(), nil
+		return jworker.NewNoOpWorker(), nil
 	}
 	w, err := watcher.NewNotifyWorker(watcher.NotifyConfig{
 		Handler: &keyupdaterWorker{

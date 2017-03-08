@@ -7,13 +7,13 @@ import (
 	"io"
 
 	"github.com/juju/errors"
+	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/firewaller"
 	"github.com/juju/juju/api/remotefirewaller"
 	"github.com/juju/juju/api/remoterelations"
-	"github.com/juju/juju/worker"
 )
 
 // NewRemoteRelationsFacade creates a remote relations API facade.
