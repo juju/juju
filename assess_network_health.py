@@ -57,7 +57,7 @@ class AssessNetworkHealth:
         :param target_model: Optional existing model to test under
         :param reboot: Reboot and re-run tests
         :param series: Ubuntu series to deploy
-        :param maas: Bool signifying maas deployments
+        :param maas: MaaS manager object
         """
         if maas:
             self.setup_spaces(maas, bundle)
@@ -121,7 +121,9 @@ class AssessNetworkHealth:
                                         exp_result)
 
     def setup_spaces(self, maas, bundle=None):
-        """Setup MaaS spaces to test charm bindings. Reads from the bundle
+        """Setup MaaS spaces to test charm bindings.
+
+        Reads from the bundle
         file and pulls out the required spaces, then adds those spaces to
         the MaaS cluster using our MaaS controller wrapper.
 
@@ -144,10 +146,7 @@ class AssessNetworkHealth:
             for binding, space in info.get('bindings').items():
                 required_spaces[binding] = space
         for space_name in required_spaces.values():
-            space = spaces_map.get(space_name)
-            if space is None:
-                space = maas.create_space(space_name)
-                log.info("Created space: {}".format(space))
+            space = spaces_map.get(space_name, maas.create_space(space_name))
 
     def setup_testing_environment(self, client, bundle, target_model,
                                   series=None):
@@ -563,7 +562,8 @@ def main(argv=None):
         bs_manager = BootstrapManager.from_args(args)
         with bs_manager.booted_context(args.upload_tools):
             # excluded_spaces breaks tests on oil maas
-            bs_manager.client.excluded_spaces = set()
+            if args.maas:
+                bs_manager.client.excluded_spaces = set()
             manager = None
             if args.maas:
                 manager = maas_account_from_boot_config(bs_manager.client.env)
