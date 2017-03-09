@@ -11,10 +11,10 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	worker "gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/state/workers"
 	jujutesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/workertest"
 )
 
@@ -289,9 +289,23 @@ type fakeTxnLogWorker struct {
 	workers.TxnLogWatcher
 }
 
+// Dead implements Dead without using w.TxnLogWatcher.Dead
+// (which will panic), so that worker.Dead can be used
+// without panicking.
+func (w fakeTxnLogWorker) Dead() <-chan struct{} {
+	return worker.Dead(struct{ worker.Worker }{w})
+}
+
 type fakePresenceWorker struct {
 	worker.Worker
 	workers.PresenceWatcher
+}
+
+// Dead implements Dead without using w.PresenceWatcher.Dead
+// (which will panic), so that worker.Dead can be used
+// without panicking.
+func (w fakePresenceWorker) Dead() <-chan struct{} {
+	return worker.Dead(struct{ worker.Worker }{w})
 }
 
 // IsWorker returns true if `wrapped` is one of the above fake*Worker

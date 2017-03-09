@@ -11,6 +11,7 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/version"
 	"gopkg.in/juju/names.v2"
+	worker "gopkg.in/juju/worker.v1"
 
 	apiprovisioner "github.com/juju/juju/api/provisioner"
 	"github.com/juju/juju/apiserver/common/networkingcommon"
@@ -32,7 +33,6 @@ import (
 	coretools "github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/watcher"
-	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/catacomb"
 	"github.com/juju/juju/wrench"
 )

@@ -13,6 +13,7 @@ import (
 	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/api"
 	apifirewaller "github.com/juju/juju/api/firewaller"
@@ -29,7 +30,6 @@ import (
 	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
-	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/firewaller"
 )
 

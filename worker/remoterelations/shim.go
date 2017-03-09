@@ -7,11 +7,11 @@ import (
 	"io"
 
 	"github.com/juju/errors"
+	worker "gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/remoterelations"
-	"github.com/juju/juju/worker"
 )
 
 func NewRemoteRelationsFacade(apiCaller base.APICaller) (RemoteRelationsFacade, error) {

@@ -8,8 +8,9 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/clock"
+	"gopkg.in/juju/worker.v1"
 
-	"github.com/juju/juju/worker"
+	jworker "github.com/juju/juju/worker"
 )
 
 // TransactionPruner defines the interface for types capable of
@@ -21,7 +22,7 @@ type TransactionPruner interface {
 // New returns a worker which periodically prunes the data for
 // completed transactions.
 func New(tp TransactionPruner, interval time.Duration, clock clock.Clock) worker.Worker {
-	return worker.NewSimpleWorker(func(stopCh <-chan struct{}) error {
+	return jworker.NewSimpleWorker(func(stopCh <-chan struct{}) error {
 		for {
 			select {
 			case <-clock.After(interval):

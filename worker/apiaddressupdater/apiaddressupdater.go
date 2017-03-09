@@ -8,10 +8,10 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	worker "gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/watcher"
-	"github.com/juju/juju/worker"
 )
 
 var logger = loggo.GetLogger("juju.worker.apiaddressupdater")

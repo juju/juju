@@ -8,11 +8,11 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/clock"
+	worker "gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/instancepoller"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
 )
 

@@ -9,6 +9,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
+	worker "gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/api/remoterelations"
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -18,7 +19,6 @@ import (
 	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/watcher/watchertest"
-	"github.com/juju/juju/worker"
 )
 
 // TODO(axw) this suite should be re-written as end-to-end tests using the

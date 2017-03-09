@@ -14,6 +14,7 @@ import (
 	"github.com/juju/utils/voyeur"
 	"github.com/juju/version"
 	"github.com/prometheus/client_golang/prometheus"
+	"gopkg.in/juju/worker.v1"
 
 	coreagent "github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
@@ -24,7 +25,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/state"
 	proxyconfig "github.com/juju/juju/utils/proxy"
-	"github.com/juju/juju/worker"
+	jworker "github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/agent"
 	"github.com/juju/juju/worker/apiaddressupdater"
 	"github.com/juju/juju/worker/apicaller"
@@ -166,7 +167,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			if err2 != nil {
 				return errors.Trace(err2)
 			}
-			return worker.ErrTerminateAgent
+			return jworker.ErrTerminateAgent
 		} else if cause == apicaller.ErrChangedPassword {
 			return dependency.ErrBounce
 		}

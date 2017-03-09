@@ -624,3 +624,47 @@ func (s *storageMockSuite) TestDestroyInvalidStorageId(c *gc.C) {
 	_, err := client.Destroy([]string{"foo/bar"})
 	c.Check(err, gc.ErrorMatches, `storage ID "foo/bar" not valid`)
 }
+
+func (s *storageMockSuite) TestDetach(c *gc.C) {
+	apiCaller := basetesting.APICallerFunc(
+		func(objType string,
+			version int,
+			id, request string,
+			a, result interface{},
+		) error {
+			c.Check(objType, gc.Equals, "Storage")
+			c.Check(id, gc.Equals, "")
+			c.Check(request, gc.Equals, "Detach")
+			c.Check(a, jc.DeepEquals, params.StorageAttachmentIds{[]params.StorageAttachmentId{
+				{StorageTag: "storage-foo-0"},
+				{StorageTag: "storage-bar-1"},
+			}})
+			c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+			results := result.(*params.ErrorResults)
+			results.Results = []params.ErrorResult{
+				{},
+				{Error: &params.Error{Message: "baz"}},
+			}
+			return nil
+		},
+	)
+	client := storage.NewClient(apiCaller)
+	results, err := client.Detach([]string{"foo/0", "bar/1"})
+	c.Check(err, jc.ErrorIsNil)
+	c.Assert(results, gc.HasLen, 2)
+	c.Assert(results[0].Error, gc.IsNil)
+	c.Assert(results[1].Error, jc.DeepEquals, &params.Error{Message: "baz"})
+}
+
+func (s *storageMockSuite) TestDetachArityMismatch(c *gc.C) {
+	apiCaller := basetesting.APICallerFunc(
+		func(objType string, version int, id, request string, a, result interface{}) error {
+			results := result.(*params.ErrorResults)
+			results.Results = []params.ErrorResult{{}, {}, {}}
+			return nil
+		},
+	)
+	client := storage.NewClient(apiCaller)
+	_, err := client.Detach([]string{"foo/0", "bar/1"})
+	c.Check(err, gc.ErrorMatches, `expected 2 result\(s\), got 3`)
+}

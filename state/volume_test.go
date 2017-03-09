@@ -489,10 +489,6 @@ func (s *VolumeStateSuite) assertCreateVolumes(c *gc.C) (_ *state.Machine, all, 
 	volume2 := s.volume(c, names.NewVolumeTag("0/1"))
 	volume3 := s.volume(c, names.NewVolumeTag("2"))
 
-	c.Assert(volume1.LifeBinding(), gc.Equals, s.State.ModelTag())
-	c.Assert(volume2.LifeBinding(), gc.Equals, machine.MachineTag())
-	c.Assert(volume3.LifeBinding(), gc.Equals, machine.MachineTag())
-
 	volumeInfoSet := state.VolumeInfo{Size: 123, Persistent: true, VolumeId: "vol-1"}
 	err = s.State.SetVolumeInfo(volume1.VolumeTag(), volumeInfoSet)
 	c.Assert(err, jc.ErrorIsNil)
@@ -829,33 +825,7 @@ func (s *VolumeStateSuite) TestEnsureMachineDeadRemoveVolumeConcurrently(c *gc.C
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *VolumeStateSuite) TestVolumeBindingModel(c *gc.C) {
-	machine, err := s.State.AddOneMachine(state.MachineTemplate{
-		Series: "quantal",
-		Jobs:   []state.MachineJob{state.JobHostUnits},
-		Volumes: []state.MachineVolumeParams{{
-			Volume: state.VolumeParams{Pool: "modelscoped", Size: 1024},
-		}},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Model-scoped volumes created unassigned to a storage instance are
-	// bound to the model.
-	volume := s.volume(c, names.NewVolumeTag("0"))
-	c.Assert(volume.LifeBinding(), gc.Equals, s.State.ModelTag())
-	c.Assert(volume.Life(), gc.Equals, state.Alive)
-
-	// Detaching the volume from the machine should not cause it to be
-	// destroyed.
-	err = s.State.DetachVolume(machine.MachineTag(), volume.VolumeTag())
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.State.RemoveVolumeAttachment(machine.MachineTag(), volume.VolumeTag())
-	c.Assert(err, jc.ErrorIsNil)
-	volume = s.volume(c, volume.VolumeTag())
-	c.Assert(volume.Life(), gc.Equals, state.Alive)
-}
-
-func (s *VolumeStateSuite) TestVolumeBindingMachine(c *gc.C) {
+func (s *VolumeStateSuite) TestVolumeMachineScoped(c *gc.C) {
 	machine, err := s.State.AddOneMachine(state.MachineTemplate{
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
@@ -865,10 +835,7 @@ func (s *VolumeStateSuite) TestVolumeBindingMachine(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Machine-scoped volumes created unassigned to a storage instance are
-	// bound to the machine.
 	volume := s.volume(c, names.NewVolumeTag("0/0"))
-	c.Assert(volume.LifeBinding(), gc.Equals, machine.Tag())
 	c.Assert(volume.Life(), gc.Equals, state.Alive)
 
 	err = s.State.DestroyVolume(volume.VolumeTag())
@@ -893,22 +860,14 @@ func (s *VolumeStateSuite) TestVolumeBindingStorage(c *gc.C) {
 	// Volumes created assigned to a storage instance are bound
 	// to the machine/model, and not the storage. i.e. storage
 	// is persistent by default.
-	volume, machine := s.setupStorageVolumeAttachment(c)
+	volume, _ := s.setupStorageVolumeAttachment(c)
 	storageTag, err := volume.StorageInstance()
 	c.Assert(err, jc.ErrorIsNil)
 
-	// TODO(axw) when we switch the default binding from storage
-	// to machine/model, delete the following line and drop the
-	// "if false".
-	c.Assert(volume.LifeBinding(), gc.Equals, storageTag)
-	if false {
-		c.Assert(volume.LifeBinding(), gc.Equals, machine.Tag())
-
-		// The volume should remain Alive when the storage is removed.
-		removeStorageInstance(c, s.State, storageTag)
-		volume = s.volume(c, volume.VolumeTag())
-		c.Assert(volume.Life(), gc.Equals, state.Alive)
-	}
+	// The volume should transition to Dying when the storage is removed.
+	removeStorageInstance(c, s.State, storageTag)
+	volume = s.volume(c, volume.VolumeTag())
+	c.Assert(volume.Life(), gc.Equals, state.Dying)
 }
 
 func (s *VolumeStateSuite) setupStorageVolumeAttachment(c *gc.C) (state.Volume, *state.Machine) {

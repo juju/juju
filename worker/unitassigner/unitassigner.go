@@ -7,11 +7,11 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"gopkg.in/juju/names.v2"
+	worker "gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/watcher"
-	"github.com/juju/juju/worker"
 )
 
 var logger = loggo.GetLogger("juju.worker.unitassigner")

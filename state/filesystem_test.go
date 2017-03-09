@@ -759,11 +759,10 @@ func (s *FilesystemStateSuite) TestRemoveMachineRemovesFilesystems(c *gc.C) {
 	c.Assert(attachments, gc.HasLen, 0)
 }
 
-func (s *FilesystemStateSuite) TestFilesystemBindingMachine(c *gc.C) {
+func (s *FilesystemStateSuite) TestFilesystemMachineScoped(c *gc.C) {
 	// Machine-scoped filesystems created unassigned to a storage
 	// instance are bound to the machine.
 	filesystem, machine := s.setupFilesystemAttachment(c, "rootfs")
-	c.Assert(filesystem.LifeBinding(), gc.Equals, machine.Tag())
 
 	err := s.State.DetachFilesystem(machine.MachineTag(), filesystem.FilesystemTag())
 	c.Assert(err, gc.ErrorMatches, "detaching filesystem 0/0 from machine 0: filesystem is not detachable")
@@ -783,39 +782,19 @@ func (s *FilesystemStateSuite) TestFilesystemBindingMachine(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
-func (s *FilesystemStateSuite) TestFilesystemBindingStorage(c *gc.C) {
+func (s *FilesystemStateSuite) TestFilesystemRemoveStorageDestroysFilesystem(c *gc.C) {
 	// Filesystems created assigned to a storage instance are bound
 	// to the machine/model, and not the storage. i.e. storage is
 	// persistent by default.
 	_, u, storageTag := s.setupSingleStorage(c, "filesystem", "rootfs")
 	err := s.State.AssignUnit(u, state.AssignCleanEmpty)
 	c.Assert(err, jc.ErrorIsNil)
-	machineId, err := u.AssignedMachineId()
-	c.Assert(err, jc.ErrorIsNil)
 	filesystem := s.storageInstanceFilesystem(c, storageTag)
 
-	// TODO(axw) when we switch the default binding from storage
-	// to machine/model, delete the following line and drop the
-	// "if false".
-	c.Assert(filesystem.LifeBinding(), gc.Equals, storageTag)
-	if false {
-		c.Assert(filesystem.LifeBinding(), gc.Equals, names.NewMachineTag(machineId))
-
-		// The filesystem should remain Alive when the storage is removed.
-		removeStorageInstance(c, s.State, storageTag)
-		filesystem = s.filesystem(c, filesystem.FilesystemTag())
-		c.Assert(filesystem.Life(), gc.Equals, state.Alive)
-	}
-}
-
-func (s *FilesystemStateSuite) TestFilesystemVolumeBinding(c *gc.C) {
-	// A volume backing a filesystem is bound to the filesystem.
-	filesystem, _ := s.setupFilesystemAttachment(c, "loop")
-	volume := s.filesystemVolume(c, filesystem.FilesystemTag())
-	c.Assert(volume.LifeBinding(), gc.Equals, filesystem.Tag())
-
-	// TestRemoveFilesystemVolumeBacked tests that removal of
-	// filesystem destroys volume.
+	// The filesystem should transition to Dying when the storage is removed.
+	removeStorageInstance(c, s.State, storageTag)
+	filesystem = s.filesystem(c, filesystem.FilesystemTag())
+	c.Assert(filesystem.Life(), gc.Equals, state.Dying)
 }
 
 func (s *FilesystemStateSuite) TestEnsureMachineDeadAddFilesystemConcurrently(c *gc.C) {

@@ -5,10 +5,10 @@ package minunitsworker
 
 import (
 	"github.com/juju/loggo"
+	worker "gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/watcher/legacy"
-	"github.com/juju/juju/worker"
 )
 
 var logger = loggo.GetLogger("juju.worker.minunitsworker")

@@ -683,7 +683,6 @@ func (s *MigrationSuite) TestVolumeDocFields(c *gc.C) {
 		"Name",
 		"StorageId",
 		"AttachmentCount", // through count of attachment instances
-		"Binding",
 		"Info",
 		"Params",
 	)
@@ -727,7 +726,6 @@ func (s *MigrationSuite) TestFilesystemDocFields(c *gc.C) {
 		"StorageId",
 		"VolumeId",
 		"AttachmentCount", // through count of attachment instances
-		"Binding",
 		"Info",
 		"Params",
 	)
