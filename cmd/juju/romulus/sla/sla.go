@@ -12,9 +12,10 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	api "github.com/juju/romulus/api/sla"
+	"github.com/juju/romulus/api/sla"
 	"gopkg.in/macaroon.v1"
 
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/modelconfig"
 	"github.com/juju/juju/cmd/modelcmd"
 )
@@ -26,8 +27,23 @@ type authorizationClient interface {
 	Authorize(modelUUID, supportLevel, budget string) (*macaroon.Macaroon, error)
 }
 
-var newAuthorizationClient = func(options ...api.ClientOption) (authorizationClient, error) {
-	return api.NewClient(options...)
+type slaClient interface {
+	SetSLALevel(level string, creds []byte) error
+	SLALevel() (string, error)
+}
+
+var newSlaClient = func(conn api.Connection) slaClient {
+	return modelconfig.NewClient(conn)
+}
+
+var newAuthorizationClient = func(options ...sla.ClientOption) (authorizationClient, error) {
+	return sla.NewClient(options...)
+}
+
+var modelId = func(conn api.Connection) string {
+	// Our connection is model based so ignore the returned bool.
+	tag, _ := conn.ModelTag()
+	return tag.Id()
 }
 
 // NewSLACommand returns a new command that is used to set sla credentials for a
@@ -49,7 +65,6 @@ type supportCommand struct {
 func (c *supportCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
 	f.StringVar(&c.Budget, "budget", "", "the maximum spend for the model")
-	// TODO set the budget
 }
 
 // Info implements cmd.Command.
@@ -78,12 +93,13 @@ func (c *supportCommand) Init(args []string) error {
 	return cmd.CheckEmpty(args[1:])
 }
 
+// TODO Candidate for not being in support command.
 func (c *supportCommand) requestSupportCredentials(modelUUID string) ([]byte, error) {
 	hc, err := c.BakeryClient()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	authClient, err := newAuthorizationClient(api.HTTPClient(hc))
+	authClient, err := newAuthorizationClient(sla.HTTPClient(hc))
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -95,7 +111,7 @@ func (c *supportCommand) requestSupportCredentials(modelUUID string) ([]byte, er
 	return json.Marshal(ms)
 }
 
-func displayCurrentLevel(client *modelconfig.Client, ctx *cmd.Context) error {
+func displayCurrentLevel(client slaClient, ctx *cmd.Context) error {
 	level, err := client.SLALevel()
 	if err != nil {
 		return errors.Trace(err)
@@ -110,16 +126,13 @@ func (c *supportCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	client := modelconfig.NewClient(root)
+	client := newSlaClient(root)
+	modelId := modelId(root)
 
 	if c.Level == "" {
 		return displayCurrentLevel(client, ctx)
 	}
-	modelTag, ok := root.ModelTag()
-	if !ok {
-		return errors.Errorf("failed to obtain model uuid")
-	}
-	credentials, err := c.requestSupportCredentials(modelTag.Id())
+	credentials, err := c.requestSupportCredentials(modelId)
 	if err != nil {
 		return errors.Trace(err)
 	}
