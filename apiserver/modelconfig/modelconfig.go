@@ -131,7 +131,7 @@ func (c *ModelConfigAPI) ModelUnset(args params.ModelUnset) error {
 }
 
 // SetSLALevel sets the sla level on the model.
-func (c *ModelConfigAPI) SetSLALevel(args params.ModelSupport) error {
+func (c *ModelConfigAPI) SetSLALevel(args params.ModelSLA) error {
 	if err := c.checkCanWrite(); err != nil {
 		return err
 	}

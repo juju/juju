@@ -4,45 +4,47 @@
 package sla_test
 
 import (
-	"encoding/json"
 	stdtesting "testing"
 
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon-bakery.v1/bakery"
 	"gopkg.in/macaroon-bakery.v1/bakery/checkers"
 	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/cmd/juju/romulus/sla"
-	jjjtesting "github.com/juju/juju/juju/testing"
-	// "github.com/juju/juju/state" // TODO will need this to assert value is set in model.
-	jjtesting "github.com/juju/juju/testing"
+	jujutesting "github.com/juju/testing"
 )
 
 func TestPackage(t *stdtesting.T) {
-	jjtesting.MgoTestPackage(t)
+	gc.TestingT(t)
 }
 
 var _ = gc.Suite(&supportCommandSuite{})
 
 type supportCommandSuite struct {
-	jjjtesting.JujuConnSuite
-
-	mockAPI  *mockapi
-	charmURL string
+	jujutesting.CleanupSuite
+	mockAPI       *mockapi
+	mockSLAClient *mockSlaClient
+	charmURL      string
+	modelUUID     string
 }
 
 func (s *supportCommandSuite) SetUpTest(c *gc.C) {
-	s.JujuConnSuite.SetUpTest(c)
-
+	s.CleanupSuite.SetUpTest(c)
 	mockAPI, err := newMockAPI()
 	c.Assert(err, jc.ErrorIsNil)
 	s.mockAPI = mockAPI
+	s.mockSLAClient = &mockSlaClient{}
+	s.modelUUID = utils.MustNewUUID().String()
 
 	s.PatchValue(sla.NewAuthorizationClient, sla.APIClientFnc(s.mockAPI))
+	s.PatchValue(sla.NewSLAClient, sla.SLAClientFnc(s.mockSLAClient))
+	s.PatchValue(sla.ModelId, sla.ModelIdFnc(s.modelUUID))
 }
 
 func (s supportCommandSuite) TestSupportCommand(c *gc.C) {
@@ -59,23 +61,11 @@ func (s supportCommandSuite) TestSupportCommand(c *gc.C) {
 		apiCalls: []testing.StubCall{{
 			FuncName: "Authorize",
 			Args: []interface{}{
-				s.State.ModelUUID(),
+				s.modelUUID,
 				"essential",
 				"",
 			},
 		}},
-	}, {
-		about: "invalid level",
-		level: "invalid",
-		apiCalls: []testing.StubCall{{
-			FuncName: "Authorize",
-			Args: []interface{}{
-				s.State.ModelUUID(),
-				"invalid",
-				"",
-			},
-		}},
-		err: `SLA level "invalid" not valid`,
 	}, {
 		about:  "all is well with budget",
 		level:  "essential",
@@ -83,7 +73,7 @@ func (s supportCommandSuite) TestSupportCommand(c *gc.C) {
 		apiCalls: []testing.StubCall{{
 			FuncName: "Authorize",
 			Args: []interface{}{
-				s.State.ModelUUID(),
+				s.modelUUID,
 				"essential",
 				"personal:10",
 			},
@@ -101,14 +91,6 @@ func (s supportCommandSuite) TestSupportCommand(c *gc.C) {
 			c.Assert(err, jc.ErrorIsNil)
 			c.Assert(s.mockAPI.Calls(), gc.HasLen, 1)
 			s.mockAPI.CheckCalls(c, test.apiCalls)
-
-			// TODO Check model level and creds are set
-			model, err := s.State.Model()
-			c.Assert(err, jc.ErrorIsNil)
-			c.Assert(model.SLALevel(), gc.Equals, test.level)
-			data, err := json.Marshal(macaroon.Slice{s.mockAPI.macaroon})
-			c.Assert(err, jc.ErrorIsNil)
-			c.Assert(data, jc.DeepEquals, model.SLACredential())
 		} else {
 			c.Assert(err, gc.ErrorMatches, test.err)
 		}
@@ -118,7 +100,7 @@ func (s supportCommandSuite) TestSupportCommand(c *gc.C) {
 func (s *supportCommandSuite) TestDiplayCurrentLevel(c *gc.C) {
 	ctx, err := cmdtesting.RunCommand(c, sla.NewSLACommand())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stdout(ctx), jc.DeepEquals, "unsupported\n")
+	c.Assert(cmdtesting.Stdout(ctx), jc.DeepEquals, "mock-level\n")
 }
 
 func newMockAPI() (*mockapi, error) {
@@ -161,4 +143,17 @@ func (m *mockapi) Authorize(modelUUID, supportLevel, budget string) (*macaroon.M
 	}
 	m.macaroon = macaroon
 	return m.macaroon, nil
+}
+
+type mockSlaClient struct {
+	testing.Stub
+}
+
+func (m *mockSlaClient) SetSLALevel(level string, creds []byte) error {
+	m.AddCall("SetSLALevel", level, creds)
+	return nil
+}
+func (m *mockSlaClient) SLALevel() (string, error) {
+	m.AddCall("SLALevel")
+	return "mock-level", nil
 }
