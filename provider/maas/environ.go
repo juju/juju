@@ -2258,15 +2258,37 @@ func (env *maasEnviron) allocateContainerAddresses2(hostInstanceID instance.Id, 
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	createDeviceArgs := gomaasapi.CreateMachineDeviceArgs{
-		Hostname:      deviceName,
-		MACAddress:    primaryMACAddress,
-		Subnet:        subnet, // can be nil
-		InterfaceName: primaryNICName,
+	// Check to see if we've already tried to allocate information for this device:
+	devicesArgs := gomaasapi.DevicesArgs{
+		Hostname: []string{deviceName},
 	}
-	device, err := machine.CreateDevice(createDeviceArgs)
+	var device gomaasapi.Device
+	maybeDevices, err := machine.Devices(devicesArgs)
 	if err != nil {
-		return nil, errors.Trace(err)
+		logger.Warningf("error while trying to lookup %q: %v", deviceName, err)
+	} else {
+		if len(maybeDevices) == 1 {
+			logger.Debugf("found MAAS device for container %q, using existing device", deviceName)
+			device = maybeDevices[0]
+		} else if len(maybeDevices) > 1 {
+			logger.Warningf("found more than 1 MAAS devices (%d) for container %q", len(maybeDevices), deviceName)
+			return nil, errors.Errorf("found more than 1 MAAS device (%d) for container %q", len(maybeDevices), deviceName)
+		} else {
+			logger.Debugf("no existing MAAS devices for container %q, creating", deviceName)
+		}
+	}
+	if device == nil {
+		// The device didn't already exist, so we Create it.
+		createDeviceArgs := gomaasapi.CreateMachineDeviceArgs{
+			Hostname:      deviceName,
+			MACAddress:    primaryMACAddress,
+			Subnet:        subnet, // can be nil
+			InterfaceName: primaryNICName,
+		}
+		device, err = machine.CreateDevice(createDeviceArgs)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 	}
 	interface_set := device.InterfaceSet()
 	if len(interface_set) != 1 {
