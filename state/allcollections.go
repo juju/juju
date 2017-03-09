@@ -56,6 +56,11 @@ func allCollections() collectionSchema {
 			global:         true,
 			rawAccess:      true,
 			explicitCreate: &mgo.CollectionInfo{},
+			indexes: []mgo.Index{{
+				// The "s" field is used in queries
+				// by mgo/txn.Runner.ResumeAll.
+				Key: []string{"s"},
+			}},
 		},
 		txnLogC: {
 			// This collection is used by mgo/txn to record the set of documents
@@ -379,7 +384,11 @@ func allCollections() collectionSchema {
 			indexes: []mgo.Index{{
 				Key: []string{"model-uuid", "globalkey", "updated"},
 			}, {
-				Key: []string{"model-uuid", "-updated"}, // used for migration
+				// used for migration and model-specific pruning
+				Key: []string{"model-uuid", "-updated"},
+			}, {
+				// used for global pruning (after size check)
+				Key: []string{"-updated"},
 			}},
 		},
 
