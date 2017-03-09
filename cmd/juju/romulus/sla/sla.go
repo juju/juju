@@ -46,6 +46,8 @@ var modelId = func(conn api.Connection) string {
 	return tag.Id()
 }
 
+// TODO (mattyw) See juju/cmd/juju/storage/show.go for a better way of doing this.
+// TODO (mattyw) This should be fixed before this lands in master.
 // NewSLACommand returns a new command that is used to set sla credentials for a
 // deployed application.
 func NewSLACommand() cmd.Command {
