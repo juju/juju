@@ -560,11 +560,13 @@ def main(argv=None):
     test = AssessNetworkHealth(args)
     if args.model is None:
         bs_manager = BootstrapManager.from_args(args)
+        if args.maas:
+            # Excluded_spaces breaks tests on oil maas
+            bs_manager.client.excluded_spaces = set()
+            bs_manager.client.reserved_spaces = set()
         with bs_manager.booted_context(args.upload_tools):
             manager = None
-            # Excluded_spaces breaks tests on oil maas
             if args.maas:
-                bs_manager.client.excluded_spaces = set()
                 manager = maas_account_from_boot_config(bs_manager.client.env)
             test.assess_network_health(bs_manager.client, bundle=args.bundle,
                                        series=args.series, reboot=args.reboot,
