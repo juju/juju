@@ -2163,6 +2163,15 @@ func (st *State) PutAuditEntryFn() func(audit.AuditEntry) error {
 	return stateaudit.PutAuditEntryFn(auditingC, insert)
 }
 
+// SetMeterStatus sets the meter status on the current connected model.
+func (st *State) SetMeterStatus(codeStr, info string) error {
+	m, err := st.Model()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return errors.Trace(m.SetMeterStatus(codeStr, info))
+}
+
 var tagPrefix = map[byte]string{
 	'm': names.MachineTagKind + "-",
 	'a': names.ApplicationTagKind + "-",

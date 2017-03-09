@@ -125,7 +125,7 @@ func testHandler(c *gc.C, batches chan<- wireformat.MetricBatch, statusMap Statu
 
 			if statusMap != nil {
 				unitName, status, info := statusMap(batch.UnitName)
-				resp.SetStatus(batch.ModelUUID, unitName, status, info)
+				resp.SetUnitStatus(batch.ModelUUID, unitName, status, info)
 			}
 
 			select {

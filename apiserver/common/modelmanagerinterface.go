@@ -60,6 +60,7 @@ type ModelManagerBackend interface {
 	LatestMigration() (state.ModelMigration, error)
 	DumpAll() (map[string]interface{}, error)
 	Close() error
+	SetMeterStatus(codeStr, info string) error
 }
 
 // Model defines methods provided by a state.Model instance.

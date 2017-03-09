@@ -16,7 +16,6 @@ var sendMetrics = func(st metricsender.ModelBackend) error {
 	if err != nil {
 		return errors.Annotatef(err, "failed to get model config for %s", st.ModelTag())
 	}
-
 	err = metricsender.SendMetrics(st, metricsender.DefaultMetricSender(), clock.WallClock, metricsender.DefaultMaxBatchesPerSend(), cfg.TransmitVendorMetrics())
 	return errors.Trace(err)
 }

@@ -121,6 +121,51 @@ func (u *Unit) SetMeterStatus(codeStr, info string) error {
 	return errors.Annotatef(u.st.run(buildTxn), "cannot set meter state for unit %s", u.Name())
 }
 
+// SetMeterStatus sets the meter status for the model.
+func (m *Model) SetMeterStatus(codeStr, info string) error {
+	code := MeterStatusFromString(codeStr)
+	switch code {
+	case MeterGreen, MeterAmber, MeterRed:
+	default:
+		return errors.Errorf("invalid meter status %q", code)
+	}
+	meterDoc, err := m.getMeterStatusDoc()
+	if err != nil {
+		return errors.Annotatef(err, "cannot update meter status for model %s", m.Name())
+	}
+	if meterDoc.Code == code.String() && meterDoc.Info == info {
+		return nil
+	}
+
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		if attempt > 0 {
+			err := m.Refresh()
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			meterDoc, err = m.getMeterStatusDoc()
+			if err != nil {
+				return nil, errors.Annotatef(err, "cannot update meter status for unit %s", m.Name())
+			}
+			if meterDoc.Code == code.String() && meterDoc.Info == info {
+				return nil, jujutxn.ErrNoOperations
+			}
+		}
+		return []txn.Op{
+			{
+				C:      modelsC,
+				Id:     m.UUID,
+				Assert: isAliveDoc,
+			}, {
+				C:      meterStatusC,
+				Id:     m.st.docID(m.globalKey()),
+				Assert: txn.DocExists,
+				Update: bson.D{{"$set", bson.D{{"code", code.String()}, {"info", info}}}},
+			}}, nil
+	}
+	return errors.Annotatef(m.st.run(buildTxn), "cannot set meter state for model %s", m.Name())
+}
+
 // createMeterStatusOp returns the operation needed to create the meter status
 // document associated with the given globalKey.
 func createMeterStatusOp(st *State, globalKey string, doc *meterStatusDoc) txn.Op {
@@ -149,6 +194,14 @@ func (u *Unit) GetMeterStatus() (MeterStatus, error) {
 	if err != nil {
 		return MeterStatus{MeterNotAvailable, ""}, errors.Annotatef(err, "cannot retrieve meter status for metrics manager")
 	}
+	m, err := u.st.Model()
+	if err != nil {
+		return MeterStatus{MeterNotAvailable, ""}, errors.Trace(err)
+	}
+	mStatus, err := m.GetMeterStatus()
+	if err != nil {
+		return MeterStatus{MeterNotAvailable, ""}, errors.Annotatef(err, "cannot retrieve meter status for model")
+	}
 
 	mmStatus := mm.MeterStatus()
 	if mmStatus.Code == MeterRed {
@@ -163,14 +216,40 @@ func (u *Unit) GetMeterStatus() (MeterStatus, error) {
 	code := MeterStatusFromString(status.Code)
 
 	unitMeterStatus := MeterStatus{code, status.Info}
-	return combineMeterStatus(mmStatus, unitMeterStatus), nil
+	return combineMeterStatus(mmStatus, mStatus, unitMeterStatus), nil
 }
 
-func combineMeterStatus(a, b MeterStatus) MeterStatus {
-	if a.Severity() < b.Severity() {
-		return a
+// GetMeterStatus returns the meter status for the model.
+func (m *Model) GetMeterStatus() (MeterStatus, error) {
+	mm, err := m.st.MetricsManager()
+	if err != nil {
+		return MeterStatus{MeterNotAvailable, ""}, errors.Annotatef(err, "cannot retrieve meter status for metrics manager")
 	}
-	return b
+
+	mmStatus := mm.MeterStatus()
+	if mmStatus.Code == MeterRed {
+		return mmStatus, nil
+	}
+
+	status, err := m.getMeterStatusDoc()
+	if err != nil {
+		return MeterStatus{MeterNotAvailable, ""}, errors.Annotatef(err, "cannot retrieve meter status for model %s", m.Name())
+	}
+
+	code := MeterStatusFromString(status.Code)
+
+	modelMeterStatus := MeterStatus{code, status.Info}
+	return combineMeterStatus(mmStatus, modelMeterStatus), nil
+}
+
+func combineMeterStatus(first MeterStatus, rest ...MeterStatus) MeterStatus {
+	var result = first
+	for _, s := range rest {
+		if s.Severity() < result.Severity() {
+			result = s
+		}
+	}
+	return result
 }
 
 func (u *Unit) getMeterStatusDoc() (*meterStatusDoc, error) {
@@ -178,6 +257,17 @@ func (u *Unit) getMeterStatusDoc() (*meterStatusDoc, error) {
 	defer closer()
 	var status meterStatusDoc
 	err := meterStatuses.FindId(u.globalMeterStatusKey()).One(&status)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &status, nil
+}
+
+func (m *Model) getMeterStatusDoc() (*meterStatusDoc, error) {
+	meterStatuses, closer := m.st.getCollection(meterStatusC)
+	defer closer()
+	var status meterStatusDoc
+	err := meterStatuses.FindId(m.globalKey()).One(&status)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
