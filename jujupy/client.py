@@ -2022,7 +2022,7 @@ class ModelClient:
 
     def deploy(self, charm, repository=None, to=None, series=None,
                service=None, force=False, resource=None, num=None,
-               storage=None, constraints=None, alias=None):
+               storage=None, constraints=None, bind=None, alias=None):
         args = [charm]
         if service is not None:
             args.extend([service])
@@ -2040,6 +2040,8 @@ class ModelClient:
             args.extend(['--storage', storage])
         if constraints is not None:
             args.extend(['--constraints', constraints])
+        if bind is not None:
+            args.extend(['--bind', bind])
         if alias is not None:
             args.extend([alias])
         return self.juju('deploy', tuple(args))
