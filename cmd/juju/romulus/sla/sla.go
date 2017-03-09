@@ -93,6 +93,7 @@ func (c *supportCommand) Init(args []string) error {
 	return cmd.CheckEmpty(args[1:])
 }
 
+// TODO Candidate for not being in support command.
 func (c *supportCommand) requestSupportCredentials(modelUUID string) ([]byte, error) {
 	hc, err := c.BakeryClient()
 	if err != nil {
