@@ -6,6 +6,7 @@ package server
 import (
 	"fmt"
 	"io"
+	"mime"
 	"net/http"
 	"path"
 	"strconv"
@@ -190,7 +191,7 @@ func extractFilename(req *http.Request) (string, error) {
 
 	// the first value returned here is the media type name (e.g. "form-data"),
 	// but we don't really care.
-	_, vals, err := api.ParseMediaType(disp)
+	_, vals, err := mime.ParseMediaType(disp)
 	if err != nil {
 		return "", errors.Annotate(err, "badly formatted Content-Disposition")
 	}
@@ -200,9 +201,26 @@ func extractFilename(req *http.Request) (string, error) {
 		return "", errors.Errorf("missing filename in resource upload request")
 	}
 
-	filename, err := api.DecodeParam(param)
+	filename, err := decodeParam(param)
 	if err != nil {
 		return "", errors.Annotatef(err, "couldn't decode filename %q from upload request", param)
 	}
 	return filename, nil
+}
+
+func decodeParam(s string) (string, error) {
+	decoded, err := new(mime.WordDecoder).Decode(s)
+
+	// If encoding is not required, the encoder will return the original string.
+	// However, the decoder doesn't expect that, so it barfs on non-encoded
+	// strings. To detect if a string was not encoded, we simply try encoding
+	// again, if it returns the same string, we know it wasn't encoded.
+	if err != nil && s == encodeParam(s) {
+		return s, nil
+	}
+	return decoded, err
+}
+
+func encodeParam(s string) string {
+	return mime.BEncoding.Encode("utf-8", s)
 }

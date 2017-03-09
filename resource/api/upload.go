@@ -6,6 +6,7 @@ package api
 import (
 	"fmt"
 	"io"
+	"mime"
 	"net/http"
 
 	"github.com/juju/errors"
@@ -58,9 +59,9 @@ func NewUploadRequest(service, name, filename string, r io.ReadSeeker) (UploadRe
 }
 
 func setFilename(filename string, req *http.Request) {
-	filename = encodeParam(filename)
+	filename = mime.BEncoding.Encode("utf-8", filename)
 
-	disp := formatMediaType(
+	disp := mime.FormatMediaType(
 		MediaTypeFormData,
 		map[string]string{FilenameParamForContentDispositionHeader: filename},
 	)
@@ -103,29 +104,4 @@ func (ur UploadRequest) HTTPRequest() (*http.Request, error) {
 	}
 
 	return req, nil
-}
-
-type encoder interface {
-	Encode(charset, s string) string
-}
-
-type decoder interface {
-	Decode(s string) (string, error)
-}
-
-func encodeParam(s string) string {
-	return getEncoder().Encode("utf-8", s)
-}
-
-func DecodeParam(s string) (string, error) {
-	decoded, err := getDecoder().Decode(s)
-
-	// If encoding is not required, the encoder will return the original string.
-	// However, the decoder doesn't expect that, so it barfs on non-encoded
-	// strings. To detect if a string was not encoded, we simply try encoding
-	// again, if it returns the same string, we know it wasn't encoded.
-	if err != nil && s == encodeParam(s) {
-		return s, nil
-	}
-	return decoded, err
 }
