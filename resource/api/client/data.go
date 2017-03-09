@@ -1,13 +1,9 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package api
-
-// TODO(ericsnow) Eliminate the dependence on apiserver if possible.
+package client
 
 import (
-	"strings"
-
 	"github.com/juju/errors"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 	"gopkg.in/juju/names.v2"
@@ -15,7 +11,10 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/charmstore"
+	"github.com/juju/juju/resource/api"
 )
+
+// XXX these exports aren't necessary & move into the files they're used in
 
 // NewListResourcesArgs returns the arguments for the ListResources endpoint.
 func NewListResourcesArgs(services []string) (params.ListResourcesArgs, error) {
@@ -52,7 +51,7 @@ func NewAddPendingResourcesArgs(applicationID string, chID charmstore.CharmID, c
 		if err := res.Validate(); err != nil {
 			return args, errors.Trace(err)
 		}
-		apiRes := CharmResource2API(res)
+		apiRes := api.CharmResource2API(res)
 		apiResources = append(apiResources, apiRes)
 	}
 	args.Tag = tag
@@ -63,20 +62,4 @@ func NewAddPendingResourcesArgs(applicationID string, chID charmstore.CharmID, c
 		args.CharmStoreMacaroon = csMac
 	}
 	return args, nil
-}
-
-// XXX
-func resolveErrors(errs []error) error {
-	switch len(errs) {
-	case 0:
-		return nil
-	case 1:
-		return errs[0]
-	default:
-		msgs := make([]string, len(errs))
-		for i, err := range errs {
-			msgs[i] = err.Error()
-		}
-		return errors.New(strings.Join(msgs, "\n"))
-	}
 }

@@ -19,7 +19,6 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/resource/api"
 	"github.com/juju/juju/resource/api/server"
 )
 
@@ -32,7 +31,7 @@ type HTTPHandlerSuite struct {
 	req          *http.Request
 	header       http.Header
 	resp         *stubHTTPResponseWriter
-	uploadResult *api.UploadResult
+	uploadResult *params.UploadResult
 }
 
 var _ = gc.Suite(&HTTPHandlerSuite{})
@@ -52,7 +51,7 @@ func (s *HTTPHandlerSuite) SetUpTest(c *gc.C) {
 		stub:         s.stub,
 		returnHeader: s.header,
 	}
-	s.uploadResult = &api.UploadResult{}
+	s.uploadResult = &params.UploadResult{}
 }
 
 func (s *HTTPHandlerSuite) connect(req *http.Request) (server.DataStore, server.Closer, names.Tag, error) {
@@ -79,7 +78,7 @@ func (s *HTTPHandlerSuite) handleDownload(st server.DataStore, req *http.Request
 	return reader, int64(len(downloadContent)), nil
 }
 
-func (s *HTTPHandlerSuite) handleUpload(username string, st server.DataStore, req *http.Request) (*api.UploadResult, error) {
+func (s *HTTPHandlerSuite) handleUpload(username string, st server.DataStore, req *http.Request) (*params.UploadResult, error) {
 	s.stub.AddCall("HandleUpload", username, st, req)
 	if err := s.stub.NextErr(); err != nil {
 		return nil, errors.Trace(err)

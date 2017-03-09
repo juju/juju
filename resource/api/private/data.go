@@ -3,12 +3,9 @@
 
 package private
 
-// TODO(ericsnow) Eliminate the apiserver dependencies, if possible.
+import "github.com/juju/juju/apiserver/params"
 
-import (
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/resource/api"
-)
+// XXX move to params
 
 // ListResourcesArgs holds the arguments for an API request to list
 // resources for an application. The application is implicit to the uniter-
@@ -34,5 +31,5 @@ type ResourceResult struct {
 	params.ErrorResult
 
 	// Resource is the info for the requested resource.
-	Resource api.Resource `json:"resource"`
+	Resource params.Resource `json:"resource"`
 }

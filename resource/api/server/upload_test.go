@@ -15,6 +15,7 @@ import (
 	gc "gopkg.in/check.v1"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/resource/api"
 	"github.com/juju/juju/resource/api/server"
 )
@@ -64,7 +65,7 @@ func (s *UploadSuite) TestHandleRequestOkay(c *gc.C) {
 	s.stub.CheckCallNames(c, "GetResource", "SetResource")
 	s.stub.CheckCall(c, 0, "GetResource", "a-application", "spam")
 	s.stub.CheckCall(c, 1, "SetResource", "a-application", "a-user", res.Resource, ioutil.NopCloser(body))
-	c.Check(result, jc.DeepEquals, &api.UploadResult{
+	c.Check(result, jc.DeepEquals, &params.UploadResult{
 		Resource: api.Resource2API(res),
 	})
 }
@@ -109,7 +110,7 @@ func (s *UploadSuite) TestHandleRequestPending(c *gc.C) {
 	s.stub.CheckCallNames(c, "GetPendingResource", "UpdatePendingResource")
 	s.stub.CheckCall(c, 0, "GetPendingResource", "a-application", "spam", "some-unique-id")
 	s.stub.CheckCall(c, 1, "UpdatePendingResource", "a-application", "some-unique-id", "a-user", res.Resource, ioutil.NopCloser(body))
-	c.Check(result, jc.DeepEquals, &api.UploadResult{
+	c.Check(result, jc.DeepEquals, &params.UploadResult{
 		Resource: api.Resource2API(res),
 	})
 }

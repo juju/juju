@@ -13,6 +13,7 @@ import (
 	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/api"
@@ -49,12 +50,12 @@ func NewClient(caller FacadeCaller, doer Doer, closer io.Closer) *Client {
 // ListResources calls the ListResources API server method with
 // the given application names.
 func (c Client) ListResources(services []string) ([]resource.ServiceResources, error) {
-	args, err := api.NewListResourcesArgs(services)
+	args, err := NewListResourcesArgs(services)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	var apiResults api.ResourcesResults
+	var apiResults params.ResourcesResults
 	if err := c.FacadeCall("ListResources", &args, &apiResults); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -70,7 +71,7 @@ func (c Client) ListResources(services []string) ([]resource.ServiceResources, e
 	for i := range services {
 		apiResult := apiResults.Results[i]
 
-		result, err := api.APIResult2ServiceResources(apiResult)
+		result, err := api.APIResult2ServiceResources(apiResult) //XXX
 		if err != nil {
 			errs = append(errs, errors.Trace(err))
 		}
@@ -94,7 +95,7 @@ func (c Client) Upload(service, name, filename string, reader io.ReadSeeker) err
 		return errors.Trace(err)
 	}
 
-	var response api.UploadResult // ignored
+	var response params.UploadResult // ignored
 	if err := c.doer.Do(req, reader, &response); err != nil {
 		return errors.Trace(err)
 	}
@@ -122,12 +123,12 @@ type AddPendingResourcesArgs struct {
 // AddPendingResources sends the provided resource info up to Juju
 // without making it available yet.
 func (c Client) AddPendingResources(args AddPendingResourcesArgs) (pendingIDs []string, err error) {
-	apiArgs, err := api.NewAddPendingResourcesArgs(args.ApplicationID, args.CharmID, args.CharmStoreMacaroon, args.Resources)
+	apiArgs, err := NewAddPendingResourcesArgs(args.ApplicationID, args.CharmID, args.CharmStoreMacaroon, args.Resources)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	var result api.AddPendingResourcesResult
+	var result params.AddPendingResourcesResult
 	if err := c.FacadeCall("AddPendingResources", &apiArgs, &result); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -173,7 +174,7 @@ func (c Client) AddPendingResource(applicationID string, res charmresource.Resou
 			return "", errors.Trace(err)
 		}
 
-		var response api.UploadResult // ignored
+		var response params.UploadResult // ignored
 		if err := c.doer.Do(req, reader, &response); err != nil {
 			return "", errors.Trace(err)
 		}

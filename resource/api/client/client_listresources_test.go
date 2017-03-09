@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/resource"
-	"github.com/juju/juju/resource/api"
 	"github.com/juju/juju/resource/api/client"
 )
 
@@ -36,11 +35,11 @@ func (s *ListResourcesSuite) TestOkay(c *gc.C) {
 	c.Check(s.stub.Calls(), gc.HasLen, 1)
 	s.stub.CheckCall(c, 0, "FacadeCall",
 		"ListResources",
-		&api.ListResourcesArgs{[]params.Entity{{
+		&params.ListResourcesArgs{[]params.Entity{{
 			Tag: "application-a-application",
 		}}},
-		&api.ResourcesResults{
-			Results: []api.ResourcesResult{
+		&params.ResourcesResults{
+			Results: []params.ResourcesResult{
 				apiResult,
 			},
 		},
@@ -66,15 +65,15 @@ func (s *ListResourcesSuite) TestBulk(c *gc.C) {
 	c.Check(s.stub.Calls(), gc.HasLen, 1)
 	s.stub.CheckCall(c, 0, "FacadeCall",
 		"ListResources",
-		&api.ListResourcesArgs{[]params.Entity{
+		&params.ListResourcesArgs{[]params.Entity{
 			{
 				Tag: "application-a-application",
 			}, {
 				Tag: "application-other-application",
 			},
 		}},
-		&api.ResourcesResults{
-			Results: []api.ResourcesResult{
+		&params.ResourcesResults{
+			Results: []params.ResourcesResult{
 				apiResult1,
 				apiResult2,
 			},
@@ -114,7 +113,7 @@ func (s *ListResourcesSuite) TestServiceNotFound(c *gc.C) {
 }
 
 func (s *ListResourcesSuite) TestServiceEmpty(c *gc.C) {
-	s.facade.apiResults["a-application"] = api.ResourcesResult{}
+	s.facade.apiResults["a-application"] = params.ResourcesResult{}
 
 	cl := client.NewClient(s.facade, s, s.facade)
 
@@ -145,10 +144,10 @@ func (s *ListResourcesSuite) TestServerError(c *gc.C) {
 
 func (s *ListResourcesSuite) TestTooFew(c *gc.C) {
 	s.facade.FacadeCallFn = func(_ string, _, response interface{}) error {
-		typedResponse, ok := response.(*api.ResourcesResults)
+		typedResponse, ok := response.(*params.ResourcesResults)
 		c.Assert(ok, jc.IsTrue)
 
-		typedResponse.Results = []api.ResourcesResult{{
+		typedResponse.Results = []params.ResourcesResult{{
 			Resources: nil,
 		}}
 
@@ -167,10 +166,10 @@ func (s *ListResourcesSuite) TestTooFew(c *gc.C) {
 
 func (s *ListResourcesSuite) TestTooMany(c *gc.C) {
 	s.facade.FacadeCallFn = func(_ string, _, response interface{}) error {
-		typedResponse, ok := response.(*api.ResourcesResults)
+		typedResponse, ok := response.(*params.ResourcesResults)
 		c.Assert(ok, jc.IsTrue)
 
-		typedResponse.Results = []api.ResourcesResult{{
+		typedResponse.Results = []params.ResourcesResult{{
 			Resources: nil,
 		}, {
 			Resources: nil,
@@ -193,13 +192,13 @@ func (s *ListResourcesSuite) TestTooMany(c *gc.C) {
 
 func (s *ListResourcesSuite) TestConversionFailed(c *gc.C) {
 	s.facade.FacadeCallFn = func(_ string, _, response interface{}) error {
-		typedResponse, ok := response.(*api.ResourcesResults)
+		typedResponse, ok := response.(*params.ResourcesResults)
 		c.Assert(ok, jc.IsTrue)
 
-		var res api.Resource
+		var res params.Resource
 		res.Name = "spam"
-		typedResponse.Results = []api.ResourcesResult{{
-			Resources: []api.Resource{
+		typedResponse.Results = []params.ResourcesResult{{
+			Resources: []params.Resource{
 				res,
 			},
 		}}

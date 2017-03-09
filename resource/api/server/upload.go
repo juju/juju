@@ -4,9 +4,11 @@
 package server
 
 import (
+	"fmt"
 	"io"
 	"net/http"
 	"path"
+	"strconv"
 
 	"github.com/juju/errors"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
@@ -89,7 +91,7 @@ func (uh UploadHandler) HandleRequest(req *http.Request) (*params.UploadResult, 
 
 // ReadResource extracts the relevant info from the request.
 func (uh UploadHandler) ReadResource(req *http.Request) (*UploadedResource, error) {
-	uReq, err := api.ExtractUploadRequest(req)
+	uReq, err := extractUploadRequest(req)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -137,4 +139,70 @@ func (uh UploadHandler) updateResource(res charmresource.Resource, fp charmresou
 		return res, errors.Trace(err)
 	}
 	return res, nil
+}
+
+// extractUploadRequest pulls the required info from the HTTP request.
+func extractUploadRequest(req *http.Request) (api.UploadRequest, error) {
+	var ur api.UploadRequest
+
+	if req.Header.Get(api.HeaderContentLength) == "" {
+		req.Header.Set(api.HeaderContentLength, fmt.Sprint(req.ContentLength))
+	}
+
+	ctype := req.Header.Get(api.HeaderContentType)
+	if ctype != api.ContentTypeRaw {
+		return ur, errors.Errorf("unsupported content type %q", ctype)
+	}
+
+	service, name := api.ExtractEndpointDetails(req.URL)
+	fingerprint := req.Header.Get(api.HeaderContentSha384) // This parallels "Content-MD5".
+	sizeRaw := req.Header.Get(api.HeaderContentLength)
+	pendingID := req.URL.Query().Get(api.QueryParamPendingID)
+
+	fp, err := charmresource.ParseFingerprint(fingerprint)
+	if err != nil {
+		return ur, errors.Annotate(err, "invalid fingerprint")
+	}
+
+	filename, err := extractFilename(req)
+	if err != nil {
+		return ur, errors.Trace(err)
+	}
+
+	size, err := strconv.ParseInt(sizeRaw, 10, 64)
+	if err != nil {
+		return ur, errors.Annotate(err, "invalid size")
+	}
+
+	ur = api.UploadRequest{
+		Service:     service,
+		Name:        name,
+		Filename:    filename,
+		Size:        size,
+		Fingerprint: fp,
+		PendingID:   pendingID,
+	}
+	return ur, nil
+}
+
+func extractFilename(req *http.Request) (string, error) {
+	disp := req.Header.Get(api.HeaderContentDisposition)
+
+	// the first value returned here is the media type name (e.g. "form-data"),
+	// but we don't really care.
+	_, vals, err := api.ParseMediaType(disp)
+	if err != nil {
+		return "", errors.Annotate(err, "badly formatted Content-Disposition")
+	}
+
+	param, ok := vals[api.FilenameParamForContentDispositionHeader]
+	if !ok {
+		return "", errors.Errorf("missing filename in resource upload request")
+	}
+
+	filename, err := api.DecodeParam(param)
+	if err != nil {
+		return "", errors.Annotatef(err, "couldn't decode filename %q from upload request", param)
+	}
+	return filename, nil
 }
