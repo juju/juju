@@ -108,7 +108,7 @@ func (l slaLevel) String() string {
 	return string(l)
 }
 
-// NewSLALevel returns a new SLA level from a string representation.
+// newSLALevel returns a new SLA level from a string representation.
 func newSLALevel(level string) (slaLevel, error) {
 	l := slaLevel(level)
 	if l == slaNone {

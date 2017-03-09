@@ -9,6 +9,7 @@ import (
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
+	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
@@ -17,7 +18,6 @@ import (
 	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/cmd/juju/romulus/sla"
-	jujutesting "github.com/juju/testing"
 )
 
 func TestPackage(t *stdtesting.T) {
