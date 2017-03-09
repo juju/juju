@@ -230,6 +230,7 @@ type fakeMachine struct {
 	interfaceSet  []gomaasapi.Interface
 	tags          []string
 	createDevice  gomaasapi.Device
+	devices       []gomaasapi.Device
 }
 
 func newFakeMachine(systemID, architecture, statusName string) *fakeMachine {
@@ -297,7 +298,21 @@ func (m *fakeMachine) Start(args gomaasapi.StartArgs) error {
 
 func (m *fakeMachine) CreateDevice(args gomaasapi.CreateMachineDeviceArgs) (gomaasapi.Device, error) {
 	m.MethodCall(m, "CreateDevice", args)
-	return m.createDevice, m.NextErr()
+	err := m.NextErr()
+	if err != nil {
+		return nil, err
+	}
+	m.devices = append(m.devices, m.createDevice)
+	return m.createDevice, nil
+}
+
+func (m *fakeMachine) Devices(args gomaasapi.DevicesArgs) ([]gomaasapi.Device, error) {
+	m.MethodCall(m, "Devices", args)
+	err := m.NextErr()
+	if err != nil {
+		return nil, err
+	}
+	return m.devices, nil
 }
 
 type fakeZone struct {

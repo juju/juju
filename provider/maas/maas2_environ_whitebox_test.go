@@ -1548,7 +1548,7 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesCreateDevicerror(c
 		Stub:     &testing.Stub{},
 		systemID: "1",
 	}
-	machine.SetErrors(errors.New("boom"))
+	machine.SetErrors(nil, errors.New("boom"))
 	controller := &fakeController{
 		machines: []gomaasapi.Machine{machine},
 		spaces: []gomaasapi.Space{
@@ -1567,16 +1567,15 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesCreateDevicerror(c
 	ignored := names.NewMachineTag("1/lxd/0")
 	_, err := env.AllocateContainerAddresses(instance.Id("1"), ignored, prepared)
 	c.Assert(err, gc.ErrorMatches, "boom")
-	args := getArgs(c, machine.Calls())
-	maasArgs, ok := args.(gomaasapi.CreateMachineDeviceArgs)
-	c.Assert(ok, jc.IsTrue)
-	expected := gomaasapi.CreateMachineDeviceArgs{
+	machine.CheckCall(c, 0, "Devices", gomaasapi.DevicesArgs{
+		Hostname: []string{"juju-06f00d-1-lxd-0"},
+	})
+	machine.CheckCall(c, 1, "CreateDevice", gomaasapi.CreateMachineDeviceArgs{
 		Hostname:      "juju-06f00d-1-lxd-0",
 		Subnet:        subnet,
 		MACAddress:    "DEADBEEF",
 		InterfaceName: "eth0",
-	}
-	c.Assert(maasArgs, jc.DeepEquals, expected)
+	})
 }
 
 func (suite *maas2EnvironSuite) TestAllocateContainerAddressesSubnetMissing(c *gc.C) {
