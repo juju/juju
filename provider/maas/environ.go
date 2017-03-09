@@ -2259,8 +2259,8 @@ func (env *maasEnviron) allocateContainerAddresses2(hostInstanceID instance.Id, 
 			logger.Debugf("found MAAS device for container %q, using existing device", deviceName)
 			device = maybeDevices[0]
 		} else if len(maybeDevices) > 1 {
-			logger.Warningf("found too many MAAS devices (%d) for container %q", len(maybeDevices), deviceName)
-			return errors.Errorf("found more than one MAAS device (%d) for container %q", len(maybeDevices), deviceName)
+			logger.Warningf("found more than 1 MAAS devices (%d) for container %q", len(maybeDevices), deviceName)
+			return nil, errors.Errorf("found more than 1 MAAS device (%d) for container %q", len(maybeDevices), deviceName)
 		} else {
 			logger.Debugf("no existing MAAS devices for container %q, creating", deviceName)
 		}
@@ -2275,8 +2275,6 @@ func (env *maasEnviron) allocateContainerAddresses2(hostInstanceID instance.Id, 
 		}
 		device, err = machine.CreateDevice(createDeviceArgs)
 		if err != nil {
-			// TODO(jam): I believe MAAS is returning "Hostname already exists" if
-			// we tried to create the container earlier, we should instead lookup the device
 			return nil, errors.Trace(err)
 		}
 	}
