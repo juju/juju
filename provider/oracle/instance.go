@@ -10,10 +10,10 @@ import (
 
 	jujuErr "github.com/juju/errors"
 
-	oci "github.com/hoenirvili/go-oracle-cloud/api"
-	ociCommon "github.com/hoenirvili/go-oracle-cloud/common"
-	"github.com/hoenirvili/go-oracle-cloud/response"
-	ociResponse "github.com/hoenirvili/go-oracle-cloud/response"
+	oci "github.com/juju/go-juju-cloud/api"
+	ociCommon "github.com/juju/go-oracle-cloud/common"
+	"github.com/juju/go-oracle-cloud/response"
+	ociResponse "github.com/juju/go-oracle-cloud/response"
 	"github.com/pkg/errors"
 
 	"github.com/juju/juju/environs/config"

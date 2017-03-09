@@ -7,9 +7,9 @@ import (
 	"strconv"
 	"strings"
 
-	oci "github.com/hoenirvili/go-oracle-cloud/api"
-	ociCommon "github.com/hoenirvili/go-oracle-cloud/common"
-	ociResponse "github.com/hoenirvili/go-oracle-cloud/response"
+	oci "github.com/juju/go-oracle-cloud/api"
+	ociCommon "github.com/juju/go-oracle-cloud/common"
+	ociResponse "github.com/juju/go-oracle-cloud/response"
 
 	"github.com/juju/errors"
 	"github.com/juju/juju/controller"

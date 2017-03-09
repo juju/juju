@@ -10,9 +10,10 @@ import (
 	"sync"
 	"time"
 
-	oci "github.com/hoenirvili/go-oracle-cloud/api"
-	ociCommon "github.com/hoenirvili/go-oracle-cloud/common"
 	"github.com/juju/errors"
+	oci "github.com/juju/go-oracle-cloud/api"
+	ociCommon "github.com/juju/go-oracle-cloud/common"
+	"github.com/juju/version"
 
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/cloudconfig/instancecfg"
@@ -26,7 +27,6 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/tools"
-	"github.com/juju/version"
 )
 
 // oracleEnviron implements the environs.Environ interface

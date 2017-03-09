@@ -9,7 +9,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/schema"
 
-	oci "github.com/hoenirvili/go-oracle-cloud/api"
+	oci "github.com/juju/go-oracle-cloud/api"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"

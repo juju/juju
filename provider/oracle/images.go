@@ -6,8 +6,8 @@ package oracle
 import (
 	"strings"
 
-	oci "github.com/hoenirvili/go-oracle-cloud/api"
 	"github.com/juju/errors"
+	oci "github.com/juju/go-oracle-cloud/api"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"

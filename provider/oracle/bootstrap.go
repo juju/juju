@@ -6,7 +6,7 @@ package oracle
 import (
 	"strings"
 
-	oci "github.com/hoenirvili/go-oracle-cloud/api"
+	oci "github.com/juju/go-oracle-cloud/api"
 
 	"github.com/juju/errors"
 )
