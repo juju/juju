@@ -2163,7 +2163,7 @@ func (st *State) PutAuditEntryFn() func(audit.AuditEntry) error {
 	return stateaudit.PutAuditEntryFn(auditingC, insert)
 }
 
-// TODO Test
+// SetSLA sets the SLA on the current connected model.
 func (st *State) SetSLA(level string, credentials []byte) error {
 	model, err := st.Model()
 	if err != nil {
@@ -2172,7 +2172,7 @@ func (st *State) SetSLA(level string, credentials []byte) error {
 	return model.SetSLA(level, credentials)
 }
 
-// TODO Test
+// SLALevel returns the SLA level of the current connected model.
 func (st *State) SLALevel() (string, error) {
 	model, err := st.Model()
 	if err != nil {
