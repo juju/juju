@@ -13,6 +13,7 @@ import (
 )
 
 // API2ID converts the given payload tag string into a payload ID.
+// Example: "payload-foobar" -> "foobar"
 func API2ID(tagStr string) (string, error) {
 	if tagStr == "" {
 		return tagStr, nil
