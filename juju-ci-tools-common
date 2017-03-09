@@ -28,7 +28,8 @@ Depends: charm,
 Recommends: juju-2.0,
             juju-quickstart,
             juju-deployer,
-            juju-local
+            juju-local,
+            python3-pip,
 Architecture: all
 Description: juju-ci-tools-common
  A metapackage providing the dependencies for juju-ci-tools
