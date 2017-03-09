@@ -13,7 +13,6 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/api"
-	"github.com/juju/juju/resource/api/private"
 	"github.com/juju/juju/resource/api/private/server"
 	"github.com/juju/juju/resource/resourcetesting"
 )
@@ -52,14 +51,14 @@ func (s *UnitFacadeSuite) TestGetResourceInfoOkay(c *gc.C) {
 	}
 	uf := server.UnitFacade{DataStore: store}
 
-	results, err := uf.GetResourceInfo(private.ListResourcesArgs{
+	results, err := uf.GetResourceInfo(params.ListUnitResourcesArgs{
 		ResourceNames: []string{"spam", "eggs"},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c, "ListResources")
-	c.Check(results, jc.DeepEquals, private.ResourcesResult{
-		Resources: []private.ResourceResult{{
+	c.Check(results, jc.DeepEquals, params.UnitResourcesResult{
+		Resources: []params.UnitResourceResult{{
 			Resource: api.Resource2API(res1),
 		}, {
 			Resource: api.Resource2API(res2),
@@ -75,14 +74,14 @@ func (s *UnitFacadeSuite) TestGetResourceInfoEmpty(c *gc.C) {
 	}
 	uf := server.UnitFacade{DataStore: store}
 
-	results, err := uf.GetResourceInfo(private.ListResourcesArgs{
+	results, err := uf.GetResourceInfo(params.ListUnitResourcesArgs{
 		ResourceNames: []string{},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c, "ListResources")
-	c.Check(results, jc.DeepEquals, private.ResourcesResult{
-		Resources: []private.ResourceResult{},
+	c.Check(results, jc.DeepEquals, params.UnitResourcesResult{
+		Resources: []params.UnitResourceResult{},
 	})
 }
 
@@ -94,14 +93,14 @@ func (s *UnitFacadeSuite) TestGetResourceInfoNotFound(c *gc.C) {
 	}
 	uf := server.UnitFacade{DataStore: store}
 
-	results, err := uf.GetResourceInfo(private.ListResourcesArgs{
+	results, err := uf.GetResourceInfo(params.ListUnitResourcesArgs{
 		ResourceNames: []string{"eggs"},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c, "ListResources")
-	c.Check(results, jc.DeepEquals, private.ResourcesResult{
-		Resources: []private.ResourceResult{{
+	c.Check(results, jc.DeepEquals, params.UnitResourcesResult{
+		Resources: []params.UnitResourceResult{{
 			ErrorResult: params.ErrorResult{
 				Error: common.ServerError(errors.NotFoundf(`resource "eggs"`)),
 			},

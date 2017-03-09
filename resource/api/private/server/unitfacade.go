@@ -7,9 +7,9 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/api"
-	"github.com/juju/juju/resource/api/private"
 )
 
 // FacadeVersion is the version of the current API facade.
@@ -39,9 +39,9 @@ type UnitFacade struct {
 // GetResourceInfo returns the resource info for each of the given
 // resource names (for the implicit application). If any one is missing then
 // the corresponding result is set with errors.NotFound.
-func (uf UnitFacade) GetResourceInfo(args private.ListResourcesArgs) (private.ResourcesResult, error) {
-	var r private.ResourcesResult
-	r.Resources = make([]private.ResourceResult, len(args.ResourceNames))
+func (uf UnitFacade) GetResourceInfo(args params.ListUnitResourcesArgs) (params.UnitResourcesResult, error) {
+	var r params.UnitResourcesResult
+	r.Resources = make([]params.UnitResourceResult, len(args.ResourceNames))
 
 	resources, err := uf.DataStore.ListResources()
 	if err != nil {

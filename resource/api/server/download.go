@@ -12,6 +12,8 @@ import (
 	"github.com/juju/juju/resource"
 )
 
+// XXX upload and download HTTP handlers need to move to apiserver.
+
 // DownloadDataStore describes the the portion of Juju's "state"
 // needed for handling resource download requests.
 type DownloadDataStore interface {
