@@ -562,6 +562,8 @@ def main(argv=None):
     if args.model is None:
         bs_manager = BootstrapManager.from_args(args)
         with bs_manager.booted_context(args.upload_tools):
+            # excluded_spaces breaks tests on oil maas
+            bs_manager.client.excluded_spaces = set()
             manager = None
             if args.maas:
                 manager = maas_account_from_boot_config(bs_manager.client.env)
