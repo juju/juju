@@ -228,11 +228,17 @@ func (s *ModelSuite) TestSLA(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 
-	c.Assert(model.SLALevel(), gc.Equals, "unsupported")
+	level, err := st.SLALevel()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(level, gc.Equals, "unsupported")
 	c.Assert(model.SLACredential(), gc.DeepEquals, []byte{})
 	for _, goodLevel := range []string{"unsupported", "essential", "standard", "advanced"} {
-		err = model.SetSLA(goodLevel, []byte("auth "+goodLevel))
+		err = st.SetSLA(goodLevel, []byte("auth "+goodLevel))
 		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(model.Refresh(), jc.ErrorIsNil)
+		level, err = st.SLALevel()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(level, gc.Equals, goodLevel)
 		c.Assert(model.SLALevel(), gc.Equals, goodLevel)
 		c.Assert(model.SLACredential(), gc.DeepEquals, []byte("auth "+goodLevel))
 	}
