@@ -21,7 +21,6 @@ import (
 	"github.com/juju/juju/resource/resourcetesting"
 )
 
-// XXX figure out what here is actually used by the client tests
 type BaseSuite struct {
 	testing.IsolationSuite
 

@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/errors"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/apiserver/common"
@@ -50,7 +51,7 @@ func NewClient(caller FacadeCaller, doer Doer, closer io.Closer) *Client {
 // ListResources calls the ListResources API server method with
 // the given application names.
 func (c Client) ListResources(services []string) ([]resource.ServiceResources, error) {
-	args, err := NewListResourcesArgs(services)
+	args, err := newListResourcesArgs(services)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -82,6 +83,26 @@ func (c Client) ListResources(services []string) ([]resource.ServiceResources, e
 	}
 
 	return results, nil
+}
+
+// newListResourcesArgs returns the arguments for the ListResources endpoint.
+func newListResourcesArgs(services []string) (params.ListResourcesArgs, error) {
+	var args params.ListResourcesArgs
+	var errs []error
+	for _, service := range services {
+		if !names.IsValidApplication(service) {
+			err := errors.Errorf("invalid application %q", service)
+			errs = append(errs, err)
+			continue
+		}
+		args.Entities = append(args.Entities, params.Entity{
+			Tag: names.NewApplicationTag(service).String(),
+		})
+	}
+	if err := resolveErrors(errs); err != nil {
+		return args, errors.Trace(err)
+	}
+	return args, nil
 }
 
 // Upload sends the provided resource blob up to Juju.
@@ -123,7 +144,7 @@ type AddPendingResourcesArgs struct {
 // AddPendingResources sends the provided resource info up to Juju
 // without making it available yet.
 func (c Client) AddPendingResources(args AddPendingResourcesArgs) (pendingIDs []string, err error) {
-	apiArgs, err := NewAddPendingResourcesArgs(args.ApplicationID, args.CharmID, args.CharmStoreMacaroon, args.Resources)
+	apiArgs, err := newAddPendingResourcesArgs(args.ApplicationID, args.CharmID, args.CharmStoreMacaroon, args.Resources)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -148,6 +169,34 @@ func (c Client) AddPendingResources(args AddPendingResourcesArgs) (pendingIDs []
 	}
 
 	return result.PendingIDs, nil
+}
+
+// newAddPendingResourcesArgs returns the arguments for the
+// AddPendingResources API endpoint.
+func newAddPendingResourcesArgs(applicationID string, chID charmstore.CharmID, csMac *macaroon.Macaroon, resources []charmresource.Resource) (params.AddPendingResourcesArgs, error) {
+	var args params.AddPendingResourcesArgs
+
+	if !names.IsValidApplication(applicationID) {
+		return args, errors.Errorf("invalid application %q", applicationID)
+	}
+	tag := names.NewApplicationTag(applicationID).String()
+
+	var apiResources []params.CharmResource
+	for _, res := range resources {
+		if err := res.Validate(); err != nil {
+			return args, errors.Trace(err)
+		}
+		apiRes := api.CharmResource2API(res)
+		apiResources = append(apiResources, apiRes)
+	}
+	args.Tag = tag
+	args.Resources = apiResources
+	if chID.URL != nil {
+		args.URL = chID.URL.String()
+		args.Channel = string(chID.Channel)
+		args.CharmStoreMacaroon = csMac
+	}
+	return args, nil
 }
 
 // AddPendingResource sends the provided resource blob up to Juju
