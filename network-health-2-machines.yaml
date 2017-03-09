@@ -2,8 +2,10 @@
 machines:
   '0':
     series: xenial
+    constraints: tags=bonded
   '1':
     series: xenial
+    constraints: tags=qa-node-1
 series: xenial
 services:
   dummy-source-a:
