@@ -13,19 +13,15 @@ import (
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/apiserver/resources"
-	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/resourcetesting"
 )
 
-// XXX figure out what here is actually used by the tests here
 type BaseSuite struct {
 	testing.IsolationSuite
 
-	stub     *testing.Stub
-	data     *stubDataStore
-	csClient *stubCSClient
+	stub *testing.Stub
+	data *stubDataStore
 }
 
 func (s *BaseSuite) SetUpTest(c *gc.C) {
@@ -33,15 +29,6 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 
 	s.stub = &testing.Stub{}
 	s.data = &stubDataStore{stub: s.stub}
-	s.csClient = &stubCSClient{Stub: s.stub}
-}
-
-func (s *BaseSuite) newCSClient() (resources.CharmStore, error) {
-	s.stub.AddCall("newCSClient")
-	if err := s.stub.NextErr(); err != nil {
-		return nil, err
-	}
-	return s.csClient, nil
 }
 
 func newResource(c *gc.C, name, username, data string) (resource.Resource, params.Resource) {
@@ -143,32 +130,4 @@ func (s *stubDataStore) UpdatePendingResource(applicationID, pendingID, userID s
 	}
 
 	return s.ReturnUpdatePendingResource, nil
-}
-
-type stubCSClient struct {
-	*testing.Stub
-
-	ReturnListResources [][]charmresource.Resource
-	ReturnResourceInfo  *charmresource.Resource
-}
-
-func (s *stubCSClient) ListResources(charms []charmstore.CharmID) ([][]charmresource.Resource, error) {
-	s.AddCall("ListResources", charms)
-	if err := s.NextErr(); err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	return s.ReturnListResources, nil
-}
-
-func (s *stubCSClient) ResourceInfo(req charmstore.ResourceRequest) (charmresource.Resource, error) {
-	s.AddCall("ResourceInfo", req)
-	if err := s.NextErr(); err != nil {
-		return charmresource.Resource{}, errors.Trace(err)
-	}
-
-	if s.ReturnResourceInfo == nil {
-		return charmresource.Resource{}, errors.NotFoundf("resource %q", req.Name)
-	}
-	return *s.ReturnResourceInfo, nil
 }
