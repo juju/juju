@@ -191,10 +191,16 @@ def observable_temp_file():
     temporary_file = NamedTemporaryFile(delete=False)
     try:
         with temporary_file as temp_file:
+
+            @contextmanager
+            def nt():
+                # This is used to prevent NamedTemporaryFile.close from being
+                # called.
+                yield temporary_file
+
             with patch('jujupy.utility.NamedTemporaryFile',
-                       return_value=temp_file):
-                with patch.object(temp_file, '__exit__'):
-                    yield temp_file
+                       return_value=nt()):
+                yield temp_file
     finally:
         # File may have already been deleted, e.g. by temp_yaml_file.
         with utility.skip_on_missing_file():

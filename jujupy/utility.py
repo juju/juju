@@ -168,9 +168,9 @@ def ensure_deleted(path):
 
 @contextmanager
 def temp_yaml_file(yaml_dict, encoding="utf-8"):
-    temp_file = NamedTemporaryFile(suffix='.yaml', delete=False)
+    temp_file_cxt = NamedTemporaryFile(suffix='.yaml', delete=False)
     try:
-        with temp_file:
+        with temp_file_cxt as temp_file:
             yaml.safe_dump(yaml_dict, temp_file, encoding=encoding)
         yield temp_file.name
     finally:

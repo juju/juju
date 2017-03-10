@@ -1050,7 +1050,7 @@ def get_user_register_command_info(username):
 
 
 def get_user_register_token(username):
-    return b64encode(sha512(username.encode('utf-8')).digest())
+    return b64encode(sha512(username.encode('utf-8')).digest()).decode('ascii')
 
 
 class FakeBackend2_1(FakeBackend):
