@@ -1,7 +1,7 @@
-// Copyright 2015 Canonical Ltd.
+// Copyright 2017 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package server
+package payloads_test
 
 import (
 	"github.com/juju/errors"
@@ -11,27 +11,29 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/apiserver/payloads"
 	"github.com/juju/juju/payload"
 	"github.com/juju/juju/payload/api"
 )
 
-var _ = gc.Suite(&publicSuite{})
+var _ = gc.Suite(&Suite{})
 
-type publicSuite struct {
+type Suite struct {
 	testing.IsolationSuite
 
 	stub  *testing.Stub
 	state *stubState
 }
 
-func (s *publicSuite) SetUpTest(c *gc.C) {
+func (s *Suite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
 	s.stub = &testing.Stub{}
 	s.state = &stubState{stub: s.stub}
 }
 
-func (publicSuite) newPayload(name string) (payload.FullPayloadInfo, api.Payload) {
+func (Suite) newPayload(name string) (payload.FullPayloadInfo, params.Payload) {
 	ptype := "docker"
 	id := "id" + name
 	tags := []string{"a-tag"}
@@ -51,7 +53,7 @@ func (publicSuite) newPayload(name string) (payload.FullPayloadInfo, api.Payload
 		},
 		Machine: machine,
 	}
-	apiPayload := api.Payload{
+	apiPayload := params.Payload{
 		Class:   name,
 		Type:    ptype,
 		ID:      id,
@@ -63,33 +65,33 @@ func (publicSuite) newPayload(name string) (payload.FullPayloadInfo, api.Payload
 	return pl, apiPayload
 }
 
-func (s *publicSuite) TestListNoPatterns(c *gc.C) {
+func (s *Suite) TestListNoPatterns(c *gc.C) {
 	payloadA, apiPayloadA := s.newPayload("spam")
 	payloadB, apiPayloadB := s.newPayload("eggs")
 	s.state.payloads = append(s.state.payloads, payloadA, payloadB)
 
-	facade := PublicAPI{s.state}
-	args := api.EnvListArgs{
+	facade := payloads.NewAPI(s.state)
+	args := params.PayloadListArgs{
 		Patterns: []string{},
 	}
 	results, err := facade.List(args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(results, jc.DeepEquals, api.EnvListResults{
-		Results: []api.Payload{
+	c.Check(results, jc.DeepEquals, params.PayloadListResults{
+		Results: []params.Payload{
 			apiPayloadA,
 			apiPayloadB,
 		},
 	})
 }
 
-func (s *publicSuite) TestListAllMatch(c *gc.C) {
+func (s *Suite) TestListAllMatch(c *gc.C) {
 	payloadA, apiPayloadA := s.newPayload("spam")
 	payloadB, apiPayloadB := s.newPayload("eggs")
 	s.state.payloads = append(s.state.payloads, payloadA, payloadB)
 
-	facade := PublicAPI{s.state}
-	args := api.EnvListArgs{
+	facade := payloads.NewAPI(s.state)
+	args := params.PayloadListArgs{
 		Patterns: []string{
 			"a-application/0",
 		},
@@ -97,21 +99,21 @@ func (s *publicSuite) TestListAllMatch(c *gc.C) {
 	results, err := facade.List(args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(results, jc.DeepEquals, api.EnvListResults{
-		Results: []api.Payload{
+	c.Check(results, jc.DeepEquals, params.PayloadListResults{
+		Results: []params.Payload{
 			apiPayloadA,
 			apiPayloadB,
 		},
 	})
 }
 
-func (s *publicSuite) TestListNoMatch(c *gc.C) {
+func (s *Suite) TestListNoMatch(c *gc.C) {
 	payloadA, _ := s.newPayload("spam")
 	payloadB, _ := s.newPayload("eggs")
 	s.state.payloads = append(s.state.payloads, payloadA, payloadB)
 
-	facade := PublicAPI{s.state}
-	args := api.EnvListArgs{
+	facade := payloads.NewAPI(s.state)
+	args := params.PayloadListArgs{
 		Patterns: []string{
 			"a-application/1",
 		},
@@ -122,9 +124,9 @@ func (s *publicSuite) TestListNoMatch(c *gc.C) {
 	c.Check(results.Results, gc.HasLen, 0)
 }
 
-func (s *publicSuite) TestListNoPayloads(c *gc.C) {
-	facade := PublicAPI{s.state}
-	args := api.EnvListArgs{
+func (s *Suite) TestListNoPayloads(c *gc.C) {
+	facade := payloads.NewAPI(s.state)
+	args := params.PayloadListArgs{
 		Patterns: []string{},
 	}
 	results, err := facade.List(args)
@@ -133,13 +135,13 @@ func (s *publicSuite) TestListNoPayloads(c *gc.C) {
 	c.Check(results.Results, gc.HasLen, 0)
 }
 
-func (s *publicSuite) TestListMultiMatch(c *gc.C) {
+func (s *Suite) TestListMultiMatch(c *gc.C) {
 	payloadA, apiPayloadA := s.newPayload("spam")
 	payloadB, apiPayloadB := s.newPayload("eggs")
 	s.state.payloads = append(s.state.payloads, payloadA, payloadB)
 
-	facade := PublicAPI{s.state}
-	args := api.EnvListArgs{
+	facade := payloads.NewAPI(s.state)
+	args := params.PayloadListArgs{
 		Patterns: []string{
 			"spam",
 			"eggs",
@@ -148,21 +150,21 @@ func (s *publicSuite) TestListMultiMatch(c *gc.C) {
 	results, err := facade.List(args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(results, jc.DeepEquals, api.EnvListResults{
-		Results: []api.Payload{
+	c.Check(results, jc.DeepEquals, params.PayloadListResults{
+		Results: []params.Payload{
 			apiPayloadA,
 			apiPayloadB,
 		},
 	})
 }
 
-func (s *publicSuite) TestListPartialMatch(c *gc.C) {
+func (s *Suite) TestListPartialMatch(c *gc.C) {
 	payloadA, apiPayloadA := s.newPayload("spam")
 	payloadB, _ := s.newPayload("eggs")
 	s.state.payloads = append(s.state.payloads, payloadA, payloadB)
 
-	facade := PublicAPI{s.state}
-	args := api.EnvListArgs{
+	facade := payloads.NewAPI(s.state)
+	args := params.PayloadListArgs{
 		Patterns: []string{
 			"spam",
 		},
@@ -170,21 +172,21 @@ func (s *publicSuite) TestListPartialMatch(c *gc.C) {
 	results, err := facade.List(args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(results, jc.DeepEquals, api.EnvListResults{
-		Results: []api.Payload{
+	c.Check(results, jc.DeepEquals, params.PayloadListResults{
+		Results: []params.Payload{
 			apiPayloadA,
 		},
 	})
 }
 
-func (s *publicSuite) TestListPartialMultiMatch(c *gc.C) {
+func (s *Suite) TestListPartialMultiMatch(c *gc.C) {
 	payloadA, apiPayloadA := s.newPayload("spam")
 	payloadB, _ := s.newPayload("eggs")
 	payloadC, apiPayloadC := s.newPayload("ham")
 	s.state.payloads = append(s.state.payloads, payloadA, payloadB, payloadC)
 
-	facade := PublicAPI{s.state}
-	args := api.EnvListArgs{
+	facade := payloads.NewAPI(s.state)
+	args := params.PayloadListArgs{
 		Patterns: []string{
 			"spam",
 			"ham",
@@ -193,15 +195,15 @@ func (s *publicSuite) TestListPartialMultiMatch(c *gc.C) {
 	results, err := facade.List(args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(results, jc.DeepEquals, api.EnvListResults{
-		Results: []api.Payload{
+	c.Check(results, jc.DeepEquals, params.PayloadListResults{
+		Results: []params.Payload{
 			apiPayloadA,
 			apiPayloadC,
 		},
 	})
 }
 
-func (s *publicSuite) TestListAllFilters(c *gc.C) {
+func (s *Suite) TestListAllFilters(c *gc.C) {
 	pl := payload.FullPayloadInfo{
 		Payload: payload.Payload{
 			PayloadClass: charm.PayloadClass{
@@ -218,7 +220,7 @@ func (s *publicSuite) TestListAllFilters(c *gc.C) {
 	apiPayload := api.Payload2api(pl)
 	s.state.payloads = append(s.state.payloads, pl)
 
-	facade := PublicAPI{s.state}
+	facade := payloads.NewAPI(s.state)
 	patterns := []string{
 		"spam",               // name
 		"docker",             // type
@@ -231,7 +233,7 @@ func (s *publicSuite) TestListAllFilters(c *gc.C) {
 	for _, pattern := range patterns {
 		c.Logf("trying pattern %q", pattern)
 
-		args := api.EnvListArgs{
+		args := params.PayloadListArgs{
 			Patterns: []string{
 				pattern,
 			},
@@ -239,8 +241,8 @@ func (s *publicSuite) TestListAllFilters(c *gc.C) {
 		results, err := facade.List(args)
 		c.Assert(err, jc.ErrorIsNil)
 
-		c.Check(results, jc.DeepEquals, api.EnvListResults{
-			Results: []api.Payload{
+		c.Check(results, jc.DeepEquals, params.PayloadListResults{
+			Results: []params.Payload{
 				apiPayload,
 			},
 		})
