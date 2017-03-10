@@ -5,13 +5,14 @@ package user
 
 import (
 	"fmt"
+	"net/http"
 	"os"
 	"strings"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"github.com/juju/utils/keyvalues"
+	"github.com/juju/httprequest"
 	"github.com/juju/utils/set"
 	"gopkg.in/juju/names.v2"
 
@@ -112,7 +113,7 @@ func (c *loginCommand) SetFlags(fset *gnuflag.FlagSet) {
 	c.ControllerCommandBase.SetFlags(fset)
 	fset.StringVar(&c.controllerName, "c", "", "Controller to operate in")
 	fset.StringVar(&c.controllerName, "controller", "", "")
-	fset.BoolVar(&c.forceHost, "host", false, "force the domain argument to be treated as the host name of a controller")
+	fset.BoolVar(&c.forceHost, "host", false, "force the domain argument to be treated as the host name of a controller rather than a user name")
 }
 
 // Init implements Command.Init.
@@ -229,12 +230,11 @@ Run "juju logout" first before attempting to log in as a different user.`)
 }
 
 func (c *loginCommand) controllerLogin(ctx *cmd.Context, store jujuclient.ClientStore) error {
-	knownDomains, err := c.getKnownControllerDomains()
-	if err != nil {
-		// TODO(rogpeppe) perhaps this shouldn't be fatal.
-		return errors.Trace(err)
+	// TODO(rog) provide a way of avoiding this external network access.
+	controllerHost, err := c.getKnownControllerDomain(c.userOrDomain)
+	if err != nil && !errors.IsNotFound(err) {
+		logger.Warningf("could not determine controller domain: %v", err)
 	}
-	controllerHost := knownDomains[c.userOrDomain]
 	if controllerHost == "" {
 		if !c.forceHost {
 			return errNotControllerLogin
@@ -419,15 +419,49 @@ one of them:
 	return nil
 }
 
-// getKnownControllerDomains returns the list of known
+type controllerDomainResponse struct {
+	Host string `json:"host"`
+}
+
+const defaultJujuDirectory = "https://api.jujucharms.com/directory"
+
+// getKnownControllerDomain returns the list of known
 // controller domain aliases.
-func (c *loginCommand) getKnownControllerDomains() (map[string]string, error) {
-	controllers := os.Getenv("JUJU_PUBLIC_CONTROLLERS")
-	m, err := keyvalues.Parse(strings.Fields(controllers), false)
-	if err != nil {
-		return nil, errors.Annotatef(err, "bad value for JUJU_PUBLIC_CONTROLLERS")
+func (c *loginCommand) getKnownControllerDomain(name string) (string, error) {
+	if strings.Contains(name, ".") || strings.Contains(name, ":") {
+		return "", errors.NotFoundf("controller %q", name)
 	}
-	return m, nil
+	baseURL := defaultJujuDirectory
+	if u := os.Getenv("JUJU_DIRECTORY"); u != "" {
+		baseURL = u
+	}
+	client, err := c.BakeryClient()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	req, err := http.NewRequest("GET", baseURL+"/v1/controller/"+name, nil)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	httpResp, err := client.Do(req)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	defer httpResp.Body.Close()
+	if httpResp.StatusCode != http.StatusOK {
+		if httpResp.StatusCode == http.StatusNotFound {
+			return "", errors.NotFoundf("controller %q", name)
+		}
+		return "", errors.Errorf("unexpected HTTP response %q", httpResp.Status)
+	}
+	var resp controllerDomainResponse
+	if err := httprequest.UnmarshalJSONResponse(httpResp, &resp); err != nil {
+		return "", errors.Trace(err)
+	}
+	if resp.Host == "" {
+		return "", errors.Errorf("no host field found in response")
+	}
+	return resp.Host, nil
 }
 
 func friendlyUserName(user string) string {
