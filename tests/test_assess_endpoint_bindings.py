@@ -2,7 +2,6 @@
 
 import logging
 from mock import (
-    call,
     Mock,
     patch,
     )
@@ -192,13 +191,9 @@ class AssessEndpointBindings(TestCase):
                 bootstrap_and_test(bootstrap_manager, bundle_path, None)
                 archived_bundle = os.path.join(log_dir, 'bundle.yaml')
                 self.assertIsTrue(os.path.exists(archived_bundle))
-        self.assertEqual(
-            [call(bundle_path),
-             call('./xenial/frontend', bind='endpoint-bindings-data',
-                  series='xenial', to='lxd:2', alias='adminsite')],
-            client.deploy.mock_calls)
-        self.assertEqual(2, client.wait_for_started.call_count)
-        self.assertEqual(2, client.wait_for_workloads.call_count)
+        client.deploy.assert_called_once_with(bundle_path)
+        client.wait_for_started.assert_called_once_with()
+        client.wait_for_workloads.assert_called_once_with()
 
 
 class TestMain(TestCase):
