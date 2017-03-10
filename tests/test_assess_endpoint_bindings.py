@@ -1,19 +1,27 @@
 """Tests for assess_endpoint_bindings module."""
 
 import logging
-from mock import Mock, patch
+from mock import (
+    call,
+    Mock,
+    patch,
+    )
 import StringIO
 
 from assess_endpoint_bindings import (
+    bootstrap_and_test,
     ensure_spaces,
     parse_args,
     machine_spaces_for_bundle,
     main,
 )
+from jujupy import fake_juju_client
+from jujupy.client import JujuData
 from tests import (
     parse_error,
     TestCase,
 )
+from test_deploy_stack import FakeBootstrapManager
 
 
 class TestParseArgs(TestCase):
@@ -150,6 +158,24 @@ class TestMachineSpacesForBundle(TestCase):
         app_spaces = frozenset(["space-data", "space-ctl", "space-public"])
         db_spaces = frozenset(["space-data", "space-ctl"])
         self.assertEqual(machines, [app_spaces, db_spaces, db_spaces])
+
+
+class AssessEndpointBindings(TestCase):
+
+    def test_bootstrap_and_test(self):
+        juju_data = JujuData(
+            'foo', {'type': 'bar', 'region': 'region'}, juju_home='baz')
+        client = Mock(
+            spec=['bootstrap', 'kill_controller', 'deploy',
+                  'wait_for_started', 'wait_for_workloads'],
+            env=juju_data)
+        bootstrap_manager = FakeBootstrapManager(client)
+        bootstrap_and_test(bootstrap_manager, 'bundle_path', None)
+        self.assertEqual(
+            [call('bundle_path'),
+             call('./xenial/frontend',
+                  bind='endpoint-bindings-data', alias='adminsite')],
+            client.deploy.mock_calls)
 
 
 class TestMain(TestCase):

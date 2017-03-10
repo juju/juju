@@ -288,6 +288,9 @@ def bootstrap_and_test(bootstrap_manager, bundle_path, machine):
         log.info("Waiting for all units to start.")
         client.wait_for_started()
         client.wait_for_workloads()
+        # deploy the frontend charm and bind to one space.
+        # juju deploy ./xenial/frontend --bind space_data adminsite
+        client.deploy('./xenial/frontend', bind=space_data, alias='adminsite')
         log.info("Validating bindings.")
         validate(client)
 
@@ -300,6 +303,7 @@ def assess_endpoint_bindings(maas_manager, bootstrap_manager):
     required_spaces = [space_data, space_public]
 
     bundle, charms = create_test_charms()
+    # write the bundle to logs for autopsies.
 
     machine_spaces = machine_spaces_for_bundle(bundle)
     # Add a bootstrap machine in all spaces
