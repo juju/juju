@@ -84,13 +84,14 @@ func checkImageList(
 	// if we don't have any images that are in
 	// the oracle cloud account under your username namespace
 	// we should let the user know this
-	if resp.Result == nil {
+	n := len(resp.Result)
+	if n == 0 {
 		return nil, errors.NotFoundf(
 			"iamges under the current client username are",
 		)
 	}
 
-	images := make([]*imagemetadata.ImageMetadata, 0, len(resp.Result))
+	images := make([]*imagemetadata.ImageMetadata, 0, n)
 	for _, val := range resp.Result {
 		list := strings.Split(val.Uri, "/")
 		//TODO: parse windows images as well
