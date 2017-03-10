@@ -1914,7 +1914,8 @@ class ModelClient:
 
     def get_env_option(self, option):
         """Return the value of the environment's configured option."""
-        return self.get_juju_output('model-config', option)
+        return self.get_juju_output(
+            'model-config', option).decode(getpreferredencoding())
 
     def set_env_option(self, option, value):
         """Set the value of the option in the environment."""
@@ -2472,7 +2473,8 @@ class ModelClient:
             log.info(e.output)
             raise
         log.info(output)
-        backup_file_pattern = re.compile('(juju-backup-[0-9-]+\.(t|tar.)gz)')
+        backup_file_pattern = re.compile(
+            '(juju-backup-[0-9-]+\.(t|tar.)gz)'.encode('ascii'))
         match = backup_file_pattern.search(output)
         if match is None:
             raise Exception("The backup file was not found in output: %s" %
@@ -2480,7 +2482,7 @@ class ModelClient:
         backup_file_name = match.group(1)
         backup_file_path = os.path.abspath(backup_file_name)
         log.info("State-Server backup at %s", backup_file_path)
-        return backup_file_path
+        return backup_file_path.decode(getpreferredencoding())
 
     def restore_backup(self, backup_file):
         self.juju(

@@ -173,8 +173,8 @@ class FakePopen(object):
     """Create an artifical version of the Popen class."""
 
     def __init__(self, out, err, returncode):
-        self._out = out
-        self._err = err
+        self._out = out if out is None else out.encode('ascii')
+        self._err = err if err is None else err.encode('ascii')
         self._code = returncode
 
     def communicate(self):
