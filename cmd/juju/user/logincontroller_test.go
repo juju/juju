@@ -4,6 +4,7 @@ package user_test
 
 import (
 	"bytes"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -61,6 +62,7 @@ func (s *LoginControllerSuite) SetUpTest(c *gc.C) {
 		return s.apiConnection, nil
 	})
 	s.PatchValue(user.LoginClientStore, s.store)
+	s.PatchEnvironment("JUJU_DIRECTORY", "http://0.1.2.3/directory")
 }
 
 func (s *LoginControllerSuite) TearDownTest(c *gc.C) {
@@ -69,7 +71,11 @@ func (s *LoginControllerSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *LoginControllerSuite) TestRegisterPublic(c *gc.C) {
-	os.Setenv("JUJU_PUBLIC_CONTROLLERS", "bighost=bighost.jujucharms.com")
+	dirSrv := serveDirectory(map[string]string{
+		"bighost": "bighost.jujucharms.com:443",
+	})
+	defer dirSrv.Close()
+	os.Setenv("JUJU_DIRECTORY", dirSrv.URL)
 	s.apiConnection.authTag = names.NewUserTag("bob@external")
 	s.apiConnection.controllerAccess = "login"
 	stdout, stderr, code := s.run(c, "bighost")
@@ -156,7 +162,9 @@ Welcome, bob@external. You are now logged into "foo".
 }
 
 func (s *LoginControllerSuite) TestRegisterPublicAPIOpenError(c *gc.C) {
-	os.Setenv("JUJU_PUBLIC_CONTROLLERS", "bighost=bighost.jujucharms.com")
+	srv := serveDirectory(map[string]string{"bighost": "https://0.1.2.3/directory"})
+	defer srv.Close()
+	os.Setenv("JUJU_DIRECTORY", srv.URL)
 	*user.APIOpen = func(c *modelcmd.JujuCommandBase, info *api.Info, opts api.DialOpts) (api.Connection, error) {
 		return nil, errors.New("open failed")
 	}
@@ -216,3 +224,15 @@ func (m *loginMockAPI) ControllerAccess() string {
 }
 
 const mockControllerUUID = "df136476-12e9-11e4-8a70-b2227cce2b54"
+
+func serveDirectory(dir map[string]string) *httptest.Server {
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		name := strings.TrimPrefix(req.URL.Path, "/v1/controller/")
+		if name == req.URL.Path || dir[name] == "" {
+			http.NotFound(w, req)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprintf(w, `{"host":%q}`, dir[name])
+	}))
+}
