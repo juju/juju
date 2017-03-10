@@ -315,7 +315,6 @@ def assess_endpoint_bindings(maas_manager, bootstrap_manager):
     required_spaces = [space_data, space_public]
 
     bundle, charms = create_test_charms()
-    # write the bundle to logs for autopsies.
 
     machine_spaces = machine_spaces_for_bundle(bundle)
     # Add a bootstrap machine in all spaces

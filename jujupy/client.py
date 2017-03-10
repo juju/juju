@@ -2022,7 +2022,7 @@ class ModelClient:
 
     def deploy(self, charm, repository=None, to=None, series=None,
                service=None, force=False, resource=None, num=None,
-               storage=None, constraints=None, bind=None, alias=None):
+               storage=None, constraints=None, alias=None, bind=None):
         args = [charm]
         if service is not None:
             args.extend([service])
