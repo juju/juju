@@ -43,15 +43,12 @@ func NewOfferCommand() cmd.Command {
 	offerCmd.newAPIFunc = func() (OfferAPI, error) {
 		return offerCmd.NewCrossModelAPI()
 	}
-	return modelcmd.WrapController(offerCmd)
+	return modelcmd.Wrap(offerCmd)
 }
 
 type offerCommand struct {
 	CrossModelCommandBase
 	newAPIFunc func() (OfferAPI, error)
-
-	// ModelName stores the name of the model containing the application to be offered.
-	ModelName string
 
 	// Application stores application name to be offered.
 	Application string
@@ -110,12 +107,8 @@ func (c *offerCommand) Run(_ *cmd.Context) error {
 	}
 	defer api.Close()
 
-	model, err := c.ClientStore().ModelByName(c.ControllerName(), c.ModelName)
-	if err != nil {
-		return err
-	}
 	// TODO (anastasiamac 2015-11-16) Add a sensible way for user to specify long-ish (at times) description when offering
-	results, err := api.Offer(model.ModelUUID, c.Application, c.Endpoints, c.URL, "")
+	results, err := api.Offer(c.Application, c.Endpoints, c.URL, "")
 	if err != nil {
 		return err
 	}
@@ -125,7 +118,7 @@ func (c *offerCommand) Run(_ *cmd.Context) error {
 // OfferAPI defines the API methods that the offer command uses.
 type OfferAPI interface {
 	Close() error
-	Offer(modelUUID, application string, endpoints []string, url string, desc string) ([]params.ErrorResult, error)
+	Offer(application string, endpoints []string, url string, desc string) ([]params.ErrorResult, error)
 }
 
 // applicationParse is used to split an application string
@@ -133,7 +126,6 @@ type OfferAPI interface {
 var applicationParse = regexp.MustCompile("/?((?P<model>[^\\.]*)\\.)?(?P<appname>[^:]*)(:(?P<endpoints>.*))?")
 
 func (c *offerCommand) parseEndpoints(arg string) error {
-	c.ModelName = applicationParse.ReplaceAllString(arg, "$model")
 	c.Application = applicationParse.ReplaceAllString(arg, "$appname")
 	endpoints := applicationParse.ReplaceAllString(arg, "$endpoints")
 
@@ -149,11 +141,5 @@ func (c *offerCommand) parseEndpoints(arg string) error {
 		return errors.Errorf(`specify endpoints for %v" `, c.Application)
 	}
 
-	if c.ModelName == "" {
-		var err error
-		if c.ModelName, err = c.ClientStore().CurrentModel(c.ControllerName()); err != nil {
-			return err
-		}
-	}
 	return nil
 }

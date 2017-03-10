@@ -154,7 +154,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleEndpointBindingsSuccess(c 
 	})
 	s.assertDeployedServiceBindings(c, map[string]serviceInfo{
 		"mysql": {
-			endpointBindings: map[string]string{"server": "db"},
+			endpointBindings: map[string]string{"server": "db", "server-admin": ""},
 		},
 		"wordpress-extra-bindings": {
 			endpointBindings: map[string]string{

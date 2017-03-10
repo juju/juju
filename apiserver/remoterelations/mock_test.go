@@ -51,10 +51,10 @@ func newMockState() *mockState {
 	}
 }
 
-func (st *mockState) ListOffers(filter ...crossmodel.OfferedApplicationFilter) ([]crossmodel.OfferedApplication, error) {
-	result := make([]crossmodel.OfferedApplication, len(filter))
+func (st *mockState) ListOffers(filter ...crossmodel.ApplicationOfferFilter) ([]crossmodel.ApplicationOffer, error) {
+	result := make([]crossmodel.ApplicationOffer, len(filter))
 	for i, f := range filter {
-		result[i] = crossmodel.OfferedApplication{CharmName: "application-" + f.ApplicationName}
+		result[i] = crossmodel.ApplicationOffer{ApplicationName: "application-" + f.ApplicationName}
 	}
 	return result, nil
 }

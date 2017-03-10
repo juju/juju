@@ -35,8 +35,6 @@ func (s *restrictControllerSuite) TestAllowed(c *gc.C) {
 	s.assertMethod(c, "Pinger", 1, "Ping")
 	s.assertMethod(c, "Bundle", 1, "GetChanges")
 	s.assertMethod(c, "HighAvailability", 2, "EnableHA")
-	s.assertMethod(c, "CrossModelRelations", 1, "FindApplicationOffers")
-	s.assertMethod(c, "ApplicationOffers", 1, "ListOffers")
 }
 
 func (s *restrictControllerSuite) TestNotAllowed(c *gc.C) {

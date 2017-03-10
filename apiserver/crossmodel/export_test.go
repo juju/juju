@@ -3,16 +3,7 @@
 
 package crossmodel
 
-import "github.com/juju/juju/apiserver/params"
-
 var (
-	CreateAPI                   = createAPI
-	CreateApplicationOffersAPI  = createApplicationOffersAPI
-	CreateOfferedApplicationAPI = createOfferedApplicationAPI
-	NewServiceAPIFactory        = newServiceAPIFactory
-	GetStateAccess              = getStateAccess
+	CreateAPI      = createAPI
+	GetStateAccess = getStateAccess
 )
-
-func MakeOfferedApplicationParams(api *API, p params.ApplicationOfferParams) (params.ApplicationOffer, error) {
-	return api.makeOfferedApplicationParams(p)
-}

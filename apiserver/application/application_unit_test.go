@@ -51,9 +51,7 @@ func (s *ApplicationSuite) SetUpTest(c *gc.C) {
 		charm:       &s.charm,
 	}
 	s.blockChecker = mockBlockChecker{}
-	offersApiFactory := &mockApplicationOffersFactory{}
 	resources := common.NewResources()
-	resources.RegisterNamed("applicationOffersApiFactory", offersApiFactory)
 	resources.RegisterNamed("dataDir", common.StringResource(c.MkDir()))
 	api, err := application.NewAPI(
 		&s.backend,

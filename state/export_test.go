@@ -97,12 +97,12 @@ func newRunnerForHooks(st *State) jujutxn.Runner {
 	return runner
 }
 
-func OfferAtURL(sd crossmodel.ApplicationDirectory, url string) (*applicationOfferDoc, error) {
-	return sd.(*applicationDirectory).offerAtURL(url)
+func OfferAtURL(sd crossmodel.ApplicationOffers, url string) (*applicationOfferDoc, error) {
+	return sd.(*applicationOffers).offerAtURL(url)
 }
 
-func MakeApplicationOfferDoc(sd crossmodel.ApplicationDirectory, url string, offer crossmodel.ApplicationOffer) applicationOfferDoc {
-	return sd.(*applicationDirectory).makeApplicationOfferDoc(offer)
+func MakeApplicationOffer(sd crossmodel.ApplicationOffers, offer *applicationOfferDoc) (*crossmodel.ApplicationOffer, error) {
+	return sd.(*applicationOffers).makeApplicationOffer(*offer)
 }
 
 // SetPolicy updates the State's policy field to the

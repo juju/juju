@@ -22,10 +22,8 @@ func ApplicationOfferForURL(offers ApplicationOfferLister, urlStr string, user s
 	results, err := offers.ListOffers(
 		url.Directory,
 		ApplicationOfferFilter{
-			ApplicationOffer: ApplicationOffer{
-				ApplicationURL: urlStr,
-			},
-			AllowedUsers: []string{user},
+			ApplicationURL: urlStr,
+			AllowedUsers:   []string{user},
 		},
 	)
 	if err != nil {

@@ -83,7 +83,7 @@ type RemoteRelationsState interface {
 	GetToken(names.ModelTag, names.Tag) (string, error)
 
 	// ListOffers returns the application offers matching any one of the filter terms.
-	ListOffers(filter ...crossmodel.OfferedApplicationFilter) ([]crossmodel.OfferedApplication, error)
+	ListOffers(filter ...crossmodel.ApplicationOfferFilter) ([]crossmodel.ApplicationOffer, error)
 }
 
 // Relation provides access a relation in global state.
@@ -205,8 +205,8 @@ type stateShim struct {
 	*state.State
 }
 
-func (st stateShim) ListOffers(filter ...crossmodel.OfferedApplicationFilter) ([]crossmodel.OfferedApplication, error) {
-	oa := state.NewOfferedApplications(st.State)
+func (st stateShim) ListOffers(filter ...crossmodel.ApplicationOfferFilter) ([]crossmodel.ApplicationOffer, error) {
+	oa := state.NewApplicationOffers(st.State)
 	return oa.ListOffers(filter...)
 }
 

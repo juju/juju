@@ -458,7 +458,9 @@ func (api *RemoteRelationsAPI) registerRemoteRelation(relation params.RegisterRe
 	// The name the consuming side knows the application by is not necessarily
 	// what it has been deployed as locally.
 	localApplicationName := relation.OfferedApplicationName
-	appOffer, err := api.st.ListOffers(crossmodel.OfferedApplicationFilter{ApplicationName: relation.OfferedApplicationName})
+	appOffer, err := api.st.ListOffers(crossmodel.ApplicationOfferFilter{
+		ApplicationName: relation.OfferedApplicationName,
+	})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -470,8 +472,7 @@ func (api *RemoteRelationsAPI) registerRemoteRelation(relation params.RegisterRe
 			localApplicationName = appNameParts[len(appNameParts)-1]
 		}
 	} else {
-		// TODO(wallyworld) - charm name should be service name
-		localApplicationName = appOffer[0].CharmName
+		localApplicationName = appOffer[0].ApplicationName
 	}
 
 	localApp, err := api.st.Application(localApplicationName)
