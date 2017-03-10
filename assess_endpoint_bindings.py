@@ -7,6 +7,7 @@ import argparse
 import contextlib
 import logging
 import os
+import shutil
 import sys
 import yaml
 
@@ -294,6 +295,7 @@ def machine_spaces_for_bundle(bundle):
 
 
 def bootstrap_and_test(bootstrap_manager, bundle_path, machine):
+    shutil.copy(bundle_path, bootstrap_manager.log_dir)
     with bootstrap_manager.booted_context(False, no_gui=True):
         client = bootstrap_manager.client
         log.info("Deploying bundle.")

@@ -6,6 +6,7 @@ from mock import (
     Mock,
     patch,
     )
+import os
 import StringIO
 
 from assess_endpoint_bindings import (
@@ -22,6 +23,7 @@ from tests import (
     TestCase,
 )
 from test_deploy_stack import FakeBootstrapManager
+from utility import temp_dir
 
 
 class TestParseArgs(TestCase):
@@ -181,9 +183,17 @@ class AssessEndpointBindings(TestCase):
                   'wait_for_started', 'wait_for_workloads'],
             env=juju_data)
         bootstrap_manager = FakeBootstrapManager(client)
-        bootstrap_and_test(bootstrap_manager, 'bundle_path', None)
+        with temp_dir() as bundle_dir:
+            bundle_path = os.path.join(bundle_dir, 'bundle.yaml')
+            with open(bundle_path, 'w') as bf:
+                bf.write('bundle')
+            with temp_dir() as log_dir:
+                bootstrap_manager.log_dir = log_dir
+                bootstrap_and_test(bootstrap_manager, bundle_path, None)
+                archived_bundle = os.path.join(log_dir, 'bundle.yaml')
+                self.assertIsTrue(os.path.exists(archived_bundle))
         self.assertEqual(
-            [call('bundle_path'),
+            [call(bundle_path),
              call('./xenial/frontend',
                   bind='endpoint-bindings-data', alias='adminsite')],
             client.deploy.mock_calls)
