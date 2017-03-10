@@ -15,7 +15,6 @@ from assess_endpoint_bindings import (
     machine_spaces_for_bundle,
     main,
 )
-from jujupy import fake_juju_client
 from jujupy.client import JujuData
 from tests import (
     parse_error,
@@ -176,6 +175,8 @@ class AssessEndpointBindings(TestCase):
              call('./xenial/frontend',
                   bind='endpoint-bindings-data', alias='adminsite')],
             client.deploy.mock_calls)
+        self.assertEqual(2, client.wait_for_started.call_count)
+        self.assertEqual(2, client.wait_for_workloads.call_count)
 
 
 class TestMain(TestCase):
