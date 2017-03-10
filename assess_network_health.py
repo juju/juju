@@ -26,7 +26,9 @@ from utility import (
     configure_logging,
     wait_for_port
     )
-
+from substrate import (
+    maas_account_from_boot_config,
+    )
 
 __metaclass__ = type
 
@@ -47,13 +49,18 @@ class AssessNetworkHealth:
         self.existing_series = set([])
 
     def assess_network_health(self, client, bundle=None, target_model=None,
-                              reboot=False, series=None):
+                              reboot=False, series=None, maas=None):
         """Assesses network health for a given deployment or bundle.
 
         :param client: The juju client in use
         :param bundle: Optional bundle to test on
-        :param model: Optional existing model to test under
+        :param target_model: Optional existing model to test under
+        :param reboot: Reboot and re-run tests
+        :param series: Ubuntu series to deploy
+        :param maas: MaaS manager object
         """
+        if maas:
+            setup_spaces(maas, bundle)
         self.setup_testing_environment(client, bundle, target_model, series)
         log.info('Starting network tests.')
         results_pre = self.testing_iterations(client, series, target_model)
@@ -426,8 +433,8 @@ class AssessNetworkHealth:
 
         except subprocess.CalledProcessError as e:
             logging.info(
-                "Error running shutdown:\nstdout: %s\nstderr: %s",
-                e.output, getattr(e, 'stderr', None))
+                "Error running shutdown:\nstdout: {}\nstderr: {}".format(
+                    e.output, getattr(e, 'stderr', None)))
         client.wait_for_started()
 
     def ssh(self, client, machine, cmd):
@@ -503,6 +510,47 @@ class AssessNetworkHealth:
         return targets
 
 
+def setup_spaces(maas, bundle=None):
+    """Setup MaaS spaces to test charm bindings.
+
+    Reads from the bundle
+    file and pulls out the required spaces, then adds those spaces to
+    the MaaS cluster using our MaaS controller wrapper.
+
+    :param maas: MaaS manager object
+    :param bundle: Bundle supplied in test
+    """
+    if not bundle:
+        log.info('No bundle specified, skipping MaaS space assurance')
+        return
+    with open(bundle) as f:
+        data = f.read()
+        bundle_yaml = yaml.load(data)
+    existing_spaces = maas.spaces()
+    new_spaces = _setup_spaces(bundle_yaml, existing_spaces)
+    for space in new_spaces:
+        maas.create_space(space)
+        log.info("Created space: {}".format(space))
+
+
+def _setup_spaces(bundle, existing_spaces):
+    log.info("Have spaces: {}".format(
+        ", ".join(s["name"] for s in existing_spaces)))
+    spaces_map = dict((s["name"], s) for s in existing_spaces)
+    required_spaces = {}
+    log.info('Getting spaces from bundle: {}'.format(bundle))
+
+    for info in bundle['services'].values():
+        for binding, space in info.get('bindings').items():
+            required_spaces[binding] = space
+    new_spaces = []
+    for space_name in required_spaces.values():
+        space = spaces_map.get(space_name)
+        if not space:
+            new_spaces.append(space_name)
+    return new_spaces
+
+
 def parse_args(argv):
     """Parse all arguments."""
     parser = argparse.ArgumentParser(description="Test Network Health")
@@ -511,8 +559,11 @@ def parse_args(argv):
     parser.add_argument('--model', help='Existing Juju model to test against')
     parser.add_argument('--reboot', type=bool,
                         help='Reboot machines and re-run tests, default=False')
+    parser.add_argument('--maas', type=bool,
+                        help='Test under maas')
+    parser.set_defaults(maas=False)
     parser.set_defaults(reboot=False)
-    parser.set_defaults(series='trusty')
+    parser.set_defaults(series='xenial')
     return parser.parse_args(argv)
 
 
@@ -522,9 +573,17 @@ def main(argv=None):
     test = AssessNetworkHealth(args)
     if args.model is None:
         bs_manager = BootstrapManager.from_args(args)
+        if args.maas:
+            # Excluded_spaces breaks tests on oil maas
+            bs_manager.client.excluded_spaces = set()
+            bs_manager.client.reserved_spaces = set()
         with bs_manager.booted_context(args.upload_tools):
+            manager = None
+            if args.maas:
+                manager = maas_account_from_boot_config(bs_manager.client.env)
             test.assess_network_health(bs_manager.client, bundle=args.bundle,
-                                       series=args.series, reboot=args.reboot)
+                                       series=args.series, reboot=args.reboot,
+                                       maas=manager)
     else:
         client = client_for_existing(args.juju_bin,
                                      os.environ['JUJU_HOME'])
