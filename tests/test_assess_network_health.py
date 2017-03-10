@@ -1,7 +1,9 @@
 import yaml
+import json
 import StringIO
 import logging
 import argparse
+import copy
 from textwrap import dedent
 from datetime import (
     datetime,
@@ -24,6 +26,7 @@ from assess_network_health import (
     AssessNetworkHealth,
     main,
     parse_args,
+    _setup_spaces
     )
 from utility import (
     add_basic_testing_arguments
@@ -54,14 +57,19 @@ services:
     charm: local:trusty/foo
     num_units: 1
     expose: true
+    bindings:
+        foo: foo
   bar:
     charm: local:trusty/bar
     num_units: 1
+    bindings:
+        bar: bar
 series: trusty
 relations:
 - - foo:baz
   - bar:baz
 """)
+bundle_yaml = yaml.safe_load(bundle_string)
 
 status_value = dedent("""\
     machines:
@@ -114,6 +122,22 @@ status_value = dedent("""\
 """)
 status = Status(yaml.safe_load(status_value), status_value)
 
+maas_spaces = dedent("""
+    [{
+        "subnets": [{}],
+        "resource_uri": "",
+        "id": 0,
+        "name": "bar"
+    },
+    {
+        "subnets": [{}],
+        "resource_uri": "",
+        "id": 1,
+        "name": "baz"
+    }]
+""")
+maas_spaces = json.loads(maas_spaces)
+
 ping_result = dedent("""
 results:
   results: '{u''ubuntu/0'': True, u''ubuntu/1'': True}'
@@ -124,7 +148,6 @@ timing:
   started: 2017-01-01 00:00:01 +0000 UTC
 """)
 
-bundle_yaml = yaml.safe_load(bundle_string)
 dummy_charm = 'dummy'
 series = 'trusty'
 
@@ -178,9 +201,11 @@ class TestAssessNetworkHealth(TestCase):
         self.assertEqual(
             [call.deploy_bundle('services:\n  foo:\n    '
                                 'charm: local:trusty/foo\n    '
-                                'num_units: 1\n    expose: true\n  bar:\n    '
+                                'num_units: 1\n    expose: true\n    '
+                                'bindings:\n        foo: foo\n  bar:\n    '
                                 'charm: local:trusty/bar\n    '
-                                'num_units: 1\nseries: trusty\n'
+                                'num_units: 1\n    bindings:\n        '
+                                'bar: bar\nseries: trusty\n'
                                 'relations:\n- - foo:baz\n  - bar:baz\n'),
              call.wait_for_started(),
              call.wait_for_workloads(),
@@ -339,6 +364,26 @@ class TestAssessNetworkHealth(TestCase):
              call.add_model().wait_for_subordinate_units('ubuntu',
                                                          'network-health')],
             mock_client.mock_calls)
+
+    def test_setup_spaces_existing_spaces(self):
+        existing_spaces = maas_spaces
+        new_spaces = _setup_spaces(bundle_yaml, existing_spaces)
+        expected_spaces = ['foo']
+        self.assertEqual(expected_spaces, new_spaces)
+
+    def test_setup_spaces_no_existing_spaces(self):
+        existing_spaces = {}
+        new_spaces = _setup_spaces(bundle_yaml, existing_spaces)
+        expected_spaces = ['foo', 'bar']
+        self.assertEqual(expected_spaces, new_spaces)
+
+    def test_setup_spaces_existing_correct(self):
+        existing_spaces = maas_spaces
+        new_bundle = copy.deepcopy(bundle_yaml)
+        new_bundle['services']['foo']['bindings'] = {'fizz': 'baz'}
+        new_spaces = _setup_spaces(new_bundle, existing_spaces)
+        expected_spaces = []
+        self.assertEqual(expected_spaces, new_spaces)
 
     def test_parse_expose_results(self):
         args = self.parse_args([])

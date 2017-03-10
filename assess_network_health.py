@@ -60,7 +60,7 @@ class AssessNetworkHealth:
         :param maas: MaaS manager object
         """
         if maas:
-            self.setup_spaces(maas, bundle)
+            setup_spaces(maas, bundle)
         self.setup_testing_environment(client, bundle, target_model, series)
         log.info('Starting network tests.')
         results_pre = self.testing_iterations(client, series, target_model)
@@ -119,34 +119,6 @@ class AssessNetworkHealth:
         log.info('Tests complete.')
         return self.parse_final_results(con_result, vis_result, int_result,
                                         exp_result)
-
-    def setup_spaces(self, maas, bundle=None):
-        """Setup MaaS spaces to test charm bindings.
-
-        Reads from the bundle
-        file and pulls out the required spaces, then adds those spaces to
-        the MaaS cluster using our MaaS controller wrapper.
-
-        :param maas: MaaS manager object
-        :param bundle: Bundle supplied in test
-        """
-        if not bundle:
-            log.info('No bundle specified, skipping MaaS space assurance')
-            return
-        existing_spaces = maas.spaces()
-        log.info("Have spaces: {}".format(
-            ", ".join(s["name"] for s in existing_spaces)))
-        spaces_map = dict((s["name"], s) for s in existing_spaces)
-        required_spaces = {}
-        log.info('Getting spaces from bundle: {}'.format(bundle))
-        with open(bundle) as f:
-            data = f.read()
-            bundle_yaml = yaml.load(data)
-        for info in bundle_yaml['services'].values():
-            for binding, space in info.get('bindings').items():
-                required_spaces[binding] = space
-        for space_name in required_spaces.values():
-            space = spaces_map.get(space_name, maas.create_space(space_name))
 
     def setup_testing_environment(self, client, bundle, target_model,
                                   series=None):
@@ -536,6 +508,47 @@ class AssessNetworkHealth:
                     target_units[unit_id] = info['public-address']
                 targets[application] = target_units
         return targets
+
+
+def setup_spaces(maas, bundle=None):
+    """Setup MaaS spaces to test charm bindings.
+
+    Reads from the bundle
+    file and pulls out the required spaces, then adds those spaces to
+    the MaaS cluster using our MaaS controller wrapper.
+
+    :param maas: MaaS manager object
+    :param bundle: Bundle supplied in test
+    """
+    if not bundle:
+        log.info('No bundle specified, skipping MaaS space assurance')
+        return
+    with open(bundle) as f:
+        data = f.read()
+        bundle_yaml = yaml.load(data)
+    existing_spaces = maas.spaces()
+    new_spaces = _setup_spaces(bundle_yaml, existing_spaces)
+    for space in new_spaces:
+        maas.create_space(space)
+        log.info("Created space: {}".format(space))
+
+
+def _setup_spaces(bundle, existing_spaces):
+    log.info("Have spaces: {}".format(
+        ", ".join(s["name"] for s in existing_spaces)))
+    spaces_map = dict((s["name"], s) for s in existing_spaces)
+    required_spaces = {}
+    log.info('Getting spaces from bundle: {}'.format(bundle))
+
+    for info in bundle['services'].values():
+        for binding, space in info.get('bindings').items():
+            required_spaces[binding] = space
+    new_spaces = []
+    for space_name in required_spaces.values():
+        space = spaces_map.get(space_name)
+        if not space:
+            new_spaces.append(space_name)
+    return new_spaces
 
 
 def parse_args(argv):
