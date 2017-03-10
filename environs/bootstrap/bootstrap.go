@@ -259,7 +259,6 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 	if err != nil {
 		return err
 	}
-
 	constraintsValidator.UpdateVocabulary(constraints.Arch, architectures.SortedValues())
 	bootstrapConstraints, err := constraintsValidator.Merge(
 		args.ModelConstraints, args.BootstrapConstraints,

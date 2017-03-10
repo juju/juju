@@ -23,45 +23,69 @@ import (
 	"github.com/juju/juju/status"
 )
 
-// oracleInstance represents the realization of amachine instate
-// instance imlements the instance.Instance interface
+// oracleInstance type holds the actual running machine
+// instance inside the oracle cloud infrastrcture
+// this will imlement the instance.Instance interface
 type oracleInstance struct {
 	// name of the instance, generated after the vm creation
 	name string
-	// status represents the status for a provider instance
-	status    instance.InstanceStatus
-	machine   response.Instance
-	client    *oci.Client
-	arch      *string
-	instType  *instances.InstanceType
-	mutex     sync.Mutex
-	env       *oracleEnviron
+	// status holds the status of the instance
+	status instance.InstanceStatus
+	// machine will hold the raw response returned
+	// from launching a machine inside
+	// the oracle infrastructure
+	machine response.Instance
+	// client is the oracle client that will
+	// make connections, api requests to the oracle api
+	client *oci.Client
+	// arch will hold the architecture information of the instance
+	arch *string
+	// instType will hold the shape of the instance
+	// in a complaint form that juju will understand
+	instType *instances.InstanceType
+	// mutex used for synchronization between goroutines
+	// some methods will require this
+	mutex sync.Mutex
+	// env will hold the env that the instance was created from
+	env *oracleEnviron
+	// machineId is the uuid of the machine
 	machineId string
 }
 
+// hardwareCharacteristics will return hardware specifications
+// based on the instance that is running
 func (o *oracleInstance) hardwareCharacteristics() *instance.HardwareCharacteristics {
 	if o.arch == nil {
 		return nil
 	}
+
 	hc := &instance.HardwareCharacteristics{Arch: o.arch}
 	if o.instType != nil {
 		hc.Mem = &o.instType.Mem
 		hc.RootDisk = &o.instType.RootDisk
 		hc.CpuCores = &o.instType.CpuCores
 	}
+
 	return hc
 }
 
-// newInstance returns a new instance.Instance implementation
-// for the response.Instance
-func newInstance(params response.Instance, env *oracleEnviron) (*oracleInstance, error) {
+// newInstance returns a new oracleInstance based on the
+// instance response of the api and the current juju environment
+func newInstance(
+	params response.Instance,
+	env *oracleEnviron,
+) (*oracleInstance, error) {
+
 	if params.Name == "" {
-		return nil, errors.Errorf("Instance response does not contain a name")
+		return nil, errors.New(
+			"Instance response does not contain a name",
+		)
 	}
+
 	//gsamfira: there must be a better way to do this.
+	//sgiulitti: and I will find the way
 	splitMachineName := strings.Split(params.Label, "-")
 	machineId := splitMachineName[len(splitMachineName)-1]
-	mutex := sync.Mutex{}
 	instance := &oracleInstance{
 		name: params.Name,
 		status: instance.InstanceStatus{
@@ -70,7 +94,7 @@ func newInstance(params response.Instance, env *oracleEnviron) (*oracleInstance,
 		},
 		machine:   params,
 		client:    env.client,
-		mutex:     mutex,
+		mutex:     sync.Mutex{},
 		env:       env,
 		machineId: machineId,
 	}
@@ -83,6 +107,7 @@ func (o *oracleInstance) Id() instance.Id {
 	if o.machine.Name != "" {
 		return instance.Id(o.machine.Name)
 	}
+
 	return instance.Id(o.name)
 }
 
@@ -91,13 +116,20 @@ func (o *oracleInstance) Status() instance.InstanceStatus {
 	return o.status
 }
 
+// refresh will refresh the instance raw details from the oracle api
+// this method is mutex protected
 func (o *oracleInstance) refresh() error {
 	o.mutex.Lock()
 	defer o.mutex.Unlock()
+
 	machine, err := o.client.InstanceDetails(o.name)
+	// if the request failed of any reason
+	// we should not update the information and
+	// let the old one persist
 	if err != nil {
 		return err
 	}
+
 	o.machine = machine
 	return nil
 }

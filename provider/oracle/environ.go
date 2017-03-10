@@ -82,14 +82,11 @@ func (o *oracleEnviron) PrepareForBootstrap(ctx environs.BootstrapContext) error
 // architecture, series, and a function that must be called to finalize
 // the bootstrap process by transferring the tools and installing the
 // initial Juju controller.
-//
-// Bootstrap will use just one specific architecture because the oracle
-// cloud only supports amd64.
-// func (o *oracleEnviron) Bootstrap(ctx environs.BootstrapContext, params environs.BootstrapParams) (*environs.BootstrapResult, error) {
-// 	return common.Bootstrap(ctx, o, params)
-// }
+func (o *oracleEnviron) Bootstrap(
+	ctx environs.BootstrapContext,
+	args environs.BootstrapParams,
+) (*environs.BootstrapResult, error) {
 
-func (o *oracleEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) (*environs.BootstrapResult, error) {
 	return common.Bootstrap(ctx, o, args)
 }
 
@@ -192,6 +189,7 @@ func (o *oracleEnviron) StartInstance(args environs.StartInstanceParams) (*envir
 		"userdata": string(userData),
 	}
 
+	//TODO(sgiulitti): use the same naming scheme
 	machineName := o.client.ComposeName(args.InstanceConfig.MachineAgentServiceName)
 	imageName := o.client.ComposeName(imagelist)
 	tags := make([]string, 0, len(args.InstanceConfig.Tags)+1)
@@ -222,8 +220,7 @@ func (o *oracleEnviron) StartInstance(args environs.StartInstanceParams) (*envir
 			Seclists: secLists,
 		},
 	}
-	instance, err := createInstance(o.client, oci.InstanceParams{
-		Relationships: nil,
+	instance, err := o.createInstance(o.client, oci.InstanceParams{
 		Instances: []oci.Instances{
 			{
 				Shape:       spec.InstanceType.Name,
@@ -237,7 +234,7 @@ func (o *oracleEnviron) StartInstance(args environs.StartInstanceParams) (*envir
 				Networking:  networking,
 			},
 		},
-	}, o)
+	})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -326,9 +323,8 @@ func (o *oracleEnviron) getOracleInstances(ids ...instance.Id) ([]*oracleInstanc
 	if len(ids) == 1 {
 		inst, err := o.client.InstanceDetails(string(ids[0]))
 		if err != nil {
-			return nil, errors.Trace(err)
+			return nil, environs.ErrNoInstances
 		}
-		//environs.ErrPartialInstances
 		oInst, err := newInstance(inst, o)
 		ret = append(ret, oInst)
 		return ret, nil
@@ -366,6 +362,20 @@ func (o *oracleEnviron) getOracleInstances(ids ...instance.Id) ([]*oracleInstanc
 	return ret, nil
 }
 
+// AllInstances returns all instances currently known to the broker.
+func (o *oracleEnviron) AllInstances() ([]instance.Instance, error) {
+	tagFilter := tagValue{tags.JujuModel, o.Config().UUID()}
+	instances, err := o.allInstances(tagFilter)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	ret := make([]instance.Instance, len(instances))
+	for i, val := range instances {
+		ret[i] = val
+	}
+	return ret, nil
+}
+
 func (o *oracleEnviron) allInstances(tagFilter tagValue) ([]*oracleInstance, error) {
 	filter := []oci.Filter{
 		oci.Filter{
@@ -388,20 +398,6 @@ func (o *oracleEnviron) allInstances(tagFilter tagValue) ([]*oracleInstance, err
 		instances = append(instances, oracleInstance)
 	}
 	return instances, nil
-}
-
-// AllInstances returns all instances currently known to the broker.
-func (o *oracleEnviron) AllInstances() ([]instance.Instance, error) {
-	tagFilter := tagValue{tags.JujuModel, o.Config().UUID()}
-	instances, err := o.allInstances(tagFilter)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	ret := make([]instance.Instance, len(instances))
-	for i, val := range instances {
-		ret[i] = val
-	}
-	return ret, nil
 }
 
 // MaintainInstance is used to run actions on jujud startup for existing
@@ -434,7 +430,6 @@ func (o *oracleEnviron) ConstraintsValidator() (constraints.Validator, error) {
 		constraints.Container,
 		constraints.CpuPower,
 		constraints.RootDisk,
-		constraints.Arch,
 		constraints.VirtType,
 		constraints.Spaces,
 	}
@@ -469,21 +464,22 @@ func (o *oracleEnviron) SetConfig(cfg *config.Config) error {
 
 // Instances returns a slice of instances corresponding to the
 // given instance ids.  If no instances were found, but there
-// was no other error, it will return ErrNoInstances.  If
-// some but not all the instances were found, the returned slice
-// will have some nil slots, and an ErrPartialInstances error
-// will be returned.
+// was no other error, it will return ErrNoInstances.
+// If some but not all the instances were found,
+// the returned slice will have some nil slots,
+// and an ErrPartialInstances error will be returned.
 func (o *oracleEnviron) Instances(ids []instance.Id) ([]instance.Instance, error) {
 	if len(ids) == 0 {
 		return nil, nil
 	}
+
 	instances := make([]instance.Instance, len(ids))
 	all, err := o.AllInstances()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	found := 0
 
+	found := 0
 	for i, id := range ids {
 		for _, inst := range all {
 			if inst.Id() == id {
@@ -492,6 +488,7 @@ func (o *oracleEnviron) Instances(ids []instance.Id) ([]instance.Instance, error
 			}
 		}
 	}
+
 	if found == 0 {
 		return nil, environs.ErrNoInstances
 	}
@@ -499,6 +496,7 @@ func (o *oracleEnviron) Instances(ids []instance.Id) ([]instance.Instance, error
 	if found != len(ids) {
 		return instances, environs.ErrPartialInstances
 	}
+
 	return instances, nil
 }
 
@@ -512,6 +510,7 @@ func (o *oracleEnviron) ControllerInstances(controllerUUID string) ([]instance.I
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
 	filter := tagValue{tags.JujuIsController, "true"}
 	ids := make([]instance.Id, 0, 1)
 	for _, val := range instances {
@@ -527,9 +526,11 @@ func (o *oracleEnviron) ControllerInstances(controllerUUID string) ([]instance.I
 		}
 		ids = append(ids, val.Id())
 	}
+
 	if len(ids) == 0 {
 		return nil, environs.ErrNoInstances
 	}
+
 	return ids, nil
 }
 
