@@ -657,7 +657,7 @@ class TestEnvJujuClient1X(ClientTest):
         fake_popen = FakePopen('asdf', None, 0)
         with patch('subprocess.Popen', return_value=fake_popen) as mock:
             result = client.get_juju_output('bar')
-        self.assertEqual('asdf', result)
+        self.assertEqual('asdf', result.encode('ascii'))
         self.assertEqual((('juju', '--show-log', 'bar', '-e', 'foo'),),
                          mock.call_args[0])
 
@@ -667,7 +667,7 @@ class TestEnvJujuClient1X(ClientTest):
         client = EnvJujuClient1X(env, None, 'juju')
         with patch('subprocess.Popen', return_value=fake_popen) as mock:
             result = client.get_juju_output('bar', 'baz', '--qux')
-        self.assertEqual('asdf', result)
+        self.assertEqual('asdf'.encode('ascii'), result)
         self.assertEqual((('juju', '--show-log', 'bar', '-e', 'foo', 'baz',
                            '--qux'),), mock.call_args[0])
 
@@ -678,8 +678,8 @@ class TestEnvJujuClient1X(ClientTest):
         with self.assertRaises(subprocess.CalledProcessError) as exc:
             with patch('subprocess.Popen', return_value=fake_popen):
                 client.get_juju_output('bar')
-        self.assertEqual(exc.exception.output, 'Hello')
-        self.assertEqual(exc.exception.stderr, 'Error!')
+        self.assertEqual(exc.exception.output, 'Hello'.encode('ascii'))
+        self.assertEqual(exc.exception.stderr, 'Error!'.encode('ascii'))
 
     def test_get_juju_output_full_cmd(self):
         env = SimpleEnvironment('foo')
@@ -1046,7 +1046,7 @@ class TestEnvJujuClient1X(ClientTest):
                     subordinates:
                       sub/1:
                         agent-state: started
-        """)
+        """).encode('ascii')
         client = EnvJujuClient1X(SimpleEnvironment('local'), None, None)
         now = datetime.now() + timedelta(days=1)
         with patch('utility.until_timeout.now', return_value=now):
@@ -1181,7 +1181,7 @@ class TestEnvJujuClient1X(ClientTest):
                 '2': {'state-server-member-status': 'has-vote'},
             },
             'services': {},
-        })
+        }).encode('ascii')
         client = EnvJujuClient1X(SimpleEnvironment('local'), None, None)
         with patch.object(client, 'get_juju_output', return_value=value):
             client.wait_for_ha()
@@ -1194,7 +1194,7 @@ class TestEnvJujuClient1X(ClientTest):
                 '2': {'state-server-member-status': 'no-vote'},
             },
             'services': {},
-        })
+        }).encode('ascii')
         client = EnvJujuClient1X(SimpleEnvironment('local'), None, None)
         with patch.object(client, 'get_juju_output', return_value=value):
             writes = []
@@ -1240,7 +1240,7 @@ class TestEnvJujuClient1X(ClientTest):
                     }
                 }
             }
-        })
+        }).encode('ascii')
         client = EnvJujuClient1X(SimpleEnvironment('local'), None, None)
         with patch.object(client, 'get_juju_output', return_value=value):
             client.wait_for_deploy_started()
