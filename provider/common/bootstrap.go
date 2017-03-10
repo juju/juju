@@ -46,6 +46,7 @@ func Bootstrap(ctx environs.BootstrapContext, env environs.Environ, args environ
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
 	bsResult := &environs.BootstrapResult{
 		Arch:     *result.Hardware.Arch,
 		Series:   series,
