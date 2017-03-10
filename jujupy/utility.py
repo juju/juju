@@ -63,7 +63,7 @@ class until_timeout:
         return datetime.now()
 
     def __next__(self):
-        self.next()
+        return self.next()
 
     def next(self):
         elapsed = self.now() - self.start

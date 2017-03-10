@@ -14,6 +14,7 @@ from mock import (
 from tests import (
     TestCase,
     )
+import jujupy.utility
 from jujupy.utility import (
     is_ipv6_address,
     quote,
@@ -38,7 +39,7 @@ class TestUntilTimeout(TestCase):
             yield iterator.start
             assert False
 
-        with patch.object(iterator, 'now', now_iter().next):
+        with patch.object(iterator, 'now', lambda: next(now_iter())):
             for x in iterator:
                 self.assertIs(None, x)
                 break
@@ -51,7 +52,8 @@ class TestUntilTimeout(TestCase):
             for d in deltas:
                 yield iterator.start + d
             assert False
-        with patch.object(iterator, 'now', now_iter().next):
+        now_iter_i = now_iter()
+        with patch.object(iterator, 'now', lambda: next(now_iter_i)):
             yield iterator
 
     def test_timeout(self):
@@ -68,7 +70,8 @@ class TestUntilTimeout(TestCase):
     def test_start(self):
         now = datetime.now() + timedelta(days=1)
         now_iter = iter([now, now, now + timedelta(10)])
-        with patch('utility.until_timeout.now', side_effect=now_iter.next):
+        with patch('utility.until_timeout.now',
+                   side_effect=lambda: next(now_iter)):
             self.assertEqual(list(until_timeout(10, now - timedelta(10))), [])
 
 
@@ -84,7 +87,11 @@ class TestIsIPv6Address(TestCase):
         self.assertIs(True, is_ipv6_address("2001:db8::4"))
 
     def test_ipv6_missing_support(self):
+        socket_error = jujupy.utility.socket.error
         with patch('jujupy.utility.socket', wraps=socket) as wrapped_socket:
+            # Must not convert socket.error into a Mock, because Mocks don't
+            # descend from BaseException
+            wrapped_socket.error = socket_error
             del wrapped_socket.inet_pton
             result = is_ipv6_address("2001:db8::4")
         # Would use expectedFailure here, but instead just assert wrong result.

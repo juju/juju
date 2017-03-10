@@ -195,7 +195,8 @@ class TestClientFromConfig(ClientTest):
                 client_from_config('foo', None)
 
     def test_client_from_config_path(self):
-        with patch('subprocess.check_output', return_value=' 4.3') as vsn:
+        with patch('subprocess.check_output',
+                   return_value=' 4.3'.encode('ascii')) as vsn:
             with patch.object(JujuData, 'from_config'):
                 client = client_from_config('foo', 'foo/bar/qux')
         vsn.assert_called_once_with(('foo/bar/qux', '--version'))
@@ -204,7 +205,8 @@ class TestClientFromConfig(ClientTest):
 
     def test_client_from_config_keep_home(self):
         env = JujuData({}, juju_home='/foo/bar')
-        with patch('subprocess.check_output', return_value='2.0.0'):
+        with patch('subprocess.check_output',
+                   return_value='2.0.0'.encode('ascii')):
             with patch.object(JujuData, 'from_config',
                               side_effect=lambda x: JujuData(x, {})):
                 client_from_config('foo', 'foo/bar/qux')
@@ -212,7 +214,8 @@ class TestClientFromConfig(ClientTest):
 
     def test_client_from_config_deadline(self):
         deadline = datetime(2012, 11, 10, 9, 8, 7)
-        with patch('subprocess.check_output', return_value='2.0.0'):
+        with patch('subprocess.check_output',
+                   return_value='2.0.0'.encode('ascii')):
             with patch.object(JujuData, 'from_config',
                               side_effect=lambda x: JujuData(x, {})):
                 client = client_from_config(
@@ -405,14 +408,15 @@ class TestEnvJujuClient1X(ClientTest):
             client.get_model_uuid()
 
     def test_get_version(self):
-        value = ' 5.6 \n'
+        value = ' 5.6 \n'.encode('ascii')
         with patch('subprocess.check_output', return_value=value) as vsn:
             version = EnvJujuClient1X.get_version()
         self.assertEqual('5.6', version)
         vsn.assert_called_with(('juju', '--version'))
 
     def test_get_version_path(self):
-        with patch('subprocess.check_output', return_value=' 4.3') as vsn:
+        with patch('subprocess.check_output',
+                   return_value=' 4.3'.encode('ascii')) as vsn:
             EnvJujuClient1X.get_version('foo/bar/baz')
         vsn.assert_called_once_with(('foo/bar/baz', '--version'))
 
@@ -657,7 +661,7 @@ class TestEnvJujuClient1X(ClientTest):
         fake_popen = FakePopen('asdf', None, 0)
         with patch('subprocess.Popen', return_value=fake_popen) as mock:
             result = client.get_juju_output('bar')
-        self.assertEqual('asdf', result.encode('ascii'))
+        self.assertEqual('asdf'.encode('ascii'), result)
         self.assertEqual((('juju', '--show-log', 'bar', '-e', 'foo'),),
                          mock.call_args[0])
 
@@ -727,7 +731,7 @@ class TestEnvJujuClient1X(ClientTest):
                 - a
                 - b
                 - c
-                """)
+                """).encode('ascii')
         env = SimpleEnvironment('foo')
         client = EnvJujuClient1X(env, None, None)
         with patch.object(client, 'get_juju_output',
@@ -745,7 +749,7 @@ class TestEnvJujuClient1X(ClientTest):
 
         def get_juju_output(command, *args, **kwargs):
             if client.attempt == 1:
-                return '"hello"'
+                return '"hello"'.encode('ascii')
             client.attempt += 1
             raise subprocess.CalledProcessError(1, command)
 
@@ -783,7 +787,7 @@ class TestEnvJujuClient1X(ClientTest):
             - a
             - b
             - c
-        """
+        """.encode('ascii')
         env = SimpleEnvironment('foo')
         client = EnvJujuClient1X(env, None, None)
         with patch.object(client, 'get_juju_output',
@@ -868,7 +872,8 @@ class TestEnvJujuClient1X(ClientTest):
         with patch.object(client, 'get_juju_output', return_value=status_txt):
             result = list(client.status_until(-1))
         self.assertEqual(
-            [r.status for r in result], [Status.from_text(status_txt).status])
+            [r.status for r in result],
+            [Status.from_text(status_txt.decode('ascii')).status])
 
     def test_status_until_timeout(self):
         client = EnvJujuClient1X(
