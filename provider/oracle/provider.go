@@ -127,7 +127,11 @@ func (e *environProvider) Open(params environs.OpenParams) (environs.Environ, er
 	}
 	e.client = cli
 
-	environ := newOracleEnviron(e, params, cli)
+	environ, err := newOracleEnviron(e, params, cli)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	return environ, nil
 }
 

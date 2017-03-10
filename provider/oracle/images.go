@@ -46,13 +46,13 @@ func findInstanceSpec(
 	c *oci.Client,
 	allImageMetadata []*imagemetadata.ImageMetadata,
 	instanceType []instances.InstanceType,
-	is *instances.InstanceConstraint,
+	ic *instances.InstanceConstraint,
 ) (*instances.InstanceSpec, string, error) {
 
 	logger.Debugf("recived %d image(s)", len(allImageMetadata))
 
 	images := instances.ImageMetadataToImages(allImageMetadata)
-	spec, err := instances.FindInstanceSpec(images, is, instanceType)
+	spec, err := instances.FindInstanceSpec(images, ic, instanceType)
 	if err != nil {
 		return nil, "", errors.Trace(err)
 	}
@@ -66,12 +66,28 @@ func findInstanceSpec(
 }
 
 // checkImageList creates image metadata from the oracle image list
-func checkImageList(c *oci.Client, cons constraints.Value) ([]*imagemetadata.ImageMetadata, error) {
+func checkImageList(
+	c *oci.Client,
+	cons constraints.Value,
+) ([]*imagemetadata.ImageMetadata, error) {
+
+	if c == nil {
+		return nil, errors.NotFoundf("oracle client")
+	}
 
 	// take a list of all images that are in the oracle cloud account
 	resp, err := c.AllImageLists(nil)
 	if err != nil {
 		return nil, errors.Trace(err)
+	}
+
+	// if we don't have any images that are in
+	// the oracle cloud account under your username namespace
+	// we should let the user know this
+	if resp.Result == nil {
+		return nil, errors.NotFoundf(
+			"iamges under the current client username are",
+		)
 	}
 
 	images := make([]*imagemetadata.ImageMetadata, 0, len(resp.Result))
@@ -86,6 +102,7 @@ func checkImageList(c *oci.Client, cons constraints.Value) ([]*imagemetadata.Ima
 		if len(meta) < 4 {
 			continue
 		}
+
 		endpoint := strings.Split(list[2], ".")
 		images = append(images, &imagemetadata.ImageMetadata{
 			Id:         meta[len(meta)-1],
@@ -110,6 +127,15 @@ func getImageName(c *oci.Client, id string) (string, error) {
 		return "", errors.Trace(err)
 	}
 
+	// if we don't have any images that are in
+	// the oracle cloud account under your username namespace
+	// we should let the user know this
+	if resp.Result == nil {
+		return "", errors.NotFoundf(
+			"iamges under the current client username are",
+		)
+	}
+
 	for _, val := range resp.Result {
 		if strings.Contains(val.Name, id) {
 			s := strings.Split(val.Name, "/")
@@ -117,5 +143,5 @@ func getImageName(c *oci.Client, id string) (string, error) {
 		}
 	}
 
-	return "", errors.NotFoundf("image")
+	return "", errors.NotFoundf("images found with the id provided are ")
 }

@@ -5,8 +5,6 @@ package oracle
 
 import (
 	"fmt"
-	// "os"
-	// "strings"
 	"sync"
 	"time"
 
@@ -32,31 +30,48 @@ import (
 // oracleEnviron implements the environs.Environ interface
 // and has behaviour specific that the interface provides.
 type oracleEnviron struct {
-	mutex  *sync.Mutex
-	p      *environProvider
-	spec   environs.CloudSpec
-	cfg    *config.Config
-	client *oci.Client
-	fw     *Firewall
-	// namespace instance.Namespace
+	mutex     *sync.Mutex
+	p         *environProvider
+	spec      environs.CloudSpec
+	cfg       *config.Config
+	client    *oci.Client
+	fw        *Firewall
+	namespace instance.Namespace
 }
 
 // newOracleEnviron returns a new oracleEnviron
 // composed from a environProvider and args from environs.OpenParams,
 // usually this method is used in Open method calls of the environProvider
-func newOracleEnviron(p *environProvider, args environs.OpenParams, client *oci.Client) *oracleEnviron {
-	m := &sync.Mutex{}
+func newOracleEnviron(
+	p *environProvider,
+	args environs.OpenParams,
+	client *oci.Client,
+) (*oracleEnviron, error) {
+
+	if client == nil {
+		return nil, errors.NotFoundf("oracle client")
+	}
+
+	if p == nil {
+		return nil, errors.NotFoundf("environ provider")
+	}
 
 	env := &oracleEnviron{
 		p:      p,
 		spec:   args.Cloud,
 		cfg:    args.Config,
-		mutex:  m,
+		mutex:  &sync.Mutex{},
 		client: client,
 	}
-	fw := NewFirewall(env, client)
-	env.fw = fw
-	return env
+	env.fw = NewFirewall(env, client)
+
+	namespace, err := instance.NewNamespace(env.cfg.UUID())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	env.namespace = namespace
+
+	return env, nil
 }
 
 // PrepareForBootstrap prepares an environment for bootstrapping.
@@ -71,6 +86,7 @@ func (o *oracleEnviron) PrepareForBootstrap(ctx environs.BootstrapContext) error
 			return errors.Trace(err)
 		}
 	}
+
 	return nil
 }
 
@@ -102,6 +118,7 @@ func (o *oracleEnviron) Create(params environs.CreateParams) error {
 	if err := o.client.Authenticate(); err != nil {
 		return errors.Trace(err)
 	}
+
 	return nil
 }
 
@@ -140,7 +157,8 @@ func (o *oracleEnviron) StartInstance(args environs.StartInstanceParams) (*envir
 	}
 
 	if args.ImageMetadata, err = checkImageList(
-		o.client, args.Constraints,
+		o.client,
+		args.Constraints,
 	); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -170,7 +188,10 @@ func (o *oracleEnviron) StartInstance(args environs.StartInstanceParams) (*envir
 		return nil, errors.Trace(err)
 	}
 
-	if err = instancecfg.FinishInstanceConfig(args.InstanceConfig, o.Config()); err != nil {
+	if err = instancecfg.FinishInstanceConfig(
+		args.InstanceConfig,
+		o.Config(),
+	); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -179,7 +200,11 @@ func (o *oracleEnviron) StartInstance(args environs.StartInstanceParams) (*envir
 		return nil, errors.Annotate(err, "cannot create cloudinit template")
 	}
 
-	userData, err := providerinit.ComposeUserData(args.InstanceConfig, cloudcfg, OracleRenderer{})
+	userData, err := providerinit.ComposeUserData(
+		args.InstanceConfig,
+		cloudcfg,
+		OracleRenderer{},
+	)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot make user data")
 	}
@@ -190,6 +215,12 @@ func (o *oracleEnviron) StartInstance(args environs.StartInstanceParams) (*envir
 	}
 
 	//TODO(sgiulitti): use the same naming scheme
+	hostname, err := o.namespace.Hostname(args.InstanceConfig.MachineId)
+	fmt.Println("=======================================================")
+	fmt.Println(args.InstanceConfig.MachineId)
+	fmt.Println(hostname)
+	fmt.Println(err)
+	fmt.Println("=======================================================")
 	machineName := o.client.ComposeName(args.InstanceConfig.MachineAgentServiceName)
 	imageName := o.client.ComposeName(imagelist)
 	tags := make([]string, 0, len(args.InstanceConfig.Tags)+1)
@@ -314,22 +345,39 @@ func (t *tagValue) String() string {
 // allControllerManagedInstances returns all instances managed by this
 // environment's controller, matching the optionally specified filter.
 func (o *oracleEnviron) allControllerManagedInstances(controllerUUID string) ([]*oracleInstance, error) {
-	tagFilter := tagValue{tags.JujuController, controllerUUID}
-	return o.allInstances(tagFilter)
+	return o.allInstances(tagValue{
+		tag:   tags.JujuController,
+		value: controllerUUID,
+	})
 }
 
+// getOracleInstances returns a slice of oracle instances given some instances ids
+// if the given value of ids does not match the result of call this will return
+// environ.ErrPartialInstances
+// if we didn't found any instance that match any ids this will return
+// environ.ErrNoInstances
 func (o *oracleEnviron) getOracleInstances(ids ...instance.Id) ([]*oracleInstance, error) {
 	ret := make([]*oracleInstance, 0, len(ids))
+
+	// if the caller passed one instance
 	if len(ids) == 1 {
+		// get the instance
 		inst, err := o.client.InstanceDetails(string(ids[0]))
 		if err != nil {
 			return nil, environs.ErrNoInstances
 		}
+
+		// parse the instance from the raw response
 		oInst, err := newInstance(inst, o)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 		ret = append(ret, oInst)
 		return ret, nil
 	}
 
+	// // we have more than one instance so we shall
+	// get all of them
 	resp, err := o.client.AllInstances(nil)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -338,31 +386,49 @@ func (o *oracleEnviron) getOracleInstances(ids ...instance.Id) ([]*oracleInstanc
 	if len(resp.Result) == 0 {
 		return nil, environs.ErrNoInstances
 	}
+
+	nills := 0
+	// for every instance we found
 	for _, val := range resp.Result {
 		found := false
+		// for every ids provided
 		for _, id := range ids {
+			// if of the instance given match
+			// the instances found in the infrastracture
+			// mark the flag and break the loop
 			if val.Name == string(id) {
 				found = true
 				break
 			}
 		}
+
+		// continue if one of the
+		// instance given is not found
 		if found == false {
+			nills++
 			continue
 		}
+
+		// parse the instance found
 		oInst, err := newInstance(val, o)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
+
+		// append the valid parsed one
+		// into the result list
 		ret = append(ret, oInst)
 	}
 
-	if len(ret) != len(ids) {
+	validOnes := len(ret) - nills
+	if validOnes != len(ids) {
 		return ret, environs.ErrPartialInstances
 	}
+
 	return ret, nil
 }
 
-// AllInstances returns all instances currently known to the broker.
+// AllInstances returns all instances currently known to the broker
 func (o *oracleEnviron) AllInstances() ([]instance.Instance, error) {
 	tagFilter := tagValue{tags.JujuModel, o.Config().UUID()}
 	instances, err := o.allInstances(tagFilter)
@@ -376,6 +442,8 @@ func (o *oracleEnviron) AllInstances() ([]instance.Instance, error) {
 	return ret, nil
 }
 
+// allInstances will return all oracle instances if we don't have any instance
+// given the tag filter, this will return environs.ErrNoInstances
 func (o *oracleEnviron) allInstances(tagFilter tagValue) ([]*oracleInstance, error) {
 	filter := []oci.Filter{
 		oci.Filter{
@@ -383,13 +451,20 @@ func (o *oracleEnviron) allInstances(tagFilter tagValue) ([]*oracleInstance, err
 			Value: tagFilter.String(),
 		},
 	}
+
 	logger.Infof("Looking for instances with tags: %v", filter)
+
 	resp, err := o.client.AllInstances(filter)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	instances := []*oracleInstance{}
+	n := len(resp.Result)
+	if n == 0 {
+		return nil, environs.ErrNoInstances
+	}
+
+	instances := make([]*oracleInstance, 0, n)
 	for _, val := range resp.Result {
 		oracleInstance, err := newInstance(val, o)
 		if err != nil {
@@ -397,6 +472,7 @@ func (o *oracleEnviron) allInstances(tagFilter tagValue) ([]*oracleInstance, err
 		}
 		instances = append(instances, oracleInstance)
 	}
+
 	return instances, nil
 }
 
@@ -469,6 +545,7 @@ func (o *oracleEnviron) SetConfig(cfg *config.Config) error {
 // the returned slice will have some nil slots,
 // and an ErrPartialInstances error will be returned.
 func (o *oracleEnviron) Instances(ids []instance.Id) ([]instance.Instance, error) {
+
 	if len(ids) == 0 {
 		return nil, nil
 	}
