@@ -125,7 +125,7 @@ func testHandler(c *gc.C, batches chan<- wireformat.MetricBatch, statusMap Statu
 
 			if statusMap != nil {
 				unitName, status, info := statusMap(batch.UnitName)
-				resp.SetStatus(batch.ModelUUID, unitName, status, info)
+				resp.SetUnitStatus(batch.ModelUUID, unitName, status, info)
 			}
 
 			select {
@@ -153,7 +153,6 @@ func (s *SenderSuite) TestErrorCodes(c *gc.C) {
 	}{
 		{http.StatusBadRequest, "failed to send metrics http 400"},
 		{http.StatusServiceUnavailable, "failed to send metrics http 503"},
-		{http.StatusMovedPermanently, "failed to send metrics http 301"},
 	}
 
 	for _, test := range tests {

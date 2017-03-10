@@ -139,7 +139,7 @@ func (s *modelconfigSuite) TestSetSupport(c *gc.C) {
 			c.Check(objType, gc.Equals, "ModelConfig")
 			c.Check(id, gc.Equals, "")
 			c.Check(request, gc.Equals, "SetSLALevel")
-			c.Check(a, jc.DeepEquals, params.ModelSupport{
+			c.Check(a, jc.DeepEquals, params.ModelSLA{
 				Level:       "foobar",
 				Credentials: []byte("creds"),
 			})

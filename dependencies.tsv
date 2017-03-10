@@ -40,7 +40,7 @@ github.com/juju/pubsub	git	9dcaca7eb4340dbf685aa7b3ad4cc4f8691a33d4	2016-07-28T0
 github.com/juju/replicaset	git	6b5becf2232ce76656ea765d8d915d41755a1513	2016-11-25T16:08:49Z
 github.com/juju/retry	git	62c62032529169c7ec02fa48f93349604c345e1f	2015-10-29T02:48:21Z
 github.com/juju/rfc	git	ebdbbdb950cd039a531d15cdc2ac2cbd94f068ee	2016-07-11T02:42:13Z
-github.com/juju/romulus	git	66dcf849692cdf7410343db8333c9d0602e42a93	2017-03-08T17:47:31Z
+github.com/juju/romulus	git	433001071a128525f712cfa41ced4a2ef5c1d836	2017-03-09T17:09:27Z
 github.com/juju/schema	git	075de04f9b7d7580d60a1e12a0b3f50bb18e6998	2016-04-20T04:42:03Z
 github.com/juju/terms-client	git	9b925afd677234e4146dde3cb1a11e187cbed64e	2016-08-09T13:19:00Z
 github.com/juju/testing	git	fce9bc4ebf7a77310c262ac4884e03b778eae06a	2017-02-22T09:01:19Z
