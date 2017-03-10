@@ -20,7 +20,6 @@ import (
 	goyaml "gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/crossmodel"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	jujucrossmodel "github.com/juju/juju/core/crossmodel"
@@ -47,11 +46,10 @@ func init() {
 // API implements the application interface and is the concrete
 // implementation of the api end point.
 type API struct {
-	backend                     Backend
-	applicationOffersAPIFactory crossmodel.ApplicationOffersAPIFactory
-	authorizer                  facade.Authorizer
-	check                       BlockChecker
-	dataDir                     string
+	backend    Backend
+	authorizer facade.Authorizer
+	check      BlockChecker
+	dataDir    string
 
 	// TODO(axw) stateCharm only exists because I ran out
 	// of time unwinding all of the tendrils of state. We
@@ -88,12 +86,10 @@ func NewAPI(
 	if !authorizer.AuthClient() {
 		return nil, common.ErrPerm
 	}
-	apiFactory := resources.Get("applicationOffersApiFactory").(crossmodel.ApplicationOffersAPIFactory)
 	dataDir := resources.Get("dataDir").(common.StringResource)
 	return &API{
-		backend:                     backend,
-		authorizer:                  authorizer,
-		applicationOffersAPIFactory: apiFactory,
+		backend:    backend,
+		authorizer: authorizer,
 		check:      blockChecker,
 		stateCharm: stateCharm,
 		dataDir:    dataDir.String(),
@@ -804,34 +800,49 @@ func (api *API) processRemoteApplication(url jujucrossmodel.ApplicationURL, alia
 		return api.processSameControllerRemoteApplication(url, alias)
 	}
 
-	offersAPI, err := api.applicationOffersAPIFactory.ApplicationOffers(url.Directory)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	offers, err := offersAPI.ListOffers(params.OfferFilters{
-		Directory: url.Directory,
-		Filters: []params.OfferFilter{
-			{
-				ApplicationURL: url.String(),
-			},
-		},
-	})
-	if err != nil || offers.Error != nil {
-		return nil, errors.Trace(err)
-	}
-	// The offers query succeeded but there were no offers matching the URL.
-	if len(offers.Offers) == 0 {
-		return nil, errors.NotFoundf("application offer %q", url.String())
-	}
-
-	// Create a remote application entry in the model for the consumed service.
-	offer := offers.Offers[0]
-	sourceModelTag, err := names.ParseModelTag(offer.SourceModelTag)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	remoteApp, err := api.saveRemoteApplication(sourceModelTag, url.ApplicationName, url.ApplicationName, url.String(), offer.Endpoints)
-	return remoteApp, err
+	return nil, errors.NotSupportedf("non local application URL")
+	// TODO(wallyworld) - we want to support application offers instead of direct model access
+	//offersAPI, err := api.applicationOffersAPIFactory.ApplicationOffers(url.Directory)
+	//if err != nil {
+	//	return nil, errors.Trace(err)
+	//}
+	//offers, err := offersAPI.ListOffers(params.OfferFilters{
+	//	Directory: url.Directory,
+	//	Filters: []params.OfferFilter{
+	//		{
+	//			ApplicationURL: url.String(),
+	//		},
+	//	},
+	//})
+	//if err != nil {
+	//	return nil, errors.Trace(err)
+	//}
+	//if offers.Error != nil {
+	//	return nil, errors.Trace(offers.Error)
+	//}
+	//// The offers query succeeded but there were no offers matching the URL.
+	//if len(offers.Offers) == 0 {
+	//	return nil, errors.NotFoundf("application offer %q", url.String())
+	//}
+	//
+	//// Create a remote application entry in the model for the consumed service.
+	//offer := offers.Offers[0]
+	//sourceModelTag, err := names.ParseModelTag(offer.SourceModelTag)
+	//if err != nil {
+	//	return nil, errors.Trace(err)
+	//}
+	//var endpoints []params.RemoteEndpoint
+	//for _, ep := range offer.Endpoints {
+	//	endpoints = append(endpoints, params.RemoteEndpoint{
+	//		Name:      ep.Name,
+	//		Role:      ep.Role,
+	//		Interface: ep.Interface,
+	//		Scope:     ep.Scope,
+	//		Limit:     ep.Limit,
+	//	})
+	//}
+	//remoteApp, err := api.saveRemoteApplication(sourceModelTag, url.ApplicationName, url.ApplicationName, url.String(), endpoints)
+	//return remoteApp, err
 }
 
 func (api *API) sameControllerSourceModel(userName, modelName string) (names.ModelTag, error) {
@@ -1047,38 +1058,41 @@ func (api *API) oneRemoteApplicationInfo(urlStr string) (*params.RemoteApplicati
 		return api.sameControllerRemoteApplicationInfo(*url)
 	}
 
-	offersAPI, err := api.applicationOffersAPIFactory.ApplicationOffers(url.Directory)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	offers, err := offersAPI.ListOffers(params.OfferFilters{
-		Directory: url.Directory,
-		Filters: []params.OfferFilter{
-			{
-				ApplicationURL: url.String(),
-			},
-		},
-	})
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if offers.Error != nil {
-		return nil, errors.Trace(offers.Error)
-	}
-	// The offers query succeeded but there were no offers matching the URL.
-	if len(offers.Offers) == 0 {
-		return nil, errors.NotFoundf("application offer %q", url.String())
-	}
-	offer := offers.Offers[0]
-	return &params.RemoteApplicationInfo{
-		ModelTag:         offer.SourceModelTag,
-		Name:             offer.ApplicationName,
-		Description:      offer.ApplicationDescription,
-		ApplicationURL:   urlStr,
-		SourceModelLabel: offer.SourceLabel,
-		Endpoints:        offer.Endpoints,
-		IconURLPath:      fmt.Sprintf("rest/1.0/remote-application/%s/icon", url.ApplicationName),
-	}, nil
+	return nil, errors.NotSupportedf("non local application URL")
+
+	// TODO(wallyworld) - we want to support application offers instead of direct model access
+	//offersAPI, err := api.applicationOffersAPIFactory.ApplicationOffers(url.Directory)
+	//if err != nil {
+	//	return nil, errors.Trace(err)
+	//}
+	//offers, err := offersAPI.ListOffers(params.OfferFilters{
+	//	Directory: url.Directory,
+	//	Filters: []params.OfferFilter{
+	//		{
+	//			ApplicationURL: url.String(),
+	//		},
+	//	},
+	//})
+	//if err != nil {
+	//	return nil, errors.Trace(err)
+	//}
+	//if offers.Error != nil {
+	//	return nil, errors.Trace(offers.Error)
+	//}
+	//// The offers query succeeded but there were no offers matching the URL.
+	//if len(offers.Offers) == 0 {
+	//	return nil, errors.NotFoundf("application offer %q", url.String())
+	//}
+	//offer := offers.Offers[0]
+	//return &params.RemoteApplicationInfo{
+	//	ModelTag:         offer.SourceModelTag,
+	//	Name:             offer.ApplicationName,
+	//	Description:      offer.ApplicationDescription,
+	//	ApplicationURL:   urlStr,
+	//	SourceModelLabel: offer.SourceLabel,
+	//	Endpoints:        offer.Endpoints,
+	//	IconURLPath:      fmt.Sprintf("rest/1.0/remote-application/%s/icon", url.ApplicationName),
+	//}, nil
 }
 
 func (api *API) sameControllerRemoteApplicationInfo(url jujucrossmodel.ApplicationURL) (*params.RemoteApplicationInfo, error) {

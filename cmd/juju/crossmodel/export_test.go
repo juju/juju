@@ -23,7 +23,7 @@ func NewOfferCommandForTest(store jujuclient.ClientStore, api OfferAPI) cmd.Comm
 		return api, nil
 	}}
 	aCmd.SetClientStore(store)
-	return modelcmd.WrapController(aCmd)
+	return modelcmd.Wrap(aCmd)
 }
 
 func NewShowEndpointsCommandForTest(store jujuclient.ClientStore, api ShowAPI) cmd.Command {
@@ -31,7 +31,7 @@ func NewShowEndpointsCommandForTest(store jujuclient.ClientStore, api ShowAPI) c
 		return api, nil
 	}}
 	aCmd.SetClientStore(store)
-	return modelcmd.WrapController(aCmd)
+	return modelcmd.Wrap(aCmd)
 }
 
 func NewListEndpointsCommandForTest(store jujuclient.ClientStore, api ListAPI) cmd.Command {
@@ -39,7 +39,7 @@ func NewListEndpointsCommandForTest(store jujuclient.ClientStore, api ListAPI) c
 		return api, nil
 	}}
 	aCmd.SetClientStore(store)
-	return modelcmd.WrapController(aCmd)
+	return modelcmd.Wrap(aCmd)
 }
 
 func NewFindEndpointsCommandForTest(store jujuclient.ClientStore, api FindAPI) cmd.Command {
@@ -47,5 +47,5 @@ func NewFindEndpointsCommandForTest(store jujuclient.ClientStore, api FindAPI) c
 		return api, nil
 	}}
 	aCmd.SetClientStore(store)
-	return modelcmd.WrapController(aCmd)
+	return modelcmd.Wrap(aCmd)
 }

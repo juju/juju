@@ -7,7 +7,6 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"gopkg.in/juju/charm.v6-unstable"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -54,7 +53,7 @@ func NewFindEndpointsCommand() cmd.Command {
 	findCmd.newAPIFunc = func() (FindAPI, error) {
 		return findCmd.NewCrossModelAPI()
 	}
-	return modelcmd.WrapController(findCmd)
+	return modelcmd.Wrap(findCmd)
 }
 
 // Init implements Command.Init.
@@ -115,16 +114,14 @@ func (c *findCommand) Run(ctx *cmd.Context) (err error) {
 	defer api.Close()
 
 	filter := crossmodel.ApplicationOfferFilter{
-		ApplicationOffer: crossmodel.ApplicationOffer{
-			ApplicationURL: c.url,
-		},
+		ApplicationURL: c.url,
 		// TODO(wallyworld): allowed users
 		// TODO(wallyworld): charm
 		// TODO(wallyworld): user
 		// TODO(wallyworld): author
 	}
 	if c.interfaceName != "" || c.endpoint != "" {
-		filter.Endpoints = []charm.Relation{{
+		filter.Endpoints = []crossmodel.EndpointFilterTerm{{
 			Interface: c.interfaceName,
 			Name:      c.endpoint,
 		}}
@@ -134,7 +131,7 @@ func (c *findCommand) Run(ctx *cmd.Context) (err error) {
 		return err
 	}
 
-	output, err := convertFoundServices(found...)
+	output, err := convertFoundOffers(found...)
 	if err != nil {
 		return err
 	}
@@ -157,16 +154,16 @@ type RemoteApplicationResult struct {
 	Endpoints map[string]RemoteEndpoint `yaml:"endpoints" json:"endpoints"`
 }
 
-// convertFoundServices takes any number of api-formatted remote applications and
-// creates a collection of ui-formatted services.
-func convertFoundServices(services ...params.ApplicationOffer) (map[string]RemoteApplicationResult, error) {
+// convertFoundOffers takes any number of api-formatted remote applications and
+// creates a collection of ui-formatted applications.
+func convertFoundOffers(services ...params.ApplicationOffer) (map[string]RemoteApplicationResult, error) {
 	if len(services) == 0 {
 		return nil, nil
 	}
 	output := make(map[string]RemoteApplicationResult, len(services))
 	for _, one := range services {
-		service := RemoteApplicationResult{Endpoints: convertRemoteEndpoints(one.Endpoints...)}
-		output[one.ApplicationURL] = service
+		app := RemoteApplicationResult{Endpoints: convertRemoteEndpoints(one.Endpoints...)}
+		output[one.ApplicationURL] = app
 	}
 	return output, nil
 }

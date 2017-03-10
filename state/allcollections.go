@@ -418,15 +418,6 @@ func allCollections() collectionSchema {
 			applicationOffersC: {
 				indexes: []mgo.Index{{Key: []string{"model-uuid", "url"}}},
 			},
-			// This collection holds information about applications that have been
-			// offered (exported) for use in other models managed by the same
-			// host controller.
-			localApplicationDirectoryC: {
-				global: true,
-				indexes: []mgo.Index{{
-					Key: []string{"url"},
-				}},
-			},
 			remoteApplicationsC: {},
 			// remoteEntitiesC holds information about entities involved in
 			// cross-model relations.
@@ -528,9 +519,8 @@ const (
 	// "resources" (see resource/persistence/mongo.go)
 
 	// Cross model relations
-	localApplicationDirectoryC = "localapplicationdirectory"
-	applicationOffersC         = "applicationOffers"
-	remoteApplicationsC        = "remoteApplications"
-	remoteEntitiesC            = "remoteEntities"
-	tokensC                    = "tokens"
+	applicationOffersC  = "applicationOffers"
+	remoteApplicationsC = "remoteApplications"
+	remoteEntitiesC     = "remoteEntities"
+	tokensC             = "tokens"
 )

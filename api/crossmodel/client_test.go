@@ -43,14 +43,13 @@ func (s *crossmodelMockSuite) TestOffer(c *gc.C) {
 			c.Check(id, gc.Equals, "")
 			c.Check(request, gc.Equals, "Offer")
 
-			args, ok := a.(params.ApplicationOffersParams)
+			args, ok := a.(params.AddApplicationOffers)
 			c.Assert(ok, jc.IsTrue)
 			c.Assert(args.Offers, gc.HasLen, 1)
 
 			offer := args.Offers[0]
-			c.Assert(offer.ModelTag, gc.Equals, "model-uuid")
 			c.Assert(offer.ApplicationName, gc.DeepEquals, application)
-			c.Assert(offer.Endpoints, jc.SameContents, []string{endPointA, endPointB})
+			c.Assert(offer.Endpoints, jc.DeepEquals, map[string]string{endPointA: endPointA, endPointB: endPointB})
 			c.Assert(offer.ApplicationURL, gc.DeepEquals, url)
 			c.Assert(offer.ApplicationDescription, gc.DeepEquals, desc)
 
@@ -66,13 +65,13 @@ func (s *crossmodelMockSuite) TestOffer(c *gc.C) {
 		})
 
 	client := crossmodel.NewClient(apiCaller)
-	results, err := client.Offer("uuid", application, []string{endPointA, endPointB}, url, desc)
+	results, err := client.Offer(application, []string{endPointA, endPointB}, url, desc)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.HasLen, 2)
 	c.Assert(results, jc.DeepEquals,
 		[]params.ErrorResult{
-			params.ErrorResult{},
-			params.ErrorResult{Error: common.ServerError(errors.New(msg))},
+			{},
+			{Error: common.ServerError(errors.New(msg))},
 		})
 }
 
@@ -91,7 +90,7 @@ func (s *crossmodelMockSuite) TestOfferFacadeCallError(c *gc.C) {
 			return errors.New(msg)
 		})
 	client := crossmodel.NewClient(apiCaller)
-	results, err := client.Offer("", "", nil, "", "")
+	results, err := client.Offer("", nil, "", "")
 	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
 	c.Assert(results, gc.IsNil)
 }
@@ -101,8 +100,8 @@ func (s *crossmodelMockSuite) TestShow(c *gc.C) {
 
 	desc := "IBM DB2 Express Server Edition is an entry level database system"
 	endpoints := []params.RemoteEndpoint{
-		params.RemoteEndpoint{Name: "db2", Interface: "db2", Role: charm.RoleProvider},
-		params.RemoteEndpoint{Name: "log", Interface: "http", Role: charm.RoleRequirer},
+		{Name: "db2", Interface: "db2", Role: charm.RoleProvider},
+		{Name: "log", Interface: "http", Role: charm.RoleRequirer},
 	}
 	applicationTag := "application-hosted-db2"
 
@@ -187,8 +186,8 @@ func (s *crossmodelMockSuite) TestShowMultiple(c *gc.C) {
 
 	desc := "IBM DB2 Express Server Edition is an entry level database system"
 	endpoints := []params.RemoteEndpoint{
-		params.RemoteEndpoint{Name: "db2", Interface: "db2", Role: charm.RoleProvider},
-		params.RemoteEndpoint{Name: "log", Interface: "http", Role: charm.RoleRequirer},
+		{Name: "db2", Interface: "db2", Role: charm.RoleProvider},
+		{Name: "log", Interface: "http", Role: charm.RoleRequirer},
 	}
 	applicationTag := "application-hosted-db2"
 
@@ -260,14 +259,12 @@ func (s *crossmodelMockSuite) TestFind(c *gc.C) {
 	applicationName := fmt.Sprintf("hosted-%s", charmName)
 	url := fmt.Sprintf("%s:/u/fred/%s", directoryName, applicationName)
 	endpoints := []params.RemoteEndpoint{{Name: "endPointA"}}
-	relations := []charm.Relation{{Name: "endPointA", Interface: "http"}}
+	relations := []model.EndpointFilterTerm{{Name: "endPointA", Interface: "http"}}
 
 	filter := model.ApplicationOfferFilter{
-		ApplicationOffer: model.ApplicationOffer{
-			ApplicationURL:  fmt.Sprintf("%s:/u/fred/%s", directoryName, applicationName),
-			ApplicationName: fmt.Sprintf("hosted-%s", charmName),
-			Endpoints:       relations,
-		},
+		ApplicationURL:  fmt.Sprintf("%s:/u/fred/%s", directoryName, applicationName),
+		ApplicationName: fmt.Sprintf("hosted-%s", charmName),
+		Endpoints:       relations,
 	}
 
 	called := false
@@ -282,18 +279,17 @@ func (s *crossmodelMockSuite) TestFind(c *gc.C) {
 			c.Check(request, gc.Equals, "FindApplicationOffers")
 
 			called = true
-			args, ok := a.(params.OfferFilterParams)
+			args, ok := a.(params.OfferFilters)
 			c.Assert(ok, jc.IsTrue)
 			c.Assert(args.Filters, gc.HasLen, 1)
-			c.Assert(args.Filters[0].Directory, gc.Equals, "local")
-			c.Assert(args.Filters[0].Filters, jc.DeepEquals, []params.OfferFilter{{
+			c.Assert(args.Filters[0], jc.DeepEquals, params.OfferFilter{
 				ApplicationURL:  filter.ApplicationURL,
 				ApplicationName: filter.ApplicationName,
 				Endpoints: []params.EndpointFilterAttributes{{
 					Name:      "endPointA",
 					Interface: "http",
 				}},
-			}})
+			})
 
 			if results, ok := result.(*params.FindApplicationOffersResults); ok {
 				offer := params.ApplicationOffer{
@@ -301,11 +297,8 @@ func (s *crossmodelMockSuite) TestFind(c *gc.C) {
 					ApplicationName: applicationName,
 					Endpoints:       endpoints,
 				}
-				results.Results = []params.ApplicationOfferResults{{
-					Offers: []params.ApplicationOffer{offer},
-				}}
+				results.Results = []params.ApplicationOffer{offer}
 			}
-
 			return nil
 		})
 
@@ -336,35 +329,6 @@ func (s *crossmodelMockSuite) TestFindNoFilter(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "at least one filter must be specified")
 }
 
-func (s *crossmodelMockSuite) TestFindMultipleResults(c *gc.C) {
-	called := false
-	apiCaller := basetesting.APICallerFunc(
-		func(objType string,
-			version int,
-			id, request string,
-			a, result interface{},
-		) error {
-			c.Check(objType, gc.Equals, "CrossModelRelations")
-			c.Check(id, gc.Equals, "")
-			c.Check(request, gc.Equals, "FindApplicationOffers")
-
-			called = true
-			if results, ok := result.(*params.FindApplicationOffersResults); ok {
-				results.Results = []params.ApplicationOfferResults{{}, {}}
-			}
-
-			return nil
-		})
-
-	client := crossmodel.NewClient(apiCaller)
-	filter := model.ApplicationOfferFilter{
-		ApplicationOffer: model.ApplicationOffer{ApplicationURL: "local:"},
-	}
-	_, err := client.FindApplicationOffers(filter)
-	c.Assert(errors.Cause(err), gc.ErrorMatches, ".*expected to find one result but found 2.*")
-	c.Assert(called, jc.IsTrue)
-}
-
 func (s *crossmodelMockSuite) TestFindError(c *gc.C) {
 	msg := "find failure"
 	called := false
@@ -379,18 +343,12 @@ func (s *crossmodelMockSuite) TestFindError(c *gc.C) {
 			c.Check(request, gc.Equals, "FindApplicationOffers")
 
 			called = true
-			if results, ok := result.(*params.FindApplicationOffersResults); ok {
-				results.Results = []params.ApplicationOfferResults{{
-					Error: common.ServerError(errors.New(msg)),
-				}}
-			}
-
-			return nil
+			return errors.New(msg)
 		})
 
 	client := crossmodel.NewClient(apiCaller)
 	filter := model.ApplicationOfferFilter{
-		ApplicationOffer: model.ApplicationOffer{ApplicationURL: "local:"},
+		ApplicationURL: "local:",
 	}
 	_, err := client.FindApplicationOffers(filter)
 	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
@@ -413,7 +371,7 @@ func (s *crossmodelMockSuite) TestFindFacadeCallError(c *gc.C) {
 		})
 	client := crossmodel.NewClient(apiCaller)
 	filter := model.ApplicationOfferFilter{
-		ApplicationOffer: model.ApplicationOffer{ApplicationURL: "local:"},
+		ApplicationURL: "local:",
 	}
 	results, err := client.FindApplicationOffers(filter)
 	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)

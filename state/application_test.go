@@ -1169,10 +1169,21 @@ func (s *ApplicationSuite) TestMysqlEndpoints(c *gc.C) {
 			Scope:     charm.ScopeGlobal,
 		},
 	})
+	serverAdminEP, err := s.mysql.Endpoint("server-admin")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(serverAdminEP, gc.DeepEquals, state.Endpoint{
+		ApplicationName: "mysql",
+		Relation: charm.Relation{
+			Interface: "mysql-root",
+			Name:      "server-admin",
+			Role:      charm.RoleProvider,
+			Scope:     charm.ScopeGlobal,
+		},
+	})
 
 	eps, err := s.mysql.Endpoints()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(eps, gc.DeepEquals, []state.Endpoint{jiEP, serverEP})
+	c.Assert(eps, jc.SameContents, []state.Endpoint{jiEP, serverEP, serverAdminEP})
 }
 
 func (s *ApplicationSuite) TestRiakEndpoints(c *gc.C) {

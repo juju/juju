@@ -12,11 +12,11 @@ import (
 	"github.com/juju/juju/testing"
 )
 
-type applicationDirectorySuite struct {
+type applicationOffersSuite struct {
 	testing.BaseSuite
 }
 
-var _ = gc.Suite(&applicationDirectorySuite{})
+var _ = gc.Suite(&applicationOffersSuite{})
 
 type mockApplicationOfferLister struct {
 	results []crossmodel.ApplicationOffer
@@ -26,7 +26,7 @@ func (m *mockApplicationOfferLister) ListOffers(directory string, filter ...cros
 	return m.results, nil
 }
 
-func (s *applicationDirectorySuite) TestServiceForURL(c *gc.C) {
+func (s *applicationOffersSuite) TestServiceForURL(c *gc.C) {
 	offers := []crossmodel.ApplicationOffer{
 		{
 			ApplicationURL:  "local:/u/user/applicationname",
@@ -39,7 +39,7 @@ func (s *applicationDirectorySuite) TestServiceForURL(c *gc.C) {
 	c.Assert(result, jc.DeepEquals, offers[0])
 }
 
-func (s *applicationDirectorySuite) TestServiceForURLNoneOrNoAccess(c *gc.C) {
+func (s *applicationOffersSuite) TestServiceForURLNoneOrNoAccess(c *gc.C) {
 	offerLister := &mockApplicationOfferLister{[]crossmodel.ApplicationOffer{}}
 	_, err := crossmodel.ApplicationOfferForURL(offerLister, "local:/u/user/applicationname", "foo")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
