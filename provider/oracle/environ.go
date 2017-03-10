@@ -405,6 +405,7 @@ func (o *oracleEnviron) getOracleInstances(ids ...instance.Id) ([]*oracleInstanc
 		// continue if one of the
 		// instance given is not found
 		if found == false {
+			ret = append(ret, nil)
 			nills++
 			continue
 		}
@@ -433,8 +434,9 @@ func (o *oracleEnviron) AllInstances() ([]instance.Instance, error) {
 	tagFilter := tagValue{tags.JujuModel, o.Config().UUID()}
 	instances, err := o.allInstances(tagFilter)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, err
 	}
+
 	ret := make([]instance.Instance, len(instances))
 	for i, val := range instances {
 		ret[i] = val
