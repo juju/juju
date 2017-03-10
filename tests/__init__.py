@@ -82,6 +82,10 @@ class TestCase(unittest.TestCase):
         return context.__enter__()
 
 
+if getattr(TestCase, 'assertItemsEqual', None) is None:
+    TestCase.assertItemsEqual = TestCase.assertCountEqual
+
+
 class FakeHomeTestCase(TestCase):
     """FakeHomeTestCase creates an isolated home dir for Juju to use."""
 

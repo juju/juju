@@ -1,7 +1,10 @@
 import logging
 from argparse import Namespace
 from mock import Mock, patch, call
-import StringIO
+try:
+    from StringIO import StringIO
+except ImportError:
+    from io import StringIO
 
 from assess_resources import (
     assess_resources,
@@ -11,6 +14,7 @@ from assess_resources import (
     main,
     verify_status,
 )
+from jujupy.tests.test_client import make_resource_list
 from tests import (
     parse_error,
     TestCase,
@@ -33,7 +37,7 @@ class TestParseArgs(TestCase):
         self.assertEqual(False, args.debug)
 
     def test_help(self):
-        fake_stdout = StringIO.StringIO()
+        fake_stdout = StringIO()
         with parse_error(self) as fake_stderr:
             with patch("sys.stdout", fake_stdout):
                 parse_args(["--help"])
@@ -223,21 +227,6 @@ def make_args():
         region=None, resource_timeout=1800, series=None, to=None,
         temp_env_name='an-env-mod', upload_tools=False, verbose=10,
         deadline=None,)
-
-
-def make_resource_list(service_app_id='applicationId'):
-    return {'resources': [{
-        'expected': {
-            'origin': 'upload', 'used': True, 'description': 'foo resource.',
-            'username': 'admin', 'resourceid': 'dummy-resource/foo',
-            'name': 'foo', service_app_id: 'dummy-resource', 'size': 27,
-            'fingerprint': '1234', 'type': 'file', 'path': 'foo.txt'},
-        'unit': {
-            'origin': 'upload', 'username': 'admin', 'used': True,
-            'name': 'foo', 'resourceid': 'dummy-resource/foo',
-            service_app_id: 'dummy-resource', 'fingerprint': '1234',
-            'path': 'foo.txt', 'size': 27, 'type': 'file',
-            'description': 'foo resource.'}}]}
 
 
 class FakeFile:

@@ -390,7 +390,7 @@ class PromptingExpectChild(FakeExpectChild):
         if type(pattern) is not list:
             pattern = [pattern]
         try:
-            prompt = self.prompts.next()
+            prompt = next(self.prompts)
         except StopIteration:
             if pexpect.EOF not in pattern:
                 raise

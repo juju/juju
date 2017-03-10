@@ -9,7 +9,10 @@ import json
 import logging
 import os
 import socket
-import StringIO
+try:
+    from StringIO import StringIO
+except ImportError:
+    from io import StringIO
 import subprocess
 import sys
 from textwrap import dedent
@@ -99,7 +102,6 @@ from tests import (
     observable_temp_file,
     TestCase,
     )
-from tests.test_assess_resources import make_resource_list
 from jujupy.utility import (
     JujuResourceTimeout,
     scoped_environ,
@@ -301,7 +303,7 @@ class TestJuju2Backend(TestCase):
                                soft_deadline=None)
         with patch('subprocess.Popen') as mock_popen:
             mock_popen.return_value.communicate.return_value = (
-                'ctrl1:user1/model1\n', '')
+                'ctrl1:user1/model1\n'.encode('ascii'), '')
             mock_popen.return_value.returncode = 0
             result = backend.get_active_model('/foo/bar')
         self.assertEqual(('ctrl1', 'user1', 'model1'), result)
@@ -365,6 +367,21 @@ class TestWaitMachineNotPresent(ClientTest):
         with self.assertRaisesRegexp(
                 Exception, 'Timed out waiting for machine removal 0'):
             not_present.do_raise('', None)
+
+
+def make_resource_list(service_app_id='applicationId'):
+    return {'resources': [{
+        'expected': {
+            'origin': 'upload', 'used': True, 'description': 'foo resource.',
+            'username': 'admin', 'resourceid': 'dummy-resource/foo',
+            'name': 'foo', service_app_id: 'dummy-resource', 'size': 27,
+            'fingerprint': '1234', 'type': 'file', 'path': 'foo.txt'},
+        'unit': {
+            'origin': 'upload', 'username': 'admin', 'used': True,
+            'name': 'foo', 'resourceid': 'dummy-resource/foo',
+            service_app_id: 'dummy-resource', 'fingerprint': '1234',
+            'path': 'foo.txt', 'size': 27, 'type': 'file',
+            'description': 'foo resource.'}}]}
 
 
 class TestModelClient(ClientTest):
@@ -1147,7 +1164,7 @@ class TestModelClient(ClientTest):
                 units:
                   jenkins/0:
                     {0}: {2}
-        """.format(key, machine_value, unit_value))
+        """.format(key, machine_value, unit_value)).encode('ascii')
 
     def test_deploy_non_joyent(self):
         env = ModelClient(
@@ -2272,7 +2289,8 @@ class TestModelClient(ClientTest):
             client.wait_for_ha()
 
     def test_wait_for_ha_no_has_vote(self):
-        value = yaml.safe_dump(self.make_ha_status(voting='no-vote'))
+        value = yaml.safe_dump(
+            self.make_ha_status(voting='no-vote')).encode('ascii')
         client = self.make_controller_client()
         with patch.object(client, 'get_juju_output', return_value=value):
             writes = []
@@ -2463,7 +2481,7 @@ class TestModelClient(ClientTest):
                 '0': {'agent-state': 'started'},
                 '1': {'agent-state': 'started'},
             },
-        })
+        }).encode('ascii')
         client = ModelClient(JujuData('local'), None, None)
         with patch.object(client, 'get_juju_output', return_value=value), \
             patch('jujupy.client.until_timeout',
@@ -5691,7 +5709,7 @@ class TestDescribeSubstrate(TestCase):
 class TestGroupReporter(TestCase):
 
     def test_single(self):
-        sio = StringIO.StringIO()
+        sio = StringIO()
         reporter = GroupReporter(sio, "done")
         self.assertEqual(sio.getvalue(), "")
         reporter.update({"working": ["1"]})
@@ -5700,7 +5718,7 @@ class TestGroupReporter(TestCase):
         self.assertEqual(sio.getvalue(), "working: 1\n")
 
     def test_single_ticks(self):
-        sio = StringIO.StringIO()
+        sio = StringIO()
         reporter = GroupReporter(sio, "done")
         reporter.update({"working": ["1"]})
         self.assertEqual(sio.getvalue(), "working: 1")
@@ -5712,7 +5730,7 @@ class TestGroupReporter(TestCase):
         self.assertEqual(sio.getvalue(), "working: 1 ..\n")
 
     def test_multiple_values(self):
-        sio = StringIO.StringIO()
+        sio = StringIO()
         reporter = GroupReporter(sio, "done")
         reporter.update({"working": ["1", "2"]})
         self.assertEqual(sio.getvalue(), "working: 1, 2")
@@ -5722,7 +5740,7 @@ class TestGroupReporter(TestCase):
         self.assertEqual(sio.getvalue(), "working: 1, 2\nworking: 1\n")
 
     def test_multiple_groups(self):
-        sio = StringIO.StringIO()
+        sio = StringIO()
         reporter = GroupReporter(sio, "done")
         reporter.update({"working": ["1", "2"], "starting": ["3"]})
         first = "starting: 3 | working: 1, 2"
@@ -5734,7 +5752,7 @@ class TestGroupReporter(TestCase):
         self.assertEqual(sio.getvalue(), "\n".join([first, second, ""]))
 
     def test_finish(self):
-        sio = StringIO.StringIO()
+        sio = StringIO()
         reporter = GroupReporter(sio, "done")
         self.assertEqual(sio.getvalue(), "")
         reporter.update({"working": ["1"]})
@@ -5743,14 +5761,14 @@ class TestGroupReporter(TestCase):
         self.assertEqual(sio.getvalue(), "working: 1\n")
 
     def test_finish_unchanged(self):
-        sio = StringIO.StringIO()
+        sio = StringIO()
         reporter = GroupReporter(sio, "done")
         self.assertEqual(sio.getvalue(), "")
         reporter.finish()
         self.assertEqual(sio.getvalue(), "")
 
     def test_wrap_to_width(self):
-        sio = StringIO.StringIO()
+        sio = StringIO()
         reporter = GroupReporter(sio, "done")
         self.assertEqual(sio.getvalue(), "")
         for _ in range(150):
@@ -5763,7 +5781,7 @@ working: 1 ....................................................................
 """)
 
     def test_wrap_to_width_exact(self):
-        sio = StringIO.StringIO()
+        sio = StringIO()
         reporter = GroupReporter(sio, "done")
         reporter.wrap_width = 12
         self.assertEqual(sio.getvalue(), "")
@@ -5782,7 +5800,7 @@ working: 1 ....................................................................
         self.assertEqual(sio.getvalue(), changes[-1] + "\n")
 
     def test_wrap_to_width_overflow(self):
-        sio = StringIO.StringIO()
+        sio = StringIO()
         reporter = GroupReporter(sio, "done")
         reporter.wrap_width = 8
         self.assertEqual(sio.getvalue(), "")
@@ -5800,7 +5818,7 @@ working: 1 ....................................................................
         self.assertEqual(sio.getvalue(), changes[-1] + "\n")
 
     def test_wrap_to_width_multiple_groups(self):
-        sio = StringIO.StringIO()
+        sio = StringIO()
         reporter = GroupReporter(sio, "done")
         reporter.wrap_width = 16
         self.assertEqual(sio.getvalue(), "")

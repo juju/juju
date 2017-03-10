@@ -4,3 +4,4 @@
 /logs
 /repository
 ./.coverage
+__pycache__

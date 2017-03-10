@@ -987,7 +987,7 @@ class Status:
 
     def get_unit(self, unit_name):
         """Return metadata about a unit."""
-        for service in sorted(self.get_applications().values()):
+        for name, service in sorted(self.get_applications().items()):
             if unit_name in service.get('units', {}):
                 return service['units'][unit_name]
         raise KeyError(unit_name)
@@ -996,8 +996,8 @@ class Status:
         """Return subordinate metadata for a service_name."""
         services = self.get_applications()
         if service_name in services:
-            for unit in sorted(services[service_name].get(
-                    'units', {}).values()):
+            for name, unit in sorted(services[service_name].get(
+                    'units', {}).items()):
                 for sub_name, sub in unit.get('subordinates', {}).items():
                     yield sub_name, sub
 
@@ -2364,7 +2364,7 @@ class ModelClient:
                 if status is None:
                     continue
                 states.setdefault(status, []).append(machine)
-            if states.keys() == [desired_state]:
+            if list(states.keys()) == [desired_state]:
                 if len(states.get(desired_state, [])) >= 3:
                     return None
             return states
