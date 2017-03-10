@@ -304,7 +304,7 @@ def bootstrap_and_test(bootstrap_manager, bundle_path, machine):
         client.wait_for_started()
         client.wait_for_workloads()
         # Deploy the frontend to a container and bind all to one space.
-        client.deploy('./xenial/frontend',
+        client.deploy('./xenial/frontend', series='xenial',
                       bind=space_data, to='lxd:2', alias='adminsite')
         client.wait_for_started()
         client.wait_for_workloads()
