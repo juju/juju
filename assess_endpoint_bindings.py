@@ -226,6 +226,10 @@ def create_test_charms():
                 "constraints": "spaces={},{}".format(space_data, space_public),
                 "series": "xenial",
             },
+            "2": {
+                "constraints": "spaces={},{}".format(space_data, space_public),
+                "series": "xenial",
+            },
         },
         "services": {
             "datastore": {
@@ -245,6 +249,15 @@ def create_test_charms():
                 "bindings": {
                     "website": space_public,
                     "datastore": space_data,
+                },
+            },
+            "monitor": {
+                "charm": "./xenial/datastore",
+                "series": "xenial",
+                "num_units": 1,
+                "to": ["2"],
+                "bindings": {
+                    "": space_data,
                 },
             },
         },

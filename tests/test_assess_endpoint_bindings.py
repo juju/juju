@@ -10,6 +10,7 @@ import StringIO
 
 from assess_endpoint_bindings import (
     bootstrap_and_test,
+    create_test_charms,
     ensure_spaces,
     parse_args,
     machine_spaces_for_bundle,
@@ -160,6 +161,17 @@ class TestMachineSpacesForBundle(TestCase):
 
 
 class AssessEndpointBindings(TestCase):
+
+    def test_create_test_charms(self):
+        bundle, charms = create_test_charms()
+        self.assertEqual(
+            ['0', '1', '2'],
+            sorted(bundle['machines'].keys()))
+        self.assertEqual(
+            ['datastore', 'frontend', 'monitor'],
+            sorted(bundle['services'].keys()))
+        self.assertEqual('datastore', charms[0].metadata['name'])
+        self.assertEqual('frontend', charms[1].metadata['name'])
 
     def test_bootstrap_and_test(self):
         juju_data = JujuData(
