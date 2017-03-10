@@ -194,8 +194,8 @@ class AssessEndpointBindings(TestCase):
                 self.assertIsTrue(os.path.exists(archived_bundle))
         self.assertEqual(
             [call(bundle_path),
-             call('./xenial/frontend',
-                  bind='endpoint-bindings-data', alias='adminsite')],
+             call('./xenial/frontend', bind='endpoint-bindings-data',
+                  to='lxd:2', alias='adminsite')],
             client.deploy.mock_calls)
         self.assertEqual(2, client.wait_for_started.call_count)
         self.assertEqual(2, client.wait_for_workloads.call_count)
