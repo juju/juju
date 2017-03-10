@@ -1052,7 +1052,7 @@ class FakeBootstrapManager:
         self.torn_down = True
 
     @contextmanager
-    def booted_context(self, upload_tools):
+    def booted_context(self, upload_tools, **kwargs):
         with self.top_context() as machines:
             with self.bootstrap_context(machines):
                 self.client.bootstrap(upload_tools)

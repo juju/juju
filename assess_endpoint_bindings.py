@@ -7,6 +7,7 @@ import argparse
 import contextlib
 import logging
 import os
+import shutil
 import sys
 import yaml
 
@@ -226,6 +227,10 @@ def create_test_charms():
                 "constraints": "spaces={},{}".format(space_data, space_public),
                 "series": "xenial",
             },
+            "2": {
+                "constraints": "spaces={},{}".format(space_data, space_public),
+                "series": "xenial",
+            },
         },
         "services": {
             "datastore": {
@@ -245,6 +250,15 @@ def create_test_charms():
                 "bindings": {
                     "website": space_public,
                     "datastore": space_data,
+                },
+            },
+            "monitor": {
+                "charm": "./xenial/datastore",
+                "series": "xenial",
+                "num_units": 1,
+                "to": ["2"],
+                "bindings": {
+                    "": space_data,
                 },
             },
         },
@@ -281,6 +295,7 @@ def machine_spaces_for_bundle(bundle):
 
 
 def bootstrap_and_test(bootstrap_manager, bundle_path, machine):
+    shutil.copy(bundle_path, bootstrap_manager.log_dir)
     with bootstrap_manager.booted_context(False, no_gui=True):
         client = bootstrap_manager.client
         log.info("Deploying bundle.")

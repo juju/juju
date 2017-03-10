@@ -1233,6 +1233,12 @@ class TestModelClient(ClientTest):
         mock_juju.assert_called_with(
             'deploy', ('mondogb', '--constraints', 'virt-type=kvm'))
 
+    def test_deploy_bind(self):
+        env = ModelClient(JujuData('foo', {'type': 'local'}), None, None)
+        with patch.object(env, 'juju') as mock_juju:
+            env.deploy('mydb', bind='backspace')
+        mock_juju.assert_called_with('deploy', ('mydb', '--bind', 'backspace'))
+
     def test_deploy_aliased(self):
         env = ModelClient(JujuData('foo', {'type': 'local'}), None, None)
         with patch.object(env, 'juju') as mock_juju:
