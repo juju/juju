@@ -199,6 +199,7 @@ func (s *ApplicationSuite) TestSetCharmUpdatesBindings(c *gc.C) {
 		Name:  "yoursql",
 		Charm: oldCharm,
 		EndpointBindings: map[string]string{
+			"":       "db",
 			"server": "db",
 			"client": "client",
 		}})
@@ -212,13 +213,14 @@ func (s *ApplicationSuite) TestSetCharmUpdatesBindings(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(updatedBindings, jc.DeepEquals, map[string]string{
 		// Existing bindings are preserved.
+		"":        "db",
 		"server":  "db",
 		"client":  "client",
-		"cluster": "", // inherited from defaults in AddService.
-		// New endpoints use empty defaults.
-		"foo":  "",
-		"baz":  "",
-		"just": "",
+		"cluster": "db", // inherited from defaults in AddService.
+		// New endpoints use defaults.
+		"foo":  "db",
+		"baz":  "db",
+		"just": "db",
 	})
 }
 
