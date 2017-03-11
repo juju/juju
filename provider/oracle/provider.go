@@ -5,11 +5,11 @@ package oracle
 
 import (
 	"github.com/juju/errors"
+	oci "github.com/juju/go-oracle-cloud/api"
 	"github.com/juju/jsonschema"
 	"github.com/juju/loggo"
 	"github.com/juju/schema"
 
-	oci "github.com/juju/go-oracle-cloud/api"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -23,12 +23,9 @@ const (
 
 // environProvider type implements environs.EnvironProvider interface
 // this will represent a computing and storage provider of the orcale cloud
-// alongiside environs.EnvironProvider this implements config.Validator interface and
-// environs.ProviderCredentials also.
-type environProvider struct {
-	// client for oracle cloud api connection
-	client *oci.Client
-}
+// alongiside environs.EnvironProvider this implements
+// config.Validator interface and environs.ProviderCredentials also
+type environProvider struct{}
 
 // CloudSchema returns the schema used to validate input for add-cloud.  Since
 // this provider does support custom clouds, this always returns non-nil
@@ -69,15 +66,21 @@ func (e environProvider) Ping(endpoint string) error {
 // PrepareConfig prepares the configuration for the new model, based on
 // the provided arguments. PrepareConfig is expected to produce a
 // deterministic output
-func (e environProvider) PrepareConfig(config environs.PrepareConfigParams) (*config.Config, error) {
+func (e environProvider) PrepareConfig(
+	config environs.PrepareConfigParams,
+) (*config.Config, error) {
+
 	if err := e.validateCloudSpec(config.Cloud); err != nil {
 		return nil, errors.Annotatef(err, "validating cloud spec")
 	}
+
 	return config.Config, nil
 }
 
-// validateCloudSpec will try and see if the config cloud that is generated is on point with the cloudspec.
+// validateCloudSpec will try and see if the config
+// cloud that is generated is on point with the cloudspec.
 func (e environProvider) validateCloudSpec(spec environs.CloudSpec) error {
+
 	// also every spec has a internal validate function
 	// so we must call it in order to know if everything is ok in this state
 	if err := spec.Validate(); err != nil {
@@ -102,12 +105,16 @@ func (e environProvider) validateCloudSpec(spec environs.CloudSpec) error {
 	return nil
 }
 
-// Open opens the oracle environment complaint with Juju and returns it. The configuration must have
-// passed through PrepareConfig at some point in its lifecycle.
-//
+// Open opens the oracle environment complaint with Juju and returns it.
+// The configuration must have passed through PrepareConfig
+// at some point in its lifecycle.
 // This operation is not performing any expensive operation.
-func (e *environProvider) Open(params environs.OpenParams) (environs.Environ, error) {
+func (e *environProvider) Open(
+	params environs.OpenParams,
+) (environs.Environ, error) {
+
 	logger.Debugf("opening model %q", params.Config.Name())
+
 	if err := e.validateCloudSpec(params.Cloud); err != nil {
 		return nil, errors.Annotatef(err, "validating cloud spec")
 	}
@@ -121,29 +128,25 @@ func (e *environProvider) Open(params environs.OpenParams) (environs.Environ, er
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	err = cli.Authenticate()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	e.client = cli
 
-	environ, err := newOracleEnviron(e, params, cli)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	return environ, nil
+	return newOracleEnviron(e, params, cli)
 }
 
 // Validate method will validate model configuration
-// This will ensure that the config passed is a valid configuration for the oracle cloud.
-// If old is not nil, Validate should use it to determine whether a configuration change is valid.
-func (e environProvider) Validate(cfg, old *config.Config) (valid *config.Config, err error) {
+// This will ensure that the config passed is a valid
+// configuration for the oracle cloud. If old is not nil, Validate
+// should use it to determine whether a configuration change is valid.
+func (e environProvider) Validate(
+	cfg, old *config.Config,
+) (valid *config.Config, err error) {
+
 	if err := config.Validate(cfg, old); err != nil {
 		return nil, err
 	}
 
-	newAttrs, err := cfg.ValidateUnknownAttrs(schema.Fields{}, schema.Defaults{})
+	newAttrs, err := cfg.ValidateUnknownAttrs(
+		schema.Fields{}, schema.Defaults{},
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -151,7 +154,8 @@ func (e environProvider) Validate(cfg, old *config.Config) (valid *config.Config
 	return cfg.Apply(newAttrs)
 }
 
-// CredentialSchemas returns credential schemas, keyed on authentication type. This is used to validate existing oracle credentials, or to generate new ones.
+// CredentialSchemas returns credential schemas, keyed on authentication type.
+// This is used to validate existing oracle credentials, or to generate new ones.
 func (e environProvider) CredentialSchemas() map[cloud.AuthType]cloud.CredentialSchema {
 	return map[cloud.AuthType]cloud.CredentialSchema{
 		cloud.UserPassAuthType: {{
@@ -171,8 +175,11 @@ func (e environProvider) CredentialSchemas() map[cloud.AuthType]cloud.Credential
 	}
 }
 
-// DetectCredentials automatically detects one or more oracle credentials from the environmnet. This may involve, for example inspecting environmnet variables, or reading configuration files in well-defined locations.
-// If no credentials can be detected, the func will return an error satisfying errors.IsNotFound
+// DetectCredentials automatically detects one or more
+// oracle credentials from the environmnet. This may involve, for example
+// inspecting environmnet variables, or reading configuration
+// files in well-defined locations. If no credentials can be detected,
+// the func will return an error satisfying errors.IsNotFound
 func (e environProvider) DetectCredentials() (*cloud.CloudCredential, error) {
 	return nil, errors.NotFoundf("credentials")
 }

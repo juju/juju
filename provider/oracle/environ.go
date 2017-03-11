@@ -30,12 +30,22 @@ import (
 // oracleEnviron implements the environs.Environ interface
 // and has behaviour specific that the interface provides.
 type oracleEnviron struct {
-	mutex     *sync.Mutex
-	p         *environProvider
-	spec      environs.CloudSpec
-	cfg       *config.Config
-	client    *oci.Client
-	fw        *Firewall
+	// mutex for synchronising stuff
+	mutex *sync.Mutex
+
+	// p is the internal envirnon provider
+	p *environProvider
+	// spec is the cloud spec of the provider
+	spec environs.CloudSpec
+	// cfg is the bootstrap config
+	cfg *config.Config
+	// fw firewall type used in network operations
+	fw *Firewall
+	// client is the internal api client with the
+	// oralce cloud infrastructure
+	client *oci.Client
+	// namespace is the namespace of generated
+	// for the current envirnonment
 	namespace instance.Namespace
 }
 
@@ -53,7 +63,7 @@ func newOracleEnviron(
 	}
 
 	if p == nil {
-		return nil, errors.NotFoundf("environ provider")
+		return nil, errors.NotFoundf("environ proivder")
 	}
 
 	env := &oracleEnviron{
@@ -63,6 +73,7 @@ func newOracleEnviron(
 		mutex:  &sync.Mutex{},
 		client: client,
 	}
+	// create a new firewall from the env and the internal api client
 	env.fw = NewFirewall(env, client)
 
 	namespace, err := instance.NewNamespace(env.cfg.UUID())

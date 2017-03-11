@@ -18,7 +18,6 @@ import (
 )
 
 func NewFirewall(env *oracleEnviron, client *oci.Client) *Firewall {
-
 	return &Firewall{
 		environ: env,
 		client:  client,
