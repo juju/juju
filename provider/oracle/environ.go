@@ -39,8 +39,8 @@ type oracleEnviron struct {
 	spec environs.CloudSpec
 	// cfg is the bootstrap config
 	cfg *config.Config
-	// fw firewall type used in network operations
-	fw *Firewall
+	// firewall firewall type used in network operations
+	firewall *Firewall
 	// client is the internal api client with the
 	// oralce cloud infrastructure
 	client *oci.Client
@@ -74,7 +74,7 @@ func newOracleEnviron(
 		client: client,
 	}
 	// create a new firewall from the env and the internal api client
-	env.fw = NewFirewall(env, client)
+	env.firewall = NewFirewall(env, client)
 
 	namespace, err := instance.NewNamespace(env.cfg.UUID())
 	if err != nil {
@@ -154,7 +154,10 @@ func (e *oracleEnviron) AdoptResources(controllerUUID string, fromVersion versio
 // unique within an environment, is used by juju to protect against the
 // consequences of multiple instances being started with the same machine
 // id.
-func (o *oracleEnviron) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
+func (o *oracleEnviron) StartInstance(
+	args environs.StartInstanceParams,
+) (*environs.StartInstanceResult, error) {
+
 	if args.ControllerUUID == "" {
 		return nil, errors.NotFoundf("Controller UUID")
 	}
@@ -162,11 +165,14 @@ func (o *oracleEnviron) StartInstance(args environs.StartInstanceParams) (*envir
 	series := args.Tools.OneSeries()
 	arches := args.Tools.Arches()
 
-	types, err := getInstanceTypes(o.client)
+	// take all instance types from the oracle cloud provider
+	types, err := instanceTypes(o.client)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
+	// check if we find an image that is compliant with the
+	// constraints provided in the oracle cloud account
 	if args.ImageMetadata, err = checkImageList(
 		o.client,
 		args.Constraints,
@@ -174,7 +180,9 @@ func (o *oracleEnviron) StartInstance(args environs.StartInstanceParams) (*envir
 		return nil, errors.Trace(err)
 	}
 
-	//find the best suitable instance returned from the api
+	// find the best suitable instance based on
+	// the oracle cloud instance types,
+	// the images that already mached the juju constrains
 	spec, imagelist, err := findInstanceSpec(
 		o.client,
 		args.ImageMetadata,
@@ -206,11 +214,13 @@ func (o *oracleEnviron) StartInstance(args environs.StartInstanceParams) (*envir
 		return nil, errors.Trace(err)
 	}
 
+	// new cloud config template based on the series
 	cloudcfg, err := cloudinit.New(args.InstanceConfig.Series)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot create cloudinit template")
 	}
 
+	// compose userdata with the cloud config template
 	userData, err := providerinit.ComposeUserData(
 		args.InstanceConfig,
 		cloudcfg,
@@ -219,21 +229,17 @@ func (o *oracleEnviron) StartInstance(args environs.StartInstanceParams) (*envir
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot make user data")
 	}
+
 	logger.Debugf("oracle user data: %d bytes", len(userData))
 
 	attributes := map[string]interface{}{
 		"userdata": string(userData),
 	}
 
-	//TODO(sgiulitti): use the same naming scheme
 	hostname, err := o.namespace.Hostname(args.InstanceConfig.MachineId)
-	fmt.Println("=======================================================")
-	fmt.Println(args.InstanceConfig.MachineId)
-	fmt.Println(hostname)
-	fmt.Println(err)
-	fmt.Println("=======================================================")
-	machineName := o.client.ComposeName(args.InstanceConfig.MachineAgentServiceName)
+	machineName := o.client.ComposeName(hostname)
 	imageName := o.client.ComposeName(imagelist)
+
 	tags := make([]string, 0, len(args.InstanceConfig.Tags)+1)
 	for k, v := range args.InstanceConfig.Tags {
 		if k == "" || v == "" {
@@ -251,17 +257,23 @@ func (o *oracleEnviron) StartInstance(args environs.StartInstanceParams) (*envir
 		// All ports are the same so pick the first.
 		apiPort = args.InstanceConfig.APIInfo.Ports()[0]
 	}
-	secLists, err := o.fw.CreateMachineSecLists(
+
+	// create a new seclists
+	secLists, err := o.firewall.CreateMachineSecLists(
 		args.InstanceConfig.MachineId, apiPort)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
+	// create a  new netowrking card used for making the instance
+	// have a public address ip
 	networking := map[string]oci.Networker{
 		"eth0": oci.SharedNetwork{
 			Seclists: secLists,
 		},
 	}
+
+	// create the instance based on the instance params
 	instance, err := o.createInstance(o.client, oci.InstanceParams{
 		Instances: []oci.Instances{
 			{
@@ -683,14 +695,14 @@ func (o *oracleEnviron) OpenPorts(rules []network.IngressRule) error {
 	if o.Config().FirewallMode() != config.FwGlobal {
 		return fmt.Errorf("invalid firewall mode %q for opening ports on model", o.Config().FirewallMode())
 	}
-	return o.fw.OpenPorts(rules)
+	return o.firewall.OpenPorts(rules)
 }
 
 // ClosePorts closes the given port ranges for the whole environment.
 // Must only be used if the environment was setup with the
 // FwGlobal firewall mode.
 func (o *oracleEnviron) ClosePorts(rules []network.IngressRule) error {
-	return o.fw.ClosePorts(rules)
+	return o.firewall.ClosePorts(rules)
 }
 
 // IngressRules returns the ingress rules applied to the whole environment.
@@ -700,7 +712,7 @@ func (o *oracleEnviron) ClosePorts(rules []network.IngressRule) error {
 // port range - the rule's SourceCIDRs will contain all applicable source
 // address rules for that port range.
 func (o *oracleEnviron) IngressRules() ([]network.IngressRule, error) {
-	return o.fw.GlobalIngressRules()
+	return o.firewall.GlobalIngressRules()
 }
 
 // Provider returns the EnvironProvider that created this Environ.

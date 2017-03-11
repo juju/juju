@@ -129,6 +129,10 @@ func (e *environProvider) Open(
 		return nil, errors.Trace(err)
 	}
 
+	if err = cli.Authenticate(); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	return newOracleEnviron(e, params, cli)
 }
 

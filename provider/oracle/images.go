@@ -13,7 +13,10 @@ import (
 	"github.com/juju/juju/environs/instances"
 )
 
-func getInstanceTypes(c *oci.Client) ([]instances.InstanceType, error) {
+// instanceTypes returns all oracle cloud shapes and wraps them into
+// instance.InstanceType for juju to understand and use them
+func instanceTypes(c *oci.Client) ([]instances.InstanceType, error) {
+
 	if c == nil {
 		return nil, errors.Errorf("cannot use nil client")
 	}
@@ -94,11 +97,12 @@ func checkImageList(
 	images := make([]*imagemetadata.ImageMetadata, 0, n)
 	for _, val := range resp.Result {
 		list := strings.Split(val.Uri, "/")
-		//TODO: parse windows images as well
+		//TODO(sgiulitti): parse windows images as well
 		//TODO: we expect images to be named in the following format:
 		// OS.version.ARCH.timestamp
 		// This may fail miserably, and may be an assumption that will not hold
 		// in the future. Use simplestreams instead?
+		// TODO(sgiulitti): (better use regexp)
 		meta := strings.Split(list[len(list)-1], ".")
 		if len(meta) < 4 {
 			continue
