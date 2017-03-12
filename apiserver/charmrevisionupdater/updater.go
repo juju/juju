@@ -126,7 +126,6 @@ func retrieveLatestCharmInfo(st *state.State) ([]latestCharmInfo, error) {
 		if curl.Schema == "local" {
 			continue
 		}
-
 		cid := charmstore.CharmID{
 			URL:     curl,
 			Channel: application.Channel(),
@@ -137,6 +136,7 @@ func retrieveLatestCharmInfo(st *state.State) ([]latestCharmInfo, error) {
 
 	metadata := map[string]string{
 		"environment_uuid": model.UUID(),
+		"controller_uuid":  st.ControllerUUID(),
 		"cloud":            model.Cloud(),
 		"cloud_region":     model.CloudRegion(),
 	}

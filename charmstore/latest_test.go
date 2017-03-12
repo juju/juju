@@ -71,6 +71,7 @@ func (s *LatestCharmInfoSuite) TestSuccess(c *gc.C) {
 
 	metadata := map[string]string{
 		"environment_uuid": "foouuid",
+		"controller_uuid":  "controlleruuid",
 		"cloud":            "foocloud",
 		"cloud_region":     "fooregion",
 		"provider":         "fooprovider",
@@ -78,7 +79,14 @@ func (s *LatestCharmInfoSuite) TestSuccess(c *gc.C) {
 	results, err := LatestCharmInfo(client, charms, metadata)
 	c.Assert(err, jc.ErrorIsNil)
 
-	header := []string{"environment_uuid=foouuid", "cloud=foocloud", "cloud_region=fooregion", "provider=fooprovider", "controller_version=" + version.Current.String()}
+	header := []string{
+		"environment_uuid=foouuid",
+		"controller_uuid=controlleruuid",
+		"cloud=foocloud",
+		"cloud_region=fooregion",
+		"provider=fooprovider",
+		"controller_version=" + version.Current.String(),
+	}
 	s.lowLevel.stableStub.CheckCall(c, 0, "Latest", params.StableChannel, []*charm.URL{spam}, map[string][]string{"Juju-Metadata": header})
 	s.lowLevel.stableStub.CheckCall(c, 1, "Latest", params.StableChannel, []*charm.URL{eggs}, map[string][]string{"Juju-Metadata": header})
 	s.lowLevel.stableStub.CheckCall(c, 2, "Latest", params.StableChannel, []*charm.URL{ham}, map[string][]string{"Juju-Metadata": header})
