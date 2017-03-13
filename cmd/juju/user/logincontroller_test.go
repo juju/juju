@@ -70,7 +70,7 @@ func (s *LoginControllerSuite) TearDownTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.TearDownTest(c)
 }
 
-func (s *LoginControllerSuite) TestRegisterPublic(c *gc.C) {
+func (s *LoginControllerSuite) TestLoginFromDirectory(c *gc.C) {
 	dirSrv := serveDirectory(map[string]string{
 		"bighost": "bighost.jujucharms.com:443",
 	})
@@ -103,10 +103,10 @@ Welcome, bob@external. You are now logged into "bighost".
 	})
 }
 
-func (s *LoginControllerSuite) TestRegisterPublicHostname(c *gc.C) {
+func (s *LoginControllerSuite) TestLoginPublicHostname(c *gc.C) {
 	s.apiConnection.authTag = names.NewUserTag("bob@external")
 	s.apiConnection.controllerAccess = "login"
-	stdout, stderr, code := s.run(c, "--host", "0.1.2.3")
+	stdout, stderr, code := s.run(c, "0.1.2.3")
 	c.Check(stderr, gc.Equals, `
 Welcome, bob@external. You are now logged into "0.1.2.3".
 `[1:]+user.NoModelsMessage)
@@ -133,7 +133,7 @@ Welcome, bob@external. You are now logged into "0.1.2.3".
 func (s *LoginControllerSuite) TestRegisterPublicHostnameWithPort(c *gc.C) {
 	s.apiConnection.authTag = names.NewUserTag("bob@external")
 	s.apiConnection.controllerAccess = "login"
-	stdout, stderr, code := s.run(c, "--host", "0.1.2.3:5678")
+	stdout, stderr, code := s.run(c, "0.1.2.3:5678")
 	c.Check(stdout, gc.Equals, "")
 	c.Check(stderr, gc.Equals, "error: cannot use \"0.1.2.3:5678\" as controller name - use -c flag to choose a different one\n")
 	c.Check(code, gc.Equals, 1)
@@ -142,7 +142,7 @@ func (s *LoginControllerSuite) TestRegisterPublicHostnameWithPort(c *gc.C) {
 func (s *LoginControllerSuite) TestRegisterPublicHostnameWithPortAndControllerFlag(c *gc.C) {
 	s.apiConnection.authTag = names.NewUserTag("bob@external")
 	s.apiConnection.controllerAccess = "login"
-	stdout, stderr, code := s.run(c, "-c", "foo", "--host", "0.1.2.3:5678")
+	stdout, stderr, code := s.run(c, "-c", "foo", "0.1.2.3:5678")
 	c.Check(stdout, gc.Equals, "")
 	c.Check(stderr, gc.Equals, `
 Welcome, bob@external. You are now logged into "foo".

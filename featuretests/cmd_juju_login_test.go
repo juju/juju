@@ -60,10 +60,9 @@ func (s *cmdLoginSuite) TestLoginCommand(c *gc.C) {
 	s.changeUserPassword(c, "admin", "hunter2")
 	s.run(c, nil, "logout")
 
-	context := s.run(c, strings.NewReader("hunter2\nhunter2\n"), "login", "test")
+	context := s.run(c, strings.NewReader("hunter2\nhunter2\n"), "login", "test", "-u")
 	c.Assert(testing.Stdout(context), gc.Equals, "")
 	c.Assert(testing.Stderr(context), gc.Equals, `
-WARNING could not determine controller domain: Get https://api.jujucharms.com/directory/v1/controller/test: access to address "api.jujucharms.com:443" not allowed
 please enter password for test on kontroll: 
 You are now logged in to "kontroll" as "test".
 `[1:])

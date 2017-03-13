@@ -27,12 +27,15 @@ import (
 )
 
 const loginDoc = `
-When a known domain is specified instead of a username or the
---host flag is specified the user is logged into
-the controller associated with the given domain and the controller is registered
-using the domain name (the -c flag can be used to choose a different controller
-name). If a different controller is already registered with the same name,
-it is an error.
+By default, the juju login command logs the user into a public
+controller. If the controller is already known it can be specified
+by name. Alternatively, the host name of a public controller can be
+specified. The -c flag can be used to specify a name for the controller
+when a host name is provided.
+
+If the -u flag is provided, the juju login command will attempt to log
+into a controller as a local user. In this case, the -c flag names the
+controller to log in to.
 
 After login, a token ("macaroon") will become active. It has an expiration
 time of 24 hours. Upon expiration, no further Juju commands can be issued
@@ -40,21 +43,14 @@ and the user will be prompted to log in again.
 
 Examples:
 
-    juju login bob
+    juju login somepubliccontroller
+    juju login jimm.jujucharms.com
+    juju login -u bob
 
 See also:
     disable-user
     enable-user
     logout
-
-Currently, the JUJU_PUBLIC_CONTROLLERS environment variable
-is used to set the currently known public controllers.
-For example:
-
-	export JUJU_PUBLIC_CONTROLLERS="foo=foo.com"
-
-will cause juju login to interpret "juju login foo" the same
-as "juju login --host foo.com".
 `
 
 // Functions defined as variables so they can be overridden in tests.
@@ -86,7 +82,7 @@ func NewLoginCommand() cmd.Command {
 type loginCommand struct {
 	modelcmd.ControllerCommandBase
 	userOrDomain string
-	forceHost    bool
+	forceUser    bool
 
 	// controllerName holds the name of the current controller.
 	// We define this and the --controller flag here because
@@ -113,7 +109,8 @@ func (c *loginCommand) SetFlags(fset *gnuflag.FlagSet) {
 	c.ControllerCommandBase.SetFlags(fset)
 	fset.StringVar(&c.controllerName, "c", "", "Controller to operate in")
 	fset.StringVar(&c.controllerName, "controller", "", "")
-	fset.BoolVar(&c.forceHost, "host", false, "force the domain argument to be treated as the host name of a controller rather than a user name")
+	fset.BoolVar(&c.forceUser, "u", false, "log into the current controller as a local user")
+	fset.BoolVar(&c.forceUser, "user", false, "")
 }
 
 // Init implements Command.Init.
@@ -139,9 +136,11 @@ var errNotControllerLogin = errors.New("not a controller login")
 
 func (c *loginCommand) run(ctx *cmd.Context) error {
 	store := c.ClientStore()
-	err := c.controllerLogin(ctx, store)
-	if errors.Cause(err) != errNotControllerLogin {
-		return errors.Trace(err)
+	if !c.forceUser {
+		if err := c.controllerLogin(ctx, store); err != nil {
+			return errors.Trace(err)
+		}
+		return nil
 	}
 	user := c.userOrDomain
 	// Set the controller name as if this is a normal controller command.
@@ -230,16 +229,17 @@ Run "juju logout" first before attempting to log in as a different user.`)
 }
 
 func (c *loginCommand) controllerLogin(ctx *cmd.Context, store jujuclient.ClientStore) error {
-	// TODO(rog) provide a way of avoiding this external network access.
-	controllerHost, err := c.getKnownControllerDomain(c.userOrDomain)
-	if err != nil && !errors.IsNotFound(err) {
-		logger.Warningf("could not determine controller domain: %v", err)
-	}
-	if controllerHost == "" {
-		if !c.forceHost {
-			return errNotControllerLogin
+	controllerHost := c.userOrDomain
+	if !strings.Contains(controllerHost, ".") {
+		// TODO(rog) provide a way of avoiding this external network access.
+		controllerHost1, err := c.getKnownControllerDomain(controllerHost)
+		if errors.IsNotFound(err) {
+			return errors.Errorf("%q is not a known public controller", controllerHost)
 		}
-		controllerHost = c.userOrDomain
+		if err != nil {
+			return errors.Annotatef(err, "could not determine controller domain")
+		}
+		controllerHost = controllerHost1
 	}
 	if c.controllerName == "" {
 		// No explicitly specified controller name, so
@@ -261,6 +261,9 @@ func (c *loginCommand) controllerLogin(ctx *cmd.Context, store jujuclient.Client
 		accountDetails,
 	); err != nil {
 		return errors.Trace(err)
+	}
+	if err := c.SetControllerName(c.controllerName, false); err != nil {
+		return errors.Annotatef(err, "cannot set controller name")
 	}
 	// Log into the controller to verify the credentials, and
 	// list the models available.

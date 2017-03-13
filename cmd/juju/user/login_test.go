@@ -76,7 +76,7 @@ func (s *LoginCommandSuite) TestInitError(c *gc.C) {
 }
 
 func (s *LoginCommandSuite) TestLogin(c *gc.C) {
-	stdout, stderr, code := runLogin(c, "current-user\nsekrit\n")
+	stdout, stderr, code := runLogin(c, "current-user\nsekrit\n", "-u")
 	c.Check(stdout, gc.Equals, "")
 	c.Check(stderr, gc.Equals, `
 username: You are now logged in to "testing" as "current-user".
@@ -91,7 +91,7 @@ username: You are now logged in to "testing" as "current-user".
 func (s *LoginCommandSuite) TestLoginNewUser(c *gc.C) {
 	err := s.store.RemoveAccount("testing")
 	c.Assert(err, jc.ErrorIsNil)
-	stdout, stderr, code := runLogin(c, "sekrit\n", "new-user")
+	stdout, stderr, code := runLogin(c, "sekrit\n", "new-user", "-u")
 	c.Check(stdout, gc.Equals, "")
 	c.Check(stderr, gc.Equals, `
 You are now logged in to "testing" as "new-user".
@@ -104,7 +104,7 @@ You are now logged in to "testing" as "new-user".
 }
 
 func (s *LoginCommandSuite) TestLoginAlreadyLoggedInSameUser(c *gc.C) {
-	stdout, stderr, code := runLogin(c, "", "current-user")
+	stdout, stderr, code := runLogin(c, "", "current-user", "-u")
 	c.Check(stdout, gc.Equals, "")
 	c.Check(stderr, gc.Equals, `You are now logged in to "testing" as "current-user".
 `)
@@ -112,7 +112,7 @@ func (s *LoginCommandSuite) TestLoginAlreadyLoggedInSameUser(c *gc.C) {
 }
 
 func (s *LoginCommandSuite) TestLoginAlreadyLoggedInDifferentUser(c *gc.C) {
-	stdout, stderr, code := runLogin(c, "sekrit\n", "other-user")
+	stdout, stderr, code := runLogin(c, "sekrit\n", "-u", "other-user")
 	c.Check(stdout, gc.Equals, "")
 	c.Check(stderr, gc.Equals, `
 error: already logged in
@@ -125,7 +125,7 @@ Run "juju logout" first before attempting to log in as a different user.
 func (s *LoginCommandSuite) TestLoginWithMacaroons(c *gc.C) {
 	err := s.store.RemoveAccount("testing")
 	c.Assert(err, jc.ErrorIsNil)
-	stdout, stderr, code := runLogin(c, "")
+	stdout, stderr, code := runLogin(c, "", "-u")
 	c.Check(stderr, gc.Equals, `
 You are now logged in to "testing" as "user@external".
 `[1:])
@@ -147,7 +147,7 @@ func (s *LoginCommandSuite) TestLoginWithMacaroonsNotSupported(c *gc.C) {
 		c.Check(p.AccountDetails.User, gc.Equals, "new-user")
 		return s.mockAPI, nil
 	}
-	stdout, stderr, code := runLogin(c, "new-user\nsekrit\n")
+	stdout, stderr, code := runLogin(c, "new-user\nsekrit\n", "-u")
 	c.Check(stdout, gc.Equals, ``)
 	c.Check(stderr, gc.Equals, `
 username: You are now logged in to "testing" as "new-user".
