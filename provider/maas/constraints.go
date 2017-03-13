@@ -195,27 +195,6 @@ func getBindings(
 	)
 	namesSet := set.NewStrings()
 	spacesSet := set.NewStrings()
-	for _, binding := range bindings {
-		switch {
-		case binding.Name == "":
-			return nil, nil, errors.NewNotValid(nil, "interface bindings cannot have empty names")
-		case binding.SpaceProviderId == "":
-			return nil, nil, errors.NewNotValid(nil, fmt.Sprintf(
-				"invalid interface binding %q: space provider ID is required",
-				binding.Name,
-			))
-		case namesSet.Contains(binding.Name):
-			return nil, nil, errors.NewNotValid(nil, fmt.Sprintf(
-				"duplicated interface binding %q",
-				binding.Name,
-			))
-		}
-		namesSet.Add(binding.Name)
-		spacesSet.Add(binding.SpaceProviderId)
-
-		combinedBindings = append(combinedBindings, binding)
-	}
-
 	createLabel := func(index uint, namesSet set.Strings) (string, uint, error) {
 		var label string
 		for {
@@ -231,6 +210,33 @@ func getBindings(
 		namesSet.Add(label)
 		return label, index, nil
 	}
+	for _, binding := range bindings {
+		switch {
+		case binding.SpaceProviderId == "":
+			return nil, nil, errors.NewNotValid(nil, fmt.Sprintf(
+				"invalid interface binding %q: space provider ID is required",
+				binding.Name,
+			))
+		case binding.Name == "":
+			var label string
+			var err error
+			label, index, err = createLabel(index, namesSet)
+			if err != nil {
+				return nil, nil, errors.Trace(err)
+			}
+			binding.Name = label
+		case namesSet.Contains(binding.Name):
+			return nil, nil, errors.NewNotValid(nil, fmt.Sprintf(
+				"duplicated interface binding %q",
+				binding.Name,
+			))
+		}
+		namesSet.Add(binding.Name)
+		spacesSet.Add(binding.SpaceProviderId)
+
+		combinedBindings = append(combinedBindings, binding)
+	}
+
 	for _, space := range positiveSpaces {
 		if spacesSet.Contains(string(space.ProviderId)) {
 			// Skip duplicates in positiveSpaces.

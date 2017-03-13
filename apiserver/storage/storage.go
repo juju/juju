@@ -822,3 +822,39 @@ func (api *API) detachStorage(storageTag names.StorageTag, unitTag names.UnitTag
 	}
 	return nil
 }
+
+// Attach attaches existing storage instances to units.
+// A "CHANGE" block can block this operation.
+func (a *API) Attach(args params.StorageAttachmentIds) (params.ErrorResults, error) {
+	if err := a.checkCanWrite(); err != nil {
+		return params.ErrorResults{}, errors.Trace(err)
+	}
+
+	blockChecker := common.NewBlockChecker(a.storage)
+	if err := blockChecker.ChangeAllowed(); err != nil {
+		return params.ErrorResults{}, errors.Trace(err)
+	}
+
+	attachOne := func(arg params.StorageAttachmentId) error {
+		storageTag, err := names.ParseStorageTag(arg.StorageTag)
+		if err != nil {
+			return err
+		}
+		unitTag, err := names.ParseUnitTag(arg.UnitTag)
+		if err != nil {
+			return err
+		}
+		return a.attachStorage(storageTag, unitTag)
+	}
+
+	result := make([]params.ErrorResult, len(args.Ids))
+	for i, arg := range args.Ids {
+		result[i].Error = common.ServerError(attachOne(arg))
+	}
+	return params.ErrorResults{Results: result}, errors.NotImplementedf("attaching storage")
+}
+
+func (a *API) attachStorage(storageTag names.StorageTag, unitTag names.UnitTag) error {
+	// TODO(axw)
+	return nil
+}

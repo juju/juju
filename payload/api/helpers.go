@@ -8,12 +8,26 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/payload"
 )
 
+// API2ID converts the given payload tag string into a payload ID.
+// Example: "payload-foobar" -> "foobar"
+func API2ID(tagStr string) (string, error) {
+	if tagStr == "" {
+		return tagStr, nil
+	}
+	tag, err := names.ParsePayloadTag(tagStr)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	return tag.Id(), nil
+}
+
 // Payload2api converts a payload.FullPayloadInfo struct into
 // a Payload struct.
-func Payload2api(p payload.FullPayloadInfo) Payload {
+func Payload2api(p payload.FullPayloadInfo) params.Payload {
 	labels := make([]string, len(p.Labels))
 	copy(labels, p.Labels)
 
@@ -26,7 +40,7 @@ func Payload2api(p payload.FullPayloadInfo) Payload {
 		machineTag = names.NewMachineTag(p.Machine).String()
 	}
 
-	return Payload{
+	return params.Payload{
 		Class:   p.Name,
 		Type:    p.Type,
 		ID:      p.ID,
@@ -39,7 +53,7 @@ func Payload2api(p payload.FullPayloadInfo) Payload {
 
 // API2Payload converts an API Payload info struct into
 // a payload.FullPayloadInfo struct.
-func API2Payload(apiInfo Payload) (payload.FullPayloadInfo, error) {
+func API2Payload(apiInfo params.Payload) (payload.FullPayloadInfo, error) {
 	labels := make([]string, len(apiInfo.Labels))
 	copy(labels, apiInfo.Labels)
 
