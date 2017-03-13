@@ -987,7 +987,7 @@ class Status:
 
     def get_unit(self, unit_name):
         """Return metadata about a unit."""
-        for service in sorted(self.get_applications().values()):
+        for name, service in sorted(self.get_applications().items()):
             if unit_name in service.get('units', {}):
                 return service['units'][unit_name]
         raise KeyError(unit_name)
@@ -996,8 +996,8 @@ class Status:
         """Return subordinate metadata for a service_name."""
         services = self.get_applications()
         if service_name in services:
-            for unit in sorted(services[service_name].get(
-                    'units', {}).values()):
+            for name, unit in sorted(services[service_name].get(
+                    'units', {}).items()):
                 for sub_name, sub in unit.get('subordinates', {}).items():
                     yield sub_name, sub
 
@@ -1914,7 +1914,8 @@ class ModelClient:
 
     def get_env_option(self, option):
         """Return the value of the environment's configured option."""
-        return self.get_juju_output('model-config', option)
+        return self.get_juju_output(
+            'model-config', option).decode(getpreferredencoding())
 
     def set_env_option(self, option, value):
         """Set the value of the option in the environment."""
@@ -2366,7 +2367,7 @@ class ModelClient:
                 if status is None:
                     continue
                 states.setdefault(status, []).append(machine)
-            if states.keys() == [desired_state]:
+            if list(states.keys()) == [desired_state]:
                 if len(states.get(desired_state, [])) >= 3:
                     return None
             return states
@@ -2474,7 +2475,8 @@ class ModelClient:
             log.info(e.output)
             raise
         log.info(output)
-        backup_file_pattern = re.compile('(juju-backup-[0-9-]+\.(t|tar.)gz)')
+        backup_file_pattern = re.compile(
+            '(juju-backup-[0-9-]+\.(t|tar.)gz)'.encode('ascii'))
         match = backup_file_pattern.search(output)
         if match is None:
             raise Exception("The backup file was not found in output: %s" %
@@ -2482,7 +2484,7 @@ class ModelClient:
         backup_file_name = match.group(1)
         backup_file_path = os.path.abspath(backup_file_name)
         log.info("State-Server backup at %s", backup_file_path)
-        return backup_file_path
+        return backup_file_path.decode(getpreferredencoding())
 
     def restore_backup(self, backup_file):
         self.juju(

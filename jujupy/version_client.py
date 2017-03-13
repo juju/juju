@@ -1,5 +1,6 @@
 from contextlib import contextmanager
 import json
+from locale import getpreferredencoding
 import logging
 import os
 import re
@@ -370,7 +371,8 @@ class EnvJujuClient1X(ModelClientRC):
 
     def get_env_option(self, option):
         """Return the value of the environment's configured option."""
-        return self.get_juju_output('get-env', option)
+        return self.get_juju_output(
+            'get-env', option).decode(getpreferredencoding())
 
     def set_env_option(self, option, value):
         """Set the value of the option in the environment."""

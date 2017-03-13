@@ -9,7 +9,10 @@ import json
 import logging
 import os
 import socket
-import StringIO
+try:
+    from StringIO import StringIO
+except ImportError:
+    from io import StringIO
 import subprocess
 import sys
 from textwrap import dedent
@@ -99,7 +102,6 @@ from tests import (
     observable_temp_file,
     TestCase,
     )
-from tests.test_assess_resources import make_resource_list
 from jujupy.utility import (
     JujuResourceTimeout,
     scoped_environ,
@@ -301,7 +303,7 @@ class TestJuju2Backend(TestCase):
                                soft_deadline=None)
         with patch('subprocess.Popen') as mock_popen:
             mock_popen.return_value.communicate.return_value = (
-                'ctrl1:user1/model1\n', '')
+                'ctrl1:user1/model1\n'.encode('ascii'), '')
             mock_popen.return_value.returncode = 0
             result = backend.get_active_model('/foo/bar')
         self.assertEqual(('ctrl1', 'user1', 'model1'), result)
@@ -335,9 +337,9 @@ class TestConditionList(ClientTest):
         self.assertEqual(300, conditions.timeout)
 
     def test_iter_blocking_state(self):
-        mock_ab = Mock()
+        mock_ab = Mock(timeout=0)
         mock_ab.iter_blocking_state.return_value = [('a', 'b')]
-        mock_cd = Mock()
+        mock_cd = Mock(timeout=0)
         mock_cd.iter_blocking_state.return_value = [('c', 'd')]
         conditions = ConditionList([mock_ab, mock_cd])
         self.assertEqual([('a', 'b'), ('c', 'd')],
@@ -365,6 +367,21 @@ class TestWaitMachineNotPresent(ClientTest):
         with self.assertRaisesRegexp(
                 Exception, 'Timed out waiting for machine removal 0'):
             not_present.do_raise('', None)
+
+
+def make_resource_list(service_app_id='applicationId'):
+    return {'resources': [{
+        'expected': {
+            'origin': 'upload', 'used': True, 'description': 'foo resource.',
+            'username': 'admin', 'resourceid': 'dummy-resource/foo',
+            'name': 'foo', service_app_id: 'dummy-resource', 'size': 27,
+            'fingerprint': '1234', 'type': 'file', 'path': 'foo.txt'},
+        'unit': {
+            'origin': 'upload', 'username': 'admin', 'used': True,
+            'name': 'foo', 'resourceid': 'dummy-resource/foo',
+            service_app_id: 'dummy-resource', 'fingerprint': '1234',
+            'path': 'foo.txt', 'size': 27, 'type': 'file',
+            'description': 'foo resource.'}}]}
 
 
 class TestModelClient(ClientTest):
@@ -408,14 +425,15 @@ class TestModelClient(ClientTest):
         self.assertEqual(client.env.juju_home, 'baz')
 
     def test_get_version(self):
-        value = ' 5.6 \n'
+        value = ' 5.6 \n'.encode('ascii')
         with patch('subprocess.check_output', return_value=value) as vsn:
             version = ModelClient.get_version()
         self.assertEqual('5.6', version)
         vsn.assert_called_with(('juju', '--version'))
 
     def test_get_version_path(self):
-        with patch('subprocess.check_output', return_value=' 4.3') as vsn:
+        with patch('subprocess.check_output',
+                   return_value=' 4.3'.encode('ascii')) as vsn:
             ModelClient.get_version('foo/bar/baz')
         vsn.assert_called_once_with(('foo/bar/baz', '--version'))
 
@@ -965,7 +983,7 @@ class TestModelClient(ClientTest):
         fake_popen = FakePopen('asdf', None, 0)
         with patch('subprocess.Popen', return_value=fake_popen) as mock:
             result = client.get_juju_output('bar')
-        self.assertEqual('asdf', result)
+        self.assertEqual('asdf'.encode('ascii'), result)
         self.assertEqual((('juju', '--show-log', 'bar', '-m', 'foo:foo'),),
                          mock.call_args[0])
 
@@ -975,7 +993,7 @@ class TestModelClient(ClientTest):
         client = ModelClient(env, None, 'juju')
         with patch('subprocess.Popen', return_value=fake_popen) as mock:
             result = client.get_juju_output('bar', 'baz', '--qux')
-        self.assertEqual('asdf', result)
+        self.assertEqual('asdf'.encode('ascii'), result)
         self.assertEqual((('juju', '--show-log', 'bar', '-m', 'foo:foo', 'baz',
                            '--qux'),), mock.call_args[0])
 
@@ -986,7 +1004,7 @@ class TestModelClient(ClientTest):
         with self.assertRaises(subprocess.CalledProcessError) as exc:
             with patch('subprocess.Popen', return_value=fake_popen):
                 client.get_juju_output('bar')
-        self.assertEqual(exc.exception.stderr, 'Hello!')
+        self.assertEqual(exc.exception.stderr, 'Hello!'.encode('ascii'))
 
     def test_get_juju_output_merge_stderr(self):
         env = JujuData('foo')
@@ -994,7 +1012,7 @@ class TestModelClient(ClientTest):
         client = ModelClient(env, None, 'juju')
         with patch('subprocess.Popen', return_value=fake_popen) as mock_popen:
             result = client.get_juju_output('bar', merge_stderr=True)
-        self.assertEqual(result, 'Err on out')
+        self.assertEqual(result, 'Err on out'.encode('ascii'))
         mock_popen.assert_called_once_with(
             ('juju', '--show-log', 'bar', '-m', 'foo:foo'),
             stdin=subprocess.PIPE, stderr=subprocess.STDOUT,
@@ -1045,7 +1063,7 @@ class TestModelClient(ClientTest):
                 - a
                 - b
                 - c
-                """)
+                """).encode('ascii')
         env = JujuData('foo')
         client = ModelClient(env, None, None)
         with patch.object(client, 'get_juju_output',
@@ -1063,7 +1081,7 @@ class TestModelClient(ClientTest):
 
         def get_juju_output(command, *args, **kwargs):
             if client.attempt == 1:
-                return '"hello"'
+                return '"hello"'.encode('ascii')
             client.attempt += 1
             raise subprocess.CalledProcessError(1, command)
 
@@ -1147,7 +1165,7 @@ class TestModelClient(ClientTest):
                 units:
                   jenkins/0:
                     {0}: {2}
-        """.format(key, machine_value, unit_value))
+        """.format(key, machine_value, unit_value)).encode('ascii')
 
     def test_deploy_non_joyent(self):
         env = ModelClient(
@@ -1353,7 +1371,8 @@ class TestModelClient(ClientTest):
         with patch.object(client, 'get_juju_output', return_value=status_txt):
             result = list(client.status_until(-1))
         self.assertEqual(
-            [r.status for r in result], [Status.from_text(status_txt).status])
+            [r.status for r in result],
+            [Status.from_text(status_txt.decode('ascii')).status])
 
     def test_status_until_timeout(self):
         client = ModelClient(
@@ -1693,7 +1712,8 @@ class TestModelClient(ClientTest):
                         'Timed out waiting for agents to start in local'):
                     client.wait_for_started(0)
             self.assertEqual(writes, ['pending: 0', '\n'])
-        self.assertEqual(self.log_stream.getvalue(), 'ERROR %s\n' % value)
+        self.assertEqual(
+            self.log_stream.getvalue(), 'ERROR %s\n' % value.decode('ascii'))
 
     def test_wait_for_subordinate_units(self):
         value = dedent("""\
@@ -1715,7 +1735,7 @@ class TestModelClient(ClientTest):
                         agent-state: started
                       sub3/0:
                         agent-state: started
-        """)
+        """).encode('ascii')
         client = ModelClient(JujuData('local'), None, None)
         now = datetime.now() + timedelta(days=1)
         with patch('utility.until_timeout.now', return_value=now):
@@ -1753,7 +1773,7 @@ class TestModelClient(ClientTest):
                       sub3/0:
                         agent-status:
                           current: idle
-        """)
+        """).encode('ascii')
         client = ModelClient(JujuData('local'), None, None)
         now = datetime.now() + timedelta(days=1)
         with patch('utility.until_timeout.now', return_value=now):
@@ -1784,7 +1804,7 @@ class TestModelClient(ClientTest):
                     subordinates:
                       sub/1:
                         agent-state: started
-        """)
+        """).encode('ascii')
         client = ModelClient(JujuData('local'), None, None)
         now = datetime.now() + timedelta(days=1)
         with patch('utility.until_timeout.now', return_value=now):
@@ -1811,7 +1831,7 @@ class TestModelClient(ClientTest):
                     subordinates:
                       sub1:
                         agent-state: started
-        """)
+        """).encode('ascii')
         client = ModelClient(JujuData('local'), None, None)
         now = datetime.now() + timedelta(days=1)
         with patch('utility.until_timeout.now', return_value=now):
@@ -1832,7 +1852,7 @@ class TestModelClient(ClientTest):
                 units:
                   jenkins/0:
                     agent-state: started
-        """)
+        """).encode('ascii')
         client = ModelClient(JujuData('local'), None, None)
         now = datetime.now() + timedelta(days=1)
         with patch('utility.until_timeout.now', return_value=now):
@@ -2264,7 +2284,7 @@ class TestModelClient(ClientTest):
         return client.get_controller_client()
 
     def test_wait_for_ha(self):
-        value = yaml.safe_dump(self.make_ha_status())
+        value = yaml.safe_dump(self.make_ha_status()).encode('ascii')
         client = self.make_controller_client()
         with patch.object(client, 'get_juju_output',
                           return_value=value) as gjo_mock:
@@ -2278,7 +2298,8 @@ class TestModelClient(ClientTest):
             client.wait_for_ha()
 
     def test_wait_for_ha_no_has_vote(self):
-        value = yaml.safe_dump(self.make_ha_status(voting='no-vote'))
+        value = yaml.safe_dump(
+            self.make_ha_status(voting='no-vote')).encode('ascii')
         client = self.make_controller_client()
         with patch.object(client, 'get_juju_output', return_value=value):
             writes = []
@@ -2321,7 +2342,7 @@ class TestModelClient(ClientTest):
                 '1': {'agent-state-info': 'error: foo'},
             },
             'services': {},
-        })
+        }).encode('ascii')
         client = self.make_controller_client()
         with patch('jujupy.client.until_timeout', autospec=True,
                    return_value=[2, 1]):
@@ -2353,7 +2374,7 @@ class TestModelClient(ClientTest):
                     }
                 }
             }
-        })
+        }).encode('ascii')
         client = ModelClient(JujuData('local'), None, None)
         with patch.object(client, 'get_juju_output', return_value=value):
             client.wait_for_deploy_started()
@@ -2458,7 +2479,7 @@ class TestModelClient(ClientTest):
             'machines': {
                 '0': {'agent-state': 'started'},
             },
-        })
+        }).encode('ascii')
         client = ModelClient(JujuData('local'), None, None)
         with patch.object(client, 'get_juju_output', return_value=value):
             client.wait_for(WaitMachineNotPresent('1'), quiet=True)
@@ -2469,7 +2490,7 @@ class TestModelClient(ClientTest):
                 '0': {'agent-state': 'started'},
                 '1': {'agent-state': 'started'},
             },
-        })
+        }).encode('ascii')
         client = ModelClient(JujuData('local'), None, None)
         with patch.object(client, 'get_juju_output', return_value=value), \
             patch('jujupy.client.until_timeout',
@@ -4717,7 +4738,7 @@ class TestStatus(FakeHomeTestCase):
 
     def test_from_text(self):
         text = TestModelClient.make_status_yaml(
-            'agent-state', 'pending', 'horsefeathers')
+            'agent-state', 'pending', 'horsefeathers').decode('ascii')
         status = Status.from_text(text)
         self.assertEqual(status.status_text, text)
         self.assertEqual(status.status, {
@@ -5697,7 +5718,7 @@ class TestDescribeSubstrate(TestCase):
 class TestGroupReporter(TestCase):
 
     def test_single(self):
-        sio = StringIO.StringIO()
+        sio = StringIO()
         reporter = GroupReporter(sio, "done")
         self.assertEqual(sio.getvalue(), "")
         reporter.update({"working": ["1"]})
@@ -5706,7 +5727,7 @@ class TestGroupReporter(TestCase):
         self.assertEqual(sio.getvalue(), "working: 1\n")
 
     def test_single_ticks(self):
-        sio = StringIO.StringIO()
+        sio = StringIO()
         reporter = GroupReporter(sio, "done")
         reporter.update({"working": ["1"]})
         self.assertEqual(sio.getvalue(), "working: 1")
@@ -5718,7 +5739,7 @@ class TestGroupReporter(TestCase):
         self.assertEqual(sio.getvalue(), "working: 1 ..\n")
 
     def test_multiple_values(self):
-        sio = StringIO.StringIO()
+        sio = StringIO()
         reporter = GroupReporter(sio, "done")
         reporter.update({"working": ["1", "2"]})
         self.assertEqual(sio.getvalue(), "working: 1, 2")
@@ -5728,7 +5749,7 @@ class TestGroupReporter(TestCase):
         self.assertEqual(sio.getvalue(), "working: 1, 2\nworking: 1\n")
 
     def test_multiple_groups(self):
-        sio = StringIO.StringIO()
+        sio = StringIO()
         reporter = GroupReporter(sio, "done")
         reporter.update({"working": ["1", "2"], "starting": ["3"]})
         first = "starting: 3 | working: 1, 2"
@@ -5740,7 +5761,7 @@ class TestGroupReporter(TestCase):
         self.assertEqual(sio.getvalue(), "\n".join([first, second, ""]))
 
     def test_finish(self):
-        sio = StringIO.StringIO()
+        sio = StringIO()
         reporter = GroupReporter(sio, "done")
         self.assertEqual(sio.getvalue(), "")
         reporter.update({"working": ["1"]})
@@ -5749,14 +5770,14 @@ class TestGroupReporter(TestCase):
         self.assertEqual(sio.getvalue(), "working: 1\n")
 
     def test_finish_unchanged(self):
-        sio = StringIO.StringIO()
+        sio = StringIO()
         reporter = GroupReporter(sio, "done")
         self.assertEqual(sio.getvalue(), "")
         reporter.finish()
         self.assertEqual(sio.getvalue(), "")
 
     def test_wrap_to_width(self):
-        sio = StringIO.StringIO()
+        sio = StringIO()
         reporter = GroupReporter(sio, "done")
         self.assertEqual(sio.getvalue(), "")
         for _ in range(150):
@@ -5769,7 +5790,7 @@ working: 1 ....................................................................
 """)
 
     def test_wrap_to_width_exact(self):
-        sio = StringIO.StringIO()
+        sio = StringIO()
         reporter = GroupReporter(sio, "done")
         reporter.wrap_width = 12
         self.assertEqual(sio.getvalue(), "")
@@ -5788,7 +5809,7 @@ working: 1 ....................................................................
         self.assertEqual(sio.getvalue(), changes[-1] + "\n")
 
     def test_wrap_to_width_overflow(self):
-        sio = StringIO.StringIO()
+        sio = StringIO()
         reporter = GroupReporter(sio, "done")
         reporter.wrap_width = 8
         self.assertEqual(sio.getvalue(), "")
@@ -5806,7 +5827,7 @@ working: 1 ....................................................................
         self.assertEqual(sio.getvalue(), changes[-1] + "\n")
 
     def test_wrap_to_width_multiple_groups(self):
-        sio = StringIO.StringIO()
+        sio = StringIO()
         reporter = GroupReporter(sio, "done")
         reporter.wrap_width = 16
         self.assertEqual(sio.getvalue(), "")
@@ -5921,7 +5942,11 @@ class TestGetMachineDNSName(TestCase):
         status = Status.from_text(self.machine_0_ipv6)
         fake_client = Mock(spec=['status_until'])
         fake_client.status_until.return_value = [status]
+        socket_error = socket.error
         with patch('jujupy.utility.socket', wraps=socket) as wrapped_socket:
+            # Must not convert socket.error into a Mock, because Mocks don't
+            # descend from BaseException
+            wrapped_socket.error = socket_error
             del wrapped_socket.inet_pton
             host = get_machine_dns_name(fake_client, '0')
         self.assertEqual(host, "2001:db8::3")

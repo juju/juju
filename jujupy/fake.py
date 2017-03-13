@@ -390,7 +390,7 @@ class PromptingExpectChild(FakeExpectChild):
         if type(pattern) is not list:
             pattern = [pattern]
         try:
-            prompt = self.prompts.next()
+            prompt = next(self.prompts)
         except StopIteration:
             if pexpect.EOF not in pattern:
                 raise
@@ -1050,7 +1050,7 @@ def get_user_register_command_info(username):
 
 
 def get_user_register_token(username):
-    return b64encode(sha512(username).digest())
+    return b64encode(sha512(username.encode('utf-8')).digest()).decode('ascii')
 
 
 class FakeBackend2_1(FakeBackend):
