@@ -38,9 +38,7 @@ import (
 
 // provisionalProviders is the names of providers that are hidden behind
 // feature flags.
-var provisionalProviders = map[string]string{
-	"vsphere": feature.VSphereProvider,
-}
+var provisionalProviders = map[string]string{}
 
 var usageBootstrapSummary = `
 Initializes a cloud environment.`[1:]
