@@ -237,6 +237,10 @@ func (o *oracleEnviron) StartInstance(
 	}
 
 	hostname, err := o.namespace.Hostname(args.InstanceConfig.MachineId)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	machineName := o.client.ComposeName(hostname)
 	imageName := o.client.ComposeName(imagelist)
 
@@ -318,8 +322,6 @@ func (o *oracleEnviron) StartInstance(
 // StopInstances shuts down the instances with the specified IDs.
 // Unknown instance IDs are ignored, to enable idempotency.
 func (o *oracleEnviron) StopInstances(ids ...instance.Id) error {
-	//TODO: delete security lists
-	//TODO: delete public IP
 	//TODO: delete storage volumes
 	oracleInstances, err := o.getOracleInstances(ids...)
 	if err == environs.ErrNoInstances {
@@ -327,10 +329,12 @@ func (o *oracleEnviron) StopInstances(ids ...instance.Id) error {
 	} else if err != nil {
 		return err
 	}
+
 	logger.Debugf("terminating instances %v", ids)
 	if err := o.terminateInstances(oracleInstances...); err != nil {
 		return err
 	}
+
 	return nil
 }
 
@@ -685,6 +689,7 @@ func (o *oracleEnviron) DestroyController(controllerUUID string) error {
 		return errors.Annotate(err, "cannot stop all instances")
 	default:
 	}
+
 	return nil
 }
 
