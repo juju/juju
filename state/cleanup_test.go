@@ -609,7 +609,7 @@ func (s *CleanupSuite) TestCleanupStorageAttachments(c *gc.C) {
 func (s *CleanupSuite) TestCleanupStorageInstances(c *gc.C) {
 	ch := s.AddTestingCharm(c, "storage-block")
 	storage := map[string]state.StorageConstraints{
-		"data": makeStorageCons("loop", 1024, 1),
+		"allecto": makeStorageCons("modelscoped-block", 1024, 1),
 	}
 	application := s.AddTestingServiceWithStorage(c, "storage-block", ch, storage)
 	u, err := application.AddUnit()
@@ -619,7 +619,7 @@ func (s *CleanupSuite) TestCleanupStorageInstances(c *gc.C) {
 	s.assertDoesNotNeedCleanup(c)
 
 	// this tag matches the storage instance created for the unit above.
-	storageTag := names.NewStorageTag("data/0")
+	storageTag := names.NewStorageTag("allecto/0")
 
 	si, err := s.State.StorageInstance(storageTag)
 	c.Assert(err, jc.ErrorIsNil)
@@ -631,17 +631,15 @@ func (s *CleanupSuite) TestCleanupStorageInstances(c *gc.C) {
 	si, err = s.State.StorageInstance(storageTag)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(si.Life(), gc.Equals, state.Dying)
-	sa, err := s.State.UnitStorageAttachments(u.UnitTag())
+	sa, err := s.State.StorageAttachment(storageTag, u.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(sa, gc.HasLen, 1)
-	c.Assert(sa[0].Life(), gc.Equals, state.Alive)
+	c.Assert(sa.Life(), gc.Equals, state.Alive)
 	s.assertCleanupRuns(c)
 
 	// After running the cleanup, the attachment should be dying.
-	sa, err = s.State.UnitStorageAttachments(u.UnitTag())
+	sa, err = s.State.StorageAttachment(storageTag, u.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(sa, gc.HasLen, 1)
-	c.Assert(sa[0].Life(), gc.Equals, state.Dying)
+	c.Assert(sa.Life(), gc.Equals, state.Dying)
 
 	// check no cleanups
 	s.assertDoesNotNeedCleanup(c)
@@ -745,9 +743,7 @@ func (s *CleanupSuite) assertNeedsCleanup(c *gc.C) {
 }
 
 func (s *CleanupSuite) assertDoesNotNeedCleanup(c *gc.C) {
-	actual, err := s.State.NeedsCleanup()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(actual, jc.IsFalse)
+	state.AssertNoCleanups(c, s.State)
 }
 
 // assertCleanupCount is useful because certain cleanups cause other cleanups

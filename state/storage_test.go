@@ -58,6 +58,23 @@ func (s *StorageStateSuiteBase) setupSingleStorage(c *gc.C, kind, pool string) (
 	return service, unit, storageTag
 }
 
+func (s *StorageStateSuiteBase) setupSingleStorageDetachable(c *gc.C) (*state.Application, *state.Unit, names.StorageTag) {
+	ch := s.createStorageCharm(c, "storage-block", charm.Storage{
+		Name:     "data",
+		Type:     charm.StorageBlock,
+		CountMin: 0,
+		CountMax: 2,
+	})
+	storage := map[string]state.StorageConstraints{
+		"data": makeStorageCons("modelscoped", 1024, 1),
+	}
+	app := s.AddTestingServiceWithStorage(c, ch.URL().Name, ch, storage)
+	unit, err := app.AddUnit()
+	c.Assert(err, jc.ErrorIsNil)
+	storageTag := names.NewStorageTag("data/0")
+	return app, unit, storageTag
+}
+
 func (s *StorageStateSuiteBase) createStorageCharm(c *gc.C, charmName string, storageMeta charm.Storage) *state.Charm {
 	return s.createStorageCharmRev(c, charmName, storageMeta, 1)
 }
@@ -95,10 +112,24 @@ storage:
 	return ch
 }
 
-func (s *StorageStateSuiteBase) setupMixedScopeStorageService(c *gc.C, kind string) *state.Application {
+func (s *StorageStateSuiteBase) setupMixedScopeStorageService(
+	c *gc.C, kind string, pools ...string,
+) *state.Application {
+	pool0 := "modelscoped"
+	pool1 := "machinescoped"
+	switch n := len(pools); n {
+	default:
+		c.Fatalf("invalid number of pools: %d", n)
+	case 2:
+		pool1 = pools[1]
+		fallthrough
+	case 1:
+		pool0 = pools[0]
+	case 0:
+	}
 	storageCons := map[string]state.StorageConstraints{
-		"multi1to10": makeStorageCons("modelscoped", 1024, 1),
-		"multi2up":   makeStorageCons("machinescoped", 2048, 2),
+		"multi1to10": makeStorageCons(pool0, 1024, 2),
+		"multi2up":   makeStorageCons(pool1, 2048, 2),
 	}
 	ch := s.AddTestingCharm(c, "storage-"+kind+"2")
 	return s.AddTestingServiceWithStorage(c, "storage-"+kind+"2", ch, storageCons)
@@ -612,7 +643,9 @@ func (s *StorageStateSuite) TestRemoveStorageAttachmentsRemovesDyingInstance(c *
 
 	// Mark the storage instance as Dying, so that it will be removed
 	// when the last attachment is removed.
-	err := s.State.DestroyStorageInstance(storageTag)
+	err := u.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.State.DestroyStorageInstance(storageTag)
 	c.Assert(err, jc.ErrorIsNil)
 
 	si, err := s.State.StorageInstance(storageTag)
@@ -637,6 +670,8 @@ func (s *StorageStateSuite) TestRemoveStorageAttachmentsRemovesUnitOwnedInstance
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(si.Life(), gc.Equals, state.Alive)
 
+	err = u.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
 	err = s.State.DetachStorage(storageTag, u.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.State.RemoveStorageAttachment(storageTag, u.UnitTag())
@@ -647,6 +682,8 @@ func (s *StorageStateSuite) TestRemoveStorageAttachmentsRemovesUnitOwnedInstance
 
 func (s *StorageStateSuite) TestConcurrentDestroyStorageInstanceRemoveStorageAttachmentsRemovesInstance(c *gc.C) {
 	_, u, storageTag := s.setupSingleStorage(c, "block", "loop-pool")
+	err := u.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
 
 	defer state.SetBeforeHooks(c, s.State, func() {
 		err := s.State.DetachStorage(storageTag, u.UnitTag())
@@ -658,7 +695,7 @@ func (s *StorageStateSuite) TestConcurrentDestroyStorageInstanceRemoveStorageAtt
 	// Destroying the instance should check that there are no concurrent
 	// changes to the storage instance's attachments, and recompute
 	// operations if there are.
-	err := s.State.DestroyStorageInstance(storageTag)
+	err = s.State.DestroyStorageInstance(storageTag)
 	c.Assert(err, jc.ErrorIsNil)
 
 	exists := s.storageInstanceExists(c, storageTag)
@@ -668,7 +705,9 @@ func (s *StorageStateSuite) TestConcurrentDestroyStorageInstanceRemoveStorageAtt
 func (s *StorageStateSuite) TestConcurrentRemoveStorageAttachment(c *gc.C) {
 	_, u, storageTag := s.setupSingleStorage(c, "block", "loop-pool")
 
-	err := s.State.DestroyStorageInstance(storageTag)
+	err := u.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.State.DestroyStorageInstance(storageTag)
 	c.Assert(err, jc.ErrorIsNil)
 
 	destroy := func() {
@@ -701,6 +740,8 @@ func (s *StorageStateSuite) TestRemoveAliveStorageAttachmentError(c *gc.C) {
 
 func (s *StorageStateSuite) TestConcurrentDestroyInstanceRemoveStorageAttachmentsRemovesInstance(c *gc.C) {
 	_, u, storageTag := s.setupSingleStorage(c, "block", "loop-pool")
+	err := u.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
 
 	defer state.SetBeforeHooks(c, s.State, func() {
 		// Concurrently mark the storage instance as Dying,
@@ -713,7 +754,7 @@ func (s *StorageStateSuite) TestConcurrentDestroyInstanceRemoveStorageAttachment
 	// Removing the attachment should check that there are no concurrent
 	// changes to the storage instance's life, and recompute operations
 	// if it does.
-	err := s.State.DetachStorage(storageTag, u.UnitTag())
+	err = s.State.DetachStorage(storageTag, u.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.State.RemoveStorageAttachment(storageTag, u.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
@@ -722,14 +763,16 @@ func (s *StorageStateSuite) TestConcurrentDestroyInstanceRemoveStorageAttachment
 }
 
 func (s *StorageStateSuite) TestConcurrentDestroyStorageInstance(c *gc.C) {
-	_, _, storageTag := s.setupSingleStorage(c, "block", "loop-pool")
+	_, u, storageTag := s.setupSingleStorage(c, "block", "loop-pool")
+	err := u.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
 
 	defer state.SetBeforeHooks(c, s.State, func() {
 		err := s.State.DestroyStorageInstance(storageTag)
 		c.Assert(err, jc.ErrorIsNil)
 	}).Check()
 
-	err := s.State.DestroyStorageInstance(storageTag)
+	err = s.State.DestroyStorageInstance(storageTag)
 	c.Assert(err, jc.ErrorIsNil)
 
 	si, err := s.State.StorageInstance(storageTag)
@@ -746,7 +789,7 @@ func (s *StorageStateSuite) TestDestroyStorageInstanceNotFound(c *gc.C) {
 func (s *StorageStateSuite) TestWatchStorageAttachments(c *gc.C) {
 	ch := s.AddTestingCharm(c, "storage-block2")
 	storage := map[string]state.StorageConstraints{
-		"multi1to10": makeStorageCons("loop-pool", 1024, 1),
+		"multi1to10": makeStorageCons("loop-pool", 1024, 2),
 		"multi2up":   makeStorageCons("loop-pool", 2048, 2),
 	}
 	service := s.AddTestingServiceWithStorage(c, "storage-block2", ch, storage)
@@ -756,12 +799,12 @@ func (s *StorageStateSuite) TestWatchStorageAttachments(c *gc.C) {
 	w := s.State.WatchStorageAttachments(u.UnitTag())
 	defer testing.AssertStop(c, w)
 	wc := testing.NewStringsWatcherC(c, s.State, w)
-	wc.AssertChange("multi1to10/0", "multi2up/1", "multi2up/2")
+	wc.AssertChange("multi1to10/0", "multi1to10/1", "multi2up/2", "multi2up/3")
 	wc.AssertNoChange()
 
-	err = s.State.DetachStorage(names.NewStorageTag("multi2up/1"), u.UnitTag())
+	err = s.State.DetachStorage(names.NewStorageTag("multi1to10/1"), u.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertChange("multi2up/1")
+	wc.AssertChange("multi1to10/1")
 	wc.AssertNoChange()
 }
 
@@ -773,7 +816,9 @@ func (s *StorageStateSuite) TestWatchStorageAttachment(c *gc.C) {
 	wc := testing.NewNotifyWatcherC(c, s.State, w)
 	wc.AssertOneChange()
 
-	err := s.State.DetachStorage(storageTag, u.UnitTag())
+	err := u.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.State.DetachStorage(storageTag, u.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 
@@ -786,12 +831,15 @@ func (s *StorageStateSuite) TestDestroyUnitStorageAttachments(c *gc.C) {
 	service := s.setupMixedScopeStorageService(c, "block")
 	u, err := service.AddUnit()
 	c.Assert(err, jc.ErrorIsNil)
+	err = u.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+
 	defer state.SetBeforeHooks(c, s.State, func() {
 		err := s.State.DestroyUnitStorageAttachments(u.UnitTag())
 		c.Assert(err, jc.ErrorIsNil)
 		attachments, err := s.State.UnitStorageAttachments(u.UnitTag())
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(attachments, gc.HasLen, 3)
+		c.Assert(attachments, gc.HasLen, 4)
 		for _, a := range attachments {
 			c.Assert(a.Life(), gc.Equals, state.Dying)
 			err := s.State.RemoveStorageAttachment(a.StorageInstance(), u.UnitTag())
