@@ -414,6 +414,9 @@ func ListSubnets(api NetworkBacking, args params.SubnetsFilters) (results params
 			)
 			continue
 		}
+		// TODO(babbageclunk): make the empty string a valid space
+		// name, rather than treating blank as "doesn't have a space".
+		// lp:1672888
 		var spaceTag string
 		if subnet.SpaceName() != "" {
 			spaceTag = names.NewSpaceTag(subnet.SpaceName()).String()
