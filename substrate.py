@@ -76,17 +76,19 @@ def terminate_instances(env, instance_ids):
     subprocess.check_call(command_args, env=environ)
 
 
-def attempt_terminate_instances(handler, instance_ids):
+def attempt_terminate_instances(account, instance_ids):
     """Initiate terminate instance method of specific handler
 
-    :param handler: Instance of a class handler to invoke
+    :param account: Substrate account object.
     :param instance_ids: List of instance_ids to terminate
     :return: List of instance_ids failed to terminate
     """
     uncleaned_instances = []
     for instance_id in instance_ids:
         try:
-            handler.terminate_instances([instance_id])
+            # We are calling terminate instances for each instances
+            # individually so as to catch any error.
+            account.terminate_instances([instance_id])
         except Exception as e:
             # Using too broad exception here because terminate_instances method
             # is handlers specific
@@ -94,15 +96,15 @@ def attempt_terminate_instances(handler, instance_ids):
     return uncleaned_instances
 
 
-def instances_only_contain_known(instance_id_list, known_instance_ids):
+def contains_only_known_instances(known_instance_ids, possibly_known_ids):
     """ Identify instance_id_list only contains ids we know about.
 
-    :param instance_id_list: The list of instance_ids
-    :param known_instance_ids: The list of instance_ids
-    :return: True if instance_id_list only contains ids from
-    know_instance_ids otherwise False
+    :param known_instance_ids: The list of instance_ids (superset)
+    :param possibly_known_ids: The list of instance_ids (subset)
+    :return: True if known_instance_ids only contains
+    possibly_known_ids
     """
-    unknown_ids = set(known_instance_ids) - set(instance_id_list)
+    unknown_ids = set(possibly_known_ids) - set(known_instance_ids)
     return len(unknown_ids) == 0
 
 
@@ -199,7 +201,7 @@ class AWSAccount:
         """
         failures = []
         for sg_id, sg_instances in secgroups.items():
-            if instances_only_contain_known(instances, sg_instances):
+            if contains_only_known_instances(instances, sg_instances):
                 try:
                     deleted = self.client.delete_security_group(name=sg_id)
                     if not deleted:

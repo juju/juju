@@ -2648,34 +2648,57 @@ class TestWaitForStateServerToShutdown(FakeHomeTestCase):
 
 
 class TestErrorIfUnclean(FakeHomeTestCase):
+    def test_empty_unclean_resources(self):
+        uncleaned_resources = []
+        error_if_unclean(uncleaned_resources)
+        self.assertEquals(self.log_stream.getvalue(), '')
+
     def test_contain_unclean_resources(self):
-        """
-        unclean_resources = [
+        uncleaned_resources = [
                 {
                     'resource': 'instances',
-                    'error': [('ifoo', 'Instance not found'),
-                    ('ibar', 'Instance not found')]
+                    'errors': [('ifoo', 'err-msg'), ('ibar', 'err-msg')]
                 },
                 {
                     'resource': 'security groups',
-                    'error': [('sg-bar', 'Security group failed to delete')]
+                    'errors': [('sg-bar', 'err-msg')]
                 }
             ]
-        """
-        uncleaned_resources = []
-        uncleaned_instances = [("ifoo", "err-msg"), ("ibar", "err-msg")]
-        uncleaned_security_groups = [("sg-bar", "err-msg")]
-        uncleaned_resources.append(
-            {'resource': 'instances', 'errors': uncleaned_instances})
-        uncleaned_resources.append(
-            {'resource': 'security groups', 'errors':
-                uncleaned_security_groups})
         error_if_unclean(uncleaned_resources)
         self.assertListEqual(self.log_stream.getvalue().splitlines(), [
             "CRITICAL Following resource requires manual cleanup",
             "CRITICAL instances",
             "CRITICAL \tifoo: err-msg",
             "CRITICAL \tibar: err-msg",
+            "CRITICAL security groups",
+            "CRITICAL \tsg-bar: err-msg"
+        ])
+
+    def test_unclean_resources_without_sg_error(self):
+        uncleaned_resources = [
+                {
+                    'resource': 'instances',
+                    'errors': [('ifoo', 'err-msg'), ('ibar', 'err-msg')]
+                },
+        ]
+        error_if_unclean(uncleaned_resources)
+        self.assertListEqual(self.log_stream.getvalue().splitlines(), [
+            "CRITICAL Following resource requires manual cleanup",
+            "CRITICAL instances",
+            "CRITICAL \tifoo: err-msg",
+            "CRITICAL \tibar: err-msg",
+        ])
+
+    def test_unclean_resources_without_instances_error(self):
+        uncleaned_resources = [
+                {
+                    'resource': 'security groups',
+                    'errors': [('sg-bar', 'err-msg')]
+                }
+            ]
+        error_if_unclean(uncleaned_resources)
+        self.assertListEqual(self.log_stream.getvalue().splitlines(), [
+            "CRITICAL Following resource requires manual cleanup",
             "CRITICAL security groups",
             "CRITICAL \tsg-bar: err-msg"
         ])

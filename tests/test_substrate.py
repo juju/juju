@@ -51,7 +51,7 @@ from substrate import (
     stop_libvirt_domain,
     terminate_instances,
     verify_libvirt_domain,
-    instances_only_contain_known,
+    contains_only_known_instances,
     attempt_terminate_instances,
     )
 from tests import (
@@ -1773,7 +1773,7 @@ class TestAWSEnsureCleanUp(TestCase):
 
 
 class TestAWSCleanUpSecurityGroups(TestCase):
-    def test_secgroup_has_similar_to_instances(self):
+    def test_delete_secgroup_not_in_use(self):
         secgroup = {
             "sg-foo": ["foo", "bar"]
         }
@@ -1788,7 +1788,7 @@ class TestAWSCleanUpSecurityGroups(TestCase):
                     client.delete_security_group.call_args,
                     call(name='sg-foo'))
 
-    def test_secgroup_has_extra_instances(self):
+    def test_dont_delete_secgroup_in_use(self):
         secgroup = {
             "sg-foo": ["foo", "bar", "baz"]
         }
@@ -1798,6 +1798,7 @@ class TestAWSCleanUpSecurityGroups(TestCase):
                    return_value=client):
             with AWSAccount.from_boot_config(get_aws_env()) as aws:
                 failures = aws.cleanup_security_groups(instances, secgroup)
+                self.assertEquals(client.delete_security_group.call_count, 0)
                 self.assertEquals(failures, [])
 
     def test_return_failure_on_exception(self):
@@ -1806,13 +1807,13 @@ class TestAWSCleanUpSecurityGroups(TestCase):
             "sg-bar": ["foo", "bar"]
         }
         instances = ["foo", "bar"]
+        err_msg = 'Security group failed to delete'
         client = MagicMock(spec=["delete_security_group"])
+        client.delete_security_group.side_effect = EC2ResponseError(
+            400, "error", err_msg)
         with patch('substrate.ec2.connect_to_region',
                    return_value=client):
             with AWSAccount.from_boot_config(get_aws_env()) as aws:
-                err_msg = 'Security group failed to delete'
-                client.delete_security_group.side_effect = EC2ResponseError(
-                    400, "error", err_msg)
                 failures = aws.cleanup_security_groups(instances, secgroup)
                 self.assertEquals(client.delete_security_group.call_args_list,
                                   [call(name='sg-bar'), call(name='sg-foo')])
@@ -1820,43 +1821,28 @@ class TestAWSCleanUpSecurityGroups(TestCase):
                                      [('sg-bar', err_msg),
                                       ('sg-foo', err_msg)])
 
-    def test_exception_on_deleting_second_secgroup(self):
+    def test_return_mixed_response(self):
         secgroup = {
             "sg-foo": ["foo", "bar"],
             "sg-bar": ["fooX", "barX"]
         }
         instances = ["foo", "bar", "fooX", "barX"]
         client = MagicMock(spec=["delete_security_group"])
+        client.delete_security_group.side_effect = [
+            True, False]
         with patch('substrate.ec2.connect_to_region',
                    return_value=client):
             with AWSAccount.from_boot_config(get_aws_env()) as aws:
-                err_msg = 'Security group failed to delete'
-                client.delete_security_group.side_effect = [
-                    True, EC2ResponseError(400, "error", err_msg)]
                 failures = aws.cleanup_security_groups(instances, secgroup)
                 self.assertEquals(failures,
-                                  [('sg-foo',
-                                    'Security group failed to delete')])
-
-    def test_exception_on_deleting_first_secgroup(self):
-        secgroup = {
-            "sg-foo": ["foo", "bar"],
-            "sg-bar": ["fooX", "barX"]
-        }
-        instances = ["foo", "bar", "fooX", "barX"]
-        client = MagicMock(spec=["delete_security_group"])
-        with patch('substrate.ec2.connect_to_region',
-                   return_value=client):
-            with AWSAccount.from_boot_config(get_aws_env()) as aws:
-                err_msg = 'Security group failed to delete'
-                client.delete_security_group.side_effect = [
-                    EC2ResponseError(400, "error", err_msg), True]
-                failures = aws.cleanup_security_groups(instances, secgroup)
-                self.assertEquals(failures,
-                                  [('sg-bar',
-                                    'Security group failed to delete')])
+                                  [('sg-foo', 'Failed to delete')])
+                self.assertEquals(client.delete_security_group.call_args_list,
+                                  [call(name='sg-bar'), call(name='sg-foo')])
 
     def test_instance_mapped_to_more_than_one_secgroup(self):
+        """ Delete security group only if it has all the mapped instances
+        specified in the instances list.
+        """
         secgroup = {
             "sg-foo": ["foo", "bar"],
             "sg-bar": ["foo", "baz"]
@@ -1875,24 +1861,24 @@ class TestAWSCleanUpSecurityGroups(TestCase):
                     call(name='sg-foo'))
 
 
-class TestInstancesOnlyContainKnown(TestCase):
+class TestContainsOnlyKnownInstances(TestCase):
     def test_return_true_when_all_ids_known(self):
         instances = ["foo", "bar", "qnx"]
         sg_list = ["foo", "bar", "qnx"]
         self.assertEquals(
-            instances_only_contain_known(instances, sg_list), True)
+            contains_only_known_instances(instances, sg_list), True)
 
-    def test_return_true_when_most_ids_known(self):
+    def test_return_true_known_ids_are_subset(self):
         instances = ["foo", "bar", "qnx", "foo1"]
         sg_list = ["foo", "bar", "qnx"]
         self.assertEquals(
-            instances_only_contain_known(instances, sg_list), True)
+            contains_only_known_instances(instances, sg_list), True)
 
     def test_return_false_when_some_ids_unknown(self):
         instances = ["foo", "qnx"]
         sg_list = ["foo", "bar"]
         self.assertEquals(
-            instances_only_contain_known(instances, sg_list),
+            contains_only_known_instances(instances, sg_list),
             False)
 
 
@@ -1910,7 +1896,6 @@ class TestAttemptTerminateInstances(TestCase):
     def test_return_with_no_error(self):
         instances = ["foo", "bar"]
         mock_account = Mock()
-        mock_account.terminate_instances.side_effect = None
         failed = attempt_terminate_instances(mock_account, instances)
         self.assertEquals(failed, [])
         self.assertEquals(mock_account.terminate_instances.call_args_list,
