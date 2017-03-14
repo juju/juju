@@ -1338,6 +1338,25 @@ class WaitMachineNotPresent(BaseCondition):
                         self.machine)
 
 
+class MachineDown(BaseCondition):
+    """Condition satisfied when a given machine is down."""
+
+    def __init__(self, machine_id):
+        super(MachineDown, self).__init__()
+        self.machine_id = machine_id
+
+    def iter_blocking_state(self, status):
+        """Yield the juju-status of the machine if it is not 'down'."""
+        juju_status = status.status['machines'][self.machine_id]['juju-status']
+        if juju_status['current'] != 'down':
+            yield self.machine_id, juju_status['current']
+
+    def do_raise(self, model_name, status):
+        raise Exception(
+            "Timed out waiting for juju to determine machine {} down.".format(
+                self.machine_id))
+
+
 class WaitVersion(BaseCondition):
 
     def __init__(self, target_version, timeout=300):
@@ -2424,7 +2443,9 @@ class ModelClient:
         """
         if condition.already_satisfied:
             return self.get_status()
-        reporter = GroupReporter(sys.stdout, 'started')
+        # iter_blocking_state must filter out all non-blocking values, so
+        # there are no "expected" values for the GroupReporter.
+        reporter = GroupReporter(sys.stdout, None)
         status = None
         try:
             for status in self.status_until(condition.timeout):
