@@ -748,7 +748,8 @@ func (api *API) AddRelation(args params.AddRelation) (params.AddRelationResults,
 		}
 		// Save the remote application details into state.
 		// TODO(wallyworld) - allow app name to be aliased
-		remoteApp, err := api.processRemoteApplication(*url, url.ApplicationName)
+		alias := url.ApplicationName
+		remoteApp, err := api.processRemoteApplication(url, alias)
 		if err != nil {
 			return params.AddRelationResults{}, errors.Trace(err)
 		}
@@ -787,64 +788,6 @@ func (api *API) AddRelation(args params.AddRelation) (params.AddRelationResults,
 	return params.AddRelationResults{Endpoints: outEps}, nil
 }
 
-// processRemoteApplication takes a remote application URL and retrieves or confirms the the details
-// of the application and endpoint. These details are saved to the state model so relations to
-// the remote application can be created.
-func (api *API) processRemoteApplication(url jujucrossmodel.ApplicationURL, alias string) (*state.RemoteApplication, error) {
-	// The application URL is either for an application in another model on this controller,
-	// or is for an application offer contained in a directory.
-	if url.Directory == "" {
-		if url.ModelName == "" {
-			return nil, errors.Errorf("missing model name in URL %q", url.String())
-		}
-		return api.processSameControllerRemoteApplication(url, alias)
-	}
-
-	return nil, errors.NotSupportedf("non local application URL")
-	// TODO(wallyworld) - we want to support application offers instead of direct model access
-	//offersAPI, err := api.applicationOffersAPIFactory.ApplicationOffers(url.Directory)
-	//if err != nil {
-	//	return nil, errors.Trace(err)
-	//}
-	//offers, err := offersAPI.ListOffers(params.OfferFilters{
-	//	Directory: url.Directory,
-	//	Filters: []params.OfferFilter{
-	//		{
-	//			ApplicationURL: url.String(),
-	//		},
-	//	},
-	//})
-	//if err != nil {
-	//	return nil, errors.Trace(err)
-	//}
-	//if offers.Error != nil {
-	//	return nil, errors.Trace(offers.Error)
-	//}
-	//// The offers query succeeded but there were no offers matching the URL.
-	//if len(offers.Offers) == 0 {
-	//	return nil, errors.NotFoundf("application offer %q", url.String())
-	//}
-	//
-	//// Create a remote application entry in the model for the consumed service.
-	//offer := offers.Offers[0]
-	//sourceModelTag, err := names.ParseModelTag(offer.SourceModelTag)
-	//if err != nil {
-	//	return nil, errors.Trace(err)
-	//}
-	//var endpoints []params.RemoteEndpoint
-	//for _, ep := range offer.Endpoints {
-	//	endpoints = append(endpoints, params.RemoteEndpoint{
-	//		Name:      ep.Name,
-	//		Role:      ep.Role,
-	//		Interface: ep.Interface,
-	//		Scope:     ep.Scope,
-	//		Limit:     ep.Limit,
-	//	})
-	//}
-	//remoteApp, err := api.saveRemoteApplication(sourceModelTag, url.ApplicationName, url.ApplicationName, url.String(), endpoints)
-	//return remoteApp, err
-}
-
 func (api *API) sameControllerSourceModel(userName, modelName string) (names.ModelTag, error) {
 	// Look up the model by qualified name, ie user/model.
 	var sourceModelTag names.ModelTag
@@ -867,21 +810,12 @@ func (api *API) sameControllerSourceModel(userName, modelName string) (names.Mod
 	return sourceModelTag, nil
 }
 
-// processSameControllerRemoteApplication handles the case where we have an application
-// from another model on the same controller.
-func (api *API) processSameControllerRemoteApplication(url jujucrossmodel.ApplicationURL, alias string) (*state.RemoteApplication, error) {
-	// The user name is either specified in URL, or else we default to
-	// the logged in user.
-	userName := url.User
-	if userName == "" {
-		userName = api.authorizer.GetAuthTag().Id()
-	}
-	// To relate to an application in another model, the user needs at least write permission.
-	sourceModelTag, err := api.sameControllerSourceModel(userName, url.ModelName)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	app, closer, err := api.sameControllerOfferedApplication(sourceModelTag, url.ApplicationName)
+// processRemoteApplication takes a remote application URL and retrieves or confirms the the details
+// of the application and endpoint. These details are saved to the state model so relations to
+// the remote application can be created.
+func (api *API) processRemoteApplication(url *jujucrossmodel.ApplicationURL, alias string) (*state.RemoteApplication, error) {
+	// TODO(wallyworld) - add permission to offer. For now user requires write access to model.
+	app, closer, sourceModelTag, err := api.sameControllerOfferedApplication(url, permission.WriteAccess)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -911,9 +845,10 @@ func (api *API) processSameControllerRemoteApplication(url jujucrossmodel.Applic
 
 // sameControllerOfferedApplication looks in the specified model on the same controller
 // and returns the specified application and a reference to its state.State.
-func (api *API) sameControllerOfferedApplication(sourceModelTag names.ModelTag, applicationName string) (
+func (api *API) sameControllerOfferedApplication(url *jujucrossmodel.ApplicationURL, perm permission.Access) (
 	_ *state.Application,
 	closer io.Closer,
+	sourceModelTag names.ModelTag,
 	err error,
 ) {
 	defer func() {
@@ -922,23 +857,74 @@ func (api *API) sameControllerOfferedApplication(sourceModelTag names.ModelTag, 
 		}
 	}()
 
-	ok, err := api.authorizer.HasPermission(permission.WriteAccess, sourceModelTag)
+	// We require the hosting model to be specified.
+	if url.ModelName == "" {
+		return nil, nil, names.ModelTag{}, errors.Errorf("missing model name in URL %q", url.String())
+	}
+
+	// The user name is either specified in URL, or else we default to
+	// the logged in user.
+	userName := url.User
+	if userName == "" {
+		userName = api.authorizer.GetAuthTag().Id()
+	}
+
+	// Get the hosting model from the name.
+	sourceModelTag, err = api.sameControllerSourceModel(userName, url.ModelName)
 	if err != nil {
-		return nil, nil, errors.Trace(err)
+		return nil, nil, names.ModelTag{}, errors.Trace(err)
+	}
+
+	var st *state.State
+	fail := func(err error) (
+		*state.Application,
+		io.Closer,
+		names.ModelTag,
+		error,
+	) {
+		return nil, st, sourceModelTag, err
+	}
+
+	ok, err := api.authorizer.HasPermission(perm, sourceModelTag)
+	if err != nil {
+		return fail(errors.Trace(err))
 	}
 	if !ok {
-		return nil, nil, common.ErrPerm
+		return fail(common.ErrPerm)
 	}
 	// Get the backend state for the source model so we can lookup the application.
-	st, err := api.backend.ForModel(sourceModelTag)
+	st, err = api.backend.ForModel(sourceModelTag)
 	if err != nil {
-		return nil, nil, errors.Trace(err)
+		return fail(errors.Trace(err))
 	}
-	app, err := st.Application(applicationName)
+
+	// For now, offer URL is matched against the specified application
+	// name as seen from the consuming model.
+	applicationOffers := state.NewApplicationOffers(st)
+	offers, err := applicationOffers.ListOffers(
+		jujucrossmodel.ApplicationOfferFilter{
+			ApplicationURL: "/" + url.ApplicationName,
+		},
+	)
 	if err != nil {
-		return nil, st, errors.Trace(err)
+		return fail(errors.Trace(err))
 	}
-	return app, st, err
+
+	// The offers query succeeded but there were no offers matching the required offer name.
+	if len(offers) == 0 {
+		return fail(errors.NotFoundf("application offer %q", url.ApplicationName))
+	}
+	// Sanity check - this should never happen.
+	if len(offers) > 1 {
+		return fail(errors.Errorf("unexpected: %d matching offers for %q", len(offers), url.ApplicationName))
+	}
+
+	offer := offers[0]
+	app, err := st.Application(offer.ApplicationName)
+	if err != nil {
+		return fail(errors.Trace(err))
+	}
+	return app, st, sourceModelTag, err
 }
 
 // saveRemoteApplication saves the details of the specified remote application and its endpoints
@@ -1051,81 +1037,15 @@ func (api *API) oneRemoteApplicationInfo(urlStr string) (*params.RemoteApplicati
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if url.Directory == "" {
-		if url.ModelName == "" {
-			return nil, errors.Errorf("missing model name in URL %q", url.String())
-		}
-		return api.sameControllerRemoteApplicationInfo(*url)
-	}
 
-	return nil, errors.NotSupportedf("non local application URL")
-
-	// TODO(wallyworld) - we want to support application offers instead of direct model access
-	//offersAPI, err := api.applicationOffersAPIFactory.ApplicationOffers(url.Directory)
-	//if err != nil {
-	//	return nil, errors.Trace(err)
-	//}
-	//offers, err := offersAPI.ListOffers(params.OfferFilters{
-	//	Directory: url.Directory,
-	//	Filters: []params.OfferFilter{
-	//		{
-	//			ApplicationURL: url.String(),
-	//		},
-	//	},
-	//})
-	//if err != nil {
-	//	return nil, errors.Trace(err)
-	//}
-	//if offers.Error != nil {
-	//	return nil, errors.Trace(offers.Error)
-	//}
-	//// The offers query succeeded but there were no offers matching the URL.
-	//if len(offers.Offers) == 0 {
-	//	return nil, errors.NotFoundf("application offer %q", url.String())
-	//}
-	//offer := offers.Offers[0]
-	//return &params.RemoteApplicationInfo{
-	//	ModelTag:         offer.SourceModelTag,
-	//	Name:             offer.ApplicationName,
-	//	Description:      offer.ApplicationDescription,
-	//	ApplicationURL:   urlStr,
-	//	SourceModelLabel: offer.SourceLabel,
-	//	Endpoints:        offer.Endpoints,
-	//	IconURLPath:      fmt.Sprintf("rest/1.0/remote-application/%s/icon", url.ApplicationName),
-	//}, nil
-}
-
-func (api *API) sameControllerRemoteApplicationInfo(url jujucrossmodel.ApplicationURL) (*params.RemoteApplicationInfo, error) {
-	// The user name is either specified in URL, or else we default to
-	// the logged in user.
-	userName := url.User
-	if userName == "" {
-		userName = api.authorizer.GetAuthTag().Id()
-	}
-	sourceModelTag, err := api.sameControllerSourceModel(userName, url.ModelName)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 	// We need at least read access to the model to see the application details.
-	ok, err := api.authorizer.HasPermission(permission.ReadAccess, sourceModelTag)
+	app, closer, sourceModelTag, err := api.sameControllerOfferedApplication(url, permission.ReadAccess)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if !ok {
-		return nil, common.ErrPerm
-	}
-	// Get the backend state for the source model so we can lookup the application
-	// and its endpoints.
-	st, err := api.backend.ForModel(sourceModelTag)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	defer st.Close()
-	application, err := st.Application(url.ApplicationName)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	eps, err := application.Endpoints()
+	defer closer.Close()
+
+	eps, err := app.Endpoints()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1139,20 +1059,16 @@ func (api *API) sameControllerRemoteApplicationInfo(url jujucrossmodel.Applicati
 			Limit:     ep.Limit,
 		}
 	}
-	ch, _, err := application.Charm()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	model, err := st.Model()
+	ch, _, err := app.Charm()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return &params.RemoteApplicationInfo{
 		ModelTag:         sourceModelTag.String(),
-		Name:             application.Name(),
+		Name:             url.ApplicationName,
 		Description:      ch.Meta().Description,
 		ApplicationURL:   url.String(),
-		SourceModelLabel: model.Name(),
+		SourceModelLabel: url.ModelName,
 		Endpoints:        endpoints,
 		IconURLPath:      fmt.Sprintf("rest/1.0/remote-application/%s/icon", url.ApplicationName),
 	}, nil
@@ -1205,7 +1121,7 @@ func (api *API) consumeOne(possibleURL, alias string) (string, error) {
 	if url.HasEndpoint() {
 		return "", errors.Errorf("remote application %q shouldn't include endpoint", url)
 	}
-	remoteApp, err := api.processRemoteApplication(*url, alias)
+	remoteApp, err := api.processRemoteApplication(url, alias)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
