@@ -61,7 +61,6 @@ It is possible to override or augment constraints by passing provider-specific
 "placement directives" as an argument; these give the provider additional
 information about how to allocate the machine. For example, one can direct the
 MAAS provider to acquire a particular node by specifying its hostname.
-For more information on placement directives, see "juju help placement".
 
 Examples:
    juju add-machine                      (starts a new machine)
