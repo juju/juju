@@ -366,15 +366,15 @@ func (s *storageSuite) TestDetach(c *gc.C) {
 	})
 	s.assertCalls(c, []string{
 		getBlockForTypeCall, // Change
-		destroyStorageAttachmentCall,
+		detachStorageCall,
 		storageInstanceAttachmentsCall,
-		destroyStorageAttachmentCall,
+		detachStorageCall,
 	})
 	s.stub.CheckCalls(c, []testing.StubCall{
 		{getBlockForTypeCall, []interface{}{state.ChangeBlock}},
-		{destroyStorageAttachmentCall, []interface{}{s.storageTag, s.unitTag}},
+		{detachStorageCall, []interface{}{s.storageTag, s.unitTag}},
 		{storageInstanceAttachmentsCall, []interface{}{s.storageTag}},
-		{destroyStorageAttachmentCall, []interface{}{s.storageTag, s.unitTag}},
+		{detachStorageCall, []interface{}{s.storageTag, s.unitTag}},
 	})
 }
 
@@ -392,11 +392,11 @@ func (s *storageSuite) TestDetachSpecifiedNotFound(c *gc.C) {
 	})
 	s.assertCalls(c, []string{
 		getBlockForTypeCall, // Change
-		destroyStorageAttachmentCall,
+		detachStorageCall,
 	})
 	s.stub.CheckCalls(c, []testing.StubCall{
 		{getBlockForTypeCall, []interface{}{state.ChangeBlock}},
-		{destroyStorageAttachmentCall, []interface{}{
+		{detachStorageCall, []interface{}{
 			s.storageTag,
 			names.NewUnitTag("foo/42"),
 		}},
@@ -409,8 +409,8 @@ func (s *storageSuite) TestDetachAttachmentNotFoundConcurrent(c *gc.C) {
 	//     a list of alive attachments
 	//  2. attachment is concurrently destroyed
 	//     and removed by another process
-	s.state.destroyStorageAttachment = func(sTag names.StorageTag, uTag names.UnitTag) error {
-		s.stub.AddCall(destroyStorageAttachmentCall, sTag, uTag)
+	s.state.detachStorage = func(sTag names.StorageTag, uTag names.UnitTag) error {
+		s.stub.AddCall(detachStorageCall, sTag, uTag)
 		return errors.NotFoundf(
 			"attachment of %s to %s",
 			names.ReadableString(sTag),
@@ -426,12 +426,12 @@ func (s *storageSuite) TestDetachAttachmentNotFoundConcurrent(c *gc.C) {
 	s.assertCalls(c, []string{
 		getBlockForTypeCall, // Change
 		storageInstanceAttachmentsCall,
-		destroyStorageAttachmentCall,
+		detachStorageCall,
 	})
 	s.stub.CheckCalls(c, []testing.StubCall{
 		{getBlockForTypeCall, []interface{}{state.ChangeBlock}},
 		{storageInstanceAttachmentsCall, []interface{}{s.storageTag}},
-		{destroyStorageAttachmentCall, []interface{}{s.storageTag, s.unitTag}},
+		{detachStorageCall, []interface{}{s.storageTag, s.unitTag}},
 	})
 }
 

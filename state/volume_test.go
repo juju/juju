@@ -517,7 +517,7 @@ func (s *VolumeStateSuite) TestRemoveStorageInstanceDestroysAndUnassignsVolume(c
 
 	err = s.State.DestroyStorageInstance(storageTag)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.State.DestroyStorageAttachment(storageTag, u.UnitTag())
+	err = s.State.DetachStorage(storageTag, u.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
 
 	// The storage instance and attachment are dying, but not yet
@@ -918,7 +918,7 @@ func removeStorageInstance(c *gc.C, st *state.State, storageTag names.StorageTag
 	attachments, err := st.StorageAttachments(storageTag)
 	c.Assert(err, jc.ErrorIsNil)
 	for _, a := range attachments {
-		err = st.DestroyStorageAttachment(storageTag, a.Unit())
+		err = st.DetachStorage(storageTag, a.Unit())
 		c.Assert(err, jc.ErrorIsNil)
 		err = st.RemoveStorageAttachment(storageTag, a.Unit())
 		c.Assert(err, jc.ErrorIsNil)

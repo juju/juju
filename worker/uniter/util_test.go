@@ -1769,7 +1769,7 @@ func (s destroyStorageAttachment) step(c *gc.C, ctx *context) {
 	storageAttachments, err := ctx.st.UnitStorageAttachments(ctx.unit.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(storageAttachments, gc.HasLen, 1)
-	err = ctx.st.DestroyStorageAttachment(
+	err = ctx.st.DetachStorage(
 		storageAttachments[0].StorageInstance(),
 		ctx.unit.UnitTag(),
 	)

@@ -239,7 +239,7 @@ func (s *StorageStateSuiteBase) obliterateUnitStorage(c *gc.C, tag names.UnitTag
 	attachments, err := s.State.UnitStorageAttachments(tag)
 	c.Assert(err, jc.ErrorIsNil)
 	for _, a := range attachments {
-		err = s.State.DestroyStorageAttachment(a.StorageInstance(), a.Unit())
+		err = s.State.DetachStorage(a.StorageInstance(), a.Unit())
 		c.Assert(err, jc.ErrorIsNil)
 		err = s.State.RemoveStorageAttachment(a.StorageInstance(), a.Unit())
 		c.Assert(err, jc.ErrorIsNil)
@@ -595,7 +595,7 @@ func (s *StorageStateSuite) TestUnitEnsureDead(c *gc.C) {
 		c.Assert(err, gc.ErrorMatches, "unit has storage attachments")
 	}
 	assertUnitEnsureDeadError()
-	err = s.State.DestroyStorageAttachment(storageTag, u.UnitTag())
+	err = s.State.DetachStorage(storageTag, u.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
 	assertUnitEnsureDeadError()
 	err = s.State.DestroyStorageInstance(storageTag)
@@ -619,7 +619,7 @@ func (s *StorageStateSuite) TestRemoveStorageAttachmentsRemovesDyingInstance(c *
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(si.Life(), gc.Equals, state.Dying)
 
-	err = s.State.DestroyStorageAttachment(storageTag, u.UnitTag())
+	err = s.State.DetachStorage(storageTag, u.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.State.RemoveStorageAttachment(storageTag, u.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
@@ -637,7 +637,7 @@ func (s *StorageStateSuite) TestRemoveStorageAttachmentsRemovesUnitOwnedInstance
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(si.Life(), gc.Equals, state.Alive)
 
-	err = s.State.DestroyStorageAttachment(storageTag, u.UnitTag())
+	err = s.State.DetachStorage(storageTag, u.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.State.RemoveStorageAttachment(storageTag, u.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
@@ -649,7 +649,7 @@ func (s *StorageStateSuite) TestConcurrentDestroyStorageInstanceRemoveStorageAtt
 	_, u, storageTag := s.setupSingleStorage(c, "block", "loop-pool")
 
 	defer state.SetBeforeHooks(c, s.State, func() {
-		err := s.State.DestroyStorageAttachment(storageTag, u.UnitTag())
+		err := s.State.DetachStorage(storageTag, u.UnitTag())
 		c.Assert(err, jc.ErrorIsNil)
 		err = s.State.RemoveStorageAttachment(storageTag, u.UnitTag())
 		c.Assert(err, jc.ErrorIsNil)
@@ -672,7 +672,7 @@ func (s *StorageStateSuite) TestConcurrentRemoveStorageAttachment(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	destroy := func() {
-		err = s.State.DestroyStorageAttachment(storageTag, u.UnitTag())
+		err = s.State.DetachStorage(storageTag, u.UnitTag())
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	remove := func() {
@@ -713,7 +713,7 @@ func (s *StorageStateSuite) TestConcurrentDestroyInstanceRemoveStorageAttachment
 	// Removing the attachment should check that there are no concurrent
 	// changes to the storage instance's life, and recompute operations
 	// if it does.
-	err := s.State.DestroyStorageAttachment(storageTag, u.UnitTag())
+	err := s.State.DetachStorage(storageTag, u.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.State.RemoveStorageAttachment(storageTag, u.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
@@ -759,7 +759,7 @@ func (s *StorageStateSuite) TestWatchStorageAttachments(c *gc.C) {
 	wc.AssertChange("multi1to10/0", "multi2up/1", "multi2up/2")
 	wc.AssertNoChange()
 
-	err = s.State.DestroyStorageAttachment(names.NewStorageTag("multi2up/1"), u.UnitTag())
+	err = s.State.DetachStorage(names.NewStorageTag("multi2up/1"), u.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange("multi2up/1")
 	wc.AssertNoChange()
@@ -773,7 +773,7 @@ func (s *StorageStateSuite) TestWatchStorageAttachment(c *gc.C) {
 	wc := testing.NewNotifyWatcherC(c, s.State, w)
 	wc.AssertOneChange()
 
-	err := s.State.DestroyStorageAttachment(storageTag, u.UnitTag())
+	err := s.State.DetachStorage(storageTag, u.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 

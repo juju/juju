@@ -673,7 +673,7 @@ func (st *State) storageAttachment(storage names.StorageTag, unit names.UnitTag)
 	return &s, nil
 }
 
-// DestroyStorageAttachment ensures that the existing storage attachments of
+// DetachStorage ensures that the existing storage attachments of
 // the specified unit are removed at some point.
 func (st *State) DestroyUnitStorageAttachments(unit names.UnitTag) (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot destroy unit %s storage attachments", unit.Id())
@@ -699,9 +699,9 @@ func (st *State) DestroyUnitStorageAttachments(unit names.UnitTag) (err error) {
 	return st.run(buildTxn)
 }
 
-// DestroyStorageAttachment ensures that the storage attachment will be
+// DetachStorage ensures that the storage attachment will be
 // removed at some point.
-func (st *State) DestroyStorageAttachment(storage names.StorageTag, unit names.UnitTag) (err error) {
+func (st *State) DetachStorage(storage names.StorageTag, unit names.UnitTag) (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot destroy storage attachment %s:%s", storage.Id(), unit.Id())
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		s, err := st.storageAttachment(storage, unit)

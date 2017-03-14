@@ -465,7 +465,7 @@ func (s *FilesystemStateSuite) TestRemoveStorageInstanceDestroysAndUnassignsFile
 
 	err := s.State.DestroyStorageInstance(storageTag)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.State.DestroyStorageAttachment(storageTag, unitTag)
+	err = s.State.DetachStorage(storageTag, unitTag)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// The storage instance and attachment are dying, but not yet
