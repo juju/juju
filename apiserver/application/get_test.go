@@ -40,8 +40,8 @@ func (s *getSuite) SetUpTest(c *gc.C) {
 	resources := common.NewResources()
 	resources.RegisterNamed("dataDir", common.StringResource(c.MkDir()))
 	s.serviceAPI, err = application.NewAPI(
-		backend, s.authorizer, resources, blockChecker,
-		application.CharmToStateCharm,
+		backend, s.authorizer, resources, s.BackingStatePool,
+		blockChecker, application.CharmToStateCharm,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 }

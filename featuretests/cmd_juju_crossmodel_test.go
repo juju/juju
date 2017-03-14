@@ -13,6 +13,7 @@ import (
 	"gopkg.in/juju/charmrepo.v2-unstable"
 
 	"github.com/juju/juju/cmd/juju/crossmodel"
+	jujucrossmodel "github.com/juju/juju/core/crossmodel"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
@@ -153,11 +154,11 @@ func (s *crossmodelSuite) TestAddRelationFromURL(c *gc.C) {
 }
 
 func (s *crossmodelSuite) assertAddRelationSameControllerSuccess(c *gc.C, otherModeluser string) {
-	_, err := runJujuCommand(c, "add-relation", "wordpress", otherModeluser+"/othermodel.mysql")
+	_, err := runJujuCommand(c, "add-relation", "wordpress", otherModeluser+"/othermodel.hosted-mysql")
 	c.Assert(err, jc.ErrorIsNil)
-	svc, err := s.State.RemoteApplication("mysql")
+	app, err := s.State.RemoteApplication("hosted-mysql")
 	c.Assert(err, jc.ErrorIsNil)
-	rel, err := svc.Relations()
+	rel, err := app.Relations()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(rel, gc.HasLen, 1)
 	c.Assert(rel[0].Endpoints(), jc.SameContents, []state.Endpoint{
@@ -171,7 +172,7 @@ func (s *crossmodelSuite) assertAddRelationSameControllerSuccess(c *gc.C, otherM
 				Scope:     "global",
 			},
 		}, {
-			ApplicationName: "mysql",
+			ApplicationName: "hosted-mysql",
 			Relation: charm.Relation{Name: "server",
 				Role:      "provider",
 				Interface: "mysql",
@@ -201,6 +202,14 @@ func (s *crossmodelSuite) TestAddRelationSameControllerSameOwner(c *gc.C) {
 		Name:  "mysql",
 		Charm: ch,
 	})
+	c.Assert(err, jc.ErrorIsNil)
+	offersAPi := state.NewApplicationOffers(otherModel)
+	_, err = offersAPi.AddOffer(jujucrossmodel.AddApplicationOfferArgs{
+		ApplicationURL:  "local:/u/me/hosted-mysql",
+		ApplicationName: "mysql",
+		Endpoints:       map[string]string{"database": "server"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
 	s.assertAddRelationSameControllerSuccess(c, "admin")
 }
 
@@ -258,5 +267,13 @@ func (s *crossmodelSuite) TestAddRelationSameControllerPermissionAllowed(c *gc.C
 		Name:  "mysql",
 		Charm: ch,
 	})
+	c.Assert(err, jc.ErrorIsNil)
+	offersAPi := state.NewApplicationOffers(otherModel)
+	_, err = offersAPi.AddOffer(jujucrossmodel.AddApplicationOfferArgs{
+		ApplicationURL:  "local:/u/me/hosted-mysql",
+		ApplicationName: "mysql",
+		Endpoints:       map[string]string{"database": "server"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
 	s.assertAddRelationSameControllerSuccess(c, "otheruser")
 }

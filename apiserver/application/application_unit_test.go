@@ -57,6 +57,7 @@ func (s *ApplicationSuite) SetUpTest(c *gc.C) {
 		&s.backend,
 		s.authorizer,
 		resources,
+		nil,
 		&s.blockChecker,
 		func(application.Charm) *state.Charm {
 			return &state.Charm{}
