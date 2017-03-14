@@ -1,8 +1,6 @@
 package oracle
 
 import (
-	"fmt"
-
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/storage"
@@ -10,7 +8,52 @@ import (
 
 const (
 	oracleStorageProvideType = "oracle"
+
+	maxVolumeSizeInGB = 2000
 )
+
+// storageProvider is the storage provider for the oracle cloud storage environment
+//
+// this type implements the storage.Provider for obtaining storage sources
+// this type implements the storage.VolumeSource for creating,destroying,describing,
+// attaching and detaching volumes in the environment. A storage.VolumeSource is
+// configured in a particular way, and corresponds to a storage "pool".
+//
+// Each storage volume can be up to 2 TB in capacity and you can attach
+// up to 10 storage volumes to each instance. So there is
+// an upper limit on the capacity of block storage that you can add to an instance
+//
+// A storage volume can be attached in read-only mode to only one instance.
+// So multiple instances can’t write to a volume.
+//
+// After creating an instance, you can easily scale up
+// or scale down the block storage capacity for the instance by
+// attaching or detaching storage volumes. However, you can’t
+// detach a storage volume that was attached during instance creation
+// Note that, when a storage volume is detached from an instance,
+// data stored on the storage volume isn’t lost
+//
+// If you intend to use this storage volume as a boot disk,
+// then the size must be at least 5% higher than the boot image disk size
+//
+// Note, you can increase the size of a storage volume after creating it,
+// even if the storage volume is attached to an instance. However, you can’t
+// reduce the size of a storage volume after you’ve created it.
+// So ensure that you don’t overestimate your storage requirement
+//
+//
+// Volumes that require low latency and high IOPS,
+// such as for storing database files, select storage/latency.
+// For all other storage volumes, select storage/default
+type storageProvider struct {
+	env *oracleEnviron
+}
+
+var _ storage.Provider = (*storageProvider)(nil)
+
+func mibToGib(m uint64) uint64 {
+	return (m + 1023) / 1024
+}
 
 // StorageProviderTypes returns the storage provider types
 // contained within this registry.
@@ -27,70 +70,9 @@ func (o *oracleEnviron) StorageProviderTypes() ([]storage.ProviderType, error) {
 // errors.IsNotFound if the registry does not contain said the
 // specified provider type.
 func (o *oracleEnviron) StorageProvider(t storage.ProviderType) (storage.Provider, error) {
-	fmt.Println("=========================================================================================")
 	if t == oracleStorageProvideType {
 		return &storageProvider{env: o}, nil
 	}
 
 	return nil, errors.NotFoundf("storage provider %q", t)
-}
-
-// storageProvider is the storage provider for the oracle cloud storage environment
-// this type implements the storage.Provider for obtaining storage sources
-type storageProvider struct {
-	env *oracleEnviron
-}
-
-var _ storage.Provider = (*storageProvider)(nil)
-
-// VolumeSource returns a VolumeSource given the specified storage
-// provider configurations, or an error if the provider does not
-// support creating volumes or the configuration is invalid.
-//
-// If the storage provider does not support creating volumes as a
-// first-class primitive, then VolumeSource must return an error
-// satisfying errors.IsNotSupported.
-func (s storageProvider) VolumeSource(*storage.Config) (storage.VolumeSource, error) {
-	return nil, errors.NotSupportedf("sources")
-}
-
-// FilesystemSource returns a FilesystemSource given the specified
-// storage provider configurations, or an error if the provider does
-// not support creating filesystems or the configuration is invalid.
-func (s storageProvider) FilesystemSource(*storage.Config) (storage.FilesystemSource, error) {
-	return nil, nil
-}
-
-// Supports reports whether or not the storage provider supports
-// the specified storage kind.
-//
-// A provider that supports volumes but not filesystems can still
-// be used for creating filesystem storage; Juju will request a
-// volume from the provider and then manage the filesystem itself.
-func (s storageProvider) Supports(kind storage.StorageKind) bool {
-	return false
-}
-
-// Scope returns the scope of storage managed by this provider.
-func (s storageProvider) Scope() storage.Scope {
-	return storage.Scope(0)
-}
-
-// Dynamic reports whether or not the storage provider is capable
-// of dynamic storage provisioning. Non-dynamic storage must be
-// created at the time a machine is provisioned.
-func (s storageProvider) Dynamic() bool {
-	return false
-}
-
-// DefaultPools returns the default storage pools for this provider,
-// to register in each new model.
-func (s storageProvider) DefaultPools() []*storage.Config {
-	return nil
-}
-
-// ValidateConfig validates the provided storage provider config,
-// returning an error if it is invalid.
-func (s storageProvider) ValidateConfig(cfg *storage.Config) error {
-	return nil
 }
