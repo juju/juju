@@ -51,11 +51,11 @@ func (s *StorageStateSuiteBase) setupSingleStorage(c *gc.C, kind, pool string) (
 	storage := map[string]state.StorageConstraints{
 		"data": makeStorageCons(pool, 1024, 1),
 	}
-	service := s.AddTestingServiceWithStorage(c, "storage-"+kind, ch, storage)
-	unit, err := service.AddUnit()
+	app := s.AddTestingServiceWithStorage(c, "storage-"+kind, ch, storage)
+	unit, err := app.AddUnit()
 	c.Assert(err, jc.ErrorIsNil)
 	storageTag := names.NewStorageTag("data/0")
-	return service, unit, storageTag
+	return app, unit, storageTag
 }
 
 func (s *StorageStateSuiteBase) setupSingleStorageDetachable(c *gc.C) (*state.Application, *state.Unit, names.StorageTag) {
@@ -112,7 +112,7 @@ storage:
 	return ch
 }
 
-func (s *StorageStateSuiteBase) setupMixedScopeStorageService(
+func (s *StorageStateSuiteBase) setupMixedScopeStorageApplication(
 	c *gc.C, kind string, pools ...string,
 ) *state.Application {
 	pool0 := "modelscoped"
@@ -434,9 +434,9 @@ func (s *StorageStateSuite) assertAddServiceStorageConstraintsDefaults(c *gc.C, 
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	ch := s.AddTestingCharm(c, "storage-block")
-	service, err := s.State.AddApplication(state.AddApplicationArgs{Name: "storage-block2", Charm: ch, Storage: cons})
+	app, err := s.State.AddApplication(state.AddApplicationArgs{Name: "storage-block2", Charm: ch, Storage: cons})
 	c.Assert(err, jc.ErrorIsNil)
-	savedCons, err := service.StorageConstraints()
+	savedCons, err := app.StorageConstraints()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(savedCons, jc.DeepEquals, expect)
 	// TODO(wallyworld) - test pool name stored in data model
@@ -506,9 +506,9 @@ func (s *StorageStateSuite) TestAddServiceStorageConstraintsDefaultSizeFromCharm
 		"multi2up":   makeStorageCons("loop", 2048, 2),
 	}
 	ch := s.AddTestingCharm(c, "storage-block2")
-	service, err := s.State.AddApplication(state.AddApplicationArgs{Name: "storage-block2", Charm: ch, Storage: storageCons})
+	app, err := s.State.AddApplication(state.AddApplicationArgs{Name: "storage-block2", Charm: ch, Storage: storageCons})
 	c.Assert(err, jc.ErrorIsNil)
-	savedCons, err := service.StorageConstraints()
+	savedCons, err := app.StorageConstraints()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(savedCons, jc.DeepEquals, expectedCons)
 }
@@ -535,16 +535,16 @@ func (s *StorageStateSuite) assertStorageUnitsAdded(c *gc.C) {
 	}, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Each unit added to the service will create storage instances
-	// to satisfy the service's storage constraints.
+	// Each unit added to the application will create storage instances
+	// to satisfy the application's storage constraints.
 	ch := s.AddTestingCharm(c, "storage-block2")
 	storage := map[string]state.StorageConstraints{
 		"multi1to10": makeStorageCons("", 1024, 1),
 		"multi2up":   makeStorageCons("loop-pool", 2048, 2),
 	}
-	service := s.AddTestingServiceWithStorage(c, "storage-block2", ch, storage)
+	app := s.AddTestingServiceWithStorage(c, "storage-block2", ch, storage)
 	for i := 0; i < 2; i++ {
-		u, err := service.AddUnit()
+		u, err := app.AddUnit()
 		c.Assert(err, jc.ErrorIsNil)
 		storageAttachments, err := s.State.UnitStorageAttachments(u.UnitTag())
 		c.Assert(err, jc.ErrorIsNil)
@@ -792,8 +792,8 @@ func (s *StorageStateSuite) TestWatchStorageAttachments(c *gc.C) {
 		"multi1to10": makeStorageCons("loop-pool", 1024, 2),
 		"multi2up":   makeStorageCons("loop-pool", 2048, 2),
 	}
-	service := s.AddTestingServiceWithStorage(c, "storage-block2", ch, storage)
-	u, err := service.AddUnit()
+	app := s.AddTestingServiceWithStorage(c, "storage-block2", ch, storage)
+	u, err := app.AddUnit()
 	c.Assert(err, jc.ErrorIsNil)
 
 	w := s.State.WatchStorageAttachments(u.UnitTag())
@@ -828,8 +828,8 @@ func (s *StorageStateSuite) TestWatchStorageAttachment(c *gc.C) {
 }
 
 func (s *StorageStateSuite) TestDestroyUnitStorageAttachments(c *gc.C) {
-	service := s.setupMixedScopeStorageService(c, "block")
-	u, err := service.AddUnit()
+	app := s.setupMixedScopeStorageApplication(c, "block")
+	u, err := app.AddUnit()
 	c.Assert(err, jc.ErrorIsNil)
 	err = u.Destroy()
 	c.Assert(err, jc.ErrorIsNil)

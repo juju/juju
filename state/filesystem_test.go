@@ -36,7 +36,7 @@ func (s *FilesystemStateSuite) TestAddServiceNoPoolNoDefault(c *gc.C) {
 
 func (s *FilesystemStateSuite) TestAddServiceNoPoolNoDefaultWithUnits(c *gc.C) {
 	// no pool specified, no default configured: use rootfs, add a unit during
-	// service deploy.
+	// app deploy.
 	s.testAddServiceDefaultPool(c, "rootfs", 1)
 }
 
@@ -164,8 +164,8 @@ func (s *FilesystemStateSuite) addUnitWithFilesystem(c *gc.C, pool string, withV
 	storage := map[string]state.StorageConstraints{
 		"data": makeStorageCons(pool, 1024, 1),
 	}
-	service := s.AddTestingServiceWithStorage(c, "storage-filesystem", ch, storage)
-	unit, err := service.AddUnit()
+	app := s.AddTestingServiceWithStorage(c, "storage-filesystem", ch, storage)
+	unit, err := app.AddUnit()
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.State.AssignUnit(unit, state.AssignCleanEmpty)
 	c.Assert(err, jc.ErrorIsNil)
@@ -308,9 +308,9 @@ func (s *FilesystemStateSuite) TestVolumeBackedFilesystemScope(c *gc.C) {
 }
 
 func (s *FilesystemStateSuite) TestWatchModelFilesystems(c *gc.C) {
-	service := s.setupMixedScopeStorageService(c, "filesystem")
+	app := s.setupMixedScopeStorageApplication(c, "filesystem")
 	addUnit := func() {
-		u, err := service.AddUnit()
+		u, err := app.AddUnit()
 		c.Assert(err, jc.ErrorIsNil)
 		err = s.State.AssignUnit(u, state.AssignCleanEmpty)
 		c.Assert(err, jc.ErrorIsNil)
@@ -332,9 +332,9 @@ func (s *FilesystemStateSuite) TestWatchModelFilesystems(c *gc.C) {
 }
 
 func (s *FilesystemStateSuite) TestWatchEnvironFilesystemAttachments(c *gc.C) {
-	service := s.setupMixedScopeStorageService(c, "filesystem")
+	app := s.setupMixedScopeStorageApplication(c, "filesystem")
 	addUnit := func() {
-		u, err := service.AddUnit()
+		u, err := app.AddUnit()
 		c.Assert(err, jc.ErrorIsNil)
 		err = s.State.AssignUnit(u, state.AssignCleanEmpty)
 		c.Assert(err, jc.ErrorIsNil)
@@ -356,9 +356,9 @@ func (s *FilesystemStateSuite) TestWatchEnvironFilesystemAttachments(c *gc.C) {
 }
 
 func (s *FilesystemStateSuite) TestWatchMachineFilesystems(c *gc.C) {
-	service := s.setupMixedScopeStorageService(c, "filesystem")
+	app := s.setupMixedScopeStorageApplication(c, "filesystem")
 	addUnit := func() {
-		u, err := service.AddUnit()
+		u, err := app.AddUnit()
 		c.Assert(err, jc.ErrorIsNil)
 		err = s.State.AssignUnit(u, state.AssignCleanEmpty)
 		c.Assert(err, jc.ErrorIsNil)
@@ -380,12 +380,10 @@ func (s *FilesystemStateSuite) TestWatchMachineFilesystems(c *gc.C) {
 }
 
 func (s *FilesystemStateSuite) TestWatchMachineFilesystemAttachments(c *gc.C) {
-	service := s.setupMixedScopeStorageService(
-		c, "filesystem", "machinescoped", "modelscoped",
-	)
+	app := s.setupMixedScopeStorageApplication(c, "filesystem", "machinescoped", "modelscoped")
 	addUnit := func(to *state.Machine) (u *state.Unit, m *state.Machine) {
 		var err error
-		u, err = service.AddUnit()
+		u, err = app.AddUnit()
 		c.Assert(err, jc.ErrorIsNil)
 		if to != nil {
 			err = u.AssignToMachine(to)
@@ -876,8 +874,8 @@ func (s *FilesystemStateSuite) testFilesystemAttachmentParams(
 		"data": makeStorageCons("rootfs", 1024, 1),
 	}
 
-	service := s.AddTestingServiceWithStorage(c, "storage-filesystem", ch, storage)
-	unit, err := service.AddUnit()
+	app := s.AddTestingServiceWithStorage(c, "storage-filesystem", ch, storage)
+	unit, err := app.AddUnit()
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.State.AssignUnit(unit, state.AssignCleanEmpty)
 	c.Assert(err, jc.ErrorIsNil)
@@ -926,8 +924,8 @@ func (s *FilesystemStateSuite) testFilesystemAttachmentParamsConcurrent(c *gc.C,
 			CountMax: 1,
 			Location: location,
 		}, rev)
-		service := s.AddTestingServiceWithStorage(c, applicationname, ch, storage)
-		unit, err := service.AddUnit()
+		app := s.AddTestingServiceWithStorage(c, applicationname, ch, storage)
+		unit, err := app.AddUnit()
 		c.Assert(err, jc.ErrorIsNil)
 		return unit.AssignToMachine(machine)
 	}
@@ -956,8 +954,8 @@ func (s *FilesystemStateSuite) TestFilesystemAttachmentParamsConcurrentRemove(c 
 		CountMax: 1,
 		Location: "/not/in/srv",
 	})
-	service := s.AddTestingService(c, "storage-filesystem", ch)
-	unit, err := service.AddUnit()
+	app := s.AddTestingService(c, "storage-filesystem", ch)
+	unit, err := app.AddUnit()
 	c.Assert(err, jc.ErrorIsNil)
 
 	defer state.SetBeforeHooks(c, s.State, func() {
@@ -981,8 +979,8 @@ func (s *FilesystemStateSuite) TestFilesystemAttachmentParamsLocationStorageDir(
 		CountMax: 1,
 		Location: "/var/lib/juju/storage",
 	})
-	service := s.AddTestingService(c, "storage-filesystem", ch)
-	unit, err := service.AddUnit()
+	app := s.AddTestingService(c, "storage-filesystem", ch)
+	unit, err := app.AddUnit()
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.State.AssignUnit(unit, state.AssignCleanEmpty)
 	c.Assert(err, gc.ErrorMatches, `cannot assign unit \"storage-filesystem/0\" to machine: `+

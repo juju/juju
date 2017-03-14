@@ -1833,8 +1833,17 @@ func (s *UniterSuite) TestStorage(c *gc.C) {
 			err := f.Close()
 			c.Assert(err, jc.ErrorIsNil)
 		}()
-		_, err = io.WriteString(f, "storage:\n  wp-content:\n    type: filesystem\n")
+		_, err = io.WriteString(f, `
+storage:
+  wp-content:
+    type: filesystem
+    multiple:
+      range: 0-
+`[1:])
 		c.Assert(err, jc.ErrorIsNil)
+	}
+	storageConstraints := map[string]state.StorageConstraints{
+		"wp-content": {Count: 1},
 	}
 	s.runUniterTests(c, []uniterTest{
 		ut(
@@ -1842,7 +1851,7 @@ func (s *UniterSuite) TestStorage(c *gc.C) {
 			createCharm{customize: appendStorageMetadata},
 			serveCharm{},
 			ensureStateWorker{},
-			createServiceAndUnit{},
+			createServiceAndUnit{storage: storageConstraints},
 			provisionStorage{},
 			startUniter{},
 			waitAddresses{},
@@ -1853,7 +1862,7 @@ func (s *UniterSuite) TestStorage(c *gc.C) {
 			createCharm{customize: appendStorageMetadata},
 			serveCharm{},
 			ensureStateWorker{},
-			createServiceAndUnit{},
+			createServiceAndUnit{storage: storageConstraints},
 			provisionStorage{},
 			startUniter{},
 			waitAddresses{},
@@ -1870,7 +1879,7 @@ func (s *UniterSuite) TestStorage(c *gc.C) {
 			createCharm{customize: appendStorageMetadata},
 			serveCharm{},
 			ensureStateWorker{},
-			createServiceAndUnit{},
+			createServiceAndUnit{storage: storageConstraints},
 			// provision and destroy the storage before the uniter starts,
 			// to ensure it never sees the storage as attached
 			provisionStorage{},
@@ -1887,7 +1896,7 @@ func (s *UniterSuite) TestStorage(c *gc.C) {
 			createCharm{customize: appendStorageMetadata},
 			serveCharm{},
 			ensureStateWorker{},
-			createServiceAndUnit{},
+			createServiceAndUnit{storage: storageConstraints},
 			startUniter{},
 			// no hooks should be run, as storage isn't provisioned
 			waitHooks{},
@@ -1899,7 +1908,7 @@ func (s *UniterSuite) TestStorage(c *gc.C) {
 			createCharm{customize: appendStorageMetadata},
 			serveCharm{},
 			ensureStateWorker{},
-			createServiceAndUnit{},
+			createServiceAndUnit{storage: storageConstraints},
 			unitDying,
 			startUniter{},
 			// no hooks should be run, and unit agent should terminate

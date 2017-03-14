@@ -92,9 +92,9 @@ func (s *VolumeStateSuite) TestAddServiceNoUserDefaultPool(c *gc.C) {
 	storage := map[string]state.StorageConstraints{
 		"data": makeStorageCons("", 1024, 1),
 	}
-	service, err := s.State.AddApplication(state.AddApplicationArgs{Name: "storage-block", Charm: ch, Storage: storage})
+	app, err := s.State.AddApplication(state.AddApplicationArgs{Name: "storage-block", Charm: ch, Storage: storage})
 	c.Assert(err, jc.ErrorIsNil)
-	cons, err := service.StorageConstraints()
+	cons, err := app.StorageConstraints()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cons, jc.DeepEquals, map[string]state.StorageConstraints{
 		"data": state.StorageConstraints{
@@ -124,8 +124,8 @@ func (s *VolumeStateSuite) TestAddServiceDefaultPool(c *gc.C) {
 	storage := map[string]state.StorageConstraints{
 		"data": makeStorageCons("", 1024, 1),
 	}
-	service := s.AddTestingServiceWithStorage(c, "storage-block", ch, storage)
-	cons, err := service.StorageConstraints()
+	app := s.AddTestingServiceWithStorage(c, "storage-block", ch, storage)
+	cons, err := app.StorageConstraints()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cons, jc.DeepEquals, map[string]state.StorageConstraints{
 		"data": state.StorageConstraints{
@@ -272,9 +272,9 @@ func (s *VolumeStateSuite) TestWatchVolumeAttachment(c *gc.C) {
 }
 
 func (s *VolumeStateSuite) TestWatchModelVolumes(c *gc.C) {
-	service := s.setupMixedScopeStorageService(c, "block")
+	app := s.setupMixedScopeStorageApplication(c, "block")
 	addUnit := func() {
-		u, err := service.AddUnit()
+		u, err := app.AddUnit()
 		c.Assert(err, jc.ErrorIsNil)
 		err = s.State.AssignUnit(u, state.AssignCleanEmpty)
 		c.Assert(err, jc.ErrorIsNil)
@@ -313,9 +313,9 @@ func (s *VolumeStateSuite) TestWatchModelVolumes(c *gc.C) {
 }
 
 func (s *VolumeStateSuite) TestWatchEnvironVolumeAttachments(c *gc.C) {
-	service := s.setupMixedScopeStorageService(c, "block")
+	app := s.setupMixedScopeStorageApplication(c, "block")
 	addUnit := func() {
-		u, err := service.AddUnit()
+		u, err := app.AddUnit()
 		c.Assert(err, jc.ErrorIsNil)
 		err = s.State.AssignUnit(u, state.AssignCleanEmpty)
 		c.Assert(err, jc.ErrorIsNil)
@@ -344,11 +344,9 @@ func (s *VolumeStateSuite) TestWatchEnvironVolumeAttachments(c *gc.C) {
 }
 
 func (s *VolumeStateSuite) TestWatchMachineVolumes(c *gc.C) {
-	service := s.setupMixedScopeStorageService(
-		c, "block", "machinescoped", "modelscoped",
-	)
+	app := s.setupMixedScopeStorageApplication(c, "block", "machinescoped", "modelscoped")
 	addUnit := func() {
-		u, err := service.AddUnit()
+		u, err := app.AddUnit()
 		c.Assert(err, jc.ErrorIsNil)
 		err = s.State.AssignUnit(u, state.AssignCleanEmpty)
 		c.Assert(err, jc.ErrorIsNil)
@@ -386,12 +384,10 @@ func (s *VolumeStateSuite) TestWatchMachineVolumes(c *gc.C) {
 }
 
 func (s *VolumeStateSuite) TestWatchMachineVolumeAttachments(c *gc.C) {
-	service := s.setupMixedScopeStorageService(
-		c, "block", "machinescoped", "modelscoped",
-	)
+	app := s.setupMixedScopeStorageApplication(c, "block", "machinescoped", "modelscoped")
 	addUnit := func(to *state.Machine) (u *state.Unit, m *state.Machine) {
 		var err error
-		u, err = service.AddUnit()
+		u, err = app.AddUnit()
 		c.Assert(err, jc.ErrorIsNil)
 		if to != nil {
 			err = u.AssignToMachine(to)
