@@ -23,4 +23,4 @@ storage:
     minimum-size: 10M
     location: /srv/multi-fs
     multiple:
-      range: 1-2
+      range: 0-2
