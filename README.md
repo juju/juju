@@ -84,6 +84,55 @@ This will add some PPAs to ensure that you can install the required
 golang and mongodb-server versions for precise onwards, in addition to the
 other dependencies.
 
+The recommended way to get dependencies is using godeps, see Dependency management section.
+
+Dependency management
+=====================
+
+In the top-level directory of the juju repo, there is a file,
+[dependencies.tsv](dependencies.tsv), that holds the revision ids of all
+the external projects that juju depends on.  That file is used to freeze
+the code in external repositories so that juju is insulated from changes
+to those repos.
+
+godeps
+------
+
+[godeps](https://launchpad.net/godeps) is the tool that does the freezing.
+After getting the juju code, you need to get `godeps`:
+
+```shell
+go get github.com/rogpeppe/godeps
+```
+
+This installs the `godeps` application.  You can then run `godeps` from the
+root of juju, to set the revision number on the external repositories:
+
+```shell
+cd $GOPATH/src/github.com/juju/juju
+godeps -u dependencies.tsv
+```
+
+Now you are ready to build, run, test, etc.
+
+Staying up-to-date
+------------------
+
+The [dependencies.tsv](dependencies.tsv) file can get out of date, for
+example when you switch to another branch.  When it is out of date, run
+`godeps`.  In practice, you can wait until you get a compile error about
+an external package not existing/having an incorrect API, and then rerun
+`godeps`.
+
+Updating dependencies
+---------------------
+
+If you update a repo that juju depends on, you will need to recreate
+`dependencies.tsv`:
+
+```shell
+$ godeps -t $(go list github.com/juju/juju/...) > dependencies.tsv
+```
 
 Building juju
 =============
