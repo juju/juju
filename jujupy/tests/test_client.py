@@ -63,6 +63,7 @@ from jujupy.client import (
     JUJU_DEV_FEATURE_FLAGS,
     KILL_CONTROLLER,
     Machine,
+    MachineDown,
     MachineError,
     make_safe_config,
     ModelClient,
@@ -367,6 +368,30 @@ class TestWaitMachineNotPresent(ClientTest):
         with self.assertRaisesRegexp(
                 Exception, 'Timed out waiting for machine removal 0'):
             not_present.do_raise('', None)
+
+
+class TestMachineDown(ClientTest):
+
+    def test_iter_blocking_state(self):
+        down = MachineDown('0')
+        client = fake_juju_client()
+        client.bootstrap()
+        client.juju('add-machine', ())
+        self.assertItemsEqual(
+            [('0', 'idle')],
+            down.iter_blocking_state(client.get_status()))
+        status = Status({'machines': {'0': {'juju-status': {
+            'current': 'down',
+            }}}}, '')
+        self.assertItemsEqual(
+            [], down.iter_blocking_state(status))
+
+    def test_do_raise(self):
+        down = MachineDown('0')
+        with self.assertRaisesRegexp(
+                Exception,
+                'Timed out waiting for juju to determine machine 0 down.'):
+            down.do_raise('', None)
 
 
 def make_resource_list(service_app_id='applicationId'):

@@ -5,3 +5,4 @@
 /repository
 ./.coverage
 __pycache__
+./jujupy.egg-info
