@@ -84,8 +84,8 @@ func (s *applicationSuite) SetUpTest(c *gc.C) {
 	backend := application.NewStateBackend(s.State)
 	blockChecker := common.NewBlockChecker(s.State)
 	s.applicationAPI, err = application.NewAPI(
-		backend, s.authorizer, resources, blockChecker,
-		application.CharmToStateCharm,
+		backend, s.authorizer, resources, s.BackingStatePool,
+		blockChecker, application.CharmToStateCharm,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 }

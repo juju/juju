@@ -8,7 +8,6 @@ package application
 
 import (
 	"fmt"
-	"io"
 	"regexp"
 
 	"github.com/juju/errors"
@@ -51,6 +50,8 @@ type API struct {
 	check      BlockChecker
 	dataDir    string
 
+	statePool *state.StatePool
+
 	// TODO(axw) stateCharm only exists because I ran out
 	// of time unwinding all of the tendrils of state. We
 	// should pass a charm.Charm and charm.URL back into
@@ -58,18 +59,15 @@ type API struct {
 	stateCharm func(Charm) *state.Charm
 }
 
-func newAPI(
-	st *state.State,
-	resources facade.Resources,
-	authorizer facade.Authorizer,
-) (*API, error) {
-	backend := NewStateBackend(st)
-	blockChecker := common.NewBlockChecker(st)
+func newAPI(ctx facade.Context) (*API, error) {
+	backend := NewStateBackend(ctx.State())
+	blockChecker := common.NewBlockChecker(ctx.State())
 	stateCharm := CharmToStateCharm
 	return NewAPI(
 		backend,
-		authorizer,
-		resources,
+		ctx.Auth(),
+		ctx.Resources(),
+		ctx.StatePool(),
 		blockChecker,
 		stateCharm,
 	)
@@ -80,6 +78,7 @@ func NewAPI(
 	backend Backend,
 	authorizer facade.Authorizer,
 	resources facade.Resources,
+	statePool *state.StatePool,
 	blockChecker BlockChecker,
 	stateCharm func(Charm) *state.Charm,
 ) (*API, error) {
@@ -92,6 +91,7 @@ func NewAPI(
 		authorizer: authorizer,
 		check:      blockChecker,
 		stateCharm: stateCharm,
+		statePool:  statePool,
 		dataDir:    dataDir.String(),
 	}, nil
 }
@@ -815,11 +815,11 @@ func (api *API) sameControllerSourceModel(userName, modelName string) (names.Mod
 // the remote application can be created.
 func (api *API) processRemoteApplication(url *jujucrossmodel.ApplicationURL, alias string) (*state.RemoteApplication, error) {
 	// TODO(wallyworld) - add permission to offer. For now user requires write access to model.
-	app, closer, sourceModelTag, err := api.sameControllerOfferedApplication(url, permission.WriteAccess)
+	app, releaser, sourceModelTag, err := api.sameControllerOfferedApplication(url, permission.WriteAccess)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	defer closer.Close()
+	defer releaser()
 
 	eps, err := app.Endpoints()
 	if err != nil {
@@ -847,19 +847,28 @@ func (api *API) processRemoteApplication(url *jujucrossmodel.ApplicationURL, ali
 // and returns the specified application and a reference to its state.State.
 func (api *API) sameControllerOfferedApplication(url *jujucrossmodel.ApplicationURL, perm permission.Access) (
 	_ *state.Application,
-	closer io.Closer,
+	releaser func(),
 	sourceModelTag names.ModelTag,
 	err error,
 ) {
 	defer func() {
-		if err != nil && closer != nil {
-			closer.Close()
+		if err != nil && releaser != nil {
+			releaser()
 		}
 	}()
 
+	fail := func(err error) (
+		*state.Application,
+		func(),
+		names.ModelTag,
+		error,
+	) {
+		return nil, releaser, sourceModelTag, err
+	}
+
 	// We require the hosting model to be specified.
 	if url.ModelName == "" {
-		return nil, nil, names.ModelTag{}, errors.Errorf("missing model name in URL %q", url.String())
+		return fail(errors.Errorf("missing model name in URL %q", url.String()))
 	}
 
 	// The user name is either specified in URL, or else we default to
@@ -872,17 +881,7 @@ func (api *API) sameControllerOfferedApplication(url *jujucrossmodel.Application
 	// Get the hosting model from the name.
 	sourceModelTag, err = api.sameControllerSourceModel(userName, url.ModelName)
 	if err != nil {
-		return nil, nil, names.ModelTag{}, errors.Trace(err)
-	}
-
-	var st *state.State
-	fail := func(err error) (
-		*state.Application,
-		io.Closer,
-		names.ModelTag,
-		error,
-	) {
-		return nil, st, sourceModelTag, err
+		return fail(errors.Trace(err))
 	}
 
 	ok, err := api.authorizer.HasPermission(perm, sourceModelTag)
@@ -893,7 +892,8 @@ func (api *API) sameControllerOfferedApplication(url *jujucrossmodel.Application
 		return fail(common.ErrPerm)
 	}
 	// Get the backend state for the source model so we can lookup the application.
-	st, err = api.backend.ForModel(sourceModelTag)
+	var st *state.State
+	st, releaser, err = api.statePool.Get(sourceModelTag.Id())
 	if err != nil {
 		return fail(errors.Trace(err))
 	}
@@ -924,7 +924,7 @@ func (api *API) sameControllerOfferedApplication(url *jujucrossmodel.Application
 	if err != nil {
 		return fail(errors.Trace(err))
 	}
-	return app, st, sourceModelTag, err
+	return app, releaser, sourceModelTag, err
 }
 
 // saveRemoteApplication saves the details of the specified remote application and its endpoints
@@ -1039,11 +1039,11 @@ func (api *API) oneRemoteApplicationInfo(urlStr string) (*params.RemoteApplicati
 	}
 
 	// We need at least read access to the model to see the application details.
-	app, closer, sourceModelTag, err := api.sameControllerOfferedApplication(url, permission.ReadAccess)
+	app, releaser, sourceModelTag, err := api.sameControllerOfferedApplication(url, permission.ReadAccess)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	defer closer.Close()
+	defer releaser()
 
 	eps, err := app.Endpoints()
 	if err != nil {
