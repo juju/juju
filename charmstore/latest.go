@@ -27,6 +27,7 @@ func LatestCharmInfo(client Client, charms []CharmID, metadata map[string]string
 	revResults, err := client.LatestRevisions(charms, map[string][]string{
 		jujuMetadataHTTPHeader: []string{
 			"environment_uuid=" + metadata["environment_uuid"],
+			"controller_uuid=" + metadata["controller_uuid"],
 			"cloud=" + metadata["cloud"],
 			"cloud_region=" + metadata["cloud_region"],
 			"provider=" + metadata["provider"],
