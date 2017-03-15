@@ -3036,8 +3036,8 @@ func (sm startMachineWithHardware) step(c *gc.C, ctx *context) {
 
 type setMachineInstanceStatus struct {
 	machineId string
-	Status status.Status
-	Message string
+	Status    status.Status
+	Message   string
 }
 
 func (sm setMachineInstanceStatus) step(c *gc.C, ctx *context) {
