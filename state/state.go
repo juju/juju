@@ -2163,6 +2163,24 @@ func (st *State) PutAuditEntryFn() func(audit.AuditEntry) error {
 	return stateaudit.PutAuditEntryFn(auditingC, insert)
 }
 
+// SetSLA sets the SLA on the current connected model.
+func (st *State) SetSLA(level string, credentials []byte) error {
+	model, err := st.Model()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return model.SetSLA(level, credentials)
+}
+
+// SLALevel returns the SLA level of the current connected model.
+func (st *State) SLALevel() (string, error) {
+	model, err := st.Model()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	return model.SLALevel(), nil
+}
+
 var tagPrefix = map[byte]string{
 	'm': names.MachineTagKind + "-",
 	'a': names.ApplicationTagKind + "-",

@@ -100,6 +100,9 @@ func (s *upgradesSuite) TestStripLocalUserDomainModels(c *gc.C) {
 	delete(initialModel, "txn-revno")
 	initialModel["owner"] = "test-admin"
 
+	// TODO (mattyw, cmars) We need to confirm that setting sla in this test
+	// in this way is correct.
+	// Put another way - we need to ensure we're testing correct behaviour here.
 	expected := []bson.M{{
 		"_id":              "0000-dead-beaf-0001",
 		"owner":            "user-admin",
@@ -110,6 +113,7 @@ func (s *upgradesSuite) TestStripLocalUserDomainModels(c *gc.C) {
 		"controller-uuid":  "deadbeef-1bad-500d-9000-4b1d0d06f00d",
 		"life":             0,
 		"migration-mode":   "",
+		"sla":              bson.M{"level": "", "credentials": []uint8{}},
 	}, {
 		"_id":              "0000-dead-beaf-0002",
 		"owner":            "user-mary@external",
@@ -120,6 +124,7 @@ func (s *upgradesSuite) TestStripLocalUserDomainModels(c *gc.C) {
 		"controller-uuid":  "deadbeef-1bad-500d-9000-4b1d0d06f00d",
 		"life":             0,
 		"migration-mode":   "",
+		"sla":              bson.M{"level": "", "credentials": []uint8{}},
 	},
 		initialModel,
 	}

@@ -214,6 +214,46 @@ func (s *ModelSuite) TestSetMigrationMode(c *gc.C) {
 	c.Assert(env.MigrationMode(), gc.Equals, state.MigrationModeExporting)
 }
 
+func (s *ModelSuite) TestSLA(c *gc.C) {
+	cfg, _ := s.createTestModelConfig(c)
+	owner := names.NewUserTag("test@remote")
+
+	model, st, err := s.State.NewModel(state.ModelArgs{
+		CloudName:   "dummy",
+		CloudRegion: "dummy-region",
+		Config:      cfg,
+		Owner:       owner,
+		StorageProviderRegistry: storage.StaticProviderRegistry{},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	defer st.Close()
+
+	level, err := st.SLALevel()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(level, gc.Equals, "unsupported")
+	c.Assert(model.SLACredential(), gc.DeepEquals, []byte{})
+	for _, goodLevel := range []string{"unsupported", "essential", "standard", "advanced"} {
+		err = st.SetSLA(goodLevel, []byte("auth "+goodLevel))
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(model.Refresh(), jc.ErrorIsNil)
+		level, err = st.SLALevel()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(level, gc.Equals, goodLevel)
+		c.Assert(model.SLALevel(), gc.Equals, goodLevel)
+		c.Assert(model.SLACredential(), gc.DeepEquals, []byte("auth "+goodLevel))
+	}
+
+	defaultLevel, err := state.NewSLALevel("")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(defaultLevel, gc.Equals, state.SLAUnsupported)
+
+	err = model.SetSLA("nope", []byte("auth nope"))
+	c.Assert(err, gc.ErrorMatches, `.*SLA level "nope" not valid.*`)
+
+	c.Assert(model.SLALevel(), gc.Equals, "advanced")
+	c.Assert(model.SLACredential(), gc.DeepEquals, []byte("auth advanced"))
+}
+
 func (s *ModelSuite) TestControllerModel(c *gc.C) {
 	model, err := s.State.ControllerModel()
 	c.Assert(err, jc.ErrorIsNil)

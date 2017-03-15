@@ -72,6 +72,13 @@ type ModelUnset struct {
 	Keys []string `json:"keys"`
 }
 
+// ModelSLA contains the arguments for the SetSLALevel client API
+// call.
+type ModelSLA struct {
+	Level       string `json:"level"`
+	Credentials []byte `json:"creds"`
+}
+
 // SetModelDefaults contains the arguments for SetModelDefaults
 // client API call.
 type SetModelDefaults struct {
