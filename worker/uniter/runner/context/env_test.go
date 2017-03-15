@@ -53,6 +53,7 @@ func (s *EnvSuite) getContext() (ctx *context.HookContext, expectVars []string) 
 			"this-unit/123",
 			"PURPLE",
 			"proceed with care",
+			"essential",
 			"some-zone",
 			[]string{"he.re:12345", "the.re:23456"},
 			proxy.Settings{
@@ -69,6 +70,7 @@ func (s *EnvSuite) getContext() (ctx *context.HookContext, expectVars []string) 
 			"JUJU_UNIT_NAME=this-unit/123",
 			"JUJU_METER_STATUS=PURPLE",
 			"JUJU_METER_INFO=proceed with care",
+			"JUJU_SLA=essential",
 			"JUJU_API_ADDRESSES=he.re:12345 the.re:23456",
 			"JUJU_MACHINE_ID=42",
 			"JUJU_AVAILABILITY_ZONE=some-zone",

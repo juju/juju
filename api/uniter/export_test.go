@@ -42,3 +42,5 @@ func PatchUnitFacadeCall(p testing.Patcher, u *Unit, respFunc func(request strin
 func CreateUnit(st *State, tag names.UnitTag) *Unit {
 	return &Unit{st, tag, params.Alive}
 }
+
+var NewStateV4 = newStateForVersionFn(4)

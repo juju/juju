@@ -28,7 +28,10 @@ import (
 var logger = loggo.GetLogger("juju.apiserver.uniter")
 
 func init() {
-	common.RegisterStandardFacade("Uniter", 4, NewUniterAPIV4)
+	common.RegisterStandardFacade("Uniter", 4, NewUniterAPI)
+
+	// Version 5 introduces the SLA levels.
+	common.RegisterStandardFacade("Uniter", 5, NewUniterAPI)
 }
 
 // UniterAPIV3 implements the API version 3, used by the uniter worker.
@@ -53,8 +56,8 @@ type UniterAPIV3 struct {
 	StorageAPI
 }
 
-// NewUniterAPIV4 creates a new instance of the Uniter API, version 3.
-func NewUniterAPIV4(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*UniterAPIV3, error) {
+// NewUniterAPI creates a new instance of the Uniter API.
+func NewUniterAPI(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*UniterAPIV3, error) {
 	if !authorizer.AuthUnitAgent() {
 		return nil, common.ErrPerm
 	}
@@ -1684,4 +1687,14 @@ func (u *UniterAPIV3) getOneNetworkConfig(canAccess common.AuthFunc, unitTagArg,
 	}
 
 	return results, nil
+}
+
+// SLALevel returns the model's SLA level.
+func (u *UniterAPIV3) SLALevel() (params.StringResult, error) {
+	result := params.StringResult{}
+	sla, err := u.st.SLALevel()
+	if err == nil {
+		result.Result = sla
+	}
+	return result, err
 }
