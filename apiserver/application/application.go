@@ -642,6 +642,9 @@ func (api *API) AddUnits(args params.AddApplicationUnits) (params.AddApplication
 // NOTE(axw) this exists only for backwards compatibility,
 // for API facade versions 1-3; clients should prefer its
 // successor, DestroyUnit, below.
+//
+// TODO(axw) 2017-03-16 #1673323
+// Drop this in Juju 3.0.
 func (api *API) DestroyUnits(args params.DestroyApplicationUnits) error {
 	var errs []error
 	entities := params.Entities{
@@ -719,6 +722,9 @@ func (api *API) DestroyUnit(args params.Entities) (params.DestroyUnitResults, er
 // NOTE(axw) this exists only for backwards compatibility,
 // for API facade versions 1-3; clients should prefer its
 // successor, DestroyApplication, below.
+//
+// TODO(axw) 2017-03-16 #1673323
+// Drop this in Juju 3.0.
 func (api *API) Destroy(args params.ApplicationDestroy) error {
 	if !names.IsValidApplication(args.ApplicationName) {
 		return errors.NotValidf("application name %q", args.ApplicationName)

@@ -69,21 +69,70 @@ func (c *removeUnitCommand) Init(args []string) error {
 	return nil
 }
 
-func (c *removeUnitCommand) getAPI() (removeApplicationAPI, error) {
+func (c *removeUnitCommand) getAPI() (removeApplicationAPI, int, error) {
 	root, err := c.NewAPIRoot()
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, -1, errors.Trace(err)
 	}
-	return application.NewClient(root), nil
+	version := root.BestFacadeVersion("Application")
+	return application.NewClient(root), version, nil
 }
 
 // Run connects to the environment specified on the command line and destroys
 // units therein.
-func (c *removeUnitCommand) Run(_ *cmd.Context) error {
-	client, err := c.getAPI()
+func (c *removeUnitCommand) Run(ctx *cmd.Context) error {
+	client, apiVersion, err := c.getAPI()
 	if err != nil {
 		return err
 	}
 	defer client.Close()
-	return block.ProcessBlockedError(client.DestroyUnits(c.UnitNames...), block.BlockRemove)
+
+	if apiVersion < 4 {
+		return c.removeUnitsDeprecated(ctx, client)
+	}
+	return c.removeUnits(ctx, client)
+}
+
+// TODO(axw) 2017-03-16 #1673323
+// Drop this in Juju 3.0.
+func (c *removeUnitCommand) removeUnitsDeprecated(ctx *cmd.Context, client removeApplicationAPI) error {
+	err := client.DestroyUnitsDeprecated(c.UnitNames...)
+	return block.ProcessBlockedError(err, block.BlockRemove)
+}
+
+func (c *removeUnitCommand) removeUnits(ctx *cmd.Context, client removeApplicationAPI) error {
+	results, err := client.DestroyUnits(c.UnitNames...)
+	if err != nil {
+		return block.ProcessBlockedError(err, block.BlockRemove)
+	}
+	anyFailed := false
+	for i, name := range c.UnitNames {
+		result := results[i]
+		if result.Error != nil {
+			anyFailed = true
+			ctx.Infof("removing unit %s failed: %s", name, result.Error)
+			continue
+		}
+		ctx.Infof("removing unit %s", name)
+		for _, entity := range result.Info.DestroyedStorage {
+			storageTag, err := names.ParseStorageTag(entity.Tag)
+			if err != nil {
+				logger.Warningf("%s", err)
+				continue
+			}
+			ctx.Infof("- will remove %s", names.ReadableString(storageTag))
+		}
+		for _, entity := range result.Info.DetachedStorage {
+			storageTag, err := names.ParseStorageTag(entity.Tag)
+			if err != nil {
+				logger.Warningf("%s", err)
+				continue
+			}
+			ctx.Infof("- will detach %s", names.ReadableString(storageTag))
+		}
+	}
+	if anyFailed {
+		return cmd.ErrSilent
+	}
+	return nil
 }
