@@ -2576,7 +2576,7 @@ class ModelClient:
         if machines is not None:
             args.extend(['--machine', ','.join(machines)])
         if units is not None:
-            args.extend(['--units', ','.join(units)])
+            args.extend(['--unit', ','.join(units)])
         args.extend(commands)
         responces = self.get_juju_output('run', *args)
         if use_json:

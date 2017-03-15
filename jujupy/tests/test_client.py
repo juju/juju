@@ -3170,7 +3170,7 @@ class TestModelClient(ClientTest):
                           return_value=output) as output_mock:
             client.run(['true'], units=['foo/0', 'foo/1', 'foo/2'])
         output_mock.assert_called_once_with(
-            'run', '--format', 'json', '--units', 'foo/0,foo/1,foo/2', 'true')
+            'run', '--format', 'json', '--unit', 'foo/0,foo/1,foo/2', 'true')
 
     def test_list_space(self):
         client = ModelClient(JujuData(None, {'type': 'local'}),
