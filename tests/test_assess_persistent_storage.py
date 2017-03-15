@@ -1,6 +1,5 @@
 """Tests for assess_persistent_storage module."""
 
-import logging
 import StringIO
 from subprocess import CalledProcessError
 from textwrap import dedent
@@ -11,22 +10,18 @@ from mock import (
     )
 
 import assess_persistent_storage as aps
-from assess_persistent_storage import (
-    assess_persistent_storage,
-    parse_args,
-    main,
-    )
-from jujupy import fake_juju_client
 from tests import (
     parse_error,
     TestCase,
     )
 from utility import JujuAssertionError
 
+
 class TestParseArgs(TestCase):
 
     def test_common_args(self):
-        args = parse_args(["an-env", "/bin/juju", "/tmp/logs", "an-env-mod"])
+        args = aps.parse_args(
+            ["an-env", "/bin/juju", "/tmp/logs", "an-env-mod"])
         self.assertEqual("an-env", args.env)
         self.assertEqual("/bin/juju", args.juju_bin)
         self.assertEqual("/tmp/logs", args.logs)
@@ -37,7 +32,7 @@ class TestParseArgs(TestCase):
         fake_stdout = StringIO.StringIO()
         with parse_error(self) as fake_stderr:
             with patch("sys.stdout", fake_stdout):
-                parse_args(["--help"])
+                aps.parse_args(["--help"])
         self.assertEqual("", fake_stderr.getvalue())
         self.assertNotIn("TODO", fake_stdout.getvalue())
 
