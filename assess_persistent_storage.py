@@ -4,6 +4,7 @@
 from __future__ import print_function
 
 import argparse
+import yaml
 import logging
 import sys
 
@@ -71,12 +72,26 @@ def ensure_storage_remains_after_application_removal(client):
 
 
 def get_storage_filesystems(client, storage_name):
-    """Return storage unit names for a named storage."""
-    pass
+    """Return storage unit names for a named storage.
+
+    :param client: ModelClient object to query.
+    :param storage_name: Name of storage unit to get filesystem names for.
+    :return: List of filesystem names
+    """
+    all_storage = yaml.safe_load(client.list_storage())['filesystems']
+    return [
+        details['storage'] for unit, details in all_storage.items()
+        if details['storage'].startswith(storage_name)]
 
 
 def assert_storage_is_intact(client, expected_results):
     """Ensure stored tokens match the expected values in `expected_results`.
+
+    Checks the token values stored on the storage assigned to the deployed
+    dummy-storage charm.
+
+    Only matches the provided expected token values and ignores any that have
+    no values provided for them.
 
     :param client: ModelClient object where dummy-storage application is
       deployed
