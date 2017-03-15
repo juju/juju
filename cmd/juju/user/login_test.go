@@ -4,101 +4,86 @@
 package user_test
 
 import (
+	"bytes"
 	"strings"
 
 	"github.com/juju/cmd"
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/api"
+	apibase "github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/user"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/jujuclient"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type LoginCommandSuite struct {
 	BaseSuite
-	mockAPI  *mockLoginAPI
-	loginErr error
+	mockAPI *loginMockAPI
+
+	// apiConnectionParams is set when the mock newAPIConnection
+	// implementation installed by SetUpTest is called.
+	apiConnectionParams juju.NewAPIConnectionParams
 }
 
 var _ = gc.Suite(&LoginCommandSuite{})
 
 func (s *LoginCommandSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	s.mockAPI = &mockLoginAPI{}
-	s.loginErr = nil
-}
-
-func (s *LoginCommandSuite) run(c *gc.C, stdin string, args ...string) (*cmd.Context, juju.NewAPIConnectionParams, error) {
-	var argsOut juju.NewAPIConnectionParams
-	cmd, _ := user.NewLoginCommandForTest(func(args juju.NewAPIConnectionParams) (user.LoginAPI, user.ConnectionAPI, error) {
-		argsOut = args
+	s.mockAPI = &loginMockAPI{
+		authTag:          names.NewUserTag("user@external"),
+		controllerAccess: "superuser",
+	}
+	s.apiConnectionParams = juju.NewAPIConnectionParams{}
+	s.PatchValue(user.NewAPIConnection, func(p juju.NewAPIConnectionParams) (api.Connection, error) {
 		// The account details are modified in place, so take a copy.
-		accountDetails := *argsOut.AccountDetails
-		argsOut.AccountDetails = &accountDetails
-		if s.loginErr != nil {
-			err := s.loginErr
-			s.loginErr = nil
-			return nil, nil, err
-		}
-		return s.mockAPI, s.mockAPI, nil
-	}, s.store)
-	ctx := coretesting.Context(c)
-	if stdin == "" {
-		stdin = "sekrit\n"
-	}
-	ctx.Stdin = strings.NewReader(stdin)
-	err := coretesting.InitCommand(cmd, args)
-	if err != nil {
-		return nil, argsOut, err
-	}
-	err = cmd.Run(ctx)
-	return ctx, argsOut, err
+		accountDetails := *p.AccountDetails
+		p.AccountDetails = &accountDetails
+		s.apiConnectionParams = p
+		return s.mockAPI, nil
+	})
+	s.PatchValue(user.ListModels, func(_ *modelcmd.ControllerCommandBase, userName string) ([]apibase.UserModel, error) {
+		return nil, errors.New("unexpected call to ListModels")
+	})
+	s.PatchValue(user.APIOpen, func(c *modelcmd.JujuCommandBase, info *api.Info, opts api.DialOpts) (api.Connection, error) {
+		return nil, errors.New("unexpected call to apiOpen")
+	})
+	s.PatchValue(user.LoginClientStore, s.store)
 }
 
-func (s *LoginCommandSuite) TestInit(c *gc.C) {
+func (s *LoginCommandSuite) TestInitError(c *gc.C) {
 	for i, test := range []struct {
-		args        []string
-		user        string
-		errorString string
-	}{
-		{
-		// no args is fine
-		}, {
-			args: []string{"foobar"},
-			user: "foobar",
-		}, {
-			args:        []string{"--foobar"},
-			errorString: "flag provided but not defined: --foobar",
-		}, {
-			args:        []string{"foobar", "extra"},
-			errorString: `unrecognized args: \["extra"\]`,
-		},
-	} {
+		args   []string
+		stderr string
+	}{{
+		args:   []string{"--foobar"},
+		stderr: `error: flag provided but not defined: --foobar\n`,
+	}, {
+		args:   []string{"foobar", "extra"},
+		stderr: `error: unrecognized args: \["extra"\]\n`,
+	}} {
 		c.Logf("test %d", i)
-		wrappedCommand, command := user.NewLoginCommandForTest(nil, s.store)
-		err := coretesting.InitCommand(wrappedCommand, test.args)
-		if test.errorString == "" {
-			c.Check(command.User, gc.Equals, test.user)
-		} else {
-			c.Check(err, gc.ErrorMatches, test.errorString)
-		}
+		stdout, stderr, code := runLogin(c, "", test.args...)
+		c.Check(stdout, gc.Equals, "")
+		c.Check(stderr, gc.Matches, test.stderr)
+		c.Assert(code, gc.Equals, 2)
 	}
 }
 
 func (s *LoginCommandSuite) TestLogin(c *gc.C) {
-	context, args, err := s.run(c, "current-user\nsekrit\n")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(coretesting.Stdout(context), gc.Equals, "")
-	c.Assert(coretesting.Stderr(context), gc.Equals, `
+	stdout, stderr, code := runLogin(c, "current-user\nsekrit\n", "-u")
+	c.Check(stdout, gc.Equals, "")
+	c.Check(stderr, gc.Equals, `
 username: You are now logged in to "testing" as "current-user".
-`[1:],
-	)
+`[1:])
+	c.Assert(code, gc.Equals, 0)
 	s.assertStorePassword(c, "current-user", "", "superuser")
-	c.Assert(args.AccountDetails, jc.DeepEquals, &jujuclient.AccountDetails{
+	c.Assert(s.apiConnectionParams.AccountDetails, jc.DeepEquals, &jujuclient.AccountDetails{
 		User: "current-user",
 	})
 }
@@ -106,68 +91,79 @@ username: You are now logged in to "testing" as "current-user".
 func (s *LoginCommandSuite) TestLoginNewUser(c *gc.C) {
 	err := s.store.RemoveAccount("testing")
 	c.Assert(err, jc.ErrorIsNil)
-	context, args, err := s.run(c, "", "new-user")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(coretesting.Stdout(context), gc.Equals, "")
-	c.Assert(coretesting.Stderr(context), gc.Equals, `
+	stdout, stderr, code := runLogin(c, "sekrit\n", "new-user", "-u")
+	c.Check(stdout, gc.Equals, "")
+	c.Check(stderr, gc.Equals, `
 You are now logged in to "testing" as "new-user".
-`[1:],
-	)
+`[1:])
+	c.Assert(code, gc.Equals, 0)
 	s.assertStorePassword(c, "new-user", "", "superuser")
-	c.Assert(args.AccountDetails, jc.DeepEquals, &jujuclient.AccountDetails{
+	c.Assert(s.apiConnectionParams.AccountDetails, jc.DeepEquals, &jujuclient.AccountDetails{
 		User: "new-user",
 	})
 }
 
 func (s *LoginCommandSuite) TestLoginAlreadyLoggedInSameUser(c *gc.C) {
-	_, _, err := s.run(c, "", "current-user")
-	c.Assert(err, jc.ErrorIsNil)
+	stdout, stderr, code := runLogin(c, "", "current-user", "-u")
+	c.Check(stdout, gc.Equals, "")
+	c.Check(stderr, gc.Equals, `You are now logged in to "testing" as "current-user".
+`)
+	c.Assert(code, gc.Equals, 0)
 }
 
 func (s *LoginCommandSuite) TestLoginAlreadyLoggedInDifferentUser(c *gc.C) {
-	_, _, err := s.run(c, "", "other-user")
-	c.Assert(err, gc.ErrorMatches, `already logged in
+	stdout, stderr, code := runLogin(c, "sekrit\n", "-u", "other-user")
+	c.Check(stdout, gc.Equals, "")
+	c.Check(stderr, gc.Equals, `
+error: already logged in
 
 Run "juju logout" first before attempting to log in as a different user.
-`)
+`[1:])
+	c.Assert(code, gc.Equals, 1)
 }
 
 func (s *LoginCommandSuite) TestLoginWithMacaroons(c *gc.C) {
 	err := s.store.RemoveAccount("testing")
 	c.Assert(err, jc.ErrorIsNil)
-	context, args, err := s.run(c, "")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(coretesting.Stdout(context), gc.Equals, "")
-	c.Assert(coretesting.Stderr(context), gc.Equals, `
+	stdout, stderr, code := runLogin(c, "", "-u")
+	c.Check(stderr, gc.Equals, `
 You are now logged in to "testing" as "user@external".
-`[1:],
-	)
-	c.Assert(args.AccountDetails, jc.DeepEquals, &jujuclient.AccountDetails{})
+`[1:])
+	c.Check(stdout, gc.Equals, ``)
+	c.Assert(code, gc.Equals, 0)
+	c.Assert(s.apiConnectionParams.AccountDetails, jc.DeepEquals, &jujuclient.AccountDetails{})
 }
 
 func (s *LoginCommandSuite) TestLoginWithMacaroonsNotSupported(c *gc.C) {
 	err := s.store.RemoveAccount("testing")
 	c.Assert(err, jc.ErrorIsNil)
-	s.loginErr = &params.Error{Code: params.CodeNoCreds, Message: "barf"}
-	context, _, err := s.run(c, "new-user\nsekrit\n")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(coretesting.Stdout(context), gc.Equals, "")
-	c.Assert(coretesting.Stderr(context), gc.Equals, `
+	*user.NewAPIConnection = func(p juju.NewAPIConnectionParams) (api.Connection, error) {
+		if !c.Check(p.AccountDetails, gc.NotNil) {
+			return nil, errors.New("no account details")
+		}
+		if p.AccountDetails.User == "" && p.AccountDetails.Password == "" {
+			return nil, &params.Error{Code: params.CodeNoCreds, Message: "barf"}
+		}
+		c.Check(p.AccountDetails.User, gc.Equals, "new-user")
+		return s.mockAPI, nil
+	}
+	stdout, stderr, code := runLogin(c, "new-user\nsekrit\n", "-u")
+	c.Check(stdout, gc.Equals, ``)
+	c.Check(stderr, gc.Equals, `
 username: You are now logged in to "testing" as "new-user".
-`[1:],
-	)
+`[1:])
+	c.Assert(code, gc.Equals, 0)
 }
 
-type mockLoginAPI struct{}
-
-func (*mockLoginAPI) Close() error {
-	return nil
-}
-
-func (*mockLoginAPI) AuthTag() names.Tag {
-	return names.NewUserTag("user@external")
-}
-
-func (*mockLoginAPI) ControllerAccess() string {
-	return "superuser"
+func runLogin(c *gc.C, stdin string, args ...string) (stdout, stderr string, errCode int) {
+	c.Logf("in LoginControllerSuite.run")
+	var stdoutBuf, stderrBuf bytes.Buffer
+	ctxt := &cmd.Context{
+		Dir:    c.MkDir(),
+		Stdin:  strings.NewReader(stdin),
+		Stdout: &stdoutBuf,
+		Stderr: &stderrBuf,
+	}
+	exitCode := cmd.Main(user.NewLoginCommand(), ctxt, args)
+	return stdoutBuf.String(), stderrBuf.String(), exitCode
 }
