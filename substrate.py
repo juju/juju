@@ -226,7 +226,6 @@ class AWSAccount:
             groupnames=group_names)
         secgroups = [(sg.id, [id for id in sg.instances()])
                      for sg in all_groups]
-
         return secgroups
 
     def ensure_cleanup(self, resource_details):
