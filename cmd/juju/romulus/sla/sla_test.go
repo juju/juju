@@ -6,17 +6,21 @@ package sla_test
 import (
 	stdtesting "testing"
 
+	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
+
 	"github.com/juju/testing"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon-bakery.v1/bakery"
 	"gopkg.in/macaroon-bakery.v1/bakery/checkers"
 	"gopkg.in/macaroon.v1"
 
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/cmd/juju/romulus/sla"
 )
 
@@ -30,6 +34,7 @@ type supportCommandSuite struct {
 	jujutesting.CleanupSuite
 	mockAPI       *mockapi
 	mockSLAClient *mockSlaClient
+	fakeAPIRoot   *fakeAPIConnection
 	charmURL      string
 	modelUUID     string
 }
@@ -41,10 +46,12 @@ func (s *supportCommandSuite) SetUpTest(c *gc.C) {
 	s.mockAPI = mockAPI
 	s.mockSLAClient = &mockSlaClient{}
 	s.modelUUID = utils.MustNewUUID().String()
+	s.fakeAPIRoot = &fakeAPIConnection{model: s.modelUUID}
+}
 
-	s.PatchValue(sla.NewAuthorizationClient, sla.APIClientFnc(s.mockAPI))
-	s.PatchValue(sla.NewSLAClient, sla.SLAClientFnc(s.mockSLAClient))
-	s.PatchValue(sla.ModelId, sla.ModelIdFnc(s.modelUUID))
+func (s *supportCommandSuite) run(c *gc.C, args ...string) (*cmd.Context, error) {
+	command := sla.NewSLACommandForTest(s.fakeAPIRoot, s.mockSLAClient, s.mockAPI)
+	return cmdtesting.RunCommand(c, command, args...)
 }
 
 func (s supportCommandSuite) TestSupportCommand(c *gc.C) {
@@ -86,7 +93,7 @@ func (s supportCommandSuite) TestSupportCommand(c *gc.C) {
 		if test.apiErr != nil {
 			s.mockAPI.SetErrors(test.apiErr)
 		}
-		_, err := cmdtesting.RunCommand(c, sla.NewSLACommand(), test.level, "--budget", test.budget)
+		_, err := s.run(c, test.level, "--budget", test.budget)
 		if test.err == "" {
 			c.Assert(err, jc.ErrorIsNil)
 			c.Assert(s.mockAPI.Calls(), gc.HasLen, 1)
@@ -98,8 +105,8 @@ func (s supportCommandSuite) TestSupportCommand(c *gc.C) {
 }
 
 func (s *supportCommandSuite) TestDiplayCurrentLevel(c *gc.C) {
-	ctx, err := cmdtesting.RunCommand(c, sla.NewSLACommand())
-	c.Assert(err, jc.ErrorIsNil)
+	ctx, err := s.run(c)
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf("%s", errors.Details(err)))
 	c.Assert(cmdtesting.Stdout(ctx), jc.DeepEquals, "mock-level\n")
 }
 
@@ -156,4 +163,17 @@ func (m *mockSlaClient) SetSLALevel(level string, creds []byte) error {
 func (m *mockSlaClient) SLALevel() (string, error) {
 	m.AddCall("SLALevel")
 	return "mock-level", nil
+}
+
+type fakeAPIConnection struct {
+	api.Connection
+	model string
+}
+
+func (f *fakeAPIConnection) BestFacadeVersion(facade string) int {
+	return 2
+}
+
+func (f *fakeAPIConnection) ModelTag() (names.ModelTag, bool) {
+	return names.NewModelTag(f.model), false
 }

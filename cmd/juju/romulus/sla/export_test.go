@@ -4,9 +4,11 @@
 package sla
 
 import (
+	"github.com/juju/cmd"
 	"github.com/juju/romulus/api/sla"
 
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 var (
@@ -15,20 +17,14 @@ var (
 	ModelId                = &modelId
 )
 
-func APIClientFnc(client authorizationClient) func(...sla.ClientOption) (authorizationClient, error) {
-	return func(...sla.ClientOption) (authorizationClient, error) {
-		return client, nil
+// NewSLACommandForTest returns an slaCommand with apis provided by the given arguments
+func NewSLACommandForTest(apiRoot api.Connection, slaC slaClient, authClient authorizationClient) cmd.Command {
+	cmd := &supportCommand{
+		newAPIRoot:   func() (api.Connection, error) { return apiRoot, nil },
+		newSlaClient: func(api.Connection) slaClient { return slaC },
+		newAuthorizationClient: func(options ...sla.ClientOption) (authorizationClient, error) {
+			return authClient, nil
+		},
 	}
-}
-
-func SLAClientFnc(client slaClient) func(api.Connection) slaClient {
-	return func(api.Connection) slaClient {
-		return client
-	}
-}
-
-func ModelIdFnc(modelId string) func(api.Connection) string {
-	return func(api.Connection) string {
-		return modelId
-	}
+	return modelcmd.Wrap(cmd)
 }

@@ -51,13 +51,22 @@ var modelId = func(conn api.Connection) string {
 // NewSLACommand returns a new command that is used to set sla credentials for a
 // deployed application.
 func NewSLACommand() cmd.Command {
-	return modelcmd.Wrap(&supportCommand{})
+	slaCommand := &supportCommand{
+		newSlaClient:           newSlaClient,
+		newAuthorizationClient: newAuthorizationClient,
+	}
+	slaCommand.newAPIRoot = slaCommand.NewAPIRoot
+	return modelcmd.Wrap(slaCommand)
 }
 
 // supportCommand is a command-line tool for setting
 // Model.SLACredential for development & demonstration purposes.
 type supportCommand struct {
 	modelcmd.ModelCommandBase
+
+	newAPIRoot             func() (api.Connection, error)
+	newSlaClient           func(api.Connection) slaClient
+	newAuthorizationClient func(options ...sla.ClientOption) (authorizationClient, error)
 
 	Level  string
 	Budget string
@@ -100,7 +109,7 @@ func (c *supportCommand) requestSupportCredentials(modelUUID string) ([]byte, er
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	authClient, err := newAuthorizationClient(sla.HTTPClient(hc))
+	authClient, err := c.newAuthorizationClient(sla.HTTPClient(hc))
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -123,11 +132,11 @@ func displayCurrentLevel(client slaClient, ctx *cmd.Context) error {
 
 // Run implements cmd.Command.
 func (c *supportCommand) Run(ctx *cmd.Context) error {
-	root, err := c.NewAPIRoot()
+	root, err := c.newAPIRoot()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	client := newSlaClient(root)
+	client := c.newSlaClient(root)
 	modelId := modelId(root)
 
 	if c.Level == "" {
