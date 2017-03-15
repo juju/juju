@@ -54,12 +54,6 @@ func (s *offerSuite) TestOfferNoEndpoints(c *gc.C) {
 	s.assertOfferErrorOutput(c, `.*specify endpoints for tst.*`)
 }
 
-func (s *offerSuite) TestOfferNoModel(c *gc.C) {
-	s.store.Models[s.store.CurrentControllerName].CurrentModel = ""
-	s.args = []string{"tst:db", "local:/u/bob/testing/tst"}
-	s.assertOfferErrorOutput(c, `current model for controller test-master not found`)
-}
-
 func (s *offerSuite) assertOfferErrorOutput(c *gc.C, expected string) {
 	_, err := s.runOffer(c, s.args...)
 	c.Assert(errors.Cause(err), gc.ErrorMatches, expected)
@@ -104,14 +98,12 @@ func (s *offerSuite) TestOfferMultipleEndpoints(c *gc.C) {
 func (s *offerSuite) assertOfferOutput(c *gc.C, expectedModel, expectedApplication string, endpoints []string, url string) {
 	_, err := s.runOffer(c, s.args...)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.mockAPI.model, gc.Equals, expectedModel+"-uuid")
 	c.Assert(s.mockAPI.offers[expectedApplication], jc.SameContents, endpoints)
 	c.Assert(s.mockAPI.urls[expectedApplication], jc.DeepEquals, url)
 }
 
 type mockOfferAPI struct {
 	errCall, errData bool
-	model            string
 	offers           map[string][]string
 	urls             map[string]string
 	descs            map[string]string
@@ -129,8 +121,7 @@ func (s *mockOfferAPI) Close() error {
 	return nil
 }
 
-func (s *mockOfferAPI) Offer(model, application string, endpoints []string, url string, desc string) ([]params.ErrorResult, error) {
-	s.model = model
+func (s *mockOfferAPI) Offer(application string, endpoints []string, url string, desc string) ([]params.ErrorResult, error) {
 	if s.errCall {
 		return nil, errors.New("aborted")
 	}

@@ -25,12 +25,6 @@ type applicationOfferDoc struct {
 	// URL is the URL used to locate the offer in a directory.
 	URL string `bson:"url"`
 
-	// SourceModelUUID is the UUID of the environment hosting the application.
-	SourceModelUUID string `bson:"source-model-uuid"`
-
-	// SourceLabel is a user friendly name for the source environment.
-	SourceLabel string `bson:"source-label"`
-
 	// ApplicationName is the name of the application.
 	ApplicationName string `bson:"application-name"`
 
@@ -39,18 +33,18 @@ type applicationOfferDoc struct {
 	ApplicationDescription string `bson:"application-description"`
 
 	// Endpoints are the charm endpoints supported by the applicationbob.
-	Endpoints []remoteEndpointDoc `bson:"endpoints"`
+	Endpoints map[string]string `bson:"endpoints"`
 }
 
-var _ crossmodel.ApplicationDirectory = (*applicationDirectory)(nil)
+var _ crossmodel.ApplicationOffers = (*applicationOffers)(nil)
 
-type applicationDirectory struct {
+type applicationOffers struct {
 	st *State
 }
 
-// NewApplicationDirectory creates a application directory backed by a state instance.
-func NewApplicationDirectory(st *State) crossmodel.ApplicationDirectory {
-	return &applicationDirectory{st: st}
+// NewApplicationOffers creates a application directory backed by a state instance.
+func NewApplicationOffers(st *State) crossmodel.ApplicationOffers {
+	return &applicationOffers{st: st}
 }
 
 // ApplicationOfferEndpoint returns from the specified offer, the relation endpoint
@@ -67,8 +61,8 @@ func ApplicationOfferEndpoint(offer crossmodel.ApplicationOffer, relationName st
 	return Endpoint{}, errors.NotFoundf("relation %q on application offer %q", relationName, offer.String())
 }
 
-func (s *applicationDirectory) offerAtURL(url string) (*applicationOfferDoc, error) {
-	applicationOffersCollection, closer := s.st.getCollection(localApplicationDirectoryC)
+func (s *applicationOffers) offerAtURL(url string) (*applicationOfferDoc, error) {
+	applicationOffersCollection, closer := s.st.getCollection(applicationOffersC)
 	defer closer()
 
 	var doc applicationOfferDoc
@@ -83,7 +77,7 @@ func (s *applicationDirectory) offerAtURL(url string) (*applicationOfferDoc, err
 }
 
 // Remove deletes the application offer at url immediately.
-func (s *applicationDirectory) Remove(url string) (err error) {
+func (s *applicationOffers) Remove(url string) (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot delete application offer %q", url)
 	err = s.st.runTransaction(s.removeOps(url))
 	if err == txn.ErrAborted {
@@ -94,10 +88,10 @@ func (s *applicationDirectory) Remove(url string) (err error) {
 }
 
 // removeOps returns the operations required to remove the record at url.
-func (s *applicationDirectory) removeOps(url string) []txn.Op {
+func (s *applicationOffers) removeOps(url string) []txn.Op {
 	return []txn.Op{
 		{
-			C:      localApplicationDirectoryC,
+			C:      applicationOffersC,
 			Id:     url,
 			Assert: txn.DocExists,
 			Remove: true,
@@ -107,11 +101,8 @@ func (s *applicationDirectory) removeOps(url string) []txn.Op {
 
 var errDuplicateApplicationOffer = errors.Errorf("application offer already exists")
 
-func (s *applicationDirectory) validateOffer(offer crossmodel.ApplicationOffer) (err error) {
+func (s *applicationOffers) validateOfferArgs(offer crossmodel.AddApplicationOfferArgs) (err error) {
 	// Sanity checks.
-	if offer.SourceModelUUID == "" {
-		return errors.Errorf("missing source model UUID")
-	}
 	if !names.IsValidApplication(offer.ApplicationName) {
 		return errors.Errorf("invalid application name")
 	}
@@ -120,20 +111,20 @@ func (s *applicationDirectory) validateOffer(offer crossmodel.ApplicationOffer) 
 }
 
 // AddOffer adds a new application offering to the directory.
-func (s *applicationDirectory) AddOffer(offer crossmodel.ApplicationOffer) (err error) {
-	defer errors.DeferredAnnotatef(&err, "cannot add application offer %q at %q", offer.ApplicationName, offer.ApplicationURL)
+func (s *applicationOffers) AddOffer(offerArgs crossmodel.AddApplicationOfferArgs) (_ *crossmodel.ApplicationOffer, err error) {
+	defer errors.DeferredAnnotatef(&err, "cannot add application offer %q at %q", offerArgs.ApplicationName, offerArgs.ApplicationURL)
 
-	if err := s.validateOffer(offer); err != nil {
-		return err
+	if err := s.validateOfferArgs(offerArgs); err != nil {
+		return nil, err
 	}
 	model, err := s.st.Model()
 	if err != nil {
-		return errors.Trace(err)
+		return nil, errors.Trace(err)
 	} else if model.Life() != Alive {
-		return errors.Errorf("model is no longer alive")
+		return nil, errors.Errorf("model is no longer alive")
 	}
 
-	doc := s.makeApplicationOfferDoc(offer)
+	doc := s.makeApplicationOfferDoc(offerArgs)
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		// If we've tried once already and failed, check that
 		// environment may have been destroyed.
@@ -141,7 +132,7 @@ func (s *applicationDirectory) AddOffer(offer crossmodel.ApplicationOffer) (err 
 			if err := checkModelActive(s.st); err != nil {
 				return nil, errors.Trace(err)
 			}
-			_, err := s.offerAtURL(offer.ApplicationURL)
+			_, err := s.offerAtURL(offerArgs.ApplicationURL)
 			if err == nil {
 				return nil, errDuplicateApplicationOffer
 			}
@@ -149,7 +140,7 @@ func (s *applicationDirectory) AddOffer(offer crossmodel.ApplicationOffer) (err 
 		ops := []txn.Op{
 			model.assertActiveOp(),
 			{
-				C:      localApplicationDirectoryC,
+				C:      applicationOffersC,
 				Id:     doc.DocID,
 				Assert: txn.DocMissing,
 				Insert: doc,
@@ -158,24 +149,27 @@ func (s *applicationDirectory) AddOffer(offer crossmodel.ApplicationOffer) (err 
 		return ops, nil
 	}
 	err = s.st.run(buildTxn)
-	return errors.Trace(err)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return s.makeApplicationOffer(doc)
 }
 
 // UpdateOffer replaces an existing offer at the same URL.
-func (s *applicationDirectory) UpdateOffer(offer crossmodel.ApplicationOffer) (err error) {
-	defer errors.DeferredAnnotatef(&err, "cannot update application offer %q", offer.ApplicationName)
+func (s *applicationOffers) UpdateOffer(offerArgs crossmodel.AddApplicationOfferArgs) (_ *crossmodel.ApplicationOffer, err error) {
+	defer errors.DeferredAnnotatef(&err, "cannot update application offer %q", offerArgs.ApplicationName)
 
-	if err := s.validateOffer(offer); err != nil {
-		return err
+	if err := s.validateOfferArgs(offerArgs); err != nil {
+		return nil, err
 	}
 	model, err := s.st.Model()
 	if err != nil {
-		return errors.Trace(err)
+		return nil, errors.Trace(err)
 	} else if model.Life() != Alive {
-		return errors.Errorf("model is no longer alive")
+		return nil, errors.Errorf("model is no longer alive")
 	}
 
-	doc := s.makeApplicationOfferDoc(offer)
+	doc := s.makeApplicationOfferDoc(offerArgs)
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		// If we've tried once already and failed, check that
 		// environment may have been destroyed.
@@ -183,7 +177,7 @@ func (s *applicationDirectory) UpdateOffer(offer crossmodel.ApplicationOffer) (e
 			if err := checkModelActive(s.st); err != nil {
 				return nil, errors.Trace(err)
 			}
-			_, err := s.offerAtURL(offer.ApplicationURL)
+			_, err := s.offerAtURL(offerArgs.ApplicationURL)
 			if err != nil {
 				// This will either be NotFound or some other error.
 				// In either case, we return the error.
@@ -193,51 +187,36 @@ func (s *applicationDirectory) UpdateOffer(offer crossmodel.ApplicationOffer) (e
 		ops := []txn.Op{
 			model.assertActiveOp(),
 			{
-				C:      localApplicationDirectoryC,
+				C:      applicationOffersC,
 				Id:     doc.DocID,
 				Assert: txn.DocExists,
-				Update: doc,
+				Update: bson.M{"$set": doc},
 			},
 		}
 		return ops, nil
 	}
 	err = s.st.run(buildTxn)
-	return errors.Trace(err)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return s.makeApplicationOffer(doc)
 }
 
-func (s *applicationDirectory) makeApplicationOfferDoc(offer crossmodel.ApplicationOffer) applicationOfferDoc {
+func (s *applicationOffers) makeApplicationOfferDoc(offer crossmodel.AddApplicationOfferArgs) applicationOfferDoc {
 	doc := applicationOfferDoc{
 		DocID:                  offer.ApplicationURL,
 		URL:                    offer.ApplicationURL,
 		ApplicationName:        offer.ApplicationName,
 		ApplicationDescription: offer.ApplicationDescription,
-		SourceModelUUID:        offer.SourceModelUUID,
-		SourceLabel:            offer.SourceLabel,
+		Endpoints:              offer.Endpoints,
 	}
-	eps := make([]remoteEndpointDoc, len(offer.Endpoints))
-	for i, ep := range offer.Endpoints {
-		eps[i] = remoteEndpointDoc{
-			Name:      ep.Name,
-			Role:      ep.Role,
-			Interface: ep.Interface,
-			Limit:     ep.Limit,
-			Scope:     ep.Scope,
-		}
-	}
-	doc.Endpoints = eps
 	return doc
 }
 
-func (s *applicationDirectory) makeFilterTerm(filterTerm crossmodel.ApplicationOfferFilter) bson.D {
+func (s *applicationOffers) makeFilterTerm(filterTerm crossmodel.ApplicationOfferFilter) bson.D {
 	var filter bson.D
 	if filterTerm.ApplicationName != "" {
 		filter = append(filter, bson.DocElem{"application-name", filterTerm.ApplicationName})
-	}
-	if filterTerm.SourceLabel != "" {
-		filter = append(filter, bson.DocElem{"source-label", filterTerm.SourceLabel})
-	}
-	if filterTerm.SourceModelUUID != "" {
-		filter = append(filter, bson.DocElem{"source-model-uuid", filterTerm.SourceModelUUID})
 	}
 	// We match on partial URLs eg /u/user
 	if filterTerm.ApplicationURL != "" {
@@ -253,8 +232,8 @@ func (s *applicationDirectory) makeFilterTerm(filterTerm crossmodel.ApplicationO
 }
 
 // ListOffers returns the application offers matching any one of the filter terms.
-func (s *applicationDirectory) ListOffers(filter ...crossmodel.ApplicationOfferFilter) ([]crossmodel.ApplicationOffer, error) {
-	applicationOffersCollection, closer := s.st.getCollection(localApplicationDirectoryC)
+func (s *applicationOffers) ListOffers(filter ...crossmodel.ApplicationOfferFilter) ([]crossmodel.ApplicationOffer, error) {
+	applicationOffersCollection, closer := s.st.getCollection(applicationOffersC)
 	defer closer()
 
 	// TODO(wallyworld) - add support for filtering on endpoints
@@ -278,30 +257,43 @@ func (s *applicationDirectory) ListOffers(filter ...crossmodel.ApplicationOfferF
 	sort.Sort(srSlice(docs))
 	offers := make([]crossmodel.ApplicationOffer, len(docs))
 	for i, doc := range docs {
-		offers[i] = s.makeApplicationOffer(doc)
+		offer, err := s.makeApplicationOffer(doc)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		offers[i] = *offer
 	}
 	return offers, nil
 }
 
-func (s *applicationDirectory) makeApplicationOffer(doc applicationOfferDoc) crossmodel.ApplicationOffer {
-	offer := crossmodel.ApplicationOffer{
+func (s *applicationOffers) makeApplicationOffer(doc applicationOfferDoc) (*crossmodel.ApplicationOffer, error) {
+	offer := &crossmodel.ApplicationOffer{
 		ApplicationURL:         doc.URL,
 		ApplicationName:        doc.ApplicationName,
 		ApplicationDescription: doc.ApplicationDescription,
-		SourceModelUUID:        doc.SourceModelUUID,
-		SourceLabel:            doc.SourceLabel,
 	}
-	offer.Endpoints = make([]charm.Relation, len(doc.Endpoints))
-	for i, ep := range doc.Endpoints {
-		offer.Endpoints[i] = charm.Relation{
-			Name:      ep.Name,
-			Role:      ep.Role,
-			Interface: ep.Interface,
-			Limit:     ep.Limit,
-			Scope:     ep.Scope,
+	app, err := s.st.Application(doc.ApplicationName)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	eps, err := getApplicationEndpoints(app, doc.Endpoints)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	offer.Endpoints = eps
+	return offer, nil
+}
+
+func getApplicationEndpoints(application *Application, endpointNames map[string]string) (map[string]charm.Relation, error) {
+	result := make(map[string]charm.Relation)
+	for alias, endpointName := range endpointNames {
+		endpoint, err := application.Endpoint(endpointName)
+		if err != nil {
+			return nil, errors.Annotatef(err, "getting relation endpoint for relation %q and application %q", endpointName, application.Name())
 		}
+		result[alias] = endpoint.Relation
 	}
-	return offer
+	return result, nil
 }
 
 type srSlice []applicationOfferDoc

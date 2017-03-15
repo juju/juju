@@ -12,7 +12,6 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/crossmodel"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/permission"
@@ -79,10 +78,6 @@ func newAPIHandler(srv *Server, st *state.State, rpcConn *rpc.Conn, modelUUID st
 		return nil, errors.Trace(err)
 	}
 	if err := r.resources.RegisterNamed("logDir", common.StringResource(srv.logDir)); err != nil {
-		return nil, errors.Trace(err)
-	}
-	apiFactory := crossmodel.ApplicationOffersAPIFactoryResource(srv.state)
-	if err := r.resources.RegisterNamed("applicationOffersApiFactory", apiFactory); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return r, nil

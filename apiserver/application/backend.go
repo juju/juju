@@ -19,7 +19,6 @@ import (
 // with the same names.
 type Backend interface {
 	AllModels() ([]Model, error)
-	ForModel(modelTag names.ModelTag) (*state.State, error)
 	Application(string) (Application, error)
 	AddApplication(state.AddApplicationArgs) (*state.Application, error)
 	RemoteApplication(name string) (*state.RemoteApplication, error)
