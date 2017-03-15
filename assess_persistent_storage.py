@@ -6,6 +6,7 @@ from __future__ import print_function
 import argparse
 import yaml
 import logging
+from subprocess import CalledProcessError
 import sys
 
 from deploy_stack import (
@@ -99,6 +100,26 @@ def assert_storage_is_intact(client, expected_results):
       look up values.
     """
     pass
+
+
+def get_stored_token_content(client):
+    """Retrieve token values from file stored on the unit.
+
+    Token values are retrieved from the storage units and logged into a file on
+    the application unit.
+
+    :param client: ModelClient object to query.
+    :return: Dict containing 'token name' -> 'token value'.
+    """
+    try:
+        # TODO: Need to pass in application/unit
+        contents = client.get_juju_output(
+            'ssh', ('dummy-storage/0', 'cat', '/tmp/status'))
+    except CalledProcessError as e:
+        raise JujuAssertionError('Failed to read token file: {}'.format(e))
+
+    return {token_name: token_value for token_name, token_value in (
+        line.split(':', 1) for line in contents.splitlines() if line != '')}
 
 
 def parse_args(argv):

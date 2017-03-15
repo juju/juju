@@ -2,6 +2,7 @@
 
 import logging
 import StringIO
+from subprocess import CalledProcessError
 from textwrap import dedent
 
 from mock import (
@@ -20,7 +21,7 @@ from tests import (
     parse_error,
     TestCase,
     )
-
+from utility import JujuAssertionError
 
 class TestParseArgs(TestCase):
 
@@ -42,7 +43,6 @@ class TestParseArgs(TestCase):
 
 
 class TestGetStorageSystems(TestCase):
-
     def test_returns_single_known_filesystem(self):
         storage_json = dedent("""\
         filesystems:
@@ -155,3 +155,56 @@ class TestGetStorageSystems(TestCase):
         self.assertEqual(
             aps.get_storage_filesystems(client, 'multi-fs'),
             ['multi-fs/1', 'multi-fs/2'])
+
+
+class TestAssertStorageIsIntact(TestCase):
+
+    def test_passes_when_token_values_match(self):
+
+        with patch.object(
+                aps.get_stored_token_values,
+                autospec=True) as m_gstv:
+            pass
+
+    def test_ignores_token_values_not_supplied(self):
+        pass
+
+    def test_raises_when_token_values_do_not_match(self):
+        pass
+
+
+class TestGetStoredTokenContent(TestCase):
+
+    def test_raises_if_token_file_not_present(self):
+        client = Mock()
+        client.get_juju_output.side_effect = CalledProcessError(-1, None, '')
+        with self.assertRaises(JujuAssertionError):
+            aps.get_stored_token_content(client)
+
+    def test_returns_dict_containing_all_values_when_single_value(self):
+        token_file_contents = dedent("""\
+
+        single-fs-token:Blocked: not set
+        """)
+        client = Mock()
+        client.get_juju_output.return_value = token_file_contents
+
+        self.assertEqual(
+            aps.get_stored_token_content(client),
+            {'single-fs-token': 'Blocked: not set'})
+
+    def test_returns_dict_containing_all_values_when_many_values(self):
+        token_file_contents = dedent("""\
+
+        single-fs-token:Blocked: not set
+        multi-fs-token/2:abc123
+        """)
+        client = Mock()
+        client.get_juju_output.return_value = token_file_contents
+
+        self.assertEqual(
+            aps.get_stored_token_content(client),
+            {
+                'single-fs-token': 'Blocked: not set',
+                'multi-fs-token/2': 'abc123'
+            })
