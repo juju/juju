@@ -180,9 +180,12 @@ func (gi Instance) Metadata() map[string]string {
 func packMetadata(data map[string]string) *compute.Metadata {
 	var items []*compute.MetadataItems
 	for key, value := range data {
+		// Needs to be a new variable so that &localValue is different
+		// each time round the loop.
+		localValue := value
 		item := compute.MetadataItems{
 			Key:   key,
-			Value: value,
+			Value: &localValue,
 		}
 		items = append(items, &item)
 	}
@@ -198,7 +201,14 @@ func unpackMetadata(data *compute.Metadata) map[string]string {
 
 	result := make(map[string]string)
 	for _, item := range data.Items {
-		result[item.Key] = item.Value
+		if item == nil {
+			continue
+		}
+		value := ""
+		if item.Value != nil {
+			value = *item.Value
+		}
+		result[item.Key] = value
 	}
 	return result
 }

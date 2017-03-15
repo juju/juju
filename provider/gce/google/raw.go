@@ -298,7 +298,7 @@ func isWaitError(err error) bool {
 }
 
 type opDoer interface {
-	Do() (*compute.Operation, error)
+	Do(...googleapi.CallOption) (*compute.Operation, error)
 }
 
 // checkOperation requests a new copy of the given operation from the
