@@ -2566,7 +2566,8 @@ class ModelClient:
         id = self.action_do(unit, action, *args)
         return self.action_fetch(id, action, timeout)
 
-    def run(self, commands, applications=None, machines=None, use_json=True):
+    def run(self, commands, applications=None, machines=None, units=None,
+            use_json=True):
         args = []
         if use_json:
             args.extend(['--format', 'json'])
@@ -2574,6 +2575,8 @@ class ModelClient:
             args.extend(['--application', ','.join(applications)])
         if machines is not None:
             args.extend(['--machine', ','.join(machines)])
+        if units is not None:
+            args.extend(['--units', ','.join(units)])
         args.extend(commands)
         responces = self.get_juju_output('run', *args)
         if use_json:

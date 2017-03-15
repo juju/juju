@@ -3163,6 +3163,15 @@ class TestModelClient(ClientTest):
             result = client.run(['true'], use_json=False)
         self.assertEqual(output, result)
 
+    def test_run_units(self):
+        client = fake_juju_client(cls=ModelClient)
+        output = json.dumps({"ReturnCode": 255})
+        with patch.object(client, 'get_juju_output',
+                          return_value=output) as output_mock:
+            client.run(['true'], units=['foo/0', 'foo/1', 'foo/2'])
+        output_mock.assert_called_once_with(
+            'run', '--format', 'json', '--units', 'foo/0,foo/1,foo/2', 'true')
+
     def test_list_space(self):
         client = ModelClient(JujuData(None, {'type': 'local'}),
                              '1.23-series-arch', None)
