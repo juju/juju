@@ -1900,3 +1900,52 @@ class TestAttemptTerminateInstances(TestCase):
         self.assertEquals(failed, [])
         self.assertEquals(mock_account.terminate_instances.call_args_list,
                           [call(['foo']), call(['bar'])])
+
+
+class TestGetSecurityGroups(TestCase):
+
+    class FakeSecurityGroup:
+        def __init__(self, id, instances):
+            self.id = id
+            self._instances = instances
+
+        def instances(self):
+            return self._instances
+
+    def test_instance_managed_by_single_security_group(self):
+        client = MagicMock()
+        instance_sec_groups = [('i_id1', 'sg_id1'), ('i_id2', 'sg_id1')]
+        all_sec_groups = [self.FakeSecurityGroup('sg_id1', ['i_id1', 'i_id2'])]
+        with patch('substrate.ec2.connect_to_region',
+                   return_value=client):
+            with AWSAccount.from_boot_config(get_aws_env()) as aws:
+                with patch.object(
+                        aws, 'iter_instance_security_groups',
+                        autospec=True, return_value=instance_sec_groups):
+                    with patch.object(
+                            aws.client, 'get_all_security_groups',
+                            autospec=True, return_value=all_sec_groups):
+                        sec_groups = aws.get_security_groups(
+                            ['i_id1', 'i_id2'])
+        self.assertEqual(sec_groups, [('sg_id1', ['i_id1', 'i_id2'])])
+
+    def test_instance_managed_by_multiple_security_group(self):
+        client = MagicMock()
+        instance_sec_groups = [('i_id1', 'sg_id1'), ('i_id2', 'sg_id1')]
+        all_sec_groups = [self.FakeSecurityGroup(
+            'sg_id1', ['i_id1', 'i_id2']),
+            self.FakeSecurityGroup('sg_id2', ['i_id1'])]
+        with patch('substrate.ec2.connect_to_region',
+                   return_value=client):
+            with AWSAccount.from_boot_config(get_aws_env()) as aws:
+                with patch.object(
+                        aws, 'iter_instance_security_groups',
+                        autospec=True, return_value=instance_sec_groups):
+                    with patch.object(
+                            aws.client, 'get_all_security_groups',
+                            autospec=True, return_value=all_sec_groups):
+                        sec_groups = aws.get_security_groups(
+                            ['i_id1', 'i_id2'])
+        self.assertEqual(sec_groups,
+                         [('sg_id1', ['i_id1', 'i_id2']),
+                          ('sg_id2', ['i_id1'])])
