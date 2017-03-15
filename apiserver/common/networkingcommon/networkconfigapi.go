@@ -7,23 +7,24 @@
 package networkingcommon
 
 import (
-	"gopkg.in/juju/names.v2"
 	"github.com/juju/errors"
 	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/state/stateenvirons"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/stateenvirons"
+	"gopkg.in/juju/names.v2"
 )
 
 type NetworkConfigAPI struct {
-	st		*state.State
-	getCanModify	common.GetAuthFunc
+	st           *state.State
+	getCanModify common.GetAuthFunc
+	getAuthFunc  common.GetAuthFunc
 }
 
 func NewNetworkConfigAPI(st *state.State, getCanModify common.GetAuthFunc) *NetworkConfigAPI {
 	return &NetworkConfigAPI{
-		st:		st,
-		getCanModify:	getCanModify,
+		st:           st,
+		getCanModify: getCanModify,
 	}
 }
 
@@ -111,7 +112,6 @@ func (api *NetworkConfigAPI) getMachineForSettingNetworkConfig(machineTag string
 	return m, nil
 }
 
-
 func (api *NetworkConfigAPI) SetObservedNetworkConfig(args params.SetMachineNetworkConfig) error {
 	m, err := api.getMachineForSettingNetworkConfig(args.Tag)
 	if err != nil {
@@ -143,10 +143,6 @@ func (api *NetworkConfigAPI) SetObservedNetworkConfig(args params.SetMachineNetw
 
 	return api.setOneMachineNetworkConfig(m, finalConfig)
 }
-
-
-
-
 
 func (api *NetworkConfigAPI) SetProviderNetworkConfig(args params.Entities) (params.ErrorResults, error) {
 	result := params.ErrorResults{

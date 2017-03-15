@@ -4,22 +4,22 @@
 package networkingcommon_test
 
 import (
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/networkingcommon"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/state"
+	jc "github.com/juju/testing/checkers"
+	gc "gopkg.in/check.v1"
 )
 
 type networkconfigSuite struct {
 	testing.JujuConnSuite
 
-	machine		*state.Machine
-	resources 	*common.Resources
-	networkconfig	*networkingcommon.NetworkConfigAPI
+	machine       *state.Machine
+	resources     *common.Resources
+	networkconfig *networkingcommon.NetworkConfigAPI
 }
 
 func (s *networkconfigSuite) SetUpTest(c *gc.C) {
