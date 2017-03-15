@@ -12,6 +12,8 @@ import (
 // mockAPIConnection implements just enough of the api.Connection interface
 // to satisfy the methods used by the register command.
 type mockAPIConnection struct {
+	// This will be nil - it's just there to satisfy the api.Connection
+	// interface methods not explicitly defined by mockAPIConnection.
 	api.Connection
 
 	// addr is returned by Addr.
