@@ -160,17 +160,40 @@ class TestGetStorageSystems(TestCase):
 class TestAssertStorageIsIntact(TestCase):
 
     def test_passes_when_token_values_match(self):
-
+        client = Mock()
+        stored_values = {'single-fs-token': 'abc123'}
+        expected_results = {'single-fs-token': 'abc123'}
         with patch.object(
-                aps.get_stored_token_values,
-                autospec=True) as m_gstv:
-            pass
+                aps, 'get_stored_token_content',
+                autospec=True,
+                return_value=stored_values) as m_gstc:
+            aps.assert_storage_is_intact(client, expected_results)
+            m_gstc.assert_called_once_with(client)
 
     def test_ignores_token_values_not_supplied(self):
-        pass
+        client = Mock()
+        stored_values = {
+            'single-fs-token': 'abc123',
+            'multi-fs-token/1': '00000'
+        }
+        expected_results = {'single-fs-token': 'abc123'}
+        with patch.object(
+                aps, 'get_stored_token_content',
+                autospec=True,
+                return_value=stored_values) as m_gstc:
+            aps.assert_storage_is_intact(client, expected_results)
+            m_gstc.assert_called_once_with(client)
 
     def test_raises_when_token_values_do_not_match(self):
-        pass
+        client = Mock()
+        stored_values = {'single-fs-token': 'abc123x'}
+        expected_results = {'single-fs-token': 'abc123'}
+        with patch.object(
+                aps, 'get_stored_token_content',
+                autospec=True,
+                return_value=stored_values):
+            with self.assertRaises(JujuAssertionError):
+                aps.assert_storage_is_intact(client, expected_results)
 
 
 class TestGetStoredTokenContent(TestCase):

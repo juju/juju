@@ -98,8 +98,22 @@ def assert_storage_is_intact(client, expected_results):
       deployed
     :param expected_results: Dict containing 'token name' -> 'expected value'
       look up values.
+    :raises JujuAssertionError: If expected token values are not present in the
+      stored token details.
     """
-    pass
+    stored_content = get_stored_token_content(client)
+
+    for expected_name, expected_value in expected_results.iteritems():
+        try:
+            stored_value = stored_content[expected_name]
+        except KeyError:
+            raise JujuAssertionError(
+                'Expected token "{}" not found in stored results.'.format(
+                    expected_name))
+        if stored_value != expected_value:
+            raise JujuAssertionError(
+                'Token values do not match. Expected: {} got: {}'.format(
+                    expected_value, stored_value))
 
 
 def get_stored_token_content(client):
