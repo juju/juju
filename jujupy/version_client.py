@@ -124,6 +124,10 @@ class Status1X(Status):
                                      self.condense_status(unit_value))
 
 
+class ModelClient2_2(ModelClient):
+    """Client for Juju 2.2"""
+
+
 class ModelClient2_1(ModelClient):
     """Client for Juju 2.1"""
 
@@ -698,6 +702,8 @@ def get_client_class(version):
         client_class = ModelClient2_0
     elif re.match('^2\.1[.-]', version):
         client_class = ModelClient2_1
+    elif re.match('^2\.2[.-]', version):
+        client_class = ModelClient2_2
     else:
         client_class = ModelClient
     return client_class
