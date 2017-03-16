@@ -74,11 +74,13 @@ type (
 	BlockDevicesDoc blockDevicesDoc
 )
 
-// ensureWorkersStarted ensures that all the automatically
+// EnsureWorkersStarted ensures that all the automatically
 // started state workers are running, so that tests which
 // insert transaction hooks are less likely to have the hooks
-// run by some other worker.
-func ensureWorkersStarted(st *State) {
+// run by some other worker, and any side effects of starting
+// the workers (for example, creating collections) will have
+// taken effect.
+func EnsureWorkersStarted(st *State) {
 	// Note: we don't start the all-watcher workers, as
 	// they're started on demand anyway.
 	st.workers.txnLogWatcher()
@@ -88,22 +90,22 @@ func ensureWorkersStarted(st *State) {
 }
 
 func SetTestHooks(c *gc.C, st *State, hooks ...jujutxn.TestHook) txntesting.TransactionChecker {
-	ensureWorkersStarted(st)
+	EnsureWorkersStarted(st)
 	return txntesting.SetTestHooks(c, newRunnerForHooks(st), hooks...)
 }
 
 func SetBeforeHooks(c *gc.C, st *State, fs ...func()) txntesting.TransactionChecker {
-	ensureWorkersStarted(st)
+	EnsureWorkersStarted(st)
 	return txntesting.SetBeforeHooks(c, newRunnerForHooks(st), fs...)
 }
 
 func SetAfterHooks(c *gc.C, st *State, fs ...func()) txntesting.TransactionChecker {
-	ensureWorkersStarted(st)
+	EnsureWorkersStarted(st)
 	return txntesting.SetAfterHooks(c, newRunnerForHooks(st), fs...)
 }
 
 func SetRetryHooks(c *gc.C, st *State, block, check func()) txntesting.TransactionChecker {
-	ensureWorkersStarted(st)
+	EnsureWorkersStarted(st)
 	return txntesting.SetRetryHooks(c, newRunnerForHooks(st), block, check)
 }
 
