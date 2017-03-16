@@ -5,12 +5,9 @@ description: This dummy charm is used for testing persistent storage.
 categories:
   - misc
 series:
+  - xenial
   - trusty
   - precise
-  - utopic
-  - vivid
-  - wily
-  - xenial
 storage:
   single-fs:
     type: filesystem
