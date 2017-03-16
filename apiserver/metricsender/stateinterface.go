@@ -31,4 +31,5 @@ type ModelBackend interface {
 	Unit(name string) (*state.Unit, error)
 	ModelTag() names.ModelTag
 	ModelConfig() (*config.Config, error)
+	SetModelMeterStatus(string, string) error
 }

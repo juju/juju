@@ -56,6 +56,7 @@ type ModelManagerBackend interface {
 	ControllerTag() names.ControllerTag
 	Export() (description.Model, error)
 	SetUserAccess(subject names.UserTag, target names.Tag, access permission.Access) (permission.UserAccess, error)
+	SetModelMeterStatus(string, string) error
 	LastModelConnection(user names.UserTag) (time.Time, error)
 	LatestMigration() (state.ModelMigration, error)
 	DumpAll() (map[string]interface{}, error)

@@ -59,6 +59,10 @@ func (sf *statusFormatter) format() (formattedStatus, error) {
 			Version:          sf.status.Model.Version,
 			AvailableVersion: sf.status.Model.AvailableVersion,
 			Status:           sf.getStatusInfoContents(sf.status.Model.ModelStatus),
+			MeterStatus: &meterStatus{
+				Color:   sf.status.Model.MeterStatus.Color,
+				Message: sf.status.Model.MeterStatus.Message,
+			},
 		},
 		Machines:           make(map[string]machineStatus),
 		Applications:       make(map[string]applicationStatus),

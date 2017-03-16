@@ -46,6 +46,13 @@ func handleResponse(mm *state.MetricsManager, st ModelBackend, response wireform
 				logger.Errorf("failed to set unit %q meter status to %v: %v", unitName, status, err)
 			}
 		}
+		err = st.SetModelMeterStatus(
+			envResp.ModelStatus.Status,
+			envResp.ModelStatus.Info,
+		)
+		if err != nil {
+			logger.Errorf("failed to set the model meter status: %v", err)
+		}
 	}
 	if response.NewGracePeriod > 0 && response.NewGracePeriod != mm.GracePeriod() {
 		err := mm.SetGracePeriod(response.NewGracePeriod)

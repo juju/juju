@@ -63,7 +63,7 @@ func (s *MeterStateSuite) TestSetMeterStatusIncorrect(c *gc.C) {
 	c.Assert(status.Code, gc.Equals, state.MeterNotSet)
 
 	err = s.unit.SetMeterStatus("this-is-not-a-valid-status", "Additional information.")
-	c.Assert(err, gc.ErrorMatches, `invalid meter status "NOT AVAILABLE"`)
+	c.Assert(err, gc.ErrorMatches, `invalid meter status "this-is-not-a-valid-status"`)
 	status, err = s.unit.GetMeterStatus()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status.Code, gc.Equals, state.MeterNotSet)

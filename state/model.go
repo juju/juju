@@ -86,6 +86,9 @@ type modelDoc struct {
 
 	// SLA is the current support level of the model.
 	SLA slaDoc `bson:"sla"`
+
+	// MeterStatus is the current meter status of the model.
+	MeterStatus modelMeterStatusdoc `bson:"meter-status"`
 }
 
 // slaLevel enumerates the support levels available to a model.
@@ -128,6 +131,11 @@ type slaDoc struct {
 
 	// Credentials authenticates the support level setting.
 	Credentials []byte `bson:"credentials"`
+}
+
+type modelMeterStatusdoc struct {
+	Code string `bson:"code"`
+	Info string `bson:"info"`
 }
 
 // modelEntityRefsDoc records references to the top-level entities
@@ -678,6 +686,35 @@ func (m *Model) SetSLA(level string, credentials []byte) error {
 		return errors.Trace(err)
 	}
 	return m.Refresh()
+}
+
+// SetMeterStatus sets the current meter status for this model.
+func (m *Model) SetMeterStatus(status, info string) error {
+	if _, err := isValidMeterStatusCode(status); err != nil {
+		return errors.Trace(err)
+	}
+	ops := []txn.Op{{
+		C:  modelsC,
+		Id: m.doc.UUID,
+		Update: bson.D{{"$set", bson.D{{"meter-status", modelMeterStatusdoc{
+			Code: status,
+			Info: info,
+		}}}}},
+	}}
+	err := m.st.runTransaction(ops)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return m.Refresh()
+}
+
+// MeterStatus returns the current meter status for this model.
+func (m *Model) MeterStatus() MeterStatus {
+	ms := m.doc.MeterStatus
+	return MeterStatus{
+		Code: MeterStatusFromString(ms.Code),
+		Info: ms.Info,
+	}
 }
 
 // globalKey returns the global database key for the model.
