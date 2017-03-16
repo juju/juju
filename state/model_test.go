@@ -252,6 +252,9 @@ func (s *ModelSuite) TestSLA(c *gc.C) {
 
 	c.Assert(model.SLALevel(), gc.Equals, "advanced")
 	c.Assert(model.SLACredential(), gc.DeepEquals, []byte("auth advanced"))
+	slaCreds, err := st.SLACredential()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(slaCreds, gc.DeepEquals, []byte("auth advanced"))
 }
 
 func (s *ModelSuite) TestControllerModel(c *gc.C) {

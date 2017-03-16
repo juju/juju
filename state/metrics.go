@@ -34,15 +34,16 @@ type MetricBatch struct {
 }
 
 type metricBatchDoc struct {
-	UUID        string    `bson:"_id"`
-	ModelUUID   string    `bson:"model-uuid"`
-	Unit        string    `bson:"unit"`
-	CharmURL    string    `bson:"charmurl"`
-	Sent        bool      `bson:"sent"`
-	DeleteTime  time.Time `bson:"delete-time"`
-	Created     time.Time `bson:"created"`
-	Metrics     []Metric  `bson:"metrics"`
-	Credentials []byte    `bson:"credentials"`
+	UUID           string    `bson:"_id"`
+	ModelUUID      string    `bson:"model-uuid"`
+	Unit           string    `bson:"unit"`
+	CharmURL       string    `bson:"charmurl"`
+	Sent           bool      `bson:"sent"`
+	DeleteTime     time.Time `bson:"delete-time"`
+	Created        time.Time `bson:"created"`
+	Metrics        []Metric  `bson:"metrics"`
+	Credentials    []byte    `bson:"credentials"`
+	SLACredentials []byte    `bson:"sla-credentials,omitempty"`
 }
 
 // Metric represents a single Metric.
@@ -92,6 +93,14 @@ type BatchParam struct {
 	Unit     names.UnitTag
 }
 
+// ModelBatchParam contains the properties of a metric batch for a model
+// The model uuid will be attenuated in the call to AddModelMetrics.
+type ModelBatchParam struct {
+	UUID    string
+	Created time.Time
+	Metrics []Metric
+}
+
 // AddMetrics adds a new batch of metrics to the database.
 func (st *State) AddMetrics(batch BatchParam) (*MetricBatch, error) {
 	if len(batch.Metrics) == 0 {
@@ -107,6 +116,8 @@ func (st *State) AddMetrics(batch BatchParam) (*MetricBatch, error) {
 		return nil, errors.Trace(err)
 	}
 	application, err := unit.Application()
+
+	slaCreds, err := st.SLACredential()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -114,14 +125,15 @@ func (st *State) AddMetrics(batch BatchParam) (*MetricBatch, error) {
 	metric := &MetricBatch{
 		st: st,
 		doc: metricBatchDoc{
-			UUID:        batch.UUID,
-			ModelUUID:   st.ModelUUID(),
-			Unit:        batch.Unit.Id(),
-			CharmURL:    charmURL.String(),
-			Sent:        false,
-			Created:     batch.Created,
-			Metrics:     batch.Metrics,
-			Credentials: application.MetricCredentials(),
+			UUID:           batch.UUID,
+			ModelUUID:      st.ModelUUID(),
+			Unit:           batch.Unit.Id(),
+			CharmURL:       charmURL.String(),
+			Sent:           false,
+			Created:        batch.Created,
+			Metrics:        batch.Metrics,
+			Credentials:    application.MetricCredentials(),
+			SLACredentials: slaCreds,
 		},
 	}
 	if err := metric.validate(); err != nil {
@@ -146,6 +158,52 @@ func (st *State) AddMetrics(batch BatchParam) (*MetricBatch, error) {
 			Id:     st.docID(batch.Unit.Id()),
 			Assert: notDeadDoc,
 		}, {
+			C:      metricsC,
+			Id:     metric.UUID(),
+			Assert: txn.DocMissing,
+			Insert: &metric.doc,
+		}}
+		return ops, nil
+	}
+	err = st.run(buildTxn)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return metric, nil
+}
+
+// AddModelMetrics adds a new model-centric batch of metrics to the database.
+func (st *State) AddModelMetrics(batch ModelBatchParam) (*MetricBatch, error) {
+	if len(batch.Metrics) == 0 {
+		return nil, errors.New("cannot add a batch of 0 metrics")
+	}
+	slaCreds, err := st.SLACredential()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	metric := &MetricBatch{
+		st: st,
+		doc: metricBatchDoc{
+			UUID:           batch.UUID,
+			ModelUUID:      st.ModelUUID(),
+			Sent:           false,
+			Created:        batch.Created,
+			Metrics:        batch.Metrics,
+			SLACredentials: slaCreds,
+		},
+	}
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		if attempt > 0 {
+			exists, err := st.MetricBatch(batch.UUID)
+			if exists != nil && err == nil {
+				return nil, errors.AlreadyExistsf("metrics batch UUID %q", batch.UUID)
+			}
+			if !errors.IsNotFound(err) {
+				return nil, errors.Trace(err)
+			}
+		}
+		ops := []txn.Op{{
 			C:      metricsC,
 			Id:     metric.UUID(),
 			Assert: txn.DocMissing,

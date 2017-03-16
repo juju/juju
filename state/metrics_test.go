@@ -94,6 +94,44 @@ func (s *MetricSuite) TestAddMetric(c *gc.C) {
 	c.Assert(metric.Time.Equal(now), jc.IsTrue)
 }
 
+func (s *MetricSuite) TestAddModelMetricMetric(c *gc.C) {
+	now := s.State.NowToTheSecond()
+	modelUUID := s.State.ModelUUID()
+	m := state.Metric{"pings", "5", now}
+	metricBatch, err := s.State.AddModelMetrics(
+		state.ModelBatchParam{
+			UUID:    utils.MustNewUUID().String(),
+			Created: now,
+			Metrics: []state.Metric{m},
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(metricBatch.Unit(), gc.Equals, "")
+	c.Assert(metricBatch.ModelUUID(), gc.Equals, modelUUID)
+	c.Assert(metricBatch.CharmURL(), gc.Equals, "")
+	c.Assert(metricBatch.Sent(), jc.IsFalse)
+	c.Assert(metricBatch.Created(), gc.Equals, now)
+	c.Assert(metricBatch.Metrics(), gc.HasLen, 1)
+
+	metric := metricBatch.Metrics()[0]
+	c.Assert(metric.Key, gc.Equals, "pings")
+	c.Assert(metric.Value, gc.Equals, "5")
+	c.Assert(metric.Time.Equal(now), jc.IsTrue)
+
+	tosend, err := s.State.MetricsToSend(1)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(tosend, gc.HasLen, 1)
+	saved := tosend[0]
+	c.Assert(saved.Unit(), gc.Equals, "")
+	c.Assert(metricBatch.CharmURL(), gc.Equals, "")
+	c.Assert(saved.Sent(), jc.IsFalse)
+	c.Assert(saved.Metrics(), gc.HasLen, 1)
+	metric = saved.Metrics()[0]
+	c.Assert(metric.Key, gc.Equals, "pings")
+	c.Assert(metric.Value, gc.Equals, "5")
+	c.Assert(metric.Time.Equal(now), jc.IsTrue)
+}
+
 func (s *MetricSuite) TestAddMetricNonExistentUnit(c *gc.C) {
 	removeUnit(c, s.unit)
 	now := s.State.NowToTheSecond()
