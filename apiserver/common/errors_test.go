@@ -266,10 +266,10 @@ func (s *errorsSuite) TestUnknownModel(c *gc.C) {
 }
 
 func (s *errorsSuite) TestDestroyErr(c *gc.C) {
-	errs := []string{
-		"error one",
-		"error two",
-		"error three",
+	errs := []error{
+		errors.New("error one"),
+		errors.New("error two"),
+		errors.New("error three"),
 	}
 	ids := []string{
 		"id1",

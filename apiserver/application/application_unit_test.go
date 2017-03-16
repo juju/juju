@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/juju"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -24,6 +25,8 @@ type ApplicationSuite struct {
 	backend     mockBackend
 	application mockApplication
 	charm       mockCharm
+	endpoints   []state.Endpoint
+	relation    mockRelation
 
 	blockChecker mockBlockChecker
 	authorizer   apiservertesting.FakeAuthorizer
@@ -37,7 +40,13 @@ func (s *ApplicationSuite) SetUpTest(c *gc.C) {
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag: names.NewUserTag("admin"),
 	}
-	s.application = mockApplication{}
+	s.application = mockApplication{
+		units: []mockUnit{{
+			tag: names.NewUnitTag("foo/0"),
+		}, {
+			tag: names.NewUnitTag("foo/1"),
+		}},
+	}
 	s.charm = mockCharm{
 		config: &charm.Config{
 			Options: map[string]charm.Option{
@@ -46,9 +55,30 @@ func (s *ApplicationSuite) SetUpTest(c *gc.C) {
 			},
 		},
 	}
+	s.endpoints = []state.Endpoint{
+		{ApplicationName: "foo"},
+		{ApplicationName: "bar"},
+	}
+	s.relation = mockRelation{}
 	s.backend = mockBackend{
 		application: &s.application,
 		charm:       &s.charm,
+		endpoints:   &s.endpoints,
+		relation:    &s.relation,
+		unitStorageAttachments: map[string][]state.StorageAttachment{
+			"foo/0": {
+				&mockStorageAttachment{
+					unit:    names.NewUnitTag("foo/0"),
+					storage: names.NewStorageTag("pgdata/0"),
+				},
+			},
+		},
+		storageInstances: map[string]*mockStorage{
+			"pgdata/0": {
+				tag:   names.NewStorageTag("pgdata/0"),
+				owner: names.NewUnitTag("foo/0"),
+			},
+		},
 	}
 	s.blockChecker = mockBlockChecker{}
 	resources := common.NewResources()
@@ -61,6 +91,9 @@ func (s *ApplicationSuite) SetUpTest(c *gc.C) {
 		&s.blockChecker,
 		func(application.Charm) *state.Charm {
 			return &state.Charm{}
+		},
+		func(application.Backend, juju.DeployApplicationParams) error {
+			return nil
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -130,17 +163,114 @@ postgresql:
 	})
 }
 
+func (s *ApplicationSuite) TestDestroyRelation(c *gc.C) {
+	err := s.api.DestroyRelation(params.DestroyRelation{Endpoints: []string{"a", "b"}})
+	c.Assert(err, jc.ErrorIsNil)
+	s.blockChecker.CheckCallNames(c, "RemoveAllowed")
+	s.backend.CheckCallNames(c, "ModelTag", "InferEndpoints", "EndpointsRelation")
+	s.backend.CheckCall(c, 1, "InferEndpoints", []string{"a", "b"})
+	s.relation.CheckCallNames(c, "Destroy")
+}
+
+func (s *ApplicationSuite) TestDestroyRelationNoRelationsFound(c *gc.C) {
+	s.backend.SetErrors(nil, errors.New("no relations found"))
+	err := s.api.DestroyRelation(params.DestroyRelation{Endpoints: []string{"a", "b"}})
+	c.Assert(err, gc.ErrorMatches, "no relations found")
+}
+
+func (s *ApplicationSuite) TestDestroyRelationRelationNotFound(c *gc.C) {
+	s.backend.SetErrors(nil, nil, errors.NotFoundf(`relation "a:b c:d"`))
+	err := s.api.DestroyRelation(params.DestroyRelation{Endpoints: []string{"a:b", "c:d"}})
+	c.Assert(err, gc.ErrorMatches, `relation "a:b c:d" not found`)
+}
+
+func (s *ApplicationSuite) TestBlockRemoveDestroyRelation(c *gc.C) {
+	s.blockChecker.SetErrors(errors.New("foo"))
+	err := s.api.DestroyRelation(params.DestroyRelation{Endpoints: []string{"a", "b"}})
+	c.Assert(err, gc.ErrorMatches, "foo")
+	s.blockChecker.CheckCallNames(c, "RemoveAllowed")
+	s.backend.CheckCallNames(c, "ModelTag")
+	s.relation.CheckNoCalls(c)
+}
+
+func (s *ApplicationSuite) TestDestroyApplication(c *gc.C) {
+	results, err := s.api.DestroyApplication(params.Entities{
+		Entities: []params.Entity{
+			{Tag: "application-foo"},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0], jc.DeepEquals, params.DestroyApplicationResult{
+		Info: &params.DestroyApplicationInfo{
+			DestroyedUnits: []params.Entity{
+				{Tag: "unit-foo-0"},
+				{Tag: "unit-foo-1"},
+			},
+			DestroyedStorage: []params.Entity{
+				{Tag: "storage-pgdata-0"},
+			},
+		},
+	})
+}
+
+func (s *ApplicationSuite) TestDestroyApplicationNotFound(c *gc.C) {
+	s.backend.application = nil
+	results, err := s.api.DestroyApplication(params.Entities{
+		Entities: []params.Entity{
+			{Tag: "application-foo"},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0], jc.DeepEquals, params.DestroyApplicationResult{
+		Error: &params.Error{
+			Code:    params.CodeNotFound,
+			Message: `application "foo" not found`,
+		},
+	})
+}
+
+func (s *ApplicationSuite) TestDestroyUnit(c *gc.C) {
+	results, err := s.api.DestroyUnit(params.Entities{
+		Entities: []params.Entity{
+			{Tag: "unit-foo-0"},
+			{Tag: "unit-foo-1"},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 2)
+	c.Assert(results.Results, jc.DeepEquals, []params.DestroyUnitResult{{
+		Info: &params.DestroyUnitInfo{
+			DestroyedStorage: []params.Entity{
+				{Tag: "storage-pgdata-0"},
+			},
+		},
+	}, {
+		Info: &params.DestroyUnitInfo{},
+	}})
+}
+
 type mockBackend struct {
 	application.Backend
 	testing.Stub
-	application *mockApplication
-	charm       *mockCharm
+	application            *mockApplication
+	charm                  *mockCharm
+	endpoints              *[]state.Endpoint
+	relation               *mockRelation
+	unitStorageAttachments map[string][]state.StorageAttachment
+	storageInstances       map[string]*mockStorage
 }
 
 func (b *mockBackend) ModelTag() names.ModelTag {
 	b.MethodCall(b, "ModelTag")
 	b.PopNoErr()
 	return coretesting.ModelTag
+}
+
+func (b *mockBackend) RemoteApplication(name string) (*state.RemoteApplication, error) {
+	b.MethodCall(b, "RemoteApplication", name)
+	return nil, errors.NotFoundf("remote application %q", name)
 }
 
 func (b *mockBackend) Application(name string) (application.Application, error) {
@@ -154,6 +284,21 @@ func (b *mockBackend) Application(name string) (application.Application, error) 
 	return nil, errors.NotFoundf("application %q", name)
 }
 
+func (b *mockBackend) Unit(name string) (application.Unit, error) {
+	b.MethodCall(b, "Unit", name)
+	if err := b.NextErr(); err != nil {
+		return nil, err
+	}
+	if b.application != nil {
+		for _, u := range b.application.units {
+			if u.tag.Id() == name {
+				return &u, nil
+			}
+		}
+	}
+	return nil, errors.NotFoundf("unit %q", name)
+}
+
 func (b *mockBackend) Charm(curl *charm.URL) (application.Charm, error) {
 	b.MethodCall(b, "Charm", curl)
 	if err := b.NextErr(); err != nil {
@@ -165,13 +310,73 @@ func (b *mockBackend) Charm(curl *charm.URL) (application.Charm, error) {
 	return nil, errors.NotFoundf("charm %q", curl)
 }
 
+func (b *mockBackend) InferEndpoints(endpoints ...string) ([]state.Endpoint, error) {
+	b.MethodCall(b, "InferEndpoints", endpoints)
+	if err := b.NextErr(); err != nil {
+		return nil, err
+	}
+	if b.endpoints != nil {
+		return *b.endpoints, nil
+	}
+	return nil, errors.Errorf("no relations found")
+}
+
+func (b *mockBackend) EndpointsRelation(endpoints ...state.Endpoint) (application.Relation, error) {
+	b.MethodCall(b, "EndpointsRelation", endpoints)
+	if err := b.NextErr(); err != nil {
+		return nil, err
+	}
+	if b.relation != nil {
+		return b.relation, nil
+	}
+	return nil, errors.NotFoundf("relation")
+}
+
+func (b *mockBackend) UnitStorageAttachments(tag names.UnitTag) ([]state.StorageAttachment, error) {
+	b.MethodCall(b, "UnitStorageAttachments", tag)
+	if err := b.NextErr(); err != nil {
+		return nil, err
+	}
+	return b.unitStorageAttachments[tag.Id()], nil
+}
+
+func (b *mockBackend) StorageInstance(tag names.StorageTag) (state.StorageInstance, error) {
+	b.MethodCall(b, "StorageInstance", tag)
+	if err := b.NextErr(); err != nil {
+		return nil, err
+	}
+	s, ok := b.storageInstances[tag.Id()]
+	if !ok {
+		return nil, errors.NotFoundf("storage %s", tag.Id())
+	}
+	return s, nil
+}
+
 type mockApplication struct {
 	application.Application
 	testing.Stub
+	units []mockUnit
+}
+
+func (a *mockApplication) AllUnits() ([]application.Unit, error) {
+	a.MethodCall(a, "AllUnits")
+	if err := a.NextErr(); err != nil {
+		return nil, err
+	}
+	units := make([]application.Unit, len(a.units))
+	for i := range a.units {
+		units[i] = &a.units[i]
+	}
+	return units, nil
 }
 
 func (a *mockApplication) SetCharm(cfg state.SetCharmConfig) error {
 	a.MethodCall(a, "SetCharm", cfg)
+	return a.NextErr()
+}
+
+func (a *mockApplication) Destroy() error {
+	a.MethodCall(a, "Destroy")
 	return a.NextErr()
 }
 
@@ -199,4 +404,65 @@ func (c *mockBlockChecker) ChangeAllowed() error {
 func (c *mockBlockChecker) RemoveAllowed() error {
 	c.MethodCall(c, "RemoveAllowed")
 	return c.NextErr()
+}
+
+type mockRelation struct {
+	application.Relation
+	testing.Stub
+}
+
+func (r *mockRelation) Destroy() error {
+	r.MethodCall(r, "Destroy")
+	return r.NextErr()
+}
+
+type mockUnit struct {
+	application.Unit
+	testing.Stub
+	tag names.UnitTag
+}
+
+func (u *mockUnit) UnitTag() names.UnitTag {
+	return u.tag
+}
+
+func (u *mockUnit) IsPrincipal() bool {
+	u.MethodCall(u, "IsPrincipal")
+	u.PopNoErr()
+	return true
+}
+
+func (u *mockUnit) Destroy() error {
+	u.MethodCall(u, "Destroy")
+	return u.NextErr()
+}
+
+type mockStorageAttachment struct {
+	state.StorageAttachment
+	testing.Stub
+	unit    names.UnitTag
+	storage names.StorageTag
+}
+
+func (a *mockStorageAttachment) Unit() names.UnitTag {
+	return a.unit
+}
+
+func (a *mockStorageAttachment) StorageInstance() names.StorageTag {
+	return a.storage
+}
+
+type mockStorage struct {
+	state.StorageInstance
+	testing.Stub
+	tag   names.StorageTag
+	owner names.Tag
+}
+
+func (a *mockStorage) Tag() names.Tag {
+	return a.tag
+}
+
+func (a *mockStorage) Owner() (names.Tag, bool) {
+	return a.owner, a.owner != nil
 }

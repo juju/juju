@@ -86,6 +86,7 @@ func (s *applicationSuite) SetUpTest(c *gc.C) {
 	s.applicationAPI, err = application.NewAPI(
 		backend, s.authorizer, resources, s.BackingStatePool,
 		blockChecker, application.CharmToStateCharm,
+		application.DeployApplication,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -2681,118 +2682,6 @@ func (s *applicationSuite) TestRemoteRelationNotFound(c *gc.C) {
 	endpoints := []string{"wordpress", "unknownmodel.unknown"}
 	_, err := s.applicationAPI.AddRelation(params.AddRelation{endpoints})
 	c.Assert(err, gc.ErrorMatches, `model "admin/unknownmodel" not found`)
-}
-
-func (s *applicationSuite) setupDestroyRelationScenario(c *gc.C, endpoints []string) *state.Relation {
-	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-	// Add a relation between the endpoints.
-	eps, err := s.State.InferEndpoints(endpoints...)
-	c.Assert(err, jc.ErrorIsNil)
-	relation, err := s.State.AddRelation(eps...)
-	c.Assert(err, jc.ErrorIsNil)
-	return relation
-}
-
-func (s *applicationSuite) assertDestroyRelation(c *gc.C, endpoints []string) {
-	s.assertDestroyRelationSuccess(
-		c,
-		s.setupDestroyRelationScenario(c, endpoints),
-		endpoints)
-}
-
-func (s *applicationSuite) assertDestroyRelationSuccess(c *gc.C, relation *state.Relation, endpoints []string) {
-	err := s.applicationAPI.DestroyRelation(params.DestroyRelation{Endpoints: endpoints})
-	c.Assert(err, jc.ErrorIsNil)
-	// Show that the relation was removed.
-	c.Assert(relation.Refresh(), jc.Satisfies, errors.IsNotFound)
-}
-
-func (s *applicationSuite) TestSuccessfulDestroyRelation(c *gc.C) {
-	endpoints := []string{"wordpress", "mysql"}
-	s.assertDestroyRelation(c, endpoints)
-}
-
-func (s *applicationSuite) TestSuccessfullyDestroyRelationSwapped(c *gc.C) {
-	// Show that the order of the applications listed in the DestroyRelation call
-	// does not matter.  This is a repeat of the previous test with the application
-	// names swapped.
-	endpoints := []string{"mysql", "wordpress"}
-	s.assertDestroyRelation(c, endpoints)
-}
-
-func (s *applicationSuite) TestNoRelation(c *gc.C) {
-	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-	endpoints := []string{"wordpress", "mysql"}
-	err := s.applicationAPI.DestroyRelation(params.DestroyRelation{Endpoints: endpoints})
-	c.Assert(err, gc.ErrorMatches, `relation "wordpress:db mysql:server" not found`)
-}
-
-func (s *applicationSuite) TestAttemptDestroyingNonExistentRelation(c *gc.C) {
-	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-	s.AddTestingService(c, "riak", s.AddTestingCharm(c, "riak"))
-	endpoints := []string{"riak", "wordpress"}
-	err := s.applicationAPI.DestroyRelation(params.DestroyRelation{Endpoints: endpoints})
-	c.Assert(err, gc.ErrorMatches, "no relations found")
-}
-
-func (s *applicationSuite) TestAttemptDestroyingWithOnlyOneEndpoint(c *gc.C) {
-	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-	endpoints := []string{"wordpress"}
-	err := s.applicationAPI.DestroyRelation(params.DestroyRelation{Endpoints: endpoints})
-	c.Assert(err, gc.ErrorMatches, "no relations found")
-}
-
-func (s *applicationSuite) TestAttemptDestroyingPeerRelation(c *gc.C) {
-	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-	s.AddTestingService(c, "riak", s.AddTestingCharm(c, "riak"))
-
-	endpoints := []string{"riak:ring"}
-	err := s.applicationAPI.DestroyRelation(params.DestroyRelation{Endpoints: endpoints})
-	c.Assert(err, gc.ErrorMatches, `cannot destroy relation "riak:ring": is a peer relation`)
-}
-
-func (s *applicationSuite) TestAttemptDestroyingAlreadyDestroyedRelation(c *gc.C) {
-	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-
-	// Add a relation between wordpress and mysql.
-	eps, err := s.State.InferEndpoints("wordpress", "mysql")
-	c.Assert(err, jc.ErrorIsNil)
-	rel, err := s.State.AddRelation(eps...)
-	c.Assert(err, jc.ErrorIsNil)
-
-	endpoints := []string{"wordpress", "mysql"}
-	err = s.applicationAPI.DestroyRelation(params.DestroyRelation{Endpoints: endpoints})
-	// Show that the relation was removed.
-	c.Assert(rel.Refresh(), jc.Satisfies, errors.IsNotFound)
-
-	// And try to destroy it again.
-	err = s.applicationAPI.DestroyRelation(params.DestroyRelation{Endpoints: endpoints})
-	c.Assert(err, gc.ErrorMatches, `relation "wordpress:db mysql:server" not found`)
-}
-
-func (s *applicationSuite) TestBlockRemoveDestroyRelation(c *gc.C) {
-	endpoints := []string{"wordpress", "mysql"}
-	relation := s.setupDestroyRelationScenario(c, endpoints)
-	// block remove-objects
-	s.BlockRemoveObject(c, "TestBlockRemoveDestroyRelation")
-	err := s.applicationAPI.DestroyRelation(params.DestroyRelation{Endpoints: endpoints})
-	s.AssertBlocked(c, err, "TestBlockRemoveDestroyRelation")
-	assertLife(c, relation, state.Alive)
-}
-
-func (s *applicationSuite) TestBlockChangeDestroyRelation(c *gc.C) {
-	endpoints := []string{"wordpress", "mysql"}
-	relation := s.setupDestroyRelationScenario(c, endpoints)
-	s.BlockAllChanges(c, "TestBlockChangeDestroyRelation")
-	err := s.applicationAPI.DestroyRelation(params.DestroyRelation{Endpoints: endpoints})
-	s.AssertBlocked(c, err, "TestBlockChangeDestroyRelation")
-	assertLife(c, relation, state.Alive)
-}
-
-func (s *applicationSuite) TestBlockDestroyDestroyRelation(c *gc.C) {
-	s.BlockDestroyModel(c, "TestBlockDestroyDestroyRelation")
-	endpoints := []string{"wordpress", "mysql"}
-	s.assertDestroyRelation(c, endpoints)
 }
 
 func (s *applicationSuite) TestConsumeRejectsEndpoints(c *gc.C) {
