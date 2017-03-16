@@ -167,7 +167,7 @@ func AddTestingServiceWithBindings(c *gc.C, st *State, name string, ch *Charm, b
 
 func addTestingService(c *gc.C, st *State, series, name string, ch *Charm, bindings map[string]string, storage map[string]StorageConstraints) *Application {
 	c.Assert(ch, gc.NotNil)
-	service, err := st.AddApplication(AddApplicationArgs{
+	app, err := st.AddApplication(AddApplicationArgs{
 		Name:             name,
 		Series:           series,
 		Charm:            ch,
@@ -175,7 +175,7 @@ func addTestingService(c *gc.C, st *State, series, name string, ch *Charm, bindi
 		Storage:          storage,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	return service
+	return app
 }
 
 func AddCustomCharm(c *gc.C, st *State, name, filename, content, series string, revision int) *Charm {
@@ -492,22 +492,22 @@ func UpdateModelUserLastConnection(st *State, e permission.UserAccess, when time
 	return st.updateLastModelConnection(e.UserTag, when)
 }
 
-func RemoveEndpointBindingsForService(c *gc.C, service *Application) {
-	globalKey := service.globalKey()
+func RemoveEndpointBindingsForService(c *gc.C, app *Application) {
+	globalKey := app.globalKey()
 	removeOp := removeEndpointBindingsOp(globalKey)
 
-	txnError := service.st.runTransaction([]txn.Op{removeOp})
+	txnError := app.st.runTransaction([]txn.Op{removeOp})
 	err := onAbort(txnError, nil) // ignore ErrAborted as it asserts DocExists
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func RelationCount(service *Application) int {
-	return service.doc.RelationCount
+func RelationCount(app *Application) int {
+	return app.doc.RelationCount
 }
 
-func AssertEndpointBindingsNotFoundForService(c *gc.C, service *Application) {
-	globalKey := service.globalKey()
-	storedBindings, _, err := readEndpointBindings(service.st, globalKey)
+func AssertEndpointBindingsNotFoundForService(c *gc.C, app *Application) {
+	globalKey := app.globalKey()
+	storedBindings, _, err := readEndpointBindings(app.st, globalKey)
 	c.Assert(storedBindings, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("endpoint bindings for %q not found", globalKey))
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)

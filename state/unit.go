@@ -448,8 +448,8 @@ func (u *Unit) destroyOps() ([]txn.Op, error) {
 
 // destroyHostOps returns all necessary operations to destroy the service unit's host machine,
 // or ensure that the conditions preventing its destruction remain stable through the transaction.
-func (u *Unit) destroyHostOps(s *Application) (ops []txn.Op, err error) {
-	if s.doc.Subordinate {
+func (u *Unit) destroyHostOps(a *Application) (ops []txn.Op, err error) {
+	if a.doc.Subordinate {
 		return []txn.Op{{
 			C:      unitsC,
 			Id:     u.st.docID(u.doc.Principal),

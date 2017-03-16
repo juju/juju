@@ -362,23 +362,23 @@ func (st *State) WatchStorageAttachments(unit names.UnitTag) StringsWatcher {
 
 // WatchUnits returns a StringsWatcher that notifies of changes to the
 // lifecycles of units of s.
-func (s *Application) WatchUnits() StringsWatcher {
-	members := bson.D{{"application", s.doc.Name}}
-	prefix := s.doc.Name + "/"
+func (a *Application) WatchUnits() StringsWatcher {
+	members := bson.D{{"application", a.doc.Name}}
+	prefix := a.doc.Name + "/"
 	filter := func(unitDocID interface{}) bool {
-		unitName, err := s.st.strictLocalID(unitDocID.(string))
+		unitName, err := a.st.strictLocalID(unitDocID.(string))
 		if err != nil {
 			return false
 		}
 		return strings.HasPrefix(unitName, prefix)
 	}
-	return newLifecycleWatcher(s.st, unitsC, members, filter, nil)
+	return newLifecycleWatcher(a.st, unitsC, members, filter, nil)
 }
 
 // WatchRelations returns a StringsWatcher that notifies of changes to the
 // lifecycles of relations involving s.
-func (s *Application) WatchRelations() StringsWatcher {
-	return watchApplicationRelations(s.st, s.doc.Name)
+func (a *Application) WatchRelations() StringsWatcher {
+	return watchApplicationRelations(a.st, a.doc.Name)
 }
 
 // WatchRelations returns a StringsWatcher that notifies of changes to the
@@ -1328,15 +1328,15 @@ func (m *Machine) Watch() NotifyWatcher {
 }
 
 // Watch returns a watcher for observing changes to an application.
-func (s *Application) Watch() NotifyWatcher {
-	return newEntityWatcher(s.st, applicationsC, s.doc.DocID)
+func (a *Application) Watch() NotifyWatcher {
+	return newEntityWatcher(a.st, applicationsC, a.doc.DocID)
 }
 
 // WatchLeaderSettings returns a watcher for observing changed to a service's
 // leader settings.
-func (s *Application) WatchLeaderSettings() NotifyWatcher {
-	docId := s.st.docID(leadershipSettingsKey(s.Name()))
-	return newEntityWatcher(s.st, settingsC, docId)
+func (a *Application) WatchLeaderSettings() NotifyWatcher {
+	docId := a.st.docID(leadershipSettingsKey(a.Name()))
+	return newEntityWatcher(a.st, settingsC, docId)
 }
 
 // Watch returns a watcher for observing changes to a unit.
