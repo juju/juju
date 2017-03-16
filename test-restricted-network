@@ -41,8 +41,7 @@ export JOB_NAME
 export PATH="$SCRIPTS:$PATH"
 source $JUJU_HOME/ec2rc
 mkdir -p bash
-$SCRIPTS/jujuci.py get -a -b $REVISION_BUILD build-revision buildvars.bash bash
-source bash/buildvars.bash
+source $(s3ci.py get $REVISION_BUILD build-revision buildvars.bash)
 ec2-terminate-job-instances
 set -x
 export INSTANCE_TYPE=m1.large

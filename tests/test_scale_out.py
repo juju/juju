@@ -8,7 +8,7 @@ from mock import (
 from unittest import TestCase
 
 from jujupy import (
-    EnvJujuClient,
+    ModelClient,
     JujuData,
 )
 from scale_out import (
@@ -20,8 +20,8 @@ from scale_out import (
 )
 
 
-def fake_EnvJujuClient(env, path=None, debug=None):
-    return EnvJujuClient(env=env, version='1.2.3.4', full_path=path)
+def fake_ModelClient(env, path=None, debug=None):
+    return ModelClient(env=env, version='1.2.3.4', full_path=path)
 
 
 class TestScaleOut(TestCase):
@@ -29,7 +29,7 @@ class TestScaleOut(TestCase):
     @contextmanager
     def fake_client_cxt(self):
         env = JujuData('foo', {})
-        client = fake_EnvJujuClient(env)
+        client = fake_ModelClient(env)
         bv_cxt = patch('scale_out.client_from_config',
                        return_value=client)
         with bv_cxt as bv_mock:
@@ -52,6 +52,7 @@ class TestScaleOut(TestCase):
             region=None,
             series=None,
             temp_env_name='temp_name',
+            to=None,
             upload_tools=False,
             verbose=logging.INFO,
             deadline=None,
@@ -59,7 +60,7 @@ class TestScaleOut(TestCase):
         self.assertEqual(args, expected)
 
     @patch('scale_out.boot_context', autospec=True)
-    @patch('jujupy.EnvJujuClient.add_ssh_machines', autospec=True)
+    @patch('jujupy.ModelClient.add_ssh_machines', autospec=True)
     def test_scaleout_setup(
             self,
             add_ssh_machines_func,
@@ -79,6 +80,7 @@ class TestScaleOut(TestCase):
             region=None,
             series=None,
             temp_env_name='temp_name',
+            to=None,
             upload_tools=False,
             verbose=logging.INFO,
             deadline=None,
@@ -120,6 +122,7 @@ class TestScaleOut(TestCase):
             region=None,
             series='my_series',
             temp_env_name='temp_name',
+            to=None,
             upload_tools=False,
             verbose=logging.INFO,
             deadline=None,
@@ -127,7 +130,7 @@ class TestScaleOut(TestCase):
 
         with self.fake_client_cxt():
             with patch('scale_out.boot_context', autospec=True) as bc_mock:
-                with patch('jujupy.EnvJujuClient.add_ssh_machines',
+                with patch('jujupy.ModelClient.add_ssh_machines',
                            autospec=True):
                     with scaleout_setup(args) as client:
                         pass
@@ -146,8 +149,8 @@ class TestScaleOut(TestCase):
 
     def test_deploy_charms(self):
         with self.fake_client_cxt() as (client, env, bv_mock):
-            with patch.object(EnvJujuClient, 'deploy') as d_mock:
-                with patch.object(EnvJujuClient,
+            with patch.object(ModelClient, 'deploy') as d_mock:
+                with patch.object(ModelClient,
                                   'wait_for_started') as wfs_mock:
                     deploy_charms(client, ['ubuntu', 'mysql'])
         expected = [call('ubuntu', service='ubuntu'),
@@ -157,8 +160,8 @@ class TestScaleOut(TestCase):
 
     def test_deploy_charms_local(self):
         with self.fake_client_cxt() as (client, env, bv_mock):
-            with patch.object(EnvJujuClient, 'deploy') as d_mock:
-                with patch.object(EnvJujuClient,
+            with patch.object(ModelClient, 'deploy') as d_mock:
+                with patch.object(ModelClient,
                                   'wait_for_started') as wfs_mock:
                     deploy_charms(client, ['local:foo', 'local:bar'])
         expected = [call('local:foo', service='foo'),
@@ -168,8 +171,8 @@ class TestScaleOut(TestCase):
 
     def test_scale_out(self):
         with self.fake_client_cxt() as (client, env, bv_mock):
-            with patch.object(EnvJujuClient, 'juju') as j_mock:
-                with patch.object(EnvJujuClient,
+            with patch.object(ModelClient, 'juju') as j_mock:
+                with patch.object(ModelClient,
                                   'wait_for_started') as wfs_mock:
                     scale_out(client, 'ubuntu')
         j_mock.assert_called_once_with('add-unit', ('ubuntu', '-n', '5'))

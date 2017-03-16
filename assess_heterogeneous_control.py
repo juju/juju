@@ -174,9 +174,9 @@ def test_control_heterogeneous(bs_manager, other, upload_tools):
         container_machine, = set(k for k, v in status.agent_items() if
                                  k.endswith('/{}/0'.format(container_type)))
         container_holder = container_machine.split('/')[0]
-        other.juju('remove-machine', (container_machine,))
+        other.remove_machine(container_machine)
         wait_until_removed(other, container_machine)
-        other.juju('remove-machine', (container_holder,))
+        other.remove_machine(container_holder)
         wait_until_removed(other, container_holder)
 
 # suppress nosetests

@@ -32,5 +32,4 @@ timeout 180m concurrently.py -v -l $WORKSPACE/artifacts \
     windows="$SCRIPTS/gotestwin.py developer-win-unit-tester.vapour.ws $TARFILE_NAME github.com/juju/juju/cmd" \
     lxd="$LXD" \
     grant="$GRANT" \
-    race="$RACE"\
-    tarball="$SCRIPTS/check_tar.py $SCRIPTS/tested-public-clouds $TARFILE"
+    race="$RACE"

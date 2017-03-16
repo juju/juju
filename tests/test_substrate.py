@@ -206,7 +206,6 @@ class TestTerminateInstances(TestCase):
         self.assertEquals(cc_mock.call_args_list, [
             call(['maas', 'login', 'mas', 'http://10.0.10.10/MAAS/api/2.0/',
                   'a:password:string']),
-            call(['maas', 'logout', 'mas']),
         ])
         co_mock.assert_called_once_with(
             ('maas', 'mas', 'machine', 'release', 'node-3d'))
@@ -775,14 +774,21 @@ class TestAzureAccount(TestCase):
         client.delete_hosted_service.assert_called_once_with('foo')
 
 
-def get_azure_config():
+def get_azure_credentials():
     return {
-        'type': 'azure',
         'subscription-id': 'subscription-id',
         'application-id': 'application-id',
         'application-password': 'application-password',
+    }
+
+
+def get_azure_config():
+    config = {
+        'type': 'azure',
         'tenant-id': 'tenant-id'
     }
+    config.update(get_azure_credentials())
+    return config
 
 
 class TestAzureARMAccount(TestCase):
@@ -848,7 +854,9 @@ class TestAzureARMAccount(TestCase):
            autospec=True, side_effect=fake_init_services)
     def test_convert_to_azure_ids_function(self, is_mock):
         env = JujuData('controller', get_azure_config(), juju_home='data')
-        env.credentials['credentials'] = {'azure': {'credentials': {}}}
+        env.credentials['credentials'] = {'azure': {
+            'credentials': get_azure_credentials()
+            }}
         client = fake_juju_client(env=env)
         arm_client = ARMClient(
             'subscription-id', 'application-id', 'application-password',
@@ -888,7 +896,9 @@ class TestAzureARMAccount(TestCase):
            autospec=True, side_effect=fake_init_services)
     def test_convert_to_azure_ids_function_bug_1586089_fixed(self, is_mock):
         env = JujuData('controller', get_azure_config(), juju_home='data')
-        env.credentials['credentials'] = {'azure': {'credentials': {}}}
+        env.credentials['credentials'] = {'azure': {
+            'credentials': get_azure_credentials()
+            }}
         client = fake_juju_client(env=env, version='2.1')
         with patch.object(client, 'get_models') as gm_mock:
             with patch('winazurearm.list_resources') as lr_mock:
@@ -947,10 +957,10 @@ class TestMAASAccount(TestCase):
 
     def make_event(self, acquire_date, type_=MAASAccount.ACQUIRING):
         return {
-           'type': type_,
-           MAASAccount.CREATED: acquire_date.isoformat(),
-           MAASAccount.NODE: 'asdf',
-           }
+            'type': type_,
+            MAASAccount.CREATED: acquire_date.isoformat(),
+            MAASAccount.NODE: 'asdf',
+            }
 
     def test_get_acquire_date(self):
         acquire_date = datetime(2016, 10, 25)
@@ -1327,13 +1337,9 @@ class TestMAASAccountFromConfig(TestCase):
                 self.assertEqual(maas.profile, 'mas')
                 self.assertEqual(maas.url, 'http://10.0.10.10/MAAS/api/2.0/')
                 self.assertEqual(maas.oauth, 'a:password:string')
-                # The login call has happened on context manager enter, reset
-                # the mock after to verify the logout call.
                 cc_mock.assert_called_once_with([
                     'maas', 'login', 'mas', 'http://10.0.10.10/MAAS/api/2.0/',
                     'a:password:string'])
-                cc_mock.reset_mock()
-        cc_mock.assert_called_once_with(['maas', 'logout', 'mas'])
 
     def test_login_fallback(self):
         boot_config = get_maas_env()
@@ -1355,8 +1361,6 @@ class TestMAASAccountFromConfig(TestCase):
                           'http://10.0.10.10/MAAS/api/1.0/',
                           'a:password:string']),
                 ])
-                cc_mock.reset_mock()
-        cc_mock.assert_called_once_with(['maas', 'logout', 'mas'])
         self.assertEqual(
             self.log_stream.getvalue(),
             'INFO Could not login with MAAS 2.0 API, trying 1.0\n')
@@ -1390,13 +1394,9 @@ class TestMAASAccountFromConfig(TestCase):
                 self.assertEqual(maas.profile, 'mas')
                 self.assertEqual(maas.url, 'http://10.0.10.10/MAAS/api/2.0/')
                 self.assertEqual(maas.oauth, 'a:password:string')
-                # The login call has happened on context manager enter, reset
-                # the mock after to verify the logout call.
                 cc_mock.assert_called_once_with([
                     'maas', 'login', 'mas', 'http://10.0.10.10/MAAS/api/2.0/',
                     'a:password:string'])
-                cc_mock.reset_mock()
-        cc_mock.assert_called_once_with(['maas', 'logout', 'mas'])
 
 
 class TestMakeSubstrateManager(FakeHomeTestCase):

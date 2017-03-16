@@ -1,19 +1,28 @@
 """Tests for assess_endpoint_bindings module."""
 
 import logging
-from mock import Mock, patch
+from mock import (
+    Mock,
+    patch,
+    )
+import os
 import StringIO
 
 from assess_endpoint_bindings import (
+    bootstrap_and_test,
+    create_test_charms,
     ensure_spaces,
     parse_args,
     machine_spaces_for_bundle,
     main,
 )
+from jujupy.client import JujuData
 from tests import (
     parse_error,
     TestCase,
 )
+from test_deploy_stack import FakeBootstrapManager
+from utility import temp_dir
 
 
 class TestParseArgs(TestCase):
@@ -150,6 +159,41 @@ class TestMachineSpacesForBundle(TestCase):
         app_spaces = frozenset(["space-data", "space-ctl", "space-public"])
         db_spaces = frozenset(["space-data", "space-ctl"])
         self.assertEqual(machines, [app_spaces, db_spaces, db_spaces])
+
+
+class AssessEndpointBindings(TestCase):
+
+    def test_create_test_charms(self):
+        bundle, charms = create_test_charms()
+        self.assertEqual(
+            ['0', '1', '2'],
+            sorted(bundle['machines'].keys()))
+        self.assertEqual(
+            ['datastore', 'frontend', 'monitor'],
+            sorted(bundle['services'].keys()))
+        self.assertEqual('datastore', charms[0].metadata['name'])
+        self.assertEqual('frontend', charms[1].metadata['name'])
+
+    def test_bootstrap_and_test(self):
+        juju_data = JujuData(
+            'foo', {'type': 'bar', 'region': 'region'}, juju_home='baz')
+        client = Mock(
+            spec=['bootstrap', 'kill_controller', 'deploy',
+                  'wait_for_started', 'wait_for_workloads'],
+            env=juju_data)
+        bootstrap_manager = FakeBootstrapManager(client)
+        with temp_dir() as bundle_dir:
+            bundle_path = os.path.join(bundle_dir, 'bundle.yaml')
+            with open(bundle_path, 'w') as bf:
+                bf.write('bundle')
+            with temp_dir() as log_dir:
+                bootstrap_manager.log_dir = log_dir
+                bootstrap_and_test(bootstrap_manager, bundle_path, None)
+                archived_bundle = os.path.join(log_dir, 'bundle.yaml')
+                self.assertIsTrue(os.path.exists(archived_bundle))
+        client.deploy.assert_called_once_with(bundle_path)
+        client.wait_for_started.assert_called_once_with()
+        client.wait_for_workloads.assert_called_once_with()
 
 
 class TestMain(TestCase):

@@ -403,7 +403,7 @@ def convert_to_azure_ids(client, instance_ids):
 
     See: https://bugs.launchpad.net/juju-core/+bug/1586089
 
-    :param client: An EnvJujuClient instance.
+    :param client: A ModelClient instance.
     :param instance_ids: a list of Juju machine instance-ids
     :return: A list of ARM VM instance ids.
     """
@@ -480,10 +480,15 @@ class AzureARMAccount:
         In the case of the Juju 1x, the ARM keys must be in the boot_config's
         config.  subscription_id is the same. The PEM for the SMS is ignored.
         """
-        config = get_config(boot_config)
+        credentials = boot_config.get_cloud_credentials()
+        # The tenant-id is required by Azure storage, but forbidden to be in
+        # Juju credentials, so we get it from the bootstrap model options.  It
+        # is suppressed when actually bootstrapping.  (See
+        # ModelClient.make_model_config)
+        tenant_id = boot_config.get_option('tenant-id')
         arm_client = winazurearm.ARMClient(
-            config['subscription-id'], config['application-id'],
-            config['application-password'], config['tenant-id'])
+            credentials['subscription-id'], credentials['application-id'],
+            credentials['application-password'], tenant_id)
         arm_client.init_services()
         yield cls(arm_client)
 
@@ -882,7 +887,7 @@ def maas_account_from_boot_config(env):
         manager = MAAS1Account(*args)
         manager.login()
     yield manager
-    manager.logout()
+    # We do not call manager.logout() because it can break concurrent procs.
 
 
 class LXDAccount:

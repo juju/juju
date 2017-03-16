@@ -15,7 +15,7 @@ USER_AT_HOST="$1"
 revision_build="$2"
 
 set -x
-$SCRIPTS/jujuci.py get-build-vars --summary $revision_build
+$SCRIPTS/s3ci.py get-summary $revision_build $JOB_NAME
 if [ -d built ]; then
   rm -R built
 fi

@@ -40,6 +40,7 @@ class TestParseArgs(TestCase):
             keep_env=False,
             machine=[],
             region=None,
+            to=None,
             deadline=None,
             ), args)
 

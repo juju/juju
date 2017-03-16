@@ -20,7 +20,7 @@ from jujuci import (
     JobNamer,
     PackageNamer,
     )
-from jujuconfig import get_juju_home
+from jujupy import get_juju_home
 from utility import configure_logging
 
 JUJU_QA_DATA = 'juju-qa-data'

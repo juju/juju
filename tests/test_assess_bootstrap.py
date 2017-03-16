@@ -127,7 +127,7 @@ class TestPrepareMetadata(TestCase):
         with patch.object(client, 'sync_tools') as sync_mock:
             with temp_dir() as metadata_dir:
                 prepare_metadata(client, metadata_dir)
-        sync_mock.assert_called_once_with(metadata_dir)
+        sync_mock.assert_called_once_with(metadata_dir, None, None)
 
     def test_prepare_temp_metadata(self):
         client = fake_juju_client()
@@ -135,7 +135,28 @@ class TestPrepareMetadata(TestCase):
                    autospec=True) as prepare_mock:
             with prepare_temp_metadata(client) as metadata_dir:
                 pass
-        prepare_mock.assert_called_once_with(client, metadata_dir)
+        prepare_mock.assert_called_once_with(client, metadata_dir, None, None)
+
+    def test_prepare_metadata_with_stream(self):
+        client = fake_juju_client()
+        with patch.object(client, 'sync_tools') as sync_mock:
+            with temp_dir() as metadata_dir:
+                prepare_metadata(client, metadata_dir, "testing")
+        sync_mock.assert_called_once_with(metadata_dir, "testing", None)
+
+    def test_prepare_metadata_with_source(self):
+        client = fake_juju_client()
+        with patch.object(client, 'sync_tools') as sync_mock:
+            with temp_dir() as metadata_dir:
+                prepare_metadata(client, metadata_dir, None, "foo")
+        sync_mock.assert_called_once_with(metadata_dir, None, "foo")
+
+    def test_prepare_metadata_with_all_args(self):
+        client = fake_juju_client()
+        with patch.object(client, 'sync_tools') as sync_mock:
+            with temp_dir() as metadata_dir:
+                prepare_metadata(client, metadata_dir, "bar", "foo")
+        sync_mock.assert_called_once_with(metadata_dir, "bar", "foo")
 
     def test_prepare_temp_metadata_source(self):
         client = fake_juju_client()
@@ -158,11 +179,11 @@ def assess_bootstrap_cxt(juju_version=None):
         juju_version = '1.25.5'
     call_cxt = patch('subprocess.call')
     cc_cxt = patch('subprocess.check_call')
-    gv_cxt = patch('jujupy.EnvJujuClient.get_version',
+    gv_cxt = patch('jujupy.ModelClient.get_version',
                    side_effect=lambda cls: juju_version)
-    gjo_cxt = patch('jujupy.EnvJujuClient.get_juju_output', autospec=True,
+    gjo_cxt = patch('jujupy.ModelClient.get_juju_output', autospec=True,
                     return_value='')
-    imc_cxt = patch('jujupy.EnvJujuClient.iter_model_clients',
+    imc_cxt = patch('jujupy.ModelClient.iter_model_clients',
                     autospec=True, return_value=[])
     env_cxt = temp_env({'environments': {'bar': {'type': 'foo'}}})
     with call_cxt, cc_cxt, gv_cxt, gjo_cxt, env_cxt, imc_cxt:
@@ -198,7 +219,8 @@ class TestAssessBootstrap(FakeHomeTestCase):
         with assess_bootstrap_cxt():
             with self.sub_assess_mocks() as (base_mock, metadata_mock,
                                              to_mock):
-                assess_bootstrap(args)
+                with patch('jujupy.ModelClient.get_full_path'):
+                    assess_bootstrap(args)
         self.assertEqual(1, base_mock.call_count)
         self.assertEqual(0, metadata_mock.call_count)
         self.assertEqual(0, to_mock.call_count)
@@ -208,7 +230,8 @@ class TestAssessBootstrap(FakeHomeTestCase):
         with assess_bootstrap_cxt():
             with self.sub_assess_mocks() as (base_mock, metadata_mock,
                                              to_mock):
-                assess_bootstrap(args)
+                with patch('jujupy.ModelClient.get_full_path'):
+                    assess_bootstrap(args)
         self.assertEqual(0, base_mock.call_count)
         self.assertEqual(1, metadata_mock.call_count)
         self.assertEqual(0, to_mock.call_count)
@@ -218,7 +241,8 @@ class TestAssessBootstrap(FakeHomeTestCase):
         with assess_bootstrap_cxt():
             with self.sub_assess_mocks() as (base_mock, metadata_mock,
                                              to_mock):
-                assess_bootstrap(args)
+                with patch('jujupy.ModelClient.get_full_path'):
+                    assess_bootstrap(args)
         self.assertEqual(0, base_mock.call_count)
         self.assertEqual(0, metadata_mock.call_count)
         self.assertEqual(1, to_mock.call_count)
@@ -231,7 +255,7 @@ class TestAssessBaseBootstrap(FakeHomeTestCase):
             self.assertEqual(myself.env.config,
                              {'name': 'bar', 'type': 'foo'})
         with extended_bootstrap_cxt():
-            with patch('jujupy.EnvJujuClient.bootstrap', side_effect=check,
+            with patch('jujupy.ModelClient.bootstrap', side_effect=check,
                        autospec=True):
                 assess_bootstrap(parse_args(['base', 'bar', '/foo']))
         self.assertRegexpMatches(
@@ -245,7 +269,7 @@ class TestAssessBaseBootstrap(FakeHomeTestCase):
                     'name': 'qux', 'type': 'foo', 'region': 'baz'})
             self.assertEqual(myself.env.environment, 'qux')
         with extended_bootstrap_cxt():
-            with patch('jujupy.EnvJujuClient.bootstrap', side_effect=check,
+            with patch('jujupy.ModelClient.bootstrap', side_effect=check,
                        autospec=True):
                 args = parse_args(['base', 'bar', '/foo'])
                 args.region = 'baz'
@@ -271,7 +295,7 @@ class TestAssessMetadata(FakeHomeTestCase):
             self.assertEqual(self.target_dict, myself.env._config)
             self.assertIsNotNone(metadata_source)
         with extended_bootstrap_cxt('2.0.0'):
-            with patch('jujupy.EnvJujuClient.bootstrap', side_effect=check,
+            with patch('jujupy.ModelClient.bootstrap', side_effect=check,
                        autospec=True):
                 args = parse_args(['metadata', 'bar', '/foo'])
                 args.temp_env_name = 'qux'
@@ -286,7 +310,7 @@ class TestAssessMetadata(FakeHomeTestCase):
             self.assertEqual(self.target_dict, myself.env._config)
             self.assertEqual('agents', metadata_source)
         with extended_bootstrap_cxt('2.0.0'):
-            with patch('jujupy.EnvJujuClient.bootstrap', side_effect=check,
+            with patch('jujupy.ModelClient.bootstrap', side_effect=check,
                        autospec=True):
                 args = parse_args(['metadata', 'bar', '/foo'])
                 args.temp_env_name = 'qux'
@@ -298,7 +322,7 @@ class TestAssessMetadata(FakeHomeTestCase):
 
     def test_assess_metadata_valid_url(self):
         with extended_bootstrap_cxt('2.0.0'):
-            with patch('jujupy.EnvJujuClient.bootstrap', autospec=True):
+            with patch('jujupy.ModelClient.bootstrap', autospec=True):
                 args = parse_args(['metadata', 'bar', '/foo'])
                 args.temp_env_name = 'qux'
                 bs_manager = BootstrapManager.from_args(args)
@@ -315,7 +339,7 @@ class TestAssessTo(FakeHomeTestCase):
     def test_get_controller_address(self):
         status = Status({'machines': {"0": {'dns-name': '255.1.1.0'}}}, '')
         client = fake_juju_client()
-        with patch('jujupy.EnvJujuClient.status_until', return_value=[status],
+        with patch('jujupy.ModelClient.status_until', return_value=[status],
                    autospec=True):
             self.assertEqual('255.1.1.0', get_controller_address(client))
 
@@ -332,22 +356,20 @@ class TestAssessTo(FakeHomeTestCase):
                                          use_json=False)
 
     def test_assess_to(self):
-        DEST = 'test-host'
-
-        def check(myself, to):
-            self.assertEqual({'name': 'qux', 'type': 'foo'},
-                             myself.env._config)
-            self.assertEqual(DEST, to)
+        args = parse_args(
+            ['to', 'bar', '/foo', '--region', 'baz', '--to', 'test-host'])
+        args.temp_env_name = 'qux'
         with extended_bootstrap_cxt('2.0.0'):
-            with patch('jujupy.EnvJujuClient.bootstrap', side_effect=check,
-                       autospec=True):
+            with patch('jujupy.ModelClient.juju', autospec=True,
+                       side_effect=['', '']) as j_mock:
                 with patch('assess_bootstrap.get_controller_hostname',
-                           return_value=DEST, autospec=True):
-                    args = parse_args(['to', 'bar', '/foo',
-                                       '--to', DEST])
-                    args.temp_env_name = 'qux'
+                           return_value='test-host', autospec=True):
                     bs_manager = BootstrapManager.from_args(args)
                     assess_to(bs_manager, args.to)
+        bootstrap_args = [
+            c[1][2] for c in j_mock.mock_calls if c[1][1] == 'bootstrap'][0]
+        to_pos = bootstrap_args.index('--to')
+        self.assertEqual('test-host', bootstrap_args[to_pos + 1])
 
     def test_assess_to_requires_to(self):
         with self.assertRaises(ValueError):
@@ -355,7 +377,7 @@ class TestAssessTo(FakeHomeTestCase):
 
     def test_assess_to_fails(self):
         with extended_bootstrap_cxt('2.0.0'):
-            with patch('jujupy.EnvJujuClient.bootstrap', autospec=True):
+            with patch('jujupy.ModelClient.bootstrap', autospec=True):
                 with patch('assess_bootstrap.get_controller_address',
                            return_value='255.1.1.0', autospec=True):
                     args = parse_args(['to', 'bar', '/foo',

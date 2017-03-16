@@ -8,12 +8,13 @@ import json
 import logging
 import re
 import subprocess
+import uuid
 
 import pexpect
 import yaml
 
 from jujupy import (
-    EnvJujuClient,
+    ModelClient,
     JESNotSupported,
     JujuData,
     SoftDeadlineExceeded,
@@ -58,6 +59,7 @@ class FakeControllerState:
             }
         }
         self.shares = ['admin']
+        self.active_model = None
 
     def add_model(self, name):
         state = FakeEnvironmentState(self)
@@ -257,10 +259,11 @@ class FakeEnvironmentState:
                 machine_dict['controller-member-status'] = 'has-vote'
         for host, containers in self.containers.items():
             container_dict = dict((c, {}) for c in containers)
-            for container in containers:
+            for container, subdict in container_dict.items():
+                subdict.update({'juju-status': {'current': 'idle'}})
                 dns_name = self.machine_host_names.get(container)
                 if dns_name is not None:
-                    container_dict[container]['dns-name'] = dns_name
+                    subdict['dns-name'] = dns_name
 
             machines[host]['containers'] = container_dict
         services = {}
@@ -387,7 +390,7 @@ class PromptingExpectChild(FakeExpectChild):
         if type(pattern) is not list:
             pattern = [pattern]
         try:
-            prompt = self.prompts.next()
+            prompt = next(self.prompts)
         except StopIteration:
             if pexpect.EOF not in pattern:
                 raise
@@ -455,7 +458,8 @@ class AddCloud(PromptingExpectChild):
 
     CLOUD_ENDPOINT = 'Enter the API endpoint url for the cloud:'
 
-    REGION_ENDPOINT = 'Enter the API endpoint url for the region:'
+    REGION_ENDPOINT = (
+        'Enter the API endpoint url for the region [use cloud api url]:')
 
     HOST = "Enter the controller's hostname or IP address:"
 
@@ -473,6 +477,9 @@ class AddCloud(PromptingExpectChild):
         elif self.provider == 'manual':
             msg = 'ssh: Could not resolve hostname {}'.format(endpoint)
             reprompt = self.HOST
+        elif self.provider == 'vsphere':
+            msg = '{}: invalid domain name'.format(endpoint)
+            reprompt = self.CLOUD_ENDPOINT
         return "Can't validate endpoint: {}\n{}".format(
             msg, reprompt)
 
@@ -517,6 +524,9 @@ class AddCloud(PromptingExpectChild):
                 yield self.ANOTHER_REGION
         if self.values['Select cloud type:'] == 'vsphere':
             yield self.CLOUD_ENDPOINT
+            endpoint = self.values[self.CLOUD_ENDPOINT]
+            if len(endpoint) > 1000:
+                yield self.cant_validate(endpoint)
             while self.values.get(self.ANOTHER_REGION) != 'n':
                 yield self.REGION_NAME
                 yield self.ANOTHER_REGION
@@ -555,6 +565,11 @@ class AddCloud(PromptingExpectChild):
         self.backend.clouds[self.values[self.name_prompt]] = cloud
 
 
+class AddCloud2_1(AddCloud):
+
+    REGION_ENDPOINT = 'Enter the API endpoint url for the region:'
+
+
 class FakeBackend:
     """A fake juju backend for tests.
 
@@ -580,6 +595,8 @@ class FakeBackend:
         self._past_deadline = past_deadline
         self._ignore_soft_deadline = False
         self.clouds = {}
+        self.action_results = {}
+        self.action_queue = {}
 
     def clone(self, full_path=None, version=None, debug=None,
               feature_flags=None):
@@ -625,10 +642,16 @@ class FakeBackend:
             if self._past_deadline and not self._ignore_soft_deadline:
                 raise SoftDeadlineExceeded()
 
-    def deploy(self, model_state, charm_name, service_name=None, series=None):
+    def get_active_model(self, juju_home):
+        return (self.controller_state.name, None,
+                self.controller_state.active_model)
+
+    def deploy(self, model_state, charm_name, num, service_name=None,
+               series=None):
         if service_name is None:
             service_name = charm_name.split(':')[-1].split('/')[-1]
-        model_state.deploy(charm_name, service_name)
+        for i in range(num):
+            model_state.deploy(charm_name, service_name)
 
     def bootstrap(self, args):
         parser = ArgumentParser()
@@ -681,6 +704,10 @@ class FakeBackend:
         parser.add_argument('-n', type=int, dest='count', default='1')
         parser.add_argument('--series')
         parsed = parser.parse_args(args)
+        if len(parsed.host_placement) > 0 and parsed.count != 1:
+                raise subprocess.CalledProcessError(
+                    1, 'cannot use -n when specifying a placement directive.'
+                    'See Lp #1384350.')
         if len(parsed.host_placement) == 1:
             split = parsed.host_placement[0].split(':')
             if len(split) == 1:
@@ -772,6 +799,23 @@ class FakeBackend:
             }
         return {model_name: data}
 
+    def set_action_result(self, unit_id, action, result):
+        self.action_results.setdefault(unit_id, {})[action] = result
+
+    def run_action(self, unit_id, action):
+        action_uuid = '{}'.format(uuid.uuid1())
+        try:
+            result = self.action_results[unit_id][action]
+            self.action_queue[action_uuid] = result
+        except KeyError:
+            raise ValueError('No such action "{0}"'
+                             ' specified for unit {1}.'.format(action,
+                                                               unit_id))
+        return ('Action queued with id: {}'.format(action_uuid))
+
+    def show_action_output(self, action_uuid):
+        return self.action_queue.get(action_uuid, None)
+
     def _log_command(self, command, args, model, level=logging.INFO):
         full_args = ['juju', command]
         if model is not None:
@@ -780,7 +824,8 @@ class FakeBackend:
         self.log.log(level, u' '.join(full_args))
 
     def juju(self, command, args, used_feature_flags,
-             juju_home, model=None, check=True, timeout=None, extra_env=None):
+             juju_home, model=None, check=True, timeout=None, extra_env=None,
+             suppress_err=False):
         if 'service' in command:
             raise Exception('Command names must not contain "service".')
 
@@ -802,8 +847,10 @@ class FakeBackend:
                 parser.add_argument('service_name', nargs='?')
                 parser.add_argument('--to')
                 parser.add_argument('--series')
+                parser.add_argument('-n')
                 parsed = parser.parse_args(args)
-                self.deploy(model_state, parsed.charm_name,
+                num = int(parsed.n or 1)
+                self.deploy(model_state, parsed.charm_name, num,
                             parsed.service_name, parsed.series)
             if command == 'remove-application':
                 model_state.destroy_service(*args)
@@ -973,6 +1020,12 @@ class FakeBackend:
                 return model_state.remove_ssh_key(args)
             if command == 'import-ssh-key':
                 return model_state.import_ssh_key(args)
+            if command == 'run-action':
+                unit_id = args[0]
+                action = args[1]
+                return self.run_action(unit_id, action)
+            if command == 'show-action-output':
+                return self.show_action_output(args[0])
             return ''
 
     def expect(self, command, args, used_feature_flags, juju_home, model=None,
@@ -997,10 +1050,21 @@ def get_user_register_command_info(username):
 
 
 def get_user_register_token(username):
-    return b64encode(sha512(username).digest())
+    return b64encode(sha512(username.encode('utf-8')).digest()).decode('ascii')
 
 
-class FakeBackend2B7(FakeBackend):
+class FakeBackend2_1(FakeBackend):
+    """Backend for 2.1 and earlier."""
+    def expect(self, command, args, used_feature_flags, juju_home, model=None,
+               timeout=None, extra_env=None):
+        if command == 'add-cloud':
+            return AddCloud2_1(self, juju_home, extra_env)
+        return super(FakeBackend2_1, self).expect(
+            command, args, used_feature_flags, juju_home, model, timeout,
+            extra_env)
+
+
+class FakeBackend2B7(FakeBackend2_1):
 
     def juju(self, command, args, used_feature_flags,
              juju_home, model=None, check=True, timeout=None, extra_env=None):
@@ -1022,7 +1086,7 @@ class FakeBackendOptionalJES(FakeBackend):
 
 
 def fake_juju_client(env=None, full_path=None, debug=False, version='2.0.0',
-                     _backend=None, cls=EnvJujuClient, juju_home=None):
+                     _backend=None, cls=ModelClient, juju_home=None):
     if juju_home is None:
         if env is None or env.juju_home is None:
             juju_home = 'foo'
@@ -1062,7 +1126,7 @@ def fake_juju_client_optional_jes(env=None, full_path=None, debug=False,
     return client
 
 
-class FakeJujuClientOptionalJES(EnvJujuClient):
+class FakeJujuClientOptionalJES(ModelClient):
 
     def get_controller_model_name(self):
         return self._backend.controller_state.controller_model.name

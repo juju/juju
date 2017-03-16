@@ -9,12 +9,6 @@ try:
 except ImportError:
     from contextlib import ExitStack as nested
 
-
-from datetime import (
-    datetime,
-)
-
-import errno
 import glob
 import logging
 import os
@@ -31,14 +25,12 @@ from chaos import background_chaos
 from jujucharm import (
     local_charm_path,
 )
-from jujuconfig import (
-    get_jenv_path,
-    get_juju_home,
-)
 from jujupy import (
     client_from_config,
+    EnvJujuClient1X,
     FakeBackend,
     fake_juju_client,
+    get_juju_home,
     get_machine_dns_name,
     jes_home_path,
     NoProvider,
@@ -48,6 +40,7 @@ from jujupy import (
 from jujupy.client import (
     get_local_root,
 )
+from jujupy.configuration import get_jenv_path
 from remote import (
     remote_from_address,
     remote_from_unit,
@@ -64,6 +57,7 @@ from substrate import (
     make_substrate_manager,
 )
 from utility import (
+    generate_default_clean_dir,
     add_basic_testing_arguments,
     configure_logging,
     ensure_deleted,
@@ -168,7 +162,9 @@ def check_token(client, token, timeout=120):
     # sent successfully, but fallback to timeout as previously for now.
     start = time.time()
     while True:
-        if remote.is_windows():
+        is_winclient1x = (isinstance(client, EnvJujuClient1X) and
+                          sys.platform == "win32")
+        if remote.is_windows() or is_winclient1x:
             result = get_token_from_status(client)
             if not result:
                 result = _get_token(remote, "%ProgramData%\\dummy-sink\\token")
@@ -472,6 +468,8 @@ def deploy_job():
     args = deploy_job_parse_args()
     configure_logging(args.verbose)
     series = args.series
+    if not args.logs:
+        args.logs = generate_default_clean_dir(args.temp_env_name)
     if series is None:
         series = 'precise'
     charm_series = series
@@ -625,8 +623,8 @@ class BootstrapManager:
 
     :ivar temp_env_name: a unique name for the juju env, such as a Jenkins
         job name.
-    :ivar client: an EnvJujuClient.
-    :ivar tear_down_client: an EnvJujuClient for tearing down the environment
+    :ivar client: a ModelClient.
+    :ivar tear_down_client: a ModelClient for tearing down the controller
         (may be more reliable/capable/compatible than client.)
     :ivar bootstrap_host: None, or the address of a manual or MAAS host to
         bootstrap on.
@@ -722,29 +720,9 @@ class BootstrapManager:
         return self.controller_strategy.tear_down_client
 
     @classmethod
-    def _generate_default_clean_dir(cls, temp_env_name):
-        """Creates a new unique directory for logging and returns name"""
-        logging.info('Environment {}'.format(temp_env_name))
-        test_name = temp_env_name.split('-')[0]
-        timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
-        log_dir = os.path.join('/tmp', test_name, 'logs', timestamp)
-
-        try:
-            os.makedirs(log_dir)
-            logging.info('Created logging directory {}'.format(log_dir))
-        except OSError as e:
-            if e.errno == errno.EEXIST:
-                logging.warn('"Directory {} already exists'.format(log_dir))
-            else:
-                raise('Failed to create logging directory: {} ' +
-                      log_dir +
-                      '. Please specify empty folder or try again')
-        return log_dir
-
-    @classmethod
     def from_args(cls, args):
         if not args.logs:
-            args.logs = cls._generate_default_clean_dir(args.temp_env_name)
+            args.logs = generate_default_clean_dir(args.temp_env_name)
 
         # GZ 2016-08-11: Move this logic into client_from_config maybe?
         if args.juju_bin == 'FAKE':
@@ -754,6 +732,8 @@ class BootstrapManager:
             client = client_from_config(args.env, args.juju_bin,
                                         debug=args.debug,
                                         soft_deadline=args.deadline)
+            if args.to is not None:
+                client.env.bootstrap_to = args.to
         return cls.from_client(args, client)
 
     @classmethod
@@ -998,7 +978,7 @@ class BootstrapManager:
                     runtime_config = None
                 artifacts_dir = os.path.join(self.log_dir,
                                              client.env.environment)
-                os.mkdir(artifacts_dir)
+                os.makedirs(artifacts_dir)
                 dump_env_logs_known_hosts(
                     client, artifacts_dir, runtime_config, known_hosts)
 
@@ -1023,7 +1003,7 @@ class BootstrapManager:
         environment will be destroyed when the test completes or there is an
         unrecoverable error.
 
-        The temporary environment is created by updating a EnvJujuClient's
+        The temporary environment is created by updating a ModelClient's
         config with series, agent_url, agent_stream.
 
         :param upload_tools: False or True to upload the local agent instead
@@ -1076,12 +1056,12 @@ def boot_context(temp_env_name, client, bootstrap_host, machines, series,
     will be destroyed when the test completes or there is an unrecoverable
     error.
 
-    The temporary environment is created by updating a EnvJujuClient's config
+    The temporary environment is created by updating a ModelClient's config
     with series, agent_url, agent_stream.
 
     :param temp_env_name: a unique name for the juju env, such as a Jenkins
         job name.
-    :param client: an EnvJujuClient.
+    :param client: an ModelClient.
     :param bootstrap_host: None, or the address of a manual or MAAS host to
         bootstrap on.
     :param machine: [] or a list of machines to use add to a manual env

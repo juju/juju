@@ -193,7 +193,7 @@ class TestAssess(TestCase):
         # weird.
         fake_client.env = env
         fake_client.bootstrap()
-        with patch('jujupy.EnvJujuClient.deploy',
+        with patch('jujupy.ModelClient.deploy',
                    autospec=True) as deploy_mock:
             yield fake_client, deploy_mock
 

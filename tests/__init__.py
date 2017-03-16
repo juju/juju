@@ -82,6 +82,10 @@ class TestCase(unittest.TestCase):
         return context.__enter__()
 
 
+if getattr(TestCase, 'assertItemsEqual', None) is None:
+    TestCase.assertItemsEqual = TestCase.assertCountEqual
+
+
 class FakeHomeTestCase(TestCase):
     """FakeHomeTestCase creates an isolated home dir for Juju to use."""
 
@@ -169,8 +173,8 @@ class FakePopen(object):
     """Create an artifical version of the Popen class."""
 
     def __init__(self, out, err, returncode):
-        self._out = out
-        self._err = err
+        self._out = out if out is None else out.encode('ascii')
+        self._err = err if err is None else err.encode('ascii')
         self._code = returncode
 
     def communicate(self):
@@ -187,10 +191,16 @@ def observable_temp_file():
     temporary_file = NamedTemporaryFile(delete=False)
     try:
         with temporary_file as temp_file:
-            with patch('utility.NamedTemporaryFile',
-                       return_value=temp_file):
-                with patch.object(temp_file, '__exit__'):
-                    yield temp_file
+
+            @contextmanager
+            def nt():
+                # This is used to prevent NamedTemporaryFile.close from being
+                # called.
+                yield temporary_file
+
+            with patch('jujupy.utility.NamedTemporaryFile',
+                       return_value=nt()):
+                yield temp_file
     finally:
         # File may have already been deleted, e.g. by temp_yaml_file.
         with utility.skip_on_missing_file():

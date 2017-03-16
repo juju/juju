@@ -1,5 +1,6 @@
 from contextlib import contextmanager
 import json
+from locale import getpreferredencoding
 import logging
 import os
 import re
@@ -10,7 +11,6 @@ import yaml
 from jujupy.client import (
     Controller,
     _DEFAULT_BUNDLE_TIMEOUT,
-    EnvJujuClient,
     get_cache_path,
     get_jenv_path,
     get_teardown_timeout,
@@ -21,6 +21,7 @@ from jujupy.client import (
     KVM_MACHINE,
     LXC_MACHINE,
     make_safe_config,
+    ModelClient,
     SimpleEnvironment,
     Status,
     StatusItem,
@@ -28,7 +29,7 @@ from jujupy.client import (
     unqualified_model_name,
     UpgradeMongoNotSupported,
     )
-from utility import (
+from jujupy.utility import (
     ensure_deleted,
     scoped_environ,
     split_address_port,
@@ -101,7 +102,7 @@ class Status1X(Status):
     def iter_status(self):
         SERVICE = 'service-status'
         AGENT = 'agent-status'
-        for machine_name, machine_value in self.get_machines({}).items():
+        for machine_name, machine_value in self.iter_machines(containers=True):
             yield StatusItem(StatusItem.JUJU, machine_name,
                              self.condense_status(machine_value))
         for app_name, app_value in self.get_applications().items():
@@ -109,7 +110,8 @@ class Status1X(Status):
                 yield StatusItem(
                     StatusItem.APPLICATION, app_name,
                     {StatusItem.APPLICATION: app_value[SERVICE]})
-            for unit_name, unit_value in app_value.get('units', {}).items():
+            unit_iterator = self._iter_units_in_application(app_value)
+            for unit_name, unit_value in unit_iterator:
                 if StatusItem.WORKLOAD in unit_value:
                     yield StatusItem(StatusItem.WORKLOAD,
                                      unit_name, unit_value)
@@ -122,12 +124,35 @@ class Status1X(Status):
                                      self.condense_status(unit_value))
 
 
-class EnvJujuClientRC(EnvJujuClient):
+class ModelClient2_1(ModelClient):
+    """Client for Juju 2.1"""
+
+    REGION_ENDPOINT_PROMPT = 'Enter the API endpoint url for the region:'
+
+
+class ModelClient2_0(ModelClient2_1):
+    """Client for Juju 2.0"""
+
+    def _acquire_model_client(self, name, owner=None):
+        """Get a client for a model with the supplied name.
+
+        If the name matches self, self is used.  Otherwise, a clone is used.
+
+        Note: owner is ignored for all clients before 2.1.
+        """
+        if name == self.env.environment:
+            return self
+        else:
+            env = self.env.clone(model_name=name)
+            return self.clone(env=env)
+
+
+class ModelClientRC(ModelClient2_0):
 
     def get_bootstrap_args(
             self, upload_tools, config_filename, bootstrap_series=None,
             credential=None, auto_upgrade=False, metadata_source=None,
-            to=None, no_gui=False, agent_version=None):
+            no_gui=False, agent_version=None):
         """Return the bootstrap arguments for the substrate."""
         if self.env.joyent:
             # Only accept kvm packages by requiring >1 cpu core, see lp:1446264
@@ -159,14 +184,14 @@ class EnvJujuClientRC(EnvJujuClient):
             args.extend(['--metadata-source', metadata_source])
         if auto_upgrade:
             args.append('--auto-upgrade')
-        if to is not None:
-            args.extend(['--to', to])
+        if self.env.bootstrap_to is not None:
+            args.extend(['--to', self.env.bootstrap_to])
         if no_gui:
             args.append('--no-gui')
         return tuple(args)
 
 
-class EnvJujuClient1X(EnvJujuClientRC):
+class EnvJujuClient1X(ModelClientRC):
     """Base for all 1.x client drivers."""
 
     default_backend = Juju1XBackend
@@ -346,7 +371,8 @@ class EnvJujuClient1X(EnvJujuClientRC):
 
     def get_env_option(self, option):
         """Return the value of the environment's configured option."""
-        return self.get_juju_output('get-env', option)
+        return self.get_juju_output(
+            'get-env', option).decode(getpreferredencoding())
 
     def set_env_option(self, option, value):
         """Set the value of the option in the environment."""
@@ -549,10 +575,9 @@ class EnvJujuClient1X(EnvJujuClientRC):
         return self.env.environment
 
     def get_controller_endpoint(self):
-        """Return the address of the state-server leader."""
+        """Return the host and port of the state-server leader."""
         endpoint = self.get_juju_output('api-endpoints')
-        address, port = split_address_port(endpoint)
-        return address
+        return split_address_port(endpoint)
 
     def upgrade_mongo(self):
         raise UpgradeMongoNotSupported()
@@ -668,10 +693,26 @@ def get_client_class(version):
     elif re.match('^2\.0-(alpha|beta)', version):
         raise VersionNotTestedError(version)
     elif re.match('^2\.0-rc[1-3]', version):
-        client_class = EnvJujuClientRC
+        client_class = ModelClientRC
+    elif re.match('^2\.0[.-]', version):
+        client_class = ModelClient2_0
+    elif re.match('^2\.1[.-]', version):
+        client_class = ModelClient2_1
     else:
-        client_class = EnvJujuClient
+        client_class = ModelClient
     return client_class
+
+
+def get_full_path(juju_path):
+    """Helper to ensure a full path is used.
+
+    If juju_path is None, ModelClient.get_full_path is used.  Otherwise,
+    the supplied path is converted to absolute.
+    """
+    if juju_path is None:
+        return ModelClient.get_full_path()
+    else:
+        return os.path.abspath(juju_path)
 
 
 def client_from_config(config, juju_path, debug=False, soft_deadline=None):
@@ -684,15 +725,38 @@ def client_from_config(config, juju_path, debug=False, soft_deadline=None):
         normal operations should complete.  If None, no deadline is
         enforced.
     """
-    version = EnvJujuClient.get_version(juju_path)
+    version = ModelClient.get_version(juju_path)
     client_class = get_client_class(str(version))
     if config is None:
         env = client_class.config_class('', {})
     else:
         env = client_class.config_class.from_config(config)
-    if juju_path is None:
-        full_path = EnvJujuClient.get_full_path()
-    else:
-        full_path = os.path.abspath(juju_path)
+    full_path = get_full_path(juju_path)
     return client_class(env, version, full_path, debug=debug,
                         soft_deadline=soft_deadline)
+
+
+def client_for_existing(juju_path, juju_data_dir, debug=False,
+                        soft_deadline=None):
+    """Create a client for an existing controller/model.
+
+    :param juju_path: Path to juju binary the client should wrap.
+    :param juju_data_dir: Path to the juju data directory referring the the
+        controller and model.
+    :param debug=False: The debug flag for the client, False by default.
+    :param soft_deadline: A datetime representing the deadline by which
+        normal operations should complete.  If None, no deadline is
+        enforced.
+    """
+    version = ModelClient.get_version(juju_path)
+    client_class = get_client_class(str(version))
+    full_path = get_full_path(juju_path)
+    backend = client_class.default_backend(full_path, version, set(),
+                                           debug=debug,
+                                           soft_deadline=soft_deadline)
+    controller_name, user_name, model_name = backend.get_active_model(
+        juju_data_dir)
+    config = client_class.config_class.for_existing(
+        juju_data_dir, controller_name, model_name)
+    return client_class(config, version, full_path, debug=debug,
+                        soft_deadline=soft_deadline, _backend=backend)

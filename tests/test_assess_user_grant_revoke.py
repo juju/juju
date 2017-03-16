@@ -123,7 +123,7 @@ class TestAsserts(TestCase):
             fake_admin_client = fake_juju_client()
             ac = patch("assess_user_grant_revoke.assert_admin_model",
                        return_value=True)
-            with patch("jujupy.EnvJujuClient.revoke", return_value=True):
+            with patch("jujupy.ModelClient.revoke", return_value=True):
                 with patch("assess_user_grant_revoke.assert_read_model",
                            return_value=True) as read_mock:
                     with patch("assess_user_grant_revoke.assert_write_model",
@@ -185,7 +185,7 @@ class TestAssess(TestCase):
                      autospec=True)
         log = patch("assess_user_grant_revoke.assert_logout_login",
                     autospec=True)
-        expect = patch("jujupy.EnvJujuClient.expect",
+        expect = patch("jujupy.ModelClient.expect",
                        autospec=True)
         read = patch("assess_user_grant_revoke.assert_read_model",
                      autospec=True)

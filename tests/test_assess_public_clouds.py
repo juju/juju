@@ -14,6 +14,7 @@ import yaml
 
 from assess_public_clouds import (
     bootstrap_cloud_regions,
+    CLOUD_CONFIGS,
     default_log_dir,
     iter_cloud_regions,
     main,
@@ -45,15 +46,21 @@ def patch_local(target, **kwargs):
 class TestParseArgs(TestCase):
 
     def test_parse_args(self):
-        args = parse_args([])
+        with patch('utility.os.getenv', return_value=False):
+            args = parse_args([])
         self.assertEqual(Namespace(
-            deadline=None, debug=False, juju_bin='/usr/bin/juju', logs=None,
-            start=0,
+            deadline=None, debug=False, juju_bin=None, logs=None,
+            start=0, cloud_regions=None,
             ), args)
 
     def test_parse_args_start(self):
         args = parse_args(['--start', '7'])
         self.assertEqual(7, args.start)
+
+    def test_parse_args_cloud_regions(self):
+        args = parse_args(['--cloud-region', 'foo/bar',
+                           '--cloud-region', 'baz/qux'])
+        self.assertEqual([('foo', 'bar'), ('baz', 'qux')], args.cloud_regions)
 
 
 class TestMain(TestCase):
@@ -111,18 +118,16 @@ class TestHelpers(TestCase):
 
     def test_default_log_dir(self):
         settings = Namespace(logs=None)
-        with patch(
-                'deploy_stack.BootstrapManager._generate_default_clean_dir',
-                return_value='/tmp12345') as clean_dir_mock:
+        with patch('assess_public_clouds.generate_default_clean_dir',
+                   return_value='/tmp12345') as clean_dir_mock:
             default_log_dir(settings)
         self.assertEqual('/tmp12345', settings.logs)
         clean_dir_mock.assert_called_once_with(_LOCAL)
 
     def test_default_log_dir_provided(self):
         settings = Namespace(logs='/tmpABCDE')
-        with patch(
-                'deploy_stack.BootstrapManager._generate_default_clean_dir',
-                autospec=True) as clean_dir_mock:
+        with patch('assess_public_clouds.generate_default_clean_dir',
+                   autospec=True) as clean_dir_mock:
             default_log_dir(settings)
         self.assertEqual('/tmpABCDE', settings.logs)
         self.assertFalse(clean_dir_mock.called)
@@ -163,8 +168,8 @@ class TestIterCloudRegions(TestCase):
             'google': {'regions': ['west']},
             }
         regions = list(iter_cloud_regions(public_clouds, credentials))
-        self.assertEqual([('default-aws', 'north'), ('default-aws', 'south'),
-                          ('default-gce', 'west')], regions)
+        self.assertEqual([('aws', 'north'), ('aws', 'south'),
+                          ('google', 'west')], regions)
 
     def test_iter_cloud_regions_credential_skip(self):
         credentials = {}
@@ -191,21 +196,28 @@ class TestBootstrapCloudRegions(FakeHomeTestCase):
                                          side_effect=lambda x, y, z: y):
                             yield (iter_mock, bootstrap_mock, info_mock)
 
-    def run_test_bootstrap_cloud_regions(self, start=0, error=None):
+    def run_test_bootstrap_cloud_regions(self, start=0, error=None,
+                                         cloud_regions=None):
         pc_key = 'public_clouds'
         cred_key = 'credentials'
-        cloud_regions = [('foo.config', 'foo'), ('bar.config', 'bar')]
+        default_cloud_regions = [('aws', 'foo'), ('google', 'bar')]
         args = Namespace(start=start, debug=True, deadline=None,
-                         juju_bin='juju', logs='/tmp/log')
+                         juju_bin='juju', logs='/tmp/log',
+                         cloud_regions=cloud_regions)
+        if cloud_regions is None:
+            cloud_regions = default_cloud_regions
         fake_client = fake_juju_client()
-        expect_values = [('foo.config', 'foo'),
-                         ('bar.config', 'bar')]
-        with self.patch_for_test(cloud_regions, fake_client, error) as (
+        config_regions = [(CLOUD_CONFIGS[c], r) for (c, r) in cloud_regions]
+        with self.patch_for_test(default_cloud_regions, fake_client,
+                                 error) as (
                 iter_mock, bootstrap_mock, info_mock):
             errors = list(bootstrap_cloud_regions(pc_key, cred_key, args))
 
-        iter_mock.assert_called_once_with(pc_key, cred_key)
-        for num, (config, region) in enumerate(expect_values[start:]):
+        if cloud_regions is default_cloud_regions:
+            iter_mock.assert_called_once_with(pc_key, cred_key)
+        else:
+            self.assertEqual(0, iter_mock.call_count)
+        for num, (config, region) in enumerate(config_regions[start:]):
             acc_call = bootstrap_mock.mock_calls[num]
             name, args, kwargs = acc_call
             self.assertEqual({}, kwargs)
@@ -213,11 +225,12 @@ class TestBootstrapCloudRegions(FakeHomeTestCase):
             self.assertIsInstance(bs_manager, BootstrapManager)
             self.assertEqual(bs_manager.region, region)
             self.assertEqual(bs_manager.log_dir, config)
-        self.assertEqual(len(cloud_regions) - start, info_mock.call_count)
+        self.assertEqual(len(default_cloud_regions) - start,
+                         info_mock.call_count)
         if error is None:
             self.assertEqual([], errors)
         else:
-            expect_errors = [cr + (error,) for cr in cloud_regions]
+            expect_errors = [cr + (error,) for cr in config_regions]
             self.assertEqual(expect_errors, errors)
 
     def test_bootstrap_cloud_regions(self):
@@ -228,3 +241,9 @@ class TestBootstrapCloudRegions(FakeHomeTestCase):
 
     def test_bootstrap_cloud_regions_error(self):
         self.run_test_bootstrap_cloud_regions(error=Exception('test'))
+
+    def test_bootstrap_cloud_regions_specific_regions(self):
+        self.run_test_bootstrap_cloud_regions(cloud_regions=[
+            ('aws', 'us-perpendicular-1'),
+            ('rackspace', 'tla'),
+            ])

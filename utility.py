@@ -8,7 +8,6 @@ import json
 import logging
 import os
 import re
-from shutil import rmtree
 import subprocess
 import socket
 import sys
@@ -16,19 +15,34 @@ from time import (
     sleep,
     time,
     )
-from tempfile import (
-    mkdtemp,
-    NamedTemporaryFile,
-    )
 import warnings
-# Export shell quoting function which has moved in newer python versions
-try:
-    from shlex import quote
-except ImportError:
-    from pipes import quote
-import yaml
+from jujupy.utility import (
+    ensure_deleted,
+    ensure_dir,
+    get_timeout_path,
+    is_ipv6_address,
+    print_now,
+    qualified_model_name,
+    quote,
+    scoped_environ,
+    skip_on_missing_file,
+    temp_dir,
+    temp_yaml_file,
+    until_timeout
+    )
 
-quote
+# Imported for other call sites to use.
+__all__ = [
+    'ensure_deleted',
+    'ensure_dir',
+    'get_timeout_path',
+    'qualified_model_name',
+    'quote',
+    'scoped_environ',
+    'skip_on_missing_file',
+    'temp_dir',
+    'temp_yaml_file',
+    ]
 
 
 # Equivalent of socket.EAI_NODATA when using windows sockets
@@ -40,23 +54,6 @@ WSANO_DATA = 11004
 def noop_context():
     """A context manager that does nothing."""
     yield
-
-
-@contextmanager
-def scoped_environ(new_environ=None):
-    """Save the current environment and restore it when the context is exited.
-
-    :param new_environ: If provided and not None, the key/value pairs of the
-    iterable are used to create a new environment in the context."""
-    old_environ = dict(os.environ)
-    try:
-        if new_environ is not None:
-            os.environ.clear()
-            os.environ.update(new_environ)
-        yield
-    finally:
-        os.environ.clear()
-        os.environ.update(old_environ)
 
 
 class PortTimeoutError(Exception):
@@ -73,42 +70,8 @@ class LoggedException(BaseException):
         self.exception = exception
 
 
-class until_timeout:
-
-    """Yields remaining number of seconds.  Stops when timeout is reached.
-
-    :ivar timeout: Number of seconds to wait.
-    """
-    def __init__(self, timeout, start=None):
-        self.timeout = timeout
-        if start is None:
-            start = self.now()
-        self.start = start
-
-    def __iter__(self):
-        return self
-
-    @staticmethod
-    def now():
-        return datetime.now()
-
-    def __next__(self):
-        self.next()
-
-    def next(self):
-        elapsed = self.now() - self.start
-        remaining = self.timeout - elapsed.total_seconds()
-        if remaining <= 0:
-            raise StopIteration
-        return remaining
-
-
 class JujuAssertionError(AssertionError):
     """Exception for juju assertion failures."""
-
-
-class JujuResourceTimeout(Exception):
-    """A timeout exception for a resource not being downloaded into a unit."""
 
 
 def _clean_dir(maybe_dir):
@@ -132,25 +95,6 @@ def _clean_dir(maybe_dir):
     return maybe_dir
 
 
-def pause(seconds):
-    print_now('Sleeping for {:d} seconds.'.format(seconds))
-    sleep(seconds)
-
-
-def is_ipv6_address(address):
-    """Returns True if address is IPv6 rather than IPv4 or a host name.
-
-    Incorrectly returns False for IPv6 addresses on windows due to lack of
-    support for socket.inet_pton there.
-    """
-    try:
-        socket.inet_pton(socket.AF_INET6, address)
-    except (AttributeError, socket.error):
-        # IPv4 or hostname
-        return False
-    return True
-
-
 def as_literal_address(address):
     """Returns address in form suitable for embedding in URL or similar.
 
@@ -160,20 +104,6 @@ def as_literal_address(address):
     if is_ipv6_address(address):
         return address.join("[]")
     return address
-
-
-def split_address_port(address_port):
-    """Split an ipv4 or ipv6 address and port into a tuple.
-
-    ipv6 addresses must be in the literal form with a port ([::12af]:80).
-    ipv4 addresses may be without a port, which translates to None.
-    """
-    if ':' not in address_port:
-        # This is correct for ipv4.
-        return address_port, None
-    address, port = address_port.rsplit(':', 1)
-    address = address.strip('[]')
-    return address, port
 
 
 def wait_for_port(host, port, closed=False, timeout=30):
@@ -222,21 +152,6 @@ def wait_for_port(host, port, closed=False, timeout=30):
     raise PortTimeoutError('Timed out waiting for port.')
 
 
-def print_now(string):
-    print(string)
-    sys.stdout.flush()
-
-
-@contextmanager
-def temp_dir(parent=None, keep=False):
-    directory = mkdtemp(dir=parent)
-    try:
-        yield directory
-    finally:
-        if not keep:
-            rmtree(directory)
-
-
 def get_revision_build(build_info):
     for action in build_info['actions']:
         if 'parameters' in action:
@@ -263,24 +178,6 @@ def builds_for_revision(job, revision_build, jenkins):
                 build_info['result'] == 'SUCCESS'):
             result.append(build_info)
     return result
-
-
-def check_free_disk_space(path, required, purpose):
-    df_result = subprocess.check_output(["df", "-k", path])
-    df_result = df_result.split('\n')[1]
-    df_result = re.split(' +', df_result)
-    available = int(df_result[3])
-    if available < required:
-        message = (
-            "Warning: Probably not enough disk space available for\n"
-            "%(purpose)s in directory %(path)s,\n"
-            "mount point %(mount)s\n"
-            "required: %(required)skB, available: %(available)skB."
-            )
-        print(message % {
-            'path': path, 'mount': df_result[5], 'required': required,
-            'available': available, 'purpose': purpose
-            })
 
 
 def get_winrm_certs():
@@ -311,22 +208,32 @@ def _get_test_name_from_filename():
         return 'unknown_test'
 
 
+def generate_default_clean_dir(temp_env_name):
+    """Creates a new unique directory for logging and returns name"""
+    logging.debug('Environment {}'.format(temp_env_name))
+    test_name = temp_env_name.split('-')[0]
+    timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+    log_dir = os.path.join('/tmp', test_name, 'logs', timestamp)
+
+    try:
+        os.makedirs(log_dir)
+        logging.info('Created logging directory {}'.format(log_dir))
+    except OSError as e:
+        if e.errno == errno.EEXIST:
+            logging.warn('"Directory {} already exists'.format(log_dir))
+        else:
+            raise('Failed to create logging directory: {} ' +
+                  log_dir +
+                  '. Please specify empty folder or try again')
+    return log_dir
+
+
 def _generate_default_temp_env_name():
     """Creates a new unique name for environment and returns the name"""
     # we need to sanitize the name
     timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
     test_name = re.sub('[^a-zA-Z]', '', _get_test_name_from_filename())
     return '{}-{}-temp-env'.format(test_name, timestamp)
-
-
-def _generate_default_binary():
-    """Returns GOPATH juju binary if it exists, otherwise /usr/bin/juju"""
-    if os.getenv('GOPATH'):
-        go_bin = os.getenv('GOPATH') + '/bin/juju'
-        if os.path.isfile(go_bin):
-            return go_bin
-
-    return '/usr/bin/juju'
 
 
 def _to_deadline(timeout):
@@ -336,9 +243,8 @@ def _to_deadline(timeout):
 def add_arg_juju_bin(parser):
     parser.add_argument('juju_bin', nargs='?',
                         help='Full path to the Juju binary. By default, this'
-                        ' will use $GOPATH/bin/juju or /usr/bin/juju in that'
-                        ' order.',
-                        default=_generate_default_binary())
+                        ' will use $PATH/juju',
+                        default=None)
 
 
 def add_basic_testing_arguments(parser, using_jes=False, deadline=True,
@@ -392,6 +298,8 @@ def add_basic_testing_arguments(parser, using_jes=False, deadline=True,
                         default=logging.INFO, const=logging.DEBUG,
                         help='Verbose test harness output.')
     parser.add_argument('--region', help='Override environment region.')
+    parser.add_argument('--to', default=None,
+                        help='Place the controller at a location.')
     parser.add_argument('--agent-url', action='store', default=None,
                         help='URL for retrieving agent binaries.')
     parser.add_argument('--agent-stream', action='store', default=None,
@@ -425,47 +333,8 @@ def configure_logging(log_level):
         datefmt='%Y-%m-%d %H:%M:%S')
 
 
-@contextmanager
-def skip_on_missing_file():
-    """Skip to the end of block if a missing file exception is raised."""
-    try:
-        yield
-    except (IOError, OSError) as e:
-        if e.errno != errno.ENOENT:
-            raise
-
-
-def ensure_dir(path):
-    try:
-        os.mkdir(path)
-    except OSError as e:
-        if e.errno != errno.EEXIST:
-            raise
-
-
-def ensure_deleted(path):
-    with skip_on_missing_file():
-        os.unlink(path)
-
-
-@contextmanager
-def temp_yaml_file(yaml_dict, encoding="utf-8"):
-    temp_file = NamedTemporaryFile(suffix='.yaml', delete=False)
-    try:
-        with temp_file:
-            yaml.safe_dump(yaml_dict, temp_file, encoding=encoding)
-        yield temp_file.name
-    finally:
-        os.unlink(temp_file.name)
-
-
 def get_candidates_path(root_dir):
     return os.path.join(root_dir, 'candidate')
-
-
-def get_timeout_path():
-    import timeout
-    return os.path.abspath(timeout.__file__)
 
 
 # GZ 2015-10-15: Paths returned in filesystem dependent order, may want sort?
@@ -527,25 +396,6 @@ def run_command(command, dry_run=False, verbose=False):
         output = subprocess.check_output(command)
         if verbose:
             print_now(output)
-
-
-def unqualified_model_name(model_name):
-    """Return the model name with the owner qualifier stripped if present."""
-    return model_name.split('/', 1)[-1]
-
-
-def qualified_model_name(model_name, owner_name):
-    """Return the model name qualified with the given owner name."""
-    if model_name == '' or owner_name == '':
-        raise ValueError(
-            'Neither model_name nor owner_name can be blank strings')
-
-    parts = model_name.split('/', 1)
-    if len(parts) == 2 and parts[0] != owner_name:
-        raise ValueError(
-            'qualified model name {} with owner not matching {}'.format(
-                model_name, owner_name))
-    return '{}/{}'.format(owner_name, parts[-1])
 
 
 def get_unit_ipaddress(client, unit_name):

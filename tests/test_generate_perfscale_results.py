@@ -27,6 +27,7 @@ def get_default_args(**kwargs):
         logs='/tmp/logs',
         temp_env_name='an-env-mod',
         enable_ha=False,
+        enable_pprof=False,
         debug=False,
         agent_stream=None,
         agent_url=None,
@@ -35,6 +36,7 @@ def get_default_args(**kwargs):
         machine=[],
         region=None,
         series=None,
+        to=None,
         upload_tools=False,
         verbose=20,
         deadline=None)
@@ -50,9 +52,11 @@ class TestAddBasicPerfscaleArguments(TestCase):
         gpr.add_basic_perfscale_arguments(parser)
         parsed_args = parser.parse_args([])
         self.assertEqual(parsed_args.enable_ha, False)
+        self.assertEqual(parsed_args.enable_pprof, False)
 
-        parsed_args = parser.parse_args(['--enable-ha'])
+        parsed_args = parser.parse_args(['--enable-ha', '--enable-pprof'])
         self.assertEqual(parsed_args.enable_ha, True)
+        self.assertEqual(parsed_args.enable_pprof, True)
 
     def test_includes_basic_default_arguments(self):
         parser = argparse.ArgumentParser()
@@ -105,13 +109,21 @@ class TestRunPerfscaleTest(TestCase):
             deploy_details = gpr.DeployDetails('test', dict(), timing)
             noop_test = Mock(return_value=deploy_details)
 
+            pprof_collector = Mock()
+
             with patch.object(gpr, 'dump_performance_metrics_logs',
                               autospec=True):
                 with patch.object(gpr, 'generate_reports', autospec=True):
-                    gpr.run_perfscale_test(noop_test, bs_manager,
-                                           get_default_args())
+                    with patch.object(
+                            gpr, 'PPROFCollector', autospec=True) as p_pc:
+                        p_pc.return_value = pprof_collector
+                        gpr.run_perfscale_test(
+                            noop_test,
+                            bs_manager,
+                            get_default_args())
 
-            noop_test.assert_called_once_with(client, get_default_args())
+            noop_test.assert_called_once_with(
+                client, pprof_collector, get_default_args())
 
 
 class TestGetControllerMachines(TestCase):
@@ -181,9 +193,11 @@ class TestSetupSystemMonitoring(TestCase):
         static_config_path = '/baz/bang/config'
 
         expected_calls = [
-            call('scp', (static_config_path, '2:/tmp/collectd.config')),
-            call('scp', (static_setup_path, '2:/tmp/installer.sh')),
-            call('ssh', ('2', 'chmod +x /tmp/installer.sh')),
+            call(
+                'scp',
+                ('--proxy', static_config_path, '2:/tmp/collectd.config')),
+            call('scp', ('--proxy', static_setup_path, '2:/tmp/installer.sh')),
+            call('ssh', ('--proxy', '2', 'chmod +x /tmp/installer.sh')),
         ]
 
         with patch.object(gpr, 'PATHS', autospec=True) as m_sp:
@@ -203,10 +217,12 @@ class TestSetupSystemMonitoring(TestCase):
         expected_calls = [
             call(
                 'ssh',
-                ('3',
+                ('--proxy',
+                 '3',
                  '/tmp/installer.sh /tmp/collectd.config /tmp/runner.sh')),
             call(
-                'ssh', ('3', '--', 'daemon --respawn /tmp/runner.sh'))]
+                'ssh',
+                ('--proxy', '3', '--', 'daemon --respawn /tmp/runner.sh'))]
         self.assertListEqual(
             admin_client.juju.call_args_list,
             expected_calls
@@ -222,18 +238,16 @@ class TestDumpPerformanceMetricsLogs(TestCase):
         machine_ids = ['0']
 
         with patch.object(gpr.os, 'makedirs', autospec=True) as m_makedirs:
-            self.assertEqual(
-                res_dir,
-                gpr.dump_performance_metrics_logs('/foo', client, machine_ids))
+            gpr.dump_performance_metrics_logs(res_dir, client, machine_ids)
         m_makedirs.assert_called_once_with(expected_dir)
         expected_calls = [
             call(
                 'scp',
-                ('--', '-r',
+                ('--proxy', '--', '-r',
                  '0:/var/lib/collectd/rrd/localhost/*', expected_dir)),
             call(
                 'scp',
-                ('0:/tmp/mongodb-stats.log', expected_dir)
+                ('--proxy', '0:/tmp/mongodb-stats.log', expected_dir)
                 )]
         self.assertEqual(
             client.juju.call_args_list,
@@ -245,9 +259,7 @@ class TestDumpPerformanceMetricsLogs(TestCase):
         machine_ids = ['0', '1', '2']
 
         with patch.object(gpr.os, 'makedirs', autospec=True) as m_makedirs:
-            self.assertEqual(
-                res_dir,
-                gpr.dump_performance_metrics_logs('/foo', client, machine_ids))
+            gpr.dump_performance_metrics_logs(res_dir, client, machine_ids)
 
         makedir_calls = [
             call('/foo/performance_results/machine-0'),
@@ -263,13 +275,14 @@ class TestDumpPerformanceMetricsLogs(TestCase):
             expected_calls.append(
                 call(
                     'scp',
-                    ('--', '-r',
+                    ('--proxy', '--', '-r',
                      '{}:/var/lib/collectd/rrd/localhost/*'.format(m_id),
                      expected_dir)))
             expected_calls.append(
                 call(
                     'scp',
-                    ('{}:/tmp/mongodb-stats.log'.format(m_id), expected_dir)))
+                    ('--proxy',
+                     '{}:/tmp/mongodb-stats.log'.format(m_id), expected_dir)))
 
         self.assertEqual(
             client.juju.call_args_list,
@@ -341,7 +354,7 @@ class TestJsonSerialisation(TestCase):
         """Must serialise data for TimingData and DeployDetails objects."""
         start = datetime.utcnow()
         end = datetime.utcnow()
-        seconds = int((end-start).total_seconds())
+        seconds = int((end - start).total_seconds())
         app_details = dict(app_name=1)
         timing_data = gpr.TimingData(start, end)
         deploy_details = gpr.DeployDetails(

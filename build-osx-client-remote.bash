@@ -7,6 +7,8 @@ source $HOME/.bashrc
 source $HOME/cloud-city/juju-qa.jujuci
 set -x
 
-TARFILE=$($SCRIPTS/jujuci.py get build-revision 'juju-core_*.tar.gz' ./)
+
+REVISION_BUILD=$1
+TARFILE=$($SCRIPTS/s3ci.py get $REVISION_BUILD build-revision 'juju-core_.*.tar.gz' ./)
 echo "Downloaded $TARFILE"
-$RELEASE_SCRIPTS/crossbuild.py -v osx-client -b $GOBASE ./$TARFILE
+$RELEASE_SCRIPTS/crossbuild.py -v osx-client -b $GOBASE $TARFILE

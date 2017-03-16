@@ -18,7 +18,7 @@ from assess_log_rotation import (
     assess_machine_rotation,
     )
 from jujupy import (
-    EnvJujuClient,
+    ModelClient,
     fake_juju_client,
     fake_juju_client_optional_jes,
     JujuData,
@@ -160,7 +160,7 @@ class TestTestDebugLog(TestCase):
 
     def test_happy_log(self):
         client = Mock()
-        client.get_juju_output.return_value = '\n'*100
+        client.get_juju_output.return_value = '\n' * 100
         # Ensure that no exception is raised
         assess_debug_log(client, timeout=120)
         client.get_juju_output.assert_called_once_with(
@@ -206,7 +206,7 @@ class TestParseArgs(TestCase):
         self.assertEqual(args, Namespace(
             agent='machine', env='b', juju_bin='c/juju', logs='d',
             temp_env_name='e', debug=False, agent_stream=None, agent_url=None,
-            bootstrap_host=None, machine=[], keep_env=False,
+            bootstrap_host=None, machine=[], keep_env=False, to=None,
             region=None, series=None, upload_tools=False, verbose=20))
 
     def test_parse_args_unit(self):
@@ -220,11 +220,11 @@ class TestMakeClientFromArgs(TestCase):
     def make_client_cxt(self):
         with temp_env({'environments': {'foo': {}}}):
             with patch('subprocess.check_output', return_value=''):
-                with patch('jujupy.EnvJujuClient.get_jes_command',
+                with patch('jujupy.ModelClient.get_jes_command',
                            autospec=True, return_value='controller'):
-                    with patch('jujupy.EnvJujuClient.juju',
+                    with patch('jujupy.ModelClient.juju',
                                autospec=True, return_value=''):
-                        with patch('jujupy.EnvJujuClient.kill_controller',
+                        with patch('jujupy.ModelClient.kill_controller',
                                    autospec=True) as kill_func:
                             with patch.object(JujuData, 'load_yaml'):
                                 yield kill_func
@@ -236,6 +236,6 @@ class TestMakeClientFromArgs(TestCase):
                 agent_url=None, agent_stream=None, series=None, region=None,
                 bootstrap_host=None, machine=[]
                 ))
-        self.assertIsInstance(client, EnvJujuClient)
+        self.assertIsInstance(client, ModelClient)
         self.assertIn('/jes-homes/bar', client.env.juju_home)
         kill_func.assert_called_once_with(client)

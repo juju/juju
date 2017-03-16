@@ -17,21 +17,23 @@ from mock import (
     )
 import yaml
 
-from jujuconfig import (
-    get_jenv_path,
-    )
 from jujupy import (
+    AuthNotAccepted,
     fake_juju_client,
-    EnvJujuClient,
+    InvalidEndpoint,
     JujuData,
     JUJU_DEV_FEATURE_FLAGS,
     JESNotSupported,
+    ModelClient,
+    NameNotAccepted,
     SimpleEnvironment,
     Status,
     _temp_env as temp_env,
+    TypeNotAccepted,
     )
 from jujupy.client import (
     CannotConnectEnv,
+    get_bootstrap_config_path,
     GroupReporter,
     StatusItem,
     StatusNotMet,
@@ -39,16 +41,26 @@ from jujupy.client import (
     UpgradeMongoNotSupported,
     WaitMachineNotPresent,
     )
+from jujupy.configuration import get_jenv_path
+from jujupy.fake import (
+    FakeBackend,
+    FakeControllerState,
+    FakeBackend2_1,
+    )
 from jujupy.version_client import (
     BootstrapMismatch,
+    client_for_existing,
     client_from_config,
     EnvJujuClient1X,
     EnvJujuClient22,
     EnvJujuClient24,
     EnvJujuClient25,
-    EnvJujuClientRC,
+    get_client_class,
+    ModelClientRC,
     IncompatibleConfigClass,
     Juju1XBackend,
+    ModelClient2_0,
+    ModelClient2_1,
     VersionNotTestedError,
     Status1X,
     )
@@ -62,8 +74,9 @@ from tests import (
     observable_temp_file,
     TestCase
     )
-from utility import (
+from jujupy.utility import (
     get_timeout_path,
+    temp_dir,
     )
 
 
@@ -87,7 +100,7 @@ class TestClientFromConfig(ClientTest):
     @patch.object(JujuData, 'from_config', return_value=JujuData('', {}))
     @patch.object(SimpleEnvironment, 'from_config',
                   return_value=SimpleEnvironment('', {}))
-    @patch.object(EnvJujuClient, 'get_full_path', return_value='fake-path')
+    @patch.object(ModelClient, 'get_full_path', return_value='fake-path')
     def test_from_config(self, gfp_mock, se_fc_mock, jd_fc_mock):
         def juju_cmd_iterator():
             yield '1.17'
@@ -122,9 +135,11 @@ class TestClientFromConfig(ClientTest):
             yield '2.0-rc2'
             yield '2.0-rc3'
             yield '2.0-delta1'
+            yield '2.1.0'
+            yield '2.2.0'
 
         context = patch.object(
-            EnvJujuClient, 'get_version',
+            ModelClient, 'get_version',
             side_effect=juju_cmd_iterator().send)
         with context:
             self.assertIs(EnvJujuClient1X,
@@ -170,15 +185,18 @@ class TestClientFromConfig(ClientTest):
             test_fc('2.0-beta13', None)
             test_fc('2.0-beta14', None)
             test_fc('2.0-beta15', None)
-            test_fc('2.0-rc1', EnvJujuClientRC)
-            test_fc('2.0-rc2', EnvJujuClientRC)
-            test_fc('2.0-rc3', EnvJujuClientRC)
-            test_fc('2.0-delta1', EnvJujuClient)
+            test_fc('2.0-rc1', ModelClientRC)
+            test_fc('2.0-rc2', ModelClientRC)
+            test_fc('2.0-rc3', ModelClientRC)
+            test_fc('2.0-delta1', ModelClient2_0)
+            test_fc('2.1.0', ModelClient2_1)
+            test_fc('2.2.0', ModelClient)
             with self.assertRaises(StopIteration):
                 client_from_config('foo', None)
 
     def test_client_from_config_path(self):
-        with patch('subprocess.check_output', return_value=' 4.3') as vsn:
+        with patch('subprocess.check_output',
+                   return_value=' 4.3'.encode('ascii')) as vsn:
             with patch.object(JujuData, 'from_config'):
                 client = client_from_config('foo', 'foo/bar/qux')
         vsn.assert_called_once_with(('foo/bar/qux', '--version'))
@@ -187,7 +205,8 @@ class TestClientFromConfig(ClientTest):
 
     def test_client_from_config_keep_home(self):
         env = JujuData({}, juju_home='/foo/bar')
-        with patch('subprocess.check_output', return_value='2.0.0'):
+        with patch('subprocess.check_output',
+                   return_value='2.0.0'.encode('ascii')):
             with patch.object(JujuData, 'from_config',
                               side_effect=lambda x: JujuData(x, {})):
                 client_from_config('foo', 'foo/bar/qux')
@@ -195,7 +214,8 @@ class TestClientFromConfig(ClientTest):
 
     def test_client_from_config_deadline(self):
         deadline = datetime(2012, 11, 10, 9, 8, 7)
-        with patch('subprocess.check_output', return_value='2.0.0'):
+        with patch('subprocess.check_output',
+                   return_value='2.0.0'.encode('ascii')):
             with patch.object(JujuData, 'from_config',
                               side_effect=lambda x: JujuData(x, {})):
                 client = client_from_config(
@@ -203,13 +223,152 @@ class TestClientFromConfig(ClientTest):
         self.assertEqual(client._backend.soft_deadline, deadline)
 
 
-class TestEnvJujuClientRC(ClientTest):
+class TestClientForExisting(ClientTest):
+
+    def test_client_for_existing(self):
+        state = FakeControllerState()
+        state.name = 'ctrl1'
+        state.active_model = 'model1'
+        backend = FakeBackend(state, version='2.0.73', full_path='/path/juju')
+        with patch.object(ModelClient, 'get_version',
+                          return_value=backend.version) as gv_mock:
+            client_class = get_client_class(backend.version)
+            with patch.object(client_class, 'default_backend',
+                              return_value=backend) as db_mock:
+                with temp_dir() as juju_data:
+                    with open(get_bootstrap_config_path(juju_data), 'w') as f:
+                        yaml.safe_dump({'controllers': {'ctrl1': {
+                            'controller-config': {
+                                },
+                            'model-config': {
+                                },
+                            'cloud': 'cloud1',
+                            'region': 'region1',
+                            'type': 'provider1',
+                            }}}, f)
+                    client = client_for_existing(backend.full_path, juju_data)
+        self.assertEqual(client.model_name, 'model1')
+        self.assertEqual(client.env.controller.name, 'ctrl1')
+        self.assertEqual(client.env.get_cloud(), 'cloud1')
+        self.assertEqual(client.env.get_region(), 'region1')
+        self.assertEqual(client.env.provider, 'provider1')
+        gv_mock.assert_called_once_with(backend.full_path)
+        db_mock.assert_called_once_with(backend.full_path, backend.version,
+                                        set(), debug=False, soft_deadline=None)
+
+
+class TestModelClient2_1(ClientTest):
+
+    client_version = '2.1.0'
+
+    client_class = ModelClient2_1
+
+    fake_backend_class = FakeBackend2_1
+
+    def test_basics(self):
+        self.check_basics()
+
+    def test_add_cloud_interactive_maas(self):
+        client = self.fake_juju_client()
+        clouds = {'foo': {
+            'type': 'maas',
+            'endpoint': 'http://bar.example.com',
+            }}
+        client.add_cloud_interactive('foo', clouds['foo'])
+        self.assertEqual(client._backend.clouds, clouds)
+
+    def test_add_cloud_interactive_maas_invalid_endpoint(self):
+        client = self.fake_juju_client()
+        clouds = {'foo': {
+            'type': 'maas',
+            'endpoint': 'B' * 4000,
+            }}
+        with self.assertRaises(InvalidEndpoint):
+            client.add_cloud_interactive('foo', clouds['foo'])
+
+    def test_add_cloud_interactive_manual(self):
+        client = self.fake_juju_client()
+        clouds = {'foo': {'type': 'manual', 'endpoint': '127.100.100.1'}}
+        client.add_cloud_interactive('foo', clouds['foo'])
+        self.assertEqual(client._backend.clouds, clouds)
+
+    def test_add_cloud_interactive_manual_invalid_endpoint(self):
+        client = self.fake_juju_client()
+        clouds = {'foo': {'type': 'manual', 'endpoint': 'B' * 4000}}
+        with self.assertRaises(InvalidEndpoint):
+            client.add_cloud_interactive('foo', clouds['foo'])
+
+    def get_openstack_clouds(self):
+        return {'foo': {
+            'type': 'openstack',
+            'endpoint': 'http://bar.example.com',
+            'auth-types': ['oauth1', 'oauth12'],
+            'regions': {
+                'harvey': {'endpoint': 'http://harvey.example.com'},
+                'steve': {'endpoint': 'http://steve.example.com'},
+                }
+            }}
+
+    def test_add_cloud_interactive_openstack(self):
+        client = self.fake_juju_client()
+        clouds = self.get_openstack_clouds()
+        client.add_cloud_interactive('foo', clouds['foo'])
+        self.assertEqual(client._backend.clouds, clouds)
+
+    def test_add_cloud_interactive_openstack_invalid_endpoint(self):
+        client = self.fake_juju_client()
+        clouds = self.get_openstack_clouds()
+        clouds['foo']['endpoint'] = 'B' * 4000
+        with self.assertRaises(InvalidEndpoint):
+            client.add_cloud_interactive('foo', clouds['foo'])
+
+    def test_add_cloud_interactive_openstack_invalid_region_endpoint(self):
+        client = self.fake_juju_client()
+        clouds = self.get_openstack_clouds()
+        clouds['foo']['regions']['harvey']['endpoint'] = 'B' * 4000
+        with self.assertRaises(InvalidEndpoint):
+            client.add_cloud_interactive('foo', clouds['foo'])
+
+    def test_add_cloud_interactive_openstack_invalid_auth(self):
+        client = self.fake_juju_client()
+        clouds = self.get_openstack_clouds()
+        clouds['foo']['auth-types'] = ['invalid', 'oauth12']
+        with self.assertRaises(AuthNotAccepted):
+            client.add_cloud_interactive('foo', clouds['foo'])
+
+    def test_add_cloud_interactive_vsphere(self):
+        client = self.fake_juju_client()
+        clouds = {'foo': {
+            'type': 'vsphere',
+            'endpoint': 'http://bar.example.com',
+            'regions': {
+                'harvey': {},
+                'steve': {},
+                }
+            }}
+        client.add_cloud_interactive('foo', clouds['foo'])
+        self.assertEqual(client._backend.clouds, clouds)
+
+    def test_add_cloud_interactive_bogus(self):
+        client = self.fake_juju_client()
+        clouds = {'foo': {'type': 'bogus'}}
+        with self.assertRaises(TypeNotAccepted):
+            client.add_cloud_interactive('foo', clouds['foo'])
+
+    def test_add_cloud_interactive_invalid_name(self):
+        client = self.fake_juju_client()
+        cloud = {'type': 'manual', 'endpoint': 'example.com'}
+        with self.assertRaises(NameNotAccepted):
+            client.add_cloud_interactive('invalid/name', cloud)
+
+
+class TestModelClientRC(ClientTest):
 
     def test_bootstrap(self):
         env = JujuData('foo', {'type': 'bar', 'region': 'baz'})
         with observable_temp_file() as config_file:
-            with patch.object(EnvJujuClientRC, 'juju') as mock:
-                client = EnvJujuClientRC(env, '2.0-zeta1', None)
+            with patch.object(ModelClientRC, 'juju') as mock:
+                client = ModelClientRC(env, '2.0-zeta1', None)
                 client.bootstrap()
                 mock.assert_called_with(
                     'bootstrap', ('--constraints', 'mem=2G',
@@ -249,14 +408,15 @@ class TestEnvJujuClient1X(ClientTest):
             client.get_model_uuid()
 
     def test_get_version(self):
-        value = ' 5.6 \n'
+        value = ' 5.6 \n'.encode('ascii')
         with patch('subprocess.check_output', return_value=value) as vsn:
             version = EnvJujuClient1X.get_version()
         self.assertEqual('5.6', version)
         vsn.assert_called_with(('juju', '--version'))
 
     def test_get_version_path(self):
-        with patch('subprocess.check_output', return_value=' 4.3') as vsn:
+        with patch('subprocess.check_output',
+                   return_value=' 4.3'.encode('ascii')) as vsn:
             EnvJujuClient1X.get_version('foo/bar/baz')
         vsn.assert_called_once_with(('foo/bar/baz', '--version'))
 
@@ -354,7 +514,7 @@ class TestEnvJujuClient1X(ClientTest):
 
     def test_bootstrap_async(self):
         env = SimpleEnvironment('foo')
-        with patch.object(EnvJujuClient, 'juju_async', autospec=True) as mock:
+        with patch.object(ModelClient, 'juju_async', autospec=True) as mock:
             client = EnvJujuClient1X(env, None, None)
             client.env.juju_home = 'foo'
             with client.bootstrap_async():
@@ -363,7 +523,7 @@ class TestEnvJujuClient1X(ClientTest):
 
     def test_bootstrap_async_upload_tools(self):
         env = SimpleEnvironment('foo')
-        with patch.object(EnvJujuClient, 'juju_async', autospec=True) as mock:
+        with patch.object(ModelClient, 'juju_async', autospec=True) as mock:
             client = EnvJujuClient1X(env, None, None)
             with client.bootstrap_async(upload_tools=True):
                 mock.assert_called_with(
@@ -501,7 +661,7 @@ class TestEnvJujuClient1X(ClientTest):
         fake_popen = FakePopen('asdf', None, 0)
         with patch('subprocess.Popen', return_value=fake_popen) as mock:
             result = client.get_juju_output('bar')
-        self.assertEqual('asdf', result)
+        self.assertEqual('asdf'.encode('ascii'), result)
         self.assertEqual((('juju', '--show-log', 'bar', '-e', 'foo'),),
                          mock.call_args[0])
 
@@ -511,7 +671,7 @@ class TestEnvJujuClient1X(ClientTest):
         client = EnvJujuClient1X(env, None, 'juju')
         with patch('subprocess.Popen', return_value=fake_popen) as mock:
             result = client.get_juju_output('bar', 'baz', '--qux')
-        self.assertEqual('asdf', result)
+        self.assertEqual('asdf'.encode('ascii'), result)
         self.assertEqual((('juju', '--show-log', 'bar', '-e', 'foo', 'baz',
                            '--qux'),), mock.call_args[0])
 
@@ -522,8 +682,8 @@ class TestEnvJujuClient1X(ClientTest):
         with self.assertRaises(subprocess.CalledProcessError) as exc:
             with patch('subprocess.Popen', return_value=fake_popen):
                 client.get_juju_output('bar')
-        self.assertEqual(exc.exception.output, 'Hello')
-        self.assertEqual(exc.exception.stderr, 'Error!')
+        self.assertEqual(exc.exception.output, 'Hello'.encode('ascii'))
+        self.assertEqual(exc.exception.stderr, 'Error!'.encode('ascii'))
 
     def test_get_juju_output_full_cmd(self):
         env = SimpleEnvironment('foo')
@@ -571,7 +731,7 @@ class TestEnvJujuClient1X(ClientTest):
                 - a
                 - b
                 - c
-                """)
+                """).encode('ascii')
         env = SimpleEnvironment('foo')
         client = EnvJujuClient1X(env, None, None)
         with patch.object(client, 'get_juju_output',
@@ -589,7 +749,7 @@ class TestEnvJujuClient1X(ClientTest):
 
         def get_juju_output(command, *args, **kwargs):
             if client.attempt == 1:
-                return '"hello"'
+                return '"hello"'.encode('ascii')
             client.attempt += 1
             raise subprocess.CalledProcessError(1, command)
 
@@ -627,7 +787,7 @@ class TestEnvJujuClient1X(ClientTest):
             - a
             - b
             - c
-        """
+        """.encode('ascii')
         env = SimpleEnvironment('foo')
         client = EnvJujuClient1X(env, None, None)
         with patch.object(client, 'get_juju_output',
@@ -648,7 +808,7 @@ class TestEnvJujuClient1X(ClientTest):
                 units:
                   jenkins/0:
                     {0}: {2}
-        """.format(key, machine_value, unit_value))
+        """.format(key, machine_value, unit_value)).encode('ascii')
 
     def test_deploy_non_joyent(self):
         env = EnvJujuClient1X(
@@ -712,7 +872,8 @@ class TestEnvJujuClient1X(ClientTest):
         with patch.object(client, 'get_juju_output', return_value=status_txt):
             result = list(client.status_until(-1))
         self.assertEqual(
-            [r.status for r in result], [Status.from_text(status_txt).status])
+            [r.status for r in result],
+            [Status.from_text(status_txt.decode('ascii')).status])
 
     def test_status_until_timeout(self):
         client = EnvJujuClient1X(
@@ -836,7 +997,8 @@ class TestEnvJujuClient1X(ClientTest):
                         'Timed out waiting for agents to start in local'):
                     client.wait_for_started(0)
             self.assertEqual(writes, ['pending: 0', '\n'])
-        self.assertEqual(self.log_stream.getvalue(), 'ERROR %s\n' % value)
+        self.assertEqual(self.log_stream.getvalue(),
+                         'ERROR %s\n' % value.decode('ascii'))
 
     def test_wait_for_subordinate_units(self):
         value = dedent("""\
@@ -858,7 +1020,7 @@ class TestEnvJujuClient1X(ClientTest):
                         agent-state: started
                       sub3/0:
                         agent-state: started
-        """)
+        """).encode('ascii')
         client = EnvJujuClient1X(SimpleEnvironment('local'), None, None)
         now = datetime.now() + timedelta(days=1)
         with patch('utility.until_timeout.now', return_value=now):
@@ -889,7 +1051,7 @@ class TestEnvJujuClient1X(ClientTest):
                     subordinates:
                       sub/1:
                         agent-state: started
-        """)
+        """).encode('ascii')
         client = EnvJujuClient1X(SimpleEnvironment('local'), None, None)
         now = datetime.now() + timedelta(days=1)
         with patch('utility.until_timeout.now', return_value=now):
@@ -916,7 +1078,7 @@ class TestEnvJujuClient1X(ClientTest):
                     subordinates:
                       sub1:
                         agent-state: started
-        """)
+        """).encode('ascii')
         client = EnvJujuClient1X(SimpleEnvironment('local'), None, None)
         now = datetime.now() + timedelta(days=1)
         with patch('utility.until_timeout.now', return_value=now):
@@ -937,7 +1099,7 @@ class TestEnvJujuClient1X(ClientTest):
                 units:
                   jenkins/0:
                     agent-state: started
-        """)
+        """).encode('ascii')
         client = EnvJujuClient1X(SimpleEnvironment('local'), None, None)
         now = datetime.now() + timedelta(days=1)
         with patch('utility.until_timeout.now', return_value=now):
@@ -950,6 +1112,7 @@ class TestEnvJujuClient1X(ClientTest):
 
     def test_wait_for_workload(self):
         initial_status = Status1X.from_text("""\
+            machines: {}
             services:
               jenkins:
                 units:
@@ -1023,7 +1186,7 @@ class TestEnvJujuClient1X(ClientTest):
                 '2': {'state-server-member-status': 'has-vote'},
             },
             'services': {},
-        })
+        }).encode('ascii')
         client = EnvJujuClient1X(SimpleEnvironment('local'), None, None)
         with patch.object(client, 'get_juju_output', return_value=value):
             client.wait_for_ha()
@@ -1036,7 +1199,7 @@ class TestEnvJujuClient1X(ClientTest):
                 '2': {'state-server-member-status': 'no-vote'},
             },
             'services': {},
-        })
+        }).encode('ascii')
         client = EnvJujuClient1X(SimpleEnvironment('local'), None, None)
         with patch.object(client, 'get_juju_output', return_value=value):
             writes = []
@@ -1082,7 +1245,7 @@ class TestEnvJujuClient1X(ClientTest):
                     }
                 }
             }
-        })
+        }).encode('ascii')
         client = EnvJujuClient1X(SimpleEnvironment('local'), None, None)
         with patch.object(client, 'get_juju_output', return_value=value):
             client.wait_for_deploy_started()
@@ -1162,7 +1325,7 @@ class TestEnvJujuClient1X(ClientTest):
             'machines': {
                 '0': {'agent-state': 'started'},
             },
-        })
+        }).encode('utf-8')
         client = EnvJujuClient1X(SimpleEnvironment('local'), None, None)
         with patch.object(client, 'get_juju_output', return_value=value):
             client.wait_for(WaitMachineNotPresent('1'), quiet=True)
@@ -1173,7 +1336,7 @@ class TestEnvJujuClient1X(ClientTest):
                 '0': {'agent-state': 'started'},
                 '1': {'agent-state': 'started'},
             },
-        })
+        }).encode('ascii')
         client = EnvJujuClient1X(SimpleEnvironment('local'), None, None)
         with patch.object(client, 'get_juju_output', return_value=value), \
             patch('jujupy.client.until_timeout',
@@ -1222,7 +1385,8 @@ class TestEnvJujuClient1X(ClientTest):
         environ['JUJU_HOME'] = client.env.juju_home
         mock.assert_called_with(
             ('juju', '--show-log', 'set-env', '-e', 'foo',
-             'tools-metadata-url=https://example.org/juju/tools'))
+             'tools-metadata-url=https://example.org/juju/tools'),
+            stderr=None)
 
     def test_unset_env_option(self):
         env = SimpleEnvironment('foo')
@@ -1233,7 +1397,7 @@ class TestEnvJujuClient1X(ClientTest):
         environ['JUJU_HOME'] = client.env.juju_home
         mock.assert_called_with(
             ('juju', '--show-log', 'set-env', '-e', 'foo',
-             'tools-metadata-url='))
+             'tools-metadata-url='), stderr=None)
 
     @contextmanager
     def run_model_defaults_test(self, operation_name):
@@ -1286,7 +1450,7 @@ class TestEnvJujuClient1X(ClientTest):
         environ = dict(os.environ)
         environ['JUJU_HOME'] = client.env.juju_home
         mock.assert_called_with(('juju', '--show-log', 'foo', '-e', 'qux',
-                                 'bar', 'baz'))
+                                 'bar', 'baz'), stderr=None)
 
     def test_juju_env(self):
         env = SimpleEnvironment('qux')
@@ -1305,7 +1469,7 @@ class TestEnvJujuClient1X(ClientTest):
         with patch('subprocess.call') as mock:
             client.juju('foo', ('bar', 'baz'), check=False)
         mock.assert_called_with(('juju', '--show-log', 'foo', '-e', 'qux',
-                                 'bar', 'baz'))
+                                 'bar', 'baz'), stderr=None)
 
     def test_juju_no_check_env(self):
         env = SimpleEnvironment('qux')
@@ -1352,7 +1516,8 @@ class TestEnvJujuClient1X(ClientTest):
         with patch('subprocess.check_call', side_effect=check_env) as mock:
             client.juju('quickstart', ('bar', 'baz'), extra_env=extra_env)
         mock.assert_called_with(
-            ('juju', '--show-log', 'quickstart', '-e', 'qux', 'bar', 'baz'))
+            ('juju', '--show-log', 'quickstart', '-e', 'qux', 'bar', 'baz'),
+            stderr=None)
 
     def test_juju_backup_with_tgz(self):
         env = SimpleEnvironment('qux')
@@ -1658,7 +1823,7 @@ class TestEnvJujuClient1X(ClientTest):
         with patch.object(client, 'get_juju_output',
                           return_value='10.0.0.1:17070') as gjo_mock:
             endpoint = client.get_controller_endpoint()
-        self.assertEqual('10.0.0.1', endpoint)
+        self.assertEqual(('10.0.0.1', '17070'), endpoint)
         gjo_mock.assert_called_once_with('api-endpoints')
 
     def test_get_controller_endpoint_ipv6(self):
@@ -1667,7 +1832,7 @@ class TestEnvJujuClient1X(ClientTest):
         with patch.object(client, 'get_juju_output',
                           return_value='[::1]:17070') as gjo_mock:
             endpoint = client.get_controller_endpoint()
-        self.assertEqual('::1', endpoint)
+        self.assertEqual(('::1', '17070'), endpoint)
         gjo_mock.assert_called_once_with('api-endpoints')
 
     def test_action_do(self):
@@ -1706,7 +1871,7 @@ class TestEnvJujuClient1X(ClientTest):
     def test_action_fetch_timeout(self):
         client = EnvJujuClient1X(SimpleEnvironment(None, {'type': 'local'}),
                                  '1.23-series-arch', None)
-        ret = "status: pending\nfoo: bar"
+        ret = "status: pending\nfoo: bar".encode('ascii')
         with patch.object(EnvJujuClient1X,
                           'get_juju_output', return_value=ret):
             with self.assertRaisesRegexp(Exception,
@@ -2109,9 +2274,52 @@ class TestStatus1X(FakeHomeTestCase):
 
     def test_iter_status_data(self):
         iterator = self.run_iter_status()
-        self.assertEqual(iterator.next().status,
+        self.assertEqual(next(iterator).status,
                          dict(current='started', message='all good',
                               version='1.25.1'))
+
+    def test_iter_status_container(self):
+        status_dict = {'machines': {'0': {
+            'containers': {'0/lxd/0': {
+                'juju-status': 'bar',
+                }}
+            }}}
+        status = Status1X(status_dict, '')
+        self.assertEqual([
+            StatusItem(StatusItem.JUJU, '0', {}),
+            StatusItem(StatusItem.JUJU, '0/lxd/0', {}),
+            ], list(status.iter_status()))
+
+    def test_iter_status_subordinate(self):
+        status_dict = {
+            'machines': {},
+            'services': {
+                'dummy': {
+                    'service-status': {},
+                    'units': {'dummy/0': {
+                        'workload-status': {},
+                        'agent-status': {},
+                        'subordinates': {
+                            'dummy-sub/0': {
+                                'workload-status': {},
+                                'agent-status': {},
+                                }
+                            }
+                        }},
+                    }
+                },
+            }
+        status = Status1X(status_dict, '')
+        dummy_data = status.status['services']['dummy']
+        dummy_0_data = dummy_data['units']['dummy/0']
+        dummy_sub_0_data = dummy_0_data['subordinates']['dummy-sub/0']
+        self.assertEqual([
+            StatusItem(StatusItem.APPLICATION, 'dummy', {}),
+            StatusItem(StatusItem.WORKLOAD, 'dummy/0', dummy_0_data),
+            StatusItem(StatusItem.JUJU, 'dummy/0', {}),
+            StatusItem(StatusItem.WORKLOAD, 'dummy-sub/0', dummy_sub_0_data),
+            StatusItem(StatusItem.JUJU, 'dummy-sub/0', {}),
+            ], list(status.iter_status()))
 
 
 def fast_timeout(count):
