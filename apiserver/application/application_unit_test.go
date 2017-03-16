@@ -459,7 +459,7 @@ type mockStorage struct {
 	owner names.Tag
 }
 
-func (a *mockStorage) Tag() names.Tag {
+func (a *mockStorage) StorageTag() names.StorageTag {
 	return a.tag
 }
 
