@@ -8,7 +8,7 @@ github.com/coreos/go-systemd	git	7b2428fec40033549c68f54e26e89e7ca9a9ce31	2016-0
 github.com/dgrijalva/jwt-go	git	01aeca54ebda6e0fbfafd0a524d234159c05ec20	2016-07-05T20:30:06Z
 github.com/dustin/go-humanize	git	145fabdb1ab757076a70a886d092a3af27f66f4c	2014-12-28T07:11:48Z
 github.com/godbus/dbus	git	32c6cc29c14570de4cf6d7e7737d68fb2d01ad15	2016-05-06T22:25:50Z
-github.com/golang/protobuf	git	34a5f244f1c01cdfee8e60324258cfbb97a42aec	2015-05-26T01:21:09Z
+github.com/golang/protobuf	git	4bd1920723d7b7c925de087aa32e2187708897f7	2016-11-09T07:27:36Z
 github.com/google/go-querystring	git	9235644dd9e52eeae6fa48efd539fdc351a0af53	2016-04-01T23:30:42Z
 github.com/gorilla/schema	git	08023a0215e7fc27a9aecd8b8c50913c40019478	2016-04-26T23:15:12Z
 github.com/gorilla/websocket	git	804cb600d06b10672f2fbc0a336a7bee507a428e	2017-02-14T17:41:18Z
@@ -30,7 +30,7 @@ github.com/juju/gojsonschema	git	e1ad140384f254c82f89450d9a7c8dd38a632838	2015-0
 github.com/juju/gomaasapi	git	cfbc096bd45f276c17a391efc4db710b60ae3ad7	2017-02-27T07:51:07Z
 github.com/juju/httpprof	git	14bf14c307672fd2456bdbf35d19cf0ccd3cf565	2014-12-17T16:00:36Z
 github.com/juju/httprequest	git	266fd1e9debf09c037a63f074d099a2da4559ece	2016-10-06T15:09:09Z
-github.com/juju/idmclient	git	3dda079a75cccb85083d4c3877e638f5d6ab79c2	2016-05-26T05:00:34Z
+github.com/juju/idmclient	git	4dc25171f675da4206b71695d3fd80e519ad05c1	2017-02-09T16:27:49Z
 github.com/juju/jsonschema	git	a0ef8b74ebcffeeff9fc374854deb4af388f037e	2016-11-02T18:19:19Z
 github.com/juju/loggo	git	3b7ece48644d35850f4ced4c2cbc2cf8413f58e0	2016-08-18T02:57:24Z
 github.com/juju/mempool	git	24974d6c264fe5a29716e7d56ea24c4bd904b7cc	2016-02-05T10:49:27Z
@@ -40,7 +40,7 @@ github.com/juju/pubsub	git	9dcaca7eb4340dbf685aa7b3ad4cc4f8691a33d4	2016-07-28T0
 github.com/juju/replicaset	git	6b5becf2232ce76656ea765d8d915d41755a1513	2016-11-25T16:08:49Z
 github.com/juju/retry	git	62c62032529169c7ec02fa48f93349604c345e1f	2015-10-29T02:48:21Z
 github.com/juju/rfc	git	ebdbbdb950cd039a531d15cdc2ac2cbd94f068ee	2016-07-11T02:42:13Z
-github.com/juju/romulus	git	bf7827fa2f360ab762c134766ff1d4fff959ea03	2016-08-17T23:29:48Z
+github.com/juju/romulus	git	98d6700423d63971f10ca14afea9ecf2b9b99f0f	2017-01-23T14:29:29Z
 github.com/juju/schema	git	075de04f9b7d7580d60a1e12a0b3f50bb18e6998	2016-04-20T04:42:03Z
 github.com/juju/terms-client	git	9b925afd677234e4146dde3cb1a11e187cbed64e	2016-08-09T13:19:00Z
 github.com/juju/testing	git	fce9bc4ebf7a77310c262ac4884e03b778eae06a	2017-02-22T09:01:19Z
@@ -85,7 +85,7 @@ google.golang.org/api	git	0d3983fb069cb6651353fc44c5cb604e263f2a93	2014-12-10T23
 google.golang.org/cloud	git	f20d6dcccb44ed49de45ae3703312cb46e627db1	2015-03-19T22:36:35Z
 gopkg.in/amz.v3	git	8c3190dff075bf5442c9eedbf8f8ed6144a099e7	2016-12-15T13:08:49Z
 gopkg.in/check.v1	git	4f90aeace3a26ad7021961c297b22c42160c7b25	2016-01-05T16:49:36Z
-gopkg.in/errgo.v1	git	66cb46252b94c1f3d65646f54ee8043ab38d766c	2015-10-07T15:31:57Z
+gopkg.in/errgo.v1	git	442357a80af5c6bf9b6d51ae791a39c3421004f3	2016-12-22T12:58:16Z
 gopkg.in/goose.v1	git	ac43167b647feacdd9a1e34ee81e574551bc748d	2017-02-15T01:56:23Z
 gopkg.in/ini.v1	git	776aa739ce9373377cd16f526cdf06cb4c89b40f	2016-02-22T23:24:41Z
 gopkg.in/juju/blobstore.v2	git	51fa6e26128d74e445c72d3a91af555151cc3654	2016-01-25T02:37:03Z
@@ -94,8 +94,8 @@ gopkg.in/juju/charmrepo.v2-unstable	git	e79aa298df89ea887c9bffec46063c24bfb730f7
 gopkg.in/juju/charmstore.v5-unstable	git	fd1eef3002fc6b6daff5e97efab6f5056d22dcc7	2016-09-16T10:09:07Z
 gopkg.in/juju/environschema.v1	git	7359fc7857abe2b11b5b3e23811a9c64cb6b01e0	2015-11-04T11:58:10Z
 gopkg.in/juju/jujusvg.v2	git	d82160011935ef79fc7aca84aba2c6f74700fe75	2016-06-09T10:52:15Z
-gopkg.in/juju/names.v2	git	3317ff7471a685109e262892b5f81b940ad5782f	2016-10-05T07:27:06Z
-gopkg.in/juju/worker.v1	git	8b18096b52dc89d0160eea0a6484175f2b80aa0d	2016-10-03T16:17:01Z
+gopkg.in/juju/names.v2	git	0847c26d322a121e52614f969fb82eae2820c715	2016-11-02T13:43:03Z
+gopkg.in/juju/worker.v1	git	6965b9d826717287bb002e02d1fd4d079978083e	2017-03-08T00:24:58Z
 gopkg.in/macaroon-bakery.v1	git	469b44e6f1f9479e115c8ae879ef80695be624d5	2016-06-22T12:14:21Z
 gopkg.in/macaroon.v1	git	ab3940c6c16510a850e1c2dd628b919f0f3f1464	2015-01-21T11:42:31Z
 gopkg.in/mgo.v2	git	f2b6f6c918c452ad107eec89615f074e3bd80e33	2016-08-18T01:52:18Z

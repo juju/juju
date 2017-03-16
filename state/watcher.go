@@ -22,7 +22,6 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state/watcher"
-	"github.com/juju/juju/state/workers"
 
 	// TODO(fwereade): 2015-11-18 lp:1517428
 	//
@@ -101,7 +100,7 @@ func newCommonWatcher(backend modelBackend) commonWatcher {
 type commonWatcher struct {
 	backend modelBackend
 	db      Database
-	watcher workers.TxnLogWatcher
+	watcher *watcher.Watcher
 	tomb    tomb.Tomb
 }
 

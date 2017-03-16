@@ -1187,7 +1187,7 @@ func (u *Unit) assertCharmOps(ch *Charm) []txn.Op {
 
 // AgentPresence returns whether the respective remote agent is alive.
 func (u *Unit) AgentPresence() (bool, error) {
-	pwatcher := u.st.workers.PresenceWatcher()
+	pwatcher := u.st.workers.presenceWatcher()
 	return pwatcher.Alive(u.globalAgentKey())
 }
 
@@ -1208,7 +1208,7 @@ func (u *Unit) UnitTag() names.UnitTag {
 func (u *Unit) WaitAgentPresence(timeout time.Duration) (err error) {
 	defer errors.DeferredAnnotatef(&err, "waiting for agent of unit %q", u)
 	ch := make(chan presence.Change)
-	pwatcher := u.st.workers.PresenceWatcher()
+	pwatcher := u.st.workers.presenceWatcher()
 	pwatcher.Watch(u.globalAgentKey(), ch)
 	defer pwatcher.Unwatch(u.globalAgentKey(), ch)
 	for i := 0; i < 2; i++ {
