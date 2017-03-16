@@ -66,11 +66,13 @@ func NewDumpDBCommandForTest(api DumpDBAPI, store jujuclient.ClientStore) cmd.Co
 // NewDestroyCommandForTest returns a DestroyCommand with the api provided as specified.
 func NewDestroyCommandForTest(
 	api DestroyModelAPI,
+	configApi ModelConfigAPI,
 	refreshFunc func(jujuclient.ClientStore, string) error, store jujuclient.ClientStore,
 	sleepFunc func(time.Duration),
 ) cmd.Command {
 	cmd := &destroyCommand{
 		api:           api,
+		configApi:     configApi,
 		RefreshModels: refreshFunc,
 		sleepFunc:     sleepFunc,
 	}
@@ -107,3 +109,5 @@ func NewRevokeCommandForTest(api RevokeModelAPI, store jujuclient.ClientStore) (
 	cmd.SetClientStore(store)
 	return modelcmd.WrapController(cmd), &RevokeCommand{cmd}
 }
+
+var GetBudgetAPIClient = &getBudgetAPIClient

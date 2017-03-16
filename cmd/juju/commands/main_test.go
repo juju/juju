@@ -522,7 +522,6 @@ var commandNames = []string{
 	"switch",
 	"sync-tools",
 	"unexpose",
-	"update-allocation",
 	"upload-backup",
 	"unregister",
 	"update-clouds",

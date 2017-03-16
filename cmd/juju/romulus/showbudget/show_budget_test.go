@@ -62,30 +62,28 @@ func (s *showBudgetSuite) TestShowBudgetCommand(c *gc.C) {
 		args:   []string{"personal"},
 		budget: "personal",
 		output: "" +
-			"MODEL      \tSERVICES \tSPENT\tALLOCATED\tBY       \tUSAGE\n" +
-			"model.joe  \tmysql    \t  200\t     1200\tuser.joe \t  42%\n" +
-			"           \twordpress\t  300\t         \t         \n" +
-			"model.jess \tlandscape\t  600\t     1000\tuser.jess\t  60%\n" +
-			"uuid3      \tmysql    \t   10\t      100\tuser.bob \t  10%\n" +
-			"           \t         \t     \t         \t         \n" +
-			"TOTAL      \t         \t 1110\t     2300\t         \t  48%\n" +
-			"BUDGET     \t         \t     \t     4000\t         \n" +
-			"UNALLOCATED\t         \t     \t     1700\t         \n",
+			"Model      \tSpent\tAllocated\t       By\tUsage\n" +
+			"model.joe  \t500  \t     1200\t user.joe\t42%  \n" +
+			"model.jess \t600  \t     1000\tuser.jess\t60%  \n" +
+			"uuid3      \t10   \t      100\t user.bob\t10%  \n" +
+			"           \t     \t         \t         \n" +
+			"Total      \t1110 \t     2300\t         \t48%  \n" +
+			"Budget     \t     \t     4000\t         \n" +
+			"Unallocated\t     \t     1700\t         \n",
 	}, {
-		about:      "all ok",
+		about:      "resolve error",
 		args:       []string{"personal"},
 		budget:     "personal",
 		resolveerr: "test error",
 		output: "" +
-			"MODEL      \tSERVICES \tSPENT\tALLOCATED\tBY       \tUSAGE\n" +
-			"uuid1      \tmysql    \t  200\t     1200\tuser.joe \t  42%\n" +
-			"           \twordpress\t  300\t         \t         \n" +
-			"uuid2      \tlandscape\t  600\t     1000\tuser.jess\t  60%\n" +
-			"uuid3      \tmysql    \t   10\t      100\tuser.bob \t  10%\n" +
-			"           \t         \t     \t         \t         \n" +
-			"TOTAL      \t         \t 1110\t     2300\t         \t  48%\n" +
-			"BUDGET     \t         \t     \t     4000\t         \n" +
-			"UNALLOCATED\t         \t     \t     1700\t         \n",
+			"Model      \tSpent\tAllocated\t       By\tUsage\n" +
+			"uuid1      \t500  \t     1200\t user.joe\t42%  \n" +
+			"uuid2      \t600  \t     1000\tuser.jess\t60%  \n" +
+			"uuid3      \t10   \t      100\t user.bob\t10%  \n" +
+			"           \t     \t         \t         \n" +
+			"Total      \t1110 \t     2300\t         \t48%  \n" +
+			"Budget     \t     \t     4000\t         \n" +
+			"Unallocated\t     \t     1700\t         \n",
 	},
 	}
 
@@ -168,35 +166,17 @@ func (api *mockBudgetAPI) GetBudget(name string) (*budget.BudgetWithAllocations,
 			Consumed: "500",
 			Usage:    "42%",
 			Model:    "uuid1",
-			Services: map[string]budget.ServiceAllocation{
-				"wordpress": budget.ServiceAllocation{
-					Consumed: "300",
-				},
-				"mysql": budget.ServiceAllocation{
-					Consumed: "200",
-				},
-			},
 		}, {
 			Owner:    "user.jess",
 			Limit:    "1000",
 			Consumed: "600",
 			Usage:    "60%",
 			Model:    "uuid2",
-			Services: map[string]budget.ServiceAllocation{
-				"landscape": budget.ServiceAllocation{
-					Consumed: "600",
-				},
-			},
 		}, {
 			Owner:    "user.bob",
 			Limit:    "100",
 			Consumed: "10",
 			Usage:    "10%",
 			Model:    "uuid3",
-			Services: map[string]budget.ServiceAllocation{
-				"mysql": budget.ServiceAllocation{
-					Consumed: "10",
-				},
-			},
 		}}}, api.NextErr()
 }
