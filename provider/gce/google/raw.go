@@ -382,3 +382,22 @@ func (rc *rawConn) SetMetadata(projectID, zone, instanceID string, metadata *com
 	err = rc.waitOperation(projectID, op, attemptsLong)
 	return errors.Trace(err)
 }
+
+func (rc *rawConn) ListSubnetworks(projectID, region string) ([]*compute.Subnetwork, error) {
+	call := rc.Subnetworks.List(projectID, region)
+	var results []*compute.Subnetwork
+	for {
+		subnetworks, err := call.Do()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		for _, subnet := range subnetworks.Items {
+			results = append(results, subnet)
+		}
+		if subnetworks.NextPageToken == "" {
+			break
+		}
+		call = call.PageToken(subnetworks.NextPageToken)
+	}
+	return results, nil
+}

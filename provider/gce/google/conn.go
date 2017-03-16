@@ -76,6 +76,8 @@ type rawConnectionWrapper interface {
 	InstanceDisks(project, zone, instanceId string) ([]*compute.AttachedDisk, error)
 	// ListMachineTypes returns a list of machines available in the project and zone provided.
 	ListMachineTypes(projectID, zone string) (*compute.MachineTypeList, error)
+	// ListSubnetworks returns a list of subnets available in the given project and zone.
+	ListSubnetworks(projectID, zone string) ([]*compute.Subnetwork, error)
 }
 
 // TODO(ericsnow) Add specific error types for common failures
