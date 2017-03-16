@@ -61,7 +61,6 @@ from jujupy.version_client import (
     Juju1XBackend,
     ModelClient2_0,
     ModelClient2_1,
-    ModelClient2_2,
     VersionNotTestedError,
     Status1X,
     )
@@ -191,7 +190,7 @@ class TestClientFromConfig(ClientTest):
             test_fc('2.0-rc3', ModelClientRC)
             test_fc('2.0-delta1', ModelClient2_0)
             test_fc('2.1.0', ModelClient2_1)
-            test_fc('2.2.0', ModelClient2_2)
+            test_fc('2.2.0', ModelClient)
             with self.assertRaises(StopIteration):
                 client_from_config('foo', None)
 

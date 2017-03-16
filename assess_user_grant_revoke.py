@@ -30,7 +30,6 @@ from utility import (
     configure_logging,
     temp_dir,
     )
-from jujupy.version_client import ModelClient2_2
 
 __metaclass__ = type
 
@@ -250,15 +249,8 @@ def assert_logout_login(controller_client, user_client, user, fake_home):
     controller_name = '{}_controller'.format(username)
     client = controller_client.create_cloned_environment(
         fake_home, controller_name, user.name)
-
-    # juju cli changed post 2.1 to require -u for user logins
-    login_user_arg = ''
-    if isinstance(client, ModelClient2_2):
-        login_user_arg = '-u'
-
     try:
-        child = client.expect('login', login_user_arg,
-                              (user.name, '-c', controller_name),
+        child = client.expect('login', (user.name, '-c', controller_name),
                               include_e=False)
         # This scenario is pre-macaroon.
         # See https://bugs.launchpad.net/bugs/1621532
