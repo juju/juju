@@ -92,12 +92,12 @@ def attempt_terminate_instances(account, instance_ids):
         except Exception as e:
             # Using too broad exception here because terminate_instances method
             # is handlers specific
-            uncleaned_instances.append((instance_id, e.message))
+            uncleaned_instances.append((instance_id, repr(e)))
     return uncleaned_instances
 
 
 def contains_only_known_instances(known_instance_ids, possibly_known_ids):
-    """ Identify instance_id_list only contains ids we know about.
+    """Identify instance_id_list only contains ids we know about.
 
     :param known_instance_ids: The list of instance_ids (superset)
     :param possibly_known_ids: The list of instance_ids (subset)
@@ -193,7 +193,7 @@ class AWSAccount:
         return unclean
 
     def cleanup_security_groups(self, instances, secgroups):
-        """ Destroy any security groups used only by `instances`.
+        """Destroy any security groups used only by `instances`.
 
         :param instances: The list of instance_ids
         :param secgroups: dict of security groups
@@ -212,7 +212,7 @@ class AWSAccount:
         return failures
 
     def get_security_groups(self, instances):
-        """ Get AWS configured security group
+        """Get AWS configured security group
         If instances list is specified then get security groups mapped
         to those instances only.
 
@@ -227,6 +227,10 @@ class AWSAccount:
         secgroups = [(sg.id, [id for id in sg.instances()])
                      for sg in all_groups]
         return secgroups
+
+    def terminate_instances(self, instance_ids):
+        """Terminate the specified instances."""
+        return self.client.terminate_instances(instance_ids=instance_ids)
 
     def ensure_cleanup(self, resource_details):
         """

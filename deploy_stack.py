@@ -521,8 +521,8 @@ def make_controller_strategy(client, tear_down_client, controller_host):
 
 
 def error_if_unclean(unclean_resources):
-    """
-    List all the resource that were not cleanup programmatically.
+    """List all the resource that were not cleaned up programmatically.
+
     :param unclean_resources: List of unclean resources
     """
     if unclean_resources:
