@@ -1,20 +1,47 @@
-// Copyright 2016 Canonical Ltd.
+// Copyright 2017 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package server
+package resourceshookcontext
 
 import (
+	"reflect"
+
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/api"
+	"github.com/juju/juju/state"
 )
 
-// FacadeVersion is the version of the current API facade.
-// (We start at 1 to distinguish from the default value.)
-const FacadeVersion = 1
+func init() {
+	common.RegisterHookContextFacade(
+		"ResourcesHookContext", 1,
+		newHookContextFacade,
+		reflect.TypeOf(&UnitFacade{}),
+	)
+}
+
+func newHookContextFacade(st *state.State, unit *state.Unit) (interface{}, error) {
+	res, err := st.Resources()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return NewUnitFacade(&resourcesUnitDataStore{res, unit}), nil
+}
+
+// resourcesUnitDatastore is a shim to elide serviceName from
+// ListResources.
+type resourcesUnitDataStore struct {
+	resources state.Resources
+	unit      *state.Unit
+}
+
+// ListResources implements resource/api/private/server.UnitDataStore.
+func (ds *resourcesUnitDataStore) ListResources() (resource.ServiceResources, error) {
+	return ds.resources.ListResources(ds.unit.ApplicationName())
+}
 
 // UnitDataStore exposes the data storage functionality needed here.
 // All functionality is tied to the unit's application.
