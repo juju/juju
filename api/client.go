@@ -159,12 +159,26 @@ func (c *Client) ProvisioningScript(args params.ProvisioningScriptParams) (scrip
 }
 
 // DestroyMachines removes a given set of machines.
+//
+// NOTE(axw) this exists only for backwards compatibility, when MachineManager
+// facade v3 is not available. The MachineManager.DestroyMachines method should
+// be preferred.
+//
+// TODO(axw) 2017-03-16 #1673323
+// Drop this in Juju 3.0.
 func (c *Client) DestroyMachines(machines ...string) error {
 	params := params.DestroyMachines{MachineNames: machines}
 	return c.facade.FacadeCall("DestroyMachines", params, nil)
 }
 
 // ForceDestroyMachines removes a given set of machines and all associated units.
+//
+// NOTE(axw) this exists only for backwards compatibility, when MachineManager
+// facade v3 is not available. The MachineManager.ForceDestroyMachines method
+// should be preferred.
+//
+// TODO(axw) 2017-03-16 #1673323
+// Drop this in Juju 3.0.
 func (c *Client) ForceDestroyMachines(machines ...string) error {
 	params := params.DestroyMachines{Force: true, MachineNames: machines}
 	return c.facade.FacadeCall("DestroyMachines", params, nil)

@@ -695,11 +695,11 @@ func (api *API) DestroyUnit(args params.Entities) (params.DestroyUnitResults, er
 			return nil, errors.Errorf("unit %q is a subordinate", name)
 		}
 		var info params.DestroyUnitInfo
-		storage, err := api.unitStorage(unit, true)
+		storage, err := common.UnitStorage(api.backend, unit.UnitTag())
 		if err != nil {
 			return nil, err
 		}
-		info.DestroyedStorage, info.DetachedStorage = classifyStorage(storage)
+		info.DestroyedStorage, info.DetachedStorage = common.ClassifyDetachedStorage(storage)
 		if err := unit.Destroy(); err != nil {
 			return nil, err
 		}
@@ -776,16 +776,31 @@ func (api *API) DestroyApplication(args params.Entities) (params.DestroyApplicat
 		if err != nil {
 			return nil, err
 		}
+		storageSeen := make(set.Tags)
 		for _, unit := range units {
 			info.DestroyedUnits = append(
 				info.DestroyedUnits,
 				params.Entity{unit.UnitTag().String()},
 			)
-			storage, err := api.unitStorage(unit, false)
+			storage, err := common.UnitStorage(api.backend, unit.UnitTag())
 			if err != nil {
 				return nil, err
 			}
-			destroyed, detached := classifyStorage(storage)
+
+			// Filter out storage we've already seen. Shared
+			// storage may be attached to multiple units.
+			var unseen []state.StorageInstance
+			for _, storage := range storage {
+				storageTag := storage.StorageTag()
+				if storageSeen.Contains(storageTag) {
+					continue
+				}
+				storageSeen.Add(storageTag)
+				unseen = append(unseen, storage)
+			}
+			storage = unseen
+
+			destroyed, detached := common.ClassifyDetachedStorage(storage)
 			info.DestroyedStorage = append(info.DestroyedStorage, destroyed...)
 			info.DetachedStorage = append(info.DetachedStorage, detached...)
 		}
@@ -1271,43 +1286,4 @@ func (api *API) DestroyRelation(args params.DestroyRelation) error {
 		return err
 	}
 	return rel.Destroy()
-}
-
-func (api *API) unitStorage(unit Unit, unitOnly bool) ([]state.StorageInstance, error) {
-	attachments, err := api.backend.UnitStorageAttachments(unit.UnitTag())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	instances := make([]state.StorageInstance, 0, len(attachments))
-	seen := make(set.Tags)
-	for _, attachment := range attachments {
-		storageTag := attachment.StorageInstance()
-		if seen.Contains(storageTag) {
-			continue
-		}
-		instance, err := api.backend.StorageInstance(attachment.StorageInstance())
-		if errors.IsNotFound(err) {
-			continue
-		} else if err != nil {
-			return nil, errors.Trace(err)
-		}
-		owner, hasOwner := instance.Owner()
-		if !hasOwner || (unitOnly && owner != unit.UnitTag()) {
-			continue
-		}
-		seen.Add(storageTag)
-		instances = append(instances, instance)
-	}
-	return instances, nil
-}
-
-func classifyStorage(storage []state.StorageInstance) (destroyed, detached []params.Entity) {
-	for _, storage := range storage {
-		// TODO(axw) we need to expose on StorageInstance
-		// whether or not it is detachable. Then we can
-		// decide here whether the storage will be detached
-		// or destroyed.
-		destroyed = append(destroyed, params.Entity{storage.Tag().String()})
-	}
-	return destroyed, detached
 }
