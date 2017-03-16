@@ -450,6 +450,11 @@ func (m *MetricBatch) Credentials() []byte {
 	return m.doc.Credentials
 }
 
+// SLACredentials returns any sla credentials associated with the metric batch.
+func (m *MetricBatch) SLACredentials() []byte {
+	return m.doc.SLACredentials
+}
+
 func setSentOps(batchUUIDs []string, deleteTime time.Time) []txn.Op {
 	ops := make([]txn.Op, len(batchUUIDs))
 	for i, u := range batchUUIDs {

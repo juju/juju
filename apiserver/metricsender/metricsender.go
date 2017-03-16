@@ -176,12 +176,13 @@ func ToWire(mb *state.MetricBatch) *wireformat.MetricBatch {
 		}
 	}
 	return &wireformat.MetricBatch{
-		UUID:        mb.UUID(),
-		ModelUUID:   mb.ModelUUID(),
-		UnitName:    mb.Unit(),
-		CharmUrl:    mb.CharmURL(),
-		Created:     mb.Created().UTC(),
-		Metrics:     metrics,
-		Credentials: mb.Credentials(),
+		UUID:           mb.UUID(),
+		ModelUUID:      mb.ModelUUID(),
+		UnitName:       mb.Unit(),
+		CharmUrl:       mb.CharmURL(),
+		Created:        mb.Created().UTC(),
+		Metrics:        metrics,
+		Credentials:    mb.Credentials(),
+		SLACredentials: mb.SLACredentials(),
 	}
 }
