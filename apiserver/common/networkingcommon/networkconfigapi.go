@@ -19,7 +19,6 @@ import (
 type NetworkConfigAPI struct {
 	st           *state.State
 	getCanModify common.GetAuthFunc
-	getAuthFunc  common.GetAuthFunc
 }
 
 func NewNetworkConfigAPI(st *state.State, getCanModify common.GetAuthFunc) *NetworkConfigAPI {
@@ -29,7 +28,7 @@ func NewNetworkConfigAPI(st *state.State, getCanModify common.GetAuthFunc) *Netw
 	}
 }
 
-func (api *NetworkConfigAPI) getMachine(tag names.Tag) (*state.Machine, error) {
+func (api *NetworkConfigAPI) getMachine(tag names.MachineTag) (*state.Machine, error) {
 	entity, err := api.st.FindEntity(tag)
 	if err != nil {
 		return nil, err
