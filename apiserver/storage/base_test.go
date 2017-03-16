@@ -88,7 +88,7 @@ const (
 	addStorageForUnitCall                   = "addStorageForUnit"
 	getBlockForTypeCall                     = "getBlockForType"
 	volumeAttachmentCall                    = "volumeAttachment"
-	destroyStorageAttachmentCall            = "destroyStorageAttachment"
+	detachStorageCall                       = "detachStorage"
 	destroyStorageInstanceCall              = "destroyStorageInstance"
 )
 
@@ -240,8 +240,8 @@ func (s *baseStorageSuite) constructState() *mockState {
 			val, found := s.blocks[t]
 			return val, found, nil
 		},
-		destroyStorageAttachment: func(storage names.StorageTag, unit names.UnitTag) error {
-			s.stub.AddCall(destroyStorageAttachmentCall, storage, unit)
+		detachStorage: func(storage names.StorageTag, unit names.UnitTag) error {
+			s.stub.AddCall(detachStorageCall, storage, unit)
 			if storage == s.storageTag && unit == s.unitTag {
 				return nil
 			}
