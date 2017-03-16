@@ -9,8 +9,7 @@ from charmhelpers.core.hookenv import (
 
 def main():
     unit_interfaces = interfaces()
-    dns_info = dns(unit_interfaces)
-    action_set({'dns': dns_info, 'interfaces': unit_interfaces})
+    action_set({'interfaces': unit_interfaces})
 
 
 def interfaces():
@@ -44,33 +43,6 @@ def interfaces():
                     all_keys.append(key)
                 interfaces[cur][key] = groupdict[key]
     return interfaces
-
-
-def dns(interfaces):
-    link_dns = {}
-    for interface, info in interfaces.items():
-        link_dns[interface] = {'ipv4': None, 'ipv6': None}
-        if info.get('inet'):
-            link_dns[interface]['ipv4'] = get_dns(interface)
-        if info.get('inet6'):
-            link_dns[interface]['ipv6'] = get_dns(interface, ipv6=True)
-    return link_dns
-
-
-def get_dns(interface, ipv6=False):
-    raw = None
-    if ipv6:
-        ver = '6'
-    else:
-        ver = '4'
-    cmd = 'nmcli device show {} | grep IP{}.DNS'.format(interface, ver)
-    try:
-        raw = subprocess.check_output(cmd, shell=True).decode("utf-8")
-    except subprocess.CalledProcessError as e:
-        print('Could not get dns due to error:\n {}'.format(e))
-    if raw:
-        return raw.split()[1]
-    return None
 
 
 if __name__ == "__main__":
