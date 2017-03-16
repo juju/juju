@@ -378,19 +378,40 @@ class AutoloadCredentials(FakeExpectChild):
 
 
 class PromptingExpectChild(FakeExpectChild):
+    """A fake ExpectChild based on prompt/response.
+
+    It accepts an iterator of prompts.  If that iterator supports send(),
+    the last input to sendline will be sent.
+
+    This allows fairly natural generators, e.g.:
+
+        foo = yield "Please give me foo".
+
+    You can also just iterate through prompts and retrieve the corresponding
+    values from self.values at the end.
+    """
 
     def __init__(self, backend, juju_home, extra_env, prompts):
         super(PromptingExpectChild, self).__init__(backend, juju_home,
                                                    extra_env)
-        self.prompts = iter(prompts)
+        self._prompts = iter(prompts)
         self.values = {}
         self.lines = []
+        # If not a generator, invoke next() instead of send.
+        self._send = getattr(self._prompts, 'send',
+                             lambda x: next(self._prompts))
+        self._send_line = None
+
+    @property
+    def prompts(self):
+        return self._prompts
 
     def expect(self, pattern):
         if type(pattern) is not list:
             pattern = [pattern]
         try:
-            prompt = next(self.prompts)
+            prompt = self._send(self._send_line)
+            self._send_line = None
         except StopIteration:
             if pexpect.EOF not in pattern:
                 raise
@@ -413,9 +434,12 @@ class PromptingExpectChild(FakeExpectChild):
         super(PromptingExpectChild, self).expect(regex)
 
     def sendline(self, line=''):
+        if self._send_line is not None:
+            raise ValueError('Sendline called twice with no expect.')
         full_match = self.match.group(0)
         self.values[full_match] = line.rstrip()
         self.lines.append((full_match, line))
+        self._send_line = line
 
 
 class RegisterHost(PromptingExpectChild):
@@ -489,47 +513,44 @@ class AddCloud(PromptingExpectChild):
 
     def iter_prompts(self):
         while True:
-            yield self.TYPE
-            if self.values[self.TYPE] != 'bogus':
+            provider_type = yield self.TYPE
+            if provider_type != 'bogus':
                 break
         while True:
-            yield self.name_prompt
-            if '/' not in self.values[self.name_prompt]:
+            name = yield self.name_prompt
+            if '/' not in name:
                 break
-        if self.values[self.TYPE] == 'maas':
-            yield self.API_ENDPOINT
-            endpoint = self.values[self.API_ENDPOINT]
+        if provider_type == 'maas':
+            endpoint = yield self.API_ENDPOINT
             while len(endpoint) > 1000:
                 yield self.cant_validate(endpoint)
-        elif self.values[self.TYPE] == 'manual':
-            yield self.HOST
-            endpoint = self.values[self.HOST]
+        elif provider_type == 'manual':
+            endpoint = yield self.HOST
             while len(endpoint) > 1000:
                 yield self.cant_validate(endpoint)
-        elif self.values[self.TYPE] == 'openstack':
-            yield self.CLOUD_ENDPOINT
-            endpoint = self.values[self.CLOUD_ENDPOINT]
+        elif provider_type == 'openstack':
+            endpoint = yield self.CLOUD_ENDPOINT
             while len(endpoint) > 1000:
                 yield self.cant_validate(endpoint)
             while True:
-                yield self.AUTH
-                if 'invalid' not in self.values[self.AUTH]:
+                auth = yield self.AUTH
+                if 'invalid' not in auth:
                     break
-            while self.values.get(self.ANOTHER_REGION) != 'n':
+            while True:
                 yield self.REGION_NAME
-                yield self.REGION_ENDPOINT
-                endpoint = self.values[self.REGION_ENDPOINT]
+                endpoint = yield self.REGION_ENDPOINT
                 if len(endpoint) > 1000:
                     yield self.cant_validate(endpoint)
-                yield self.ANOTHER_REGION
-        if self.values['Select cloud type:'] == 'vsphere':
-            yield self.CLOUD_ENDPOINT
-            endpoint = self.values[self.CLOUD_ENDPOINT]
+                if (yield self.ANOTHER_REGION) == 'n':
+                    break
+        elif provider_type == 'vsphere':
+            endpoint = yield self.CLOUD_ENDPOINT
             if len(endpoint) > 1000:
                 yield self.cant_validate(endpoint)
-            while self.values.get(self.ANOTHER_REGION) != 'n':
+            while True:
                 yield self.REGION_NAME
-                yield self.ANOTHER_REGION
+                if (yield self.ANOTHER_REGION) == 'n':
+                    break
 
     def close(self):
         cloud = {
