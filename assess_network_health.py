@@ -294,8 +294,8 @@ class AssessNetworkHealth:
                 for ip in target_ips:
                     result[app][unit][ip] = False
                     pattern = r"(pass)"
-                    out = client.run(['curl {}:80 -m 20'.format(ip)],
-                                     units=[unit], use_json=False)
+                    out = client.run(['curl {}:80'.format(ip)],
+                                     units=[unit])
                     match = re.search(pattern, json.dumps(out[0]))
                     if match:
                         result[app][unit][ip] = True

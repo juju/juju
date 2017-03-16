@@ -230,20 +230,6 @@ class TestAssessNetworkHealth(TestCase):
                                              'network-health-trusty')],
             client.mock_calls)
 
-    def test_juju_controller_visibility(self):
-        args = self.parse_args([])
-        net_health = AssessNetworkHealth(args)
-        client = fake_juju_client()
-        client.bootstrap()
-        now = datetime.now() + timedelta(days=1)
-        with patch('utility.until_timeout.now', return_value=now):
-            with patch.object(client, 'get_status', return_value=status):
-                with patch('subprocess.check_output',
-                           return_value=0):
-                    out = net_health.juju_controller_visibility(client)
-        expected = {'1': {'1.1.1.2': True}, '0': {'1.1.1.1': True}}
-        self.assertEqual(expected, out)
-
     def test_connect_to_existing_model_when_different(self):
         model = {'bar': 'baz'}
         args = self.parse_args([])
