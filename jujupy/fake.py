@@ -138,25 +138,29 @@ class FakeEnvironmentState:
         self.current_bundle = None
         self.model_config = None
         self.ssh_keys = []
+        self.machine_series = {}
 
     @property
     def state(self):
         return self.controller.state
 
-    def add_machine(self, host_name=None, machine_id=None):
+    def add_machine(self, host_name=None, machine_id=None, series=None):
         if machine_id is None:
             machine_id = str(next(self.machine_id_iter))
         self.machines.add(machine_id)
         if host_name is None:
             host_name = '{}.example.com'.format(machine_id)
         self.machine_host_names[machine_id] = host_name
+        if series is not None:
+            self.machine_series[machine_id] = series
         return machine_id
 
     def add_ssh_machines(self, machines):
         for machine in machines:
             self.add_machine()
 
-    def add_container(self, container_type, host=None, container_num=None):
+    def add_container(self, container_type, host=None, container_num=None,
+                      series=None):
         if host is None:
             host = self.add_machine()
         host_containers = self.containers.setdefault(host, set())
@@ -166,6 +170,8 @@ class FakeEnvironmentState:
             container_num = len(same_type_containers)
         container_name = '{}/{}/{}'.format(host, container_type, container_num)
         host_containers.add(container_name)
+        if series is not None:
+            self.machine_series[container_name] = series
         host_name = '{}.example.com'.format(container_name)
         self.machine_host_names[container_name] = host_name
 
@@ -249,7 +255,10 @@ class FakeEnvironmentState:
     def get_status_dict(self):
         machines = {}
         for machine_id in self.machines:
-            machine_dict = {'juju-status': {'current': 'idle'}}
+            machine_dict = {
+                'juju-status': {'current': 'idle'},
+                'series': 'angsty',
+                }
             hostname = self.machine_host_names.get(machine_id)
             machine_dict['instance-id'] = machine_id
             if hostname is not None:
@@ -258,7 +267,8 @@ class FakeEnvironmentState:
             if machine_id in self.state_servers:
                 machine_dict['controller-member-status'] = 'has-vote'
         for host, containers in self.containers.items():
-            container_dict = dict((c, {}) for c in containers)
+            container_dict = dict((c, {'series': 'angsty'})
+                                  for c in containers)
             for container, subdict in container_dict.items():
                 subdict.update({'juju-status': {'current': 'idle'}})
                 dns_name = self.machine_host_names.get(container)
