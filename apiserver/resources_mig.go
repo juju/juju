@@ -17,13 +17,13 @@ import (
 	"github.com/juju/juju/state"
 )
 
-// resourceUploadHandler handles resources uploads for model migrations.
-type resourceUploadHandler struct {
+// resourceMigUploadHandler handles resources uploads for model migrations.
+type resourceMigUploadHandler struct {
 	ctxt          httpContext
 	stateAuthFunc func(*http.Request) (*state.State, func(), error)
 }
 
-func (h *resourceUploadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (h *resourceMigUploadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Validate before authenticate because the authentication is dependent
 	// on the state connection that is determined during the validation.
 	st, releaser, err := h.stateAuthFunc(r)
@@ -59,7 +59,7 @@ func (h *resourceUploadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 
 // processPost handles resources upload POST request after
 // authentication.
-func (h *resourceUploadHandler) processPost(r *http.Request, st *state.State) (resource.Resource, error) {
+func (h *resourceMigUploadHandler) processPost(r *http.Request, st *state.State) (resource.Resource, error) {
 	var empty resource.Resource
 	query := r.URL.Query()
 
