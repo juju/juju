@@ -337,10 +337,9 @@ class AssessNetworkHealth:
         apps = client.get_status().get_applications()
         for app, info in apps.items():
             if 'network-health-' not in app:
-                app_series = info['series']
                 alias = 'network-health-{}'.format(app)
                 client.deploy('~juju-qa/network-health', alias=alias,
-                              series=app_series)
+                              series=info['series'])
                 try:
                     client.juju('add-relation', (app, alias))
                     self.expose_test_charms.add(alias)
@@ -351,7 +350,6 @@ class AssessNetworkHealth:
         for app in apps.keys():
             client.wait_for_subordinate_units(
                 app, 'network-health-{}'.format(app))
-        targets = self.parse_targets(client.get_status())
         exposed = [app for app, e in apps.items() if e.get('exposed') is True]
         if len(exposed) is 0:
             log.info('No exposed units, aboring test.')
@@ -377,7 +375,7 @@ class AssessNetworkHealth:
         :return: Parsed results dict
         """
         results = {'fail': (),
-                  'pass': ()}
+                   'pass': ()}
         for unit, result in service_results.items():
             app = unit.split('/')[0]
             if app in exposed and result:

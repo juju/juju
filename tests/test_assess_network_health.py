@@ -309,12 +309,6 @@ class TestAssessNetworkHealth(TestCase):
         net_health = AssessNetworkHealth(args)
         client = Mock(wraps=fake_juju_client())
         client.bootstrap()
-        new_client = fake_juju_client()
-        new_client.bootstrap()
-        new_client._backend.set_action_result('network-health/0', 'ping',
-                                              ping_result)
-        new_client.deploy('ubuntu', num=2, series='trusty')
-        new_client.deploy('network-health', series='trusty')
         now = datetime.now() + timedelta(days=1)
         with patch('utility.until_timeout.now', return_value=now):
             with patch.object(client, 'get_status', return_value=status):
