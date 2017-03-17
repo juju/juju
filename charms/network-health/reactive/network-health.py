@@ -21,7 +21,7 @@ def install_network_health():
 def start_simple_http():
     script = 'scripts.simple-server'
     file_path = os.path.join(os.environ['CHARM_DIR'], 'files/token.txt')
-    port = 80
+    port = 8039
     ip = unit_private_ip()
     log('Starting simple http server on: {}:{}'.format(
         ip, port), INFO)
