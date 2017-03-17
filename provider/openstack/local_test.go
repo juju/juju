@@ -1651,7 +1651,7 @@ func (s *localServerSuite) TestAllInstancesIgnoresOtherMachines(c *gc.C) {
 
 func (s *localServerSuite) TestResolveNetworkUUID(c *gc.C) {
 	var sampleUUID = "f81d4fae-7dec-11d0-a765-00a0c91e6bf6"
-	networkId, err := openstack.ResolveNetwork(s.env, sampleUUID)
+	networkId, err := openstack.ResolveNetwork(s.env, sampleUUID, false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(networkId, gc.Equals, sampleUUID)
 }
@@ -1660,14 +1660,17 @@ func (s *localServerSuite) TestResolveNetworkLabel(c *gc.C) {
 	// For now this test has to cheat and use knowledge of goose internals
 	var networkLabel = "net"
 	var expectNetworkId = "1"
-	networkId, err := openstack.ResolveNetwork(s.env, networkLabel)
+	networkId, err := openstack.ResolveNetwork(s.env, networkLabel, false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(networkId, gc.Equals, expectNetworkId)
 }
 
 func (s *localServerSuite) TestResolveNetworkNotPresent(c *gc.C) {
 	var notPresentNetwork = "no-network-with-this-label"
-	networkId, err := openstack.ResolveNetwork(s.env, notPresentNetwork)
+	networkId, err := openstack.ResolveNetwork(s.env, notPresentNetwork, false)
+	c.Check(networkId, gc.Equals, "")
+	c.Assert(err, gc.ErrorMatches, `no networks exist with label "no-network-with-this-label"`)
+	networkId, err = openstack.ResolveNetwork(s.env, notPresentNetwork, true)
 	c.Check(networkId, gc.Equals, "")
 	c.Assert(err, gc.ErrorMatches, `no networks exist with label "no-network-with-this-label"`)
 }

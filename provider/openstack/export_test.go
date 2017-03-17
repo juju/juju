@@ -514,8 +514,8 @@ func GetNovaClient(e environs.Environ) *nova.Client {
 }
 
 // ResolveNetwork exposes environ helper function resolveNetwork for testing
-func ResolveNetwork(e environs.Environ, networkName string) (string, error) {
-	return e.(*Environ).networking.ResolveNetwork(networkName)
+func ResolveNetwork(e environs.Environ, networkName string, external bool) (string, error) {
+	return e.(*Environ).networking.ResolveNetwork(networkName, external)
 }
 
 var PortsToRuleInfo = rulesToRuleInfo
