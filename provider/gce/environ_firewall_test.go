@@ -10,26 +10,26 @@ import (
 	"github.com/juju/juju/provider/gce"
 )
 
-type environNetSuite struct {
+type environFirewallSuite struct {
 	gce.BaseSuite
 }
 
-var _ = gc.Suite(&environNetSuite{})
+var _ = gc.Suite(&environFirewallSuite{})
 
-func (s *environNetSuite) TestGlobalFirewallName(c *gc.C) {
+func (s *environFirewallSuite) TestGlobalFirewallName(c *gc.C) {
 	uuid := s.Config.UUID()
 	fwname := gce.GlobalFirewallName(s.Env)
 
 	c.Check(fwname, gc.Equals, "juju-"+uuid)
 }
 
-func (s *environNetSuite) TestOpenPorts(c *gc.C) {
+func (s *environFirewallSuite) TestOpenPorts(c *gc.C) {
 	err := s.Env.OpenPorts(s.Rules)
 
 	c.Check(err, jc.ErrorIsNil)
 }
 
-func (s *environNetSuite) TestOpenPortsAPI(c *gc.C) {
+func (s *environFirewallSuite) TestOpenPortsAPI(c *gc.C) {
 	fwname := gce.GlobalFirewallName(s.Env)
 	err := s.Env.OpenPorts(s.Rules)
 	c.Assert(err, jc.ErrorIsNil)
@@ -40,13 +40,13 @@ func (s *environNetSuite) TestOpenPortsAPI(c *gc.C) {
 	c.Check(s.FakeConn.Calls[0].Rules, jc.DeepEquals, s.Rules)
 }
 
-func (s *environNetSuite) TestClosePorts(c *gc.C) {
+func (s *environFirewallSuite) TestClosePorts(c *gc.C) {
 	err := s.Env.ClosePorts(s.Rules)
 
 	c.Check(err, jc.ErrorIsNil)
 }
 
-func (s *environNetSuite) TestClosePortsAPI(c *gc.C) {
+func (s *environFirewallSuite) TestClosePortsAPI(c *gc.C) {
 	fwname := gce.GlobalFirewallName(s.Env)
 	err := s.Env.ClosePorts(s.Rules)
 	c.Assert(err, jc.ErrorIsNil)
@@ -57,7 +57,7 @@ func (s *environNetSuite) TestClosePortsAPI(c *gc.C) {
 	c.Check(s.FakeConn.Calls[0].Rules, jc.DeepEquals, s.Rules)
 }
 
-func (s *environNetSuite) TestPorts(c *gc.C) {
+func (s *environFirewallSuite) TestPorts(c *gc.C) {
 	s.FakeConn.Rules = s.Rules
 
 	ports, err := s.Env.IngressRules()
@@ -66,7 +66,7 @@ func (s *environNetSuite) TestPorts(c *gc.C) {
 	c.Check(ports, jc.DeepEquals, s.Rules)
 }
 
-func (s *environNetSuite) TestPortsAPI(c *gc.C) {
+func (s *environFirewallSuite) TestPortsAPI(c *gc.C) {
 	fwname := gce.GlobalFirewallName(s.Env)
 	_, err := s.Env.IngressRules()
 	c.Assert(err, jc.ErrorIsNil)
