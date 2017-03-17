@@ -95,6 +95,7 @@ status_value = dedent("""\
             juju-status:
               current: idle
             public-address: 1.1.1.1
+            machine: '0'
           ubuntu/1:
             subordinates:
               network-health/1:
@@ -104,6 +105,7 @@ status_value = dedent("""\
             juju-status:
               current: idle
             public-address: 1.1.1.2
+            machine: '1'
         application-status:
           current: unknown
           since: 01 Jan 2017 00:00:00-00:00
@@ -145,8 +147,9 @@ status: completed
 timing:
   completed: 2017-01-01 00:00:01 +0000 UTC
   enqueued: 2017-01-01 00:00:01 +0000 UTC
-  started: 2017-01-01 00:00:01 +0000 UTC
+  started: 2017-01-01 00:00:01 +0000 UTC}
 """)
+curl_result = [{'foo': 'pass'}]
 
 dummy_charm = 'dummy'
 series = 'trusty'
@@ -186,6 +189,7 @@ class TestAssessNetworkHealth(TestCase):
                          alias='network-health-trusty', series='trusty'),
              call.wait_for_started(),
              call.wait_for_workloads(),
+             call.juju('expose', 'network-health-trusty'),
              call.get_status(),
              call.juju('add-relation', ('ubuntu', 'network-health-trusty')),
              call.juju('add-relation', ('network-health',
@@ -214,6 +218,7 @@ class TestAssessNetworkHealth(TestCase):
                          alias='network-health-trusty', series='trusty'),
              call.wait_for_started(),
              call.wait_for_workloads(),
+             call.juju('expose', 'network-health-trusty'),
              call.get_status(),
              call.juju('add-relation', ('ubuntu', 'network-health-trusty')),
              call.juju('add-relation', ('network-health',
@@ -224,20 +229,6 @@ class TestAssessNetworkHealth(TestCase):
              call.wait_for_subordinate_units('network-health',
                                              'network-health-trusty')],
             client.mock_calls)
-
-    def test_juju_controller_visibility(self):
-        args = self.parse_args([])
-        net_health = AssessNetworkHealth(args)
-        client = fake_juju_client()
-        client.bootstrap()
-        now = datetime.now() + timedelta(days=1)
-        with patch('utility.until_timeout.now', return_value=now):
-            with patch.object(client, 'get_status', return_value=status):
-                with patch('subprocess.check_output',
-                           return_value=0):
-                    out = net_health.juju_controller_visibility(client)
-        expected = {'1': {'1.1.1.2': True}, '0': {'1.1.1.1': True}}
-        self.assertEqual(expected, out)
 
     def test_connect_to_existing_model_when_different(self):
         model = {'bar': 'baz'}
@@ -267,20 +258,17 @@ class TestAssessNetworkHealth(TestCase):
         net_health = AssessNetworkHealth(args)
         client = Mock(wraps=fake_juju_client())
         client.bootstrap()
-        client._backend.set_action_result('network-health/0', 'ping',
-                                          ping_result)
-        client._backend.set_action_result('network-health/1', 'ping',
-                                          ping_result)
         now = datetime.now() + timedelta(days=1)
         with patch('utility.until_timeout.now', return_value=now):
             with patch.object(client, 'get_status', return_value=status):
-                client.deploy('ubuntu', num=2, series='trusty')
-                client.deploy('network-health', series='trusty')
-                out = net_health.neighbor_visibility(client)
-        expected = {'network-health/0': {'ubuntu': {u'ubuntu/0': True,
-                                                    u'ubuntu/1': True}},
-                    'network-health/1': {'ubuntu': {u'ubuntu/0': True,
-                                                    u'ubuntu/1': True}}}
+                with patch.object(client, 'run', return_value=curl_result):
+                    client.deploy('ubuntu', num=2, series='trusty')
+                    client.deploy('network-health', series='trusty')
+                    out = net_health.neighbor_visibility(client)
+        expected = {'network-health': {},
+                    'ubuntu': {'ubuntu/0': {'1.1.1.1': True, '1.1.1.2': True},
+                               'ubuntu/1': {'1.1.1.1': True, '1.1.1.2': True}}}
+
         self.assertEqual(expected, out)
 
     def test_internet_connection(self):
@@ -399,17 +387,14 @@ class TestAssessNetworkHealth(TestCase):
     def test_parse_final_results_with_fail(self):
         args = self.parse_args([])
         net_health = AssessNetworkHealth(args)
-        controller = {"0": {"1.1.1.1": False},
-                      "1": {"1.1.1.2": True}}
         visible = {"bar/0": {"foo": {"foo/0": False, "foo/1": True}}}
         internet = {"0": False, "1": True}
         exposed = {"fail": ("foo"), "pass": ("bar", "baz")}
-        out = net_health.parse_final_results(controller, visible, internet,
+        out = net_health.parse_final_results(visible, internet,
                                              exposed)
-        error_strings = ["Failed to contact controller from machine 0 "
-                         "at address 1.1.1.1",
-                         "Machine 0 failed internet connection.",
-                         "NH-Unit bar/0 failed to contact unit(s): ['foo/0']",
+        error_strings = ["Machine 0 failed internet connection.",
+                         "NH-Unit bar/0 failed to contact targets(s): "
+                         "['foo/0']",
                          "Application(s) foo failed expose test"]
         for line in out:
             self.assertTrue(line in error_strings)
@@ -417,11 +402,10 @@ class TestAssessNetworkHealth(TestCase):
     def test_parse_final_results_without_fail(self):
         args = self.parse_args([])
         net_health = AssessNetworkHealth(args)
-        controller = {"0": {"1.1.1.1": True}}
         visible = {"bar/0": {"foo": {"foo/0": True, "foo/1": True}}}
         internet = {"0": True, "1": True}
         exposed = {"fail": (), "pass": ("foo", "bar", "baz")}
-        net_health.parse_final_results(controller, visible, internet, exposed)
+        net_health.parse_final_results(visible, internet, exposed)
 
     def test_ping_units(self):
         args = self.parse_args([])
