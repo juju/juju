@@ -615,6 +615,11 @@ func (st *mockState) LatestMigration() (state.ModelMigration, error) {
 	return st.migration, st.NextErr()
 }
 
+func (st *mockState) SetModelMeterStatus(level, message string) error {
+	st.MethodCall(st, "SetModelMeterStatus", level, message)
+	return st.NextErr()
+}
+
 type mockBlock struct {
 	state.Block
 	t state.BlockType
