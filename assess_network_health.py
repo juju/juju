@@ -15,7 +15,10 @@ import os
 import socket
 
 from jujupy import (
-    client_for_existing,
+    client_for_existing
+    )
+from jujupy.client import (
+    WaitApplicationNotPresent
     )
 from deploy_stack import (
     BootstrapManager
@@ -36,6 +39,8 @@ log = logging.getLogger("assess_network_health")
 
 NO_EXPOSED_UNITS = 'No exposed units'
 
+PORT = 8039
+
 
 class AssessNetworkHealth:
 
@@ -47,6 +52,7 @@ class AssessNetworkHealth:
                             args.temp_env_name)
         self.expose_client = None
         self.existing_series = set([])
+        self.expose_test_charms = set([])
 
     def assess_network_health(self, client, bundle=None, target_model=None,
                               reboot=False, series=None, maas=None):
@@ -107,15 +113,14 @@ class AssessNetworkHealth:
                                         json.dumps(vis_result,
                                                    indent=4,
                                                    sort_keys=True)))
-        exp_result = None
-        if not target_model:
-            exp_result = self.ensure_exposed(client, series)
-            log.info('{0}Exposure '
-                     'result:\n {1}'.format(reboot_msg,
-                                            json.dumps(exp_result,
-                                                       indent=4,
-                                                       sort_keys=True)) or
-                     NO_EXPOSED_UNITS)
+
+        exp_result = self.ensure_exposed(client, series)
+        log.info('{0}Exposure '
+                 'result:\n {1}'.format(reboot_msg,
+                                        json.dumps(exp_result,
+                                                   indent=4,
+                                                   sort_keys=True)) or
+                 NO_EXPOSED_UNITS)
         log.info('Tests complete.')
         return self.parse_final_results(con_result, vis_result, int_result,
                                         exp_result)
@@ -196,11 +201,12 @@ class AssessNetworkHealth:
 
     def cleanup(self, client):
         log.info('Cleaning up deployed test charms and models.')
+        if self.expose_test_charms:
+            for charm in self.expose_test_charms:
+                client.remove_service(charm)
+            return
         for series in self.existing_series:
             client.remove_service('network-health-{}'.format(series))
-        if 'exposetest' in client.get_models().keys():
-            client.get_models()['exposetest'].destroy_model()
-        log.info('Cleanup complete.')
 
     def get_unit_info(self, client):
         """Gets the machine or container interface and dns info.
@@ -218,7 +224,7 @@ class AssessNetworkHealth:
             out = client.action_do(unit[0], 'unit-info')
             out = client.action_fetch(out)
             out = yaml.safe_load(out)
-            results[machine]['dns'] = out['results']['dns']
+            # results[machine]['dns'] = out['results']['dns']
             results[machine]['interfaces'] = out['results']['interfaces']
         return results
 
@@ -322,38 +328,47 @@ class AssessNetworkHealth:
         :return: Exposure test results in dict by pass/fail
         """
         log.info('Starting test of exposed units.')
+        for series in self.existing_series:
+            alias = 'network-health-{}'.format(series)
+            client.remove_service(alias)
+        for series in self.existing_series:
+            alias = 'network-health-{}'.format(series)
+            client.wait_for(WaitApplicationNotPresent(alias))
         apps = client.get_status().get_applications()
+        for app, info in apps.items():
+            if 'network-health-' not in app:
+                app_series = info['series']
+                alias = 'network-health-{}'.format(app)
+                client.deploy('~juju-qa/network-health', alias=alias,
+                              series=app_series)
+                try:
+                    client.juju('add-relation', (app, alias))
+                    self.expose_test_charms.add(alias)
+                except subprocess.CalledProcessError as e:
+                    log.warning('Could not relate {}, {} due to '
+                                'error:\n{}'.format(app, alias, e))
+
+        for app in apps.keys():
+            client.wait_for_subordinate_units(
+                app, 'network-health-{}'.format(app))
         targets = self.parse_targets(client.get_status())
         exposed = [app for app, e in apps.items() if e.get('exposed') is True]
         if len(exposed) is 0:
             log.info('No exposed units, aboring test.')
             return None
-        new_client = self.setup_expose_test(client, series)
+        for app in exposed:
+            client.juju('expose', ('network-health-{}'.format(app)))
         service_results = {}
-        for service, units in targets.items():
-            service_results[service] = self.ping_units(new_client,
-                                                       'network-health/0',
-                                                       units)
+        for unit, info in client.get_status().iter_units():
+            if 'network-health' not in unit:
+                service_results[unit] = False
+                out = subprocess.check_output(
+                    'curl {}:{} -m 5'.format(info['public-address'], PORT),
+                    shell=True)
+                if 'pass' in out:
+                    service_results[unit] = True
         log.info(service_results)
         return self.parse_expose_results(service_results, exposed)
-
-    def setup_expose_test(self, client, series):
-        """Sets up new model to run exposure test.
-
-        :param client: The juju client in use
-        :return: New juju client object
-        """
-        if not self.expose_client:
-            new_client = client.add_model('exposetest')
-            new_client.deploy('ubuntu', series=series)
-            new_client.deploy('~juju-qa/network-health', series=series)
-            new_client.wait_for_started()
-            new_client.wait_for_workloads()
-            new_client.juju('add-relation', ('ubuntu', 'network-health'))
-            new_client.wait_for_subordinate_units('ubuntu', 'network-health')
-            self.expose_client = new_client
-
-        return self.expose_client
 
     def parse_expose_results(self, service_results, exposed):
         """Parses expose test results into dict of pass/fail.
@@ -361,21 +376,19 @@ class AssessNetworkHealth:
         :param service_results: Raw results from expose test
         :return: Parsed results dict
         """
-        result = {'fail': (),
+        results = {'fail': (),
                   'pass': ()}
-        for service, results in service_results.items():
-            # If we could connect but shouldn't, fail
-            if 'True' in results and service not in exposed:
-                result['fail'] = result['fail'] + (service,)
-            # If we could connect but should, pass
-            elif 'True' in results and service in exposed:
-                result['pass'] = result['pass'] + (service,)
-            # If we couldn't connect and shouldn't, pass
-            elif 'False' in results and service not in exposed:
-                result['pass'] = result['pass'] + (service,)
+        for unit, result in service_results.items():
+            app = unit.split('/')[0]
+            if app in exposed and result:
+                results['pass'] += (unit,)
+            elif app in exposed and not result:
+                results['fail'] += (unit,)
+            elif app not in exposed and result:
+                results['fail'] += (unit,)
             else:
-                result['fail'] = result['fail'] + (service,)
-        return result
+                results['pass'] += (unit,)
+        return results
 
     def parse_final_results(self, controller, visibility, internet,
                             exposed):
@@ -594,6 +607,7 @@ def main(argv=None):
                                        reboot=args.reboot)
         finally:
             test.cleanup(client)
+            log.info('Cleanup complete.')
     return 0
 
 

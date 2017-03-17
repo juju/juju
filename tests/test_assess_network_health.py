@@ -318,9 +318,7 @@ class TestAssessNetworkHealth(TestCase):
         now = datetime.now() + timedelta(days=1)
         with patch('utility.until_timeout.now', return_value=now):
             with patch.object(client, 'get_status', return_value=status):
-                with patch('assess_network_health.AssessNetworkHealth.'
-                           'setup_expose_test', return_value=new_client):
-                    out = net_health.ensure_exposed(client, series)
+                out = net_health.ensure_exposed(client, series)
         expected = {'fail': (), 'pass': ('ubuntu',)}
         self.assertEqual(out, expected)
 
@@ -339,31 +337,6 @@ class TestAssessNetworkHealth(TestCase):
         client.bootstrap()
         net_health.setup_bundle_deployment(client, bundle_string)
         client.deploy_bundle.assert_called_once_with(bundle_string)
-
-    def test_setup_expose_test(self):
-        args = self.parse_args([])
-        net_health = AssessNetworkHealth(args)
-        mock_client = Mock(spec=["juju", "wait_for_started",
-                                 "wait_for_workloads", "deploy",
-                                 "get_juju_output",
-                                 "wait_for_subordinate_units",
-                                 "get_status", "deploy_bundle", "add_model"
-                                 ])
-        mock_client.series = 'trusty'
-        mock_client.version = '2.2'
-        net_health.setup_expose_test(mock_client, series)
-        self.assertEqual(
-            [call.add_model('exposetest'),
-             call.add_model().deploy('ubuntu', series='trusty'),
-             call.add_model().deploy('~juju-qa/network-health',
-                                     series='trusty'),
-             call.add_model().wait_for_started(),
-             call.add_model().wait_for_workloads(),
-             call.add_model().juju('add-relation', ('ubuntu',
-                                                    'network-health')),
-             call.add_model().wait_for_subordinate_units('ubuntu',
-                                                         'network-health')],
-            mock_client.mock_calls)
 
     def test_setup_spaces_existing_spaces(self):
         existing_spaces = maas_spaces

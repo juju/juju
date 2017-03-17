@@ -1338,6 +1338,35 @@ class WaitMachineNotPresent(BaseCondition):
                         self.machine)
 
 
+class WaitApplicationNotPresent(BaseCondition):
+    """Condition satisfied when a given machine is not present."""
+
+    def __init__(self, application, timeout=300):
+        super(WaitApplicationNotPresent, self).__init__(timeout)
+        self.application = application
+
+    def __eq__(self, other):
+        if not type(self) is type(other):
+            return False
+        if self.timeout != other.timeout:
+            return False
+        if self.application != other.application:
+            return False
+        return True
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    def iter_blocking_state(self, status):
+        for application in status.get_applications().keys():
+            if application == self.application:
+                yield application, 'still-present'
+
+    def do_raise(self, model_name, status):
+        raise Exception("Timed out waiting for application "
+                        "removal {}".format(self.application))
+
+
 class MachineDown(BaseCondition):
     """Condition satisfied when a given machine is down."""
 
