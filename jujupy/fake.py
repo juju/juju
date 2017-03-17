@@ -138,29 +138,25 @@ class FakeEnvironmentState:
         self.current_bundle = None
         self.model_config = None
         self.ssh_keys = []
-        self.machine_series = {}
 
     @property
     def state(self):
         return self.controller.state
 
-    def add_machine(self, host_name=None, machine_id=None, series=None):
+    def add_machine(self, host_name=None, machine_id=None):
         if machine_id is None:
             machine_id = str(next(self.machine_id_iter))
         self.machines.add(machine_id)
         if host_name is None:
             host_name = '{}.example.com'.format(machine_id)
         self.machine_host_names[machine_id] = host_name
-        if series is not None:
-            self.machine_series[machine_id] = series
         return machine_id
 
     def add_ssh_machines(self, machines):
         for machine in machines:
             self.add_machine()
 
-    def add_container(self, container_type, host=None, container_num=None,
-                      series=None):
+    def add_container(self, container_type, host=None, container_num=None):
         if host is None:
             host = self.add_machine()
         host_containers = self.containers.setdefault(host, set())
@@ -170,8 +166,6 @@ class FakeEnvironmentState:
             container_num = len(same_type_containers)
         container_name = '{}/{}/{}'.format(host, container_type, container_num)
         host_containers.add(container_name)
-        if series is not None:
-            self.machine_series[container_name] = series
         host_name = '{}.example.com'.format(container_name)
         self.machine_host_names[container_name] = host_name
 
