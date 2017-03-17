@@ -29,6 +29,7 @@ from jujupy.client import (
     uniquify_local,
     )
 from jujupy.configuration import (
+    get_juju_data,
     get_juju_home,
     NoSuchEnvironment,
     )
@@ -61,6 +62,7 @@ __all__ = [
     'fake_juju_client_optional_jes',
     'get_cache_path',
     'get_client_class',
+    'get_juju_data',
     'get_juju_home',
     'get_machine_dns_name',
     'get_timeout_prefix',
