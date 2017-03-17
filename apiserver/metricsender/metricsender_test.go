@@ -59,13 +59,14 @@ func (s *MetricSenderSuite) TestToWire(c *gc.C) {
 		},
 	}
 	expected := &wireformat.MetricBatch{
-		UUID:        metric.UUID(),
-		ModelUUID:   metric.ModelUUID(),
-		UnitName:    metric.Unit(),
-		CharmUrl:    metric.CharmURL(),
-		Created:     metric.Created().UTC(),
-		Metrics:     metrics,
-		Credentials: metric.Credentials(),
+		UUID:           metric.UUID(),
+		ModelUUID:      metric.ModelUUID(),
+		UnitName:       metric.Unit(),
+		CharmUrl:       metric.CharmURL(),
+		Created:        metric.Created().UTC(),
+		Metrics:        metrics,
+		Credentials:    metric.Credentials(),
+		SLACredentials: metric.SLACredentials(),
 	}
 	c.Assert(result, gc.DeepEquals, expected)
 }
