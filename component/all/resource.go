@@ -18,7 +18,6 @@ import (
 	"github.com/juju/juju/cmd/juju/commands"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/resource"
-	"github.com/juju/juju/resource/api"
 	"github.com/juju/juju/resource/api/client"
 	privateapi "github.com/juju/juju/resource/api/private"
 	internalclient "github.com/juju/juju/resource/api/private/client"
@@ -40,7 +39,6 @@ type resources struct{}
 func (r resources) registerForServer() error {
 	r.registerState()
 	r.registerAgentWorkers()
-	r.registerPublicFacade()
 	r.registerHookContext()
 	return nil
 }
@@ -53,24 +51,6 @@ func (r resources) registerForClient() error {
 	// needed for help-tool
 	r.registerHookContextCommands()
 	return nil
-}
-
-// registerPublicFacade adds the resources public API facade
-// to the API server.
-func (r resources) registerPublicFacade() {
-	if !markRegistered(resource.ComponentName, "public-facade") {
-		return
-	}
-
-	// XXX
-	common.RegisterAPIModelEndpoint(api.HTTPEndpointPattern, apihttp.HandlerSpec{
-		Constraints: apihttp.HandlerConstraints{
-			AuthKinds:           []string{names.UserTagKind, names.MachineTagKind},
-			StrictValidation:    true,
-			ControllerModelOnly: false,
-		},
-		NewHandler: resourceadapters.NewApplicationHandler,
-	})
 }
 
 // resourcesAPIClient adds a Close() method to the resources public API client.

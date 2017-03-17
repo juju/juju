@@ -3,8 +3,6 @@
 
 package server
 
-// TODO(ericsnow) Eliminate the apiserver dependencies, if possible.
-
 import (
 	"io"
 	"net/http"

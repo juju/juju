@@ -12,33 +12,8 @@ import (
 	"github.com/juju/juju/apiserver/common/apihttp"
 	"github.com/juju/juju/resource"
 	internalserver "github.com/juju/juju/resource/api/private/server"
-	"github.com/juju/juju/resource/api/server"
 	corestate "github.com/juju/juju/state"
 )
-
-// NewApplicationHandler returns a new HTTP handler for application
-// level resource uploads and downloads.
-func NewApplicationHandler(args apihttp.NewHandlerArgs) http.Handler {
-	return server.NewHTTPHandler(
-		func(req *http.Request) (server.DataStore, server.Closer, names.Tag, error) {
-			st, releaser, entity, err := args.Connect(req)
-			if err != nil {
-				return nil, nil, nil, errors.Trace(err)
-			}
-			closer := func() error {
-				releaser()
-				return nil
-			}
-			resources, err := st.Resources()
-			if err != nil {
-				closer()
-				return nil, nil, nil, errors.Trace(err)
-			}
-
-			return resources, closer, entity.Tag(), nil
-		},
-	)
-}
 
 // NewDownloadHandler returns a new HTTP handler for the given args.
 func NewDownloadHandler(args apihttp.NewHandlerArgs) http.Handler {

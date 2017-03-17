@@ -358,6 +358,7 @@ func (srv *Server) run() {
 	// for pat based handlers, they are matched in-order of being
 	// registered, first match wins. So more specific ones have to be
 	// registered first.
+	// XXX to go
 	mux := pat.New()
 	for _, endpoint := range srv.endpoints() {
 		registerEndpoint(endpoint, mux)
@@ -457,6 +458,20 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 		},
 	)
 
+	add("/model/:modeluuid/applications/:application/resources/:resource", &ResourcesHandler{
+		StateAuthFunc: func(req *http.Request, tagKinds ...string) (ResourcesBackend, func(), names.Tag, error) {
+			st, closer, entity, err := httpCtxt.stateForRequestAuthenticatedTag(req, tagKinds...)
+			if err != nil {
+				return nil, nil, nil, errors.Trace(err)
+			}
+			rst, err := st.Resources()
+			if err != nil {
+				return nil, nil, nil, errors.Trace(err)
+			}
+			return rst, closer, entity.Tag(), nil
+		},
+	})
+
 	migrateCharmsHandler := &charmsHandler{
 		ctxt:          httpCtxt,
 		dataDir:       srv.dataDir,
@@ -475,7 +490,7 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 		},
 	)
 	add("/migrate/resources",
-		&resourceUploadHandler{
+		&resourceMigUploadHandler{
 			ctxt:          httpCtxt,
 			stateAuthFunc: httpCtxt.stateForMigrationImporting,
 		},
@@ -578,6 +593,7 @@ func (srv *Server) expireLocalLoginInteractions() error {
 	}
 }
 
+// XXX to go
 func (srv *Server) newHandlerArgs(spec apihttp.HandlerConstraints) apihttp.NewHandlerArgs {
 	ctxt := httpContext{
 		srv:                 srv,
@@ -626,6 +642,7 @@ func (srv *Server) trackRequests(handler http.Handler) http.Handler {
 	})
 }
 
+// XXX to go
 func registerEndpoint(ep apihttp.Endpoint, mux *pat.PatternServeMux) {
 	mux.Add(ep.Method, ep.Pattern, ep.Handler)
 	if ep.Method == "GET" {
