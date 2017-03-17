@@ -12,6 +12,7 @@ import re
 import time
 import os
 import socket
+from collections import defaultdict
 
 from jujupy import (
     client_for_existing,
@@ -211,7 +212,7 @@ class AssessNetworkHealth:
         nh_units = self.get_nh_unit_info(apps, by_unit=True)
         for app, units in nh_units.items():
             machine = apps[app.split('/')[0]]['units'][app]['machine']
-            results[machine] = {}
+            results[machine] = defaultdict(defaultdict)
             results[machine]['interfaces'] = {}
             for nh_unit in units.keys():
                 out = client.action_do(nh_unit, 'unit-info')
@@ -260,7 +261,7 @@ class AssessNetworkHealth:
         """Parses juju status information to return deployed network-health units.
 
         :param apps: Dict of apps given by get_status().get_applications()
-        :param by_unit: Bool, returns dict of NH units by application they
+        :param by_unit: Bool, returns dict of NH units keyed by the unit they
         are subordinate to
         :return: Dict of network-health units
         """
@@ -288,9 +289,8 @@ class AssessNetworkHealth:
         target_ips = [ip['public-address'] for ip in nh_units.values()]
         result = {}
         for app, units in apps.items():
-            result[app] = {}
+            result[app] = defaultdict(defaultdict)
             for unit, info in units.get('units', {}).items():
-                result[app][unit] = {}
                 for ip in target_ips:
                     result[app][unit][ip] = False
                     pattern = r"(pass)"
@@ -363,8 +363,7 @@ class AssessNetworkHealth:
                 result['fail'] = result['fail'] + (service,)
         return result
 
-    def parse_final_results(self, visibility, internet,
-                            exposed):
+    def parse_final_results(self, visibility, internet, exposed):
         """Parses test results and raises an error if any failed.
 
         :param visibility: Visibility test result
