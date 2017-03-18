@@ -185,7 +185,6 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 	todoCollections := set.NewStrings(
 		// uncategorised
 		//Cross Model Relations - TODO
-		localApplicationDirectoryC,
 		remoteApplicationsC,
 		applicationOffersC,
 		tokensC,

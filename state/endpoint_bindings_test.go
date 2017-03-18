@@ -97,14 +97,14 @@ func (s *BindingsSuite) TestMergeBindings(c *gc.C) {
 		newMap, oldMap map[string]string
 		meta           *charm.Meta
 		updated        map[string]string
-		removed        []string
+		modified       bool
 	}{{
-		about:   "defaults used when both newMap and oldMap are nil",
-		newMap:  nil,
-		oldMap:  nil,
-		meta:    s.oldMeta,
-		updated: s.copyMap(s.oldDefaults),
-		removed: nil,
+		about:    "defaults used when both newMap and oldMap are nil",
+		newMap:   nil,
+		oldMap:   nil,
+		meta:     s.oldMeta,
+		updated:  s.copyMap(s.oldDefaults),
+		modified: true,
 	}, {
 		about:  "oldMap overrides defaults, newMap is nil",
 		newMap: nil,
@@ -119,7 +119,7 @@ func (s *BindingsSuite) TestMergeBindings(c *gc.C) {
 			"self":      "db",
 			"one-extra": "",
 		},
-		removed: nil,
+		modified: true,
 	}, {
 		about: "oldMap overrides defaults, newMap overrides oldMap",
 		newMap: map[string]string{
@@ -139,7 +139,7 @@ func (s *BindingsSuite) TestMergeBindings(c *gc.C) {
 			"self":      "db",
 			"one-extra": "apps",
 		},
-		removed: nil,
+		modified: true,
 	}, {
 		about: "newMap overrides defaults, oldMap is nil",
 		newMap: map[string]string{
@@ -153,7 +153,7 @@ func (s *BindingsSuite) TestMergeBindings(c *gc.C) {
 			"self":      "db",
 			"one-extra": "",
 		},
-		removed: nil,
+		modified: true,
 	}, {
 		about:  "obsolete entries in oldMap missing in defaults are removed",
 		newMap: nil,
@@ -169,7 +169,7 @@ func (s *BindingsSuite) TestMergeBindings(c *gc.C) {
 			"self":      "db",
 			"one-extra": "apps",
 		},
-		removed: []string{"any-old-thing"},
+		modified: true,
 	}, {
 		about: "new endpoints use defaults unless specified in newMap, existing ones are kept",
 		newMap: map[string]string{
@@ -187,14 +187,78 @@ func (s *BindingsSuite) TestMergeBindings(c *gc.C) {
 			"self": "",
 			"me":   "client",
 		},
-		removed: []string{"bar1", "one-extra"},
+		modified: true,
+	}, {
+		about: "new default supersedes old default",
+		newMap: map[string]string{
+			"":     "newb",
+			"bar3": "barb3",
+		},
+		oldMap: map[string]string{
+			"":          "default",
+			"foo1":      "default",
+			"bar1":      "db",
+			"self":      "",
+			"one-extra": "old",
+		},
+		meta: s.newMeta,
+		updated: map[string]string{
+			"":     "newb",
+			"foo1": "default",
+			"foo2": "newb",
+			"bar2": "newb",
+			"bar3": "barb3",
+			"self": "",
+			"me":   "newb",
+		},
+		modified: true,
+	}, {
+		about: "new map one change",
+		newMap: map[string]string{
+			"self": "bar",
+		},
+		oldMap: map[string]string{
+			"":          "default",
+			"foo1":      "default",
+			"bar1":      "db",
+			"self":      "",
+			"one-extra": "old",
+		},
+		meta: s.oldMeta,
+		updated: map[string]string{
+			"":          "default",
+			"foo1":      "default",
+			"bar1":      "db",
+			"self":      "bar",
+			"one-extra": "old",
+		},
+		modified: true,
+	}, {
+		about:  "old unchanged but different key",
+		newMap: nil,
+		oldMap: map[string]string{
+			"":          "default",
+			"bar1":      "db",
+			"self":      "",
+			"lost":      "old",
+			"one-extra": "old",
+		},
+		meta: s.oldMeta,
+		updated: map[string]string{
+			"":          "default",
+			"foo1":      "default",
+			"bar1":      "db",
+			"self":      "",
+			"one-extra": "old",
+		},
+		modified: true,
 	}} {
 		c.Logf("test #%d: %s", i, test.about)
 
-		updated, removed, err := state.MergeBindings(test.newMap, test.oldMap, test.meta)
+		updated, isModified, err := state.MergeBindings(test.newMap, test.oldMap, test.meta)
 		c.Check(err, jc.ErrorIsNil)
 		c.Check(updated, jc.DeepEquals, test.updated)
-		c.Check(removed, jc.DeepEquals, test.removed)
+		c.Check(isModified, gc.Equals, test.modified)
 	}
 }
 

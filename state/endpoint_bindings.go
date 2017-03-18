@@ -69,11 +69,15 @@ func (b bindingsMap) GetBSON() (interface{}, error) {
 // bindings based on the given charm metadata, overriding them first with
 // matching oldMap values, and then with newMap values (for the same keys).
 // newMap and oldMap are both optional and will ignored when empty. Returns a
-// map containing only those bindings that need updating, and a sorted slice of
-// keys to remove (if any) - those are present in oldMap but missing in both
-// newMap and defaults.
-func mergeBindings(newMap, oldMap map[string]string, meta *charm.Meta) (map[string]string, []string, error) {
+// map containing the combined finalized bindings.
+// Returns true/false if there are any actual differences.
+func mergeBindings(newMap, oldMap map[string]string, meta *charm.Meta) (map[string]string, bool, error) {
 	defaultsMap := DefaultEndpointBindingsForCharm(meta)
+	defaultBinding := oldMap[""]
+	if newDefaultBinding, ok := newMap[""]; ok {
+		// new default binding supersedes the old default binding
+		defaultBinding = newDefaultBinding
+	}
 
 	// defaultsMap contains all endpoints that must be bound for the given charm
 	// metadata, but we need to figure out which value to use for each key.
@@ -82,8 +86,13 @@ func mergeBindings(newMap, oldMap map[string]string, meta *charm.Meta) (map[stri
 		effectiveValue := defaultValue
 
 		oldValue, hasOld := oldMap[key]
-		if hasOld && oldValue != effectiveValue {
-			effectiveValue = oldValue
+		if hasOld {
+			if oldValue != effectiveValue {
+				effectiveValue = oldValue
+			}
+		} else {
+			// Old didn't talk about this value, but maybe we have a default
+			effectiveValue = defaultBinding
 		}
 
 		newValue, hasNew := newMap[key]
@@ -93,6 +102,9 @@ func mergeBindings(newMap, oldMap map[string]string, meta *charm.Meta) (map[stri
 
 		updated[key] = effectiveValue
 	}
+	if defaultBinding != "" {
+		updated[""] = defaultBinding
+	}
 
 	// Any other bindings in newMap are most likely extraneous, but add them
 	// anyway and let the validation handle them.
@@ -101,21 +113,23 @@ func mergeBindings(newMap, oldMap map[string]string, meta *charm.Meta) (map[stri
 			updated[key] = newValue
 		}
 	}
-
-	// All defaults were processed, so anything else in oldMap not about to be
-	// updated and not having a default for the given metadata needs to be
-	// removed.
-	removedKeys := set.NewStrings()
-	for key := range oldMap {
-		if _, updating := updated[key]; !updating {
-			removedKeys.Add(key)
-		}
-		if _, defaultExists := defaultsMap[key]; !defaultExists {
-			removedKeys.Add(key)
+	isModified := false
+	if len(updated) != len(oldMap) {
+		isModified = true
+	} else {
+		// If the len() is identical, then we know as long as we iterate all entries, then there is no way to
+		// miss an entry. Either they have identical keys and we check all the values, or there is an identical
+		// number of new keys and missing keys and we'll notice a missing key.
+		for key, val := range updated {
+			if oldVal, existed := oldMap[key]; !existed || oldVal != val {
+				isModified = true
+				break
+			}
 		}
 	}
-	removed := removedKeys.SortedValues()
-	return updated, removed, nil
+	logger.Debugf("merged endpoint bindings modified: %t, default: %v, old: %v, new: %v, result: %v",
+		isModified, defaultsMap, oldMap, newMap, updated)
+	return updated, isModified, nil
 }
 
 // createEndpointBindingsOp returns the op needed to create new endpoint
@@ -155,7 +169,7 @@ func updateEndpointBindingsOp(st *State, key string, givenMap map[string]string,
 	}
 
 	// Merge existing with given as needed.
-	updatedMap, removedKeys, err := mergeBindings(givenMap, existingMap, newMeta)
+	updatedMap, isModified, err := mergeBindings(givenMap, existingMap, newMeta)
 	if err != nil {
 		return txn.Op{}, errors.Trace(err)
 	}
@@ -165,31 +179,20 @@ func updateEndpointBindingsOp(st *State, key string, givenMap map[string]string,
 		return txn.Op{}, errors.Trace(err)
 	}
 
-	// Prepare the update operations.
-	sanitize := inSubdocEscapeReplacer("bindings")
-	changes := make(bson.M, len(updatedMap))
-	for endpoint, space := range updatedMap {
-		changes[sanitize(endpoint)] = space
-	}
-	deletes := make(bson.M, len(removedKeys))
-	for _, endpoint := range removedKeys {
-		deletes[sanitize(endpoint)] = 1
-	}
-
-	var update bson.D
-	if len(changes) != 0 {
-		update = append(update, bson.DocElem{Name: "$set", Value: changes})
-	}
-	if len(deletes) != 0 {
-		update = append(update, bson.DocElem{Name: "$unset", Value: deletes})
-	}
-	if len(update) == 0 {
+	if !isModified {
 		return txn.Op{}, jujutxn.ErrNoOperations
 	}
+
+	// Prepare the update operations.
+	escaped := make(bson.M, len(updatedMap))
+	for endpoint, space := range updatedMap {
+		escaped[escapeReplacer.Replace(endpoint)] = space
+	}
+
 	updateOp := txn.Op{
 		C:      endpointBindingsC,
 		Id:     key,
-		Update: update,
+		Update: bson.M{"$set": bson.M{"bindings": escaped}},
 	}
 	if existingMap != nil {
 		// Only assert existing haven't changed when they actually exist.
@@ -283,5 +286,7 @@ func DefaultEndpointBindingsForCharm(charmMeta *charm.Meta) map[string]string {
 	for name := range charmMeta.ExtraBindings {
 		bindings[name] = ""
 	}
+	// All charms have a 'default' binding
+	// bindings[""] = ""
 	return bindings
 }

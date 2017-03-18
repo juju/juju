@@ -59,7 +59,7 @@ type listCommand struct {
 
 	newAPIFunc func() (ListAPI, error)
 
-	filters []crossmodel.OfferedApplicationFilter
+	filters []crossmodel.ApplicationOfferFilter
 }
 
 // NewListEndpointsCommand constructs new list endpoint command.
@@ -68,7 +68,7 @@ func NewListEndpointsCommand() cmd.Command {
 	listCmd.newAPIFunc = func() (ListAPI, error) {
 		return listCmd.NewCrossModelAPI()
 	}
-	return modelcmd.WrapController(listCmd)
+	return modelcmd.Wrap(listCmd)
 }
 
 // Init implements Command.Init.
@@ -108,7 +108,7 @@ func (c *listCommand) Run(ctx *cmd.Context) (err error) {
 	defer api.Close()
 
 	if len(c.filters) == 0 {
-		c.filters = []crossmodel.OfferedApplicationFilter{{ApplicationURL: "local:"}}
+		c.filters = []crossmodel.ApplicationOfferFilter{{ApplicationURL: "local:"}}
 	}
 	// TODO (anastasiamac 2015-11-17) add input filters
 	offeredApplications, err := api.ListOffers(c.filters...)
@@ -142,7 +142,7 @@ func (c *listCommand) Run(ctx *cmd.Context) (err error) {
 // ListAPI defines the API methods that list endpoints command use.
 type ListAPI interface {
 	Close() error
-	ListOffers(filters ...crossmodel.OfferedApplicationFilter) ([]crossmodel.OfferedApplicationDetailsResult, error)
+	ListOffers(filters ...crossmodel.ApplicationOfferFilter) ([]crossmodel.OfferedApplicationDetailsResult, error)
 }
 
 // ListServiceItem defines the serialization behaviour of a service item in endpoints list.

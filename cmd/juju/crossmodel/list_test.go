@@ -42,7 +42,7 @@ func (s *ListSuite) SetUpTest(c *gc.C) {
 	}
 
 	s.mockAPI = &mockListAPI{
-		list: func(filters ...model.OfferedApplicationFilter) ([]model.OfferedApplicationDetailsResult, error) {
+		list: func(filters ...model.ApplicationOfferFilter) ([]model.OfferedApplicationDetailsResult, error) {
 			return s.applications, nil
 		},
 	}
@@ -51,7 +51,7 @@ func (s *ListSuite) SetUpTest(c *gc.C) {
 func (s *ListSuite) TestListError(c *gc.C) {
 	msg := "fail api"
 
-	s.mockAPI.list = func(filters ...model.OfferedApplicationFilter) ([]model.OfferedApplicationDetailsResult, error) {
+	s.mockAPI.list = func(filters ...model.ApplicationOfferFilter) ([]model.OfferedApplicationDetailsResult, error) {
 		return nil, errors.New(msg)
 	}
 
@@ -161,13 +161,13 @@ func (s *ListSuite) assertValidList(c *gc.C, args []string, expectedValid, expec
 }
 
 type mockListAPI struct {
-	list func(filters ...model.OfferedApplicationFilter) ([]model.OfferedApplicationDetailsResult, error)
+	list func(filters ...model.ApplicationOfferFilter) ([]model.OfferedApplicationDetailsResult, error)
 }
 
 func (s mockListAPI) Close() error {
 	return nil
 }
 
-func (s mockListAPI) ListOffers(filters ...model.OfferedApplicationFilter) ([]model.OfferedApplicationDetailsResult, error) {
+func (s mockListAPI) ListOffers(filters ...model.ApplicationOfferFilter) ([]model.OfferedApplicationDetailsResult, error) {
 	return s.list(filters...)
 }

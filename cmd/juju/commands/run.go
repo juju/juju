@@ -56,7 +56,7 @@ names.  At least one target specifier is needed.
 Multiple values can be set for --machine, --application, and --unit by using
 comma separated values.
 
-If the target is a machine, the command is run as the "ubuntu" user on
+If the target is a machine, the command is run as the "root" user on
 the remote machine.
 
 If the target is an application, the command is run on all units for that

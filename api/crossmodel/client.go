@@ -6,7 +6,6 @@ package crossmodel
 import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/charm.v6-unstable"
-	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
@@ -26,18 +25,22 @@ func NewClient(st base.APICallCloser) *Client {
 }
 
 // Offer prepares application's endpoints for consumption.
-func (c *Client) Offer(modelUUID, application string, endpoints []string, url string, desc string) ([]params.ErrorResult, error) {
-	offers := []params.ApplicationOfferParams{
+func (c *Client) Offer(application string, endpoints []string, url string, desc string) ([]params.ErrorResult, error) {
+	// TODO(wallyworld) - support endpoint aliases
+	ep := make(map[string]string)
+	for _, name := range endpoints {
+		ep[name] = name
+	}
+	offers := []params.AddApplicationOffer{
 		{
-			ModelTag:               names.NewModelTag(modelUUID).String(),
 			ApplicationName:        application,
 			ApplicationDescription: desc,
-			Endpoints:              endpoints,
+			Endpoints:              ep,
 			ApplicationURL:         url,
 		},
 	}
 	out := params.ErrorResults{}
-	if err := c.facade.FacadeCall("Offer", params.ApplicationOffersParams{Offers: offers}, &out); err != nil {
+	if err := c.facade.FacadeCall("Offer", params.AddApplicationOffers{Offers: offers}, &out); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return out.Results, nil
@@ -70,7 +73,7 @@ func (c *Client) FindApplicationOffers(filters ...crossmodel.ApplicationOfferFil
 	if len(filters) == 0 {
 		return nil, errors.New("at least one filter must be specified")
 	}
-	var paramsFilter params.OfferFilterParams
+	var paramsFilter params.OfferFilters
 	for _, f := range filters {
 		urlParts, err := crossmodel.ParseApplicationURLParts(f.ApplicationURL)
 		if err != nil {
@@ -81,13 +84,8 @@ func (c *Client) FindApplicationOffers(filters ...crossmodel.ApplicationOfferFil
 		}
 		// TODO(wallyworld) - include allowed users
 		filterTerm := params.OfferFilter{
-			ApplicationURL:         f.ApplicationURL,
-			ApplicationName:        f.ApplicationName,
-			ApplicationDescription: f.ApplicationDescription,
-			SourceLabel:            f.SourceLabel,
-		}
-		if f.SourceModelUUID != "" {
-			filterTerm.SourceModelUUIDTag = names.NewModelTag(f.SourceModelUUID).String()
+			ApplicationURL:  f.ApplicationURL,
+			ApplicationName: f.ApplicationName,
 		}
 		filterTerm.Endpoints = make([]params.EndpointFilterAttributes, len(f.Endpoints))
 		for i, ep := range f.Endpoints {
@@ -95,10 +93,7 @@ func (c *Client) FindApplicationOffers(filters ...crossmodel.ApplicationOfferFil
 			filterTerm.Endpoints[i].Interface = ep.Interface
 			filterTerm.Endpoints[i].Role = ep.Role
 		}
-		paramsFilter.Filters = append(paramsFilter.Filters, params.OfferFilters{
-			Directory: urlParts.Directory,
-			Filters:   []params.OfferFilter{filterTerm},
-		})
+		paramsFilter.Filters = append(paramsFilter.Filters, filterTerm)
 	}
 
 	out := params.FindApplicationOffersResults{}
@@ -106,38 +101,25 @@ func (c *Client) FindApplicationOffers(filters ...crossmodel.ApplicationOfferFil
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-
-	result := out.Results
-	// Since only one filters set was sent, expecting only one back
-	if len(result) != 1 {
-		return nil, errors.Errorf("expected to find one result but found %d", len(result))
-
-	}
-
-	theOne := result[0]
-	if theOne.Error != nil {
-		return nil, errors.Trace(theOne.Error)
-	}
-	return theOne.Offers, nil
+	return out.Results, nil
 }
 
 // ListOffers gets all remote applications that have been offered from this Juju model.
 // Each returned application satisfies at least one of the the specified filters.
-func (c *Client) ListOffers(filters ...crossmodel.OfferedApplicationFilter) ([]crossmodel.OfferedApplicationDetailsResult, error) {
+func (c *Client) ListOffers(filters ...crossmodel.ApplicationOfferFilter) ([]crossmodel.OfferedApplicationDetailsResult, error) {
 	// TODO (anastasiamac 2015-11-23) translate a set of filters from crossmodel domain to params
 	offerFilters := make([]crossmodel.ApplicationOfferFilter, len(filters))
 	for i, f := range filters {
 		offerFilters[i] = crossmodel.ApplicationOfferFilter{
-			ApplicationOffer: crossmodel.ApplicationOffer{
-				ApplicationURL:  f.ApplicationURL,
-				ApplicationName: f.ApplicationName,
-				Endpoints: []charm.Relation{
-					{
-						Name:      f.Endpoint.Name,
-						Interface: f.Endpoint.Interface,
-						Role:      f.Endpoint.Role,
-					}},
-			},
+			ApplicationURL:  f.ApplicationURL,
+			ApplicationName: f.ApplicationName,
+		}
+		for _, epTerm := range f.Endpoints {
+			offerFilters[i].Endpoints = append(offerFilters[i].Endpoints, crossmodel.EndpointFilterTerm{
+				Name:      epTerm.Name,
+				Interface: epTerm.Interface,
+				Role:      epTerm.Role,
+			})
 		}
 	}
 	applicationOffers, err := c.FindApplicationOffers(offerFilters...)
