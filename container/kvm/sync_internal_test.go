@@ -4,6 +4,7 @@
 package kvm
 
 import (
+	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -262,4 +263,80 @@ func (fs fakeFS) Open(name string) (http.File, error) {
 		return nil, f.err
 	}
 	return &fakeFile{ReadSeeker: strings.NewReader(f.contents), fi: f, path: name}, nil
+}
+
+type bpsSuite struct {
+	testing.IsolationSuite
+}
+
+var _ = gc.Suite(&bpsSuite{})
+
+func (s *bpsSuite) TestMultipleMagnitudes(c *gc.C) {
+	var tests = []struct {
+		count    uint64
+		secs     float64
+		expected string
+	}{
+		{1000, 1.0, "1000.0B/s"}, // B/s
+		{1000, 0.5, "2000.0B/s"},
+		{1000, 0.3, "3333.3B/s"},
+		{1000, 0.1, "9.8kB/s"}, // in kiB/s
+		{10000, 0.1, "97.7kB/s"},
+		{100000, 0.1, "976.6kB/s"},
+		{1000000, 0.1, "9765.6kB/s"},
+		{2000000, 0.1, "19.1MB/s"}, // in MiB/s
+		{50000000, 0.1, "476.8MB/s"},
+		{500000000, 0.1, "4768.4MB/s"},
+		{8000000000, 0.1, "74.5GB/s"}, // in GiB/s
+	}
+	for i, t := range tests {
+		c.Logf("test %d", i)
+		c.Check(toBPS(t.count, t.secs), gc.Equals, t.expected)
+	}
+}
+
+type progressWriterSuite struct {
+	testing.IsolationSuite
+}
+
+var _ = gc.Suite(&progressWriterSuite{})
+
+func (s *progressWriterSuite) TestOnlyPercentChanges(c *gc.C) {
+	cbLog := []string{}
+	loggingCB := func(msg string) {
+		cbLog = append(cbLog, msg)
+	}
+	clock := testing.NewClock(time.Date(2007, 1, 1, 10, 20, 30, 1234, time.UTC))
+	// We are using clock to actually measure time, not trigger an event, which
+	// causes the testing.Clock to think we're doing something wrong, so we
+	// just create one waiter that we'll otherwise ignore.
+	ignored := clock.After(10 * time.Second)
+	_ = ignored
+	writer := progressWriter{
+		callback: loggingCB,
+		url:      "http://host/path",
+		total:    0,
+		maxBytes: 100 * 1024 * 1024, // 100 MB
+		clock:    clock,
+	}
+	content := make([]byte, 50*1024)
+	// Start the clock before the first tick, that way every tick represents
+	// exactly 1ms and 50kiB written.
+	now := clock.Now()
+	writer.startTime = &now
+	for i := 0; i < 2048; i++ {
+		// We tick every 1ms and add 50kiB each time, which is
+		// 50*1024 *1000/ 1024/1024  = 48.8MiB/s
+		clock.Advance(time.Millisecond)
+		n, err := writer.Write(content)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Check(n, gc.Equals, len(content))
+	}
+	expectedCB := []string{}
+	for i := 1; i <= 100; i++ {
+		expectedCB = append(expectedCB, fmt.Sprintf("copying http://host/path %d%% 48.8MB/s", i))
+	}
+	// There are 2048 calls to Write, but there should only be 100 calls to progress update
+	c.Check(len(cbLog), gc.Equals, 100)
+	c.Check(cbLog, gc.DeepEquals, expectedCB)
 }

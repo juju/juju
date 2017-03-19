@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils/clock"
 	"github.com/juju/utils/series"
 
 	"github.com/juju/juju/environs/imagedownloads"
@@ -157,6 +158,7 @@ type progressWriter struct {
 	maxBytes    uint64
 	startTime   *time.Time
 	lastPercent int
+	clock       clock.Clock
 }
 
 var _ (io.Writer) = (*progressWriter)(nil)
@@ -178,19 +180,25 @@ func toBPS(bytes uint64, seconds float64) string {
 }
 
 func (p *progressWriter) Write(content []byte) (n int, err error) {
-	if p.startTime == nil {
-		// Avoid divide-by-zero errors
-		oneMillisecondAgo := (time.Now().Add(-time.Millisecond))
-		p.startTime = &oneMillisecondAgo
+	if p.clock == nil {
+		p.clock = clock.WallClock
 	}
 	p.total += uint64(len(content))
+	if p.startTime == nil {
+		now := p.clock.Now()
+		p.startTime = &now
+		return len(content), nil
+	}
 	if p.callback != nil {
-		elapsed := time.Since(*p.startTime)
-		percent := (float64(p.total) * 100.0) / float64(p.maxBytes)
-		intPercent := int(percent + 0.5)
-		if p.lastPercent != intPercent {
-			p.callback(fmt.Sprintf("copying %s %d%% %s", p.url, intPercent, toBPS(p.total, elapsed.Seconds())))
-			p.lastPercent = intPercent
+		elapsed := p.clock.Now().Sub(*p.startTime)
+		// Avoid measurements that aren't interesting
+		if elapsed > time.Millisecond {
+			percent := (float64(p.total) * 100.0) / float64(p.maxBytes)
+			intPercent := int(percent + 0.5)
+			if p.lastPercent != intPercent {
+				p.callback(fmt.Sprintf("copying %s %d%% %s", p.url, intPercent, toBPS(p.total, elapsed.Seconds())))
+				p.lastPercent = intPercent
+			}
 		}
 	}
 	return len(content), nil
