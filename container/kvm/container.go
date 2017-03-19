@@ -56,10 +56,7 @@ func (c *kvmContainer) Start(params StartParams) error {
 	logger.Debugf("synchronise images for %s %s %s", sp.arch, sp.series, params.ImageDownloadURL)
 	var callback ProgressCallback
 	if params.StatusCallback != nil {
-		callback = func(url string, cur, total uint64) {
-			percent := (float64(cur) * 100.0) / float64(total)
-			mb := cur / (1024 * 1024)
-			msg := fmt.Sprintf("copying %s %dMB %.1f%%", url, mb, percent)
+		callback = func(msg string) {
 			params.StatusCallback(status.Provisioning, msg, nil)
 		}
 	}

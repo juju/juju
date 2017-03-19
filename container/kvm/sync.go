@@ -12,6 +12,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/series"
@@ -113,7 +114,7 @@ func (f *fetcher) Close() {
 	f.image.cleanup()
 }
 
-type ProgressCallback func(url string, copied, total uint64)
+type ProgressCallback func(message string)
 
 // Sync updates the local cached images by reading the simplestreams data and
 // caching if an image matching the contrainsts doesn't exist. It retrieves
@@ -150,18 +151,47 @@ type Image struct {
 }
 
 type progressWriter struct {
-	callback ProgressCallback
-	url      string
-	total    uint64
-	maxBytes uint64
+	callback    ProgressCallback
+	url         string
+	total       uint64
+	maxBytes    uint64
+	startTime   *time.Time
+	lastPercent int
 }
 
 var _ (io.Writer) = (*progressWriter)(nil)
 
+var modifiers = []string{"k", "M", "G"}
+
+// bps converts a number of bytes over a number of seconds into a reasonably formatted value
+func toBPS(bytes uint64, seconds float64) string {
+	bps := float64(bytes) / seconds
+	modifier := ""
+	for _, mod := range modifiers {
+		if bps < 10000 {
+			break
+		}
+		bps = bps / 1024
+		modifier = mod
+	}
+	return fmt.Sprintf("%.1f%sB/s", bps, modifier)
+}
+
 func (p *progressWriter) Write(content []byte) (n int, err error) {
+	if p.startTime == nil {
+		// Avoid divide-by-zero errors
+		oneMillisecondAgo := (time.Now().Add(-time.Millisecond))
+		p.startTime = &oneMillisecondAgo
+	}
 	p.total += uint64(len(content))
 	if p.callback != nil {
-		p.callback(p.url, p.total, p.maxBytes)
+		elapsed := time.Since(*p.startTime)
+		percent := (float64(p.total) * 100.0) / float64(p.maxBytes)
+		intPercent := int(percent + 0.5)
+		if p.lastPercent != intPercent {
+			p.callback(fmt.Sprintf("copying %s %d%% %s", p.url, intPercent, toBPS(p.total, elapsed.Seconds())))
+			p.lastPercent = intPercent
+		}
 	}
 	return len(content), nil
 }
