@@ -72,7 +72,7 @@ func (c Client) ListResources(services []string) ([]resource.ServiceResources, e
 	for i := range services {
 		apiResult := apiResults.Results[i]
 
-		result, err := api.APIResult2ServiceResources(apiResult) //XXX
+		result, err := api.APIResult2ServiceResources(apiResult)
 		if err != nil {
 			errs = append(errs, errors.Trace(err))
 		}
