@@ -196,7 +196,7 @@ func (p *progressWriter) Write(content []byte) (n int, err error) {
 			percent := (float64(p.total) * 100.0) / float64(p.maxBytes)
 			intPercent := int(percent + 0.5)
 			if p.lastPercent != intPercent {
-				p.callback(fmt.Sprintf("copying %s %d%% %s", p.url, intPercent, toBPS(p.total, elapsed.Seconds())))
+				p.callback(fmt.Sprintf("copying %s %d%% (%s)", p.url, intPercent, toBPS(p.total, elapsed.Seconds())))
 				p.lastPercent = intPercent
 			}
 		}
