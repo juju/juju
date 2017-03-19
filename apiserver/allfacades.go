@@ -63,6 +63,7 @@ import (
 	_ "github.com/juju/juju/apiserver/remotefirewaller"
 	_ "github.com/juju/juju/apiserver/remoterelations"
 	_ "github.com/juju/juju/apiserver/resources"
+	_ "github.com/juju/juju/apiserver/resourceshookcontext"
 	_ "github.com/juju/juju/apiserver/resumer"
 	_ "github.com/juju/juju/apiserver/retrystrategy"
 	_ "github.com/juju/juju/apiserver/singular"
