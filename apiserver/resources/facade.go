@@ -29,9 +29,8 @@ func init() {
 	common.RegisterStandardFacade("Resources", 1, NewPublicFacade)
 }
 
-// Backend is the functionality of Juju's state needed for the resources API.
-// XXX unnecessarily exposed?
-type Backend interface {
+// backend is the functionality of Juju's state needed for the resources API.
+type backend interface {
 	// ListResources returns the resources for the given application.
 	ListResources(service string) (resource.ServiceResources, error)
 
@@ -43,7 +42,6 @@ type Backend interface {
 }
 
 // CharmStore exposes the functionality of the charm store as needed here.
-// XXX unnecessarily exposed?
 type CharmStore interface {
 	// ListResources composes, for each of the identified charms, the
 	// list of details for each of the charm's resources. Those details
@@ -56,10 +54,9 @@ type CharmStore interface {
 }
 
 // Facade is the public API facade for resources.
-// XXX unnecessarily exposed?
 type Facade struct {
 	// store is the data source for the facade.
-	store Backend
+	store backend
 
 	newCharmstoreClient func() (CharmStore, error)
 }
@@ -86,7 +83,7 @@ func NewPublicFacade(st *state.State, _ facade.Resources, authorizer facade.Auth
 }
 
 // NewFacade returns a new resoures API facade.
-func NewFacade(store Backend, newClient func() (CharmStore, error)) (*Facade, error) {
+func NewFacade(store backend, newClient func() (CharmStore, error)) (*Facade, error) {
 	if store == nil {
 		return nil, errors.Errorf("missing data store")
 	}

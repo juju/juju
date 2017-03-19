@@ -19,7 +19,6 @@ import (
 	"github.com/juju/juju/resource/resourcetesting"
 )
 
-// XXX figure out what here is actually used by the tests here
 type BaseSuite struct {
 	testing.IsolationSuite
 
