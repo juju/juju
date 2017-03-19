@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/component/all"
 	"github.com/juju/juju/feature"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -36,8 +35,6 @@ func (s *facadeVersionSuite) TestFacadeVersionsMatchServerVersions(c *gc.C) {
 		// All versions should now be non-zero.
 		c.Check(version, jc.GreaterThan, 0)
 	}
-	// Register the components.
-	all.RegisterForServer()
 	allServerFacades := common.Facades.List()
 	serverFacadeNames := set.NewStrings()
 	serverFacadeBestVersions := make(map[string]int, len(allServerFacades))
