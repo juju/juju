@@ -12,14 +12,11 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/charmrevisionupdater"
-	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/common/apihttp"
 	"github.com/juju/juju/cmd/juju/charmcmd"
 	"github.com/juju/juju/cmd/juju/commands"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/api/client"
-	privateapi "github.com/juju/juju/resource/api/private"
 	internalclient "github.com/juju/juju/resource/api/private/client"
 	"github.com/juju/juju/resource/cmd"
 	"github.com/juju/juju/resource/context"
@@ -141,7 +138,6 @@ func (r resources) registerHookContext() {
 	)
 
 	r.registerHookContextCommands()
-	r.registerUnitDownloadEndpoint()
 }
 
 func (r resources) registerHookContextCommands() {
@@ -163,18 +159,6 @@ func (r resources) registerHookContextCommands() {
 			return cmd, nil
 		},
 	)
-}
-
-// XXX
-func (r resources) registerUnitDownloadEndpoint() {
-	common.RegisterAPIModelEndpoint(privateapi.HTTPEndpointPattern, apihttp.HandlerSpec{
-		Constraints: apihttp.HandlerConstraints{
-			AuthKinds:           []string{names.UnitTagKind},
-			StrictValidation:    true,
-			ControllerModelOnly: false,
-		},
-		NewHandler: resourceadapters.NewDownloadHandler,
-	})
 }
 
 func (r resources) newUnitFacadeClient(unitName string, caller base.APICaller) (context.APIClient, error) {

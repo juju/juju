@@ -160,7 +160,11 @@ func (s *ResourcesHandlerSuite) TestPutSetResourceFailure(c *gc.C) {
 }
 
 func (s *ResourcesHandlerSuite) checkResp(c *gc.C, status int, ctype, body string) {
-	resp := s.recorder.Result()
+	checkHTTPResp(c, s.recorder, status, ctype, body)
+}
+
+func checkHTTPResp(c *gc.C, recorder *httptest.ResponseRecorder, status int, ctype, body string) {
+	resp := recorder.Result()
 	c.Assert(resp.StatusCode, gc.Equals, status)
 	c.Check(resp.Header.Get("Content-Type"), gc.Equals, ctype)
 	c.Check(resp.Header.Get("Content-Length"), gc.Equals, strconv.Itoa(len(body)))
