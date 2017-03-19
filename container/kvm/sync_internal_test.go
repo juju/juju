@@ -49,7 +49,7 @@ func (syncInternalSuite) TestFetcher(c *gc.C) {
 		}
 	}()
 
-	fetcher, err := newDefaultFetcher(md, pathfinder)
+	fetcher, err := newDefaultFetcher(md, pathfinder, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// setup a fake command runner.
@@ -87,7 +87,7 @@ func (syncInternalSuite) TestFetcherWriteFails(c *gc.C) {
 		}
 	}()
 
-	fetcher, err := newDefaultFetcher(md, pathfinder)
+	fetcher, err := newDefaultFetcher(md, pathfinder, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// setup a fake command runner.
@@ -124,7 +124,7 @@ func (syncInternalSuite) TestFetcherInvalidSHA(c *gc.C) {
 		}
 	}()
 
-	fetcher, err := newDefaultFetcher(md, pathfinder)
+	fetcher, err := newDefaultFetcher(md, pathfinder, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = fetcher.Fetch()
@@ -151,7 +151,7 @@ func (syncInternalSuite) TestFetcherNotFound(c *gc.C) {
 		}
 	}()
 
-	fetcher, err := newDefaultFetcher(md, pathfinder)
+	fetcher, err := newDefaultFetcher(md, pathfinder, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = fetcher.Fetch()

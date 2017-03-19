@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/environs/imagedownloads"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/status"
 )
 
 type kvmContainer struct {
@@ -53,7 +54,16 @@ func (c *kvmContainer) Start(params StartParams) error {
 		srcFunc: srcFunc,
 	}
 	logger.Debugf("synchronise images for %s %s %s", sp.arch, sp.series, params.ImageDownloadURL)
-	if err := Sync(sp, nil); err != nil {
+	var callback ProgressCallback
+	if params.StatusCallback != nil {
+		callback = func(url string, cur, total uint64) {
+			percent := (float64(cur) * 100.0) / float64(total)
+			mb := cur / (1024 * 1024)
+			msg := fmt.Sprintf("copying %s %dMB %.1f%%", url, mb, percent)
+			params.StatusCallback(status.Provisioning, msg, nil)
+		}
+	}
+	if err := Sync(sp, nil, callback); err != nil {
 		if !errors.IsAlreadyExists(err) {
 			return errors.Trace(err)
 		}
@@ -74,6 +84,9 @@ func (c *kvmContainer) Start(params StartParams) error {
 		}
 	}
 	logger.Debugf("create the machine %s", c.name)
+	if params.StatusCallback != nil {
+		params.StatusCallback(status.Provisioning, "Creating instance", nil)
+	}
 	if err := CreateMachine(CreateMachineParams{
 		Hostname:      c.name,
 		Series:        params.Series,
@@ -88,6 +101,9 @@ func (c *kvmContainer) Start(params StartParams) error {
 	}
 
 	logger.Debugf("Set machine %s to autostart", c.name)
+	if params.StatusCallback != nil {
+		params.StatusCallback(status.Provisioning, "Starting instance", nil)
+	}
 	return AutostartMachine(c)
 }
 

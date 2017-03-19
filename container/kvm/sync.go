@@ -113,10 +113,12 @@ func (f *fetcher) Close() {
 	f.image.cleanup()
 }
 
+type ProgressCallback func(url string, copied, total uint64)
+
 // Sync updates the local cached images by reading the simplestreams data and
 // caching if an image matching the contrainsts doesn't exist. It retrieves
 // metadata information from Oner and updates local cache via Fetcher.
-func Sync(o Oner, f Fetcher) error {
+func Sync(o Oner, f Fetcher, progress ProgressCallback) error {
 	md, err := o.One()
 	if err != nil {
 		if errors.IsAlreadyExists(err) {
@@ -126,7 +128,7 @@ func Sync(o Oner, f Fetcher) error {
 		return errors.Trace(err)
 	}
 	if f == nil {
-		f, err = newDefaultFetcher(md, paths.DataDir)
+		f, err = newDefaultFetcher(md, paths.DataDir, progress)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -142,8 +144,26 @@ func Sync(o Oner, f Fetcher) error {
 // Image represents a server image.
 type Image struct {
 	FilePath string
+	progress ProgressCallback
 	tmpFile  *os.File
 	runCmd   runFunc
+}
+
+type progressWriter struct {
+	callback ProgressCallback
+	url      string
+	total    uint64
+	maxBytes uint64
+}
+
+var _ (io.Writer) = (*progressWriter)(nil)
+
+func (p *progressWriter) Write(content []byte) (n int, err error) {
+	p.total += uint64(len(content))
+	if p.callback != nil {
+		p.callback(p.url, p.total, p.maxBytes)
+	}
+	return len(content), nil
 }
 
 // write saves the stream to disk and updates the metadata file.
@@ -162,7 +182,20 @@ func (i *Image) write(r io.Reader, md *imagedownloads.Metadata) error {
 	}()
 
 	hash := sha256.New()
-	_, err := io.Copy(io.MultiWriter(i.tmpFile, hash), r)
+	var writer io.Writer
+	if i.progress == nil {
+		writer = io.MultiWriter(i.tmpFile, hash)
+	} else {
+		dlURL, _ := md.DownloadURL()
+		progWriter := &progressWriter{
+			url:      dlURL.String(),
+			callback: i.progress,
+			maxBytes: uint64(md.Size),
+			total:    0,
+		}
+		writer = io.MultiWriter(i.tmpFile, hash, progWriter)
+	}
+	_, err := io.Copy(writer, r)
 	if err != nil {
 		i.cleanup()
 		return errors.Trace(err)
@@ -175,6 +208,8 @@ func (i *Image) write(r io.Reader, md *imagedownloads.Metadata) error {
 			"hash sum mismatch for %s: %s != %s", i.tmpFile.Name(), result, md.SHA256)
 	}
 
+	// TODO(jam): 2017-03-19 If this is slow, maybe we want to add a progress step for it, rather than only
+	// indicating download progress.
 	output, err := i.runCmd(
 		"qemu-img", "convert", "-f", "qcow2", tmpPath, i.FilePath)
 	logger.Debugf("qemu-image convert output: %s", output)
@@ -206,8 +241,8 @@ func (i *Image) cleanupAll() {
 	}
 }
 
-func newDefaultFetcher(md *imagedownloads.Metadata, pathfinder func(string) (string, error)) (*fetcher, error) {
-	i, err := newImage(md, pathfinder)
+func newDefaultFetcher(md *imagedownloads.Metadata, pathfinder func(string) (string, error), callback ProgressCallback) (*fetcher, error) {
+	i, err := newImage(md, pathfinder, callback)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -223,7 +258,7 @@ func newDefaultFetcher(md *imagedownloads.Metadata, pathfinder func(string) (str
 	return &fetcher{metadata: md, image: i, client: client, req: req}, nil
 }
 
-func newImage(md *imagedownloads.Metadata, pathfinder func(string) (string, error)) (*Image, error) {
+func newImage(md *imagedownloads.Metadata, pathfinder func(string) (string, error), callback ProgressCallback) (*Image, error) {
 	// Setup names and paths.
 	dlURL, err := md.DownloadURL()
 	if err != nil {
@@ -243,8 +278,9 @@ func newImage(md *imagedownloads.Metadata, pathfinder func(string) (string, erro
 	return &Image{
 		FilePath: filepath.Join(
 			baseDir, kvm, guestDir, backingFileName(md.Release, md.Arch)),
-		tmpFile: fh,
-		runCmd:  run,
+		tmpFile:  fh,
+		runCmd:   run,
+		progress: callback,
 	}, nil
 }
 
