@@ -7,12 +7,10 @@ import (
 	"fmt"
 	"reflect"
 	"runtime"
-	"strings"
 
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/apiserver/common/apihttp"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/state"
 )
@@ -227,53 +225,4 @@ func RegisterStandardFacadeForFeature(name string, version int, newFunc interfac
 		panic(err)
 	}
 	RegisterFacadeForFeature(name, version, wrapped, facadeType, feature)
-}
-
-// XXX to go
-var endpointRegistry = map[string]apihttp.HandlerSpec{}
-var endpointRegistryOrder []string
-
-// RegisterAPIModelEndpoint adds the provided endpoint to the registry.
-// The pattern is prefixed with the model pattern: /model/:modeluuid.
-// XXX to go
-func RegisterAPIModelEndpoint(pattern string, spec apihttp.HandlerSpec) error {
-	if !strings.HasPrefix(pattern, "/") {
-		pattern = "/" + pattern
-	}
-	pattern = "/model/:modeluuid" + pattern
-	return registerAPIEndpoint(pattern, spec)
-}
-
-// XXX to go
-func registerAPIEndpoint(pattern string, spec apihttp.HandlerSpec) error {
-	if _, ok := endpointRegistry[pattern]; ok {
-		return errors.NewAlreadyExists(nil, fmt.Sprintf("endpoint %q already registered", pattern))
-	}
-	endpointRegistry[pattern] = spec
-	endpointRegistryOrder = append(endpointRegistryOrder, pattern)
-	return nil
-}
-
-// DefaultHTTPMethods are the HTTP methods supported by default by the API.
-// XXX to go
-var DefaultHTTPMethods = []string{"GET", "POST", "HEAD", "PUT", "DELETE", "OPTIONS"}
-
-// ResolveAPIEndpoints builds the set of endpoint handlers for all
-// registered API endpoints.
-// XXX to go
-func ResolveAPIEndpoints(newArgs func(apihttp.HandlerConstraints) apihttp.NewHandlerArgs) []apihttp.Endpoint {
-	var endpoints []apihttp.Endpoint
-	for _, pattern := range endpointRegistryOrder {
-		spec := endpointRegistry[pattern]
-		args := newArgs(spec.Constraints)
-		handler := spec.NewHandler(args)
-		for _, method := range DefaultHTTPMethods {
-			endpoints = append(endpoints, apihttp.Endpoint{
-				Pattern: pattern,
-				Method:  method,
-				Handler: handler,
-			})
-		}
-	}
-	return endpoints
 }

@@ -44,6 +44,8 @@ import (
 
 var logger = loggo.GetLogger("juju.apiserver")
 
+var defaultHTTPMethods = []string{"GET", "POST", "HEAD", "PUT", "DELETE", "OPTIONS"}
+
 // loginRateLimit defines how many concurrent Login requests we will
 // accept
 const loginRateLimit = 10
@@ -360,7 +362,6 @@ func (srv *Server) run() {
 	// for pat based handlers, they are matched in-order of being
 	// registered, first match wins. So more specific ones have to be
 	// registered first.
-	// XXX to go
 	mux := pat.New()
 	for _, endpoint := range srv.endpoints() {
 		registerEndpoint(endpoint, mux)
@@ -387,26 +388,24 @@ func (srv *Server) run() {
 }
 
 func (srv *Server) endpoints() []apihttp.Endpoint {
-	httpCtxt := httpContext{
-		srv: srv,
-	}
-
-	endpoints := common.ResolveAPIEndpoints(srv.newHandlerArgs)
-
-	// TODO(ericsnow) Add the following to the registry instead.
+	var endpoints []apihttp.Endpoint
 
 	add := func(pattern string, handler http.Handler) {
 		// TODO: We can switch from all methods to specific ones for entries
 		// where we only want to support specific request methods. However, our
 		// tests currently assert that errors come back as application/json and
 		// pat only does "text/plain" responses.
-		for _, method := range common.DefaultHTTPMethods {
+		for _, method := range defaultHTTPMethods {
 			endpoints = append(endpoints, apihttp.Endpoint{
 				Pattern: pattern,
 				Method:  method,
 				Handler: handler,
 			})
 		}
+	}
+
+	httpCtxt := httpContext{
+		srv: srv,
 	}
 
 	strictCtxt := httpCtxt
@@ -613,20 +612,6 @@ func (srv *Server) expireLocalLoginInteractions() error {
 	}
 }
 
-// XXX to go
-func (srv *Server) newHandlerArgs(spec apihttp.HandlerConstraints) apihttp.NewHandlerArgs {
-	ctxt := httpContext{
-		srv:                 srv,
-		strictValidation:    spec.StrictValidation,
-		controllerModelOnly: spec.ControllerModelOnly,
-	}
-	return apihttp.NewHandlerArgs{
-		Connect: func(req *http.Request) (*state.State, func(), state.Entity, error) {
-			return ctxt.stateForRequestAuthenticatedTag(req, spec.AuthKinds...)
-		},
-	}
-}
-
 // trackRequests wraps a http.Handler, incrementing and decrementing
 // the apiserver's WaitGroup and blocking request when the apiserver
 // is shutting down.
@@ -662,7 +647,6 @@ func (srv *Server) trackRequests(handler http.Handler) http.Handler {
 	})
 }
 
-// XXX to go
 func registerEndpoint(ep apihttp.Endpoint, mux *pat.PatternServeMux) {
 	mux.Add(ep.Method, ep.Pattern, ep.Handler)
 	if ep.Method == "GET" {
