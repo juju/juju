@@ -297,6 +297,7 @@ class TestAssessNetworkHealth(TestCase):
             net_health.ensure_exposed(mock_client, series)
         self.assertEqual(
             [call.get_status(),
+             call.get_status(),
              call.deploy('~juju-qa/network-health',
                          alias='network-health-ubuntu', series='trusty'),
              call.juju('add-relation', ('ubuntu', 'network-health-ubuntu')),

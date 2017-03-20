@@ -314,6 +314,13 @@ class AssessNetworkHealth:
         :return: Exposure test results in dict by pass/fail
         """
         log.info('Starting test of exposed units.')
+
+        apps = client.get_status().get_applications()
+        exposed = [app for app, e in apps.items() if e.get('exposed') is True]
+        if len(exposed) is 0:
+            log.info('No exposed units, aboring test.')
+            return None
+
         log.info('Removing previous network-health charms')
         for series in self.existing_series:
             alias = 'network-health-{}'.format(series)
@@ -339,10 +346,7 @@ class AssessNetworkHealth:
             if 'network-health' not in app:
                 client.wait_for_subordinate_units(
                     app, 'network-health-{}'.format(app))
-        exposed = [app for app, e in apps.items() if e.get('exposed') is True]
-        if len(exposed) is 0:
-            log.info('No exposed units, aboring test.')
-            return None
+
         for app in exposed:
             client.juju('expose', ('network-health-{}'.format(app)))
 
