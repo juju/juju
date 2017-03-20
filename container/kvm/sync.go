@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 	"time"
 
+	humanize "github.com/dustin/go-humanize"
 	"github.com/juju/errors"
 	"github.com/juju/utils/clock"
 	"github.com/juju/utils/series"
@@ -120,6 +121,8 @@ type ProgressCallback func(message string)
 // Sync updates the local cached images by reading the simplestreams data and
 // caching if an image matching the contrainsts doesn't exist. It retrieves
 // metadata information from Oner and updates local cache via Fetcher.
+// A ProgressCallback can optionally be passed which will get update messages
+// as data is copied.
 func Sync(o Oner, f Fetcher, progress ProgressCallback) error {
 	md, err := o.One()
 	if err != nil {
@@ -196,7 +199,8 @@ func (p *progressWriter) Write(content []byte) (n int, err error) {
 			percent := (float64(p.total) * 100.0) / float64(p.maxBytes)
 			intPercent := int(percent + 0.5)
 			if p.lastPercent != intPercent {
-				p.callback(fmt.Sprintf("copying %s %d%% (%s)", p.url, intPercent, toBPS(p.total, elapsed.Seconds())))
+				bps := uint64((float64(p.total) / elapsed.Seconds()) + 0.5)
+				p.callback(fmt.Sprintf("copying %s %d%% (%s/s)", p.url, intPercent, humanize.Bytes(bps)))
 				p.lastPercent = intPercent
 			}
 		}

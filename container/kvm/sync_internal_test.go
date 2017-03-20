@@ -265,36 +265,6 @@ func (fs fakeFS) Open(name string) (http.File, error) {
 	return &fakeFile{ReadSeeker: strings.NewReader(f.contents), fi: f, path: name}, nil
 }
 
-type bpsSuite struct {
-	testing.IsolationSuite
-}
-
-var _ = gc.Suite(&bpsSuite{})
-
-func (s *bpsSuite) TestMultipleMagnitudes(c *gc.C) {
-	var tests = []struct {
-		count    uint64
-		secs     float64
-		expected string
-	}{
-		{1000, 1.0, "1000.0B/s"}, // B/s
-		{1000, 0.5, "2000.0B/s"},
-		{1000, 0.3, "3333.3B/s"},
-		{1000, 0.1, "9.8kB/s"}, // in kiB/s
-		{10000, 0.1, "97.7kB/s"},
-		{100000, 0.1, "976.6kB/s"},
-		{1000000, 0.1, "9765.6kB/s"},
-		{2000000, 0.1, "19.1MB/s"}, // in MiB/s
-		{50000000, 0.1, "476.8MB/s"},
-		{500000000, 0.1, "4768.4MB/s"},
-		{8000000000, 0.1, "74.5GB/s"}, // in GiB/s
-	}
-	for i, t := range tests {
-		c.Logf("test %d", i)
-		c.Check(toBPS(t.count, t.secs), gc.Equals, t.expected)
-	}
-}
-
 type progressWriterSuite struct {
 	testing.IsolationSuite
 }
@@ -333,8 +303,8 @@ func (s *progressWriterSuite) TestOnlyPercentChanges(c *gc.C) {
 	expectedCB := []string{}
 	for i := 1; i <= 100; i++ {
 		// We tick every 1ms and add 50kiB each time, which is
-		// 50*1024 *1000/ 1024/1024  = 48.8MiB/s
-		expectedCB = append(expectedCB, fmt.Sprintf("copying http://host/path %d%% (48.8MB/s)", i))
+		// 50*1024 *1000/ 1000/1000  = 51MB/s
+		expectedCB = append(expectedCB, fmt.Sprintf("copying http://host/path %d%% (51MB/s)", i))
 	}
 	// There are 2048 calls to Write, but there should only be 100 calls to progress update
 	c.Check(len(cbLog), gc.Equals, 100)
