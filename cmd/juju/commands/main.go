@@ -384,13 +384,15 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 
 	// Manage storage
 	r.Register(storage.NewAddCommand())
-	r.Register(storage.NewAttachStorageCommandWithAPI())
 	r.Register(storage.NewListCommand())
 	r.Register(storage.NewPoolCreateCommand())
 	r.Register(storage.NewPoolListCommand())
 	r.Register(storage.NewShowCommand())
-	r.Register(storage.NewDetachStorageCommandWithAPI())
 	r.Register(storage.NewRemoveStorageCommandWithAPI())
+	if featureflag.Enabled(feature.PersistentStorage) {
+		r.Register(storage.NewDetachStorageCommandWithAPI())
+		r.Register(storage.NewAttachStorageCommandWithAPI())
+	}
 
 	// Manage spaces
 	r.Register(space.NewAddCommand())
