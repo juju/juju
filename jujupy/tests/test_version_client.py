@@ -136,6 +136,7 @@ class TestClientFromConfig(ClientTest):
             yield '2.0-rc3'
             yield '2.0-delta1'
             yield '2.1.0'
+            yield '2.2.0'
 
         context = patch.object(
             ModelClient, 'get_version',
@@ -189,6 +190,7 @@ class TestClientFromConfig(ClientTest):
             test_fc('2.0-rc3', ModelClientRC)
             test_fc('2.0-delta1', ModelClient2_0)
             test_fc('2.1.0', ModelClient2_1)
+            test_fc('2.2.0', ModelClient)
             with self.assertRaises(StopIteration):
                 client_from_config('foo', None)
 
