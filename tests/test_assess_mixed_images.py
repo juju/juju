@@ -85,6 +85,11 @@ class TestAssess(TestCase):
         mock_client = fake_juju_client()
         mock_client.bootstrap()
         assess_mixed_images(mock_client)
+        # The series are 'angsty' instead of 'centos7' and 'trusty', because
+        # local_charm_path drops the series information.  When JUJU_REPOSITORY
+        # is not defined, there is no way to know what series is intended from
+        # path.  In real-world use, the series is determined from the charm
+        # metadata, but these tests don't have access to it.
         expected = {
             'model': {'name': 'name'},
             'machines': {
@@ -92,11 +97,13 @@ class TestAssess(TestCase):
                     'dns-name': '0.example.com',
                     'instance-id': '0',
                     'juju-status': {'current': 'idle'},
+                    'series': 'angsty',
                     },
                 '1': {
                     'dns-name': '1.example.com',
                     'instance-id': '1',
                     'juju-status': {'current': 'idle'},
+                    'series': 'angsty',
                     },
                 },
             'applications': {
