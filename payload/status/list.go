@@ -61,7 +61,7 @@ func (c *ListCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "payloads",
 		Args:    "[pattern ...]",
-		Purpose: "display status information about known payloads",
+		Purpose: "Display status information about known payloads.",
 		Doc:     listDoc,
 		Aliases: []string{"list-payloads"},
 	}
