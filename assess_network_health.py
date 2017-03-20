@@ -314,15 +314,17 @@ class AssessNetworkHealth:
         :return: Exposure test results in dict by pass/fail
         """
         log.info('Starting test of exposed units.')
+        log.info('Removing previous network-health charms')
         for series in self.existing_series:
             alias = 'network-health-{}'.format(series)
             client.remove_service(alias)
         for series in self.existing_series:
             alias = 'network-health-{}'.format(series)
             client.wait_for(WaitApplicationNotPresent(alias))
+
         apps = client.get_status().get_applications()
         for app, info in apps.items():
-            if 'network-health-' not in app:
+            if 'network-health' not in app:
                 alias = 'network-health-{}'.format(app)
                 client.deploy('~juju-qa/network-health', alias=alias,
                               series=info['series'])
@@ -334,21 +336,28 @@ class AssessNetworkHealth:
                                 'error:\n{}'.format(app, alias, e))
 
         for app in apps.keys():
-            client.wait_for_subordinate_units(
-                app, 'network-health-{}'.format(app))
+            if 'network-health' not in app:
+                client.wait_for_subordinate_units(
+                    app, 'network-health-{}'.format(app))
         exposed = [app for app, e in apps.items() if e.get('exposed') is True]
         if len(exposed) is 0:
             log.info('No exposed units, aboring test.')
             return None
         for app in exposed:
             client.juju('expose', ('network-health-{}'.format(app)))
+
         service_results = {}
         for unit, info in client.get_status().iter_units():
             if 'network-health' not in unit:
+                ip = info['public-address']
+                log.info('Attempting to curl unit at {}:{}'.format(ip, PORT))
                 service_results[unit] = False
-                out = subprocess.check_output(
-                    'curl {}:{} -m 5'.format(info['public-address'], PORT),
-                    shell=True)
+                try:
+                    out = subprocess.check_output(
+                        'curl {}:{} -m 5'.format(ip, PORT), shell=True)
+                except subprocess.CalledProcessError as e:
+                    log.warning('Curl failed for error:\n{}'.format(e))
+                log.info('Got: "{}" from unit at {}:{}'.format(out, ip, PORT))
                 if 'pass' in out:
                     service_results[unit] = True
         log.info(service_results)
