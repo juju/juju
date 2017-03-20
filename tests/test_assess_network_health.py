@@ -2,7 +2,6 @@ import yaml
 import json
 import StringIO
 import logging
-import argparse
 import copy
 from textwrap import dedent
 from datetime import (
@@ -28,9 +27,7 @@ from assess_network_health import (
     parse_args,
     _setup_spaces
     )
-from utility import (
-    add_basic_testing_arguments
-    )
+
 
 apps = {'foo':
         {'charm-name': 'foo',
