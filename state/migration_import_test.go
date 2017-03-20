@@ -210,6 +210,21 @@ func (s *MigrationImportSuite) TestModelUsers(c *gc.C) {
 	c.Assert(allUsers, gc.HasLen, 3)
 }
 
+func (s *MigrationImportSuite) TestSLA(c *gc.C) {
+	err := s.State.SetSLA("essential", []byte("creds"))
+	c.Assert(err, jc.ErrorIsNil)
+	newModel, newSt := s.importModel(c)
+
+	c.Assert(newModel.SLALevel(), gc.Equals, "essential")
+	c.Assert(newModel.SLACredential(), jc.DeepEquals, []byte("creds"))
+	level, err := newSt.SLALevel()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(level, gc.Equals, "essential")
+	creds, err := newSt.SLACredential()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(creds, jc.DeepEquals, []byte("creds"))
+}
+
 func (s *MigrationImportSuite) AssertMachineEqual(c *gc.C, newMachine, oldMachine *state.Machine) {
 	c.Assert(newMachine.Id(), gc.Equals, oldMachine.Id())
 	c.Assert(newMachine.Principals(), jc.DeepEquals, oldMachine.Principals())

@@ -143,6 +143,8 @@ func (st *State) Export() (description.Model, error) {
 		return nil, errors.Trace(err)
 	}
 
+	export.model.SetSLA(dbModel.SLALevel(), dbModel.SLACredential())
+
 	export.logExtras()
 
 	return export.model, nil
