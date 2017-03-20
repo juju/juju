@@ -732,7 +732,7 @@ func (s *InstanceModeSuite) assertRemoteRelation(c *gc.C, remoteCIDRs []string, 
 
 	// Set up the offering model - create the remote app and relation.
 	_, err = s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
-		Name: "wordpress", URL: "local:/u/me/wordpress", SourceModel: otherState.ModelTag(),
+		Name: "wordpress", URL: "me/model.wordpress", SourceModel: otherState.ModelTag(),
 		Endpoints: []charm.Relation{{Name: "database", Interface: "mysql", Role: "requirer", Scope: "global"}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -755,7 +755,7 @@ func (s *InstanceModeSuite) assertRemoteRelation(c *gc.C, remoteCIDRs []string, 
 
 	// Set up the remote relation in the consuming model.
 	_, err = otherState.AddRemoteApplication(state.AddRemoteApplicationParams{
-		Name: "mysql", URL: "local:/u/me/mysql", SourceModel: otherState.ModelTag(),
+		Name: "mysql", URL: "me/model.mysql", SourceModel: otherState.ModelTag(),
 		Endpoints: []charm.Relation{{Name: "database", Interface: "mysql", Role: "provider", Scope: "global"}},
 	})
 	eps, err = otherState.InferEndpoints("wordpress", "mysql")

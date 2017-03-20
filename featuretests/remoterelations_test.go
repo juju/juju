@@ -38,7 +38,7 @@ func (s *remoteRelationsSuite) SetUpTest(c *gc.C) {
 func (s *remoteRelationsSuite) TestWatchRemoteApplications(c *gc.C) {
 	_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name:        "mysql",
-		URL:         "local:/u/me/mysql",
+		URL:         "me/model.mysql",
 		SourceModel: testing.ModelTag,
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -58,7 +58,7 @@ func (s *remoteRelationsSuite) TestWatchRemoteApplications(c *gc.C) {
 
 	_, err = s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name:        "db2",
-		URL:         "local:/u/me/db2",
+		URL:         "me/model.db2",
 		SourceModel: testing.ModelTag,
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -71,7 +71,7 @@ func (s *remoteRelationsSuite) TestWatchRemoteApplicationRelations(c *gc.C) {
 	// relations.
 	_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name:        "mysql",
-		URL:         "local:/u/me/mysql",
+		URL:         "me/model.mysql",
 		SourceModel: testing.ModelTag,
 		Endpoints: []charm.Relation{{
 			Interface: "mysql",
@@ -130,7 +130,7 @@ func assertNoRemoteRelationsChange(c *gc.C, ss statetesting.SyncStarter, w watch
 func (s *remoteRelationsSuite) TestWatchLocalRelationUnits(c *gc.C) {
 	_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name:        "mysql",
-		URL:         "local:/u/me/mysql",
+		URL:         "me/model.mysql",
 		SourceModel: testing.ModelTag,
 		Endpoints: []charm.Relation{{
 			Interface: "mysql",
@@ -229,7 +229,7 @@ func (s *remoteRelationsSuite) TestWatchRemoteRelations(c *gc.C) {
 	// Add a relation, and expect a watcher change.
 	_, err = s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name:        "mysql",
-		URL:         "local:/u/me/mysql",
+		URL:         "me/model.mysql",
 		SourceModel: testing.ModelTag,
 		Endpoints: []charm.Relation{{
 			Interface: "mysql",

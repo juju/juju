@@ -21,9 +21,10 @@ type OfferFilters struct {
 	Filters []OfferFilter
 }
 
-// OfferFilter is used to query offers in a application directory.
+// OfferFilter is used to query offers.
 type OfferFilter struct {
-	ApplicationURL         string                     `json:"application-url"`
+	ModelName              string                     `json:"model-name"`
+	OfferName              string                     `json:"offer-name"`
 	ApplicationName        string                     `json:"application-name"`
 	ApplicationDescription string                     `json:"application-description"`
 	ApplicationUser        string                     `json:"application-user"`
@@ -33,7 +34,8 @@ type OfferFilter struct {
 
 // ApplicationOffer represents an application offering from an external model.
 type ApplicationOffer struct {
-	ApplicationURL         string           `json:"application-url"`
+	OfferURL               string           `json:"offer-url"`
+	OfferName              string           `json:"offer-name"`
 	ApplicationName        string           `json:"application-name"`
 	ApplicationDescription string           `json:"application-description"`
 	Endpoints              []RemoteEndpoint `json:"endpoints"`
@@ -46,7 +48,7 @@ type AddApplicationOffers struct {
 
 // AddApplicationOffer values are used to create an application offer.
 type AddApplicationOffer struct {
-	ApplicationURL         string            `json:"application-url"`
+	OfferName              string            `json:"offer-name"`
 	ApplicationName        string            `json:"application-name"`
 	ApplicationDescription string            `json:"application-description"`
 	Endpoints              map[string]string `json:"endpoints"`

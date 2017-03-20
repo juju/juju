@@ -25,10 +25,10 @@ options:
    specify output format (tabular|json|yaml)
 
 Examples:
-   $ juju find-endpoints local:
-   $ juju find-endpoints local:/u/fred
-   $ juju find-endpoints --interface mysql --url local:
-   $ juju find-endpoints --charm db2 --url vendor:/u/ibm
+   $ juju find-endpoints
+   $ juju find-endpoints fred/prod
+   $ juju find-endpoints --interface mysql --url fred/prod
+   $ juju find-endpoints --charm db2 --url fred/prod.db2
    $ juju find-endpoints --charm db2 --author ibm
 `
 
@@ -36,6 +36,8 @@ type findCommand struct {
 	CrossModelCommandBase
 
 	url           string
+	modelName     string
+	offerName     string
 	interfaceName string
 	endpoint      string
 	user          string
@@ -70,12 +72,19 @@ func (c *findCommand) Init(args []string) (err error) {
 		c.url = url
 	}
 	if c.url != "" {
-		if _, err := crossmodel.ParseApplicationURLParts(c.url); err != nil {
+		urlParts, err := crossmodel.ParseApplicationURLParts(c.url)
+		if err != nil {
 			return err
 		}
+		c.modelName = urlParts.ModelName
+		c.offerName = urlParts.ApplicationName
+		c.user = urlParts.User
+		if urlParts.Source != "" && urlParts.Source != c.ControllerName() {
+			return errors.NotSupportedf("finding endpoints from another controller %q", urlParts.Source)
+		}
 	} else {
-		// We need at least one filter. The default filter will list all local services.
-		c.url = "local:"
+		// We need at least one filter. The default filter will list all offers from the current model.
+		c.modelName = c.ModelName()
 	}
 	return nil
 }
@@ -114,7 +123,8 @@ func (c *findCommand) Run(ctx *cmd.Context) (err error) {
 	defer api.Close()
 
 	filter := crossmodel.ApplicationOfferFilter{
-		ApplicationURL: c.url,
+		ModelName: c.modelName,
+		OfferName: c.offerName,
 		// TODO(wallyworld): allowed users
 		// TODO(wallyworld): charm
 		// TODO(wallyworld): user
@@ -163,7 +173,7 @@ func convertFoundOffers(services ...params.ApplicationOffer) (map[string]RemoteA
 	output := make(map[string]RemoteApplicationResult, len(services))
 	for _, one := range services {
 		app := RemoteApplicationResult{Endpoints: convertRemoteEndpoints(one.Endpoints...)}
-		output[one.ApplicationURL] = app
+		output[one.OfferURL] = app
 	}
 	return output, nil
 }

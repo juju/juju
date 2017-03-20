@@ -13,7 +13,6 @@ import (
 	"github.com/juju/juju/apiserver/crossmodel"
 	"github.com/juju/juju/apiserver/testing"
 	jujucrossmodel "github.com/juju/juju/core/crossmodel"
-	jujutesting "github.com/juju/juju/juju/testing"
 )
 
 const (
@@ -22,39 +21,38 @@ const (
 )
 
 type baseCrossmodelSuite struct {
-	// TODO(anastasiamac) mock to remove JujuConnSuite
-	jujutesting.JujuConnSuite
-
 	resources  *common.Resources
 	authorizer testing.FakeAuthorizer
 
 	api *crossmodel.API
 
+	mockState         *mockState
 	applicationOffers *mockApplicationOffers
 }
 
 func (s *baseCrossmodelSuite) addApplication(c *gc.C, name string) jujucrossmodel.ApplicationOffer {
-	ch := s.AddTestingCharm(c, "wordpress")
-	s.AddTestingService(c, name, ch)
-
 	return jujucrossmodel.ApplicationOffer{
-		ApplicationURL:         "local:/u/me/" + name,
+		OfferName:              "offer-" + name,
 		ApplicationName:        name,
 		Endpoints:              map[string]charm.Relation{"db": {Name: "db"}},
-		ApplicationDescription: ch.Meta().Description,
+		ApplicationDescription: "applicaion description",
 	}
 }
 
 func (s *baseCrossmodelSuite) SetUpTest(c *gc.C) {
-	s.JujuConnSuite.SetUpTest(c)
 	s.resources = common.NewResources()
 	s.authorizer = testing.FakeAuthorizer{Tag: names.NewUserTag("testuser"), Controller: true}
 
 	s.applicationOffers = &mockApplicationOffers{}
 
+	getApplicationOffers := func(interface{}) jujucrossmodel.ApplicationOffers {
+		return s.applicationOffers
+	}
+
 	var err error
+	s.mockState = &mockState{}
 	s.api, err = crossmodel.CreateAPI(
-		s.applicationOffers, crossmodel.GetStateAccess(s.State), s.authorizer,
+		getApplicationOffers, s.mockState, &mockStatePool{s.mockState}, s.authorizer,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 }

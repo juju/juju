@@ -132,7 +132,7 @@ func (c *addRelationCommand) validateEndpoints(all []string) error {
 			// We can only determine if this is a remote endpoint with 100%.
 			// If we cannot parse it, it may still be a valid local endpoint...
 			// so ignoring parsing error,
-			if _, err := crossmodel.ParseLocalOnlyApplicationURL(endpoint); err == nil {
+			if _, err := crossmodel.ParseApplicationURL(endpoint); err == nil {
 				if c.remoteEndpoint != "" {
 					return errors.NotSupportedf("providing more than one remote endpoints")
 				}

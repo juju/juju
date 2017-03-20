@@ -14,7 +14,7 @@ import (
 )
 
 const showCommandDoc = `
-Show extended information about an exported application.
+Show extended information about an offered application.
 
 This command is aimed for a user who wants to see more detail about what’s offered behind a particular URL.
 
@@ -25,8 +25,10 @@ options:
    specify output format (tabular|json|yaml)
 
 Examples:
-   $ juju show-endpoints local:/u/fred/prod/db2
-   $ juju show-endpoints vendor:/u/ibm/hosted-db2
+   $ juju show-endpoints fred/prod.db2
+
+See also:
+   offer
 `
 
 type showCommand struct {
@@ -53,11 +55,17 @@ func (c *showCommand) Init(args []string) (err error) {
 		return errors.New("must specify endpoint URL")
 	}
 
-	url := args[0]
-	if _, err := crossmodel.ParseApplicationURL(url); err != nil {
+	urlStr := args[0]
+	if url, err := crossmodel.ParseApplicationURL(urlStr); err != nil {
 		return err
+	} else {
+		// For now we only support offers on the current controller.
+		if url.Source != "" && url.Source != c.ControllerName() {
+			return errors.NotSupportedf("showing endpoints from another controller %q", url.Source)
+		}
+		url.Source = ""
 	}
-	c.url = url
+	c.url = urlStr
 	return nil
 }
 
@@ -93,7 +101,7 @@ func (c *showCommand) Run(ctx *cmd.Context) (err error) {
 		return err
 	}
 
-	output, err := convertRemoteApplications(found)
+	output, err := convertOffers(found)
 	if err != nil {
 		return err
 	}
@@ -116,19 +124,19 @@ type ShowRemoteApplication struct {
 	Description string `yaml:"description,omitempty" json:"description,omitempty"`
 }
 
-// convertRemoteApplications takes any number of api-formatted remote applications and
-// creates a collection of ui-formatted services.
-func convertRemoteApplications(services ...params.ApplicationOffer) (map[string]ShowRemoteApplication, error) {
-	if len(services) == 0 {
+// convertOffers takes any number of api-formatted remote applications and
+// creates a collection of ui-formatted offers.
+func convertOffers(offers ...params.ApplicationOffer) (map[string]ShowRemoteApplication, error) {
+	if len(offers) == 0 {
 		return nil, nil
 	}
-	output := make(map[string]ShowRemoteApplication, len(services))
-	for _, one := range services {
-		service := ShowRemoteApplication{Endpoints: convertRemoteEndpoints(one.Endpoints...)}
+	output := make(map[string]ShowRemoteApplication, len(offers))
+	for _, one := range offers {
+		app := ShowRemoteApplication{Endpoints: convertRemoteEndpoints(one.Endpoints...)}
 		if one.ApplicationDescription != "" {
-			service.Description = one.ApplicationDescription
+			app.Description = one.ApplicationDescription
 		}
-		output[one.ApplicationName] = service
+		output[one.OfferURL] = app
 	}
 	return output, nil
 }

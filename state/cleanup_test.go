@@ -115,7 +115,7 @@ func (s *CleanupSuite) TestCleanupRemoteApplicationWithRelations(c *gc.C) {
 	}
 	remoteApp, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name:        "mysql",
-		URL:         "local:/u/me/mysql",
+		URL:         "me/model.mysql",
 		SourceModel: s.State.ModelTag(),
 		Token:       "t0",
 		Endpoints:   mysqlEps,

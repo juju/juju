@@ -32,11 +32,9 @@ func (s *crossmodelSuite) TestListEndpoints(c *gc.C) {
 	ch = s.AddTestingCharm(c, "varnish")
 	s.AddTestingService(c, "varnishservice", ch)
 
-	_, err := testing.RunCommand(c, crossmodel.NewOfferCommand(),
-		"riakservice:endpoint", "local:/u/me/riak")
+	_, err := testing.RunCommand(c, crossmodel.NewOfferCommand(), "riakservice:endpoint", "riak")
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = testing.RunCommand(c, crossmodel.NewOfferCommand(),
-		"varnishservice:webcache", "local:/u/me/varnish")
+	_, err = testing.RunCommand(c, crossmodel.NewOfferCommand(), "varnishservice:webcache", "varnish")
 	c.Assert(err, jc.ErrorIsNil)
 
 	// TODO(wallyworld) - list with filters when supported
@@ -44,17 +42,15 @@ func (s *crossmodelSuite) TestListEndpoints(c *gc.C) {
 		"--format", "yaml")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, `
-local:
+kontroll:
   riak:
-    store: local
-    url: /u/me/riak
+    url: admin/controller.riak
     endpoints:
       endpoint:
         interface: http
         role: provider
   varnish:
-    store: local
-    url: /u/me/varnish
+    url: admin/controller.varnish
     endpoints:
       webcache:
         interface: varnish
@@ -69,23 +65,38 @@ func (s *crossmodelSuite) TestShow(c *gc.C) {
 	s.AddTestingService(c, "varnishservice", ch)
 
 	_, err := testing.RunCommand(c, crossmodel.NewOfferCommand(),
-		"riakservice:endpoint", "local:/u/me/riak")
+		"riakservice:endpoint", "riak")
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = testing.RunCommand(c, crossmodel.NewOfferCommand(),
-		"varnishservice:webcache", "local:/u/me/varnish")
+		"varnishservice:webcache", "varnish")
 	c.Assert(err, jc.ErrorIsNil)
 
 	// TODO(wallyworld) - list with filters when supported
 	ctx, err := testing.RunCommand(c, crossmodel.NewShowOfferedEndpointCommand(),
-		"local:/u/me/varnish", "--format", "yaml")
+		"admin/controller.varnish", "--format", "yaml")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, `
-varnishservice:
+admin/controller.varnish:
   endpoints:
     webcache:
       interface: varnish
       role: provider
   description: Another popular database
+`[1:])
+}
+
+func (s *crossmodelSuite) TestShowOtherModel(c *gc.C) {
+	s.addOtherModelApplication(c)
+
+	ctx, err := testing.RunCommand(c, crossmodel.NewShowOfferedEndpointCommand(),
+		"otheruser/othermodel.hosted-mysql", "--format", "yaml")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, `
+otheruser/othermodel.hosted-mysql:
+  endpoints:
+    database:
+      interface: mysql
+      role: provider
 `[1:])
 }
 
@@ -96,21 +107,40 @@ func (s *crossmodelSuite) TestFind(c *gc.C) {
 	s.AddTestingService(c, "varnishservice", ch)
 
 	_, err := testing.RunCommand(c, crossmodel.NewOfferCommand(),
-		"riakservice:endpoint", "local:/u/you/riak")
+		"riakservice:endpoint", "riak")
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = testing.RunCommand(c, crossmodel.NewOfferCommand(),
-		"varnishservice:webcache", "local:/u/me/varnish")
+		"varnishservice:webcache", "varnish")
 	c.Assert(err, jc.ErrorIsNil)
 
-	// TODO(wallyworld) - find with interface and endpoint name filters when supported
 	ctx, err := testing.RunCommand(c, crossmodel.NewFindEndpointsCommand(),
-		"local:/u/me", "--format", "yaml")
+		"admin/controller", "--format", "yaml")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, `
-local:/u/me/varnish:
+admin/controller.riak:
+  endpoints:
+    endpoint:
+      interface: http
+      role: provider
+admin/controller.varnish:
   endpoints:
     webcache:
       interface: varnish
+      role: provider
+`[1:])
+}
+
+func (s *crossmodelSuite) TestFindOtherModel(c *gc.C) {
+	s.addOtherModelApplication(c)
+
+	ctx, err := testing.RunCommand(c, crossmodel.NewFindEndpointsCommand(),
+		"otheruser/othermodel", "--format", "yaml")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, `
+otheruser/othermodel.hosted-mysql:
+  endpoints:
+    database:
+      interface: mysql
       role: provider
 `[1:])
 }
@@ -124,9 +154,9 @@ func (s *crossmodelSuite) TestAddRelationFromURL(c *gc.C) {
 	s.AddTestingService(c, "mysql", ch)
 
 	_, err := testing.RunCommand(c, crossmodel.NewOfferCommand(),
-		"mysql:server", "local:/u/me/hosted-mysql")
+		"mysql:server", "me/model.hosted-mysql")
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = runJujuCommand(c, "add-relation", "wordpress", "local:/u/me/hosted-mysql")
+	_, err = runJujuCommand(c, "add-relation", "wordpress", "me/model.hosted-mysql")
 	c.Assert(err, jc.ErrorIsNil)
 	svc, err := s.State.RemoteApplication("hosted-mysql")
 	c.Assert(err, jc.ErrorIsNil)
@@ -205,7 +235,7 @@ func (s *crossmodelSuite) TestAddRelationSameControllerSameOwner(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	offersAPi := state.NewApplicationOffers(otherModel)
 	_, err = offersAPi.AddOffer(jujucrossmodel.AddApplicationOfferArgs{
-		ApplicationURL:  "local:/u/me/hosted-mysql",
+		OfferName:       "hosted-mysql",
 		ApplicationName: "mysql",
 		Endpoints:       map[string]string{"database": "server"},
 	})
@@ -213,10 +243,7 @@ func (s *crossmodelSuite) TestAddRelationSameControllerSameOwner(c *gc.C) {
 	s.assertAddRelationSameControllerSuccess(c, "admin")
 }
 
-func (s *crossmodelSuite) TestAddRelationSameControllerPermissionDenied(c *gc.C) {
-	ch := s.AddTestingCharm(c, "wordpress")
-	s.AddTestingService(c, "wordpress", ch)
-
+func (s *crossmodelSuite) addOtherModelApplication(c *gc.C) *state.State {
 	otherOwner := s.Factory.MakeUser(c, &factory.UserParams{Name: "otheruser"})
 	otherModel := s.Factory.MakeModel(c, &factory.ModelParams{Name: "othermodel", Owner: otherOwner.Tag()})
 	s.AddCleanup(func(*gc.C) { otherModel.Close() })
@@ -229,12 +256,27 @@ func (s *crossmodelSuite) TestAddRelationSameControllerPermissionDenied(c *gc.C)
 		charmrepo.NewCharmStoreParams{},
 		testcharms.Repo.Path())
 	c.Assert(err, jc.ErrorIsNil)
-	ch, err = jujutesting.PutCharm(otherModel, curl, repo, false)
+	ch, err := jujutesting.PutCharm(otherModel, curl, repo, false)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = otherModel.AddApplication(state.AddApplicationArgs{
 		Name:  "mysql",
 		Charm: ch,
 	})
+
+	offersAPi := state.NewApplicationOffers(otherModel)
+	_, err = offersAPi.AddOffer(jujucrossmodel.AddApplicationOfferArgs{
+		OfferName:       "hosted-mysql",
+		ApplicationName: "mysql",
+		Endpoints:       map[string]string{"database": "server"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	return otherModel
+}
+
+func (s *crossmodelSuite) TestAddRelationSameControllerPermissionDenied(c *gc.C) {
+	ch := s.AddTestingCharm(c, "wordpress")
+	s.AddTestingService(c, "wordpress", ch)
+	s.addOtherModelApplication(c)
 
 	context, err := runJujuCommand(c, "add-relation", "wordpress", "otheruser/othermodel.mysql")
 	c.Assert(err, gc.NotNil)
@@ -245,35 +287,10 @@ func (s *crossmodelSuite) TestAddRelationSameControllerPermissionAllowed(c *gc.C
 	ch := s.AddTestingCharm(c, "wordpress")
 	s.AddTestingService(c, "wordpress", ch)
 
-	otherOwner := s.Factory.MakeUser(c, &factory.UserParams{Name: "otheruser"})
-	otherModel := s.Factory.MakeModel(c, &factory.ModelParams{Name: "othermodel", Owner: otherOwner.Tag()})
-	s.AddCleanup(func(*gc.C) { otherModel.Close() })
-
+	otherModel := s.addOtherModelApplication(c)
 	// Users with write permission to the model can add relations.
 	otherFactory := factory.NewFactory(otherModel)
 	otherFactory.MakeModelUser(c, &factory.ModelUserParams{User: "admin", Access: permission.WriteAccess})
 
-	mysql := testcharms.Repo.CharmDir("mysql")
-	ident := fmt.Sprintf("%s-%d", mysql.Meta().Name, mysql.Revision())
-	curl := charm.MustParseURL("local:quantal/" + ident)
-	repo, err := charmrepo.InferRepository(
-		curl,
-		charmrepo.NewCharmStoreParams{},
-		testcharms.Repo.Path())
-	c.Assert(err, jc.ErrorIsNil)
-	ch, err = jujutesting.PutCharm(otherModel, curl, repo, false)
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = otherModel.AddApplication(state.AddApplicationArgs{
-		Name:  "mysql",
-		Charm: ch,
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	offersAPi := state.NewApplicationOffers(otherModel)
-	_, err = offersAPi.AddOffer(jujucrossmodel.AddApplicationOfferArgs{
-		ApplicationURL:  "local:/u/me/hosted-mysql",
-		ApplicationName: "mysql",
-		Endpoints:       map[string]string{"database": "server"},
-	})
-	c.Assert(err, jc.ErrorIsNil)
 	s.assertAddRelationSameControllerSuccess(c, "otheruser")
 }

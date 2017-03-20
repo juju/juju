@@ -314,7 +314,7 @@ func (s *remoteRelationsSuite) TestRelationUnitSettings(c *gc.C) {
 }
 
 func (s *remoteRelationsSuite) TestRemoteApplications(c *gc.C) {
-	s.st.remoteApplications["django"] = newMockRemoteApplication("django", "/u/me/django")
+	s.st.remoteApplications["django"] = newMockRemoteApplication("django", "me/model.riak")
 	result, err := s.api.RemoteApplications(params.Entities{Entities: []params.Entity{{Tag: "application-django"}}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, jc.DeepEquals, []params.RemoteApplicationResult{{
