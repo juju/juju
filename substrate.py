@@ -207,7 +207,7 @@ class AWSAccount:
                     if not deleted:
                         failures.append((sg_id, "Failed to delete"))
                 except EC2ResponseError as e:
-                    failures.append((sg_id, e.message))
+                    failures.append((sg_id, repr(e)))
 
         return failures
 
