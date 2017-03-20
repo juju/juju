@@ -64,7 +64,7 @@ func (c *ListCharmResourcesCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "resources",
 		Args:    "<charm>",
-		Purpose: "display the resources for a charm in the charm store",
+		Purpose: "Display the resources for a charm in the charm store.",
 		Doc:     listCharmResourcesDoc,
 		Aliases: []string{"list-resources"},
 	}
