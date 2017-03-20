@@ -225,6 +225,20 @@ func (s *MigrationImportSuite) TestSLA(c *gc.C) {
 	c.Assert(creds, jc.DeepEquals, []byte("creds"))
 }
 
+func (s *MigrationImportSuite) TestMeterStatus(c *gc.C) {
+	err := s.State.SetModelMeterStatus("RED", "info message")
+	c.Assert(err, jc.ErrorIsNil)
+	newModel, newSt := s.importModel(c)
+
+	ms := newModel.MeterStatus()
+	c.Assert(ms.Code.String(), gc.Equals, "RED")
+	c.Assert(ms.Info, gc.Equals, "info message")
+	ms, err = newSt.ModelMeterStatus()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ms.Code.String(), gc.Equals, "RED")
+	c.Assert(ms.Info, gc.Equals, "info message")
+}
+
 func (s *MigrationImportSuite) AssertMachineEqual(c *gc.C, newMachine, oldMachine *state.Machine) {
 	c.Assert(newMachine.Id(), gc.Equals, oldMachine.Id())
 	c.Assert(newMachine.Principals(), jc.DeepEquals, oldMachine.Principals())

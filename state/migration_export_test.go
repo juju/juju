@@ -238,7 +238,20 @@ func (s *MigrationExportSuite) TestSLAs(c *gc.C) {
 	sla := model.SLA()
 
 	c.Assert(sla.Level(), gc.Equals, "essential")
-	c.Assert(sla.Credentials(), jc.DeepEquals, []byte("creds"))
+	c.Assert(sla.Credentials(), gc.DeepEquals, "creds")
+}
+
+func (s *MigrationExportSuite) TestMeterStatus(c *gc.C) {
+	err := s.State.SetModelMeterStatus("RED", "red info message")
+	c.Assert(err, jc.ErrorIsNil)
+
+	model, err := s.State.Export()
+	c.Assert(err, jc.ErrorIsNil)
+
+	sla := model.MeterStatus()
+
+	c.Assert(sla.Code(), gc.Equals, "RED")
+	c.Assert(sla.Info(), gc.Equals, "red info message")
 }
 
 func (s *MigrationExportSuite) TestMachines(c *gc.C) {
