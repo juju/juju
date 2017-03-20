@@ -687,22 +687,23 @@ func (s *MainSuite) TestModelCommands(c *gc.C) {
 	}
 }
 
-func (s *MainSuite) TestAllCommandsPurposeDocCapitalization(c *gc.C) {
+func (s *MainSuite) TestAllCommandsPurpose(c *gc.C) {
 	// Verify each command that:
-	// - the Purpose field is not empty
+	// - the Purpose field is not empty.
+	// - the Purpose ends with a full stop.
 	// - if set, the Doc field either begins with the name of the
 	// command or and uppercase letter.
 	//
-	// The first makes Purpose a required documentation. Also, makes
-	// both "help commands"'s output and "help <cmd>"'s header more
-	// uniform. The second makes the Doc content either start like a
-	// sentence, or start godoc-like by using the command's name in
-	// lowercase.
+	// This:
+	// - makes Purpose a required documentation.
+	// - Standardises Purpose formatting across all commands.
+	// - Brings "help commands"'s output in line with "help <cmd>"'s header.
+	// - Makes the Doc content either start like a sentence, or start
+	//   godoc-like by using the command's name in lowercase.
 	var commands commands
 	registerCommands(&commands, testing.Context(c))
 	for _, cmd := range commands {
 		info := cmd.Info()
-		c.Logf("%v", info.Name)
 		purpose := strings.TrimSpace(info.Purpose)
 		doc := strings.TrimSpace(info.Doc)
 		comment := func(message string) interface{} {
@@ -713,8 +714,9 @@ func (s *MainSuite) TestAllCommandsPurposeDocCapitalization(c *gc.C) {
 		if purpose != "" {
 			prefix := string(purpose[0])
 			c.Check(prefix, gc.Equals, strings.ToUpper(prefix),
-				comment("expected uppercase first-letter Purpose"),
-			)
+				comment("expected uppercase first-letter Purpose"))
+			c.Check(strings.HasSuffix(purpose, "."), jc.IsTrue,
+				comment("is missing full stop in Purpose"))
 		}
 		if doc != "" && !strings.HasPrefix(doc, info.Name) {
 			prefix := string(doc[0])
