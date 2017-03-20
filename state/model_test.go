@@ -288,7 +288,7 @@ func (s *ModelSuite) TestMeterStatus(c *gc.C) {
 	}
 
 	err = model.SetMeterStatus("PURPLE", "foobar")
-	c.Assert(err, gc.ErrorMatches, `invalid meter status "PURPLE"`)
+	c.Assert(err, gc.ErrorMatches, `meter status "PURPLE" not valid`)
 
 	c.Assert(ms.Code, gc.Equals, state.MeterAmber)
 	c.Assert(ms.Info, gc.Equals, "info setting 2")

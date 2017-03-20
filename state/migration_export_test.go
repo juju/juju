@@ -228,19 +228,6 @@ func (s *MigrationExportSuite) TestModelUsers(c *gc.C) {
 	c.Assert(exportedBob.Access(), gc.Equals, "read")
 }
 
-func (s *MigrationExportSuite) TestSLAs(c *gc.C) {
-	err := s.State.SetSLA("essential", []byte("creds"))
-	c.Assert(err, jc.ErrorIsNil)
-
-	model, err := s.State.Export()
-	c.Assert(err, jc.ErrorIsNil)
-
-	sla := model.SLA()
-
-	c.Assert(sla.Level, gc.Equals, "essential")
-	c.Assert(sla.Creds, jc.DeepEquals, []byte("creds"))
-}
-
 func (s *MigrationExportSuite) TestMachines(c *gc.C) {
 	s.assertMachinesMigrated(c, constraints.MustParse("arch=amd64 mem=8G"))
 }

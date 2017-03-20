@@ -9,7 +9,6 @@ import (
 	"github.com/juju/description"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/apiserver/metricsender"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -26,7 +25,6 @@ type ModelManagerBackend interface {
 	APIHostPortsGetter
 	ToolsStorageGetter
 	BlockGetter
-	metricsender.MetricsSenderBackend
 	state.CloudAccessor
 
 	ModelUUID() string
@@ -61,6 +59,14 @@ type ModelManagerBackend interface {
 	LatestMigration() (state.ModelMigration, error)
 	DumpAll() (map[string]interface{}, error)
 	Close() error
+
+	// Methods required by the metricsender package.
+	MetricsManager() (*state.MetricsManager, error)
+	MetricsToSend(batchSize int) ([]*state.MetricBatch, error)
+	SetMetricBatchesSent(batchUUIDs []string) error
+	CountOfUnsentMetrics() (int, error)
+	CountOfSentMetrics() (int, error)
+	CleanupOldMetrics() error
 }
 
 // Model defines methods provided by a state.Model instance.

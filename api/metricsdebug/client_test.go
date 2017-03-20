@@ -397,7 +397,7 @@ func (s *metricsdebugSuite) TestSetMeterStatus(c *gc.C) {
 		tag:   testUnit1.Tag().String(),
 		code:  "WRONG",
 		info:  "test",
-		err:   "invalid meter status \"NOT AVAILABLE\"",
+		err:   "meter status \"NOT AVAILABLE\" not valid",
 	}, {
 		about: "not such service",
 		tag:   "application-missing",

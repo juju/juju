@@ -82,7 +82,7 @@ func isValidMeterStatusCode(codeStr string) (MeterStatusCode, error) {
 	case MeterGreen, MeterAmber, MeterRed:
 		return code, nil
 	default:
-		return MeterNotAvailable, errors.Errorf("invalid meter status %q", codeStr)
+		return MeterNotAvailable, errors.NotValidf("meter status %q", codeStr)
 	}
 }
 

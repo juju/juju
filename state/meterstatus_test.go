@@ -57,13 +57,13 @@ func (s *MeterStateSuite) TestMeterStatusIncludesModelUUID(c *gc.C) {
 
 func (s *MeterStateSuite) TestSetMeterStatusIncorrect(c *gc.C) {
 	err := s.unit.SetMeterStatus("NOT SET", "Additional information.")
-	c.Assert(err, gc.ErrorMatches, `invalid meter status "NOT SET"`)
+	c.Assert(err, gc.ErrorMatches, `meter status "NOT SET" not valid`)
 	status, err := s.unit.GetMeterStatus()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status.Code, gc.Equals, state.MeterNotSet)
 
 	err = s.unit.SetMeterStatus("this-is-not-a-valid-status", "Additional information.")
-	c.Assert(err, gc.ErrorMatches, `invalid meter status "this-is-not-a-valid-status"`)
+	c.Assert(err, gc.ErrorMatches, `meter status "this-is-not-a-valid-status" not valid`)
 	status, err = s.unit.GetMeterStatus()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status.Code, gc.Equals, state.MeterNotSet)
