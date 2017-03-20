@@ -288,35 +288,6 @@ func (s *AddPendingResourcesSuite) TestWithURLUpload(c *gc.C) {
 	})
 }
 
-// TODO(ericsnow) Once the CS API has ListResources() implemented:
-//func (s *AddPendingResourcesSuite) TestUnknownResource(c *gc.C) {
-//	_, apiRes1 := newResource(c, "spam", "a-user", "spamspamspam")
-//	apiRes1.Origin = charmresource.OriginStore.String()
-//	facade, err := resources.NewFacade(s.data, s.newCSClient)
-//	c.Assert(err, jc.ErrorIsNil)
-//
-//	result, err := facade.AddPendingResources(params.AddPendingResourcesArgs{
-//		Entity: params.Entity{
-//			Tag: "application-a-application",
-//		},
-//		AddCharmWithAuthorization: params.AddCharmWithAuthorization{
-//			URL: "cs:~a-user/trusty/spam-5",
-//		},
-//		Resources: []params.CharmResource{
-//			apiRes1.CharmResource,
-//		},
-//	})
-//	c.Assert(err, jc.ErrorIsNil)
-//
-//	s.stub.CheckCallNames(c, "newCSClient", "ListResources")
-//	c.Check(result, jc.DeepEquals, params.AddPendingResourcesResult{
-//		ErrorResult: params.ErrorResult{Error: &params.Error{
-//			Message: `charm store resource "spam" not found`,
-//			Code:    params.CodeNotFound,
-//		}},
-//	})
-//}
-
 func (s *AddPendingResourcesSuite) TestUnknownResource(c *gc.C) {
 	res1, apiRes1 := newResource(c, "spam", "a-user", "spamspamspam")
 	res1.Origin = charmresource.OriginStore
