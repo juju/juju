@@ -128,6 +128,7 @@ class ModelClient2_1(ModelClient):
     """Client for Juju 2.1"""
 
     REGION_ENDPOINT_PROMPT = 'Enter the API endpoint url for the region:'
+    login_user_command = 'login'
 
 
 class ModelClient2_0(ModelClient2_1):

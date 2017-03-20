@@ -1425,6 +1425,8 @@ class ModelClient:
     REGION_ENDPOINT_PROMPT = (
         r'Enter the API endpoint url for the region \[use cloud api url\]:')
 
+    login_user_command = 'login -u'
+
     @classmethod
     def preferred_container(cls):
         for container_type in [LXD_MACHINE, LXC_MACHINE]:
@@ -2697,6 +2699,34 @@ class ModelClient:
             raise Exception(
                 'Registering user failed: pexpect session timed out')
         user_client.env.user_name = username
+        return user_client
+
+    def login_user(self, username, juju_home, controller_name=None):
+        """Login `user` for the `client` return the cloned client used."""
+        if controller_name is None:
+            controller_name = '{}_controller'.format(username)
+
+        user_client = self.create_cloned_environment(juju_home,
+                                                     controller_name,
+                                                     username)
+        try:
+            child = user_client.expect(self.login_user_command,
+                                       (username, '-c', controller_name),
+                                       include_e=False)
+            child.expect('(?i)password')
+            child.sendline(username + '_password_2')
+            child.expect(pexpect.EOF)
+            if child.isalive():
+                raise Exception(
+                    'FAIL Login user: pexpect session still alive')
+            child.close()
+            if child.exitstatus != 0:
+                raise Exception(
+                    'FAIL Login user: pexpect process exited with {}'.format(
+                        child.exitstatus))
+        except pexpect.TIMEOUT:
+            raise Exception(
+                'FAIL Login user failed: pexpect session timed out')
         return user_client
 
     def register_host(self, host, email, password):

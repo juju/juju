@@ -245,30 +245,7 @@ def assert_logout_login(controller_client, user_client, user, fake_home):
     user_list = list_users(controller_client)
     assert_equal(user_list, USER_LIST_CTRL_READ)
     log.info('Checking list-users after login')
-    username = user.name
-    controller_name = '{}_controller'.format(username)
-    client = controller_client.create_cloned_environment(
-        fake_home, controller_name, user.name)
-    try:
-        child = client.expect('login', (user.name, '-c', controller_name),
-                              include_e=False)
-        # This scenario is pre-macaroon.
-        # See https://bugs.launchpad.net/bugs/1621532
-        child.expect('(?i)password')
-        child.sendline(user.name + '_password_2')
-        # end non-macaroon.
-        child.expect(pexpect.EOF)
-        if child.isalive():
-            raise JujuAssertionError(
-                'FAIL Login user: pexpect session still alive')
-        child.close()
-        if child.exitstatus != 0:
-            raise JujuAssertionError(
-                'FAIL Login user: pexpect process exited with {}'.format(
-                    child.exitstatus))
-    except pexpect.TIMEOUT:
-        raise JujuAssertionError(
-            'FAIL Login user failed: pexpect session timed out')
+    client = controller_client.login_user(user.name, fake_home)
     log.info('PASS logout and login')
     return client
 
