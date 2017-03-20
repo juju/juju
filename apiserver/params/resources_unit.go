@@ -12,7 +12,7 @@ type ListUnitResourcesArgs struct {
 	ResourceNames []string `json:"resource-names"`
 }
 
-// ResourcesResult holds the resource info for a list of requested
+// UnitResourcesResult holds the resource info for a list of requested
 // resources.
 type UnitResourcesResult struct {
 	ErrorResult
@@ -22,7 +22,7 @@ type UnitResourcesResult struct {
 	Resources []UnitResourceResult `json:"resources"`
 }
 
-// ResourceResult is the result for a single requested resource.
+// UnitResourceResult is the result for a single requested resource.
 type UnitResourceResult struct {
 	ErrorResult
 
