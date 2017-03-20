@@ -15,6 +15,9 @@ import (
 
 // NewResourceOpener returns a new resource.Opener for the given unit.
 //
+// The caller owns the State provided. It is the caller's
+// responsibility to close it.
+//
 // TODO(mjs): This is the entry point for a whole lot of untested shim
 // code in this package. At some point this should be sorted out.
 func NewResourceOpener(st *corestate.State, unitName string) (opener resource.Opener, err error) {
