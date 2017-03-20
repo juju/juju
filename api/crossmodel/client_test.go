@@ -103,7 +103,7 @@ func (s *crossmodelMockSuite) TestShow(c *gc.C) {
 		{Name: "db2", Interface: "db2", Role: charm.RoleProvider},
 		{Name: "log", Interface: "http", Role: charm.RoleRequirer},
 	}
-	applicationTag := "application-hosted-db2"
+	offerName := "hosted-db2"
 
 	called := false
 
@@ -128,7 +128,8 @@ func (s *crossmodelMockSuite) TestShow(c *gc.C) {
 					{Result: params.ApplicationOffer{
 						ApplicationDescription: desc,
 						Endpoints:              endpoints,
-						ApplicationName:        applicationTag,
+						OfferURL:               url,
+						OfferName:              offerName,
 					}},
 				}
 			}
@@ -142,7 +143,8 @@ func (s *crossmodelMockSuite) TestShow(c *gc.C) {
 	c.Assert(found, gc.DeepEquals, params.ApplicationOffer{
 		ApplicationDescription: desc,
 		Endpoints:              endpoints,
-		ApplicationName:        applicationTag})
+		OfferURL:               url,
+		OfferName:              offerName})
 }
 
 func (s *crossmodelMockSuite) TestShowURLError(c *gc.C) {
@@ -189,7 +191,7 @@ func (s *crossmodelMockSuite) TestShowMultiple(c *gc.C) {
 		{Name: "db2", Interface: "db2", Role: charm.RoleProvider},
 		{Name: "log", Interface: "http", Role: charm.RoleRequirer},
 	}
-	applicationTag := "application-hosted-db2"
+	offerName := "hosted-db2"
 
 	called := false
 
@@ -214,12 +216,14 @@ func (s *crossmodelMockSuite) TestShowMultiple(c *gc.C) {
 					{Result: params.ApplicationOffer{
 						ApplicationDescription: desc,
 						Endpoints:              endpoints,
-						ApplicationName:        applicationTag,
+						OfferURL:               url,
+						OfferName:              offerName,
 					}},
 					{Result: params.ApplicationOffer{
 						ApplicationDescription: desc,
 						Endpoints:              endpoints,
-						ApplicationName:        applicationTag,
+						OfferURL:               url,
+						OfferName:              offerName,
 					}}}
 			}
 			return nil
@@ -276,16 +280,14 @@ func (s *crossmodelMockSuite) TestShowFacadeCallError(c *gc.C) {
 }
 
 func (s *crossmodelMockSuite) TestFind(c *gc.C) {
-	charmName := "db2"
-	offerName := fmt.Sprintf("hosted-%s", charmName)
+	offerName := "hosted-db2"
 	url := fmt.Sprintf("fred/model.%s", offerName)
 	endpoints := []params.RemoteEndpoint{{Name: "endPointA"}}
 	relations := []jujucrossmodel.EndpointFilterTerm{{Name: "endPointA", Interface: "http"}}
 
 	filter := jujucrossmodel.ApplicationOfferFilter{
-		OfferName:       charmName,
-		ApplicationName: fmt.Sprintf("hosted-%s", charmName),
-		Endpoints:       relations,
+		OfferName: offerName,
+		Endpoints: relations,
 	}
 
 	called := false
@@ -314,10 +316,9 @@ func (s *crossmodelMockSuite) TestFind(c *gc.C) {
 
 			if results, ok := result.(*params.FindApplicationOffersResults); ok {
 				offer := params.ApplicationOffer{
-					OfferURL:        url,
-					OfferName:       offerName,
-					ApplicationName: charmName,
-					Endpoints:       endpoints,
+					OfferURL:  url,
+					OfferName: offerName,
+					Endpoints: endpoints,
 				}
 				results.Results = []params.ApplicationOffer{offer}
 			}
@@ -329,10 +330,9 @@ func (s *crossmodelMockSuite) TestFind(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(called, jc.IsTrue)
 	c.Assert(results, jc.DeepEquals, []params.ApplicationOffer{{
-		OfferURL:        url,
-		OfferName:       offerName,
-		ApplicationName: charmName,
-		Endpoints:       endpoints,
+		OfferURL:  url,
+		OfferName: offerName,
+		Endpoints: endpoints,
 	}})
 }
 

@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/remoterelations"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -382,37 +383,43 @@ func (s *remoteRelationsSuite) TestRelations(c *gc.C) {
 }
 
 func (s *remoteRelationsSuite) assertRegisterRemoteRelations(c *gc.C) {
-	app := newMockApplication("application-offeredapp")
+	app := newMockApplication("offeredapp")
 	app.eps = []state.Endpoint{{
-		ApplicationName: "application-offeredapp",
+		ApplicationName: "offeredapp",
 		Relation:        charm.Relation{Name: "local"},
 	}}
-	s.st.applications["application-offeredapp"] = app
-	result, err := s.api.RegisterRemoteRelations(params.RegisterRemoteRelations{
+	s.st.applications["offeredapp"] = app
+	s.st.offers = []crossmodel.ApplicationOffer{{
+		OfferName:       "offered",
+		ApplicationName: "offeredapp",
+	}}
+	results, err := s.api.RegisterRemoteRelations(params.RegisterRemoteRelations{
 		Relations: []params.RegisterRemoteRelation{{
-			ApplicationId:          params.RemoteEntityId{ModelUUID: "model-uuid", Token: "app-token"},
-			RelationId:             params.RemoteEntityId{ModelUUID: "model-uuid", Token: "rel-token"},
-			RemoteEndpoint:         params.RemoteEndpoint{Name: "remote"},
-			OfferedApplicationName: "offeredapp",
-			LocalEndpointName:      "local",
+			ApplicationId:     params.RemoteEntityId{ModelUUID: "model-uuid", Token: "app-token"},
+			RelationId:        params.RemoteEntityId{ModelUUID: "model-uuid", Token: "rel-token"},
+			RemoteEndpoint:    params.RemoteEndpoint{Name: "remote"},
+			OfferName:         "offered",
+			LocalEndpointName: "local",
 		}}})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(result.Results, jc.DeepEquals, []params.RemoteEntityIdResult{
-		{Result: &params.RemoteEntityId{ModelUUID: coretesting.ModelTag.Id(), Token: "token-application-offeredapp"}},
-	})
+	c.Assert(results.Results, gc.HasLen, 1)
+	result := results.Results[0]
+	c.Assert(result.Error, gc.IsNil)
+	c.Check(result.Result, jc.DeepEquals, &params.RemoteEntityId{
+		ModelUUID: coretesting.ModelTag.Id(), Token: "token-offeredapp"})
 	expectedRemoteApp := s.st.remoteApplications["remote-apptoken"]
 	expectedRemoteApp.Stub = testing.Stub{} // don't care about api calls
 	c.Check(expectedRemoteApp, jc.DeepEquals, &mockRemoteApplication{
-		name:       "remote-apptoken",
-		eps:        []charm.Relation{{Name: "remote"}},
-		registered: true,
+		name:          "remote-apptoken",
+		eps:           []charm.Relation{{Name: "remote"}},
+		consumerproxy: true,
 	})
-	expectedRel := s.st.relations["application-offeredapp:local remote-apptoken:remote"]
+	expectedRel := s.st.relations["offeredapp:local remote-apptoken:remote"]
 	expectedRel.Stub = testing.Stub{} // don't care about api calls
-	c.Check(expectedRel, jc.DeepEquals, &mockRelation{key: "application-offeredapp:local remote-apptoken:remote"})
+	c.Check(expectedRel, jc.DeepEquals, &mockRelation{key: "offeredapp:local remote-apptoken:remote"})
 	c.Check(s.st.remoteEntities, gc.HasLen, 2)
-	c.Check(s.st.remoteEntities[names.NewApplicationTag("application-offeredapp")], gc.Equals, "token-application-offeredapp")
-	c.Check(s.st.remoteEntities[names.NewRelationTag("application-offeredapp:local remote-apptoken:remote")], gc.Equals, "rel-token")
+	c.Check(s.st.remoteEntities[names.NewApplicationTag("offeredapp")], gc.Equals, "token-offeredapp")
+	c.Check(s.st.remoteEntities[names.NewRelationTag("offeredapp:local remote-apptoken:remote")], gc.Equals, "rel-token")
 }
 
 func (s *remoteRelationsSuite) TestRegisterRemoteRelations(c *gc.C) {

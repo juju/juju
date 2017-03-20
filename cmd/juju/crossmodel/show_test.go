@@ -26,8 +26,7 @@ func (s *showSuite) SetUpTest(c *gc.C) {
 	s.BaseCrossModelSuite.SetUpTest(c)
 
 	s.mockAPI = &mockShowAPI{
-		appTag: "hosted-db2",
-		desc:   "IBM DB2 Express Server Edition is an entry level database system",
+		desc: "IBM DB2 Express Server Edition is an entry level database system",
 	}
 }
 
@@ -49,7 +48,6 @@ func (s *showSuite) TestShowApiError(c *gc.C) {
 }
 
 func (s *showSuite) TestShowURLError(c *gc.C) {
-	s.mockAPI.appTag = "invalid_tag"
 	s.assertShowError(c, []string{"fred/model.foo/db2"}, "application offer URL has invalid form.*")
 }
 
@@ -132,7 +130,7 @@ func (s *showSuite) assertShowError(c *gc.C, args []string, expected string) {
 }
 
 type mockShowAPI struct {
-	msg, appTag, desc string
+	msg, desc string
 }
 
 func (s mockShowAPI) Close() error {
@@ -147,7 +145,6 @@ func (s mockShowAPI) ApplicationOffer(url string) (params.ApplicationOffer, erro
 	return params.ApplicationOffer{
 		OfferName:              "hosted-db2",
 		OfferURL:               "fred/model.db2",
-		ApplicationName:        s.appTag,
 		ApplicationDescription: s.desc,
 		Endpoints: []params.RemoteEndpoint{
 			{Name: "log", Interface: "http", Role: charm.RoleProvider},

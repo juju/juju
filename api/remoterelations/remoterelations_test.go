@@ -295,7 +295,7 @@ func (s *remoteRelationsSuite) TestRegisterRemoteRelations(c *gc.C) {
 		c.Check(id, gc.Equals, "")
 		c.Check(request, gc.Equals, "RegisterRemoteRelations")
 		c.Check(arg, gc.DeepEquals, params.RegisterRemoteRelations{
-			Relations: []params.RegisterRemoteRelation{{OfferedApplicationName: "offeredapp"}}})
+			Relations: []params.RegisterRemoteRelation{{OfferName: "offeredapp"}}})
 		c.Assert(result, gc.FitsTypeOf, &params.RemoteEntityIdResults{})
 		*(result.(*params.RemoteEntityIdResults)) = params.RemoteEntityIdResults{
 			Results: []params.RemoteEntityIdResult{{
@@ -306,7 +306,7 @@ func (s *remoteRelationsSuite) TestRegisterRemoteRelations(c *gc.C) {
 		return nil
 	})
 	client := remoterelations.NewClient(apiCaller)
-	result, err := client.RegisterRemoteRelations(params.RegisterRemoteRelation{OfferedApplicationName: "offeredapp"})
+	result, err := client.RegisterRemoteRelations(params.RegisterRemoteRelation{OfferName: "offeredapp"})
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(result, gc.HasLen, 1)
 	c.Check(result[0].Error, gc.ErrorMatches, "FAIL")

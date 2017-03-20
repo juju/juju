@@ -28,7 +28,7 @@ Examples:
    $ juju show-endpoints fred/prod.db2
 
 See also:
-   offer
+   find-endpoints
 `
 
 type showCommand struct {

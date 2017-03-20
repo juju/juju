@@ -84,11 +84,9 @@ func (c *Client) FindApplicationOffers(filters ...crossmodel.ApplicationOfferFil
 	}
 	var paramsFilter params.OfferFilters
 	for _, f := range filters {
-		// TODO(wallyworld) - include allowed users
 		filterTerm := params.OfferFilter{
-			OfferName:       f.OfferName,
-			ModelName:       f.ModelName,
-			ApplicationName: f.ApplicationName,
+			OfferName: f.OfferName,
+			ModelName: f.ModelName,
 		}
 		filterTerm.Endpoints = make([]params.EndpointFilterAttributes, len(f.Endpoints))
 		for i, ep := range f.Endpoints {
@@ -126,15 +124,15 @@ func (c *Client) ListOffers(filters ...crossmodel.ApplicationOfferFilter) ([]cro
 		paramsFilter.Filters = append(paramsFilter.Filters, filterTerm)
 	}
 
-	applicationOffers := params.FindApplicationOffersResults{}
-	err := c.facade.FacadeCall("FindApplicationOffers", paramsFilter, &applicationOffers)
+	applicationOffers := params.ListApplicationOffersResults{}
+	err := c.facade.FacadeCall("ListApplicationOffers", paramsFilter, &applicationOffers)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return convertListResultsToModel(applicationOffers.Results), nil
 }
 
-func convertListResultsToModel(items []params.ApplicationOffer) []crossmodel.ApplicationOfferDetailsResult {
+func convertListResultsToModel(items []params.ApplicationOfferDetails) []crossmodel.ApplicationOfferDetailsResult {
 	result := make([]crossmodel.ApplicationOfferDetailsResult, len(items))
 	for i, one := range items {
 		eps := make([]charm.Relation, len(one.Endpoints))
@@ -150,6 +148,8 @@ func convertListResultsToModel(items []params.ApplicationOffer) []crossmodel.App
 		result[i].Result = &crossmodel.ApplicationOfferDetails{
 			ApplicationName: one.ApplicationName,
 			OfferName:       one.OfferName,
+			CharmName:       one.CharmName,
+			ConnectedCount:  one.ConnectedCount,
 			OfferURL:        one.OfferURL,
 			Endpoints:       eps,
 		}

@@ -28,8 +28,10 @@ Examples:
    $ juju find-endpoints
    $ juju find-endpoints fred/prod
    $ juju find-endpoints --interface mysql --url fred/prod
-   $ juju find-endpoints --charm db2 --url fred/prod.db2
-   $ juju find-endpoints --charm db2 --author ibm
+   $ juju find-endpoints --url fred/prod.db2
+   
+See also:
+   show-endpoints   
 `
 
 type findCommand struct {
@@ -40,9 +42,6 @@ type findCommand struct {
 	offerName     string
 	interfaceName string
 	endpoint      string
-	user          string
-	charm         string
-	author        string
 
 	out        cmd.Output
 	newAPIFunc func() (FindAPI, error)
@@ -78,7 +77,6 @@ func (c *findCommand) Init(args []string) (err error) {
 		}
 		c.modelName = urlParts.ModelName
 		c.offerName = urlParts.ApplicationName
-		c.user = urlParts.User
 		if urlParts.Source != "" && urlParts.Source != c.ControllerName() {
 			return errors.NotSupportedf("finding endpoints from another controller %q", urlParts.Source)
 		}
@@ -104,9 +102,6 @@ func (c *findCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.url, "url", "", "application URL")
 	f.StringVar(&c.interfaceName, "interface", "", "return results matching the interface name")
 	f.StringVar(&c.endpoint, "endpoint", "", "return results matching the endpoint name")
-	f.StringVar(&c.user, "user", "", "return results with the user in the URL")
-	f.StringVar(&c.charm, "charm", "", "return results for the charm name")
-	f.StringVar(&c.author, "author", "", "return results matching the charm author")
 	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
 		"yaml":    cmd.FormatYaml,
 		"json":    cmd.FormatJson,
@@ -125,10 +120,8 @@ func (c *findCommand) Run(ctx *cmd.Context) (err error) {
 	filter := crossmodel.ApplicationOfferFilter{
 		ModelName: c.modelName,
 		OfferName: c.offerName,
-		// TODO(wallyworld): allowed users
-		// TODO(wallyworld): charm
-		// TODO(wallyworld): user
-		// TODO(wallyworld): author
+		// TODO(wallyworld): interface
+		// TODO(wallyworld): endpoint
 	}
 	if c.interfaceName != "" || c.endpoint != "" {
 		filter.Endpoints = []crossmodel.EndpointFilterTerm{{

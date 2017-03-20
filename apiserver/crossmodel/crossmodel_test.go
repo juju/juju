@@ -144,27 +144,28 @@ func (s *crossmodelSuite) TestShow(c *gc.C) {
 	s.applicationOffers.listOffers = func(filters ...jujucrossmodel.ApplicationOfferFilter) ([]jujucrossmodel.ApplicationOffer, error) {
 		return []jujucrossmodel.ApplicationOffer{anOffer}, nil
 	}
-	charm := &mockCharm{meta: &charm.Meta{Description: "A pretty popular blog engine"}}
+	ch := &mockCharm{meta: &charm.Meta{Description: "A pretty popular blog engine"}}
 	s.mockState.applications = map[string]crossmodel.Application{
-		applicationName: &mockApplication{charm: charm},
+		applicationName: &mockApplication{charm: ch, curl: charm.MustParseURL("db2-2")},
 	}
 	s.mockState.modelUUID = "uuid"
 	s.mockState.model = &mockModel{uuid: "uuid", name: "prod", owner: "fred"}
 	s.mockState.usermodels = []crossmodel.UserModel{
 		&mockUserModel{model: s.mockState.model},
 	}
+	s.mockState.connStatus = &mockConnectionStatus{count: 5}
 
 	found, err := s.api.ApplicationOffers(filter)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(found, jc.DeepEquals,
-		params.ApplicationOffersResults{[]params.ApplicationOfferResult{
-			{Result: params.ApplicationOffer{
-				ApplicationName:        applicationName,
-				ApplicationDescription: "description",
-				OfferURL:               url,
-				OfferName:              offerName,
-				Endpoints:              []params.RemoteEndpoint{{Name: "db"}}}},
-		}})
+	c.Assert(found.Results, gc.HasLen, 1)
+	result := found.Results[0]
+	c.Assert(result.Error, gc.IsNil)
+	c.Assert(result.Result, jc.DeepEquals, params.ApplicationOffer{
+		ApplicationDescription: "description",
+		OfferURL:               url,
+		OfferName:              offerName,
+		Endpoints:              []params.RemoteEndpoint{{Name: "db"}}},
+	)
 	s.applicationOffers.CheckCallNames(c, listOffersBackendCall)
 }
 
@@ -259,28 +260,33 @@ func (s *crossmodelSuite) TestShowFoundMultiple(c *gc.C) {
 		}
 		return []jujucrossmodel.ApplicationOffer{anOffer2}, nil
 	}
+	ch := &mockCharm{meta: &charm.Meta{Description: "A pretty popular blog engine"}}
+	s.mockState.applications = map[string]crossmodel.Application{
+		"test":      &mockApplication{charm: ch, curl: charm.MustParseURL("db2-2")},
+		"testAgain": &mockApplication{charm: ch, curl: charm.MustParseURL("mysql-2")},
+	}
 	s.mockState.modelUUID = "uuid"
 	s.mockState.model = &mockModel{uuid: "uuid", name: "prod", owner: "fred"}
 	s.mockState.usermodels = []crossmodel.UserModel{
 		&mockUserModel{model: s.mockState.model},
 		&mockUserModel{model: &mockModel{uuid: "uuid2", name: "test", owner: "mary"}},
 	}
+	s.mockState.connStatus = &mockConnectionStatus{count: 5}
 
 	found, err := s.api.ApplicationOffers(filter)
 	c.Assert(err, jc.ErrorIsNil)
 	var results []params.ApplicationOffer
 	for _, r := range found.Results {
+		c.Assert(r.Error, gc.IsNil)
 		results = append(results, r.Result)
 	}
 	c.Assert(results, jc.DeepEquals, []params.ApplicationOffer{
 		{
-			ApplicationName:        name,
 			ApplicationDescription: "description",
 			OfferName:              "hosted-" + name,
 			OfferURL:               url,
 			Endpoints:              []params.RemoteEndpoint{{Name: "db"}}},
 		{
-			ApplicationName:        name2,
 			ApplicationDescription: "description2",
 			OfferName:              "hosted-" + name2,
 			OfferURL:               url2,
@@ -289,18 +295,10 @@ func (s *crossmodelSuite) TestShowFoundMultiple(c *gc.C) {
 	s.applicationOffers.CheckCallNames(c, listOffersBackendCall, listOffersBackendCall)
 }
 
-func (s *crossmodelSuite) TestFind(c *gc.C) {
+func (s *crossmodelSuite) setupOffers(c *gc.C) {
 	applicationName := "test"
 	offerName := "hosted-db2"
 
-	filter := params.OfferFilters{
-		Filters: []params.OfferFilter{
-			{
-				OfferName:       "hosted-db2",
-				ApplicationName: "test",
-			},
-		},
-	}
 	anOffer := jujucrossmodel.ApplicationOffer{
 		OfferName:              offerName,
 		ApplicationName:        applicationName,
@@ -316,20 +314,36 @@ func (s *crossmodelSuite) TestFind(c *gc.C) {
 		})
 		return []jujucrossmodel.ApplicationOffer{anOffer}, nil
 	}
+	ch := &mockCharm{meta: &charm.Meta{Description: "A pretty popular blog engine"}}
+	s.mockState.applications = map[string]crossmodel.Application{
+		"test": &mockApplication{charm: ch, curl: charm.MustParseURL("db2-2")},
+	}
 	s.mockState.modelUUID = "uuid"
 	s.mockState.model = &mockModel{uuid: "uuid", name: "prod", owner: "fred"}
 	s.mockState.usermodels = []crossmodel.UserModel{
 		&mockUserModel{model: s.mockState.model},
 	}
+	s.mockState.connStatus = &mockConnectionStatus{count: 5}
 
+}
+
+func (s *crossmodelSuite) TestFind(c *gc.C) {
+	s.setupOffers(c)
+	filter := params.OfferFilters{
+		Filters: []params.OfferFilter{
+			{
+				OfferName:       "hosted-db2",
+				ApplicationName: "test",
+			},
+		},
+	}
 	found, err := s.api.FindApplicationOffers(filter)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(found, jc.DeepEquals, params.FindApplicationOffersResults{
 		[]params.ApplicationOffer{
 			{
-				ApplicationName:        applicationName,
 				ApplicationDescription: "description",
-				OfferName:              offerName,
+				OfferName:              "hosted-db2",
 				OfferURL:               "fred/prod.hosted-db2",
 				Endpoints:              []params.RemoteEndpoint{{Name: "db"}}}},
 	})
@@ -352,6 +366,55 @@ func (s *crossmodelSuite) TestFindError(c *gc.C) {
 	}
 
 	_, err := s.api.FindApplicationOffers(filter)
+	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(".*%v.*", msg))
+	s.applicationOffers.CheckCallNames(c, listOffersBackendCall)
+}
+
+func (s *crossmodelSuite) TestList(c *gc.C) {
+	s.setupOffers(c)
+	filter := params.OfferFilters{
+		Filters: []params.OfferFilter{
+			{
+				OfferName:       "hosted-db2",
+				ApplicationName: "test",
+			},
+		},
+	}
+	found, err := s.api.ListApplicationOffers(filter)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(found, jc.DeepEquals, params.ListApplicationOffersResults{
+		[]params.ApplicationOfferDetails{
+			{
+				ApplicationOffer: params.ApplicationOffer{
+					ApplicationDescription: "description",
+					OfferName:              "hosted-db2",
+					OfferURL:               "fred/prod.hosted-db2",
+					Endpoints:              []params.RemoteEndpoint{{Name: "db"}},
+				},
+				CharmName:      "db2",
+				ConnectedCount: 5,
+			},
+		},
+	})
+	s.applicationOffers.CheckCallNames(c, listOffersBackendCall)
+}
+
+func (s *crossmodelSuite) TestListError(c *gc.C) {
+	filter := params.OfferFilters{
+		Filters: []params.OfferFilter{
+			{
+				OfferName:       "hosted-db2",
+				ApplicationName: "test",
+			},
+		},
+	}
+	msg := "fail"
+
+	s.applicationOffers.listOffers = func(filters ...jujucrossmodel.ApplicationOfferFilter) ([]jujucrossmodel.ApplicationOffer, error) {
+		return nil, errors.New(msg)
+	}
+
+	_, err := s.api.ListApplicationOffers(filter)
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(".*%v.*", msg))
 	s.applicationOffers.CheckCallNames(c, listOffersBackendCall)
 }

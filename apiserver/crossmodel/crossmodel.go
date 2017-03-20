@@ -104,12 +104,12 @@ func (api *API) ApplicationOffers(urls params.ApplicationURLs) (params.Applicati
 	results.Results = make([]params.ApplicationOfferResult, len(urls.ApplicationURLs))
 
 	for i, urlStr := range urls.ApplicationURLs {
-		offer, fullURL, err := api.offerForURL(urlStr)
+		offer, err := api.offerForURL(urlStr)
 		if err != nil {
 			results.Results[i].Error = common.ServerError(err)
 			continue
 		}
-		results.Results[i].Result = makeOfferParamsFromOffer(fullURL, offer)
+		results.Results[i].Result = offer.ApplicationOffer
 	}
 	return results, nil
 }
@@ -136,9 +136,9 @@ func (api *API) modelForName(modelName, userName string) (Model, bool, error) {
 
 // offerForURL finds the single offer for a specified (possibly relative) URL,
 // returning the offer and full URL.
-func (api *API) offerForURL(urlStr string) (jujucrossmodel.ApplicationOffer, string, error) {
-	fail := func(err error) (jujucrossmodel.ApplicationOffer, string, error) {
-		return jujucrossmodel.ApplicationOffer{}, "", errors.Trace(err)
+func (api *API) offerForURL(urlStr string) (params.ApplicationOfferDetails, error) {
+	fail := func(err error) (params.ApplicationOfferDetails, error) {
+		return params.ApplicationOfferDetails{}, errors.Trace(err)
 	}
 
 	url, err := jujucrossmodel.ParseApplicationURL(urlStr)
@@ -174,11 +174,13 @@ func (api *API) offerForURL(urlStr string) (jujucrossmodel.ApplicationOffer, str
 		return fail(err)
 	}
 	fullURL := fmt.Sprintf("%s/%s.%s", model.Owner().Name(), model.Name(), url.ApplicationName)
-	return offers[0], fullURL, nil
+	offer := offers[0]
+	offer.OfferURL = fullURL
+	return offer, nil
 }
 
 // ApplicationOffers gets details about remote applications that match given URLs.
-func (api *API) applicationOffersFromModel(modelUUID string, filters ...jujucrossmodel.ApplicationOfferFilter) ([]jujucrossmodel.ApplicationOffer, error) {
+func (api *API) applicationOffersFromModel(modelUUID string, filters ...jujucrossmodel.ApplicationOfferFilter) ([]params.ApplicationOfferDetails, error) {
 	backend := api.backend
 	if modelUUID != api.backend.ModelUUID() {
 		st, releaser, err := api.statePool.Get(modelUUID)
@@ -193,13 +195,31 @@ func (api *API) applicationOffersFromModel(modelUUID string, filters ...jujucros
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return offers, nil
+
+	var results []params.ApplicationOfferDetails
+	for _, offer := range offers {
+		app, err := backend.Application(offer.ApplicationName)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		curl, _ := app.CharmURL()
+		status, err := backend.RemoteConnectionStatus(offer.OfferName)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		offerDetails := params.ApplicationOfferDetails{
+			ApplicationOffer: makeOfferParamsFromOffer(offer),
+			ApplicationName:  app.Name(),
+			CharmName:        curl.Name,
+			ConnectedCount:   status.ConnectionCount(),
+		}
+		results = append(results, offerDetails)
+	}
+	return results, nil
 }
 
-func makeOfferParamsFromOffer(url string, offer jujucrossmodel.ApplicationOffer) params.ApplicationOffer {
+func makeOfferParamsFromOffer(offer jujucrossmodel.ApplicationOffer) params.ApplicationOffer {
 	result := params.ApplicationOffer{
-		OfferURL:               url,
-		ApplicationName:        offer.ApplicationName,
 		OfferName:              offer.OfferName,
 		ApplicationDescription: offer.ApplicationDescription,
 	}
@@ -218,7 +238,30 @@ func makeOfferParamsFromOffer(url string, offer jujucrossmodel.ApplicationOffer)
 // FindApplicationOffers gets details about remote applications that match given filter.
 func (api *API) FindApplicationOffers(filters params.OfferFilters) (params.FindApplicationOffersResults, error) {
 	var result params.FindApplicationOffersResults
+	offers, err := api.getApplicationOffersDetails(filters)
+	if err != nil {
+		return result, err
+	}
+	for _, offer := range offers {
+		result.Results = append(result.Results, offer.ApplicationOffer)
+	}
+	return result, nil
+}
 
+// ListApplicationOffers gets deployed details about application offers that match given filter.
+// The results contain details about the deployed applications such as connection count.
+func (api *API) ListApplicationOffers(filters params.OfferFilters) (params.ListApplicationOffersResults, error) {
+	var result params.ListApplicationOffersResults
+	offers, err := api.getApplicationOffersDetails(filters)
+	if err != nil {
+		return result, err
+	}
+	result.Results = offers
+	return result, nil
+}
+
+// getApplicationOffersDetails gets details about remote applications that match given filter.
+func (api *API) getApplicationOffersDetails(filters params.OfferFilters) ([]params.ApplicationOfferDetails, error) {
 	models := make(map[string]Model)
 	filtersPerModel := make(map[string][]jujucrossmodel.ApplicationOfferFilter)
 
@@ -233,7 +276,7 @@ func (api *API) FindApplicationOffers(filters params.OfferFilters) (params.FindA
 			var err error
 			model, err = api.backend.Model()
 			if err != nil {
-				return result, common.ServerError(errors.Trace(err))
+				return nil, common.ServerError(errors.Trace(err))
 			}
 		}
 		// If the filter contains a model name, look up the details.
@@ -242,11 +285,11 @@ func (api *API) FindApplicationOffers(filters params.OfferFilters) (params.FindA
 				var err error
 				model, ok, err = api.modelForName(f.ModelName, "")
 				if err != nil {
-					return result, common.ServerError(errors.Trace(err))
+					return nil, common.ServerError(errors.Trace(err))
 				}
 				if !ok {
 					err := errors.NotFoundf("model %q", f.ModelName)
-					return result, common.ServerError(err)
+					return nil, common.ServerError(err)
 				}
 				// Record the UUID for next time.
 				modelUUID = model.UUID()
@@ -266,23 +309,25 @@ func (api *API) FindApplicationOffers(filters params.OfferFilters) (params.FindA
 		filtersPerModel[thisModelUUID] = []jujucrossmodel.ApplicationOfferFilter{}
 		model, err := api.backend.Model()
 		if err != nil {
-			return result, common.ServerError(errors.Trace(err))
+			return nil, common.ServerError(errors.Trace(err))
 		}
 		models[thisModelUUID] = model
 	}
 
+	var result []params.ApplicationOfferDetails
 	// Do the per model queries.
 	for modelUUID, filters := range filtersPerModel {
 		offers, err := api.applicationOffersFromModel(modelUUID, filters...)
 		if err != nil {
-			return result, common.ServerError(errors.Trace(err))
+			return nil, common.ServerError(errors.Trace(err))
 		}
 		model := models[modelUUID]
 		baseURL := fmt.Sprintf("%s/%s", model.Owner().Name(), model.Name())
 
 		for _, offer := range offers {
 			url := fmt.Sprintf("%s.%s", baseURL, offer.OfferName)
-			result.Results = append(result.Results, makeOfferParamsFromOffer(url, offer))
+			offer.OfferURL = url
+			result = append(result, offer)
 		}
 	}
 	return result, nil

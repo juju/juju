@@ -82,11 +82,29 @@ func (m *mockCharm) Meta() *charm.Meta {
 }
 
 type mockApplication struct {
+	name  string
 	charm *mockCharm
+	curl  *charm.URL
+}
+
+func (m *mockApplication) Name() string {
+	return m.name
 }
 
 func (m *mockApplication) Charm() (crossmodel.Charm, bool, error) {
 	return m.charm, true, nil
+}
+
+func (m *mockApplication) CharmURL() (curl *charm.URL, force bool) {
+	return m.curl, true
+}
+
+type mockConnectionStatus struct {
+	count int
+}
+
+func (m *mockConnectionStatus) ConnectionCount() int {
+	return m.count
 }
 
 type mockState struct {
@@ -94,6 +112,7 @@ type mockState struct {
 	model        crossmodel.Model
 	usermodels   []crossmodel.UserModel
 	applications map[string]crossmodel.Application
+	connStatus   crossmodel.RemoteConnectionStatus
 }
 
 func (m *mockState) Application(name string) (crossmodel.Application, error) {
@@ -114,6 +133,10 @@ func (m *mockState) ModelUUID() string {
 
 func (m *mockState) ModelsForUser(user names.UserTag) ([]crossmodel.UserModel, error) {
 	return m.usermodels, nil
+}
+
+func (m *mockState) RemoteConnectionStatus(offerName string) (crossmodel.RemoteConnectionStatus, error) {
+	return m.connStatus, nil
 }
 
 type mockStatePool struct {

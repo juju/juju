@@ -227,7 +227,7 @@ func (s *remoteApplicationSuite) TestAddRelationBothRemote(c *gc.C) {
 		},
 	}
 	_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
-		Name: "wordpress", URL: "me/model.wordpress", Endpoints: wpep, SourceModel: s.State.ModelTag()})
+		Name: "wordpress", Endpoints: wpep, SourceModel: s.State.ModelTag()})
 	c.Assert(err, jc.ErrorIsNil)
 	eps, err := s.State.InferEndpoints("wordpress", "mysql")
 	c.Assert(err, jc.ErrorIsNil)
@@ -244,7 +244,7 @@ func (s *remoteApplicationSuite) TestInferEndpointsWrongScope(c *gc.C) {
 
 func (s *remoteApplicationSuite) TestAddRemoteApplicationErrors(c *gc.C) {
 	_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
-		Name: "haha/borken", URL: "me/model.mysql", SourceModel: s.State.ModelTag()})
+		Name: "haha/borken", SourceModel: s.State.ModelTag()})
 	c.Assert(err, gc.ErrorMatches, `cannot add remote application "haha/borken": name "haha/borken" not valid`)
 	_, err = s.State.RemoteApplication("haha/borken")
 	c.Assert(err, gc.ErrorMatches, `remote application name "haha/borken" not valid`)
@@ -264,24 +264,27 @@ func (s *remoteApplicationSuite) TestAddRemoteApplication(c *gc.C) {
 		Name: "foo", OfferName: "bar", URL: "me/model.foo", SourceModel: s.State.ModelTag()})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(foo.Name(), gc.Equals, "foo")
-	c.Assert(foo.Registered(), jc.IsFalse)
+	c.Assert(foo.IsConsumerProxy(), jc.IsFalse)
 	foo, err = s.State.RemoteApplication("foo")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(foo.Name(), gc.Equals, "foo")
 	c.Assert(foo.OfferName(), gc.Equals, "bar")
-	c.Assert(foo.Registered(), jc.IsFalse)
+	url, ok := foo.URL()
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(url, gc.Equals, "me/model.foo")
+	c.Assert(foo.IsConsumerProxy(), jc.IsFalse)
 	c.Assert(foo.SourceModel().Id(), gc.Equals, s.State.ModelTag().Id())
 }
 
-func (s *remoteApplicationSuite) TestAddRemoteApplicationRegistered(c *gc.C) {
+func (s *remoteApplicationSuite) TestAddRemoteApplicationFromConsumer(c *gc.C) {
 	foo, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
-		Name: "foo", URL: "me/model.foo", SourceModel: s.State.ModelTag(), Registered: true})
+		Name: "foo", SourceModel: s.State.ModelTag(), IsConsumerProxy: true})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(foo.Registered(), jc.IsTrue)
+	c.Assert(foo.IsConsumerProxy(), jc.IsTrue)
 	foo, err = s.State.RemoteApplication("foo")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(foo.Name(), gc.Equals, "foo")
-	c.Assert(foo.Registered(), jc.IsTrue)
+	c.Assert(foo.IsConsumerProxy(), jc.IsTrue)
 }
 
 func (s *remoteApplicationSuite) TestAddEndpoints(c *gc.C) {
@@ -290,7 +293,7 @@ func (s *remoteApplicationSuite) TestAddEndpoints(c *gc.C) {
 		{Name: "ep2", Role: charm.RoleProvider, Scope: charm.ScopeGlobal, Limit: 1},
 	}
 	foo, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
-		Name: "foo", OfferName: "bar", URL: "me/model.foo", SourceModel: s.State.ModelTag(),
+		Name: "foo", OfferName: "bar", SourceModel: s.State.ModelTag(),
 		Endpoints: origEps,
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -328,7 +331,7 @@ func (s *remoteApplicationSuite) TestAddEndpointsConflicting(c *gc.C) {
 		{Name: "ep2", Role: charm.RoleProvider, Scope: charm.ScopeGlobal, Limit: 1},
 	}
 	foo, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
-		Name: "foo", OfferName: "bar", URL: "me/model.foo", SourceModel: s.State.ModelTag(),
+		Name: "foo", OfferName: "bar", SourceModel: s.State.ModelTag(),
 		Endpoints: origEps,
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -348,7 +351,7 @@ func (s *remoteApplicationSuite) TestAddEndpointsConcurrentOneDeleted(c *gc.C) {
 		{Name: "ep2", Role: charm.RoleProvider, Scope: charm.ScopeGlobal, Limit: 1},
 	}
 	foo, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
-		Name: "foo", OfferName: "bar", URL: "me/model.foo", SourceModel: s.State.ModelTag(),
+		Name: "foo", OfferName: "bar", SourceModel: s.State.ModelTag(),
 		Endpoints: origEps,
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -362,7 +365,7 @@ func (s *remoteApplicationSuite) TestAddEndpointsConcurrentOneDeleted(c *gc.C) {
 		err := foo.Destroy()
 		c.Assert(err, jc.ErrorIsNil)
 		_, err = s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
-			Name: "foo", OfferName: "bar", URL: "me/model.foo", SourceModel: s.State.ModelTag(),
+			Name: "foo", OfferName: "bar", SourceModel: s.State.ModelTag(),
 			Endpoints: reducedEps,
 		})
 		c.Assert(err, jc.ErrorIsNil)
@@ -402,7 +405,7 @@ func (s *remoteApplicationSuite) TestAddEndpointsConcurrentConflictingOneAdded(c
 		{Name: "ep2", Role: charm.RoleProvider, Scope: charm.ScopeGlobal, Limit: 1},
 	}
 	foo, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
-		Name: "foo", OfferName: "bar", URL: "me/model.foo", SourceModel: s.State.ModelTag(),
+		Name: "foo", OfferName: "bar", SourceModel: s.State.ModelTag(),
 		Endpoints: origEps,
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -432,7 +435,7 @@ func (s *remoteApplicationSuite) TestAddEndpointsConcurrentDifferentOneAdded(c *
 		{Name: "ep2", Role: charm.RoleProvider, Scope: charm.ScopeGlobal, Limit: 1},
 	}
 	foo, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
-		Name: "foo", OfferName: "bar", URL: "me/model.foo", SourceModel: s.State.ModelTag(),
+		Name: "foo", OfferName: "bar", SourceModel: s.State.ModelTag(),
 		Endpoints: origEps,
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -643,7 +646,7 @@ func (s *remoteApplicationSuite) TestAllRemoteApplications(c *gc.C) {
 	c.Assert(len(applications), gc.Equals, 1)
 
 	_, err = s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
-		Name: "another", URL: "me/model.another", SourceModel: s.State.ModelTag()})
+		Name: "another", SourceModel: s.State.ModelTag()})
 	c.Assert(err, jc.ErrorIsNil)
 	applications, err = s.State.AllRemoteApplications()
 	c.Assert(err, jc.ErrorIsNil)
@@ -666,7 +669,7 @@ func (s *remoteApplicationSuite) TestAddApplicationEnvironmentDying(c *gc.C) {
 	err = model.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
-		Name: "s1", URL: "me/model.s1", SourceModel: s.State.ModelTag()})
+		Name: "s1", SourceModel: s.State.ModelTag()})
 	c.Assert(err, gc.ErrorMatches, `cannot add remote application "s1": model is no longer alive`)
 }
 
@@ -675,7 +678,7 @@ func (s *remoteApplicationSuite) TestAddApplicationSameLocalExists(c *gc.C) {
 	_, err := s.State.AddApplication(state.AddApplicationArgs{Name: "s1", Charm: charm})
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
-		Name: "s1", URL: "me/model.s1", SourceModel: s.State.ModelTag()})
+		Name: "s1", SourceModel: s.State.ModelTag()})
 	c.Assert(err, gc.ErrorMatches, `cannot add remote application "s1": local application with same name already exists`)
 }
 
@@ -689,16 +692,16 @@ func (s *remoteApplicationSuite) TestAddApplicationLocalAddedAfterInitial(c *gc.
 		c.Assert(err, jc.ErrorIsNil)
 	}).Check()
 	_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
-		Name: "s1", URL: "me/model.s1", SourceModel: s.State.ModelTag()})
+		Name: "s1", SourceModel: s.State.ModelTag()})
 	c.Assert(err, gc.ErrorMatches, `cannot add remote application "s1": local application with same name already exists`)
 }
 
 func (s *remoteApplicationSuite) TestAddApplicationSameRemoteExists(c *gc.C) {
 	_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
-		Name: "s1", URL: "me/model.s1", SourceModel: s.State.ModelTag()})
+		Name: "s1", SourceModel: s.State.ModelTag()})
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
-		Name: "s1", URL: "me/model.s1", SourceModel: s.State.ModelTag()})
+		Name: "s1", SourceModel: s.State.ModelTag()})
 	c.Assert(err, gc.ErrorMatches, `cannot add remote application "s1": remote application already exists`)
 }
 
@@ -708,11 +711,11 @@ func (s *remoteApplicationSuite) TestAddApplicationRemoteAddedAfterInitial(c *gc
 	// before the transaction is run.
 	defer state.SetBeforeHooks(c, s.State, func() {
 		_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
-			Name: "s1", URL: "me/model.s1", SourceModel: s.State.ModelTag()})
+			Name: "s1", SourceModel: s.State.ModelTag()})
 		c.Assert(err, jc.ErrorIsNil)
 	}).Check()
 	_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
-		Name: "s1", URL: "me/model.s1", SourceModel: s.State.ModelTag()})
+		Name: "s1", SourceModel: s.State.ModelTag()})
 	c.Assert(err, gc.ErrorMatches, `cannot add remote application "s1": remote application already exists`)
 }
 
@@ -727,7 +730,7 @@ func (s *remoteApplicationSuite) TestAddApplicationEnvironDiesAfterInitial(c *gc
 		c.Assert(err, jc.ErrorIsNil)
 	}).Check()
 	_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
-		Name: "s1", URL: "me/model.s1", SourceModel: s.State.ModelTag()})
+		Name: "s1", SourceModel: s.State.ModelTag()})
 	c.Assert(err, gc.ErrorMatches, `cannot add remote application "s1": model "testenv" is no longer alive`)
 }
 
@@ -739,7 +742,7 @@ func (s *remoteApplicationSuite) TestWatchRemoteApplications(c *gc.C) {
 	wc.AssertNoChange()
 
 	db2, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
-		Name: "db2", URL: "me/model.db2", SourceModel: s.State.ModelTag()})
+		Name: "db2", SourceModel: s.State.ModelTag()})
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChangeInSingleEvent("db2")
 	wc.AssertNoChange()

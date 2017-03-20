@@ -42,6 +42,7 @@ type Backend interface {
 	Model() (Model, error)
 	ModelUUID() string
 	ModelsForUser(user names.UserTag) ([]UserModel, error)
+	RemoteConnectionStatus(offerName string) (RemoteConnectionStatus, error)
 }
 
 var getStateAccess = func(st *state.State) Backend {
@@ -86,6 +87,8 @@ var getApplicationOffers = func(backend interface{}) crossmodel.ApplicationOffer
 
 type Application interface {
 	Charm() (ch Charm, force bool, err error)
+	CharmURL() (curl *charm.URL, force bool)
+	Name() string
 }
 
 type applicationShim struct {
@@ -120,4 +123,17 @@ type userModelShim struct {
 
 func (um *userModelShim) Model() Model {
 	return &modelShim{um.UserModel.Model}
+}
+
+func (s *stateShim) RemoteConnectionStatus(offerName string) (RemoteConnectionStatus, error) {
+	status, err := s.State.RemoteConnectionStatus(offerName)
+	return &remoteConnectionStatusShim{status}, err
+}
+
+type RemoteConnectionStatus interface {
+	ConnectionCount() int
+}
+
+type remoteConnectionStatusShim struct {
+	*state.RemoteConnectionStatus
 }

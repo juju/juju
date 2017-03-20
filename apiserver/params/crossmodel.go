@@ -36,9 +36,23 @@ type OfferFilter struct {
 type ApplicationOffer struct {
 	OfferURL               string           `json:"offer-url"`
 	OfferName              string           `json:"offer-name"`
-	ApplicationName        string           `json:"application-name"`
 	ApplicationDescription string           `json:"application-description"`
 	Endpoints              []RemoteEndpoint `json:"endpoints"`
+}
+
+// ApplicationOfferDetails represents an application offering,
+// including details about how it has been deployed.
+type ApplicationOfferDetails struct {
+	ApplicationOffer
+	ApplicationName string `json:"application-name"`
+	CharmName       string `json:"charm-name"`
+	ConnectedCount  int    `json:"connected-count"`
+}
+
+// ListApplicationOffersResults is a result of listing application offers.
+type ListApplicationOffersResults struct {
+	// Results contains application offers matching each filter.
+	Results []ApplicationOfferDetails `json:"results"`
 }
 
 // AddApplicationOffers is used when adding offers to a application directory.
@@ -165,7 +179,7 @@ type RemoteApplication struct {
 	// ModelUUID is the UUId of the model hosting the application.
 	ModelUUID string `json:"model-uuid"`
 
-	// Registered returns the application is created
+	// IsConsumerProxy returns the application is created
 	// from a registration operation by a consuming model.
 	Registered bool `json:"registered"`
 }
@@ -289,8 +303,8 @@ type RegisterRemoteRelation struct {
 	// RemoteEndpoint contains info about the endpoint in the remote model.
 	RemoteEndpoint RemoteEndpoint `json:"remote-endpoint"`
 
-	// OfferedApplicationName is the name of the application offer from the local model.
-	OfferedApplicationName string `json:"offered-application-name"`
+	// OfferName is the name of the application offer from the local model.
+	OfferName string `json:"offer-name"`
 
 	// LocalEndpointName is the name of the endpoint in the local model.
 	LocalEndpointName string `json:"local-endpoint-name"`
