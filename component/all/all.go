@@ -36,7 +36,7 @@ func RegisterForServer() error {
 	return nil
 }
 
-// RegisterForServer registers all the parts of the components with the
+// RegisterForClient registers all the parts of the components with the
 // Juju machinery for use as a client (e.g. juju).
 func RegisterForClient() error {
 	for _, c := range components {

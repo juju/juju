@@ -402,6 +402,7 @@ var commandNames = []string{
 	"agree",
 	"agreements",
 	"allocate",
+	"attach",
 	"autoload-credentials",
 	"backups",
 	"bootstrap",
@@ -410,17 +411,16 @@ var commandNames = []string{
 	"change-user-password",
 	"charm",
 	"clouds",
-	"config",
 	"collect-metrics",
+	"config",
+	"controller-config",
 	"controllers",
 	"create-backup",
 	"create-budget",
 	"create-storage-pool",
 	"credentials",
-	"controller-config",
 	"debug-hooks",
 	"debug-log",
-	"remove-user",
 	"deploy",
 	"destroy-controller",
 	"destroy-model",
@@ -428,9 +428,9 @@ var commandNames = []string{
 	"disable-user",
 	"disabled-commands",
 	"download-backup",
-	"enable-ha",
 	"enable-command",
 	"enable-destroy-controller",
+	"enable-ha",
 	"enable-user",
 	"expose",
 	"get-constraints",
@@ -452,10 +452,12 @@ var commandNames = []string{
 	"list-disabled-commands",
 	"list-machines",
 	"list-models",
+	"list-payloads",
 	"list-plans",
 	"list-regions",
-	"list-ssh-keys",
+	"list-resources",
 	"list-spaces",
+	"list-ssh-keys",
 	"list-storage",
 	"list-storage-pools",
 	"list-subnets",
@@ -468,6 +470,7 @@ var commandNames = []string{
 	"model-config",
 	"model-defaults",
 	"models",
+	"payloads",
 	"plans",
 	"regions",
 	"register",
@@ -482,7 +485,9 @@ var commandNames = []string{
 	"remove-ssh-key",
 	"remove-storage",
 	"remove-unit",
+	"remove-user",
 	"resolved",
+	"resources",
 	"restore-backup",
 	"retry-provisioning",
 	"revoke",
@@ -518,14 +523,14 @@ var commandNames = []string{
 	"switch",
 	"sync-tools",
 	"unexpose",
-	"update-allocation",
-	"upload-backup",
 	"unregister",
+	"update-allocation",
 	"update-clouds",
 	"update-credential",
 	"upgrade-charm",
 	"upgrade-gui",
 	"upgrade-juju",
+	"upload-backup",
 	"users",
 	"version",
 	"whoami",
@@ -687,22 +692,23 @@ func (s *MainSuite) TestModelCommands(c *gc.C) {
 	}
 }
 
-func (s *MainSuite) TestAllCommandsPurposeDocCapitalization(c *gc.C) {
+func (s *MainSuite) TestAllCommandsPurpose(c *gc.C) {
 	// Verify each command that:
-	// - the Purpose field is not empty
+	// - the Purpose field is not empty.
+	// - the Purpose ends with a full stop.
 	// - if set, the Doc field either begins with the name of the
 	// command or and uppercase letter.
 	//
-	// The first makes Purpose a required documentation. Also, makes
-	// both "help commands"'s output and "help <cmd>"'s header more
-	// uniform. The second makes the Doc content either start like a
-	// sentence, or start godoc-like by using the command's name in
-	// lowercase.
+	// This:
+	// - makes Purpose a required documentation.
+	// - Standardises Purpose formatting across all commands.
+	// - Brings "help commands"'s output in line with "help <cmd>"'s header.
+	// - Makes the Doc content either start like a sentence, or start
+	//   godoc-like by using the command's name in lowercase.
 	var commands commands
 	registerCommands(&commands, testing.Context(c))
 	for _, cmd := range commands {
 		info := cmd.Info()
-		c.Logf("%v", info.Name)
 		purpose := strings.TrimSpace(info.Purpose)
 		doc := strings.TrimSpace(info.Doc)
 		comment := func(message string) interface{} {
@@ -713,8 +719,9 @@ func (s *MainSuite) TestAllCommandsPurposeDocCapitalization(c *gc.C) {
 		if purpose != "" {
 			prefix := string(purpose[0])
 			c.Check(prefix, gc.Equals, strings.ToUpper(prefix),
-				comment("expected uppercase first-letter Purpose"),
-			)
+				comment("expected uppercase first-letter Purpose"))
+			c.Check(strings.HasSuffix(purpose, "."), jc.IsTrue,
+				comment("is missing full stop in Purpose"))
 		}
 		if doc != "" && !strings.HasPrefix(doc, info.Name) {
 			prefix := string(doc[0])
