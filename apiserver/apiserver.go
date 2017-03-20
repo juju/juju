@@ -509,7 +509,7 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 		},
 	)
 	add("/migrate/resources",
-		&resourceMigUploadHandler{
+		&resourcesMigrationUploadHandler{
 			ctxt:          httpCtxt,
 			stateAuthFunc: httpCtxt.stateForMigrationImporting,
 		},

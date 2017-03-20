@@ -1,4 +1,4 @@
-// Copyright 2016 Canonical Ltd.
+// Copyright 2017 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package apiserver_test
@@ -24,7 +24,7 @@ import (
 	"github.com/juju/juju/testing/factory"
 )
 
-type resourceUploadSuite struct {
+type resourcesUploadSuite struct {
 	authHTTPSuite
 	appName        string
 	unit           *state.Unit
@@ -32,14 +32,14 @@ type resourceUploadSuite struct {
 	importingModel *state.Model
 }
 
-var _ = gc.Suite(&resourceUploadSuite{})
+var _ = gc.Suite(&resourcesUploadSuite{})
 
-func (s *resourceUploadSuite) SetUpSuite(c *gc.C) {
+func (s *resourcesUploadSuite) SetUpSuite(c *gc.C) {
 	s.authHTTPSuite.SetUpSuite(c)
 	all.RegisterForServer()
 }
 
-func (s *resourceUploadSuite) SetUpTest(c *gc.C) {
+func (s *resourcesUploadSuite) SetUpTest(c *gc.C) {
 	s.authHTTPSuite.SetUpTest(c)
 
 	// Make the user a controller admin (required for migrations).
@@ -69,7 +69,7 @@ func (s *resourceUploadSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *resourceUploadSuite) TestServedSecurely(c *gc.C) {
+func (s *resourcesUploadSuite) TestServedSecurely(c *gc.C) {
 	url := s.resourcesURL(c, "")
 	url.Scheme = "http"
 	s.sendRequest(c, httpRequestParams{
@@ -79,22 +79,22 @@ func (s *resourceUploadSuite) TestServedSecurely(c *gc.C) {
 	})
 }
 
-func (s *resourceUploadSuite) TestGETUnsupported(c *gc.C) {
+func (s *resourcesUploadSuite) TestGETUnsupported(c *gc.C) {
 	resp := s.authRequest(c, httpRequestParams{method: "GET", url: s.resourcesURI(c, "")})
 	s.assertErrorResponse(c, resp, http.StatusMethodNotAllowed, `unsupported method: "GET"`)
 }
 
-func (s *resourceUploadSuite) TestPUTUnsupported(c *gc.C) {
+func (s *resourcesUploadSuite) TestPUTUnsupported(c *gc.C) {
 	resp := s.authRequest(c, httpRequestParams{method: "PUT", url: s.resourcesURI(c, "")})
 	s.assertErrorResponse(c, resp, http.StatusMethodNotAllowed, `unsupported method: "PUT"`)
 }
 
-func (s *resourceUploadSuite) TestPOSTRequiresAuth(c *gc.C) {
+func (s *resourcesUploadSuite) TestPOSTRequiresAuth(c *gc.C) {
 	resp := s.sendRequest(c, httpRequestParams{method: "POST", url: s.resourcesURI(c, "")})
 	s.assertErrorResponse(c, resp, http.StatusUnauthorized, ".*no credentials provided$")
 }
 
-func (s *resourceUploadSuite) TestPOSTRequiresUserAuth(c *gc.C) {
+func (s *resourcesUploadSuite) TestPOSTRequiresUserAuth(c *gc.C) {
 	// Add a machine and try to login.
 	machine, password := s.Factory.MakeMachineReturningPassword(c, &factory.MachineParams{
 		Nonce: "noncy",
@@ -114,7 +114,7 @@ func (s *resourceUploadSuite) TestPOSTRequiresUserAuth(c *gc.C) {
 	s.assertErrorResponse(c, resp, http.StatusBadRequest, "missing application/unit")
 }
 
-func (s *resourceUploadSuite) TestRejectsInvalidModel(c *gc.C) {
+func (s *resourcesUploadSuite) TestRejectsInvalidModel(c *gc.C) {
 	s.extraHeaders[params.MigrationModelHTTPHeader] = "dead-beef-123456"
 	resp := s.authRequest(c, httpRequestParams{method: "POST", url: s.resourcesURI(c, "")})
 	s.assertErrorResponse(c, resp, http.StatusNotFound, `.*unknown model: "dead-beef-123456"$`)
@@ -122,7 +122,7 @@ func (s *resourceUploadSuite) TestRejectsInvalidModel(c *gc.C) {
 
 const content = "stuff"
 
-func (s *resourceUploadSuite) makeUploadArgs(c *gc.C) url.Values {
+func (s *resourcesUploadSuite) makeUploadArgs(c *gc.C) url.Values {
 	fp, err := charmresource.GenerateFingerprint(strings.NewReader(content))
 	c.Assert(err, jc.ErrorIsNil)
 	q := make(url.Values)
@@ -140,7 +140,7 @@ func (s *resourceUploadSuite) makeUploadArgs(c *gc.C) url.Values {
 	return q
 }
 
-func (s *resourceUploadSuite) TestUpload(c *gc.C) {
+func (s *resourcesUploadSuite) TestUpload(c *gc.C) {
 	outResp := s.uploadAppResource(c, nil)
 	c.Check(outResp.ID, gc.Not(gc.Equals), "")
 	c.Check(outResp.Timestamp.IsZero(), jc.IsFalse)
@@ -156,7 +156,7 @@ func (s *resourceUploadSuite) TestUpload(c *gc.C) {
 	c.Assert(res.ID, gc.Equals, outResp.ID)
 }
 
-func (s *resourceUploadSuite) TestUnitUpload(c *gc.C) {
+func (s *resourcesUploadSuite) TestUnitUpload(c *gc.C) {
 	// Upload application resource first. A unit resource can't be
 	// uploaded without the application resource being there first.
 	s.uploadAppResource(c, nil)
@@ -175,7 +175,7 @@ func (s *resourceUploadSuite) TestUnitUpload(c *gc.C) {
 	c.Check(outResp.Timestamp.IsZero(), jc.IsFalse)
 }
 
-func (s *resourceUploadSuite) TestPlaceholder(c *gc.C) {
+func (s *resourcesUploadSuite) TestPlaceholder(c *gc.C) {
 	query := s.makeUploadArgs(c)
 	query.Del("timestamp") // No timestamp means placeholder
 	outResp := s.uploadAppResource(c, &query)
@@ -192,7 +192,7 @@ func (s *resourceUploadSuite) TestPlaceholder(c *gc.C) {
 	c.Check(res.Size, gc.Equals, int64(len(content)))
 }
 
-func (s *resourceUploadSuite) uploadAppResource(c *gc.C, query *url.Values) params.ResourceUploadResult {
+func (s *resourcesUploadSuite) uploadAppResource(c *gc.C, query *url.Values) params.ResourceUploadResult {
 	if query == nil {
 		q := s.makeUploadArgs(c)
 		query = &q
@@ -206,7 +206,7 @@ func (s *resourceUploadSuite) uploadAppResource(c *gc.C, query *url.Values) para
 	return s.assertResponse(c, resp, http.StatusOK)
 }
 
-func (s *resourceUploadSuite) TestArgValidation(c *gc.C) {
+func (s *resourcesUploadSuite) TestArgValidation(c *gc.C) {
 	checkBadRequest := func(q url.Values, expected string) {
 		resp := s.authRequest(c, httpRequestParams{
 			method: "POST",
@@ -256,7 +256,7 @@ func (s *resourceUploadSuite) TestArgValidation(c *gc.C) {
 	checkBadRequest(q, "invalid fingerprint")
 }
 
-func (s *resourceUploadSuite) TestFailsWhenModelNotImporting(c *gc.C) {
+func (s *resourcesUploadSuite) TestFailsWhenModelNotImporting(c *gc.C) {
 	err := s.importingModel.SetMigrationMode(state.MigrationModeNone)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -270,28 +270,28 @@ func (s *resourceUploadSuite) TestFailsWhenModelNotImporting(c *gc.C) {
 	s.assertResponse(c, resp, http.StatusBadRequest)
 }
 
-func (s *resourceUploadSuite) resourcesURI(c *gc.C, query string) string {
+func (s *resourcesUploadSuite) resourcesURI(c *gc.C, query string) string {
 	if query != "" && query[0] == '?' {
 		query = query[1:]
 	}
 	return s.resourcesURL(c, query).String()
 }
 
-func (s *resourceUploadSuite) resourcesURL(c *gc.C, query string) *url.URL {
+func (s *resourcesUploadSuite) resourcesURL(c *gc.C, query string) *url.URL {
 	uri := s.baseURL(c)
 	uri.Path = "/migrate/resources"
 	uri.RawQuery = query
 	return uri
 }
 
-func (s *resourceUploadSuite) assertErrorResponse(c *gc.C, resp *http.Response, expStatus int, expError string) {
+func (s *resourcesUploadSuite) assertErrorResponse(c *gc.C, resp *http.Response, expStatus int, expError string) {
 	outResp := s.assertResponse(c, resp, expStatus)
 	err := outResp.Error
 	c.Assert(err, gc.NotNil)
 	c.Check(err.Message, gc.Matches, expError)
 }
 
-func (s *resourceUploadSuite) assertResponse(c *gc.C, resp *http.Response, expStatus int) params.ResourceUploadResult {
+func (s *resourcesUploadSuite) assertResponse(c *gc.C, resp *http.Response, expStatus int) params.ResourceUploadResult {
 	body := assertResponse(c, resp, expStatus, params.ContentTypeJSON)
 	var outResp params.ResourceUploadResult
 	err := json.Unmarshal(body, &outResp)

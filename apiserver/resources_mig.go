@@ -1,4 +1,4 @@
-// Copyright 2016 Canonical Ltd.
+// Copyright 2017 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package apiserver
@@ -17,13 +17,13 @@ import (
 	"github.com/juju/juju/state"
 )
 
-// resourceMigUploadHandler handles resources uploads for model migrations.
-type resourceMigUploadHandler struct {
+// resourcesMigrationUploadHandler handles resources uploads for model migrations.
+type resourcesMigrationUploadHandler struct {
 	ctxt          httpContext
 	stateAuthFunc func(*http.Request) (*state.State, func(), error)
 }
 
-func (h *resourceMigUploadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (h *resourcesMigrationUploadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Validate before authenticate because the authentication is dependent
 	// on the state connection that is determined during the validation.
 	st, releaser, err := h.stateAuthFunc(r)
@@ -59,7 +59,7 @@ func (h *resourceMigUploadHandler) ServeHTTP(w http.ResponseWriter, r *http.Requ
 
 // processPost handles resources upload POST request after
 // authentication.
-func (h *resourceMigUploadHandler) processPost(r *http.Request, st *state.State) (resource.Resource, error) {
+func (h *resourcesMigrationUploadHandler) processPost(r *http.Request, st *state.State) (resource.Resource, error) {
 	var empty resource.Resource
 	query := r.URL.Query()
 
