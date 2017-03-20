@@ -99,15 +99,19 @@ type InstanceSummary struct {
 	Metadata map[string]string
 	// Addresses are the IP Addresses associated with the instance.
 	Addresses []network.Address
+	// NetworkInterfaces are the network connections associated with
+	// the instance.
+	NetworkInterfaces []*compute.NetworkInterface
 }
 
 func newInstanceSummary(raw *compute.Instance) InstanceSummary {
 	return InstanceSummary{
-		ID:        raw.Name,
-		ZoneName:  path.Base(raw.Zone),
-		Status:    raw.Status,
-		Metadata:  unpackMetadata(raw.Metadata),
-		Addresses: extractAddresses(raw.NetworkInterfaces...),
+		ID:                raw.Name,
+		ZoneName:          path.Base(raw.Zone),
+		Status:            raw.Status,
+		Metadata:          unpackMetadata(raw.Metadata),
+		Addresses:         extractAddresses(raw.NetworkInterfaces...),
+		NetworkInterfaces: raw.NetworkInterfaces,
 	}
 }
 
@@ -173,6 +177,12 @@ func (gi Instance) Addresses() []network.Address {
 func (gi Instance) Metadata() map[string]string {
 	// TODO*ericsnow) return a copy?
 	return gi.InstanceSummary.Metadata
+}
+
+// NetworkInterfaces returns the details of the network connection for
+// this instance.
+func (gi Instance) NetworkInterfaces() []*compute.NetworkInterface {
+	return gi.InstanceSummary.NetworkInterfaces
 }
 
 // packMetadata composes the provided data into the format required

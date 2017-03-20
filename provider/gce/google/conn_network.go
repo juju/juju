@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/set"
+	"google.golang.org/api/compute/v1"
 
 	"github.com/juju/juju/network"
 )
@@ -224,4 +225,13 @@ func (gce Connection) ClosePorts(target string, rules ...network.IngressRule) er
 		}
 	}
 	return nil
+}
+
+// Subnetworks returns the subnets available in this region.
+func (gce Connection) Subnetworks(region string) ([]*compute.Subnetwork, error) {
+	results, err := gce.raw.ListSubnetworks(gce.projectID, region)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return results, nil
 }

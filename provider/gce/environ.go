@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"github.com/juju/errors"
+	"google.golang.org/api/compute/v1"
 
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
@@ -35,6 +36,9 @@ type gceConnection interface {
 	ClosePorts(fwname string, rules ...network.IngressRule) error
 
 	AvailabilityZones(region string) ([]google.AvailabilityZone, error)
+	// Subnetworks returns the subnetworks that machines can be
+	// assigned to in the given region.
+	Subnetworks(region string) ([]*compute.Subnetwork, error)
 
 	// Storage related methods.
 
