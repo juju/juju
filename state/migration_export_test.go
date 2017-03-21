@@ -1145,7 +1145,7 @@ func (s *MigrationExportSuite) TestRemoteApplications(c *gc.C) {
 	c.Check(app.OfferName(), gc.Equals, "")
 	c.Check(app.URL(), gc.Equals, "me/model.rainbow")
 	c.Check(app.SourceModelTag(), gc.Equals, s.State.ModelTag())
-	c.Check(app.Registered(), jc.IsFalse)
+	c.Check(app.IsConsumerProxy(), jc.IsFalse)
 
 	c.Assert(app.Endpoints(), gc.HasLen, 3)
 	ep := app.Endpoints()[0]

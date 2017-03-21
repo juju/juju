@@ -27,6 +27,7 @@ type baseCrossmodelSuite struct {
 	api *crossmodel.API
 
 	mockState         *mockState
+	mockStatePool     *mockStatePool
 	applicationOffers *mockApplicationOffers
 }
 
@@ -50,9 +51,10 @@ func (s *baseCrossmodelSuite) SetUpTest(c *gc.C) {
 	}
 
 	var err error
-	s.mockState = &mockState{}
+	s.mockState = &mockState{modelUUID: "uuid"}
+	s.mockStatePool = &mockStatePool{map[string]crossmodel.Backend{s.mockState.modelUUID: s.mockState}}
 	s.api, err = crossmodel.CreateAPI(
-		getApplicationOffers, s.mockState, &mockStatePool{s.mockState}, s.authorizer,
+		getApplicationOffers, s.mockState, s.mockStatePool, s.authorizer,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 }

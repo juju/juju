@@ -140,9 +140,13 @@ func (m *mockState) RemoteConnectionStatus(offerName string) (crossmodel.RemoteC
 }
 
 type mockStatePool struct {
-	st crossmodel.Backend
+	st map[string]crossmodel.Backend
 }
 
 func (st *mockStatePool) Get(modelUUID string) (crossmodel.Backend, func(), error) {
-	return st.st, func() {}, nil
+	backend, ok := st.st[modelUUID]
+	if !ok {
+		return nil, nil, errors.NotFoundf("model for uuid %s", modelUUID)
+	}
+	return backend, func() {}, nil
 }

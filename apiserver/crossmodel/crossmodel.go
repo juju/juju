@@ -7,6 +7,7 @@ package crossmodel
 
 import (
 	"fmt"
+	"sort"
 
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
@@ -260,10 +261,15 @@ func (api *API) ListApplicationOffers(filters params.OfferFilters) (params.ListA
 	return result, nil
 }
 
-// getApplicationOffersDetails gets details about remote applications that match given filter.
-func (api *API) getApplicationOffersDetails(filters params.OfferFilters) ([]params.ApplicationOfferDetails, error) {
-	models := make(map[string]Model)
-	filtersPerModel := make(map[string][]jujucrossmodel.ApplicationOfferFilter)
+// getModelFilters splits the specified filters per model and returns
+// the model and filter details for each.
+func (api *API) getModelFilters(filters params.OfferFilters) (
+	models map[string]Model,
+	filtersPerModel map[string][]jujucrossmodel.ApplicationOfferFilter,
+	_ error,
+) {
+	models = make(map[string]Model)
+	filtersPerModel = make(map[string][]jujucrossmodel.ApplicationOfferFilter)
 
 	// Group the filters per model and then query each model with the relevant filters
 	// for that model.
@@ -276,32 +282,43 @@ func (api *API) getApplicationOffersDetails(filters params.OfferFilters) ([]para
 			var err error
 			model, err = api.backend.Model()
 			if err != nil {
-				return nil, common.ServerError(errors.Trace(err))
+				return nil, nil, errors.Trace(err)
 			}
+			models[modelUUID] = model
 		}
 		// If the filter contains a model name, look up the details.
 		if f.ModelName != "" {
-			if _, ok := modelUUIDs[f.ModelName]; !ok {
+			if modelUUID, ok = modelUUIDs[f.ModelName]; !ok {
 				var err error
-				model, ok, err = api.modelForName(f.ModelName, "")
+				model, ok, err := api.modelForName(f.ModelName, "")
 				if err != nil {
-					return nil, common.ServerError(errors.Trace(err))
+					return nil, nil, errors.Trace(err)
 				}
 				if !ok {
 					err := errors.NotFoundf("model %q", f.ModelName)
-					return nil, common.ServerError(err)
+					return nil, nil, errors.Trace(err)
 				}
-				// Record the UUID for next time.
+				// Record the UUID and model for next time.
 				modelUUID = model.UUID()
 				modelUUIDs[f.ModelName] = modelUUID
+				models[modelUUID] = model
 			}
 		}
 
 		// Record the filter and model details against the model UUID.
-		models[modelUUID] = model
 		filters := filtersPerModel[modelUUID]
 		filters = append(filters, makeOfferFilterFromParams(f))
 		filtersPerModel[modelUUID] = filters
+	}
+	return models, filtersPerModel, nil
+}
+
+// getApplicationOffersDetails gets details about remote applications that match given filter.
+func (api *API) getApplicationOffersDetails(filters params.OfferFilters) ([]params.ApplicationOfferDetails, error) {
+	// Gather all the filter details for doing a query for each model.
+	models, filtersPerModel, err := api.getModelFilters(filters)
+	if err != nil {
+		return nil, common.ServerError(errors.Trace(err))
 	}
 
 	if len(filtersPerModel) == 0 {
@@ -314,9 +331,17 @@ func (api *API) getApplicationOffersDetails(filters params.OfferFilters) ([]para
 		models[thisModelUUID] = model
 	}
 
-	var result []params.ApplicationOfferDetails
+	// Ensure the result is deterministic.
+	var allUUIDs []string
+	for modelUUID := range filtersPerModel {
+		allUUIDs = append(allUUIDs, modelUUID)
+	}
+	sort.Strings(allUUIDs)
+
 	// Do the per model queries.
-	for modelUUID, filters := range filtersPerModel {
+	var result []params.ApplicationOfferDetails
+	for _, modelUUID := range allUUIDs {
+		filters := filtersPerModel[modelUUID]
 		offers, err := api.applicationOffersFromModel(modelUUID, filters...)
 		if err != nil {
 			return nil, common.ServerError(errors.Trace(err))

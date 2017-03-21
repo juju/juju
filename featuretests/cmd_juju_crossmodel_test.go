@@ -44,12 +44,14 @@ func (s *crossmodelSuite) TestListEndpoints(c *gc.C) {
 	c.Assert(ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, `
 kontroll:
   riak:
+    charm: riak
     url: admin/controller.riak
     endpoints:
       endpoint:
         interface: http
         role: provider
   varnish:
+    charm: varnish
     url: admin/controller.varnish
     endpoints:
       webcache:

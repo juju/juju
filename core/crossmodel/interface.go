@@ -10,7 +10,7 @@ import (
 // ApplicationOffer holds the details of an application offered
 // by this model.
 type ApplicationOffer struct {
-	// OfferName is the name of ghe offer.
+	// OfferName is the name of the offer.
 	OfferName string
 
 	// ApplicationName is the name of the application to which the offer pertains.

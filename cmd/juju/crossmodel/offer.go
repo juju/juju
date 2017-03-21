@@ -19,7 +19,7 @@ import (
 const (
 	offerCommandDoc = `
 Deployed application endpoints are offered for use by consumers.
-By the default, the offer is named after the application, unless
+By default, the offer is named after the application, unless
 an offer name is explicitly specified.
 
 Examples:
