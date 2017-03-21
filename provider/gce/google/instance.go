@@ -181,8 +181,13 @@ func (gi Instance) Metadata() map[string]string {
 
 // NetworkInterfaces returns the details of the network connection for
 // this instance.
-func (gi Instance) NetworkInterfaces() []*compute.NetworkInterface {
-	return gi.InstanceSummary.NetworkInterfaces
+func (gi Instance) NetworkInterfaces() []compute.NetworkInterface {
+	var results []compute.NetworkInterface
+	// Copy to prevent callers from mutating the source data.
+	for _, iface := range gi.InstanceSummary.NetworkInterfaces {
+		results = append(results, *iface)
+	}
+	return results
 }
 
 // packMetadata composes the provided data into the format required

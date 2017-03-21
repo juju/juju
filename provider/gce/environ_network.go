@@ -4,6 +4,8 @@
 package gce
 
 import (
+	"fmt"
+
 	"github.com/juju/errors"
 	"github.com/juju/utils/set"
 	"gopkg.in/juju/names.v2"
@@ -15,21 +17,16 @@ import (
 // Subnets implements environs.NetworkingEnviron.
 func (e *environ) Subnets(inst instance.Id, subnetIds []network.Id) ([]network.SubnetInfo, error) {
 	// In GCE all the subnets are in all AZs.
-	zones, err := e.AvailabilityZones()
+	zones, err := e.zoneNames()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	zoneNames := make([]string, len(zones))
-	for i, zone := range zones {
-		zoneNames[i] = zone.Name()
-	}
-
 	ids := makeIncludeSet(subnetIds)
 	var results []network.SubnetInfo
 	if inst == instance.UnknownId {
-		results, err = e.getMatchingSubnets(ids, zoneNames)
+		results, err = e.getMatchingSubnets(ids, zones)
 	} else {
-		results, err = e.getInstanceSubnets(inst, ids, zoneNames)
+		results, err = e.getInstanceSubnets(inst, ids, zones)
 	}
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -42,6 +39,18 @@ func (e *environ) Subnets(inst instance.Id, subnetIds []network.Id) ([]network.S
 	return results, nil
 }
 
+func (e *environ) zoneNames() ([]string, error) {
+	zones, err := e.AvailabilityZones()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	names := make([]string, len(zones))
+	for i, zone := range zones {
+		names[i] = zone.Name()
+	}
+	return names, nil
+}
+
 func (e *environ) getMatchingSubnets(subnetIds IncludeSet, zones []string) ([]network.SubnetInfo, error) {
 	allSubnets, err := e.gce.Subnetworks(e.cloud.Region)
 	if err != nil {
@@ -49,9 +58,9 @@ func (e *environ) getMatchingSubnets(subnetIds IncludeSet, zones []string) ([]ne
 	}
 	var results []network.SubnetInfo
 	for _, subnet := range allSubnets {
-		if subnetIds.Include(subnet.SelfLink) {
+		if subnetIds.Include(subnet.Name) {
 			results = append(results, makeSubnetInfo(
-				network.Id(subnet.SelfLink),
+				network.Id(subnet.Name),
 				subnet.IpCidrRange,
 				zones,
 			))
@@ -90,34 +99,71 @@ func (e *environ) NetworkInterfaces(instId instance.Id) ([]network.InterfaceInfo
 		return nil, errors.Errorf("couldn't extract google instance for %q", instId)
 	}
 	googleInst := envInst.base
-	// According to GCE docs, an instance can only have one nic.
-	// https://cloud.google.com/compute/docs/instances/#instances_and_networks
-	if ifaces := len(googleInst.NetworkInterfaces()); ifaces != 1 {
-		return nil, errors.Errorf("expected 1 network interface on %q, found %d", instId, ifaces)
+	ifaces := googleInst.NetworkInterfaces()
+
+	subnetURLs := make([]string, len(ifaces))
+	for i, iface := range ifaces {
+		subnetURLs[i] = iface.Subnetwork
 	}
-	iface := googleInst.NetworkInterfaces()[0]
-	subnetId := network.Id(iface.Subnetwork)
-	subnets, err := e.Subnets(instance.UnknownId, []network.Id{subnetId})
+	subnets, err := e.subnetsByURL(subnetURLs...)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	subnet := subnets[0]
-	results := []network.InterfaceInfo{{
-		DeviceIndex: 0,
-		CIDR:        subnet.CIDR,
-		// XXX(xtian): not sure about this - the network interface has
-		// no id in GCE, each machine has exactly one interface, so it
-		// can be identified by the machine's id.
-		ProviderId:        network.Id(instId),
-		ProviderSubnetId:  subnetId,
-		AvailabilityZones: subnet.AvailabilityZones,
-		InterfaceName:     iface.Name,
-		Address:           network.NewScopedAddress(iface.NetworkIP, network.ScopeCloudLocal),
-		InterfaceType:     network.EthernetInterface,
-		Disabled:          false,
-		NoAutoStart:       false,
-		ConfigType:        network.ConfigDHCP,
-	}}
+	// We know there'll be a subnet for each url requested, otherwise
+	// there would have been an error.
+
+	var results []network.InterfaceInfo
+	for i, iface := range ifaces {
+		subnet, ok := subnets[iface.Subnetwork]
+		if !ok {
+			// Should never happen.
+			return nil, errors.Errorf("no subnet %q found for instance %q", iface.Subnetwork, instId)
+		}
+
+		results = append(results, network.InterfaceInfo{
+			DeviceIndex: i,
+			CIDR:        subnet.CIDR,
+			// The network interface has no id in GCE so it's
+			// identified by the machine's id + its position.
+			ProviderId:        network.Id(fmt.Sprintf("%s/%d", instId, i)),
+			ProviderSubnetId:  subnet.ProviderId,
+			AvailabilityZones: subnet.AvailabilityZones,
+			InterfaceName:     iface.Name,
+			Address:           network.NewScopedAddress(iface.NetworkIP, network.ScopeCloudLocal),
+			InterfaceType:     network.EthernetInterface,
+			Disabled:          false,
+			NoAutoStart:       false,
+			ConfigType:        network.ConfigDHCP,
+		})
+	}
+	return results, nil
+}
+
+func (e *environ) subnetsByURL(urls ...string) (map[string]network.SubnetInfo, error) {
+	// In GCE all the subnets are in all AZs.
+	zones, err := e.zoneNames()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	// Don't want to get all if no urls are passed.
+	urlSet := includeSet{items: set.NewStrings(urls...)}
+	allSubnets, err := e.gce.Subnetworks(e.cloud.Region)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	results := make(map[string]network.SubnetInfo)
+	for _, subnet := range allSubnets {
+		if urlSet.Include(subnet.SelfLink) {
+			results[subnet.SelfLink] = makeSubnetInfo(
+				network.Id(subnet.Name),
+				subnet.IpCidrRange,
+				zones,
+			)
+		}
+	}
+	if missing := urlSet.Missing(); len(missing) != 0 {
+		return nil, errors.NotFoundf("subnets %v", missing)
+	}
 	return results, nil
 }
 
@@ -158,6 +204,8 @@ func makeSubnetInfo(subnetId network.Id, cidr string, zones []string) network.Su
 		ProviderId:        subnetId,
 		CIDR:              cidr,
 		AvailabilityZones: zonesCopy,
+		VLANTag:           0,
+		SpaceProviderId:   "",
 	}
 }
 
@@ -205,9 +253,9 @@ func makeIncludeSet(ids []network.Id) IncludeSet {
 	if len(ids) == 0 {
 		return &includeAny{}
 	}
-	items := set.NewStrings()
+	strings := set.NewStrings()
 	for _, id := range ids {
-		items.Add(string(id))
+		strings.Add(string(id))
 	}
-	return &includeSet{items: items}
+	return &includeSet{items: strings}
 }

@@ -292,6 +292,10 @@ func (s *BaseSuiteUnpatched) NewInstance(c *gc.C, id string) *environInstance {
 	return newInstance(base, s.Env)
 }
 
+func (s *BaseSuiteUnpatched) NewInstanceFromBase(base *google.Instance) *environInstance {
+	return newInstance(base, s.Env)
+}
+
 type BaseSuite struct {
 	BaseSuiteUnpatched
 
