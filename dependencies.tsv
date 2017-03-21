@@ -19,7 +19,7 @@ github.com/joyent/gosign	git	0da0d5f1342065321c97812b1f4ac0c2b0bab56c	2014-05-24
 github.com/juju/ansiterm	git	b99631de12cf04a906c1d4e4ec54fb86eae5863d	2016-09-07T23:45:32Z
 github.com/juju/blobstore	git	06056004b3d7b54bbb7984d830c537bad00fec21	2015-07-29T11:18:58Z
 github.com/juju/bundlechanges	git	7725027b95e0d54635e0fb11efc2debdcdf19f75	2016-12-15T16:06:52Z
-github.com/juju/cmd	git	0f05ac592d6925a1b8ca0f77524d3348fafa66cc	2017-02-07T03:13:09Z
+github.com/juju/cmd	git	9425a576247f348b9b40afe3b60085de63470de5	2017-03-20T01:37:09Z
 github.com/juju/description	git	d3742c23561884cd7d759ef7142340af1d22cab0	2017-03-20T07:46:40Z
 github.com/juju/errors	git	1b5e39b83d1835fa480e0c2ddefb040ee82d58b3	2015-09-16T12:56:42Z
 github.com/juju/gnuflag	git	4e76c56581859c14d9d87e1ddbe29e1c0f10195f	2016-08-09T16:52:14Z
@@ -32,7 +32,7 @@ github.com/juju/httpprof	git	14bf14c307672fd2456bdbf35d19cf0ccd3cf565	2014-12-17
 github.com/juju/httprequest	git	266fd1e9debf09c037a63f074d099a2da4559ece	2016-10-06T15:09:09Z
 github.com/juju/idmclient	git	4dc25171f675da4206b71695d3fd80e519ad05c1	2017-02-09T16:27:49Z
 github.com/juju/jsonschema	git	a0ef8b74ebcffeeff9fc374854deb4af388f037e	2016-11-02T18:19:19Z
-github.com/juju/loggo	git	3b7ece48644d35850f4ced4c2cbc2cf8413f58e0	2016-08-18T02:57:24Z
+github.com/juju/loggo	git	21bc4c63e8b435779a080e39e592969b7b90b889	2017-02-22T12:20:47Z
 github.com/juju/mempool	git	24974d6c264fe5a29716e7d56ea24c4bd904b7cc	2016-02-05T10:49:27Z
 github.com/juju/mutex	git	59c26ee163447c5c57f63ff71610d433862013de	2016-06-17T01:09:07Z
 github.com/juju/persistent-cookiejar	git	5243747bf8f2d0897f6c7a52799327dc97d585e8	2016-11-15T13:33:28Z
