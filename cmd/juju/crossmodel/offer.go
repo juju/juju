@@ -14,6 +14,8 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/modelcmd"
+	jujucrossmodel "github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/jujuclient"
 )
 
 const (
@@ -80,7 +82,9 @@ func (c *offerCommand) Init(args []string) error {
 		argCount = 2
 		c.OfferName = args[1]
 	}
-
+	if c.OfferName == "" {
+		c.OfferName = c.Application
+	}
 	return cmd.CheckEmpty(args[argCount:])
 }
 
@@ -90,7 +94,7 @@ func (c *offerCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 // Run implements Command.Run.
-func (c *offerCommand) Run(_ *cmd.Context) error {
+func (c *offerCommand) Run(ctx *cmd.Context) error {
 	api, err := c.newAPIFunc()
 	if err != nil {
 		return err
@@ -102,7 +106,29 @@ func (c *offerCommand) Run(_ *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-	return params.ErrorResults{results}.Combine()
+	if err := (params.ErrorResults{results}).Combine(); err != nil {
+		return err
+	}
+	var unqualifiedModelName, owner string
+	if jujuclient.IsQualifiedModelName(c.ModelName()) {
+		var ownerTag names.UserTag
+		unqualifiedModelName, ownerTag, err = jujuclient.SplitModelName(c.ModelName())
+		if err != nil {
+			return err
+		}
+		owner = ownerTag.Name()
+	} else {
+		unqualifiedModelName = c.ModelName()
+		account, err := c.ClientStore().AccountDetails(c.ControllerName())
+		if err != nil {
+			return err
+		}
+		owner = account.User
+	}
+	url := jujucrossmodel.MakeURL(owner, unqualifiedModelName, c.OfferName, "")
+	ep := strings.Join(c.Endpoints, ", ")
+	ctx.Infof("Application %q endpoints [%s] available at %q", c.Application, ep, url)
+	return nil
 }
 
 // OfferAPI defines the API methods that the offer command uses.

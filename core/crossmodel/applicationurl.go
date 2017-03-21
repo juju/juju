@@ -149,3 +149,12 @@ func parseApplicationURLParts(urlStr string, allowIncomplete bool) (*Application
 	}
 	return &result, nil
 }
+
+// MakeURL constructs an application URL from the specified components.
+func MakeURL(user, model, application, controller string) string {
+	base := fmt.Sprintf("%s/%s.%s", user, model, application)
+	if controller == "" {
+		return base
+	}
+	return fmt.Sprintf("%s:%s", controller, base)
+}

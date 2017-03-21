@@ -83,6 +83,26 @@ func (s *applicationOffersSuite) TestAddApplicationOffer(c *gc.C) {
 	c.Assert(*offer, jc.DeepEquals, *expectedOffer)
 }
 
+func (s *applicationOffersSuite) TestAddApplicationOfferBadEndpoints(c *gc.C) {
+	eps := map[string]string{"db": "server", "db-admin": "admin"}
+	sd := state.NewApplicationOffers(s.State)
+	args := crossmodel.AddApplicationOfferArgs{
+		OfferName:              "hosted-mysql",
+		ApplicationName:        "mysql",
+		ApplicationDescription: "mysql is a db server",
+		Endpoints:              eps,
+	}
+	_, err := sd.AddOffer(args)
+	c.Assert(err, gc.ErrorMatches, `.*application "mysql" has no "admin" relation`)
+
+	// Fix the endpoints and try again.
+	// There was a bug where this failed so we test it.
+	eps = map[string]string{"db": "server", "db-admin": "server-admin"}
+	args.Endpoints = eps
+	_, err = sd.AddOffer(args)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *applicationOffersSuite) TestListOffersNone(c *gc.C) {
 	sd := state.NewApplicationOffers(s.State)
 	offers, err := sd.ListOffers()
@@ -184,7 +204,7 @@ func (s *applicationOffersSuite) TestAddApplicationOfferDuplicate(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = sd.AddOffer(crossmodel.AddApplicationOfferArgs{
 		OfferName:       "hosted-mysql",
-		ApplicationName: "another",
+		ApplicationName: "mysql",
 	})
 	c.Assert(err, gc.ErrorMatches, `cannot add application offer "hosted-mysql": application offer already exists`)
 }

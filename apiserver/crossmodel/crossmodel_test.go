@@ -10,7 +10,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/crossmodel"
 	"github.com/juju/juju/apiserver/params"
 	jujucrossmodel "github.com/juju/juju/core/crossmodel"
@@ -22,11 +24,7 @@ type crossmodelSuite struct {
 
 var _ = gc.Suite(&crossmodelSuite{})
 
-func (s *crossmodelSuite) SetUpTest(c *gc.C) {
-	s.baseCrossmodelSuite.SetUpTest(c)
-}
-
-func (s *crossmodelSuite) TestOffer(c *gc.C) {
+func (s *crossmodelSuite) assertOffer(c *gc.C, expectedErr error) {
 	applicationName := "test"
 	s.addApplication(c, applicationName)
 	one := params.AddApplicationOffer{
@@ -47,13 +45,27 @@ func (s *crossmodelSuite) TestOffer(c *gc.C) {
 	}
 
 	errs, err := s.api.Offer(all)
+	if expectedErr != nil {
+		c.Assert(errors.Cause(err), gc.ErrorMatches, expectedErr.Error())
+		return
+	}
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(errs.Results, gc.HasLen, len(all.Offers))
 	c.Assert(errs.Results[0].Error, gc.IsNil)
 	s.applicationOffers.CheckCallNames(c, addOffersBackendCall)
 }
 
+func (s *crossmodelSuite) TestOffer(c *gc.C) {
+	s.authorizer.Tag = names.NewUserTag("admin")
+	s.assertOffer(c, nil)
+}
+
+func (s *crossmodelSuite) TestOfferPermission(c *gc.C) {
+	s.assertOffer(c, common.ErrPerm)
+}
+
 func (s *crossmodelSuite) TestOfferSomeFail(c *gc.C) {
+	s.authorizer.Tag = names.NewUserTag("admin")
 	s.addApplication(c, "one")
 	s.addApplication(c, "two")
 	s.addApplication(c, "paramsfail")
@@ -102,6 +114,7 @@ func (s *crossmodelSuite) TestOfferSomeFail(c *gc.C) {
 }
 
 func (s *crossmodelSuite) TestOfferError(c *gc.C) {
+	s.authorizer.Tag = names.NewUserTag("admin")
 	applicationName := "test"
 	s.addApplication(c, applicationName)
 	one := params.AddApplicationOffer{
@@ -128,7 +141,7 @@ func (s *crossmodelSuite) TestOfferError(c *gc.C) {
 	s.applicationOffers.CheckCallNames(c, addOffersBackendCall)
 }
 
-func (s *crossmodelSuite) TestShow(c *gc.C) {
+func (s *crossmodelSuite) assertShow(c *gc.C, expectedErr error) {
 	applicationName := "test"
 	offerName := "hosted-test"
 	url := "fred/prod.hosted-db2"
@@ -158,6 +171,10 @@ func (s *crossmodelSuite) TestShow(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(found.Results, gc.HasLen, 1)
 	result := found.Results[0]
+	if expectedErr != nil {
+		c.Assert(errors.Cause(result.Error), gc.ErrorMatches, expectedErr.Error())
+		return
+	}
 	c.Assert(result.Error, gc.IsNil)
 	c.Assert(result.Result, jc.DeepEquals, params.ApplicationOffer{
 		ApplicationDescription: "description",
@@ -166,6 +183,15 @@ func (s *crossmodelSuite) TestShow(c *gc.C) {
 		Endpoints:              []params.RemoteEndpoint{{Name: "db"}}},
 	)
 	s.applicationOffers.CheckCallNames(c, listOffersBackendCall)
+}
+
+func (s *crossmodelSuite) TestShow(c *gc.C) {
+	s.assertShow(c, nil)
+}
+
+func (s *crossmodelSuite) TestShowPermission(c *gc.C) {
+	s.authorizer.Tag = names.NewUserTag("someone")
+	s.assertShow(c, common.ErrPerm)
 }
 
 func (s *crossmodelSuite) TestShowError(c *gc.C) {
@@ -328,7 +354,7 @@ func (s *crossmodelSuite) setupOffers(c *gc.C, filterAppName string) {
 	s.mockState.connStatus = &mockConnectionStatus{count: 5}
 }
 
-func (s *crossmodelSuite) TestFind(c *gc.C) {
+func (s *crossmodelSuite) assertFind(c *gc.C, expectedErr error) {
 	s.setupOffers(c, "")
 	filter := params.OfferFilters{
 		Filters: []params.OfferFilter{
@@ -338,6 +364,10 @@ func (s *crossmodelSuite) TestFind(c *gc.C) {
 		},
 	}
 	found, err := s.api.FindApplicationOffers(filter)
+	if expectedErr != nil {
+		c.Assert(errors.Cause(err), gc.ErrorMatches, expectedErr.Error())
+		return
+	}
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(found, jc.DeepEquals, params.FindApplicationOffersResults{
 		[]params.ApplicationOffer{
@@ -348,6 +378,15 @@ func (s *crossmodelSuite) TestFind(c *gc.C) {
 				Endpoints:              []params.RemoteEndpoint{{Name: "db"}}}},
 	})
 	s.applicationOffers.CheckCallNames(c, listOffersBackendCall)
+}
+
+func (s *crossmodelSuite) TestFind(c *gc.C) {
+	s.assertFind(c, nil)
+}
+
+func (s *crossmodelSuite) TestFindPermission(c *gc.C) {
+	s.authorizer.Tag = names.NewUserTag("someone")
+	s.assertFind(c, common.ErrPerm)
 }
 
 func (s *crossmodelSuite) TestFindMultiModel(c *gc.C) {
@@ -470,7 +509,7 @@ func (s *crossmodelSuite) TestFindError(c *gc.C) {
 	s.applicationOffers.CheckCallNames(c, listOffersBackendCall)
 }
 
-func (s *crossmodelSuite) TestList(c *gc.C) {
+func (s *crossmodelSuite) assertList(c *gc.C, expectedErr error) {
 	s.setupOffers(c, "test")
 	filter := params.OfferFilters{
 		Filters: []params.OfferFilter{
@@ -481,6 +520,10 @@ func (s *crossmodelSuite) TestList(c *gc.C) {
 		},
 	}
 	found, err := s.api.ListApplicationOffers(filter)
+	if expectedErr != nil {
+		c.Assert(errors.Cause(err), gc.ErrorMatches, expectedErr.Error())
+		return
+	}
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(found, jc.DeepEquals, params.ListApplicationOffersResults{
 		[]params.ApplicationOfferDetails{
@@ -499,7 +542,17 @@ func (s *crossmodelSuite) TestList(c *gc.C) {
 	s.applicationOffers.CheckCallNames(c, listOffersBackendCall)
 }
 
+func (s *crossmodelSuite) TestList(c *gc.C) {
+	s.authorizer.Tag = names.NewUserTag("admin")
+	s.assertList(c, nil)
+}
+
+func (s *crossmodelSuite) TestListPermission(c *gc.C) {
+	s.assertList(c, common.ErrPerm)
+}
+
 func (s *crossmodelSuite) TestListError(c *gc.C) {
+	s.authorizer.Tag = names.NewUserTag("admin")
 	filter := params.OfferFilters{
 		Filters: []params.OfferFilter{
 			{

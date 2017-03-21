@@ -128,6 +128,10 @@ func (s *applicationOffers) AddOffer(offerArgs crossmodel.AddApplicationOfferArg
 	}
 
 	doc := s.makeApplicationOfferDoc(offerArgs)
+	result, err := s.makeApplicationOffer(doc)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		// If we've tried once already and failed, check that
 		// environment may have been destroyed.
@@ -155,7 +159,7 @@ func (s *applicationOffers) AddOffer(offerArgs crossmodel.AddApplicationOfferArg
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return s.makeApplicationOffer(doc)
+	return result, nil
 }
 
 // UpdateOffer replaces an existing offer at the same URL.

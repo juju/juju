@@ -22,7 +22,7 @@ const (
 
 type baseCrossmodelSuite struct {
 	resources  *common.Resources
-	authorizer testing.FakeAuthorizer
+	authorizer *testing.FakeAuthorizer
 
 	api *crossmodel.API
 
@@ -42,7 +42,10 @@ func (s *baseCrossmodelSuite) addApplication(c *gc.C, name string) jujucrossmode
 
 func (s *baseCrossmodelSuite) SetUpTest(c *gc.C) {
 	s.resources = common.NewResources()
-	s.authorizer = testing.FakeAuthorizer{Tag: names.NewUserTag("testuser"), Controller: true}
+	s.authorizer = &testing.FakeAuthorizer{
+		Tag:      names.NewUserTag("read"),
+		AdminTag: names.NewUserTag("admin"),
+	}
 
 	s.applicationOffers = &mockApplicationOffers{}
 
