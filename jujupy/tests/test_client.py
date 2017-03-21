@@ -43,6 +43,7 @@ from jujupy.client import (
     AgentUnresolvedError,
     AppError,
     BaseCondition,
+    CommandTime,
     CannotConnectEnv,
     ConditionList,
     Controller,
@@ -5986,3 +5987,62 @@ class TestGetMachineDNSName(TestCase):
         self.assertEqual(host, "2001:db8::3")
         fake_client.status_until.assert_called_once_with(timeout=600)
         self.assertEqual(self.log_stream.getvalue(), "")
+
+
+class TestCommandTime(TestCase):
+
+    def test_default_values(self):
+        full_args = ['juju', '--showlog', 'bootstrap']
+        utcnow = datetime.utcnow()
+        with patch('jujupy.client.datetime') as m_dt:
+            m_dt.utcnow.return_value = utcnow
+            ct = CommandTime('bootstrap', full_args)
+            self.assertEqual(ct.cmd, 'bootstrap')
+            self.assertEqual(ct.full_args, full_args)
+            self.assertEqual(ct.envvars, None)
+            self.assertEqual(ct.start, utcnow)
+            self.assertEqual(ct.end, None)
+
+    def test_set_start_time(self):
+        ct = CommandTime('cmd', [], start='abc')
+        self.assertEqual(ct.start, 'abc')
+
+    def test_set_envvar(self):
+        details = {'abc': 123}
+        ct = CommandTime('cmd', [], envvars=details)
+        self.assertEqual(ct.envvars, details)
+
+    def test_actual_completion_sets_default(self):
+        utcnow = datetime.utcnow()
+        ct = CommandTime('cmd', [])
+        with patch('jujupy.client.datetime') as m_dt:
+            m_dt.utcnow.return_value = utcnow
+            ct.actual_completion()
+        self.assertEqual(ct.end, utcnow)
+
+    def test_actual_completion_idempotent(self):
+        ct = CommandTime('cmd', [])
+        with patch('jujupy.client.datetime') as m_dt:
+            m_dt.utcnow.side_effect = ['a', 'b']
+            ct.actual_completion()
+            ct.actual_completion()
+            self.assertEqual(ct.end, 'a')
+
+    def test_actual_completion_set_value(self):
+        utcnow = datetime.utcnow()
+        ct = CommandTime('cmd', [])
+        ct.actual_completion(end=utcnow)
+        self.assertEqual(ct.end, utcnow)
+
+    def test_actual_time_returns_None_when_not_complete(self):
+        ct = CommandTime('cmd', [])
+        self.assertEqual(ct.actual_time, None)
+
+    def test_actual_time_returns_time_difference_when_complete(self):
+        utcstart = datetime.utcnow()
+        utcend = utcstart + timedelta(seconds=1)
+        with patch('jujupy.client.datetime') as m_dt:
+            m_dt.utcnow.side_effect = [utcstart, utcend]
+            ct = CommandTime('cmd', [])
+            ct.actual_completion()
+        self.assertEqual(ct.actual_time, utcend - utcstart)

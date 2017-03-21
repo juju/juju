@@ -1405,6 +1405,11 @@ class CommandTime:
 
     @property
     def actual_time(self):
+        """The actual time a command took.
+
+        :return: A datetime.timedelta object or None if the command timing has
+          never been completed.
+        """
         if self.end is None:
             return None
         return self.end - self.start
