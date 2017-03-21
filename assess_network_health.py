@@ -325,6 +325,8 @@ class AssessNetworkHealth:
             nh_only = True
             log.info('No exposed units, testing with network-health '
                      'charms only.')
+            for series in self.existing_series:
+                exposed.append('network-health-{}'.format(series))
         else:
             nh_only = False
             self.setup_expose_test(client, series, exposed)
