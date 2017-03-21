@@ -263,25 +263,36 @@ class TestAssessNetworkHealth(TestCase):
 
         self.assertEqual(expected, out)
 
-    def test_internet_connection(self):
+    def test_internet_connection_with_pass(self):
         args = parse_args([])
         net_health = AssessNetworkHealth(args)
         client = fake_juju_client()
         client.bootstrap()
-        default = dedent("""
-        default via 1.1.1.1
-        default via 1.1.1.1
-        """)
+        default = ["default via 1.1.1.1 1 received"]
+
         now = datetime.now() + timedelta(days=1)
         with patch('utility.until_timeout.now', return_value=now):
             with patch.object(client, 'get_status', return_value=status):
-                with patch('subprocess.check_output',
-                           return_value=None):
-                    with patch('assess_network_health.AssessNetworkHealth.ssh',
-                               return_value=default):
-                        with patch.object(client, 'juju', return_value=0):
-                            out = net_health.internet_connection(client)
+                with patch('subprocess.check_output', return_value=None):
+                    with patch.object(client, 'run', return_value=default):
+                        out = net_health.internet_connection(client)
         expected = {'1': True, '0': True}
+        self.assertEqual(expected, out)
+
+    def test_internet_connection_with_fail(self):
+        args = parse_args([])
+        net_health = AssessNetworkHealth(args)
+        client = fake_juju_client()
+        client.bootstrap()
+        default = ["default via 1.1.1.1 0 received"]
+
+        now = datetime.now() + timedelta(days=1)
+        with patch('utility.until_timeout.now', return_value=now):
+            with patch.object(client, 'get_status', return_value=status):
+                with patch('subprocess.check_output', return_value=None):
+                    with patch.object(client, 'run', return_value=default):
+                        out = net_health.internet_connection(client)
+        expected = {'1': False, '0': False}
         self.assertEqual(expected, out)
 
     def test_ensure_exposed(self):
@@ -363,7 +374,7 @@ class TestAssessNetworkHealth(TestCase):
         out = net_health.parse_final_results(visible, internet,
                                              exposed)
         error_strings = ["Machine 0 failed internet connection.",
-                         "NH-Unit bar/0 failed to contact targets(s): "
+                         "Unit bar/0 failed to contact targets(s): "
                          "['foo/0']",
                          "Application(s) foo failed expose test"]
         for line in out:
