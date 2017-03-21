@@ -318,14 +318,41 @@ class AssessNetworkHealth:
         """
         log.info('Starting test of exposed units.')
 
-        for series in self.existing_series:
-            client.juju('unexpose', ('network-health-{}'.format(series)))
         apps = client.get_status().get_applications()
-        exposed = [app for app, e in apps.items() if e.get('exposed') is True]
+        exposed = [app for app, e in apps.items() if e.get('exposed')
+                   is True and 'network-health' not in app]
         if len(exposed) is 0:
-            log.info('No exposed units, aboring test.')
-            return None
+            nh_only = True
+            log.info('No exposed units, testing with network-health '
+                     'charms only.')
+        else:
+            nh_only = False
+            self.setup_expose_test(client, series, exposed)
 
+        service_results = {}
+        for unit, info in client.get_status().iter_units():
+            ip = info['public-address']
+            if nh_only and 'network-health' in unit:
+                service_results[unit] = self.curl(ip)
+            elif not nh_only and 'network-health' not in unit:
+                service_results[unit] = self.curl(ip)
+        log.info(service_results)
+        return self.parse_expose_results(service_results, exposed)
+
+    def curl(self, ip):
+        log.info('Attempting to curl unit at {}:{}'.format(ip, PORT))
+        try:
+            out = subprocess.check_output(
+                'curl {}:{} -m 5'.format(ip, PORT), shell=True)
+        except subprocess.CalledProcessError as e:
+            out = ''
+            log.warning('Curl failed for error:\n{}'.format(e))
+        log.info('Got: "{}" from unit at {}:{}'.format(out, ip, PORT))
+        if 'pass' in out:
+            return True
+        return False
+
+    def setup_expose_test(self, client, series, exposed):
         log.info('Removing previous network-health charms')
         for series in self.existing_series:
             alias = 'network-health-{}'.format(series)
@@ -333,7 +360,7 @@ class AssessNetworkHealth:
         for series in self.existing_series:
             alias = 'network-health-{}'.format(series)
             client.wait_for(WaitApplicationNotPresent(alias))
-
+        log.info('Deploying aliased network-health charms')
         apps = client.get_status().get_applications()
         for app, info in apps.items():
             if 'network-health' not in app:
@@ -346,32 +373,12 @@ class AssessNetworkHealth:
                 except subprocess.CalledProcessError as e:
                     log.warning('Could not relate {}, {} due to '
                                 'error:\n{}'.format(app, alias, e))
-
         for app in apps.keys():
             if 'network-health' not in app:
                 client.wait_for_subordinate_units(
                     app, 'network-health-{}'.format(app))
-
         for app in exposed:
             client.juju('expose', ('network-health-{}'.format(app)))
-
-        service_results = {}
-        for unit, info in client.get_status().iter_units():
-            if 'network-health' not in unit:
-                ip = info['public-address']
-                log.info('Attempting to curl unit at {}:{}'.format(ip, PORT))
-                service_results[unit] = False
-                try:
-                    out = subprocess.check_output(
-                        'curl {}:{} -m 5'.format(ip, PORT), shell=True)
-                except subprocess.CalledProcessError as e:
-                    out = ''
-                    log.warning('Curl failed for error:\n{}'.format(e))
-                log.info('Got: "{}" from unit at {}:{}'.format(out, ip, PORT))
-                if 'pass' in out:
-                    service_results[unit] = True
-        log.info(service_results)
-        return self.parse_expose_results(service_results, exposed)
 
     def parse_expose_results(self, service_results, exposed):
         """Parses expose test results into dict of pass/fail.
