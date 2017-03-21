@@ -7,15 +7,18 @@ import logging
 import sys
 import json
 import yaml
-import ast
 import subprocess
 import re
 import time
 import os
 import socket
+from collections import defaultdict
 
 from jujupy import (
-    client_for_existing,
+    client_for_existing
+    )
+from jujupy.client import (
+    WaitApplicationNotPresent
     )
 from deploy_stack import (
     BootstrapManager
@@ -36,6 +39,8 @@ log = logging.getLogger("assess_network_health")
 
 NO_EXPOSED_UNITS = 'No exposed units'
 
+PORT = 8039
+
 
 class AssessNetworkHealth:
 
@@ -47,6 +52,7 @@ class AssessNetworkHealth:
                             args.temp_env_name)
         self.expose_client = None
         self.existing_series = set([])
+        self.expose_test_charms = set([])
 
     def assess_network_health(self, client, bundle=None, target_model=None,
                               reboot=False, series=None, maas=None):
@@ -91,11 +97,6 @@ class AssessNetworkHealth:
         interface_info = self.get_unit_info(client)
         log.info('{0}Interface information:\n{1}'.format(
             reboot_msg, json.dumps(interface_info, indent=4, sort_keys=True)))
-        con_result = self.juju_controller_visibility(client)
-        log.info('{0}Controller Visibility '
-                 'result:\n {1}'.format(reboot_msg,
-                                        json.dumps(con_result, indent=4,
-                                                   sort_keys=True)))
         int_result = self.internet_connection(client)
         log.info('{0}Internet Test '
                  'result:\n {1}'.format(reboot_msg,
@@ -107,17 +108,16 @@ class AssessNetworkHealth:
                                         json.dumps(vis_result,
                                                    indent=4,
                                                    sort_keys=True)))
-        exp_result = None
-        if not target_model:
-            exp_result = self.ensure_exposed(client, series)
-            log.info('{0}Exposure '
-                     'result:\n {1}'.format(reboot_msg,
-                                            json.dumps(exp_result,
-                                                       indent=4,
-                                                       sort_keys=True)) or
-                     NO_EXPOSED_UNITS)
+
+        exp_result = self.ensure_exposed(client, series)
+        log.info('{0}Exposure '
+                 'result:\n {1}'.format(reboot_msg,
+                                        json.dumps(exp_result,
+                                                   indent=4,
+                                                   sort_keys=True)) or
+                 NO_EXPOSED_UNITS)
         log.info('Tests complete.')
-        return self.parse_final_results(con_result, vis_result, int_result,
+        return self.parse_final_results(vis_result, int_result,
                                         exp_result)
 
     def setup_testing_environment(self, client, bundle, target_model,
@@ -142,11 +142,14 @@ class AssessNetworkHealth:
             try:
                 client.deploy('~juju-qa/network-health', series=series,
                               alias='network-health-{}'.format(series))
+
             except subprocess.CalledProcessError:
                 log.info('Could not deploy network-health-{} as it is already'
                          ' present in the juju deployment.'.format(series))
         client.wait_for_started()
         client.wait_for_workloads()
+        for series in self.existing_series:
+            client.juju('expose', ('network-health-{}'.format(series)))
         apps = client.get_status().get_applications()
         log.info('Known applications: {}'.format(apps.keys()))
         for app, info in apps.items():
@@ -196,58 +199,34 @@ class AssessNetworkHealth:
 
     def cleanup(self, client):
         log.info('Cleaning up deployed test charms and models.')
+        if self.expose_test_charms:
+            for charm in self.expose_test_charms:
+                client.remove_service(charm)
+            return
         for series in self.existing_series:
             client.remove_service('network-health-{}'.format(series))
-        if 'exposetest' in client.get_models().keys():
-            client.get_models()['exposetest'].destroy_model()
-        log.info('Cleanup complete.')
 
     def get_unit_info(self, client):
-        """Gets the machine or container interface and dns info.
+        """Gets the machine or container interface info.
 
         :param client: Client to get results from
         :return: Dict of machine results as
-        <machine>:{'dns':<dns>, 'interfaces':<interfaces>}
+        <machine>:{'interfaces':<interfaces>}
         """
         results = {}
         apps = client.get_status().get_applications()
-        nh_units = self.get_nh_units(apps, by_unit=True)
-        for app, unit in nh_units.items():
+        nh_units = self.get_nh_unit_info(apps, by_unit=True)
+        for app, units in nh_units.items():
             machine = apps[app.split('/')[0]]['units'][app]['machine']
-            results[machine] = {}
-            out = client.action_do(unit[0], 'unit-info')
-            out = client.action_fetch(out)
-            out = yaml.safe_load(out)
-            results[machine]['dns'] = out['results']['dns']
-            results[machine]['interfaces'] = out['results']['interfaces']
+            results[machine] = defaultdict(defaultdict)
+            results[machine]['interfaces'] = {}
+            for nh_unit in units.keys():
+                out = client.action_do(nh_unit, 'unit-info')
+                out = client.action_fetch(out)
+                out = yaml.safe_load(out)
+                interfaces = out['results']['interfaces']
+                results[machine]['interfaces'][nh_unit] = interfaces
         return results
-
-    def juju_controller_visibility(self, client):
-        """Determine if known juju machines are visible from controller.
-
-        :param machine: List of machine IPs to test
-        :return: Connection attempt results
-        """
-        cont_client = client.get_controller_client()
-        log.info('Starting controller visibility test')
-        machines = client.get_status().iter_machines(containers=True)
-        result = {}
-        for machine, info in machines:
-            result[machine] = {}
-            for ip in info['ip-addresses']:
-                if self.is_ipv6(ip):
-                    cmd = 'ping6'
-                else:
-                    cmd = 'ping'
-                result[machine][ip] = False
-                try:
-                    self.ssh(cont_client, '0', "{} -c 1 ".format(cmd) + ip)
-                except subprocess.CalledProcessError as e:
-                    log.error('Error with ping attempt '
-                              'to {}: {}'.format(ip, e))
-                    continue
-                result[machine][ip] = True
-        return result
 
     def internet_connection(self, client):
         """Test that targets can ping their default route.
@@ -263,19 +242,19 @@ class AssessNetworkHealth:
                      "machine: {}".format(unit[0]))
             results[unit[0]] = False
             try:
-                routes = self.ssh(client, unit[0], 'ip route show')
+                routes = client.run(['ip route show'], machines=[unit[0]])
             except subprocess.CalledProcessError:
                 log.error('Could not connect to address for unit: {0}, '
                           'unable to find default route.'.format(unit[0]))
                 continue
-            default_route = re.search(r'^default\s+via\s+([\d\.]+)\s+', routes,
-                                      re.MULTILINE)
+            default_route = re.search(r'(default via )+([\d\.]+)\s+',
+                                      json.dumps(routes[0]))
             if default_route:
-                rc = client.juju('ssh', ('--proxy', unit[0],
-                                         'ping -c1 -q ' +
-                                         default_route.group(1)),
-                                 check=False)
-                if rc != 0:
+                rc = client.run(
+                    ['ping -c1 -q {}'.format(default_route.group(2))],
+                    machines=[unit[0]])
+                sucess = re.search(r'(1 received)', json.dumps(rc[0]))
+                if not sucess:
                     log.error('{} unable to ping default route'.format(unit))
                     continue
             else:
@@ -284,17 +263,25 @@ class AssessNetworkHealth:
             results[unit[0]] = True
         return results
 
-    def get_nh_units(self, apps, by_unit=False):
-        nh_units = []
-        subs_by_unit = {}
-        for service, s_info in apps.items():
-            for unit, u_info in s_info.get('units', {}).items():
-                nh_subs = [u for u in u_info.get('subordinates').keys()
-                           if 'network-health' in u]
-                subs_by_unit[unit] = nh_subs
-                nh_units.extend(nh_subs)
+    def get_nh_unit_info(self, apps, by_unit=False):
+        """Parses juju status information to return deployed network-health units.
+
+        :param apps: Dict of apps given by get_status().get_applications()
+        :param by_unit: Bool, returns dict of NH units keyed by the unit they
+        are subordinate to
+        :return: Dict of network-health units
+        """
+        nh_units = {}
+        nh_by_unit = {}
+        for app, units in apps.items():
+            for unit, info in units.get('units', {}).items():
+                nh_by_unit[unit] = {}
+                for sub, sub_info in info.get('subordinates', {}).items():
+                    if 'network-health' in sub:
+                        nh_by_unit[unit][sub] = sub_info
+                        nh_units[sub] = sub_info
         if by_unit:
-            return subs_by_unit
+            return nh_by_unit
         return nh_units
 
     def neighbor_visibility(self, client):
@@ -304,15 +291,23 @@ class AssessNetworkHealth:
         """
         log.info('Starting neighbor visibility test')
         apps = client.get_status().get_applications()
-        targets = self.parse_targets(client.get_status())
+        nh_units = self.get_nh_unit_info(apps)
+        target_ips = [ip['public-address'] for ip in nh_units.values()]
         result = {}
-        nh_units = self.get_nh_units(apps)
-        for nh_unit in nh_units:
-            service_results = {}
-            for service, units in targets.items():
-                res = self.ping_units(client, nh_unit, units)
-                service_results[service] = ast.literal_eval(res)
-            result[nh_unit] = service_results
+        for app, units in apps.items():
+            result[app] = defaultdict(defaultdict)
+            for unit, info in units.get('units', {}).items():
+                for ip in target_ips:
+                    result[app][unit][ip] = False
+                    pattern = r"(pass)"
+                    log.info('Attempting to contact {}:{} '
+                             'from {}'.format(ip, PORT, unit))
+                    out = client.run(['curl {}:{}'.format(ip, PORT)],
+                                     units=[unit])
+                    match = re.search(pattern, json.dumps(out[0]))
+                    if match:
+                        log.info('pass')
+                        result[app][unit][ip] = True
         return result
 
     def ensure_exposed(self, client, series):
@@ -322,38 +317,92 @@ class AssessNetworkHealth:
         :return: Exposure test results in dict by pass/fail
         """
         log.info('Starting test of exposed units.')
+
         apps = client.get_status().get_applications()
-        targets = self.parse_targets(client.get_status())
-        exposed = [app for app, e in apps.items() if e.get('exposed') is True]
+        exposed = [app for app, e in apps.items() if e.get('exposed')
+                   is True and 'network-health' not in app]
         if len(exposed) is 0:
-            log.info('No exposed units, aboring test.')
-            return None
-        new_client = self.setup_expose_test(client, series)
+            nh_only = True
+            log.info('No exposed units, testing with network-health '
+                     'charms only.')
+        else:
+            nh_only = False
+            self.setup_expose_test(client, series, exposed)
+
         service_results = {}
-        for service, units in targets.items():
-            service_results[service] = self.ping_units(new_client,
-                                                       'network-health/0',
-                                                       units)
+        for unit, info in client.get_status().iter_units():
+            ip = info['public-address']
+            if nh_only and 'network-health' in unit:
+                service_results[unit] = self.curl(ip)
+            elif not nh_only and 'network-health' not in unit:
+                service_results[unit] = self.curl(ip)
         log.info(service_results)
         return self.parse_expose_results(service_results, exposed)
 
-    def setup_expose_test(self, client, series):
-        """Sets up new model to run exposure test.
+    def curl(self, ip):
+        log.info('Attempting to curl unit at {}:{}'.format(ip, PORT))
+        try:
+            out = subprocess.check_output(
+                'curl {}:{} -m 5'.format(ip, PORT), shell=True)
+        except subprocess.CalledProcessError as e:
+            out = ''
+            log.warning('Curl failed for error:\n{}'.format(e))
+        log.info('Got: "{}" from unit at {}:{}'.format(out, ip, PORT))
+        if 'pass' in out:
+            return True
+        return False
 
-        :param client: The juju client in use
-        :return: New juju client object
+    def setup_expose_test(self, client, series, exposed):
+        """Sets up the expose test using aliased NH charms.
+
+        :param client: juju client object used in the test.
+        :param series: Charm series
+        :param exposed: List of exposed charms
         """
-        if not self.expose_client:
-            new_client = client.add_model('exposetest')
-            new_client.deploy('ubuntu', series=series)
-            new_client.deploy('~juju-qa/network-health', series=series)
-            new_client.wait_for_started()
-            new_client.wait_for_workloads()
-            new_client.juju('add-relation', ('ubuntu', 'network-health'))
-            new_client.wait_for_subordinate_units('ubuntu', 'network-health')
-            self.expose_client = new_client
 
-        return self.expose_client
+        log.info('Removing previous network-health charms')
+
+        """
+        This is done to work with the beahvior used in other network-health
+        tests to circumvent Juju's lack of support for multi-series charms.
+        If a multi-series subordinate is deployed under one of its available
+        series, then a second copy of that charm in a differnt series cannot
+        also be deployed. Subsequently, when we deploy the NH charms for the
+        above tests, the series is appended to the end of the charm. In order
+        for the expose test to work properly the NH charm has to be exposed,
+        which in Juju means all of the NH charms under that alias or none.
+        So if there are existing exposed units, the test redeploys an aliased
+        NH charm under each so that it can expose them individually, ensuring
+        valid test results.
+        On the subject of speed, since the deps in network-health's wheelhouse
+        have already been built on the target machine or container, this is a
+        relatively fast process at ~30 seconds for large(6+ charm) deployments.
+        """
+        for series in self.existing_series:
+            alias = 'network-health-{}'.format(series)
+            client.remove_service(alias)
+        for series in self.existing_series:
+            alias = 'network-health-{}'.format(series)
+            client.wait_for(WaitApplicationNotPresent(alias))
+        log.info('Deploying aliased network-health charms')
+        apps = client.get_status().get_applications()
+        for app, info in apps.items():
+            if 'network-health' not in app:
+                alias = 'network-health-{}'.format(app)
+                client.deploy('~juju-qa/network-health', alias=alias,
+                              series=info['series'])
+                try:
+                    client.juju('add-relation', (app, alias))
+                    self.expose_test_charms.add(alias)
+                except subprocess.CalledProcessError as e:
+                    log.warning('Could not relate {}, {} due to '
+                                'error:\n{}'.format(app, alias, e))
+        for app in apps.keys():
+            if 'network-health' not in app:
+                client.wait_for_subordinate_units(
+                    app, 'network-health-{}'.format(app))
+        for app in exposed:
+            client.juju('expose', ('network-health-{}'.format(app)))
 
     def parse_expose_results(self, service_results, exposed):
         """Parses expose test results into dict of pass/fail.
@@ -361,44 +410,34 @@ class AssessNetworkHealth:
         :param service_results: Raw results from expose test
         :return: Parsed results dict
         """
-        result = {'fail': (),
-                  'pass': ()}
-        for service, results in service_results.items():
-            # If we could connect but shouldn't, fail
-            if 'True' in results and service not in exposed:
-                result['fail'] = result['fail'] + (service,)
-            # If we could connect but should, pass
-            elif 'True' in results and service in exposed:
-                result['pass'] = result['pass'] + (service,)
-            # If we couldn't connect and shouldn't, pass
-            elif 'False' in results and service not in exposed:
-                result['pass'] = result['pass'] + (service,)
+        results = {'fail': (),
+                   'pass': ()}
+        for unit, result in service_results.items():
+            app = unit.split('/')[0]
+            if app in exposed and result:
+                results['pass'] += (unit,)
+            elif app in exposed and not result:
+                results['fail'] += (unit,)
+            elif app not in exposed and result:
+                results['fail'] += (unit,)
             else:
-                result['fail'] = result['fail'] + (service,)
-        return result
+                results['pass'] += (unit,)
+        return results
 
-    def parse_final_results(self, controller, visibility, internet,
-                            exposed):
+    def parse_final_results(self, visibility, internet, exposed):
         """Parses test results and raises an error if any failed.
 
-        :param controller: Controller test result
         :param visibility: Visibility test result
         :param exposed: Exposure test result
         """
         log.info('Parsing final results.')
         error_string = []
-        for machine, machine_result in controller.items():
-            for ip, res in machine_result.items():
-                if res is False:
-                    error = ('Failed to contact controller from machine {0} '
-                             'at address {1}'.format(machine, ip))
-                    error_string.append(error)
         for nh_source, service_result in visibility.items():
                 for service, unit_res in service_result.items():
                     if False in unit_res.values():
                         failed = [u for u, r in unit_res.items() if r is False]
-                        error = ('NH-Unit {0} failed to contact '
-                                 'unit(s): {1}'.format(nh_source, failed))
+                        error = ('Unit {0} failed to contact '
+                                 'targets(s): {1}'.format(nh_source, failed))
                         error_string.append(error)
         for unit, res in internet.items():
             if not res:
@@ -594,6 +633,7 @@ def main(argv=None):
                                        reboot=args.reboot)
         finally:
             test.cleanup(client)
+            log.info('Cleanup complete.')
     return 0
 
 

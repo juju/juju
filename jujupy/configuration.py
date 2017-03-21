@@ -29,6 +29,24 @@ def get_juju_home():
     return home
 
 
+def get_juju_data():
+    """Return the configured juju data directory.
+
+    Assumes non-Windows.  Follows Juju's algorithm.
+
+    If JUJU_DATA is set, it is returned.
+    If XDG_DATA_HOME is set, 'juju' is appended to it.
+    Otherwise, .local/share/juju is appended to HOME.
+    """
+    juju_data = os.environ.get('JUJU_DATA')
+    if juju_data is not None:
+        return juju_data
+    data_home = os.environ.get('XDG_DATA_HOME')
+    if data_home is None:
+        data_home = os.path.join(os.environ['HOME'], '.local', 'share')
+    return os.path.join(data_home, 'juju')
+
+
 def get_environments_path(juju_home):
     return os.path.join(juju_home, 'environments.yaml')
 
