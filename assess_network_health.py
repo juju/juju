@@ -207,7 +207,7 @@ class AssessNetworkHealth:
             client.remove_service('network-health-{}'.format(series))
 
     def get_unit_info(self, client):
-        """Gets the machine or container interface and dns info.
+        """Gets the machine or container interface info.
 
         :param client: Client to get results from
         :return: Dict of machine results as
@@ -300,10 +300,13 @@ class AssessNetworkHealth:
                 for ip in target_ips:
                     result[app][unit][ip] = False
                     pattern = r"(pass)"
-                    out = client.run(['curl {}:80'.format(ip)],
+                    log.info('Attempting to contact {}:{} '
+                             'from {}'.format(ip, PORT, unit))
+                    out = client.run(['curl {}:{}'.format(ip, PORT)],
                                      units=[unit])
                     match = re.search(pattern, json.dumps(out[0]))
                     if match:
+                        log.info('pass')
                         result[app][unit][ip] = True
         return result
 
@@ -315,6 +318,8 @@ class AssessNetworkHealth:
         """
         log.info('Starting test of exposed units.')
 
+        for series in self.existing_series:
+            client.juju('unexpose', ('network-health-{}'.format(series)))
         apps = client.get_status().get_applications()
         exposed = [app for app, e in apps.items() if e.get('exposed') is True]
         if len(exposed) is 0:
@@ -360,6 +365,7 @@ class AssessNetworkHealth:
                     out = subprocess.check_output(
                         'curl {}:{} -m 5'.format(ip, PORT), shell=True)
                 except subprocess.CalledProcessError as e:
+                    out = ''
                     log.warning('Curl failed for error:\n{}'.format(e))
                 log.info('Got: "{}" from unit at {}:{}'.format(out, ip, PORT))
                 if 'pass' in out:
