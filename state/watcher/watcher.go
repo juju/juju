@@ -127,6 +127,15 @@ func New(changelog *mgo.Collection) *Watcher {
 	return w
 }
 
+// NewDead returns a new watcher that is already dead
+// and always returns the given error from its Err method.
+func NewDead(err error) *Watcher {
+	var w Watcher
+	w.tomb.Kill(errors.Trace(err))
+	w.tomb.Done()
+	return &w
+}
+
 // Kill is part of the worker.Worker interface.
 func (w *Watcher) Kill() {
 	w.tomb.Kill(nil)

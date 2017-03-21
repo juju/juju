@@ -246,7 +246,8 @@ var (
 		"ip-addresses": []string{"10.0.3.1"},
 		"instance-id":  "controller-3",
 		"machine-status": M{
-			"current": "pending",
+			"current": "started",
+			"message": "I am number three",
 			"since":   "01 Apr 15 01:23+10:00",
 		},
 		"series": "quantal",
@@ -1492,6 +1493,7 @@ var statusTests = []testCase{
 		setAddresses{"3", network.NewAddresses("10.0.3.1")},
 		startAliveMachine{"3"},
 		setMachineStatus{"3", status.Started, ""},
+		setMachineInstanceStatus{"3", status.Started, "I am number three"},
 		addAliveUnit{"varnish", "3"},
 
 		addService{name: "private", charm: "wordpress"},
@@ -1658,6 +1660,7 @@ var statusTests = []testCase{
 		setAddresses{"3", network.NewAddresses("10.0.3.1")},
 		startAliveMachine{"3"},
 		setMachineStatus{"3", status.Started, ""},
+		setMachineInstanceStatus{"3", status.Started, "I am number three"},
 		addAliveUnit{"riak", "3"},
 		setAgentStatus{"riak/2", status.Idle, "", nil},
 		setUnitStatus{"riak/2", status.Active, "", nil},
@@ -2434,6 +2437,7 @@ var statusTests = []testCase{
 		setAddresses{"3", network.NewAddresses("10.0.3.1")},
 		startAliveMachine{"3"},
 		setMachineStatus{"3", status.Started, ""},
+		setMachineInstanceStatus{"3", status.Started, "I am number three"},
 
 		addMachine{machineId: "4", job: state.JobHostUnits},
 		setAddresses{"4", network.NewAddresses("10.0.4.1")},
@@ -2792,7 +2796,7 @@ var statusTests = []testCase{
 		addAliveUnit{"wordpress", "1"},
 
 		addCharm{"mysql"},
-		addRemoteApplication{name: "hosted-mysql", url: "local:/u/me/mysql", charm: "mysql", endpoints: []string{"server"}},
+		addRemoteApplication{name: "hosted-mysql", url: "me/model.mysql", charm: "mysql", endpoints: []string{"server"}},
 		relateServices{"wordpress", "hosted-mysql"},
 
 		expect{
@@ -2805,7 +2809,7 @@ var statusTests = []testCase{
 				},
 				"application-endpoints": M{
 					"hosted-mysql": M{
-						"url": "local:/u/me/mysql",
+						"url": "me/model.mysql",
 						"endpoints": M{
 							"server": M{
 								"interface": "mysql",
@@ -3028,6 +3032,25 @@ func (sm startMachineWithHardware) step(c *gc.C, ctx *context) {
 	err = m.SetProvisioned(inst.Id(), "fake_nonce", &sm.hc)
 	c.Assert(err, jc.ErrorIsNil)
 	ctx.pingers[m.Id()] = pinger
+}
+
+type setMachineInstanceStatus struct {
+	machineId string
+	Status    status.Status
+	Message   string
+}
+
+func (sm setMachineInstanceStatus) step(c *gc.C, ctx *context) {
+	m, err := ctx.st.Machine(sm.machineId)
+	c.Assert(err, jc.ErrorIsNil)
+	now := time.Now()
+	s := status.StatusInfo{
+		Status:  sm.Status,
+		Message: sm.Message,
+		Since:   &now,
+	}
+	err = m.SetInstanceStatus(s)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 type setAddresses struct {
@@ -3632,7 +3655,7 @@ App  Version  Status  Scale  Charm  Store  Rev  OS  Notes
 
 Unit  Workload  Agent  Machine  Public address  Ports  Message
 
-Machine  State  DNS  Inst id  Series  AZ
+Machine  State  DNS  Inst id  Series  AZ  Message
 
 `[1:]
 
@@ -3653,7 +3676,7 @@ App  Version  Status  Scale  Charm  Store  Rev  OS  Notes
 
 Unit  Workload  Agent  Machine  Public address  Ports  Message
 
-Machine  State  DNS  Inst id  Series  AZ
+Machine  State  DNS  Inst id  Series  AZ  Message
 
 `[1:]
 
@@ -3725,7 +3748,7 @@ func (s *StatusSuite) TestStatusWithFormatSummary(c *gc.C) {
 		addCharm{"mysql"},
 		addCharm{"logging"},
 		addCharm{"riak"},
-		addRemoteApplication{name: "hosted-riak", url: "local:/u/me/riak", charm: "riak", endpoints: []string{"endpoint"}},
+		addRemoteApplication{name: "hosted-riak", url: "me/model.riak", charm: "riak", endpoints: []string{"endpoint"}},
 		addService{name: "wordpress", charm: "wordpress"},
 		setServiceExposed{"wordpress", true},
 		addMachine{machineId: "1", job: state.JobHostUnits},
@@ -3778,7 +3801,7 @@ Running on subnets:  127.0.0.1/8, 10.0.2.1/8
         wordpress  1/1  exposed
                  
         # Remote:  (1)
-      hosted-riak       local:/u/me/riak
+      hosted-riak       me/model.riak
 
 `[1:])
 }
@@ -3872,7 +3895,7 @@ func (s *StatusSuite) prepareTabularData(c *gc.C) *context {
 		addCharm{"mysql"},
 		addCharm{"logging"},
 		addCharm{"riak"},
-		addRemoteApplication{name: "hosted-riak", url: "local:/u/me/riak", charm: "riak", endpoints: []string{"endpoint"}},
+		addRemoteApplication{name: "hosted-riak", url: "me/model.riak", charm: "riak", endpoints: []string{"endpoint"}},
 		addService{name: "wordpress", charm: "wordpress"},
 		setServiceExposed{"wordpress", true},
 		addMachine{machineId: "1", job: state.JobHostUnits},
@@ -3913,6 +3936,11 @@ func (s *StatusSuite) prepareTabularData(c *gc.C) *context {
 		setUnitAsLeader{"mysql/0"},
 		setUnitAsLeader{"logging/1"},
 		setUnitAsLeader{"wordpress/0"},
+		addMachine{machineId: "3", job: state.JobHostUnits},
+		setAddresses{"3", network.NewAddresses("10.0.3.1")},
+		startAliveMachine{"3"},
+		setMachineStatus{"3", status.Started, ""},
+		setMachineInstanceStatus{"3", status.Started, "I am number three"},
 	}
 	for _, s := range steps {
 		s.step(c, ctx)
@@ -3935,7 +3963,7 @@ Model       Controller  Cloud/Region        Version  Notes
 controller  kontroll    dummy/dummy-region  1.2.3    upgrade available: 1.2.4
 
 SAAS name    Status   Store  URL
-hosted-riak  unknown  local  u/me/riak
+hosted-riak  unknown  local  me/model.riak
 
 App        Version          Status       Scale  Charm      Store       Rev  OS      Notes
 logging    a bit too lo...  error            2  logging    jujucharms    1  ubuntu  exposed
@@ -3948,10 +3976,11 @@ mysql/0*      maintenance  idle   2        10.0.2.1               installing all
 wordpress/0*  active       idle   1        10.0.1.1               
   logging/0   active       idle            10.0.1.1               
 
-Machine  State    DNS       Inst id       Series   AZ
-0        started  10.0.0.1  controller-0  quantal  us-east-1a
-1        started  10.0.1.1  controller-1  quantal  
-2        started  10.0.2.1  controller-2  quantal  
+Machine  State    DNS       Inst id       Series   AZ          Message
+0        started  10.0.0.1  controller-0  quantal  us-east-1a  
+1        started  10.0.1.1  controller-1  quantal              
+2        started  10.0.2.1  controller-2  quantal              
+3        started  10.0.3.1  controller-3  quantal              I am number three
 
 Relation           Provides   Consumes   Type
 juju-info          logging    mysql      regular
@@ -4011,7 +4040,7 @@ Unit   Workload     Agent      Machine  Public address  Ports  Message
 foo/0  maintenance  executing                                  (config-changed) doing some work
 foo/1  maintenance  executing                                  (backup database) doing some work
 
-Machine  State  DNS  Inst id  Series  AZ
+Machine  State  DNS  Inst id  Series  AZ  Message
 `[1:])
 }
 
@@ -4109,7 +4138,7 @@ func (s *StatusSuite) TestFormatTabularMetering(c *gc.C) {
 		"foo/0  strange  warning: stable strangelets  \n"+
 		"foo/1  up       things are looking up        \n"+
 		"\n"+
-		"Machine  State  DNS  Inst id  Series  AZ\n")
+		"Machine  State  DNS  Inst id  Series  AZ  Message\n")
 }
 
 //

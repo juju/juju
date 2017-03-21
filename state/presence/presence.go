@@ -130,6 +130,15 @@ type Change struct {
 	Alive bool
 }
 
+// NewDeadWatcher returns a new watcher that is already dead
+// and always returns the given error from its Err method.
+func NewDeadWatcher(err error) *Watcher {
+	var w Watcher
+	w.tomb.Kill(errors.Trace(err))
+	w.tomb.Done()
+	return &w
+}
+
 // NewWatcher returns a new Watcher.
 func NewWatcher(base *mgo.Collection, modelTag names.ModelTag) *Watcher {
 	w := &Watcher{

@@ -29,7 +29,7 @@ func (s *applicationOffersSuite) createDefaultOffer(c *gc.C) crossmodel.Applicat
 	eps := map[string]string{"db": "server", "db-admin": "server-admin"}
 	sd := state.NewApplicationOffers(s.State)
 	offerArgs := crossmodel.AddApplicationOfferArgs{
-		ApplicationURL:         "local:/u/me/application",
+		OfferName:              "hosted-mysql",
 		ApplicationName:        "mysql",
 		ApplicationDescription: "mysql is a db server",
 		Endpoints:              eps,
@@ -60,9 +60,9 @@ func (s *applicationOffersSuite) TestEndpoints(c *gc.C) {
 func (s *applicationOffersSuite) TestRemove(c *gc.C) {
 	offer := s.createDefaultOffer(c)
 	sd := state.NewApplicationOffers(s.State)
-	err := sd.Remove(offer.ApplicationURL)
+	err := sd.Remove(offer.OfferName)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = state.OfferAtURL(sd, offer.ApplicationURL)
+	_, err = state.OfferForName(sd, offer.OfferName)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
@@ -70,14 +70,14 @@ func (s *applicationOffersSuite) TestAddApplicationOffer(c *gc.C) {
 	eps := map[string]string{"db": "server", "db-admin": "server-admin"}
 	sd := state.NewApplicationOffers(s.State)
 	args := crossmodel.AddApplicationOfferArgs{
-		ApplicationURL:         "local:/u/me/application",
+		OfferName:              "hosted-mysql",
 		ApplicationName:        "mysql",
 		ApplicationDescription: "mysql is a db server",
 		Endpoints:              eps,
 	}
 	offer, err := sd.AddOffer(args)
 	c.Assert(err, jc.ErrorIsNil)
-	doc, err := state.OfferAtURL(sd, "local:/u/me/application")
+	doc, err := state.OfferForName(sd, "hosted-mysql")
 	c.Assert(err, jc.ErrorIsNil)
 	expectedOffer, err := state.MakeApplicationOffer(sd, doc)
 	c.Assert(*offer, jc.DeepEquals, *expectedOffer)
@@ -96,7 +96,7 @@ func (s *applicationOffersSuite) createOffer(c *gc.C, name, description string) 
 	}
 	sd := state.NewApplicationOffers(s.State)
 	offerArgs := crossmodel.AddApplicationOfferArgs{
-		ApplicationURL:         "local:/u/me/" + name,
+		OfferName:              name,
 		ApplicationName:        "mysql",
 		ApplicationDescription: description,
 		Endpoints:              eps,
@@ -121,7 +121,7 @@ func (s *applicationOffersSuite) TestListOffersOneFilter(c *gc.C) {
 	s.createOffer(c, "offer2", "description for offer2")
 	s.createOffer(c, "offer3", "description for offer3")
 	offers, err := sd.ListOffers(crossmodel.ApplicationOfferFilter{
-		ApplicationURL:  "local:/u/me/offer1",
+		OfferName:       "offer1",
 		ApplicationName: "mysql",
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -136,11 +136,11 @@ func (s *applicationOffersSuite) TestListOffersManyFilters(c *gc.C) {
 	s.createOffer(c, "offer3", "description for offer3")
 	offers, err := sd.ListOffers(
 		crossmodel.ApplicationOfferFilter{
-			ApplicationURL:  "local:/u/me/offer1",
+			OfferName:       "offer1",
 			ApplicationName: "mysql",
 		},
 		crossmodel.ApplicationOfferFilter{
-			ApplicationURL:         "local:/u/me/offer2",
+			OfferName:              "offer2",
 			ApplicationDescription: "offer2",
 		},
 	)
@@ -162,13 +162,13 @@ func (s *applicationOffersSuite) TestListOffersFilterDescriptionRegexp(c *gc.C) 
 	c.Assert(offers[0], jc.DeepEquals, offer)
 }
 
-func (s *applicationOffersSuite) TestListOffersFilterApplicationURLRegexp(c *gc.C) {
+func (s *applicationOffersSuite) TestListOffersFilterOfferNameRegexp(c *gc.C) {
 	sd := state.NewApplicationOffers(s.State)
-	s.createOffer(c, "offer1", "description for offer1")
-	offer := s.createOffer(c, "offer2", "description for offer2")
+	offer := s.createOffer(c, "hosted-offer1", "description for offer1")
+	s.createOffer(c, "offer2", "description for offer2")
 	s.createOffer(c, "offer3", "description for offer3")
 	offers, err := sd.ListOffers(crossmodel.ApplicationOfferFilter{
-		ApplicationURL: "me/offer2",
+		OfferName: "offer1",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(offers), gc.Equals, 1)
@@ -178,15 +178,15 @@ func (s *applicationOffersSuite) TestListOffersFilterApplicationURLRegexp(c *gc.
 func (s *applicationOffersSuite) TestAddApplicationOfferDuplicate(c *gc.C) {
 	sd := state.NewApplicationOffers(s.State)
 	_, err := sd.AddOffer(crossmodel.AddApplicationOfferArgs{
-		ApplicationURL:  "local:/u/me/application",
+		OfferName:       "hosted-mysql",
 		ApplicationName: "mysql",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = sd.AddOffer(crossmodel.AddApplicationOfferArgs{
-		ApplicationURL:  "local:/u/me/application",
+		OfferName:       "hosted-mysql",
 		ApplicationName: "another",
 	})
-	c.Assert(err, gc.ErrorMatches, `cannot add application offer "another" at "local:/u/me/application": application offer already exists`)
+	c.Assert(err, gc.ErrorMatches, `cannot add application offer "hosted-mysql": application offer already exists`)
 }
 
 func (s *applicationOffersSuite) TestAddApplicationOfferDuplicateAddedAfterInitial(c *gc.C) {
@@ -196,25 +196,25 @@ func (s *applicationOffersSuite) TestAddApplicationOfferDuplicateAddedAfterIniti
 	sd := state.NewApplicationOffers(s.State)
 	defer state.SetBeforeHooks(c, s.State, func() {
 		_, err := sd.AddOffer(crossmodel.AddApplicationOfferArgs{
-			ApplicationURL:  "local:/u/me/application",
+			OfferName:       "hosted-mysql",
 			ApplicationName: "mysql",
 		})
 		c.Assert(err, jc.ErrorIsNil)
 	}).Check()
 	_, err := sd.AddOffer(crossmodel.AddApplicationOfferArgs{
-		ApplicationURL:  "local:/u/me/application",
+		OfferName:       "hosted-mysql",
 		ApplicationName: "mysql",
 	})
-	c.Assert(err, gc.ErrorMatches, `cannot add application offer "mysql" at "local:/u/me/application": application offer already exists`)
+	c.Assert(err, gc.ErrorMatches, `cannot add application offer "hosted-mysql": application offer already exists`)
 }
 
 func (s *applicationOffersSuite) TestUpdateApplicationOfferNotFound(c *gc.C) {
 	sd := state.NewApplicationOffers(s.State)
 	_, err := sd.UpdateOffer(crossmodel.AddApplicationOfferArgs{
-		ApplicationURL:  "local:/u/me/application",
+		OfferName:       "hosted-mysql",
 		ApplicationName: "foo",
 	})
-	c.Assert(err, gc.ErrorMatches, `cannot update application offer "foo": application offer "local:/u/me/application" not found`)
+	c.Assert(err, gc.ErrorMatches, `cannot update application offer "foo": application offer "hosted-mysql" not found`)
 }
 
 func (s *applicationOffersSuite) TestUpdateApplicationOfferRemovedAfterInitial(c *gc.C) {
@@ -223,17 +223,17 @@ func (s *applicationOffersSuite) TestUpdateApplicationOfferRemovedAfterInitial(c
 	// before the transaction is run.
 	sd := state.NewApplicationOffers(s.State)
 	_, err := sd.AddOffer(crossmodel.AddApplicationOfferArgs{
-		ApplicationURL:  "local:/u/me/application",
+		OfferName:       "hosted-mysql",
 		ApplicationName: "mysql",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	defer state.SetBeforeHooks(c, s.State, func() {
-		err := sd.Remove("local:/u/me/application")
+		err := sd.Remove("hosted-mysql")
 		c.Assert(err, jc.ErrorIsNil)
 	}).Check()
 	_, err = sd.UpdateOffer(crossmodel.AddApplicationOfferArgs{
-		ApplicationURL:  "local:/u/me/application",
+		OfferName:       "hosted-mysql",
 		ApplicationName: "mysql",
 	})
-	c.Assert(err, gc.ErrorMatches, `cannot update application offer "mysql": application offer "local:/u/me/application" not found`)
+	c.Assert(err, gc.ErrorMatches, `cannot update application offer "mysql": application offer "hosted-mysql" not found`)
 }

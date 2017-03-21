@@ -3,8 +3,6 @@
 
 package api
 
-// TODO(ericsnow) Eliminate the dependence on apiserver if possible.
-
 import (
 	"github.com/juju/errors"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
@@ -17,8 +15,8 @@ import (
 
 // Resource2API converts a resource.Resource into
 // a Resource struct.
-func Resource2API(res resource.Resource) Resource {
-	return Resource{
+func Resource2API(res resource.Resource) params.Resource {
+	return params.Resource{
 		CharmResource: CharmResource2API(res.Resource),
 		ID:            res.ID,
 		PendingID:     res.PendingID,
@@ -29,7 +27,7 @@ func Resource2API(res resource.Resource) Resource {
 }
 
 // APIResult2ServiceResources converts a ResourcesResult into a resource.ServiceResources.
-func APIResult2ServiceResources(apiResult ResourcesResult) (resource.ServiceResources, error) {
+func APIResult2ServiceResources(apiResult params.ResourcesResult) (resource.ServiceResources, error) {
 	var result resource.ServiceResources
 
 	if apiResult.Error != nil {
@@ -88,15 +86,15 @@ func APIResult2ServiceResources(apiResult ResourcesResult) (resource.ServiceReso
 	return result, nil
 }
 
-func ServiceResources2APIResult(svcRes resource.ServiceResources) ResourcesResult {
-	var result ResourcesResult
+func ServiceResources2APIResult(svcRes resource.ServiceResources) params.ResourcesResult {
+	var result params.ResourcesResult
 	for _, res := range svcRes.Resources {
 		result.Resources = append(result.Resources, Resource2API(res))
 	}
 
 	for _, unitResources := range svcRes.UnitResources {
 		tag := unitResources.Tag
-		apiRes := UnitResources{
+		apiRes := params.UnitResources{
 			Entity: params.Entity{Tag: tag.String()},
 		}
 		for _, unitRes := range unitResources.Resources {
@@ -111,7 +109,7 @@ func ServiceResources2APIResult(svcRes resource.ServiceResources) ResourcesResul
 		result.UnitResources = append(result.UnitResources, apiRes)
 	}
 
-	result.CharmStoreResources = make([]CharmResource, len(svcRes.CharmStoreResources))
+	result.CharmStoreResources = make([]params.CharmResource, len(svcRes.CharmStoreResources))
 	for i, chRes := range svcRes.CharmStoreResources {
 		result.CharmStoreResources[i] = CharmResource2API(chRes)
 	}
@@ -120,7 +118,7 @@ func ServiceResources2APIResult(svcRes resource.ServiceResources) ResourcesResul
 
 // API2Resource converts an API Resource struct into
 // a resource.Resource.
-func API2Resource(apiRes Resource) (resource.Resource, error) {
+func API2Resource(apiRes params.Resource) (resource.Resource, error) {
 	var res resource.Resource
 
 	charmRes, err := API2CharmResource(apiRes.CharmResource)
@@ -146,8 +144,8 @@ func API2Resource(apiRes Resource) (resource.Resource, error) {
 
 // CharmResource2API converts a charm resource into
 // a CharmResource struct.
-func CharmResource2API(res charmresource.Resource) CharmResource {
-	return CharmResource{
+func CharmResource2API(res charmresource.Resource) params.CharmResource {
+	return params.CharmResource{
 		Name:        res.Name,
 		Type:        res.Type.String(),
 		Path:        res.Path,
@@ -161,7 +159,7 @@ func CharmResource2API(res charmresource.Resource) CharmResource {
 
 // API2CharmResource converts an API CharmResource struct into
 // a charm resource.
-func API2CharmResource(apiInfo CharmResource) (charmresource.Resource, error) {
+func API2CharmResource(apiInfo params.CharmResource) (charmresource.Resource, error) {
 	var res charmresource.Resource
 
 	rtype, err := charmresource.ParseType(apiInfo.Type)

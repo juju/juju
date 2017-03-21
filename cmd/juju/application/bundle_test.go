@@ -260,7 +260,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleGatedCharmUnauthorized(c *
 	s.changeReadPerm(c, url, "who")
 	testcharms.UploadBundle(c, s.client, "bundle/wordpress-simple-1", "wordpress-simple")
 	_, err := runDeployCommand(c, "bundle/wordpress-simple")
-	c.Assert(err, gc.ErrorMatches, `cannot deploy bundle: .*: unauthorized: access denied for user "client-username"`)
+	c.Assert(err, gc.ErrorMatches, `cannot deploy bundle: .*: access denied for user "client-username"`)
 }
 
 type BundleDeployCharmStoreSuite struct {

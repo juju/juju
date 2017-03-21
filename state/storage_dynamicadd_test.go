@@ -128,7 +128,9 @@ func (s *storageAddSuite) TestAddStorageMultipleCalls(c *gc.C) {
 	// Should not succeed as the number of storages after
 	// this call would be 11 whereas our upper limit is 10 here.
 	err = s.State.AddStorageForUnit(s.unitTag, "multi1to10", makeStorageCons("loop-pool", 1024, 6))
-	c.Assert(err, gc.ErrorMatches, `.*charm "storage-block2" store "multi1to10": at most 10 instances supported, 11 specified.*`)
+	c.Assert(err, gc.ErrorMatches,
+		`adding "multi1to10" storage to storage-block2/0: `+
+			`attaching 6 storage instances brings the total to 11, exceeding the maximum of 10`)
 	s.assertStorageCount(c, s.originalStorageCount+2)
 	s.assertVolumeCount(c, s.originalVolumeCount+2)
 	s.assertFileSystemCount(c, s.originalFilesystemCount)
@@ -146,7 +148,7 @@ func (s *storageAddSuite) TestAddStorageToDyingUnitFails(c *gc.C) {
 	}).Check()
 
 	err := s.State.AddStorageForUnit(s.unitTag, "multi1to10", makeStorageCons("loop-pool", 1024, 1))
-	c.Assert(err, gc.ErrorMatches, `adding storage to unit storage-block2/0: unit is not alive`)
+	c.Assert(err, gc.ErrorMatches, `adding "multi1to10" storage to storage-block2/0: unit is not alive`)
 
 	s.assertStorageCount(c, s.originalStorageCount)
 }
@@ -156,7 +158,7 @@ func (s *storageAddSuite) TestAddStorageExceedCount(c *gc.C) {
 	s.assertStorageCount(c, 1)
 
 	err := s.State.AddStorageForUnit(u.UnitTag(), "data", makeStorageCons("loop-pool", 1024, 1))
-	c.Assert(err, gc.ErrorMatches, `.*charm "storage-block" store "data": at most 1 instances supported, 2 specified.*`)
+	c.Assert(err, gc.ErrorMatches, `adding "data" storage to storage-block/0: cannot attach, storage is singular`)
 	s.assertStorageCount(c, 1)
 	s.assertVolumeCount(c, 0)
 	s.assertFileSystemCount(c, 0)
@@ -287,7 +289,9 @@ func (s *storageAddSuite) TestAddStorageConcurrentlyExceedCount(c *gc.C) {
 	}
 	defer state.SetBeforeHooks(c, s.State, addStorage).Check()
 	err := s.State.AddStorageForUnit(s.unitTag, "multi1to10", state.StorageConstraints{Count: uint64(count)})
-	c.Assert(err, gc.ErrorMatches, `.*charm "storage-block2" store "multi1to10": at most 10 instances supported, 15 specified.*`)
+	c.Assert(err, gc.ErrorMatches,
+		`adding "multi1to10" storage to storage-block2/0: `+
+			`attaching 6 storage instances brings the total to 15, exceeding the maximum of 10`)
 
 	// Only "count" number of instances should have been added.
 	s.assertStorageCount(c, s.originalStorageCount+count)
@@ -337,7 +341,7 @@ func (s *storageAddSuite) TestAddStorageStatic(c *gc.C) {
 		u.UnitTag(), "data",
 		makeStorageCons("static", 1024, 1),
 	)
-	c.Assert(err, gc.ErrorMatches, "adding storage to unit storage-filesystem/0: "+
+	c.Assert(err, gc.ErrorMatches, `adding "data" storage to storage-filesystem/0: `+
 		"creating machine storage for storage data/1: "+
 		`"static" storage provider does not support dynamic storage`)
 	s.assertStorageCount(c, 1)    // no change

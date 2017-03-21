@@ -1,88 +1,27 @@
-// Copyright 2015 Canonical Ltd.
+// Copyright 2017 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package api
+package params
 
-// TODO(ericsnow) Eliminate the dependence on apiserver if possible.
-
-import (
-	"strings"
-	"time"
-
-	"github.com/juju/errors"
-	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
-	"gopkg.in/juju/names.v2"
-	"gopkg.in/macaroon.v1"
-
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/charmstore"
-)
+import "time"
 
 // ListResourcesArgs are the arguments for the ListResources endpoint.
-type ListResourcesArgs params.Entities
-
-// NewListResourcesArgs returns the arguments for the ListResources endpoint.
-func NewListResourcesArgs(services []string) (ListResourcesArgs, error) {
-	var args ListResourcesArgs
-	var errs []error
-	for _, service := range services {
-		if !names.IsValidApplication(service) {
-			err := errors.Errorf("invalid application %q", service)
-			errs = append(errs, err)
-			continue
-		}
-		args.Entities = append(args.Entities, params.Entity{
-			Tag: names.NewApplicationTag(service).String(),
-		})
-	}
-	if err := resolveErrors(errs); err != nil {
-		return args, errors.Trace(err)
-	}
-	return args, nil
-}
+type ListResourcesArgs Entities
 
 // AddPendingResourcesArgs holds the arguments to the AddPendingResources
 // API endpoint.
 type AddPendingResourcesArgs struct {
-	params.Entity
-	params.AddCharmWithAuthorization
+	Entity
+	AddCharmWithAuthorization
 
 	// Resources is the list of resources to add as pending.
-	Resources []CharmResource
-}
-
-// NewAddPendingResourcesArgs returns the arguments for the
-// AddPendingResources API endpoint.
-func NewAddPendingResourcesArgs(applicationID string, chID charmstore.CharmID, csMac *macaroon.Macaroon, resources []charmresource.Resource) (AddPendingResourcesArgs, error) {
-	var args AddPendingResourcesArgs
-
-	if !names.IsValidApplication(applicationID) {
-		return args, errors.Errorf("invalid application %q", applicationID)
-	}
-	tag := names.NewApplicationTag(applicationID).String()
-
-	var apiResources []CharmResource
-	for _, res := range resources {
-		if err := res.Validate(); err != nil {
-			return args, errors.Trace(err)
-		}
-		apiRes := CharmResource2API(res)
-		apiResources = append(apiResources, apiRes)
-	}
-	args.Tag = tag
-	args.Resources = apiResources
-	if chID.URL != nil {
-		args.URL = chID.URL.String()
-		args.Channel = string(chID.Channel)
-		args.CharmStoreMacaroon = csMac
-	}
-	return args, nil
+	Resources []CharmResource `json:"resources"`
 }
 
 // AddPendingResourcesResult holds the result of the AddPendingResources
 // API endpoint.
 type AddPendingResourcesResult struct {
-	params.ErrorResult
+	ErrorResult
 
 	// PendingIDs holds the "pending ID" for each of the requested
 	// resources.
@@ -99,7 +38,7 @@ type ResourcesResults struct {
 // ResourcesResult holds the resources that result from an API call
 // for a single application.
 type ResourcesResult struct {
-	params.ErrorResult
+	ErrorResult
 
 	// Resources is the list of resources for the application.
 	Resources []Resource `json:"resources"`
@@ -115,7 +54,7 @@ type ResourcesResult struct {
 
 // A UnitResources contains a list of the resources the unit defined by Entity.
 type UnitResources struct {
-	params.Entity
+	Entity
 
 	// Resources is a list of resources for the unit.
 	Resources []Resource `json:"resources"`
@@ -128,7 +67,7 @@ type UnitResources struct {
 
 // UploadResult is the response from an upload request.
 type UploadResult struct {
-	params.ErrorResult
+	ErrorResult
 
 	// Resource describes the resource that was stored in the model.
 	Resource Resource `json:"resource"`
@@ -184,19 +123,4 @@ type CharmResource struct {
 
 	// Size is the size of the resource, in bytes.
 	Size int64 `json:"size"`
-}
-
-func resolveErrors(errs []error) error {
-	switch len(errs) {
-	case 0:
-		return nil
-	case 1:
-		return errs[0]
-	default:
-		msgs := make([]string, len(errs))
-		for i, err := range errs {
-			msgs[i] = err.Error()
-		}
-		return errors.New(strings.Join(msgs, "\n"))
-	}
 }

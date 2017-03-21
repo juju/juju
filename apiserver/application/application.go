@@ -13,6 +13,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/featureflag"
+	"github.com/juju/utils/set"
 	"gopkg.in/juju/charm.v6-unstable"
 	csparams "gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
 	"gopkg.in/juju/names.v2"
@@ -35,11 +36,13 @@ func init() {
 	// TODO - version 1 is required for the legacy deployer,
 	// remove when deploy is updated.
 	common.RegisterStandardFacade("Application", 1, newAPI)
-
 	common.RegisterStandardFacade("Application", 2, newAPI)
-
 	// Version 3 adds support for cross model relations.
 	common.RegisterStandardFacade("Application", 3, newAPI)
+	// Version 4 adds the DestroyUnit and DestroyApplication
+	// methods, superseding the existing DestroyUnits and
+	// Destroy methods respectively.
+	common.RegisterStandardFacade("Application", 4, newAPI)
 }
 
 // API implements the application interface and is the concrete
@@ -57,6 +60,15 @@ type API struct {
 	// should pass a charm.Charm and charm.URL back into
 	// state wherever we pass in a state.Charm currently.
 	stateCharm func(Charm) *state.Charm
+
+	deployApplicationFunc func(backend Backend, args jjj.DeployApplicationParams) error
+}
+
+// DeployApplication is a wrapper around juju.DeployApplication, to
+// match the function signature expected by NewAPI.
+func DeployApplication(backend Backend, args jjj.DeployApplicationParams) error {
+	_, err := jjj.DeployApplication(backend, args)
+	return err
 }
 
 func newAPI(ctx facade.Context) (*API, error) {
@@ -70,6 +82,7 @@ func newAPI(ctx facade.Context) (*API, error) {
 		ctx.StatePool(),
 		blockChecker,
 		stateCharm,
+		DeployApplication,
 	)
 }
 
@@ -81,18 +94,20 @@ func NewAPI(
 	statePool *state.StatePool,
 	blockChecker BlockChecker,
 	stateCharm func(Charm) *state.Charm,
+	deployApplication func(Backend, jjj.DeployApplicationParams) error,
 ) (*API, error) {
 	if !authorizer.AuthClient() {
 		return nil, common.ErrPerm
 	}
 	dataDir := resources.Get("dataDir").(common.StringResource)
 	return &API{
-		backend:    backend,
-		authorizer: authorizer,
-		check:      blockChecker,
-		stateCharm: stateCharm,
-		statePool:  statePool,
-		dataDir:    dataDir.String(),
+		backend:               backend,
+		authorizer:            authorizer,
+		check:                 blockChecker,
+		stateCharm:            stateCharm,
+		statePool:             statePool,
+		dataDir:               dataDir.String(),
+		deployApplicationFunc: deployApplication,
 	}, nil
 }
 
@@ -156,7 +171,7 @@ func (api *API) Deploy(args params.ApplicationsDeploy) (params.ErrorResults, err
 		return result, errors.Trace(err)
 	}
 	for i, arg := range args.Applications {
-		err := deployApplication(api.backend, api.stateCharm, arg)
+		err := deployApplication(api.backend, api.stateCharm, arg, api.deployApplicationFunc)
 		result.Results[i].Error = common.ServerError(err)
 	}
 	return result, nil
@@ -169,6 +184,7 @@ func deployApplication(
 	backend Backend,
 	stateCharm func(Charm) *state.Charm,
 	args params.ApplicationDeploy,
+	deployApplicationFunc func(Backend, jjj.DeployApplicationParams) error,
 ) error {
 	curl, err := charm.ParseURL(args.CharmURL)
 	if err != nil {
@@ -210,23 +226,19 @@ func deployApplication(
 		return errors.Trace(err)
 	}
 
-	channel := csparams.Channel(args.Channel)
-
-	_, err = jjj.DeployApplication(backend,
-		jjj.DeployApplicationParams{
-			ApplicationName:  args.ApplicationName,
-			Series:           args.Series,
-			Charm:            stateCharm(ch),
-			Channel:          channel,
-			NumUnits:         args.NumUnits,
-			ConfigSettings:   settings,
-			Constraints:      args.Constraints,
-			Placement:        args.Placement,
-			Storage:          args.Storage,
-			EndpointBindings: args.EndpointBindings,
-			Resources:        args.Resources,
-		})
-	return errors.Trace(err)
+	return errors.Trace(deployApplicationFunc(backend, jjj.DeployApplicationParams{
+		ApplicationName:  args.ApplicationName,
+		Series:           args.Series,
+		Charm:            stateCharm(ch),
+		Channel:          csparams.Channel(args.Channel),
+		NumUnits:         args.NumUnits,
+		ConfigSettings:   settings,
+		Constraints:      args.Constraints,
+		Placement:        args.Placement,
+		Storage:          args.Storage,
+		EndpointBindings: args.EndpointBindings,
+		Resources:        args.Resources,
+	}))
 }
 
 // ApplicationSetSettingsStrings updates the settings for the given application,
@@ -626,58 +638,187 @@ func (api *API) AddUnits(args params.AddApplicationUnits) (params.AddApplication
 }
 
 // DestroyUnits removes a given set of application units.
+//
+// NOTE(axw) this exists only for backwards compatibility,
+// for API facade versions 1-3; clients should prefer its
+// successor, DestroyUnit, below.
+//
+// TODO(axw) 2017-03-16 #1673323
+// Drop this in Juju 3.0.
 func (api *API) DestroyUnits(args params.DestroyApplicationUnits) error {
-	if err := api.checkCanWrite(); err != nil {
-		return err
+	var errs []error
+	entities := params.Entities{
+		Entities: make([]params.Entity, 0, len(args.UnitNames)),
 	}
-	if err := api.check.RemoveAllowed(); err != nil {
+	for _, unitName := range args.UnitNames {
+		if !names.IsValidUnit(unitName) {
+			errs = append(errs, errors.NotValidf("unit name %q", unitName))
+			continue
+		}
+		entities.Entities = append(entities.Entities, params.Entity{
+			Tag: names.NewUnitTag(unitName).String(),
+		})
+	}
+	results, err := api.DestroyUnit(entities)
+	if err != nil {
 		return errors.Trace(err)
 	}
-	var errs []string
-	for _, name := range args.UnitNames {
-		unit, err := api.backend.Unit(name)
-		switch {
-		case errors.IsNotFound(err):
-			err = errors.Errorf("unit %q does not exist", name)
-		case err != nil:
-		case unit.Life() != state.Alive:
-			continue
-		case unit.IsPrincipal():
-			err = unit.Destroy()
-		default:
-			err = errors.Errorf("unit %q is a subordinate", name)
-		}
-		if err != nil {
-			errs = append(errs, err.Error())
+	for _, result := range results.Results {
+		if result.Error != nil {
+			errs = append(errs, result.Error)
 		}
 	}
 	return common.DestroyErr("units", args.UnitNames, errs)
 }
 
-type appDestroy interface {
-	Destroy() (err error)
+// DestroyUnit removes a given set of application units.
+func (api *API) DestroyUnit(args params.Entities) (params.DestroyUnitResults, error) {
+	if err := api.checkCanWrite(); err != nil {
+		return params.DestroyUnitResults{}, err
+	}
+	if err := api.check.RemoveAllowed(); err != nil {
+		return params.DestroyUnitResults{}, errors.Trace(err)
+	}
+	destroyUnit := func(entity params.Entity) (*params.DestroyUnitInfo, error) {
+		unitTag, err := names.ParseUnitTag(entity.Tag)
+		if err != nil {
+			return nil, err
+		}
+		name := unitTag.Id()
+		unit, err := api.backend.Unit(name)
+		if errors.IsNotFound(err) {
+			return nil, errors.Errorf("unit %q does not exist", name)
+		} else if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if !unit.IsPrincipal() {
+			return nil, errors.Errorf("unit %q is a subordinate", name)
+		}
+		var info params.DestroyUnitInfo
+		storage, err := common.UnitStorage(api.backend, unit.UnitTag())
+		if err != nil {
+			return nil, err
+		}
+		info.DestroyedStorage, info.DetachedStorage = common.ClassifyDetachedStorage(storage)
+		if err := unit.Destroy(); err != nil {
+			return nil, err
+		}
+		return &info, nil
+	}
+	results := make([]params.DestroyUnitResult, len(args.Entities))
+	for i, entity := range args.Entities {
+		info, err := destroyUnit(entity)
+		if err != nil {
+			results[i].Error = common.ServerError(err)
+			continue
+		}
+		results[i].Info = info
+	}
+	return params.DestroyUnitResults{results}, nil
 }
 
 // Destroy destroys a given application, local or remote.
+//
+// NOTE(axw) this exists only for backwards compatibility,
+// for API facade versions 1-3; clients should prefer its
+// successor, DestroyApplication, below.
+//
+// TODO(axw) 2017-03-16 #1673323
+// Drop this in Juju 3.0.
 func (api *API) Destroy(args params.ApplicationDestroy) error {
-	if err := api.checkCanWrite(); err != nil {
-		return err
+	if !names.IsValidApplication(args.ApplicationName) {
+		return errors.NotValidf("application name %q", args.ApplicationName)
 	}
-	if err := api.check.RemoveAllowed(); err != nil {
+	entities := params.Entities{
+		Entities: []params.Entity{{
+			Tag: names.NewApplicationTag(args.ApplicationName).String(),
+		}},
+	}
+	results, err := api.DestroyApplication(entities)
+	if err != nil {
 		return errors.Trace(err)
 	}
-	var (
-		app appDestroy
-		err error
-	)
-	app, err = api.backend.RemoteApplication(args.ApplicationName)
-	if errors.IsNotFound(err) {
-		app, err = api.backend.Application(args.ApplicationName)
+	if err := results.Results[0].Error; err != nil {
+		return common.ServerError(err)
 	}
-	if err != nil {
-		return err
+	return nil
+}
+
+// DestroyApplication removes a given set of applications.
+func (api *API) DestroyApplication(args params.Entities) (params.DestroyApplicationResults, error) {
+	if err := api.checkCanWrite(); err != nil {
+		return params.DestroyApplicationResults{}, err
 	}
-	return app.Destroy()
+	if err := api.check.RemoveAllowed(); err != nil {
+		return params.DestroyApplicationResults{}, errors.Trace(err)
+	}
+	destroyRemoteApp := func(name string) error {
+		app, err := api.backend.RemoteApplication(name)
+		if err != nil {
+			return err
+		}
+		return app.Destroy()
+	}
+	destroyApp := func(entity params.Entity) (*params.DestroyApplicationInfo, error) {
+		tag, err := names.ParseApplicationTag(entity.Tag)
+		if err != nil {
+			return nil, err
+		}
+		var info params.DestroyApplicationInfo
+		if err := destroyRemoteApp(tag.Id()); !errors.IsNotFound(err) {
+			return &info, err
+		}
+		app, err := api.backend.Application(tag.Id())
+		if err != nil {
+			return nil, err
+		}
+		units, err := app.AllUnits()
+		if err != nil {
+			return nil, err
+		}
+		storageSeen := make(set.Tags)
+		for _, unit := range units {
+			info.DestroyedUnits = append(
+				info.DestroyedUnits,
+				params.Entity{unit.UnitTag().String()},
+			)
+			storage, err := common.UnitStorage(api.backend, unit.UnitTag())
+			if err != nil {
+				return nil, err
+			}
+
+			// Filter out storage we've already seen. Shared
+			// storage may be attached to multiple units.
+			var unseen []state.StorageInstance
+			for _, storage := range storage {
+				storageTag := storage.StorageTag()
+				if storageSeen.Contains(storageTag) {
+					continue
+				}
+				storageSeen.Add(storageTag)
+				unseen = append(unseen, storage)
+			}
+			storage = unseen
+
+			destroyed, detached := common.ClassifyDetachedStorage(storage)
+			info.DestroyedStorage = append(info.DestroyedStorage, destroyed...)
+			info.DetachedStorage = append(info.DetachedStorage, detached...)
+		}
+		if err := app.Destroy(); err != nil {
+			return nil, err
+		}
+		return &info, nil
+	}
+	results := make([]params.DestroyApplicationResult, len(args.Entities))
+	for i, entity := range args.Entities {
+		info, err := destroyApp(entity)
+		if err != nil {
+			results[i].Error = common.ServerError(err)
+			continue
+		}
+		results[i].Info = info
+	}
+	return params.DestroyApplicationResults{results}, nil
 }
 
 // GetConstraints returns the constraints for a given application.
@@ -903,7 +1044,7 @@ func (api *API) sameControllerOfferedApplication(url *jujucrossmodel.Application
 	applicationOffers := state.NewApplicationOffers(st)
 	offers, err := applicationOffers.ListOffers(
 		jujucrossmodel.ApplicationOfferFilter{
-			ApplicationURL: "/" + url.ApplicationName,
+			OfferName: url.ApplicationName,
 		},
 	)
 	if err != nil {
