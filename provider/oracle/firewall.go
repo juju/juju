@@ -175,6 +175,12 @@ func (f *Firewall) isSecList(name string) bool {
 	return false
 }
 
+func (f *Firewall) ensureMachineACLs(name string, tags []string) (ociResponse.Acl, error) {
+	globalACL := f.globalGroupName()
+	machineACL := f.machineGroupName(machineId)
+	globalAcl := f.CreateAcl(name, "Juju created ACL", true, tags)
+}
+
 func (f *Firewall) ensureApplication(portRange network.PortRange, cache *[]ociResponse.SecApplication) (string, error) {
 	for _, val := range *cache {
 		if val.PortProtocolPair() == portRange.String() {

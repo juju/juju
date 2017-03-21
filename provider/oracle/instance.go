@@ -293,7 +293,7 @@ func (o *oracleInstance) associatePublicIP() error {
 
 	//no unused IP reservations found. Allocate a new one.
 	reservation, err := o.env.client.CreateIpReservation(
-		o.machine.Name, "", ociCommon.PublicIPPool, true, o.machine.Tags)
+		o.machine.Name, ociCommon.PublicIPPool, true, o.machine.Tags)
 	if err != nil {
 		return err
 	}

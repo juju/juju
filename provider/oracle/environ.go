@@ -154,9 +154,7 @@ func (e *oracleEnviron) AdoptResources(controllerUUID string, fromVersion versio
 // unique within an environment, is used by juju to protect against the
 // consequences of multiple instances being started with the same machine
 // id.
-func (o *oracleEnviron) StartInstance(
-	args environs.StartInstanceParams,
-) (*environs.StartInstanceResult, error) {
+func (o *oracleEnviron) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
 
 	if args.ControllerUUID == "" {
 		return nil, errors.NotFoundf("Controller UUID")
@@ -269,6 +267,10 @@ func (o *oracleEnviron) StartInstance(
 		return nil, errors.Trace(err)
 	}
 
+	vnicSets, err := e.ensureVnicSet(args.InstanceConfig.MachineId, tags, secLists)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	// create a  new netowrking card used for making the instance
 	// have a public address ip
 	networking := map[string]oci.Networker{
