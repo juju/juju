@@ -6,15 +6,9 @@ package application
 import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"github.com/juju/romulus/api/budget"
-	wireformat "github.com/juju/romulus/wireformat/budget"
-	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
-	"gopkg.in/macaroon-bakery.v1/httpbakery"
 
 	"github.com/juju/juju/api/application"
-	"github.com/juju/juju/api/charms"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
 )
@@ -70,7 +64,6 @@ type removeApplicationAPI interface {
 	Close() error
 	Destroy(serviceName string) error
 	DestroyUnits(unitNames ...string) error
-	GetCharmURL(serviceName string) (*charm.URL, error)
 	ModelUUID() string
 }
 
@@ -89,67 +82,5 @@ func (c *removeApplicationCommand) Run(ctx *cmd.Context) error {
 	}
 	defer client.Close()
 	err = block.ProcessBlockedError(client.Destroy(c.ApplicationName), block.BlockRemove)
-	if err != nil {
-		return err
-	}
-	return c.removeAllocation(ctx)
-}
-
-func (c *removeApplicationCommand) removeAllocation(ctx *cmd.Context) error {
-	client, err := c.getAPI()
-	if err != nil {
-		return err
-	}
-	charmURL, err := client.GetCharmURL(c.ApplicationName)
-	// Not all apps have charms, eg remote applications.
-	if params.ErrCode(err) == params.CodeNotFound {
-		return nil
-	}
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if charmURL.Schema == "local" {
-		return nil
-	}
-
-	root, err := c.NewAPIRoot()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	charmsClient := charms.NewClient(root)
-	metered, err := charmsClient.IsMetered(charmURL.String())
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if !metered {
-		return nil
-	}
-
-	modelUUID := client.ModelUUID()
-	bakeryClient, err := c.BakeryClient()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	budgetClient := getBudgetAPIClient(bakeryClient)
-
-	resp, err := budgetClient.DeleteAllocation(modelUUID, c.ApplicationName)
-	if wireformat.IsNotAvail(err) {
-		logger.Warningf("allocation not removed: %v", err)
-	} else if err != nil {
-		return err
-	}
-	if resp != "" {
-		logger.Infof(resp)
-	}
-	return nil
-}
-
-var getBudgetAPIClient = getBudgetAPIClientImpl
-
-func getBudgetAPIClientImpl(bakeryClient *httpbakery.Client) budgetAPIClient {
-	return budget.NewClient(bakeryClient)
-}
-
-type budgetAPIClient interface {
-	DeleteAllocation(string, string) (string, error)
+	return err
 }
