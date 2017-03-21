@@ -247,22 +247,12 @@ def retain_config(runtime_config, log_directory):
     return False
 
 
-class JujuTimingDataJsonSerialisation(json.JSONEncoder):
-    def default(self, obj):
-        if isinstance(obj, datetime.datetime):
-            return obj.isoformat()
-
-
 def dump_juju_timings(client, log_directory):
     try:
         with open(os.path.join(log_directory, 'juju_command_times.json'),
                   'w') as timing_file:
-            json.dump(
-                client.get_juju_timings(),
-                timing_file,
-                indent=2,
-                sort_keys=True,
-                cls=JujuTimingDataJsonSerialisation)
+            json.dump(client.get_juju_timings(), timing_file, indent=2,
+                      sort_keys=True)
             timing_file.write('\n')
     except Exception as e:
         print_now("Failed to save timings")

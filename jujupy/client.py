@@ -1079,7 +1079,7 @@ class Juju2Backend:
         self.feature_flags = feature_flags
         self.debug = debug
         self._timeout_path = get_timeout_path()
-        self.juju_timings = []
+        self.juju_timings = {}
         self.soft_deadline = soft_deadline
         self._ignore_soft_deadline = False
 
@@ -1181,11 +1181,7 @@ class Juju2Backend:
     def juju(self, command, args, used_feature_flags,
              juju_home, model=None, check=True, timeout=None, extra_env=None,
              suppress_err=False):
-        """Run a command under juju for the current environment.
-
-        :return: Tuple rval, CommandTime rval being the commands exit code and
-          a CommandTime object used for storing command timing data.
-        """
+        """Run a command under juju for the current environment."""
         args = self.full_args(command, args, model, timeout)
         log.info(' '.join(args))
         env = self.shell_environ(used_feature_flags, juju_home)
@@ -1195,17 +1191,17 @@ class Juju2Backend:
             call_func = subprocess.check_call
         else:
             call_func = subprocess.call
+        start_time = time.time()
         # Mutate os.environ instead of supplying env parameter so Windows can
         # search env['PATH']
         stderr = subprocess.PIPE if suppress_err else None
-        # Keep track of commands and how long they take.
-        command_time = CommandTime(command, args, env)
         with scoped_environ(env):
             log.debug('Running juju with env: {}'.format(env))
             with self._check_timeouts():
                 rval = call_func(args, stderr=stderr)
-        self.juju_timings.append(command_time)
-        return rval, command_time
+        self.juju_timings.setdefault(args, []).append(
+            (time.time() - start_time))
+        return rval
 
     def expect(self, command, args, used_feature_flags, juju_home, model=None,
                timeout=None, extra_env=None):
@@ -1311,22 +1307,6 @@ class ConditionList(BaseCondition):
 
     def do_raise(self, model_name, status):
         self._conditions[0].do_raise(model_name, status)
-
-
-class WaitAgentsStarted(BaseCondition):
-
-    def __init__(self, timeout=1200):
-        super(WaitAgentsStarted, self).__init__(timeout)
-
-    def iter_blocking_state(self, status):
-        states = Status.check_agents_started(status)
-        # allocating: simple-resource-http/0 | pending: 0
-
-        if states is not None:
-            yield 'agent-state', 'not-started'
-
-    def do_raise(self, model_name, status):
-        raise AgentsNotStarted(model_name, status)
 
 
 class WaitMachineNotPresent(BaseCondition):
@@ -1753,11 +1733,8 @@ class ModelClient:
             options = ('--force',)
         else:
             options = ()
-        _, ct = self.juju('remove-machine', options + (machine_id,))
-        return CommandComplete(
-            self.make_remove_machine_condition(machine_id),
-            ct
-        )
+        self.juju('remove-machine', options + (machine_id,))
+        return self.make_remove_machine_condition(machine_id)
 
     @staticmethod
     def get_cloud_region(cloud, region):
@@ -2122,18 +2099,9 @@ class ModelClient:
         return self.juju(command, args, include_e=False)
 
     def get_juju_timings(self):
-        stringified_timings = []
-        # This could be greatly improved, have a list of commands by exec
-        # order and also a dict of commands and the times they took etc.
-        for command in self._backend.juju_timings:
-            stringified_timings.append({
-                'command': command.cmd,
-                'full_args': command.full_args,
-                'start': command.start,
-                'end': command.end,
-                'actual': command.actual_time
-            })
-
+        stringified_timings = {}
+        for command, timings in self._backend.juju_timings.items():
+            stringified_timings[' '.join(command)] = timings
         return stringified_timings
 
     def juju_async(self, command, args, include_e=True, timeout=None):
@@ -2165,9 +2133,7 @@ class ModelClient:
             args.extend(['--bind', bind])
         if alias is not None:
             args.extend([alias])
-        retvar, ct = self.juju('deploy', tuple(args))
-        # Would have WaitAgentsStarted and WaitWorkloads for this.
-        return retvar, CommandComplete(WaitAgentsStarted(), ct)
+        return self.juju('deploy', tuple(args))
 
     def attach(self, service, resource):
         args = (service, resource)

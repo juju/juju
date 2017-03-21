@@ -380,12 +380,11 @@ def deploy_simple_resource_server(client, resource_contents=None):
             index_file = os.path.join(temp, 'index.html')
             with open(index_file, 'wt') as f:
                 f.write(resource_contents)
-            retvar, deploy_complete = client.deploy(
-                charm_path, resource='index={}'.format(index_file))
+            client.deploy(charm_path, resource='index={}'.format(index_file))
     else:
-        retvar, deploy_complete = client.deploy(charm_path)
+        client.deploy(charm_path)
 
-    client.wait_for(deploy_complete)
+    client.wait_for_started()
     client.wait_for_workloads()
     client.juju('expose', (application_name))
     return application_name
