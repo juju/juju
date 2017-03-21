@@ -139,7 +139,7 @@ func StorageAddConstraints(ctx *HookContext) map[string][]params.StorageConstrai
 // NewModelHookContext exists purely to set the fields used in rs.
 // The returned value is not otherwise valid.
 func NewModelHookContext(
-	id, modelUUID, envName, unitName, meterCode, meterInfo, availZone string,
+	id, modelUUID, envName, unitName, meterCode, meterInfo, slaLevel, availZone string,
 	apiAddresses []string, proxySettings proxy.Settings,
 	machineTag names.MachineTag,
 ) *HookContext {
@@ -157,6 +157,7 @@ func NewModelHookContext(
 		relationId:         -1,
 		assignedMachineTag: machineTag,
 		availabilityzone:   availZone,
+		slaLevel:           slaLevel,
 	}
 }
 
@@ -183,4 +184,8 @@ func CachedSettings(cf0 ContextFactory, relId int, unitName string) (params.Sett
 	cf := cf0.(*contextFactory)
 	settings, found := cf.relationCaches[relId].members[unitName]
 	return settings, found
+}
+
+func (ctx *HookContext) SLALevel() string {
+	return ctx.slaLevel
 }

@@ -207,6 +207,9 @@ type HookContext struct {
 
 	componentDir   func(string) string
 	componentFuncs map[string]ComponentFunc
+
+	//  slaLevel contains the current SLA level.
+	slaLevel string
 }
 
 // Component implements jujuc.Context.
@@ -579,6 +582,7 @@ func (context *HookContext) HookVars(paths Paths) ([]string, error) {
 		"JUJU_API_ADDRESSES="+strings.Join(context.apiAddrs, " "),
 		"JUJU_METER_STATUS="+context.meterStatus.code,
 		"JUJU_METER_INFO="+context.meterStatus.info,
+		"JUJU_SLA="+context.slaLevel,
 		"JUJU_MACHINE_ID="+context.assignedMachineTag.Id(),
 		"JUJU_AVAILABILITY_ZONE="+context.availabilityzone,
 	)
