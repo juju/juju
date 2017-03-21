@@ -154,6 +154,33 @@ type logSinkHandler struct {
 	fileLogger  io.Writer
 }
 
+// Since the logsink only recieves messages, it is possible for the other end
+// to disappear without the server noticing. To fix this, we use the
+// underlying websocket control messages ping/pong. Periodically the server
+// writes a ping, and the other end replies with a pong. Now the tricky bit is
+// that it appears in all the examples found on the interweb that it is
+// possible for the control message to be sent successfully to something that
+// isn't entirely alive, which is why relying on an error return from the
+// write call is insufficient to mark the connection as dead. Instead the
+// write and read deadlines inherent in the underlying Go networking libraries
+// are used to force errors on timeouts. However the underlying network
+// libraries use time.Now() to determine whether or not to send errors, so
+// using a testing clock here isn't going to work. So we rely on manual
+// testing, and what is defined as good practice by the library authors.
+
+const (
+	// pongDelay is how long the server will wait for a pong to be sent
+	// before the websocket is considered broken.
+	pongDelay = 60 * time.Second
+
+	// pingPeriod is how often ping messages are sent. This should be shorter
+	// than the pongDelay, but not by too much.
+	pingPeriod = (pongDelay * 9) / 10
+
+	// writeWait is how long the write call can take before it errors out.
+	writeWait = 10 * time.Second
+)
+
 // ServeHTTP implements the http.Handler interface.
 func (h *logSinkHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	handler := func(socket *websocket.Conn) {
@@ -172,11 +199,30 @@ func (h *logSinkHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		// formatted simple error.
 		h.sendError(socket, req, nil)
 
+		// Here we configure the ping/pong handling for the websocket so
+		// the server can notice when the client goes away.
+		socket.SetReadDeadline(time.Now().Add(pongDelay))
+		socket.SetPongHandler(func(string) error {
+			socket.SetReadDeadline(time.Now().Add(pongDelay))
+			return nil
+		})
+		ticker := time.NewTicker(pingPeriod)
+		defer ticker.Stop()
+
 		logCh := h.receiveLogs(socket)
 		for {
 			select {
 			case <-h.ctxt.stop():
 				return
+			case <-ticker.C:
+				deadline := time.Now().Add(writeWait)
+				if err := socket.WriteControl(websocket.PingMessage, []byte{}, deadline); err != nil {
+					// This error is expected if the other end goes away. By
+					// returning we clean up the strategy and close the socket
+					// through the defer calls.
+					logger.Tracef("failed to write ping: %s", err)
+					return
+				}
 			case m, ok := <-logCh:
 				if !ok {
 					return

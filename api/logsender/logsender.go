@@ -44,11 +44,24 @@ func (api *API) LogWriter() (LogWriter, error) {
 	if err != nil {
 		return nil, errors.Annotatef(err, "cannot connect to /logsink")
 	}
-	return writer{conn}, nil
+	logWriter := writer{conn}
+	go logWriter.readLoop()
+	return logWriter, nil
 }
 
 type writer struct {
 	conn base.Stream
+}
+
+// readLoop is necessary for the client to process websocket control messages.
+// Close() is safe to call concurrently.
+func (w writer) readLoop() {
+	for {
+		if _, _, err := w.conn.NextReader(); err != nil {
+			w.conn.Close()
+			break
+		}
+	}
 }
 
 func (w writer) WriteLog(m *params.LogRecord) error {
