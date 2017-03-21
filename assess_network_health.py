@@ -353,7 +353,31 @@ class AssessNetworkHealth:
         return False
 
     def setup_expose_test(self, client, series, exposed):
+        """Sets up the expose test using aliased NH charms.
+
+        :param client: juju client object used in the test.
+        :param series: Charm series
+        :param exposed: List of exposed charms
+        """
+
         log.info('Removing previous network-health charms')
+
+        """
+        This is done to work with the beahvior used in other network-health
+        tests to circumvent Juju's lack of support for multi-series charms.
+        If a multi-series subordinate is deployed under one of its available
+        series, then a second copy of that charm in a differnt series cannot
+        also be deployed. Subsequently, when we deploy the NH charms for the
+        above tests, the series is appended to the end of the charm. In order
+        for the expose test to work properly the NH charm has to be exposed,
+        which in Juju means all of the NH charms under that alias or none.
+        So if there are existing exposed units, the test redeploys an aliased
+        NH charm under each so that it can expose them individually, ensuring
+        valid test results.
+        On the subject of speed, since the deps in network-health's wheelhouse
+        have already been built on the target machine or container, this is a
+        relatively fast process at ~30 seconds for large(6+ charm) deployments.
+        """
         for series in self.existing_series:
             alias = 'network-health-{}'.format(series)
             client.remove_service(alias)
