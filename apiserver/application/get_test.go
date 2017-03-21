@@ -42,6 +42,7 @@ func (s *getSuite) SetUpTest(c *gc.C) {
 	s.serviceAPI, err = application.NewAPI(
 		backend, s.authorizer, resources, s.BackingStatePool,
 		blockChecker, application.CharmToStateCharm,
+		application.DeployApplication,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 }

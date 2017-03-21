@@ -9,6 +9,9 @@ import (
 	"github.com/juju/gnuflag"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/machinemanager"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
 )
@@ -78,29 +81,105 @@ func (c *removeCommand) Init(args []string) error {
 }
 
 type RemoveMachineAPI interface {
-	DestroyMachines(machines ...string) error
-	ForceDestroyMachines(machines ...string) error
+	DestroyMachines(machines ...string) ([]params.DestroyMachineResult, error)
+	ForceDestroyMachines(machines ...string) ([]params.DestroyMachineResult, error)
 	Close() error
+}
+
+// TODO(axw) 2017-03-16 #1673323
+// Drop this in Juju 3.0.
+type removeMachineAdapter struct {
+	*api.Client
+}
+
+func (a removeMachineAdapter) DestroyMachines(machines ...string) ([]params.DestroyMachineResult, error) {
+	return a.destroyMachines(a.Client.DestroyMachines, machines)
+}
+
+func (a removeMachineAdapter) ForceDestroyMachines(machines ...string) ([]params.DestroyMachineResult, error) {
+	return a.destroyMachines(a.Client.ForceDestroyMachines, machines)
+}
+
+func (a removeMachineAdapter) destroyMachines(f func(...string) error, machines []string) ([]params.DestroyMachineResult, error) {
+	if err := f(machines...); err != nil {
+		return nil, err
+	}
+	results := make([]params.DestroyMachineResult, len(machines))
+	for i := range results {
+		results[i].Info = &params.DestroyMachineInfo{}
+	}
+	return results, nil
 }
 
 func (c *removeCommand) getRemoveMachineAPI() (RemoveMachineAPI, error) {
 	if c.api != nil {
 		return c.api, nil
 	}
-	return c.NewAPIClient()
+	root, err := c.NewAPIRoot()
+	if err != nil {
+		return nil, err
+	}
+	if root.BestFacadeVersion("MachineManager") >= 3 {
+		return machinemanager.NewClient(root), nil
+	}
+	return removeMachineAdapter{root.Client()}, nil
 }
 
 // Run implements Command.Run.
-func (c *removeCommand) Run(_ *cmd.Context) error {
+func (c *removeCommand) Run(ctx *cmd.Context) error {
 	client, err := c.getRemoveMachineAPI()
 	if err != nil {
 		return err
 	}
 	defer client.Close()
+
+	destroy := client.DestroyMachines
 	if c.Force {
-		err = client.ForceDestroyMachines(c.MachineIds...)
-	} else {
-		err = client.DestroyMachines(c.MachineIds...)
+		destroy = client.ForceDestroyMachines
 	}
-	return block.ProcessBlockedError(err, block.BlockRemove)
+
+	results, err := destroy(c.MachineIds...)
+	if err := block.ProcessBlockedError(err, block.BlockRemove); err != nil {
+		return err
+	}
+
+	anyFailed := false
+	for i, id := range c.MachineIds {
+		result := results[i]
+		if result.Error != nil {
+			anyFailed = true
+			ctx.Infof("removing machine %s failed: %s", id, result.Error)
+			continue
+		}
+		ctx.Infof("removing machine %s", id)
+		for _, entity := range result.Info.DestroyedUnits {
+			unitTag, err := names.ParseUnitTag(entity.Tag)
+			if err != nil {
+				logger.Warningf("%s", err)
+				continue
+			}
+			ctx.Infof("- will remove %s", names.ReadableString(unitTag))
+		}
+		for _, entity := range result.Info.DestroyedStorage {
+			storageTag, err := names.ParseStorageTag(entity.Tag)
+			if err != nil {
+				logger.Warningf("%s", err)
+				continue
+			}
+			ctx.Infof("- will remove %s", names.ReadableString(storageTag))
+		}
+		for _, entity := range result.Info.DetachedStorage {
+			storageTag, err := names.ParseStorageTag(entity.Tag)
+			if err != nil {
+				logger.Warningf("%s", err)
+				continue
+			}
+			ctx.Infof("- will detach %s", names.ReadableString(storageTag))
+		}
+	}
+
+	if anyFailed {
+		return cmd.ErrSilent
+	}
+	return nil
 }

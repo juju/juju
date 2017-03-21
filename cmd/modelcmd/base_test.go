@@ -22,14 +22,14 @@ import (
 )
 
 type BaseCommandSuite struct {
-	coretesting.FakeJujuXDGDataHomeSuite
+	testing.IsolationSuite
 	store *jujuclienttesting.MemStore
 }
 
 var _ = gc.Suite(&BaseCommandSuite{})
 
 func (s *BaseCommandSuite) SetUpTest(c *gc.C) {
-	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
+	s.IsolationSuite.SetUpTest(c)
 
 	s.store = jujuclienttesting.NewMemStore()
 	s.store.CurrentControllerName = "foo"

@@ -125,7 +125,7 @@ func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
 			var store, urlPath string
 			url, err := crossmodel.ParseApplicationURL(app.ApplicationURL)
 			if err == nil {
-				store = url.Directory
+				store = url.Source
 				urlPath = url.Path()
 				if store == "" {
 					store = "local"
@@ -280,7 +280,7 @@ func getModelMessage(model modelStatus) string {
 
 func printMachines(tw *ansiterm.TabWriter, machines map[string]machineStatus) {
 	w := output.Wrapper{tw}
-	w.Println("Machine", "State", "DNS", "Inst id", "Series", "AZ")
+	w.Println("Machine", "State", "DNS", "Inst id", "Series", "AZ", "Message")
 	for _, name := range utils.SortStringsNaturally(stringKeysFromMap(machines)) {
 		printMachine(w, machines[name])
 	}
@@ -298,7 +298,7 @@ func printMachine(w output.Wrapper, m machineStatus) {
 	}
 	w.Print(m.Id)
 	w.PrintStatus(m.JujuStatus.Current)
-	w.Println(m.DNSName, m.InstanceId, m.Series, az)
+	w.Println(m.DNSName, m.InstanceId, m.Series, az, m.MachineStatus.Message)
 	for _, name := range utils.SortStringsNaturally(stringKeysFromMap(m.Containers)) {
 		printMachine(w, m.Containers[name])
 	}

@@ -12,8 +12,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"sync"
-	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -45,7 +43,7 @@ import (
 	"github.com/juju/juju/state/cloudimagemetadata"
 	stateaudit "github.com/juju/juju/state/internal/audit"
 	statelease "github.com/juju/juju/state/lease"
-	"github.com/juju/juju/state/workers"
+	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/status"
 	jujuversion "github.com/juju/juju/version"
 )
@@ -103,16 +101,7 @@ type State struct {
 	// available by starting new ones as they fail. It doesn't do
 	// that yet, but having a type that collects them together is the
 	// first step.
-	//
-	// note that the allManager stuff below probably ought to be
-	// folded in as well, but that feels like its own task.
-	workers workers.Workers
-
-	// mu guards allManager, allModelManager & allModelWatcherBacking
-	mu                     sync.Mutex
-	allManager             *storeManager
-	allModelManager        *storeManager
-	allModelWatcherBacking Backing
+	workers *workers
 
 	// TODO(anastasiamac 2015-07-16) As state gets broken up, remove this.
 	CloudImageMetadataStorage cloudimagemetadata.Storage
@@ -360,18 +349,9 @@ func (st *State) start(controllerTag names.ControllerTag) (err error) {
 	// now we've set up leaseClientId, we can use workersFactory
 
 	logger.Infof("starting standard state workers")
-	factory := workersFactory{
-		st:    st,
-		clock: st.clock,
-	}
-	workers, err := workers.NewRestartWorkers(workers.RestartConfig{
-		Factory: factory,
-		Logger:  loggo.GetLogger(logger.Name() + ".workers"),
-		Clock:   st.clock,
-		Delay:   time.Second,
-	})
+	workers, err := newWorkers(st)
 	if err != nil {
-		return errors.Annotatef(err, "cannot create standard state workers")
+		return errors.Trace(err)
 	}
 	st.workers = workers
 
@@ -531,8 +511,8 @@ func (st *State) db() Database {
 
 // txnLogWatcher returns the TxnLogWatcher for the State. It is part
 // of the modelBackend interface.
-func (st *State) txnLogWatcher() workers.TxnLogWatcher {
-	return st.workers.TxnLogWatcher()
+func (st *State) txnLogWatcher() *watcher.Watcher {
+	return st.workers.txnLogWatcher()
 }
 
 // Ping probes the state's database connection to ensure
@@ -559,22 +539,11 @@ func (st *State) MongoSession() *mgo.Session {
 }
 
 func (st *State) Watch() *Multiwatcher {
-	st.mu.Lock()
-	if st.allManager == nil {
-		st.allManager = newStoreManager(newAllWatcherStateBacking(st))
-	}
-	st.mu.Unlock()
-	return NewMultiwatcher(st.allManager)
+	return NewMultiwatcher(st.workers.allManager())
 }
 
 func (st *State) WatchAllModels(pool *StatePool) *Multiwatcher {
-	st.mu.Lock()
-	if st.allModelManager == nil {
-		st.allModelWatcherBacking = NewAllModelWatcherStateBacking(st, pool)
-		st.allModelManager = newStoreManager(st.allModelWatcherBacking)
-	}
-	st.mu.Unlock()
-	return NewMultiwatcher(st.allModelManager)
+	return NewMultiwatcher(st.workers.allModelManager(pool))
 }
 
 // versionInconsistentError indicates one or more agents have a
@@ -1906,8 +1875,8 @@ func (st *State) AssignUnit(u *Unit, policy AssignmentPolicy) (err error) {
 // StartSync forces watchers to resynchronize their state with the
 // database immediately. This will happen periodically automatically.
 func (st *State) StartSync() {
-	st.workers.TxnLogWatcher().StartSync()
-	st.workers.PresenceWatcher().Sync()
+	st.workers.txnLogWatcher().StartSync()
+	st.workers.presenceWatcher().Sync()
 }
 
 // SetAdminMongoPassword sets the administrative password
@@ -2186,13 +2155,14 @@ func tagForGlobalKey(key string) (string, bool) {
 // to set the internal clock for the State instance. It is named such
 // that it should be obvious if it is ever called from a non-test package.
 func (st *State) SetClockForTesting(clock clock.Clock) error {
-	st.clock = clock
 	// Need to restart the lease workers so they get the new clock.
+	// Stop them first so they don't try to use it when we're setting it.
 	st.workers.Kill()
 	err := st.workers.Wait()
 	if err != nil {
 		return errors.Trace(err)
 	}
+	st.clock = clock
 	err = st.start(st.controllerTag)
 	if err != nil {
 		return errors.Trace(err)

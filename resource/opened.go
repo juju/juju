@@ -3,8 +3,6 @@
 
 package resource
 
-// TODO(ericsnow) Move this file to the charm repo?
-
 import (
 	"io"
 	"strings"
@@ -45,8 +43,6 @@ func CombineErrors(errs ...error) error {
 type Opened struct {
 	Resource
 	io.ReadCloser
-
-	Closer func() error
 }
 
 // Content returns the "content" for the opened resource.
@@ -60,9 +56,6 @@ func (o Opened) Content() Content {
 
 func (o Opened) Close() error {
 	var err1 error
-	if o.Closer != nil {
-		err1 = errors.Trace(o.Closer())
-	}
 	err2 := errors.Trace(o.ReadCloser.Close())
 	return CombineErrors(err1, err2)
 }

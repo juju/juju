@@ -24,7 +24,6 @@ import (
 	"github.com/juju/version"
 
 	agenttools "github.com/juju/juju/agent/tools"
-	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/apihttp"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
@@ -82,7 +81,7 @@ func guiEndpoints(pattern, dataDir string, ctxt httpContext) []apihttp.Endpoint 
 		// where we only want to support specific request methods. However, our
 		// tests currently assert that errors come back as application/json and
 		// pat only does "text/plain" responses.
-		for _, method := range common.DefaultHTTPMethods {
+		for _, method := range defaultHTTPMethods {
 			endpoints = append(endpoints, apihttp.Endpoint{
 				Pattern: pattern,
 				Method:  method,

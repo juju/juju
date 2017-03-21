@@ -15,7 +15,7 @@ import (
 	"github.com/juju/juju/api/crossmodel"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
-	model "github.com/juju/juju/core/crossmodel"
+	jujucrossmodel "github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/testing"
 )
 
@@ -29,7 +29,7 @@ func (s *crossmodelMockSuite) TestOffer(c *gc.C) {
 	application := "shared"
 	endPointA := "endPointA"
 	endPointB := "endPointB"
-	url := "url"
+	offer := "offer"
 	desc := "desc"
 
 	msg := "fail"
@@ -50,7 +50,7 @@ func (s *crossmodelMockSuite) TestOffer(c *gc.C) {
 			offer := args.Offers[0]
 			c.Assert(offer.ApplicationName, gc.DeepEquals, application)
 			c.Assert(offer.Endpoints, jc.DeepEquals, map[string]string{endPointA: endPointA, endPointB: endPointB})
-			c.Assert(offer.ApplicationURL, gc.DeepEquals, url)
+			c.Assert(offer.OfferName, gc.Equals, offer.OfferName)
 			c.Assert(offer.ApplicationDescription, gc.DeepEquals, desc)
 
 			if results, ok := result.(*params.ErrorResults); ok {
@@ -65,7 +65,7 @@ func (s *crossmodelMockSuite) TestOffer(c *gc.C) {
 		})
 
 	client := crossmodel.NewClient(apiCaller)
-	results, err := client.Offer(application, []string{endPointA, endPointB}, url, desc)
+	results, err := client.Offer(application, []string{endPointA, endPointB}, offer, desc)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.HasLen, 2)
 	c.Assert(results, jc.DeepEquals,
@@ -96,14 +96,14 @@ func (s *crossmodelMockSuite) TestOfferFacadeCallError(c *gc.C) {
 }
 
 func (s *crossmodelMockSuite) TestShow(c *gc.C) {
-	url := "local:/u/fred/db2"
+	url := "fred/model.db2"
 
 	desc := "IBM DB2 Express Server Edition is an entry level database system"
 	endpoints := []params.RemoteEndpoint{
 		{Name: "db2", Interface: "db2", Role: charm.RoleProvider},
 		{Name: "log", Interface: "http", Role: charm.RoleRequirer},
 	}
-	applicationTag := "application-hosted-db2"
+	offerName := "hosted-db2"
 
 	called := false
 
@@ -128,7 +128,8 @@ func (s *crossmodelMockSuite) TestShow(c *gc.C) {
 					{Result: params.ApplicationOffer{
 						ApplicationDescription: desc,
 						Endpoints:              endpoints,
-						ApplicationName:        applicationTag,
+						OfferURL:               url,
+						OfferName:              offerName,
 					}},
 				}
 			}
@@ -142,11 +143,12 @@ func (s *crossmodelMockSuite) TestShow(c *gc.C) {
 	c.Assert(found, gc.DeepEquals, params.ApplicationOffer{
 		ApplicationDescription: desc,
 		Endpoints:              endpoints,
-		ApplicationName:        applicationTag})
+		OfferURL:               url,
+		OfferName:              offerName})
 }
 
 func (s *crossmodelMockSuite) TestShowURLError(c *gc.C) {
-	url := "local:/u/fred/db2"
+	url := "fred/model.db2"
 	msg := "facade failure"
 
 	called := false
@@ -182,14 +184,14 @@ func (s *crossmodelMockSuite) TestShowURLError(c *gc.C) {
 }
 
 func (s *crossmodelMockSuite) TestShowMultiple(c *gc.C) {
-	url := "local:/u/fred/db2"
+	url := "fred/model.db2"
 
 	desc := "IBM DB2 Express Server Edition is an entry level database system"
 	endpoints := []params.RemoteEndpoint{
 		{Name: "db2", Interface: "db2", Role: charm.RoleProvider},
 		{Name: "log", Interface: "http", Role: charm.RoleRequirer},
 	}
-	applicationTag := "application-hosted-db2"
+	offerName := "hosted-db2"
 
 	called := false
 
@@ -214,12 +216,14 @@ func (s *crossmodelMockSuite) TestShowMultiple(c *gc.C) {
 					{Result: params.ApplicationOffer{
 						ApplicationDescription: desc,
 						Endpoints:              endpoints,
-						ApplicationName:        applicationTag,
+						OfferURL:               url,
+						OfferName:              offerName,
 					}},
 					{Result: params.ApplicationOffer{
 						ApplicationDescription: desc,
 						Endpoints:              endpoints,
-						ApplicationName:        applicationTag,
+						OfferURL:               url,
+						OfferName:              offerName,
 					}}}
 			}
 			return nil
@@ -232,8 +236,30 @@ func (s *crossmodelMockSuite) TestShowMultiple(c *gc.C) {
 	c.Assert(called, jc.IsTrue)
 }
 
+func (s *crossmodelMockSuite) TestShowNonLocal(c *gc.C) {
+	url := "jaas:fred/model.db2"
+	msg := "query for non-local application offers not supported"
+
+	called := false
+
+	apiCaller := basetesting.APICallerFunc(
+		func(objType string,
+			version int,
+			id, request string,
+			a, result interface{},
+		) error {
+			called = true
+			return nil
+		})
+	client := crossmodel.NewClient(apiCaller)
+	found, err := client.ApplicationOffer(url)
+
+	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
+	c.Assert(found, gc.DeepEquals, params.ApplicationOffer{})
+	c.Assert(called, jc.IsFalse)
+}
+
 func (s *crossmodelMockSuite) TestShowFacadeCallError(c *gc.C) {
-	url := "local:/u/fred/db2"
 	msg := "facade failure"
 	apiCaller := basetesting.APICallerFunc(
 		func(objType string,
@@ -248,23 +274,20 @@ func (s *crossmodelMockSuite) TestShowFacadeCallError(c *gc.C) {
 			return errors.New(msg)
 		})
 	client := crossmodel.NewClient(apiCaller)
-	found, err := client.ApplicationOffer(url)
+	found, err := client.ApplicationOffer("fred/model.db2")
 	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
 	c.Assert(found, gc.DeepEquals, params.ApplicationOffer{})
 }
 
 func (s *crossmodelMockSuite) TestFind(c *gc.C) {
-	directoryName := "local"
-	charmName := "db2"
-	applicationName := fmt.Sprintf("hosted-%s", charmName)
-	url := fmt.Sprintf("%s:/u/fred/%s", directoryName, applicationName)
+	offerName := "hosted-db2"
+	url := fmt.Sprintf("fred/model.%s", offerName)
 	endpoints := []params.RemoteEndpoint{{Name: "endPointA"}}
-	relations := []model.EndpointFilterTerm{{Name: "endPointA", Interface: "http"}}
+	relations := []jujucrossmodel.EndpointFilterTerm{{Name: "endPointA", Interface: "http"}}
 
-	filter := model.ApplicationOfferFilter{
-		ApplicationURL:  fmt.Sprintf("%s:/u/fred/%s", directoryName, applicationName),
-		ApplicationName: fmt.Sprintf("hosted-%s", charmName),
-		Endpoints:       relations,
+	filter := jujucrossmodel.ApplicationOfferFilter{
+		OfferName: offerName,
+		Endpoints: relations,
 	}
 
 	called := false
@@ -283,7 +306,7 @@ func (s *crossmodelMockSuite) TestFind(c *gc.C) {
 			c.Assert(ok, jc.IsTrue)
 			c.Assert(args.Filters, gc.HasLen, 1)
 			c.Assert(args.Filters[0], jc.DeepEquals, params.OfferFilter{
-				ApplicationURL:  filter.ApplicationURL,
+				OfferName:       filter.OfferName,
 				ApplicationName: filter.ApplicationName,
 				Endpoints: []params.EndpointFilterAttributes{{
 					Name:      "endPointA",
@@ -293,9 +316,9 @@ func (s *crossmodelMockSuite) TestFind(c *gc.C) {
 
 			if results, ok := result.(*params.FindApplicationOffersResults); ok {
 				offer := params.ApplicationOffer{
-					ApplicationURL:  url,
-					ApplicationName: applicationName,
-					Endpoints:       endpoints,
+					OfferURL:  url,
+					OfferName: offerName,
+					Endpoints: endpoints,
 				}
 				results.Results = []params.ApplicationOffer{offer}
 			}
@@ -307,9 +330,9 @@ func (s *crossmodelMockSuite) TestFind(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(called, jc.IsTrue)
 	c.Assert(results, jc.DeepEquals, []params.ApplicationOffer{{
-		ApplicationName: applicationName,
-		ApplicationURL:  url,
-		Endpoints:       endpoints,
+		OfferURL:  url,
+		OfferName: offerName,
+		Endpoints: endpoints,
 	}})
 }
 
@@ -347,8 +370,8 @@ func (s *crossmodelMockSuite) TestFindError(c *gc.C) {
 		})
 
 	client := crossmodel.NewClient(apiCaller)
-	filter := model.ApplicationOfferFilter{
-		ApplicationURL: "local:",
+	filter := jujucrossmodel.ApplicationOfferFilter{
+		OfferName: "foo",
 	}
 	_, err := client.FindApplicationOffers(filter)
 	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
@@ -370,8 +393,8 @@ func (s *crossmodelMockSuite) TestFindFacadeCallError(c *gc.C) {
 			return errors.New(msg)
 		})
 	client := crossmodel.NewClient(apiCaller)
-	filter := model.ApplicationOfferFilter{
-		ApplicationURL: "local:",
+	filter := jujucrossmodel.ApplicationOfferFilter{
+		OfferName: "foo",
 	}
 	results, err := client.FindApplicationOffers(filter)
 	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)

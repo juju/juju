@@ -923,7 +923,7 @@ func (m *Machine) Refresh() error {
 
 // AgentPresence returns whether the respective remote agent is alive.
 func (m *Machine) AgentPresence() (bool, error) {
-	pwatcher := m.st.workers.PresenceWatcher()
+	pwatcher := m.st.workers.presenceWatcher()
 	return pwatcher.Alive(m.globalKey())
 }
 
@@ -931,7 +931,7 @@ func (m *Machine) AgentPresence() (bool, error) {
 func (m *Machine) WaitAgentPresence(timeout time.Duration) (err error) {
 	defer errors.DeferredAnnotatef(&err, "waiting for agent of machine %v", m)
 	ch := make(chan presence.Change)
-	pwatcher := m.st.workers.PresenceWatcher()
+	pwatcher := m.st.workers.presenceWatcher()
 	pwatcher.Watch(m.globalKey(), ch)
 	defer pwatcher.Unwatch(m.globalKey(), ch)
 	for i := 0; i < 2; i++ {
@@ -967,7 +967,7 @@ func (m *Machine) SetAgentPresence() (*presence.Pinger, error) {
 	//
 	// TODO: Does not work for multiple controllers. Trigger a sync across all controllers.
 	if m.IsManager() {
-		m.st.workers.PresenceWatcher().Sync()
+		m.st.workers.presenceWatcher().Sync()
 	}
 	return p, nil
 }

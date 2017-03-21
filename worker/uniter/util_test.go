@@ -407,6 +407,7 @@ func (s serveCharm) step(c *gc.C, ctx *context) {
 
 type createServiceAndUnit struct {
 	serviceName string
+	storage     map[string]state.StorageConstraints
 }
 
 func (csau createServiceAndUnit) step(c *gc.C, ctx *context) {
@@ -415,7 +416,7 @@ func (csau createServiceAndUnit) step(c *gc.C, ctx *context) {
 	}
 	sch, err := ctx.st.Charm(curl(0))
 	c.Assert(err, jc.ErrorIsNil)
-	svc := ctx.s.AddTestingService(c, csau.serviceName, sch)
+	svc := ctx.s.AddTestingServiceWithStorage(c, csau.serviceName, sch, csau.storage)
 	unit, err := svc.AddUnit()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1769,7 +1770,7 @@ func (s destroyStorageAttachment) step(c *gc.C, ctx *context) {
 	storageAttachments, err := ctx.st.UnitStorageAttachments(ctx.unit.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(storageAttachments, gc.HasLen, 1)
-	err = ctx.st.DestroyStorageAttachment(
+	err = ctx.st.DetachStorage(
 		storageAttachments[0].StorageInstance(),
 		ctx.unit.UnitTag(),
 	)

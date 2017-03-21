@@ -14,6 +14,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
+	"github.com/juju/loggo/loggocolor"
 	"github.com/mattn/go-isatty"
 
 	"github.com/juju/juju/api/common"
@@ -256,7 +257,7 @@ func (c *debugLogCommand) writeLogRecord(w *ansiterm.Writer, r common.LogMessage
 	SeverityColor[r.Severity].Fprintf(w, r.Severity)
 	fmt.Fprintf(w, " %s ", r.Module)
 	if c.location {
-		loggo.LocationColor.Fprintf(w, "%s ", r.Location)
+		loggocolor.LocationColor.Fprintf(w, "%s ", r.Location)
 	}
 	fmt.Fprintln(w, r.Message)
 }

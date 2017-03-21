@@ -897,3 +897,89 @@ type MacaroonResult struct {
 	Result *macaroon.Macaroon `json:"result,omitempty"`
 	Error  *Error             `json:"error,omitempty"`
 }
+
+// DestroyMachineResults contains the results of a MachineManager.Destroy
+// API request.
+type DestroyMachineResults struct {
+	Results []DestroyMachineResult `json:"results,omitempty"`
+}
+
+// DestroyMachineResult contains one of the results of a MachineManager.Destroy
+// API request.
+type DestroyMachineResult struct {
+	Error *Error              `json:"error,omitempty"`
+	Info  *DestroyMachineInfo `json:"info,omitempty"`
+}
+
+// DestroyMachineInfo contains information related to the removal of
+// a machine.
+type DestroyMachineInfo struct {
+	// DetachedStorage is the tags of storage instances that will be
+	// detached from the machine (assigned units) as a result of
+	// destroying the machine, and will remain in the model after
+	// the machine and unit are removed.
+	DetachedStorage []Entity `json:"detached-storage,omitempty"`
+
+	// DestroyedStorage is the tags of storage instances that will be
+	// destroyed as a result of destroying the machine.
+	DestroyedStorage []Entity `json:"destroyed-storage,omitempty"`
+
+	// DestroyedStorage is the tags of units that will be destroyed
+	// as a result of destroying the machine.
+	DestroyedUnits []Entity `json:"destroyed-units,omitempty"`
+}
+
+// DestroyApplicationResults contains the results of a DestroyApplication
+// API request.
+type DestroyApplicationResults struct {
+	Results []DestroyApplicationResult `json:"results,omitempty"`
+}
+
+// DestroyApplicationResult contains one of the results of a
+// DestroyApplication API request.
+type DestroyApplicationResult struct {
+	Error *Error                  `json:"error,omitempty"`
+	Info  *DestroyApplicationInfo `json:"info,omitempty"`
+}
+
+// DestroyApplicationInfo contains information related to the removal of
+// an application.
+type DestroyApplicationInfo struct {
+	// DetachedStorage is the tags of storage instances that will be
+	// detached from the application's units, and will remain in the
+	// model after the units are removed.
+	DetachedStorage []Entity `json:"detached-storage,omitempty"`
+
+	// DestroyedStorage is the tags of storage instances that will be
+	// destroyed as a result of destroying the application.
+	DestroyedStorage []Entity `json:"destroyed-storage,omitempty"`
+
+	// DestroyedUnits is the tags of units that will be destroyed
+	// as a result of destroying the application.
+	DestroyedUnits []Entity `json:"destroyed-units,omitempty"`
+}
+
+// DestroyUnitResults contains the results of a DestroyUnit API request.
+type DestroyUnitResults struct {
+	Results []DestroyUnitResult `json:"results,omitempty"`
+}
+
+// DestroyUnitResult contains one of the results of a
+// DestroyUnit API request.
+type DestroyUnitResult struct {
+	Error *Error           `json:"error,omitempty"`
+	Info  *DestroyUnitInfo `json:"info,omitempty"`
+}
+
+// DestroyUnitInfo contains information related to the removal of
+// an application unit.
+type DestroyUnitInfo struct {
+	// DetachedStorage is the tags of storage instances that will be
+	// detached from the unit, and will remain in the model after
+	// the unit is removed.
+	DetachedStorage []Entity `json:"detached-storage,omitempty"`
+
+	// DestroyedStorage is the tags of storage instances that will be
+	// destroyed as a result of destroying the unit.
+	DestroyedStorage []Entity `json:"destroyed-storage,omitempty"`
+}

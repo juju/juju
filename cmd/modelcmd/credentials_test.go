@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"path/filepath"
 
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -16,7 +17,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	_ "github.com/juju/juju/provider/dummy"
-	"github.com/juju/juju/testing"
+	jujutesting "github.com/juju/juju/testing"
 )
 
 func init() {
@@ -67,7 +68,7 @@ func (mockProvider) FinalizeCredential(
 }
 
 type credentialsSuite struct {
-	testing.FakeJujuXDGDataHomeSuite
+	testing.IsolationSuite
 	cloud cloud.Cloud
 	store *jujuclienttesting.MemStore
 }
@@ -75,7 +76,7 @@ type credentialsSuite struct {
 var _ = gc.Suite(&credentialsSuite{})
 
 func (s *credentialsSuite) SetUpTest(c *gc.C) {
-	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
+	s.IsolationSuite.SetUpTest(c)
 	s.cloud = cloud.Cloud{
 		Name: "cloud",
 		Type: "fake",
@@ -108,7 +109,7 @@ func (s *credentialsSuite) SetUpTest(c *gc.C) {
 
 func (s *credentialsSuite) assertGetCredentials(c *gc.C, cred, region string) {
 	credential, credentialName, regionName, err := modelcmd.GetCredentials(
-		testing.Context(c), s.store, modelcmd.GetCredentialsParams{
+		jujutesting.Context(c), s.store, modelcmd.GetCredentialsParams{
 			Cloud:          s.cloud,
 			CloudRegion:    region,
 			CredentialName: cred,

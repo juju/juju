@@ -15,18 +15,20 @@ import (
 var _ = gc.Suite(&commandsSuite{})
 
 type commandsSuite struct {
+	testing.CleanupSuite
+
 	stub    *testing.Stub
 	command *stubCommand
 }
 
 func (s *commandsSuite) SetUpTest(c *gc.C) {
+	s.CleanupSuite.SetUpTest(c)
+
+	s.PatchValue(&registeredCommands, nil)
+	s.PatchValue(&registeredEnvCommands, nil)
+
 	s.stub = &testing.Stub{}
 	s.command = &stubCommand{stub: s.stub}
-}
-
-func (s *commandsSuite) TearDownTest(c *gc.C) {
-	registeredCommands = nil
-	registeredEnvCommands = nil
 }
 
 func (s *commandsSuite) TestRegisterCommand(c *gc.C) {

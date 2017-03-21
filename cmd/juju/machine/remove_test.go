@@ -9,6 +9,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/machine"
 	"github.com/juju/juju/testing"
 )
@@ -81,6 +82,30 @@ func (s *RemoveMachineSuite) TestRemove(c *gc.C) {
 	c.Assert(s.fake.machines, jc.DeepEquals, []string{"1", "2/lxd/1"})
 }
 
+func (s *RemoveMachineSuite) TestRemoveOutput(c *gc.C) {
+	s.fake.results = []params.DestroyMachineResult{{
+		Error: &params.Error{
+			Message: "oy vey",
+		},
+	}, {
+		Info: &params.DestroyMachineInfo{
+			DestroyedUnits:   []params.Entity{{"unit-foo-0"}},
+			DestroyedStorage: []params.Entity{{"storage-bar-1"}},
+			DetachedStorage:  []params.Entity{{"storage-baz-2"}},
+		},
+	}}
+	ctx, err := s.run(c, "1", "2/lxd/1")
+	c.Assert(err, gc.Equals, cmd.ErrSilent)
+	stderr := testing.Stderr(ctx)
+	c.Assert(stderr, gc.Equals, `
+removing machine 1 failed: oy vey
+removing machine 2/lxd/1
+- will remove unit foo/0
+- will remove storage bar/1
+- will detach storage baz/2
+`[1:])
+}
+
 func (s *RemoveMachineSuite) TestRemoveForce(c *gc.C) {
 	_, err := s.run(c, "--force", "1", "2/lxd/1")
 	c.Assert(err, jc.ErrorIsNil)
@@ -106,20 +131,31 @@ type fakeRemoveMachineAPI struct {
 	forced      bool
 	machines    []string
 	removeError error
+	results     []params.DestroyMachineResult
 }
 
 func (f *fakeRemoveMachineAPI) Close() error {
 	return nil
 }
 
-func (f *fakeRemoveMachineAPI) DestroyMachines(machines ...string) error {
+func (f *fakeRemoveMachineAPI) DestroyMachines(machines ...string) ([]params.DestroyMachineResult, error) {
 	f.forced = false
-	f.machines = machines
-	return f.removeError
+	return f.destroyMachines(machines)
 }
 
-func (f *fakeRemoveMachineAPI) ForceDestroyMachines(machines ...string) error {
+func (f *fakeRemoveMachineAPI) ForceDestroyMachines(machines ...string) ([]params.DestroyMachineResult, error) {
 	f.forced = true
+	return f.destroyMachines(machines)
+}
+
+func (f *fakeRemoveMachineAPI) destroyMachines(machines []string) ([]params.DestroyMachineResult, error) {
 	f.machines = machines
-	return f.removeError
+	if f.removeError != nil || f.results != nil {
+		return f.results, f.removeError
+	}
+	results := make([]params.DestroyMachineResult, len(machines))
+	for i := range results {
+		results[i].Info = &params.DestroyMachineInfo{}
+	}
+	return results, nil
 }

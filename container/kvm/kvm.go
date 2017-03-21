@@ -166,6 +166,7 @@ func (manager *containerManager) CreateContainer(
 	startParams.Series = series
 	startParams.Network = networkConfig
 	startParams.UserDataFile = userDataFilename
+	startParams.StatusCallback = callback
 
 	// If the Simplestream requested is anything but released, update
 	// our StartParams to request it.
@@ -181,13 +182,14 @@ func (manager *containerManager) CreateContainer(
 		return nil, nil, errors.Annotate(err, "failed to parse hardware")
 	}
 
-	callback(status.Allocating, "Creating container; it might take some time", nil)
+	callback(status.Provisioning, "Creating container; it might take some time", nil)
 	logger.Tracef("create the container, constraints: %v", cons)
 	if err := kvmContainer.Start(startParams); err != nil {
 		err = errors.Annotate(err, "kvm container creation failed")
 		return nil, nil, err
 	}
 	logger.Tracef("kvm container created")
+	callback(status.Running, "Container started", nil)
 	return &kvmInstance{kvmContainer, name}, &hardware, nil
 }
 

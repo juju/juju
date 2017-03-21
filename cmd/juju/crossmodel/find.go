@@ -25,22 +25,23 @@ options:
    specify output format (tabular|json|yaml)
 
 Examples:
-   $ juju find-endpoints local:
-   $ juju find-endpoints local:/u/fred
-   $ juju find-endpoints --interface mysql --url local:
-   $ juju find-endpoints --charm db2 --url vendor:/u/ibm
-   $ juju find-endpoints --charm db2 --author ibm
+   $ juju find-endpoints
+   $ juju find-endpoints fred/prod
+   $ juju find-endpoints --interface mysql --url fred/prod
+   $ juju find-endpoints --url fred/prod.db2
+   
+See also:
+   show-endpoints   
 `
 
 type findCommand struct {
 	CrossModelCommandBase
 
 	url           string
+	modelName     string
+	offerName     string
 	interfaceName string
 	endpoint      string
-	user          string
-	charm         string
-	author        string
 
 	out        cmd.Output
 	newAPIFunc func() (FindAPI, error)
@@ -70,12 +71,18 @@ func (c *findCommand) Init(args []string) (err error) {
 		c.url = url
 	}
 	if c.url != "" {
-		if _, err := crossmodel.ParseApplicationURLParts(c.url); err != nil {
+		urlParts, err := crossmodel.ParseApplicationURLParts(c.url)
+		if err != nil {
 			return err
 		}
+		c.modelName = urlParts.ModelName
+		c.offerName = urlParts.ApplicationName
+		if urlParts.Source != "" && urlParts.Source != c.ControllerName() {
+			return errors.NotSupportedf("finding endpoints from another controller %q", urlParts.Source)
+		}
 	} else {
-		// We need at least one filter. The default filter will list all local services.
-		c.url = "local:"
+		// We need at least one filter. The default filter will list all offers from the current model.
+		c.modelName = c.ModelName()
 	}
 	return nil
 }
@@ -95,9 +102,6 @@ func (c *findCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.url, "url", "", "application URL")
 	f.StringVar(&c.interfaceName, "interface", "", "return results matching the interface name")
 	f.StringVar(&c.endpoint, "endpoint", "", "return results matching the endpoint name")
-	f.StringVar(&c.user, "user", "", "return results with the user in the URL")
-	f.StringVar(&c.charm, "charm", "", "return results for the charm name")
-	f.StringVar(&c.author, "author", "", "return results matching the charm author")
 	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
 		"yaml":    cmd.FormatYaml,
 		"json":    cmd.FormatJson,
@@ -114,11 +118,10 @@ func (c *findCommand) Run(ctx *cmd.Context) (err error) {
 	defer api.Close()
 
 	filter := crossmodel.ApplicationOfferFilter{
-		ApplicationURL: c.url,
-		// TODO(wallyworld): allowed users
-		// TODO(wallyworld): charm
-		// TODO(wallyworld): user
-		// TODO(wallyworld): author
+		ModelName: c.modelName,
+		OfferName: c.offerName,
+		// TODO(wallyworld): interface
+		// TODO(wallyworld): endpoint
 	}
 	if c.interfaceName != "" || c.endpoint != "" {
 		filter.Endpoints = []crossmodel.EndpointFilterTerm{{
@@ -163,7 +166,7 @@ func convertFoundOffers(services ...params.ApplicationOffer) (map[string]RemoteA
 	output := make(map[string]RemoteApplicationResult, len(services))
 	for _, one := range services {
 		app := RemoteApplicationResult{Endpoints: convertRemoteEndpoints(one.Endpoints...)}
-		output[one.ApplicationURL] = app
+		output[one.OfferURL] = app
 	}
 	return output, nil
 }
