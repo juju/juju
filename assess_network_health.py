@@ -436,7 +436,7 @@ class AssessNetworkHealth:
                 for service, unit_res in service_result.items():
                     if False in unit_res.values():
                         failed = [u for u, r in unit_res.items() if r is False]
-                        error = ('NH-Unit {0} failed to contact '
+                        error = ('Unit {0} failed to contact '
                                  'targets(s): {1}'.format(nh_source, failed))
                         error_string.append(error)
         for unit, res in internet.items():
