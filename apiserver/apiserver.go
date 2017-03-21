@@ -35,12 +35,16 @@ import (
 	"github.com/juju/juju/apiserver/common/apihttp"
 	"github.com/juju/juju/apiserver/observer"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/resource"
+	"github.com/juju/juju/resource/resourceadapters"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/jsoncodec"
 	"github.com/juju/juju/state"
 )
 
 var logger = loggo.GetLogger("juju.apiserver")
+
+var defaultHTTPMethods = []string{"GET", "POST", "HEAD", "PUT", "DELETE", "OPTIONS"}
 
 // loginRateLimit defines how many concurrent Login requests we will
 // accept
@@ -384,26 +388,24 @@ func (srv *Server) run() {
 }
 
 func (srv *Server) endpoints() []apihttp.Endpoint {
-	httpCtxt := httpContext{
-		srv: srv,
-	}
-
-	endpoints := common.ResolveAPIEndpoints(srv.newHandlerArgs)
-
-	// TODO(ericsnow) Add the following to the registry instead.
+	var endpoints []apihttp.Endpoint
 
 	add := func(pattern string, handler http.Handler) {
 		// TODO: We can switch from all methods to specific ones for entries
 		// where we only want to support specific request methods. However, our
 		// tests currently assert that errors come back as application/json and
 		// pat only does "text/plain" responses.
-		for _, method := range common.DefaultHTTPMethods {
+		for _, method := range defaultHTTPMethods {
 			endpoints = append(endpoints, apihttp.Endpoint{
 				Pattern: pattern,
 				Method:  method,
 				Handler: handler,
 			})
 		}
+	}
+
+	httpCtxt := httpContext{
+		srv: srv,
 	}
 
 	strictCtxt := httpCtxt
@@ -457,6 +459,38 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 		},
 	)
 
+	add("/model/:modeluuid/applications/:application/resources/:resource", &ResourcesHandler{
+		StateAuthFunc: func(req *http.Request, tagKinds ...string) (ResourcesBackend, func(), names.Tag, error) {
+			st, closer, entity, err := httpCtxt.stateForRequestAuthenticatedTag(req, tagKinds...)
+			if err != nil {
+				return nil, nil, nil, errors.Trace(err)
+			}
+			rst, err := st.Resources()
+			if err != nil {
+				return nil, nil, nil, errors.Trace(err)
+			}
+			return rst, closer, entity.Tag(), nil
+		},
+	})
+	add("/model/:modeluuid/units/:unit/resources/:resource", &UnitResourcesHandler{
+		NewOpener: func(req *http.Request, tagKinds ...string) (resource.Opener, func(), error) {
+			st, closer, _, err := httpCtxt.stateForRequestAuthenticatedTag(req, tagKinds...)
+			if err != nil {
+				return nil, nil, errors.Trace(err)
+			}
+			tagStr := req.URL.Query().Get(":unit")
+			tag, err := names.ParseUnitTag(tagStr)
+			if err != nil {
+				return nil, nil, errors.Trace(err)
+			}
+			opener, err := resourceadapters.NewResourceOpener(st, tag.Id())
+			if err != nil {
+				return nil, nil, errors.Trace(err)
+			}
+			return opener, closer, nil
+		},
+	})
+
 	migrateCharmsHandler := &charmsHandler{
 		ctxt:          httpCtxt,
 		dataDir:       srv.dataDir,
@@ -475,7 +509,7 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 		},
 	)
 	add("/migrate/resources",
-		&resourceUploadHandler{
+		&resourcesMigrationUploadHandler{
 			ctxt:          httpCtxt,
 			stateAuthFunc: httpCtxt.stateForMigrationImporting,
 		},
@@ -575,19 +609,6 @@ func (srv *Server) expireLocalLoginInteractions() error {
 			now := srv.authCtxt.clock.Now()
 			srv.authCtxt.localUserInteractions.Expire(now)
 		}
-	}
-}
-
-func (srv *Server) newHandlerArgs(spec apihttp.HandlerConstraints) apihttp.NewHandlerArgs {
-	ctxt := httpContext{
-		srv:                 srv,
-		strictValidation:    spec.StrictValidation,
-		controllerModelOnly: spec.ControllerModelOnly,
-	}
-	return apihttp.NewHandlerArgs{
-		Connect: func(req *http.Request) (*state.State, func(), state.Entity, error) {
-			return ctxt.stateForRequestAuthenticatedTag(req, spec.AuthKinds...)
-		},
 	}
 }
 

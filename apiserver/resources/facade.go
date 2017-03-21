@@ -1,7 +1,7 @@
-// Copyright 2015 Canonical Ltd.
+// Copyright 2017 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package server
+package resources
 
 import (
 	"io"
@@ -15,24 +15,30 @@ import (
 	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/api"
+	"github.com/juju/juju/state"
 )
 
-var logger = loggo.GetLogger("juju.resource.api.server")
+var logger = loggo.GetLogger("juju.apiserver.resources")
 
-const (
-	// Version is the version number of the current Facade.
-	Version = 1
-)
+func init() {
+	common.RegisterStandardFacade("Resources", 1, NewPublicFacade)
+}
 
-// DataStore is the functionality of Juju's state needed for the resources API.
-type DataStore interface {
-	resourceInfoStore
-	DownloadDataStore
-	UploadDataStore
+// Backend is the functionality of Juju's state needed for the resources API.
+type Backend interface {
+	// ListResources returns the resources for the given application.
+	ListResources(service string) (resource.ServiceResources, error)
+
+	// AddPendingResource adds the resource to the data store in a
+	// "pending" state. It will stay pending (and unavailable) until
+	// it is resolved. The returned ID is used to identify the pending
+	// resources when resolving it.
+	AddPendingResource(applicationID, userID string, chRes charmresource.Resource, r io.Reader) (string, error)
 }
 
 // CharmStore exposes the functionality of the charm store as needed here.
@@ -50,13 +56,34 @@ type CharmStore interface {
 // Facade is the public API facade for resources.
 type Facade struct {
 	// store is the data source for the facade.
-	store resourceInfoStore
+	store Backend
 
 	newCharmstoreClient func() (CharmStore, error)
 }
 
-// NewFacade returns a new resoures facade for the given Juju state.
-func NewFacade(store DataStore, newClient func() (CharmStore, error)) (*Facade, error) {
+// NewPublicFacade creates a public API facade for resources. It is
+// used for API registration.
+func NewPublicFacade(st *state.State, _ facade.Resources, authorizer facade.Authorizer) (*Facade, error) {
+	if !authorizer.AuthClient() {
+		return nil, common.ErrPerm
+	}
+
+	rst, err := st.Resources()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	newClient := func() (CharmStore, error) {
+		return charmstore.NewCachingClient(state.MacaroonCache{st}, nil)
+	}
+	facade, err := NewFacade(rst, newClient)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return facade, nil
+}
+
+// NewFacade returns a new resoures API facade.
+func NewFacade(store Backend, newClient func() (CharmStore, error)) (*Facade, error) {
 	if store == nil {
 		return nil, errors.Errorf("missing data store")
 	}
@@ -75,29 +102,16 @@ func NewFacade(store DataStore, newClient func() (CharmStore, error)) (*Facade, 
 	return f, nil
 }
 
-// resourceInfoStore is the portion of Juju's "state" needed
-// for the resources facade.
-type resourceInfoStore interface {
-	// ListResources returns the resources for the given application.
-	ListResources(service string) (resource.ServiceResources, error)
-
-	// AddPendingResource adds the resource to the data store in a
-	// "pending" state. It will stay pending (and unavailable) until
-	// it is resolved. The returned ID is used to identify the pending
-	// resources when resolving it.
-	AddPendingResource(applicationID, userID string, chRes charmresource.Resource, r io.Reader) (string, error)
-}
-
 // ListResources returns the list of resources for the given application.
-func (f Facade) ListResources(args api.ListResourcesArgs) (api.ResourcesResults, error) {
-	var r api.ResourcesResults
-	r.Results = make([]api.ResourcesResult, len(args.Entities))
+func (f Facade) ListResources(args params.ListResourcesArgs) (params.ResourcesResults, error) {
+	var r params.ResourcesResults
+	r.Results = make([]params.ResourcesResult, len(args.Entities))
 
 	for i, e := range args.Entities {
 		logger.Tracef("Listing resources for %q", e.Tag)
 		tag, apierr := parseApplicationTag(e.Tag)
 		if apierr != nil {
-			r.Results[i] = api.ResourcesResult{
+			r.Results[i] = params.ResourcesResult{
 				ErrorResult: params.ErrorResult{
 					Error: apierr,
 				},
@@ -119,8 +133,8 @@ func (f Facade) ListResources(args api.ListResourcesArgs) (api.ResourcesResults,
 // AddPendingResources adds the provided resources (info) to the Juju
 // model in a pending state, meaning they are not available until
 // resolved.
-func (f Facade) AddPendingResources(args api.AddPendingResourcesArgs) (api.AddPendingResourcesResult, error) {
-	var result api.AddPendingResourcesResult
+func (f Facade) AddPendingResources(args params.AddPendingResourcesArgs) (params.AddPendingResourcesResult, error) {
+	var result params.AddPendingResourcesResult
 
 	tag, apiErr := parseApplicationTag(args.Tag)
 	if apiErr != nil {
@@ -139,7 +153,7 @@ func (f Facade) AddPendingResources(args api.AddPendingResourcesArgs) (api.AddPe
 	return result, nil
 }
 
-func (f Facade) addPendingResources(applicationID, chRef string, channel csparams.Channel, csMac *macaroon.Macaroon, apiResources []api.CharmResource) ([]string, error) {
+func (f Facade) addPendingResources(applicationID, chRef string, channel csparams.Channel, csMac *macaroon.Macaroon, apiResources []params.CharmResource) ([]string, error) {
 	var resources []charmresource.Resource
 	for _, apiRes := range apiResources {
 		res, err := api.API2CharmResource(apiRes)
@@ -327,8 +341,8 @@ func parseApplicationTag(tagStr string) (names.ApplicationTag, *params.Error) { 
 	return ApplicationTag, nil
 }
 
-func errorResult(err error) api.ResourcesResult {
-	return api.ResourcesResult{
+func errorResult(err error) params.ResourcesResult {
+	return params.ResourcesResult{
 		ErrorResult: params.ErrorResult{
 			Error: common.ServerError(err),
 		},

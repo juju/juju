@@ -1,7 +1,7 @@
-// Copyright 2016 Canonical Ltd.
+// Copyright 2017 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package server_test
+package resourceshookcontext_test
 
 import (
 	"testing"

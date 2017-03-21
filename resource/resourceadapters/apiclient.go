@@ -9,14 +9,13 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/api/client"
-	"github.com/juju/juju/resource/api/server"
 )
 
 // NewAPIClient is mostly a copy of the newClient code in
 // component/all/resources.go.  It lives here because it simplifies this code
 // immensely.
 func NewAPIClient(apiCaller base.APICallCloser) (*client.Client, error) {
-	caller := base.NewFacadeCallerForVersion(apiCaller, resource.FacadeName, server.Version)
+	caller := base.NewFacadeCallerForVersion(apiCaller, resource.FacadeName, 1)
 
 	httpClient, err := apiCaller.HTTPClient()
 	if err != nil {
