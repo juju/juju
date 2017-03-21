@@ -242,19 +242,19 @@ class AssessNetworkHealth:
                      "machine: {}".format(unit[0]))
             results[unit[0]] = False
             try:
-                routes = self.ssh(client, unit[0], 'ip route show')
+                routes = client.run(['ip route show'], machines=[unit[0]])
             except subprocess.CalledProcessError:
                 log.error('Could not connect to address for unit: {0}, '
                           'unable to find default route.'.format(unit[0]))
                 continue
-            default_route = re.search(r'^default\s+via\s+([\d\.]+)\s+', routes,
-                                      re.MULTILINE)
+            default_route = re.search(r'(default via )+([\d\.]+)\s+',
+                                      json.dumps(routes[0]))
             if default_route:
-                rc = client.juju('ssh', ('--proxy', unit[0],
-                                         'ping -c1 -q ' +
-                                         default_route.group(1)),
-                                 check=False)
-                if rc != 0:
+                rc = client.run(
+                    ['ping -c1 -q {}'.format(default_route.group(2))],
+                    machines=[unit[0]])
+                sucess = re.search(r'(1 received)', json.dumps(rc[0]))
+                if not sucess:
                     log.error('{} unable to ping default route'.format(unit))
                     continue
             else:
