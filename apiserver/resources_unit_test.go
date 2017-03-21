@@ -53,8 +53,7 @@ func (s *UnitResourcesHandlerSuite) TestWrongMethod(c *gc.C) {
 
 	handler.ServeHTTP(s.recorder, req)
 
-	resp := s.recorder.Result()
-	c.Assert(resp.StatusCode, gc.Equals, http.StatusMethodNotAllowed)
+	c.Assert(s.recorder.Code, gc.Equals, http.StatusMethodNotAllowed)
 	s.stub.CheckNoCalls(c)
 }
 

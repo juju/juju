@@ -164,12 +164,12 @@ func (s *ResourcesHandlerSuite) checkResp(c *gc.C, status int, ctype, body strin
 }
 
 func checkHTTPResp(c *gc.C, recorder *httptest.ResponseRecorder, status int, ctype, body string) {
-	resp := recorder.Result()
-	c.Assert(resp.StatusCode, gc.Equals, status)
-	c.Check(resp.Header.Get("Content-Type"), gc.Equals, ctype)
-	c.Check(resp.Header.Get("Content-Length"), gc.Equals, strconv.Itoa(len(body)))
+	c.Assert(recorder.Code, gc.Equals, status)
+	hdr := recorder.Header()
+	c.Check(hdr.Get("Content-Type"), gc.Equals, ctype)
+	c.Check(hdr.Get("Content-Length"), gc.Equals, strconv.Itoa(len(body)))
 
-	actualBody, err := ioutil.ReadAll(resp.Body)
+	actualBody, err := ioutil.ReadAll(recorder.Body)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(string(actualBody), gc.Equals, body)
 }
