@@ -407,7 +407,7 @@ func (s *MultiModelStateSuite) TestWatchTwoModels(c *gc.C) {
 			},
 			triggerEvent: func(st *state.State) {
 				_, err := st.AddRemoteApplication(state.AddRemoteApplicationParams{
-					Name: "db2", URL: "local:/u/ibm/db2", SourceModel: s.State.ModelTag()})
+					Name: "db2", SourceModel: s.State.ModelTag()})
 				c.Assert(err, jc.ErrorIsNil)
 			},
 		}, {
@@ -437,7 +437,7 @@ func (s *MultiModelStateSuite) TestWatchTwoModels(c *gc.C) {
 			},
 			setUpState: func(st *state.State) bool {
 				_, err := st.AddRemoteApplication(state.AddRemoteApplicationParams{
-					Name: "mysql", URL: "local:/u/ibm/mysql", SourceModel: s.OtherState.ModelTag(),
+					Name: "mysql", SourceModel: s.OtherState.ModelTag(),
 					Endpoints: []charm.Relation{{Name: "database", Interface: "mysql", Role: "provider", Scope: "global"}},
 				})
 				c.Assert(err, jc.ErrorIsNil)
@@ -1487,7 +1487,7 @@ func (s *StateSuite) TestAddServiceEnvironmentMigrating(c *gc.C) {
 func (s *StateSuite) TestAddApplicationSameRemoteExists(c *gc.C) {
 	charm := s.AddTestingCharm(c, "dummy")
 	_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
-		Name: "s1", URL: "local:/u/me/dummy", SourceModel: s.State.ModelTag()})
+		Name: "s1", SourceModel: s.State.ModelTag()})
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddApplication(state.AddApplicationArgs{Name: "s1", Charm: charm})
 	c.Assert(err, gc.ErrorMatches, `cannot add application "s1": remote application with same name already exists`)
@@ -1500,7 +1500,7 @@ func (s *StateSuite) TestAddApplicationRemotedAddedAfterInitial(c *gc.C) {
 	// before the transaction is run.
 	defer state.SetBeforeHooks(c, s.State, func() {
 		_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
-			Name: "s1", URL: "local:/u/me/s1", SourceModel: s.State.ModelTag()})
+			Name: "s1", SourceModel: s.State.ModelTag()})
 		c.Assert(err, jc.ErrorIsNil)
 	}).Check()
 	_, err := s.State.AddApplication(state.AddApplicationArgs{Name: "s1", Charm: charm})
@@ -3332,7 +3332,7 @@ func (s *StateSuite) setupWatchRemoteRelations(c *gc.C, wc statetesting.StringsW
 	wc.AssertNoChange()
 
 	remoteApp, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
-		Name: "mysql", URL: "local:/u/ibm/mysql", SourceModel: s.State.ModelTag(),
+		Name: "mysql", SourceModel: s.State.ModelTag(),
 		Endpoints: []charm.Relation{{Name: "database", Interface: "mysql", Role: "provider", Scope: "global"}},
 	})
 	c.Assert(err, jc.ErrorIsNil)

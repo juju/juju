@@ -4,6 +4,5 @@
 package crossmodel
 
 var (
-	CreateAPI      = createAPI
-	GetStateAccess = getStateAccess
+	CreateAPI = createAPI
 )

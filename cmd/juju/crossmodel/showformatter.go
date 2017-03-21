@@ -37,7 +37,7 @@ func formatOfferedEndpointsTabular(writer io.Writer, all map[string]ShowRemoteAp
 	tw := output.TabWriter(writer)
 	w := output.Wrapper{tw}
 
-	w.Println("Application", "Description", "Endpoint", "Interface", "Role")
+	w.Println("Application URL", "Description", "Endpoint", "Interface", "Role")
 
 	for name, one := range all {
 		applicationName := name

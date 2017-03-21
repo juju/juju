@@ -1044,7 +1044,7 @@ func (api *API) sameControllerOfferedApplication(url *jujucrossmodel.Application
 	applicationOffers := state.NewApplicationOffers(st)
 	offers, err := applicationOffers.ListOffers(
 		jujucrossmodel.ApplicationOfferFilter{
-			ApplicationURL: "/" + url.ApplicationName,
+			OfferName: url.ApplicationName,
 		},
 	)
 	if err != nil {

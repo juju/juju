@@ -10,10 +10,10 @@ import (
 // ApplicationOffer holds the details of an application offered
 // by this model.
 type ApplicationOffer struct {
-	// ApplicationURL is the URL used to locate the offer in a directory.
-	ApplicationURL string
+	// OfferName is the name of the offer.
+	OfferName string
 
-	// ApplicationName is the name of the application.
+	// ApplicationName is the name of the application to which the offer pertains.
 	ApplicationName string
 
 	// ApplicationDescription is a description of the application's functionality,
@@ -27,10 +27,10 @@ type ApplicationOffer struct {
 
 // AddApplicationOfferArgs contain parameters used to create an application offer.
 type AddApplicationOfferArgs struct {
-	// ApplicationURL is the URL used to locate the offer in a directory.
-	ApplicationURL string
+	// OfferName is the name of the offer.
+	OfferName string
 
-	// ApplicationName is the name of the application.
+	// ApplicationName is the name of the application to which the offer pertains.
 	ApplicationName string
 
 	// ApplicationDescription is a description of the application's functionality,
@@ -54,10 +54,13 @@ func (s *ApplicationOffer) String() string {
 // ApplicationOfferFilter is used to query applications offered
 // by this model.
 type ApplicationOfferFilter struct {
-	// ApplicationURL is the URL used to locate the offer in a directory.
-	ApplicationURL string
+	// OfferName is the name of the model hosting the offer.
+	ModelName string
 
-	// ApplicationName is the name of the application.
+	// OfferName is the name of the offer.
+	OfferName string
+
+	// ApplicationName is the name of the application to which the offer pertains.
 	ApplicationName string
 
 	// ApplicationDescription is a description of the application's functionality,
@@ -96,7 +99,7 @@ type ApplicationOffers interface {
 	ListOffers(filter ...ApplicationOfferFilter) ([]ApplicationOffer, error)
 
 	// Remove removes the application offer at the specified URL.
-	Remove(url string) error
+	Remove(offerName string) error
 }
 
 // RemoteApplication represents a remote application.

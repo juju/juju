@@ -2042,7 +2042,6 @@ func (s *applicationSuite) TestApplicationDestroy(c *gc.C) {
 	s.AddTestingService(c, "dummy-application", s.AddTestingCharm(c, "dummy"))
 	_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name:        "remote-application",
-		URL:         "local:/u/me/remote",
 		SourceModel: s.State.ModelTag(),
 		Token:       "t0",
 	})
@@ -2565,7 +2564,7 @@ func (s *applicationSuite) setupOtherModelOffer(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	offersAPi := state.NewApplicationOffers(s.otherModel)
 	_, err = offersAPi.AddOffer(crossmodel.AddApplicationOfferArgs{
-		ApplicationURL:  "local:/u/me/hosted-mysql",
+		OfferName:       "hosted-mysql",
 		ApplicationName: "othermysql",
 		Endpoints:       map[string]string{"database": "server"},
 	})
@@ -2581,7 +2580,6 @@ func (s *applicationSuite) TestSuccessfullyAddRemoteRelation(c *gc.C) {
 func (s *applicationSuite) TestAddRemoteRelationRemoteAppExists(c *gc.C) {
 	_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name:        "othermysql",
-		URL:         "local:/u/me/othermysql",
 		SourceModel: s.otherModel.ModelTag(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -2594,7 +2592,6 @@ func (s *applicationSuite) TestAddRemoteRelationRemoteAppExists(c *gc.C) {
 func (s *applicationSuite) TestAddRemoteRelationRemoteAppExistsDifferentSourceModel(c *gc.C) {
 	_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name:        "hosted-mysql",
-		URL:         "local:/u/me/hosted-mysql",
 		SourceModel: names.NewModelTag(utils.MustNewUUID().String()),
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -2651,7 +2648,7 @@ func (s *applicationSuite) TestRemoteRelationNoMatchingEndpoint(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	offersAPi := state.NewApplicationOffers(s.otherModel)
 	_, err = offersAPi.AddOffer(crossmodel.AddApplicationOfferArgs{
-		ApplicationURL:  "local:/u/me/hosted-riak",
+		OfferName:       "hosted-riak",
 		ApplicationName: "riak",
 		Endpoints:       map[string]string{"endpoint": "endpoint"},
 	})

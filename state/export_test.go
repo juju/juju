@@ -116,8 +116,8 @@ func newRunnerForHooks(st *State) jujutxn.Runner {
 	return runner
 }
 
-func OfferAtURL(sd crossmodel.ApplicationOffers, url string) (*applicationOfferDoc, error) {
-	return sd.(*applicationOffers).offerAtURL(url)
+func OfferForName(sd crossmodel.ApplicationOffers, name string) (*applicationOfferDoc, error) {
+	return sd.(*applicationOffers).offerForName(name)
 }
 
 func MakeApplicationOffer(sd crossmodel.ApplicationOffers, offer *applicationOfferDoc) (*crossmodel.ApplicationOffer, error) {
