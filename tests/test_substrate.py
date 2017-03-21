@@ -1705,65 +1705,67 @@ class TestAWSEnsureCleanUp(TestCase):
         resource_details = dict()
         resource_details['instances'] = ["foo", "bar"]
         aws = AWSAccount(None, 'myregion', client)
-        with patch('substrate.attempt_terminate_instances',
-                   return_value=["foo", "bar"], autospec=True):
-            with patch.object(aws, 'get_security_groups',
-                              return_value=['sg-foo'], autospec=True) as gsg:
-                with patch.object(aws, 'cleanup_security_groups',
-                                  return_value=[], autospec=True) as csg:
-                    uncleaned_resources = aws.ensure_cleanup(resource_details)
-                    gsg.assert_called_once_with(['foo', 'bar'])
-                    csg.assert_called_once_with(['foo', 'bar'], ['sg-foo'])
-                    self.assertEquals(
-                        uncleaned_resources,
-                        [{'errors': ['foo', 'bar'], 'resource': 'instances'}])
+        err_msg = 'Instance error'
+        client.terminate_instances.side_effect = [
+            Exception(err_msg), Exception(err_msg)]
+        with patch.object(aws, 'get_security_groups',
+                          return_value=['sg-foo'], autospec=True) as gsg:
+            with patch.object(aws, 'cleanup_security_groups',
+                              return_value=[], autospec=True) as csg:
+                uncleaned_resources = aws.ensure_cleanup(resource_details)
+                gsg.assert_called_once_with(['foo', 'bar'])
+                csg.assert_called_once_with(['foo', 'bar'], ['sg-foo'])
+                self.assertEquals(uncleaned_resources, [
+                    {'errors': [
+                        ('foo', "Exception('Instance error',)"),
+                        ('bar', "Exception('Instance error',)")],
+                        'resource': 'instances'}])
 
     def test_ensure_cleanup_with_uncleaned_sg(self):
         client = MagicMock()
         resource_details = dict()
         resource_details['instances'] = ["foo", "bar"]
         aws = AWSAccount(None, 'myregion', client)
-        with patch('substrate.attempt_terminate_instances',
-                   return_value=[], autospec=True):
-            with patch.object(aws, 'get_security_groups',
-                              return_value=[], autospec=True) as gsg:
-                with patch.object(aws, 'cleanup_security_groups',
-                                  return_value=["foo", "bar"],
-                                  autospec=True) as csg:
-                    uncleaned_resources = aws.ensure_cleanup(resource_details)
-                    self.assertEquals(
-                        uncleaned_resources,
-                        [{'errors': ['foo', 'bar'],
-                          'resource': 'security groups'}])
-                    gsg.assert_called_once_with(['foo', 'bar'])
-                    csg.assert_called_once_with(['foo', 'bar'], [])
+        client.terminate_instances.side_effect = ["foo", "bar"]
+        with patch.object(aws, 'get_security_groups',
+                          return_value=[], autospec=True) as gsg:
+            with patch.object(aws, 'cleanup_security_groups',
+                              return_value=["foo", "bar"],
+                              autospec=True) as csg:
+                uncleaned_resources = aws.ensure_cleanup(resource_details)
+                self.assertEquals(
+                    uncleaned_resources,
+                    [{'errors': ['foo', 'bar'],
+                      'resource': 'security groups'}])
+                gsg.assert_called_once_with(['foo', 'bar'])
+                csg.assert_called_once_with(['foo', 'bar'], [])
 
     def test_ensure_cleanup_with_uncleaned_instances_and_sg(self):
         client = MagicMock()
         resource_details = dict()
-        resource_details['instances'] = []
+        resource_details['instances'] = ["foo", "bar"]
         aws = AWSAccount(None, 'myregion', client)
         ati_err_msg = 'Instance not found'
         sg_err_msg = 'Security group failed to delete'
-        with patch('substrate.attempt_terminate_instances',
-                   autospec=True) as ati:
-            ati.return_value = [('ifoo', ati_err_msg), ('ibar', ati_err_msg)]
-            with patch.object(aws, 'get_security_groups',
-                              return_value=[], autospec=True) as gsg:
-                with patch.object(aws, 'cleanup_security_groups',
-                                  return_value=[("sg-bar", sg_err_msg)],
-                                  autospec=True) as csg:
-                    uncleaned_resources = aws.ensure_cleanup(resource_details)
-                    gsg.assert_called_once_with([])
-                    csg.assert_called_once_with([], [])
-                    self.assertEquals(
-                        uncleaned_resources,
-                        [{'errors': [('ifoo', 'Instance not found'),
-                                     ('ibar', 'Instance not found')],
-                          'resource': 'instances'},
-                         {'errors': [
-                             ('sg-bar', 'Security group failed to delete')],
-                             'resource': 'security groups'}])
+        client.terminate_instances.side_effect = [
+             Exception(ati_err_msg), Exception(ati_err_msg)]
+        with patch.object(aws, 'get_security_groups',
+                          return_value=[], autospec=True) as gsg:
+            with patch.object(aws, 'cleanup_security_groups',
+                              return_value=[("sg-bar", sg_err_msg)],
+                              autospec=True) as csg:
+                uncleaned_resources = aws.ensure_cleanup(resource_details)
+                gsg.assert_called_once_with(['foo', 'bar'])
+                csg.assert_called_once_with(['foo', 'bar'], [])
+                self.assertEquals(
+                    uncleaned_resources,
+                    [{'errors': [
+                        ('foo', "Exception('Instance not found',)"),
+                        ('bar', "Exception('Instance not found',)")],
+                        'resource': 'instances'},
+                     {'errors': [
+                         ('sg-bar', 'Security group failed to delete')],
+                         'resource': 'security groups'}])
 
 
 class TestAWSCleanUpSecurityGroups(TestCase):
@@ -1881,10 +1883,8 @@ class TestAttemptTerminateInstances(TestCase):
         instances = ["foo", "bar"]
         err_msg = "Instance not found"
         aws = AWSAccount(None, 'myregion', client)
-        with patch.object(aws.client, 'terminate_instances',
-                          autospec=True) as ti:
-            ti.side_effect = Exception(err_msg)
-            failed = attempt_terminate_instances(aws, instances)
+        client.terminate_instances.side_effect = Exception(err_msg)
+        failed = attempt_terminate_instances(aws, instances)
         self.assertEquals(failed,
                           [('foo', "Exception('{}',)".format(err_msg)),
                            ('bar', "Exception('{}',)".format(err_msg))])
@@ -1893,27 +1893,25 @@ class TestAttemptTerminateInstances(TestCase):
         client = MagicMock()
         instances = ["foo", "bar"]
         aws = AWSAccount(None, 'myregion', client)
-        with patch.object(aws.client, 'terminate_instances',
-                          autospec=True) as ti:
-            ti.return_value = ["foo", "bar"]
-            failed = attempt_terminate_instances(aws, instances)
-            ti.assert_called_once_with(
-                [call(instance_ids=['foo']), call(instance_ids=['bar'])])
-            self.assertEquals(failed, [])
+        client.terminate_instances.return_value = ["foo", "bar"]
+        failed = attempt_terminate_instances(aws, instances)
+        self.assertEquals(client.terminate_instances.call_args_list,
+                          [call(instance_ids=['foo']),
+                           call(instance_ids=['bar'])])
+        self.assertEquals(failed, [])
 
     def test_returns_has_some_error(self):
         client = MagicMock()
         instances = ["foo", "bar"]
         err_msg = "Instance not found"
         aws = AWSAccount(None, 'myregion', client)
-        with patch.object(aws.client, 'terminate_instances',
-                          autospec=True) as ti:
-            ti.side_effect = ["foo", Exception(err_msg)]
-            failed = attempt_terminate_instances(aws, instances)
-            ti.assert_called_once_with(
-                [call(instance_ids=['foo']), call(instance_ids=['bar'])])
-            self.assertEquals(failed, [
-                ('bar', "Exception('Instance not found',)")])
+        client.terminate_instances.side_effect = ["foo", Exception(err_msg)]
+        failed = attempt_terminate_instances(aws, instances)
+        self.assertEquals(client.terminate_instances.call_args_list,
+                          [call(instance_ids=['foo']),
+                           call(instance_ids=['bar'])])
+        self.assertEquals(failed, [
+            ('bar', "Exception('Instance not found',)")])
 
 
 class TestGetSecurityGroups(TestCase):
