@@ -6,7 +6,6 @@
 package crossmodel
 
 import (
-	"fmt"
 	"sort"
 
 	"github.com/juju/errors"
@@ -17,6 +16,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	jujucrossmodel "github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/feature"
+	"github.com/juju/juju/permission"
 )
 
 func init() {
@@ -57,8 +57,23 @@ func NewAPI(ctx facade.Context) (*API, error) {
 	return createAPI(getApplicationOffers, getStateAccess(ctx.State()), getStatePool(ctx.StatePool()), ctx.Auth())
 }
 
+func (api *API) checkPermission(backend Backend, perm permission.Access) error {
+	allowed, err := api.authorizer.HasPermission(perm, api.backend.ModelTag())
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if !allowed {
+		return common.ErrPerm
+	}
+	return nil
+}
+
 // Offer makes application endpoints available for consumption at a specified URL.
 func (api *API) Offer(all params.AddApplicationOffers) (params.ErrorResults, error) {
+	if err := api.checkPermission(api.backend, permission.AdminAccess); err != nil {
+		return params.ErrorResults{}, common.ServerError(err)
+	}
+
 	result := make([]params.ErrorResult, len(all.Offers))
 
 	for i, one := range all.Offers {
@@ -162,7 +177,7 @@ func (api *API) offerForURL(urlStr string) (params.ApplicationOfferDetails, erro
 	filter := jujucrossmodel.ApplicationOfferFilter{
 		OfferName: url.ApplicationName,
 	}
-	offers, err := api.applicationOffersFromModel(model.UUID(), filter)
+	offers, err := api.applicationOffersFromModel(model.UUID(), permission.ReadAccess, filter)
 	if err != nil {
 		return fail(errors.Trace(err))
 	}
@@ -174,14 +189,18 @@ func (api *API) offerForURL(urlStr string) (params.ApplicationOfferDetails, erro
 		err := errors.Errorf("too many application offers for %q", url.ApplicationName)
 		return fail(err)
 	}
-	fullURL := fmt.Sprintf("%s/%s.%s", model.Owner().Name(), model.Name(), url.ApplicationName)
+	fullURL := jujucrossmodel.MakeURL(model.Owner().Name(), model.Name(), url.ApplicationName, "")
 	offer := offers[0]
 	offer.OfferURL = fullURL
 	return offer, nil
 }
 
 // ApplicationOffers gets details about remote applications that match given URLs.
-func (api *API) applicationOffersFromModel(modelUUID string, filters ...jujucrossmodel.ApplicationOfferFilter) ([]params.ApplicationOfferDetails, error) {
+func (api *API) applicationOffersFromModel(
+	modelUUID string,
+	requiredPerm permission.Access,
+	filters ...jujucrossmodel.ApplicationOfferFilter,
+) ([]params.ApplicationOfferDetails, error) {
 	backend := api.backend
 	if modelUUID != api.backend.ModelUUID() {
 		st, releaser, err := api.statePool.Get(modelUUID)
@@ -190,6 +209,9 @@ func (api *API) applicationOffersFromModel(modelUUID string, filters ...jujucros
 		}
 		backend = st
 		defer releaser()
+	}
+	if err := api.checkPermission(backend, requiredPerm); err != nil {
+		return nil, common.ServerError(err)
 	}
 
 	offers, err := api.getApplicationOffers(backend).ListOffers(filters...)
@@ -236,10 +258,11 @@ func makeOfferParamsFromOffer(offer jujucrossmodel.ApplicationOffer) params.Appl
 	return result
 }
 
-// FindApplicationOffers gets details about remote applications that match given filter.
+// FindApplicationOffers gets information about remote applications that match given filter.
+// The result describes the endpoints able to be used in a remote relation.
 func (api *API) FindApplicationOffers(filters params.OfferFilters) (params.FindApplicationOffersResults, error) {
 	var result params.FindApplicationOffersResults
-	offers, err := api.getApplicationOffersDetails(filters)
+	offers, err := api.getApplicationOffersDetails(filters, permission.ReadAccess)
 	if err != nil {
 		return result, err
 	}
@@ -251,9 +274,10 @@ func (api *API) FindApplicationOffers(filters params.OfferFilters) (params.FindA
 
 // ListApplicationOffers gets deployed details about application offers that match given filter.
 // The results contain details about the deployed applications such as connection count.
+// The results contain sensitive data about the state of the model, restricted to model admins.
 func (api *API) ListApplicationOffers(filters params.OfferFilters) (params.ListApplicationOffersResults, error) {
 	var result params.ListApplicationOffersResults
-	offers, err := api.getApplicationOffersDetails(filters)
+	offers, err := api.getApplicationOffersDetails(filters, permission.AdminAccess)
 	if err != nil {
 		return result, err
 	}
@@ -314,7 +338,10 @@ func (api *API) getModelFilters(filters params.OfferFilters) (
 }
 
 // getApplicationOffersDetails gets details about remote applications that match given filter.
-func (api *API) getApplicationOffersDetails(filters params.OfferFilters) ([]params.ApplicationOfferDetails, error) {
+func (api *API) getApplicationOffersDetails(
+	filters params.OfferFilters,
+	requiredPerm permission.Access,
+) ([]params.ApplicationOfferDetails, error) {
 	// Gather all the filter details for doing a query for each model.
 	models, filtersPerModel, err := api.getModelFilters(filters)
 	if err != nil {
@@ -342,16 +369,14 @@ func (api *API) getApplicationOffersDetails(filters params.OfferFilters) ([]para
 	var result []params.ApplicationOfferDetails
 	for _, modelUUID := range allUUIDs {
 		filters := filtersPerModel[modelUUID]
-		offers, err := api.applicationOffersFromModel(modelUUID, filters...)
+		offers, err := api.applicationOffersFromModel(modelUUID, requiredPerm, filters...)
 		if err != nil {
 			return nil, common.ServerError(errors.Trace(err))
 		}
 		model := models[modelUUID]
-		baseURL := fmt.Sprintf("%s/%s", model.Owner().Name(), model.Name())
 
 		for _, offer := range offers {
-			url := fmt.Sprintf("%s.%s", baseURL, offer.OfferName)
-			offer.OfferURL = url
+			offer.OfferURL = jujucrossmodel.MakeURL(model.Owner().Name(), model.Name(), offer.OfferName, "")
 			result = append(result, offer)
 		}
 	}

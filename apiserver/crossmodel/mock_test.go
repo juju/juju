@@ -131,6 +131,10 @@ func (m *mockState) ModelUUID() string {
 	return m.modelUUID
 }
 
+func (m *mockState) ModelTag() names.ModelTag {
+	return names.NewModelTag(m.modelUUID)
+}
+
 func (m *mockState) ModelsForUser(user names.UserTag) ([]crossmodel.UserModel, error) {
 	return m.usermodels, nil
 }

@@ -41,6 +41,7 @@ type Backend interface {
 	Application(name string) (Application, error)
 	Model() (Model, error)
 	ModelUUID() string
+	ModelTag() names.ModelTag
 	ModelsForUser(user names.UserTag) ([]UserModel, error)
 	RemoteConnectionStatus(offerName string) (RemoteConnectionStatus, error)
 }
