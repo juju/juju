@@ -4,14 +4,17 @@
 package openstack
 
 import (
+	"net"
 	"sync"
 
 	"github.com/juju/errors"
 	"github.com/juju/utils"
+	"github.com/juju/utils/set"
 	"gopkg.in/goose.v1/neutron"
 	"gopkg.in/goose.v1/nova"
 
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
 )
 
 // Networking is an interface providing networking-related operations
@@ -28,6 +31,16 @@ type Networking interface {
 	// ResolveNetwork takes either a network ID or label
 	// and returns the corresponding network ID.
 	ResolveNetwork(string) (string, error)
+
+	// Subnets returns basic information about subnets known
+	// by OpenStack for the environment.
+	// Needed for Environ.Networking
+	Subnets(instance.Id, []network.Id) ([]network.SubnetInfo, error)
+
+	// NetworkInterfaces requests information about the network
+	// interfaces on the given instance.
+	// Needed for Environ.Networking
+	NetworkInterfaces(instId instance.Id) ([]network.InterfaceInfo, error)
 }
 
 // NetworkingDecorator is an interface that provides a means of overriding
@@ -94,6 +107,22 @@ func (n *switchingNetworking) ResolveNetwork(name string) (string, error) {
 		return "", errors.Trace(err)
 	}
 	return n.networking.ResolveNetwork(name)
+}
+
+// Subnets is part of the Networking interface.
+func (n *switchingNetworking) Subnets(instId instance.Id, subnetIds []network.Id) ([]network.SubnetInfo, error) {
+	if err := n.initNetworking(); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return n.networking.Subnets(instId, subnetIds)
+}
+
+// NetworkInterfaces is part of the Networking interface
+func (n *switchingNetworking) NetworkInterfaces(instId instance.Id) ([]network.InterfaceInfo, error) {
+	if err := n.initNetworking(); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return n.networking.NetworkInterfaces(instId)
 }
 
 type networkingBase struct {
@@ -245,4 +274,76 @@ func resolveNeutronNetwork(neutron *neutron.Client, name string) (string, error)
 		}
 	}
 	return processResolveNetworkIds(name, networkIds)
+}
+
+func makeSubnetInfo(neutron *neutron.Client, subnet neutron.SubnetV2) (network.SubnetInfo, error) {
+	_, _, err := net.ParseCIDR(subnet.Cidr)
+	if err != nil {
+		return network.SubnetInfo{}, errors.Annotatef(err, "skipping subnet %q, invalid CIDR", subnet.Cidr)
+	}
+	net, err := neutron.GetNetworkV2(subnet.NetworkId)
+	if err != nil {
+		return network.SubnetInfo{}, err
+	}
+
+	// TODO (hml) 2017-03-20:
+	// With goose updates, VLANTag can be updated to be
+	// network.segmentation_id, if network.network_type equals vlan
+	info := network.SubnetInfo{
+		CIDR:              subnet.Cidr,
+		ProviderId:        network.Id(subnet.Id),
+		VLANTag:           0,
+		AvailabilityZones: net.AvailabilityZones,
+		SpaceProviderId:   "",
+	}
+	logger.Tracef("found subnet with info %#v", info)
+	return info, nil
+}
+
+// Subnets returns basic information about the specified subnets known
+// by the provider for the specified instance or list of ids. subnetIds can be
+// empty, in which case all known are returned.
+func (n *NeutronNetworking) Subnets(instId instance.Id, subnetIds []network.Id) ([]network.SubnetInfo, error) {
+	var results []network.SubnetInfo
+	subIdSet := set.NewStrings()
+	for _, subId := range subnetIds {
+		subIdSet.Add(string(subId))
+	}
+
+	if instId != instance.UnknownId {
+		// TODO(hml): 2017-03-20
+		// Implment Subnets() for case where instId is specified
+		return nil, errors.NotImplementedf("neutron subnets with instance Id")
+	} else {
+		neutron := n.env.neutron()
+		subnets, err := neutron.ListSubnetsV2()
+		if err != nil {
+			return nil, errors.Annotatef(err, "failed to retrieve subnets")
+		}
+		if len(subnetIds) == 0 {
+			for _, subnet := range subnets {
+				subIdSet.Add(string(subnet.Id))
+			}
+		}
+		for _, subnet := range subnets {
+			if !subIdSet.Contains(string(subnet.Id)) {
+				logger.Tracef("subnet %q not in %v, skipping", subnet.Id, subnetIds)
+				continue
+			}
+			subIdSet.Remove(string(subnet.Id))
+			if info, err := makeSubnetInfo(neutron, subnet); err == nil {
+				// Error will already have been logged.
+				results = append(results, info)
+			}
+
+		}
+	}
+	if !subIdSet.IsEmpty() {
+		return nil, errors.Errorf("failed to find the following subnet ids: %v", subIdSet.Values())
+	}
+	return results, nil
+}
+
+func (n *NeutronNetworking) NetworkInterfaces(instId instance.Id) ([]network.InterfaceInfo, error) {
+	return nil, errors.NotImplementedf("neutron network interfaces")
 }

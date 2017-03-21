@@ -1041,7 +1041,50 @@ func (s *localServerSuite) TestGetToolsMetadataSources(c *gc.C) {
 func (s *localServerSuite) TestSupportsNetworking(c *gc.C) {
 	env := s.Open(c, s.env.Config())
 	_, ok := environs.SupportsNetworking(env)
-	c.Assert(ok, jc.IsFalse)
+	c.Assert(ok, jc.IsTrue)
+}
+
+func (s *localServerSuite) prepareNetworkingEnviron(c *gc.C) environs.NetworkingEnviron {
+	env := s.Open(c, s.env.Config())
+	netenv, supported := environs.SupportsNetworking(env)
+	c.Assert(supported, jc.IsTrue)
+	return netenv
+}
+
+func (s *localServerSuite) TestSubnetsFindAll(c *gc.C) {
+	env := s.prepareNetworkingEnviron(c)
+	obtainedSubnets, err := env.Subnets(instance.Id(""), []network.Id{})
+	c.Assert(err, jc.ErrorIsNil)
+	neutronClient := openstack.GetNeutronClient(s.env)
+	openstackSubnets, err := neutronClient.ListSubnetsV2()
+	c.Assert(err, jc.ErrorIsNil)
+
+	obtainedSubnetMap := make(map[network.Id]network.SubnetInfo)
+	for _, sub := range obtainedSubnets {
+		obtainedSubnetMap[sub.ProviderId] = sub
+	}
+
+	expectedSubnetMap := make(map[network.Id]network.SubnetInfo)
+	for _, os := range openstackSubnets {
+		net, err := neutronClient.GetNetworkV2(os.NetworkId)
+		c.Assert(err, jc.ErrorIsNil)
+		expectedSubnetMap[network.Id(os.Id)] = network.SubnetInfo{
+			CIDR:              os.Cidr,
+			ProviderId:        network.Id(os.Id),
+			VLANTag:           0,
+			AvailabilityZones: net.AvailabilityZones,
+			SpaceProviderId:   "",
+		}
+	}
+
+	c.Check(obtainedSubnetMap, jc.DeepEquals, expectedSubnetMap)
+}
+
+func (s *localServerSuite) TestSubnetsWithMissingSubnet(c *gc.C) {
+	env := s.prepareNetworkingEnviron(c)
+	subnets, err := env.Subnets(instance.Id(""), []network.Id{"missing"})
+	c.Assert(err, gc.ErrorMatches, `failed to find the following subnet ids: \[missing\]`)
+	c.Assert(subnets, gc.HasLen, 0)
 }
 
 func (s *localServerSuite) TestFindImageBadDefaultImage(c *gc.C) {
