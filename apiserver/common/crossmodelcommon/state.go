@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package crossmodel
+package crossmodelcommon
 
 import (
 	"github.com/juju/errors"
@@ -12,14 +12,13 @@ import (
 	"github.com/juju/juju/state"
 )
 
-// StatePool provides the subset of a state pool required by the
-// crossmodel facade.
+// StatePool provides the subset of a state pool.
 type StatePool interface {
 	// Get returns a State for a given model from the pool.
 	Get(modelUUID string) (Backend, func(), error)
 }
 
-var getStatePool = func(sp *state.StatePool) StatePool {
+var GetStatePool = func(sp *state.StatePool) StatePool {
 	return &statePoolShim{sp}
 
 }
@@ -46,7 +45,7 @@ type Backend interface {
 	RemoteConnectionStatus(offerName string) (RemoteConnectionStatus, error)
 }
 
-var getStateAccess = func(st *state.State) Backend {
+var GetStateAccess = func(st *state.State) Backend {
 	return &stateShim{st}
 }
 
@@ -76,7 +75,7 @@ func (s *stateShim) ModelsForUser(user names.UserTag) ([]UserModel, error) {
 	return result, err
 }
 
-var getApplicationOffers = func(backend interface{}) crossmodel.ApplicationOffers {
+var GetApplicationOffers = func(backend interface{}) crossmodel.ApplicationOffers {
 	switch st := backend.(type) {
 	case *state.State:
 		return state.NewApplicationOffers(st)

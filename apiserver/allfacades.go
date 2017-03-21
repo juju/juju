@@ -15,6 +15,7 @@ import (
 	_ "github.com/juju/juju/apiserver/agenttools"
 	_ "github.com/juju/juju/apiserver/annotations" // ModelUser Write
 	_ "github.com/juju/juju/apiserver/application" // ModelUser Write
+	_ "github.com/juju/juju/apiserver/applicationoffers"
 	_ "github.com/juju/juju/apiserver/applicationscaler"
 	_ "github.com/juju/juju/apiserver/backups" // ModelUser Write
 	_ "github.com/juju/juju/apiserver/block"   // ModelUser Write
@@ -25,7 +26,6 @@ import (
 	_ "github.com/juju/juju/apiserver/client"     // ModelUser Write
 	_ "github.com/juju/juju/apiserver/cloud"      // ModelUser Read
 	_ "github.com/juju/juju/apiserver/controller" // ModelUser Admin (although some methods check for read only)
-	_ "github.com/juju/juju/apiserver/crossmodel"
 	_ "github.com/juju/juju/apiserver/deployer"
 	_ "github.com/juju/juju/apiserver/discoverspaces"
 	_ "github.com/juju/juju/apiserver/diskmanager"
@@ -60,6 +60,7 @@ import (
 	_ "github.com/juju/juju/apiserver/provisioner"
 	_ "github.com/juju/juju/apiserver/proxyupdater"
 	_ "github.com/juju/juju/apiserver/reboot"
+	_ "github.com/juju/juju/apiserver/remoteendpoints"
 	_ "github.com/juju/juju/apiserver/remotefirewaller"
 	_ "github.com/juju/juju/apiserver/remoterelations"
 	_ "github.com/juju/juju/apiserver/resources"

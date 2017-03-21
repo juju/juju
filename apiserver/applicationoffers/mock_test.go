@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package crossmodel_test
+package applicationoffers_test
 
 import (
 	"github.com/juju/errors"
@@ -9,19 +9,20 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/apiserver/crossmodel"
+	"github.com/juju/juju/apiserver/common/crossmodelcommon"
 	jujucrossmodel "github.com/juju/juju/core/crossmodel"
 )
 
 const (
-	addOfferCall    = "addOfferCall"
-	updateOfferCall = "updateOfferCall"
+	addOfferCall    = "addOffersCall"
 	listOffersCall  = "listOffersCall"
+	updateOfferCall = "updateOfferCall"
 	removeOfferCall = "removeOfferCall"
 )
 
 type mockApplicationOffers struct {
 	jtesting.Stub
+	jujucrossmodel.ApplicationOffers
 
 	addOffer   func(offer jujucrossmodel.AddApplicationOfferArgs) (*jujucrossmodel.ApplicationOffer, error)
 	listOffers func(filters ...jujucrossmodel.ApplicationOfferFilter) ([]jujucrossmodel.ApplicationOffer, error)
@@ -66,10 +67,10 @@ func (m *mockModel) Owner() names.UserTag {
 }
 
 type mockUserModel struct {
-	model crossmodel.Model
+	model crossmodelcommon.Model
 }
 
-func (m *mockUserModel) Model() crossmodel.Model {
+func (m *mockUserModel) Model() crossmodelcommon.Model {
 	return m.model
 }
 
@@ -91,7 +92,7 @@ func (m *mockApplication) Name() string {
 	return m.name
 }
 
-func (m *mockApplication) Charm() (crossmodel.Charm, bool, error) {
+func (m *mockApplication) Charm() (crossmodelcommon.Charm, bool, error) {
 	return m.charm, true, nil
 }
 
@@ -109,13 +110,13 @@ func (m *mockConnectionStatus) ConnectionCount() int {
 
 type mockState struct {
 	modelUUID    string
-	model        crossmodel.Model
-	usermodels   []crossmodel.UserModel
-	applications map[string]crossmodel.Application
-	connStatus   crossmodel.RemoteConnectionStatus
+	model        crossmodelcommon.Model
+	usermodels   []crossmodelcommon.UserModel
+	applications map[string]crossmodelcommon.Application
+	connStatus   crossmodelcommon.RemoteConnectionStatus
 }
 
-func (m *mockState) Application(name string) (crossmodel.Application, error) {
+func (m *mockState) Application(name string) (crossmodelcommon.Application, error) {
 	app, ok := m.applications[name]
 	if !ok {
 		return nil, errors.NotFoundf("application %q", name)
@@ -123,7 +124,7 @@ func (m *mockState) Application(name string) (crossmodel.Application, error) {
 	return app, nil
 }
 
-func (m *mockState) Model() (crossmodel.Model, error) {
+func (m *mockState) Model() (crossmodelcommon.Model, error) {
 	return m.model, nil
 }
 
@@ -135,19 +136,19 @@ func (m *mockState) ModelTag() names.ModelTag {
 	return names.NewModelTag(m.modelUUID)
 }
 
-func (m *mockState) ModelsForUser(user names.UserTag) ([]crossmodel.UserModel, error) {
+func (m *mockState) ModelsForUser(user names.UserTag) ([]crossmodelcommon.UserModel, error) {
 	return m.usermodels, nil
 }
 
-func (m *mockState) RemoteConnectionStatus(offerName string) (crossmodel.RemoteConnectionStatus, error) {
+func (m *mockState) RemoteConnectionStatus(offerName string) (crossmodelcommon.RemoteConnectionStatus, error) {
 	return m.connStatus, nil
 }
 
 type mockStatePool struct {
-	st map[string]crossmodel.Backend
+	st map[string]crossmodelcommon.Backend
 }
 
-func (st *mockStatePool) Get(modelUUID string) (crossmodel.Backend, func(), error) {
+func (st *mockStatePool) Get(modelUUID string) (crossmodelcommon.Backend, func(), error) {
 	backend, ok := st.st[modelUUID]
 	if !ok {
 		return nil, nil, errors.NotFoundf("model for uuid %s", modelUUID)

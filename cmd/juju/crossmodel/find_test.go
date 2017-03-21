@@ -42,15 +42,7 @@ func (s *findSuite) TestFindNoArgs(c *gc.C) {
 	s.mockAPI.c = c
 	s.mockAPI.expectedFilter = &jujucrossmodel.ApplicationOfferFilter{ModelName: "test"}
 	s.mockAPI.expectedModelName = "model"
-	s.assertFind(
-		c,
-		[]string{},
-		`
-URL                    Interfaces
-fred/model.hosted-db2  http:db2, http:log
-
-`[1:],
-	)
+	s.assertFindError(c, []string{}, "at least one filter term must be specified, try specifying a model name")
 }
 
 func (s *findSuite) TestFindDuplicateUrl(c *gc.C) {
