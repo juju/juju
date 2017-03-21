@@ -86,6 +86,7 @@ from jujupy.client import (
     uniquify_local,
     UnitError,
     WaitMachineNotPresent,
+    WaitApplicationNotPresent
     )
 from jujupy.fake import (
     get_user_register_command_info,
@@ -367,6 +368,29 @@ class TestWaitMachineNotPresent(ClientTest):
         not_present = WaitMachineNotPresent('0')
         with self.assertRaisesRegexp(
                 Exception, 'Timed out waiting for machine removal 0'):
+            not_present.do_raise('', None)
+
+
+class TestWaitApplicationNotPresent(ClientTest):
+
+    def test_iter_blocking_state(self):
+        not_present = WaitApplicationNotPresent('foo')
+        client = fake_juju_client()
+        client.bootstrap()
+        self.assertItemsEqual(
+            [], not_present.iter_blocking_state(client.get_status()))
+        client.deploy('foo')
+        self.assertItemsEqual(
+            [('foo', 'still-present')],
+            not_present.iter_blocking_state(client.get_status()))
+        client.remove_service('foo')
+        self.assertItemsEqual(
+            [], not_present.iter_blocking_state(client.get_status()))
+
+    def test_do_raise(self):
+        not_present = WaitApplicationNotPresent('foo')
+        with self.assertRaisesRegexp(
+                Exception, 'Timed out waiting for application removal foo'):
             not_present.do_raise('', None)
 
 
