@@ -1957,7 +1957,7 @@ class ModelClient:
             self.destroy_controller(all_models=True)
         except subprocess.CalledProcessError:
             logging.warning('tear_down destroy-controller failed')
-            retval = self.kill_controller()
+            retval, _ = self.kill_controller()
             message = 'tear_down kill-controller result={}'.format(retval)
             if retval == 0:
                 logging.info(message)
