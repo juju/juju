@@ -152,7 +152,6 @@ func (s *RelationUnitSuite) TestPeerSettings(c *gc.C) {
 func (s *RelationUnitSuite) TestRemoteUnitErrors(c *gc.C) {
 	_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name:        "mysql",
-		URL:         "local:/u/me/mysql",
 		SourceModel: coretesting.ModelTag,
 		Endpoints: []charm.Relation{{
 			Interface: "mysql",
@@ -164,7 +163,6 @@ func (s *RelationUnitSuite) TestRemoteUnitErrors(c *gc.C) {
 
 	_, err = s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name:        "mysql1",
-		URL:         "local:/u/me/mysql",
 		SourceModel: coretesting.ModelTag,
 		Endpoints: []charm.Relation{{
 			Interface: "mysql",
@@ -938,7 +936,6 @@ type RemoteProReqRelation struct {
 func newRemoteProReqRelation(c *gc.C, s *ConnSuite) *RemoteProReqRelation {
 	psvc, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name:        "mysql",
-		URL:         "local:/u/me/mysql",
 		SourceModel: coretesting.ModelTag,
 		Endpoints: []charm.Relation{{
 			Interface: "mysql",

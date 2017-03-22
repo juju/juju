@@ -55,11 +55,15 @@ import (
 	_ "github.com/juju/juju/apiserver/migrationtarget" // ModelUser Write
 	_ "github.com/juju/juju/apiserver/modelconfig"     // ModelUser Write
 	_ "github.com/juju/juju/apiserver/modelmanager"    // ModelUser Write
+	_ "github.com/juju/juju/apiserver/payloads"
+	_ "github.com/juju/juju/apiserver/payloadshookcontext"
 	_ "github.com/juju/juju/apiserver/provisioner"
 	_ "github.com/juju/juju/apiserver/proxyupdater"
 	_ "github.com/juju/juju/apiserver/reboot"
 	_ "github.com/juju/juju/apiserver/remotefirewaller"
 	_ "github.com/juju/juju/apiserver/remoterelations"
+	_ "github.com/juju/juju/apiserver/resources"
+	_ "github.com/juju/juju/apiserver/resourceshookcontext"
 	_ "github.com/juju/juju/apiserver/resumer"
 	_ "github.com/juju/juju/apiserver/retrystrategy"
 	_ "github.com/juju/juju/apiserver/singular"

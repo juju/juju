@@ -53,7 +53,7 @@ See also:
     add-user`
 
 var usageRevokeSummary = `
-Revokes access from a Juju user for a model or controller`[1:]
+Revokes access from a Juju user for a model or controller.`[1:]
 
 var usageRevokeDetails = `
 By default, the controller is the current controller.

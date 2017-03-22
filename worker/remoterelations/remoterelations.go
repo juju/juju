@@ -495,11 +495,11 @@ func (w *remoteApplicationWorker) registerRemoteRelation(
 	// This data goes to the remote model so we map local info
 	// from this model to the remote arg values and visa versa.
 	arg := params.RegisterRemoteRelation{
-		ApplicationId:          remoteApplicationId,
-		RelationId:             remoteRelationId,
-		RemoteEndpoint:         w.relationInfo.localEndpoint,
-		OfferedApplicationName: w.relationInfo.remoteApplicationOfferName,
-		LocalEndpointName:      w.relationInfo.remoteEndpointName,
+		ApplicationId:     remoteApplicationId,
+		RelationId:        remoteRelationId,
+		RemoteEndpoint:    w.relationInfo.localEndpoint,
+		OfferName:         w.relationInfo.remoteApplicationOfferName,
+		LocalEndpointName: w.relationInfo.remoteEndpointName,
 	}
 	remoteAppIds, err := publisher.RegisterRemoteRelations(arg)
 	if err != nil {

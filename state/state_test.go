@@ -30,7 +30,6 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
@@ -197,7 +196,7 @@ func (s *StateSuite) TestModelUUID(c *gc.C) {
 
 func (s *StateSuite) TestNoModelDocs(c *gc.C) {
 	c.Assert(s.State.EnsureModelRemoved(), gc.ErrorMatches,
-		fmt.Sprintf("found documents for model with uuid %s: 1 constraints doc, 2 leases doc, 1 modelusers doc, 1 settings doc, 1 statuses doc", s.State.ModelUUID()))
+		fmt.Sprintf(`found documents for model with uuid %s: \d+ constraints doc, \d+ leases doc, \d+ modelusers doc, \d+ settings doc, \d+ statuses doc`, s.State.ModelUUID()))
 }
 
 func (s *StateSuite) TestMongoSession(c *gc.C) {
@@ -408,7 +407,7 @@ func (s *MultiModelStateSuite) TestWatchTwoModels(c *gc.C) {
 			},
 			triggerEvent: func(st *state.State) {
 				_, err := st.AddRemoteApplication(state.AddRemoteApplicationParams{
-					Name: "db2", URL: "local:/u/ibm/db2", SourceModel: s.State.ModelTag()})
+					Name: "db2", SourceModel: s.State.ModelTag()})
 				c.Assert(err, jc.ErrorIsNil)
 			},
 		}, {
@@ -438,7 +437,7 @@ func (s *MultiModelStateSuite) TestWatchTwoModels(c *gc.C) {
 			},
 			setUpState: func(st *state.State) bool {
 				_, err := st.AddRemoteApplication(state.AddRemoteApplicationParams{
-					Name: "mysql", URL: "local:/u/ibm/mysql", SourceModel: s.OtherState.ModelTag(),
+					Name: "mysql", SourceModel: s.OtherState.ModelTag(),
 					Endpoints: []charm.Relation{{Name: "database", Interface: "mysql", Role: "provider", Scope: "global"}},
 				})
 				c.Assert(err, jc.ErrorIsNil)
@@ -610,24 +609,6 @@ func (s *MultiModelStateSuite) TestWatchTwoModels(c *gc.C) {
 				wordpress, err := st.Application("wordpress")
 				c.Assert(err, jc.ErrorIsNil)
 				err = wordpress.SetMinUnits(2)
-				c.Assert(err, jc.ErrorIsNil)
-			},
-		}, {
-			about: "offered applications",
-			getWatcher: func(st *state.State) interface{} {
-				return st.WatchOfferedApplications()
-			},
-			setUpState: func(st *state.State) bool {
-				offeredApplications := state.NewOfferedApplications(st)
-				offeredApplications.AddOffer(crossmodel.OfferedApplication{
-					ApplicationName: "mysql",
-					ApplicationURL:  "local:/u/me/mysql",
-				})
-				return false
-			},
-			triggerEvent: func(st *state.State) {
-				offeredApplications := state.NewOfferedApplications(st)
-				err := offeredApplications.SetOfferRegistered("local:/u/me/mysql", false)
 				c.Assert(err, jc.ErrorIsNil)
 			},
 		}, {
@@ -1506,7 +1487,7 @@ func (s *StateSuite) TestAddServiceEnvironmentMigrating(c *gc.C) {
 func (s *StateSuite) TestAddApplicationSameRemoteExists(c *gc.C) {
 	charm := s.AddTestingCharm(c, "dummy")
 	_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
-		Name: "s1", URL: "local:/u/me/dummy", SourceModel: s.State.ModelTag()})
+		Name: "s1", SourceModel: s.State.ModelTag()})
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddApplication(state.AddApplicationArgs{Name: "s1", Charm: charm})
 	c.Assert(err, gc.ErrorMatches, `cannot add application "s1": remote application with same name already exists`)
@@ -1519,7 +1500,7 @@ func (s *StateSuite) TestAddApplicationRemotedAddedAfterInitial(c *gc.C) {
 	// before the transaction is run.
 	defer state.SetBeforeHooks(c, s.State, func() {
 		_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
-			Name: "s1", URL: "local:/u/me/s1", SourceModel: s.State.ModelTag()})
+			Name: "s1", SourceModel: s.State.ModelTag()})
 		c.Assert(err, jc.ErrorIsNil)
 	}).Check()
 	_, err := s.State.AddApplication(state.AddApplicationArgs{Name: "s1", Charm: charm})
@@ -3330,66 +3311,6 @@ func (s *StateSuite) TestWatchMinUnitsDiesOnStateClose(c *gc.C) {
 	})
 }
 
-func (s *StateSuite) TestWatchOfferedApplications(c *gc.C) {
-	// Check initial event.
-	w := s.State.WatchOfferedApplications()
-	defer statetesting.AssertStop(c, w)
-	wc := statetesting.NewStringsWatcherC(c, s.State, w)
-	wc.AssertChange()
-	wc.AssertNoChange()
-
-	// Add a new offered application; a single change should occur.
-	offers := state.NewOfferedApplications(s.State)
-	offer := crossmodel.OfferedApplication{
-		ApplicationName: "service",
-		ApplicationURL:  "local:/u/me/service",
-		Registered:      true,
-	}
-	err := offers.AddOffer(offer)
-	wc.AssertChange("local:/u/me/service")
-	wc.AssertNoChange()
-
-	// Set the registered value; expect one change.
-	err = offers.SetOfferRegistered("local:/u/me/service", false)
-	c.Assert(err, jc.ErrorIsNil)
-	offer.Registered = false
-	wc.AssertChange("local:/u/me/service")
-	wc.AssertNoChange()
-
-	// Insert a new offer2 and set registered value; expect 2 changes.
-	offer2 := crossmodel.OfferedApplication{
-		ApplicationName: "service2",
-		ApplicationURL:  "local:/u/me/service2",
-		Registered:      true,
-	}
-	err = offers.AddOffer(offer2)
-	c.Assert(err, jc.ErrorIsNil)
-	err = offers.SetOfferRegistered("local:/u/me/service", true)
-	offer.Registered = true
-	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertChange("local:/u/me/service2", "local:/u/me/service")
-
-	// Update endpoints and registered value; expect 2 changes.
-	err = offers.UpdateOffer("local:/u/me/service2", map[string]string{"foo": "bar"})
-	c.Assert(err, jc.ErrorIsNil)
-	err = offers.SetOfferRegistered("local:/u/me/service", false)
-	offer.Registered = true
-	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertChange("local:/u/me/service2", "local:/u/me/service")
-
-	// Stop watcher, check closed.
-	statetesting.AssertStop(c, w)
-	wc.AssertClosed()
-}
-
-func (s *StateSuite) TestWatchOfferedApplicationsDiesOnStateClose(c *gc.C) {
-	testWatcherDiesWhenStateCloses(c, s.modelTag, s.State.ControllerTag(), func(c *gc.C, st *state.State) waiter {
-		w := st.WatchOfferedApplications()
-		<-w.Changes()
-		return w
-	})
-}
-
 func (s *StateSuite) TestWatchSubnets(c *gc.C) {
 	w := s.State.WatchSubnets()
 	defer statetesting.AssertStop(c, w)
@@ -3411,7 +3332,7 @@ func (s *StateSuite) setupWatchRemoteRelations(c *gc.C, wc statetesting.StringsW
 	wc.AssertNoChange()
 
 	remoteApp, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
-		Name: "mysql", URL: "local:/u/ibm/mysql", SourceModel: s.State.ModelTag(),
+		Name: "mysql", SourceModel: s.State.ModelTag(),
 		Endpoints: []charm.Relation{{Name: "database", Interface: "mysql", Role: "provider", Scope: "global"}},
 	})
 	c.Assert(err, jc.ErrorIsNil)

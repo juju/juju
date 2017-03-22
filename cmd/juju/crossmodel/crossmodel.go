@@ -2,22 +2,18 @@
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 // The crossmodel command provides an interface that allows to
-// manipulate and inspect cross model relation.
+// manipulate and inspect cross model relations.
 package crossmodel
 
 import (
-	"github.com/juju/loggo"
-
 	"github.com/juju/juju/api/crossmodel"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
-var logger = loggo.GetLogger("juju.cmd.juju.crossmodel")
-
 // CrossModelCommandBase is a base structure to get cross model managing client.
 type CrossModelCommandBase struct {
-	modelcmd.ControllerCommandBase
+	modelcmd.ModelCommandBase
 }
 
 // NewCrossModelAPI returns a cross model api for the root api endpoint

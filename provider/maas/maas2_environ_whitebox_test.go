@@ -529,7 +529,7 @@ func (suite *maas2EnvironSuite) TestAcquireNodeInterfaces(c *gc.C) {
 	cons := constraints.Value{
 		Spaces: stringslicep("foo", "^bar"),
 	}
-	// In the tests below "space:5" means foo, "space:6" means bar.
+	// In the tests below Space 2 means foo, Space 3 means bar.
 	for i, test := range []struct {
 		interfaces        []interfaceBinding
 		expectedPositives []gomaasapi.InterfaceSpec
@@ -553,8 +553,9 @@ func (suite *maas2EnvironSuite) TestAcquireNodeInterfaces(c *gc.C) {
 		expectedPositives: []gomaasapi.InterfaceSpec{{"name-1", "7"}, {"name-2", "8"}, {"name-3", "9"}, {"0", "2"}},
 		expectedNegatives: []string{"3"},
 	}, {
-		interfaces:    []interfaceBinding{{"", "anything"}},
-		expectedError: "interface bindings cannot have empty names",
+		interfaces:        []interfaceBinding{{"", "anything"}},
+		expectedPositives: []gomaasapi.InterfaceSpec{{"0", "anything"}, {"1", "2"}},
+		expectedNegatives: []string{"3"},
 	}, {
 		interfaces:    []interfaceBinding{{"shared-db", "3"}},
 		expectedError: `negative space "bar" from constraints clashes with interface bindings`,
@@ -567,7 +568,7 @@ func (suite *maas2EnvironSuite) TestAcquireNodeInterfaces(c *gc.C) {
 		expectedNegatives: []string{"3"},
 	}, {
 		interfaces:    []interfaceBinding{{"", ""}},
-		expectedError: "interface bindings cannot have empty names",
+		expectedError: `invalid interface binding "": space provider ID is required`,
 	}, {
 		interfaces: []interfaceBinding{
 			{"valid", "ok"},
@@ -575,7 +576,7 @@ func (suite *maas2EnvironSuite) TestAcquireNodeInterfaces(c *gc.C) {
 			{"valid-name-empty-space", ""},
 			{"", ""},
 		},
-		expectedError: "interface bindings cannot have empty names",
+		expectedError: `invalid interface binding "valid-name-empty-space": space provider ID is required`,
 	}, {
 		interfaces:    []interfaceBinding{{"foo", ""}},
 		expectedError: `invalid interface binding "foo": space provider ID is required`,
@@ -1547,7 +1548,7 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesCreateDevicerror(c
 		Stub:     &testing.Stub{},
 		systemID: "1",
 	}
-	machine.SetErrors(errors.New("boom"))
+	machine.SetErrors(nil, errors.New("boom"))
 	controller := &fakeController{
 		machines: []gomaasapi.Machine{machine},
 		spaces: []gomaasapi.Space{
@@ -1566,16 +1567,15 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesCreateDevicerror(c
 	ignored := names.NewMachineTag("1/lxd/0")
 	_, err := env.AllocateContainerAddresses(instance.Id("1"), ignored, prepared)
 	c.Assert(err, gc.ErrorMatches, "boom")
-	args := getArgs(c, machine.Calls())
-	maasArgs, ok := args.(gomaasapi.CreateMachineDeviceArgs)
-	c.Assert(ok, jc.IsTrue)
-	expected := gomaasapi.CreateMachineDeviceArgs{
+	machine.CheckCall(c, 0, "Devices", gomaasapi.DevicesArgs{
+		Hostname: []string{"juju-06f00d-1-lxd-0"},
+	})
+	machine.CheckCall(c, 1, "CreateDevice", gomaasapi.CreateMachineDeviceArgs{
 		Hostname:      "juju-06f00d-1-lxd-0",
 		Subnet:        subnet,
 		MACAddress:    "DEADBEEF",
 		InterfaceName: "eth0",
-	}
-	c.Assert(maasArgs, jc.DeepEquals, expected)
+	})
 }
 
 func (suite *maas2EnvironSuite) TestAllocateContainerAddressesSubnetMissing(c *gc.C) {

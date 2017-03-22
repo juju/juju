@@ -60,7 +60,7 @@ func (s *cmdLoginSuite) TestLoginCommand(c *gc.C) {
 	s.changeUserPassword(c, "admin", "hunter2")
 	s.run(c, nil, "logout")
 
-	context := s.run(c, strings.NewReader("hunter2\nhunter2\n"), "login", "test")
+	context := s.run(c, strings.NewReader("hunter2\nhunter2\n"), "login", "test", "-u")
 	c.Assert(testing.Stdout(context), gc.Equals, "")
 	c.Assert(testing.Stderr(context), gc.Equals, `
 please enter password for test on kontroll: 

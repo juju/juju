@@ -37,13 +37,12 @@ func (s *getSuite) SetUpTest(c *gc.C) {
 	var err error
 	backend := application.NewStateBackend(s.State)
 	blockChecker := common.NewBlockChecker(s.State)
-	offersApiFactory := &mockApplicationOffersFactory{}
 	resources := common.NewResources()
-	resources.RegisterNamed("applicationOffersApiFactory", offersApiFactory)
 	resources.RegisterNamed("dataDir", common.StringResource(c.MkDir()))
 	s.serviceAPI, err = application.NewAPI(
-		backend, s.authorizer, resources, blockChecker,
-		application.CharmToStateCharm,
+		backend, s.authorizer, resources, s.BackingStatePool,
+		blockChecker, application.CharmToStateCharm,
+		application.DeployApplication,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 }

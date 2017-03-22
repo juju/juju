@@ -66,7 +66,7 @@ func (c *consumeCommand) Init(args []string) error {
 		return errors.New("no remote application specified")
 	}
 	c.remoteApplication = args[0]
-	url, err := crossmodel.ParseLocalOnlyApplicationURL(c.remoteApplication)
+	url, err := crossmodel.ParseApplicationURL(c.remoteApplication)
 	if err != nil {
 		return errors.Trace(err)
 	}

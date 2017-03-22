@@ -53,7 +53,7 @@ func (c *unregisterCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "unregister",
 		Args:    "<controller name>",
-		Purpose: "Unregisters a Juju controller",
+		Purpose: "Unregisters a Juju controller.",
 		Doc:     usageUnregisterDetails,
 	}
 }

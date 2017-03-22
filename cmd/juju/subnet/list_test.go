@@ -330,3 +330,23 @@ func (s *ListSuite) TestRunWhenASubnetHasInvalidSpaceFails(c *gc.C) {
 	s.api.CheckCallNames(c, "ListSubnets", "Close")
 	s.api.CheckCall(c, 0, "ListSubnets", nil, "")
 }
+
+func (s *ListSuite) TestRunWhenSubnetHasBlankSpace(c *gc.C) {
+	s.api.Subnets = s.api.Subnets[0:1]
+	s.api.Subnets[0].SpaceTag = ""
+
+	expectedYAML := `
+subnets:
+  10.20.0.0/24:
+    type: ipv4
+    provider-id: subnet-foo
+    status: in-use
+    space: ""
+    zones:
+    - zone1
+    - zone2
+`[1:]
+	s.AssertRunSucceeds(c, "", expectedYAML)
+	s.api.CheckCallNames(c, "ListSubnets", "Close")
+	s.api.CheckCall(c, 0, "ListSubnets", nil, "")
+}

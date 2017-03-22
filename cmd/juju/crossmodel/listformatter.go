@@ -64,7 +64,7 @@ func formatListEndpointsTabular(writer io.Writer, all map[string]directoryApplic
 					// As there is some information about application and its endpoints,
 					// only display application information once
 					// when the first endpoint is  displayed.
-					w.Println(name, application.CharmName, fmt.Sprint(application.UsersCount), application.Store, application.Location, endpointName, endpoint.Interface, endpoint.Role)
+					w.Println(name, application.CharmName, fmt.Sprint(application.UsersCount), directory, application.Location, endpointName, endpoint.Interface, endpoint.Role)
 					continue
 				}
 				// Subsequent lines only need to display endpoint information.

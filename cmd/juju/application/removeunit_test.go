@@ -6,6 +6,7 @@ package application
 import (
 	"fmt"
 
+	"github.com/juju/cmd"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
@@ -31,9 +32,8 @@ func (s *RemoveUnitSuite) SetUpTest(c *gc.C) {
 
 var _ = gc.Suite(&RemoveUnitSuite{})
 
-func runRemoveUnit(c *gc.C, args ...string) error {
-	_, err := testing.RunCommand(c, NewRemoveUnitCommand(), args...)
-	return err
+func runRemoveUnit(c *gc.C, args ...string) (*cmd.Context, error) {
+	return testing.RunCommand(c, NewRemoveUnitCommand(), args...)
 }
 
 func (s *RemoveUnitSuite) setupUnitForRemove(c *gc.C) *state.Application {
@@ -48,20 +48,44 @@ func (s *RemoveUnitSuite) setupUnitForRemove(c *gc.C) *state.Application {
 func (s *RemoveUnitSuite) TestRemoveUnit(c *gc.C) {
 	svc := s.setupUnitForRemove(c)
 
-	err := runRemoveUnit(c, "dummy/0", "dummy/1", "dummy/2", "sillybilly/17")
-	c.Assert(err, gc.ErrorMatches, `some units were not destroyed: unit "dummy/2" does not exist; unit "sillybilly/17" does not exist`)
+	ctx, err := runRemoveUnit(c, "dummy/0", "dummy/1", "dummy/2", "sillybilly/17")
+	c.Assert(err, gc.Equals, cmd.ErrSilent)
+	stderr := testing.Stderr(ctx)
+	c.Assert(stderr, gc.Equals, `
+removing unit dummy/0
+removing unit dummy/1
+removing unit dummy/2 failed: unit "dummy/2" does not exist
+removing unit sillybilly/17 failed: unit "sillybilly/17" does not exist
+`[1:])
+
 	units, err := svc.AllUnits()
 	c.Assert(err, jc.ErrorIsNil)
 	for _, u := range units {
 		c.Assert(u.Life(), gc.Equals, state.Dying)
 	}
 }
+
+func (s *RemoveUnitSuite) TestRemoveUnitInformsStorageRemoval(c *gc.C) {
+	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "storage-filesystem")
+	err := runDeploy(c, ch, "storage-filesystem", "--series", "quantal", "--storage", "data=rootfs,2")
+	c.Assert(err, jc.ErrorIsNil)
+
+	ctx, err := runRemoveUnit(c, "storage-filesystem/0")
+	c.Assert(err, jc.ErrorIsNil)
+	stderr := testing.Stderr(ctx)
+	c.Assert(stderr, gc.Equals, `
+removing unit storage-filesystem/0
+- will remove storage data/0
+- will remove storage data/1
+`[1:])
+}
+
 func (s *RemoveUnitSuite) TestBlockRemoveUnit(c *gc.C) {
 	svc := s.setupUnitForRemove(c)
 
 	// block operation
 	s.BlockRemoveObject(c, "TestBlockRemoveUnit")
-	err := runRemoveUnit(c, "dummy/0", "dummy/1")
+	_, err := runRemoveUnit(c, "dummy/0", "dummy/1")
 	s.AssertBlocked(c, err, ".*TestBlockRemoveUnit.*")
 	c.Assert(svc.Life(), gc.Equals, state.Alive)
 }

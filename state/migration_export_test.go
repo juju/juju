@@ -1112,7 +1112,7 @@ func (s *MigrationExportSuite) newResource(c *gc.C, appName, name string, revisi
 func (s *MigrationExportSuite) TestRemoteApplications(c *gc.C) {
 	_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name:        "gravy-rainbow",
-		URL:         "local:/u/me/rainbow",
+		URL:         "me/model.rainbow",
 		SourceModel: s.State.ModelTag(),
 		Token:       "charisma",
 		Endpoints: []charm.Relation{{
@@ -1143,9 +1143,9 @@ func (s *MigrationExportSuite) TestRemoteApplications(c *gc.C) {
 	c.Check(app.Tag(), gc.Equals, names.NewApplicationTag("gravy-rainbow"))
 	c.Check(app.Name(), gc.Equals, "gravy-rainbow")
 	c.Check(app.OfferName(), gc.Equals, "")
-	c.Check(app.URL(), gc.Equals, "local:/u/me/rainbow")
+	c.Check(app.URL(), gc.Equals, "me/model.rainbow")
 	c.Check(app.SourceModelTag(), gc.Equals, s.State.ModelTag())
-	c.Check(app.Registered(), jc.IsFalse)
+	c.Check(app.IsConsumerProxy(), jc.IsFalse)
 
 	c.Assert(app.Endpoints(), gc.HasLen, 3)
 	ep := app.Endpoints()[0]

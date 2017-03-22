@@ -19,7 +19,6 @@ import (
 // with the same names.
 type Backend interface {
 	AllModels() ([]Model, error)
-	ForModel(modelTag names.ModelTag) (*state.State, error)
 	Application(string) (Application, error)
 	AddApplication(state.AddApplicationArgs) (*state.Application, error)
 	RemoteApplication(name string) (*state.RemoteApplication, error)
@@ -34,6 +33,8 @@ type Backend interface {
 	ModelTag() names.ModelTag
 	Unit(string) (Unit, error)
 	NewStorage() storage.Storage
+	StorageInstance(names.StorageTag) (state.StorageInstance, error)
+	UnitStorageAttachments(names.UnitTag) ([]state.StorageAttachment, error)
 }
 
 // BlockChecker defines the block-checking functionality required by
@@ -50,6 +51,7 @@ type BlockChecker interface {
 // the same names.
 type Application interface {
 	AddUnit() (*state.Unit, error)
+	AllUnits() ([]Unit, error)
 	Charm() (Charm, bool, error)
 	CharmURL() (*charm.URL, bool)
 	Channel() csparams.Channel
@@ -98,6 +100,7 @@ type Relation interface {
 // details on the methods, see the methods on state.Unit with
 // the same names.
 type Unit interface {
+	UnitTag() names.UnitTag
 	Destroy() error
 	IsPrincipal() bool
 	Life() state.Life
@@ -204,6 +207,18 @@ func (a stateApplicationShim) Charm() (Charm, bool, error) {
 		return nil, false, err
 	}
 	return ch, force, nil
+}
+
+func (a stateApplicationShim) AllUnits() ([]Unit, error) {
+	units, err := a.Application.AllUnits()
+	if err != nil {
+		return nil, err
+	}
+	out := make([]Unit, len(units))
+	for i, u := range units {
+		out[i] = stateUnitShim{u}
+	}
+	return out, nil
 }
 
 type stateCharmShim struct {

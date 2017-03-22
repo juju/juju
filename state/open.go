@@ -571,35 +571,12 @@ func (st *State) CACert() string {
 func (st *State) Close() (err error) {
 	defer errors.DeferredAnnotatef(&err, "closing state failed")
 
-	var errs []error
-	handle := func(name string, err error) {
-		if err != nil {
-			errs = append(errs, errors.Annotatef(err, "error stopping %s", name))
-		}
-	}
 	if st.workers != nil {
-		handle("standard workers", worker.Stop(st.workers))
-	}
-
-	st.mu.Lock()
-	if st.allManager != nil {
-		handle("allwatcher manager", st.allManager.Stop())
-	}
-	if st.allModelManager != nil {
-		handle("allModelWatcher manager", st.allModelManager.Stop())
-	}
-	if st.allModelWatcherBacking != nil {
-		handle("allModelWatcher backing", st.allModelWatcherBacking.Release())
+		if err := worker.Stop(st.workers); err != nil {
+			return errors.Annotatef(err, "failed to stop workers")
+		}
 	}
 	st.session.Close()
-	st.mu.Unlock()
-
-	if len(errs) > 0 {
-		for _, err := range errs[1:] {
-			logger.Errorf("while closing state: %v", err)
-		}
-		return errs[0]
-	}
 	logger.Debugf("closed state without error")
 	// Remove the reference.
 	profileTracker.Remove(st)

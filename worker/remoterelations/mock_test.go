@@ -177,7 +177,7 @@ func (m *mockRelationsFacade) RegisterRemoteRelations(relations ...params.Regist
 	for i, rel := range relations {
 		result[i].Result = &params.RemoteEntityId{
 			ModelUUID: "source-model-uuid",
-			Token:     "token-" + rel.OfferedApplicationName,
+			Token:     "token-" + rel.OfferName,
 		}
 	}
 	return result, nil

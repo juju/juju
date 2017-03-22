@@ -4,13 +4,13 @@
 package crossmodel_test
 
 import (
-	"errors"
-
+	"github.com/juju/errors"
 	jtesting "github.com/juju/testing"
+	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/core/crossmodel"
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/apiserver/crossmodel"
+	jujucrossmodel "github.com/juju/juju/core/crossmodel"
 )
 
 const (
@@ -20,78 +20,133 @@ const (
 	removeOfferCall = "removeOfferCall"
 )
 
-type mockApplicationDirectory struct {
+type mockApplicationOffers struct {
 	jtesting.Stub
 
-	addOffer   func(offer crossmodel.ApplicationOffer) error
-	listOffers func(filters ...crossmodel.ApplicationOfferFilter) ([]crossmodel.ApplicationOffer, error)
+	addOffer   func(offer jujucrossmodel.AddApplicationOfferArgs) (*jujucrossmodel.ApplicationOffer, error)
+	listOffers func(filters ...jujucrossmodel.ApplicationOfferFilter) ([]jujucrossmodel.ApplicationOffer, error)
 }
 
-func (m *mockApplicationDirectory) AddOffer(offer crossmodel.ApplicationOffer) error {
+func (m *mockApplicationOffers) AddOffer(offer jujucrossmodel.AddApplicationOfferArgs) (*jujucrossmodel.ApplicationOffer, error) {
 	m.AddCall(addOfferCall)
 	return m.addOffer(offer)
 }
 
-func (m *mockApplicationDirectory) ListOffers(filters ...crossmodel.ApplicationOfferFilter) ([]crossmodel.ApplicationOffer, error) {
+func (m *mockApplicationOffers) ListOffers(filters ...jujucrossmodel.ApplicationOfferFilter) ([]jujucrossmodel.ApplicationOffer, error) {
 	m.AddCall(listOffersCall)
 	return m.listOffers(filters...)
 }
 
-func (m *mockApplicationDirectory) UpdateOffer(offer crossmodel.ApplicationOffer) error {
+func (m *mockApplicationOffers) UpdateOffer(offer jujucrossmodel.AddApplicationOfferArgs) (*jujucrossmodel.ApplicationOffer, error) {
 	m.AddCall(updateOfferCall)
 	panic("not implemented")
 }
 
-func (m *mockApplicationDirectory) Remove(url string) error {
+func (m *mockApplicationOffers) Remove(url string) error {
 	m.AddCall(removeOfferCall)
 	panic("not implemented")
 }
 
+type mockModel struct {
+	uuid  string
+	name  string
+	owner string
+}
+
+func (m *mockModel) UUID() string {
+	return m.uuid
+}
+
+func (m *mockModel) Name() string {
+	return m.name
+}
+
+func (m *mockModel) Owner() names.UserTag {
+	return names.NewUserTag(m.owner)
+}
+
+type mockUserModel struct {
+	model crossmodel.Model
+}
+
+func (m *mockUserModel) Model() crossmodel.Model {
+	return m.model
+}
+
+type mockCharm struct {
+	meta *charm.Meta
+}
+
+func (m *mockCharm) Meta() *charm.Meta {
+	return m.meta
+}
+
+type mockApplication struct {
+	name  string
+	charm *mockCharm
+	curl  *charm.URL
+}
+
+func (m *mockApplication) Name() string {
+	return m.name
+}
+
+func (m *mockApplication) Charm() (crossmodel.Charm, bool, error) {
+	return m.charm, true, nil
+}
+
+func (m *mockApplication) CharmURL() (curl *charm.URL, force bool) {
+	return m.curl, true
+}
+
+type mockConnectionStatus struct {
+	count int
+}
+
+func (m *mockConnectionStatus) ConnectionCount() int {
+	return m.count
+}
+
 type mockState struct {
-	watchOfferedApplications func() state.StringsWatcher
+	modelUUID    string
+	model        crossmodel.Model
+	usermodels   []crossmodel.UserModel
+	applications map[string]crossmodel.Application
+	connStatus   crossmodel.RemoteConnectionStatus
 }
 
-func (m *mockState) WatchOfferedApplications() state.StringsWatcher {
-	return m.watchOfferedApplications()
+func (m *mockState) Application(name string) (crossmodel.Application, error) {
+	app, ok := m.applications[name]
+	if !ok {
+		return nil, errors.NotFoundf("application %q", name)
+	}
+	return app, nil
 }
 
-func (m *mockState) ForModel(tag names.ModelTag) (*state.State, error) {
-	return nil, errors.New("not implemented")
-}
-
-func (m *mockState) Application(name string) (application *state.Application, err error) {
-	return nil, errors.New("not implemented")
+func (m *mockState) Model() (crossmodel.Model, error) {
+	return m.model, nil
 }
 
 func (m *mockState) ModelUUID() string {
-	return "uuid"
+	return m.modelUUID
 }
 
-func (m *mockState) ModelTag() names.ModelTag {
-	return names.NewModelTag("uuid")
+func (m *mockState) ModelsForUser(user names.UserTag) ([]crossmodel.UserModel, error) {
+	return m.usermodels, nil
 }
 
-func (m *mockState) ModelName() (string, error) {
-	return "prod", nil
+func (m *mockState) RemoteConnectionStatus(offerName string) (crossmodel.RemoteConnectionStatus, error) {
+	return m.connStatus, nil
 }
 
-type mockStringsWatcher struct {
-	state.StringsWatcher
-	changes chan []string
+type mockStatePool struct {
+	st map[string]crossmodel.Backend
 }
 
-func (m *mockStringsWatcher) Changes() <-chan []string {
-	return m.changes
-}
-
-func (m *mockStringsWatcher) Stop() error {
-	return nil
-}
-
-type mockOfferLister struct {
-	listOffers func(filters ...crossmodel.OfferedApplicationFilter) ([]crossmodel.OfferedApplication, error)
-}
-
-func (m *mockOfferLister) ListOffers(filters ...crossmodel.OfferedApplicationFilter) ([]crossmodel.OfferedApplication, error) {
-	return m.listOffers(filters...)
+func (st *mockStatePool) Get(modelUUID string) (crossmodel.Backend, func(), error) {
+	backend, ok := st.st[modelUUID]
+	if !ok {
+		return nil, nil, errors.NotFoundf("model for uuid %s", modelUUID)
+	}
+	return backend, func() {}, nil
 }

@@ -23,7 +23,7 @@ type ListSuite struct {
 
 	mockAPI *mockListAPI
 
-	applications []model.OfferedApplicationDetailsResult
+	applications []model.ApplicationOfferDetailsResult
 	endpoints    []charm.Relation
 }
 
@@ -37,12 +37,12 @@ func (s *ListSuite) SetUpTest(c *gc.C) {
 		{Name: "log", Interface: "http", Role: charm.RoleProvider},
 	}
 
-	s.applications = []model.OfferedApplicationDetailsResult{
-		{Result: s.createServiceItem("hosted-db2", "local", 0)},
+	s.applications = []model.ApplicationOfferDetailsResult{
+		{Result: s.createOfferItem("hosted-db2", "myctrl", 0)},
 	}
 
 	s.mockAPI = &mockListAPI{
-		list: func(filters ...model.OfferedApplicationFilter) ([]model.OfferedApplicationDetailsResult, error) {
+		list: func(filters ...model.ApplicationOfferFilter) ([]model.ApplicationOfferDetailsResult, error) {
 			return s.applications, nil
 		},
 	}
@@ -51,7 +51,7 @@ func (s *ListSuite) SetUpTest(c *gc.C) {
 func (s *ListSuite) TestListError(c *gc.C) {
 	msg := "fail api"
 
-	s.mockAPI.list = func(filters ...model.OfferedApplicationFilter) ([]model.OfferedApplicationDetailsResult, error) {
+	s.mockAPI.list = func(filters ...model.ApplicationOfferFilter) ([]model.ApplicationOfferDetailsResult, error) {
 		return nil, errors.New(msg)
 	}
 
@@ -60,7 +60,7 @@ func (s *ListSuite) TestListError(c *gc.C) {
 }
 
 func (s *ListSuite) TestListFormatError(c *gc.C) {
-	s.applications = append(s.applications, model.OfferedApplicationDetailsResult{Result: s.createServiceItem("zdi^%", "different_store", 33)})
+	s.applications = append(s.applications, model.ApplicationOfferDetailsResult{Result: s.createOfferItem("zdi^%", "different_store", 33)})
 
 	_, err := s.runList(c, nil)
 	c.Assert(err, gc.ErrorMatches, ".*failed to format.*")
@@ -68,8 +68,8 @@ func (s *ListSuite) TestListFormatError(c *gc.C) {
 
 func (s *ListSuite) TestListDirectories(c *gc.C) {
 	// Insert in random order to check sorting.
-	s.applications = append(s.applications, model.OfferedApplicationDetailsResult{Result: s.createServiceItem("zdiff-db2", "differentstore", 33)})
-	s.applications = append(s.applications, model.OfferedApplicationDetailsResult{Result: s.createServiceItem("adiff-db2", "vendor", 23)})
+	s.applications = append(s.applications, model.ApplicationOfferDetailsResult{Result: s.createOfferItem("zdiff-db2", "differentstore", 33)})
+	s.applications = append(s.applications, model.ApplicationOfferDetailsResult{Result: s.createOfferItem("adiff-db2", "vendor", 23)})
 
 	s.assertValidList(
 		c,
@@ -77,17 +77,17 @@ func (s *ListSuite) TestListDirectories(c *gc.C) {
 		// Default format is tabular
 		`
 differentstore
-Application  Charm  Connected  Store           URL                Endpoint  Interface  Role
-zdiff-db2    db2    33         differentstore  /u/fred/zdiff-db2  log       http       provider
-                                                                  mysql     db2        requirer
-local
-Application  Charm  Connected  Store  URL                 Endpoint  Interface  Role
-hosted-db2   db2    0          local  /u/fred/hosted-db2  log       http       provider
-                                                          mysql     db2        requirer
+Application  Charm  Connected  Store           URL                                  Endpoint  Interface  Role
+zdiff-db2    db2    33         differentstore  differentstore:fred/model.zdiff-db2  log       http       provider
+                                                                                    mysql     db2        requirer
+myctrl
+Application  Charm  Connected  Store   URL                           Endpoint  Interface  Role
+hosted-db2   db2    0          myctrl  myctrl:fred/model.hosted-db2  log       http       provider
+                                                                     mysql     db2        requirer
 vendor
-Application  Charm  Connected  Store   URL                Endpoint  Interface  Role
-adiff-db2    db2    23         vendor  /u/fred/adiff-db2  log       http       provider
-                                                          mysql     db2        requirer
+Application  Charm  Connected  Store   URL                          Endpoint  Interface  Role
+adiff-db2    db2    23         vendor  vendor:fred/model.adiff-db2  log       http       provider
+                                                                    mysql     db2        requirer
 
 `[1:],
 		"",
@@ -96,16 +96,16 @@ adiff-db2    db2    23         vendor  /u/fred/adiff-db2  log       http       p
 
 func (s *ListSuite) TestListWithErrors(c *gc.C) {
 	msg := "here is the error"
-	s.applications = append(s.applications, model.OfferedApplicationDetailsResult{Error: errors.New(msg)})
+	s.applications = append(s.applications, model.ApplicationOfferDetailsResult{Error: errors.New(msg)})
 
 	s.assertValidList(
 		c,
 		nil,
 		`
-local
-Application  Charm  Connected  Store  URL                 Endpoint  Interface  Role
-hosted-db2   db2    0          local  /u/fred/hosted-db2  log       http       provider
-                                                          mysql     db2        requirer
+myctrl
+Application  Charm  Connected  Store   URL                           Endpoint  Interface  Role
+hosted-db2   db2    0          myctrl  myctrl:fred/model.hosted-db2  log       http       provider
+                                                                     mysql     db2        requirer
 
 `[1:],
 		msg,
@@ -121,11 +121,10 @@ func (s *ListSuite) TestListYAML(c *gc.C) {
 		c,
 		[]string{"--format", "yaml"},
 		`
-local:
+myctrl:
   hosted-db2:
     charm: db2
-    store: local
-    url: /u/fred/hosted-db2
+    url: myctrl:fred/model.hosted-db2
     endpoints:
       mysql:
         interface: db2
@@ -135,13 +134,13 @@ local:
 	)
 }
 
-func (s *ListSuite) createServiceItem(name, store string, count int) *model.OfferedApplicationDetails {
-	return &model.OfferedApplicationDetails{
-		ApplicationName: name,
-		ApplicationURL:  fmt.Sprintf("%s:%s%s", store, "/u/fred/", name),
-		CharmName:       "db2",
-		Endpoints:       s.endpoints,
-		ConnectedCount:  count,
+func (s *ListSuite) createOfferItem(name, store string, count int) *model.ApplicationOfferDetails {
+	return &model.ApplicationOfferDetails{
+		OfferName:      name,
+		OfferURL:       fmt.Sprintf("%s:%s.%s", store, "fred/model", name),
+		CharmName:      "db2",
+		Endpoints:      s.endpoints,
+		ConnectedCount: count,
 	}
 }
 
@@ -161,13 +160,13 @@ func (s *ListSuite) assertValidList(c *gc.C, args []string, expectedValid, expec
 }
 
 type mockListAPI struct {
-	list func(filters ...model.OfferedApplicationFilter) ([]model.OfferedApplicationDetailsResult, error)
+	list func(filters ...model.ApplicationOfferFilter) ([]model.ApplicationOfferDetailsResult, error)
 }
 
 func (s mockListAPI) Close() error {
 	return nil
 }
 
-func (s mockListAPI) ListOffers(filters ...model.OfferedApplicationFilter) ([]model.OfferedApplicationDetailsResult, error) {
+func (s mockListAPI) ListOffers(filters ...model.ApplicationOfferFilter) ([]model.ApplicationOfferDetailsResult, error) {
 	return s.list(filters...)
 }

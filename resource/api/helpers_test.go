@@ -61,8 +61,8 @@ func (HelpersSuite) TestResource2API(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	apiRes := api.Resource2API(res)
 
-	c.Check(apiRes, jc.DeepEquals, api.Resource{
-		CharmResource: api.CharmResource{
+	c.Check(apiRes, jc.DeepEquals, params.Resource{
+		CharmResource: params.CharmResource{
 			Name:        "spam",
 			Type:        "file",
 			Path:        "spam.tgz",
@@ -128,8 +128,8 @@ func (HelpersSuite) TestAPIResult2ServiceResourcesOkay(c *gc.C) {
 	err = unitExpected.Validate()
 	c.Assert(err, jc.ErrorIsNil)
 
-	apiRes := api.Resource{
-		CharmResource: api.CharmResource{
+	apiRes := params.Resource{
+		CharmResource: params.CharmResource{
 			Name:        "spam",
 			Type:        "file",
 			Path:        "spam.tgz",
@@ -146,8 +146,8 @@ func (HelpersSuite) TestAPIResult2ServiceResourcesOkay(c *gc.C) {
 		Timestamp:     now,
 	}
 
-	unitRes := api.Resource{
-		CharmResource: api.CharmResource{
+	unitRes := params.Resource{
+		CharmResource: params.CharmResource{
 			Name:        "unitspam",
 			Type:        "file",
 			Path:        "unitspam.tgz",
@@ -167,7 +167,7 @@ func (HelpersSuite) TestAPIResult2ServiceResourcesOkay(c *gc.C) {
 	fp2, err := charmresource.GenerateFingerprint(strings.NewReader("boo!"))
 	c.Assert(err, jc.ErrorIsNil)
 
-	chRes := api.CharmResource{
+	chRes := params.CharmResource{
 		Name:        "unitspam2",
 		Type:        "file",
 		Path:        "unitspam.tgz2",
@@ -191,19 +191,19 @@ func (HelpersSuite) TestAPIResult2ServiceResourcesOkay(c *gc.C) {
 		Size:        11,
 	}
 
-	resources, err := api.APIResult2ServiceResources(api.ResourcesResult{
-		Resources: []api.Resource{
+	resources, err := api.APIResult2ServiceResources(params.ResourcesResult{
+		Resources: []params.Resource{
 			apiRes,
 		},
-		CharmStoreResources: []api.CharmResource{
+		CharmStoreResources: []params.CharmResource{
 			chRes,
 		},
-		UnitResources: []api.UnitResources{
+		UnitResources: []params.UnitResources{
 			{
 				Entity: params.Entity{
 					Tag: "unit-foo-0",
 				},
-				Resources: []api.Resource{
+				Resources: []params.Resource{
 					unitRes,
 				},
 				DownloadProgress: map[string]int64{
@@ -285,8 +285,8 @@ func (HelpersSuite) TestAPIResult2ServiceResourcesBadUnitTag(c *gc.C) {
 	err = unitExpected.Validate()
 	c.Assert(err, jc.ErrorIsNil)
 
-	apiRes := api.Resource{
-		CharmResource: api.CharmResource{
+	apiRes := params.Resource{
+		CharmResource: params.CharmResource{
 			Name:        "spam",
 			Type:        "file",
 			Path:        "spam.tgz",
@@ -303,8 +303,8 @@ func (HelpersSuite) TestAPIResult2ServiceResourcesBadUnitTag(c *gc.C) {
 		Timestamp:     now,
 	}
 
-	unitRes := api.Resource{
-		CharmResource: api.CharmResource{
+	unitRes := params.Resource{
+		CharmResource: params.CharmResource{
 			Name:        "unitspam",
 			Type:        "file",
 			Path:        "unitspam.tgz",
@@ -321,16 +321,16 @@ func (HelpersSuite) TestAPIResult2ServiceResourcesBadUnitTag(c *gc.C) {
 		Timestamp:     now,
 	}
 
-	_, err = api.APIResult2ServiceResources(api.ResourcesResult{
-		Resources: []api.Resource{
+	_, err = api.APIResult2ServiceResources(params.ResourcesResult{
+		Resources: []params.Resource{
 			apiRes,
 		},
-		UnitResources: []api.UnitResources{
+		UnitResources: []params.UnitResources{
 			{
 				Entity: params.Entity{
 					Tag: "THIS IS NOT A GOOD UNIT TAG",
 				},
-				Resources: []api.Resource{
+				Resources: []params.Resource{
 					unitRes,
 				},
 			},
@@ -340,8 +340,8 @@ func (HelpersSuite) TestAPIResult2ServiceResourcesBadUnitTag(c *gc.C) {
 }
 
 func (HelpersSuite) TestAPIResult2ServiceResourcesFailure(c *gc.C) {
-	apiRes := api.Resource{
-		CharmResource: api.CharmResource{
+	apiRes := params.Resource{
+		CharmResource: params.CharmResource{
 			Name:        "spam",
 			Type:        "file",
 			Path:        "spam.tgz",
@@ -355,13 +355,13 @@ func (HelpersSuite) TestAPIResult2ServiceResourcesFailure(c *gc.C) {
 	}
 	failure := errors.New("<failure>")
 
-	_, err := api.APIResult2ServiceResources(api.ResourcesResult{
+	_, err := api.APIResult2ServiceResources(params.ResourcesResult{
 		ErrorResult: params.ErrorResult{
 			Error: &params.Error{
 				Message: failure.Error(),
 			},
 		},
-		Resources: []api.Resource{
+		Resources: []params.Resource{
 			apiRes,
 		},
 	})
@@ -371,8 +371,8 @@ func (HelpersSuite) TestAPIResult2ServiceResourcesFailure(c *gc.C) {
 }
 
 func (HelpersSuite) TestAPIResult2ServiceResourcesNotFound(c *gc.C) {
-	apiRes := api.Resource{
-		CharmResource: api.CharmResource{
+	apiRes := params.Resource{
+		CharmResource: params.CharmResource{
 			Name:        "spam",
 			Type:        "file",
 			Path:        "spam.tgz",
@@ -385,14 +385,14 @@ func (HelpersSuite) TestAPIResult2ServiceResourcesNotFound(c *gc.C) {
 		ApplicationID: "a-application",
 	}
 
-	_, err := api.APIResult2ServiceResources(api.ResourcesResult{
+	_, err := api.APIResult2ServiceResources(params.ResourcesResult{
 		ErrorResult: params.ErrorResult{
 			Error: &params.Error{
 				Message: `application "a-application" not found`,
 				Code:    params.CodeNotFound,
 			},
 		},
-		Resources: []api.Resource{
+		Resources: []params.Resource{
 			apiRes,
 		},
 	})
@@ -402,8 +402,8 @@ func (HelpersSuite) TestAPIResult2ServiceResourcesNotFound(c *gc.C) {
 
 func (HelpersSuite) TestAPI2Resource(c *gc.C) {
 	now := time.Now()
-	res, err := api.API2Resource(api.Resource{
-		CharmResource: api.CharmResource{
+	res, err := api.API2Resource(params.Resource{
+		CharmResource: params.CharmResource{
 			Name:        "spam",
 			Type:        "file",
 			Path:        "spam.tgz",
@@ -467,7 +467,7 @@ func (HelpersSuite) TestCharmResource2API(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	apiInfo := api.CharmResource2API(res)
 
-	c.Check(apiInfo, jc.DeepEquals, api.CharmResource{
+	c.Check(apiInfo, jc.DeepEquals, params.CharmResource{
 		Name:        "spam",
 		Type:        "file",
 		Path:        "spam.tgz",
@@ -480,7 +480,7 @@ func (HelpersSuite) TestCharmResource2API(c *gc.C) {
 }
 
 func (HelpersSuite) TestAPI2CharmResource(c *gc.C) {
-	res, err := api.API2CharmResource(api.CharmResource{
+	res, err := api.API2CharmResource(params.CharmResource{
 		Name:        "spam",
 		Type:        "file",
 		Path:        "spam.tgz",
@@ -558,17 +558,17 @@ func (HelpersSuite) TestServiceResources2API(c *gc.C) {
 	apiChRes1 := api.CharmResource2API(chres1)
 	apiChRes2 := api.CharmResource2API(chres2)
 
-	c.Check(result, jc.DeepEquals, api.ResourcesResult{
-		Resources: []api.Resource{
+	c.Check(result, jc.DeepEquals, params.ResourcesResult{
+		Resources: []params.Resource{
 			apiRes1,
 			apiRes2,
 		},
-		UnitResources: []api.UnitResources{
+		UnitResources: []params.UnitResources{
 			{
 				Entity: params.Entity{
 					Tag: "unit-a-application-0",
 				},
-				Resources: []api.Resource{
+				Resources: []params.Resource{
 					apiRes1,
 					apiRes2,
 				},
@@ -584,7 +584,7 @@ func (HelpersSuite) TestServiceResources2API(c *gc.C) {
 				},
 			},
 		},
-		CharmStoreResources: []api.CharmResource{
+		CharmStoreResources: []params.CharmResource{
 			apiChRes1,
 			apiChRes2,
 		},

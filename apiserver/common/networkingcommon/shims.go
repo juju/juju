@@ -110,7 +110,7 @@ func (s *stateShim) AllSpaces() ([]BackingSpace, error) {
 }
 
 func (s *stateShim) AddSubnet(info BackingSubnetInfo) (BackingSubnet, error) {
-	// TODO(dimitern): Add multiple AZs per subnet in state.
+	// TODO(xtian): cargo culting taking the first zone - why was this done?
 	var firstZone string
 	if len(info.AvailabilityZones) > 0 {
 		firstZone = info.AvailabilityZones[0]

@@ -28,9 +28,6 @@ const LegacyUpstart = "legacy-upstart"
 // (space list|create, subnet list|add).
 const PostNetCLIMVP = "post-net-cli-mvp"
 
-// VSphereProvider enables the generic vmware provider.
-const VSphereProvider = "vsphere-provider"
-
 // ImageMetadata allows custom image metadata to be recorded in state.
 const ImageMetadata = "image-metadata"
 
@@ -42,3 +39,6 @@ const CrossModelRelations = "cross-model"
 
 // LXDStorage enables the LXD storage provider.
 const LXDStorage = "lxd-storage"
+
+// PersistentStorage enables the persistent storage feature.
+const PersistentStorage = "persistent-storage"

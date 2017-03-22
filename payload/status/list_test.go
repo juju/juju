@@ -50,7 +50,7 @@ func (s *listSuite) TestInfo(c *gc.C) {
 	c.Check(info, jc.DeepEquals, &cmd.Info{
 		Name:    "payloads",
 		Args:    "[pattern ...]",
-		Purpose: "display status information about known payloads",
+		Purpose: "Display status information about known payloads.",
 		Doc: `
 This command will report on the runtime state of defined payloads.
 
