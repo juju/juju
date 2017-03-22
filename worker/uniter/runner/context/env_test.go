@@ -65,6 +65,7 @@ func (s *EnvSuite) getContext() (ctx *context.HookContext, expectVars []string) 
 		), []string{
 			"JUJU_CONTEXT_ID=some-context-id",
 			"JUJU_MODEL_UUID=model-uuid-deadbeef",
+			"JUJU_PRINCIPAL_UNIT=",
 			"JUJU_MODEL_NAME=some-model-name",
 			"JUJU_UNIT_NAME=this-unit/123",
 			"JUJU_METER_STATUS=PURPLE",

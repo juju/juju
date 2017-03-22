@@ -591,7 +591,7 @@ func (s *uniterSuite) TestGetPrincipal(c *gc.C) {
 	c.Assert(result, gc.DeepEquals, params.StringBoolResults{
 		Results: []params.StringBoolResult{
 			{Error: apiservertesting.ErrUnauthorized},
-			{Result: "", Ok: false, Error: nil},
+			{Result: "wordpress/0", Ok: false, Error: nil},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
 		},

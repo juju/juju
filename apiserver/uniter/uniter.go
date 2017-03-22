@@ -430,7 +430,26 @@ func (u *UniterAPIV3) GetPrincipal(args params.Entities) (params.StringBoolResul
 			if err == nil {
 				principal, ok := unit.PrincipalName()
 				if principal != "" {
-					result.Results[i].Result = names.NewUnitTag(principal).String()
+					result.Results[i].Result = principal
+				} else {
+					// Note unit.PrincipalName() doesn't return a name for subordinates! It
+					// relies on the name being empty for subordinates so a change of that
+					// behavior will have far reaching consequences. This discovers the
+					// principal from the machine if possible.
+					machineId, err := unit.AssignedMachineId()
+					if err != nil {
+						result.Results[i].Error = common.ServerError(common.ErrPerm)
+						continue
+					}
+					machine, err := u.st.Machine(machineId)
+					if err != nil {
+						result.Results[i].Error = common.ServerError(common.ErrPerm)
+						continue
+					}
+					principals := machine.Principals()
+					if len(principals) == 1 {
+						result.Results[i].Result = principals[0]
+					}
 				}
 				result.Results[i].Ok = ok
 			}
