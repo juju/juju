@@ -89,14 +89,14 @@ func AllFacades() *facade.Registry {
 	registry := new(facade.Registry)
 
 	reg := func(name string, version int, newFunc interface{}) {
-		err := registry.RegisterStandard(name, version, newFunc, "")
+		err := registry.RegisterStandard(name, version, newFunc)
 		if err != nil {
 			panic(err)
 		}
 	}
 
 	regRaw := func(name string, version int, factory facade.Factory, facadeType reflect.Type) {
-		err := registry.Register(name, version, factory, facadeType, "")
+		err := registry.Register(name, version, factory, facadeType)
 		if err != nil {
 			panic(err)
 		}
@@ -136,7 +136,7 @@ func AllFacades() *facade.Registry {
 			return newHookContextFacade(st, unit)
 		}
 		// XXX error handling
-		registry.Register(name, version, newFacade, facadeType, "")
+		registry.Register(name, version, newFacade, facadeType)
 	}
 
 	reg("Action", 2, action.NewActionAPI)

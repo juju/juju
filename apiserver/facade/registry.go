@@ -11,20 +11,12 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/juju/state"
-	"github.com/juju/utils/featureflag"
 )
 
 // record represents an entry in a Registry.
 type record struct {
 	factory    Factory
 	facadeType reflect.Type
-	// If the feature is not the empty string, then this facade
-	// is only returned when that feature flag is set.
-	//
-	// It is not a good thing that we depend on yet another flavour
-	// of global in the implementation of the Registry that itself
-	// only meaningfully exists as a global.
-	feature string
 }
 
 // versions is our internal structure for tracking specific versions of a
@@ -40,12 +32,12 @@ type Registry struct {
 // facades. newFunc should have one of the following signatures:
 //   func (facade.Context) (*Type, error)
 //   func (*state.State, facade.Resources, facade.Authorizer) (*Type, error)
-func (f *Registry) RegisterStandard(name string, version int, newFunc interface{}, feature string) error {
+func (f *Registry) RegisterStandard(name string, version int, newFunc interface{}) error {
 	wrapped, facadeType, err := wrapNewFacade(newFunc)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	err = f.Register(name, version, wrapped, facadeType, feature)
+	err = f.Register(name, version, wrapped, facadeType)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -57,14 +49,13 @@ func (f *Registry) RegisterStandard(name string, version int, newFunc interface{
 // this facade, and facadeType defines the concrete type that the returned object will be.
 // The Type information is used to define what methods will be exported in the
 // API, and it must exactly match the actual object returned by the factory.
-func (f *Registry) Register(name string, version int, factory Factory, facadeType reflect.Type, feature string) error {
+func (f *Registry) Register(name string, version int, factory Factory, facadeType reflect.Type) error {
 	if f.facades == nil {
 		f.facades = make(map[string]versions, 1)
 	}
 	record := record{
 		factory:    factory,
 		facadeType: facadeType,
-		feature:    feature,
 	}
 	if vers, ok := f.facades[name]; ok {
 		if _, ok := vers[version]; ok {
@@ -82,9 +73,7 @@ func (f *Registry) Register(name string, version int, factory Factory, facadeTyp
 func (f *Registry) lookup(name string, version int) (record, error) {
 	if versions, ok := f.facades[name]; ok {
 		if record, ok := versions[version]; ok {
-			if featureflag.Enabled(record.feature) {
-				return record, nil
-			}
+			return record, nil
 		}
 	}
 	return record{}, errors.NotFoundf("%s(%d)", name, version)
@@ -122,10 +111,8 @@ type Description struct {
 // more friendly form for List().
 func descriptionFromVersions(name string, vers versions) Description {
 	intVersions := make([]int, 0, len(vers))
-	for version, record := range vers {
-		if featureflag.Enabled(record.feature) {
-			intVersions = append(intVersions, version)
-		}
+	for version := range vers {
+		intVersions = append(intVersions, version)
 	}
 	sort.Ints(intVersions)
 	return Description{
