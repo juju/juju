@@ -1471,10 +1471,10 @@ class CommandComplete(BaseCondition):
             self.command_time.actual_completion()
 
     def do_raise(self, status):
-        raise Exception(
-            'Timed out waiting for {} command to complete: {}'.format(
+        raise RuntimeError(
+            'Timed out waiting for "{}" command to complete: "{}"'.format(
                 self.command_time.cmd,
-                self.command_time.full_args))
+                ' '.join(self.command_time.full_args)))
 
 
 class ModelClient:

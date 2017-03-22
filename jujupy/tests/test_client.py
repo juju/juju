@@ -44,6 +44,7 @@ from jujupy.client import (
     AppError,
     BaseCondition,
     CommandTime,
+    CommandComplete,
     CannotConnectEnv,
     ConditionList,
     Controller,
@@ -6070,3 +6071,68 @@ class TestCommandTime(TestCase):
             ct = CommandTime('cmd', [])
             ct.actual_completion()
         self.assertEqual(ct.actual_time, utcend - utcstart)
+
+
+class TestCommandComplete(TestCase):
+
+    def test_default_values(self):
+        ct = CommandTime('cmd', [])
+        base_condition = BaseCondition()
+        cc = CommandComplete(base_condition, ct)
+
+        self.assertEqual(cc.timeout, 300)
+        self.assertEqual(cc.already_satisfied, False)
+        self.assertEqual(cc._real_condition, base_condition)
+        self.assertEqual(cc.command_time, ct)
+        # actual_completion shouldn't be set as the condition is not already
+        # satisfied.
+        self.assertEqual(cc.command_time.end, None)
+
+    def test_sets_actual_comletion_when_already_satisfied(self):
+        base_condition = BaseCondition(already_satisfied=True)
+        ct = CommandTime('cmd', [])
+        cc = CommandComplete(base_condition, ct)
+
+        self.assertIsNotNone(cc.command_time.actual_time)
+
+    def test_calls_wrapper_condition_iter(self):
+        class TestCondition(BaseCondition):
+            def iter_blocking_state(self, status):
+                yield 'item', status
+
+        ct = CommandTime('cmd', [])
+        cc = CommandComplete(TestCondition(), ct)
+
+        k, v = next(cc.iter_blocking_state('status_obj'))
+        self.assertEqual(k, 'item')
+        self.assertEqual(v, 'status_obj')
+
+    def test_sets_actual_completion_when_complete(self):
+        """When the condition hits success must set actual_completion."""
+        class TestCondition(BaseCondition):
+            def __init__(self):
+                super(TestCondition, self).__init__()
+                self._already_called = False
+
+            def iter_blocking_state(self, status):
+                if not self._already_called:
+                    self._already_called = True
+                    yield 'item', status
+
+        ct = CommandTime('cmd', [])
+        cc = CommandComplete(TestCondition(), ct)
+
+        next(cc.iter_blocking_state('status_obj'))
+        self.assertIsNone(cc.command_time.end)
+        next(cc.iter_blocking_state('status_obj'), None)
+        self.assertIsNotNone(cc.command_time.end)
+
+    def test_raises_exception_with_command_details(self):
+        ct = CommandTime('cmd', ['cmd', 'arg1', 'arg2'])
+        cc = CommandComplete(BaseCondition(), ct)
+
+        with self.assertRaises(RuntimeError) as ex:
+            cc.do_raise('status')
+        self.assertEqual(
+            str(ex.exception),
+            'Timed out waiting for "cmd" command to complete: "cmd arg1 arg2"')
