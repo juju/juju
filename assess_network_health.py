@@ -652,34 +652,6 @@ def main(argv=None):
                 start_test(bs_manager.client, args, None)
     return 0
 
-    """if args.model is None:
-        bs_manager = BootstrapManager.from_args(args)
-        if args.maas:
-            # Excluded_spaces breaks tests on oil maas
-            bs_manager.client.excluded_spaces = set()
-            bs_manager.client.reserved_spaces = set()
-        with bs_manager.booted_context(args.upload_tools):
-            if args.maas:
-                env = bs_manager.client.env
-                with maas_account_from_boot_config(env) as manager:
-                    test.assess_network_health(bs_manager.client,
-                                               bundle=args.bundle,
-                                               series=args.series,
-                                               reboot=args.reboot,
-                                               maas=manager)
-    else:
-        client = client_for_existing(args.juju_bin,
-                                     os.environ['JUJU_HOME'])
-        try:
-            test.assess_network_health(client, bundle=args.bundle,
-                                       target_model=args.model,
-                                       series=args.series,
-                                       reboot=args.reboot)
-        finally:
-            test.cleanup(client)
-            log.info('Cleanup complete.')
-    return 0"""
-
 
 if __name__ == '__main__':
     sys.exit(main())
