@@ -365,12 +365,12 @@ lxd
 	})
 }
 
-func (s *AddModelSuite) TestCloudDefaultRegionPassedThrough(c *gc.C) {
+func (s *AddModelSuite) TestCloudUnspecifiedRegionPassedThrough(c *gc.C) {
 	_, err := s.run(c, "test", "aws")
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(s.fakeAddModelAPI.cloudName, gc.Equals, "aws")
-	c.Assert(s.fakeAddModelAPI.cloudRegion, gc.Equals, "us-east-1")
+	c.Assert(s.fakeAddModelAPI.cloudRegion, gc.Equals, "")
 }
 
 func (s *AddModelSuite) TestInvalidCloudOrRegionName(c *gc.C) {
