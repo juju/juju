@@ -299,6 +299,14 @@ func (f *contextFactory) updateContext(ctx *HookContext) (err error) {
 	}
 	ctx.proxySettings = modelConfig.ProxySettings()
 
+	principal, ok, err := ctx.unit.PrincipalName()
+	if err != nil {
+		return err
+	}
+	if ok {
+		ctx.principal = principal
+	}
+
 	// Calling these last, because there's a potential race: they're not guaranteed
 	// to be set in time to be needed for a hook. If they're not, we just leave them
 	// unset as we always have; this isn't great but it's about behaviour preservation.
