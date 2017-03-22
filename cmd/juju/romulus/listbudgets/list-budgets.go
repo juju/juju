@@ -95,11 +95,11 @@ func formatTabular(writer io.Writer, value interface{}) error {
 		table.RightAlign(col)
 	}
 
-	table.AddRow("BUDGET", "MONTHLY", "ALLOCATED", "AVAILABLE", "SPENT")
+	table.AddRow("Budget", "Monthly", "Allocated", "Available", "Spent")
 	for _, budgetEntry := range b.Budgets {
 		table.AddRow(budgetEntry.Budget, budgetEntry.Limit, budgetEntry.Allocated, budgetEntry.Available, budgetEntry.Consumed)
 	}
-	table.AddRow("TOTAL", b.Total.Limit, b.Total.Allocated, b.Total.Available, b.Total.Consumed)
+	table.AddRow("Total", b.Total.Limit, b.Total.Allocated, b.Total.Available, b.Total.Consumed)
 	table.AddRow("", "", "", "", "")
 	table.AddRow("Credit limit:", b.Credit, "", "", "")
 	fmt.Fprint(writer, table)

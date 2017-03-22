@@ -138,7 +138,7 @@ func (s *metricsDebugSuite) TestSetMeterStatus(c *gc.C) {
 		},
 		assert: func(c *gc.C, results params.ErrorResults) {
 			err := results.OneError()
-			c.Assert(err, gc.DeepEquals, &params.Error{Message: "invalid meter status \"NOT AVAILABLE\""})
+			c.Assert(err, gc.DeepEquals, &params.Error{Message: "meter status \"NOT AVAILABLE\" not valid"})
 		},
 	}, {
 		about: "not such application",

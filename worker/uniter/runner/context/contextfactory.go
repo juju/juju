@@ -83,20 +83,22 @@ type contextFactory struct {
 	rand *rand.Rand
 }
 
+// FactoryConfig contains configuration values
+// for the context factory.
+type FactoryConfig struct {
+	State            *uniter.State
+	UnitTag          names.UnitTag
+	Tracker          leadership.Tracker
+	GetRelationInfos RelationsFunc
+	Storage          StorageContextAccessor
+	Paths            Paths
+	Clock            clock.Clock
+}
+
 // NewContextFactory returns a ContextFactory capable of creating execution contexts backed
 // by the supplied unit's supplied API connection.
-func NewContextFactory(
-	state *uniter.State,
-	unitTag names.UnitTag,
-	tracker leadership.Tracker,
-	getRelationInfos RelationsFunc,
-	storage StorageContextAccessor,
-	paths Paths,
-	clock clock.Clock,
-) (
-	ContextFactory, error,
-) {
-	unit, err := state.Unit(unitTag)
+func NewContextFactory(config FactoryConfig) (ContextFactory, error) {
+	unit, err := config.State.Unit(config.UnitTag)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -104,7 +106,7 @@ func NewContextFactory(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	model, err := state.Model()
+	model, err := config.State.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -115,17 +117,17 @@ func NewContextFactory(
 	}
 	f := &contextFactory{
 		unit:             unit,
-		state:            state,
-		tracker:          tracker,
-		paths:            paths,
+		state:            config.State,
+		tracker:          config.Tracker,
+		paths:            config.Paths,
 		modelUUID:        model.UUID(),
 		envName:          model.Name(),
 		machineTag:       machineTag,
-		getRelationInfos: getRelationInfos,
+		getRelationInfos: config.GetRelationInfos,
 		relationCaches:   map[int]*RelationCache{},
-		storage:          storage,
+		storage:          config.Storage,
 		rand:             rand.New(rand.NewSource(time.Now().Unix())),
-		clock:            clock,
+		clock:            config.Clock,
 		zone:             zone,
 	}
 	return f, nil
@@ -282,6 +284,12 @@ func (f *contextFactory) updateContext(ctx *HookContext) (err error) {
 		code: statusCode,
 		info: statusInfo,
 	}
+
+	sla, err := f.state.SLALevel()
+	if err != nil {
+		return errors.Annotate(err, "could not retrieve the SLA level")
+	}
+	ctx.slaLevel = sla
 
 	// TODO(fwereade) 23-10-2014 bug 1384572
 	// Nothing here should ever be getting the environ config directly.

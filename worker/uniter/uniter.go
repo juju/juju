@@ -459,9 +459,15 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 	if err != nil {
 		return errors.Annotatef(err, "cannot create deployer")
 	}
-	contextFactory, err := context.NewContextFactory(
-		u.st, unitTag, u.leadershipTracker, u.relations.GetInfo, u.storage, u.paths, u.clock,
-	)
+	contextFactory, err := context.NewContextFactory(context.FactoryConfig{
+		State:            u.st,
+		UnitTag:          unitTag,
+		Tracker:          u.leadershipTracker,
+		GetRelationInfos: u.relations.GetInfo,
+		Storage:          u.storage,
+		Paths:            u.paths,
+		Clock:            u.clock,
+	})
 	if err != nil {
 		return err
 	}

@@ -6,14 +6,10 @@ package application
 import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"github.com/juju/romulus/api/budget"
-	wireformat "github.com/juju/romulus/wireformat/budget"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
-	"gopkg.in/macaroon-bakery.v1/httpbakery"
 
 	"github.com/juju/juju/api/application"
-	"github.com/juju/juju/api/charms"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -111,9 +107,6 @@ func (c *removeApplicationCommand) removeApplicationsDeprecated(
 		if err := block.ProcessBlockedError(err, block.BlockRemove); err != nil {
 			return errors.Trace(err)
 		}
-		if err := c.removeAllocation(ctx, client, name); err != nil {
-			return errors.Trace(err)
-		}
 	}
 	return nil
 }
@@ -131,11 +124,6 @@ func (c *removeApplicationCommand) removeApplications(
 		result := results[i]
 		if result.Error != nil {
 			ctx.Infof("removing application %s failed: %s", name, result.Error)
-			anyFailed = true
-			continue
-		}
-		if err := c.removeAllocation(ctx, client, name); err != nil {
-			ctx.Infof("removing allocation for application %s failed: %s", name, result.Error)
 			anyFailed = true
 			continue
 		}
@@ -169,63 +157,4 @@ func (c *removeApplicationCommand) removeApplications(
 		return cmd.ErrSilent
 	}
 	return nil
-}
-
-func (c *removeApplicationCommand) removeAllocation(
-	ctx *cmd.Context,
-	client removeApplicationAPI,
-	applicationName string,
-) error {
-	charmURL, err := client.GetCharmURL(applicationName)
-	// Not all apps have charms, eg remote applications.
-	if params.ErrCode(err) == params.CodeNotFound {
-		return nil
-	}
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if charmURL.Schema == "local" {
-		return nil
-	}
-
-	root, err := c.NewAPIRoot()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	charmsClient := charms.NewClient(root)
-	metered, err := charmsClient.IsMetered(charmURL.String())
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if !metered {
-		return nil
-	}
-
-	modelUUID := client.ModelUUID()
-	bakeryClient, err := c.BakeryClient()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	budgetClient := getBudgetAPIClient(bakeryClient)
-
-	resp, err := budgetClient.DeleteAllocation(modelUUID, applicationName)
-	if wireformat.IsNotAvail(err) {
-		logger.Warningf("allocation not removed: %v", err)
-	} else if err != nil {
-		return err
-	}
-	if resp != "" {
-		logger.Infof(resp)
-	}
-	return nil
-}
-
-var getBudgetAPIClient = getBudgetAPIClientImpl
-
-func getBudgetAPIClientImpl(bakeryClient *httpbakery.Client) budgetAPIClient {
-	return budget.NewClient(bakeryClient)
-}
-
-type budgetAPIClient interface {
-	DeleteAllocation(string, string) (string, error)
 }
