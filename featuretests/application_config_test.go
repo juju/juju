@@ -52,6 +52,11 @@ func (s *ApplicationConfigSuite) SetUpTest(c *gc.C) {
 			"intoverwrite":     1620,
 			"floatoverwrite":   2.1,
 			"booleanoverwrite": false,
+			// nil values supplied by the user used to be a problem, bug#1667199
+			"booleandefault": nil,
+			"floatdefault":   nil,
+			"intdefault":     nil,
+			"strdefault":     nil,
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -138,7 +143,7 @@ func (s *ApplicationConfigSuite) assertHookOutput(c *gc.C, obtained charm.Settin
 		c.Assert(s.settingKeys.Contains(name), jc.IsTrue)
 		// due to awesome float64/int parsing confusion, it's actually safer to ensure that
 		// values' string representations match
-		c.Assert(fmt.Sprintf("%v", aSetting.Value), gc.DeepEquals, fmt.Sprintf("%v", obtained[name]))
+		c.Assert(fmt.Sprintf("%v", obtained[name]), gc.DeepEquals, fmt.Sprintf("%v", aSetting.Value))
 	}
 }
 
@@ -152,8 +157,8 @@ func (s *ApplicationConfigSuite) assertJujuConfigOutput(c *gc.C, jujuConfigOutpu
 	c.Assert(len(obtained), gc.Equals, len(s.settingKeys))
 	for name, aSetting := range expected {
 		c.Assert(s.settingKeys.Contains(name), jc.IsTrue)
-		c.Assert(aSetting.Default, gc.Equals, obtained[name].Default)
-		c.Assert(aSetting.Value, gc.Equals, obtained[name].Value)
+		c.Assert(obtained[name].Default, gc.Equals, aSetting.Default)
+		c.Assert(obtained[name].Value, gc.Equals, aSetting.Value)
 	}
 }
 
@@ -176,7 +181,7 @@ var (
 		"intnodefault":     {nil, true},
 		"intoverwrite":     {1620, false},
 		"strdefault":       {"charm default", true},
-		"strnodefault":     {Default: true},
+		"strnodefault":     {nil, true},
 		"stroverwrite":     {"test value", false},
 	}
 	updatedConfig = settingsMap{
