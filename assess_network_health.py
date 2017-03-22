@@ -250,12 +250,15 @@ class AssessNetworkHealth:
             default_route = re.search(r'(default via )+([\d\.]+)\s+',
                                       json.dumps(routes[0]))
             if default_route:
+                ip = default_route.group(2)
+                log.info('Default route for unit {}:{}'.format(unit[0], ip))
                 rc = client.run(
-                    ['ping -c1 -q {}'.format(default_route.group(2))],
+                    ['ping -c1 -q {}'.format(ip)],
                     machines=[unit[0]])
                 sucess = re.search(r'(1 received)', json.dumps(rc[0]))
                 if not sucess:
-                    log.error('{} unable to ping default route'.format(unit))
+                    log.error(
+                        '{} unable to ping default route'.format(unit[0]))
                     continue
             else:
                 log.error("Default route not found")
@@ -554,9 +557,9 @@ class AssessNetworkHealth:
 def setup_spaces(maas, bundle=None):
     """Setup MaaS spaces to test charm bindings.
 
-    Reads from the bundle
-    file and pulls out the required spaces, then adds those spaces to
-    the MaaS cluster using our MaaS controller wrapper.
+    Reads from the bundle file and pulls out the required spaces,
+    then adds those spaces to the MaaS cluster using our MaaS
+    controller wrapper.
 
     :param maas: MaaS manager object
     :param bundle: Bundle supplied in test
@@ -621,10 +624,13 @@ def main(argv=None):
         with bs_manager.booted_context(args.upload_tools):
             manager = None
             if args.maas:
-                manager = maas_account_from_boot_config(bs_manager.client.env)
-            test.assess_network_health(bs_manager.client, bundle=args.bundle,
-                                       series=args.series, reboot=args.reboot,
-                                       maas=manager)
+                env = bs_manager.client.env
+                with maas_account_from_boot_config(env) as manager:
+                    test.assess_network_health(bs_manager.client,
+                                               bundle=args.bundle,
+                                               series=args.series,
+                                               reboot=args.reboot,
+                                               maas=manager)
     else:
         client = client_for_existing(args.juju_bin,
                                      os.environ['JUJU_HOME'])
