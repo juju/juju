@@ -18,7 +18,8 @@ curl -L -o ~/Downloads/$TARBALL $URI
 SHASUM=$(shasum -a 256 ~/Downloads/$TARBALL | cut -d ' ' -f 1)
 echo "$TARBALL is $SHASUM"
 
-cd /usr/local/Library/Formula
+# cd /usr/local/Library/Formula
+cd /usr/local/Homebrew/Library/Taps/homebrew/homebrew-core/Formula
 git checkout master
 brew update
 brew uninstall --force juju
