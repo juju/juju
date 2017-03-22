@@ -195,8 +195,10 @@ func (s *StateSuite) TestModelUUID(c *gc.C) {
 }
 
 func (s *StateSuite) TestNoModelDocs(c *gc.C) {
+	// For example:
+	// found documents for model with uuid 7bfe98b6-7282-48d4-8e37-9b90fb3da4f1: 1 constraints doc, 1 modelusers doc, 1 settings doc, 1 statuses doc
 	c.Assert(s.State.EnsureModelRemoved(), gc.ErrorMatches,
-		fmt.Sprintf(`found documents for model with uuid %s: \d+ constraints doc, \d+ leases doc, \d+ modelusers doc, \d+ settings doc, \d+ statuses doc`, s.State.ModelUUID()))
+		fmt.Sprintf(`found documents for model with uuid %s: (\d+ [a-z]+ doc, )*\d+ [a-z]+ doc`, s.State.ModelUUID()))
 }
 
 func (s *StateSuite) TestMongoSession(c *gc.C) {
