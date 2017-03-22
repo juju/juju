@@ -623,16 +623,14 @@ def start_test(client, args, maas):
 
 
 def start_maas_test(client, args):
-    if args.maas:
-        # Excluded_spaces breaks tests on oil maas
-        client.excluded_spaces = set()
-        client.reserved_spaces = set()
-        try:
-            with maas_account_from_boot_config(client.env) as manager:
-                start_test(client, args, manager)
-        except subprocess.CalledProcessError as e:
-            log.error(
-                'Could not connect to MaaS controller:\n{}'.format(e))
+    try:
+        with maas_account_from_boot_config(client.env) as manager:
+            start_test(client, args, manager)
+    except subprocess.CalledProcessError as e:
+        log.warning(
+            'Could not connect to MaaS controller due to error:\n{}'.format(e))
+        log.warning('Attempting test without ensuring MaaS spaces.')
+        start_test(client, args, None)
 
 
 def main(argv=None):
@@ -644,9 +642,12 @@ def main(argv=None):
         start_test(client, args, None)
     else:
         bs_manager = BootstrapManager.from_args(args)
+        if args.maas:
+            bs_manager.client.excluded_spaces = set()
+            bs_manager.client.reserved_spaces = set()
         with bs_manager.booted_context(args.upload_tools):
             if args.maas:
-                start_maas_test_maas(bs_manager.client, args)
+                start_maas_test(bs_manager.client, args)
             else:
                 start_test(bs_manager.client, args, None)
     return 0
