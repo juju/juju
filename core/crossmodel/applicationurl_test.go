@@ -23,12 +23,11 @@ var urlTests = []struct {
 	exact  string
 	url    *crossmodel.ApplicationURL
 }{{
-	s:   "local:/u/user/applicationname",
-	url: &crossmodel.ApplicationURL{"local", "user", "", "applicationname"},
+	s:   "controller:user/modelname.applicationname",
+	url: &crossmodel.ApplicationURL{"controller", "user", "modelname", "applicationname"},
 }, {
-	s:     "u/user/applicationname",
-	url:   &crossmodel.ApplicationURL{"local", "user", "", "applicationname"},
-	exact: "local:/u/user/applicationname",
+	s:   "controller:user/modelname.applicationname:rel",
+	url: &crossmodel.ApplicationURL{"controller", "user", "modelname", "applicationname:rel"},
 }, {
 	s:   "modelname.applicationname",
 	url: &crossmodel.ApplicationURL{"", "", "modelname", "applicationname"},
@@ -50,29 +49,17 @@ var urlTests = []struct {
 	s:   "user/modelname.applicationname",
 	url: &crossmodel.ApplicationURL{"", "user", "modelname", "applicationname"},
 }, {
-	s:   "local:application",
-	err: `application URL has invalid form, missing "/u/<user>": $URL`,
+	s:   "controller:modelname",
+	err: `application offer URL is missing application`,
 }, {
-	s:   "local:user/application",
-	err: `application URL has invalid form, missing "/u/<user>": $URL`,
+	s:   "controller:user/modelname",
+	err: `application offer URL is missing application`,
 }, {
-	s:   "local:/u/user",
-	err: `application URL has invalid form, missing application name: $URL`,
+	s:   "model",
+	err: `application offer URL is missing application`,
 }, {
-	s:   "application",
-	err: `application URL has invalid form, missing "/u/<user>": $URL`,
-}, {
-	s:   "/user/application",
-	err: `application URL has invalid form, missing "/u/<user>": $URL`,
-}, {
-	s:   "/u/user",
-	err: `application URL has invalid form, missing application name: $URL`,
-}, {
-	s:   "local:/u/user/application@bad",
-	err: `application name "application@bad" not valid`,
-}, {
-	s:   "local:/u/user[bad/application",
-	err: `user name "user\[bad" not valid`,
+	s:   "/user/model",
+	err: `application offer URL is missing application`,
 }, {
 	s:   "model.application@bad",
 	err: `application name "application@bad" not valid`,
@@ -82,12 +69,6 @@ var urlTests = []struct {
 }, {
 	s:   "user/[badmodel.application",
 	err: `model name "\[badmodel" not valid`,
-}, {
-	s:   ":foo",
-	err: `cannot parse application URL: $URL`,
-}, {
-	s:   "local:/u/fred/application/extra",
-	err: `application URL has too many parts: $URL`,
 }}
 
 func (s *ApplicationURLSuite) TestParseURL(c *gc.C) {
@@ -112,63 +93,42 @@ func (s *ApplicationURLSuite) TestParseURL(c *gc.C) {
 	}
 }
 
-func (s *ApplicationURLSuite) TestParseLocalOnlyURL(c *gc.C) {
-	_, err := crossmodel.ParseLocalOnlyApplicationURL("local:/u/fred/application")
-	c.Assert(err, gc.ErrorMatches, `application URL has invalid form.*"`)
-	url, err := crossmodel.ParseLocalOnlyApplicationURL("user/modelname.applicationname")
-	c.Assert(url, jc.DeepEquals, &crossmodel.ApplicationURL{"", "user", "modelname", "applicationname"})
-}
-
-func (s *ApplicationURLSuite) TestServiceDirectoryForURL(c *gc.C) {
-	dir, err := crossmodel.ApplicationDirectoryForURL("local:/u/me/application")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(dir, gc.Equals, "local")
-}
-
-func (s *ApplicationURLSuite) TestServiceDirectoryForURLError(c *gc.C) {
-	_, err := crossmodel.ApplicationDirectoryForURL("error")
-	c.Assert(err, gc.ErrorMatches, "application URL has invalid form.*")
-}
-
 var urlPartsTests = []struct {
 	s, err string
 	url    *crossmodel.ApplicationURLParts
 }{{
-	s:   "local:/u/user/applicationname",
-	url: &crossmodel.ApplicationURLParts{"local", "user", "", "applicationname"},
+	s:   "controller:/user/modelname.applicationname",
+	url: &crossmodel.ApplicationURLParts{"controller", "user", "modelname", "applicationname"},
 }, {
-	s:   "u/user/applicationname",
-	url: &crossmodel.ApplicationURLParts{"", "user", "", "applicationname"},
+	s:   "user/modelname.applicationname",
+	url: &crossmodel.ApplicationURLParts{"", "user", "modelname", "applicationname"},
 }, {
-	s:   "u/user",
-	url: &crossmodel.ApplicationURLParts{"", "user", "", ""},
+	s:   "user/modelname",
+	url: &crossmodel.ApplicationURLParts{"", "user", "modelname", ""},
 }, {
-	s:   "application",
-	url: &crossmodel.ApplicationURLParts{"", "", "", "application"},
+	s:   "modelname.application",
+	url: &crossmodel.ApplicationURLParts{"", "", "modelname", "application"},
 }, {
-	s:   "local:/application",
-	url: &crossmodel.ApplicationURLParts{"local", "", "", "application"},
+	s:   "controller:/modelname",
+	url: &crossmodel.ApplicationURLParts{"controller", "", "modelname", ""},
+}, {
+	s:   "controller:",
+	url: &crossmodel.ApplicationURLParts{Source: "controller"},
 }, {
 	s:   "",
 	url: &crossmodel.ApplicationURLParts{},
 }, {
-	s:   "prod/application",
-	err: "application URL has too many parts: $URL",
+	s:   "user/prod/applicationname/extra",
+	err: `application offer URL has invalid form, must be \[<user/\]<model>.<appname>: "user/prod/applicationname/extra"`,
 }, {
-	s:   "u/user/prod/applicationname",
-	err: "application URL has too many parts: $URL",
-}, {
-	s:   "a/b/c",
-	err: `application URL has too many parts: "a/b/c"`,
-}, {
-	s:   "local:/u/user/application@bad",
+	s:   "controller:/user/modelname.application@bad",
 	err: `application name "application@bad" not valid`,
 }, {
-	s:   "local:/u/user[bad/application",
+	s:   "controller:/user[bad/modelname.application",
 	err: `user name "user\[bad" not valid`,
 }, {
 	s:   ":foo",
-	err: `cannot parse application URL: $URL`,
+	err: `application offer URL has invalid form, must be \[<user/\]<model>.<appname>: $URL`,
 }}
 
 func (s *ApplicationURLSuite) TestParseURLParts(c *gc.C) {
@@ -195,10 +155,10 @@ func (s *ApplicationURLSuite) TestHasEndpoint(c *gc.C) {
 	url, err = crossmodel.ParseApplicationURL("model.application")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(url.HasEndpoint(), jc.IsFalse)
-	url, err = crossmodel.ParseApplicationURL("local:/u/blah/application:thing")
+	url, err = crossmodel.ParseApplicationURL("controller:/user/model.application:thing")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(url.HasEndpoint(), jc.IsTrue)
-	url, err = crossmodel.ParseApplicationURL("local:/u/blah/application")
+	url, err = crossmodel.ParseApplicationURL("controller:/user/model.application")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(url.HasEndpoint(), jc.IsFalse)
 }

@@ -11,15 +11,15 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/api"
-	"github.com/juju/juju/resource/api/private"
 )
 
 // FacadeCaller exposes the raw API caller functionality needed here.
 type FacadeCaller interface {
 	// FacadeCall makes an API request.
-	FacadeCall(request string, params, response interface{}) error
+	FacadeCall(request string, args, response interface{}) error
 }
 
 // HTTPClient exposes the raw API HTTP caller functionality needed here.
@@ -79,9 +79,9 @@ func (c *UnitFacadeClient) GetResource(resourceName string) (resource.Resource, 
 }
 
 func (c *UnitFacadeClient) getResourceInfo(resourceName string) (resource.Resource, error) {
-	var response private.ResourcesResult
+	var response params.UnitResourcesResult
 
-	args := private.ListResourcesArgs{
+	args := params.ListUnitResourcesArgs{
 		ResourceNames: []string{resourceName},
 	}
 	if err := c.FacadeCall("GetResourceInfo", &args, &response); err != nil {

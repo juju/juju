@@ -797,7 +797,7 @@ func (api *API) detachStorage(storageTag names.StorageTag, unitTag names.UnitTag
 	if unitTag != (names.UnitTag{}) {
 		// The caller has specified a unit explicitly. Do
 		// not filter out "not found" errors in this case.
-		return api.storage.DestroyStorageAttachment(storageTag, unitTag)
+		return api.storage.DetachStorage(storageTag, unitTag)
 	}
 	attachments, err := api.storage.StorageAttachments(storageTag)
 	if err != nil {
@@ -813,7 +813,7 @@ func (api *API) detachStorage(storageTag names.StorageTag, unitTag names.UnitTag
 		if a.Life() != state.Alive {
 			continue
 		}
-		err := api.storage.DestroyStorageAttachment(storageTag, a.Unit())
+		err := api.storage.DetachStorage(storageTag, a.Unit())
 		if err != nil && !errors.IsNotFound(err) {
 			// We only care about NotFound errors if
 			// the user specified a unit explicitly.

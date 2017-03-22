@@ -292,7 +292,7 @@ func (api *RemoteRelationsAPI) RemoteApplications(entities params.Entities) (par
 			Life:       params.Life(remoteApp.Life().String()),
 			Status:     status.Status.String(),
 			ModelUUID:  remoteApp.SourceModel().Id(),
-			Registered: remoteApp.Registered(),
+			Registered: remoteApp.IsConsumerProxy(),
 		}, nil
 	}
 	for i, entity := range entities.Entities {
@@ -368,7 +368,7 @@ func (api *RemoteRelationsAPI) publishRelationChange(change params.RemoteRelatio
 			if err != nil && !errors.IsNotFound(err) {
 				return errors.Trace(err)
 			}
-			if err == nil && remoteApp.Registered() {
+			if err == nil && remoteApp.IsConsumerProxy() {
 				logger.Debugf("destroy consuming app proxy for %v", remoteApp.Name())
 				if err := remoteApp.Destroy(); err != nil {
 					return errors.Trace(err)
@@ -455,31 +455,26 @@ func (api *RemoteRelationsAPI) registerRemoteRelation(relation params.RegisterRe
 	// TODO(wallyworld) - do this as a transaction so the result is atomic
 	// Perform some initial validation - is the local application alive?
 
-	// The name the consuming side knows the application by is not necessarily
-	// what it has been deployed as locally.
-	localApplicationName := relation.OfferedApplicationName
-	appOffer, err := api.st.ListOffers(crossmodel.OfferedApplicationFilter{ApplicationName: relation.OfferedApplicationName})
+	// Look up the offer record so get the local application to which we need to relate.
+	appOffers, err := api.st.ListOffers(crossmodel.ApplicationOfferFilter{
+		OfferName: relation.OfferName,
+	})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if len(appOffer) == 0 {
-		// TODO(wallyworld) - we don't yet record the offer, assume the URL contains the name
-		// return errors.NotFoundf("offered application %q", relation.OfferedApplicationName)
-		appNameParts := strings.Split(relation.OfferedApplicationName, "-")
-		if len(appNameParts) > 1 {
-			localApplicationName = appNameParts[len(appNameParts)-1]
-		}
-	} else {
-		// TODO(wallyworld) - charm name should be service name
-		localApplicationName = appOffer[0].CharmName
+	if len(appOffers) == 0 {
+		return nil, errors.NotFoundf("application offer %v", relation.OfferName)
 	}
+	localApplicationName := appOffers[0].ApplicationName
 
 	localApp, err := api.st.Application(localApplicationName)
 	if err != nil {
-		return nil, errors.Annotatef(err, "cannot get application for offer %q", relation.OfferedApplicationName)
+		return nil, errors.Annotatef(err, "cannot get application for offer %q", relation.OfferName)
 	}
 	if localApp.Life() != state.Alive {
-		return nil, errors.NotFoundf("application %v", localApplicationName)
+		// We don't want to leak the application name so just log it.
+		logger.Warningf("local application for offer %v not found", localApplicationName)
+		return nil, errors.NotFoundf("local application for offer %v", relation.OfferName)
 	}
 	eps, err := localApp.Endpoints()
 	if err != nil {
@@ -515,11 +510,12 @@ func (api *RemoteRelationsAPI) registerRemoteRelation(relation params.RegisterRe
 
 	remoteModelTag := names.NewModelTag(relation.ApplicationId.ModelUUID)
 	_, err = api.st.AddRemoteApplication(state.AddRemoteApplicationParams{
-		Name:        uniqueRemoteApplicationName,
-		SourceModel: names.NewModelTag(relation.ApplicationId.ModelUUID),
-		Token:       relation.ApplicationId.Token,
-		Endpoints:   []charm.Relation{remoteEndpoint.Relation},
-		Registered:  true,
+		Name:            uniqueRemoteApplicationName,
+		OfferName:       relation.OfferName,
+		SourceModel:     names.NewModelTag(relation.ApplicationId.ModelUUID),
+		Token:           relation.ApplicationId.Token,
+		Endpoints:       []charm.Relation{remoteEndpoint.Relation},
+		IsConsumerProxy: true,
 	})
 	// If it already exists, that's fine.
 	if err != nil && !errors.IsAlreadyExists(err) {

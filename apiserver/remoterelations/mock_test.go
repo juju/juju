@@ -33,6 +33,7 @@ type mockState struct {
 	relations                    map[string]*mockRelation
 	remoteApplications           map[string]*mockRemoteApplication
 	applications                 map[string]*mockApplication
+	offers                       []crossmodel.ApplicationOffer
 	remoteApplicationsWatcher    *mockStringsWatcher
 	remoteRelationsWatcher       *mockStringsWatcher
 	applicationRelationsWatchers map[string]*mockStringsWatcher
@@ -51,12 +52,8 @@ func newMockState() *mockState {
 	}
 }
 
-func (st *mockState) ListOffers(filter ...crossmodel.OfferedApplicationFilter) ([]crossmodel.OfferedApplication, error) {
-	result := make([]crossmodel.OfferedApplication, len(filter))
-	for i, f := range filter {
-		result[i] = crossmodel.OfferedApplication{CharmName: "application-" + f.ApplicationName}
-	}
-	return result, nil
+func (st *mockState) ListOffers(filter ...crossmodel.ApplicationOfferFilter) ([]crossmodel.ApplicationOffer, error) {
+	return st.offers, nil
 }
 
 func (st *mockState) ModelUUID() string {
@@ -78,7 +75,7 @@ func (st *mockState) EndpointsRelation(eps ...state.Endpoint) (remoterelations.R
 }
 
 func (st *mockState) AddRemoteApplication(params state.AddRemoteApplicationParams) (remoterelations.RemoteApplication, error) {
-	app := &mockRemoteApplication{name: params.Name, eps: params.Endpoints, registered: params.Registered}
+	app := &mockRemoteApplication{name: params.Name, eps: params.Endpoints, consumerproxy: params.IsConsumerProxy}
 	st.remoteApplications[params.Name] = app
 	return app, nil
 }
@@ -291,13 +288,13 @@ func (r *mockRelation) WatchUnits(applicationName string) (state.RelationUnitsWa
 
 type mockRemoteApplication struct {
 	testing.Stub
-	name       string
-	alias      string
-	url        string
-	life       state.Life
-	status     status.Status
-	eps        []charm.Relation
-	registered bool
+	name          string
+	alias         string
+	url           string
+	life          state.Life
+	status        status.Status
+	eps           []charm.Relation
+	consumerproxy bool
 }
 
 func newMockRemoteApplication(name, url string) *mockRemoteApplication {
@@ -321,9 +318,9 @@ func (r *mockRemoteApplication) Tag() names.Tag {
 	return names.NewApplicationTag(r.name)
 }
 
-func (r *mockRemoteApplication) Registered() bool {
-	r.MethodCall(r, "Registered")
-	return r.registered
+func (r *mockRemoteApplication) IsConsumerProxy() bool {
+	r.MethodCall(r, "IsConsumerProxy")
+	return r.consumerproxy
 }
 
 func (r *mockRemoteApplication) Life() state.Life {

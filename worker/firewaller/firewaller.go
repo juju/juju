@@ -1271,11 +1271,17 @@ func (rd *remoteRelationData) updateNetworks(facade RemoteFirewallerAPI, remoteR
 		}
 		ingressRequired = false
 	}
+	var cidrs []string
+	if networks == nil {
+		ingressRequired = false
+	} else {
+		cidrs = networks.CIDRs
+	}
 	logger.Debugf("ingress networks for %v: %+v", remoteRelationId, networks)
 	change := &remoteRelationChange{
 		relationTag:         rd.tag,
 		localApplicationTag: rd.localApplicationTag,
-		networks:            set.NewStrings(networks.CIDRs...),
+		networks:            set.NewStrings(cidrs...),
 		ingressRequired:     ingressRequired,
 	}
 	select {

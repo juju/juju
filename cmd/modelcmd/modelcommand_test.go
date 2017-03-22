@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
@@ -19,16 +20,15 @@ import (
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/permission"
-	"github.com/juju/juju/testing"
 )
 
 type ModelCommandSuite struct {
-	testing.FakeJujuXDGDataHomeSuite
+	testing.IsolationSuite
 	store *jujuclienttesting.MemStore
 }
 
 func (s *ModelCommandSuite) SetUpTest(c *gc.C) {
-	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
+	s.IsolationSuite.SetUpTest(c)
 	s.PatchEnvironment("JUJU_CLI_VERSION", "")
 
 	s.store = jujuclienttesting.NewMemStore()

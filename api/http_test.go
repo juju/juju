@@ -71,7 +71,7 @@ var httpClientTests = []struct {
 			Message: make(map[string]int),
 		})
 	},
-	expectError: `GET http://.*/: incompatible error response: json: cannot unmarshal object into Go value of type string`,
+	expectError: `GET http://.*/: incompatible error response: json: cannot unmarshal object into Go .+`,
 }, {
 	about: "bad charms error response",
 	handler: func(w http.ResponseWriter, req *http.Request) {
@@ -84,7 +84,7 @@ var httpClientTests = []struct {
 			CharmURL: make(map[string]int),
 		})
 	},
-	expectError: `GET http://.*/: incompatible error response: json: cannot unmarshal object into Go value of type string`,
+	expectError: `GET http://.*/: incompatible error response: json: cannot unmarshal object into Go .+`,
 }, {
 	about: "no message in ErrorResponse",
 	handler: func(w http.ResponseWriter, req *http.Request) {

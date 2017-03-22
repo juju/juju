@@ -128,12 +128,14 @@ func (c *listCommand) Run(ctx *cmd.Context) error {
 			} else if ip.To16() != nil {
 				subResult.Type = typeIPv6
 			}
-			// Space must be valid, but verify anyway.
-			spaceTag, err := names.ParseSpaceTag(sub.SpaceTag)
-			if err != nil {
-				return errors.Annotatef(err, "subnet %q has invalid space", sub.CIDR)
+			if sub.SpaceTag != "" {
+				// Space must be valid, but verify anyway.
+				spaceTag, err := names.ParseSpaceTag(sub.SpaceTag)
+				if err != nil {
+					return errors.Annotatef(err, "subnet %q has invalid space", sub.CIDR)
+				}
+				subResult.Space = spaceTag.Id()
 			}
-			subResult.Space = spaceTag.Id()
 
 			// Display correct status according to the life cycle value.
 			switch sub.Life {

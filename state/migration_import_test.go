@@ -1124,7 +1124,7 @@ func (s *MigrationImportSuite) TestRemoteApplications(c *gc.C) {
 	// with the models in different controllers.
 	_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name:        "gravy-rainbow",
-		URL:         "local:/u/me/rainbow",
+		URL:         "me/model.rainbow",
 		SourceModel: s.State.ModelTag(),
 		Token:       "charisma",
 		Endpoints: []charm.Relation{{

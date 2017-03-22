@@ -6,6 +6,7 @@ package client
 import (
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/payload"
 	internal "github.com/juju/juju/payload/api/private"
 )
@@ -29,7 +30,7 @@ func NewUnitFacadeClient(caller facadeCaller) UnitFacadeClient {
 func (c UnitFacadeClient) Track(payloads ...payload.Payload) ([]payload.Result, error) {
 	args := internal.Payloads2TrackArgs(payloads)
 
-	var rs internal.PayloadResults
+	var rs params.PayloadResults
 	if err := c.FacadeCall("Track", &args, &rs); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -49,7 +50,7 @@ func (c UnitFacadeClient) List(fullIDs ...string) ([]payload.Result, error) {
 	}
 	args := internal.IDs2ListArgs(ids)
 
-	var rs internal.PayloadResults
+	var rs params.PayloadResults
 	if err := c.FacadeCall("List", &args, &rs); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -65,7 +66,7 @@ func (c UnitFacadeClient) LookUp(fullIDs ...string) ([]payload.Result, error) {
 	}
 	args := internal.FullIDs2LookUpArgs(fullIDs)
 
-	var rs internal.PayloadResults
+	var rs params.PayloadResults
 	if err := c.FacadeCall("LookUp", &args, &rs); err != nil {
 		return nil, err
 	}
@@ -81,7 +82,7 @@ func (c UnitFacadeClient) SetStatus(status string, fullIDs ...string) ([]payload
 	}
 	args := internal.IDs2SetStatusArgs(ids, status)
 
-	var rs internal.PayloadResults
+	var rs params.PayloadResults
 	if err := c.FacadeCall("SetStatus", &args, &rs); err != nil {
 		return nil, err
 	}
@@ -99,7 +100,7 @@ func (c UnitFacadeClient) Untrack(fullIDs ...string) ([]payload.Result, error) {
 	}
 	args := internal.IDs2UntrackArgs(ids)
 
-	var rs internal.PayloadResults
+	var rs params.PayloadResults
 	if err := c.FacadeCall("Untrack", &args, &rs); err != nil {
 		return nil, err
 	}
@@ -124,7 +125,7 @@ func (c UnitFacadeClient) lookUp(fullIDs []string) ([]string, error) {
 	return ids, nil
 }
 
-func api2results(rs internal.PayloadResults) ([]payload.Result, error) {
+func api2results(rs params.PayloadResults) ([]payload.Result, error) {
 	var results []payload.Result
 	for _, r := range rs.Results {
 		result, err := internal.API2Result(r)

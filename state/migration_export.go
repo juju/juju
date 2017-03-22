@@ -1352,11 +1352,11 @@ func (e *exporter) remoteApplications() error {
 func (e *exporter) addRemoteApplication(app *RemoteApplication) error {
 	url, _ := app.URL()
 	args := description.RemoteApplicationArgs{
-		Tag:         app.Tag().(names.ApplicationTag),
-		OfferName:   app.OfferName(),
-		URL:         url,
-		SourceModel: app.SourceModel(),
-		Registered:  app.Registered(),
+		Tag:             app.Tag().(names.ApplicationTag),
+		OfferName:       app.OfferName(),
+		URL:             url,
+		SourceModel:     app.SourceModel(),
+		IsConsumerProxy: app.IsConsumerProxy(),
 	}
 	descApp := e.model.AddRemoteApplication(args)
 	endpoints, err := app.Endpoints()

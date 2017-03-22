@@ -11,8 +11,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/charmstore"
@@ -26,12 +26,12 @@ var logger = loggo.GetLogger("juju.api.application")
 // Client allows access to the service API end point.
 type Client struct {
 	base.ClientFacade
-	st     api.Connection
+	st     base.APICallCloser
 	facade base.FacadeCaller
 }
 
 // NewClient creates a new client for accessing the application api.
-func NewClient(st api.Connection) *Client {
+func NewClient(st base.APICallCloser) *Client {
 	frontend, backend := base.NewClientFacade(st, "Application")
 	return &Client{ClientFacade: frontend, st: st, facade: backend}
 }
@@ -232,18 +232,101 @@ func (c *Client) AddUnits(application string, numUnits int, placement []*instanc
 	return results.Units, err
 }
 
-// DestroyUnits decreases the number of units dedicated to an application.
-func (c *Client) DestroyUnits(unitNames ...string) error {
+// DestroyUnitsDeprecated decreases the number of units dedicated to an
+// application.
+//
+// NOTE(axw) this exists only for backwards compatibility, for API facade
+// versions 1-3; clients should prefer its successor, DestroyUnits, below.
+//
+// TODO(axw) 2017-03-16 #1673323
+// Drop this in Juju 3.0.
+func (c *Client) DestroyUnitsDeprecated(unitNames ...string) error {
 	params := params.DestroyApplicationUnits{unitNames}
 	return c.facade.FacadeCall("DestroyUnits", params, nil)
 }
 
-// Destroy destroys a given application.
-func (c *Client) Destroy(application string) error {
+// DestroyUnits decreases the number of units dedicated to one or more
+// applications.
+func (c *Client) DestroyUnits(unitNames ...string) ([]params.DestroyUnitResult, error) {
+	args := params.Entities{
+		Entities: make([]params.Entity, 0, len(unitNames)),
+	}
+	allResults := make([]params.DestroyUnitResult, len(unitNames))
+	index := make([]int, 0, len(unitNames))
+	for i, name := range unitNames {
+		if !names.IsValidUnit(name) {
+			allResults[i].Error = &params.Error{
+				Message: errors.NotValidf("unit ID %q", name).Error(),
+			}
+			continue
+		}
+		index = append(index, i)
+		args.Entities = append(args.Entities, params.Entity{
+			Tag: names.NewUnitTag(name).String(),
+		})
+	}
+	if len(args.Entities) > 0 {
+		var result params.DestroyUnitResults
+		if err := c.facade.FacadeCall("DestroyUnit", args, &result); err != nil {
+			return nil, errors.Trace(err)
+		}
+		if n := len(result.Results); n != len(args.Entities) {
+			return nil, errors.Errorf("expected %d result(s), got %d", len(args.Entities), n)
+		}
+		for i, result := range result.Results {
+			allResults[index[i]] = result
+		}
+	}
+	return allResults, nil
+}
+
+// DestroyDeprecated destroys a given application.
+//
+// NOTE(axw) this exists only for backwards compatibility,
+// for API facade versions 1-3; clients should prefer its
+// successor, DestroyApplications, below.
+//
+// TODO(axw) 2017-03-16 #1673323
+// Drop this in Juju 3.0.
+func (c *Client) DestroyDeprecated(application string) error {
 	params := params.ApplicationDestroy{
 		ApplicationName: application,
 	}
 	return c.facade.FacadeCall("Destroy", params, nil)
+}
+
+// DestroyApplications destroys the given applications.
+func (c *Client) DestroyApplications(appNames ...string) ([]params.DestroyApplicationResult, error) {
+	args := params.Entities{
+		Entities: make([]params.Entity, 0, len(appNames)),
+	}
+	allResults := make([]params.DestroyApplicationResult, len(appNames))
+	index := make([]int, 0, len(appNames))
+	for i, name := range appNames {
+		if !names.IsValidApplication(name) {
+			allResults[i].Error = &params.Error{
+				Message: errors.NotValidf("application name %q", name).Error(),
+			}
+			continue
+		}
+		index = append(index, i)
+		args.Entities = append(args.Entities, params.Entity{
+			Tag: names.NewApplicationTag(name).String(),
+		})
+	}
+	if len(args.Entities) > 0 {
+		var result params.DestroyApplicationResults
+		if err := c.facade.FacadeCall("DestroyApplication", args, &result); err != nil {
+			return nil, errors.Trace(err)
+		}
+		if n := len(result.Results); n != len(args.Entities) {
+			return nil, errors.Errorf("expected %d result(s), got %d", len(args.Entities), n)
+		}
+		for i, result := range result.Results {
+			allResults[index[i]] = result
+		}
+	}
+	return allResults, nil
 }
 
 // GetConstraints returns the constraints for the given application.

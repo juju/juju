@@ -7,6 +7,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/state"
 )
 
 type dumpSuite struct {
@@ -16,6 +18,10 @@ type dumpSuite struct {
 var _ = gc.Suite(&dumpSuite{})
 
 func (s *dumpSuite) TestDumpAll(c *gc.C) {
+	// Some of the state workers are responsible for creating
+	// collections, so make sure they've started before running
+	// the dump.
+	state.EnsureWorkersStarted(s.State)
 	value, err := s.State.DumpAll()
 	c.Assert(err, jc.ErrorIsNil)
 

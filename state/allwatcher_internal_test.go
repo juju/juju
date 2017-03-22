@@ -272,7 +272,7 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int) (enti
 	}
 
 	_, remoteApplicationInfo := addTestingRemoteApplication(
-		c, st, "remote-mysql", "local:/u/me/mysql", mysqlRelations,
+		c, st, "remote-mysql", "me/model.mysql", mysqlRelations,
 	)
 	add(&remoteApplicationInfo)
 	return
@@ -3248,7 +3248,7 @@ func testChangeRemoteApplications(c *gc.C, runChangeTests func(*gc.C, []changeTe
 					&multiwatcher.RemoteApplicationInfo{
 						ModelUUID:      st.ModelUUID(),
 						Name:           "remote-mysql",
-						ApplicationURL: "local:/u/me/mysql",
+						ApplicationURL: "me/model.mysql",
 					},
 				},
 				change: watcher.Change{
@@ -3257,7 +3257,7 @@ func testChangeRemoteApplications(c *gc.C, runChangeTests func(*gc.C, []changeTe
 				}}
 		},
 		func(c *gc.C, st *State) changeTestCase {
-			_, remoteApplicationInfo := addTestingRemoteApplication(c, st, "remote-mysql", "local:/u/me/mysql", mysqlRelations)
+			_, remoteApplicationInfo := addTestingRemoteApplication(c, st, "remote-mysql", "me/model.mysql", mysqlRelations)
 			return changeTestCase{
 				about: "remote application is added if it's in backing but not in Store",
 				change: watcher.Change{
@@ -3277,7 +3277,7 @@ func testChangeRemoteApplications(c *gc.C, runChangeTests func(*gc.C, []changeTe
 			// upon destroying.
 			wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
 			mysql, remoteApplicationInfo := addTestingRemoteApplication(
-				c, st, "remote-mysql", "local:/u/me/mysql", mysqlRelations,
+				c, st, "remote-mysql", "me/model.mysql", mysqlRelations,
 			)
 
 			eps, err := st.InferEndpoints("wordpress", "remote-mysql")
@@ -3309,7 +3309,7 @@ func testChangeRemoteApplications(c *gc.C, runChangeTests func(*gc.C, []changeTe
 		},
 		func(c *gc.C, st *State) changeTestCase {
 			mysql, remoteApplicationInfo := addTestingRemoteApplication(
-				c, st, "remote-mysql", "local:/u/me/mysql", mysqlRelations,
+				c, st, "remote-mysql", "me/model.mysql", mysqlRelations,
 			)
 			now := time.Now()
 			sInfo := status.StatusInfo{

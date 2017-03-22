@@ -74,7 +74,7 @@ func DestroyMachines(st origStateInterface, force bool, ids ...string) error {
 }
 
 func destroyMachines(st stateInterface, force bool, ids ...string) error {
-	var errs []string
+	var errs []error
 	for _, id := range ids {
 		machine, err := st.Machine(id)
 		switch {
@@ -89,7 +89,7 @@ func destroyMachines(st stateInterface, force bool, ids ...string) error {
 			err = machine.Destroy()
 		}
 		if err != nil {
-			errs = append(errs, err.Error())
+			errs = append(errs, err)
 		}
 	}
 	return DestroyErr("machines", ids, errs)

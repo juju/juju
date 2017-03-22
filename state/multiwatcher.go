@@ -9,6 +9,7 @@ import (
 	"reflect"
 
 	"github.com/juju/errors"
+	"gopkg.in/juju/worker.v1"
 	"gopkg.in/tomb.v1"
 
 	"github.com/juju/juju/state/multiwatcher"
@@ -183,6 +184,15 @@ func newStoreManagerNoRun(backing Backing) *storeManager {
 	}
 }
 
+// newDeadStoreManager returns a store manager instance
+// that is already dead and always returns the given error.
+func newDeadStoreManager(err error) *storeManager {
+	var m storeManager
+	m.tomb.Kill(errors.Trace(err))
+	m.tomb.Done()
+	return &m
+}
+
 // newStoreManager returns a new storeManager that retrieves information
 // using the given backing.
 func newStoreManager(backing Backing) *storeManager {
@@ -236,10 +246,19 @@ func (sm *storeManager) loop() error {
 	}
 }
 
+// Kill implements worker.Worker.Kill.
+func (sm *storeManager) Kill() {
+	sm.tomb.Kill(nil)
+}
+
+// Wait implements worker.Worker.Wait.
+func (sm *storeManager) Wait() error {
+	return errors.Trace(sm.tomb.Wait())
+}
+
 // Stop stops the storeManager.
 func (sm *storeManager) Stop() error {
-	sm.tomb.Kill(nil)
-	return errors.Trace(sm.tomb.Wait())
+	return worker.Stop(sm)
 }
 
 // handle processes a request from a Multiwatcher to the storeManager.

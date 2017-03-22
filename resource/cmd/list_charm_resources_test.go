@@ -39,7 +39,7 @@ func (s *ListCharmSuite) TestInfo(c *gc.C) {
 	c.Check(info, jc.DeepEquals, &jujucmd.Info{
 		Name:    "resources",
 		Args:    "<charm>",
-		Purpose: "display the resources for a charm in the charm store",
+		Purpose: "Display the resources for a charm in the charm store.",
 		Doc: `
 This command will report the resources for a charm in the charm store.
 

@@ -63,7 +63,7 @@ func newApplication(st *State, doc *applicationDoc) *Application {
 }
 
 // IsRemote returns false for a local application.
-func (s *Application) IsRemote() bool {
+func (a *Application) IsRemote() bool {
 	return false
 }
 
@@ -1234,7 +1234,7 @@ func (a *Application) removeUnitOps(u *Unit, asserts bson.D) ([]txn.Op, error) {
 	if err != nil {
 		return nil, err
 	}
-	resOps, err := removeUnitResourcesOps(a.st, u.doc.Application, u.doc.Name)
+	resOps, err := removeUnitResourcesOps(a.st, u.doc.Name)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1298,7 +1298,7 @@ func (a *Application) removeUnitOps(u *Unit, asserts bson.D) ([]txn.Op, error) {
 	return ops, nil
 }
 
-func removeUnitResourcesOps(st *State, applicationID, unitID string) ([]txn.Op, error) {
+func removeUnitResourcesOps(st *State, unitID string) ([]txn.Op, error) {
 	persist, err := st.ResourcesPersistence()
 	if errors.IsNotSupported(err) {
 		// Nothing to see here, move along.

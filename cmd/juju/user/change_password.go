@@ -59,7 +59,7 @@ func (c *changePasswordCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "change-user-password",
 		Args:    "[username]",
-		Purpose: "Changes the password for the current or specified Juju user",
+		Purpose: "Changes the password for the current or specified Juju user.",
 		Doc:     userChangePasswordDoc,
 	}
 }

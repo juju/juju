@@ -109,14 +109,14 @@ func (s *charmVersionSuite) TestUpdateRevisions(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
 	// Update mysql version and run update again.
-	svc, err := s.State.Application("mysql")
+	app, err := s.State.Application("mysql")
 	c.Assert(err, jc.ErrorIsNil)
 	ch := s.AddCharmWithRevision(c, "mysql", 23)
 	cfg := state.SetCharmConfig{
 		Charm:      ch,
 		ForceUnits: true,
 	}
-	err = svc.SetCharm(cfg)
+	err = app.SetCharm(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 
 	result, err = s.charmrevisionupdater.UpdateLatestRevisions()
@@ -182,14 +182,15 @@ func (s *charmVersionSuite) TestJujuMetadataHeaderIsSent(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Error, gc.IsNil)
 
-	env, err := s.State.Model()
+	model, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	cloud, err := s.State.Cloud(env.Cloud())
+	cloud, err := s.State.Cloud(model.Cloud())
 	c.Assert(err, jc.ErrorIsNil)
 	expected_header := []string{
-		"environment_uuid=" + env.UUID(),
-		"cloud=" + env.Cloud(),
-		"cloud_region=" + env.CloudRegion(),
+		"environment_uuid=" + model.UUID(),
+		"controller_uuid=" + s.State.ControllerUUID(),
+		"cloud=" + model.Cloud(),
+		"cloud_region=" + model.CloudRegion(),
 		"provider=" + cloud.Type,
 		"controller_version=" + version.Current.String(),
 	}

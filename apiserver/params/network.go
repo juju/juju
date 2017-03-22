@@ -580,6 +580,7 @@ type AddSubnetParams struct {
 	SubnetTag        string   `json:"subnet-tag,omitempty"`
 	SubnetProviderId string   `json:"subnet-provider-id,omitempty"`
 	SpaceTag         string   `json:"space-tag"`
+	VLANTag          int      `json:"vlan-tag,omitempty"`
 	Zones            []string `json:"zones,omitempty"`
 }
 
