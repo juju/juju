@@ -82,14 +82,14 @@ func (s *environNetSuite) TestGettingAllSubnets(c *gc.C) {
 
 	c.Assert(subnets, gc.DeepEquals, []network.SubnetInfo{{
 		ProviderId:        "go-team",
-		NetworkProviderId: "go-team1",
+		ProviderNetworkId: "go-team1",
 		CIDR:              "10.0.10.0/24",
 		AvailabilityZones: []string{"a-zone", "b-zone"},
 		VLANTag:           0,
 		SpaceProviderId:   "",
 	}, {
 		ProviderId:        "shellac",
-		NetworkProviderId: "albini",
+		ProviderNetworkId: "albini",
 		CIDR:              "10.0.20.0/24",
 		AvailabilityZones: []string{"a-zone", "b-zone"},
 		VLANTag:           0,
@@ -106,7 +106,7 @@ func (s *environNetSuite) TestRestrictingToSubnets(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(subnets, gc.DeepEquals, []network.SubnetInfo{{
 		ProviderId:        "shellac",
-		NetworkProviderId: "albini",
+		ProviderNetworkId: "albini",
 		CIDR:              "10.0.20.0/24",
 		AvailabilityZones: []string{"a-zone", "b-zone"},
 		VLANTag:           0,
@@ -132,7 +132,7 @@ func (s *environNetSuite) TestSpecificInstance(c *gc.C) {
 
 	c.Assert(subnets, gc.DeepEquals, []network.SubnetInfo{{
 		ProviderId:        "go-team",
-		NetworkProviderId: "go-team1",
+		ProviderNetworkId: "go-team1",
 		CIDR:              "10.0.10.0/24",
 		AvailabilityZones: []string{"a-zone", "b-zone"},
 		VLANTag:           0,
@@ -149,7 +149,7 @@ func (s *environNetSuite) TestSpecificInstanceAndRestrictedSubnets(c *gc.C) {
 
 	c.Assert(subnets, gc.DeepEquals, []network.SubnetInfo{{
 		ProviderId:        "go-team",
-		NetworkProviderId: "go-team1",
+		ProviderNetworkId: "go-team1",
 		CIDR:              "10.0.10.0/24",
 		AvailabilityZones: []string{"a-zone", "b-zone"},
 		VLANTag:           0,

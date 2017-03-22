@@ -100,7 +100,7 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	s.RawMetadata = compute.Metadata{
 		Items: []*compute.MetadataItems{{
 			Key:   "eggs",
-			Value: "steak",
+			Value: StringPtr("steak"),
 		}},
 		Fingerprint: "heymumwatchthis",
 	}
@@ -130,11 +130,12 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	}
 	s.Instance = Instance{
 		InstanceSummary: InstanceSummary{
-			ID:        "spam",
-			ZoneName:  "a-zone",
-			Status:    StatusRunning,
-			Metadata:  s.Metadata,
-			Addresses: s.Addresses,
+			ID:                "spam",
+			ZoneName:          "a-zone",
+			Status:            StatusRunning,
+			Metadata:          s.Metadata,
+			Addresses:         s.Addresses,
+			NetworkInterfaces: s.RawInstance.NetworkInterfaces,
 		},
 		spec: &s.InstanceSpec,
 	}
@@ -142,6 +143,10 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 
 func (s *BaseSuite) NewWaitError(op *compute.Operation, cause error) error {
 	return waitError{op, cause}
+}
+
+func StringPtr(val string) *string {
+	return &val
 }
 
 type fakeCall struct {
@@ -479,4 +484,12 @@ func (rc *fakeConn) SetMetadata(projectID, zone, instanceID string, metadata *co
 		err = nil
 	}
 	return err
+}
+
+func (rc *fakeConn) ListNetworks(projectID string) ([]*compute.Network, error) {
+	return nil, nil
+}
+
+func (rc *fakeConn) ListSubnetworks(projectID, region string) ([]*compute.Subnetwork, error) {
+	return nil, nil
 }
