@@ -6,13 +6,10 @@ package gce_test
 import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
-	// "github.com/juju/version"
 	"google.golang.org/api/compute/v1"
 	gc "gopkg.in/check.v1"
 
-	// "github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
-	// "github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/gce"
@@ -177,7 +174,7 @@ func (s *environNetSuite) TestInterfaces(c *gc.C) {
 	c.Assert(infos, gc.DeepEquals, []network.InterfaceInfo{{
 		DeviceIndex:       0,
 		CIDR:              "10.0.10.0/24",
-		ProviderId:        "moana/0",
+		ProviderId:        "moana/somenetif",
 		ProviderSubnetId:  "go-team",
 		ProviderNetworkId: "go-team1",
 		AvailabilityZones: []string{"a-zone", "b-zone"},
@@ -215,7 +212,7 @@ func (s *environNetSuite) TestInterfacesMulti(c *gc.C) {
 	c.Assert(infos, gc.DeepEquals, []network.InterfaceInfo{{
 		DeviceIndex:       0,
 		CIDR:              "10.0.10.0/24",
-		ProviderId:        "moana/0",
+		ProviderId:        "moana/somenetif",
 		ProviderSubnetId:  "go-team",
 		ProviderNetworkId: "go-team1",
 		AvailabilityZones: []string{"a-zone", "b-zone"},
@@ -228,7 +225,7 @@ func (s *environNetSuite) TestInterfacesMulti(c *gc.C) {
 	}, {
 		DeviceIndex:       1,
 		CIDR:              "10.0.20.0/24",
-		ProviderId:        "moana/1",
+		ProviderId:        "moana/othernetif",
 		ProviderSubnetId:  "shellac",
 		ProviderNetworkId: "albini",
 		AvailabilityZones: []string{"a-zone", "b-zone"},

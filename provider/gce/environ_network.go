@@ -146,8 +146,8 @@ func (e *environ) NetworkInterfaces(instId instance.Id) ([]network.InterfaceInfo
 			DeviceIndex: i,
 			CIDR:        subnet.CIDR,
 			// The network interface has no id in GCE so it's
-			// identified by the machine's id + its position.
-			ProviderId:        network.Id(fmt.Sprintf("%s/%d", instId, i)),
+			// identified by the machine's id + its name.
+			ProviderId:        network.Id(fmt.Sprintf("%s/%s", instId, iface.Name)),
 			ProviderSubnetId:  subnet.ProviderId,
 			ProviderNetworkId: subnet.ProviderNetworkId,
 			AvailabilityZones: subnet.AvailabilityZones,
@@ -163,6 +163,9 @@ func (e *environ) NetworkInterfaces(instId instance.Id) ([]network.InterfaceInfo
 }
 
 func (e *environ) subnetsByURL(urls ...string) (map[string]network.SubnetInfo, error) {
+	if len(urls) == 0 {
+		return make(map[string]network.SubnetInfo), nil
+	}
 	// In GCE all the subnets are in all AZs.
 	zones, err := e.zoneNames()
 	if err != nil {
@@ -172,7 +175,6 @@ func (e *environ) subnetsByURL(urls ...string) (map[string]network.SubnetInfo, e
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	// We don't want to get all subnets if no urls are passed.
 	urlSet := includeSet{items: set.NewStrings(urls...)}
 	allSubnets, err := e.gce.Subnetworks(e.cloud.Region)
 	if err != nil {
