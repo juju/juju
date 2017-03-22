@@ -33,46 +33,63 @@ func (s *environNetSuite) SetUpTest(c *gc.C) {
 	s.NetEnv = netEnv
 }
 
-func (s *environNetSuite) cannedZones() {
+func (s *environNetSuite) cannedData() {
 	s.FakeConn.Zones = []google.AvailabilityZone{
 		google.NewZone("a-zone", google.StatusUp, "", ""),
 		google.NewZone("b-zone", google.StatusUp, "", ""),
 	}
-}
-
-func (s environNetSuite) cannedSubnets() {
+	s.FakeConn.Networks_ = []*compute.Network{{
+		Id:   9876,
+		Name: "go-team1",
+		AutoCreateSubnetworks: true,
+		SelfLink:              "https://www.googleapis.com/compute/v1/projects/sonic-youth/global/networks/go-team1",
+		Subnetworks: []string{
+			"https://www.googleapis.com/compute/v1/projects/sonic-youth/regions/asia-east1/subnetworks/go-team",
+			"https://www.googleapis.com/compute/v1/projects/sonic-youth/regions/us-central1/subnetworks/go-team",
+		},
+	}, {
+		Id:   8765,
+		Name: "albini",
+		AutoCreateSubnetworks: false,
+		SelfLink:              "https://www.googleapis.com/compute/v1/projects/sonic-youth/global/networks/albini",
+		Subnetworks: []string{
+			"https://www.googleapis.com/compute/v1/projects/sonic-youth/regions/asia-east1/subnetworks/shellac",
+			"https://www.googleapis.com/compute/v1/projects/sonic-youth/regions/us-central1/subnetworks/flour",
+		},
+	}}
 	s.FakeConn.Subnets = []*compute.Subnetwork{{
 		Id:          1234,
 		IpCidrRange: "10.0.10.0/24",
 		Name:        "go-team",
-		Network:     "https://www.googleapis.com/compute/v1/projects/sonic-youth/global/networks/go-team",
+		Network:     "https://www.googleapis.com/compute/v1/projects/sonic-youth/global/networks/go-team1",
 		Region:      "https://www.googleapis.com/compute/v1/projects/sonic-youth/regions/asia-east1",
 		SelfLink:    "https://www.googleapis.com/compute/v1/projects/sonic-youth/regions/asia-east1/subnetworks/go-team",
 	}, {
 		Id:          1235,
 		IpCidrRange: "10.0.20.0/24",
 		Name:        "shellac",
-		Network:     "https://www.googleapis.com/compute/v1/projects/sonic-youth/global/networks/shellac",
+		Network:     "https://www.googleapis.com/compute/v1/projects/sonic-youth/global/networks/albini",
 		Region:      "https://www.googleapis.com/compute/v1/projects/sonic-youth/regions/asia-east1",
 		SelfLink:    "https://www.googleapis.com/compute/v1/projects/sonic-youth/regions/asia-east1/subnetworks/shellac",
 	}}
 }
 
 func (s *environNetSuite) TestGettingAllSubnets(c *gc.C) {
-	s.cannedZones()
-	s.cannedSubnets()
+	s.cannedData()
 
 	subnets, err := s.NetEnv.Subnets(instance.UnknownId, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(subnets, gc.DeepEquals, []network.SubnetInfo{{
 		ProviderId:        "go-team",
+		NetworkProviderId: "go-team1",
 		CIDR:              "10.0.10.0/24",
 		AvailabilityZones: []string{"a-zone", "b-zone"},
 		VLANTag:           0,
 		SpaceProviderId:   "",
 	}, {
 		ProviderId:        "shellac",
+		NetworkProviderId: "albini",
 		CIDR:              "10.0.20.0/24",
 		AvailabilityZones: []string{"a-zone", "b-zone"},
 		VLANTag:           0,
@@ -81,8 +98,7 @@ func (s *environNetSuite) TestGettingAllSubnets(c *gc.C) {
 }
 
 func (s *environNetSuite) TestRestrictingToSubnets(c *gc.C) {
-	s.cannedZones()
-	s.cannedSubnets()
+	s.cannedData()
 
 	subnets, err := s.NetEnv.Subnets(instance.UnknownId, []network.Id{
 		"shellac",
@@ -90,6 +106,7 @@ func (s *environNetSuite) TestRestrictingToSubnets(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(subnets, gc.DeepEquals, []network.SubnetInfo{{
 		ProviderId:        "shellac",
+		NetworkProviderId: "albini",
 		CIDR:              "10.0.20.0/24",
 		AvailabilityZones: []string{"a-zone", "b-zone"},
 		VLANTag:           0,
@@ -98,8 +115,7 @@ func (s *environNetSuite) TestRestrictingToSubnets(c *gc.C) {
 }
 
 func (s *environNetSuite) TestRestrictingToSubnetsWithMissing(c *gc.C) {
-	s.cannedZones()
-	s.cannedSubnets()
+	s.cannedData()
 
 	subnets, err := s.NetEnv.Subnets(instance.UnknownId, []network.Id{"shellac", "brunettes"})
 	c.Assert(err, gc.ErrorMatches, `subnets \[brunettes\] not found`)
@@ -108,8 +124,7 @@ func (s *environNetSuite) TestRestrictingToSubnetsWithMissing(c *gc.C) {
 }
 
 func (s *environNetSuite) TestSpecificInstance(c *gc.C) {
-	s.cannedZones()
-	s.cannedSubnets()
+	s.cannedData()
 	s.FakeEnviron.Insts = []instance.Instance{s.NewInstance(c, "moana")}
 
 	subnets, err := s.NetEnv.Subnets(instance.Id("moana"), nil)
@@ -117,6 +132,7 @@ func (s *environNetSuite) TestSpecificInstance(c *gc.C) {
 
 	c.Assert(subnets, gc.DeepEquals, []network.SubnetInfo{{
 		ProviderId:        "go-team",
+		NetworkProviderId: "go-team1",
 		CIDR:              "10.0.10.0/24",
 		AvailabilityZones: []string{"a-zone", "b-zone"},
 		VLANTag:           0,
@@ -125,8 +141,7 @@ func (s *environNetSuite) TestSpecificInstance(c *gc.C) {
 }
 
 func (s *environNetSuite) TestSpecificInstanceAndRestrictedSubnets(c *gc.C) {
-	s.cannedZones()
-	s.cannedSubnets()
+	s.cannedData()
 	s.FakeEnviron.Insts = []instance.Instance{s.NewInstance(c, "moana")}
 
 	subnets, err := s.NetEnv.Subnets(instance.Id("moana"), []network.Id{"go-team"})
@@ -134,6 +149,7 @@ func (s *environNetSuite) TestSpecificInstanceAndRestrictedSubnets(c *gc.C) {
 
 	c.Assert(subnets, gc.DeepEquals, []network.SubnetInfo{{
 		ProviderId:        "go-team",
+		NetworkProviderId: "go-team1",
 		CIDR:              "10.0.10.0/24",
 		AvailabilityZones: []string{"a-zone", "b-zone"},
 		VLANTag:           0,
@@ -142,8 +158,7 @@ func (s *environNetSuite) TestSpecificInstanceAndRestrictedSubnets(c *gc.C) {
 }
 
 func (s *environNetSuite) TestSpecificInstanceAndRestrictedSubnetsWithMissing(c *gc.C) {
-	s.cannedZones()
-	s.cannedSubnets()
+	s.cannedData()
 	s.FakeEnviron.Insts = []instance.Instance{s.NewInstance(c, "moana")}
 
 	subnets, err := s.NetEnv.Subnets(instance.Id("moana"), []network.Id{"go-team", "shellac"})
@@ -153,8 +168,7 @@ func (s *environNetSuite) TestSpecificInstanceAndRestrictedSubnetsWithMissing(c 
 }
 
 func (s *environNetSuite) TestInterfaces(c *gc.C) {
-	s.cannedZones()
-	s.cannedSubnets()
+	s.cannedData()
 	s.FakeEnviron.Insts = []instance.Instance{s.NewInstance(c, "moana")}
 
 	infos, err := s.NetEnv.NetworkInterfaces(instance.Id("moana"))
@@ -165,6 +179,7 @@ func (s *environNetSuite) TestInterfaces(c *gc.C) {
 		CIDR:              "10.0.10.0/24",
 		ProviderId:        "moana/0",
 		ProviderSubnetId:  "go-team",
+		ProviderNetworkId: "go-team1",
 		AvailabilityZones: []string{"a-zone", "b-zone"},
 		InterfaceName:     "somenetif",
 		InterfaceType:     network.EthernetInterface,
@@ -176,8 +191,7 @@ func (s *environNetSuite) TestInterfaces(c *gc.C) {
 }
 
 func (s *environNetSuite) TestInterfacesMulti(c *gc.C) {
-	s.cannedZones()
-	s.cannedSubnets()
+	s.cannedData()
 	baseInst := s.NewBaseInstance(c, "moana")
 	// This isn't possible in GCE at the moment, but we don't want to
 	// break when it is.
@@ -203,6 +217,7 @@ func (s *environNetSuite) TestInterfacesMulti(c *gc.C) {
 		CIDR:              "10.0.10.0/24",
 		ProviderId:        "moana/0",
 		ProviderSubnetId:  "go-team",
+		ProviderNetworkId: "go-team1",
 		AvailabilityZones: []string{"a-zone", "b-zone"},
 		InterfaceName:     "somenetif",
 		InterfaceType:     network.EthernetInterface,
@@ -215,6 +230,7 @@ func (s *environNetSuite) TestInterfacesMulti(c *gc.C) {
 		CIDR:              "10.0.20.0/24",
 		ProviderId:        "moana/1",
 		ProviderSubnetId:  "shellac",
+		ProviderNetworkId: "albini",
 		AvailabilityZones: []string{"a-zone", "b-zone"},
 		InterfaceName:     "othernetif",
 		InterfaceType:     network.EthernetInterface,

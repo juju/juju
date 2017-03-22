@@ -484,11 +484,12 @@ type fakeConnCall struct {
 type fakeConn struct {
 	Calls []fakeConnCall
 
-	Inst    *google.Instance
-	Insts   []google.Instance
-	Rules   []network.IngressRule
-	Zones   []google.AvailabilityZone
-	Subnets []*compute.Subnetwork
+	Inst      *google.Instance
+	Insts     []google.Instance
+	Rules     []network.IngressRule
+	Zones     []google.AvailabilityZone
+	Subnets   []*compute.Subnetwork
+	Networks_ []*compute.Network
 
 	GoogleDisks   []*google.Disk
 	GoogleDisk    *google.Disk
@@ -599,6 +600,13 @@ func (fc *fakeConn) Subnetworks(region string) ([]*compute.Subnetwork, error) {
 		Region:   region,
 	})
 	return fc.Subnets, fc.err()
+}
+
+func (fc *fakeConn) Networks() ([]*compute.Network, error) {
+	fc.Calls = append(fc.Calls, fakeConnCall{
+		FuncName: "Networks",
+	})
+	return fc.Networks_, fc.err()
 }
 
 func (fc *fakeConn) CreateDisks(zone string, disks []google.DiskSpec) ([]*google.Disk, error) {

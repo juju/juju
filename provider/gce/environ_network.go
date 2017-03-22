@@ -51,16 +51,37 @@ func (e *environ) zoneNames() ([]string, error) {
 	return names, nil
 }
 
+func (e *environ) networkIdsByURL() (map[string]string, error) {
+	networks, err := e.gce.Networks()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	results := make(map[string]string)
+	for _, network := range networks {
+		results[network.SelfLink] = network.Name
+	}
+	return results, nil
+}
+
 func (e *environ) getMatchingSubnets(subnetIds IncludeSet, zones []string) ([]network.SubnetInfo, error) {
 	allSubnets, err := e.gce.Subnetworks(e.cloud.Region)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	networks, err := e.networkIdsByURL()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	var results []network.SubnetInfo
 	for _, subnet := range allSubnets {
+		networkId, ok := networks[subnet.Network]
+		if !ok {
+			return nil, errors.NotFoundf("network %q for subnet %q", subnet.Network, subnet.Name)
+		}
 		if subnetIds.Include(subnet.Name) {
 			results = append(results, makeSubnetInfo(
 				network.Id(subnet.Name),
+				network.Id(networkId),
 				subnet.IpCidrRange,
 				zones,
 			))
@@ -79,6 +100,7 @@ func (e *environ) getInstanceSubnets(inst instance.Id, subnetIds IncludeSet, zon
 		if subnetIds.Include(string(iface.ProviderSubnetId)) {
 			results = append(results, makeSubnetInfo(
 				iface.ProviderSubnetId,
+				iface.ProviderNetworkId,
 				iface.CIDR,
 				zones,
 			))
@@ -127,6 +149,7 @@ func (e *environ) NetworkInterfaces(instId instance.Id) ([]network.InterfaceInfo
 			// identified by the machine's id + its position.
 			ProviderId:        network.Id(fmt.Sprintf("%s/%d", instId, i)),
 			ProviderSubnetId:  subnet.ProviderId,
+			ProviderNetworkId: subnet.ProviderNetworkId,
 			AvailabilityZones: subnet.AvailabilityZones,
 			InterfaceName:     iface.Name,
 			Address:           network.NewScopedAddress(iface.NetworkIP, network.ScopeCloudLocal),
@@ -145,7 +168,11 @@ func (e *environ) subnetsByURL(urls ...string) (map[string]network.SubnetInfo, e
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	// Don't want to get all if no urls are passed.
+	networks, err := e.networkIdsByURL()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	// We don't want to get all subnets if no urls are passed.
 	urlSet := includeSet{items: set.NewStrings(urls...)}
 	allSubnets, err := e.gce.Subnetworks(e.cloud.Region)
 	if err != nil {
@@ -153,9 +180,14 @@ func (e *environ) subnetsByURL(urls ...string) (map[string]network.SubnetInfo, e
 	}
 	results := make(map[string]network.SubnetInfo)
 	for _, subnet := range allSubnets {
+		networkId, ok := networks[subnet.Network]
+		if !ok {
+			return nil, errors.NotFoundf("network %q for subnet %q", subnet.Network, subnet.Name)
+		}
 		if urlSet.Include(subnet.SelfLink) {
 			results[subnet.SelfLink] = makeSubnetInfo(
 				network.Id(subnet.Name),
+				network.Id(networkId),
 				subnet.IpCidrRange,
 				zones,
 			)
@@ -197,11 +229,12 @@ func (e *environ) ReleaseContainerAddresses([]network.ProviderInterfaceInfo) err
 	return errors.NotSupportedf("container addresses")
 }
 
-func makeSubnetInfo(subnetId network.Id, cidr string, zones []string) network.SubnetInfo {
+func makeSubnetInfo(subnetId network.Id, networkId network.Id, cidr string, zones []string) network.SubnetInfo {
 	zonesCopy := make([]string, len(zones))
 	copy(zonesCopy, zones)
 	return network.SubnetInfo{
 		ProviderId:        subnetId,
+		ProviderNetworkId: networkId,
 		CIDR:              cidr,
 		AvailabilityZones: zonesCopy,
 		VLANTag:           0,

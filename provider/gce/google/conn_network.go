@@ -235,3 +235,12 @@ func (gce Connection) Subnetworks(region string) ([]*compute.Subnetwork, error) 
 	}
 	return results, nil
 }
+
+// Networks returns the networks available.
+func (gce Connection) Networks() ([]*compute.Network, error) {
+	results, err := gce.raw.ListNetworks(gce.projectID)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return results, nil
+}

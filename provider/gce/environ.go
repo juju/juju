@@ -39,6 +39,9 @@ type gceConnection interface {
 	// Subnetworks returns the subnetworks that machines can be
 	// assigned to in the given region.
 	Subnetworks(region string) ([]*compute.Subnetwork, error)
+	// Networks returns the available networks that exist across
+	// regions.
+	Networks() ([]*compute.Network, error)
 
 	// Storage related methods.
 

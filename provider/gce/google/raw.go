@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils"
+	"golang.org/x/net/context"
 	"google.golang.org/api/compute/v1"
 	"google.golang.org/api/googleapi"
 )
@@ -384,20 +385,29 @@ func (rc *rawConn) SetMetadata(projectID, zone, instanceID string, metadata *com
 }
 
 func (rc *rawConn) ListSubnetworks(projectID, region string) ([]*compute.Subnetwork, error) {
+	ctx := context.Background()
 	call := rc.Subnetworks.List(projectID, region)
 	var results []*compute.Subnetwork
-	for {
-		subnetworks, err := call.Do()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		for _, subnet := range subnetworks.Items {
-			results = append(results, subnet)
-		}
-		if subnetworks.NextPageToken == "" {
-			break
-		}
-		call = call.PageToken(subnetworks.NextPageToken)
+	err := call.Pages(ctx, func(page *compute.SubnetworkList) error {
+		results = append(results, page.Items...)
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return results, nil
+}
+
+func (rc *rawConn) ListNetworks(projectID string) ([]*compute.Network, error) {
+	ctx := context.Background()
+	call := rc.Networks.List(projectID)
+	var results []*compute.Network
+	err := call.Pages(ctx, func(page *compute.NetworkList) error {
+		results = append(results, page.Items...)
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
 	return results, nil
 }
