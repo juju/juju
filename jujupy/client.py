@@ -1447,7 +1447,7 @@ class CommandTime:
 class CommandComplete(BaseCondition):
 
     def __init__(self, real_condition, command_time):
-        """Wraps a CommandTime and gives the ability to wait_for command completion.
+        """Wraps a CommandTime and gives the ability to wait_for completion.
 
         :param real_condition: BaseCondition object.
         :param command_time: CommandTime object representing the command to

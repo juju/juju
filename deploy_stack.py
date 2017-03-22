@@ -8,7 +8,6 @@ try:
     from contextlib import nested
 except ImportError:
     from contextlib import ExitStack as nested
-import datetime
 import glob
 import logging
 import os
