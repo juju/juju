@@ -2172,6 +2172,24 @@ func (st *State) SetSLA(level string, credentials []byte) error {
 	return model.SetSLA(level, credentials)
 }
 
+// SetModelMeterStatus sets the meter status for the current connected model.
+func (st *State) SetModelMeterStatus(status, info string) error {
+	model, err := st.Model()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return model.SetMeterStatus(status, info)
+}
+
+// ModelMeterStatus returns the meter status for the current connected model.
+func (st *State) ModelMeterStatus() (MeterStatus, error) {
+	model, err := st.Model()
+	if err != nil {
+		return MeterStatus{MeterNotAvailable, ""}, errors.Trace(err)
+	}
+	return model.MeterStatus(), nil
+}
+
 // SLALevel returns the SLA level of the current connected model.
 func (st *State) SLALevel() (string, error) {
 	model, err := st.Model()

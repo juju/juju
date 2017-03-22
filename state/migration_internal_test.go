@@ -227,6 +227,8 @@ func (s *MigrationSuite) TestModelDocFields(c *gc.C) {
 		"CloudRegion",
 		"CloudCredential",
 		"LatestAvailableTools",
+		"SLA",
+		"MeterStatus",
 	)
 	s.AssertExportedFields(c, modelDoc{}, fields)
 }
@@ -827,7 +829,6 @@ func (s *MigrationSuite) TestEndpointBindingFields(c *gc.C) {
 }
 
 func (s *MigrationSuite) AssertExportedFields(c *gc.C, doc interface{}, fields set.Strings) {
-	c.Skip("NEED TO FIX BEFORE LANDING")
 	expected := testing.GetExportedFields(doc)
 	unknown := expected.Difference(fields)
 	removed := fields.Difference(expected)
