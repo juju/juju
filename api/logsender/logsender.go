@@ -40,6 +40,8 @@ func NewAPI(connector base.StreamConnector) *API {
 func (api *API) LogWriter() (LogWriter, error) {
 	attrs := make(url.Values)
 	attrs.Set("jujuclientversion", version.Current.String())
+	// Version 1 does ping/pong handling.
+	attrs.Set("version", "1")
 	conn, err := api.connector.ConnectStream("/logsink", attrs)
 	if err != nil {
 		return nil, errors.Annotatef(err, "cannot connect to /logsink")
