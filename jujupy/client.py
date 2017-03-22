@@ -1404,9 +1404,10 @@ class WaitVersion(BaseCondition):
 
 
 class CommandTime:
+    """Store timing details for a juju command."""
 
     def __init__(self, cmd, full_args, envvars=None, start=None):
-        """Store timing details for a juju command.
+        """Constructor.
 
         :param cmd: Command string for command run (e.g. bootstrap)
         :param args: List of all args the command was called with.
@@ -1445,9 +1446,10 @@ class CommandTime:
 
 
 class CommandComplete(BaseCondition):
+    """Wraps a CommandTime and gives the ability to wait_for completion."""
 
     def __init__(self, real_condition, command_time):
-        """Wraps a CommandTime and gives the ability to wait_for completion.
+        """Constructor.
 
         :param real_condition: BaseCondition object.
         :param command_time: CommandTime object representing the command to
@@ -1462,7 +1464,12 @@ class CommandComplete(BaseCondition):
             self.command_time.actual_completion()
 
     def iter_blocking_state(self, status):
-        # Wraps the iter_blocking_state of the stored BaseCondition.
+        """Wraps the iter_blocking_state of the stored BaseCondition.
+
+        When the operation is complete iter_blocking_state yields nothing.
+        Otherwise iter_blocking_state yields details as to why the action
+        cannot be considered complete yet.
+        """
         completed = True
         for item, state in self._real_condition.iter_blocking_state(status):
             completed = False
