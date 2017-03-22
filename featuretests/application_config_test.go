@@ -167,13 +167,13 @@ type settingsMap map[string]configSetting
 var (
 	initialConfig = settingsMap{
 		"booleandefault":   {true, true},
-		"booleannodefault": {Default: true},
+		"booleannodefault": {nil, true},
 		"booleanoverwrite": {false, false},
 		"floatdefault":     {4.2, true},
-		"floatnodefault":   {Default: true},
+		"floatnodefault":   {nil, true},
 		"floatoverwrite":   {2.1, false},
 		"intdefault":       {42, true},
-		"intnodefault":     {Default: true},
+		"intnodefault":     {nil, true},
 		"intoverwrite":     {1620, false},
 		"strdefault":       {"charm default", true},
 		"strnodefault":     {Default: true},
@@ -195,16 +195,16 @@ var (
 	}
 	resetConfig = settingsMap{
 		"booleandefault":   {true, true},
-		"booleannodefault": {Default: true},
+		"booleannodefault": {nil, true},
 		"booleanoverwrite": {true, true},
 		"floatdefault":     {4.2, true},
-		"floatnodefault":   {Default: true},
+		"floatnodefault":   {nil, true},
 		"floatoverwrite":   {11.1, true},
 		"intdefault":       {42, true},
-		"intnodefault":     {Default: true},
+		"intnodefault":     {nil, true},
 		"intoverwrite":     {111, true},
 		"strdefault":       {"charm default", true},
-		"strnodefault":     {Default: true},
+		"strnodefault":     {nil, true},
 		"stroverwrite":     {"overwrite me", true},
 	}
 )
