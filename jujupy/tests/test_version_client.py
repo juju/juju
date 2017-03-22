@@ -573,7 +573,8 @@ class TestEnvJujuClient1X(ClientTest):
     def test_destroy_environment(self):
         env = SimpleEnvironment('foo', {'type': 'ec2'})
         client = EnvJujuClient1X(env, None, None)
-        with patch.object(client, 'juju') as mock:
+        with patch.object(
+                client, 'juju', autospec=True, return_value=(0, None)) as mock:
             client.destroy_environment()
         mock.assert_called_with(
             'destroy-environment', ('foo', '--force', '-y'),
@@ -582,7 +583,9 @@ class TestEnvJujuClient1X(ClientTest):
     def test_destroy_environment_no_force(self):
         env = SimpleEnvironment('foo', {'type': 'ec2'})
         client = EnvJujuClient1X(env, None, None)
-        with patch.object(client, 'juju') as mock:
+        with patch.object(
+                client, 'juju',
+                autospec=True, return_value=(0, None)) as mock:
             client.destroy_environment(force=False)
             mock.assert_called_with(
                 'destroy-environment', ('foo', '-y'),
@@ -591,7 +594,8 @@ class TestEnvJujuClient1X(ClientTest):
     def test_destroy_environment_azure(self):
         env = SimpleEnvironment('foo', {'type': 'azure'})
         client = EnvJujuClient1X(env, None, None)
-        with patch.object(client, 'juju') as mock:
+        with patch.object(
+                client, 'juju', autospec=True, return_value=(0, None)) as mock:
             client.destroy_environment(force=False)
             mock.assert_called_with(
                 'destroy-environment', ('foo', '-y'),
@@ -600,7 +604,9 @@ class TestEnvJujuClient1X(ClientTest):
     def test_destroy_environment_gce(self):
         env = SimpleEnvironment('foo', {'type': 'gce'})
         client = EnvJujuClient1X(env, None, None)
-        with patch.object(client, 'juju') as mock:
+        with patch.object(
+                client, 'juju',
+                autospec=True, return_value=(0, None)) as mock:
             client.destroy_environment(force=False)
             mock.assert_called_with(
                 'destroy-environment', ('foo', '-y'),
@@ -609,7 +615,8 @@ class TestEnvJujuClient1X(ClientTest):
     def test_destroy_environment_delete_jenv(self):
         env = SimpleEnvironment('foo', {'type': 'ec2'})
         client = EnvJujuClient1X(env, None, None)
-        with patch.object(client, 'juju'):
+        with patch.object(
+                client, 'juju', autospec=True, return_value=(0, None)):
             with temp_env({}) as juju_home:
                 client.env.juju_home = juju_home
                 jenv_path = get_jenv_path(juju_home, 'foo')
@@ -622,7 +629,8 @@ class TestEnvJujuClient1X(ClientTest):
     def test_destroy_model(self):
         env = SimpleEnvironment('foo', {'type': 'ec2'})
         client = EnvJujuClient1X(env, None, None)
-        with patch.object(client, 'juju') as mock:
+        with patch.object(
+                client, 'juju', autospec=True, return_value=(0, None)) as mock:
             client.destroy_model()
         mock.assert_called_with(
             'destroy-environment', ('foo', '-y'),
@@ -631,7 +639,9 @@ class TestEnvJujuClient1X(ClientTest):
     def test_kill_controller(self):
         client = EnvJujuClient1X(
             SimpleEnvironment('foo', {'type': 'ec2'}), None, None)
-        with patch.object(client, 'juju') as juju_mock:
+        with patch.object(
+                client, 'juju',
+                autospec=True, return_value=(0, None)) as juju_mock:
             client.kill_controller()
         juju_mock.assert_called_once_with(
             'destroy-environment', ('foo', '--force', '-y'), check=False,

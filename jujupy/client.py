@@ -1079,7 +1079,7 @@ class Juju2Backend:
         self.feature_flags = feature_flags
         self.debug = debug
         self._timeout_path = get_timeout_path()
-        self.juju_timings = {}
+        self.juju_timings = []
         self.soft_deadline = soft_deadline
         self._ignore_soft_deadline = False
 
@@ -1181,7 +1181,11 @@ class Juju2Backend:
     def juju(self, command, args, used_feature_flags,
              juju_home, model=None, check=True, timeout=None, extra_env=None,
              suppress_err=False):
-        """Run a command under juju for the current environment."""
+        """Run a command under juju for the current environment.
+
+        :return: Tuple rval, CommandTime rval being the commands exit code and
+          a CommandTime object used for storing command timing data.
+        """
         args = self.full_args(command, args, model, timeout)
         log.info(' '.join(args))
         env = self.shell_environ(used_feature_flags, juju_home)
@@ -1191,17 +1195,17 @@ class Juju2Backend:
             call_func = subprocess.check_call
         else:
             call_func = subprocess.call
-        start_time = time.time()
         # Mutate os.environ instead of supplying env parameter so Windows can
         # search env['PATH']
         stderr = subprocess.PIPE if suppress_err else None
+        # Keep track of commands and how long the take.
+        command_time = CommandTime(command, args, env)
         with scoped_environ(env):
             log.debug('Running juju with env: {}'.format(env))
             with self._check_timeouts():
                 rval = call_func(args, stderr=stderr)
-        self.juju_timings.setdefault(args, []).append(
-            (time.time() - start_time))
-        return rval
+        self.juju_timings.append(command_time)
+        return rval, command_time
 
     def expect(self, command, args, used_feature_flags, juju_home, model=None,
                timeout=None, extra_env=None):

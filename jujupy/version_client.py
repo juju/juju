@@ -498,7 +498,7 @@ class EnvJujuClient1X(ModelClientRC):
             force_arg = ('--force',)
         else:
             force_arg = ()
-        exit_status = self.juju(
+        exit_status, _ = self.juju(
             'destroy-environment',
             (self.env.environment,) + force_arg + ('-y',),
             check=False, include_e=False,
