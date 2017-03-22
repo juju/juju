@@ -19,6 +19,7 @@ import (
 // to change any part of it so that it were no longer *obviously* and
 // *trivially* correct, you would be Doing It Wrong.
 
+// NewFacade provides the signature required for facade registration.
 func NewFacade(
 	st *state.State,
 	resources facade.Resources,

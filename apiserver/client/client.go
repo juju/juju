@@ -92,6 +92,7 @@ func (c *Client) checkCanWrite() error {
 	return nil
 }
 
+// NewFacade provides the required signature for facade registration.
 func NewFacade(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*Client, error) {
 	urlGetter := common.NewToolsURLGetter(st.ModelUUID(), st)
 	configGetter := stateenvirons.EnvironConfigGetter{st}

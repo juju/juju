@@ -85,6 +85,9 @@ import (
 )
 
 // AllFacades returns a registry containing all known API facades.
+//
+// This will panic if facade registration fails, but there is a unit
+// test to guard against that.
 func AllFacades() *facade.Registry {
 	registry := new(facade.Registry)
 

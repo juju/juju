@@ -27,6 +27,7 @@ type CloudAPI struct {
 	getCredentialsAuthFunc common.GetAuthFunc
 }
 
+// NewFacade provides the required signature for facade registration.
 func NewFacade(st *state.State, _ facade.Resources, auth facade.Authorizer) (*CloudAPI, error) {
 	return NewCloudAPI(NewStateBackend(st), auth)
 }

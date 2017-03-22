@@ -34,6 +34,7 @@ type AgentToolsAPI struct {
 	envVersionUpdate envVersionUpdater
 }
 
+// NewFacade is used to register the facade.
 func NewFacade(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*AgentToolsAPI, error) {
 	newEnviron := func() (environs.Environ, error) {
 		newEnviron := stateenvirons.GetNewEnvironFunc(environs.New)

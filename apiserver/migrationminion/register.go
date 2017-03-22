@@ -8,6 +8,7 @@ import (
 	"github.com/juju/juju/state"
 )
 
+// NewFacade provides the signature required for facade registration.
 func NewFacade(
 	st *state.State,
 	resources facade.Resources,

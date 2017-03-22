@@ -58,6 +58,7 @@ func DeployApplication(backend Backend, args jjj.DeployApplicationParams) error 
 	return err
 }
 
+// NewFacade provides the signature required for facade registration.
 func NewFacade(ctx facade.Context) (*API, error) {
 	backend := NewStateBackend(ctx.State())
 	blockChecker := common.NewBlockChecker(ctx.State())

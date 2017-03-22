@@ -150,15 +150,11 @@ func (f *Registry) Discard(name string, version int) {
 	}
 }
 
+// niceFactory defines the preferred facade registration function signature.
 type niceFactory func(Context) (interface{}, error)
 
-type nastyFactory func(
-	st *state.State,
-	resources Resources,
-	authorizer Authorizer,
-) (
-	interface{}, error,
-)
+// nastyFactory defines the legacy facade registration function signature.
+type nastyFactory func(*state.State, Resources, Authorizer) (interface{}, error)
 
 // validateNewFacade ensures that the facade factory we have has the right
 // input and output parameters for being used as a NewFoo function.

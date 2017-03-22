@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/storage"
 )
 
+// NewFacade provides the required signature for facade registration.
 func NewFacade(_ *state.State, _ facade.Resources, auth facade.Authorizer) (Bundle, error) {
 	return NewBundle(auth)
 }

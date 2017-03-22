@@ -15,7 +15,7 @@ import (
 // to change any part of it so that it were no longer *obviously* and
 // *trivially* correct, you would be Doing It Wrong.
 
-// NewFacade wraps the supplied *state.State for the use of the Facade.
+// NewAPI provides the required signature for facade registration.
 func NewAPI(st *state.State, res facade.Resources, auth facade.Authorizer) (*Facade, error) {
 	return NewFacade(backendShim{st}, res, auth)
 }

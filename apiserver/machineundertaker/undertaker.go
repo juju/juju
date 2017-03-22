@@ -43,6 +43,7 @@ func NewAPI(backend Backend, resources facade.Resources, authorizer facade.Autho
 	return api, nil
 }
 
+// NewFacade provides the signature required for facade registration.
 func NewFacade(st *state.State, res facade.Resources, auth facade.Authorizer) (*API, error) {
 	return NewAPI(&backendShim{st}, res, auth)
 }

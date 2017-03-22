@@ -21,11 +21,13 @@ import (
 
 var logger = loggo.GetLogger("juju.apiserver.upgrader")
 
-// upgraderFacade is a bit unique vs the other API Facades, as it has two
-// implementations that actually expose the same API and which one gets
-// returned depends on who is calling.
-// Both of them conform to the exact Upgrader API, so the actual calls that are
-// available do not depend on who is currently connected.
+// The upgrader facade is a bit unique vs the other API Facades, as it
+// has two implementations that actually expose the same API and which
+// one gets returned depends on who is calling.  Both of them conform
+// to the exact Upgrader API, so the actual calls that are available
+// do not depend on who is currently connected.
+
+// NewUpgraderFacade provides the signature required for facade registration.
 func NewUpgraderFacade(st *state.State, resources facade.Resources, auth facade.Authorizer) (Upgrader, error) {
 	// The type of upgrader we return depends on who is asking.
 	// Machines get an UpgraderAPI, units get a UnitUpgraderAPI.

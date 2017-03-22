@@ -13,7 +13,7 @@ import (
 	"github.com/juju/juju/state"
 )
 
-// NewFacade returns a new handler for the "Payloads" facade. It is used for facade registration.
+// NewFacade provides the signature required for facade registration.
 func NewFacade(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*API, error) {
 	backend, err := st.ModelPayloads()
 	if err != nil {

@@ -29,6 +29,7 @@ type UserManagerAPI struct {
 	isAdmin    bool
 }
 
+// NewUserManagerAPI provides the signature required for facade registration.
 func NewUserManagerAPI(
 	st *state.State,
 	resources facade.Resources,

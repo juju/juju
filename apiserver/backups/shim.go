@@ -28,6 +28,7 @@ func (s *stateShim) MachineSeries(id string) (string, error) {
 	return m.Series(), nil
 }
 
+// NewFacade provides the required signature for facade registration.
 func NewFacade(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*API, error) {
 	return NewAPI(&stateShim{st}, resources, authorizer)
 }
