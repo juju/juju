@@ -102,41 +102,11 @@ func AllFacades() *facade.Registry {
 		}
 	}
 
-	type hookContextFacadeFn func(*state.State, *state.Unit) (interface{}, error)
-
-	// XXX extract
-	// regHookContext registers facades for use within a hook
-	// context. This function handles the translation from a
-	// hook-context-facade to a standard facade so the caller's
-	// factory method can elide unnecessary arguments. This function
-	// also handles any necessary authorization for the client.
-	//
-	// XXX(fwereade): this is fundamentally broken, because it (1)
-	// arbitrarily creates a new facade for a tiny fragment of a specific
-	// client worker's reponsibilities and (2) actively conceals necessary
-	// auth information from the facade. Don't call it; actively work to
-	// delete code that uses it, and rewrite it properly.
 	regHookContext := func(name string, version int, newHookContextFacade hookContextFacadeFn, facadeType reflect.Type) {
-		newFacade := func(context facade.Context) (facade.Facade, error) {
-			authorizer := context.Auth()
-			st := context.State()
-
-			if !authorizer.AuthUnitAgent() {
-				return nil, common.ErrPerm
-			}
-			// Verify that the unit's ID matches a unit that we know about.
-			tag := authorizer.GetAuthTag()
-			if _, ok := tag.(names.UnitTag); !ok {
-				return nil, errors.Errorf("expected names.UnitTag, got %T", tag)
-			}
-			unit, err := st.Unit(tag.Id())
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			return newHookContextFacade(st, unit)
+		err := regHookContextFacade(registry, name, version, newHookContextFacade, facadeType)
+		if err != nil {
+			panic(err)
 		}
-		// XXX error handling
-		registry.Register(name, version, newFacade, facadeType)
 	}
 
 	reg("Action", 2, action.NewActionAPI)
@@ -256,4 +226,46 @@ func AllFacades() *facade.Registry {
 	regRaw("MigrationStatusWatcher", 1, newMigrationStatusWatcher, reflect.TypeOf((*srvMigrationStatusWatcher)(nil)))
 
 	return registry
+}
+
+type hookContextFacadeFn func(*state.State, *state.Unit) (interface{}, error)
+
+// regHookContextFacade registers facades for use within a hook
+// context. This function handles the translation from a
+// hook-context-facade to a standard facade so the caller's factory
+// method can elide unnecessary arguments. This function also handles
+// any necessary authorization for the client.
+//
+// XXX(fwereade): this is fundamentally broken, because it (1)
+// arbitrarily creates a new facade for a tiny fragment of a specific
+// client worker's reponsibilities and (2) actively conceals necessary
+// auth information from the facade. Don't call it; actively work to
+// delete code that uses it, and rewrite it properly.
+func regHookContextFacade(
+	reg *facade.Registry,
+	name string,
+	version int,
+	newHookContextFacade hookContextFacadeFn,
+	facadeType reflect.Type,
+) error {
+	newFacade := func(context facade.Context) (facade.Facade, error) {
+		authorizer := context.Auth()
+		st := context.State()
+
+		if !authorizer.AuthUnitAgent() {
+			return nil, common.ErrPerm
+		}
+		// Verify that the unit's ID matches a unit that we know about.
+		tag := authorizer.GetAuthTag()
+		if _, ok := tag.(names.UnitTag); !ok {
+			return nil, errors.Errorf("expected names.UnitTag, got %T", tag)
+		}
+		unit, err := st.Unit(tag.Id())
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return newHookContextFacade(st, unit)
+	}
+	err := reg.Register(name, version, newFacade, facadeType)
+	return errors.Trace(err)
 }
