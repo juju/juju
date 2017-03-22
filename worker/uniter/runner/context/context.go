@@ -106,6 +106,9 @@ type HookContext struct {
 	// LeadershipContext supplies several jujuc.Context methods.
 	LeadershipContext
 
+	// principle is the unitName of the principal charm.
+	principal string
+
 	// privateAddress is the cached value of the unit's private
 	// address.
 	privateAddress string
@@ -384,6 +387,19 @@ func (ctx *HookContext) ResetExecutionSetUnitStatus() {
 	ctx.hasRunStatusSet = false
 }
 
+// PrincipalUnit will return the principal unit name and set the environment
+// variable JUJU_PRINCIPAL_UNIT.
+func (ctx *HookContext) PrincipalUnit() (string, error) {
+	if ctx.principal == "" {
+		_, principal, err := ctx.unit.PrincipalUnit()
+		if err != nil {
+			return "", err
+		}
+		ctx.principal = principal
+	}
+	return ctx.principal, nil
+}
+
 func (ctx *HookContext) PublicAddress() (string, error) {
 	if ctx.publicAddress == "" {
 		return "", errors.NotFoundf("public address")
@@ -580,6 +596,7 @@ func (context *HookContext) HookVars(paths Paths) ([]string, error) {
 		"JUJU_METER_STATUS="+context.meterStatus.code,
 		"JUJU_METER_INFO="+context.meterStatus.info,
 		"JUJU_MACHINE_ID="+context.assignedMachineTag.Id(),
+		"JUJU_PRINCIPAL_UNIT="+context.principal,
 		"JUJU_AVAILABILITY_ZONE="+context.availabilityzone,
 	)
 	if r, err := context.HookRelation(); err == nil {

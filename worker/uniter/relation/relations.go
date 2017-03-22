@@ -407,7 +407,7 @@ func (r *relations) update(remote map[int]remotestate.RelationSnapshot) error {
 			return errors.Trace(removeErr)
 		}
 	}
-	if ok, err := r.unit.IsPrincipal(); err != nil {
+	if ok, _, err := r.unit.PrincipalUnit(); err != nil {
 		return errors.Trace(err)
 	} else if ok {
 		return nil
