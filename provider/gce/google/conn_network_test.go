@@ -427,3 +427,32 @@ func (s *connSuite) TestConnectionCloseMoMatches(c *gc.C) {
 	c.Check(s.FakeConn.Calls, gc.HasLen, 1)
 	c.Check(s.FakeConn.Calls[0].FuncName, gc.Equals, "GetFirewalls")
 }
+
+func (s *connSuite) TestNetworks(c *gc.C) {
+	s.FakeConn.Networks = []*compute.Network{{
+		Name: "kamar-taj",
+	}}
+	results, err := s.Conn.Networks()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, gc.HasLen, 1)
+	c.Assert((*results[0]).Name, gc.Equals, "kamar-taj")
+
+	c.Check(s.FakeConn.Calls, gc.HasLen, 1)
+	c.Check(s.FakeConn.Calls[0].FuncName, gc.Equals, "ListNetworks")
+	c.Check(s.FakeConn.Calls[0].ProjectID, gc.Equals, "spam")
+}
+
+func (s *connSuite) TestSubnetworks(c *gc.C) {
+	s.FakeConn.Subnetworks = []*compute.Subnetwork{{
+		Name: "heptapod",
+	}}
+	results, err := s.Conn.Subnetworks("us-central1")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, gc.HasLen, 1)
+	c.Assert((*results[0]).Name, gc.Equals, "heptapod")
+
+	c.Check(s.FakeConn.Calls, gc.HasLen, 1)
+	c.Check(s.FakeConn.Calls[0].FuncName, gc.Equals, "ListSubnetworks")
+	c.Check(s.FakeConn.Calls[0].ProjectID, gc.Equals, "spam")
+	c.Check(s.FakeConn.Calls[0].Region, gc.Equals, "us-central1")
+}

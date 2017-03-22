@@ -182,6 +182,8 @@ type fakeConn struct {
 	Disks         []*compute.Disk
 	Disk          *compute.Disk
 	AttachedDisks []*compute.AttachedDisk
+	Networks      []*compute.Network
+	Subnetworks   []*compute.Subnetwork
 }
 
 func (rc *fakeConn) GetProject(projectID string) (*compute.Project, error) {
@@ -487,9 +489,36 @@ func (rc *fakeConn) SetMetadata(projectID, zone, instanceID string, metadata *co
 }
 
 func (rc *fakeConn) ListNetworks(projectID string) ([]*compute.Network, error) {
-	return nil, nil
+	call := fakeCall{
+		FuncName:  "ListNetworks",
+		ProjectID: projectID,
+	}
+	rc.Calls = append(rc.Calls, call)
+
+	err := rc.Err
+	if len(rc.Calls) != rc.FailOnCall+1 {
+		err = nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return rc.Networks, nil
 }
 
 func (rc *fakeConn) ListSubnetworks(projectID, region string) ([]*compute.Subnetwork, error) {
-	return nil, nil
+	call := fakeCall{
+		FuncName:  "ListSubnetworks",
+		ProjectID: projectID,
+		Region:    region,
+	}
+	rc.Calls = append(rc.Calls, call)
+
+	err := rc.Err
+	if len(rc.Calls) != rc.FailOnCall+1 {
+		err = nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return rc.Subnetworks, nil
 }
