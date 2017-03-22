@@ -174,11 +174,14 @@ type logSinkHandler struct {
 const (
 	// pongDelay is how long the server will wait for a pong to be sent
 	// before the websocket is considered broken.
-	pongDelay = 60 * time.Second
+	pongDelay = 90 * time.Second
 
 	// pingPeriod is how often ping messages are sent. This should be shorter
-	// than the pongDelay, but not by too much.
-	pingPeriod = (pongDelay * 9) / 10
+	// than the pongDelay, but not by too much. The difference here allows
+	// the remote endpoint 30 seconds to respond to the ping as a ping is sent
+	// every 60s, and when a pong is recieved the read deadline is advanced
+	// another 90s.
+	pingPeriod = 60 * time.Second
 
 	// writeWait is how long the write call can take before it errors out.
 	writeWait = 10 * time.Second
