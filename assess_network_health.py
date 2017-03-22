@@ -251,7 +251,7 @@ class AssessNetworkHealth:
                                       json.dumps(routes[0]))
             if default_route:
                 ip = default_route.group(2)
-                log.info('Default route for unit {}:{}'.format(unit[0], ip))
+                log.info('Default route for unit {}: {}'.format(unit[0], ip))
                 rc = client.run(
                     ['ping -c1 -q {}'.format(ip)],
                     machines=[unit[0]])
@@ -611,18 +611,53 @@ def parse_args(argv):
     return parser.parse_args(argv)
 
 
+def start_test(client, args, maas):
+    test = AssessNetworkHealth(args)
+    try:
+        test.assess_network_health(client, args.bundle, args.model,
+                                   args.reboot, args.series, maas)
+    finally:
+        if args.model:
+            test.cleanup(client)
+            log.info('Cleanup complete.')
+
+
+def start_maas_test(client, args):
+    if args.maas:
+        # Excluded_spaces breaks tests on oil maas
+        client.excluded_spaces = set()
+        client.reserved_spaces = set()
+        try:
+            with maas_account_from_boot_config(client.env) as manager:
+                start_test(client, args, manager)
+        except subprocess.CalledProcessError as e:
+            log.error(
+                'Could not connect to MaaS controller:\n{}'.format(e))
+
+
 def main(argv=None):
     args = parse_args(argv)
     configure_logging(args.verbose)
-    test = AssessNetworkHealth(args)
-    if args.model is None:
+    if args.model:
+        client = client_for_existing(args.juju_bin,
+                                     os.environ['JUJU_HOME'])
+        start_test(client, args, None)
+    else:
+        bs_manager = BootstrapManager.from_args(args)
+        with bs_manager.booted_context(args.upload_tools):
+            if args.maas:
+                start_maas_test_maas(bs_manager.client, args)
+            else:
+                start_test(bs_manager.client, args, None)
+    return 0
+
+    """if args.model is None:
         bs_manager = BootstrapManager.from_args(args)
         if args.maas:
             # Excluded_spaces breaks tests on oil maas
             bs_manager.client.excluded_spaces = set()
             bs_manager.client.reserved_spaces = set()
         with bs_manager.booted_context(args.upload_tools):
-            manager = None
             if args.maas:
                 env = bs_manager.client.env
                 with maas_account_from_boot_config(env) as manager:
@@ -642,7 +677,7 @@ def main(argv=None):
         finally:
             test.cleanup(client)
             log.info('Cleanup complete.')
-    return 0
+    return 0"""
 
 
 if __name__ == '__main__':
