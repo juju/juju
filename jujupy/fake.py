@@ -19,6 +19,7 @@ from jujupy import (
     JujuData,
     SoftDeadlineExceeded,
 )
+from jujupy.client import CommandTime
 
 __metaclass__ = type
 
@@ -977,6 +978,7 @@ class FakeBackend:
                     self.controller_state.shares.remove(username)
             if command == 'restore-backup':
                 model_state.restore_backup()
+            return 0, CommandTime(command, args)
 
     @contextmanager
     def juju_async(self, command, args, used_feature_flags,

@@ -152,6 +152,17 @@ def temp_os_env(key, value):
         os.environ[key] = org_value
 
 
+@contextmanager
+def patch_juju_call(client, return_value=(0, None)):
+    """Simple patch for client.juju call.
+
+    :param return_value: A tuple to return representing the retvar and
+      CommandTime object
+    """
+    with patch.object(client, 'juju', return_value=return_value) as mock:
+        yield mock
+
+
 def assert_juju_call(test_case, mock_method, client, expected_args,
                      call_index=None):
     """Check a mock's positional arguments.

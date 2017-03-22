@@ -1923,7 +1923,7 @@ class ModelClient:
             '--config', config_file))
 
     def destroy_model(self):
-        exit_status = self.juju(
+        exit_status, _ = self.juju(
             'destroy-model', (self.env.environment, '-y',),
             include_e=False, timeout=get_teardown_timeout(self))
         return exit_status

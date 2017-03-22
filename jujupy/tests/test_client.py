@@ -104,6 +104,7 @@ from tests import (
     FakeHomeTestCase,
     FakePopen,
     observable_temp_file,
+    patch_juju_call,
     TestCase,
     )
 from jujupy.utility import (
@@ -904,7 +905,7 @@ class TestModelClient(ClientTest):
     def test_destroy_model(self):
         env = JujuData('foo', {'type': 'ec2'})
         client = ModelClient(env, None, None)
-        with patch.object(client, 'juju') as mock:
+        with patch_juju_call(client) as mock:
             client.destroy_model()
         mock.assert_called_with(
             'destroy-model', ('foo', '-y'),
@@ -913,7 +914,7 @@ class TestModelClient(ClientTest):
     def test_destroy_model_azure(self):
         env = JujuData('foo', {'type': 'azure'})
         client = ModelClient(env, None, None)
-        with patch.object(client, 'juju') as mock:
+        with patch_juju_call(client) as mock:
             client.destroy_model()
         mock.assert_called_with(
             'destroy-model', ('foo', '-y'),
@@ -922,7 +923,7 @@ class TestModelClient(ClientTest):
     def test_destroy_model_gce(self):
         env = JujuData('foo', {'type': 'gce'})
         client = ModelClient(env, None, None)
-        with patch.object(client, 'juju') as mock:
+        with patch_juju_call(client) as mock:
             client.destroy_model()
         mock.assert_called_with(
             'destroy-model', ('foo', '-y'),
