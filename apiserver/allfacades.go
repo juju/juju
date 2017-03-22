@@ -7,6 +7,7 @@ import (
 	"reflect"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils/featureflag"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/action"
@@ -86,9 +87,9 @@ import (
 // AllFacades returns a registry containing all known API facades.
 func AllFacades() *facade.Registry {
 	registry := new(facade.Registry)
-	// XXX get rid of "feature" here
-	reg := func(name string, version int, newFunc interface{}, feature string) {
-		err := registry.RegisterStandard(name, version, newFunc, feature)
+
+	reg := func(name string, version int, newFunc interface{}) {
+		err := registry.RegisterStandard(name, version, newFunc, "")
 		if err != nil {
 			panic(err)
 		}
@@ -138,103 +139,107 @@ func AllFacades() *facade.Registry {
 		registry.Register(name, version, newFacade, facadeType, "")
 	}
 
-	reg("Action", 2, action.NewActionAPI, "")
-	reg("Agent", 2, agent.NewAgentAPIV2, "")
-	reg("AgentTools", 1, agenttools.NewFacade, "")
-	reg("Annotations", 2, annotations.NewAPI, "")
-	reg("Application", 1, application.NewFacade, "")
-	reg("Application", 2, application.NewFacade, "")
-	reg("Application", 3, application.NewFacade, "")
-	reg("Application", 4, application.NewFacade, "")
-	reg("ApplicationScaler", 1, applicationscaler.NewAPI, "")
-	reg("Backups", 1, backups.NewFacade, "")
-	reg("Block", 2, block.NewAPI, "")
-	reg("Bundle", 1, bundle.NewFacade, "")
-	reg("CharmRevisionUpdater", 2, charmrevisionupdater.NewCharmRevisionUpdaterAPI, "")
-	reg("Charms", 2, charms.NewAPI, "")
-	reg("Cleaner", 2, cleaner.NewCleanerAPI, "")
-	reg("Client", 1, client.NewFacade, "")
-	reg("Cloud", 1, cloud.NewFacade, "")
-	reg("Controller", 3, controller.NewControllerAPI, "")
-	reg("CrossModelRelations", 1, crossmodel.NewAPI, feature.CrossModelRelations)
-	reg("Deployer", 1, deployer.NewDeployerAPI, "")
-	reg("DiscoverSpaces", 2, discoverspaces.NewAPI, "")
-	reg("DiskManager", 2, diskmanager.NewDiskManagerAPI, "")
-	reg("Firewaller", 3, firewaller.NewFirewallerAPI, "")
-	reg("HighAvailability", 2, highavailability.NewHighAvailabilityAPI, "")
-	reg("HostKeyReporter", 1, hostkeyreporter.NewFacade, "")
-	reg("ImageManager", 2, imagemanager.NewImageManagerAPI, "")
-	reg("ImageMetadata", 2, imagemetadata.NewAPI, "")
-	reg("InstancePoller", 3, instancepoller.NewFacade, "")
-	reg("KeyManager", 1, keymanager.NewKeyManagerAPI, "")
-	reg("KeyUpdater", 1, keyupdater.NewKeyUpdaterAPI, "")
-	reg("LeadershipService", 2, leadership.NewLeadershipServiceFacade, "")
-	reg("LifeFlag", 1, lifeflag.NewExternalFacade, "")
-	reg("Logger", 1, loggerapi.NewLoggerAPI, "")
-	reg("LogForwarding", 1, logfwd.NewFacade, "")
-	reg("MachineActions", 1, machineactions.NewExternalFacade, "")
+	reg("Action", 2, action.NewActionAPI)
+	reg("Agent", 2, agent.NewAgentAPIV2)
+	reg("AgentTools", 1, agenttools.NewFacade)
+	reg("Annotations", 2, annotations.NewAPI)
 
-	reg("MachineManager", 2, machinemanager.NewMachineManagerAPI, "")
-	// Version 3 adds DestroyMachine and ForceDestroyMachine.
-	reg("MachineManager", 3, machinemanager.NewMachineManagerAPI, "")
+	reg("Application", 1, application.NewFacade)
+	reg("Application", 2, application.NewFacade)
+	reg("Application", 3, application.NewFacade)
+	reg("Application", 4, application.NewFacade)
 
-	reg("MachineUndertaker", 1, machineundertaker.NewFacade, "")
-	reg("Machiner", 1, machine.NewMachinerAPI, "")
+	reg("ApplicationScaler", 1, applicationscaler.NewAPI)
+	reg("Backups", 1, backups.NewFacade)
+	reg("Block", 2, block.NewAPI)
+	reg("Bundle", 1, bundle.NewFacade)
+	reg("CharmRevisionUpdater", 2, charmrevisionupdater.NewCharmRevisionUpdaterAPI)
+	reg("Charms", 2, charms.NewAPI)
+	reg("Cleaner", 2, cleaner.NewCleanerAPI)
+	reg("Client", 1, client.NewFacade)
+	reg("Cloud", 1, cloud.NewFacade)
+	reg("Controller", 3, controller.NewControllerAPI)
+	reg("Deployer", 1, deployer.NewDeployerAPI)
+	reg("DiscoverSpaces", 2, discoverspaces.NewAPI)
+	reg("DiskManager", 2, diskmanager.NewDiskManagerAPI)
+	reg("Firewaller", 3, firewaller.NewFirewallerAPI)
+	reg("HighAvailability", 2, highavailability.NewHighAvailabilityAPI)
+	reg("HostKeyReporter", 1, hostkeyreporter.NewFacade)
+	reg("ImageManager", 2, imagemanager.NewImageManagerAPI)
+	reg("ImageMetadata", 2, imagemetadata.NewAPI)
+	reg("InstancePoller", 3, instancepoller.NewFacade)
+	reg("KeyManager", 1, keymanager.NewKeyManagerAPI)
+	reg("KeyUpdater", 1, keyupdater.NewKeyUpdaterAPI)
+	reg("LeadershipService", 2, leadership.NewLeadershipServiceFacade)
+	reg("LifeFlag", 1, lifeflag.NewExternalFacade)
+	reg("Logger", 1, loggerapi.NewLoggerAPI)
+	reg("LogForwarding", 1, logfwd.NewFacade)
+	reg("MachineActions", 1, machineactions.NewExternalFacade)
 
-	reg("MeterStatus", 1, meterstatus.NewMeterStatusAPI, "")
-	reg("MetricsAdder", 2, metricsadder.NewMetricsAdderAPI, "")
-	reg("MetricsDebug", 2, metricsdebug.NewMetricsDebugAPI, "")
-	reg("MetricsManager", 1, metricsmanager.NewFacade, "")
+	reg("MachineManager", 2, machinemanager.NewMachineManagerAPI)
+	reg("MachineManager", 3, machinemanager.NewMachineManagerAPI) // Version 3 adds DestroyMachine and ForceDestroyMachine.
 
-	reg("MigrationFlag", 1, migrationflag.NewFacade, "")
-	reg("MigrationMaster", 1, migrationmaster.NewFacade, "")
-	reg("MigrationMinion", 1, migrationminion.NewFacade, "")
-	reg("MigrationTarget", 1, migrationtarget.NewFacade, "")
+	reg("MachineUndertaker", 1, machineundertaker.NewFacade)
+	reg("Machiner", 1, machine.NewMachinerAPI)
 
-	reg("ModelConfig", 1, modelconfig.NewFacade, "")
-	reg("ModelManager", 2, modelmanager.NewFacade, "")
+	reg("MeterStatus", 1, meterstatus.NewMeterStatusAPI)
+	reg("MetricsAdder", 2, metricsadder.NewMetricsAdderAPI)
+	reg("MetricsDebug", 2, metricsdebug.NewMetricsDebugAPI)
+	reg("MetricsManager", 1, metricsmanager.NewFacade)
 
-	reg("Payloads", 1, payloads.NewFacade, "")
+	reg("MigrationFlag", 1, migrationflag.NewFacade)
+	reg("MigrationMaster", 1, migrationmaster.NewFacade)
+	reg("MigrationMinion", 1, migrationminion.NewFacade)
+	reg("MigrationTarget", 1, migrationtarget.NewFacade)
+
+	reg("ModelConfig", 1, modelconfig.NewFacade)
+	reg("ModelManager", 2, modelmanager.NewFacade)
+
+	reg("Payloads", 1, payloads.NewFacade)
 	regHookContext(
 		"PayloadsHookContext", 1,
 		payloadshookcontext.NewHookContextFacade,
 		reflect.TypeOf(&payloadshookcontext.UnitFacade{}),
 	)
 
-	reg("Pinger", 1, NewPinger, "")
-	reg("Provisioner", 3, provisioner.NewProvisionerAPI, "")
-	reg("ProxyUpdater", 1, proxyupdater.NewAPI, "")
-	reg("Reboot", 2, reboot.NewRebootAPI, "")
-	reg("RemoteFirewaller", 1, remotefirewaller.NewStateRemoteFirewallerAPI, feature.CrossModelRelations)
-	reg("RemoteRelations", 1, remoterelations.NewStateRemoteRelationsAPI, feature.CrossModelRelations)
+	reg("Pinger", 1, NewPinger)
+	reg("Provisioner", 3, provisioner.NewProvisionerAPI)
+	reg("ProxyUpdater", 1, proxyupdater.NewAPI)
+	reg("Reboot", 2, reboot.NewRebootAPI)
 
-	reg("Resources", 1, resources.NewPublicFacade, "")
+	reg("Resources", 1, resources.NewPublicFacade)
 	regHookContext(
 		"ResourcesHookContext", 1,
 		resourceshookcontext.NewHookContextFacade,
 		reflect.TypeOf(&resourceshookcontext.UnitFacade{}),
 	)
 
-	reg("Resumer", 2, resumer.NewResumerAPI, "")
-	reg("RetryStrategy", 1, retrystrategy.NewRetryStrategyAPI, "")
-	reg("Singular", 1, singular.NewExternalFacade, "")
+	reg("Resumer", 2, resumer.NewResumerAPI)
+	reg("RetryStrategy", 1, retrystrategy.NewRetryStrategyAPI)
+	reg("Singular", 1, singular.NewExternalFacade)
 
-	reg("SSHClient", 1, sshclient.NewFacade, "")
-	reg("SSHClient", 2, sshclient.NewFacade, "") // v2 adds AllAddresses() method.
+	reg("SSHClient", 1, sshclient.NewFacade)
+	reg("SSHClient", 2, sshclient.NewFacade) // v2 adds AllAddresses() method.
 
-	reg("Spaces", 2, spaces.NewAPI, "")
-	reg("StatusHistory", 2, statushistory.NewAPI, "")
-	reg("Storage", 3, storage.NewFacade, "")
-	reg("StorageProvisioner", 3, storageprovisioner.NewFacade, "")
-	reg("Subnets", 2, subnets.NewAPI, "")
-	reg("Undertaker", 1, undertaker.NewUndertakerAPI, "")
-	reg("UnitAssigner", 1, unitassigner.New, "")
+	reg("Spaces", 2, spaces.NewAPI)
+	reg("StatusHistory", 2, statushistory.NewAPI)
+	reg("Storage", 3, storage.NewFacade)
+	reg("StorageProvisioner", 3, storageprovisioner.NewFacade)
+	reg("Subnets", 2, subnets.NewAPI)
+	reg("Undertaker", 1, undertaker.NewUndertakerAPI)
+	reg("UnitAssigner", 1, unitassigner.New)
 
 	reg("Uniter", 4, uniter.NewUniterAPI, "")
 	reg("Uniter", 5, uniter.NewUniterAPI, "")
 
-	reg("Upgrader", 1, upgrader.NewUpgraderFacade, "")
-	reg("UserManager", 1, usermanager.NewUserManagerAPI, "")
+	reg("Upgrader", 1, upgrader.NewUpgraderFacade)
+	reg("UserManager", 1, usermanager.NewUserManagerAPI)
+
+	if featureflag.Enabled(feature.CrossModelRelations) {
+		reg("CrossModelRelations", 1, crossmodel.NewAPI)
+		reg("RemoteFirewaller", 1, remotefirewaller.NewStateRemoteFirewallerAPI)
+		reg("RemoteRelations", 1, remoterelations.NewStateRemoteRelationsAPI)
+	}
 
 	regRaw("AllWatcher", 1, NewAllWatcher, reflect.TypeOf((*SrvAllWatcher)(nil)))
 	// Note: AllModelWatcher uses the same infrastructure as AllWatcher
