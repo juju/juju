@@ -48,7 +48,7 @@ Examples:
 
 // listCommand returns storage instances.
 type listCommand struct {
-	CrossModelCommandBase
+	ApplicationOffersCommandBase
 
 	out cmd.Output
 
@@ -61,7 +61,7 @@ type listCommand struct {
 func NewListEndpointsCommand() cmd.Command {
 	listCmd := &listCommand{}
 	listCmd.newAPIFunc = func() (ListAPI, error) {
-		return listCmd.NewCrossModelAPI()
+		return listCmd.NewApplicationOffersAPI()
 	}
 	return modelcmd.Wrap(listCmd)
 }
@@ -84,7 +84,7 @@ func (c *listCommand) Info() *cmd.Info {
 
 // SetFlags implements Command.SetFlags.
 func (c *listCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.CrossModelCommandBase.SetFlags(f)
+	c.ApplicationOffersCommandBase.SetFlags(f)
 
 	// TODO (anastasiamac 2015-11-17)  need to get filters from user input
 	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{

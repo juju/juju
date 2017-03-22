@@ -1,29 +1,27 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// The crossmodel command provides an interface that allows to
-// manipulate and inspect cross model relations.
 package crossmodel
 
 import (
-	"github.com/juju/juju/api/crossmodel"
+	"github.com/juju/juju/api/remoteendpoints"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
-// CrossModelCommandBase is a base structure to get cross model managing client.
-type CrossModelCommandBase struct {
-	modelcmd.ModelCommandBase
+// RemoteEndpointsCommandBase is a base for various cross model commands.
+type RemoteEndpointsCommandBase struct {
+	modelcmd.ControllerCommandBase
 }
 
-// NewCrossModelAPI returns a cross model api for the root api endpoint
-// that the environment command returns.
-func (c *CrossModelCommandBase) NewCrossModelAPI() (*crossmodel.Client, error) {
+// NewRemoteEndpointsAPI returns a remote endpoints api for the root api endpoint
+// that the command returns.
+func (c *RemoteEndpointsCommandBase) NewRemoteEndpointsAPI() (*remoteendpoints.Client, error) {
 	root, err := c.NewAPIRoot()
 	if err != nil {
 		return nil, err
 	}
-	return crossmodel.NewClient(root), nil
+	return remoteendpoints.NewClient(root), nil
 }
 
 // RemoteEndpoint defines the serialization behaviour of remote endpoints.

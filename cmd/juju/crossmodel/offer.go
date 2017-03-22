@@ -40,13 +40,13 @@ See also:
 func NewOfferCommand() cmd.Command {
 	offerCmd := &offerCommand{}
 	offerCmd.newAPIFunc = func() (OfferAPI, error) {
-		return offerCmd.NewCrossModelAPI()
+		return offerCmd.NewApplicationOffersAPI()
 	}
 	return modelcmd.Wrap(offerCmd)
 }
 
 type offerCommand struct {
-	CrossModelCommandBase
+	ApplicationOffersCommandBase
 	newAPIFunc func() (OfferAPI, error)
 
 	// Application stores application name to be offered.
@@ -90,7 +90,7 @@ func (c *offerCommand) Init(args []string) error {
 
 // SetFlags implements Command.SetFlags.
 func (c *offerCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.CrossModelCommandBase.SetFlags(f)
+	c.ApplicationOffersCommandBase.SetFlags(f)
 }
 
 // Run implements Command.Run.

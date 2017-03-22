@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package crossmodel_test
+package remoteendpoints_test
 
 import (
 	"fmt"
@@ -12,7 +12,7 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 
 	basetesting "github.com/juju/juju/api/base/testing"
-	"github.com/juju/juju/api/crossmodel"
+	"github.com/juju/juju/api/remoteendpoints"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	jujucrossmodel "github.com/juju/juju/core/crossmodel"
@@ -24,76 +24,6 @@ type crossmodelMockSuite struct {
 }
 
 var _ = gc.Suite(&crossmodelMockSuite{})
-
-func (s *crossmodelMockSuite) TestOffer(c *gc.C) {
-	application := "shared"
-	endPointA := "endPointA"
-	endPointB := "endPointB"
-	offer := "offer"
-	desc := "desc"
-
-	msg := "fail"
-	apiCaller := basetesting.APICallerFunc(
-		func(objType string,
-			version int,
-			id, request string,
-			a, result interface{},
-		) error {
-			c.Check(objType, gc.Equals, "CrossModelRelations")
-			c.Check(id, gc.Equals, "")
-			c.Check(request, gc.Equals, "Offer")
-
-			args, ok := a.(params.AddApplicationOffers)
-			c.Assert(ok, jc.IsTrue)
-			c.Assert(args.Offers, gc.HasLen, 1)
-
-			offer := args.Offers[0]
-			c.Assert(offer.ApplicationName, gc.DeepEquals, application)
-			c.Assert(offer.Endpoints, jc.DeepEquals, map[string]string{endPointA: endPointA, endPointB: endPointB})
-			c.Assert(offer.OfferName, gc.Equals, offer.OfferName)
-			c.Assert(offer.ApplicationDescription, gc.DeepEquals, desc)
-
-			if results, ok := result.(*params.ErrorResults); ok {
-				all := make([]params.ErrorResult, len(args.Offers))
-				// add one error to make sure it's catered for.
-				all = append(all, params.ErrorResult{
-					Error: common.ServerError(errors.New(msg))})
-				results.Results = all
-			}
-
-			return nil
-		})
-
-	client := crossmodel.NewClient(apiCaller)
-	results, err := client.Offer(application, []string{endPointA, endPointB}, offer, desc)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.HasLen, 2)
-	c.Assert(results, jc.DeepEquals,
-		[]params.ErrorResult{
-			{},
-			{Error: common.ServerError(errors.New(msg))},
-		})
-}
-
-func (s *crossmodelMockSuite) TestOfferFacadeCallError(c *gc.C) {
-	msg := "facade failure"
-	apiCaller := basetesting.APICallerFunc(
-		func(objType string,
-			version int,
-			id, request string,
-			a, result interface{},
-		) error {
-			c.Check(objType, gc.Equals, "CrossModelRelations")
-			c.Check(id, gc.Equals, "")
-			c.Check(request, gc.Equals, "Offer")
-
-			return errors.New(msg)
-		})
-	client := crossmodel.NewClient(apiCaller)
-	results, err := client.Offer("", nil, "", "")
-	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
-	c.Assert(results, gc.IsNil)
-}
 
 func (s *crossmodelMockSuite) TestShow(c *gc.C) {
 	url := "fred/model.db2"
@@ -115,7 +45,7 @@ func (s *crossmodelMockSuite) TestShow(c *gc.C) {
 		) error {
 			called = true
 
-			c.Check(objType, gc.Equals, "CrossModelRelations")
+			c.Check(objType, gc.Equals, "RemoteEndpoints")
 			c.Check(id, gc.Equals, "")
 			c.Check(request, gc.Equals, "ApplicationOffers")
 
@@ -135,7 +65,7 @@ func (s *crossmodelMockSuite) TestShow(c *gc.C) {
 			}
 			return nil
 		})
-	client := crossmodel.NewClient(apiCaller)
+	client := remoteendpoints.NewClient(apiCaller)
 	found, err := client.ApplicationOffer(url)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -161,7 +91,7 @@ func (s *crossmodelMockSuite) TestShowURLError(c *gc.C) {
 		) error {
 			called = true
 
-			c.Check(objType, gc.Equals, "CrossModelRelations")
+			c.Check(objType, gc.Equals, "RemoteEndpoints")
 			c.Check(id, gc.Equals, "")
 			c.Check(request, gc.Equals, "ApplicationOffers")
 
@@ -175,7 +105,7 @@ func (s *crossmodelMockSuite) TestShowURLError(c *gc.C) {
 			}
 			return nil
 		})
-	client := crossmodel.NewClient(apiCaller)
+	client := remoteendpoints.NewClient(apiCaller)
 	found, err := client.ApplicationOffer(url)
 
 	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
@@ -203,7 +133,7 @@ func (s *crossmodelMockSuite) TestShowMultiple(c *gc.C) {
 		) error {
 			called = true
 
-			c.Check(objType, gc.Equals, "CrossModelRelations")
+			c.Check(objType, gc.Equals, "RemoteEndpoints")
 			c.Check(id, gc.Equals, "")
 			c.Check(request, gc.Equals, "ApplicationOffers")
 
@@ -228,7 +158,7 @@ func (s *crossmodelMockSuite) TestShowMultiple(c *gc.C) {
 			}
 			return nil
 		})
-	client := crossmodel.NewClient(apiCaller)
+	client := remoteendpoints.NewClient(apiCaller)
 	found, err := client.ApplicationOffer(url)
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(`expected to find one result for url %q but found 2`, url))
 	c.Assert(found, gc.DeepEquals, params.ApplicationOffer{})
@@ -251,7 +181,7 @@ func (s *crossmodelMockSuite) TestShowNonLocal(c *gc.C) {
 			called = true
 			return nil
 		})
-	client := crossmodel.NewClient(apiCaller)
+	client := remoteendpoints.NewClient(apiCaller)
 	found, err := client.ApplicationOffer(url)
 
 	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
@@ -267,13 +197,13 @@ func (s *crossmodelMockSuite) TestShowFacadeCallError(c *gc.C) {
 			id, request string,
 			a, result interface{},
 		) error {
-			c.Check(objType, gc.Equals, "CrossModelRelations")
+			c.Check(objType, gc.Equals, "RemoteEndpoints")
 			c.Check(id, gc.Equals, "")
 			c.Check(request, gc.Equals, "ApplicationOffers")
 
 			return errors.New(msg)
 		})
-	client := crossmodel.NewClient(apiCaller)
+	client := remoteendpoints.NewClient(apiCaller)
 	found, err := client.ApplicationOffer("fred/model.db2")
 	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
 	c.Assert(found, gc.DeepEquals, params.ApplicationOffer{})
@@ -297,7 +227,7 @@ func (s *crossmodelMockSuite) TestFind(c *gc.C) {
 			id, request string,
 			a, result interface{},
 		) error {
-			c.Check(objType, gc.Equals, "CrossModelRelations")
+			c.Check(objType, gc.Equals, "RemoteEndpoints")
 			c.Check(id, gc.Equals, "")
 			c.Check(request, gc.Equals, "FindApplicationOffers")
 
@@ -325,7 +255,7 @@ func (s *crossmodelMockSuite) TestFind(c *gc.C) {
 			return nil
 		})
 
-	client := crossmodel.NewClient(apiCaller)
+	client := remoteendpoints.NewClient(apiCaller)
 	results, err := client.FindApplicationOffers(filter)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(called, jc.IsTrue)
@@ -347,7 +277,7 @@ func (s *crossmodelMockSuite) TestFindNoFilter(c *gc.C) {
 			return nil
 		})
 
-	client := crossmodel.NewClient(apiCaller)
+	client := remoteendpoints.NewClient(apiCaller)
 	_, err := client.FindApplicationOffers()
 	c.Assert(err, gc.ErrorMatches, "at least one filter must be specified")
 }
@@ -361,7 +291,7 @@ func (s *crossmodelMockSuite) TestFindError(c *gc.C) {
 			id, request string,
 			a, result interface{},
 		) error {
-			c.Check(objType, gc.Equals, "CrossModelRelations")
+			c.Check(objType, gc.Equals, "RemoteEndpoints")
 			c.Check(id, gc.Equals, "")
 			c.Check(request, gc.Equals, "FindApplicationOffers")
 
@@ -369,7 +299,7 @@ func (s *crossmodelMockSuite) TestFindError(c *gc.C) {
 			return errors.New(msg)
 		})
 
-	client := crossmodel.NewClient(apiCaller)
+	client := remoteendpoints.NewClient(apiCaller)
 	filter := jujucrossmodel.ApplicationOfferFilter{
 		OfferName: "foo",
 	}
@@ -386,13 +316,13 @@ func (s *crossmodelMockSuite) TestFindFacadeCallError(c *gc.C) {
 			id, request string,
 			a, result interface{},
 		) error {
-			c.Check(objType, gc.Equals, "CrossModelRelations")
+			c.Check(objType, gc.Equals, "RemoteEndpoints")
 			c.Check(id, gc.Equals, "")
 			c.Check(request, gc.Equals, "FindApplicationOffers")
 
 			return errors.New(msg)
 		})
-	client := crossmodel.NewClient(apiCaller)
+	client := remoteendpoints.NewClient(apiCaller)
 	filter := jujucrossmodel.ApplicationOfferFilter{
 		OfferName: "foo",
 	}

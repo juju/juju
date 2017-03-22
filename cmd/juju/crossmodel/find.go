@@ -35,7 +35,7 @@ See also:
 `
 
 type findCommand struct {
-	CrossModelCommandBase
+	RemoteEndpointsCommandBase
 
 	url           string
 	modelName     string
@@ -52,9 +52,9 @@ type findCommand struct {
 func NewFindEndpointsCommand() cmd.Command {
 	findCmd := &findCommand{}
 	findCmd.newAPIFunc = func() (FindAPI, error) {
-		return findCmd.NewCrossModelAPI()
+		return findCmd.NewRemoteEndpointsAPI()
 	}
-	return modelcmd.Wrap(findCmd)
+	return modelcmd.WrapController(findCmd)
 }
 
 // Init implements Command.Init.
@@ -81,8 +81,8 @@ func (c *findCommand) Init(args []string) (err error) {
 			return errors.NotSupportedf("finding endpoints from another controller %q", urlParts.Source)
 		}
 	} else {
-		// We need at least one filter. The default filter will list all offers from the current model.
-		c.modelName = c.ModelName()
+		// We need at least one filter.
+		return errors.New("at least one filter term must be specified, try specifying a model name")
 	}
 	return nil
 }
@@ -98,7 +98,7 @@ func (c *findCommand) Info() *cmd.Info {
 
 // SetFlags implements Command.SetFlags.
 func (c *findCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.CrossModelCommandBase.SetFlags(f)
+	c.RemoteEndpointsCommandBase.SetFlags(f)
 	f.StringVar(&c.url, "url", "", "application URL")
 	f.StringVar(&c.interfaceName, "interface", "", "return results matching the interface name")
 	f.StringVar(&c.endpoint, "endpoint", "", "return results matching the endpoint name")
