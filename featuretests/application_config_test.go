@@ -215,14 +215,14 @@ var (
 )
 
 type TestSetting struct {
-	Default     bool        "yaml:default"
-	Description string      "yaml:description"
-	Type        string      "yaml:type"
-	Value       interface{} "yaml:value"
+	Default     bool        `yaml:"default"`
+	Description string      `yaml:"description"`
+	Type        string      `yaml:"type"`
+	Value       interface{} `yaml:"value"`
 }
 
 type ApplicationSetting struct {
-	Application string                 "yaml:application"
-	Charm       string                 "yaml:charm"
-	Settings    map[string]TestSetting "yaml:settings"
+	Application string                 `yaml:"application"`
+	Charm       string                 `yaml:"charm"`
+	Settings    map[string]TestSetting `yaml:"settings"`
 }
