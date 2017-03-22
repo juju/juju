@@ -167,6 +167,9 @@ type logSinkHandler struct {
 // libraries use time.Now() to determine whether or not to send errors, so
 // using a testing clock here isn't going to work. So we rely on manual
 // testing, and what is defined as good practice by the library authors.
+//
+// Now, in theory, we should be using this ping/pong across all the websockets,
+// but that is a little outside the scope of this piece of work.
 
 const (
 	// pongDelay is how long the server will wait for a pong to be sent
