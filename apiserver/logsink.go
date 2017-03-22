@@ -154,7 +154,7 @@ type logSinkHandler struct {
 	fileLogger  io.Writer
 }
 
-// Since the logsink only recieves messages, it is possible for the other end
+// Since the logsink only receives messages, it is possible for the other end
 // to disappear without the server noticing. To fix this, we use the
 // underlying websocket control messages ping/pong. Periodically the server
 // writes a ping, and the other end replies with a pong. Now the tricky bit is
@@ -179,7 +179,7 @@ const (
 	// pingPeriod is how often ping messages are sent. This should be shorter
 	// than the pongDelay, but not by too much. The difference here allows
 	// the remote endpoint 30 seconds to respond to the ping as a ping is sent
-	// every 60s, and when a pong is recieved the read deadline is advanced
+	// every 60s, and when a pong is received the read deadline is advanced
 	// another 90s.
 	pingPeriod = 60 * time.Second
 
@@ -215,13 +215,11 @@ func (h *logSinkHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		// formatted simple error.
 		h.sendError(socket, req, nil)
 
-		// Older versions did not respond to ping control messages, so don't try.
-		doPingPong := endpointVersion > 0
-
-		// Here we configure the ping/pong handling for the websocket so
-		// the server can notice when the client goes away.
+		// Here we configure the ping/pong handling for the websocket so the
+		// server can notice when the client goes away. Older versions did not
+		// respond to ping control messages, so don't try.
 		var tickChannel <-chan time.Time
-		if doPingPong {
+		if endpointVersion > 0 {
 			socket.SetReadDeadline(time.Now().Add(pongDelay))
 			socket.SetPongHandler(func(string) error {
 				logger.Tracef("pong logsink %p", socket)
@@ -320,7 +318,7 @@ func (h *logSinkHandler) receiveLogs(socket *websocket.Conn, endpointVersion int
 				return
 			case logCh <- m:
 				// If the remote end does not support ping/pong, we bump
-				// the read deadline everytime a message is recieved.
+				// the read deadline everytime a message is received.
 				if endpointVersion == 0 {
 					socket.SetReadDeadline(time.Now().Add(vZeroDelay))
 				}
