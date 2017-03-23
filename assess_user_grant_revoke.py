@@ -246,7 +246,7 @@ def assert_logout_login(controller_client, user_client,
     user_list = list_users(controller_client)
     assert_equal(user_list, USER_LIST_CTRL_READ)
     log.info('Checking list-users after login')
-    user_client.login_user(user.name)
+    user_client.login_user(user.name, password)
 
 
 def assert_read_user(controller_client, user):
