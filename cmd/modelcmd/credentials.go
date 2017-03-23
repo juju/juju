@@ -53,15 +53,9 @@ func GetCredentials(
 	if err != nil {
 		return nil, "", "", errors.Trace(err)
 	}
-
 	regionName = args.CloudRegion
 	if regionName == "" {
 		regionName = defaultRegion
-		if regionName == "" && len(args.Cloud.Regions) > 0 {
-			// No region was specified, use the first region
-			// in the list.
-			regionName = args.Cloud.Regions[0].Name
-		}
 	}
 
 	cloudEndpoint := args.Cloud.Endpoint
