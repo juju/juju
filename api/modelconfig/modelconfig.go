@@ -68,3 +68,22 @@ func (c *Client) ModelUnset(keys ...string) error {
 	args := params.ModelUnset{Keys: keys}
 	return c.facade.FacadeCall("ModelUnset", args, nil)
 }
+
+// SetSLALevel sets the support level for the given model.
+func (c *Client) SetSLALevel(level string, creds []byte) error {
+	args := params.ModelSLA{
+		Level:       level,
+		Credentials: creds,
+	}
+	return c.facade.FacadeCall("SetSLALevel", args, nil)
+}
+
+// SLALevel gets the support level for the given model.
+func (c *Client) SLALevel() (string, error) {
+	var result params.StringResult
+	err := c.facade.FacadeCall("SLALevel", nil, &result)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	return result.Result, nil
+}

@@ -37,6 +37,7 @@ type modelStatus struct {
 	Version          string             `json:"version" yaml:"version"`
 	AvailableVersion string             `json:"upgrade-available,omitempty" yaml:"upgrade-available,omitempty"`
 	Status           statusInfoContents `json:"model-status,omitempty" yaml:"model-status,omitempty"`
+	MeterStatus      *meterStatus       `json:"meter-status,omitempty" yaml:"meter-status,omitempty"`
 }
 
 type networkInterface struct {
