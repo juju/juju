@@ -178,11 +178,12 @@ func (s *DiscoverSpacesSuite) TestAddSubnetsParamsCombinations(c *gc.C) {
 		SpaceTag:         "space-thing",
 	}, {
 		// Successful - ipv6
-		SubnetProviderId: "sn-ipv6",
-		SubnetTag:        "subnet-2001:db8::/32",
-		VLANTag:          0,
-		Zones:            []string{"a", "b", "c"},
-		SpaceTag:         "space-dmz",
+		SubnetProviderId:  "sn-ipv6",
+		ProviderNetworkId: "antennas",
+		SubnetTag:         "subnet-2001:db8::/32",
+		VLANTag:           0,
+		Zones:             []string{"a", "b", "c"},
+		SpaceTag:          "space-dmz",
 	}, {
 		// Successful - no zones
 		SubnetProviderId: "sn-no-zone",
@@ -214,18 +215,21 @@ func (s *DiscoverSpacesSuite) TestAddSubnetsParamsCombinations(c *gc.C) {
 	}
 	expectedBackingInfos := []networkingcommon.BackingSubnetInfo{{
 		ProviderId:        "sn-ipv6",
+		ProviderNetworkId: "antennas",
 		CIDR:              "2001:db8::/32",
 		VLANTag:           0,
 		AvailabilityZones: []string{"a", "b", "c"},
 		SpaceName:         "dmz",
 	}, {
 		ProviderId:        "sn-no-zone",
+		ProviderNetworkId: "",
 		CIDR:              "10.10.10.0/24",
 		VLANTag:           3,
 		AvailabilityZones: nil,
 		SpaceName:         "dmz",
 	}, {
 		ProviderId:        "sn-no-space",
+		ProviderNetworkId: "",
 		CIDR:              "10.10.10.0/24",
 		VLANTag:           3,
 		AvailabilityZones: []string{"a", "b", "c"},

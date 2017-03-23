@@ -116,11 +116,12 @@ func (s *stateShim) AddSubnet(info BackingSubnetInfo) (BackingSubnet, error) {
 		firstZone = info.AvailabilityZones[0]
 	}
 	_, err := s.st.AddSubnet(state.SubnetInfo{
-		CIDR:             info.CIDR,
-		VLANTag:          info.VLANTag,
-		ProviderId:       info.ProviderId,
-		AvailabilityZone: firstZone,
-		SpaceName:        info.SpaceName,
+		CIDR:              info.CIDR,
+		VLANTag:           info.VLANTag,
+		ProviderId:        info.ProviderId,
+		ProviderNetworkId: info.ProviderNetworkId,
+		AvailabilityZone:  firstZone,
+		SpaceName:         info.SpaceName,
 	})
 	return nil, err // Drop the first result, as it's unused.
 }
