@@ -2693,11 +2693,20 @@ class ModelClient:
             child.sendline(controller_name)
             child.expect(pexpect.EOF)
             if child.isalive():
+                log.error('Buffer: {}'.format(child.buffer))
+                log.error('Before: {}'.format(child.before))
                 raise Exception(
                     'Registering user failed: pexpect session still alive')
+            child.close()
+            if child.exitstatus != 0:
+                log.error('Buffer: {}'.format(child.buffer))
+                log.error('Before: {}'.format(child.before))
+                raise Exception(
+                    'FAIL register user: pexpect process exited with {}'.format(
+                        child.exitstatus))
         except pexpect.TIMEOUT:
-            log.error('Buffer: {}'.format(child.expect.buffer))
-            log.error('Before: {}'.format(child.expect.before))
+            log.error('Buffer: {}'.format(child.buffer))
+            log.error('Before: {}'.format(child.before))
             raise Exception(
                 'Registering user failed: pexpect session timed out')
         user_client.env.user_name = username
@@ -2709,7 +2718,7 @@ class ModelClient:
             username = self.env.user_name
 
         if password is None:
-            password = self.env.user_name
+            password = '{}-{}'.format(self.env.user_name, 'password')
 
         try:
             child = self.expect(self.login_user_command,
@@ -2719,16 +2728,20 @@ class ModelClient:
             child.sendline(password)
             child.expect(pexpect.EOF)
             if child.isalive():
+                log.error('Buffer: {}'.format(child.buffer))
+                log.error('Before: {}'.format(child.before))
                 raise Exception(
                     'FAIL Login user: pexpect session still alive')
             child.close()
             if child.exitstatus != 0:
+                log.error('Buffer: {}'.format(child.buffer))
+                log.error('Before: {}'.format(child.before))
                 raise Exception(
                     'FAIL Login user: pexpect process exited with {}'.format(
                         child.exitstatus))
         except pexpect.TIMEOUT:
-            log.error('Buffer: {}'.format(child.expect.buffer))
-            log.error('Before: {}'.format(child.expect.before))
+            log.error('Buffer: {}'.format(child.buffer))
+            log.error('Before: {}'.format(child.before))
             raise Exception(
                 'FAIL Login user failed: pexpect session timed out')
                 
@@ -2751,9 +2764,21 @@ class ModelClient:
                 child.expect('Enter a name for this controller:')
             child.sendline(self.env.controller.name)
             child.expect(pexpect.EOF)
+            if child.isalive():
+                log.error('Buffer: {}'.format(child.buffer))
+                log.error('Before: {}'.format(child.before))
+                raise Exception(
+                    'Registering host failed: pexpect session still alive')
+            child.close()
+            if child.exitstatus != 0:
+                log.error('Buffer: {}'.format(child.buffer))
+                log.error('Before: {}'.format(child.before))
+                raise Exception(
+                    'FAIL register host: pexpect process exited with {}'.format(
+                        child.exitstatus))
         except pexpect.TIMEOUT:
-            log.error('Buffer: {}'.format(child.expect.buffer))
-            log.error('Before: {}'.format(child.expect.before))
+            log.error('Buffer: {}'.format(child.buffer))
+            log.error('Before: {}'.format(child.before))
             raise Exception(
                 'Registering user failed: pexpect session timed out')
                 
