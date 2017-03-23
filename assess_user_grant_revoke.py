@@ -249,7 +249,7 @@ def assert_logout_login(controller_client, user_client, user, fake_home):
     controller_name = '{}_controller'.format(username)
     new_user_client = controller_client.create_cloned_environment(
         fake_home, controller_name, username)
-    new_user_client.login_user(user.name, fake_home)
+    new_user_client.login_user()
     log.info('PASS logout and login')
     return client
 
