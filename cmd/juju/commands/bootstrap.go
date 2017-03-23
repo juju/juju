@@ -485,7 +485,12 @@ bootstrap failed but --keep-broken was specified so resources are not being dest
 When you have finished diagnosing the problem, remember to clean up the failed controller.
 See `[1:] + "`juju kill-controller`" + `.`)
 			} else {
-				handleBootstrapError(ctx, resultErr, func() error {
+				logger.Errorf("%v", resultErr)
+				logger.Debugf("(error details: %v)", errors.Details(resultErr))
+				// Set resultErr to cmd.ErrSilent to prevent
+				// logging the error twice.
+				resultErr = cmd.ErrSilent
+				handleBootstrapError(ctx, func() error {
 					return environsDestroy(
 						c.controllerName, environ, store,
 					)
@@ -1043,7 +1048,7 @@ func checkProviderType(envType string) error {
 }
 
 // handleBootstrapError is called to clean up if bootstrap fails.
-func handleBootstrapError(ctx *cmd.Context, err error, cleanup func() error) {
+func handleBootstrapError(ctx *cmd.Context, cleanup func() error) {
 	ch := make(chan os.Signal, 1)
 	ctx.InterruptNotify(ch)
 	defer ctx.StopInterruptNotify(ch)
@@ -1053,6 +1058,7 @@ func handleBootstrapError(ctx *cmd.Context, err error, cleanup func() error) {
 			fmt.Fprintln(ctx.GetStderr(), "Cleaning up failed bootstrap")
 		}
 	}()
+	logger.Debugf("cleaning up after failed bootstrap")
 	if err := cleanup(); err != nil {
 		logger.Errorf("error cleaning up: %v", err)
 	}
