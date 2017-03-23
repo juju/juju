@@ -423,6 +423,22 @@ class PromptingExpectChild(FakeExpectChild):
         self.lines.append((full_match, line))
 
 
+class LoginUser(PromptingExpectChild):
+
+    def __init__(self, backend, juju_home, extra_env, username):
+        self.username = username
+        super(LoginUser, self).__init__(backend, juju_home, extra_env, [
+            'Password:',
+        ])
+
+    def close(self):
+        self.backend.controller_state.login_user(
+            self.username,
+            self.values['Password'],
+            )
+        super(LoginUser, self).close()
+
+
 class RegisterHost(PromptingExpectChild):
 
     def __init__(self, backend, juju_home, extra_env):
@@ -1039,10 +1055,11 @@ class FakeBackend:
             return AutoloadCredentials(self, juju_home, extra_env)
         if command == 'register':
             return RegisterHost(self, juju_home, extra_env)
-        elif command == 'add-cloud':
+        if command == 'add-cloud':
             return AddCloud(self, juju_home, extra_env)
-        else:
-            return FakeExpectChild(self, juju_home, extra_env)
+        if command == 'login -u':
+            return LoginUser(self, juju_home, extra_env, args[0])
+        return FakeExpectChild(self, juju_home, extra_env)
 
     def pause(self, seconds):
         pass

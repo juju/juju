@@ -2670,15 +2670,11 @@ class ModelClient:
         self.controller_juju('logout', ())
         self.env.user_name = ''
 
-    def _end_pexpect_session(session):
+    def _end_pexpect_session(self, session):
         """Pexpect doesn't return buffers, or handle exceptions well.
         This method attempts to ensure any relevant data is returned to the
         test output in the event of a failure, or the unexpected"""
         session.expect(pexpect.EOF)
-        if session.isalive():
-            log.error('Buffer: {}'.format(session.buffer))
-            log.error('Before: {}'.format(session.before))
-            raise Exception('pexpect session still alive')
         session.close()
         if session.exitstatus != 0:
             log.error('Buffer: {}'.format(session.buffer))
@@ -2725,8 +2721,9 @@ class ModelClient:
             password = '{}-{}'.format(self.env.user_name, 'password')
 
         try:
-            child = self.expect(self.login_user_command, username,
-                                ('-c', self.env.controller.name),
+
+            child = self.expect(self.login_user_command,
+                                (username, '-c', self.env.controller.name),
                                 include_e=False)
             child.expect('(?i)password')
             child.sendline(password)

@@ -3419,10 +3419,9 @@ class TestModelClient(ClientTest):
         client.env.user_name = 'admin'
         username = 'bob'
         password = 'password1'
-        client.login_user(username=username, password=password)
-        login_user = controller_state.users[username]
-        self.assertEqual(login_user['name'], username)
-        self.assertEqual(login_user['password'], password)
+        client.login_user(username, password)
+        user = controller_state.users[username]
+        self.assertEqual(user['password'], password)
 
     def test_create_cloned_environment(self):
         fake_client = fake_juju_client()
