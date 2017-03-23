@@ -1938,22 +1938,28 @@ class ModelClient:
     def kill_controller(self, check=False):
         """Kill a controller and its models. Hard kill option.
 
-        :return: Subprocess's exit code."""
-        return self.juju(
+        :return: Tuple: Subprocess's exit code, CommandComplete object.
+        """
+        retvar, ct = self.juju(
             'kill-controller', (self.env.controller.name, '-y'),
             include_e=False, check=check, timeout=get_teardown_timeout(self))
+        return retvar, CommandComplete(BaseCondition(), ct)
 
     def destroy_controller(self, all_models=False):
         """Destroy a controller and its models. Soft kill option.
 
         :param all_models: If true will attempt to destroy all the
             controller's models as well.
-        :raises: subprocess.CalledProcessError if the operation fails."""
+        :raises: subprocess.CalledProcessError if the operation fails.
+        :return: Tuple: Subprocess's exit code, CommandComplete object.
+        """
         args = (self.env.controller.name, '-y')
         if all_models:
             args += ('--destroy-all-models',)
-        return self.juju('destroy-controller', args, include_e=False,
-                         timeout=get_teardown_timeout(self))
+        retvar, ct = self.juju(
+            'destroy-controller', args, include_e=False,
+            timeout=get_teardown_timeout(self))
+        return retvar, CommandComplete(BaseCondition(), ct)
 
     def tear_down(self):
         """Tear down the client as cleanly as possible.
@@ -2038,7 +2044,8 @@ class ModelClient:
 
     def set_model_constraints(self, constraints):
         constraint_strings = self._dict_as_option_strings(constraints)
-        return self.juju('set-model-constraints', constraint_strings)
+        retvar, ct = self.juju('set-model-constraints', constraint_strings)
+        return retvar, CommandComplete(BaseCondition(), ct)
 
     def get_model_config(self):
         """Return the value of the environment's configured options."""
@@ -2053,11 +2060,13 @@ class ModelClient:
     def set_env_option(self, option, value):
         """Set the value of the option in the environment."""
         option_value = "%s=%s" % (option, value)
-        return self.juju('model-config', (option_value,))
+        retvar, ct = self.juju('model-config', (option_value,))
+        return CommandComplete(BaseCondition(), ct)
 
     def unset_env_option(self, option):
         """Unset the value of the option in the environment."""
-        return self.juju('model-config', ('--reset', option,))
+        retvar, ct = self.juju('model-config', ('--reset', option,))
+        return CommandComplete(BaseCondition(), ct)
 
     @staticmethod
     def _format_cloud_region(cloud=None, region=None):
@@ -2141,7 +2150,8 @@ class ModelClient:
 
     def controller_juju(self, command, args):
         args = ('-c', self.env.controller.name) + args
-        return self.juju(command, args, include_e=False)
+        retvar, ct = self.juju(command, args, include_e=False)
+        return CommandComplete(BaseCondition(), ct)
 
     def get_juju_timings(self):
         stringified_timings = {}
@@ -2178,11 +2188,13 @@ class ModelClient:
             args.extend(['--bind', bind])
         if alias is not None:
             args.extend([alias])
-        return self.juju('deploy', tuple(args))
+        retvar, ct = self.juju('deploy', tuple(args))
+        return CommandComplete(BaseCondition(), ct)
 
     def attach(self, service, resource):
         args = (service, resource)
-        return self.juju('attach', args)
+        retvar, ct = self.juju('attach', args)
+        return retvar, CommandComplete(BaseCondition(), ct)
 
     def list_resources(self, service_or_unit, details=True):
         args = ('--format', 'yaml', service_or_unit)
@@ -2883,11 +2895,14 @@ class ModelClient:
         args = ('generate-tools', '-d', source_dir)
         if stream is not None:
             args += ('--stream', stream)
-        return self.juju('metadata', args, include_e=False)
+        retvar, ct = self.juju('metadata', args, include_e=False)
+        return retvar, CommandComplete(BaseCondition(), ct)
 
     def add_cloud(self, cloud_name, cloud_file):
-        return self.juju('add-cloud', ("--replace", cloud_name, cloud_file),
-                         include_e=False)
+        retvar, ct = self.juju(
+            'add-cloud', ("--replace", cloud_name, cloud_file),
+            include_e=False)
+        return retvar, CommandComplete(BaseCondition(), ct)
 
     def add_cloud_interactive(self, cloud_name, cloud):
         child = self.expect('add-cloud', include_e=False)
@@ -2997,11 +3012,13 @@ class ModelClient:
 
     def disable_command(self, command_set, message=''):
         """Disable a command-set."""
-        return self.juju('disable-command', (command_set, message))
+        retvar, ct = self.juju('disable-command', (command_set, message))
+        return retvar, CommandComplete(BaseCondition(), ct)
 
     def enable_command(self, args):
         """Enable a command-set."""
-        return self.juju('enable-command', args)
+        retvar, ct = self.juju('enable-command', args)
+        return CommandComplete(BaseCondition(), ct)
 
     def sync_tools(self, local_dir=None, stream=None, source=None):
         """Copy tools into a local directory or model."""
@@ -3011,10 +3028,12 @@ class ModelClient:
         if source is not None:
             args += ('--source', source)
         if local_dir is None:
-            return self.juju('sync-tools', args)
+            retvar, ct = self.juju('sync-tools', args)
+            return retvar, CommandComplete(BaseCondition(), ct)
         else:
             args += ('--local-dir', local_dir)
-            return self.juju('sync-tools', args, include_e=False)
+            retvar, ct = self.juju('sync-tools', args, include_e=False)
+            return retvar, CommandComplete(BaseCondition(), ct)
 
     def switch(self, model=None, controller=None):
         """Switch between models."""
