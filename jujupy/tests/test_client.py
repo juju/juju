@@ -180,6 +180,12 @@ class TestJuju2Backend(TestCase):
         self.assertIsNot(cloned, backend)
         self.assertIs(soft_deadline, cloned.soft_deadline)
 
+    def test_cloned_backends_share_juju_timings(self):
+        backend = Juju2Backend('/bin/path', '2.0', set(), False)
+        cloned = backend.clone(
+            full_path=None, version=None, debug=None, feature_flags=None)
+        self.assertIs(cloned.juju_timings, backend.juju_timings)
+
     def test__check_timeouts(self):
         backend = Juju2Backend('/bin/path', '2.0', set(), debug=False,
                                soft_deadline=datetime(2015, 1, 2, 3, 4, 5))
