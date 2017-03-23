@@ -2696,25 +2696,27 @@ class ModelClient:
                 raise Exception(
                     'Registering user failed: pexpect session still alive')
         except pexpect.TIMEOUT:
+            log.error('Buffer: {}'.format(child.expect.buffer))
+            log.error('Before: {}'.format(child.expect.before))
             raise Exception(
                 'Registering user failed: pexpect session timed out')
         user_client.env.user_name = username
         return user_client
 
-    def login_user(self, username, juju_home, controller_name=None):
-        """Login `user` for the `client` return the cloned client used."""
-        if controller_name is None:
-            controller_name = '{}_controller'.format(username)
+    def login_user(self, username=None, password=None):
+        """Login `user` for the `client`"""
+        if username is None:
+            username = user_client.env.user_name
 
-        user_client = self.create_cloned_environment(juju_home,
-                                                     controller_name,
-                                                     username)
+        if password is None:
+            password = user_client.env.user_name
+
         try:
-            child = user_client.expect(self.login_user_command,
-                                       (username, '-c', controller_name),
-                                       include_e=False)
+            child = self.expect(self.login_user_command,
+                                (username,'-c', self.env.controller.name),
+                                include_e=False)
             child.expect('(?i)password')
-            child.sendline(username + '_password_2')
+            child.sendline(password)
             child.expect(pexpect.EOF)
             if child.isalive():
                 raise Exception(
@@ -2725,29 +2727,36 @@ class ModelClient:
                     'FAIL Login user: pexpect process exited with {}'.format(
                         child.exitstatus))
         except pexpect.TIMEOUT:
+            log.error('Buffer: {}'.format(child.expect.buffer))
+            log.error('Before: {}'.format(child.expect.before))
             raise Exception(
                 'FAIL Login user failed: pexpect session timed out')
-        return user_client
-
+                
     def register_host(self, host, email, password):
         child = self.expect('register', ('--no-browser-login', host),
                             include_e=False)
-        child.logfile = sys.stdout
-        child.expect('E-Mail:|Enter a name for this controller:')
-        if child.match.group(0) == 'E-Mail:':
-            child.sendline(email)
-            child.expect('Password:')
-            child.logfile = None
-            try:
-                child.sendline(password)
-            finally:
-                child.logfile = sys.stdout
-            child.expect(r'Two-factor auth \(Enter for none\):')
-            child.sendline()
-            child.expect('Enter a name for this controller:')
-        child.sendline(self.env.controller.name)
-        child.expect(pexpect.EOF)
-
+        try:
+            child.logfile = sys.stdout
+            child.expect('E-Mail:|Enter a name for this controller:')
+            if child.match.group(0) == 'E-Mail:':
+                child.sendline(email)
+                child.expect('Password:')
+                child.logfile = None
+                try:
+                    child.sendline(password)
+                finally:
+                    child.logfile = sys.stdout
+                child.expect(r'Two-factor auth \(Enter for none\):')
+                child.sendline()
+                child.expect('Enter a name for this controller:')
+            child.sendline(self.env.controller.name)
+            child.expect(pexpect.EOF)
+        except pexpect.TIMEOUT:
+            log.error('Buffer: {}'.format(child.expect.buffer))
+            log.error('Before: {}'.format(child.expect.before))
+            raise Exception(
+                'Registering user failed: pexpect session timed out')
+                
     def remove_user(self, username):
         self.juju('remove-user', (username, '-y'), include_e=False)
 

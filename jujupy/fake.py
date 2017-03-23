@@ -104,6 +104,11 @@ class FakeControllerState:
             {'email': email, 'password': password, '2fa': twofa})
         self.state = 'registered'
 
+    def login_user(self, name, password):
+        self.name = name
+        self.users.update(
+            {username: {'password': password}})
+        
     def destroy(self, kill=False):
         for model in list(self.models.values()):
             model.destroy_model()

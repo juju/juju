@@ -90,6 +90,7 @@ from jujupy.client import (
 from jujupy.fake import (
     get_user_register_command_info,
     get_user_register_token,
+    FakeControllerState
 )
 from jujupy.version_client import (
     EnvJujuClient1X,
@@ -3411,6 +3412,18 @@ class TestModelClient(ClientTest):
         self.assertEqual(jrandom['email'], 'email1')
         self.assertEqual(jrandom['password'], 'password1')
         self.assertEqual(jrandom['2fa'], '')
+
+    def test_login_user(self):
+        client = fake_juju_client()
+        controller_state = client._backend.controller_state
+        client.env.controller.name = 'foo-controller'
+        client.env.user_name = 'admin'
+        username = 'bob'
+        password = 'password1'
+        client.login_user(username=username, password=password)
+        login_user = controller_state.users[username]
+        self.assertEqual(login_user['name'], username)
+        self.assertEqual(login_user['password'], password)
 
     def test_create_cloned_environment(self):
         fake_client = fake_juju_client()
