@@ -241,14 +241,14 @@ class DeployStackTestCase(FakeHomeTestCase):
                 'full_args': ['command1', 'arg1'],
                 'start': first_start,
                 'end': first_end,
-                'time_to_complete': timedelta(seconds=2),
+                'total_seconds': 2,
             },
             {
                 'command': 'command2',
                 'full_args': ['command2', 'arg1', 'arg2'],
                 'start': second_start,
                 'end': None,
-                'time_to_complete': None,
+                'total_seconds': None,
             }
         ]
         with temp_dir() as fake_dir:

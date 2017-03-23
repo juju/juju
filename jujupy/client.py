@@ -1457,15 +1457,15 @@ class CommandTime:
             self.end = end if end else datetime.utcnow()
 
     @property
-    def actual_time(self):
-        """The actual time a command took.
+    def total_seconds(self):
+        """Total amount of seconds a command took to complete.
 
-        :return: A datetime.timedelta object or None if the command timing has
-          never been completed.
+        :return: Int representing number of seconds or None if the command
+          timing has never been completed.
         """
         if self.end is None:
             return None
-        return self.end - self.start
+        return (self.end - self.start).total_seconds()
 
 
 class CommandComplete(BaseCondition):
@@ -2181,7 +2181,7 @@ class ModelClient:
                     'full_args': ct.full_args,
                     'start': ct.start,
                     'end': ct.end,
-                    'time_to_complete': ct.actual_time,
+                    'total_seconds': ct.total_seconds,
                 }
             )
         return timing_breakdown

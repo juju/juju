@@ -250,7 +250,7 @@ def dump_juju_timings(client, log_directory):
     try:
         report_path = os.path.join(log_directory, 'juju_command_times.yaml')
         with open(report_path, 'w') as timing_file:
-            yaml.dump(
+            yaml.safe_dump(
                 client.get_juju_timings(),
                 timing_file)
             timing_file.write('\n')

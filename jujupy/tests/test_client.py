@@ -3067,14 +3067,14 @@ class TestModelClient(ClientTest):
                 'full_args': ['command1', 'arg1'],
                 'start': first_start,
                 'end': first_end,
-                'time_to_complete': timedelta(seconds=2)
+                'total_seconds': 2,
             },
             {
                 'command': 'command2',
                 'full_args': ['command2', 'arg1', 'arg2'],
                 'start': second_start,
                 'end': None,
-                'time_to_complete': None,
+                'total_seconds': None,
             }
         ]
         self.assertEqual(flattened_timings, expected)
@@ -6088,18 +6088,18 @@ class TestCommandTime(TestCase):
         ct.actual_completion(end=utcnow)
         self.assertEqual(ct.end, utcnow)
 
-    def test_actual_time_returns_None_when_not_complete(self):
+    def test_total_seconds_returns_None_when_not_complete(self):
         ct = CommandTime('cmd', [])
-        self.assertEqual(ct.actual_time, None)
+        self.assertEqual(ct.total_seconds, None)
 
-    def test_actual_time_returns_time_difference_when_complete(self):
+    def test_total_seconds_returns_seconds_taken_to_complete(self):
         utcstart = datetime(2017, 3, 22, 23, 36, 52, 530631)
         utcend = utcstart + timedelta(seconds=1)
         with patch('jujupy.client.datetime', autospec=True) as m_dt:
             m_dt.utcnow.side_effect = [utcstart, utcend]
             ct = CommandTime('cmd', [])
             ct.actual_completion()
-        self.assertEqual(ct.actual_time, utcend - utcstart)
+        self.assertEqual(ct.total_seconds, 1)
 
 
 class TestCommandComplete(TestCase):
@@ -6117,12 +6117,12 @@ class TestCommandComplete(TestCase):
         # satisfied.
         self.assertEqual(cc.command_time.end, None)
 
-    def test_sets_actual_comletion_when_already_satisfied(self):
+    def test_sets_total_seconds_when_already_satisfied(self):
         base_condition = BaseCondition(already_satisfied=True)
         ct = CommandTime('cmd', [])
         cc = CommandComplete(base_condition, ct)
 
-        self.assertIsNotNone(cc.command_time.actual_time)
+        self.assertIsNotNone(cc.command_time.total_seconds)
 
     def test_calls_wrapper_condition_iter(self):
         class TestCondition(BaseCondition):
