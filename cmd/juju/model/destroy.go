@@ -12,7 +12,6 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
 	"github.com/juju/romulus/api/budget"
-	wireformat "github.com/juju/romulus/wireformat/budget"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 
@@ -196,13 +195,6 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 	}
 	defer configApi.Close()
 
-	// Check if the model has an SLA set.
-	slaLevel, err := configApi.SLALevel()
-	if err != nil {
-		return errors.Annotate(err, "could not determine model SLA level")
-	}
-	slaIsSet := slaLevel != "" && slaLevel != slaUnsupported
-
 	// Attempt to destroy the model.
 	ctx.Infof("Destroying model")
 	err = api.DestroyModel(names.NewModelTag(modelDetails.ModelUUID))
@@ -222,28 +214,6 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 	err = store.RemoveModel(controllerName, modelName)
 	if err != nil && !errors.IsNotFound(err) {
 		return errors.Trace(err)
-	}
-
-	// Check if the model has an sla auth.
-	if !slaIsSet {
-		return nil
-	}
-
-	bakeryClient, err := c.BakeryClient()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	budgetClient := getBudgetAPIClient(bakeryClient)
-
-	resp, err := budgetClient.DeleteAllocation(modelDetails.ModelUUID)
-	if wireformat.IsNotAvail(err) {
-		logger.Warningf("allocation not removed: %v", err)
-	} else if err != nil {
-		return err
-	}
-	if resp != "" {
-		logger.Infof(resp)
 	}
 
 	return nil

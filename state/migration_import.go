@@ -190,6 +190,19 @@ func (st *State) Import(model description.Model) (_ *Model, _ *State, err error)
 
 	// Update the sequences to match that the source.
 
+	if err := dbModel.SetSLA(
+		model.SLA().Level(),
+		[]byte(model.SLA().Credentials()),
+	); err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+
+	if model.MeterStatus().Code() != MeterNotAvailable.String() {
+		if err := dbModel.SetMeterStatus(model.MeterStatus().Code(), model.MeterStatus().Info()); err != nil {
+			return nil, nil, errors.Trace(err)
+		}
+	}
+
 	logger.Debugf("import success")
 	return dbModel, newSt, nil
 }
