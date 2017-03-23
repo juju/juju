@@ -31,7 +31,7 @@ def list_sla(client):
     """Return output of the sla command.
 
     This will return the support level for a model"""
-    return client.get_juju_output('sla', include_e=False)
+    return client.get_juju_output('sla', include_e=False).strip()
 
 
 def assert_sla_state(client, expected_state):
