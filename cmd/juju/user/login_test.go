@@ -24,7 +24,7 @@ import (
 
 type LoginCommandSuite struct {
 	BaseSuite
-	mockAPI *loginMockAPI
+	apiConnection *loginMockAPI
 
 	// apiConnectionParams is set when the mock newAPIConnection
 	// implementation installed by SetUpTest is called.
@@ -35,7 +35,8 @@ var _ = gc.Suite(&LoginCommandSuite{})
 
 func (s *LoginCommandSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	s.mockAPI = &loginMockAPI{
+	s.apiConnection = &loginMockAPI{
+		controllerTag:    names.NewControllerTag(mockControllerUUID),
 		authTag:          names.NewUserTag("user@external"),
 		controllerAccess: "superuser",
 	}
@@ -45,13 +46,13 @@ func (s *LoginCommandSuite) SetUpTest(c *gc.C) {
 		accountDetails := *p.AccountDetails
 		p.AccountDetails = &accountDetails
 		s.apiConnectionParams = p
-		return s.mockAPI, nil
+		return s.apiConnection, nil
 	})
-	s.PatchValue(user.ListModels, func(_ *modelcmd.ControllerCommandBase, userName string) ([]apibase.UserModel, error) {
-		return nil, errors.New("unexpected call to ListModels")
+	s.PatchValue(user.ListModels, func(c api.Connection, userName string) ([]apibase.UserModel, error) {
+		return nil, nil
 	})
 	s.PatchValue(user.APIOpen, func(c *modelcmd.JujuCommandBase, info *api.Info, opts api.DialOpts) (api.Connection, error) {
-		return nil, errors.New("unexpected call to apiOpen")
+		return s.apiConnection, nil
 	})
 	s.PatchValue(user.LoginClientStore, s.store)
 }
@@ -76,26 +77,29 @@ func (s *LoginCommandSuite) TestInitError(c *gc.C) {
 }
 
 func (s *LoginCommandSuite) TestLogin(c *gc.C) {
-	stdout, stderr, code := runLogin(c, "current-user\nsekrit\n", "-u")
+	// When we run login with a current controller,
+	// it will just verify that we can log in, leave
+	// every unchanged and print nothing.
+	stdout, stderr, code := runLogin(c, "")
+	c.Check(code, gc.Equals, 0)
 	c.Check(stdout, gc.Equals, "")
-	c.Check(stderr, gc.Equals, `
-username: You are now logged in to "testing" as "current-user".
-`[1:])
-	c.Assert(code, gc.Equals, 0)
-	s.assertStorePassword(c, "current-user", "", "superuser")
+	c.Check(stderr, gc.Equals, "")
+	s.assertStorePassword(c, "current-user", "old-password", "superuser")
 	c.Assert(s.apiConnectionParams.AccountDetails, jc.DeepEquals, &jujuclient.AccountDetails{
-		User: "current-user",
+		User:     "current-user",
+		Password: "old-password",
 	})
 }
 
 func (s *LoginCommandSuite) TestLoginNewUser(c *gc.C) {
 	err := s.store.RemoveAccount("testing")
 	c.Assert(err, jc.ErrorIsNil)
-	stdout, stderr, code := runLogin(c, "sekrit\n", "new-user", "-u")
+	stdout, stderr, code := runLogin(c, "", "-u", "new-user")
 	c.Check(stdout, gc.Equals, "")
-	c.Check(stderr, gc.Equals, `
-You are now logged in to "testing" as "new-user".
-`[1:])
+	c.Check(stderr, gc.Matches, `
+Welcome, new-user. You are now logged into "testing".
+
+There are no models available(.|\n)*`[1:])
 	c.Assert(code, gc.Equals, 0)
 	s.assertStorePassword(c, "new-user", "", "superuser")
 	c.Assert(s.apiConnectionParams.AccountDetails, jc.DeepEquals, &jujuclient.AccountDetails{
@@ -104,31 +108,126 @@ You are now logged in to "testing" as "new-user".
 }
 
 func (s *LoginCommandSuite) TestLoginAlreadyLoggedInSameUser(c *gc.C) {
-	stdout, stderr, code := runLogin(c, "", "current-user", "-u")
+	stdout, stderr, code := runLogin(c, "", "-u", "current-user")
 	c.Check(stdout, gc.Equals, "")
-	c.Check(stderr, gc.Equals, `You are now logged in to "testing" as "current-user".
-`)
+	c.Check(stderr, gc.Equals, "")
 	c.Assert(code, gc.Equals, 0)
 }
 
+func (s *LoginCommandSuite) TestLoginWithOneAvailableModel(c *gc.C) {
+	s.PatchValue(user.ListModels, func(c api.Connection, userName string) ([]apibase.UserModel, error) {
+		return []apibase.UserModel{{
+			Name:  "foo",
+			UUID:  "some-uuid",
+			Owner: "bob",
+		}}, nil
+	})
+	err := s.store.RemoveAccount("testing")
+	c.Assert(err, jc.ErrorIsNil)
+	stdout, stderr, code := runLogin(c, "")
+	c.Assert(code, gc.Equals, 0)
+	c.Check(stdout, gc.Equals, "")
+	c.Check(stderr, gc.Matches, `Welcome, user@external. You are now logged into "testing".
+
+Current model set to "bob/foo".
+`)
+}
+
+func (s *LoginCommandSuite) TestLoginWithSeveralAvailableModels(c *gc.C) {
+	s.PatchValue(user.ListModels, func(c api.Connection, userName string) ([]apibase.UserModel, error) {
+		return []apibase.UserModel{{
+			Name:  "foo",
+			UUID:  "some-uuid",
+			Owner: "bob",
+		}, {
+			Name:  "bar",
+			UUID:  "some-uuid",
+			Owner: "alice",
+		}}, nil
+	})
+	err := s.store.RemoveAccount("testing")
+	c.Assert(err, jc.ErrorIsNil)
+	stdout, stderr, code := runLogin(c, "")
+	c.Assert(code, gc.Equals, 0)
+	c.Check(stdout, gc.Equals, "")
+	c.Check(stderr, gc.Matches, `Welcome, user@external. You are now logged into "testing".
+
+There are 2 models available. Use "juju switch" to select
+one of them:
+  - juju switch alice/bar
+  - juju switch bob/foo
+`)
+}
+
+func (s *LoginCommandSuite) TestLoginWithNonExistentController(c *gc.C) {
+	stdout, stderr, code := runLogin(c, "", "-c", "something")
+	c.Assert(code, gc.Equals, 1)
+	c.Check(stdout, gc.Equals, "")
+	c.Check(stderr, gc.Matches, `error: controller "something" does not exist\n`)
+}
+
+func (s *LoginCommandSuite) TestLoginWithNoCurrentController(c *gc.C) {
+	s.store.CurrentControllerName = ""
+	stdout, stderr, code := runLogin(c, "")
+	c.Assert(code, gc.Equals, 1)
+	c.Check(stdout, gc.Equals, "")
+	c.Check(stderr, gc.Matches, `error: no current controller\n`)
+}
+
 func (s *LoginCommandSuite) TestLoginAlreadyLoggedInDifferentUser(c *gc.C) {
-	stdout, stderr, code := runLogin(c, "sekrit\n", "-u", "other-user")
+	stdout, stderr, code := runLogin(c, "", "-u", "other-user")
 	c.Check(stdout, gc.Equals, "")
 	c.Check(stderr, gc.Equals, `
-error: already logged in
+error: cannot log into controller "testing": already logged in as current-user.
 
 Run "juju logout" first before attempting to log in as a different user.
 `[1:])
 	c.Assert(code, gc.Equals, 1)
 }
 
+func (s *LoginCommandSuite) TestLoginWithExistingInvalidPassword(c *gc.C) {
+	call := 0
+	*user.NewAPIConnection = func(p juju.NewAPIConnectionParams) (api.Connection, error) {
+		call++
+		switch call {
+		case 1:
+			// First time: try to log in with existing details.
+			c.Check(p.AccountDetails.User, gc.Equals, "current-user")
+			c.Check(p.AccountDetails.Password, gc.Equals, "old-password")
+			return nil, errors.Unauthorizedf("cannot login with that silly old password")
+		case 2:
+			// Second time: try external-user auth.
+			c.Check(p.AccountDetails.User, gc.Equals, "")
+			c.Check(p.AccountDetails.Password, gc.Equals, "")
+			return nil, params.Error{
+				Code:    params.CodeNoCreds,
+				Message: params.CodeNoCreds,
+			}
+		case 3:
+			// Third time: empty password: (the real
+			// NewAPIConnection would prompt for it)
+			c.Check(p.AccountDetails.User, gc.Equals, "other-user")
+			c.Check(p.AccountDetails.Password, gc.Equals, "")
+			return s.apiConnection, nil
+		default:
+			c.Errorf("NewAPIConnection called too many times")
+			return nil, errors.Errorf("too many calls")
+		}
+	}
+	stdout, stderr, code := runLogin(c, "other-user\n")
+	c.Check(code, gc.Equals, 0)
+	c.Check(stdout, gc.Equals, "")
+	c.Check(stderr, gc.Matches, `username: Welcome, other-user. (.|\n)+`)
+}
+
 func (s *LoginCommandSuite) TestLoginWithMacaroons(c *gc.C) {
 	err := s.store.RemoveAccount("testing")
 	c.Assert(err, jc.ErrorIsNil)
-	stdout, stderr, code := runLogin(c, "", "-u")
-	c.Check(stderr, gc.Equals, `
-You are now logged in to "testing" as "user@external".
-`[1:])
+	stdout, stderr, code := runLogin(c, "")
+	c.Check(stderr, gc.Matches, `
+Welcome, user@external. You are now logged into "testing".
+
+There are no models available(.|\n)*`[1:])
 	c.Check(stdout, gc.Equals, ``)
 	c.Assert(code, gc.Equals, 0)
 	c.Assert(s.apiConnectionParams.AccountDetails, jc.DeepEquals, &jujuclient.AccountDetails{})
@@ -145,13 +244,14 @@ func (s *LoginCommandSuite) TestLoginWithMacaroonsNotSupported(c *gc.C) {
 			return nil, &params.Error{Code: params.CodeNoCreds, Message: "barf"}
 		}
 		c.Check(p.AccountDetails.User, gc.Equals, "new-user")
-		return s.mockAPI, nil
+		return s.apiConnection, nil
 	}
-	stdout, stderr, code := runLogin(c, "new-user\nsekrit\n", "-u")
+	stdout, stderr, code := runLogin(c, "new-user\n")
 	c.Check(stdout, gc.Equals, ``)
-	c.Check(stderr, gc.Equals, `
-username: You are now logged in to "testing" as "new-user".
-`[1:])
+	c.Check(stderr, gc.Matches, `
+username: Welcome, new-user. You are now logged into "testing".
+
+There are no models available(.|\n)*`[1:])
 	c.Assert(code, gc.Equals, 0)
 }
 
