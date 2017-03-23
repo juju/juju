@@ -90,14 +90,6 @@ type BackingSpace interface {
 
 	// ProviderId returns the network ID of the provider
 	ProviderId() network.Id
-
-	// Zones returns a list of availability zone(s) that this
-	// space is in. It can be empty if the provider does not support
-	// availability zones.
-	Zones() []string
-
-	// Life returns the lifecycle state of the space
-	Life() params.Life
 }
 
 // Backing defines the methods needed by the API facade to store and
