@@ -1668,15 +1668,6 @@ class TestEnvJujuClient1X(ClientTest):
                 client.get_jes_command()
         self.assertEqual(0, po_mock.call_count)
 
-    def test_get_juju_timings(self):
-        env = SimpleEnvironment('foo')
-        client = EnvJujuClient1X(env, None, 'my/juju/bin')
-        client._backend.juju_timings = {("juju", "op1"): [1],
-                                        ("juju", "op2"): [2]}
-        flattened_timings = client.get_juju_timings()
-        expected = {"juju op1": [1], "juju op2": [2]}
-        self.assertEqual(flattened_timings, expected)
-
     def test_deploy_bundle_1x(self):
         client = EnvJujuClient1X(SimpleEnvironment('an_env', None),
                                  '1.23-series-arch', None)
