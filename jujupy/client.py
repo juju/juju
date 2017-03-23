@@ -2706,10 +2706,10 @@ class ModelClient:
     def login_user(self, username=None, password=None):
         """Login `user` for the `client`"""
         if username is None:
-            username = user_client.env.user_name
+            username = self.env.user_name
 
         if password is None:
-            password = user_client.env.user_name
+            password = self.env.user_name
 
         try:
             child = self.expect(self.login_user_command,
