@@ -7,7 +7,7 @@ with open('jujupy-description.rst') as f:
 
 setup(
     name='jujupy',
-    version='1.0.0',
+    version='0.9.0',
     description='A library for driving the Juju client.',
     long_description=long_description,
     packages=['jujupy'],
