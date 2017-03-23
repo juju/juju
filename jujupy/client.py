@@ -2173,10 +2173,14 @@ class ModelClient:
         return CommandComplete(BaseCondition(), ct)
 
     def get_juju_timings(self):
-        stringified_timings = {}
-        for command, timings in self._backend.juju_timings.items():
-            stringified_timings[' '.join(command)] = timings
-        return stringified_timings
+        timing_breakdown = []
+        for ct in self._backend.juju_timings:
+            timing_breakdown.append(
+                {
+                    'command': ct.cmd,
+                }
+            )
+        return timing_breakdown
 
     def juju_async(self, command, args, include_e=True, timeout=None):
         model = self._cmd_model(include_e, controller=False)

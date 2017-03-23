@@ -3052,7 +3052,7 @@ class TestModelClient(ClientTest):
     def test_get_juju_timings(self):
         env = JujuData('foo')
         client = ModelClient(env, None, 'my/juju/bin')
-        client._backend.juju_timings.append([
+        client._backend.juju_timings.extend([
             CommandTime('command1', ['command1', 'arg1']),
             CommandTime('command2', ['command2', 'arg1', 'arg2'])])
         flattened_timings = client.get_juju_timings()

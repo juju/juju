@@ -226,10 +226,10 @@ class DeployStackTestCase(FakeHomeTestCase):
     def test_dump_juju_timings(self):
         env = JujuData('foo', {'type': 'bar'})
         client = ModelClient(env, None, None)
-        client._backend.juju_timings.append(
+        client._backend.juju_timings.extend([
             CommandTime('command1', ['command1', 'arg1']),
             CommandTime('command2', ['command2', 'arg1', 'arg2'])
-        )
+        ])
         expected = [
             {
                 'command': 'command1',
