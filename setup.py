@@ -21,7 +21,8 @@ setup(
     url='https://launchpad.net/juju-ci-tools',
     license='Apache 2',
     classifiers=[
-        "License :: OSI Approved :: Apache Software License",
+        "License :: OSI Approved :: GNU Lesser General Public License v3"
+        " (LGPLv3)",
         "Development Status :: 5 - Production/Stable",
         "Intended Audience :: Developers",
         "Programming Language :: Python",

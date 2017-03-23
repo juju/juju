@@ -23,6 +23,6 @@ of code.
 It provides fakes for testing, i.e. a fake backend and the convenience
 function ``get_fake_client``.
 
-JujuPy is part of Juju CI tools.  For code and bugs, see its `Launchpad page`_.
+JujuPy is part of Juju CI Tools.  For code and bugs, see its `Launchpad page`_.
 
 .. _Launchpad page: https://launchpad.net/juju-ci-tools

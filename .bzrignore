@@ -8,3 +8,4 @@ __pycache__
 ./jujupy.egg-info
 ./dist
 ./jujupy-*
+./build
