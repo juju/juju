@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/apiserver/agenttools"
 	"github.com/juju/juju/apiserver/annotations" // ModelUser Write
 	"github.com/juju/juju/apiserver/application" // ModelUser Write
+	"github.com/juju/juju/apiserver/applicationoffers"
 	"github.com/juju/juju/apiserver/applicationscaler"
 	"github.com/juju/juju/apiserver/backups" // ModelUser Write
 	"github.com/juju/juju/apiserver/block"   // ModelUser Write
@@ -26,7 +27,6 @@ import (
 	"github.com/juju/juju/apiserver/cloud"  // ModelUser Read
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/controller" // ModelUser Admin (although some methods check for read only)
-	"github.com/juju/juju/apiserver/crossmodel"
 	"github.com/juju/juju/apiserver/deployer"
 	"github.com/juju/juju/apiserver/discoverspaces"
 	"github.com/juju/juju/apiserver/diskmanager"
@@ -62,6 +62,7 @@ import (
 	"github.com/juju/juju/apiserver/provisioner"
 	"github.com/juju/juju/apiserver/proxyupdater"
 	"github.com/juju/juju/apiserver/reboot"
+	"github.com/juju/juju/apiserver/remoteendpoints"
 	"github.com/juju/juju/apiserver/remotefirewaller"
 	"github.com/juju/juju/apiserver/remoterelations"
 	"github.com/juju/juju/apiserver/resources"
@@ -202,14 +203,15 @@ func AllFacades() *facade.Registry {
 	reg("Undertaker", 1, undertaker.NewUndertakerAPI)
 	reg("UnitAssigner", 1, unitassigner.New)
 
-	reg("Uniter", 4, uniter.NewUniterAPI, "")
-	reg("Uniter", 5, uniter.NewUniterAPI, "")
+	reg("Uniter", 4, uniter.NewUniterAPI)
+	reg("Uniter", 5, uniter.NewUniterAPI)
 
 	reg("Upgrader", 1, upgrader.NewUpgraderFacade)
 	reg("UserManager", 1, usermanager.NewUserManagerAPI)
 
 	if featureflag.Enabled(feature.CrossModelRelations) {
-		reg("CrossModelRelations", 1, crossmodel.NewAPI)
+		reg("ApplicationOffers", 1, applicationoffers.NewOffersAPI)
+		reg("RemoteEndpoints", 1, remoteendpoints.NewEndpointsAPI)
 		reg("RemoteFirewaller", 1, remotefirewaller.NewStateRemoteFirewallerAPI)
 		reg("RemoteRelations", 1, remoterelations.NewStateRemoteRelationsAPI)
 	}
