@@ -245,8 +245,10 @@ def assert_logout_login(controller_client, user_client, user, fake_home):
     user_list = list_users(controller_client)
     assert_equal(user_list, USER_LIST_CTRL_READ)
     log.info('Checking list-users after login')
+    username = user.name
+    controller_name = '{}_controller'.format(username)
     new_user_client = controller_client.create_cloned_environment(
-        fake_home, controller_name, user.name)
+        fake_home, controller_name, username)
     new_user_client.login_user(user.name, fake_home)
     log.info('PASS logout and login')
     return client
