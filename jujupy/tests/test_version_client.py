@@ -69,6 +69,7 @@ from jujupy.tests.test_client import (
     )
 from tests import (
     assert_juju_call,
+    patch_juju_call,
     FakeHomeTestCase,
     FakePopen,
     observable_temp_file,
@@ -432,7 +433,7 @@ class TestEnvJujuClient1X(ClientTest):
     def test_upgrade_juju_nonlocal(self):
         client = EnvJujuClient1X(
             SimpleEnvironment('foo', {'type': 'nonlocal'}), '1.234-76', None)
-        with patch.object(client, 'juju') as juju_mock:
+        with patch_juju_call(client) as juju_mock:
             client.upgrade_juju()
         juju_mock.assert_called_with(
             'upgrade-juju', ('--version', '1.234'))
@@ -440,7 +441,7 @@ class TestEnvJujuClient1X(ClientTest):
     def test_upgrade_juju_local(self):
         client = EnvJujuClient1X(
             SimpleEnvironment('foo', {'type': 'local'}), '1.234-76', None)
-        with patch.object(client, 'juju') as juju_mock:
+        with patch_juju_call(client) as juju_mock:
             client.upgrade_juju()
         juju_mock.assert_called_with(
             'upgrade-juju', ('--version', '1.234', '--upload-tools',))
@@ -448,7 +449,7 @@ class TestEnvJujuClient1X(ClientTest):
     def test_upgrade_juju_no_force_version(self):
         client = EnvJujuClient1X(
             SimpleEnvironment('foo', {'type': 'local'}), '1.234-76', None)
-        with patch.object(client, 'juju') as juju_mock:
+        with patch_juju_call(client) as juju_mock:
             client.upgrade_juju(force_version=False)
         juju_mock.assert_called_with(
             'upgrade-juju', ('--upload-tools',))
@@ -485,14 +486,14 @@ class TestEnvJujuClient1X(ClientTest):
     def test_bootstrap(self):
         env = SimpleEnvironment('foo')
         client = EnvJujuClient1X(env, None, None)
-        with patch.object(client, 'juju') as mock:
+        with patch_juju_call(client) as mock:
             client.bootstrap()
         mock.assert_called_with('bootstrap', ('--constraints', 'mem=2G'))
 
     def test_bootstrap_upload_tools(self):
         env = SimpleEnvironment('foo')
         client = EnvJujuClient1X(env, None, None)
-        with patch.object(client, 'juju') as mock:
+        with patch_juju_call(client) as mock:
             client.bootstrap(upload_tools=True)
         mock.assert_called_with(
             'bootstrap', ('--upload-tools', '--constraints', 'mem=2G'))
@@ -508,7 +509,7 @@ class TestEnvJujuClient1X(ClientTest):
         env.update_config({
             'default-series': 'angsty',
             })
-        with patch.object(client, 'juju') as mock:
+        with patch_juju_call(client) as mock:
             client.bootstrap(bootstrap_series='angsty')
         mock.assert_called_with('bootstrap', ('--constraints', 'mem=2G'))
 
@@ -650,7 +651,7 @@ class TestEnvJujuClient1X(ClientTest):
     def test_kill_controller_check(self):
         client = EnvJujuClient1X(
             SimpleEnvironment('foo', {'type': 'ec2'}), None, None)
-        with patch.object(client, 'juju') as juju_mock:
+        with patch_juju_call(client) as juju_mock:
             client.kill_controller(check=True)
         juju_mock.assert_called_once_with(
             'destroy-environment', ('foo', '--force', '-y'), check=True,
@@ -659,7 +660,7 @@ class TestEnvJujuClient1X(ClientTest):
     def test_destroy_controller(self):
         client = EnvJujuClient1X(
             SimpleEnvironment('foo', {'type': 'ec2'}), None, None)
-        with patch.object(client, 'juju') as juju_mock:
+        with patch_juju_call(client) as juju_mock:
             client.destroy_controller()
         juju_mock.assert_called_once_with(
             'destroy-environment', ('foo', '-y'),
@@ -823,21 +824,21 @@ class TestEnvJujuClient1X(ClientTest):
     def test_deploy_non_joyent(self):
         env = EnvJujuClient1X(
             SimpleEnvironment('foo', {'type': 'local'}), '1.234-76', None)
-        with patch.object(env, 'juju') as mock_juju:
+        with patch_juju_call(env) as mock_juju:
             env.deploy('mondogb')
         mock_juju.assert_called_with('deploy', ('mondogb',))
 
     def test_deploy_joyent(self):
         env = EnvJujuClient1X(
             SimpleEnvironment('foo', {'type': 'local'}), '1.234-76', None)
-        with patch.object(env, 'juju') as mock_juju:
+        with patch_juju_call(env) as mock_juju:
             env.deploy('mondogb')
         mock_juju.assert_called_with('deploy', ('mondogb',))
 
     def test_deploy_repository(self):
         env = EnvJujuClient1X(
             SimpleEnvironment('foo', {'type': 'local'}), '1.234-76', None)
-        with patch.object(env, 'juju') as mock_juju:
+        with patch_juju_call(env) as mock_juju:
             env.deploy('mondogb', '/home/jrandom/repo')
         mock_juju.assert_called_with(
             'deploy', ('mondogb', '--repository', '/home/jrandom/repo'))
@@ -845,7 +846,7 @@ class TestEnvJujuClient1X(ClientTest):
     def test_deploy_to(self):
         env = EnvJujuClient1X(
             SimpleEnvironment('foo', {'type': 'local'}), '1.234-76', None)
-        with patch.object(env, 'juju') as mock_juju:
+        with patch_juju_call(env) as mock_juju:
             env.deploy('mondogb', to='0')
         mock_juju.assert_called_with(
             'deploy', ('mondogb', '--to', '0'))
@@ -853,7 +854,7 @@ class TestEnvJujuClient1X(ClientTest):
     def test_deploy_service(self):
         env = EnvJujuClient1X(
             SimpleEnvironment('foo', {'type': 'local'}), '1.234-76', None)
-        with patch.object(env, 'juju') as mock_juju:
+        with patch_juju_call(env) as mock_juju:
             env.deploy('local:mondogb', service='my-mondogb')
         mock_juju.assert_called_with(
             'deploy', ('local:mondogb', 'my-mondogb',))
@@ -861,7 +862,7 @@ class TestEnvJujuClient1X(ClientTest):
     def test_upgrade_charm(self):
         client = EnvJujuClient1X(
             SimpleEnvironment('foo', {'type': 'local'}), '1.234-76', None)
-        with patch.object(client, 'juju') as mock_juju:
+        with patch_juju_call(client) as mock_juju:
             client.upgrade_charm('foo-service',
                                  '/bar/repository/angsty/mongodb')
         mock_juju.assert_called_once_with(
@@ -871,7 +872,7 @@ class TestEnvJujuClient1X(ClientTest):
     def test_remove_service(self):
         client = EnvJujuClient1X(
             SimpleEnvironment('foo', {'type': 'local'}), '1.234-76', None)
-        with patch.object(client, 'juju') as mock_juju:
+        with patch_juju_call(client) as mock_juju:
             client.remove_service('mondogb')
         mock_juju.assert_called_with('destroy-service', ('mondogb',))
 
@@ -1358,7 +1359,7 @@ class TestEnvJujuClient1X(ClientTest):
 
     def test_set_model_constraints(self):
         client = EnvJujuClient1X(SimpleEnvironment('bar', {}), None, '/foo')
-        with patch.object(client, 'juju') as juju_mock:
+        with patch_juju_call(client) as juju_mock:
             client.set_model_constraints({'bar': 'baz'})
         juju_mock.assert_called_once_with('set-constraints', ('bar=baz',))
 
@@ -1602,7 +1603,7 @@ class TestEnvJujuClient1X(ClientTest):
     def test_enable_ha(self):
         env = SimpleEnvironment('qux')
         client = EnvJujuClient1X(env, None, '/foobar/baz')
-        with patch.object(client, 'juju', autospec=True) as eha_mock:
+        with patch_juju_call(client) as eha_mock:
             client.enable_ha()
         eha_mock.assert_called_once_with('ensure-availability', ('-n', '3'))
 
@@ -1679,7 +1680,7 @@ class TestEnvJujuClient1X(ClientTest):
     def test_deploy_bundle_1x(self):
         client = EnvJujuClient1X(SimpleEnvironment('an_env', None),
                                  '1.23-series-arch', None)
-        with patch.object(client, 'juju') as mock_juju:
+        with patch_juju_call(client) as mock_juju:
             client.deploy_bundle('bundle:~juju-qa/some-bundle')
         mock_juju.assert_called_with(
             'deployer', ('--debug', '--deploy-delay', '10', '--timeout',
@@ -1688,7 +1689,7 @@ class TestEnvJujuClient1X(ClientTest):
     def test_deploy_bundle_template(self):
         client = EnvJujuClient1X(SimpleEnvironment('an_env', None),
                                  '1.23-series-arch', None)
-        with patch.object(client, 'juju') as mock_juju:
+        with patch_juju_call(client) as mock_juju:
             client.deploy_bundle('bundle:~juju-qa/some-{container}-bundle')
         mock_juju.assert_called_with(
             'deployer', (
@@ -1933,14 +1934,14 @@ class TestEnvJujuClient1X(ClientTest):
     def test_add_space(self):
         client = EnvJujuClient1X(SimpleEnvironment(None, {'type': 'local'}),
                                  '1.23-series-arch', None)
-        with patch.object(client, 'juju', autospec=True) as juju_mock:
+        with patch_juju_call(client) as juju_mock:
             client.add_space('foo-space')
         juju_mock.assert_called_once_with('space create', ('foo-space'))
 
     def test_add_subnet(self):
         client = EnvJujuClient1X(SimpleEnvironment(None, {'type': 'local'}),
                                  '1.23-series-arch', None)
-        with patch.object(client, 'juju', autospec=True) as juju_mock:
+        with patch_juju_call(client) as juju_mock:
             client.add_subnet('bar-subnet', 'foo-space')
         juju_mock.assert_called_once_with('subnet add',
                                           ('bar-subnet', 'foo-space'))
@@ -1954,7 +1955,7 @@ class TestEnvJujuClient1X(ClientTest):
 
     def test_set_config(self):
         client = EnvJujuClient1X(SimpleEnvironment('bar', {}), None, '/foo')
-        with patch.object(client, 'juju') as juju_mock:
+        with patch_juju_call(client) as juju_mock:
             client.set_config('foo', {'bar': 'baz'})
         juju_mock.assert_called_once_with('set', ('foo', 'bar=baz'))
 
@@ -2075,13 +2076,13 @@ class TestEnvJujuClient1X(ClientTest):
 
     def test_disable_command(self):
         client = EnvJujuClient1X(SimpleEnvironment('foo'), None, None)
-        with patch.object(client, 'juju', autospec=True) as mock:
+        with patch_juju_call(client) as mock:
             client.disable_command('all', 'message')
         mock.assert_called_once_with('block all', ('message', ))
 
     def test_enable_command(self):
         client = EnvJujuClient1X(SimpleEnvironment('foo'), None, None)
-        with patch.object(client, 'juju', autospec=True) as mock:
+        with patch_juju_call(client) as mock:
             client.enable_command('all')
         mock.assert_called_once_with('unblock', 'all')
 

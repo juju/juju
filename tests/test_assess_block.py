@@ -18,6 +18,7 @@ from jujupy import (
     )
 from tests import (
     parse_error,
+    patch_juju_call,
     FakeHomeTestCase,
     TestCase,
     )
@@ -149,7 +150,7 @@ class TestAssess(FakeHomeTestCase):
                           autospec=True, side_effect=side_effects):
             with patch('assess_block.deploy_dummy_stack', autospec=True):
                 with patch.object(client, 'remove_service') as mock_rs:
-                    with patch.object(client, 'juju') as mock_juju:
+                    with patch_juju_call(client) as mock_juju:
                         with patch.object(
                                 client, 'wait_for_started') as mock_ws:
                             assess_block(client, 'trusty')
