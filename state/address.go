@@ -118,11 +118,9 @@ func (st *State) SetAPIHostPorts(netHostsPorts [][]network.HostPort) error {
 			return nil, err
 		}
 		op := txn.Op{
-			C:  stateServersC,
-			Id: apiHostPortsKey,
-			Assert: bson.D{{
-				"apihostports", fromNetworkHostsPorts(existing),
-			}},
+			C:      stateServersC,
+			Id:     apiHostPortsKey,
+			Assert: txn.DocExists,
 		}
 		if !hostsPortsEqual(netHostsPorts, existing) {
 			op.Update = bson.D{{

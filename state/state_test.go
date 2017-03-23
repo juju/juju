@@ -3956,47 +3956,6 @@ func (s *StateSuite) TestSetAPIHostPorts(c *gc.C) {
 	c.Assert(gotHostPorts, jc.DeepEquals, newHostPorts)
 }
 
-func (s *StateSuite) TestSetAPIHostPortsConcurrentSame(c *gc.C) {
-	hostPorts := [][]network.HostPort{{{
-		Address: network.Address{
-			Value:       "0.4.8.16",
-			Type:        network.IPv4Address,
-			NetworkName: "foo",
-			Scope:       network.ScopePublic,
-		},
-		Port: 2,
-	}}, {{
-		Address: network.Address{
-			Value:       "0.2.4.6",
-			Type:        network.IPv4Address,
-			NetworkName: "net",
-			Scope:       network.ScopeCloudLocal,
-		},
-		Port: 1,
-	}}}
-
-	// API host ports are concurrently changed to the same
-	// desired value; second arrival will fail its assertion,
-	// refresh finding nothing to do, and then issue a
-	// read-only assertion that suceeds.
-
-	var prevRevno int64
-	defer state.SetBeforeHooks(c, s.State, func() {
-		err := s.State.SetAPIHostPorts(hostPorts)
-		c.Assert(err, jc.ErrorIsNil)
-		revno, err := state.TxnRevno(s.State, "stateServers", "apiHostPorts")
-		c.Assert(err, jc.ErrorIsNil)
-		prevRevno = revno
-	}).Check()
-
-	err := s.State.SetAPIHostPorts(hostPorts)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(prevRevno, gc.Not(gc.Equals), 0)
-	revno, err := state.TxnRevno(s.State, "stateServers", "apiHostPorts")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(revno, gc.Equals, prevRevno)
-}
-
 func (s *StateSuite) TestSetAPIHostPortsConcurrentDifferent(c *gc.C) {
 	hostPorts0 := []network.HostPort{{
 		Address: network.Address{
