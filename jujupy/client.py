@@ -2178,6 +2178,10 @@ class ModelClient:
             timing_breakdown.append(
                 {
                     'command': ct.cmd,
+                    'full_args': ct.full_args,
+                    'start': ct.start,
+                    'end': ct.end,
+                    'time_to_complete': ct.actual_time,
                 }
             )
         return timing_breakdown

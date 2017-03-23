@@ -3050,18 +3050,31 @@ class TestModelClient(ClientTest):
         self.assertEqual(0, po_mock.call_count)
 
     def test_get_juju_timings(self):
+        first_start = datetime(2017, 3, 22, 23, 36, 52, 0)
+        first_end = first_start + timedelta(seconds=2)
+        second_start = datetime(2017, 5, 22, 23, 36, 52, 0)
         env = JujuData('foo')
         client = ModelClient(env, None, 'my/juju/bin')
         client._backend.juju_timings.extend([
-            CommandTime('command1', ['command1', 'arg1']),
-            CommandTime('command2', ['command2', 'arg1', 'arg2'])])
+            CommandTime('command1', ['command1', 'arg1'], start=first_start),
+            CommandTime(
+                'command2', ['command2', 'arg1', 'arg2'], start=second_start)])
+        client._backend.juju_timings[0].actual_completion(end=first_end)
         flattened_timings = client.get_juju_timings()
         expected = [
             {
                 'command': 'command1',
+                'full_args': ['command1', 'arg1'],
+                'start': first_start,
+                'end': first_end,
+                'time_to_complete': timedelta(seconds=2)
             },
             {
-                'command': 'command2'
+                'command': 'command2',
+                'full_args': ['command2', 'arg1', 'arg2'],
+                'start': second_start,
+                'end': None,
+                'time_to_complete': None,
             }
         ]
         self.assertEqual(flattened_timings, expected)

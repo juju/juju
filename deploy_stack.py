@@ -17,7 +17,7 @@ import string
 import subprocess
 import sys
 import time
-import json
+import yaml
 import shutil
 
 from chaos import background_chaos
@@ -248,10 +248,11 @@ def retain_config(runtime_config, log_directory):
 
 def dump_juju_timings(client, log_directory):
     try:
-        with open(os.path.join(log_directory, 'juju_command_times.json'),
-                  'w') as timing_file:
-            json.dump(client.get_juju_timings(), timing_file, indent=2,
-                      sort_keys=True)
+        report_path = os.path.join(log_directory, 'juju_command_times.yaml')
+        with open(report_path, 'w') as timing_file:
+            yaml.dump(
+                client.get_juju_timings(),
+                timing_file)
             timing_file.write('\n')
     except Exception as e:
         print_now("Failed to save timings")

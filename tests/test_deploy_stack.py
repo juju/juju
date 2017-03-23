@@ -224,25 +224,38 @@ class DeployStackTestCase(FakeHomeTestCase):
         self.assertEqual('region-foo', env.get_region())
 
     def test_dump_juju_timings(self):
+        first_start = datetime(2017, 3, 22, 23, 36, 52, 0)
+        first_end = first_start + timedelta(seconds=2)
+        second_start = datetime(2017, 3, 22, 23, 40, 51, 0)
         env = JujuData('foo', {'type': 'bar'})
         client = ModelClient(env, None, None)
         client._backend.juju_timings.extend([
-            CommandTime('command1', ['command1', 'arg1']),
-            CommandTime('command2', ['command2', 'arg1', 'arg2'])
+            CommandTime('command1', ['command1', 'arg1'], start=first_start),
+            CommandTime(
+                'command2', ['command2', 'arg1', 'arg2'], start=second_start)
         ])
+        client._backend.juju_timings[0].actual_completion(end=first_end)
         expected = [
             {
                 'command': 'command1',
+                'full_args': ['command1', 'arg1'],
+                'start': first_start,
+                'end': first_end,
+                'time_to_complete': timedelta(seconds=2),
             },
             {
-                'command': 'command2'
+                'command': 'command2',
+                'full_args': ['command2', 'arg1', 'arg2'],
+                'start': second_start,
+                'end': None,
+                'time_to_complete': None,
             }
         ]
         with temp_dir() as fake_dir:
             dump_juju_timings(client, fake_dir)
             with open(os.path.join(fake_dir,
-                      'juju_command_times.json')) as out_file:
-                file_data = json.load(out_file)
+                      'juju_command_times.yaml')) as out_file:
+                file_data = yaml.load(out_file)
         self.assertEqual(file_data, expected)
 
     def test_check_token(self):
