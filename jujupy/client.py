@@ -1115,6 +1115,9 @@ class Juju2Backend:
             debug = self.debug
         result = self.__class__(full_path, version, feature_flags, debug,
                                 self.soft_deadline)
+        # Each clone shares a reference to juju_timings allowing us to collect
+        # all commands run during a test.
+        result.juju_timings = self.juju_timings
         return result
 
     @property
