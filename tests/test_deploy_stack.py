@@ -68,6 +68,8 @@ from jujupy import (
     Status,
     Machine,
     )
+
+from jujupy.client import CommandTime
 from jujupy.configuration import (
     get_environments_path,
     get_jenv_path,
@@ -224,9 +226,18 @@ class DeployStackTestCase(FakeHomeTestCase):
     def test_dump_juju_timings(self):
         env = JujuData('foo', {'type': 'bar'})
         client = ModelClient(env, None, None)
-        client._backend.juju_timings = {("juju", "op1"): [1],
-                                        ("juju", "op2"): [2]}
-        expected = {"juju op1": [1], "juju op2": [2]}
+        client._backend.juju_timings.append(
+            CommandTime('command1', ['command1', 'arg1']),
+            CommandTime('command2', ['command2', 'arg1', 'arg2'])
+        )
+        expected = [
+            {
+                'command': 'command1',
+            },
+            {
+                'command': 'command2'
+            }
+        ]
         with temp_dir() as fake_dir:
             dump_juju_timings(client, fake_dir)
             with open(os.path.join(fake_dir,

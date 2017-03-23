@@ -3052,10 +3052,18 @@ class TestModelClient(ClientTest):
     def test_get_juju_timings(self):
         env = JujuData('foo')
         client = ModelClient(env, None, 'my/juju/bin')
-        client._backend.juju_timings = {("juju", "op1"): [1],
-                                        ("juju", "op2"): [2]}
+        client._backend.juju_timings.append([
+            CommandTime('command1', ['command1', 'arg1']),
+            CommandTime('command2', ['command2', 'arg1', 'arg2'])])
         flattened_timings = client.get_juju_timings()
-        expected = {"juju op1": [1], "juju op2": [2]}
+        expected = [
+            {
+                'command': 'command1',
+            },
+            {
+                'command': 'command2'
+            }
+        ]
         self.assertEqual(flattened_timings, expected)
 
     def test_deployer(self):
