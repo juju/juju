@@ -1284,6 +1284,22 @@ class BaseCondition:
         self.timeout = timeout
         self.already_satisfied = already_satisfied
 
+    def iter_blocking_state(self, status):
+        """Identify when the condition required is met.
+
+        When the operation is complete yield nothing. Otherwise yields a
+        tuple ('<item detail>', '<state>')
+        as to why the action cannot be considered complete yet.
+
+        An example for a condition of an application being removed:
+            yield <application name>, 'still-present'
+        """
+        return
+
+    def do_raise(self, model_name, status):
+        """Raise exception for when success condition fails to be achieved."""
+        raise Exception('BaseCondition failed: {}'.format(model_name))
+
 
 class ConditionList(BaseCondition):
     """A list of conditions that support client.wait_for.
