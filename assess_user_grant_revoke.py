@@ -197,16 +197,16 @@ def assert_user_permissions(user, user_client, controller_client):
         controller_client, user_client, permission, expect.next())
 
 
-def assert_change_password(client, user):
+def assert_change_password(client, user, password):
     """Test changing user's password"""
     log.info('Checking change-user-password')
     try:
         child = client.expect('change-user-password', (user.name,),
                               include_e=False)
         child.expect('(?i)password')
-        child.sendline(user.name + '_password_2')
+        child.sendline(password)
         child.expect('(?i)password')
-        child.sendline(user.name + '_password_2')
+        child.sendline(password)
         child.expect(pexpect.EOF)
     except pexpect.TIMEOUT:
         raise JujuAssertionError(
@@ -238,7 +238,8 @@ def assert_disable_enable(controller_client, user):
     assert_equal(user_list, USER_LIST_CTRL_WRITE)
 
 
-def assert_logout_login(controller_client, user_client, user, fake_home):
+def assert_logout_login(controller_client, user_client,
+                        user, fake_home, password):
     """Test users' login and logout"""
     user_client.logout()
     log.info('Checking list-users after logout')
@@ -260,9 +261,13 @@ def assert_read_user(controller_client, user):
         log.info('Checking list-shares {}'.format(user.name))
         share_list = list_shares(controller_client)
         assert_equal(share_list, SHARE_LIST_CTRL_READ)
-        assert_change_password(user_client, user)
+
+        password = ''.join(random.choice(
+            string.ascii_letters + string.digits) for _ in xrange(10))
+        
+        assert_change_password(user_client, user, password)
         user_client = assert_logout_login(
-            controller_client, user_client, user, fake_home)
+            controller_client, user_client, user, fake_home, password)
         assert_user_permissions(user, user_client, controller_client)
         controller_client.remove_user(user.name)
     log.info('PASS read {}'.format(user.name))

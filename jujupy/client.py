@@ -2718,10 +2718,12 @@ class ModelClient:
             username = self.env.user_name
 
         if password is None:
-            password = '{}-{}'.format(self.env.user_name, 'password')
+            password = '{}-{}'.format(username, 'password')
+
+        import ipdb
+        ipdb.set_trace()
 
         try:
-
             child = self.expect(self.login_user_command,
                                 (username, '-c', self.env.controller.name),
                                 include_e=False)
