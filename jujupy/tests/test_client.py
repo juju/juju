@@ -3445,6 +3445,17 @@ class TestModelClient(ClientTest):
         self.assertEqual(jrandom['password'], 'password1')
         self.assertEqual(jrandom['2fa'], '')
 
+    def test_login_user(self):
+        client = fake_juju_client()
+        controller_state = client._backend.controller_state
+        client.env.controller.name = 'foo-controller'
+        client.env.user_name = 'admin'
+        username = 'bob'
+        password = 'password1'
+        client.login_user(username, password)
+        user = controller_state.users[username]
+        self.assertEqual(user['password'], password)
+
     def test_create_cloned_environment(self):
         fake_client = fake_juju_client()
         fake_client.bootstrap()

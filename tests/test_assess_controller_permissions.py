@@ -77,20 +77,22 @@ class TestAssess(TestCase):
         with lc as lc_mock, ac as ac_mock, sc as sc_mock:
             with patch("jujupy.ModelClient.expect",
                        autospec=True) as expect_mock:
-                expect_mock.return_value.isalive.return_value = False
-                assess_controller_permissions(fake_client)
-                lc_calls = [
-                    call[0][4] for call in
-                    lc_mock.call_args_list]
-                ac_calls = [
-                    call[0][2] for call in
-                    ac_mock.call_args_list]
-                sc_calls = [
-                    call[0][2] for call in
-                    sc_mock.call_args_list]
-                self.assertEqual(lc_calls,
-                                 assert_lc_calls)
-                self.assertEqual(ac_calls,
-                                 assert_ac_calls)
-                self.assertEqual(sc_calls,
-                                 assert_sc_calls)
+                with patch("jujupy.ModelClient._end_pexpect_session",
+                           autospec=True):
+                    expect_mock.return_value.isalive.return_value = False
+                    assess_controller_permissions(fake_client)
+                    lc_calls = [
+                        call[0][4] for call in
+                        lc_mock.call_args_list]
+                    ac_calls = [
+                        call[0][2] for call in
+                        ac_mock.call_args_list]
+                    sc_calls = [
+                        call[0][2] for call in
+                        sc_mock.call_args_list]
+                    self.assertEqual(lc_calls,
+                                     assert_lc_calls)
+                    self.assertEqual(ac_calls,
+                                     assert_ac_calls)
+                    self.assertEqual(sc_calls,
+                                     assert_sc_calls)
