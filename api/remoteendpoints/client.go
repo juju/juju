@@ -64,6 +64,7 @@ func (c *Client) FindApplicationOffers(filters ...crossmodel.ApplicationOfferFil
 		filterTerm := params.OfferFilter{
 			OfferName: f.OfferName,
 			ModelName: f.ModelName,
+			OwnerName: f.OwnerName,
 		}
 		filterTerm.Endpoints = make([]params.EndpointFilterAttributes, len(f.Endpoints))
 		for i, ep := range f.Endpoints {

@@ -54,7 +54,10 @@ func (s *ApplicationOffer) String() string {
 // ApplicationOfferFilter is used to query applications offered
 // by this model.
 type ApplicationOfferFilter struct {
-	// OfferName is the name of the model hosting the offer.
+	// OwnerName is the owner of the model hosting the offer.
+	OwnerName string
+
+	// ModelName is the name of the model hosting the offer.
 	ModelName string
 
 	// OfferName is the name of the offer.

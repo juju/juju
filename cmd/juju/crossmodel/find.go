@@ -26,6 +26,7 @@ options:
 
 Examples:
    $ juju find-endpoints
+   $ juju find-endpoints mycontroller:
    $ juju find-endpoints fred/prod
    $ juju find-endpoints --interface mysql --url fred/prod
    $ juju find-endpoints --url fred/prod.db2
@@ -37,11 +38,12 @@ See also:
 type findCommand struct {
 	RemoteEndpointsCommandBase
 
-	url           string
-	modelName     string
-	offerName     string
-	interfaceName string
-	endpoint      string
+	url            string
+	modelOwnerName string
+	modelName      string
+	offerName      string
+	interfaceName  string
+	endpoint       string
 
 	out        cmd.Output
 	newAPIFunc func() (FindAPI, error)
@@ -75,14 +77,22 @@ func (c *findCommand) Init(args []string) (err error) {
 		if err != nil {
 			return err
 		}
+		user := urlParts.User
+		if user == "" {
+			accountDetails, err := c.ClientStore().AccountDetails(c.ControllerName())
+			if err != nil {
+				return err
+			}
+			user = accountDetails.User
+		}
+		c.modelOwnerName = user
 		c.modelName = urlParts.ModelName
 		c.offerName = urlParts.ApplicationName
 		if urlParts.Source != "" && urlParts.Source != c.ControllerName() {
 			return errors.NotSupportedf("finding endpoints from another controller %q", urlParts.Source)
 		}
 	} else {
-		// We need at least one filter.
-		return errors.New("at least one filter term must be specified, try specifying a model name")
+		c.url = c.ControllerName() + ":"
 	}
 	return nil
 }
@@ -118,6 +128,7 @@ func (c *findCommand) Run(ctx *cmd.Context) (err error) {
 	defer api.Close()
 
 	filter := crossmodel.ApplicationOfferFilter{
+		OwnerName: c.modelOwnerName,
 		ModelName: c.modelName,
 		OfferName: c.offerName,
 		// TODO(wallyworld): interface

@@ -117,9 +117,6 @@ func (c *addRelationCommand) Run(ctx *cmd.Context) error {
 	if params.IsCodeUnauthorized(err) {
 		common.PermissionsMessage(ctx.Stderr, "add a relation")
 	}
-	if err == nil && c.remoteEndpoint != "" {
-		ctx.Infof("Note: this beta version of Juju has automatically exposed the endpoint at %s to enable cross model communications", c.remoteEndpoint)
-	}
 	return block.ProcessBlockedError(err, block.BlockChange)
 }
 

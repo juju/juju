@@ -5,6 +5,7 @@ package remoteendpoints
 
 import (
 	"github.com/juju/errors"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/crossmodelcommon"
@@ -117,9 +118,35 @@ func (api *EndpointsAPI) offerForURL(urlStr string) (params.ApplicationOfferDeta
 // FindApplicationOffers gets details about remote applications that match given filter.
 func (api *EndpointsAPI) FindApplicationOffers(filters params.OfferFilters) (params.FindApplicationOffersResults, error) {
 	var result params.FindApplicationOffersResults
-	offers, err := api.GetApplicationOffersDetails(filters, permission.ReadAccess)
+	var filtersToUse params.OfferFilters
+
+	// If there is only one filter term, and no model is specified, add in
+	// any models the user can see and query across those.
+	// If there's more than one filter term, each must specify a model.
+	if len(filters.Filters) == 1 && filters.Filters[0].ModelName == "" {
+		user := api.Authorizer.GetAuthTag().(names.UserTag)
+		userModels, err := api.Backend.ModelsForUser(user)
+		if err != nil {
+			return result, errors.Trace(err)
+		}
+		for _, um := range userModels {
+			modelFilter := filters.Filters[0]
+			modelFilter.ModelName = um.Model().Name()
+			modelFilter.OwnerName = um.Model().Owner().Name()
+			filtersToUse.Filters = append(filtersToUse.Filters, modelFilter)
+		}
+	} else {
+		filtersToUse = filters
+	}
+	for _, f := range filtersToUse.Filters {
+		if f.ModelName == "" {
+			return result, errors.New("application offer filter must specify a model name")
+		}
+	}
+
+	offers, err := api.GetApplicationOffersDetails(filtersToUse, permission.ReadAccess)
 	if err != nil {
-		return result, err
+		return result, errors.Trace(err)
 	}
 	for _, offer := range offers {
 		result.Results = append(result.Results, offer.ApplicationOffer)

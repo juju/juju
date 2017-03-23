@@ -37,10 +37,10 @@ func (api *BaseAPI) CheckPermission(backend Backend, perm permission.Access) err
 }
 
 // ModelForName looks up the model details for the named model.
-func (api *BaseAPI) ModelForName(modelName, userName string) (Model, bool, error) {
+func (api *BaseAPI) ModelForName(modelName, ownerName string) (Model, bool, error) {
 	user := api.Authorizer.GetAuthTag().(names.UserTag)
-	if userName != "" {
-		user = names.NewUserTag(userName)
+	if ownerName == "" {
+		ownerName = user.Name()
 	}
 	var model Model
 	models, err := api.Backend.ModelsForUser(user)
@@ -48,7 +48,7 @@ func (api *BaseAPI) ModelForName(modelName, userName string) (Model, bool, error
 		return nil, false, err
 	}
 	for _, m := range models {
-		if m.Model().Name() == modelName {
+		if m.Model().Name() == modelName && m.Model().Owner().Name() == ownerName {
 			model = m.Model()
 			break
 		}
@@ -148,7 +148,7 @@ func (api *BaseAPI) getModelFilters(filters params.OfferFilters) (
 		if f.ModelName != "" {
 			if modelUUID, ok = modelUUIDs[f.ModelName]; !ok {
 				var err error
-				model, ok, err := api.ModelForName(f.ModelName, "")
+				model, ok, err := api.ModelForName(f.ModelName, f.OwnerName)
 				if err != nil {
 					return nil, nil, errors.Trace(err)
 				}
