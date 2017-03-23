@@ -90,7 +90,6 @@ from jujupy.client import (
 from jujupy.fake import (
     get_user_register_command_info,
     get_user_register_token,
-    FakeControllerState
 )
 from jujupy.version_client import (
     EnvJujuClient1X,

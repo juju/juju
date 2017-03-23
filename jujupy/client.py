@@ -2670,6 +2670,22 @@ class ModelClient:
         self.controller_juju('logout', ())
         self.env.user_name = ''
 
+    def _end_pexpect_session(session):
+        """Pexpect doesn't return buffers, or handle exceptions well.
+        This method attempts to ensure any relevant data is returned to the
+        test output in the event of a failure, or the unexpected"""
+        session.expect(pexpect.EOF)
+        if session.isalive():
+            log.error('Buffer: {}'.format(session.buffer))
+            log.error('Before: {}'.format(session.before))
+            raise Exception('pexpect session still alive')
+        session.close()
+        if session.exitstatus != 0:
+            log.error('Buffer: {}'.format(session.buffer))
+            log.error('Before: {}'.format(session.before))
+            raise Exception('pexpect process exited with {}'.format(
+                    session.exitstatus))
+
     def register_user(self, user, juju_home, controller_name=None):
         """Register `user` for the `client` return the cloned client used."""
         username = user.name
@@ -2691,19 +2707,7 @@ class ModelClient:
             child.sendline(username + '_password')
             child.expect('(?i)name')
             child.sendline(controller_name)
-            child.expect(pexpect.EOF)
-            if child.isalive():
-                log.error('Buffer: {}'.format(child.buffer))
-                log.error('Before: {}'.format(child.before))
-                raise Exception(
-                    'Registering user failed: pexpect session still alive')
-            child.close()
-            if child.exitstatus != 0:
-                log.error('Buffer: {}'.format(child.buffer))
-                log.error('Before: {}'.format(child.before))
-                raise Exception(
-                    'FAIL register user: pexpect process exited with {}'.format(
-                        child.exitstatus))
+            self._end_pexpect_session(child)
         except pexpect.TIMEOUT:
             log.error('Buffer: {}'.format(child.buffer))
             log.error('Before: {}'.format(child.before))
@@ -2721,30 +2725,18 @@ class ModelClient:
             password = '{}-{}'.format(self.env.user_name, 'password')
 
         try:
-            child = self.expect(self.login_user_command,
-                                (username,'-c', self.env.controller.name),
+            child = self.expect(self.login_user_command, username,
+                                ('-c', self.env.controller.name),
                                 include_e=False)
             child.expect('(?i)password')
             child.sendline(password)
-            child.expect(pexpect.EOF)
-            if child.isalive():
-                log.error('Buffer: {}'.format(child.buffer))
-                log.error('Before: {}'.format(child.before))
-                raise Exception(
-                    'FAIL Login user: pexpect session still alive')
-            child.close()
-            if child.exitstatus != 0:
-                log.error('Buffer: {}'.format(child.buffer))
-                log.error('Before: {}'.format(child.before))
-                raise Exception(
-                    'FAIL Login user: pexpect process exited with {}'.format(
-                        child.exitstatus))
+            self._end_pexpect_session(child)
         except pexpect.TIMEOUT:
             log.error('Buffer: {}'.format(child.buffer))
             log.error('Before: {}'.format(child.before))
             raise Exception(
                 'FAIL Login user failed: pexpect session timed out')
-                
+
     def register_host(self, host, email, password):
         child = self.expect('register', ('--no-browser-login', host),
                             include_e=False)
@@ -2763,25 +2755,13 @@ class ModelClient:
                 child.sendline()
                 child.expect('Enter a name for this controller:')
             child.sendline(self.env.controller.name)
-            child.expect(pexpect.EOF)
-            if child.isalive():
-                log.error('Buffer: {}'.format(child.buffer))
-                log.error('Before: {}'.format(child.before))
-                raise Exception(
-                    'Registering host failed: pexpect session still alive')
-            child.close()
-            if child.exitstatus != 0:
-                log.error('Buffer: {}'.format(child.buffer))
-                log.error('Before: {}'.format(child.before))
-                raise Exception(
-                    'FAIL register host: pexpect process exited with {}'.format(
-                        child.exitstatus))
+            self._end_pexpect_session(child)
         except pexpect.TIMEOUT:
             log.error('Buffer: {}'.format(child.buffer))
             log.error('Before: {}'.format(child.before))
             raise Exception(
-                'Registering user failed: pexpect session timed out')
-                
+                'Registering host failed: pexpect session timed out')
+
     def remove_user(self, username):
         self.juju('remove-user', (username, '-y'), include_e=False)
 
