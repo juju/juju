@@ -26,6 +26,7 @@ type BackingSubnet interface {
 	CIDR() string
 	VLANTag() int
 	ProviderId() network.Id
+	ProviderNetworkId() network.Id
 	AvailabilityZones() []string
 	Status() string
 	SpaceName() string
@@ -41,8 +42,6 @@ type BackingSubnet interface {
 // * subnetDoc.AvailabilityZone becomes subnetDoc.AvailabilityZones,
 //   adding an upgrade step to migrate existing non empty zones on
 //   subnet docs. Also change state.Subnet.AvailabilityZone to
-// * add subnetDoc.SpaceName - no upgrade step needed, as it will only
-//   be used for new space-aware subnets.
 // * Subnets need a reference count to calculate Status.
 // * ensure EC2 and MAAS providers accept empty IDs as Subnets() args
 //   and return all subnets, including the AvailabilityZones (for EC2;
@@ -50,6 +49,11 @@ type BackingSubnet interface {
 type BackingSubnetInfo struct {
 	// ProviderId is a provider-specific network id. This may be empty.
 	ProviderId network.Id
+
+	// ProviderNetworkId is the id of the network containing this
+	// subnet from the provider's perspective. It can be empty if the
+	// provider doesn't support distinct networks.
+	ProviderNetworkId network.Id
 
 	// CIDR of the network, in 123.45.67.89/24 format.
 	CIDR string
