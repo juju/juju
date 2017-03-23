@@ -81,6 +81,7 @@ func (m *ovaImportManager) importOva(ecfg *environConfig, instSpec *instanceSpec
 		PropertyMapping: []types.KeyValue{
 			types.KeyValue{Key: "public-keys", Value: instSpec.sshKey},
 			types.KeyValue{Key: "user-data", Value: string(instSpec.userData)},
+			types.KeyValue{Key: "hostname", Value: string(instSpec.machineID)},
 		},
 	}
 
