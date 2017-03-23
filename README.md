@@ -77,12 +77,20 @@ If you want to know more about contributing to `juju`, please read the
 Installing prerequisites
 ------------------------
 
+### *Runtime Dependencies*
+
 You can use `make install-dependencies` or, if you prefer to install
 them manually, check the Makefile target.
 
 This will add some PPAs to ensure that you can install the required
 golang and mongodb-server versions for precise onwards, in addition to the
 other dependencies.
+
+### *Build Dependencies*
+
+Before you can build Juju, see
+[Dependency management](CONTRIBUTING.md#dependency-management) section of
+`CONTRIBUTING` to ensure you have build dependencies setup.
 
 
 Building juju
