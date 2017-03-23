@@ -258,7 +258,7 @@ func (s *remoteEndpointsSuite) TestFindPermission(c *gc.C) {
 	s.assertFind(c, common.ErrPerm)
 }
 
-func (s *remoteEndpointsSuite) TestFindMultiModel(c *gc.C) {
+func (s *remoteEndpointsSuite) TestFindMulti(c *gc.C) {
 	db2Offer := jujucrossmodel.ApplicationOffer{
 		OfferName:              "hosted-db2",
 		ApplicationName:        "db2",
@@ -305,7 +305,7 @@ func (s *remoteEndpointsSuite) TestFindMultiModel(c *gc.C) {
 		"mysql":      &mockApplication{charm: ch, curl: charm.MustParseURL("mysql-2")},
 		"postgresql": &mockApplication{charm: ch, curl: charm.MustParseURL("postgresql-2")},
 	}
-	anotherState.model = &mockModel{uuid: "uuid2", name: "another", owner: "fred"}
+	anotherState.model = &mockModel{uuid: "uuid2", name: "another", owner: "mary"}
 	anotherState.usermodels = []crossmodelcommon.UserModel{
 		&mockUserModel{model: anotherState.model},
 	}
@@ -320,13 +320,17 @@ func (s *remoteEndpointsSuite) TestFindMultiModel(c *gc.C) {
 		Filters: []params.OfferFilter{
 			{
 				OfferName: "hosted-db2",
+				OwnerName: "fred",
+				ModelName: "prod",
 			},
 			{
 				OfferName: "hosted-mysql",
+				OwnerName: "mary",
 				ModelName: "another",
 			},
 			{
 				OfferName: "hosted-postgresql",
+				OwnerName: "mary",
 				ModelName: "another",
 			},
 		},
@@ -344,13 +348,13 @@ func (s *remoteEndpointsSuite) TestFindMultiModel(c *gc.C) {
 			{
 				ApplicationDescription: "mysql description",
 				OfferName:              "hosted-mysql",
-				OfferURL:               "fred/another.hosted-mysql",
+				OfferURL:               "mary/another.hosted-mysql",
 				Endpoints:              []params.RemoteEndpoint{{Name: "db"}},
 			},
 			{
 				ApplicationDescription: "postgresql description",
 				OfferName:              "hosted-postgresql",
-				OfferURL:               "fred/another.hosted-postgresql",
+				OfferURL:               "mary/another.hosted-postgresql",
 				Endpoints:              []params.RemoteEndpoint{{Name: "db"}},
 			},
 		},
@@ -376,4 +380,27 @@ func (s *remoteEndpointsSuite) TestFindError(c *gc.C) {
 	_, err := s.api.FindApplicationOffers(filter)
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(".*%v.*", msg))
 	s.applicationOffers.CheckCallNames(c, listOffersBackendCall)
+}
+
+func (s *remoteEndpointsSuite) TestFindMissingModelInMultipleFilters(c *gc.C) {
+	filter := params.OfferFilters{
+		Filters: []params.OfferFilter{
+			{
+				OfferName:       "hosted-db2",
+				ApplicationName: "test",
+			},
+			{
+				OfferName:       "hosted-mysql",
+				ApplicationName: "test",
+			},
+		},
+	}
+
+	s.applicationOffers.listOffers = func(filters ...jujucrossmodel.ApplicationOfferFilter) ([]jujucrossmodel.ApplicationOffer, error) {
+		panic("should not be called")
+	}
+
+	_, err := s.api.FindApplicationOffers(filter)
+	c.Assert(err, gc.ErrorMatches, "application offer filter must specify a model name")
+	s.applicationOffers.CheckCallNames(c)
 }

@@ -211,11 +211,15 @@ func (s *crossmodelMockSuite) TestShowFacadeCallError(c *gc.C) {
 
 func (s *crossmodelMockSuite) TestFind(c *gc.C) {
 	offerName := "hosted-db2"
+	ownerName := "owner"
+	modelName := "model"
 	url := fmt.Sprintf("fred/model.%s", offerName)
 	endpoints := []params.RemoteEndpoint{{Name: "endPointA"}}
 	relations := []jujucrossmodel.EndpointFilterTerm{{Name: "endPointA", Interface: "http"}}
 
 	filter := jujucrossmodel.ApplicationOfferFilter{
+		OwnerName: ownerName,
+		ModelName: modelName,
 		OfferName: offerName,
 		Endpoints: relations,
 	}
@@ -236,6 +240,8 @@ func (s *crossmodelMockSuite) TestFind(c *gc.C) {
 			c.Assert(ok, jc.IsTrue)
 			c.Assert(args.Filters, gc.HasLen, 1)
 			c.Assert(args.Filters[0], jc.DeepEquals, params.OfferFilter{
+				OwnerName:       filter.OwnerName,
+				ModelName:       filter.ModelName,
 				OfferName:       filter.OfferName,
 				ApplicationName: filter.ApplicationName,
 				Endpoints: []params.EndpointFilterAttributes{{

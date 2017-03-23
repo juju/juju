@@ -23,7 +23,12 @@ type OfferFilters struct {
 
 // OfferFilter is used to query offers.
 type OfferFilter struct {
-	ModelName              string                     `json:"model-name"`
+	// OwnerName is the owner of the model hosting the offer.
+	OwnerName string `json:"owner-name"`
+
+	// ModelName is the name of the model hosting the offer.
+	ModelName string `json:"model-name"`
+
 	OfferName              string                     `json:"offer-name"`
 	ApplicationName        string                     `json:"application-name"`
 	ApplicationDescription string                     `json:"application-description"`

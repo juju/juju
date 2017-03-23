@@ -66,7 +66,7 @@ func (s *ListSuite) TestListFormatError(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, ".*failed to format.*")
 }
 
-func (s *ListSuite) TestListDirectories(c *gc.C) {
+func (s *ListSuite) TestList(c *gc.C) {
 	// Insert in random order to check sorting.
 	s.applications = append(s.applications, model.ApplicationOfferDetailsResult{Result: s.createOfferItem("zdiff-db2", "differentstore", 33)})
 	s.applications = append(s.applications, model.ApplicationOfferDetailsResult{Result: s.createOfferItem("adiff-db2", "vendor", 23)})
@@ -76,18 +76,13 @@ func (s *ListSuite) TestListDirectories(c *gc.C) {
 		nil,
 		// Default format is tabular
 		`
-differentstore
-Application  Charm  Connected  Store           URL                                  Endpoint  Interface  Role
-zdiff-db2    db2    33         differentstore  differentstore:fred/model.zdiff-db2  log       http       provider
-                                                                                    mysql     db2        requirer
-myctrl
-Application  Charm  Connected  Store   URL                           Endpoint  Interface  Role
-hosted-db2   db2    0          myctrl  myctrl:fred/model.hosted-db2  log       http       provider
-                                                                     mysql     db2        requirer
-vendor
-Application  Charm  Connected  Store   URL                          Endpoint  Interface  Role
-adiff-db2    db2    23         vendor  vendor:fred/model.adiff-db2  log       http       provider
-                                                                    mysql     db2        requirer
+Application     Charm  Connected  Store           URL                                  Endpoint  Interface  Role
+app-zdiff-db2   db2    33         differentstore  differentstore:fred/model.zdiff-db2  log       http       provider
+                                                                                       mysql     db2        requirer
+app-hosted-db2  db2    0          myctrl          myctrl:fred/model.hosted-db2         log       http       provider
+                                                                                       mysql     db2        requirer
+app-adiff-db2   db2    23         vendor          vendor:fred/model.adiff-db2          log       http       provider
+                                                                                       mysql     db2        requirer
 
 `[1:],
 		"",
@@ -102,10 +97,9 @@ func (s *ListSuite) TestListWithErrors(c *gc.C) {
 		c,
 		nil,
 		`
-myctrl
-Application  Charm  Connected  Store   URL                           Endpoint  Interface  Role
-hosted-db2   db2    0          myctrl  myctrl:fred/model.hosted-db2  log       http       provider
-                                                                     mysql     db2        requirer
+Application     Charm  Connected  Store   URL                           Endpoint  Interface  Role
+app-hosted-db2  db2    0          myctrl  myctrl:fred/model.hosted-db2  log       http       provider
+                                                                        mysql     db2        requirer
 
 `[1:],
 		msg,
@@ -121,14 +115,14 @@ func (s *ListSuite) TestListYAML(c *gc.C) {
 		c,
 		[]string{"--format", "yaml"},
 		`
-myctrl:
-  hosted-db2:
-    charm: db2
-    url: myctrl:fred/model.hosted-db2
-    endpoints:
-      mysql:
-        interface: db2
-        role: requirer
+hosted-db2:
+  store: myctrl
+  charm: db2
+  url: myctrl:fred/model.hosted-db2
+  endpoints:
+    mysql:
+      interface: db2
+      role: requirer
 `[1:],
 		"",
 	)
@@ -136,11 +130,12 @@ myctrl:
 
 func (s *ListSuite) createOfferItem(name, store string, count int) *model.ApplicationOfferDetails {
 	return &model.ApplicationOfferDetails{
-		OfferName:      name,
-		OfferURL:       fmt.Sprintf("%s:%s.%s", store, "fred/model", name),
-		CharmName:      "db2",
-		Endpoints:      s.endpoints,
-		ConnectedCount: count,
+		ApplicationName: "app-" + name,
+		OfferName:       name,
+		OfferURL:        fmt.Sprintf("%s:%s.%s", store, "fred/model", name),
+		CharmName:       "db2",
+		Endpoints:       s.endpoints,
+		ConnectedCount:  count,
 	}
 }
 

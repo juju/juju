@@ -42,21 +42,22 @@ func (s *crossmodelSuite) TestListEndpoints(c *gc.C) {
 		"--format", "yaml")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, `
-kontroll:
-  riak:
-    charm: riak
-    url: admin/controller.riak
-    endpoints:
-      endpoint:
-        interface: http
-        role: provider
-  varnish:
-    charm: varnish
-    url: admin/controller.varnish
-    endpoints:
-      webcache:
-        interface: varnish
-        role: provider
+riak:
+  store: kontroll
+  charm: riak
+  url: admin/controller.riak
+  endpoints:
+    endpoint:
+      interface: http
+      role: provider
+varnish:
+  store: kontroll
+  charm: varnish
+  url: admin/controller.varnish
+  endpoints:
+    webcache:
+      interface: varnish
+      role: provider
 `[1:])
 }
 
@@ -102,7 +103,7 @@ otheruser/othermodel.hosted-mysql:
 `[1:])
 }
 
-func (s *crossmodelSuite) TestFind(c *gc.C) {
+func (s *crossmodelSuite) setupOffers(c *gc.C) {
 	ch := s.AddTestingCharm(c, "riak")
 	s.AddTestingService(c, "riakservice", ch)
 	ch = s.AddTestingCharm(c, "varnish")
@@ -114,7 +115,9 @@ func (s *crossmodelSuite) TestFind(c *gc.C) {
 	_, err = testing.RunCommand(c, crossmodel.NewOfferCommand(),
 		"varnishservice:webcache", "varnish")
 	c.Assert(err, jc.ErrorIsNil)
-
+}
+func (s *crossmodelSuite) TestFind(c *gc.C) {
+	s.setupOffers(c)
 	ctx, err := testing.RunCommand(c, crossmodel.NewFindEndpointsCommand(),
 		"admin/controller", "--format", "yaml")
 	c.Assert(err, jc.ErrorIsNil)
@@ -139,6 +142,31 @@ func (s *crossmodelSuite) TestFindOtherModel(c *gc.C) {
 		"otheruser/othermodel", "--format", "yaml")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, `
+otheruser/othermodel.hosted-mysql:
+  endpoints:
+    database:
+      interface: mysql
+      role: provider
+`[1:])
+}
+
+func (s *crossmodelSuite) TestFindAllModels(c *gc.C) {
+	s.setupOffers(c)
+	s.addOtherModelApplication(c)
+
+	ctx, err := testing.RunCommand(c, crossmodel.NewFindEndpointsCommand(), "kontroll:", "--format", "yaml")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, `
+admin/controller.riak:
+  endpoints:
+    endpoint:
+      interface: http
+      role: provider
+admin/controller.varnish:
+  endpoints:
+    webcache:
+      interface: varnish
+      role: provider
 otheruser/othermodel.hosted-mysql:
   endpoints:
     database:

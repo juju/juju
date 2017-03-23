@@ -40,9 +40,16 @@ func (s *findSuite) runFind(c *gc.C, args ...string) (*cmd.Context, error) {
 
 func (s *findSuite) TestFindNoArgs(c *gc.C) {
 	s.mockAPI.c = c
-	s.mockAPI.expectedFilter = &jujucrossmodel.ApplicationOfferFilter{ModelName: "test"}
-	s.mockAPI.expectedModelName = "model"
-	s.assertFindError(c, []string{}, "at least one filter term must be specified, try specifying a model name")
+	s.mockAPI.expectedFilter = &jujucrossmodel.ApplicationOfferFilter{}
+	s.assertFind(
+		c,
+		[]string{},
+		`
+URL                   Interfaces
+fred/test.hosted-db2  http:db2, http:log
+
+`[1:],
+	)
 }
 
 func (s *findSuite) TestFindDuplicateUrl(c *gc.C) {
@@ -57,6 +64,7 @@ func (s *findSuite) TestNoResults(c *gc.C) {
 	s.mockAPI.c = c
 	s.mockAPI.expectedModelName = "none"
 	s.mockAPI.expectedFilter = &jujucrossmodel.ApplicationOfferFilter{
+		OwnerName: "bob",
 		ModelName: "none",
 	}
 	s.mockAPI.results = []params.ApplicationOffer{}
@@ -72,6 +80,7 @@ func (s *findSuite) TestSimpleFilter(c *gc.C) {
 	s.mockAPI.expectedModelName = "model"
 	s.mockAPI.expectedFilter = &jujucrossmodel.ApplicationOfferFilter{
 		OfferName: "hosted-db2",
+		OwnerName: "fred",
 		ModelName: "model",
 	}
 	s.mockAPI.expectedModelName = "model"
@@ -89,6 +98,7 @@ fred/model.hosted-db2  http:db2, http:log
 func (s *findSuite) TestEndpointFilter(c *gc.C) {
 	s.mockAPI.c = c
 	s.mockAPI.expectedFilter = &jujucrossmodel.ApplicationOfferFilter{
+		OwnerName: "fred",
 		ModelName: "model",
 		Endpoints: []jujucrossmodel.EndpointFilterTerm{{
 			Interface: "mysql",
