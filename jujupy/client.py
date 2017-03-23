@@ -2717,6 +2717,8 @@ class ModelClient:
         if username is None:
             username = self.env.user_name
 
+        self.env.user_name = username
+
         if password is None:
             password = '{}-{}'.format(username, 'password')
 

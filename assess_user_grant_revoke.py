@@ -266,8 +266,8 @@ def assert_read_user(controller_client, user):
             string.ascii_letters + string.digits) for _ in xrange(10))
         
         assert_change_password(user_client, user, password)
-        user_client = assert_logout_login(
-            controller_client, user_client, user, fake_home, password)
+        assert_logout_login(controller_client, user_client,
+                            user, fake_home, password)
         assert_user_permissions(user, user_client, controller_client)
         controller_client.remove_user(user.name)
     log.info('PASS read {}'.format(user.name))
