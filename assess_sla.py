@@ -36,9 +36,9 @@ def list_sla(client):
 
 def assert_sla_state(client, expected_state):
     sla_state = list_sla(client)
-    if sla_state != expected_state:
+    if sla_state.strip() != expected_state.strip():
         raise JujuAssertionError(
-            'Found: {}\nExpected: {}'.format(sla_state, expected_state))
+            'Found: *{}*\nExpected: *{}*'.format(sla_state, expected_state))
 
 
 def assess_sla(client, series='xenial'):
