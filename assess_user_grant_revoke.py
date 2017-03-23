@@ -150,7 +150,7 @@ def assert_admin_model(controller_client, client, permission, has_permission):
     """Test if the user has or doesn't have the admin permission"""
     log.info('Checking admin acl with {}'.format(client.env.user_name))
     code = ''.join(random.choice(
-        string.ascii_letters + string.digits) for _ in xrange(4))
+        string.ascii_letters + string.digits) for _ in range(4))
     new_user = permission + code
     log.info('Adding user {} for test'.format(new_user))
     controller_client.add_user_perms(new_user, permissions="read")
@@ -263,8 +263,7 @@ def assert_read_user(controller_client, user):
         assert_equal(share_list, SHARE_LIST_CTRL_READ)
 
         password = ''.join(random.choice(
-            string.ascii_letters + string.digits) for _ in xrange(10))
-        
+            string.ascii_letters + string.digits) for _ in range(10))
         assert_change_password(user_client, user, password)
         assert_logout_login(controller_client, user_client,
                             user, fake_home, password)

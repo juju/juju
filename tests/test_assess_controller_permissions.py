@@ -78,7 +78,7 @@ class TestAssess(TestCase):
             with patch("jujupy.ModelClient.expect",
                        autospec=True) as expect_mock:
                 with patch("jujupy.ModelClient._end_pexpect_session",
-                    autospec=True):
+                           autospec=True):
                     expect_mock.return_value.isalive.return_value = False
                     assess_controller_permissions(fake_client)
                     lc_calls = [
