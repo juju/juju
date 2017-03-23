@@ -62,7 +62,7 @@ class TestMain(TestCase):
         mock_cfc.assert_called_once_with('an-env', "/bin/juju", debug=False,
                                          soft_deadline=None)
         self.assertEqual(mock_bc.call_count, 1)
-        mock_assess.assert_called_once_with(client)
+        mock_assess.assert_called_once_with(client, None)
 
 
 class TestAssess(TestCase):
@@ -76,7 +76,7 @@ class TestAssess(TestCase):
             assess_sla(fake_client)
             fake_client.deploy.assert_called_once_with(
                 charm=deploy_charm)
-            fake_client.wait_for_started.assert_called_once_with()
+            fake_client.wait_for_workloads.assert_called_once_with()
             self.assertEqual(
                 1,
                 fake_client.get_status().get_service_unit_count(deploy_charm))
@@ -93,5 +93,5 @@ class TestAssess(TestCase):
             with self.assertRaises(JujuAssertionError) as ex:
                 assert_sla_state(fake_sla_state, 'foo')
                 self.assertEqual((ex.exception.message,
-                                 "Unexpected State found foo, "
+                                 "Found: foo\n"
                                   "Expected {}".format(fake_sla_state)))

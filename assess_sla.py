@@ -28,8 +28,9 @@ log = logging.getLogger("assess_sla")
 
 
 def list_sla(client):
-    """Return output of the sla command. This wil return the support level
-    for a model"""
+    """Return output of the sla command.
+
+    This will return the support level for a model"""
     return client.get_juju_output('sla', include_e=False)
 
 
@@ -37,16 +38,16 @@ def assert_sla_state(client, expected_state):
     sla_state = list_sla(client)
     if sla_state != expected_state:
         raise JujuAssertionError(
-            ('Unexpected State found {}, '
-             'Expected: {}'.format(sla_state, expected_state)))
+            'Found: {}\nExpected: {}'.format(sla_state, expected_state))
 
 
-def assess_sla(client):
+def assess_sla(client, series='xenial'):
+    client.wait_for_started()
     dummy_source = local_charm_path(charm='dummy-source',
                                     juju_ver=client.version,
-                                    series='xenial')
+                                    series=series)
     client.deploy(charm=dummy_source)
-    client.wait_for_started()
+    client.wait_for_workloads()
     # As we are unable to test supported models, for now, we only can assert
     # on the model shows correctly as unsupported
     assert_sla_state(client, 'unsupported')
@@ -64,7 +65,7 @@ def main(argv=None):
     configure_logging(args.verbose)
     bs_manager = BootstrapManager.from_args(args)
     with bs_manager.booted_context(args.upload_tools):
-        assess_sla(bs_manager.client)
+        assess_sla(bs_manager.client, args.series)
     return 0
 
 
