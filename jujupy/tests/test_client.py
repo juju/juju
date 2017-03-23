@@ -101,6 +101,7 @@ from jujupy.version_client import (
 from tests import (
     assert_juju_call,
     client_past_deadline,
+    make_fake_juju_return,
     FakeHomeTestCase,
     FakePopen,
     observable_temp_file,
@@ -705,7 +706,7 @@ class TestModelClient(ClientTest):
         env = JujuData('foo', {'type': 'foo', 'region': 'baz'})
         client = ModelClient(env, '2.0-zeta1', None)
         with observable_temp_file() as config_file:
-            with patch.object(client, 'juju') as mock:
+            with patch_juju_call(client) as mock:
                 client.bootstrap(upload_tools=True)
         mock.assert_called_with(
             'bootstrap', (
@@ -718,7 +719,7 @@ class TestModelClient(ClientTest):
         env = JujuData('foo', {'type': 'foo', 'region': 'baz'})
         client = ModelClient(env, '2.0-zeta1', None)
         with observable_temp_file() as config_file:
-            with patch.object(client, 'juju') as mock:
+            with patch_juju_call(client) as mock:
                 client.bootstrap(credential='credential_name')
         mock.assert_called_with(
             'bootstrap', (
@@ -731,7 +732,7 @@ class TestModelClient(ClientTest):
     def test_bootstrap_bootstrap_series(self):
         env = JujuData('foo', {'type': 'bar', 'region': 'baz'})
         client = ModelClient(env, '2.0-zeta1', None)
-        with patch.object(client, 'juju') as mock:
+        with patch_juju_call(client) as mock:
             with observable_temp_file() as config_file:
                 client.bootstrap(bootstrap_series='angsty')
         mock.assert_called_with(
@@ -745,7 +746,7 @@ class TestModelClient(ClientTest):
     def test_bootstrap_auto_upgrade(self):
         env = JujuData('foo', {'type': 'bar', 'region': 'baz'})
         client = ModelClient(env, '2.0-zeta1', None)
-        with patch.object(client, 'juju') as mock:
+        with patch_juju_call(client) as mock:
             with observable_temp_file() as config_file:
                 client.bootstrap(auto_upgrade=True)
         mock.assert_called_with(
@@ -758,7 +759,7 @@ class TestModelClient(ClientTest):
     def test_bootstrap_no_gui(self):
         env = JujuData('foo', {'type': 'bar', 'region': 'baz'})
         client = ModelClient(env, '2.0-zeta1', None)
-        with patch.object(client, 'juju') as mock:
+        with patch_juju_call(client) as mock:
             with observable_temp_file() as config_file:
                 client.bootstrap(no_gui=True)
         mock.assert_called_with(
@@ -771,7 +772,7 @@ class TestModelClient(ClientTest):
     def test_bootstrap_metadata(self):
         env = JujuData('foo', {'type': 'bar', 'region': 'baz'})
         client = ModelClient(env, '2.0-zeta1', None)
-        with patch.object(client, 'juju') as mock:
+        with patch_juju_call(client) as mock:
             with observable_temp_file() as config_file:
                 client.bootstrap(metadata_source='/var/test-source')
         mock.assert_called_with(
@@ -865,7 +866,7 @@ class TestModelClient(ClientTest):
         client = ModelClient(model_data, None, None)
         with patch.object(client, 'get_jes_command',
                           return_value=jes_command):
-                with patch.object(controller_client, 'juju') as ccj_mock:
+                with patch_juju_call(controller_client) as ccj_mock:
                     with observable_temp_file() as config_file:
                         controller_client.add_model(model_data)
         ccj_mock.assert_called_once_with(
@@ -877,7 +878,7 @@ class TestModelClient(ClientTest):
         client.bootstrap()
         client.env.controller.explicit_region = True
         model = client.env.clone('new-model')
-        with patch.object(client._backend, 'juju') as juju_mock:
+        with patch_juju_call(client._backend) as juju_mock:
             with observable_temp_file() as config_file:
                 client.add_model(model)
         juju_mock.assert_called_once_with('add-model', (
@@ -889,7 +890,7 @@ class TestModelClient(ClientTest):
     def test_add_model_by_name(self):
         client = fake_juju_client()
         client.bootstrap()
-        with patch.object(client._backend, 'juju') as juju_mock:
+        with patch_juju_call(client._backend) as juju_mock:
             with observable_temp_file() as config_file:
                 client.add_model('new-model')
         juju_mock.assert_called_once_with('add-model', (
@@ -931,7 +932,7 @@ class TestModelClient(ClientTest):
 
     def test_kill_controller(self):
         client = ModelClient(JujuData('foo', {'type': 'ec2'}), None, None)
-        with patch.object(client, 'juju') as juju_mock:
+        with patch_juju_call(client) as juju_mock:
             client.kill_controller()
         juju_mock.assert_called_once_with(
             'kill-controller', ('foo', '-y'), check=False, include_e=False,
@@ -939,7 +940,7 @@ class TestModelClient(ClientTest):
 
     def test_kill_controller_check(self):
         client = ModelClient(JujuData('foo', {'type': 'ec2'}), None, None)
-        with patch.object(client, 'juju') as juju_mock:
+        with patch_juju_call(client) as juju_mock:
             client.kill_controller(check=True)
         juju_mock.assert_called_once_with(
             'kill-controller', ('foo', '-y'), check=True, include_e=False,
@@ -949,7 +950,7 @@ class TestModelClient(ClientTest):
         client = ModelClient(JujuData('foo', {'type': 'azure'}), None, None)
         with patch.object(client, 'get_jes_command',
                           return_value=jes_command):
-            with patch.object(client, 'juju') as juju_mock:
+            with patch_juju_call(client) as juju_mock:
                 client.kill_controller()
         juju_mock.assert_called_once_with(
             kill_command, ('foo', '-y'), check=False, include_e=False,
@@ -957,7 +958,7 @@ class TestModelClient(ClientTest):
 
     def test_kill_controller_gce(self):
         client = ModelClient(JujuData('foo', {'type': 'gce'}), None, None)
-        with patch.object(client, 'juju') as juju_mock:
+        with patch_juju_call(client) as juju_mock:
             client.kill_controller()
         juju_mock.assert_called_once_with(
             'kill-controller', ('foo', '-y'), check=False, include_e=False,
@@ -965,7 +966,7 @@ class TestModelClient(ClientTest):
 
     def test_destroy_controller(self):
         client = ModelClient(JujuData('foo', {'type': 'ec2'}), None, None)
-        with patch.object(client, 'juju') as juju_mock:
+        with patch_juju_call(client) as juju_mock:
             client.destroy_controller()
         juju_mock.assert_called_once_with(
             'destroy-controller', ('foo', '-y'), include_e=False,
@@ -973,7 +974,7 @@ class TestModelClient(ClientTest):
 
     def test_destroy_controller_all_models(self):
         client = ModelClient(JujuData('foo', {'type': 'ec2'}), None, None)
-        with patch.object(client, 'juju') as juju_mock:
+        with patch_juju_call(client) as juju_mock:
             client.destroy_controller(all_models=True)
         juju_mock.assert_called_once_with(
             'destroy-controller', ('foo', '-y', '--destroy-all-models'),
@@ -991,7 +992,9 @@ class TestModelClient(ClientTest):
                                   side_effect=raise_error) as mock:
                     yield mock
             else:
-                with patch.object(target, attribute, autospec=True) as mock:
+                with patch.object(
+                        target, attribute, autospec=True,
+                        return_value=make_fake_juju_return()) as mock:
                     yield mock
 
         with patch_raise(client, 'destroy_controller', destroy_raises
@@ -1222,21 +1225,21 @@ class TestModelClient(ClientTest):
     def test_deploy_non_joyent(self):
         env = ModelClient(
             JujuData('foo', {'type': 'local'}), '1.234-76', None)
-        with patch.object(env, 'juju') as mock_juju:
+        with patch_juju_call(env) as mock_juju:
             env.deploy('mondogb')
         mock_juju.assert_called_with('deploy', ('mondogb',))
 
     def test_deploy_joyent(self):
         env = ModelClient(
             JujuData('foo', {'type': 'local'}), '1.234-76', None)
-        with patch.object(env, 'juju') as mock_juju:
+        with patch_juju_call(env) as mock_juju:
             env.deploy('mondogb')
         mock_juju.assert_called_with('deploy', ('mondogb',))
 
     def test_deploy_repository(self):
         env = ModelClient(
             JujuData('foo', {'type': 'local'}), '1.234-76', None)
-        with patch.object(env, 'juju') as mock_juju:
+        with patch_juju_call(env) as mock_juju:
             env.deploy('/home/jrandom/repo/mongodb')
         mock_juju.assert_called_with(
             'deploy', ('/home/jrandom/repo/mongodb',))
@@ -1244,7 +1247,7 @@ class TestModelClient(ClientTest):
     def test_deploy_to(self):
         env = ModelClient(
             JujuData('foo', {'type': 'local'}), '1.234-76', None)
-        with patch.object(env, 'juju') as mock_juju:
+        with patch_juju_call(env) as mock_juju:
             env.deploy('mondogb', to='0')
         mock_juju.assert_called_with(
             'deploy', ('mondogb', '--to', '0'))
@@ -1252,7 +1255,7 @@ class TestModelClient(ClientTest):
     def test_deploy_service(self):
         env = ModelClient(
             JujuData('foo', {'type': 'local'}), '1.234-76', None)
-        with patch.object(env, 'juju') as mock_juju:
+        with patch_juju_call(env) as mock_juju:
             env.deploy('local:mondogb', service='my-mondogb')
         mock_juju.assert_called_with(
             'deploy', ('local:mondogb', 'my-mondogb',))
@@ -1260,14 +1263,14 @@ class TestModelClient(ClientTest):
     def test_deploy_force(self):
         env = ModelClient(
             JujuData('foo', {'type': 'local'}), '1.234-76', None)
-        with patch.object(env, 'juju') as mock_juju:
+        with patch_juju_call(env) as mock_juju:
             env.deploy('local:mondogb', force=True)
         mock_juju.assert_called_with('deploy', ('local:mondogb', '--force',))
 
     def test_deploy_series(self):
         env = ModelClient(
             JujuData('foo', {'type': 'local'}), '1.234-76', None)
-        with patch.object(env, 'juju') as mock_juju:
+        with patch_juju_call(env) as mock_juju:
             env.deploy('local:blah', series='xenial')
         mock_juju.assert_called_with(
             'deploy', ('local:blah', '--series', 'xenial'))
@@ -1275,14 +1278,14 @@ class TestModelClient(ClientTest):
     def test_deploy_multiple(self):
         env = ModelClient(
             JujuData('foo', {'type': 'local'}), '1.234-76', None)
-        with patch.object(env, 'juju') as mock_juju:
+        with patch_juju_call(env) as mock_juju:
             env.deploy('local:blah', num=2)
         mock_juju.assert_called_with(
             'deploy', ('local:blah', '-n', '2'))
 
     def test_deploy_resource(self):
         env = ModelClient(JujuData('foo', {'type': 'local'}), None, None)
-        with patch.object(env, 'juju') as mock_juju:
+        with patch_juju_call(env) as mock_juju:
             env.deploy('local:blah', resource='foo=/path/dir')
         mock_juju.assert_called_with(
             'deploy', ('local:blah', '--resource', 'foo=/path/dir'))
@@ -1290,7 +1293,7 @@ class TestModelClient(ClientTest):
     def test_deploy_storage(self):
         env = EnvJujuClient1X(
             SimpleEnvironment('foo', {'type': 'local'}), '1.234-76', None)
-        with patch.object(env, 'juju') as mock_juju:
+        with patch_juju_call(env) as mock_juju:
             env.deploy('mondogb', storage='rootfs,1G')
         mock_juju.assert_called_with(
             'deploy', ('mondogb', '--storage', 'rootfs,1G'))
@@ -1298,27 +1301,27 @@ class TestModelClient(ClientTest):
     def test_deploy_constraints(self):
         env = EnvJujuClient1X(
             SimpleEnvironment('foo', {'type': 'local'}), '1.234-76', None)
-        with patch.object(env, 'juju') as mock_juju:
+        with patch_juju_call(env) as mock_juju:
             env.deploy('mondogb', constraints='virt-type=kvm')
         mock_juju.assert_called_with(
             'deploy', ('mondogb', '--constraints', 'virt-type=kvm'))
 
     def test_deploy_bind(self):
         env = ModelClient(JujuData('foo', {'type': 'local'}), None, None)
-        with patch.object(env, 'juju') as mock_juju:
+        with patch_juju_call(env) as mock_juju:
             env.deploy('mydb', bind='backspace')
         mock_juju.assert_called_with('deploy', ('mydb', '--bind', 'backspace'))
 
     def test_deploy_aliased(self):
         env = ModelClient(JujuData('foo', {'type': 'local'}), None, None)
-        with patch.object(env, 'juju') as mock_juju:
+        with patch_juju_call(env) as mock_juju:
             env.deploy('local:blah', alias='blah-blah')
         mock_juju.assert_called_with(
             'deploy', ('local:blah', 'blah-blah'))
 
     def test_attach(self):
         env = ModelClient(JujuData('foo', {'type': 'local'}), None, None)
-        with patch.object(env, 'juju') as mock_juju:
+        with patch_juju_call(env) as mock_juju:
             env.attach('foo', resource='foo=/path/dir')
         mock_juju.assert_called_with('attach', ('foo', 'foo=/path/dir'))
 
@@ -1386,7 +1389,7 @@ class TestModelClient(ClientTest):
     def test_deploy_bundle_2x(self):
         client = ModelClient(JujuData('an_env', None),
                              '1.23-series-arch', None)
-        with patch.object(client, 'juju') as mock_juju:
+        with patch_juju_call(client) as mock_juju:
             client.deploy_bundle('bundle:~juju-qa/some-bundle')
         mock_juju.assert_called_with(
             'deploy', ('bundle:~juju-qa/some-bundle'), timeout=3600)
@@ -1394,7 +1397,7 @@ class TestModelClient(ClientTest):
     def test_deploy_bundle_template(self):
         client = ModelClient(JujuData('an_env', None),
                              '1.23-series-arch', None)
-        with patch.object(client, 'juju') as mock_juju:
+        with patch_juju_call(client) as mock_juju:
             client.deploy_bundle('bundle:~juju-qa/some-{container}-bundle')
         mock_juju.assert_called_with(
             'deploy', ('bundle:~juju-qa/some-lxd-bundle'), timeout=3600)
@@ -1402,7 +1405,7 @@ class TestModelClient(ClientTest):
     def test_upgrade_charm(self):
         env = ModelClient(
             JujuData('foo', {'type': 'local'}), '2.34-74', None)
-        with patch.object(env, 'juju') as mock_juju:
+        with patch_juju_call(env) as mock_juju:
             env.upgrade_charm('foo-service',
                               '/bar/repository/angsty/mongodb')
         mock_juju.assert_called_once_with(
@@ -1412,7 +1415,7 @@ class TestModelClient(ClientTest):
     def test_remove_service(self):
         env = ModelClient(
             JujuData('foo', {'type': 'local'}), '1.234-76', None)
-        with patch.object(env, 'juju') as mock_juju:
+        with patch_juju_call(env) as mock_juju:
             env.remove_service('mondogb')
         mock_juju.assert_called_with('remove-application', ('mondogb',))
 
@@ -1581,7 +1584,7 @@ class TestModelClient(ClientTest):
 
     def test_remove_machine(self):
         client = fake_juju_client()
-        with patch.object(client._backend, 'juju') as juju_mock:
+        with patch_juju_call(client._backend) as juju_mock:
             condition = client.remove_machine('0')
         call = backend_call(
             client, 'remove-machine', ('0',), 'name:name')
@@ -1590,7 +1593,7 @@ class TestModelClient(ClientTest):
 
     def test_remove_machine_force(self):
         client = fake_juju_client()
-        with patch.object(client._backend, 'juju') as juju_mock:
+        with patch_juju_call(client._backend) as juju_mock:
             client.remove_machine('0', force=True)
         call = backend_call(
             client, 'remove-machine', ('--force', '0'), 'name:name')
@@ -1985,7 +1988,7 @@ class TestModelClient(ClientTest):
 
     def test_list_models(self):
         client = ModelClient(JujuData('foo'), None, None)
-        with patch.object(client, 'juju') as j_mock:
+        with patch_juju_call(client) as j_mock:
             client.list_models()
         j_mock.assert_called_once_with(
             'list-models', ('-c', 'foo'), include_e=False)
@@ -2197,7 +2200,7 @@ class TestModelClient(ClientTest):
 
     def test_list_controllers(self):
         client = ModelClient(JujuData('foo'), None, None)
-        with patch.object(client, 'juju') as j_mock:
+        with patch_juju_call(client) as j_mock:
             client.list_controllers()
         j_mock.assert_called_once_with('list-controllers', (), include_e=False)
 
@@ -2665,7 +2668,7 @@ class TestModelClient(ClientTest):
 
     def test_set_model_constraints(self):
         client = ModelClient(JujuData('bar', {}), None, '/foo')
-        with patch.object(client, 'juju') as juju_mock:
+        with patch_juju_call(client) as juju_mock:
             client.set_model_constraints({'bar': 'baz'})
         juju_mock.assert_called_once_with('set-model-constraints',
                                           ('bar=baz',))
@@ -2951,7 +2954,7 @@ class TestModelClient(ClientTest):
     def test_restore_backup(self):
         env = JujuData('qux')
         client = ModelClient(env, None, '/foobar/baz')
-        with patch.object(client, 'juju') as gjo_mock:
+        with patch_juju_call(client) as gjo_mock:
             client.restore_backup('quxx')
         gjo_mock.assert_called_once_with(
             'restore-backup',
@@ -3233,7 +3236,7 @@ class TestModelClient(ClientTest):
 
     def test_set_config(self):
         client = ModelClient(JujuData('bar', {}), None, '/foo')
-        with patch.object(client, 'juju') as juju_mock:
+        with patch_juju_call(client) as juju_mock:
             client.set_config('foo', {'bar': 'baz'})
         juju_mock.assert_called_once_with('config', ('foo', 'bar=baz'))
 
@@ -3288,7 +3291,7 @@ class TestModelClient(ClientTest):
 
     def test_upgrade_mongo(self):
         client = ModelClient(JujuData('bar', {}), None, '/foo')
-        with patch.object(client, 'juju') as juju_mock:
+        with patch_juju_call(client) as juju_mock:
             client.upgrade_mongo()
         juju_mock.assert_called_once_with('upgrade-mongo', ())
 
@@ -3333,7 +3336,7 @@ class TestModelClient(ClientTest):
         default_model = fake_client.model_name
         default_controller = fake_client.env.controller.name
 
-        with patch.object(fake_client, 'juju', return_value=True):
+        with patch_juju_call(fake_client):
             fake_client.revoke(username)
             fake_client.juju.assert_called_with('revoke',
                                                 ('-c', default_controller,
@@ -3413,7 +3416,7 @@ class TestModelClient(ClientTest):
         env = JujuData('foo')
         username = 'fakeuser'
         client = ModelClient(env, None, None)
-        with patch.object(client, 'juju') as mock:
+        with patch_juju_call(client) as mock:
             client.disable_user(username)
         mock.assert_called_with(
             'disable-user', ('-c', 'foo', 'fakeuser'), include_e=False)
@@ -3422,7 +3425,7 @@ class TestModelClient(ClientTest):
         env = JujuData('foo')
         username = 'fakeuser'
         client = ModelClient(env, None, None)
-        with patch.object(client, 'juju') as mock:
+        with patch_juju_call(client) as mock:
             client.enable_user(username)
         mock.assert_called_with(
             'enable-user', ('-c', 'foo', 'fakeuser'), include_e=False)
@@ -3430,7 +3433,7 @@ class TestModelClient(ClientTest):
     def test_logout(self):
         env = JujuData('foo')
         client = ModelClient(env, None, None)
-        with patch.object(client, 'juju') as mock:
+        with patch_juju_call(client) as mock:
             client.logout()
         mock.assert_called_with(
             'logout', ('-c', 'foo'), include_e=False)
@@ -3670,32 +3673,32 @@ class TestModelClient(ClientTest):
 
     def test_disable_command(self):
         client = ModelClient(JujuData('foo'), None, None)
-        with patch.object(client, 'juju', autospec=True) as mock:
+        with patch_juju_call(client) as mock:
             client.disable_command('all', 'message')
         mock.assert_called_once_with('disable-command', ('all', 'message'))
 
     def test_enable_command(self):
         client = ModelClient(JujuData('foo'), None, None)
-        with patch.object(client, 'juju', autospec=True) as mock:
+        with patch_juju_call(client) as mock:
             client.enable_command('all')
         mock.assert_called_once_with('enable-command', 'all')
 
     def test_sync_tools(self):
         client = ModelClient(JujuData('foo'), None, None)
-        with patch.object(client, 'juju', autospec=True) as mock:
+        with patch_juju_call(client) as mock:
             client.sync_tools()
         mock.assert_called_once_with('sync-tools', ())
 
     def test_sync_tools_local_dir(self):
         client = ModelClient(JujuData('foo'), None, None)
-        with patch.object(client, 'juju', autospec=True) as mock:
+        with patch_juju_call(client) as mock:
             client.sync_tools('/agents')
         mock.assert_called_once_with('sync-tools', ('--local-dir', '/agents'),
                                      include_e=False)
 
     def test_generate_tool(self):
         client = ModelClient(JujuData('foo'), None, None)
-        with patch.object(client, 'juju', autospec=True) as mock:
+        with patch_juju_call(client) as mock:
             client.generate_tool('/agents')
         mock.assert_called_once_with('metadata',
                                      ('generate-tools', '-d', '/agents'),
@@ -3703,7 +3706,7 @@ class TestModelClient(ClientTest):
 
     def test_generate_tool_with_stream(self):
         client = ModelClient(JujuData('foo'), None, None)
-        with patch.object(client, 'juju', autospec=True) as mock:
+        with patch_juju_call(client) as mock:
             client.generate_tool('/agents', "testing")
         mock.assert_called_once_with(
             'metadata', ('generate-tools', '-d', '/agents',
@@ -3711,7 +3714,7 @@ class TestModelClient(ClientTest):
 
     def test_add_cloud(self):
         client = ModelClient(JujuData('foo'), None, None)
-        with patch.object(client, 'juju', autospec=True) as mock:
+        with patch_juju_call(client) as mock:
             client.add_cloud('localhost', 'cfile')
         mock.assert_called_once_with('add-cloud',
                                      ('--replace', 'localhost', 'cfile'),
@@ -3720,7 +3723,7 @@ class TestModelClient(ClientTest):
     def test_switch(self):
         def run_switch_test(expect, model=None, controller=None):
             client = ModelClient(JujuData('foo'), None, None)
-            with patch.object(client, 'juju', autospec=True) as mock:
+            with patch_juju_call(client) as mock:
                 client.switch(model=model, controller=controller)
             mock.assert_called_once_with('switch', (expect,), include_e=False)
         run_switch_test('default', 'default')

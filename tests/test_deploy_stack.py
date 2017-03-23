@@ -82,6 +82,7 @@ from tests import (
     assert_juju_call,
     FakeHomeTestCase,
     FakePopen,
+    make_fake_juju_return,
     observable_temp_file,
     temp_os_env,
     use_context,
@@ -1757,7 +1758,7 @@ class TestBootstrapManager(FakeHomeTestCase):
         def do_check(*args, **kwargs):
             with client.check_timeouts():
                 with tear_down_client.check_timeouts():
-                    pass
+                    return make_fake_juju_return()
 
         with patch.object(bs_manager.tear_down_client, 'juju',
                           side_effect=do_check, autospec=True):
@@ -1996,7 +1997,9 @@ class TestBootstrapManager(FakeHomeTestCase):
         bs_manager.has_controller = False
         with patch('deploy_stack.safe_print_status',
                    autospec=True) as sp_mock:
-            with patch.object(client, 'juju', wrap=client.juju) as juju_mock:
+            with patch.object(
+                    client, 'juju', wrap=client.juju,
+                    return_value=make_fake_juju_return()) as juju_mock:
                 with patch.object(client, 'get_juju_output',
                                   wraps=client.get_juju_output) as gjo_mock:
                     with patch.object(bs_manager, '_should_dump',
@@ -2085,7 +2088,9 @@ class TestBootstrapManager(FakeHomeTestCase):
         """Preform patches to focus on the call to bootstrap."""
         with patch.object(bs_manager, 'dump_all_logs'):
             with patch.object(bs_manager, 'runtime_context'):
-                with patch.object(bs_manager.client, 'juju'):
+                with patch.object(
+                        bs_manager.client, 'juju',
+                        return_value=make_fake_juju_return()):
                     with patch.object(bs_manager.client, 'bootstrap') as mock:
                         yield mock
 
