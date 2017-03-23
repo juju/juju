@@ -6019,8 +6019,8 @@ class TestCommandTime(TestCase):
 
     def test_default_values(self):
         full_args = ['juju', '--showlog', 'bootstrap']
-        utcnow = datetime.utcnow()
-        with patch('jujupy.client.datetime') as m_dt:
+        utcnow = datetime(2017, 3, 22, 23, 36, 52, 530631)
+        with patch('jujupy.client.datetime', autospec=True) as m_dt:
             m_dt.utcnow.return_value = utcnow
             ct = CommandTime('bootstrap', full_args)
             self.assertEqual(ct.cmd, 'bootstrap')
@@ -6039,23 +6039,21 @@ class TestCommandTime(TestCase):
         self.assertEqual(ct.envvars, details)
 
     def test_actual_completion_sets_default(self):
-        utcnow = datetime.utcnow()
+        utcnow = datetime(2017, 3, 22, 23, 36, 52, 530631)
         ct = CommandTime('cmd', [])
-        with patch('jujupy.client.datetime') as m_dt:
+        with patch('jujupy.client.datetime', autospec=True) as m_dt:
             m_dt.utcnow.return_value = utcnow
             ct.actual_completion()
         self.assertEqual(ct.end, utcnow)
 
     def test_actual_completion_idempotent(self):
         ct = CommandTime('cmd', [])
-        with patch('jujupy.client.datetime') as m_dt:
-            m_dt.utcnow.side_effect = ['a', 'b']
-            ct.actual_completion()
-            ct.actual_completion()
-            self.assertEqual(ct.end, 'a')
+        ct.actual_completion(end='a')
+        ct.actual_completion(end='b')
+        self.assertEqual(ct.end, 'a')
 
     def test_actual_completion_set_value(self):
-        utcnow = datetime.utcnow()
+        utcnow = datetime(2017, 3, 22, 23, 36, 52, 530631)
         ct = CommandTime('cmd', [])
         ct.actual_completion(end=utcnow)
         self.assertEqual(ct.end, utcnow)
@@ -6065,9 +6063,9 @@ class TestCommandTime(TestCase):
         self.assertEqual(ct.actual_time, None)
 
     def test_actual_time_returns_time_difference_when_complete(self):
-        utcstart = datetime.utcnow()
+        utcstart = datetime(2017, 3, 22, 23, 36, 52, 530631)
         utcend = utcstart + timedelta(seconds=1)
-        with patch('jujupy.client.datetime') as m_dt:
+        with patch('jujupy.client.datetime', autospec=True) as m_dt:
             m_dt.utcnow.side_effect = [utcstart, utcend]
             ct = CommandTime('cmd', [])
             ct.actual_completion()
