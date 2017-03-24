@@ -1681,98 +1681,109 @@ class TestEnsureCleanup(TestCase):
         self.assertEqual([], substrate_account.ensure_cleanup([]))
 
 
+class FakeSecurityGroup:
+    def __init__(self, id, instances):
+        self.id = id
+        self._instances = instances
+
+    def instances(self):
+        return self._instances
+
+
 class TestAWSEnsureCleanUp(TestCase):
     def test_ensure_cleanup_successfully(self):
         client = MagicMock()
         resource_details = dict()
-        resource_details['instances'] = ["foo", "bar"]
+        resource_details['instances'] = ["i_id1", "i_id2"]
         aws = AWSAccount(None, 'myregion', client)
-        with patch.object(aws, 'get_security_groups',
-                          return_value=['sg-foo'], autospec=True) as gsg:
-            with patch.object(aws, 'cleanup_security_groups',
-                              return_value=[], autospec=True) as csg:
-                uncleaned_resources = aws.ensure_cleanup(resource_details)
-                gsg.assert_called_once_with(['foo', 'bar'])
-                csg.assert_called_once_with(['foo', 'bar'], ['sg-foo'])
-                self.assertEquals(uncleaned_resources, [])
-                self.assertEquals(
-                    aws.client.terminate_instances.call_args_list,
-                    [call(instance_ids=['foo']),
-                     call(instance_ids=['bar'])])
+        client.get_all_security_groups.return_value = [
+            FakeSecurityGroup('sg_id1', ['i_id1', 'i_id2'])]
+        client.delete_security_group.return_value = True
+        uncleaned_resources = aws.ensure_cleanup(resource_details)
+        self.assertEquals(client.delete_security_group.call_args_list,
+                          [call(name='sg_id1')])
+        self.assertEquals(client.get_all_instances.call_args_list,
+                          [call(instance_ids=['i_id1', 'i_id2'])])
+        self.assertEquals(uncleaned_resources, [])
+        self.assertEquals(
+            aws.client.terminate_instances.call_args_list,
+            [call(instance_ids=['i_id1']), call(instance_ids=['i_id2'])])
 
     def test_ensure_cleanup_with_uncleaned_instances(self):
         client = MagicMock()
         resource_details = dict()
-        resource_details['instances'] = ["foo", "bar"]
+        resource_details['instances'] = ["i_id1", "i_id2"]
         aws = AWSAccount(None, 'myregion', client)
         err_msg = 'Instance error'
         client.terminate_instances.side_effect = [
             Exception(err_msg), Exception(err_msg)]
-        with patch.object(aws, 'get_security_groups',
-                          return_value=['sg-foo'], autospec=True) as gsg:
-            with patch.object(aws, 'cleanup_security_groups',
-                              return_value=[], autospec=True) as csg:
-                uncleaned_resources = aws.ensure_cleanup(resource_details)
-                gsg.assert_called_once_with(['foo', 'bar'])
-                csg.assert_called_once_with(['foo', 'bar'], ['sg-foo'])
-                self.assertEquals(uncleaned_resources, [
-                    {'errors': [
-                        ('foo', "Exception('Instance error',)"),
-                        ('bar', "Exception('Instance error',)")],
-                        'resource': 'instances'}])
+        client.get_all_security_groups.return_value = [
+            FakeSecurityGroup('sg_id1', ['i_id1', 'i_id2'])]
+        client.delete_security_group.return_value = True
+        uncleaned_resources = aws.ensure_cleanup(resource_details)
+        self.assertEquals(client.get_all_instances.call_args_list,
+                          [call(instance_ids=['i_id1', 'i_id2'])])
+        self.assertEquals(uncleaned_resources, [
+            {'errors': [('i_id1', "Exception('Instance error',)"),
+                        ('i_id2', "Exception('Instance error',)")],
+             'resource': 'instances'}])
 
     def test_ensure_cleanup_with_uncleaned_sg(self):
         client = MagicMock()
         resource_details = dict()
-        resource_details['instances'] = ["foo", "bar"]
+        resource_details['instances'] = ["i_id1", "i_id2"]
         aws = AWSAccount(None, 'myregion', client)
-        client.terminate_instances.side_effect = ["foo", "bar"]
-        with patch.object(aws, 'get_security_groups',
-                          return_value=[], autospec=True) as gsg:
-            with patch.object(aws, 'cleanup_security_groups',
-                              return_value=["foo", "bar"],
-                              autospec=True) as csg:
-                uncleaned_resources = aws.ensure_cleanup(resource_details)
-                self.assertEquals(
-                    uncleaned_resources,
-                    [{'errors': ['foo', 'bar'],
-                      'resource': 'security groups'}])
-                gsg.assert_called_once_with(['foo', 'bar'])
-                csg.assert_called_once_with(['foo', 'bar'], [])
+        client.terminate_instances.side_effect = ["i_id1", "i_id2"]
+        client.get_all_security_groups.return_value = [
+            FakeSecurityGroup('sg_id1', [])]
+        client.delete_security_group.return_value = False
+        uncleaned_resources = aws.ensure_cleanup(resource_details)
+        self.assertEquals(uncleaned_resources, [
+            {'errors': [('sg_id1', 'Failed to delete')],
+             'resource': 'security groups'}])
+        self.assertEquals(client.get_all_instances.call_args_list,
+                          [call(instance_ids=['i_id1', 'i_id2'])])
 
     def test_ensure_cleanup_with_uncleaned_instances_and_sg(self):
         client = MagicMock()
         resource_details = dict()
-        resource_details['instances'] = ["foo", "bar"]
+        resource_details['instances'] = ["i_id1", "i_id2"]
         aws = AWSAccount(None, 'myregion', client)
         ati_err_msg = 'Instance not found'
-        sg_err_msg = 'Security group failed to delete'
         client.terminate_instances.side_effect = [
              Exception(ati_err_msg), Exception(ati_err_msg)]
-        with patch.object(aws, 'get_security_groups',
-                          return_value=[], autospec=True) as gsg:
-            with patch.object(aws, 'cleanup_security_groups',
-                              return_value=[("sg-bar", sg_err_msg)],
-                              autospec=True) as csg:
-                uncleaned_resources = aws.ensure_cleanup(resource_details)
-                gsg.assert_called_once_with(['foo', 'bar'])
-                csg.assert_called_once_with(['foo', 'bar'], [])
-                self.assertEquals(
-                    uncleaned_resources,
-                    [{'errors': [
-                        ('foo', "Exception('Instance not found',)"),
-                        ('bar', "Exception('Instance not found',)")],
-                        'resource': 'instances'},
-                     {'errors': [
-                         ('sg-bar', 'Security group failed to delete')],
-                         'resource': 'security groups'}])
+        client.get_all_security_groups.return_value = [
+            FakeSecurityGroup('sg_id1', ['i_id1', 'i_id2'])]
+        client.delete_security_group.side_effect = EC2ResponseError(
+            400, "Bad Request",
+            body={
+                "RequestID": "xxx-yyy-zz",
+                "Error": {
+                    "Code": "Security group failed to delete",
+                    "Message": "failed"
+                }
+            })
+        uncleaned_resources = aws.ensure_cleanup(resource_details)
+        self.assertEquals(client.get_all_instances.call_args_list,
+                          [call(instance_ids=['i_id1', 'i_id2'])])
+        self.assertEquals(
+            uncleaned_resources,
+            [{'errors': [
+                ('i_id1', "Exception('Instance not found',)"),
+                ('i_id2', "Exception('Instance not found',)")],
+                'resource': 'instances'},
+                {'errors': [
+                    ('sg_id1',
+                     "EC2ResponseError: 400 Bad Request\n{"
+                     "'RequestID': 'xxx-yyy-zz', 'Error': {"
+                     "'Message': 'failed', "
+                     "'Code': 'Security group failed to delete'}}")],
+                    'resource': 'security groups'}])
 
 
 class TestAWSCleanUpSecurityGroups(TestCase):
     def test_delete_secgroup_not_in_use(self):
-        secgroup = {
-            "sg-foo": ["foo", "bar"]
-        }
+        secgroup = [("sg-foo", ["foo", "bar"])]
         instances = ["foo", "bar"]
         client = MagicMock()
         aws = AWSAccount(None, 'myregion', client)
@@ -1782,9 +1793,7 @@ class TestAWSCleanUpSecurityGroups(TestCase):
             client.delete_security_group.call_args, call(name='sg-foo'))
 
     def test_dont_delete_secgroup_in_use(self):
-        secgroup = {
-            "sg-foo": ["foo", "bar", "baz"]
-        }
+        secgroup = [("sg-foo", ["foo", "bar", "baz"])]
         instances = ["foo", "bar"]
         client = MagicMock()
         aws = AWSAccount(None, 'myregion', client)
@@ -1793,10 +1802,7 @@ class TestAWSCleanUpSecurityGroups(TestCase):
         self.assertEquals(failures, [])
 
     def test_return_failure_on_exception(self):
-        secgroup = {
-            "sg-foo": ["foo", "bar"],
-            "sg-bar": ["foo", "bar"]
-        }
+        secgroup = [("sg-foo", ["foo", "bar"]), ("sg-bar", ["foo", "bar"])]
         instances = ["foo", "bar"]
         client = MagicMock(spec=["delete_security_group"])
         client.delete_security_group.side_effect = EC2ResponseError(
@@ -1811,41 +1817,35 @@ class TestAWSCleanUpSecurityGroups(TestCase):
         aws = AWSAccount(None, 'myregion', client)
         failures = aws.cleanup_security_groups(instances, secgroup)
         self.assertEquals(client.delete_security_group.call_args_list,
-                          [call(name='sg-bar'), call(name='sg-foo')])
+                          [call(name='sg-foo'), call(name='sg-bar')])
         self.assertListEqual(failures,
-                             [('sg-bar',
+                             [('sg-foo',
                                "EC2ResponseError: 400 Bad Request\n{"
                                "'RequestID': 'xxx-yyy-zz', 'Error': {"
                                "'Message': 'failed',"
                                " 'Code': 'InvalidSecurityGroup.NotFound'}}"),
-                              ('sg-foo', "EC2ResponseError: 400 Bad Request\n{"
+                              ('sg-bar', "EC2ResponseError: 400 Bad Request\n{"
                                "'RequestID': 'xxx-yyy-zz', 'Error': {"
                                "'Message': 'failed',"
                                " 'Code': 'InvalidSecurityGroup.NotFound'}}")])
 
     def test_return_mixed_response(self):
-        secgroup = {
-            "sg-foo": ["foo", "bar"],
-            "sg-bar": ["fooX", "barX"]
-        }
+        secgroup = [("sg-foo", ["foo", "bar"]), ("sg-bar", ["fooX", "barX"])]
         instances = ["foo", "bar", "fooX", "barX"]
         client = MagicMock(spec=["delete_security_group"])
         client.delete_security_group.side_effect = [
             True, False]
         aws = AWSAccount(None, 'myregion', client)
         failures = aws.cleanup_security_groups(instances, secgroup)
-        self.assertEquals(failures, [('sg-foo', 'Failed to delete')])
+        self.assertEquals(failures, [('sg-bar', 'Failed to delete')])
         self.assertEquals(client.delete_security_group.call_args_list,
-                          [call(name='sg-bar'), call(name='sg-foo')])
+                          [call(name='sg-foo'), call(name='sg-bar')])
 
     def test_instance_mapped_to_more_than_one_secgroup(self):
         """ Delete security group only if it has all the mapped instances
         specified in the instances list.
         """
-        secgroup = {
-            "sg-foo": ["foo", "bar"],
-            "sg-bar": ["foo", "baz"]
-        }
+        secgroup = [("sg-foo", ["foo", "bar"]), ("sg-bar", ["foo", "baz"])]
         instances = ["foo", "bar"]
         client = MagicMock()
         aws = AWSAccount(None, 'myregion', client)
@@ -1915,43 +1915,30 @@ class TestAttemptTerminateInstances(TestCase):
 
 
 class TestGetSecurityGroups(TestCase):
-
-    class FakeSecurityGroup:
-        def __init__(self, id, instances):
-            self.id = id
-            self._instances = instances
-
-        def instances(self):
-            return self._instances
-
     def test_instance_managed_by_single_security_group(self):
         client = MagicMock()
-        instance_sec_groups = [('i_id1', 'sg_id1'), ('i_id2', 'sg_id1')]
-        all_sec_groups = [self.FakeSecurityGroup('sg_id1', ['i_id1', 'i_id2'])]
+        instance_sec_groups = (('i_id1', 'sg_id1'), ('i_id2', 'sg_id1'))
+        all_sec_groups = [FakeSecurityGroup('sg_id1', ['i_id1', 'i_id2'])]
         aws = AWSAccount(None, 'myregion', client)
+        client.get_all_security_groups.return_value = all_sec_groups
         with patch.object(
                 aws, 'iter_instance_security_groups',
                 autospec=True, return_value=instance_sec_groups):
-            with patch.object(
-                    aws.client, 'get_all_security_groups',
-                    autospec=True, return_value=all_sec_groups):
-                sec_groups = aws.get_security_groups(['i_id1', 'i_id2'])
-        self.assertEqual(sec_groups, [('sg_id1', ['i_id1', 'i_id2'])])
+            sec_groups = aws.get_security_groups(['i_id1', 'i_id2'])
+            self.assertEqual(sec_groups, [('sg_id1', ['i_id1', 'i_id2'])])
 
     def test_instance_managed_by_multiple_security_group(self):
         client = MagicMock()
-        instance_sec_groups = [('i_id1', 'sg_id1'), ('i_id2', 'sg_id1')]
-        all_sec_groups = [self.FakeSecurityGroup(
+        instance_sec_groups = (('i_id1', 'sg_id1'), ('i_id2', 'sg_id1'))
+        all_sec_groups = [FakeSecurityGroup(
             'sg_id1', ['i_id1', 'i_id2']),
-            self.FakeSecurityGroup('sg_id2', ['i_id1'])]
+            FakeSecurityGroup('sg_id2', ['i_id1'])]
         aws = AWSAccount(None, 'myregion', client)
+        client.get_all_security_groups.return_value = all_sec_groups
         with patch.object(
                 aws, 'iter_instance_security_groups',
                 autospec=True, return_value=instance_sec_groups):
-            with patch.object(
-                    aws.client, 'get_all_security_groups',
-                    autospec=True, return_value=all_sec_groups):
-                sec_groups = aws.get_security_groups(['i_id1', 'i_id2'])
-        self.assertEqual(sec_groups,
-                         [('sg_id1', ['i_id1', 'i_id2']),
-                          ('sg_id2', ['i_id1'])])
+            sec_groups = aws.get_security_groups(['i_id1', 'i_id2'])
+            self.assertEqual(sec_groups,
+                             [('sg_id1', ['i_id1', 'i_id2']),
+                              ('sg_id2', ['i_id1'])])

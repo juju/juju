@@ -104,8 +104,7 @@ def contains_only_known_instances(known_instance_ids, possibly_known_ids):
     :return: True if known_instance_ids only contains
     possibly_known_ids
     """
-    unknown_ids = set(possibly_known_ids) - set(known_instance_ids)
-    return len(unknown_ids) == 0
+    return set(possibly_known_ids).issubset(set(known_instance_ids))
 
 
 class AWSAccount:
@@ -200,7 +199,7 @@ class AWSAccount:
         :return: list of failed deleted security groups
         """
         failures = []
-        for sg_id, sg_instances in secgroups.items():
+        for sg_id, sg_instances in secgroups:
             if contains_only_known_instances(instances, sg_instances):
                 try:
                     deleted = self.client.delete_security_group(name=sg_id)
@@ -217,8 +216,10 @@ class AWSAccount:
         to those instances only.
 
         :param instances: list of instance names
-        :return: dict of security group with key as security group name
-         and values as list of instances configured to it.
+        :return: list containing tuples; where each tuples contains security
+        group id as first element and the list of instances mapped to that
+        security group as second element. [(sg_id, [i_id, id2]),
+         (sg_id2, [i_id1])]
         """
         group_names = [sg[1] for sg in self.iter_instance_security_groups(
             instances)]
