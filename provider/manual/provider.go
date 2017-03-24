@@ -4,13 +4,12 @@
 package manual
 
 import (
-	"bytes"
 	"fmt"
+	"io"
 	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/jsonschema"
-	"github.com/juju/utils/ssh"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
@@ -22,7 +21,7 @@ import (
 // controller, connected via SSH.
 type ManualProvider struct {
 	environProviderCredentials
-	ping func(endpoint string) error
+	ping func(in io.Reader, out io.Writer, authorizedKeys, endpoint string) error
 }
 
 // Verify that we conform to the interface.
@@ -30,8 +29,8 @@ var _ environs.EnvironProvider = (*ManualProvider)(nil)
 
 var initUbuntuUser = sshprovisioner.InitUbuntuUser
 
-func ensureBootstrapUbuntuUser(ctx environs.BootstrapContext, host, user string, cfg *environConfig) error {
-	err := initUbuntuUser(host, user, cfg.AuthorizedKeys(), ctx.GetStdin(), ctx.GetStdout())
+func ensureBootstrapUbuntuUser(in io.Reader, out io.Writer, host, user, authorizedKeys string) error {
+	err := initUbuntuUser(host, user, authorizedKeys, in, out)
 	if err != nil {
 		logger.Errorf("initializing ubuntu user: %v", err)
 		return err
@@ -63,37 +62,21 @@ func (p ManualProvider) CloudSchema() *jsonschema.Schema {
 }
 
 // Ping tests the connection to the cloud, to verify the endpoint is valid.
-func (p ManualProvider) Ping(endpoint string) error {
+func (p ManualProvider) Ping(in io.Reader, out io.Writer, authorizedKeys, endpoint string) error {
 	if p.ping != nil {
-		return p.ping(endpoint)
+		return p.ping(in, out, authorizedKeys, endpoint)
 	}
-	return pingMachine(endpoint)
+	return pingMachine(in, out, authorizedKeys, endpoint)
 }
 
 // pingMachine is what is used in production by ManualProvider.Ping().  It
 // attempts a simplistic ssh connection to verify the machine exists and that
 // you can log into it with SSH.
-func pingMachine(endpoint string) error {
+func pingMachine(in io.Reader, out io.Writer, authorizedKeys, endpoint string) error {
 	// There's no "just connect" command for utils/ssh, so we run a command that
 	// should always work.
-	cmd := ssh.Command(endpoint, []string{"echo", "hi"}, nil)
-
-	// os/exec just returns an error that contains the error code from the
-	// executable, which is basically useless, but stderr usually shows
-	// something useful, so we show that instead.
-	buf := bytes.Buffer{}
-	cmd.Stderr = &buf
-	if err := cmd.Run(); err != nil {
-		if buf.Len() > 0 {
-			received := buf.String()
-			if strings.HasPrefix(received, "Permission denied") {
-				// we have managed to reach the machine and just failed to authenticate.
-				// consider this is a successful ping
-				return nil
-			}
-			return errors.New(received)
-		}
-		return err
+	if err := ensureBootstrapUbuntuUser(in, out, endpoint, "", authorizedKeys); err != nil {
+		return errors.Annotatef(err, "endpoint %v verification failed", endpoint)
 	}
 	return nil
 }

@@ -208,7 +208,7 @@ func (MaasPingSuite) TestPingNoEndpoint(c *gc.C) {
 		return nil, errors.New("nope")
 	}
 
-	err = m.Ping(endpoint)
+	err = m.Ping(nil, nil, "", endpoint)
 	c.Assert(err, gc.ErrorMatches, "No MAAS server running at "+endpoint)
 }
 
@@ -222,6 +222,6 @@ func (MaasPingSuite) TestPingOK(c *gc.C) {
 		c.Assert(serverURL, gc.Equals, endpoint)
 		return set.NewStrings("network-deployment-ubuntu"), nil
 	}
-	err = m.Ping(endpoint)
+	err = m.Ping(nil, nil, "", endpoint)
 	c.Assert(err, jc.ErrorIsNil)
 }

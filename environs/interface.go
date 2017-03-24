@@ -30,7 +30,7 @@ type EnvironProvider interface {
 	CloudSchema() *jsonschema.Schema
 
 	// Ping tests the connection to the cloud, to verify the endpoint is valid.
-	Ping(endpoint string) error
+	Ping(in io.Reader, out io.Writer, authorizedKeys, endpoint string) error
 
 	// PrepareConfig prepares the configuration for a new model, based on
 	// the provided arguments. PrepareConfig is expected to produce a

@@ -5,6 +5,7 @@ package cloud_test
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"regexp"
@@ -28,6 +29,7 @@ type addSuite struct {
 }
 
 var _ = gc.Suite(&addSuite{})
+var _ = gc.Suite(&addFailureSuite{})
 
 func newFakeCloudMetadataStore() *fakeCloudMetadataStore {
 	var logger loggo.Logger
@@ -284,7 +286,7 @@ func (*addSuite) TestInteractiveOpenstack(c *gc.C) {
 	numCallsToWrite := fake.Call("WritePersonalCloudMetadata", m1Metadata).Returns(nil)
 
 	command := cloud.NewAddCloudCommand(fake)
-	command.Ping = func(environs.EnvironProvider, string) error {
+	command.Ping = func(environs.EnvironProvider, *cmd.Context, string) error {
 		return nil
 	}
 	err := testing.InitCommand(command, nil)
@@ -325,7 +327,7 @@ func (*addSuite) TestInteractiveMaas(c *gc.C) {
 	numCallsToWrite := fake.Call("WritePersonalCloudMetadata", m1Metadata).Returns(nil)
 
 	command := cloud.NewAddCloudCommand(fake)
-	command.Ping = func(environs.EnvironProvider, string) error {
+	command.Ping = func(environs.EnvironProvider, *cmd.Context, string) error {
 		return nil
 	}
 	err := testing.InitCommand(command, nil)
@@ -358,7 +360,7 @@ func (*addSuite) TestInteractiveManual(c *gc.C) {
 	numCallsToWrite := fake.Call("WritePersonalCloudMetadata", manMetadata).Returns(nil)
 
 	command := cloud.NewAddCloudCommand(fake)
-	command.Ping = func(environs.EnvironProvider, string) error {
+	command.Ping = func(environs.EnvironProvider, *cmd.Context, string) error {
 		return nil
 	}
 	err := testing.InitCommand(command, nil)
@@ -412,7 +414,7 @@ func (*addSuite) TestInteractiveVSphere(c *gc.C) {
 	numCallsToWrite := fake.Call("WritePersonalCloudMetadata", vsphereMetadata).Returns(nil)
 
 	command := cloud.NewAddCloudCommand(fake)
-	command.Ping = func(environs.EnvironProvider, string) error {
+	command.Ping = func(environs.EnvironProvider, *cmd.Context, string) error {
 		return nil
 	}
 	err := testing.InitCommand(command, nil)
@@ -450,7 +452,7 @@ func (*addSuite) TestInteractiveExistingNameOverride(c *gc.C) {
 	numCallsToWrite := fake.Call("WritePersonalCloudMetadata", manMetadata).Returns(nil)
 
 	command := cloud.NewAddCloudCommand(fake)
-	command.Ping = func(environs.EnvironProvider, string) error {
+	command.Ping = func(environs.EnvironProvider, *cmd.Context, string) error {
 		return nil
 	}
 	err := testing.InitCommand(command, nil)
@@ -490,7 +492,7 @@ func (*addSuite) TestInteractiveExistingNameNoOverride(c *gc.C) {
 	numCallsToWrite := fake.Call("WritePersonalCloudMetadata", compoundCloudMetadata).Returns(nil)
 
 	command := cloud.NewAddCloudCommand(fake)
-	command.Ping = func(environs.EnvironProvider, string) error {
+	command.Ping = func(environs.EnvironProvider, *cmd.Context, string) error {
 		return nil
 	}
 	err := testing.InitCommand(command, nil)
@@ -578,4 +580,73 @@ func (*addSuite) TestSpecifyCloudName_ProvidedNamedUtilizedDuringInteractive(c *
 	err := command.Run(ctx)
 	c.Assert(errors.Cause(err), gc.Equals, io.EOF)
 	c.Check(out.String(), gc.Not(gc.Matches), "(?s).+Enter a name for your manual cloud:.*")
+}
+
+type addFailureSuite struct {
+	jujutesting.IsolationSuite
+
+	command      *cloud.AddCloudCommand
+	errorMessage string
+}
+
+func (s *addFailureSuite) SetUpTest(c *gc.C) {
+	s.IsolationSuite.SetUpTest(c)
+
+	manCloud := manualCloud
+	manCloud.Name = "man"
+	fake := newFakeCloudMetadataStore()
+	fake.Call("PublicCloudMetadata", []string(nil)).Returns(map[string]cloudfile.Cloud{}, false, nil)
+	fake.Call("PersonalCloudMetadata").Returns(map[string]cloudfile.Cloud{}, nil)
+	fake.Call("ParseOneCloud", []byte("endpoint: 192.168.1.6\n")).Returns(manCloud, nil)
+
+	s.command = cloud.NewAddCloudCommand(fake)
+}
+
+func (s *addFailureSuite) assertInteractiveAddFailed(c *gc.C) {
+	err := testing.InitCommand(s.command, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	out := &bytes.Buffer{}
+	ctx := &cmd.Context{
+		Stdout: out,
+		Stderr: ioutil.Discard,
+		Stdin: strings.NewReader("" +
+			/* Select cloud type: */ "manual\n" +
+			/* Enter a name for the cloud: */ "man\n" +
+			/* Enter the controller's hostname or IP address: */ "192.168.1.6\n",
+		),
+	}
+
+	err = s.command.Run(ctx)
+	c.Check(errors.Cause(err), gc.Equals, io.EOF)
+	c.Assert(out.String(), gc.Equals, fmt.Sprintf(""+
+		"Cloud Types\n"+
+		"  maas\n"+
+		"  manual\n"+
+		"  openstack\n"+
+		"  vsphere\n"+
+		"\n"+
+		"Select cloud type: \n"+
+		"Enter a name for your manual cloud: \n"+
+		"Enter the controller's hostname or IP address: Can't validate endpoint: %v\n"+
+		"\n"+
+		"Enter the controller's hostname or IP address: \n",
+		s.errorMessage,
+	))
+}
+
+func (s *addFailureSuite) TestInteractiveManualFailAuthKeyRead(c *gc.C) {
+	s.errorMessage = "fail get auth keys"
+	s.command.AuthorizedKeys = func(*cmd.Context) (string, error) {
+		return "", errors.New(s.errorMessage)
+	}
+	s.assertInteractiveAddFailed(c)
+}
+
+func (s *addFailureSuite) TestInteractiveManualFailEndpointVerification(c *gc.C) {
+	s.errorMessage = "fail ping"
+	s.command.Ping = func(environs.EnvironProvider, *cmd.Context, string) error {
+		return errors.New(s.errorMessage)
+	}
+	s.assertInteractiveAddFailed(c)
 }

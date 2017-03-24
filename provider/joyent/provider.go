@@ -4,6 +4,7 @@
 package joyent
 
 import (
+	"io"
 	"log"
 
 	"github.com/joyent/gocommon/client"
@@ -54,7 +55,7 @@ func (p joyentProvider) CloudSchema() *jsonschema.Schema {
 }
 
 // Ping tests the connection to the cloud, to verify the endpoint is valid.
-func (p joyentProvider) Ping(endpoint string) error {
+func (p joyentProvider) Ping(in io.Reader, out io.Writer, authorizedKeys, endpoint string) error {
 	return errors.NotImplementedf("Ping")
 }
 
