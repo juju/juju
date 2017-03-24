@@ -235,6 +235,8 @@ class TestOpenStackHelpers(TestCase):
                         os_username: {
                             'auth-type': 'userpass',
                             'domain-name': '',
+                            'project-domain-name': '',
+                            'user-domain-name': '',
                             'password': os_password,
                             'tenant-name': os_tenant_name,
                             'username': os_username

@@ -16,6 +16,7 @@ import logging
 import os
 import sys
 import tempfile
+import re
 from textwrap import dedent
 
 import pexpect
@@ -78,7 +79,6 @@ def assess_autoload_credentials(args):
 
     client = client_from_config(args.env, args.juju_bin, False)
     client.env.load_yaml()
-    real_credential_details = client_credentials_to_details(client)
     provider = client.env.provider
 
     for scenario_name, scenario_setup in test_scenarios[provider]:
@@ -91,6 +91,7 @@ def assess_autoload_credentials(args):
         ensure_autoload_credentials_overwrite_existing(
             client, scenario_setup)
 
+    real_credential_details = client_credentials_to_details(client)
     bs_manager = BootstrapManager.from_args(args)
     autoload_and_bootstrap(bs_manager, args.upload_tools,
                            real_credential_details, scenario_setup)
@@ -266,10 +267,18 @@ def run_autoload_credentials(client, envvars, answers):
       command
 
     """
+
     process = client.expect(
         'autoload-credentials', extra_env=envvars, include_e=False)
-    process.expect('.*1. {} \(.*\).*'.format(answers.cloud_listing))
-    process.sendline('1')
+    selection = 1
+    while not process.eof():
+        out = process.readline()
+        pattern = '.*(\d). {} \(.*\).*'.format(answers.cloud_listing)
+        match = re.match(pattern, out)
+        if match:
+            selection = match.group(1)
+            break
+    process.sendline(selection)
 
     process.expect(
         '(Select the cloud it belongs to|Enter cloud to which the credential)'
@@ -482,7 +491,9 @@ def get_openstack_expected_details_dict(user, credential_details):
                     'domain-name': '',
                     'password': credential_details['os_password'],
                     'tenant-name': credential_details['os_tenant_name'],
-                    'username': user
+                    'username': user,
+                    'user-domain-name': '',
+                    'project-domain-name': ''
                     }
                 }
             }
@@ -499,7 +510,6 @@ def openstack_credential_dict_generator(region):
         os_region_name=region)
 
 
-# Just figuring this part out, likely will change/move.
 def gce_prepare_for_load():
     GCE_AC = 'GOOGLE_APPLICATION_CREDENTIALS'
     if GCE_AC not in os.environ:
@@ -558,7 +568,8 @@ def write_gce_config_file(tmp_dir, credential_details, filename=None):
         type='service_account',
         client_id=credential_details['client_id'],
         client_email=credential_details['client_email'],
-        private_key=credential_details['private_key'])
+        private_key=credential_details['private_key']
+        )
 
     # Generate a unique filename if none provided as this is stored and used in
     # comparisons.
@@ -607,7 +618,7 @@ def gce_credential_dict_generator():
     return dict(
         client_id=creds,
         client_email='{}@example.com'.format(creds),
-        private_key=creds,
+        private_key=creds
         )
 
 

@@ -377,6 +377,8 @@ class AutoloadCredentials(FakeExpectChild):
             'default-region': self.extra_env['OS_REGION_NAME'],
             self.extra_env['OS_USERNAME']: {
                 'domain-name': '',
+                'user-domain-name': '',
+                'project-domain-name': '',
                 'auth-type': 'userpass',
                 'username': self.extra_env['OS_USERNAME'],
                 'password': self.extra_env['OS_PASSWORD'],
@@ -384,6 +386,17 @@ class AutoloadCredentials(FakeExpectChild):
                 }}})
         juju_data.dump_yaml(self.juju_home, {})
         return False
+
+    def eof(self):
+        return False
+
+    def readline(self):
+        return (' 1. openstack region "region" project '
+                '"openstack-credentials-0" user "testing-user" (new) '
+                ' 2. openstack region "region" project '
+                '"openstack-credentials-1" user "testing-user" (new) '
+                ' 3. openstack region "region" project '
+                '"openstack-credentials-2" user "testing-user" (new) ')
 
 
 class PromptingExpectChild(FakeExpectChild):
