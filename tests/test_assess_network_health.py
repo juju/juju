@@ -268,7 +268,7 @@ class TestAssessNetworkHealth(TestCase):
         net_health = AssessNetworkHealth(args)
         client = fake_juju_client()
         client.bootstrap()
-        default = ["default via 1.1.1.1 1 received"]
+        default = ["default via 1.1.1.1 "]
 
         now = datetime.now() + timedelta(days=1)
         with patch('utility.until_timeout.now', return_value=now):
@@ -284,14 +284,13 @@ class TestAssessNetworkHealth(TestCase):
         net_health = AssessNetworkHealth(args)
         client = fake_juju_client()
         client.bootstrap()
-        default = ["default via 1.1.1.1 0 received"]
+        default = ["1.0.0.1/24 dev lxdbr0 "]
 
         now = datetime.now() + timedelta(days=1)
         with patch('utility.until_timeout.now', return_value=now):
             with patch.object(client, 'get_status', return_value=status):
-                with patch('subprocess.check_output', return_value=None):
-                    with patch.object(client, 'run', return_value=default):
-                        out = net_health.internet_connection(client)
+                with patch.object(client, 'run', return_value=default):
+                    out = net_health.internet_connection(client)
         expected = {'1': False, '0': False}
         self.assertEqual(expected, out)
 
