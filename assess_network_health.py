@@ -250,20 +250,10 @@ class AssessNetworkHealth:
             default_route = re.search(r'(default via )+([\d\.]+)\s+',
                                       json.dumps(routes[0]))
             if default_route:
-                ip = default_route.group(2)
-                log.info('Default route for unit {}: {}'.format(unit[0], ip))
-                rc = client.run(
-                    ['ping -c1 -q {}'.format(ip)],
-                    machines=[unit[0]])
-                sucess = re.search(r'(1 received)', json.dumps(rc[0]))
-                if not sucess:
-                    log.error(
-                        '{} unable to ping default route'.format(unit[0]))
-                    continue
+                results[unit[0]] = True
             else:
-                log.error("Default route not found")
+                log.error("Default route not found for {}".format(unit[0]))
                 continue
-            results[unit[0]] = True
         return results
 
     def get_nh_unit_info(self, apps, by_unit=False):
