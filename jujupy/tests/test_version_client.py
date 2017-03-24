@@ -595,7 +595,7 @@ class TestEnvJujuClient1X(ClientTest):
             client.destroy_environment(force=False)
             mock.assert_called_with(
                 'destroy-environment', ('foo', '-y'),
-                check=False, include_e=False, timeout=1800)
+                check=False, include_e=False, timeout=2700)
 
     def test_destroy_environment_gce(self):
         env = SimpleEnvironment('foo', {'type': 'gce'})

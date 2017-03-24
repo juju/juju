@@ -132,7 +132,7 @@ def get_timeout_prefix(duration, timeout_path=None):
 def get_teardown_timeout(client):
     """Return the timeout need byt the client to teardown resources."""
     if client.env.provider == 'azure':
-        return 1800
+        return 2700
     elif client.env.provider == 'gce':
         return 1200
     else:

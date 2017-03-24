@@ -915,7 +915,7 @@ class TestModelClient(ClientTest):
             client.destroy_model()
         mock.assert_called_with(
             'destroy-model', ('foo', '-y'),
-            include_e=False, timeout=1800)
+            include_e=False, timeout=2700)
 
     def test_destroy_model_gce(self):
         env = JujuData('foo', {'type': 'gce'})
@@ -950,7 +950,7 @@ class TestModelClient(ClientTest):
                 client.kill_controller()
         juju_mock.assert_called_once_with(
             kill_command, ('foo', '-y'), check=False, include_e=False,
-            timeout=1800)
+            timeout=2700)
 
     def test_kill_controller_gce(self):
         client = ModelClient(JujuData('foo', {'type': 'gce'}), None, None)
