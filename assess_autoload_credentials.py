@@ -273,7 +273,6 @@ def run_autoload_credentials(client, envvars, answers):
     selection = 1
     while not process.eof():
         out = process.readline()
-        # import pdb; pdb.set_trace()
         pattern = '.*(\d). {} \(.*\).*'.format(answers.cloud_listing)
         match = re.match(pattern, out)
         if match:
