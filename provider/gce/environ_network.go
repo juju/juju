@@ -5,14 +5,19 @@ package gce
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/set"
+	"google.golang.org/api/compute/v1"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 )
+
+type subnetMap map[string]network.SubnetInfo
+type networkMap map[string]*compute.Network
 
 // Subnets implements environs.NetworkingEnviron.
 func (e *environ) Subnets(inst instance.Id, subnetIds []network.Id) ([]network.SubnetInfo, error) {
@@ -33,7 +38,7 @@ func (e *environ) Subnets(inst instance.Id, subnetIds []network.Id) ([]network.S
 	}
 
 	if missing := ids.Missing(); len(missing) != 0 {
-		return nil, errors.NotFoundf("subnets %v", missing)
+		return nil, errors.NotFoundf("subnets %v", formatMissing(missing))
 	}
 
 	return results, nil
@@ -51,14 +56,14 @@ func (e *environ) zoneNames() ([]string, error) {
 	return names, nil
 }
 
-func (e *environ) networkIdsByURL() (map[string]string, error) {
+func (e *environ) networksByURL() (networkMap, error) {
 	networks, err := e.gce.Networks()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	results := make(map[string]string)
+	results := make(networkMap)
 	for _, network := range networks {
-		results[network.SelfLink] = network.Name
+		results[network.SelfLink] = network
 	}
 	return results, nil
 }
@@ -68,20 +73,20 @@ func (e *environ) getMatchingSubnets(subnetIds IncludeSet, zones []string) ([]ne
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	networks, err := e.networkIdsByURL()
+	networks, err := e.networksByURL()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	var results []network.SubnetInfo
 	for _, subnet := range allSubnets {
-		networkId, ok := networks[subnet.Network]
+		netwk, ok := networks[subnet.Network]
 		if !ok {
 			return nil, errors.NotFoundf("network %q for subnet %q", subnet.Network, subnet.Name)
 		}
 		if subnetIds.Include(subnet.Name) {
 			results = append(results, makeSubnetInfo(
 				network.Id(subnet.Name),
-				network.Id(networkId),
+				network.Id(netwk.Name),
 				subnet.IpCidrRange,
 				zones,
 			))
@@ -120,14 +125,25 @@ func (e *environ) NetworkInterfaces(instId instance.Id) ([]network.InterfaceInfo
 		// This shouldn't happen.
 		return nil, errors.Errorf("couldn't extract google instance for %q", instId)
 	}
+	// In GCE all the subnets are in all AZs.
+	zones, err := e.zoneNames()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	networks, err := e.networksByURL()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	googleInst := envInst.base
 	ifaces := googleInst.NetworkInterfaces()
 
-	subnetURLs := make([]string, len(ifaces))
-	for i, iface := range ifaces {
-		subnetURLs[i] = iface.Subnetwork
+	var subnetURLs []string
+	for _, iface := range ifaces {
+		if iface.Subnetwork != "" {
+			subnetURLs = append(subnetURLs, iface.Subnetwork)
+		}
 	}
-	subnets, err := e.subnetsByURL(subnetURLs...)
+	subnets, err := e.subnetsByURL(subnetURLs, networks, zones)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -136,21 +152,19 @@ func (e *environ) NetworkInterfaces(instId instance.Id) ([]network.InterfaceInfo
 
 	var results []network.InterfaceInfo
 	for i, iface := range ifaces {
-		subnet, ok := subnets[iface.Subnetwork]
-		if !ok {
-			// Should never happen.
-			return nil, errors.Errorf("no subnet %q found for instance %q", iface.Subnetwork, instId)
+		details, err := findNetworkDetails(iface, subnets, networks)
+		if err != nil {
+			return nil, errors.Annotatef(err, "instance %q", instId)
 		}
-
 		results = append(results, network.InterfaceInfo{
 			DeviceIndex: i,
-			CIDR:        subnet.CIDR,
+			CIDR:        details.cidr,
 			// The network interface has no id in GCE so it's
 			// identified by the machine's id + its name.
 			ProviderId:        network.Id(fmt.Sprintf("%s/%s", instId, iface.Name)),
-			ProviderSubnetId:  subnet.ProviderId,
-			ProviderNetworkId: subnet.ProviderNetworkId,
-			AvailabilityZones: subnet.AvailabilityZones,
+			ProviderSubnetId:  details.subnet,
+			ProviderNetworkId: details.network,
+			AvailabilityZones: copyStrings(zones),
 			InterfaceName:     iface.Name,
 			Address:           network.NewScopedAddress(iface.NetworkIP, network.ScopeCloudLocal),
 			InterfaceType:     network.EthernetInterface,
@@ -162,18 +176,42 @@ func (e *environ) NetworkInterfaces(instId instance.Id) ([]network.InterfaceInfo
 	return results, nil
 }
 
-func (e *environ) subnetsByURL(urls ...string) (map[string]network.SubnetInfo, error) {
+type networkDetails struct {
+	cidr    string
+	subnet  network.Id
+	network network.Id
+}
+
+// findNetworkDetails looks up the network information we need to
+// populate an InterfaceInfo - if the interface is on a legacy network
+// we use information from the network because there'll be no subnet
+// linked.
+func findNetworkDetails(iface compute.NetworkInterface, subnets subnetMap, networks networkMap) (networkDetails, error) {
+	var result networkDetails
+	if iface.Subnetwork == "" {
+		// This interface is on a legacy network.
+		netwk, ok := networks[iface.Network]
+		if !ok {
+			return result, errors.NotFoundf("network %q", iface.Network)
+		}
+		result.cidr = netwk.IPv4Range
+		result.subnet = ""
+		result.network = network.Id(netwk.Name)
+	} else {
+		subnet, ok := subnets[iface.Subnetwork]
+		if !ok {
+			return result, errors.NotFoundf("subnet %q", iface.Subnetwork)
+		}
+		result.cidr = subnet.CIDR
+		result.subnet = subnet.ProviderId
+		result.network = subnet.ProviderNetworkId
+	}
+	return result, nil
+}
+
+func (e *environ) subnetsByURL(urls []string, networks networkMap, zones []string) (subnetMap, error) {
 	if len(urls) == 0 {
 		return make(map[string]network.SubnetInfo), nil
-	}
-	// In GCE all the subnets are in all AZs.
-	zones, err := e.zoneNames()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	networks, err := e.networkIdsByURL()
-	if err != nil {
-		return nil, errors.Trace(err)
 	}
 	urlSet := includeSet{items: set.NewStrings(urls...)}
 	allSubnets, err := e.gce.Subnetworks(e.cloud.Region)
@@ -182,21 +220,21 @@ func (e *environ) subnetsByURL(urls ...string) (map[string]network.SubnetInfo, e
 	}
 	results := make(map[string]network.SubnetInfo)
 	for _, subnet := range allSubnets {
-		networkId, ok := networks[subnet.Network]
+		netwk, ok := networks[subnet.Network]
 		if !ok {
 			return nil, errors.NotFoundf("network %q for subnet %q", subnet.Network, subnet.Name)
 		}
 		if urlSet.Include(subnet.SelfLink) {
 			results[subnet.SelfLink] = makeSubnetInfo(
 				network.Id(subnet.Name),
-				network.Id(networkId),
+				network.Id(netwk.Name),
 				subnet.IpCidrRange,
 				zones,
 			)
 		}
 	}
 	if missing := urlSet.Missing(); len(missing) != 0 {
-		return nil, errors.NotFoundf("subnets %v", missing)
+		return nil, errors.NotFoundf("subnets %v", formatMissing(missing))
 	}
 	return results, nil
 }
@@ -231,14 +269,21 @@ func (e *environ) ReleaseContainerAddresses([]network.ProviderInterfaceInfo) err
 	return errors.NotSupportedf("container addresses")
 }
 
+func copyStrings(items []string) []string {
+	if items == nil {
+		return nil
+	}
+	result := make([]string, len(items))
+	copy(result, items)
+	return result
+}
+
 func makeSubnetInfo(subnetId network.Id, networkId network.Id, cidr string, zones []string) network.SubnetInfo {
-	zonesCopy := make([]string, len(zones))
-	copy(zonesCopy, zones)
 	return network.SubnetInfo{
 		ProviderId:        subnetId,
 		ProviderNetworkId: networkId,
 		CIDR:              cidr,
-		AvailabilityZones: zonesCopy,
+		AvailabilityZones: copyStrings(zones),
 		VLANTag:           0,
 		SpaceProviderId:   "",
 	}
@@ -293,4 +338,12 @@ func makeIncludeSet(ids []network.Id) IncludeSet {
 		strings.Add(string(id))
 	}
 	return &includeSet{items: strings}
+}
+
+func formatMissing(items []string) string {
+	parts := make([]string, len(items))
+	for i, item := range items {
+		parts[i] = fmt.Sprintf("%q", item)
+	}
+	return "[" + strings.Join(parts, ", ") + "]"
 }

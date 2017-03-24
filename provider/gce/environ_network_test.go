@@ -53,6 +53,12 @@ func (s *environNetSuite) cannedData() {
 			"https://www.googleapis.com/compute/v1/projects/sonic-youth/regions/asia-east1/subnetworks/shellac",
 			"https://www.googleapis.com/compute/v1/projects/sonic-youth/regions/us-central1/subnetworks/flour",
 		},
+	}, {
+		Id:   4567,
+		Name: "legacy",
+		AutoCreateSubnetworks: false,
+		IPv4Range:             "10.240.0.0/16",
+		SelfLink:              "https://www.googleapis.com/compute/v1/projects/sonic-youth/global/networks/legacy",
 	}}
 	s.FakeConn.Subnets = []*compute.Subnetwork{{
 		Id:          1234,
@@ -115,7 +121,7 @@ func (s *environNetSuite) TestRestrictingToSubnetsWithMissing(c *gc.C) {
 	s.cannedData()
 
 	subnets, err := s.NetEnv.Subnets(instance.UnknownId, []network.Id{"shellac", "brunettes"})
-	c.Assert(err, gc.ErrorMatches, `subnets \[brunettes\] not found`)
+	c.Assert(err, gc.ErrorMatches, `subnets \["brunettes"\] not found`)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	c.Assert(subnets, gc.IsNil)
 }
@@ -159,7 +165,7 @@ func (s *environNetSuite) TestSpecificInstanceAndRestrictedSubnetsWithMissing(c 
 	s.FakeEnviron.Insts = []instance.Instance{s.NewInstance(c, "moana")}
 
 	subnets, err := s.NetEnv.Subnets(instance.Id("moana"), []network.Id{"go-team", "shellac"})
-	c.Assert(err, gc.ErrorMatches, `subnets \[shellac\] not found`)
+	c.Assert(err, gc.ErrorMatches, `subnets \["shellac"\] not found`)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	c.Assert(subnets, gc.IsNil)
 }
@@ -235,5 +241,93 @@ func (s *environNetSuite) TestInterfacesMulti(c *gc.C) {
 		NoAutoStart:       false,
 		ConfigType:        network.ConfigDHCP,
 		Address:           network.NewScopedAddress("10.0.20.3", network.ScopeCloudLocal),
+	}})
+}
+
+func (s *environNetSuite) TestInterfacesLegacy(c *gc.C) {
+	s.cannedData()
+	baseInst := s.NewBaseInstance(c, "moana")
+	// When we're using a legacy network there'll be no subnet.
+	summary := &baseInst.InstanceSummary
+	summary.NetworkInterfaces = []*compute.NetworkInterface{{
+		Name:       "somenetif",
+		NetworkIP:  "10.240.0.2",
+		Network:    "https://www.googleapis.com/compute/v1/projects/sonic-youth/global/networks/legacy",
+		Subnetwork: "",
+		AccessConfigs: []*compute.AccessConfig{{
+			Type:  "ONE_TO_ONE_NAT",
+			Name:  "ExternalNAT",
+			NatIP: "25.185.142.227",
+		}},
+	}}
+	s.FakeEnviron.Insts = []instance.Instance{s.NewInstanceFromBase(baseInst)}
+
+	infos, err := s.NetEnv.NetworkInterfaces(instance.Id("moana"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(infos, gc.DeepEquals, []network.InterfaceInfo{{
+		DeviceIndex:       0,
+		CIDR:              "10.240.0.0/16",
+		ProviderId:        "moana/somenetif",
+		ProviderSubnetId:  "",
+		ProviderNetworkId: "legacy",
+		AvailabilityZones: []string{"a-zone", "b-zone"},
+		InterfaceName:     "somenetif",
+		InterfaceType:     network.EthernetInterface,
+		Disabled:          false,
+		NoAutoStart:       false,
+		ConfigType:        network.ConfigDHCP,
+		Address:           network.NewScopedAddress("10.240.0.2", network.ScopeCloudLocal),
+	}})
+}
+
+func (s *environNetSuite) TestInterfacesSameSubnetwork(c *gc.C) {
+	s.cannedData()
+	baseInst := s.NewBaseInstance(c, "moana")
+	// This isn't possible in GCE at the moment, but we don't want to
+	// break when it is.
+	summary := &baseInst.InstanceSummary
+	summary.NetworkInterfaces = append(summary.NetworkInterfaces, &compute.NetworkInterface{
+		Name:       "othernetif",
+		NetworkIP:  "10.0.10.4",
+		Network:    "https://www.googleapis.com/compute/v1/projects/sonic-youth/global/networks/go-team1",
+		Subnetwork: "https://www.googleapis.com/compute/v1/projects/sonic-youth/regions/asia-east1/subnetworks/go-team",
+		AccessConfigs: []*compute.AccessConfig{{
+			Type:  "ONE_TO_ONE_NAT",
+			Name:  "ExternalNAT",
+			NatIP: "25.185.142.227",
+		}},
+	})
+	s.FakeEnviron.Insts = []instance.Instance{s.NewInstanceFromBase(baseInst)}
+
+	infos, err := s.NetEnv.NetworkInterfaces(instance.Id("moana"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(infos, gc.DeepEquals, []network.InterfaceInfo{{
+		DeviceIndex:       0,
+		CIDR:              "10.0.10.0/24",
+		ProviderId:        "moana/somenetif",
+		ProviderSubnetId:  "go-team",
+		ProviderNetworkId: "go-team1",
+		AvailabilityZones: []string{"a-zone", "b-zone"},
+		InterfaceName:     "somenetif",
+		InterfaceType:     network.EthernetInterface,
+		Disabled:          false,
+		NoAutoStart:       false,
+		ConfigType:        network.ConfigDHCP,
+		Address:           network.NewScopedAddress("10.0.10.3", network.ScopeCloudLocal),
+	}, {
+		DeviceIndex:       1,
+		CIDR:              "10.0.10.0/24",
+		ProviderId:        "moana/othernetif",
+		ProviderSubnetId:  "go-team",
+		ProviderNetworkId: "go-team1",
+		AvailabilityZones: []string{"a-zone", "b-zone"},
+		InterfaceName:     "othernetif",
+		InterfaceType:     network.EthernetInterface,
+		Disabled:          false,
+		NoAutoStart:       false,
+		ConfigType:        network.ConfigDHCP,
+		Address:           network.NewScopedAddress("10.0.10.4", network.ScopeCloudLocal),
 	}})
 }
