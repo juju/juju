@@ -182,6 +182,10 @@ type networkDetails struct {
 	network network.Id
 }
 
+// findNetworkDetails looks up the network information we need to
+// populate an InterfaceInfo - if the interface is on a legacy network
+// we use information from the network because there'll be no subnet
+// linked.
 func findNetworkDetails(iface compute.NetworkInterface, subnets subnetMap, networks networkMap) (networkDetails, error) {
 	var result networkDetails
 	if iface.Subnetwork == "" {
