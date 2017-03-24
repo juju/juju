@@ -15,10 +15,9 @@ import (
 	"github.com/juju/juju/state"
 )
 
-func init() {
-	common.RegisterStandardFacade("LogForwarding", 1, func(st *state.State, _ facade.Resources, auth facade.Authorizer) (*LogForwardingAPI, error) {
-		return NewLogForwardingAPI(&stateAdapter{st}, auth)
-	})
+// NewFacade creates a new LogForwardingAPI. It is used for API registration.
+func NewFacade(st *state.State, _ facade.Resources, auth facade.Authorizer) (*LogForwardingAPI, error) {
+	return NewLogForwardingAPI(&stateAdapter{st}, auth)
 }
 
 // LastSentTracker exposes the functionality of state.LastSentTracker.

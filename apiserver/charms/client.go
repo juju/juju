@@ -16,10 +16,6 @@ import (
 	"github.com/juju/juju/state"
 )
 
-func init() {
-	common.RegisterStandardFacade("Charms", 2, NewAPI)
-}
-
 var getState = func(st *state.State) charmsAccess {
 	return stateShim{st}
 }

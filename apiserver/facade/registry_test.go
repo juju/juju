@@ -10,7 +10,11 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/apiserver/facade/facadetest"
+	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
 )
 
@@ -24,7 +28,7 @@ func (s *RegistrySuite) TestRegister(c *gc.C) {
 	registry := &facade.Registry{}
 	var v interface{}
 	facadeType := reflect.TypeOf(&v).Elem()
-	err := registry.Register("myfacade", 123, testFacade, facadeType, "")
+	err := registry.Register("myfacade", 123, testFacade, facadeType)
 	c.Assert(err, jc.ErrorIsNil)
 
 	factory, err := registry.GetFactory("myfacade", 123)
@@ -86,21 +90,6 @@ func (*RegistrySuite) TestRegisterAndListMultiple(c *gc.C) {
 	})
 }
 
-func (s *RegistrySuite) TestRegisterAndListMultipleWithFeatures(c *gc.C) {
-	registry := &facade.Registry{}
-	assertRegisterFlag(c, registry, "other", 0, "special")
-	assertRegister(c, registry, "name", 0)
-	assertRegisterFlag(c, registry, "name", 1, "special")
-	assertRegister(c, registry, "third", 2)
-	assertRegisterFlag(c, registry, "third", 3, "magic")
-
-	s.SetFeatureFlags("magic")
-	c.Check(registry.List(), jc.DeepEquals, []facade.Description{
-		{Name: "name", Versions: []int{0}},
-		{Name: "third", Versions: []int{2, 3}},
-	})
-}
-
 func (*RegistrySuite) TestRegisterAlreadyPresent(c *gc.C) {
 	registry := &facade.Registry{}
 	assertRegister(c, registry, "name", 0)
@@ -108,7 +97,7 @@ func (*RegistrySuite) TestRegisterAlreadyPresent(c *gc.C) {
 		var i = 200
 		return &i, nil
 	}
-	err := registry.Register("name", 0, secondIdFactory, intPtrType, "")
+	err := registry.Register("name", 0, secondIdFactory, intPtrType)
 	c.Assert(err, gc.ErrorMatches, `object "name\(0\)" already registered`)
 
 	factory, err := registry.GetFactory("name", 0)
@@ -175,6 +164,89 @@ func (*RegistrySuite) TestDiscardLeavesOtherVersions(c *gc.C) {
 	})
 }
 
+func (*RegistrySuite) TestWrapNewFacadeFailure(c *gc.C) {
+	_, _, err := facade.WrapNewFacade("notafunc")
+	c.Check(err, gc.ErrorMatches, `wrong type "string" is not a function`)
+}
+
+func (*RegistrySuite) TestWrapNewFacadeHandlesId(c *gc.C) {
+	wrapped, _, err := facade.WrapNewFacade(validFactory)
+	c.Assert(err, jc.ErrorIsNil)
+	val, err := wrapped(facadetest.Context{
+		ID_: "badId",
+	})
+	c.Check(err, gc.ErrorMatches, "id not expected")
+	c.Check(val, gc.Equals, nil)
+}
+
+func (*RegistrySuite) TestWrapNewFacadeCallsFunc(c *gc.C) {
+	for _, function := range []interface{}{validFactory, validContextFactory} {
+		wrapped, _, err := facade.WrapNewFacade(function)
+		c.Assert(err, jc.ErrorIsNil)
+		val, err := wrapped(facadetest.Context{})
+		c.Assert(err, jc.ErrorIsNil)
+		c.Check(*(val.(*int)), gc.Equals, 100)
+	}
+}
+
+func (*RegistrySuite) TestWrapNewFacadeCallsWithRightParams(c *gc.C) {
+	authorizer := apiservertesting.FakeAuthorizer{}
+	resources := common.NewResources()
+	testFunc := func(
+		st *state.State,
+		resources facade.Resources,
+		authorizer facade.Authorizer,
+	) (*myResult, error) {
+		return &myResult{st, resources, authorizer}, nil
+	}
+	wrapped, facadeType, err := facade.WrapNewFacade(testFunc)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(facadeType, gc.Equals, reflect.TypeOf((*myResult)(nil)))
+
+	val, err := wrapped(facadetest.Context{
+		Resources_: resources,
+		Auth_:      authorizer,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	asResult := val.(*myResult)
+	c.Check(asResult.st, gc.IsNil)
+	c.Check(asResult.resources, gc.Equals, resources)
+	c.Check(asResult.auth, gc.Equals, authorizer)
+}
+
+func (s *RegistrySuite) TestRegisterStandard(c *gc.C) {
+	registry := &facade.Registry{}
+	registry.RegisterStandard("testing", 0, validFactory)
+	wrapped, err := registry.GetFactory("testing", 0)
+	c.Assert(err, jc.ErrorIsNil)
+	val, err := wrapped(facadetest.Context{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(*(val.(*int)), gc.Equals, 100)
+}
+
+func (s *RegistrySuite) TestRegisterStandardError(c *gc.C) {
+	registry := &facade.Registry{}
+	err := registry.RegisterStandard("badtest", 0, noArgs)
+	c.Assert(err, gc.ErrorMatches,
+		`function ".*noArgs" does not have the signature .* or .*`)
+
+	_, err = registry.GetFactory("badtest", 0)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, gc.ErrorMatches, `badtest\(0\) not found`)
+}
+
+func assertRegister(c *gc.C, registry *facade.Registry, name string, version int) {
+	assertRegisterFlag(c, registry, name, version)
+}
+
+func assertRegisterFlag(c *gc.C, registry *facade.Registry, name string, version int) {
+	err := registry.Register(name, version, validIdFactory, intPtrType)
+	c.Assert(err, gc.IsNil)
+}
+
+var intPtr = new(int)
+var intPtrType = reflect.TypeOf(&intPtr).Elem()
+
 func testFacade(facade.Context) (facade.Facade, error) {
 	return "myobject", nil
 }
@@ -184,15 +256,21 @@ func validIdFactory(facade.Context) (facade.Facade, error) {
 	return &i, nil
 }
 
-var intPtr = new(int)
-var intPtrType = reflect.TypeOf(&intPtr).Elem()
-
-func assertRegister(c *gc.C, registry *facade.Registry, name string, version int) {
-	assertRegisterFlag(c, registry, name, version, "")
+type myResult struct {
+	st        *state.State
+	resources facade.Resources
+	auth      facade.Authorizer
 }
 
-func assertRegisterFlag(c *gc.C, registry *facade.Registry, name string, version int, flag string) {
+func noArgs() {
+}
 
-	err := registry.Register(name, version, validIdFactory, intPtrType, flag)
-	c.Assert(err, gc.IsNil)
+func validFactory(*state.State, facade.Resources, facade.Authorizer) (*int, error) {
+	var i = 100
+	return &i, nil
+}
+
+func validContextFactory(facade.Context) (*int, error) {
+	var i = 100
+	return &i, nil
 }

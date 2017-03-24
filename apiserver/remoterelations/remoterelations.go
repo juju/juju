@@ -16,16 +16,11 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/crossmodel"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.remoterelations")
-
-func init() {
-	common.RegisterStandardFacadeForFeature("RemoteRelations", 1, NewStateRemoteRelationsAPI, feature.CrossModelRelations)
-}
 
 // RemoteRelationsAPI provides access to the Provisioner API facade.
 type RemoteRelationsAPI struct {

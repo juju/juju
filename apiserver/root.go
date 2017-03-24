@@ -133,6 +133,7 @@ func (s *srvCaller) Call(objId string, arg reflect.Value) (reflect.Value, error)
 type apiRoot struct {
 	state       *state.State
 	pool        *state.StatePool
+	facades     *facade.Registry
 	resources   *common.Resources
 	authorizer  facade.Authorizer
 	objectMutex sync.RWMutex
@@ -140,10 +141,11 @@ type apiRoot struct {
 }
 
 // newAPIRoot returns a new apiRoot.
-func newAPIRoot(st *state.State, pool *state.StatePool, resources *common.Resources, authorizer facade.Authorizer) *apiRoot {
+func newAPIRoot(st *state.State, pool *state.StatePool, facades *facade.Registry, resources *common.Resources, authorizer facade.Authorizer) *apiRoot {
 	r := &apiRoot{
 		state:       st,
 		pool:        pool,
+		facades:     facades,
 		resources:   resources,
 		authorizer:  authorizer,
 		objectCache: make(map[objectKey]reflect.Value),
@@ -163,7 +165,7 @@ func (r *apiRoot) Kill() {
 // For more information about how FindMethod should work, see rpc/server.go and
 // rpc/rpcreflect/value.go
 func (r *apiRoot) FindMethod(rootName string, version int, methodName string) (rpcreflect.MethodCaller, error) {
-	goType, objMethod, err := lookupMethod(rootName, version, methodName)
+	goType, objMethod, err := r.lookupMethod(rootName, version, methodName)
 	if err != nil {
 		return nil, err
 	}
@@ -183,7 +185,7 @@ func (r *apiRoot) FindMethod(rootName string, version int, methodName string) (r
 		}
 		// Now that we have the write lock, check one more time in case
 		// someone got the write lock before us.
-		factory, err := common.Facades.GetFactory(rootName, version)
+		factory, err := r.facades.GetFactory(rootName, version)
 		if err != nil {
 			// We don't check for IsNotFound here, because it
 			// should have already been handled in the GetType
@@ -217,6 +219,33 @@ func (r *apiRoot) FindMethod(rootName string, version int, methodName string) (r
 		creator:   creator,
 		objMethod: objMethod,
 	}, nil
+}
+
+func (r *apiRoot) lookupMethod(rootName string, version int, methodName string) (reflect.Type, rpcreflect.ObjMethod, error) {
+	noMethod := rpcreflect.ObjMethod{}
+	goType, err := r.facades.GetType(rootName, version)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return nil, noMethod, &rpcreflect.CallNotImplementedError{
+				RootMethod: rootName,
+				Version:    version,
+			}
+		}
+		return nil, noMethod, err
+	}
+	rpcType := rpcreflect.ObjTypeOf(goType)
+	objMethod, err := rpcType.Method(methodName)
+	if err != nil {
+		if err == rpcreflect.ErrMethodNotFound {
+			return nil, noMethod, &rpcreflect.CallNotImplementedError{
+				RootMethod: rootName,
+				Version:    version,
+				Method:     methodName,
+			}
+		}
+		return nil, noMethod, err
+	}
+	return goType, objMethod, nil
 }
 
 func (r *apiRoot) dispose(key objectKey) {
@@ -271,33 +300,6 @@ func (ctx *facadeContext) StatePool() *state.StatePool {
 // ID is part of of the facade.Context interface.
 func (ctx *facadeContext) ID() string {
 	return ctx.key.objId
-}
-
-func lookupMethod(rootName string, version int, methodName string) (reflect.Type, rpcreflect.ObjMethod, error) {
-	noMethod := rpcreflect.ObjMethod{}
-	goType, err := common.Facades.GetType(rootName, version)
-	if err != nil {
-		if errors.IsNotFound(err) {
-			return nil, noMethod, &rpcreflect.CallNotImplementedError{
-				RootMethod: rootName,
-				Version:    version,
-			}
-		}
-		return nil, noMethod, err
-	}
-	rpcType := rpcreflect.ObjTypeOf(goType)
-	objMethod, err := rpcType.Method(methodName)
-	if err != nil {
-		if err == rpcreflect.ErrMethodNotFound {
-			return nil, noMethod, &rpcreflect.CallNotImplementedError{
-				RootMethod: rootName,
-				Version:    version,
-				Method:     methodName,
-			}
-		}
-		return nil, noMethod, err
-	}
-	return goType, objMethod, nil
 }
 
 // AnonRoot dispatches API calls to those available to an anonymous connection
@@ -392,8 +394,8 @@ func (r *apiHandler) UserHasPermission(user names.UserTag, operation permission.
 }
 
 // DescribeFacades returns the list of available Facades and their Versions
-func DescribeFacades() []params.FacadeVersions {
-	facades := common.Facades.List()
+func DescribeFacades(registry *facade.Registry) []params.FacadeVersions {
+	facades := registry.List()
 	result := make([]params.FacadeVersions, len(facades))
 	for i, facade := range facades {
 		result[i].Name = facade.Name

@@ -14,11 +14,8 @@ import (
 	"github.com/juju/juju/state"
 )
 
-func init() {
-	common.RegisterStandardFacade("ModelConfig", 1, newFacade)
-}
-
-func newFacade(st *state.State, _ facade.Resources, auth facade.Authorizer) (*ModelConfigAPI, error) {
+// NewFacade is used for API registration.
+func NewFacade(st *state.State, _ facade.Resources, auth facade.Authorizer) (*ModelConfigAPI, error) {
 	return NewModelConfigAPI(NewStateBackend(st), auth)
 }
 

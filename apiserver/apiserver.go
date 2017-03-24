@@ -33,6 +33,7 @@ import (
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/apihttp"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/observer"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/resource"
@@ -65,6 +66,7 @@ type Server struct {
 	limiter           utils.Limiter
 	validator         LoginValidator
 	adminAPIFactories map[int]adminAPIFactory
+	facades           *facade.Registry
 	modelUUID         string
 	authCtxt          *authContext
 	lastConnectionID  uint64
@@ -195,20 +197,19 @@ func newServer(s *state.State, lis net.Listener, cfg ServerConfig) (_ *Server, e
 	}
 
 	srv := &Server{
-		clock:       cfg.Clock,
-		pingClock:   cfg.pingClock(),
-		lis:         lis,
-		newObserver: cfg.NewObserver,
-		state:       s,
-		statePool:   stPool,
-		tag:         cfg.Tag,
-		dataDir:     cfg.DataDir,
-		logDir:      cfg.LogDir,
-		limiter:     utils.NewLimiter(loginRateLimit),
-		validator:   cfg.Validator,
-		adminAPIFactories: map[int]adminAPIFactory{
-			3: newAdminAPIV3,
-		},
+		clock:                         cfg.Clock,
+		pingClock:                     cfg.pingClock(),
+		lis:                           lis,
+		newObserver:                   cfg.NewObserver,
+		state:                         s,
+		statePool:                     stPool,
+		tag:                           cfg.Tag,
+		dataDir:                       cfg.DataDir,
+		logDir:                        cfg.LogDir,
+		limiter:                       utils.NewLimiter(loginRateLimit),
+		validator:                     cfg.Validator,
+		adminAPIFactories:             map[int]adminAPIFactory{3: newAdminAPIV3},
+		facades:                       AllFacades(),
 		centralHub:                    cfg.Hub,
 		certChanged:                   cfg.CertChanged,
 		allowModelAccess:              cfg.AllowModelAccess,

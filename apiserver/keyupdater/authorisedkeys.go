@@ -15,10 +15,6 @@ import (
 	"github.com/juju/juju/state/watcher"
 )
 
-func init() {
-	common.RegisterStandardFacade("KeyUpdater", 1, NewKeyUpdaterAPI)
-}
-
 // KeyUpdater defines the methods on the keyupdater API end point.
 type KeyUpdater interface {
 	AuthorisedKeys(args params.Entities) (params.StringsResults, error)

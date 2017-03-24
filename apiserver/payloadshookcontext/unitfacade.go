@@ -4,8 +4,6 @@
 package payloadshookcontext
 
 import (
-	"reflect"
-
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"gopkg.in/juju/names.v2"
@@ -18,14 +16,6 @@ import (
 )
 
 var logger = loggo.GetLogger("juju.apiserver.payloadshookcontext")
-
-func init() {
-	common.RegisterHookContextFacade(
-		"PayloadsHookContext", 1,
-		NewHookContextFacade,
-		reflect.TypeOf(&UnitFacade{}),
-	)
-}
 
 // NewHookContextFacade returns a new payloads hook context facade for
 // the State and Unit given. It is used for facade registration.

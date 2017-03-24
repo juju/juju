@@ -16,10 +16,6 @@ import (
 	"github.com/juju/juju/state"
 )
 
-func init() {
-	common.RegisterStandardFacade("DiscoverSpaces", 2, NewAPI)
-}
-
 // API implements the API used by the discoverspaces worker.
 type API struct {
 	st         networkingcommon.NetworkBacking

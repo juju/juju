@@ -18,10 +18,6 @@ import (
 	coretools "github.com/juju/juju/tools"
 )
 
-func init() {
-	common.RegisterStandardFacade("AgentTools", 1, newAgentToolsAPI)
-}
-
 var logger = loggo.GetLogger("juju.apiserver.model")
 
 var (
@@ -38,7 +34,8 @@ type AgentToolsAPI struct {
 	envVersionUpdate envVersionUpdater
 }
 
-func newAgentToolsAPI(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*AgentToolsAPI, error) {
+// NewFacade is used to register the facade.
+func NewFacade(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*AgentToolsAPI, error) {
 	newEnviron := func() (environs.Environ, error) {
 		newEnviron := stateenvirons.GetNewEnvironFunc(environs.New)
 		return newEnviron(st)

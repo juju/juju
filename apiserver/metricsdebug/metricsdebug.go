@@ -18,10 +18,6 @@ import (
 	"github.com/juju/juju/state"
 )
 
-func init() {
-	common.RegisterStandardFacade("MetricsDebug", 2, NewMetricsDebugAPI)
-}
-
 type metricsDebug interface {
 	// MetricBatchesForUnit returns metric batches for the given unit.
 	MetricBatchesForUnit(unit string) ([]state.MetricBatch, error)

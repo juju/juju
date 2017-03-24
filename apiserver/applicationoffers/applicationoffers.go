@@ -11,13 +11,8 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	jujucrossmodel "github.com/juju/juju/core/crossmodel"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/permission"
 )
-
-func init() {
-	common.RegisterStandardFacadeForFeature("ApplicationOffers", 1, NewOffersAPI, feature.CrossModelRelations)
-}
 
 // OffersAPI implements the cross model interface and is the concrete
 // implementation of the api end point.

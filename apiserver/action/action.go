@@ -14,10 +14,6 @@ import (
 	"github.com/juju/juju/state"
 )
 
-func init() {
-	common.RegisterStandardFacade("Action", 2, NewActionAPI)
-}
-
 // ActionAPI implements the client API for interacting with Actions
 type ActionAPI struct {
 	state      *state.State

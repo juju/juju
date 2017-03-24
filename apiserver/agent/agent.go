@@ -21,10 +21,6 @@ import (
 	"github.com/juju/juju/state/watcher"
 )
 
-func init() {
-	common.RegisterStandardFacade("Agent", 2, NewAgentAPIV2)
-}
-
 // AgentAPIV2 implements the version 2 of the API provided to an agent.
 type AgentAPIV2 struct {
 	*common.PasswordChanger

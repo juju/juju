@@ -20,10 +20,6 @@ import (
 
 var logger = loggo.GetLogger("juju.apiserver.machine")
 
-func init() {
-	common.RegisterStandardFacade("Machiner", 1, NewMachinerAPI)
-}
-
 // MachinerAPI implements the API used by the machiner worker.
 type MachinerAPI struct {
 	*common.LifeGetter

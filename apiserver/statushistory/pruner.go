@@ -10,10 +10,6 @@ import (
 	"github.com/juju/juju/state"
 )
 
-func init() {
-	common.RegisterStandardFacade("StatusHistory", 2, NewAPI)
-}
-
 // API is the concrete implementation of the Pruner endpoint..
 type API struct {
 	st         *state.State

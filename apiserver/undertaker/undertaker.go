@@ -14,10 +14,6 @@ import (
 	"github.com/juju/juju/state/watcher"
 )
 
-func init() {
-	common.RegisterStandardFacade("Undertaker", 1, NewUndertakerAPI)
-}
-
 // UndertakerAPI implements the API used by the model undertaker worker.
 type UndertakerAPI struct {
 	st        State
