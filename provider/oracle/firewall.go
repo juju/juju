@@ -176,9 +176,10 @@ func (f *Firewall) isSecList(name string) bool {
 }
 
 func (f *Firewall) ensureMachineACLs(name string, tags []string) (ociResponse.Acl, error) {
-	globalACL := f.globalGroupName()
-	machineACL := f.machineGroupName(machineId)
-	globalAcl := f.CreateAcl(name, "Juju created ACL", true, tags)
+	// globalACL := f.globalGroupName()
+	// machineACL := f.machineGroupName(machineId)
+	// globalAcl := f.CreateAcl(name, "Juju created ACL", true, tags)
+	return ociResponse.Acl{}, nil
 }
 
 func (f *Firewall) ensureApplication(portRange network.PortRange, cache *[]ociResponse.SecApplication) (string, error) {
@@ -223,24 +224,27 @@ func (f *Firewall) ensureApplication(portRange network.PortRange, cache *[]ociRe
 }
 
 func (f *Firewall) ensureSecList(name string) (ociResponse.SecList, error) {
+	logger.Infof("Fetching details for list: %s", name)
 	details, err := f.client.SecListDetails(name)
 	if err != nil {
+		logger.Infof("Got error fetching details for %s: %v", name, err)
 		if oci.IsNotFound(err) {
+			logger.Infof("Creating new seclist: %s", name)
 			details, err := f.client.CreateSecList(
 				"Juju created security list",
 				name,
 				ociCommon.SecRulePermit,
 				ociCommon.SecRuleDeny)
 			if err != nil {
-				return ociResponse.SecList{}, nil
+				return ociResponse.SecList{}, err
 			}
 			return details, nil
 		}
+		return ociResponse.SecList{}, err
 	}
 	return details, nil
 }
 
-// TODO (gsamfira):finish this
 func (f *Firewall) ensureSecIpList(cidr []string, cache *[]ociResponse.SecIpList) (string, error) {
 	sort.Strings(cidr)
 	for _, val := range *cache {
@@ -425,8 +429,8 @@ func (f *Firewall) secRuleToIngresRule(rules ...ociResponse.SecRule) (map[string
 	return ret, nil
 }
 
-func (f *Firewall) createDefaultGroupAndRules(apiPort int) (ociResponse.SecList, error) {
-	rules := []network.IngressRule{
+func (f *Firewall) getDefaultIngressRules(apiPort int) []network.IngressRule {
+	return []network.IngressRule{
 		network.IngressRule{
 			PortRange: network.PortRange{
 				FromPort: 22,
@@ -468,20 +472,184 @@ func (f *Firewall) createDefaultGroupAndRules(apiPort int) (ociResponse.SecList,
 			},
 		},
 	}
-	var details ociResponse.SecList
+}
+
+func (f *Firewall) getAllSecurityRules(aclName string) ([]ociResponse.SecurityRule, error) {
+	rules, err := f.client.AllSecurityRules(nil)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if aclName == "" {
+		return rules.Result, nil
+	}
+	var ret []ociResponse.SecurityRule
+	for _, val := range rules.Result {
+		if val.Acl == aclName {
+			ret = append(ret, val)
+		}
+	}
+	return ret, nil
+}
+
+func (f *Firewall) getAllIPAddressSets() ([]ociResponse.IpAddressPrefixSet, error) {
+	sets, err := f.client.AllIpAddressPrefixSets(nil)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return sets.Result, nil
+}
+
+func (f *Firewall) ensureIPAddressSet(ipSet []string) (ociResponse.IpAddressPrefixSet, error) {
+	sets, err := f.getAllIPAddressSets()
+	if err != nil {
+		return ociResponse.IpAddressPrefixSet{}, err
+	}
+	for _, val := range sets {
+		sort.Strings(ipSet)
+		sort.Strings(val.IpAddressPrefixes)
+		if reflect.DeepEqual(ipSet, val.IpAddressPrefixes) {
+			return val, nil
+		}
+	}
+	name, err := utils.NewUUID()
+	if err != nil {
+		return ociResponse.IpAddressPrefixSet{}, err
+	}
+	p := oci.IpAddressPrefixSetParams{
+		Description:       "Juju created prefix set",
+		IpAddressPrefixes: ipSet,
+		Name:              f.client.ComposeName(name.String()),
+	}
+	details, err := f.client.CreateIpAddressPrefixSet(p)
+	if err != nil {
+		return ociResponse.IpAddressPrefixSet{}, err
+	}
+	return details, nil
+}
+
+type stubSecurityRule struct {
+	Acl                    string
+	FlowDirection          ociCommon.FlowDirection
+	DstIpAddressPrefixSets []string
+	SecProtocols           []string
+	SrcIpAddressPrefixSets []string
+}
+
+func (f *Firewall) convertSecurityRuleToStub(rules ociResponse.SecurityRule) stubSecurityRule {
+	sort.Strings(rules.DstIpAddressPrefixSets)
+	sort.Strings(rules.SecProtocols)
+	sort.Strings(rules.SrcIpAddressPrefixSets)
+	return stubSecurityRule{
+		Acl:                    rules.Acl,
+		FlowDirection:          rules.FlowDirection,
+		DstIpAddressPrefixSets: rules.DstIpAddressPrefixSets,
+		SecProtocols:           rules.SecProtocols,
+		SrcIpAddressPrefixSets: rules.SrcIpAddressPrefixSets,
+	}
+}
+
+func (f *Firewall) convertSecurityRuleParamsToStub(params oci.SecurityRuleParams) stubSecurityRule {
+	sort.Strings(params.DstIpAddressPrefixSets)
+	sort.Strings(params.SecProtocols)
+	sort.Strings(params.SrcIpAddressPrefixSets)
+	return stubSecurityRule{
+		Acl:                    params.Acl,
+		FlowDirection:          params.FlowDirection,
+		DstIpAddressPrefixSets: params.DstIpAddressPrefixSets,
+		SecProtocols:           params.SecProtocols,
+		SrcIpAddressPrefixSets: params.SrcIpAddressPrefixSets,
+	}
+}
+
+// createDefaultACLAndRules creates default ACL and rules for IP networks attached to
+// units.
+// NOTE (gsamfira): For now we apply an allow all on these ACLs. Traffic will be cloud-only
+// between instances connected to the same ip network exchange (the equivalent of a space)
+// There will be no public IP associated to interfaces connected to IP networks, so only
+// instances connected to the same network, or a network managed by the same space will
+// be able to connect. This will ensure that peers and units entering a relationship can connect
+// to services deployed by a particular unit, without having to expose the application.
+func (f *Firewall) createDefaultACLAndRules() (ociResponse.Acl, error) {
+	var details ociResponse.Acl
 	var err error
 	uuid := f.environ.Config().UUID()
-	description := fmt.Sprintf("global seclist for juju environment %s", uuid)
+	description := fmt.Sprintf("global ACL for juju environment %s", uuid)
+	globalGroupName := f.globalGroupName()
+	resourceName := f.client.ComposeName(globalGroupName)
+	if err != nil {
+		return ociResponse.Acl{}, err
+	}
+	rules := []oci.SecurityRuleParams{
+		oci.SecurityRuleParams{
+			Acl:                    resourceName,
+			Name:                   f.client.ComposeName(fmt.Sprintf("juju-%s-allow-ingress", uuid)),
+			Description:            "Allow all ingress",
+			FlowDirection:          ociCommon.Ingress,
+			DstIpAddressPrefixSets: []string{},
+			SecProtocols:           []string{},
+			SrcIpAddressPrefixSets: []string{},
+		},
+		oci.SecurityRuleParams{
+			Acl:                    resourceName,
+			Name:                   f.client.ComposeName(fmt.Sprintf("juju-%s-allow-egress", uuid)),
+			Description:            "Allow all egress",
+			FlowDirection:          ociCommon.Egress,
+			DstIpAddressPrefixSets: []string{},
+			SecProtocols:           []string{},
+			SrcIpAddressPrefixSets: []string{},
+		},
+	}
+	details, err = f.client.AclDetails(resourceName)
+	if err != nil {
+		if oci.IsNotFound(err) {
+			details, err = f.client.CreateAcl(resourceName, description, true, nil)
+			if err != nil {
+				return ociResponse.Acl{}, errors.Trace(err)
+			}
+		} else {
+			return ociResponse.Acl{}, errors.Trace(err)
+		}
+	}
+	aclRules, err := f.getAllSecurityRules(details.Name)
+	if err != nil {
+		return ociResponse.Acl{}, errors.Trace(err)
+	}
+
+	var toAdd []oci.SecurityRuleParams
+
+	for _, val := range rules {
+		found := false
+		newRuleAsStub := f.convertSecurityRuleParamsToStub(val)
+		for _, existing := range aclRules {
+			existingRulesAsStub := f.convertSecurityRuleToStub(existing)
+			if reflect.DeepEqual(existingRulesAsStub, newRuleAsStub) {
+				found = true
+				break
+			}
+		}
+		if !found {
+			toAdd = append(toAdd, val)
+		}
+	}
+	for _, val := range toAdd {
+		_, err := f.client.CreateSecurityRule(val)
+		if err != nil {
+			return ociResponse.Acl{}, errors.Trace(err)
+		}
+	}
+	return details, nil
+}
+
+func (f *Firewall) createDefaultGroupAndRules(apiPort int) (ociResponse.SecList, error) {
+	rules := f.getDefaultIngressRules(apiPort)
+	var details ociResponse.SecList
+	var err error
 	globalGroupName := f.globalGroupName()
 	resourceName := f.client.ComposeName(globalGroupName)
 	details, err = f.client.SecListDetails(resourceName)
 	if err != nil {
 		if oci.IsNotFound(err) {
-			details, err = f.client.CreateSecList(
-				description,
-				resourceName,
-				ociCommon.SecRulePermit,
-				ociCommon.SecRuleDeny)
+			details, err = f.ensureSecList(resourceName)
 			if err != nil {
 				return ociResponse.SecList{}, errors.Trace(err)
 			}
@@ -504,11 +672,7 @@ func (f *Firewall) CreateMachineSecLists(machineId string, apiPort int) ([]strin
 	}
 	name := f.machineGroupName(machineId)
 	resourceName := f.client.ComposeName(name)
-	secList, err := f.client.CreateSecList(
-		"Juju created sec list",
-		resourceName,
-		ociCommon.SecRulePermit,
-		ociCommon.SecRuleDeny)
+	secList, err := f.ensureSecList(resourceName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

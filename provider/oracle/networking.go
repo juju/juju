@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"strings"
 
-	oci "github.com/juju/go-oracle-cloud/api"
+	// oci "github.com/juju/go-oracle-cloud/api"
 	ociResponse "github.com/juju/go-oracle-cloud/response"
 
 	"github.com/juju/errors"
@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	names "gopkg.in/juju/names.v2"
+	// "github.com/juju/juju/cloudconfig/cloudinit"
 )
 
 var _ environs.NetworkingEnviron = (*oracleEnviron)(nil)
@@ -26,35 +27,92 @@ var _ environs.NetworkingEnviron = (*oracleEnviron)(nil)
 var ubuntuInterfaceTemplate = `
 auto %s
 iface %s inet dhcp
-
 `
 
-func (e *oracleEnviron) ensureVnicSet(machineId string, tags []string, acls []string) (ociResponse.VnicSet, error) {
-	name := e.client.ComposeName(e.namespace.Value(machineId))
-	details, err := e.client.VnicSetDetails(name)
+const (
+	defaultNicName      = "eth0"
+	nicPrefix           = "eth"
+	interfacesConfigDir = `/etc/network/interfaces.d`
+)
+
+func (e *oracleEnviron) getIPExchangesAndNetworks() (map[string][]ociResponse.IpNetwork, error) {
+	logger.Infof("Getting ip exchanges and networks")
+	ret := map[string][]ociResponse.IpNetwork{}
+	exchanges, err := e.client.AllIpNetworkExchanges(nil)
 	if err != nil {
-		if !oci.IsNotFound(err) {
-			return nil, err
-		}
-		vnicSetParams := oci.VnicSetParams{
-			AppliedAcls: acls,
-			Description: "Juju created vnic set",
-			Name:        name,
-			Tags:        tags,
-		}
-		details, err := e.client.CreateVnicSet(vnicSetParams)
-		if err != nil {
-			return nil, err
-		}
-		return details, nil
+		return ret, err
 	}
-	return details, nil
+	ipNets, err := e.client.AllIpNetworks(nil)
+	if err != nil {
+		return ret, err
+	}
+	for _, val := range exchanges.Result {
+		ret[val.Name] = []ociResponse.IpNetwork{}
+	}
+	for _, val := range ipNets.Result {
+		if _, ok := ret[*val.IpNetworkExchange]; ok {
+			ret[*val.IpNetworkExchange] = append(ret[*val.IpNetworkExchange], val)
+		}
+	}
+	return ret, nil
 }
 
 // Subnet returns basic information about subnets
 // known by the oracle provider for the environment
 func (e *oracleEnviron) Subnets(inst instance.Id, subnetIds []network.Id) ([]network.SubnetInfo, error) {
-	return nil, nil
+	ret := []network.SubnetInfo{}
+	found := make(map[string]bool)
+	if inst != instance.UnknownId {
+		instanceNets, err := e.NetworkInterfaces(inst)
+		if err != nil {
+			return ret, errors.Trace(err)
+		}
+		if len(subnetIds) == 0 {
+			for _, val := range instanceNets {
+				found[string(val.ProviderSubnetId)] = false
+			}
+		}
+		for _, val := range instanceNets {
+			if _, ok := found[string(val.ProviderSubnetId)]; !ok {
+				continue
+			} else {
+				found[string(val.ProviderSubnetId)] = true
+				subnetInfo := network.SubnetInfo{
+					CIDR:            val.CIDR,
+					ProviderId:      val.ProviderSubnetId,
+					SpaceProviderId: val.ProviderSpaceId,
+				}
+				ret = append(ret, subnetInfo)
+			}
+		}
+	} else {
+		subnets, err := e.getSubnetInfoAsMap()
+		if err != nil {
+			return ret, errors.Trace(err)
+		}
+		if len(subnetIds) == 0 {
+			for key, _ := range subnets {
+				found[key] = false
+			}
+		}
+		for key, val := range subnets {
+			if _, ok := found[key]; !ok {
+				continue
+			}
+			found[key] = true
+			ret = append(ret, val)
+		}
+	}
+	missing := []string{}
+	for key, ok := range found {
+		if !ok {
+			missing = append(missing, key)
+		}
+	}
+	if len(missing) > 0 {
+		return nil, errors.Errorf("missing subnets: %s", strings.Join(missing, ","))
+	}
+	return ret, nil
 }
 
 func (e *oracleEnviron) getNicAttributes(instance ociResponse.Instance) map[string]ociResponse.Network {
@@ -121,6 +179,7 @@ func (e *oracleEnviron) NetworkInterfaces(instId instance.Id) ([]network.Interfa
 			ProviderId:    network.Id(deviceAttributes.Id),
 			MACAddress:    mac,
 			Address:       addr,
+			InterfaceType: network.EthernetInterface,
 		}
 
 		// gsamfira: VEthernet NICs are connected to shared networks
@@ -223,16 +282,30 @@ func (e *oracleEnviron) Spaces() ([]network.SpaceInfo, error) {
 		if val.SpaceProviderId == "" {
 			continue
 		}
-		if space, ok := exchanges[string(val.SpaceProviderId)]; !ok {
-			exchanges[string(val.SpaceProviderId)] = network.SpaceInfo{
-				Name:       string(val.SpaceProviderId),
+		logger.Infof("found network %s with space %s", string(val.ProviderId), string(val.SpaceProviderId))
+		providerID := string(val.SpaceProviderId)
+		tmp := strings.Split(providerID, `/`)
+		name := tmp[len(tmp)-1]
+		// Oracle allows us to attach an IP network to a space belonging to
+		// another user using the web portal. We recompose the provider ID (which is unique)
+		// and compare to the provider ID of the space. If they match, the space belongs to us
+		tmpProviderId := e.client.ComposeName(name)
+		if tmpProviderId != providerID {
+			continue
+		}
+		if space, ok := exchanges[name]; !ok {
+			logger.Infof("creating new space obj for %s and adding %s", name, string(val.ProviderId))
+			exchanges[name] = network.SpaceInfo{
+				Name:       name,
 				ProviderId: val.SpaceProviderId,
 				Subnets: []network.SubnetInfo{
 					val,
 				},
 			}
 		} else {
+			logger.Infof("appending subnet %s to %s", string(val.ProviderId), string(space.Name))
 			space.Subnets = append(space.Subnets, val)
+			exchanges[name] = space
 		}
 
 	}
@@ -240,6 +313,7 @@ func (e *oracleEnviron) Spaces() ([]network.SpaceInfo, error) {
 	for _, val := range exchanges {
 		ret = append(ret, val)
 	}
+	logger.Infof("returning spaces: %v", ret)
 	return ret, nil
 }
 

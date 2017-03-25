@@ -5,15 +5,19 @@ package oracle
 
 import (
 	"fmt"
+	"math/rand"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/juju/errors"
 	oci "github.com/juju/go-oracle-cloud/api"
 	ociCommon "github.com/juju/go-oracle-cloud/common"
+	ociResponse "github.com/juju/go-oracle-cloud/response"
 	"github.com/juju/version"
 
-	"github.com/juju/juju/cloudconfig/cloudinit"
+	// "github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/providerinit"
 	"github.com/juju/juju/constraints"
@@ -25,6 +29,10 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/tools"
+	"github.com/juju/utils/os"
+
+	"github.com/juju/juju/cloudconfig/cloudinit"
+	jujuSeries "github.com/juju/utils/series"
 )
 
 // oracleEnviron implements the environs.Environ interface
@@ -148,6 +156,141 @@ func (e *oracleEnviron) AdoptResources(controllerUUID string, fromVersion versio
 	return nil
 }
 
+func (e *oracleEnviron) getCloudInitConfig(series string, networks map[string]oci.Networker) (cloudinit.CloudConfig, error) {
+	// NOTE (gsamfira): this function only exists because of a limitation that currently exists in cloud-init
+	// see bug report: https://bugs.launchpad.net/cloud-init/+bug/1675370
+	// TODO (gsamfira): remove this function when the above mention bug is fixed
+	cloudcfg, err := cloudinit.New(series)
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot create cloudinit template")
+	}
+	operatingSystem, err := jujuSeries.GetOSFromSeries(series)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	renderer := cloudcfg.ShellRenderer()
+	// by default windows has all NICs set on DHCP, so no need to configure
+	// anything.
+	// gsamfira: I could not find a CentOS image in the oracle compute
+	// marketplace, so not doing anything CentOS specific here.
+	var scripts []string
+	switch operatingSystem {
+	case os.Ubuntu:
+		for key, _ := range networks {
+			if key == defaultNicName {
+				continue
+			}
+			fileBaseName := fmt.Sprintf("%s.cfg", key)
+			fileContents := fmt.Sprintf(ubuntuInterfaceTemplate, key, key)
+			fileName := renderer.Join(renderer.FromSlash(interfacesConfigDir), fileBaseName)
+			scripts = append(scripts, renderer.WriteFile(fileName, []byte(fileContents))...)
+			scripts = append(scripts, fmt.Sprintf("/sbin/ifup %s", key))
+			scripts = append(scripts, "")
+
+		}
+		if len(scripts) > 0 {
+			cloudcfg.AddScripts(strings.Join(scripts, "\n"))
+		}
+	}
+	return cloudcfg, nil
+}
+
+func (e *oracleEnviron) getInstanceNetworks(args environs.StartInstanceParams, secLists, vnicSets []string) (map[string]oci.Networker, error) {
+	// gsamfira: We add a default NIC attached o the shared network provided
+	// by the oracle cloud. This NIC is used for outbound traffic.
+	// While you can attach just a VNIC to the instance, and assign a
+	// public IP to it, I have not been able to get any outbound traffic
+	// through the thing.
+	// NOTE (gsamfira): The NIC ordering inside the instance is determined
+	// by the order in which the API returns the network interfaces. It seems
+	// the API orders the NICs alphanumerically. When adding new network
+	// interfaces, make sure they are ordered to come after eth0
+	networking := map[string]oci.Networker{
+		defaultNicName: oci.SharedNetwork{
+			Seclists: secLists,
+		},
+	}
+	spaces := map[string]bool{}
+	if len(args.EndpointBindings) != 0 {
+		for _, spaceProviderID := range args.EndpointBindings {
+			logger.Infof("Adding space %s", string(spaceProviderID))
+			spaces[string(spaceProviderID)] = true
+		}
+	}
+	if s := args.Constraints.IncludeSpaces(); len(s) != 0 {
+		for _, val := range s {
+			logger.Infof("Adding space %s", val)
+			spaces[val] = true
+		}
+	}
+	// No spaces specified by user. Just return the default NIC
+	if len(spaces) == 0 {
+		return networking, nil
+	}
+
+	providerSpaces, err := e.getIPExchangesAndNetworks()
+	if err != nil {
+		return map[string]oci.Networker{}, err
+	}
+	//start from 1. eth0 is the default nic that gets attached by default.
+	idx := 1
+	logger.Infof("have spaces %v", spaces)
+	for space, _ := range spaces {
+		providerID := e.client.ComposeName(space)
+		providerSpace, ok := providerSpaces[providerID]
+		if !ok {
+			return map[string]oci.Networker{}, errors.Errorf("Could not find space %q", space)
+		}
+		if len(providerSpace) == 0 {
+			return map[string]oci.Networker{}, errors.Errorf("No usable subnets found in space %q", space)
+		}
+
+		// gsamfira: about as random as rainfall during monsoon season.
+		// I am open to suggestions here
+		rand.Seed(time.Now().UTC().UnixNano())
+		ipNet := providerSpace[rand.Intn(len(providerSpace))]
+		vnic := oci.IPNetwork{
+			Ipnetwork: ipNet.Name,
+			Vnicsets:  vnicSets,
+		}
+		nicName := fmt.Sprintf("%s%s", nicPrefix, strconv.Itoa(idx))
+		networking[nicName] = vnic
+		idx++
+	}
+	logger.Infof("returning networking interfaces: %v", networking)
+	return networking, nil
+}
+
+func (o *oracleEnviron) ensureVnicSet(machineId string, tags []string) (ociResponse.VnicSet, error) {
+	acl, err := o.firewall.createDefaultACLAndRules()
+	if err != nil {
+		return ociResponse.VnicSet{}, errors.Trace(err)
+	}
+	name := o.client.ComposeName(o.namespace.Value(machineId))
+	details, err := o.client.VnicSetDetails(name)
+	if err != nil {
+		if !oci.IsNotFound(err) {
+			return ociResponse.VnicSet{}, errors.Trace(err)
+		}
+		logger.Debugf("Creating vnic set %q", name)
+		vnicSetParams := oci.VnicSetParams{
+			AppliedAcls: []string{
+				acl.Name,
+			},
+			Description: "Juju created vnic set",
+			Name:        name,
+			Tags:        tags,
+		}
+		details, err := o.client.CreateVnicSet(vnicSetParams)
+		if err != nil {
+			return ociResponse.VnicSet{}, errors.Trace(err)
+		}
+		return details, nil
+	}
+	return details, nil
+}
+
 // StartInstance asks for a new instance to be created, associated with
 // the provided config in machineConfig. The given config describes the juju
 // state for the new instance to connect to. The config MachineNonce, which must be
@@ -212,28 +355,6 @@ func (o *oracleEnviron) StartInstance(args environs.StartInstanceParams) (*envir
 		return nil, errors.Trace(err)
 	}
 
-	// new cloud config template based on the series
-	cloudcfg, err := cloudinit.New(args.InstanceConfig.Series)
-	if err != nil {
-		return nil, errors.Annotate(err, "cannot create cloudinit template")
-	}
-
-	// compose userdata with the cloud config template
-	userData, err := providerinit.ComposeUserData(
-		args.InstanceConfig,
-		cloudcfg,
-		OracleRenderer{},
-	)
-	if err != nil {
-		return nil, errors.Annotate(err, "cannot make user data")
-	}
-
-	logger.Debugf("oracle user data: %d bytes", len(userData))
-
-	attributes := map[string]interface{}{
-		"userdata": string(userData),
-	}
-
 	hostname, err := o.namespace.Hostname(args.InstanceConfig.MachineId)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -266,17 +387,41 @@ func (o *oracleEnviron) StartInstance(args environs.StartInstanceParams) (*envir
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-
-	vnicSets, err := e.ensureVnicSet(args.InstanceConfig.MachineId, tags, secLists)
+	logger.Infof("Creating vnic sets")
+	vnicSets, err := o.ensureVnicSet(args.InstanceConfig.MachineId, tags)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	// create a  new netowrking card used for making the instance
+	// create a  new networking card used for making the instance
 	// have a public address ip
-	networking := map[string]oci.Networker{
-		"eth0": oci.SharedNetwork{
-			Seclists: secLists,
-		},
+	logger.Infof("Getting instance networks")
+	networking, err := o.getInstanceNetworks(args, secLists, []string{vnicSets.Name})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	// new cloud config template based on the series
+	logger.Infof("Getting cloud config")
+	cloudcfg, err := o.getCloudInitConfig(args.InstanceConfig.Series, networking) //cloudinit.New(args.InstanceConfig.Series)
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot create cloudinit template")
+	}
+
+	// compose userdata with the cloud config template
+	logger.Infof("Composing userdata")
+	userData, err := providerinit.ComposeUserData(
+		args.InstanceConfig,
+		cloudcfg,
+		OracleRenderer{},
+	)
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot make user data")
+	}
+
+	logger.Debugf("oracle user data: %d bytes", len(userData))
+
+	attributes := map[string]interface{}{
+		"userdata": string(userData),
 	}
 
 	// create the instance based on the instance params
@@ -405,8 +550,6 @@ func (o *oracleEnviron) getOracleInstances(ids ...instance.Id) ([]*oracleInstanc
 		return ret, nil
 	}
 
-	// // we have more than one instance so we shall
-	// get all of them
 	resp, err := o.client.AllInstances(nil)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -416,45 +559,21 @@ func (o *oracleEnviron) getOracleInstances(ids ...instance.Id) ([]*oracleInstanc
 		return nil, environs.ErrNoInstances
 	}
 
-	nills := 0
-	// for every instance we found
 	for _, val := range resp.Result {
-		found := false
-		// for every ids provided
 		for _, id := range ids {
-			// if of the instance given match
-			// the instances found in the infrastracture
-			// mark the flag and break the loop
 			if val.Name == string(id) {
-				found = true
+				oInst, err := newInstance(val, o)
+				if err != nil {
+					return nil, errors.Trace(err)
+				}
+				ret = append(ret, oInst)
 				break
 			}
 		}
-
-		// continue if one of the
-		// instance given is not found
-		if found == false {
-			ret = append(ret, nil)
-			nills++
-			continue
-		}
-
-		// parse the instance found
-		oInst, err := newInstance(val, o)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-
-		// append the valid parsed one
-		// into the result list
-		ret = append(ret, oInst)
 	}
-
-	validOnes := len(ret) - nills
-	if validOnes != len(ids) {
+	if len(ret) < len(ids) {
 		return ret, environs.ErrPartialInstances
 	}
-
 	return ret, nil
 }
 
@@ -473,8 +592,6 @@ func (o *oracleEnviron) AllInstances() ([]instance.Instance, error) {
 	return ret, nil
 }
 
-// allInstances will return all oracle instances if we don't have any instance
-// given the tag filter, this will return environs.ErrNoInstances
 func (o *oracleEnviron) allInstances(tagFilter tagValue) ([]*oracleInstance, error) {
 	filter := []oci.Filter{
 		oci.Filter{
@@ -482,19 +599,13 @@ func (o *oracleEnviron) allInstances(tagFilter tagValue) ([]*oracleInstance, err
 			Value: tagFilter.String(),
 		},
 	}
-
 	logger.Infof("Looking for instances with tags: %v", filter)
-
 	resp, err := o.client.AllInstances(filter)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, err
 	}
 
 	n := len(resp.Result)
-	if n == 0 {
-		return nil, environs.ErrNoInstances
-	}
-
 	instances := make([]*oracleInstance, 0, n)
 	for _, val := range resp.Result {
 		oracleInstance, err := newInstance(val, o)

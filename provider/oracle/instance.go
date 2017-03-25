@@ -42,7 +42,7 @@ type oracleInstance struct {
 	instType *instances.InstanceType
 	// mutex used for synchronization between goroutines
 	// some methods will require this
-	mutex sync.Mutex
+	mutex *sync.Mutex
 	// env will hold the env that the instance was created from
 	env *oracleEnviron
 	// machineId is the uuid of the machine
@@ -68,21 +68,16 @@ func (o *oracleInstance) hardwareCharacteristics() *instance.HardwareCharacteris
 
 // newInstance returns a new oracleInstance based on the
 // instance response of the api and the current juju environment
-func newInstance(
-	params response.Instance,
-	env *oracleEnviron,
-) (*oracleInstance, error) {
-
+func newInstance(params response.Instance, env *oracleEnviron) (*oracleInstance, error) {
 	if params.Name == "" {
 		return nil, errors.New(
 			"Instance response does not contain a name",
 		)
 	}
-
 	//gsamfira: there must be a better way to do this.
-	//sgiulitti: and I will find the way
 	splitMachineName := strings.Split(params.Label, "-")
 	machineId := splitMachineName[len(splitMachineName)-1]
+    mutex := &sync.Mutex{}
 	instance := &oracleInstance{
 		name: params.Name,
 		status: instance.InstanceStatus{
@@ -90,7 +85,7 @@ func newInstance(
 			Message: "",
 		},
 		machine:   params,
-		mutex:     sync.Mutex{},
+		mutex:     mutex,
 		env:       env,
 		machineId: machineId,
 	}
