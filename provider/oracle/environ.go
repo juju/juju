@@ -14,7 +14,7 @@ import (
 	"github.com/juju/errors"
 	oci "github.com/juju/go-oracle-cloud/api"
 	ociCommon "github.com/juju/go-oracle-cloud/common"
-	ociResponse "github.com/juju/go-oracle-cloud/response"
+	// ociResponse "github.com/juju/go-oracle-cloud/response"
 	"github.com/juju/version"
 
 	// "github.com/juju/juju/cloudconfig/cloudinit"
@@ -260,35 +260,6 @@ func (e *oracleEnviron) getInstanceNetworks(args environs.StartInstanceParams, s
 	}
 	logger.Infof("returning networking interfaces: %v", networking)
 	return networking, nil
-}
-
-func (o *oracleEnviron) ensureVnicSet(machineId string, tags []string) (ociResponse.VnicSet, error) {
-	acl, err := o.firewall.createDefaultACLAndRules()
-	if err != nil {
-		return ociResponse.VnicSet{}, errors.Trace(err)
-	}
-	name := o.client.ComposeName(o.namespace.Value(machineId))
-	details, err := o.client.VnicSetDetails(name)
-	if err != nil {
-		if !oci.IsNotFound(err) {
-			return ociResponse.VnicSet{}, errors.Trace(err)
-		}
-		logger.Debugf("Creating vnic set %q", name)
-		vnicSetParams := oci.VnicSetParams{
-			AppliedAcls: []string{
-				acl.Name,
-			},
-			Description: "Juju created vnic set",
-			Name:        name,
-			Tags:        tags,
-		}
-		details, err := o.client.CreateVnicSet(vnicSetParams)
-		if err != nil {
-			return ociResponse.VnicSet{}, errors.Trace(err)
-		}
-		return details, nil
-	}
-	return details, nil
 }
 
 // StartInstance asks for a new instance to be created, associated with

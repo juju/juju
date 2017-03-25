@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"strings"
 
-	// oci "github.com/juju/go-oracle-cloud/api"
+	oci "github.com/juju/go-oracle-cloud/api"
 	ociResponse "github.com/juju/go-oracle-cloud/response"
 
 	"github.com/juju/errors"
@@ -125,6 +125,35 @@ func (e *oracleEnviron) getNicAttributes(instance ociResponse.Instance) map[stri
 		ret[tmp] = obj
 	}
 	return ret
+}
+
+func (o *oracleEnviron) ensureVnicSet(machineId string, tags []string) (ociResponse.VnicSet, error) {
+	acl, err := o.firewall.createDefaultACLAndRules()
+	if err != nil {
+		return ociResponse.VnicSet{}, errors.Trace(err)
+	}
+	name := o.client.ComposeName(o.namespace.Value(machineId))
+	details, err := o.client.VnicSetDetails(name)
+	if err != nil {
+		if !oci.IsNotFound(err) {
+			return ociResponse.VnicSet{}, errors.Trace(err)
+		}
+		logger.Debugf("Creating vnic set %q", name)
+		vnicSetParams := oci.VnicSetParams{
+			AppliedAcls: []string{
+				acl.Name,
+			},
+			Description: "Juju created vnic set",
+			Name:        name,
+			Tags:        tags,
+		}
+		details, err := o.client.CreateVnicSet(vnicSetParams)
+		if err != nil {
+			return ociResponse.VnicSet{}, errors.Trace(err)
+		}
+		return details, nil
+	}
+	return details, nil
 }
 
 // NetworkInterfaces requests information about the

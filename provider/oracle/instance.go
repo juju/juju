@@ -77,7 +77,7 @@ func newInstance(params response.Instance, env *oracleEnviron) (*oracleInstance,
 	//gsamfira: there must be a better way to do this.
 	splitMachineName := strings.Split(params.Label, "-")
 	machineId := splitMachineName[len(splitMachineName)-1]
-    mutex := &sync.Mutex{}
+	mutex := &sync.Mutex{}
 	instance := &oracleInstance{
 		name: params.Name,
 		status: instance.InstanceStatus{
@@ -125,7 +125,7 @@ func (o *oracleInstance) refresh() error {
 	return nil
 }
 
-// waitForMachineStatus will ping the machine untile the timeout duration is reached or an error appeared
+// waitForMachineStatus will ping the machine until the timeout duration is reached or an error appeared
 func (o *oracleInstance) waitForMachineStatus(state ociCommon.InstanceState, timeout time.Duration) error {
 	// chan user for errors
 	errChan := make(chan error)
@@ -175,7 +175,7 @@ func (o *oracleInstance) waitForMachineStatus(state ociCommon.InstanceState, tim
 
 // delete will delete the instance and all other things
 // that the instances created to functional correctly
-// if cleanup is true it will dissasociate the public ips from
+// if cleanup is true it will disassociate the public ips from
 // the instance
 func (o *oracleInstance) delete(cleanup bool) error {
 	if cleanup {

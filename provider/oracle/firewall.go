@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	oci "github.com/juju/go-oracle-cloud/api"
 	ociCommon "github.com/juju/go-oracle-cloud/common"
@@ -581,19 +582,19 @@ func (f *Firewall) createDefaultACLAndRules() (ociResponse.Acl, error) {
 	}
 	rules := []oci.SecurityRuleParams{
 		oci.SecurityRuleParams{
-			Acl:                    resourceName,
 			Name:                   f.client.ComposeName(fmt.Sprintf("juju-%s-allow-ingress", uuid)),
 			Description:            "Allow all ingress",
 			FlowDirection:          ociCommon.Ingress,
+			EnabledFlag:            true,
 			DstIpAddressPrefixSets: []string{},
 			SecProtocols:           []string{},
 			SrcIpAddressPrefixSets: []string{},
 		},
 		oci.SecurityRuleParams{
-			Acl:                    resourceName,
 			Name:                   f.client.ComposeName(fmt.Sprintf("juju-%s-allow-egress", uuid)),
 			Description:            "Allow all egress",
 			FlowDirection:          ociCommon.Egress,
+			EnabledFlag:            true,
 			DstIpAddressPrefixSets: []string{},
 			SecProtocols:           []string{},
 			SrcIpAddressPrefixSets: []string{},
@@ -619,6 +620,7 @@ func (f *Firewall) createDefaultACLAndRules() (ociResponse.Acl, error) {
 
 	for _, val := range rules {
 		found := false
+		val.Acl = details.Name
 		newRuleAsStub := f.convertSecurityRuleParamsToStub(val)
 		for _, existing := range aclRules {
 			existingRulesAsStub := f.convertSecurityRuleToStub(existing)
@@ -744,15 +746,31 @@ func (f *Firewall) maybeDeleteList(list string) error {
 			Value: list,
 		},
 	}
-	assoc, err := f.client.AllSecAssociations(filter)
-	if err != nil {
-		return errors.Trace(err)
+	iter := 0
+	found := true
+	var assoc ociResponse.AllSecAssociations
+	for {
+		if iter >= 10 {
+			break
+		}
+		assoc, err := f.client.AllSecAssociations(filter)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if len(assoc.Result) > 0 {
+			time.Sleep(1 * time.Second)
+			iter++
+			//logger.Warningf("seclist %s is still has some associations to instance(s): %v. Will not delete", list, assoc.Result)
+			//return nil
+		}
+		found = false
+		break
 	}
-	if len(assoc.Result) > 0 {
+	if found {
 		logger.Warningf("seclist %s is still has some associations to instance(s): %v. Will not delete", list, assoc.Result)
 		return nil
 	}
-	err = f.deleteAllSecRulesOnList(list)
+	err := f.deleteAllSecRulesOnList(list)
 	if err != nil {
 		return errors.Trace(err)
 	}
