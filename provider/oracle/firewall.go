@@ -562,6 +562,30 @@ func (f *Firewall) convertSecurityRuleParamsToStub(params oci.SecurityRuleParams
 	}
 }
 
+func (f *Firewall) removeACLAndRules(machineId string) error {
+	groupName := f.machineGroupName(machineId)
+	resourceName := f.client.ComposeName(groupName)
+	secRules, err := f.getAllSecurityRules(resourceName)
+	if err != nil {
+		return err
+	}
+	for _, val := range secRules {
+		err := f.client.DeleteSecurityRule(val.Name)
+		if err != nil {
+			if !oci.IsNotFound(err) {
+				return err
+			}
+		}
+	}
+	err = f.client.DeleteAcl(resourceName)
+	if err != nil {
+		if !oci.IsNotFound(err) {
+			return err
+		}
+	}
+	return nil
+}
+
 // createDefaultACLAndRules creates default ACL and rules for IP networks attached to
 // units.
 // NOTE (gsamfira): For now we apply an allow all on these ACLs. Traffic will be cloud-only
@@ -570,19 +594,18 @@ func (f *Firewall) convertSecurityRuleParamsToStub(params oci.SecurityRuleParams
 // instances connected to the same network, or a network managed by the same space will
 // be able to connect. This will ensure that peers and units entering a relationship can connect
 // to services deployed by a particular unit, without having to expose the application.
-func (f *Firewall) createDefaultACLAndRules() (ociResponse.Acl, error) {
+func (f *Firewall) createDefaultACLAndRules(machineId string) (ociResponse.Acl, error) {
 	var details ociResponse.Acl
 	var err error
-	uuid := f.environ.Config().UUID()
-	description := fmt.Sprintf("global ACL for juju environment %s", uuid)
-	globalGroupName := f.globalGroupName()
-	resourceName := f.client.ComposeName(globalGroupName)
+	description := fmt.Sprintf("ACL for machine %s", machineId)
+	groupName := f.machineGroupName(machineId)
+	resourceName := f.client.ComposeName(groupName)
 	if err != nil {
 		return ociResponse.Acl{}, err
 	}
 	rules := []oci.SecurityRuleParams{
 		oci.SecurityRuleParams{
-			Name:                   f.client.ComposeName(fmt.Sprintf("juju-%s-allow-ingress", uuid)),
+			Name:                   fmt.Sprintf("%s-allow-ingress", resourceName),
 			Description:            "Allow all ingress",
 			FlowDirection:          ociCommon.Ingress,
 			EnabledFlag:            true,
@@ -591,7 +614,7 @@ func (f *Firewall) createDefaultACLAndRules() (ociResponse.Acl, error) {
 			SrcIpAddressPrefixSets: []string{},
 		},
 		oci.SecurityRuleParams{
-			Name:                   f.client.ComposeName(fmt.Sprintf("juju-%s-allow-egress", uuid)),
+			Name:                   fmt.Sprintf("%s-allow-egress", resourceName),
 			Description:            "Allow all egress",
 			FlowDirection:          ociCommon.Egress,
 			EnabledFlag:            true,
@@ -760,8 +783,7 @@ func (f *Firewall) maybeDeleteList(list string) error {
 		if len(assoc.Result) > 0 {
 			time.Sleep(1 * time.Second)
 			iter++
-			//logger.Warningf("seclist %s is still has some associations to instance(s): %v. Will not delete", list, assoc.Result)
-			//return nil
+			continue
 		}
 		found = false
 		break

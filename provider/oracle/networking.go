@@ -127,8 +127,22 @@ func (e *oracleEnviron) getNicAttributes(instance ociResponse.Instance) map[stri
 	return ret
 }
 
+func (o *oracleEnviron) DeleteMachineVnicSet(machineId string) error {
+	if err := o.firewall.removeACLAndRules(machineId); err != nil {
+		return errors.Trace(err)
+	}
+	name := o.client.ComposeName(o.namespace.Value(machineId))
+	err := o.client.DeleteVnicSet(name)
+	if err != nil {
+		if !oci.IsNotFound(err) {
+			return errors.Trace(err)
+		}
+	}
+	return nil
+}
+
 func (o *oracleEnviron) ensureVnicSet(machineId string, tags []string) (ociResponse.VnicSet, error) {
-	acl, err := o.firewall.createDefaultACLAndRules()
+	acl, err := o.firewall.createDefaultACLAndRules(machineId)
 	if err != nil {
 		return ociResponse.VnicSet{}, errors.Trace(err)
 	}

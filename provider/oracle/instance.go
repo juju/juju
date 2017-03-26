@@ -216,6 +216,10 @@ func (o *oracleInstance) delete(cleanup bool) error {
 		if err := o.env.firewall.DeleteMachineSecList(o.machineId); err != nil {
 			return jujuerrors.Trace(err)
 		}
+
+		if err := o.env.DeleteMachineVnicSet(o.machineId); err != nil {
+			return jujuerrors.Trace(err)
+		}
 	}
 	return nil
 }
