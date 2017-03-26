@@ -65,6 +65,7 @@ func (s StubNetwork) SetUpSuite(c *gc.C) {
 	ProviderInstance.Subnets = []network.SubnetInfo{{
 		CIDR:              "10.10.0.0/24",
 		ProviderId:        "sn-zadf00d",
+		ProviderNetworkId: "godspeed",
 		AvailabilityZones: []string{"zone1"},
 	}, {
 		CIDR:              "2001:db8::/32",
@@ -315,6 +316,10 @@ func (f *FakeSubnet) ProviderId() network.Id {
 	return f.Info.ProviderId
 }
 
+func (f *FakeSubnet) ProviderNetworkId() network.Id {
+	return f.Info.ProviderNetworkId
+}
+
 func (f *FakeSubnet) VLANTag() int {
 	return f.Info.VLANTag
 }
@@ -411,12 +416,14 @@ func (sb *StubBacking) SetUp(c *gc.C, envName string, withZones, withSpaces, wit
 		info0 := networkingcommon.BackingSubnetInfo{
 			CIDR:              ProviderInstance.Subnets[0].CIDR,
 			ProviderId:        ProviderInstance.Subnets[0].ProviderId,
+			ProviderNetworkId: ProviderInstance.Subnets[0].ProviderNetworkId,
 			AvailabilityZones: ProviderInstance.Subnets[0].AvailabilityZones,
 			SpaceName:         "private",
 		}
 		info1 := networkingcommon.BackingSubnetInfo{
 			CIDR:              ProviderInstance.Subnets[1].CIDR,
 			ProviderId:        ProviderInstance.Subnets[1].ProviderId,
+			ProviderNetworkId: ProviderInstance.Subnets[1].ProviderNetworkId,
 			AvailabilityZones: ProviderInstance.Subnets[1].AvailabilityZones,
 			SpaceName:         "dmz",
 		}

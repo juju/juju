@@ -16,8 +16,13 @@ import (
 
 // SubnetInfo describes a single subnet.
 type SubnetInfo struct {
-	// ProviderId is a provider-specific network id. This may be empty.
+	// ProviderId is a provider-specific id for the subnet. This may be empty.
 	ProviderId network.Id
+
+	// ProviderNetworkId is the id of the network containing this
+	// subnet from the provider's perspective. It can be empty if the
+	// provider doesn't support distinct networks.
+	ProviderNetworkId network.Id
 
 	// CIDR of the network, in 123.45.67.89/24 format.
 	CIDR string
@@ -41,13 +46,14 @@ type Subnet struct {
 }
 
 type subnetDoc struct {
-	DocID            string `bson:"_id"`
-	ModelUUID        string `bson:"model-uuid"`
-	Life             Life   `bson:"life"`
-	ProviderId       string `bson:"providerid,omitempty"`
-	CIDR             string `bson:"cidr"`
-	VLANTag          int    `bson:"vlantag,omitempty"`
-	AvailabilityZone string `bson:"availabilityzone,omitempty"`
+	DocID             string `bson:"_id"`
+	ModelUUID         string `bson:"model-uuid"`
+	Life              Life   `bson:"life"`
+	ProviderId        string `bson:"providerid,omitempty"`
+	ProviderNetworkId string `bson:"provider-network-id,omitempty"`
+	CIDR              string `bson:"cidr"`
+	VLANTag           int    `bson:"vlantag,omitempty"`
+	AvailabilityZone  string `bson:"availabilityzone,omitempty"`
 	// TODO: add IsPublic to SubnetArgs, add an IsPublic method and add
 	// IsPublic to migration import/export.
 	IsPublic  bool   `bson:"is-public,omitempty"`
@@ -155,6 +161,12 @@ func (s *Subnet) SpaceName() string {
 	return s.doc.SpaceName
 }
 
+// ProviderNetworkId returns the provider id of the network containing
+// this subnet.
+func (s *Subnet) ProviderNetworkId() network.Id {
+	return network.Id(s.doc.ProviderNetworkId)
+}
+
 // Validate validates the subnet, checking the CIDR, and VLANTag, if present.
 func (s *Subnet) Validate() error {
 	if s.doc.CIDR != "" {
@@ -228,14 +240,15 @@ func (st *State) AddSubnet(args SubnetInfo) (subnet *Subnet, err error) {
 func (st *State) newSubnetFromArgs(args SubnetInfo) (*Subnet, error) {
 	subnetID := st.docID(args.CIDR)
 	subDoc := subnetDoc{
-		DocID:            subnetID,
-		ModelUUID:        st.ModelUUID(),
-		Life:             Alive,
-		CIDR:             args.CIDR,
-		VLANTag:          args.VLANTag,
-		ProviderId:       string(args.ProviderId),
-		AvailabilityZone: args.AvailabilityZone,
-		SpaceName:        args.SpaceName,
+		DocID:             subnetID,
+		ModelUUID:         st.ModelUUID(),
+		Life:              Alive,
+		CIDR:              args.CIDR,
+		VLANTag:           args.VLANTag,
+		ProviderId:        string(args.ProviderId),
+		ProviderNetworkId: string(args.ProviderNetworkId),
+		AvailabilityZone:  args.AvailabilityZone,
+		SpaceName:         args.SpaceName,
 	}
 	subnet := &Subnet{doc: subDoc, st: st}
 	err := subnet.Validate()
@@ -248,14 +261,15 @@ func (st *State) newSubnetFromArgs(args SubnetInfo) (*Subnet, error) {
 func (st *State) addSubnetOps(args SubnetInfo) []txn.Op {
 	subnetID := st.docID(args.CIDR)
 	subDoc := subnetDoc{
-		DocID:            subnetID,
-		ModelUUID:        st.ModelUUID(),
-		Life:             Alive,
-		CIDR:             args.CIDR,
-		VLANTag:          args.VLANTag,
-		ProviderId:       string(args.ProviderId),
-		AvailabilityZone: args.AvailabilityZone,
-		SpaceName:        args.SpaceName,
+		DocID:             subnetID,
+		ModelUUID:         st.ModelUUID(),
+		Life:              Alive,
+		CIDR:              args.CIDR,
+		VLANTag:           args.VLANTag,
+		ProviderId:        string(args.ProviderId),
+		ProviderNetworkId: string(args.ProviderNetworkId),
+		AvailabilityZone:  args.AvailabilityZone,
+		SpaceName:         args.SpaceName,
 	}
 	ops := []txn.Op{
 		{
