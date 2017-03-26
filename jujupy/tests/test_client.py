@@ -337,6 +337,13 @@ class TestBaseCondition(ClientTest):
         condition = BaseCondition(600)
         self.assertEqual(600, condition.timeout)
 
+    def test_iter_blocking_state_is_noop(self):
+        condition = BaseCondition()
+        called = False
+        for _ in condition.iter_blocking_state({}):
+            called = True
+        self.assertFalse(called)
+
 
 class TestConditionList(ClientTest):
 

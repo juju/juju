@@ -1297,7 +1297,7 @@ class BaseCondition:
         An example for a condition of an application being removed:
             yield <application name>, 'still-present'
         """
-        return
+        return iter(())
 
     def do_raise(self, model_name, status):
         """Raise exception for when success condition fails to be achieved."""
