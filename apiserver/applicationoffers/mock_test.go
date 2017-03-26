@@ -4,16 +4,23 @@
 package applicationoffers_test
 
 import (
+	"fmt"
+
 	"github.com/juju/errors"
 	jtesting "github.com/juju/testing"
+	"github.com/juju/utils/set"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common/crossmodelcommon"
 	jujucrossmodel "github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/permission"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/testing"
 )
 
 const (
+	offerCall       = "offerCall"
 	addOfferCall    = "addOffersCall"
 	listOffersCall  = "listOffersCall"
 	updateOfferCall = "updateOfferCall"
@@ -45,6 +52,11 @@ func (m *mockApplicationOffers) UpdateOffer(offer jujucrossmodel.AddApplicationO
 
 func (m *mockApplicationOffers) Remove(url string) error {
 	m.AddCall(removeOfferCall)
+	panic("not implemented")
+}
+
+func (m *mockApplicationOffers) ApplicationOffer(name string) (*jujucrossmodel.ApplicationOffer, error) {
+	m.AddCall(offerCall)
 	panic("not implemented")
 }
 
@@ -108,12 +120,29 @@ func (m *mockConnectionStatus) ConnectionCount() int {
 	return m.count
 }
 
+type accessEntity struct {
+	user   names.UserTag
+	target names.Tag
+}
+
+type accessRecord struct {
+	access    permission.Access
+	createdBy names.UserTag
+}
+
 type mockState struct {
-	modelUUID    string
-	model        crossmodelcommon.Model
-	usermodels   []crossmodelcommon.UserModel
-	applications map[string]crossmodelcommon.Application
-	connStatus   crossmodelcommon.RemoteConnectionStatus
+	modelUUID         string
+	model             crossmodelcommon.Model
+	usermodels        []crossmodelcommon.UserModel
+	users             set.Strings
+	applications      map[string]crossmodelcommon.Application
+	applicationOffers map[string]jujucrossmodel.ApplicationOffer
+	connStatus        crossmodelcommon.RemoteConnectionStatus
+	accessPerms       map[accessEntity]accessRecord
+}
+
+func (m *mockState) ControllerTag() names.ControllerTag {
+	return testing.ControllerTag
 }
 
 func (m *mockState) Application(name string) (crossmodelcommon.Application, error) {
@@ -122,6 +151,14 @@ func (m *mockState) Application(name string) (crossmodelcommon.Application, erro
 		return nil, errors.NotFoundf("application %q", name)
 	}
 	return app, nil
+}
+
+func (m *mockState) ApplicationOffer(name string) (*jujucrossmodel.ApplicationOffer, error) {
+	offer, ok := m.applicationOffers[name]
+	if !ok {
+		return nil, errors.NotFoundf("application offer %q", name)
+	}
+	return &offer, nil
 }
 
 func (m *mockState) Model() (crossmodelcommon.Model, error) {
@@ -142,6 +179,52 @@ func (m *mockState) ModelsForUser(user names.UserTag) ([]crossmodelcommon.UserMo
 
 func (m *mockState) RemoteConnectionStatus(offerName string) (crossmodelcommon.RemoteConnectionStatus, error) {
 	return m.connStatus, nil
+}
+
+func (m *mockState) AddOfferUser(spec state.UserAccessSpec, offer names.ApplicationOfferTag) (permission.UserAccess, error) {
+	if !m.users.Contains(spec.User.Name()) {
+		return permission.UserAccess{}, errors.NotFoundf("user %q", spec.User.Name())
+	}
+	if _, ok := m.accessPerms[accessEntity{user: spec.User, target: offer}]; ok {
+		return permission.UserAccess{}, errors.NewAlreadyExists(nil, fmt.Sprintf("offer user %s", spec.User.Name()))
+	}
+	m.accessPerms[accessEntity{user: spec.User, target: offer}] = accessRecord{access: spec.Access, createdBy: spec.CreatedBy}
+	return permission.UserAccess{
+		UserTag:   spec.User,
+		Access:    spec.Access,
+		CreatedBy: spec.CreatedBy,
+		Object:    offer,
+	}, nil
+}
+
+func (m *mockState) UserAccess(subject names.UserTag, target names.Tag) (permission.UserAccess, error) {
+	accessRecord, ok := m.accessPerms[accessEntity{user: subject, target: target}]
+	if !ok {
+		return permission.UserAccess{}, errors.NotFoundf("user access for %v", subject)
+	}
+	return permission.UserAccess{
+		UserTag:   subject,
+		CreatedBy: accessRecord.createdBy,
+		Access:    accessRecord.access,
+		Object:    target,
+	}, nil
+}
+
+func (m *mockState) SetUserAccess(subject names.UserTag, target names.Tag, access permission.Access) (permission.UserAccess, error) {
+	m.accessPerms[accessEntity{user: subject, target: target}] = accessRecord{access: access}
+	return permission.UserAccess{
+		UserTag: subject,
+		Access:  access,
+		Object:  target,
+	}, nil
+}
+
+func (m *mockState) RemoveUserAccess(subject names.UserTag, target names.Tag) error {
+	if !m.users.Contains(subject.Name()) {
+		return errors.NewNotFound(nil, fmt.Sprintf("offer user %q does not exist", subject.Name()))
+	}
+	delete(m.accessPerms, accessEntity{user: subject, target: target})
+	return nil
 }
 
 type mockStatePool struct {

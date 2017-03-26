@@ -98,6 +98,9 @@ type ApplicationOffers interface {
 	// UpdateOffer replaces an existing offer at the same URL.
 	UpdateOffer(offer AddApplicationOfferArgs) (*ApplicationOffer, error)
 
+	// ApplicationOffer returns the named application offer.
+	ApplicationOffer(offerName string) (*ApplicationOffer, error)
+
 	// ListOffers returns the offers satisfying the specified filter.
 	ListOffers(filter ...ApplicationOfferFilter) ([]ApplicationOffer, error)
 

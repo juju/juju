@@ -76,6 +76,15 @@ func (s *applicationOffers) offerForName(offerName string) (*applicationOfferDoc
 	return &doc, nil
 }
 
+// ApplicationOffer returns the named application offer.
+func (s *applicationOffers) ApplicationOffer(offerName string) (*crossmodel.ApplicationOffer, error) {
+	offerDoc, err := s.offerForName(offerName)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return s.makeApplicationOffer(*offerDoc)
+}
+
 // Remove deletes the application offer for offerName immediately.
 func (s *applicationOffers) Remove(offerName string) (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot delete application offer %q", offerName)

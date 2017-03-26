@@ -126,6 +126,14 @@ func (s *applicationOffersSuite) createOffer(c *gc.C, name, description string) 
 	return *offer
 }
 
+func (s *applicationOffersSuite) TestApplicationOffer(c *gc.C) {
+	sd := state.NewApplicationOffers(s.State)
+	expectedOffer := s.createDefaultOffer(c)
+	offer, err := sd.ApplicationOffer("hosted-mysql")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(*offer, jc.DeepEquals, expectedOffer)
+}
+
 func (s *applicationOffersSuite) TestListOffersAll(c *gc.C) {
 	sd := state.NewApplicationOffers(s.State)
 	offer := s.createDefaultOffer(c)
