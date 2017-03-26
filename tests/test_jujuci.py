@@ -10,7 +10,6 @@ from mock import patch
 from jujuci import (
     acquire_binary,
     add_artifacts,
-    clean_environment,
     Credentials,
     CredentialsMissing,
     find_artifacts,
@@ -25,7 +24,6 @@ from jujuci import (
     main,
     setup_workspace,
 )
-import jujupy
 from utility import temp_dir
 from tests import (
     FakeHomeTestCase,
@@ -224,11 +222,9 @@ class JujuCITestCase(FakeHomeTestCase):
         print_list = []
         with patch('jujuci.print_now', side_effect=print_list.append):
             with patch('jujuci.setup_workspace', autospec=True) as mock:
-                main(['-d', '-v', 'setup-workspace', '--clean-env', 'bar',
-                      './foo'])
+                main(['-d', '-v', 'setup-workspace', './foo'])
         args, kwargs = mock.call_args
         self.assertEqual(('./foo', ), args)
-        self.assertEqual('bar', kwargs['env'])
         self.assertTrue(kwargs['dry_run'])
         self.assertTrue(kwargs['verbose'])
         self.assertEqual(print_list, ['Done.'])
@@ -339,48 +335,6 @@ class JujuCITestCase(FakeHomeTestCase):
                 print_list,
                 ['Removing old.txt', 'Removing foo', 'Creating artifacts dir.']
             )
-
-    def test_setup_workspace_with_env(self):
-        with temp_dir() as base_dir:
-            workspace_dir = os.path.join(base_dir, 'workspace')
-            os.makedirs(workspace_dir)
-            print_list = []
-            with patch('jujuci.print_now', side_effect=print_list.append):
-                with patch('jujuci.clean_environment', autospec=True) as mock:
-                    setup_workspace(
-                        workspace_dir, env='foo', dry_run=False, verbose=False)
-            mock.assert_called_once_with('foo', verbose=False)
-            self.assertEqual(print_list, ['Creating artifacts dir.'])
-
-    def test_clean_environment_not_dirty(self):
-        config = {'environments': {'local': {'type': 'local'}}}
-        with jujupy._temp_env(config, set_home=True):
-            with patch('jujuci.destroy_environment', autospec=True) as mock_de:
-                with patch.object(jujupy.ModelClient, 'get_version'):
-                    with patch('jujupy.get_client_class') as gcc_mock:
-                        gcc_mock.return_value = jujupy.ModelClient
-                        dirty = clean_environment('foo', verbose=False)
-        self.assertFalse(dirty)
-        self.assertEqual(0, mock_de.call_count)
-
-    def test_clean_environment_dirty(self):
-        config = {'environments': {'foo': {'type': 'local'}}}
-        with jujupy._temp_env(config, set_home=True):
-            with patch('jujuci.destroy_environment', autospec=True) as mock_de:
-                with patch.object(jujupy.ModelClient, 'get_version'):
-                    with patch('jujupy.get_client_class') as gcc_mock:
-                        factory = gcc_mock.return_value
-                        factory.return_value = jujupy.ModelClient(
-                            None, None, None)
-                        with patch.object(jujupy.ModelClient,
-                                          'get_full_path'):
-                            with patch.object(jujupy.JujuData, 'load_yaml'):
-                                dirty = clean_environment('foo', verbose=False)
-        self.assertTrue(dirty)
-        self.assertEqual(1, mock_de.call_count)
-        args, kwargs = mock_de.call_args
-        self.assertIsInstance(args[0], jujupy.ModelClient)
-        self.assertEqual('foo', args[1])
 
     def test_add_artifacts_simple(self):
         with temp_dir() as workspace_dir:

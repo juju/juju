@@ -105,6 +105,11 @@ class FakeControllerState:
             {'email': email, 'password': password, '2fa': twofa})
         self.state = 'registered'
 
+    def login_user(self, name, password):
+        self.name = name
+        self.users.update(
+            {name: {'password': password}})
+
     def destroy(self, kill=False):
         for model in list(self.models.values()):
             model.destroy_model()
@@ -373,6 +378,8 @@ class AutoloadCredentials(FakeExpectChild):
             'default-region': self.extra_env['OS_REGION_NAME'],
             self.extra_env['OS_USERNAME']: {
                 'domain-name': '',
+                'user-domain-name': '',
+                'project-domain-name': '',
                 'auth-type': 'userpass',
                 'username': self.extra_env['OS_USERNAME'],
                 'password': self.extra_env['OS_PASSWORD'],
@@ -380,6 +387,17 @@ class AutoloadCredentials(FakeExpectChild):
                 }}})
         juju_data.dump_yaml(self.juju_home, {})
         return False
+
+    def eof(self):
+        return False
+
+    def readline(self):
+        return (' 1. openstack region "region" project '
+                '"openstack-credentials-0" user "testing-user" (new) '
+                ' 2. openstack region "region" project '
+                '"openstack-credentials-1" user "testing-user" (new) '
+                ' 3. openstack region "region" project '
+                '"openstack-credentials-2" user "testing-user" (new) ')
 
 
 class PromptingExpectChild(FakeExpectChild):
@@ -445,6 +463,22 @@ class PromptingExpectChild(FakeExpectChild):
         self.values[full_match] = line.rstrip()
         self.lines.append((full_match, line))
         self._send_line = line
+
+
+class LoginUser(PromptingExpectChild):
+
+    def __init__(self, backend, juju_home, extra_env, username):
+        self.username = username
+        super(LoginUser, self).__init__(backend, juju_home, extra_env, [
+            'Password:',
+        ])
+
+    def close(self):
+        self.backend.controller_state.login_user(
+            self.username,
+            self.values['Password'],
+            )
+        super(LoginUser, self).close()
 
 
 class RegisterHost(PromptingExpectChild):
@@ -1063,10 +1097,11 @@ class FakeBackend:
             return AutoloadCredentials(self, juju_home, extra_env)
         if command == 'register':
             return RegisterHost(self, juju_home, extra_env)
-        elif command == 'add-cloud':
+        if command == 'add-cloud':
             return AddCloud(self, juju_home, extra_env)
-        else:
-            return FakeExpectChild(self, juju_home, extra_env)
+        if command == 'login -u':
+            return LoginUser(self, juju_home, extra_env, args[0])
+        return FakeExpectChild(self, juju_home, extra_env)
 
     def pause(self, seconds):
         pass

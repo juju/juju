@@ -337,6 +337,13 @@ class TestBaseCondition(ClientTest):
         condition = BaseCondition(600)
         self.assertEqual(600, condition.timeout)
 
+    def test_iter_blocking_state_is_noop(self):
+        condition = BaseCondition()
+        called = False
+        for _ in condition.iter_blocking_state({}):
+            called = True
+        self.assertFalse(called)
+
 
 class TestConditionList(ClientTest):
 
@@ -925,7 +932,7 @@ class TestModelClient(ClientTest):
             client.destroy_model()
         mock.assert_called_with(
             'destroy-model', ('foo', '-y'),
-            include_e=False, timeout=1800)
+            include_e=False, timeout=2700)
 
     def test_destroy_model_gce(self):
         env = JujuData('foo', {'type': 'gce'})
@@ -960,7 +967,7 @@ class TestModelClient(ClientTest):
                 client.kill_controller()
         juju_mock.assert_called_once_with(
             kill_command, ('foo', '-y'), check=False, include_e=False,
-            timeout=1800)
+            timeout=2700)
 
     def test_kill_controller_gce(self):
         client = ModelClient(JujuData('foo', {'type': 'gce'}), None, None)
@@ -3477,6 +3484,17 @@ class TestModelClient(ClientTest):
         self.assertEqual(jrandom['email'], 'email1')
         self.assertEqual(jrandom['password'], 'password1')
         self.assertEqual(jrandom['2fa'], '')
+
+    def test_login_user(self):
+        client = fake_juju_client()
+        controller_state = client._backend.controller_state
+        client.env.controller.name = 'foo-controller'
+        client.env.user_name = 'admin'
+        username = 'bob'
+        password = 'password1'
+        client.login_user(username, password)
+        user = controller_state.users[username]
+        self.assertEqual(user['password'], password)
 
     def test_create_cloned_environment(self):
         fake_client = fake_juju_client()

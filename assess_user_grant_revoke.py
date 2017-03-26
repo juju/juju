@@ -150,7 +150,7 @@ def assert_admin_model(controller_client, client, permission, has_permission):
     """Test if the user has or doesn't have the admin permission"""
     log.info('Checking admin acl with {}'.format(client.env.user_name))
     code = ''.join(random.choice(
-        string.ascii_letters + string.digits) for _ in xrange(4))
+        string.ascii_letters + string.digits) for _ in range(4))
     new_user = permission + code
     log.info('Adding user {} for test'.format(new_user))
     controller_client.add_user_perms(new_user, permissions="read")
@@ -197,16 +197,16 @@ def assert_user_permissions(user, user_client, controller_client):
         controller_client, user_client, permission, expect.next())
 
 
-def assert_change_password(client, user):
+def assert_change_password(client, user, password):
     """Test changing user's password"""
     log.info('Checking change-user-password')
     try:
         child = client.expect('change-user-password', (user.name,),
                               include_e=False)
         child.expect('(?i)password')
-        child.sendline(user.name + '_password_2')
+        child.sendline(password)
         child.expect('(?i)password')
-        child.sendline(user.name + '_password_2')
+        child.sendline(password)
         child.expect(pexpect.EOF)
     except pexpect.TIMEOUT:
         raise JujuAssertionError(
@@ -238,39 +238,15 @@ def assert_disable_enable(controller_client, user):
     assert_equal(user_list, USER_LIST_CTRL_WRITE)
 
 
-def assert_logout_login(controller_client, user_client, user, fake_home):
+def assert_logout_login(controller_client, user_client,
+                        user, fake_home, password):
     """Test users' login and logout"""
     user_client.logout()
     log.info('Checking list-users after logout')
     user_list = list_users(controller_client)
     assert_equal(user_list, USER_LIST_CTRL_READ)
     log.info('Checking list-users after login')
-    username = user.name
-    controller_name = '{}_controller'.format(username)
-    client = controller_client.create_cloned_environment(
-        fake_home, controller_name, user.name)
-    try:
-        child = client.expect('login', (user.name, '-c', controller_name),
-                              include_e=False)
-        # This scenario is pre-macaroon.
-        # See https://bugs.launchpad.net/bugs/1621532
-        child.expect('(?i)password')
-        child.sendline(user.name + '_password_2')
-        # end non-macaroon.
-        child.expect(pexpect.EOF)
-        if child.isalive():
-            raise JujuAssertionError(
-                'FAIL Login user: pexpect session still alive')
-        child.close()
-        if child.exitstatus != 0:
-            raise JujuAssertionError(
-                'FAIL Login user: pexpect process exited with {}'.format(
-                    child.exitstatus))
-    except pexpect.TIMEOUT:
-        raise JujuAssertionError(
-            'FAIL Login user failed: pexpect session timed out')
-    log.info('PASS logout and login')
-    return client
+    user_client.login_user(user.name, password)
 
 
 def assert_read_user(controller_client, user):
@@ -285,9 +261,12 @@ def assert_read_user(controller_client, user):
         log.info('Checking list-shares {}'.format(user.name))
         share_list = list_shares(controller_client)
         assert_equal(share_list, SHARE_LIST_CTRL_READ)
-        assert_change_password(user_client, user)
-        user_client = assert_logout_login(
-            controller_client, user_client, user, fake_home)
+
+        password = ''.join(random.choice(
+            string.ascii_letters + string.digits) for _ in range(10))
+        assert_change_password(user_client, user, password)
+        assert_logout_login(controller_client, user_client,
+                            user, fake_home, password)
         assert_user_permissions(user, user_client, controller_client)
         controller_client.remove_user(user.name)
     log.info('PASS read {}'.format(user.name))
