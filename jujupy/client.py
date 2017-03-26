@@ -1426,6 +1426,22 @@ class WaitVersion(BaseCondition):
         raise VersionsNotUpdated(model_name, status)
 
 
+class WaitAgentsStarted(BaseCondition):
+
+    def __init__(self, timeout=1200):
+        super(WaitAgentsStarted, self).__init__(timeout)
+
+    def iter_blocking_state(self, status):
+        states = Status.check_agents_started(status)
+
+        if states is not None:
+            for state, item in states.items():
+                yield item[0], state
+
+    def do_raise(self, model_name, status):
+        raise AgentsNotStarted(model_name, status)
+
+
 class CommandTime:
     """Store timing details for a juju command."""
 
@@ -1919,7 +1935,8 @@ class ModelClient:
                 upload_tools, config_filename, bootstrap_series, credential,
                 auto_upgrade, metadata_source, no_gui, agent_version)
             self.update_user_name()
-            self.juju('bootstrap', args, include_e=False)
+            retvar, ct = self.juju('bootstrap', args, include_e=False)
+            return retvar, CommandComplete(WaitAgentsStarted(), ct)
 
     @contextmanager
     def bootstrap_async(self, upload_tools=False, bootstrap_series=None,
@@ -1962,7 +1979,9 @@ class ModelClient:
         retvar, ct = self.juju(
             'kill-controller', (self.env.controller.name, '-y'),
             include_e=False, check=check, timeout=get_teardown_timeout(self))
-        return retvar, CommandComplete(BaseCondition(), ct)
+        # Already satisfied as this is a sync, operation.
+        return retvar, CommandComplete(
+            BaseCondition(already_satisfied=True), ct)
 
     def destroy_controller(self, all_models=False):
         """Destroy a controller and its models. Soft kill option.
@@ -1978,7 +1997,9 @@ class ModelClient:
         retvar, ct = self.juju(
             'destroy-controller', args, include_e=False,
             timeout=get_teardown_timeout(self))
-        return retvar, CommandComplete(BaseCondition(), ct)
+        # Already satisfied as this is a sync, operation.
+        return retvar, CommandComplete(
+            BaseCondition(already_satisfied=True), ct)
 
     def tear_down(self):
         """Tear down the client as cleanly as possible.
@@ -2216,12 +2237,12 @@ class ModelClient:
         if alias is not None:
             args.extend([alias])
         retvar, ct = self.juju('deploy', tuple(args))
-        return CommandComplete(BaseCondition(), ct)
+        return retvar, CommandComplete(BaseCondition(), ct)
 
     def attach(self, service, resource):
         args = (service, resource)
         retvar, ct = self.juju('attach', args)
-        return retvar, CommandComplete(BaseCondition(), ct)
+        return retvar, CommandComplete(WaitAgentsStarted(), ct)
 
     def list_resources(self, service_or_unit, details=True):
         args = ('--format', 'yaml', service_or_unit)
