@@ -620,7 +620,7 @@ func (c *Config) FTPProxy() string {
 	return c.asString(FTPProxyKey)
 }
 
-// NoProxy returns the 'no proxy' for the environment.
+// NoProxy returns the 'no-proxy' for the environment.
 func (c *Config) NoProxy() string {
 	return c.asString(NoProxyKey)
 }
@@ -669,7 +669,7 @@ func (c *Config) AptFTPProxy() string {
 	return addSchemeIfMissing("ftp", c.getWithFallback(AptFTPProxyKey, FTPProxyKey))
 }
 
-// AptNoProxy returns the 'apt-no proxy' for the environment.
+// AptNoProxy returns the 'apt-no-proxy' for the environment.
 func (c *Config) AptNoProxy() string {
 	return c.asString(AptNoProxyKey)
 }
