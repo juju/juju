@@ -250,17 +250,10 @@ class AssessNetworkHealth:
             default_route = re.search(r'(default via )+([\d\.]+)\s+',
                                       json.dumps(routes[0]))
             if default_route:
-                rc = client.run(
-                    ['ping -c1 -q {}'.format(default_route.group(2))],
-                    machines=[unit[0]])
-                sucess = re.search(r'(1 received)', json.dumps(rc[0]))
-                if not sucess:
-                    log.error('{} unable to ping default route'.format(unit))
-                    continue
+                results[unit[0]] = True
             else:
-                log.error("Default route not found")
+                log.error("Default route not found for {}".format(unit[0]))
                 continue
-            results[unit[0]] = True
         return results
 
     def get_nh_unit_info(self, apps, by_unit=False):
@@ -325,6 +318,8 @@ class AssessNetworkHealth:
             nh_only = True
             log.info('No exposed units, testing with network-health '
                      'charms only.')
+            for series in self.existing_series:
+                exposed.append('network-health-{}'.format(series))
         else:
             nh_only = False
             self.setup_expose_test(client, series, exposed)
@@ -552,9 +547,9 @@ class AssessNetworkHealth:
 def setup_spaces(maas, bundle=None):
     """Setup MaaS spaces to test charm bindings.
 
-    Reads from the bundle
-    file and pulls out the required spaces, then adds those spaces to
-    the MaaS cluster using our MaaS controller wrapper.
+    Reads from the bundle file and pulls out the required spaces,
+    then adds those spaces to the MaaS cluster using our MaaS
+    controller wrapper.
 
     :param maas: MaaS manager object
     :param bundle: Bundle supplied in test
@@ -606,34 +601,45 @@ def parse_args(argv):
     return parser.parse_args(argv)
 
 
+def start_test(client, args, maas):
+    test = AssessNetworkHealth(args)
+    try:
+        test.assess_network_health(client, args.bundle, args.model,
+                                   args.reboot, args.series, maas)
+    finally:
+        if args.model:
+            test.cleanup(client)
+            log.info('Cleanup complete.')
+
+
+def start_maas_test(client, args):
+    try:
+        with maas_account_from_boot_config(client.env) as manager:
+            start_test(client, args, manager)
+    except subprocess.CalledProcessError as e:
+        log.warning(
+            'Could not connect to MaaS controller due to error:\n{}'.format(e))
+        log.warning('Attempting test without ensuring MaaS spaces.')
+        start_test(client, args, None)
+
+
 def main(argv=None):
     args = parse_args(argv)
     configure_logging(args.verbose)
-    test = AssessNetworkHealth(args)
-    if args.model is None:
+    if args.model:
+        client = client_for_existing(args.juju_bin,
+                                     os.environ['JUJU_HOME'])
+        start_test(client, args, None)
+    else:
         bs_manager = BootstrapManager.from_args(args)
         if args.maas:
-            # Excluded_spaces breaks tests on oil maas
             bs_manager.client.excluded_spaces = set()
             bs_manager.client.reserved_spaces = set()
         with bs_manager.booted_context(args.upload_tools):
-            manager = None
             if args.maas:
-                manager = maas_account_from_boot_config(bs_manager.client.env)
-            test.assess_network_health(bs_manager.client, bundle=args.bundle,
-                                       series=args.series, reboot=args.reboot,
-                                       maas=manager)
-    else:
-        client = client_for_existing(args.juju_bin,
-                                     os.environ['JUJU_HOME'])
-        try:
-            test.assess_network_health(client, bundle=args.bundle,
-                                       target_model=args.model,
-                                       series=args.series,
-                                       reboot=args.reboot)
-        finally:
-            test.cleanup(client)
-            log.info('Cleanup complete.')
+                start_maas_test(bs_manager.client, args)
+            else:
+                start_test(bs_manager.client, args, None)
     return 0
 
 

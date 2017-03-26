@@ -132,7 +132,7 @@ def get_timeout_prefix(duration, timeout_path=None):
 def get_teardown_timeout(client):
     """Return the timeout need byt the client to teardown resources."""
     if client.env.provider == 'azure':
-        return 1800
+        return 2700
     elif client.env.provider == 'gce':
         return 1200
     else:
@@ -1558,6 +1558,8 @@ class ModelClient:
     REGION_ENDPOINT_PROMPT = (
         r'Enter the API endpoint url for the region \[use cloud api url\]:')
 
+    login_user_command = 'login -u'
+
     @classmethod
     def preferred_container(cls):
         for container_type in [LXD_MACHINE, LXC_MACHINE]:
@@ -2824,6 +2826,18 @@ class ModelClient:
         self.controller_juju('logout', ())
         self.env.user_name = ''
 
+    def _end_pexpect_session(self, session):
+        """Pexpect doesn't return buffers, or handle exceptions well.
+        This method attempts to ensure any relevant data is returned to the
+        test output in the event of a failure, or the unexpected"""
+        session.expect(pexpect.EOF)
+        session.close()
+        if session.exitstatus != 0:
+            log.error('Buffer: {}'.format(session.buffer))
+            log.error('Before: {}'.format(session.before))
+            raise Exception('pexpect process exited with {}'.format(
+                    session.exitstatus))
+
     def register_user(self, user, juju_home, controller_name=None):
         """Register `user` for the `client` return the cloned client used."""
         username = user.name
@@ -2845,34 +2859,62 @@ class ModelClient:
             child.sendline(username + '_password')
             child.expect('(?i)name')
             child.sendline(controller_name)
-            child.expect(pexpect.EOF)
-            if child.isalive():
-                raise Exception(
-                    'Registering user failed: pexpect session still alive')
+            self._end_pexpect_session(child)
         except pexpect.TIMEOUT:
+            log.error('Buffer: {}'.format(child.buffer))
+            log.error('Before: {}'.format(child.before))
             raise Exception(
                 'Registering user failed: pexpect session timed out')
         user_client.env.user_name = username
         return user_client
 
+    def login_user(self, username=None, password=None):
+        """Login `user` for the `client`"""
+        if username is None:
+            username = self.env.user_name
+
+        self.env.user_name = username
+
+        if password is None:
+            password = '{}-{}'.format(username, 'password')
+
+        try:
+            child = self.expect(self.login_user_command,
+                                (username, '-c', self.env.controller.name),
+                                include_e=False)
+            child.expect('(?i)password')
+            child.sendline(password)
+            self._end_pexpect_session(child)
+        except pexpect.TIMEOUT:
+            log.error('Buffer: {}'.format(child.buffer))
+            log.error('Before: {}'.format(child.before))
+            raise Exception(
+                'FAIL Login user failed: pexpect session timed out')
+
     def register_host(self, host, email, password):
         child = self.expect('register', ('--no-browser-login', host),
                             include_e=False)
-        child.logfile = sys.stdout
-        child.expect('E-Mail:|Enter a name for this controller:')
-        if child.match.group(0) == 'E-Mail:':
-            child.sendline(email)
-            child.expect('Password:')
-            child.logfile = None
-            try:
-                child.sendline(password)
-            finally:
-                child.logfile = sys.stdout
-            child.expect(r'Two-factor auth \(Enter for none\):')
-            child.sendline()
-            child.expect('Enter a name for this controller:')
-        child.sendline(self.env.controller.name)
-        child.expect(pexpect.EOF)
+        try:
+            child.logfile = sys.stdout
+            child.expect('E-Mail:|Enter a name for this controller:')
+            if child.match.group(0) == 'E-Mail:':
+                child.sendline(email)
+                child.expect('Password:')
+                child.logfile = None
+                try:
+                    child.sendline(password)
+                finally:
+                    child.logfile = sys.stdout
+                child.expect(r'Two-factor auth \(Enter for none\):')
+                child.sendline()
+                child.expect('Enter a name for this controller:')
+            child.sendline(self.env.controller.name)
+            self._end_pexpect_session(child)
+        except pexpect.TIMEOUT:
+            log.error('Buffer: {}'.format(child.buffer))
+            log.error('Before: {}'.format(child.before))
+            raise Exception(
+                'Registering host failed: pexpect session timed out')
 
     def remove_user(self, username):
         self.juju('remove-user', (username, '-y'), include_e=False)
