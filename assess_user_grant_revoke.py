@@ -103,7 +103,7 @@ def show_user(client):
 def assess_read_operations(client, permission, has_permission):
     read_commands = (
         client.show_status,
-        lambda: client.juju('show-model', include_e=False),
+        lambda: client.juju('show-model', (), include_e=False),
     )
 
     for command in read_commands:
@@ -264,7 +264,8 @@ def assert_disable_enable(controller_client, user):
     log.info('Enabled {}'.format(user.name))
     user_list = list_users(controller_client)
     log.info('Checking list-users {}'.format(user.name))
-    assert_equal(user_list, USER_LIST_CTRL_WRITE)
+    if user.name not in user_list:
+        raise JujuAssertionError('FAIL User failed to re-enable')
 
 
 def assert_user_status(client, user, expected_users, expected_shares):
