@@ -102,12 +102,7 @@ def show_user(client):
 
 def assess_read_operations(client, permission, has_permission):
     for operation in (
-        lambda: list_users(client),
-        lambda: list_shares(client),
-        lambda: show_user(client),
-        lambda: client.list_models(),
         lambda: client.show_status(),
-        lambda: client.list_clouds(),
         lambda: client.show_controller(),
     ):
         if has_permission:
@@ -115,8 +110,8 @@ def assess_read_operations(client, permission, has_permission):
                 print(operation())
             except subprocess.CalledProcessError:
                 raise JujuAssertionError(
-                    'FAIL User unable to perform read operation {}'
-                    'with permission {}'.format(operation, permission))
+                    'FAIL User unable to perform read operation with '
+                    'permission {}'.format(permission))
         else:
             try:
                 print(operation())
@@ -124,8 +119,8 @@ def assess_read_operations(client, permission, has_permission):
                 pass
             else:
                 raise JujuAssertionError(
-                    'FAIL User performed read operation {}'
-                    'with permission {}'.format(operation, permission))
+                    'FAIL User performed read operation with '
+                    'permission {}'.format(permission))
 
 
 def assess_write_operations(client, permission, has_permission):
@@ -140,8 +135,8 @@ def assess_write_operations(client, permission, has_permission):
                 print(operation())
             except subprocess.CalledProcessError:
                 raise JujuAssertionError(
-                    'FAIL User unable to perform read operation {}'
-                    'with permission {}'.format(operation, permission))
+                    'FAIL User unable to perform write operation with '
+                    'permission {}'.format(permission))
         else:
             try:
                 print(operation())
@@ -149,23 +144,23 @@ def assess_write_operations(client, permission, has_permission):
                 pass
             else:
                 raise JujuAssertionError(
-                    'FAIL User performed read operation {}'
-                    'with permission {}'.format(operation, permission))
+                    'FAIL User performed write operation with '
+                    'permission {}'.format(permission))
 
 
 def assess_admin_operations(client, permission, has_permission, user):
     for operation in (
         lambda: client.grant(user, permission="write"),
         lambda: client.remove_user(user),
-        lambda: client.add_user_perms(user, permission="admin"),
+        lambda: client.add_user_perms(user, permissions="admin"),
     ):
         if has_permission:
             try:
                 print(operation())
             except subprocess.CalledProcessError:
                 raise JujuAssertionError(
-                    'FAIL User unable to perform admin operation {}'
-                    'with permission {}'.format(operation, permission))
+                    'FAIL User unable to perform admin operation with '
+                    'permission {}'.format(permission))
         else:
             try:
                 print(operation())
@@ -173,8 +168,8 @@ def assess_admin_operations(client, permission, has_permission, user):
                 pass
             else:
                 raise JujuAssertionError(
-                    'FAIL User performed admin operation {}'
-                    'with permission {}'.format(operation, permission))
+                    'FAIL User performed admin operation with '
+                    'permission {}'.format(permission))
 
 
 def assert_read_model(client, permission, has_permission):
