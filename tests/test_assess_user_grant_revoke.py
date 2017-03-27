@@ -138,14 +138,14 @@ class TestAsserts(TestCase):
     def test_assert_read_model(self):
         fake_client = fake_juju_client()
         with patch.object(fake_client, 'show_status', return_value=True):
-            with patch.object(fake_client, 'show_controller',
+            with patch.object(fake_client, 'juju',
                               return_value=True):
                 assert_read_model(fake_client, 'read', True)
                 with self.assertRaises(JujuAssertionError):
                     assert_read_model(fake_client, 'read', False)
         with patch.object(fake_client, 'show_status', return_value=False,
                           side_effect=CalledProcessError(None, None, None)):
-            with patch.object(fake_client, 'show_controller',
+            with patch.object(fake_client, 'juju',
                               return_value=False,
                               side_effect=CalledProcessError(
                                 None, None, None)):

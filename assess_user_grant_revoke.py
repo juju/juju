@@ -101,7 +101,10 @@ def show_user(client):
 
 
 def assess_read_operations(client, permission, has_permission):
-    read_commands = (client.show_status, client.show_controller)
+    read_commands = (
+        client.show_status,
+        lambda: client.juju('show-model', include_e=False),
+    )
 
     for command in read_commands:
         if has_permission:
@@ -127,7 +130,7 @@ def assess_write_operations(client, permission, has_permission):
     write_commands = (
         lambda: client.set_env_option('resource-tags', tags),
         lambda: client.add_model('dummy'),
-        lambda: client.destroy_model(),
+        client.destroy_model,
     )
 
     for command in write_commands:
