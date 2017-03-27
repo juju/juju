@@ -101,20 +101,19 @@ def show_user(client):
 
 
 def assess_read_operations(client, permission, has_permission):
-    for operation in (
-        lambda: client.show_status(),
-        lambda: client.show_controller(),
-    ):
+    read_commands = (client.show_status, client.show_controller)
+
+    for command in read_commands:
         if has_permission:
             try:
-                print(operation())
+                command()
             except subprocess.CalledProcessError:
                 raise JujuAssertionError(
                     'FAIL User unable to perform read operation with '
                     'permission {}'.format(permission))
         else:
             try:
-                print(operation())
+                command()
             except subprocess.CalledProcessError:
                 pass
             else:
@@ -125,21 +124,23 @@ def assess_read_operations(client, permission, has_permission):
 
 def assess_write_operations(client, permission, has_permission):
     tags = '"{}={}"'.format(client.env.user_name, permission)
-    for operation in (
+    write_commands = (
         lambda: client.set_env_option('resource-tags', tags),
         lambda: client.add_model('dummy'),
         lambda: client.destroy_model(),
-    ):
+    )
+
+    for command in write_commands:
         if has_permission:
             try:
-                print(operation())
+                command()
             except subprocess.CalledProcessError:
                 raise JujuAssertionError(
                     'FAIL User unable to perform write operation with '
                     'permission {}'.format(permission))
         else:
             try:
-                print(operation())
+                command()
             except subprocess.CalledProcessError:
                 pass
             else:
@@ -149,21 +150,24 @@ def assess_write_operations(client, permission, has_permission):
 
 
 def assess_admin_operations(client, permission, has_permission, user):
-    for operation in (
+
+    admin_commands = (
         lambda: client.grant(user, permission="write"),
         lambda: client.remove_user(user),
         lambda: client.add_user_perms(user, permissions="admin"),
-    ):
+    )
+
+    for command in admin_commands:
         if has_permission:
             try:
-                print(operation())
+                command()
             except subprocess.CalledProcessError:
                 raise JujuAssertionError(
                     'FAIL User unable to perform admin operation with '
                     'permission {}'.format(permission))
         else:
             try:
-                print(operation())
+                command()
             except subprocess.CalledProcessError:
                 pass
             else:
