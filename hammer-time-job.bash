@@ -1,7 +1,7 @@
 #!/bin/bash
 set -eu
 export ARTIFACTS=$WORKSPACE/artifacts
-export ARTIFACT_URL=http://juju-ci.vapour.ws/job/hammer-time/\
+export ARTIFACT_URL=http://juju-ci.vapour.ws/job/$JOB_NAME/\
 $replay_build_number/artifact/artifacts/plan.yaml
 export MODEL_NAME=$JOB_NAME
 export DATA_DIR=$JUJU_HOME/jes-homes/$MODEL_NAME
@@ -10,6 +10,9 @@ source $JUJU_HOME/juju-qa.jujuci
 set -x
 s3ci.py get-summary $revision_build parallel-lxd
 jujuci.py -v setup-workspace $WORKSPACE
+if [ -n "${replay_build_number-}" ]; then
+  curl $ARTIFACT_URL -u $JENKINS_USER:$JENKINS_PASSWORD -o $PLAN
+fi
 export JUJU_BIN=$(s3ci.py get-juju-bin $revision_build $WORKSPACE)
 set +e
 timeout 30m bash <<"EOT"
@@ -22,9 +25,6 @@ if [ -z "${replay_build_number-}" ]; then
   $HAMMER_TIME run-random $PLAN --juju-data $DATA_DIR --juju-bin $JUJU_BIN \
     --action-count $action_count
 else
-  set +x
-  curl $ARTIFACT_URL -u $JENKINS_USER:$JENKINS_PASSWORD -o $PLAN
-  set -x
   $HAMMER_TIME replay $PLAN --juju-data $DATA_DIR --juju-bin $JUJU_BIN
 fi
 EOT
