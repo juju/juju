@@ -13,8 +13,6 @@
 # replay_build_number The number of a previous build to replay.
 set -eu
 export ARTIFACTS=$WORKSPACE/artifacts
-export ARTIFACT_URL=http://juju-ci.vapour.ws/job/$JOB_NAME/\
-$replay_build_number/artifact/artifacts/plan.yaml
 export MODEL_NAME=$JOB_NAME
 export DATA_DIR=$JUJU_HOME/jes-homes/$MODEL_NAME
 export PLAN=$ARTIFACTS/plan.yaml
@@ -22,6 +20,8 @@ set -x
 s3ci.py get-summary $revision_build $base_config
 jujuci.py -v setup-workspace $WORKSPACE
 if [ -n "${replay_build_number-}" ]; then
+  export ARTIFACT_URL=http://juju-ci.vapour.ws/job/$JOB_NAME/\
+$replay_build_number/artifact/artifacts/plan.yaml
   curl --netrc-file $JUJU_HOME/juju-qa-ci.netrc $ARTIFACT_URL -o $PLAN
 fi
 export JUJU_BIN=$(s3ci.py get-juju-bin $revision_build $WORKSPACE)
