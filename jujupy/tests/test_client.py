@@ -652,7 +652,7 @@ class TestModelClient(ClientTest):
 
     def test_bootstrap_maas(self):
         env = JujuData('maas', {'type': 'foo', 'region': 'asdf'})
-        with patch.object(ModelClient, 'juju') as mock:
+        with patch_juju_call(ModelClient) as mock:
             client = ModelClient(env, '2.0-zeta1', None)
             with patch.object(client.env, 'maas', lambda: True):
                 with observable_temp_file() as config_file:
@@ -670,7 +670,7 @@ class TestModelClient(ClientTest):
         # Disable space constraint with environment variable
         os.environ['JUJU_CI_SPACELESSNESS'] = "1"
         env = JujuData('maas', {'type': 'foo', 'region': 'asdf'})
-        with patch.object(ModelClient, 'juju') as mock:
+        with patch_juju_call(ModelClient) as mock:
             client = ModelClient(env, '2.0-zeta1', None)
             with patch.object(client.env, 'maas', lambda: True):
                 with observable_temp_file() as config_file:
@@ -686,13 +686,13 @@ class TestModelClient(ClientTest):
     def test_bootstrap_joyent(self):
         env = JujuData('joyent', {
             'type': 'joyent', 'sdc-url': 'https://foo.api.joyentcloud.com'})
-        with patch.object(ModelClient, 'juju', autospec=True) as mock:
-            client = ModelClient(env, '2.0-zeta1', None)
+        client = ModelClient(env, '2.0-zeta1', None)
+        with patch_juju_call(client) as mock:
             with patch.object(client.env, 'joyent', lambda: True):
                 with observable_temp_file() as config_file:
                     client.bootstrap()
             mock.assert_called_once_with(
-                client, 'bootstrap', (
+                'bootstrap', (
                     '--constraints', 'mem=2G cpu-cores=1',
                     'joyent/foo', 'joyent',
                     '--config', config_file.name,
@@ -702,7 +702,7 @@ class TestModelClient(ClientTest):
     def test_bootstrap(self):
         env = JujuData('foo', {'type': 'bar', 'region': 'baz'})
         with observable_temp_file() as config_file:
-            with patch.object(ModelClient, 'juju') as mock:
+            with patch_juju_call(ModelClient) as mock:
                 client = ModelClient(env, '2.0-zeta1', None)
                 client.bootstrap()
                 mock.assert_called_with(

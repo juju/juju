@@ -368,7 +368,7 @@ class TestModelClientRC(ClientTest):
     def test_bootstrap(self):
         env = JujuData('foo', {'type': 'bar', 'region': 'baz'})
         with observable_temp_file() as config_file:
-            with patch.object(ModelClientRC, 'juju') as mock:
+            with patch_juju_call(ModelClientRC) as mock:
                 client = ModelClientRC(env, '2.0-zeta1', None)
                 client.bootstrap()
                 mock.assert_called_with(
@@ -468,7 +468,7 @@ class TestEnvJujuClient1X(ClientTest):
 
     def test_bootstrap_maas(self):
         env = SimpleEnvironment('maas')
-        with patch.object(EnvJujuClient1X, 'juju') as mock:
+        with patch_juju_call(EnvJujuClient1X) as mock:
             client = EnvJujuClient1X(env, None, None)
             with patch.object(client.env, 'maas', lambda: True):
                 client.bootstrap()
@@ -476,12 +476,12 @@ class TestEnvJujuClient1X(ClientTest):
 
     def test_bootstrap_joyent(self):
         env = SimpleEnvironment('joyent')
-        with patch.object(EnvJujuClient1X, 'juju', autospec=True) as mock:
+        with patch_juju_call(EnvJujuClient1X) as mock:
             client = EnvJujuClient1X(env, None, None)
             with patch.object(client.env, 'joyent', lambda: True):
                 client.bootstrap()
         mock.assert_called_once_with(
-            client, 'bootstrap', ('--constraints', 'mem=2G cpu-cores=1'))
+                'bootstrap', ('--constraints', 'mem=2G cpu-cores=1'))
 
     def test_bootstrap(self):
         env = SimpleEnvironment('foo')

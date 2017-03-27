@@ -69,7 +69,10 @@ from jujupy import (
     Machine,
     )
 
-from jujupy.client import CommandTime
+from jujupy.client import (
+    BaseCondition,
+    CommandTime,
+)
 from jujupy.configuration import (
     get_environments_path,
     get_jenv_path,
@@ -2110,12 +2113,17 @@ class TestBootstrapManager(FakeHomeTestCase):
     @contextmanager
     def booted_to_bootstrap(self, bs_manager):
         """Preform patches to focus on the call to bootstrap."""
+        # Need basic model details for get_status() (called in wait_for.)
+        bs_manager.client._backend.controller_state.add_model('controller')
+        bootstrap_return = (0, BaseCondition(already_satisfied=True))
         with patch.object(bs_manager, 'dump_all_logs'):
             with patch.object(bs_manager, 'runtime_context'):
                 with patch.object(
                         bs_manager.client, 'juju',
                         return_value=make_fake_juju_return()):
-                    with patch.object(bs_manager.client, 'bootstrap') as mock:
+                    with patch.object(
+                            bs_manager.client, 'bootstrap',
+                            return_value=bootstrap_return) as mock:
                         yield mock
 
     def test_booted_context_kwargs(self):
@@ -2309,6 +2317,15 @@ class TestBootContext(FakeHomeTestCase):
             models = [{'name': 'controller'}, {'name': 'bar'}]
         self.addContext(patch.object(client, '_get_models',
                                      return_value=models, autospec=True))
+        # bootstrap now calls wait for.
+        m_controller_client = Mock()
+        m_controller_client.wait_for.return_value = {}
+        self.addContext(
+            patch.object(
+                client,
+                'get_controller_client',
+                autospec=True,
+                return_value=m_controller_client))
         if jes:
             output = jes
         else:
