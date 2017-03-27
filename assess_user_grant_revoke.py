@@ -23,13 +23,13 @@ import pexpect
 
 from deploy_stack import (
     BootstrapManager,
-)
+    )
 from utility import (
     JujuAssertionError,
     add_basic_testing_arguments,
     configure_logging,
     temp_dir,
-)
+    )
 
 __metaclass__ = type
 
@@ -301,6 +301,7 @@ def assert_read_user(controller_client, user):
         assert_logout_login(controller_client, user_client,
                             user, fake_home, password)
         assert_user_permissions(user, user_client, controller_client)
+        assert_disable_enable(controller_client, user)
         controller_client.remove_user(user.name)
     log.info('PASS read {}'.format(user.name))
 
@@ -321,6 +322,7 @@ def assert_write_user(controller_client, user):
         assert_logout_login(controller_client, user_client,
                             user, fake_home, password)
         assert_user_permissions(user, user_client, controller_client)
+        assert_disable_enable(controller_client, user)
         controller_client.remove_user(user.name)
     log.info('PASS write {}'.format(user.name))
 
@@ -342,11 +344,12 @@ def assert_admin_user(controller_client, user):
         assert_logout_login(controller_client, user_client,
                             user, fake_home, password)
         assert_user_permissions(user, user_client, controller_client)
+        assert_disable_enable(controller_client, user)
         controller_client.remove_user(user.name)
     log.info('PASS admin {}'.format(user.name))
 
 
-def assert_controller(controller_client, users):
+def assert_controller(controller_client):
     log.info('Checking list-users admin')
     user_list = list_users(controller_client)
     assert_equal(user_list, USER_LIST_CTRL)
@@ -358,10 +361,6 @@ def assert_controller(controller_client, users):
     log.info('Checking show-user admin')
     user_status = show_user(controller_client)
     assert_equal(user_status, USER_LIST_CTRL[0])
-
-    log.info('Checking enable/disable users')
-    for user in users:
-        assert_disable_enable(controller_client, user)
 
 
 def assess_user_grant_revoke(controller_client):
@@ -377,8 +376,7 @@ def assess_user_grant_revoke(controller_client):
                       [True, True, True, True, True, True])
 
     # check controller client
-    users = [read_user, write_user, admin_user]
-    assert_controller(controller_client, users)
+    assert_controller(controller_client)
 
     # check each type of user
     assert_read_user(controller_client, read_user)
