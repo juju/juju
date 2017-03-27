@@ -261,10 +261,11 @@ func (s *unitSuite) TestAssignedMachine(c *gc.C) {
 	c.Assert(machineTag, gc.Equals, s.wordpressMachine.Tag())
 }
 
-func (s *unitSuite) TestIsPrincipal(c *gc.C) {
-	ok, err := s.apiUnit.IsPrincipal()
+func (s *unitSuite) TestPrincipalName(c *gc.C) {
+	unitName, ok, err := s.apiUnit.PrincipalName()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, jc.IsFalse)
+	c.Assert(unitName, gc.Equals, "")
 }
 
 func (s *unitSuite) TestHasSubordinates(c *gc.C) {
