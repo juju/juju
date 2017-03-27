@@ -1173,7 +1173,7 @@ func (s *cloudinitSuite) TestProxyWritten(c *gc.C) {
 		`(printf '%s\n' 'export http_proxy=http://user@10.0.0.1
 export HTTP_PROXY=http://user@10.0.0.1
 export no_proxy=localhost,10.0.3.1
-export NO_PROXY=localhost,10.0.3.1' > /etc/juju-proxy.conf && chmod 0644 /etc/juju-proxy.conf)`	}
+export NO_PROXY=localhost,10.0.3.1' > /etc/juju-proxy.conf && chmod 0644 /etc/juju-proxy.conf)`}
 	found := false
 	for i, cmd := range cmds {
 		if cmd == first {

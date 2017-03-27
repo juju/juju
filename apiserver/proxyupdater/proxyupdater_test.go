@@ -119,11 +119,11 @@ func (s *ProxyUpdaterSuite) TestProxyConfig(c *gc.C) {
 func (s *ProxyUpdaterSuite) TestProxyConfigExtendsExisting(c *gc.C) {
 	// Check that the ProxyConfig combines data from ModelConfig and APIHostPorts
 	s.state.SetModelConfig(coretesting.Attrs{
-		"http-proxy":  "http proxy",
-		"https-proxy": "https proxy",
-		"apt-http-proxy": "apt http proxy",
+		"http-proxy":      "http proxy",
+		"https-proxy":     "https proxy",
+		"apt-http-proxy":  "apt http proxy",
 		"apt-https-proxy": "apt https proxy",
-		"no-proxy":    "9.9.9.9",
+		"no-proxy":        "9.9.9.9",
 	})
 	cfg := s.facade.ProxyConfig(s.oneEntity())
 	s.state.Stub.CheckCallNames(c,
@@ -144,11 +144,11 @@ func (s *ProxyUpdaterSuite) TestProxyConfigExtendsExisting(c *gc.C) {
 func (s *ProxyUpdaterSuite) TestProxyConfigNoDuplicates(c *gc.C) {
 	// Check that the ProxyConfig combines data from ModelConfig and APIHostPorts
 	s.state.SetModelConfig(coretesting.Attrs{
-		"http-proxy":  "http proxy",
-		"https-proxy": "https proxy",
-		"apt-http-proxy": "apt http proxy",
+		"http-proxy":      "http proxy",
+		"https-proxy":     "https proxy",
+		"apt-http-proxy":  "apt http proxy",
 		"apt-https-proxy": "apt https proxy",
-		"no-proxy":    "0.1.2.3",
+		"no-proxy":        "0.1.2.3",
 	})
 	cfg := s.facade.ProxyConfig(s.oneEntity())
 	s.state.Stub.CheckCallNames(c,
@@ -180,9 +180,9 @@ func (sb *stubBackend) SetUp(c *gc.C) {
 	sb.Stub = &testing.Stub{}
 	sb.c = c
 	sb.configAttrs = coretesting.Attrs{
-		"http-proxy":  "http proxy",
-		"https-proxy": "https proxy",
-		"apt-http-proxy": "apt http proxy",
+		"http-proxy":      "http proxy",
+		"https-proxy":     "https proxy",
+		"apt-http-proxy":  "apt http proxy",
 		"apt-https-proxy": "apt https proxy",
 	}
 	sb.hpWatcher = workertest.NewFakeWatcher(1, 1)
