@@ -19,7 +19,7 @@ export MODEL_NAME=$JOB_NAME
 export DATA_DIR=$JUJU_HOME/jes-homes/$MODEL_NAME
 export PLAN=$ARTIFACTS/plan.yaml
 set -x
-s3ci.py get-summary $revision_build parallel-lxd
+s3ci.py get-summary $revision_build $base_config
 jujuci.py -v setup-workspace $WORKSPACE
 if [ -n "${replay_build_number-}" ]; then
   curl --netrc-file $JUJU_HOME/juju-qa-ci.netrc $ARTIFACT_URL -o $PLAN
