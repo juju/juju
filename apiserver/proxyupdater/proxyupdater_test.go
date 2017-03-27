@@ -111,7 +111,7 @@ func (s *ProxyUpdaterSuite) TestProxyConfig(c *gc.C) {
 		ProxySettings: params.ProxyConfig{
 			HTTP: "http proxy", HTTPS: "https proxy", FTP: "", NoProxy: noProxy},
 		APTProxySettings: params.ProxyConfig{
-			HTTP: "http://http proxy", HTTPS: "https://https proxy", FTP: "", NoProxy: ""},
+			HTTP: "http://apt http proxy", HTTPS: "https://apt https proxy", FTP: "", NoProxy: ""},
 	}
 	c.Assert(cfg.Results[0], jc.DeepEquals, r)
 }
@@ -121,6 +121,8 @@ func (s *ProxyUpdaterSuite) TestProxyConfigExtendsExisting(c *gc.C) {
 	s.state.SetModelConfig(coretesting.Attrs{
 		"http-proxy":  "http proxy",
 		"https-proxy": "https proxy",
+		"apt-http-proxy": "apt http proxy",
+		"apt-https-proxy": "apt https proxy",
 		"no-proxy":    "9.9.9.9",
 	})
 	cfg := s.facade.ProxyConfig(s.oneEntity())
@@ -135,7 +137,7 @@ func (s *ProxyUpdaterSuite) TestProxyConfigExtendsExisting(c *gc.C) {
 		ProxySettings: params.ProxyConfig{
 			HTTP: "http proxy", HTTPS: "https proxy", FTP: "", NoProxy: expectedNoProxy},
 		APTProxySettings: params.ProxyConfig{
-			HTTP: "http://http proxy", HTTPS: "https://https proxy", FTP: "", NoProxy: ""},
+			HTTP: "http://apt http proxy", HTTPS: "https://apt https proxy", FTP: "", NoProxy: ""},
 	})
 }
 
@@ -144,6 +146,8 @@ func (s *ProxyUpdaterSuite) TestProxyConfigNoDuplicates(c *gc.C) {
 	s.state.SetModelConfig(coretesting.Attrs{
 		"http-proxy":  "http proxy",
 		"https-proxy": "https proxy",
+		"apt-http-proxy": "apt http proxy",
+		"apt-https-proxy": "apt https proxy",
 		"no-proxy":    "0.1.2.3",
 	})
 	cfg := s.facade.ProxyConfig(s.oneEntity())
@@ -158,7 +162,7 @@ func (s *ProxyUpdaterSuite) TestProxyConfigNoDuplicates(c *gc.C) {
 		ProxySettings: params.ProxyConfig{
 			HTTP: "http proxy", HTTPS: "https proxy", FTP: "", NoProxy: expectedNoProxy},
 		APTProxySettings: params.ProxyConfig{
-			HTTP: "http://http proxy", HTTPS: "https://https proxy", FTP: "", NoProxy: ""},
+			HTTP: "http://apt http proxy", HTTPS: "https://apt https proxy", FTP: "", NoProxy: ""},
 	})
 }
 
@@ -178,6 +182,8 @@ func (sb *stubBackend) SetUp(c *gc.C) {
 	sb.configAttrs = coretesting.Attrs{
 		"http-proxy":  "http proxy",
 		"https-proxy": "https proxy",
+		"apt-http-proxy": "apt http proxy",
+		"apt-https-proxy": "apt https proxy",
 	}
 	sb.hpWatcher = workertest.NewFakeWatcher(1, 1)
 	sb.confWatcher = workertest.NewFakeWatcher(1, 1)

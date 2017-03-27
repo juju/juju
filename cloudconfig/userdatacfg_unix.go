@@ -194,16 +194,15 @@ func (w *unixConfigure) ConfigureJuju() error {
 	// sourced by bash, and ssh through that.
 	w.conf.AddScripts(
 		// We look to see if the proxy line is there already as
-		// the manual provider may have had it already. The ubuntu
-		// user may not exist.
-		`([ ! -e /home/ubuntu/.profile ] || grep -q '.juju-proxy' /home/ubuntu/.profile) || ` +
-			`printf '\n# Added by juju\n[ -f "$HOME/.juju-proxy" ] && . "$HOME/.juju-proxy"\n' >> /home/ubuntu/.profile`)
+		// the manual provider may have had it already.
+		`[ -e /etc/profile.d/juju-proxy.sh ] || ` +
+			`printf '\n# Added by juju\n[ -f "/etc/juju-proxy.conf" ] && . "/etc/juju-proxy.conf"\n' >> /etc/profile.d/juju-proxy.sh`)
 	if (w.icfg.ProxySettings != proxy.Settings{}) {
 		exportedProxyEnv := w.icfg.ProxySettings.AsScriptEnvironment()
 		w.conf.AddScripts(strings.Split(exportedProxyEnv, "\n")...)
 		w.conf.AddScripts(
 			fmt.Sprintf(
-				`(id ubuntu &> /dev/null) && (printf '%%s\n' %s > /home/ubuntu/.juju-proxy && chown ubuntu:ubuntu /home/ubuntu/.juju-proxy)`,
+				`(printf '%%s\n' %s > /etc/juju-proxy.conf && chmod 0644 /etc/juju-proxy.conf)`,
 				shquote(w.icfg.ProxySettings.AsScriptEnvironment())))
 	}
 

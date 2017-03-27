@@ -330,7 +330,7 @@ printf '%s\\n' '.*"Stop all network interfaces.*' > '/etc/init/juju-clean-shutdo
 install -D -m 644 /dev/null '/var/lib/juju/nonce.txt'
 printf '%s\\n' 'FAKE_NONCE' > '/var/lib/juju/nonce.txt'
 test -n "\$JUJU_PROGRESS_FD" \|\| \(exec \{JUJU_PROGRESS_FD\}>&2\) 2>/dev/null && exec \{JUJU_PROGRESS_FD\}>&2 \|\| JUJU_PROGRESS_FD=2
-\(\[ ! -e /home/ubuntu/.profile \] \|\| grep -q '.juju-proxy' /home/ubuntu/.profile\) \|\| printf .* >> /home/ubuntu/.profile
+\[ -e /etc/profile.d/juju-proxy.sh \] \|\| printf .* >> /etc/profile.d/juju-proxy.sh
 mkdir -p /var/lib/juju/locks
 \(id ubuntu &> /dev/null\) && chown ubuntu:ubuntu /var/lib/juju/locks
 mkdir -p /var/log/juju
@@ -387,7 +387,7 @@ printf '%s\\n' '.*"Stop all network interfaces on shutdown".*' > '/etc/init/juju
 install -D -m 644 /dev/null '/var/lib/juju/nonce.txt'
 printf '%s\\n' 'FAKE_NONCE' > '/var/lib/juju/nonce.txt'
 test -n "\$JUJU_PROGRESS_FD" \|\| \(exec \{JUJU_PROGRESS_FD\}>&2\) 2>/dev/null && exec \{JUJU_PROGRESS_FD\}>&2 \|\| JUJU_PROGRESS_FD=2
-\(\[ ! -e /home/ubuntu/\.profile \] \|\| grep -q '.juju-proxy' /home/ubuntu/.profile\) \|\| printf .* >> /home/ubuntu/.profile
+\[ -e /etc/profile.d/juju-proxy.sh \] \|\| printf .* >> /etc/profile.d/juju-proxy.sh
 mkdir -p /var/lib/juju/locks
 \(id ubuntu &> /dev/null\) && chown ubuntu:ubuntu /var/lib/juju/locks
 mkdir -p /var/log/juju
@@ -1164,17 +1164,16 @@ func (s *cloudinitSuite) TestProxyWritten(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	cmds := cloudcfg.RunCmds()
-	first := `([ ! -e /home/ubuntu/.profile ] || grep -q '.juju-proxy' /home/ubuntu/.profile) || printf '\n# Added by juju\n[ -f "$HOME/.juju-proxy" ] && . "$HOME/.juju-proxy"\n' >> /home/ubuntu/.profile`
+	first := `[ -e /etc/profile.d/juju-proxy.sh ] || printf '\n# Added by juju\n[ -f "/etc/juju-proxy.conf" ] && . "/etc/juju-proxy.conf"\n' >> /etc/profile.d/juju-proxy.sh`
 	expected := []string{
 		`export http_proxy=http://user@10.0.0.1`,
 		`export HTTP_PROXY=http://user@10.0.0.1`,
 		`export no_proxy=localhost,10.0.3.1`,
 		`export NO_PROXY=localhost,10.0.3.1`,
-		`(id ubuntu &> /dev/null) && (printf '%s\n' 'export http_proxy=http://user@10.0.0.1
+		`(printf '%s\n' 'export http_proxy=http://user@10.0.0.1
 export HTTP_PROXY=http://user@10.0.0.1
 export no_proxy=localhost,10.0.3.1
-export NO_PROXY=localhost,10.0.3.1' > /home/ubuntu/.juju-proxy && chown ubuntu:ubuntu /home/ubuntu/.juju-proxy)`,
-	}
+export NO_PROXY=localhost,10.0.3.1' > /etc/juju-proxy.conf && chmod 0644 /etc/juju-proxy.conf)`	}
 	found := false
 	for i, cmd := range cmds {
 		if cmd == first {
