@@ -1,4 +1,16 @@
 #!/bin/bash
+# Required env vars:
+# PATH must include juju-ci-tools (for s3ci, jujuci, deploy_job)
+# JUJU_HOME must be the path to cloud-city
+# JUJU_REPOSITORY must be a path providing dummy-source and dummy-sink
+# HAMMER_TIME must be a path to the hammer-time binary.
+# base_config is the environment to use as the base config.
+# revision_build is the revision build to test.
+# action_count is the number of actions the plan should perform
+# JOB_NAME and WORKSPACE should be as provided by Jenkins
+#
+# Optional:
+# replay_build_number The number of a previous build to replay.
 set -eu
 export ARTIFACTS=$WORKSPACE/artifacts
 export ARTIFACT_URL=http://juju-ci.vapour.ws/job/$JOB_NAME/\
