@@ -6,12 +6,11 @@ $replay_build_number/artifact/artifacts/plan.yaml
 export MODEL_NAME=$JOB_NAME
 export DATA_DIR=$JUJU_HOME/jes-homes/$MODEL_NAME
 export PLAN=$ARTIFACTS/plan.yaml
-source $JUJU_HOME/juju-qa.jujuci
 set -x
 s3ci.py get-summary $revision_build parallel-lxd
 jujuci.py -v setup-workspace $WORKSPACE
 if [ -n "${replay_build_number-}" ]; then
-  curl $ARTIFACT_URL -u $JENKINS_USER:$JENKINS_PASSWORD -o $PLAN
+  curl --netrc-file $JUJU_HOME/juju-qa-ci.netrc $ARTIFACT_URL -o $PLAN
 fi
 export JUJU_BIN=$(s3ci.py get-juju-bin $revision_build $WORKSPACE)
 set +e
