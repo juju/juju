@@ -418,17 +418,18 @@ func (*addSuite) TestInteractiveVSphere(c *gc.C) {
 	err := testing.InitCommand(command, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
+	var stdout bytes.Buffer
 	ctx := &cmd.Context{
-		Stdout: ioutil.Discard,
+		Stdout: &stdout,
 		Stderr: ioutil.Discard,
 		Stdin: strings.NewReader("" +
 			/* Select cloud type: */ "vsphere\n" +
 			/* Enter a name for the cloud: */ "mvs\n" +
-			/* Enter the controller's hostname or IP address: */ "192.168.1.6\n" +
-			/* Enter region name: */ "foo\n" +
-			/* Enter another region? (Y/n): */ "y\n" +
-			/* Enter region name: */ "bar\n" +
-			/* Enter another region? (Y/n): */ "n\n",
+			/* Enter the vCenter address or URL: */ "192.168.1.6\n" +
+			/* Enter datacenter name: */ "foo\n" +
+			/* Enter another datacenter? (Y/n): */ "y\n" +
+			/* Enter datacenter name: */ "bar\n" +
+			/* Enter another datacenter? (Y/n): */ "n\n",
 		),
 	}
 
@@ -436,6 +437,15 @@ func (*addSuite) TestInteractiveVSphere(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 
 	c.Check(numCallsToWrite(), gc.Equals, 1)
+	c.Check(stdout.String(), gc.Matches, "(.|\n)*"+`
+Select cloud type: 
+Enter a name for your vsphere cloud: 
+Enter the vCenter address or URL: 
+Enter datacenter name: 
+Enter another datacenter\? \(Y/n\): 
+Enter datacenter name: 
+Enter another datacenter\? \(Y/n\): 
+`[1:]+"(.|\n)*")
 }
 
 func (*addSuite) TestInteractiveExistingNameOverride(c *gc.C) {
