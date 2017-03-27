@@ -105,4 +105,4 @@ gopkg.in/natefinch/npipe.v2	git	c1b8fa8bdccecb0b8db834ee0b92fdbcfa606dd6	2016-06
 gopkg.in/retry.v1	git	c09f6b86ba4d5d2cf5bdf0665364aec9fd4815db	2016-10-25T18:14:30Z
 gopkg.in/tomb.v1	git	dd632973f1e7218eb1089048e0798ec9ae7dceb8	2014-10-24T13:56:13Z
 gopkg.in/yaml.v2	git	a3f3340b5840cee44f372bddb5880fcbc419b46a	2017-02-08T14:18:51Z
-github.com/juju/go-oracle-cloud	git	3efbc7883e9347492c4975db7612c108d670a752	2017-05-03T22:05:32Z
+github.com/juju/go-oracle-cloud	git	ff97388e650315719cc6b36565ec25f58a78c951	2017-05-03T22:05:32Z

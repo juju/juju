@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	oci "github.com/juju/go-oracle-cloud/api"
+	ociCommon "github.com/juju/go-oracle-cloud/common"
 	ociResponse "github.com/juju/go-oracle-cloud/response"
 
 	"github.com/juju/errors"
@@ -233,7 +234,7 @@ func (e *oracleEnviron) NetworkInterfaces(instId instance.Id) ([]network.Interfa
 		// but I have not been able to get any information about the shared networks
 		// using the resources described there.
 		// We only populate Space information for NICs attached to IPNetworks (user defined)
-		if nicObj.GetType() == ociResponse.VNic {
+		if nicObj.GetType() == ociCommon.VNic {
 			nicSubnetDetails := subnetInfo[deviceAttributes.Ipnetwork]
 			ni.ProviderSpaceId = nicSubnetDetails.SpaceProviderId
 			ni.ProviderSubnetId = nicSubnetDetails.ProviderId
