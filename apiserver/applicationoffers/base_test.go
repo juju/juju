@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/apiserver/common/crossmodelcommon"
 	"github.com/juju/juju/apiserver/testing"
 	jujucrossmodel "github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/permission"
 )
 
 const (
@@ -41,7 +42,7 @@ func (s *baseSuite) SetUpTest(c *gc.C) {
 		modelUUID:         "uuid",
 		users:             set.NewStrings(),
 		applicationOffers: make(map[string]jujucrossmodel.ApplicationOffer),
-		accessPerms:       make(map[accessEntity]accessRecord),
+		accessPerms:       make(map[offerAccess]permission.Access),
 	}
 	s.mockStatePool = &mockStatePool{map[string]crossmodelcommon.Backend{s.mockState.modelUUID: s.mockState}}
 }

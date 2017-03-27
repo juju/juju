@@ -53,6 +53,8 @@ func (s *applicationOffersSuite) assertOffer(c *gc.C, expectedErr error) {
 		c.Assert(offer.OfferName, gc.Equals, one.OfferName)
 		c.Assert(offer.ApplicationName, gc.Equals, one.ApplicationName)
 		c.Assert(offer.ApplicationDescription, gc.Equals, "A pretty popular blog engine")
+		c.Assert(offer.Owner, gc.Equals, "admin")
+		c.Assert(offer.HasRead, gc.DeepEquals, []string{"everyone@external"})
 		return &jujucrossmodel.ApplicationOffer{}, nil
 	}
 	charm := &mockCharm{meta: &charm.Meta{Description: "A pretty popular blog engine"}}

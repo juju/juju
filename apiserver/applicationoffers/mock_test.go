@@ -15,7 +15,6 @@ import (
 	"github.com/juju/juju/apiserver/common/crossmodelcommon"
 	jujucrossmodel "github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/permission"
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
 )
 
@@ -120,14 +119,9 @@ func (m *mockConnectionStatus) ConnectionCount() int {
 	return m.count
 }
 
-type accessEntity struct {
-	user   names.UserTag
-	target names.Tag
-}
-
-type accessRecord struct {
-	access    permission.Access
-	createdBy names.UserTag
+type offerAccess struct {
+	user  names.UserTag
+	offer names.ApplicationOfferTag
 }
 
 type mockState struct {
@@ -138,7 +132,7 @@ type mockState struct {
 	applications      map[string]crossmodelcommon.Application
 	applicationOffers map[string]jujucrossmodel.ApplicationOffer
 	connStatus        crossmodelcommon.RemoteConnectionStatus
-	accessPerms       map[accessEntity]accessRecord
+	accessPerms       map[offerAccess]permission.Access
 }
 
 func (m *mockState) ControllerTag() names.ControllerTag {
@@ -181,49 +175,41 @@ func (m *mockState) RemoteConnectionStatus(offerName string) (crossmodelcommon.R
 	return m.connStatus, nil
 }
 
-func (m *mockState) AddOfferUser(spec state.UserAccessSpec, offer names.ApplicationOfferTag) (permission.UserAccess, error) {
-	if !m.users.Contains(spec.User.Name()) {
-		return permission.UserAccess{}, errors.NotFoundf("user %q", spec.User.Name())
-	}
-	if _, ok := m.accessPerms[accessEntity{user: spec.User, target: offer}]; ok {
-		return permission.UserAccess{}, errors.NewAlreadyExists(nil, fmt.Sprintf("offer user %s", spec.User.Name()))
-	}
-	m.accessPerms[accessEntity{user: spec.User, target: offer}] = accessRecord{access: spec.Access, createdBy: spec.CreatedBy}
-	return permission.UserAccess{
-		UserTag:   spec.User,
-		Access:    spec.Access,
-		CreatedBy: spec.CreatedBy,
-		Object:    offer,
-	}, nil
-}
-
-func (m *mockState) UserAccess(subject names.UserTag, target names.Tag) (permission.UserAccess, error) {
-	accessRecord, ok := m.accessPerms[accessEntity{user: subject, target: target}]
+func (m *mockState) GetOfferAccess(offer names.ApplicationOfferTag, user names.UserTag) (permission.Access, error) {
+	access, ok := m.accessPerms[offerAccess{user: user, offer: offer}]
 	if !ok {
-		return permission.UserAccess{}, errors.NotFoundf("user access for %v", subject)
+		return "", errors.NotFoundf("offer access for %v", user)
 	}
-	return permission.UserAccess{
-		UserTag:   subject,
-		CreatedBy: accessRecord.createdBy,
-		Access:    accessRecord.access,
-		Object:    target,
-	}, nil
+	return access, nil
 }
 
-func (m *mockState) SetUserAccess(subject names.UserTag, target names.Tag, access permission.Access) (permission.UserAccess, error) {
-	m.accessPerms[accessEntity{user: subject, target: target}] = accessRecord{access: access}
-	return permission.UserAccess{
-		UserTag: subject,
-		Access:  access,
-		Object:  target,
-	}, nil
+func (m *mockState) CreateOfferAccess(offer names.ApplicationOfferTag, user names.UserTag, access permission.Access) error {
+	if !m.users.Contains(user.Name()) {
+		return errors.NotFoundf("user %q", user.Name())
+	}
+	if _, ok := m.accessPerms[offerAccess{user: user, offer: offer}]; ok {
+		return errors.NewAlreadyExists(nil, fmt.Sprintf("offer user %s", user.Name()))
+	}
+	m.accessPerms[offerAccess{user: user, offer: offer}] = access
+	return nil
 }
 
-func (m *mockState) RemoveUserAccess(subject names.UserTag, target names.Tag) error {
-	if !m.users.Contains(subject.Name()) {
-		return errors.NewNotFound(nil, fmt.Sprintf("offer user %q does not exist", subject.Name()))
+func (m *mockState) UpdateOfferAccess(offer names.ApplicationOfferTag, user names.UserTag, access permission.Access) error {
+	if !m.users.Contains(user.Name()) {
+		return errors.NotFoundf("user %q", user.Name())
 	}
-	delete(m.accessPerms, accessEntity{user: subject, target: target})
+	if _, ok := m.accessPerms[offerAccess{user: user, offer: offer}]; !ok {
+		return errors.NewNotFound(nil, fmt.Sprintf("offer user %s", user.Name()))
+	}
+	m.accessPerms[offerAccess{user: user, offer: offer}] = access
+	return nil
+}
+
+func (m *mockState) RemoveOfferAccess(offer names.ApplicationOfferTag, user names.UserTag) error {
+	if !m.users.Contains(user.Name()) {
+		return errors.NewNotFound(nil, fmt.Sprintf("offer user %q does not exist", user.Name()))
+	}
+	delete(m.accessPerms, offerAccess{user: user, offer: offer})
 	return nil
 }
 

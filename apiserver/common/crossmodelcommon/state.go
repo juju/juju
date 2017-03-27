@@ -47,10 +47,10 @@ type Backend interface {
 	ModelsForUser(user names.UserTag) ([]UserModel, error)
 	RemoteConnectionStatus(offerName string) (RemoteConnectionStatus, error)
 
-	AddOfferUser(spec state.UserAccessSpec, offer names.ApplicationOfferTag) (permission.UserAccess, error)
-	UserAccess(subject names.UserTag, target names.Tag) (permission.UserAccess, error)
-	SetUserAccess(subject names.UserTag, target names.Tag, access permission.Access) (permission.UserAccess, error)
-	RemoveUserAccess(subject names.UserTag, target names.Tag) error
+	GetOfferAccess(offer names.ApplicationOfferTag, user names.UserTag) (permission.Access, error)
+	CreateOfferAccess(offer names.ApplicationOfferTag, user names.UserTag, access permission.Access) error
+	UpdateOfferAccess(offer names.ApplicationOfferTag, user names.UserTag, access permission.Access) error
+	RemoveOfferAccess(offer names.ApplicationOfferTag, user names.UserTag) error
 }
 
 var GetStateAccess = func(st *state.State) Backend {
@@ -59,11 +59,6 @@ var GetStateAccess = func(st *state.State) Backend {
 
 type stateShim struct {
 	*state.State
-}
-
-// TODO(wallyworld)
-func (s *stateShim) AddOfferUser(spec state.UserAccessSpec, offer names.ApplicationOfferTag) (permission.UserAccess, error) {
-	return permission.UserAccess{}, errors.NewNotImplemented(nil, "work in progress")
 }
 
 func (s *stateShim) Model() (Model, error) {
