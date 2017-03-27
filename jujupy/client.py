@@ -2239,12 +2239,12 @@ class ModelClient:
         if alias is not None:
             args.extend([alias])
         retvar, ct = self.juju('deploy', tuple(args))
-        return retvar, CommandComplete(BaseCondition(), ct)
+        return retvar, CommandComplete(WaitAgentsStarted(), ct)
 
     def attach(self, service, resource):
         args = (service, resource)
         retvar, ct = self.juju('attach', args)
-        return retvar, CommandComplete(WaitAgentsStarted(), ct)
+        return retvar, CommandComplete(BaseCondition(), ct)
 
     def list_resources(self, service_or_unit, details=True):
         args = ('--format', 'yaml', service_or_unit)
