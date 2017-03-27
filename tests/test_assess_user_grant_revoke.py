@@ -201,9 +201,9 @@ class TestAssess(TestCase):
                         expect_mock.return_value.isalive.return_value = False
                         assess_user_grant_revoke(fake_client)
 
-                        self.assertEqual(pass_mock.call_count, 1)
-                        self.assertEqual(able_mock.call_count, 1)
-                        self.assertEqual(log_mock.call_count, 1)
+                        self.assertEqual(pass_mock.call_count, 3)
+                        self.assertEqual(able_mock.call_count, 3)
+                        self.assertEqual(log_mock.call_count, 3)
 
                         self.assertEqual(read_mock.call_count, 6)
                         self.assertEqual(write_mock.call_count, 6)

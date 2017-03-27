@@ -23,13 +23,13 @@ import pexpect
 
 from deploy_stack import (
     BootstrapManager,
-    )
+)
 from utility import (
     JujuAssertionError,
     add_basic_testing_arguments,
     configure_logging,
     temp_dir,
-    )
+)
 
 __metaclass__ = type
 
@@ -100,77 +100,109 @@ def show_user(client):
     return user_status
 
 
+def assess_read_operations(client, permission, has_permission):
+    for operation in (
+        lambda: list_users(client),
+        lambda: list_shares(client),
+        lambda: show_user(client),
+        lambda: client.list_models(),
+        lambda: client.show_status(),
+        lambda: client.list_clouds(),
+        lambda: client.show_controller(),
+    ):
+        if has_permission:
+            try:
+                print(operation())
+            except subprocess.CalledProcessError:
+                raise JujuAssertionError(
+                    'FAIL User unable to perform read operation {}'
+                    'with permission {}'.format(operation, permission))
+        else:
+            try:
+                print(operation())
+            except subprocess.CalledProcessError:
+                pass
+            else:
+                raise JujuAssertionError(
+                    'FAIL User performed read operation {}'
+                    'with permission {}'.format(operation, permission))
+
+
+def assess_write_operations(client, permission, has_permission):
+    tags = '"{}={}"'.format(client.env.user_name, permission)
+    for operation in (
+        lambda: client.set_env_option('resource-tags', tags),
+        lambda: client.add_model('dummy'),
+        lambda: client.destroy_model(),
+    ):
+        if has_permission:
+            try:
+                print(operation())
+            except subprocess.CalledProcessError:
+                raise JujuAssertionError(
+                    'FAIL User unable to perform read operation {}'
+                    'with permission {}'.format(operation, permission))
+        else:
+            try:
+                print(operation())
+            except subprocess.CalledProcessError:
+                pass
+            else:
+                raise JujuAssertionError(
+                    'FAIL User performed read operation {}'
+                    'with permission {}'.format(operation, permission))
+
+
+def assess_admin_operations(client, permission, has_permission, user):
+    for operation in (
+        lambda: client.grant(user, permission="write"),
+        lambda: client.remove_user(user),
+        lambda: client.add_user_perms(user, permission="admin"),
+    ):
+        if has_permission:
+            try:
+                print(operation())
+            except subprocess.CalledProcessError:
+                raise JujuAssertionError(
+                    'FAIL User unable to perform admin operation {}'
+                    'with permission {}'.format(operation, permission))
+        else:
+            try:
+                print(operation())
+            except subprocess.CalledProcessError:
+                pass
+            else:
+                raise JujuAssertionError(
+                    'FAIL User performed admin operation {}'
+                    'with permission {}'.format(operation, permission))
+
+
 def assert_read_model(client, permission, has_permission):
     """Test if the user has or doesn't have the read permission"""
     log.info('Checking read model acl {}'.format(client.env.user_name))
-    if has_permission:
-        try:
-            client.show_status()
-        except subprocess.CalledProcessError:
-            raise JujuAssertionError(
-                'FAIL User could not check status with {} permission'.format(
-                    permission))
-    else:
-        try:
-            client.show_status()
-        except subprocess.CalledProcessError:
-            pass
-        else:
-            raise JujuAssertionError(
-                'FAIL {} checked status without {} permission'.format(
-                    client.env.user_name, permission))
+    assess_read_operations(client, permission, has_permission)
     log.info('PASS {} read acl'.format(client.env.user_name))
 
 
 def assert_write_model(client, permission, has_permission):
     """Test if the user has or doesn't have the write permission"""
     log.info('Checking write model acl {}'.format(client.env.user_name))
-    if has_permission:
-        try:
-            tags = '"{}={}"'.format(client.env.user_name, permission)
-            client.set_env_option('resource-tags', tags)
-        except subprocess.CalledProcessError:
-            raise JujuAssertionError(
-                'FAIL {} could not set-model-config with {} permission'.format(
-                    client.env.user_name, permission))
-    else:
-        try:
-            tags = '"{}=no-{}"'.format(client.env.user_name, permission)
-            client.set_env_option('resource-tags', tags)
-        except subprocess.CalledProcessError:
-            pass
-        else:
-            raise JujuAssertionError(
-                'FAIL User set model-config without {} permission'.format(
-                    permission))
+    assess_write_operations(client, permission, has_permission)
     log.info('PASS {} write model acl'.format(client.env.user_name))
 
 
 def assert_admin_model(controller_client, client, permission, has_permission):
     """Test if the user has or doesn't have the admin permission"""
     log.info('Checking admin acl with {}'.format(client.env.user_name))
+    # Create a user for the user client to interact with
     code = ''.join(random.choice(
         string.ascii_letters + string.digits) for _ in range(4))
     new_user = permission + code
     log.info('Adding user {} for test'.format(new_user))
     controller_client.add_user_perms(new_user, permissions="read")
-    if has_permission:
-        try:
-            client.grant(new_user, permission="write")
-        except subprocess.CalledProcessError:
-            raise JujuAssertionError(
-                'FAIL {} could not grant write acl to user'.format(
-                    client.env.user_name, permission))
-    else:
-        try:
-            client.grant(new_user, permission="write")
-        except subprocess.CalledProcessError:
-            log.info('Correctly rejected {} use of grant'.format(
-                client.env.user_name))
-        else:
-            raise JujuAssertionError(
-                'FAIL {} granted access without {} permission'.format(
-                    client.env.user_name, permission))
+
+    assess_admin_operations(client, permission, has_permission, new_user)
+
     # Remove the user to ensure list-users is sane.
     log.info('Removing user {} after test'.format(new_user))
     controller_client.remove_user(new_user)
@@ -207,15 +239,10 @@ def assert_change_password(client, user, password):
         child.sendline(password)
         child.expect('(?i)password')
         child.sendline(password)
-        child.expect(pexpect.EOF)
+        client._end_pexpect_session(child)
     except pexpect.TIMEOUT:
-        raise JujuAssertionError(
-            'FAIL Changing user password failed: pexpect session timed out')
-    if child.isalive():
-        raise JujuAssertionError(
-            'FAIL Changing user password failed: pexpect session still alive')
-    child.close()
-    if child.exitstatus != 0:
+        log.error('Buffer: {}'.format(child.buffer))
+        log.error('Before: {}'.format(child.before))
         raise JujuAssertionError(
             'FAIL Changing user password failed: '
             'pexpect process exited with {}'.format(child.exitstatus))
@@ -238,6 +265,15 @@ def assert_disable_enable(controller_client, user):
     assert_equal(user_list, USER_LIST_CTRL_WRITE)
 
 
+def assert_user_status(client, user, expected_users, expected_shares):
+    log.info('Checking list-users {}'.format(user.name))
+    user_list = list_users(client)
+    assert_equal(user_list, expected_users)
+    log.info('Checking list-shares {}'.format(user.name))
+    share_list = list_shares(client)
+    assert_equal(share_list, expected_shares)
+
+
 def assert_logout_login(controller_client, user_client,
                         user, fake_home, password):
     """Test users' login and logout"""
@@ -255,12 +291,9 @@ def assert_read_user(controller_client, user):
     with temp_dir() as fake_home:
         user_client = controller_client.register_user(
             user, fake_home)
-        log.info('Checking list-users {}'.format(user.name))
-        user_list = list_users(controller_client)
-        assert_equal(user_list, USER_LIST_CTRL_READ)
-        log.info('Checking list-shares {}'.format(user.name))
-        share_list = list_shares(controller_client)
-        assert_equal(share_list, SHARE_LIST_CTRL_READ)
+        user_client.env.user_name = user.name
+        assert_user_status(controller_client, user,
+                           USER_LIST_CTRL_READ, SHARE_LIST_CTRL_READ)
 
         password = ''.join(random.choice(
             string.ascii_letters + string.digits) for _ in range(10))
@@ -279,13 +312,14 @@ def assert_write_user(controller_client, user):
         user_client = controller_client.register_user(
             user, fake_home)
         user_client.env.user_name = user.name
-        log.info('Checking list-users {}'.format(user.name))
-        user_list = list_users(controller_client)
-        assert_equal(user_list, USER_LIST_CTRL_WRITE)
-        log.info('Checking list-shares {}'.format(user.name))
-        share_list = list_shares(controller_client)
-        assert_equal(share_list, SHARE_LIST_CTRL_WRITE)
-        assert_disable_enable(controller_client, user)
+        assert_user_status(controller_client, user,
+                           USER_LIST_CTRL_WRITE, SHARE_LIST_CTRL_WRITE)
+
+        password = ''.join(random.choice(
+            string.ascii_letters + string.digits) for _ in range(10))
+        assert_change_password(user_client, user, password)
+        assert_logout_login(controller_client, user_client,
+                            user, fake_home, password)
         assert_user_permissions(user, user_client, controller_client)
         controller_client.remove_user(user.name)
     log.info('PASS write {}'.format(user.name))
@@ -299,15 +333,35 @@ def assert_admin_user(controller_client, user):
             user, fake_home)
         controller_client.grant(user_name=user.name, permission="superuser")
         user_client.env.user_name = user.name
-        log.info('Checking list-users {}'.format(user.name))
-        user_list = list_users(controller_client)
-        assert_equal(user_list, USER_LIST_CTRL_ADMIN)
-        log.info('Checking list-shares {}'.format(user.name))
-        share_list = list_shares(controller_client)
-        assert_equal(share_list, SHARE_LIST_CTRL_ADMIN)
+        assert_user_status(controller_client, user,
+                           USER_LIST_CTRL_ADMIN, SHARE_LIST_CTRL_ADMIN)
+
+        password = ''.join(random.choice(
+            string.ascii_letters + string.digits) for _ in range(10))
+        assert_change_password(user_client, user, password)
+        assert_logout_login(controller_client, user_client,
+                            user, fake_home, password)
         assert_user_permissions(user, user_client, controller_client)
         controller_client.remove_user(user.name)
     log.info('PASS admin {}'.format(user.name))
+
+
+def assert_controller(controller_client, users):
+    log.info('Checking list-users admin')
+    user_list = list_users(controller_client)
+    assert_equal(user_list, USER_LIST_CTRL)
+
+    log.info('Checking list-shares admin')
+    share_list = list_shares(controller_client)
+    assert_equal(share_list, SHARE_LIST_CTRL)
+
+    log.info('Checking show-user admin')
+    user_status = show_user(controller_client)
+    assert_equal(user_status, USER_LIST_CTRL[0])
+
+    log.info('Checking enable/disable users')
+    for user in users:
+        assert_disable_enable(controller_client, user)
 
 
 def assess_user_grant_revoke(controller_client):
@@ -321,18 +375,16 @@ def assess_user_grant_revoke(controller_client):
                       [True, True, False, True, False, False])
     admin_user = User('adminuser', 'admin',
                       [True, True, True, True, True, True])
-    log.info('Checking list-users admin')
-    user_list = list_users(controller_client)
-    assert_equal(user_list, USER_LIST_CTRL)
-    log.info('Checking list-shares admin')
-    share_list = list_shares(controller_client)
-    assert_equal(share_list, SHARE_LIST_CTRL)
-    log.info('Checking show-user admin')
-    user_status = show_user(controller_client)
-    assert_equal(user_status, USER_LIST_CTRL[0])
+
+    # check controller client
+    users = [read_user, write_user, admin_user]
+    assert_controller(controller_client, users)
+
+    # check each type of user
     assert_read_user(controller_client, read_user)
     assert_write_user(controller_client, write_user)
     assert_admin_user(controller_client, admin_user)
+
     log.info('SUCCESS grant/revoke permissions')
 
 
