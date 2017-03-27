@@ -22,7 +22,7 @@ series=$2
 timeout=$4
 shift 4
 
-$SCRIPTS/jujuci.py -v setup-workspace --clean-env $JOB_NAME $WORKSPACE
+$SCRIPTS/jujuci.py -v setup-workspace $WORKSPACE
 $SCRIPTS/s3ci.py get-summary $revision_build $ENV
 JUJU_BIN=$($SCRIPTS/s3ci.py get-juju-bin $revision_build $WORKSPACE)
 
