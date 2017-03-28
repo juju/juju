@@ -99,26 +99,23 @@ func NewAPI(
 	}, nil
 }
 
-func (api *API) checkCanRead() error {
-	canRead, err := api.authorizer.HasPermission(permission.ReadAccess, api.backend.ModelTag())
+func (api *API) checkPermission(tag names.Tag, perm permission.Access) error {
+	allowed, err := api.authorizer.HasPermission(perm, tag)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if !canRead {
+	if !allowed {
 		return common.ErrPerm
 	}
 	return nil
 }
 
+func (api *API) checkCanRead() error {
+	return api.checkPermission(api.backend.ModelTag(), permission.ReadAccess)
+}
+
 func (api *API) checkCanWrite() error {
-	canWrite, err := api.authorizer.HasPermission(permission.WriteAccess, api.backend.ModelTag())
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if !canWrite {
-		return common.ErrPerm
-	}
-	return nil
+	return api.checkPermission(api.backend.ModelTag(), permission.WriteAccess)
 }
 
 // SetMetricCredentials sets credentials on the application.
@@ -778,13 +775,13 @@ func (api *API) DestroyApplication(args params.Entities) (params.DestroyApplicat
 			// Filter out storage we've already seen. Shared
 			// storage may be attached to multiple units.
 			var unseen []state.StorageInstance
-			for _, storage := range storage {
-				storageTag := storage.StorageTag()
+			for _, stor := range storage {
+				storageTag := stor.StorageTag()
 				if storageSeen.Contains(storageTag) {
 					continue
 				}
 				storageSeen.Add(storageTag)
-				unseen = append(unseen, storage)
+				unseen = append(unseen, stor)
 			}
 			storage = unseen
 
@@ -943,8 +940,7 @@ func (api *API) sameControllerSourceModel(userName, modelName string) (names.Mod
 // of the application and endpoint. These details are saved to the state model so relations to
 // the remote application can be created.
 func (api *API) processRemoteApplication(url *jujucrossmodel.ApplicationURL, alias string) (*state.RemoteApplication, error) {
-	// TODO(wallyworld) - add permission to offer. For now user requires write access to model.
-	app, releaser, sourceModelTag, err := api.sameControllerOfferedApplication(url, permission.WriteAccess)
+	app, releaser, sourceModelTag, err := api.sameControllerOfferedApplication(url, permission.ConsumeAccess)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -974,6 +970,7 @@ func (api *API) processRemoteApplication(url *jujucrossmodel.ApplicationURL, ali
 
 // sameControllerOfferedApplication looks in the specified model on the same controller
 // and returns the specified application and a reference to its state.State.
+// The user is required to have the specified permission on the offer.
 func (api *API) sameControllerOfferedApplication(url *jujucrossmodel.ApplicationURL, perm permission.Access) (
 	_ *state.Application,
 	releaser func(),
@@ -1013,13 +1010,6 @@ func (api *API) sameControllerOfferedApplication(url *jujucrossmodel.Application
 		return fail(errors.Trace(err))
 	}
 
-	ok, err := api.authorizer.HasPermission(perm, sourceModelTag)
-	if err != nil {
-		return fail(errors.Trace(err))
-	}
-	if !ok {
-		return fail(common.ErrPerm)
-	}
 	// Get the backend state for the source model so we can lookup the application.
 	var st *state.State
 	st, releaser, err = api.statePool.Get(sourceModelTag.Id())
@@ -1049,11 +1039,50 @@ func (api *API) sameControllerOfferedApplication(url *jujucrossmodel.Application
 	}
 
 	offer := offers[0]
+	if err := api.checkOfferAccess(st.GetOfferAccess, st.ControllerTag(), sourceModelTag, offer, perm); err != nil {
+		return fail(errors.Trace(err))
+	}
 	app, err := st.Application(offer.ApplicationName)
 	if err != nil {
 		return fail(errors.Trace(err))
 	}
 	return app, releaser, sourceModelTag, err
+}
+
+type offerAccessFunc func(offer names.ApplicationOfferTag, user names.UserTag) (permission.Access, error)
+
+func (api *API) checkOfferAccess(
+	getOfferAccess offerAccessFunc,
+	controllerTag names.ControllerTag,
+	modelTag names.ModelTag,
+	offer jujucrossmodel.ApplicationOffer,
+	requiredPerm permission.Access,
+) error {
+	// Check the permissions - a user can access the offer if they are an admin
+	// or they have consume access to the offer.
+	isAdmin := false
+	err := api.checkPermission(controllerTag, permission.SuperuserAccess)
+	if err == common.ErrPerm {
+		err = api.checkPermission(modelTag, permission.AdminAccess)
+	}
+	if err != nil && err != common.ErrPerm {
+		return errors.Trace(err)
+	}
+	isAdmin = err == nil
+
+	if !isAdmin {
+		// Check for consume access on tne offer - we can't use api.checkPermission as
+		// we need to operate on the state containing the offer.
+		apiUser := api.authorizer.GetAuthTag().(names.UserTag)
+		access, err := getOfferAccess(names.NewApplicationOfferTag(offer.OfferName), apiUser)
+		if err != nil && !errors.IsNotFound(err) {
+			return errors.Trace(err)
+		}
+		if !access.EqualOrGreaterOfferAccessThan(requiredPerm) {
+			return common.ErrPerm
+		}
+	}
+	return nil
 }
 
 // saveRemoteApplication saves the details of the specified remote application and its endpoints
@@ -1220,7 +1249,7 @@ func (api *API) charmIcon(backend Backend, curl *charm.URL) ([]byte, error) {
 func (api *API) Consume(args params.ConsumeApplicationArgs) (params.ConsumeApplicationResults, error) {
 	var consumeResults params.ConsumeApplicationResults
 	if err := api.checkCanWrite(); err != nil {
-		return consumeResults, err
+		return consumeResults, errors.Trace(err)
 	}
 	if err := api.check.ChangeAllowed(); err != nil {
 		return consumeResults, errors.Trace(err)

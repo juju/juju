@@ -42,9 +42,9 @@ type Backend interface {
 	Application(name string) (Application, error)
 	ApplicationOffer(name string) (*crossmodel.ApplicationOffer, error)
 	Model() (Model, error)
+	AllModels() ([]Model, error)
 	ModelUUID() string
 	ModelTag() names.ModelTag
-	ModelsForUser(user names.UserTag) ([]UserModel, error)
 	RemoteConnectionStatus(offerName string) (RemoteConnectionStatus, error)
 
 	GetOfferAccess(offer names.ApplicationOfferTag, user names.UserTag) (permission.Access, error)
@@ -66,6 +66,18 @@ func (s *stateShim) Model() (Model, error) {
 	return &modelShim{m}, err
 }
 
+func (s *stateShim) AllModels() ([]Model, error) {
+	all, err := s.State.AllModels()
+	if err != nil {
+		return nil, err
+	}
+	var result []Model
+	for _, m := range all {
+		result = append(result, &modelShim{m})
+	}
+	return result, err
+}
+
 func (s *stateShim) Application(name string) (Application, error) {
 	app, err := s.State.Application(name)
 	return &applicationShim{app}, err
@@ -74,18 +86,6 @@ func (s *stateShim) Application(name string) (Application, error) {
 func (s *stateShim) ApplicationOffer(name string) (*crossmodel.ApplicationOffer, error) {
 	offers := state.NewApplicationOffers(s.State)
 	return offers.ApplicationOffer(name)
-}
-
-func (s *stateShim) ModelsForUser(user names.UserTag) ([]UserModel, error) {
-	usermodels, err := s.State.ModelsForUser(user)
-	if err != nil {
-		return nil, err
-	}
-	var result []UserModel
-	for _, um := range usermodels {
-		result = append(result, &userModelShim{um})
-	}
-	return result, err
 }
 
 var GetApplicationOffers = func(backend interface{}) crossmodel.ApplicationOffers {
@@ -124,18 +124,6 @@ type Model interface {
 
 type modelShim struct {
 	*state.Model
-}
-
-type UserModel interface {
-	Model() Model
-}
-
-type userModelShim struct {
-	*state.UserModel
-}
-
-func (um *userModelShim) Model() Model {
-	return &modelShim{um.UserModel.Model}
 }
 
 func (s *stateShim) RemoteConnectionStatus(offerName string) (RemoteConnectionStatus, error) {

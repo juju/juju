@@ -52,7 +52,7 @@ func NewOffersAPI(ctx facade.Context) (*OffersAPI, error) {
 
 // Offer makes application endpoints available for consumption at a specified URL.
 func (api *OffersAPI) Offer(all params.AddApplicationOffers) (params.ErrorResults, error) {
-	if err := api.CheckPermission(api.Backend, permission.AdminAccess); err != nil {
+	if err := api.CheckAdmin(api.Backend); err != nil {
 		return params.ErrorResults{}, common.ServerError(err)
 	}
 
@@ -102,7 +102,7 @@ func (api *OffersAPI) makeAddOfferArgsFromParams(addOfferParams params.AddApplic
 // The results contain details about the deployed applications such as connection count.
 func (api *OffersAPI) ListApplicationOffers(filters params.OfferFilters) (params.ListApplicationOffersResults, error) {
 	var result params.ListApplicationOffersResults
-	offers, err := api.GetApplicationOffersDetails(filters, permission.AdminAccess)
+	offers, err := api.GetApplicationOffersDetails(filters, true)
 	if err != nil {
 		return result, err
 	}
@@ -186,7 +186,7 @@ func (api *OffersAPI) changeOfferAccess(
 func (api *OffersAPI) grantOfferAccess(offerTag names.ApplicationOfferTag, targetUserTag names.UserTag, access permission.Access) error {
 	err := api.Backend.CreateOfferAccess(offerTag, targetUserTag, access)
 	if errors.IsAlreadyExists(err) {
-		access, err := api.Backend.GetOfferAccess(offerTag, targetUserTag)
+		offerAccess, err := api.Backend.GetOfferAccess(offerTag, targetUserTag)
 		if errors.IsNotFound(err) {
 			// Conflicts with prior check, must be inconsistent state.
 			err = txn.ErrExcessiveContention
@@ -196,7 +196,7 @@ func (api *OffersAPI) grantOfferAccess(offerTag names.ApplicationOfferTag, targe
 		}
 
 		// Only set access if greater access is being granted.
-		if access.EqualOrGreaterOfferAccessThan(access) {
+		if offerAccess.EqualOrGreaterOfferAccessThan(access) {
 			return errors.Errorf("user already has %q access or greater", access)
 		}
 		if err = api.Backend.UpdateOfferAccess(offerTag, targetUserTag, access); err != nil {

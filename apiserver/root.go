@@ -385,12 +385,12 @@ func (r *apiHandler) GetAuthEntity() state.Entity {
 
 // HasPermission returns true if the logged in user can perform <operation> on <target>.
 func (r *apiHandler) HasPermission(operation permission.Access, target names.Tag) (bool, error) {
-	return common.HasPermission(r.state.UserAccess, r.entity.Tag(), operation, target)
+	return common.HasPermission(r.state.UserPermission, r.entity.Tag(), operation, target)
 }
 
 // UserHasPermission returns true if the passed in user can perform <operation> on <target>.
 func (r *apiHandler) UserHasPermission(user names.UserTag, operation permission.Access, target names.Tag) (bool, error) {
-	return common.HasPermission(r.state.UserAccess, user, operation, target)
+	return common.HasPermission(r.state.UserPermission, user, operation, target)
 }
 
 // DescribeFacades returns the list of available Facades and their Versions

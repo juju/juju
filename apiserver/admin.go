@@ -250,14 +250,13 @@ func (a *admin) checkUserPermissions(userTag names.UserTag, controllerOnlyLogin 
 		// no authorisation to access this model, unless the user is controller
 		// admin.
 
-		modelUser, err := a.root.state.UserAccess(userTag, a.root.state.ModelTag())
+		var err error
+		modelAccess, err = a.root.state.UserPermission(userTag, a.root.state.ModelTag())
 		if err != nil && controllerAccess != permission.SuperuserAccess {
 			return nil, errors.Wrap(err, common.ErrPerm)
 		}
 		if err != nil && controllerAccess == permission.SuperuserAccess {
 			modelAccess = permission.AdminAccess
-		} else {
-			modelAccess = modelUser.Access
 		}
 	}
 
@@ -421,14 +420,38 @@ func (f modelUserEntityFinder) FindEntity(tag names.Tag) (state.Entity, error) {
 		return f.st.FindEntity(tag)
 	}
 
-	modelUser, controllerUser, err := common.UserAccess(f.st, utag)
-	if err != nil {
+	modelUser, err := f.st.UserAccess(utag, f.st.ModelTag())
+	if err != nil && !errors.IsNotFound(err) {
 		return nil, errors.Trace(err)
 	}
+	// No model user found, so see if the user has been granted
+	// access to the controller.
+	if permission.IsEmptyUserAccess(modelUser) {
+		controllerUser, err := state.ControllerAccess(f.st, utag)
+		if err != nil && !errors.IsNotFound(err) {
+			return nil, errors.Trace(err)
+		}
+		// TODO(perrito666) remove the following section about everyone group
+		// when groups are implemented, this accounts only for the lack of a local
+		// ControllerUser when logging in from an external user that has not been granted
+		// permissions on the controller but there are permissions for the special
+		// everyone group.
+		if permission.IsEmptyUserAccess(controllerUser) && !utag.IsLocal() {
+			everyoneTag := names.NewUserTag(common.EveryoneTagName)
+			controllerUser, err = f.st.UserAccess(everyoneTag, f.st.ControllerTag())
+			if err != nil && !errors.IsNotFound(err) {
+				return nil, errors.Annotatef(err, "obtaining ControllerUser for everyone group")
+			}
+		}
+		if permission.IsEmptyUserAccess(controllerUser) {
+			return nil, errors.NotFoundf("model or controller user")
+		}
+	}
+
 	u := &modelUserEntity{
-		st:             f.st,
-		modelUser:      modelUser,
-		controllerUser: controllerUser,
+		st:        f.st,
+		modelUser: modelUser,
+		tag:       utag,
 	}
 	if utag.IsLocal() {
 		user, err := f.st.User(utag)
@@ -450,9 +473,9 @@ var _ loginEntity = &modelUserEntity{}
 type modelUserEntity struct {
 	st *state.State
 
-	controllerUser permission.UserAccess
-	modelUser      permission.UserAccess
-	user           *state.User
+	modelUser permission.UserAccess
+	user      *state.User
+	tag       names.Tag
 }
 
 // Refresh implements state.Authenticator.Refresh.
@@ -482,14 +505,7 @@ func (u *modelUserEntity) PasswordValid(pass string) bool {
 
 // Tag implements state.Entity.Tag.
 func (u *modelUserEntity) Tag() names.Tag {
-	if u.user != nil {
-		return u.user.UserTag()
-	}
-	if !permission.IsEmptyUserAccess(u.modelUser) {
-		return u.modelUser.UserTag
-	}
-	return u.controllerUser.UserTag
-
+	return u.tag
 }
 
 // LastLogin implements loginEntity.LastLogin.

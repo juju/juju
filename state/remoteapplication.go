@@ -90,7 +90,7 @@ func (s *RemoteApplication) Name() string {
 	return s.doc.Name
 }
 
-// OfferName returns the name on te offering side.
+// OfferName returns the name on the offering side.
 func (s *RemoteApplication) OfferName() string {
 	return s.doc.OfferName
 }

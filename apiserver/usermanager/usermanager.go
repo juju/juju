@@ -268,9 +268,9 @@ func (api *UserManagerAPI) UserInfo(request params.UserInfoRequest) (params.User
 
 	var accessForUser = func(userTag names.UserTag, result *params.UserInfoResult) {
 		// Lookup the access the specified user has to the controller.
-		_, controllerUserAccess, err := common.UserAccess(api.state, userTag)
+		access, err := common.GetPermission(api.state.UserPermission, userTag, api.state.ControllerTag())
 		if err == nil {
-			result.Result.Access = string(controllerUserAccess.Access)
+			result.Result.Access = string(access)
 		} else if err != nil && !errors.IsNotFound(err) {
 			result.Result = nil
 			result.Error = common.ServerError(err)

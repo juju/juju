@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common/crossmodelcommon"
 	jujucrossmodel "github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/testing"
 )
 
 const (
@@ -94,7 +95,7 @@ type mockState struct {
 	crossmodelcommon.Backend
 	modelUUID    string
 	model        crossmodelcommon.Model
-	usermodels   []crossmodelcommon.UserModel
+	allmodels    []crossmodelcommon.Model
 	applications map[string]crossmodelcommon.Application
 	connStatus   crossmodelcommon.RemoteConnectionStatus
 }
@@ -119,8 +120,15 @@ func (m *mockState) ModelTag() names.ModelTag {
 	return names.NewModelTag(m.modelUUID)
 }
 
-func (m *mockState) ModelsForUser(user names.UserTag) ([]crossmodelcommon.UserModel, error) {
-	return m.usermodels, nil
+func (m *mockState) ControllerTag() names.ControllerTag {
+	return testing.ControllerTag
+}
+
+func (m *mockState) AllModels() ([]crossmodelcommon.Model, error) {
+	if len(m.allmodels) > 0 {
+		return m.allmodels, nil
+	}
+	return []crossmodelcommon.Model{m.model}, nil
 }
 
 func (m *mockState) RemoteConnectionStatus(offerName string) (crossmodelcommon.RemoteConnectionStatus, error) {

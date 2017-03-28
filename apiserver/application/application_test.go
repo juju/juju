@@ -32,6 +32,7 @@ import (
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/instance"
 	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 	statestorage "github.com/juju/juju/state/storage"
 	"github.com/juju/juju/status"
@@ -48,7 +49,7 @@ type applicationSuite struct {
 
 	applicationAPI *application.API
 	application    *state.Application
-	authorizer     apiservertesting.FakeAuthorizer
+	authorizer     *apiservertesting.FakeAuthorizer
 	otherModel     *state.State
 }
 
@@ -76,7 +77,7 @@ func (s *applicationSuite) SetUpTest(c *gc.C) {
 
 	s.application = s.Factory.MakeApplication(c, nil)
 
-	s.authorizer = apiservertesting.FakeAuthorizer{
+	s.authorizer = &apiservertesting.FakeAuthorizer{
 		Tag: s.AdminUserTag(c),
 	}
 	var err error
@@ -2736,6 +2737,42 @@ func (s *applicationSuite) TestConsumeLocalAlreadyExists(c *gc.C) {
 		Message: `cannot add remote application "mysql": local application with same name already exists`,
 		Code:    "already exists",
 	})
+}
+
+func (s *applicationSuite) TestConsumeNoPermission(c *gc.C) {
+	s.setupOtherModelOffer(c)
+
+	apiUser := names.NewUserTag("someone")
+	s.authorizer.Tag = apiUser
+	s.authorizer.HasWriteTag = apiUser
+	results, err := s.applicationAPI.Consume(params.ConsumeApplicationArgs{
+		Args: []params.ConsumeApplicationArg{
+			{ApplicationURL: "admin/othermodel.hosted-mysql"},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Error, gc.ErrorMatches, ".*permission denied.*")
+}
+
+func (s *applicationSuite) TestConsumeWithPermission(c *gc.C) {
+	s.setupOtherModelOffer(c)
+
+	_, err := s.otherModel.AddUser("someone", "spmeone", "secret", "admin")
+	c.Assert(err, jc.ErrorIsNil)
+	apiUser := names.NewUserTag("someone")
+	err = s.otherModel.CreateOfferAccess(
+		names.NewApplicationOfferTag("hosted-mysql"), apiUser, permission.ConsumeAccess)
+	s.authorizer.Tag = apiUser
+	s.authorizer.HasWriteTag = apiUser
+	results, err := s.applicationAPI.Consume(params.ConsumeApplicationArgs{
+		Args: []params.ConsumeApplicationArg{
+			{ApplicationURL: "admin/othermodel.hosted-mysql"},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Error, gc.IsNil)
 }
 
 func (s *applicationSuite) TestConsumingAndAddingRelation(c *gc.C) {
