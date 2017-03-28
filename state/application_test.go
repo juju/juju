@@ -199,6 +199,7 @@ func (s *ApplicationSuite) TestSetCharmUpdatesBindings(c *gc.C) {
 		Name:  "yoursql",
 		Charm: oldCharm,
 		EndpointBindings: map[string]string{
+			"":       "db",
 			"server": "db",
 			"client": "client",
 		}})
@@ -212,13 +213,14 @@ func (s *ApplicationSuite) TestSetCharmUpdatesBindings(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(updatedBindings, jc.DeepEquals, map[string]string{
 		// Existing bindings are preserved.
+		"":        "db",
 		"server":  "db",
 		"client":  "client",
-		"cluster": "", // inherited from defaults in AddService.
-		// New endpoints use empty defaults.
-		"foo":  "",
-		"baz":  "",
-		"just": "",
+		"cluster": "db", // inherited from defaults in AddService.
+		// New endpoints use defaults.
+		"foo":  "db",
+		"baz":  "db",
+		"just": "db",
 	})
 }
 
@@ -1167,10 +1169,21 @@ func (s *ApplicationSuite) TestMysqlEndpoints(c *gc.C) {
 			Scope:     charm.ScopeGlobal,
 		},
 	})
+	serverAdminEP, err := s.mysql.Endpoint("server-admin")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(serverAdminEP, gc.DeepEquals, state.Endpoint{
+		ApplicationName: "mysql",
+		Relation: charm.Relation{
+			Interface: "mysql-root",
+			Name:      "server-admin",
+			Role:      charm.RoleProvider,
+			Scope:     charm.ScopeGlobal,
+		},
+	})
 
 	eps, err := s.mysql.Endpoints()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(eps, gc.DeepEquals, []state.Endpoint{jiEP, serverEP})
+	c.Assert(eps, jc.SameContents, []state.Endpoint{jiEP, serverEP, serverAdminEP})
 }
 
 func (s *ApplicationSuite) TestRiakEndpoints(c *gc.C) {
@@ -1781,7 +1794,7 @@ func (s *ApplicationSuite) TestDestroyWithPlaceholderResources(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// No cleanup required for placeholder resources.
-	state.AssertNoCleanups(c, s.State, state.CleanupKindResourceBlob)
+	state.AssertNoCleanupsWithKind(c, s.State, state.CleanupKindResourceBlob)
 }
 
 func (s *ApplicationSuite) TestReadUnitWithChangingState(c *gc.C) {

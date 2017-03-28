@@ -1417,8 +1417,7 @@ func (e *exporter) volumes() error {
 
 func (e *exporter) addVolume(vol *volume, volAttachments []volumeAttachmentDoc) error {
 	args := description.VolumeArgs{
-		Tag:     vol.VolumeTag(),
-		Binding: vol.LifeBinding(),
+		Tag: vol.VolumeTag(),
 	}
 	if tag, err := vol.StorageInstance(); err == nil {
 		// only returns an error when no storage tag.
@@ -1534,7 +1533,6 @@ func (e *exporter) addFilesystem(fs *filesystem, fsAttachments []filesystemAttac
 		Tag:     fs.FilesystemTag(),
 		Storage: storage,
 		Volume:  volume,
-		Binding: fs.LifeBinding(),
 	}
 	logger.Debugf("addFilesystem: %#v", fs.doc)
 	if info, err := fs.Info(); err == nil {
@@ -1630,10 +1628,14 @@ func (e *exporter) storageInstances() error {
 }
 
 func (e *exporter) addStorage(instance *storageInstance, attachments []names.UnitTag) error {
+	owner, ok := instance.Owner()
+	if !ok {
+		owner = nil
+	}
 	args := description.StorageArgs{
 		Tag:         instance.StorageTag(),
 		Kind:        instance.Kind().String(),
-		Owner:       instance.Owner(),
+		Owner:       owner,
 		Name:        instance.StorageName(),
 		Attachments: attachments,
 	}

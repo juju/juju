@@ -10,11 +10,12 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/watcher"
-	"github.com/juju/juju/worker"
+	jworker "github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/catacomb"
 )
 
@@ -156,7 +157,7 @@ func (w *RemoteStateWatcher) setUp(unitTag names.UnitTag) (err error) {
 	defer func() {
 		cause := errors.Cause(err)
 		if params.IsCodeNotFoundOrCodeUnauthorized(cause) {
-			err = worker.ErrTerminateAgent
+			err = jworker.ErrTerminateAgent
 		}
 	}()
 	if w.unit, err = w.st.Unit(unitTag); err != nil {

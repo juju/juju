@@ -789,6 +789,26 @@ func (s *SubnetsSuite) TestListSubnetsInvalidSpaceTag(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `"invalid" is not a valid tag`)
 }
 
+func (s *SubnetsSuite) TestListSubnetsBlankSpaceTag(c *gc.C) {
+	args := params.SubnetsFilters{}
+	apiservertesting.BackingInstance.Subnets = []networkingcommon.BackingSubnet{
+		&apiservertesting.FakeSubnet{Info: networkingcommon.BackingSubnetInfo{
+			CIDR:              "10.0.10.0/24",
+			ProviderId:        "1",
+			AvailabilityZones: []string{"zone1"},
+			SpaceName:         "",
+		}},
+	}
+	results, err := networkingcommon.ListSubnets(apiservertesting.BackingInstance, args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, gc.DeepEquals, params.ListSubnetsResults{Results: []params.Subnet{{
+		CIDR:       "10.0.10.0/24",
+		ProviderId: "1",
+		SpaceTag:   "",
+		Zones:      []string{"zone1"},
+	}}})
+}
+
 func (s *SubnetsSuite) TestListSubnetsAllSubnetError(c *gc.C) {
 	boom := errors.New("no subnets for you")
 	apiservertesting.BackingInstance.SetErrors(boom)

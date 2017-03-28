@@ -10,12 +10,12 @@ import (
 	"runtime"
 	"time"
 
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/audit"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/testing"
 )
 
 type auditLogFileSuite struct {

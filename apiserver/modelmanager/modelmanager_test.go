@@ -15,6 +15,8 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
+	// Register the providers for the field check test
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/modelmanager"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
@@ -23,11 +25,6 @@ import (
 	"github.com/juju/juju/environs/config"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/permission"
-	"github.com/juju/juju/state/stateenvirons"
-	"github.com/juju/juju/status"
-	jujuversion "github.com/juju/juju/version"
-	// Register the providers for the field check test
-	"github.com/juju/juju/apiserver/common"
 	_ "github.com/juju/juju/provider/azure"
 	"github.com/juju/juju/provider/dummy"
 	_ "github.com/juju/juju/provider/ec2"
@@ -35,8 +32,11 @@ import (
 	_ "github.com/juju/juju/provider/maas"
 	_ "github.com/juju/juju/provider/openstack"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/stateenvirons"
+	"github.com/juju/juju/status"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
+	jujuversion "github.com/juju/juju/version"
 )
 
 func createArgs(owner names.UserTag) params.ModelCreateArgs {

@@ -4,13 +4,13 @@
 package discoverspaces_test
 
 import (
-	"errors"
-
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/common/networkingcommon"
 	"github.com/juju/juju/apiserver/discoverspaces"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
@@ -23,7 +23,7 @@ type DiscoverSpacesSuite struct {
 
 	resources  *common.Resources
 	authorizer apiservertesting.FakeAuthorizer
-	facade     *discoverspaces.DiscoverSpacesAPI
+	facade     *discoverspaces.API
 }
 
 var _ = gc.Suite(&DiscoverSpacesSuite{})
@@ -53,7 +53,7 @@ func (s *DiscoverSpacesSuite) SetUpTest(c *gc.C) {
 	}
 
 	var err error
-	s.facade, err = discoverspaces.NewDiscoverSpacesAPIWithBacking(
+	s.facade, err = discoverspaces.NewAPIWithBacking(
 		apiservertesting.BackingInstance, s.resources, s.authorizer,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -131,4 +131,142 @@ func (s *DiscoverSpacesSuite) TestListSpacesFailure(c *gc.C) {
 	c.Assert(result, jc.DeepEquals, params.DiscoverSpacesResults{})
 
 	apiservertesting.BackingInstance.CheckCallNames(c, "AllSpaces")
+}
+
+func (s *DiscoverSpacesSuite) TestAddSubnetsParamsCombinations(c *gc.C) {
+	apiservertesting.BackingInstance.SetUp(
+		c,
+		apiservertesting.StubNetworkingEnvironName,
+		apiservertesting.WithZones,
+		apiservertesting.WithSpaces,
+		apiservertesting.WithSubnets)
+
+	args := params.AddSubnetsParams{Subnets: []params.AddSubnetParams{{
+		// No ProviderId
+		SubnetProviderId: "",
+		SubnetTag:        "subnet-10.10.0.0/24",
+		VLANTag:          3,
+		Zones:            []string{"a", "b", "c"},
+		SpaceTag:         "space-dmz",
+	}, {
+		// No subnet tag
+		SubnetProviderId: "1",
+		SubnetTag:        "",
+		VLANTag:          3,
+		Zones:            []string{"a", "b", "c"},
+		SpaceTag:         "space-dmz",
+	}, {
+		// Invalid subnet
+		SubnetProviderId: "1",
+		SubnetTag:        "subnet-10.10.10.10",
+		VLANTag:          3,
+		Zones:            []string{"a", "b", "c"},
+		SpaceTag:         "space-dmz",
+	}, {
+		// Invalid space
+		SubnetProviderId: "1",
+		SubnetTag:        "subnet-10.10.10.10",
+		VLANTag:          3,
+		Zones:            []string{"a", "b", "c"},
+		SpaceTag:         "application-blemp",
+	}, {
+		// Non-existent space
+		SubnetProviderId: "1",
+		SubnetTag:        "subnet-10.10.10.0/24",
+		VLANTag:          3,
+		Zones:            []string{"a", "b", "c"},
+		SpaceTag:         "space-thing",
+	}, {
+		// Successful - ipv6
+		SubnetProviderId: "sn-ipv6",
+		SubnetTag:        "subnet-2001:db8::/32",
+		VLANTag:          0,
+		Zones:            []string{"a", "b", "c"},
+		SpaceTag:         "space-dmz",
+	}, {
+		// Successful - no zones
+		SubnetProviderId: "sn-no-zone",
+		SubnetTag:        "subnet-10.10.10.0/24",
+		VLANTag:          3,
+		Zones:            nil,
+		SpaceTag:         "space-dmz",
+	}, {
+		// Successful - no space
+		SubnetProviderId: "sn-no-space",
+		SubnetTag:        "subnet-10.10.10.0/24",
+		VLANTag:          3,
+		Zones:            []string{"a", "b", "c"},
+		SpaceTag:         "",
+	}}}
+
+	expectedErrors := []struct {
+		message   string
+		satisfier func(error) bool
+	}{
+		{"SubnetProviderId is required", nil},
+		{"SubnetTag is required", nil},
+		{`SubnetTag is invalid: "subnet-10.10.10.10" is not a valid subnet tag`, nil},
+		{`SpaceTag is invalid: "application-blemp" is not a valid space tag`, nil},
+		{`space "thing" not found`, params.IsCodeNotFound},
+		{"", nil},
+		{"", nil},
+		{"", nil},
+	}
+	expectedBackingInfos := []networkingcommon.BackingSubnetInfo{{
+		ProviderId:        "sn-ipv6",
+		CIDR:              "2001:db8::/32",
+		VLANTag:           0,
+		AvailabilityZones: []string{"a", "b", "c"},
+		SpaceName:         "dmz",
+	}, {
+		ProviderId:        "sn-no-zone",
+		CIDR:              "10.10.10.0/24",
+		VLANTag:           3,
+		AvailabilityZones: nil,
+		SpaceName:         "dmz",
+	}, {
+		ProviderId:        "sn-no-space",
+		CIDR:              "10.10.10.0/24",
+		VLANTag:           3,
+		AvailabilityZones: []string{"a", "b", "c"},
+		SpaceName:         "",
+	}}
+	c.Check(expectedErrors, gc.HasLen, len(args.Subnets))
+	results, err := s.facade.AddSubnets(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(results.Results), gc.Equals, len(args.Subnets))
+	for i, result := range results.Results {
+		c.Logf("result #%d: expected: %q", i, expectedErrors[i].message)
+		if expectedErrors[i].message == "" {
+			if !c.Check(result.Error, gc.IsNil) {
+				c.Logf("unexpected error: %v; args: %#v", result.Error, args.Subnets[i])
+			}
+			continue
+		}
+		if !c.Check(result.Error, gc.NotNil) {
+			c.Logf("unexpected success; args: %#v", args.Subnets[i])
+			continue
+		}
+		c.Check(result.Error.Message, gc.Equals, expectedErrors[i].message)
+		if expectedErrors[i].satisfier != nil {
+			c.Check(result.Error, jc.Satisfies, expectedErrors[i].satisfier)
+		} else {
+			c.Check(result.Error.Code, gc.Equals, "")
+		}
+	}
+
+	apiservertesting.CheckMethodCalls(c, apiservertesting.SharedStub,
+		apiservertesting.BackingCall("AllSpaces"),
+		apiservertesting.BackingCall("AddSubnet", expectedBackingInfos[0]),
+		apiservertesting.BackingCall("AddSubnet", expectedBackingInfos[1]),
+		apiservertesting.BackingCall("AddSubnet", expectedBackingInfos[2]),
+	)
+	apiservertesting.ResetStub(apiservertesting.SharedStub)
+
+	// Finally, check that no params yields no results.
+	results, err = s.facade.AddSubnets(params.AddSubnetsParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 0)
+
+	apiservertesting.CheckMethodCalls(c, apiservertesting.SharedStub)
 }

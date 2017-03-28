@@ -22,7 +22,6 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state/watcher"
-	"github.com/juju/juju/state/workers"
 
 	// TODO(fwereade): 2015-11-18 lp:1517428
 	//
@@ -101,7 +100,7 @@ func newCommonWatcher(backend modelBackend) commonWatcher {
 type commonWatcher struct {
 	backend modelBackend
 	db      Database
-	watcher workers.TxnLogWatcher
+	watcher *watcher.Watcher
 	tomb    tomb.Tomb
 }
 
@@ -362,23 +361,23 @@ func (st *State) WatchStorageAttachments(unit names.UnitTag) StringsWatcher {
 
 // WatchUnits returns a StringsWatcher that notifies of changes to the
 // lifecycles of units of s.
-func (s *Application) WatchUnits() StringsWatcher {
-	members := bson.D{{"application", s.doc.Name}}
-	prefix := s.doc.Name + "/"
+func (a *Application) WatchUnits() StringsWatcher {
+	members := bson.D{{"application", a.doc.Name}}
+	prefix := a.doc.Name + "/"
 	filter := func(unitDocID interface{}) bool {
-		unitName, err := s.st.strictLocalID(unitDocID.(string))
+		unitName, err := a.st.strictLocalID(unitDocID.(string))
 		if err != nil {
 			return false
 		}
 		return strings.HasPrefix(unitName, prefix)
 	}
-	return newLifecycleWatcher(s.st, unitsC, members, filter, nil)
+	return newLifecycleWatcher(a.st, unitsC, members, filter, nil)
 }
 
 // WatchRelations returns a StringsWatcher that notifies of changes to the
 // lifecycles of relations involving s.
-func (s *Application) WatchRelations() StringsWatcher {
-	return watchApplicationRelations(s.st, s.doc.Name)
+func (a *Application) WatchRelations() StringsWatcher {
+	return watchApplicationRelations(a.st, a.doc.Name)
 }
 
 // WatchRelations returns a StringsWatcher that notifies of changes to the
@@ -1328,15 +1327,15 @@ func (m *Machine) Watch() NotifyWatcher {
 }
 
 // Watch returns a watcher for observing changes to an application.
-func (s *Application) Watch() NotifyWatcher {
-	return newEntityWatcher(s.st, applicationsC, s.doc.DocID)
+func (a *Application) Watch() NotifyWatcher {
+	return newEntityWatcher(a.st, applicationsC, a.doc.DocID)
 }
 
 // WatchLeaderSettings returns a watcher for observing changed to a service's
 // leader settings.
-func (s *Application) WatchLeaderSettings() NotifyWatcher {
-	docId := s.st.docID(leadershipSettingsKey(s.Name()))
-	return newEntityWatcher(s.st, settingsC, docId)
+func (a *Application) WatchLeaderSettings() NotifyWatcher {
+	docId := a.st.docID(leadershipSettingsKey(a.Name()))
+	return newEntityWatcher(a.st, settingsC, docId)
 }
 
 // Watch returns a watcher for observing changes to a unit.
@@ -2627,109 +2626,6 @@ func (w *notifyCollWatcher) loop() error {
 			out = nil
 		}
 	}
-}
-
-// OfferedApplicationWatcher notifies about values in the collection
-// of offered applications. The first event returned by the watcher
-// is a slice of all current offer urls.
-// Subsequent events are generated when a application offer has it's
-// registered value changed.
-type offeredApplicationsWatcher struct {
-	commonWatcher
-	known map[string]int64
-	out   chan []string
-}
-
-func newOfferedApplicationsWatcher(backend modelBackend) StringsWatcher {
-	w := &offeredApplicationsWatcher{
-		commonWatcher: newCommonWatcher(backend),
-		known:         make(map[string]int64),
-		out:           make(chan []string),
-	}
-	go func() {
-		defer w.tomb.Done()
-		defer close(w.out)
-		w.tomb.Kill(w.loop())
-	}()
-	return w
-}
-
-// WatchOfferedApplications returns a OfferedApplicationsWatcher.
-func (st *State) WatchOfferedApplications() StringsWatcher {
-	return newOfferedApplicationsWatcher(st)
-}
-
-func (w *offeredApplicationsWatcher) initial() (set.Strings, error) {
-	offered := set.NewStrings()
-	var revnoDoc struct {
-		ApplicationURL string `bson:"application-url"`
-		TxnRevno       int64  `bson:"txn-revno"`
-	}
-	offeredCollection, closer := w.db.GetCollection(applicationOffersC)
-	defer closer()
-
-	iter := offeredCollection.Find(nil).Iter()
-	for iter.Next(&revnoDoc) {
-		w.known[revnoDoc.ApplicationURL] = revnoDoc.TxnRevno
-		offered.Add(revnoDoc.ApplicationURL)
-	}
-	return offered, iter.Close()
-}
-
-func (w *offeredApplicationsWatcher) merge(applicationURLs set.Strings, change watcher.Change) error {
-	applicationURL := w.backend.localID(change.Id.(string))
-	if change.Revno == -1 {
-		delete(w.known, applicationURL)
-		applicationURLs.Remove(applicationURL)
-		return nil
-	}
-	var revnoDoc struct {
-		TxnRevno int64 `bson:"txn-revno"`
-	}
-	offeredCollection, closer := w.db.GetCollection(applicationOffersC)
-	defer closer()
-	if err := offeredCollection.FindId(change.Id).One(&revnoDoc); err != nil {
-		return err
-	}
-	revno, known := w.known[applicationURL]
-	w.known[applicationURL] = revnoDoc.TxnRevno
-	if !known || revnoDoc.TxnRevno > revno {
-		applicationURLs.Add(applicationURL)
-	}
-	return nil
-}
-
-func (w *offeredApplicationsWatcher) loop() (err error) {
-	ch := make(chan watcher.Change)
-	w.watcher.WatchCollectionWithFilter(applicationOffersC, ch, isLocalID(w.backend))
-	defer w.watcher.UnwatchCollection(applicationOffersC, ch)
-	offers, err := w.initial()
-	if err != nil {
-		return err
-	}
-	out := w.out
-	for {
-		select {
-		case <-w.tomb.Dying():
-			return tomb.ErrDying
-		case <-w.watcher.Dead():
-			return stateWatcherDeadError(w.watcher.Err())
-		case change := <-ch:
-			if err = w.merge(offers, change); err != nil {
-				return err
-			}
-			if len(offers) > 0 {
-				out = w.out
-			}
-		case out <- offers.Values():
-			out = nil
-			offers = set.NewStrings()
-		}
-	}
-}
-
-func (w *offeredApplicationsWatcher) Changes() <-chan []string {
-	return w.out
 }
 
 // WatchRemoteRelations returns a StringsWatcher that notifies of changes to

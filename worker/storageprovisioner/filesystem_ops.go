@@ -469,6 +469,7 @@ func filesystemsFromStorage(in []storage.Filesystem) []params.Filesystem {
 			"",
 			params.FilesystemInfo{
 				f.FilesystemId,
+				"", // pool
 				f.Size,
 			},
 		}

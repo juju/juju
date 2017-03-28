@@ -22,7 +22,7 @@ import (
 // Volume describes a volume (disk, logical volume, etc.) in the model.
 type Volume interface {
 	GlobalEntity
-	LifeBinder
+	Lifer
 	status.StatusGetter
 	status.StatusSetter
 
@@ -88,7 +88,6 @@ type volumeDoc struct {
 	Life            Life          `bson:"life"`
 	StorageId       string        `bson:"storageid,omitempty"`
 	AttachmentCount int           `bson:"attachmentcount"`
-	Binding         string        `bson:"binding,omitempty"`
 	Info            *VolumeInfo   `bson:"info,omitempty"`
 	Params          *VolumeParams `bson:"params,omitempty"`
 
@@ -116,10 +115,6 @@ type VolumeParams struct {
 	// storage, if non-zero, is the tag of the storage instance
 	// that the volume is to be assigned to.
 	storage names.StorageTag
-
-	// binding, if non-nil, is the tag of the entity to which
-	// the volume's lifecycle will be bound.
-	binding names.Tag
 
 	Pool string `bson:"pool"`
 	Size uint64 `bson:"size"`
@@ -150,20 +145,6 @@ type VolumeAttachmentParams struct {
 
 // validate validates the contents of the volume document.
 func (v *volume) validate() error {
-	if v.doc.Binding != "" {
-		tag, err := names.ParseTag(v.doc.Binding)
-		if err != nil {
-			return errors.Annotate(err, "parsing binding")
-		}
-		switch tag.(type) {
-		case names.ModelTag:
-		case names.MachineTag:
-		case names.FilesystemTag:
-		case names.StorageTag:
-		default:
-			return errors.Errorf("invalid binding: %v", v.doc.Binding)
-		}
-	}
 	return nil
 }
 
@@ -185,34 +166,6 @@ func (v *volume) VolumeTag() names.VolumeTag {
 // Life returns the volume's current lifecycle state.
 func (v *volume) Life() Life {
 	return v.doc.Life
-}
-
-// LifeBinding is required to implement LifeBinder.
-//
-// Below is the set of possible entity types that a volume may be bound
-// to, and a description of the effects of doing so:
-//
-//   Machine:     If the volume is bound to a machine, then the volume
-//                will be destroyed when it is detached from the
-//                machine. It is not permitted for a volume to be
-//                attached to multiple machines while it is bound to a
-//                machine.
-//   Storage:     If the volume is bound to a storage instance, then
-//                the volume will be destroyed when the storage insance
-//                is removed from state.
-//   Filesystem:  If the volume is bound to a filesystem, i.e. the
-//                volume backs that filesystem, then it will be
-//                destroyed when the filesystem is removed from state.
-//   Model: If the volume is bound to the model, then the
-//                volume must be destroyed prior to the model
-//                being destroyed.
-func (v *volume) LifeBinding() names.Tag {
-	if v.doc.Binding == "" {
-		return nil
-	}
-	// Tag is validated in volume.validate.
-	tag, _ := names.ParseTag(v.doc.Binding)
-	return tag
 }
 
 // StorageInstance is required to implement Volume.
@@ -440,6 +393,22 @@ func (st *State) removeMachineVolumesOps(m *Machine) ([]txn.Op, error) {
 	}
 	for _, v := range machineVolumes {
 		volumeId := v.Tag().Id()
+		if v.doc.StorageId != "" {
+			// The volume is assigned to a storage instance;
+			// make sure we also remove the storage instance.
+			// There should be no storage attachments remaining,
+			// as the units must have been removed before the
+			// machine can be; and the storage attachments must
+			// have been removed before the unit can be.
+			ops = append(ops,
+				txn.Op{
+					C:      storageInstancesC,
+					Id:     v.doc.StorageId,
+					Assert: txn.DocExists,
+					Remove: true,
+				},
+			)
+		}
 		ops = append(ops,
 			txn.Op{
 				C:      volumesC,
@@ -578,8 +547,7 @@ func (st *State) RemoveVolumeAttachment(machine names.MachineTag, volume names.V
 func removeVolumeAttachmentOps(m names.MachineTag, v *volume) []txn.Op {
 	decrefVolumeOp := machineStorageDecrefOp(
 		volumesC, v.doc.Name,
-		v.doc.AttachmentCount, v.doc.Life,
-		m, v.doc.Binding,
+		v.doc.AttachmentCount, v.doc.Life, m,
 	)
 	return []txn.Op{{
 		C:      volumeAttachmentsC,
@@ -602,7 +570,6 @@ func machineStorageDecrefOp(
 	collection, id string,
 	attachmentCount int, life Life,
 	machine names.MachineTag,
-	binding string,
 ) txn.Op {
 	op := txn.Op{
 		C:  collection,
@@ -636,24 +603,15 @@ func machineStorageDecrefOp(
 		}
 	} else {
 		// The volume is still Alive: decref, retrying if the
-		// volume is destroyed concurrently or the binding changes.
-		// If the volume is bound to the machine, advance it to
-		// Dead; binding storage to a machine and attaching the
-		// storage to multiple machines will be mutually exclusive.
+		// volume is destroyed concurrently.
 		//
-		// Otherwise, when DestroyVolume is called, the volume will
-		// be marked Dead if it has no attachments.
+		// Otherwise, when DestroyVolume is called, the volume
+		// will be marked Dead if it has no attachments.
 		update := bson.D{
 			{"$inc", bson.D{{"attachmentcount", -1}}},
 		}
-		if binding == machine.String() {
-			update = append(update, bson.DocElem{
-				"$set", bson.D{{"life", Dead}},
-			})
-		}
 		op.Assert = bson.D{
 			{"life", Alive},
-			{"binding", binding},
 			{"attachmentcount", bson.D{{"$gt", 0}}},
 		}
 		op.Update = update
@@ -674,7 +632,8 @@ func (st *State) DestroyVolume(tag names.VolumeTag) (err error) {
 	}
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		volume, err := st.volumeByTag(tag)
-		if errors.IsNotFound(err) {
+		if errors.IsNotFound(err) && attempt > 0 {
+			// On the first attempt, we expect it to exist.
 			return nil, jujutxn.ErrNoOperations
 		} else if err != nil {
 			return nil, errors.Trace(err)
@@ -801,13 +760,6 @@ func (st *State) addVolumeOps(params VolumeParams, machineId string) ([]txn.Op, 
 	if err != nil {
 		return nil, names.VolumeTag{}, errors.Trace(err)
 	}
-	if params.binding == nil {
-		if detachable {
-			params.binding = st.ModelTag()
-		} else {
-			params.binding = names.NewMachineTag(machineId)
-		}
-	}
 	origMachineId := machineId
 	machineId, err = st.validateVolumeParams(params, machineId)
 	if err != nil {
@@ -824,7 +776,6 @@ func (st *State) addVolumeOps(params VolumeParams, machineId string) ([]txn.Op, 
 	doc := volumeDoc{
 		Name:      name,
 		StorageId: params.storage.Id(),
-		Binding:   params.binding.String(),
 		Params:    &params,
 		// Every volume is created with one attachment.
 		AttachmentCount: 1,

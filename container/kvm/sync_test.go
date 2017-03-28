@@ -6,14 +6,13 @@ package kvm_test
 import (
 	"net/http"
 
-	gc "gopkg.in/check.v1"
-
 	"github.com/juju/errors"
-	"github.com/juju/juju/environs/imagedownloads"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	gc "gopkg.in/check.v1"
 
 	. "github.com/juju/juju/container/kvm"
+	"github.com/juju/juju/environs/imagedownloads"
 )
 
 // cacheSuite is gocheck boilerplate.

@@ -6,11 +6,11 @@ package proxyupdater
 import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/proxy"
+	worker "gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/proxyupdater"
-	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
 )
 

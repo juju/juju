@@ -11,13 +11,12 @@ import (
 	"net/rpc"
 	"sync"
 
-	"gopkg.in/tomb.v1"
-
 	"github.com/juju/errors"
 	"github.com/juju/utils/exec"
+	worker "gopkg.in/juju/worker.v1"
+	"gopkg.in/tomb.v1"
 
 	"github.com/juju/juju/juju/sockets"
-	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/uniter/operation"
 	"github.com/juju/juju/worker/uniter/runcommands"
 )

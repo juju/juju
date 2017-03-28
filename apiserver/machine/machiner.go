@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
-	"github.com/juju/juju/state/stateenvirons"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.machine")
@@ -32,6 +31,7 @@ type MachinerAPI struct {
 	*common.DeadEnsurer
 	*common.AgentEntityWatcher
 	*common.APIAddresser
+	*networkingcommon.NetworkConfigAPI
 
 	st           *state.State
 	auth         facade.Authorizer
@@ -56,6 +56,7 @@ func NewMachinerAPI(st *state.State, resources facade.Resources, authorizer faca
 		DeadEnsurer:        common.NewDeadEnsurer(st, getCanModify),
 		AgentEntityWatcher: common.NewAgentEntityWatcher(st, resources, getCanRead),
 		APIAddresser:       common.NewAPIAddresser(st, resources),
+		NetworkConfigAPI:   networkingcommon.NewNetworkConfigAPI(st, getCanModify),
 		st:                 st,
 		auth:               authorizer,
 		getCanModify:       getCanModify,
@@ -137,146 +138,4 @@ func (api *MachinerAPI) Jobs(args params.Entities) (params.JobsResults, error) {
 		result.Results[i].Jobs = jobs
 	}
 	return result, nil
-}
-
-func (api *MachinerAPI) SetObservedNetworkConfig(args params.SetMachineNetworkConfig) error {
-	m, err := api.getMachineForSettingNetworkConfig(args.Tag)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if m.IsContainer() {
-		return nil
-	}
-	observedConfig := args.Config
-	logger.Tracef("observed network config of machine %q: %+v", m.Id(), observedConfig)
-	if len(observedConfig) == 0 {
-		logger.Infof("not updating machine network config: no observed network config found")
-		return nil
-	}
-
-	providerConfig, err := api.getOneMachineProviderNetworkConfig(m)
-	if errors.IsNotProvisioned(err) {
-		logger.Infof("not updating provider network config: %v", err)
-		return nil
-	}
-	if err != nil {
-		return errors.Trace(err)
-	}
-	finalConfig := observedConfig
-	if len(providerConfig) != 0 {
-		finalConfig = networkingcommon.MergeProviderAndObservedNetworkConfigs(providerConfig, observedConfig)
-		logger.Tracef("merged observed and provider network config: %+v", finalConfig)
-	}
-
-	return api.setOneMachineNetworkConfig(m, finalConfig)
-}
-
-func (api *MachinerAPI) getMachineForSettingNetworkConfig(machineTag string) (*state.Machine, error) {
-	canModify, err := api.getCanModify()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	tag, err := names.ParseMachineTag(machineTag)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if !canModify(tag) {
-		return nil, errors.Trace(common.ErrPerm)
-	}
-
-	m, err := api.getMachine(tag)
-	if errors.IsNotFound(err) {
-		return nil, errors.Trace(common.ErrPerm)
-	} else if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	if m.IsContainer() {
-		logger.Warningf("not updating network config for container %q", m.Id())
-	}
-
-	return m, nil
-}
-
-func (api *MachinerAPI) setOneMachineNetworkConfig(m *state.Machine, networkConfig []params.NetworkConfig) error {
-	devicesArgs, devicesAddrs := networkingcommon.NetworkConfigsToStateArgs(networkConfig)
-
-	logger.Debugf("setting devices: %+v", devicesArgs)
-	if err := m.SetParentLinkLayerDevicesBeforeTheirChildren(devicesArgs); err != nil {
-		return errors.Trace(err)
-	}
-
-	logger.Debugf("setting addresses: %+v", devicesAddrs)
-	if err := m.SetDevicesAddressesIdempotently(devicesAddrs); err != nil {
-		return errors.Trace(err)
-	}
-
-	logger.Debugf("updated machine %q network config", m.Id())
-	return nil
-}
-
-func (api *MachinerAPI) SetProviderNetworkConfig(args params.Entities) (params.ErrorResults, error) {
-	result := params.ErrorResults{
-		Results: make([]params.ErrorResult, len(args.Entities)),
-	}
-
-	for i, arg := range args.Entities {
-		m, err := api.getMachineForSettingNetworkConfig(arg.Tag)
-		if err != nil {
-			result.Results[i].Error = common.ServerError(err)
-			continue
-		}
-
-		if m.IsContainer() {
-			continue
-		}
-
-		providerConfig, err := api.getOneMachineProviderNetworkConfig(m)
-		if err != nil {
-			result.Results[i].Error = common.ServerError(err)
-			continue
-		} else if len(providerConfig) == 0 {
-			continue
-		}
-
-		logger.Tracef("provider network config for %q: %+v", m.Id(), providerConfig)
-
-		if err := api.setOneMachineNetworkConfig(m, providerConfig); err != nil {
-			result.Results[i].Error = common.ServerError(err)
-			continue
-		}
-	}
-	return result, nil
-}
-
-func (api *MachinerAPI) getOneMachineProviderNetworkConfig(m *state.Machine) ([]params.NetworkConfig, error) {
-	instId, err := m.InstanceId()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	netEnviron, err := networkingcommon.NetworkingEnvironFromModelConfig(
-		stateenvirons.EnvironConfigGetter{api.st},
-	)
-	if errors.IsNotSupported(err) {
-		logger.Infof("provider network config not supported: %v", err)
-		return nil, nil
-	} else if err != nil {
-		return nil, errors.Annotate(err, "cannot get provider network config")
-	}
-
-	interfaceInfos, err := netEnviron.NetworkInterfaces(instId)
-	if err != nil {
-		return nil, errors.Annotatef(err, "cannot get network interfaces of %q", instId)
-	}
-	if len(interfaceInfos) == 0 {
-		logger.Infof("not updating provider network config: no interfaces returned")
-		return nil, nil
-	}
-
-	providerConfig := networkingcommon.NetworkConfigFromInterfaceInfo(interfaceInfos)
-	logger.Tracef("provider network config instance %q: %+v", instId, providerConfig)
-
-	return providerConfig, nil
 }

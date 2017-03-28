@@ -228,7 +228,11 @@ func (st *State) cleanupVolumesForDyingModel() (err error) {
 	}
 	for _, v := range volumes {
 		err := st.DestroyVolume(v.VolumeTag())
-		if err != nil && !IsContainsFilesystem(err) {
+		if errors.IsNotFound(err) {
+			continue
+		} else if IsContainsFilesystem(err) {
+			continue
+		} else if err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -245,7 +249,9 @@ func (st *State) cleanupFilesystemsForDyingModel() (err error) {
 	}
 	for _, fs := range filesystems {
 		err := st.DestroyFilesystem(fs.FilesystemTag())
-		if err != nil {
+		if errors.IsNotFound(err) {
+			continue
+		} else if err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -393,7 +399,7 @@ func (st *State) cleanupUnitStorageAttachments(unitTag names.UnitTag, remove boo
 	}
 	for _, storageAttachment := range storageAttachments {
 		storageTag := storageAttachment.StorageInstance()
-		err := st.DestroyStorageAttachment(storageTag, unitTag)
+		err := st.DetachStorage(storageTag, unitTag)
 		if errors.IsNotFound(err) {
 			continue
 		} else if err != nil {
@@ -631,7 +637,7 @@ func (st *State) cleanupAttachmentsForDyingStorage(storageId string) (err error)
 	defer closeIter(iter, &err, "reading storage attachment document")
 	for iter.Next(&doc) {
 		unitTag := names.NewUnitTag(doc.Unit)
-		if err := st.DestroyStorageAttachment(storageTag, unitTag); err != nil {
+		if err := st.DetachStorage(storageTag, unitTag); err != nil {
 			return errors.Annotate(err, "destroying storage attachment")
 		}
 	}

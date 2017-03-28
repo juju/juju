@@ -6,10 +6,10 @@ package lifeflag_test
 import (
 	"github.com/juju/testing"
 	"gopkg.in/juju/names.v2"
+	worker "gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/watcher"
-	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/workertest"
 )
 

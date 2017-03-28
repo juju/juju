@@ -501,7 +501,7 @@ func (c *registerCommand) secretKeyLogin(addrs []string, request params.SecretKe
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
 	httpClient := utils.GetNonValidatingHTTPClient()
-	httpClient.Jar = apiContext.Jar
+	httpClient.Jar = apiContext.CookieJar()
 	httpResp, err := httpClient.Do(httpReq)
 	if err != nil {
 		return nil, errors.Trace(err)

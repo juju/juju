@@ -6,11 +6,10 @@ package modelcmd_test
 import (
 	"strings"
 
-	gc "gopkg.in/check.v1"
-
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
@@ -23,14 +22,14 @@ import (
 )
 
 type BaseCommandSuite struct {
-	coretesting.FakeJujuXDGDataHomeSuite
+	testing.IsolationSuite
 	store *jujuclienttesting.MemStore
 }
 
 var _ = gc.Suite(&BaseCommandSuite{})
 
 func (s *BaseCommandSuite) SetUpTest(c *gc.C) {
-	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
+	s.IsolationSuite.SetUpTest(c)
 
 	s.store = jujuclienttesting.NewMemStore()
 	s.store.CurrentControllerName = "foo"

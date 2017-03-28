@@ -7,6 +7,7 @@ import (
 	"errors"
 	"time"
 
+	"gopkg.in/juju/worker.v1"
 	"gopkg.in/tomb.v1"
 )
 
@@ -67,7 +68,7 @@ func NewTimer(d time.Duration) PeriodicTimer {
 // sleeping for sleepDuration in between each call, until Kill() is called
 // The stopCh argument will be closed when the worker is killed. The error returned
 // by the doWork function will be returned by the worker's Wait function.
-func NewPeriodicWorker(call PeriodicWorkerCall, period time.Duration, timerFunc NewTimerFunc) Worker {
+func NewPeriodicWorker(call PeriodicWorkerCall, period time.Duration, timerFunc NewTimerFunc) worker.Worker {
 	w := &periodicWorker{newTimer: timerFunc}
 	go func() {
 		defer w.tomb.Done()

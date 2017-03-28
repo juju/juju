@@ -13,6 +13,7 @@ import (
 	"github.com/juju/mutex"
 	"github.com/juju/utils/clock"
 	"gopkg.in/juju/names.v2"
+	worker "gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/common"
@@ -27,7 +28,6 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/watcher"
-	"github.com/juju/juju/worker"
 )
 
 var (
@@ -39,7 +39,7 @@ var (
 // are created on the given machine. It will set up the machine to be able
 // to create containers and start a suitable provisioner.
 type ContainerSetup struct {
-	runner              worker.Runner
+	runner              *worker.Runner
 	supportedContainers []instance.ContainerType
 	provisioner         *apiprovisioner.State
 	machine             *apiprovisioner.Machine
@@ -58,7 +58,7 @@ type ContainerSetup struct {
 
 // ContainerSetupParams are used to initialise a container setup handler.
 type ContainerSetupParams struct {
-	Runner              worker.Runner
+	Runner              *worker.Runner
 	WorkerName          string
 	SupportedContainers []instance.ContainerType
 	Machine             *apiprovisioner.Machine
@@ -183,6 +183,20 @@ func (cs *ContainerSetup) runInitialiser(abort <-chan struct{}, containerType in
 
 	if err := initialiser.Initialise(); err != nil {
 		return errors.Trace(err)
+	}
+
+	// At this point, Initialiser likely has changed host network information,
+	// so reprobe to have an accurate view.
+	observedConfig, err := observeNetwork()
+	if err != nil {
+		return errors.Annotate(err, "cannot discover observed network config")
+	}
+	if len(observedConfig) > 0 {
+		machineTag := cs.machine.MachineTag()
+		logger.Tracef("updating observed network config for %q %s containers to %#v", machineTag, containerType, observedConfig)
+		if err := cs.provisioner.SetHostMachineNetworkConfig(machineTag, observedConfig); err != nil {
+			return errors.Trace(err)
+		}
 	}
 
 	return nil
@@ -317,7 +331,7 @@ var StartProvisioner = startProvisionerWorker
 // startProvisionerWorker kicks off a provisioner task responsible for creating containers
 // of the specified type on the machine.
 func startProvisionerWorker(
-	runner worker.Runner,
+	runner *worker.Runner,
 	containerType instance.ContainerType,
 	provisioner *apiprovisioner.State,
 	config agent.Config,

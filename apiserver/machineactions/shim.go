@@ -5,11 +5,12 @@
 package machineactions
 
 import (
+	"gopkg.in/juju/names.v2"
+
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
-	"gopkg.in/juju/names.v2"
 )
 
 func init() {

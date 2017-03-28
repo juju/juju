@@ -167,9 +167,8 @@ type historicalStatusDoc struct {
 	StatusInfo string                 `bson:"statusinfo"`
 	StatusData map[string]interface{} `bson:"statusdata"`
 
-	// Updated might not be present on statuses copied by old versions of juju
-	// from yet older versions of juju. Do not dereference without checking.
-	// Updated *time.Time `bson:"updated"`
+	// Updated might not be present on statuses copied by old
+	// versions of juju from yet older versions of juju.
 	Updated int64 `bson:"updated"`
 }
 
@@ -274,6 +273,10 @@ func PruneStatusHistory(st *State, maxHistoryTime time.Duration, maxHistoryMB in
 	if maxHistoryMB == 0 && maxHistoryTime == 0 {
 		return errors.NotValidf("backlog size and time constraints are both 0")
 	}
+
+	// NOTE(axw) we require a raw collection to obtain the size of the
+	// collection. Take care to include model-uuid in queries where
+	// appropriate.
 	history, closer := st.getRawCollection(statusesHistoryC)
 	defer closer()
 
@@ -281,6 +284,7 @@ func PruneStatusHistory(st *State, maxHistoryTime time.Duration, maxHistoryMB in
 	if maxHistoryTime > 0 {
 		t := st.clock.Now().Add(-maxHistoryTime)
 		_, err := history.RemoveAll(bson.D{
+			{"model-uuid", st.ModelUUID()},
 			{"updated", bson.M{"$lt": t.UnixNano()}},
 		})
 		if err != nil {

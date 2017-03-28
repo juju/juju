@@ -5,9 +5,10 @@ package storageprovisioner
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/juju/storage"
 	"github.com/juju/utils/clock"
 	"gopkg.in/juju/names.v2"
+
+	"github.com/juju/juju/storage"
 )
 
 // Config holds configuration and dependencies for a storageprovisioner worker.

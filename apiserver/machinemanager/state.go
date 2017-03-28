@@ -4,14 +4,16 @@
 package machinemanager
 
 import (
+	names "gopkg.in/juju/names.v2"
+
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
-	names "gopkg.in/juju/names.v2"
 )
 
 type stateInterface interface {
+	Machine(string) (Machine, error)
 	ModelConfig() (*config.Config, error)
 	Model() (*state.Model, error)
 	ModelTag() names.ModelTag
@@ -25,10 +27,20 @@ type stateInterface interface {
 	Clouds() (map[names.CloudTag]cloud.Cloud, error)
 	CloudCredentials(user names.UserTag, cloudName string) (map[string]cloud.Credential, error)
 	CloudCredential(tag names.CloudCredentialTag) (cloud.Credential, error)
+	StorageInstance(names.StorageTag) (state.StorageInstance, error)
+	UnitStorageAttachments(names.UnitTag) ([]state.StorageAttachment, error)
 }
 
 type stateShim struct {
 	*state.State
+}
+
+func (s stateShim) Machine(name string) (Machine, error) {
+	m, err := s.State.Machine(name)
+	if err != nil {
+		return nil, err
+	}
+	return machineShim{m}, nil
 }
 
 func (s stateShim) ModelConfig() (*config.Config, error) {
@@ -73,4 +85,34 @@ type Model interface {
 	ModelTag() names.ModelTag
 
 	Config() (*config.Config, error)
+}
+
+type Machine interface {
+	Destroy() error
+	ForceDestroy() error
+	Units() ([]Unit, error)
+}
+
+type machineShim struct {
+	*state.Machine
+}
+
+func (m machineShim) Units() ([]Unit, error) {
+	units, err := m.Machine.Units()
+	if err != nil {
+		return nil, err
+	}
+	out := make([]Unit, len(units))
+	for i, u := range units {
+		out[i] = unitShim{u}
+	}
+	return out, nil
+}
+
+type Unit interface {
+	UnitTag() names.UnitTag
+}
+
+type unitShim struct {
+	*state.Unit
 }

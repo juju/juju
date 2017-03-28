@@ -7,7 +7,6 @@ import (
 	"runtime"
 
 	semversion "github.com/juju/version"
-
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/testing"

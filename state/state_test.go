@@ -30,7 +30,6 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
@@ -197,7 +196,7 @@ func (s *StateSuite) TestModelUUID(c *gc.C) {
 
 func (s *StateSuite) TestNoModelDocs(c *gc.C) {
 	c.Assert(s.State.EnsureModelRemoved(), gc.ErrorMatches,
-		fmt.Sprintf("found documents for model with uuid %s: 1 constraints doc, 2 leases doc, 1 modelusers doc, 1 settings doc, 1 statuses doc", s.State.ModelUUID()))
+		fmt.Sprintf(`found documents for model with uuid %s: \d+ constraints doc, \d+ leases doc, \d+ modelusers doc, \d+ settings doc, \d+ statuses doc`, s.State.ModelUUID()))
 }
 
 func (s *StateSuite) TestMongoSession(c *gc.C) {
@@ -610,24 +609,6 @@ func (s *MultiModelStateSuite) TestWatchTwoModels(c *gc.C) {
 				wordpress, err := st.Application("wordpress")
 				c.Assert(err, jc.ErrorIsNil)
 				err = wordpress.SetMinUnits(2)
-				c.Assert(err, jc.ErrorIsNil)
-			},
-		}, {
-			about: "offered applications",
-			getWatcher: func(st *state.State) interface{} {
-				return st.WatchOfferedApplications()
-			},
-			setUpState: func(st *state.State) bool {
-				offeredApplications := state.NewOfferedApplications(st)
-				offeredApplications.AddOffer(crossmodel.OfferedApplication{
-					ApplicationName: "mysql",
-					ApplicationURL:  "local:/u/me/mysql",
-				})
-				return false
-			},
-			triggerEvent: func(st *state.State) {
-				offeredApplications := state.NewOfferedApplications(st)
-				err := offeredApplications.SetOfferRegistered("local:/u/me/mysql", false)
 				c.Assert(err, jc.ErrorIsNil)
 			},
 		}, {
@@ -3325,66 +3306,6 @@ func (s *StateSuite) TestWatchMinUnits(c *gc.C) {
 func (s *StateSuite) TestWatchMinUnitsDiesOnStateClose(c *gc.C) {
 	testWatcherDiesWhenStateCloses(c, s.modelTag, s.State.ControllerTag(), func(c *gc.C, st *state.State) waiter {
 		w := st.WatchMinUnits()
-		<-w.Changes()
-		return w
-	})
-}
-
-func (s *StateSuite) TestWatchOfferedApplications(c *gc.C) {
-	// Check initial event.
-	w := s.State.WatchOfferedApplications()
-	defer statetesting.AssertStop(c, w)
-	wc := statetesting.NewStringsWatcherC(c, s.State, w)
-	wc.AssertChange()
-	wc.AssertNoChange()
-
-	// Add a new offered application; a single change should occur.
-	offers := state.NewOfferedApplications(s.State)
-	offer := crossmodel.OfferedApplication{
-		ApplicationName: "service",
-		ApplicationURL:  "local:/u/me/service",
-		Registered:      true,
-	}
-	err := offers.AddOffer(offer)
-	wc.AssertChange("local:/u/me/service")
-	wc.AssertNoChange()
-
-	// Set the registered value; expect one change.
-	err = offers.SetOfferRegistered("local:/u/me/service", false)
-	c.Assert(err, jc.ErrorIsNil)
-	offer.Registered = false
-	wc.AssertChange("local:/u/me/service")
-	wc.AssertNoChange()
-
-	// Insert a new offer2 and set registered value; expect 2 changes.
-	offer2 := crossmodel.OfferedApplication{
-		ApplicationName: "service2",
-		ApplicationURL:  "local:/u/me/service2",
-		Registered:      true,
-	}
-	err = offers.AddOffer(offer2)
-	c.Assert(err, jc.ErrorIsNil)
-	err = offers.SetOfferRegistered("local:/u/me/service", true)
-	offer.Registered = true
-	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertChange("local:/u/me/service2", "local:/u/me/service")
-
-	// Update endpoints and registered value; expect 2 changes.
-	err = offers.UpdateOffer("local:/u/me/service2", map[string]string{"foo": "bar"})
-	c.Assert(err, jc.ErrorIsNil)
-	err = offers.SetOfferRegistered("local:/u/me/service", false)
-	offer.Registered = true
-	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertChange("local:/u/me/service2", "local:/u/me/service")
-
-	// Stop watcher, check closed.
-	statetesting.AssertStop(c, w)
-	wc.AssertClosed()
-}
-
-func (s *StateSuite) TestWatchOfferedApplicationsDiesOnStateClose(c *gc.C) {
-	testWatcherDiesWhenStateCloses(c, s.modelTag, s.State.ControllerTag(), func(c *gc.C, st *state.State) waiter {
-		w := st.WatchOfferedApplications()
 		<-w.Changes()
 		return w
 	})

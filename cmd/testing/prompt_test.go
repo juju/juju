@@ -10,11 +10,11 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	cmdtesting "github.com/juju/juju/cmd/testing"
-	"github.com/juju/testing"
 )
 
 type prompterSuite struct {

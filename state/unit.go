@@ -448,8 +448,8 @@ func (u *Unit) destroyOps() ([]txn.Op, error) {
 
 // destroyHostOps returns all necessary operations to destroy the service unit's host machine,
 // or ensure that the conditions preventing its destruction remain stable through the transaction.
-func (u *Unit) destroyHostOps(s *Application) (ops []txn.Op, err error) {
-	if s.doc.Subordinate {
+func (u *Unit) destroyHostOps(a *Application) (ops []txn.Op, err error) {
+	if a.doc.Subordinate {
 		return []txn.Op{{
 			C:      unitsC,
 			Id:     u.st.docID(u.doc.Principal),
@@ -1150,9 +1150,44 @@ func (u *Unit) SetCharmURL(curl *charm.URL) error {
 	return err
 }
 
+// charm returns the charm for the unit, or the application if the unit's charm
+// has not been set yet.
+func (u *Unit) charm() (*Charm, error) {
+	curl, ok := u.CharmURL()
+	if !ok {
+		app, err := u.Application()
+		if err != nil {
+			return nil, err
+		}
+		curl = app.doc.CharmURL
+	}
+	ch, err := u.st.Charm(curl)
+	return ch, errors.Annotatef(err, "getting charm for %s", u)
+}
+
+// assertCharmOps returns txn.Ops to assert the current charm of the unit.
+// If the unit currently has no charm URL set, then the application's charm
+// URL will be checked by the txn.Ops also.
+func (u *Unit) assertCharmOps(ch *Charm) []txn.Op {
+	ops := []txn.Op{{
+		C:      unitsC,
+		Id:     u.doc.Name,
+		Assert: bson.D{{"charmurl", u.doc.CharmURL}},
+	}}
+	if _, ok := u.CharmURL(); !ok {
+		appName := u.ApplicationName()
+		ops = append(ops, txn.Op{
+			C:      applicationsC,
+			Id:     appName,
+			Assert: bson.D{{"charmurl", ch.URL()}},
+		})
+	}
+	return ops
+}
+
 // AgentPresence returns whether the respective remote agent is alive.
 func (u *Unit) AgentPresence() (bool, error) {
-	pwatcher := u.st.workers.PresenceWatcher()
+	pwatcher := u.st.workers.presenceWatcher()
 	return pwatcher.Alive(u.globalAgentKey())
 }
 
@@ -1173,7 +1208,7 @@ func (u *Unit) UnitTag() names.UnitTag {
 func (u *Unit) WaitAgentPresence(timeout time.Duration) (err error) {
 	defer errors.DeferredAnnotatef(&err, "waiting for agent of unit %q", u)
 	ch := make(chan presence.Change)
-	pwatcher := u.st.workers.PresenceWatcher()
+	pwatcher := u.st.workers.presenceWatcher()
 	pwatcher.Watch(u.globalAgentKey(), ch)
 	defer pwatcher.Unwatch(u.globalAgentKey(), ch)
 	for i := 0; i < 2; i++ {
@@ -1757,16 +1792,7 @@ func unitMachineStorageParams(u *Unit) (*machineStorageParams, error) {
 	if err != nil {
 		return nil, errors.Annotate(err, "getting storage attachments")
 	}
-	curl := u.doc.CharmURL
-	if curl == nil {
-		var err error
-		app, err := u.Application()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		curl, _ = app.CharmURL()
-	}
-	ch, err := u.st.Charm(curl)
+	ch, err := u.charm()
 	if err != nil {
 		return nil, errors.Annotate(err, "getting charm")
 	}
@@ -1785,7 +1811,7 @@ func unitMachineStorageParams(u *Unit) (*machineStorageParams, error) {
 	volumeAttachments := make(map[names.VolumeTag]VolumeAttachmentParams)
 	filesystemAttachments := make(map[names.FilesystemTag]FilesystemAttachmentParams)
 	for _, storageAttachment := range storageAttachments {
-		storage, err := u.st.StorageInstance(storageAttachment.StorageInstance())
+		storage, err := u.st.storageInstance(storageAttachment.StorageInstance())
 		if err != nil {
 			return nil, errors.Annotatef(err, "getting storage instance")
 		}
@@ -1825,7 +1851,7 @@ func machineStorageParamsForStorageInstance(
 	unit names.UnitTag,
 	series string,
 	allCons map[string]StorageConstraints,
-	storage StorageInstance,
+	storage *storageInstance,
 ) (*machineStorageParams, error) {
 
 	charmStorage := charmMeta.Storage[storage.StorageName()]
@@ -1840,16 +1866,12 @@ func machineStorageParamsForStorageInstance(
 		volumeAttachmentParams := VolumeAttachmentParams{
 			charmStorage.ReadOnly,
 		}
-		if unit == storage.Owner() {
+		if unit == storage.maybeOwner() {
 			// The storage instance is owned by the unit, so we'll need
 			// to create a volume.
 			cons := allCons[storage.StorageName()]
 			volumeParams := VolumeParams{
 				storage: storage.StorageTag(),
-				// TODO(axw) when we have commands for removing
-				// floating storage, drop the binding so that
-				// storage is persistent by default.
-				binding: storage.StorageTag(),
 				Pool:    cons.Pool,
 				Size:    cons.Size,
 			}
@@ -1879,16 +1901,12 @@ func machineStorageParamsForStorageInstance(
 			location,
 			charmStorage.ReadOnly,
 		}
-		if unit == storage.Owner() {
+		if unit == storage.maybeOwner() {
 			// The storage instance is owned by the unit, so we'll need
 			// to create a filesystem.
 			cons := allCons[storage.StorageName()]
 			filesystemParams := FilesystemParams{
 				storage: storage.StorageTag(),
-				// TODO(axw) when we have commands for removing
-				// floating storage, drop the binding so that
-				// storage is persistent by default.
-				binding: storage.StorageTag(),
 				Pool:    cons.Pool,
 				Size:    cons.Size,
 			}
@@ -2255,21 +2273,9 @@ func (u *Unit) AddAction(name string, payload map[string]interface{}) (Action, e
 // ActionSpecs gets the ActionSpec map for the Unit's charm.
 func (u *Unit) ActionSpecs() (ActionSpecsByName, error) {
 	none := ActionSpecsByName{}
-	curl, _ := u.CharmURL()
-	if curl == nil {
-		// If unit charm URL is not yet set, fall back to service
-		svc, err := u.Application()
-		if err != nil {
-			return none, err
-		}
-		curl, _ = svc.CharmURL()
-		if curl == nil {
-			return none, errors.Errorf("no URL set for application %q", svc.Name())
-		}
-	}
-	ch, err := u.st.Charm(curl)
+	ch, err := u.charm()
 	if err != nil {
-		return none, errors.Annotatef(err, "unable to get charm with URL %q", curl.String())
+		return none, errors.Trace(err)
 	}
 	chActions := ch.Actions()
 	if chActions == nil || len(chActions.ActionSpecs) == 0 {

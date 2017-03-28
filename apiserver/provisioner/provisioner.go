@@ -52,6 +52,7 @@ type ProvisionerAPI struct {
 	*common.InstanceIdGetter
 	*common.ToolsFinder
 	*common.ToolsGetter
+	*networkingcommon.NetworkConfigAPI
 
 	st                      *state.State
 	resources               facade.Resources
@@ -129,6 +130,7 @@ func NewProvisionerAPI(st *state.State, resources facade.Resources, authorizer f
 		InstanceIdGetter:        common.NewInstanceIdGetter(st, getAuthFunc),
 		ToolsFinder:             common.NewToolsFinder(configGetter, st, urlGetter),
 		ToolsGetter:             common.NewToolsGetter(st, configGetter, st, urlGetter, getAuthOwner),
+		NetworkConfigAPI:        networkingcommon.NewNetworkConfigAPI(st, getCanModify),
 		st:                      st,
 		resources:               resources,
 		authorizer:              authorizer,
@@ -723,7 +725,7 @@ func (ctx *prepareOrGetContext) ProcessOneContainer(env environs.Environ, idx in
 		}
 
 		if len(parentAddrs) > 0 {
-			logger.Infof("host machine device %q has addresses %v", parentDevice.Name(), parentAddrs)
+			logger.Debugf("host machine device %q has addresses %v", parentDevice.Name(), parentAddrs)
 			firstAddress := parentAddrs[0]
 			if supportContainerAddresses {
 				parentDeviceSubnet, err := firstAddress.Subnet()
@@ -770,10 +772,12 @@ func (ctx *prepareOrGetContext) ProcessOneContainer(env environs.Environ, idx in
 			return err
 		}
 		logger.Debugf("got allocated info from provider: %+v", allocatedInfo)
+	} else {
+		logger.Debugf("using dhcp allocated addresses")
 	}
 
 	allocatedConfig := networkingcommon.NetworkConfigFromInterfaceInfo(allocatedInfo)
-	logger.Tracef("allocated network config: %+v", allocatedConfig)
+	logger.Debugf("allocated network config: %+v", allocatedConfig)
 	ctx.result.Results[idx].Config = allocatedConfig
 	return nil
 }
@@ -982,119 +986,6 @@ func (p *ProvisionerAPI) markOneMachineForRemoval(machineTag string, canAccess c
 		return errors.Trace(err)
 	}
 	return machine.MarkForRemoval()
-}
-
-func (p *ProvisionerAPI) SetObservedNetworkConfig(args params.SetMachineNetworkConfig) error {
-	m, err := p.getMachineForSettingNetworkConfig(args.Tag)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if m.IsContainer() {
-		return nil
-	}
-	observedConfig := args.Config
-	logger.Tracef("observed network config of machine %q: %+v", m.Id(), observedConfig)
-	if len(observedConfig) == 0 {
-		logger.Infof("not updating machine network config: no observed network config found")
-		return nil
-	}
-
-	providerConfig, err := p.getOneMachineProviderNetworkConfig(m)
-	if errors.IsNotProvisioned(err) {
-		logger.Infof("not updating provider network config: %v", err)
-		return nil
-	}
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if len(providerConfig) == 0 {
-		logger.Infof("not updating machine network config: no provider network config found")
-		return nil
-	}
-
-	mergedConfig := networkingcommon.MergeProviderAndObservedNetworkConfigs(providerConfig, observedConfig)
-	logger.Tracef("merged observed and provider network config: %+v", mergedConfig)
-
-	return p.setOneMachineNetworkConfig(m, mergedConfig)
-}
-
-func (p *ProvisionerAPI) getMachineForSettingNetworkConfig(machineTag string) (*state.Machine, error) {
-	canModify, err := p.getCanModify()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	tag, err := names.ParseMachineTag(machineTag)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if !canModify(tag) {
-		return nil, errors.Trace(common.ErrPerm)
-	}
-
-	canAccess, err := p.getAuthFunc()
-	if err != nil {
-		return nil, err
-	}
-
-	m, err := p.getMachine(canAccess, tag)
-	if errors.IsNotFound(err) {
-		return nil, errors.Trace(common.ErrPerm)
-	} else if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	if m.IsContainer() {
-		logger.Warningf("not updating network config for container %q", m.Id())
-	}
-
-	return m, nil
-}
-
-func (p *ProvisionerAPI) setOneMachineNetworkConfig(m *state.Machine, networkConfig []params.NetworkConfig) error {
-	devicesArgs, devicesAddrs := networkingcommon.NetworkConfigsToStateArgs(networkConfig)
-
-	logger.Debugf("setting devices: %+v", devicesArgs)
-	if err := m.SetParentLinkLayerDevicesBeforeTheirChildren(devicesArgs); err != nil {
-		return errors.Trace(err)
-	}
-
-	logger.Debugf("setting addresses: %+v", devicesAddrs)
-	if err := m.SetDevicesAddressesIdempotently(devicesAddrs); err != nil {
-		return errors.Trace(err)
-	}
-
-	logger.Debugf("updated machine %q network config", m.Id())
-	return nil
-}
-
-func (p *ProvisionerAPI) getOneMachineProviderNetworkConfig(m *state.Machine) ([]params.NetworkConfig, error) {
-	instId, err := m.InstanceId()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	netEnviron, err := networkingcommon.NetworkingEnvironFromModelConfig(p.configGetter)
-	if errors.IsNotSupported(err) {
-		logger.Infof("not updating provider network config: %v", err)
-		return nil, nil
-	} else if err != nil {
-		return nil, errors.Annotate(err, "cannot get provider network config")
-	}
-
-	interfaceInfos, err := netEnviron.NetworkInterfaces(instId)
-	if err != nil {
-		return nil, errors.Annotatef(err, "cannot get network interfaces of %q", instId)
-	}
-	if len(interfaceInfos) == 0 {
-		logger.Infof("not updating provider network config: no interfaces returned")
-		return nil, nil
-	}
-
-	providerConfig := networkingcommon.NetworkConfigFromInterfaceInfo(interfaceInfos)
-	logger.Tracef("provider network config instance %q: %+v", instId, providerConfig)
-
-	return providerConfig, nil
 }
 
 func (p *ProvisionerAPI) SetHostMachineNetworkConfig(args params.SetMachineNetworkConfig) error {

@@ -12,6 +12,7 @@ import (
 	jujutxn "github.com/juju/txn"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
+	worker "gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
@@ -19,7 +20,6 @@ import (
 	"github.com/juju/juju/state/testing"
 	"github.com/juju/juju/status"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/worker"
 )
 
 const (
@@ -1761,17 +1761,19 @@ snapshot:
 		},
 		{
 			actionName: "juju-run",
-			errString:  `validation failed: (root) : "command" property is missing and required, given {}; (root) : "timeout" property is missing and required, given {}`,
+			errString:  `validation failed: \(root\) : "command" property is missing and required, given \{\}; \(root\) : "timeout" property is missing and required, given \{\}`,
 		},
 		{
 			actionName:   "juju-run",
 			givenPayload: map[string]interface{}{"command": "allyourbasearebelongtous"},
-			errString:    `validation failed: (root) : "timeout" property is missing and required, given {"command":"allyourbasearebelongtous"}`,
+			errString:    `validation failed: \(root\) : "timeout" property is missing and required, given \{"command":"allyourbasearebelongtous"\}`,
 		},
 		{
 			actionName:   "juju-run",
 			givenPayload: map[string]interface{}{"timeout": 5 * time.Second},
-			errString:    `validation failed: (root) : "command" property is missing and required, given {"timeout":5e+09}`,
+			// Note: in Go 1.8 the representation of large numbers in JSON changed
+			// to use integer rather than exponential notation, hence the pattern.
+			errString: `validation failed: \(root\) : "command" property is missing and required, given \{"timeout":5.*\}`,
 		},
 		{
 			actionName:      "juju-run",
@@ -1788,8 +1790,7 @@ snapshot:
 		c.Logf("running test %d", i)
 		action, err := unit1.AddAction(t.actionName, t.givenPayload)
 		if t.errString != "" {
-			c.Assert(err.Error(), gc.Equals, t.errString)
-			continue
+			c.Assert(err, gc.ErrorMatches, t.errString)
 		} else {
 			c.Assert(err, jc.ErrorIsNil)
 			c.Assert(action.Parameters(), jc.DeepEquals, t.expectedPayload)

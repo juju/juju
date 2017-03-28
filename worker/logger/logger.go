@@ -6,11 +6,11 @@ package logger
 import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	worker "gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/logger"
 	"github.com/juju/juju/watcher"
-	"github.com/juju/juju/worker"
 )
 
 var log = loggo.GetLogger("juju.worker.logger")

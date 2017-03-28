@@ -14,9 +14,9 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/juju/worker"
 	"github.com/juju/loggo"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/worker.v1"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/tomb.v1"
@@ -128,6 +128,15 @@ type event struct {
 type Change struct {
 	Key   string
 	Alive bool
+}
+
+// NewDeadWatcher returns a new watcher that is already dead
+// and always returns the given error from its Err method.
+func NewDeadWatcher(err error) *Watcher {
+	var w Watcher
+	w.tomb.Kill(errors.Trace(err))
+	w.tomb.Done()
+	return &w
 }
 
 // NewWatcher returns a new Watcher.

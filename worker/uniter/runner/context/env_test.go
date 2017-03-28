@@ -12,12 +12,12 @@ import (
 	envtesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/keyvalues"
+	jujuos "github.com/juju/utils/os"
 	"github.com/juju/utils/proxy"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/worker/uniter/runner/context"
-	jujuos "github.com/juju/utils/os"
 )
 
 type EnvSuite struct {

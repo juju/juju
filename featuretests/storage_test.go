@@ -7,12 +7,12 @@ import (
 	"strings"
 
 	"github.com/juju/cmd"
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/errors"
 	jujucmd "github.com/juju/juju/cmd/juju/commands"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/provider/dummy"
@@ -85,6 +85,7 @@ func (s *cmdStorageSuite) TestStorageShow(c *gc.C) {
 	expected := `
 data/0:
   kind: block
+  life: alive
   status:
     current: pending
     since: .*
@@ -93,6 +94,7 @@ data/0:
     units:
       storage-block/0:
         machine: "0"
+        life: alive
 `[1:]
 	context, err := runJujuCommand(c, "show-storage", "data/0")
 	c.Assert(err, jc.ErrorIsNil)
@@ -125,13 +127,9 @@ func (s *cmdStorageSuite) TestStorageList(c *gc.C) {
 	createUnitWithStorage(c, &s.JujuConnSuite, testPool)
 
 	expected := `
-[Storage]        
-Unit             Id      Location  Status   Message  
-storage-block/0  data/0            pending           
-
-[Volumes]
-Machine  Unit             Storage  Id   Provider Id  Device  Size  State    Message
-0        storage-block/0  data/0   0/0                             pending  
+[Storage]
+Unit             Id      Type   Provider id  Size  Status   Message
+storage-block/0  data/0  block                     pending  
 
 `[1:]
 	runList(c, expected)
@@ -143,13 +141,9 @@ func (s *cmdStorageSuite) TestStorageListPersistent(c *gc.C) {
 	// There are currently no guarantees about whether storage
 	// will be persistent until it has been provisioned.
 	expected := `
-[Storage]        
-Unit             Id      Location  Status   Message  
-storage-block/0  data/0            pending           
-
-[Volumes]
-Machine  Unit             Storage  Id   Provider Id  Device  Size  State    Message
-0        storage-block/0  data/0   0/0                             pending  
+[Storage]
+Unit             Id      Type   Provider id  Size  Status   Message
+storage-block/0  data/0  block                     pending  
 
 `[1:]
 	runList(c, expected)
@@ -169,6 +163,7 @@ func (s *cmdStorageSuite) TestStoragePersistentProvisioned(c *gc.C) {
 	expected := `
 data/0:
   kind: block
+  life: alive
   status:
     current: pending
     since: .*
@@ -177,6 +172,7 @@ data/0:
     units:
       storage-block/0:
         machine: "0"
+        life: alive
 `[1:]
 	context, err := runJujuCommand(c, "show-storage", "data/0")
 	c.Assert(err, jc.ErrorIsNil)
@@ -191,6 +187,7 @@ func (s *cmdStorageSuite) TestStoragePersistentUnprovisioned(c *gc.C) {
 	expected := `
 data/0:
   kind: block
+  life: alive
   status:
     current: pending
     since: .*
@@ -199,6 +196,7 @@ data/0:
     units:
       storage-block/0:
         machine: "0"
+        life: alive
 `[1:]
 	context, err := runJujuCommand(c, "show-storage", "data/0")
 	c.Assert(err, jc.ErrorIsNil)
@@ -531,7 +529,7 @@ func (s *cmdStorageSuite) TestStorageAddToUnitStorageDoesntExist(c *gc.C) {
 	c.Assert(errors.Cause(err), gc.ErrorMatches, "cmd: error out silently")
 	c.Assert(testing.Stdout(context), gc.Equals, "")
 	c.Assert(testing.Stderr(context), gc.Equals,
-		`failed to add "nonstorage": adding storage to unit storage-block/0: charm storage "nonstorage" not found`+"\n",
+		`failed to add "nonstorage": adding "nonstorage" storage to storage-block/0: charm storage "nonstorage" not found`+"\n",
 	)
 
 	instancesAfter, err := s.State.AllStorageInstances()
@@ -556,17 +554,9 @@ func (s *cmdStorageSuite) TestStorageAddToUnitHasVolumes(c *gc.C) {
 	context, err := runJujuCommand(c, "storage")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, `
-[Storage]             
-Unit                  Id      Location  Status   Message  
-storage-filesystem/0  data/0            pending           
-
-[Filesystems]
-Machine  Unit                  Storage  Id   Volume  Provider id  Mountpoint  Size  State    Message
-0        storage-filesystem/0  data/0   0/0  0                                      pending  
-
-[Volumes]
-Machine  Unit                  Storage  Id  Provider Id  Device  Size  State    Message
-0        storage-filesystem/0  data/0   0                              pending  
+[Storage]
+Unit                  Id      Type        Provider id  Size  Status   Message
+storage-filesystem/0  data/0  filesystem                     pending  
 
 `[1:])
 	c.Assert(testing.Stderr(context), gc.Equals, "")
@@ -587,20 +577,10 @@ Machine  Unit                  Storage  Id  Provider Id  Device  Size  State    
 	context, err = runJujuCommand(c, "list-storage")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, `
-[Storage]             
-Unit                  Id      Location  Status   Message  
-storage-filesystem/0  data/0            pending           
-storage-filesystem/0  data/1            pending           
-
-[Filesystems]
-Machine  Unit                  Storage  Id   Volume  Provider id  Mountpoint  Size  State    Message
-0        storage-filesystem/0  data/0   0/0  0                                      pending  
-0        storage-filesystem/0  data/1   0/1  1                                      pending  
-
-[Volumes]
-Machine  Unit                  Storage  Id  Provider Id  Device  Size  State    Message
-0        storage-filesystem/0  data/0   0                              pending  
-0        storage-filesystem/0  data/1   1                              pending  
+[Storage]
+Unit                  Id      Type        Provider id  Size  Status   Message
+storage-filesystem/0  data/0  filesystem                     pending  
+storage-filesystem/0  data/1  filesystem                     pending  
 
 `[1:])
 	c.Assert(testing.Stderr(context), gc.Equals, "")

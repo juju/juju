@@ -40,9 +40,7 @@ func (s *findSuite) runFind(c *gc.C, args ...string) (*cmd.Context, error) {
 func (s *findSuite) TestFindNoArgs(c *gc.C) {
 	s.mockAPI.c = c
 	s.mockAPI.expectedFilter = &jujucrossmodel.ApplicationOfferFilter{
-		ApplicationOffer: jujucrossmodel.ApplicationOffer{
-			ApplicationURL: "local:",
-		},
+		ApplicationURL: "local:",
 	}
 	s.assertFind(
 		c,
@@ -62,9 +60,7 @@ func (s *findSuite) TestFindDuplicateUrl(c *gc.C) {
 func (s *findSuite) TestNoResults(c *gc.C) {
 	s.mockAPI.c = c
 	s.mockAPI.expectedFilter = &jujucrossmodel.ApplicationOfferFilter{
-		ApplicationOffer: jujucrossmodel.ApplicationOffer{
-			ApplicationURL: "local:/u/none",
-		},
+		ApplicationURL: "local:/u/none",
 	}
 	s.mockAPI.results = []params.ApplicationOffer{}
 	s.assertFindError(
@@ -77,9 +73,7 @@ func (s *findSuite) TestNoResults(c *gc.C) {
 func (s *findSuite) TestSimpleFilter(c *gc.C) {
 	s.mockAPI.c = c
 	s.mockAPI.expectedFilter = &jujucrossmodel.ApplicationOfferFilter{
-		ApplicationOffer: jujucrossmodel.ApplicationOffer{
-			ApplicationURL: "local:/u/fred",
-		},
+		ApplicationURL: "local:/u/fred",
 	}
 	s.assertFind(
 		c,
@@ -95,13 +89,11 @@ local:/u/fred/hosted-db2  http:db2, http:log
 func (s *findSuite) TestEndpointFilter(c *gc.C) {
 	s.mockAPI.c = c
 	s.mockAPI.expectedFilter = &jujucrossmodel.ApplicationOfferFilter{
-		ApplicationOffer: jujucrossmodel.ApplicationOffer{
-			ApplicationURL: "local:/u/fred",
-			Endpoints: []charm.Relation{{
-				Interface: "mysql",
-				Name:      "db",
-			}},
-		},
+		ApplicationURL: "local:/u/fred",
+		Endpoints: []jujucrossmodel.EndpointFilterTerm{{
+			Interface: "mysql",
+			Name:      "db",
+		}},
 	}
 	s.assertFind(
 		c,
