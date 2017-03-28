@@ -1,10 +1,10 @@
-
 # Juju Architectural Overview
+
 
 ## Audience
 
 This document is targeted at new developers of Juju, and may be useful to experienced
-developers who need a refresher on some aspect of juju's operation. It is deliberately
+developers who need a refresher on some aspect of Juju's operation. It is deliberately
 light on detail, because the precise mechanisms of various components' operation are
 expected to change much faster than the general interactions between components.
 
@@ -13,21 +13,19 @@ expected to change much faster than the general interactions between components.
 
 A Juju model is a distributed system comprising:
 
-  * A data store (mongodb) which describes the desired state of the world, in terms
-    of running workloads or *services*, and the *relations* between them; and of the
-    *units* that comprise those services, and the *machines* on which those units run.
-
-  * A bunch of *agents*, each of which runs the same `jujud` binary, and which are
-    variously responsible for causing reality to converge towards the idealised world-
-    state encoded in the data store.
-
-  * Some number of *clients* which talk over an API, implemented by the agents, to
-    update the desired world-state (and thereby cause the agents to update the world
-    to match). The `juju` binary is one of many possible clients; the `juju-gui` web
-    application, and the `juju-deployer` python tool, are other examples.
+* A data store (mongodb) which describes the desired state of the world, in terms
+  of running workloads or *services*, and the *relations* between them; and of the
+  *units* that comprise those services, and the *machines* on which those units run.
+* A bunch of *agents*, each of which runs the same `jujud` binary, and which are
+  variously responsible for causing reality to converge towards the idealised world-
+  state encoded in the data store.
+* Some number of *clients* which talk over an API, implemented by the agents, to
+  update the desired world-state (and thereby cause the agents to update the world
+  to match). The `juju` binary is one of many possible clients; the `juju-gui` web
+  application, and the `juju-deployer` python tool, are other examples.
 
 The whole system depends upon a substrate, or *provider*, which supplies the compute,
-storage, and network resources used by the workloads (and by juju itself; but never
+storage, and network resources used by the workloads (and by Juju itself; but never
 forget that *everything* described in this document is merely supporting infrastructure
 geared towards the successful deployment and configuration of the workloads that solve
 actual problems for actual users).
@@ -79,7 +77,6 @@ still better to consider a unit agent to be a simplistic and/or degenerate
 implementation of a machine agent than to attach too much importance to the
 differences.
 
-
 ### Jobs, Runners, and Workers
 
 Machine agents all have at least one of two jobs: JobHostUnits and JobManageModel.
@@ -103,30 +100,29 @@ all its child workers.
 Please note that the lists of workers below should *not* be assumed to be
 exhaustive. Juju evolves, and the workers evolve with it.
 
-
 ### Common workers
 
 All agents run workers with the following responsibilities:
 
-  * Check for scheduled upgrades for their binaries, and replace themselves
-    (implemented in `worker/upgrader`)
-  * Watch logging config, and reconfigure the local logger (`worker/logger`; yes,
-    we know; it is not the stupidest name in the codebase)
-  * Watch and store the latest known addresses for the controllers
-    (`worker/apiaddressupdater`)
+* Check for scheduled upgrades for their binaries, and replace themselves
+  (implemented in `worker/upgrader`)
+* Watch logging config, and reconfigure the local logger (`worker/logger`; yes,
+  we know; it is not the stupidest name in the codebase)
+* Watch and store the latest known addresses for the controllers
+  (`worker/apiaddressupdater`)
 
 ### Machine Agent Workers
 
 Machine agents additionally do the following:
 
-  * Run upgrade code in the new binaries once they're replaced themselves
-    (implemented directly in the machine agent's `upgradeWorker` method)
-  * Handle SIGABRT and permanently stop the agent (`worker/terminationworker`)
-  * Handle the machine entity's death and permanently stop the agent (`worker/machiner`)
-  * Watch proxy config, and reconfigure the local machine (`worker/machineenvironmentworker`)
-    the two sets of machines will be the same for ever.
-  * Watch for contained LXC or KVM machines and provision/decommission them
-    (`worker/provisioner`)
+* Run upgrade code in the new binaries once they're replaced themselves
+  (implemented directly in the machine agent's `upgradeWorker` method)
+* Handle SIGABRT and permanently stop the agent (`worker/terminationworker`)
+* Handle the machine entity's death and permanently stop the agent (`worker/machiner`)
+* Watch proxy config, and reconfigure the local machine (`worker/machineenvironmentworker`)
+  the two sets of machines will be the same for ever.
+* Watch for contained LXC or KVM machines and provision/decommission them
+  (`worker/provisioner`)
 
 All machine agents have JobHostUnits. These run the `worker/deployer` code which
 watches for units assigned to the machine, and deploys/recalls upstart configs
@@ -139,18 +135,18 @@ workers in its own Runner.
 Machines with JobManageModel also run a number of other workers, which do
 the following.
 
-  * Run the API server used by all other workers (in this, and other, agents:
-    `state/apiserver`)
-  * Provision/decommission provider instances in response to the creation/
-    destruction of machine entities (`worker/provisioner`, just like the
-    container provisioners run in all machine agents anyway)
-  * Manipulate provider networks in response to units opening/closing ports,
-    and users exposing/unexposing services (`worker/firewaller`)
-  * Update network addresses and associated information for provider instances
-    (`worker/instancepoller`)
-  * Respond to queued DB cleanup events (`worker/cleaner`)
-  * Maintain the MongoDB replica set (`worker/peergrouper`)
-  * Resume incomplete MongoDB transactions (`worker/resumer`)
+* Run the API server used by all other workers (in this, and other, agents:
+  `state/apiserver`)
+* Provision/decommission provider instances in response to the creation/
+  destruction of machine entities (`worker/provisioner`, just like the
+  container provisioners run in all machine agents anyway)
+* Manipulate provider networks in response to units opening/closing ports,
+  and users exposing/unexposing services (`worker/firewaller`)
+* Update network addresses and associated information for provider instances
+  (`worker/instancepoller`)
+* Respond to queued DB cleanup events (`worker/cleaner`)
+* Maintain the MongoDB replica set (`worker/peergrouper`)
+* Resume incomplete MongoDB transactions (`worker/resumer`)
 
 Many of these workers (more than strictly need to be) are wrapped as "singular"
 workers, which only run on the same machine as the current MongoDB replicaset
@@ -158,13 +154,12 @@ master. When the master changes, the state connection is dropped, causing all
 those workers to also be stopped; when they're restarted, they won't run because
 they're no longer running on the master.
 
-
 ### Unit Agents
 
 Unit agents run all the common workers, and the `worker/uniter` task as well;
 this task is probably the single most forbiddingly complex part of Juju. (Side
 note: It's a unit-er because it deals with units, and we're bad at names; but
-it's also a unite-r because it's where all the various components of juju come
+it's also a unite-r because it's where all the various components of Juju come
 together to run actual workloads.) It's sufficiently large that it deserves its
 own top-level heading, below.
 
@@ -178,7 +173,7 @@ implemented in `worker/uniter/modes.go`, which is actually pretty small: just a 
 over 400 lines.
 
 It's deliberately implemented as conceptually single-threaded (just like almost
-everything else in juju -- rampaging concurrency is the root of much evil, and so
+everything else in Juju -- rampaging concurrency is the root of much evil, and so
 we save ourselves a huge number of headaches by hiding concurrency behind event
 channels and handling a single event at a time), but this property has degraded
 over time; in particular, the `RunListener` code can inject events at unhelpful
@@ -237,14 +232,14 @@ across the board).
 
 ## The Providers
 
-Each provider represents a different possible kind of substrate on which a juju
+Each provider represents a different possible kind of substrate on which a Juju
 model can run, and (as far as possible) abstracts away the differences
 between them, by making them all conform to the Environ interface. The most
 important thing to understand about the various providers is that they're all
-implemented without reference to broader juju concepts; they are squeezed into
-a shape that's convenient WRT allowing juju to make use of them, but if we allow
-juju-level concepts to infect the providers we will suffer greatly, because we
-will open a path by which changes to *juju* end up causing changes to *all the
+implemented without reference to broader Juju concepts; they are squeezed into
+a shape that's convenient WRT allowing Juju to make use of them, but if we allow
+Juju-level concepts to infect the providers we will suffer greatly, because we
+will open a path by which changes to *Juju* end up causing changes to *all the
 providers at once*.
 
 However, we lack the ability to enforce this at present, because the package
