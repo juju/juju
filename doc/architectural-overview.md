@@ -30,8 +30,86 @@ forget that *everything* described in this document is merely supporting infrast
 geared towards the successful deployment and configuration of the workloads that solve
 actual problems for actual users).
 
+## Juju Components
 
-## The Data Store
+Here's the various high level parts of Juju system and how they interact:
+
+```
+                   +--------------------------+            +------------------------+
+                   |                          |            |                        |
+                   |  Machine agent           |            |  Unit agent            |
+                   |         +-------------+  |            |       +-------------+  |
+                   |         |             |  |            |       |             |  |
+                   |         |   workers   |  |            |       |   workers   |  |
+                   |         |             |  |            |       |             |  |
+                   |         +-----------+-+  |            |       +-------+-----+  |
+                   |                     |    |            |               |        |
+                   +--------------------------+            +------------------------+
+                                         |                                 |
+                                         |   Juju API                      |
+                                         |       +-------------------------+
+                                         |       |
+                                         |       |
+                  +-----------------------------------------------------------------+
+                  |                      |       |                                  |
+                  |  Controller agent    |       |                                  |
++------------+    |                     +v-------v----+            +-------------+  |
+|            |    |                     |             |  Juju API  |             |  |
+|   Client   +-------------------------->  apiserver  +<-----------+   workers   |  |
+|            |    |   Juju API          |             |            |             |  |
++------------+    |                     +------+------+            +------+------+  |
+                  |                            |                          |         |
+                  |                            |                          |         |
+                  |                      +-----v-----+             +------v------+  |
+                  |                      |           |             |             |  |
+                  |                      |   state   |             |  providers  |  |
+                  |                      |           |             |             |  |
+                  |                      +-----+-----+             +------+------+  |
+                  |                            |                          |         |
+                  +-----------------------------------------------------------------+
+                                               | MongoDB protocol         | cloud API
+                                               |                          |
+                                         +-----v-----+          +---------V---------+
+                                         |           |          |                   |
+                                         |  MongoDB  |          |  cloud/substrate  |
+                                         |           |          |                   |
+                                         +-----------+          +-------------------+
+```
+
+At the centre is a *controller agent*. It is responsible for maintaining the
+state for one or more Juju models and runs a server which provides the Juju
+API. Juju's state is kept in MongoDB. Juju's MongoDB may only be accessed by
+the controller agents.
+
+A controller agent runs a number of *workers*, many of which are specific to
+controller tasks. Some workers in the controller agent use the Juju *provider*
+implementation to communicate with the underlying cloud substrate using the
+substrate's APIs. This is how cloud resources are created, managed and
+destroyed.
+
+Almost all workers will interact with Juju's state using Juju's API, even
+workers running within a controller agent.
+
+If a Juju deployment has high-availability enabled there will be multiple
+controller agents. An consumer of the Juju API may connect to any controller
+agent. In HA mode, there will be a MongoDB instance on each controller machine,
+with a MongoDB replicaset configured to synchronise data between the nodes.
+
+Each Juju deployed machine runs a *machine agent*. Each machine agent runs a
+number of workers.
+
+A controller agent is a machine agent with extra responsibilities. It runs all
+the workers which a normal machine runs as well as controller specific workers.
+
+A *unit agent* runs for each deployed unit of an application. It is mainly
+responsible for installing, running and maintaining charm code. It runs a
+different set of workers to a machine agent.
+
+There are a number of *clients* which interact with Juju using the Juju
+API. These include the `juju` command line tool and Juju GUI.
+
+
+## The Data Store (aka "state")
 
 There's a lot of *detail* to cover, but there's not much to say from an architectural
 standpoint. We use a mongodb replicaset to support HA; we use the `mgo` package from
@@ -56,6 +134,37 @@ but we're not devoting resources to it until it becomes more pressing.
 Code for dealing with mongodb is found primarily in the `state`, `state/watcher`,
 `replicaset`, and `worker/peergrouper` packages.
 
+
+## API
+
+Juju controllers expose an API endpoint over a websocket connection. The methods
+available over the API are broken down by client; there's a `Client` facade that
+exposes the methods used by clients, an `Agent` facade that exposes the methods
+common to all agents, and a wide range of worker-specific *facades* that individually
+deal with particular chunks of functionality implemented by one agent or another
+(for example, `Provisioner`, `Upgrader`, and `Uniter`, each used by the eponymous
+worker types).
+
+The API server is implemented in the `apiserver` top level package. Each API
+facade has it's own subpackage (e.g. `apiserver/provisioner`). The code under
+`apiserver` is the only code that is allowed to import from the `state`
+package.
+
+Various facades share functionality; for example, the Life method is used by many
+worker facades. In these cases, the method is implemented on a separate type,
+which is embedded in the facade implementation.
+
+All APIs *should* be implemented such that they can be called in bulk, but not
+all of them are. The agent facades are (almost?) all implemented correctly, but
+the Client facade is almost exclusively not. As functionality evolves, and new
+versions of the client APIs are implemented, we must take care to implement them
+consistently -- this means both implementing bulk calls *and* splitting the
+monolithic Client facade into smaller application-specific facades, such that we
+can evolve interaction with (say) users without bumping global API versions
+across the board).
+
+The Juju API client is implemented under the `api` top level package. Client
+side API facade are implemented as subpackages underneath `api`.
 
 ## The Agents
 
@@ -206,30 +315,6 @@ XXXX
 XXXX
 
 
-## The APIs
-
-Juju controllers expose an API endpoint over a websocket connection. The methods
-available over the API are broken down by client; there's a `Client` facade that
-exposes the methods used by clients, an `Agent` facade that exposes the methods
-common to all agents, and a wide range of worker-specific *facades* that individually
-deal with particular chunks of functionality implemented by one agent or another
-(for example, `Provisioner`, `Upgrader`, and `Uniter`, each used by the eponymous
-worker types).
-
-Various facades share functionality; for example, the Life method is used by many
-worker facades. In these cases, the method is implemented on a separate type,
-which is embedded in the facade implementation.
-
-All APIs *should* be implemented such that they can be called in bulk, but not
-all of them are. The agent facades are (almost?) all implemented correctly, but
-the Client facade is almost exclusively not. As functionality evolves, and new
-versions of the client APIs are implemented, we must take care to implement them
-consistently -- this means both implementing bulk calls *and* splitting the
-monolithic Client facade into smaller application-specific facades, such that we
-can evolve interaction with (say) users without bumping global API versions
-across the board).
-
-
 ## The Providers
 
 A Juju provider represents a different possible kind of substrate on which a
@@ -259,8 +344,3 @@ It's important to note that an environ Config will generally contain sensitive
 information -- a user's authentication keys for a cloud provider -- and so we
 must always be careful to avoid spreading those around further than we need to.
 Basically, if an environ config gets off a controller, we've screwed up.
-
-
-## Bootstrapping
-
-XXXX
