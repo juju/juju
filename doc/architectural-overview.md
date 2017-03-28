@@ -14,8 +14,8 @@ expected to change much faster than the general interactions between components.
 A Juju model is a distributed system comprising:
 
 * A data store (mongodb) which describes the desired state of the world, in terms
-  of running workloads or *services*, and the *relations* between them; and of the
-  *units* that comprise those services, and the *machines* on which those units run.
+  of running workloads or *applications*, and the *relations* between them; and of the
+  *units* that comprise those applications, and the *machines* on which those units run.
 * A bunch of *agents*, each of which runs the same `jujud` binary, and which are
   variously responsible for causing reality to converge towards the idealised world-
   state encoded in the data store.
@@ -141,7 +141,7 @@ the following.
   destruction of machine entities (`worker/provisioner`, just like the
   container provisioners run in all machine agents anyway)
 * Manipulate provider networks in response to units opening/closing ports,
-  and users exposing/unexposing services (`worker/firewaller`)
+  and users exposing/unexposing applications (`worker/firewaller`)
 * Update network addresses and associated information for provider instances
   (`worker/instancepoller`)
 * Respond to queued DB cleanup events (`worker/cleaner`)
@@ -208,7 +208,7 @@ XXXX
 
 ## The APIs
 
-controllers expose an API endpoint over a websocket connection. The methods
+Juju controllers expose an API endpoint over a websocket connection. The methods
 available over the API are broken down by client; there's a `Client` facade that
 exposes the methods used by clients, an `Agent` facade that exposes the methods
 common to all agents, and a wide range of worker-specific *facades* that individually
@@ -217,8 +217,8 @@ deal with particular chunks of functionality implemented by one agent or another
 worker types).
 
 Various facades share functionality; for example, the Life method is used by many
-worker facades. In these cases, the method is implemented on a spearate type, which
-is embedded in the facade implementation.
+worker facades. In these cases, the method is implemented on a separate type,
+which is embedded in the facade implementation.
 
 All APIs *should* be implemented such that they can be called in bulk, but not
 all of them are. The agent facades are (almost?) all implemented correctly, but
@@ -232,15 +232,15 @@ across the board).
 
 ## The Providers
 
-Each provider represents a different possible kind of substrate on which a Juju
-model can run, and (as far as possible) abstracts away the differences
+A Juju provider represents a different possible kind of substrate on which a
+Juju model can run, and (as far as possible) abstracts away the differences
 between them, by making them all conform to the Environ interface. The most
 important thing to understand about the various providers is that they're all
 implemented without reference to broader Juju concepts; they are squeezed into
-a shape that's convenient WRT allowing Juju to make use of them, but if we allow
-Juju-level concepts to infect the providers we will suffer greatly, because we
-will open a path by which changes to *Juju* end up causing changes to *all the
-providers at once*.
+a shape that's convenient WRT allowing Juju to make use of them, but if we
+allow Juju-level concepts to infect the providers we will suffer greatly,
+because we will open a path by which changes to *Juju* end up causing changes
+to *all the providers at once*.
 
 However, we lack the ability to enforce this at present, because the package
 dependency flows in the wrong direction, thanks primarily (purely?) to the
