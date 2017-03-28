@@ -11,8 +11,10 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/charmrepo.v2-unstable"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/cmd/juju/crossmodel"
+	"github.com/juju/juju/cmd/juju/model"
 	jujucrossmodel "github.com/juju/juju/core/crossmodel"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/permission"
@@ -268,6 +270,7 @@ func (s *crossmodelSuite) TestAddRelationSameControllerSameOwner(c *gc.C) {
 		OfferName:       "hosted-mysql",
 		ApplicationName: "mysql",
 		Endpoints:       map[string]string{"database": "server"},
+		Owner:           s.AdminUserTag(c).Id(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertAddRelationSameControllerSuccess(c, "admin")
@@ -298,6 +301,7 @@ func (s *crossmodelSuite) addOtherModelApplication(c *gc.C) *state.State {
 		OfferName:       "hosted-mysql",
 		ApplicationName: "mysql",
 		Endpoints:       map[string]string{"database": "server"},
+		Owner:           otherOwner.Name(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	return otherModel
@@ -323,4 +327,47 @@ func (s *crossmodelSuite) TestAddRelationSameControllerPermissionAllowed(c *gc.C
 	otherFactory.MakeModelUser(c, &factory.ModelUserParams{User: "admin", Access: permission.WriteAccess})
 
 	s.assertAddRelationSameControllerSuccess(c, "otheruser")
+}
+
+func (s *crossmodelSuite) assertOfferGrant(c *gc.C) {
+	ch := s.AddTestingCharm(c, "riak")
+	s.AddTestingService(c, "riakservice", ch)
+
+	_, err := testing.RunCommand(c, crossmodel.NewOfferCommand(), "riakservice:endpoint", "riak")
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Check the default access levels.
+	offerTag := names.NewApplicationOfferTag("riak")
+	userTag := names.NewUserTag("everyone@external")
+	access, err := s.State.GetOfferAccess(offerTag, userTag)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(access, gc.Equals, permission.ReadAccess)
+	access, err = s.State.GetOfferAccess(offerTag, names.NewUserTag("admin"))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(access, gc.Equals, permission.AdminAccess)
+
+	// Grant consume access.
+	s.Factory.MakeUser(c, &factory.UserParams{Name: "bob"})
+	_, err = testing.RunCommand(c, model.NewGrantCommand(), "bob", "consume", "admin/controller.riak")
+	c.Assert(err, jc.ErrorIsNil)
+	access, err = s.State.GetOfferAccess(offerTag, names.NewUserTag("bob"))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(access, gc.Equals, permission.ConsumeAccess)
+
+}
+
+func (s *crossmodelSuite) TestOfferGrant(c *gc.C) {
+	s.assertOfferGrant(c)
+}
+
+func (s *crossmodelSuite) TestOfferRevoke(c *gc.C) {
+	s.assertOfferGrant(c)
+	offerTag := names.NewApplicationOfferTag("riak")
+
+	// Revoke consume access.
+	_, err := testing.RunCommand(c, model.NewRevokeCommand(), "bob", "consume", "admin/controller.riak")
+	c.Assert(err, jc.ErrorIsNil)
+	access, err := s.State.GetOfferAccess(offerTag, names.NewUserTag("bob"))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(access, gc.Equals, permission.ReadAccess)
 }

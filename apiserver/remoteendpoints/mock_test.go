@@ -91,6 +91,7 @@ func (m *mockConnectionStatus) ConnectionCount() int {
 }
 
 type mockState struct {
+	crossmodelcommon.Backend
 	modelUUID    string
 	model        crossmodelcommon.Model
 	usermodels   []crossmodelcommon.UserModel

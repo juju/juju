@@ -93,18 +93,20 @@ type RevokeCommand struct {
 }
 
 // NewGrantCommandForTest returns a GrantCommand with the api provided as specified.
-func NewGrantCommandForTest(api GrantModelAPI, store jujuclient.ClientStore) (cmd.Command, *GrantCommand) {
+func NewGrantCommandForTest(modelsApi GrantModelAPI, offersAPI GrantOfferAPI, store jujuclient.ClientStore) (cmd.Command, *GrantCommand) {
 	cmd := &grantCommand{
-		api: api,
+		modelsApi: modelsApi,
+		offersApi: offersAPI,
 	}
 	cmd.SetClientStore(store)
 	return modelcmd.WrapController(cmd), &GrantCommand{cmd}
 }
 
 // NewRevokeCommandForTest returns an revokeCommand with the api provided as specified.
-func NewRevokeCommandForTest(api RevokeModelAPI, store jujuclient.ClientStore) (cmd.Command, *RevokeCommand) {
+func NewRevokeCommandForTest(modelsApi RevokeModelAPI, offersAPI RevokeOfferAPI, store jujuclient.ClientStore) (cmd.Command, *RevokeCommand) {
 	cmd := &revokeCommand{
-		api: api,
+		modelsApi: modelsApi,
+		offersApi: offersAPI,
 	}
 	cmd.SetClientStore(store)
 	return modelcmd.WrapController(cmd), &RevokeCommand{cmd}
