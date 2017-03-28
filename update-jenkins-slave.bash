@@ -57,6 +57,7 @@ update_branch lp:juju-ci-tools
 update_branch lp:juju-ci-tools/repository
 update_branch lp:~juju-qa/+junk/cloud-city
 if [[ $OS == "ubuntu" ]]; then
+    sudo apt-get install git -y
     update_git_repo git@github.com:juju/hammer-time.git
 fi
 
