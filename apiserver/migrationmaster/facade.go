@@ -21,10 +21,6 @@ import (
 	"github.com/juju/juju/state/watcher"
 )
 
-func init() {
-	common.RegisterStandardFacade("MigrationMaster", 1, newAPIForRegistration)
-}
-
 // API implements the API required for the model migration
 // master worker.
 type API struct {

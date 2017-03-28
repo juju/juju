@@ -127,3 +127,53 @@ func (s *modelconfigSuite) TestModelUnset(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(called, jc.IsTrue)
 }
+
+func (s *modelconfigSuite) TestSetSupport(c *gc.C) {
+	called := false
+	apiCaller := basetesting.APICallerFunc(
+		func(objType string,
+			version int,
+			id, request string,
+			a, result interface{},
+		) error {
+			c.Check(objType, gc.Equals, "ModelConfig")
+			c.Check(id, gc.Equals, "")
+			c.Check(request, gc.Equals, "SetSLALevel")
+			c.Check(a, jc.DeepEquals, params.ModelSLA{
+				Level:       "foobar",
+				Credentials: []byte("creds"),
+			})
+			called = true
+			return nil
+		},
+	)
+	client := modelconfig.NewClient(apiCaller)
+	err := client.SetSLALevel("foobar", []byte("creds"))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(called, jc.IsTrue)
+}
+
+func (s *modelconfigSuite) TestGetSupport(c *gc.C) {
+	called := false
+	apiCaller := basetesting.APICallerFunc(
+		func(objType string,
+			version int,
+			id, request string,
+			a, result interface{},
+		) error {
+			c.Check(objType, gc.Equals, "ModelConfig")
+			c.Check(id, gc.Equals, "")
+			c.Check(request, gc.Equals, "SLALevel")
+			c.Check(a, jc.DeepEquals, nil)
+			results := result.(*params.StringResult)
+			results.Result = "level"
+			called = true
+			return nil
+		},
+	)
+	client := modelconfig.NewClient(apiCaller)
+	level, err := client.SLALevel()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(called, jc.IsTrue)
+	c.Assert(level, gc.Equals, "level")
+}

@@ -1,8 +1,6 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// +build !gccgo
-
 package vsphere
 
 import (
@@ -295,6 +293,16 @@ func (s *BaseSuite) FakeCreateInstance(c *fakeClient, serverURL string, checker 
 func (s *BaseSuite) FakeImportOvf(c *fakeClient, serverURL string, checker *gc.C) {
 	c.SetPropertyProxyHandler("FakeDatacenter", RetrieveDatacenterProperties)
 	c.SetProxyHandler("CreateImportSpec", func(req, res soap.HasFault) {
+		// Check that the expected keys are passed to CreateImportSpec.
+		reqBody := req.(*methods.CreateImportSpecBody)
+		var propertyKeys []string
+		for _, kv := range reqBody.Req.Cisp.PropertyMapping {
+			propertyKeys = append(propertyKeys, kv.Key)
+		}
+		checker.Assert(propertyKeys, jc.SameContents, []string{
+			"public-keys", "user-data", "hostname",
+		})
+
 		resBody := res.(*methods.CreateImportSpecBody)
 		resBody.Res = &types.CreateImportSpecResponse{
 			Returnval: types.OvfCreateImportSpecResult{

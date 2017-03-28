@@ -226,6 +226,8 @@ func (s *MigrationSuite) TestModelDocFields(c *gc.C) {
 		"CloudRegion",
 		"CloudCredential",
 		"LatestAvailableTools",
+		"SLA",
+		"MeterStatus",
 	)
 	s.AssertExportedFields(c, modelDoc{}, fields)
 }
@@ -602,6 +604,7 @@ func (s *MigrationSuite) TestSubnetDocFields(c *gc.C) {
 		"SpaceName",
 		"ProviderId",
 		"AvailabilityZone",
+		"ProviderNetworkId",
 	)
 	s.AssertExportedFields(c, subnetDoc{}, migrated.Union(ignored))
 }

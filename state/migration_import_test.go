@@ -210,6 +210,35 @@ func (s *MigrationImportSuite) TestModelUsers(c *gc.C) {
 	c.Assert(allUsers, gc.HasLen, 3)
 }
 
+func (s *MigrationImportSuite) TestSLA(c *gc.C) {
+	err := s.State.SetSLA("essential", []byte("creds"))
+	c.Assert(err, jc.ErrorIsNil)
+	newModel, newSt := s.importModel(c)
+
+	c.Assert(newModel.SLALevel(), gc.Equals, "essential")
+	c.Assert(newModel.SLACredential(), jc.DeepEquals, []byte("creds"))
+	level, err := newSt.SLALevel()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(level, gc.Equals, "essential")
+	creds, err := newSt.SLACredential()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(creds, jc.DeepEquals, []byte("creds"))
+}
+
+func (s *MigrationImportSuite) TestMeterStatus(c *gc.C) {
+	err := s.State.SetModelMeterStatus("RED", "info message")
+	c.Assert(err, jc.ErrorIsNil)
+	newModel, newSt := s.importModel(c)
+
+	ms := newModel.MeterStatus()
+	c.Assert(ms.Code.String(), gc.Equals, "RED")
+	c.Assert(ms.Info, gc.Equals, "info message")
+	ms, err = newSt.ModelMeterStatus()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ms.Code.String(), gc.Equals, "RED")
+	c.Assert(ms.Info, gc.Equals, "info message")
+}
+
 func (s *MigrationImportSuite) AssertMachineEqual(c *gc.C, newMachine, oldMachine *state.Machine) {
 	c.Assert(newMachine.Id(), gc.Equals, oldMachine.Id())
 	c.Assert(newMachine.Principals(), jc.DeepEquals, oldMachine.Principals())
@@ -746,11 +775,12 @@ func (s *MigrationImportSuite) TestLinkLayerDeviceMigratesReferences(c *gc.C) {
 
 func (s *MigrationImportSuite) TestSubnets(c *gc.C) {
 	original, err := s.State.AddSubnet(state.SubnetInfo{
-		CIDR:             "10.0.0.0/24",
-		ProviderId:       network.Id("foo"),
-		VLANTag:          64,
-		AvailabilityZone: "bar",
-		SpaceName:        "bam",
+		CIDR:              "10.0.0.0/24",
+		ProviderId:        network.Id("foo"),
+		ProviderNetworkId: network.Id("elm"),
+		VLANTag:           64,
+		AvailabilityZone:  "bar",
+		SpaceName:         "bam",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddSpace("bam", "", nil, true)
@@ -763,6 +793,7 @@ func (s *MigrationImportSuite) TestSubnets(c *gc.C) {
 
 	c.Assert(subnet.CIDR(), gc.Equals, "10.0.0.0/24")
 	c.Assert(subnet.ProviderId(), gc.Equals, network.Id("foo"))
+	c.Assert(subnet.ProviderNetworkId(), gc.Equals, network.Id("elm"))
 	c.Assert(subnet.VLANTag(), gc.Equals, 64)
 	c.Assert(subnet.AvailabilityZone(), gc.Equals, "bar")
 	c.Assert(subnet.SpaceName(), gc.Equals, "bam")

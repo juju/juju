@@ -190,6 +190,19 @@ func (st *State) Import(model description.Model) (_ *Model, _ *State, err error)
 
 	// Update the sequences to match that the source.
 
+	if err := dbModel.SetSLA(
+		model.SLA().Level(),
+		[]byte(model.SLA().Credentials()),
+	); err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+
+	if model.MeterStatus().Code() != MeterNotAvailable.String() {
+		if err := dbModel.SetMeterStatus(model.MeterStatus().Code(), model.MeterStatus().Info()); err != nil {
+			return nil, nil, errors.Trace(err)
+		}
+	}
+
 	logger.Debugf("import success")
 	return dbModel, newSt, nil
 }
@@ -1146,11 +1159,12 @@ func (i *importer) subnets() error {
 	i.logger.Debugf("importing subnets")
 	for _, subnet := range i.model.Subnets() {
 		err := i.addSubnet(SubnetInfo{
-			CIDR:             subnet.CIDR(),
-			ProviderId:       network.Id(subnet.ProviderId()),
-			VLANTag:          subnet.VLANTag(),
-			AvailabilityZone: subnet.AvailabilityZone(),
-			SpaceName:        subnet.SpaceName(),
+			CIDR:              subnet.CIDR(),
+			ProviderId:        network.Id(subnet.ProviderId()),
+			ProviderNetworkId: network.Id(subnet.ProviderNetworkId()),
+			VLANTag:           subnet.VLANTag(),
+			AvailabilityZone:  subnet.AvailabilityZone(),
+			SpaceName:         subnet.SpaceName(),
 		})
 		if err != nil {
 			return errors.Trace(err)

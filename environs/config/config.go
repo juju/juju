@@ -84,6 +84,9 @@ const (
 	// FTPProxyKey stores the key for this setting.
 	FTPProxyKey = "ftp-proxy"
 
+	// NoProxyKey stores the key for this setting.
+	NoProxyKey = "no-proxy"
+
 	// AptHTTPProxyKey stores the key for this setting.
 	AptHTTPProxyKey = "apt-http-proxy"
 
@@ -93,8 +96,8 @@ const (
 	// AptFTPProxyKey stores the key for this setting.
 	AptFTPProxyKey = "apt-ftp-proxy"
 
-	// NoProxyKey stores the key for this setting.
-	NoProxyKey = "no-proxy"
+	// AptNoProxyKey stores the key for this setting.
+	AptNoProxyKey = "apt-no-proxy"
 
 	// NetBondReconfigureDelay is the key to pass when bridging
 	// the network for containers.
@@ -340,6 +343,7 @@ var defaultConfigValues = map[string]interface{}{
 	AptHTTPProxyKey:  "",
 	AptHTTPSProxyKey: "",
 	AptFTPProxyKey:   "",
+	AptNoProxyKey:    "127.0.0.1,localhost,::1",
 	"apt-mirror":     "",
 }
 
@@ -616,7 +620,7 @@ func (c *Config) FTPProxy() string {
 	return c.asString(FTPProxyKey)
 }
 
-// NoProxy returns the 'no proxy' for the environment.
+// NoProxy returns the 'no-proxy' for the environment.
 func (c *Config) NoProxy() string {
 	return c.asString(NoProxyKey)
 }
@@ -640,9 +644,10 @@ func addSchemeIfMissing(defaultScheme string, url string) string {
 // AptProxySettings returns all three proxy settings; http, https and ftp.
 func (c *Config) AptProxySettings() proxy.Settings {
 	return proxy.Settings{
-		Http:  c.AptHTTPProxy(),
-		Https: c.AptHTTPSProxy(),
-		Ftp:   c.AptFTPProxy(),
+		Http:    c.AptHTTPProxy(),
+		Https:   c.AptHTTPSProxy(),
+		Ftp:     c.AptFTPProxy(),
+		NoProxy: c.AptNoProxy(),
 	}
 }
 
@@ -662,6 +667,11 @@ func (c *Config) AptHTTPSProxy() string {
 // Falls back to the default ftp-proxy if not specified.
 func (c *Config) AptFTPProxy() string {
 	return addSchemeIfMissing("ftp", c.getWithFallback(AptFTPProxyKey, FTPProxyKey))
+}
+
+// AptNoProxy returns the 'apt-no-proxy' for the environment.
+func (c *Config) AptNoProxy() string {
+	return c.asString(AptNoProxyKey)
 }
 
 // AptMirror sets the apt mirror for the environment.
@@ -978,6 +988,7 @@ var alwaysOptional = schema.Defaults{
 	AptHTTPProxyKey:              schema.Omit,
 	AptHTTPSProxyKey:             schema.Omit,
 	AptFTPProxyKey:               schema.Omit,
+	AptNoProxyKey:                schema.Omit,
 	"apt-mirror":                 schema.Omit,
 	AgentStreamKey:               schema.Omit,
 	ResourceTagsKey:              schema.Omit,
@@ -1104,6 +1115,7 @@ func AptProxyConfigMap(proxySettings proxy.Settings) map[string]interface{} {
 	addIfNotEmpty(settings, AptHTTPProxyKey, proxySettings.Http)
 	addIfNotEmpty(settings, AptHTTPSProxyKey, proxySettings.Https)
 	addIfNotEmpty(settings, AptFTPProxyKey, proxySettings.Ftp)
+	addIfNotEmpty(settings, AptNoProxyKey, proxySettings.NoProxy)
 	return settings
 }
 
@@ -1166,6 +1178,11 @@ var configSchema = environschema.Fields{
 	AptHTTPSProxyKey: {
 		// TODO document acceptable format
 		Description: "The APT HTTPS proxy for the model",
+		Type:        environschema.Tstring,
+		Group:       environschema.EnvironGroup,
+	},
+	AptNoProxyKey: {
+		Description: "List of domain addresses not to be proxied for APT (comma-separated)",
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},

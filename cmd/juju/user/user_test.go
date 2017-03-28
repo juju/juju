@@ -23,7 +23,7 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	s.store = jujuclienttesting.NewMemStore()
 	s.store.CurrentControllerName = "testing"
 	s.store.Controllers["testing"] = jujuclient.ControllerDetails{
-		APIEndpoints:   []string{"127.0.0.1:12345"},
+		APIEndpoints:   []string{"0.1.2.3:12345"},
 		CACert:         testing.CACert,
 		ControllerUUID: testing.ControllerTag.Id(),
 	}

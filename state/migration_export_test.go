@@ -228,6 +228,32 @@ func (s *MigrationExportSuite) TestModelUsers(c *gc.C) {
 	c.Assert(exportedBob.Access(), gc.Equals, "read")
 }
 
+func (s *MigrationExportSuite) TestSLAs(c *gc.C) {
+	err := s.State.SetSLA("essential", []byte("creds"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	model, err := s.State.Export()
+	c.Assert(err, jc.ErrorIsNil)
+
+	sla := model.SLA()
+
+	c.Assert(sla.Level(), gc.Equals, "essential")
+	c.Assert(sla.Credentials(), gc.DeepEquals, "creds")
+}
+
+func (s *MigrationExportSuite) TestMeterStatus(c *gc.C) {
+	err := s.State.SetModelMeterStatus("RED", "red info message")
+	c.Assert(err, jc.ErrorIsNil)
+
+	model, err := s.State.Export()
+	c.Assert(err, jc.ErrorIsNil)
+
+	sla := model.MeterStatus()
+
+	c.Assert(sla.Code(), gc.Equals, "RED")
+	c.Assert(sla.Info(), gc.Equals, "red info message")
+}
+
 func (s *MigrationExportSuite) TestMachines(c *gc.C) {
 	s.assertMachinesMigrated(c, constraints.MustParse("arch=amd64 mem=8G"))
 }
@@ -621,11 +647,12 @@ func (s *MigrationExportSuite) TestLinkLayerDevices(c *gc.C) {
 
 func (s *MigrationExportSuite) TestSubnets(c *gc.C) {
 	_, err := s.State.AddSubnet(state.SubnetInfo{
-		CIDR:             "10.0.0.0/24",
-		ProviderId:       network.Id("foo"),
-		VLANTag:          64,
-		AvailabilityZone: "bar",
-		SpaceName:        "bam",
+		CIDR:              "10.0.0.0/24",
+		ProviderId:        network.Id("foo"),
+		ProviderNetworkId: network.Id("rust"),
+		VLANTag:           64,
+		AvailabilityZone:  "bar",
+		SpaceName:         "bam",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddSpace("bam", "", nil, true)
@@ -639,6 +666,7 @@ func (s *MigrationExportSuite) TestSubnets(c *gc.C) {
 	subnet := subnets[0]
 	c.Assert(subnet.CIDR(), gc.Equals, "10.0.0.0/24")
 	c.Assert(subnet.ProviderId(), gc.Equals, "foo")
+	c.Assert(subnet.ProviderNetworkId(), gc.Equals, "rust")
 	c.Assert(subnet.VLANTag(), gc.Equals, 64)
 	c.Assert(subnet.AvailabilityZone(), gc.Equals, "bar")
 	c.Assert(subnet.SpaceName(), gc.Equals, "bam")

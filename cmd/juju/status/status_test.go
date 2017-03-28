@@ -2856,6 +2856,32 @@ var statusTests = []testCase{
 			},
 		},
 	),
+	test( // 24
+		"set meter status on the model",
+		setModelMeterStatus{"RED", "status message"},
+		expect{
+			"simulate just the two services and a bootstrap node",
+			M{
+				"model": M{
+					"name":       "controller",
+					"controller": "kontroll",
+					"cloud":      "dummy",
+					"region":     "dummy-region",
+					"version":    "1.2.3",
+					"model-status": M{
+						"current": "available",
+						"since":   "01 Apr 15 01:23+10:00",
+					},
+					"meter-status": M{
+						"color":   "RED",
+						"message": "status message",
+					},
+				},
+				"machines":     M{},
+				"applications": M{},
+			},
+		},
+	),
 }
 
 func mysqlCharm(extras M) M {
@@ -3305,6 +3331,18 @@ func (s setUnitMeterStatus) step(c *gc.C, ctx *context) {
 	u, err := ctx.st.Unit(s.unitName)
 	c.Assert(err, jc.ErrorIsNil)
 	err = u.SetMeterStatus(s.color, s.message)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+type setModelMeterStatus struct {
+	color   string
+	message string
+}
+
+func (s setModelMeterStatus) step(c *gc.C, ctx *context) {
+	m, err := ctx.st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	err = m.SetMeterStatus(s.color, s.message)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

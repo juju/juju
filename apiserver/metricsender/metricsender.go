@@ -27,25 +27,37 @@ var (
 	defaultSender            MetricSender = &HTTPSender{}
 )
 
+func handleModelResponse(st ModelBackend, modelUUID string, modelResp wireformat.EnvResponse) int {
+	err := st.SetMetricBatchesSent(modelResp.AcknowledgedBatches)
+	if err != nil {
+		logger.Errorf("failed to set sent on metrics %v", err)
+	}
+	for unitName, status := range modelResp.UnitStatuses {
+		unit, err := st.Unit(unitName)
+		if err != nil {
+			logger.Errorf("failed to retrieve unit %q: %v", unitName, err)
+			continue
+		}
+		err = unit.SetMeterStatus(status.Status, status.Info)
+		if err != nil {
+			logger.Errorf("failed to set unit %q meter status to %v: %v", unitName, status, err)
+		}
+	}
+	err = st.SetModelMeterStatus(
+		modelResp.ModelStatus.Status,
+		modelResp.ModelStatus.Info,
+	)
+	if err != nil {
+		logger.Errorf("failed to set the model meter status: %v", err)
+	}
+	return len(modelResp.AcknowledgedBatches)
+}
+
 func handleResponse(mm *state.MetricsManager, st ModelBackend, response wireformat.Response) int {
 	var acknowledgedBatches int
-	for _, envResp := range response.EnvResponses {
-		acknowledgedBatches += len(envResp.AcknowledgedBatches)
-		err := st.SetMetricBatchesSent(envResp.AcknowledgedBatches)
-		if err != nil {
-			logger.Errorf("failed to set sent on metrics %v", err)
-		}
-		for unitName, status := range envResp.UnitStatuses {
-			unit, err := st.Unit(unitName)
-			if err != nil {
-				logger.Errorf("failed to retrieve unit %q: %v", unitName, err)
-				continue
-			}
-			err = unit.SetMeterStatus(status.Status, status.Info)
-			if err != nil {
-				logger.Errorf("failed to set unit %q meter status to %v: %v", unitName, status, err)
-			}
-		}
+	for modelUUID, modelResp := range response.EnvResponses {
+		acks := handleModelResponse(st, modelUUID, modelResp)
+		acknowledgedBatches += acks
 	}
 	if response.NewGracePeriod > 0 && response.NewGracePeriod != mm.GracePeriod() {
 		err := mm.SetGracePeriod(response.NewGracePeriod)
@@ -176,12 +188,13 @@ func ToWire(mb *state.MetricBatch) *wireformat.MetricBatch {
 		}
 	}
 	return &wireformat.MetricBatch{
-		UUID:        mb.UUID(),
-		ModelUUID:   mb.ModelUUID(),
-		UnitName:    mb.Unit(),
-		CharmUrl:    mb.CharmURL(),
-		Created:     mb.Created().UTC(),
-		Metrics:     metrics,
-		Credentials: mb.Credentials(),
+		UUID:           mb.UUID(),
+		ModelUUID:      mb.ModelUUID(),
+		UnitName:       mb.Unit(),
+		CharmUrl:       mb.CharmURL(),
+		Created:        mb.Created().UTC(),
+		Metrics:        metrics,
+		Credentials:    mb.Credentials(),
+		SLACredentials: mb.SLACredentials(),
 	}
 }

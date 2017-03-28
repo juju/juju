@@ -19,17 +19,13 @@ import (
 	"github.com/juju/juju/storage"
 )
 
-// init registers the Bundle facade.
-func init() {
-	common.RegisterStandardFacade("Bundle", 1, newFacade)
+// NewFacade provides the required signature for facade registration.
+func NewFacade(_ *state.State, _ facade.Resources, auth facade.Authorizer) (Bundle, error) {
+	return NewBundle(auth)
 }
 
-func newFacade(_ *state.State, _ facade.Resources, auth facade.Authorizer) (Bundle, error) {
-	return NewFacade(auth)
-}
-
-// NewFacade creates and returns a new Bundle API facade.
-func NewFacade(auth facade.Authorizer) (Bundle, error) {
+// NewBundle creates and returns a new Bundle API facade.
+func NewBundle(auth facade.Authorizer) (Bundle, error) {
 	if !auth.AuthClient() {
 		return nil, common.ErrPerm
 	}

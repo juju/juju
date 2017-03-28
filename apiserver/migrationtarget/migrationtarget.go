@@ -20,10 +20,6 @@ import (
 	"github.com/juju/juju/state/stateenvirons"
 )
 
-func init() {
-	common.RegisterStandardFacade("MigrationTarget", 1, newAPIWithRealEnviron)
-}
-
 // API implements the API required for the model migration
 // master worker when communicating with the target controller.
 type API struct {
@@ -51,9 +47,8 @@ func NewAPI(ctx facade.Context, getEnviron stateenvirons.NewEnvironFunc) (*API, 
 	}, nil
 }
 
-// newAPIWithRealEnviron creates an API with a real environ factory
-// function.
-func newAPIWithRealEnviron(ctx facade.Context) (*API, error) {
+// NewFacade is used for API registration.
+func NewFacade(ctx facade.Context) (*API, error) {
 	return NewAPI(ctx, stateenvirons.GetNewEnvironFunc(environs.New))
 }
 

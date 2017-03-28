@@ -32,19 +32,6 @@ import (
 
 var logger = loggo.GetLogger("juju.apiserver.application")
 
-func init() {
-	// TODO - version 1 is required for the legacy deployer,
-	// remove when deploy is updated.
-	common.RegisterStandardFacade("Application", 1, newAPI)
-	common.RegisterStandardFacade("Application", 2, newAPI)
-	// Version 3 adds support for cross model relations.
-	common.RegisterStandardFacade("Application", 3, newAPI)
-	// Version 4 adds the DestroyUnit and DestroyApplication
-	// methods, superseding the existing DestroyUnits and
-	// Destroy methods respectively.
-	common.RegisterStandardFacade("Application", 4, newAPI)
-}
-
 // API implements the application interface and is the concrete
 // implementation of the api end point.
 type API struct {
@@ -71,7 +58,8 @@ func DeployApplication(backend Backend, args jjj.DeployApplicationParams) error 
 	return err
 }
 
-func newAPI(ctx facade.Context) (*API, error) {
+// NewFacade provides the signature required for facade registration.
+func NewFacade(ctx facade.Context) (*API, error) {
 	backend := NewStateBackend(ctx.State())
 	blockChecker := common.NewBlockChecker(ctx.State())
 	stateCharm := CharmToStateCharm

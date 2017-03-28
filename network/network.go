@@ -108,7 +108,7 @@ type SubnetInfo struct {
 	// unknown.
 	CIDR string
 
-	// ProviderId is a provider-specific network id. This the only
+	// ProviderId is a provider-specific subnet id. This the only
 	// required field.
 	ProviderId Id
 
@@ -123,9 +123,15 @@ type SubnetInfo struct {
 	// availability zones.
 	AvailabilityZones []string
 
-	// SpaceProviderId holds the provider Id of the space associated with
-	// this subnet. Can be empty if not supported.
+	// SpaceProviderId holds the provider Id of the space associated
+	// with this subnet. Can be empty if not supported.
+	// TODO(babbageclunk): change this to ProviderSpaceId to be
+	// consistent with the InterfaceInfo.Provider*Id fields.
 	SpaceProviderId Id
+
+	// ProviderNetworkId holds the provider id of the network
+	// containing this subnet, for example VPC id for EC2.
+	ProviderNetworkId Id
 }
 
 type SpaceInfo struct {
@@ -187,6 +193,10 @@ type InterfaceInfo struct {
 	// ProviderSubnetId is the provider-specific id for the associated
 	// subnet.
 	ProviderSubnetId Id
+
+	// ProviderNetworkId is the provider-specific id for the
+	// associated network.
+	ProviderNetworkId Id
 
 	// ProviderSpaceId is the provider-specific id for the associated space, if
 	// known and supported.

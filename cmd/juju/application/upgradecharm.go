@@ -6,7 +6,6 @@ package application
 import (
 	"fmt"
 	"os"
-	"strings"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
@@ -26,6 +25,7 @@ import (
 	"github.com/juju/juju/api/modelconfig"
 	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/cmd/juju/block"
+	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/resource"
@@ -299,15 +299,8 @@ func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
 	charmRepo := c.getCharmStore(bakeryClient, modelConfig)
 	chID, csMac, err := c.addCharm(charmAdder, charmRepo, modelConfig, oldURL, newRef)
 	if err != nil {
-		if termsErr, ok := errors.Cause(err).(*termsRequiredError); ok {
-			terms := strings.Join(termsErr.Terms, " ")
-			return errors.Wrap(
-				termsErr,
-				errors.Errorf(
-					`Declined: please agree to the following terms %s. Try: "juju agree %[1]s"`,
-					terms,
-				),
-			)
+		if termErr, ok := errors.Cause(err).(*common.TermsRequiredError); ok {
+			return errors.Trace(termErr.UserErr())
 		}
 		return block.ProcessBlockedError(err, block.BlockChange)
 	}

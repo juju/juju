@@ -31,16 +31,8 @@ const (
 	MaxLeaseRequest = 5 * time.Minute
 )
 
-func init() {
-	common.RegisterStandardFacade(
-		FacadeName,
-		2,
-		NewLeadershipServiceFacade,
-	)
-}
-
 // NewLeadershipServiceFacade constructs a new LeadershipService and presents
-// a signature that can be used with RegisterStandardFacade.
+// a signature that can be used for facade registration.
 func NewLeadershipServiceFacade(
 	state *state.State, resources facade.Resources, authorizer facade.Authorizer,
 ) (LeadershipService, error) {

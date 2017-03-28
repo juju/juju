@@ -32,7 +32,7 @@ See also:
 `
 
 type showCommand struct {
-	CrossModelCommandBase
+	RemoteEndpointsCommandBase
 
 	url        string
 	out        cmd.Output
@@ -44,9 +44,9 @@ type showCommand struct {
 func NewShowOfferedEndpointCommand() cmd.Command {
 	showCmd := &showCommand{}
 	showCmd.newAPIFunc = func() (ShowAPI, error) {
-		return showCmd.NewCrossModelAPI()
+		return showCmd.NewRemoteEndpointsAPI()
 	}
-	return modelcmd.Wrap(showCmd)
+	return modelcmd.WrapController(showCmd)
 }
 
 // Init implements Command.Init.
@@ -80,7 +80,7 @@ func (c *showCommand) Info() *cmd.Info {
 
 // SetFlags implements Command.SetFlags.
 func (c *showCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.CrossModelCommandBase.SetFlags(f)
+	c.RemoteEndpointsCommandBase.SetFlags(f)
 	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
 		"yaml":    cmd.FormatYaml,
 		"json":    cmd.FormatJson,

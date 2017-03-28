@@ -145,7 +145,7 @@ var sshTests = []struct {
 	{
 		about:       "connect to unit mysql/0 with proxy (api v1)",
 		args:        []string{"--proxy=true", "mysql/0"},
-		hostChecker: validAddresses("0.private", "0.public"),
+		hostChecker: nil, // Host checker shouldn't get used with --proxy=true
 		forceAPIv1:  true,
 		expected: argsSpec{
 			hostKeyChecking: "yes",
@@ -158,14 +158,14 @@ var sshTests = []struct {
 	{
 		about:       "connect to unit mysql/0 with proxy (api v2)",
 		args:        []string{"--proxy=true", "mysql/0"},
-		hostChecker: validAddresses("0.private", "0.public", "0.1.2.3"), // set by setAddresses() and setLinkLayerDevicesAddresses()
+		hostChecker: nil, // Host checker shouldn't get used with --proxy=true
 		forceAPIv1:  false,
 		expected: argsSpec{
 			hostKeyChecking: "yes",
 			knownHosts:      "0",
 			enablePty:       true,
 			withProxy:       true,
-			argsMatch:       `ubuntu@0.(public|private|1\.2\.3)`, // can be any of the 3
+			argsMatch:       `ubuntu@0.private`,
 		},
 	},
 }
@@ -199,7 +199,6 @@ func (s *SSHSuite) TestSSHCommandModelConfigProxySSH(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.setForceAPIv1(true)
-	s.setHostChecker(validAddresses("0.private", "0.public", "0.1.2.3"))
 
 	ctx, err := coretesting.RunCommand(c, newSSHCommand(s.hostChecker), "0")
 	c.Check(err, jc.ErrorIsNil)
@@ -209,7 +208,7 @@ func (s *SSHSuite) TestSSHCommandModelConfigProxySSH(c *gc.C) {
 		knownHosts:      "0",
 		enablePty:       true,
 		withProxy:       true,
-		args:            "ubuntu@0.private",
+		args:            "ubuntu@0.private", // as set by setAddresses()
 	}
 	expectedArgs.check(c, coretesting.Stdout(ctx))
 
@@ -292,7 +291,11 @@ func (s *SSHSuite) testSSHCommandHostAddressRetry(c *gc.C, proxy bool) {
 	c.Assert(err, gc.ErrorMatches, `no .+ address\(es\)`)
 	c.Assert(called, gc.Equals, 2)
 
-	s.setHostChecker(validAddresses("0.private", "0.public"))
+	if proxy {
+		s.setHostChecker(nil) // not used when proxy=true
+	} else {
+		s.setHostChecker(validAddresses("0.private", "0.public"))
+	}
 
 	called = 0
 	attemptStarter.next = func() bool {

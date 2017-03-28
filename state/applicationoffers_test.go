@@ -8,8 +8,10 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 )
 
@@ -28,11 +30,13 @@ func (s *applicationOffersSuite) SetUpTest(c *gc.C) {
 func (s *applicationOffersSuite) createDefaultOffer(c *gc.C) crossmodel.ApplicationOffer {
 	eps := map[string]string{"db": "server", "db-admin": "server-admin"}
 	sd := state.NewApplicationOffers(s.State)
+	owner := s.Factory.MakeUser(c, nil)
 	offerArgs := crossmodel.AddApplicationOfferArgs{
 		OfferName:              "hosted-mysql",
 		ApplicationName:        "mysql",
 		ApplicationDescription: "mysql is a db server",
 		Endpoints:              eps,
+		Owner:                  owner.Name(),
 	}
 	offer, err := sd.AddOffer(offerArgs)
 	c.Assert(err, jc.ErrorIsNil)
@@ -69,11 +73,14 @@ func (s *applicationOffersSuite) TestRemove(c *gc.C) {
 func (s *applicationOffersSuite) TestAddApplicationOffer(c *gc.C) {
 	eps := map[string]string{"db": "server", "db-admin": "server-admin"}
 	sd := state.NewApplicationOffers(s.State)
+	owner := s.Factory.MakeUser(c, nil)
 	args := crossmodel.AddApplicationOfferArgs{
 		OfferName:              "hosted-mysql",
 		ApplicationName:        "mysql",
 		ApplicationDescription: "mysql is a db server",
 		Endpoints:              eps,
+		Owner:                  owner.Name(),
+		HasRead:                []string{"everyone@external"},
 	}
 	offer, err := sd.AddOffer(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -81,6 +88,37 @@ func (s *applicationOffersSuite) TestAddApplicationOffer(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	expectedOffer, err := state.MakeApplicationOffer(sd, doc)
 	c.Assert(*offer, jc.DeepEquals, *expectedOffer)
+
+	offerTag := names.NewApplicationOfferTag(offer.OfferName)
+	access, err := s.State.GetOfferAccess(offerTag, owner.UserTag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(access, gc.Equals, permission.AdminAccess)
+
+	access, err = s.State.GetOfferAccess(offerTag, names.NewUserTag("everyone@external"))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(access, gc.Equals, permission.ReadAccess)
+}
+
+func (s *applicationOffersSuite) TestAddApplicationOfferBadEndpoints(c *gc.C) {
+	eps := map[string]string{"db": "server", "db-admin": "admin"}
+	sd := state.NewApplicationOffers(s.State)
+	owner := s.Factory.MakeUser(c, nil)
+	args := crossmodel.AddApplicationOfferArgs{
+		OfferName:              "hosted-mysql",
+		ApplicationName:        "mysql",
+		ApplicationDescription: "mysql is a db server",
+		Endpoints:              eps,
+		Owner:                  owner.Name(),
+	}
+	_, err := sd.AddOffer(args)
+	c.Assert(err, gc.ErrorMatches, `.*application "mysql" has no "admin" relation`)
+
+	// Fix the endpoints and try again.
+	// There was a bug where this failed so we test it.
+	eps = map[string]string{"db": "server", "db-admin": "server-admin"}
+	args.Endpoints = eps
+	_, err = sd.AddOffer(args)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *applicationOffersSuite) TestListOffersNone(c *gc.C) {
@@ -95,15 +133,25 @@ func (s *applicationOffersSuite) createOffer(c *gc.C, name, description string) 
 		"db": "server",
 	}
 	sd := state.NewApplicationOffers(s.State)
+	owner := s.Factory.MakeUser(c, nil)
 	offerArgs := crossmodel.AddApplicationOfferArgs{
 		OfferName:              name,
 		ApplicationName:        "mysql",
 		ApplicationDescription: description,
 		Endpoints:              eps,
+		Owner:                  owner.Name(),
 	}
 	offer, err := sd.AddOffer(offerArgs)
 	c.Assert(err, jc.ErrorIsNil)
 	return *offer
+}
+
+func (s *applicationOffersSuite) TestApplicationOffer(c *gc.C) {
+	sd := state.NewApplicationOffers(s.State)
+	expectedOffer := s.createDefaultOffer(c)
+	offer, err := sd.ApplicationOffer("hosted-mysql")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(*offer, jc.DeepEquals, expectedOffer)
 }
 
 func (s *applicationOffersSuite) TestListOffersAll(c *gc.C) {
@@ -177,14 +225,17 @@ func (s *applicationOffersSuite) TestListOffersFilterOfferNameRegexp(c *gc.C) {
 
 func (s *applicationOffersSuite) TestAddApplicationOfferDuplicate(c *gc.C) {
 	sd := state.NewApplicationOffers(s.State)
+	owner := s.Factory.MakeUser(c, nil)
 	_, err := sd.AddOffer(crossmodel.AddApplicationOfferArgs{
 		OfferName:       "hosted-mysql",
 		ApplicationName: "mysql",
+		Owner:           owner.Name(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = sd.AddOffer(crossmodel.AddApplicationOfferArgs{
 		OfferName:       "hosted-mysql",
-		ApplicationName: "another",
+		ApplicationName: "mysql",
+		Owner:           owner.Name(),
 	})
 	c.Assert(err, gc.ErrorMatches, `cannot add application offer "hosted-mysql": application offer already exists`)
 }
@@ -194,25 +245,30 @@ func (s *applicationOffersSuite) TestAddApplicationOfferDuplicateAddedAfterIniti
 	// there is no conflict initially but a record is added
 	// before the transaction is run.
 	sd := state.NewApplicationOffers(s.State)
+	owner := s.Factory.MakeUser(c, nil)
 	defer state.SetBeforeHooks(c, s.State, func() {
 		_, err := sd.AddOffer(crossmodel.AddApplicationOfferArgs{
 			OfferName:       "hosted-mysql",
 			ApplicationName: "mysql",
+			Owner:           owner.Name(),
 		})
 		c.Assert(err, jc.ErrorIsNil)
 	}).Check()
 	_, err := sd.AddOffer(crossmodel.AddApplicationOfferArgs{
 		OfferName:       "hosted-mysql",
 		ApplicationName: "mysql",
+		Owner:           owner.Name(),
 	})
 	c.Assert(err, gc.ErrorMatches, `cannot add application offer "hosted-mysql": application offer already exists`)
 }
 
 func (s *applicationOffersSuite) TestUpdateApplicationOfferNotFound(c *gc.C) {
 	sd := state.NewApplicationOffers(s.State)
+	owner := s.Factory.MakeUser(c, nil)
 	_, err := sd.UpdateOffer(crossmodel.AddApplicationOfferArgs{
 		OfferName:       "hosted-mysql",
 		ApplicationName: "foo",
+		Owner:           owner.Name(),
 	})
 	c.Assert(err, gc.ErrorMatches, `cannot update application offer "foo": application offer "hosted-mysql" not found`)
 }
@@ -222,9 +278,11 @@ func (s *applicationOffersSuite) TestUpdateApplicationOfferRemovedAfterInitial(c
 	// there is no conflict initially but a record is added
 	// before the transaction is run.
 	sd := state.NewApplicationOffers(s.State)
+	owner := s.Factory.MakeUser(c, nil)
 	_, err := sd.AddOffer(crossmodel.AddApplicationOfferArgs{
 		OfferName:       "hosted-mysql",
 		ApplicationName: "mysql",
+		Owner:           owner.Name(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	defer state.SetBeforeHooks(c, s.State, func() {
@@ -234,6 +292,7 @@ func (s *applicationOffersSuite) TestUpdateApplicationOfferRemovedAfterInitial(c
 	_, err = sd.UpdateOffer(crossmodel.AddApplicationOfferArgs{
 		OfferName:       "hosted-mysql",
 		ApplicationName: "mysql",
+		Owner:           owner.Name(),
 	})
 	c.Assert(err, gc.ErrorMatches, `cannot update application offer "mysql": application offer "hosted-mysql" not found`)
 }

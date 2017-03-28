@@ -162,3 +162,10 @@ func (s *ApplicationURLSuite) TestHasEndpoint(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(url.HasEndpoint(), jc.IsFalse)
 }
+
+func (s *ApplicationURLSuite) TestMakeURL(c *gc.C) {
+	url := crossmodel.MakeURL("user", "model", "app", "")
+	c.Assert(url, gc.Equals, "user/model.app")
+	url = crossmodel.MakeURL("user", "model", "app", "ctrl")
+	c.Assert(url, gc.Equals, "ctrl:user/model.app")
+}

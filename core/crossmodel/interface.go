@@ -30,6 +30,12 @@ type AddApplicationOfferArgs struct {
 	// OfferName is the name of the offer.
 	OfferName string
 
+	// Owner is the user name who owns the offer.
+	Owner string
+
+	// HasRead are rthe user names who can see the offer exists.
+	HasRead []string
+
 	// ApplicationName is the name of the application to which the offer pertains.
 	ApplicationName string
 
@@ -54,7 +60,10 @@ func (s *ApplicationOffer) String() string {
 // ApplicationOfferFilter is used to query applications offered
 // by this model.
 type ApplicationOfferFilter struct {
-	// OfferName is the name of the model hosting the offer.
+	// OwnerName is the owner of the model hosting the offer.
+	OwnerName string
+
+	// ModelName is the name of the model hosting the offer.
 	ModelName string
 
 	// OfferName is the name of the offer.
@@ -94,6 +103,9 @@ type ApplicationOffers interface {
 
 	// UpdateOffer replaces an existing offer at the same URL.
 	UpdateOffer(offer AddApplicationOfferArgs) (*ApplicationOffer, error)
+
+	// ApplicationOffer returns the named application offer.
+	ApplicationOffer(offerName string) (*ApplicationOffer, error)
 
 	// ListOffers returns the offers satisfying the specified filter.
 	ListOffers(filter ...ApplicationOfferFilter) ([]ApplicationOffer, error)

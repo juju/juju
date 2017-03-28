@@ -26,6 +26,7 @@ options:
 
 Examples:
    $ juju find-endpoints
+   $ juju find-endpoints mycontroller:
    $ juju find-endpoints fred/prod
    $ juju find-endpoints --interface mysql --url fred/prod
    $ juju find-endpoints --url fred/prod.db2
@@ -35,13 +36,14 @@ See also:
 `
 
 type findCommand struct {
-	CrossModelCommandBase
+	RemoteEndpointsCommandBase
 
-	url           string
-	modelName     string
-	offerName     string
-	interfaceName string
-	endpoint      string
+	url            string
+	modelOwnerName string
+	modelName      string
+	offerName      string
+	interfaceName  string
+	endpoint       string
 
 	out        cmd.Output
 	newAPIFunc func() (FindAPI, error)
@@ -52,9 +54,9 @@ type findCommand struct {
 func NewFindEndpointsCommand() cmd.Command {
 	findCmd := &findCommand{}
 	findCmd.newAPIFunc = func() (FindAPI, error) {
-		return findCmd.NewCrossModelAPI()
+		return findCmd.NewRemoteEndpointsAPI()
 	}
-	return modelcmd.Wrap(findCmd)
+	return modelcmd.WrapController(findCmd)
 }
 
 // Init implements Command.Init.
@@ -75,14 +77,22 @@ func (c *findCommand) Init(args []string) (err error) {
 		if err != nil {
 			return err
 		}
+		user := urlParts.User
+		if user == "" {
+			accountDetails, err := c.ClientStore().AccountDetails(c.ControllerName())
+			if err != nil {
+				return err
+			}
+			user = accountDetails.User
+		}
+		c.modelOwnerName = user
 		c.modelName = urlParts.ModelName
 		c.offerName = urlParts.ApplicationName
 		if urlParts.Source != "" && urlParts.Source != c.ControllerName() {
 			return errors.NotSupportedf("finding endpoints from another controller %q", urlParts.Source)
 		}
 	} else {
-		// We need at least one filter. The default filter will list all offers from the current model.
-		c.modelName = c.ModelName()
+		c.url = c.ControllerName() + ":"
 	}
 	return nil
 }
@@ -98,7 +108,7 @@ func (c *findCommand) Info() *cmd.Info {
 
 // SetFlags implements Command.SetFlags.
 func (c *findCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.CrossModelCommandBase.SetFlags(f)
+	c.RemoteEndpointsCommandBase.SetFlags(f)
 	f.StringVar(&c.url, "url", "", "application URL")
 	f.StringVar(&c.interfaceName, "interface", "", "return results matching the interface name")
 	f.StringVar(&c.endpoint, "endpoint", "", "return results matching the endpoint name")
@@ -118,6 +128,7 @@ func (c *findCommand) Run(ctx *cmd.Context) (err error) {
 	defer api.Close()
 
 	filter := crossmodel.ApplicationOfferFilter{
+		OwnerName: c.modelOwnerName,
 		ModelName: c.modelName,
 		OfferName: c.offerName,
 		// TODO(wallyworld): interface

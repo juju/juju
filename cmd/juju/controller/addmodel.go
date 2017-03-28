@@ -333,9 +333,6 @@ func (c *addModelCommand) getCloudRegion(cloudClient CloudAPI) (cloudTag names.C
 			}
 			return names.CloudTag{}, jujucloud.Cloud{}, "", errors.Trace(err)
 		}
-	} else if len(cloud.Regions) > 0 {
-		// The first region in the list is the default.
-		cloudRegion = cloud.Regions[0].Name
 	}
 	return cloudTag, cloud, cloudRegion, nil
 }

@@ -12,10 +12,6 @@ import (
 	"github.com/juju/juju/state"
 )
 
-func init() {
-	common.RegisterStandardFacade("MetricsAdder", 2, NewMetricsAdderAPI)
-}
-
 // MetricsAdder defines methods that are used to store metric batches in the state.
 type MetricsAdder interface {
 	// AddMetricBatches stores the specified metric batches in the state.

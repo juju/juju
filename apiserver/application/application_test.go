@@ -6,6 +6,7 @@ package application_test
 import (
 	"fmt"
 	"io"
+	"io/ioutil"
 	"regexp"
 	"sync"
 	"time"
@@ -340,6 +341,11 @@ func (s *applicationSuite) TestApplicationDeploy(c *gc.C) {
 	units, err := app.AllUnits()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(units, gc.HasLen, 1)
+
+	// Check that the charm cache dir is cleared out.
+	files, err := ioutil.ReadDir(charmrepo.CacheDir)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(files, gc.HasLen, 0)
 }
 
 func (s *applicationSuite) TestApplicationDeployWithInvalidPlacement(c *gc.C) {
@@ -2567,6 +2573,7 @@ func (s *applicationSuite) setupOtherModelOffer(c *gc.C) {
 		OfferName:       "hosted-mysql",
 		ApplicationName: "othermysql",
 		Endpoints:       map[string]string{"database": "server"},
+		Owner:           s.AdminUserTag(c).Id(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -2651,6 +2658,7 @@ func (s *applicationSuite) TestRemoteRelationNoMatchingEndpoint(c *gc.C) {
 		OfferName:       "hosted-riak",
 		ApplicationName: "riak",
 		Endpoints:       map[string]string{"endpoint": "endpoint"},
+		Owner:           s.AdminUserTag(c).Id(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 

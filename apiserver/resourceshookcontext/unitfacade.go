@@ -4,8 +4,6 @@
 package resourceshookcontext
 
 import (
-	"reflect"
-
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/apiserver/common"
@@ -15,15 +13,8 @@ import (
 	"github.com/juju/juju/state"
 )
 
-func init() {
-	common.RegisterHookContextFacade(
-		"ResourcesHookContext", 1,
-		newHookContextFacade,
-		reflect.TypeOf(&UnitFacade{}),
-	)
-}
-
-func newHookContextFacade(st *state.State, unit *state.Unit) (interface{}, error) {
+// NewHookContextFacade adapts NewUnitFacade for facade registration.
+func NewHookContextFacade(st *state.State, unit *state.Unit) (interface{}, error) {
 	res, err := st.Resources()
 	if err != nil {
 		return nil, errors.Trace(err)

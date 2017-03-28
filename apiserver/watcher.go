@@ -4,8 +4,6 @@
 package apiserver
 
 import (
-	"reflect"
-
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/apiserver/common"
@@ -17,49 +15,6 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 )
-
-func init() {
-	common.RegisterFacade(
-		"AllWatcher", 1, NewAllWatcher,
-		reflect.TypeOf((*SrvAllWatcher)(nil)),
-	)
-	// Note: AllModelWatcher uses the same infrastructure as AllWatcher
-	// but they are get under separate names as it possible the may
-	// diverge in the future (especially in terms of authorisation
-	// checks).
-	common.RegisterFacade(
-		"AllModelWatcher", 2, NewAllWatcher,
-		reflect.TypeOf((*SrvAllWatcher)(nil)),
-	)
-	common.RegisterFacade(
-		"NotifyWatcher", 1, newNotifyWatcher,
-		reflect.TypeOf((*srvNotifyWatcher)(nil)),
-	)
-	common.RegisterFacade(
-		"StringsWatcher", 1, newStringsWatcher,
-		reflect.TypeOf((*srvStringsWatcher)(nil)),
-	)
-	common.RegisterFacade(
-		"RelationUnitsWatcher", 1, newRelationUnitsWatcher,
-		reflect.TypeOf((*srvRelationUnitsWatcher)(nil)),
-	)
-	common.RegisterFacade(
-		"VolumeAttachmentsWatcher", 2, newVolumeAttachmentsWatcher,
-		reflect.TypeOf((*srvMachineStorageIdsWatcher)(nil)),
-	)
-	common.RegisterFacade(
-		"FilesystemAttachmentsWatcher", 2, newFilesystemAttachmentsWatcher,
-		reflect.TypeOf((*srvMachineStorageIdsWatcher)(nil)),
-	)
-	common.RegisterFacade(
-		"EntityWatcher", 2, newEntitiesWatcher,
-		reflect.TypeOf((*srvEntitiesWatcher)(nil)),
-	)
-	common.RegisterFacade(
-		"MigrationStatusWatcher", 1, newMigrationStatusWatcher,
-		reflect.TypeOf((*srvMigrationStatusWatcher)(nil)),
-	)
-}
 
 // NewAllWatcher returns a new API server endpoint for interacting
 // with a watcher created by the WatchAll and WatchAllModels API calls.

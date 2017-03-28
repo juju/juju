@@ -7,7 +7,6 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs"
@@ -22,11 +21,8 @@ import (
 // to change any part of it so that it were no longer *obviously* and
 // *trivially* correct, you would be Doing It Wrong.
 
-func init() {
-	common.RegisterStandardFacade("StorageProvisioner", 3, newStorageProvisionerAPI)
-}
-
-func newStorageProvisionerAPI(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*StorageProvisionerAPI, error) {
+// NewFacade provides the signature required for facade registration.
+func NewFacade(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*StorageProvisionerAPI, error) {
 	env, err := stateenvirons.GetNewEnvironFunc(environs.New)(st)
 	if err != nil {
 		return nil, errors.Annotate(err, "getting environ")

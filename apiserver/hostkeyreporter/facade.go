@@ -14,10 +14,6 @@ import (
 	"github.com/juju/juju/state"
 )
 
-func init() {
-	common.RegisterStandardFacade("HostKeyReporter", 1, newFacade)
-}
-
 // Backend defines the State API used by the hostkeyreporter facade.
 type Backend interface {
 	SetSSHHostKeys(names.MachineTag, state.SSHHostKeys) error

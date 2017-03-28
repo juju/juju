@@ -48,7 +48,7 @@ Examples:
 
 // listCommand returns storage instances.
 type listCommand struct {
-	CrossModelCommandBase
+	ApplicationOffersCommandBase
 
 	out cmd.Output
 
@@ -61,7 +61,7 @@ type listCommand struct {
 func NewListEndpointsCommand() cmd.Command {
 	listCmd := &listCommand{}
 	listCmd.newAPIFunc = func() (ListAPI, error) {
-		return listCmd.NewCrossModelAPI()
+		return listCmd.NewApplicationOffersAPI()
 	}
 	return modelcmd.Wrap(listCmd)
 }
@@ -84,7 +84,7 @@ func (c *listCommand) Info() *cmd.Info {
 
 // SetFlags implements Command.SetFlags.
 func (c *listCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.CrossModelCommandBase.SetFlags(f)
+	c.ApplicationOffersCommandBase.SetFlags(f)
 
 	// TODO (anastasiamac 2015-11-17)  need to get filters from user input
 	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
@@ -141,6 +141,12 @@ type ListAPI interface {
 
 // ListOfferItem defines the serialization behaviour of an offer item in endpoints list.
 type ListOfferItem struct {
+	// ApplicationName is the application backing this offer.
+	ApplicationName string `yaml:"-" json:"-"`
+
+	// Store is the controller hosting this offer.
+	Source string `yaml:"store,omitempty" json:"store,omitempty"`
+
 	// CharmName is the charm name of this application.
 	CharmName string `yaml:"charm,omitempty" json:"charm,omitempty"`
 
@@ -154,10 +160,10 @@ type ListOfferItem struct {
 	Endpoints map[string]RemoteEndpoint `yaml:"endpoints" json:"endpoints"`
 }
 
-type directoryApplications map[string]ListOfferItem
+type offeredApplications map[string]ListOfferItem
 
-func formatApplicationOfferDetails(store string, all []crossmodel.ApplicationOfferDetails) (map[string]directoryApplications, error) {
-	controllerOffers := make(map[string]directoryApplications)
+func formatApplicationOfferDetails(store string, all []crossmodel.ApplicationOfferDetails) (offeredApplications, error) {
+	result := make(offeredApplications)
 	for _, one := range all {
 		url, err := crossmodel.ParseApplicationURL(one.OfferURL)
 		if err != nil {
@@ -167,25 +173,20 @@ func formatApplicationOfferDetails(store string, all []crossmodel.ApplicationOff
 			url.Source = store
 		}
 
-		// Get offers for this controller.
-		offersMap, ok := controllerOffers[url.Source]
-		if !ok {
-			offersMap = make(directoryApplications)
-			controllerOffers[url.Source] = offersMap
-		}
-
 		// Store offers by name.
-		offersMap[one.OfferName] = convertOfferToListItem(url, one)
+		result[one.OfferName] = convertOfferToListItem(url, one)
 	}
-	return controllerOffers, nil
+	return result, nil
 }
 
 func convertOfferToListItem(url *crossmodel.ApplicationURL, offer crossmodel.ApplicationOfferDetails) ListOfferItem {
 	item := ListOfferItem{
-		CharmName:  offer.CharmName,
-		Location:   offer.OfferURL,
-		UsersCount: offer.ConnectedCount,
-		Endpoints:  convertCharmEndpoints(offer.Endpoints...),
+		ApplicationName: offer.ApplicationName,
+		Source:          url.Source,
+		CharmName:       offer.CharmName,
+		Location:        offer.OfferURL,
+		UsersCount:      offer.ConnectedCount,
+		Endpoints:       convertCharmEndpoints(offer.Endpoints...),
 	}
 	return item
 }

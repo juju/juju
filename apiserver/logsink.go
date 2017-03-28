@@ -154,6 +154,43 @@ type logSinkHandler struct {
 	fileLogger  io.Writer
 }
 
+// Since the logsink only receives messages, it is possible for the other end
+// to disappear without the server noticing. To fix this, we use the
+// underlying websocket control messages ping/pong. Periodically the server
+// writes a ping, and the other end replies with a pong. Now the tricky bit is
+// that it appears in all the examples found on the interweb that it is
+// possible for the control message to be sent successfully to something that
+// isn't entirely alive, which is why relying on an error return from the
+// write call is insufficient to mark the connection as dead. Instead the
+// write and read deadlines inherent in the underlying Go networking libraries
+// are used to force errors on timeouts. However the underlying network
+// libraries use time.Now() to determine whether or not to send errors, so
+// using a testing clock here isn't going to work. So we rely on manual
+// testing, and what is defined as good practice by the library authors.
+//
+// Now, in theory, we should be using this ping/pong across all the websockets,
+// but that is a little outside the scope of this piece of work.
+
+const (
+	// pongDelay is how long the server will wait for a pong to be sent
+	// before the websocket is considered broken.
+	pongDelay = 90 * time.Second
+
+	// pingPeriod is how often ping messages are sent. This should be shorter
+	// than the pongDelay, but not by too much. The difference here allows
+	// the remote endpoint 30 seconds to respond to the ping as a ping is sent
+	// every 60s, and when a pong is received the read deadline is advanced
+	// another 90s.
+	pingPeriod = 60 * time.Second
+
+	// writeWait is how long the write call can take before it errors out.
+	writeWait = 10 * time.Second
+
+	// For endpoints that don't support ping/pong (i.e. agents prior to 2.2-beta1)
+	// we will time out their connections after six hours of inactivity.
+	vZeroDelay = 6 * time.Hour
+)
+
 // ServeHTTP implements the http.Handler interface.
 func (h *logSinkHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	handler := func(socket *websocket.Conn) {
@@ -164,6 +201,12 @@ func (h *logSinkHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			h.sendError(socket, req, err)
 			return
 		}
+		endpointVersion, err := h.getVersion(req)
+		if err != nil {
+			h.sendError(socket, req, err)
+			return
+		}
+
 		strategy.Start()
 		defer strategy.Stop()
 
@@ -172,11 +215,39 @@ func (h *logSinkHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		// formatted simple error.
 		h.sendError(socket, req, nil)
 
-		logCh := h.receiveLogs(socket)
+		// Here we configure the ping/pong handling for the websocket so the
+		// server can notice when the client goes away. Older versions did not
+		// respond to ping control messages, so don't try.
+		var tickChannel <-chan time.Time
+		if endpointVersion > 0 {
+			socket.SetReadDeadline(time.Now().Add(pongDelay))
+			socket.SetPongHandler(func(string) error {
+				logger.Tracef("pong logsink %p", socket)
+				socket.SetReadDeadline(time.Now().Add(pongDelay))
+				return nil
+			})
+			ticker := time.NewTicker(pingPeriod)
+			defer ticker.Stop()
+			tickChannel = ticker.C
+		} else {
+			socket.SetReadDeadline(time.Now().Add(vZeroDelay))
+		}
+
+		logCh := h.receiveLogs(socket, endpointVersion)
 		for {
 			select {
 			case <-h.ctxt.stop():
 				return
+			case <-tickChannel:
+				deadline := time.Now().Add(writeWait)
+				logger.Tracef("ping logsink %p", socket)
+				if err := socket.WriteControl(websocket.PingMessage, []byte{}, deadline); err != nil {
+					// This error is expected if the other end goes away. By
+					// returning we clean up the strategy and close the socket
+					// through the defer calls.
+					logger.Debugf("failed to write ping: %s", err)
+					return
+				}
 			case m, ok := <-logCh:
 				if !ok {
 					return
@@ -191,6 +262,18 @@ func (h *logSinkHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	websocketServer(w, req, handler)
 }
 
+func (h *logSinkHandler) getVersion(req *http.Request) (int, error) {
+	verStr := req.URL.Query().Get("version")
+	switch verStr {
+	case "":
+		return 0, nil
+	case "1":
+		return 1, nil
+	default:
+		return 0, errors.Errorf("unknown version %q", verStr)
+	}
+}
+
 func jujuClientVersionFromReq(req *http.Request) (version.Number, error) {
 	verStr := req.URL.Query().Get("jujuclientversion")
 	if verStr == "" {
@@ -203,7 +286,7 @@ func jujuClientVersionFromReq(req *http.Request) (version.Number, error) {
 	return ver, nil
 }
 
-func (h *logSinkHandler) receiveLogs(socket *websocket.Conn) <-chan params.LogRecord {
+func (h *logSinkHandler) receiveLogs(socket *websocket.Conn, endpointVersion int) <-chan params.LogRecord {
 	logCh := make(chan params.LogRecord)
 
 	go func() {
@@ -220,7 +303,7 @@ func (h *logSinkHandler) receiveLogs(socket *websocket.Conn) <-chan params.LogRe
 				if websocket.IsUnexpectedCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway) {
 					logger.Debugf("logsink receive error: %v", err)
 				} else {
-					logger.Debugf("disconnected")
+					logger.Debugf("disconnected, %p", socket)
 				}
 				// Try to tell the other end we are closing. If the other end
 				// has already disconnected from us, this will fail, but we don't
@@ -234,6 +317,11 @@ func (h *logSinkHandler) receiveLogs(socket *websocket.Conn) <-chan params.LogRe
 			case <-h.ctxt.stop():
 				return
 			case logCh <- m:
+				// If the remote end does not support ping/pong, we bump
+				// the read deadline everytime a message is received.
+				if endpointVersion == 0 {
+					socket.SetReadDeadline(time.Now().Add(vZeroDelay))
+				}
 			}
 		}
 	}()

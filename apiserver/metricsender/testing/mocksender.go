@@ -35,6 +35,7 @@ func (m *MockSender) Send(d []*wireformat.MetricBatch) (*wireformat.Response, er
 			}
 		}
 		envResponses.Ack(batch.ModelUUID, batch.UUID)
+		envResponses.SetModelStatus(batch.ModelUUID, "RED", "mocked response")
 	}
 	return &wireformat.Response{
 		UUID:         respUUID.String(),

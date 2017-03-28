@@ -11,8 +11,10 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/charmrepo.v2-unstable"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/cmd/juju/crossmodel"
+	"github.com/juju/juju/cmd/juju/model"
 	jujucrossmodel "github.com/juju/juju/core/crossmodel"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/permission"
@@ -42,21 +44,22 @@ func (s *crossmodelSuite) TestListEndpoints(c *gc.C) {
 		"--format", "yaml")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, `
-kontroll:
-  riak:
-    charm: riak
-    url: admin/controller.riak
-    endpoints:
-      endpoint:
-        interface: http
-        role: provider
-  varnish:
-    charm: varnish
-    url: admin/controller.varnish
-    endpoints:
-      webcache:
-        interface: varnish
-        role: provider
+riak:
+  store: kontroll
+  charm: riak
+  url: admin/controller.riak
+  endpoints:
+    endpoint:
+      interface: http
+      role: provider
+varnish:
+  store: kontroll
+  charm: varnish
+  url: admin/controller.varnish
+  endpoints:
+    webcache:
+      interface: varnish
+      role: provider
 `[1:])
 }
 
@@ -102,7 +105,7 @@ otheruser/othermodel.hosted-mysql:
 `[1:])
 }
 
-func (s *crossmodelSuite) TestFind(c *gc.C) {
+func (s *crossmodelSuite) setupOffers(c *gc.C) {
 	ch := s.AddTestingCharm(c, "riak")
 	s.AddTestingService(c, "riakservice", ch)
 	ch = s.AddTestingCharm(c, "varnish")
@@ -114,7 +117,9 @@ func (s *crossmodelSuite) TestFind(c *gc.C) {
 	_, err = testing.RunCommand(c, crossmodel.NewOfferCommand(),
 		"varnishservice:webcache", "varnish")
 	c.Assert(err, jc.ErrorIsNil)
-
+}
+func (s *crossmodelSuite) TestFind(c *gc.C) {
+	s.setupOffers(c)
 	ctx, err := testing.RunCommand(c, crossmodel.NewFindEndpointsCommand(),
 		"admin/controller", "--format", "yaml")
 	c.Assert(err, jc.ErrorIsNil)
@@ -139,6 +144,31 @@ func (s *crossmodelSuite) TestFindOtherModel(c *gc.C) {
 		"otheruser/othermodel", "--format", "yaml")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, `
+otheruser/othermodel.hosted-mysql:
+  endpoints:
+    database:
+      interface: mysql
+      role: provider
+`[1:])
+}
+
+func (s *crossmodelSuite) TestFindAllModels(c *gc.C) {
+	s.setupOffers(c)
+	s.addOtherModelApplication(c)
+
+	ctx, err := testing.RunCommand(c, crossmodel.NewFindEndpointsCommand(), "kontroll:", "--format", "yaml")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, `
+admin/controller.riak:
+  endpoints:
+    endpoint:
+      interface: http
+      role: provider
+admin/controller.varnish:
+  endpoints:
+    webcache:
+      interface: varnish
+      role: provider
 otheruser/othermodel.hosted-mysql:
   endpoints:
     database:
@@ -240,6 +270,7 @@ func (s *crossmodelSuite) TestAddRelationSameControllerSameOwner(c *gc.C) {
 		OfferName:       "hosted-mysql",
 		ApplicationName: "mysql",
 		Endpoints:       map[string]string{"database": "server"},
+		Owner:           s.AdminUserTag(c).Id(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertAddRelationSameControllerSuccess(c, "admin")
@@ -270,6 +301,7 @@ func (s *crossmodelSuite) addOtherModelApplication(c *gc.C) *state.State {
 		OfferName:       "hosted-mysql",
 		ApplicationName: "mysql",
 		Endpoints:       map[string]string{"database": "server"},
+		Owner:           otherOwner.Name(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	return otherModel
@@ -295,4 +327,47 @@ func (s *crossmodelSuite) TestAddRelationSameControllerPermissionAllowed(c *gc.C
 	otherFactory.MakeModelUser(c, &factory.ModelUserParams{User: "admin", Access: permission.WriteAccess})
 
 	s.assertAddRelationSameControllerSuccess(c, "otheruser")
+}
+
+func (s *crossmodelSuite) assertOfferGrant(c *gc.C) {
+	ch := s.AddTestingCharm(c, "riak")
+	s.AddTestingService(c, "riakservice", ch)
+
+	_, err := testing.RunCommand(c, crossmodel.NewOfferCommand(), "riakservice:endpoint", "riak")
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Check the default access levels.
+	offerTag := names.NewApplicationOfferTag("riak")
+	userTag := names.NewUserTag("everyone@external")
+	access, err := s.State.GetOfferAccess(offerTag, userTag)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(access, gc.Equals, permission.ReadAccess)
+	access, err = s.State.GetOfferAccess(offerTag, names.NewUserTag("admin"))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(access, gc.Equals, permission.AdminAccess)
+
+	// Grant consume access.
+	s.Factory.MakeUser(c, &factory.UserParams{Name: "bob"})
+	_, err = testing.RunCommand(c, model.NewGrantCommand(), "bob", "consume", "admin/controller.riak")
+	c.Assert(err, jc.ErrorIsNil)
+	access, err = s.State.GetOfferAccess(offerTag, names.NewUserTag("bob"))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(access, gc.Equals, permission.ConsumeAccess)
+
+}
+
+func (s *crossmodelSuite) TestOfferGrant(c *gc.C) {
+	s.assertOfferGrant(c)
+}
+
+func (s *crossmodelSuite) TestOfferRevoke(c *gc.C) {
+	s.assertOfferGrant(c)
+	offerTag := names.NewApplicationOfferTag("riak")
+
+	// Revoke consume access.
+	_, err := testing.RunCommand(c, model.NewRevokeCommand(), "bob", "consume", "admin/controller.riak")
+	c.Assert(err, jc.ErrorIsNil)
+	access, err := s.State.GetOfferAccess(offerTag, names.NewUserTag("bob"))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(access, gc.Equals, permission.ReadAccess)
 }
