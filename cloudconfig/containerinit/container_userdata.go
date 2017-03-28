@@ -398,12 +398,14 @@ fi
 }
 
 func populateNetworkInterfacesScript() string {
-	s := `import subprocess, re, argparse, os
+	s := `import subprocess, re, argparse, os, time
 from string import Formatter
 INTERFACES_FILE="/etc/network/interfaces"
 IP_LINE = re.compile(r"^\d: (.*?):")
 IP_HWADDR = re.compile(r".*link/ether ((\w{2}|:){11})")
 COMMAND = "ip -oneline link"
+RETRIES = 3
+WAIT = 5
 
 # Python3 vs Python2
 try:
@@ -430,7 +432,7 @@ def ip_parse(ip_output):
     print("Found the following devices: %s" % str(devices))
     return devices
 
-def replace_ethernets(interfaces_file, devices):
+def replace_ethernets(interfaces_file, devices, fail_on_missing):
     """check if the contents of interfaces_file contain template
     keys corresponding to hwaddresses and replace them with
     the proper device name"""
@@ -446,7 +448,12 @@ def replace_ethernets(interfaces_file, devices):
         if devices.get(hwaddr_clean, None):
             device_replacements[hwaddr] = devices[hwaddr_clean]
         else:
-            device_replacements[hwaddr] = hwaddr
+            if fail_on_missing:
+                print("Can't find device with MAC %s, will retry" % hwaddr_clean)
+                return False
+            else:
+                print("WARNING: Can't find device with MAC %s when expected" % hwaddr_clean)
+                device_replacements[hwaddr] = hwaddr
     formatted = interfaces.format(**device_replacements)
     print("Used the values in: %s\nto fix the interfaces file:\n%s\ninto\n%s" %
            (str(device_replacements), str(interfaces), str(formatted)))
@@ -456,15 +463,21 @@ def replace_ethernets(interfaces_file, devices):
 
     os.rename(interfaces_file, interfaces_file + ".bak")
     os.rename(interfaces_file + ".tmp", interfaces_file)
+    return True
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--interfaces_file', dest='intf_file', default=INTERFACES_FILE)
-    parser.add_argument('--command', dest='command',default=COMMAND)
+    parser.add_argument('--interfaces_file', dest = 'intf_file', default = INTERFACES_FILE)
+    parser.add_argument('--command', dest = 'command', default = COMMAND)
+    parser.add_argument('--retries', dest = 'retries', default = RETRIES)
+    parser.add_argument('--wait', dest = 'wait', default = WAIT)
     args = parser.parse_args()
-    ip_output = ip_parse(subprocess.check_output(args.command.split()).splitlines())
-    replace_ethernets(args.intf_file, ip_output)
-
+    for tries in xrange(args.retries):
+        ip_output = ip_parse(subprocess.check_output(args.command.split()).splitlines())
+        if replace_ethernets(args.intf_file, ip_output, (tries != args.retries - 1)):
+             break
+        else:
+             time.sleep(args.wait)
 
 if __name__ == "__main__":
     main()
