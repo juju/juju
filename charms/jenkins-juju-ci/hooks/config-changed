@@ -93,6 +93,7 @@ if [[ ! -f $JENKINS_HOME/.ssh/id_rsa.pub ]]; then
     as_jenkins ln -s $JENKINS_HOME/cloud-city/$KEY.pub $JENKINS_HOME/.ssh/id_rsa.pub
 fi
 chown -R jenkins:jenkins $JENKINS_HOME/.ssh
+as_jenkins ssh-import-id lp:juju-qa-bot || true
 
 status-set maintenance "Updating git" || true
 github_username=$(sed -r '/github_user/!d; s/.*"(.*)"/\1/; s/%20/ /' $JENKINS_HOME/cloud-city/juju-bot.txt)
