@@ -24,9 +24,27 @@ type BaseAPI struct {
 	StatePool            StatePool
 }
 
-// CheckPermission ensures that the logged in user holds the given permission on a model.
-func (api *BaseAPI) CheckPermission(backend Backend, perm permission.Access) error {
-	allowed, err := api.Authorizer.HasPermission(perm, api.Backend.ModelTag())
+// CheckPermission ensures that the logged in user holds the given permission on an entity.
+func (api *BaseAPI) CheckPermission(tag names.Tag, perm permission.Access) error {
+	allowed, err := api.Authorizer.HasPermission(perm, tag)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if !allowed {
+		return common.ErrPerm
+	}
+	return nil
+}
+
+// CheckAdmin ensures that the logged in user is a model or controller admin.
+func (api *BaseAPI) CheckAdmin(backend Backend) error {
+	allowed, err := api.Authorizer.HasPermission(permission.AdminAccess, backend.ModelTag())
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if !allowed {
+		allowed, err = api.Authorizer.HasPermission(permission.SuperuserAccess, backend.ControllerTag())
+	}
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -43,13 +61,13 @@ func (api *BaseAPI) ModelForName(modelName, ownerName string) (Model, bool, erro
 		ownerName = user.Name()
 	}
 	var model Model
-	models, err := api.Backend.ModelsForUser(user)
+	models, err := api.Backend.AllModels()
 	if err != nil {
 		return nil, false, err
 	}
 	for _, m := range models {
-		if m.Model().Name() == modelName && m.Model().Owner().Name() == ownerName {
-			model = m.Model()
+		if m.Name() == modelName && m.Owner().Name() == ownerName {
+			model = m
 			break
 		}
 	}
@@ -59,7 +77,7 @@ func (api *BaseAPI) ModelForName(modelName, ownerName string) (Model, bool, erro
 // ApplicationOffersFromModel gets details about remote applications that match given filters.
 func (api *BaseAPI) ApplicationOffersFromModel(
 	modelUUID string,
-	requiredPerm permission.Access,
+	requireAdmin bool,
 	filters ...jujucrossmodel.ApplicationOfferFilter,
 ) ([]params.ApplicationOfferDetails, error) {
 	backend := api.Backend
@@ -71,7 +89,15 @@ func (api *BaseAPI) ApplicationOffersFromModel(
 		backend = st
 		defer releaser()
 	}
-	if err := api.CheckPermission(backend, requiredPerm); err != nil {
+	// If requireAdmin is true, the user must be a controller superuser
+	// or model admin to proceed.
+	isAdmin := false
+	err := api.CheckAdmin(backend)
+	if err != nil && err != common.ErrPerm {
+		return nil, errors.Trace(err)
+	}
+	isAdmin = err == nil
+	if requireAdmin && !isAdmin {
 		return nil, common.ServerError(err)
 	}
 
@@ -82,6 +108,17 @@ func (api *BaseAPI) ApplicationOffersFromModel(
 
 	var results []params.ApplicationOfferDetails
 	for _, offer := range offers {
+		// If the user is not a model admin, they need at least read
+		// access on an offer to see it.
+		if !isAdmin {
+			permErr := api.CheckPermission(names.NewApplicationOfferTag(offer.OfferName), permission.ReadAccess)
+			if permErr == common.ErrPerm {
+				continue
+			}
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+		}
 		app, err := backend.Application(offer.ApplicationName)
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -174,7 +211,7 @@ func (api *BaseAPI) getModelFilters(filters params.OfferFilters) (
 // GetApplicationOffersDetails gets details about remote applications that match given filter.
 func (api *BaseAPI) GetApplicationOffersDetails(
 	filters params.OfferFilters,
-	requiredPerm permission.Access,
+	requireAdmin bool,
 ) ([]params.ApplicationOfferDetails, error) {
 	// Gather all the filter details for doing a query for each model.
 	models, filtersPerModel, err := api.getModelFilters(filters)
@@ -203,7 +240,7 @@ func (api *BaseAPI) GetApplicationOffersDetails(
 	var result []params.ApplicationOfferDetails
 	for _, modelUUID := range allUUIDs {
 		filters := filtersPerModel[modelUUID]
-		offers, err := api.ApplicationOffersFromModel(modelUUID, requiredPerm, filters...)
+		offers, err := api.ApplicationOffersFromModel(modelUUID, requireAdmin, filters...)
 		if err != nil {
 			return nil, common.ServerError(errors.Trace(err))
 		}

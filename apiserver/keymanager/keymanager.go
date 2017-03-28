@@ -78,7 +78,7 @@ func (api *KeyManagerAPI) checkCanRead(sshUser string) error {
 		return common.ErrPerm
 	}
 	ok, err := common.HasPermission(
-		api.state.UserAccess,
+		api.state.UserPermission,
 		*api.apiUser,
 		permission.ReadAccess,
 		api.state.ModelTag(),
