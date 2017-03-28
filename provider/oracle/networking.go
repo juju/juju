@@ -51,6 +51,9 @@ func (e *oracleEnviron) getIPExchangesAndNetworks() (map[string][]ociResponse.Ip
 		ret[val.Name] = []ociResponse.IpNetwork{}
 	}
 	for _, val := range ipNets.Result {
+		if val.IpNetworkExchange == nil {
+			continue
+		}
 		if _, ok := ret[*val.IpNetworkExchange]; ok {
 			ret[*val.IpNetworkExchange] = append(ret[*val.IpNetworkExchange], val)
 		}
@@ -291,10 +294,17 @@ func (e *oracleEnviron) getSubnetInfo() ([]network.SubnetInfo, error) {
 	subnets := make([]network.SubnetInfo, len(networks.Result))
 	idx := 0
 	for _, val := range networks.Result {
+		var spaceId network.Id
+		if val.IpNetworkExchange != nil {
+			spaceId = network.Id(*val.IpNetworkExchange)
+		}
 		subnets[idx] = network.SubnetInfo{
 			ProviderId:      network.Id(val.Name),
 			CIDR:            val.IpAddressPrefix,
-			SpaceProviderId: network.Id(*val.IpNetworkExchange),
+			SpaceProviderId: spaceId,
+			AvailabilityZones: []string{
+				"default",
+			},
 		}
 		idx++
 	}

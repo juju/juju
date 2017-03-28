@@ -57,6 +57,42 @@ type oracleEnviron struct {
 	namespace instance.Namespace
 }
 
+type oracleAvailabilityZone struct {
+	name string
+}
+
+func (z oracleAvailabilityZone) Name() string {
+	return z.name
+}
+
+func (z oracleAvailabilityZone) Available() bool {
+	// we don't really have availability zones in oracle cloud. We only
+	// have regions
+	return true
+}
+
+// AvailabilityZones returns a slice of availability zones
+// for the configured region.
+func (o *oracleEnviron) AvailabilityZones() ([]common.AvailabilityZone, error) {
+	return []common.AvailabilityZone{
+		oracleAvailabilityZone{
+			name: "default",
+		},
+	}, nil
+}
+
+func (o *oracleEnviron) InstanceAvailabilityZoneNames(ids []instance.Id) ([]string, error) {
+	instances, err := o.Instances(ids)
+	if err != nil && err != environs.ErrPartialInstances {
+		return nil, err
+	}
+	zones := make([]string, len(instances))
+	for idx, _ := range instances {
+		zones[idx] = "default"
+	}
+	return zones, nil
+}
+
 // newOracleEnviron returns a new oracleEnviron
 // composed from a environProvider and args from environs.OpenParams,
 // usually this method is used in Open method calls of the environProvider
