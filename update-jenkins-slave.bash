@@ -15,6 +15,19 @@ update_branch() {
 }
 
 
+update_git_repo() {
+    # Clone or pull a git repo.
+    git_repo=$1
+    local_dir="$(echo $git_repo|sed -r 's/.*\/([^\/]*)\.git/\1/')"
+    local_path="$HOME/$local_dir"
+    if [[ -d $local_path ]]; then
+        (cd $local_path; git pull $git_repo)
+    else
+        git clone $git_repo $local_path
+    fi
+}
+
+
 get_os() {
     # Get the to OS name: ubuntu, darwin, linux, unknown.
     local_uname=$(uname -a)
@@ -37,11 +50,15 @@ get_os() {
 bzr --no-aliases launchpad-login juju-qa-bot
 
 echo "Updating branches"
+OS=$(get_os)
 update_branch lp:workspace-runner
 update_branch lp:juju-release-tools
 update_branch lp:juju-ci-tools
 update_branch lp:juju-ci-tools/repository
 update_branch lp:~juju-qa/+junk/cloud-city
+if [[ $OS == "ubuntu" ]]; then
+    update_git_repo git@github.com:juju/hammer-time.git
+fi
 
 echo "Updating permissions"
 sudo chown -R jenkins $HOME/cloud-city
@@ -50,10 +67,10 @@ chmod 700 $HOME/cloud-city/gnupg
 chmod 600 $HOME/cloud-city/staging-juju-rsa
 
 echo "Updating dependencies from branches"
-OS=$(get_os)
 if [[ $OS == "ubuntu" ]]; then
     make -C $HOME/juju-ci-tools install-deps
     make -C $HOME/workspace-runner install
+    make -C $HOME/hammer-time develop
 elif [[ $OS == "darwin" ]]; then
     $HOME/juju-ci-tools/pipdeps.py install
 fi
