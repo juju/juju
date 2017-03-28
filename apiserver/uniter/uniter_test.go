@@ -2276,6 +2276,101 @@ func (s *uniterSuite) TestSLALevel(c *gc.C) {
 	c.Assert(result, jc.DeepEquals, params.StringResult{Result: "essential"})
 }
 
+func (s *uniterSuite) TestPrivateAddressWithRemoteRelation(c *gc.C) {
+	s.makeRemoteWordpress(c)
+	thisUniter := s.makeMysqlUniter(c)
+
+	// Set mysql's addresses first.
+	err := s.machine1.SetProviderAddresses(
+		network.NewScopedAddress("1.2.3.4", network.ScopeCloudLocal),
+		network.NewScopedAddress("4.3.2.1", network.ScopePublic),
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	eps, err := s.State.InferEndpoints("mysql", "remote-wordpress")
+	c.Assert(err, jc.ErrorIsNil)
+	rel, err := s.State.AddRelation(eps...)
+	c.Assert(err, jc.ErrorIsNil)
+
+	relUnit, err := rel.Unit(s.mysqlUnit)
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertInScope(c, relUnit, false)
+	args := params.RelationUnits{RelationUnits: []params.RelationUnit{
+		{Relation: rel.Tag().String(), Unit: "unit-mysql-0"},
+	}}
+	result, err := thisUniter.EnterScope(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{{Error: nil}},
+	})
+
+	// Verify the scope changes and settings.
+	s.assertInScope(c, relUnit, true)
+	readSettings, err := relUnit.ReadSettings(s.mysqlUnit.Name())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(readSettings, gc.DeepEquals, map[string]interface{}{
+		"private-address": "4.3.2.1",
+	})
+}
+
+// Disabling until I've added the provider-hook to do this.
+// func (s *uniterSuite) TestPrivateAddressWithRemoteRelationNoPublic(c *gc.C) {
+// 	s.makeRemoteWordpress(c)
+// 	thisUniter := s.makeMysqlUniter(c)
+
+// 	// Set mysql's addresses first - no public address.
+// 	err := s.machine1.SetProviderAddresses(
+// 		network.NewScopedAddress("1.2.3.4", network.ScopeCloudLocal),
+// 	)
+// 	c.Assert(err, jc.ErrorIsNil)
+
+// 	eps, err := s.State.InferEndpoints("mysql", "remote-wordpress")
+// 	c.Assert(err, jc.ErrorIsNil)
+// 	rel, err := s.State.AddRelation(eps...)
+// 	c.Assert(err, jc.ErrorIsNil)
+
+// 	relUnit, err := rel.Unit(s.mysqlUnit)
+// 	c.Assert(err, jc.ErrorIsNil)
+// 	s.assertInScope(c, relUnit, false)
+// 	args := params.RelationUnits{RelationUnits: []params.RelationUnit{
+// 		{Relation: rel.Tag().String(), Unit: "unit-mysql-0"},
+// 	}}
+// 	result, err := thisUniter.EnterScope(args)
+// 	c.Assert(err, jc.ErrorIsNil)
+// 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+// 		Results: []params.ErrorResult{{
+// 			Error: &params.Error{
+// 				Message: fmt.Sprintf("no public address for unit mysql/0 in cross-model relation %s", rel),
+// 			},
+// 		}},
+// 	})
+// }
+
+func (s *uniterSuite) makeMysqlUniter(c *gc.C) *uniter.UniterAPIV3 {
+	authorizer := s.authorizer
+	authorizer.Tag = s.mysqlUnit.Tag()
+	result, err := uniter.NewUniterAPI(s.State, s.resources, authorizer)
+	c.Assert(err, jc.ErrorIsNil)
+	return result
+}
+
+func (s *uniterSuite) makeRemoteWordpress(c *gc.C) {
+	_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name:            "remote-wordpress",
+		SourceModel:     names.NewModelTag("source-model"),
+		IsConsumerProxy: true,
+		OfferName:       "chapo",
+		Endpoints: []charm.Relation{{
+			Interface: "mysql",
+			Limit:     1,
+			Name:      "db",
+			Role:      charm.RoleRequirer,
+			Scope:     charm.ScopeGlobal,
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 type unitMetricBatchesSuite struct {
 	uniterSuite
 	*commontesting.ModelWatcherTest
