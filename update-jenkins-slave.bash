@@ -70,7 +70,9 @@ echo "Updating dependencies from branches"
 if [[ $OS == "ubuntu" ]]; then
     make -C $HOME/juju-ci-tools install-deps
     make -C $HOME/workspace-runner install
-    make -C $HOME/hammer-time develop
+    if ! (lsb_release -c|grep trusty); then
+        make -C $HOME/hammer-time develop
+    fi
 elif [[ $OS == "darwin" ]]; then
     $HOME/juju-ci-tools/pipdeps.py install
 fi
