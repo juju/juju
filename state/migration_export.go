@@ -915,11 +915,12 @@ func (e *exporter) subnets() error {
 
 	for _, subnet := range subnets {
 		e.model.AddSubnet(description.SubnetArgs{
-			CIDR:             subnet.CIDR(),
-			ProviderId:       string(subnet.ProviderId()),
-			VLANTag:          subnet.VLANTag(),
-			AvailabilityZone: subnet.AvailabilityZone(),
-			SpaceName:        subnet.SpaceName(),
+			CIDR:              subnet.CIDR(),
+			ProviderId:        string(subnet.ProviderId()),
+			ProviderNetworkId: string(subnet.ProviderNetworkId()),
+			VLANTag:           subnet.VLANTag(),
+			AvailabilityZone:  subnet.AvailabilityZone(),
+			SpaceName:         subnet.SpaceName(),
 		})
 	}
 	return nil

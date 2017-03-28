@@ -158,6 +158,7 @@ func NewModelHookContext(
 		assignedMachineTag: machineTag,
 		availabilityzone:   availZone,
 		slaLevel:           slaLevel,
+		principal:          unitName,
 	}
 }
 

@@ -1171,11 +1171,12 @@ func (i *importer) subnets() error {
 	i.logger.Debugf("importing subnets")
 	for _, subnet := range i.model.Subnets() {
 		err := i.addSubnet(SubnetInfo{
-			CIDR:             subnet.CIDR(),
-			ProviderId:       network.Id(subnet.ProviderId()),
-			VLANTag:          subnet.VLANTag(),
-			AvailabilityZone: subnet.AvailabilityZone(),
-			SpaceName:        subnet.SpaceName(),
+			CIDR:              subnet.CIDR(),
+			ProviderId:        network.Id(subnet.ProviderId()),
+			ProviderNetworkId: network.Id(subnet.ProviderNetworkId()),
+			VLANTag:           subnet.VLANTag(),
+			AvailabilityZone:  subnet.AvailabilityZone(),
+			SpaceName:         subnet.SpaceName(),
 		})
 		if err != nil {
 			return errors.Trace(err)

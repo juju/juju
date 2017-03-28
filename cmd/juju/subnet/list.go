@@ -116,8 +116,9 @@ func (c *listCommand) Run(ctx *cmd.Context) error {
 		}
 		for _, sub := range subnets {
 			subResult := formattedSubnet{
-				ProviderId: sub.ProviderId,
-				Zones:      sub.Zones,
+				ProviderId:        sub.ProviderId,
+				ProviderNetworkId: sub.ProviderNetworkId,
+				Zones:             sub.Zones,
 			}
 
 			// Use the CIDR to determine the subnet type.
@@ -165,9 +166,10 @@ type formattedList struct {
 }
 
 type formattedSubnet struct {
-	Type       string   `json:"type" yaml:"type"`
-	ProviderId string   `json:"provider-id,omitempty" yaml:"provider-id,omitempty"`
-	Status     string   `json:"status,omitempty" yaml:"status,omitempty"`
-	Space      string   `json:"space" yaml:"space"`
-	Zones      []string `json:"zones" yaml:"zones"`
+	Type              string   `json:"type" yaml:"type"`
+	ProviderId        string   `json:"provider-id,omitempty" yaml:"provider-id,omitempty"`
+	ProviderNetworkId string   `json:"provider-network-id,omitempty" yaml:"provider-network-id,omitempty"`
+	Status            string   `json:"status,omitempty" yaml:"status,omitempty"`
+	Space             string   `json:"space" yaml:"space"`
+	Zones             []string `json:"zones" yaml:"zones"`
 }

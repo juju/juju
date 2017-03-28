@@ -123,6 +123,7 @@ subnets:
   2001:db8::/32:
     type: ipv6
     provider-id: subnet-bar
+    provider-network-id: network-yay
     status: terminating
     space: dmz
     zones:
@@ -145,6 +146,7 @@ subnets:
 		`"2001:db8::/32":{` +
 		`"type":"ipv6",` +
 		`"provider-id":"subnet-bar",` +
+		`"provider-network-id":"network-yay",` +
 		`"status":"terminating",` +
 		`"space":"dmz",` +
 		`"zones":["zone2"]}}}

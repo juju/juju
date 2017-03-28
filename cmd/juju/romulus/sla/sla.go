@@ -17,6 +17,7 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/modelconfig"
+	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
@@ -115,6 +116,10 @@ func (c *supportCommand) requestSupportCredentials(modelUUID string) ([]byte, er
 	}
 	m, err := authClient.Authorize(modelUUID, c.Level, c.Budget)
 	if err != nil {
+		err = common.MaybeTermsAgreementError(err)
+		if termErr, ok := errors.Cause(err).(*common.TermsRequiredError); ok {
+			return nil, errors.Trace(termErr.UserErr())
+		}
 		return nil, errors.Trace(err)
 	}
 	ms := macaroon.Slice{m}

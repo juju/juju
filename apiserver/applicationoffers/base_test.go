@@ -5,6 +5,7 @@ package applicationoffers_test
 
 import (
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
@@ -13,6 +14,7 @@ import (
 	"github.com/juju/juju/apiserver/common/crossmodelcommon"
 	"github.com/juju/juju/apiserver/testing"
 	jujucrossmodel "github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/permission"
 )
 
 const (
@@ -36,7 +38,12 @@ func (s *baseSuite) SetUpTest(c *gc.C) {
 		AdminTag: names.NewUserTag("admin"),
 	}
 
-	s.mockState = &mockState{modelUUID: "uuid"}
+	s.mockState = &mockState{
+		modelUUID:         "uuid",
+		users:             set.NewStrings(),
+		applicationOffers: make(map[string]jujucrossmodel.ApplicationOffer),
+		accessPerms:       make(map[offerAccess]permission.Access),
+	}
 	s.mockStatePool = &mockStatePool{map[string]crossmodelcommon.Backend{s.mockState.modelUUID: s.mockState}}
 }
 

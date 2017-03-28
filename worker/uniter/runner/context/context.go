@@ -106,6 +106,9 @@ type HookContext struct {
 	// LeadershipContext supplies several jujuc.Context methods.
 	LeadershipContext
 
+	// principal is the unitName of the principal charm.
+	principal string
+
 	// privateAddress is the cached value of the unit's private
 	// address.
 	privateAddress string
@@ -584,6 +587,7 @@ func (context *HookContext) HookVars(paths Paths) ([]string, error) {
 		"JUJU_METER_INFO="+context.meterStatus.info,
 		"JUJU_SLA="+context.slaLevel,
 		"JUJU_MACHINE_ID="+context.assignedMachineTag.Id(),
+		"JUJU_PRINCIPAL_UNIT="+context.principal,
 		"JUJU_AVAILABILITY_ZONE="+context.availabilityzone,
 	)
 	if r, err := context.HookRelation(); err == nil {

@@ -5,12 +5,17 @@ package applicationoffers
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/permission"
 )
+
+var logger = loggo.GetLogger("juju.api.applicationoffers")
 
 // Client allows access to the cross model management API end points.
 type Client struct {
@@ -96,4 +101,53 @@ func convertListResultsToModel(items []params.ApplicationOfferDetails) []crossmo
 		}
 	}
 	return result
+}
+
+// GrantOffer grants a user access to the specified offers.
+func (c *Client) GrantOffer(user, access string, offers ...string) error {
+	return c.modifyOfferUser(params.GrantOfferAccess, user, access, offers)
+}
+
+// RevokeOffer revokes a user's access to the specified offers.
+func (c *Client) RevokeOffer(user, access string, offers ...string) error {
+	return c.modifyOfferUser(params.RevokeOfferAccess, user, access, offers)
+}
+
+func (c *Client) modifyOfferUser(action params.OfferAction, user, access string, offers []string) error {
+	var args params.ModifyOfferAccessRequest
+
+	if !names.IsValidUser(user) {
+		return errors.Errorf("invalid username: %q", user)
+	}
+	userTag := names.NewUserTag(user)
+
+	offerAccess := permission.Access(access)
+	if err := permission.ValidateOfferAccess(offerAccess); err != nil {
+		return errors.Trace(err)
+	}
+	for _, offer := range offers {
+		args.Changes = append(args.Changes, params.ModifyOfferAccess{
+			UserTag:  userTag.String(),
+			Action:   action,
+			Access:   params.OfferAccessPermission(offerAccess),
+			OfferTag: names.NewApplicationOfferTag(offer).String(),
+		})
+	}
+
+	var result params.ErrorResults
+	err := c.facade.FacadeCall("ModifyOfferAccess", args, &result)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if len(result.Results) != len(args.Changes) {
+		return errors.Errorf("expected %d results, got %d", len(args.Changes), len(result.Results))
+	}
+
+	for i, r := range result.Results {
+		if r.Error != nil && r.Error.Code == params.CodeAlreadyExists {
+			logger.Warningf("offer %q is already shared with %q", offers[i], userTag.Id())
+			result.Results[i].Error = nil
+		}
+	}
+	return result.Combine()
 }

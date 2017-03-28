@@ -381,3 +381,35 @@ type IngressSubnetResult struct {
 type IngressSubnetResults struct {
 	Results []IngressSubnetResult `json:"results"`
 }
+
+// ModifyModelAccessRequest holds the parameters for making grant and revoke offer calls.
+type ModifyOfferAccessRequest struct {
+	Changes []ModifyOfferAccess `json:"changes"`
+}
+
+// ModifyOfferAccess contains parameters to grant and revoke access to an offer.
+type ModifyOfferAccess struct {
+	UserTag  string                `json:"user-tag"`
+	Action   OfferAction           `json:"action"`
+	Access   OfferAccessPermission `json:"access"`
+	OfferTag string                `json:"offer-tag"`
+}
+
+// OfferAction is an action that can be performed on an offer.
+type OfferAction string
+
+// Actions that can be preformed on an offer.
+const (
+	GrantOfferAccess  OfferAction = "grant"
+	RevokeOfferAccess OfferAction = "revoke"
+)
+
+// OfferAccessPermission defines a type for an access permission on an offer.
+type OfferAccessPermission string
+
+// Access permissions that may be set on an offer.
+const (
+	OfferAdminAccess   OfferAccessPermission = "admin"
+	OfferConsumeAccess OfferAccessPermission = "consume"
+	OfferReadAccess    OfferAccessPermission = "read"
+)

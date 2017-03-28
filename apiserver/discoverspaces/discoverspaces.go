@@ -131,6 +131,7 @@ func (api *API) AddSubnets(args params.AddSubnetsParams) (params.ErrorResults, e
 		}
 		_, err = api.st.AddSubnet(networkingcommon.BackingSubnetInfo{
 			ProviderId:        network.Id(arg.SubnetProviderId),
+			ProviderNetworkId: network.Id(arg.ProviderNetworkId),
 			CIDR:              subnetTag.Id(),
 			VLANTag:           arg.VLANTag,
 			AvailabilityZones: arg.Zones,

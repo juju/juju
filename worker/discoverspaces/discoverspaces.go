@@ -331,11 +331,12 @@ func collectMissingSubnets(
 			zones = []string{"default"}
 		}
 		addArgs.Subnets = append(addArgs.Subnets, params.AddSubnetParams{
-			SubnetProviderId: string(subnet.ProviderId),
-			SubnetTag:        names.NewSubnetTag(subnet.CIDR).String(),
-			SpaceTag:         spaceTag,
-			VLANTag:          subnet.VLANTag,
-			Zones:            zones,
+			SubnetProviderId:  string(subnet.ProviderId),
+			ProviderNetworkId: string(subnet.ProviderNetworkId),
+			SubnetTag:         names.NewSubnetTag(subnet.CIDR).String(),
+			SpaceTag:          spaceTag,
+			VLANTag:           subnet.VLANTag,
+			Zones:             zones,
 		})
 	}
 }

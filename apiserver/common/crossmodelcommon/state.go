@@ -9,6 +9,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 )
 
@@ -37,12 +38,19 @@ func (pool statePoolShim) Get(modelUUID string) (Backend, func(), error) {
 
 // Backend provides selected methods off the state.State struct.
 type Backend interface {
+	ControllerTag() names.ControllerTag
 	Application(name string) (Application, error)
+	ApplicationOffer(name string) (*crossmodel.ApplicationOffer, error)
 	Model() (Model, error)
 	ModelUUID() string
 	ModelTag() names.ModelTag
 	ModelsForUser(user names.UserTag) ([]UserModel, error)
 	RemoteConnectionStatus(offerName string) (RemoteConnectionStatus, error)
+
+	GetOfferAccess(offer names.ApplicationOfferTag, user names.UserTag) (permission.Access, error)
+	CreateOfferAccess(offer names.ApplicationOfferTag, user names.UserTag, access permission.Access) error
+	UpdateOfferAccess(offer names.ApplicationOfferTag, user names.UserTag, access permission.Access) error
+	RemoveOfferAccess(offer names.ApplicationOfferTag, user names.UserTag) error
 }
 
 var GetStateAccess = func(st *state.State) Backend {
@@ -61,6 +69,11 @@ func (s *stateShim) Model() (Model, error) {
 func (s *stateShim) Application(name string) (Application, error) {
 	app, err := s.State.Application(name)
 	return &applicationShim{app}, err
+}
+
+func (s *stateShim) ApplicationOffer(name string) (*crossmodel.ApplicationOffer, error) {
+	offers := state.NewApplicationOffers(s.State)
+	return offers.ApplicationOffer(name)
 }
 
 func (s *stateShim) ModelsForUser(user names.UserTag) ([]UserModel, error) {
