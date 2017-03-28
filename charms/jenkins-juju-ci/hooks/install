@@ -34,7 +34,7 @@ if [[ -n $(df -h | grep /mnt | tr -s ' ' |  cut -d ' ' -f 4 | grep G) ]]; then
         mv /var/lib/lxc /var/lib/lxc.old
         ln -s /mnt/lxc /var/lib/lxc
     fi
-    if [[ ! -d /mnt/lxc && -d /var/lib/lxd ]]; then
+    if [[ ! -d /mnt/lxd && -d /var/lib/lxd ]]; then
         cp -rp /var/lib/lxd /mnt
         mv /var/lib/lxd /var/lib/lxd.old
         ln -s /mnt/lxd /var/lib/lxd
