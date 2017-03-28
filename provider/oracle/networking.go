@@ -31,11 +31,16 @@ iface %s inet dhcp
 `
 
 const (
-	defaultNicName      = "eth0"
-	nicPrefix           = "eth"
+	// defaultNicName is the default network internet card name inside a vm
+	defaultNicName = "eth0"
+	// nicPrefix si the default network internet card prefix name inside a vm
+	nicPrefix = "eth"
+	// interfacesConfigDir default path of interfaces.d directory
 	interfacesConfigDir = `/etc/network/interfaces.d`
 )
 
+// getIPExchangeAndNetworks return all ip networks that are tied with
+// the ip exchange networks
 func (e *oracleEnviron) getIPExchangesAndNetworks() (map[string][]ociResponse.IpNetwork, error) {
 	logger.Infof("Getting ip exchanges and networks")
 	ret := map[string][]ociResponse.IpNetwork{}
@@ -119,6 +124,7 @@ func (e *oracleEnviron) Subnets(inst instance.Id, subnetIds []network.Id) ([]net
 	return ret, nil
 }
 
+// return all network cards attributes from a oracle instance
 func (e *oracleEnviron) getNicAttributes(instance ociResponse.Instance) map[string]ociResponse.Network {
 	if instance.Attributes.Network == nil {
 		return map[string]ociResponse.Network{}
@@ -131,6 +137,8 @@ func (e *oracleEnviron) getNicAttributes(instance ociResponse.Instance) map[stri
 	return ret
 }
 
+// DeleteMachineVnicSet will delete the machine virtual nic and all acl
+// rules that are bound with it
 func (o *oracleEnviron) DeleteMachineVnicSet(machineId string) error {
 	if err := o.firewall.removeACLAndRules(machineId); err != nil {
 		return errors.Trace(err)
@@ -311,6 +319,7 @@ func (e *oracleEnviron) getSubnetInfo() ([]network.SubnetInfo, error) {
 	return subnets, nil
 }
 
+// getSubnetInfoAsMap will return the subnet information as a map of subnets
 func (e *oracleEnviron) getSubnetInfoAsMap() (map[string]network.SubnetInfo, error) {
 	subnets, err := e.getSubnetInfo()
 	if err != nil {

@@ -11,8 +11,15 @@ import (
 	"github.com/juju/juju/cloudconfig/providerinit/renderers"
 )
 
+// OracleRenderer defines a method to encode userdata depending on the
+// OS provided if the oracle provider supports it.
+// This type implements the renderers.ProviderRenderer
 type OracleRenderer struct{}
 
+// Renderer takes a config and os type and returns the correct
+// cloud-config YAML. This shall be called from the
+// providerinit.ComposeUserdata when passed
+// This currently only supports the Ubuntu os type
 func (OracleRenderer) Render(cfg cloudinit.CloudConfig, os jujuos.OSType) ([]byte, error) {
 	switch os {
 	case jujuos.Ubuntu:

@@ -224,7 +224,8 @@ func (o *oracleInstance) delete(cleanup bool) error {
 	return nil
 }
 
-// deletePublicIps from the instance
+// deletePublicIps deletes public ips, this means that this will
+// delete all ip reservations that has any ip association
 func (o *oracleInstance) deletePublicIps() error {
 	ipAssoc, err := o.publicAddresses()
 	if err != nil {
@@ -243,6 +244,7 @@ func (o *oracleInstance) deletePublicIps() error {
 	return nil
 }
 
+// unusedPublicIps retruns a slice of IpReservation that are currently not used
 func (o *oracleInstance) unusedPublicIps() ([]ociResponse.IpReservation, error) {
 	filter := []oci.Filter{
 		oci.Filter{
@@ -274,9 +276,15 @@ func (o *oracleInstance) associatePublicIP() error {
 	// for every unused public ip
 	for _, val := range unusedIps {
 		// alloc a new ip pool for it
-		assocPoolName := ociCommon.NewIPPool(ociCommon.IPPool(val.Name), ociCommon.IPReservationType)
+		assocPoolName := ociCommon.NewIPPool(
+			ociCommon.IPPool(val.Name),
+			ociCommon.IPReservationType,
+		)
 		// create the association for it
-		if _, err := o.env.client.CreateIpAssociation(assocPoolName, o.machine.Vcable_id); err != nil {
+		if _, err := o.env.client.CreateIpAssociation(
+			assocPoolName,
+			o.machine.Vcable_id,
+		); err != nil {
 			if oci.IsBadRequest(err) {
 				// the IP probably got allocated after we fetched it
 				// from the API. Move on to the next one.
@@ -297,8 +305,14 @@ func (o *oracleInstance) associatePublicIP() error {
 		return err
 	}
 	// alloc a new ip pool fo it
-	assocPoolName := ociCommon.NewIPPool(ociCommon.IPPool(reservation.Name), ociCommon.IPReservationType)
-	if _, err := o.env.client.CreateIpAssociation(assocPoolName, o.machine.Vcable_id); err != nil {
+	assocPoolName := ociCommon.NewIPPool(
+		ociCommon.IPPool(reservation.Name),
+		ociCommon.IPReservationType,
+	)
+	if _, err := o.env.client.CreateIpAssociation(
+		assocPoolName,
+		o.machine.Vcable_id,
+	); err != nil {
 		return err
 	}
 
@@ -306,7 +320,8 @@ func (o *oracleInstance) associatePublicIP() error {
 }
 
 // dissasociatePublicIps returns an errors if the public ip cannot be removed
-// if remove is true then it will delete all ip reservation along side with the public one
+// if remove is true then it will delete all ip reservation
+// along side with the public one
 func (o *oracleInstance) disassociatePublicIps(remove bool) error {
 	// get all public ips in from the cloud
 	publicIps, err := o.publicAddresses()
@@ -391,7 +406,8 @@ func (o *oracleInstance) Addresses() ([]network.Address, error) {
 func (o *oracleInstance) OpenPorts(machineId string, rules []network.IngressRule) error {
 
 	if o.env.Config().FirewallMode() != config.FwInstance {
-		return errors.Errorf("invalid firewall mode %q for opening ports on instance",
+		return errors.Errorf(
+			"invalid firewall mode %q for opening ports on instance",
 			o.env.Config().FirewallMode(),
 		)
 	}
@@ -404,7 +420,8 @@ func (o *oracleInstance) OpenPorts(machineId string, rules []network.IngressRule
 func (o *oracleInstance) ClosePorts(machineId string, rules []network.IngressRule) error {
 
 	if o.env.Config().FirewallMode() != config.FwInstance {
-		return errors.Errorf("invalid firewall mode %q for closing ports on instance",
+		return errors.Errorf(
+			"invalid firewall mode %q for closing ports on instance",
 			o.env.Config().FirewallMode(),
 		)
 	}

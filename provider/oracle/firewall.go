@@ -21,6 +21,8 @@ import (
 	"github.com/juju/utils"
 )
 
+// NewFirewall returns a new firewall that can do network operation
+// such as closing and opening ports inside the oracle cloud environmnet
 func NewFirewall(env *oracleEnviron, client *oci.Client) *Firewall {
 	return &Firewall{
 		environ: env,
@@ -28,17 +30,26 @@ func NewFirewall(env *oracleEnviron, client *oci.Client) *Firewall {
 	}
 }
 
+// Firewall sed for managing network ports, make network
+// operation inside oracle cloud environment
 type Firewall struct {
+	// environ is the current oracle cloud environment
+	// this will use to acces the underlying config
 	environ *oracleEnviron
-	client  *oci.Client
+	// client is used to make operations on the oracle provider
+	client *oci.Client
 }
 
+// getAllApplications returns all security applications that are mapped
+// so the firewall can use security rules. In the oracle cloud
+// envirnoment applications are alis term for protocols
 func (f *Firewall) getAllApplications() ([]ociResponse.SecApplication, error) {
-	//user defined applications
+	// get all defined protocols from the current identity endpoint
 	applications, err := f.client.AllSecApplications(nil)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	// get also default ones defined in the oracle cloud environment
 	defaultApps, err := f.client.DefaultSecApplications(nil)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -46,13 +57,16 @@ func (f *Firewall) getAllApplications() ([]ociResponse.SecApplication, error) {
 	allApps := []ociResponse.SecApplication{}
 	for _, val := range applications.Result {
 		if val.PortProtocolPair() == "" {
-			// this should not really happen, but I get paranoid when I run out of coffee
+			// (gsamfira):this should not really happen,
+			// but I get paranoid when I run out of coffee
 			continue
 		}
 		allApps = append(allApps, val)
 	}
 	for _, val := range defaultApps.Result {
 		if val.PortProtocolPair() == "" {
+			// (gsamfira)this should not really happen, but
+			// I get paranoid when I run out of coffe
 			continue
 		}
 		allApps = append(allApps, val)
@@ -60,11 +74,18 @@ func (f *Firewall) getAllApplications() ([]ociResponse.SecApplication, error) {
 	return allApps, nil
 }
 
+// getAllApplicationsAsMap returns all security applications that
+// are mapped so the firewaller cause security rules.
+// Bassically just like applications method but it's composing the return
+// as a map rathar than a slice
 func (f *Firewall) getAllApplicationsAsMap() (map[string]ociResponse.SecApplication, error) {
+	// get all defined protocols
+	// from the current identity and default ones
 	apps, err := f.getAllApplications()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	// copy all of them into this map
 	allApps := map[string]ociResponse.SecApplication{}
 	for _, val := range apps {
 		if val.String() == "" {
@@ -77,22 +98,30 @@ func (f *Firewall) getAllApplicationsAsMap() (map[string]ociResponse.SecApplicat
 	return allApps, nil
 }
 
+// globalGroupName returns the global group name
+// based from the juju environ config uuid
 func (f *Firewall) globalGroupName() string {
 	return fmt.Sprintf("juju-%s-global", f.environ.Config().UUID())
 }
 
+// machineGroupName returns the machine group name
+// based from the juju environ config uuid
 func (f *Firewall) machineGroupName(machineId string) string {
 	return fmt.Sprintf("juju-%s-%s", f.environ.Config().UUID(), machineId)
 }
 
+// resourceName returns the resource name
+// based from the juju environ config uuid
 func (f *Firewall) newResourceName(appName string) string {
 	return fmt.Sprintf("juju-%s-%s", f.environ.Config().UUID(), appName)
 }
 
 // getSecRules retrieves the security rules for a particular security list
 func (f *Firewall) getSecRules(seclist string) ([]ociResponse.SecRule, error) {
-	// We only care about ingress rules
+	// we only care about ingress rules
 	name := fmt.Sprintf("seclist:%s", seclist)
+	// get all secure rules from the current oracle cloud identity
+	// and filter through them based on dst_list=name
 	rulesFilter := []oci.Filter{
 		oci.Filter{
 			Arg:   "dst_list",
@@ -129,12 +158,15 @@ func (f *Firewall) getSecRules(seclist string) ([]ociResponse.SecRule, error) {
 	return ret, nil
 }
 
+// getAllIPLists returns all sets of ip addresses or subnets external to the
+// instnaces that are created in the oracle cloud environment
 func (f *Firewall) getAllIPLists() ([]ociResponse.SecIpList, error) {
-	//user defined IP lists
+	// get all security ip lists from the current identity endpoint
 	secIpLists, err := f.client.AllSecIpLists(nil)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	// get all security ip lists from the default oracle cloud definitions
 	defaultSecIpLists, err := f.client.AllDefaultSecIpLists(nil)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -150,6 +182,10 @@ func (f *Firewall) getAllIPLists() ([]ociResponse.SecIpList, error) {
 	return allIpLists, nil
 }
 
+// getAllIPListsAsMap returns all sets of ip addresses or subnets external to the
+// instances that are created inside in the oracle cloud.
+// This is exactly like ipLists func but rathar than returning a slice,
+// we return a map of these.
 func (f *Firewall) getAllIPListsAsMap() (map[string]ociResponse.SecIpList, error) {
 	allIps, err := f.getAllIPLists()
 	if err != nil {
@@ -183,7 +219,14 @@ func (f *Firewall) ensureMachineACLs(name string, tags []string) (ociResponse.Ac
 	return ociResponse.Acl{}, nil
 }
 
+// ensureApplication takes a network.PortRange and a ptr to a slice of
+// response.SecApplication aka protocols, in the oracle cloud environment
+// After the creation of the security rule on those ports  the result will
+// be appended into the SecApplication slice passed
+// If the call is successful it will return the newly created security
+// appplication name and nil
 func (f *Firewall) ensureApplication(portRange network.PortRange, cache *[]ociResponse.SecApplication) (string, error) {
+	// we should check if the security application is already created
 	for _, val := range *cache {
 		if val.PortProtocolPair() == portRange.String() {
 			return val.Name, nil
@@ -201,6 +244,7 @@ func (f *Firewall) ensureApplication(portRange network.PortRange, cache *[]ociRe
 	if err != nil {
 		return "", errors.Trace(err)
 	}
+	// make a the resource secure application name
 	secAppName := f.newResourceName(uuid.String())
 	var dport string
 	if portRange.FromPort == portRange.ToPort {
@@ -209,6 +253,8 @@ func (f *Firewall) ensureApplication(portRange network.PortRange, cache *[]ociRe
 		dport = fmt.Sprintf("%s-%s",
 			strconv.Itoa(portRange.FromPort), strconv.Itoa(portRange.ToPort))
 	}
+	// create a new security application specifying
+	// what port range the app should be allowd to use
 	name := f.client.ComposeName(secAppName)
 	secAppParams := oci.SecApplicationParams{
 		Description: "Juju created security application",
@@ -224,8 +270,11 @@ func (f *Firewall) ensureApplication(portRange network.PortRange, cache *[]ociRe
 	return application.Name, nil
 }
 
+// ensureSecList takes a name and creates a new security list with that name
+// if the name is already there then it will return it or the newly created one
 func (f *Firewall) ensureSecList(name string) (ociResponse.SecList, error) {
 	logger.Infof("Fetching details for list: %s", name)
+	// check if the security list is already there
 	details, err := f.client.SecListDetails(name)
 	if err != nil {
 		logger.Infof("Got error fetching details for %s: %v", name, err)
@@ -246,6 +295,11 @@ func (f *Firewall) ensureSecList(name string) (ociResponse.SecList, error) {
 	return details, nil
 }
 
+// ensureSecIpList takes cidrs and a ptr to a slice of
+// response.SecIpList. After the creation of the security
+// list with cidr the result will be appended into the SecIpList slice
+// If the call is successful it will return the newly created security
+// list name and nil
 func (f *Firewall) ensureSecIpList(cidr []string, cache *[]ociResponse.SecIpList) (string, error) {
 	sort.Strings(cidr)
 	for _, val := range *cache {
@@ -270,12 +324,18 @@ func (f *Firewall) ensureSecIpList(cidr []string, cache *[]ociResponse.SecIpList
 	return secList.Name, nil
 }
 
+// ensureSecRules ensures that the list passed has all the rules
+// that it needs, if one is missing it will create it inside the oracle
+// cloud environment and it will return nil
+// if none rule is missing then it will return nil
 func (f *Firewall) ensureSecRules(seclist ociResponse.SecList, rules []network.IngressRule) error {
+	// get all secuity rules that contains the seclist.Name
 	secRules, err := f.getSecRules(seclist.Name)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	logger.Tracef("list %v has sec rules: %v", seclist.Name, secRules)
+	// convert the secRules into map[string][]network.INgressRule
 	converted, err := f.convertFromSecRules(secRules...)
 	if err != nil {
 		return errors.Trace(err)
@@ -283,6 +343,7 @@ func (f *Firewall) ensureSecRules(seclist ociResponse.SecList, rules []network.I
 	logger.Tracef("converted rules are: %v", converted)
 	asIngressRules := converted[seclist.Name]
 	missing := []network.IngressRule{}
+	// search through all rules and find the missing ones
 	for _, toAdd := range rules {
 		found := false
 		for _, exists := range asIngressRules {
@@ -297,17 +358,20 @@ func (f *Firewall) ensureSecRules(seclist ociResponse.SecList, rules []network.I
 		if found {
 			continue
 		}
-		missing = append(missing, toAdd)
+		missing = append(missing, toAdd) // append the missing rule
 	}
 	if len(missing) == 0 {
 		return nil
 	}
 	logger.Tracef("Found missing rules: %v", missing)
+	// convert the missing rules to sec rules back
 	asSecRule, err := f.convertToSecRules(seclist, missing)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
+	// for all sec rules that are missing
+	// create one by one
 	for _, val := range asSecRule {
 		_, err = f.client.CreateSecRule(val)
 		if err != nil {
@@ -317,17 +381,25 @@ func (f *Firewall) ensureSecRules(seclist ociResponse.SecList, rules []network.I
 	return nil
 }
 
+// convertToSecRules this will take a security
+// list and a slice of network.IngressRule and it will create
+// parameeters in order to call the security rule creation resource
 func (f *Firewall) convertToSecRules(seclist ociResponse.SecList, rules []network.IngressRule) ([]oci.SecRuleParams, error) {
+	// get all applications and default ones
 	applications, err := f.getAllApplications()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	// get all ip lists
 	iplists, err := f.getAllIPLists()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	ret := make([]oci.SecRuleParams, 0, len(rules))
+	// for every rule we need to ensure that the there is a relationship
+	// between security applications and security ip lists
+	// and from every one of them create a slice of security rule params
 	for _, val := range rules {
 		app, err := f.ensureApplication(val.PortRange, &applications)
 		if err != nil {
@@ -345,6 +417,7 @@ func (f *Firewall) convertToSecRules(seclist ociResponse.SecList, rules []networ
 		resourceName := f.client.ComposeName(name)
 		dstList := fmt.Sprintf("seclist:%s", seclist.Name)
 		srcList := fmt.Sprintf("seciplist:%s", ipList)
+		// create the new security rule param
 		rule := oci.SecRuleParams{
 			Action:      ociCommon.SecRulePermit,
 			Application: app,
@@ -354,11 +427,14 @@ func (f *Firewall) convertToSecRules(seclist ociResponse.SecList, rules []networ
 			Name:        resourceName,
 			Src_list:    srcList,
 		}
+		// append the new param rule
 		ret = append(ret, rule)
 	}
 	return ret, nil
 }
 
+// convertApplicationToPortRange takes a SecApplication and
+// converts it to a network.PortRange type
 func (f *Firewall) convertApplicationToPortRange(app ociResponse.SecApplication) network.PortRange {
 	appCopy := app
 	if appCopy.Value2 == -1 {
@@ -371,6 +447,7 @@ func (f *Firewall) convertApplicationToPortRange(app ociResponse.SecApplication)
 	}
 }
 
+// convertFromSecRules takes a slice of security rules and creates a map of them
 func (f *Firewall) convertFromSecRules(rules ...ociResponse.SecRule) (map[string][]network.IngressRule, error) {
 	applications, err := f.getAllApplicationsAsMap()
 	if err != nil {
@@ -405,6 +482,7 @@ func (f *Firewall) convertFromSecRules(rules ...ociResponse.SecRule) (map[string
 	return ret, nil
 }
 
+// secRuleToIngressRule convert all security rules into a map of ingress rules
 func (f *Firewall) secRuleToIngresRule(rules ...ociResponse.SecRule) (map[string]network.IngressRule, error) {
 	applications, err := f.getAllApplicationsAsMap()
 	if err != nil {
@@ -430,6 +508,7 @@ func (f *Firewall) secRuleToIngresRule(rules ...ociResponse.SecRule) (map[string
 	return ret, nil
 }
 
+// getDefaultIngressRules will create the default ingressRules given an api port
 func (f *Firewall) getDefaultIngressRules(apiPort int) []network.IngressRule {
 	return []network.IngressRule{
 		network.IngressRule{
@@ -475,6 +554,7 @@ func (f *Firewall) getDefaultIngressRules(apiPort int) []network.IngressRule {
 	}
 }
 
+// get all security rules given the access control list name
 func (f *Firewall) getAllSecurityRules(aclName string) ([]ociResponse.SecurityRule, error) {
 	rules, err := f.client.AllSecurityRules(nil)
 	if err != nil {
@@ -492,6 +572,7 @@ func (f *Firewall) getAllSecurityRules(aclName string) ([]ociResponse.SecurityRu
 	return ret, nil
 }
 
+// retrive all ip address sets from the oracle cloud environment
 func (f *Firewall) getAllIPAddressSets() ([]ociResponse.IpAddressPrefixSet, error) {
 	sets, err := f.client.AllIpAddressPrefixSets(nil)
 	if err != nil {
@@ -690,6 +771,8 @@ func (f *Firewall) createDefaultGroupAndRules(apiPort int) (ociResponse.SecList,
 	return details, nil
 }
 
+// CreateMachineSecLists will create all security lists and attach them
+// to the instance with the id
 func (f *Firewall) CreateMachineSecLists(machineId string, apiPort int) ([]string, error) {
 	defaultSecList, err := f.createDefaultGroupAndRules(apiPort)
 	if err != nil {
@@ -707,6 +790,7 @@ func (f *Firewall) CreateMachineSecLists(machineId string, apiPort int) ([]strin
 	}, nil
 }
 
+// OpenPorts can open ports given all ingress rules unde the global group name
 func (f *Firewall) OpenPorts(rules []network.IngressRule) error {
 	globalGroupName := f.globalGroupName()
 	seclist, err := f.ensureSecList(f.client.ComposeName(globalGroupName))
@@ -720,11 +804,15 @@ func (f *Firewall) OpenPorts(rules []network.IngressRule) error {
 	return nil
 }
 
+// closePortsOnList on list will close all ports on a given list using the
+// ingress ruled passed into the func
 func (f *Firewall) closePortsOnList(list string, rules []network.IngressRule) error {
+	// get all security rules based on the dst_list=list
 	secrules, err := f.getSecRules(list)
 	if err != nil {
 		return errors.Trace(err)
 	}
+	// converts all security rules into a map of ingress rules
 	mapping, err := f.secRuleToIngresRule(secrules...)
 	if err != nil {
 		return errors.Trace(err)
@@ -745,11 +833,16 @@ func (f *Firewall) closePortsOnList(list string, rules []network.IngressRule) er
 	return nil
 }
 
+// deleteAllSecRulesOnList will delete all security rules from a give
+// security list
 func (f *Firewall) deleteAllSecRulesOnList(list string) error {
+	// get all security rules from the oracle cloud account
+	// that has the destination list match up with list provided as param
 	secrules, err := f.getSecRules(list)
 	if err != nil {
 		return errors.Trace(err)
 	}
+	// delete all rules that are found from the previous step
 	for _, rule := range secrules {
 		err := f.client.DeleteSecRule(rule.Name)
 		if err != nil {
@@ -762,6 +855,8 @@ func (f *Firewall) deleteAllSecRulesOnList(list string) error {
 	return nil
 }
 
+// maybeDeleteList delets all security rules
+// under the security list name provided
 func (f *Firewall) maybeDeleteList(list string) error {
 	filter := []oci.Filter{
 		oci.Filter{
@@ -807,6 +902,9 @@ func (f *Firewall) maybeDeleteList(list string) error {
 	return nil
 }
 
+// DeleteMachineSecLists will delete all security lists on the give
+// machine id. If there's some associations to the give instance still
+// this will not delete them.
 func (f *Firewall) DeleteMachineSecList(machineId string) error {
 	listName := f.machineGroupName(machineId)
 	globalListName := f.globalGroupName()
@@ -822,11 +920,14 @@ func (f *Firewall) DeleteMachineSecList(machineId string) error {
 	return nil
 }
 
+// ClosePorts can close the ports on the give ingress rules
 func (f *Firewall) ClosePorts(rules []network.IngressRule) error {
 	groupName := f.globalGroupName()
 	return f.closePortsOnList(f.client.ComposeName(groupName), rules)
 }
 
+// OpenPortsOnInstance will open ports on a given instance with the id
+// and the ingress rules attached
 func (f *Firewall) OpenPortsOnInstance(machineId string, rules []network.IngressRule) error {
 	machineGroup := f.machineGroupName(machineId)
 	seclist, err := f.ensureSecList(f.client.ComposeName(machineGroup))
@@ -840,31 +941,50 @@ func (f *Firewall) OpenPortsOnInstance(machineId string, rules []network.Ingress
 	return nil
 }
 
+// ClosePortsOnInstance close all ports on the the instance
+// given the machineId and the ingress rules that are defined
 func (f *Firewall) ClosePortsOnInstance(machineId string, rules []network.IngressRule) error {
+	// fetch the group name based on the machine id provided
 	groupName := f.machineGroupName(machineId)
 	return f.closePortsOnList(f.client.ComposeName(groupName), rules)
 }
 
+// getIngressRules returns all ingress rules from the oracle cloud account
+// given that security list name that maches
 func (f *Firewall) getIngressRules(seclist string) ([]network.IngressRule, error) {
+	// get all security rules given the seclist name
 	secrules, err := f.getSecRules(seclist)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	// convert all security rules into a map of ingress rules
 	ingressRules, err := f.convertFromSecRules(secrules...)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	// check if the seclist provided is found in the newly
+	// ingress rules created from the previously security rules
+	// if it's found return it
 	if rules, ok := ingressRules[seclist]; ok {
 		return rules, nil
 	}
+	// if we don't find anything just return empty slice and nil
 	return []network.IngressRule{}, nil
 }
 
+// GlobalIngressRules returns all ingress rules that are in the global group
+// name from the oracle cloud account
+// If there are not any ingress rules under the global group name this will
+// return nil, nil
 func (f *Firewall) GlobalIngressRules() ([]network.IngressRule, error) {
 	seclist := f.globalGroupName()
 	return f.getIngressRules(f.client.ComposeName(seclist))
 }
 
+// MachineIngressRules returns all ingress rules that are in the machine group
+// name from the oracle cloud account.
+// If there are not any ingress rules under that name scope this will
+// return nil, nil
 func (f *Firewall) MachineIngressRules(machineId string) ([]network.IngressRule, error) {
 	seclist := f.machineGroupName(machineId)
 	return f.getIngressRules(f.client.ComposeName(seclist))
