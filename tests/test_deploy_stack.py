@@ -70,7 +70,7 @@ from jujupy import (
     )
 
 from jujupy.client import (
-    BaseCondition,
+    NoopCondition,
     CommandTime,
 )
 from jujupy.configuration import (
@@ -2115,7 +2115,7 @@ class TestBootstrapManager(FakeHomeTestCase):
         """Preform patches to focus on the call to bootstrap."""
         # Need basic model details for get_status() (called in wait_for.)
         bs_manager.client._backend.controller_state.add_model('controller')
-        bootstrap_return = (0, BaseCondition(already_satisfied=True))
+        bootstrap_return = (0, NoopCondition(already_satisfied=True))
         with patch.object(bs_manager, 'dump_all_logs'):
             with patch.object(bs_manager, 'runtime_context'):
                 with patch.object(

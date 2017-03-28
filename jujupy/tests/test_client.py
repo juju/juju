@@ -70,6 +70,7 @@ from jujupy.client import (
     make_safe_config,
     ModelClient,
     NameNotAccepted,
+    NoopCondition,
     NoProvider,
     parse_new_state_server_from_error,
     ProvisioningError,
@@ -337,13 +338,6 @@ class TestBaseCondition(ClientTest):
         condition = BaseCondition(600)
         self.assertEqual(600, condition.timeout)
 
-    def test_iter_blocking_state_is_noop(self):
-        condition = BaseCondition()
-        called = False
-        for _ in condition.iter_blocking_state({}):
-            called = True
-        self.assertFalse(called)
-
 
 class TestConditionList(ClientTest):
 
@@ -363,6 +357,21 @@ class TestConditionList(ClientTest):
         conditions = ConditionList([mock_ab, mock_cd])
         self.assertEqual([('a', 'b'), ('c', 'd')],
                          list(conditions.iter_blocking_state(None)))
+
+
+class TestNoopCondition(ClientTest):
+
+    def test_iter_blocking_state_is_noop(self):
+        condition = NoopCondition()
+        called = False
+        for _ in condition.iter_blocking_state({}):
+            called = True
+        self.assertFalse(called)
+
+    def test_do_raise_raises_Exception(self):
+        condition = NoopCondition()
+        with self.assertRaises(Exception):
+            condition.do_raise('model_name', {})
 
 
 class TestWaitMachineNotPresent(ClientTest):

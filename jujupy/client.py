@@ -1297,11 +1297,11 @@ class BaseCondition:
         An example for a condition of an application being removed:
             yield <application name>, 'still-present'
         """
-        return iter(())
+        raise NotImplementedError()
 
     def do_raise(self, model_name, status):
         """Raise exception for when success condition fails to be achieved."""
-        raise Exception('BaseCondition failed: {}'.format(model_name))
+        raise NotImplementedError()
 
 
 class ConditionList(BaseCondition):
@@ -1330,6 +1330,15 @@ class ConditionList(BaseCondition):
 
     def do_raise(self, model_name, status):
         self._conditions[0].do_raise(model_name, status)
+
+
+class NoopCondition(BaseCondition):
+
+    def iter_blocking_state(self, status):
+        return iter(())
+
+    def do_raise(self, model_name, status):
+        raise Exception('NoopCondition failed: {}'.format(model_name))
 
 
 class WaitMachineNotPresent(BaseCondition):
@@ -1983,7 +1992,7 @@ class ModelClient:
             include_e=False, check=check, timeout=get_teardown_timeout(self))
         # Already satisfied as this is a sync, operation.
         return retvar, CommandComplete(
-            BaseCondition(already_satisfied=True), ct)
+            NoopCondition(already_satisfied=True), ct)
 
     def destroy_controller(self, all_models=False):
         """Destroy a controller and its models. Soft kill option.
@@ -2001,7 +2010,7 @@ class ModelClient:
             timeout=get_teardown_timeout(self))
         # Already satisfied as this is a sync, operation.
         return retvar, CommandComplete(
-            BaseCondition(already_satisfied=True), ct)
+            NoopCondition(already_satisfied=True), ct)
 
     def tear_down(self):
         """Tear down the client as cleanly as possible.
@@ -2087,7 +2096,7 @@ class ModelClient:
     def set_model_constraints(self, constraints):
         constraint_strings = self._dict_as_option_strings(constraints)
         retvar, ct = self.juju('set-model-constraints', constraint_strings)
-        return retvar, CommandComplete(BaseCondition(), ct)
+        return retvar, CommandComplete(NoopCondition(), ct)
 
     def get_model_config(self):
         """Return the value of the environment's configured options."""
@@ -2103,12 +2112,12 @@ class ModelClient:
         """Set the value of the option in the environment."""
         option_value = "%s=%s" % (option, value)
         retvar, ct = self.juju('model-config', (option_value,))
-        return CommandComplete(BaseCondition(), ct)
+        return CommandComplete(NoopCondition(), ct)
 
     def unset_env_option(self, option):
         """Unset the value of the option in the environment."""
         retvar, ct = self.juju('model-config', ('--reset', option,))
-        return CommandComplete(BaseCondition(), ct)
+        return CommandComplete(NoopCondition(), ct)
 
     @staticmethod
     def _format_cloud_region(cloud=None, region=None):
@@ -2193,7 +2202,7 @@ class ModelClient:
     def controller_juju(self, command, args):
         args = ('-c', self.env.controller.name) + args
         retvar, ct = self.juju(command, args, include_e=False)
-        return CommandComplete(BaseCondition(), ct)
+        return CommandComplete(NoopCondition(), ct)
 
     def get_juju_timings(self):
         timing_breakdown = []
@@ -2244,7 +2253,7 @@ class ModelClient:
     def attach(self, service, resource):
         args = (service, resource)
         retvar, ct = self.juju('attach', args)
-        return retvar, CommandComplete(BaseCondition(), ct)
+        return retvar, CommandComplete(NoopCondition(), ct)
 
     def list_resources(self, service_or_unit, details=True):
         args = ('--format', 'yaml', service_or_unit)
@@ -2986,13 +2995,13 @@ class ModelClient:
         if stream is not None:
             args += ('--stream', stream)
         retvar, ct = self.juju('metadata', args, include_e=False)
-        return retvar, CommandComplete(BaseCondition(), ct)
+        return retvar, CommandComplete(NoopCondition(), ct)
 
     def add_cloud(self, cloud_name, cloud_file):
         retvar, ct = self.juju(
             'add-cloud', ("--replace", cloud_name, cloud_file),
             include_e=False)
-        return retvar, CommandComplete(BaseCondition(), ct)
+        return retvar, CommandComplete(NoopCondition(), ct)
 
     def add_cloud_interactive(self, cloud_name, cloud):
         child = self.expect('add-cloud', include_e=False)
@@ -3103,12 +3112,12 @@ class ModelClient:
     def disable_command(self, command_set, message=''):
         """Disable a command-set."""
         retvar, ct = self.juju('disable-command', (command_set, message))
-        return retvar, CommandComplete(BaseCondition(), ct)
+        return retvar, CommandComplete(NoopCondition(), ct)
 
     def enable_command(self, args):
         """Enable a command-set."""
         retvar, ct = self.juju('enable-command', args)
-        return CommandComplete(BaseCondition(), ct)
+        return CommandComplete(NoopCondition(), ct)
 
     def sync_tools(self, local_dir=None, stream=None, source=None):
         """Copy tools into a local directory or model."""
@@ -3119,11 +3128,11 @@ class ModelClient:
             args += ('--source', source)
         if local_dir is None:
             retvar, ct = self.juju('sync-tools', args)
-            return retvar, CommandComplete(BaseCondition(), ct)
+            return retvar, CommandComplete(NoopCondition(), ct)
         else:
             args += ('--local-dir', local_dir)
             retvar, ct = self.juju('sync-tools', args, include_e=False)
-            return retvar, CommandComplete(BaseCondition(), ct)
+            return retvar, CommandComplete(NoopCondition(), ct)
 
     def switch(self, model=None, controller=None):
         """Switch between models."""
