@@ -140,21 +140,26 @@ iface {eth} inet dhcp
 	s.expectedSampleUserData = `
 - install -D -m 744 /dev/null '%[2]s'
 - |-
-  printf '%%s\n' 'import subprocess, re
+  printf '%%s\n' 'import subprocess, re, argparse, os
   from string import Formatter
-  INTERFACES_FILE="%[1]s"
+  INTERFACES_FILE="/etc/network/interfaces"
   IP_LINE = re.compile(r"^\d: (.*?):")
   IP_HWADDR = re.compile(r".*link/ether ((\w{2}|:){11})")
+  COMMAND = "ip -oneline link"
 
+  # Python3 vs Python2
+  try:
+      strdecode = str.decode
+  except AttributeError:
+      strdecode = str
 
   def ip_parse(ip_output):
       """parses the output of the ip command
       and returns a hwaddr->nic-name dict"""
       devices = dict()
-      print ("parsing ip command output")
-      print (ip_output)
+      print("Parsing ip command output %%s" %% ip_output)
       for ip_line in ip_output:
-          ip_line_str = str(ip_line, '"'"'utf-8'"'"')
+          ip_line_str = strdecode(ip_line, '"'"'utf-8'"'"')
           match = IP_LINE.match(ip_line_str)
           if match is None:
               continue
@@ -164,42 +169,54 @@ iface {eth} inet dhcp
               continue
           nic_hwaddr = match.group(1)
           devices[nic_hwaddr]=nic_name
-      print("found the following devices: " + str(devices))
+      print("Found the following devices: %%s" %% str(devices))
       return devices
 
   def replace_ethernets(interfaces_file, devices):
       """check if the contents of interfaces_file contain template
       keys corresponding to hwaddresses and replace them with
       the proper device name"""
-      interfaces_file_descriptor = open(interfaces_file, "r")
-      interfaces = interfaces_file_descriptor.read()
+      with open(interfaces_file, "r") as intf_file:
+          interfaces = intf_file.read()
+
       formatter = Formatter()
       hwaddrs = [v[1] for v in formatter.parse(interfaces) if v[1]]
-      print("found the following hwaddrs: " + str(hwaddrs))
+      print("Found the following hwaddrs: %%s" %% str(hwaddrs))
       device_replacements = dict()
       for hwaddr in hwaddrs:
           hwaddr_clean = hwaddr[3:].replace("_", ":")
           if devices.get(hwaddr_clean, None):
               device_replacements[hwaddr] = devices[hwaddr_clean]
-      print ("will use the values in:" + str(device_replacements))
-      print("to fix the interfaces file:")
-      print(str(interfaces))
+          else:
+              device_replacements[hwaddr] = hwaddr
       formatted = interfaces.format(**device_replacements)
-      print ("into")
-      print(formatted)
-      interfaces_file_descriptor = open(interfaces_file, "w")
-      interfaces_file_descriptor.write(formatted)
-      interfaces_file_descriptor.close()
+      print("Used the values in: %%s\nto fix the interfaces file:\n%%s\ninto\n%%s" %%
+             (str(device_replacements), str(interfaces), str(formatted)))
 
-  ip_output = ip_parse(subprocess.check_output(["ip", "-oneline", "link"]).splitlines())
-  replace_ethernets(INTERFACES_FILE, ip_output)
+      with open(interfaces_file + ".tmp", "w") as intf_file:
+          intf_file.write(formatted)
+
+      os.rename(interfaces_file, interfaces_file + ".bak")
+      os.rename(interfaces_file + ".tmp", interfaces_file)
+
+  def main():
+      parser = argparse.ArgumentParser()
+      parser.add_argument('"'"'--interfaces_file'"'"', dest='"'"'intf_file'"'"', default=INTERFACES_FILE)
+      parser.add_argument('"'"'--command'"'"', dest='"'"'command'"'"',default=COMMAND)
+      args = parser.parse_args()
+      ip_output = ip_parse(subprocess.check_output(args.command.split()).splitlines())
+      replace_ethernets(args.intf_file, ip_output)
+
+
+  if __name__ == "__main__":
+      main()
   ' > '%[2]s'
 - |2
 
   if [ -f /usr/bin/python ]; then
-      python /etc/network/interfaces.py
+      python %[2]s --interfaces_file %[1]s
   else
-      python3 /etc/network/interfaces.py
+      python3 %[2]s --interfaces_file %[1]s
   fi
 `[1:]
 
