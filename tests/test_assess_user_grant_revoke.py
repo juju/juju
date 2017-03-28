@@ -138,14 +138,20 @@ class TestAsserts(TestCase):
     def test_assert_read_model(self):
         fake_client = fake_juju_client()
         with patch.object(fake_client, 'show_status', return_value=True):
-            assert_read_model(fake_client, 'read', True)
-            with self.assertRaises(JujuAssertionError):
-                assert_read_model(fake_client, 'read', False)
+            with patch.object(fake_client, 'juju',
+                              return_value=True):
+                assert_read_model(fake_client, 'read', True)
+                with self.assertRaises(JujuAssertionError):
+                    assert_read_model(fake_client, 'read', False)
         with patch.object(fake_client, 'show_status', return_value=False,
                           side_effect=CalledProcessError(None, None, None)):
-            assert_read_model(fake_client, 'read', False)
-            with self.assertRaises(JujuAssertionError):
-                assert_read_model(fake_client, 'read', True)
+            with patch.object(fake_client, 'juju',
+                              return_value=False,
+                              side_effect=CalledProcessError(
+                                None, None, None)):
+                assert_read_model(fake_client, 'read', False)
+                with self.assertRaises(JujuAssertionError):
+                    assert_read_model(fake_client, 'read', True)
 
     def test_assert_write_model(self):
         fake_client = fake_juju_client()
@@ -197,13 +203,13 @@ class TestAssess(TestCase):
             with read as read_mock, write as write_mock, admin as admin_mock:
                 with expect as expect_mock:
                     with patch("jujupy.ModelClient._end_pexpect_session",
-                        autospec=True):
+                               autospec=True):
                         expect_mock.return_value.isalive.return_value = False
                         assess_user_grant_revoke(fake_client)
 
-                        self.assertEqual(pass_mock.call_count, 1)
-                        self.assertEqual(able_mock.call_count, 1)
-                        self.assertEqual(log_mock.call_count, 1)
+                        self.assertEqual(pass_mock.call_count, 3)
+                        self.assertEqual(able_mock.call_count, 3)
+                        self.assertEqual(log_mock.call_count, 3)
 
                         self.assertEqual(read_mock.call_count, 6)
                         self.assertEqual(write_mock.call_count, 6)
