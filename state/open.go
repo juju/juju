@@ -275,7 +275,7 @@ func Initialize(args InitializeParams) (_ *State, err error) {
 
 	logger.Infof("initializing controller model %s", modelTag.Id())
 
-	modelOps, err := st.modelSetupOps(
+	modelOps, modelStatusDoc, err := st.modelSetupOps(
 		args.ControllerConfig.ControllerUUID(),
 		args.ControllerModelArgs,
 		&lineage{
@@ -350,6 +350,7 @@ func Initialize(args InitializeParams) (_ *State, err error) {
 	if err := st.start(controllerTag); err != nil {
 		return nil, errors.Trace(err)
 	}
+	probablyUpdateStatusHistory(st, modelGlobalKey, modelStatusDoc)
 	return st, nil
 }
 
@@ -361,19 +362,20 @@ type lineage struct {
 }
 
 // modelSetupOps returns the transactions necessary to set up a model.
-func (st *State) modelSetupOps(controllerUUID string, args ModelArgs, inherited *lineage) ([]txn.Op, error) {
+func (st *State) modelSetupOps(controllerUUID string, args ModelArgs, inherited *lineage) ([]txn.Op, statusDoc, error) {
+	var modelStatusDoc statusDoc
 	if inherited != nil {
 		if err := checkControllerInheritedConfig(inherited.ControllerConfig); err != nil {
-			return nil, errors.Trace(err)
+			return nil, modelStatusDoc, errors.Trace(err)
 		}
 	}
 	if err := checkModelConfig(args.Config); err != nil {
-		return nil, errors.Trace(err)
+		return nil, modelStatusDoc, errors.Trace(err)
 	}
 
 	controllerModelUUID := st.controllerModelTag.Id()
 	modelUUID := args.Config.UUID()
-	modelStatusDoc := statusDoc{
+	modelStatusDoc = statusDoc{
 		ModelUUID: modelUUID,
 		Updated:   st.clock.Now().UnixNano(),
 		Status:    status.Available,
@@ -394,7 +396,7 @@ func (st *State) modelSetupOps(controllerUUID string, args ModelArgs, inherited 
 	// Create the default storage pools for the model.
 	defaultStoragePoolsOps, err := st.createDefaultStoragePoolsOps(args.StorageProviderRegistry)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, modelStatusDoc, errors.Trace(err)
 	}
 	ops = append(ops, defaultStoragePoolsOps...)
 
@@ -428,7 +430,7 @@ func (st *State) modelSetupOps(controllerUUID string, args ModelArgs, inherited 
 	}
 	modelCfg, err := composeModelConfigAttributes(args.Config.AllAttrs(), configSources...)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, modelStatusDoc, errors.Trace(err)
 	}
 	// Some values require marshalling before storage.
 	modelCfg = config.CoerceForStorage(modelCfg)
@@ -445,7 +447,7 @@ func (st *State) modelSetupOps(controllerUUID string, args ModelArgs, inherited 
 		createUniqueOwnerModelNameOp(args.Owner, args.Config.Name()),
 	)
 	ops = append(ops, modelUserOps...)
-	return ops, nil
+	return ops, modelStatusDoc, nil
 }
 
 func (st *State) createDefaultStoragePoolsOps(registry storage.ProviderRegistry) ([]txn.Op, error) {

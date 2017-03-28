@@ -92,7 +92,9 @@ func (st *State) Export() (description.Model, error) {
 		return nil, errors.Trace(err)
 	}
 	export.model.SetConstraints(constraintsArgs)
-
+	if err := export.modelStatus(); err != nil {
+		return nil, errors.Trace(err)
+	}
 	if err := export.modelUsers(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -200,6 +202,17 @@ func (e *exporter) readBlocks() (map[string]string, error) {
 		result[doc.Type.MigrationValue()] = doc.Message
 	}
 	return result, nil
+}
+
+func (e *exporter) modelStatus() error {
+	statusArgs, err := e.statusArgs(modelGlobalKey)
+	if err != nil {
+		return errors.Annotatef(err, "status for model")
+	}
+
+	e.model.SetStatus(statusArgs)
+	e.model.SetStatusHistory(e.statusHistoryArgs(modelGlobalKey))
+	return nil
 }
 
 func (e *exporter) modelUsers() error {
@@ -1252,7 +1265,7 @@ func (e *exporter) statusArgs(globalKey string) (description.StatusArgs, error) 
 func (e *exporter) statusHistoryArgs(globalKey string) []description.StatusArgs {
 	history := e.statusHistory[globalKey]
 	result := make([]description.StatusArgs, len(history))
-	e.logger.Debugf("found %d status history docs for %s", len(history), globalKey)
+	e.logger.Tracef("found %d status history docs for %s", len(history), globalKey)
 	for i, doc := range history {
 		result[i] = description.StatusArgs{
 			Value:   string(doc.Status),
@@ -1269,7 +1282,7 @@ func (e *exporter) constraintsArgs(globalKey string) (description.ConstraintsArg
 	doc, found := e.constraints[globalKey]
 	if !found {
 		// No constraints for this key.
-		e.logger.Debugf("no constraints found for key %q", globalKey)
+		e.logger.Tracef("no constraints found for key %q", globalKey)
 		return description.ConstraintsArgs{}, nil
 	}
 	// We capture any type error using a closure to avoid having to return

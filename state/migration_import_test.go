@@ -108,6 +108,17 @@ func (s *MigrationImportSuite) TestNewModel(c *gc.C) {
 	c.Assert(newModel.MigrationMode(), gc.Equals, state.MigrationModeImporting)
 	s.assertAnnotations(c, newSt, newModel)
 
+	statusInfo, err := newModel.Status()
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(statusInfo.Status, gc.Equals, status.Busy)
+	c.Check(statusInfo.Message, gc.Equals, "importing")
+	// One for original "available", one for "busy (importing)"
+	history, err := newModel.StatusHistory(status.StatusHistoryFilter{Size: 5})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(history, gc.HasLen, 2)
+	c.Check(history[0].Status, gc.Equals, status.Busy)
+	c.Check(history[1].Status, gc.Equals, status.Available)
+
 	originalConfig, err := original.Config()
 	c.Assert(err, jc.ErrorIsNil)
 	originalAttrs := originalConfig.AllAttrs()

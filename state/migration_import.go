@@ -125,6 +125,14 @@ func (st *State) Import(model description.Model) (_ *Model, _ *State, err error)
 			newSt.Close()
 		}
 	}()
+	// We don't actually care what the old model status was, because we are
+	// going to set it to busy, with a message of migrating.
+	if err := dbModel.SetStatus(status.StatusInfo{
+		Status:  status.Busy,
+		Message: "importing",
+	}); err != nil {
+		return nil, nil, errors.Trace(err)
+	}
 
 	// I would have loved to use import, but that is a reserved word.
 	restore := importer{
@@ -242,6 +250,10 @@ func (i *importer) modelExtras() error {
 			return errors.Errorf("unknown block type: %q", blockName)
 		}
 		i.st.SwitchBlockOn(block, message)
+	}
+
+	if err := i.importStatusHistory(modelGlobalKey, i.model.StatusHistory()); err != nil {
+		return errors.Trace(err)
 	}
 	return nil
 }

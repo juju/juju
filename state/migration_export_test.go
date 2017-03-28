@@ -1193,3 +1193,11 @@ func (s *MigrationExportSuite) TestRemoteApplications(c *gc.C) {
 	c.Check(ep.Role(), gc.Equals, "provider")
 	c.Check(ep.Scope(), gc.Equals, "global")
 }
+
+func (s *MigrationExportSuite) TestModelStatus(c *gc.C) {
+	model, err := s.State.Export()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(model.Status().Value(), gc.Equals, "available")
+	c.Check(model.StatusHistory(), gc.HasLen, 1)
+}

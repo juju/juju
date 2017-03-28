@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
+	"github.com/juju/juju/status"
 )
 
 // API implements the API required for the model migration
@@ -149,6 +150,10 @@ func (api *API) Abort(args params.ModelArgs) error {
 func (api *API) Activate(args params.ModelArgs) error {
 	model, err := api.getImportingModel(args)
 	if err != nil {
+		return errors.Trace(err)
+	}
+
+	if err := model.SetStatus(status.StatusInfo{Status: status.Available}); err != nil {
 		return errors.Trace(err)
 	}
 
