@@ -19,7 +19,9 @@ fi
 
 SLAVE_NAME=$(config-get slave-name)
 if [[ "$SLAVE_NAME" == "" ]]; then
-    SLAVE_NAME=$(echo $JUJU_UNIT_NAME | sed s,/,-,)
+    APP_NAME=$(echo $JUJU_UNIT_NAME | cut -d / -f 1)
+    APP_ALPHA=$(echo $JUJU_UNIT_NAME | cut -d / -f 2 | tr 0123456789 abcdefghij)
+    SLAVE_NAME="$APP_NAME-$APP_ALPHA"
 fi
 
 MASTER_URL=$(config-get master-url)
