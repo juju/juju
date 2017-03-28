@@ -209,6 +209,10 @@ func (e *oracleEnviron) getInstanceNetworks(args environs.StartInstanceParams, s
 	networking := map[string]oci.Networker{
 		defaultNicName: oci.SharedNetwork{
 			Seclists: secLists,
+			Name_servers: []string{
+				"8.8.8.8",
+				"8.8.4.4",
+			},
 		},
 	}
 	spaces := map[string]bool{}
