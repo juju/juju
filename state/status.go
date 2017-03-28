@@ -101,6 +101,10 @@ type setStatusParams struct {
 // setStatus inteprets the supplied params as documented on the type.
 func setStatus(st *State, params setStatusParams) (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot set status")
+	if params.updated == nil {
+		now := st.clock.Now()
+		params.updated = &now
+	}
 	doc := statusDoc{
 		Status:     params.status,
 		StatusInfo: params.message,
@@ -110,7 +114,6 @@ func setStatus(st *State, params setStatusParams) (err error) {
 	probablyUpdateStatusHistory(st, params.globalKey, doc)
 
 	// Set the authoritative status document, or fail trying.
-
 	var buildTxn jujutxn.TransactionSource = func(int) ([]txn.Op, error) {
 		return statusSetOps(st, doc, params.globalKey)
 	}
