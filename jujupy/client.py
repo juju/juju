@@ -1294,11 +1294,11 @@ class BaseCondition:
         An example for a condition of an application being removed:
             yield <application name>, 'still-present'
         """
-        return
+        raise NotImplementedError()
 
     def do_raise(self, model_name, status):
         """Raise exception for when success condition fails to be achieved."""
-        raise Exception('BaseCondition failed: {}'.format(model_name))
+        raise NotImplementedError()
 
 
 class ConditionList(BaseCondition):
@@ -1327,6 +1327,15 @@ class ConditionList(BaseCondition):
 
     def do_raise(self, model_name, status):
         self._conditions[0].do_raise(model_name, status)
+
+
+class NoopCondition(BaseCondition):
+
+    def iter_blocking_state(self, status):
+        return iter(())
+
+    def do_raise(self, model_name, status):
+        raise Exception('BaseCondition failed: {}'.format(model_name))
 
 
 class WaitMachineNotPresent(BaseCondition):
