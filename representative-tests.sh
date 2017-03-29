@@ -8,6 +8,8 @@ export GOPATH=$(dirname $(find $WORKSPACE -type d -name src -regex '.*juju-core[
 if ! go install github.com/juju/juju/...; then
     exit 127
 fi
+export PATH=$(dirname $JUJU_BIN):$PATH
+export GOCOOKIES=$WORKSPACE/.go-cookies
 JUJU_BIN=$GOPATH/bin/juju
 
 PRECISE_AMI=$($SCRIPTS/get_ami.py precise amd64)
