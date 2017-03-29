@@ -11,6 +11,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	stdtesting "testing"
 
@@ -39,20 +40,24 @@ type UserDataSuite struct {
 
 	fakeInterfaces []network.InterfaceInfo
 
-	expectedSampleConfig        string
-	expectedSampleConfigWriting string
-	expectedSampleUserData      string
-	expectedFallbackConfig      string
-	expectedBaseConfig          string
-	expectedFallbackUserData    string
-	tempFolder                  string
-	pythonVersions              []string
+	expectedSampleConfigTemplate string
+	expectedSampleConfigWriting  string
+	expectedSampleUserData       string
+	expectedFallbackConfig       string
+	expectedBaseConfig           string
+	expectedFallbackUserData     string
+	tempFolder                   string
+	pythonVersions               []string
 }
 
 var _ = gc.Suite(&UserDataSuite{})
 
 func (s *UserDataSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
+
+	if runtime.GOOS == "windows" {
+		c.Skip("This test is for Linux only")
+	}
 
 	s.tempFolder = c.MkDir()
 	networkFolder := c.MkDir()
@@ -109,7 +114,7 @@ func (s *UserDataSuite) SetUpTest(c *gc.C) {
 
 	s.expectedSampleConfigWriting = `#cloud-config
 bootcmd:
-- install -D -m 644 /dev/null '%[1]s'
+- install -D -m 644 /dev/null '%[1]s.templ'
 - |-
   printf '%%s\n' '
   auto lo {ethaa_bb_cc_dd_ee_f0} {ethaa_bb_cc_dd_ee_f1} {eth}
@@ -132,9 +137,9 @@ bootcmd:
   iface {eth} inet dhcp
 
   iface {eth} inet dhcp
-  ' > '%[1]s'
+  ' > '%[1]s.templ'
 `
-	s.expectedSampleConfig = `
+	s.expectedSampleConfigTemplate = `
 auto lo {ethaa_bb_cc_dd_ee_f0} {ethaa_bb_cc_dd_ee_f1} {eth}
 
 iface lo inet loopback
@@ -156,106 +161,26 @@ iface {eth} inet dhcp
 
 iface {eth} inet dhcp
 `
-	s.expectedSampleUserData = `
-- install -D -m 744 /dev/null '%[2]s'
+	networkInterfacesScriptYamled := strings.Replace(containerinit.NetworkInterfacesScript, "\n", "\n  ", -1)
+	networkInterfacesScriptYamled = strings.Replace(networkInterfacesScriptYamled, "\n  \n", "\n\n", -1)
+	networkInterfacesScriptYamled = strings.Replace(networkInterfacesScriptYamled, "%", "%%", -1)
+	networkInterfacesScriptYamled = strings.Replace(networkInterfacesScriptYamled, "'", "'\"'\"'", -1)
+
+	s.expectedSampleUserData = `- install -D -m 744 /dev/null '%[2]s'
 - |-
-  printf '%%s\n' 'import subprocess, re, argparse, os, time
-  from string import Formatter
-  INTERFACES_FILE="/etc/network/interfaces"
-  IP_LINE = re.compile(r"^\d: (.*?):")
-  IP_HWADDR = re.compile(r".*link/ether ((\w{2}|:){11})")
-  COMMAND = "ip -oneline link"
-  RETRIES = 3
-  WAIT = 5
-
-  # Python3 vs Python2
-  try:
-      strdecode = str.decode
-  except AttributeError:
-      strdecode = str
-
-  def ip_parse(ip_output):
-      """parses the output of the ip command
-      and returns a hwaddr->nic-name dict"""
-      devices = dict()
-      print("Parsing ip command output %%s" %% ip_output)
-      for ip_line in ip_output:
-          ip_line_str = strdecode(ip_line, '"'"'utf-8'"'"')
-          match = IP_LINE.match(ip_line_str)
-          if match is None:
-              continue
-          nic_name = match.group(1)
-          match = IP_HWADDR.match(ip_line_str)
-          if match is None:
-              continue
-          nic_hwaddr = match.group(1)
-          devices[nic_hwaddr]=nic_name
-      print("Found the following devices: %%s" %% str(devices))
-      return devices
-
-  def replace_ethernets(interfaces_file, devices, fail_on_missing):
-      """check if the contents of interfaces_file contain template
-      keys corresponding to hwaddresses and replace them with
-      the proper device name"""
-      with open(interfaces_file, "r") as intf_file:
-          interfaces = intf_file.read()
-
-      formatter = Formatter()
-      hwaddrs = [v[1] for v in formatter.parse(interfaces) if v[1]]
-      print("Found the following hwaddrs: %%s" %% str(hwaddrs))
-      device_replacements = dict()
-      for hwaddr in hwaddrs:
-          hwaddr_clean = hwaddr[3:].replace("_", ":")
-          if devices.get(hwaddr_clean, None):
-              device_replacements[hwaddr] = devices[hwaddr_clean]
-          else:
-              if fail_on_missing:
-                  print("Can'"'"'t find device with MAC %%s, will retry" %% hwaddr_clean)
-                  return False
-              else:
-                  print("WARNING: Can'"'"'t find device with MAC %%s when expected" %% hwaddr_clean)
-                  device_replacements[hwaddr] = hwaddr
-      formatted = interfaces.format(**device_replacements)
-      print("Used the values in: %%s\nto fix the interfaces file:\n%%s\ninto\n%%s" %%
-             (str(device_replacements), str(interfaces), str(formatted)))
-
-      with open(interfaces_file + ".tmp", "w") as intf_file:
-          intf_file.write(formatted)
-
-      os.rename(interfaces_file, interfaces_file + ".bak")
-      os.rename(interfaces_file + ".tmp", interfaces_file)
-      return True
-
-  def main():
-      parser = argparse.ArgumentParser()
-      parser.add_argument('"'"'--interfaces_file'"'"', dest = '"'"'intf_file'"'"', default = INTERFACES_FILE)
-      parser.add_argument('"'"'--command'"'"', dest = '"'"'command'"'"', default = COMMAND)
-      parser.add_argument('"'"'--retries'"'"', dest = '"'"'retries'"'"', default = RETRIES)
-      parser.add_argument('"'"'--wait'"'"', dest = '"'"'wait'"'"', default = WAIT)
-      args = parser.parse_args()
-      retries = int(args.retries)
-      for tries in range(retries):
-          ip_output = ip_parse(subprocess.check_output(args.command.split()).splitlines())
-          if replace_ethernets(args.intf_file, ip_output, (tries != retries - 1)):
-               break
-          else:
-               time.sleep(float(args.wait))
-
-  if __name__ == "__main__":
-      main()
-  ' > '%[2]s'
+  printf '%%s\n' '` + networkInterfacesScriptYamled + ` ' > '%[2]s'
 - |2
 
   if [ -f /usr/bin/python ]; then
-      python %[2]s --interfaces_file %[1]s
+      python %[2]s --interfaces-file %[1]s
   else
-      python3 %[2]s --interfaces_file %[1]s
+      python3 %[2]s --interfaces-file %[1]s
   fi
 `[1:]
 
 	s.expectedFallbackConfig = `#cloud-config
 bootcmd:
-- install -D -m 644 /dev/null '%[1]s'
+- install -D -m 644 /dev/null '%[1]s.templ'
 - |-
   printf '%%s\n' '
   auto lo {eth}
@@ -263,7 +188,7 @@ bootcmd:
   iface lo inet loopback
 
   iface {eth} inet dhcp
-  ' > '%[1]s'
+  ' > '%[1]s.templ'
 `
 	s.expectedBaseConfig = `
 auto lo {eth}
@@ -321,7 +246,7 @@ func (s *UserDataSuite) TestGenerateNetworkConfig(c *gc.C) {
 	netConfig = container.BridgeNetworkConfig("foo", 0, s.fakeInterfaces)
 	data, err = containerinit.GenerateNetworkConfig(netConfig)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(data, gc.Equals, s.expectedSampleConfig)
+	c.Assert(data, gc.Equals, s.expectedSampleConfigTemplate)
 }
 
 func (s *UserDataSuite) TestNewCloudInitConfigWithNetworksSampleConfig(c *gc.C) {
@@ -457,17 +382,19 @@ func (s *UserDataSuite) runENIScriptWithAllPythons(c *gc.C, ipCommand, input, ex
 
 func (s *UserDataSuite) runENIScript(c *gc.C, pythonBinary, ipCommand, input, expectedOutput string, wait, retries int) {
 	dataFile := filepath.Join(s.tempFolder, "interfaces")
+	templFile := filepath.Join(s.tempFolder, "interfaces.templ")
 	scriptFile := filepath.Join(s.tempFolder, "script.py")
 
-	err := ioutil.WriteFile(dataFile, []byte(input), 0644)
+	err := ioutil.WriteFile(templFile, []byte(input), 0644)
 	c.Assert(err, jc.ErrorIsNil, gc.Commentf("Can't write interfaces file"))
 
-	err = ioutil.WriteFile(scriptFile, []byte(containerinit.PopulateNetworkInterfacesScript()), 0755)
+	err = ioutil.WriteFile(scriptFile, []byte(containerinit.NetworkInterfacesScript), 0755)
 	c.Assert(err, jc.ErrorIsNil, gc.Commentf("Can't write script file"))
 
-	script := fmt.Sprintf("%q %q --interfaces_file %q --command %q --wait %d --retries %d", pythonBinary, scriptFile, dataFile, ipCommand, wait, retries)
+	script := fmt.Sprintf("%q %q --interfaces-file %q --command %q --wait %d --retries %d", pythonBinary, scriptFile, dataFile, ipCommand, wait, retries)
 	result, err := exec.RunCommands(exec.RunParams{Commands: script})
 	c.Assert(err, jc.ErrorIsNil, gc.Commentf("script failed unexpectedly - %s", result))
+	c.Logf("%s\n%s\n", string(result.Stdout), string(result.Stderr))
 	data, err := ioutil.ReadFile(dataFile)
 	c.Assert(err, jc.ErrorIsNil, gc.Commentf("can't open parsed interfaces file"))
 	output := string(data)

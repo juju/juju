@@ -225,8 +225,8 @@ func newCloudInitConfigWithNetworks(series string, networkConfig *container.Netw
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		cloudConfig.AddBootTextFile(systemNetworkInterfacesFile, config, 0644)
-		cloudConfig.AddBootTextFile(systemNetworkInterfacesFile+".py", PopulateNetworkInterfacesScript(), 0744)
+		cloudConfig.AddBootTextFile(systemNetworkInterfacesFile+".templ", config, 0644)
+		cloudConfig.AddBootTextFile(systemNetworkInterfacesFile+".py", NetworkInterfacesScript, 0744)
 		cloudConfig.AddBootCmd(populateNetworkInterfaces(systemNetworkInterfacesFile))
 		//cloudConfig.AddRunCmd(raiseJujuNetworkInterfacesScript(systemNetworkInterfacesFile, networkInterfacesFile))
 	}
@@ -389,17 +389,18 @@ fi`[1:],
 func populateNetworkInterfaces(networkFile string) string {
 	s := `
 if [ -f /usr/bin/python ]; then
-    python %s.py --interfaces_file %s
+    python %s.py --interfaces-file %s
 else
-    python3 %s.py --interfaces_file %s
+    python3 %s.py --interfaces-file %s
 fi
 `
 	return fmt.Sprintf(s, networkFile, networkFile, networkFile, networkFile)
 }
 
-func PopulateNetworkInterfacesScript() string {
-	s := `import subprocess, re, argparse, os, time
+const NetworkInterfacesScript = `from __future__ import print_function, unicode_literals
+import subprocess, re, argparse, os, time
 from string import Formatter
+
 INTERFACES_FILE="/etc/network/interfaces"
 IP_LINE = re.compile(r"^\d: (.*?):")
 IP_HWADDR = re.compile(r".*link/ether ((\w{2}|:){11})")
@@ -419,7 +420,7 @@ def ip_parse(ip_output):
     devices = dict()
     print("Parsing ip command output %s" % ip_output)
     for ip_line in ip_output:
-        ip_line_str = strdecode(ip_line, 'utf-8')
+        ip_line_str = strdecode(ip_line, "utf-8")
         match = IP_LINE.match(ip_line_str)
         if match is None:
             continue
@@ -428,7 +429,7 @@ def ip_parse(ip_output):
         if match is None:
             continue
         nic_hwaddr = match.group(1)
-        devices[nic_hwaddr]=nic_name
+        devices[nic_hwaddr] = nic_name
     print("Found the following devices: %s" % str(devices))
     return devices
 
@@ -436,7 +437,7 @@ def replace_ethernets(interfaces_file, devices, fail_on_missing):
     """check if the contents of interfaces_file contain template
     keys corresponding to hwaddresses and replace them with
     the proper device name"""
-    with open(interfaces_file, "r") as intf_file:
+    with open(interfaces_file + ".templ", "r") as intf_file:
         interfaces = intf_file.read()
 
     formatter = Formatter()
@@ -461,16 +462,19 @@ def replace_ethernets(interfaces_file, devices, fail_on_missing):
     with open(interfaces_file + ".tmp", "w") as intf_file:
         intf_file.write(formatted)
 
-    os.rename(interfaces_file, interfaces_file + ".bak")
+    try:
+        os.rename(interfaces_file, interfaces_file + ".bak")
+    except OSError: #silently ignore if the file is missing
+        pass
     os.rename(interfaces_file + ".tmp", interfaces_file)
     return True
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--interfaces_file', dest = 'intf_file', default = INTERFACES_FILE)
-    parser.add_argument('--command', dest = 'command', default = COMMAND)
-    parser.add_argument('--retries', dest = 'retries', default = RETRIES)
-    parser.add_argument('--wait', dest = 'wait', default = WAIT)
+    parser.add_argument("--interfaces-file", dest="intf_file", default=INTERFACES_FILE)
+    parser.add_argument("--command", default=COMMAND)
+    parser.add_argument("--retries", default=RETRIES)
+    parser.add_argument("--wait", default=WAIT)
     args = parser.parse_args()
     retries = int(args.retries)
     for tries in range(retries):
@@ -483,5 +487,3 @@ def main():
 if __name__ == "__main__":
     main()
 `
-	return s
-}
