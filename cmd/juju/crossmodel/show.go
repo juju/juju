@@ -114,9 +114,12 @@ type ShowAPI interface {
 	ApplicationOffer(url string) (params.ApplicationOffer, error)
 }
 
-// ShowRemoteApplication defines the serialization behaviour of remote application.
+// ShowOfferedApplication defines the serialization behaviour of an application offer.
 // This is used in map-style yaml output where remote application name is the key.
-type ShowRemoteApplication struct {
+type ShowOfferedApplication struct {
+	// Access is the level of access the user has on the offer.
+	Access string `yaml:"access" json:"access"`
+
 	// Endpoints list of offered application endpoints.
 	Endpoints map[string]RemoteEndpoint `yaml:"endpoints" json:"endpoints"`
 
@@ -126,13 +129,16 @@ type ShowRemoteApplication struct {
 
 // convertOffers takes any number of api-formatted remote applications and
 // creates a collection of ui-formatted offers.
-func convertOffers(offers ...params.ApplicationOffer) (map[string]ShowRemoteApplication, error) {
+func convertOffers(offers ...params.ApplicationOffer) (map[string]ShowOfferedApplication, error) {
 	if len(offers) == 0 {
 		return nil, nil
 	}
-	output := make(map[string]ShowRemoteApplication, len(offers))
+	output := make(map[string]ShowOfferedApplication, len(offers))
 	for _, one := range offers {
-		app := ShowRemoteApplication{Endpoints: convertRemoteEndpoints(one.Endpoints...)}
+		app := ShowOfferedApplication{
+			Access:    one.Access,
+			Endpoints: convertRemoteEndpoints(one.Endpoints...),
+		}
 		if one.ApplicationDescription != "" {
 			app.Description = one.ApplicationDescription
 		}

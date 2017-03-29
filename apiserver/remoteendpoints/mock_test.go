@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common/crossmodelcommon"
 	jujucrossmodel "github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/permission"
 	"github.com/juju/juju/testing"
 )
 
@@ -98,6 +99,7 @@ type mockState struct {
 	allmodels    []crossmodelcommon.Model
 	applications map[string]crossmodelcommon.Application
 	connStatus   crossmodelcommon.RemoteConnectionStatus
+	offerAccess  map[names.ApplicationOfferTag]permission.Access
 }
 
 func (m *mockState) Application(name string) (crossmodelcommon.Application, error) {
@@ -129,6 +131,14 @@ func (m *mockState) AllModels() ([]crossmodelcommon.Model, error) {
 		return m.allmodels, nil
 	}
 	return []crossmodelcommon.Model{m.model}, nil
+}
+
+func (m *mockState) GetOfferAccess(offer names.ApplicationOfferTag, user names.UserTag) (permission.Access, error) {
+	access, ok := m.offerAccess[offer]
+	if !ok {
+		return permission.NoAccess, errors.NotFoundf("access for %q", offer)
+	}
+	return access, nil
 }
 
 func (m *mockState) RemoteConnectionStatus(offerName string) (crossmodelcommon.RemoteConnectionStatus, error) {

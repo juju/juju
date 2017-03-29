@@ -86,6 +86,7 @@ func (s *crossmodelSuite) TestShow(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, `
 admin/controller.varnish:
+  access: admin
   endpoints:
     webcache:
       interface: varnish
@@ -102,6 +103,7 @@ func (s *crossmodelSuite) TestShowOtherModel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, `
 otheruser/othermodel.hosted-mysql:
+  access: admin
   endpoints:
     database:
       interface: mysql
@@ -129,11 +131,13 @@ func (s *crossmodelSuite) TestFind(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, `
 admin/controller.riak:
+  access: admin
   endpoints:
     endpoint:
       interface: http
       role: provider
 admin/controller.varnish:
+  access: admin
   endpoints:
     webcache:
       interface: varnish
@@ -149,6 +153,7 @@ func (s *crossmodelSuite) TestFindOtherModel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, `
 otheruser/othermodel.hosted-mysql:
+  access: admin
   endpoints:
     database:
       interface: mysql
@@ -164,16 +169,19 @@ func (s *crossmodelSuite) TestFindAllModels(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, `
 admin/controller.riak:
+  access: admin
   endpoints:
     endpoint:
       interface: http
       role: provider
 admin/controller.varnish:
+  access: admin
   endpoints:
     webcache:
       interface: varnish
       role: provider
 otheruser/othermodel.hosted-mysql:
+  access: admin
   endpoints:
     database:
       interface: mysql
@@ -341,6 +349,11 @@ func (s *crossmodelSuite) loginTestUser(c *gc.C) {
 	s.runJujuCommndWithStdin(c, strings.NewReader("hunter2\nhunter2\n"), "login", "-u", "test")
 }
 
+func (s *crossmodelSuite) loginAdminUser(c *gc.C) {
+	runJujuCommand(c, "logout")
+	s.runJujuCommndWithStdin(c, strings.NewReader("hunter2\nhunter2\n"), "login", "-u", "admin")
+}
+
 func (s *crossmodelSuite) TestAddRelationSameControllerPermissionDenied(c *gc.C) {
 	ch := s.AddTestingCharm(c, "wordpress")
 	s.AddTestingService(c, "wordpress", ch)
@@ -366,6 +379,32 @@ func (s *crossmodelSuite) TestAddRelationSameControllerPermissionAllowed(c *gc.C
 
 	s.loginTestUser(c)
 	s.assertAddRelationSameControllerSuccess(c, "otheruser")
+}
+
+func (s *crossmodelSuite) TestFindOffersWithPermission(c *gc.C) {
+	s.addOtherModelApplication(c)
+	s.createTestUser(c)
+	s.loginTestUser(c)
+	ctx, err := testing.RunCommand(c, crossmodel.NewFindEndpointsCommand(),
+		"otheruser/othermodel", "--format", "yaml")
+	c.Assert(err, gc.ErrorMatches, ".*no matching application offers found.*")
+
+	s.loginAdminUser(c)
+	_, err = testing.RunCommand(c, model.NewGrantCommand(), "test", "read", "otheruser/othermodel.hosted-mysql")
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.loginTestUser(c)
+	ctx, err = testing.RunCommand(c, crossmodel.NewFindEndpointsCommand(),
+		"otheruser/othermodel", "--format", "yaml")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, `
+otheruser/othermodel.hosted-mysql:
+  access: read
+  endpoints:
+    database:
+      interface: mysql
+      role: provider
+`[1:])
 }
 
 func (s *crossmodelSuite) assertOfferGrant(c *gc.C) {

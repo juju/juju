@@ -108,16 +108,19 @@ func (api *BaseAPI) ApplicationOffersFromModel(
 
 	var results []params.ApplicationOfferDetails
 	for _, offer := range offers {
+		userAccess := permission.AdminAccess
 		// If the user is not a model admin, they need at least read
 		// access on an offer to see it.
 		if !isAdmin {
-			permErr := api.CheckPermission(names.NewApplicationOfferTag(offer.OfferName), permission.ReadAccess)
-			if permErr == common.ErrPerm {
-				continue
-			}
-			if err != nil {
+			apiUser := api.Authorizer.GetAuthTag().(names.UserTag)
+			access, permErr := backend.GetOfferAccess(names.NewApplicationOfferTag(offer.OfferName), apiUser)
+			if err != nil && !errors.IsNotFound(permErr) {
 				return nil, errors.Trace(err)
 			}
+			if !access.EqualOrGreaterOfferAccessThan(permission.ReadAccess) {
+				continue
+			}
+			userAccess = access
 		}
 		app, err := backend.Application(offer.ApplicationName)
 		if err != nil {
@@ -129,7 +132,7 @@ func (api *BaseAPI) ApplicationOffersFromModel(
 			return nil, errors.Trace(err)
 		}
 		offerDetails := params.ApplicationOfferDetails{
-			ApplicationOffer: makeOfferParamsFromOffer(offer),
+			ApplicationOffer: makeOfferParamsFromOffer(offer, userAccess),
 			ApplicationName:  app.Name(),
 			CharmName:        curl.Name,
 			ConnectedCount:   status.ConnectionCount(),
@@ -139,10 +142,11 @@ func (api *BaseAPI) ApplicationOffersFromModel(
 	return results, nil
 }
 
-func makeOfferParamsFromOffer(offer jujucrossmodel.ApplicationOffer) params.ApplicationOffer {
+func makeOfferParamsFromOffer(offer jujucrossmodel.ApplicationOffer, access permission.Access) params.ApplicationOffer {
 	result := params.ApplicationOffer{
 		OfferName:              offer.OfferName,
 		ApplicationDescription: offer.ApplicationDescription,
+		Access:                 string(access),
 	}
 	for alias, ep := range offer.Endpoints {
 		result.Endpoints = append(result.Endpoints, params.RemoteEndpoint{
@@ -153,6 +157,7 @@ func makeOfferParamsFromOffer(offer jujucrossmodel.ApplicationOffer) params.Appl
 			Limit:     ep.Limit,
 		})
 	}
+
 	return result
 }
 

@@ -73,6 +73,14 @@ func (c *consumeCommand) Init(args []string) error {
 	if url.HasEndpoint() {
 		return errors.Errorf("remote application %q shouldn't include endpoint", c.remoteApplication)
 	}
+	if url.User == "" {
+		details, err := c.ClientStore().AccountDetails(c.ControllerName())
+		if err != nil {
+			return errors.Trace(err)
+		}
+		url.User = details.User
+		c.remoteApplication = url.Path()
+	}
 	if len(args) > 1 {
 		if !names.IsValidApplication(args[1]) {
 			return errors.Errorf("invalid application name %q", args[1])

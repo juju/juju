@@ -43,6 +43,7 @@ type ApplicationOffer struct {
 	OfferName              string           `json:"offer-name"`
 	ApplicationDescription string           `json:"application-description"`
 	Endpoints              []RemoteEndpoint `json:"endpoints"`
+	Access                 string           `json:"access"`
 }
 
 // ApplicationOfferDetails represents an application offering,

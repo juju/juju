@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/remoteendpoints"
 	jujucrossmodel "github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/permission"
 )
 
 type remoteEndpointsSuite struct {
@@ -72,8 +73,10 @@ func (s *remoteEndpointsSuite) TestShow(c *gc.C) {
 			ApplicationDescription: "description",
 			OfferURL:               "fred/prod.hosted-db2",
 			OfferName:              "hosted-db2",
-			Endpoints:              []params.RemoteEndpoint{{Name: "db"}}},
+			Endpoints:              []params.RemoteEndpoint{{Name: "db"}},
+			Access:                 "admin"},
 	}}
+	s.authorizer.Tag = names.NewUserTag("admin")
 	s.assertShow(c, expected)
 }
 
@@ -86,14 +89,16 @@ func (s *remoteEndpointsSuite) TestShowNoPermission(c *gc.C) {
 }
 
 func (s *remoteEndpointsSuite) TestShowPermission(c *gc.C) {
-	s.authorizer.Tag = names.NewUserTag("read-applicationoffer-hosted-db2")
+	s.authorizer.Tag = names.NewUserTag("someone")
 	expected := []params.ApplicationOfferResult{{
 		Result: params.ApplicationOffer{
 			ApplicationDescription: "description",
 			OfferURL:               "fred/prod.hosted-db2",
 			OfferName:              "hosted-db2",
-			Endpoints:              []params.RemoteEndpoint{{Name: "db"}}},
+			Endpoints:              []params.RemoteEndpoint{{Name: "db"}},
+			Access:                 "read"},
 	}}
+	s.mockState.offerAccess[names.NewApplicationOfferTag("hosted-db2")] = permission.ReadAccess
 	s.assertShow(c, expected)
 }
 
@@ -155,7 +160,7 @@ func (s *remoteEndpointsSuite) TestShowErrorMsgMultipleURLs(c *gc.C) {
 
 func (s *remoteEndpointsSuite) TestShowFoundMultiple(c *gc.C) {
 	name := "test"
-	url := "fred/prod.hosted-sql"
+	url := "fred/prod.hosted-" + name
 	anOffer := jujucrossmodel.ApplicationOffer{
 		ApplicationName:        name,
 		ApplicationDescription: "description",
@@ -163,8 +168,8 @@ func (s *remoteEndpointsSuite) TestShowFoundMultiple(c *gc.C) {
 		Endpoints:              map[string]charm.Relation{"db": {Name: "db"}},
 	}
 
-	name2 := "testAgain"
-	url2 := "mary/test.hosted-db2"
+	name2 := "testagain"
+	url2 := "mary/test.hosted-" + name2
 	anOffer2 := jujucrossmodel.ApplicationOffer{
 		ApplicationName:        name2,
 		ApplicationDescription: "description2",
@@ -176,7 +181,7 @@ func (s *remoteEndpointsSuite) TestShowFoundMultiple(c *gc.C) {
 
 	s.applicationOffers.listOffers = func(filters ...jujucrossmodel.ApplicationOfferFilter) ([]jujucrossmodel.ApplicationOffer, error) {
 		c.Assert(filters, gc.HasLen, 1)
-		if filters[0].OfferName == "hosted-sql" {
+		if filters[0].OfferName == "hosted-test" {
 			return []jujucrossmodel.ApplicationOffer{anOffer}, nil
 		}
 		return []jujucrossmodel.ApplicationOffer{anOffer2}, nil
@@ -191,12 +196,17 @@ func (s *remoteEndpointsSuite) TestShowFoundMultiple(c *gc.C) {
 		&mockModel{uuid: "uuid2", name: "test", owner: "mary"},
 	}
 	s.mockState.connStatus = &mockConnectionStatus{count: 5}
+	s.mockState.offerAccess[names.NewApplicationOfferTag("hosted-test")] = permission.ReadAccess
 
-	anotherState := &mockState{modelUUID: "uuid2"}
+	anotherState := &mockState{
+		modelUUID:   "uuid2",
+		offerAccess: make(map[names.ApplicationOfferTag]permission.Access),
+	}
 	anotherState.applications = map[string]crossmodelcommon.Application{
-		"testAgain": &mockApplication{charm: ch, curl: charm.MustParseURL("mysql-2")},
+		"testagain": &mockApplication{charm: ch, curl: charm.MustParseURL("mysql-2")},
 	}
 	anotherState.connStatus = &mockConnectionStatus{count: 5}
+	anotherState.offerAccess[names.NewApplicationOfferTag("hosted-testagain")] = permission.ConsumeAccess
 	s.mockStatePool.st["uuid2"] = anotherState
 
 	found, err := s.api.ApplicationOffers(filter)
@@ -211,11 +221,13 @@ func (s *remoteEndpointsSuite) TestShowFoundMultiple(c *gc.C) {
 			ApplicationDescription: "description",
 			OfferName:              "hosted-" + name,
 			OfferURL:               url,
+			Access:                 "read",
 			Endpoints:              []params.RemoteEndpoint{{Name: "db"}}},
 		{
 			ApplicationDescription: "description2",
 			OfferName:              "hosted-" + name2,
 			OfferURL:               url2,
+			Access:                 "consume",
 			Endpoints:              []params.RemoteEndpoint{{Name: "db2"}}},
 	})
 	s.applicationOffers.CheckCallNames(c, listOffersBackendCall, listOffersBackendCall)
@@ -239,12 +251,14 @@ func (s *remoteEndpointsSuite) assertFind(c *gc.C, expected []params.Application
 
 func (s *remoteEndpointsSuite) TestFind(c *gc.C) {
 	s.setupOffers(c, "")
+	s.authorizer.Tag = names.NewUserTag("admin")
 	expected := []params.ApplicationOffer{
 		{
 			ApplicationDescription: "description",
 			OfferName:              "hosted-db2",
 			OfferURL:               "fred/prod.hosted-db2",
-			Endpoints:              []params.RemoteEndpoint{{Name: "db"}}}}
+			Endpoints:              []params.RemoteEndpoint{{Name: "db"}},
+			Access:                 "admin"}}
 	s.assertFind(c, expected)
 }
 
@@ -256,13 +270,15 @@ func (s *remoteEndpointsSuite) TestFindNoPermission(c *gc.C) {
 
 func (s *remoteEndpointsSuite) TestFindPermission(c *gc.C) {
 	s.setupOffers(c, "")
-	s.authorizer.Tag = names.NewUserTag("read-applicationoffer-hosted-db2")
+	s.authorizer.Tag = names.NewUserTag("someone")
 	expected := []params.ApplicationOffer{
 		{
 			ApplicationDescription: "description",
 			OfferName:              "hosted-db2",
 			OfferURL:               "fred/prod.hosted-db2",
-			Endpoints:              []params.RemoteEndpoint{{Name: "db"}}}}
+			Endpoints:              []params.RemoteEndpoint{{Name: "db"}},
+			Access:                 "read"}}
+	s.mockState.offerAccess[names.NewApplicationOfferTag("hosted-db2")] = permission.ReadAccess
 	s.assertFind(c, expected)
 }
 
@@ -306,8 +322,12 @@ func (s *remoteEndpointsSuite) TestFindMulti(c *gc.C) {
 	}
 	s.mockState.model = &mockModel{uuid: "uuid", name: "prod", owner: "fred"}
 	s.mockState.connStatus = &mockConnectionStatus{count: 5}
+	s.mockState.offerAccess[names.NewApplicationOfferTag("hosted-db2")] = permission.ConsumeAccess
 
-	anotherState := &mockState{modelUUID: "uuid2"}
+	anotherState := &mockState{
+		modelUUID:   "uuid2",
+		offerAccess: make(map[names.ApplicationOfferTag]permission.Access),
+	}
 	s.mockStatePool.st["uuid2"] = anotherState
 	anotherState.applications = map[string]crossmodelcommon.Application{
 		"mysql":      &mockApplication{charm: ch, curl: charm.MustParseURL("mysql-2")},
@@ -315,6 +335,8 @@ func (s *remoteEndpointsSuite) TestFindMulti(c *gc.C) {
 	}
 	anotherState.model = &mockModel{uuid: "uuid2", name: "another", owner: "mary"}
 	anotherState.connStatus = &mockConnectionStatus{count: 15}
+	anotherState.offerAccess[names.NewApplicationOfferTag("hosted-mysql")] = permission.ReadAccess
+	anotherState.offerAccess[names.NewApplicationOfferTag("hosted-postgresql")] = permission.AdminAccess
 
 	s.mockState.allmodels = []crossmodelcommon.Model{
 		s.mockState.model,
@@ -348,18 +370,21 @@ func (s *remoteEndpointsSuite) TestFindMulti(c *gc.C) {
 				ApplicationDescription: "db2 description",
 				OfferName:              "hosted-db2",
 				OfferURL:               "fred/prod.hosted-db2",
+				Access:                 "consume",
 				Endpoints:              []params.RemoteEndpoint{{Name: "db"}},
 			},
 			{
 				ApplicationDescription: "mysql description",
 				OfferName:              "hosted-mysql",
 				OfferURL:               "mary/another.hosted-mysql",
+				Access:                 "read",
 				Endpoints:              []params.RemoteEndpoint{{Name: "db"}},
 			},
 			{
 				ApplicationDescription: "postgresql description",
 				OfferName:              "hosted-postgresql",
 				OfferURL:               "mary/another.hosted-postgresql",
+				Access:                 "admin",
 				Endpoints:              []params.RemoteEndpoint{{Name: "db"}},
 			},
 		},
