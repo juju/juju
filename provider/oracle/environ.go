@@ -14,10 +14,11 @@ import (
 	"github.com/juju/errors"
 	oci "github.com/juju/go-oracle-cloud/api"
 	ociCommon "github.com/juju/go-oracle-cloud/common"
-	// ociResponse "github.com/juju/go-oracle-cloud/response"
+	"github.com/juju/utils/os"
+	jujuSeries "github.com/juju/utils/series"
 	"github.com/juju/version"
 
-	// "github.com/juju/juju/cloudconfig/cloudinit"
+	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/providerinit"
 	"github.com/juju/juju/constraints"
@@ -26,29 +27,29 @@ import (
 	envinstance "github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
+	oraclenet "github.com/juju/juju/provider/oracle/network"
 	"github.com/juju/juju/tools"
-	"github.com/juju/utils/os"
-
-	"github.com/juju/juju/cloudconfig/cloudinit"
-	jujuSeries "github.com/juju/utils/series"
 )
 
 // oracleEnviron implements the environs.Environ interface
-// and has behaviour specific that the interface provides.
+// and has behaviour specific that the interface provides for every
+// environ provider
+// this provider also implement the environs.Netowrking and environs.Firewaller
+// to provide network oprations inside the oracle cloud environmnet
 type oracleEnviron struct {
+	environs.Networking
+	oraclenet.Firewaller
+
 	// mutex for synchronising stuff
 	mutex *sync.Mutex
-
 	// p is the internal envirnon provider
 	p *environProvider
 	// spec is the cloud spec of the provider
 	spec environs.CloudSpec
 	// cfg is the bootstrap config
 	cfg *config.Config
-	// firewall firewall type used in network operations
-	firewall *Firewall
+
 	// client is the internal api client with the
 	// oralce cloud infrastructure
 	client *oci.Client
@@ -57,27 +58,11 @@ type oracleEnviron struct {
 	namespace instance.Namespace
 }
 
-type oracleAvailabilityZone struct {
-	name string
-}
-
-func (z oracleAvailabilityZone) Name() string {
-	return z.name
-}
-
-func (z oracleAvailabilityZone) Available() bool {
-	// we don't really have availability zones in oracle cloud. We only
-	// have regions
-	return true
-}
-
 // AvailabilityZones returns a slice of availability zones
 // for the configured region.
 func (o *oracleEnviron) AvailabilityZones() ([]common.AvailabilityZone, error) {
 	return []common.AvailabilityZone{
-		oracleAvailabilityZone{
-			name: "default",
-		},
+		oraclenet.NewAvailabilityZone("default"),
 	}, nil
 }
 
@@ -117,14 +102,15 @@ func newOracleEnviron(
 		mutex:  &sync.Mutex{},
 		client: client,
 	}
-	// create a new firewall from the env and the internal api client
-	env.firewall = NewFirewall(env, client)
 
 	namespace, err := instance.NewNamespace(env.cfg.UUID())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	env.namespace = namespace
+
+	env.Firewaller = oraclenet.NewFirewall(env, client)
+	env.Networking = oraclenet.NewEnviron(client)
 
 	return env, nil
 }
@@ -393,7 +379,7 @@ func (o *oracleEnviron) StartInstance(args environs.StartInstanceParams) (*envir
 	}
 
 	// create a new seclists
-	secLists, err := o.firewall.CreateMachineSecLists(
+	secLists, err := o.CreateMachineSecLists(
 		args.InstanceConfig.MachineId, apiPort)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -817,33 +803,6 @@ func (o *oracleEnviron) DestroyController(controllerUUID string) error {
 	return nil
 }
 
-// OpenPorts opens the given port ranges for the whole environment.
-// Must only be used if the environment was setup with the
-// FwGlobal firewall mode.
-func (o *oracleEnviron) OpenPorts(rules []network.IngressRule) error {
-	if o.Config().FirewallMode() != config.FwGlobal {
-		return fmt.Errorf("invalid firewall mode %q for opening ports on model", o.Config().FirewallMode())
-	}
-	return o.firewall.OpenPorts(rules)
-}
-
-// ClosePorts closes the given port ranges for the whole environment.
-// Must only be used if the environment was setup with the
-// FwGlobal firewall mode.
-func (o *oracleEnviron) ClosePorts(rules []network.IngressRule) error {
-	return o.firewall.ClosePorts(rules)
-}
-
-// IngressRules returns the ingress rules applied to the whole environment.
-// Must only be used if the environment was setup with the
-// FwGlobal firewall mode.
-// It is expected that there be only one ingress rule result for a given
-// port range - the rule's SourceCIDRs will contain all applicable source
-// address rules for that port range.
-func (o *oracleEnviron) IngressRules() ([]network.IngressRule, error) {
-	return o.firewall.GlobalIngressRules()
-}
-
 // Provider returns the EnvironProvider that created this Environ.
 func (o *oracleEnviron) Provider() environs.EnvironProvider {
 	return o.p
@@ -857,11 +816,6 @@ func (o *oracleEnviron) Provider() environs.EnvironProvider {
 // all invalid parameters. If PrecheckInstance returns nil, it is not
 // guaranteed that the constraints are valid; if a non-nil error is
 // returned, then the constraints are definitely invalid.
-//
-// TODO(axw) find a home for state.Prechecker that isn't state and
-// isn't environs, so both packages can refer to it. Maybe the
-// constraints package? Can't be instance, because constraints
-// import instance...
 func (o *oracleEnviron) PrecheckInstance(series string, cons constraints.Value, placement string) error {
 	return nil
 }

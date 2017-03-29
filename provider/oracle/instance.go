@@ -26,6 +26,7 @@ import (
 // oracleInstance type holds the actual running machine
 // instance inside the oracle cloud infrastrcture
 // this will imlement the instance.Instance interface
+// this also implements the environs.Firewaller interface
 type oracleInstance struct {
 	// name of the instance, generated after the vm creation
 	name string
@@ -213,7 +214,7 @@ func (o *oracleInstance) delete(cleanup bool) error {
 
 		// the VM association is now gone, now we can delete the
 		// machine sec list also
-		if err := o.env.firewall.DeleteMachineSecList(o.machineId); err != nil {
+		if err := o.env.DeleteMachineSecList(o.machineId); err != nil {
 			return jujuerrors.Trace(err)
 		}
 
@@ -412,7 +413,7 @@ func (o *oracleInstance) OpenPorts(machineId string, rules []network.IngressRule
 		)
 	}
 
-	return o.env.firewall.OpenPortsOnInstance(machineId, rules)
+	return o.env.OpenPortsOnInstance(machineId, rules)
 }
 
 // ClosePorts closes the given port ranges on the instance, which
@@ -426,7 +427,7 @@ func (o *oracleInstance) ClosePorts(machineId string, rules []network.IngressRul
 		)
 	}
 
-	return o.env.firewall.ClosePortsOnInstance(machineId, rules)
+	return o.env.ClosePortsOnInstance(machineId, rules)
 }
 
 // IngressRules returns the set of ingress rules for the instance,
@@ -436,5 +437,5 @@ func (o *oracleInstance) ClosePorts(machineId string, rules []network.IngressRul
 // port range - the rule's SourceCIDRs will contain all applicable source
 // address rules for that port range.
 func (o *oracleInstance) IngressRules(machineId string) ([]network.IngressRule, error) {
-	return o.env.firewall.MachineIngressRules(machineId)
+	return o.env.MachineIngressRules(machineId)
 }
