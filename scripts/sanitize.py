@@ -9,13 +9,14 @@ import sys
 
 # This lists the collections and fields in those collections that need to be sanitized
 to_sanitize = [
- ('users', ['passwordhash']),
+ ('users', ['passwordhash', 'passwordsalt']),
  ('units', ['passwordhash']),
  ('machines', ['passwordhash']),
  ('settings', ['settings']),
  ('controllers', ['settings', 'cert', 'privatekey', 'caprivatekey', 'sharedsecret', 'systemidentity']),
- ('actions', ['message', 'results']),
+ ('actions', ['parameters', 'message', 'results']),
  ('cloudCredentials', ['attributes']),
+ ('statuses', ['statusinfo']),
 ]
 
 def generateScript():
@@ -52,7 +53,7 @@ def generateScript():
             lines.append('    "o.$.u.$set.%s": "1"}' % (attribute,))
             lines.append('}, {"multi": 1}))')
         lines.append('')
-    lines.append('db.txns.deleteIndex({"o.c": 1})')
+    lines.append('db.txns.dropIndex({"o.c": 1})')
     lines.append('print(new Date().toLocaleString())')
     return lines
 
