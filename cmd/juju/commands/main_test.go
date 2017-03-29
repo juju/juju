@@ -403,6 +403,7 @@ var commandNames = []string{
 	"agreements",
 	"allocate",
 	"attach",
+	"attach-storage",
 	"autoload-credentials",
 	"backups",
 	"bootstrap",
@@ -424,6 +425,7 @@ var commandNames = []string{
 	"deploy",
 	"destroy-controller",
 	"destroy-model",
+	"detach-storage",
 	"disable-command",
 	"disable-user",
 	"disabled-commands",
@@ -540,14 +542,11 @@ var commandNames = []string{
 // devFeatures are feature flags that impact registration of commands.
 var devFeatures = []string{
 	feature.CrossModelRelations,
-	feature.PersistentStorage,
 }
 
 // These are the commands that are behind the `devFeatures`.
 var commandNamesBehindFlags = set.NewStrings(
-	"attach-storage",
 	"consume",
-	"detach-storage",
 	"find-endpoints",
 	"list-offers",
 	"offer",
