@@ -39,6 +39,3 @@ const CrossModelRelations = "cross-model"
 
 // LXDStorage enables the LXD storage provider.
 const LXDStorage = "lxd-storage"
-
-// PersistentStorage enables the persistent storage feature.
-const PersistentStorage = "persistent-storage"
