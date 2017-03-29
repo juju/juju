@@ -226,7 +226,7 @@ func newCloudInitConfigWithNetworks(series string, networkConfig *container.Netw
 			return nil, errors.Trace(err)
 		}
 		cloudConfig.AddBootTextFile(systemNetworkInterfacesFile, config, 0644)
-		cloudConfig.AddBootTextFile(systemNetworkInterfacesFile+".py", populateNetworkInterfacesScript(), 0744)
+		cloudConfig.AddBootTextFile(systemNetworkInterfacesFile+".py", PopulateNetworkInterfacesScript(), 0744)
 		cloudConfig.AddBootCmd(populateNetworkInterfaces(systemNetworkInterfacesFile))
 		//cloudConfig.AddRunCmd(raiseJujuNetworkInterfacesScript(systemNetworkInterfacesFile, networkInterfacesFile))
 	}
@@ -397,7 +397,7 @@ fi
 	return fmt.Sprintf(s, networkFile, networkFile, networkFile, networkFile)
 }
 
-func populateNetworkInterfacesScript() string {
+func PopulateNetworkInterfacesScript() string {
 	s := `import subprocess, re, argparse, os, time
 from string import Formatter
 INTERFACES_FILE="/etc/network/interfaces"
@@ -472,12 +472,13 @@ def main():
     parser.add_argument('--retries', dest = 'retries', default = RETRIES)
     parser.add_argument('--wait', dest = 'wait', default = WAIT)
     args = parser.parse_args()
-    for tries in xrange(args.retries):
+    retries = int(args.retries)
+    for tries in range(retries):
         ip_output = ip_parse(subprocess.check_output(args.command.split()).splitlines())
-        if replace_ethernets(args.intf_file, ip_output, (tries != args.retries - 1)):
+        if replace_ethernets(args.intf_file, ip_output, (tries != retries - 1)):
              break
         else:
-             time.sleep(args.wait)
+             time.sleep(float(args.wait))
 
 if __name__ == "__main__":
     main()

@@ -5,12 +5,17 @@
 package containerinit_test
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
+	"io/ioutil"
+	"os"
 	"path/filepath"
 	"strings"
 	stdtesting "testing"
 
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/exec"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/yaml.v2"
 
@@ -40,6 +45,8 @@ type UserDataSuite struct {
 	expectedFallbackConfig      string
 	expectedBaseConfig          string
 	expectedFallbackUserData    string
+	tempFolder                  string
+	pythonVersions              []string
 }
 
 var _ = gc.Suite(&UserDataSuite{})
@@ -47,6 +54,7 @@ var _ = gc.Suite(&UserDataSuite{})
 func (s *UserDataSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
+	s.tempFolder = c.MkDir()
 	networkFolder := c.MkDir()
 	s.systemNetworkInterfacesFile = filepath.Join(networkFolder, "system-interfaces")
 	s.networkInterfacesPythonFile = filepath.Join(networkFolder, "system-interfaces.py")
@@ -88,6 +96,17 @@ func (s *UserDataSuite) SetUpTest(c *gc.C) {
 		ConfigType:    network.ConfigManual,
 		NoAutoStart:   true,
 	}}
+
+	for _, version := range []string{
+		"/usr/bin/python2",
+		"/usr/bin/python3",
+		"/usr/bin/python",
+	} {
+		if _, err := os.Stat(version); err == nil {
+			s.pythonVersions = append(s.pythonVersions, version)
+		}
+	}
+
 	s.expectedSampleConfigWriting = `#cloud-config
 bootcmd:
 - install -D -m 644 /dev/null '%[1]s'
@@ -214,12 +233,13 @@ iface {eth} inet dhcp
       parser.add_argument('"'"'--retries'"'"', dest = '"'"'retries'"'"', default = RETRIES)
       parser.add_argument('"'"'--wait'"'"', dest = '"'"'wait'"'"', default = WAIT)
       args = parser.parse_args()
-      for tries in xrange(args.retries):
+      retries = int(args.retries)
+      for tries in range(retries):
           ip_output = ip_parse(subprocess.check_output(args.command.split()).splitlines())
-          if replace_ethernets(args.intf_file, ip_output, (tries != args.retries - 1)):
+          if replace_ethernets(args.intf_file, ip_output, (tries != retries - 1)):
                break
           else:
-               time.sleep(args.wait)
+               time.sleep(float(args.wait))
 
   if __name__ == "__main__":
       main()
@@ -395,3 +415,215 @@ func assertUserData(c *gc.C, cloudConf cloudinit.CloudConfig, expected string) {
 		c.Assert(out["bootcmd"], gc.IsNil)
 	}
 }
+
+func (s *UserDataSuite) TestENIScriptSimple(c *gc.C) {
+	cmd := s.createMockCommand(c, []string{simpleENIFileIPOutput})
+	s.runENIScriptWithAllPythons(c, cmd, simpleENIFile, simpleENIFileExpected, 0, 1)
+}
+
+func (s *UserDataSuite) TestENIScriptUnknownMAC(c *gc.C) {
+	cmd := s.createMockCommand(c, []string{unknownMACENIFileIPOutput})
+	s.runENIScriptWithAllPythons(c, cmd, unknownMACENIFile, unknownMACENIFileExpected, 0, 1)
+}
+
+func (s *UserDataSuite) TestENIScriptHotplugFail(c *gc.C) {
+	cmd := s.createMockCommand(c, []string{hotplugENIFileIPOutputPre})
+	s.runENIScriptWithAllPythons(c, cmd, hotplugENIFile, hotplugENIFileExpectedFail, 0, 3)
+}
+
+func (s *UserDataSuite) TestENIScriptHotplugTooLate(c *gc.C) {
+	for _, python := range s.pythonVersions {
+		c.Logf("test using %s", python)
+		ipCommand := s.createMockCommand(c, []string{hotplugENIFileIPOutputPre, hotplugENIFileIPOutputPre, hotplugENIFileIPOutputPre, hotplugENIFileIPOutputPost})
+		s.runENIScript(c, python, ipCommand, hotplugENIFile, hotplugENIFileExpectedFail, 0, 3)
+	}
+}
+
+func (s *UserDataSuite) TestENIScriptHotplug(c *gc.C) {
+	for _, python := range s.pythonVersions {
+		c.Logf("test using %s", python)
+		ipCommand := s.createMockCommand(c, []string{hotplugENIFileIPOutputPre, hotplugENIFileIPOutputPre, hotplugENIFileIPOutputPost})
+		s.runENIScript(c, python, ipCommand, hotplugENIFile, hotplugENIFileExpected, 0, 3)
+	}
+}
+
+func (s *UserDataSuite) runENIScriptWithAllPythons(c *gc.C, ipCommand, input, expectedOutput string, wait, retries int) {
+	for _, python := range s.pythonVersions {
+		c.Logf("test using %s", python)
+		s.runENIScript(c, python, ipCommand, input, expectedOutput, wait, retries)
+	}
+
+}
+
+func (s *UserDataSuite) runENIScript(c *gc.C, pythonBinary, ipCommand, input, expectedOutput string, wait, retries int) {
+	dataFile := filepath.Join(s.tempFolder, "interfaces")
+	scriptFile := filepath.Join(s.tempFolder, "script.py")
+
+	err := ioutil.WriteFile(dataFile, []byte(input), 0644)
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf("Can't write interfaces file"))
+
+	err = ioutil.WriteFile(scriptFile, []byte(containerinit.PopulateNetworkInterfacesScript()), 0755)
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf("Can't write script file"))
+
+	script := fmt.Sprintf("%q %q --interfaces_file %q --command %q --wait %d --retries %d", pythonBinary, scriptFile, dataFile, ipCommand, wait, retries)
+	result, err := exec.RunCommands(exec.RunParams{Commands: script})
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf("script failed unexpectedly - %s", result))
+	data, err := ioutil.ReadFile(dataFile)
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf("can't open parsed interfaces file"))
+	output := string(data)
+	c.Assert(output, gc.Equals, expectedOutput)
+}
+
+func (s *UserDataSuite) createMockCommand(c *gc.C, outputs []string) string {
+	randBytes := make([]byte, 16)
+	rand.Read(randBytes)
+	baseName := hex.EncodeToString(randBytes)
+	basePath := filepath.Join(s.tempFolder, fmt.Sprintf("%s.%d", baseName, 0))
+	script := fmt.Sprintf("#!/bin/bash\ncat %s\n", basePath)
+
+	lastFile := ""
+	for i, output := range outputs {
+		dataFile := filepath.Join(s.tempFolder, fmt.Sprintf("%s.%d", baseName, i))
+		err := ioutil.WriteFile(dataFile, []byte(output), 0644)
+		c.Assert(err, jc.ErrorIsNil, gc.Commentf("can't write mock file"))
+		if lastFile != "" {
+			script += fmt.Sprintf("mv %q %q || true\n", dataFile, lastFile)
+		}
+		lastFile = dataFile
+	}
+
+	scriptPath := filepath.Join(s.tempFolder, fmt.Sprintf("%s.sh", baseName))
+	err := ioutil.WriteFile(scriptPath, []byte(script), 0755)
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf("can't write script file"))
+	return scriptPath
+}
+
+const simpleENIFile = `auto lo
+interface lo inet loopback
+
+auto {ethe0_db_55_e4_1d_5b}
+iface {ethe0_db_55_e4_1d_5b} inet static
+    address 1.2.3.4
+    netmask 255.255.255.0
+    gateway 1.2.3.1
+
+auto {ethe0_db_55_e4_1a_5b}
+iface {ethe0_db_55_e4_1a_5b} inet static
+    address 1.2.3.5
+    netmask 255.255.255.0
+    gateway 1.2.3.1
+`
+
+const simpleENIFileIPOutput = `1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN mode DEFAULT group default qlen 1\    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+2: eno1: <NO-CARRIER,BROADCAST,MULTICAST,UP> mtu 1500 qdisc pfifo_fast state DOWN mode DEFAULT group default qlen 1000\    link/ether e0:db:55:e4:1d:5b brd ff:ff:ff:ff:ff:ff
+3: eno2: <NO-CARRIER,BROADCAST,MULTICAST,UP> mtu 1500 qdisc pfifo_fast state DOWN mode DEFAULT group default qlen 1000\    link/ether e0:db:55:e4:1a:5b brd ff:ff:ff:ff:ff:ff
+`
+
+const simpleENIFileExpected = `auto lo
+interface lo inet loopback
+
+auto eno1
+iface eno1 inet static
+    address 1.2.3.4
+    netmask 255.255.255.0
+    gateway 1.2.3.1
+
+auto eno2
+iface eno2 inet static
+    address 1.2.3.5
+    netmask 255.255.255.0
+    gateway 1.2.3.1
+`
+
+const unknownMACENIFile = `auto lo
+interface lo inet loopback
+
+auto {ethe0_db_55_e4_1d_5b}
+iface {ethe0_db_55_e4_1d_5b} inet static
+    address 1.2.3.4
+    netmask 255.255.255.0
+    gateway 1.2.3.1
+
+auto {ethe3_db_55_e4_1d_5b}
+iface {ethe3_db_55_e4_1d_5b} inet static
+    address 1.2.3.5
+    netmask 255.255.255.0
+    gateway 1.2.3.1
+`
+
+const unknownMACENIFileIPOutput = `1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN mode DEFAULT group default qlen 1\    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+2: eno1: <NO-CARRIER,BROADCAST,MULTICAST,UP> mtu 1500 qdisc pfifo_fast state DOWN mode DEFAULT group default qlen 1000\    link/ether e0:db:55:e4:1d:5b brd ff:ff:ff:ff:ff:ff
+`
+
+const unknownMACENIFileExpected = `auto lo
+interface lo inet loopback
+
+auto eno1
+iface eno1 inet static
+    address 1.2.3.4
+    netmask 255.255.255.0
+    gateway 1.2.3.1
+
+auto ethe3_db_55_e4_1d_5b
+iface ethe3_db_55_e4_1d_5b inet static
+    address 1.2.3.5
+    netmask 255.255.255.0
+    gateway 1.2.3.1
+`
+
+const hotplugENIFile = `auto lo
+interface lo inet loopback
+
+auto {ethe0_db_55_e4_1d_5b}
+iface {ethe0_db_55_e4_1d_5b} inet static
+    address 1.2.3.4
+    netmask 255.255.255.0
+    gateway 1.2.3.1
+
+auto {ethe0_db_55_e4_1a_5b}
+iface {ethe0_db_55_e4_1a_5b} inet static
+    address 1.2.3.5
+    netmask 255.255.255.0
+    gateway 1.2.3.1
+`
+
+const hotplugENIFileIPOutputPre = `1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN mode DEFAULT group default qlen 1\    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+2: eno1: <NO-CARRIER,BROADCAST,MULTICAST,UP> mtu 1500 qdisc pfifo_fast state DOWN mode DEFAULT group default qlen 1000\    link/ether e0:db:55:e4:1d:5b brd ff:ff:ff:ff:ff:ff
+`
+
+const hotplugENIFileIPOutputPost = `1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN mode DEFAULT group default qlen 1\    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+2: eno1: <NO-CARRIER,BROADCAST,MULTICAST,UP> mtu 1500 qdisc pfifo_fast state DOWN mode DEFAULT group default qlen 1000\    link/ether e0:db:55:e4:1d:5b brd ff:ff:ff:ff:ff:ff
+3: eno2: <NO-CARRIER,BROADCAST,MULTICAST,UP> mtu 1500 qdisc pfifo_fast state DOWN mode DEFAULT group default qlen 1000\    link/ether e0:db:55:e4:1a:5b brd ff:ff:ff:ff:ff:ff
+`
+
+const hotplugENIFileExpected = `auto lo
+interface lo inet loopback
+
+auto eno1
+iface eno1 inet static
+    address 1.2.3.4
+    netmask 255.255.255.0
+    gateway 1.2.3.1
+
+auto eno2
+iface eno2 inet static
+    address 1.2.3.5
+    netmask 255.255.255.0
+    gateway 1.2.3.1
+`
+
+const hotplugENIFileExpectedFail = `auto lo
+interface lo inet loopback
+
+auto eno1
+iface eno1 inet static
+    address 1.2.3.4
+    netmask 255.255.255.0
+    gateway 1.2.3.1
+
+auto ethe0_db_55_e4_1a_5b
+iface ethe0_db_55_e4_1a_5b inet static
+    address 1.2.3.5
+    netmask 255.255.255.0
+    gateway 1.2.3.1
+`
