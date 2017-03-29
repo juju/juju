@@ -183,6 +183,7 @@ func (s *applicationOffersSuite) assertList(c *gc.C, expectedErr error) {
 					OfferName:              "hosted-db2",
 					OfferURL:               "fred/prod.hosted-db2",
 					Endpoints:              []params.RemoteEndpoint{{Name: "db"}},
+					Access:                 "admin",
 				},
 				CharmName:      "db2",
 				ConnectedCount: 5,

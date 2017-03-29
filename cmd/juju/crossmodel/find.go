@@ -161,22 +161,28 @@ type FindAPI interface {
 	FindApplicationOffers(filters ...crossmodel.ApplicationOfferFilter) ([]params.ApplicationOffer, error)
 }
 
-// RemoteApplicationResult defines the serialization behaviour of remote application.
+// ApplicationOfferResult defines the serialization behaviour of an application offer.
 // This is used in map-style yaml output where remote application URL is the key.
-type RemoteApplicationResult struct {
+type ApplicationOfferResult struct {
+	// Access is the level of access the user has on the offer.
+	Access string `yaml:"access" json:"access"`
+
 	// Endpoints is the list of offered application endpoints.
 	Endpoints map[string]RemoteEndpoint `yaml:"endpoints" json:"endpoints"`
 }
 
 // convertFoundOffers takes any number of api-formatted remote applications and
 // creates a collection of ui-formatted applications.
-func convertFoundOffers(services ...params.ApplicationOffer) (map[string]RemoteApplicationResult, error) {
+func convertFoundOffers(services ...params.ApplicationOffer) (map[string]ApplicationOfferResult, error) {
 	if len(services) == 0 {
 		return nil, nil
 	}
-	output := make(map[string]RemoteApplicationResult, len(services))
+	output := make(map[string]ApplicationOfferResult, len(services))
 	for _, one := range services {
-		app := RemoteApplicationResult{Endpoints: convertRemoteEndpoints(one.Endpoints...)}
+		app := ApplicationOfferResult{
+			Access:    one.Access,
+			Endpoints: convertRemoteEndpoints(one.Endpoints...),
+		}
 		output[one.OfferURL] = app
 	}
 	return output, nil

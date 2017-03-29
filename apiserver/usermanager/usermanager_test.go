@@ -341,6 +341,10 @@ func (s *userManagerSuite) TestUserInfo(c *gc.C) {
 		s.State, s.AdminUserTag(c), names.NewUserTag("fred@external"),
 		params.GrantControllerAccess, permission.AddModelAccess)
 	c.Assert(err, jc.ErrorIsNil)
+	err = controller.ChangeControllerAccess(
+		s.State, s.AdminUserTag(c), names.NewUserTag("everyone@external"),
+		params.GrantControllerAccess, permission.AddModelAccess)
+	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.UserInfoRequest{
 		Entities: []params.Entity{
@@ -352,6 +356,8 @@ func (s *userManagerSuite) TestUserInfo(c *gc.C) {
 				Tag: names.NewLocalUserTag("ellie").String(),
 			}, {
 				Tag: names.NewUserTag("fred@external").String(),
+			}, {
+				Tag: names.NewUserTag("mary@external").String(),
 			}, {
 				Tag: "not-a-tag",
 			},
@@ -388,6 +394,11 @@ func (s *userManagerSuite) TestUserInfo(c *gc.C) {
 		}, {
 			info: &params.UserInfo{
 				Username: "fred@external",
+				Access:   "add-model",
+			},
+		}, {
+			info: &params.UserInfo{
+				Username: "mary@external",
 				Access:   "add-model",
 			},
 		}, {
