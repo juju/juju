@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/storage"
 )
@@ -35,6 +36,7 @@ type Backend interface {
 	NewStorage() storage.Storage
 	StorageInstance(names.StorageTag) (state.StorageInstance, error)
 	UnitStorageAttachments(names.UnitTag) ([]state.StorageAttachment, error)
+	GetOfferAccess(offer names.ApplicationOfferTag, user names.UserTag) (permission.Access, error)
 }
 
 // BlockChecker defines the block-checking functionality required by

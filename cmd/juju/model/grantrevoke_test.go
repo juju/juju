@@ -80,12 +80,20 @@ func (s *grantRevokeSuite) TestPassesModelValues(c *gc.C) {
 }
 
 func (s *grantRevokeSuite) TestPassesOfferValues(c *gc.C) {
-	user := "sam"
 	offers := []string{"bob/foo.hosted-mysql", "bob/bar.mysql", "bob/baz.hosted-db2"}
 	_, err := s.run(c, "sam", "read", offers[0], offers[1], offers[2])
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.fakeOffersAPI.user, jc.DeepEquals, user)
+	c.Assert(s.fakeOffersAPI.user, jc.DeepEquals, "sam")
 	c.Assert(s.fakeOffersAPI.offerURLs, jc.SameContents, []string{"hosted-mysql", "mysql", "hosted-db2"})
+	c.Assert(s.fakeOffersAPI.access, gc.Equals, "read")
+}
+
+func (s *grantRevokeSuite) TestPassesOfferWithDefaultModelUser(c *gc.C) {
+	offer := "foo.hosted-mysql"
+	_, err := s.run(c, "sam", "read", offer)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.fakeOffersAPI.user, jc.DeepEquals, "sam")
+	c.Assert(s.fakeOffersAPI.offerURLs, jc.SameContents, []string{"hosted-mysql"})
 	c.Assert(s.fakeOffersAPI.access, gc.Equals, "read")
 }
 

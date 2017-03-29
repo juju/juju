@@ -77,14 +77,6 @@ func (m *mockModel) Owner() names.UserTag {
 	return names.NewUserTag(m.owner)
 }
 
-type mockUserModel struct {
-	model crossmodelcommon.Model
-}
-
-func (m *mockUserModel) Model() crossmodelcommon.Model {
-	return m.model
-}
-
 type mockCharm struct {
 	meta *charm.Meta
 }
@@ -127,7 +119,6 @@ type offerAccess struct {
 type mockState struct {
 	modelUUID         string
 	model             crossmodelcommon.Model
-	usermodels        []crossmodelcommon.UserModel
 	users             set.Strings
 	applications      map[string]crossmodelcommon.Application
 	applicationOffers map[string]jujucrossmodel.ApplicationOffer
@@ -167,8 +158,8 @@ func (m *mockState) ModelTag() names.ModelTag {
 	return names.NewModelTag(m.modelUUID)
 }
 
-func (m *mockState) ModelsForUser(user names.UserTag) ([]crossmodelcommon.UserModel, error) {
-	return m.usermodels, nil
+func (m *mockState) AllModels() ([]crossmodelcommon.Model, error) {
+	return []crossmodelcommon.Model{m.model}, nil
 }
 
 func (m *mockState) RemoteConnectionStatus(offerName string) (crossmodelcommon.RemoteConnectionStatus, error) {

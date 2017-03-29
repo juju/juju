@@ -6,13 +6,17 @@ package featuretests
 import (
 	"bytes"
 	"fmt"
+	"io"
+	"strings"
 
+	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/charmrepo.v2-unstable"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/cmd/juju/commands"
 	"github.com/juju/juju/cmd/juju/crossmodel"
 	"github.com/juju/juju/cmd/juju/model"
 	jujucrossmodel "github.com/juju/juju/core/crossmodel"
@@ -216,7 +220,7 @@ func (s *crossmodelSuite) TestAddRelationFromURL(c *gc.C) {
 }
 
 func (s *crossmodelSuite) assertAddRelationSameControllerSuccess(c *gc.C, otherModeluser string) {
-	_, err := runJujuCommand(c, "add-relation", "wordpress", otherModeluser+"/othermodel.hosted-mysql")
+	_, err := runJujuCommand(c, "add-relation", "-m", "admin/controller", "wordpress", otherModeluser+"/othermodel.hosted-mysql")
 	c.Assert(err, jc.ErrorIsNil)
 	app, err := s.State.RemoteApplication("hosted-mysql")
 	c.Assert(err, jc.ErrorIsNil)
@@ -307,12 +311,44 @@ func (s *crossmodelSuite) addOtherModelApplication(c *gc.C) *state.State {
 	return otherModel
 }
 
+func (s *crossmodelSuite) runJujuCommndWithStdin(c *gc.C, stdin io.Reader, args ...string) {
+	context := testing.Context(c)
+	if stdin != nil {
+		context.Stdin = stdin
+	}
+	command := commands.NewJujuCommand(context)
+	c.Assert(testing.InitCommand(command, args), jc.ErrorIsNil)
+	loggo.RemoveWriter("warning") // remove logger added by main command
+	err := command.Run(context)
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf("stdout: %q; stderr: %q", context.Stdout, context.Stderr))
+}
+
+func (s *crossmodelSuite) changeUserPassword(c *gc.C, user, password string) {
+	s.runJujuCommndWithStdin(c, strings.NewReader(password+"\n"+password+"\n"), "change-user-password", user)
+}
+
+func (s *crossmodelSuite) createTestUser(c *gc.C) {
+	runJujuCommand(c, "add-user", "test")
+	runJujuCommand(c, "grant", "test", "read", "controller")
+	s.changeUserPassword(c, "test", "hunter2")
+}
+
+func (s *crossmodelSuite) loginTestUser(c *gc.C) {
+	// logout "admin" first; we'll need to give it
+	// a non-random password before we can do so.
+	s.changeUserPassword(c, "admin", "hunter2")
+	runJujuCommand(c, "logout")
+	s.runJujuCommndWithStdin(c, strings.NewReader("hunter2\nhunter2\n"), "login", "-u", "test")
+}
+
 func (s *crossmodelSuite) TestAddRelationSameControllerPermissionDenied(c *gc.C) {
 	ch := s.AddTestingCharm(c, "wordpress")
 	s.AddTestingService(c, "wordpress", ch)
 	s.addOtherModelApplication(c)
 
-	context, err := runJujuCommand(c, "add-relation", "wordpress", "otheruser/othermodel.mysql")
+	s.createTestUser(c)
+	s.loginTestUser(c)
+	context, err := runJujuCommand(c, "add-relation", "-m", "admin/controller", "wordpress", "otheruser/othermodel.hosted-mysql")
 	c.Assert(err, gc.NotNil)
 	c.Assert(testing.Stderr(context), jc.Contains, "You do not have permission to add a relation")
 }
@@ -320,12 +356,15 @@ func (s *crossmodelSuite) TestAddRelationSameControllerPermissionDenied(c *gc.C)
 func (s *crossmodelSuite) TestAddRelationSameControllerPermissionAllowed(c *gc.C) {
 	ch := s.AddTestingCharm(c, "wordpress")
 	s.AddTestingService(c, "wordpress", ch)
+	//otherModel := s.addOtherModelApplication(c)
+	s.addOtherModelApplication(c)
 
-	otherModel := s.addOtherModelApplication(c)
-	// Users with write permission to the model can add relations.
-	otherFactory := factory.NewFactory(otherModel)
-	otherFactory.MakeModelUser(c, &factory.ModelUserParams{User: "admin", Access: permission.WriteAccess})
+	s.createTestUser(c)
 
+	// Users with consume permission to the offer can add relations.
+	runJujuCommand(c, "grant", "test", "consume", "otheruser/othermodel.hosted-mysql")
+
+	s.loginTestUser(c)
 	s.assertAddRelationSameControllerSuccess(c, "otheruser")
 }
 
