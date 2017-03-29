@@ -4,10 +4,12 @@
 package openstack
 
 import (
+	"github.com/juju/errors"
 	"github.com/juju/utils"
 	"gopkg.in/goose.v1/nova"
 
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
 )
 
 // LegacyNovaNetworking is an implementation of Networking that uses the legacy
@@ -72,4 +74,14 @@ func (n *LegacyNovaNetworking) ResolveNetwork(name string) (string, error) {
 		}
 	}
 	return processResolveNetworkIds(name, networkIds)
+}
+
+// Subnets is part of the Networking interface.
+func (n *LegacyNovaNetworking) Subnets(instId instance.Id, subnetIds []network.Id) ([]network.SubnetInfo, error) {
+	return nil, errors.NotSupportedf("nova subnet")
+}
+
+// NetworkInterfaces is part of the Networking interface.
+func (n *LegacyNovaNetworking) NetworkInterfaces(instId instance.Id) ([]network.InterfaceInfo, error) {
+	return nil, errors.NotSupportedf("nova network interfaces")
 }
