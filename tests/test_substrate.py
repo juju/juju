@@ -1700,12 +1700,11 @@ class TestAWSEnsureCleanUp(TestCase):
             FakeSecurityGroup('sg_id1', ['i_id1', 'i_id2'])]
         client.delete_security_group.return_value = True
         uncleaned_resources = aws.ensure_cleanup(resource_details)
-        self.assertEquals(client.delete_security_group.call_args_list,
-                          [call(name='sg_id1')])
-        self.assertEquals(client.get_all_instances.call_args_list,
+        client.delete_security_group.assert_called_once_with(name='sg_id1')
+        self.assertEqual(client.get_all_instances.call_args_list,
                           [call(instance_ids=['i_id1', 'i_id2'])])
-        self.assertEquals(uncleaned_resources, [])
-        self.assertEquals(
+        self.assertEqual(uncleaned_resources, [])
+        self.assertEqual(
             aws.client.terminate_instances.call_args_list,
             [call(instance_ids=['i_id1']), call(instance_ids=['i_id2'])])
 
@@ -1721,9 +1720,9 @@ class TestAWSEnsureCleanUp(TestCase):
             FakeSecurityGroup('sg_id1', ['i_id1', 'i_id2'])]
         client.delete_security_group.return_value = True
         uncleaned_resources = aws.ensure_cleanup(resource_details)
-        self.assertEquals(client.get_all_instances.call_args_list,
+        self.assertEqual(client.get_all_instances.call_args_list,
                           [call(instance_ids=['i_id1', 'i_id2'])])
-        self.assertEquals(uncleaned_resources, [
+        self.assertEqual(uncleaned_resources, [
             {'errors': [('i_id1', "Exception('Instance error',)"),
                         ('i_id2', "Exception('Instance error',)")],
              'resource': 'instances'}])
@@ -1738,10 +1737,10 @@ class TestAWSEnsureCleanUp(TestCase):
             FakeSecurityGroup('sg_id1', [])]
         client.delete_security_group.return_value = False
         uncleaned_resources = aws.ensure_cleanup(resource_details)
-        self.assertEquals(uncleaned_resources, [
+        self.assertEqual(uncleaned_resources, [
             {'errors': [('sg_id1', 'Failed to delete')],
              'resource': 'security groups'}])
-        self.assertEquals(client.get_all_instances.call_args_list,
+        self.assertEqual(client.get_all_instances.call_args_list,
                           [call(instance_ids=['i_id1', 'i_id2'])])
 
     def test_ensure_cleanup_with_uncleaned_instances_and_sg(self):
@@ -1764,9 +1763,9 @@ class TestAWSEnsureCleanUp(TestCase):
                 }
             })
         uncleaned_resources = aws.ensure_cleanup(resource_details)
-        self.assertEquals(client.get_all_instances.call_args_list,
+        self.assertEqual(client.get_all_instances.call_args_list,
                           [call(instance_ids=['i_id1', 'i_id2'])])
-        self.assertEquals(
+        self.assertEqual(
             uncleaned_resources,
             [{'errors': [
                 ('i_id1', "Exception('Instance not found',)"),
@@ -1788,8 +1787,8 @@ class TestAWSCleanUpSecurityGroups(TestCase):
         client = MagicMock()
         aws = AWSAccount(None, 'myregion', client)
         failures = aws.cleanup_security_groups(instances, secgroup)
-        self.assertEquals(failures, [])
-        self.assertEquals(
+        self.assertEqual(failures, [])
+        self.assertEqual(
             client.delete_security_group.call_args, call(name='sg-foo'))
 
     def test_dont_delete_secgroup_in_use(self):
@@ -1798,8 +1797,8 @@ class TestAWSCleanUpSecurityGroups(TestCase):
         client = MagicMock()
         aws = AWSAccount(None, 'myregion', client)
         failures = aws.cleanup_security_groups(instances, secgroup)
-        self.assertEquals(client.delete_security_group.call_count, 0)
-        self.assertEquals(failures, [])
+        self.assertEqual(client.delete_security_group.call_count, 0)
+        self.assertEqual(failures, [])
 
     def test_return_failure_on_exception(self):
         secgroup = [("sg-foo", ["foo", "bar"]), ("sg-bar", ["foo", "bar"])]
@@ -1816,7 +1815,7 @@ class TestAWSCleanUpSecurityGroups(TestCase):
             })
         aws = AWSAccount(None, 'myregion', client)
         failures = aws.cleanup_security_groups(instances, secgroup)
-        self.assertEquals(client.delete_security_group.call_args_list,
+        self.assertEqual(client.delete_security_group.call_args_list,
                           [call(name='sg-foo'), call(name='sg-bar')])
         self.assertListEqual(failures,
                              [('sg-foo',
@@ -1837,22 +1836,21 @@ class TestAWSCleanUpSecurityGroups(TestCase):
             True, False]
         aws = AWSAccount(None, 'myregion', client)
         failures = aws.cleanup_security_groups(instances, secgroup)
-        self.assertEquals(failures, [('sg-bar', 'Failed to delete')])
-        self.assertEquals(client.delete_security_group.call_args_list,
+        self.assertEqual(failures, [('sg-bar', 'Failed to delete')])
+        self.assertEqual(client.delete_security_group.call_args_list,
                           [call(name='sg-foo'), call(name='sg-bar')])
 
     def test_instance_mapped_to_more_than_one_secgroup(self):
-        """ Delete security group only if it has all the mapped instances
-        specified in the instances list.
-        """
+        # Delete security group only if it has all the mapped instances
+        # specified in the instances list.
         secgroup = [("sg-foo", ["foo", "bar"]), ("sg-bar", ["foo", "baz"])]
         instances = ["foo", "bar"]
         client = MagicMock()
         aws = AWSAccount(None, 'myregion', client)
         failures = aws.cleanup_security_groups(instances, secgroup)
-        self.assertEquals(failures, [])
-        self.assertEquals(aws.client.delete_security_group.call_count, 1)
-        self.assertEquals(
+        self.assertEqual(failures, [])
+        self.assertEqual(aws.client.delete_security_group.call_count, 1)
+        self.assertEqual(
             client.delete_security_group.call_args, call(name='sg-foo'))
 
 
@@ -1860,19 +1858,19 @@ class TestContainsOnlyKnownInstances(TestCase):
     def test_return_true_when_all_ids_known(self):
         instances = ["foo", "bar", "qnx"]
         sg_list = ["foo", "bar", "qnx"]
-        self.assertEquals(
+        self.assertEqual(
             contains_only_known_instances(instances, sg_list), True)
 
     def test_return_true_known_ids_are_subset(self):
         instances = ["foo", "bar", "qnx", "foo1"]
         sg_list = ["foo", "bar", "qnx"]
-        self.assertEquals(
+        self.assertEqual(
             contains_only_known_instances(instances, sg_list), True)
 
     def test_return_false_when_some_ids_unknown(self):
         instances = ["foo", "qnx"]
         sg_list = ["foo", "bar"]
-        self.assertEquals(
+        self.assertEqual(
             contains_only_known_instances(instances, sg_list),
             False)
 
@@ -1885,7 +1883,7 @@ class TestAttemptTerminateInstances(TestCase):
         aws = AWSAccount(None, 'myregion', client)
         client.terminate_instances.side_effect = Exception(err_msg)
         failed = attempt_terminate_instances(aws, instances)
-        self.assertEquals(failed,
+        self.assertEqual(failed,
                           [('foo', "Exception('{}',)".format(err_msg)),
                            ('bar', "Exception('{}',)".format(err_msg))])
 
@@ -1895,10 +1893,10 @@ class TestAttemptTerminateInstances(TestCase):
         aws = AWSAccount(None, 'myregion', client)
         client.terminate_instances.return_value = ["foo", "bar"]
         failed = attempt_terminate_instances(aws, instances)
-        self.assertEquals(client.terminate_instances.call_args_list,
+        self.assertEqual(client.terminate_instances.call_args_list,
                           [call(instance_ids=['foo']),
                            call(instance_ids=['bar'])])
-        self.assertEquals(failed, [])
+        self.assertEqual(failed, [])
 
     def test_returns_has_some_error(self):
         client = MagicMock()
@@ -1907,10 +1905,10 @@ class TestAttemptTerminateInstances(TestCase):
         aws = AWSAccount(None, 'myregion', client)
         client.terminate_instances.side_effect = ["foo", Exception(err_msg)]
         failed = attempt_terminate_instances(aws, instances)
-        self.assertEquals(client.terminate_instances.call_args_list,
+        self.assertEqual(client.terminate_instances.call_args_list,
                           [call(instance_ids=['foo']),
                            call(instance_ids=['bar'])])
-        self.assertEquals(failed, [
+        self.assertEqual(failed, [
             ('bar', "Exception('Instance not found',)")])
 
 

@@ -221,10 +221,10 @@ class AWSAccount:
         security group as second element. [(sg_id, [i_id, id2]),
          (sg_id2, [i_id1])]
         """
-        group_names = [sg[1] for sg in self.iter_instance_security_groups(
+        group_ids = [sg[0] for sg in self.iter_instance_security_groups(
             instances)]
         all_groups = self.client.get_all_security_groups(
-            groupnames=group_names)
+            group_ids=group_ids)
         secgroups = [(sg.id, [id for id in sg.instances()])
                      for sg in all_groups]
         return secgroups
