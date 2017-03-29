@@ -20,9 +20,13 @@ to_sanitize = [
 
 def generateScript():
     lines = []
+    # Create an index on the transactions so that the updates go faster
+    lines.append('print(new Date().toLocaleString())')
+    lines.append('db.txns.createIndex({"o.c": 1})')
     for collection, attributes in to_sanitize:
         # First we generate the sanitization of the collection itself
-        # (we don't use .format() cause {} is used all the time in Javascript
+        # (we don't use .format() because {} is used all the time in Javascript
+        lines.append('print(new Date().toLocaleString())')
         lines.append('print("updating collection %s for %s")' % (collection, attributes))
         lines.append('print(db.%s.update({}, {"$set": {' % (collection,))
         for attribute in attributes:
@@ -31,12 +35,14 @@ def generateScript():
         lines[-1] = lines[-1][:-1] + '}'
         lines.append('}, {"multi": 1}))')
 
-        # Now update the TXN records for insert
+        # Now update the TXN records for insert and update
         for attribute in attributes:
+            lines.append('print(new Date().toLocaleString())')
             lines.append('print("updating insert txns for %s %s")' % (collection, attribute))
             lines.append('print(db.txns.update({"o.c": "%s", "o.i.%s": {"$exists": 1}}, {"$set": {' % (collection, attribute))
             lines.append('    "o.$.i.%s": "REDACTED"}' % (attribute,))
             lines.append('}, {"multi": 1}))')
+            lines.append('print(new Date().toLocaleString())')
             lines.append('print("updating update txns for %s %s")' % (collection, attribute))
             # Our TXN entries have a '$set' with a literal $ in them.
             # Apparently Mongo is perfectly fine for you to create documents
@@ -46,6 +52,8 @@ def generateScript():
             lines.append('    "o.$.u.$set.%s": "1"}' % (attribute,))
             lines.append('}, {"multi": 1}))')
         lines.append('')
+    lines.append('db.txns.deleteIndex({"o.c": 1})')
+    lines.append('print(new Date().toLocaleString())')
     return lines
 
 
