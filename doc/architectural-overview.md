@@ -229,7 +229,6 @@ Machine agents additionally do the following:
 * Handle SIGABRT and permanently stop the agent (`worker/terminationworker`)
 * Handle the machine entity's death and permanently stop the agent (`worker/machiner`)
 * Watch proxy config, and reconfigure the local machine (`worker/machineenvironmentworker`)
-  the two sets of machines will be the same for ever.
 * Watch for contained LXC or KVM machines and provision/decommission them
   (`worker/provisioner`)
 
