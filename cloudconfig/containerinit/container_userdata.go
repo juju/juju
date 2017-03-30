@@ -462,10 +462,11 @@ def replace_ethernets(interfaces_file, devices, fail_on_missing):
     with open(interfaces_file + ".tmp", "w") as intf_file:
         intf_file.write(formatted)
 
-    try:
-        os.rename(interfaces_file, interfaces_file + ".bak")
-    except OSError: #silently ignore if the file is missing
-        pass
+    if not os.path.exists(interfaces_file + ".bak"):
+        try:
+            os.rename(interfaces_file, interfaces_file + ".bak")
+        except OSError: #silently ignore if the file is missing
+            pass
     os.rename(interfaces_file + ".tmp", interfaces_file)
     return True
 
