@@ -312,8 +312,8 @@ func (n *NeutronNetworking) Subnets(instId instance.Id, subnetIds []network.Id) 
 
 	if instId != instance.UnknownId {
 		// TODO(hml): 2017-03-20
-		// Implment Subnets() for case where instId is specified
-		return nil, errors.NotImplementedf("neutron subnets with instance Id")
+		// Implement Subnets() for case where instId is specified
+		return nil, errors.NotSupportedf("neutron subnets with instance Id")
 	} else {
 		neutron := n.env.neutron()
 		subnets, err := neutron.ListSubnetsV2()
@@ -345,5 +345,5 @@ func (n *NeutronNetworking) Subnets(instId instance.Id, subnetIds []network.Id) 
 }
 
 func (n *NeutronNetworking) NetworkInterfaces(instId instance.Id) ([]network.InterfaceInfo, error) {
-	return nil, errors.NotImplementedf("neutron network interfaces")
+	return nil, errors.NotSupportedf("neutron network interfaces")
 }
