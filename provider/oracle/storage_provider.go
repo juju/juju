@@ -1,9 +1,23 @@
 package oracle
 
 import (
+	ociCommon "github.com/juju/go-oracle-cloud/common"
+
 	"github.com/juju/errors"
 	"github.com/juju/juju/storage"
 )
+
+type poolType string
+
+const (
+	latencyPool poolType = "latency"
+	defaultPool poolType = "default"
+)
+
+var poolTypeMap map[poolType]ociCommon.StoragePool = map[poolType]ociCommon.StoragePool{
+	latencyPool: ociCommon.LatencyPool,
+	defaultPool: ociCommon.DefaultPool,
+}
 
 // VolumeSource returns a VolumeSource given the specified storage
 // provider configurations, or an error if the provider does not
@@ -12,18 +26,20 @@ import (
 // If the storage provider does not support creating volumes as a
 // first-class primitive, then VolumeSource must return an error
 // satisfying errors.IsNotSupported.
-func (s *storageProvider) VolumeSource(
-	cfg *storage.Config,
-) (storage.VolumeSource, error) {
-	return s, nil
+func (s *storageProvider) VolumeSource(cfg *storage.Config) (storage.VolumeSource, error) {
+	environConfig := s.env.Config()
+	return &oracleVolumeSource{
+		env:       s.env,
+		envName:   environConfig.Name(),
+		modelUUID: environConfig.UUID(),
+		api:       s.env.client,
+	}, nil
 }
 
 // FilesystemSource returns a FilesystemSource given the specified
 // storage provider configurations, or an error if the provider does
 // not support creating filesystems or the configuration is invalid.
-func (s storageProvider) FilesystemSource(
-	cfg *storage.Config,
-) (storage.FilesystemSource, error) {
+func (s storageProvider) FilesystemSource(cfg *storage.Config) (storage.FilesystemSource, error) {
 	return nil, errors.NotSupportedf("filesystemsource")
 }
 
@@ -34,7 +50,7 @@ func (s storageProvider) FilesystemSource(
 // be used for creating filesystem storage; Juju will request a
 // volume from the provider and then manage the filesystem itself.
 func (s storageProvider) Supports(kind storage.StorageKind) bool {
-	return false
+	return kind == storage.StorageKindBlock
 }
 
 // Scope returns the scope of storage managed by this provider.
@@ -46,17 +62,32 @@ func (s storageProvider) Scope() storage.Scope {
 // of dynamic storage provisioning. Non-dynamic storage must be
 // created at the time a machine is provisioned.
 func (s storageProvider) Dynamic() bool {
-	return false
+	return true
 }
 
 // DefaultPools returns the default storage pools for this provider,
 // to register in each new model.
 func (s storageProvider) DefaultPools() []*storage.Config {
-	return nil
+	latencyPool, _ := storage.NewConfig("oracle-latency", oracleStorageProvideType, map[string]interface{}{
+		"volume-type": latencyPool,
+	})
+	return []*storage.Config{latencyPool}
 }
 
 // ValidateConfig validates the provided storage provider config,
 // returning an error if it is invalid.
 func (s storageProvider) ValidateConfig(cfg *storage.Config) error {
+	attrs := cfg.Attrs()
+	if volType, ok := attrs["volume-type"]; ok {
+		switch kind := volType.(type) {
+		case poolType:
+			if _, ok := poolTypeMap[volType.(poolType)]; !ok {
+				return errors.Errorf("invalid volume-type %q", volType)
+			}
+			return nil
+		default:
+			return errors.Errorf("invalid volume-type %T", kind)
+		}
+	}
 	return nil
 }

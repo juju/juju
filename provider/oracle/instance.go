@@ -107,7 +107,17 @@ func (o *oracleInstance) Status() instance.InstanceStatus {
 	return o.status
 }
 
-// refresh will refresh the instance raw details from the oracle api
+// StorageAttachments returns the storage that was attached in the moment
+// of instance creation. This storage cannot be detached dynamically.
+// this is also needed if you wish to determine the free disk index
+// you can use when attaching a new disk
+func (o *oracleInstance) StorageAttachments() []ociResponse.Storage {
+	o.mutex.Lock()
+	defer o.mutex.Unlock()
+	return o.machine.Storage_attachments
+}
+
+// refresh refreshes the instance raw details from the oracle api
 // this method is mutex protected
 func (o *oracleInstance) refresh() error {
 	o.mutex.Lock()

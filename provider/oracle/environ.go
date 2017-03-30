@@ -599,6 +599,18 @@ func (o *oracleEnviron) getOracleInstances(ids ...instance.Id) ([]*oracleInstanc
 	return ret, nil
 }
 
+func (o *oracleEnviron) getOracleInstancesAsMap(ids ...instance.Id) (map[string]*oracleInstance, error) {
+	instances, err := o.getOracleInstances(ids...)
+	if err != nil {
+		return map[string]*oracleInstance{}, errors.Trace(err)
+	}
+	ret := map[string]*oracleInstance{}
+	for _, val := range instances {
+		ret[string(val.Id())] = val
+	}
+	return ret, nil
+}
+
 // AllInstances returns all instances currently known to the broker
 func (o *oracleEnviron) AllInstances() ([]instance.Instance, error) {
 	tagFilter := tagValue{tags.JujuModel, o.Config().UUID()}

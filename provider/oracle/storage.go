@@ -4,15 +4,19 @@
 package oracle
 
 import (
+	oci "github.com/juju/go-oracle-cloud/api"
+	ociResponse "github.com/juju/go-oracle-cloud/response"
+
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/storage"
 )
 
 const (
-	oracleStorageProvideType = "oracle"
+	oracleStorageProvideType = storage.ProviderType("oracle")
 
 	maxVolumeSizeInGB = 2000
+	minVolumeSizeInGB = 1
 )
 
 // storageProvider is the storage provider for the oracle cloud storage environment
@@ -50,9 +54,22 @@ const (
 // For all other storage volumes, select storage/default
 type storageProvider struct {
 	env *oracleEnviron
+	api StorageAPI
 }
 
 var _ storage.Provider = (*storageProvider)(nil)
+
+type StorageVolumeAPI interface {
+	CreateStorageVolume(p oci.StorageVolumeParams) (resp ociResponse.StorageVolume, err error)
+	DeleteStorageVolume(name string) (err error)
+	StorageVolumeDetails(name string) (resp ociResponse.StorageVolume, err error)
+	AllStorageVolumes(filter []oci.Filter) (resp ociResponse.AllStorageVolumes, err error)
+	UpdateStorageVolume(p oci.StorageVolumeParams, currentName string) (resp ociResponse.StorageVolume, err error)
+}
+
+type StorageAPI interface {
+	StorageVolumeAPI
+}
 
 func mibToGib(m uint64) uint64 {
 	return (m + 1023) / 1024
@@ -74,7 +91,10 @@ func (o *oracleEnviron) StorageProviderTypes() ([]storage.ProviderType, error) {
 // specified provider type.
 func (o *oracleEnviron) StorageProvider(t storage.ProviderType) (storage.Provider, error) {
 	if t == oracleStorageProvideType {
-		return &storageProvider{env: o}, nil
+		return &storageProvider{
+			env: o,
+			api: o.client,
+		}, nil
 	}
 
 	return nil, errors.NotFoundf("storage provider %q", t)
