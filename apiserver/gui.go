@@ -20,6 +20,7 @@ import (
 	"strings"
 	"text/template"
 
+	"github.com/gorilla/handlers"
 	"github.com/juju/errors"
 	"github.com/juju/version"
 
@@ -76,7 +77,7 @@ func guiEndpoints(pattern, dataDir string, ctxt httpContext) []apihttp.Endpoint 
 	}
 	var endpoints []apihttp.Endpoint
 	add := func(pattern string, h func(*guiHandler, http.ResponseWriter, *http.Request)) {
-		handler := gr.ensureFileHandler(h)
+		handler := handlers.CompressHandler(gr.ensureFileHandler(h))
 		// TODO: We can switch from all methods to specific ones for entries
 		// where we only want to support specific request methods. However, our
 		// tests currently assert that errors come back as application/json and
@@ -360,6 +361,7 @@ func sendGUIComboFile(w io.Writer, fpath string) {
 	}
 	defer f.Close()
 	if _, err := io.Copy(w, f); err != nil {
+		logger.Infof("cannot copy combo file %q: %s", fpath, err)
 		return
 	}
 	fmt.Fprintf(w, "\n/* %s */\n", filepath.Base(fpath))

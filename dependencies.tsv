@@ -10,6 +10,7 @@ github.com/dustin/go-humanize	git	145fabdb1ab757076a70a886d092a3af27f66f4c	2014-
 github.com/godbus/dbus	git	32c6cc29c14570de4cf6d7e7737d68fb2d01ad15	2016-05-06T22:25:50Z
 github.com/golang/protobuf	git	4bd1920723d7b7c925de087aa32e2187708897f7	2016-11-09T07:27:36Z
 github.com/google/go-querystring	git	9235644dd9e52eeae6fa48efd539fdc351a0af53	2016-04-01T23:30:42Z
+github.com/gorilla/handlers	git	13d73096a474cac93275c679c7b8a2dc17ddba82	2017-02-24T19:39:55Z
 github.com/gorilla/schema	git	08023a0215e7fc27a9aecd8b8c50913c40019478	2016-04-26T23:15:12Z
 github.com/gorilla/websocket	git	804cb600d06b10672f2fbc0a336a7bee507a428e	2017-02-14T17:41:18Z
 github.com/gosuri/uitable	git	36ee7e946282a3fb1cfecd476ddc9b35d8847e42	2016-04-04T20:39:58Z
