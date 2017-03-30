@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net"
+	"net/http"
 	"net/url"
 	"os"
 	"strconv"
@@ -20,8 +21,10 @@ import (
 	"github.com/juju/loggo"
 	"github.com/lxc/lxd"
 	lxdshared "github.com/lxc/lxd/shared"
+	"github.com/lxc/lxd/shared/api"
 
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/utils/proxy"
 )
 
 var logger = loggo.GetLogger("juju.tools.lxdclient")
@@ -102,6 +105,7 @@ type Client struct {
 	*instanceClient
 	*imageClient
 	*networkClient
+	*storageClient
 	baseURL                  string
 	defaultProfileBridgeName string
 }
@@ -129,6 +133,8 @@ func Connect(cfg Config, verifyBridgeConfig bool) (*Client, error) {
 	}
 
 	networkAPISupported := false
+	storageAPISupported := false
+	var defaultProfile *api.Profile
 	if cfg.Remote.Protocol != SimplestreamsProtocol {
 		status, err := raw.ServerStatus()
 		if err != nil {
@@ -138,6 +144,15 @@ func Connect(cfg Config, verifyBridgeConfig bool) (*Client, error) {
 		if lxdshared.StringInSlice("network", status.APIExtensions) {
 			networkAPISupported = true
 		}
+
+		if lxdshared.StringInSlice("storage", status.APIExtensions) {
+			storageAPISupported = true
+		}
+
+		defaultProfile, err = raw.ProfileConfig("default")
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 	}
 
 	var bridgeName string
@@ -145,8 +160,16 @@ func Connect(cfg Config, verifyBridgeConfig bool) (*Client, error) {
 		// If this is the LXD provider on the localhost, let's do an extra check to
 		// make sure the default profile has a correctly configured bridge, and
 		// which one is it.
-		bridgeName, err = verifyDefaultProfileBridgeConfig(raw, networkAPISupported)
+		bridgeName, err = verifyDefaultProfileBridgeConfig(raw, networkAPISupported, defaultProfile)
 		if err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
+
+	// If the storage API is supported, let's make sure the LXD has a
+	// default pool; we'll just use dir backend for now.
+	if cfg.Remote.Protocol != SimplestreamsProtocol && storageAPISupported {
+		if err := verifyStorageConfiguration(raw, defaultProfile); err != nil {
 			return nil, errors.Trace(err)
 		}
 	}
@@ -158,6 +181,7 @@ func Connect(cfg Config, verifyBridgeConfig bool) (*Client, error) {
 		instanceClient:           &instanceClient{raw, remoteID},
 		imageClient:              &imageClient{raw, connectToRaw},
 		networkClient:            &networkClient{raw, networkAPISupported},
+		storageClient:            &storageClient{raw, storageAPISupported},
 		baseURL:                  raw.BaseURL,
 		defaultProfileBridgeName: bridgeName,
 	}
@@ -193,11 +217,14 @@ func newRawClient(remote Remote) (*lxd.Client, error) {
 
 	if remote.ID() == remoteIDForLocal && host == "" {
 		host = "unix://" + lxdshared.VarPath("unix.socket")
-	} else if !strings.HasPrefix(host, "unix://") {
-		_, _, err := net.SplitHostPort(host)
-		if err != nil {
-			// There is no port here
-			host = net.JoinHostPort(host, lxdshared.DefaultPort)
+	} else {
+		// If it's a URL, leave it alone. Otherwise, we
+		// assume it's a hostname, optionally with port.
+		url, err := url.Parse(host)
+		if err != nil || url.Scheme == "" {
+			if _, _, err := net.SplitHostPort(host); err != nil {
+				host = net.JoinHostPort(host, lxdshared.DefaultPort)
+			}
 		}
 	}
 	logger.Debugf("connecting to LXD remote %q: %q", remote.ID(), host)
@@ -239,6 +266,12 @@ func newRawClient(remote Remote) (*lxd.Client, error) {
 		return nil, errors.Trace(err)
 	}
 
+	// Replace the proxy handler with the one managed
+	// by Juju's worker/proxyupdater.
+	if tr, ok := client.Http.Transport.(*http.Transport); ok {
+		tr.Proxy = proxy.DefaultConfig.GetProxy
+	}
+
 	if remote.Protocol != SimplestreamsProtocol {
 		status, err := client.ServerStatus()
 		if err != nil {
@@ -259,7 +292,7 @@ func newRawClient(remote Remote) (*lxd.Client, error) {
 // network bridge configured on the "default" profile. Additionally, if the
 // default bridge bridge is used, its configuration in LXDBridgeFile is also
 // inspected to make sure it has a chance to work.
-func verifyDefaultProfileBridgeConfig(client *lxd.Client, networkAPISupported bool) (string, error) {
+func verifyDefaultProfileBridgeConfig(client *lxd.Client, networkAPISupported bool, config *api.Profile) (string, error) {
 	const (
 		defaultProfileName = "default"
 		configTypeKey      = "type"
@@ -269,11 +302,6 @@ func verifyDefaultProfileBridgeConfig(client *lxd.Client, networkAPISupported bo
 		configEth0         = "eth0"
 		configParentKey    = "parent"
 	)
-
-	config, err := client.ProfileConfig(defaultProfileName)
-	if err != nil {
-		return "", errors.Trace(err)
-	}
 
 	eth0, ok := config.Devices[configEth0]
 	if !ok {
@@ -457,4 +485,52 @@ and then configure it with:
 	}
 
 	return errors.Trace(fmt.Errorf("%s\n%s", msg, hint))
+}
+
+func verifyStorageConfiguration(client *lxd.Client, defaultProfile *api.Profile) error {
+	// If the default profile already has a / device, it's all good
+	for _, dev := range defaultProfile.Devices {
+		if dev["path"] == "/" {
+			return nil
+		}
+	}
+
+	// Otherwise, we need to add one
+	pools, err := client.ListStoragePools()
+	if err != nil {
+		return err
+	}
+
+	poolName := ""
+	for _, p := range pools {
+		if p.Name == "default" {
+			poolName = p.Name
+		}
+	}
+
+	// use whatever pool there is if there isn't one called "default"
+	if poolName == "" && len(pools) > 0 {
+		poolName = pools[0].Name
+	}
+
+	if poolName == "" {
+		poolName = "default"
+		err := client.StoragePoolCreate(poolName, "dir", nil)
+		if err != nil {
+			return err
+		}
+	}
+
+	if defaultProfile.Devices == nil {
+		defaultProfile.Devices = map[string]map[string]string{}
+	}
+
+	defaultProfile.Devices["root"] = map[string]string{
+		"type": "disk",
+		"path": "/",
+		"pool": poolName,
+	}
+
+	// Now, create a disk device that uses the pool
+	return client.PutProfile("default", defaultProfile.ProfilePut)
 }

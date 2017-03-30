@@ -341,6 +341,15 @@ func (cfg *cloudConfig) DisableRoot() bool {
 	return disable
 }
 
+// ManageEtcHosts enables or disables management of /etc/hosts.
+func (cfg *cloudConfig) ManageEtcHosts(manage bool) {
+	if manage {
+		cfg.SetAttr("manage_etc_hosts", true)
+	} else {
+		cfg.UnsetAttr("manage_etc_hosts")
+	}
+}
+
 // AddRunTextFile is defined on the WrittenFilesConfig interface.
 func (cfg *cloudConfig) AddRunTextFile(filename, contents string, perm uint) {
 	cfg.AddScripts(addFileCmds(filename, []byte(contents), perm, false)...)

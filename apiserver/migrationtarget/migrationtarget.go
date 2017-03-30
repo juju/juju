@@ -18,11 +18,8 @@ import (
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
+	"github.com/juju/juju/status"
 )
-
-func init() {
-	common.RegisterStandardFacade("MigrationTarget", 1, newAPIWithRealEnviron)
-}
 
 // API implements the API required for the model migration
 // master worker when communicating with the target controller.
@@ -51,9 +48,8 @@ func NewAPI(ctx facade.Context, getEnviron stateenvirons.NewEnvironFunc) (*API, 
 	}, nil
 }
 
-// newAPIWithRealEnviron creates an API with a real environ factory
-// function.
-func newAPIWithRealEnviron(ctx facade.Context) (*API, error) {
+// NewFacade is used for API registration.
+func NewFacade(ctx facade.Context) (*API, error) {
 	return NewAPI(ctx, stateenvirons.GetNewEnvironFunc(environs.New))
 }
 
@@ -154,6 +150,10 @@ func (api *API) Abort(args params.ModelArgs) error {
 func (api *API) Activate(args params.ModelArgs) error {
 	model, err := api.getImportingModel(args)
 	if err != nil {
+		return errors.Trace(err)
+	}
+
+	if err := model.SetStatus(status.StatusInfo{Status: status.Available}); err != nil {
 		return errors.Trace(err)
 	}
 

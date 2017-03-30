@@ -4,138 +4,83 @@
 package crossmodel
 
 import (
-	"fmt"
-
 	"gopkg.in/juju/charm.v6-unstable"
 )
 
-// ApplicationOffer represents the state of an application hosted
-// in an external (remote) model.
+// ApplicationOffer holds the details of an application offered
+// by this model.
 type ApplicationOffer struct {
-	// ApplicationURL is the URL used to locate the offer in a directory.
-	ApplicationURL string
+	// OfferName is the name of the offer.
+	OfferName string
 
-	// ApplicationName is the name of the application.
+	// ApplicationName is the name of the application to which the offer pertains.
 	ApplicationName string
 
 	// ApplicationDescription is a description of the application's functionality,
 	// typically copied from the charm metadata.
 	ApplicationDescription string
 
-	// Endpoints are the charm endpoints supported by the application.
-	Endpoints []charm.Relation
-
-	// SourceModelUUID is the UUID of the model hosting the application.
-	SourceModelUUID string
-
-	// SourceLabel is a user friendly name for the source model.
-	SourceLabel string
+	// Endpoints is the collection of endpoint names offered (internal->published).
+	// The map allows for advertised endpoint names to be aliased.
+	Endpoints map[string]charm.Relation
 }
 
-// String returns the directory record name.
-func (s *ApplicationOffer) String() string {
-	return fmt.Sprintf("%s-%s", s.SourceModelUUID, s.ApplicationName)
-}
+// AddApplicationOfferArgs contain parameters used to create an application offer.
+type AddApplicationOfferArgs struct {
+	// OfferName is the name of the offer.
+	OfferName string
 
-// ApplicationOfferFilter is used to query offers in a application directory.
-// We allow filtering on any of the application offer attributes plus
-// users allowed to consume the application.
-type ApplicationOfferFilter struct {
-	ApplicationOffer
+	// Owner is the user name who owns the offer.
+	Owner string
 
-	// AllowedUsers are the users allowed to consume the application.
-	AllowedUsers []string
-}
+	// HasRead are rthe user names who can see the offer exists.
+	HasRead []string
 
-// An ApplicationDirectory holds application offers from external models.
-type ApplicationDirectory interface {
-
-	// AddOffer adds a new application offer to the directory.
-	AddOffer(offer ApplicationOffer) error
-
-	// UpdateOffer replaces an existing offer at the same URL.
-	UpdateOffer(offer ApplicationOffer) error
-
-	// ListOffers returns the offers satisfying the specified filter.
-	ListOffers(filter ...ApplicationOfferFilter) ([]ApplicationOffer, error)
-
-	// Remove removes the application offer at the specified URL.
-	Remove(url string) error
-}
-
-// OfferedApplication holds the details of applications offered
-// by this model.
-type OfferedApplication struct {
-	// ApplicationName is the application name.
+	// ApplicationName is the name of the application to which the offer pertains.
 	ApplicationName string
 
-	// ApplicationURL is the URL where the application can be located.
-	ApplicationURL string
-
-	// CharmName is the name of the charm used to deploy the offered application.
-	CharmName string
+	// ApplicationDescription is a description of the application's functionality,
+	// typically copied from the charm metadata.
+	ApplicationDescription string
 
 	// Endpoints is the collection of endpoint names offered (internal->published).
 	// The map allows for advertised endpoint names to be aliased.
 	Endpoints map[string]string
 
-	// Description is a description of the application, which by default comes
-	// from the charm metadata.
-	Description string
-
-	// Icon is an icon to display when browsing the ApplicationDirectory, which by default
+	// Icon is an icon to display when browsing the ApplicationOffers, which by default
 	// comes from the charm.
 	Icon []byte
-
-	// Registered is true if this offer is to be registered with
-	// the relevant application directory.
-	Registered bool
 }
 
-// OfferedApplicationFilter is used to query applications offered
+// String returns the offered application name.
+func (s *ApplicationOffer) String() string {
+	return s.ApplicationName
+}
+
+// ApplicationOfferFilter is used to query applications offered
 // by this model.
-type OfferedApplicationFilter struct {
-	// ApplicationName is the application name.
+type ApplicationOfferFilter struct {
+	// OwnerName is the owner of the model hosting the offer.
+	OwnerName string
+
+	// ModelName is the name of the model hosting the offer.
+	ModelName string
+
+	// OfferName is the name of the offer.
+	OfferName string
+
+	// ApplicationName is the name of the application to which the offer pertains.
 	ApplicationName string
 
-	// CharmName is the name of the charm of the application.
-	CharmName string
-
-	// ApplicationURL is the URL where the application can be located.
-	ApplicationURL string
-
-	// Registered, if non-nil, returns only the offered applications
-	// that are registered or not.
-	Registered *bool
+	// ApplicationDescription is a description of the application's functionality,
+	// typically copied from the charm metadata.
+	ApplicationDescription string
 
 	// Endpoint contains an endpoint filter criteria.
-	Endpoint EndpointFilterTerm
-}
+	Endpoints []EndpointFilterTerm
 
-// RegisteredFilter is a helper function for creating an offered application filter.
-func RegisteredFilter(registered bool) OfferedApplicationFilter {
-	var filter OfferedApplicationFilter
-	filter.Registered = &registered
-	return filter
-}
-
-// OfferedApplications instances hold application offers from this model.
-type OfferedApplications interface {
-
-	// AddOffer adds a new application offer.
-	AddOffer(offer OfferedApplication) error
-
-	// UpdateOffer updates an existing application offer.
-	UpdateOffer(url string, endpoints map[string]string) error
-
-	// ListOffers returns the offers satisfying the specified filter.
-	ListOffers(filter ...OfferedApplicationFilter) ([]OfferedApplication, error)
-
-	// SetOfferRegistered marks a previously saved offer as registered or not.
-	SetOfferRegistered(url string, registered bool) error
-
-	// RemoveOffer removes the application offer at the specified URL.
-	RemoveOffer(url string) error
+	// AllowedUsers are the users allowed to consume the application.
+	AllowedUsers []string
 }
 
 // EndpointFilterTerm represents a remote endpoint filter.
@@ -148,6 +93,25 @@ type EndpointFilterTerm struct {
 
 	// Role is an endpoint role.
 	Role charm.RelationRole
+}
+
+// An ApplicationOffers instance holds application offers from a model.
+type ApplicationOffers interface {
+
+	// AddOffer adds a new application offer to the directory.
+	AddOffer(offer AddApplicationOfferArgs) (*ApplicationOffer, error)
+
+	// UpdateOffer replaces an existing offer at the same URL.
+	UpdateOffer(offer AddApplicationOfferArgs) (*ApplicationOffer, error)
+
+	// ApplicationOffer returns the named application offer.
+	ApplicationOffer(offerName string) (*ApplicationOffer, error)
+
+	// ListOffers returns the offers satisfying the specified filter.
+	ListOffers(filter ...ApplicationOfferFilter) ([]ApplicationOffer, error)
+
+	// Remove removes the application offer at the specified URL.
+	Remove(offerName string) error
 }
 
 // RemoteApplication represents a remote application.

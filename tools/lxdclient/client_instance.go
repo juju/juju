@@ -13,8 +13,8 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/lxc/lxd"
 	"github.com/lxc/lxd/shared"
+	"github.com/lxc/lxd/shared/api"
 
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/network"
@@ -22,6 +22,13 @@ import (
 
 type Device map[string]string
 type Devices map[string]Device
+
+type DiskDevice struct {
+	Path     string
+	Source   string
+	Pool     string
+	ReadOnly bool
+}
 
 type File struct {
 	Content []byte
@@ -36,15 +43,16 @@ type Files []File
 // get handled in container/lxc/clonetemplate.go.
 
 type rawInstanceClient interface {
-	ListContainers() ([]shared.ContainerInfo, error)
-	ContainerInfo(name string) (*shared.ContainerInfo, error)
-	Init(name string, imgremote string, image string, profiles *[]string, config map[string]string, devices shared.Devices, ephem bool) (*lxd.Response, error)
-	Action(name string, action shared.ContainerAction, timeout int, force bool, stateful bool) (*lxd.Response, error)
-	Delete(name string) (*lxd.Response, error)
+	ListContainers() ([]api.Container, error)
+	ContainerInfo(name string) (*api.Container, error)
+	Init(name string, imgremote string, image string, profiles *[]string, config map[string]string, devices map[string]map[string]string, ephem bool) (*api.Response, error)
+	Action(name string, action shared.ContainerAction, timeout int, force bool, stateful bool) (*api.Response, error)
+	Delete(name string) (*api.Response, error)
 
 	WaitForSuccess(waitURL string) error
-	ContainerState(name string) (*shared.ContainerState, error)
-	ContainerDeviceAdd(container, devname, devtype string, props []string) (*lxd.Response, error)
+	ContainerState(name string) (*api.ContainerState, error)
+	ContainerDeviceAdd(container, devname, devtype string, props []string) (*api.Response, error)
+	ContainerDeviceDelete(container, devname string) (*api.Response, error)
 	PushFile(container, path string, gid int, uid int, mode string, buf io.ReadSeeker) error
 }
 
@@ -78,9 +86,9 @@ func (client *instanceClient) addInstance(spec InstanceSpec) error {
 
 	// TODO(ericsnow) Copy the image first?
 
-	lxdDevices := make(shared.Devices, len(spec.Devices))
+	lxdDevices := make(map[string]map[string]string, len(spec.Devices))
 	for name, device := range spec.Devices {
-		lxdDevice := make(shared.Device, len(device))
+		lxdDevice := make(Device, len(device))
 		for key, value := range device {
 			lxdDevice[key] = value
 		}
@@ -201,7 +209,7 @@ func (client *instanceClient) Instances(prefix string, statuses ...string) ([]In
 	return insts, nil
 }
 
-func checkStatus(info shared.ContainerInfo, statuses []string) bool {
+func checkStatus(info api.Container, statuses []string) bool {
 	for _, status := range statuses {
 		statusCode := allStatuses[status]
 		if info.StatusCode == statusCode {
@@ -221,7 +229,7 @@ func (client *instanceClient) removeInstance(name string) error {
 	}
 
 	//if info.Status.StatusCode != 0 && info.Status.StatusCode != shared.Stopped {
-	if info.StatusCode != shared.Stopped {
+	if info.StatusCode != api.Stopped {
 		timeout := -1
 		force := true
 		stateful := false
@@ -326,4 +334,35 @@ func (client *instanceClient) Addresses(name string) ([]network.Address, error) 
 		}
 	}
 	return addrs, nil
+}
+
+// AttachDisk attaches a disk to an instance.
+func (client *instanceClient) AttachDisk(instanceName, deviceName string, disk DiskDevice) error {
+	props := []string{"path=" + disk.Path, "source=" + disk.Source}
+	if disk.Pool != "" {
+		props = append(props, "pool="+disk.Pool)
+	}
+	if disk.ReadOnly {
+		props = append(props, "readonly=true")
+	}
+	resp, err := client.raw.ContainerDeviceAdd(instanceName, deviceName, "disk", props)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if err := client.raw.WaitForSuccess(resp.Operation); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
+// RemoveDevice removes a device from an instance.
+func (client *instanceClient) RemoveDevice(instanceName, deviceName string) error {
+	resp, err := client.raw.ContainerDeviceDelete(instanceName, deviceName)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if err := client.raw.WaitForSuccess(resp.Operation); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }

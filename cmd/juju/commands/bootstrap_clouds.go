@@ -123,9 +123,9 @@ listed is the default. Add more clouds with ‘juju add-cloud’.
 }
 
 func printCloudRegions(ctx *cmd.Context, cloudName string) error {
-	cloud, err := jujucloud.CloudByName(cloudName)
+	cloud, err := common.CloudByName(cloudName)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	fmt.Fprintf(ctx.Stdout, "Showing regions for %s:\n", cloudName)
 	for _, region := range cloud.Regions {

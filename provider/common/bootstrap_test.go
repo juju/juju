@@ -4,10 +4,8 @@
 package common_test
 
 import (
-	"bytes"
 	"fmt"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/juju/errors"
@@ -235,10 +233,6 @@ func (s *BootstrapSuite) TestSuccess(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Arch, gc.Equals, "ppc64el") // based on hardware characteristics
 	c.Assert(result.Series, gc.Equals, config.PreferredSeries(mocksConfig))
-	output := inner.Stderr.(*bytes.Buffer)
-	lines := strings.Split(output.String(), "\n")
-	c.Assert(len(lines), jc.GreaterThan, 1)
-	c.Assert(lines[0], gc.Equals, "Some message")
 }
 
 type neverRefreshes struct {

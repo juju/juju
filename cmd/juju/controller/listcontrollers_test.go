@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/cmd/juju/controller"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/testing"
 )
@@ -28,10 +29,8 @@ var _ = gc.Suite(&ListControllersSuite{})
 
 func (s *ListControllersSuite) TestListControllersEmptyStore(c *gc.C) {
 	s.store = jujuclienttesting.NewMemStore()
-	context, err := s.runListControllers(c)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(testing.Stdout(context), gc.Equals, "")
-	c.Check(testing.Stderr(context), gc.Equals, modelcmd.ErrNoControllersDefined.Error())
+	_, err := s.runListControllers(c)
+	c.Check(errors.Cause(err), gc.Equals, modelcmd.ErrNoControllersDefined)
 }
 
 func (s *ListControllersSuite) TestListControllers(c *gc.C) {
@@ -248,6 +247,17 @@ func (s *ListControllersSuite) TestListControllersUnrecognizedOptionFlag(c *gc.C
 	s.createTestClientStore(c)
 	s.expectedErr = `flag provided but not defined: --model`
 	s.assertListControllersFailed(c, "--model", "still.my.world")
+}
+
+func (s *ListControllersSuite) TestListControllersNoControllers(c *gc.C) {
+	store := s.createTestClientStore(c)
+	store.Controllers = map[string]jujuclient.ControllerDetails{}
+	s.expectedErr = `No controllers registered.
+
+Please either create a new controller using "juju bootstrap" or connect to
+another controller that you have been given access to using "juju register".
+`
+	s.assertListControllersFailed(c)
 }
 
 func (s *ListControllersSuite) runListControllers(c *gc.C, args ...string) (*cmd.Context, error) {

@@ -4,16 +4,15 @@
 package apiserver_test
 
 import (
-	"bufio"
 	"net/http"
 	"net/url"
 	"time"
 
+	"github.com/gorilla/websocket"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
-	"golang.org/x/net/websocket"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2/bson"
@@ -75,22 +74,24 @@ func (s *logtransferSuite) dialWebsocket(c *gc.C) *websocket.Conn {
 
 func (s *logtransferSuite) dialWebsocketInternal(c *gc.C, header http.Header) *websocket.Conn {
 	server := s.logtransferURL(c, "wss").String()
-	return dialWebsocketFromURL(c, server, header)
+	conn := dialWebsocketFromURL(c, server, header)
+	s.AddCleanup(func(_ *gc.C) { conn.Close() })
+	return conn
 }
 
 func (s *logtransferSuite) TestRejectsMissingModelHeader(c *gc.C) {
 	header := utils.BasicAuthHeader(s.userTag.String(), s.password)
-	reader := s.toReader(s.dialWebsocketInternal(c, header))
-	assertJSONError(c, reader, `unknown model: ""`)
-	assertWebsocketClosed(c, reader)
+	ws := s.dialWebsocketInternal(c, header)
+	assertJSONError(c, ws, `unknown model: ""`)
+	assertWebsocketClosed(c, ws)
 }
 
 func (s *logtransferSuite) TestRejectsBadMigratingModelUUID(c *gc.C) {
 	header := utils.BasicAuthHeader(s.userTag.String(), s.password)
 	header.Add(params.MigrationModelHTTPHeader, "does-not-exist")
-	reader := s.toReader(s.dialWebsocketInternal(c, header))
-	assertJSONError(c, reader, `unknown model: "does-not-exist"`)
-	assertWebsocketClosed(c, reader)
+	ws := s.dialWebsocketInternal(c, header)
+	assertJSONError(c, ws, `unknown model: "does-not-exist"`)
+	assertWebsocketClosed(c, ws)
 }
 
 func (s *logtransferSuite) TestRejectsInvalidVersion(c *gc.C) {
@@ -100,51 +101,48 @@ func (s *logtransferSuite) TestRejectsInvalidVersion(c *gc.C) {
 	url.RawQuery = query.Encode()
 	conn := dialWebsocketFromURL(c, url.String(), s.makeAuthHeader())
 	defer conn.Close()
-	reader := bufio.NewReader(conn)
-	assertJSONError(c, reader, `^invalid jujuclientversion "blah".*`)
-	assertWebsocketClosed(c, reader)
+	assertJSONError(c, conn, `^invalid jujuclientversion "blah".*`)
+	assertWebsocketClosed(c, conn)
 }
 
 func (s *logtransferSuite) TestRejectsMachineLogins(c *gc.C) {
 	header := utils.BasicAuthHeader(s.machineTag.String(), s.machinePassword)
 	header.Add(params.MachineNonceHeader, "nonce")
-	reader := s.toReader(s.dialWebsocketInternal(c, header))
-	assertJSONError(c, reader, `tag kind machine not valid`)
-	assertWebsocketClosed(c, reader)
+	ws := s.dialWebsocketInternal(c, header)
+	assertJSONError(c, ws, `tag kind machine not valid`)
+	assertWebsocketClosed(c, ws)
 }
 
 func (s *logtransferSuite) TestRejectsBadPasword(c *gc.C) {
 	header := utils.BasicAuthHeader(s.userTag.String(), "wrong")
 	header.Add(params.MigrationModelHTTPHeader, s.State.ModelUUID())
-	reader := s.toReader(s.dialWebsocketInternal(c, header))
-	assertJSONError(c, reader, "invalid entity name or password")
-	assertWebsocketClosed(c, reader)
+	ws := s.dialWebsocketInternal(c, header)
+	assertJSONError(c, ws, "invalid entity name or password")
+	assertWebsocketClosed(c, ws)
 }
 
 func (s *logtransferSuite) TestRequiresSuperUser(c *gc.C) {
 	s.setUserAccess(c, permission.AddModelAccess)
-	reader := s.toReader(s.dialWebsocketInternal(c, s.makeAuthHeader()))
-	assertJSONError(c, reader, `not a controller admin`)
-	assertWebsocketClosed(c, reader)
+	ws := s.dialWebsocketInternal(c, s.makeAuthHeader())
+	assertJSONError(c, ws, `not a controller admin`)
+	assertWebsocketClosed(c, ws)
 }
 
 func (s *logtransferSuite) TestRequiresMigrationModeNone(c *gc.C) {
 	s.setMigrationMode(c, state.MigrationModeImporting)
-	reader := s.toReader(s.dialWebsocket(c))
-	assertJSONError(c, reader, `model migration mode is "importing" instead of ""`)
-	assertWebsocketClosed(c, reader)
+	ws := s.dialWebsocket(c)
+	assertJSONError(c, ws, `model migration mode is "importing" instead of ""`)
+	assertWebsocketClosed(c, ws)
 }
 
 func (s *logtransferSuite) TestLogging(c *gc.C) {
 	conn := s.dialWebsocket(c)
-	reader := s.toReader(conn)
 
 	// Read back the nil error, indicating that all is well.
-	errResult := readJSONErrorLine(c, reader)
-	c.Assert(errResult.Error, gc.IsNil)
+	assertJSONInitialErrorNil(c, conn)
 
 	t0 := time.Date(2015, time.June, 1, 23, 2, 1, 0, time.UTC)
-	err := websocket.JSON.Send(conn, &params.LogRecord{
+	err := conn.WriteJSON(&params.LogRecord{
 		Entity:   "machine-23",
 		Time:     t0,
 		Module:   "some.where",
@@ -155,7 +153,7 @@ func (s *logtransferSuite) TestLogging(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	t1 := time.Date(2015, time.June, 1, 23, 2, 2, 0, time.UTC)
-	err = websocket.JSON.Send(conn, &params.LogRecord{
+	err = conn.WriteJSON(&params.LogRecord{
 		Entity:   "machine-101",
 		Time:     t1,
 		Module:   "else.where",
@@ -219,17 +217,15 @@ func (s *logtransferSuite) TestLogging(c *gc.C) {
 
 func (s *logtransferSuite) TestTracksLastSentLogTime(c *gc.C) {
 	conn := s.dialWebsocket(c)
-	reader := s.toReader(conn)
 
 	// Read back the nil error, indicating that all is well.
-	errResult := readJSONErrorLine(c, reader)
-	c.Assert(errResult.Error, gc.IsNil)
+	assertJSONInitialErrorNil(c, conn)
 
 	tracker := state.NewLastSentLogTracker(s.State, s.State.ModelUUID(), "migration-logtransfer")
 	defer tracker.Close()
 
 	t0 := time.Date(2015, time.June, 1, 23, 2, 1, 0, time.UTC)
-	err := websocket.JSON.Send(conn, &params.LogRecord{
+	err := conn.WriteJSON(&params.LogRecord{
 		Entity:   "machine-23",
 		Time:     t0,
 		Module:   "some.where",
@@ -244,7 +240,7 @@ func (s *logtransferSuite) TestTracksLastSentLogTime(c *gc.C) {
 
 	// Doesn't track anything more until a log message 2 mins later.
 	t1 := t0.Add(2*time.Minute - 1*time.Nanosecond)
-	err = websocket.JSON.Send(conn, &params.LogRecord{
+	err = conn.WriteJSON(&params.LogRecord{
 		Entity:   "machine-23",
 		Time:     t1,
 		Module:   "some.where",
@@ -258,7 +254,7 @@ func (s *logtransferSuite) TestTracksLastSentLogTime(c *gc.C) {
 	assertTrackerTime(c, tracker, t0)
 
 	t2 := t1.Add(1 * time.Nanosecond)
-	err = websocket.JSON.Send(conn, &params.LogRecord{
+	err = conn.WriteJSON(&params.LogRecord{
 		Entity:   "machine-23",
 		Time:     t2,
 		Module:   "some.where",
@@ -272,7 +268,7 @@ func (s *logtransferSuite) TestTracksLastSentLogTime(c *gc.C) {
 	assertTrackerTime(c, tracker, t2)
 
 	t3 := t2.Add(1 * time.Nanosecond)
-	err = websocket.JSON.Send(conn, &params.LogRecord{
+	err = conn.WriteJSON(&params.LogRecord{
 		Entity:   "machine-23",
 		Time:     t3,
 		Module:   "some.where",
@@ -305,11 +301,6 @@ func assertTrackerTime(c *gc.C, tracker *state.LastSentLogTracker, expected time
 		}
 	}
 	c.Fatalf("tracker never set to %d - last seen was %d (err: %v)", expected.UnixNano(), timestamp, err)
-}
-
-func (s *logtransferSuite) toReader(conn *websocket.Conn) *bufio.Reader {
-	s.AddCleanup(func(_ *gc.C) { conn.Close() })
-	return bufio.NewReader(conn)
 }
 
 func (s *logtransferSuite) setUserAccess(c *gc.C, level permission.Access) {

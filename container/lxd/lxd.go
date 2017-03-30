@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/utils/arch"
 
 	"github.com/juju/juju/cloudconfig/containerinit"
 	"github.com/juju/juju/cloudconfig/instancecfg"
@@ -109,11 +110,18 @@ func (manager *containerManager) CreateContainer(
 		}
 	}
 
-	err = manager.client.EnsureImageExists(series,
+	// It is only possible to provision LXD containers
+	// of the same architecture as the host.
+	hostArch := arch.HostArch()
+
+	imageName, err := manager.client.EnsureImageExists(
+		series,
+		hostArch,
 		lxdclient.DefaultImageSources,
 		func(progress string) {
 			callback(status.Provisioning, progress, nil)
-		})
+		},
+	)
 	if err != nil {
 		err = errors.Annotatef(err, "failed to ensure LXD image")
 		return
@@ -172,7 +180,7 @@ func (manager *containerManager) CreateContainer(
 
 	spec := lxdclient.InstanceSpec{
 		Name:     name,
-		Image:    manager.client.ImageNameForSeries(series),
+		Image:    imageName,
 		Metadata: metadata,
 		Devices:  nics,
 		Profiles: profiles,

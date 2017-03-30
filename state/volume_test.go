@@ -6,7 +6,6 @@ package state_test
 import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
@@ -93,9 +92,9 @@ func (s *VolumeStateSuite) TestAddServiceNoUserDefaultPool(c *gc.C) {
 	storage := map[string]state.StorageConstraints{
 		"data": makeStorageCons("", 1024, 1),
 	}
-	service, err := s.State.AddApplication(state.AddApplicationArgs{Name: "storage-block", Charm: ch, Storage: storage})
+	app, err := s.State.AddApplication(state.AddApplicationArgs{Name: "storage-block", Charm: ch, Storage: storage})
 	c.Assert(err, jc.ErrorIsNil)
-	cons, err := service.StorageConstraints()
+	cons, err := app.StorageConstraints()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cons, jc.DeepEquals, map[string]state.StorageConstraints{
 		"data": state.StorageConstraints{
@@ -125,8 +124,8 @@ func (s *VolumeStateSuite) TestAddServiceDefaultPool(c *gc.C) {
 	storage := map[string]state.StorageConstraints{
 		"data": makeStorageCons("", 1024, 1),
 	}
-	service := s.AddTestingServiceWithStorage(c, "storage-block", ch, storage)
-	cons, err := service.StorageConstraints()
+	app := s.AddTestingServiceWithStorage(c, "storage-block", ch, storage)
+	cons, err := app.StorageConstraints()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cons, jc.DeepEquals, map[string]state.StorageConstraints{
 		"data": state.StorageConstraints{
@@ -273,9 +272,9 @@ func (s *VolumeStateSuite) TestWatchVolumeAttachment(c *gc.C) {
 }
 
 func (s *VolumeStateSuite) TestWatchModelVolumes(c *gc.C) {
-	service := s.setupMixedScopeStorageService(c, "block")
+	app := s.setupMixedScopeStorageApplication(c, "block")
 	addUnit := func() {
-		u, err := service.AddUnit()
+		u, err := app.AddUnit()
 		c.Assert(err, jc.ErrorIsNil)
 		err = s.State.AssignUnit(u, state.AssignCleanEmpty)
 		c.Assert(err, jc.ErrorIsNil)
@@ -285,14 +284,19 @@ func (s *VolumeStateSuite) TestWatchModelVolumes(c *gc.C) {
 	w := s.State.WatchModelVolumes()
 	defer testing.AssertStop(c, w)
 	wc := testing.NewStringsWatcherC(c, s.State, w)
-	wc.AssertChangeInSingleEvent("0") // initial
+	wc.AssertChangeInSingleEvent("0", "1") // initial
 	wc.AssertNoChange()
 
 	addUnit()
-	wc.AssertChangeInSingleEvent("3")
+	wc.AssertChangeInSingleEvent("4", "5")
 	wc.AssertNoChange()
 
-	err := s.State.DestroyVolume(names.NewVolumeTag("0"))
+	volume, err := s.State.Volume(names.NewVolumeTag("0"))
+	c.Assert(err, jc.ErrorIsNil)
+	storageTag, err := volume.StorageInstance()
+	c.Assert(err, jc.ErrorIsNil)
+	removeStorageInstance(c, s.State, storageTag)
+	err = s.State.DestroyVolume(names.NewVolumeTag("0"))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChangeInSingleEvent("0") // dying
 	wc.AssertNoChange()
@@ -309,9 +313,9 @@ func (s *VolumeStateSuite) TestWatchModelVolumes(c *gc.C) {
 }
 
 func (s *VolumeStateSuite) TestWatchEnvironVolumeAttachments(c *gc.C) {
-	service := s.setupMixedScopeStorageService(c, "block")
+	app := s.setupMixedScopeStorageApplication(c, "block")
 	addUnit := func() {
-		u, err := service.AddUnit()
+		u, err := app.AddUnit()
 		c.Assert(err, jc.ErrorIsNil)
 		err = s.State.AssignUnit(u, state.AssignCleanEmpty)
 		c.Assert(err, jc.ErrorIsNil)
@@ -321,11 +325,11 @@ func (s *VolumeStateSuite) TestWatchEnvironVolumeAttachments(c *gc.C) {
 	w := s.State.WatchEnvironVolumeAttachments()
 	defer testing.AssertStop(c, w)
 	wc := testing.NewStringsWatcherC(c, s.State, w)
-	wc.AssertChangeInSingleEvent("0:0") // initial
+	wc.AssertChangeInSingleEvent("0:0", "0:1") // initial
 	wc.AssertNoChange()
 
 	addUnit()
-	wc.AssertChangeInSingleEvent("1:3")
+	wc.AssertChangeInSingleEvent("1:4", "1:5")
 	wc.AssertNoChange()
 
 	err := s.State.DetachVolume(names.NewMachineTag("0"), names.NewVolumeTag("0"))
@@ -340,9 +344,9 @@ func (s *VolumeStateSuite) TestWatchEnvironVolumeAttachments(c *gc.C) {
 }
 
 func (s *VolumeStateSuite) TestWatchMachineVolumes(c *gc.C) {
-	service := s.setupMixedScopeStorageService(c, "block")
+	app := s.setupMixedScopeStorageApplication(c, "block", "machinescoped", "modelscoped")
 	addUnit := func() {
-		u, err := service.AddUnit()
+		u, err := app.AddUnit()
 		c.Assert(err, jc.ErrorIsNil)
 		err = s.State.AssignUnit(u, state.AssignCleanEmpty)
 		c.Assert(err, jc.ErrorIsNil)
@@ -352,34 +356,38 @@ func (s *VolumeStateSuite) TestWatchMachineVolumes(c *gc.C) {
 	w := s.State.WatchMachineVolumes(names.NewMachineTag("0"))
 	defer testing.AssertStop(c, w)
 	wc := testing.NewStringsWatcherC(c, s.State, w)
-	wc.AssertChangeInSingleEvent("0/1", "0/2") // initial
+	wc.AssertChangeInSingleEvent("0/0", "0/1") // initial
 	wc.AssertNoChange()
 
 	addUnit()
 	// no change, since we're only interested in the one machine.
 	wc.AssertNoChange()
 
-	err := s.State.DestroyVolume(names.NewVolumeTag("0/1"))
+	volume, err := s.State.Volume(names.NewVolumeTag("0/0"))
 	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertChangeInSingleEvent("0/1") // dying
+	storageTag, err := volume.StorageInstance()
+	c.Assert(err, jc.ErrorIsNil)
+	removeStorageInstance(c, s.State, storageTag)
+	err = s.State.DestroyVolume(volume.VolumeTag())
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChangeInSingleEvent("0/0") // dying
 	wc.AssertNoChange()
 
-	err = s.State.DetachVolume(names.NewMachineTag("0"), names.NewVolumeTag("0/1"))
+	err = s.State.DestroyVolume(names.NewVolumeTag("0/0"))
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.State.RemoveVolumeAttachment(names.NewMachineTag("0"), names.NewVolumeTag("0/1"))
+	err = s.State.RemoveVolumeAttachment(names.NewMachineTag("0"), names.NewVolumeTag("0/0"))
 	c.Assert(err, jc.ErrorIsNil)
-
-	err = s.State.RemoveVolume(names.NewVolumeTag("0/1"))
+	err = s.State.RemoveVolume(names.NewVolumeTag("0/0"))
 	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertChangeInSingleEvent("0/1") // removed
+	wc.AssertChangeInSingleEvent("0/0") // removed
 	wc.AssertNoChange()
 }
 
 func (s *VolumeStateSuite) TestWatchMachineVolumeAttachments(c *gc.C) {
-	service := s.setupMixedScopeStorageService(c, "block")
+	app := s.setupMixedScopeStorageApplication(c, "block", "machinescoped", "modelscoped")
 	addUnit := func(to *state.Machine) (u *state.Unit, m *state.Machine) {
 		var err error
-		u, err = service.AddUnit()
+		u, err = app.AddUnit()
 		c.Assert(err, jc.ErrorIsNil)
 		if to != nil {
 			err = u.AssignToMachine(to)
@@ -399,31 +407,32 @@ func (s *VolumeStateSuite) TestWatchMachineVolumeAttachments(c *gc.C) {
 	w := s.State.WatchMachineVolumeAttachments(names.NewMachineTag("0"))
 	defer testing.AssertStop(c, w)
 	wc := testing.NewStringsWatcherC(c, s.State, w)
-	wc.AssertChangeInSingleEvent("0:0/1", "0:0/2") // initial
+	wc.AssertChangeInSingleEvent("0:0/0", "0:0/1") // initial
 	wc.AssertNoChange()
 
 	addUnit(nil)
 	// no change, since we're only interested in the one machine.
 	wc.AssertNoChange()
 
-	err := s.State.DetachVolume(names.NewMachineTag("0"), names.NewVolumeTag("0"))
+	err := s.State.DetachVolume(names.NewMachineTag("0"), names.NewVolumeTag("2"))
 	c.Assert(err, jc.ErrorIsNil)
 	// no change, since we're only interested in attachments of
 	// machine-scoped volumes.
 	wc.AssertNoChange()
 
-	err = s.State.DetachVolume(names.NewMachineTag("0"), names.NewVolumeTag("0/1"))
+	removeVolumeStorageInstance(c, s.State, names.NewVolumeTag("0/0"))
+	err = s.State.DestroyVolume(names.NewVolumeTag("0/0"))
 	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertChangeInSingleEvent("0:0/1") // dying
+	wc.AssertChangeInSingleEvent("0:0/0") // dying
 	wc.AssertNoChange()
 
-	err = s.State.RemoveVolumeAttachment(names.NewMachineTag("0"), names.NewVolumeTag("0/1"))
+	err = s.State.RemoveVolumeAttachment(names.NewMachineTag("0"), names.NewVolumeTag("0/0"))
 	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertChangeInSingleEvent("0:0/1") // removed
+	wc.AssertChangeInSingleEvent("0:0/0") // removed
 	wc.AssertNoChange()
 
 	addUnit(m0)
-	wc.AssertChangeInSingleEvent("0:0/7", "0:0/8") // added
+	wc.AssertChangeInSingleEvent("0:0/8", "0:0/9") // added
 }
 
 func (s *VolumeStateSuite) TestParseVolumeAttachmentId(c *gc.C) {
@@ -480,10 +489,6 @@ func (s *VolumeStateSuite) assertCreateVolumes(c *gc.C) (_ *state.Machine, all, 
 	volume2 := s.volume(c, names.NewVolumeTag("0/1"))
 	volume3 := s.volume(c, names.NewVolumeTag("2"))
 
-	c.Assert(volume1.LifeBinding(), gc.Equals, machine.MachineTag())
-	c.Assert(volume2.LifeBinding(), gc.Equals, machine.MachineTag())
-	c.Assert(volume3.LifeBinding(), gc.Equals, machine.MachineTag())
-
 	volumeInfoSet := state.VolumeInfo{Size: 123, Persistent: true, VolumeId: "vol-1"}
 	err = s.State.SetVolumeInfo(volume1.VolumeTag(), volumeInfoSet)
 	c.Assert(err, jc.ErrorIsNil)
@@ -503,17 +508,18 @@ func (s *VolumeStateSuite) assertCreateVolumes(c *gc.C) (_ *state.Machine, all, 
 	return machine, all, persistent
 }
 
-func (s *VolumeStateSuite) TestRemoveStorageInstanceUnassignsVolume(c *gc.C) {
-	_, u, storageTag := s.setupSingleStorage(c, "block", "loop-pool")
+func (s *VolumeStateSuite) TestRemoveStorageInstanceDestroysAndUnassignsVolume(c *gc.C) {
+	_, u, storageTag := s.setupSingleStorage(c, "block", "modelscoped")
 	err := s.State.AssignUnit(u, state.AssignCleanEmpty)
 	c.Assert(err, jc.ErrorIsNil)
 	volume := s.storageInstanceVolume(c, storageTag)
 	c.Assert(err, jc.ErrorIsNil)
-	volumeTag := volume.VolumeTag()
 
+	err = u.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
 	err = s.State.DestroyStorageInstance(storageTag)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.State.DestroyStorageAttachment(storageTag, u.UnitTag())
+	err = s.State.DetachStorage(storageTag, u.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
 
 	// The storage instance and attachment are dying, but not yet
@@ -528,8 +534,9 @@ func (s *VolumeStateSuite) TestRemoveStorageInstanceUnassignsVolume(c *gc.C) {
 	_, err = s.State.StorageInstanceVolume(storageTag)
 	c.Assert(err, gc.ErrorMatches, `volume for storage instance "data/0" not found`)
 
-	// The volume should not have been removed, though.
-	s.volume(c, volumeTag)
+	// The volume should still exist, but it should be dying.
+	v := s.volume(c, volume.VolumeTag())
+	c.Assert(v.Life(), gc.Equals, state.Dying)
 }
 
 func (s *VolumeStateSuite) TestSetVolumeAttachmentInfoVolumeNotProvisioned(c *gc.C) {
@@ -552,7 +559,7 @@ func (s *VolumeStateSuite) TestSetVolumeAttachmentInfoVolumeNotProvisioned(c *gc
 }
 
 func (s *VolumeStateSuite) TestDestroyVolume(c *gc.C) {
-	volume, _ := s.setupVolumeAttachment(c)
+	volume, _ := s.setupMachineScopedVolumeAttachment(c)
 	assertDestroy := func() {
 		err := s.State.DestroyVolume(volume.VolumeTag())
 		c.Assert(err, jc.ErrorIsNil)
@@ -563,8 +570,29 @@ func (s *VolumeStateSuite) TestDestroyVolume(c *gc.C) {
 	assertDestroy()
 }
 
+func (s *VolumeStateSuite) TestDestroyVolumeNotFound(c *gc.C) {
+	err := s.State.DestroyVolume(names.NewVolumeTag("0"))
+	c.Assert(err, gc.ErrorMatches, `destroying volume 0: volume "0" not found`)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
+func (s *VolumeStateSuite) TestDestroyVolumeStorageAssigned(c *gc.C) {
+	volume, _, u := s.setupStorageVolumeAttachment(c)
+	storageTag, err := volume.StorageInstance()
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.State.DestroyVolume(volume.VolumeTag())
+	c.Assert(err, gc.ErrorMatches, "destroying volume 0: volume is assigned to storage data/0")
+
+	err = u.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	removeStorageInstance(c, s.State, storageTag)
+	err = s.State.DestroyVolume(volume.VolumeTag())
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *VolumeStateSuite) TestDestroyVolumeNoAttachments(c *gc.C) {
-	volume, machine := s.setupVolumeAttachment(c)
+	volume, machine := s.setupModelScopedVolumeAttachment(c)
 
 	err := s.State.DetachVolume(machine.MachineTag(), volume.VolumeTag())
 	c.Assert(err, jc.ErrorIsNil)
@@ -584,10 +612,8 @@ func (s *VolumeStateSuite) TestDestroyVolumeNoAttachments(c *gc.C) {
 }
 
 func (s *VolumeStateSuite) TestRemoveVolume(c *gc.C) {
-	volume, machine := s.setupVolumeAttachment(c)
+	volume, machine := s.setupMachineScopedVolumeAttachment(c)
 	err := s.State.DestroyVolume(volume.VolumeTag())
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.State.DetachVolume(machine.MachineTag(), volume.VolumeTag())
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.State.RemoveVolumeAttachment(machine.MachineTag(), volume.VolumeTag())
 	c.Assert(err, jc.ErrorIsNil)
@@ -607,7 +633,7 @@ func (s *VolumeStateSuite) TestRemoveVolumeNotFound(c *gc.C) {
 }
 
 func (s *VolumeStateSuite) TestRemoveVolumeNotDead(c *gc.C) {
-	volume, _ := s.setupVolumeAttachment(c)
+	volume, _ := s.setupMachineScopedVolumeAttachment(c)
 	err := s.State.RemoveVolume(volume.VolumeTag())
 	c.Assert(err, gc.ErrorMatches, "removing volume 0/0: volume is not dead")
 	err = s.State.DestroyVolume(volume.VolumeTag())
@@ -617,7 +643,7 @@ func (s *VolumeStateSuite) TestRemoveVolumeNotDead(c *gc.C) {
 }
 
 func (s *VolumeStateSuite) TestDetachVolume(c *gc.C) {
-	volume, machine := s.setupVolumeAttachment(c)
+	volume, machine := s.setupModelScopedVolumeAttachment(c)
 	assertDetach := func() {
 		err := s.State.DetachVolume(machine.MachineTag(), volume.VolumeTag())
 		c.Assert(err, jc.ErrorIsNil)
@@ -629,7 +655,7 @@ func (s *VolumeStateSuite) TestDetachVolume(c *gc.C) {
 }
 
 func (s *VolumeStateSuite) TestRemoveLastVolumeAttachment(c *gc.C) {
-	volume, machine := s.setupVolumeAttachment(c)
+	volume, machine := s.setupModelScopedVolumeAttachment(c)
 
 	err := s.State.DetachVolume(machine.MachineTag(), volume.VolumeTag())
 	c.Assert(err, jc.ErrorIsNil)
@@ -649,7 +675,7 @@ func (s *VolumeStateSuite) TestRemoveLastVolumeAttachment(c *gc.C) {
 }
 
 func (s *VolumeStateSuite) TestRemoveLastVolumeAttachmentConcurrently(c *gc.C) {
-	volume, machine := s.setupVolumeAttachment(c)
+	volume, machine := s.setupModelScopedVolumeAttachment(c)
 
 	err := s.State.DetachVolume(machine.MachineTag(), volume.VolumeTag())
 	c.Assert(err, jc.ErrorIsNil)
@@ -677,8 +703,8 @@ func (s *VolumeStateSuite) TestRemoveVolumeAttachmentNotFound(c *gc.C) {
 }
 
 func (s *VolumeStateSuite) TestRemoveVolumeAttachmentConcurrently(c *gc.C) {
-	volume, machine := s.setupVolumeAttachment(c)
-	err := s.State.DetachVolume(machine.MachineTag(), volume.VolumeTag())
+	volume, machine := s.setupMachineScopedVolumeAttachment(c)
+	err := s.State.DestroyVolume(volume.VolumeTag())
 	c.Assert(err, jc.ErrorIsNil)
 	remove := func() {
 		err := s.State.RemoveVolumeAttachment(machine.MachineTag(), volume.VolumeTag())
@@ -690,7 +716,7 @@ func (s *VolumeStateSuite) TestRemoveVolumeAttachmentConcurrently(c *gc.C) {
 }
 
 func (s *VolumeStateSuite) TestRemoveVolumeAttachmentAlive(c *gc.C) {
-	volume, machine := s.setupVolumeAttachment(c)
+	volume, machine := s.setupMachineScopedVolumeAttachment(c)
 	err := s.State.RemoveVolumeAttachment(machine.MachineTag(), volume.VolumeTag())
 	c.Assert(err, gc.ErrorMatches, "removing attachment of volume 0/0 from machine 0: volume attachment is not dying")
 }
@@ -739,26 +765,20 @@ func (s *VolumeStateSuite) TestRemoveMachineRemovesVolumes(c *gc.C) {
 
 	c.Assert(machine.Destroy(), jc.ErrorIsNil)
 
-	// Cannot advance to Dead while there are persistent, or
-	// unprovisioned environ-scoped dynamic volumes.
+	// Cannot advance to Dead while there are detachable dynamic volumes.
 	err = machine.EnsureDead()
 	c.Assert(err, jc.Satisfies, state.IsHasAttachmentsError)
-	c.Assert(err, gc.ErrorMatches, "machine 0 has attachments \\[volume-0 volume-0-1\\]")
+	c.Assert(err, gc.ErrorMatches, "machine 0 has attachments \\[volume-0\\]")
 	s.obliterateVolumeAttachment(c, machine.MachineTag(), names.NewVolumeTag("0"))
-	s.obliterateVolumeAttachment(c, machine.MachineTag(), names.NewVolumeTag("0/1"))
 	c.Assert(machine.EnsureDead(), jc.ErrorIsNil)
 	c.Assert(machine.Remove(), jc.ErrorIsNil)
 
-	// Machine is gone: non-persistent and unprovisioned static or machine-
-	// scoped storage should be gone too.
+	// Machine is gone: non-detachable storage should be done too.
 	allVolumes, err = s.State.AllVolumes()
 	c.Assert(err, jc.ErrorIsNil)
-	// We should only have the persistent volume and the loop devices remaining.
-	remaining := make(set.Strings)
-	for _, v := range allVolumes {
-		remaining.Add(v.Tag().String())
-	}
-	c.Assert(remaining.SortedValues(), jc.DeepEquals, []string{"volume-0", "volume-0-1"})
+	// We should only have the persistent volume remaining.
+	c.Assert(allVolumes, gc.HasLen, 1)
+	c.Assert(allVolumes[0].Tag().String(), gc.Equals, "volume-0")
 
 	attachments, err := s.State.MachineVolumeAttachments(machine.MachineTag())
 	c.Assert(err, jc.ErrorIsNil)
@@ -776,7 +796,7 @@ func (s *VolumeStateSuite) TestEnsureMachineDeadAddVolumeConcurrently(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	addVolume := func() {
-		_, u, _ := s.setupSingleStorage(c, "block", "environscoped")
+		_, u, _ := s.setupSingleStorage(c, "block", "modelscoped")
 		err := u.AssignToMachine(machine)
 		c.Assert(err, jc.ErrorIsNil)
 		s.obliterateUnit(c, u.UnitTag())
@@ -809,66 +829,107 @@ func (s *VolumeStateSuite) TestEnsureMachineDeadRemoveVolumeConcurrently(c *gc.C
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *VolumeStateSuite) TestVolumeBindingMachine(c *gc.C) {
+func (s *VolumeStateSuite) TestVolumeMachineScoped(c *gc.C) {
 	machine, err := s.State.AddOneMachine(state.MachineTemplate{
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 		Volumes: []state.MachineVolumeParams{{
-			Volume: state.VolumeParams{Pool: "environscoped", Size: 1024},
+			Volume: state.VolumeParams{Pool: "loop", Size: 1024},
 		}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Volumes created unassigned to a storage instance are
-	// bound to the initially attached machine.
-	volume := s.volume(c, names.NewVolumeTag("0"))
-	c.Assert(volume.LifeBinding(), gc.Equals, machine.Tag())
+	volume := s.volume(c, names.NewVolumeTag("0/0"))
 	c.Assert(volume.Life(), gc.Equals, state.Alive)
 
-	err = s.State.DetachVolume(machine.MachineTag(), volume.VolumeTag())
+	err = s.State.DestroyVolume(volume.VolumeTag())
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.State.RemoveVolumeAttachment(machine.MachineTag(), volume.VolumeTag())
 	c.Assert(err, jc.ErrorIsNil)
 	volume = s.volume(c, volume.VolumeTag())
 	c.Assert(volume.Life(), gc.Equals, state.Dead)
 
-	// TODO(axw) when we can assign storage to an existing volume, we
-	// should test that a machine-bound volume is not destroyed when
-	// its assigned storage instance is removed.
+	// Remove the machine: this should remove the volume.
+	err = machine.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	err = machine.EnsureDead()
+	c.Assert(err, jc.ErrorIsNil)
+	err = machine.Remove()
+	c.Assert(err, jc.ErrorIsNil)
+	volume, err = s.State.Volume(volume.VolumeTag())
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *VolumeStateSuite) TestVolumeBindingStorage(c *gc.C) {
 	// Volumes created assigned to a storage instance are bound
-	// to the storage instance.
-	volume, _ := s.setupVolumeAttachment(c)
+	// to the machine/model, and not the storage. i.e. storage
+	// is persistent by default.
+	volume, _, u := s.setupStorageVolumeAttachment(c)
 	storageTag, err := volume.StorageInstance()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(volume.LifeBinding(), gc.Equals, storageTag)
 
-	err = s.State.DestroyStorageInstance(storageTag)
+	// The volume should transition to Dying when the storage is removed.
+	// We must destroy the unit before we can remove the storage.
+	err = u.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
-	attachments, err := s.State.StorageAttachments(storageTag)
-	c.Assert(err, jc.ErrorIsNil)
-	for _, a := range attachments {
-		err = s.State.DestroyStorageAttachment(storageTag, a.Unit())
-		c.Assert(err, jc.ErrorIsNil)
-		err = s.State.RemoveStorageAttachment(storageTag, a.Unit())
-		c.Assert(err, jc.ErrorIsNil)
-	}
-
-	// The storage instance should be removed,
-	// and the volume should be Dying.
-	_, err = s.State.StorageInstance(storageTag)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	removeStorageInstance(c, s.State, storageTag)
 	volume = s.volume(c, volume.VolumeTag())
 	c.Assert(volume.Life(), gc.Equals, state.Dying)
 }
 
-func (s *VolumeStateSuite) setupVolumeAttachment(c *gc.C) (state.Volume, *state.Machine) {
-	_, u, storageTag := s.setupSingleStorage(c, "block", "loop-pool")
+func (s *VolumeStateSuite) setupStorageVolumeAttachment(c *gc.C) (state.Volume, *state.Machine, *state.Unit) {
+	_, u, storageTag := s.setupSingleStorage(c, "block", "modelscoped")
 	err := s.State.AssignUnit(u, state.AssignCleanEmpty)
 	c.Assert(err, jc.ErrorIsNil)
 	assignedMachineId, err := u.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)
-	return s.storageInstanceVolume(c, storageTag), s.machine(c, assignedMachineId)
+	return s.storageInstanceVolume(c, storageTag), s.machine(c, assignedMachineId), u
+}
+
+func (s *VolumeStateSuite) setupModelScopedVolumeAttachment(c *gc.C) (state.Volume, *state.Machine) {
+	return s.setupVolumeAttachment(c, "modelscoped")
+}
+
+func (s *VolumeStateSuite) setupMachineScopedVolumeAttachment(c *gc.C) (state.Volume, *state.Machine) {
+	return s.setupVolumeAttachment(c, "loop")
+}
+
+func (s *VolumeStateSuite) setupVolumeAttachment(c *gc.C, pool string) (state.Volume, *state.Machine) {
+	machine, err := s.State.AddOneMachine(state.MachineTemplate{
+		Series: "quantal",
+		Jobs:   []state.MachineJob{state.JobHostUnits},
+		Volumes: []state.MachineVolumeParams{{
+			Volume: state.VolumeParams{Pool: pool, Size: 1024},
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	volumeAttachments, err := s.State.MachineVolumeAttachments(machine.MachineTag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(volumeAttachments, gc.HasLen, 1)
+	volume, err := s.State.Volume(volumeAttachments[0].Volume())
+	c.Assert(err, jc.ErrorIsNil)
+	return volume, machine
+}
+
+func removeVolumeStorageInstance(c *gc.C, st *state.State, volumeTag names.VolumeTag) {
+	volume, err := st.Volume(volumeTag)
+	c.Assert(err, jc.ErrorIsNil)
+	storageTag, err := volume.StorageInstance()
+	c.Assert(err, jc.ErrorIsNil)
+	removeStorageInstance(c, st, storageTag)
+}
+
+func removeStorageInstance(c *gc.C, st *state.State, storageTag names.StorageTag) {
+	err := st.DestroyStorageInstance(storageTag)
+	c.Assert(err, jc.ErrorIsNil)
+	attachments, err := st.StorageAttachments(storageTag)
+	c.Assert(err, jc.ErrorIsNil)
+	for _, a := range attachments {
+		err = st.DetachStorage(storageTag, a.Unit())
+		c.Assert(err, jc.ErrorIsNil)
+		err = st.RemoveStorageAttachment(storageTag, a.Unit())
+		c.Assert(err, jc.ErrorIsNil)
+	}
+	_, err = st.StorageInstance(storageTag)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }

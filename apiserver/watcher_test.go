@@ -62,7 +62,7 @@ func (s *watcherSuite) facadeContext(id string, dispose func()) facadetest.Conte
 }
 
 func getFacadeFactory(c *gc.C, name string, version int) facade.Factory {
-	factory, err := common.Facades.GetFactory(name, version)
+	factory, err := apiserver.AllFacades().GetFactory(name, version)
 	c.Assert(err, jc.ErrorIsNil)
 	return factory
 }
@@ -101,44 +101,6 @@ func (s *watcherSuite) TestFilesystemAttachmentsWatcher(c *gc.C) {
 			{MachineTag: "machine-1", AttachmentTag: "filesystem-2"},
 		},
 	})
-}
-
-func (s *watcherSuite) TestRemoteApplicationWatcher(c *gc.C) {
-	ch := make(chan params.RemoteApplicationChange, 1)
-	id := s.resources.Register(&fakeRemoteApplicationWatcher{ch: ch})
-	s.authorizer.EnvironManager = true
-
-	ch <- params.RemoteApplicationChange{
-		ApplicationTag: names.NewApplicationTag("foo").String(),
-		Life:           params.Life("alive"),
-	}
-	facade := s.getFacade(c, "RemoteApplicationWatcher", 1, id, nopDispose).(remoteApplicationWatcher)
-	result, err := facade.Next()
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Assert(result, jc.DeepEquals, params.RemoteApplicationWatchResult{
-		Change: &params.RemoteApplicationChange{
-			ApplicationTag: names.NewApplicationTag("foo").String(),
-			Life:           params.Life("alive"),
-		},
-	})
-}
-
-type remoteApplicationWatcher interface {
-	Next() (params.RemoteApplicationWatchResult, error)
-}
-
-type fakeRemoteApplicationWatcher struct {
-	state.RemoteApplicationWatcher
-	ch chan params.RemoteApplicationChange
-}
-
-func (w *fakeRemoteApplicationWatcher) Changes() <-chan params.RemoteApplicationChange {
-	return w.ch
-}
-
-func (w *fakeRemoteApplicationWatcher) Stop() error {
-	return nil
 }
 
 func (s *watcherSuite) TestMigrationStatusWatcher(c *gc.C) {
@@ -182,7 +144,7 @@ func (s *watcherSuite) TestMigrationStatusWatcherNotAgent(c *gc.C) {
 	id := s.resources.Register(apiservertesting.NewFakeNotifyWatcher())
 	s.authorizer.Tag = names.NewUserTag("frogdog")
 
-	factory, err := common.Facades.GetFactory("MigrationStatusWatcher", 1)
+	factory, err := apiserver.AllFacades().GetFactory("MigrationStatusWatcher", 1)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = factory(facadetest.Context{
 		Resources_: s.resources,

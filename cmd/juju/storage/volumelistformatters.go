@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/dustin/go-humanize"
+
 	"github.com/juju/juju/cmd/output"
 )
 
@@ -20,6 +21,7 @@ func formatVolumeListTabular(writer io.Writer, infos map[string]VolumeInfo) erro
 	print := func(values ...string) {
 		fmt.Fprintln(tw, strings.Join(values, "\t"))
 	}
+	print("[Volumes]")
 	print("Machine", "Unit", "Storage", "Id", "Provider Id", "Device", "Size", "State", "Message")
 
 	volumeAttachmentInfos := make(volumeAttachmentInfos, 0, len(infos))

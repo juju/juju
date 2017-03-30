@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils"
+	"golang.org/x/net/context"
 	"google.golang.org/api/compute/v1"
 	"google.golang.org/api/googleapi"
 )
@@ -298,7 +299,7 @@ func isWaitError(err error) bool {
 }
 
 type opDoer interface {
-	Do() (*compute.Operation, error)
+	Do(...googleapi.CallOption) (*compute.Operation, error)
 }
 
 // checkOperation requests a new copy of the given operation from the
@@ -381,4 +382,32 @@ func (rc *rawConn) SetMetadata(projectID, zone, instanceID string, metadata *com
 	}
 	err = rc.waitOperation(projectID, op, attemptsLong)
 	return errors.Trace(err)
+}
+
+func (rc *rawConn) ListSubnetworks(projectID, region string) ([]*compute.Subnetwork, error) {
+	ctx := context.Background()
+	call := rc.Subnetworks.List(projectID, region)
+	var results []*compute.Subnetwork
+	err := call.Pages(ctx, func(page *compute.SubnetworkList) error {
+		results = append(results, page.Items...)
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return results, nil
+}
+
+func (rc *rawConn) ListNetworks(projectID string) ([]*compute.Network, error) {
+	ctx := context.Background()
+	call := rc.Networks.List(projectID)
+	var results []*compute.Network
+	err := call.Pages(ctx, func(page *compute.NetworkList) error {
+		results = append(results, page.Items...)
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return results, nil
 }

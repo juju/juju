@@ -6,13 +6,14 @@ package machineactions_test
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/worker/machineactions"
-	"github.com/juju/juju/worker/workertest"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
+
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/worker/machineactions"
+	"github.com/juju/juju/worker/workertest"
 )
 
 type WorkerSuite struct {

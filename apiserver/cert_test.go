@@ -8,13 +8,13 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/juju/juju/cert"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cert"
 	coretesting "github.com/juju/juju/testing"
 )
 

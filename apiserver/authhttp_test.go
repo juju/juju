@@ -13,11 +13,11 @@ import (
 	"net/url"
 	"os"
 
+	"github.com/gorilla/websocket"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/testing/httptesting"
 	"github.com/juju/utils"
-	"golang.org/x/net/websocket"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
@@ -98,28 +98,35 @@ func (s *authHTTPSuite) baseURL(c *gc.C) *url.URL {
 }
 
 func dialWebsocketFromURL(c *gc.C, server string, header http.Header) *websocket.Conn {
-	config := makeWebsocketConfigFromURL(c, server, header)
+	if header == nil {
+		header = http.Header{}
+	}
+	header.Set("Origin", "http://localhost/")
+	caCerts := x509.NewCertPool()
+	c.Assert(caCerts.AppendCertsFromPEM([]byte(testing.CACert)), jc.IsTrue)
+	tlsConfig := utils.SecureTLSConfig()
+	tlsConfig.RootCAs = caCerts
+	tlsConfig.ServerName = "anything"
 	c.Logf("dialing %v", server)
-	conn, err := websocket.DialConfig(config)
+
+	dialer := &websocket.Dialer{
+		Proxy:           http.ProxyFromEnvironment,
+		TLSClientConfig: tlsConfig,
+	}
+	conn, _, err := dialer.Dial(server, header)
 	c.Assert(err, jc.ErrorIsNil)
 	return conn
 }
 
-func makeWebsocketConfigFromURL(c *gc.C, server string, header http.Header) *websocket.Config {
-	config, err := websocket.NewConfig(server, "http://localhost/")
-	c.Assert(err, jc.ErrorIsNil)
-	config.Header = header
-	caCerts := x509.NewCertPool()
-	c.Assert(caCerts.AppendCertsFromPEM([]byte(testing.CACert)), jc.IsTrue)
-	config.TlsConfig = utils.SecureTLSConfig()
-	config.TlsConfig.RootCAs = caCerts
-	config.TlsConfig.ServerName = "anything"
-	return config
-}
-
-func assertWebsocketClosed(c *gc.C, reader *bufio.Reader) {
-	_, err := reader.ReadByte()
-	c.Assert(err, gc.Equals, io.EOF)
+func assertWebsocketClosed(c *gc.C, ws *websocket.Conn) {
+	_, _, err := ws.NextReader()
+	goodClose := []int{
+		websocket.CloseNormalClosure,
+		websocket.CloseGoingAway,
+		websocket.CloseNoStatusReceived,
+	}
+	c.Logf("%#v", err)
+	c.Assert(websocket.IsCloseError(err, goodClose...), jc.IsTrue)
 }
 
 func (s *authHTTPSuite) makeURL(c *gc.C, scheme, path string, queryParams url.Values) *url.URL {
@@ -279,16 +286,26 @@ func (s *authHTTPSuite) uploadRequest(c *gc.C, uri string, contentType, path str
 
 // assertJSONError checks the JSON encoded error returned by the log
 // and logsink APIs matches the expected value.
-func assertJSONError(c *gc.C, reader *bufio.Reader, expected string) {
-	errResult := readJSONErrorLine(c, reader)
+func assertJSONError(c *gc.C, ws *websocket.Conn, expected string) {
+	errResult := readJSONErrorLine(c, ws)
 	c.Assert(errResult.Error, gc.NotNil)
 	c.Assert(errResult.Error.Message, gc.Matches, expected)
 }
 
+// assertJSONInitialErrorNil checks the JSON encoded error returned by the log
+// and logsink APIs are nil.
+func assertJSONInitialErrorNil(c *gc.C, ws *websocket.Conn) {
+	errResult := readJSONErrorLine(c, ws)
+	c.Assert(errResult.Error, gc.IsNil)
+}
+
 // readJSONErrorLine returns the error line returned by the log and
 // logsink APIS.
-func readJSONErrorLine(c *gc.C, reader *bufio.Reader) params.ErrorResult {
-	line, err := reader.ReadSlice('\n')
+func readJSONErrorLine(c *gc.C, ws *websocket.Conn) params.ErrorResult {
+	messageType, reader, err := ws.NextReader()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(messageType, gc.Equals, websocket.TextMessage)
+	line, err := bufio.NewReader(reader).ReadSlice('\n')
 	c.Assert(err, jc.ErrorIsNil)
 	var errResult params.ErrorResult
 	err = json.Unmarshal(line, &errResult)

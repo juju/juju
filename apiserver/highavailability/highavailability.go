@@ -22,10 +22,6 @@ import (
 
 var logger = loggo.GetLogger("juju.apiserver.highavailability")
 
-func init() {
-	common.RegisterStandardFacade("HighAvailability", 2, NewHighAvailabilityAPI)
-}
-
 // HighAvailability defines the methods on the highavailability API end point.
 type HighAvailability interface {
 	EnableHA(args params.ControllersSpecs) (params.ControllersChangeResults, error)
@@ -44,7 +40,7 @@ var _ HighAvailability = (*HighAvailabilityAPI)(nil)
 // NewHighAvailabilityAPI creates a new server-side highavailability API end point.
 func NewHighAvailabilityAPI(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*HighAvailabilityAPI, error) {
 	// Only clients and model managers can access the high availability facade.
-	if !authorizer.AuthClient() && !authorizer.AuthModelManager() {
+	if !authorizer.AuthClient() && !authorizer.AuthController() {
 		return nil, common.ErrPerm
 	}
 	return &HighAvailabilityAPI{

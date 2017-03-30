@@ -10,16 +10,17 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gorilla/websocket"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
+	"github.com/juju/utils/featureflag"
 	"github.com/juju/version"
-	"golang.org/x/net/websocket"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/natefinch/lumberjack.v2"
 
-	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/state"
 )
 
@@ -153,43 +154,124 @@ type logSinkHandler struct {
 	fileLogger  io.Writer
 }
 
+// Since the logsink only receives messages, it is possible for the other end
+// to disappear without the server noticing. To fix this, we use the
+// underlying websocket control messages ping/pong. Periodically the server
+// writes a ping, and the other end replies with a pong. Now the tricky bit is
+// that it appears in all the examples found on the interweb that it is
+// possible for the control message to be sent successfully to something that
+// isn't entirely alive, which is why relying on an error return from the
+// write call is insufficient to mark the connection as dead. Instead the
+// write and read deadlines inherent in the underlying Go networking libraries
+// are used to force errors on timeouts. However the underlying network
+// libraries use time.Now() to determine whether or not to send errors, so
+// using a testing clock here isn't going to work. So we rely on manual
+// testing, and what is defined as good practice by the library authors.
+//
+// Now, in theory, we should be using this ping/pong across all the websockets,
+// but that is a little outside the scope of this piece of work.
+
+const (
+	// pongDelay is how long the server will wait for a pong to be sent
+	// before the websocket is considered broken.
+	pongDelay = 90 * time.Second
+
+	// pingPeriod is how often ping messages are sent. This should be shorter
+	// than the pongDelay, but not by too much. The difference here allows
+	// the remote endpoint 30 seconds to respond to the ping as a ping is sent
+	// every 60s, and when a pong is received the read deadline is advanced
+	// another 90s.
+	pingPeriod = 60 * time.Second
+
+	// writeWait is how long the write call can take before it errors out.
+	writeWait = 10 * time.Second
+
+	// For endpoints that don't support ping/pong (i.e. agents prior to 2.2-beta1)
+	// we will time out their connections after six hours of inactivity.
+	vZeroDelay = 6 * time.Hour
+)
+
 // ServeHTTP implements the http.Handler interface.
 func (h *logSinkHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	server := websocket.Server{
-		Handler: func(socket *websocket.Conn) {
-			defer socket.Close()
-			strategy := h.newStrategy(h.ctxt, h.fileLogger)
-			err := strategy.Authenticate(req)
-			if err != nil {
-				h.sendError(socket, req, err)
+	handler := func(socket *websocket.Conn) {
+		defer socket.Close()
+		strategy := h.newStrategy(h.ctxt, h.fileLogger)
+		err := strategy.Authenticate(req)
+		if err != nil {
+			h.sendError(socket, req, err)
+			return
+		}
+		endpointVersion, err := h.getVersion(req)
+		if err != nil {
+			h.sendError(socket, req, err)
+			return
+		}
+
+		strategy.Start()
+		defer strategy.Stop()
+
+		// If we get to here, no more errors to report, so we report a nil
+		// error.  This way the first line of the socket is always a json
+		// formatted simple error.
+		h.sendError(socket, req, nil)
+
+		// Here we configure the ping/pong handling for the websocket so the
+		// server can notice when the client goes away. Older versions did not
+		// respond to ping control messages, so don't try.
+		var tickChannel <-chan time.Time
+		if endpointVersion > 0 {
+			socket.SetReadDeadline(time.Now().Add(pongDelay))
+			socket.SetPongHandler(func(string) error {
+				logger.Tracef("pong logsink %p", socket)
+				socket.SetReadDeadline(time.Now().Add(pongDelay))
+				return nil
+			})
+			ticker := time.NewTicker(pingPeriod)
+			defer ticker.Stop()
+			tickChannel = ticker.C
+		} else {
+			socket.SetReadDeadline(time.Now().Add(vZeroDelay))
+		}
+
+		logCh := h.receiveLogs(socket, endpointVersion)
+		for {
+			select {
+			case <-h.ctxt.stop():
 				return
-			}
-			strategy.Start()
-			defer strategy.Stop()
-
-			// If we get to here, no more errors to report, so we report a nil
-			// error.  This way the first line of the socket is always a json
-			// formatted simple error.
-			h.sendError(socket, req, nil)
-
-			logCh := h.receiveLogs(socket)
-			for {
-				select {
-				case <-h.ctxt.stop():
+			case <-tickChannel:
+				deadline := time.Now().Add(writeWait)
+				logger.Tracef("ping logsink %p", socket)
+				if err := socket.WriteControl(websocket.PingMessage, []byte{}, deadline); err != nil {
+					// This error is expected if the other end goes away. By
+					// returning we clean up the strategy and close the socket
+					// through the defer calls.
+					logger.Debugf("failed to write ping: %s", err)
 					return
-				case m, ok := <-logCh:
-					if !ok {
-						return
-					}
-					success := strategy.Log(m)
-					if !success {
-						return
-					}
+				}
+			case m, ok := <-logCh:
+				if !ok {
+					return
+				}
+				success := strategy.Log(m)
+				if !success {
+					return
 				}
 			}
-		},
+		}
 	}
-	server.ServeHTTP(w, req)
+	websocketServer(w, req, handler)
+}
+
+func (h *logSinkHandler) getVersion(req *http.Request) (int, error) {
+	verStr := req.URL.Query().Get("version")
+	switch verStr {
+	case "":
+		return 0, nil
+	case "1":
+		return 1, nil
+	default:
+		return 0, errors.Errorf("unknown version %q", verStr)
+	}
 }
 
 func jujuClientVersionFromReq(req *http.Request) (version.Number, error) {
@@ -204,7 +286,7 @@ func jujuClientVersionFromReq(req *http.Request) (version.Number, error) {
 	return ver, nil
 }
 
-func (h *logSinkHandler) receiveLogs(socket *websocket.Conn) <-chan params.LogRecord {
+func (h *logSinkHandler) receiveLogs(socket *websocket.Conn, endpointVersion int) <-chan params.LogRecord {
 	logCh := make(chan params.LogRecord)
 
 	go func() {
@@ -217,8 +299,16 @@ func (h *logSinkHandler) receiveLogs(socket *websocket.Conn) <-chan params.LogRe
 			// Receive() blocks until data arrives but will also be
 			// unblocked when the API handler calls socket.Close as it
 			// finishes.
-			if err := websocket.JSON.Receive(socket, &m); err != nil {
-				logger.Debugf("logsink receive error: %v", err)
+			if err := socket.ReadJSON(&m); err != nil {
+				if websocket.IsUnexpectedCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway) {
+					logger.Debugf("logsink receive error: %v", err)
+				} else {
+					logger.Debugf("disconnected, %p", socket)
+				}
+				// Try to tell the other end we are closing. If the other end
+				// has already disconnected from us, this will fail, but we don't
+				// care that much.
+				socket.WriteMessage(websocket.CloseMessage, []byte{})
 				return
 			}
 
@@ -227,6 +317,11 @@ func (h *logSinkHandler) receiveLogs(socket *websocket.Conn) <-chan params.LogRe
 			case <-h.ctxt.stop():
 				return
 			case logCh <- m:
+				// If the remote end does not support ping/pong, we bump
+				// the read deadline everytime a message is received.
+				if endpointVersion == 0 {
+					socket.SetReadDeadline(time.Now().Add(vZeroDelay))
+				}
 			}
 		}
 	}()
@@ -235,13 +330,16 @@ func (h *logSinkHandler) receiveLogs(socket *websocket.Conn) <-chan params.LogRe
 }
 
 // sendError sends a JSON-encoded error response.
-func (h *logSinkHandler) sendError(w io.Writer, req *http.Request, err error) {
-	if err != nil {
+func (h *logSinkHandler) sendError(ws *websocket.Conn, req *http.Request, err error) {
+	// There is no need to log the error for normal operators as there is nothing
+	// they can action. This is for developers.
+	if err != nil && featureflag.Enabled(feature.DeveloperMode) {
 		logger.Errorf("returning error from %s %s: %s", req.Method, req.URL.Path, errors.Details(err))
 	}
-	sendJSON(w, &params.ErrorResult{
-		Error: common.ServerError(err),
-	})
+	if sendErr := sendInitialErrorV0(ws, err); sendErr != nil {
+		logger.Errorf("closing websocket, %v", err)
+		ws.Close()
+	}
 }
 
 // logToFile writes a single log message to the logsink log file.

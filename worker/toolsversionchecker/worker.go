@@ -7,8 +7,9 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"gopkg.in/juju/worker.v1"
 
-	"github.com/juju/juju/worker"
+	jworker "github.com/juju/juju/worker"
 )
 
 // VersionCheckerParams holds params for the version checker worker..
@@ -32,7 +33,7 @@ var New = func(api Facade, params *VersionCheckerParams) worker.Worker {
 	f := func(stop <-chan struct{}) error {
 		return w.doCheck()
 	}
-	return worker.NewPeriodicWorker(f, params.CheckInterval, worker.NewTimer)
+	return jworker.NewPeriodicWorker(f, params.CheckInterval, jworker.NewTimer)
 }
 
 type toolsVersionWorker struct {

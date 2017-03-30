@@ -14,10 +14,6 @@ import (
 	"github.com/juju/juju/state/watcher"
 )
 
-func init() {
-	common.RegisterStandardFacade("Cleaner", 2, NewCleanerAPI)
-}
-
 // CleanerAPI implements the API used by the cleaner worker.
 type CleanerAPI struct {
 	st        StateInterface
@@ -30,7 +26,7 @@ func NewCleanerAPI(
 	res facade.Resources,
 	authorizer facade.Authorizer,
 ) (*CleanerAPI, error) {
-	if !authorizer.AuthModelManager() {
+	if !authorizer.AuthController() {
 		return nil, common.ErrPerm
 	}
 	return &CleanerAPI{

@@ -58,7 +58,7 @@ func (s *imageManagerSuite) TestNewImageManagerAPIAcceptsClient(c *gc.C) {
 func (s *imageManagerSuite) TestNewImageManagerAPIRefusesNonClient(c *gc.C) {
 	anAuthoriser := s.authoriser
 	anAuthoriser.Tag = names.NewUnitTag("mysql/0")
-	anAuthoriser.EnvironManager = false
+	anAuthoriser.Controller = false
 	endPoint, err := imagemanager.NewImageManagerAPI(s.State, s.resources, anAuthoriser)
 	c.Assert(endPoint, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "permission denied")

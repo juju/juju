@@ -6,10 +6,10 @@ package testing
 import (
 	"fmt"
 
-	"github.com/juju/juju/state"
-
 	wireformat "github.com/juju/romulus/wireformat/metrics"
 	"github.com/juju/utils"
+
+	"github.com/juju/juju/state"
 )
 
 // MockSender implements the metric sender interface.
@@ -35,6 +35,7 @@ func (m *MockSender) Send(d []*wireformat.MetricBatch) (*wireformat.Response, er
 			}
 		}
 		envResponses.Ack(batch.ModelUUID, batch.UUID)
+		envResponses.SetModelStatus(batch.ModelUUID, "RED", "mocked response")
 	}
 	return &wireformat.Response{
 		UUID:         respUUID.String(),

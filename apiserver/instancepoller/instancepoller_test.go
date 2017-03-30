@@ -46,7 +46,7 @@ func (s *InstancePollerSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	s.authoriser = apiservertesting.FakeAuthorizer{
-		EnvironManager: true,
+		Controller: true,
 	}
 	s.resources = common.NewResources()
 	s.AddCleanup(func(*gc.C) { s.resources.StopAll() })
@@ -98,7 +98,7 @@ func (s *InstancePollerSuite) SetUpTest(c *gc.C) {
 
 func (s *InstancePollerSuite) TestNewInstancePollerAPIRequiresEnvironManager(c *gc.C) {
 	anAuthoriser := s.authoriser
-	anAuthoriser.EnvironManager = false
+	anAuthoriser.Controller = false
 	api, err := instancepoller.NewInstancePollerAPI(nil, s.resources, anAuthoriser, s.clock)
 	c.Assert(api, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "permission denied")

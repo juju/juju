@@ -15,13 +15,9 @@ import (
 	"github.com/juju/juju/state"
 )
 
-func init() {
-	common.RegisterStandardFacade(
-		"Singular", 1,
-		func(st *state.State, _ facade.Resources, auth facade.Authorizer) (*Facade, error) {
-			return NewFacade(st, auth)
-		},
-	)
+// NewExternalFacade is for API registration.
+func NewExternalFacade(st *state.State, _ facade.Resources, auth facade.Authorizer) (*Facade, error) {
+	return NewFacade(st, auth)
 }
 
 // Backend supplies capabilities required by a Facade.
@@ -37,7 +33,7 @@ type Backend interface {
 // NewFacade returns a singular-controller API facade, backed by the supplied
 // state, so long as the authorizer represents a controller machine.
 func NewFacade(backend Backend, auth facade.Authorizer) (*Facade, error) {
-	if !auth.AuthModelManager() {
+	if !auth.AuthController() {
 		return nil, common.ErrPerm
 	}
 	return &Facade{

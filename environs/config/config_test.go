@@ -1062,7 +1062,7 @@ func (s *ConfigSuite) TestProxyValuesNotSet(c *gc.C) {
 	c.Assert(config.AptHTTPSProxy(), gc.Equals, "")
 	c.Assert(config.FTPProxy(), gc.Equals, "")
 	c.Assert(config.AptFTPProxy(), gc.Equals, "")
-	c.Assert(config.NoProxy(), gc.Equals, "")
+	c.Assert(config.NoProxy(), gc.Equals, "127.0.0.1,localhost,::1")
 }
 
 func (s *ConfigSuite) TestProxyConfigMap(c *gc.C) {
@@ -1078,12 +1078,12 @@ func (s *ConfigSuite) TestProxyConfigMap(c *gc.C) {
 		Http:    "http://http proxy",
 		Https:   "https://https proxy",
 		Ftp:     "ftp://ftp proxy",
-		NoProxy: "",
+		NoProxy: "127.0.0.1,localhost,::1",
 	}
 	cfg, err := cfg.Apply(config.ProxyConfigMap(proxySettings))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg.ProxySettings(), gc.DeepEquals, proxySettings)
-	// Apt proxy settings always include the scheme. NoProxy is empty.
+	// Apt proxy settings always include the scheme. NoProxy is set to system defaults.
 	c.Assert(cfg.AptProxySettings(), gc.DeepEquals, expectedProxySettings)
 }
 
@@ -1091,14 +1091,15 @@ func (s *ConfigSuite) TestAptProxyConfigMap(c *gc.C) {
 	s.addJujuFiles(c)
 	cfg := newTestConfig(c, testing.Attrs{})
 	proxySettings := proxy.Settings{
-		Http:  "http://httpproxy",
-		Https: "https://httpsproxy",
-		Ftp:   "ftp://ftpproxy",
+		Http:    "http://httpproxy",
+		Https:   "https://httpsproxy",
+		Ftp:     "ftp://ftpproxy",
+		NoProxy: "noproxyhost1,noproxyhost2",
 	}
 	cfg, err := cfg.Apply(config.AptProxyConfigMap(proxySettings))
 	c.Assert(err, jc.ErrorIsNil)
 	// The default proxy settings should still be empty.
-	c.Assert(cfg.ProxySettings(), gc.DeepEquals, proxy.Settings{})
+	c.Assert(cfg.ProxySettings(), gc.DeepEquals, proxy.Settings{NoProxy: "127.0.0.1,localhost,::1"})
 	c.Assert(cfg.AptProxySettings(), gc.DeepEquals, proxySettings)
 }
 

@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"io"
 	"io/ioutil"
+	"regexp"
 	"strings"
 
 	"github.com/juju/cmd"
@@ -87,7 +88,7 @@ var (
 	awsCloud = cloudfile.Cloud{
 		Name:      "aws",
 		Type:      "ec2",
-		AuthTypes: []cloudfile.AuthType{"acccess-key"},
+		AuthTypes: []cloudfile.AuthType{"access-key"},
 		Regions: []cloudfile.Region{
 			{
 				Name:     "us-east-1",
@@ -98,7 +99,7 @@ var (
 	garageMAASCloud = cloudfile.Cloud{
 		Name:      "garage-maas",
 		Type:      "maas",
-		AuthTypes: []cloudfile.AuthType{"oauth"},
+		AuthTypes: []cloudfile.AuthType{"oauth1"},
 		Endpoint:  "http://garagemaas",
 	}
 
@@ -210,6 +211,21 @@ func (*addSuite) TestAddNew(c *gc.C) {
 	_, err := testing.RunCommand(c, cloud.NewAddCloudCommand(fake), "garage-maas", "fake.yaml")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(numCallsToWrite(), gc.Equals, 1)
+}
+
+func (*addSuite) TestAddNewInvalidAuthType(c *gc.C) {
+	fake := newFakeCloudMetadataStore()
+	fakeCloud := cloudfile.Cloud{
+		Name:      "garage-maas",
+		Type:      "maas",
+		AuthTypes: []cloudfile.AuthType{"oauth1", "user-pass"},
+		Endpoint:  "http://garagemaas",
+	}
+	fileClouds := map[string]cloudfile.Cloud{"fakecloud": fakeCloud}
+	fake.Call("ParseCloudMetadataFile", "fake.yaml").Returns(fileClouds, nil)
+
+	_, err := testing.RunCommand(c, cloud.NewAddCloudCommand(fake), "fakecloud", "fake.yaml")
+	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta(`auth type "user-pass" not supported`))
 }
 
 func (*addSuite) TestInteractive(c *gc.C) {
@@ -402,17 +418,18 @@ func (*addSuite) TestInteractiveVSphere(c *gc.C) {
 	err := testing.InitCommand(command, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
+	var stdout bytes.Buffer
 	ctx := &cmd.Context{
-		Stdout: ioutil.Discard,
+		Stdout: &stdout,
 		Stderr: ioutil.Discard,
 		Stdin: strings.NewReader("" +
 			/* Select cloud type: */ "vsphere\n" +
 			/* Enter a name for the cloud: */ "mvs\n" +
-			/* Enter the controller's hostname or IP address: */ "192.168.1.6\n" +
-			/* Enter region name: */ "foo\n" +
-			/* Enter another region? (Y/n): */ "y\n" +
-			/* Enter region name: */ "bar\n" +
-			/* Enter another region? (Y/n): */ "n\n",
+			/* Enter the vCenter address or URL: */ "192.168.1.6\n" +
+			/* Enter datacenter name: */ "foo\n" +
+			/* Enter another datacenter? (Y/n): */ "y\n" +
+			/* Enter datacenter name: */ "bar\n" +
+			/* Enter another datacenter? (Y/n): */ "n\n",
 		),
 	}
 
@@ -420,6 +437,15 @@ func (*addSuite) TestInteractiveVSphere(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 
 	c.Check(numCallsToWrite(), gc.Equals, 1)
+	c.Check(stdout.String(), gc.Matches, "(.|\n)*"+`
+Select cloud type: 
+Enter a name for your vsphere cloud: 
+Enter the vCenter address or URL: 
+Enter datacenter name: 
+Enter another datacenter\? \(Y/n\): 
+Enter datacenter name: 
+Enter another datacenter\? \(Y/n\): 
+`[1:]+"(.|\n)*")
 }
 
 func (*addSuite) TestInteractiveExistingNameOverride(c *gc.C) {

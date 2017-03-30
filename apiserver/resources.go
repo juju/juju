@@ -1,164 +1,277 @@
-// Copyright 2016 Canonical Ltd.
+// Copyright 2017 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package apiserver
 
 import (
+	"fmt"
 	"io"
+	"mime"
 	"net/http"
-	"net/url"
+	"path"
 	"strconv"
 
 	"github.com/juju/errors"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/resource"
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/resource/api"
 )
 
-// resourceUploadHandler handles resources uploads for model migrations.
-type resourceUploadHandler struct {
-	ctxt          httpContext
-	stateAuthFunc func(*http.Request) (*state.State, func(), error)
+// ResourcesBackend is the functionality of Juju's state needed for the resources API.
+type ResourcesBackend interface {
+	// OpenResource returns the identified resource and its content.
+	OpenResource(applicationID, name string) (resource.Resource, io.ReadCloser, error)
+
+	// GetResource returns the identified resource.
+	GetResource(applicationID, name string) (resource.Resource, error)
+
+	// GetPendingResource returns the identified resource.
+	GetPendingResource(applicationID, name, pendingID string) (resource.Resource, error)
+
+	// SetResource adds the resource to blob storage and updates the metadata.
+	SetResource(applicationID, userID string, res charmresource.Resource, r io.Reader) (resource.Resource, error)
+
+	// UpdatePendingResource adds the resource to blob storage and updates the metadata.
+	UpdatePendingResource(applicationID, pendingID, userID string, res charmresource.Resource, r io.Reader) (resource.Resource, error)
 }
 
-func (h *resourceUploadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	// Validate before authenticate because the authentication is dependent
-	// on the state connection that is determined during the validation.
-	st, releaser, err := h.stateAuthFunc(r)
+// ResourcesHandler is the HTTP handler for client downloads and
+// uploads of resources.
+type ResourcesHandler struct {
+	StateAuthFunc func(*http.Request, ...string) (ResourcesBackend, func(), names.Tag, error)
+}
+
+// ServeHTTP implements http.Handler.
+func (h *ResourcesHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
+	backend, closer, tag, err := h.StateAuthFunc(req, names.UserTagKind, names.MachineTagKind)
 	if err != nil {
-		if err := sendError(w, err); err != nil {
-			logger.Errorf("%v", err)
-		}
+		api.SendHTTPError(resp, err)
 		return
 	}
-	defer releaser()
+	defer closer()
 
-	switch r.Method {
-	case "POST":
-		res, err := h.processPost(r, st)
+	switch req.Method {
+	case "GET":
+		reader, size, err := h.download(backend, req)
 		if err != nil {
-			if err := sendError(w, err); err != nil {
-				logger.Errorf("%v", err)
-			}
+			api.SendHTTPError(resp, err)
 			return
 		}
-		if err := sendStatusAndJSON(w, http.StatusOK, &params.ResourceUploadResult{
-			ID:        res.ID,
-			Timestamp: res.Timestamp,
-		}); err != nil {
-			logger.Errorf("%v", err)
+		defer reader.Close()
+		header := resp.Header()
+		header.Set("Content-Type", params.ContentTypeRaw)
+		header.Set("Content-Length", fmt.Sprint(size))
+		resp.WriteHeader(http.StatusOK)
+		if _, err := io.Copy(resp, reader); err != nil {
+			logger.Errorf("resource download failed: %v", err)
 		}
+	case "PUT":
+		response, err := h.upload(backend, req, tagToUsername(tag))
+		if err != nil {
+			api.SendHTTPError(resp, err)
+			return
+		}
+		api.SendHTTPStatusAndJSON(resp, http.StatusOK, &response)
 	default:
-		if err := sendError(w, errors.MethodNotAllowedf("unsupported method: %q", r.Method)); err != nil {
-			logger.Errorf("%v", err)
+		api.SendHTTPError(resp, errors.MethodNotAllowedf("unsupported method: %q", req.Method))
+	}
+}
+
+func (h *ResourcesHandler) download(backend ResourcesBackend, req *http.Request) (io.ReadCloser, int64, error) {
+	defer req.Body.Close()
+
+	query := req.URL.Query()
+	application := query.Get(":application")
+	name := query.Get(":resource")
+
+	resource, reader, err := backend.OpenResource(application, name)
+	return reader, resource.Size, errors.Trace(err)
+}
+
+func (h *ResourcesHandler) upload(backend ResourcesBackend, req *http.Request, username string) (*params.UploadResult, error) {
+	defer req.Body.Close()
+
+	uploaded, err := h.readResource(backend, req)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var stored resource.Resource
+	if uploaded.PendingID != "" {
+		stored, err = backend.UpdatePendingResource(uploaded.Service, uploaded.PendingID, username, uploaded.Resource, uploaded.Data)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+	} else {
+		stored, err = backend.SetResource(uploaded.Service, username, uploaded.Resource, uploaded.Data)
+		if err != nil {
+			return nil, errors.Trace(err)
 		}
 	}
+
+	result := &params.UploadResult{
+		Resource: api.Resource2API(stored),
+	}
+	return result, nil
 }
 
-// processPost handles resources upload POST request after
-// authentication.
-func (h *resourceUploadHandler) processPost(r *http.Request, st *state.State) (resource.Resource, error) {
-	var empty resource.Resource
-	query := r.URL.Query()
+// uploadedResource holds both the information about an uploaded
+// resource and the reader containing its data.
+type uploadedResource struct {
+	// Service is the name of the application associated with the resource.
+	Service string
 
-	target, isUnit, err := getUploadTarget(query)
-	if err != nil {
-		return empty, errors.Trace(err)
-	}
+	// PendingID is the resource-specific sub-ID for a pending resource.
+	PendingID string
 
-	userID := query.Get("user") // Is allowed to be blank
-	res, err := queryToResource(query)
-	if err != nil {
-		return empty, errors.Trace(err)
-	}
-	rSt, err := st.Resources()
-	if err != nil {
-		return empty, errors.Trace(err)
-	}
+	// Resource is the information about the resource.
+	Resource charmresource.Resource
 
-	reader := r.Body
-
-	// Don't associate content with a placeholder resource.
-	if isPlaceholder(query) {
-		reader = nil
-	}
-
-	outRes, err := setResource(isUnit, target, userID, res, reader, rSt)
-	if err != nil {
-		return empty, errors.Annotate(err, "resource upload failed")
-	}
-	return outRes, nil
+	// Data holds the resource blob.
+	Data io.ReadCloser
 }
 
-func setResource(isUnit bool, target, user string, res charmresource.Resource, r io.Reader, rSt state.Resources) (
-	resource.Resource, error,
-) {
-	if isUnit {
-		return rSt.SetUnitResource(target, user, res)
+// readResource extracts the relevant info from the request.
+func (h *ResourcesHandler) readResource(backend ResourcesBackend, req *http.Request) (*uploadedResource, error) {
+	uReq, err := extractUploadRequest(req)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
-	return rSt.SetResource(target, user, res, r)
+	var res resource.Resource
+	if uReq.PendingID != "" {
+		res, err = backend.GetPendingResource(uReq.Service, uReq.Name, uReq.PendingID)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+	} else {
+		res, err = backend.GetResource(uReq.Service, uReq.Name)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
+
+	ext := path.Ext(res.Path)
+	if path.Ext(uReq.Filename) != ext {
+		return nil, errors.Errorf("incorrect extension on resource upload %q, expected %q", uReq.Filename, ext)
+	}
+
+	chRes, err := updateResource(res.Resource, uReq.Fingerprint, uReq.Size)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &uploadedResource{
+		Service:   uReq.Service,
+		PendingID: uReq.PendingID,
+		Resource:  chRes,
+		Data:      req.Body,
+	}, nil
 }
 
-func isPlaceholder(query url.Values) bool {
-	return query.Get("timestamp") == ""
-}
+// updateResource returns a copy of the provided resource, updated with
+// the given information.
+func updateResource(res charmresource.Resource, fp charmresource.Fingerprint, size int64) (charmresource.Resource, error) {
+	res.Origin = charmresource.OriginUpload
+	res.Revision = 0
+	res.Fingerprint = fp
+	res.Size = size
 
-func getUploadTarget(query url.Values) (string, bool, error) {
-	appName := query.Get("application")
-	unitName := query.Get("unit")
-	switch {
-	case appName == "" && unitName == "":
-		return "", false, errors.BadRequestf("missing application/unit")
-	case appName != "" && unitName != "":
-		return "", false, errors.BadRequestf("application and unit can't be set at the same time")
-	case appName != "":
-		return appName, false, nil
-	default:
-		return unitName, true, nil
-	}
-}
-
-func queryToResource(query url.Values) (charmresource.Resource, error) {
-	var err error
-	empty := charmresource.Resource{}
-
-	res := charmresource.Resource{
-		Meta: charmresource.Meta{
-			Name:        query.Get("name"),
-			Path:        query.Get("path"),
-			Description: query.Get("description"),
-		},
-	}
-	if res.Name == "" {
-		return empty, errors.BadRequestf("missing name")
-	}
-	if res.Path == "" {
-		return empty, errors.BadRequestf("missing path")
-	}
-	if res.Description == "" {
-		return empty, errors.BadRequestf("missing description")
-	}
-	res.Type, err = charmresource.ParseType(query.Get("type"))
-	if err != nil {
-		return empty, errors.BadRequestf("invalid type")
-	}
-	res.Origin, err = charmresource.ParseOrigin(query.Get("origin"))
-	if err != nil {
-		return empty, errors.BadRequestf("invalid origin")
-	}
-	res.Revision, err = strconv.Atoi(query.Get("revision"))
-	if err != nil {
-		return empty, errors.BadRequestf("invalid revision")
-	}
-	res.Size, err = strconv.ParseInt(query.Get("size"), 10, 64)
-	if err != nil {
-		return empty, errors.BadRequestf("invalid size")
-	}
-	res.Fingerprint, err = charmresource.ParseFingerprint(query.Get("fingerprint"))
-	if err != nil {
-		return empty, errors.BadRequestf("invalid fingerprint")
+	if err := res.Validate(); err != nil {
+		return res, errors.Trace(err)
 	}
 	return res, nil
+}
+
+// extractUploadRequest pulls the required info from the HTTP request.
+func extractUploadRequest(req *http.Request) (api.UploadRequest, error) {
+	var ur api.UploadRequest
+
+	if req.Header.Get(api.HeaderContentLength) == "" {
+		req.Header.Set(api.HeaderContentLength, fmt.Sprint(req.ContentLength))
+	}
+
+	ctype := req.Header.Get(api.HeaderContentType)
+	if ctype != api.ContentTypeRaw {
+		return ur, errors.Errorf("unsupported content type %q", ctype)
+	}
+
+	service, name := api.ExtractEndpointDetails(req.URL)
+	fingerprint := req.Header.Get(api.HeaderContentSha384) // This parallels "Content-MD5".
+	sizeRaw := req.Header.Get(api.HeaderContentLength)
+	pendingID := req.URL.Query().Get(api.QueryParamPendingID)
+
+	fp, err := charmresource.ParseFingerprint(fingerprint)
+	if err != nil {
+		return ur, errors.Annotate(err, "invalid fingerprint")
+	}
+
+	filename, err := extractFilename(req)
+	if err != nil {
+		return ur, errors.Trace(err)
+	}
+
+	size, err := strconv.ParseInt(sizeRaw, 10, 64)
+	if err != nil {
+		return ur, errors.Annotate(err, "invalid size")
+	}
+
+	ur = api.UploadRequest{
+		Service:     service,
+		Name:        name,
+		Filename:    filename,
+		Size:        size,
+		Fingerprint: fp,
+		PendingID:   pendingID,
+	}
+	return ur, nil
+}
+
+func extractFilename(req *http.Request) (string, error) {
+	disp := req.Header.Get(api.HeaderContentDisposition)
+
+	// the first value returned here is the media type name (e.g. "form-data"),
+	// but we don't really care.
+	_, vals, err := mime.ParseMediaType(disp)
+	if err != nil {
+		return "", errors.Annotate(err, "badly formatted Content-Disposition")
+	}
+
+	param, ok := vals[api.FilenameParamForContentDispositionHeader]
+	if !ok {
+		return "", errors.Errorf("missing filename in resource upload request")
+	}
+
+	filename, err := decodeParam(param)
+	if err != nil {
+		return "", errors.Annotatef(err, "couldn't decode filename %q from upload request", param)
+	}
+	return filename, nil
+}
+
+func decodeParam(s string) (string, error) {
+	decoded, err := new(mime.WordDecoder).Decode(s)
+
+	// If encoding is not required, the encoder will return the original string.
+	// However, the decoder doesn't expect that, so it barfs on non-encoded
+	// strings. To detect if a string was not encoded, we simply try encoding
+	// again, if it returns the same string, we know it wasn't encoded.
+	if err != nil && s == encodeParam(s) {
+		return s, nil
+	}
+	return decoded, err
+}
+
+func encodeParam(s string) string {
+	return mime.BEncoding.Encode("utf-8", s)
+}
+
+func tagToUsername(tag names.Tag) string {
+	switch tag := tag.(type) {
+	case names.UserTag:
+		return tag.Name()
+	default:
+		return ""
+	}
 }

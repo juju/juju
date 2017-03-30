@@ -1,8 +1,6 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// +build !gccgo
-
 package vsphere
 
 import (
@@ -112,11 +110,6 @@ var Bootstrap = common.Bootstrap
 // the tools and installing the initial juju controller.
 func (env *environ) Bootstrap(ctx environs.BootstrapContext, params environs.BootstrapParams) (*environs.BootstrapResult, error) {
 	return Bootstrap(ctx, env, params)
-}
-
-// BootstrapMessage is part of the Environ interface.
-func (env *environ) BootstrapMessage() string {
-	return ""
 }
 
 //this variable is exported, because it has to be rewritten in external unit tests

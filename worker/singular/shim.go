@@ -6,10 +6,10 @@ package singular
 import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
+	worker "gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/singular"
-	"github.com/juju/juju/worker"
 )
 
 // NewFacade creates a Facade from an APICaller and a controller. It's a

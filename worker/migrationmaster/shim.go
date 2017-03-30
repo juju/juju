@@ -5,10 +5,11 @@ package migrationmaster
 
 import (
 	"github.com/juju/errors"
+	worker "gopkg.in/juju/worker.v1"
+
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/migrationmaster"
 	"github.com/juju/juju/api/watcher"
-	"github.com/juju/juju/worker"
 )
 
 func NewFacade(apiCaller base.APICaller) (Facade, error) {

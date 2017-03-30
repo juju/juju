@@ -6,10 +6,10 @@ package apicaller
 import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	worker "gopkg.in/juju/worker.v1"
 	"gopkg.in/tomb.v1"
 
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/worker"
 )
 
 var logger = loggo.GetLogger("juju.worker.apicaller")

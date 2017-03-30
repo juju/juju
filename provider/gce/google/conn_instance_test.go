@@ -77,7 +77,7 @@ func (s *instanceSuite) TestConnectionAddInstanceAPI(c *gc.C) {
 
 	metadata := compute.Metadata{Items: []*compute.MetadataItems{{
 		Key:   "eggs",
-		Value: "steak",
+		Value: google.StringPtr("steak"),
 	}}}
 	networkInterfaces := []*compute.NetworkInterface{{
 		Network: "global/networks/somenetwork",
@@ -326,6 +326,8 @@ func (s *connSuite) TestConnectionRemoveInstancesRemoveFailed(c *gc.C) {
 }
 
 func (s *connSuite) TestUpdateMetadataNewAttribute(c *gc.C) {
+	// Ensure we extract the name from the URL we get on the raw instance.
+	s.RawInstanceFull.Zone = "http://eels/lone/wolf/a-zone"
 	s.FakeConn.Instances = []*compute.Instance{&s.RawInstanceFull}
 
 	err := s.Conn.UpdateMetadata("business", "time", s.RawInstanceFull.Name)
@@ -343,11 +345,13 @@ func (s *connSuite) TestUpdateMetadataNewAttribute(c *gc.C) {
 	md := call.Metadata
 	c.Check(md.Fingerprint, gc.Equals, "heymumwatchthis")
 	c.Assert(md.Items, gc.HasLen, 2)
-	c.Check(*md.Items[0], gc.DeepEquals, compute.MetadataItems{"eggs", "steak"})
-	c.Check(*md.Items[1], gc.DeepEquals, compute.MetadataItems{"business", "time"})
+	checkMetadataItems(c, md.Items[0], "eggs", "steak")
+	checkMetadataItems(c, md.Items[1], "business", "time")
 }
 
 func (s *connSuite) TestUpdateMetadataExistingAttribute(c *gc.C) {
+	// Ensure we extract the name from the URL we get on the raw instance.
+	s.RawInstanceFull.Zone = "http://eels/lone/wolf/a-zone"
 	s.FakeConn.Instances = []*compute.Instance{&s.RawInstanceFull}
 
 	err := s.Conn.UpdateMetadata("eggs", "beans", s.RawInstanceFull.Name)
@@ -365,17 +369,20 @@ func (s *connSuite) TestUpdateMetadataExistingAttribute(c *gc.C) {
 	md := call.Metadata
 	c.Check(md.Fingerprint, gc.Equals, "heymumwatchthis")
 	c.Assert(md.Items, gc.HasLen, 1)
-	c.Check(*md.Items[0], gc.DeepEquals, compute.MetadataItems{"eggs", "beans"})
+	checkMetadataItems(c, md.Items[0], "eggs", "beans")
 }
 
 func (s *connSuite) TestUpdateMetadataMultipleInstances(c *gc.C) {
+	// Ensure we extract the name from the URL we get on the raw instance.
+	s.RawInstanceFull.Zone = "http://eels/lone/wolf/a-zone"
+
 	instance2 := s.RawInstanceFull
 	instance2.Name = "trucks"
 	instance2.Metadata = &compute.Metadata{
 		Fingerprint: "faroffalienplanet",
 		Items: []*compute.MetadataItems{
-			{"eggs", "beans"},
-			{"rick", "moranis"},
+			makeMetadataItems("eggs", "beans"),
+			makeMetadataItems("rick", "moranis"),
 		},
 	}
 
@@ -384,8 +391,8 @@ func (s *connSuite) TestUpdateMetadataMultipleInstances(c *gc.C) {
 	instance3.Metadata = &compute.Metadata{
 		Fingerprint: "imprisoned",
 		Items: []*compute.MetadataItems{
-			{"eggs", "milk"},
-			{"rick", "moranis"},
+			makeMetadataItems("eggs", "milk"),
+			makeMetadataItems("rick", "moranis"),
 		},
 	}
 
@@ -406,8 +413,8 @@ func (s *connSuite) TestUpdateMetadataMultipleInstances(c *gc.C) {
 	md := call.Metadata
 	c.Check(md.Fingerprint, gc.Equals, "heymumwatchthis")
 	c.Assert(md.Items, gc.HasLen, 2)
-	c.Check(*md.Items[0], gc.DeepEquals, compute.MetadataItems{"eggs", "steak"})
-	c.Check(*md.Items[1], gc.DeepEquals, compute.MetadataItems{"rick", "morty"})
+	checkMetadataItems(c, md.Items[0], "eggs", "steak")
+	checkMetadataItems(c, md.Items[1], "rick", "morty")
 
 	call = s.FakeConn.Calls[2]
 	c.Check(call.FuncName, gc.Equals, "SetMetadata")
@@ -418,8 +425,8 @@ func (s *connSuite) TestUpdateMetadataMultipleInstances(c *gc.C) {
 	md = call.Metadata
 	c.Check(md.Fingerprint, gc.Equals, "imprisoned")
 	c.Assert(md.Items, gc.HasLen, 2)
-	c.Check(*md.Items[0], gc.DeepEquals, compute.MetadataItems{"eggs", "milk"})
-	c.Check(*md.Items[1], gc.DeepEquals, compute.MetadataItems{"rick", "morty"})
+	checkMetadataItems(c, md.Items[0], "eggs", "milk")
+	checkMetadataItems(c, md.Items[1], "rick", "morty")
 }
 
 func (s *connSuite) TestUpdateMetadataError(c *gc.C) {
@@ -428,8 +435,8 @@ func (s *connSuite) TestUpdateMetadataError(c *gc.C) {
 	instance2.Metadata = &compute.Metadata{
 		Fingerprint: "faroffalienplanet",
 		Items: []*compute.MetadataItems{
-			{"eggs", "beans"},
-			{"rick", "moranis"},
+			makeMetadataItems("eggs", "beans"),
+			makeMetadataItems("rick", "moranis"),
 		},
 	}
 	s.FakeConn.Instances = []*compute.Instance{&s.RawInstanceFull, &instance2}
@@ -459,4 +466,15 @@ func (s *connSuite) TestUpdateMetadataChecksCurrentValue(c *gc.C) {
 	// the update.
 	c.Assert(s.FakeConn.Calls, gc.HasLen, 1)
 	c.Check(s.FakeConn.Calls[0].FuncName, gc.Equals, "ListInstances")
+}
+
+func makeMetadataItems(key, value string) *compute.MetadataItems {
+	return &compute.MetadataItems{Key: key, Value: google.StringPtr(value)}
+}
+
+func checkMetadataItems(c *gc.C, item *compute.MetadataItems, key, value string) {
+	c.Assert(item, gc.NotNil)
+	c.Check(item.Key, gc.Equals, key)
+	c.Assert(item.Value, gc.NotNil)
+	c.Check(*item.Value, gc.Equals, value)
 }

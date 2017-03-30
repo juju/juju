@@ -8,7 +8,6 @@ import (
 	"testing"
 
 	"github.com/juju/utils/arch"
-
 	gc "gopkg.in/check.v1"
 )
 

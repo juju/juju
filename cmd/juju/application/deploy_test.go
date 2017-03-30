@@ -551,13 +551,13 @@ var deployAuthorizationTests = []struct {
 	uploadURL:    "cs:~bob/trusty/wordpress5-10",
 	deployURL:    "cs:~bob/trusty/wordpress5",
 	readPermUser: "bob",
-	expectError:  `cannot resolve (charm )?URL "cs:~bob/trusty/wordpress5": cannot get "/~bob/trusty/wordpress5/meta/any\?include=id&include=supported-series&include=published": unauthorized: access denied for user "client-username"`,
+	expectError:  `cannot resolve (charm )?URL "cs:~bob/trusty/wordpress5": cannot get "/~bob/trusty/wordpress5/meta/any\?include=id&include=supported-series&include=published": access denied for user "client-username"`,
 }, {
 	about:        "non-public charm, fully resolved, access denied",
 	uploadURL:    "cs:~bob/trusty/wordpress6-47",
 	deployURL:    "cs:~bob/trusty/wordpress6-47",
 	readPermUser: "bob",
-	expectError:  `cannot resolve charm URL "cs:~bob/trusty/wordpress6-47": cannot get "/~bob/trusty/wordpress6-47/meta/any\?include=id&include=supported-series&include=published": unauthorized: access denied for user "client-username"`,
+	expectError:  `cannot resolve charm URL "cs:~bob/trusty/wordpress6-47": cannot get "/~bob/trusty/wordpress6-47/meta/any\?include=id&include=supported-series&include=published": access denied for user "client-username"`,
 }, {
 	about:     "public bundle, success",
 	uploadURL: "cs:~bob/bundle/wordpress-simple1-42",
@@ -572,7 +572,7 @@ var deployAuthorizationTests = []struct {
 	uploadURL:    "cs:~bob/bundle/wordpress-simple3-47",
 	deployURL:    "cs:~bob/bundle/wordpress-simple3",
 	readPermUser: "bob",
-	expectError:  `cannot resolve charm URL "cs:~bob/bundle/wordpress-simple3": cannot get "/~bob/bundle/wordpress-simple3/meta/any\?include=id&include=supported-series&include=published": unauthorized: access denied for user "client-username"`,
+	expectError:  `cannot resolve charm URL "cs:~bob/bundle/wordpress-simple3": cannot get "/~bob/bundle/wordpress-simple3/meta/any\?include=id&include=supported-series&include=published": access denied for user "client-username"`,
 }}
 
 func (s *DeployCharmStoreSuite) TestDeployAuthorization(c *gc.C) {
@@ -630,7 +630,7 @@ func (s *DeployCharmStoreSuite) TestDeployWithTermsNotSigned(c *gc.C) {
 	}
 	testcharms.UploadCharm(c, s.client, "quantal/terms1-1", "terms1")
 	_, err := runDeployCommand(c, "quantal/terms1")
-	expectedError := `Declined: please agree to the following terms term/1 term/2. Try: "juju agree term/1 term/2"`
+	expectedError := `Declined: some terms require agreement. Try: "juju agree term/1 term/2"`
 	c.Assert(err, gc.ErrorMatches, expectedError)
 }
 
@@ -918,8 +918,7 @@ func (s *DeployCharmStoreSuite) TestAddMetricCredentials(c *gc.C) {
 			CharmURL:        "cs:quantal/metered-1",
 			ApplicationName: "metered",
 			PlanURL:         "someplan",
-			Budget:          "",
-			Limit:           "0",
+			IncreaseBudget:  0,
 		}},
 	}})
 }
@@ -967,8 +966,7 @@ func (s *DeployCharmStoreSuite) TestAddMetricCredentialsDefaultPlan(c *gc.C) {
 			CharmURL:        "cs:quantal/metered-1",
 			ApplicationName: "metered",
 			PlanURL:         "thisplan",
-			Budget:          "",
-			Limit:           "0",
+			IncreaseBudget:  0,
 		}},
 	}})
 }
@@ -1098,8 +1096,7 @@ summary: summary
 			CharmURL:        "cs:~user/quantal/metered-0",
 			ApplicationName: "metered",
 			PlanURL:         "someplan",
-			Budget:          "",
-			Limit:           "0",
+			IncreaseBudget:  0,
 		}},
 	}})
 }

@@ -5,11 +5,11 @@ This document describes in detail the operations associated with the destruction
 and removal of the fundamental state entities, and what agents are responsible
 for those operations.
 
-Each entity has an associated destroy-* command. The precise implications of
-destruction differ by entity, but there are common features:
+Each entity has an associated remove-* command. The precise implications of
+removal differ by entity, but there are common features:
 
-  * Only Alive entities can be destroyed; if destruction is already in progress,
-    as evidenced by an entity not being Alive, its "destruction" is a no-op.
+  * Only Alive entities can be removed; if removal is already in progress,
+    as evidenced by an entity not being Alive, its "removal" is a no-op.
   * Entities might be removed immediately when they are destroyed, but this is not
     guaranteed.
   * If an entity is not removed immediately when it is destroyed, its eventual
@@ -36,11 +36,11 @@ destruction differ by entity, but there are common features:
         resources out-of-band, as above, and waiting for the new agent version
         to be deployed on a fresh system (with the same caveat as above).
       * In light of the preceding two points, we don't *have* to implement
-        "--force" options for `juju destroy-machine` and `juju destroy-unit`.
+        "--force" options for `juju remove-machine` and `juju remove-unit`.
         This is good, because it will be tricky to implement them well.
 
 In general, the user can just forget about entities once she's destroyed them;
-the only caveat is that she may not create new services with the same name, or
+the only caveat is that she may not create new applications with the same name, or
 new relations identical to the destroyed ones, until those entities have
 finally been removed.
 
@@ -52,10 +52,10 @@ transactions and either diagnose definite failure or retry until the operation
 succeeds (or, perhaps, finally error out pleading excessive contention).
 
 
-juju destroy-machine
---------------------
+juju remove-machine
+-------------------
 
-Destroying a machine involves a single transaction defined as follows:
+Removing a machine involves a single transaction defined as follows:
 
   * If the machine is not Alive, abort without error.
   * If the machine is the last one with JobManageModel, or has any assigned
@@ -78,10 +78,10 @@ Removing a machine involves a single transaction defined as follows:
   * Delete the machine document.
 
 
-juju destroy-unit
------------------
+juju remove-unit
+----------------
 
-Destroying a unit involves a single transaction defined as follows:
+Removing a unit involves a single transaction defined as follows:
 
   * If the unit is not Alive, abort without error.
   * Set the unit to Dying.
@@ -107,25 +107,25 @@ Removing a unit involves a single transaction, defined as follows:
   * If the unit is a principal unit, unassign the unit from its machine.
   * If the unit is a subordinate unit, unassign it from its principal unit.
   * Delete the unit document.
-  * If its service is Alive, or has at least two units, or is in at least
-    one relation, decrement the service's unit count; otherwise remove the
-    service.
+  * If its application is Alive, or has at least two units, or is in at least
+    one relation, decrement the application's unit count; otherwise remove the
+    application.
 
 
-juju destroy-relation
+juju remove-relation
 ---------------------
 
-Destroying a relation involves a single transaction defined as follows:
+Removing a relation involves a single transaction defined as follows:
 
   * If the relation is not Alive, abort without error.
   * If any unit is in scope, set the relation to Dying.
   * Otherwise:
       * If the relation destruction is a direct user request, decrement the
-        relation counts of both services.
-      * If the relation destruction is an immediate consequence of service
-        destruction, decrement the reference count of the counterpart service
-        alone. (This is because the service destruction logic is responsible
-        for the relation count of the service being destroyed.)
+        relation counts of both applications.
+      * If the relation destruction is an immediate consequence of application
+        destruction, decrement the reference count of the counterpart application
+        alone. (This is because the application destruction logic is responsible
+        for the relation count of the application being destroyed.)
       * Delete the relation document.
       * Mark the relation's unit settings documents for future cleanup.
           * This is done by creating a single document for the attention of
@@ -141,56 +141,56 @@ When a relation is set to Dying, the following operations occur:
   * Every unit agent whose unit has entered the scope of that relation
     observes the change and causes its unit to leave scope.
   * If the relation has container scope, and no other container-scoped relation
-    between its services is Alive, the unit agents of the subordinate units in
+    between its applications is Alive, the unit agents of the subordinate units in
     the relation will observe the change and destroy their units.
 
 The Dying relation's document is finally removed in the same transaction in
 which the last unit leaves its scope. Because this situation involves the
-relation already being Dying, its services may also be Dying, and so the
+relation already being Dying, its applications may also be Dying, and so the
 operations involved are subtly different to those taken above (when we know
-for sure that the relation -- and hence both services -- are still Alive).
+for sure that the relation -- and hence both applications -- are still Alive).
 
-  * Here, "the service" refers to the service of the unit departing scope, and
-    "the counterpart service" refers to the other service in the relation.
-  * Decrement the relation count of the unit's service (we know that service
+  * Here, "the application" refers to the application of the unit departing scope, and
+    "the counterpart application" refers to the other application in the relation.
+  * Decrement the relation count of the unit's application (we know that application
     is not ready to be removed, because its unit is responsible for this
-    transaction and the service clearly therefore has a unit count greater
+    transaction and the application clearly therefore has a unit count greater
     than zero).
   * Delete the relation document.
   * Mark the relation's unit settings documents for future cleanup.
-  * If the counterpart service (the one that is not the unit's service) is
+  * If the counterpart application (the one that is not the unit's application) is
     Alive, or has at least one unit, or is in at least two relations, decrement
-    its relation count; otherwise remove the counterpart service.
+    its relation count; otherwise remove the counterpart application.
 
 
-juju destroy-service
---------------------
+juju remove-application
+-----------------------
 
-Destroying a service involves a single transaction defined as follows:
+Removing an application involves a single transaction defined as follows:
 
   * If the application is not alive, abort without error.
-  * If the service is in any relations, do the following for each one:
+  * If the application is in any relations, do the following for each one:
       * If the relation is already Dying, skip it.
       * If the relation is Alive, destroy the relation without modifying the
-        service's relation count. If the relation's destruction implies its
+        application's relation count. If the relation's destruction implies its
         removal, increment a local removed-relations counter instead.
-  * If the service's unit count is greater than 0, or if the value of the
-    aforementioned removal counter is less than the service's relation count,
-    we know that some entity will still hold a reference to the service after
-    the transaction completes, so we set the service to Dying and decrement
+  * If the application's unit count is greater than 0, or if the value of the
+    aforementioned removal counter is less than the application's relation count,
+    we know that some entity will still hold a reference to the application after
+    the transaction completes, so we set the application to Dying and decrement
     its relation count by the value of the removal counter.
-  * Otherwise, remove the service immediately, because we know that no
-    reference to the service will survive the transaction.
+  * Otherwise, remove the application immediately, because we know that no
+    reference to the application will survive the transaction.
 
-When a service becomes Dying, the following operations occur:
+When an application becomes Dying, the following operations occur:
 
-  * Every unit agent of the service observes the change and destroys its unit.
+  * Every unit agent of the application observes the change and destroys its unit.
 
-The Dying service's document is finally removed in the same transaction that
-removes the last entity referencing that service. This could be either the
-removal of the last unit in the service, or the removal of the last relation
-the service is in, as described above. To remove a service, the following
+The Dying application's document is finally removed in the same transaction that
+removes the last entity referencing that application. This could be either the
+removal of the last unit in the application, or the removal of the last relation
+the application is in, as described above. To remove an application, the following
 operations must occur in a single transaction:
 
-  * Remove the service document.
-  * Remove the service's settings document.
+  * Remove the application document.
+  * Remove the application's settings document.

@@ -5,12 +5,12 @@ package provisioner
 
 import (
 	"github.com/juju/errors"
+	worker "gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
 	apiprovisioner "github.com/juju/juju/api/provisioner"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
 )
 

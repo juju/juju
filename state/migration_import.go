@@ -8,6 +8,7 @@ import (
 	"reflect"
 	"time"
 
+	"github.com/juju/description"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/version"
@@ -18,7 +19,6 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
@@ -51,6 +51,13 @@ func (st *State) Import(model description.Model) (_ *Model, _ *State, err error)
 		return nil, nil, errors.AlreadyExistsf("model with UUID %s", tag.Id())
 	} else if !errors.IsNotFound(err) {
 		return nil, nil, errors.Trace(err)
+	}
+
+	if len(model.RemoteApplications()) != 0 {
+		// Cross-model relations are currently limited to models on
+		// the same controller, while migration is for getting the
+		// model to a new controller.
+		return nil, nil, errors.New("can't import models with remote applications")
 	}
 
 	// Create the model.
@@ -118,6 +125,14 @@ func (st *State) Import(model description.Model) (_ *Model, _ *State, err error)
 			newSt.Close()
 		}
 	}()
+	// We don't actually care what the old model status was, because we are
+	// going to set it to busy, with a message of migrating.
+	if err := dbModel.SetStatus(status.StatusInfo{
+		Status:  status.Busy,
+		Message: "importing",
+	}); err != nil {
+		return nil, nil, errors.Trace(err)
+	}
 
 	// I would have loved to use import, but that is a reserved word.
 	restore := importer{
@@ -183,6 +198,19 @@ func (st *State) Import(model description.Model) (_ *Model, _ *State, err error)
 
 	// Update the sequences to match that the source.
 
+	if err := dbModel.SetSLA(
+		model.SLA().Level(),
+		[]byte(model.SLA().Credentials()),
+	); err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+
+	if model.MeterStatus().Code() != MeterNotAvailable.String() {
+		if err := dbModel.SetMeterStatus(model.MeterStatus().Code(), model.MeterStatus().Info()); err != nil {
+			return nil, nil, errors.Trace(err)
+		}
+	}
+
 	logger.Debugf("import success")
 	return dbModel, newSt, nil
 }
@@ -222,6 +250,10 @@ func (i *importer) modelExtras() error {
 			return errors.Errorf("unknown block type: %q", blockName)
 		}
 		i.st.SwitchBlockOn(block, message)
+	}
+
+	if err := i.importStatusHistory(modelGlobalKey, i.model.StatusHistory()); err != nil {
+		return errors.Trace(err)
 	}
 	return nil
 }
@@ -690,7 +722,14 @@ func (i *importer) application(a description.Application) error {
 	statusDoc := i.makeStatusDoc(status)
 	// TODO: update never set malarky... maybe...
 
-	ops, err := addApplicationOps(i.st, addApplicationOpsArgs{
+	// When creating the settings, we ignore nils.  In other circumstances, nil
+	// means to delete the value (reset to default), so creating with nil should
+	// mean to use the default, i.e. don't set the value.
+	// There may have existed some applications with settings that contained
+	// nil values, see lp#1667199. When importing, we want these stripped.
+	removeNils(a.Settings())
+
+	ops, err := addApplicationOps(i.st, app, addApplicationOpsArgs{
 		applicationDoc:     appDoc,
 		statusDoc:          statusDoc,
 		constraints:        i.constraints(a.Constraints()),
@@ -1132,11 +1171,12 @@ func (i *importer) subnets() error {
 	i.logger.Debugf("importing subnets")
 	for _, subnet := range i.model.Subnets() {
 		err := i.addSubnet(SubnetInfo{
-			CIDR:             subnet.CIDR(),
-			ProviderId:       network.Id(subnet.ProviderId()),
-			VLANTag:          subnet.VLANTag(),
-			AvailabilityZone: subnet.AvailabilityZone(),
-			SpaceName:        subnet.SpaceName(),
+			CIDR:              subnet.CIDR(),
+			ProviderId:        network.Id(subnet.ProviderId()),
+			ProviderNetworkId: network.Id(subnet.ProviderNetworkId()),
+			VLANTag:           subnet.VLANTag(),
+			AvailabilityZone:  subnet.AvailabilityZone(),
+			SpaceName:         subnet.SpaceName(),
 		})
 		if err != nil {
 			return errors.Trace(err)
@@ -1385,6 +1425,9 @@ func (i *importer) constraints(cons description.Constraints) constraints.Value {
 }
 
 func (i *importer) storage() error {
+	if err := i.storagePools(); err != nil {
+		return errors.Annotate(err, "storage pools")
+	}
 	if err := i.storageInstances(); err != nil {
 		return errors.Annotate(err, "storage instances")
 	}
@@ -1393,9 +1436,6 @@ func (i *importer) storage() error {
 	}
 	if err := i.filesystems(); err != nil {
 		return errors.Annotate(err, "filesystems")
-	}
-	if err := i.storagePools(); err != nil {
-		return errors.Annotate(err, "storage pools")
 	}
 	return nil
 }
@@ -1422,6 +1462,10 @@ func (i *importer) addStorageInstance(storage description.Storage) error {
 	if err != nil {
 		return errors.Annotate(err, "storage owner")
 	}
+	var storageOwner string
+	if owner != nil {
+		storageOwner = owner.String()
+	}
 	attachments := storage.Attachments()
 	tag := storage.Tag()
 	var ops []txn.Op
@@ -1431,7 +1475,7 @@ func (i *importer) addStorageInstance(storage description.Storage) error {
 	doc := &storageInstanceDoc{
 		Id:              storage.Tag().Id(),
 		Kind:            kind,
-		Owner:           owner.String(),
+		Owner:           storageOwner,
 		StorageName:     storage.Name(),
 		AttachmentCount: len(attachments),
 	}
@@ -1474,14 +1518,6 @@ func (i *importer) addVolume(volume description.Volume) error {
 
 	attachments := volume.Attachments()
 	tag := volume.Tag()
-	var binding string
-	bindingTag, err := volume.Binding()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if bindingTag != nil {
-		binding = bindingTag.String()
-	}
 	var params *VolumeParams
 	var info *VolumeInfo
 	if volume.Provisioned() {
@@ -1502,10 +1538,14 @@ func (i *importer) addVolume(volume description.Volume) error {
 		Name:      tag.Id(),
 		StorageId: volume.Storage().Id(),
 		// Life: ..., // TODO: import life, default is Alive
-		Binding:         binding,
 		Params:          params,
 		Info:            info,
 		AttachmentCount: len(attachments),
+	}
+	if detachable, err := isDetachableVolumePool(i.st, volume.Pool()); err != nil {
+		return errors.Trace(err)
+	} else if !detachable && len(attachments) == 1 {
+		doc.MachineId = attachments[0].Machine().Id()
 	}
 	status := i.makeStatusDoc(volume.Status())
 	ops := i.st.newVolumeOps(doc, status)
@@ -1571,14 +1611,6 @@ func (i *importer) addFilesystem(filesystem description.Filesystem) error {
 
 	attachments := filesystem.Attachments()
 	tag := filesystem.Tag()
-	var binding string
-	bindingTag, err := filesystem.Binding()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if bindingTag != nil {
-		binding = bindingTag.String()
-	}
 	var params *FilesystemParams
 	var info *FilesystemInfo
 	if filesystem.Provisioned() {
@@ -1598,10 +1630,14 @@ func (i *importer) addFilesystem(filesystem description.Filesystem) error {
 		StorageId:    filesystem.Storage().Id(),
 		VolumeId:     filesystem.Volume().Id(),
 		// Life: ..., // TODO: import life, default is Alive
-		Binding:         binding,
 		Params:          params,
 		Info:            info,
 		AttachmentCount: len(attachments),
+	}
+	if detachable, err := isDetachableFilesystemPool(i.st, filesystem.Pool()); err != nil {
+		return errors.Trace(err)
+	} else if !detachable && len(attachments) == 1 {
+		doc.MachineId = attachments[0].Machine().Id()
 	}
 	status := i.makeStatusDoc(filesystem.Status())
 	ops := i.st.newFilesystemOps(doc, status)

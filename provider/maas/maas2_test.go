@@ -72,6 +72,8 @@ type fakeController struct {
 	zonesError         error
 	spaces             []gomaasapi.Space
 	spacesError        error
+	staticRoutes       []gomaasapi.StaticRoute
+	staticRoutesError  error
 
 	allocateMachine          gomaasapi.Machine
 	allocateMachineMatches   gomaasapi.ConstraintMatches
@@ -153,6 +155,12 @@ func (c *fakeController) Spaces() ([]gomaasapi.Space, error) {
 	return c.spaces, nil
 }
 
+func (c *fakeController) StaticRoutes() ([]gomaasapi.StaticRoute, error) {
+	if c.staticRoutesError != nil {
+		return nil, c.staticRoutesError
+	}
+	return c.staticRoutes, nil
+}
 func (c *fakeController) Files(prefix string) ([]gomaasapi.File, error) {
 	c.MethodCall(c, "Files", prefix)
 	return c.files, c.NextErr()
@@ -222,6 +230,7 @@ type fakeMachine struct {
 	interfaceSet  []gomaasapi.Interface
 	tags          []string
 	createDevice  gomaasapi.Device
+	devices       []gomaasapi.Device
 }
 
 func newFakeMachine(systemID, architecture, statusName string) *fakeMachine {
@@ -289,7 +298,21 @@ func (m *fakeMachine) Start(args gomaasapi.StartArgs) error {
 
 func (m *fakeMachine) CreateDevice(args gomaasapi.CreateMachineDeviceArgs) (gomaasapi.Device, error) {
 	m.MethodCall(m, "CreateDevice", args)
-	return m.createDevice, m.NextErr()
+	err := m.NextErr()
+	if err != nil {
+		return nil, err
+	}
+	m.devices = append(m.devices, m.createDevice)
+	return m.createDevice, nil
+}
+
+func (m *fakeMachine) Devices(args gomaasapi.DevicesArgs) ([]gomaasapi.Device, error) {
+	m.MethodCall(m, "Devices", args)
+	err := m.NextErr()
+	if err != nil {
+		return nil, err
+	}
+	return m.devices, nil
 }
 
 type fakeZone struct {
@@ -352,6 +375,36 @@ func (s fakeSubnet) CIDR() string {
 
 func (s fakeSubnet) DNSServers() []string {
 	return s.dnsServers
+}
+
+type fakeStaticRoute struct {
+	id          int
+	source      fakeSubnet
+	destination fakeSubnet
+	gatewayIP   string
+	metric      int
+}
+
+var _ gomaasapi.StaticRoute = (*fakeStaticRoute)(nil)
+
+func (r fakeStaticRoute) ID() int {
+	return r.id
+}
+
+func (r fakeStaticRoute) Source() gomaasapi.Subnet {
+	return r.source
+}
+
+func (r fakeStaticRoute) Destination() gomaasapi.Subnet {
+	return r.destination
+}
+
+func (r fakeStaticRoute) GatewayIP() string {
+	return r.gatewayIP
+}
+
+func (r fakeStaticRoute) Metric() int {
+	return r.metric
 }
 
 type fakeVLAN struct {

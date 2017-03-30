@@ -4,6 +4,7 @@
 package kvm
 
 import (
+	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -13,12 +14,12 @@ import (
 	"strings"
 	"time"
 
-	gc "gopkg.in/check.v1"
-
 	"github.com/juju/errors"
-	"github.com/juju/juju/environs/imagedownloads"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/environs/imagedownloads"
 )
 
 // syncInternalSuite is gocheck boilerplate.
@@ -49,7 +50,7 @@ func (syncInternalSuite) TestFetcher(c *gc.C) {
 		}
 	}()
 
-	fetcher, err := newDefaultFetcher(md, pathfinder)
+	fetcher, err := newDefaultFetcher(md, pathfinder, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// setup a fake command runner.
@@ -87,7 +88,7 @@ func (syncInternalSuite) TestFetcherWriteFails(c *gc.C) {
 		}
 	}()
 
-	fetcher, err := newDefaultFetcher(md, pathfinder)
+	fetcher, err := newDefaultFetcher(md, pathfinder, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// setup a fake command runner.
@@ -124,7 +125,7 @@ func (syncInternalSuite) TestFetcherInvalidSHA(c *gc.C) {
 		}
 	}()
 
-	fetcher, err := newDefaultFetcher(md, pathfinder)
+	fetcher, err := newDefaultFetcher(md, pathfinder, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = fetcher.Fetch()
@@ -151,7 +152,7 @@ func (syncInternalSuite) TestFetcherNotFound(c *gc.C) {
 		}
 	}()
 
-	fetcher, err := newDefaultFetcher(md, pathfinder)
+	fetcher, err := newDefaultFetcher(md, pathfinder, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = fetcher.Fetch()
@@ -262,4 +263,50 @@ func (fs fakeFS) Open(name string) (http.File, error) {
 		return nil, f.err
 	}
 	return &fakeFile{ReadSeeker: strings.NewReader(f.contents), fi: f, path: name}, nil
+}
+
+type progressWriterSuite struct {
+	testing.IsolationSuite
+}
+
+var _ = gc.Suite(&progressWriterSuite{})
+
+func (s *progressWriterSuite) TestOnlyPercentChanges(c *gc.C) {
+	cbLog := []string{}
+	loggingCB := func(msg string) {
+		cbLog = append(cbLog, msg)
+	}
+	clock := testing.NewClock(time.Date(2007, 1, 1, 10, 20, 30, 1234, time.UTC))
+	// We are using clock to actually measure time, not trigger an event, which
+	// causes the testing.Clock to think we're doing something wrong, so we
+	// just create one waiter that we'll otherwise ignore.
+	ignored := clock.After(10 * time.Second)
+	_ = ignored
+	writer := progressWriter{
+		callback: loggingCB,
+		url:      "http://host/path",
+		total:    0,
+		maxBytes: 100 * 1024 * 1024, // 100 MB
+		clock:    clock,
+	}
+	content := make([]byte, 50*1024)
+	// Start the clock before the first tick, that way every tick represents
+	// exactly 1ms and 50kiB written.
+	now := clock.Now()
+	writer.startTime = &now
+	for i := 0; i < 2048; i++ {
+		clock.Advance(time.Millisecond)
+		n, err := writer.Write(content)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Check(n, gc.Equals, len(content))
+	}
+	expectedCB := []string{}
+	for i := 1; i <= 100; i++ {
+		// We tick every 1ms and add 50kiB each time, which is
+		// 50*1024 *1000/ 1000/1000  = 51MB/s
+		expectedCB = append(expectedCB, fmt.Sprintf("copying http://host/path %d%% (51MB/s)", i))
+	}
+	// There are 2048 calls to Write, but there should only be 100 calls to progress update
+	c.Check(len(cbLog), gc.Equals, 100)
+	c.Check(cbLog, gc.DeepEquals, expectedCB)
 }

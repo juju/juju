@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/errors"
 	jujutxn "github.com/juju/txn"
+	"github.com/juju/utils/set"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
@@ -37,7 +38,7 @@ type remoteApplicationDoc struct {
 	Endpoints       []remoteEndpointDoc `bson:"endpoints"`
 	Life            Life                `bson:"life"`
 	RelationCount   int                 `bson:"relationcount"`
-	Registered      bool                `bson:"registered"`
+	IsConsumerProxy bool                `bson:"is-consumer-proxy"`
 }
 
 // remoteEndpointDoc represents the internal state of a remote application endpoint in MongoDB.
@@ -78,10 +79,10 @@ func (s *RemoteApplication) SourceModel() names.ModelTag {
 	return names.NewModelTag(s.doc.SourceModelUUID)
 }
 
-// Registered returns the application is created
+// IsConsumerProxy returns the application is created
 // from a registration operation by a consuming model.
-func (s *RemoteApplication) Registered() bool {
-	return s.doc.Registered
+func (s *RemoteApplication) IsConsumerProxy() bool {
+	return s.doc.IsConsumerProxy
 }
 
 // Name returns the application name.
@@ -290,6 +291,95 @@ func (s *RemoteApplication) Endpoint(relationName string) (Endpoint, error) {
 	return Endpoint{}, fmt.Errorf("remote application %q has no %q relation", s, relationName)
 }
 
+// AddEndpoints adds the specified endpoints to the remote application.
+// If an endpoint with the same name already exists, an error is returned.
+// If the endpoints change during the update, the operation is retried.
+func (s *RemoteApplication) AddEndpoints(eps []charm.Relation) error {
+	newEps := make([]remoteEndpointDoc, len(eps))
+	for i, ep := range eps {
+		newEps[i] = remoteEndpointDoc{
+			Name:      ep.Name,
+			Role:      ep.Role,
+			Interface: ep.Interface,
+			Limit:     ep.Limit,
+			Scope:     ep.Scope,
+		}
+	}
+
+	model, err := s.st.Model()
+	if err != nil {
+		return errors.Trace(err)
+	} else if model.Life() != Alive {
+		return errors.Errorf("model is no longer alive")
+	}
+
+	checkCompatibleEndpoints := func(currentEndpoints []Endpoint) error {
+		// Ensure there are no current endpoints with the same name as
+		// any of those we want to update.
+		currentEndpointNames := set.NewStrings()
+		for _, ep := range currentEndpoints {
+			currentEndpointNames.Add(ep.Name)
+		}
+		for _, r := range eps {
+			if currentEndpointNames.Contains(r.Name) {
+				return errors.AlreadyExistsf("endpoint %v", r.Name)
+			}
+		}
+		return nil
+	}
+
+	currentEndpoints, err := s.Endpoints()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if err := checkCompatibleEndpoints(currentEndpoints); err != nil {
+		return err
+	}
+	applicationID := s.st.docID(s.Name())
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		// If we've tried once already and failed, check that
+		// model may have been destroyed.
+		if attempt > 0 {
+			if err := checkModelActive(s.st); err != nil {
+				return nil, errors.Trace(err)
+			}
+			if err = s.Refresh(); err != nil {
+				return nil, errors.Trace(err)
+			}
+			currentEndpoints, err = s.Endpoints()
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			if err := checkCompatibleEndpoints(currentEndpoints); err != nil {
+				return nil, err
+			}
+		}
+		ops := []txn.Op{
+			model.assertActiveOp(),
+			{
+				C:  remoteApplicationsC,
+				Id: applicationID,
+				Assert: bson.D{
+					{"endpoints", bson.D{{
+						"$not", bson.D{{
+							"$elemMatch", bson.D{{
+								"$in", newEps}},
+						}},
+					}}},
+				},
+				Update: bson.D{
+					{"$addToSet", bson.D{{"endpoints", bson.D{{"$each", newEps}}}}},
+				},
+			},
+		}
+		return ops, nil
+	}
+	if err := s.st.run(buildTxn); err != nil {
+		return errors.Trace(err)
+	}
+	return s.Refresh()
+}
+
 // String returns the application name.
 func (s *RemoteApplication) String() string {
 	return s.doc.Name
@@ -328,7 +418,7 @@ type AddRemoteApplicationParams struct {
 	OfferName string
 
 	// URL is either empty, or the URL that the remote application was offered
-	// with.
+	// with on the hosting model.
 	URL string
 
 	// SourceModel is the tag of the model to which the remote application belongs.
@@ -341,9 +431,9 @@ type AddRemoteApplicationParams struct {
 	// Endpoints describes the endpoints that the remote application implements.
 	Endpoints []charm.Relation
 
-	// Registered is true when a remote application is created as a result
+	// IsConsumerProxy is true when a remote application is created as a result
 	// of a registration operation from a remote model.
-	Registered bool
+	IsConsumerProxy bool
 }
 
 // Validate returns an error if there's a problem with the
@@ -356,7 +446,7 @@ func (p AddRemoteApplicationParams) Validate() error {
 		// URL may be empty, to represent remote applications corresponding
 		// to consumers of an offered application.
 		if _, err := crossmodel.ParseApplicationURL(p.URL); err != nil {
-			return errors.Annotate(err, "validating application URL")
+			return errors.Annotate(err, "validating offered application URL")
 		}
 	}
 	if p.SourceModel == (names.ModelTag{}) {
@@ -390,7 +480,7 @@ func (st *State) AddRemoteApplication(args AddRemoteApplicationParams) (_ *Remot
 		SourceModelUUID: args.SourceModel.Id(),
 		URL:             args.URL,
 		Life:            Alive,
-		Registered:      args.Registered,
+		IsConsumerProxy: args.IsConsumerProxy,
 	}
 	eps := make([]remoteEndpointDoc, len(args.Endpoints))
 	for i, ep := range args.Endpoints {
@@ -510,4 +600,30 @@ func (st *State) AllRemoteApplications() (applications []*RemoteApplication, err
 		applications = append(applications, newRemoteApplication(st, &v))
 	}
 	return applications, nil
+}
+
+// RemoteConnectionStatus returns summary information about connections to the specified offer.
+func (st *State) RemoteConnectionStatus(offerName string) (*RemoteConnectionStatus, error) {
+	applicationsCollection, closer := st.getCollection(remoteApplicationsC)
+	defer closer()
+
+	count, err := applicationsCollection.Find(bson.D{{"offer-name", offerName}}).Count()
+	if err != nil {
+		return nil, errors.Errorf("cannot get remote connection status for offer %q", offerName)
+	}
+	return &RemoteConnectionStatus{
+		count: count,
+	}, nil
+}
+
+// RemoteConnectionStatus holds summary information about connections
+// to an application offer.
+type RemoteConnectionStatus struct {
+	count int
+}
+
+// ConnectionCount returns the number of remote applications
+// related to an offer.
+func (r *RemoteConnectionStatus) ConnectionCount() int {
+	return r.count
 }

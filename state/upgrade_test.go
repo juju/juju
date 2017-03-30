@@ -10,12 +10,13 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
+	worker "gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
-	"github.com/juju/juju/worker"
+	"github.com/juju/juju/status"
 )
 
 type UpgradeSuite struct {
@@ -400,6 +401,43 @@ func (s *UpgradeSuite) TestAllProvisionedControllersReady(c *gc.C) {
 	info, err = s.State.EnsureUpgradeInfo(serverIdC, v111, v123)
 	c.Assert(err, jc.ErrorIsNil)
 	assertReady(true)
+}
+
+func (s *UpgradeSuite) TestSetStatusSetsModelStatus(c *gc.C) {
+	v123 := vers("1.2.3")
+	v234 := vers("2.3.4")
+	info, err := s.State.EnsureUpgradeInfo(s.serverIdA, v123, v234)
+	c.Assert(err, jc.ErrorIsNil)
+
+	assertStatus := func(expect state.UpgradeStatus) {
+		info, err := s.State.EnsureUpgradeInfo(s.serverIdA, v123, v234)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(info.Status(), gc.Equals, expect)
+	}
+
+	m, err := s.State.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	st, err := m.Status()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(st.Status, gc.Equals, status.Available)
+	c.Assert(st.Message, gc.Equals, "")
+
+	err = info.SetStatus(state.UpgradeRunning)
+	c.Assert(err, jc.ErrorIsNil)
+	assertStatus(state.UpgradeRunning)
+	st, err = m.Status()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(st.Status, gc.Equals, status.Busy)
+	c.Assert(st.Message, jc.HasPrefix, "upgrade in progress since")
+
+	err = info.SetStatus(state.UpgradeFinishing)
+	c.Assert(err, jc.ErrorIsNil)
+	err = info.SetControllerDone(s.serverIdA)
+	c.Assert(err, jc.ErrorIsNil)
+	st, err = m.Status()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(st.Status, gc.Equals, status.Available)
+	c.Assert(st.Message, jc.HasPrefix, "upgraded on")
 }
 
 func (s *UpgradeSuite) TestSetStatus(c *gc.C) {

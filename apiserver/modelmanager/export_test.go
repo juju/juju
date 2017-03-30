@@ -5,7 +5,6 @@ package modelmanager
 
 import (
 	gc "gopkg.in/check.v1"
-
 	"gopkg.in/juju/names.v2"
 )
 

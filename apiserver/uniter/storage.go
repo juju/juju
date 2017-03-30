@@ -181,9 +181,13 @@ func (s *StorageAPI) fromStateStorageAttachment(stateStorageAttachment state.Sto
 	if err != nil {
 		return params.StorageAttachment{}, err
 	}
+	var ownerTag string
+	if owner, ok := stateStorageInstance.Owner(); ok {
+		ownerTag = owner.String()
+	}
 	return params.StorageAttachment{
 		stateStorageAttachment.StorageInstance().String(),
-		stateStorageInstance.Owner().String(),
+		ownerTag,
 		stateStorageAttachment.Unit().String(),
 		params.StorageKind(stateStorageInstance.Kind()),
 		info.Location,

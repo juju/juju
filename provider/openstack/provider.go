@@ -16,6 +16,7 @@ import (
 	"github.com/juju/jsonschema"
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
+	"github.com/juju/utils/clock"
 	"github.com/juju/version"
 	"gopkg.in/goose.v1/cinder"
 	"gopkg.in/goose.v1/client"
@@ -24,6 +25,7 @@ import (
 	gooselogging "gopkg.in/goose.v1/logging"
 	"gopkg.in/goose.v1/neutron"
 	"gopkg.in/goose.v1/nova"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig/instancecfg"
@@ -40,7 +42,6 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/tools"
-	"github.com/juju/utils/clock"
 )
 
 var logger = loggo.GetLogger("juju.provider.openstack")
@@ -168,6 +169,17 @@ func (p EnvironProvider) Open(args environs.OpenParams) (environs.Environ, error
 	if err := e.SetConfig(args.Config); err != nil {
 		return nil, err
 	}
+
+	e.ecfgMutex.Lock()
+	defer e.ecfgMutex.Unlock()
+	client, err := authClient(e.cloud, e.ecfgUnlocked)
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot set config")
+	}
+	e.clientUnlocked = client
+	e.novaUnlocked = nova.New(e.clientUnlocked)
+	e.neutronUnlocked = neutron.New(e.clientUnlocked)
+
 	return e, nil
 }
 
@@ -652,11 +664,6 @@ func (e *Environ) supportsNeutron() bool {
 	return ok
 }
 
-// BootstrapMessage is part of the Environ interface.
-func (e *Environ) BootstrapMessage() string {
-	return ""
-}
-
 func (e *Environ) ControllerInstances(controllerUUID string) ([]instance.Id, error) {
 	// Find all instances tagged with tags.JujuIsController.
 	instances, err := e.allControllerManagedInstances(controllerUUID, e.ecfg().useFloatingIP())
@@ -696,9 +703,11 @@ func newCredentials(spec environs.CloudSpec) (identity.Credentials, identity.Aut
 		// TODO(axw) we need a way of saying to use legacy auth.
 		cred.User = credAttrs[CredAttrUserName]
 		cred.Secrets = credAttrs[CredAttrPassword]
-		cred.DomainName = credAttrs[CredAttrDomainName]
+		cred.ProjectDomain = credAttrs[CredAttrProjectDomainName]
+		cred.UserDomain = credAttrs[CredAttrUserDomainName]
+		cred.Domain = credAttrs[CredAttrDomainName]
 		authMode = identity.AuthUserPass
-		if cred.DomainName != "" {
+		if cred.Domain != "" || cred.UserDomain != "" || cred.ProjectDomain != "" {
 			authMode = identity.AuthUserPassV3
 		}
 	case cloud.AccessKeyAuthType:
@@ -801,13 +810,6 @@ func (e *Environ) SetConfig(cfg *config.Config) error {
 	defer e.ecfgMutex.Unlock()
 	e.ecfgUnlocked = ecfg
 
-	client, err := authClient(e.cloud, ecfg)
-	if err != nil {
-		return errors.Annotate(err, "cannot set config")
-	}
-	e.clientUnlocked = client
-	e.novaUnlocked = nova.New(e.clientUnlocked)
-	e.neutronUnlocked = neutron.New(e.clientUnlocked)
 	return nil
 }
 
@@ -1587,4 +1589,44 @@ func validateAuthURL(authURL string) error {
 		return errors.NotValidf("auth-url %q", authURL)
 	}
 	return nil
+}
+
+// Subnets is specified on environs.Networking.
+func (e *Environ) Subnets(instId instance.Id, subnetIds []network.Id) ([]network.SubnetInfo, error) {
+	return e.networking.Subnets(instId, subnetIds)
+}
+
+// NetworkInterfaces is specified on environs.Networking.
+func (e *Environ) NetworkInterfaces(instId instance.Id) ([]network.InterfaceInfo, error) {
+	return e.networking.NetworkInterfaces(instId)
+}
+
+// SupportsSpaces is specified on environs.Networking.
+func (e *Environ) SupportsSpaces() (bool, error) {
+	return false, nil
+}
+
+// SupportsSpaceDiscovery is specified on environs.Networking.
+func (e *Environ) SupportsSpaceDiscovery() (bool, error) {
+	return false, nil
+}
+
+// Spaces is specified on environs.Networking.
+func (e *Environ) Spaces() ([]network.SpaceInfo, error) {
+	return nil, errors.NotSupportedf("spaces")
+}
+
+// SupportsContainerAddresses is specified on environs.Networking.
+func (e *Environ) SupportsContainerAddresses() (bool, error) {
+	return false, errors.NotSupportedf("container address")
+}
+
+// AllocateContainerAddresses is specified on environs.Networking.
+func (e *Environ) AllocateContainerAddresses(hostInstanceID instance.Id, containerTag names.MachineTag, preparedInfo []network.InterfaceInfo) ([]network.InterfaceInfo, error) {
+	return nil, errors.NotSupportedf("allocate container address")
+}
+
+// ReleaseContainerAddresses is specified on environs.Networking.
+func (e *Environ) ReleaseContainerAddresses(interfaces []network.ProviderInterfaceInfo) error {
+	return errors.NotSupportedf("release container address")
 }

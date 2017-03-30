@@ -106,6 +106,8 @@ func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
 		cloudRegion += "/" + fs.Model.CloudRegion
 	}
 
+	metering := fs.Model.MeterStatus != nil
+
 	header := []interface{}{"Model", "Controller", "Cloud/Region", "Version"}
 	values := []interface{}{fs.Model.Name, fs.Model.Controller, cloudRegion, fs.Model.Version}
 	message := getModelMessage(fs.Model)
@@ -125,7 +127,7 @@ func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
 			var store, urlPath string
 			url, err := crossmodel.ParseApplicationURL(app.ApplicationURL)
 			if err == nil {
-				store = url.Directory
+				store = url.Source
 				urlPath = url.Path()
 				if store == "" {
 					store = "local"
@@ -142,7 +144,6 @@ func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
 	}
 
 	units := make(map[string]unitStatus)
-	metering := false
 	relations := newRelationFormatter()
 	outputHeaders("App", "Version", "Status", "Scale", "Charm", "Store", "Rev", "OS", "Notes")
 	tw.SetColumnAlignRight(3)
@@ -225,6 +226,13 @@ func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
 
 	if metering {
 		outputHeaders("Meter", "Status", "Message")
+		if fs.Model.MeterStatus != nil {
+			w.Print("model")
+			outputColor := fromMeterStatusColor(fs.Model.MeterStatus.Color)
+			w.PrintColor(outputColor, fs.Model.MeterStatus.Color)
+			w.PrintColor(outputColor, fs.Model.MeterStatus.Message)
+			w.Println()
+		}
 		for _, name := range utils.SortStringsNaturally(stringKeysFromMap(units)) {
 			u := units[name]
 			if u.MeterStatus != nil {
@@ -280,7 +288,7 @@ func getModelMessage(model modelStatus) string {
 
 func printMachines(tw *ansiterm.TabWriter, machines map[string]machineStatus) {
 	w := output.Wrapper{tw}
-	w.Println("Machine", "State", "DNS", "Inst id", "Series", "AZ")
+	w.Println("Machine", "State", "DNS", "Inst id", "Series", "AZ", "Message")
 	for _, name := range utils.SortStringsNaturally(stringKeysFromMap(machines)) {
 		printMachine(w, machines[name])
 	}
@@ -298,7 +306,7 @@ func printMachine(w output.Wrapper, m machineStatus) {
 	}
 	w.Print(m.Id)
 	w.PrintStatus(m.JujuStatus.Current)
-	w.Println(m.DNSName, m.InstanceId, m.Series, az)
+	w.Println(m.DNSName, m.InstanceId, m.Series, az, m.MachineStatus.Message)
 	for _, name := range utils.SortStringsNaturally(stringKeysFromMap(m.Containers)) {
 		printMachine(w, m.Containers[name])
 	}

@@ -8,6 +8,12 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/juju/testing"
+	"github.com/juju/utils"
+	"github.com/juju/utils/set"
+	gc "gopkg.in/check.v1"
+	names "gopkg.in/juju/names.v2"
+
 	"github.com/juju/juju/apiserver/common/networkingcommon"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs"
@@ -16,11 +22,6 @@ import (
 	"github.com/juju/juju/network"
 	providercommon "github.com/juju/juju/provider/common"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/testing"
-	"github.com/juju/utils"
-	"github.com/juju/utils/set"
-	gc "gopkg.in/check.v1"
-	names "gopkg.in/juju/names.v2"
 )
 
 type StubNetwork struct {
@@ -64,6 +65,7 @@ func (s StubNetwork) SetUpSuite(c *gc.C) {
 	ProviderInstance.Subnets = []network.SubnetInfo{{
 		CIDR:              "10.10.0.0/24",
 		ProviderId:        "sn-zadf00d",
+		ProviderNetworkId: "godspeed",
 		AvailabilityZones: []string{"zone1"},
 	}, {
 		CIDR:              "2001:db8::/32",
@@ -163,7 +165,7 @@ func (f *FakeSpace) Subnets() (bs []networkingcommon.BackingSubnet, err error) {
 			AvailabilityZones: zones,
 			Status:            status,
 		}
-		outputSubnets = append(outputSubnets, &FakeSubnet{info: backing})
+		outputSubnets = append(outputSubnets, &FakeSubnet{Info: backing})
 	}
 
 	return outputSubnets, nil
@@ -288,42 +290,46 @@ func (f *FakeZone) GoString() string {
 
 // FakeSubnet implements networkingcommon.BackingSubnet for testing.
 type FakeSubnet struct {
-	info networkingcommon.BackingSubnetInfo
+	Info networkingcommon.BackingSubnetInfo
 }
 
 var _ networkingcommon.BackingSubnet = (*FakeSubnet)(nil)
 
 // GoString implements fmt.GoStringer.
 func (f *FakeSubnet) GoString() string {
-	return fmt.Sprintf("&FakeSubnet{%#v}", f.info)
+	return fmt.Sprintf("&FakeSubnet{%#v}", f.Info)
 }
 
 func (f *FakeSubnet) Status() string {
-	return f.info.Status
+	return f.Info.Status
 }
 
 func (f *FakeSubnet) CIDR() string {
-	return f.info.CIDR
+	return f.Info.CIDR
 }
 
 func (f *FakeSubnet) AvailabilityZones() []string {
-	return f.info.AvailabilityZones
+	return f.Info.AvailabilityZones
 }
 
 func (f *FakeSubnet) ProviderId() network.Id {
-	return f.info.ProviderId
+	return f.Info.ProviderId
+}
+
+func (f *FakeSubnet) ProviderNetworkId() network.Id {
+	return f.Info.ProviderNetworkId
 }
 
 func (f *FakeSubnet) VLANTag() int {
-	return f.info.VLANTag
+	return f.Info.VLANTag
 }
 
 func (f *FakeSubnet) SpaceName() string {
-	return f.info.SpaceName
+	return f.Info.SpaceName
 }
 
 func (f *FakeSubnet) Life() params.Life {
-	return f.info.Life
+	return f.Info.Life
 }
 
 // ResetStub resets all recorded calls and errors of the given stub.
@@ -410,12 +416,14 @@ func (sb *StubBacking) SetUp(c *gc.C, envName string, withZones, withSpaces, wit
 		info0 := networkingcommon.BackingSubnetInfo{
 			CIDR:              ProviderInstance.Subnets[0].CIDR,
 			ProviderId:        ProviderInstance.Subnets[0].ProviderId,
+			ProviderNetworkId: ProviderInstance.Subnets[0].ProviderNetworkId,
 			AvailabilityZones: ProviderInstance.Subnets[0].AvailabilityZones,
 			SpaceName:         "private",
 		}
 		info1 := networkingcommon.BackingSubnetInfo{
 			CIDR:              ProviderInstance.Subnets[1].CIDR,
 			ProviderId:        ProviderInstance.Subnets[1].ProviderId,
+			ProviderNetworkId: ProviderInstance.Subnets[1].ProviderNetworkId,
 			AvailabilityZones: ProviderInstance.Subnets[1].AvailabilityZones,
 			SpaceName:         "dmz",
 		}
@@ -503,7 +511,7 @@ func (sb *StubBacking) AddSubnet(subnetInfo networkingcommon.BackingSubnetInfo) 
 	if err := sb.NextErr(); err != nil {
 		return nil, err
 	}
-	fs := &FakeSubnet{info: subnetInfo}
+	fs := &FakeSubnet{Info: subnetInfo}
 	sb.Subnets = append(sb.Subnets, fs)
 	return fs, nil
 }

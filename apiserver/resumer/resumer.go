@@ -11,10 +11,6 @@ import (
 	"github.com/juju/juju/state"
 )
 
-func init() {
-	common.RegisterStandardFacade("Resumer", 2, NewResumerAPI)
-}
-
 // ResumerAPI implements the API used by the resumer worker.
 type ResumerAPI struct {
 	st   stateInterface
@@ -23,7 +19,7 @@ type ResumerAPI struct {
 
 // NewResumerAPI creates a new instance of the Resumer API.
 func NewResumerAPI(st *state.State, _ facade.Resources, authorizer facade.Authorizer) (*ResumerAPI, error) {
-	if !authorizer.AuthModelManager() {
+	if !authorizer.AuthController() {
 		return nil, common.ErrPerm
 	}
 	return &ResumerAPI{

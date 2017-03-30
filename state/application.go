@@ -63,7 +63,7 @@ func newApplication(st *State, doc *applicationDoc) *Application {
 }
 
 // IsRemote returns false for a local application.
-func (s *Application) IsRemote() bool {
+func (a *Application) IsRemote() bool {
 	return false
 }
 
@@ -1234,7 +1234,7 @@ func (a *Application) removeUnitOps(u *Unit, asserts bson.D) ([]txn.Op, error) {
 	if err != nil {
 		return nil, err
 	}
-	resOps, err := removeUnitResourcesOps(a.st, u.doc.Application, u.doc.Name)
+	resOps, err := removeUnitResourcesOps(a.st, u.doc.Name)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1298,7 +1298,7 @@ func (a *Application) removeUnitOps(u *Unit, asserts bson.D) ([]txn.Op, error) {
 	return ops, nil
 }
 
-func removeUnitResourcesOps(st *State, applicationID, unitID string) ([]txn.Op, error) {
+func removeUnitResourcesOps(st *State, unitID string) ([]txn.Op, error) {
 	persist, err := st.ResourcesPersistence()
 	if errors.IsNotSupported(err) {
 		// Nothing to see here, move along.
@@ -1727,9 +1727,7 @@ type addApplicationOpsArgs struct {
 // applications collection, along with all the associated expected other application
 // entries. This method is used by both the *State.AddApplication method and the
 // migration import code.
-func addApplicationOps(st *State, args addApplicationOpsArgs) ([]txn.Op, error) {
-	app := newApplication(st, args.applicationDoc)
-
+func addApplicationOps(st *State, app *Application, args addApplicationOpsArgs) ([]txn.Op, error) {
 	charmRefOps, err := appCharmIncRefOps(st, args.applicationDoc.Name, args.applicationDoc.CharmURL, true)
 	if err != nil {
 		return nil, errors.Trace(err)

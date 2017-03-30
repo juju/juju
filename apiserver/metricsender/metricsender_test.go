@@ -8,6 +8,7 @@ import (
 	"time"
 
 	wireformat "github.com/juju/romulus/wireformat/metrics"
+	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
@@ -17,7 +18,6 @@ import (
 	jujujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing/factory"
-	jujutesting "github.com/juju/testing"
 )
 
 type MetricSenderSuite struct {
@@ -59,13 +59,14 @@ func (s *MetricSenderSuite) TestToWire(c *gc.C) {
 		},
 	}
 	expected := &wireformat.MetricBatch{
-		UUID:        metric.UUID(),
-		ModelUUID:   metric.ModelUUID(),
-		UnitName:    metric.Unit(),
-		CharmUrl:    metric.CharmURL(),
-		Created:     metric.Created().UTC(),
-		Metrics:     metrics,
-		Credentials: metric.Credentials(),
+		UUID:           metric.UUID(),
+		ModelUUID:      metric.ModelUUID(),
+		UnitName:       metric.Unit(),
+		CharmUrl:       metric.CharmURL(),
+		Created:        metric.Created().UTC(),
+		Metrics:        metrics,
+		Credentials:    metric.Credentials(),
+		SLACredentials: metric.SLACredentials(),
 	}
 	c.Assert(result, gc.DeepEquals, expected)
 }
@@ -91,6 +92,23 @@ func (s *MetricSenderSuite) TestSendMetrics(c *gc.C) {
 	sent2, err := s.State.MetricBatch(unsent2.UUID())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(sent2.Sent(), jc.IsTrue)
+}
+
+func (s *MetricSenderSuite) TestSendingHandlesModelMeterStatus(c *gc.C) {
+	var sender testing.MockSender
+	now := time.Now()
+	s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.credUnit, Time: &now})
+	s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.meteredUnit, Time: &now})
+	s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.credUnit, Sent: true, Time: &now})
+	err := metricsender.SendMetrics(s.State, &sender, s.clock, 10, true)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(sender.Data, gc.HasLen, 1)
+	c.Assert(sender.Data[0], gc.HasLen, 2)
+
+	meterStatus, err := s.State.ModelMeterStatus()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(meterStatus.Code.String(), gc.Equals, "RED")
+	c.Assert(meterStatus.Info, gc.Equals, "mocked response")
 }
 
 // TestSendMetricsAbort creates 7 unsent metrics and

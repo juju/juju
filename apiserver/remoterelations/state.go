@@ -4,13 +4,20 @@
 package remoterelations
 
 import (
+	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/errors"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/status"
 )
+
+// StatePool provides the subset of a state pool required by the
+// remote relations facade.
+type StatePool interface {
+	// Get returns a State for a given model from the pool.
+	Get(modelUUID string) (RemoteRelationsState, func(), error)
+}
 
 // RemoteRelationState provides the subset of global state required by the
 // remote relations facade.
@@ -51,6 +58,10 @@ type RemoteRelationsState interface {
 	// application.
 	WatchRemoteApplicationRelations(applicationName string) (state.StringsWatcher, error)
 
+	// WatchRemoteRelations returns a StringsWatcher that notifies of changes to
+	// the lifecycles of remote relations in the model.
+	WatchRemoteRelations() state.StringsWatcher
+
 	// ExportLocalEntity adds an entity to the remote entities collection,
 	// returning an opaque token that uniquely identifies the entity within
 	// the model.
@@ -64,12 +75,15 @@ type RemoteRelationsState interface {
 	// with the specified opaque token.
 	ImportRemoteEntity(sourceModel names.ModelTag, entity names.Tag, token string) error
 
+	// RemoveRemoteEntity removes the specified entity from the remote entities collection.
+	RemoveRemoteEntity(sourceModel names.ModelTag, entity names.Tag) error
+
 	// GetToken returns the token associated with the entity with the given tag
 	// and model.
 	GetToken(names.ModelTag, names.Tag) (string, error)
 
 	// ListOffers returns the application offers matching any one of the filter terms.
-	ListOffers(filter ...crossmodel.OfferedApplicationFilter) ([]crossmodel.OfferedApplication, error)
+	ListOffers(filter ...crossmodel.ApplicationOfferFilter) ([]crossmodel.ApplicationOffer, error)
 }
 
 // Relation provides access a relation in global state.
@@ -144,9 +158,9 @@ type RemoteApplication interface {
 	// SourceModel returns the tag of the model hosting the remote application.
 	SourceModel() names.ModelTag
 
-	// Registered returns the application is created
+	// IsConsumerProxy returns whether application is created
 	// from a registration operation by a consuming model.
-	Registered() bool
+	IsConsumerProxy() bool
 
 	// URL returns the remote application URL, at which it is offered.
 	URL() (string, bool)
@@ -156,6 +170,11 @@ type RemoteApplication interface {
 
 	// Status returns the status of the remote application.
 	Status() (status.StatusInfo, error)
+
+	// Destroy ensures that this remote application reference and all its relations
+	// will be removed at some point; if no relation involving the
+	// application has any units in scope, they are all removed immediately.
+	Destroy() error
 }
 
 // Application represents the state of a application hosted in the local model.
@@ -170,12 +189,24 @@ type Application interface {
 	Endpoints() ([]state.Endpoint, error)
 }
 
+type statePoolShim struct {
+	*state.StatePool
+}
+
+func (pool statePoolShim) Get(modelUUID string) (RemoteRelationsState, func(), error) {
+	st, closer, err := pool.StatePool.Get(modelUUID)
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+	return stateShim{st}, closer, nil
+}
+
 type stateShim struct {
 	*state.State
 }
 
-func (st stateShim) ListOffers(filter ...crossmodel.OfferedApplicationFilter) ([]crossmodel.OfferedApplication, error) {
-	oa := state.NewOfferedApplications(st.State)
+func (st stateShim) ListOffers(filter ...crossmodel.ApplicationOfferFilter) ([]crossmodel.ApplicationOffer, error) {
+	oa := state.NewApplicationOffers(st.State)
 	return oa.ListOffers(filter...)
 }
 
@@ -192,6 +223,11 @@ func (st stateShim) GetRemoteEntity(model names.ModelTag, token string) (names.T
 func (st stateShim) ImportRemoteEntity(model names.ModelTag, entity names.Tag, token string) error {
 	r := st.State.RemoteEntities()
 	return r.ImportRemoteEntity(model, entity, token)
+}
+
+func (st stateShim) RemoveRemoteEntity(model names.ModelTag, entity names.Tag) error {
+	r := st.State.RemoteEntities()
+	return r.RemoveRemoteEntity(model, entity)
 }
 
 func (st stateShim) GetToken(model names.ModelTag, entity names.Tag) (string, error) {

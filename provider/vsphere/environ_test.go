@@ -1,21 +1,15 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// +build !gccgo
-
 package vsphere_test
 
 import (
-	"os"
-
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs"
 	envtesting "github.com/juju/juju/environs/testing"
-	"github.com/juju/juju/feature"
-	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/provider/vsphere"
 	"github.com/juju/juju/testing"
 )
@@ -36,7 +30,6 @@ func (s *environSuite) TestBootstrap(c *gc.C) {
 		return nil, errors.New("Bootstrap called")
 	})
 
-	os.Setenv(osenv.JujuFeatureFlagEnvKey, feature.VSphereProvider)
 	_, err := s.Env.Bootstrap(nil, environs.BootstrapParams{ControllerConfig: testing.FakeControllerConfig()})
 	c.Assert(err, gc.ErrorMatches, "Bootstrap called")
 }

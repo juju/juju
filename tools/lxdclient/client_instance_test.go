@@ -6,8 +6,11 @@
 package lxdclient_test
 
 import (
+	"errors"
+
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	lxdshared "github.com/lxc/lxd/shared"
+	lxdapi "github.com/lxc/lxd/shared/api"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/network"
@@ -26,43 +29,43 @@ type addressTester struct {
 	// we only implement the ones that we are going to be testing
 	lxdclient.RawInstanceClient
 
-	ContainerStateResult *lxdshared.ContainerState
+	ContainerStateResult *lxdapi.ContainerState
 }
 
-func (a *addressTester) ContainerState(name string) (*lxdshared.ContainerState, error) {
+func (a *addressTester) ContainerState(name string) (*lxdapi.ContainerState, error) {
 	return a.ContainerStateResult, nil
 }
 
 var _ lxdclient.RawInstanceClient = (*addressTester)(nil)
 
 // containerStateSample was captured from a real response
-var containerStateSample = lxdshared.ContainerState{
+var containerStateSample = lxdapi.ContainerState{
 	Status:     "Running",
-	StatusCode: lxdshared.Running,
-	Disk:       map[string]lxdshared.ContainerStateDisk{},
-	Memory: lxdshared.ContainerStateMemory{
+	StatusCode: lxdapi.Running,
+	Disk:       map[string]lxdapi.ContainerStateDisk{},
+	Memory: lxdapi.ContainerStateMemory{
 		Usage:         66486272,
 		UsagePeak:     92405760,
 		SwapUsage:     0,
 		SwapUsagePeak: 0,
 	},
-	Network: map[string]lxdshared.ContainerStateNetwork{
-		"eth0": lxdshared.ContainerStateNetwork{
-			Addresses: []lxdshared.ContainerStateNetworkAddress{
-				lxdshared.ContainerStateNetworkAddress{
+	Network: map[string]lxdapi.ContainerStateNetwork{
+		"eth0": lxdapi.ContainerStateNetwork{
+			Addresses: []lxdapi.ContainerStateNetworkAddress{
+				lxdapi.ContainerStateNetworkAddress{
 					Family:  "inet",
 					Address: "10.0.8.173",
 					Netmask: "24",
 					Scope:   "global",
 				},
-				lxdshared.ContainerStateNetworkAddress{
+				lxdapi.ContainerStateNetworkAddress{
 					Family:  "inet6",
 					Address: "fe80::216:3eff:fe3b:e582",
 					Netmask: "64",
 					Scope:   "link",
 				},
 			},
-			Counters: lxdshared.ContainerStateNetworkCounters{
+			Counters: lxdapi.ContainerStateNetworkCounters{
 				BytesReceived:   16352,
 				BytesSent:       6238,
 				PacketsReceived: 69,
@@ -74,22 +77,22 @@ var containerStateSample = lxdshared.ContainerState{
 			State:    "up",
 			Type:     "broadcast",
 		},
-		"lo": lxdshared.ContainerStateNetwork{
-			Addresses: []lxdshared.ContainerStateNetworkAddress{
-				lxdshared.ContainerStateNetworkAddress{
+		"lo": lxdapi.ContainerStateNetwork{
+			Addresses: []lxdapi.ContainerStateNetworkAddress{
+				lxdapi.ContainerStateNetworkAddress{
 					Family:  "inet",
 					Address: "127.0.0.1",
 					Netmask: "8",
 					Scope:   "local",
 				},
-				lxdshared.ContainerStateNetworkAddress{
+				lxdapi.ContainerStateNetworkAddress{
 					Family:  "inet6",
 					Address: "::1",
 					Netmask: "128",
 					Scope:   "local",
 				},
 			},
-			Counters: lxdshared.ContainerStateNetworkCounters{
+			Counters: lxdapi.ContainerStateNetworkCounters{
 				BytesReceived:   0,
 				BytesSent:       0,
 				PacketsReceived: 0,
@@ -101,22 +104,22 @@ var containerStateSample = lxdshared.ContainerState{
 			State:    "up",
 			Type:     "loopback",
 		},
-		"lxcbr0": lxdshared.ContainerStateNetwork{
-			Addresses: []lxdshared.ContainerStateNetworkAddress{
-				lxdshared.ContainerStateNetworkAddress{
+		"lxcbr0": lxdapi.ContainerStateNetwork{
+			Addresses: []lxdapi.ContainerStateNetworkAddress{
+				lxdapi.ContainerStateNetworkAddress{
 					Family:  "inet",
 					Address: "10.0.5.12",
 					Netmask: "24",
 					Scope:   "global",
 				},
-				lxdshared.ContainerStateNetworkAddress{
+				lxdapi.ContainerStateNetworkAddress{
 					Family:  "inet6",
 					Address: "fe80::216:3eff:fe3b:e432",
 					Netmask: "64",
 					Scope:   "link",
 				},
 			},
-			Counters: lxdshared.ContainerStateNetworkCounters{
+			Counters: lxdapi.ContainerStateNetworkCounters{
 				BytesReceived:   0,
 				BytesSent:       500,
 				PacketsReceived: 0,
@@ -128,22 +131,22 @@ var containerStateSample = lxdshared.ContainerState{
 			State:    "up",
 			Type:     "broadcast",
 		},
-		"lxdbr0": lxdshared.ContainerStateNetwork{
-			Addresses: []lxdshared.ContainerStateNetworkAddress{
-				lxdshared.ContainerStateNetworkAddress{
+		"lxdbr0": lxdapi.ContainerStateNetwork{
+			Addresses: []lxdapi.ContainerStateNetworkAddress{
+				lxdapi.ContainerStateNetworkAddress{
 					Family:  "inet",
 					Address: "10.0.6.17",
 					Netmask: "24",
 					Scope:   "global",
 				},
-				lxdshared.ContainerStateNetworkAddress{
+				lxdapi.ContainerStateNetworkAddress{
 					Family:  "inet6",
 					Address: "fe80::5c9b:b2ff:feaf:4cf2",
 					Netmask: "64",
 					Scope:   "link",
 				},
 			},
-			Counters: lxdshared.ContainerStateNetworkCounters{
+			Counters: lxdapi.ContainerStateNetworkCounters{
 				BytesReceived:   0,
 				BytesSent:       500,
 				PacketsReceived: 0,
@@ -176,4 +179,80 @@ func (s *addressesSuite) TestAddresses(c *gc.C) {
 			Scope: network.ScopeCloudLocal,
 		},
 	})
+}
+
+type devicesSuite struct {
+	lxdclient.BaseSuite
+}
+
+var _ = gc.Suite(&devicesSuite{})
+
+func (s *devicesSuite) TestAttachDisk(c *gc.C) {
+	client := lxdclient.NewInstanceClient(s.Client)
+	err := client.AttachDisk("instance", "device", lxdclient.DiskDevice{
+		Source: "source-value",
+		Path:   "path-value",
+		Pool:   "pool-value",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.Stub.CheckCalls(c, []testing.StubCall{
+		{"ContainerDeviceAdd", []interface{}{"instance", "device", "disk", []string{
+			"path=path-value", "source=source-value", "pool=pool-value",
+		}}},
+		{"WaitForSuccess", []interface{}{""}},
+	})
+}
+
+func (s *devicesSuite) TestAttachDiskReadOnly(c *gc.C) {
+	client := lxdclient.NewInstanceClient(s.Client)
+	err := client.AttachDisk("instance", "device", lxdclient.DiskDevice{
+		Source:   "source-value",
+		Path:     "path-value",
+		ReadOnly: true,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.Stub.CheckCall(c, 0, "ContainerDeviceAdd", "instance", "device", "disk", []string{
+		"path=path-value", "source=source-value", "readonly=true",
+	})
+}
+
+func (s *devicesSuite) TestAttachDiskSyncError(c *gc.C) {
+	s.Stub.SetErrors(errors.New("sync error"))
+	client := lxdclient.NewInstanceClient(s.Client)
+	err := client.AttachDisk("instance", "device", lxdclient.DiskDevice{})
+	c.Assert(err, gc.ErrorMatches, "sync error")
+}
+
+func (s *devicesSuite) TestAttachDiskAsyncError(c *gc.C) {
+	s.Stub.SetErrors(nil, errors.New("async error"))
+	client := lxdclient.NewInstanceClient(s.Client)
+	err := client.AttachDisk("instance", "device", lxdclient.DiskDevice{})
+	c.Assert(err, gc.ErrorMatches, "async error")
+}
+
+func (s *devicesSuite) TestRemoveDevice(c *gc.C) {
+	client := lxdclient.NewInstanceClient(s.Client)
+	err := client.RemoveDevice("instance", "device")
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.Stub.CheckCalls(c, []testing.StubCall{
+		{"ContainerDeviceDelete", []interface{}{"instance", "device"}},
+		{"WaitForSuccess", []interface{}{""}},
+	})
+}
+
+func (s *devicesSuite) TestRemoveDeviceSyncError(c *gc.C) {
+	s.Stub.SetErrors(errors.New("sync error"))
+	client := lxdclient.NewInstanceClient(s.Client)
+	err := client.RemoveDevice("instance", "device")
+	c.Assert(err, gc.ErrorMatches, "sync error")
+}
+
+func (s *devicesSuite) TestRemoveDeviceAsyncError(c *gc.C) {
+	s.Stub.SetErrors(nil, errors.New("async error"))
+	client := lxdclient.NewInstanceClient(s.Client)
+	err := client.RemoveDevice("instance", "device")
+	c.Assert(err, gc.ErrorMatches, "async error")
 }

@@ -96,6 +96,11 @@ func AddCharmWithAuthorization(st *state.State, args params.AddCharmWithAuthoriz
 	if !ok {
 		return errors.Errorf("expected a charm archive, got %T", downloadedCharm)
 	}
+
+	// Clean up the downloaded charm - we don't need to cache it in
+	// the filesystem as well as in blob storage.
+	defer os.Remove(downloadedBundle.Path)
+
 	archive, err := os.Open(downloadedBundle.Path)
 	if err != nil {
 		return errors.Annotate(err, "cannot read downloaded charm")

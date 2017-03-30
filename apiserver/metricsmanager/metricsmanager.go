@@ -6,8 +6,11 @@
 package metricsmanager
 
 import (
+	"fmt"
+
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/utils"
 	"github.com/juju/utils/clock"
 	"gopkg.in/juju/names.v2"
 
@@ -15,6 +18,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/metricsender"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
 )
 
@@ -24,10 +28,6 @@ var (
 
 	sender = metricsender.DefaultMetricSender()
 )
-
-func init() {
-	common.RegisterStandardFacade("MetricsManager", 1, newMetricsManagerAPI)
-}
 
 // MetricsManager defines the methods on the metricsmanager API end point.
 type MetricsManager interface {
@@ -46,8 +46,8 @@ type MetricsManagerAPI struct {
 
 var _ MetricsManager = (*MetricsManagerAPI)(nil)
 
-// newMetricsManagerAPI wraps NewMetricsManagerAPI for RegisterStandardFacade.
-func newMetricsManagerAPI(
+// NewFacade wraps NewMetricsManagerAPI for API registration.
+func NewFacade(
 	st *state.State,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
@@ -62,7 +62,7 @@ func NewMetricsManagerAPI(
 	authorizer facade.Authorizer,
 	clock clock.Clock,
 ) (*MetricsManagerAPI, error) {
-	if !(authorizer.AuthMachineAgent() && authorizer.AuthModelManager()) {
+	if !(authorizer.AuthMachineAgent() && authorizer.AuthController()) {
 		return nil, common.ErrPerm
 	}
 
@@ -128,8 +128,49 @@ func (api *MetricsManagerAPI) CleanupOldMetrics(args params.Entities) (params.Er
 	return result, nil
 }
 
+// AddJujuMachineMetrics adds a metric that counts the number of
+// non-container machines in the current model.
+func (api *MetricsManagerAPI) AddJujuMachineMetrics() error {
+	sla, err := api.state.SLACredential()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if len(sla) == 0 {
+		return nil
+	}
+	allMachines, err := api.state.AllMachines()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	machineCount := 0
+	for _, machine := range allMachines {
+		ct := machine.ContainerType()
+		if ct == instance.NONE || ct == "" {
+			machineCount++
+		}
+	}
+	t := clock.WallClock.Now()
+	metricUUID, err := utils.NewUUID()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	_, err = api.state.AddModelMetrics(state.ModelBatchParam{
+		UUID:    metricUUID.String(),
+		Created: t,
+		Metrics: []state.Metric{{
+			Key:   "juju-machines",
+			Value: fmt.Sprintf("%d", machineCount),
+			Time:  t,
+		}},
+	})
+	return err
+}
+
 // SendMetrics will send any unsent metrics onto the metric collection service.
 func (api *MetricsManagerAPI) SendMetrics(args params.Entities) (params.ErrorResults, error) {
+	if err := api.AddJujuMachineMetrics(); err != nil {
+		logger.Warningf("failed to add juju-machines metrics: %v", err)
+	}
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Entities)),
 	}

@@ -7,12 +7,13 @@ import (
 	"strings"
 
 	jujucmd "github.com/juju/cmd"
-	"github.com/juju/juju/charmstore"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
+
+	"github.com/juju/juju/charmstore"
 )
 
 var _ = gc.Suite(&ListCharmSuite{})
@@ -38,7 +39,7 @@ func (s *ListCharmSuite) TestInfo(c *gc.C) {
 	c.Check(info, jc.DeepEquals, &jujucmd.Info{
 		Name:    "resources",
 		Args:    "<charm>",
-		Purpose: "display the resources for a charm in the charm store",
+		Purpose: "Display the resources for a charm in the charm store.",
 		Doc: `
 This command will report the resources for a charm in the charm store.
 

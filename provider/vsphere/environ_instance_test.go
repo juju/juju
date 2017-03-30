@@ -1,8 +1,6 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// +build !gccgo
-
 package vsphere_test
 
 import (
@@ -52,7 +50,20 @@ func (s *environInstanceSuite) TestInstances(c *gc.C) {
 	c.Assert(string(instances[1].Id()), gc.Equals, vmName2)
 }
 
-func (s *environInstanceSuite) TestInstancesReturnNoInstances(c *gc.C) {
+func (s *environInstanceSuite) TestInstancesNoInstances(c *gc.C) {
+	client, closer, err := vsphere.ExposeEnvFakeClient(s.Env)
+	c.Assert(err, jc.ErrorIsNil)
+	defer closer()
+	s.FakeClient = client
+	client.SetPropertyProxyHandler("FakeDatacenter", vsphere.RetrieveDatacenterProperties)
+	s.FakeInstances(client)
+
+	_, err = s.Env.Instances([]instance.Id{"Some other name"})
+
+	c.Assert(err, gc.Equals, environs.ErrNoInstances)
+}
+
+func (s *environInstanceSuite) TestInstancesNoMatchingInstances(c *gc.C) {
 	client, closer, err := vsphere.ExposeEnvFakeClient(s.Env)
 	c.Assert(err, jc.ErrorIsNil)
 	defer closer()

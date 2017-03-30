@@ -30,7 +30,6 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
@@ -196,8 +195,10 @@ func (s *StateSuite) TestModelUUID(c *gc.C) {
 }
 
 func (s *StateSuite) TestNoModelDocs(c *gc.C) {
+	// For example:
+	// found documents for model with uuid 7bfe98b6-7282-48d4-8e37-9b90fb3da4f1: 1 constraints doc, 1 modelusers doc, 1 settings doc, 1 statuses doc
 	c.Assert(s.State.EnsureModelRemoved(), gc.ErrorMatches,
-		fmt.Sprintf("found documents for model with uuid %s: 1 constraints doc, 2 leases doc, 1 modelusers doc, 1 settings doc, 1 statuses doc", s.State.ModelUUID()))
+		fmt.Sprintf(`found documents for model with uuid %s: (\d+ [a-z]+ doc, )*\d+ [a-z]+ doc`, s.State.ModelUUID()))
 }
 
 func (s *StateSuite) TestMongoSession(c *gc.C) {
@@ -289,12 +290,12 @@ func (s *StateSuite) TestWatchAllModels(c *gc.C) {
 	c.Assert(machineSeen, jc.IsTrue)
 }
 
-type MultiEnvStateSuite struct {
+type MultiModelStateSuite struct {
 	ConnSuite
 	OtherState *state.State
 }
 
-func (s *MultiEnvStateSuite) SetUpTest(c *gc.C) {
+func (s *MultiModelStateSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
 	s.policy.GetConstraintsValidator = func() (constraints.Validator, error) {
 		validator := constraints.NewValidator()
@@ -305,21 +306,21 @@ func (s *MultiEnvStateSuite) SetUpTest(c *gc.C) {
 	s.OtherState = s.Factory.MakeModel(c, nil)
 }
 
-func (s *MultiEnvStateSuite) TearDownTest(c *gc.C) {
+func (s *MultiModelStateSuite) TearDownTest(c *gc.C) {
 	if s.OtherState != nil {
 		s.OtherState.Close()
 	}
 	s.ConnSuite.TearDownTest(c)
 }
 
-func (s *MultiEnvStateSuite) Reset(c *gc.C) {
+func (s *MultiModelStateSuite) Reset(c *gc.C) {
 	s.TearDownTest(c)
 	s.SetUpTest(c)
 }
 
-var _ = gc.Suite(&MultiEnvStateSuite{})
+var _ = gc.Suite(&MultiModelStateSuite{})
 
-func (s *MultiEnvStateSuite) TestWatchTwoEnvironments(c *gc.C) {
+func (s *MultiModelStateSuite) TestWatchTwoModels(c *gc.C) {
 	for i, test := range []struct {
 		about        string
 		getWatcher   func(*state.State) interface{}
@@ -407,8 +408,9 @@ func (s *MultiEnvStateSuite) TestWatchTwoEnvironments(c *gc.C) {
 				return st.WatchRemoteApplications()
 			},
 			triggerEvent: func(st *state.State) {
-				st.AddRemoteApplication(state.AddRemoteApplicationParams{
-					Name: "db2", URL: "local:/u/ibm/db2", SourceModel: s.State.ModelTag()})
+				_, err := st.AddRemoteApplication(state.AddRemoteApplicationParams{
+					Name: "db2", SourceModel: s.State.ModelTag()})
+				c.Assert(err, jc.ErrorIsNil)
 			},
 		}, {
 			about: "relations",
@@ -422,6 +424,28 @@ func (s *MultiEnvStateSuite) TestWatchTwoEnvironments(c *gc.C) {
 				f := factory.NewFactory(st)
 				mysqlCharm := f.MakeCharm(c, &factory.CharmParams{Name: "mysql"})
 				f.MakeApplication(c, &factory.ApplicationParams{Name: "mysql", Charm: mysqlCharm})
+				return false
+			},
+			triggerEvent: func(st *state.State) {
+				eps, err := st.InferEndpoints("wordpress", "mysql")
+				c.Assert(err, jc.ErrorIsNil)
+				_, err = st.AddRelation(eps...)
+				c.Assert(err, jc.ErrorIsNil)
+			},
+		}, {
+			about: "remote relations",
+			getWatcher: func(st *state.State) interface{} {
+				return st.WatchRemoteRelations()
+			},
+			setUpState: func(st *state.State) bool {
+				_, err := st.AddRemoteApplication(state.AddRemoteApplicationParams{
+					Name: "mysql", SourceModel: s.OtherState.ModelTag(),
+					Endpoints: []charm.Relation{{Name: "database", Interface: "mysql", Role: "provider", Scope: "global"}},
+				})
+				c.Assert(err, jc.ErrorIsNil)
+				f := factory.NewFactory(st)
+				wpCharm := f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"})
+				f.MakeApplication(c, &factory.ApplicationParams{Name: "wordpress", Charm: wpCharm})
 				return false
 			},
 			triggerEvent: func(st *state.State) {
@@ -590,21 +614,14 @@ func (s *MultiEnvStateSuite) TestWatchTwoEnvironments(c *gc.C) {
 				c.Assert(err, jc.ErrorIsNil)
 			},
 		}, {
-			about: "offered applications",
+			about: "subnets",
 			getWatcher: func(st *state.State) interface{} {
-				return st.WatchOfferedApplications()
-			},
-			setUpState: func(st *state.State) bool {
-				offeredApplications := state.NewOfferedApplications(st)
-				offeredApplications.AddOffer(crossmodel.OfferedApplication{
-					ApplicationName: "mysql",
-					ApplicationURL:  "local:/u/me/mysql",
-				})
-				return false
+				return st.WatchSubnets()
 			},
 			triggerEvent: func(st *state.State) {
-				offeredApplications := state.NewOfferedApplications(st)
-				err := offeredApplications.SetOfferRegistered("local:/u/me/mysql", false)
+				_, err := st.AddSubnet(state.SubnetInfo{
+					CIDR: "10.0.0.0/24",
+				})
 				c.Assert(err, jc.ErrorIsNil)
 			},
 		},
@@ -635,7 +652,7 @@ func (s *MultiEnvStateSuite) TestWatchTwoEnvironments(c *gc.C) {
 				}
 			}
 
-			checkIsolationForEnv := func(w1, w2 TestWatcherC) {
+			checkIsolationForModel := func(w1, w2 TestWatcherC) {
 				c.Logf("Making changes to model %s", w1.State.ModelUUID())
 				// switch on type of watcher here
 				if test.setUpState != nil {
@@ -660,8 +677,8 @@ func (s *MultiEnvStateSuite) TestWatchTwoEnvironments(c *gc.C) {
 			defer wc2.Stop()
 			wc2.AssertNoChange()
 			wc1.AssertNoChange()
-			checkIsolationForEnv(wc1, wc2)
-			checkIsolationForEnv(wc2, wc1)
+			checkIsolationForModel(wc1, wc2)
+			checkIsolationForModel(wc2, wc1)
 		}()
 		s.Reset(c)
 	}
@@ -1430,6 +1447,23 @@ func (s *StateSuite) TestAddApplication(c *gc.C) {
 	c.Assert(ch.URL(), gc.DeepEquals, ch.URL())
 }
 
+func (s *StateSuite) TestAddApplicationWithNilConfigValues(c *gc.C) {
+	ch := s.AddTestingCharm(c, "dummy")
+	insettings := charm.Settings{"tuning": nil}
+
+	wordpress, err := s.State.AddApplication(state.AddApplicationArgs{Name: "wordpress", Charm: ch, Settings: insettings})
+	c.Assert(err, jc.ErrorIsNil)
+	outsettings, err := wordpress.ConfigSettings()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(outsettings, gc.DeepEquals, insettings)
+
+	// Ensure that during creation, application settings with nil config values
+	// were stripped and not written into database.
+	dbSettings := state.GetApplicationSettings(s.State, wordpress)
+	_, dbFound := dbSettings.Get("tuning")
+	c.Assert(dbFound, jc.IsFalse)
+}
+
 func (s *StateSuite) TestAddServiceEnvironmentDying(c *gc.C) {
 	charm := s.AddTestingCharm(c, "dummy")
 	// Check that services cannot be added if the model is initially Dying.
@@ -1455,7 +1489,7 @@ func (s *StateSuite) TestAddServiceEnvironmentMigrating(c *gc.C) {
 func (s *StateSuite) TestAddApplicationSameRemoteExists(c *gc.C) {
 	charm := s.AddTestingCharm(c, "dummy")
 	_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
-		Name: "s1", URL: "local:/u/me/dummy", SourceModel: s.State.ModelTag()})
+		Name: "s1", SourceModel: s.State.ModelTag()})
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddApplication(state.AddApplicationArgs{Name: "s1", Charm: charm})
 	c.Assert(err, gc.ErrorMatches, `cannot add application "s1": remote application with same name already exists`)
@@ -1468,7 +1502,7 @@ func (s *StateSuite) TestAddApplicationRemotedAddedAfterInitial(c *gc.C) {
 	// before the transaction is run.
 	defer state.SetBeforeHooks(c, s.State, func() {
 		_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
-			Name: "s1", URL: "local:/u/me/s1", SourceModel: s.State.ModelTag()})
+			Name: "s1", SourceModel: s.State.ModelTag()})
 		c.Assert(err, jc.ErrorIsNil)
 	}).Check()
 	_, err := s.State.AddApplication(state.AddApplicationArgs{Name: "s1", Charm: charm})
@@ -2104,9 +2138,8 @@ func (s *StateSuite) TestWatchServicesDiesOnStateClose(c *gc.C) {
 	// This test is testing logic in watcher.lifecycleWatcher,
 	// which is also used by:
 	//     State.WatchModels
-	//     Service.WatchUnits
-	//     Service.WatchRelations
-	//     State.WatchEnviron
+	//     Application.WatchUnits
+	//     Application.WatchRelations
 	//     Machine.WatchContainers
 	testWatcherDiesWhenStateCloses(c, s.modelTag, s.State.ControllerTag(), func(c *gc.C, st *state.State) waiter {
 		w := st.WatchServices()
@@ -3280,61 +3313,121 @@ func (s *StateSuite) TestWatchMinUnitsDiesOnStateClose(c *gc.C) {
 	})
 }
 
-func (s *StateSuite) TestWatchOfferedApplications(c *gc.C) {
-	// Check initial event.
-	w := s.State.WatchOfferedApplications()
+func (s *StateSuite) TestWatchSubnets(c *gc.C) {
+	w := s.State.WatchSubnets()
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewStringsWatcherC(c, s.State, w)
+
+	// Check initial event.
 	wc.AssertChange()
 	wc.AssertNoChange()
 
-	// Add a new offered application; a single change should occur.
-	offers := state.NewOfferedApplications(s.State)
-	offer := crossmodel.OfferedApplication{
-		ApplicationName: "service",
-		ApplicationURL:  "local:/u/me/service",
-		Registered:      true,
-	}
-	err := offers.AddOffer(offer)
-	wc.AssertChange("local:/u/me/service")
+	_, err := s.State.AddSubnet(state.SubnetInfo{CIDR: "10.0.0.0/24"})
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChange("10.0.0.0/24")
+	wc.AssertNoChange()
+}
+
+func (s *StateSuite) setupWatchRemoteRelations(c *gc.C, wc statetesting.StringsWatcherC) (*state.RemoteApplication, *state.Application, *state.Relation) {
+	// Check initial event.
+	wc.AssertChange()
 	wc.AssertNoChange()
 
-	// Set the registered value; expect one change.
-	err = offers.SetOfferRegistered("local:/u/me/service", false)
+	remoteApp, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name: "mysql", SourceModel: s.State.ModelTag(),
+		Endpoints: []charm.Relation{{Name: "database", Interface: "mysql", Role: "provider", Scope: "global"}},
+	})
 	c.Assert(err, jc.ErrorIsNil)
-	offer.Registered = false
-	wc.AssertChange("local:/u/me/service")
+	app := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+
+	// Add a remote relation, single change should occur.
+	eps, err := s.State.InferEndpoints("wordpress", "mysql")
+	c.Assert(err, jc.ErrorIsNil)
+	rel, err := s.State.AddRelation(eps...)
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChange("wordpress:db mysql:database")
 	wc.AssertNoChange()
+	return remoteApp, app, rel
+}
 
-	// Insert a new offer2 and set registered value; expect 2 changes.
-	offer2 := crossmodel.OfferedApplication{
-		ApplicationName: "service2",
-		ApplicationURL:  "local:/u/me/service2",
-		Registered:      true,
-	}
-	err = offers.AddOffer(offer2)
+func (s *StateSuite) TestWatchRemoteRelationsIgnoresLocal(c *gc.C) {
+	// Set up a non-remote relation to ensure it is properly filtered out.
+	s.AddTestingService(c, "wplocal", s.AddTestingCharm(c, "wordpress"))
+	s.AddTestingService(c, "mysqllocal", s.AddTestingCharm(c, "mysql"))
+	eps, err := s.State.InferEndpoints("wplocal", "mysqllocal")
 	c.Assert(err, jc.ErrorIsNil)
-	err = offers.SetOfferRegistered("local:/u/me/service", true)
-	offer.Registered = true
+	_, err = s.State.AddRelation(eps...)
 	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertChange("local:/u/me/service2", "local:/u/me/service")
 
-	// Update endpoints and registered value; expect 2 changes.
-	err = offers.UpdateOffer("local:/u/me/service2", map[string]string{"foo": "bar"})
+	w := s.State.WatchRemoteRelations()
+	defer statetesting.AssertStop(c, w)
+	wc := statetesting.NewStringsWatcherC(c, s.State, w)
+	// Check initial event.
+	wc.AssertChange()
+	// No change for local relation.
+	wc.AssertNoChange()
+}
+
+func (s *StateSuite) TestWatchRemoteRelationsDestroyRelation(c *gc.C) {
+	w := s.State.WatchRemoteRelations()
+	defer statetesting.AssertStop(c, w)
+	wc := statetesting.NewStringsWatcherC(c, s.State, w)
+
+	_, _, rel := s.setupWatchRemoteRelations(c, wc)
+
+	// Destroy the remote relation.
+	// A single change should occur.
+	err := rel.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
-	err = offers.SetOfferRegistered("local:/u/me/service", false)
-	offer.Registered = true
-	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertChange("local:/u/me/service2", "local:/u/me/service")
+	wc.AssertChange("wordpress:db mysql:database")
+	wc.AssertNoChange()
 
 	// Stop watcher, check closed.
 	statetesting.AssertStop(c, w)
 	wc.AssertClosed()
 }
 
-func (s *StateSuite) TestWatchOfferedApplicationsDiesOnStateClose(c *gc.C) {
+func (s *StateSuite) TestWatchRemoteRelationsDestroyRemoteApplication(c *gc.C) {
+	w := s.State.WatchRemoteRelations()
+	defer statetesting.AssertStop(c, w)
+	wc := statetesting.NewStringsWatcherC(c, s.State, w)
+
+	remoteApp, _, _ := s.setupWatchRemoteRelations(c, wc)
+
+	// Destroy the remote application.
+	// A single change should occur.
+	err := remoteApp.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChange("wordpress:db mysql:database")
+	wc.AssertNoChange()
+
+	// Stop watcher, check closed.
+	statetesting.AssertStop(c, w)
+	wc.AssertClosed()
+}
+
+func (s *StateSuite) TestWatchRemoteRelationsDestroyLocalApplication(c *gc.C) {
+	w := s.State.WatchRemoteRelations()
+	defer statetesting.AssertStop(c, w)
+	wc := statetesting.NewStringsWatcherC(c, s.State, w)
+
+	_, app, _ := s.setupWatchRemoteRelations(c, wc)
+
+	// Destroy the local application.
+	// A single change should occur.
+	err := app.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChange("wordpress:db mysql:database")
+	wc.AssertNoChange()
+
+	// Stop watcher, check closed.
+	statetesting.AssertStop(c, w)
+	wc.AssertClosed()
+}
+
+func (s *StateSuite) TestWatchRemoteRelationsDiesOnStateClose(c *gc.C) {
 	testWatcherDiesWhenStateCloses(c, s.modelTag, s.State.ControllerTag(), func(c *gc.C, st *state.State) waiter {
-		w := st.WatchOfferedApplications()
+		w := st.WatchRemoteRelations()
 		<-w.Changes()
 		return w
 	})

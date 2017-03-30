@@ -5,7 +5,6 @@ package all
 
 import (
 	"os"
-	"reflect"
 
 	jujucmd "github.com/juju/cmd"
 	"github.com/juju/errors"
@@ -13,18 +12,12 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/charmrevisionupdater"
-	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/common/apihttp"
 	"github.com/juju/juju/cmd/juju/charmcmd"
 	"github.com/juju/juju/cmd/juju/commands"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/resource"
-	"github.com/juju/juju/resource/api"
 	"github.com/juju/juju/resource/api/client"
-	privateapi "github.com/juju/juju/resource/api/private"
 	internalclient "github.com/juju/juju/resource/api/private/client"
-	internalserver "github.com/juju/juju/resource/api/private/server"
-	"github.com/juju/juju/resource/api/server"
 	"github.com/juju/juju/resource/cmd"
 	"github.com/juju/juju/resource/context"
 	contextcmd "github.com/juju/juju/resource/context/cmd"
@@ -43,7 +36,6 @@ type resources struct{}
 func (r resources) registerForServer() error {
 	r.registerState()
 	r.registerAgentWorkers()
-	r.registerPublicFacade()
 	r.registerHookContext()
 	return nil
 }
@@ -56,30 +48,6 @@ func (r resources) registerForClient() error {
 	// needed for help-tool
 	r.registerHookContextCommands()
 	return nil
-}
-
-// registerPublicFacade adds the resources public API facade
-// to the API server.
-func (r resources) registerPublicFacade() {
-	if !markRegistered(resource.ComponentName, "public-facade") {
-		return
-	}
-
-	// NOTE: facade is also defined in api/facadeversions.go.
-	common.RegisterStandardFacade(
-		resource.FacadeName,
-		server.Version,
-		resourceadapters.NewPublicFacade,
-	)
-
-	common.RegisterAPIModelEndpoint(api.HTTPEndpointPattern, apihttp.HandlerSpec{
-		Constraints: apihttp.HandlerConstraints{
-			AuthKinds:           []string{names.UserTagKind, names.MachineTagKind},
-			StrictValidation:    true,
-			ControllerModelOnly: false,
-		},
-		NewHandler: resourceadapters.NewApplicationHandler,
-	})
 }
 
 // resourcesAPIClient adds a Close() method to the resources public API client.
@@ -151,8 +119,6 @@ func (r resources) registerPublicCommands() {
 	})
 }
 
-// TODO(katco): This seems to be common across components. Pop up a
-// level and genericize?
 func (r resources) registerHookContext() {
 	if markRegistered(resource.ComponentName, "hook-context") == false {
 		return
@@ -172,8 +138,6 @@ func (r resources) registerHookContext() {
 	)
 
 	r.registerHookContextCommands()
-	r.registerHookContextFacade()
-	r.registerUnitDownloadEndpoint()
 }
 
 func (r resources) registerHookContextCommands() {
@@ -197,50 +161,9 @@ func (r resources) registerHookContextCommands() {
 	)
 }
 
-func (r resources) registerHookContextFacade() {
-	common.RegisterHookContextFacade(
-		context.HookContextFacade,
-		internalserver.FacadeVersion,
-		r.newHookContextFacade,
-		reflect.TypeOf(&internalserver.UnitFacade{}),
-	)
-
-}
-
-func (r resources) registerUnitDownloadEndpoint() {
-	common.RegisterAPIModelEndpoint(privateapi.HTTPEndpointPattern, apihttp.HandlerSpec{
-		Constraints: apihttp.HandlerConstraints{
-			AuthKinds:           []string{names.UnitTagKind},
-			StrictValidation:    true,
-			ControllerModelOnly: false,
-		},
-		NewHandler: resourceadapters.NewDownloadHandler,
-	})
-}
-
-// resourcesUnitDatastore is a shim to elide serviceName from
-// ListResources.
-type resourcesUnitDataStore struct {
-	resources corestate.Resources
-	unit      *corestate.Unit
-}
-
-// ListResources implements resource/api/private/server.UnitDataStore.
-func (ds *resourcesUnitDataStore) ListResources() (resource.ServiceResources, error) {
-	return ds.resources.ListResources(ds.unit.ApplicationName())
-}
-
-func (r resources) newHookContextFacade(st *corestate.State, unit *corestate.Unit) (interface{}, error) {
-	res, err := st.Resources()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return internalserver.NewUnitFacade(&resourcesUnitDataStore{res, unit}), nil
-}
-
 func (r resources) newUnitFacadeClient(unitName string, caller base.APICaller) (context.APIClient, error) {
 
-	facadeCaller := base.NewFacadeCallerForVersion(caller, context.HookContextFacade, internalserver.FacadeVersion)
+	facadeCaller := base.NewFacadeCallerForVersion(caller, context.HookContextFacade, 1)
 	httpClient, err := caller.HTTPClient()
 	if err != nil {
 		return nil, errors.Trace(err)

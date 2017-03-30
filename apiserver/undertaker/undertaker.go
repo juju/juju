@@ -14,10 +14,6 @@ import (
 	"github.com/juju/juju/state/watcher"
 )
 
-func init() {
-	common.RegisterStandardFacade("Undertaker", 1, NewUndertakerAPI)
-}
-
 // UndertakerAPI implements the API used by the model undertaker worker.
 type UndertakerAPI struct {
 	st        State
@@ -31,7 +27,7 @@ func NewUndertakerAPI(st *state.State, resources facade.Resources, authorizer fa
 }
 
 func newUndertakerAPI(st State, resources facade.Resources, authorizer facade.Authorizer) (*UndertakerAPI, error) {
-	if !authorizer.AuthMachineAgent() || !authorizer.AuthModelManager() {
+	if !authorizer.AuthMachineAgent() || !authorizer.AuthController() {
 		return nil, common.ErrPerm
 	}
 	model, err := st.Model()

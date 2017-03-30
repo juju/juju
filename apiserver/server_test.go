@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/gorilla/websocket"
 	"github.com/juju/loggo"
 	"github.com/juju/pubsub"
 	"github.com/juju/testing"
@@ -18,7 +19,6 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/cert"
 	"github.com/juju/utils/clock"
-	"golang.org/x/net/websocket"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon-bakery.v1/bakery"
@@ -268,22 +268,27 @@ func (s *serverSuite) assertAlive(c *gc.C, entity presence.Agent, expectAlive bo
 }
 
 func dialWebsocket(c *gc.C, addr, path string, tlsVersion uint16) (*websocket.Conn, error) {
-	origin := "http://localhost/"
 	url := fmt.Sprintf("wss://%s%s", addr, path)
-	config, err := websocket.NewConfig(url, origin)
-	c.Assert(err, jc.ErrorIsNil)
+	requestHeader := http.Header{"Origin": {"http://localhost/"}}
+
 	pool := x509.NewCertPool()
 	xcert, err := cert.ParseCert(coretesting.CACert)
 	c.Assert(err, jc.ErrorIsNil)
 	pool.AddCert(xcert)
-	config.TlsConfig = utils.SecureTLSConfig()
+	tlsConfig := utils.SecureTLSConfig()
 	if tlsVersion > 0 {
 		// This is for testing only. Please don't muck with the maxtlsversion in
 		// production.
-		config.TlsConfig.MaxVersion = tlsVersion
+		tlsConfig.MaxVersion = tlsVersion
 	}
-	config.TlsConfig.RootCAs = pool
-	return websocket.DialConfig(config)
+	tlsConfig.RootCAs = pool
+
+	dialer := &websocket.Dialer{
+		Proxy:           http.ProxyFromEnvironment,
+		TLSClientConfig: tlsConfig,
+	}
+	conn, _, err := dialer.Dial(url, requestHeader)
+	return conn, err
 }
 
 func (s *serverSuite) TestMinTLSVersion(c *gc.C) {
@@ -327,10 +332,10 @@ func (s *serverSuite) TestNonCompatiblePathsAre404(c *gc.C) {
 
 	// '/randompath' is not ok
 	conn, err = dialWebsocket(c, addr, "/randompath", 0)
-	// Unfortunately go.net/websocket just returns Bad Status, it doesn't
+	// Unfortunately gorilla/websocket just returns bad handshake, it doesn't
 	// give us any information (whether this was a 404 Not Found, Internal
 	// Server Error, 200 OK, etc.)
-	c.Assert(err, gc.ErrorMatches, `websocket.Dial wss://localhost:\d+/randompath: bad status`)
+	c.Assert(err, gc.ErrorMatches, `websocket: bad handshake`)
 	c.Assert(conn, gc.IsNil)
 }
 
@@ -455,9 +460,9 @@ func (s *serverSuite) bootstrapHasPermissionTest(c *gc.C) (*state.User, names.Co
 
 	ctag, err := names.ParseControllerTag("controller-" + s.State.ControllerUUID())
 	c.Assert(err, jc.ErrorIsNil)
-	cu, err := s.State.UserAccess(user, ctag)
+	access, err := s.State.UserPermission(user, ctag)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cu.Access, gc.Equals, permission.LoginAccess)
+	c.Assert(access, gc.Equals, permission.LoginAccess)
 	return u, ctag
 }
 

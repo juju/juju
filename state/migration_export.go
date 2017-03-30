@@ -7,13 +7,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/description"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/set"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2/bson"
 
-	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/payload"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/storage/poolmanager"
@@ -92,7 +92,9 @@ func (st *State) Export() (description.Model, error) {
 		return nil, errors.Trace(err)
 	}
 	export.model.SetConstraints(constraintsArgs)
-
+	if err := export.modelStatus(); err != nil {
+		return nil, errors.Trace(err)
+	}
 	if err := export.modelUsers(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -135,9 +137,16 @@ func (st *State) Export() (description.Model, error) {
 		return nil, errors.Trace(err)
 	}
 
+	if err := export.remoteApplications(); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	if err := export.model.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
+
+	export.model.SetSLA(dbModel.SLALevel(), string(dbModel.SLACredential()))
+	export.model.SetMeterStatus(dbModel.MeterStatus().Code.String(), dbModel.MeterStatus().Info)
 
 	export.logExtras()
 
@@ -193,6 +202,17 @@ func (e *exporter) readBlocks() (map[string]string, error) {
 		result[doc.Type.MigrationValue()] = doc.Message
 	}
 	return result, nil
+}
+
+func (e *exporter) modelStatus() error {
+	statusArgs, err := e.statusArgs(modelGlobalKey)
+	if err != nil {
+		return errors.Annotatef(err, "status for model")
+	}
+
+	e.model.SetStatus(statusArgs)
+	e.model.SetStatusHistory(e.statusHistoryArgs(modelGlobalKey))
+	return nil
 }
 
 func (e *exporter) modelUsers() error {
@@ -895,11 +915,12 @@ func (e *exporter) subnets() error {
 
 	for _, subnet := range subnets {
 		e.model.AddSubnet(description.SubnetArgs{
-			CIDR:             subnet.CIDR(),
-			ProviderId:       string(subnet.ProviderId()),
-			VLANTag:          subnet.VLANTag(),
-			AvailabilityZone: subnet.AvailabilityZone(),
-			SpaceName:        subnet.SpaceName(),
+			CIDR:              subnet.CIDR(),
+			ProviderId:        string(subnet.ProviderId()),
+			ProviderNetworkId: string(subnet.ProviderNetworkId()),
+			VLANTag:           subnet.VLANTag(),
+			AvailabilityZone:  subnet.AvailabilityZone(),
+			SpaceName:         subnet.SpaceName(),
 		})
 	}
 	return nil
@@ -1245,7 +1266,7 @@ func (e *exporter) statusArgs(globalKey string) (description.StatusArgs, error) 
 func (e *exporter) statusHistoryArgs(globalKey string) []description.StatusArgs {
 	history := e.statusHistory[globalKey]
 	result := make([]description.StatusArgs, len(history))
-	e.logger.Debugf("found %d status history docs for %s", len(history), globalKey)
+	e.logger.Tracef("found %d status history docs for %s", len(history), globalKey)
 	for i, doc := range history {
 		result[i] = description.StatusArgs{
 			Value:   string(doc.Status),
@@ -1262,7 +1283,7 @@ func (e *exporter) constraintsArgs(globalKey string) (description.ConstraintsArg
 	doc, found := e.constraints[globalKey]
 	if !found {
 		// No constraints for this key.
-		e.logger.Debugf("no constraints found for key %q", globalKey)
+		e.logger.Tracef("no constraints found for key %q", globalKey)
 		return description.ConstraintsArgs{}, nil
 	}
 	// We capture any type error using a closure to avoid having to return
@@ -1330,6 +1351,47 @@ func (e *exporter) logExtras() {
 	}
 }
 
+func (e *exporter) remoteApplications() error {
+	remoteApps, err := e.st.AllRemoteApplications()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	e.logger.Debugf("read %d remote applications", len(remoteApps))
+	for _, remoteApp := range remoteApps {
+		err := e.addRemoteApplication(remoteApp)
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return nil
+}
+
+func (e *exporter) addRemoteApplication(app *RemoteApplication) error {
+	url, _ := app.URL()
+	args := description.RemoteApplicationArgs{
+		Tag:             app.Tag().(names.ApplicationTag),
+		OfferName:       app.OfferName(),
+		URL:             url,
+		SourceModel:     app.SourceModel(),
+		IsConsumerProxy: app.IsConsumerProxy(),
+	}
+	descApp := e.model.AddRemoteApplication(args)
+	endpoints, err := app.Endpoints()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	for _, ep := range endpoints {
+		descApp.AddEndpoint(description.RemoteEndpointArgs{
+			Name:      ep.Name,
+			Role:      string(ep.Role),
+			Interface: ep.Interface,
+			Limit:     ep.Limit,
+			Scope:     string(ep.Scope),
+		})
+	}
+	return nil
+}
+
 func (e *exporter) storage() error {
 	if err := e.volumes(); err != nil {
 		return errors.Trace(err)
@@ -1372,8 +1434,7 @@ func (e *exporter) volumes() error {
 
 func (e *exporter) addVolume(vol *volume, volAttachments []volumeAttachmentDoc) error {
 	args := description.VolumeArgs{
-		Tag:     vol.VolumeTag(),
-		Binding: vol.LifeBinding(),
+		Tag: vol.VolumeTag(),
 	}
 	if tag, err := vol.StorageInstance(); err == nil {
 		// only returns an error when no storage tag.
@@ -1489,7 +1550,6 @@ func (e *exporter) addFilesystem(fs *filesystem, fsAttachments []filesystemAttac
 		Tag:     fs.FilesystemTag(),
 		Storage: storage,
 		Volume:  volume,
-		Binding: fs.LifeBinding(),
 	}
 	logger.Debugf("addFilesystem: %#v", fs.doc)
 	if info, err := fs.Info(); err == nil {
@@ -1585,10 +1645,14 @@ func (e *exporter) storageInstances() error {
 }
 
 func (e *exporter) addStorage(instance *storageInstance, attachments []names.UnitTag) error {
+	owner, ok := instance.Owner()
+	if !ok {
+		owner = nil
+	}
 	args := description.StorageArgs{
 		Tag:         instance.StorageTag(),
 		Kind:        instance.Kind().String(),
-		Owner:       instance.Owner(),
+		Owner:       owner,
 		Name:        instance.StorageName(),
 		Attachments: attachments,
 	}

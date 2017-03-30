@@ -1041,7 +1041,50 @@ func (s *localServerSuite) TestGetToolsMetadataSources(c *gc.C) {
 func (s *localServerSuite) TestSupportsNetworking(c *gc.C) {
 	env := s.Open(c, s.env.Config())
 	_, ok := environs.SupportsNetworking(env)
-	c.Assert(ok, jc.IsFalse)
+	c.Assert(ok, jc.IsTrue)
+}
+
+func (s *localServerSuite) prepareNetworkingEnviron(c *gc.C) environs.NetworkingEnviron {
+	env := s.Open(c, s.env.Config())
+	netenv, supported := environs.SupportsNetworking(env)
+	c.Assert(supported, jc.IsTrue)
+	return netenv
+}
+
+func (s *localServerSuite) TestSubnetsFindAll(c *gc.C) {
+	env := s.prepareNetworkingEnviron(c)
+	obtainedSubnets, err := env.Subnets(instance.Id(""), []network.Id{})
+	c.Assert(err, jc.ErrorIsNil)
+	neutronClient := openstack.GetNeutronClient(s.env)
+	openstackSubnets, err := neutronClient.ListSubnetsV2()
+	c.Assert(err, jc.ErrorIsNil)
+
+	obtainedSubnetMap := make(map[network.Id]network.SubnetInfo)
+	for _, sub := range obtainedSubnets {
+		obtainedSubnetMap[sub.ProviderId] = sub
+	}
+
+	expectedSubnetMap := make(map[network.Id]network.SubnetInfo)
+	for _, os := range openstackSubnets {
+		net, err := neutronClient.GetNetworkV2(os.NetworkId)
+		c.Assert(err, jc.ErrorIsNil)
+		expectedSubnetMap[network.Id(os.Id)] = network.SubnetInfo{
+			CIDR:              os.Cidr,
+			ProviderId:        network.Id(os.Id),
+			VLANTag:           0,
+			AvailabilityZones: net.AvailabilityZones,
+			SpaceProviderId:   "",
+		}
+	}
+
+	c.Check(obtainedSubnetMap, jc.DeepEquals, expectedSubnetMap)
+}
+
+func (s *localServerSuite) TestSubnetsWithMissingSubnet(c *gc.C) {
+	env := s.prepareNetworkingEnviron(c)
+	subnets, err := env.Subnets(instance.Id(""), []network.Id{"missing"})
+	c.Assert(err, gc.ErrorMatches, `failed to find the following subnet ids: \[missing\]`)
+	c.Assert(subnets, gc.HasLen, 0)
 }
 
 func (s *localServerSuite) TestFindImageBadDefaultImage(c *gc.C) {
@@ -1239,6 +1282,30 @@ func (s *localServerSuite) TestImageMetadataSourceOrder(c *gc.C) {
 		"image-metadata-url", "my datasource", "keystone catalog", "default cloud images", "default ubuntu cloud images"})
 }
 
+// To compare found and expected SecurityGroupRules, convert the rules to RuleInfo, minus
+// details we can't predict such as id.
+func ruleToRuleInfo(rules []neutron.SecurityGroupRuleV2) []neutron.RuleInfoV2 {
+	ruleInfo := make([]neutron.RuleInfoV2, 0, len(rules))
+	for _, r := range rules {
+		ri := neutron.RuleInfoV2{
+			Direction:      r.Direction,
+			EthernetType:   r.EthernetType,
+			RemoteIPPrefix: r.RemoteIPPrefix,
+		}
+		if r.IPProtocol != nil {
+			ri.IPProtocol = *r.IPProtocol
+		}
+		if r.PortRangeMax != nil {
+			ri.PortRangeMax = *r.PortRangeMax
+		}
+		if r.PortRangeMin != nil {
+			ri.PortRangeMin = *r.PortRangeMin
+		}
+		ruleInfo = append(ruleInfo, ri)
+	}
+	return ruleInfo
+}
+
 // TestEnsureGroup checks that when creating a duplicate security group, the existing group is
 // returned and the existing rules have been left as is.
 func (s *localServerSuite) TestEnsureGroup(c *gc.C) {
@@ -1248,35 +1315,64 @@ func (s *localServerSuite) TestEnsureGroup(c *gc.C) {
 			IPProtocol:   "tcp",
 			PortRangeMin: 22,
 			PortRangeMax: 22,
+			EthernetType: "IPv4",
 		},
-	}
-
-	assertRule := func(group neutron.SecurityGroupV2) {
-		c.Check(len(group.Rules), gc.Equals, 3)
-		for _, r := range group.Rules {
-			// Ignore the 2 default egress rules for each new
-			// security group created by Neutron
-			if r.Direction == "egress" {
-				continue
-			}
-			c.Check(r.Direction, gc.Equals, "ingress")
-			c.Check(*r.IPProtocol, gc.Equals, "tcp")
-			c.Check(*r.PortRangeMin, gc.Equals, 22)
-			c.Check(*r.PortRangeMax, gc.Equals, 22)
-		}
 	}
 
 	group, err := openstack.EnsureGroup(s.env, "test group", rule)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(group.Name, gc.Equals, "test group")
-	assertRule(group)
+
+	// Rules created by Neutron when a new Security Group is created
+	defaultRules := []neutron.RuleInfoV2{
+		{
+			Direction:    "egress",
+			EthernetType: "IPv4",
+		},
+		{
+			Direction:    "egress",
+			EthernetType: "IPv6",
+		},
+	}
+	expectedRules := append(defaultRules, rule[0])
+	obtainedRules := ruleToRuleInfo(group.Rules)
+	c.Check(obtainedRules, jc.SameContents, expectedRules)
 	id := group.Id
-	// Do it again and check that the existing group is returned.
+
+	// Do it again and check that the existing group is returned
+	// and updated.
+	rules := []neutron.RuleInfoV2{
+		{
+			Direction:    "ingress",
+			IPProtocol:   "tcp",
+			PortRangeMin: 22,
+			PortRangeMax: 22,
+			EthernetType: "IPv4",
+		},
+		{
+			Direction:    "ingress",
+			IPProtocol:   "icmp",
+			EthernetType: "IPv6",
+		},
+	}
+	group, err = openstack.EnsureGroup(s.env, "test group", rules)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(group.Id, gc.Equals, id)
+	c.Assert(group.Name, gc.Equals, "test group")
+	c.Check(len(group.Rules), gc.Equals, 4)
+	expectedRules = append(defaultRules, rules...)
+	obtainedRulesSecondTime := ruleToRuleInfo(group.Rules)
+	c.Check(obtainedRulesSecondTime, jc.SameContents, expectedRules)
+
+	// 3rd time with same name, should be back to the orginal now
 	group, err = openstack.EnsureGroup(s.env, "test group", rule)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(group.Id, gc.Equals, id)
 	c.Assert(group.Name, gc.Equals, "test group")
-	assertRule(group)
+	expectedRules = append(defaultRules, rule[0])
+	obtainedRulesThirdTime := ruleToRuleInfo(group.Rules)
+	c.Check(obtainedRulesThirdTime, jc.SameContents, expectedRules)
+	c.Check(obtainedRulesThirdTime, jc.SameContents, obtainedRules)
 }
 
 // localHTTPSServerSuite contains tests that run against an Openstack service

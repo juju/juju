@@ -9,10 +9,10 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"github.com/juju/juju/cmd/modelcmd"
+	api "github.com/juju/romulus/api/budget"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 
-	api "github.com/juju/romulus/api/budget"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 type setBudgetCommand struct {

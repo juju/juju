@@ -4,10 +4,11 @@
 package imagemetadata
 
 import (
+	names "gopkg.in/juju/names.v2"
+
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/cloudimagemetadata"
-	names "gopkg.in/juju/names.v2"
 )
 
 type metadataAcess interface {

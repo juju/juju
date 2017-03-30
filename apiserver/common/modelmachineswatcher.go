@@ -36,7 +36,7 @@ func NewModelMachinesWatcher(st state.ModelMachinesWatcher, resources facade.Res
 // model.
 func (e *ModelMachinesWatcher) WatchModelMachines() (params.StringsWatchResult, error) {
 	result := params.StringsWatchResult{}
-	if !e.authorizer.AuthModelManager() {
+	if !e.authorizer.AuthController() {
 		return result, ErrPerm
 	}
 	watch := e.st.WatchModelMachines()

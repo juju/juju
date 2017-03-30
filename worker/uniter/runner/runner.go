@@ -17,12 +17,12 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils/clock"
 	utilexec "github.com/juju/utils/exec"
+	jujuos "github.com/juju/utils/os"
 
 	"github.com/juju/juju/core/actions"
 	"github.com/juju/juju/worker/uniter/runner/context"
 	"github.com/juju/juju/worker/uniter/runner/debug"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
-	jujuos "github.com/juju/utils/os"
 )
 
 var logger = loggo.GetLogger("juju.worker.uniter.runner")

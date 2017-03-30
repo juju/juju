@@ -5,16 +5,17 @@ package migrationmaster
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/version"
+	"gopkg.in/juju/names.v2"
+
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/migration"
 	"github.com/juju/juju/state"
-	"github.com/juju/version"
-	"gopkg.in/juju/names.v2"
 )
 
-// newAPIForRegistration exists to provide the required signature for
-// RegisterStandardFacade, converting st to backend.
-func newAPIForRegistration(
+// NewFacade exists to provide the required signature for API
+// registration, converting st to backend.
+func NewFacade(
 	st *state.State,
 	resources facade.Resources,
 	authorizer facade.Authorizer,

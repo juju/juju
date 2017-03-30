@@ -49,6 +49,7 @@ func NewAPI(
 		authorizer:  authorizer,
 	}, nil
 }
+
 func (api *API) checkCanRead() error {
 	canRead, err := api.authorizer.HasPermission(permission.ReadAccess, api.storage.ModelTag())
 	if err != nil {
@@ -186,19 +187,26 @@ func createStorageDetails(st storageAccess, si state.StorageInstance) (*params.S
 				return nil, errors.Trace(err)
 			}
 			details := params.StorageAttachmentDetails{
-				a.StorageInstance().String(),
-				a.Unit().String(),
-				machineTag.String(),
-				location,
+				StorageTag: a.StorageInstance().String(),
+				UnitTag:    a.Unit().String(),
+				MachineTag: machineTag.String(),
+				Location:   location,
+				Life:       params.Life(a.Life().String()),
 			}
 			storageAttachmentDetails[a.Unit().String()] = details
 		}
 	}
 
+	var ownerTag string
+	if owner, ok := si.Owner(); ok {
+		ownerTag = owner.String()
+	}
+
 	return &params.StorageDetails{
 		StorageTag:  si.Tag().String(),
-		OwnerTag:    si.Owner().String(),
+		OwnerTag:    ownerTag,
 		Kind:        params.StorageKind(si.Kind()),
+		Life:        params.Life(si.Life().String()),
 		Status:      common.EntityStatusFromState(status),
 		Persistent:  persistent,
 		Attachments: storageAttachmentDetails,
@@ -472,6 +480,7 @@ func createVolumeDetails(
 
 	details := &params.VolumeDetails{
 		VolumeTag: v.VolumeTag().String(),
+		Life:      params.Life(v.Life().String()),
 	}
 
 	if info, err := v.Info(); err == nil {
@@ -479,14 +488,17 @@ func createVolumeDetails(
 	}
 
 	if len(attachments) > 0 {
-		details.MachineAttachments = make(map[string]params.VolumeAttachmentInfo, len(attachments))
+		details.MachineAttachments = make(map[string]params.VolumeAttachmentDetails, len(attachments))
 		for _, attachment := range attachments {
-			stateInfo, err := attachment.Info()
-			var info params.VolumeAttachmentInfo
-			if err == nil {
-				info = storagecommon.VolumeAttachmentInfoFromState(stateInfo)
+			attDetails := params.VolumeAttachmentDetails{
+				Life: params.Life(attachment.Life().String()),
 			}
-			details.MachineAttachments[attachment.Machine().String()] = info
+			if stateInfo, err := attachment.Info(); err == nil {
+				attDetails.VolumeAttachmentInfo = storagecommon.VolumeAttachmentInfoFromState(
+					stateInfo,
+				)
+			}
+			details.MachineAttachments[attachment.Machine().String()] = attDetails
 		}
 	}
 
@@ -620,6 +632,7 @@ func createFilesystemDetails(
 
 	details := &params.FilesystemDetails{
 		FilesystemTag: f.FilesystemTag().String(),
+		Life:          params.Life(f.Life().String()),
 	}
 
 	if volumeTag, err := f.Volume(); err == nil {
@@ -631,14 +644,17 @@ func createFilesystemDetails(
 	}
 
 	if len(attachments) > 0 {
-		details.MachineAttachments = make(map[string]params.FilesystemAttachmentInfo, len(attachments))
+		details.MachineAttachments = make(map[string]params.FilesystemAttachmentDetails, len(attachments))
 		for _, attachment := range attachments {
-			stateInfo, err := attachment.Info()
-			var info params.FilesystemAttachmentInfo
-			if err == nil {
-				info = storagecommon.FilesystemAttachmentInfoFromState(stateInfo)
+			attDetails := params.FilesystemAttachmentDetails{
+				Life: params.Life(attachment.Life().String()),
 			}
-			details.MachineAttachments[attachment.Machine().String()] = info
+			if stateInfo, err := attachment.Info(); err == nil {
+				attDetails.FilesystemAttachmentInfo = storagecommon.FilesystemAttachmentInfoFromState(
+					stateInfo,
+				)
+			}
+			details.MachineAttachments[attachment.Machine().String()] = attDetails
 		}
 	}
 
@@ -708,4 +724,137 @@ func (a *API) AddToUnit(args params.StoragesAddParams) (params.ErrorResults, err
 		}
 	}
 	return params.ErrorResults{Results: result}, nil
+}
+
+// Destroy sets the specified storage entities to Dying, unless they are
+// already Dying or Dead.
+func (a *API) Destroy(args params.Entities) (params.ErrorResults, error) {
+	if err := a.checkCanWrite(); err != nil {
+		return params.ErrorResults{}, errors.Trace(err)
+	}
+
+	blockChecker := common.NewBlockChecker(a.storage)
+	if err := blockChecker.RemoveAllowed(); err != nil {
+		return params.ErrorResults{}, errors.Trace(err)
+	}
+
+	result := make([]params.ErrorResult, len(args.Entities))
+	for i, one := range args.Entities {
+		tag, err := names.ParseTag(one.Tag)
+		if err != nil {
+			result[i].Error = common.ServerError(err)
+			continue
+		}
+
+		switch tag := tag.(type) {
+		case names.StorageTag:
+			err = a.storage.DestroyStorageInstance(tag)
+		default:
+			err = errors.NotValidf("tag kind %q", tag.Kind())
+		}
+		result[i].Error = common.ServerError(err)
+	}
+	return params.ErrorResults{result}, nil
+}
+
+// Detach sets the specified storage attachments to Dying, unless they are
+// already Dying or Dead. Any associated, persistent storage will remain
+// alive.
+func (a *API) Detach(args params.StorageAttachmentIds) (params.ErrorResults, error) {
+	if err := a.checkCanWrite(); err != nil {
+		return params.ErrorResults{}, errors.Trace(err)
+	}
+
+	blockChecker := common.NewBlockChecker(a.storage)
+	if err := blockChecker.ChangeAllowed(); err != nil {
+		return params.ErrorResults{}, errors.Trace(err)
+	}
+
+	detachOne := func(arg params.StorageAttachmentId) error {
+		storageTag, err := names.ParseStorageTag(arg.StorageTag)
+		if err != nil {
+			return err
+		}
+		var unitTag names.UnitTag
+		if arg.UnitTag != "" {
+			var err error
+			unitTag, err = names.ParseUnitTag(arg.UnitTag)
+			if err != nil {
+				return err
+			}
+		}
+		return a.detachStorage(storageTag, unitTag)
+	}
+
+	result := make([]params.ErrorResult, len(args.Ids))
+	for i, arg := range args.Ids {
+		result[i].Error = common.ServerError(detachOne(arg))
+	}
+	return params.ErrorResults{result}, nil
+}
+
+func (api *API) detachStorage(storageTag names.StorageTag, unitTag names.UnitTag) error {
+	if unitTag != (names.UnitTag{}) {
+		// The caller has specified a unit explicitly. Do
+		// not filter out "not found" errors in this case.
+		return api.storage.DetachStorage(storageTag, unitTag)
+	}
+	attachments, err := api.storage.StorageAttachments(storageTag)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if len(attachments) == 0 {
+		// No attachments: check if the storage exists at all.
+		if _, err := api.storage.StorageInstance(storageTag); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	for _, a := range attachments {
+		if a.Life() != state.Alive {
+			continue
+		}
+		err := api.storage.DetachStorage(storageTag, a.Unit())
+		if err != nil && !errors.IsNotFound(err) {
+			// We only care about NotFound errors if
+			// the user specified a unit explicitly.
+			return errors.Trace(err)
+		}
+	}
+	return nil
+}
+
+// Attach attaches existing storage instances to units.
+// A "CHANGE" block can block this operation.
+func (a *API) Attach(args params.StorageAttachmentIds) (params.ErrorResults, error) {
+	if err := a.checkCanWrite(); err != nil {
+		return params.ErrorResults{}, errors.Trace(err)
+	}
+
+	blockChecker := common.NewBlockChecker(a.storage)
+	if err := blockChecker.ChangeAllowed(); err != nil {
+		return params.ErrorResults{}, errors.Trace(err)
+	}
+
+	attachOne := func(arg params.StorageAttachmentId) error {
+		storageTag, err := names.ParseStorageTag(arg.StorageTag)
+		if err != nil {
+			return err
+		}
+		unitTag, err := names.ParseUnitTag(arg.UnitTag)
+		if err != nil {
+			return err
+		}
+		return a.attachStorage(storageTag, unitTag)
+	}
+
+	result := make([]params.ErrorResult, len(args.Ids))
+	for i, arg := range args.Ids {
+		result[i].Error = common.ServerError(attachOne(arg))
+	}
+	return params.ErrorResults{Results: result}, errors.NotImplementedf("attaching storage")
+}
+
+func (a *API) attachStorage(storageTag names.StorageTag, unitTag names.UnitTag) error {
+	// TODO(axw)
+	return nil
 }

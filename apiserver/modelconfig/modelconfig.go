@@ -14,11 +14,8 @@ import (
 	"github.com/juju/juju/state"
 )
 
-func init() {
-	common.RegisterStandardFacade("ModelConfig", 1, newFacade)
-}
-
-func newFacade(st *state.State, _ facade.Resources, auth facade.Authorizer) (*ModelConfigAPI, error) {
+// NewFacade is used for API registration.
+func NewFacade(st *state.State, _ facade.Resources, auth facade.Authorizer) (*ModelConfigAPI, error) {
 	return NewModelConfigAPI(NewStateBackend(st), auth)
 }
 
@@ -128,4 +125,24 @@ func (c *ModelConfigAPI) ModelUnset(args params.ModelUnset) error {
 		return errors.Trace(err)
 	}
 	return c.backend.UpdateModelConfig(nil, args.Keys, nil)
+}
+
+// SetSLALevel sets the sla level on the model.
+func (c *ModelConfigAPI) SetSLALevel(args params.ModelSLA) error {
+	if err := c.checkCanWrite(); err != nil {
+		return err
+	}
+	return c.backend.SetSLA(args.Level, args.Credentials)
+
+}
+
+// SLALevel returns the current sla level for the model.
+func (c *ModelConfigAPI) SLALevel() (params.StringResult, error) {
+	result := params.StringResult{}
+	level, err := c.backend.SLALevel()
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+	result.Result = level
+	return result, nil
 }

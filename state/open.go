@@ -5,12 +5,14 @@ package state
 
 import (
 	"fmt"
+	"runtime/pprof"
 	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/utils"
 	"github.com/juju/utils/clock"
 	"gopkg.in/juju/names.v2"
+	worker "gopkg.in/juju/worker.v1"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/txn"
 
@@ -23,8 +25,10 @@ import (
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
-	"github.com/juju/juju/worker"
 )
+
+// Register the state tracker as a new profile.
+var profileTracker = pprof.NewProfile("juju/state/tracker")
 
 // OpenParams contains the parameters for opening the state database.
 type OpenParams struct {
@@ -271,7 +275,7 @@ func Initialize(args InitializeParams) (_ *State, err error) {
 
 	logger.Infof("initializing controller model %s", modelTag.Id())
 
-	modelOps, err := st.modelSetupOps(
+	modelOps, modelStatusDoc, err := st.modelSetupOps(
 		args.ControllerConfig.ControllerUUID(),
 		args.ControllerModelArgs,
 		&lineage{
@@ -346,6 +350,7 @@ func Initialize(args InitializeParams) (_ *State, err error) {
 	if err := st.start(controllerTag); err != nil {
 		return nil, errors.Trace(err)
 	}
+	probablyUpdateStatusHistory(st, modelGlobalKey, modelStatusDoc)
 	return st, nil
 }
 
@@ -357,19 +362,20 @@ type lineage struct {
 }
 
 // modelSetupOps returns the transactions necessary to set up a model.
-func (st *State) modelSetupOps(controllerUUID string, args ModelArgs, inherited *lineage) ([]txn.Op, error) {
+func (st *State) modelSetupOps(controllerUUID string, args ModelArgs, inherited *lineage) ([]txn.Op, statusDoc, error) {
+	var modelStatusDoc statusDoc
 	if inherited != nil {
 		if err := checkControllerInheritedConfig(inherited.ControllerConfig); err != nil {
-			return nil, errors.Trace(err)
+			return nil, modelStatusDoc, errors.Trace(err)
 		}
 	}
 	if err := checkModelConfig(args.Config); err != nil {
-		return nil, errors.Trace(err)
+		return nil, modelStatusDoc, errors.Trace(err)
 	}
 
 	controllerModelUUID := st.controllerModelTag.Id()
 	modelUUID := args.Config.UUID()
-	modelStatusDoc := statusDoc{
+	modelStatusDoc = statusDoc{
 		ModelUUID: modelUUID,
 		Updated:   st.clock.Now().UnixNano(),
 		Status:    status.Available,
@@ -390,7 +396,7 @@ func (st *State) modelSetupOps(controllerUUID string, args ModelArgs, inherited 
 	// Create the default storage pools for the model.
 	defaultStoragePoolsOps, err := st.createDefaultStoragePoolsOps(args.StorageProviderRegistry)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, modelStatusDoc, errors.Trace(err)
 	}
 	ops = append(ops, defaultStoragePoolsOps...)
 
@@ -424,7 +430,7 @@ func (st *State) modelSetupOps(controllerUUID string, args ModelArgs, inherited 
 	}
 	modelCfg, err := composeModelConfigAttributes(args.Config.AllAttrs(), configSources...)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, modelStatusDoc, errors.Trace(err)
 	}
 	// Some values require marshalling before storage.
 	modelCfg = config.CoerceForStorage(modelCfg)
@@ -441,7 +447,7 @@ func (st *State) modelSetupOps(controllerUUID string, args ModelArgs, inherited 
 		createUniqueOwnerModelNameOp(args.Owner, args.Config.Name()),
 	)
 	ops = append(ops, modelUserOps...)
-	return ops, nil
+	return ops, modelStatusDoc, nil
 }
 
 func (st *State) createDefaultStoragePoolsOps(registry storage.ProviderRegistry) ([]txn.Op, error) {
@@ -549,7 +555,7 @@ func newState(
 		st.policy = newPolicy(st)
 	}
 	// Record this State instance with the global tracker.
-	GlobalTracker.Add(st)
+	profileTracker.Add(st, 1)
 	return st, nil
 }
 
@@ -567,36 +573,14 @@ func (st *State) CACert() string {
 func (st *State) Close() (err error) {
 	defer errors.DeferredAnnotatef(&err, "closing state failed")
 
-	var errs []error
-	handle := func(name string, err error) {
-		if err != nil {
-			errs = append(errs, errors.Annotatef(err, "error stopping %s", name))
-		}
-	}
 	if st.workers != nil {
-		handle("standard workers", worker.Stop(st.workers))
-	}
-
-	st.mu.Lock()
-	if st.allManager != nil {
-		handle("allwatcher manager", st.allManager.Stop())
-	}
-	if st.allModelManager != nil {
-		handle("allModelWatcher manager", st.allModelManager.Stop())
-	}
-	if st.allModelWatcherBacking != nil {
-		handle("allModelWatcher backing", st.allModelWatcherBacking.Release())
+		if err := worker.Stop(st.workers); err != nil {
+			return errors.Annotatef(err, "failed to stop workers")
+		}
 	}
 	st.session.Close()
-	st.mu.Unlock()
-
-	if len(errs) > 0 {
-		for _, err := range errs[1:] {
-			logger.Errorf("while closing state: %v", err)
-		}
-		return errs[0]
-	}
 	logger.Debugf("closed state without error")
-	GlobalTracker.RecordClosed(st)
+	// Remove the reference.
+	profileTracker.Remove(st)
 	return nil
 }

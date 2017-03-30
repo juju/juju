@@ -7,61 +7,139 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/utils/clock"
+	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/state/presence"
 	"github.com/juju/juju/state/watcher"
-	"github.com/juju/juju/state/workers"
 	"github.com/juju/juju/worker/lease"
 )
 
-type workersFactory struct {
-	st    *State
-	clock clock.Clock
+const (
+	txnLogWorker          = "txnlog"
+	presenceWorker        = "presence"
+	leadershipWorker      = "leadership"
+	singularWorker        = "singular"
+	allManagerWorker      = "allmanager"
+	allModelManagerWorker = "allmodelmanager"
+)
+
+// workers runs the workers that a State instance requires.
+// It wraps a Runner instance which restarts any of the
+// workers when they fail.
+type workers struct {
+	state *State
+	*worker.Runner
 }
 
-func (wf workersFactory) NewTxnLogWorker() (workers.TxnLogWorker, error) {
-	coll := wf.st.getTxnLogCollection()
-	worker := watcher.New(coll)
-	return worker, nil
-}
-
-func (wf workersFactory) NewPresenceWorker() (workers.PresenceWorker, error) {
-	coll := wf.st.getPresenceCollection()
-	worker := presence.NewWatcher(coll, wf.st.ModelTag())
-	return worker, nil
-}
-
-func (wf workersFactory) NewLeadershipWorker() (workers.LeaseWorker, error) {
-	client, err := wf.st.getLeadershipLeaseClient()
-	if err != nil {
-		return nil, errors.Trace(err)
+func newWorkers(st *State) (*workers, error) {
+	ws := &workers{
+		state: st,
+		Runner: worker.NewRunner(worker.RunnerParams{
+			// TODO add a Logger parameter to RunnerParams:
+			// Logger: loggo.GetLogger(logger.Name() + ".workers"),
+			IsFatal:      func(error) bool { return false },
+			RestartDelay: time.Second,
+			Clock:        st.clock,
+		}),
 	}
-	manager, err := lease.NewManager(lease.ManagerConfig{
-		Secretary: leadershipSecretary{},
-		Client:    client,
-		Clock:     wf.clock,
-		MaxSleep:  time.Minute,
+	ws.StartWorker(txnLogWorker, func() (worker.Worker, error) {
+		return watcher.New(st.getTxnLogCollection()), nil
 	})
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return manager, nil
+	ws.StartWorker(presenceWorker, func() (worker.Worker, error) {
+		return presence.NewWatcher(st.getPresenceCollection(), st.ModelTag()), nil
+	})
+	ws.StartWorker(leadershipWorker, func() (worker.Worker, error) {
+		client, err := st.getLeadershipLeaseClient()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		manager, err := lease.NewManager(lease.ManagerConfig{
+			Secretary: leadershipSecretary{},
+			Client:    client,
+			Clock:     ws.state.clock,
+			MaxSleep:  time.Minute,
+		})
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return manager, nil
+	})
+	ws.StartWorker(singularWorker, func() (worker.Worker, error) {
+		client, err := ws.state.getSingularLeaseClient()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		manager, err := lease.NewManager(lease.ManagerConfig{
+			Secretary: singularSecretary{st.ModelUUID()},
+			Client:    client,
+			Clock:     st.clock,
+			MaxSleep:  time.Minute,
+		})
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return manager, nil
+	})
+	return ws, nil
 }
 
-func (wf workersFactory) NewSingularWorker() (workers.LeaseWorker, error) {
-	client, err := wf.st.getSingularLeaseClient()
+func (ws *workers) txnLogWatcher() *watcher.Watcher {
+	w, err := ws.Worker(txnLogWorker, nil)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return watcher.NewDead(errors.Trace(err))
 	}
-	manager, err := lease.NewManager(lease.ManagerConfig{
-		Secretary: singularSecretary{wf.st.ModelUUID()},
-		Client:    client,
-		Clock:     wf.clock,
-		MaxSleep:  time.Minute,
+	return w.(*watcher.Watcher)
+}
+
+func (ws *workers) presenceWatcher() *presence.Watcher {
+	w, err := ws.Worker(presenceWorker, nil)
+	if err != nil {
+		return presence.NewDeadWatcher(errors.Trace(err))
+	}
+	return w.(*presence.Watcher)
+}
+
+func (ws *workers) leadershipManager() *lease.Manager {
+	w, err := ws.Worker(leadershipWorker, nil)
+	if err != nil {
+		return lease.NewDeadManager(errors.Trace(err))
+	}
+	return w.(*lease.Manager)
+}
+
+func (ws *workers) singularManager() *lease.Manager {
+	w, err := ws.Worker(singularWorker, nil)
+	if err != nil {
+		return lease.NewDeadManager(errors.Trace(err))
+	}
+	return w.(*lease.Manager)
+}
+
+func (ws *workers) allManager() *storeManager {
+	w, err := ws.Worker(allManagerWorker, nil)
+	if err == nil {
+		return w.(*storeManager)
+	}
+	if errors.Cause(err) != worker.ErrNotFound {
+		return newDeadStoreManager(errors.Trace(err))
+	}
+	// Note that StartWorker is idempotent if there's a race.
+	ws.StartWorker(allManagerWorker, func() (worker.Worker, error) {
+		return newStoreManager(newAllWatcherStateBacking(ws.state)), nil
 	})
-	if err != nil {
-		return nil, errors.Trace(err)
+	return ws.allManager()
+}
+
+func (ws *workers) allModelManager(pool *StatePool) *storeManager {
+	w, err := ws.Worker(allModelManagerWorker, nil)
+	if err == nil {
+		return w.(*storeManager)
 	}
-	return manager, nil
+	if errors.Cause(err) != worker.ErrNotFound {
+		return newDeadStoreManager(errors.Trace(err))
+	}
+	ws.StartWorker(allModelManagerWorker, func() (worker.Worker, error) {
+		return newStoreManager(NewAllModelWatcherStateBacking(ws.state, pool)), nil
+	})
+	return ws.allModelManager(pool)
 }

@@ -26,7 +26,7 @@ func (s *bundleSuite) SetUpTest(c *gc.C) {
 	auth := apiservertesting.FakeAuthorizer{
 		Tag: names.NewUserTag("who"),
 	}
-	facade, err := bundle.NewFacade(auth)
+	facade, err := bundle.NewBundle(auth)
 	c.Assert(err, jc.ErrorIsNil)
 	s.facade = facade
 }

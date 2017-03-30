@@ -99,15 +99,19 @@ type InstanceSummary struct {
 	Metadata map[string]string
 	// Addresses are the IP Addresses associated with the instance.
 	Addresses []network.Address
+	// NetworkInterfaces are the network connections associated with
+	// the instance.
+	NetworkInterfaces []*compute.NetworkInterface
 }
 
 func newInstanceSummary(raw *compute.Instance) InstanceSummary {
 	return InstanceSummary{
-		ID:        raw.Name,
-		ZoneName:  path.Base(raw.Zone),
-		Status:    raw.Status,
-		Metadata:  unpackMetadata(raw.Metadata),
-		Addresses: extractAddresses(raw.NetworkInterfaces...),
+		ID:                raw.Name,
+		ZoneName:          path.Base(raw.Zone),
+		Status:            raw.Status,
+		Metadata:          unpackMetadata(raw.Metadata),
+		Addresses:         extractAddresses(raw.NetworkInterfaces...),
+		NetworkInterfaces: raw.NetworkInterfaces,
 	}
 }
 
@@ -175,14 +179,28 @@ func (gi Instance) Metadata() map[string]string {
 	return gi.InstanceSummary.Metadata
 }
 
+// NetworkInterfaces returns the details of the network connection for
+// this instance.
+func (gi Instance) NetworkInterfaces() []compute.NetworkInterface {
+	var results []compute.NetworkInterface
+	// Copy to prevent callers from mutating the source data.
+	for _, iface := range gi.InstanceSummary.NetworkInterfaces {
+		results = append(results, *iface)
+	}
+	return results
+}
+
 // packMetadata composes the provided data into the format required
 // by the GCE API.
 func packMetadata(data map[string]string) *compute.Metadata {
 	var items []*compute.MetadataItems
 	for key, value := range data {
+		// Needs to be a new variable so that &localValue is different
+		// each time round the loop.
+		localValue := value
 		item := compute.MetadataItems{
 			Key:   key,
-			Value: value,
+			Value: &localValue,
 		}
 		items = append(items, &item)
 	}
@@ -198,7 +216,14 @@ func unpackMetadata(data *compute.Metadata) map[string]string {
 
 	result := make(map[string]string)
 	for _, item := range data.Items {
-		result[item.Key] = item.Value
+		if item == nil {
+			continue
+		}
+		value := ""
+		if item.Value != nil {
+			value = *item.Value
+		}
+		result[item.Key] = value
 	}
 	return result
 }

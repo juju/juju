@@ -4,10 +4,11 @@
 package modelconfig
 
 import (
+	names "gopkg.in/juju/names.v2"
+
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
-	names "gopkg.in/juju/names.v2"
 )
 
 // Backend contains the state.State methods used in this package,
@@ -18,6 +19,8 @@ type Backend interface {
 	ModelTag() names.ModelTag
 	ModelConfigValues() (config.ConfigValues, error)
 	UpdateModelConfig(map[string]interface{}, []string, state.ValidateConfigFunc) error
+	SetSLA(level string, credentials []byte) error
+	SLALevel() (string, error)
 }
 
 type stateShim struct {

@@ -26,12 +26,12 @@ func (c *leaderSetCommand) Info() *cmd.Info {
 	doc := `
 leader-set immediate writes the supplied key/value pairs to the controller,
 which will then inform non-leader units of the change. It will fail if called
-without arguments, or if called by a unit that is not currently service leader.
+without arguments, or if called by a unit that is not currently application leader.
 `
 	return &cmd.Info{
 		Name:    "leader-set",
 		Args:    "<key>=<value> [...]",
-		Purpose: "write service leadership settings",
+		Purpose: "write application leadership settings",
 		Doc:     doc,
 	}
 }

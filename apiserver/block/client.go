@@ -13,10 +13,6 @@ import (
 	"github.com/juju/juju/state"
 )
 
-func init() {
-	common.RegisterStandardFacade("Block", 2, NewAPI)
-}
-
 // Block defines the methods on the block API end point.
 type Block interface {
 	// List returns all current blocks for this environment.

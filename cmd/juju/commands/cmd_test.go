@@ -4,9 +4,8 @@
 package commands
 
 import (
-	gc "gopkg.in/check.v1"
-
 	"github.com/juju/testing"
+	gc "gopkg.in/check.v1"
 
 	cmdtesting "github.com/juju/juju/cmd/testing"
 	coretesting "github.com/juju/juju/testing"

@@ -83,6 +83,59 @@ type modelDoc struct {
 	// LatestAvailableTools is a string representing the newest version
 	// found while checking streams for new versions.
 	LatestAvailableTools string `bson:"available-tools,omitempty"`
+
+	// SLA is the current support level of the model.
+	SLA slaDoc `bson:"sla"`
+
+	// MeterStatus is the current meter status of the model.
+	MeterStatus modelMeterStatusdoc `bson:"meter-status"`
+}
+
+// slaLevel enumerates the support levels available to a model.
+type slaLevel string
+
+const (
+	slaNone        = slaLevel("")
+	SLAUnsupported = slaLevel("unsupported")
+	SLAEssential   = slaLevel("essential")
+	SLAStandard    = slaLevel("standard")
+	SLAAdvanced    = slaLevel("advanced")
+)
+
+// String implements fmt.Stringer returning the string representation of an
+// SLALevel.
+func (l slaLevel) String() string {
+	if l == slaNone {
+		l = SLAUnsupported
+	}
+	return string(l)
+}
+
+// newSLALevel returns a new SLA level from a string representation.
+func newSLALevel(level string) (slaLevel, error) {
+	l := slaLevel(level)
+	if l == slaNone {
+		l = SLAUnsupported
+	}
+	switch l {
+	case SLAUnsupported, SLAEssential, SLAStandard, SLAAdvanced:
+		return l, nil
+	}
+	return l, errors.NotValidf("SLA level %q", level)
+}
+
+// slaDoc represents the state of the SLA on the model.
+type slaDoc struct {
+	// Level is the current support level set on the model.
+	Level slaLevel `bson:"level"`
+
+	// Credentials authenticates the support level setting.
+	Credentials []byte `bson:"credentials"`
+}
+
+type modelMeterStatusdoc struct {
+	Code string `bson:"code"`
+	Info string `bson:"info"`
 }
 
 // modelEntityRefsDoc records references to the top-level entities
@@ -95,6 +148,12 @@ type modelEntityRefsDoc struct {
 
 	// Applicatons contains the names of the applications in the model.
 	Applications []string `bson:"applications"`
+
+	// Volumes contains the IDs of the volumes in the model.
+	Volumes []string `bson:"volumes"`
+
+	// Filesystems contains the IDs of the filesystems in the model.
+	Filesystems []string `bson:"filesystems"`
 }
 
 // ControllerModel returns the model that was bootstrapped.
@@ -284,7 +343,7 @@ func (st *State) NewModel(args ModelArgs) (_ *Model, _ *State, err error) {
 	}()
 	newSt.controllerModelTag = st.controllerModelTag
 
-	modelOps, err := newSt.modelSetupOps(st.controllerTag.Id(), args, nil)
+	modelOps, modelStatusDoc, err := newSt.modelSetupOps(st.controllerTag.Id(), args, nil)
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "failed to create new model")
 	}
@@ -329,6 +388,10 @@ func (st *State) NewModel(args ModelArgs) (_ *Model, _ *State, err error) {
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
+	if args.MigrationMode != MigrationModeImporting {
+		probablyUpdateStatusHistory(newSt, modelGlobalKey, modelStatusDoc)
+	}
+
 	_, err = newSt.SetUserAccess(newModel.Owner(), newModel.ModelTag(), permission.AdminAccess)
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "granting admin permission to the owner")
@@ -541,6 +604,23 @@ func (m *Model) SetStatus(sInfo status.StatusInfo) error {
 	})
 }
 
+// StatusHistory returns a slice of at most filter.Size StatusInfo items
+// or items as old as filter.Date or items newer than now - filter.Delta time
+// representing past statuses for this application.
+func (m *Model) StatusHistory(filter status.StatusHistoryFilter) ([]status.StatusInfo, error) {
+	st, closeState, err := m.getState()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	defer closeState()
+	args := &statusHistoryArgs{
+		st:        st,
+		globalKey: m.globalKey(),
+		filter:    filter,
+	}
+	return statusHistory(args)
+}
+
 // Config returns the config for the model.
 func (m *Model) Config() (*config.Config, error) {
 	st, closeState, err := m.getState()
@@ -598,6 +678,66 @@ func (m *Model) LatestToolsVersion() version.Number {
 	return v
 }
 
+// SLALevel returns the SLA level as a string.
+func (m *Model) SLALevel() string {
+	return m.doc.SLA.Level.String()
+}
+
+// SLACredential returns the SLA credential.
+func (m *Model) SLACredential() []byte {
+	return m.doc.SLA.Credentials
+}
+
+// SetSLA sets the SLA on the model.
+func (m *Model) SetSLA(level string, credentials []byte) error {
+	l, err := newSLALevel(level)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	ops := []txn.Op{{
+		C:  modelsC,
+		Id: m.doc.UUID,
+		Update: bson.D{{"$set", bson.D{{"sla", slaDoc{
+			Level:       l,
+			Credentials: credentials,
+		}}}}},
+	}}
+	err = m.st.runTransaction(ops)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return m.Refresh()
+}
+
+// SetMeterStatus sets the current meter status for this model.
+func (m *Model) SetMeterStatus(status, info string) error {
+	if _, err := isValidMeterStatusCode(status); err != nil {
+		return errors.Trace(err)
+	}
+	ops := []txn.Op{{
+		C:  modelsC,
+		Id: m.doc.UUID,
+		Update: bson.D{{"$set", bson.D{{"meter-status", modelMeterStatusdoc{
+			Code: status,
+			Info: info,
+		}}}}},
+	}}
+	err := m.st.runTransaction(ops)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return m.Refresh()
+}
+
+// MeterStatus returns the current meter status for this model.
+func (m *Model) MeterStatus() MeterStatus {
+	ms := m.doc.MeterStatus
+	return MeterStatus{
+		Code: MeterStatusFromString(ms.Code),
+		Info: ms.Info,
+	}
+}
+
 // globalKey returns the global database key for the model.
 func (m *Model) globalKey() string {
 	return modelGlobalKey
@@ -638,11 +778,13 @@ func (m *Model) Users() ([]permission.UserAccess, error) {
 		userTag := names.NewUserTag(doc.UserName)
 		if userTag.IsLocal() {
 			_, err := m.st.User(userTag)
-			if errors.IsUserNotFound(err) {
-				continue
-			}
 			if err != nil {
-				return nil, errors.Trace(err)
+				if _, ok := err.(DeletedUserError); !ok {
+					// We ignore deleted users for now. So if it is not a
+					// DeletedUserError we return the error.
+					return nil, errors.Trace(err)
+				}
+				continue
 			}
 		}
 		mu, err := NewModelUserAccess(m.st, doc)
@@ -857,15 +999,22 @@ func (m *Model) destroyOps(ensureNoHostedModels, ensureEmpty bool) ([]txn.Op, er
 		ops = append(ops, cleanupOp)
 	}
 	if !isEmpty {
-		// We only need to destroy machines and models if the model is
-		// non-empty. It wouldn't normally be harmful to enqueue the
-		// cleanups otherwise, except for when we're destroying an empty
+		// We only need to destroy resources if the model is non-empty.
+		// It wouldn't normally be harmful to enqueue the cleanups
+		// otherwise, except for when we're destroying an empty
 		// hosted model in the course of destroying the controller. In
 		// that case we'll get errors if we try to enqueue hosted-model
 		// cleanups, because the cleanups collection is non-global.
 		cleanupMachinesOp := newCleanupOp(cleanupMachinesForDyingModel, modelUUID)
-		cleanupServicesOp := newCleanupOp(cleanupApplicationsForDyingModel, modelUUID)
-		ops = append(ops, cleanupMachinesOp, cleanupServicesOp)
+		cleanupApplicationsOp := newCleanupOp(cleanupApplicationsForDyingModel, modelUUID)
+		cleanupVolumesOp := newCleanupOp(cleanupVolumesForDyingModel, modelUUID)
+		cleanupFilesystemsOp := newCleanupOp(cleanupFilesystemsForDyingModel, modelUUID)
+		ops = append(ops,
+			cleanupMachinesOp,
+			cleanupApplicationsOp,
+			cleanupVolumesOp,
+			cleanupFilesystemsOp,
+		)
 	}
 	return append(prereqOps, ops...), nil
 }
@@ -894,42 +1043,63 @@ func (m *Model) checkEmpty() error {
 		return errors.Errorf("model not empty, found %d machine(s)", n)
 	}
 	if n := len(doc.Applications); n > 0 {
-		return errors.Errorf("model not empty, found %d applications(s)", n)
+		return errors.Errorf("model not empty, found %d application(s)", n)
+	}
+	if n := len(doc.Volumes); n > 0 {
+		return errors.Errorf("model not empty, found %d volume(s)", n)
+	}
+	if n := len(doc.Filesystems); n > 0 {
+		return errors.Errorf("model not empty, found %d filesystem(s)", n)
 	}
 	return nil
 }
 
 func addModelMachineRefOp(st *State, machineId string) txn.Op {
-	return txn.Op{
-		C:      modelEntityRefsC,
-		Id:     st.ModelUUID(),
-		Assert: txn.DocExists,
-		Update: bson.D{{"$addToSet", bson.D{{"machines", machineId}}}},
-	}
+	return addModelEntityRefOp(st, "machines", machineId)
 }
 
 func removeModelMachineRefOp(st *State, machineId string) txn.Op {
-	return txn.Op{
-		C:      modelEntityRefsC,
-		Id:     st.ModelUUID(),
-		Update: bson.D{{"$pull", bson.D{{"machines", machineId}}}},
-	}
+	return removeModelEntityRefOp(st, "machines", machineId)
 }
 
 func addModelApplicationRefOp(st *State, applicationname string) txn.Op {
+	return addModelEntityRefOp(st, "applications", applicationname)
+}
+
+func removeModelApplicationRefOp(st *State, applicationname string) txn.Op {
+	return removeModelEntityRefOp(st, "applications", applicationname)
+}
+
+func addModelVolumeRefOp(st *State, volumeId string) txn.Op {
+	return addModelEntityRefOp(st, "volumes", volumeId)
+}
+
+func removeModelVolumeRefOp(st *State, volumeId string) txn.Op {
+	return removeModelEntityRefOp(st, "volumes", volumeId)
+}
+
+func addModelFilesystemRefOp(st *State, filesystemId string) txn.Op {
+	return addModelEntityRefOp(st, "filesystems", filesystemId)
+}
+
+func removeModelFilesystemRefOp(st *State, filesystemId string) txn.Op {
+	return removeModelEntityRefOp(st, "filesystems", filesystemId)
+}
+
+func addModelEntityRefOp(st *State, entityField, entityId string) txn.Op {
 	return txn.Op{
 		C:      modelEntityRefsC,
 		Id:     st.ModelUUID(),
 		Assert: txn.DocExists,
-		Update: bson.D{{"$addToSet", bson.D{{"applications", applicationname}}}},
+		Update: bson.D{{"$addToSet", bson.D{{entityField, entityId}}}},
 	}
 }
 
-func removeModelApplicationRefOp(st *State, applicationname string) txn.Op {
+func removeModelEntityRefOp(st *State, entityField, entityId string) txn.Op {
 	return txn.Op{
 		C:      modelEntityRefsC,
 		Id:     st.ModelUUID(),
-		Update: bson.D{{"$pull", bson.D{{"applications", applicationname}}}},
+		Update: bson.D{{"$pull", bson.D{{entityField, entityId}}}},
 	}
 }
 

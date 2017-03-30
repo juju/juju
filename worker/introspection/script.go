@@ -82,7 +82,7 @@ juju-statepool-report () {
 }
 
 juju-statetracker-report () {
-  jujuMachineOrUnit statetracker/ $@
+  jujuMachineOrUnit debug/pprof/juju/state/tracker?debug=1 $@
 }
 
 export -f jujuAgentCall

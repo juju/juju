@@ -150,7 +150,19 @@ func (c *addCredentialCommand) Run(ctxt *cmd.Context) error {
 	if !c.Replace && len(existingCredentials.AuthCredentials) > 0 && len(credentials.AuthCredentials) > 0 {
 		return errors.Errorf("credentials for cloud %s already exist; use --replace to overwrite / merge", c.CloudName)
 	}
+
+	validAuthType := func(authType jujucloud.AuthType) bool {
+		for _, authT := range c.cloud.AuthTypes {
+			if authT == authType {
+				return true
+			}
+		}
+		return false
+	}
 	for name, cred := range credentials.AuthCredentials {
+		if !validAuthType(cred.AuthType()) {
+			return errors.Errorf("credential %q contains invalid auth type %q, valid auth types for cloud %q are %v", name, cred.AuthType(), c.CloudName, c.cloud.AuthTypes)
+		}
 		existingCredentials.AuthCredentials[name] = cred
 	}
 	err = c.store.UpdateCredential(c.CloudName, *existingCredentials)

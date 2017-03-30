@@ -108,7 +108,7 @@ type SubnetInfo struct {
 	// unknown.
 	CIDR string
 
-	// ProviderId is a provider-specific network id. This the only
+	// ProviderId is a provider-specific subnet id. This the only
 	// required field.
 	ProviderId Id
 
@@ -123,9 +123,15 @@ type SubnetInfo struct {
 	// availability zones.
 	AvailabilityZones []string
 
-	// SpaceProviderId holds the provider Id of the space associated with
-	// this subnet. Can be empty if not supported.
+	// SpaceProviderId holds the provider Id of the space associated
+	// with this subnet. Can be empty if not supported.
+	// TODO(babbageclunk): change this to ProviderSpaceId to be
+	// consistent with the InterfaceInfo.Provider*Id fields.
 	SpaceProviderId Id
+
+	// ProviderNetworkId holds the provider id of the network
+	// containing this subnet, for example VPC id for EC2.
+	ProviderNetworkId Id
 }
 
 type SpaceInfo struct {
@@ -187,6 +193,10 @@ type InterfaceInfo struct {
 	// ProviderSubnetId is the provider-specific id for the associated
 	// subnet.
 	ProviderSubnetId Id
+
+	// ProviderNetworkId is the provider-specific id for the
+	// associated network.
+	ProviderNetworkId Id
 
 	// ProviderSpaceId is the provider-specific id for the associated space, if
 	// known and supported.
@@ -255,6 +265,51 @@ type InterfaceInfo struct {
 	// configure for this network interface. For containers this
 	// usually is (one of) the host address(es).
 	GatewayAddress Address
+
+	// Routes defines a list of routes that should be added when this interface
+	// is brought up, and removed when this interface is stopped.
+	Routes []Route
+}
+
+// Route defines a single route to a subnet via a defined gateway.
+type Route struct {
+	// DestinationCIDR is the subnet that we want a controlled route to.
+	DestinationCIDR string
+	// GatewayIP is the IP (v4 or v6) that should be used for traffic that is
+	// bound for DestinationCIDR
+	GatewayIP string
+	// Metric is the weight to apply to this route.
+	Metric int
+}
+
+// Validate that this Route is properly formed.
+func (r Route) Validate() error {
+	// Make sure the CIDR is actually a CIDR not just an IP or hostname
+	destinationIP, _, err := net.ParseCIDR(r.DestinationCIDR)
+	if err != nil {
+		return errors.Annotate(err, "DestinationCIDR not valid")
+	}
+	// Make sure the Gateway is just an IP, not a CIDR, etc.
+	gatewayIP := net.ParseIP(r.GatewayIP)
+	if gatewayIP == nil {
+		return errors.Errorf("GatewayIP is not a valid IP address: %q", r.GatewayIP)
+	}
+	if r.Metric < 0 {
+		return errors.Errorf("Metric is negative: %d", r.Metric)
+	}
+	// Make sure that either both are IPv4 or both are IPv6, not mixed.
+	destIP4 := destinationIP.To4()
+	gatewayIP4 := gatewayIP.To4()
+	if destIP4 != nil {
+		if gatewayIP4 == nil {
+			return errors.Errorf("DestinationCIDR is IPv4 (%s) but GatewayIP is IPv6 (%s)", r.DestinationCIDR, r.GatewayIP)
+		}
+	} else {
+		if gatewayIP4 != nil {
+			return errors.Errorf("DestinationCIDR is IPv6 (%s) but GatewayIP is IPv4 (%s)", r.DestinationCIDR, r.GatewayIP)
+		}
+	}
+	return nil
 }
 
 type interfaceInfoSlice []InterfaceInfo

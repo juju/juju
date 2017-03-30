@@ -8,13 +8,14 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/watcher"
-	"github.com/juju/juju/worker"
+	jworker "github.com/juju/juju/worker"
 )
 
 var logger = loggo.GetLogger("juju.worker.machiner")
@@ -80,7 +81,7 @@ func (mr *Machiner) SetUp() (watcher.NotifyWatcher, error) {
 	// Find which machine we're responsible for.
 	m, err := mr.config.MachineAccessor.Machine(mr.config.Tag)
 	if params.IsCodeNotFoundOrCodeUnauthorized(err) {
-		return nil, worker.ErrTerminateAgent
+		return nil, jworker.ErrTerminateAgent
 	} else if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -150,7 +151,7 @@ func (mr *Machiner) Handle(_ <-chan struct{}) error {
 		// call NotifyMachineDead directly after setting the machine Dead in
 		// the first place. We're not doing that to be cautious: the machine
 		// could be missing from state due to invalid global state.
-		return worker.ErrTerminateAgent
+		return jworker.ErrTerminateAgent
 	} else if err != nil {
 		return err
 	}
@@ -201,7 +202,7 @@ func (mr *Machiner) Handle(_ <-chan struct{}) error {
 			return errors.Annotate(err, "reporting machine death")
 		}
 	}
-	return worker.ErrTerminateAgent
+	return jworker.ErrTerminateAgent
 }
 
 func (mr *Machiner) TearDown() error {

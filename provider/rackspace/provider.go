@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/jsonschema"
+
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 )

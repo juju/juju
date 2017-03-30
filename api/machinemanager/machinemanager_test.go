@@ -10,7 +10,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/api/base/testing"
+	basetesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/machinemanager"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/storage"
@@ -23,6 +23,10 @@ type MachinemanagerSuite struct {
 	coretesting.BaseSuite
 }
 
+func newClient(f basetesting.APICallerFunc) *machinemanager.Client {
+	return machinemanager.NewClient(f)
+}
+
 func (s *MachinemanagerSuite) TestAddMachines(c *gc.C) {
 	apiResult := []params.AddMachinesResult{
 		{Machine: "machine-1", Error: nil},
@@ -30,7 +34,7 @@ func (s *MachinemanagerSuite) TestAddMachines(c *gc.C) {
 	}
 
 	var callCount int
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	st := newClient(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Check(objType, gc.Equals, "MachineManager")
 		c.Check(version, gc.Equals, 0)
 		c.Check(id, gc.Equals, "")
@@ -54,7 +58,6 @@ func (s *MachinemanagerSuite) TestAddMachines(c *gc.C) {
 		return nil
 	})
 
-	st := machinemanager.NewClient(apiCaller)
 	machines := []params.AddMachineParams{{
 		Series: "trusty",
 		Disks:  []storage.Constraints{{Pool: "loop", Size: 1}},
@@ -68,10 +71,9 @@ func (s *MachinemanagerSuite) TestAddMachines(c *gc.C) {
 }
 
 func (s *MachinemanagerSuite) TestAddMachinesClientError(c *gc.C) {
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	st := newClient(func(objType string, version int, id, request string, arg, result interface{}) error {
 		return errors.New("blargh")
 	})
-	st := machinemanager.NewClient(apiCaller)
 	_, err := st.AddMachines(nil)
 	c.Check(err, gc.ErrorMatches, "blargh")
 }
@@ -81,13 +83,12 @@ func (s *MachinemanagerSuite) TestAddMachinesServerError(c *gc.C) {
 		Error: &params.Error{Message: "MSG", Code: "621"},
 	}}
 
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	st := newClient(func(objType string, version int, id, request string, arg, result interface{}) error {
 		*(result.(*params.AddMachinesResults)) = params.AddMachinesResults{
 			Machines: apiResult,
 		}
 		return nil
 	})
-	st := machinemanager.NewClient(apiCaller)
 	machines := []params.AddMachineParams{{
 		Series: "trusty",
 	}}
@@ -98,7 +99,7 @@ func (s *MachinemanagerSuite) TestAddMachinesServerError(c *gc.C) {
 
 func (s *MachinemanagerSuite) TestAddMachinesResultCountInvalid(c *gc.C) {
 	for _, n := range []int{0, 2} {
-		apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		st := newClient(func(objType string, version int, id, request string, arg, result interface{}) error {
 			var results []params.AddMachinesResult
 			for i := 0; i < n; i++ {
 				results = append(results, params.AddMachinesResult{
@@ -108,11 +109,74 @@ func (s *MachinemanagerSuite) TestAddMachinesResultCountInvalid(c *gc.C) {
 			*(result.(*params.AddMachinesResults)) = params.AddMachinesResults{Machines: results}
 			return nil
 		})
-		st := machinemanager.NewClient(apiCaller)
 		machines := []params.AddMachineParams{{
 			Series: "trusty",
 		}}
 		_, err := st.AddMachines(machines)
 		c.Check(err, gc.ErrorMatches, fmt.Sprintf("expected 1 result, got %d", n))
 	}
+}
+
+func (s *MachinemanagerSuite) TestDestroyMachines(c *gc.C) {
+	s.testDestroyMachines(c, "DestroyMachine", (*machinemanager.Client).DestroyMachines)
+}
+
+func (s *MachinemanagerSuite) TestForceDestroyMachines(c *gc.C) {
+	s.testDestroyMachines(c, "ForceDestroyMachine", (*machinemanager.Client).ForceDestroyMachines)
+}
+
+func (s *MachinemanagerSuite) testDestroyMachines(
+	c *gc.C,
+	methodName string,
+	method func(*machinemanager.Client, ...string) ([]params.DestroyMachineResult, error),
+) {
+	expectedResults := []params.DestroyMachineResult{{
+		Error: &params.Error{Message: "boo"},
+	}, {
+		Info: &params.DestroyMachineInfo{
+			DestroyedUnits:   []params.Entity{{Tag: "unit-foo-0"}},
+			DestroyedStorage: []params.Entity{{Tag: "storage-pgdata-0"}},
+			DetachedStorage:  []params.Entity{{Tag: "storage-pgdata-1"}},
+		},
+	}}
+	client := newClient(func(objType string, version int, id, request string, a, response interface{}) error {
+		c.Assert(request, gc.Equals, methodName)
+		c.Assert(a, jc.DeepEquals, params.Entities{
+			Entities: []params.Entity{
+				{Tag: "machine-0"},
+				{Tag: "machine-0-lxd-1"},
+			},
+		})
+		c.Assert(response, gc.FitsTypeOf, &params.DestroyMachineResults{})
+		out := response.(*params.DestroyMachineResults)
+		*out = params.DestroyMachineResults{expectedResults}
+		return nil
+	})
+	results, err := method(client, "0", "0/lxd/1")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, expectedResults)
+}
+
+func (s *MachinemanagerSuite) TestDestroyMachinesArity(c *gc.C) {
+	client := newClient(func(objType string, version int, id, request string, a, response interface{}) error {
+		return nil
+	})
+	_, err := client.DestroyMachines("0")
+	c.Assert(err, gc.ErrorMatches, `expected 1 result\(s\), got 0`)
+}
+
+func (s *MachinemanagerSuite) TestDestroyMachinesInvalidIds(c *gc.C) {
+	expectedResults := []params.DestroyMachineResult{{
+		Error: &params.Error{Message: `machine ID "!" not valid`},
+	}, {
+		Info: &params.DestroyMachineInfo{},
+	}}
+	client := newClient(func(objType string, version int, id, request string, a, response interface{}) error {
+		out := response.(*params.DestroyMachineResults)
+		*out = params.DestroyMachineResults{expectedResults[1:]}
+		return nil
+	})
+	results, err := client.DestroyMachines("!", "0")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, expectedResults)
 }

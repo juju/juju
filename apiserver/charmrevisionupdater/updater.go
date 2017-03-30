@@ -16,10 +16,6 @@ import (
 
 var logger = loggo.GetLogger("juju.apiserver.charmrevisionupdater")
 
-func init() {
-	common.RegisterStandardFacade("CharmRevisionUpdater", 2, NewCharmRevisionUpdaterAPI)
-}
-
 // CharmRevisionUpdater defines the methods on the charmrevisionupdater API end point.
 type CharmRevisionUpdater interface {
 	UpdateLatestRevisions() (params.ErrorResult, error)
@@ -41,7 +37,7 @@ func NewCharmRevisionUpdaterAPI(
 	resources facade.Resources,
 	authorizer facade.Authorizer,
 ) (*CharmRevisionUpdaterAPI, error) {
-	if !authorizer.AuthMachineAgent() && !authorizer.AuthModelManager() {
+	if !authorizer.AuthMachineAgent() && !authorizer.AuthController() {
 		return nil, common.ErrPerm
 	}
 	return &CharmRevisionUpdaterAPI{
@@ -79,9 +75,9 @@ func (api *CharmRevisionUpdaterAPI) updateLatestRevisions() error {
 		}
 
 		// Then run through the handlers.
-		serviceID := info.service.ApplicationTag()
+		tag := info.application.ApplicationTag()
 		for _, handler := range handlers {
-			if err := handler.HandleLatest(serviceID, info.CharmInfo); err != nil {
+			if err := handler.HandleLatest(tag, info.CharmInfo); err != nil {
 				return err
 			}
 		}
@@ -98,19 +94,18 @@ var NewCharmStoreClient = func(st *state.State) (charmstore.Client, error) {
 
 type latestCharmInfo struct {
 	charmstore.CharmInfo
-	service *state.Application
+	application *state.Application
 }
 
 // retrieveLatestCharmInfo looks up the charm store to return the charm URLs for the
 // latest revision of the deployed charms.
 func retrieveLatestCharmInfo(st *state.State) ([]latestCharmInfo, error) {
-	// First get the uuid for the environment to use when querying the charm store.
-	env, err := st.Model()
+	model, err := st.Model()
 	if err != nil {
 		return nil, err
 	}
 
-	services, err := st.AllApplications()
+	applications, err := st.AllApplications()
 	if err != nil {
 		return nil, err
 	}
@@ -121,30 +116,27 @@ func retrieveLatestCharmInfo(st *state.State) ([]latestCharmInfo, error) {
 	}
 
 	var charms []charmstore.CharmID
-	var resultsIndexedServices []*state.Application
-	for _, service := range services {
-		curl, _ := service.CharmURL()
+	var resultsIndexedApps []*state.Application
+	for _, application := range applications {
+		curl, _ := application.CharmURL()
 		if curl.Schema == "local" {
-			// Version checking for charms from local repositories is not
-			// currently supported, since we don't yet support passing in
-			// a path to the local repo. This may change if the need arises.
 			continue
 		}
-
 		cid := charmstore.CharmID{
 			URL:     curl,
-			Channel: service.Channel(),
+			Channel: application.Channel(),
 		}
 		charms = append(charms, cid)
-		resultsIndexedServices = append(resultsIndexedServices, service)
+		resultsIndexedApps = append(resultsIndexedApps, application)
 	}
 
 	metadata := map[string]string{
-		"environment_uuid": env.UUID(),
-		"cloud":            env.Cloud(),
-		"cloud_region":     env.CloudRegion(),
+		"environment_uuid": model.UUID(),
+		"controller_uuid":  st.ControllerUUID(),
+		"cloud":            model.Cloud(),
+		"cloud_region":     model.CloudRegion(),
 	}
-	cloud, err := st.Cloud(env.Cloud())
+	cloud, err := st.Cloud(model.Cloud())
 	if err != nil {
 		metadata["provider"] = "unknown"
 	} else {
@@ -161,10 +153,10 @@ func retrieveLatestCharmInfo(st *state.State) ([]latestCharmInfo, error) {
 			logger.Errorf("retrieving charm info for %s: %v", charms[i].URL, result.Error)
 			continue
 		}
-		service := resultsIndexedServices[i]
+		application := resultsIndexedApps[i]
 		latest = append(latest, latestCharmInfo{
-			CharmInfo: result.CharmInfo,
-			service:   service,
+			CharmInfo:   result.CharmInfo,
+			application: application,
 		})
 	}
 	return latest, nil

@@ -5,10 +5,10 @@ package resumer
 
 import (
 	"github.com/juju/errors"
+	worker "gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/resumer"
-	"github.com/juju/juju/worker"
 )
 
 // NewFacade returns a useful live implementation for

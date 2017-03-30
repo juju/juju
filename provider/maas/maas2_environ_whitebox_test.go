@@ -529,7 +529,7 @@ func (suite *maas2EnvironSuite) TestAcquireNodeInterfaces(c *gc.C) {
 	cons := constraints.Value{
 		Spaces: stringslicep("foo", "^bar"),
 	}
-	// In the tests below "space:5" means foo, "space:6" means bar.
+	// In the tests below Space 2 means foo, Space 3 means bar.
 	for i, test := range []struct {
 		interfaces        []interfaceBinding
 		expectedPositives []gomaasapi.InterfaceSpec
@@ -553,8 +553,9 @@ func (suite *maas2EnvironSuite) TestAcquireNodeInterfaces(c *gc.C) {
 		expectedPositives: []gomaasapi.InterfaceSpec{{"name-1", "7"}, {"name-2", "8"}, {"name-3", "9"}, {"0", "2"}},
 		expectedNegatives: []string{"3"},
 	}, {
-		interfaces:    []interfaceBinding{{"", "anything"}},
-		expectedError: "interface bindings cannot have empty names",
+		interfaces:        []interfaceBinding{{"", "anything"}},
+		expectedPositives: []gomaasapi.InterfaceSpec{{"0", "anything"}, {"1", "2"}},
+		expectedNegatives: []string{"3"},
 	}, {
 		interfaces:    []interfaceBinding{{"shared-db", "3"}},
 		expectedError: `negative space "bar" from constraints clashes with interface bindings`,
@@ -567,7 +568,7 @@ func (suite *maas2EnvironSuite) TestAcquireNodeInterfaces(c *gc.C) {
 		expectedNegatives: []string{"3"},
 	}, {
 		interfaces:    []interfaceBinding{{"", ""}},
-		expectedError: "interface bindings cannot have empty names",
+		expectedError: `invalid interface binding "": space provider ID is required`,
 	}, {
 		interfaces: []interfaceBinding{
 			{"valid", "ok"},
@@ -575,7 +576,7 @@ func (suite *maas2EnvironSuite) TestAcquireNodeInterfaces(c *gc.C) {
 			{"valid-name-empty-space", ""},
 			{"", ""},
 		},
-		expectedError: "interface bindings cannot have empty names",
+		expectedError: `invalid interface binding "valid-name-empty-space": space provider ID is required`,
 	}, {
 		interfaces:    []interfaceBinding{{"foo", ""}},
 		expectedError: `invalid interface binding "foo": space provider ID is required`,
@@ -979,6 +980,13 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesSingleNic(c *gc.C)
 		cidr:       "192.168.1.0/24",
 		dnsServers: []string{"10.20.19.2", "10.20.19.3"},
 	}
+	staticRoute2to1 := fakeStaticRoute{
+		id:          1,
+		source:      subnet2,
+		destination: subnet1,
+		gatewayIP:   "192.168.1.1",
+		metric:      100,
+	}
 
 	interfaces := []gomaasapi.Interface{
 		&fakeInterface{
@@ -1041,7 +1049,8 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesSingleNic(c *gc.C)
 				subnets: []gomaasapi.Subnet{subnet1, subnet2},
 			},
 		},
-		devices: []gomaasapi.Device{device},
+		devices:      []gomaasapi.Device{device},
+		staticRoutes: []gomaasapi.StaticRoute{staticRoute2to1},
 	}
 	suite.injectController(controller)
 	suite.setupFakeTools(c)
@@ -1071,8 +1080,212 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesSingleNic(c *gc.C)
 		DNSServers:        network.NewAddressesOnSpace("freckles", "10.20.19.2", "10.20.19.3"),
 		MTU:               1500,
 		GatewayAddress:    network.NewAddressOnSpace("freckles", "192.168.1.1"),
+		Routes: []network.Route{{
+			DestinationCIDR: subnet1.CIDR(),
+			GatewayIP:       "192.168.1.1",
+			Metric:          100,
+		}},
 	}}
 	c.Assert(result, jc.DeepEquals, expected)
+}
+
+func (suite *maas2EnvironSuite) TestAllocateContainerAddressesNoStaticRoutesAPI(c *gc.C) {
+	// MAAS 2.0 doesn't have support for static routes, and generates an Error
+	vlan1 := fakeVLAN{
+		id:  5001,
+		mtu: 1500,
+	}
+	subnet1 := fakeSubnet{
+		id:         3,
+		space:      "freckles",
+		vlan:       vlan1,
+		gateway:    "10.20.19.2",
+		cidr:       "10.20.19.0/24",
+		dnsServers: []string{"10.20.19.2", "10.20.19.3"},
+	}
+
+	interfaces := []gomaasapi.Interface{
+		&fakeInterface{
+			id:         91,
+			name:       "eth0",
+			type_:      "physical",
+			enabled:    true,
+			macAddress: "52:54:00:70:9b:fe",
+			vlan:       vlan1,
+			links: []gomaasapi.Link{
+				&fakeLink{
+					id:        436,
+					subnet:    &subnet1,
+					ipAddress: "10.20.19.103",
+					mode:      "static",
+				},
+			},
+			parents:  []string{},
+			children: []string{"eth0.100", "eth0.250", "eth0.50"},
+		},
+	}
+	// This will be returned by the fakeController when we call CreateDevice
+	deviceInterfaces := []gomaasapi.Interface{
+		&fakeInterface{
+			id:         93,
+			name:       "eth0",
+			type_:      "physical",
+			enabled:    true,
+			macAddress: "53:54:00:70:9b:ff",
+			vlan:       vlan1,
+			links: []gomaasapi.Link{
+				&fakeLink{
+					id:        480,
+					subnet:    &subnet1,
+					ipAddress: "10.20.19.104",
+					mode:      "static",
+				},
+			},
+			parents:  []string{},
+			children: []string{},
+		},
+	}
+	device := &fakeDevice{
+		interfaceSet: deviceInterfaces,
+		systemID:     "foo",
+	}
+	// MAAS 2.0 gives us this kind of error back, I'm not sure of the conten of
+	// the Headers or BodyMessage, but it is a 404 with a particular error
+	// string that we've seen.
+	body := "Unknown API endpoint: /MAAS/api/2.0/static-routes/."
+	notFound := gomaasapi.ServerError{
+		StatusCode:  http.StatusNotFound,
+		BodyMessage: body,
+	}
+	wrap1 := errors.Annotatef(notFound, "ServerError: 404 NOT FOUND (%s)", body)
+	staticRoutesErr := gomaasapi.NewUnexpectedError(wrap1)
+	var env *maasEnviron
+	controller := &fakeController{
+		Stub: &testing.Stub{},
+		machines: []gomaasapi.Machine{&fakeMachine{
+			Stub:         &testing.Stub{},
+			systemID:     "1",
+			architecture: arch.HostArch(),
+			interfaceSet: interfaces,
+			createDevice: device,
+		}},
+		spaces: []gomaasapi.Space{
+			fakeSpace{
+				name:    "freckles",
+				id:      4567,
+				subnets: []gomaasapi.Subnet{subnet1},
+			},
+		},
+		devices:           []gomaasapi.Device{device},
+		staticRoutesError: staticRoutesErr,
+	}
+	suite.injectController(controller)
+	suite.setupFakeTools(c)
+	env = suite.makeEnviron(c, nil)
+
+	prepared := []network.InterfaceInfo{{
+		MACAddress:    "52:54:00:70:9b:fe",
+		CIDR:          "10.20.19.0/24",
+		InterfaceName: "eth0",
+	}}
+	ignored := names.NewMachineTag("1/lxd/0")
+	result, err := env.AllocateContainerAddresses(instance.Id("1"), ignored, prepared)
+	c.Assert(err, jc.ErrorIsNil)
+	expected := []network.InterfaceInfo{{
+		DeviceIndex:       0,
+		MACAddress:        "53:54:00:70:9b:ff",
+		CIDR:              "10.20.19.0/24",
+		ProviderId:        "93",
+		ProviderSubnetId:  "3",
+		VLANTag:           0,
+		ProviderVLANId:    "5001",
+		ProviderAddressId: "480",
+		InterfaceName:     "eth0",
+		InterfaceType:     "ethernet",
+		ConfigType:        "static",
+		Address:           network.NewAddressOnSpace("freckles", "10.20.19.104"),
+		DNSServers:        network.NewAddressesOnSpace("freckles", "10.20.19.2", "10.20.19.3"),
+		MTU:               1500,
+		GatewayAddress:    network.NewAddressOnSpace("freckles", "10.20.19.2"),
+		Routes:            []network.Route{},
+	}}
+	c.Assert(result, jc.DeepEquals, expected)
+}
+
+func (suite *maas2EnvironSuite) TestAllocateContainerAddressesStaticRoutesDenied(c *gc.C) {
+	// I don't have a specific error that we've triggered, but we want to make
+	// sure that we don't suppress all error responses from MAAS just because
+	// we know we want to skip 404
+	vlan1 := fakeVLAN{
+		id:  5001,
+		mtu: 1500,
+	}
+	subnet1 := fakeSubnet{
+		id:         3,
+		space:      "freckles",
+		vlan:       vlan1,
+		gateway:    "10.20.19.2",
+		cidr:       "10.20.19.0/24",
+		dnsServers: []string{"10.20.19.2", "10.20.19.3"},
+	}
+
+	interfaces := []gomaasapi.Interface{
+		&fakeInterface{
+			id:         91,
+			name:       "eth0",
+			type_:      "physical",
+			enabled:    true,
+			macAddress: "52:54:00:70:9b:fe",
+			vlan:       vlan1,
+			links: []gomaasapi.Link{
+				&fakeLink{
+					id:        436,
+					subnet:    &subnet1,
+					ipAddress: "10.20.19.103",
+					mode:      "static",
+				},
+			},
+			parents:  []string{},
+			children: []string{"eth0.100", "eth0.250", "eth0.50"},
+		},
+	}
+	body := "I have failed you"
+	internalError := gomaasapi.ServerError{
+		StatusCode:  http.StatusInternalServerError,
+		BodyMessage: body,
+	}
+	staticRoutesErr := errors.Annotatef(internalError, "ServerError: %v (%s)", http.StatusInternalServerError, body)
+	var env *maasEnviron
+	controller := &fakeController{
+		Stub: &testing.Stub{},
+		machines: []gomaasapi.Machine{&fakeMachine{
+			Stub:         &testing.Stub{},
+			systemID:     "1",
+			architecture: arch.HostArch(),
+			interfaceSet: interfaces,
+		}},
+		spaces: []gomaasapi.Space{
+			fakeSpace{
+				name:    "freckles",
+				id:      4567,
+				subnets: []gomaasapi.Subnet{subnet1},
+			},
+		},
+		staticRoutesError: staticRoutesErr,
+	}
+	suite.injectController(controller)
+	suite.setupFakeTools(c)
+	env = suite.makeEnviron(c, nil)
+
+	prepared := []network.InterfaceInfo{{
+		MACAddress:    "52:54:00:70:9b:fe",
+		CIDR:          "10.20.19.0/24",
+		InterfaceName: "eth0",
+	}}
+	ignored := names.NewMachineTag("1/lxd/0")
+	_, err := env.AllocateContainerAddresses(instance.Id("1"), ignored, prepared)
+	c.Assert(err, gc.NotNil)
+	c.Assert(err, gc.ErrorMatches, ".*ServerError: 500 \\(I have failed you\\).*")
 }
 
 func (suite *maas2EnvironSuite) TestAllocateContainerAddressesDualNic(c *gc.C) {
@@ -1099,6 +1312,13 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesDualNic(c *gc.C) {
 		gateway:    "192.168.1.1",
 		cidr:       "192.168.1.0/24",
 		dnsServers: []string{"10.20.19.2", "10.20.19.3"},
+	}
+	staticRoute2to1 := fakeStaticRoute{
+		id:          1,
+		source:      subnet2,
+		destination: subnet1,
+		gatewayIP:   "192.168.1.1",
+		metric:      100,
 	}
 
 	interfaces := []gomaasapi.Interface{
@@ -1197,7 +1417,8 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesDualNic(c *gc.C) {
 				subnets: []gomaasapi.Subnet{subnet1, subnet2},
 			},
 		},
-		devices: []gomaasapi.Device{device},
+		devices:      []gomaasapi.Device{device},
+		staticRoutes: []gomaasapi.StaticRoute{staticRoute2to1},
 	}
 	suite.injectController(controller)
 	env := suite.makeEnviron(c, nil)
@@ -1241,6 +1462,11 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesDualNic(c *gc.C) {
 		DNSServers:        network.NewAddressesOnSpace("freckles", "10.20.19.2", "10.20.19.3"),
 		MTU:               1500,
 		GatewayAddress:    network.NewAddressOnSpace("freckles", "192.168.1.1"),
+		Routes: []network.Route{{
+			DestinationCIDR: "10.20.19.0/24",
+			GatewayIP:       "192.168.1.1",
+			Metric:          100,
+		}},
 	}}
 	ignored := names.NewMachineTag("1/lxd/0")
 	result, err := env.AllocateContainerAddresses(instance.Id("1"), ignored, prepared)
@@ -1322,7 +1548,7 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesCreateDevicerror(c
 		Stub:     &testing.Stub{},
 		systemID: "1",
 	}
-	machine.SetErrors(errors.New("boom"))
+	machine.SetErrors(nil, errors.New("boom"))
 	controller := &fakeController{
 		machines: []gomaasapi.Machine{machine},
 		spaces: []gomaasapi.Space{
@@ -1341,16 +1567,15 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesCreateDevicerror(c
 	ignored := names.NewMachineTag("1/lxd/0")
 	_, err := env.AllocateContainerAddresses(instance.Id("1"), ignored, prepared)
 	c.Assert(err, gc.ErrorMatches, "boom")
-	args := getArgs(c, machine.Calls())
-	maasArgs, ok := args.(gomaasapi.CreateMachineDeviceArgs)
-	c.Assert(ok, jc.IsTrue)
-	expected := gomaasapi.CreateMachineDeviceArgs{
+	machine.CheckCall(c, 0, "Devices", gomaasapi.DevicesArgs{
+		Hostname: []string{"juju-06f00d-1-lxd-0"},
+	})
+	machine.CheckCall(c, 1, "CreateDevice", gomaasapi.CreateMachineDeviceArgs{
 		Hostname:      "juju-06f00d-1-lxd-0",
 		Subnet:        subnet,
 		MACAddress:    "DEADBEEF",
 		InterfaceName: "eth0",
-	}
-	c.Assert(maasArgs, jc.DeepEquals, expected)
+	})
 }
 
 func (suite *maas2EnvironSuite) TestAllocateContainerAddressesSubnetMissing(c *gc.C) {

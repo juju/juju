@@ -25,11 +25,6 @@ func NewClient(st base.APICallCloser) *Client {
 	return &Client{ClientFacade: frontend, facade: backend}
 }
 
-// Close closes the api connection.
-func (c *Client) Close() error {
-	return c.ClientFacade.Close()
-}
-
 // ModelGet returns all model settings.
 func (c *Client) ModelGet() (map[string]interface{}, error) {
 	result := params.ModelConfigResults{}
@@ -72,4 +67,23 @@ func (c *Client) ModelSet(config map[string]interface{}) error {
 func (c *Client) ModelUnset(keys ...string) error {
 	args := params.ModelUnset{Keys: keys}
 	return c.facade.FacadeCall("ModelUnset", args, nil)
+}
+
+// SetSLALevel sets the support level for the given model.
+func (c *Client) SetSLALevel(level string, creds []byte) error {
+	args := params.ModelSLA{
+		Level:       level,
+		Credentials: creds,
+	}
+	return c.facade.FacadeCall("SetSLALevel", args, nil)
+}
+
+// SLALevel gets the support level for the given model.
+func (c *Client) SLALevel() (string, error) {
+	var result params.StringResult
+	err := c.facade.FacadeCall("SLALevel", nil, &result)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	return result.Result, nil
 }

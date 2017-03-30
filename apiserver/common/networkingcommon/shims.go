@@ -17,7 +17,6 @@ import (
 
 // subnetShim forwards and adapts state.Subnets methods to BackingSubnet.
 type subnetShim struct {
-	BackingSubnet
 	subnet *state.Subnet
 }
 
@@ -27,6 +26,10 @@ func (s *subnetShim) CIDR() string {
 
 func (s *subnetShim) VLANTag() int {
 	return s.subnet.VLANTag()
+}
+
+func (s *subnetShim) ProviderNetworkId() network.Id {
+	return s.subnet.ProviderNetworkId()
 }
 
 func (s *subnetShim) ProviderId() network.Id {
@@ -56,7 +59,6 @@ func (s *subnetShim) SpaceName() string {
 
 // spaceShim forwards and adapts state.Space methods to BackingSpace.
 type spaceShim struct {
-	BackingSpace
 	space *state.Space
 }
 
@@ -110,17 +112,19 @@ func (s *stateShim) AllSpaces() ([]BackingSpace, error) {
 }
 
 func (s *stateShim) AddSubnet(info BackingSubnetInfo) (BackingSubnet, error) {
-	// TODO(dimitern): Add multiple AZs per subnet in state.
+	// TODO(babbageclunk): we only take the first zone because
+	// state.Subnet currently only stores one.
 	var firstZone string
 	if len(info.AvailabilityZones) > 0 {
 		firstZone = info.AvailabilityZones[0]
 	}
 	_, err := s.st.AddSubnet(state.SubnetInfo{
-		CIDR:             info.CIDR,
-		VLANTag:          info.VLANTag,
-		ProviderId:       info.ProviderId,
-		AvailabilityZone: firstZone,
-		SpaceName:        info.SpaceName,
+		CIDR:              info.CIDR,
+		VLANTag:           info.VLANTag,
+		ProviderId:        info.ProviderId,
+		ProviderNetworkId: info.ProviderNetworkId,
+		AvailabilityZone:  firstZone,
+		SpaceName:         info.SpaceName,
 	})
 	return nil, err // Drop the first result, as it's unused.
 }

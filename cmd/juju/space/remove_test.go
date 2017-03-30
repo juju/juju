@@ -5,11 +5,11 @@ package space_test
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/juju/feature"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/space"
+	"github.com/juju/juju/feature"
 	coretesting "github.com/juju/juju/testing"
 )
 

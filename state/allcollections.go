@@ -56,6 +56,11 @@ func allCollections() collectionSchema {
 			global:         true,
 			rawAccess:      true,
 			explicitCreate: &mgo.CollectionInfo{},
+			indexes: []mgo.Index{{
+				// The "s" field is used in queries
+				// by mgo/txn.Runner.ResumeAll.
+				Key: []string{"s"},
+			}},
 		},
 		txnLogC: {
 			// This collection is used by mgo/txn to record the set of documents
@@ -295,6 +300,8 @@ func allCollections() collectionSchema {
 		filesystemsC: {
 			indexes: []mgo.Index{{
 				Key: []string{"model-uuid", "storageid"},
+			}, {
+				Key: []string{"model-uuid", "machineid"},
 			}},
 		},
 		filesystemAttachmentsC: {},
@@ -313,6 +320,8 @@ func allCollections() collectionSchema {
 		volumesC: {
 			indexes: []mgo.Index{{
 				Key: []string{"model-uuid", "storageid"},
+			}, {
+				Key: []string{"model-uuid", "machineid"},
 			}},
 		},
 		volumeAttachmentsC: {},
@@ -378,6 +387,12 @@ func allCollections() collectionSchema {
 			rawAccess: true,
 			indexes: []mgo.Index{{
 				Key: []string{"model-uuid", "globalkey", "updated"},
+			}, {
+				// used for migration and model-specific pruning
+				Key: []string{"model-uuid", "-updated"},
+			}, {
+				// used for global pruning (after size check)
+				Key: []string{"-updated"},
 			}},
 		},
 
@@ -402,15 +417,6 @@ func allCollections() collectionSchema {
 		for name, details := range map[string]collectionInfo{
 			applicationOffersC: {
 				indexes: []mgo.Index{{Key: []string{"model-uuid", "url"}}},
-			},
-			// This collection holds information about applications that have been
-			// offered (exported) for use in other models managed by the same
-			// host controller.
-			localApplicationDirectoryC: {
-				global: true,
-				indexes: []mgo.Index{{
-					Key: []string{"url"},
-				}},
 			},
 			remoteApplicationsC: {},
 			// remoteEntitiesC holds information about entities involved in
@@ -513,9 +519,8 @@ const (
 	// "resources" (see resource/persistence/mongo.go)
 
 	// Cross model relations
-	localApplicationDirectoryC = "localapplicationdirectory"
-	applicationOffersC         = "applicationOffers"
-	remoteApplicationsC        = "remoteApplications"
-	remoteEntitiesC            = "remoteEntities"
-	tokensC                    = "tokens"
+	applicationOffersC  = "applicationOffers"
+	remoteApplicationsC = "remoteApplications"
+	remoteEntitiesC     = "remoteEntities"
+	tokensC             = "tokens"
 )

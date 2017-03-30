@@ -12,11 +12,11 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"github.com/juju/juju/cmd/modelcmd"
-	"gopkg.in/macaroon-bakery.v1/httpbakery"
-
 	api "github.com/juju/romulus/api/budget"
 	wireformat "github.com/juju/romulus/wireformat/budget"
+	"gopkg.in/macaroon-bakery.v1/httpbakery"
+
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 // NewListBudgetsCommand returns a new command that is used
@@ -95,11 +95,11 @@ func formatTabular(writer io.Writer, value interface{}) error {
 		table.RightAlign(col)
 	}
 
-	table.AddRow("BUDGET", "MONTHLY", "ALLOCATED", "AVAILABLE", "SPENT")
+	table.AddRow("Budget", "Monthly", "Allocated", "Available", "Spent")
 	for _, budgetEntry := range b.Budgets {
 		table.AddRow(budgetEntry.Budget, budgetEntry.Limit, budgetEntry.Allocated, budgetEntry.Available, budgetEntry.Consumed)
 	}
-	table.AddRow("TOTAL", b.Total.Limit, b.Total.Allocated, b.Total.Available, b.Total.Consumed)
+	table.AddRow("Total", b.Total.Limit, b.Total.Allocated, b.Total.Available, b.Total.Consumed)
 	table.AddRow("", "", "", "", "")
 	table.AddRow("Credit limit:", b.Credit, "", "", "")
 	fmt.Fprint(writer, table)

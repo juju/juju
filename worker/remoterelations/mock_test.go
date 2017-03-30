@@ -130,6 +130,14 @@ func (m *mockRelationsFacade) ImportRemoteEntity(sourceModelUUID string, entity 
 	return nil
 }
 
+func (m *mockRelationsFacade) RemoveRemoteEntity(sourceModelUUID string, entity names.Tag) error {
+	m.stub.MethodCall(m, "RemoveRemoteEntity", sourceModelUUID, entity)
+	if err := m.stub.NextErr(); err != nil {
+		return err
+	}
+	return nil
+}
+
 func (m *mockRelationsFacade) GetToken(modelUUID string, entity names.Tag) (string, error) {
 	m.stub.MethodCall(m, "GetToken", modelUUID, entity)
 	if err := m.stub.NextErr(); err != nil {
@@ -169,7 +177,7 @@ func (m *mockRelationsFacade) RegisterRemoteRelations(relations ...params.Regist
 	for i, rel := range relations {
 		result[i].Result = &params.RemoteEntityId{
 			ModelUUID: "source-model-uuid",
-			Token:     "token-" + rel.OfferedApplicationName,
+			Token:     "token-" + rel.OfferName,
 		}
 	}
 	return result, nil

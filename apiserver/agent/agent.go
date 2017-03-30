@@ -21,10 +21,6 @@ import (
 	"github.com/juju/juju/state/watcher"
 )
 
-func init() {
-	common.RegisterStandardFacade("Agent", 2, NewAgentAPIV2)
-}
-
 // AgentAPIV2 implements the version 2 of the API provided to an agent.
 type AgentAPIV2 struct {
 	*common.PasswordChanger
@@ -104,7 +100,7 @@ func (api *AgentAPIV2) getEntity(tag names.Tag) (result params.AgentGetEntitiesR
 }
 
 func (api *AgentAPIV2) StateServingInfo() (result params.StateServingInfo, err error) {
-	if !api.auth.AuthModelManager() {
+	if !api.auth.AuthController() {
 		err = common.ErrPerm
 		return
 	}
@@ -131,7 +127,7 @@ func (api *AgentAPIV2) StateServingInfo() (result params.StateServingInfo, err e
 var MongoIsMaster = mongo.IsMaster
 
 func (api *AgentAPIV2) IsMaster() (params.IsMasterResult, error) {
-	if !api.auth.AuthModelManager() {
+	if !api.auth.AuthController() {
 		return params.IsMasterResult{}, common.ErrPerm
 	}
 
@@ -160,7 +156,7 @@ func stateJobsToAPIParamsJobs(jobs []state.MachineJob) []multiwatcher.MachineJob
 
 // WatchCredentials watches for changes to the specified credentials.
 func (api *AgentAPIV2) WatchCredentials(args params.Entities) (params.NotifyWatchResults, error) {
-	if !api.auth.AuthModelManager() {
+	if !api.auth.AuthController() {
 		return params.NotifyWatchResults{}, common.ErrPerm
 	}
 

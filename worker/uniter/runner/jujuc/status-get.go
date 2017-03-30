@@ -81,7 +81,7 @@ func (c *StatusGetCommand) ApplicationStatus(ctx *cmd.Context) error {
 		if errors.IsNotImplemented(err) {
 			return c.out.Write(ctx, status.Unknown)
 		}
-		return errors.Annotatef(err, "finding service status")
+		return errors.Annotatef(err, "finding application status")
 	}
 	if !c.includeData && c.out.Name() == "smart" {
 		return c.out.Write(ctx, serviceStatus.Application.Status)

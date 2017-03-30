@@ -26,10 +26,6 @@ import (
 
 var logger = loggo.GetLogger("juju.apiserver.imagemetadata")
 
-func init() {
-	common.RegisterStandardFacade("ImageMetadata", 2, NewAPI)
-}
-
 // API is the concrete implementation of the api end point
 // for loud image metadata manipulations.
 type API struct {
@@ -45,7 +41,7 @@ func createAPI(
 	resources facade.Resources,
 	authorizer facade.Authorizer,
 ) (*API, error) {
-	if !authorizer.AuthClient() && !authorizer.AuthModelManager() {
+	if !authorizer.AuthClient() && !authorizer.AuthController() {
 		return nil, common.ErrPerm
 	}
 

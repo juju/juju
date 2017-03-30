@@ -8,13 +8,14 @@ import (
 	"io"
 
 	"github.com/juju/errors"
-	"github.com/juju/juju/mongo"
 	"github.com/juju/loggo"
 	jujutxn "github.com/juju/txn"
 	"gopkg.in/juju/blobstore.v2"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
+
+	"github.com/juju/juju/mongo"
 )
 
 var logger = loggo.GetLogger("juju.state.binarystorage")

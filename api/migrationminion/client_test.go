@@ -10,13 +10,13 @@ import (
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	worker "gopkg.in/juju/worker.v1"
 
 	apitesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/migrationminion"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/migration"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/worker"
 )
 
 type ClientSuite struct {

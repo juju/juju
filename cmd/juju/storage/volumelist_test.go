@@ -73,7 +73,8 @@ func (s *ListSuite) TestVolumeListJSON(c *gc.C) {
 
 func (s *ListSuite) TestVolumeListWithErrorResults(c *gc.C) {
 	s.mockAPI.listVolumes = func([]string) ([]params.VolumeDetailsListResult, error) {
-		results, _ := mockListAPI{}.ListVolumes(nil)
+		var emptyMockAPI mockListAPI
+		results, _ := emptyMockAPI.ListVolumes(nil)
 		results = append(results, params.VolumeDetailsListResult{
 			Error: &params.Error{Message: "bad"},
 		})
@@ -89,6 +90,7 @@ func (s *ListSuite) TestVolumeListWithErrorResults(c *gc.C) {
 }
 
 var expectedVolumeListTabular = `
+[Volumes]
 Machine  Unit         Storage      Id   Provider Id                   Device  Size    State      Message
 0        abc/0        db-dir/1001  0/0  provider-supplied-volume-0-0  loop0   512MiB  attached   
 0        transcode/0  shared-fs/0  4    provider-supplied-volume-4    xvdf2   1.0GiB  attached   
@@ -105,7 +107,8 @@ func (s *ListSuite) TestVolumeListTabular(c *gc.C) {
 	// Do it again, reversing the results returned by the API.
 	// We should get everything sorted in the appropriate order.
 	s.mockAPI.listVolumes = func([]string) ([]params.VolumeDetailsListResult, error) {
-		results, _ := mockListAPI{}.ListVolumes(nil)
+		var emptyMockAPI mockListAPI
+		results, _ := emptyMockAPI.ListVolumes(nil)
 		n := len(results)
 		for i := 0; i < n/2; i++ {
 			results[i], results[n-i-1] = results[n-i-1], results[i]
@@ -168,7 +171,7 @@ func (s *ListSuite) assertUserFacingVolumeOutput(c *gc.C, context *cmd.Context, 
 	c.Assert(obtainedErr, gc.Equals, expectedErr)
 }
 
-func (s mockListAPI) ListVolumes(machines []string) ([]params.VolumeDetailsListResult, error) {
+func (s *mockListAPI) ListVolumes(machines []string) ([]params.VolumeDetailsListResult, error) {
 	if s.listVolumes != nil {
 		return s.listVolumes(machines)
 	}
@@ -180,18 +183,24 @@ func (s mockListAPI) ListVolumes(machines []string) ([]params.VolumeDetailsListR
 			VolumeTag: "volume-0-0",
 			Info: params.VolumeInfo{
 				VolumeId: "provider-supplied-volume-0-0",
+				Pool:     "radiance",
 				Size:     512,
 			},
+			Life:   "alive",
 			Status: createTestStatus(status.Attached, ""),
-			MachineAttachments: map[string]params.VolumeAttachmentInfo{
-				"machine-0": params.VolumeAttachmentInfo{
-					DeviceName: "loop0",
+			MachineAttachments: map[string]params.VolumeAttachmentDetails{
+				"machine-0": {
+					Life: "alive",
+					VolumeAttachmentInfo: params.VolumeAttachmentInfo{
+						DeviceName: "loop0",
+					},
 				},
 			},
 			Storage: &params.StorageDetails{
 				StorageTag: "storage-db-dir-1001",
 				OwnerTag:   "unit-abc-0",
 				Kind:       params.StorageKindBlock,
+				Life:       "alive",
 				Status:     createTestStatus(status.Attached, ""),
 				Attachments: map[string]params.StorageAttachmentDetails{
 					"unit-abc-0": params.StorageAttachmentDetails{
@@ -214,8 +223,8 @@ func (s mockListAPI) ListVolumes(machines []string) ([]params.VolumeDetailsListR
 				Size:       2048,
 			},
 			Status: createTestStatus(status.Attaching, "failed to attach, will retry"),
-			MachineAttachments: map[string]params.VolumeAttachmentInfo{
-				"machine-0": params.VolumeAttachmentInfo{},
+			MachineAttachments: map[string]params.VolumeAttachmentDetails{
+				"machine-0": {},
 			},
 		},
 		// volume 3 is due to be attached to machine 1, but is not
@@ -226,8 +235,8 @@ func (s mockListAPI) ListVolumes(machines []string) ([]params.VolumeDetailsListR
 				Size: 42,
 			},
 			Status: createTestStatus(status.Pending, ""),
-			MachineAttachments: map[string]params.VolumeAttachmentInfo{
-				"machine-1": params.VolumeAttachmentInfo{},
+			MachineAttachments: map[string]params.VolumeAttachmentDetails{
+				"machine-1": {},
 			},
 		},
 		// volume 2 is due to be attached to machine 1, but is not
@@ -239,9 +248,11 @@ func (s mockListAPI) ListVolumes(machines []string) ([]params.VolumeDetailsListR
 				Size:     3,
 			},
 			Status: createTestStatus(status.Attached, ""),
-			MachineAttachments: map[string]params.VolumeAttachmentInfo{
-				"machine-1": params.VolumeAttachmentInfo{
-					DeviceName: "xvdf1",
+			MachineAttachments: map[string]params.VolumeAttachmentDetails{
+				"machine-1": {
+					VolumeAttachmentInfo: params.VolumeAttachmentInfo{
+						DeviceName: "xvdf1",
+					},
 				},
 			},
 		},
@@ -255,14 +266,18 @@ func (s mockListAPI) ListVolumes(machines []string) ([]params.VolumeDetailsListR
 				Size:       1024,
 			},
 			Status: createTestStatus(status.Attached, ""),
-			MachineAttachments: map[string]params.VolumeAttachmentInfo{
-				"machine-0": params.VolumeAttachmentInfo{
-					DeviceName: "xvdf2",
-					ReadOnly:   true,
+			MachineAttachments: map[string]params.VolumeAttachmentDetails{
+				"machine-0": {
+					VolumeAttachmentInfo: params.VolumeAttachmentInfo{
+						DeviceName: "xvdf2",
+						ReadOnly:   true,
+					},
 				},
-				"machine-1": params.VolumeAttachmentInfo{
-					DeviceName: "xvdf3",
-					ReadOnly:   true,
+				"machine-1": {
+					VolumeAttachmentInfo: params.VolumeAttachmentInfo{
+						DeviceName: "xvdf3",
+						ReadOnly:   true,
+					},
 				},
 			},
 			Storage: &params.StorageDetails{
@@ -287,6 +302,14 @@ func (s mockListAPI) ListVolumes(machines []string) ([]params.VolumeDetailsListR
 			},
 		},
 	}}}
+	if s.omitPool {
+		for _, result := range results {
+			for i, details := range result.Result {
+				details.Info.Pool = ""
+				result.Result[i] = details
+			}
+		}
+	}
 	return results, nil
 }
 

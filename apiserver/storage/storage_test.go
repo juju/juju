@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
@@ -24,7 +25,7 @@ var _ = gc.Suite(&storageSuite{})
 
 func (s *storageSuite) TestStorageListEmpty(c *gc.C) {
 	s.state.allStorageInstances = func() ([]state.StorageInstance, error) {
-		s.calls = append(s.calls, allStorageInstancesCall)
+		s.stub.AddCall(allStorageInstancesCall)
 		return []state.StorageInstance{}, nil
 	}
 
@@ -91,7 +92,7 @@ func (s *storageSuite) TestStorageListVolume(c *gc.C) {
 func (s *storageSuite) TestStorageListError(c *gc.C) {
 	msg := "list test error"
 	s.state.allStorageInstances = func() ([]state.StorageInstance, error) {
-		s.calls = append(s.calls, allStorageInstancesCall)
+		s.stub.AddCall(allStorageInstancesCall)
 		return []state.StorageInstance{}, errors.Errorf(msg)
 	}
 
@@ -109,7 +110,7 @@ func (s *storageSuite) TestStorageListError(c *gc.C) {
 func (s *storageSuite) TestStorageListInstanceError(c *gc.C) {
 	msg := "list test error"
 	s.state.storageInstance = func(sTag names.StorageTag) (state.StorageInstance, error) {
-		s.calls = append(s.calls, storageInstanceCall)
+		s.stub.AddCall(storageInstanceCall)
 		c.Assert(sTag, jc.DeepEquals, s.storageTag)
 		return nil, errors.Errorf(msg)
 	}
@@ -135,7 +136,7 @@ func (s *storageSuite) TestStorageListInstanceError(c *gc.C) {
 
 func (s *storageSuite) TestStorageListAttachmentError(c *gc.C) {
 	s.state.storageInstanceAttachments = func(tag names.StorageTag) ([]state.StorageAttachment, error) {
-		s.calls = append(s.calls, storageInstanceAttachmentsCall)
+		s.stub.AddCall(storageInstanceAttachmentsCall)
 		c.Assert(tag, jc.DeepEquals, s.storageTag)
 		return []state.StorageAttachment{}, errors.Errorf("list test error")
 	}
@@ -159,7 +160,7 @@ func (s *storageSuite) TestStorageListAttachmentError(c *gc.C) {
 func (s *storageSuite) TestStorageListMachineError(c *gc.C) {
 	msg := "list test error"
 	s.state.unitAssignedMachine = func(u names.UnitTag) (names.MachineTag, error) {
-		s.calls = append(s.calls, unitAssignedMachineCall)
+		s.stub.AddCall(unitAssignedMachineCall)
 		c.Assert(u, jc.DeepEquals, s.unitTag)
 		return names.MachineTag{}, errors.Errorf(msg)
 	}
@@ -185,7 +186,7 @@ func (s *storageSuite) TestStorageListMachineError(c *gc.C) {
 func (s *storageSuite) TestStorageListFilesystemError(c *gc.C) {
 	msg := "list test error"
 	s.state.storageInstanceFilesystem = func(sTag names.StorageTag) (state.Filesystem, error) {
-		s.calls = append(s.calls, storageInstanceFilesystemCall)
+		s.stub.AddCall(storageInstanceFilesystemCall)
 		c.Assert(sTag, jc.DeepEquals, s.storageTag)
 		return nil, errors.Errorf(msg)
 	}
@@ -209,7 +210,7 @@ func (s *storageSuite) TestStorageListFilesystemError(c *gc.C) {
 func (s *storageSuite) TestStorageListFilesystemAttachmentError(c *gc.C) {
 	msg := "list test error"
 	s.state.unitAssignedMachine = func(u names.UnitTag) (names.MachineTag, error) {
-		s.calls = append(s.calls, unitAssignedMachineCall)
+		s.stub.AddCall(unitAssignedMachineCall)
 		c.Assert(u, jc.DeepEquals, s.unitTag)
 		return s.machineTag, errors.Errorf(msg)
 	}
@@ -237,6 +238,7 @@ func (s *storageSuite) createTestStorageDetails() params.StorageDetails {
 		StorageTag: s.storageTag.String(),
 		OwnerTag:   s.unitTag.String(),
 		Kind:       params.StorageKindFilesystem,
+		Life:       "dying",
 		Status: params.EntityStatus{
 			Status: "attached",
 		},
@@ -246,6 +248,7 @@ func (s *storageSuite) createTestStorageDetails() params.StorageDetails {
 				s.unitTag.String(),
 				s.machineTag.String(),
 				"", // location
+				"alive",
 			},
 		},
 	}
@@ -293,6 +296,7 @@ func (s *storageSuite) TestShowStorage(c *gc.C) {
 		StorageTag: s.storageTag.String(),
 		OwnerTag:   s.unitTag.String(),
 		Kind:       params.StorageKindFilesystem,
+		Life:       "dying",
 		Status: params.EntityStatus{
 			Status: "attached",
 		},
@@ -302,6 +306,7 @@ func (s *storageSuite) TestShowStorage(c *gc.C) {
 				s.unitTag.String(),
 				s.machineTag.String(),
 				"",
+				"alive",
 			},
 		},
 	}
@@ -316,4 +321,153 @@ func (s *storageSuite) TestShowStorageInvalidId(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(found.Results, gc.HasLen, 1)
 	s.assertInstanceInfoError(c, found.Results[0], params.StorageDetailsResult{}, `"foo" is not a valid tag`)
+}
+
+func (s *storageSuite) TestDestroy(c *gc.C) {
+	results, err := s.api.Destroy(params.Entities{Entities: []params.Entity{
+		{Tag: "storage-foo-0"},
+		{Tag: "volume-0"},
+		{Tag: "filesystem-1-2"},
+		{Tag: "machine-0"},
+	}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 4)
+	c.Assert(results.Results, jc.DeepEquals, []params.ErrorResult{
+		{Error: &params.Error{Message: "cannae do it"}},
+		{Error: &params.Error{Message: `tag kind "volume" not valid`}},
+		{Error: &params.Error{Message: `tag kind "filesystem" not valid`}},
+		{Error: &params.Error{Message: `tag kind "machine" not valid`}},
+	})
+	s.assertCalls(c, []string{
+		getBlockForTypeCall, // Remove
+		getBlockForTypeCall, // Change
+		destroyStorageInstanceCall,
+	})
+}
+
+func (s *storageSuite) TestDetach(c *gc.C) {
+	results, err := s.api.Detach(params.StorageAttachmentIds{[]params.StorageAttachmentId{
+		{StorageTag: "storage-data-0", UnitTag: "unit-mysql-0"},
+		{StorageTag: "storage-data-0", UnitTag: ""},
+		{StorageTag: "volume-0", UnitTag: "unit-bar-0"},
+		{StorageTag: "filesystem-1-2", UnitTag: "unit-bar-0"},
+		{StorageTag: "machine-0", UnitTag: "unit-bar-0"},
+		{StorageTag: "storage-foo-0", UnitTag: "application-bar"},
+	}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 6)
+	c.Assert(results.Results, jc.DeepEquals, []params.ErrorResult{
+		{Error: nil},
+		{Error: nil},
+		{Error: &params.Error{Message: `"volume-0" is not a valid storage tag`}},
+		{Error: &params.Error{Message: `"filesystem-1-2" is not a valid storage tag`}},
+		{Error: &params.Error{Message: `"machine-0" is not a valid storage tag`}},
+		{Error: &params.Error{Message: `"application-bar" is not a valid unit tag`}},
+	})
+	s.assertCalls(c, []string{
+		getBlockForTypeCall, // Change
+		detachStorageCall,
+		storageInstanceAttachmentsCall,
+		detachStorageCall,
+	})
+	s.stub.CheckCalls(c, []testing.StubCall{
+		{getBlockForTypeCall, []interface{}{state.ChangeBlock}},
+		{detachStorageCall, []interface{}{s.storageTag, s.unitTag}},
+		{storageInstanceAttachmentsCall, []interface{}{s.storageTag}},
+		{detachStorageCall, []interface{}{s.storageTag, s.unitTag}},
+	})
+}
+
+func (s *storageSuite) TestDetachSpecifiedNotFound(c *gc.C) {
+	results, err := s.api.Detach(params.StorageAttachmentIds{[]params.StorageAttachmentId{
+		{StorageTag: "storage-data-0", UnitTag: "unit-foo-42"},
+	}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results, jc.DeepEquals, []params.ErrorResult{
+		{Error: &params.Error{
+			Code:    params.CodeNotFound,
+			Message: "attachment of storage data/0 to unit foo/42 not found",
+		}},
+	})
+	s.assertCalls(c, []string{
+		getBlockForTypeCall, // Change
+		detachStorageCall,
+	})
+	s.stub.CheckCalls(c, []testing.StubCall{
+		{getBlockForTypeCall, []interface{}{state.ChangeBlock}},
+		{detachStorageCall, []interface{}{
+			s.storageTag,
+			names.NewUnitTag("foo/42"),
+		}},
+	})
+}
+
+func (s *storageSuite) TestDetachAttachmentNotFoundConcurrent(c *gc.C) {
+	// Simulate:
+	//  1. call StorageAttachments, and receive
+	//     a list of alive attachments
+	//  2. attachment is concurrently destroyed
+	//     and removed by another process
+	s.state.detachStorage = func(sTag names.StorageTag, uTag names.UnitTag) error {
+		s.stub.AddCall(detachStorageCall, sTag, uTag)
+		return errors.NotFoundf(
+			"attachment of %s to %s",
+			names.ReadableString(sTag),
+			names.ReadableString(uTag),
+		)
+	}
+	results, err := s.api.Detach(params.StorageAttachmentIds{[]params.StorageAttachmentId{
+		{StorageTag: "storage-data-0"},
+	}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results, jc.DeepEquals, []params.ErrorResult{{}})
+	s.assertCalls(c, []string{
+		getBlockForTypeCall, // Change
+		storageInstanceAttachmentsCall,
+		detachStorageCall,
+	})
+	s.stub.CheckCalls(c, []testing.StubCall{
+		{getBlockForTypeCall, []interface{}{state.ChangeBlock}},
+		{storageInstanceAttachmentsCall, []interface{}{s.storageTag}},
+		{detachStorageCall, []interface{}{s.storageTag, s.unitTag}},
+	})
+}
+
+func (s *storageSuite) TestDetachNoAttachmentsStorageNotFound(c *gc.C) {
+	results, err := s.api.Detach(params.StorageAttachmentIds{[]params.StorageAttachmentId{
+		{StorageTag: "storage-foo-42"},
+	}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results, jc.DeepEquals, []params.ErrorResult{
+		{Error: &params.Error{
+			Code:    params.CodeNotFound,
+			Message: "storage foo/42 not found",
+		}},
+	})
+	s.stub.CheckCalls(c, []testing.StubCall{
+		{getBlockForTypeCall, []interface{}{state.ChangeBlock}},
+		{storageInstanceAttachmentsCall, []interface{}{names.NewStorageTag("foo/42")}},
+		{storageInstanceCall, []interface{}{names.NewStorageTag("foo/42")}},
+	})
+}
+
+func (s *storageSuite) TestAttach(c *gc.C) {
+	results, err := s.api.Attach(params.StorageAttachmentIds{[]params.StorageAttachmentId{
+		{StorageTag: "storage-data-0", UnitTag: "unit-mysql-0"},
+		{StorageTag: "storage-data-0", UnitTag: "machine-0"},
+		{StorageTag: "volume-0", UnitTag: "unit-mysql-0"},
+	}})
+	c.Assert(err, gc.ErrorMatches, "attaching storage not implemented")
+	c.Assert(results.Results, gc.HasLen, 3)
+	c.Assert(results.Results, jc.DeepEquals, []params.ErrorResult{
+		{Error: nil},
+		{Error: &params.Error{Message: `"machine-0" is not a valid unit tag`}},
+		{Error: &params.Error{Message: `"volume-0" is not a valid storage tag`}},
+	})
+	s.stub.CheckCalls(c, []testing.StubCall{
+		{getBlockForTypeCall, []interface{}{state.ChangeBlock}},
+	})
 }

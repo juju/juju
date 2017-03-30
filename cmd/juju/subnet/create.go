@@ -6,10 +6,9 @@ package subnet
 import (
 	"strings"
 
-	"github.com/juju/gnuflag"
-
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/gnuflag"
 	"github.com/juju/utils/set"
 	"gopkg.in/juju/names.v2"
 

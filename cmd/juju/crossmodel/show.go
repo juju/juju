@@ -14,7 +14,7 @@ import (
 )
 
 const showCommandDoc = `
-Show extended information about an exported service.
+Show extended information about an offered application.
 
 This command is aimed for a user who wants to see more detail about what’s offered behind a particular URL.
 
@@ -25,12 +25,14 @@ options:
    specify output format (tabular|json|yaml)
 
 Examples:
-   $ juju show-endpoints local:/u/fred/prod/db2
-   $ juju show-endpoints vendor:/u/ibm/hosted-db2
+   $ juju show-endpoints fred/prod.db2
+
+See also:
+   find-endpoints
 `
 
 type showCommand struct {
-	CrossModelCommandBase
+	RemoteEndpointsCommandBase
 
 	url        string
 	out        cmd.Output
@@ -42,7 +44,7 @@ type showCommand struct {
 func NewShowOfferedEndpointCommand() cmd.Command {
 	showCmd := &showCommand{}
 	showCmd.newAPIFunc = func() (ShowAPI, error) {
-		return showCmd.NewCrossModelAPI()
+		return showCmd.NewRemoteEndpointsAPI()
 	}
 	return modelcmd.WrapController(showCmd)
 }
@@ -53,11 +55,17 @@ func (c *showCommand) Init(args []string) (err error) {
 		return errors.New("must specify endpoint URL")
 	}
 
-	url := args[0]
-	if _, err := crossmodel.ParseApplicationURL(url); err != nil {
+	urlStr := args[0]
+	if url, err := crossmodel.ParseApplicationURL(urlStr); err != nil {
 		return err
+	} else {
+		// For now we only support offers on the current controller.
+		if url.Source != "" && url.Source != c.ControllerName() {
+			return errors.NotSupportedf("showing endpoints from another controller %q", url.Source)
+		}
+		url.Source = ""
 	}
-	c.url = url
+	c.url = urlStr
 	return nil
 }
 
@@ -72,7 +80,7 @@ func (c *showCommand) Info() *cmd.Info {
 
 // SetFlags implements Command.SetFlags.
 func (c *showCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.CrossModelCommandBase.SetFlags(f)
+	c.RemoteEndpointsCommandBase.SetFlags(f)
 	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
 		"yaml":    cmd.FormatYaml,
 		"json":    cmd.FormatJson,
@@ -93,7 +101,7 @@ func (c *showCommand) Run(ctx *cmd.Context) (err error) {
 		return err
 	}
 
-	output, err := convertRemoteApplications(found)
+	output, err := convertOffers(found)
 	if err != nil {
 		return err
 	}
@@ -106,9 +114,12 @@ type ShowAPI interface {
 	ApplicationOffer(url string) (params.ApplicationOffer, error)
 }
 
-// ShowRemoteApplication defines the serialization behaviour of remote application.
+// ShowOfferedApplication defines the serialization behaviour of an application offer.
 // This is used in map-style yaml output where remote application name is the key.
-type ShowRemoteApplication struct {
+type ShowOfferedApplication struct {
+	// Access is the level of access the user has on the offer.
+	Access string `yaml:"access" json:"access"`
+
 	// Endpoints list of offered application endpoints.
 	Endpoints map[string]RemoteEndpoint `yaml:"endpoints" json:"endpoints"`
 
@@ -116,19 +127,22 @@ type ShowRemoteApplication struct {
 	Description string `yaml:"description,omitempty" json:"description,omitempty"`
 }
 
-// convertRemoteApplications takes any number of api-formatted remote applications and
-// creates a collection of ui-formatted services.
-func convertRemoteApplications(services ...params.ApplicationOffer) (map[string]ShowRemoteApplication, error) {
-	if len(services) == 0 {
+// convertOffers takes any number of api-formatted remote applications and
+// creates a collection of ui-formatted offers.
+func convertOffers(offers ...params.ApplicationOffer) (map[string]ShowOfferedApplication, error) {
+	if len(offers) == 0 {
 		return nil, nil
 	}
-	output := make(map[string]ShowRemoteApplication, len(services))
-	for _, one := range services {
-		service := ShowRemoteApplication{Endpoints: convertRemoteEndpoints(one.Endpoints...)}
-		if one.ApplicationDescription != "" {
-			service.Description = one.ApplicationDescription
+	output := make(map[string]ShowOfferedApplication, len(offers))
+	for _, one := range offers {
+		app := ShowOfferedApplication{
+			Access:    one.Access,
+			Endpoints: convertRemoteEndpoints(one.Endpoints...),
 		}
-		output[one.ApplicationName] = service
+		if one.ApplicationDescription != "" {
+			app.Description = one.ApplicationDescription
+		}
+		output[one.OfferURL] = app
 	}
 	return output, nil
 }

@@ -14,8 +14,10 @@ import (
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/clock"
 	"github.com/juju/utils/series"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
+	worker "gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/agent"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
@@ -32,9 +34,7 @@ import (
 	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/upgrades"
 	jujuversion "github.com/juju/juju/version"
-	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/gate"
-	"github.com/juju/version"
 )
 
 // TODO(mjs) - these tests are too tightly coupled to the

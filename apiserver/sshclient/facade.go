@@ -15,13 +15,6 @@ import (
 	"github.com/juju/juju/permission"
 )
 
-func init() {
-	common.RegisterStandardFacade("SSHClient", 1, newFacade)
-
-	// Facade version 2 adds AllAddresses() method.
-	common.RegisterStandardFacade("SSHClient", 2, newFacade)
-}
-
 // Facade implements the API required by the sshclient worker.
 type Facade struct {
 	backend    Backend

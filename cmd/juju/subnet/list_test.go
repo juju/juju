@@ -123,6 +123,7 @@ subnets:
   2001:db8::/32:
     type: ipv6
     provider-id: subnet-bar
+    provider-network-id: network-yay
     status: terminating
     space: dmz
     zones:
@@ -145,6 +146,7 @@ subnets:
 		`"2001:db8::/32":{` +
 		`"type":"ipv6",` +
 		`"provider-id":"subnet-bar",` +
+		`"provider-network-id":"network-yay",` +
 		`"status":"terminating",` +
 		`"space":"dmz",` +
 		`"zones":["zone2"]}}}
@@ -327,6 +329,26 @@ func (s *ListSuite) TestRunWhenASubnetHasInvalidSpaceFails(c *gc.C) {
 
 	s.AssertRunFails(c, `subnet "10.20.0.0/24" has invalid space: "foo" is not a valid tag`)
 
+	s.api.CheckCallNames(c, "ListSubnets", "Close")
+	s.api.CheckCall(c, 0, "ListSubnets", nil, "")
+}
+
+func (s *ListSuite) TestRunWhenSubnetHasBlankSpace(c *gc.C) {
+	s.api.Subnets = s.api.Subnets[0:1]
+	s.api.Subnets[0].SpaceTag = ""
+
+	expectedYAML := `
+subnets:
+  10.20.0.0/24:
+    type: ipv4
+    provider-id: subnet-foo
+    status: in-use
+    space: ""
+    zones:
+    - zone1
+    - zone2
+`[1:]
+	s.AssertRunSucceeds(c, "", expectedYAML)
 	s.api.CheckCallNames(c, "ListSubnets", "Close")
 	s.api.CheckCall(c, 0, "ListSubnets", nil, "")
 }

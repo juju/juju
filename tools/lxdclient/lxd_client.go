@@ -6,7 +6,7 @@
 package lxdclient
 
 import (
-	"github.com/lxc/lxd/shared"
+	"github.com/lxc/lxd/shared/api"
 )
 
 // The various status values used for LXD.
@@ -29,20 +29,20 @@ const (
 	StatusFailure          = "Failure"
 )
 
-var allStatuses = map[string]shared.StatusCode{
-	StatusStarting:         shared.Starting,
-	StatusStarted:          shared.Started,
-	StatusRunning:          shared.Running,
-	StatusFreezing:         shared.Freezing,
-	StatusFrozen:           shared.Frozen,
-	StatusThawed:           shared.Thawed,
-	StatusStopping:         shared.Stopping,
-	StatusStopped:          shared.Stopped,
-	StatusOperationCreated: shared.OperationCreated,
-	StatusPending:          shared.Pending,
-	StatusAborting:         shared.Aborting,
-	StatusCancelling:       shared.Cancelling,
-	StatusCancelled:        shared.Cancelled,
-	StatusSuccess:          shared.Success,
-	StatusFailure:          shared.Failure,
+var allStatuses = map[string]api.StatusCode{
+	StatusStarting:         api.Starting,
+	StatusStarted:          api.Started,
+	StatusRunning:          api.Running,
+	StatusFreezing:         api.Freezing,
+	StatusFrozen:           api.Frozen,
+	StatusThawed:           api.Thawed,
+	StatusStopping:         api.Stopping,
+	StatusStopped:          api.Stopped,
+	StatusOperationCreated: api.OperationCreated,
+	StatusPending:          api.Pending,
+	StatusAborting:         api.Aborting,
+	StatusCancelling:       api.Cancelling,
+	StatusCancelled:        api.Cancelled,
+	StatusSuccess:          api.Success,
+	StatusFailure:          api.Failure,
 }

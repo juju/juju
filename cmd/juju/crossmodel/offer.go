@@ -14,26 +14,25 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/core/crossmodel"
+	jujucrossmodel "github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/jujuclient"
 )
 
 const (
 	offerCommandDoc = `
-A vendor offers deployed application endpoints for use by consumers.
+Deployed application endpoints are offered for use by consumers.
+By default, the offer is named after the application, unless
+an offer name is explicitly specified.
 
 Examples:
 
-For local endpoints:
-local:/u/<username>/<model-name>/<application-name>
+$ juju offer mysql:db
+$ juju offer db2:db hosted-db2
+$ juju offer db2:db,log hosted-db2
 
-$ juju offer db2:db local:/myapps/db2
-
-For vendor endpoints:
-vendor:/u/<username>/<application-name>
-
-$ juju offer db2:db vendor:/u/ibm/hosted-db2
-$ juju offer -e prod db2:db,log vendor:/u/ibm/hosted-db2
-$ juju offer hosted-db2:db,log vendor:/u/ibm/hosted-db2
+See also:
+    consume
+    relate
 `
 )
 
@@ -41,17 +40,14 @@ $ juju offer hosted-db2:db,log vendor:/u/ibm/hosted-db2
 func NewOfferCommand() cmd.Command {
 	offerCmd := &offerCommand{}
 	offerCmd.newAPIFunc = func() (OfferAPI, error) {
-		return offerCmd.NewCrossModelAPI()
+		return offerCmd.NewApplicationOffersAPI()
 	}
-	return modelcmd.WrapController(offerCmd)
+	return modelcmd.Wrap(offerCmd)
 }
 
 type offerCommand struct {
-	CrossModelCommandBase
+	ApplicationOffersCommandBase
 	newAPIFunc func() (OfferAPI, error)
-
-	// ModelName stores the name of the model containing the application to be offered.
-	ModelName string
 
 	// Application stores application name to be offered.
 	Application string
@@ -59,8 +55,8 @@ type offerCommand struct {
 	// Endpoints stores a list of endpoints that are being offered.
 	Endpoints []string
 
-	// URL stores juju location where these endpoints are offered from.
-	URL string
+	// OfferName stores the name of the offer
+	OfferName string
 }
 
 // Info implements Command.Info.
@@ -68,7 +64,7 @@ func (c *offerCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "offer",
 		Purpose: "Offer application endpoints for use in other models",
-		Args:    "<application-name>:<endpoint-name>[,...] <endpoint-url>",
+		Args:    "<application-name>:<endpoint-name>[,...] [offer-name]",
 		Doc:     offerCommandDoc,
 	}
 }
@@ -78,54 +74,67 @@ func (c *offerCommand) Init(args []string) error {
 	if len(args) < 1 {
 		return errors.New("an offer must at least specify application endpoint")
 	}
-	if len(args) < 2 {
-		return errors.New("an offer must specify a url")
-	}
-	if len(args) > 2 {
-		return errors.New("an offer can only specify application endpoints and url")
-	}
-
 	if err := c.parseEndpoints(args[0]); err != nil {
 		return err
 	}
-
-	hostedURL := args[1]
-	if _, err := crossmodel.ParseApplicationURL(hostedURL); err != nil {
-		return errors.Errorf(`hosted url %q is not valid" `, hostedURL)
+	argCount := 1
+	if len(args) > 1 {
+		argCount = 2
+		c.OfferName = args[1]
 	}
-	c.URL = hostedURL
-	return nil
+	if c.OfferName == "" {
+		c.OfferName = c.Application
+	}
+	return cmd.CheckEmpty(args[argCount:])
 }
 
 // SetFlags implements Command.SetFlags.
 func (c *offerCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.CrossModelCommandBase.SetFlags(f)
+	c.ApplicationOffersCommandBase.SetFlags(f)
 }
 
 // Run implements Command.Run.
-func (c *offerCommand) Run(_ *cmd.Context) error {
+func (c *offerCommand) Run(ctx *cmd.Context) error {
 	api, err := c.newAPIFunc()
 	if err != nil {
 		return err
 	}
 	defer api.Close()
 
-	model, err := c.ClientStore().ModelByName(c.ControllerName(), c.ModelName)
-	if err != nil {
-		return err
-	}
 	// TODO (anastasiamac 2015-11-16) Add a sensible way for user to specify long-ish (at times) description when offering
-	results, err := api.Offer(model.ModelUUID, c.Application, c.Endpoints, c.URL, "")
+	results, err := api.Offer(c.Application, c.Endpoints, c.OfferName, "")
 	if err != nil {
 		return err
 	}
-	return params.ErrorResults{results}.Combine()
+	if err := (params.ErrorResults{results}).Combine(); err != nil {
+		return err
+	}
+	var unqualifiedModelName, owner string
+	if jujuclient.IsQualifiedModelName(c.ModelName()) {
+		var ownerTag names.UserTag
+		unqualifiedModelName, ownerTag, err = jujuclient.SplitModelName(c.ModelName())
+		if err != nil {
+			return err
+		}
+		owner = ownerTag.Name()
+	} else {
+		unqualifiedModelName = c.ModelName()
+		account, err := c.ClientStore().AccountDetails(c.ControllerName())
+		if err != nil {
+			return err
+		}
+		owner = account.User
+	}
+	url := jujucrossmodel.MakeURL(owner, unqualifiedModelName, c.OfferName, "")
+	ep := strings.Join(c.Endpoints, ", ")
+	ctx.Infof("Application %q endpoints [%s] available at %q", c.Application, ep, url)
+	return nil
 }
 
 // OfferAPI defines the API methods that the offer command uses.
 type OfferAPI interface {
 	Close() error
-	Offer(modelUUID, application string, endpoints []string, url string, desc string) ([]params.ErrorResult, error)
+	Offer(application string, endpoints []string, offerName string, desc string) ([]params.ErrorResult, error)
 }
 
 // applicationParse is used to split an application string
@@ -133,7 +142,6 @@ type OfferAPI interface {
 var applicationParse = regexp.MustCompile("/?((?P<model>[^\\.]*)\\.)?(?P<appname>[^:]*)(:(?P<endpoints>.*))?")
 
 func (c *offerCommand) parseEndpoints(arg string) error {
-	c.ModelName = applicationParse.ReplaceAllString(arg, "$model")
 	c.Application = applicationParse.ReplaceAllString(arg, "$appname")
 	endpoints := applicationParse.ReplaceAllString(arg, "$endpoints")
 
@@ -149,11 +157,5 @@ func (c *offerCommand) parseEndpoints(arg string) error {
 		return errors.Errorf(`specify endpoints for %v" `, c.Application)
 	}
 
-	if c.ModelName == "" {
-		var err error
-		if c.ModelName, err = c.ClientStore().CurrentModel(c.ControllerName()); err != nil {
-			return err
-		}
-	}
 	return nil
 }

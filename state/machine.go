@@ -729,7 +729,7 @@ func (original *Machine) advanceLifecycle(life Life) (err error) {
 
 		if life == Dead {
 			// A machine may not become Dead until it has no more
-			// attachments to inherently machine-bound storage.
+			// attachments to detachable storage.
 			storageAsserts, err := m.assertNoPersistentStorage()
 			if err != nil {
 				return nil, errors.Trace(err)
@@ -754,21 +754,21 @@ func (m *Machine) assertNoPersistentStorage() (bson.D, error) {
 	attachments := make(set.Tags)
 	for _, v := range m.doc.Volumes {
 		tag := names.NewVolumeTag(v)
-		machineBound, err := isVolumeInherentlyMachineBound(m.st, tag)
+		detachable, err := isDetachableVolumeTag(m.st, tag)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		if !machineBound {
+		if detachable {
 			attachments.Add(tag)
 		}
 	}
 	for _, f := range m.doc.Filesystems {
 		tag := names.NewFilesystemTag(f)
-		machineBound, err := isFilesystemInherentlyMachineBound(m.st, tag)
+		detachable, err := isDetachableFilesystemTag(m.st, tag)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		if !machineBound {
+		if detachable {
 			attachments.Add(tag)
 		}
 	}
@@ -861,11 +861,11 @@ func (m *Machine) removeOps() ([]txn.Op, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	filesystemOps, err := m.st.removeMachineFilesystemsOps(m.MachineTag())
+	filesystemOps, err := m.st.removeMachineFilesystemsOps(m)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	volumeOps, err := m.st.removeMachineVolumesOps(m.MachineTag())
+	volumeOps, err := m.st.removeMachineVolumesOps(m)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -923,7 +923,7 @@ func (m *Machine) Refresh() error {
 
 // AgentPresence returns whether the respective remote agent is alive.
 func (m *Machine) AgentPresence() (bool, error) {
-	pwatcher := m.st.workers.PresenceWatcher()
+	pwatcher := m.st.workers.presenceWatcher()
 	return pwatcher.Alive(m.globalKey())
 }
 
@@ -931,7 +931,7 @@ func (m *Machine) AgentPresence() (bool, error) {
 func (m *Machine) WaitAgentPresence(timeout time.Duration) (err error) {
 	defer errors.DeferredAnnotatef(&err, "waiting for agent of machine %v", m)
 	ch := make(chan presence.Change)
-	pwatcher := m.st.workers.PresenceWatcher()
+	pwatcher := m.st.workers.presenceWatcher()
 	pwatcher.Watch(m.globalKey(), ch)
 	defer pwatcher.Unwatch(m.globalKey(), ch)
 	for i := 0; i < 2; i++ {
@@ -967,7 +967,7 @@ func (m *Machine) SetAgentPresence() (*presence.Pinger, error) {
 	//
 	// TODO: Does not work for multiple controllers. Trigger a sync across all controllers.
 	if m.IsManager() {
-		m.st.workers.PresenceWatcher().Sync()
+		m.st.workers.presenceWatcher().Sync()
 	}
 	return p, nil
 }

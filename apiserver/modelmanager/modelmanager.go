@@ -18,7 +18,7 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/version"
 	"gopkg.in/juju/names.v2"
-	"gopkg.in/yaml.v1"
+	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
@@ -35,10 +35,6 @@ import (
 )
 
 var logger = loggo.GetLogger("juju.apiserver.modelmanager")
-
-func init() {
-	common.RegisterStandardFacade("ModelManager", 2, newFacade)
-}
 
 // ModelManager defines the methods on the modelmanager API endpoint.
 type ModelManager interface {
@@ -63,7 +59,8 @@ type ModelManagerAPI struct {
 
 var _ ModelManager = (*ModelManagerAPI)(nil)
 
-func newFacade(st *state.State, _ facade.Resources, auth facade.Authorizer) (*ModelManagerAPI, error) {
+// NewFacade is used for API registration.
+func NewFacade(st *state.State, _ facade.Resources, auth facade.Authorizer) (*ModelManagerAPI, error) {
 	configGetter := stateenvirons.EnvironConfigGetter{st}
 	return NewModelManagerAPI(common.NewModelManagerBackend(st), configGetter, auth)
 }

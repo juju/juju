@@ -15,6 +15,7 @@ import (
 	"github.com/juju/retry"
 	"github.com/juju/utils"
 	"github.com/juju/utils/clock"
+	"github.com/juju/utils/set"
 	"github.com/juju/version"
 	"gopkg.in/amz.v3/aws"
 	"gopkg.in/amz.v3/ec2"
@@ -134,11 +135,6 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 	return common.Bootstrap(ctx, e, args)
 }
 
-// BootstrapMessage is part of the Environ interface.
-func (e *environ) BootstrapMessage() string {
-	return ""
-}
-
 // SupportsSpaces is specified on environs.Networking.
 func (e *environ) SupportsSpaces() (bool, error) {
 	return true, nil
@@ -245,7 +241,8 @@ func (e *environ) InstanceAvailabilityZoneNames(ids []instance.Id) ([]string, er
 }
 
 type ec2Placement struct {
-	availabilityZone ec2.AvailabilityZoneInfo
+	availabilityZone *ec2.AvailabilityZoneInfo
+	subnet           *ec2.Subnet
 }
 
 func (e *environ) parsePlacement(placement string) (*ec2Placement, error) {
@@ -262,12 +259,44 @@ func (e *environ) parsePlacement(placement string) (*ec2Placement, error) {
 		}
 		for _, z := range zones {
 			if z.Name() == availabilityZone {
+				ec2AZ := z.(*ec2AvailabilityZone)
 				return &ec2Placement{
-					z.(*ec2AvailabilityZone).AvailabilityZoneInfo,
+					availabilityZone: &ec2AZ.AvailabilityZoneInfo,
 				}, nil
 			}
 		}
 		return nil, fmt.Errorf("invalid availability zone %q", availabilityZone)
+	case "subnet":
+		logger.Debugf("searching for subnet matching placement directive %q", value)
+		matcher := CreateSubnetMatcher(value)
+		// Get all known subnets, look for a match
+		allSubnets := []string{}
+		subnetResp, err := e.ec2.Subnets(nil, nil)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		// we'll also need info about this zone, we don't have a way right now to ask about a single AZ, so punt
+		zones, err := e.AvailabilityZones()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		for _, subnet := range subnetResp.Subnets {
+			allSubnets = append(allSubnets, fmt.Sprintf("%q:%q", subnet.Id, subnet.CIDRBlock))
+			if matcher.Match(subnet) {
+				// We found the CIDR, now see if we can find the AZ
+				for _, zone := range zones {
+					if zone.Name() == subnet.AvailZone {
+						ec2AZ := zone.(*ec2AvailabilityZone)
+						return &ec2Placement{
+							availabilityZone: &ec2AZ.AvailabilityZoneInfo,
+							subnet:           &subnet,
+						}, nil
+					}
+				}
+				logger.Debugf("found a matching subnet (%v) but couldn't find the AZ", subnet)
+			}
+		}
+		logger.Debugf("searched for subnet %q, did not find it in all subnets %v", value, allSubnets)
 	}
 	return nil, fmt.Errorf("unknown placement directive: %v", placement)
 }
@@ -373,15 +402,22 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 	}()
 
 	var availabilityZones []string
+	var placementSubnetID string
 	if args.Placement != "" {
 		placement, err := e.parsePlacement(args.Placement)
 		if err != nil {
 			return nil, err
 		}
 		if placement.availabilityZone.State != availableState {
-			return nil, errors.Errorf("availability zone %q is %s", placement.availabilityZone.Name, placement.availabilityZone.State)
+			return nil, errors.Errorf("availability zone %q is %q", placement.availabilityZone.Name, placement.availabilityZone.State)
 		}
 		availabilityZones = append(availabilityZones, placement.availabilityZone.Name)
+		if placement.subnet != nil {
+			if placement.subnet.State != availableState {
+				return nil, errors.Errorf("subnet %q is %q", placement.subnet.CIDRBlock, placement.subnet.State)
+			}
+			placementSubnetID = placement.subnet.Id
+		}
 	}
 
 	callback(status.Allocating, "Determining availability zones", nil)
@@ -508,12 +544,25 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 		var subnetErr error
 		if haveVPCID {
 			var allowedSubnetIDs []string
-			for subnetID, _ := range args.SubnetsToZones {
-				allowedSubnetIDs = append(allowedSubnetIDs, string(subnetID))
+			if placementSubnetID != "" {
+				allowedSubnetIDs = []string{placementSubnetID}
+			} else {
+				for subnetID, _ := range args.SubnetsToZones {
+					allowedSubnetIDs = append(allowedSubnetIDs, string(subnetID))
+				}
 			}
 			subnetIDsForZone, subnetErr = getVPCSubnetIDsForAvailabilityZone(e.ec2, e.ecfg().vpcID(), zone, allowedSubnetIDs)
 		} else if args.Constraints.HaveSpaces() {
 			subnetIDsForZone, subnetErr = findSubnetIDsForAvailabilityZone(zone, args.SubnetsToZones)
+			if subnetErr == nil && placementSubnetID != "" {
+				asSet := set.NewStrings(subnetIDsForZone...)
+				if asSet.Contains(placementSubnetID) {
+					subnetIDsForZone = []string{placementSubnetID}
+				} else {
+					subnetIDsForZone = nil
+					subnetErr = errors.NotFoundf("subnets %q in AZ %q", placementSubnetID, zone)
+				}
+			}
 		}
 
 		switch {

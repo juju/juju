@@ -18,10 +18,6 @@ import (
 
 var logger = loggo.GetLogger("juju.apiserver.machineundertaker")
 
-func init() {
-	common.RegisterStandardFacade("MachineUndertaker", 1, newAPIFromState)
-}
-
 // API implements the API facade used by the machine undertaker.
 type API struct {
 	backend        Backend
@@ -33,7 +29,7 @@ type API struct {
 // find out what provider-level resources need to be cleaned up when a
 // machine goes away.
 func NewAPI(backend Backend, resources facade.Resources, authorizer facade.Authorizer) (*API, error) {
-	if !authorizer.AuthModelManager() {
+	if !authorizer.AuthController() {
 		return nil, errors.Trace(common.ErrPerm)
 	}
 
@@ -47,7 +43,8 @@ func NewAPI(backend Backend, resources facade.Resources, authorizer facade.Autho
 	return api, nil
 }
 
-func newAPIFromState(st *state.State, res facade.Resources, auth facade.Authorizer) (*API, error) {
+// NewFacade provides the signature required for facade registration.
+func NewFacade(st *state.State, res facade.Resources, auth facade.Authorizer) (*API, error) {
 	return NewAPI(&backendShim{st}, res, auth)
 }
 

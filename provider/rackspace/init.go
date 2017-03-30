@@ -4,10 +4,11 @@
 package rackspace
 
 import (
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/provider/openstack"
 	"gopkg.in/goose.v1/client"
 	"gopkg.in/goose.v1/identity"
+
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/provider/openstack"
 )
 
 const (

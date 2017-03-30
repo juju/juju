@@ -185,7 +185,6 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 	todoCollections := set.NewStrings(
 		// uncategorised
 		//Cross Model Relations - TODO
-		localApplicationDirectoryC,
 		remoteApplicationsC,
 		applicationOffersC,
 		tokensC,
@@ -227,6 +226,8 @@ func (s *MigrationSuite) TestModelDocFields(c *gc.C) {
 		"CloudRegion",
 		"CloudCredential",
 		"LatestAvailableTools",
+		"SLA",
+		"MeterStatus",
 	)
 	s.AssertExportedFields(c, modelDoc{}, fields)
 }
@@ -603,6 +604,7 @@ func (s *MigrationSuite) TestSubnetDocFields(c *gc.C) {
 		"SpaceName",
 		"ProviderId",
 		"AvailabilityZone",
+		"ProviderNetworkId",
 	)
 	s.AssertExportedFields(c, subnetDoc{}, migrated.Union(ignored))
 }
@@ -677,12 +679,12 @@ func (s *MigrationSuite) TestVolumeDocFields(c *gc.C) {
 		"ModelUUID",
 		"DocID",
 		"Life",
+		"MachineId", // recreated from pool properties
 	)
 	migrated := set.NewStrings(
 		"Name",
 		"StorageId",
 		"AttachmentCount", // through count of attachment instances
-		"Binding",
 		"Info",
 		"Params",
 	)
@@ -719,13 +721,13 @@ func (s *MigrationSuite) TestFilesystemDocFields(c *gc.C) {
 		"ModelUUID",
 		"DocID",
 		"Life",
+		"MachineId", // recreated from pool properties
 	)
 	migrated := set.NewStrings(
 		"FilesystemId",
 		"StorageId",
 		"VolumeId",
 		"AttachmentCount", // through count of attachment instances
-		"Binding",
 		"Info",
 		"Params",
 	)

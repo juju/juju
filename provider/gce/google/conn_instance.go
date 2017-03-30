@@ -182,19 +182,24 @@ func (gce *Connection) UpdateMetadata(key, value string, ids ...string) error {
 func (gce *Connection) updateInstanceMetadata(instance *compute.Instance, key, value string) error {
 	metadata := instance.Metadata
 	existingItem := findMetadataItem(metadata.Items, key)
-	if existingItem != nil && existingItem.Value == value {
+	if existingItem != nil && existingItem.Value != nil && *existingItem.Value == value {
 		// The value's already right.
 		return nil
 	} else if existingItem == nil {
-		metadata.Items = append(metadata.Items, &compute.MetadataItems{Key: key, Value: value})
+		metadata.Items = append(metadata.Items, &compute.MetadataItems{Key: key, Value: &value})
 	} else {
-		existingItem.Value = value
+		existingItem.Value = &value
 	}
-	return errors.Trace(gce.raw.SetMetadata(gce.projectID, instance.Zone, instance.Name, metadata))
+	// The GCE API won't accept a full URL for the zone (lp:1667172).
+	zoneName := path.Base(instance.Zone)
+	return errors.Trace(gce.raw.SetMetadata(gce.projectID, zoneName, instance.Name, metadata))
 }
 
 func findMetadataItem(items []*compute.MetadataItems, key string) *compute.MetadataItems {
 	for _, item := range items {
+		if item == nil {
+			continue
+		}
 		if item.Key == key {
 			return item
 		}

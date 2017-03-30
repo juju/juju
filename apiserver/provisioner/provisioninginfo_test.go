@@ -275,7 +275,7 @@ func (s *withoutControllerSuite) TestStorageProviderFallbackToType(c *gc.C) {
 		Jobs:      []state.MachineJob{state.JobHostUnits},
 		Placement: "valid",
 		Volumes: []state.MachineVolumeParams{
-			{Volume: state.VolumeParams{Size: 1000, Pool: "environscoped"}},
+			{Volume: state.VolumeParams{Size: 1000, Pool: "modelscoped"}},
 			{Volume: state.VolumeParams{Size: 1000, Pool: "static"}},
 		},
 	}
@@ -327,7 +327,7 @@ func (s *withoutControllerSuite) TestStorageProviderFallbackToType(c *gc.C) {
 func (s *withoutControllerSuite) TestProvisioningInfoPermissions(c *gc.C) {
 	// Login as a machine agent for machine 0.
 	anAuthorizer := s.authorizer
-	anAuthorizer.EnvironManager = false
+	anAuthorizer.Controller = false
 	anAuthorizer.Tag = s.machines[0].Tag()
 	aProvisioner, err := provisioner.NewProvisionerAPI(s.State, s.resources, anAuthorizer)
 	c.Assert(err, jc.ErrorIsNil)

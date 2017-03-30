@@ -15,14 +15,16 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/clock"
 	"github.com/juju/utils/exec"
+	jujuos "github.com/juju/utils/os"
 	corecharm "gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/status"
-	"github.com/juju/juju/worker"
+	jworker "github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/catacomb"
 	"github.com/juju/juju/worker/fortress"
 	"github.com/juju/juju/worker/uniter/actions"
@@ -38,7 +40,6 @@ import (
 	"github.com/juju/juju/worker/uniter/runner/context"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 	"github.com/juju/juju/worker/uniter/storage"
-	jujuos "github.com/juju/utils/os"
 )
 
 var logger = loggo.GetLogger("juju.worker.uniter")
@@ -159,7 +160,7 @@ func NewUniter(uniterParams *UniterParams) (*Uniter, error) {
 
 func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 	if err := u.init(unitTag); err != nil {
-		if err == worker.ErrTerminateAgent {
+		if err == jworker.ErrTerminateAgent {
 			return err
 		}
 		return errors.Annotatef(err, "failed to initialize uniter for %q", unitTag)
@@ -328,7 +329,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 			case resolver.ErrLoopAborted:
 				err = u.catacomb.ErrDying()
 			case operation.ErrNeedsReboot:
-				err = worker.ErrRebootMachine
+				err = jworker.ErrRebootMachine
 			case operation.ErrHookFailed:
 				// Loop back around. The resolver can tell that it is in
 				// an error state by inspecting the operation state.
@@ -391,7 +392,7 @@ func (u *Uniter) terminate() error {
 			if err := u.unit.EnsureDead(); err != nil {
 				return errors.Trace(err)
 			}
-			return worker.ErrTerminateAgent
+			return jworker.ErrTerminateAgent
 		}
 	}
 }
@@ -406,7 +407,7 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 		// become Dead immediately after starting up, we may well complete any
 		// operations in progress before detecting it; but that race is fundamental
 		// and inescapable, whereas this one is not.
-		return worker.ErrTerminateAgent
+		return jworker.ErrTerminateAgent
 	}
 	// If initialising for the first time after deploying, update the status.
 	currentStatus, err := u.unit.UnitStatus()
@@ -458,9 +459,15 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 	if err != nil {
 		return errors.Annotatef(err, "cannot create deployer")
 	}
-	contextFactory, err := context.NewContextFactory(
-		u.st, unitTag, u.leadershipTracker, u.relations.GetInfo, u.storage, u.paths, u.clock,
-	)
+	contextFactory, err := context.NewContextFactory(context.FactoryConfig{
+		State:            u.st,
+		UnitTag:          unitTag,
+		Tracker:          u.leadershipTracker,
+		GetRelationInfos: u.relations.GetInfo,
+		Storage:          u.storage,
+		Paths:            u.paths,
+		Clock:            u.clock,
+	})
 	if err != nil {
 		return err
 	}

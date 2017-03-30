@@ -7,7 +7,6 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/state"
@@ -20,11 +19,8 @@ import (
 // to change any part of it so that it were no longer *obviously* and
 // *trivially* correct, you would be Doing It Wrong.
 
-func init() {
-	common.RegisterStandardFacade("Storage", 3, newAPI)
-}
-
-func newAPI(
+// NewFacade provides the signature required for facade registration.
+func NewFacade(
 	st *state.State,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
@@ -113,6 +109,13 @@ type storageAccess interface {
 
 	// GetBlockForType is required to block operations.
 	GetBlockForType(t state.BlockType) (state.Block, bool, error)
+
+	// DetachStorage detaches the storage instance with the
+	// specified tag from the unit with the specified tag.
+	DetachStorage(names.StorageTag, names.UnitTag) error
+
+	// DestroyStorageInstance destroys the storage instance with the specified tag.
+	DestroyStorageInstance(names.StorageTag) error
 }
 
 var getState = func(st *state.State) storageAccess {

@@ -6,21 +6,20 @@ package showbudget
 import (
 	"fmt"
 	"io"
-	"sort"
 
 	"github.com/gosuri/uitable"
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"github.com/juju/juju/api/modelmanager"
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/loggo"
+	api "github.com/juju/romulus/api/budget"
+	wireformat "github.com/juju/romulus/wireformat/budget"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 
-	api "github.com/juju/romulus/api/budget"
-	wireformat "github.com/juju/romulus/wireformat/budget"
+	"github.com/juju/juju/api/modelmanager"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 var logger = loggo.GetLogger("romulus.cmd.showbudget")
@@ -136,31 +135,14 @@ func formatTabular(writer io.Writer, value interface{}) error {
 		table.RightAlign(col)
 	}
 
-	table.AddRow("MODEL", "SERVICES", "SPENT", "ALLOCATED", "BY", "USAGE")
+	table.AddRow("Model", "Spent", "Allocated", "By", "Usage")
 	for _, allocation := range b.Allocations {
-		firstLine := true
-		// We'll sort the application names to avoid nondeterministic
-		// command output.
-		services := make([]string, 0, len(allocation.Services))
-		for serviceName, _ := range allocation.Services {
-			services = append(services, serviceName)
-		}
-		sort.Strings(services)
-		for _, serviceName := range services {
-			service, _ := allocation.Services[serviceName]
-			if firstLine {
-				table.AddRow(allocation.Model, serviceName, service.Consumed, allocation.Limit, allocation.Owner, allocation.Usage)
-				firstLine = false
-				continue
-			}
-			table.AddRow("", serviceName, service.Consumed, "", "")
-		}
-
+		table.AddRow(allocation.Model, allocation.Consumed, allocation.Limit, allocation.Owner, allocation.Usage)
 	}
-	table.AddRow("", "", "", "", "")
-	table.AddRow("TOTAL", "", b.Total.Consumed, b.Total.Allocated, "", b.Total.Usage)
-	table.AddRow("BUDGET", "", "", b.Limit, "")
-	table.AddRow("UNALLOCATED", "", "", b.Total.Unallocated, "")
+	table.AddRow("", "", "", "")
+	table.AddRow("Total", b.Total.Consumed, b.Total.Allocated, "", b.Total.Usage)
+	table.AddRow("Budget", "", b.Limit, "")
+	table.AddRow("Unallocated", "", b.Total.Unallocated, "")
 	fmt.Fprint(writer, table)
 	return nil
 }

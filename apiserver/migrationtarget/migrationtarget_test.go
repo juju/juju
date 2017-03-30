@@ -6,6 +6,7 @@ package migrationtarget_test
 import (
 	"time"
 
+	"github.com/juju/description"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -14,12 +15,12 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/migrationtarget"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
@@ -55,7 +56,7 @@ func (s *Suite) SetUpTest(c *gc.C) {
 }
 
 func (s *Suite) TestFacadeRegistered(c *gc.C) {
-	factory, err := common.Facades.GetFactory("MigrationTarget", 1)
+	factory, err := apiserver.AllFacades().GetFactory("MigrationTarget", 1)
 	c.Assert(err, jc.ErrorIsNil)
 
 	api, err := factory(&facadetest.Context{

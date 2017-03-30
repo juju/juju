@@ -11,8 +11,8 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/juju/worker"
 	"github.com/juju/loggo"
+	"gopkg.in/juju/worker.v1"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/tomb.v1"
@@ -125,6 +125,15 @@ func New(changelog *mgo.Collection) *Watcher {
 		w.tomb.Done()
 	}()
 	return w
+}
+
+// NewDead returns a new watcher that is already dead
+// and always returns the given error from its Err method.
+func NewDead(err error) *Watcher {
+	var w Watcher
+	w.tomb.Kill(errors.Trace(err))
+	w.tomb.Done()
+	return &w
 }
 
 // Kill is part of the worker.Worker interface.

@@ -489,8 +489,9 @@ func (suite *environSuite) TestAcquireNodeInterfaces(c *gc.C) {
 		expectedPositives: "name-1:space=1;name-2:space=2;name-3:space=3;0:space=5",
 		expectedNegatives: "space:6",
 	}, {
-		interfaces:    []interfaceBinding{{"", "anything"}},
-		expectedError: "interface bindings cannot have empty names",
+		interfaces:        []interfaceBinding{{"", "anything"}},
+		expectedPositives: "0:space=anything;1:space=5",
+		expectedNegatives: "space:6",
 	}, {
 		interfaces:    []interfaceBinding{{"shared-db", "6"}},
 		expectedError: `negative space "bar" from constraints clashes with interface bindings`,
@@ -503,7 +504,7 @@ func (suite *environSuite) TestAcquireNodeInterfaces(c *gc.C) {
 		expectedNegatives: "space:6",
 	}, {
 		interfaces:    []interfaceBinding{{"", ""}},
-		expectedError: "interface bindings cannot have empty names",
+		expectedError: `invalid interface binding "": space provider ID is required`,
 	}, {
 		interfaces: []interfaceBinding{
 			{"valid", "ok"},
@@ -511,7 +512,7 @@ func (suite *environSuite) TestAcquireNodeInterfaces(c *gc.C) {
 			{"valid-name-empty-space", ""},
 			{"", ""},
 		},
-		expectedError: "interface bindings cannot have empty names",
+		expectedError: `invalid interface binding "valid-name-empty-space": space provider ID is required`,
 	}, {
 		interfaces:    []interfaceBinding{{"foo", ""}},
 		expectedError: `invalid interface binding "foo": space provider ID is required`,

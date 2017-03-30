@@ -83,7 +83,7 @@ func (s *ManifoldSuite) TestStartMissingDeps(c *gc.C) {
 		}
 		worker, err := s.manifold.Start(testResources.Context())
 		c.Check(worker, gc.IsNil)
-		c.Check(err, gc.Equals, dependency.ErrMissing)
+		c.Check(errors.Cause(err), gc.Equals, dependency.ErrMissing)
 	}
 }
 
@@ -156,10 +156,11 @@ func (s *ManifoldSuite) TestAvailability(c *gc.C) {
 		func(_ names.UnitTag, _ context.Paths) (*corecharm.URL, map[string]corecharm.Metric, error) {
 			return corecharm.MustParseURL("cs:wordpress-37"), map[string]corecharm.Metric{"pings": corecharm.Metric{Description: "test metric", Type: corecharm.MetricTypeAbsolute}}, nil
 		})
-	charmdir := &dummyCharmdir{aborted: true}
+	charmdir := &dummyCharmdir{}
 	s.resources["charmdir-name"] = dt.StubResource{Output: charmdir}
 	collectEntity, err := collect.NewCollect(s.manifoldConfig, s.resources.Context())
 	c.Assert(err, jc.ErrorIsNil)
+	charmdir.aborted = true
 	err = collectEntity.Do(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(recorder.batches, gc.HasLen, 0)
@@ -196,6 +197,15 @@ func (s *ManifoldSuite) TestNoMetricsDeclared(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(recorder.closed, jc.IsTrue)
 	c.Assert(recorder.batches, gc.HasLen, 0)
+}
+
+// TestCharmDirAborted tests when the fortress gating the charm directory
+// aborts the collector.
+func (s *ManifoldSuite) TestCharmDirAborted(c *gc.C) {
+	charmdir := &dummyCharmdir{aborted: true}
+	s.resources["charmdir-name"] = dt.StubResource{Output: charmdir}
+	_, err := collect.NewCollect(s.manifoldConfig, s.resources.Context())
+	c.Assert(errors.Cause(err), gc.Equals, fortress.ErrAborted)
 }
 
 type dummyAgent struct {

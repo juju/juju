@@ -4,11 +4,12 @@
 package enginetest
 
 import (
+	worker "gopkg.in/juju/worker.v1"
+
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
 	basetesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/cmd/jujud/agent/engine"
-	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
 	dt "github.com/juju/juju/worker/dependency/testing"
 )

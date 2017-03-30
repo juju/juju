@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"time" // only uses time.Time values
 
+	"github.com/juju/description"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -16,7 +17,6 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/payload"
 	"github.com/juju/juju/permission"
@@ -107,6 +107,17 @@ func (s *MigrationImportSuite) TestNewModel(c *gc.C) {
 	c.Assert(newModel.LatestToolsVersion(), gc.Equals, latestTools)
 	c.Assert(newModel.MigrationMode(), gc.Equals, state.MigrationModeImporting)
 	s.assertAnnotations(c, newSt, newModel)
+
+	statusInfo, err := newModel.Status()
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(statusInfo.Status, gc.Equals, status.Busy)
+	c.Check(statusInfo.Message, gc.Equals, "importing")
+	// One for original "available", one for "busy (importing)"
+	history, err := newModel.StatusHistory(status.StatusHistoryFilter{Size: 5})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(history, gc.HasLen, 2)
+	c.Check(history[0].Status, gc.Equals, status.Busy)
+	c.Check(history[1].Status, gc.Equals, status.Available)
 
 	originalConfig, err := original.Config()
 	c.Assert(err, jc.ErrorIsNil)
@@ -208,6 +219,35 @@ func (s *MigrationImportSuite) TestModelUsers(c *gc.C) {
 	allUsers, err := newModel.Users()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(allUsers, gc.HasLen, 3)
+}
+
+func (s *MigrationImportSuite) TestSLA(c *gc.C) {
+	err := s.State.SetSLA("essential", []byte("creds"))
+	c.Assert(err, jc.ErrorIsNil)
+	newModel, newSt := s.importModel(c)
+
+	c.Assert(newModel.SLALevel(), gc.Equals, "essential")
+	c.Assert(newModel.SLACredential(), jc.DeepEquals, []byte("creds"))
+	level, err := newSt.SLALevel()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(level, gc.Equals, "essential")
+	creds, err := newSt.SLACredential()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(creds, jc.DeepEquals, []byte("creds"))
+}
+
+func (s *MigrationImportSuite) TestMeterStatus(c *gc.C) {
+	err := s.State.SetModelMeterStatus("RED", "info message")
+	c.Assert(err, jc.ErrorIsNil)
+	newModel, newSt := s.importModel(c)
+
+	ms := newModel.MeterStatus()
+	c.Assert(ms.Code.String(), gc.Equals, "RED")
+	c.Assert(ms.Info, gc.Equals, "info message")
+	ms, err = newSt.ModelMeterStatus()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ms.Code.String(), gc.Equals, "RED")
+	c.Assert(ms.Info, gc.Equals, "info message")
 }
 
 func (s *MigrationImportSuite) AssertMachineEqual(c *gc.C, newMachine, oldMachine *state.Machine) {
@@ -746,11 +786,12 @@ func (s *MigrationImportSuite) TestLinkLayerDeviceMigratesReferences(c *gc.C) {
 
 func (s *MigrationImportSuite) TestSubnets(c *gc.C) {
 	original, err := s.State.AddSubnet(state.SubnetInfo{
-		CIDR:             "10.0.0.0/24",
-		ProviderId:       network.Id("foo"),
-		VLANTag:          64,
-		AvailabilityZone: "bar",
-		SpaceName:        "bam",
+		CIDR:              "10.0.0.0/24",
+		ProviderId:        network.Id("foo"),
+		ProviderNetworkId: network.Id("elm"),
+		VLANTag:           64,
+		AvailabilityZone:  "bar",
+		SpaceName:         "bam",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddSpace("bam", "", nil, true)
@@ -763,6 +804,7 @@ func (s *MigrationImportSuite) TestSubnets(c *gc.C) {
 
 	c.Assert(subnet.CIDR(), gc.Equals, "10.0.0.0/24")
 	c.Assert(subnet.ProviderId(), gc.Equals, network.Id("foo"))
+	c.Assert(subnet.ProviderNetworkId(), gc.Equals, network.Id("elm"))
 	c.Assert(subnet.VLANTag(), gc.Equals, 64)
 	c.Assert(subnet.AvailabilityZone(), gc.Equals, "bar")
 	c.Assert(subnet.SpaceName(), gc.Equals, "bam")
@@ -1116,6 +1158,80 @@ func (s *MigrationImportSuite) TestPayloads(c *gc.C) {
 	c.Check(payload.Labels, jc.DeepEquals, original.Labels)
 	c.Check(payload.Unit, gc.Equals, unitID)
 	c.Check(payload.Machine, gc.Equals, machineID)
+}
+
+func (s *MigrationImportSuite) TestRemoteApplications(c *gc.C) {
+	// For now we want to prevent importing models that have remote
+	// applications - cross-model relations don't support relations
+	// with the models in different controllers.
+	_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name:        "gravy-rainbow",
+		URL:         "me/model.rainbow",
+		SourceModel: s.State.ModelTag(),
+		Token:       "charisma",
+		Endpoints: []charm.Relation{{
+			Interface: "mysql",
+			Name:      "db",
+			Role:      charm.RoleProvider,
+			Scope:     charm.ScopeGlobal,
+		}, {
+			Interface: "mysql-root",
+			Name:      "db-admin",
+			Limit:     5,
+			Role:      charm.RoleProvider,
+			Scope:     charm.ScopeGlobal,
+		}, {
+			Interface: "logging",
+			Name:      "logging",
+			Role:      charm.RoleProvider,
+			Scope:     charm.ScopeGlobal,
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	out, err := s.State.Export()
+	c.Assert(err, jc.ErrorIsNil)
+
+	uuid := utils.MustNewUUID().String()
+	in := newModel(out, uuid, "new")
+
+	_, newSt, err := s.State.Import(in)
+	if err == nil {
+		defer newSt.Close()
+	}
+	c.Assert(err, gc.ErrorMatches, "can't import models with remote applications")
+}
+
+func (s *MigrationImportSuite) TestApplicationsWithNilConfigValues(c *gc.C) {
+	application := s.Factory.MakeApplication(c, &factory.ApplicationParams{
+		Settings: map[string]interface{}{
+			"foo": "bar",
+		},
+	})
+	s.primeStatusHistory(c, application, status.Active, 5)
+	// Since above factory method calls newly updated state.AddApplication(...)
+	// which removes config settings with nil value before writing
+	// application into database,
+	// strip config setting values to nil directly to simulate
+	// what could happen to some applications in 2.0 and 2.1.
+	// For more context, see https://bugs.launchpad.net/juju/+bug/1667199
+	settings := state.GetApplicationSettings(s.State, application)
+	settings.Set("foo", nil)
+	_, err := settings.Write()
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, newSt := s.importModel(c)
+
+	importedApplications, err := newSt.AllApplications()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(importedApplications, gc.HasLen, 1)
+	importedApplication := importedApplications[0]
+
+	// Ensure that during import application settings with nil config values
+	// were stripped and not written into database.
+	importedSettings := state.GetApplicationSettings(newSt, importedApplication)
+	_, importedFound := importedSettings.Get("foo")
+	c.Assert(importedFound, jc.IsFalse)
 }
 
 // newModel replaces the uuid and name of the config attributes so we

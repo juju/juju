@@ -1,4 +1,4 @@
-// Copyright 2016 Canonical Ltd.
+// Copyright 2017 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package apiserver_test
@@ -6,295 +6,273 @@ package apiserver_test
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
-	"net/url"
+	"net/http/httptest"
+	"strconv"
 	"strings"
 	"time"
 
+	"github.com/juju/errors"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/component/all"
-	"github.com/juju/juju/permission"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/testing/factory"
+	"github.com/juju/juju/resource"
+	"github.com/juju/juju/resource/api"
+	"github.com/juju/juju/resource/resourcetesting"
 )
 
-type resourceUploadSuite struct {
-	authHTTPSuite
-	appName        string
-	unit           *state.Unit
-	importingState *state.State
-	importingModel *state.Model
+type ResourcesHandlerSuite struct {
+	testing.IsolationSuite
+
+	stateAuthErr error
+	backend      *fakeBackend
+	username     string
+	req          *http.Request
+	header       http.Header
+	recorder     *httptest.ResponseRecorder
+	handler      *apiserver.ResourcesHandler
 }
 
-var _ = gc.Suite(&resourceUploadSuite{})
+var _ = gc.Suite(&ResourcesHandlerSuite{})
 
-func (s *resourceUploadSuite) SetUpSuite(c *gc.C) {
-	s.authHTTPSuite.SetUpSuite(c)
-	all.RegisterForServer()
-}
+func (s *ResourcesHandlerSuite) SetUpTest(c *gc.C) {
+	s.IsolationSuite.SetUpTest(c)
 
-func (s *resourceUploadSuite) SetUpTest(c *gc.C) {
-	s.authHTTPSuite.SetUpTest(c)
+	s.stateAuthErr = nil
+	s.backend = new(fakeBackend)
+	s.username = "youknowwho"
 
-	// Make the user a controller admin (required for migrations).
-	controllerTag := names.NewControllerTag(s.ControllerConfig.ControllerUUID())
-	_, err := s.State.SetUserAccess(s.userTag, controllerTag, permission.SuperuserAccess)
+	method := "..."
+	urlStr := "..."
+	body := strings.NewReader("...")
+	req, err := http.NewRequest(method, urlStr, body)
 	c.Assert(err, jc.ErrorIsNil)
-
-	// Create an importing model to work with.
-	s.importingState = s.Factory.MakeModel(c, nil)
-	s.AddCleanup(func(*gc.C) { s.importingState.Close() })
-	s.importingModel, err = s.importingState.Model()
-	c.Assert(err, jc.ErrorIsNil)
-
-	newFactory := factory.NewFactory(s.importingState)
-	app := newFactory.MakeApplication(c, nil)
-	s.appName = app.Name()
-
-	s.unit = newFactory.MakeUnit(c, &factory.UnitParams{
-		Application: app,
-	})
-
-	err = s.importingModel.SetMigrationMode(state.MigrationModeImporting)
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.extraHeaders = map[string]string{
-		params.MigrationModelHTTPHeader: s.importingModel.UUID(),
+	s.req = req
+	s.recorder = httptest.NewRecorder()
+	s.handler = &apiserver.ResourcesHandler{
+		StateAuthFunc: s.authState,
 	}
 }
 
-func (s *resourceUploadSuite) TestServedSecurely(c *gc.C) {
-	url := s.resourcesURL(c, "")
-	url.Scheme = "http"
-	s.sendRequest(c, httpRequestParams{
-		method:      "GET",
-		url:         url.String(),
-		expectError: `.*malformed HTTP response.*`,
+func (s *ResourcesHandlerSuite) authState(req *http.Request, tagKinds ...string) (apiserver.ResourcesBackend, func(), names.Tag, error) {
+	if s.stateAuthErr != nil {
+		return nil, nil, nil, errors.Trace(s.stateAuthErr)
+	}
+	closer := func() {}
+	tag := names.NewUserTag(s.username)
+	return s.backend, closer, tag, nil
+}
+
+func (s *ResourcesHandlerSuite) TestStateAuthFailure(c *gc.C) {
+	failure, expected := apiFailure("<failure>", "")
+	s.stateAuthErr = failure
+
+	s.handler.ServeHTTP(s.recorder, s.req)
+
+	s.checkResp(c, http.StatusInternalServerError, "application/json", expected)
+}
+
+func (s *ResourcesHandlerSuite) TestUnsupportedMethod(c *gc.C) {
+	s.req.Method = "POST"
+
+	s.handler.ServeHTTP(s.recorder, s.req)
+
+	_, expected := apiFailure(`unsupported method: "POST"`, params.CodeMethodNotAllowed)
+	s.checkResp(c, http.StatusMethodNotAllowed, "application/json", expected)
+}
+
+func (s *ResourcesHandlerSuite) TestGetSuccess(c *gc.C) {
+	s.req.Method = "GET"
+	s.handler.ServeHTTP(s.recorder, s.req)
+	s.checkResp(c, http.StatusOK, "application/octet-stream", resourceBody)
+}
+
+func (s *ResourcesHandlerSuite) TestPutSuccess(c *gc.C) {
+	uploadContent := "<some data>"
+	res, _ := newResource(c, "spam", "a-user", content)
+	stored, _ := newResource(c, "spam", "", "")
+	s.backend.ReturnGetResource = stored
+	s.backend.ReturnSetResource = res
+
+	req, _ := newUploadRequest(c, "spam", "a-application", uploadContent)
+	s.handler.ServeHTTP(s.recorder, req)
+
+	expected := mustMarshalJSON(&params.UploadResult{
+		Resource: api.Resource2API(res),
 	})
+	s.checkResp(c, http.StatusOK, "application/json", string(expected))
 }
 
-func (s *resourceUploadSuite) TestGETUnsupported(c *gc.C) {
-	resp := s.authRequest(c, httpRequestParams{method: "GET", url: s.resourcesURI(c, "")})
-	s.assertErrorResponse(c, resp, http.StatusMethodNotAllowed, `unsupported method: "GET"`)
+func (s *ResourcesHandlerSuite) TestPutExtensionMismatch(c *gc.C) {
+	content := "<some data>"
+
+	// newResource returns a resource with a Path = name + ".tgz"
+	res, _ := newResource(c, "spam", "a-user", content)
+	stored, _ := newResource(c, "spam", "", "")
+	s.backend.ReturnGetResource = stored
+	s.backend.ReturnSetResource = res
+
+	req, _ := newUploadRequest(c, "spam", "a-application", content)
+	req.Header.Set("Content-Disposition", "form-data; filename=different.ext")
+	s.handler.ServeHTTP(s.recorder, req)
+
+	_, expected := apiFailure(`incorrect extension on resource upload "different.ext", expected ".tgz"`,
+		"")
+	s.checkResp(c, http.StatusInternalServerError, "application/json", string(expected))
 }
 
-func (s *resourceUploadSuite) TestPUTUnsupported(c *gc.C) {
-	resp := s.authRequest(c, httpRequestParams{method: "PUT", url: s.resourcesURI(c, "")})
-	s.assertErrorResponse(c, resp, http.StatusMethodNotAllowed, `unsupported method: "PUT"`)
-}
+func (s *ResourcesHandlerSuite) TestPutWithPending(c *gc.C) {
+	uploadContent := "<some data>"
+	res, _ := newResource(c, "spam", "a-user", uploadContent)
+	res.PendingID = "some-unique-id"
+	stored, _ := newResource(c, "spam", "", "")
+	stored.PendingID = "some-unique-id"
+	s.backend.ReturnGetPendingResource = stored
+	s.backend.ReturnUpdatePendingResource = res
 
-func (s *resourceUploadSuite) TestPOSTRequiresAuth(c *gc.C) {
-	resp := s.sendRequest(c, httpRequestParams{method: "POST", url: s.resourcesURI(c, "")})
-	s.assertErrorResponse(c, resp, http.StatusUnauthorized, ".*no credentials provided$")
-}
+	req, _ := newUploadRequest(c, "spam", "a-application", content)
+	req.URL.RawQuery += "&pendingid=some-unique-id"
+	s.handler.ServeHTTP(s.recorder, req)
 
-func (s *resourceUploadSuite) TestPOSTRequiresUserAuth(c *gc.C) {
-	// Add a machine and try to login.
-	machine, password := s.Factory.MakeMachineReturningPassword(c, &factory.MachineParams{
-		Nonce: "noncy",
+	expected := mustMarshalJSON(&params.UploadResult{
+		Resource: api.Resource2API(res),
 	})
-	resp := s.sendRequest(c, httpRequestParams{
-		tag:         machine.Tag().String(),
-		password:    password,
-		method:      "POST",
-		url:         s.resourcesURI(c, ""),
-		nonce:       "noncy",
-		contentType: "foo/bar",
-	})
-	s.assertErrorResponse(c, resp, http.StatusInternalServerError, ".*tag kind machine not valid$")
-
-	// Now try a user login.
-	resp = s.authRequest(c, httpRequestParams{method: "POST", url: s.resourcesURI(c, "")})
-	s.assertErrorResponse(c, resp, http.StatusBadRequest, "missing application/unit")
+	s.checkResp(c, http.StatusOK, "application/json", string(expected))
 }
 
-func (s *resourceUploadSuite) TestRejectsInvalidModel(c *gc.C) {
-	s.extraHeaders[params.MigrationModelHTTPHeader] = "dead-beef-123456"
-	resp := s.authRequest(c, httpRequestParams{method: "POST", url: s.resourcesURI(c, "")})
-	s.assertErrorResponse(c, resp, http.StatusNotFound, `.*unknown model: "dead-beef-123456"$`)
+func (s *ResourcesHandlerSuite) TestPutSetResourceFailure(c *gc.C) {
+	content := "<some data>"
+	stored, _ := newResource(c, "spam", "", "")
+	s.backend.ReturnGetResource = stored
+	failure, expected := apiFailure("boom", "")
+	s.backend.SetResourceErr = failure
+
+	req, _ := newUploadRequest(c, "spam", "a-application", content)
+	s.handler.ServeHTTP(s.recorder, req)
+	s.checkResp(c, http.StatusInternalServerError, "application/json", string(expected))
 }
 
-const content = "stuff"
+func (s *ResourcesHandlerSuite) checkResp(c *gc.C, status int, ctype, body string) {
+	checkHTTPResp(c, s.recorder, status, ctype, body)
+}
 
-func (s *resourceUploadSuite) makeUploadArgs(c *gc.C) url.Values {
+func checkHTTPResp(c *gc.C, recorder *httptest.ResponseRecorder, status int, ctype, body string) {
+	c.Assert(recorder.Code, gc.Equals, status)
+	hdr := recorder.Header()
+	c.Check(hdr.Get("Content-Type"), gc.Equals, ctype)
+	c.Check(hdr.Get("Content-Length"), gc.Equals, strconv.Itoa(len(body)))
+
+	actualBody, err := ioutil.ReadAll(recorder.Body)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(string(actualBody), gc.Equals, body)
+}
+
+type fakeBackend struct {
+	ReturnGetResource           resource.Resource
+	ReturnGetPendingResource    resource.Resource
+	ReturnSetResource           resource.Resource
+	SetResourceErr              error
+	ReturnUpdatePendingResource resource.Resource
+}
+
+const resourceBody = "body"
+
+func (s *fakeBackend) OpenResource(application, name string) (resource.Resource, io.ReadCloser, error) {
+	res := resource.Resource{}
+	res.Size = int64(len(resourceBody))
+	reader := ioutil.NopCloser(strings.NewReader(resourceBody))
+	return res, reader, nil
+}
+
+func (s *fakeBackend) GetResource(service, name string) (resource.Resource, error) {
+	return s.ReturnGetResource, nil
+}
+
+func (s *fakeBackend) GetPendingResource(service, name, pendingID string) (resource.Resource, error) {
+	return s.ReturnGetPendingResource, nil
+}
+
+func (s *fakeBackend) SetResource(applicationID, userID string, res charmresource.Resource, r io.Reader) (resource.Resource, error) {
+	if s.SetResourceErr != nil {
+		return resource.Resource{}, s.SetResourceErr
+	}
+	return s.ReturnSetResource, nil
+}
+
+func (s *fakeBackend) UpdatePendingResource(applicationID, pendingID, userID string, res charmresource.Resource, r io.Reader) (resource.Resource, error) {
+	return s.ReturnUpdatePendingResource, nil
+}
+
+func newResource(c *gc.C, name, username, data string) (resource.Resource, params.Resource) {
+	opened := resourcetesting.NewResource(c, nil, name, "a-application", data)
+	res := opened.Resource
+	res.Username = username
+	if username == "" {
+		res.Timestamp = time.Time{}
+	}
+
+	apiRes := params.Resource{
+		CharmResource: params.CharmResource{
+			Name:        name,
+			Description: name + " description",
+			Type:        "file",
+			Path:        res.Path,
+			Origin:      "upload",
+			Revision:    0,
+			Fingerprint: res.Fingerprint.Bytes(),
+			Size:        res.Size,
+		},
+		ID:            res.ID,
+		ApplicationID: res.ApplicationID,
+		Username:      username,
+		Timestamp:     res.Timestamp,
+	}
+
+	return res, apiRes
+}
+
+func newUploadRequest(c *gc.C, name, service, content string) (*http.Request, io.Reader) {
 	fp, err := charmresource.GenerateFingerprint(strings.NewReader(content))
 	c.Assert(err, jc.ErrorIsNil)
-	q := make(url.Values)
-	q.Add("application", s.appName)
-	q.Add("user", "napolean")
-	q.Add("name", "bin")
-	q.Add("path", "blob.zip")
-	q.Add("description", "hmm")
-	q.Add("type", "file")
-	q.Add("origin", "store")
-	q.Add("revision", "3")
-	q.Add("size", fmt.Sprint(len(content)))
-	q.Add("fingerprint", fp.Hex())
-	q.Add("timestamp", fmt.Sprint(time.Now().UnixNano()))
-	return q
+
+	method := "PUT"
+	urlStr := "https://api:17017/applications/%s/resources/%s"
+	urlStr += "?:application=%s&:resource=%s" // ...added by the mux.
+	urlStr = fmt.Sprintf(urlStr, service, name, service, name)
+	body := strings.NewReader(content)
+	req, err := http.NewRequest(method, urlStr, body)
+	c.Assert(err, jc.ErrorIsNil)
+
+	req.Header.Set("Content-Type", "application/octet-stream")
+	req.Header.Set("Content-Length", fmt.Sprint(len(content)))
+	req.Header.Set("Content-SHA384", fp.String())
+	req.Header.Set("Content-Disposition", "form-data; filename="+name+".tgz")
+
+	return req, body
 }
 
-func (s *resourceUploadSuite) TestUpload(c *gc.C) {
-	outResp := s.uploadAppResource(c, nil)
-	c.Check(outResp.ID, gc.Not(gc.Equals), "")
-	c.Check(outResp.Timestamp.IsZero(), jc.IsFalse)
-
-	rSt, err := s.importingState.Resources()
-	c.Assert(err, jc.ErrorIsNil)
-	res, reader, err := rSt.OpenResource(s.appName, "bin")
-	c.Assert(err, jc.ErrorIsNil)
-	defer reader.Close()
-	readContent, err := ioutil.ReadAll(reader)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(readContent), gc.Equals, content)
-	c.Assert(res.ID, gc.Equals, outResp.ID)
-}
-
-func (s *resourceUploadSuite) TestUnitUpload(c *gc.C) {
-	// Upload application resource first. A unit resource can't be
-	// uploaded without the application resource being there first.
-	s.uploadAppResource(c, nil)
-
-	q := s.makeUploadArgs(c)
-	q.Del("application")
-	q.Set("unit", s.unit.Name())
-	resp := s.authRequest(c, httpRequestParams{
-		method:      "POST",
-		url:         s.resourcesURI(c, q.Encode()),
-		contentType: "application/octet-stream",
-		body:        strings.NewReader(content),
+func apiFailure(msg, code string) (error, string) {
+	failure := errors.New(msg)
+	data := mustMarshalJSON(params.ErrorResult{
+		Error: &params.Error{
+			Message: msg,
+			Code:    code,
+		},
 	})
-	outResp := s.assertResponse(c, resp, http.StatusOK)
-	c.Check(outResp.ID, gc.Not(gc.Equals), "")
-	c.Check(outResp.Timestamp.IsZero(), jc.IsFalse)
+	return failure, string(data)
 }
 
-func (s *resourceUploadSuite) TestPlaceholder(c *gc.C) {
-	query := s.makeUploadArgs(c)
-	query.Del("timestamp") // No timestamp means placeholder
-	outResp := s.uploadAppResource(c, &query)
-	c.Check(outResp.ID, gc.Not(gc.Equals), "")
-	c.Check(outResp.Timestamp.IsZero(), jc.IsTrue)
-
-	rSt, err := s.importingState.Resources()
-	c.Assert(err, jc.ErrorIsNil)
-	res, err := rSt.GetResource(s.appName, "bin")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(res.IsPlaceholder(), jc.IsTrue)
-	c.Check(res.ApplicationID, gc.Equals, s.appName)
-	c.Check(res.Name, gc.Equals, "bin")
-	c.Check(res.Size, gc.Equals, int64(len(content)))
-}
-
-func (s *resourceUploadSuite) uploadAppResource(c *gc.C, query *url.Values) params.ResourceUploadResult {
-	if query == nil {
-		q := s.makeUploadArgs(c)
-		query = &q
+func mustMarshalJSON(v interface{}) []byte {
+	data, err := json.Marshal(v)
+	if err != nil {
+		panic(err)
 	}
-	resp := s.authRequest(c, httpRequestParams{
-		method:      "POST",
-		url:         s.resourcesURI(c, query.Encode()),
-		contentType: "application/octet-stream",
-		body:        strings.NewReader(content),
-	})
-	return s.assertResponse(c, resp, http.StatusOK)
-}
-
-func (s *resourceUploadSuite) TestArgValidation(c *gc.C) {
-	checkBadRequest := func(q url.Values, expected string) {
-		resp := s.authRequest(c, httpRequestParams{
-			method: "POST",
-			url:    s.resourcesURI(c, q.Encode()),
-		})
-		s.assertErrorResponse(c, resp, http.StatusBadRequest, expected)
-	}
-
-	q := s.makeUploadArgs(c)
-	q.Del("application")
-	checkBadRequest(q, "missing application/unit")
-
-	q = s.makeUploadArgs(c)
-	q.Set("unit", "some/0")
-	checkBadRequest(q, "application and unit can't be set at the same time")
-
-	q = s.makeUploadArgs(c)
-	q.Del("name")
-	checkBadRequest(q, "missing name")
-
-	q = s.makeUploadArgs(c)
-	q.Del("path")
-	checkBadRequest(q, "missing path")
-
-	q = s.makeUploadArgs(c)
-	q.Del("description")
-	checkBadRequest(q, "missing description")
-
-	q = s.makeUploadArgs(c)
-	q.Set("type", "fooo")
-	checkBadRequest(q, "invalid type")
-
-	q = s.makeUploadArgs(c)
-	q.Set("origin", "fooo")
-	checkBadRequest(q, "invalid origin")
-
-	q = s.makeUploadArgs(c)
-	q.Set("revision", "fooo")
-	checkBadRequest(q, "invalid revision")
-
-	q = s.makeUploadArgs(c)
-	q.Set("size", "fooo")
-	checkBadRequest(q, "invalid size")
-
-	q = s.makeUploadArgs(c)
-	q.Set("fingerprint", "zzz")
-	checkBadRequest(q, "invalid fingerprint")
-}
-
-func (s *resourceUploadSuite) TestFailsWhenModelNotImporting(c *gc.C) {
-	err := s.importingModel.SetMigrationMode(state.MigrationModeNone)
-	c.Assert(err, jc.ErrorIsNil)
-
-	q := s.makeUploadArgs(c)
-	resp := s.authRequest(c, httpRequestParams{
-		method:      "POST",
-		url:         s.resourcesURI(c, q.Encode()),
-		contentType: "application/octet-stream",
-		body:        strings.NewReader(content),
-	})
-	s.assertResponse(c, resp, http.StatusBadRequest)
-}
-
-func (s *resourceUploadSuite) resourcesURI(c *gc.C, query string) string {
-	if query != "" && query[0] == '?' {
-		query = query[1:]
-	}
-	return s.resourcesURL(c, query).String()
-}
-
-func (s *resourceUploadSuite) resourcesURL(c *gc.C, query string) *url.URL {
-	uri := s.baseURL(c)
-	uri.Path = "/migrate/resources"
-	uri.RawQuery = query
-	return uri
-}
-
-func (s *resourceUploadSuite) assertErrorResponse(c *gc.C, resp *http.Response, expStatus int, expError string) {
-	outResp := s.assertResponse(c, resp, expStatus)
-	err := outResp.Error
-	c.Assert(err, gc.NotNil)
-	c.Check(err.Message, gc.Matches, expError)
-}
-
-func (s *resourceUploadSuite) assertResponse(c *gc.C, resp *http.Response, expStatus int) params.ResourceUploadResult {
-	body := assertResponse(c, resp, expStatus, params.ContentTypeJSON)
-	var outResp params.ResourceUploadResult
-	err := json.Unmarshal(body, &outResp)
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("body: %s", body))
-	return outResp
+	return data
 }

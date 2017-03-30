@@ -63,9 +63,13 @@ clouds:
         endpoint: https://www.googleapis.com
       us-central1:
         endpoint: https://www.googleapis.com
+      us-west1:
+        endpoint: https://www.googleapis.com
       europe-west1:
         endpoint: https://www.googleapis.com
       asia-east1:
+        endpoint: https://www.googleapis.com
+      asia-northeast1:
         endpoint: https://www.googleapis.com
   azure:
     type: azure
@@ -92,7 +96,15 @@ clouds:
         endpoint: https://management.azure.com
         storage-endpoint: https://core.windows.net
         identity-endpoint: https://graph.windows.net
+      westcentralus:
+        endpoint: https://management.azure.com
+        storage-endpoint: https://core.windows.net
+        identity-endpoint: https://graph.windows.net
       westus:
+        endpoint: https://management.azure.com
+        storage-endpoint: https://core.windows.net
+        identity-endpoint: https://graph.windows.net
+      westus2:
         endpoint: https://management.azure.com
         storage-endpoint: https://core.windows.net
         identity-endpoint: https://graph.windows.net
@@ -141,6 +153,22 @@ clouds:
         storage-endpoint: https://core.windows.net
         identity-endpoint: https://graph.windows.net
       westindia:
+        endpoint: https://management.azure.com
+        storage-endpoint: https://core.windows.net
+        identity-endpoint: https://graph.windows.net
+      canadacentral:
+        endpoint: https://management.azure.com
+        storage-endpoint: https://core.windows.net
+        identity-endpoint: https://graph.windows.net
+      canadaeast:
+        endpoint: https://management.azure.com
+        storage-endpoint: https://core.windows.net
+        identity-endpoint: https://graph.windows.net
+      uksouth:
+        endpoint: https://management.azure.com
+        storage-endpoint: https://core.windows.net
+        identity-endpoint: https://graph.windows.net
+      ukwest:
         endpoint: https://management.azure.com
         storage-endpoint: https://core.windows.net
         identity-endpoint: https://graph.windows.net

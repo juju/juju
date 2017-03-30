@@ -15,11 +15,10 @@ import (
 	"strconv"
 	"strings"
 
-	"golang.org/x/crypto/ssh/terminal"
-
 	"github.com/juju/errors"
 	"github.com/juju/jsonschema"
 	"github.com/juju/utils/set"
+	"golang.org/x/crypto/ssh/terminal"
 )
 
 // Pollster is used to ask multiple questions of the user using a standard

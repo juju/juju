@@ -4,39 +4,38 @@
 package application_test
 
 import (
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 
 	"github.com/juju/juju/api/application"
+	basetesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
-	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/storage"
 )
 
 type applicationSuite struct {
-	jujutesting.JujuConnSuite
-
-	client *application.Client
+	testing.IsolationSuite
 }
 
 var _ = gc.Suite(&applicationSuite{})
 
-func (s *applicationSuite) SetUpTest(c *gc.C) {
-	s.JujuConnSuite.SetUpTest(c)
-	s.client = application.NewClient(s.APIState)
-	c.Assert(s.client, gc.NotNil)
+func newClient(f basetesting.APICallerFunc) *application.Client {
+	return application.NewClient(f)
 }
 
 func (s *applicationSuite) TestSetServiceMetricCredentials(c *gc.C) {
 	var called bool
-	application.PatchFacadeCall(s, s.client, func(request string, a, response interface{}) error {
+	client := newClient(func(objType string, version int, id, request string, a, response interface{}) error {
 		called = true
-		c.Assert(request, gc.Equals, "SetMetricCredentials")
+		c.Check(objType, gc.Equals, "Application")
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, "SetMetricCredentials")
 		args, ok := a.(params.ApplicationMetricCredentials)
 		c.Assert(ok, jc.IsTrue)
 		c.Assert(args.Creds, gc.HasLen, 1)
@@ -47,38 +46,31 @@ func (s *applicationSuite) TestSetServiceMetricCredentials(c *gc.C) {
 		result.Results = make([]params.ErrorResult, 1)
 		return nil
 	})
-	err := s.client.SetMetricCredentials("serviceA", []byte("creds 1"))
+	err := client.SetMetricCredentials("serviceA", []byte("creds 1"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(called, jc.IsTrue)
 }
 
 func (s *applicationSuite) TestSetServiceMetricCredentialsFails(c *gc.C) {
 	var called bool
-	application.PatchFacadeCall(s, s.client, func(request string, args, response interface{}) error {
+	client := newClient(func(objType string, version int, id, request string, a, response interface{}) error {
 		called = true
+		c.Check(objType, gc.Equals, "Application")
+		c.Check(id, gc.Equals, "")
 		c.Assert(request, gc.Equals, "SetMetricCredentials")
 		result := response.(*params.ErrorResults)
 		result.Results = make([]params.ErrorResult, 1)
 		result.Results[0].Error = common.ServerError(common.ErrPerm)
 		return result.OneError()
 	})
-	err := s.client.SetMetricCredentials("application", []byte("creds"))
+	err := client.SetMetricCredentials("application", []byte("creds"))
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 	c.Assert(called, jc.IsTrue)
 }
 
-func (s *applicationSuite) TestSetServiceMetricCredentialsNoMocks(c *gc.C) {
-	application := s.Factory.MakeApplication(c, nil)
-	err := s.client.SetMetricCredentials(application.Name(), []byte("creds"))
-	c.Assert(err, jc.ErrorIsNil)
-	err = application.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(application.MetricCredentials(), gc.DeepEquals, []byte("creds"))
-}
-
 func (s *applicationSuite) TestSetServiceDeploy(c *gc.C) {
 	var called bool
-	application.PatchFacadeCall(s, s.client, func(request string, a, response interface{}) error {
+	client := newClient(func(objType string, version int, id, request string, a, response interface{}) error {
 		called = true
 		c.Assert(request, gc.Equals, "Deploy")
 		args, ok := a.(params.ApplicationsDeploy)
@@ -114,14 +106,14 @@ func (s *applicationSuite) TestSetServiceDeploy(c *gc.C) {
 		Resources:        map[string]string{"foo": "bar"},
 		EndpointBindings: map[string]string{"foo": "bar"},
 	}
-	err := s.client.Deploy(args)
+	err := client.Deploy(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(called, jc.IsTrue)
 }
 
 func (s *applicationSuite) TestServiceGetCharmURL(c *gc.C) {
 	var called bool
-	application.PatchFacadeCall(s, s.client, func(request string, a, response interface{}) error {
+	client := newClient(func(objType string, version int, id, request string, a, response interface{}) error {
 		called = true
 		c.Assert(request, gc.Equals, "GetCharmURL")
 		args, ok := a.(params.ApplicationGet)
@@ -132,7 +124,7 @@ func (s *applicationSuite) TestServiceGetCharmURL(c *gc.C) {
 		result.Result = "curl"
 		return nil
 	})
-	curl, err := s.client.GetCharmURL("application")
+	curl, err := client.GetCharmURL("application")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(curl, gc.DeepEquals, charm.MustParseURL("curl"))
 	c.Assert(called, jc.IsTrue)
@@ -143,7 +135,7 @@ func (s *applicationSuite) TestServiceSetCharm(c *gc.C) {
 	toUint64Ptr := func(v uint64) *uint64 {
 		return &v
 	}
-	application.PatchFacadeCall(s, s.client, func(request string, a, response interface{}) error {
+	client := newClient(func(objType string, version int, id, request string, a, response interface{}) error {
 		called = true
 		c.Assert(request, gc.Equals, "SetCharm")
 		args, ok := a.(params.ApplicationSetCharm)
@@ -183,14 +175,14 @@ func (s *applicationSuite) TestServiceSetCharm(c *gc.C) {
 			"c": {Size: 123},
 		},
 	}
-	err := s.client.SetCharm(cfg)
+	err := client.SetCharm(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(called, jc.IsTrue)
 }
 
 func (s *applicationSuite) TestConsume(c *gc.C) {
 	var called bool
-	application.PatchFacadeCall(s, s.client, func(request string, a, response interface{}) error {
+	client := newClient(func(objType string, version int, id, request string, a, response interface{}) error {
 		called = true
 		c.Assert(request, gc.Equals, "Consume")
 		args, ok := a.(params.ConsumeApplicationArgs)
@@ -202,8 +194,141 @@ func (s *applicationSuite) TestConsume(c *gc.C) {
 		result.Results = []params.ConsumeApplicationResult{{LocalName: "result"}}
 		return nil
 	})
-	name, err := s.client.Consume("remote app url", "alias")
+	name, err := client.Consume("remote app url", "alias")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(name, gc.Equals, "result")
 	c.Assert(called, jc.IsTrue)
+}
+
+func (s *applicationSuite) TestDestroyDeprecated(c *gc.C) {
+	var called bool
+	client := newClient(func(objType string, version int, id, request string, a, response interface{}) error {
+		called = true
+		c.Assert(request, gc.Equals, "Destroy")
+		c.Assert(a, jc.DeepEquals, params.ApplicationDestroy{
+			ApplicationName: "foo",
+		})
+		return nil
+	})
+	err := client.DestroyDeprecated("foo")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(called, jc.IsTrue)
+}
+
+func (s *applicationSuite) TestDestroyUnitsDeprecated(c *gc.C) {
+	var called bool
+	client := newClient(func(objType string, version int, id, request string, a, response interface{}) error {
+		called = true
+		c.Assert(request, gc.Equals, "DestroyUnits")
+		c.Assert(a, jc.DeepEquals, params.DestroyApplicationUnits{
+			UnitNames: []string{"foo/0", "bar/1"},
+		})
+		return nil
+	})
+	err := client.DestroyUnitsDeprecated("foo/0", "bar/1")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(called, jc.IsTrue)
+}
+
+func (s *applicationSuite) TestDestroyApplications(c *gc.C) {
+	expectedResults := []params.DestroyApplicationResult{{
+		Error: &params.Error{Message: "boo"},
+	}, {
+		Info: &params.DestroyApplicationInfo{
+			DestroyedStorage: []params.Entity{{Tag: "storage-pgdata-0"}},
+			DetachedStorage:  []params.Entity{{Tag: "storage-pgdata-1"}},
+			DestroyedUnits:   []params.Entity{{Tag: "unit-bar-1"}},
+		},
+	}}
+	client := newClient(func(objType string, version int, id, request string, a, response interface{}) error {
+		c.Assert(request, gc.Equals, "DestroyApplication")
+		c.Assert(a, jc.DeepEquals, params.Entities{
+			Entities: []params.Entity{
+				{Tag: "application-foo"},
+				{Tag: "application-bar"},
+			},
+		})
+		c.Assert(response, gc.FitsTypeOf, &params.DestroyApplicationResults{})
+		out := response.(*params.DestroyApplicationResults)
+		*out = params.DestroyApplicationResults{expectedResults}
+		return nil
+	})
+	results, err := client.DestroyApplications("foo", "bar")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, expectedResults)
+}
+
+func (s *applicationSuite) TestDestroyApplicationsArity(c *gc.C) {
+	client := newClient(func(objType string, version int, id, request string, a, response interface{}) error {
+		return nil
+	})
+	_, err := client.DestroyApplications("foo")
+	c.Assert(err, gc.ErrorMatches, `expected 1 result\(s\), got 0`)
+}
+
+func (s *applicationSuite) TestDestroyApplicationsInvalidIds(c *gc.C) {
+	expectedResults := []params.DestroyApplicationResult{{
+		Error: &params.Error{Message: `application name "!" not valid`},
+	}, {
+		Info: &params.DestroyApplicationInfo{},
+	}}
+	client := newClient(func(objType string, version int, id, request string, a, response interface{}) error {
+		out := response.(*params.DestroyApplicationResults)
+		*out = params.DestroyApplicationResults{expectedResults[1:]}
+		return nil
+	})
+	results, err := client.DestroyApplications("!", "foo")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, expectedResults)
+}
+
+func (s *applicationSuite) TestDestroyUnits(c *gc.C) {
+	expectedResults := []params.DestroyUnitResult{{
+		Error: &params.Error{Message: "boo"},
+	}, {
+		Info: &params.DestroyUnitInfo{
+			DestroyedStorage: []params.Entity{{Tag: "storage-pgdata-0"}},
+			DetachedStorage:  []params.Entity{{Tag: "storage-pgdata-1"}},
+		},
+	}}
+	client := newClient(func(objType string, version int, id, request string, a, response interface{}) error {
+		c.Assert(request, gc.Equals, "DestroyUnit")
+		c.Assert(a, jc.DeepEquals, params.Entities{
+			Entities: []params.Entity{
+				{Tag: "unit-foo-0"},
+				{Tag: "unit-bar-1"},
+			},
+		})
+		c.Assert(response, gc.FitsTypeOf, &params.DestroyUnitResults{})
+		out := response.(*params.DestroyUnitResults)
+		*out = params.DestroyUnitResults{expectedResults}
+		return nil
+	})
+	results, err := client.DestroyUnits("foo/0", "bar/1")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, expectedResults)
+}
+
+func (s *applicationSuite) TestDestroyUnitsArity(c *gc.C) {
+	client := newClient(func(objType string, version int, id, request string, a, response interface{}) error {
+		return nil
+	})
+	_, err := client.DestroyUnits("foo/0")
+	c.Assert(err, gc.ErrorMatches, `expected 1 result\(s\), got 0`)
+}
+
+func (s *applicationSuite) TestDestroyUnitsInvalidIds(c *gc.C) {
+	expectedResults := []params.DestroyUnitResult{{
+		Error: &params.Error{Message: `unit ID "!" not valid`},
+	}, {
+		Info: &params.DestroyUnitInfo{},
+	}}
+	client := newClient(func(objType string, version int, id, request string, a, response interface{}) error {
+		out := response.(*params.DestroyUnitResults)
+		*out = params.DestroyUnitResults{expectedResults[1:]}
+		return nil
+	})
+	results, err := client.DestroyUnits("!", "foo/0")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, expectedResults)
 }

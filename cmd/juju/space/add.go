@@ -37,7 +37,7 @@ func (c *addCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "add-space",
 		Args:    "<name> [<CIDR1> <CIDR2> ...]",
-		Purpose: "Add a new network space",
+		Purpose: "Add a new network space.",
 		Doc:     strings.TrimSpace(addCommandDoc),
 	}
 }

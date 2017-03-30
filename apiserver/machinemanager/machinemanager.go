@@ -7,6 +7,8 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils/set"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
@@ -16,10 +18,6 @@ import (
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 )
-
-func init() {
-	common.RegisterStandardFacade("MachineManager", 2, NewMachineManagerAPI)
-}
 
 // MachineManagerAPI provides access to the MachineManager API facade.
 type MachineManagerAPI struct {
@@ -51,20 +49,25 @@ func NewMachineManagerAPI(
 	}, nil
 }
 
+func (mm *MachineManagerAPI) checkCanWrite() error {
+	canWrite, err := mm.authorizer.HasPermission(permission.WriteAccess, mm.st.ModelTag())
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if !canWrite {
+		return common.ErrPerm
+	}
+	return nil
+}
+
 // AddMachines adds new machines with the supplied parameters.
 func (mm *MachineManagerAPI) AddMachines(args params.AddMachines) (params.AddMachinesResults, error) {
 	results := params.AddMachinesResults{
 		Machines: make([]params.AddMachinesResult, len(args.MachineParams)),
 	}
-
-	canWrite, err := mm.authorizer.HasPermission(permission.WriteAccess, mm.st.ModelTag())
-	if err != nil {
-		return results, errors.Trace(err)
+	if err := mm.checkCanWrite(); err != nil {
+		return results, err
 	}
-	if !canWrite {
-		return results, common.ErrPerm
-	}
-
 	if err := mm.check.ChangeAllowed(); err != nil {
 		return results, errors.Trace(err)
 	}
@@ -167,4 +170,84 @@ func (mm *MachineManagerAPI) addOneMachine(p params.AddMachineParams) (*state.Ma
 		return mm.st.AddMachineInsideMachine(template, p.ParentId, p.ContainerType)
 	}
 	return mm.st.AddMachineInsideNewMachine(template, template, p.ContainerType)
+}
+
+// DestroyMachine removes a set of machines from the model.
+func (mm *MachineManagerAPI) DestroyMachine(args params.Entities) (params.DestroyMachineResults, error) {
+	return mm.destroyMachine(args, false)
+}
+
+// ForceDestroyMachine forcibly removes a set of machines from the model.
+func (mm *MachineManagerAPI) ForceDestroyMachine(args params.Entities) (params.DestroyMachineResults, error) {
+	return mm.destroyMachine(args, true)
+}
+
+func (mm *MachineManagerAPI) destroyMachine(args params.Entities, force bool) (params.DestroyMachineResults, error) {
+	if err := mm.checkCanWrite(); err != nil {
+		return params.DestroyMachineResults{}, err
+	}
+	if err := mm.check.RemoveAllowed(); err != nil {
+		return params.DestroyMachineResults{}, err
+	}
+	destroyMachine := func(entity params.Entity) (*params.DestroyMachineInfo, error) {
+		machineTag, err := names.ParseMachineTag(entity.Tag)
+		if err != nil {
+			return nil, err
+		}
+		machine, err := mm.st.Machine(machineTag.Id())
+		if err != nil {
+			return nil, err
+		}
+		var info params.DestroyMachineInfo
+		units, err := machine.Units()
+		if err != nil {
+			return nil, err
+		}
+		storageSeen := make(set.Tags)
+		for _, unit := range units {
+			info.DestroyedUnits = append(
+				info.DestroyedUnits,
+				params.Entity{unit.UnitTag().String()},
+			)
+			storage, err := common.UnitStorage(mm.st, unit.UnitTag())
+			if err != nil {
+				return nil, err
+			}
+
+			// Filter out storage we've already seen. Shared
+			// storage may be attached to multiple units.
+			var unseen []state.StorageInstance
+			for _, storage := range storage {
+				storageTag := storage.StorageTag()
+				if storageSeen.Contains(storageTag) {
+					continue
+				}
+				storageSeen.Add(storageTag)
+				unseen = append(unseen, storage)
+			}
+			storage = unseen
+
+			destroyed, detached := common.ClassifyDetachedStorage(storage)
+			info.DestroyedStorage = append(info.DestroyedStorage, destroyed...)
+			info.DetachedStorage = append(info.DetachedStorage, detached...)
+		}
+		destroy := machine.Destroy
+		if force {
+			destroy = machine.ForceDestroy
+		}
+		if err := destroy(); err != nil {
+			return nil, err
+		}
+		return &info, nil
+	}
+	results := make([]params.DestroyMachineResult, len(args.Entities))
+	for i, entity := range args.Entities {
+		info, err := destroyMachine(entity)
+		if err != nil {
+			results[i].Error = common.ServerError(err)
+			continue
+		}
+		results[i].Info = info
+	}
+	return params.DestroyMachineResults{results}, nil
 }

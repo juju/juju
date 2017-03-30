@@ -26,6 +26,7 @@ type BackingSubnet interface {
 	CIDR() string
 	VLANTag() int
 	ProviderId() network.Id
+	ProviderNetworkId() network.Id
 	AvailabilityZones() []string
 	Status() string
 	SpaceName() string
@@ -41,8 +42,6 @@ type BackingSubnet interface {
 // * subnetDoc.AvailabilityZone becomes subnetDoc.AvailabilityZones,
 //   adding an upgrade step to migrate existing non empty zones on
 //   subnet docs. Also change state.Subnet.AvailabilityZone to
-// * add subnetDoc.SpaceName - no upgrade step needed, as it will only
-//   be used for new space-aware subnets.
 // * Subnets need a reference count to calculate Status.
 // * ensure EC2 and MAAS providers accept empty IDs as Subnets() args
 //   and return all subnets, including the AvailabilityZones (for EC2;
@@ -50,6 +49,11 @@ type BackingSubnet interface {
 type BackingSubnetInfo struct {
 	// ProviderId is a provider-specific network id. This may be empty.
 	ProviderId network.Id
+
+	// ProviderNetworkId is the id of the network containing this
+	// subnet from the provider's perspective. It can be empty if the
+	// provider doesn't support distinct networks.
+	ProviderNetworkId network.Id
 
 	// CIDR of the network, in 123.45.67.89/24 format.
 	CIDR string
@@ -86,14 +90,6 @@ type BackingSpace interface {
 
 	// ProviderId returns the network ID of the provider
 	ProviderId() network.Id
-
-	// Zones returns a list of availability zone(s) that this
-	// space is in. It can be empty if the provider does not support
-	// availability zones.
-	Zones() []string
-
-	// Life returns the lifecycle state of the space
-	Life() params.Life
 }
 
 // Backing defines the methods needed by the API facade to store and
@@ -157,6 +153,14 @@ func NetworkConfigFromInterfaceInfo(interfaceInfos []network.InterfaceInfo) []pa
 		for _, nameserver := range v.DNSServers {
 			dnsServers = append(dnsServers, nameserver.Value)
 		}
+		routes := make([]params.NetworkRoute, len(v.Routes))
+		for j, route := range v.Routes {
+			routes[j] = params.NetworkRoute{
+				DestinationCIDR: route.DestinationCIDR,
+				GatewayIP:       route.GatewayIP,
+				Metric:          route.Metric,
+			}
+		}
 		result[i] = params.NetworkConfig{
 			DeviceIndex:         v.DeviceIndex,
 			MACAddress:          v.MACAddress,
@@ -178,6 +182,7 @@ func NetworkConfigFromInterfaceInfo(interfaceInfos []network.InterfaceInfo) []pa
 			DNSServers:          dnsServers,
 			DNSSearchDomains:    v.DNSSearchDomains,
 			GatewayAddress:      v.GatewayAddress.Value,
+			Routes:              routes,
 		}
 	}
 	return result

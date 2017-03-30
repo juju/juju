@@ -119,6 +119,28 @@ func (s *MachineManagerSuite) TestAddMachinesStateError(c *gc.C) {
 	c.Assert(s.st.calls, gc.Equals, 1)
 }
 
+func (s *MachineManagerSuite) TestDestroyMachine(c *gc.C) {
+	results, err := s.api.DestroyMachine(params.Entities{
+		Entities: []params.Entity{{Tag: "machine-0"}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, params.DestroyMachineResults{
+		Results: []params.DestroyMachineResult{{
+			Info: &params.DestroyMachineInfo{
+				DestroyedUnits: []params.Entity{
+					{"unit-foo-0"},
+					{"unit-foo-1"},
+					{"unit-foo-2"},
+				},
+				DestroyedStorage: []params.Entity{
+					{"storage-disks-0"},
+					{"storage-disks-1"},
+				},
+			},
+		}},
+	})
+}
+
 type mockState struct {
 	calls    int
 	machines []state.MachineTemplate
@@ -176,6 +198,24 @@ func (st *mockState) GetModel(t names.ModelTag) (machinemanager.Model, error) {
 	return &mockModel{}, nil
 }
 
+func (st *mockState) Machine(id string) (machinemanager.Machine, error) {
+	return &mockMachine{}, nil
+}
+
+func (st *mockState) StorageInstance(tag names.StorageTag) (state.StorageInstance, error) {
+	return &mockStorage{tag: tag}, nil
+}
+
+func (st *mockState) UnitStorageAttachments(tag names.UnitTag) ([]state.StorageAttachment, error) {
+	if tag.Id() == "foo/0" {
+		return []state.StorageAttachment{
+			&mockStorageAttachment{unit: tag, storage: names.NewStorageTag("disks/0")},
+			&mockStorageAttachment{unit: tag, storage: names.NewStorageTag("disks/1")},
+		}, nil
+	}
+	return nil, nil
+}
+
 type mockBlock struct {
 	state.Block
 }
@@ -198,4 +238,53 @@ func (st *mockBlock) Message() string {
 
 func (st *mockBlock) ModelUUID() string {
 	return "uuid"
+}
+
+type mockMachine struct{}
+
+func (m *mockMachine) Destroy() error {
+	return nil
+}
+
+func (m *mockMachine) ForceDestroy() error {
+	return nil
+}
+
+func (m *mockMachine) Units() ([]machinemanager.Unit, error) {
+	return []machinemanager.Unit{
+		&mockUnit{names.NewUnitTag("foo/0")},
+		&mockUnit{names.NewUnitTag("foo/1")},
+		&mockUnit{names.NewUnitTag("foo/2")},
+	}, nil
+}
+
+type mockUnit struct {
+	tag names.UnitTag
+}
+
+func (u *mockUnit) UnitTag() names.UnitTag {
+	return u.tag
+}
+
+type mockStorage struct {
+	state.StorageInstance
+	tag names.StorageTag
+}
+
+func (a *mockStorage) StorageTag() names.StorageTag {
+	return a.tag
+}
+
+type mockStorageAttachment struct {
+	state.StorageAttachment
+	unit    names.UnitTag
+	storage names.StorageTag
+}
+
+func (a *mockStorageAttachment) Unit() names.UnitTag {
+	return a.unit
+}
+
+func (a *mockStorageAttachment) StorageInstance() names.StorageTag {
+	return a.storage
 }

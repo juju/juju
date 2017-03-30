@@ -88,7 +88,7 @@ func (s *UserAddCommandSuite) TestAddUserWithUsername(c *gc.C) {
 	expected := `
 User "foobar" added
 Please send this command to foobar:
-    juju register MEYTBmZvb2JhcjAREw8xMjcuMC4wLjE6MTIzNDUEIFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYEwd0ZXN0aW5n
+    juju register MEQTBmZvb2JhcjAPEw0wLjEuMi4zOjEyMzQ1BCBYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWBMHdGVzdGluZwAA
 
 "foobar" has not been granted access to any models. You can use "juju grant" to grant access.
 `[1:]
@@ -104,12 +104,24 @@ func (s *UserAddCommandSuite) TestAddUserWithUsernameAndDisplayname(c *gc.C) {
 	expected := `
 User "Foo Bar (foobar)" added
 Please send this command to foobar:
-    juju register MEYTBmZvb2JhcjAREw8xMjcuMC4wLjE6MTIzNDUEIFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYEwd0ZXN0aW5n
+    juju register MEQTBmZvb2JhcjAPEw0wLjEuMi4zOjEyMzQ1BCBYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWBMHdGVzdGluZwAA
 
 "Foo Bar (foobar)" has not been granted access to any models. You can use "juju grant" to grant access.
 `[1:]
 	c.Assert(testing.Stdout(context), gc.Equals, expected)
 	c.Assert(testing.Stderr(context), gc.Equals, "")
+}
+
+func (s *UserAddCommandSuite) TestUserRegistrationString(c *gc.C) {
+	// Ensure that the user registration string only contains alphanumerics.
+	for i := 0; i < 3; i++ {
+		s.mockAPI.secretKey = []byte(strings.Repeat("X", 32+i))
+		context, err := s.run(c, "foobar", "Foo Bar")
+		c.Assert(err, jc.ErrorIsNil)
+		lines := strings.Split(testing.Stdout(context), "\n")
+		c.Assert(lines, gc.HasLen, 6)
+		c.Assert(lines[2], gc.Matches, `^\s+juju register [A-Za-z0-9]+$`)
+	}
 }
 
 type mockModelAPI struct{}

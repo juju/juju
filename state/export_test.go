@@ -18,6 +18,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
+	worker "gopkg.in/juju/worker.v1"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -32,7 +33,6 @@ import (
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/version"
-	"github.com/juju/juju/worker"
 )
 
 const (
@@ -74,19 +74,38 @@ type (
 	BlockDevicesDoc blockDevicesDoc
 )
 
+// EnsureWorkersStarted ensures that all the automatically
+// started state workers are running, so that tests which
+// insert transaction hooks are less likely to have the hooks
+// run by some other worker, and any side effects of starting
+// the workers (for example, creating collections) will have
+// taken effect.
+func EnsureWorkersStarted(st *State) {
+	// Note: we don't start the all-watcher workers, as
+	// they're started on demand anyway.
+	st.workers.txnLogWatcher()
+	st.workers.presenceWatcher()
+	st.workers.leadershipManager()
+	st.workers.singularManager()
+}
+
 func SetTestHooks(c *gc.C, st *State, hooks ...jujutxn.TestHook) txntesting.TransactionChecker {
+	EnsureWorkersStarted(st)
 	return txntesting.SetTestHooks(c, newRunnerForHooks(st), hooks...)
 }
 
 func SetBeforeHooks(c *gc.C, st *State, fs ...func()) txntesting.TransactionChecker {
+	EnsureWorkersStarted(st)
 	return txntesting.SetBeforeHooks(c, newRunnerForHooks(st), fs...)
 }
 
 func SetAfterHooks(c *gc.C, st *State, fs ...func()) txntesting.TransactionChecker {
+	EnsureWorkersStarted(st)
 	return txntesting.SetAfterHooks(c, newRunnerForHooks(st), fs...)
 }
 
 func SetRetryHooks(c *gc.C, st *State, block, check func()) txntesting.TransactionChecker {
+	EnsureWorkersStarted(st)
 	return txntesting.SetRetryHooks(c, newRunnerForHooks(st), block, check)
 }
 
@@ -97,12 +116,12 @@ func newRunnerForHooks(st *State) jujutxn.Runner {
 	return runner
 }
 
-func OfferAtURL(sd crossmodel.ApplicationDirectory, url string) (*applicationOfferDoc, error) {
-	return sd.(*applicationDirectory).offerAtURL(url)
+func OfferForName(sd crossmodel.ApplicationOffers, name string) (*applicationOfferDoc, error) {
+	return sd.(*applicationOffers).offerForName(name)
 }
 
-func MakeApplicationOfferDoc(sd crossmodel.ApplicationDirectory, url string, offer crossmodel.ApplicationOffer) applicationOfferDoc {
-	return sd.(*applicationDirectory).makeApplicationOfferDoc(offer)
+func MakeApplicationOffer(sd crossmodel.ApplicationOffers, offer *applicationOfferDoc) (*crossmodel.ApplicationOffer, error) {
+	return sd.(*applicationOffers).makeApplicationOffer(*offer)
 }
 
 // SetPolicy updates the State's policy field to the
@@ -167,7 +186,7 @@ func AddTestingServiceWithBindings(c *gc.C, st *State, name string, ch *Charm, b
 
 func addTestingService(c *gc.C, st *State, series, name string, ch *Charm, bindings map[string]string, storage map[string]StorageConstraints) *Application {
 	c.Assert(ch, gc.NotNil)
-	service, err := st.AddApplication(AddApplicationArgs{
+	app, err := st.AddApplication(AddApplicationArgs{
 		Name:             name,
 		Series:           series,
 		Charm:            ch,
@@ -175,7 +194,7 @@ func addTestingService(c *gc.C, st *State, series, name string, ch *Charm, bindi
 		Storage:          storage,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	return service
+	return app
 }
 
 func AddCustomCharm(c *gc.C, st *State, name, filename, content, series string, revision int) *Charm {
@@ -492,22 +511,22 @@ func UpdateModelUserLastConnection(st *State, e permission.UserAccess, when time
 	return st.updateLastModelConnection(e.UserTag, when)
 }
 
-func RemoveEndpointBindingsForService(c *gc.C, service *Application) {
-	globalKey := service.globalKey()
+func RemoveEndpointBindingsForService(c *gc.C, app *Application) {
+	globalKey := app.globalKey()
 	removeOp := removeEndpointBindingsOp(globalKey)
 
-	txnError := service.st.runTransaction([]txn.Op{removeOp})
+	txnError := app.st.runTransaction([]txn.Op{removeOp})
 	err := onAbort(txnError, nil) // ignore ErrAborted as it asserts DocExists
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func RelationCount(service *Application) int {
-	return service.doc.RelationCount
+func RelationCount(app *Application) int {
+	return app.doc.RelationCount
 }
 
-func AssertEndpointBindingsNotFoundForService(c *gc.C, service *Application) {
-	globalKey := service.globalKey()
-	storedBindings, _, err := readEndpointBindings(service.st, globalKey)
+func AssertEndpointBindingsNotFoundForService(c *gc.C, app *Application) {
+	globalKey := app.globalKey()
+	storedBindings, _, err := readEndpointBindings(app.st, globalKey)
 	c.Assert(storedBindings, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("endpoint bindings for %q not found", globalKey))
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
@@ -622,9 +641,9 @@ func IsBlobStored(c *gc.C, st *State, storagePath string) bool {
 	return true
 }
 
-// AssertNoCleanups checks that there are no cleanups scheduled of a
-// given kind.
-func AssertNoCleanups(c *gc.C, st *State, kind cleanupKind) {
+// AssertNoCleanupsWithKind checks that there are no cleanups
+// of a given kind scheduled.
+func AssertNoCleanupsWithKind(c *gc.C, st *State, kind cleanupKind) {
 	var docs []cleanupDoc
 	cleanups, closer := st.getCollection(cleanupsC)
 	defer closer()
@@ -635,4 +654,27 @@ func AssertNoCleanups(c *gc.C, st *State, kind cleanupKind) {
 			c.Fatalf("found cleanup of kind %q", kind)
 		}
 	}
+}
+
+// AssertNoCleanups checks that there are no cleanups scheduled.
+func AssertNoCleanups(c *gc.C, st *State) {
+	var docs []cleanupDoc
+	cleanups, closer := st.getCollection(cleanupsC)
+	defer closer()
+	err := cleanups.Find(nil).All(&docs)
+	c.Assert(err, jc.ErrorIsNil)
+	if len(docs) > 0 {
+		c.Fatalf("unexpected cleanups: %+v", docs)
+	}
+}
+
+// GetApplicationSettings allows access to settings collection for a
+// given application.
+func GetApplicationSettings(st *State, app *Application) *Settings {
+	return newSettings(st, settingsC, app.settingsKey())
+}
+
+// NewSLALevel returns a new SLA level.
+func NewSLALevel(level string) (slaLevel, error) {
+	return newSLALevel(level)
 }

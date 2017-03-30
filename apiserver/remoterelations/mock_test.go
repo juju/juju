@@ -20,12 +20,22 @@ import (
 	coretesting "github.com/juju/juju/testing"
 )
 
+type mockStatePool struct {
+	st *mockState
+}
+
+func (st *mockStatePool) Get(modelUUID string) (remoterelations.RemoteRelationsState, func(), error) {
+	return st.st, func() {}, nil
+}
+
 type mockState struct {
 	testing.Stub
 	relations                    map[string]*mockRelation
 	remoteApplications           map[string]*mockRemoteApplication
 	applications                 map[string]*mockApplication
+	offers                       []crossmodel.ApplicationOffer
 	remoteApplicationsWatcher    *mockStringsWatcher
+	remoteRelationsWatcher       *mockStringsWatcher
 	applicationRelationsWatchers map[string]*mockStringsWatcher
 	remoteEntities               map[names.Tag]string
 }
@@ -36,17 +46,14 @@ func newMockState() *mockState {
 		remoteApplications:           make(map[string]*mockRemoteApplication),
 		applications:                 make(map[string]*mockApplication),
 		remoteApplicationsWatcher:    newMockStringsWatcher(),
+		remoteRelationsWatcher:       newMockStringsWatcher(),
 		applicationRelationsWatchers: make(map[string]*mockStringsWatcher),
 		remoteEntities:               make(map[names.Tag]string),
 	}
 }
 
-func (st *mockState) ListOffers(filter ...crossmodel.OfferedApplicationFilter) ([]crossmodel.OfferedApplication, error) {
-	result := make([]crossmodel.OfferedApplication, len(filter))
-	for i, f := range filter {
-		result[i] = crossmodel.OfferedApplication{CharmName: "application-" + f.ApplicationName}
-	}
-	return result, nil
+func (st *mockState) ListOffers(filter ...crossmodel.ApplicationOfferFilter) ([]crossmodel.ApplicationOffer, error) {
+	return st.offers, nil
 }
 
 func (st *mockState) ModelUUID() string {
@@ -68,7 +75,7 @@ func (st *mockState) EndpointsRelation(eps ...state.Endpoint) (remoterelations.R
 }
 
 func (st *mockState) AddRemoteApplication(params state.AddRemoteApplicationParams) (remoterelations.RemoteApplication, error) {
-	app := &mockRemoteApplication{name: params.Name, eps: params.Endpoints, registered: params.Registered}
+	app := &mockRemoteApplication{name: params.Name, eps: params.Endpoints, consumerproxy: params.IsConsumerProxy}
 	st.remoteApplications[params.Name] = app
 	return app, nil
 }
@@ -82,6 +89,15 @@ func (st *mockState) ImportRemoteEntity(sourceModel names.ModelTag, entity names
 		return errors.AlreadyExistsf(entity.Id())
 	}
 	st.remoteEntities[entity] = token
+	return nil
+}
+
+func (st *mockState) RemoveRemoteEntity(sourceModel names.ModelTag, entity names.Tag) error {
+	st.MethodCall(st, "RemoveRemoteEntity", sourceModel, entity)
+	if err := st.NextErr(); err != nil {
+		return err
+	}
+	delete(st.remoteEntities, entity)
 	return nil
 }
 
@@ -185,6 +201,11 @@ func (st *mockState) WatchRemoteApplicationRelations(applicationName string) (st
 	return w, nil
 }
 
+func (st *mockState) WatchRemoteRelations() state.StringsWatcher {
+	st.MethodCall(st, "WatchRemoteRelations")
+	return st.remoteRelationsWatcher
+}
+
 type mockRelation struct {
 	testing.Stub
 	id                    int
@@ -267,13 +288,13 @@ func (r *mockRelation) WatchUnits(applicationName string) (state.RelationUnitsWa
 
 type mockRemoteApplication struct {
 	testing.Stub
-	name       string
-	alias      string
-	url        string
-	life       state.Life
-	status     status.Status
-	eps        []charm.Relation
-	registered bool
+	name          string
+	alias         string
+	url           string
+	life          state.Life
+	status        status.Status
+	eps           []charm.Relation
+	consumerproxy bool
 }
 
 func newMockRemoteApplication(name, url string) *mockRemoteApplication {
@@ -297,9 +318,9 @@ func (r *mockRemoteApplication) Tag() names.Tag {
 	return names.NewApplicationTag(r.name)
 }
 
-func (r *mockRemoteApplication) Registered() bool {
-	r.MethodCall(r, "Registered")
-	return r.registered
+func (r *mockRemoteApplication) IsConsumerProxy() bool {
+	r.MethodCall(r, "IsConsumerProxy")
+	return r.consumerproxy
 }
 
 func (r *mockRemoteApplication) Life() state.Life {

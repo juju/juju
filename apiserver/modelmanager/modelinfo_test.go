@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/description"
 	"github.com/juju/errors"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -15,13 +16,11 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/metricsender"
 	"github.com/juju/juju/apiserver/modelmanager"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
-	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
@@ -345,6 +344,16 @@ type unitRetriever interface {
 	Unit(name string) (*state.Unit, error)
 }
 
+// metricSender defines methods required by the metricsender package.
+type metricSender interface {
+	MetricsManager() (*state.MetricsManager, error)
+	MetricsToSend(batchSize int) ([]*state.MetricBatch, error)
+	SetMetricBatchesSent(batchUUIDs []string) error
+	CountOfUnsentMetrics() (int, error)
+	CountOfSentMetrics() (int, error)
+	CleanupOldMetrics() error
+}
+
 type mockState struct {
 	gitjujutesting.Stub
 
@@ -352,7 +361,7 @@ type mockState struct {
 	common.APIHostPortsGetter
 	common.ToolsStorageGetter
 	common.BlockGetter
-	metricsender.MetricsSenderBackend
+	metricSender
 	unitRetriever
 
 	modelUUID       string
@@ -613,6 +622,11 @@ func (st *mockState) LatestMigration() (state.ModelMigration, error) {
 		return nil, errors.NotFoundf("")
 	}
 	return st.migration, st.NextErr()
+}
+
+func (st *mockState) SetModelMeterStatus(level, message string) error {
+	st.MethodCall(st, "SetModelMeterStatus", level, message)
+	return st.NextErr()
 }
 
 type mockBlock struct {

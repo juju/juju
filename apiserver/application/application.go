@@ -8,19 +8,18 @@ package application
 
 import (
 	"fmt"
-	"io"
 	"regexp"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/featureflag"
+	"github.com/juju/utils/set"
 	"gopkg.in/juju/charm.v6-unstable"
 	csparams "gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
 	"gopkg.in/juju/names.v2"
 	goyaml "gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/crossmodel"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	jujucrossmodel "github.com/juju/juju/core/crossmodel"
@@ -33,47 +32,45 @@ import (
 
 var logger = loggo.GetLogger("juju.apiserver.application")
 
-func init() {
-	// TODO - version 1 is required for the legacy deployer,
-	// remove when deploy is updated.
-	common.RegisterStandardFacade("Application", 1, newAPI)
-
-	common.RegisterStandardFacade("Application", 2, newAPI)
-
-	// Version 3 adds support for cross model relations.
-	common.RegisterStandardFacade("Application", 3, newAPI)
-}
-
 // API implements the application interface and is the concrete
 // implementation of the api end point.
 type API struct {
-	backend                     Backend
-	applicationOffersAPIFactory crossmodel.ApplicationOffersAPIFactory
-	authorizer                  facade.Authorizer
-	check                       BlockChecker
-	dataDir                     string
+	backend    Backend
+	authorizer facade.Authorizer
+	check      BlockChecker
+	dataDir    string
+
+	statePool *state.StatePool
 
 	// TODO(axw) stateCharm only exists because I ran out
 	// of time unwinding all of the tendrils of state. We
 	// should pass a charm.Charm and charm.URL back into
 	// state wherever we pass in a state.Charm currently.
 	stateCharm func(Charm) *state.Charm
+
+	deployApplicationFunc func(backend Backend, args jjj.DeployApplicationParams) error
 }
 
-func newAPI(
-	st *state.State,
-	resources facade.Resources,
-	authorizer facade.Authorizer,
-) (*API, error) {
-	backend := NewStateBackend(st)
-	blockChecker := common.NewBlockChecker(st)
+// DeployApplication is a wrapper around juju.DeployApplication, to
+// match the function signature expected by NewAPI.
+func DeployApplication(backend Backend, args jjj.DeployApplicationParams) error {
+	_, err := jjj.DeployApplication(backend, args)
+	return err
+}
+
+// NewFacade provides the signature required for facade registration.
+func NewFacade(ctx facade.Context) (*API, error) {
+	backend := NewStateBackend(ctx.State())
+	blockChecker := common.NewBlockChecker(ctx.State())
 	stateCharm := CharmToStateCharm
 	return NewAPI(
 		backend,
-		authorizer,
-		resources,
+		ctx.Auth(),
+		ctx.Resources(),
+		ctx.StatePool(),
 		blockChecker,
 		stateCharm,
+		DeployApplication,
 	)
 }
 
@@ -82,44 +79,43 @@ func NewAPI(
 	backend Backend,
 	authorizer facade.Authorizer,
 	resources facade.Resources,
+	statePool *state.StatePool,
 	blockChecker BlockChecker,
 	stateCharm func(Charm) *state.Charm,
+	deployApplication func(Backend, jjj.DeployApplicationParams) error,
 ) (*API, error) {
 	if !authorizer.AuthClient() {
 		return nil, common.ErrPerm
 	}
-	apiFactory := resources.Get("applicationOffersApiFactory").(crossmodel.ApplicationOffersAPIFactory)
 	dataDir := resources.Get("dataDir").(common.StringResource)
 	return &API{
-		backend:                     backend,
-		authorizer:                  authorizer,
-		applicationOffersAPIFactory: apiFactory,
-		check:      blockChecker,
-		stateCharm: stateCharm,
-		dataDir:    dataDir.String(),
+		backend:               backend,
+		authorizer:            authorizer,
+		check:                 blockChecker,
+		stateCharm:            stateCharm,
+		statePool:             statePool,
+		dataDir:               dataDir.String(),
+		deployApplicationFunc: deployApplication,
 	}, nil
 }
 
-func (api *API) checkCanRead() error {
-	canRead, err := api.authorizer.HasPermission(permission.ReadAccess, api.backend.ModelTag())
+func (api *API) checkPermission(tag names.Tag, perm permission.Access) error {
+	allowed, err := api.authorizer.HasPermission(perm, tag)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if !canRead {
+	if !allowed {
 		return common.ErrPerm
 	}
 	return nil
 }
 
+func (api *API) checkCanRead() error {
+	return api.checkPermission(api.backend.ModelTag(), permission.ReadAccess)
+}
+
 func (api *API) checkCanWrite() error {
-	canWrite, err := api.authorizer.HasPermission(permission.WriteAccess, api.backend.ModelTag())
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if !canWrite {
-		return common.ErrPerm
-	}
-	return nil
+	return api.checkPermission(api.backend.ModelTag(), permission.WriteAccess)
 }
 
 // SetMetricCredentials sets credentials on the application.
@@ -160,7 +156,7 @@ func (api *API) Deploy(args params.ApplicationsDeploy) (params.ErrorResults, err
 		return result, errors.Trace(err)
 	}
 	for i, arg := range args.Applications {
-		err := deployApplication(api.backend, api.stateCharm, arg)
+		err := deployApplication(api.backend, api.stateCharm, arg, api.deployApplicationFunc)
 		result.Results[i].Error = common.ServerError(err)
 	}
 	return result, nil
@@ -173,6 +169,7 @@ func deployApplication(
 	backend Backend,
 	stateCharm func(Charm) *state.Charm,
 	args params.ApplicationDeploy,
+	deployApplicationFunc func(Backend, jjj.DeployApplicationParams) error,
 ) error {
 	curl, err := charm.ParseURL(args.CharmURL)
 	if err != nil {
@@ -214,23 +211,19 @@ func deployApplication(
 		return errors.Trace(err)
 	}
 
-	channel := csparams.Channel(args.Channel)
-
-	_, err = jjj.DeployApplication(backend,
-		jjj.DeployApplicationParams{
-			ApplicationName:  args.ApplicationName,
-			Series:           args.Series,
-			Charm:            stateCharm(ch),
-			Channel:          channel,
-			NumUnits:         args.NumUnits,
-			ConfigSettings:   settings,
-			Constraints:      args.Constraints,
-			Placement:        args.Placement,
-			Storage:          args.Storage,
-			EndpointBindings: args.EndpointBindings,
-			Resources:        args.Resources,
-		})
-	return errors.Trace(err)
+	return errors.Trace(deployApplicationFunc(backend, jjj.DeployApplicationParams{
+		ApplicationName:  args.ApplicationName,
+		Series:           args.Series,
+		Charm:            stateCharm(ch),
+		Channel:          csparams.Channel(args.Channel),
+		NumUnits:         args.NumUnits,
+		ConfigSettings:   settings,
+		Constraints:      args.Constraints,
+		Placement:        args.Placement,
+		Storage:          args.Storage,
+		EndpointBindings: args.EndpointBindings,
+		Resources:        args.Resources,
+	}))
 }
 
 // ApplicationSetSettingsStrings updates the settings for the given application,
@@ -630,58 +623,187 @@ func (api *API) AddUnits(args params.AddApplicationUnits) (params.AddApplication
 }
 
 // DestroyUnits removes a given set of application units.
+//
+// NOTE(axw) this exists only for backwards compatibility,
+// for API facade versions 1-3; clients should prefer its
+// successor, DestroyUnit, below.
+//
+// TODO(axw) 2017-03-16 #1673323
+// Drop this in Juju 3.0.
 func (api *API) DestroyUnits(args params.DestroyApplicationUnits) error {
-	if err := api.checkCanWrite(); err != nil {
-		return err
+	var errs []error
+	entities := params.Entities{
+		Entities: make([]params.Entity, 0, len(args.UnitNames)),
 	}
-	if err := api.check.RemoveAllowed(); err != nil {
+	for _, unitName := range args.UnitNames {
+		if !names.IsValidUnit(unitName) {
+			errs = append(errs, errors.NotValidf("unit name %q", unitName))
+			continue
+		}
+		entities.Entities = append(entities.Entities, params.Entity{
+			Tag: names.NewUnitTag(unitName).String(),
+		})
+	}
+	results, err := api.DestroyUnit(entities)
+	if err != nil {
 		return errors.Trace(err)
 	}
-	var errs []string
-	for _, name := range args.UnitNames {
-		unit, err := api.backend.Unit(name)
-		switch {
-		case errors.IsNotFound(err):
-			err = errors.Errorf("unit %q does not exist", name)
-		case err != nil:
-		case unit.Life() != state.Alive:
-			continue
-		case unit.IsPrincipal():
-			err = unit.Destroy()
-		default:
-			err = errors.Errorf("unit %q is a subordinate", name)
-		}
-		if err != nil {
-			errs = append(errs, err.Error())
+	for _, result := range results.Results {
+		if result.Error != nil {
+			errs = append(errs, result.Error)
 		}
 	}
 	return common.DestroyErr("units", args.UnitNames, errs)
 }
 
-type appDestroy interface {
-	Destroy() (err error)
+// DestroyUnit removes a given set of application units.
+func (api *API) DestroyUnit(args params.Entities) (params.DestroyUnitResults, error) {
+	if err := api.checkCanWrite(); err != nil {
+		return params.DestroyUnitResults{}, err
+	}
+	if err := api.check.RemoveAllowed(); err != nil {
+		return params.DestroyUnitResults{}, errors.Trace(err)
+	}
+	destroyUnit := func(entity params.Entity) (*params.DestroyUnitInfo, error) {
+		unitTag, err := names.ParseUnitTag(entity.Tag)
+		if err != nil {
+			return nil, err
+		}
+		name := unitTag.Id()
+		unit, err := api.backend.Unit(name)
+		if errors.IsNotFound(err) {
+			return nil, errors.Errorf("unit %q does not exist", name)
+		} else if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if !unit.IsPrincipal() {
+			return nil, errors.Errorf("unit %q is a subordinate", name)
+		}
+		var info params.DestroyUnitInfo
+		storage, err := common.UnitStorage(api.backend, unit.UnitTag())
+		if err != nil {
+			return nil, err
+		}
+		info.DestroyedStorage, info.DetachedStorage = common.ClassifyDetachedStorage(storage)
+		if err := unit.Destroy(); err != nil {
+			return nil, err
+		}
+		return &info, nil
+	}
+	results := make([]params.DestroyUnitResult, len(args.Entities))
+	for i, entity := range args.Entities {
+		info, err := destroyUnit(entity)
+		if err != nil {
+			results[i].Error = common.ServerError(err)
+			continue
+		}
+		results[i].Info = info
+	}
+	return params.DestroyUnitResults{results}, nil
 }
 
 // Destroy destroys a given application, local or remote.
+//
+// NOTE(axw) this exists only for backwards compatibility,
+// for API facade versions 1-3; clients should prefer its
+// successor, DestroyApplication, below.
+//
+// TODO(axw) 2017-03-16 #1673323
+// Drop this in Juju 3.0.
 func (api *API) Destroy(args params.ApplicationDestroy) error {
-	if err := api.checkCanWrite(); err != nil {
-		return err
+	if !names.IsValidApplication(args.ApplicationName) {
+		return errors.NotValidf("application name %q", args.ApplicationName)
 	}
-	if err := api.check.RemoveAllowed(); err != nil {
+	entities := params.Entities{
+		Entities: []params.Entity{{
+			Tag: names.NewApplicationTag(args.ApplicationName).String(),
+		}},
+	}
+	results, err := api.DestroyApplication(entities)
+	if err != nil {
 		return errors.Trace(err)
 	}
-	var (
-		app appDestroy
-		err error
-	)
-	app, err = api.backend.RemoteApplication(args.ApplicationName)
-	if errors.IsNotFound(err) {
-		app, err = api.backend.Application(args.ApplicationName)
+	if err := results.Results[0].Error; err != nil {
+		return common.ServerError(err)
 	}
-	if err != nil {
-		return err
+	return nil
+}
+
+// DestroyApplication removes a given set of applications.
+func (api *API) DestroyApplication(args params.Entities) (params.DestroyApplicationResults, error) {
+	if err := api.checkCanWrite(); err != nil {
+		return params.DestroyApplicationResults{}, err
 	}
-	return app.Destroy()
+	if err := api.check.RemoveAllowed(); err != nil {
+		return params.DestroyApplicationResults{}, errors.Trace(err)
+	}
+	destroyRemoteApp := func(name string) error {
+		app, err := api.backend.RemoteApplication(name)
+		if err != nil {
+			return err
+		}
+		return app.Destroy()
+	}
+	destroyApp := func(entity params.Entity) (*params.DestroyApplicationInfo, error) {
+		tag, err := names.ParseApplicationTag(entity.Tag)
+		if err != nil {
+			return nil, err
+		}
+		var info params.DestroyApplicationInfo
+		if err := destroyRemoteApp(tag.Id()); !errors.IsNotFound(err) {
+			return &info, err
+		}
+		app, err := api.backend.Application(tag.Id())
+		if err != nil {
+			return nil, err
+		}
+		units, err := app.AllUnits()
+		if err != nil {
+			return nil, err
+		}
+		storageSeen := make(set.Tags)
+		for _, unit := range units {
+			info.DestroyedUnits = append(
+				info.DestroyedUnits,
+				params.Entity{unit.UnitTag().String()},
+			)
+			storage, err := common.UnitStorage(api.backend, unit.UnitTag())
+			if err != nil {
+				return nil, err
+			}
+
+			// Filter out storage we've already seen. Shared
+			// storage may be attached to multiple units.
+			var unseen []state.StorageInstance
+			for _, stor := range storage {
+				storageTag := stor.StorageTag()
+				if storageSeen.Contains(storageTag) {
+					continue
+				}
+				storageSeen.Add(storageTag)
+				unseen = append(unseen, stor)
+			}
+			storage = unseen
+
+			destroyed, detached := common.ClassifyDetachedStorage(storage)
+			info.DestroyedStorage = append(info.DestroyedStorage, destroyed...)
+			info.DetachedStorage = append(info.DetachedStorage, detached...)
+		}
+		if err := app.Destroy(); err != nil {
+			return nil, err
+		}
+		return &info, nil
+	}
+	results := make([]params.DestroyApplicationResult, len(args.Entities))
+	for i, entity := range args.Entities {
+		info, err := destroyApp(entity)
+		if err != nil {
+			results[i].Error = common.ServerError(err)
+			continue
+		}
+		results[i].Info = info
+	}
+	return params.DestroyApplicationResults{results}, nil
 }
 
 // GetConstraints returns the constraints for a given application.
@@ -718,17 +840,14 @@ var applicationUrlEndpointParse = regexp.MustCompile("(?P<url>.*[/.][^:]*)(:(?P<
 
 // AddRelation adds a relation between the specified endpoints and returns the relation info.
 func (api *API) AddRelation(args params.AddRelation) (params.AddRelationResults, error) {
-	if err := api.checkCanWrite(); err != nil {
-		return params.AddRelationResults{}, errors.Trace(err)
-	}
 	if err := api.check.ChangeAllowed(); err != nil {
 		return params.AddRelationResults{}, errors.Trace(err)
 	}
 
 	endpoints := make([]string, len(args.Endpoints))
-	var offer *offeredApplication
 	// We may have a remote application passed in as the endpoint spec.
 	// We'll iterate the endpoints to check.
+	isRemote := false
 	for i, ep := range args.Endpoints {
 		endpoints[i] = ep
 
@@ -753,7 +872,8 @@ func (api *API) AddRelation(args params.AddRelation) (params.AddRelationResults,
 		}
 		// Save the remote application details into state.
 		// TODO(wallyworld) - allow app name to be aliased
-		remoteApp, sourceModel, err := api.processRemoteApplication(*url, url.ApplicationName)
+		alias := url.ApplicationName
+		remoteApp, err := api.processRemoteApplication(url, alias)
 		if err != nil {
 			return params.AddRelationResults{}, errors.Trace(err)
 		}
@@ -763,10 +883,13 @@ func (api *API) AddRelation(args params.AddRelation) (params.AddRelationResults,
 		if relName != "" {
 			endpoints[i] = remoteApp.Name() + ":" + relName
 		}
-		// Record details of the offering application for later use.
-		offer = &offeredApplication{
-			offerName:   url.ApplicationName,
-			sourceModel: sourceModel,
+		isRemote = true
+	}
+	// If it's not a remote relation to another model then
+	// the user needs write access to the model.
+	if !isRemote {
+		if err := api.checkCanWrite(); err != nil {
+			return params.AddRelationResults{}, errors.Trace(err)
 		}
 	}
 
@@ -777,51 +900,6 @@ func (api *API) AddRelation(args params.AddRelation) (params.AddRelationResults,
 	rel, err := api.backend.AddRelation(inEps...)
 	if err != nil {
 		return params.AddRelationResults{}, errors.Trace(err)
-	}
-
-	// For remote applications, we need to ensure the offering application
-	// is exposed to the models which consume it, and vice versa.
-	// There can only be one remote application in a relation.
-	// If we have added a relation via a URL, we already have the offer details.
-	// But we may have added a relation to a consumed application so we
-	// need to check the endpoint application names to see if there's a
-	// consumed application we are relating to.
-	if offer == nil {
-		for _, ep := range inEps {
-			app, err := api.backend.RemoteApplication(ep.ApplicationName)
-			if errors.IsNotFound(err) {
-				continue
-			}
-			if err != nil {
-				return params.AddRelationResults{}, errors.Trace(err)
-			}
-			// Record details of the offering application for later use.
-			offer = &offeredApplication{
-				offerName:   app.OfferName(),
-				sourceModel: app.SourceModel(),
-			}
-			break
-		}
-	}
-	if offer != nil {
-		// Expose the offering app.
-		if err := api.exposeOfferedApplication(offer); err != nil {
-			return params.AddRelationResults{}, errors.Trace(err)
-		}
-		// Expose the consuming app.
-		for _, ep := range inEps {
-			app, err := api.backend.Application(ep.ApplicationName)
-			if errors.IsNotFound(err) {
-				continue
-			}
-			if err != nil {
-				return params.AddRelationResults{}, errors.Trace(err)
-			}
-			// TODO(wallyworld) - we want to only expose to the offering model, not the world
-			if err := app.SetExposed(); err != nil {
-				return params.AddRelationResults{}, errors.Trace(err)
-			}
-		}
 	}
 
 	outEps := make(map[string]params.CharmRelation)
@@ -840,75 +918,6 @@ func (api *API) AddRelation(args params.AddRelation) (params.AddRelationResults,
 		}
 	}
 	return params.AddRelationResults{Endpoints: outEps}, nil
-}
-
-type offeredApplication struct {
-	sourceModel names.ModelTag
-	offerName   string
-}
-
-// exposeOfferedApplication ensures that the remote applications in this model
-// can reach the offered application in another model.
-func (api *API) exposeOfferedApplication(offer *offeredApplication) error {
-	app, st, err := api.sameControllerOfferedApplication(offer.sourceModel, offer.offerName)
-	// TODO(wallyworld) - we don't yet map offer name to application
-	// but this is only mandatory for offer URLs which are deprecated for now.
-	if errors.IsNotFound(err) {
-		return nil
-	}
-	if err != nil {
-		return errors.Trace(err)
-	}
-	defer st.Close()
-
-	// TODO(wallyworld) - we want to only expose to the consuming model, not the world
-	if err := app.SetExposed(); err != nil {
-		return errors.Trace(err)
-	}
-	return nil
-}
-
-// processRemoteApplication takes a remote application URL and retrieves or confirms the the details
-// of the application and endpoint. These details are saved to the state model so relations to
-// the remote application can be created.
-func (api *API) processRemoteApplication(url jujucrossmodel.ApplicationURL, alias string) (*state.RemoteApplication, names.ModelTag, error) {
-	// The application URL is either for an application in another model on this controller,
-	// or is for an application offer contained in a directory.
-	if url.Directory == "" {
-		if url.ModelName == "" {
-			return nil, names.ModelTag{}, errors.Errorf("missing model name in URL %q", url.String())
-		}
-		return api.processSameControllerRemoteApplication(url, alias)
-	}
-
-	offersAPI, err := api.applicationOffersAPIFactory.ApplicationOffers(url.Directory)
-	if err != nil {
-		return nil, names.ModelTag{}, errors.Trace(err)
-	}
-	offers, err := offersAPI.ListOffers(params.OfferFilters{
-		Directory: url.Directory,
-		Filters: []params.OfferFilter{
-			{
-				ApplicationURL: url.String(),
-			},
-		},
-	})
-	if err != nil || offers.Error != nil {
-		return nil, names.ModelTag{}, errors.Trace(err)
-	}
-	// The offers query succeeded but there were no offers matching the URL.
-	if len(offers.Offers) == 0 {
-		return nil, names.ModelTag{}, errors.NotFoundf("application offer %q", url.String())
-	}
-
-	// Create a remote application entry in the model for the consumed service.
-	offer := offers.Offers[0]
-	sourceModelTag, err := names.ParseModelTag(offer.SourceModelTag)
-	if err != nil {
-		return nil, names.ModelTag{}, errors.Trace(err)
-	}
-	remoteApp, err := api.saveRemoteApplication(sourceModelTag, url.ApplicationName, url.ApplicationName, url.String(), offer.Endpoints)
-	return remoteApp, sourceModelTag, err
 }
 
 func (api *API) sameControllerSourceModel(userName, modelName string) (names.ModelTag, error) {
@@ -933,29 +942,19 @@ func (api *API) sameControllerSourceModel(userName, modelName string) (names.Mod
 	return sourceModelTag, nil
 }
 
-// processSameControllerRemoteApplication handles the case where we have an application
-// from another model on the same controller.
-func (api *API) processSameControllerRemoteApplication(url jujucrossmodel.ApplicationURL, alias string) (*state.RemoteApplication, names.ModelTag, error) {
-	// The user name is either specified in URL, or else we default to
-	// the logged in user.
-	userName := url.User
-	if userName == "" {
-		userName = api.authorizer.GetAuthTag().Id()
-	}
-	// To relate to an application in another model, the user needs at least write permission.
-	sourceModelTag, err := api.sameControllerSourceModel(userName, url.ModelName)
+// processRemoteApplication takes a remote application URL and retrieves or confirms the the details
+// of the application and endpoint. These details are saved to the state model so relations to
+// the remote application can be created.
+func (api *API) processRemoteApplication(url *jujucrossmodel.ApplicationURL, alias string) (*state.RemoteApplication, error) {
+	app, releaser, sourceModelTag, err := api.sameControllerOfferedApplication(url, permission.ConsumeAccess)
 	if err != nil {
-		return nil, names.ModelTag{}, errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
-	app, closer, err := api.sameControllerOfferedApplication(sourceModelTag, url.ApplicationName)
-	if err != nil {
-		return nil, names.ModelTag{}, errors.Trace(err)
-	}
-	defer closer.Close()
+	defer releaser()
 
 	eps, err := app.Endpoints()
 	if err != nil {
-		return nil, names.ModelTag{}, errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 	endpoints := make([]params.RemoteEndpoint, len(eps))
 	for i, ep := range eps {
@@ -972,39 +971,109 @@ func (api *API) processSameControllerRemoteApplication(url jujucrossmodel.Applic
 		appName = url.ApplicationName
 	}
 	remoteApp, err := api.saveRemoteApplication(sourceModelTag, appName, url.ApplicationName, url.String(), endpoints)
-	return remoteApp, sourceModelTag, err
+	return remoteApp, err
 }
 
-// sameControllerOfferedApplication looks the specified model on the same controller
+// sameControllerOfferedApplication looks in the specified model on the same controller
 // and returns the specified application and a reference to its state.State.
-func (api *API) sameControllerOfferedApplication(sourceModelTag names.ModelTag, applicationName string) (
+// The user is required to have the specified permission on the offer.
+func (api *API) sameControllerOfferedApplication(url *jujucrossmodel.ApplicationURL, perm permission.Access) (
 	_ *state.Application,
-	closer io.Closer,
+	releaser func(),
+	sourceModelTag names.ModelTag,
 	err error,
 ) {
 	defer func() {
-		if err != nil && closer != nil {
-			closer.Close()
+		if err != nil && releaser != nil {
+			releaser()
 		}
 	}()
 
-	ok, err := api.authorizer.HasPermission(permission.WriteAccess, sourceModelTag)
+	fail := func(err error) (
+		*state.Application,
+		func(),
+		names.ModelTag,
+		error,
+	) {
+		return nil, releaser, sourceModelTag, err
+	}
+
+	// We require the hosting model to be specified.
+	if url.ModelName == "" {
+		return fail(errors.Errorf("missing model name in URL %q", url.String()))
+	}
+
+	// The user name is either specified in URL, or else we default to
+	// the logged in user.
+	userName := url.User
+	if userName == "" {
+		userName = api.authorizer.GetAuthTag().Id()
+	}
+
+	// Get the hosting model from the name.
+	sourceModelTag, err = api.sameControllerSourceModel(userName, url.ModelName)
 	if err != nil {
-		return nil, nil, errors.Trace(err)
+		return fail(errors.Trace(err))
 	}
-	if !ok {
-		return nil, nil, common.ErrPerm
-	}
+
 	// Get the backend state for the source model so we can lookup the application.
-	st, err := api.backend.ForModel(sourceModelTag)
+	var st *state.State
+	st, releaser, err = api.statePool.Get(sourceModelTag.Id())
 	if err != nil {
-		return nil, nil, errors.Trace(err)
+		return fail(errors.Trace(err))
 	}
-	app, err := st.Application(applicationName)
+
+	// For now, offer URL is matched against the specified application
+	// name as seen from the consuming model.
+	applicationOffers := state.NewApplicationOffers(st)
+	offers, err := applicationOffers.ListOffers(
+		jujucrossmodel.ApplicationOfferFilter{
+			OfferName: url.ApplicationName,
+		},
+	)
 	if err != nil {
-		return nil, st, errors.Trace(err)
+		return fail(errors.Trace(err))
 	}
-	return app, st, err
+
+	// The offers query succeeded but there were no offers matching the required offer name.
+	if len(offers) == 0 {
+		return fail(errors.NotFoundf("application offer %q", url.ApplicationName))
+	}
+	// Sanity check - this should never happen.
+	if len(offers) > 1 {
+		return fail(errors.Errorf("unexpected: %d matching offers for %q", len(offers), url.ApplicationName))
+	}
+
+	// Check the permissions - a user can access the offer if they are an admin
+	// or they have consume access to the offer.
+	isAdmin := false
+	err = api.checkPermission(st.ControllerTag(), permission.SuperuserAccess)
+	if err == common.ErrPerm {
+		err = api.checkPermission(sourceModelTag, permission.AdminAccess)
+	}
+	if err != nil && err != common.ErrPerm {
+		return fail(errors.Trace(err))
+	}
+	isAdmin = err == nil
+
+	offer := offers[0]
+	if !isAdmin {
+		// Check for consume access on tne offer - we can't use api.checkPermission as
+		// we need to operate on the state containing the offer.
+		apiUser := api.authorizer.GetAuthTag().(names.UserTag)
+		access, err := st.GetOfferAccess(names.NewApplicationOfferTag(offer.OfferName), apiUser)
+		if err != nil && !errors.IsNotFound(err) {
+			return fail(errors.Trace(err))
+		}
+		if !access.EqualOrGreaterOfferAccessThan(perm) {
+			return fail(common.ErrPerm)
+		}
+	}
+	app, err := st.Application(offer.ApplicationName)
+	if err != nil {
+		return fail(errors.Trace(err))
+	}
+	return app, releaser, sourceModelTag, err
 }
 
 // saveRemoteApplication saves the details of the specified remote application and its endpoints
@@ -1022,17 +1091,80 @@ func (api *API) saveRemoteApplication(
 			Scope:     ep.Scope,
 		}
 	}
-	remoteApp, err := api.backend.AddRemoteApplication(state.AddRemoteApplicationParams{
+
+	// If the a remote application with the same name and endpoints from the same
+	// source model already exists, we will use that one.
+	remoteApp, err := api.maybeUpdateExistingApplicationEndpoints(applicationName, sourceModelTag, remoteEps)
+	if err == nil {
+		return remoteApp, nil
+	} else if !errors.IsNotFound(err) {
+		return nil, errors.Trace(err)
+	}
+
+	return api.backend.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name:        applicationName,
 		OfferName:   offerName,
 		URL:         url,
 		SourceModel: sourceModelTag,
 		Endpoints:   remoteEps,
 	})
+}
+
+// maybeUpdateExistingApplicationEndpoints looks for a remote application with the
+// specified name and source model tag and tries to update its endpoints with the
+// new ones specified. If the endpoints are compatible, the newly updated remote
+// application is returned.
+func (api *API) maybeUpdateExistingApplicationEndpoints(
+	applicationName string, sourceModelTag names.ModelTag, remoteEps []charm.Relation,
+) (*state.RemoteApplication, error) {
+	existingRemoteApp, err := api.backend.RemoteApplication(applicationName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return remoteApp, nil
+	if err != nil && !errors.IsNotFound(err) {
+		return nil, errors.Trace(err)
+	}
+	if existingRemoteApp.SourceModel().Id() != sourceModelTag.Id() {
+		return nil, errors.AlreadyExistsf("remote application called %q from a different model", applicationName)
+	}
+	newEpsMap := make(map[charm.Relation]bool)
+	for _, ep := range remoteEps {
+		newEpsMap[ep] = true
+	}
+	existingEps, err := existingRemoteApp.Endpoints()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	maybeSameEndpoints := len(newEpsMap) == len(existingEps)
+	existingEpsByName := make(map[string]charm.Relation)
+	for _, ep := range existingEps {
+		existingEpsByName[ep.Name] = ep.Relation
+		delete(newEpsMap, ep.Relation)
+	}
+	sameEndpoints := maybeSameEndpoints && len(newEpsMap) == 0
+	if sameEndpoints {
+		return existingRemoteApp, nil
+	}
+
+	// Gather the new endpoints. All new endpoints passed to AddEndpoints()
+	// below must not have the same name as an existing endpoint.
+	var newEps []charm.Relation
+	for ep := range newEpsMap {
+		// See if we are attempting to update endpoints with the same name but
+		// different relation data.
+		if existing, ok := existingEpsByName[ep.Name]; ok && existing != ep {
+			return nil, errors.Errorf("conflicting endpoint %v", ep.Name)
+		}
+		newEps = append(newEps, ep)
+	}
+
+	if len(newEps) > 0 {
+		// Update the existing remote app to have the new, additional endpoints.
+		if err := existingRemoteApp.AddEndpoints(newEps); err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
+	return existingRemoteApp, nil
 }
 
 // RemoteApplicationInfo returns information about the requested remote application.
@@ -1054,78 +1186,15 @@ func (api *API) oneRemoteApplicationInfo(urlStr string) (*params.RemoteApplicati
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if url.Directory == "" {
-		if url.ModelName == "" {
-			return nil, errors.Errorf("missing model name in URL %q", url.String())
-		}
-		return api.sameControllerRemoteApplicationInfo(*url)
-	}
 
-	offersAPI, err := api.applicationOffersAPIFactory.ApplicationOffers(url.Directory)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	offers, err := offersAPI.ListOffers(params.OfferFilters{
-		Directory: url.Directory,
-		Filters: []params.OfferFilter{
-			{
-				ApplicationURL: url.String(),
-			},
-		},
-	})
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if offers.Error != nil {
-		return nil, errors.Trace(offers.Error)
-	}
-	// The offers query succeeded but there were no offers matching the URL.
-	if len(offers.Offers) == 0 {
-		return nil, errors.NotFoundf("application offer %q", url.String())
-	}
-	offer := offers.Offers[0]
-	return &params.RemoteApplicationInfo{
-		ModelTag:         offer.SourceModelTag,
-		Name:             offer.ApplicationName,
-		Description:      offer.ApplicationDescription,
-		ApplicationURL:   urlStr,
-		SourceModelLabel: offer.SourceLabel,
-		Endpoints:        offer.Endpoints,
-		IconURLPath:      fmt.Sprintf("rest/1.0/remote-application/%s/icon", url.ApplicationName),
-	}, nil
-}
-
-func (api *API) sameControllerRemoteApplicationInfo(url jujucrossmodel.ApplicationURL) (*params.RemoteApplicationInfo, error) {
-	// The user name is either specified in URL, or else we default to
-	// the logged in user.
-	userName := url.User
-	if userName == "" {
-		userName = api.authorizer.GetAuthTag().Id()
-	}
-	sourceModelTag, err := api.sameControllerSourceModel(userName, url.ModelName)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 	// We need at least read access to the model to see the application details.
-	ok, err := api.authorizer.HasPermission(permission.ReadAccess, sourceModelTag)
+	app, releaser, sourceModelTag, err := api.sameControllerOfferedApplication(url, permission.ReadAccess)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if !ok {
-		return nil, common.ErrPerm
-	}
-	// Get the backend state for the source model so we can lookup the application
-	// and its endpoints.
-	st, err := api.backend.ForModel(sourceModelTag)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	defer st.Close()
-	application, err := st.Application(url.ApplicationName)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	eps, err := application.Endpoints()
+	defer releaser()
+
+	eps, err := app.Endpoints()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1139,20 +1208,16 @@ func (api *API) sameControllerRemoteApplicationInfo(url jujucrossmodel.Applicati
 			Limit:     ep.Limit,
 		}
 	}
-	ch, _, err := application.Charm()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	model, err := st.Model()
+	ch, _, err := app.Charm()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return &params.RemoteApplicationInfo{
 		ModelTag:         sourceModelTag.String(),
-		Name:             application.Name(),
+		Name:             url.ApplicationName,
 		Description:      ch.Meta().Description,
 		ApplicationURL:   url.String(),
-		SourceModelLabel: model.Name(),
+		SourceModelLabel: url.ModelName,
 		Endpoints:        endpoints,
 		IconURLPath:      fmt.Sprintf("rest/1.0/remote-application/%s/icon", url.ApplicationName),
 	}, nil
@@ -1174,9 +1239,6 @@ func (api *API) charmIcon(backend Backend, curl *charm.URL) ([]byte, error) {
 // relations.
 func (api *API) Consume(args params.ConsumeApplicationArgs) (params.ConsumeApplicationResults, error) {
 	var consumeResults params.ConsumeApplicationResults
-	if err := api.checkCanWrite(); err != nil {
-		return consumeResults, err
-	}
 	if err := api.check.ChangeAllowed(); err != nil {
 		return consumeResults, errors.Trace(err)
 	}
@@ -1205,7 +1267,7 @@ func (api *API) consumeOne(possibleURL, alias string) (string, error) {
 	if url.HasEndpoint() {
 		return "", errors.Errorf("remote application %q shouldn't include endpoint", url)
 	}
-	remoteApp, _, err := api.processRemoteApplication(*url, alias)
+	remoteApp, err := api.processRemoteApplication(url, alias)
 	if err != nil {
 		return "", errors.Trace(err)
 	}

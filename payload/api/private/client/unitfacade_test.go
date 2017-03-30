@@ -14,7 +14,6 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/payload"
 	"github.com/juju/juju/payload/api"
-	internal "github.com/juju/juju/payload/api/private"
 	"github.com/juju/juju/payload/api/private/client"
 )
 
@@ -23,7 +22,7 @@ type clientSuite struct {
 
 	stub    *testing.Stub
 	facade  *stubFacade
-	payload api.Payload
+	payload params.Payload
 }
 
 var _ = gc.Suite(&clientSuite{})
@@ -34,7 +33,7 @@ func (s *clientSuite) SetUpTest(c *gc.C) {
 	s.stub = &testing.Stub{}
 	s.facade = &stubFacade{stub: s.stub}
 	s.facade.methods = &unitMethods{}
-	s.payload = api.Payload{
+	s.payload = params.Payload{
 		Class:  "foobar",
 		Type:   "type",
 		ID:     "idfoo",
@@ -50,9 +49,9 @@ func (s *clientSuite) TestTrack(c *gc.C) {
 		numStubCalls++
 		c.Check(name, gc.Equals, "Track")
 
-		typedResponse, ok := response.(*internal.PayloadResults)
+		typedResponse, ok := response.(*params.PayloadResults)
 		c.Assert(ok, gc.Equals, true)
-		typedResponse.Results = []internal.PayloadResult{{
+		typedResponse.Results = []params.PayloadResult{{
 			Entity: params.Entity{
 				Tag: names.NewPayloadTag(id).String(),
 			},
@@ -82,8 +81,8 @@ func (s *clientSuite) TestTrack(c *gc.C) {
 func (s *clientSuite) TestList(c *gc.C) {
 	id := "ce5bc2a7-65d8-4800-8199-a7c3356ab309"
 	responses := []interface{}{
-		&internal.PayloadResults{
-			Results: []internal.PayloadResult{{
+		&params.PayloadResults{
+			Results: []params.PayloadResult{{
 				Entity: params.Entity{
 					Tag: names.NewPayloadTag(id).String(),
 				},
@@ -92,8 +91,8 @@ func (s *clientSuite) TestList(c *gc.C) {
 				Error:    nil,
 			}},
 		},
-		&internal.PayloadResults{
-			Results: []internal.PayloadResult{{
+		&params.PayloadResults{
+			Results: []params.PayloadResult{{
 				Entity: params.Entity{
 					Tag: names.NewPayloadTag(id).String(),
 				},
@@ -122,8 +121,8 @@ func (s *clientSuite) TestList(c *gc.C) {
 		FuncName: "FacadeCall",
 		Args: []interface{}{
 			"LookUp",
-			&internal.LookUpArgs{
-				Args: []internal.LookUpArg{{
+			&params.LookUpPayloadArgs{
+				Args: []params.LookUpPayloadArg{{
 					Name: "idfoo",
 					ID:   "bar",
 				}},
@@ -146,8 +145,8 @@ func (s *clientSuite) TestList(c *gc.C) {
 
 func (s *clientSuite) TestLookUpOkay(c *gc.C) {
 	id := "ce5bc2a7-65d8-4800-8199-a7c3356ab309"
-	response := &internal.PayloadResults{
-		Results: []internal.PayloadResult{{
+	response := &params.PayloadResults{
+		Results: []params.PayloadResult{{
 			Entity: params.Entity{
 				Tag: names.NewPayloadTag(id).String(),
 			},
@@ -172,8 +171,8 @@ func (s *clientSuite) TestLookUpOkay(c *gc.C) {
 		FuncName: "FacadeCall",
 		Args: []interface{}{
 			"LookUp",
-			&internal.LookUpArgs{
-				Args: []internal.LookUpArg{{
+			&params.LookUpPayloadArgs{
+				Args: []params.LookUpPayloadArg{{
 					Name: "idfoo",
 					ID:   "bar",
 				}},
@@ -186,8 +185,8 @@ func (s *clientSuite) TestLookUpOkay(c *gc.C) {
 func (s *clientSuite) TestLookUpMulti(c *gc.C) {
 	id1 := "ce5bc2a7-65d8-4800-8199-a7c3356ab309"
 	id2 := "ce5bc2a7-65d8-4800-8199-a7c3356ab311"
-	response := &internal.PayloadResults{
-		Results: []internal.PayloadResult{{
+	response := &params.PayloadResults{
+		Results: []params.PayloadResult{{
 			Entity: params.Entity{
 				Tag: names.NewPayloadTag(id1).String(),
 			},
@@ -239,8 +238,8 @@ func (s *clientSuite) TestLookUpMulti(c *gc.C) {
 		FuncName: "FacadeCall",
 		Args: []interface{}{
 			"LookUp",
-			&internal.LookUpArgs{
-				Args: []internal.LookUpArg{{
+			&params.LookUpPayloadArgs{
+				Args: []params.LookUpPayloadArg{{
 					Name: "idfoo",
 					ID:   "bar",
 				}, {
@@ -259,8 +258,8 @@ func (s *clientSuite) TestLookUpMulti(c *gc.C) {
 func (s *clientSuite) TestSetStatus(c *gc.C) {
 	id := "ce5bc2a7-65d8-4800-8199-a7c3356ab309"
 	responses := []interface{}{
-		&internal.PayloadResults{
-			Results: []internal.PayloadResult{{
+		&params.PayloadResults{
+			Results: []params.PayloadResult{{
 				Entity: params.Entity{
 					Tag: names.NewPayloadTag(id).String(),
 				},
@@ -269,8 +268,8 @@ func (s *clientSuite) TestSetStatus(c *gc.C) {
 				Error:    nil,
 			}},
 		},
-		&internal.PayloadResults{
-			Results: []internal.PayloadResult{{
+		&params.PayloadResults{
+			Results: []params.PayloadResult{{
 				Entity: params.Entity{
 					Tag: names.NewPayloadTag(id).String(),
 				},
@@ -296,8 +295,8 @@ func (s *clientSuite) TestSetStatus(c *gc.C) {
 		FuncName: "FacadeCall",
 		Args: []interface{}{
 			"LookUp",
-			&internal.LookUpArgs{
-				Args: []internal.LookUpArg{{
+			&params.LookUpPayloadArgs{
+				Args: []params.LookUpPayloadArg{{
 					Name: "idfoo",
 					ID:   "bar",
 				}},
@@ -308,8 +307,8 @@ func (s *clientSuite) TestSetStatus(c *gc.C) {
 		FuncName: "FacadeCall",
 		Args: []interface{}{
 			"SetStatus",
-			&internal.SetStatusArgs{
-				Args: []internal.SetStatusArg{{
+			&params.SetPayloadStatusArgs{
+				Args: []params.SetPayloadStatusArg{{
 					Entity: params.Entity{
 						Tag: names.NewPayloadTag(id).String(),
 					},
@@ -324,8 +323,8 @@ func (s *clientSuite) TestSetStatus(c *gc.C) {
 func (s *clientSuite) TestUntrack(c *gc.C) {
 	id := "ce5bc2a7-65d8-4800-8199-a7c3356ab309"
 	responses := []interface{}{
-		&internal.PayloadResults{
-			Results: []internal.PayloadResult{{
+		&params.PayloadResults{
+			Results: []params.PayloadResult{{
 				Entity: params.Entity{
 					Tag: names.NewPayloadTag(id).String(),
 				},
@@ -334,8 +333,8 @@ func (s *clientSuite) TestUntrack(c *gc.C) {
 				Error:    nil,
 			}},
 		},
-		&internal.PayloadResults{
-			Results: []internal.PayloadResult{{
+		&params.PayloadResults{
+			Results: []params.PayloadResult{{
 				Entity: params.Entity{
 					Tag: names.NewPayloadTag(id).String(),
 				},
@@ -361,8 +360,8 @@ func (s *clientSuite) TestUntrack(c *gc.C) {
 		FuncName: "FacadeCall",
 		Args: []interface{}{
 			"LookUp",
-			&internal.LookUpArgs{
-				Args: []internal.LookUpArg{{
+			&params.LookUpPayloadArgs{
+				Args: []params.LookUpPayloadArg{{
 					Name: "idfoo",
 					ID:   "bar",
 				}},
@@ -449,7 +448,7 @@ func (m unitMethods) Handler(name string) (func(target, response interface{}), b
 }
 
 func (unitMethods) generic(target, response interface{}) {
-	typedTarget := target.(*internal.PayloadResults)
-	typedResponse := response.(*internal.PayloadResults)
+	typedTarget := target.(*params.PayloadResults)
+	typedResponse := response.(*params.PayloadResults)
 	*typedTarget = *typedResponse
 }
