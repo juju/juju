@@ -234,12 +234,24 @@ func insertIPAddressDocOp(newDoc *ipAddressDoc) txn.Op {
 	}
 }
 
+func strsDiffer(a, b []string) bool {
+	if len(a) != len(b) {
+		return true
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return true
+		}
+	}
+	return false
+}
+
 // updateIPAddressDocOp returns an operation updating the fields of existingDoc
 // with the respective values of those fields in newDoc. DocID, ModelUUID,
 // Value, MachineID, and DeviceName cannot be changed. ProviderID cannot be
 // changed once set. DNSServers and DNSSearchDomains are deleted when nil. In
 // all other cases newDoc values overwrites existingDoc values.
-func updateIPAddressDocOp(existingDoc, newDoc *ipAddressDoc) txn.Op {
+func updateIPAddressDocOp(existingDoc, newDoc *ipAddressDoc) (txn.Op, bool) {
 	changes := make(bson.M)
 	deletes := make(bson.M)
 	if existingDoc.ProviderID == "" && newDoc.ProviderID != "" {
@@ -254,16 +266,19 @@ func updateIPAddressDocOp(existingDoc, newDoc *ipAddressDoc) txn.Op {
 		changes["subnet-cidr"] = newDoc.SubnetCIDR
 	}
 
-	if newDoc.DNSServers == nil {
-		deletes["dns-servers"] = 1
-	} else {
-		changes["dns-servers"] = newDoc.DNSServers
+	if strsDiffer(newDoc.DNSServers, existingDoc.DNSServers) {
+		if len(newDoc.DNSServers) == 0 {
+			deletes["dns-servers"] = 1
+		} else {
+			changes["dns-servers"] = newDoc.DNSServers
+		}
 	}
-
-	if newDoc.DNSSearchDomains == nil {
-		deletes["dns-search-domains"] = 1
-	} else {
-		changes["dns-search-domains"] = newDoc.DNSSearchDomains
+	if strsDiffer(newDoc.DNSSearchDomains, existingDoc.DNSSearchDomains) {
+		if len(newDoc.DNSSearchDomains) == 0 {
+			deletes["dns-search-domains"] = 1
+		} else {
+			changes["dns-search-domains"] = newDoc.DNSSearchDomains
+		}
 	}
 
 	if existingDoc.GatewayAddress != newDoc.GatewayAddress {
@@ -283,7 +298,7 @@ func updateIPAddressDocOp(existingDoc, newDoc *ipAddressDoc) txn.Op {
 		Id:     existingDoc.DocID,
 		Assert: txn.DocExists,
 		Update: updates,
-	}
+	}, len(updates) > 0
 }
 
 func findAddressesQuery(machineID, deviceName string) bson.D {
