@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/remotefirewaller"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -92,14 +93,13 @@ func (s *RemoteFirewallerSuite) TestIngressSubnetsForRelation(c *gc.C) {
 	}
 	s.st.relations["remote-db2:db django:db"] = db2Relation
 	app := newMockApplication("db2")
+	app.units = []*mockUnit{
+		{name: "django/0", address: network.NewScopedAddress("1.2.3.4", network.ScopePublic)},
+		{name: "django/1", address: network.NewScopedAddress("4.3.2.1", network.ScopePublic)},
+	}
 	s.st.applications["django"] = app
 
 	s.st.remoteEntities[names.NewRelationTag("remote-db2:db django:db")] = "token-db2:db django:db"
-	s.st.subnets = []remotefirewaller.Subnet{
-		&mockSubnet{"10.0.0.0/24"},
-		&mockSubnet{"127.0.0.0/0"},
-		&mockSubnet{"::1/0"},
-	}
 	result, err := s.api.IngressSubnetsForRelations(
 		params.RemoteEntities{Entities: []params.RemoteEntityId{{
 			ModelUUID: coretesting.ModelTag.Id(), Token: "token-db2:db django:db"}},
@@ -107,14 +107,13 @@ func (s *RemoteFirewallerSuite) TestIngressSubnetsForRelation(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 1)
 	c.Assert(result.Results[0].Result, jc.DeepEquals, &params.IngressSubnetInfo{
-		CIDRs: []string{"10.0.0.0/24"},
+		CIDRs: []string{"1.2.3.4/32", "4.3.2.1/32"},
 	})
 
 	s.st.CheckCalls(c, []testing.StubCall{
 		{"GetRemoteEntity", []interface{}{names.NewModelTag(coretesting.ModelTag.Id()), "token-db2:db django:db"}},
 		{"KeyRelation", []interface{}{"remote-db2:db django:db"}},
 		{"Application", []interface{}{"django"}},
-		{"AllSubnets", nil},
 	})
 }
 
@@ -143,14 +142,13 @@ func (s *RemoteFirewallerSuite) TestIngressSubnetsForRelationIgnoresProvider(c *
 	}
 	s.st.relations["db2:db remote-django:db"] = db2Relation
 	app := newMockApplication("db2")
+	app.units = []*mockUnit{
+		{name: "db2/0", address: network.NewScopedAddress("1.2.3.4", network.ScopePublic)},
+		{name: "db2/1", address: network.NewScopedAddress("4.3.2.1", network.ScopePublic)},
+	}
 	s.st.applications["db2"] = app
 
 	s.st.remoteEntities[names.NewRelationTag("db2:db remote-django:db")] = "token-db2:db django:db"
-	s.st.subnets = []remotefirewaller.Subnet{
-		&mockSubnet{"10.0.0.0/24"},
-		&mockSubnet{"127.0.0.0/0"},
-		&mockSubnet{"::1/0"},
-	}
 	result, err := s.api.IngressSubnetsForRelations(
 		params.RemoteEntities{Entities: []params.RemoteEntityId{{
 			ModelUUID: coretesting.ModelTag.Id(), Token: "token-db2:db django:db"}},

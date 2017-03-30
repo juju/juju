@@ -10,6 +10,7 @@ import (
 	"gopkg.in/tomb.v1"
 
 	"github.com/juju/juju/apiserver/remotefirewaller"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 )
 
@@ -19,7 +20,6 @@ type mockState struct {
 	remoteEntities map[names.Tag]string
 	applications   map[string]*mockApplication
 	relations      map[string]*mockRelation
-	subnets        []remotefirewaller.Subnet
 	subnetsWatcher *mockStringsWatcher
 }
 
@@ -52,11 +52,6 @@ func (st *mockState) Application(id string) (remotefirewaller.Application, error
 func (st *mockState) WatchSubnets() state.StringsWatcher {
 	st.MethodCall(st, "WatchSubnets")
 	return st.subnetsWatcher
-}
-
-func (st *mockState) AllSubnets() ([]remotefirewaller.Subnet, error) {
-	st.MethodCall(st, "AllSubnets")
-	return st.subnets, nil
 }
 
 type mockWatcher struct {
@@ -101,7 +96,8 @@ func (w *mockStringsWatcher) Changes() <-chan []string {
 
 type mockApplication struct {
 	testing.Stub
-	name string
+	name  string
+	units []*mockUnit
 }
 
 func newMockApplication(name string) *mockApplication {
@@ -113,6 +109,14 @@ func newMockApplication(name string) *mockApplication {
 func (a *mockApplication) Name() string {
 	a.MethodCall(a, "Name")
 	return a.name
+}
+
+func (a *mockApplication) AllUnits() (results []remotefirewaller.Unit, err error) {
+	a.MethodCall(a, "AllUnits")
+	for _, unit := range a.units {
+		results = append(results, unit)
+	}
+	return results, a.NextErr()
 }
 
 type mockRelation struct {
@@ -136,6 +140,25 @@ func (r *mockRelation) Id() int {
 func (r *mockRelation) Endpoints() []state.Endpoint {
 	r.MethodCall(r, "Endpoints")
 	return r.endpoints
+}
+
+type mockUnit struct {
+	testing.Stub
+	name    string
+	address network.Address
+}
+
+func newMockUnit(name string, address network.Address) *mockUnit {
+	return &mockUnit{name: name, address: address}
+}
+
+func (u *mockUnit) Name() string {
+	return u.name
+}
+
+func (u *mockUnit) PublicAddress() (network.Address, error) {
+	u.MethodCall(u, "PublicAddress")
+	return u.address, u.NextErr()
 }
 
 type mockSubnet struct {
