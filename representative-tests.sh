@@ -25,7 +25,7 @@ else
     mkdir -p $WORKSPACE/artifacts/lxd
     mkdir -p $WORKSPACE/artifacts/grant
     LXD="timeout -s INT 20m $SCRIPTS/deploy_job.py parallel-lxd $JUJU_BIN $WORKSPACE/artifacts/lxd merge-juju-lxd  --series xenial --debug"    
-    GRANT="timeout -s INT 20m $SCRIPTS/assess_user_grant_revoke.py parallel-lxd $JUJU_BIN $WORKSPACE/artifacts/grant merge-juju-grant --timeout 1500 --series xenial"
+    GRANT="echo \"Skipping Grant test for now.\""
     RACE="run-unit-tests m1.xlarge $XENIAL_AMI --force-archive --race --local $TARFILE_NAME --install-deps 'golang-1.6 juju-mongodb distro-info-data ca-certificates bzr git-core mercurial zip golang-1.6-race-detector-runtime'"
     RACE="echo 'Skipping race unit tests.'"
 fi
