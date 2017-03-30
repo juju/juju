@@ -187,13 +187,13 @@ func (m *Machine) SetLinkLayerDevices(devicesArgs ...LinkLayerDeviceArgs) (err e
 			return nil, errors.Trace(err)
 		}
 
+		if err := checkModelActive(m.st); err != nil {
+			return nil, errors.Trace(err)
+		}
+		if err := m.isStillAlive(); err != nil {
+			return nil, errors.Trace(err)
+		}
 		if attempt > 0 {
-			if err := checkModelActive(m.st); err != nil {
-				return nil, errors.Trace(err)
-			}
-			if err := m.isStillAlive(); err != nil {
-				return nil, errors.Trace(err)
-			}
 			allIds, err := m.st.allProviderIDsForLinkLayerDevices()
 			if err != nil {
 				return nil, errors.Trace(err)
@@ -610,13 +610,13 @@ func (m *Machine) SetDevicesAddresses(devicesAddresses ...LinkLayerDeviceAddress
 			return nil, errors.Trace(err)
 		}
 
+		if err := checkModelActive(m.st); err != nil {
+			return nil, errors.Trace(err)
+		}
+		if err := m.isStillAlive(); err != nil {
+			return nil, errors.Trace(err)
+		}
 		if attempt > 0 {
-			if err := checkModelActive(m.st); err != nil {
-				return nil, errors.Trace(err)
-			}
-			if err := m.isStillAlive(); err != nil {
-				return nil, errors.Trace(err)
-			}
 			allIds, err := m.st.allProviderIDsForAddresses()
 			if err != nil {
 				return nil, errors.Trace(err)
