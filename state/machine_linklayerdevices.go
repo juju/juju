@@ -649,7 +649,7 @@ func (m *Machine) SetDevicesAddresses(devicesAddresses ...LinkLayerDeviceAddress
 			// no actual address changes to be queued, so no need to create an op that just asserts
 			// the machine is alive
 			// TODO(jam) 2017-03-30: consider raising a 'nothing-to-do' error that gets trapped and just returned as 'nil' outside the loop
-			logger.Debugf("no changes to Devices Addresses for machine %q", m.Id())
+			logger.Debugf("no changes to DevicesAddresses for machine %q", m.Id())
 			return nil, errNoChanges
 		}
 		return append(ops, setAddressesOps...), nil
