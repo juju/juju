@@ -101,51 +101,52 @@ func (s *ControllerAPI) checkHasAdmin() error {
 }
 
 // AllModels allows controller administrators to get the list of all the
-// environments in the controller.
+// models in the controller.
 func (s *ControllerAPI) AllModels() (params.UserModelList, error) {
 	result := params.UserModelList{}
 	if err := s.checkHasAdmin(); err != nil {
 		return result, errors.Trace(err)
 	}
 
-	// Get all the environments that the authenticated user can see, and
-	// supplement that with the other environments that exist that the user
-	// cannot see. The reason we do this is to get the LastConnection time for
-	// the environments that the user is able to see, so we have consistent
-	// output when listing with or without --all when an admin user.
-	environments, err := s.state.ModelsForUser(s.apiUser)
+	// Get all the models that the authenticated user can see, and
+	// supplement that with the other models that exist that the user
+	// cannot see. The reason we do this is to get the LastConnection
+	// time for the models that the user is able to see, so we have
+	// consistent output when listing with or without --all when an
+	// admin user.
+	models, err := s.state.ModelsForUser(s.apiUser)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
-	visibleEnvironments := set.NewStrings()
-	for _, env := range environments {
-		lastConn, err := env.LastConnection()
+	visibleModels := set.NewStrings()
+	for _, model := range models {
+		lastConn, err := model.LastConnection()
 		if err != nil && !state.IsNeverConnectedError(err) {
 			return result, errors.Trace(err)
 		}
-		visibleEnvironments.Add(env.UUID())
+		visibleModels.Add(model.UUID())
 		result.UserModels = append(result.UserModels, params.UserModel{
 			Model: params.Model{
-				Name:     env.Name(),
-				UUID:     env.UUID(),
-				OwnerTag: env.Owner().String(),
+				Name:     model.Name(),
+				UUID:     model.UUID(),
+				OwnerTag: model.Owner().String(),
 			},
 			LastConnection: &lastConn,
 		})
 	}
 
-	allEnvs, err := s.state.AllModels()
+	allModels, err := s.state.AllModels()
 	if err != nil {
 		return result, errors.Trace(err)
 	}
 
-	for _, env := range allEnvs {
-		if !visibleEnvironments.Contains(env.UUID()) {
+	for _, model := range allModels {
+		if !visibleModels.Contains(model.UUID()) {
 			result.UserModels = append(result.UserModels, params.UserModel{
 				Model: params.Model{
-					Name:     env.Name(),
-					UUID:     env.UUID(),
-					OwnerTag: env.Owner().String(),
+					Name:     model.Name(),
+					UUID:     model.UUID(),
+					OwnerTag: model.Owner().String(),
 				},
 				// No LastConnection as this user hasn't.
 			})
