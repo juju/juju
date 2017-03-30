@@ -218,11 +218,15 @@ func (m *Machine) SetLinkLayerDevices(devicesArgs ...LinkLayerDeviceArgs) (err e
 		}
 		if len(setDevicesOps) == 0 {
 			// No need to assert only that the machine is alive
-			return nil, nil
+			logger.Debugf("no changes to LinkLayerDevices for machine %q", m.Id())
+			return nil, errNoChanges
 		}
 		return append(ops, setDevicesOps...), nil
 	}
 	if err := m.st.run(buildTxn); err != nil {
+		if errors.Cause(err) == errNoChanges {
+			return nil
+		}
 		return errors.Trace(err)
 	}
 	return nil
@@ -584,6 +588,8 @@ type LinkLayerDeviceAddress struct {
 	GatewayAddress string
 }
 
+var errNoChanges = errors.New("no changes to be applied")
+
 // SetDevicesAddresses sets the addresses of all devices in devicesAddresses,
 // adding new or updating existing assignments as needed, in a single
 // transaction. ProviderID field can be empty if not supported by the provider,
@@ -643,11 +649,15 @@ func (m *Machine) SetDevicesAddresses(devicesAddresses ...LinkLayerDeviceAddress
 			// no actual address changes to be queued, so no need to create an op that just asserts
 			// the machine is alive
 			// TODO(jam) 2017-03-30: consider raising a 'nothing-to-do' error that gets trapped and just returned as 'nil' outside the loop
-			return nil, nil
+			logger.Debugf("no changes to Devices Addresses for machine %q", m.Id())
+			return nil, errNoChanges
 		}
 		return append(ops, setAddressesOps...), nil
 	}
 	if err := m.st.run(buildTxn); err != nil {
+		if errors.Cause(err) == errNoChanges {
+			return nil
+		}
 		return errors.Trace(err)
 	}
 	return nil
