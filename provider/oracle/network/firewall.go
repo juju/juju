@@ -21,17 +21,39 @@ import (
 	"github.com/juju/juju/network"
 )
 
+// Firewaller exposes methods for managing network ports.
+// Exacly like the environ.Firewaller but with additional functionality
 type Firewaller interface {
+	// embedd the envrions.Firewaller interface
+	// to make network Firewaller implementation also
+	// implement the environ one and provide aditional
+	// functionality for the oracle cloud provider
 	environs.Firewaller
 
+	// Return all machine ingress rules for a given machine id
 	MachineIngressRules(id string) ([]network.IngressRule, error)
 
+	// OpenPortsOnInstance will open ports on the given machine id instance and
+	// adds the firewall rules provided as ingress networking rules
 	OpenPortsOnInstance(machineId string, rules []network.IngressRule) error
+
+	// ClosePortsOnInstnace will close ports on the given machine id instance with
+	// the given firewall rules provided as ingress networking rules
 	ClosePortsOnInstance(machineId string, rules []network.IngressRule) error
 
+	// CreateMachineSecLists creates a security list inside the cloud
+	// attaching the given machine id and the port
 	CreateMachineSecLists(id string, port int) ([]string, error)
+
+	// DeleteMachineSecList will delete the security list on the given machine
+	// id
 	DeleteMachineSecList(id string) error
+
+	// CreateDefaultACLAndRules will create a acl rules on the defaul cloud
+	// settings on the given machine id
 	CreateDefaultACLAndRules(id string) (response.Acl, error)
+
+	// RemoveACLAndRules will remove all acl rules on a given machine id
 	RemoveACLAndRules(id string) error
 }
 
