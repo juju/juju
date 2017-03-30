@@ -7,6 +7,7 @@
 # base_config is the environment to use as the base config.
 # revision_build is the revision build to test.
 # action_count is the number of actions the plan should perform
+# series is the OS series to use for machines
 # JOB_NAME and WORKSPACE should be as provided by Jenkins
 #
 # Optional:
@@ -29,8 +30,8 @@ set +e
 timeout 30m bash <<"EOT"
 set -eux
 deploy_job.py $base_config $JUJU_BIN $ARTIFACTS $MODEL_NAME \
-  --series xenial --agent-stream=revision-build-$revision_build --timeout 600 \
-  --keep-env
+  --series $series --agent-stream=revision-build-$revision_build \
+  --timeout 600 --keep-env
 cd $HOME/hammer-dir/hammer-time
 if [ -z "${replay_build_number-}" ]; then
   $HAMMER_TIME run-random $PLAN --juju-data $DATA_DIR --juju-bin $JUJU_BIN \
