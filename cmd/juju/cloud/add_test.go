@@ -554,28 +554,3 @@ func (*addSuite) TestSpecifyingCloudFileThroughFlagAndArgument_Errors(c *gc.C) {
 	_, err := testing.RunCommand(c, command, "garage-maas", "-f", "fake.yaml", "foo.yaml")
 	c.Check(err, gc.ErrorMatches, "cannot specify cloud file with flag and argument")
 }
-
-func (*addSuite) TestSpecifyCloudName_ProvidedNamedUtilizedDuringInteractive(c *gc.C) {
-	fake := newFakeCloudMetadataStore()
-	fake.Call("PublicCloudMetadata", []string(nil)).Returns(map[string]cloudfile.Cloud{}, false, nil)
-	fake.Call("PersonalCloudMetadata").Returns(homestackMetadata(), nil)
-	command := cloud.NewAddCloudCommand(fake)
-	command.Cloud = "foo-name"
-
-	var out bytes.Buffer
-	ctx := &cmd.Context{
-		Stdout: &out,
-		Stderr: ioutil.Discard,
-		Stdin: strings.NewReader("" +
-			/* Select cloud type: */ "manual\n" +
-			/* Enter the controller's hostname or IP address: */ "192.168.1.6" + "\n",
-		),
-	}
-
-	// Running the command will return an error because we only give
-	// enough input to get to the prompt we care about checking. This
-	// test ignores this error.
-	err := command.Run(ctx)
-	c.Assert(errors.Cause(err), gc.Equals, io.EOF)
-	c.Check(out.String(), gc.Not(gc.Matches), "(?s).+Enter a name for your manual cloud:.*")
-}
