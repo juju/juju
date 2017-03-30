@@ -373,7 +373,7 @@ func (i *importer) machine(m description.Machine) error {
 	// (a card exists for the work). Fake it for now.
 	instanceStatusDoc := statusDoc{
 		ModelUUID: i.st.ModelUUID(),
-		Status:    status.Started,
+		Status:    status.Running,
 	}
 	cons := i.constraints(m.Constraints())
 	prereqOps, machineOp := i.st.baseNewMachineOps(
