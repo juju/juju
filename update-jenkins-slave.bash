@@ -51,12 +51,24 @@ bzr --no-aliases launchpad-login juju-qa-bot
 
 echo "Updating branches"
 OS=$(get_os)
+if [[ $OS != "ubuntu" ]]; then
+    hammer_time="disabled"
+# Does not support python3-venv
+elif (lsb_release -c|grep -E 'trusty|precise'); then
+    hammer_time="disabled"
+# No network access to github
+elif (hostname |grep -E 'swirlix-30|juju-s3lp5|skimmia|finfolk|prodstack-slave|munna|stilson|silcoon'); then
+    hammer_time="disabled"
+else
+    hammer_time="enabled"
+fi
+
 update_branch lp:workspace-runner
 update_branch lp:juju-release-tools
 update_branch lp:juju-ci-tools
 update_branch lp:juju-ci-tools/repository
 update_branch lp:~juju-qa/+junk/cloud-city
-if [[ $OS == "ubuntu" ]]; then
+if [[ $hammer_time == "enabled" ]]; then
     sudo apt-get install git -y
     update_git_repo git@github.com:juju/hammer-time.git
 fi
@@ -71,11 +83,11 @@ echo "Updating dependencies from branches"
 if [[ $OS == "ubuntu" ]]; then
     make -C $HOME/juju-ci-tools install-deps
     make -C $HOME/workspace-runner install
-    if (lsb_release -c|grep -v -E 'trusty|precise'); then
-        make -C $HOME/hammer-time develop
-    fi
 elif [[ $OS == "darwin" ]]; then
     $HOME/juju-ci-tools/pipdeps.py install
+fi
+if [[ $hammer_time == "enabled" ]]; then
+    make -C $HOME/hammer-time develop
 fi
 
 echo "$HOSTNAME update complete"
