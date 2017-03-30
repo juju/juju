@@ -38,22 +38,28 @@ import (
 // this provider also implement the environs.Netowrking and environs.Firewaller
 // to provide network oprations inside the oracle cloud environmnet
 type oracleEnviron struct {
+	// embed the networking behaviour in the oracleEnviron
+	// making the environ have capabilities to execute
+	// network operation inside the oracle cloud environment
 	environs.Networking
+	// embed the firewaller behaviour in the oracleEnviron
+	// making the environ have capabilities to execute
+	// firewall operations inside the oracle cloud environmnet
 	oraclenet.Firewaller
 
-	// mutex for synchronising stuff
+	// mutex for synchronising stuff envrion methods
+	// accross multiple go routines
 	mutex *sync.Mutex
-	// p is the internal envirnon provider
+	// p ptr to the internal environ provider
 	p *environProvider
 	// spec is the cloud spec of the provider
 	spec environs.CloudSpec
-	// cfg is the bootstrap config
+	// cfg holds the bootstrap config of the provider
 	cfg *config.Config
-
-	// client is the internal api client with the
-	// oralce cloud infrastructure
+	// client is the internal api client that can make
+	// operations to the cloud api infrstracture
 	client *oci.Client
-	// namespace is the namespace of generated
+	// namespace is the namespace generated
 	// for the current envirnonment
 	namespace instance.Namespace
 }
@@ -66,7 +72,12 @@ func (o *oracleEnviron) AvailabilityZones() ([]common.AvailabilityZone, error) {
 	}, nil
 }
 
-func (o *oracleEnviron) InstanceAvailabilityZoneNames(ids []instance.Id) ([]string, error) {
+// InstanceAvailabilityzoneNames returns all availability zones for all
+// instances that are passed
+func (o *oracleEnviron) InstanceAvailabilityZoneNames(
+	ids []instance.Id,
+) ([]string, error) {
+
 	instances, err := o.Instances(ids)
 	if err != nil && err != environs.ErrPartialInstances {
 		return nil, err
@@ -85,7 +96,7 @@ func newOracleEnviron(
 	p *environProvider,
 	args environs.OpenParams,
 	client *oci.Client,
-) (*oracleEnviron, error) {
+) (env *oracleEnviron, err error) {
 
 	if client == nil {
 		return nil, errors.NotFoundf("oracle client")
@@ -95,7 +106,7 @@ func newOracleEnviron(
 		return nil, errors.NotFoundf("environ proivder")
 	}
 
-	env := &oracleEnviron{
+	env = &oracleEnviron{
 		p:      p,
 		spec:   args.Cloud,
 		cfg:    args.Config,
@@ -103,11 +114,10 @@ func newOracleEnviron(
 		client: client,
 	}
 
-	namespace, err := instance.NewNamespace(env.cfg.UUID())
+	env.namespace, err = instance.NewNamespace(env.cfg.UUID())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	env.namespace = namespace
 
 	env.Firewaller = oraclenet.NewFirewall(env, client)
 	env.Networking = oraclenet.NewEnviron(client)
@@ -174,12 +184,17 @@ func (o *oracleEnviron) Create(params environs.CreateParams) error {
 // provided for backwards compatibility - if the technique used to
 // tag items changes, the version number can be used to decide how
 // to remove the old tags correctly.
-func (e *oracleEnviron) AdoptResources(controllerUUID string, fromVersion version.Number) error {
+func (e *oracleEnviron) AdoptResources(
+	controllerUUID string,
+	fromVersion version.Number) error {
 	return nil
 }
 
-func (e *oracleEnviron) getCloudInitConfig(series string, networks map[string]oci.Networker) (cloudinit.CloudConfig, error) {
-	// NOTE (gsamfira): this function only exists because of a limitation that currently exists in cloud-init
+func (e *oracleEnviron) getCloudInitConfig(
+	series string,
+	networks map[string]oci.Networker) (cloudinit.CloudConfig, error) {
+	// NOTE (gsamfira): this function only exists because of a
+	// limitation that currently exists in cloud-init
 	// see bug report: https://bugs.launchpad.net/cloud-init/+bug/1675370
 	// TODO (gsamfira): remove this function when the above mention bug is fixed
 	cloudcfg, err := cloudinit.New(series)
@@ -205,8 +220,10 @@ func (e *oracleEnviron) getCloudInitConfig(series string, networks map[string]oc
 			}
 			fileBaseName := fmt.Sprintf("%s.cfg", key)
 			fileContents := fmt.Sprintf(ubuntuInterfaceTemplate, key, key)
-			fileName := renderer.Join(renderer.FromSlash(interfacesConfigDir), fileBaseName)
-			scripts = append(scripts, renderer.WriteFile(fileName, []byte(fileContents))...)
+			fileName := renderer.Join(
+				renderer.FromSlash(interfacesConfigDir), fileBaseName)
+			scripts = append(scripts,
+				renderer.WriteFile(fileName, []byte(fileContents))...)
 			scripts = append(scripts, fmt.Sprintf("/sbin/ifup %s", key))
 			scripts = append(scripts, "")
 
@@ -218,7 +235,11 @@ func (e *oracleEnviron) getCloudInitConfig(series string, networks map[string]oc
 	return cloudcfg, nil
 }
 
-func (e *oracleEnviron) getInstanceNetworks(args environs.StartInstanceParams, secLists, vnicSets []string) (map[string]oci.Networker, error) {
+func (e *oracleEnviron) getInstanceNetworks(
+	args environs.StartInstanceParams,
+	secLists, vnicSets []string,
+) (map[string]oci.Networker, error) {
+
 	// gsamfira: We add a default NIC attached o the shared network provided
 	// by the oracle cloud. This NIC is used for outbound traffic.
 	// While you can attach just a VNIC to the instance, and assign a
@@ -266,10 +287,12 @@ func (e *oracleEnviron) getInstanceNetworks(args environs.StartInstanceParams, s
 		providerID := e.client.ComposeName(space)
 		providerSpace, ok := providerSpaces[providerID]
 		if !ok {
-			return map[string]oci.Networker{}, errors.Errorf("Could not find space %q", space)
+			return map[string]oci.Networker{},
+				errors.Errorf("Could not find space %q", space)
 		}
 		if len(providerSpace) == 0 {
-			return map[string]oci.Networker{}, errors.Errorf("No usable subnets found in space %q", space)
+			return map[string]oci.Networker{},
+				errors.Errorf("No usable subnets found in space %q", space)
 		}
 
 		// gsamfira: about as random as rainfall during monsoon season.
@@ -294,7 +317,9 @@ func (e *oracleEnviron) getInstanceNetworks(args environs.StartInstanceParams, s
 // unique within an environment, is used by juju to protect against the
 // consequences of multiple instances being started with the same machine
 // id.
-func (o *oracleEnviron) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
+func (o *oracleEnviron) StartInstance(
+	args environs.StartInstanceParams,
+) (*environs.StartInstanceResult, error) {
 
 	if args.ControllerUUID == "" {
 		return nil, errors.NotFoundf("Controller UUID")
@@ -422,7 +447,7 @@ func (o *oracleEnviron) StartInstance(args environs.StartInstanceParams) (*envir
 	}
 
 	// create the instance based on the instance params
-	instance, err := o.createInstance(o.client, oci.InstanceParams{
+	instance, err := o.createInstance(oci.InstanceParams{
 		Instances: []oci.Instances{
 			{
 				Shape:       spec.InstanceType.Name,
@@ -816,12 +841,18 @@ func (o *oracleEnviron) Provider() environs.EnvironProvider {
 // all invalid parameters. If PrecheckInstance returns nil, it is not
 // guaranteed that the constraints are valid; if a non-nil error is
 // returned, then the constraints are definitely invalid.
-func (o *oracleEnviron) PrecheckInstance(series string, cons constraints.Value, placement string) error {
+func (o *oracleEnviron) PrecheckInstance(
+	series string,
+	cons constraints.Value,
+	placement string,
+) error {
 	return nil
 }
 
 // InstanceTypes allows for instance information from a provider to be obtained.
-func (o *oracleEnviron) InstanceTypes(constraints.Value) (envinstance.InstanceTypesWithCostMetadata, error) {
+func (o *oracleEnviron) InstanceTypes(
+	constraints.Value,
+) (envinstance.InstanceTypesWithCostMetadata, error) {
 	var i envinstance.InstanceTypesWithCostMetadata
 	return i, nil
 }

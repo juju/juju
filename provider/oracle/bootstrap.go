@@ -11,10 +11,7 @@ import (
 
 // createInstance creates a new vm inside the oracle infrastructure
 // and parses  the response into a oracleInstance
-func (e *oracleEnviron) createInstance(
-	c *oci.Client,
-	params oci.InstanceParams,
-) (*oracleInstance, error) {
+func (e *oracleEnviron) createInstance(params oci.InstanceParams) (*oracleInstance, error) {
 
 	if len(params.Instances) > 1 {
 		return nil, errors.NotSupportedf("launching multiple controllers")
@@ -23,7 +20,7 @@ func (e *oracleEnviron) createInstance(
 	logger.Debugf("running createInstance")
 
 	// make the actual api request to create the instance
-	resp, err := c.CreateInstance(params)
+	resp, err := e.client.CreateInstance(params)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

@@ -34,6 +34,8 @@ type Firewaller interface {
 	RemoveACLAndRules(id string) error
 }
 
+var _ Firewaller = (*Firewall)(nil)
+
 // Firewall exposes methods for mapping network ports.
 // This type implement the environ.Firewaller
 type Firewall struct {
