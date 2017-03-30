@@ -42,9 +42,9 @@ var _ environs.Networking = (*Environ)(nil)
 
 // NewEnviron returns a new network Environment that has
 // network capabilities inside the oracle cloud environment
-func NewEnviron(c *api.Client) *Environ {
+func NewEnviron(api NetworkingAPI) *Environ {
 	return &Environ{
-		client: c,
+		client: api,
 	}
 }
 
