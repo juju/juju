@@ -11,6 +11,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/common/storagecommon"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs/config"
@@ -209,7 +210,7 @@ func (mm *MachineManagerAPI) destroyMachine(args params.Entities, force bool) (p
 				info.DestroyedUnits,
 				params.Entity{unit.UnitTag().String()},
 			)
-			storage, err := common.UnitStorage(mm.st, unit.UnitTag())
+			storage, err := storagecommon.UnitStorage(mm.st, unit.UnitTag())
 			if err != nil {
 				return nil, err
 			}
@@ -227,7 +228,10 @@ func (mm *MachineManagerAPI) destroyMachine(args params.Entities, force bool) (p
 			}
 			storage = unseen
 
-			destroyed, detached := common.ClassifyDetachedStorage(storage)
+			destroyed, detached, err := storagecommon.ClassifyDetachedStorage(mm.st, storage)
+			if err != nil {
+				return nil, err
+			}
 			info.DestroyedStorage = append(info.DestroyedStorage, destroyed...)
 			info.DetachedStorage = append(info.DetachedStorage, detached...)
 		}

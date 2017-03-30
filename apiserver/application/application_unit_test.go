@@ -71,6 +71,10 @@ func (s *ApplicationSuite) SetUpTest(c *gc.C) {
 					unit:    names.NewUnitTag("foo/0"),
 					storage: names.NewStorageTag("pgdata/0"),
 				},
+				&mockStorageAttachment{
+					unit:    names.NewUnitTag("foo/0"),
+					storage: names.NewStorageTag("pgdata/1"),
+				},
 			},
 		},
 		storageInstances: map[string]*mockStorage{
@@ -78,6 +82,14 @@ func (s *ApplicationSuite) SetUpTest(c *gc.C) {
 				tag:   names.NewStorageTag("pgdata/0"),
 				owner: names.NewUnitTag("foo/0"),
 			},
+			"pgdata/1": {
+				tag:   names.NewStorageTag("pgdata/1"),
+				owner: names.NewUnitTag("foo/0"),
+			},
+		},
+		storageInstanceFilesystems: map[string]*mockFilesystem{
+			"pgdata/0": {detachable: true},
+			"pgdata/1": {detachable: false},
 		},
 	}
 	s.blockChecker = mockBlockChecker{}
@@ -207,8 +219,11 @@ func (s *ApplicationSuite) TestDestroyApplication(c *gc.C) {
 				{Tag: "unit-foo-0"},
 				{Tag: "unit-foo-1"},
 			},
-			DestroyedStorage: []params.Entity{
+			DetachedStorage: []params.Entity{
 				{Tag: "storage-pgdata-0"},
+			},
+			DestroyedStorage: []params.Entity{
+				{Tag: "storage-pgdata-1"},
 			},
 		},
 	})
@@ -242,8 +257,11 @@ func (s *ApplicationSuite) TestDestroyUnit(c *gc.C) {
 	c.Assert(results.Results, gc.HasLen, 2)
 	c.Assert(results.Results, jc.DeepEquals, []params.DestroyUnitResult{{
 		Info: &params.DestroyUnitInfo{
-			DestroyedStorage: []params.Entity{
+			DetachedStorage: []params.Entity{
 				{Tag: "storage-pgdata-0"},
+			},
+			DestroyedStorage: []params.Entity{
+				{Tag: "storage-pgdata-1"},
 			},
 		},
 	}, {
@@ -254,12 +272,13 @@ func (s *ApplicationSuite) TestDestroyUnit(c *gc.C) {
 type mockBackend struct {
 	application.Backend
 	testing.Stub
-	application            *mockApplication
-	charm                  *mockCharm
-	endpoints              *[]state.Endpoint
-	relation               *mockRelation
-	unitStorageAttachments map[string][]state.StorageAttachment
-	storageInstances       map[string]*mockStorage
+	application                *mockApplication
+	charm                      *mockCharm
+	endpoints                  *[]state.Endpoint
+	relation                   *mockRelation
+	unitStorageAttachments     map[string][]state.StorageAttachment
+	storageInstances           map[string]*mockStorage
+	storageInstanceFilesystems map[string]*mockFilesystem
 }
 
 func (b *mockBackend) ModelTag() names.ModelTag {
@@ -350,6 +369,18 @@ func (b *mockBackend) StorageInstance(tag names.StorageTag) (state.StorageInstan
 		return nil, errors.NotFoundf("storage %s", tag.Id())
 	}
 	return s, nil
+}
+
+func (b *mockBackend) StorageInstanceFilesystem(tag names.StorageTag) (state.Filesystem, error) {
+	b.MethodCall(b, "StorageInstanceFilesystem", tag)
+	if err := b.NextErr(); err != nil {
+		return nil, err
+	}
+	f, ok := b.storageInstanceFilesystems[tag.Id()]
+	if !ok {
+		return nil, errors.NotFoundf("filesystem for storage %s", tag.Id())
+	}
+	return f, nil
 }
 
 type mockApplication struct {
@@ -459,10 +490,23 @@ type mockStorage struct {
 	owner names.Tag
 }
 
+func (a *mockStorage) Kind() state.StorageKind {
+	return state.StorageKindFilesystem
+}
+
 func (a *mockStorage) StorageTag() names.StorageTag {
 	return a.tag
 }
 
 func (a *mockStorage) Owner() (names.Tag, bool) {
 	return a.owner, a.owner != nil
+}
+
+type mockFilesystem struct {
+	state.Filesystem
+	detachable bool
+}
+
+func (f *mockFilesystem) Detachable() bool {
+	return f.detachable
 }
