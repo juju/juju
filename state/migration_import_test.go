@@ -267,6 +267,24 @@ func (s *MigrationImportSuite) AssertMachineEqual(c *gc.C, newMachine, oldMachin
 	oldTools, err := oldMachine.AgentTools()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(newTools, jc.DeepEquals, oldTools)
+
+	oldStatus, err := oldMachine.Status()
+	c.Assert(err, jc.ErrorIsNil)
+	newStatus, err := newMachine.Status()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(newStatus, jc.DeepEquals, oldStatus)
+
+	oldInstID, err := oldMachine.InstanceId()
+	c.Assert(err, jc.ErrorIsNil)
+	newInstID, err := newMachine.InstanceId()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(newInstID, gc.Equals, oldInstID)
+
+	oldStatus, err = oldMachine.InstanceStatus()
+	c.Assert(err, jc.ErrorIsNil)
+	newStatus, err = newMachine.InstanceStatus()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(newStatus, jc.DeepEquals, oldStatus)
 }
 
 func (s *MigrationImportSuite) TestMachines(c *gc.C) {
