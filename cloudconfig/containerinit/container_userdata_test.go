@@ -111,6 +111,7 @@ func (s *UserDataSuite) SetUpTest(c *gc.C) {
 			s.pythonVersions = append(s.pythonVersions, version)
 		}
 	}
+	c.Assert(s.pythonVersions, gc.Not(gc.HasLen), 0)
 
 	s.expectedSampleConfigWriting = `#cloud-config
 bootcmd:
