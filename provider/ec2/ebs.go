@@ -13,6 +13,7 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/set"
 	"gopkg.in/amz.v3/ec2"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/tags"
@@ -60,6 +61,7 @@ const (
 	deviceInUse        = "InvalidDevice.InUse"
 	attachmentNotFound = "InvalidAttachment.NotFound"
 	volumeNotFound     = "InvalidVolume.NotFound"
+	incorrectState     = "IncorrectState"
 )
 
 const (
@@ -674,10 +676,10 @@ func (v *ebsVolumeSource) attachOneVolume(
 		// instance requested.
 		attachments := volume.Attachments
 		if len(attachments) != 1 {
-			return "", "", errors.Annotatef(err, "volume %v has unexpected attachment count: %v", volumeId, len(attachments))
+			return "", "", errors.Errorf("volume %v has unexpected attachment count: %v", volumeId, len(attachments))
 		}
 		if attachments[0].InstanceId != instId {
-			return "", "", errors.Annotatef(err, "volume %v is attached to %v", volumeId, attachments[0].InstanceId)
+			return "", "", errors.Errorf("volume %v is attached to %v", volumeId, attachments[0].InstanceId)
 		}
 		requestDeviceName := attachments[0].Device
 		actualDeviceName := renamedDevicePrefix + requestDeviceName[len(devicePrefix):]
@@ -821,15 +823,21 @@ func detachVolumes(client *ec2.EC2, attachParams []storage.VolumeAttachmentParam
 		if err != nil {
 			if ec2Err, ok := err.(*ec2.Error); ok {
 				switch ec2Err.Code {
-				// attachment not found means this volume is already detached.
+				case incorrectState:
+					// incorrect state means this volume is "available",
+					// i.e. is not attached to any machine.
+					err = nil
 				case attachmentNotFound:
+					// attachment not found means this volume is already detached.
 					err = nil
 				}
 			}
 		}
 		if err != nil {
 			results[i] = errors.Annotatef(
-				err, "detaching %v from %v", params.Volume, params.Machine,
+				err, "detaching %s from %s",
+				names.ReadableString(params.Volume),
+				names.ReadableString(params.Machine),
 			)
 		}
 	}
