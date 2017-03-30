@@ -1014,13 +1014,11 @@ func (m *Model) destroyOps(ensureNoHostedModels, ensureEmpty bool) ([]txn.Op, er
 		// cleanups, because the cleanups collection is non-global.
 		cleanupMachinesOp := newCleanupOp(cleanupMachinesForDyingModel, modelUUID)
 		cleanupApplicationsOp := newCleanupOp(cleanupApplicationsForDyingModel, modelUUID)
-		cleanupVolumesOp := newCleanupOp(cleanupVolumesForDyingModel, modelUUID)
-		cleanupFilesystemsOp := newCleanupOp(cleanupFilesystemsForDyingModel, modelUUID)
+		cleanupStorageOp := newCleanupOp(cleanupStorageForDyingModel, modelUUID)
 		ops = append(ops,
 			cleanupMachinesOp,
 			cleanupApplicationsOp,
-			cleanupVolumesOp,
-			cleanupFilesystemsOp,
+			cleanupStorageOp,
 		)
 	}
 	return append(prereqOps, ops...), nil
