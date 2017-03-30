@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"reflect"
 	"sort"
-	"strings"
 	"time"
 
 	"github.com/juju/errors"
@@ -57,144 +56,224 @@ func NewFirewall(cfg environs.ConfigGetter, client *api.Client) *Firewall {
 	}
 }
 
-// convertToSecRules this will take a security
-// list and a slice of network.IngressRule and it will create
-// parameeters in order to call the security rule creation resource
-func (f Firewall) convertToSecRules(
-	seclist response.SecList,
-	rules []network.IngressRule,
-) ([]api.SecRuleParams, error) {
-
-	// get all applications and default ones
-	applications, err := f.getAllApplications()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	// get all ip lists
-	iplists, err := f.getAllIPLists()
-	if err != nil {
-		return nil, errors.Trace(err)
+// OpenPorts can open ports given all ingress rules unde the global group name
+func (f Firewall) OpenPorts(rules []network.IngressRule) error {
+	mode := f.environ.Config().FirewallMode()
+	if mode != config.FwGlobal {
+		return fmt.Errorf(
+			"invalid firewall mode %q for opening ports on model",
+			mode,
+		)
 	}
 
-	ret := make([]api.SecRuleParams, 0, len(rules))
-	// for every rule we need to ensure that the there is a relationship
-	// between security applications and security ip lists
-	// and from every one of them create a slice of security rule params
-	for _, val := range rules {
-		app, err := f.ensureApplication(val.PortRange, &applications)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		ipList, err := f.ensureSecIpList(val.SourceCIDRs, &iplists)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		uuid, err := utils.NewUUID()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		name := f.newResourceName(uuid.String())
-		resourceName := f.client.ComposeName(name)
-		dstList := fmt.Sprintf("seclist:%s", seclist.Name)
-		srcList := fmt.Sprintf("seciplist:%s", ipList)
-		// create the new security rule param
-		rule := api.SecRuleParams{
-			Action:      common.SecRulePermit,
-			Application: app,
-			Description: "Juju created security rule",
-			Disabled:    false,
-			Dst_list:    dstList,
-			Name:        resourceName,
-			Src_list:    srcList,
-		}
-		// append the new param rule
-		ret = append(ret, rule)
+	globalGroupName := f.globalGroupName()
+	seclist, err := f.ensureSecList(f.client.ComposeName(globalGroupName))
+	if err != nil {
+		return errors.Trace(err)
 	}
-	return ret, nil
+	err = f.ensureSecRules(seclist, rules)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }
 
-// convertApplicationToPortRange takes a SecApplication and
-// converts it to a network.PortRange type
-func (f Firewall) convertApplicationToPortRange(
-	app response.SecApplication,
-) network.PortRange {
-
-	appCopy := app
-	if appCopy.Value2 == -1 {
-		appCopy.Value2 = appCopy.Value1
-	}
-	return network.PortRange{
-		FromPort: appCopy.Value1,
-		ToPort:   appCopy.Value2,
-		Protocol: string(appCopy.Protocol),
-	}
+// ClosePorts can close the ports on the give ingress rules
+func (f Firewall) ClosePorts(rules []network.IngressRule) error {
+	groupName := f.globalGroupName()
+	return f.closePortsOnList(f.client.ComposeName(groupName), rules)
 }
 
-// convertFromSecRules takes a slice of security rules and creates a map of them
-func (f Firewall) convertFromSecRules(
-	rules ...response.SecRule,
-) (map[string][]network.IngressRule, error) {
+// IngressRules returns the ingress rules applied to the whole environment.
+// Must only be used if the environment was setup with the
+// FwGlobal firewall mode.
+// It is expected that there be only one ingress rule result for a given
+// port range - the rule's SourceCIDRs will contain all applicable source
+// address rules for that port range.
+func (f Firewall) IngressRules() ([]network.IngressRule, error) {
+	return f.GlobalIngressRules()
+}
 
-	applications, err := f.getAllApplicationsAsMap()
+// MachineIngressRules returns all ingress rules that are in the machine group
+// name from the oracle cloud account.
+// If there are not any ingress rules under that name scope this will
+// return nil, nil
+func (f Firewall) MachineIngressRules(machineId string) ([]network.IngressRule, error) {
+	seclist := f.machineGroupName(machineId)
+	return f.getIngressRules(f.client.ComposeName(seclist))
+}
+
+// OpenPortsOnInstance will open ports on a given instance with the id
+// and the ingress rules attached
+func (f Firewall) OpenPortsOnInstance(machineId string, rules []network.IngressRule) error {
+	machineGroup := f.machineGroupName(machineId)
+	seclist, err := f.ensureSecList(f.client.ComposeName(machineGroup))
+	if err != nil {
+		return errors.Trace(err)
+	}
+	err = f.ensureSecRules(seclist, rules)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
+// ClosePortsOnInstance close all ports on the the instance
+// given the machineId and the ingress rules that are defined
+func (f Firewall) ClosePortsOnInstance(machineId string, rules []network.IngressRule) error {
+	// fetch the group name based on the machine id provided
+	groupName := f.machineGroupName(machineId)
+	return f.closePortsOnList(f.client.ComposeName(groupName), rules)
+}
+
+// CreateMachineSecLists will create all security lists and attach them
+// to the instance with the id
+func (f Firewall) CreateMachineSecLists(machineId string, apiPort int) ([]string, error) {
+	defaultSecList, err := f.createDefaultGroupAndRules(apiPort)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	iplists, err := f.getAllIPListsAsMap()
+	name := f.machineGroupName(machineId)
+	resourceName := f.client.ComposeName(name)
+	secList, err := f.ensureSecList(resourceName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	return []string{
+		defaultSecList.Name,
+		secList.Name,
+	}, nil
+}
 
-	ret := map[string][]network.IngressRule{}
-	for _, val := range rules {
-		app := val.Application
-		srcList := strings.TrimPrefix(val.Src_list, "seciplist:")
-		dstList := strings.TrimPrefix(val.Dst_list, "seclist:")
-		portRange := f.convertApplicationToPortRange(applications[app])
-		if _, ok := ret[dstList]; !ok {
-			ret[dstList] = []network.IngressRule{
-				network.IngressRule{
-					PortRange:   portRange,
-					SourceCIDRs: iplists[srcList].Secipentries,
-				},
+// DeleteMachineSecList will delete all security lists on the give
+// machine id. If there's some associations to the give instance still
+// this will not delete them.
+func (f Firewall) DeleteMachineSecList(machineId string) error {
+	listName := f.machineGroupName(machineId)
+	globalListName := f.globalGroupName()
+	err := f.maybeDeleteList(f.client.ComposeName(listName))
+	if err != nil {
+		return errors.Trace(err)
+	}
+	// check if we can delete the global list as well
+	err = f.maybeDeleteList(f.client.ComposeName(globalListName))
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
+// CreateDefaultACLAndRules creates default ACL and rules for IP networks attached to
+// units.
+// NOTE (gsamfira): For now we apply an allow all on these ACLs. Traffic will be cloud-only
+// between instances connected to the same ip network exchange (the equivalent of a space)
+// There will be no public IP associated to interfaces connected to IP networks, so only
+// instances connected to the same network, or a network managed by the same space will
+// be able to connect. This will ensure that peers and units entering a relationship can connect
+// to services deployed by a particular unit, without having to expose the application.
+func (f Firewall) CreateDefaultACLAndRules(machineId string) (response.Acl, error) {
+	var details response.Acl
+	var err error
+	description := fmt.Sprintf("ACL for machine %s", machineId)
+	groupName := f.machineGroupName(machineId)
+	resourceName := f.client.ComposeName(groupName)
+	if err != nil {
+		return response.Acl{}, err
+	}
+	rules := []api.SecurityRuleParams{
+		api.SecurityRuleParams{
+			Name:                   fmt.Sprintf("%s-allow-ingress", resourceName),
+			Description:            "Allow all ingress",
+			FlowDirection:          common.Ingress,
+			EnabledFlag:            true,
+			DstIpAddressPrefixSets: []string{},
+			SecProtocols:           []string{},
+			SrcIpAddressPrefixSets: []string{},
+		},
+		api.SecurityRuleParams{
+			Name:                   fmt.Sprintf("%s-allow-egress", resourceName),
+			Description:            "Allow all egress",
+			FlowDirection:          common.Egress,
+			EnabledFlag:            true,
+			DstIpAddressPrefixSets: []string{},
+			SecProtocols:           []string{},
+			SrcIpAddressPrefixSets: []string{},
+		},
+	}
+	details, err = f.client.AclDetails(resourceName)
+	if err != nil {
+		if api.IsNotFound(err) {
+			details, err = f.client.CreateAcl(resourceName, description, true, nil)
+			if err != nil {
+				return response.Acl{}, errors.Trace(err)
 			}
 		} else {
-			toAdd := network.IngressRule{
-				PortRange:   portRange,
-				SourceCIDRs: iplists[srcList].Secipentries,
-			}
-			ret[dstList] = append(ret[dstList], toAdd)
+			return response.Acl{}, errors.Trace(err)
 		}
 	}
-	return ret, nil
+	aclRules, err := f.getAllSecurityRules(details.Name)
+	if err != nil {
+		return response.Acl{}, errors.Trace(err)
+	}
+
+	var toAdd []api.SecurityRuleParams
+
+	for _, val := range rules {
+		found := false
+		val.Acl = details.Name
+		newRuleAsStub := f.convertSecurityRuleParamsToStub(val)
+		for _, existing := range aclRules {
+			existingRulesAsStub := f.convertSecurityRuleToStub(existing)
+			if reflect.DeepEqual(existingRulesAsStub, newRuleAsStub) {
+				found = true
+				break
+			}
+		}
+		if !found {
+			toAdd = append(toAdd, val)
+		}
+	}
+	for _, val := range toAdd {
+		_, err := f.client.CreateSecurityRule(val)
+		if err != nil {
+			return response.Acl{}, errors.Trace(err)
+		}
+	}
+	return details, nil
 }
 
-// secRuleToIngressRule convert all security rules into a map of ingress rules
-func (f Firewall) secRuleToIngresRule(
-	rules ...response.SecRule,
-) (map[string]network.IngressRule, error) {
-
-	applications, err := f.getAllApplicationsAsMap()
+// RemoveACLAndRules removes all acl rules from the instance machine with the id given
+func (f Firewall) RemoveACLAndRules(machineId string) error {
+	groupName := f.machineGroupName(machineId)
+	resourceName := f.client.ComposeName(groupName)
+	secRules, err := f.getAllSecurityRules(resourceName)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return err
 	}
-	iplists, err := f.getAllIPListsAsMap()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	ret := map[string]network.IngressRule{}
-	for _, val := range rules {
-		app := val.Application
-		srcList := strings.TrimPrefix(val.Src_list, "seciplist:")
-		portRange := f.convertApplicationToPortRange(applications[app])
-		if _, ok := ret[val.Name]; !ok {
-			ret[val.Name] = network.IngressRule{
-				PortRange:   portRange,
-				SourceCIDRs: iplists[srcList].Secipentries,
+	for _, val := range secRules {
+		err := f.client.DeleteSecurityRule(val.Name)
+		if err != nil {
+			if !api.IsNotFound(err) {
+				return err
 			}
 		}
 	}
-	return ret, nil
+	err = f.client.DeleteAcl(resourceName)
+	if err != nil {
+		if !api.IsNotFound(err) {
+			return err
+		}
+	}
+	return nil
+}
+
+// GlobalIngressRules returns all ingress rules that are in the global group
+// name from the oracle cloud account
+// If there are not any ingress rules under the global group name this will
+// return nil, nil
+func (f Firewall) GlobalIngressRules() ([]network.IngressRule, error) {
+	seclist := f.globalGroupName()
+	return f.getIngressRules(f.client.ComposeName(seclist))
 }
 
 // getDefaultIngressRules will create the default ingressRules given an api port
@@ -290,135 +369,6 @@ type stubSecurityRule struct {
 	SrcIpAddressPrefixSets []string
 }
 
-func (f *Firewall) convertSecurityRuleToStub(rules response.SecurityRule) stubSecurityRule {
-	sort.Strings(rules.DstIpAddressPrefixSets)
-	sort.Strings(rules.SecProtocols)
-	sort.Strings(rules.SrcIpAddressPrefixSets)
-	return stubSecurityRule{
-		Acl:                    rules.Acl,
-		FlowDirection:          rules.FlowDirection,
-		DstIpAddressPrefixSets: rules.DstIpAddressPrefixSets,
-		SecProtocols:           rules.SecProtocols,
-		SrcIpAddressPrefixSets: rules.SrcIpAddressPrefixSets,
-	}
-}
-
-func (f Firewall) convertSecurityRuleParamsToStub(params api.SecurityRuleParams) stubSecurityRule {
-	sort.Strings(params.DstIpAddressPrefixSets)
-	sort.Strings(params.SecProtocols)
-	sort.Strings(params.SrcIpAddressPrefixSets)
-	return stubSecurityRule{
-		Acl:                    params.Acl,
-		FlowDirection:          params.FlowDirection,
-		DstIpAddressPrefixSets: params.DstIpAddressPrefixSets,
-		SecProtocols:           params.SecProtocols,
-		SrcIpAddressPrefixSets: params.SrcIpAddressPrefixSets,
-	}
-}
-
-func (f Firewall) RemoveACLAndRules(machineId string) error {
-	groupName := f.machineGroupName(machineId)
-	resourceName := f.client.ComposeName(groupName)
-	secRules, err := f.getAllSecurityRules(resourceName)
-	if err != nil {
-		return err
-	}
-	for _, val := range secRules {
-		err := f.client.DeleteSecurityRule(val.Name)
-		if err != nil {
-			if !api.IsNotFound(err) {
-				return err
-			}
-		}
-	}
-	err = f.client.DeleteAcl(resourceName)
-	if err != nil {
-		if !api.IsNotFound(err) {
-			return err
-		}
-	}
-	return nil
-}
-
-// CreateDefaultACLAndRules creates default ACL and rules for IP networks attached to
-// units.
-// NOTE (gsamfira): For now we apply an allow all on these ACLs. Traffic will be cloud-only
-// between instances connected to the same ip network exchange (the equivalent of a space)
-// There will be no public IP associated to interfaces connected to IP networks, so only
-// instances connected to the same network, or a network managed by the same space will
-// be able to connect. This will ensure that peers and units entering a relationship can connect
-// to services deployed by a particular unit, without having to expose the application.
-func (f Firewall) CreateDefaultACLAndRules(machineId string) (response.Acl, error) {
-	var details response.Acl
-	var err error
-	description := fmt.Sprintf("ACL for machine %s", machineId)
-	groupName := f.machineGroupName(machineId)
-	resourceName := f.client.ComposeName(groupName)
-	if err != nil {
-		return response.Acl{}, err
-	}
-	rules := []api.SecurityRuleParams{
-		api.SecurityRuleParams{
-			Name:                   fmt.Sprintf("%s-allow-ingress", resourceName),
-			Description:            "Allow all ingress",
-			FlowDirection:          common.Ingress,
-			EnabledFlag:            true,
-			DstIpAddressPrefixSets: []string{},
-			SecProtocols:           []string{},
-			SrcIpAddressPrefixSets: []string{},
-		},
-		api.SecurityRuleParams{
-			Name:                   fmt.Sprintf("%s-allow-egress", resourceName),
-			Description:            "Allow all egress",
-			FlowDirection:          common.Egress,
-			EnabledFlag:            true,
-			DstIpAddressPrefixSets: []string{},
-			SecProtocols:           []string{},
-			SrcIpAddressPrefixSets: []string{},
-		},
-	}
-	details, err = f.client.AclDetails(resourceName)
-	if err != nil {
-		if api.IsNotFound(err) {
-			details, err = f.client.CreateAcl(resourceName, description, true, nil)
-			if err != nil {
-				return response.Acl{}, errors.Trace(err)
-			}
-		} else {
-			return response.Acl{}, errors.Trace(err)
-		}
-	}
-	aclRules, err := f.getAllSecurityRules(details.Name)
-	if err != nil {
-		return response.Acl{}, errors.Trace(err)
-	}
-
-	var toAdd []api.SecurityRuleParams
-
-	for _, val := range rules {
-		found := false
-		val.Acl = details.Name
-		newRuleAsStub := f.convertSecurityRuleParamsToStub(val)
-		for _, existing := range aclRules {
-			existingRulesAsStub := f.convertSecurityRuleToStub(existing)
-			if reflect.DeepEqual(existingRulesAsStub, newRuleAsStub) {
-				found = true
-				break
-			}
-		}
-		if !found {
-			toAdd = append(toAdd, val)
-		}
-	}
-	for _, val := range toAdd {
-		_, err := f.client.CreateSecurityRule(val)
-		if err != nil {
-			return response.Acl{}, errors.Trace(err)
-		}
-	}
-	return details, nil
-}
-
 func (f Firewall) createDefaultGroupAndRules(apiPort int) (response.SecList, error) {
 	rules := f.getDefaultIngressRules(apiPort)
 	var details response.SecList
@@ -442,47 +392,6 @@ func (f Firewall) createDefaultGroupAndRules(apiPort int) (response.SecList, err
 		return response.SecList{}, errors.Trace(err)
 	}
 	return details, nil
-}
-
-// CreateMachineSecLists will create all security lists and attach them
-// to the instance with the id
-func (f Firewall) CreateMachineSecLists(machineId string, apiPort int) ([]string, error) {
-	defaultSecList, err := f.createDefaultGroupAndRules(apiPort)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	name := f.machineGroupName(machineId)
-	resourceName := f.client.ComposeName(name)
-	secList, err := f.ensureSecList(resourceName)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return []string{
-		defaultSecList.Name,
-		secList.Name,
-	}, nil
-}
-
-// OpenPorts can open ports given all ingress rules unde the global group name
-func (f Firewall) OpenPorts(rules []network.IngressRule) error {
-	mode := f.environ.Config().FirewallMode()
-	if mode != config.FwGlobal {
-		return fmt.Errorf(
-			"invalid firewall mode %q for opening ports on model",
-			mode,
-		)
-	}
-
-	globalGroupName := f.globalGroupName()
-	seclist, err := f.ensureSecList(f.client.ComposeName(globalGroupName))
-	if err != nil {
-		return errors.Trace(err)
-	}
-	err = f.ensureSecRules(seclist, rules)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	return nil
 }
 
 // closePortsOnList on list will close all ports on a given list using the
@@ -586,53 +495,6 @@ func (f Firewall) maybeDeleteList(list string) error {
 	return nil
 }
 
-// DeleteMachineSecList will delete all security lists on the give
-// machine id. If there's some associations to the give instance still
-// this will not delete them.
-func (f Firewall) DeleteMachineSecList(machineId string) error {
-	listName := f.machineGroupName(machineId)
-	globalListName := f.globalGroupName()
-	err := f.maybeDeleteList(f.client.ComposeName(listName))
-	if err != nil {
-		return errors.Trace(err)
-	}
-	// check if we can delete the global list as well
-	err = f.maybeDeleteList(f.client.ComposeName(globalListName))
-	if err != nil {
-		return errors.Trace(err)
-	}
-	return nil
-}
-
-// ClosePorts can close the ports on the give ingress rules
-func (f Firewall) ClosePorts(rules []network.IngressRule) error {
-	groupName := f.globalGroupName()
-	return f.closePortsOnList(f.client.ComposeName(groupName), rules)
-}
-
-// OpenPortsOnInstance will open ports on a given instance with the id
-// and the ingress rules attached
-func (f Firewall) OpenPortsOnInstance(machineId string, rules []network.IngressRule) error {
-	machineGroup := f.machineGroupName(machineId)
-	seclist, err := f.ensureSecList(f.client.ComposeName(machineGroup))
-	if err != nil {
-		return errors.Trace(err)
-	}
-	err = f.ensureSecRules(seclist, rules)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	return nil
-}
-
-// ClosePortsOnInstance close all ports on the the instance
-// given the machineId and the ingress rules that are defined
-func (f Firewall) ClosePortsOnInstance(machineId string, rules []network.IngressRule) error {
-	// fetch the group name based on the machine id provided
-	groupName := f.machineGroupName(machineId)
-	return f.closePortsOnList(f.client.ComposeName(groupName), rules)
-}
-
 // getIngressRules returns all ingress rules from the oracle cloud account
 // given that security list name that maches
 func (f Firewall) getIngressRules(seclist string) ([]network.IngressRule, error) {
@@ -654,32 +516,4 @@ func (f Firewall) getIngressRules(seclist string) ([]network.IngressRule, error)
 	}
 	// if we don't find anything just return empty slice and nil
 	return []network.IngressRule{}, nil
-}
-
-// GlobalIngressRules returns all ingress rules that are in the global group
-// name from the oracle cloud account
-// If there are not any ingress rules under the global group name this will
-// return nil, nil
-func (f Firewall) GlobalIngressRules() ([]network.IngressRule, error) {
-	seclist := f.globalGroupName()
-	return f.getIngressRules(f.client.ComposeName(seclist))
-}
-
-// MachineIngressRules returns all ingress rules that are in the machine group
-// name from the oracle cloud account.
-// If there are not any ingress rules under that name scope this will
-// return nil, nil
-func (f Firewall) MachineIngressRules(machineId string) ([]network.IngressRule, error) {
-	seclist := f.machineGroupName(machineId)
-	return f.getIngressRules(f.client.ComposeName(seclist))
-}
-
-// IngressRules returns the ingress rules applied to the whole environment.
-// Must only be used if the environment was setup with the
-// FwGlobal firewall mode.
-// It is expected that there be only one ingress rule result for a given
-// port range - the rule's SourceCIDRs will contain all applicable source
-// address rules for that port range.
-func (f Firewall) IngressRules() ([]network.IngressRule, error) {
-	return f.GlobalIngressRules()
 }
