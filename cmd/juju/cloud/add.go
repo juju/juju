@@ -69,10 +69,7 @@ type AddCloudCommand struct {
 	// Ping contains the logic for pinging a cloud endpoint to know whether or
 	// not it really has a valid cloud of the same type as the provider.  By
 	// default it just calls the correct provider's Ping method.
-	Ping func(p environs.EnvironProvider, ctxt *cmd.Context, endpoint string) error
-
-	// AuthorizedKeys retrieves ssh keys from client machine.
-	AuthorizedKeys func(ctxt *cmd.Context) (string, error)
+	Ping func(p environs.EnvironProvider, endpoint string) error
 
 	cloudMetadataStore CloudMetadataStore
 }
@@ -81,24 +78,12 @@ type AddCloudCommand struct {
 func NewAddCloudCommand(cloudMetadataStore CloudMetadataStore) *AddCloudCommand {
 	// Ping is provider.Ping except in tests where we don't actually want to
 	// require a valid cloud.
-	addCmd := &AddCloudCommand{
+	return &AddCloudCommand{
 		cloudMetadataStore: cloudMetadataStore,
-		AuthorizedKeys: func(ctxt *cmd.Context) (string, error) {
-			authKeys, err := common.ReadAuthorizedKeys(ctxt, "")
-			if err != nil {
-				return "", err
-			}
-			return authKeys, nil
+		Ping: func(p environs.EnvironProvider, endpoint string) error {
+			return p.Ping(endpoint)
 		},
 	}
-	addCmd.Ping = func(p environs.EnvironProvider, ctxt *cmd.Context, endpoint string) error {
-		authorizedKeys, err := addCmd.AuthorizedKeys(ctxt)
-		if err != nil {
-			return err
-		}
-		return p.Ping(ctxt.GetStdin(), ctxt.GetStdout(), authorizedKeys, endpoint)
-	}
-	return addCmd
 }
 
 // Info returns help information about the command.
@@ -191,7 +176,7 @@ func (c *AddCloudCommand) runInteractive(ctxt *cmd.Context) error {
 	}
 
 	pollster.VerifyURLs = func(s string) (ok bool, msg string, err error) {
-		err = c.Ping(provider, ctxt, s)
+		err = c.Ping(provider, s)
 		if err != nil {
 			return false, "Can't validate endpoint: " + err.Error(), nil
 		}

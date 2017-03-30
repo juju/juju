@@ -7,7 +7,6 @@ package openstack
 
 import (
 	"fmt"
-	"io"
 	"net/url"
 	"strings"
 	"sync"
@@ -195,7 +194,7 @@ func (p EnvironProvider) CloudSchema() *jsonschema.Schema {
 }
 
 // Ping tests the connection to the cloud, to verify the endpoint is valid.
-func (p EnvironProvider) Ping(in io.Reader, out io.Writer, authorizedKeys, endpoint string) error {
+func (p EnvironProvider) Ping(endpoint string) error {
 	c := p.ClientFromEndpoint(endpoint)
 	if _, err := c.IdentityAuthOptions(); err != nil {
 		return errors.Wrap(err, errors.Errorf("No Openstack server running at %s", endpoint))

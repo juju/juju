@@ -5,7 +5,6 @@ package manual
 
 import (
 	"fmt"
-	"io"
 	"strings"
 
 	"github.com/juju/errors"
@@ -21,7 +20,7 @@ import (
 // controller, connected via SSH.
 type ManualProvider struct {
 	environProviderCredentials
-	ping func(in io.Reader, out io.Writer, authorizedKeys, endpoint string) error
+	ping func(endpoint string) error
 }
 
 // Verify that we conform to the interface.
@@ -29,8 +28,8 @@ var _ environs.EnvironProvider = (*ManualProvider)(nil)
 
 var initUbuntuUser = sshprovisioner.InitUbuntuUser
 
-func ensureBootstrapUbuntuUser(in io.Reader, out io.Writer, host, user, authorizedKeys string) error {
-	err := initUbuntuUser(host, user, authorizedKeys, in, out)
+func ensureBootstrapUbuntuUser(ctx environs.BootstrapContext, host, user string, cfg *environConfig) error {
+	err := initUbuntuUser(host, user, cfg.AuthorizedKeys(), ctx.GetStdin(), ctx.GetStdout())
 	if err != nil {
 		logger.Errorf("initializing ubuntu user: %v", err)
 		return err
@@ -62,22 +61,31 @@ func (p ManualProvider) CloudSchema() *jsonschema.Schema {
 }
 
 // Ping tests the connection to the cloud, to verify the endpoint is valid.
-func (p ManualProvider) Ping(in io.Reader, out io.Writer, authorizedKeys, endpoint string) error {
+func (p ManualProvider) Ping(endpoint string) error {
 	if p.ping != nil {
-		return p.ping(in, out, authorizedKeys, endpoint)
+		return p.ping(endpoint)
 	}
-	return pingMachine(in, out, authorizedKeys, endpoint)
+	return pingMachine(endpoint)
 }
 
-// pingMachine is what is used in production by ManualProvider.Ping().  It
-// attempts a simplistic ssh connection to verify the machine exists and that
-// you can log into it with SSH.
-func pingMachine(in io.Reader, out io.Writer, authorizedKeys, endpoint string) error {
-	// There's no "just connect" command for utils/ssh, so we run a command that
-	// should always work.
-	if err := ensureBootstrapUbuntuUser(in, out, endpoint, "", authorizedKeys); err != nil {
-		return errors.Annotatef(err, "endpoint %v verification failed", endpoint)
-	}
+// pingMachine is what is used in production by ManualProvider.Ping().
+// It does nothing at the moment.
+func pingMachine(endpoint string) error {
+	// (anastasiamac 2017-03-30) This method was introduced to verify
+	// manual endpoint by attempting to SSH into it.
+	// However, what we really wanted to do was to determine if
+	// we could connect to the endpoint not whether we could authenticate.
+	// In other words, we wanted to ignore authentication errors.
+	// These errors, at verification stage, when adding cloud details, are meaningless
+	// since authentication is configurable at bootstrap.
+	// With OpenSSH and crypto/ssh, both underlying current SSH client implementations, it is not
+	// possible to cleanly distinguish between authentication and connection failures
+	// without examining error string and looking for various matches.
+	// This feels dirty and flaky as the error messages can easily change
+	// between different libraries and their versions.
+	// So, it has been decided to just accept endpoint.
+	// If this ping(..) call will be used for other purposes, this decision may
+	// need to be re-visited.
 	return nil
 }
 

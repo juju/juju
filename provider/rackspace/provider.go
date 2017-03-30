@@ -4,7 +4,6 @@
 package rackspace
 
 import (
-	"io"
 	"strings"
 
 	"github.com/juju/errors"
@@ -27,7 +26,7 @@ func (p environProvider) CloudSchema() *jsonschema.Schema {
 }
 
 // Ping tests the connection to the cloud, to verify the endpoint is valid.
-func (p environProvider) Ping(in io.Reader, out io.Writer, authorizedKeys, endpoint string) error {
+func (p environProvider) Ping(endpoint string) error {
 	return errors.NotImplementedf("Ping")
 }
 

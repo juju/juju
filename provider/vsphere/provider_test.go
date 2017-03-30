@@ -130,7 +130,7 @@ func (pingSuite) TestPingInvalidHost(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	for _, t := range tests {
-		err := provider.Ping(nil, nil, "", t)
+		err := provider.Ping(t)
 		if err == nil {
 			c.Errorf("ping %q: expected error, but got nil.", t)
 			continue
@@ -146,7 +146,7 @@ func (pingSuite) TestPingInvalidURL(c *gc.C) {
 	provider, err := environs.Provider("vsphere")
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = provider.Ping(nil, nil, "", "abc%sdef")
+	err = provider.Ping("abc%sdef")
 	c.Assert(err, gc.ErrorMatches, "Invalid endpoint format, please give a full url or IP/hostname.")
 }
 
@@ -154,7 +154,7 @@ func (pingSuite) TestPingInvalidScheme(c *gc.C) {
 	provider, err := environs.Provider("vsphere")
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = provider.Ping(nil, nil, "", "gopher://abcdef.com")
+	err = provider.Ping("gopher://abcdef.com")
 	c.Assert(err, gc.ErrorMatches, "Invalid endpoint format, please use an http or https URL.")
 }
 
@@ -165,7 +165,7 @@ func (pingSuite) TestPingNoEndpoint(c *gc.C) {
 	provider, err := environs.Provider("vsphere")
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = provider.Ping(nil, nil, "", server.URL)
+	err = provider.Ping(server.URL)
 	c.Assert(err, gc.ErrorMatches, "No VSphere server running at "+server.URL)
 }
 
@@ -177,6 +177,6 @@ func (pingSuite) TestPingInvalidResponse(c *gc.C) {
 	provider, err := environs.Provider("vsphere")
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = provider.Ping(nil, nil, "", server.URL)
+	err = provider.Ping(server.URL)
 	c.Assert(err, gc.ErrorMatches, "No VSphere server running at "+server.URL)
 }

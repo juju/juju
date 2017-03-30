@@ -5,7 +5,6 @@ package maas
 
 import (
 	"fmt"
-	"io"
 	"net/http"
 	"net/url"
 
@@ -74,7 +73,7 @@ func (p MaasEnvironProvider) CloudSchema() *jsonschema.Schema {
 }
 
 // Ping tests the connection to the cloud, to verify the endpoint is valid.
-func (p MaasEnvironProvider) Ping(in io.Reader, out io.Writer, authorizedKeys, endpoint string) error {
+func (p MaasEnvironProvider) Ping(endpoint string) error {
 	err := p.checkMaas(endpoint, apiVersion2)
 	if err == nil {
 		return nil

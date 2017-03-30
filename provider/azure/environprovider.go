@@ -4,8 +4,6 @@
 package azure
 
 import (
-	"io"
-
 	"github.com/Azure/go-autorest/autorest"
 	"github.com/juju/errors"
 	"github.com/juju/jsonschema"
@@ -114,7 +112,7 @@ func (p azureEnvironProvider) CloudSchema() *jsonschema.Schema {
 }
 
 // Ping tests the connection to the cloud, to verify the endpoint is valid.
-func (p azureEnvironProvider) Ping(in io.Reader, out io.Writer, authorizedKeys, endpoint string) error {
+func (p azureEnvironProvider) Ping(endpoint string) error {
 	return errors.NotImplementedf("Ping")
 }
 

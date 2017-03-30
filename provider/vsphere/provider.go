@@ -6,7 +6,6 @@
 package vsphere
 
 import (
-	"io"
 	"net/url"
 
 	"github.com/juju/errors"
@@ -72,7 +71,7 @@ func (p environProvider) CloudSchema() *jsonschema.Schema {
 const failedLoginMsg = "ServerFaultCode: Cannot complete login due to an incorrect user name or password."
 
 // Ping tests the connection to the cloud, to verify the endpoint is valid.
-func (p environProvider) Ping(in io.Reader, out io.Writer, authorizedKeys, endpoint string) error {
+func (p environProvider) Ping(endpoint string) error {
 	// try to be smart and not punish people for adding or forgetting http
 	u, err := url.Parse(endpoint)
 	if err != nil {
