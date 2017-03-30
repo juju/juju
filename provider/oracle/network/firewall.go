@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/network"
+	commonProvider "github.com/juju/juju/provider/oracle/common"
 )
 
 // Firewaller exposes methods for managing network ports.
@@ -59,6 +60,20 @@ type Firewaller interface {
 
 var _ Firewaller = (*Firewall)(nil)
 
+// FirewallerAPI abstration to proivde all sets of
+// api operations, joining them to a group behaviour api
+// that acts like a firewall
+type FirewallerAPI interface {
+	commonProvider.Composer
+	commonProvider.RulesAPI
+	commonProvider.AclAPI
+	commonProvider.SecIpAPI
+	commonProvider.IpAddressPrefixSetAPI
+	commonProvider.SecListAPI
+	commonProvider.ApplicationsAPI
+	commonProvider.SecRulesAPI
+}
+
 // Firewall exposes methods for mapping network ports.
 // This type implement the environ.Firewaller
 type Firewall struct {
@@ -66,12 +81,12 @@ type Firewall struct {
 	// this will use to acces the underlying config
 	environ environs.ConfigGetter
 	// client is used to make operations on the oracle provider
-	client *api.Client
+	client FirewallerAPI
 }
 
 // NewFirewall returns a new firewall that can do network operation
 // such as closing and opening ports inside the oracle cloud environmnet
-func NewFirewall(cfg environs.ConfigGetter, client *api.Client) *Firewall {
+func NewFirewall(cfg environs.ConfigGetter, client FirewallerAPI) *Firewall {
 	return &Firewall{
 		environ: cfg,
 		client:  client,
