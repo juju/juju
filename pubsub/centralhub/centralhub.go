@@ -5,6 +5,7 @@ package centralhub
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/pubsub"
 	"github.com/juju/utils"
 	"gopkg.in/juju/names.v2"
@@ -18,6 +19,7 @@ func New(origin names.MachineTag) *pubsub.StructuredHub {
 
 	return pubsub.NewStructuredHub(
 		&pubsub.StructuredHubConfig{
+			Logger:     loggo.GetLogger("juju.centralhub"),
 			Marshaller: &yamlMarshaller{},
 			Annotations: map[string]interface{}{
 				"origin": origin.String(),
