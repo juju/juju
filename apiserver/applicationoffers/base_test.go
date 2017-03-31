@@ -80,8 +80,5 @@ func (s *baseSuite) setupOffers(c *gc.C, filterAppName string) {
 		"test": &mockApplication{charm: ch, curl: charm.MustParseURL("db2-2")},
 	}
 	s.mockState.model = &mockModel{uuid: "uuid", name: "prod", owner: "fred"}
-	s.mockState.usermodels = []crossmodelcommon.UserModel{
-		&mockUserModel{model: s.mockState.model},
-	}
 	s.mockState.connStatus = &mockConnectionStatus{count: 5}
 }

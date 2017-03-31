@@ -34,6 +34,7 @@ func (s *crossmodelMockSuite) TestShow(c *gc.C) {
 		{Name: "log", Interface: "http", Role: charm.RoleRequirer},
 	}
 	offerName := "hosted-db2"
+	access := "consume"
 
 	called := false
 
@@ -60,6 +61,7 @@ func (s *crossmodelMockSuite) TestShow(c *gc.C) {
 						Endpoints:              endpoints,
 						OfferURL:               url,
 						OfferName:              offerName,
+						Access:                 access,
 					}},
 				}
 			}
@@ -74,7 +76,8 @@ func (s *crossmodelMockSuite) TestShow(c *gc.C) {
 		ApplicationDescription: desc,
 		Endpoints:              endpoints,
 		OfferURL:               url,
-		OfferName:              offerName})
+		OfferName:              offerName,
+		Access:                 access})
 }
 
 func (s *crossmodelMockSuite) TestShowURLError(c *gc.C) {
@@ -122,6 +125,7 @@ func (s *crossmodelMockSuite) TestShowMultiple(c *gc.C) {
 		{Name: "log", Interface: "http", Role: charm.RoleRequirer},
 	}
 	offerName := "hosted-db2"
+	access := "consume"
 
 	called := false
 
@@ -148,12 +152,14 @@ func (s *crossmodelMockSuite) TestShowMultiple(c *gc.C) {
 						Endpoints:              endpoints,
 						OfferURL:               url,
 						OfferName:              offerName,
+						Access:                 access,
 					}},
 					{Result: params.ApplicationOffer{
 						ApplicationDescription: desc,
 						Endpoints:              endpoints,
 						OfferURL:               url,
 						OfferName:              offerName,
+						Access:                 access,
 					}}}
 			}
 			return nil
@@ -213,6 +219,7 @@ func (s *crossmodelMockSuite) TestFind(c *gc.C) {
 	offerName := "hosted-db2"
 	ownerName := "owner"
 	modelName := "model"
+	access := "consume"
 	url := fmt.Sprintf("fred/model.%s", offerName)
 	endpoints := []params.RemoteEndpoint{{Name: "endPointA"}}
 	relations := []jujucrossmodel.EndpointFilterTerm{{Name: "endPointA", Interface: "http"}}
@@ -255,6 +262,7 @@ func (s *crossmodelMockSuite) TestFind(c *gc.C) {
 					OfferURL:  url,
 					OfferName: offerName,
 					Endpoints: endpoints,
+					Access:    access,
 				}
 				results.Results = []params.ApplicationOffer{offer}
 			}
@@ -269,6 +277,7 @@ func (s *crossmodelMockSuite) TestFind(c *gc.C) {
 		OfferURL:  url,
 		OfferName: offerName,
 		Endpoints: endpoints,
+		Access:    access,
 	}})
 }
 

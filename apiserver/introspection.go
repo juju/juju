@@ -43,7 +43,7 @@ func (h introspectionHandler) checkAuth(r *http.Request) error {
 	// access these endpoints.
 
 	ok, err := common.HasPermission(
-		st.UserAccess,
+		st.UserPermission,
 		entity.Tag(),
 		permission.SuperuserAccess,
 		st.ControllerTag(),
@@ -60,7 +60,7 @@ func (h introspectionHandler) checkAuth(r *http.Request) error {
 		return errors.Trace(err)
 	}
 	ok, err = common.HasPermission(
-		st.UserAccess,
+		st.UserPermission,
 		entity.Tag(),
 		permission.ReadAccess,
 		controllerModel.ModelTag(),

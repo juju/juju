@@ -144,18 +144,32 @@ func (c *accessCommand) Init(args []string) error {
 
 	// The remaining args are either model names or offer names.
 	for _, arg := range args[2:] {
-		if names.IsValidModelName(arg) {
-			c.ModelNames = append(c.ModelNames, arg)
-		} else {
-			if !featureflag.Enabled(feature.CrossModelRelations) {
-				return errors.Errorf("invalid model name %q", arg)
-			}
+		if featureflag.Enabled(feature.CrossModelRelations) {
 			url, err := crossmodel.ParseApplicationURL(arg)
-			if err != nil {
-				return err
+			if err == nil && url.User == "" {
+				details, err := c.ClientStore().AccountDetails(c.ControllerName())
+				if err != nil {
+					return err
+				}
+				url.User = details.User
 			}
-			c.OfferURLs = append(c.OfferURLs, url)
+			if err == nil {
+				c.OfferURLs = append(c.OfferURLs, url)
+				continue
+			}
 		}
+		maybeModelName := arg
+		if jujuclient.IsQualifiedModelName(maybeModelName) {
+			var err error
+			maybeModelName, _, err = jujuclient.SplitModelName(maybeModelName)
+			if err != nil {
+				return errors.Annotatef(err, "validating model name %q", maybeModelName)
+			}
+		}
+		if !names.IsValidModelName(maybeModelName) {
+			return errors.NotValidf("model name %q", maybeModelName)
+		}
+		c.ModelNames = append(c.ModelNames, arg)
 	}
 	if len(c.ModelNames) > 0 && len(c.OfferURLs) > 0 {
 		return errors.New("either specify model names or offer URLs but not both")

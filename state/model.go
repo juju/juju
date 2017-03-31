@@ -343,7 +343,7 @@ func (st *State) NewModel(args ModelArgs) (_ *Model, _ *State, err error) {
 	}()
 	newSt.controllerModelTag = st.controllerModelTag
 
-	modelOps, err := newSt.modelSetupOps(st.controllerTag.Id(), args, nil)
+	modelOps, modelStatusDoc, err := newSt.modelSetupOps(st.controllerTag.Id(), args, nil)
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "failed to create new model")
 	}
@@ -388,6 +388,10 @@ func (st *State) NewModel(args ModelArgs) (_ *Model, _ *State, err error) {
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
+	if args.MigrationMode != MigrationModeImporting {
+		probablyUpdateStatusHistory(newSt, modelGlobalKey, modelStatusDoc)
+	}
+
 	_, err = newSt.SetUserAccess(newModel.Owner(), newModel.ModelTag(), permission.AdminAccess)
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "granting admin permission to the owner")
@@ -598,6 +602,23 @@ func (m *Model) SetStatus(sInfo status.StatusInfo) error {
 		rawData:   sInfo.Data,
 		updated:   sInfo.Since,
 	})
+}
+
+// StatusHistory returns a slice of at most filter.Size StatusInfo items
+// or items as old as filter.Date or items newer than now - filter.Delta time
+// representing past statuses for this application.
+func (m *Model) StatusHistory(filter status.StatusHistoryFilter) ([]status.StatusInfo, error) {
+	st, closeState, err := m.getState()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	defer closeState()
+	args := &statusHistoryArgs{
+		st:        st,
+		globalKey: m.globalKey(),
+		filter:    filter,
+	}
+	return statusHistory(args)
 }
 
 // Config returns the config for the model.

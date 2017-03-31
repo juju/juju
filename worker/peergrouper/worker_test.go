@@ -462,7 +462,7 @@ func (s *workerSuite) TestControllersArePublishedOverHub(c *gc.C) {
 	InitState(c, st, 3, testIPv4)
 	hub := pubsub.NewStructuredHub(nil)
 	event := make(chan apiserver.Details)
-	_, err := hub.Subscribe(apiserver.DetailsTopic, func(topic pubsub.Topic, data apiserver.Details, err error) {
+	_, err := hub.Subscribe(apiserver.DetailsTopic, func(topic string, data apiserver.Details, err error) {
 		c.Check(err, jc.ErrorIsNil)
 		event <- data
 	})
@@ -774,7 +774,7 @@ func (noPublisher) publishAPIServers(apiServers [][]network.HostPort, instanceId
 
 type noOpHub struct{}
 
-func (h *noOpHub) Publish(topic pubsub.Topic, data interface{}) (<-chan struct{}, error) {
+func (h *noOpHub) Publish(topic string, data interface{}) (<-chan struct{}, error) {
 	return nil, nil
 }
 

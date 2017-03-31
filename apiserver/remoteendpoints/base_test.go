@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/apiserver/common/crossmodelcommon"
 	"github.com/juju/juju/apiserver/testing"
 	jujucrossmodel "github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/permission"
 )
 
 const (
@@ -35,7 +36,10 @@ func (s *baseSuite) SetUpTest(c *gc.C) {
 		AdminTag: names.NewUserTag("admin"),
 	}
 
-	s.mockState = &mockState{modelUUID: "uuid"}
+	s.mockState = &mockState{
+		modelUUID:   "uuid",
+		offerAccess: make(map[names.ApplicationOfferTag]permission.Access),
+	}
 	s.mockStatePool = &mockStatePool{map[string]crossmodelcommon.Backend{s.mockState.modelUUID: s.mockState}}
 }
 
@@ -63,8 +67,5 @@ func (s *baseSuite) setupOffers(c *gc.C, filterAppName string) {
 		"test": &mockApplication{charm: ch, curl: charm.MustParseURL("db2-2")},
 	}
 	s.mockState.model = &mockModel{uuid: "uuid", name: "prod", owner: "fred"}
-	s.mockState.usermodels = []crossmodelcommon.UserModel{
-		&mockUserModel{model: s.mockState.model},
-	}
 	s.mockState.connStatus = &mockConnectionStatus{count: 5}
 }

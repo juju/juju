@@ -37,17 +37,22 @@ func (s *ApplicationOfferUserSuite) makeOffer(c *gc.C, access permission.Access)
 			Name: "validusername",
 		})
 	offerTag := names.NewApplicationOfferTag("someoffer")
+
+	// Initially no access.
+	_, err = s.State.GetOfferAccess(offerTag, user.UserTag())
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+
 	err = s.State.CreateOfferAccess(offerTag, user.UserTag(), access)
 	c.Assert(err, jc.ErrorIsNil)
 	return offerTag, user.UserTag()
 }
 
-func (s *ApplicationOfferUserSuite) assertAddOffer(c *gc.C, access permission.Access) {
-	offerTag, user := s.makeOffer(c, access)
+func (s *ApplicationOfferUserSuite) assertAddOffer(c *gc.C, wantedAccess permission.Access) {
+	offerTag, user := s.makeOffer(c, wantedAccess)
 
 	access, err := s.State.GetOfferAccess(offerTag, user)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(access, gc.Equals, access)
+	c.Assert(access, gc.Equals, wantedAccess)
 
 	// Creator of offer has admin.
 	access, err = s.State.GetOfferAccess(offerTag, names.NewUserTag("test-admin"))
