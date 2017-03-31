@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
 )
@@ -82,19 +83,19 @@ func newWatcherWrapper(sw state.StringsWatcher) state.NotifyWatcher {
 
 // WatchIngressAddressesForRelation creates a watcher that notifies when address from which
 // connections will originate for the relation change.
-func (f *FirewallerAPI) WatchIngressAddressesForRelation(remoteEntities params.RemoteEntities) (params.NotifyWatchResult, error) {
+func (api *FirewallerAPI) WatchIngressAddressesForRelation(remoteEntities params.RemoteEntities) (params.NotifyWatchResult, error) {
 	var result params.NotifyWatchResult
 
 	// TODO(wallyworld) - instead of just watching subnets, we need to watch unit addresses
 	// It will depend on whether the relation can use cloud local addresses or not.
-	watch := newWatcherWrapper(f.st.WatchSubnets())
+	watch := newWatcherWrapper(api.st.WatchSubnets())
 	// Consume the initial event.
 	_, ok := <-watch.Changes()
 	if !ok {
 		return params.NotifyWatchResult{}, watcher.EnsureErr(watch)
 	}
 
-	result.NotifyWatcherId = f.resources.Register(watch)
+	result.NotifyWatcherId = api.resources.Register(watch)
 	return result, nil
 }
 
@@ -118,18 +119,17 @@ func (api *FirewallerAPI) IngressSubnetsForRelations(remoteEntities params.Remot
 		}
 
 		// Gather info about the local (this model) application of the relation.
-		// We'll use the info to figure out what subnets to include.
-		var localAppName, endpointName string
-		var endpointRole charm.RelationRole
+		// We'll use the info to figure out what addresses to include.
+		var localApplication Application
+		var endpoint state.Endpoint
 		for _, ep := range rel.Endpoints() {
 			// Try looking up the info for the local application.
-			_, err = api.st.Application(ep.ApplicationName)
+			app, err := api.st.Application(ep.ApplicationName)
 			if err != nil && !errors.IsNotFound(err) {
 				return nil, errors.Trace(err)
 			} else if err == nil {
-				localAppName = ep.ApplicationName
-				endpointName = ep.Name
-				endpointRole = ep.Role
+				localApplication = app
+				endpoint = ep
 				break
 			}
 		}
@@ -144,31 +144,34 @@ func (api *FirewallerAPI) IngressSubnetsForRelations(remoteEntities params.Remot
 		// We are operating in the model hosting the "consuming" application, so check
 		// that its endpoint has the "requirer" role, meaning that we need to notify
 		// the offering model of subnets from this model required for ingress.
-		if endpointRole != charm.RoleRequirer {
+		if endpoint.Role != charm.RoleRequirer {
 			return &result, errors.NotSupportedf(
-				"ingress network for application %v without requires endpoint %v", localAppName, endpointName)
+				"ingress network for application %v without requires endpoint %v", localApplication.Name(), endpoint.Name)
 		}
 
-		// TODO(wallyworld) - as a first implementation, just get all CIDRs from the model
-		all, err := api.st.AllSubnets()
 		cidrs := set.NewStrings()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 
-		for _, subnet := range all {
-			ip, _, err := net.ParseCIDR(subnet.CIDR())
+		units, err := localApplication.AllUnits()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		for _, unit := range units {
+			address, err := unit.PublicAddress()
 			if err != nil {
-				return nil, errors.Trace(err)
+				return nil, errors.Annotatef(err, "getting public address for %q", unit.Name())
 			}
+			// TODO(wallyworld) - We only support IPv4 addresses as not all providers support IPv6.
+			if address.Type != network.IPv4Address {
+				continue
+			}
+			ip := net.ParseIP(address.Value)
 			if ip.IsLoopback() || ip.IsMulticast() {
 				continue
 			}
-			// TODO(wallyworld) - We only support IPv4 addresses as not all providers support IPv6.
-			if ip.To4() == nil {
-				continue
-			}
-			cidrs.Add(subnet.CIDR())
+			cidrs.Add(formatAsCIDR(address))
 		}
 		result.CIDRs = cidrs.SortedValues()
 		logger.Debugf("Ingress CIDRS for remote relation %v from model %v: %v", relTag, api.st.ModelUUID(), result.CIDRs)
@@ -184,4 +187,8 @@ func (api *FirewallerAPI) IngressSubnetsForRelations(remoteEntities params.Remot
 		results.Results[i].Result = networks
 	}
 	return results, nil
+}
+
+func formatAsCIDR(address network.Address) string {
+	return address.Value + "/32"
 }

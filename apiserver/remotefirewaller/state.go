@@ -7,6 +7,7 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 )
 
@@ -18,8 +19,6 @@ type State interface {
 	WatchSubnets() state.StringsWatcher
 
 	GetRemoteEntity(model names.ModelTag, token string) (names.Tag, error)
-
-	AllSubnets() (subnets []Subnet, err error)
 
 	KeyRelation(string) (Relation, error)
 
@@ -35,21 +34,6 @@ func (st stateShim) GetRemoteEntity(model names.ModelTag, token string) (names.T
 	return r.GetRemoteEntity(model, token)
 }
 
-func (st stateShim) AllSubnets() (subnets []Subnet, err error) {
-	stateSubnets, err := st.State.AllSubnets()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	for _, s := range stateSubnets {
-		subnets = append(subnets, s)
-	}
-	return subnets, nil
-}
-
-type Subnet interface {
-	CIDR() string
-}
-
 func (st stateShim) KeyRelation(key string) (Relation, error) {
 	return st.State.KeyRelation(key)
 }
@@ -59,9 +43,34 @@ type Relation interface {
 }
 
 func (st stateShim) Application(name string) (Application, error) {
-	return st.State.Application(name)
+	app, err := st.State.Application(name)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return applicationShim{app}, nil
 }
 
 type Application interface {
 	Name() string
+	AllUnits() ([]Unit, error)
+}
+
+type applicationShim struct {
+	*state.Application
+}
+
+func (a applicationShim) AllUnits() (results []Unit, err error) {
+	units, err := a.Application.AllUnits()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	for _, unit := range units {
+		results = append(results, unit)
+	}
+	return results, nil
+}
+
+type Unit interface {
+	Name() string
+	PublicAddress() (network.Address, error)
 }
