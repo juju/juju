@@ -739,7 +739,6 @@ func (fw *Firewaller) updateForRemoteRelationIngress(appTag names.ApplicationTag
 	logger.Debugf("finding ingress rules for %v", appTag)
 	// Now create the rules for any remote relations of which the
 	// unit's application is a part.
-	appProcessed := false
 	for _, data := range fw.relationIngress {
 		if data.localApplicationTag != appTag {
 			continue
@@ -747,17 +746,9 @@ func (fw *Firewaller) updateForRemoteRelationIngress(appTag names.ApplicationTag
 		if !data.ingressRequired {
 			continue
 		}
-		appProcessed = true
 		for _, cidr := range data.networks.Values() {
 			cidrs.Add(cidr)
 		}
-	}
-	// This is a fallback for providers which have not yet implemented the
-	// network interface, or where the network information is not yet available.
-	// TODO(wallyworld) - remove fallback when providers are all updated
-	if appProcessed && len(cidrs) == 0 {
-		logger.Warningf("adding default CIDR 0.0.0.0/0 for: %v", appTag)
-		cidrs.Add("0.0.0.0/0")
 	}
 	return nil
 }
@@ -966,9 +957,9 @@ func (md *machineData) watchLoop(unitw watcher.StringsWatcher) error {
 				return errors.New("machine units watcher closed")
 			}
 			select {
-			case md.fw.unitsChange <- &unitsChange{md, change}:
 			case <-md.catacomb.Dying():
 				return md.catacomb.ErrDying()
+			case md.fw.unitsChange <- &unitsChange{md, change}:
 			}
 		}
 	}
@@ -1044,9 +1035,9 @@ func (ad *applicationData) watchLoop(exposed bool) error {
 
 			exposed = change
 			select {
-			case ad.fw.exposedChange <- &exposedChange{ad, change}:
 			case <-ad.catacomb.Dying():
 				return ad.catacomb.ErrDying()
+			case ad.fw.exposedChange <- &exposedChange{ad, change}:
 			}
 		}
 	}
@@ -1279,9 +1270,9 @@ func (rd *remoteRelationData) updateNetworks(facade RemoteFirewallerAPI, remoteR
 		ingressRequired:     true,
 	}
 	select {
-	case rd.fw.remoteRelationsChange <- change:
 	case <-rd.catacomb.Dying():
 		return rd.catacomb.ErrDying()
+	case rd.fw.remoteRelationsChange <- change:
 	}
 	return nil
 }
@@ -1303,6 +1294,7 @@ func (fw *Firewaller) forgetRelation(data *remoteRelationData) error {
 	change := &remoteRelationChange{
 		relationTag:         data.tag,
 		localApplicationTag: data.localApplicationTag,
+		networks:            make(set.Strings),
 	}
 	if err := fw.remoteRelationChanged(change); err != nil {
 		return errors.Trace(err)
@@ -1373,9 +1365,9 @@ func (p *remoteRelationPoller) pollLoop() error {
 			logger.Debugf("poll token %v in model %v", token, modelUUID)
 			remoteRelationId := params.RemoteEntityId{ModelUUID: modelUUID, Token: token}
 			select {
-			case p.relationReady <- remoteRelationId:
 			case <-p.catacomb.Dying():
 				return p.catacomb.ErrDying()
+			case p.relationReady <- remoteRelationId:
 			}
 			return nil
 		}

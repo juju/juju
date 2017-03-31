@@ -6,6 +6,7 @@ package remotefirewaller_test
 import (
 	"github.com/juju/errors"
 	"github.com/juju/testing"
+	"github.com/juju/utils/set"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/tomb.v1"
 
@@ -116,7 +117,8 @@ func (w *mockStringsWatcher) Changes() <-chan []string {
 
 type mockApplication struct {
 	testing.Stub
-	name string
+	name  string
+	units []*mockUnit
 }
 
 func newMockApplication(name string) *mockApplication {
@@ -130,6 +132,14 @@ func (a *mockApplication) Name() string {
 	return a.name
 }
 
+func (a *mockApplication) AllUnits() (results []remotefirewaller.Unit, err error) {
+	a.MethodCall(a, "AllUnits")
+	for _, unit := range a.units {
+		results = append(results, unit)
+	}
+	return results, a.NextErr()
+}
+
 type mockRelation struct {
 	testing.Stub
 	id        int
@@ -137,12 +147,14 @@ type mockRelation struct {
 	endpoints []state.Endpoint
 	ruw       *mockRelationUnitsWatcher
 	ruwApp    string
+	inScope   set.Strings
 }
 
 func newMockRelation(id int) *mockRelation {
 	return &mockRelation{
-		id:  id,
-		ruw: newMockRelationUnitsWatcher(),
+		id:      id,
+		ruw:     newMockRelationUnitsWatcher(),
+		inScope: make(set.Strings),
 	}
 }
 
@@ -161,6 +173,10 @@ func (r *mockRelation) WatchUnits(applicationName string) (state.RelationUnitsWa
 		return nil, errors.Errorf("unexpected app %v", applicationName)
 	}
 	return r.ruw, nil
+}
+
+func (r *mockRelation) UnitInScope(u remotefirewaller.Unit) (bool, error) {
+	return r.inScope.Contains(u.Name()), nil
 }
 
 func newMockRelationUnitsWatcher() *mockRelationUnitsWatcher {

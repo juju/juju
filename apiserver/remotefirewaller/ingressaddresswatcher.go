@@ -46,8 +46,41 @@ func NewIngressAddressWatcher(backend State, rel Relation, appName string) (*Ing
 	return w, err
 }
 
+func (w *IngressAddressWatcher) initial() (set.Strings, error) {
+	app, err := w.backend.Application(w.appName)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	units, err := app.AllUnits()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	result := make(set.Strings)
+	for _, u := range units {
+		inScope, err := w.rel.UnitInScope(u)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if inScope {
+			addr, ok, err := w.unitAddress(u)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			if !ok {
+				continue
+			}
+			result.Add(addr)
+		}
+	}
+	return result, nil
+}
+
 func (w *IngressAddressWatcher) loop() error {
+	defer close(w.out)
 	ruw, err := w.rel.WatchUnits(w.appName)
+	if errors.IsNotFound(err) {
+		return nil
+	}
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -60,12 +93,22 @@ func (w *IngressAddressWatcher) loop() error {
 		out         chan<- []string
 	)
 	// addresses holds the current set of known addresses.
-	addresses := make(set.Strings)
-
+	addresses, err := w.initial()
+	if errors.IsNotFound(err) {
+		return nil
+	}
+	if err != nil {
+		return errors.Trace(err)
+	}
+	out = w.out
 	for {
 		select {
 		case <-w.catacomb.Dying():
 			return w.catacomb.ErrDying()
+		// Send initial event or subsequent changes.
+		case out <- formatAsCIDR(addresses.Values()):
+			sentInitial = true
+			out = nil
 		case c, ok := <-ruw.Changes():
 			if !ok {
 				return watcher.EnsureErr(ruw)
@@ -84,9 +127,6 @@ func (w *IngressAddressWatcher) loop() error {
 			} else {
 				out = nil
 			}
-		case out <- formatAsCIDR(addresses.Values()):
-			sentInitial = true
-			out = nil
 		}
 	}
 }
@@ -97,6 +137,23 @@ func formatAsCIDR(addresses []string) []string {
 		result[i] = a + "/32"
 	}
 	return result
+}
+
+func (w *IngressAddressWatcher) unitAddress(unit Unit) (string, bool, error) {
+	addr, err := unit.PublicAddress()
+	if errors.IsNotAssigned(err) {
+		logger.Debugf("unit %s is not assigned to a machine, can't get address", unit.Name())
+		return "", false, nil
+	}
+	if network.IsNoAddressError(err) {
+		logger.Debugf("unit %s has no public address", unit.Name())
+		return "", false, nil
+	}
+	if err != nil {
+		return "", false, err
+	}
+	logger.Debugf("unit %q has public address %q", unit.Name(), addr.Value)
+	return addr.Value, true, nil
 }
 
 func (w *IngressAddressWatcher) mergeAddresses(addresses set.Strings, c params.RelationUnitsChange) (set.Strings, error) {
@@ -115,21 +172,15 @@ func (w *IngressAddressWatcher) mergeAddresses(addresses set.Strings, c params.R
 		// We need to know whether to look at the public or cloud local address.
 		// For now, we'll use the public address and later if needed use a watcher
 		// parameter to look at the cloud local address.
-		addr, err := u.PublicAddress()
-		if errors.IsNotAssigned(err) {
-			logger.Debugf("unit %s is not assigned to a machine, can't get address", name)
-			continue
-		}
-		if network.IsNoAddressError(err) {
-			logger.Debugf("unit %s has no public address", name)
-			continue
-		}
+		addr, ok, err := w.unitAddress(u)
 		if err != nil {
 			return result, err
 		}
-		logger.Debugf("unit %q has public address %q", name, addr.Value)
-		result.Add(addr.Value)
-		w.known[name] = addr.Value
+		if !ok {
+			continue
+		}
+		result.Add(addr)
+		w.known[name] = addr
 	}
 	for _, name := range c.Departed {
 		// If the unit is departing and we have seen its address,

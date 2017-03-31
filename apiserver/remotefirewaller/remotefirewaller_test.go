@@ -6,6 +6,7 @@ package remotefirewaller_test
 import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
@@ -62,9 +63,8 @@ func (s *RemoteFirewallerSuite) TestWatchIngressAddressesForRelation(c *gc.C) {
 			},
 		},
 	}
+	db2Relation.inScope = set.NewStrings("django/0", "django/1")
 	s.st.relations["remote-db2:db django:db"] = db2Relation
-	app := newMockApplication("django")
-	s.st.applications["django"] = app
 	s.st.remoteEntities[names.NewRelationTag("remote-db2:db django:db")] = "token-db2:db django:db"
 
 	unit := newMockUnit("django/0")
@@ -73,13 +73,9 @@ func (s *RemoteFirewallerSuite) TestWatchIngressAddressesForRelation(c *gc.C) {
 	unit1 := newMockUnit("django/0")
 	unit1.publicAddress = network.NewScopedAddress("4.3.2.1", network.ScopePublic)
 	s.st.units["django/1"] = unit1
-
-	db2Relation.ruw.changes <- params.RelationUnitsChange{
-		Changed: map[string]params.UnitSettings{
-			"django/0": {},
-			"django/1": {},
-		},
-	}
+	app := newMockApplication("django")
+	app.units = []*mockUnit{unit, unit1}
+	s.st.applications["django"] = app
 
 	result, err := s.api.WatchIngressAddressesForRelation(
 		params.RemoteEntities{Entities: []params.RemoteEntityId{{
@@ -99,12 +95,11 @@ func (s *RemoteFirewallerSuite) TestWatchIngressAddressesForRelation(c *gc.C) {
 		{"GetRemoteEntity", []interface{}{names.NewModelTag(coretesting.ModelTag.Id()), "token-db2:db django:db"}},
 		{"KeyRelation", []interface{}{"remote-db2:db django:db"}},
 		{"Application", []interface{}{"django"}},
-		{"Unit", []interface{}{"django/0"}},
-		{"Unit", []interface{}{"django/1"}},
+		{"Application", []interface{}{"django"}},
 	})
 }
 
-func (s *RemoteFirewallerSuite) xTestWatchIngressAddressesForRelationIgnoresProvider(c *gc.C) {
+func (s *RemoteFirewallerSuite) TestWatchIngressAddressesForRelationIgnoresProvider(c *gc.C) {
 	db2Relation := newMockRelation(123)
 	db2Relation.endpoints = []state.Endpoint{
 		{
