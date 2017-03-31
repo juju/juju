@@ -3,12 +3,10 @@
 
 package apiserver
 
-import "github.com/juju/pubsub"
-
 // DetailsTopic is the topic name for the published message when the details
 // of the api servers change. This message is normally published by the
 // peergrouper when the set of API servers changes.
-const DetailsTopic pubsub.Topic = "apiserver.details"
+const DetailsTopic = "apiserver.details"
 
 // APIServer contains the machine id and addresses of a single API server machine.
 type APIServer struct {

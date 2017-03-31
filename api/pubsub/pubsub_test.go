@@ -185,10 +185,10 @@ func (s *PubSubIntegrationSuite) connect(c *gc.C) apipubsub.MessageWriter {
 
 func (s *PubSubIntegrationSuite) TestMessages(c *gc.C) {
 	writer := s.connect(c)
-	var topic pubsub.Topic = "test.message"
+	topic := "test.message"
 	messages := []map[string]interface{}{}
 	done := make(chan struct{})
-	_, err := s.hub.Subscribe(pubsub.MatchAll, func(t pubsub.Topic, payload map[string]interface{}) {
+	_, err := s.hub.SubscribeMatch(pubsub.MatchAll, func(t string, payload map[string]interface{}) {
 		c.Check(t, gc.Equals, topic)
 		messages = append(messages, payload)
 		if len(messages) == 2 {
