@@ -57,6 +57,7 @@ func (s *showSuite) TestShowYaml(c *gc.C) {
 		[]string{"fred/model.db2", "--format", "yaml"},
 		`
 fred/model.db2:
+  access: consume
   endpoints:
     db2:
       interface: http
@@ -74,9 +75,9 @@ func (s *showSuite) TestShowTabular(c *gc.C) {
 		c,
 		[]string{"fred/model.db2", "--format", "tabular"},
 		`
-Application URL  Description                                 Endpoint  Interface  Role
-fred/model.db2   IBM DB2 Express Server Edition is an entry  db2       http       requirer
-                 level database system                       log       http       provider
+URL             Access   Description                                 Endpoint  Interface  Role
+fred/model.db2  consume  IBM DB2 Express Server Edition is an entry  db2       http       requirer
+                         level database system                       log       http       provider
 
 `[1:],
 	)
@@ -88,12 +89,12 @@ func (s *showSuite) TestShowTabularExactly180Desc(c *gc.C) {
 		c,
 		[]string{"fred/model.db2", "--format", "tabular"},
 		`
-Application URL  Description                                   Endpoint  Interface  Role
-fred/model.db2   IBM DB2 Express Server Edition is an entry    db2       http       requirer
-                 level database systemIBM DB2 Express Server   log       http       provider
-                 Edition is an entry level database systemIBM                       
-                 DB2 Express Server Edition is an entry level                       
-                 dat                                                                
+URL             Access   Description                                   Endpoint  Interface  Role
+fred/model.db2  consume  IBM DB2 Express Server Edition is an entry    db2       http       requirer
+                         level database systemIBM DB2 Express Server   log       http       provider
+                         Edition is an entry level database systemIBM                       
+                         DB2 Express Server Edition is an entry level                       
+                         dat                                                                
 
 `[1:],
 	)
@@ -105,12 +106,12 @@ func (s *showSuite) TestShowTabularMoreThan180Desc(c *gc.C) {
 		c,
 		[]string{"fred/model.db2", "--format", "tabular"},
 		`
-Application URL  Description                                   Endpoint  Interface  Role
-fred/model.db2   IBM DB2 Express Server Edition is an entry    db2       http       requirer
-                 level database systemIBM DB2 Express Server   log       http       provider
-                 Edition is an entry level database systemIBM                       
-                 DB2 Express Server Edition is an entry level                       
-                 ...                                                                
+URL             Access   Description                                   Endpoint  Interface  Role
+fred/model.db2  consume  IBM DB2 Express Server Edition is an entry    db2       http       requirer
+                         level database systemIBM DB2 Express Server   log       http       provider
+                         Edition is an entry level database systemIBM                       
+                         DB2 Express Server Edition is an entry level                       
+                         ...                                                                
 
 `[1:],
 	)
@@ -150,5 +151,6 @@ func (s mockShowAPI) ApplicationOffer(url string) (params.ApplicationOffer, erro
 			{Name: "log", Interface: "http", Role: charm.RoleProvider},
 			{Name: "db2", Interface: "http", Role: charm.RoleRequirer},
 		},
+		Access: "consume",
 	}, nil
 }

@@ -53,7 +53,12 @@ func (api *NetworkConfigAPI) getOneMachineProviderNetworkConfig(m *state.Machine
 	}
 
 	interfaceInfos, err := netEnviron.NetworkInterfaces(instId)
-	if err != nil {
+	if errors.IsNotSupported(err) {
+		// It's possible to have a networking environ, but not support
+		// NetworkInterfaces().  In leiu of adding SupportsNetworkInterfaces():
+		logger.Infof("provider network interfaces not supported: %v", err)
+		return nil, nil
+	} else if err != nil {
 		return nil, errors.Annotatef(err, "cannot get network interfaces of %q", instId)
 	}
 	if len(interfaceInfos) == 0 {

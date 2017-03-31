@@ -4,16 +4,19 @@
 package state
 
 import (
+	"fmt"
 	"strings"
 	"time"
 
 	"github.com/juju/description"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/utils/featureflag"
 	"github.com/juju/utils/set"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2/bson"
 
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/payload"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/storage/poolmanager"
@@ -54,6 +57,7 @@ func (st *State) Export() (description.Model, error) {
 	if !found {
 		return nil, errors.New("missing model config")
 	}
+	delete(export.modelSettings, modelGlobalKey)
 
 	blocks, err := export.readBlocks()
 	if err != nil {
@@ -92,7 +96,9 @@ func (st *State) Export() (description.Model, error) {
 		return nil, errors.Trace(err)
 	}
 	export.model.SetConstraints(constraintsArgs)
-
+	if err := export.modelStatus(); err != nil {
+		return nil, errors.Trace(err)
+	}
 	if err := export.modelUsers(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -146,7 +152,11 @@ func (st *State) Export() (description.Model, error) {
 	export.model.SetSLA(dbModel.SLALevel(), string(dbModel.SLACredential()))
 	export.model.SetMeterStatus(dbModel.MeterStatus().Code.String(), dbModel.MeterStatus().Info)
 
-	export.logExtras()
+	if featureflag.Enabled(feature.StrictMigration) {
+		if err := export.checkUnexportedValues(); err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
 
 	return export.model, nil
 }
@@ -200,6 +210,17 @@ func (e *exporter) readBlocks() (map[string]string, error) {
 		result[doc.Type.MigrationValue()] = doc.Message
 	}
 	return result, nil
+}
+
+func (e *exporter) modelStatus() error {
+	statusArgs, err := e.statusArgs(modelGlobalKey)
+	if err != nil {
+		return errors.Annotatef(err, "status for model")
+	}
+
+	e.model.SetStatus(statusArgs)
+	e.model.SetStatusHistory(e.statusHistoryArgs(modelGlobalKey))
+	return nil
 }
 
 func (e *exporter) modelUsers() error {
@@ -355,6 +376,14 @@ func (e *exporter) newMachine(exParent description.Machine, machine *Machine, in
 		return nil, errors.NotValidf("missing instance data for machine %s", machine.Id())
 	}
 	exMachine.SetInstance(e.newCloudInstanceArgs(instData))
+	instance := exMachine.Instance()
+	instanceKey := machine.globalInstanceKey()
+	statusArgs, err := e.statusArgs(instanceKey)
+	if err != nil {
+		return nil, errors.Annotatef(err, "status for machine instance %s", machine.Id())
+	}
+	instance.SetStatus(statusArgs)
+	instance.SetStatusHistory(e.statusHistoryArgs(instanceKey))
 
 	// We don't rely on devices being there. If they aren't, we get an empty slice,
 	// which is fine to iterate over with range.
@@ -375,7 +404,7 @@ func (e *exporter) newMachine(exParent description.Machine, machine *Machine, in
 
 	// Find the current machine status.
 	globalKey := machine.globalKey()
-	statusArgs, err := e.statusArgs(globalKey)
+	statusArgs, err = e.statusArgs(globalKey)
 	if err != nil {
 		return nil, errors.Annotatef(err, "status for machine %s", machine.Id())
 	}
@@ -450,7 +479,6 @@ func (e *exporter) newAddressArgs(a address) description.AddressArgs {
 func (e *exporter) newCloudInstanceArgs(data instanceData) description.CloudInstanceArgs {
 	inst := description.CloudInstanceArgs{
 		InstanceId: string(data.InstanceId),
-		Status:     data.Status,
 	}
 	if data.Arch != nil {
 		inst.Architecture = *data.Arch
@@ -600,10 +628,12 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 	if !found {
 		return errors.Errorf("missing settings for application %q", appName)
 	}
+	delete(e.modelSettings, settingsKey)
 	leadershipSettingsDoc, found := e.modelSettings[leadershipKey]
 	if !found {
 		return errors.Errorf("missing leadership settings for application %q", appName)
 	}
+	delete(e.modelSettings, leadershipKey)
 
 	args := description.ApplicationArgs{
 		Tag:                  application.ApplicationTag(),
@@ -651,7 +681,7 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 			return errors.Errorf("missing meter status for unit %s", unit.Name())
 		}
 
-		workloadVersion, err := unit.WorkloadVersion()
+		workloadVersion, err := e.unitWorkloadVersion(unit)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -720,6 +750,17 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 	}
 
 	return nil
+}
+
+func (e *exporter) unitWorkloadVersion(unit *Unit) (string, error) {
+	// Rather than call unit.WorkloadVersion(), which does a database
+	// query, we go directly to the status value that is stored.
+	key := unit.globalWorkloadVersionKey()
+	info, err := e.statusArgs(key)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	return info.Message, nil
 }
 
 func (e *exporter) setResources(exApp description.Application, resources resource.ServiceResources) error {
@@ -847,6 +888,7 @@ func (e *exporter) relations() error {
 				if !found {
 					return errors.Errorf("missing relation settings for %s and %s", relation, unit.Name())
 				}
+				delete(e.modelSettings, key)
 				exEndPoint.SetUnitSettings(unit.Name(), settingsDoc.Settings)
 			}
 		}
@@ -1222,6 +1264,7 @@ func (e *exporter) statusArgs(globalKey string) (description.StatusArgs, error) 
 	if !found {
 		return result, errors.NotFoundf("status data for %s", globalKey)
 	}
+	delete(e.status, globalKey)
 
 	status, ok := statusDoc["status"].(string)
 	if !ok {
@@ -1253,7 +1296,7 @@ func (e *exporter) statusArgs(globalKey string) (description.StatusArgs, error) 
 func (e *exporter) statusHistoryArgs(globalKey string) []description.StatusArgs {
 	history := e.statusHistory[globalKey]
 	result := make([]description.StatusArgs, len(history))
-	e.logger.Debugf("found %d status history docs for %s", len(history), globalKey)
+	e.logger.Tracef("found %d status history docs for %s", len(history), globalKey)
 	for i, doc := range history {
 		result[i] = description.StatusArgs{
 			Value:   string(doc.Status),
@@ -1262,7 +1305,7 @@ func (e *exporter) statusHistoryArgs(globalKey string) []description.StatusArgs 
 			Updated: time.Unix(0, doc.Updated),
 		}
 	}
-
+	delete(e.statusHistory, globalKey)
 	return result
 }
 
@@ -1270,7 +1313,7 @@ func (e *exporter) constraintsArgs(globalKey string) (description.ConstraintsArg
 	doc, found := e.constraints[globalKey]
 	if !found {
 		// No constraints for this key.
-		e.logger.Debugf("no constraints found for key %q", globalKey)
+		e.logger.Tracef("no constraints found for key %q", globalKey)
 		return description.ConstraintsArgs{}, nil
 	}
 	// We capture any type error using a closure to avoid having to return
@@ -1327,15 +1370,33 @@ func (e *exporter) constraintsArgs(globalKey string) (description.ConstraintsArg
 	return result, nil
 }
 
-func (e *exporter) logExtras() {
+func (e *exporter) checkUnexportedValues() error {
+	var missing []string
+
 	// As annotations are saved into the model, they are removed from the
 	// exporter's map. If there are any left at the end, we are missing
-	// things. Not an error just now, just a warning that we have missed
-	// something. Could potentially be an error at a later date when
-	// migrations are complete (but probably not).
+	// things.
 	for key, doc := range e.annotations {
-		e.logger.Warningf("unexported annotation for %s, %s", doc.Tag, key)
+		missing = append(missing, fmt.Sprintf("unexported annotations for %s, %s", doc.Tag, key))
 	}
+
+	for key := range e.modelSettings {
+		missing = append(missing, fmt.Sprintf("unexported settings for %s", key))
+	}
+
+	for key := range e.status {
+		missing = append(missing, fmt.Sprintf("unexported status for %s", key))
+	}
+
+	for key := range e.statusHistory {
+		missing = append(missing, fmt.Sprintf("unexported status history for %s", key))
+	}
+
+	if len(missing) > 0 {
+		content := strings.Join(missing, "\n  ")
+		return errors.Errorf("migration missed some docs:\n  %s", content)
+	}
+	return nil
 }
 
 func (e *exporter) remoteApplications() error {
@@ -1698,6 +1759,7 @@ func (m storagePoolSettingsManager) ListSettings(keyPrefix string) (map[string]m
 	for key, doc := range m.e.modelSettings {
 		if strings.HasPrefix(key, keyPrefix) {
 			result[key] = doc.Settings
+			delete(m.e.modelSettings, key)
 		}
 	}
 	return result, nil

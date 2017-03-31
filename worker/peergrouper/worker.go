@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/pubsub"
 	"github.com/juju/replicaset"
 	"github.com/juju/utils/clock"
 	worker "gopkg.in/juju/worker.v1"
@@ -83,7 +82,7 @@ var (
 // Hub defines the only method of the apiserver centralhub that
 // the peer grouper uses.
 type Hub interface {
-	Publish(topic pubsub.Topic, data interface{}) (<-chan struct{}, error)
+	Publish(topic string, data interface{}) (<-chan struct{}, error)
 }
 
 // pgWorker is a worker which watches the controller machines in state

@@ -45,8 +45,8 @@ func (s *findSuite) TestFindNoArgs(c *gc.C) {
 		c,
 		[]string{},
 		`
-URL                   Interfaces
-fred/test.hosted-db2  http:db2, http:log
+URL                   Access   Interfaces
+fred/test.hosted-db2  consume  http:db2, http:log
 
 `[1:],
 	)
@@ -88,8 +88,8 @@ func (s *findSuite) TestSimpleFilter(c *gc.C) {
 		c,
 		[]string{"--format", "tabular", "--url", "fred/model.hosted-db2"},
 		`
-URL                    Interfaces
-fred/model.hosted-db2  http:db2, http:log
+URL                    Access   Interfaces
+fred/model.hosted-db2  consume  http:db2, http:log
 
 `[1:],
 	)
@@ -110,8 +110,8 @@ func (s *findSuite) TestEndpointFilter(c *gc.C) {
 		c,
 		[]string{"--format", "tabular", "--url", "fred/model", "--endpoint", "db", "--interface", "mysql"},
 		`
-URL                    Interfaces
-fred/model.hosted-db2  http:db2, http:log
+URL                    Access   Interfaces
+fred/model.hosted-db2  consume  http:db2, http:log
 
 `[1:],
 	)
@@ -129,6 +129,7 @@ func (s *findSuite) TestFindYaml(c *gc.C) {
 		[]string{"fred/model.hosted-db2", "--format", "yaml"},
 		`
 fred/model.hosted-db2:
+  access: consume
   endpoints:
     db2:
       interface: http
@@ -146,8 +147,8 @@ func (s *findSuite) TestFindTabular(c *gc.C) {
 		c,
 		[]string{"fred/model.hosted-db2", "--format", "tabular"},
 		`
-URL                    Interfaces
-fred/model.hosted-db2  http:db2, http:log
+URL                    Access   Interfaces
+fred/model.hosted-db2  consume  http:db2, http:log
 
 `[1:],
 	)
@@ -197,5 +198,6 @@ func (s mockFindAPI) FindApplicationOffers(filters ...jujucrossmodel.Application
 			{Name: "log", Interface: "http", Role: charm.RoleProvider},
 			{Name: "db2", Interface: "http", Role: charm.RoleRequirer},
 		},
+		Access: "consume",
 	}}, nil
 }

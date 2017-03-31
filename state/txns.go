@@ -52,8 +52,8 @@ func (st *State) ResumeTransactions() error {
 func (st *State) MaybePruneTransactions() error {
 	runner, closer := st.database.TransactionRunner()
 	defer closer()
-	// Prune txns only when txn count has doubled since last prune.
-	return runner.MaybePruneTransactions(2.0)
+	// Prune txns when txn count has increased by 10% since last prune.
+	return runner.MaybePruneTransactions(1.1)
 }
 
 type multiModelRunner struct {

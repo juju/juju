@@ -26,22 +26,24 @@ func (s *RemoteFirewallersSuite) TestNewClient(c *gc.C) {
 	c.Assert(client, gc.NotNil)
 }
 
-func (s *RemoteFirewallersSuite) TestWatchSubnets(c *gc.C) {
+func (s *RemoteFirewallersSuite) TestWatchIngressAddressesForRelation(c *gc.C) {
 	var callCount int
+	remoteRelationId := params.RemoteEntityId{ModelUUID: "model-uuid", Token: "token"}
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Check(objType, gc.Equals, "RemoteFirewaller")
 		c.Check(version, gc.Equals, 0)
 		c.Check(id, gc.Equals, "")
-		c.Check(request, gc.Equals, "WatchSubnets")
-		c.Assert(result, gc.FitsTypeOf, &params.StringsWatchResult{})
-		*(result.(*params.StringsWatchResult)) = params.StringsWatchResult{
+		c.Check(request, gc.Equals, "WatchIngressAddressesForRelation")
+		c.Assert(arg, gc.DeepEquals, params.RemoteEntities{Entities: []params.RemoteEntityId{remoteRelationId}})
+		c.Assert(result, gc.FitsTypeOf, &params.NotifyWatchResult{})
+		*(result.(*params.NotifyWatchResult)) = params.NotifyWatchResult{
 			Error: &params.Error{Message: "FAIL"},
 		}
 		callCount++
 		return nil
 	})
 	client := remotefirewaller.NewClient(apiCaller)
-	_, err := client.WatchSubnets()
+	_, err := client.WatchIngressAddressesForRelation(remoteRelationId)
 	c.Check(err, gc.ErrorMatches, "FAIL")
 	c.Check(callCount, gc.Equals, 1)
 }

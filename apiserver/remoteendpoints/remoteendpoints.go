@@ -5,14 +5,12 @@ package remoteendpoints
 
 import (
 	"github.com/juju/errors"
-	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/crossmodelcommon"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	jujucrossmodel "github.com/juju/juju/core/crossmodel"
-	"github.com/juju/juju/permission"
 )
 
 // EndpointsAPI implements the cross model interface and is the concrete
@@ -92,7 +90,7 @@ func (api *EndpointsAPI) offerForURL(urlStr string) (params.ApplicationOfferDeta
 	filter := jujucrossmodel.ApplicationOfferFilter{
 		OfferName: url.ApplicationName,
 	}
-	offers, err := api.ApplicationOffersFromModel(model.UUID(), permission.ReadAccess, filter)
+	offers, err := api.ApplicationOffersFromModel(model.UUID(), false, filter)
 	if err != nil {
 		return fail(errors.Trace(err))
 	}
@@ -119,15 +117,14 @@ func (api *EndpointsAPI) FindApplicationOffers(filters params.OfferFilters) (par
 	// any models the user can see and query across those.
 	// If there's more than one filter term, each must specify a model.
 	if len(filters.Filters) == 1 && filters.Filters[0].ModelName == "" {
-		user := api.Authorizer.GetAuthTag().(names.UserTag)
-		userModels, err := api.Backend.ModelsForUser(user)
+		allModels, err := api.Backend.AllModels()
 		if err != nil {
 			return result, errors.Trace(err)
 		}
-		for _, um := range userModels {
+		for _, m := range allModels {
 			modelFilter := filters.Filters[0]
-			modelFilter.ModelName = um.Model().Name()
-			modelFilter.OwnerName = um.Model().Owner().Name()
+			modelFilter.ModelName = m.Name()
+			modelFilter.OwnerName = m.Owner().Name()
 			filtersToUse.Filters = append(filtersToUse.Filters, modelFilter)
 		}
 	} else {
@@ -139,7 +136,7 @@ func (api *EndpointsAPI) FindApplicationOffers(filters params.OfferFilters) (par
 		}
 	}
 
-	offers, err := api.GetApplicationOffersDetails(filtersToUse, permission.ReadAccess)
+	offers, err := api.GetApplicationOffersDetails(filtersToUse, false)
 	if err != nil {
 		return result, errors.Trace(err)
 	}

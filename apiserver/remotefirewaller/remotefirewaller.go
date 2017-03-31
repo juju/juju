@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
 )
 
@@ -48,19 +49,52 @@ func NewRemoteFirewallerAPI(
 	}, nil
 }
 
-// WatchSubnets creates a strings watcher that notifies of the addition,
-// removal, and lifecycle changes of subnets in the model.
-func (f *FirewallerAPI) WatchSubnets() (params.StringsWatchResult, error) {
-	var result params.StringsWatchResult
+// stringsWatcherWrapper wraps a StringsWatcher and turns it
+// into a notify watcher.
+// TODO(wallwyworld) - this is only needed until the proper
+// backend logic is available for WatchIngressAddressesForRelation
+type stringsWatcherWrapper struct {
+	state.StringsWatcher
+	changes chan struct{}
+}
 
-	watch := f.st.WatchSubnets()
-	// Consume the initial event and forward it to the result.
-	initial, ok := <-watch.Changes()
-	if !ok {
-		return params.StringsWatchResult{}, watcher.EnsureErr(watch)
+func (w *stringsWatcherWrapper) Changes() <-chan struct{} {
+	return w.changes
+}
+
+func newWatcherWrapper(sw state.StringsWatcher) state.NotifyWatcher {
+	w := &stringsWatcherWrapper{
+		StringsWatcher: sw,
+		changes:        make(chan struct{}),
 	}
-	result.StringsWatcherId = f.resources.Register(watch)
-	result.Changes = initial
+	go func() {
+		for {
+			_, ok := <-w.StringsWatcher.Changes()
+			if !ok {
+				close(w.changes)
+				return
+			}
+			w.changes <- struct{}{}
+		}
+	}()
+	return w
+}
+
+// WatchIngressAddressesForRelation creates a watcher that notifies when address from which
+// connections will originate for the relation change.
+func (f *FirewallerAPI) WatchIngressAddressesForRelation(remoteEntities params.RemoteEntities) (params.NotifyWatchResult, error) {
+	var result params.NotifyWatchResult
+
+	// TODO(wallyworld) - instead of just watching subnets, we need to watch unit addresses
+	// It will depend on whether the relation can use cloud local addresses or not.
+	watch := newWatcherWrapper(f.st.WatchSubnets())
+	// Consume the initial event.
+	_, ok := <-watch.Changes()
+	if !ok {
+		return params.NotifyWatchResult{}, watcher.EnsureErr(watch)
+	}
+
+	result.NotifyWatcherId = f.resources.Register(watch)
 	return result, nil
 }
 
