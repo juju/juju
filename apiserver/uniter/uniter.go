@@ -1044,17 +1044,17 @@ func (u *UniterAPIV3) EnterScope(args params.RelationUnits) (params.ErrorResults
 		if err != nil {
 			return err
 		}
-		settingsAddress, err := relUnit.SettingsAddress()
-		if err != nil {
-			return err
-		}
 
-		// Construct the settings, passing the unit's address (we
-		// already know it). Normally this will be the private
-		// address, but if this relation is to a remote application it
-		// might be the public one.
-		settings := map[string]interface{}{
-			"private-address": settingsAddress.Value,
+		settings := map[string]interface{}{}
+		settingsAddress, err := relUnit.SettingsAddress()
+		if err == nil {
+			// Construct the settings, passing the unit's address (we
+			// already know it). Normally this will be the private
+			// address, but if this relation is to a remote application it
+			// might be the public one.
+			settings["private-address"] = settingsAddress.Value
+		} else {
+			logger.Warningf("cannot set private-address for unit %v in relation %v: %v", unitTag.Id(), relTag, err)
 		}
 		return relUnit.EnterScope(settings)
 	}

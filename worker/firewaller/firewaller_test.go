@@ -710,7 +710,7 @@ func (s *InstanceModeSuite) assertRemoteRelation(c *gc.C, remoteCIDRs []string, 
 	// Create the consuming side.
 	otherFactory := factory.NewFactory(otherState)
 	ch := otherFactory.MakeCharm(c, &factory.CharmParams{Name: "wordpress"})
-	otherFactory.MakeApplication(c, &factory.ApplicationParams{Name: "wordpress", Charm: ch})
+	wp := otherFactory.MakeApplication(c, &factory.ApplicationParams{Name: "wordpress", Charm: ch})
 
 	// Create an api connection to the other model.
 	apiInfo := s.APIInfo(c)
@@ -772,8 +772,14 @@ func (s *InstanceModeSuite) assertRemoteRelation(c *gc.C, remoteCIDRs []string, 
 	})
 
 	if len(remoteCIDRs) > 0 {
+		// Add a public address to the consuming unit so the firewaller can use it.
+		m := otherFactory.MakeMachine(c, &factory.MachineParams{
+			Addresses: []network.Address{network.NewAddress("10.0.0.4")},
+		})
+		otherFactory.MakeUnit(c, &factory.UnitParams{Application: wp, Machine: m})
+
 		// Add subnets to the model hosting the consuming app.
-		// This will be picked up by the firewaller.
+		// This will trigger the firewaller.
 		for _, cidr := range remoteCIDRs {
 			otherState.AddSubnet(state.SubnetInfo{
 				CIDR: cidr,
@@ -800,7 +806,7 @@ func (s *InstanceModeSuite) TestRemoteRelationDefaultCIDRs(c *gc.C) {
 }
 
 func (s *InstanceModeSuite) TestRemoteRelation(c *gc.C) {
-	s.assertRemoteRelation(c, []string{"::1/0", "10.0.0.0/24"}, []string{"10.0.0.0/24"})
+	s.assertRemoteRelation(c, []string{"::1/0", "10.0.0.0/24"}, []string{"10.0.0.4/32"})
 }
 
 type GlobalModeSuite struct {

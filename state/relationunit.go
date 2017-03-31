@@ -431,7 +431,10 @@ func (ru *RelationUnit) SettingsAddress() (network.Address, error) {
 
 	address, err := unit.PublicAddress()
 	if err != nil {
-		return network.Address{}, errors.Trace(err)
+		// TODO(wallyworld) - it's ok to return a private address sometimes
+		// TODO return an error when it's not possible to use the private address
+		logger.Warningf("no public address available for unit %q in cross model relation %q , using private address", unit.Name(), ru.relation)
+		return unit.PrivateAddress()
 	}
 	if address.Scope != network.ScopePublic {
 		logger.Debugf(
