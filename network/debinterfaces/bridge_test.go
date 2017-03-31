@@ -32,9 +32,9 @@ func (s *BridgeSuite) assertParse(c *gc.C, content string) []debinterfaces.Stanz
 	return stanzas
 }
 
-func (s *BridgeSuite) assertBridge(input, expected, prefix string, c *gc.C, devices ...string) {
+func (s *BridgeSuite) assertBridge(input, expected string, c *gc.C, devices map[string]string) {
 	stanzas := s.assertParse(c, input)
-	bridged := debinterfaces.Bridge(prefix, stanzas, devices...)
+	bridged := debinterfaces.Bridge(stanzas, devices)
 	c.Assert(format(bridged), gc.Equals, expected)
 	s.assertParse(c, format(bridged))
 }
@@ -43,7 +43,7 @@ func (s *BridgeSuite) TestBridgeDeviceNameNotMatched(c *gc.C) {
 	input := `
 auto eth0
 iface eth0 inet manual`
-	s.assertBridge(input, input[1:], "br-", c, "non-existent-interface")
+	s.assertBridge(input, input[1:], c, map[string]string{"non-existent-interface": "br-non-existent"})
 }
 
 func (s *BridgeSuite) TestBridgeDeviceNameAlreadyBridged(c *gc.C) {
@@ -51,7 +51,7 @@ func (s *BridgeSuite) TestBridgeDeviceNameAlreadyBridged(c *gc.C) {
 auto br-eth0
 iface br-eth0 inet dhcp
     bridge_ports eth0`
-	s.assertBridge(input, input[1:], "br-", c, "br-eth0")
+	s.assertBridge(input, input[1:], c, map[string]string{"br-eth0": "br-eth0-2"})
 }
 
 func (s *BridgeSuite) TestBridgeDeviceIsBridgeable(c *gc.C) {
@@ -66,7 +66,7 @@ iface eth0 inet manual
 auto br-eth0
 iface br-eth0 inet dhcp
     bridge_ports eth0`
-	s.assertBridge(input, expected[1:], "br-", c, "eth0")
+	s.assertBridge(input, expected[1:], c, map[string]string{"eth0": "br-eth0"})
 }
 
 func (s *BridgeSuite) TestBridgeDeviceIsBridgeableButHasNoAutoStanza(c *gc.C) {
@@ -78,13 +78,13 @@ iface eth0 inet manual
 
 iface br-eth0 inet dhcp
     bridge_ports eth0`
-	s.assertBridge(input, expected[1:], "br-", c, "eth0")
+	s.assertBridge(input, expected[1:], c, map[string]string{"eth0": "br-eth0"})
 }
 
 func (s *BridgeSuite) TestBridgeDeviceIsNotBridgeable(c *gc.C) {
 	input := `
 iface work-wireless bootp`
-	s.assertBridge(input, input[1:], "br-", c, "work-wireless")
+	s.assertBridge(input, input[1:], c, map[string]string{"work-wireless": "br-work-wireless"})
 }
 
 func (s *BridgeSuite) TestBridgeSpecialOptionsGetMoved(c *gc.C) {
@@ -125,7 +125,7 @@ iface br-eth1 inet static
     dns-search ubuntu.com
     dns-sortlist 192.168.1.1/24 10.245.168.0/21 192.168.1.0/24
     bridge_ports eth1`
-	s.assertBridge(input, expected[1:], "br-", c, "eth0", "eth1")
+	s.assertBridge(input, expected[1:], c, map[string]string{"eth0": "br-eth0", "eth1": "br-eth1"})
 }
 
 func (s *BridgeSuite) TestBridgeVLAN(c *gc.C) {
@@ -148,7 +148,7 @@ auto br-eth0.2
 iface br-eth0.2 inet static
     address 192.168.2.3/24
     bridge_ports eth0.2`
-	s.assertBridge(input, expected[1:], "br-", c, "eth0.2")
+	s.assertBridge(input, expected[1:], c, map[string]string{"eth0.2": "br-eth0.2"})
 }
 
 func (s *BridgeSuite) TestBridgeBond(c *gc.C) {
@@ -184,7 +184,7 @@ iface br-bond0 inet static
     dns-nameservers 10.17.20.200
     hwaddress 52:54:00:1c:f1:5b
     bridge_ports bond0`
-	s.assertBridge(input, expected[1:], "br-", c, "bond0")
+	s.assertBridge(input, expected[1:], c, map[string]string{"bond0": "br-bond0"})
 }
 
 func (s *BridgeSuite) TestBridgeNoIfacesDefined(c *gc.C) {
@@ -194,7 +194,7 @@ mapping eth0
     map home,*,*,*                  home
     map work,*,*,00:11:22:33:44:55  work-wireless
     map work,*,*,01:12:23:34:45:50  work-static`
-	s.assertBridge(input, input[1:], "br-", c, "eth0")
+	s.assertBridge(input, input[1:], c, map[string]string{"eth0": "br-eth0"})
 }
 
 func (s *BridgeSuite) TestBridgeBondMaster(c *gc.C) {
@@ -207,14 +207,14 @@ iface ens5 inet manual
     bond-xmit_hash_policy layer2
     bond-mode active-backup
     bond-miimon 100`
-	s.assertBridge(input, input[1:], "br-", c, "eth0")
+	s.assertBridge(input, input[1:], c, map[string]string{"eth0": "br-eth0"})
 }
 
 func (s *BridgeSuite) TestBridgeNoIfacesDefinedFromFile(c *gc.C) {
 	stanzas, err := debinterfaces.ParseSource("testdata/ifupdown-examples", nil, s.expander)
 	c.Assert(err, gc.IsNil)
 	input := format(stanzas)
-	s.assertBridge(input, input, "br-", c, "non-existent-iface")
+	s.assertBridge(input, input, c, map[string]string{"non-existent-interface": "non-existent-bridge"})
 }
 
 func (s *BridgeSuite) TestBridgeAlias(c *gc.C) {
@@ -241,7 +241,7 @@ iface br-eth0 inet static
     gateway 10.14.0.1
     address 10.14.0.102/24
     bridge_ports eth0`
-	s.assertBridge(input, expected[1:], "br-", c, "eth0", "eth0:1")
+	s.assertBridge(input, expected[1:], c, map[string]string{"eth0": "br-eth0", "eth0:1": "br-eth0:1"})
 }
 
 func (s *BridgeSuite) TestBridgeMultipleInterfaces(c *gc.C) {
@@ -271,14 +271,14 @@ iface br-enp1s0f3 inet static
 
 iface br-enp1s0f3 inet6 dhcp
     bridge_ports enp1s0f3`
-	s.assertBridge(input, expected[1:], "br-", c, "enp1s0f3")
+	s.assertBridge(input, expected[1:], c, map[string]string{"enp1s0f3": "br-enp1s0f3"})
 }
 
 func (s *BridgeSuite) TestSourceStanzaWithRelativeFilenames(c *gc.C) {
 	stanzas, err := debinterfaces.Parse("testdata/TestInputSourceStanza/interfaces")
 	c.Assert(err, gc.IsNil)
 	c.Assert(stanzas, gc.HasLen, 3)
-	bridged := debinterfaces.Bridge("br-", stanzas, "eth0")
+	bridged := debinterfaces.Bridge(stanzas, map[string]string{"eth0": "br-eth0"})
 
 	expected := `
 auto lo
@@ -307,7 +307,7 @@ func (s *BridgeSuite) TestSourceDirectoryStanzaWithRelativeFilenames(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(stanzas, gc.HasLen, 3)
 
-	bridged := debinterfaces.Bridge("br-", stanzas, "eth3")
+	bridged := debinterfaces.Bridge(stanzas, map[string]string{"eth3": "br-eth3"})
 
 	expected := `
 auto lo

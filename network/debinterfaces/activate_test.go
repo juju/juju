@@ -32,9 +32,8 @@ func (s *ActivationSuite) SetUpSuite(c *gc.C) {
 func (*BridgeSuite) TestActivateNonExistentDeviceOrDeviceThatIsAlreadyBridged(c *gc.C) {
 	params := debinterfaces.ActivationParams{
 		DryRun:           true,
-		BridgePrefix:     "br-",
 		Clock:            clock.WallClock,
-		DeviceNames:      []string{"non-existent"},
+		Devices:          map[string]string{"non-existent": "non-existent"},
 		Filename:         "testdata/TestInputSourceStanza/interfaces",
 		ReconfigureDelay: 10,
 		Timeout:          5 * time.Minute,
@@ -50,9 +49,8 @@ func (*BridgeSuite) TestActivateEth0WithBackup(c *gc.C) {
 
 	params := debinterfaces.ActivationParams{
 		BackupFilename:   filename + ".backup",
-		BridgePrefix:     "br-",
 		Clock:            clock.WallClock,
-		DeviceNames:      []string{"eth0", "eth1"},
+		Devices:          map[string]string{"eth0": "br-eth0", "eth1": "br-eth1"},
 		DryRun:           true,
 		Filename:         filename,
 		ReconfigureDelay: 10,
@@ -78,9 +76,8 @@ func (*BridgeSuite) TestActivateEth0WithoutBackup(c *gc.C) {
 	filename := "testdata/TestInputSourceStanza/interfaces"
 
 	params := debinterfaces.ActivationParams{
-		BridgePrefix:     "br-",
 		Clock:            clock.WallClock,
-		DeviceNames:      []string{"eth0", "eth1"},
+		Devices:          map[string]string{"eth0": "br-eth0", "eth1": "br-eth1"},
 		DryRun:           true,
 		Filename:         filename,
 		ReconfigureDelay: 100,
@@ -105,9 +102,8 @@ func (*BridgeSuite) TestActivateWithNegativeReconfigureDelay(c *gc.C) {
 	filename := "testdata/TestInputSourceStanza/interfaces"
 
 	params := debinterfaces.ActivationParams{
-		BridgePrefix:     "br-",
 		Clock:            clock.WallClock,
-		DeviceNames:      []string{"eth0", "eth1"},
+		Devices:          map[string]string{"eth0": "br-eth0", "eth1": "br-eth1"},
 		DryRun:           true,
 		Filename:         filename,
 		ReconfigureDelay: -3,
@@ -120,7 +116,7 @@ func (*BridgeSuite) TestActivateWithNegativeReconfigureDelay(c *gc.C) {
 	c.Assert(result.Code, gc.Equals, 0)
 
 	expected := `
-ifdown --interfaces=testdata/TestInputSourceStanza/interfaces eth0 eth1
+ifdown --interfaces=testdata/TestInputSourceStanza/interfaces eth1 eth0
 sleep 0
 write_content testdata/TestInputSourceStanza/interfaces
 ifup --interfaces=testdata/TestInputSourceStanza/interfaces -a
@@ -132,11 +128,10 @@ func (*BridgeSuite) TestActivateWithNoDevicesSpecified(c *gc.C) {
 	filename := "testdata/TestInputSourceStanza/interfaces"
 
 	params := debinterfaces.ActivationParams{
-		BridgePrefix: "br-",
-		Clock:        clock.WallClock,
-		DeviceNames:  []string{},
-		DryRun:       true,
-		Filename:     filename,
+		Clock:    clock.WallClock,
+		Devices:  map[string]string{},
+		DryRun:   true,
+		Filename: filename,
 	}
 
 	_, err := debinterfaces.BridgeAndActivate(params)
@@ -148,11 +143,10 @@ func (*BridgeSuite) TestActivateWithParsingError(c *gc.C) {
 	filename := "testdata/TestInputSourceStanzaWithErrors/interfaces"
 
 	params := debinterfaces.ActivationParams{
-		BridgePrefix: "br-",
-		Clock:        clock.WallClock,
-		DeviceNames:  []string{"eth0"},
-		DryRun:       true,
-		Filename:     filename,
+		Clock:    clock.WallClock,
+		Devices:  map[string]string{"eth0": "br-eth0"},
+		DryRun:   true,
+		Filename: filename,
 	}
 
 	_, err := debinterfaces.BridgeAndActivate(params)

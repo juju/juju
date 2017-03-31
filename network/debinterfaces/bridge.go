@@ -67,10 +67,10 @@ func isDefinitionBridgeable(iface *IfaceStanza) bool {
 	return len(words) >= 4
 }
 
-func turnManual(prefix string, iface IfaceStanza) *IfaceStanza {
+func turnManual(bridgeName string, iface IfaceStanza) *IfaceStanza {
 	if iface.IsAlias {
 		words := strings.Fields(iface.definition)
-		words[1] = prefix + words[1]
+		words[1] = bridgeName
 		iface.definition = strings.Join(words, " ")
 		return &iface
 	}
@@ -104,13 +104,15 @@ func isBridgeable(iface *IfaceStanza) bool {
 }
 
 // Bridge turns existing devices into bridged devices.
-func Bridge(prefix string, stanzas []Stanza, devices ...string) []Stanza {
+func Bridge(stanzas []Stanza, devices map[string]string) []Stanza {
 	result := make([]Stanza, 0)
 	autoStanzaSet := map[string]bool{}
+	manualInetSet := map[string]bool{}
+	manualInet6Set := map[string]bool{}
 	ifacesToBridge := make([]IfaceStanza, 0)
 	devicesToBridge := deviceNameSet{}
 
-	for _, name := range devices {
+	for name := range devices {
 		devicesToBridge[name] = true
 	}
 
@@ -122,7 +124,16 @@ func Bridge(prefix string, stanzas []Stanza, devices ...string) []Stanza {
 		switch v := s.(type) {
 		case IfaceStanza:
 			if devicesToBridge[v.DeviceName] && isBridgeable(&v) {
-				result = append(result, *turnManual(prefix, v))
+				// we need to have only iface XXX inet manual
+				// TODO do we need to have separate manual for inet6 or is one sufficient?
+				if strings.Fields(v.definition)[2] == "inet" && !manualInetSet[v.DeviceName] {
+					result = append(result, *turnManual(devices[v.DeviceName], v))
+					manualInetSet[v.DeviceName] = true
+				}
+				if strings.Fields(v.definition)[2] == "inet6" && !manualInet6Set[v.DeviceName] {
+					result = append(result, *turnManual(devices[v.DeviceName], v))
+					manualInet6Set[v.DeviceName] = true
+				}
 				ifacesToBridge = append(ifacesToBridge, v)
 			} else {
 				result = append(result, s)
@@ -131,7 +142,7 @@ func Bridge(prefix string, stanzas []Stanza, devices ...string) []Stanza {
 			names := v.DeviceNames
 			for i, name := range names {
 				if isAlias(name) && devicesToBridge[name] {
-					names[i] = prefix + name
+					names[i] = devices[name]
 					autoStanzaSet[names[i]] = true
 				} else {
 					autoStanzaSet[names[i]] = true
@@ -139,10 +150,10 @@ func Bridge(prefix string, stanzas []Stanza, devices ...string) []Stanza {
 			}
 			result = append(result, *newAutoStanza(names...))
 		case SourceStanza:
-			v.Stanzas = Bridge(prefix, v.Stanzas, devices...)
+			v.Stanzas = Bridge(v.Stanzas, devices)
 			result = append(result, v)
 		case SourceDirectoryStanza:
-			v.Stanzas = Bridge(prefix, v.Stanzas, devices...)
+			v.Stanzas = Bridge(v.Stanzas, devices)
 			result = append(result, v)
 		default:
 			result = append(result, v)
@@ -150,7 +161,7 @@ func Bridge(prefix string, stanzas []Stanza, devices ...string) []Stanza {
 	}
 
 	for _, iface := range ifacesToBridge {
-		bridgeName := prefix + iface.DeviceName
+		bridgeName := devices[iface.DeviceName]
 		// If there was a `auto $DEVICE` stanza make sure we
 		// create the complementary auto stanza for the bridge
 		// device.

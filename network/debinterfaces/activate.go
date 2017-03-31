@@ -18,10 +18,10 @@ var logger = loggo.GetLogger("juju.network.debinterfaces")
 
 // ActivationParams contains options to use when bridging interfaces
 type ActivationParams struct {
-	BackupFilename   string
-	BridgePrefix     string
-	Clock            clock.Clock
-	DeviceNames      []string
+	BackupFilename string
+	Clock          clock.Clock
+	// map deviceName -> bridgeName
+	Devices          map[string]string
 	DryRun           bool
 	Filename         string
 	ReconfigureDelay int
@@ -40,7 +40,12 @@ func activationCmd(oldContent, newContent string, params *ActivationParams) stri
 	if params.ReconfigureDelay < 0 {
 		params.ReconfigureDelay = 0
 	}
-
+	deviceNames := make([]string, len(params.Devices))
+	i := 0
+	for k := range params.Devices {
+		deviceNames[i] = k
+		i++
+	}
 	return fmt.Sprintf(`
 #!/bin/bash
 
@@ -73,7 +78,7 @@ ${DRYRUN} ifup --interfaces=%[1]q -a
 		params.ReconfigureDelay,
 		oldContent,
 		newContent,
-		strings.Join(params.DeviceNames, " "),
+		strings.Join(deviceNames, " "),
 		params.BackupFilename)[1:]
 }
 
@@ -82,7 +87,7 @@ ${DRYRUN} ifup --interfaces=%[1]q -a
 // bridged, then reconfigure the network using the ifupdown package
 // for the new bridges.
 func BridgeAndActivate(params ActivationParams) (*ActivationResult, error) {
-	if len(params.DeviceNames) == 0 {
+	if len(params.Devices) == 0 {
 		return nil, errors.Errorf("no devices specified")
 	}
 
@@ -93,7 +98,7 @@ func BridgeAndActivate(params ActivationParams) (*ActivationResult, error) {
 	}
 
 	origContent := FormatStanzas(FlattenStanzas(stanzas), 4)
-	bridgedStanzas := Bridge(params.BridgePrefix, stanzas, params.DeviceNames...)
+	bridgedStanzas := Bridge(stanzas, params.Devices)
 	bridgedContent := FormatStanzas(FlattenStanzas(bridgedStanzas), 4)
 
 	if origContent == bridgedContent {
@@ -106,7 +111,6 @@ func BridgeAndActivate(params ActivationParams) (*ActivationResult, error) {
 	if params.DryRun {
 		environ = append(environ, "DRYRUN=echo")
 	}
-
 	result, err := runCommand(cmd, environ, params.Clock, params.Timeout)
 
 	activationResult := ActivationResult{

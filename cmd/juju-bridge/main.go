@@ -11,21 +11,21 @@ import (
 
 	"github.com/juju/juju/network/debinterfaces"
 	"github.com/juju/utils/clock"
+	"strings"
 )
 
 const usage = `
 Bridge existing devices
 
-usage: [ -p ] [ -b <bridge-prefix ] <filename> <device-name>...
+usage: [ -p ] [ -b <bridge-prefix ] <filename> <device-name>~<bridge-name>...
 
 Options:
 
-  -b -- prefix to add before each device name to be bridged (default "br-")
   -p -- parse and print to stdout, no activation
 
 Example:
 
-  $ juju-bridge /etc/network/interfaces ens3 bond0.150
+  $ juju-bridge /etc/network/interfaces ens3~br-ens3 bond0.150~br-bond0.150
 `
 
 func printParseError(err error) {
@@ -38,7 +38,6 @@ func printParseError(err error) {
 
 func main() {
 	parseOnlyFlag := flag.Bool("p", false, "parse and print to stdout, no activation")
-	bridgePrefixFlag := flag.String("b", "br-", "bridge prefix")
 
 	flag.Parse()
 	args := flag.Args()
@@ -60,11 +59,20 @@ func main() {
 		os.Exit(0)
 	}
 
+	devices := make(map[string]string)
+	for _, v := range args[1:] {
+		arg := strings.Split(v, "~")
+		if len(arg) != 2 {
+			fmt.Fprintln(os.Stderr, usage)
+			os.Exit(1)
+		}
+		devices[arg[0]] = arg[1]
+	}
+
 	params := debinterfaces.ActivationParams{
-		BridgePrefix:     *bridgePrefixFlag,
 		Clock:            clock.WallClock,
 		Filename:         args[0],
-		DeviceNames:      args[1:],
+		Devices:          devices,
 		ReconfigureDelay: 10,
 		Timeout:          5 * time.Minute,
 	}
