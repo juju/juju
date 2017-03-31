@@ -32,3 +32,11 @@ func (u *firewallSuite) TestNewFirewall(c *gc.C) {
 	firewall = network.NewFirewall(cfg, cli)
 	c.Assert(firewall, gc.NotNil)
 }
+
+//TODO
+func (u *firewallSuite) TestGlobalIngressRules(c *gc.C) {
+	cfg := &fakeEnvironConfig{cfg: testing.ModelConfig(c)}
+	cli := &FakeFirewallAPI{}
+	firewall := network.NewFirewall(cfg, cli)
+	c.Assert(firewall, gc.NotNil)
+}

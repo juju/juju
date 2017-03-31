@@ -41,7 +41,7 @@ func (f Firewall) getAllApplications() ([]response.SecApplication, error) {
 	for _, val := range defaultApps.Result {
 		if val.PortProtocolPair() == "" {
 			// (gsamfira)this should not really happen, but
-			// I get paranoid when I run out of coffe
+			// I get paranoid when I run out of coffee
 			continue
 		}
 		allApps = append(allApps, val)
@@ -75,7 +75,10 @@ func (f Firewall) getAllApplicationsAsMap() (
 	return allApps, nil
 }
 
-func (f Firewall) ensureApplication(portRange network.PortRange, cache *[]response.SecApplication) (string, error) {
+func (f Firewall) ensureApplication(
+	portRange network.PortRange,
+	cache *[]response.SecApplication,
+) (string, error) {
 	// we should check if the security application is already created
 	for _, val := range *cache {
 		if val.PortProtocolPair() == portRange.String() {

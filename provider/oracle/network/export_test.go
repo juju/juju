@@ -3,4 +3,6 @@
 
 package network
 
-var GetMacAndIP = getMacAndIP
+var (
+	GetMacAndIP = getMacAndIP
+)

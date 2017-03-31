@@ -33,14 +33,17 @@ type SecIpAPI interface {
 }
 
 type IpAddressPrefixSetAPI interface {
-	CreateIpAddressPrefixSet(api.IpAddressPrefixSetParams) (response.IpAddressPrefixSet, error)
+	CreateIpAddressPrefixSet(
+		api.IpAddressPrefixSetParams) (response.IpAddressPrefixSet, error)
+
 	AllIpAddressPrefixSets([]api.Filter) (response.AllIpAddressPrefixSets, error)
 }
 
 type SecListAPI interface {
 	SecListDetails(string) (response.SecList, error)
 	DeleteSecList(string) error
-	CreateSecList(string, string, common.SecRuleAction, common.SecRuleAction) (response.SecList, error)
+	CreateSecList(string, string,
+		common.SecRuleAction, common.SecRuleAction) (response.SecList, error)
 }
 
 type SecRulesAPI interface {
@@ -53,5 +56,8 @@ type ApplicationsAPI interface {
 	AllSecApplications([]api.Filter) (response.AllSecApplications, error)
 	DefaultSecApplications([]api.Filter) (response.AllSecApplications, error)
 	CreateSecApplication(api.SecApplicationParams) (response.SecApplication, error)
+}
+
+type AssociationAPI interface {
 	AllSecAssociations([]api.Filter) (response.AllSecAssociations, error)
 }

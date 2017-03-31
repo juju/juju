@@ -72,6 +72,7 @@ type FirewallerAPI interface {
 	commonProvider.SecListAPI
 	commonProvider.ApplicationsAPI
 	commonProvider.SecRulesAPI
+	commonProvider.AssociationAPI
 }
 
 // Firewall exposes methods for mapping network ports.
