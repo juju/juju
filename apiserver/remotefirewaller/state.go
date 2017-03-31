@@ -16,13 +16,15 @@ import (
 type State interface {
 	ModelUUID() string
 
-	WatchSubnets() state.StringsWatcher
+	WatchSubnets(func(id interface{}) bool) state.StringsWatcher
 
 	GetRemoteEntity(model names.ModelTag, token string) (names.Tag, error)
 
 	KeyRelation(string) (Relation, error)
 
 	Application(string) (Application, error)
+
+	Unit(string) (Unit, error)
 }
 
 type stateShim struct {
@@ -40,6 +42,7 @@ func (st stateShim) KeyRelation(key string) (Relation, error) {
 
 type Relation interface {
 	Endpoints() []state.Endpoint
+	WatchUnits(applicationName string) (state.RelationUnitsWatcher, error)
 }
 
 func (st stateShim) Application(name string) (Application, error) {
@@ -52,25 +55,17 @@ func (st stateShim) Application(name string) (Application, error) {
 
 type Application interface {
 	Name() string
-	AllUnits() ([]Unit, error)
 }
 
 type applicationShim struct {
 	*state.Application
 }
 
-func (a applicationShim) AllUnits() (results []Unit, err error) {
-	units, err := a.Application.AllUnits()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	for _, unit := range units {
-		results = append(results, unit)
-	}
-	return results, nil
-}
-
 type Unit interface {
 	Name() string
 	PublicAddress() (network.Address, error)
+}
+
+func (st stateShim) Unit(name string) (Unit, error) {
+	return st.State.Unit(name)
 }
