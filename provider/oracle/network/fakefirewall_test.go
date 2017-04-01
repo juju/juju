@@ -6,175 +6,176 @@ import (
 	"github.com/juju/go-oracle-cloud/response"
 )
 
-type FakeFirewallAPI struct {
-	FakeComposeName func(string) string
-
-	// FakeAllSecRules   func([]api.Filter) (response.AllSecRules, error)
-	// FakeDeleteSecRule func(string) error
-	// FakeCreateSecRule func(api.SecRuleParams) (response.SecRule, error)
-	//
-	// FakeAclDetails func(string) (response.Acl, error)
-	// FakeCreateAcl  func(string, string, bool, []string) (response.Acl, error)
-	// FakeDeleteAcl  func(string) error
-	//
-	// FakeAllSecIpLists        func([]api.Filter) (response.AllSecIpLists, error)
-	// FakeCreateSecIpList      func(string, string, []string) (response.SecIpList, error)
-	// FakeAllDefaultSecIpLists func([]api.Filter) (response.AllSecIpLists, error)
-	//
-	// FakeCreateIpAddressPrefixSet func(
-	// 	api.IpAddressPrefixSetParams) (response.IpAddressPrefixSet, error)
-	// FakeAllIpAddressPrefixSets func([]api.Filter) (response.AllIpAddressPrefixSets, error)
-	//
-	// FakeSecListDetails func(string) (response.SecList, error)
-	// FakeDeleteSecList  func(string) error
-	// FakeCreateSecList  func(string, string,
-	// 	common.SecRuleAction, common.SecRuleAction) (response.SecList, error)
-	//
-	// FakeAllSecurityRules   func([]api.Filter) (response.AllSecurityRules, error)
-	// FakeDeleteSecurityRule func(string) error
-	// FakeCreateSecurityRule func(api.SecurityRuleParams) (response.SecurityRule, error)
-	//
-	// FakeAllSecApplications     func([]api.Filter) (response.AllSecApplications, error)
-	// FakeDefaultSecApplications func([]api.Filter) (response.AllSecApplications, error)
-	// FakeCreateSecApplication   func(api.SecApplicationParams) (response.SecApplication, error)
-	//
-	// FakeAllSecAssociations func([]api.Filter) (response.AllSecAssociations, error)
+// FakeComposer implements common.Composer interface
+type FakeComposer struct {
+	compose string
 }
 
-func (f FakeFirewallAPI) ComposeName(name string) string {
-	return f.ComposeName(name)
-}
-func (f FakeFirewallAPI) AllSecRules(filter []api.Filter) (response.AllSecRules, error) {
-	return response.AllSecRules{}, nil
-	//return f.FakeAllSecRules(filter)
-}
-func (f FakeFirewallAPI) DeleteSecRule(name string) error {
-	return nil
-	//return f.FakeDeleteSecRule(name)
-}
-func (f FakeFirewallAPI) CreateSecRule(p api.SecRuleParams) (response.SecRule, error) {
-	return response.SecRule{}, nil
-	//return f.FakeCreateSecRule(p)
-}
-func (f FakeFirewallAPI) AclDetails(name string) (response.Acl, error) {
-	return response.Acl{}, nil
-	//return f.FakeAclDetails(name)
-}
-func (f FakeFirewallAPI) CreateAcl(
-	name string,
-	description string,
-	flag bool,
-	tags []string,
-) (response.Acl, error) {
-	return response.Acl{}, nil
-	//return f.FakeCreateAcl(name, description, flag, tags)
-}
-func (f FakeFirewallAPI) DeleteAcl(name string) error {
-	return nil
-	//return f.FakeDeleteAcl(name)
+func (f FakeComposer) ComposeName(name string) string {
+	return f.compose
 }
 
-func (f FakeFirewallAPI) AllSecIpLists(
-	filter []api.Filter,
-) (response.AllSecIpLists, error) {
-	return response.AllSecIpLists{}, nil
-	//return f.FakeAllSecIpLists(filter)
+// FakeRules implement common.RuleAPI interface
+type FakeRules struct {
+	All       response.AllSecRules
+	AllErr    error
+	Create    response.SecRule
+	CreateErr error
+	DeleteErr error
 }
 
-func (f FakeFirewallAPI) CreateSecIpList(
-	description string,
-	name string,
-	secipentries []string,
-) (response.SecIpList, error) {
-	return response.SecIpList{}, nil
-	//return f.FakeCreateSecIpList(description, name, secipentries)
+func (f FakeRules) AllSecRules([]api.Filter) (response.AllSecRules, error) {
+	return f.All, f.AllErr
+}
+func (f FakeRules) CreateSecRule(api.SecRuleParams) (response.SecRule, error) {
+	return f.Create, f.CreateErr
+}
+func (f FakeRules) DeleteSecRule(name string) error {
+	return f.DeleteErr
 }
 
-func (f FakeFirewallAPI) AllDefaultSecIpLists(
-	filter []api.Filter,
-) (response.AllSecIpLists, error) {
-	return response.AllSecIpLists{}, nil
-	//return f.FakeAllDefaultSecIpLists(filter)
+// FakeAcl implements the common.AclAPI interface
+type FakeAcl struct {
+	Acl       response.Acl
+	AclErr    error
+	Create    response.Acl
+	CreateErr error
+	DeleteErr error
 }
 
-func (f FakeFirewallAPI) CreateIpAddressPrefixSet(
-	p api.IpAddressPrefixSetParams,
-) (response.IpAddressPrefixSet, error) {
-	return response.IpAddressPrefixSet{}, nil
-	//return f.FakeCreateIpAddressPrefixSet(p)
+func (f FakeAcl) AclDetails(string) (response.Acl, error) {
+	return f.Acl, f.AclErr
 }
 
-func (f FakeFirewallAPI) AllIpAddressPrefixSets(
-	filter []api.Filter,
+func (f FakeAcl) CreateAcl(string, string, bool, []string) (response.Acl, error) {
+	return f.Create, f.CreateErr
+}
+
+func (f FakeAcl) DeleteAcl(string) error {
+	return f.DeleteErr
+}
+
+// FakeSecIp implements common.SecIpAPI interface
+type FakeSecIp struct {
+	All           response.AllSecIpLists
+	AllErr        error
+	Create        response.SecIpList
+	CreateErr     error
+	AllDefault    response.AllSecIpLists
+	AllDefaultErr error
+}
+
+func (f FakeSecIp) AllSecIpLists([]api.Filter) (response.AllSecIpLists, error) {
+	return f.All, f.AllErr
+}
+
+func (f FakeSecIp) CreateSecIpList(string, string, []string) (response.SecIpList, error) {
+	return f.Create, f.CreateErr
+}
+func (f FakeSecIp) AllDefaultSecIpLists([]api.Filter) (response.AllSecIpLists, error) {
+	return f.AllDefault, f.AllDefaultErr
+}
+
+// FakeIpAddressPrefixSet type implements the common.IpAddressPrefixSetAPI interface
+type FakeIpAddressprefixSet struct {
+	Create    response.IpAddressPrefixSet
+	CreateErr error
+	All       response.AllIpAddressPrefixSets
+	AllErr    error
+}
+
+func (f FakeIpAddressprefixSet) CreateIpAddressPrefixSet(
+	api.IpAddressPrefixSetParams) (response.IpAddressPrefixSet, error) {
+	return f.Create, f.CreateErr
+}
+
+func (f FakeIpAddressprefixSet) AllIpAddressPrefixSets(
+	[]api.Filter,
 ) (response.AllIpAddressPrefixSets, error) {
-	return response.AllIpAddressPrefixSets{}, nil
-	//return f.FakeAllIpAddressPrefixSets(filter)
+	return f.All, f.AllErr
 }
 
-func (f FakeFirewallAPI) SecListDetails(name string) (response.SecList, error) {
-	return response.SecList{}, nil
-	//return f.FakeSecListDetails(name)
+// FakeSecList implement the common.SecListAPI interface
+type FakeSecList struct {
+	SecList    response.SecList
+	SecListErr error
+	DeleteErr  error
+	Create     response.SecList
+	CreateErr  error
 }
 
-func (f FakeFirewallAPI) DeleteSecList(name string) error {
-	return nil
-	//return f.FakeDeleteSecList(name)
+func (f FakeSecList) SecListDetails(string) (response.SecList, error) {
+	return f.SecList, f.SecListErr
+}
+func (f FakeSecList) DeleteSecList(string) error {
+	return f.DeleteErr
+}
+func (f FakeSecList) CreateSecList(string, string, common.SecRuleAction, common.SecRuleAction) (response.SecList, error) {
+	return f.Create, f.CreateErr
 }
 
-func (f FakeFirewallAPI) CreateSecList(
-	description string,
-	name string,
-	outbound_cidr_policy common.SecRuleAction,
-	policy common.SecRuleAction,
-) (response.SecList, error) {
-	return response.SecList{}, nil
-	//return f.FakeCreateSecList(description, name, outbound_cidr_policy, policy)
+// type FakeSecRules imeplements the common.SecRulesAPI interface
+type FakeSecRules struct {
+	All       response.AllSecurityRules
+	AllErr    error
+	DeleteErr error
+	Create    response.SecurityRule
+	CreateErr error
 }
 
-func (f FakeFirewallAPI) AllSecurityRules(
-	filter []api.Filter,
-) (response.AllSecurityRules, error) {
-	return response.AllSecurityRules{}, nil
-	//return f.FakeAllSecurityRules(filter)
+func (f FakeSecRules) AllSecurityRules([]api.Filter) (response.AllSecurityRules, error) {
+	return f.All, f.AllErr
 }
-
-func (f FakeFirewallAPI) DeleteSecurityRule(name string) error {
-	return nil
-	//return f.FakeDeleteSecurityRule(name)
-
+func (f FakeSecRules) DeleteSecurityRule(string) error {
+	return f.DeleteErr
 }
-
-func (f FakeFirewallAPI) CreateSecurityRule(
-	p api.SecurityRuleParams,
+func (f FakeSecRules) CreateSecurityRule(
+	api.SecurityRuleParams,
 ) (response.SecurityRule, error) {
-	return response.SecurityRule{}, nil
-	//return f.FakeCreateSecurityRule(p)
+	return f.Create, f.CreateErr
 }
 
-func (f FakeFirewallAPI) AllSecApplications(
-	filter []api.Filter,
-) (response.AllSecApplications, error) {
-	return response.AllSecApplications{}, nil
-	//return f.FakeAllSecApplications(filter)
+// FakeApplications type implements the common.ApplicationsAPI
+type FakeApplication struct {
+	All        response.AllSecApplications
+	AllErr     error
+	Default    response.AllSecApplications
+	DefaultErr error
+	Create     response.SecApplication
+	CreateErr  error
 }
 
-func (f FakeFirewallAPI) DefaultSecApplications(
-	filter []api.Filter,
-) (response.AllSecApplications, error) {
-	return response.AllSecApplications{}, nil
-	//return f.FakeDefaultSecApplications(filter)
+func (f FakeApplication) AllSecApplications([]api.Filter) (response.AllSecApplications, error) {
+	return f.All, f.AllErr
 }
 
-func (f FakeFirewallAPI) CreateSecApplication(
-	p api.SecApplicationParams,
-) (response.SecApplication, error) {
-	return response.SecApplication{}, nil
-	//return f.FakeCreateSecApplication(p)
+func (f FakeApplication) DefaultSecApplications([]api.Filter) (response.AllSecApplications, error) {
+	return f.Default, f.DefaultErr
 }
 
-func (f FakeFirewallAPI) AllSecAssociations(
-	filter []api.Filter,
-) (response.AllSecAssociations, error) {
-	return response.AllSecAssociations{}, nil
-	//return f.FakeAllSecAssociations(filter)
+func (f FakeApplication) CreateSecApplication(api.SecApplicationParams) (response.SecApplication, error) {
+	return f.Create, f.CreateErr
+}
+
+type FakeAssociation struct {
+	All    response.AllSecAssociations
+	AllErr error
+}
+
+func (f FakeAssociation) AllSecAssociations([]api.Filter) (response.AllSecAssociations, error) {
+	return f.All, f.AllErr
+}
+
+// FakeFirewallAPI used to mock the internal Firewaller implementation
+// This type implements the network.FirewallerAPI interface
+type FakeFirewallAPI struct {
+	FakeComposer
+	FakeRules
+	FakeAcl
+	FakeSecIp
+	FakeIpAddressprefixSet
+	FakeSecList
+	FakeSecRules
+	FakeApplication
+	FakeAssociation
 }
