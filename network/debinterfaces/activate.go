@@ -6,6 +6,7 @@ package debinterfaces
 import (
 	"fmt"
 	"os"
+	"sort"
 	"strings"
 	"time"
 
@@ -46,12 +47,15 @@ func activationCmd(oldContent, newContent string, params *ActivationParams) stri
 		deviceNames[i] = k
 		i++
 	}
+	sort.Strings(deviceNames)
 	return fmt.Sprintf(`
 #!/bin/bash
 
 set -eu
 
 : ${DRYRUN:=}
+
+if [ $DRYRUN ] && [ %[2]d == 10 ]; then sleep %[2]d; fi
 
 write_backup() {
     cat << 'EOF' > "$1"

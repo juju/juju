@@ -48,191 +48,60 @@ func assertCmdResult(c *gc.C, cmd, expected string) {
 	c.Assert(string(result.Stderr), gc.Equals, "")
 }
 
-func assertBridgeCmd(c *gc.C, devices []network.DeviceToBridge, bridgePrefix, filename, script string, dryRun bool, reconfigureDelay int, expected string) {
-	for _, python := range network.PythonInterpreters() {
-		cmd := network.BridgeCmd(devices, python, bridgePrefix, filename, script, dryRun, reconfigureDelay)
-		assertCmdResult(c, cmd, expected)
-	}
-}
-
-func assertENIBridgerError(c *gc.C, devices []network.DeviceToBridge, environ []string, timeout time.Duration, clock clock.Clock, bridgePrefix, filename string, dryRun bool, reconfigureDelay int, expected string) {
-	for _, python := range network.PythonInterpreters() {
-		bridger := network.NewEtcNetworkInterfacesBridger(python, environ, clock, timeout, bridgePrefix, filename, dryRun)
-		err := bridger.Bridge(devices, reconfigureDelay)
-		c.Assert(err, gc.NotNil)
-		c.Assert(err, gc.ErrorMatches, expected)
-	}
-}
-
-func (*BridgeSuite) TestBridgeCmdArgumentsNoBridgePrefixAndDryRun(c *gc.C) {
-	devices := []network.DeviceToBridge{
-		network.DeviceToBridge{
-			DeviceName: "ens3",
-		},
-		network.DeviceToBridge{
-			DeviceName: "ens4",
-		},
-		network.DeviceToBridge{
-			DeviceName: "bond0",
-		},
-	}
-	dryRun := true
-	assertBridgeCmd(c, devices, "", "/etc/network/interfaces", echoArgsScript, dryRun, 0, `
---interfaces-to-bridge=ens3 ens4 bond0
---activate
---dry-run
---reconfigure-delay=0
-/etc/network/interfaces
-`[1:])
-}
-
-func (*BridgeSuite) TestBridgeCmdArgumentsNoNetBondReconfigureDelay(c *gc.C) {
-	devices := []network.DeviceToBridge{
-		network.DeviceToBridge{
-			DeviceName: "ens3",
-		},
-		network.DeviceToBridge{
-			DeviceName: "ens4",
-		},
-		network.DeviceToBridge{
-			DeviceName: "bond0",
-		},
-	}
-	assertBridgeCmd(c, devices, "", "/etc/network/interfaces", echoArgsScript, true, 0, `
---interfaces-to-bridge=ens3 ens4 bond0
---activate
---dry-run
---reconfigure-delay=0
-/etc/network/interfaces
-`[1:])
-}
-
-func (*BridgeSuite) TestBridgeCmdArgumentsWithBridgePrefixAndDryRun(c *gc.C) {
-	devices := []network.DeviceToBridge{
-		network.DeviceToBridge{
-			DeviceName: "ens3",
-		},
-		network.DeviceToBridge{
-			DeviceName: "ens4",
-		},
-		network.DeviceToBridge{
-			DeviceName: "bond0",
-		},
-	}
-	assertBridgeCmd(c, devices, "foo-", "/etc/network/interfaces", echoArgsScript, true, 0, `
---interfaces-to-bridge=ens3 ens4 bond0
---activate
---bridge-prefix=foo-
---dry-run
---reconfigure-delay=0
-/etc/network/interfaces
-`[1:])
-}
-
-func (*BridgeSuite) TestBridgeCmdArgumentsWithBridgePrefixWithoutDryRun(c *gc.C) {
-	devices := []network.DeviceToBridge{
-		network.DeviceToBridge{
-			DeviceName: "ens3",
-		},
-		network.DeviceToBridge{
-			DeviceName: "ens4",
-		},
-		network.DeviceToBridge{
-			DeviceName: "bond0",
-		},
-	}
-	assertBridgeCmd(c, devices, "foo-", "/etc/network/interfaces", echoArgsScript, false, 0, `
---interfaces-to-bridge=ens3 ens4 bond0
---activate
---bridge-prefix=foo-
---reconfigure-delay=0
-/etc/network/interfaces
-`[1:])
-}
-
-func (*BridgeSuite) TestBridgeCmdArgumentsWithoutBridgePrefixAndWithoutDryRun(c *gc.C) {
-	devices := []network.DeviceToBridge{
-		network.DeviceToBridge{
-			DeviceName: "ens3",
-		},
-		network.DeviceToBridge{
-			DeviceName: "ens4",
-		},
-		network.DeviceToBridge{
-			DeviceName: "bond0",
-		},
-	}
-	assertBridgeCmd(c, devices, "", "/etc/network/interfaces", echoArgsScript, false, 0, `
---interfaces-to-bridge=ens3 ens4 bond0
---activate
---reconfigure-delay=0
-/etc/network/interfaces
-`[1:])
-}
-
-func (*BridgeSuite) TestBridgeCmdArgumentsWithNetBondReconfigureDelay(c *gc.C) {
-	devices := []network.DeviceToBridge{
-		network.DeviceToBridge{
-			DeviceName: "ens3",
-		},
-		network.DeviceToBridge{
-			DeviceName: "ens4",
-		},
-		network.DeviceToBridge{
-			DeviceName: "bond0",
-		},
-	}
-	assertBridgeCmd(c, devices, "", "/etc/network/interfaces", echoArgsScript, false, 4, `
---interfaces-to-bridge=ens3 ens4 bond0
---activate
---reconfigure-delay=4
-/etc/network/interfaces
-`[1:])
+func assertENIBridgerError(c *gc.C, devices []network.DeviceToBridge, timeout time.Duration, clock clock.Clock, filename string, dryRun bool, reconfigureDelay int, expected string) {
+	bridger := network.NewEtcNetworkInterfacesBridger(clock, timeout, filename, dryRun)
+	err := bridger.Bridge(devices, reconfigureDelay)
+	c.Assert(err, gc.NotNil)
+	c.Assert(err, gc.ErrorMatches, expected)
 }
 
 func (*BridgeSuite) TestENIBridgerWithMissingFilenameArgument(c *gc.C) {
-	devices := []network.DeviceToBridge{}
-	expected := `(?s)bridgescript failed:.*(too few arguments|the following arguments are required: filename)\n`
-	assertENIBridgerError(c, devices, os.Environ(), 0, clock.WallClock, "br-", "", true, 0, expected)
+	devices := []network.DeviceToBridge{
+		network.DeviceToBridge{
+			DeviceName: "ens123",
+			BridgeName: "br-ens123",
+		},
+	}
+	expected := `bridge activaction error: filename and input is nil`
+	assertENIBridgerError(c, devices, 0, clock.WallClock, "", true, 0, expected)
 }
 
 func (*BridgeSuite) TestENIBridgerWithEmptyDeviceNamesArgument(c *gc.C) {
 	devices := []network.DeviceToBridge{}
-	expected := `(?s)bridgescript failed:.*(too few arguments|no interfaces specified)\n`
-	assertENIBridgerError(c, devices, os.Environ(), 0, clock.WallClock, "br-", "testdata/non-existent-filename", true, 0, expected)
+	expected := `bridge activaction error: no devices specified`
+	assertENIBridgerError(c, devices, 0, clock.WallClock, "testdata/non-existent-filename", true, 0, expected)
 }
 
 func (*BridgeSuite) TestENIBridgerWithNonExistentFile(c *gc.C) {
 	devices := []network.DeviceToBridge{
 		network.DeviceToBridge{
-			DeviceName: "ens3",
+			DeviceName: "ens123",
+			BridgeName: "br-ens123",
 		},
 	}
-	expected := `(?s).*(IOError|FileNotFoundError):.*No such file or directory: 'testdata/non-existent-file'\n`
-	assertENIBridgerError(c, devices, os.Environ(), 0, clock.WallClock, "br-", "testdata/non-existent-file", true, 0, expected)
+	expected := `bridge activaction error: open testdata/non-existent-file: no such file or directory`
+	assertENIBridgerError(c, devices, 0, clock.WallClock, "testdata/non-existent-file", true, 0, expected)
 }
 
 func (*BridgeSuite) TestENIBridgerWithTimeout(c *gc.C) {
 	devices := []network.DeviceToBridge{
 		network.DeviceToBridge{
-			DeviceName: "ens3",
+			DeviceName: "ens123",
+			BridgeName: "br-ens123",
 		},
 	}
-	environ := os.Environ()
-	environ = append(environ, "ADD_JUJU_BRIDGE_SLEEP_PREAMBLE_FOR_TESTING=10")
-	expected := "bridgescript timed out after 500ms"
-	assertENIBridgerError(c, devices, environ, 500*time.Millisecond, clock.WallClock, "br-", "testdata/non-existent-file", true, 0, expected)
+	expected := "bridge activaction error: bridge activation error: command cancelled"
+	assertENIBridgerError(c, devices, 500*time.Millisecond, clock.WallClock, "testdata/interfaces", true, 10, expected)
 }
 
 func (*BridgeSuite) TestENIBridgerWithDryRun(c *gc.C) {
 	devices := []network.DeviceToBridge{
 		network.DeviceToBridge{
 			DeviceName: "ens123",
+			BridgeName: "br-ens123",
 		},
 	}
-	for _, python := range network.PythonInterpreters() {
-		bridger := network.NewEtcNetworkInterfacesBridger(python, os.Environ(), clock.WallClock, 0, "", "testdata/interfaces", true)
-		err := bridger.Bridge(devices, 0)
-		c.Assert(err, gc.IsNil)
-	}
+	bridger := network.NewEtcNetworkInterfacesBridger(clock.WallClock, 0, "testdata/interfaces", true)
+	err := bridger.Bridge(devices, 0)
+	c.Assert(err, gc.IsNil)
 }

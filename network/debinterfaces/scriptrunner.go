@@ -42,12 +42,12 @@ func runCommand(command string, environ []string, clock clock.Clock, timeout tim
 	result, err := cmd.WaitWithCancel(cancel)
 
 	if err != nil {
-		return nil, errors.Trace(err)
+		err = errors.Trace(err)
 	}
 
 	return &scriptResult{
 		Stdout: result.Stdout,
 		Stderr: result.Stderr,
 		Code:   result.Code,
-	}, nil
+	}, err
 }

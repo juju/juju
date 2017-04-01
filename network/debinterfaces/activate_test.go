@@ -116,7 +116,7 @@ func (*BridgeSuite) TestActivateWithNegativeReconfigureDelay(c *gc.C) {
 	c.Assert(result.Code, gc.Equals, 0)
 
 	expected := `
-ifdown --interfaces=testdata/TestInputSourceStanza/interfaces eth1 eth0
+ifdown --interfaces=testdata/TestInputSourceStanza/interfaces eth0 eth1
 sleep 0
 write_content testdata/TestInputSourceStanza/interfaces
 ifup --interfaces=testdata/TestInputSourceStanza/interfaces -a

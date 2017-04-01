@@ -1,18 +1,20 @@
 // Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package debinterfaces
+package debinterfaces_test
 
 import (
 	"os"
 	"runtime"
 	"time"
 
-	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/network/debinterfaces"
+	coretesting "github.com/juju/juju/testing"
 )
 
 type ScriptRunnerSuite struct {
@@ -30,21 +32,21 @@ func (s *ScriptRunnerSuite) SetUpSuite(c *gc.C) {
 
 func (*ScriptRunnerSuite) TestScriptRunnerFails(c *gc.C) {
 	clock := testing.NewClock(coretesting.ZeroTime())
-	result, err := RunCommand("exit 1", os.Environ(), clock, 0)
+	result, err := debinterfaces.RunCommand("exit 1", os.Environ(), clock, 0)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Code, gc.Equals, 1)
 }
 
 func (*ScriptRunnerSuite) TestScriptRunnerSucceeds(c *gc.C) {
 	clock := testing.NewClock(coretesting.ZeroTime())
-	result, err := RunCommand("exit 0", os.Environ(), clock, 0)
+	result, err := debinterfaces.RunCommand("exit 0", os.Environ(), clock, 0)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Code, gc.Equals, 0)
 }
 
 func (*ScriptRunnerSuite) TestScriptRunnerCheckStdout(c *gc.C) {
 	clock := testing.NewClock(coretesting.ZeroTime())
-	result, err := RunCommand("echo -n 42", os.Environ(), clock, 0)
+	result, err := debinterfaces.RunCommand("echo -n 42", os.Environ(), clock, 0)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Code, gc.Equals, 0)
 	c.Check(string(result.Stdout), gc.Equals, "42")
@@ -53,7 +55,7 @@ func (*ScriptRunnerSuite) TestScriptRunnerCheckStdout(c *gc.C) {
 
 func (*ScriptRunnerSuite) TestScriptRunnerCheckStderr(c *gc.C) {
 	clock := testing.NewClock(coretesting.ZeroTime())
-	result, err := RunCommand(">&2 echo -n 3.141", os.Environ(), clock, 0)
+	result, err := debinterfaces.RunCommand(">&2 echo -n 3.141", os.Environ(), clock, 0)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Code, gc.Equals, 0)
 	c.Check(string(result.Stdout), gc.Equals, "")
@@ -61,7 +63,7 @@ func (*ScriptRunnerSuite) TestScriptRunnerCheckStderr(c *gc.C) {
 }
 
 func (*ScriptRunnerSuite) TestScriptRunnerTimeout(c *gc.C) {
-	_, err := RunCommand("sleep 6", os.Environ(), clock.WallClock, 500*time.Microsecond)
+	_, err := debinterfaces.RunCommand("sleep 6", os.Environ(), clock.WallClock, 500*time.Microsecond)
 	c.Assert(err, gc.NotNil)
 	c.Assert(err, gc.ErrorMatches, "command cancelled")
 }
