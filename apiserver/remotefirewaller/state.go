@@ -16,13 +16,15 @@ import (
 type State interface {
 	ModelUUID() string
 
-	WatchSubnets() state.StringsWatcher
+	WatchSubnets(func(id interface{}) bool) state.StringsWatcher
 
 	GetRemoteEntity(model names.ModelTag, token string) (names.Tag, error)
 
 	KeyRelation(string) (Relation, error)
 
 	Application(string) (Application, error)
+
+	Unit(string) (Unit, error)
 }
 
 type stateShim struct {
@@ -35,11 +37,29 @@ func (st stateShim) GetRemoteEntity(model names.ModelTag, token string) (names.T
 }
 
 func (st stateShim) KeyRelation(key string) (Relation, error) {
-	return st.State.KeyRelation(key)
+	rel, err := st.State.KeyRelation(key)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return relationShim{rel}, nil
 }
 
 type Relation interface {
 	Endpoints() []state.Endpoint
+	WatchUnits(applicationName string) (state.RelationUnitsWatcher, error)
+	UnitInScope(Unit) (bool, error)
+}
+
+type relationShim struct {
+	*state.Relation
+}
+
+func (r relationShim) UnitInScope(u Unit) (bool, error) {
+	ru, err := r.Relation.Unit(u.(*state.Unit))
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	return ru.InScope()
 }
 
 func (st stateShim) Application(name string) (Application, error) {
@@ -73,4 +93,8 @@ func (a applicationShim) AllUnits() (results []Unit, err error) {
 type Unit interface {
 	Name() string
 	PublicAddress() (network.Address, error)
+}
+
+func (st stateShim) Unit(name string) (Unit, error) {
+	return st.State.Unit(name)
 }
