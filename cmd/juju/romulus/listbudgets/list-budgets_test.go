@@ -54,6 +54,7 @@ func (s *listBudgetsSuite) TestListBudgetsOutput(c *gc.C) {
 				Unallocated: "20",
 				Available:   "45",
 				Consumed:    "5",
+				Default:     true,
 			},
 			budget.BudgetSummary{
 				Owner:       "bob",
@@ -86,7 +87,7 @@ func (s *listBudgetsSuite) TestListBudgetsOutput(c *gc.C) {
 	// Expected command output. Make sure budgets are sorted alphabetically.
 	expected := "" +
 		"Budget       \tMonthly\tAllocated\tAvailable\tSpent\n" +
-		"personal     \t     50\t       30\t       45\t    5\n" +
+		"personal*    \t     50\t       30\t       45\t    5\n" +
 		"team         \t     50\t       10\t       40\t   10\n" +
 		"work         \t    200\t      100\t      150\t   50\n" +
 		"Total        \t    300\t      140\t      235\t   65\n" +
