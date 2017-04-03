@@ -9,8 +9,8 @@ import (
 	"net"
 
 	"github.com/juju/errors"
-	"github.com/juju/utils/set"
 	jujutxn "github.com/juju/txn"
+	"github.com/juju/utils/set"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
