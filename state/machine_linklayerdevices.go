@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/set"
+	jujutxn "github.com/juju/txn"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -190,10 +191,13 @@ func (m *Machine) SetLinkLayerDevices(devicesArgs ...LinkLayerDeviceArgs) (err e
 		if err := checkModelActive(m.st); err != nil {
 			return nil, errors.Trace(err)
 		}
-		if err := m.isStillAlive(); err != nil {
-			return nil, errors.Trace(err)
+		if m.doc.Life != Alive {
+			return nil, errors.Errorf("machine %q not alive", m.doc.Id)
 		}
 		if attempt > 0 {
+			if err := m.isStillAlive(); err != nil {
+				return nil, errors.Trace(err)
+			}
 			allIds, err := m.st.allProviderIDsForLinkLayerDevices()
 			if err != nil {
 				return nil, errors.Trace(err)
@@ -219,14 +223,11 @@ func (m *Machine) SetLinkLayerDevices(devicesArgs ...LinkLayerDeviceArgs) (err e
 		if len(setDevicesOps) == 0 {
 			// No need to assert only that the machine is alive
 			logger.Debugf("no changes to LinkLayerDevices for machine %q", m.Id())
-			return nil, errNoChanges
+			return nil, jujutxn.ErrNoOperations
 		}
 		return append(ops, setDevicesOps...), nil
 	}
 	if err := m.st.run(buildTxn); err != nil {
-		if errors.Cause(err) == errNoChanges {
-			return nil
-		}
 		return errors.Trace(err)
 	}
 	return nil
@@ -588,8 +589,6 @@ type LinkLayerDeviceAddress struct {
 	GatewayAddress string
 }
 
-var errNoChanges = errors.New("no changes to be applied")
-
 // SetDevicesAddresses sets the addresses of all devices in devicesAddresses,
 // adding new or updating existing assignments as needed, in a single
 // transaction. ProviderID field can be empty if not supported by the provider,
@@ -649,14 +648,11 @@ func (m *Machine) SetDevicesAddresses(devicesAddresses ...LinkLayerDeviceAddress
 			// no actual address changes to be queued, so no need to create an op that just asserts
 			// the machine is alive
 			logger.Debugf("no changes to DevicesAddresses for machine %q", m.Id())
-			return nil, errNoChanges
+			return nil, jujutxn.ErrNoOperations
 		}
 		return append(ops, setAddressesOps...), nil
 	}
 	if err := m.st.run(buildTxn); err != nil {
-		if errors.Cause(err) == errNoChanges {
-			return nil
-		}
 		return errors.Trace(err)
 	}
 	return nil

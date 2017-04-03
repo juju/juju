@@ -146,12 +146,12 @@ func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesWhenMachineNotAliveO
 		Name: "eth0",
 		Type: state.EthernetDevice,
 	}
-	s.assertSetLinkLayerDevicesFailsForArgs(c, args, "machine not found or not alive")
+	s.assertSetLinkLayerDevicesFailsForArgs(c, args, `machine "0" not alive`)
 
 	err = s.machine.Remove()
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.assertSetLinkLayerDevicesFailsForArgs(c, args, "machine not found or not alive")
+	s.assertSetLinkLayerDevicesFailsForArgs(c, args, `machine "0" not alive`)
 }
 
 func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesWhenModelNotAlive(c *gc.C) {
@@ -1333,7 +1333,7 @@ func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesToContainerWhenConta
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
-	s.assertSetLinkLayerDevicesToContainerFailsWithBeforeHook(c, beforeHook, `.*machine not found or not alive`)
+	s.assertSetLinkLayerDevicesToContainerFailsWithBeforeHook(c, beforeHook, `.*machine "0/lxd/0" not alive`)
 }
 
 func (s *linkLayerDevicesStateSuite) assertSetLinkLayerDevicesToContainerFailsWithBeforeHook(c *gc.C, beforeHook func(), expectedError string) {
