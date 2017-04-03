@@ -2910,15 +2910,18 @@ class ModelClient:
                     else:
                         child.sendline('n')
             if cloud['type'] == 'vsphere':
-                child.expect('Enter the API endpoint url for the cloud:')
+                child.expect(
+                    'Enter the '
+                    '(vCenter address or URL|API endpoint url for the cloud):')
                 child.sendline(cloud['endpoint'])
                 for num, (name, values) in enumerate(cloud['regions'].items()):
-                    child.expect("(Enter region name:)|"
-                                 "(Can't validate endpoint)")
-                    if child.match.group(2) is not None:
+                    child.expect("Enter (datacenter|region) name:|"
+                                 "(?P<invalid>Can't validate endpoint)")
+                    if child.match.group('invalid') is not None:
                         raise InvalidEndpoint()
                     child.sendline(name)
-                    child.expect('Enter another region\? \(Y/n\):')
+                    child.expect(
+                        'Enter another (datacenter|region)\? \(Y/n\):')
                     if num + 1 < len(cloud['regions']):
                         child.sendline('y')
                     else:
