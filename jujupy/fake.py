@@ -623,7 +623,7 @@ class AddCloud(PromptingExpectChild):
         if cloud['type'] == 'openstack':
             regions = {}
             for match, line in self.lines:
-                if match == self.REGION_NAME or match == self.DATACENTER_NAME:
+                if match == self.REGION_NAME:
                     cur_region = {}
                     regions[line] = cur_region
                 if match == self.REGION_ENDPOINT:
