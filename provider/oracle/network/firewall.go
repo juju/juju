@@ -445,6 +445,7 @@ func (f Firewall) closePortsOnList(list string, rules []network.IngressRule) err
 	if err != nil {
 		return errors.Trace(err)
 	}
+
 	//TODO (gsamfira): optimize this
 	for name, rule := range mapping {
 		sort.Strings(rule.SourceCIDRs)
