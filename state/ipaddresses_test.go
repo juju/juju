@@ -503,22 +503,6 @@ func (s *ipAddressesStateSuite) TestSetDevicesAddressesFailsWhenCIDRAddressMatch
 	s.assertSetDevicesAddressesFailsForArgs(c, args, expectedError)
 }
 
-func (s *ipAddressesStateSuite) TestSetDevicesAddressesFailsWhenModelNotAlive(c *gc.C) {
-	s.addNamedDeviceForMachine(c, "eth0", s.otherStateMachine)
-	otherModel, err := s.otherState.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	err = otherModel.Destroy()
-	c.Assert(err, jc.ErrorIsNil)
-
-	args := state.LinkLayerDeviceAddress{
-		CIDRAddress:  "10.20.30.40/16",
-		DeviceName:   "eth0",
-		ConfigMethod: state.StaticAddress,
-	}
-	err = s.otherStateMachine.SetDevicesAddresses(args)
-	c.Assert(err, gc.ErrorMatches, `.*: model "other-model" is no longer alive`)
-}
-
 func (s *ipAddressesStateSuite) TestSetDevicesAddressesFailsWhenMachineNotAliveOrGone(c *gc.C) {
 	s.addNamedDeviceForMachine(c, "eth0", s.otherStateMachine)
 	err := s.otherStateMachine.EnsureDead()

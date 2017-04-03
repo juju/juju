@@ -154,24 +154,6 @@ func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesWhenMachineNotAliveO
 	s.assertSetLinkLayerDevicesFailsForArgs(c, args, `machine "0" not alive`)
 }
 
-func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesWhenModelNotAlive(c *gc.C) {
-	otherModel, err := s.otherState.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	err = otherModel.Destroy()
-	c.Assert(err, jc.ErrorIsNil)
-
-	args := state.LinkLayerDeviceArgs{
-		Name: "eth0",
-		Type: state.EthernetDevice,
-	}
-	err = s.otherStateMachine.SetLinkLayerDevices(args)
-	expectedError := fmt.Sprintf(
-		"cannot set link-layer devices to machine %q: model %q is no longer alive",
-		s.otherStateMachine.Id(), otherModel.Name(),
-	)
-	c.Assert(err, gc.ErrorMatches, expectedError)
-}
-
 func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesWithMissingParentSameMachine(c *gc.C) {
 	args := state.LinkLayerDeviceArgs{
 		Name:       "eth0",

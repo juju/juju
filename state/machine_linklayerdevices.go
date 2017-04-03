@@ -188,9 +188,6 @@ func (m *Machine) SetLinkLayerDevices(devicesArgs ...LinkLayerDeviceArgs) (err e
 			return nil, errors.Trace(err)
 		}
 
-		if err := checkModelActive(m.st); err != nil {
-			return nil, errors.Trace(err)
-		}
 		if m.doc.Life != Alive {
 			return nil, errors.Errorf("machine %q not alive", m.doc.Id)
 		}
@@ -615,9 +612,6 @@ func (m *Machine) SetDevicesAddresses(devicesAddresses ...LinkLayerDeviceAddress
 			return nil, errors.Trace(err)
 		}
 
-		if err := checkModelActive(m.st); err != nil {
-			return nil, errors.Trace(err)
-		}
 		if err := m.isStillAlive(); err != nil {
 			return nil, errors.Trace(err)
 		}
