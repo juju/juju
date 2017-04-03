@@ -56,11 +56,11 @@ if [[ $OS != "ubuntu" ]]; then
 # Does not support python3-venv
 elif (lsb_release -c|grep -E 'trusty|precise'); then
     hammer_time="disabled"
-# No network access to github
-elif (hostname |grep -E 'swirlix-30|juju-s3lp5|skimmia|finfolk|prodstack-slave|munna|stilson|silcoon'); then
-    hammer_time="disabled"
-else
+# Check network access to github
+elif (netcat github.com 22 -w 1 > /dev/null < /dev/null); then
     hammer_time="enabled"
+else
+    hammer_time="disabled"
 fi
 
 update_branch lp:workspace-runner
