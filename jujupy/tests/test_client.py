@@ -3731,7 +3731,7 @@ class TestModelClient(ClientTest):
             with patch.object(client, 'juju', autospec=True) as mock:
                 client.switch(model=model, controller=controller)
             mock.assert_called_once_with('switch', (expect,), include_e=False)
-        run_switch_test('default', 'default')
+        run_switch_test('foo:default', 'default')
         run_switch_test('other', controller='other')
         run_switch_test('other:default', 'default', 'other')
 
