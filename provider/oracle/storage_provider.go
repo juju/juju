@@ -87,6 +87,11 @@ func (s storageProvider) ValidateConfig(cfg *storage.Config) error {
 				return errors.Errorf("invalid volume-type %q", volType)
 			}
 			return nil
+		case poolType:
+			if _, ok := poolTypeMap[volType.(poolType)]; !ok {
+				return errors.Errorf("invalid volume-type %q", volType)
+			}
+			return nil
 		default:
 			return errors.Errorf("invalid volume-type %T", kind)
 		}

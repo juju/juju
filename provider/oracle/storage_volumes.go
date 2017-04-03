@@ -403,11 +403,13 @@ func (s *oracleVolumeSource) getFreeIndexNumber(existing []int, max int) (int, e
 }
 
 func (s *oracleVolumeSource) getDeviceNameForIndex(idx int) string {
-	// start from 97. xvda will always be the root disk
-	// we use an ephemeral disk when booting instances, so we get
+	// start from 97. xvda will always be the root disk.
+	// We use an ephemeral disk when booting instances, so we get
 	// the full range of 10 disks we can attach to an instance.
 	// Alternatively, we can create a volume from an image and attach
 	// it to the launchplan, and set it as a boot device.
+	// NOTE(gsamfira): if we ever decide to boot from volume, this
+	// needs to be addressed to return the proper device name
 	return fmt.Sprintf("%s%s", blockDevicePrefix, string([]byte{97 + byte(idx)}))
 }
 
