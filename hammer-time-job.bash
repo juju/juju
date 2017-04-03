@@ -42,5 +42,5 @@ fi
 EOT
 EXIT_STATUS=$?
 set -e
-JUJU_DATA=$DATA_DIR juju kill-controller $MODEL_NAME --yes
+JUJU_DATA=$DATA_DIR $JUJU_BIN kill-controller $MODEL_NAME --yes
 exit $EXIT_STATUS
