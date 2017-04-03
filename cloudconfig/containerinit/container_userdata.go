@@ -170,19 +170,16 @@ func PrepareNetworkConfigFromInterfaces(interfaces []network.InterfaceInfo) *Pre
 	autoStarted := set.NewStrings("lo")
 
 	for _, info := range interfaces {
-		cleanIfaceName := strings.Replace(info.MACAddress, ":", "_", -1)
-		// prepend eth because .format of python wont like a tag starting with numbers.
-		cleanIfaceName = fmt.Sprintf("{eth%s}", cleanIfaceName)
 		if !info.NoAutoStart {
-			autoStarted.Add(cleanIfaceName)
+			autoStarted.Add(info.InterfaceName)
 		}
 
 		if cidr := info.CIDRAddress(); cidr != "" {
-			nameToAddress[cleanIfaceName] = cidr
+			nameToAddress[info.InterfaceName] = cidr
 		} else if info.ConfigType == network.ConfigDHCP {
-			nameToAddress[cleanIfaceName] = string(network.ConfigDHCP)
+			nameToAddress[info.InterfaceName] = string(network.ConfigDHCP)
 		}
-		nameToRoutes[cleanIfaceName] = info.Routes
+		nameToRoutes[info.InterfaceName] = info.Routes
 
 		for _, dns := range info.DNSServers {
 			dnsServers.Add(dns.Value)
@@ -194,7 +191,7 @@ func PrepareNetworkConfigFromInterfaces(interfaces []network.InterfaceInfo) *Pre
 			gatewayAddress = info.GatewayAddress.Value
 		}
 
-		namesInOrder = append(namesInOrder, cleanIfaceName)
+		namesInOrder = append(namesInOrder, info.InterfaceName)
 	}
 
 	prepared := &PreparedConfig{
@@ -225,10 +222,8 @@ func newCloudInitConfigWithNetworks(series string, networkConfig *container.Netw
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		cloudConfig.AddBootTextFile(systemNetworkInterfacesFile+".templ", config, 0644)
-		cloudConfig.AddBootTextFile(systemNetworkInterfacesFile+".py", NetworkInterfacesScript, 0744)
-		cloudConfig.AddBootCmd(populateNetworkInterfaces(systemNetworkInterfacesFile))
-		//cloudConfig.AddRunCmd(raiseJujuNetworkInterfacesScript(systemNetworkInterfacesFile, networkInterfacesFile))
+		cloudConfig.AddBootTextFile(networkInterfacesFile, config, 0644)
+		cloudConfig.AddRunCmd(raiseJujuNetworkInterfacesScript(systemNetworkInterfacesFile, networkInterfacesFile))
 	}
 
 	return cloudConfig, nil
@@ -385,106 +380,3 @@ else
 fi`[1:],
 		oldInterfacesFile, newInterfacesFile)
 }
-
-func populateNetworkInterfaces(networkFile string) string {
-	s := `
-if [ -f /usr/bin/python ]; then
-    python %s.py --interfaces-file %s
-else
-    python3 %s.py --interfaces-file %s
-fi
-`
-	return fmt.Sprintf(s, networkFile, networkFile, networkFile, networkFile)
-}
-
-const NetworkInterfacesScript = `from __future__ import print_function, unicode_literals
-import subprocess, re, argparse, os, time
-from string import Formatter
-
-INTERFACES_FILE="/etc/network/interfaces"
-IP_LINE = re.compile(r"^\d: (.*?):")
-IP_HWADDR = re.compile(r".*link/ether ((\w{2}|:){11})")
-COMMAND = "ip -oneline link"
-RETRIES = 3
-WAIT = 5
-
-# Python3 vs Python2
-try:
-    strdecode = str.decode
-except AttributeError:
-    strdecode = str
-
-def ip_parse(ip_output):
-    """parses the output of the ip command
-    and returns a hwaddr->nic-name dict"""
-    devices = dict()
-    print("Parsing ip command output %s" % ip_output)
-    for ip_line in ip_output:
-        ip_line_str = strdecode(ip_line, "utf-8")
-        match = IP_LINE.match(ip_line_str)
-        if match is None:
-            continue
-        nic_name = match.group(1)
-        match = IP_HWADDR.match(ip_line_str)
-        if match is None:
-            continue
-        nic_hwaddr = match.group(1)
-        devices[nic_hwaddr] = nic_name
-    print("Found the following devices: %s" % str(devices))
-    return devices
-
-def replace_ethernets(interfaces_file, devices, fail_on_missing):
-    """check if the contents of interfaces_file contain template
-    keys corresponding to hwaddresses and replace them with
-    the proper device name"""
-    with open(interfaces_file + ".templ", "r") as intf_file:
-        interfaces = intf_file.read()
-
-    formatter = Formatter()
-    hwaddrs = [v[1] for v in formatter.parse(interfaces) if v[1]]
-    print("Found the following hwaddrs: %s" % str(hwaddrs))
-    device_replacements = dict()
-    for hwaddr in hwaddrs:
-        hwaddr_clean = hwaddr[3:].replace("_", ":")
-        if devices.get(hwaddr_clean, None):
-            device_replacements[hwaddr] = devices[hwaddr_clean]
-        else:
-            if fail_on_missing:
-                print("Can't find device with MAC %s, will retry" % hwaddr_clean)
-                return False
-            else:
-                print("WARNING: Can't find device with MAC %s when expected" % hwaddr_clean)
-                device_replacements[hwaddr] = hwaddr
-    formatted = interfaces.format(**device_replacements)
-    print("Used the values in: %s\nto fix the interfaces file:\n%s\ninto\n%s" %
-           (str(device_replacements), str(interfaces), str(formatted)))
-
-    with open(interfaces_file + ".tmp", "w") as intf_file:
-        intf_file.write(formatted)
-
-    if not os.path.exists(interfaces_file + ".bak"):
-        try:
-            os.rename(interfaces_file, interfaces_file + ".bak")
-        except OSError: #silently ignore if the file is missing
-            pass
-    os.rename(interfaces_file + ".tmp", interfaces_file)
-    return True
-
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--interfaces-file", dest="intf_file", default=INTERFACES_FILE)
-    parser.add_argument("--command", default=COMMAND)
-    parser.add_argument("--retries", default=RETRIES)
-    parser.add_argument("--wait", default=WAIT)
-    args = parser.parse_args()
-    retries = int(args.retries)
-    for tries in range(retries):
-        ip_output = ip_parse(subprocess.check_output(args.command.split()).splitlines())
-        if replace_ethernets(args.intf_file, ip_output, (tries != retries - 1)):
-             break
-        else:
-             time.sleep(float(args.wait))
-
-if __name__ == "__main__":
-    main()
-`
