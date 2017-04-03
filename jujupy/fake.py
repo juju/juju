@@ -543,6 +543,12 @@ class AddCloud(PromptingExpectChild):
 
     ANOTHER_REGION = 'Enter another region? (Y/n):'
 
+    VCENTER_ADDRESS = "Enter the vCenter address or URL:"
+
+    DATACENTER_NAME = "Enter datacenter name:"
+
+    ANOTHER_DATACENTER = 'Enter another datacenter? (Y/n):'
+
     def cant_validate(self, endpoint):
         if self.provider in ('openstack', 'maas'):
             if self.provider == 'openstack':
@@ -557,7 +563,7 @@ class AddCloud(PromptingExpectChild):
             reprompt = self.HOST
         elif self.provider == 'vsphere':
             msg = '{}: invalid domain name'.format(endpoint)
-            reprompt = self.CLOUD_ENDPOINT
+            reprompt = self.VCENTER_ADDRESS
         return "Can't validate endpoint: {}\n{}".format(
             msg, reprompt)
 
@@ -598,12 +604,12 @@ class AddCloud(PromptingExpectChild):
                 if (yield self.ANOTHER_REGION) == 'n':
                     break
         elif provider_type == 'vsphere':
-            endpoint = yield self.CLOUD_ENDPOINT
+            endpoint = yield self.VCENTER_ADDRESS
             if len(endpoint) > 1000:
                 yield self.cant_validate(endpoint)
             while True:
-                yield self.REGION_NAME
-                if (yield self.ANOTHER_REGION) == 'n':
+                yield self.DATACENTER_NAME
+                if (yield self.ANOTHER_DATACENTER) == 'n':
                     break
 
     def close(self):
@@ -617,7 +623,7 @@ class AddCloud(PromptingExpectChild):
         if cloud['type'] == 'openstack':
             regions = {}
             for match, line in self.lines:
-                if match == self.REGION_NAME:
+                if match == self.REGION_NAME or match == self.DATACENTER_NAME:
                     cur_region = {}
                     regions[line] = cur_region
                 if match == self.REGION_ENDPOINT:
@@ -630,11 +636,11 @@ class AddCloud(PromptingExpectChild):
         if cloud['type'] == 'vsphere':
             regions = {}
             for match, line in self.lines:
-                if match == self.REGION_NAME:
+                if match == self.DATACENTER_NAME:
                     cur_region = {}
                     regions[line] = cur_region
             cloud.update({
-                'endpoint': self.values[self.CLOUD_ENDPOINT],
+                'endpoint': self.values[self.VCENTER_ADDRESS],
                 'regions': regions,
                 })
         self.backend.clouds[self.values[self.name_prompt]] = cloud
@@ -643,6 +649,12 @@ class AddCloud(PromptingExpectChild):
 class AddCloud2_1(AddCloud):
 
     REGION_ENDPOINT = 'Enter the API endpoint url for the region:'
+
+    VCENTER_ADDRESS = AddCloud.CLOUD_ENDPOINT
+
+    DATACENTER_NAME = AddCloud.REGION_NAME
+
+    ANOTHER_DATACENTER = AddCloud.ANOTHER_REGION
 
 
 class FakeBackend:
