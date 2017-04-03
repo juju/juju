@@ -66,13 +66,13 @@ var (
 // GenerateNetworkConfig renders a network config for one or more network
 // interfaces, using the given non-nil networkConfig containing a non-empty
 // Interfaces field.
-func GenerateNetworkConfig(networkConfig *container.NetworkConfig) (string, error) {
+func GenerateNetworkConfig(networkConfig *container.NetworkConfig, useTemplates bool) (string, error) {
 	if networkConfig == nil || len(networkConfig.Interfaces) == 0 {
 		return "", errors.Errorf("missing container network config")
 	}
 	logger.Debugf("generating network config from %#v", *networkConfig)
 
-	prepared := PrepareNetworkConfigFromInterfaces(networkConfig.Interfaces)
+	prepared := PrepareNetworkConfigFromInterfaces(networkConfig.Interfaces, useTemplates)
 
 	var output bytes.Buffer
 	gatewayHandled := false
@@ -157,7 +157,7 @@ type PreparedConfig struct {
 // PrepareNetworkConfigFromInterfaces collects the necessary information to
 // render a persistent network config from the given slice of
 // network.InterfaceInfo. The result always includes the loopback interface.
-func PrepareNetworkConfigFromInterfaces(interfaces []network.InterfaceInfo) *PreparedConfig {
+func PrepareNetworkConfigFromInterfaces(interfaces []network.InterfaceInfo, useTemplates bool) *PreparedConfig {
 	dnsServers := set.NewStrings()
 	dnsSearchDomains := set.NewStrings()
 	gatewayAddress := ""
@@ -170,19 +170,24 @@ func PrepareNetworkConfigFromInterfaces(interfaces []network.InterfaceInfo) *Pre
 	autoStarted := set.NewStrings("lo")
 
 	for _, info := range interfaces {
-		cleanIfaceName := strings.Replace(info.MACAddress, ":", "_", -1)
-		// prepend eth because .format of python wont like a tag starting with numbers.
-		cleanIfaceName = fmt.Sprintf("{eth%s}", cleanIfaceName)
+		var ifaceName string
+		if useTemplates {
+			ifaceName = strings.Replace(info.MACAddress, ":", "_", -1)
+			// prepend eth because .format of python wont like a tag starting with numbers.
+			ifaceName = fmt.Sprintf("{eth%s}", ifaceName)
+		} else {
+			ifaceName = info.InterfaceName
+		}
 		if !info.NoAutoStart {
-			autoStarted.Add(cleanIfaceName)
+			autoStarted.Add(ifaceName)
 		}
 
 		if cidr := info.CIDRAddress(); cidr != "" {
-			nameToAddress[cleanIfaceName] = cidr
+			nameToAddress[ifaceName] = cidr
 		} else if info.ConfigType == network.ConfigDHCP {
-			nameToAddress[cleanIfaceName] = string(network.ConfigDHCP)
+			nameToAddress[ifaceName] = string(network.ConfigDHCP)
 		}
-		nameToRoutes[cleanIfaceName] = info.Routes
+		nameToRoutes[ifaceName] = info.Routes
 
 		for _, dns := range info.DNSServers {
 			dnsServers.Add(dns.Value)
@@ -194,7 +199,7 @@ func PrepareNetworkConfigFromInterfaces(interfaces []network.InterfaceInfo) *Pre
 			gatewayAddress = info.GatewayAddress.Value
 		}
 
-		namesInOrder = append(namesInOrder, cleanIfaceName)
+		namesInOrder = append(namesInOrder, ifaceName)
 	}
 
 	prepared := &PreparedConfig{
@@ -221,7 +226,7 @@ func newCloudInitConfigWithNetworks(series string, networkConfig *container.Netw
 	}
 
 	if networkConfig != nil {
-		config, err := GenerateNetworkConfig(networkConfig)
+		config, err := GenerateNetworkConfig(networkConfig, true)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

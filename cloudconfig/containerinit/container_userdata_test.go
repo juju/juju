@@ -41,6 +41,7 @@ type UserDataSuite struct {
 	fakeInterfaces []network.InterfaceInfo
 
 	expectedSampleConfigTemplate string
+	expectedSampleConfig         string
 	expectedSampleConfigWriting  string
 	expectedSampleUserData       string
 	expectedFallbackConfig       string
@@ -91,14 +92,17 @@ func (s *UserDataSuite) SetUpTest(c *gc.C) {
 	}, {
 		InterfaceName: "any2",
 		ConfigType:    network.ConfigDHCP,
+		MACAddress:       "aa:bb:cc:dd:ee:f2",
 		NoAutoStart:   true,
 	}, {
 		InterfaceName: "any3",
 		ConfigType:    network.ConfigDHCP,
+		MACAddress:       "aa:bb:cc:dd:ee:f3",
 		NoAutoStart:   false,
 	}, {
 		InterfaceName: "any4",
 		ConfigType:    network.ConfigManual,
+		MACAddress:       "aa:bb:cc:dd:ee:f4",
 		NoAutoStart:   true,
 	}}
 
@@ -118,7 +122,7 @@ bootcmd:
 - install -D -m 644 /dev/null '%[1]s.templ'
 - |-
   printf '%%s\n' '
-  auto lo {ethaa_bb_cc_dd_ee_f0} {ethaa_bb_cc_dd_ee_f1} {eth}
+  auto lo {ethaa_bb_cc_dd_ee_f0} {ethaa_bb_cc_dd_ee_f1} {ethaa_bb_cc_dd_ee_f3}
 
   iface lo inet loopback
     dns-nameservers ns1.invalid ns2.invalid
@@ -133,15 +137,15 @@ bootcmd:
     post-up ip route add 0.5.6.0/24 via 0.2.2.1 metric 50
     pre-down ip route del 0.5.6.0/24 via 0.2.2.1 metric 50
 
-  iface {eth} inet dhcp
+  iface {ethaa_bb_cc_dd_ee_f2} inet dhcp
 
-  iface {eth} inet dhcp
+  iface {ethaa_bb_cc_dd_ee_f3} inet dhcp
 
-  iface {eth} inet dhcp
+  iface {ethaa_bb_cc_dd_ee_f4} inet manual
   ' > '%[1]s.templ'
 `
 	s.expectedSampleConfigTemplate = `
-auto lo {ethaa_bb_cc_dd_ee_f0} {ethaa_bb_cc_dd_ee_f1} {eth}
+auto lo {ethaa_bb_cc_dd_ee_f0} {ethaa_bb_cc_dd_ee_f1} {ethaa_bb_cc_dd_ee_f3}
 
 iface lo inet loopback
   dns-nameservers ns1.invalid ns2.invalid
@@ -156,11 +160,34 @@ iface {ethaa_bb_cc_dd_ee_f1} inet static
   post-up ip route add 0.5.6.0/24 via 0.2.2.1 metric 50
   pre-down ip route del 0.5.6.0/24 via 0.2.2.1 metric 50
 
-iface {eth} inet dhcp
+iface {ethaa_bb_cc_dd_ee_f2} inet dhcp
 
-iface {eth} inet dhcp
+iface {ethaa_bb_cc_dd_ee_f3} inet dhcp
 
-iface {eth} inet dhcp
+iface {ethaa_bb_cc_dd_ee_f4} inet manual
+`
+
+	s.expectedSampleConfig = `
+auto any0 any1 any3 lo
+
+iface lo inet loopback
+  dns-nameservers ns1.invalid ns2.invalid
+  dns-search bar foo
+
+iface any0 inet static
+  address 0.1.2.3/24
+  gateway 0.1.2.1
+
+iface any1 inet static
+  address 0.2.2.4/24
+  post-up ip route add 0.5.6.0/24 via 0.2.2.1 metric 50
+  pre-down ip route del 0.5.6.0/24 via 0.2.2.1 metric 50
+
+iface any2 inet dhcp
+
+iface any3 inet dhcp
+
+iface any4 inet manual
 `
 	networkInterfacesScriptYamled := strings.Replace(containerinit.NetworkInterfacesScript, "\n", "\n  ", -1)
 	networkInterfacesScriptYamled = strings.Replace(networkInterfacesScriptYamled, "\n  \n", "\n\n", -1)
@@ -234,20 +261,26 @@ runcmd:
 }
 
 func (s *UserDataSuite) TestGenerateNetworkConfig(c *gc.C) {
-	data, err := containerinit.GenerateNetworkConfig(nil)
+	data, err := containerinit.GenerateNetworkConfig(nil, true)
 	c.Assert(err, gc.ErrorMatches, "missing container network config")
 	c.Assert(data, gc.Equals, "")
 
 	netConfig := container.BridgeNetworkConfig("foo", 0, nil)
-	data, err = containerinit.GenerateNetworkConfig(netConfig)
+	data, err = containerinit.GenerateNetworkConfig(netConfig, true)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(data, gc.Equals, s.expectedBaseConfig)
 
 	// Test with all interface types.
 	netConfig = container.BridgeNetworkConfig("foo", 0, s.fakeInterfaces)
-	data, err = containerinit.GenerateNetworkConfig(netConfig)
+	data, err = containerinit.GenerateNetworkConfig(netConfig, true)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(data, gc.Equals, s.expectedSampleConfigTemplate)
+
+	// Test with untemplated (lxd) version.
+	netConfig = container.BridgeNetworkConfig("foo", 0, s.fakeInterfaces)
+	data, err = containerinit.GenerateNetworkConfig(netConfig, false)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(data, gc.Equals, s.expectedSampleConfig)
 }
 
 func (s *UserDataSuite) TestNewCloudInitConfigWithNetworksSampleConfig(c *gc.C) {

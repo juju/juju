@@ -172,7 +172,7 @@ func (manager *containerManager) CreateContainer(
 	// Especially on a multi-nic host, it is possible for MAAS to provide
 	// DHCP on a different space to that which the container eth0 interface
 	// will be bridged, or not provide DHCP at all.
-	eni, err := containerinit.GenerateNetworkConfig(networkConfig)
+	eni, err := containerinit.GenerateNetworkConfig(networkConfig, false)
 	if err != nil {
 		err = errors.Annotatef(err, "failed to generate /etc/network/interfaces content")
 		return
