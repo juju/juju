@@ -503,22 +503,6 @@ func (s *ipAddressesStateSuite) TestSetDevicesAddressesFailsWhenCIDRAddressMatch
 	s.assertSetDevicesAddressesFailsForArgs(c, args, expectedError)
 }
 
-func (s *ipAddressesStateSuite) TestSetDevicesAddressesFailsWhenModelNotAlive(c *gc.C) {
-	s.addNamedDeviceForMachine(c, "eth0", s.otherStateMachine)
-	otherModel, err := s.otherState.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	err = otherModel.Destroy()
-	c.Assert(err, jc.ErrorIsNil)
-
-	args := state.LinkLayerDeviceAddress{
-		CIDRAddress:  "10.20.30.40/16",
-		DeviceName:   "eth0",
-		ConfigMethod: state.StaticAddress,
-	}
-	err = s.otherStateMachine.SetDevicesAddresses(args)
-	c.Assert(err, gc.ErrorMatches, `.*: model "other-model" is no longer alive`)
-}
-
 func (s *ipAddressesStateSuite) TestSetDevicesAddressesFailsWhenMachineNotAliveOrGone(c *gc.C) {
 	s.addNamedDeviceForMachine(c, "eth0", s.otherStateMachine)
 	err := s.otherStateMachine.EnsureDead()
@@ -661,17 +645,19 @@ func (s *ipAddressesStateSuite) TestSetDevicesAddressesWithMultipleUpdatesOfSame
 		DNSSearchDomains: []string{"example.com", "example.org"},
 		GatewayAddress:   "0.1.2.1",
 	}, {
-		// Test deletes work for DNS settings, also change method, provider id, and gateway.
+		// Test deletes work for DNS settings, also change method, and gateway.
 		DeviceName:       "eth0",
 		ConfigMethod:     state.DynamicAddress,
 		CIDRAddress:      "0.1.2.3/24",
-		ProviderID:       "id-xxxx", // last change wins
+		ProviderID:       "id-0123", // not allowed to change ProviderID once set
 		DNSServers:       nil,
 		DNSSearchDomains: nil,
 		GatewayAddress:   "0.1.2.2",
 	}}
-	err := s.machine.SetDevicesAddresses(setArgs...)
-	c.Assert(err, jc.ErrorIsNil)
+	for _, arg := range setArgs {
+		err := s.machine.SetDevicesAddresses(arg)
+		c.Assert(err, jc.ErrorIsNil)
+	}
 	updatedAddresses, err := device.Addresses()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(updatedAddresses, gc.HasLen, len(initialAddresses))
