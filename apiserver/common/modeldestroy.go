@@ -48,11 +48,10 @@ func DestroyModel(st ModelManagerBackend, modelTag names.ModelTag) error {
 func destroyModel(st ModelManagerBackend, modelTag names.ModelTag, destroyHostedModels bool) error {
 	var err error
 	if modelTag != st.ModelTag() {
-		st, err = st.ForModel(modelTag)
-		defer st.Close()
-		if err != nil {
+		if st, err = st.ForModel(modelTag); err != nil {
 			return errors.Trace(err)
 		}
+		defer st.Close()
 	}
 
 	if destroyHostedModels {
