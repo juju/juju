@@ -166,16 +166,7 @@ func (st *State) ControllerModel() (*Model, error) {
 	if err != nil {
 		return nil, errors.Annotate(err, "could not get controller info")
 	}
-
-	models, closer := st.getCollection(modelsC)
-	defer closer()
-
-	env := &Model{st: st}
-	uuid := ssinfo.ModelTag.Id()
-	if err := env.refresh(models.FindId(uuid)); err != nil {
-		return nil, errors.Trace(err)
-	}
-	return env, nil
+	return st.GetModel(ssinfo.ModelTag)
 }
 
 // Model returns the model entity.

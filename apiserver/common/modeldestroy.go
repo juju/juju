@@ -48,10 +48,11 @@ func DestroyModel(st ModelManagerBackend, modelTag names.ModelTag) error {
 func destroyModel(st ModelManagerBackend, modelTag names.ModelTag, destroyHostedModels bool) error {
 	var err error
 	if modelTag != st.ModelTag() {
-		if st, err = st.ForModel(modelTag); err != nil {
+		st, err = st.ForModel(modelTag)
+		defer st.Close()
+		if err != nil {
 			return errors.Trace(err)
 		}
-		defer st.Close()
 	}
 
 	if destroyHostedModels {
@@ -81,7 +82,6 @@ func destroyModel(st ModelManagerBackend, modelTag names.ModelTag, destroyHosted
 			if err != nil {
 				logger.Errorf("failed to send leftover metrics: %v", err)
 			}
-
 		}
 	} else {
 		check := NewBlockChecker(st)

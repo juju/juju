@@ -500,7 +500,7 @@ func (m *ModelManagerAPI) DestroyModels(args params.Entities) (params.ErrorResul
 		if err := m.authCheck(model.Owner()); err != nil {
 			return errors.Trace(err)
 		}
-		return errors.Trace(common.DestroyModel(m.state, model.ModelTag()))
+		return errors.Trace(common.DestroyModel(m.state, tag))
 	}
 
 	for i, arg := range args.Entities {
