@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/provider/oracle/common"
 	"github.com/juju/juju/storage"
 )
 
@@ -17,6 +18,8 @@ const (
 
 	maxVolumeSizeInGB = 2000
 	minVolumeSizeInGB = 1
+	maxDevices        = 10
+	blockDevicePrefix = "xvd"
 )
 
 // storageProvider is the storage provider for the oracle cloud storage environment
@@ -67,8 +70,17 @@ type StorageVolumeAPI interface {
 	UpdateStorageVolume(p oci.StorageVolumeParams, currentName string) (resp ociResponse.StorageVolume, err error)
 }
 
+type StorageAttachmentAPI interface {
+	CreateStorageAttachment(p oci.StorageAttachmentParams) (ociResponse.StorageAttachment, error)
+	DeleteStorageAttachment(name string) error
+	StorageAttachmentDetails(name string) (ociResponse.StorageAttachment, error)
+	AllStorageAttachments(filter []oci.Filter) (ociResponse.AllStorageAttachments, error)
+}
+
 type StorageAPI interface {
 	StorageVolumeAPI
+	StorageAttachmentAPI
+	common.Composer
 }
 
 func mibToGib(m uint64) uint64 {

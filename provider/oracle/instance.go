@@ -124,7 +124,7 @@ func (o *oracleInstance) refresh() error {
 	defer o.mutex.Unlock()
 
 	machine, err := o.env.client.InstanceDetails(o.name)
-	// if the request failed of any reason
+	// if the request failed for any reason
 	// we should not update the information and
 	// let the old one persist
 	if err != nil {

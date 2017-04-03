@@ -10,8 +10,9 @@ import (
 type poolType string
 
 const (
-	latencyPool poolType = "latency"
-	defaultPool poolType = "default"
+	latencyPool      poolType = "latency"
+	defaultPool      poolType = "default"
+	oracleVolumeType string   = "volume-type"
 )
 
 var poolTypeMap map[poolType]ociCommon.StoragePool = map[poolType]ociCommon.StoragePool{
@@ -69,7 +70,7 @@ func (s storageProvider) Dynamic() bool {
 // to register in each new model.
 func (s storageProvider) DefaultPools() []*storage.Config {
 	latencyPool, _ := storage.NewConfig("oracle-latency", oracleStorageProvideType, map[string]interface{}{
-		"volume-type": latencyPool,
+		oracleVolumeType: latencyPool,
 	})
 	return []*storage.Config{latencyPool}
 }
@@ -78,10 +79,11 @@ func (s storageProvider) DefaultPools() []*storage.Config {
 // returning an error if it is invalid.
 func (s storageProvider) ValidateConfig(cfg *storage.Config) error {
 	attrs := cfg.Attrs()
-	if volType, ok := attrs["volume-type"]; ok {
+	if volType, ok := attrs[oracleVolumeType]; ok {
 		switch kind := volType.(type) {
-		case poolType:
-			if _, ok := poolTypeMap[volType.(poolType)]; !ok {
+		case string:
+			pool := volType.(string)
+			if _, ok := poolTypeMap[poolType(pool)]; !ok {
 				return errors.Errorf("invalid volume-type %q", volType)
 			}
 			return nil
