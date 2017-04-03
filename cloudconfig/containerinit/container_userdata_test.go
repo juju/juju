@@ -92,17 +92,17 @@ func (s *UserDataSuite) SetUpTest(c *gc.C) {
 	}, {
 		InterfaceName: "any2",
 		ConfigType:    network.ConfigDHCP,
-		MACAddress:       "aa:bb:cc:dd:ee:f2",
+		MACAddress:    "aa:bb:cc:dd:ee:f2",
 		NoAutoStart:   true,
 	}, {
 		InterfaceName: "any3",
 		ConfigType:    network.ConfigDHCP,
-		MACAddress:       "aa:bb:cc:dd:ee:f3",
+		MACAddress:    "aa:bb:cc:dd:ee:f3",
 		NoAutoStart:   false,
 	}, {
 		InterfaceName: "any4",
 		ConfigType:    network.ConfigManual,
-		MACAddress:       "aa:bb:cc:dd:ee:f4",
+		MACAddress:    "aa:bb:cc:dd:ee:f4",
 		NoAutoStart:   true,
 	}}
 

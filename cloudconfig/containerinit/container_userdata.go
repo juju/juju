@@ -170,13 +170,11 @@ func PrepareNetworkConfigFromInterfaces(interfaces []network.InterfaceInfo, useT
 	autoStarted := set.NewStrings("lo")
 
 	for _, info := range interfaces {
-		var ifaceName string
+		ifaceName := info.InterfaceName
 		if useTemplates {
 			ifaceName = strings.Replace(info.MACAddress, ":", "_", -1)
 			// prepend eth because .format of python wont like a tag starting with numbers.
 			ifaceName = fmt.Sprintf("{eth%s}", ifaceName)
-		} else {
-			ifaceName = info.InterfaceName
 		}
 		if !info.NoAutoStart {
 			autoStarted.Add(ifaceName)
