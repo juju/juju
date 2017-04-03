@@ -473,11 +473,18 @@ iface {ethe0_db_55_e4_1a_5b} inet static
     address 1.2.3.5
     netmask 255.255.255.0
     gateway 1.2.3.1
+
+auto {ethe0_db_55_e4_1a_5d}
+iface {ethe0_db_55_e4_1a_5d} inet static
+    address 1.2.3.6
+    netmask 255.255.255.0
+    gateway 1.2.3.1
 `
 
 const simpleENIFileIPOutput = `1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN mode DEFAULT group default qlen 1\    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
 2: eno1: <NO-CARRIER,BROADCAST,MULTICAST,UP> mtu 1500 qdisc pfifo_fast state DOWN mode DEFAULT group default qlen 1000\    link/ether e0:db:55:e4:1d:5b brd ff:ff:ff:ff:ff:ff
 3: eno2: <NO-CARRIER,BROADCAST,MULTICAST,UP> mtu 1500 qdisc pfifo_fast state DOWN mode DEFAULT group default qlen 1000\    link/ether e0:db:55:e4:1a:5b brd ff:ff:ff:ff:ff:ff
+3: eno3@if0: <NO-CARRIER,BROADCAST,MULTICAST,UP> mtu 1500 qdisc pfifo_fast state DOWN mode DEFAULT group default qlen 1000\    link/ether e0:db:55:e4:1a:5d brd ff:ff:ff:ff:ff:ff
 `
 
 const simpleENIFileExpected = `auto lo
@@ -492,6 +499,12 @@ iface eno1 inet static
 auto eno2
 iface eno2 inet static
     address 1.2.3.5
+    netmask 255.255.255.0
+    gateway 1.2.3.1
+
+auto eno3
+iface eno3 inet static
+    address 1.2.3.6
     netmask 255.255.255.0
     gateway 1.2.3.1
 `

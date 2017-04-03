@@ -231,7 +231,6 @@ func newCloudInitConfigWithNetworks(series string, networkConfig *container.Netw
 		cloudConfig.AddBootTextFile(systemNetworkInterfacesFile+".templ", config, 0644)
 		cloudConfig.AddBootTextFile(systemNetworkInterfacesFile+".py", NetworkInterfacesScript, 0744)
 		cloudConfig.AddBootCmd(populateNetworkInterfaces(systemNetworkInterfacesFile))
-		//cloudConfig.AddRunCmd(raiseJujuNetworkInterfacesScript(systemNetworkInterfacesFile, networkInterfacesFile))
 	}
 
 	return cloudConfig, nil
@@ -365,37 +364,17 @@ func shutdownInitCommands(initSystem, series string) ([]string, error) {
 	return cmds, nil
 }
 
-// raiseJujuNetworkInterfacesScript returns a cloud-init script to
-// raise Juju's network interfaces supplied via cloud-init.
-//
 // Note: we sleep to mitigate against LP #1337873 and LP #1269921.
-func raiseJujuNetworkInterfacesScript(oldInterfacesFile, newInterfacesFile string) string {
-	return fmt.Sprintf(`
-if [ -f %[2]s ]; then
-    echo "stopping all interfaces"
-    ifdown -a
-    sleep 1.5
-    if ifup -a --interfaces=%[2]s; then
-        echo "ifup with %[2]s succeeded, renaming to %[1]s"
-        cp %[1]s %[1]s-orig
-        cp %[2]s %[1]s
-    else
-        echo "ifup with %[2]s failed, leaving old %[1]s alone"
-        ifup -a
-    fi
-else
-    echo "did not find %[2]s, not reconfiguring networking"
-fi`[1:],
-		oldInterfacesFile, newInterfacesFile)
-}
-
 func populateNetworkInterfaces(networkFile string) string {
 	s := `
+ifdown -a
+sleep 1.5
 if [ -f /usr/bin/python ]; then
     python %s.py --interfaces-file %s
 else
     python3 %s.py --interfaces-file %s
 fi
+ifup -a
 `
 	return fmt.Sprintf(s, networkFile, networkFile, networkFile, networkFile)
 }
@@ -427,7 +406,7 @@ def ip_parse(ip_output):
         match = IP_LINE.match(ip_line_str)
         if match is None:
             continue
-        nic_name = match.group(1)
+        nic_name = match.group(1).split('@')[0]
         match = IP_HWADDR.match(ip_line_str)
         if match is None:
             continue
