@@ -23,11 +23,9 @@ log = logging.getLogger("assess_destroy_model")
 
 
 def assess_destroy_model(client):
-    """
-    Grab current controller from client.
-    Add a model, check if the controller stays the same.
-    Destroy that model, check if the controller stays the same.
-    Teardown
+    """Tests if Juju keeps the same controller ID through model deletion.
+
+    :param client: Jujupy client object to test with
     """
     current_controller_id = client.get_status().status['model']['controller']
     log.info('Current controller ID: {}'.format(current_controller_id))
