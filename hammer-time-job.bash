@@ -17,6 +17,7 @@ export ARTIFACTS=$WORKSPACE/artifacts
 export MODEL_NAME=$JOB_NAME
 export DATA_DIR=$JUJU_HOME/jes-homes/$MODEL_NAME
 export PLAN=$ARTIFACTS/plan.yaml
+export HAMMER_DIR=$(dirname $(dirname $HAMMER_TIME))
 set -x
 s3ci.py get-summary $revision_build $base_config
 jujuci.py -v setup-workspace $WORKSPACE
@@ -32,7 +33,7 @@ set -eux
 deploy_job.py $base_config $JUJU_BIN $ARTIFACTS $MODEL_NAME \
   --series $series --agent-stream=revision-build-$revision_build \
   --timeout 600 --keep-env
-cd $HOME/hammer-dir/hammer-time
+cd $HAMMER_DIR
 if [ -z "${replay_build_number-}" ]; then
   $HAMMER_TIME run-random $PLAN --juju-data $DATA_DIR --juju-bin $JUJU_BIN \
     --action-count $action_count
