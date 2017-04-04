@@ -25,6 +25,7 @@ from utility import (
     )
 
 
+# URLs are limited to 2083 bytes in many browsers, anything more is excessive.
 # Juju has set 4096 as being excessive, but it needs to be lowered
 # https://bugs.launchpad.net/juju/+bug/1678833
 EXCEEDED_LIMIT = 4096
@@ -108,7 +109,6 @@ def iter_clouds(clouds, endpoint_validation):
     """Iterate through CloudSpecs."""
     yield cloud_spec('bogus-type', 'bogus-type', {'type': 'bogus'},
                      exception=TypeNotAccepted)
-    exceeded_data = 'A' * EXCEEDED_LIMIT
     for cloud_name, cloud in clouds.items():
         spec = cloud_spec(cloud_name, cloud_name, cloud)
         if cloud['type'] == 'manual' and endpoint_validation:
@@ -122,7 +122,7 @@ def iter_clouds(clouds, endpoint_validation):
                                 cloud, NameNotAccepted), 1641970, NameMismatch)
         if cloud['type'] == 'manual' and endpoint_validation:
             spec = cloud_spec('long-name-{}'.format(cloud_name),
-                              exceeded_data, cloud)
+                              long_text, cloud)
         yield spec
         spec = xfail(
             cloud_spec('invalid-name-{}'.format(cloud_name), 'invalid/name',
