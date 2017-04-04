@@ -368,13 +368,13 @@ func populateNetworkInterfaces(networkFile string) string {
 ifdown -a
 sleep 1.5
 if [ -f /usr/bin/python ]; then
-    python %s.py --interfaces-file %s
+    python %[1]s.py --interfaces-file %[1]s
 else
-    python3 %s.py --interfaces-file %s
+    python3 %[1]s.py --interfaces-file %[1]s
 fi
 ifup -a
 `
-	return fmt.Sprintf(s, networkFile, networkFile, networkFile, networkFile)
+	return fmt.Sprintf(s, networkFile)
 }
 
 const NetworkInterfacesScript = `from __future__ import print_function, unicode_literals
