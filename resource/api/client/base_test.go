@@ -18,7 +18,6 @@ import (
 	basetesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/resource"
-	"github.com/juju/juju/resource/api"
 	"github.com/juju/juju/resource/resourcetesting"
 )
 
@@ -27,7 +26,7 @@ type BaseSuite struct {
 
 	stub     *testing.Stub
 	facade   *stubFacade
-	response *api.UploadResult
+	response *params.UploadResult
 }
 
 func (s *BaseSuite) SetUpTest(c *gc.C) {
@@ -35,7 +34,7 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 
 	s.stub = &testing.Stub{}
 	s.facade = newStubFacade(c, s.stub)
-	s.response = &api.UploadResult{}
+	s.response = &params.UploadResult{}
 }
 
 func (s *BaseSuite) Do(req *http.Request, body io.ReadSeeker, resp interface{}) error {
@@ -44,9 +43,9 @@ func (s *BaseSuite) Do(req *http.Request, body io.ReadSeeker, resp interface{}) 
 		return errors.Trace(err)
 	}
 
-	result, ok := resp.(*api.UploadResult)
+	result, ok := resp.(*params.UploadResult)
 	if !ok {
-		msg := fmt.Sprintf("bad response type %T, expected api.UploadResult", resp)
+		msg := fmt.Sprintf("bad response type %T, expected params.UploadResult", resp)
 		return errors.NewNotValid(nil, msg)
 	}
 
@@ -54,9 +53,9 @@ func (s *BaseSuite) Do(req *http.Request, body io.ReadSeeker, resp interface{}) 
 	return nil
 }
 
-func newResourceResult(c *gc.C, applicationID string, names ...string) ([]resource.Resource, api.ResourcesResult) {
+func newResourceResult(c *gc.C, applicationID string, names ...string) ([]resource.Resource, params.ResourcesResult) {
 	var resources []resource.Resource
-	var apiResult api.ResourcesResult
+	var apiResult params.ResourcesResult
 	for _, name := range names {
 		data := name + "...spamspamspam"
 		res, apiRes := newResource(c, name, "a-user", data)
@@ -66,7 +65,7 @@ func newResourceResult(c *gc.C, applicationID string, names ...string) ([]resour
 	return resources, apiResult
 }
 
-func newResource(c *gc.C, name, username, data string) (resource.Resource, api.Resource) {
+func newResource(c *gc.C, name, username, data string) (resource.Resource, params.Resource) {
 	opened := resourcetesting.NewResource(c, nil, name, "a-application", data)
 	res := opened.Resource
 	res.Revision = 1
@@ -78,8 +77,8 @@ func newResource(c *gc.C, name, username, data string) (resource.Resource, api.R
 		res.Timestamp = time.Time{}
 	}
 
-	apiRes := api.Resource{
-		CharmResource: api.CharmResource{
+	apiRes := params.Resource{
+		CharmResource: params.CharmResource{
 			Name:        name,
 			Description: name + " description",
 			Type:        "file",
@@ -101,7 +100,7 @@ func newResource(c *gc.C, name, username, data string) (resource.Resource, api.R
 type stubFacade struct {
 	basetesting.StubFacadeCaller
 
-	apiResults map[string]api.ResourcesResult
+	apiResults map[string]params.ResourcesResult
 	pendingIDs []string
 }
 
@@ -110,13 +109,13 @@ func newStubFacade(c *gc.C, stub *testing.Stub) *stubFacade {
 		StubFacadeCaller: basetesting.StubFacadeCaller{
 			Stub: stub,
 		},
-		apiResults: make(map[string]api.ResourcesResult),
+		apiResults: make(map[string]params.ResourcesResult),
 	}
 
 	s.FacadeCallFn = func(_ string, args, response interface{}) error {
 		switch typedResponse := response.(type) {
-		case *api.ResourcesResults:
-			typedArgs, ok := args.(*api.ListResourcesArgs)
+		case *params.ResourcesResults:
+			typedArgs, ok := args.(*params.ListResourcesArgs)
 			c.Assert(ok, jc.IsTrue)
 
 			for _, e := range typedArgs.Entities {
@@ -133,7 +132,7 @@ func newStubFacade(c *gc.C, stub *testing.Stub) *stubFacade {
 				}
 				typedResponse.Results = append(typedResponse.Results, apiResult)
 			}
-		case *api.AddPendingResourcesResult:
+		case *params.AddPendingResourcesResult:
 			typedResponse.PendingIDs = s.pendingIDs
 		default:
 			c.Errorf("bad type %T", response)

@@ -31,10 +31,6 @@ import (
 
 var logger = loggo.GetLogger("juju.apiserver.controller")
 
-func init() {
-	common.RegisterStandardFacade("Controller", 3, NewControllerAPI)
-}
-
 // Controller defines the methods on the controller API end point.
 type Controller interface {
 	AllModels() (params.UserModelList, error)
@@ -352,13 +348,13 @@ func (c *ControllerAPI) GetControllerAccess(req params.Entities) (params.UserAcc
 			results.Results[i].Error = common.ServerError(common.ErrPerm)
 			continue
 		}
-		accessInfo, err := c.state.UserAccess(userTag, c.state.ControllerTag())
+		access, err := c.state.UserPermission(userTag, c.state.ControllerTag())
 		if err != nil {
 			results.Results[i].Error = common.ServerError(err)
 			continue
 		}
 		results.Results[i].Result = &params.UserAccess{
-			Access:  string(accessInfo.Access),
+			Access:  string(access),
 			UserTag: userTag.String()}
 	}
 	return results, nil

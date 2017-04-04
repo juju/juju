@@ -69,12 +69,12 @@ func newStateForVersionFn(version int) func(base.APICaller, names.UnitTag) *Stat
 	}
 }
 
-// newStateV4 creates a new client-side Uniter facade, version 4.
-var newStateV4 = newStateForVersionFn(4)
+// newStateV5 creates a new client-side Uniter facade, version 5.
+var newStateV5 = newStateForVersionFn(5)
 
 // NewState creates a new client-side Uniter facade.
 // Defined like this to allow patching during tests.
-var NewState = newStateV4
+var NewState = newStateV5
 
 // BestAPIVersion returns the API version that we were able to
 // determine is supported by both the client and the API Server.
@@ -389,4 +389,20 @@ func ErrIfNotVersionFn(minVersion int, bestAPIVersion int) func(string) error {
 		}
 		return errors.NotImplementedf("%s(...) requires v%d+", fnName, minVersion)
 	}
+}
+
+// SLALevel returns the SLA level set on the model.
+func (st *State) SLALevel() (string, error) {
+	if st.BestAPIVersion() < 5 {
+		return "unsupported", nil
+	}
+	var result params.StringResult
+	err := st.facade.FacadeCall("SLALevel", nil, &result)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	if err := result.Error; err != nil {
+		return "", errors.Trace(err)
+	}
+	return result.Result, nil
 }

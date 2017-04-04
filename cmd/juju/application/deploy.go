@@ -936,9 +936,8 @@ func (c *DeployCommand) charmStoreCharm() (deployFn, error) {
 		// Store the charm in the controller
 		curl, csMac, err := addCharmFromURL(apiRoot, storeCharmOrBundleURL, channel)
 		if err != nil {
-			if err1, ok := errors.Cause(err).(*termsRequiredError); ok {
-				terms := strings.Join(err1.Terms, " ")
-				return errors.Errorf(`Declined: please agree to the following terms %s. Try: "juju agree %s"`, terms, terms)
+			if termErr, ok := errors.Cause(err).(*common.TermsRequiredError); ok {
+				return errors.Trace(termErr.UserErr())
 			}
 			return errors.Annotatef(err, "storing charm for URL %q", storeCharmOrBundleURL)
 		}

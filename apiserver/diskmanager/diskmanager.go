@@ -13,10 +13,6 @@ import (
 	"github.com/juju/juju/storage"
 )
 
-func init() {
-	common.RegisterStandardFacade("DiskManager", 2, NewDiskManagerAPI)
-}
-
 // DiskManagerAPI provides access to the DiskManager API facade.
 type DiskManagerAPI struct {
 	st          stateInterface

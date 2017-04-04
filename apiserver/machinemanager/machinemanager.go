@@ -19,12 +19,6 @@ import (
 	"github.com/juju/juju/state"
 )
 
-func init() {
-	common.RegisterStandardFacade("MachineManager", 2, NewMachineManagerAPI)
-	// Version 3 adds DestroyMachine and ForceDestroyMachine.
-	common.RegisterStandardFacade("MachineManager", 3, NewMachineManagerAPI)
-}
-
 // MachineManagerAPI provides access to the MachineManager API facade.
 type MachineManagerAPI struct {
 	st         stateInterface

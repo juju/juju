@@ -630,7 +630,7 @@ func (s *DeployCharmStoreSuite) TestDeployWithTermsNotSigned(c *gc.C) {
 	}
 	testcharms.UploadCharm(c, s.client, "quantal/terms1-1", "terms1")
 	_, err := runDeployCommand(c, "quantal/terms1")
-	expectedError := `Declined: please agree to the following terms term/1 term/2. Try: "juju agree term/1 term/2"`
+	expectedError := `Declined: some terms require agreement. Try: "juju agree term/1 term/2"`
 	c.Assert(err, gc.ErrorMatches, expectedError)
 }
 
@@ -918,8 +918,7 @@ func (s *DeployCharmStoreSuite) TestAddMetricCredentials(c *gc.C) {
 			CharmURL:        "cs:quantal/metered-1",
 			ApplicationName: "metered",
 			PlanURL:         "someplan",
-			Budget:          "",
-			Limit:           "0",
+			IncreaseBudget:  0,
 		}},
 	}})
 }
@@ -967,8 +966,7 @@ func (s *DeployCharmStoreSuite) TestAddMetricCredentialsDefaultPlan(c *gc.C) {
 			CharmURL:        "cs:quantal/metered-1",
 			ApplicationName: "metered",
 			PlanURL:         "thisplan",
-			Budget:          "",
-			Limit:           "0",
+			IncreaseBudget:  0,
 		}},
 	}})
 }
@@ -1098,8 +1096,7 @@ summary: summary
 			CharmURL:        "cs:~user/quantal/metered-0",
 			ApplicationName: "metered",
 			PlanURL:         "someplan",
-			Budget:          "",
-			Limit:           "0",
+			IncreaseBudget:  0,
 		}},
 	}})
 }

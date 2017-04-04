@@ -75,24 +75,29 @@ func (s *WorkerSuite) TestWorkerSupportsNetworkingFalse(c *gc.C) {
 
 func (s *WorkerSuite) cannedSubnets() []network.SubnetInfo {
 	return []network.SubnetInfo{{
-		ProviderId:        network.Id("1"),
+		ProviderId:        "1",
+		ProviderNetworkId: "swans",
 		CIDR:              "192.168.1.0/24",
 		AvailabilityZones: []string{"zone1"},
 	}, {
-		ProviderId:        network.Id("2"),
+		ProviderId:        "2",
+		ProviderNetworkId: "swans",
 		CIDR:              "192.168.2.0/24",
 		AvailabilityZones: []string{"zone1"},
 	}, {
-		ProviderId:        network.Id("3"),
+		ProviderId:        "3",
+		ProviderNetworkId: "liars",
 		CIDR:              "192.168.3.0/24",
 		VLANTag:           50,
 		AvailabilityZones: []string{"zone1"},
 	}, {
-		ProviderId:        network.Id("4"),
+		ProviderId:        "4",
+		ProviderNetworkId: "liars",
 		CIDR:              "192.168.4.0/24",
 		AvailabilityZones: []string{"zone1"},
 	}, {
-		ProviderId:        network.Id("5"),
+		ProviderId:        "5",
+		ProviderNetworkId: "hdu",
 		CIDR:              "192.168.5.0/24",
 		AvailabilityZones: []string{"zone1"},
 	}}
@@ -107,26 +112,31 @@ func (s *WorkerSuite) TestWorkerNoSpaceDiscoveryOnlySubnets(c *gc.C) {
 		stub.CheckCallNames(c, "ListSubnets", "AddSubnets")
 		stub.CheckCall(c, 1, "AddSubnets", params.AddSubnetsParams{
 			Subnets: []params.AddSubnetParams{{
-				SubnetProviderId: "1",
-				SubnetTag:        "subnet-192.168.1.0/24",
-				Zones:            []string{"zone1"},
+				SubnetProviderId:  "1",
+				ProviderNetworkId: "swans",
+				SubnetTag:         "subnet-192.168.1.0/24",
+				Zones:             []string{"zone1"},
 			}, {
-				SubnetProviderId: "2",
-				SubnetTag:        "subnet-192.168.2.0/24",
-				Zones:            []string{"zone1"},
+				SubnetProviderId:  "2",
+				ProviderNetworkId: "swans",
+				SubnetTag:         "subnet-192.168.2.0/24",
+				Zones:             []string{"zone1"},
 			}, {
-				SubnetProviderId: "3",
-				SubnetTag:        "subnet-192.168.3.0/24",
-				VLANTag:          50,
-				Zones:            []string{"zone1"},
+				SubnetProviderId:  "3",
+				ProviderNetworkId: "liars",
+				SubnetTag:         "subnet-192.168.3.0/24",
+				VLANTag:           50,
+				Zones:             []string{"zone1"},
 			}, {
-				SubnetProviderId: "4",
-				SubnetTag:        "subnet-192.168.4.0/24",
-				Zones:            []string{"zone1"},
+				SubnetProviderId:  "4",
+				ProviderNetworkId: "liars",
+				SubnetTag:         "subnet-192.168.4.0/24",
+				Zones:             []string{"zone1"},
 			}, {
-				SubnetProviderId: "5",
-				SubnetTag:        "subnet-192.168.5.0/24",
-				Zones:            []string{"zone1"},
+				SubnetProviderId:  "5",
+				ProviderNetworkId: "hdu",
+				SubnetTag:         "subnet-192.168.5.0/24",
+				Zones:             []string{"zone1"},
 			}},
 		})
 		s.environ.stub.CheckCallNames(c, "SupportsSpaceDiscovery", "Subnets")
@@ -140,10 +150,12 @@ func (s *WorkerSuite) cannedSpaces() []network.SpaceInfo {
 		ProviderId: network.Id("0"),
 		Subnets: []network.SubnetInfo{{
 			ProviderId:        network.Id("1"),
+			ProviderNetworkId: "swans",
 			CIDR:              "192.168.1.0/24",
 			AvailabilityZones: []string{"zone1"},
 		}, {
 			ProviderId:        network.Id("2"),
+			ProviderNetworkId: "swans",
 			CIDR:              "192.168.2.0/24",
 			AvailabilityZones: []string{"zone1"},
 		}},
@@ -152,6 +164,7 @@ func (s *WorkerSuite) cannedSpaces() []network.SpaceInfo {
 		ProviderId: network.Id("1"),
 		Subnets: []network.SubnetInfo{{
 			ProviderId:        network.Id("3"),
+			ProviderNetworkId: "liars",
 			CIDR:              "192.168.3.0/24",
 			AvailabilityZones: []string{"zone1"},
 		}},
@@ -160,6 +173,7 @@ func (s *WorkerSuite) cannedSpaces() []network.SpaceInfo {
 		ProviderId: network.Id("2"),
 		Subnets: []network.SubnetInfo{{
 			ProviderId:        network.Id("4"),
+			ProviderNetworkId: "liars",
 			CIDR:              "192.168.4.0/24",
 			AvailabilityZones: []string{"zone1"},
 			VLANTag:           3,
@@ -169,6 +183,7 @@ func (s *WorkerSuite) cannedSpaces() []network.SpaceInfo {
 		ProviderId: network.Id("3"),
 		Subnets: []network.SubnetInfo{{
 			ProviderId:        network.Id("5"),
+			ProviderNetworkId: "hdu",
 			CIDR:              "192.168.5.0/24",
 			AvailabilityZones: []string{"zone1"},
 		}},
@@ -212,31 +227,36 @@ func (s *WorkerSuite) TestWorkerDiscoversSpaces(c *gc.C) {
 		})
 		stub.CheckCall(c, 3, "AddSubnets", params.AddSubnetsParams{
 			Subnets: []params.AddSubnetParams{{
-				SubnetProviderId: "1",
-				SubnetTag:        "subnet-192.168.1.0/24",
-				SpaceTag:         "space-foo",
-				Zones:            []string{"zone1"},
+				SubnetProviderId:  "1",
+				ProviderNetworkId: "swans",
+				SubnetTag:         "subnet-192.168.1.0/24",
+				SpaceTag:          "space-foo",
+				Zones:             []string{"zone1"},
 			}, {
-				SubnetProviderId: "2",
-				SubnetTag:        "subnet-192.168.2.0/24",
-				SpaceTag:         "space-foo",
-				Zones:            []string{"zone1"},
+				SubnetProviderId:  "2",
+				ProviderNetworkId: "swans",
+				SubnetTag:         "subnet-192.168.2.0/24",
+				SpaceTag:          "space-foo",
+				Zones:             []string{"zone1"},
 			}, {
-				SubnetProviderId: "3",
-				SubnetTag:        "subnet-192.168.3.0/24",
-				SpaceTag:         "space-another-foo-99",
-				Zones:            []string{"zone1"},
+				SubnetProviderId:  "3",
+				ProviderNetworkId: "liars",
+				SubnetTag:         "subnet-192.168.3.0/24",
+				SpaceTag:          "space-another-foo-99",
+				Zones:             []string{"zone1"},
 			}, {
-				SubnetProviderId: "4",
-				SubnetTag:        "subnet-192.168.4.0/24",
-				SpaceTag:         "space-foo-2",
-				VLANTag:          3,
-				Zones:            []string{"zone1"},
+				SubnetProviderId:  "4",
+				ProviderNetworkId: "liars",
+				SubnetTag:         "subnet-192.168.4.0/24",
+				SpaceTag:          "space-foo-2",
+				VLANTag:           3,
+				Zones:             []string{"zone1"},
 			}, {
-				SubnetProviderId: "5",
-				SubnetTag:        "subnet-192.168.5.0/24",
-				SpaceTag:         "space-empty",
-				Zones:            []string{"zone1"},
+				SubnetProviderId:  "5",
+				ProviderNetworkId: "hdu",
+				SubnetTag:         "subnet-192.168.5.0/24",
+				SpaceTag:          "space-empty",
+				Zones:             []string{"zone1"},
 			}},
 		})
 	})
@@ -271,16 +291,18 @@ func (s *WorkerSuite) TestWorkerIgnoresExistingSpacesAndSubnets(c *gc.C) {
 		})
 		stub.CheckCall(c, 3, "AddSubnets", params.AddSubnetsParams{
 			Subnets: []params.AddSubnetParams{{
-				SubnetProviderId: "2",
-				SubnetTag:        "subnet-192.168.2.0/24",
-				SpaceTag:         "space-foo",
-				Zones:            []string{"zone1"},
+				SubnetProviderId:  "2",
+				ProviderNetworkId: "swans",
+				SubnetTag:         "subnet-192.168.2.0/24",
+				SpaceTag:          "space-foo",
+				Zones:             []string{"zone1"},
 			}, {
-				SubnetProviderId: "4",
-				SubnetTag:        "subnet-192.168.4.0/24",
-				SpaceTag:         "space-foo-2",
-				VLANTag:          3,
-				Zones:            []string{"zone1"},
+				SubnetProviderId:  "4",
+				ProviderNetworkId: "liars",
+				SubnetTag:         "subnet-192.168.4.0/24",
+				SpaceTag:          "space-foo-2",
+				VLANTag:           3,
+				Zones:             []string{"zone1"},
 			}},
 		})
 	})

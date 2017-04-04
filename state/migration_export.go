@@ -92,7 +92,9 @@ func (st *State) Export() (description.Model, error) {
 		return nil, errors.Trace(err)
 	}
 	export.model.SetConstraints(constraintsArgs)
-
+	if err := export.modelStatus(); err != nil {
+		return nil, errors.Trace(err)
+	}
 	if err := export.modelUsers(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -142,6 +144,9 @@ func (st *State) Export() (description.Model, error) {
 	if err := export.model.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
+
+	export.model.SetSLA(dbModel.SLALevel(), string(dbModel.SLACredential()))
+	export.model.SetMeterStatus(dbModel.MeterStatus().Code.String(), dbModel.MeterStatus().Info)
 
 	export.logExtras()
 
@@ -197,6 +202,17 @@ func (e *exporter) readBlocks() (map[string]string, error) {
 		result[doc.Type.MigrationValue()] = doc.Message
 	}
 	return result, nil
+}
+
+func (e *exporter) modelStatus() error {
+	statusArgs, err := e.statusArgs(modelGlobalKey)
+	if err != nil {
+		return errors.Annotatef(err, "status for model")
+	}
+
+	e.model.SetStatus(statusArgs)
+	e.model.SetStatusHistory(e.statusHistoryArgs(modelGlobalKey))
+	return nil
 }
 
 func (e *exporter) modelUsers() error {
@@ -899,11 +915,12 @@ func (e *exporter) subnets() error {
 
 	for _, subnet := range subnets {
 		e.model.AddSubnet(description.SubnetArgs{
-			CIDR:             subnet.CIDR(),
-			ProviderId:       string(subnet.ProviderId()),
-			VLANTag:          subnet.VLANTag(),
-			AvailabilityZone: subnet.AvailabilityZone(),
-			SpaceName:        subnet.SpaceName(),
+			CIDR:              subnet.CIDR(),
+			ProviderId:        string(subnet.ProviderId()),
+			ProviderNetworkId: string(subnet.ProviderNetworkId()),
+			VLANTag:           subnet.VLANTag(),
+			AvailabilityZone:  subnet.AvailabilityZone(),
+			SpaceName:         subnet.SpaceName(),
 		})
 	}
 	return nil
@@ -1249,7 +1266,7 @@ func (e *exporter) statusArgs(globalKey string) (description.StatusArgs, error) 
 func (e *exporter) statusHistoryArgs(globalKey string) []description.StatusArgs {
 	history := e.statusHistory[globalKey]
 	result := make([]description.StatusArgs, len(history))
-	e.logger.Debugf("found %d status history docs for %s", len(history), globalKey)
+	e.logger.Tracef("found %d status history docs for %s", len(history), globalKey)
 	for i, doc := range history {
 		result[i] = description.StatusArgs{
 			Value:   string(doc.Status),
@@ -1266,7 +1283,7 @@ func (e *exporter) constraintsArgs(globalKey string) (description.ConstraintsArg
 	doc, found := e.constraints[globalKey]
 	if !found {
 		// No constraints for this key.
-		e.logger.Debugf("no constraints found for key %q", globalKey)
+		e.logger.Tracef("no constraints found for key %q", globalKey)
 		return description.ConstraintsArgs{}, nil
 	}
 	// We capture any type error using a closure to avoid having to return
@@ -1352,11 +1369,11 @@ func (e *exporter) remoteApplications() error {
 func (e *exporter) addRemoteApplication(app *RemoteApplication) error {
 	url, _ := app.URL()
 	args := description.RemoteApplicationArgs{
-		Tag:         app.Tag().(names.ApplicationTag),
-		OfferName:   app.OfferName(),
-		URL:         url,
-		SourceModel: app.SourceModel(),
-		Registered:  app.Registered(),
+		Tag:             app.Tag().(names.ApplicationTag),
+		OfferName:       app.OfferName(),
+		URL:             url,
+		SourceModel:     app.SourceModel(),
+		IsConsumerProxy: app.IsConsumerProxy(),
 	}
 	descApp := e.model.AddRemoteApplication(args)
 	endpoints, err := app.Endpoints()

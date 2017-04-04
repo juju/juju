@@ -12,23 +12,17 @@ import (
 	"github.com/juju/juju/state"
 )
 
-// MetricsSenderBackend defines methods provided by a state
-// instance used by the metrics sender apiserver implementation.
-// All the interface methods are defined directly on state.State
-// and are reproduced here for use in tests.
-type MetricsSenderBackend interface {
+// ModelBackend contains methods that are used by the metrics sender.
+type ModelBackend interface {
 	MetricsManager() (*state.MetricsManager, error)
 	MetricsToSend(batchSize int) ([]*state.MetricBatch, error)
 	SetMetricBatchesSent(batchUUIDs []string) error
 	CountOfUnsentMetrics() (int, error)
 	CountOfSentMetrics() (int, error)
-}
-
-// ModelBackend contains additional methods that are used by the metrics sender.
-type ModelBackend interface {
-	MetricsSenderBackend
+	CleanupOldMetrics() error
 
 	Unit(name string) (*state.Unit, error)
 	ModelTag() names.ModelTag
 	ModelConfig() (*config.Config, error)
+	SetModelMeterStatus(string, string) error
 }

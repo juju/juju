@@ -44,7 +44,7 @@ func NewWhoAmICommand() cmd.Command {
 func (c *whoAmICommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "whoami",
-		Purpose: "Print current login details",
+		Purpose: "Print current login details.",
 		Doc:     whoAmIDetails,
 	}
 }

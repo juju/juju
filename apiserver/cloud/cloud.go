@@ -18,10 +18,6 @@ import (
 	"github.com/juju/juju/state"
 )
 
-func init() {
-	common.RegisterStandardFacade("Cloud", 1, newFacade)
-}
-
 // CloudAPI implements the model manager interface and is
 // the concrete implementation of the api end point.
 type CloudAPI struct {
@@ -31,7 +27,8 @@ type CloudAPI struct {
 	getCredentialsAuthFunc common.GetAuthFunc
 }
 
-func newFacade(st *state.State, _ facade.Resources, auth facade.Authorizer) (*CloudAPI, error) {
+// NewFacade provides the required signature for facade registration.
+func NewFacade(st *state.State, _ facade.Resources, auth facade.Authorizer) (*CloudAPI, error) {
 	return NewCloudAPI(NewStateBackend(st), auth)
 }
 

@@ -1,8 +1,6 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// +build !gccgo
-
 package vsphere
 
 import (
@@ -42,7 +40,7 @@ var cloudSchema = &jsonschema.Schema{
 	Order:    []string{cloud.EndpointKey, cloud.AuthTypesKey, cloud.RegionsKey},
 	Properties: map[string]*jsonschema.Schema{
 		cloud.EndpointKey: {
-			Singular: "the API endpoint url for the cloud",
+			Singular: "the vCenter address or URL",
 			Type:     []jsonschema.Type{jsonschema.StringType},
 			Format:   jsonschema.FormatURI,
 		},
@@ -53,8 +51,8 @@ var cloudSchema = &jsonschema.Schema{
 		},
 		cloud.RegionsKey: {
 			Type:     []jsonschema.Type{jsonschema.ObjectType},
-			Singular: "region",
-			Plural:   "regions",
+			Singular: "datacenter",
+			Plural:   "datacenters",
 			AdditionalProperties: &jsonschema.Schema{
 				Type:          []jsonschema.Type{jsonschema.ObjectType},
 				MaxProperties: jsonschema.Int(0),

@@ -6,6 +6,7 @@ package commands
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -16,6 +17,7 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -60,6 +62,7 @@ type BootstrapSuite struct {
 	testing.MgoSuite
 	envtesting.ToolsFixture
 	store *jujuclienttesting.MemStore
+	tw    loggo.TestWriter
 }
 
 var _ = gc.Suite(&BootstrapSuite{})
@@ -100,9 +103,11 @@ func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 	sourceDir := createToolsSource(c, vAll)
 	s.PatchValue(&envtools.DefaultBaseURL, sourceDir)
 
-	expectedNumber := jujuversion.Current
-	expectedNumber.Build = 1235
-	s.PatchValue(&envtools.BundleTools, toolstesting.GetMockBundleTools(c, &expectedNumber))
+	// NOTE(axw) we cannot patch BundleTools here, as the "gc.C" argument
+	// is invalidated once this method returns.
+	s.PatchValue(&envtools.BundleTools, func(bool, io.Writer, *version.Number) (version.Binary, string, error) {
+		panic("tests must call setupAutoUploadTest or otherwise patch envtools.BundleTools")
+	})
 
 	s.PatchValue(&waitForAgentInitialisation, func(*cmd.Context, *modelcmd.ModelCommandBase, string, string) error {
 		return nil
@@ -110,6 +115,15 @@ func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 
 	// TODO(wallyworld) - add test data when tests are improved
 	s.store = jujuclienttesting.NewMemStore()
+
+	// Write bootstrap command logs to an in-memory buffer,
+	// so we can inspect the output in tests.
+	s.tw.Clear()
+	c.Assert(loggo.RegisterWriter("bootstrap-test", &s.tw), jc.ErrorIsNil)
+	s.AddCleanup(func(c *gc.C) {
+		_, err := loggo.RemoveWriter("bootstrap-test")
+		c.Assert(err, jc.ErrorIsNil)
+	})
 }
 
 func (s *BootstrapSuite) TearDownSuite(c *gc.C) {
@@ -163,10 +177,12 @@ func (s *BootstrapSuite) TestRunTests(c *gc.C) {
 type bootstrapTest struct {
 	info string
 	// binary version string used to set jujuversion.Current
-	version string
-	sync    bool
-	args    []string
-	err     string
+	version   string
+	sync      bool
+	args      []string
+	err       string
+	silentErr bool
+	logs      jc.SimpleMessages
 	// binary version string for expected tools; if set, no default tools
 	// will be uploaded before running the test.
 	upload               string
@@ -197,6 +213,7 @@ func (s *BootstrapSuite) run(c *gc.C, test bootstrapTest) testing.Restorer {
 	// of its envtools.
 	resetJujuXDGDataHome(c)
 	dummy.Reset(c)
+	s.tw.Clear()
 
 	var restore testing.Restorer = func() {
 		s.store = jujuclienttesting.NewMemStore()
@@ -235,8 +252,12 @@ func (s *BootstrapSuite) run(c *gc.C, test bootstrapTest) testing.Restorer {
 	case <-time.After(coretesting.LongWait):
 		c.Fatal("timed out")
 	}
+	c.Check(s.tw.Log(), jc.LogMatches, test.logs)
 	// Check for remaining operations/errors.
-	if test.err != "" {
+	if test.silentErr {
+		c.Assert(err, gc.Equals, cmd.ErrSilent)
+		return restore
+	} else if test.err != "" {
 		c.Assert(err, gc.NotNil)
 		stripped := strings.Replace(err.Error(), "\n", "", -1)
 		c.Check(stripped, gc.Matches, test.err)
@@ -321,14 +342,16 @@ var bootstrapTests = []bootstrapTest{{
 	args: []string{"--constraints", "bad=wrong"},
 	err:  `unknown constraint "bad"`,
 }, {
-	info: "conflicting --constraints",
-	args: []string{"--constraints", "instance-type=foo mem=4G"},
-	err:  `ambiguous constraints: "instance-type" overlaps with "mem"`,
+	info:      "conflicting --constraints",
+	args:      []string{"--constraints", "instance-type=foo mem=4G"},
+	silentErr: true,
+	logs:      []jc.SimpleMessage{{loggo.ERROR, `ambiguous constraints: "instance-type" overlaps with "mem"`}},
 }, {
-	info:    "bad model",
-	version: "1.2.3-%LTS%-amd64",
-	args:    []string{"--config", "broken=Bootstrap Destroy", "--auto-upgrade"},
-	err:     `failed to bootstrap model: dummy.Bootstrap is broken`,
+	info:      "bad model",
+	version:   "1.2.3-%LTS%-amd64",
+	args:      []string{"--config", "broken=Bootstrap Destroy", "--auto-upgrade"},
+	silentErr: true,
+	logs:      []jc.SimpleMessage{{loggo.ERROR, `failed to bootstrap model: dummy.Bootstrap is broken`}},
 }, {
 	info:        "constraints",
 	args:        []string{"--constraints", "mem=4G cores=4"},
@@ -350,17 +373,23 @@ var bootstrapTests = []bootstrapTest{{
 	upload:      "1.3.3.1-raring-ppc64el", // from jujuversion.Current
 	constraints: constraints.MustParse("arch=ppc64el"),
 }, {
-	info:     "--build-agent rejects mismatched arch",
-	version:  "1.3.3-saucy-amd64",
-	hostArch: "amd64",
-	args:     []string{"--build-agent", "--constraints", "arch=ppc64el"},
-	err:      `failed to bootstrap model: cannot use agent built for "ppc64el" using a machine running on "amd64"`,
+	info:      "--build-agent rejects mismatched arch",
+	version:   "1.3.3-saucy-amd64",
+	hostArch:  "amd64",
+	args:      []string{"--build-agent", "--constraints", "arch=ppc64el"},
+	silentErr: true,
+	logs: []jc.SimpleMessage{{
+		loggo.ERROR, `failed to bootstrap model: cannot use agent built for "ppc64el" using a machine running on "amd64"`,
+	}},
 }, {
-	info:     "--build-agent rejects non-supported arch",
-	version:  "1.3.3-saucy-mips64",
-	hostArch: "mips64",
-	args:     []string{"--build-agent"},
-	err:      fmt.Sprintf(`failed to bootstrap model: model %q of type dummy does not support instances running on "mips64"`, bootstrap.ControllerModelName),
+	info:      "--build-agent rejects non-supported arch",
+	version:   "1.3.3-saucy-mips64",
+	hostArch:  "mips64",
+	args:      []string{"--build-agent"},
+	silentErr: true,
+	logs: []jc.SimpleMessage{{
+		loggo.ERROR, fmt.Sprintf(`failed to bootstrap model: model %q of type dummy does not support instances running on "mips64"`, bootstrap.ControllerModelName),
+	}},
 }, {
 	info:     "--build-agent always bumps build number",
 	version:  "1.2.3.4-raring-amd64",
@@ -438,7 +467,7 @@ func (s *BootstrapSuite) TestCheckProviderProvisional(c *gc.C) {
 
 func (s *BootstrapSuite) TestBootstrapTwice(c *gc.C) {
 	const controllerName = "dev"
-	s.patchVersionAndSeries(c, "raring")
+	s.setupAutoUploadTest(c, "1.8.3", "raring")
 
 	_, err := coretesting.RunCommand(c, s.newBootstrapCommand(), "dummy", controllerName, "--auto-upgrade")
 	c.Assert(err, jc.ErrorIsNil)
@@ -448,7 +477,7 @@ func (s *BootstrapSuite) TestBootstrapTwice(c *gc.C) {
 }
 
 func (s *BootstrapSuite) TestBootstrapDefaultControllerName(c *gc.C) {
-	s.patchVersionAndSeries(c, "raring")
+	s.setupAutoUploadTest(c, "1.8.3", "raring")
 
 	_, err := coretesting.RunCommand(c, s.newBootstrapCommand(), "dummy-cloud/region-1", "--auto-upgrade")
 	c.Assert(err, jc.ErrorIsNil)
@@ -462,7 +491,7 @@ func (s *BootstrapSuite) TestBootstrapDefaultControllerName(c *gc.C) {
 }
 
 func (s *BootstrapSuite) TestBootstrapDefaultControllerNameNoRegions(c *gc.C) {
-	s.patchVersionAndSeries(c, "raring")
+	s.setupAutoUploadTest(c, "1.8.3", "raring")
 
 	_, err := coretesting.RunCommand(c, s.newBootstrapCommand(), "no-cloud-regions", "--auto-upgrade")
 	c.Assert(err, jc.ErrorIsNil)
@@ -471,7 +500,7 @@ func (s *BootstrapSuite) TestBootstrapDefaultControllerNameNoRegions(c *gc.C) {
 }
 
 func (s *BootstrapSuite) TestBootstrapSetsCurrentModel(c *gc.C) {
-	s.patchVersionAndSeries(c, "raring")
+	s.setupAutoUploadTest(c, "1.8.3", "raring")
 
 	_, err := coretesting.RunCommand(c, s.newBootstrapCommand(), "dummy", "devcontroller", "--auto-upgrade")
 	c.Assert(err, jc.ErrorIsNil)
@@ -483,7 +512,7 @@ func (s *BootstrapSuite) TestBootstrapSetsCurrentModel(c *gc.C) {
 }
 
 func (s *BootstrapSuite) TestBootstrapSetsControllerDetails(c *gc.C) {
-	s.patchVersionAndSeries(c, "raring")
+	s.setupAutoUploadTest(c, "1.8.3", "raring")
 
 	_, err := coretesting.RunCommand(c, s.newBootstrapCommand(), "dummy", "devcontroller", "--auto-upgrade")
 	c.Assert(err, jc.ErrorIsNil)
@@ -926,15 +955,28 @@ func (s *BootstrapSuite) TestBootstrapAlreadyExists(c *gc.C) {
 
 func (s *BootstrapSuite) TestInvalidLocalSource(c *gc.C) {
 	s.PatchValue(&jujuversion.Current, version.MustParse("1.2.0"))
+	s.PatchValue(&envtools.BundleTools, func(bool, io.Writer, *version.Number) (version.Binary, string, error) {
+		return version.Binary{}, "", errors.New("no agent binaries for you")
+	})
 	resetJujuXDGDataHome(c)
 
 	// Bootstrap the controller with an invalid source.
-	// The command returns with an error.
-	_, err := coretesting.RunCommand(
+	// The command will look for prepackaged agent binaries
+	// in the source, and then fall back to building.
+	ctx, err := coretesting.RunCommand(
 		c, s.newBootstrapCommand(), "--metadata-source", c.MkDir(),
 		"dummy", "devcontroller",
 	)
-	c.Check(err, gc.ErrorMatches, `failed to bootstrap model: Juju cannot bootstrap because no agent binaries are available for your model(.|\n)*`)
+	c.Check(err, gc.Equals, cmd.ErrSilent)
+
+	stderr := coretesting.Stderr(ctx)
+	c.Check(stderr, gc.Matches,
+		"(.|\n)*Looking for packaged Juju agent version 1\\.2\\.0 for amd64\n"+
+			"No packaged binary found, preparing local Juju agent binary(.|\n)*",
+	)
+	c.Check(s.tw.Log(), jc.LogMatches, []jc.SimpleMessage{
+		{loggo.ERROR, "failed to bootstrap model: cannot package bootstrap agent binary: no agent binaries for you"},
+	})
 }
 
 // createImageMetadata creates some image metadata in a local directory.
@@ -1061,7 +1103,8 @@ func (s *BootstrapSuite) TestAutoSyncLocalSource(c *gc.C) {
 }
 
 func (s *BootstrapSuite) TestInteractiveBootstrap(c *gc.C) {
-	s.patchVersionAndSeries(c, "raring")
+	s.setupAutoUploadTest(c, "1.8.3", "precise")
+	//s.patchVersionAndSeries(c, "raring")
 
 	cmd := s.newBootstrapCommand()
 	err := coretesting.InitCommand(cmd, nil)
@@ -1136,8 +1179,11 @@ func (s *BootstrapSuite) TestMissingToolsError(c *gc.C) {
 		"dummy-cloud/region-1", "devcontroller",
 		"--config", "default-series=raring", "--agent-version=1.8.4",
 	)
-	c.Assert(err, gc.ErrorMatches,
-		"failed to bootstrap model: Juju cannot bootstrap because no agent binaries are available for your model(.|\n)*")
+	c.Assert(err, gc.Equals, cmd.ErrSilent)
+	c.Check(s.tw.Log(), jc.LogMatches, []jc.SimpleMessage{{
+		loggo.ERROR,
+		"failed to bootstrap model: Juju cannot bootstrap because no agent binaries are available for your model",
+	}})
 }
 
 func (s *BootstrapSuite) TestMissingToolsUploadFailedError(c *gc.C) {
@@ -1162,12 +1208,15 @@ Creating Juju controller "devcontroller" on dummy-cloud/region-1
 Looking for packaged Juju agent version 1.7.3 for amd64
 No packaged binary found, preparing local Juju agent binary
 `[1:])
-	c.Check(err, gc.ErrorMatches, "failed to bootstrap model: cannot package bootstrap agent binary: an error")
+	c.Assert(err, gc.Equals, cmd.ErrSilent)
+	c.Check(s.tw.Log(), jc.LogMatches, []jc.SimpleMessage{{
+		loggo.ERROR,
+		"failed to bootstrap model: cannot package bootstrap agent binary: an error",
+	}})
 }
 
 func (s *BootstrapSuite) TestBootstrapDestroy(c *gc.C) {
-	resetJujuXDGDataHome(c)
-	s.patchVersion(c)
+	s.setupAutoUploadTest(c, "1.7.3", "quantal")
 
 	opc, errc := cmdtesting.RunCommand(
 		cmdtesting.NullContext(c), s.newBootstrapCommand(),
@@ -1177,7 +1226,7 @@ func (s *BootstrapSuite) TestBootstrapDestroy(c *gc.C) {
 	)
 	select {
 	case err := <-errc:
-		c.Assert(err, gc.ErrorMatches, "failed to bootstrap model: dummy.Bootstrap is broken")
+		c.Assert(err, gc.Equals, cmd.ErrSilent)
 	case <-time.After(coretesting.LongWait):
 		c.Fatal("timed out")
 	}
@@ -1196,11 +1245,17 @@ func (s *BootstrapSuite) TestBootstrapDestroy(c *gc.C) {
 		}
 	}
 	c.Assert(opDestroy.Error, gc.ErrorMatches, "dummy.Destroy is broken")
+
+	c.Check(s.tw.Log(), jc.LogMatches, []jc.SimpleMessage{
+		{loggo.ERROR, "failed to bootstrap model: dummy.Bootstrap is broken"},
+		{loggo.DEBUG, "(error details.*)"},
+		{loggo.DEBUG, "cleaning up after failed bootstrap"},
+		{loggo.ERROR, "error cleaning up: dummy.Destroy is broken"},
+	})
 }
 
 func (s *BootstrapSuite) TestBootstrapKeepBroken(c *gc.C) {
-	resetJujuXDGDataHome(c)
-	s.patchVersion(c)
+	s.setupAutoUploadTest(c, "1.7.3", "quantal")
 
 	ctx := coretesting.Context(c)
 	opc, errc := cmdtesting.RunCommand(ctx, s.newBootstrapCommand(),
@@ -1490,7 +1545,7 @@ func (s *BootstrapSuite) TestBootstrapMultipleConfigFiles(c *gc.C) {
 		"controller: false\n",
 	), 0644)
 
-	s.patchVersionAndSeries(c, "raring")
+	s.setupAutoUploadTest(c, "1.8.3", "raring")
 	_, err = coretesting.RunCommand(
 		c, s.newBootstrapCommand(), "dummy", "ctrl",
 		"--auto-upgrade",
@@ -1500,7 +1555,10 @@ func (s *BootstrapSuite) TestBootstrapMultipleConfigFiles(c *gc.C) {
 		"--config", configFile1,
 		"--config", configFile2,
 	)
-	c.Assert(err, gc.ErrorMatches, "failed to bootstrap model: dummy.Bootstrap is broken")
+	c.Assert(err, gc.Equals, cmd.ErrSilent)
+	c.Check(s.tw.Log(), jc.LogMatches, []jc.SimpleMessage{
+		{loggo.ERROR, "failed to bootstrap model: dummy.Bootstrap is broken"},
+	})
 }
 
 func (s *BootstrapSuite) TestBootstrapConfigFileAndAdHoc(c *gc.C) {
@@ -1509,7 +1567,7 @@ func (s *BootstrapSuite) TestBootstrapConfigFileAndAdHoc(c *gc.C) {
 	err := ioutil.WriteFile(configFile, []byte("controller: not-a-bool\n"), 0644)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.patchVersionAndSeries(c, "raring")
+	s.setupAutoUploadTest(c, "1.8.3", "raring")
 	_, err = coretesting.RunCommand(
 		c, s.newBootstrapCommand(), "dummy", "ctrl",
 		"--auto-upgrade",
@@ -1643,8 +1701,7 @@ func (s *BootstrapSuite) TestBootstrapSetsControllerOnBase(c *gc.C) {
 	// this, the concurrent bootstraps fail.
 	// See https://pad.lv/1604223
 
-	resetJujuXDGDataHome(c)
-	s.patchVersionAndSeries(c, "raring")
+	s.setupAutoUploadTest(c, "1.8.3", "precise")
 
 	const controllerName = "dev"
 

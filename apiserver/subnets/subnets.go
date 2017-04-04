@@ -15,10 +15,6 @@ import (
 	"github.com/juju/juju/state"
 )
 
-func init() {
-	common.RegisterStandardFacade("Subnets", 2, NewAPI)
-}
-
 // SubnetsAPI defines the methods the Subnets API facade implements.
 type SubnetsAPI interface {
 	// AllZones returns all availability zones known to Juju. If a

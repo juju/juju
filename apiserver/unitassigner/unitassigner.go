@@ -14,10 +14,6 @@ import (
 	"github.com/juju/juju/state/watcher"
 )
 
-func init() {
-	common.RegisterStandardFacade("UnitAssigner", 1, New)
-}
-
 // assignerState defines the state methods this facade needs, so they can be mocked
 // for testing.
 type assignerState interface {

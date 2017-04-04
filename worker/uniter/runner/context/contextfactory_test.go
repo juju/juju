@@ -40,15 +40,15 @@ func (s *ContextFactorySuite) SetUpTest(c *gc.C) {
 	s.paths = runnertesting.NewRealPaths(c)
 	s.membership = map[int][]string{}
 
-	contextFactory, err := context.NewContextFactory(
-		s.uniter,
-		s.unit.Tag().(names.UnitTag),
-		runnertesting.FakeTracker{},
-		s.getRelationInfos,
-		s.storage,
-		s.paths,
-		testing.NewClock(time.Time{}),
-	)
+	contextFactory, err := context.NewContextFactory(context.FactoryConfig{
+		State:            s.uniter,
+		UnitTag:          s.unit.Tag().(names.UnitTag),
+		Tracker:          runnertesting.FakeTracker{},
+		GetRelationInfos: s.getRelationInfos,
+		Storage:          s.storage,
+		Paths:            s.paths,
+		Clock:            testing.NewClock(time.Time{}),
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.factory = contextFactory
 }
@@ -111,6 +111,15 @@ func (s *ContextFactorySuite) testLeadershipContextWiring(c *gc.C, createContext
 		FuncName: "IsLeader",
 	}})
 
+}
+
+func (s *ContextFactorySuite) TestNewHookContextRetrievesSLALevel(c *gc.C) {
+	err := s.State.SetSLA("essential", []byte("creds"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	ctx, err := s.factory.HookContext(hook.Info{Kind: hooks.ConfigChanged})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ctx.SLALevel(), gc.Equals, "essential")
 }
 
 func (s *ContextFactorySuite) TestNewHookContextLeadershipContext(c *gc.C) {
@@ -202,15 +211,15 @@ func (s *ContextFactorySuite) TestNewHookContextWithStorage(c *gc.C) {
 	uniter, err := st.Uniter()
 	c.Assert(err, jc.ErrorIsNil)
 
-	contextFactory, err := context.NewContextFactory(
-		uniter,
-		unit.Tag().(names.UnitTag),
-		runnertesting.FakeTracker{},
-		s.getRelationInfos,
-		s.storage,
-		s.paths,
-		testing.NewClock(time.Time{}),
-	)
+	contextFactory, err := context.NewContextFactory(context.FactoryConfig{
+		State:            uniter,
+		UnitTag:          unit.Tag().(names.UnitTag),
+		Tracker:          runnertesting.FakeTracker{},
+		GetRelationInfos: s.getRelationInfos,
+		Storage:          s.storage,
+		Paths:            s.paths,
+		Clock:            testing.NewClock(time.Time{}),
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	ctx, err := contextFactory.HookContext(hook.Info{
 		Kind:      hooks.StorageAttached,

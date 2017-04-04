@@ -154,11 +154,16 @@ func (dw *discoverspacesWorker) handleSubnets() error {
 }
 
 func (dw *discoverspacesWorker) discoverSubnetsOnly(environ environs.NetworkingEnviron) error {
-	modelSubnetIds, err := dw.getModelSubnets()
-	if err != nil {
+	subnets, err := environ.Subnets(instance.UnknownId, nil)
+	if errors.IsNotSupported(err) {
+		// It's possible to have a networking environ, but not support
+		// Subnets().  In leiu of adding SupportsSubnets():
+		logger.Debugf("not a networking environ")
+		return nil
+	} else if err != nil {
 		return errors.Trace(err)
 	}
-	subnets, err := environ.Subnets(instance.UnknownId, nil)
+	modelSubnetIds, err := dw.getModelSubnets()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -331,11 +336,12 @@ func collectMissingSubnets(
 			zones = []string{"default"}
 		}
 		addArgs.Subnets = append(addArgs.Subnets, params.AddSubnetParams{
-			SubnetProviderId: string(subnet.ProviderId),
-			SubnetTag:        names.NewSubnetTag(subnet.CIDR).String(),
-			SpaceTag:         spaceTag,
-			VLANTag:          subnet.VLANTag,
-			Zones:            zones,
+			SubnetProviderId:  string(subnet.ProviderId),
+			ProviderNetworkId: string(subnet.ProviderNetworkId),
+			SubnetTag:         names.NewSubnetTag(subnet.CIDR).String(),
+			SpaceTag:          spaceTag,
+			VLANTag:           subnet.VLANTag,
+			Zones:             zones,
 		})
 	}
 }

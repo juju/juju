@@ -106,6 +106,7 @@ var getTests = []struct {
 				"description": "The name of the initial account (given admin permissions).",
 				"type":        "string",
 				"value":       "admin001",
+				"default":     true,
 			},
 			"skill-level": map[string]interface{}{
 				"description": "A number indicating skill.",

@@ -26,18 +26,19 @@ func NewClient(caller base.APICallCloser) *Client {
 	return &Client{ClientFacade: frontend, facade: backend}
 }
 
-// WatchSubnets returns a strings watcher that notifies of the addition,
-// removal, and lifecycle changes of subnets in the model.
-func (c *Client) WatchSubnets() (watcher.StringsWatcher, error) {
-	var result params.StringsWatchResult
-	err := c.facade.FacadeCall("WatchSubnets", nil, &result)
+// WatchIngressAddressesForRelation returns a watcher that notifies when address from which
+// connections will originate for the relation change.
+func (c *Client) WatchIngressAddressesForRelation(remoteRelationId params.RemoteEntityId) (watcher.NotifyWatcher, error) {
+	args := params.RemoteEntities{[]params.RemoteEntityId{remoteRelationId}}
+	var result params.NotifyWatchResult
+	err := c.facade.FacadeCall("WatchIngressAddressesForRelation", args, &result)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	if result.Error != nil {
 		return nil, errors.Trace(result.Error)
 	}
-	w := apiwatcher.NewStringsWatcher(c.facade.RawAPICaller(), result)
+	w := apiwatcher.NewNotifyWatcher(c.facade.RawAPICaller(), result)
 	return w, nil
 }
 

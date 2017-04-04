@@ -116,8 +116,8 @@ func newRunnerForHooks(st *State) jujutxn.Runner {
 	return runner
 }
 
-func OfferAtURL(sd crossmodel.ApplicationOffers, url string) (*applicationOfferDoc, error) {
-	return sd.(*applicationOffers).offerAtURL(url)
+func OfferForName(sd crossmodel.ApplicationOffers, name string) (*applicationOfferDoc, error) {
+	return sd.(*applicationOffers).offerForName(name)
 }
 
 func MakeApplicationOffer(sd crossmodel.ApplicationOffers, offer *applicationOfferDoc) (*crossmodel.ApplicationOffer, error) {
@@ -672,4 +672,9 @@ func AssertNoCleanups(c *gc.C, st *State) {
 // given application.
 func GetApplicationSettings(st *State, app *Application) *Settings {
 	return newSettings(st, settingsC, app.settingsKey())
+}
+
+// NewSLALevel returns a new SLA level.
+func NewSLALevel(level string) (slaLevel, error) {
+	return newSLALevel(level)
 }

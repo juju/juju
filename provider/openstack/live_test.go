@@ -13,7 +13,6 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/goose.v1/client"
 	"gopkg.in/goose.v1/identity"
-	"gopkg.in/goose.v1/neutron"
 
 	"github.com/juju/juju/environs/jujutest"
 	"github.com/juju/juju/environs/storage"
@@ -125,46 +124,6 @@ func (t *LiveTests) SetUpTest(c *gc.C) {
 func (t *LiveTests) TearDownTest(c *gc.C) {
 	t.LiveTests.TearDownTest(c)
 	t.BaseSuite.TearDownTest(c)
-}
-
-func (t *LiveTests) TestEnsureGroupSetsGroupId(c *gc.C) {
-	t.PrepareOnce(c)
-	rules := []neutron.RuleInfoV2{
-		{ // First group explicitly asks for all services
-			Direction:      "ingress",
-			IPProtocol:     "tcp",
-			PortRangeMin:   22,
-			PortRangeMax:   22,
-			RemoteIPPrefix: "0.0.0.0/0",
-		},
-		{ // Second group should only allow access from within the group
-			Direction:    "ingress",
-			IPProtocol:   "tcp",
-			PortRangeMin: 1,
-			PortRangeMax: 65535,
-		},
-	}
-	groupName := "juju-test-group-" + randomName()
-	// Make sure things are clean before we start, and clean when we are done
-	cleanup := func() {
-		c.Check(openstack.DiscardSecurityGroup(t.Env, groupName), gc.IsNil)
-	}
-	cleanup()
-	defer cleanup()
-	group, err := openstack.EnsureGroup(t.Env, groupName, rules)
-	c.Assert(err, jc.ErrorIsNil)
-	// 2 rules created + 2 default neutron rules = 4
-	c.Check(group.Rules, gc.HasLen, 4)
-	c.Check(group.Rules[2].Direction, gc.Equals, "ingress")
-	c.Check(*group.Rules[2].IPProtocol, gc.Equals, "tcp")
-	c.Check(*group.Rules[2].PortRangeMin, gc.Equals, 22)
-	c.Check(*group.Rules[2].PortRangeMax, gc.Equals, 22)
-	c.Check(group.Rules[2].ParentGroupId, gc.Equals, group.Id)
-	c.Check(group.Rules[3].Direction, gc.Equals, "ingress")
-	c.Check(*group.Rules[3].IPProtocol, gc.Equals, "tcp")
-	c.Check(*group.Rules[3].PortRangeMin, gc.Equals, 1)
-	c.Check(*group.Rules[3].PortRangeMax, gc.Equals, 65535)
-	c.Check(group.Rules[3].ParentGroupId, gc.Equals, group.Id)
 }
 
 func (t *LiveTests) TestSetupGlobalGroupExposesCorrectPorts(c *gc.C) {

@@ -2796,7 +2796,7 @@ var statusTests = []testCase{
 		addAliveUnit{"wordpress", "1"},
 
 		addCharm{"mysql"},
-		addRemoteApplication{name: "hosted-mysql", url: "local:/u/me/mysql", charm: "mysql", endpoints: []string{"server"}},
+		addRemoteApplication{name: "hosted-mysql", url: "me/model.mysql", charm: "mysql", endpoints: []string{"server"}},
 		relateServices{"wordpress", "hosted-mysql"},
 
 		expect{
@@ -2809,7 +2809,7 @@ var statusTests = []testCase{
 				},
 				"application-endpoints": M{
 					"hosted-mysql": M{
-						"url": "local:/u/me/mysql",
+						"url": "me/model.mysql",
 						"endpoints": M{
 							"server": M{
 								"interface": "mysql",
@@ -2853,6 +2853,32 @@ var statusTests = []testCase{
 						},
 					}),
 				},
+			},
+		},
+	),
+	test( // 24
+		"set meter status on the model",
+		setModelMeterStatus{"RED", "status message"},
+		expect{
+			"simulate just the two services and a bootstrap node",
+			M{
+				"model": M{
+					"name":       "controller",
+					"controller": "kontroll",
+					"cloud":      "dummy",
+					"region":     "dummy-region",
+					"version":    "1.2.3",
+					"model-status": M{
+						"current": "available",
+						"since":   "01 Apr 15 01:23+10:00",
+					},
+					"meter-status": M{
+						"color":   "RED",
+						"message": "status message",
+					},
+				},
+				"machines":     M{},
+				"applications": M{},
 			},
 		},
 	),
@@ -3308,6 +3334,18 @@ func (s setUnitMeterStatus) step(c *gc.C, ctx *context) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+type setModelMeterStatus struct {
+	color   string
+	message string
+}
+
+func (s setModelMeterStatus) step(c *gc.C, ctx *context) {
+	m, err := ctx.st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	err = m.SetMeterStatus(s.color, s.message)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 type setUnitAsLeader struct {
 	unitName string
 }
@@ -3748,7 +3786,7 @@ func (s *StatusSuite) TestStatusWithFormatSummary(c *gc.C) {
 		addCharm{"mysql"},
 		addCharm{"logging"},
 		addCharm{"riak"},
-		addRemoteApplication{name: "hosted-riak", url: "local:/u/me/riak", charm: "riak", endpoints: []string{"endpoint"}},
+		addRemoteApplication{name: "hosted-riak", url: "me/model.riak", charm: "riak", endpoints: []string{"endpoint"}},
 		addService{name: "wordpress", charm: "wordpress"},
 		setServiceExposed{"wordpress", true},
 		addMachine{machineId: "1", job: state.JobHostUnits},
@@ -3801,7 +3839,7 @@ Running on subnets:  127.0.0.1/8, 10.0.2.1/8
         wordpress  1/1  exposed
                  
         # Remote:  (1)
-      hosted-riak       local:/u/me/riak
+      hosted-riak       me/model.riak
 
 `[1:])
 }
@@ -3895,7 +3933,7 @@ func (s *StatusSuite) prepareTabularData(c *gc.C) *context {
 		addCharm{"mysql"},
 		addCharm{"logging"},
 		addCharm{"riak"},
-		addRemoteApplication{name: "hosted-riak", url: "local:/u/me/riak", charm: "riak", endpoints: []string{"endpoint"}},
+		addRemoteApplication{name: "hosted-riak", url: "me/model.riak", charm: "riak", endpoints: []string{"endpoint"}},
 		addService{name: "wordpress", charm: "wordpress"},
 		setServiceExposed{"wordpress", true},
 		addMachine{machineId: "1", job: state.JobHostUnits},
@@ -3963,7 +4001,7 @@ Model       Controller  Cloud/Region        Version  Notes
 controller  kontroll    dummy/dummy-region  1.2.3    upgrade available: 1.2.4
 
 SAAS name    Status   Store  URL
-hosted-riak  unknown  local  u/me/riak
+hosted-riak  unknown  local  me/model.riak
 
 App        Version          Status       Scale  Charm      Store       Rev  OS      Notes
 logging    a bit too lo...  error            2  logging    jujucharms    1  ubuntu  exposed

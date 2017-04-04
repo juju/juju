@@ -26,10 +26,6 @@ const (
 	RetryTimeFactor = 2
 )
 
-func init() {
-	common.RegisterStandardFacade("RetryStrategy", 1, NewRetryStrategyAPI)
-}
-
 // RetryStrategy defines the methods exported by the RetryStrategy API facade.
 type RetryStrategy interface {
 	RetryStrategy(params.Entities) (params.RetryStrategyResults, error)

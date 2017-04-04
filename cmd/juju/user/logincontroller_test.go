@@ -7,70 +7,23 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"net/url"
 	"os"
 	"strings"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/cmd/juju/user"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/jujuclient"
 )
 
-// LoginControllerSuite tests the functionality of the login command
-// that logs into controllers rather than choosing a user name.
-// Most of the tests come from cmd/juju/controller/register_test.go - eventually
-// that command will be deleted.
-type LoginControllerSuite struct {
-	BaseSuite
-	apiConnection      *loginMockAPI
-	listModels         func(jujuclient.ClientStore, string, string) ([]base.UserModel, error)
-	listModelsUserName string
-	server             *httptest.Server
-	httpHandler        http.Handler
-}
-
-var _ = gc.Suite(&LoginControllerSuite{})
-
-func (s *LoginControllerSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
-
-	s.httpHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
-	s.server = httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		s.httpHandler.ServeHTTP(w, r)
-	}))
-
-	serverURL, err := url.Parse(s.server.URL)
-	c.Assert(err, jc.ErrorIsNil)
-	s.apiConnection = &loginMockAPI{
-		controllerTag: names.NewControllerTag(mockControllerUUID),
-		addr:          serverURL.Host,
-	}
-	s.listModelsUserName = ""
-	s.PatchValue(user.ListModels, func(_ *modelcmd.ControllerCommandBase, userName string) ([]base.UserModel, error) {
-		s.listModelsUserName = userName
-		return nil, nil
-	})
-	s.PatchValue(user.APIOpen, func(c *modelcmd.JujuCommandBase, info *api.Info, opts api.DialOpts) (api.Connection, error) {
-		return s.apiConnection, nil
-	})
-	s.PatchValue(user.LoginClientStore, s.store)
-	s.PatchEnvironment("JUJU_DIRECTORY", "http://0.1.2.3/directory")
-}
-
-func (s *LoginControllerSuite) TearDownTest(c *gc.C) {
-	s.server.Close()
-	s.FakeJujuXDGDataHomeSuite.TearDownTest(c)
-}
-
-func (s *LoginControllerSuite) TestLoginFromDirectory(c *gc.C) {
+func (s *LoginCommandSuite) TestLoginFromDirectory(c *gc.C) {
 	dirSrv := serveDirectory(map[string]string{
 		"bighost": "bighost.jujucharms.com:443",
 	})
@@ -101,9 +54,15 @@ Welcome, bob@external. You are now logged into "bighost".
 		User:            "bob@external",
 		LastKnownAccess: "login",
 	})
+
+	// Test that we can run the same command again and it works.
+	stdout, stderr, code = s.run(c, "bighost")
+	c.Check(code, gc.Equals, 0)
+	c.Check(stdout, gc.Equals, "")
+	c.Check(stderr, gc.Equals, "")
 }
 
-func (s *LoginControllerSuite) TestLoginPublicHostname(c *gc.C) {
+func (s *LoginCommandSuite) TestLoginPublicHostname(c *gc.C) {
 	s.apiConnection.authTag = names.NewUserTag("bob@external")
 	s.apiConnection.controllerAccess = "login"
 	stdout, stderr, code := s.run(c, "0.1.2.3")
@@ -130,16 +89,16 @@ Welcome, bob@external. You are now logged into "0.1.2.3".
 	})
 }
 
-func (s *LoginControllerSuite) TestRegisterPublicHostnameWithPort(c *gc.C) {
+func (s *LoginCommandSuite) TestRegisterPublicHostnameWithPort(c *gc.C) {
 	s.apiConnection.authTag = names.NewUserTag("bob@external")
 	s.apiConnection.controllerAccess = "login"
 	stdout, stderr, code := s.run(c, "0.1.2.3:5678")
 	c.Check(stdout, gc.Equals, "")
-	c.Check(stderr, gc.Equals, "error: cannot use \"0.1.2.3:5678\" as controller name - use -c flag to choose a different one\n")
+	c.Check(stderr, gc.Equals, "error: cannot use \"0.1.2.3:5678\" as a controller name - use -c flag to choose a different one\n")
 	c.Check(code, gc.Equals, 1)
 }
 
-func (s *LoginControllerSuite) TestRegisterPublicHostnameWithPortAndControllerFlag(c *gc.C) {
+func (s *LoginCommandSuite) TestRegisterPublicHostnameWithPortAndControllerFlag(c *gc.C) {
 	s.apiConnection.authTag = names.NewUserTag("bob@external")
 	s.apiConnection.controllerAccess = "login"
 	stdout, stderr, code := s.run(c, "-c", "foo", "0.1.2.3:5678")
@@ -161,7 +120,7 @@ Welcome, bob@external. You are now logged into "foo".
 	})
 }
 
-func (s *LoginControllerSuite) TestRegisterPublicAPIOpenError(c *gc.C) {
+func (s *LoginCommandSuite) TestRegisterPublicAPIOpenError(c *gc.C) {
 	srv := serveDirectory(map[string]string{"bighost": "https://0.1.2.3/directory"})
 	defer srv.Close()
 	os.Setenv("JUJU_DIRECTORY", srv.URL)
@@ -170,12 +129,30 @@ func (s *LoginControllerSuite) TestRegisterPublicAPIOpenError(c *gc.C) {
 	}
 	stdout, stderr, code := s.run(c, "bighost")
 	c.Check(stdout, gc.Equals, "")
-	c.Check(stderr, gc.Matches, `error: open failed\n`)
+	c.Check(stderr, gc.Matches, `error: cannot log into "bighost": open failed\n`)
 	c.Check(code, gc.Equals, 1)
 }
 
-func (s *LoginControllerSuite) run(c *gc.C, args ...string) (stdout, stderr string, errCode int) {
-	c.Logf("in LoginControllerSuite.run")
+func (s *LoginCommandSuite) TestRegisterPublicControllerMismatch(c *gc.C) {
+	srv := serveDirectory(map[string]string{"bighost": "https://0.1.2.3/directory"})
+	defer srv.Close()
+	os.Setenv("JUJU_DIRECTORY", srv.URL)
+	s.store.Controllers["other"] = jujuclient.ControllerDetails{
+		APIEndpoints:   []string{"0.1.2.3:123"},
+		CACert:         testing.CACert,
+		ControllerUUID: "00000000-1111-2222-3333-444444444444",
+	}
+	stdout, stderr, code := s.run(c, "-c", "other", "bighost")
+	c.Check(stdout, gc.Equals, "")
+	c.Check(stderr, gc.Matches, `
+error: controller at "bighost" does not match existing controller.
+Please choose a different controller name with the -c flag, or
+use "juju unregister other" to remove the existing controller\.
+`[1:])
+	c.Check(code, gc.Equals, 1)
+}
+
+func (s *LoginCommandSuite) run(c *gc.C, args ...string) (stdout, stderr string, errCode int) {
 	var stdoutBuf, stderrBuf bytes.Buffer
 	ctxt := &cmd.Context{
 		Dir:    c.MkDir(),
@@ -193,9 +170,6 @@ type loginMockAPI struct {
 	// This will be nil - it's just there to satisfy the api.Connection
 	// interface methods not explicitly defined by loginMockAPIConnection.
 	api.Connection
-
-	// addr is returned by Addr.
-	addr string
 
 	// controllerTag is returned by ControllerTag.
 	controllerTag names.ControllerTag

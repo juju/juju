@@ -100,7 +100,7 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	s.RawMetadata = compute.Metadata{
 		Items: []*compute.MetadataItems{{
 			Key:   "eggs",
-			Value: "steak",
+			Value: StringPtr("steak"),
 		}},
 		Fingerprint: "heymumwatchthis",
 	}
@@ -130,11 +130,12 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	}
 	s.Instance = Instance{
 		InstanceSummary: InstanceSummary{
-			ID:        "spam",
-			ZoneName:  "a-zone",
-			Status:    StatusRunning,
-			Metadata:  s.Metadata,
-			Addresses: s.Addresses,
+			ID:                "spam",
+			ZoneName:          "a-zone",
+			Status:            StatusRunning,
+			Metadata:          s.Metadata,
+			Addresses:         s.Addresses,
+			NetworkInterfaces: s.RawInstance.NetworkInterfaces,
 		},
 		spec: &s.InstanceSpec,
 	}
@@ -142,6 +143,10 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 
 func (s *BaseSuite) NewWaitError(op *compute.Operation, cause error) error {
 	return waitError{op, cause}
+}
+
+func StringPtr(val string) *string {
+	return &val
 }
 
 type fakeCall struct {
@@ -177,6 +182,8 @@ type fakeConn struct {
 	Disks         []*compute.Disk
 	Disk          *compute.Disk
 	AttachedDisks []*compute.AttachedDisk
+	Networks      []*compute.Network
+	Subnetworks   []*compute.Subnetwork
 }
 
 func (rc *fakeConn) GetProject(projectID string) (*compute.Project, error) {
@@ -479,4 +486,39 @@ func (rc *fakeConn) SetMetadata(projectID, zone, instanceID string, metadata *co
 		err = nil
 	}
 	return err
+}
+
+func (rc *fakeConn) ListNetworks(projectID string) ([]*compute.Network, error) {
+	call := fakeCall{
+		FuncName:  "ListNetworks",
+		ProjectID: projectID,
+	}
+	rc.Calls = append(rc.Calls, call)
+
+	err := rc.Err
+	if len(rc.Calls) != rc.FailOnCall+1 {
+		err = nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return rc.Networks, nil
+}
+
+func (rc *fakeConn) ListSubnetworks(projectID, region string) ([]*compute.Subnetwork, error) {
+	call := fakeCall{
+		FuncName:  "ListSubnetworks",
+		ProjectID: projectID,
+		Region:    region,
+	}
+	rc.Calls = append(rc.Calls, call)
+
+	err := rc.Err
+	if len(rc.Calls) != rc.FailOnCall+1 {
+		err = nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return rc.Subnetworks, nil
 }

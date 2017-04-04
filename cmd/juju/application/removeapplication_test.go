@@ -6,12 +6,10 @@ package application
 import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	jutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charmrepo.v2-unstable"
 	"gopkg.in/juju/names.v2"
-	"gopkg.in/macaroon-bakery.v1/httpbakery"
 
 	"github.com/juju/juju/api/annotations"
 	"github.com/juju/juju/api/application"
@@ -27,8 +25,6 @@ import (
 type RemoveApplicationSuite struct {
 	jujutesting.RepoSuite
 	testing.CmdBlockHelper
-	stub            *jutesting.Stub
-	budgetAPIClient budgetAPIClient
 }
 
 var _ = gc.Suite(&RemoveApplicationSuite{})
@@ -38,9 +34,6 @@ func (s *RemoveApplicationSuite) SetUpTest(c *gc.C) {
 	s.CmdBlockHelper = testing.NewCmdBlockHelper(s.APIState)
 	c.Assert(s.CmdBlockHelper, gc.NotNil)
 	s.AddCleanup(func(*gc.C) { s.CmdBlockHelper.Close() })
-	s.stub = &jutesting.Stub{}
-	s.budgetAPIClient = &mockBudgetAPIClient{Stub: s.stub}
-	s.PatchValue(&getBudgetAPIClient, func(*httpbakery.Client) budgetAPIClient { return s.budgetAPIClient })
 }
 
 func runRemoveApplication(c *gc.C, args ...string) (*cmd.Context, error) {
@@ -63,7 +56,6 @@ func (s *RemoveApplicationSuite) TestLocalApplication(c *gc.C) {
 	riak, err := s.State.Application("riak")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(riak.Life(), gc.Equals, state.Dying)
-	s.stub.CheckNoCalls(c)
 }
 
 func (s *RemoveApplicationSuite) TestInformStorageRemoved(c *gc.C) {
@@ -101,7 +93,6 @@ func (s *RemoveApplicationSuite) TestRemoteApplication(c *gc.C) {
 	// Removed immediately since there are no units.
 	_, err = s.State.RemoteApplication("remote-app")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	s.stub.CheckNoCalls(c)
 }
 
 func (s *RemoveApplicationSuite) TestRemoveLocalMetered(c *gc.C) {
@@ -114,7 +105,6 @@ func (s *RemoveApplicationSuite) TestRemoveLocalMetered(c *gc.C) {
 	riak, err := s.State.Application("metered")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(riak.Life(), gc.Equals, state.Dying)
-	s.stub.CheckNoCalls(c)
 }
 
 func (s *RemoveApplicationSuite) TestBlockRemoveService(c *gc.C) {
@@ -127,7 +117,6 @@ func (s *RemoveApplicationSuite) TestBlockRemoveService(c *gc.C) {
 	riak, err := s.State.Application("riak")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(riak.Life(), gc.Equals, state.Alive)
-	s.stub.CheckNoCalls(c)
 }
 
 func (s *RemoveApplicationSuite) TestFailure(c *gc.C) {
@@ -139,7 +128,6 @@ func (s *RemoveApplicationSuite) TestFailure(c *gc.C) {
 	c.Assert(stderr, gc.Equals, `
 removing application gargleblaster failed: application "gargleblaster" not found
 `[1:])
-	s.stub.CheckNoCalls(c)
 }
 
 func (s *RemoveApplicationSuite) TestInvalidArgs(c *gc.C) {
@@ -147,14 +135,11 @@ func (s *RemoveApplicationSuite) TestInvalidArgs(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `no application specified`)
 	_, err = runRemoveApplication(c, "invalid:name")
 	c.Assert(err, gc.ErrorMatches, `invalid application name "invalid:name"`)
-	s.stub.CheckNoCalls(c)
 }
 
 type RemoveCharmStoreCharmsSuite struct {
 	charmStoreSuite
-	stub            *jutesting.Stub
-	ctx             *cmd.Context
-	budgetAPIClient budgetAPIClient
+	ctx *cmd.Context
 }
 
 var _ = gc.Suite(&RemoveCharmStoreCharmsSuite{})
@@ -163,9 +148,6 @@ func (s *RemoveCharmStoreCharmsSuite) SetUpTest(c *gc.C) {
 	s.charmStoreSuite.SetUpTest(c)
 
 	s.ctx = testing.Context(c)
-	s.stub = &jutesting.Stub{}
-	s.budgetAPIClient = &mockBudgetAPIClient{Stub: s.stub}
-	s.PatchValue(&getBudgetAPIClient, func(*httpbakery.Client) budgetAPIClient { return s.budgetAPIClient })
 
 	testcharms.UploadCharm(c, s.client, "cs:quantal/metered-1", "metered")
 	deployCmd := &DeployCommand{}
@@ -195,27 +177,4 @@ func (s *RemoveCharmStoreCharmsSuite) SetUpTest(c *gc.C) {
 	_, err := testing.RunCommand(c, cmd, "cs:quantal/metered-1")
 	c.Assert(err, jc.ErrorIsNil)
 
-}
-
-func (s *RemoveCharmStoreCharmsSuite) TestRemoveAllocation(c *gc.C) {
-	_, err := runRemoveApplication(c, "metered")
-	c.Assert(err, jc.ErrorIsNil)
-	s.stub.CheckCalls(c, []jutesting.StubCall{{
-		"DeleteAllocation", []interface{}{testing.ModelTag.Id(), "metered"}}})
-}
-
-type mockBudgetAPIClient struct {
-	*jutesting.Stub
-}
-
-// CreateAllocation implements apiClient.
-func (c *mockBudgetAPIClient) CreateAllocation(budget, limit, model string, applications []string) (string, error) {
-	c.MethodCall(c, "CreateAllocation", budget, limit, model, applications)
-	return "Allocation created.", c.NextErr()
-}
-
-// DeleteAllocation implements apiClient.
-func (c *mockBudgetAPIClient) DeleteAllocation(model, application string) (string, error) {
-	c.MethodCall(c, "DeleteAllocation", model, application)
-	return "Allocation removed.", c.NextErr()
 }

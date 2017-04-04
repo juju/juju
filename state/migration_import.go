@@ -125,6 +125,14 @@ func (st *State) Import(model description.Model) (_ *Model, _ *State, err error)
 			newSt.Close()
 		}
 	}()
+	// We don't actually care what the old model status was, because we are
+	// going to set it to busy, with a message of migrating.
+	if err := dbModel.SetStatus(status.StatusInfo{
+		Status:  status.Busy,
+		Message: "importing",
+	}); err != nil {
+		return nil, nil, errors.Trace(err)
+	}
 
 	// I would have loved to use import, but that is a reserved word.
 	restore := importer{
@@ -190,6 +198,19 @@ func (st *State) Import(model description.Model) (_ *Model, _ *State, err error)
 
 	// Update the sequences to match that the source.
 
+	if err := dbModel.SetSLA(
+		model.SLA().Level(),
+		[]byte(model.SLA().Credentials()),
+	); err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+
+	if model.MeterStatus().Code() != MeterNotAvailable.String() {
+		if err := dbModel.SetMeterStatus(model.MeterStatus().Code(), model.MeterStatus().Info()); err != nil {
+			return nil, nil, errors.Trace(err)
+		}
+	}
+
 	logger.Debugf("import success")
 	return dbModel, newSt, nil
 }
@@ -229,6 +250,10 @@ func (i *importer) modelExtras() error {
 			return errors.Errorf("unknown block type: %q", blockName)
 		}
 		i.st.SwitchBlockOn(block, message)
+	}
+
+	if err := i.importStatusHistory(modelGlobalKey, i.model.StatusHistory()); err != nil {
+		return errors.Trace(err)
 	}
 	return nil
 }
@@ -1146,11 +1171,12 @@ func (i *importer) subnets() error {
 	i.logger.Debugf("importing subnets")
 	for _, subnet := range i.model.Subnets() {
 		err := i.addSubnet(SubnetInfo{
-			CIDR:             subnet.CIDR(),
-			ProviderId:       network.Id(subnet.ProviderId()),
-			VLANTag:          subnet.VLANTag(),
-			AvailabilityZone: subnet.AvailabilityZone(),
-			SpaceName:        subnet.SpaceName(),
+			CIDR:              subnet.CIDR(),
+			ProviderId:        network.Id(subnet.ProviderId()),
+			ProviderNetworkId: network.Id(subnet.ProviderNetworkId()),
+			VLANTag:           subnet.VLANTag(),
+			AvailabilityZone:  subnet.AvailabilityZone(),
+			SpaceName:         subnet.SpaceName(),
 		})
 		if err != nil {
 			return errors.Trace(err)

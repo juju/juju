@@ -14,10 +14,6 @@ import (
 	"github.com/juju/juju/state/watcher"
 )
 
-func init() {
-	common.RegisterStandardFacade("MeterStatus", 1, NewMeterStatusAPI)
-}
-
 // MeterStatus defines the methods exported by the meter status API facade.
 type MeterStatus interface {
 	GetMeterStatus(args params.Entities) (params.MeterStatusResults, error)

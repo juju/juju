@@ -53,6 +53,7 @@ type CloudConfig interface {
 	WrittenFilesConfig
 	RenderConfig
 	AdvancedPackagingConfig
+	HostnameConfig
 }
 
 // SystemUpdateConfig is the interface for managing all system update options.
@@ -380,6 +381,12 @@ type UsersConfig interface {
 	// UnsetUsers unsets any users set in the config, meaning the default
 	// user specified in the image cloud config will be used.
 	UnsetUsers()
+}
+
+// HostnameConfig is the interface for managing the hostname.
+type HostnameConfig interface {
+	// ManageEtcHosts enables or disables management of /etc/hosts.
+	ManageEtcHosts(manage bool)
 }
 
 // New returns a new Config with no options set.

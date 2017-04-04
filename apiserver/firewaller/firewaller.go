@@ -17,11 +17,6 @@ import (
 	"github.com/juju/juju/state/watcher"
 )
 
-func init() {
-	// Version 0 is no longer supported.
-	common.RegisterStandardFacade("Firewaller", 3, NewFirewallerAPI)
-}
-
 // FirewallerAPI provides access to the Firewaller API facade.
 type FirewallerAPI struct {
 	*common.LifeGetter

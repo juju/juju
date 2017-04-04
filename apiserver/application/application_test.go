@@ -6,6 +6,7 @@ package application_test
 import (
 	"fmt"
 	"io"
+	"io/ioutil"
 	"regexp"
 	"sync"
 	"time"
@@ -31,6 +32,7 @@ import (
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/instance"
 	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 	statestorage "github.com/juju/juju/state/storage"
 	"github.com/juju/juju/status"
@@ -47,7 +49,7 @@ type applicationSuite struct {
 
 	applicationAPI *application.API
 	application    *state.Application
-	authorizer     apiservertesting.FakeAuthorizer
+	authorizer     *apiservertesting.FakeAuthorizer
 	otherModel     *state.State
 }
 
@@ -75,7 +77,7 @@ func (s *applicationSuite) SetUpTest(c *gc.C) {
 
 	s.application = s.Factory.MakeApplication(c, nil)
 
-	s.authorizer = apiservertesting.FakeAuthorizer{
+	s.authorizer = &apiservertesting.FakeAuthorizer{
 		Tag: s.AdminUserTag(c),
 	}
 	var err error
@@ -340,6 +342,11 @@ func (s *applicationSuite) TestApplicationDeploy(c *gc.C) {
 	units, err := app.AllUnits()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(units, gc.HasLen, 1)
+
+	// Check that the charm cache dir is cleared out.
+	files, err := ioutil.ReadDir(charmrepo.CacheDir)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(files, gc.HasLen, 0)
 }
 
 func (s *applicationSuite) TestApplicationDeployWithInvalidPlacement(c *gc.C) {
@@ -2042,7 +2049,6 @@ func (s *applicationSuite) TestApplicationDestroy(c *gc.C) {
 	s.AddTestingService(c, "dummy-application", s.AddTestingCharm(c, "dummy"))
 	_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name:        "remote-application",
-		URL:         "local:/u/me/remote",
 		SourceModel: s.State.ModelTag(),
 		Token:       "t0",
 	})
@@ -2565,9 +2571,10 @@ func (s *applicationSuite) setupOtherModelOffer(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	offersAPi := state.NewApplicationOffers(s.otherModel)
 	_, err = offersAPi.AddOffer(crossmodel.AddApplicationOfferArgs{
-		ApplicationURL:  "local:/u/me/hosted-mysql",
+		OfferName:       "hosted-mysql",
 		ApplicationName: "othermysql",
 		Endpoints:       map[string]string{"database": "server"},
+		Owner:           s.AdminUserTag(c).Id(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -2581,7 +2588,6 @@ func (s *applicationSuite) TestSuccessfullyAddRemoteRelation(c *gc.C) {
 func (s *applicationSuite) TestAddRemoteRelationRemoteAppExists(c *gc.C) {
 	_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name:        "othermysql",
-		URL:         "local:/u/me/othermysql",
 		SourceModel: s.otherModel.ModelTag(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -2594,7 +2600,6 @@ func (s *applicationSuite) TestAddRemoteRelationRemoteAppExists(c *gc.C) {
 func (s *applicationSuite) TestAddRemoteRelationRemoteAppExistsDifferentSourceModel(c *gc.C) {
 	_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name:        "hosted-mysql",
-		URL:         "local:/u/me/hosted-mysql",
 		SourceModel: names.NewModelTag(utils.MustNewUUID().String()),
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -2651,9 +2656,10 @@ func (s *applicationSuite) TestRemoteRelationNoMatchingEndpoint(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	offersAPi := state.NewApplicationOffers(s.otherModel)
 	_, err = offersAPi.AddOffer(crossmodel.AddApplicationOfferArgs{
-		ApplicationURL:  "local:/u/me/hosted-riak",
+		OfferName:       "hosted-riak",
 		ApplicationName: "riak",
 		Endpoints:       map[string]string{"endpoint": "endpoint"},
+		Owner:           s.AdminUserTag(c).Id(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -2731,6 +2737,39 @@ func (s *applicationSuite) TestConsumeLocalAlreadyExists(c *gc.C) {
 		Message: `cannot add remote application "mysql": local application with same name already exists`,
 		Code:    "already exists",
 	})
+}
+
+func (s *applicationSuite) TestConsumeNoPermission(c *gc.C) {
+	s.setupOtherModelOffer(c)
+
+	s.authorizer.Tag = names.NewUserTag("someone")
+	results, err := s.applicationAPI.Consume(params.ConsumeApplicationArgs{
+		Args: []params.ConsumeApplicationArg{
+			{ApplicationURL: "admin/othermodel.hosted-mysql"},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Error, gc.ErrorMatches, ".*permission denied.*")
+}
+
+func (s *applicationSuite) TestConsumeWithPermission(c *gc.C) {
+	s.setupOtherModelOffer(c)
+
+	_, err := s.otherModel.AddUser("someone", "spmeone", "secret", "admin")
+	c.Assert(err, jc.ErrorIsNil)
+	apiUser := names.NewUserTag("someone")
+	err = s.otherModel.CreateOfferAccess(
+		names.NewApplicationOfferTag("hosted-mysql"), apiUser, permission.ConsumeAccess)
+	s.authorizer.Tag = apiUser
+	results, err := s.applicationAPI.Consume(params.ConsumeApplicationArgs{
+		Args: []params.ConsumeApplicationArg{
+			{ApplicationURL: "admin/othermodel.hosted-mysql"},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Error, gc.IsNil)
 }
 
 func (s *applicationSuite) TestConsumingAndAddingRelation(c *gc.C) {

@@ -9,6 +9,7 @@ import (
 	"sort"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
@@ -16,16 +17,31 @@ import (
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/permission"
 )
+
+const (
+	// applicationOfferGlobalKey is the key for an application offer.
+	applicationOfferGlobalKey = "ao"
+)
+
+// applicationOfferKey will return the key for a given offer using the
+// offer uuid and the applicationOfferGlobalKey.
+func applicationOfferKey(offerUUID string) string {
+	return fmt.Sprintf("%s#%s", applicationOfferGlobalKey, offerUUID)
+}
 
 // applicationOfferDoc represents the internal state of a application offer in MongoDB.
 type applicationOfferDoc struct {
 	DocID string `bson:"_id"`
 
-	// URL is the URL used to locate the offer in a directory.
-	URL string `bson:"url"`
+	// OfferUUID is the UUID of the offer.
+	OfferUUID string `bson:"offer-uuid"`
 
-	// ApplicationName is the name of the application.
+	// OfferName is the name of the offer.
+	OfferName string `bson:"offer-name"`
+
+	// ApplicationName is the name of the application to which an offer pertains.
 	ApplicationName string `bson:"application-name"`
 
 	// ApplicationDescription is a description of the application's functionality,
@@ -61,25 +77,43 @@ func ApplicationOfferEndpoint(offer crossmodel.ApplicationOffer, relationName st
 	return Endpoint{}, errors.NotFoundf("relation %q on application offer %q", relationName, offer.String())
 }
 
-func (s *applicationOffers) offerAtURL(url string) (*applicationOfferDoc, error) {
+func applicationOfferUUID(st *State, offerName string) (string, error) {
+	appOffers := &applicationOffers{st: st}
+	offer, err := appOffers.offerForName(offerName)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	return offer.OfferUUID, nil
+}
+
+func (s *applicationOffers) offerForName(offerName string) (*applicationOfferDoc, error) {
 	applicationOffersCollection, closer := s.st.getCollection(applicationOffersC)
 	defer closer()
 
 	var doc applicationOfferDoc
-	err := applicationOffersCollection.FindId(url).One(&doc)
+	err := applicationOffersCollection.FindId(offerName).One(&doc)
 	if err == mgo.ErrNotFound {
-		return nil, errors.NotFoundf("application offer %q", url)
+		return nil, errors.NotFoundf("application offer %q", offerName)
 	}
 	if err != nil {
-		return nil, errors.Annotatef(err, "cannot count application offers %q", url)
+		return nil, errors.Annotatef(err, "cannot load application offer %q", offerName)
 	}
 	return &doc, nil
 }
 
-// Remove deletes the application offer at url immediately.
-func (s *applicationOffers) Remove(url string) (err error) {
-	defer errors.DeferredAnnotatef(&err, "cannot delete application offer %q", url)
-	err = s.st.runTransaction(s.removeOps(url))
+// ApplicationOffer returns the named application offer.
+func (s *applicationOffers) ApplicationOffer(offerName string) (*crossmodel.ApplicationOffer, error) {
+	offerDoc, err := s.offerForName(offerName)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return s.makeApplicationOffer(*offerDoc)
+}
+
+// Remove deletes the application offer for offerName immediately.
+func (s *applicationOffers) Remove(offerName string) (err error) {
+	defer errors.DeferredAnnotatef(&err, "cannot delete application offer %q", offerName)
+	err = s.st.runTransaction(s.removeOps(offerName))
 	if err == txn.ErrAborted {
 		// Already deleted.
 		return nil
@@ -87,12 +121,12 @@ func (s *applicationOffers) Remove(url string) (err error) {
 	return err
 }
 
-// removeOps returns the operations required to remove the record at url.
-func (s *applicationOffers) removeOps(url string) []txn.Op {
+// removeOps returns the operations required to remove the record for offerName.
+func (s *applicationOffers) removeOps(offerName string) []txn.Op {
 	return []txn.Op{
 		{
 			C:      applicationOffersC,
-			Id:     url,
+			Id:     offerName,
 			Assert: txn.DocExists,
 			Remove: true,
 		},
@@ -104,15 +138,26 @@ var errDuplicateApplicationOffer = errors.Errorf("application offer already exis
 func (s *applicationOffers) validateOfferArgs(offer crossmodel.AddApplicationOfferArgs) (err error) {
 	// Sanity checks.
 	if !names.IsValidApplication(offer.ApplicationName) {
-		return errors.Errorf("invalid application name")
+		return errors.NotValidf("application name %q", offer.ApplicationName)
 	}
-	// TODO(wallyworld) - validate application URL
+	// Same rules for valid offer names apply as for applications.
+	if !names.IsValidApplication(offer.OfferName) {
+		return errors.NotValidf("offer name %q", offer.OfferName)
+	}
+	if !names.IsValidUser(offer.Owner) {
+		return errors.NotValidf("offer owner %q", offer.Owner)
+	}
+	for _, readUser := range offer.HasRead {
+		if !names.IsValidUser(readUser) {
+			return errors.NotValidf("offer reader %q", readUser)
+		}
+	}
 	return nil
 }
 
 // AddOffer adds a new application offering to the directory.
 func (s *applicationOffers) AddOffer(offerArgs crossmodel.AddApplicationOfferArgs) (_ *crossmodel.ApplicationOffer, err error) {
-	defer errors.DeferredAnnotatef(&err, "cannot add application offer %q at %q", offerArgs.ApplicationName, offerArgs.ApplicationURL)
+	defer errors.DeferredAnnotatef(&err, "cannot add application offer %q", offerArgs.OfferName)
 
 	if err := s.validateOfferArgs(offerArgs); err != nil {
 		return nil, err
@@ -123,8 +168,15 @@ func (s *applicationOffers) AddOffer(offerArgs crossmodel.AddApplicationOfferArg
 	} else if model.Life() != Alive {
 		return nil, errors.Errorf("model is no longer alive")
 	}
-
-	doc := s.makeApplicationOfferDoc(offerArgs)
+	uuid, err := utils.NewUUID()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	doc := s.makeApplicationOfferDoc(uuid.String(), offerArgs)
+	result, err := s.makeApplicationOffer(doc)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		// If we've tried once already and failed, check that
 		// environment may have been destroyed.
@@ -132,7 +184,7 @@ func (s *applicationOffers) AddOffer(offerArgs crossmodel.AddApplicationOfferArg
 			if err := checkModelActive(s.st); err != nil {
 				return nil, errors.Trace(err)
 			}
-			_, err := s.offerAtURL(offerArgs.ApplicationURL)
+			_, err := s.offerForName(offerArgs.OfferName)
 			if err == nil {
 				return nil, errDuplicateApplicationOffer
 			}
@@ -152,7 +204,23 @@ func (s *applicationOffers) AddOffer(offerArgs crossmodel.AddApplicationOfferArg
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return s.makeApplicationOffer(doc)
+
+	// Ensure the owner has admin access to the offer.
+	offerTag := names.NewApplicationOfferTag(doc.OfferName)
+	owner := names.NewUserTag(offerArgs.Owner)
+	err = s.st.CreateOfferAccess(offerTag, owner, permission.AdminAccess)
+	if err != nil {
+		return nil, errors.Annotate(err, "granting admin permission to the offer owner")
+	}
+	// Add in any read access permissions.
+	for _, user := range offerArgs.HasRead {
+		readerTag := names.NewUserTag(user)
+		err = s.st.CreateOfferAccess(offerTag, readerTag, permission.ReadAccess)
+		if err != nil {
+			return nil, errors.Annotatef(err, "granting read permission to %q", user)
+		}
+	}
+	return result, nil
 }
 
 // UpdateOffer replaces an existing offer at the same URL.
@@ -169,7 +237,13 @@ func (s *applicationOffers) UpdateOffer(offerArgs crossmodel.AddApplicationOffer
 		return nil, errors.Errorf("model is no longer alive")
 	}
 
-	doc := s.makeApplicationOfferDoc(offerArgs)
+	offer, err := s.offerForName(offerArgs.OfferName)
+	if err != nil {
+		// This will either be NotFound or some other error.
+		// In either case, we return the error.
+		return nil, errors.Trace(err)
+	}
+	doc := s.makeApplicationOfferDoc(offer.OfferUUID, offerArgs)
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		// If we've tried once already and failed, check that
 		// environment may have been destroyed.
@@ -177,7 +251,7 @@ func (s *applicationOffers) UpdateOffer(offerArgs crossmodel.AddApplicationOffer
 			if err := checkModelActive(s.st); err != nil {
 				return nil, errors.Trace(err)
 			}
-			_, err := s.offerAtURL(offerArgs.ApplicationURL)
+			_, err := s.offerForName(offerArgs.OfferName)
 			if err != nil {
 				// This will either be NotFound or some other error.
 				// In either case, we return the error.
@@ -202,10 +276,11 @@ func (s *applicationOffers) UpdateOffer(offerArgs crossmodel.AddApplicationOffer
 	return s.makeApplicationOffer(doc)
 }
 
-func (s *applicationOffers) makeApplicationOfferDoc(offer crossmodel.AddApplicationOfferArgs) applicationOfferDoc {
+func (s *applicationOffers) makeApplicationOfferDoc(uuid string, offer crossmodel.AddApplicationOfferArgs) applicationOfferDoc {
 	doc := applicationOfferDoc{
-		DocID:                  offer.ApplicationURL,
-		URL:                    offer.ApplicationURL,
+		DocID:                  offer.OfferName,
+		OfferUUID:              uuid,
+		OfferName:              offer.OfferName,
 		ApplicationName:        offer.ApplicationName,
 		ApplicationDescription: offer.ApplicationDescription,
 		Endpoints:              offer.Endpoints,
@@ -218,10 +293,10 @@ func (s *applicationOffers) makeFilterTerm(filterTerm crossmodel.ApplicationOffe
 	if filterTerm.ApplicationName != "" {
 		filter = append(filter, bson.DocElem{"application-name", filterTerm.ApplicationName})
 	}
-	// We match on partial URLs eg /u/user
-	if filterTerm.ApplicationURL != "" {
-		url := regexp.QuoteMeta(filterTerm.ApplicationURL)
-		filter = append(filter, bson.DocElem{"url", bson.D{{"$regex", fmt.Sprintf(".*%s.*", url)}}})
+	// We match on partial names, eg "-sql"
+	if filterTerm.OfferName != "" {
+		name := regexp.QuoteMeta(filterTerm.OfferName)
+		filter = append(filter, bson.DocElem{"offer-name", bson.D{{"$regex", fmt.Sprintf(".*%s.*", name)}}})
 	}
 	// We match descriptions by looking for containing terms.
 	if filterTerm.ApplicationDescription != "" {
@@ -268,7 +343,7 @@ func (s *applicationOffers) ListOffers(filter ...crossmodel.ApplicationOfferFilt
 
 func (s *applicationOffers) makeApplicationOffer(doc applicationOfferDoc) (*crossmodel.ApplicationOffer, error) {
 	offer := &crossmodel.ApplicationOffer{
-		ApplicationURL:         doc.URL,
+		OfferName:              doc.OfferName,
 		ApplicationName:        doc.ApplicationName,
 		ApplicationDescription: doc.ApplicationDescription,
 	}
@@ -303,8 +378,8 @@ func (sr srSlice) Swap(i, j int) { sr[i], sr[j] = sr[j], sr[i] }
 func (sr srSlice) Less(i, j int) bool {
 	sr1 := sr[i]
 	sr2 := sr[j]
-	if sr1.URL != sr2.URL {
+	if sr1.OfferName == sr2.OfferName {
 		return sr1.ApplicationName < sr2.ApplicationName
 	}
-	return sr1.URL < sr2.URL
+	return sr1.OfferName < sr2.OfferName
 }

@@ -1,8 +1,6 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// +build !gccgo
-
 package vsphere
 
 import (
@@ -210,7 +208,10 @@ func (c *client) Instances(prefix string) ([]*mo.VirtualMachine, error) {
 	}
 	items, err := finder.VirtualMachineList(context.TODO(), "*")
 	if err != nil {
-		return nil, errors.Trace(err)
+		if _, ok := err.(*find.NotFoundError); ok {
+			return nil, nil
+		}
+		return nil, errors.Annotate(err, "listing VMs")
 	}
 
 	var vms []*mo.VirtualMachine

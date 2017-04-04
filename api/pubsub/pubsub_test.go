@@ -120,7 +120,9 @@ func (s mockStream) ReadJSON(v interface{}) error {
 }
 
 func (s mockStream) NextReader() (messageType int, r io.Reader, err error) {
-	s.conn.c.Errorf("NextReader called unexpectedly")
+	// NextReader is now called by the read loop thread.
+	// So just wait a bit and return so it doesn't sit in a very tight loop.
+	time.Sleep(time.Millisecond)
 	return 0, nil, nil
 }
 

@@ -4,15 +4,10 @@
 package proxyupdater
 
 import (
-	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 )
-
-func init() {
-	common.RegisterStandardFacade("ProxyUpdater", 1, NewAPI)
-}
 
 // stateShim forwards and adapts state.State methods to Backend
 type stateShim struct {

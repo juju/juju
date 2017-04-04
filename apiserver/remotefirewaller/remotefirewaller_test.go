@@ -46,19 +46,21 @@ func (s *RemoteFirewallerSuite) SetUpTest(c *gc.C) {
 	s.api = api
 }
 
-func (s *RemoteFirewallerSuite) TestWatchSubnets(c *gc.C) {
+func (s *RemoteFirewallerSuite) TestWatchIngressAddressesForRelation(c *gc.C) {
 	subnetIds := []string{"1", "2"}
 	s.st.subnetsWatcher.changes <- subnetIds
 
-	result, err := s.api.WatchSubnets()
+	result, err := s.api.WatchIngressAddressesForRelation(
+		params.RemoteEntities{Entities: []params.RemoteEntityId{{
+			ModelUUID: coretesting.ModelTag.Id(), Token: "token-db2:db django:db"}},
+		})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Error, gc.IsNil)
-	c.Assert(result.StringsWatcherId, gc.Equals, "1")
-	c.Assert(result.Changes, jc.DeepEquals, subnetIds)
+	c.Assert(result.NotifyWatcherId, gc.Equals, "1")
 
 	resource := s.resources.Get("1")
 	c.Assert(resource, gc.NotNil)
-	c.Assert(resource, gc.Implements, new(state.StringsWatcher))
+	c.Assert(resource, gc.Implements, new(state.NotifyWatcher))
 
 	s.st.CheckCalls(c, []testing.StubCall{
 		{"WatchSubnets", nil},

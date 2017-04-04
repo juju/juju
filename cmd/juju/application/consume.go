@@ -66,12 +66,20 @@ func (c *consumeCommand) Init(args []string) error {
 		return errors.New("no remote application specified")
 	}
 	c.remoteApplication = args[0]
-	url, err := crossmodel.ParseLocalOnlyApplicationURL(c.remoteApplication)
+	url, err := crossmodel.ParseApplicationURL(c.remoteApplication)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	if url.HasEndpoint() {
 		return errors.Errorf("remote application %q shouldn't include endpoint", c.remoteApplication)
+	}
+	if url.User == "" {
+		details, err := c.ClientStore().AccountDetails(c.ControllerName())
+		if err != nil {
+			return errors.Trace(err)
+		}
+		url.User = details.User
+		c.remoteApplication = url.Path()
 	}
 	if len(args) > 1 {
 		if !names.IsValidApplication(args[1]) {

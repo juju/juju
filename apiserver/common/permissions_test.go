@@ -23,14 +23,14 @@ var _ = gc.Suite(&PermissionSuite{})
 type fakeUserAccess struct {
 	subjects []names.UserTag
 	objects  []names.Tag
-	user     permission.UserAccess
+	access   permission.Access
 	err      error
 }
 
-func (f *fakeUserAccess) call(subject names.UserTag, object names.Tag) (permission.UserAccess, error) {
+func (f *fakeUserAccess) call(subject names.UserTag, object names.Tag) (permission.Access, error) {
 	f.subjects = append(f.subjects, subject)
 	f.objects = append(f.objects, object)
-	return f.user, f.err
+	return f.access, f.err
 }
 
 func (r *PermissionSuite) TestNoUserTagLacksPermission(c *gc.C) {
@@ -98,12 +98,43 @@ func (r *PermissionSuite) TestHasPermission(c *gc.C) {
 			access:           permission.AddModelAccess,
 			expected:         true,
 		},
+		{
+			title:            "user has lesser offer permissions than required",
+			userGetterAccess: permission.ReadAccess,
+			user:             names.NewUserTag("validuser"),
+			target:           names.NewApplicationOfferTag("hosted-mysql"),
+			access:           permission.WriteAccess,
+			expected:         false,
+		},
+		{
+			title:            "user has equal offer permission than required",
+			userGetterAccess: permission.ConsumeAccess,
+			user:             names.NewUserTag("validuser"),
+			target:           names.NewApplicationOfferTag("hosted-mysql"),
+			access:           permission.ConsumeAccess,
+			expected:         true,
+		},
+		{
+			title:            "user has greater offer permission than required",
+			userGetterAccess: permission.AdminAccess,
+			user:             names.NewUserTag("validuser"),
+			target:           names.NewApplicationOfferTag("hosted-mysql"),
+			access:           permission.ConsumeAccess,
+			expected:         true,
+		},
+		{
+			title:            "user requests controller permission on offer",
+			userGetterAccess: permission.ReadAccess,
+			user:             names.NewUserTag("validuser"),
+			target:           names.NewApplicationOfferTag("hosted-mysql"),
+			access:           permission.AddModelAccess,
+			expected:         false,
+		},
 	}
 	for i, t := range testCases {
 		userGetter := &fakeUserAccess{
-			user: permission.UserAccess{
-				Access: t.userGetterAccess,
-			}}
+			access: t.userGetterAccess,
+		}
 		c.Logf("HasPermission test n %d: %s", i, t.title)
 		hasPermission, err := common.HasPermission(userGetter.call, t.user, t.access, t.target)
 		c.Assert(hasPermission, gc.Equals, t.expected)
@@ -116,8 +147,8 @@ func (r *PermissionSuite) TestUserGetterErrorReturns(c *gc.C) {
 	user := names.NewUserTag("validuser")
 	target := names.NewModelTag("beef1beef2-0000-0000-000011112222")
 	userGetter := &fakeUserAccess{
-		user: permission.UserAccess{},
-		err:  errors.NotFoundf("a user"),
+		access: permission.NoAccess,
+		err:    errors.NotFoundf("a user"),
 	}
 	hasPermission, err := common.HasPermission(userGetter.call, user, permission.ReadAccess, target)
 	c.Assert(err, jc.ErrorIsNil)
@@ -129,11 +160,11 @@ func (r *PermissionSuite) TestUserGetterErrorReturns(c *gc.C) {
 }
 
 type fakeEveryoneUserAccess struct {
-	user     permission.UserAccess
-	everyone permission.UserAccess
+	user     permission.Access
+	everyone permission.Access
 }
 
-func (f *fakeEveryoneUserAccess) call(subject names.UserTag, object names.Tag) (permission.UserAccess, error) {
+func (f *fakeEveryoneUserAccess) call(subject names.UserTag, object names.Tag) (permission.Access, error) {
 	if subject.Id() == common.EveryoneTagName {
 		return f.everyone, nil
 	}
@@ -181,12 +212,8 @@ func (r *PermissionSuite) TestEveryoneAtExternal(c *gc.C) {
 
 	for i, t := range testCases {
 		userGetter := &fakeEveryoneUserAccess{
-			user: permission.UserAccess{
-				Access: t.userGetterAccess,
-			},
-			everyone: permission.UserAccess{
-				Access: t.everyoneAccess,
-			},
+			user:     t.userGetterAccess,
+			everyone: t.everyoneAccess,
 		}
 		c.Logf(`HasPermission "everyone" test n %d: %s`, i, t.title)
 		hasPermission, err := common.HasPermission(userGetter.call, t.user, t.access, t.target)

@@ -304,29 +304,36 @@ func (u *Unit) AssignedMachine() (names.MachineTag, error) {
 	return names.ParseMachineTag(result.Result)
 }
 
-// IsPrincipal returns whether the unit is deployed in its own container,
-// and can therefore have subordinate services deployed alongside it.
+// PrincipalName returns the principal unit name and true for subordinates.
+// For principal units the function returns "" and false.
 //
-// NOTE: This differs from state.Unit.IsPrincipal() by returning an
+// NOTE: This differs from state.Unit.PrincipalName() by returning an
 // error as well, because it needs to make an API call.
-func (u *Unit) IsPrincipal() (bool, error) {
+func (u *Unit) PrincipalName() (string, bool, error) {
 	var results params.StringBoolResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: u.tag.String()}},
 	}
 	err := u.st.facade.FacadeCall("GetPrincipal", args, &results)
 	if err != nil {
-		return false, err
+		return "", false, err
 	}
 	if len(results.Results) != 1 {
-		return false, fmt.Errorf("expected 1 result, got %d", len(results.Results))
+		return "", false, fmt.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
 	if result.Error != nil {
-		return false, result.Error
+		return "", false, result.Error
 	}
-	// GetPrincipal returns false when the unit is subordinate.
-	return !result.Ok, nil
+	var unitName string
+	if result.Ok {
+		unitTag, err := names.ParseUnitTag(result.Result)
+		if err != nil {
+			return "", false, err
+		}
+		unitName = unitTag.Id()
+	}
+	return unitName, result.Ok, nil
 }
 
 // HasSubordinates returns the tags of any subordinate units.

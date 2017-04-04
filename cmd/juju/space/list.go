@@ -43,7 +43,7 @@ func (c *listCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "spaces",
 		Args:    "[--short] [--format yaml|json] [--output <path>]",
-		Purpose: "List known spaces, including associated subnets",
+		Purpose: "List known spaces, including associated subnets.",
 		Doc:     strings.TrimSpace(listCommandDoc),
 		Aliases: []string{"list-spaces"},
 	}
