@@ -25,6 +25,9 @@ from utility import (
     )
 
 
+URL_LIMIT = 2083
+
+
 class CloudMismatch(JujuAssertionError):
     """The clouds did not match in some way."""
 
@@ -42,9 +45,8 @@ class NameMismatch(JujuAssertionError):
 class NotRaised(Exception):
     """An expected exception was not raised."""
 
-    def __init__(self):
-        msg = 'Expected exception not raised: {}'.format(
-            cloud_spec.exception)
+    def __init__(self, exception):
+        msg = 'Expected exception not raised: {}'.format(exception)
         super(NotRaised, self).__init__(msg)
 
 
@@ -106,20 +108,21 @@ def iter_clouds(clouds, endpoint_validation):
     for cloud_name, cloud in clouds.items():
         spec = cloud_spec(cloud_name, cloud_name, cloud)
         if cloud['type'] == 'manual' and endpoint_validation:
-            spec = xfail(spec, 1649721, InvalidEndpoint)
+            cloud_spec(cloud_name, cloud_name, cloud)
         yield spec
 
     for cloud_name, cloud in clouds.items():
-        spec = xfail(cloud_spec('long-name-{}'.format(cloud_name), 'A' * 4096,
-                                cloud, NameNotAccepted), 1641970, NameMismatch)
+        spec = xfail(
+            cloud_spec('long-name-{}'.format(cloud_name), 'A' * URL_LIMIT,
+                       cloud, NameNotAccepted),
+            1641970, NameMismatch)
         if cloud['type'] == 'manual' and endpoint_validation:
-            spec = xfail(spec, 1649721, InvalidEndpoint)
+            spec = cloud_spec('long-name-{}'.format(cloud_name),
+                              'A' * URL_LIMIT, cloud)
         yield spec
         spec = xfail(
             cloud_spec('invalid-name-{}'.format(cloud_name), 'invalid/name',
                        cloud, NameNotAccepted), 1641981, None)
-        if cloud['type'] == 'manual' and endpoint_validation:
-            spec = xfail(spec, 1649721, InvalidEndpoint)
         yield spec
 
         if cloud['type'] not in ('maas', 'manual', 'vsphere'):
@@ -131,7 +134,7 @@ def iter_clouds(clouds, endpoint_validation):
 
         if 'endpoint' in cloud:
             variant = deepcopy(cloud)
-            variant['endpoint'] = 'A' * 4096
+            variant['endpoint'] = 'A' * URL_LIMIT
             if variant['type'] == 'vsphere':
                 for region in variant['regions'].values():
                     region['endpoint'] = variant['endpoint']
@@ -140,6 +143,8 @@ def iter_clouds(clouds, endpoint_validation):
                               InvalidEndpoint)
             if not endpoint_validation:
                 spec = xfail(spec, 1641970, CloudMismatch)
+            elif cloud['type'] == 'manual':
+                spec = cloud_spec(variant_name, cloud_name, variant)
             yield spec
 
         for region_name in cloud.get('regions', {}).keys():
@@ -147,7 +152,7 @@ def iter_clouds(clouds, endpoint_validation):
                 continue
             variant = deepcopy(cloud)
             region = variant['regions'][region_name]
-            region['endpoint'] = 'A' * 4096
+            region['endpoint'] = 'A' * URL_LIMIT
             variant_name = 'long-endpoint-{}-{}'.format(cloud_name,
                                                         region_name)
             spec = cloud_spec(variant_name, cloud_name, variant,
