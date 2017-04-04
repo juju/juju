@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strconv"
 
+	"github.com/juju/errors"
 	"github.com/juju/gomaasapi"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -121,26 +122,37 @@ var maasEnvAttrs = coretesting.Attrs{
 	},
 }
 
-// makeEnviron creates a functional maasEnviron for a test.
-func (suite *providerSuite) makeEnviron() *maasEnviron {
+func (suite *providerSuite) makeEnvironWithURL(url string, getCapabilities MaasCapabilities) (*maasEnviron, error) {
 	cred := cloud.NewCredential(cloud.OAuth1AuthType, map[string]string{
 		"maas-oauth": "a:b:c",
 	})
 	cloud := environs.CloudSpec{
 		Type:       "maas",
 		Name:       "maas",
-		Endpoint:   suite.testMAASObject.TestServer.URL,
+		Endpoint:   url,
 		Credential: &cred,
 	}
 	attrs := coretesting.FakeConfig().Merge(maasEnvAttrs)
 	suite.controllerUUID = coretesting.FakeControllerConfig().ControllerUUID()
 	cfg, err := config.New(config.NoDefaults, attrs)
 	if err != nil {
-		panic(err)
+		return nil, errors.Trace(err)
 	}
-	env, err := NewEnviron(cloud, cfg, func(client *gomaasapi.MAASObject, serverURL string) (set.Strings, error) {
-		return set.NewStrings("network-deployment-ubuntu"), nil
-	})
+	env, err := NewEnviron(cloud, cfg, getCapabilities)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return env, nil
+}
+
+// makeEnviron creates a functional maasEnviron for a test.
+func (suite *providerSuite) makeEnviron() *maasEnviron {
+	env, err := suite.makeEnvironWithURL(
+		suite.testMAASObject.TestServer.URL,
+		func(client *gomaasapi.MAASObject, serverURL string) (set.Strings, error) {
+			return set.NewStrings("network-deployment-ubuntu"), nil
+		},
+	)
 	if err != nil {
 		panic(err)
 	}

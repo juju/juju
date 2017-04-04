@@ -355,7 +355,7 @@ func (suite *environSuite) TestAcquireNodePassedAgentName(c *gc.C) {
 
 func (suite *environSuite) TestAcquireNodePassesPositiveAndNegativeTags(c *gc.C) {
 	env := suite.makeEnviron()
-	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node0"}`)
+	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node0", "tag_names": "tag1,tag3"}`)
 
 	_, err := env.acquireNode(
 		"", "",
