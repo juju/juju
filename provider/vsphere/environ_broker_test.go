@@ -104,12 +104,10 @@ func (s *environBrokerSuite) TestStartInstance(c *gc.C) {
 	createVMArgs.Constraints = constraints.Value{}
 	createVMArgs.UpdateProgress = nil
 	c.Assert(createVMArgs, jc.DeepEquals, vsphereclient.CreateVirtualMachineParams{
-		Name: "juju-f75cba-0",
-		OVF:  "FakeOvfContent",
-		Metadata: map[string]string{
-			"juju_controller_uuid_key": "deadbeef-1bad-500d-9000-4b1d0d06f00d",
-			"juju_is_controller_key":   "juju_is_controller_value",
-		},
+		Name:            "juju-f75cba-0",
+		Folder:          `Juju Controller (deadbeef-1bad-500d-9000-4b1d0d06f00d)/Model "testenv" (2d02eeac-9dbb-11e4-89d3-123b93f75cba)`,
+		OVF:             "FakeOvfContent",
+		Metadata:        startInstArgs.InstanceConfig.Tags,
 		ComputeResource: s.client.computeResources[0],
 	})
 }
@@ -284,7 +282,10 @@ func (s *environBrokerSuite) TestStopInstances(c *gc.C) {
 
 	// NOTE(axw) we must use SameContents, not DeepEquals, because
 	// we run the RemoveVirtualMachines calls concurrently.
-	c.Assert(paths, jc.SameContents, []string{`vm-0`, `vm-1`})
+	c.Assert(paths, jc.SameContents, []string{
+		`Juju Controller (*)/Model "testenv" (2d02eeac-9dbb-11e4-89d3-123b93f75cba)/vm-0`,
+		`Juju Controller (*)/Model "testenv" (2d02eeac-9dbb-11e4-89d3-123b93f75cba)/vm-1`,
+	})
 }
 
 func (s *environBrokerSuite) TestStopInstancesOneFailure(c *gc.C) {

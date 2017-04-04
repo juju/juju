@@ -102,11 +102,7 @@ func (s *InstanceSuite) TestInstanceAddresses(c *gc.C) {
 func (s *InstanceSuite) TestControllerInstances(c *gc.C) {
 	s.client.virtualMachines = []*mo.VirtualMachine{
 		buildVM("inst-0").vm(),
-		buildVM("inst-1").extraConfig(
-			"juju_is_controller_key", "juju_is_controller_value",
-		).extraConfig(
-			"juju_controller_uuid_key", "foo",
-		).vm(),
+		buildVM("inst-1").extraConfig("juju-is-controller", "true").vm(),
 	}
 	ids, err := s.env.ControllerInstances("foo")
 	c.Assert(err, jc.ErrorIsNil)

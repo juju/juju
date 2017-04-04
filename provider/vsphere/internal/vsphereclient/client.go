@@ -311,10 +311,7 @@ func (c *Client) UpdateVirtualMachineExtraConfig(
 ) error {
 	var spec types.VirtualMachineConfigSpec
 	for k, v := range metadata {
-		opt := &types.OptionValue{Key: k}
-		if v != "" {
-			opt.Value = v
-		}
+		opt := &types.OptionValue{Key: k, Value: v}
 		spec.ExtraConfig = append(spec.ExtraConfig, opt)
 	}
 	vm := object.NewVirtualMachine(c.client.Client, vmInfo.Reference())
