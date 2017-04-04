@@ -403,5 +403,40 @@ var (
 			},
 			AllErr: nil,
 		},
+		FakeAcl: FakeAcl{
+			Acl: response.Acl{
+				Name:        "/Compute-a432100/gsamfira@cloudbase.com/juju-b3329a64-58f5-416c-85f7-e24de0beb979-0",
+				Description: "ACL for machine 0",
+				EnableFlag:  false,
+				Tags:        []string{},
+				Uri:         "https://compute.uscom-central-1.oraclecloud.com:443/network/v1/acl/Compute-a432100/gsamfira@cloudbase.com/juju-b3329a64-58f5-416c-85f7-e24de0beb979-0",
+			},
+			AclErr: nil,
+			Create: response.Acl{
+				Name:        "/Compute-a432100/gsamfira@cloudbase.com/juju-b3329a64-58f5-416c-85f7-e24de0beb979-0",
+				Description: "ACL for machine 0",
+				EnableFlag:  false,
+				Tags:        []string{},
+				Uri:         "https://compute.uscom-central-1.oraclecloud.com:443/network/v1/acl/Compute-a432100/gsamfira@cloudbase.com/juju-b3329a64-58f5-416c-85f7-e24de0beb979-0",
+			},
+		},
+		FakeSecRules: FakeSecRules{
+			All:    response.AllSecurityRules{},
+			AllErr: nil,
+			Create: response.SecurityRule{
+				Name:                   "/Compute-acme/jack.jones@example.com/secrule1",
+				Uri:                    "https://api-z999.compute.us0.oraclecloud.com:443/network/v1/secrule/Compute-acme/jack.jones@example.com/secrule1",
+				Description:            "Sample security rule",
+				Tags:                   nil,
+				Acl:                    "/Compute-acme/jack.jones@example.com/acl1",
+				FlowDirection:          common.Egress,
+				SrcVnicSet:             "/Compute-acme/jack.jones@example.com/vnicset1",
+				DstVnicSet:             "/Compute-acme/jack.jones@example.com/vnicset2",
+				SrcIpAddressPrefixSets: []string{"/Compute-acme/jack.jones@example.com/ipaddressprefixset1"},
+				DstIpAddressPrefixSets: nil,
+				SecProtocols:           []string{"/Compute-acme/jack.jones@example.com/secprotocol1"},
+				EnabledFlag:            true,
+			},
+		},
 	}
 )

@@ -61,3 +61,18 @@ type ApplicationsAPI interface {
 type AssociationAPI interface {
 	AllSecAssociations([]api.Filter) (response.AllSecAssociations, error)
 }
+
+type StorageVolumeAPI interface {
+	CreateStorageVolume(p api.StorageVolumeParams) (resp response.StorageVolume, err error)
+	DeleteStorageVolume(name string) (err error)
+	StorageVolumeDetails(name string) (resp response.StorageVolume, err error)
+	AllStorageVolumes(filter []api.Filter) (resp response.AllStorageVolumes, err error)
+	UpdateStorageVolume(p api.StorageVolumeParams, currentName string) (resp response.StorageVolume, err error)
+}
+
+type StorageAttachmentAPI interface {
+	CreateStorageAttachment(p api.StorageAttachmentParams) (response.StorageAttachment, error)
+	DeleteStorageAttachment(name string) error
+	StorageAttachmentDetails(name string) (response.StorageAttachment, error)
+	AllStorageAttachments(filter []api.Filter) (response.AllStorageAttachments, error)
+}

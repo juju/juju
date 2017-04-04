@@ -4,9 +4,6 @@
 package oracle
 
 import (
-	oci "github.com/juju/go-oracle-cloud/api"
-	ociResponse "github.com/juju/go-oracle-cloud/response"
-
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/provider/oracle/common"
@@ -62,24 +59,9 @@ type storageProvider struct {
 
 var _ storage.Provider = (*storageProvider)(nil)
 
-type StorageVolumeAPI interface {
-	CreateStorageVolume(p oci.StorageVolumeParams) (resp ociResponse.StorageVolume, err error)
-	DeleteStorageVolume(name string) (err error)
-	StorageVolumeDetails(name string) (resp ociResponse.StorageVolume, err error)
-	AllStorageVolumes(filter []oci.Filter) (resp ociResponse.AllStorageVolumes, err error)
-	UpdateStorageVolume(p oci.StorageVolumeParams, currentName string) (resp ociResponse.StorageVolume, err error)
-}
-
-type StorageAttachmentAPI interface {
-	CreateStorageAttachment(p oci.StorageAttachmentParams) (ociResponse.StorageAttachment, error)
-	DeleteStorageAttachment(name string) error
-	StorageAttachmentDetails(name string) (ociResponse.StorageAttachment, error)
-	AllStorageAttachments(filter []oci.Filter) (ociResponse.AllStorageAttachments, error)
-}
-
 type StorageAPI interface {
-	StorageVolumeAPI
-	StorageAttachmentAPI
+	common.StorageVolumeAPI
+	common.StorageAttachmentAPI
 	common.Composer
 }
 
