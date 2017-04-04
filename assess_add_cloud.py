@@ -42,7 +42,7 @@ class NameMismatch(JujuAssertionError):
 class NotRaised(Exception):
     """An expected exception was not raised."""
 
-    def __init__(self):
+    def __init__(self, cloud_spec):
         msg = 'Expected exception not raised: {}'.format(
             cloud_spec.exception)
         super(NotRaised, self).__init__(msg)
@@ -179,7 +179,7 @@ def assess_all_clouds(client, cloud_specs):
                 except cloud_spec.exception:
                     pass
                 else:
-                    raise NotRaised(cloud_spec.exception)
+                    raise NotRaised(cloud_spec)
         except Exception as e:
             logging.exception(e)
             failed.add(cloud_spec.label)

@@ -35,8 +35,8 @@ class TestCloudSpec(TestCase):
 
     def test_cloud_spec(self):
         self.assertEqual(
-                CloudSpec('label1', 'name1', {'config': '1'}, None, None),
-                cloud_spec('label1', 'name1', {'config': '1'}))
+            CloudSpec('label1', 'name1', {'config': '1'}, None, None),
+            cloud_spec('label1', 'name1', {'config': '1'}))
 
 
 class TestXFail(TestCase):
@@ -63,7 +63,8 @@ class TestAssessCloud(FakeHomeTestCase):
             yield client
 
     def test_assess_cloud(self):
-        expected_cloud = {'clouds': {'foo': {
+        expected_cloud = {'clouds': {
+            'foo': {
                 'type': 'maas',
                 'endpoint': 'http://bar.example.com',
                 }}}
@@ -127,8 +128,10 @@ class TestIterClouds(FakeHomeTestCase):
             xfail(xfail(cloud_spec('invalid-name-foo', 'invalid/name', cloud,
                         exception=NameNotAccepted), 1641981, None),
                   1649721, InvalidEndpoint),
-            make_long_endpoint(spec, endpoint_validation=True)],
-                iter_clouds({'foo': cloud}, endpoint_validation=True))
+            make_long_endpoint(
+                spec, endpoint_validation=True)
+            ],
+            iter_clouds({'foo': cloud}, endpoint_validation=True))
 
     def test_manual_no_validation(self):
         self.maxDiff = None
@@ -140,8 +143,10 @@ class TestIterClouds(FakeHomeTestCase):
                   1641970, NameMismatch),
             xfail(cloud_spec('invalid-name-foo', 'invalid/name', cloud,
                              exception=NameNotAccepted), 1641981, None),
-            make_long_endpoint(spec, endpoint_validation=False)],
-                iter_clouds({'foo': cloud}, endpoint_validation=False))
+            make_long_endpoint(
+                spec, endpoint_validation=False)
+            ],
+            iter_clouds({'foo': cloud}, endpoint_validation=False))
 
     def test_vsphere(self):
         cloud = {
@@ -156,7 +161,8 @@ class TestIterClouds(FakeHomeTestCase):
                              exception=NameNotAccepted), 1641981, None),
             xfail(cloud_spec('long-name-foo', 'A' * 4096, cloud,
                              exception=None), 1641970, NameMismatch),
-            make_long_endpoint(spec, regions=True, endpoint_validation=True),
+            make_long_endpoint(
+                spec, regions=True, endpoint_validation=True),
             ], iter_clouds({'foo': cloud}, endpoint_validation=True))
 
     def test_vsphere_no_validation(self):
@@ -286,6 +292,23 @@ class TestAssessAllClouds(FakeHomeTestCase):
         self.assertEqual(set(), failed)
         self.assertEqual({27: {'label1'}}, xfailed)
         self.assertEqual(0, exception_mock.call_count)
+
+    def test_failed_notraised(self):
+        client = fake_juju_client(juju_home=self.juju_home)
+        cloud_specs = [
+            cloud_spec('label', 'name', {'config': '1'}, TypeNotAccepted)]
+        with patch('assess_add_cloud.assess_cloud'):
+            with patch('logging.exception') as exception_mock:
+                with patch('sys.stdout'):
+                    succeeded, xfailed, failed = assess_all_clouds(client,
+                                                                   cloud_specs)
+        self.assertEqual(set(['label']), failed)
+        self.assertEqual(1, exception_mock.call_count)
+        raised_e = exception_mock.mock_calls[0][1][0]
+        self.assertEqual(
+            "Expected exception not raised: "
+            "<class 'jujupy.client.TypeNotAccepted'>",
+            raised_e.message)
 
 
 class TestWriteStatus(FakeHomeTestCase):
