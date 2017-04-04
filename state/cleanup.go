@@ -6,7 +6,10 @@ package state
 import (
 	"fmt"
 
+	"github.com/juju/utils/featureflag"
+
 	"github.com/juju/errors"
+	"github.com/juju/juju/feature"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
@@ -262,8 +265,10 @@ func (st *State) cleanupFilesystemsForDyingModel() (err error) {
 // not already Dying or Dead. It's expected to be used when a model is
 // destroyed.
 func (st *State) cleanupApplicationsForDyingModel() (err error) {
-	if err := st.removeRemoteApplicationsForDyingModel(); err != nil {
-		return err
+	if featureflag.Enabled(feature.CrossModelRelations) {
+		if err := st.removeRemoteApplicationsForDyingModel(); err != nil {
+			return err
+		}
 	}
 	return st.removeApplicationsForDyingModel()
 }

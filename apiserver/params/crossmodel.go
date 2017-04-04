@@ -365,24 +365,6 @@ type RemoteEntities struct {
 	Entities []RemoteEntityId `json:"remote-entities"`
 }
 
-// IngressSubnetInfo is the result of an IngressSubnetsForRelation call.
-type IngressSubnetInfo struct {
-	// CIDRs is the set if CIDRs which need to be allowed ingress to the application.
-	CIDRs []string `json:"cidrs,omitempty"`
-}
-
-// IngressSubnetResult holds ingress network information and an error.
-type IngressSubnetResult struct {
-	Error  *Error             `json:"error,omitempty"`
-	Result *IngressSubnetInfo `json:"result,omitempty"`
-}
-
-// IngressSubnetResults holds the result of an API call that returns
-// information about ingress networks for multiple remote relations.
-type IngressSubnetResults struct {
-	Results []IngressSubnetResult `json:"results"`
-}
-
 // ModifyModelAccessRequest holds the parameters for making grant and revoke offer calls.
 type ModifyOfferAccessRequest struct {
 	Changes []ModifyOfferAccess `json:"changes"`

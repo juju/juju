@@ -208,7 +208,6 @@ type instanceData struct {
 	MachineId  string      `bson:"machineid"`
 	InstanceId instance.Id `bson:"instanceid"`
 	ModelUUID  string      `bson:"model-uuid"`
-	Status     string      `bson:"status,omitempty"`
 	Arch       *string     `bson:"arch,omitempty"`
 	Mem        *uint64     `bson:"mem,omitempty"`
 	RootDisk   *uint64     `bson:"rootdisk,omitempty"`

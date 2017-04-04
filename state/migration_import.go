@@ -369,11 +369,15 @@ func (i *importer) machine(m description.Machine) error {
 		StatusData: mStatus.Data(),
 		Updated:    mStatus.Updated().UnixNano(),
 	}
-	// XXX(mjs) - this needs to be included in the serialized model
-	// (a card exists for the work). Fake it for now.
+	// A machine isn't valid if it doesn't have an instance.
+	instance := m.Instance()
+	instStatus := instance.Status()
 	instanceStatusDoc := statusDoc{
-		ModelUUID: i.st.ModelUUID(),
-		Status:    status.Started,
+		ModelUUID:  i.st.ModelUUID(),
+		Status:     status.Status(instStatus.Value()),
+		StatusInfo: instStatus.Message(),
+		StatusData: instStatus.Data(),
+		Updated:    instStatus.Updated().UnixNano(),
 	}
 	cons := i.constraints(m.Constraints())
 	prereqOps, machineOp := i.st.baseNewMachineOps(
@@ -384,9 +388,7 @@ func (i *importer) machine(m description.Machine) error {
 	)
 
 	// 3. create op for adding in instance data
-	if instance := m.Instance(); instance != nil {
-		prereqOps = append(prereqOps, i.machineInstanceOp(mdoc, instance))
-	}
+	prereqOps = append(prereqOps, i.machineInstanceOp(mdoc, instance))
 
 	if parentId := ParentId(mdoc.Id); parentId != "" {
 		prereqOps = append(prereqOps,
@@ -415,6 +417,9 @@ func (i *importer) machine(m description.Machine) error {
 		}
 	}
 	if err := i.importStatusHistory(machine.globalKey(), m.StatusHistory()); err != nil {
+		return errors.Trace(err)
+	}
+	if err := i.importStatusHistory(machine.globalInstanceKey(), instance.StatusHistory()); err != nil {
 		return errors.Trace(err)
 	}
 	if err := i.importMachineBlockDevices(machine, m); err != nil {

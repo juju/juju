@@ -198,6 +198,12 @@ func (catacomb *Catacomb) Wait() error {
 	return catacomb.tomb.Wait()
 }
 
+// Err returns the reason for the catacomb death provided via Kill
+// or Killf, or ErrStillAlive when the catacomb is still alive.
+func (catacomb *Catacomb) Err() error {
+	return catacomb.tomb.Err()
+}
+
 // Kill kills the Catacomb's internal tomb with the supplied error, or one
 // derived from it.
 //  * if it's caused by this catacomb's ErrDying, it passes on tomb.ErrDying.

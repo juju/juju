@@ -352,6 +352,20 @@ func (r *Relation) RemoteUnit(unitName string) (*RelationUnit, error) {
 	return r.unit(unitName, principal, isPrincipal, checkUnitLife)
 }
 
+// IsCrossModel returns whether this relation is a cross-model
+// relation.
+func (r *Relation) IsCrossModel() (bool, error) {
+	for _, ep := range r.Endpoints() {
+		_, err := r.st.RemoteApplication(ep.ApplicationName)
+		if err == nil {
+			return true, nil
+		} else if !errors.IsNotFound(err) {
+			return false, errors.Trace(err)
+		}
+	}
+	return false, nil
+}
+
 func (r *Relation) unit(
 	unitName string,
 	principal string,

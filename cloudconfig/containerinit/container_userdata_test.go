@@ -5,18 +5,12 @@
 package containerinit_test
 
 import (
-	"crypto/rand"
-	"encoding/hex"
 	"fmt"
-	"io/ioutil"
-	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	stdtesting "testing"
 
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/exec"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/yaml.v2"
 
@@ -35,7 +29,7 @@ func Test(t *stdtesting.T) {
 type UserDataSuite struct {
 	testing.BaseSuite
 
-	networkInterfacesPythonFile string
+	networkInterfacesFile       string
 	systemNetworkInterfacesFile string
 
 	fakeInterfaces []network.InterfaceInfo
@@ -55,15 +49,8 @@ var _ = gc.Suite(&UserDataSuite{})
 
 func (s *UserDataSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-
-	if runtime.GOOS == "windows" {
-		c.Skip("This test is for Linux only")
-	}
-
-	s.tempFolder = c.MkDir()
-	networkFolder := c.MkDir()
-	s.systemNetworkInterfacesFile = filepath.Join(networkFolder, "system-interfaces")
-	s.networkInterfacesPythonFile = filepath.Join(networkFolder, "system-interfaces.py")
+	s.networkInterfacesFile = filepath.Join(c.MkDir(), "juju-interfaces")
+	s.systemNetworkInterfacesFile = filepath.Join(c.MkDir(), "system-interfaces")
 	s.fakeInterfaces = []network.InterfaceInfo{{
 		InterfaceName:    "any0",
 		CIDR:             "0.1.2.0/24",
@@ -105,21 +92,32 @@ func (s *UserDataSuite) SetUpTest(c *gc.C) {
 		MACAddress:    "aa:bb:cc:dd:ee:f4",
 		NoAutoStart:   true,
 	}}
+	s.expectedSampleConfig = `
+auto any0 any1 any3 lo
 
-	for _, version := range []string{
-		"/usr/bin/python2",
-		"/usr/bin/python3",
-		"/usr/bin/python",
-	} {
-		if _, err := os.Stat(version); err == nil {
-			s.pythonVersions = append(s.pythonVersions, version)
-		}
-	}
-	c.Assert(s.pythonVersions, gc.Not(gc.HasLen), 0)
+iface lo inet loopback
+  dns-nameservers ns1.invalid ns2.invalid
+  dns-search bar foo
 
-	s.expectedSampleConfigWriting = `#cloud-config
+iface any0 inet static
+  address 0.1.2.3/24
+  gateway 0.1.2.1
+
+iface any1 inet static
+  address 0.2.2.4/24
+  post-up ip route add 0.5.6.0/24 via 0.2.2.1 metric 50
+  pre-down ip route del 0.5.6.0/24 via 0.2.2.1 metric 50
+
+iface any2 inet dhcp
+
+iface any3 inet dhcp
+
+iface any4 inet manual
+`
+	s.expectedSampleUserData = `
+#cloud-config
 bootcmd:
-- install -D -m 644 /dev/null '%[1]s.templ'
+- install -D -m 644 /dev/null '%[1]s'
 - |-
   printf '%%s\n' '
   auto lo {ethaa_bb_cc_dd_ee_f0} {ethaa_bb_cc_dd_ee_f1} {ethaa_bb_cc_dd_ee_f3}
@@ -128,11 +126,11 @@ bootcmd:
     dns-nameservers ns1.invalid ns2.invalid
     dns-search bar foo
 
-  iface {ethaa_bb_cc_dd_ee_f0} inet static
+  iface any0 inet static
     address 0.1.2.3/24
     gateway 0.1.2.1
 
-  iface {ethaa_bb_cc_dd_ee_f1} inet static
+  iface any1 inet static
     address 0.2.2.4/24
     post-up ip route add 0.5.6.0/24 via 0.2.2.1 metric 50
     pre-down ip route del 0.5.6.0/24 via 0.2.2.1 metric 50
@@ -194,36 +192,33 @@ iface any4 inet manual
 	networkInterfacesScriptYamled = strings.Replace(networkInterfacesScriptYamled, "%", "%%", -1)
 	networkInterfacesScriptYamled = strings.Replace(networkInterfacesScriptYamled, "'", "'\"'\"'", -1)
 
-	s.expectedSampleUserData = `- install -D -m 744 /dev/null '%[2]s'
+  iface any4 inet manual
+  ' > '%[1]s'
+runcmd:
 - |-
-  printf '%%s\n' '` + networkInterfacesScriptYamled + ` ' > '%[2]s'
-- |2
-
-  if [ -f /usr/bin/python ]; then
-      python %[2]s --interfaces-file %[1]s
+  if [ -f %[1]s ]; then
+      echo "stopping all interfaces"
+      ifdown -a
+      sleep 1.5
+      if ifup -a --interfaces=%[1]s; then
+          echo "ifup with %[1]s succeeded, renaming to %[2]s"
+          cp %[2]s %[2]s-orig
+          cp %[1]s %[2]s
+      else
+          echo "ifup with %[1]s failed, leaving old %[2]s alone"
+          ifup -a
+      fi
   else
-      python3 %[2]s --interfaces-file %[1]s
+      echo "did not find %[1]s, not reconfiguring networking"
   fi
 `[1:]
 
-	s.expectedFallbackConfig = `#cloud-config
-bootcmd:
-- install -D -m 644 /dev/null '%[1]s.templ'
-- |-
-  printf '%%s\n' '
-  auto lo {eth}
-
-  iface lo inet loopback
-
-  iface {eth} inet dhcp
-  ' > '%[1]s.templ'
-`
-	s.expectedBaseConfig = `
-auto lo {eth}
+	s.expectedFallbackConfig = `
+auto eth0 lo
 
 iface lo inet loopback
 
-iface {eth} inet dhcp
+iface eth0 inet dhcp
 `
 	s.expectedFallbackUserData = `
 #cloud-config
@@ -256,7 +251,7 @@ runcmd:
   fi
 `[1:]
 
-	s.PatchValue(containerinit.NetworkInterfacesFile, s.systemNetworkInterfacesFile)
+	s.PatchValue(containerinit.NetworkInterfacesFile, s.networkInterfacesFile)
 	s.PatchValue(containerinit.SystemNetworkInterfacesFile, s.systemNetworkInterfacesFile)
 }
 
@@ -268,7 +263,7 @@ func (s *UserDataSuite) TestGenerateNetworkConfig(c *gc.C) {
 	netConfig := container.BridgeNetworkConfig("foo", 0, nil)
 	data, err = containerinit.GenerateNetworkConfig(netConfig, true)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(data, gc.Equals, s.expectedBaseConfig)
+	c.Assert(data, gc.Equals, s.expectedFallbackConfig)
 
 	// Test with all interface types.
 	netConfig = container.BridgeNetworkConfig("foo", 0, s.fakeInterfaces)
@@ -289,8 +284,7 @@ func (s *UserDataSuite) TestNewCloudInitConfigWithNetworksSampleConfig(c *gc.C) 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cloudConf, gc.NotNil)
 
-	expected := fmt.Sprintf(s.expectedSampleConfigWriting, s.systemNetworkInterfacesFile)
-	expected += fmt.Sprintf(s.expectedSampleUserData, s.systemNetworkInterfacesFile, s.networkInterfacesPythonFile, s.systemNetworkInterfacesFile)
+	expected := fmt.Sprintf(s.expectedSampleUserData, s.networkInterfacesFile, s.systemNetworkInterfacesFile)
 	assertUserData(c, cloudConf, expected)
 }
 
@@ -299,8 +293,7 @@ func (s *UserDataSuite) TestNewCloudInitConfigWithNetworksFallbackConfig(c *gc.C
 	cloudConf, err := containerinit.NewCloudInitConfigWithNetworks("quantal", netConfig)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cloudConf, gc.NotNil)
-	expected := fmt.Sprintf(s.expectedFallbackConfig, s.systemNetworkInterfacesFile, s.systemNetworkInterfacesFile)
-	expected += fmt.Sprintf(s.expectedSampleUserData, s.systemNetworkInterfacesFile, s.networkInterfacesPythonFile)
+	expected := fmt.Sprintf(s.expectedFallbackUserData, s.networkInterfacesFile, s.systemNetworkInterfacesFile)
 	assertUserData(c, cloudConf, expected)
 }
 
@@ -352,6 +345,55 @@ func (s *UserDataSuite) TestCloudInitUserDataNoNetworkConfig(c *gc.C) {
 	linesToMatch := CloudInitDataExcludingOutputSection(string(data))
 
 	c.Assert(strings.Join(linesToMatch, "\n"), gc.Equals, "#cloud-config")
+}
+
+func (s *UserDataSuite) TestCloudInitUserDataFallbackConfig(c *gc.C) {
+	instanceConfig, err := containertesting.MockMachineConfig("1/lxd/0")
+	c.Assert(err, jc.ErrorIsNil)
+	networkConfig := container.BridgeNetworkConfig("foo", 0, nil)
+	data, err := containerinit.CloudInitUserData(instanceConfig, networkConfig)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(data, gc.NotNil)
+
+	linesToMatch := CloudInitDataExcludingOutputSection(string(data))
+
+	expected := fmt.Sprintf(s.expectedFallbackUserData, s.networkInterfacesFile, s.systemNetworkInterfacesFile)
+	var expectedLinesToMatch []string
+
+	for _, line := range strings.Split(expected, "\n") {
+		if strings.HasPrefix(line, "runcmd:") {
+			break
+		}
+		expectedLinesToMatch = append(expectedLinesToMatch, line)
+	}
+
+	c.Assert(strings.Join(linesToMatch, "\n")+"\n", gc.Equals, strings.Join(expectedLinesToMatch, "\n")+"\n")
+}
+
+func (s *UserDataSuite) TestCloudInitUserDataFallbackConfigWithContainerHostname(c *gc.C) {
+	instanceConfig, err := containertesting.MockMachineConfig("1/lxd/0")
+	instanceConfig.MachineContainerHostname = "lxdhostname"
+	c.Assert(err, jc.ErrorIsNil)
+	networkConfig := container.BridgeNetworkConfig("foo", 0, nil)
+	data, err := containerinit.CloudInitUserData(instanceConfig, networkConfig)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(data, gc.NotNil)
+
+	linesToMatch := CloudInitDataExcludingOutputSection(string(data))
+
+	expected := fmt.Sprintf(s.expectedFallbackUserData, s.networkInterfacesFile, s.systemNetworkInterfacesFile)
+	var expectedLinesToMatch []string
+
+	for _, line := range strings.Split(expected, "\n") {
+		if strings.HasPrefix(line, "runcmd:") {
+			break
+		}
+		expectedLinesToMatch = append(expectedLinesToMatch, line)
+	}
+
+	expectedLinesToMatch = append(expectedLinesToMatch, "hostname: lxdhostname")
+
+	c.Assert(strings.Join(linesToMatch, "\n")+"\n", gc.Equals, strings.Join(expectedLinesToMatch, "\n")+"\n")
 }
 
 func assertUserData(c *gc.C, cloudConf cloudinit.CloudConfig, expected string) {

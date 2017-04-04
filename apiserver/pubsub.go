@@ -9,7 +9,6 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/juju/errors"
-	"github.com/juju/pubsub"
 	"github.com/juju/utils/featureflag"
 
 	"github.com/juju/juju/apiserver/common"
@@ -21,7 +20,7 @@ import (
 // Hub defines the publish method that the handler uses to publish
 // messages on the centralhub of the apiserver.
 type Hub interface {
-	Publish(pubsub.Topic, interface{}) (<-chan struct{}, error)
+	Publish(string, interface{}) (<-chan struct{}, error)
 }
 
 func newPubSubHandler(h httpContext, hub Hub) http.Handler {
@@ -102,7 +101,7 @@ func (h *pubsubHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 				}
 			case m := <-messageCh:
 				logger.Tracef("topic: %q, data: %v", m.Topic, m.Data)
-				_, err := h.hub.Publish(pubsub.Topic(m.Topic), m.Data)
+				_, err := h.hub.Publish(m.Topic, m.Data)
 				if err != nil {
 					logger.Errorf("publish failed: %v", err)
 				}

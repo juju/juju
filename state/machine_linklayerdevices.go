@@ -9,6 +9,7 @@ import (
 	"net"
 
 	"github.com/juju/errors"
+	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils/set"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
@@ -192,10 +193,10 @@ func (m *Machine) SetLinkLayerDevices(devicesArgs ...LinkLayerDeviceArgs) (err e
 			return nil, errors.Trace(err)
 		}
 
+		if m.doc.Life != Alive {
+			return nil, errors.Errorf("machine %q not alive", m.doc.Id)
+		}
 		if attempt > 0 {
-			if err := checkModelActive(m.st); err != nil {
-				return nil, errors.Trace(err)
-			}
 			if err := m.isStillAlive(); err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -211,14 +212,20 @@ func (m *Machine) SetLinkLayerDevices(devicesArgs ...LinkLayerDeviceArgs) (err e
 			}
 		}
 
+		// We've checked the model is alive directly, and we assert the machine is alive, we don't need to also
+		// assert the model is alive, because then the machine would be dying as well.
 		ops := []txn.Op{
-			assertModelActiveOp(m.st.ModelUUID()),
 			m.assertAliveOp(),
 		}
 
 		setDevicesOps, err := m.setDevicesFromDocsOps(newDocs)
 		if err != nil {
 			return nil, errors.Trace(err)
+		}
+		if len(setDevicesOps) == 0 {
+			// No need to assert only that the machine is alive
+			logger.Debugf("no changes to LinkLayerDevices for machine %q", m.Id())
+			return nil, jujutxn.ErrNoOperations
 		}
 		return append(ops, setDevicesOps...), nil
 	}
@@ -507,6 +514,7 @@ func (m *Machine) parentDocIDFromDeviceDoc(doc *linkLayerDeviceDoc) (string, err
 }
 
 func (m *Machine) updateLinkLayerDeviceOps(existingDoc, newDoc *linkLayerDeviceDoc) (ops []txn.Op, err error) {
+	// none of the ops in this function are assert-only, so callers can know if there are any changes by just checking len(ops)
 	var newParentDocID string
 	if newDoc.ParentName != "" {
 		newParentDocID, err = m.parentDocIDFromDeviceDoc(newDoc)
@@ -536,7 +544,11 @@ func (m *Machine) updateLinkLayerDeviceOps(existingDoc, newDoc *linkLayerDeviceD
 		ops = append(ops, assertLinkLayerDeviceExistsOp(existingParentDocID))
 		ops = append(ops, decrementDeviceNumChildrenOp(existingParentDocID))
 	}
-	ops = append(ops, updateLinkLayerDeviceDocOp(existingDoc, newDoc))
+	updateDeviceOp, deviceHasChanges := updateLinkLayerDeviceDocOp(existingDoc, newDoc)
+	if deviceHasChanges {
+		// we only include the op if it will actually change something
+		ops = append(ops, updateDeviceOp)
+	}
 
 	if newDoc.ProviderID != "" {
 		if existingDoc.ProviderID != "" && existingDoc.ProviderID != newDoc.ProviderID {
@@ -605,13 +617,10 @@ func (m *Machine) SetDevicesAddresses(devicesAddresses ...LinkLayerDeviceAddress
 			return nil, errors.Trace(err)
 		}
 
+		if err := m.isStillAlive(); err != nil {
+			return nil, errors.Trace(err)
+		}
 		if attempt > 0 {
-			if err := checkModelActive(m.st); err != nil {
-				return nil, errors.Trace(err)
-			}
-			if err := m.isStillAlive(); err != nil {
-				return nil, errors.Trace(err)
-			}
 			allIds, err := m.st.allProviderIDsForAddresses()
 			if err != nil {
 				return nil, errors.Trace(err)
@@ -624,14 +633,21 @@ func (m *Machine) SetDevicesAddresses(devicesAddresses ...LinkLayerDeviceAddress
 			}
 		}
 
+		// we checked the model is active, but we only assert the machine is alive, because it will be dying if
+		// the model is dying.
 		ops := []txn.Op{
-			assertModelActiveOp(m.st.ModelUUID()),
 			m.assertAliveOp(),
 		}
 
 		setAddressesOps, err := m.setDevicesAddressesFromDocsOps(newDocs)
 		if err != nil {
 			return nil, errors.Trace(err)
+		}
+		if len(setAddressesOps) == 0 {
+			// no actual address changes to be queued, so no need to create an op that just asserts
+			// the machine is alive
+			logger.Debugf("no changes to DevicesAddresses for machine %q", m.Id())
+			return nil, jujutxn.ErrNoOperations
 		}
 		return append(ops, setAddressesOps...), nil
 	}
@@ -762,21 +778,26 @@ func (m *Machine) setDevicesAddressesFromDocsOps(newDocs []ipAddressDoc) ([]txn.
 	var ops []txn.Op
 
 	for _, newDoc := range newDocs {
+		var thisDeviceOps []txn.Op
+		hasChanges := false
 		deviceDocID := m.linkLayerDeviceDocIDFromName(newDoc.DeviceName)
-		ops = append(ops, assertLinkLayerDeviceExistsOp(deviceDocID))
+		thisDeviceOps = append(thisDeviceOps, assertLinkLayerDeviceExistsOp(deviceDocID))
 
 		var existingDoc ipAddressDoc
 		err := addresses.FindId(newDoc.DocID).One(&existingDoc)
 		if err == mgo.ErrNotFound {
 			// Address does not exist yet - insert it.
-			ops = append(ops, insertIPAddressDocOp(&newDoc))
+			hasChanges = true
+			thisDeviceOps = append(thisDeviceOps, insertIPAddressDocOp(&newDoc))
 			if newDoc.ProviderID != "" {
 				id := network.Id(newDoc.ProviderID)
-				ops = append(ops, m.st.networkEntityGlobalKeyOp("address", id))
+				thisDeviceOps = append(thisDeviceOps, m.st.networkEntityGlobalKeyOp("address", id))
 			}
 		} else if err == nil {
 			// Address already exists - update what's possible.
-			ops = append(ops, updateIPAddressDocOp(&existingDoc, &newDoc))
+			var ipOp txn.Op
+			ipOp, hasChanges = updateIPAddressDocOp(&existingDoc, &newDoc)
+			thisDeviceOps = append(thisDeviceOps, ipOp)
 			if newDoc.ProviderID != "" {
 				if existingDoc.ProviderID != "" && existingDoc.ProviderID != newDoc.ProviderID {
 					return nil, errors.Errorf("cannot change ProviderID of link address %q", existingDoc.Value)
@@ -784,16 +805,20 @@ func (m *Machine) setDevicesAddressesFromDocsOps(newDocs []ipAddressDoc) ([]txn.
 				if existingDoc.ProviderID != newDoc.ProviderID {
 					// Need to insert the new provider id in providerIDsC
 					id := network.Id(newDoc.ProviderID)
-					ops = append(ops, m.st.networkEntityGlobalKeyOp("address", id))
+					thisDeviceOps = append(thisDeviceOps, m.st.networkEntityGlobalKeyOp("address", id))
+					hasChanges = true
 				}
 			}
 		} else {
 			return nil, errors.Trace(err)
 		}
 
-		ops, err = m.maybeAssertSubnetAliveOps(&newDoc, ops)
+		thisDeviceOps, err = m.maybeAssertSubnetAliveOps(&newDoc, thisDeviceOps)
 		if err != nil {
 			return nil, errors.Trace(err)
+		}
+		if hasChanges {
+			ops = append(ops, thisDeviceOps...)
 		}
 	}
 	return ops, nil

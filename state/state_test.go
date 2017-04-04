@@ -616,7 +616,7 @@ func (s *MultiModelStateSuite) TestWatchTwoModels(c *gc.C) {
 		}, {
 			about: "subnets",
 			getWatcher: func(st *state.State) interface{} {
-				return st.WatchSubnets()
+				return st.WatchSubnets(nil)
 			},
 			triggerEvent: func(st *state.State) {
 				_, err := st.AddSubnet(state.SubnetInfo{
@@ -3314,7 +3314,10 @@ func (s *StateSuite) TestWatchMinUnitsDiesOnStateClose(c *gc.C) {
 }
 
 func (s *StateSuite) TestWatchSubnets(c *gc.C) {
-	w := s.State.WatchSubnets()
+	filter := func(id interface{}) bool {
+		return id != "10.20.0.0/24"
+	}
+	w := s.State.WatchSubnets(filter)
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewStringsWatcherC(c, s.State, w)
 
@@ -3322,10 +3325,19 @@ func (s *StateSuite) TestWatchSubnets(c *gc.C) {
 	wc.AssertChange()
 	wc.AssertNoChange()
 
-	_, err := s.State.AddSubnet(state.SubnetInfo{CIDR: "10.0.0.0/24"})
+	_, err := s.State.AddSubnet(state.SubnetInfo{CIDR: "10.20.0.0/24"})
 	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddSubnet(state.SubnetInfo{CIDR: "10.0.0.0/24"})
 	wc.AssertChange("10.0.0.0/24")
 	wc.AssertNoChange()
+}
+
+func (s *StateSuite) TestWatchSubnetsDiesOnStateClose(c *gc.C) {
+	testWatcherDiesWhenStateCloses(c, s.modelTag, s.State.ControllerTag(), func(c *gc.C, st *state.State) waiter {
+		w := st.WatchSubnets(nil)
+		<-w.Changes()
+		return w
+	})
 }
 
 func (s *StateSuite) setupWatchRemoteRelations(c *gc.C, wc statetesting.StringsWatcherC) (*state.RemoteApplication, *state.Application, *state.Relation) {
