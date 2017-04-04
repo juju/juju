@@ -382,7 +382,7 @@ import subprocess, re, argparse, os, time
 from string import Formatter
 
 INTERFACES_FILE="/etc/network/interfaces"
-IP_LINE = re.compile(r"^\d: (.*?):")
+IP_LINE = re.compile(r"^\d+: (.*?):")
 IP_HWADDR = re.compile(r".*link/ether ((\w{2}|:){11})")
 COMMAND = "ip -oneline link"
 RETRIES = 3
