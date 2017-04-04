@@ -25,7 +25,8 @@ from utility import (
     )
 
 
-URL_LIMIT = 2083
+# URLs are limited to 2083 bytes in many browsers, anything more is excessive.
+EXCEEDED_LIMIT = 2084
 
 
 class CloudMismatch(JujuAssertionError):
@@ -45,8 +46,9 @@ class NameMismatch(JujuAssertionError):
 class NotRaised(Exception):
     """An expected exception was not raised."""
 
-    def __init__(self, exception):
-        msg = 'Expected exception not raised: {}'.format(exception)
+    def __init__(self, cloud_spec):
+        msg = 'Expected exception not raised: {}'.format(
+            cloud_spec.exception)
         super(NotRaised, self).__init__(msg)
 
 
@@ -105,6 +107,7 @@ def iter_clouds(clouds, endpoint_validation):
     """Iterate through CloudSpecs."""
     yield cloud_spec('bogus-type', 'bogus-type', {'type': 'bogus'},
                      exception=TypeNotAccepted)
+    exceeded_data = 'A' * EXCEEDED_LIMIT
     for cloud_name, cloud in clouds.items():
         spec = cloud_spec(cloud_name, cloud_name, cloud)
         if cloud['type'] == 'manual' and endpoint_validation:
@@ -113,12 +116,12 @@ def iter_clouds(clouds, endpoint_validation):
 
     for cloud_name, cloud in clouds.items():
         spec = xfail(
-            cloud_spec('long-name-{}'.format(cloud_name), 'A' * URL_LIMIT,
+            cloud_spec('long-name-{}'.format(cloud_name), exceeded_data,
                        cloud, NameNotAccepted),
             1641970, NameMismatch)
         if cloud['type'] == 'manual' and endpoint_validation:
             spec = cloud_spec('long-name-{}'.format(cloud_name),
-                              'A' * URL_LIMIT, cloud)
+                              exceeded_data, cloud)
         yield spec
         spec = xfail(
             cloud_spec('invalid-name-{}'.format(cloud_name), 'invalid/name',
@@ -134,7 +137,7 @@ def iter_clouds(clouds, endpoint_validation):
 
         if 'endpoint' in cloud:
             variant = deepcopy(cloud)
-            variant['endpoint'] = 'A' * URL_LIMIT
+            variant['endpoint'] = exceeded_data
             if variant['type'] == 'vsphere':
                 for region in variant['regions'].values():
                     region['endpoint'] = variant['endpoint']
@@ -152,7 +155,7 @@ def iter_clouds(clouds, endpoint_validation):
                 continue
             variant = deepcopy(cloud)
             region = variant['regions'][region_name]
-            region['endpoint'] = 'A' * URL_LIMIT
+            region['endpoint'] = exceeded_data
             variant_name = 'long-endpoint-{}-{}'.format(cloud_name,
                                                         region_name)
             spec = cloud_spec(variant_name, cloud_name, variant,
@@ -184,7 +187,7 @@ def assess_all_clouds(client, cloud_specs):
                 except cloud_spec.exception:
                     pass
                 else:
-                    raise NotRaised(cloud_spec.exception)
+                    raise NotRaised(cloud_spec)
         except Exception as e:
             logging.exception(e)
             failed.add(cloud_spec.label)
