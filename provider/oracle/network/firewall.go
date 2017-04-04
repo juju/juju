@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"reflect"
 	"sort"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/juju/errors"
@@ -555,4 +557,517 @@ func (f Firewall) getIngressRules(seclist string) ([]network.IngressRule, error)
 	}
 	// if we don't find anything just return empty slice and nil
 	return []network.IngressRule{}, nil
+}
+
+// getAllApplications returns all security applications that are mapped
+// so the firewall can use security rules. In the oracle cloud
+// envirnoment applications are alis term for protocols
+func (f Firewall) getAllApplications() ([]response.SecApplication, error) {
+	// get all defined protocols from the current identity endpoint
+	applications, err := f.client.AllSecApplications(nil)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	// get also default ones defined in the oracle cloud environment
+	defaultApps, err := f.client.DefaultSecApplications(nil)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	allApps := []response.SecApplication{}
+	for _, val := range applications.Result {
+		if val.PortProtocolPair() == "" {
+			// (gsamfira):this should not really happen,
+			// but I get paranoid when I run out of coffee
+			continue
+		}
+		allApps = append(allApps, val)
+	}
+	for _, val := range defaultApps.Result {
+		if val.PortProtocolPair() == "" {
+			// (gsamfira)this should not really happen, but
+			// I get paranoid when I run out of coffee
+			continue
+		}
+		allApps = append(allApps, val)
+	}
+	return allApps, nil
+}
+
+// getAllApplicationsAsMap returns all security applications that
+// are mapped so the firewaller cause security rules.
+// Bassically just like applications method but it's composing the return
+// as a map rathar than a slice
+func (f Firewall) getAllApplicationsAsMap() (
+	map[string]response.SecApplication, error) {
+
+	// get all defined protocols
+	// from the current identity and default ones
+	apps, err := f.getAllApplications()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	// copy all of them into this map
+	allApps := map[string]response.SecApplication{}
+	for _, val := range apps {
+		if val.String() == "" {
+			continue
+		}
+		if _, ok := allApps[val.String()]; !ok {
+			allApps[val.String()] = val
+		}
+	}
+	return allApps, nil
+}
+
+func (f Firewall) ensureApplication(
+	portRange network.PortRange,
+	cache *[]response.SecApplication,
+) (string, error) {
+	// we should check if the security application is already created
+	for _, val := range *cache {
+		if val.PortProtocolPair() == portRange.String() {
+			return val.Name, nil
+		}
+	}
+	// We need to create a new application
+	// There is always the chance of a race condition
+	// when it comes to creating new resources.
+	// ie: someone may have already created a matching
+	// application between the time we fetched all of them
+	// and the moment we actually got to create one
+	// Worst thing that can happen is that we have a few duplicate
+	// rules, that we cleanup anyway when we destroy the environment
+	uuid, err := utils.NewUUID()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	// make a the resource secure application name
+	secAppName := f.newResourceName(uuid.String())
+	var dport string
+	if portRange.FromPort == portRange.ToPort {
+		dport = strconv.Itoa(portRange.FromPort)
+	} else {
+		dport = fmt.Sprintf("%s-%s",
+			strconv.Itoa(portRange.FromPort), strconv.Itoa(portRange.ToPort))
+	}
+	// create a new security application specifying
+	// what port range the app should be allowd to use
+	name := f.client.ComposeName(secAppName)
+	secAppParams := api.SecApplicationParams{
+		Description: "Juju created security application",
+		Dport:       dport,
+		Protocol:    common.Protocol(portRange.Protocol),
+		Name:        name,
+	}
+	application, err := f.client.CreateSecApplication(secAppParams)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	*cache = append(*cache, application)
+	return application.Name, nil
+}
+
+// convertToSecRules this will take a security
+// list and a slice of network.IngressRule and it will create
+// parameeters in order to call the security rule creation resource
+func (f Firewall) convertToSecRules(
+	seclist response.SecList,
+	rules []network.IngressRule,
+) ([]api.SecRuleParams, error) {
+
+	// get all applications and default ones
+	applications, err := f.getAllApplications()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	// get all ip lists
+	iplists, err := f.getAllIPLists()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	ret := make([]api.SecRuleParams, 0, len(rules))
+	// for every rule we need to ensure that the there is a relationship
+	// between security applications and security ip lists
+	// and from every one of them create a slice of security rule params
+	for _, val := range rules {
+		app, err := f.ensureApplication(val.PortRange, &applications)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		ipList, err := f.ensureSecIpList(val.SourceCIDRs, &iplists)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		uuid, err := utils.NewUUID()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		name := f.newResourceName(uuid.String())
+		resourceName := f.client.ComposeName(name)
+		dstList := fmt.Sprintf("seclist:%s", seclist.Name)
+		srcList := fmt.Sprintf("seciplist:%s", ipList)
+		// create the new security rule param
+		rule := api.SecRuleParams{
+			Action:      common.SecRulePermit,
+			Application: app,
+			Description: "Juju created security rule",
+			Disabled:    false,
+			Dst_list:    dstList,
+			Name:        resourceName,
+			Src_list:    srcList,
+		}
+		// append the new param rule
+		ret = append(ret, rule)
+	}
+	return ret, nil
+}
+
+// convertApplicationToPortRange takes a SecApplication and
+// converts it to a network.PortRange type
+func (f Firewall) convertApplicationToPortRange(
+	app response.SecApplication,
+) network.PortRange {
+
+	appCopy := app
+	if appCopy.Value2 == -1 {
+		appCopy.Value2 = appCopy.Value1
+	}
+	return network.PortRange{
+		FromPort: appCopy.Value1,
+		ToPort:   appCopy.Value2,
+		Protocol: string(appCopy.Protocol),
+	}
+}
+
+// convertFromSecRules takes a slice of security rules and creates a map of them
+func (f Firewall) convertFromSecRules(
+	rules ...response.SecRule,
+) (map[string][]network.IngressRule, error) {
+
+	applications, err := f.getAllApplicationsAsMap()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	iplists, err := f.getAllIPListsAsMap()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	ret := map[string][]network.IngressRule{}
+	for _, val := range rules {
+		app := val.Application
+		srcList := strings.TrimPrefix(val.Src_list, "seciplist:")
+		dstList := strings.TrimPrefix(val.Dst_list, "seclist:")
+		portRange := f.convertApplicationToPortRange(applications[app])
+		if _, ok := ret[dstList]; !ok {
+			ret[dstList] = []network.IngressRule{
+				network.IngressRule{
+					PortRange:   portRange,
+					SourceCIDRs: iplists[srcList].Secipentries,
+				},
+			}
+		} else {
+			toAdd := network.IngressRule{
+				PortRange:   portRange,
+				SourceCIDRs: iplists[srcList].Secipentries,
+			}
+			ret[dstList] = append(ret[dstList], toAdd)
+		}
+	}
+	return ret, nil
+}
+
+// secRuleToIngressRule convert all security rules into a map of ingress rules
+func (f Firewall) secRuleToIngresRule(
+	rules ...response.SecRule,
+) (map[string]network.IngressRule, error) {
+
+	applications, err := f.getAllApplicationsAsMap()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	iplists, err := f.getAllIPListsAsMap()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	ret := map[string]network.IngressRule{}
+	for _, val := range rules {
+		app := val.Application
+		srcList := strings.TrimPrefix(val.Src_list, "seciplist:")
+		portRange := f.convertApplicationToPortRange(applications[app])
+		if _, ok := ret[val.Name]; !ok {
+			ret[val.Name] = network.IngressRule{
+				PortRange:   portRange,
+				SourceCIDRs: iplists[srcList].Secipentries,
+			}
+		}
+	}
+	return ret, nil
+}
+
+func (f Firewall) convertSecurityRuleToStub(rules response.SecurityRule) stubSecurityRule {
+	sort.Strings(rules.DstIpAddressPrefixSets)
+	sort.Strings(rules.SecProtocols)
+	sort.Strings(rules.SrcIpAddressPrefixSets)
+	return stubSecurityRule{
+		Acl:                    rules.Acl,
+		FlowDirection:          rules.FlowDirection,
+		DstIpAddressPrefixSets: rules.DstIpAddressPrefixSets,
+		SecProtocols:           rules.SecProtocols,
+		SrcIpAddressPrefixSets: rules.SrcIpAddressPrefixSets,
+	}
+}
+
+func (f Firewall) convertSecurityRuleParamsToStub(params api.SecurityRuleParams) stubSecurityRule {
+	sort.Strings(params.DstIpAddressPrefixSets)
+	sort.Strings(params.SecProtocols)
+	sort.Strings(params.SrcIpAddressPrefixSets)
+	return stubSecurityRule{
+		Acl:                    params.Acl,
+		FlowDirection:          params.FlowDirection,
+		DstIpAddressPrefixSets: params.DstIpAddressPrefixSets,
+		SecProtocols:           params.SecProtocols,
+		SrcIpAddressPrefixSets: params.SrcIpAddressPrefixSets,
+	}
+}
+
+// globalGroupName returns the global group name
+// based from the juju environ config uuid
+func (f Firewall) globalGroupName() string {
+	return fmt.Sprintf("juju-%s-global", f.environ.Config().UUID())
+}
+
+// machineGroupName returns the machine group name
+// based from the juju environ config uuid
+func (f Firewall) machineGroupName(machineId string) string {
+	return fmt.Sprintf("juju-%s-%s", f.environ.Config().UUID(), machineId)
+}
+
+// resourceName returns the resource name
+// based from the juju environ config uuid
+func (f Firewall) newResourceName(appName string) string {
+	return fmt.Sprintf("juju-%s-%s", f.environ.Config().UUID(), appName)
+}
+
+// get all security rules given the access control list name
+func (f Firewall) getAllSecurityRules(
+	aclName string,
+) ([]response.SecurityRule, error) {
+	rules, err := f.client.AllSecurityRules(nil)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if aclName == "" {
+		return rules.Result, nil
+	}
+	var ret []response.SecurityRule
+	for _, val := range rules.Result {
+		if val.Acl == aclName {
+			ret = append(ret, val)
+		}
+	}
+	return ret, nil
+}
+
+// getSecRules retrieves the security rules for a particular security list
+func (f Firewall) getSecRules(seclist string) ([]response.SecRule, error) {
+	// we only care about ingress rules
+	name := fmt.Sprintf("seclist:%s", seclist)
+	// get all secure rules from the current oracle cloud identity
+	// and filter through them based on dst_list=name
+	rulesFilter := []api.Filter{
+		api.Filter{
+			Arg:   "dst_list",
+			Value: name,
+		},
+	}
+	rules, err := f.client.AllSecRules(rulesFilter)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	// gsamfira: the oracle compute API does not allow filtering by action
+	ret := []response.SecRule{}
+	for _, val := range rules.Result {
+		// gsamfira: We set a default policy of DENY. No use in worrying about
+		// DENY rules (if by any chance someone add one manually for some reason)
+		if val.Action != common.SecRulePermit {
+			continue
+		}
+		// We only care about rules that have a destination set
+		// to a security list. Those lists get attached to VMs
+		// NOTE: someone decided, when writing the oracle API
+		// that some fields should be bool, some should be string.
+		// never mind they both are boolean values...but hey.
+		// I swear...some people like to watch the world burn
+		if val.Dst_is_ip == "true" {
+			continue
+		}
+		// We only care about rules that have an IP list as source
+		if val.Src_is_ip == "false" {
+			continue
+		}
+		ret = append(ret, val)
+	}
+	return ret, nil
+}
+
+// ensureSecRules ensures that the list passed has all the rules
+// that it needs, if one is missing it will create it inside the oracle
+// cloud environment and it will return nil
+// if none rule is missing then it will return nil
+func (f Firewall) ensureSecRules(
+	seclist response.SecList,
+	rules []network.IngressRule,
+) error {
+
+	// get all secuity rules that contains the seclist.Name
+	secRules, err := f.getSecRules(seclist.Name)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	logger.Tracef("list %v has sec rules: %v", seclist.Name, secRules)
+	// convert the secRules into map[string][]network.INgressRule
+	converted, err := f.convertFromSecRules(secRules...)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	logger.Tracef("converted rules are: %v", converted)
+	asIngressRules := converted[seclist.Name]
+	missing := []network.IngressRule{}
+	// search through all rules and find the missing ones
+	for _, toAdd := range rules {
+		found := false
+		for _, exists := range asIngressRules {
+			sort.Strings(toAdd.SourceCIDRs)
+			sort.Strings(exists.SourceCIDRs)
+			logger.Tracef("comparing %v to %v", toAdd.SourceCIDRs, exists.SourceCIDRs)
+			if reflect.DeepEqual(toAdd, exists) {
+				found = true
+				break
+			}
+		}
+		if found {
+			continue
+		}
+		missing = append(missing, toAdd) // append the missing rule
+	}
+	if len(missing) == 0 {
+		return nil
+	}
+	logger.Tracef("Found missing rules: %v", missing)
+	// convert the missing rules to sec rules back
+	asSecRule, err := f.convertToSecRules(seclist, missing)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	// for all sec rules that are missing
+	// create one by one
+	for _, val := range asSecRule {
+		_, err = f.client.CreateSecRule(val)
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return nil
+}
+
+// ensureSecList takes a name and creates a new security list with that name
+// if the name is already there then it will return it or the newly created one
+func (f Firewall) ensureSecList(name string) (response.SecList, error) {
+	logger.Infof("Fetching details for list: %s", name)
+	// check if the security list is already there
+	details, err := f.client.SecListDetails(name)
+	if err != nil {
+		logger.Infof("Got error fetching details for %s: %v", name, err)
+		if api.IsNotFound(err) {
+			logger.Infof("Creating new seclist: %s", name)
+			details, err := f.client.CreateSecList(
+				"Juju created security list",
+				name,
+				common.SecRulePermit,
+				common.SecRuleDeny)
+			if err != nil {
+				return response.SecList{}, err
+			}
+			return details, nil
+		}
+		return response.SecList{}, err
+	}
+	return details, nil
+}
+
+// getAllIPLists returns all sets of ip addresses or subnets external to the
+// instnaces that are created in the oracle cloud environment
+func (f Firewall) getAllIPLists() ([]response.SecIpList, error) {
+	// get all security ip lists from the current identity endpoint
+	secIpLists, err := f.client.AllSecIpLists(nil)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	// get all security ip lists from the default oracle cloud definitions
+	defaultSecIpLists, err := f.client.AllDefaultSecIpLists(nil)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	allIpLists := []response.SecIpList{}
+	for _, val := range secIpLists.Result {
+		allIpLists = append(allIpLists, val) //[val.Name] = val
+	}
+	for _, val := range defaultSecIpLists.Result {
+		allIpLists = append(allIpLists, val) //[val.Name] = val
+	}
+	return allIpLists, nil
+}
+
+// getAllIPListsAsMap returns all sets of ip addresses or subnets external to the
+// instances that are created inside in the oracle cloud.
+// This is exactly like ipLists func but rathar than returning a slice,
+// we return a map of these.
+func (f Firewall) getAllIPListsAsMap() (map[string]response.SecIpList, error) {
+	allIps, err := f.getAllIPLists()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	allIpLists := map[string]response.SecIpList{}
+	for _, val := range allIps {
+		allIpLists[val.Name] = val
+	}
+	return allIpLists, nil
+}
+
+// ensureSecIpList takes cidrs and a ptr to a slice of
+// response.SecIpList. After the creation of the security
+// list with cidr the result will be appended into the SecIpList slice
+// If the call is successful it will return the newly created security
+// list name and nil
+func (f Firewall) ensureSecIpList(
+	cidr []string,
+	cache *[]response.SecIpList,
+) (string, error) {
+
+	sort.Strings(cidr)
+	for _, val := range *cache {
+		sort.Strings(val.Secipentries)
+		if reflect.DeepEqual(val.Secipentries, cidr) {
+			return val.Name, nil
+		}
+	}
+	uuid, err := utils.NewUUID()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	name := f.newResourceName(uuid.String())
+	resource := f.client.ComposeName(name)
+	secList, err := f.client.CreateSecIpList(
+		"Juju created security IP list",
+		resource, cidr)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	*cache = append(*cache, secList)
+	return secList.Name, nil
 }
