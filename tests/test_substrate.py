@@ -286,20 +286,28 @@ class TestTerminateInstances(TestCase):
 class TestAWSAccount(TestCase):
 
     def test_from_boot_config(self):
-        with AWSAccount.from_boot_config(SimpleEnvironment('foo', {
-                'type': 'aws',
-                'access-key': 'skeleton',
-                'region': 'france',
-                'secret-key': 'hoover',
-                })) as aws:
-            self.assertEqual(aws.euca_environ, {
-                'AWS_ACCESS_KEY': 'skeleton',
-                'AWS_SECRET_KEY': 'hoover',
-                'EC2_ACCESS_KEY': 'skeleton',
-                'EC2_SECRET_KEY': 'hoover',
-                'EC2_URL': 'https://france.ec2.amazonaws.com',
-                })
-            self.assertEqual(aws.region, 'france')
+        with patch('substrate.ec2.connect_to_region', autospec=True):
+            with AWSAccount.from_boot_config(SimpleEnvironment('foo', {
+                    'type': 'aws',
+                    'access-key': 'skeleton',
+                    'region': 'france',
+                    'secret-key': 'hoover',
+                    })) as aws:
+                self.assertEqual(aws.euca_environ, {
+                    'AWS_ACCESS_KEY': 'skeleton',
+                    'AWS_SECRET_KEY': 'hoover',
+                    'EC2_ACCESS_KEY': 'skeleton',
+                    'EC2_SECRET_KEY': 'hoover',
+                    'EC2_URL': 'https://france.ec2.amazonaws.com',
+                    })
+                self.assertEqual(aws.region, 'france')
+
+    def test_client_construction_failure_returns_None(self):
+        with patch(
+                'substrate.ec2.connect_to_region',
+                autospec=True, return_value=None):
+            with AWSAccount.from_boot_config(get_aws_env()) as aws:
+                self.assertIsNone(aws)
 
     def test_iter_security_groups(self):
 
@@ -1403,16 +1411,17 @@ class TestMakeSubstrateManager(FakeHomeTestCase):
 
     def test_make_substrate_manager_aws(self):
         boot_config = get_aws_env()
-        with make_substrate_manager(boot_config) as aws:
-            self.assertIs(type(aws), AWSAccount)
-            self.assertEqual(aws.euca_environ, {
-                'AWS_ACCESS_KEY': 'skeleton-key',
-                'AWS_SECRET_KEY': 'secret-skeleton-key',
-                'EC2_ACCESS_KEY': 'skeleton-key',
-                'EC2_SECRET_KEY': 'secret-skeleton-key',
-                'EC2_URL': 'https://ca-west.ec2.amazonaws.com',
-                })
-            self.assertEqual(aws.region, 'ca-west')
+        with patch('substrate.ec2.connect_to_region', autospec=True):
+            with make_substrate_manager(boot_config) as aws:
+                self.assertIs(type(aws), AWSAccount)
+                self.assertEqual(aws.euca_environ, {
+                    'AWS_ACCESS_KEY': 'skeleton-key',
+                    'AWS_SECRET_KEY': 'secret-skeleton-key',
+                    'EC2_ACCESS_KEY': 'skeleton-key',
+                    'EC2_SECRET_KEY': 'secret-skeleton-key',
+                    'EC2_URL': 'https://ca-west.ec2.amazonaws.com',
+                    })
+                self.assertEqual(aws.region, 'ca-west')
 
     def test_make_substrate_manager_openstack(self):
         boot_config = get_os_boot_config()

@@ -2149,8 +2149,9 @@ class TestMakeSubstrate(JujuPyTestCase):
     def test_make_substrate_no_requirements(self):
         client = ModelClient(get_aws_juju_data(), '', '')
         client.env.credentials = {'credentials': {'aws': {'creds': {}}}}
-        with make_substrate_manager(client, []) as substrate:
-            self.assertIs(type(substrate), AWSAccount)
+        with patch('substrate.ec2.connect_to_region', autospec=True):
+            with make_substrate_manager(client, []) as substrate:
+                self.assertIs(type(substrate), AWSAccount)
 
     def test_make_substrate_manager_unsatisifed_requirements(self):
         client = ModelClient(get_aws_juju_data(), '', '')
@@ -2164,14 +2165,16 @@ class TestMakeSubstrate(JujuPyTestCase):
     def test_make_substrate_satisfied_requirements(self):
         client = ModelClient(get_aws_juju_data(), '', '')
         client.env.credentials = {'credentials': {'aws': {'creds': {}}}}
-        with make_substrate_manager(
-                client, ['iter_security_groups']) as substrate:
-            self.assertIs(type(substrate), AWSAccount)
-        with make_substrate_manager(
-                client, ['iter_security_groups',
-                         'iter_instance_security_groups']
-                ) as substrate:
-            self.assertIs(type(substrate), AWSAccount)
+        with patch('substrate.ec2.connect_to_region', autospec=True):
+            with make_substrate_manager(
+                    client, ['iter_security_groups']) as substrate:
+                self.assertIs(type(substrate), AWSAccount)
+            with make_substrate_manager(
+                    client, [
+                        'iter_security_groups',
+                        'iter_instance_security_groups']
+                    ) as substrate:
+                self.assertIs(type(substrate), AWSAccount)
 
 
 class TestStageInfo(TestCase):
