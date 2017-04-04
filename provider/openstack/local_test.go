@@ -1375,6 +1375,42 @@ func (s *localServerSuite) TestEnsureGroup(c *gc.C) {
 	c.Check(obtainedRulesThirdTime, jc.SameContents, obtainedRules)
 }
 
+// TestMatchingGroup checks that you receive the group you expected.  matchingGroup()
+// is used by the firewaller when opening and closing ports.  Unit test in response to bug 1675799.
+func (s *localServerSuite) TestMatchingGroup(c *gc.C) {
+	rule := []neutron.RuleInfoV2{
+		{
+			Direction:    "ingress",
+			IPProtocol:   "tcp",
+			PortRangeMin: 22,
+			PortRangeMax: 22,
+			EthernetType: "IPv4",
+		},
+	}
+
+	err := bootstrapEnv(c, s.env)
+	group1, err := openstack.EnsureGroup(s.env,
+		openstack.MachineGroupName(s.env, s.ControllerUUID, "1"), rule)
+	c.Assert(err, jc.ErrorIsNil)
+	group2, err := openstack.EnsureGroup(s.env,
+		openstack.MachineGroupName(s.env, s.ControllerUUID, "2"), rule)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = openstack.EnsureGroup(s.env, openstack.MachineGroupName(s.env, s.ControllerUUID, "11"), rule)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = openstack.EnsureGroup(s.env, openstack.MachineGroupName(s.env, s.ControllerUUID, "12"), rule)
+	c.Assert(err, jc.ErrorIsNil)
+
+	machineNameRegexp := openstack.MachineGroupRegexp(s.env, "1")
+	groupMatched, err := openstack.MatchingGroup(s.env, machineNameRegexp)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(group1.Id, gc.Equals, groupMatched.Id)
+
+	machineNameRegexp = openstack.MachineGroupRegexp(s.env, "2")
+	groupMatched, err = openstack.MatchingGroup(s.env, machineNameRegexp)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(group2.Id, gc.Equals, groupMatched.Id)
+}
+
 // localHTTPSServerSuite contains tests that run against an Openstack service
 // double connected on an HTTPS port with a self-signed certificate. This
 // service is set up and torn down for every test.  This should only test

@@ -434,7 +434,8 @@ func (c *firewallerBase) globalGroupRegexp() string {
 }
 
 func (c *firewallerBase) machineGroupRegexp(machineId string) string {
-	return fmt.Sprintf("%s-%s", c.jujuGroupRegexp(), machineId)
+	// we are only looking to match 1 machine
+	return fmt.Sprintf("%s-%s$", c.jujuGroupRegexp(), machineId)
 }
 
 type neutronFirewaller struct {
@@ -800,8 +801,11 @@ func (c *neutronFirewaller) matchingGroup(nameRegExp string) (neutron.SecurityGr
 			matchingGroups = append(matchingGroups, group)
 		}
 	}
-	if len(matchingGroups) != 1 {
+	numMatching := len(matchingGroups)
+	if numMatching == 0 {
 		return neutron.SecurityGroupV2{}, errors.NotFoundf("security groups matching %q", nameRegExp)
+	} else if numMatching > 1 {
+		return neutron.SecurityGroupV2{}, errors.New(fmt.Sprintf("%d security groups found matching %q, expected 1", numMatching, nameRegExp))
 	}
 	return matchingGroups[0], nil
 }
