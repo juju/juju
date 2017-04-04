@@ -35,11 +35,11 @@ import (
 )
 
 const (
-	guestDir = "guests"
-	poolName = "juju-pool"
-	kvm      = "kvm"
-	metadata = "meta-data"
-	userdata = "user-data"
+	guestDir      = "guests"
+	poolName      = "juju-pool"
+	kvm           = "kvm"
+	metadata      = "meta-data"
+	userdata      = "user-data"
 	networkconfig = "network-config"
 
 	// This path is only valid on ubuntu, and xenial at this point.
@@ -59,15 +59,15 @@ var (
 
 // CreateMachineParams Implements libvirt.domainParams.
 type CreateMachineParams struct {
-	Hostname      string
-	Series        string
-	UserDataFile  string
+	Hostname          string
+	Series            string
+	UserDataFile      string
 	NetworkConfigData string
-	NetworkBridge string
-	Memory        uint64
-	CpuCores      uint64
-	RootDisk      uint64
-	Interfaces    []libvirt.InterfaceInfo
+	NetworkBridge     string
+	Memory            uint64
+	CpuCores          uint64
+	RootDisk          uint64
+	Interfaces        []libvirt.InterfaceInfo
 
 	disks    []libvirt.DiskInfo
 	findPath func(string) (string, error)
@@ -458,7 +458,6 @@ func writeNetworkConfig(params CreateMachineParams, dir string) error {
 	}
 	return nil
 }
-
 
 // writeRootDisk writes out the root disk for the container.  This creates a
 // system disk backed by our shared series/arch backing store.

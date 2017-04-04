@@ -120,12 +120,12 @@ func (commandWrapperSuite) TestCreateMachineSuccess(c *gc.C) {
 
 	hostname := "host00"
 	params := CreateMachineParams{
-		Hostname:     hostname,
-		Series:       "precise",
-		UserDataFile: cloudInitPath,
+		Hostname:          hostname,
+		Series:            "precise",
+		UserDataFile:      cloudInitPath,
 		NetworkConfigData: "this-is-network-config",
-		CpuCores:     1,
-		RootDisk:     8,
+		CpuCores:          1,
+		RootDisk:          8,
 	}
 
 	MakeCreateMachineParamsTestable(&params, pathfinder, stub.Run, "arm64")

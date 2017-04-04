@@ -140,7 +140,7 @@ func (manager *containerManager) CreateContainer(
 	}
 
 	metadata := map[string]string{
-		lxdclient.UserdataKey: string(userData),
+		lxdclient.UserdataKey:      string(userData),
 		lxdclient.NetworkconfigKey: containerinit.CloudInitNetworkConfigDisabled,
 		// An extra piece of info to let people figure out where this
 		// thing came from.

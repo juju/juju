@@ -117,8 +117,7 @@ func (s *UserDataSuite) SetUpTest(c *gc.C) {
 	}
 	c.Assert(s.pythonVersions, gc.Not(gc.HasLen), 0)
 
-	s.expectedSampleUserData = `
-#cloud-config
+	s.expectedSampleConfigWriting = `#cloud-config
 bootcmd:
 - install -D -m 644 /dev/null '%[1]s.templ'
 - |-
@@ -173,13 +172,42 @@ iface {ethaa_bb_cc_dd_ee_f4} inet manual
 	networkInterfacesScriptYamled = strings.Replace(networkInterfacesScriptYamled, "%", "%%", -1)
 	networkInterfacesScriptYamled = strings.Replace(networkInterfacesScriptYamled, "'", "'\"'\"'", -1)
 
-	s.expectedFallbackConfig = `
-auto eth0 lo
+	s.expectedSampleUserData = `- install -D -m 744 /dev/null '%[2]s'
+- |-
+  printf '%%s\n' '` + networkInterfacesScriptYamled + ` ' > '%[2]s'
+- |2
+
+  ifdown -a
+  sleep 1.5
+  if [ -f /usr/bin/python ]; then
+      python %[2]s --interfaces-file %[1]s
+  else
+      python3 %[2]s --interfaces-file %[1]s
+  fi
+  ifup -a
+`[1:]
+
+	s.expectedFallbackConfig = `#cloud-config
+bootcmd:
+- install -D -m 644 /dev/null '%[1]s.templ'
+- |-
+  printf '%%s\n' '
+  auto lo {eth}
+
+  iface lo inet loopback
+
+  iface {eth} inet dhcp
+  ' > '%[1]s.templ'
+`
+
+	s.expectedBaseConfig = `
+auto lo {eth}
 
 iface lo inet loopback
 
-iface eth0 inet dhcp
+iface {eth} inet dhcp
 `
+
 	s.expectedFallbackUserData = `
 #cloud-config
 bootcmd:
@@ -223,7 +251,7 @@ func (s *UserDataSuite) TestGenerateNetworkConfig(c *gc.C) {
 	netConfig := container.BridgeNetworkConfig("foo", 0, nil)
 	data, err = containerinit.GenerateNetworkConfig(netConfig)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(data, gc.Equals, s.expectedFallbackConfig)
+	c.Assert(data, gc.Equals, s.expectedBaseConfig)
 
 	// Test with all interface types.
 	netConfig = container.BridgeNetworkConfig("foo", 0, s.fakeInterfaces)
@@ -238,7 +266,8 @@ func (s *UserDataSuite) TestNewCloudInitConfigWithNetworksSampleConfig(c *gc.C) 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cloudConf, gc.NotNil)
 
-	expected := fmt.Sprintf(s.expectedSampleUserData, s.networkInterfacesFile, s.systemNetworkInterfacesFile)
+	expected := fmt.Sprintf(s.expectedSampleConfigWriting, s.systemNetworkInterfacesFile)
+	expected += fmt.Sprintf(s.expectedSampleUserData, s.systemNetworkInterfacesFile, s.networkInterfacesPythonFile, s.systemNetworkInterfacesFile)
 	assertUserData(c, cloudConf, expected)
 }
 
@@ -247,7 +276,8 @@ func (s *UserDataSuite) TestNewCloudInitConfigWithNetworksFallbackConfig(c *gc.C
 	cloudConf, err := containerinit.NewCloudInitConfigWithNetworks("quantal", netConfig)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cloudConf, gc.NotNil)
-	expected := fmt.Sprintf(s.expectedFallbackUserData, s.networkInterfacesFile, s.systemNetworkInterfacesFile)
+	expected := fmt.Sprintf(s.expectedFallbackConfig, s.systemNetworkInterfacesFile, s.systemNetworkInterfacesFile)
+	expected += fmt.Sprintf(s.expectedSampleUserData, s.systemNetworkInterfacesFile, s.networkInterfacesPythonFile)
 	assertUserData(c, cloudConf, expected)
 }
 
@@ -299,55 +329,6 @@ func (s *UserDataSuite) TestCloudInitUserDataNoNetworkConfig(c *gc.C) {
 	linesToMatch := CloudInitDataExcludingOutputSection(string(data))
 
 	c.Assert(strings.Join(linesToMatch, "\n"), gc.Equals, "#cloud-config")
-}
-
-func (s *UserDataSuite) TestCloudInitUserDataFallbackConfig(c *gc.C) {
-	instanceConfig, err := containertesting.MockMachineConfig("1/lxd/0")
-	c.Assert(err, jc.ErrorIsNil)
-	networkConfig := container.BridgeNetworkConfig("foo", 0, nil)
-	data, err := containerinit.CloudInitUserData(instanceConfig, networkConfig)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(data, gc.NotNil)
-
-	linesToMatch := CloudInitDataExcludingOutputSection(string(data))
-
-	expected := fmt.Sprintf(s.expectedFallbackUserData, s.networkInterfacesFile, s.systemNetworkInterfacesFile)
-	var expectedLinesToMatch []string
-
-	for _, line := range strings.Split(expected, "\n") {
-		if strings.HasPrefix(line, "runcmd:") {
-			break
-		}
-		expectedLinesToMatch = append(expectedLinesToMatch, line)
-	}
-
-	c.Assert(strings.Join(linesToMatch, "\n")+"\n", gc.Equals, strings.Join(expectedLinesToMatch, "\n")+"\n")
-}
-
-func (s *UserDataSuite) TestCloudInitUserDataFallbackConfigWithContainerHostname(c *gc.C) {
-	instanceConfig, err := containertesting.MockMachineConfig("1/lxd/0")
-	instanceConfig.MachineContainerHostname = "lxdhostname"
-	c.Assert(err, jc.ErrorIsNil)
-	networkConfig := container.BridgeNetworkConfig("foo", 0, nil)
-	data, err := containerinit.CloudInitUserData(instanceConfig, networkConfig)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(data, gc.NotNil)
-
-	linesToMatch := CloudInitDataExcludingOutputSection(string(data))
-
-	expected := fmt.Sprintf(s.expectedFallbackUserData, s.networkInterfacesFile, s.systemNetworkInterfacesFile)
-	var expectedLinesToMatch []string
-
-	for _, line := range strings.Split(expected, "\n") {
-		if strings.HasPrefix(line, "runcmd:") {
-			break
-		}
-		expectedLinesToMatch = append(expectedLinesToMatch, line)
-	}
-
-	expectedLinesToMatch = append(expectedLinesToMatch, "hostname: lxdhostname")
-
-	c.Assert(strings.Join(linesToMatch, "\n")+"\n", gc.Equals, strings.Join(expectedLinesToMatch, "\n")+"\n")
 }
 
 func assertUserData(c *gc.C, cloudConf cloudinit.CloudConfig, expected string) {
