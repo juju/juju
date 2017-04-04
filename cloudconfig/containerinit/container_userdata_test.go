@@ -5,12 +5,18 @@
 package containerinit_test
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
+	"io/ioutil"
+	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	stdtesting "testing"
 
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/exec"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/yaml.v2"
 
@@ -29,13 +35,12 @@ func Test(t *stdtesting.T) {
 type UserDataSuite struct {
 	testing.BaseSuite
 
-	networkInterfacesFile       string
+	networkInterfacesPythonFile string
 	systemNetworkInterfacesFile string
 
 	fakeInterfaces []network.InterfaceInfo
 
 	expectedSampleConfigTemplate string
-	expectedSampleConfig         string
 	expectedSampleConfigWriting  string
 	expectedSampleUserData       string
 	expectedFallbackConfig       string
@@ -49,8 +54,16 @@ var _ = gc.Suite(&UserDataSuite{})
 
 func (s *UserDataSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	s.networkInterfacesFile = filepath.Join(c.MkDir(), "juju-interfaces")
-	s.systemNetworkInterfacesFile = filepath.Join(c.MkDir(), "system-interfaces")
+
+	if runtime.GOOS == "windows" {
+		c.Skip("This test is for Linux only")
+	}
+
+	s.tempFolder = c.MkDir()
+	networkFolder := c.MkDir()
+	s.systemNetworkInterfacesFile = filepath.Join(networkFolder, "system-interfaces")
+	s.networkInterfacesPythonFile = filepath.Join(networkFolder, "system-interfaces.py")
+
 	s.fakeInterfaces = []network.InterfaceInfo{{
 		InterfaceName:    "any0",
 		CIDR:             "0.1.2.0/24",
@@ -92,32 +105,22 @@ func (s *UserDataSuite) SetUpTest(c *gc.C) {
 		MACAddress:    "aa:bb:cc:dd:ee:f4",
 		NoAutoStart:   true,
 	}}
-	s.expectedSampleConfig = `
-auto any0 any1 any3 lo
 
-iface lo inet loopback
-  dns-nameservers ns1.invalid ns2.invalid
-  dns-search bar foo
+	for _, version := range []string{
+		"/usr/bin/python2",
+		"/usr/bin/python3",
+		"/usr/bin/python",
+	} {
+		if _, err := os.Stat(version); err == nil {
+			s.pythonVersions = append(s.pythonVersions, version)
+		}
+	}
+	c.Assert(s.pythonVersions, gc.Not(gc.HasLen), 0)
 
-iface any0 inet static
-  address 0.1.2.3/24
-  gateway 0.1.2.1
-
-iface any1 inet static
-  address 0.2.2.4/24
-  post-up ip route add 0.5.6.0/24 via 0.2.2.1 metric 50
-  pre-down ip route del 0.5.6.0/24 via 0.2.2.1 metric 50
-
-iface any2 inet dhcp
-
-iface any3 inet dhcp
-
-iface any4 inet manual
-`
 	s.expectedSampleUserData = `
 #cloud-config
 bootcmd:
-- install -D -m 644 /dev/null '%[1]s'
+- install -D -m 644 /dev/null '%[1]s.templ'
 - |-
   printf '%%s\n' '
   auto lo {ethaa_bb_cc_dd_ee_f0} {ethaa_bb_cc_dd_ee_f1} {ethaa_bb_cc_dd_ee_f3}
@@ -126,11 +129,11 @@ bootcmd:
     dns-nameservers ns1.invalid ns2.invalid
     dns-search bar foo
 
-  iface any0 inet static
+  iface {ethaa_bb_cc_dd_ee_f0} inet static
     address 0.1.2.3/24
     gateway 0.1.2.1
 
-  iface any1 inet static
+  iface {ethaa_bb_cc_dd_ee_f1} inet static
     address 0.2.2.4/24
     post-up ip route add 0.5.6.0/24 via 0.2.2.1 metric 50
     pre-down ip route del 0.5.6.0/24 via 0.2.2.1 metric 50
@@ -165,53 +168,10 @@ iface {ethaa_bb_cc_dd_ee_f3} inet dhcp
 iface {ethaa_bb_cc_dd_ee_f4} inet manual
 `
 
-	s.expectedSampleConfig = `
-auto any0 any1 any3 lo
-
-iface lo inet loopback
-  dns-nameservers ns1.invalid ns2.invalid
-  dns-search bar foo
-
-iface any0 inet static
-  address 0.1.2.3/24
-  gateway 0.1.2.1
-
-iface any1 inet static
-  address 0.2.2.4/24
-  post-up ip route add 0.5.6.0/24 via 0.2.2.1 metric 50
-  pre-down ip route del 0.5.6.0/24 via 0.2.2.1 metric 50
-
-iface any2 inet dhcp
-
-iface any3 inet dhcp
-
-iface any4 inet manual
-`
 	networkInterfacesScriptYamled := strings.Replace(containerinit.NetworkInterfacesScript, "\n", "\n  ", -1)
 	networkInterfacesScriptYamled = strings.Replace(networkInterfacesScriptYamled, "\n  \n", "\n\n", -1)
 	networkInterfacesScriptYamled = strings.Replace(networkInterfacesScriptYamled, "%", "%%", -1)
 	networkInterfacesScriptYamled = strings.Replace(networkInterfacesScriptYamled, "'", "'\"'\"'", -1)
-
-  iface any4 inet manual
-  ' > '%[1]s'
-runcmd:
-- |-
-  if [ -f %[1]s ]; then
-      echo "stopping all interfaces"
-      ifdown -a
-      sleep 1.5
-      if ifup -a --interfaces=%[1]s; then
-          echo "ifup with %[1]s succeeded, renaming to %[2]s"
-          cp %[2]s %[2]s-orig
-          cp %[1]s %[2]s
-      else
-          echo "ifup with %[1]s failed, leaving old %[2]s alone"
-          ifup -a
-      fi
-  else
-      echo "did not find %[1]s, not reconfiguring networking"
-  fi
-`[1:]
 
 	s.expectedFallbackConfig = `
 auto eth0 lo
@@ -251,31 +211,25 @@ runcmd:
   fi
 `[1:]
 
-	s.PatchValue(containerinit.NetworkInterfacesFile, s.networkInterfacesFile)
+	s.PatchValue(containerinit.NetworkInterfacesFile, s.systemNetworkInterfacesFile)
 	s.PatchValue(containerinit.SystemNetworkInterfacesFile, s.systemNetworkInterfacesFile)
 }
 
 func (s *UserDataSuite) TestGenerateNetworkConfig(c *gc.C) {
-	data, err := containerinit.GenerateNetworkConfig(nil, true)
+	data, err := containerinit.GenerateNetworkConfig(nil)
 	c.Assert(err, gc.ErrorMatches, "missing container network config")
 	c.Assert(data, gc.Equals, "")
 
 	netConfig := container.BridgeNetworkConfig("foo", 0, nil)
-	data, err = containerinit.GenerateNetworkConfig(netConfig, true)
+	data, err = containerinit.GenerateNetworkConfig(netConfig)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(data, gc.Equals, s.expectedFallbackConfig)
 
 	// Test with all interface types.
 	netConfig = container.BridgeNetworkConfig("foo", 0, s.fakeInterfaces)
-	data, err = containerinit.GenerateNetworkConfig(netConfig, true)
+	data, err = containerinit.GenerateNetworkConfig(netConfig)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(data, gc.Equals, s.expectedSampleConfigTemplate)
-
-	// Test with untemplated (lxd) version.
-	netConfig = container.BridgeNetworkConfig("foo", 0, s.fakeInterfaces)
-	data, err = containerinit.GenerateNetworkConfig(netConfig, false)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(data, gc.Equals, s.expectedSampleConfig)
 }
 
 func (s *UserDataSuite) TestNewCloudInitConfigWithNetworksSampleConfig(c *gc.C) {

@@ -134,13 +134,14 @@ func (manager *containerManager) CreateContainer(
 
 	// Do not pass networkConfig, as we want to directly inject our own ENI
 	// rather than using cloud-init.
-	userData, err := containerinit.CloudInitUserData(instanceConfig, nil)
+	userData, err := containerinit.CloudInitUserData(instanceConfig, networkConfig)
 	if err != nil {
 		return
 	}
 
 	metadata := map[string]string{
 		lxdclient.UserdataKey: string(userData),
+		lxdclient.NetworkconfigKey: containerinit.CloudInitNetworkConfigDisabled,
 		// An extra piece of info to let people figure out where this
 		// thing came from.
 		"user.juju-model": manager.modelUUID,
@@ -165,34 +166,12 @@ func (manager *containerManager) CreateContainer(
 		logger.Infof("instance %q configured with %v network devices", name, nics)
 	}
 
-	// Push the required /etc/network/interfaces file to the container.
-	// By pushing this file (which happens after LXD init, and before LXD
-	// start) we ensure that we get Juju's version of ENI, as opposed to
-	// the default LXD version, which may assume it can do DHCP over eth0.
-	// Especially on a multi-nic host, it is possible for MAAS to provide
-	// DHCP on a different space to that which the container eth0 interface
-	// will be bridged, or not provide DHCP at all.
-	eni, err := containerinit.GenerateNetworkConfig(networkConfig, false)
-	if err != nil {
-		err = errors.Annotatef(err, "failed to generate /etc/network/interfaces content")
-		return
-	}
-
 	spec := lxdclient.InstanceSpec{
 		Name:     name,
 		Image:    imageName,
 		Metadata: metadata,
 		Devices:  nics,
 		Profiles: profiles,
-		Files: lxdclient.Files{
-			lxdclient.File{
-				Content: []byte(eni),
-				Path:    "/etc/network/interfaces",
-				GID:     0,
-				UID:     0,
-				Mode:    0644,
-			},
-		},
 	}
 
 	logger.Infof("starting instance %q (image %q)...", spec.Name, spec.Image)

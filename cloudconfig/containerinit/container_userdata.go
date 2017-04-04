@@ -66,13 +66,13 @@ var (
 // GenerateNetworkConfig renders a network config for one or more network
 // interfaces, using the given non-nil networkConfig containing a non-empty
 // Interfaces field.
-func GenerateNetworkConfig(networkConfig *container.NetworkConfig, useTemplates bool) (string, error) {
+func GenerateNetworkConfig(networkConfig *container.NetworkConfig) (string, error) {
 	if networkConfig == nil || len(networkConfig.Interfaces) == 0 {
 		return "", errors.Errorf("missing container network config")
 	}
 	logger.Debugf("generating network config from %#v", *networkConfig)
 
-	prepared := PrepareNetworkConfigFromInterfaces(networkConfig.Interfaces, useTemplates)
+	prepared := PrepareNetworkConfigFromInterfaces(networkConfig.Interfaces)
 
 	var output bytes.Buffer
 	gatewayHandled := false
@@ -157,7 +157,7 @@ type PreparedConfig struct {
 // PrepareNetworkConfigFromInterfaces collects the necessary information to
 // render a persistent network config from the given slice of
 // network.InterfaceInfo. The result always includes the loopback interface.
-func PrepareNetworkConfigFromInterfaces(interfaces []network.InterfaceInfo, useTemplates bool) *PreparedConfig {
+func PrepareNetworkConfigFromInterfaces(interfaces []network.InterfaceInfo) *PreparedConfig {
 	dnsServers := set.NewStrings()
 	dnsSearchDomains := set.NewStrings()
 	gatewayAddress := ""
@@ -170,12 +170,10 @@ func PrepareNetworkConfigFromInterfaces(interfaces []network.InterfaceInfo, useT
 	autoStarted := set.NewStrings("lo")
 
 	for _, info := range interfaces {
-		ifaceName := info.InterfaceName
-		if useTemplates {
-			ifaceName = strings.Replace(info.MACAddress, ":", "_", -1)
-			// prepend eth because .format of python wont like a tag starting with numbers.
-			ifaceName = fmt.Sprintf("{eth%s}", ifaceName)
-		}
+		ifaceName := strings.Replace(info.MACAddress, ":", "_", -1)
+		// prepend eth because .format of python wont like a tag starting with numbers.
+		ifaceName = fmt.Sprintf("{eth%s}", ifaceName)
+
 		if !info.NoAutoStart {
 			autoStarted.Add(ifaceName)
 		}
@@ -224,7 +222,7 @@ func newCloudInitConfigWithNetworks(series string, networkConfig *container.Netw
 	}
 
 	if networkConfig != nil {
-		config, err := GenerateNetworkConfig(networkConfig, true)
+		config, err := GenerateNetworkConfig(networkConfig)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -469,4 +467,8 @@ def main():
 
 if __name__ == "__main__":
     main()
+`
+
+const CloudInitNetworkConfigDisabled = `network:
+  config: "disabled"
 `

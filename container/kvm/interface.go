@@ -13,6 +13,7 @@ type StartParams struct {
 	Series           string
 	Arch             string
 	UserDataFile     string
+	NetworkConfigData string
 	Network          *container.NetworkConfig
 	Memory           uint64 // MB
 	CpuCores         uint64

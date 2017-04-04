@@ -88,6 +88,7 @@ func (c *kvmContainer) Start(params StartParams) error {
 		Hostname:      c.name,
 		Series:        params.Series,
 		UserDataFile:  params.UserDataFile,
+		NetworkConfigData: params.NetworkConfigData,
 		NetworkBridge: bridge,
 		Memory:        params.Memory,
 		CpuCores:      params.CpuCores,
