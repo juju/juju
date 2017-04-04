@@ -25,6 +25,12 @@ from utility import (
     )
 
 
+# URLs are limited to 2083 bytes in many browsers, anything more is excessive.
+# Juju has set 4096 as being excessive, but it needs to be lowered
+# https://bugs.launchpad.net/juju/+bug/1678833
+EXCEEDED_LIMIT = 4096
+
+
 class CloudMismatch(JujuAssertionError):
     """The clouds did not match in some way."""
 
@@ -109,8 +115,10 @@ def iter_clouds(clouds, endpoint_validation):
             spec = xfail(spec, 1649721, InvalidEndpoint)
         yield spec
 
+    long_text = 'A' * EXCEEDED_LIMIT
+
     for cloud_name, cloud in clouds.items():
-        spec = xfail(cloud_spec('long-name-{}'.format(cloud_name), 'A' * 4096,
+        spec = xfail(cloud_spec('long-name-{}'.format(cloud_name), long_text,
                                 cloud, NameNotAccepted), 1641970, NameMismatch)
         if cloud['type'] == 'manual' and endpoint_validation:
             spec = xfail(spec, 1649721, InvalidEndpoint)
@@ -131,7 +139,7 @@ def iter_clouds(clouds, endpoint_validation):
 
         if 'endpoint' in cloud:
             variant = deepcopy(cloud)
-            variant['endpoint'] = 'A' * 4096
+            variant['endpoint'] = long_text
             if variant['type'] == 'vsphere':
                 for region in variant['regions'].values():
                     region['endpoint'] = variant['endpoint']
@@ -147,7 +155,7 @@ def iter_clouds(clouds, endpoint_validation):
                 continue
             variant = deepcopy(cloud)
             region = variant['regions'][region_name]
-            region['endpoint'] = 'A' * 4096
+            region['endpoint'] = long_text
             variant_name = 'long-endpoint-{}-{}'.format(cloud_name,
                                                         region_name)
             spec = cloud_spec(variant_name, cloud_name, variant,

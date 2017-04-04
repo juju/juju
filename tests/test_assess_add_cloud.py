@@ -22,6 +22,7 @@ from assess_add_cloud import (
     CloudMismatch,
     CloudSpec,
     cloud_spec,
+    EXCEEDED_LIMIT,
     iter_clouds,
     NameMismatch,
     write_status,
@@ -99,12 +100,15 @@ class TestAssessCloud(FakeHomeTestCase):
             """), stderr.getvalue())
 
 
+long_text = 'A' * EXCEEDED_LIMIT
+
+
 def make_long_endpoint(spec, endpoint_validation, regions=False):
     config = deepcopy(spec.config)
-    config['endpoint'] = 'A' * 4096
+    config['endpoint'] = long_text
     if regions:
         for region in config['regions'].values():
-            region['endpoint'] = 'A' * 4096
+            region['endpoint'] = long_text
     spec = cloud_spec('long-endpoint-{}'.format(spec.name), spec.name, config,
                       InvalidEndpoint)
     if not endpoint_validation:
@@ -123,7 +127,7 @@ class TestIterClouds(FakeHomeTestCase):
         spec = cloud_spec('foo', 'foo', cloud)
         self.assertItemsEqual([
             self.bogus_type, xfail(spec, 1649721, InvalidEndpoint),
-            xfail(xfail(cloud_spec('long-name-foo', 'A' * 4096, cloud),
+            xfail(xfail(cloud_spec('long-name-foo', long_text, cloud),
                         1641970, NameMismatch), 1649721, InvalidEndpoint),
             xfail(xfail(cloud_spec('invalid-name-foo', 'invalid/name', cloud,
                         exception=NameNotAccepted), 1641981, None),
@@ -139,7 +143,7 @@ class TestIterClouds(FakeHomeTestCase):
         spec = cloud_spec('foo', 'foo', cloud)
         self.assertItemsEqual([
             self.bogus_type, spec,
-            xfail(cloud_spec('long-name-foo', 'A' * 4096, cloud),
+            xfail(cloud_spec('long-name-foo', long_text, cloud),
                   1641970, NameMismatch),
             xfail(cloud_spec('invalid-name-foo', 'invalid/name', cloud,
                              exception=NameNotAccepted), 1641981, None),
@@ -159,7 +163,7 @@ class TestIterClouds(FakeHomeTestCase):
             self.bogus_type, spec,
             xfail(cloud_spec('invalid-name-foo', 'invalid/name', cloud,
                              exception=NameNotAccepted), 1641981, None),
-            xfail(cloud_spec('long-name-foo', 'A' * 4096, cloud,
+            xfail(cloud_spec('long-name-foo', long_text, cloud,
                              exception=None), 1641970, NameMismatch),
             make_long_endpoint(
                 spec, regions=True, endpoint_validation=True),
@@ -176,7 +180,7 @@ class TestIterClouds(FakeHomeTestCase):
             self.bogus_type, spec,
             xfail(cloud_spec('invalid-name-foo', 'invalid/name', cloud,
                              exception=NameNotAccepted), 1641981, None),
-            xfail(cloud_spec('long-name-foo', 'A' * 4096, cloud,
+            xfail(cloud_spec('long-name-foo', long_text, cloud,
                              exception=None), 1641970, NameMismatch),
             xfail(make_long_endpoint(spec, regions=True,
                                      endpoint_validation=True),
@@ -193,7 +197,7 @@ class TestIterClouds(FakeHomeTestCase):
             self.bogus_type, spec,
             xfail(cloud_spec('invalid-name-foo', 'invalid/name', cloud,
                              exception=NameNotAccepted), 1641981, None),
-            xfail(cloud_spec('long-name-foo', 'A' * 4096, cloud,
+            xfail(cloud_spec('long-name-foo', long_text, cloud,
                              exception=None), 1641970, NameMismatch),
             make_long_endpoint(spec, endpoint_validation=True),
             ], iter_clouds({'foo': cloud}, endpoint_validation=True))
@@ -208,7 +212,7 @@ class TestIterClouds(FakeHomeTestCase):
             self.bogus_type, spec,
             xfail(cloud_spec('invalid-name-foo', 'invalid/name', cloud,
                              exception=NameNotAccepted), 1641981, None),
-            xfail(cloud_spec('long-name-foo', 'A' * 4096, cloud,
+            xfail(cloud_spec('long-name-foo', long_text, cloud,
                              exception=None), 1641970, NameMismatch),
             make_long_endpoint(spec, endpoint_validation=False),
             ], iter_clouds({'foo': cloud}, endpoint_validation=False))
@@ -221,11 +225,11 @@ class TestIterClouds(FakeHomeTestCase):
             cloud_spec('invalid-name-foo', 'invalid/name', config,
                        exception=NameNotAccepted), 1641981, None)
         long_name = xfail(
-            cloud_spec('long-name-foo', 'A' * 4096, config, exception=None),
+            cloud_spec('long-name-foo', long_text, config, exception=None),
             1641970, NameMismatch)
         long_region = cloud_spec(
             'long-endpoint-foo-bar', 'foo', deepcopy(config), InvalidEndpoint)
-        long_region.config['regions']['bar']['endpoint'] = 'A' * 4096
+        long_region.config['regions']['bar']['endpoint'] = long_text
         bogus_auth = cloud_spec('bogus-auth-foo', 'foo',
                                 deepcopy(config), exception=AuthNotAccepted)
         bogus_auth.config['auth-types'] = ['asdf']
@@ -243,12 +247,12 @@ class TestIterClouds(FakeHomeTestCase):
             cloud_spec('invalid-name-foo', 'invalid/name', config,
                        exception=NameNotAccepted), 1641981, None)
         long_name = xfail(
-            cloud_spec('long-name-foo', 'A' * 4096, config, exception=None),
+            cloud_spec('long-name-foo', long_text, config, exception=None),
             1641970, NameMismatch)
         long_region = xfail(cloud_spec(
             'long-endpoint-foo-bar', 'foo', deepcopy(config),
             InvalidEndpoint), 1641970, CloudMismatch)
-        long_region.config['regions']['bar']['endpoint'] = 'A' * 4096
+        long_region.config['regions']['bar']['endpoint'] = long_text
         bogus_auth = cloud_spec('bogus-auth-foo', 'foo',
                                 deepcopy(config), exception=AuthNotAccepted)
         bogus_auth.config['auth-types'] = ['asdf']
