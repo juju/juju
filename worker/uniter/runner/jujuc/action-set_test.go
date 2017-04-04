@@ -50,7 +50,7 @@ func (s *ActionSetSuite) TestActionSetOnNonActionContextFails(c *gc.C) {
 	code := cmd.Main(com, ctx, []string{"oops=nope"})
 	c.Check(code, gc.Equals, 1)
 	c.Check(bufferString(ctx.Stdout), gc.Equals, "")
-	expect := fmt.Sprintf(`(\n)*error: %s\n`, "not running an action")
+	expect := fmt.Sprintf(`(\n)*ERROR %s\n`, "not running an action")
 	c.Check(bufferString(ctx.Stderr), gc.Matches, expect)
 }
 
@@ -64,12 +64,12 @@ func (s *ActionSetSuite) TestActionSet(c *gc.C) {
 	}{{
 		summary: "bare value(s) are an Init error",
 		command: []string{"result"},
-		errMsg:  "error: argument \"result\" must be of the form key...=value\n",
+		errMsg:  "ERROR argument \"result\" must be of the form key...=value\n",
 		code:    2,
 	}, {
 		summary: "invalid keys are an error",
 		command: []string{"result-Value=5"},
-		errMsg:  "error: key \"result-Value\" must start and end with lowercase alphanumeric, and contain only lowercase alphanumeric, hyphens and periods\n",
+		errMsg:  "ERROR key \"result-Value\" must start and end with lowercase alphanumeric, and contain only lowercase alphanumeric, hyphens and periods\n",
 		code:    2,
 	}, {
 		summary: "empty values are not an error",

@@ -40,7 +40,7 @@ func (s *isLeaderSuite) TestFormatError(c *gc.C) {
 	code := cmd.Main(command, runContext, []string{"--format", "bad"})
 	c.Check(code, gc.Equals, 2)
 	c.Check(bufferString(runContext.Stdout), gc.Equals, "")
-	c.Check(bufferString(runContext.Stderr), gc.Equals, `error: invalid value "bad" for flag --format: unknown format "bad"`+"\n")
+	c.Check(bufferString(runContext.Stderr), gc.Equals, `ERROR invalid value "bad" for flag --format: unknown format "bad"`+"\n")
 }
 
 func (s *isLeaderSuite) TestIsLeaderError(c *gc.C) {
@@ -52,7 +52,7 @@ func (s *isLeaderSuite) TestIsLeaderError(c *gc.C) {
 	c.Check(code, gc.Equals, 1)
 	c.Check(jujucContext.called, jc.IsTrue)
 	c.Check(bufferString(runContext.Stdout), gc.Equals, "")
-	c.Check(bufferString(runContext.Stderr), gc.Equals, "error: leadership status unknown: pow\n")
+	c.Check(bufferString(runContext.Stderr), gc.Equals, "ERROR leadership status unknown: pow\n")
 }
 
 func (s *isLeaderSuite) TestFormatDefaultYes(c *gc.C) {

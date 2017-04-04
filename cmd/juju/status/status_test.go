@@ -4134,7 +4134,7 @@ func (s *StatusSuite) TestStatusWithNilStatusAPI(c *gc.C) {
 
 	code, _, stderr := runStatus(c, "--format", "tabular")
 	c.Check(code, gc.Equals, 1)
-	c.Check(string(stderr), gc.Equals, "error: unable to obtain the current status\n")
+	c.Check(string(stderr), gc.Equals, "ERROR unable to obtain the current status\n")
 }
 
 func (s *StatusSuite) TestFormatTabularMetering(c *gc.C) {
