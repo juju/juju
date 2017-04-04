@@ -361,19 +361,6 @@ class TestModelClient2_1(ClientTest):
         with self.assertRaises(NameNotAccepted):
             client.add_cloud_interactive('invalid/name', cloud)
 
-    def test_add_cloud_interactive_vsphere(self):
-        client = self.fake_juju_client()
-        clouds = {'foo': {
-            'type': 'vsphere',
-            'endpoint': 'http://bar.example.com',
-            'regions': {
-                'harvey': {},
-                'steve': {},
-                }
-            }}
-        client.add_cloud_interactive('foo', clouds['foo'])
-        self.assertEqual(client._backend.clouds, clouds)
-
     def test_add_cloud_interactive_vsphere_invalid_endpoint(self):
         client = self.fake_juju_client()
         clouds = {'foo': {

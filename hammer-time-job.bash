@@ -12,11 +12,15 @@
 #
 # Optional:
 # replay_build_number The number of a previous build to replay.
+# TIMEOUT The timeout for the operation.  Should be a value acceptable to
+#         /usr/bin/timeout, e.g. 35m for 35 minutes.  Default: 30m
 set -eu
 export ARTIFACTS=$WORKSPACE/artifacts
 export MODEL_NAME=$JOB_NAME
 export DATA_DIR=$JUJU_HOME/jes-homes/$MODEL_NAME
 export PLAN=$ARTIFACTS/plan.yaml
+export HAMMER_DIR=$(dirname $(dirname $HAMMER_TIME))
+: ${TIMEOUT=30m}
 set -x
 s3ci.py get-summary $revision_build $base_config
 jujuci.py -v setup-workspace $WORKSPACE
@@ -27,12 +31,12 @@ $replay_build_number/artifact/artifacts/plan.yaml
 fi
 export JUJU_BIN=$(s3ci.py get-juju-bin $revision_build $WORKSPACE)
 set +e
-timeout 30m bash <<"EOT"
+timeout $TIMEOUT bash <<"EOT"
 set -eux
 deploy_job.py $base_config $JUJU_BIN $ARTIFACTS $MODEL_NAME \
   --series $series --agent-stream=revision-build-$revision_build \
   --timeout 600 --keep-env
-cd $HOME/hammer-dir/hammer-time
+cd $HAMMER_DIR
 if [ -z "${replay_build_number-}" ]; then
   $HAMMER_TIME run-random $PLAN --juju-data $DATA_DIR --juju-bin $JUJU_BIN \
     --action-count $action_count
