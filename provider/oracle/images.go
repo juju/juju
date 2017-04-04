@@ -90,7 +90,7 @@ func checkImageList(
 	n := len(resp.Result)
 	if n == 0 {
 		return nil, errors.NotFoundf(
-			"iamges under the current client username are",
+			"images under the current client username are",
 		)
 	}
 
@@ -137,7 +137,7 @@ func getImageName(c *oci.Client, id string) (string, error) {
 	// we should let the user know this
 	if resp.Result == nil {
 		return "", errors.NotFoundf(
-			"iamges under the current client username are",
+			"images under the current client username are",
 		)
 	}
 

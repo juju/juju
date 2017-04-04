@@ -33,7 +33,7 @@ type NetworkingAPI interface {
 // Environ type that implement the Networking interface
 // from the environ package.
 // This defines methods that the oracle environment
-// will use to support netowrking capabilities
+// will use to support networking capabilities
 type Environ struct {
 	client NetworkingAPI
 }
@@ -204,7 +204,6 @@ func (e Environ) NetworkInterfaces(
 			return nil, err
 		}
 		addr := network.NewScopedAddress(ip, network.ScopeCloudLocal)
-		// nicSubnetDetails := subnetInfo[deviceAttributes.Ipnetwork]
 		ni := network.InterfaceInfo{
 			InterfaceName: name,
 			DeviceIndex:   deviceIndex,
