@@ -37,6 +37,7 @@ type ModelStatusInfo struct {
 	AvailableVersion string         `json:"available-version"`
 	ModelStatus      DetailedStatus `json:"model-status"`
 	MeterStatus      MeterStatus    `json:"meter-status"`
+	SLA              string         `json:"sla"`
 }
 
 // NetworkInterfaceStatus holds a /etc/network/interfaces-type data and the
