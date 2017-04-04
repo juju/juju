@@ -390,5 +390,18 @@ var (
 			},
 			CreateErr: nil,
 		},
+		FakeAssociation: FakeAssociation{
+			All: response.AllSecAssociations{
+				Result: []response.SecAssociation{
+					response.SecAssociation{
+						Name:    "/Compute-a432100/sgiulitti@cloudbase.com/faa46f2e-28c9-4500-b060-0997717540a6/9e5c3f31-1769-46b6-bdc3-b8f3db0f0479",
+						Seclist: "/Compute-a432100/default/default",
+						Vcable:  "/Compute-a432100/sgiulitti@cloudbase.com/faa46f2e-28c9-4500-b060-0997717540a6",
+						Uri:     "https://compute.uscom-central-1.oraclecloud.com/secassociation/Compute-a432100/sgiulitti%40cloudbase.com/faa46f2e-28c9-4500-b060-0997717540a6/9e5c3f31-1769-46b6-bdc3-b8f3db0f0479",
+					},
+				},
+			},
+			AllErr: nil,
+		},
 	}
 )

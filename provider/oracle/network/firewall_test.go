@@ -5,12 +5,13 @@ package network_test
 
 import (
 	"errors"
+	"fmt"
+
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/go-oracle-cloud/api"
 	"github.com/juju/go-oracle-cloud/common"
 	"github.com/juju/go-oracle-cloud/response"
-	gc "gopkg.in/check.v1"
-
 	"github.com/juju/juju/environs/config"
 	jujunetwork "github.com/juju/juju/network"
 	"github.com/juju/juju/provider/oracle/network"
@@ -563,6 +564,273 @@ func (f *firewallSuite) TestClosePortsOnInstance(c *gc.C) {
 				SourceCIDRs: nil,
 			},
 		})
+		c.Assert(err, gc.NotNil)
+	}
+}
+
+func (f *firewallSuite) TestMachineIngressRules(c *gc.C) {
+	cfg := &fakeEnvironConfig{cfg: testing.ModelConfig(c)}
+
+	firewall := network.NewFirewall(cfg, DefaultFakeFirewallAPI)
+	c.Assert(firewall, gc.NotNil)
+
+	rules, err := firewall.MachineIngressRules("0")
+	c.Assert(err, gc.IsNil)
+	c.Assert(rules, gc.NotNil)
+}
+
+func (f *firewallSuite) TestMachineIngressRulesWithErrors(c *gc.C) {
+	cfg := &fakeEnvironConfig{cfg: testing.ModelConfig(c)}
+
+	for _, fake := range []*FakeFirewallAPI{
+		&FakeFirewallAPI{
+			FakeComposer: FakeComposer{
+				compose: "/Compute-acme/jack.jones@example.com/allowed_video_servers",
+			},
+			FakeRules: FakeRules{AllErr: errors.New("FakeRulesError")},
+		},
+		&FakeFirewallAPI{
+			FakeComposer: FakeComposer{
+				compose: "/Compute-acme/jack.jones@example.com/allowed_video_servers",
+			},
+			FakeApplication: FakeApplication{
+				AllErr: errors.New("FakeApplicationError"),
+			},
+		},
+		&FakeFirewallAPI{
+			FakeComposer: FakeComposer{
+				compose: "/Compute-acme/jack.jones@example.com/allowed_video_servers",
+			},
+			FakeApplication: FakeApplication{
+				DefaultErr: errors.New("FakeApplicationError"),
+			},
+		},
+		&FakeFirewallAPI{
+			FakeComposer: FakeComposer{
+				compose: "/Compute-acme/jack.jones@example.com/allowed_video_servers",
+			},
+			FakeSecIp: FakeSecIp{AllErr: errors.New("FakeSecIpError")},
+		},
+		&FakeFirewallAPI{
+			FakeComposer: FakeComposer{
+				compose: "/Compute-acme/jack.jones@example.com/allowed_video_servers",
+			},
+			FakeSecIp: FakeSecIp{
+				AllDefaultErr: errors.New("FakeSecIpError"),
+			},
+		},
+	} {
+		firewall := network.NewFirewall(cfg, fake)
+		c.Assert(firewall, gc.NotNil)
+
+		_, err := firewall.MachineIngressRules("0")
+		c.Assert(err, gc.NotNil)
+	}
+}
+
+func (f *firewallSuite) TestOpenPortsOnInstance(c *gc.C) {
+	cfg := &fakeEnvironConfig{cfg: testing.ModelConfig(c)}
+	firewall := network.NewFirewall(cfg, DefaultFakeFirewallAPI)
+	c.Assert(firewall, gc.NotNil)
+
+	err := firewall.OpenPortsOnInstance("0", []jujunetwork.IngressRule{})
+	c.Assert(err, gc.IsNil)
+
+}
+
+func (f *firewallSuite) TestOpenPortsOnInstanceWithErrors(c *gc.C) {
+	cfg := &fakeEnvironConfig{cfg: testing.ModelConfig(c)}
+
+	for _, fake := range []*FakeFirewallAPI{
+		&FakeFirewallAPI{
+			FakeComposer: FakeComposer{
+				compose: "/Compute-acme/jack.jones@example.com/allowed_video_servers",
+			},
+			FakeRules: FakeRules{AllErr: errors.New("FakeRulesError")},
+		},
+		&FakeFirewallAPI{
+			FakeComposer: FakeComposer{
+				compose: "/Compute-acme/jack.jones@example.com/allowed_video_servers",
+			},
+			FakeApplication: FakeApplication{
+				AllErr: errors.New("FakeApplicationError"),
+			},
+		},
+		&FakeFirewallAPI{
+			FakeComposer: FakeComposer{
+				compose: "/Compute-acme/jack.jones@example.com/allowed_video_servers",
+			},
+			FakeApplication: FakeApplication{
+				DefaultErr: errors.New("FakeApplicationError"),
+			},
+		},
+		&FakeFirewallAPI{
+			FakeComposer: FakeComposer{
+				compose: "/Compute-acme/jack.jones@example.com/allowed_video_servers",
+			},
+			FakeSecIp: FakeSecIp{AllErr: errors.New("FakeSecIpError")},
+		},
+		&FakeFirewallAPI{
+			FakeComposer: FakeComposer{
+				compose: "/Compute-acme/jack.jones@example.com/allowed_video_servers",
+			},
+			FakeSecList: FakeSecList{
+				SecListErr: errors.New("FakeSecListErr"),
+			},
+		},
+		&FakeFirewallAPI{
+			FakeComposer: FakeComposer{
+				compose: "/Compute-acme/jack.jones@example.com/allowed_video_servers",
+			},
+			FakeSecList: FakeSecList{
+				SecListErr: api.ErrNotFound{},
+				CreateErr:  errors.New("FakeSecListErr"),
+			},
+		},
+	} {
+		firewall := network.NewFirewall(cfg, fake)
+		c.Assert(firewall, gc.NotNil)
+
+		err := firewall.OpenPortsOnInstance("0", []jujunetwork.IngressRule{})
+		c.Assert(err, gc.NotNil)
+	}
+}
+
+func (f *firewallSuite) TestCreateMachineSecLists(c *gc.C) {
+	cfg := &fakeEnvironConfig{cfg: testing.ModelConfig(c)}
+
+	firewall := network.NewFirewall(cfg, DefaultFakeFirewallAPI)
+	c.Assert(firewall, gc.NotNil)
+
+	lists, err := firewall.CreateMachineSecLists("0", 7070)
+	c.Assert(err, gc.IsNil)
+	c.Assert(lists, gc.NotNil)
+}
+
+func (f *firewallSuite) TestCreateMachineSecListsWithErrors(c *gc.C) {
+	cfg := &fakeEnvironConfig{cfg: testing.ModelConfig(c)}
+	for _, fake := range []*FakeFirewallAPI{
+		&FakeFirewallAPI{
+			FakeComposer: FakeComposer{
+				compose: "/Compute-acme/jack.jones@example.com/allowed_video_servers",
+			},
+			FakeSecList: FakeSecList{
+				SecListErr: errors.New("FakeSecListErr"),
+			},
+		},
+		&FakeFirewallAPI{
+			FakeComposer: FakeComposer{
+				compose: "/Compute-acme/jack.jones@example.com/allowed_video_servers",
+			},
+			FakeSecList: FakeSecList{
+				SecListErr: api.ErrNotFound{},
+				CreateErr:  errors.New("FakeSecListErr"),
+			},
+		},
+		&FakeFirewallAPI{
+			FakeComposer: FakeComposer{
+				compose: "/Compute-acme/jack.jones@example.com/allowed_video_servers",
+			},
+			FakeRules: FakeRules{AllErr: errors.New("FakeRulesError")},
+		},
+		&FakeFirewallAPI{
+			FakeComposer: FakeComposer{
+				compose: "/Compute-acme/jack.jones@example.com/allowed_video_servers",
+			},
+			FakeApplication: FakeApplication{
+				AllErr: errors.New("FakeApplicationError"),
+			},
+		},
+		&FakeFirewallAPI{
+			FakeComposer: FakeComposer{
+				compose: "/Compute-acme/jack.jones@example.com/allowed_video_servers",
+			},
+			FakeApplication: FakeApplication{
+				DefaultErr: errors.New("FakeApplicationError"),
+			},
+		},
+		&FakeFirewallAPI{
+			FakeComposer: FakeComposer{
+				compose: "/Compute-acme/jack.jones@example.com/allowed_video_servers",
+			},
+			FakeSecIp: FakeSecIp{AllErr: errors.New("FakeSecIpError")},
+		},
+	} {
+
+		firewall := network.NewFirewall(cfg, fake)
+		c.Assert(firewall, gc.NotNil)
+
+		_, err := firewall.CreateMachineSecLists("0", 7070)
+		c.Assert(err, gc.NotNil)
+	}
+}
+
+func (f *firewallSuite) TesDeleteMachineSecList(c *gc.C) {
+	cfg := &fakeEnvironConfig{cfg: testing.ModelConfig(c)}
+
+	firewall := network.NewFirewall(cfg, DefaultFakeFirewallAPI)
+	c.Assert(firewall, gc.NotNil)
+
+	err := firewall.DeleteMachineSecList("0")
+	c.Assert(err, gc.IsNil)
+}
+
+func (f *firewallSuite) TestDeleteMachineSecList(c *gc.C) {
+
+	cfg := &fakeEnvironConfig{cfg: testing.ModelConfig(c)}
+
+	for _, fake := range []*FakeFirewallAPI{
+		&FakeFirewallAPI{
+			FakeComposer: FakeComposer{
+				compose: "/Compute-acme/jack.jones@example.com/allowed_video_servers",
+			},
+			FakeAssociation: FakeAssociation{
+				AllErr: errors.New("FakeAssociationError"),
+			},
+		},
+		&FakeFirewallAPI{
+			FakeComposer: FakeComposer{
+				compose: "/Compute-acme/jack.jones@example.com/allowed_video_servers",
+			},
+			FakeRules: FakeRules{AllErr: errors.New("FakeRulesError")},
+		},
+		&FakeFirewallAPI{
+			FakeComposer: FakeComposer{
+				compose: "/Compute-acme/jack.jones@example.com/allowed_video_servers",
+			},
+			FakeRules: FakeRules{
+				All: response.AllSecRules{
+					Result: []response.SecRule{
+						response.SecRule{
+							Action:      common.SecRulePermit,
+							Application: "/Compute-acme/jack.jones@example.com/video_streaming_udp",
+							Name:        "/Compute-acme/jack.jones@example.com/es_to_videoservers_stream",
+							Dst_list:    "seclist:/Compute-acme/jack.jones@example.com/allowed_video_servers",
+							Src_list:    "seciplist:/Compute-acme/jack.jones@example.com/es_iplist",
+							Uri:         "https://api-z999.compute.us0.oraclecloud.com/secrule/Compute-acme/jack.jones@example.com/es_to_videoservers_stream",
+							Src_is_ip:   "true",
+							Dst_is_ip:   "false",
+						},
+					},
+				},
+
+				DeleteErr: errors.New("FakeRulesError"),
+			},
+		},
+		&FakeFirewallAPI{
+			FakeComposer: FakeComposer{
+				compose: "/Compute-acme/jack.jones@example.com/allowed_video_servers",
+			},
+			FakeSecList: FakeSecList{
+				DeleteErr: errors.New("FakeSecListErr"),
+			},
+		},
+	} {
+		firewall := network.NewFirewall(cfg, fake)
+		c.Assert(firewall, gc.NotNil)
+
+		err := firewall.DeleteMachineSecList("0")
+		fmt.Printf("%#v\n", err)
 		c.Assert(err, gc.NotNil)
 	}
 }
