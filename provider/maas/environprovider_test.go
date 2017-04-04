@@ -198,30 +198,75 @@ type MaasPingSuite struct {
 var _ = gc.Suite(&MaasPingSuite{})
 
 func (MaasPingSuite) TestPingNoEndpoint(c *gc.C) {
-	p, err := environs.Provider("maas")
-	c.Assert(err, jc.ErrorIsNil)
-	m, ok := p.(MaasEnvironProvider)
-	c.Assert(ok, jc.IsTrue)
 	endpoint := "https://foo.com/MAAS"
-	m.GetCapabilities = func(client *gomaasapi.MAASObject, serverURL string) (set.Strings, error) {
-		c.Assert(serverURL, gc.Equals, endpoint)
-		return nil, errors.New("nope")
-	}
-
-	err = m.Ping(endpoint)
+	var serverURLs []string
+	err := ping(c, endpoint,
+		func(client *gomaasapi.MAASObject, serverURL string) (set.Strings, error) {
+			serverURLs = append(serverURLs, client.URL().String())
+			c.Assert(serverURL, gc.Equals, endpoint)
+			return nil, errors.New("nope")
+		},
+	)
 	c.Assert(err, gc.ErrorMatches, "No MAAS server running at "+endpoint)
+	c.Assert(serverURLs, gc.DeepEquals, []string{
+		"https://foo.com/MAAS/api/2.0/",
+		"https://foo.com/MAAS/api/1.0/",
+	})
 }
 
 func (MaasPingSuite) TestPingOK(c *gc.C) {
+	endpoint := "https://foo.com/MAAS"
+	var serverURLs []string
+	err := ping(c, endpoint,
+		func(client *gomaasapi.MAASObject, serverURL string) (set.Strings, error) {
+			serverURLs = append(serverURLs, client.URL().String())
+			c.Assert(serverURL, gc.Equals, endpoint)
+			return set.NewStrings("network-deployment-ubuntu"), nil
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(serverURLs, gc.DeepEquals, []string{
+		"https://foo.com/MAAS/api/2.0/",
+	})
+}
+
+func (MaasPingSuite) TestPingVersionURLOK(c *gc.C) {
+	endpoint := "https://foo.com/MAAS/api/10.1/"
+	var serverURLs []string
+	err := ping(c, endpoint,
+		func(client *gomaasapi.MAASObject, serverURL string) (set.Strings, error) {
+			serverURLs = append(serverURLs, client.URL().String())
+			c.Assert(serverURL, gc.Equals, "https://foo.com/MAAS/")
+			return set.NewStrings("network-deployment-ubuntu"), nil
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(serverURLs, gc.DeepEquals, []string{
+		"https://foo.com/MAAS/api/10.1/",
+	})
+}
+
+func (MaasPingSuite) TestPingVersionURLBad(c *gc.C) {
+	endpoint := "https://foo.com/MAAS/api/10.1/"
+	var serverURLs []string
+	err := ping(c, endpoint,
+		func(client *gomaasapi.MAASObject, serverURL string) (set.Strings, error) {
+			serverURLs = append(serverURLs, client.URL().String())
+			c.Assert(serverURL, gc.Equals, "https://foo.com/MAAS/")
+			return nil, errors.New("nope")
+		},
+	)
+	c.Assert(err, gc.ErrorMatches, "No MAAS server running at "+endpoint)
+	c.Assert(serverURLs, gc.DeepEquals, []string{
+		"https://foo.com/MAAS/api/10.1/",
+	})
+}
+
+func ping(c *gc.C, endpoint string, getCapabilities MaasCapabilities) error {
 	p, err := environs.Provider("maas")
 	c.Assert(err, jc.ErrorIsNil)
 	m, ok := p.(MaasEnvironProvider)
 	c.Assert(ok, jc.IsTrue)
-	endpoint := "https://foo.com/MAAS"
-	m.GetCapabilities = func(client *gomaasapi.MAASObject, serverURL string) (set.Strings, error) {
-		c.Assert(serverURL, gc.Equals, endpoint)
-		return set.NewStrings("network-deployment-ubuntu"), nil
-	}
-	err = m.Ping(endpoint)
-	c.Assert(err, jc.ErrorIsNil)
+	m.GetCapabilities = getCapabilities
+	return m.Ping(endpoint)
 }

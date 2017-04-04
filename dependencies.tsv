@@ -28,7 +28,7 @@ github.com/juju/go4	git	40d72ab9641a2a8c36a9c46a51e28367115c8e59	2016-02-22T16:3
 github.com/juju/gojsonpointer	git	afe8b77aa08f272b49e01b82de78510c11f61500	2015-02-04T19:46:29Z
 github.com/juju/gojsonreference	git	f0d24ac5ee330baa21721cdff56d45e4ee42628e	2015-02-04T19:46:33Z
 github.com/juju/gojsonschema	git	e1ad140384f254c82f89450d9a7c8dd38a632838	2015-03-12T17:00:16Z
-github.com/juju/gomaasapi	git	cfbc096bd45f276c17a391efc4db710b60ae3ad7	2017-02-27T07:51:07Z
+github.com/juju/gomaasapi	git	4eddf584006b5410c4febe1731109aaf5b8f17f6	2017-04-04T00:56:18Z
 github.com/juju/httpprof	git	14bf14c307672fd2456bdbf35d19cf0ccd3cf565	2014-12-17T16:00:36Z
 github.com/juju/httprequest	git	266fd1e9debf09c037a63f074d099a2da4559ece	2016-10-06T15:09:09Z
 github.com/juju/idmclient	git	4dc25171f675da4206b71695d3fd80e519ad05c1	2017-02-09T16:27:49Z
