@@ -6,6 +6,7 @@ package vsphere
 import (
 	"github.com/juju/errors"
 	"github.com/vmware/govmomi/vim25/mo"
+	"github.com/vmware/govmomi/vim25/types"
 
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
@@ -34,13 +35,15 @@ func (inst *environInstance) Id() instance.Id {
 
 // Status implements instance.Instance.
 func (inst *environInstance) Status() instance.InstanceStatus {
-	// TODO(perrito666) I wont change the commented line because it was
-	// there and I have not enough knowledge about this provider
-	// but that method does not exist.
-	// return inst.base.Status()
-	return instance.InstanceStatus{
-		Status: status.Pending,
+	instanceStatus := instance.InstanceStatus{
+		Status:  status.Empty,
+		Message: string(inst.base.Runtime.PowerState),
 	}
+	switch inst.base.Runtime.PowerState {
+	case types.VirtualMachinePowerStatePoweredOn:
+		instanceStatus.Status = status.Running
+	}
+	return instanceStatus
 }
 
 // Addresses implements instance.Instance.

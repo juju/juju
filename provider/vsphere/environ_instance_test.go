@@ -40,7 +40,7 @@ func (s *environInstanceSuite) TestInstances(c *gc.C) {
 	client.SetPropertyProxyHandler("FakeDatacenter", vsphere.RetrieveDatacenterProperties)
 	vmName1 := s.machineName(c, "1")
 	vmName2 := s.machineName(c, "2")
-	s.FakeInstancesWithResourcePool(client, vsphere.InstRp{Inst: vmName1, Rp: "rp1"}, vsphere.InstRp{Inst: vmName2, Rp: "rp2"})
+	s.FakeInstances(client, vsphere.Inst{Inst: vmName1, Rp: "rp1"}, vsphere.Inst{Inst: vmName2, Rp: "rp2"})
 
 	instances, err := s.Env.Instances([]instance.Id{instance.Id(vmName1), instance.Id(vmName2)})
 
@@ -56,7 +56,7 @@ func (s *environInstanceSuite) TestInstancesNoInstances(c *gc.C) {
 	defer closer()
 	s.FakeClient = client
 	client.SetPropertyProxyHandler("FakeDatacenter", vsphere.RetrieveDatacenterProperties)
-	s.FakeInstances(client)
+	s.FakeInstances(client /* none */)
 
 	_, err = s.Env.Instances([]instance.Id{"Some other name"})
 
@@ -69,7 +69,7 @@ func (s *environInstanceSuite) TestInstancesNoMatchingInstances(c *gc.C) {
 	defer closer()
 	s.FakeClient = client
 	client.SetPropertyProxyHandler("FakeDatacenter", vsphere.RetrieveDatacenterProperties)
-	s.FakeInstancesWithResourcePool(client, vsphere.InstRp{Inst: "Some name that don't match naming convention", Rp: "rp1"})
+	s.FakeInstances(client, vsphere.Inst{Inst: "Some name that don't match naming convention", Rp: "rp1"})
 
 	_, err = s.Env.Instances([]instance.Id{instance.Id("Some other name")})
 
@@ -83,7 +83,7 @@ func (s *environInstanceSuite) TestInstancesReturnPartialInstances(c *gc.C) {
 	client.SetPropertyProxyHandler("FakeDatacenter", vsphere.RetrieveDatacenterProperties)
 	vmName1 := s.machineName(c, "1")
 	vmName2 := s.machineName(c, "2")
-	s.FakeInstancesWithResourcePool(client, vsphere.InstRp{Inst: vmName1, Rp: "rp1"}, vsphere.InstRp{Inst: "Some inst", Rp: "rp2"})
+	s.FakeInstances(client, vsphere.Inst{Inst: vmName1, Rp: "rp1"}, vsphere.Inst{Inst: "Some inst", Rp: "rp2"})
 
 	s.FakeClient = client
 	_, err = s.Env.Instances([]instance.Id{instance.Id(vmName1), instance.Id(vmName2)})
