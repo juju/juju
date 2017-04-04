@@ -35,8 +35,8 @@ class TestCloudSpec(TestCase):
 
     def test_cloud_spec(self):
         self.assertEqual(
-                CloudSpec('label1', 'name1', {'config': '1'}, None, None),
-                cloud_spec('label1', 'name1', {'config': '1'}))
+            CloudSpec('label1', 'name1', {'config': '1'}, None, None),
+            cloud_spec('label1', 'name1', {'config': '1'}))
 
 
 class TestXFail(TestCase):
@@ -63,7 +63,8 @@ class TestAssessCloud(FakeHomeTestCase):
             yield client
 
     def test_assess_cloud(self):
-        expected_cloud = {'clouds': {'foo': {
+        expected_cloud = {'clouds': {
+            'foo': {
                 'type': 'maas',
                 'endpoint': 'http://bar.example.com',
                 }}}
@@ -128,7 +129,7 @@ class TestIterClouds(FakeHomeTestCase):
                         exception=NameNotAccepted), 1641981, None),
                   1649721, InvalidEndpoint),
             make_long_endpoint(spec, endpoint_validation=True)],
-                iter_clouds({'foo': cloud}, endpoint_validation=True))
+            iter_clouds({'foo': cloud}, endpoint_validation=True))
 
     def test_manual_no_validation(self):
         self.maxDiff = None
@@ -141,7 +142,7 @@ class TestIterClouds(FakeHomeTestCase):
             xfail(cloud_spec('invalid-name-foo', 'invalid/name', cloud,
                              exception=NameNotAccepted), 1641981, None),
             make_long_endpoint(spec, endpoint_validation=False)],
-                iter_clouds({'foo': cloud}, endpoint_validation=False))
+            iter_clouds({'foo': cloud}, endpoint_validation=False))
 
     def test_vsphere(self):
         cloud = {
