@@ -2690,8 +2690,19 @@ func (st *State) WatchRemoteRelations() StringsWatcher {
 
 // WatchSubnets returns a StringsWatcher that notifies of changes to
 // the lifecycles of the subnets in the model.
-func (st *State) WatchSubnets() StringsWatcher {
-	return newLifecycleWatcher(st, subnetsC, nil, isLocalID(st), nil)
+func (st *State) WatchSubnets(subnetFilter func(id interface{}) bool) StringsWatcher {
+	filter := func(id interface{}) bool {
+		subnet, err := st.strictLocalID(id.(string))
+		if err != nil {
+			return false
+		}
+		if subnetFilter == nil {
+			return true
+		}
+		return subnetFilter(subnet)
+	}
+
+	return newLifecycleWatcher(st, subnetsC, nil, filter, nil)
 }
 
 // isLocalID returns a watcher filter func that rejects ids not specific

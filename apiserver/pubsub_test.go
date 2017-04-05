@@ -105,10 +105,10 @@ func (s *pubsubSuite) TestMessage(c *gc.C) {
 	done := make(chan struct{})
 	loggo.GetLogger("pubsub").SetLogLevel(loggo.TRACE)
 	loggo.GetLogger("juju.apiserver").SetLogLevel(loggo.TRACE)
-	_, err := s.hub.Subscribe(pubsub.MatchAll, func(topic pubsub.Topic, data map[string]interface{}) {
+	_, err := s.hub.SubscribeMatch(pubsub.MatchAll, func(topic string, data map[string]interface{}) {
 		c.Logf("topic: %q, data: %v", topic, data)
 		messages = append(messages, params.PubSubMessage{
-			Topic: string(topic),
+			Topic: topic,
 			Data:  data,
 		})
 		done <- struct{}{}

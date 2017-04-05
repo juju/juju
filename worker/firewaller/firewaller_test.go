@@ -702,7 +702,7 @@ func (s *InstanceModeSuite) TestStartWithStateOpenPortsBroken(c *gc.C) {
 	}
 }
 
-func (s *InstanceModeSuite) assertRemoteRelation(c *gc.C, remoteCIDRs []string, expectedCIDRS []string) {
+func (s *InstanceModeSuite) assertRemoteRelation(c *gc.C, expectedCIDRS []string) {
 	// Set up another model to host one side of a remote relation.
 	otherState := s.Factory.MakeModel(c, &factory.ModelParams{Name: "other"})
 	defer otherState.Close()
@@ -710,7 +710,7 @@ func (s *InstanceModeSuite) assertRemoteRelation(c *gc.C, remoteCIDRs []string, 
 	// Create the consuming side.
 	otherFactory := factory.NewFactory(otherState)
 	ch := otherFactory.MakeCharm(c, &factory.CharmParams{Name: "wordpress"})
-	otherFactory.MakeApplication(c, &factory.ApplicationParams{Name: "wordpress", Charm: ch})
+	wp := otherFactory.MakeApplication(c, &factory.ApplicationParams{Name: "wordpress", Charm: ch})
 
 	// Create an api connection to the other model.
 	apiInfo := s.APIInfo(c)
@@ -766,21 +766,22 @@ func (s *InstanceModeSuite) assertRemoteRelation(c *gc.C, remoteCIDRs []string, 
 	err = re.ImportRemoteEntity(s.State.ModelTag(), otherRel.Tag(), token)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Wait for the initial ports to be opened without any explicit CIDRs.
-	s.assertPorts(c, inst, m.Id(), []network.IngressRule{
-		network.MustNewIngressRule("tcp", 3306, 3306, "0.0.0.0/0"),
-	})
+	// We should not have opened any ports yet - no unit has entered scope.
+	s.assertPorts(c, inst, m.Id(), nil)
 
-	if len(remoteCIDRs) > 0 {
-		// Add subnets to the model hosting the consuming app.
-		// This will be picked up by the firewaller.
-		for _, cidr := range remoteCIDRs {
-			otherState.AddSubnet(state.SubnetInfo{
-				CIDR: cidr,
-			})
-			c.Assert(err, jc.ErrorIsNil)
-		}
-	}
+	// Add a public address to the consuming unit so the firewaller can use it.
+	wpm := otherFactory.MakeMachine(c, &factory.MachineParams{
+		Addresses: []network.Address{network.NewAddress("10.0.0.4")},
+	})
+	wpu := otherFactory.MakeUnit(c, &factory.UnitParams{Application: wp, Machine: wpm})
+	c.Assert(err, jc.ErrorIsNil)
+	relUnit, err := otherRel.Unit(wpu)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Add a unit on the consuming app and have it enter the relation scope.
+	// This will trigger the firewaller.
+	err = relUnit.EnterScope(map[string]interface{}{})
+	c.Assert(err, jc.ErrorIsNil)
 	s.assertPorts(c, inst, m.Id(), []network.IngressRule{
 		network.MustNewIngressRule("tcp", 3306, 3306, expectedCIDRS...),
 	})
@@ -788,19 +789,14 @@ func (s *InstanceModeSuite) assertRemoteRelation(c *gc.C, remoteCIDRs []string, 
 	// Check the relation ready poll time is as expected.
 	c.Assert(s.mockClock.wait, gc.Equals, 3*time.Second)
 
-	// Ports should be closed when relation dies.
-	err = rel.Destroy()
+	// Ports should be closed when unit leaves scope.
+	err = relUnit.LeaveScope()
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertPorts(c, inst, m.Id(), nil)
 }
 
-func (s *InstanceModeSuite) TestRemoteRelationDefaultCIDRs(c *gc.C) {
-	// No addresses defined in remote model, to default "0.0.0.0/0" used.
-	s.assertRemoteRelation(c, nil, []string{"0.0.0.0/0"})
-}
-
 func (s *InstanceModeSuite) TestRemoteRelation(c *gc.C) {
-	s.assertRemoteRelation(c, []string{"::1/0", "10.0.0.0/24"}, []string{"10.0.0.0/24"})
+	s.assertRemoteRelation(c, []string{"10.0.0.4/32"})
 }
 
 type GlobalModeSuite struct {
