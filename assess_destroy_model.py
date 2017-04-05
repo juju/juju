@@ -7,7 +7,7 @@ import argparse
 import logging
 import sys
 import subprocess
-import re
+import yaml
 
 from deploy_stack import (
     BootstrapManager,
@@ -99,17 +99,14 @@ def switch_model(client, current_model, current_controller):
 def get_current_controller(client):
     """Gets the current controller from Juju's list-models command.
 
+    We only have one controller in this test, so any model on that
+    controller will have the same controller information.
+
     :param client: Jujupy ModelClient object
     :return: String name of current controller
     """
     raw = list_models(client)
-    pattern = r".*Controller:\s*([a-z0-9'-]+)"
-    match = re.search(pattern, raw)
-    if match:
-        return match.group(1)
-    else:
-        error = ('Failed to get current controller')
-        raise JujuAssertionError(error)
+    return raw['models'][0]['controller-name']
 
 
 def get_current_model(client):
@@ -119,28 +116,29 @@ def get_current_model(client):
     :return: String name of current model
     """
     raw = list_models(client)
-    pattern = r"([a-z0-9'-]+)\*"
-    match = re.search(pattern, raw)
-    if match:
-        return match.group(1)
-    else:
-        log.warning('Could not get current model.')
+    try:
+        return raw['current-model']
+    except KeyError as e:
+        log.warning('No model is currently selected.')
         return None
 
 
 def list_models(client):
     """Helper function to get the output of juju's list-models command.
 
+    Instead of using switch we use list-models because get_current_model
+    doesn't explicitly state if a model exists but is not currently selected.
+
     :param client: Jujupy ModelClient object
-    :return: Utf-8 formatted string of list-models command
+    :return: Dict of list-models command
     """
     try:
-        raw = client.get_juju_output('list-models',
-                                     include_e=False).decode("utf-8")
+        raw = client.get_juju_output('list-models', '--format', 'yaml',
+                                     include_e=False)
     except subprocess.CalledProcessError as e:
         log.error('Failed to list current models due to error: {}'.format(e))
         raise e
-    return raw
+    return yaml.safe_load(raw)
 
 
 def parse_args(argv):

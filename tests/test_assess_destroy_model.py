@@ -29,28 +29,40 @@ from utility import (
     )
 
 list_model_initial = dedent("""
-    'Controller: foo-temp-env
-    foo-temp-env*  localhost/localhost
-    controller  localhost/localhost
+    models:
+    - name: controller
+      controller-name: foo-tmp-env
+    - name: foo-tmp-env
+      controller-name: foo-tmp-env
+    current-model: foo-tmp-env
 """)
 
 list_model_add = dedent("""
-    'Controller: foo-temp-env
-    foo-temp-env  localhost/localhost
-    test-tmp-env*  localhost/localhost
-    controller  localhost/localhost
+    models:
+    - name: controller
+      controller-name: foo-tmp-env
+    - name: foo-tmp-env
+      controller-name: foo-tmp-env
+    - name: test-tmp-env
+      controller-name: foo-tmp-env
+    current-model: test-tmp-env
 """)
 
 list_model_destroy = dedent("""
-    'Controller: foo-temp-env\n\n
-    foo-temp-env  localhost/localhost
-    controller  localhost/localhost
+    models:
+    - name: controller
+      controller-name: foo-tmp-env
+    - name: foo-tmp-env
+      controller-name: foo-tmp-env
 """)
 
 list_model_switch = dedent("""
-    'Controller: foo-temp-env\n\n
-    bar-temp-env*  localhost/localhost
-    controller  localhost/localhost
+    models:
+    - name: controller
+      controller-name: foo-tmp-env
+    - name: foo-tmp-env
+      controller-name: foo-tmp-env
+    current-model: bar-tmp-env
 """)
 
 
@@ -105,7 +117,8 @@ class TestAssess(TestCase):
         self.assertEqual(
             [call.bootstrap(),
              call.add_model('test-tmp-env'),
-             call.get_juju_output('list-models', include_e=False)],
+             call.get_juju_output('list-models', '--format', 'yaml',
+                                  include_e=False)],
             fake_client.mock_calls)
 
     def test_add_model_fails(self):
@@ -117,7 +130,7 @@ class TestAssess(TestCase):
             add_model(fake_client)
         self.assertTrue(
             'Juju failed to switch to new model after creation. '
-            'Expected test-tmp-env got foo-temp-env'
+            'Expected test-tmp-env got foo-tmp-env'
             in context.exception.message)
 
     def test_destroy_model(self):
@@ -128,7 +141,8 @@ class TestAssess(TestCase):
         self.assertEqual(
             [call.bootstrap(),
              call.destroy_model(),
-             call.get_juju_output('list-models', include_e=False)],
+             call.get_juju_output('list-models', '--format', 'yaml',
+                                  include_e=False)],
             fake_client.mock_calls)
 
     def test_destroy_model_fails(self):
@@ -145,11 +159,12 @@ class TestAssess(TestCase):
         fake_client = Mock(wraps=fake_juju_client())
         fake_client.bootstrap()
         fake_client.get_juju_output.return_value = list_model_initial
-        switch_model(fake_client, 'foo-temp-env', 'foo-temp-env')
+        switch_model(fake_client, 'foo-tmp-env', 'foo-tmp-env')
         self.assertEqual(
             [call.bootstrap(),
-             call.switch(controller='foo-temp-env', model='foo-temp-env'),
-             call.get_juju_output('list-models', include_e=False)],
+             call.switch(controller='foo-tmp-env', model='foo-tmp-env'),
+             call.get_juju_output('list-models', '--format', 'yaml',
+                                  include_e=False)],
             fake_client.mock_calls)
 
     def test_switch_model_fails(self):
@@ -157,8 +172,8 @@ class TestAssess(TestCase):
         fake_client.bootstrap()
         fake_client.get_juju_output.return_value = list_model_switch
         with self.assertRaises(JujuAssertionError) as context:
-            switch_model(fake_client, 'foo-temp-env', 'foo-temp-env')
+            switch_model(fake_client, 'foo-tmp-env', 'test-tmp-env')
         self.assertTrue(
             'Juju failed to switch back to existing model. '
-            'Expected test-tmp-env got bar-temp-env'
+            'Expected test-tmp-env got bar-tmp-env'
             in context.exception.message)
