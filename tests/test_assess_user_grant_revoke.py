@@ -27,6 +27,7 @@ from jujupy import (
 from tests import (
     parse_error,
     TestCase,
+    patch_juju_call,
 )
 
 
@@ -156,7 +157,7 @@ class TestAsserts(TestCase):
     def test_assert_write_model(self):
         fake_client = fake_juju_client()
         with patch.object(fake_client, 'wait_for_started'):
-            with patch.object(fake_client, 'juju', return_value=True):
+            with patch_juju_call(fake_client):
                 assert_write_model(fake_client, 'write', True)
                 with self.assertRaises(JujuAssertionError):
                     assert_write_model(fake_client, 'write', False)

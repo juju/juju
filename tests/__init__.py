@@ -20,6 +20,7 @@ except ImportError:
     from unittest.mock import patch
 import yaml
 
+from jujupy.client import CommandTime
 import utility
 
 
@@ -152,12 +153,25 @@ def temp_os_env(key, value):
         os.environ[key] = org_value
 
 
+@contextmanager
+def patch_juju_call(client, return_value=0):
+    """Simple patch for client.juju call.
+
+    :param return_value: A tuple to return representing the retvar and
+      CommandTime object
+    """
+    with patch.object(
+            client, 'juju',
+            return_value=make_fake_juju_return(retvar=return_value)) as mock:
+        yield mock
+
+
 def assert_juju_call(test_case, mock_method, client, expected_args,
                      call_index=None):
     """Check a mock's positional arguments.
 
     :param test_case: The test case currently being run.
-    :param mock_mothod: The mock object to be checked.
+    :param mock_method: The mock object to be checked.
     :param client: Ignored.
     :param expected_args: The expected positional arguments for the call.
     :param call_index: Index of the call to check, if None checks first call
@@ -248,3 +262,9 @@ def get_default_public_clouds():
                 },
             }
         }
+
+
+def make_fake_juju_return(
+        retvar=0, cmd='mock_cmd', full_args=[], envvars=None, start=None):
+    """Shadow fake that defaults construction arguments."""
+    return (retvar, CommandTime(cmd, full_args, envvars, start))

@@ -146,8 +146,9 @@ class MonkeyRunner:
         check_cmd += '/chaos_monkey.' + self.monkey_ids[unit_name]
         check_cmd += '/chaos_runner.lock'
         check_cmd += ' ]'
-        if self.client.juju('run', ('--unit', unit_name, check_cmd),
-                            check=False):
+        retvar, _ = self.client.juju(
+            'run', ('--unit', unit_name, check_cmd), check=False)
+        if retvar != 0:
             return 'done'
         return 'running'
 

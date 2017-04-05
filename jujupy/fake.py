@@ -35,6 +35,7 @@ from jujupy import (
     JujuData,
     SoftDeadlineExceeded,
 )
+from jujupy.client import CommandTime
 
 __metaclass__ = type
 
@@ -939,6 +940,7 @@ class FakeBackend:
                 num = int(parsed.n or 1)
                 self.deploy(model_state, parsed.charm_name, num,
                             parsed.service_name, parsed.series)
+                return (0, CommandTime(command, args))
             if command == 'remove-application':
                 model_state.destroy_service(*args)
             if command == 'add-relation':
@@ -987,8 +989,9 @@ class FakeBackend:
                 self.controller_state.destroy()
             if command == 'kill-controller':
                 if self.controller_state.state == 'not-bootstrapped':
-                    return
+                    return (0, CommandTime(command, args))
                 self.controller_state.destroy(kill=True)
+                return (0, CommandTime(command, args))
             if command == 'destroy-model':
                 if not self.is_feature_enabled('jes'):
                     raise JESNotSupported()
@@ -1039,6 +1042,7 @@ class FakeBackend:
                     self.controller_state.shares.remove(username)
             if command == 'restore-backup':
                 model_state.restore_backup()
+            return 0, CommandTime(command, args)
 
     @contextmanager
     def juju_async(self, command, args, used_feature_flags,

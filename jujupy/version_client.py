@@ -25,6 +25,7 @@ import subprocess
 import yaml
 
 from jujupy.client import (
+    CommandComplete,
     Controller,
     _DEFAULT_BUNDLE_TIMEOUT,
     get_cache_path,
@@ -38,6 +39,7 @@ from jujupy.client import (
     LXC_MACHINE,
     make_safe_config,
     ModelClient,
+    NoopCondition,
     SimpleEnvironment,
     Status,
     StatusItem,
@@ -373,7 +375,8 @@ class EnvJujuClient1X(ModelClientRC):
 
     def set_model_constraints(self, constraints):
         constraint_strings = self._dict_as_option_strings(constraints)
-        return self.juju('set-constraints', constraint_strings)
+        retvar, ct = self.juju('set-constraints', constraint_strings)
+        return retvar, CommandComplete(NoopCondition(), ct)
 
     def set_config(self, service, options):
         option_strings = ['{}={}'.format(*item) for item in options.items()]
@@ -394,11 +397,13 @@ class EnvJujuClient1X(ModelClientRC):
     def set_env_option(self, option, value):
         """Set the value of the option in the environment."""
         option_value = "%s=%s" % (option, value)
-        return self.juju('set-env', (option_value,))
+        retvar, ct = self.juju('set-env', (option_value,))
+        return retvar, CommandComplete(NoopCondition(), ct)
 
     def unset_env_option(self, option):
         """Unset the value of the option in the environment."""
-        return self.juju('set-env', ('{}='.format(option),))
+        retvar, ct = self.juju('set-env', ('{}='.format(option),))
+        return retvar, CommandComplete(NoopCondition(), ct)
 
     def get_model_defaults(self, model_key, cloud=None, region=None):
         log.info('No model-defaults stored for client (attempted get).')
@@ -449,7 +454,8 @@ class EnvJujuClient1X(ModelClientRC):
         """Bootstrap a controller."""
         self._check_bootstrap()
         args = self.get_bootstrap_args(upload_tools, bootstrap_series)
-        self.juju('bootstrap', args)
+        retvar, ct = self.juju('bootstrap', args)
+        ct.actual_completion()
 
     @contextmanager
     def bootstrap_async(self, upload_tools=False):
@@ -497,25 +503,27 @@ class EnvJujuClient1X(ModelClientRC):
         """Destroy the environment, with force. Hard kill option.
 
         :return: Subprocess's exit code."""
-        return self.juju(
+        retvar, ct = self.juju(
             'destroy-environment', (self.env.environment, '--force', '-y'),
             check=check, include_e=False, timeout=get_teardown_timeout(self))
+        return retvar, CommandComplete(NoopCondition(), ct)
 
     def destroy_controller(self, all_models=False):
         """Destroy the environment, with force. Soft kill option.
 
         :param all_models: Ignored.
         :raises: subprocess.CalledProcessError if the operation fails."""
-        return self.juju(
+        retvar, ct = self.juju(
             'destroy-environment', (self.env.environment, '-y'),
             include_e=False, timeout=get_teardown_timeout(self))
+        return retvar, CommandComplete(NoopCondition(), ct)
 
     def destroy_environment(self, force=True, delete_jenv=False):
         if force:
             force_arg = ('--force',)
         else:
             force_arg = ()
-        exit_status = self.juju(
+        exit_status, _ = self.juju(
             'destroy-environment',
             (self.env.environment,) + force_arg + ('-y',),
             check=False, include_e=False,
@@ -572,7 +580,8 @@ class EnvJujuClient1X(ModelClientRC):
             args.extend(['--storage', storage])
         if constraints is not None:
             args.extend(['--constraints', constraints])
-        return self.juju('deploy', tuple(args))
+        retvar, ct = self.juju('deploy', tuple(args))
+        return retvar, CommandComplete(NoopCondition(), ct)
 
     def upgrade_charm(self, service, charm_path=None):
         args = (service,)
@@ -661,11 +670,13 @@ class EnvJujuClient1X(ModelClientRC):
 
     def disable_command(self, command_set, message=''):
         """Disable a command-set."""
-        return self.juju('block {}'.format(command_set), (message, ))
+        retvar, ct = self.juju('block {}'.format(command_set), (message, ))
+        return retvar, CommandComplete(NoopCondition(), ct)
 
     def enable_command(self, args):
         """Enable a command-set."""
-        return self.juju('unblock', args)
+        retvar, ct = self.juju('unblock', args)
+        return retvar, CommandComplete(NoopCondition(), ct)
 
 
 class EnvJujuClient22(EnvJujuClient1X):

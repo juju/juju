@@ -248,8 +248,9 @@ def assess_internet_connection(client, targets):
 
         d = re.search(r'^default\s+via\s+([\d\.]+)\s+', routes, re.MULTILINE)
         if d:
-            rc = client.juju('ssh', ('--proxy', target,
-                                     'ping -c1 -q ' + d.group(1)), check=False)
+            rc, _ = client.juju(
+                'ssh',
+                ('--proxy', target, 'ping -c1 -q ' + d.group(1)), check=False)
             if rc != 0:
                 raise ValueError('%s unable to ping default route' % target)
         else:

@@ -29,6 +29,7 @@ from jujupy import (
 from tests import (
     FakeHomeTestCase,
     TestCase,
+    make_fake_juju_return,
     )
 from utility import (
     JujuAssertionError,
@@ -361,7 +362,7 @@ class TestAssessTo(FakeHomeTestCase):
         args.temp_env_name = 'qux'
         with extended_bootstrap_cxt('2.0.0'):
             with patch('jujupy.ModelClient.juju', autospec=True,
-                       side_effect=['', '']) as j_mock:
+                       return_value=make_fake_juju_return()) as j_mock:
                 with patch('assess_bootstrap.get_controller_hostname',
                            return_value='test-host', autospec=True):
                     bs_manager = BootstrapManager.from_args(args)

@@ -69,6 +69,11 @@ from jujupy import (
     Status,
     Machine,
     )
+
+from jujupy.client import (
+    NoopCondition,
+    CommandTime,
+)
 from jujupy.configuration import (
     get_environments_path,
     get_jenv_path,
@@ -83,6 +88,7 @@ from tests import (
     assert_juju_call,
     FakeHomeTestCase,
     FakePopen,
+    make_fake_juju_return,
     observable_temp_file,
     temp_os_env,
     use_context,
@@ -222,16 +228,38 @@ class DeployStackTestCase(FakeHomeTestCase):
         self.assertEqual('region-foo', env.get_region())
 
     def test_dump_juju_timings(self):
+        first_start = datetime(2017, 3, 22, 23, 36, 52, 0)
+        first_end = first_start + timedelta(seconds=2)
+        second_start = datetime(2017, 3, 22, 23, 40, 51, 0)
         env = JujuData('foo', {'type': 'bar'})
         client = ModelClient(env, None, None)
-        client._backend.juju_timings = {("juju", "op1"): [1],
-                                        ("juju", "op2"): [2]}
-        expected = {"juju op1": [1], "juju op2": [2]}
+        client._backend.juju_timings.extend([
+            CommandTime('command1', ['command1', 'arg1'], start=first_start),
+            CommandTime(
+                'command2', ['command2', 'arg1', 'arg2'], start=second_start)
+        ])
+        client._backend.juju_timings[0].actual_completion(end=first_end)
+        expected = [
+            {
+                'command': 'command1',
+                'full_args': ['command1', 'arg1'],
+                'start': first_start,
+                'end': first_end,
+                'total_seconds': 2,
+            },
+            {
+                'command': 'command2',
+                'full_args': ['command2', 'arg1', 'arg2'],
+                'start': second_start,
+                'end': None,
+                'total_seconds': None,
+            }
+        ]
         with temp_dir() as fake_dir:
             dump_juju_timings(client, fake_dir)
             with open(os.path.join(fake_dir,
-                      'juju_command_times.json')) as out_file:
-                file_data = json.load(out_file)
+                      'juju_command_times.yaml')) as out_file:
+                file_data = yaml.load(out_file)
         self.assertEqual(file_data, expected)
 
     def test_check_token(self):
@@ -1758,7 +1786,7 @@ class TestBootstrapManager(FakeHomeTestCase):
         def do_check(*args, **kwargs):
             with client.check_timeouts():
                 with tear_down_client.check_timeouts():
-                    pass
+                    return make_fake_juju_return()
 
         with patch.object(bs_manager.tear_down_client, 'juju',
                           side_effect=do_check, autospec=True):
@@ -1997,7 +2025,9 @@ class TestBootstrapManager(FakeHomeTestCase):
         bs_manager.has_controller = False
         with patch('deploy_stack.safe_print_status',
                    autospec=True) as sp_mock:
-            with patch.object(client, 'juju', wrap=client.juju) as juju_mock:
+            with patch.object(
+                    client, 'juju', wrap=client.juju,
+                    return_value=make_fake_juju_return()) as juju_mock:
                 with patch.object(client, 'get_juju_output',
                                   wraps=client.get_juju_output) as gjo_mock:
                     with patch.object(bs_manager, '_should_dump',
@@ -2086,7 +2116,9 @@ class TestBootstrapManager(FakeHomeTestCase):
         """Preform patches to focus on the call to bootstrap."""
         with patch.object(bs_manager, 'dump_all_logs'):
             with patch.object(bs_manager, 'runtime_context'):
-                with patch.object(bs_manager.client, 'juju'):
+                with patch.object(
+                        bs_manager.client, 'juju',
+                        return_value=make_fake_juju_return()):
                     with patch.object(bs_manager.client, 'bootstrap') as mock:
                         yield mock
 

@@ -1095,7 +1095,7 @@ class Juju2Backend:
         self.feature_flags = feature_flags
         self.debug = debug
         self._timeout_path = get_timeout_path()
-        self.juju_timings = {}
+        self.juju_timings = []
         self.soft_deadline = soft_deadline
         self._ignore_soft_deadline = False
 
@@ -1131,6 +1131,9 @@ class Juju2Backend:
             debug = self.debug
         result = self.__class__(full_path, version, feature_flags, debug,
                                 self.soft_deadline)
+        # Each clone shares a reference to juju_timings allowing us to collect
+        # all commands run during a test.
+        result.juju_timings = self.juju_timings
         return result
 
     @property
@@ -1197,7 +1200,11 @@ class Juju2Backend:
     def juju(self, command, args, used_feature_flags,
              juju_home, model=None, check=True, timeout=None, extra_env=None,
              suppress_err=False):
-        """Run a command under juju for the current environment."""
+        """Run a command under juju for the current environment.
+
+        :return: Tuple rval, CommandTime rval being the commands exit code and
+          a CommandTime object used for storing command timing data.
+        """
         args = self.full_args(command, args, model, timeout)
         log.info(' '.join(args))
         env = self.shell_environ(used_feature_flags, juju_home)
@@ -1207,17 +1214,17 @@ class Juju2Backend:
             call_func = subprocess.check_call
         else:
             call_func = subprocess.call
-        start_time = time.time()
         # Mutate os.environ instead of supplying env parameter so Windows can
         # search env['PATH']
         stderr = subprocess.PIPE if suppress_err else None
+        # Keep track of commands and how long the take.
+        command_time = CommandTime(command, args, env)
         with scoped_environ(env):
             log.debug('Running juju with env: {}'.format(env))
             with self._check_timeouts():
                 rval = call_func(args, stderr=stderr)
-        self.juju_timings.setdefault(args, []).append(
-            (time.time() - start_time))
-        return rval
+        self.juju_timings.append(command_time)
+        return rval, command_time
 
     def expect(self, command, args, used_feature_flags, juju_home, model=None,
                timeout=None, extra_env=None):
@@ -1296,6 +1303,22 @@ class BaseCondition:
         self.timeout = timeout
         self.already_satisfied = already_satisfied
 
+    def iter_blocking_state(self, status):
+        """Identify when the condition required is met.
+
+        When the operation is complete yield nothing. Otherwise yields a
+        tuple ('<item detail>', '<state>')
+        as to why the action cannot be considered complete yet.
+
+        An example for a condition of an application being removed:
+            yield <application name>, 'still-present'
+        """
+        raise NotImplementedError()
+
+    def do_raise(self, model_name, status):
+        """Raise exception for when success condition fails to be achieved."""
+        raise NotImplementedError()
+
 
 class ConditionList(BaseCondition):
     """A list of conditions that support client.wait_for.
@@ -1323,6 +1346,15 @@ class ConditionList(BaseCondition):
 
     def do_raise(self, model_name, status):
         self._conditions[0].do_raise(model_name, status)
+
+
+class NoopCondition(BaseCondition):
+
+    def iter_blocking_state(self, status):
+        return iter(())
+
+    def do_raise(self, model_name, status):
+        raise Exception('NoopCondition failed: {}'.format(model_name))
 
 
 class WaitMachineNotPresent(BaseCondition):
@@ -1417,6 +1449,103 @@ class WaitVersion(BaseCondition):
 
     def do_raise(self, model_name, status):
         raise VersionsNotUpdated(model_name, status)
+
+
+class WaitAgentsStarted(BaseCondition):
+
+    def __init__(self, timeout=1200):
+        super(WaitAgentsStarted, self).__init__(timeout)
+
+    def iter_blocking_state(self, status):
+        states = Status.check_agents_started(status)
+
+        if states is not None:
+            for state, item in states.items():
+                yield item[0], state
+
+    def do_raise(self, model_name, status):
+        raise AgentsNotStarted(model_name, status)
+
+
+class CommandTime:
+    """Store timing details for a juju command."""
+
+    def __init__(self, cmd, full_args, envvars=None, start=None):
+        """Constructor.
+
+        :param cmd: Command string for command run (e.g. bootstrap)
+        :param args: List of all args the command was called with.
+        :param envvars: Dict of any extra envvars set before command was
+          called.
+        :param start: datetime.datetime object representing when the command
+          was run. If None defaults to datetime.utcnow()
+        """
+        self.cmd = cmd
+        self.full_args = full_args
+        self.envvars = envvars
+        self.start = start if start else datetime.utcnow()
+        self.end = None
+
+    def actual_completion(self, end=None):
+        """Signify that actual completion time of the command.
+
+        Note. ignores multiple calls after the initial call.
+
+        :param end: datetime.datetime object. If None defaults to
+          datetime.datetime.utcnow()
+        """
+        if self.end is None:
+            self.end = end if end else datetime.utcnow()
+
+    @property
+    def total_seconds(self):
+        """Total amount of seconds a command took to complete.
+
+        :return: Int representing number of seconds or None if the command
+          timing has never been completed.
+        """
+        if self.end is None:
+            return None
+        return (self.end - self.start).total_seconds()
+
+
+class CommandComplete(BaseCondition):
+    """Wraps a CommandTime and gives the ability to wait_for completion."""
+
+    def __init__(self, real_condition, command_time):
+        """Constructor.
+
+        :param real_condition: BaseCondition object.
+        :param command_time: CommandTime object representing the command to
+          wait for completion.
+        """
+        super(CommandComplete, self).__init__(
+            real_condition.timeout,
+            real_condition.already_satisfied)
+        self._real_condition = real_condition
+        self.command_time = command_time
+        if real_condition.already_satisfied:
+            self.command_time.actual_completion()
+
+    def iter_blocking_state(self, status):
+        """Wraps the iter_blocking_state of the stored BaseCondition.
+
+        When the operation is complete iter_blocking_state yields nothing.
+        Otherwise iter_blocking_state yields details as to why the action
+        cannot be considered complete yet.
+        """
+        completed = True
+        for item, state in self._real_condition.iter_blocking_state(status):
+            completed = False
+            yield item, state
+        if completed:
+            self.command_time.actual_completion()
+
+    def do_raise(self, status):
+        raise RuntimeError(
+            'Timed out waiting for "{}" command to complete: "{}"'.format(
+                self.command_time.cmd,
+                ' '.join(self.command_time.full_args)))
 
 
 class ModelClient:
@@ -1833,7 +1962,9 @@ class ModelClient:
                 upload_tools, config_filename, bootstrap_series, credential,
                 auto_upgrade, metadata_source, no_gui, agent_version)
             self.update_user_name()
-            self.juju('bootstrap', args, include_e=False)
+            retvar, ct = self.juju('bootstrap', args, include_e=False)
+            ct.actual_completion()
+            return retvar
 
     @contextmanager
     def bootstrap_async(self, upload_tools=False, bootstrap_series=None,
@@ -1863,7 +1994,7 @@ class ModelClient:
             '--config', config_file))
 
     def destroy_model(self):
-        exit_status = self.juju(
+        exit_status, _ = self.juju(
             'destroy-model', (self.env.environment, '-y',),
             include_e=False, timeout=get_teardown_timeout(self))
         return exit_status
@@ -1871,22 +2002,32 @@ class ModelClient:
     def kill_controller(self, check=False):
         """Kill a controller and its models. Hard kill option.
 
-        :return: Subprocess's exit code."""
-        return self.juju(
+        :return: Tuple: Subprocess's exit code, CommandComplete object.
+        """
+        retvar, ct = self.juju(
             'kill-controller', (self.env.controller.name, '-y'),
             include_e=False, check=check, timeout=get_teardown_timeout(self))
+        # Already satisfied as this is a sync, operation.
+        ct.actual_completion()
+        return retvar
 
     def destroy_controller(self, all_models=False):
         """Destroy a controller and its models. Soft kill option.
 
         :param all_models: If true will attempt to destroy all the
             controller's models as well.
-        :raises: subprocess.CalledProcessError if the operation fails."""
+        :raises: subprocess.CalledProcessError if the operation fails.
+        :return: Tuple: Subprocess's exit code, CommandComplete object.
+        """
         args = (self.env.controller.name, '-y')
         if all_models:
             args += ('--destroy-all-models',)
-        return self.juju('destroy-controller', args, include_e=False,
-                         timeout=get_teardown_timeout(self))
+        retvar, ct = self.juju(
+            'destroy-controller', args, include_e=False,
+            timeout=get_teardown_timeout(self))
+        # Already satisfied as this is a sync, operation.
+        ct.actual_completion()
+        return retvar
 
     def tear_down(self):
         """Tear down the client as cleanly as possible.
@@ -1971,7 +2112,8 @@ class ModelClient:
 
     def set_model_constraints(self, constraints):
         constraint_strings = self._dict_as_option_strings(constraints)
-        return self.juju('set-model-constraints', constraint_strings)
+        retvar, ct = self.juju('set-model-constraints', constraint_strings)
+        return retvar, CommandComplete(NoopCondition(), ct)
 
     def get_model_config(self):
         """Return the value of the environment's configured options."""
@@ -1986,11 +2128,13 @@ class ModelClient:
     def set_env_option(self, option, value):
         """Set the value of the option in the environment."""
         option_value = "%s=%s" % (option, value)
-        return self.juju('model-config', (option_value,))
+        retvar, ct = self.juju('model-config', (option_value,))
+        return CommandComplete(NoopCondition(), ct)
 
     def unset_env_option(self, option):
         """Unset the value of the option in the environment."""
-        return self.juju('model-config', ('--reset', option,))
+        retvar, ct = self.juju('model-config', ('--reset', option,))
+        return CommandComplete(NoopCondition(), ct)
 
     @staticmethod
     def _format_cloud_region(cloud=None, region=None):
@@ -2074,13 +2218,22 @@ class ModelClient:
 
     def controller_juju(self, command, args):
         args = ('-c', self.env.controller.name) + args
-        return self.juju(command, args, include_e=False)
+        retvar, ct = self.juju(command, args, include_e=False)
+        return CommandComplete(NoopCondition(), ct)
 
     def get_juju_timings(self):
-        stringified_timings = {}
-        for command, timings in self._backend.juju_timings.items():
-            stringified_timings[' '.join(command)] = timings
-        return stringified_timings
+        timing_breakdown = []
+        for ct in self._backend.juju_timings:
+            timing_breakdown.append(
+                {
+                    'command': ct.cmd,
+                    'full_args': ct.full_args,
+                    'start': ct.start,
+                    'end': ct.end,
+                    'total_seconds': ct.total_seconds,
+                }
+            )
+        return timing_breakdown
 
     def juju_async(self, command, args, include_e=True, timeout=None):
         model = self._cmd_model(include_e, controller=False)
@@ -2111,11 +2264,13 @@ class ModelClient:
             args.extend(['--bind', bind])
         if alias is not None:
             args.extend([alias])
-        return self.juju('deploy', tuple(args))
+        retvar, ct = self.juju('deploy', tuple(args))
+        return retvar, CommandComplete(WaitAgentsStarted(), ct)
 
     def attach(self, service, resource):
         args = (service, resource)
-        return self.juju('attach', args)
+        retvar, ct = self.juju('attach', args)
+        return retvar, CommandComplete(NoopCondition(), ct)
 
     def list_resources(self, service_or_unit, details=True):
         args = ('--format', 'yaml', service_or_unit)
@@ -2856,11 +3011,14 @@ class ModelClient:
         args = ('generate-tools', '-d', source_dir)
         if stream is not None:
             args += ('--stream', stream)
-        return self.juju('metadata', args, include_e=False)
+        retvar, ct = self.juju('metadata', args, include_e=False)
+        return retvar, CommandComplete(NoopCondition(), ct)
 
     def add_cloud(self, cloud_name, cloud_file):
-        return self.juju('add-cloud', ("--replace", cloud_name, cloud_file),
-                         include_e=False)
+        retvar, ct = self.juju(
+            'add-cloud', ("--replace", cloud_name, cloud_file),
+            include_e=False)
+        return retvar, CommandComplete(NoopCondition(), ct)
 
     def add_cloud_interactive(self, cloud_name, cloud):
         child = self.expect('add-cloud', include_e=False)
@@ -2973,11 +3131,13 @@ class ModelClient:
 
     def disable_command(self, command_set, message=''):
         """Disable a command-set."""
-        return self.juju('disable-command', (command_set, message))
+        retvar, ct = self.juju('disable-command', (command_set, message))
+        return retvar, CommandComplete(NoopCondition(), ct)
 
     def enable_command(self, args):
         """Enable a command-set."""
-        return self.juju('enable-command', args)
+        retvar, ct = self.juju('enable-command', args)
+        return CommandComplete(NoopCondition(), ct)
 
     def sync_tools(self, local_dir=None, stream=None, source=None):
         """Copy tools into a local directory or model."""
@@ -2987,10 +3147,12 @@ class ModelClient:
         if source is not None:
             args += ('--source', source)
         if local_dir is None:
-            return self.juju('sync-tools', args)
+            retvar, ct = self.juju('sync-tools', args)
+            return retvar, CommandComplete(NoopCondition(), ct)
         else:
             args += ('--local-dir', local_dir)
-            return self.juju('sync-tools', args, include_e=False)
+            retvar, ct = self.juju('sync-tools', args, include_e=False)
+            return retvar, CommandComplete(NoopCondition(), ct)
 
     def switch(self, model=None, controller=None):
         """Switch between models."""

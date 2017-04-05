@@ -17,6 +17,7 @@ from jujupy import (
     LXD_MACHINE,
     SimpleEnvironment,
     )
+from jujupy.client import CommandTime
 
 import assess_container_networking as jcnet
 from tests import (
@@ -78,6 +79,29 @@ class JujuMock(ModelClient):
         if cmd != 'bootstrap':
             self.commands.append((cmd, args))
         if cmd == 'ssh':
+            ct = CommandTime(cmd, args)
+            if len(self._ssh_output) == 0:
+                return "", ct
+
+            try:
+                ct = CommandTime(cmd, args)
+                return self._ssh_output[self._call_number()], ct
+            except IndexError:
+                # If we ran out of values, just return the last one
+                return self._ssh_output[-1], ct
+        else:
+            return super(JujuMock, self).juju(cmd, *rargs, **kwargs)
+
+    def get_juju_output(self, cmd, *rargs, **kwargs):
+        # Almost exactly like juju() except get_juju_output doesn't return
+        # a CommandTime
+        if len(rargs) == 1:
+            args = rargs[0]
+        else:
+            args = rargs
+        if cmd != 'bootstrap':
+            self.commands.append((cmd, args))
+        if cmd == 'ssh':
             if len(self._ssh_output) == 0:
                 return ""
 
@@ -87,7 +111,7 @@ class JujuMock(ModelClient):
                 # If we ran out of values, just return the last one
                 return self._ssh_output[-1]
         else:
-            return super(JujuMock, self).juju(cmd, *rargs, **kwargs)
+            return super(JujuMock, self).get_juju_output(cmd, *rargs, **kwargs)
 
     def _call_number(self):
         call_number = self._call_n
@@ -117,7 +141,9 @@ class TestContainerNetworking(TestCase):
             patch.object(self.client, 'wait_for', lambda *args, **kw: None),
             patch.object(self.client, 'wait_for_started',
                          self.juju_mock.get_status),
-            patch.object(self.client, 'get_juju_output', self.juju_mock.juju),
+            patch.object(
+                self.client, 'get_juju_output',
+                self.juju_mock.get_juju_output),
         ]
 
         for patcher in patches:
