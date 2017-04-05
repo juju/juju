@@ -112,7 +112,7 @@ func (e Environ) Subnets(
 }
 
 // getSubnetInfoAsMap will return the subnet information
-// for the getSubnetInfo as a map rathan than a slice
+// for the getSubnetInfo as a map rather than a slice
 func (e Environ) getSubnetInfoAsMap() (map[string]network.SubnetInfo, error) {
 	subnets, err := e.getSubnetInfo()
 	if err != nil {
@@ -126,7 +126,7 @@ func (e Environ) getSubnetInfoAsMap() (map[string]network.SubnetInfo, error) {
 }
 
 // getSubnetInfo will return the subnet information of the current oracle cloud
-// environ. This will query all oracle ip networks currenty unde the indentity
+// environ. This will query all oracle ip networks currenty under the indentity
 // domain name. The result of the query will be parsed as a slice of
 // network.SubnetInfo
 func (e Environ) getSubnetInfo() ([]network.SubnetInfo, error) {

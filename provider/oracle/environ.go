@@ -15,7 +15,7 @@ import (
 	oci "github.com/juju/go-oracle-cloud/api"
 	ociCommon "github.com/juju/go-oracle-cloud/common"
 	"github.com/juju/utils/os"
-	jujuSeries "github.com/juju/utils/series"
+	jujuseries "github.com/juju/utils/series"
 	"github.com/juju/version"
 
 	"github.com/juju/juju/cloudconfig/cloudinit"
@@ -132,7 +132,7 @@ func newOracleEnviron(
 // are required for bootstrapping.
 func (o *oracleEnviron) PrepareForBootstrap(ctx environs.BootstrapContext) error {
 	if ctx.ShouldVerifyCredentials() {
-		logger.Infof("Loging into the oracle cloud infrastructure")
+		logger.Infof("Logging into the oracle cloud infrastructure")
 		if err := o.client.Authenticate(); err != nil {
 			return errors.Trace(err)
 		}
@@ -173,23 +173,15 @@ func (o *oracleEnviron) Create(params environs.CreateParams) error {
 	return nil
 }
 
-// AdoptResources is called when the model is moved from one
-// controller to another using model migration. Some providers tag
-// instances, disks, and cloud storage with the controller UUID to
-// aid in clean destruction. This method will be called on the
-// environ for the target controller so it can update the
-// controller tags for all of those things. For providers that do
-// not track the controller UUID, a simple method returning nil
-// will suffice. The version number of the source controller is
-// provided for backwards compatibility - if the technique used to
-// tag items changes, the version number can be used to decide how
-// to remove the old tags correctly.
+// AdoptResources  is part of the Environ interface.
 func (e *oracleEnviron) AdoptResources(
 	controllerUUID string,
 	fromVersion version.Number) error {
 	return nil
 }
 
+// getCloudInitConfig retrives the cloud init config based on the
+// series and the oracle cloud network definitions
 func (e *oracleEnviron) getCloudInitConfig(
 	series string,
 	networks map[string]oci.Networker) (cloudinit.CloudConfig, error) {
@@ -201,7 +193,7 @@ func (e *oracleEnviron) getCloudInitConfig(
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot create cloudinit template")
 	}
-	operatingSystem, err := jujuSeries.GetOSFromSeries(series)
+	operatingSystem, err := jujuseries.GetOSFromSeries(series)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -311,12 +303,7 @@ func (e *oracleEnviron) getInstanceNetworks(
 	return networking, nil
 }
 
-// StartInstance asks for a new instance to be created, associated with
-// the provided config in machineConfig. The given config describes the juju
-// state for the new instance to connect to. The config MachineNonce, which must be
-// unique within an environment, is used by juju to protect against the
-// consequences of multiple instances being started with the same machine
-// id.
+// StartInstance  is part of the InstanceBroker interface.
 func (o *oracleEnviron) StartInstance(
 	args environs.StartInstanceParams,
 ) (*environs.StartInstanceResult, error) {
@@ -422,9 +409,8 @@ func (o *oracleEnviron) StartInstance(
 		return nil, errors.Trace(err)
 	}
 
-	// new cloud config template based on the series
 	logger.Infof("Getting cloud config")
-	cloudcfg, err := o.getCloudInitConfig(args.InstanceConfig.Series, networking) //cloudinit.New(args.InstanceConfig.Series)
+	cloudcfg, err := o.getCloudInitConfig(args.InstanceConfig.Series, networking)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot create cloudinit template")
 	}
@@ -488,8 +474,7 @@ func (o *oracleEnviron) StartInstance(
 	return result, nil
 }
 
-// StopInstances shuts down the instances with the specified IDs.
-// Unknown instance IDs are ignored, to enable idempotency.
+// StopInstances is part of the InstanceBroker interface.
 func (o *oracleEnviron) StopInstances(ids ...instance.Id) error {
 	//TODO: delete storage volumes
 	oracleInstances, err := o.getOracleInstances(ids...)
@@ -659,9 +644,7 @@ func (o *oracleEnviron) MaintainInstance(args environs.StartInstanceParams) erro
 	return nil
 }
 
-// Config returns the configuration data with which the Environ was created.
-// Note that this is not necessarily current; the canonical location
-// for the configuration data is stored in the state.
+// Config is part of the Environ interface.
 func (o *oracleEnviron) Config() *config.Config {
 	o.mutex.Lock()
 	defer o.mutex.Unlock()
@@ -695,10 +678,7 @@ func (o *oracleEnviron) ConstraintsValidator() (constraints.Validator, error) {
 	return validator, nil
 }
 
-// SetConfig updates the Environ's configuration.
-//
-// Calls to SetConfig do not affect the configuration of
-// values previously obtained from Storage.
+// SetConfig is part of the Environ interface.
 func (o *oracleEnviron) SetConfig(cfg *config.Config) error {
 	o.mutex.Lock()
 	defer o.mutex.Unlock()

@@ -184,9 +184,10 @@ func (o *oracleInstance) waitForMachineStatus(state ociCommon.InstanceState, tim
 }
 
 // delete will delete the instance and all other things
-// that the instances created to functional correctly
+// that the instances created to function correctly
 // if cleanup is true it will disassociate the public ips from
-// the instance
+// the instance, delete the machine sec list and delete the
+// virtual nic set also
 func (o *oracleInstance) delete(cleanup bool) error {
 	if cleanup {
 		err := o.disassociatePublicIps(true)
@@ -277,7 +278,7 @@ func (o *oracleInstance) unusedPublicIps() ([]ociResponse.IpReservation, error) 
 
 // associatePublicIP returns and allocs a new public ip in the oracle cloud
 func (o *oracleInstance) associatePublicIP() error {
-	// return all unesed public ips
+	// return all unused public ips
 	unusedIps, err := o.unusedPublicIps()
 	if err != nil {
 		return err
@@ -308,13 +309,14 @@ func (o *oracleInstance) associatePublicIP() error {
 		}
 	}
 
-	//no unused IP reservations found. Allocate a new one.
+	// no unused IP reservations found. Allocate a new one.
 	reservation, err := o.env.client.CreateIpReservation(
 		o.machine.Name, ociCommon.PublicIPPool, true, o.machine.Tags)
 	if err != nil {
 		return err
 	}
-	// alloc a new ip pool fo it
+
+	// alloc a new ip pool for it
 	assocPoolName := ociCommon.NewIPPool(
 		ociCommon.IPPool(reservation.Name),
 		ociCommon.IPReservationType,
@@ -329,7 +331,7 @@ func (o *oracleInstance) associatePublicIP() error {
 	return nil
 }
 
-// dissasociatePublicIps returns an errors if the public ip cannot be removed
+// dissasociatePublicIps returns an error if the public ip cannot be removed
 // if remove is true then it will delete all ip reservation
 // along side with the public one
 func (o *oracleInstance) disassociatePublicIps(remove bool) error {
@@ -341,7 +343,7 @@ func (o *oracleInstance) disassociatePublicIps(remove bool) error {
 
 	// range every ip
 	for _, ipAssoc := range publicIps {
-		// take the reservation info and name from the ip assoication
+		// take the reservation info and name from the ip association
 		reservation := ipAssoc.Reservation
 		name := ipAssoc.Name
 		if err := o.env.client.DeleteIpAssociation(name); err != nil {

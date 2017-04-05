@@ -15,6 +15,8 @@ import (
 
 // instanceTypes returns all oracle cloud shapes and wraps them into
 // instance.InstanceType for juju to understand and use them
+// more information about oracle cloud shapes here
+// https://docs.oracle.com/cloud/latest/stcomputecs/STCSG/GUID-1DD0FA71-AC7B-461C-B8C1-14892725AA69.htm#OCSUG210
 func instanceTypes(c *oci.Client) ([]instances.InstanceType, error) {
 
 	if c == nil {
@@ -121,7 +123,8 @@ func checkImageList(
 	return images, nil
 }
 
-// based on the id from the imagemetadata extract only the name of the image
+// getImageName based on the id from the imagemetadata extract
+// only the name of the image
 func getImageName(c *oci.Client, id string) (string, error) {
 	if id == "" {
 		return "", errors.NotFoundf("empty id")

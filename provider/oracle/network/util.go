@@ -22,9 +22,8 @@ func getMacAndIP(address []string) (mac string, ip string, err error) {
 			ip = val
 			continue
 		}
-		_, err = net.ParseMAC(val)
-		if err != nil {
-			err = errors.Errorf("The address is not an mac neighter an ip %s", val)
+		if _, err = net.ParseMAC(val); err != nil {
+			err = errors.Errorf("The address is not an mac neither an ip %s", val)
 			break
 		}
 		mac = val

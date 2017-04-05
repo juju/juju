@@ -1,3 +1,6 @@
+// Copyright 2017 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package oracle
 
 import (
@@ -45,6 +48,8 @@ func (s *oracleVolumeSource) getStoragePool(attr map[string]interface{}) (ociCom
 	return poolTypeMap[defaultPool], nil
 }
 
+// createVolume will create a storage volume given the storage volume params
+// under the oracle cloud endpoint
 func (s *oracleVolumeSource) createVolume(p storage.VolumeParams) (_ *storage.Volume, err error) {
 	var details ociResponse.StorageVolume
 
@@ -58,18 +63,27 @@ func (s *oracleVolumeSource) createVolume(p storage.VolumeParams) (_ *storage.Vo
 			_ = s.api.DeleteStorageVolume(details.Name)
 		}
 	}()
+	// we should validat the storage volume params given
+	// if their are not compliant given the oracle spec
+	// bail out
 	if err := s.ValidateVolumeParams(p); err != nil {
 		return nil, errors.Trace(err)
 	}
+	// compose and return the resource name
 	name := s.resourceName(p.Tag.String())
+	// make the sive into gib
 	size := mibToGib(p.Size)
 
+	// retrive details on the storage volume to test if
+	// it already exists under the oracle endpoint
 	details, err = s.api.StorageVolumeDetails(name)
 	if err != nil {
 		if !oci.IsNotFound(err) {
 			return nil, errors.Trace(err)
 		}
 	} else {
+		// the storage volume exists and we should return it
+		// after we do some extra checks and parsing
 		if uint64(details.Size) != size {
 			// a disk with the same name but different characteristics
 			// exists on the cloud. Error out?
@@ -85,8 +99,11 @@ func (s *oracleVolumeSource) createVolume(p storage.VolumeParams) (_ *storage.Vo
 		}
 		return &volume, nil
 	}
-
+	// the storage volume does not exist and we should try and create
+	// one based on the storage volume params given
 	attr := p.Attributes
+	// in order to create a storage volume we need to know the under what
+	// storage pool type we should attach
 	poolType, err := s.getStoragePool(attr)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -97,9 +114,14 @@ func (s *oracleVolumeSource) createVolume(p storage.VolumeParams) (_ *storage.Vo
 	for k, v := range p.ResourceTags {
 		tags = append(tags, fmt.Sprintf("%s=%s", k, v))
 	}
+	// a storage volume can be under this interval
+	// (minVolumeSIzeINGB, maxVolumeSizeInGb)
+	// if the value in GBs is not in this interval bail out
 	if size > maxVolumeSizeInGB || size < minVolumeSizeInGB {
 		return nil, errors.Errorf("invalid size for volume: %d", size)
 	}
+
+	// create params for the storage volume creation api method
 	params := oci.StorageVolumeParams{
 		Bootable:    false,
 		Description: fmt.Sprintf("Juju created volume for %q", p.Tag.String()),
@@ -116,6 +138,10 @@ func (s *oracleVolumeSource) createVolume(p storage.VolumeParams) (_ *storage.Vo
 		return nil, errors.Trace(err)
 	}
 	logger.Infof("waiting for resource %v", details.Name)
+	// after the call on the creation method we know try and
+	// fetch the status of the resource. If the resource is online and
+	// active return it or return the error if any
+	// the operation should take some time
 	// TODO: add sane constant with default timeout
 	if err := s.waitForResourceStatus(
 		s.fetchVolumeStatus,
@@ -123,7 +149,8 @@ func (s *oracleVolumeSource) createVolume(p storage.VolumeParams) (_ *storage.Vo
 		string(ociCommon.VolumeOnline), 5*time.Minute); err != nil {
 		return nil, errors.Trace(err)
 	}
-	volume := storage.Volume{
+	// return the storage volume under a juju compliant type
+	volume := &storage.Volume{
 		p.Tag,
 		storage.VolumeInfo{
 			VolumeId:   details.Name,
@@ -132,7 +159,7 @@ func (s *oracleVolumeSource) createVolume(p storage.VolumeParams) (_ *storage.Vo
 		},
 	}
 	logger.Infof("returning volume details: %v", volume)
-	return &volume, nil
+	return volume, nil
 }
 
 // CreateVolumes is specified on the storage.VolumeSource interface

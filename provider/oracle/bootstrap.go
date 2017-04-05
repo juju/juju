@@ -14,7 +14,7 @@ import (
 func (e *oracleEnviron) createInstance(params oci.InstanceParams) (*oracleInstance, error) {
 
 	if len(params.Instances) > 1 {
-		return nil, errors.NotSupportedf("launching multiple controllers")
+		return nil, errors.NotSupportedf("launching multiple instances")
 	}
 
 	logger.Debugf("running createInstance")

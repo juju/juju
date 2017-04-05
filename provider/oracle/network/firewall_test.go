@@ -944,16 +944,15 @@ func (f *firewallSuite) TestCreateDefaultACLAndRulesWithErrors(c *gc.C) {
 	}
 }
 
-//
-// func (f *firewallSuite) TestRemoveACLAdnRules(c *gc.C) {
-// 	cfg := &fakeEnvironConfig{cfg: testing.ModelConfig(c)}
-//
-// 	firewall := network.NewFirewall(cfg, DefaultFakeFirewallAPI)
-// 	c.Assert(firewall, gc.NotNil)
-// 	err := firewall.RemoveACLAndRules("0")
-// 	c.Assert(err, gc.IsNil)
-// }
-//
+func (f *firewallSuite) TestRemoveACLAdnRules(c *gc.C) {
+	cfg := &fakeEnvironConfig{cfg: testing.ModelConfig(c)}
+
+	firewall := network.NewFirewall(cfg, DefaultFakeFirewallAPI)
+	c.Assert(firewall, gc.NotNil)
+	err := firewall.RemoveACLAndRules("0")
+	c.Assert(err, gc.IsNil)
+}
+
 func (f *firewallSuite) TestRemoveACLAndRulesWithErrors(c *gc.C) {
 	cfg := &fakeEnvironConfig{cfg: testing.ModelConfig(c)}
 	for _, fake := range []*FakeFirewallAPI{

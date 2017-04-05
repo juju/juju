@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/juju/environs"
-	// "github.com/juju/juju/cloudconfig/cloudinit"
 )
 
 var _ environs.NetworkingEnviron = (*oracleEnviron)(nil)
@@ -64,8 +63,7 @@ func (o *oracleEnviron) DeleteMachineVnicSet(machineId string) error {
 		return errors.Trace(err)
 	}
 	name := o.client.ComposeName(o.namespace.Value(machineId))
-	err := o.client.DeleteVnicSet(name)
-	if err != nil {
+	if err := o.client.DeleteVnicSet(name); err != nil {
 		if !oci.IsNotFound(err) {
 			return errors.Trace(err)
 		}
