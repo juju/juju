@@ -10,6 +10,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/provider/oracle"
 	"github.com/juju/juju/storage"
+	"github.com/juju/juju/testing"
 )
 
 type storageSuite struct{}
@@ -19,10 +20,13 @@ var _ = gc.Suite(&storageSuite{})
 func (s *storageSuite) NewStorageProvider(c *gc.C) storage.ProviderRegistry {
 	env, err := oracle.NewOracleEnviron(
 		oracle.DefaultProvider,
-		environs.OpenParams{},
+		environs.OpenParams{
+			Config: testing.ModelConfig(c),
+		},
 		&api.Client{},
 	)
 	c.Assert(err, gc.IsNil)
+	c.Assert(env, gc.NotNil)
 	return env
 }
 
