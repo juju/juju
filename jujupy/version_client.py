@@ -439,7 +439,7 @@ class EnvJujuClient1X(ModelClientRC):
         self._check_bootstrap()
         args = self.get_bootstrap_args(upload_tools, bootstrap_series)
         retvar, ct = self.juju('bootstrap', args)
-        return (0, CommandComplete(NoopCondition(), ct))
+        ct.actual_completion()
 
     @contextmanager
     def bootstrap_async(self, upload_tools=False):

@@ -534,10 +534,9 @@ class CreateController:
 
     def create_initial_model(self, upload_tools, series, boot_kwargs):
         """Create the initial model by bootstrapping."""
-        _, bootstrap_complete = self.client.bootstrap(
+        self.client.bootstrap(
             upload_tools=upload_tools, bootstrap_series=series,
             **boot_kwargs)
-        self.client.get_controller_client().wait_for(bootstrap_complete)
 
     def get_hosts(self):
         """Provide the controller host."""

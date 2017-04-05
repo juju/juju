@@ -1947,7 +1947,8 @@ class ModelClient:
                 auto_upgrade, metadata_source, no_gui, agent_version)
             self.update_user_name()
             retvar, ct = self.juju('bootstrap', args, include_e=False)
-            return retvar, CommandComplete(WaitAgentsStarted(), ct)
+            ct.actual_completion()
+            return retvar
 
     @contextmanager
     def bootstrap_async(self, upload_tools=False, bootstrap_series=None,
@@ -1991,8 +1992,8 @@ class ModelClient:
             'kill-controller', (self.env.controller.name, '-y'),
             include_e=False, check=check, timeout=get_teardown_timeout(self))
         # Already satisfied as this is a sync, operation.
-        return retvar, CommandComplete(
-            NoopCondition(already_satisfied=True), ct)
+        ct.actual_completion()
+        return retvar
 
     def destroy_controller(self, all_models=False):
         """Destroy a controller and its models. Soft kill option.
@@ -2009,8 +2010,8 @@ class ModelClient:
             'destroy-controller', args, include_e=False,
             timeout=get_teardown_timeout(self))
         # Already satisfied as this is a sync, operation.
-        return retvar, CommandComplete(
-            NoopCondition(already_satisfied=True), ct)
+        ct.actual_completion()
+        return retvar
 
     def tear_down(self):
         """Tear down the client as cleanly as possible.
@@ -2021,7 +2022,7 @@ class ModelClient:
             self.destroy_controller(all_models=True)
         except subprocess.CalledProcessError:
             logging.warning('tear_down destroy-controller failed')
-            retval, _ = self.kill_controller()
+            retval = self.kill_controller()
             message = 'tear_down kill-controller result={}'.format(retval)
             if retval == 0:
                 logging.info(message)
