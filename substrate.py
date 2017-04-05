@@ -121,7 +121,14 @@ class AWSAccount:
         client = ec2.connect_to_region(
             region, aws_access_key_id=euca_environ['EC2_ACCESS_KEY'],
             aws_secret_access_key=euca_environ['EC2_SECRET_KEY'])
-        yield cls(euca_environ, region, client)
+        # There is no point constructing a AWSAccount if client is None.
+        # It can't do anything.
+        if client is None:
+            log.info(
+                'Failed to create ec2 client for region: {}.'.format(region))
+            yield None
+        else:
+            yield cls(euca_environ, region, client)
 
     def __init__(self, euca_environ, region, client):
         self.euca_environ = euca_environ
