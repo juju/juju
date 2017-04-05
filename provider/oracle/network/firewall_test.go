@@ -944,7 +944,7 @@ func (f *firewallSuite) TestCreateDefaultACLAndRulesWithErrors(c *gc.C) {
 	}
 }
 
-func (f *firewallSuite) TestRemoveACLAdnRules(c *gc.C) {
+func (f *firewallSuite) TestRemoveACLAndRules(c *gc.C) {
 	cfg := &fakeEnvironConfig{cfg: testing.ModelConfig(c)}
 
 	firewall := network.NewFirewall(cfg, DefaultFakeFirewallAPI)
