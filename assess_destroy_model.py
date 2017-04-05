@@ -16,7 +16,6 @@ from utility import (
     add_basic_testing_arguments,
     configure_logging,
     JujuAssertionError,
-    LoggedException
     )
 
 
@@ -59,17 +58,15 @@ def add_model(client):
 
     :param client: Jujupy ModelClient object
     """
-    log.info(
-        'Adding model "tested" to current controller')
+    log.info('Adding model "tested" to current controller')
     new_client = client.add_model(TEST_MODEL)
     new_model = get_current_model(new_client)
-    try:
-        assert new_model == TEST_MODEL
+    if new_model == TEST_MODEL:
         log.info('Current model and newly added model match')
-    except AssertionError:
-        log.error('Juju failed to switch to new model after creation. '
-                  'Expected {} got {}'.format(TEST_MODEL, new_model))
-        raise JujuAssertionError('Model mismatch')
+    else:
+        error = ('Juju failed to switch to new model after creation. '
+                 'Expected {} got {}'.format(TEST_MODEL, new_model))
+        raise JujuAssertionError(error)
     return new_client
 
 
@@ -79,8 +76,7 @@ def destroy_model(new_client):
     new_model = get_current_model(new_client)
     if new_model:
         error = 'Juju failed to unset model after it was destroyed'
-        log.error(error)
-        raise LoggedException(error)
+        raise JujuAssertionError(error)
 
 
 def switch_model(client, current_model, current_controller):
@@ -92,13 +88,12 @@ def switch_model(client, current_model, current_controller):
     """
     client.switch(model=current_model, controller=current_controller)
     new_model = get_current_model(client)
-    try:
-        assert new_model == current_model
+    if new_model == current_model:
         log.info('Current model and switch target match')
-    except AssertionError:
-        log.error('Juju failed to switch back to existing model. '
-                  'Expected {} got {}'.format(TEST_MODEL, new_model))
-        raise JujuAssertionError('Model mismatch')
+    else:
+        error = ('Juju failed to switch back to existing model. '
+                 'Expected {} got {}'.format(TEST_MODEL, new_model))
+        raise JujuAssertionError(error)
 
 
 def get_current_controller(client):
@@ -113,8 +108,8 @@ def get_current_controller(client):
     if match:
         return match.group(1)
     else:
-        log.error('Failed to get current controller')
-        raise LoggedException
+        error = ('Failed to get current controller')
+        raise JujuAssertionError(error)
 
 
 def get_current_model(client):
@@ -151,8 +146,8 @@ def list_models(client):
 def parse_args(argv):
     """Parse all arguments."""
     parser = argparse.ArgumentParser(
-        description='Test if juju keeps track of the current controller '
-        'when a model is destroyed.')
+        description='Test if juju drops selection of the current model '
+        'when that model is destroyed.')
     add_basic_testing_arguments(parser)
     return parser.parse_args(argv)
 

@@ -25,7 +25,7 @@ from tests import (
     TestCase,
     )
 from utility import (
-    LoggedException
+    JujuAssertionError
     )
 
 list_model_initial = dedent("""
@@ -102,6 +102,18 @@ class TestAssess(TestCase):
              call.get_juju_output('list-models', include_e=False)],
             fake_client.mock_calls)
 
+    def test_add_model_fails(self):
+        fake_client = Mock(wraps=fake_juju_client())
+        fake_client.bootstrap()
+        fake_client.get_juju_output.return_value = list_model_initial
+        fake_client.add_model.return_value = fake_client
+        with self.assertRaises(JujuAssertionError) as context:
+            add_model(fake_client)
+        self.assertTrue(
+            'Juju failed to switch to new model after creation. '
+            'Expected test-tmp-env got foo-temp-env'
+            in context.exception.message)
+
     def test_destroy_model(self):
         fake_client = Mock(wraps=fake_juju_client())
         fake_client.bootstrap()
@@ -117,11 +129,11 @@ class TestAssess(TestCase):
         fake_client = Mock(wraps=fake_juju_client())
         fake_client.bootstrap()
         fake_client.get_juju_output.return_value = list_model_initial
-        with self.assertRaises(LoggedException) as context:
+        with self.assertRaises(JujuAssertionError) as context:
             destroy_model(fake_client)
         self.assertTrue(
             'Juju failed to unset model after it was destroyed'
-            in context.exception.exception)
+            in context.exception.message)
 
     def test_switch_model(self):
         fake_client = Mock(wraps=fake_juju_client())
