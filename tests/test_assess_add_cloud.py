@@ -101,7 +101,51 @@ class TestAssessCloud(FakeHomeTestCase):
             """), stderr.getvalue())
 
 
+class TestCloudValidation(FakeHomeTestCase):
+
+    def test_2_0(self):
+        validation = CloudValidation('2.0.0')
+        self.assertIs('2.0.0', validation.version)
+        self.assertIs(validation.NONE, validation.support)
+        self.assertIsFalse(validation.is_basic)
+        self.assertIsFalse(validation.is_endpoint)
+        self.assertFalse(validation.has_endpoint('openstack'))
+        self.assertIs(
+            validation.NONE, CloudValidation('2.0-beta1').support)
+        self.assertIs(
+            validation.NONE, CloudValidation('2.0.3').support)
+
+    def test_2_1(self):
+        validation = CloudValidation('2.1.0')
+        self.assertIs('2.1.0', validation.version)
+        self.assertIs(validation.BASIC, validation.support)
+        self.assertIsTrue(validation.is_basic)
+        self.assertIsFalse(validation.is_endpoint)
+        self.assertFalse(validation.has_endpoint('openstack'))
+        self.assertIs(
+            validation.BASIC, CloudValidation('2.1-beta1').support)
+        self.assertIs(
+            validation.BASIC, CloudValidation('2.1.3').support)
+
+    def test_2_2_plus(self):
+        validation = CloudValidation('2.2.0')
+        self.assertIs('2.2.0', validation.version)
+        self.assertIs(validation.ENDPOINT, validation.support)
+        self.assertIsFalse(validation.is_basic)
+        self.assertIsTrue(validation.is_endpoint)
+        self.assertTrue(validation.has_endpoint('openstack'))
+        self.assertFalse(validation.has_endpoint('manual'))
+        self.assertIs(
+            validation.ENDPOINT, CloudValidation('2.2-beta1').support)
+        self.assertIs(
+            validation.ENDPOINT, CloudValidation('2.2.1').support)
+        self.assertIs(
+            validation.ENDPOINT, CloudValidation('2.3-beta1').support)
+
+
 long_text = 'A' * EXCEEDED_LIMIT
+endpoint_validation = CloudValidation('2.2.0')
+basic_validation = CloudValidation('2.1.0')
 
 
 def make_long_endpoint(spec, validation, regions=False):
@@ -112,13 +156,9 @@ def make_long_endpoint(spec, validation, regions=False):
             region['endpoint'] = long_text
     spec = cloud_spec('long-endpoint-{}'.format(spec.name), spec.name, config,
                       InvalidEndpoint)
-    if validation.is_basic():
+    if validation.is_basic:
         spec = xfail(spec, 1641970, CloudMismatch)
     return spec
-
-
-endpoint_validation = CloudValidation('2.2.0')
-basic_validation = CloudValidation('2.1.0')
 
 
 class TestIterClouds(FakeHomeTestCase):

@@ -67,14 +67,17 @@ class CloudValidation:
             self.support = self.NONE
         elif re.match('2\.1[^\d]', version):
             self.support = self.BASIC
-        if re.match('2\.2[^\d]', version):
+        else:
+            # re.match('2\.2[^\d]', version)
             # 2.2 retracted manual endpoint validation because it is entangled
             # with authentication.
             self.support = self.ENDPOINT
 
+    @property
     def is_basic(self):
         return self.support is self.BASIC
 
+    @property
     def is_endpoint(self):
         return self.support is self.ENDPOINT
 
