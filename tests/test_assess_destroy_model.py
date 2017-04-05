@@ -47,6 +47,12 @@ list_model_destroy = dedent("""
     controller  localhost/localhost
 """)
 
+list_model_switch = dedent("""
+    'Controller: foo-temp-env\n\n
+    bar-temp-env*  localhost/localhost
+    controller  localhost/localhost
+""")
+
 
 class TestParseArgs(TestCase):
 
@@ -145,3 +151,14 @@ class TestAssess(TestCase):
              call.switch(controller='foo-temp-env', model='foo-temp-env'),
              call.get_juju_output('list-models', include_e=False)],
             fake_client.mock_calls)
+
+    def test_switch_model_fails(self):
+        fake_client = Mock(wraps=fake_juju_client())
+        fake_client.bootstrap()
+        fake_client.get_juju_output.return_value = list_model_switch
+        with self.assertRaises(JujuAssertionError) as context:
+            switch_model(fake_client, 'foo-temp-env', 'foo-temp-env')
+        self.assertTrue(
+            'Juju failed to switch back to existing model. '
+            'Expected test-tmp-env got bar-temp-env'
+            in context.exception.message)
