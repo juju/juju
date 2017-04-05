@@ -5,6 +5,7 @@ package containerizer
 
 import (
 	"fmt"
+	"hash/crc32"
 	"sort"
 	"strings"
 
@@ -15,8 +16,6 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	// Used for some constants and things like LinkLayerDevice[Args]
-	"crypto/sha256"
-	"encoding/hex"
 	"github.com/juju/juju/state"
 )
 
@@ -195,18 +194,17 @@ var skippedDeviceNames = set.NewStrings(
 // 2. Add b- to device name, if it doesn't fit in 15 characters then:
 // 3a. For devices starting in 'en' remove 'en' and add 'b-'
 // 3b. For all other devices 'b-' + 6-char hash of name + '-' + last 6 chars of name
-func bridgeNameForDevice(device string) string {
+func BridgeNameForDevice(device string) string {
 	switch {
-	case len(device) < 12:
+	case len(device) < 13:
 		return fmt.Sprintf("br-%s", device)
 	case len(device) == 13:
 		return fmt.Sprintf("b-%s", device)
 	case device[:2] == "en":
 		return fmt.Sprintf("b-%s", device[2:])
 	default:
-		hash := sha256.Sum256([]byte(device))
-		txthash := hex.EncodeToString(hash[:])[0:6]
-		return fmt.Sprintf("b-%s-%s", txthash, device[len(device)-6:])
+		hash := crc32.Checksum([]byte(device), crc32.IEEETable) & 0xffffff
+		return fmt.Sprintf("b-%0.6x-%s", hash, device[len(device)-6:])
 	}
 }
 
@@ -301,7 +299,7 @@ func (b *BridgePolicy) FindMissingBridgesForContainer(m Machine, containerMachin
 	for _, hostName := range network.NaturallySortDeviceNames(hostDeviceNamesToBridge...) {
 		hostToBridge = append(hostToBridge, network.DeviceToBridge{
 			DeviceName: hostName,
-			BridgeName: bridgeNameForDevice(hostName),
+			BridgeName: BridgeNameForDevice(hostName),
 		})
 	}
 	return hostToBridge, reconfigureDelay, nil

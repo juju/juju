@@ -7,11 +7,11 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/juju/juju/network/debinterfaces"
 	"github.com/juju/utils/clock"
-	"strings"
 )
 
 const usage = `
