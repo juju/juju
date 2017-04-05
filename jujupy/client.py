@@ -1862,11 +1862,9 @@ class ModelClient:
         self.controller_juju('add-model', (model_name,) + region_args + (
             '--config', config_file))
 
-    def destroy_model(self, model=None):
-        if not model:
-            model = self.env.environment
+    def destroy_model(self):
         exit_status = self.juju(
-            'destroy-model', (model, '-y',),
+            'destroy-model', (self.env.environment, '-y',),
             include_e=False, timeout=get_teardown_timeout(self))
         return exit_status
 
@@ -2996,11 +2994,9 @@ class ModelClient:
 
     def switch(self, model=None, controller=None):
         """Switch between models."""
-        if not model and not controller:
-            raise ValueError('No target to switch to has been given.')
-        if not controller:
-            controller = self.env.environment
         args = [x for x in [controller, model] if x]
+        if not args:
+            raise ValueError('No target to switch to has been given.')
         self.juju('switch', (':'.join(args),), include_e=False)
 
 

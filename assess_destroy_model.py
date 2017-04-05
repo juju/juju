@@ -31,9 +31,9 @@ def assess_destroy_model(client):
     log.info('Current controller ID: {}'.format(current_controller_id))
 
     log.info('Adding model "test" to current controller.')
-    client.add_model('test')
-    log.info('Destroying model "test"')
-    client.destroy_model(model='test')
+    new_model = client.add_model('test')
+
+    new_client.destroy_model()
     new_controller_id = client.get_status().status['model']['controller']
     log.info('Controller ID after destroy: {}'.format(new_controller_id))
     assert (current_controller_id == new_controller_id)
