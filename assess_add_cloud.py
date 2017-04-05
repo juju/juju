@@ -54,6 +54,46 @@ class NotRaised(Exception):
         super(NotRaised, self).__init__(msg)
 
 
+class CloudValidation:
+
+    NONE = object
+    BASIC = object()
+    ENDPOINT = object()
+    ENDPOINT_NO_MANUAL = object()
+
+    def __init__(self, version):
+        """Initialize with the juju version."""
+        self.version = version
+        if re.match('2\.2[^\d]', version):
+            # 2.2 retracted manual endpoint validation because it is entangled
+            # with authentication.
+            self.support = self.ENDPOINT
+        elif re.match('2\.1[^\d]', version):
+            self.support = self.BASIC
+        else:
+            self.support = self.NONE
+
+    def is_basic(self):
+        return self.support is self.BASIC
+
+    def is_endpoint(self):
+        return self.support is self.ENDPOINT
+
+    def is_endpoint_no_manual(self):
+        return self.support is self.ENDPOINT_NO_MANUAL
+
+    def is_endpointx(self, provider):
+        """Return True if the juju provider supports endpoint validation.
+
+        :param provider: The cloud provider type.
+        """
+        if self.support is self.ENDPOINT:
+            return True
+        elif self.support is self.ENDPOINT_NO_MANUAL and provider != 'manual':
+            return True
+        return False
+
+
 CloudSpec = namedtuple('CloudSpec', [
     'label', 'name', 'config', 'exception', 'xfail_bug'])
 
@@ -105,28 +145,38 @@ def assess_cloud(client, cloud_name, example_cloud):
         raise CloudMismatch()
 
 
-def iter_clouds(clouds, endpoint_validation):
-    """Iterate through CloudSpecs."""
+def iter_clouds(clouds, cloud_validation):
+    """Iterate through CloudSpecs.
+
+    :param clouds: cloud data as defined in $JUJU_DATA/clouds.yaml
+    :param cloud_validation: an instance of CloudValidation.
+    """
     yield cloud_spec('bogus-type', 'bogus-type', {'type': 'bogus'},
                      exception=TypeNotAccepted)
     for cloud_name, cloud in clouds.items():
         spec = cloud_spec(cloud_name, cloud_name, cloud)
-        if cloud['type'] == 'manual' and endpoint_validation:
-            cloud_spec(cloud_name, cloud_name, cloud)
+        is_manual = cloud['type'] == 'manual'
+        if is_manual:
+            if cloud_validation.is_endpoint():
+                spec = xfail(spec, 1649721, InvalidEndpoint)
+            # else:
+            #     spec = cloud_spec(cloud_name, cloud_name, cloud)
         yield spec
 
     long_text = 'A' * EXCEEDED_LIMIT
 
     for cloud_name, cloud in clouds.items():
+        is_manual = cloud['type'] == 'manual'
         spec = xfail(cloud_spec('long-name-{}'.format(cloud_name), long_text,
                                 cloud, NameNotAccepted), 1641970, NameMismatch)
-        if cloud['type'] == 'manual' and endpoint_validation:
-            spec = cloud_spec('long-name-{}'.format(cloud_name),
-                              long_text, cloud)
+        if is_manual and cloud_validation.is_endpoint():
+            spec = xfail(spec, 1649721, InvalidEndpoint)
         yield spec
         spec = xfail(
             cloud_spec('invalid-name-{}'.format(cloud_name), 'invalid/name',
                        cloud, NameNotAccepted), 1641981, None)
+        if is_manual and cloud_validation.is_endpoint():
+            spec = xfail(spec, 1649721, InvalidEndpoint)
         yield spec
 
         if cloud['type'] not in ('maas', 'manual', 'vsphere'):
@@ -145,10 +195,8 @@ def iter_clouds(clouds, endpoint_validation):
             variant_name = 'long-endpoint-{}'.format(cloud_name)
             spec = cloud_spec(variant_name, cloud_name, variant,
                               InvalidEndpoint)
-            if not endpoint_validation:
+            if not cloud_validation.is_endpoint():
                 spec = xfail(spec, 1641970, CloudMismatch)
-            elif cloud['type'] == 'manual':
-                spec = cloud_spec(variant_name, cloud_name, variant)
             yield spec
 
         for region_name in cloud.get('regions', {}).keys():
@@ -161,7 +209,7 @@ def iter_clouds(clouds, endpoint_validation):
                                                         region_name)
             spec = cloud_spec(variant_name, cloud_name, variant,
                               InvalidEndpoint)
-            if not endpoint_validation:
+            if not cloud_validation.is_endpoint():
                 spec = xfail(spec, 1641970, CloudMismatch)
             yield spec
 
@@ -229,8 +277,8 @@ def main():
         logging.warn('This test does not support old jujus.')
     with open(args.example_clouds) as f:
         clouds = yaml.safe_load(f)['clouds']
-    endpoint_validation = bool(not re.match('2\.1[^\d]', version))
-    cloud_specs = iter_clouds(clouds, endpoint_validation)
+    cloug_validation = CloudValidation(version)
+    cloud_specs = iter_clouds(clouds, cloug_validation)
     with temp_dir() as juju_home:
         env = JujuData('foo', config=None, juju_home=juju_home)
         client = client_class(env, version, juju_bin)
