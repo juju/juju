@@ -615,6 +615,12 @@ func (m *ModelManagerAPI) getModelInfo(tag names.ModelTag) (params.ModelInfo, er
 		return params.ModelInfo{}, errors.Trace(common.ErrPerm)
 	}
 
+	// All users with access to the model can see the SLA information.
+	info.SLA = &params.ModelSLAInfo{
+		Level: model.SLALevel(),
+		Owner: model.SLAOwner(),
+	}
+
 	canSeeMachines := authorizedOwner
 	if !canSeeMachines {
 		if canSeeMachines, err = m.hasWriteAccess(tag); err != nil {

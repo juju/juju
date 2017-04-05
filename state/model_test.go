@@ -233,13 +233,14 @@ func (s *ModelSuite) TestSLA(c *gc.C) {
 	c.Assert(level, gc.Equals, "unsupported")
 	c.Assert(model.SLACredential(), gc.DeepEquals, []byte{})
 	for _, goodLevel := range []string{"unsupported", "essential", "standard", "advanced"} {
-		err = st.SetSLA(goodLevel, []byte("auth "+goodLevel))
+		err = st.SetSLA(goodLevel, "bob", []byte("auth "+goodLevel))
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(model.Refresh(), jc.ErrorIsNil)
 		level, err = st.SLALevel()
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(level, gc.Equals, goodLevel)
 		c.Assert(model.SLALevel(), gc.Equals, goodLevel)
+		c.Assert(model.SLAOwner(), gc.Equals, "bob")
 		c.Assert(model.SLACredential(), gc.DeepEquals, []byte("auth "+goodLevel))
 	}
 
@@ -247,10 +248,11 @@ func (s *ModelSuite) TestSLA(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(defaultLevel, gc.Equals, state.SLAUnsupported)
 
-	err = model.SetSLA("nope", []byte("auth nope"))
+	err = model.SetSLA("nope", "nobody", []byte("auth nope"))
 	c.Assert(err, gc.ErrorMatches, `.*SLA level "nope" not valid.*`)
 
 	c.Assert(model.SLALevel(), gc.Equals, "advanced")
+	c.Assert(model.SLAOwner(), gc.Equals, "bob")
 	c.Assert(model.SLACredential(), gc.DeepEquals, []byte("auth advanced"))
 	slaCreds, err := st.SLACredential()
 	c.Assert(err, jc.ErrorIsNil)

@@ -43,7 +43,7 @@ type slaSuite struct {
 var _ = gc.Suite(&slaSuite{})
 
 func (s *slaSuite) TestSLALevel(c *gc.C) {
-	err := s.State.SetSLA("essential", []byte("creds"))
+	err := s.State.SetSLA("essential", "bob", []byte("creds"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	level, err := s.uniter.SLALevel()

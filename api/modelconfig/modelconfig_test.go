@@ -140,7 +140,10 @@ func (s *modelconfigSuite) TestSetSupport(c *gc.C) {
 			c.Check(id, gc.Equals, "")
 			c.Check(request, gc.Equals, "SetSLALevel")
 			c.Check(a, jc.DeepEquals, params.ModelSLA{
-				Level:       "foobar",
+				ModelSLAInfo: params.ModelSLAInfo{
+					Level: "foobar",
+					Owner: "bob",
+				},
 				Credentials: []byte("creds"),
 			})
 			called = true
@@ -148,7 +151,7 @@ func (s *modelconfigSuite) TestSetSupport(c *gc.C) {
 		},
 	)
 	client := modelconfig.NewClient(apiCaller)
-	err := client.SetSLALevel("foobar", []byte("creds"))
+	err := client.SetSLALevel("foobar", "bob", []byte("creds"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(called, jc.IsTrue)
 }
