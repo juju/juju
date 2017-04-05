@@ -23,7 +23,7 @@ DEFAULT_SPB2 = 'lp:~juju-qa/juju-release-tools/packaging-juju-core2-default'
 
 # This constant defines the status of the series supported by CI and Releases.
 SUPPORTED_RELEASES = """\
-12.04 precise LTS
+12.04 precise HISTORIC
 12.10 quantal HISTORIC
 13.10 saucy HISTORIC
 14.04 trusty LTS

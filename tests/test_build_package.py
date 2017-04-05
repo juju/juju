@@ -65,7 +65,7 @@ class JujuSeriesTestCase(unittest.TestCase):
     def test_get_living_names(self):
         juju_series = _JujuSeries()
         self.assertEqual(
-            ['precise', 'trusty', 'xenial', 'yakkety', 'zesty'],
+            ['trusty', 'xenial', 'yakkety', 'zesty'],
             juju_series.get_living_names())
 
     def test_get_name(self):
