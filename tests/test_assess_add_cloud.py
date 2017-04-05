@@ -21,6 +21,7 @@ from assess_add_cloud import (
     assess_cloud,
     CloudMismatch,
     CloudSpec,
+    CloudValidation,
     cloud_spec,
     EXCEEDED_LIMIT,
     iter_clouds,
@@ -103,7 +104,7 @@ class TestAssessCloud(FakeHomeTestCase):
 long_text = 'A' * EXCEEDED_LIMIT
 
 
-def make_long_endpoint(spec, endpoint_validation, regions=False):
+def make_long_endpoint(spec, validation, regions=False):
     config = deepcopy(spec.config)
     config['endpoint'] = long_text
     if regions:
@@ -111,9 +112,13 @@ def make_long_endpoint(spec, endpoint_validation, regions=False):
             region['endpoint'] = long_text
     spec = cloud_spec('long-endpoint-{}'.format(spec.name), spec.name, config,
                       InvalidEndpoint)
-    if not endpoint_validation:
+    if validation.is_basic():
         spec = xfail(spec, 1641970, CloudMismatch)
     return spec
+
+
+endpoint_validation = CloudValidation('2.2.0')
+basic_validation = CloudValidation('2.1.0')
 
 
 class TestIterClouds(FakeHomeTestCase):
@@ -126,16 +131,14 @@ class TestIterClouds(FakeHomeTestCase):
         cloud = {'type': 'manual', 'endpoint': 'http://example.com'}
         spec = cloud_spec('foo', 'foo', cloud)
         self.assertItemsEqual([
-            self.bogus_type, xfail(spec, 1649721, InvalidEndpoint),
-            xfail(xfail(cloud_spec('long-name-foo', long_text, cloud),
-                        1641970, NameMismatch), 1649721, InvalidEndpoint),
-            xfail(xfail(cloud_spec('invalid-name-foo', 'invalid/name', cloud,
-                        exception=NameNotAccepted), 1641981, None),
-                  1649721, InvalidEndpoint),
-            make_long_endpoint(
-                spec, endpoint_validation=True)
+            self.bogus_type, spec,
+            xfail(cloud_spec('long-name-foo', long_text, cloud),
+                  1641970, NameMismatch),
+            xfail(cloud_spec('invalid-name-foo', 'invalid/name', cloud,
+                             exception=NameNotAccepted), 1641981, None),
+            make_long_endpoint(spec, basic_validation)
             ],
-            iter_clouds({'foo': cloud}, endpoint_validation=True))
+            iter_clouds({'foo': cloud}, endpoint_validation))
 
     def test_manual_no_validation(self):
         self.maxDiff = None
@@ -148,9 +151,9 @@ class TestIterClouds(FakeHomeTestCase):
             xfail(cloud_spec('invalid-name-foo', 'invalid/name', cloud,
                              exception=NameNotAccepted), 1641981, None),
             make_long_endpoint(
-                spec, endpoint_validation=False)
+                spec, basic_validation)
             ],
-            iter_clouds({'foo': cloud}, endpoint_validation=False))
+            iter_clouds({'foo': cloud}, basic_validation))
 
     def test_vsphere(self):
         cloud = {
@@ -166,8 +169,8 @@ class TestIterClouds(FakeHomeTestCase):
             xfail(cloud_spec('long-name-foo', long_text, cloud,
                              exception=None), 1641970, NameMismatch),
             make_long_endpoint(
-                spec, regions=True, endpoint_validation=True),
-            ], iter_clouds({'foo': cloud}, endpoint_validation=True))
+                spec, endpoint_validation, regions=True),
+            ], iter_clouds({'foo': cloud}, endpoint_validation))
 
     def test_vsphere_no_validation(self):
         cloud = {
@@ -182,10 +185,10 @@ class TestIterClouds(FakeHomeTestCase):
                              exception=NameNotAccepted), 1641981, None),
             xfail(cloud_spec('long-name-foo', long_text, cloud,
                              exception=None), 1641970, NameMismatch),
-            xfail(make_long_endpoint(spec, regions=True,
-                                     endpoint_validation=True),
+            xfail(make_long_endpoint(spec,
+                                     endpoint_validation, regions=True),
                   1641970, CloudMismatch),
-            ], iter_clouds({'foo': cloud}, endpoint_validation=False))
+            ], iter_clouds({'foo': cloud}, basic_validation))
 
     def test_maas(self):
         cloud = {
@@ -199,8 +202,8 @@ class TestIterClouds(FakeHomeTestCase):
                              exception=NameNotAccepted), 1641981, None),
             xfail(cloud_spec('long-name-foo', long_text, cloud,
                              exception=None), 1641970, NameMismatch),
-            make_long_endpoint(spec, endpoint_validation=True),
-            ], iter_clouds({'foo': cloud}, endpoint_validation=True))
+            make_long_endpoint(spec, endpoint_validation),
+            ], iter_clouds({'foo': cloud}, endpoint_validation))
 
     def test_maas_no_validation(self):
         cloud = {
@@ -214,8 +217,8 @@ class TestIterClouds(FakeHomeTestCase):
                              exception=NameNotAccepted), 1641981, None),
             xfail(cloud_spec('long-name-foo', long_text, cloud,
                              exception=None), 1641970, NameMismatch),
-            make_long_endpoint(spec, endpoint_validation=False),
-            ], iter_clouds({'foo': cloud}, endpoint_validation=False))
+            make_long_endpoint(spec, basic_validation),
+            ], iter_clouds({'foo': cloud}, basic_validation))
 
     def test_openstack(self):
         config = {'type': 'openstack', 'endpoint': 'http://example.com',
@@ -236,8 +239,8 @@ class TestIterClouds(FakeHomeTestCase):
         self.assertItemsEqual([
             self.bogus_type, spec, invalid_name, long_name, long_region,
             bogus_auth,
-            make_long_endpoint(spec, endpoint_validation=True),
-            ], iter_clouds({'foo': config}, endpoint_validation=True))
+            make_long_endpoint(spec, endpoint_validation),
+            ], iter_clouds({'foo': config}, endpoint_validation))
 
     def test_openstack_no_validation(self):
         config = {'type': 'openstack', 'endpoint': 'http://example.com',
@@ -259,8 +262,8 @@ class TestIterClouds(FakeHomeTestCase):
         self.assertItemsEqual([
             self.bogus_type, spec, invalid_name, long_name, long_region,
             bogus_auth,
-            make_long_endpoint(spec, endpoint_validation=False),
-            ], iter_clouds({'foo': config}, endpoint_validation=False))
+            make_long_endpoint(spec, basic_validation),
+            ], iter_clouds({'foo': config}, basic_validation))
 
 
 class TestAssessAllClouds(FakeHomeTestCase):
@@ -268,7 +271,7 @@ class TestAssessAllClouds(FakeHomeTestCase):
     def test_assess_all_clouds(self):
         client = fake_juju_client(juju_home=self.juju_home)
         clouds = {'a': {'type': 'foo'}, 'b': {'type': 'bar'}}
-        cloud_specs = iter_clouds(clouds, endpoint_validation=True)
+        cloud_specs = iter_clouds(clouds, endpoint_validation)
         exception = Exception()
         with patch('assess_add_cloud.assess_cloud',
                    side_effect=[TypeNotAccepted(), None] + [exception] * 7):
