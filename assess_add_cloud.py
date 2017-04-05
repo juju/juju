@@ -59,19 +59,18 @@ class CloudValidation:
     NONE = object
     BASIC = object()
     ENDPOINT = object()
-    ENDPOINT_NO_MANUAL = object()
 
     def __init__(self, version):
         """Initialize with the juju version."""
         self.version = version
+        if re.match('2\.0[^\d]', version):
+            self.support = self.NONE
+        elif re.match('2\.1[^\d]', version):
+            self.support = self.BASIC
         if re.match('2\.2[^\d]', version):
             # 2.2 retracted manual endpoint validation because it is entangled
             # with authentication.
             self.support = self.ENDPOINT
-        elif re.match('2\.1[^\d]', version):
-            self.support = self.BASIC
-        else:
-            self.support = self.NONE
 
     def is_basic(self):
         return self.support is self.BASIC
@@ -79,17 +78,12 @@ class CloudValidation:
     def is_endpoint(self):
         return self.support is self.ENDPOINT
 
-    def is_endpoint_no_manual(self):
-        return self.support is self.ENDPOINT_NO_MANUAL
-
-    def is_endpointx(self, provider):
+    def has_endpoint(self, provider):
         """Return True if the juju provider supports endpoint validation.
 
         :param provider: The cloud provider type.
         """
-        if self.support is self.ENDPOINT:
-            return True
-        elif self.support is self.ENDPOINT_NO_MANUAL and provider != 'manual':
+        if self.support is self.ENDPOINT and provider != 'manual':
             return True
         return False
 
@@ -155,28 +149,17 @@ def iter_clouds(clouds, cloud_validation):
                      exception=TypeNotAccepted)
     for cloud_name, cloud in clouds.items():
         spec = cloud_spec(cloud_name, cloud_name, cloud)
-        is_manual = cloud['type'] == 'manual'
-        if is_manual:
-            if cloud_validation.is_endpoint():
-                spec = xfail(spec, 1649721, InvalidEndpoint)
-            # else:
-            #     spec = cloud_spec(cloud_name, cloud_name, cloud)
         yield spec
 
     long_text = 'A' * EXCEEDED_LIMIT
 
     for cloud_name, cloud in clouds.items():
-        is_manual = cloud['type'] == 'manual'
         spec = xfail(cloud_spec('long-name-{}'.format(cloud_name), long_text,
                                 cloud, NameNotAccepted), 1641970, NameMismatch)
-        if is_manual and cloud_validation.is_endpoint():
-            spec = xfail(spec, 1649721, InvalidEndpoint)
         yield spec
         spec = xfail(
             cloud_spec('invalid-name-{}'.format(cloud_name), 'invalid/name',
                        cloud, NameNotAccepted), 1641981, None)
-        if is_manual and cloud_validation.is_endpoint():
-            spec = xfail(spec, 1649721, InvalidEndpoint)
         yield spec
 
         if cloud['type'] not in ('maas', 'manual', 'vsphere'):
@@ -195,7 +178,7 @@ def iter_clouds(clouds, cloud_validation):
             variant_name = 'long-endpoint-{}'.format(cloud_name)
             spec = cloud_spec(variant_name, cloud_name, variant,
                               InvalidEndpoint)
-            if not cloud_validation.is_endpoint():
+            if not cloud_validation.has_endpoint(cloud['type']):
                 spec = xfail(spec, 1641970, CloudMismatch)
             yield spec
 
@@ -209,7 +192,7 @@ def iter_clouds(clouds, cloud_validation):
                                                         region_name)
             spec = cloud_spec(variant_name, cloud_name, variant,
                               InvalidEndpoint)
-            if not cloud_validation.is_endpoint():
+            if not cloud_validation.has_endpoint(cloud['type']):
                 spec = xfail(spec, 1641970, CloudMismatch)
             yield spec
 
