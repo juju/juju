@@ -61,6 +61,8 @@ type AclAPI interface {
 
 // SecIpAPI defines methods for retrieving creating sec IP lists
 // in the oracle cloud
+// For more information about sec ip lists, please see:
+// https://docs.oracle.com/cloud/latest/stcomputecs/STCSA/api-SecIPLists.html
 type SecIpAPI interface {
 	// AllSecIpLists returns all sec IP lists that match a filter. A nil valued
 	// filter will return all entries in the API.
@@ -90,6 +92,8 @@ type IpAddressPrefixSetAPI interface {
 
 // SecListAPI defines methods for retrieving, creating and deleting
 // sec lists under the oracle cloud endpoint
+// For more information about sec lists, please see:
+// https://docs.oracle.com/cloud/latest/stcomputecs/STCSA/api-SecLists.html
 type SecListAPI interface {
 	// SecListDetails retrieves sec list details for the given list
 	SecListDetails(string) (response.SecList, error)
@@ -102,6 +106,8 @@ type SecListAPI interface {
 
 // SecRulesAPI defines methods for retrieving, deleting and creating
 // security rules under the oracle cloud endpoint
+// For more details on sec rules, please see:
+// https://docs.oracle.com/cloud/latest/stcomputecs/STCSA/api-SecRules.html
 type SecRulesAPI interface {
 	// AllSecurityRules returns all security rules matching a filter. A nil valued
 	// filter will return all entries in the API.
@@ -116,6 +122,8 @@ type SecRulesAPI interface {
 // ApplicationsAPI also named protocols in the oracle cloud defines methods
 // for retriving and creating applications rules/protocol rules
 // under the oracle cloud endpoint
+// For more information about sec applications, please see:
+// https://docs.oracle.com/cloud/latest/stcomputecs/STCSA/api-SecApplications.html
 type ApplicationsAPI interface {
 	// AllSecApplications returns all sec applications matching a filter. A nil valued
 	// filter will return all entries in the API.
@@ -129,6 +137,8 @@ type ApplicationsAPI interface {
 
 // AssociationAPI defines a rule for listing, retrieving all security
 // associations under the oracle cloud API
+// For more details about sec associations, please see:
+// https://docs.oracle.com/cloud/latest/stcomputecs/STCSA/api-SecAssociations.html
 type AssociationAPI interface {
 	// AllSecAssociations returns all security associations matching a filter. A nil valued
 	// filter will return all entries in the API.
@@ -137,6 +147,8 @@ type AssociationAPI interface {
 
 // StorageVolumeAPI defines methods for retrieving, creating, deleting and
 // updating storage volumes under the oracle cloud endpoint
+// For more details about storage volumes, please see:
+// https://docs.oracle.com/cloud/latest/stcomputecs/STCSA/api-StorageVolumes.html
 type StorageVolumeAPI interface {
 	// CreateStorageVolume creates a storage volume
 	CreateStorageVolume(p api.StorageVolumeParams) (resp response.StorageVolume, err error)
@@ -153,6 +165,8 @@ type StorageVolumeAPI interface {
 
 // StorageAttachmentAPI defines methods for attaching, detaching storages to
 // instances under the oracle cloud endpoint
+// For more information on storage attachments, please see:
+// https://docs.oracle.com/cloud/latest/stcomputecs/STCSA/api-StorageAttachments.html
 type StorageAttachmentAPI interface {
 	// CreateStorageAttachment creates a storage attachment
 	CreateStorageAttachment(p api.StorageAttachmentParams) (response.StorageAttachment, error)
