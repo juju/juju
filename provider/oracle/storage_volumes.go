@@ -29,6 +29,7 @@ type oracleVolumeSource struct {
 
 var _ storage.VolumeSource = (*oracleVolumeSource)(nil)
 
+// resourceName returns an oracle compatible resource name.
 func (s *oracleVolumeSource) resourceName(tag string) string {
 	return s.api.ComposeName(s.env.namespace.Value(s.envName + "-" + tag))
 }
@@ -48,7 +49,7 @@ func (s *oracleVolumeSource) getStoragePool(attr map[string]interface{}) (ociCom
 	return poolTypeMap[defaultPool], nil
 }
 
-// createVolume will create a storage volume given the storage volume params
+// createVolume will create a storage volume given the storage volume parameters
 // under the oracle cloud endpoint
 func (s *oracleVolumeSource) createVolume(p storage.VolumeParams) (_ *storage.Volume, err error) {
 	var details ociResponse.StorageVolume
@@ -63,19 +64,14 @@ func (s *oracleVolumeSource) createVolume(p storage.VolumeParams) (_ *storage.Vo
 			_ = s.api.DeleteStorageVolume(details.Name)
 		}
 	}()
-	// we should validat the storage volume params given
-	// if their are not compliant given the oracle spec
-	// bail out
+	// validate the parameters
 	if err := s.ValidateVolumeParams(p); err != nil {
 		return nil, errors.Trace(err)
 	}
-	// compose and return the resource name
 	name := s.resourceName(p.Tag.String())
-	// make the sive into gib
 	size := mibToGib(p.Size)
 
-	// retrive details on the storage volume to test if
-	// it already exists under the oracle endpoint
+	// Some idempotence checks here.
 	details, err = s.api.StorageVolumeDetails(name)
 	if err != nil {
 		if !oci.IsNotFound(err) {
@@ -100,10 +96,9 @@ func (s *oracleVolumeSource) createVolume(p storage.VolumeParams) (_ *storage.Vo
 		return &volume, nil
 	}
 	// the storage volume does not exist and we should try and create
-	// one based on the storage volume params given
+	// one based on the storage volume parameters given
 	attr := p.Attributes
-	// in order to create a storage volume we need to know the under what
-	// storage pool type we should attach
+	// fetch the storage pool for this volume
 	poolType, err := s.getStoragePool(attr)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -114,14 +109,10 @@ func (s *oracleVolumeSource) createVolume(p storage.VolumeParams) (_ *storage.Vo
 	for k, v := range p.ResourceTags {
 		tags = append(tags, fmt.Sprintf("%s=%s", k, v))
 	}
-	// a storage volume can be under this interval
-	// (minVolumeSIzeINGB, maxVolumeSizeInGb)
-	// if the value in GBs is not in this interval bail out
 	if size > maxVolumeSizeInGB || size < minVolumeSizeInGB {
 		return nil, errors.Errorf("invalid size for volume: %d", size)
 	}
 
-	// create params for the storage volume creation api method
 	params := oci.StorageVolumeParams{
 		Bootable:    false,
 		Description: fmt.Sprintf("Juju created volume for %q", p.Tag.String()),
@@ -138,22 +129,20 @@ func (s *oracleVolumeSource) createVolume(p storage.VolumeParams) (_ *storage.Vo
 		return nil, errors.Trace(err)
 	}
 	logger.Infof("waiting for resource %v", details.Name)
-	// after the call on the creation method we know try and
-	// fetch the status of the resource. If the resource is online and
-	// active return it or return the error if any
-	// the operation should take some time
-	// TODO: add sane constant with default timeout
+
+	// wait for the newly created volume to reach "Online" status
 	if err := s.waitForResourceStatus(
 		s.fetchVolumeStatus,
 		string(details.Name),
 		string(ociCommon.VolumeOnline), 5*time.Minute); err != nil {
 		return nil, errors.Trace(err)
 	}
-	// return the storage volume under a juju compliant type
 	volume := &storage.Volume{
 		p.Tag,
 		storage.VolumeInfo{
-			VolumeId:   details.Name,
+			VolumeId: details.Name,
+			// the API returns the size of the volume in bytes.
+			// convert to GiB
 			Size:       uint64(details.Size) / 1024 / 1024 / 1024,
 			Persistent: true,
 		},
@@ -163,20 +152,13 @@ func (s *oracleVolumeSource) createVolume(p storage.VolumeParams) (_ *storage.Vo
 }
 
 // CreateVolumes is specified on the storage.VolumeSource interface
-// When you create a storage volume, you can specify
-// the capacity that you need. The allowed range
-// is from 1 GB to 2 TB, in increments of 1 GB
 func (s *oracleVolumeSource) CreateVolumes(params []storage.VolumeParams) ([]storage.CreateVolumesResult, error) {
 	if params == nil {
 		return []storage.CreateVolumesResult{}, nil
 	}
-
-	n := len(params)
-	results := make([]storage.CreateVolumesResult, n)
+	results := make([]storage.CreateVolumesResult, len(params))
 	for i, volume := range params {
-		logger.Infof("running createVolume for %v", volume)
 		vol, err := s.createVolume(volume)
-		logger.Infof("got result: %v -> %v", vol, err)
 		if err != nil {
 			results[i].Error = errors.Trace(err)
 			continue
@@ -186,6 +168,8 @@ func (s *oracleVolumeSource) CreateVolumes(params []storage.VolumeParams) ([]sto
 	return results, nil
 }
 
+// fetchVolumeStatus polls the status of a volume and returns true if the current status
+// coincides with the desired status
 func (s *oracleVolumeSource) fetchVolumeStatus(name, desiredStatus string) (complete bool, err error) {
 	details, err := s.api.StorageVolumeDetails(name)
 	if err != nil {
@@ -198,6 +182,8 @@ func (s *oracleVolumeSource) fetchVolumeStatus(name, desiredStatus string) (comp
 	return string(details.Status) == desiredStatus, nil
 }
 
+// fetchVolumeAttachmentStatus polls the status of a volume attachment and returns true if the current status
+// coincides with the desired status
 func (s *oracleVolumeSource) fetchVolumeAttachmentStatus(name, desiredStatus string) (bool, error) {
 	details, err := s.api.StorageAttachmentDetails(name)
 	if err != nil {
@@ -206,14 +192,12 @@ func (s *oracleVolumeSource) fetchVolumeAttachmentStatus(name, desiredStatus str
 	return string(details.State) == desiredStatus, nil
 }
 
-// waitForMachineStatus will ping the volume until the timeout duration is reached or an error appeared
+// waitForResourceStatus will ping the resource until the fetch function returns true,
+// the timeout is reached, or an error occurs.
 func (o *oracleVolumeSource) waitForResourceStatus(
 	fetch func(name string, desiredStatus string) (complete bool, err error),
 	name, state string, timeout time.Duration) error {
-
-	// chan user for errors
 	errChan := make(chan error)
-	// chan used for timeout
 	done := make(chan bool)
 
 	go func() {
@@ -246,12 +230,10 @@ func (o *oracleVolumeSource) waitForResourceStatus(
 			name, state,
 		)
 	}
-
 	return nil
 }
 
-// ListVolumes lists the provider volume IDs for every volume
-// created by this volume source.
+// ListVolumes is specified on the storage.VolumeSource interface.
 func (s *oracleVolumeSource) ListVolumes() ([]string, error) {
 	tag := fmt.Sprintf("%s=%s", tags.JujuModel, s.modelUUID)
 	filter := []oci.Filter{
@@ -266,18 +248,16 @@ func (s *oracleVolumeSource) ListVolumes() ([]string, error) {
 	}
 
 	ids := make([]string, 0, len(volumes.Result))
-	for _, volume := range volumes.Result {
-		ids = append(ids, volume.Name)
+	for i, volume := range volumes.Result {
+		ids[i] = volume.Name
 	}
 
 	return ids, nil
 }
 
-// DescribeVolumes returns the properties of the volumes with the
-// specified provider volume IDs.
+// DescribeVolumes is specified on the storage.VolumeSource interface.
 func (s *oracleVolumeSource) DescribeVolumes(volIds []string) ([]storage.DescribeVolumesResult, error) {
-	n := len(volIds)
-	if volIds == nil || n == 0 {
+	if volIds == nil || len(volIds) == 0 {
 		return []storage.DescribeVolumesResult{}, nil
 	}
 
@@ -289,7 +269,7 @@ func (s *oracleVolumeSource) DescribeVolumes(volIds []string) ([]storage.Describ
 		},
 	}
 
-	result := make([]storage.DescribeVolumesResult, 0, n)
+	result := make([]storage.DescribeVolumesResult, 0, len(volIds))
 	volumes, err := s.api.AllStorageVolumes(filter)
 	if err != nil {
 		return nil, errors.Annotatef(err, "descrie volumes")
@@ -312,14 +292,11 @@ func (s *oracleVolumeSource) DescribeVolumes(volIds []string) ([]storage.Describ
 		} else {
 			result[i].Error = errors.NotFoundf("%s", volume)
 		}
-
 	}
-
 	return result, nil
 }
 
-// DestroyVolumes destroys the volumes with the specified provider
-// volume IDs.
+// DestroyVolumes is specified on the storage.VolumeSource interface.
 func (s *oracleVolumeSource) DestroyVolumes(volIds []string) ([]error, error) {
 	results := make([]error, len(volIds))
 	wg := sync.WaitGroup{}
@@ -335,8 +312,7 @@ func (s *oracleVolumeSource) DestroyVolumes(volIds []string) ([]error, error) {
 	return results, nil
 }
 
-// ValidateVolumeParams validates the provided volume creation
-// parameters, returning an error if they are invalid.
+// ValidateVolumeParams is specified on the storage.VolumeSource interface.
 func (s *oracleVolumeSource) ValidateVolumeParams(params storage.VolumeParams) error {
 	size := mibToGib(params.Size)
 	if size > maxVolumeSizeInGB || size < minVolumeSizeInGB {
@@ -363,11 +339,7 @@ func (s *oracleVolumeSource) getStorageAttachments() (map[string][]ociResponse.S
 	return asMap, nil
 }
 
-// AttachVolumes attaches volumes to machines.
-//
-// AttachVolumes must be idempotent; it may be called even if the
-// attachment already exists, to ensure that it exists, e.g. over
-// machine restarts.
+// AttachVolumes is specified on the storage.VolumeSource interface.
 func (s *oracleVolumeSource) AttachVolumes(params []storage.VolumeAttachmentParams) ([]storage.AttachVolumesResult, error) {
 	instanceIds := []instance.Id{}
 	for _, val := range params {
@@ -406,6 +378,8 @@ func (s *oracleVolumeSource) AttachVolumes(params []storage.VolumeAttachmentPara
 	return ret, nil
 }
 
+// getFreeIndexNumber returns the first unused consecutive value in a sorted array of ints
+// this is used to find an available index number for attaching a volume to an instance
 func (s *oracleVolumeSource) getFreeIndexNumber(existing []int, max int) (int, error) {
 	if len(existing) == 0 {
 		return 1, nil
@@ -445,17 +419,27 @@ func (s *oracleVolumeSource) attachVolume(
 	currentAttachments map[string][]ociResponse.StorageAttachment,
 	params storage.VolumeAttachmentParams) (storage.AttachVolumesResult, error) {
 
+	// keep track of all indexes of volumes attached to the instance
 	existingIndexes := []int{}
 	instanceStorage := instance.StorageAttachments()
+	// append index numbers of volumes that were attached when creating the
+	// launchpan. Not the case in the current implementation of the provider
+	// but should this change in the future, this function will still work as
+	// expected.
+	// For information about attaching volumes at instance creation time, please
+	// see: https://docs.oracle.com/cloud/latest/stcomputecs/STCSA/op-launchplan--post.html
 	for _, val := range instanceStorage {
 		existingIndexes = append(existingIndexes, int(val.Index))
 	}
 
 	for _, val := range currentAttachments[string(instance.Id())] {
+		// index numbers range from 1 to 10. Ignore 0 valued indexes
+		// see: https://docs.oracle.com/cloud/latest/stcomputecs/STCSA/op-storage-attachment--post.html
 		if val.Index == 0 {
 			continue
 		}
 		if val.Storage_volume_name == string(params.VolumeId) && val.Instance_name == string(params.InstanceId) {
+			// volume is already attached to this instance. Simply return it.
 			return storage.AttachVolumesResult{
 				VolumeAttachment: &storage.VolumeAttachment{
 					params.Volume,
@@ -466,10 +450,20 @@ func (s *oracleVolumeSource) attachVolume(
 				},
 			}, nil
 		}
+		// append any indexes for volumes that were attached dynamically (after instance creation)
 		existingIndexes = append(existingIndexes, int(val.Index))
 	}
 
 	logger.Infof("fetching free index. Existing: %v, Max: %v", existingIndexes, maxDevices)
+	// gsamfira: fetch a free index number for this disk. There is a limit of 10 disks that can be attached to any
+	// instance. The index number dictates the order in which the operating system will see the disks
+	// Essentially an index for an attachment can be equated to the bus number that the disk will be made
+	// available on inside the guest. This way, an index number of 1 will be (on a linux host) xvda, index 2
+	// will be xvdb, and so on. One exception to this rule; if you boot an instance using an ephemeral disk
+	// (which we currently do), then inside the guest, that disk will be xvda. Index 1 will be xvdb, index 2
+	// will be xvdc and so on. Booting from ephemeral disks also has the added advantage that you get one
+	// extra disk attachment on the instance, and it saves us the trouble of running another operation to
+	// create the root disk from an image.
 	idx, err := s.getFreeIndexNumber(existingIndexes, maxDevices)
 	if err != nil {
 		return storage.AttachVolumesResult{Error: errors.Trace(err)}, nil
@@ -494,7 +488,7 @@ func (s *oracleVolumeSource) attachVolume(
 	currentAttachments[string(instance.Id())] = append(currentAttachments[string(instance.Id())], details)
 
 	// TODO (gsamfira): make this more OS agnostic. In Windows you get disk indexes
-	// however storage is not supported on windows instances (yet).
+	// instead of device names; however storage is not supported on windows instances (yet).
 	result := storage.AttachVolumesResult{
 		VolumeAttachment: &storage.VolumeAttachment{
 			params.Volume,
@@ -507,8 +501,7 @@ func (s *oracleVolumeSource) attachVolume(
 	return result, nil
 }
 
-// DetachVolumes detaches the volumes with the specified provider
-// volume IDs from the instances with the corresponding index.
+// DetachVolumes is specified on the storage.VolumeSource interface.
 func (s *oracleVolumeSource) DetachVolumes(params []storage.VolumeAttachmentParams) ([]error, error) {
 	attachAsMap, err := s.getStorageAttachments()
 	if err != nil {

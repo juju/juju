@@ -10,6 +10,8 @@ import (
 type poolType string
 
 const (
+	// for details please see:
+	// https://docs.oracle.com/cloud/latest/stcomputecs/STCSA/op-storage-volume--post.html#request-definitions-StorageVolume-post-request-properties-properties
 	latencyPool      poolType = "latency"
 	defaultPool      poolType = "default"
 	oracleVolumeType string   = "volume-type"
@@ -20,13 +22,7 @@ var poolTypeMap map[poolType]ociCommon.StoragePool = map[poolType]ociCommon.Stor
 	defaultPool: ociCommon.DefaultPool,
 }
 
-// VolumeSource returns a VolumeSource given the specified storage
-// provider configurations, or an error if the provider does not
-// support creating volumes or the configuration is invalid.
-//
-// If the storage provider does not support creating volumes as a
-// first-class primitive, then VolumeSource must return an error
-// satisfying errors.IsNotSupported.
+// VolumeSource is defined on the storage.Provider interface.
 func (s *storageProvider) VolumeSource(cfg *storage.Config) (storage.VolumeSource, error) {
 	environConfig := s.env.Config()
 	return &oracleVolumeSource{
@@ -37,37 +33,27 @@ func (s *storageProvider) VolumeSource(cfg *storage.Config) (storage.VolumeSourc
 	}, nil
 }
 
-// FilesystemSource returns a FilesystemSource given the specified
-// storage provider configurations, or an error if the provider does
-// not support creating filesystems or the configuration is invalid.
+// FilesystemSource is defined on the storage.Provider interface.
 func (s storageProvider) FilesystemSource(cfg *storage.Config) (storage.FilesystemSource, error) {
 	return nil, errors.NotSupportedf("filesystemsource")
 }
 
-// Supports reports whether or not the storage provider supports
-// the specified storage kind.
-//
-// A provider that supports volumes but not filesystems can still
-// be used for creating filesystem storage; Juju will request a
-// volume from the provider and then manage the filesystem itself.
+// Supports  is defined on the storage.Provider interface.
 func (s storageProvider) Supports(kind storage.StorageKind) bool {
 	return kind == storage.StorageKindBlock
 }
 
-// Scope returns the scope of storage managed by this provider.
+// Scope  is defined on the storage.Provider interface.
 func (s storageProvider) Scope() storage.Scope {
 	return storage.ScopeEnviron
 }
 
-// Dynamic reports whether or not the storage provider is capable
-// of dynamic storage provisioning. Non-dynamic storage must be
-// created at the time a machine is provisioned.
+// Dynamic  is defined on the storage.Provider interface.
 func (s storageProvider) Dynamic() bool {
 	return true
 }
 
-// DefaultPools returns the default storage pools for this provider,
-// to register in each new model.
+// DefaultPools  is defined on the storage.Provider interface.
 func (s storageProvider) DefaultPools() []*storage.Config {
 	latencyPool, _ := storage.NewConfig("oracle-latency", oracleStorageProvideType, map[string]interface{}{
 		oracleVolumeType: latencyPool,
@@ -75,8 +61,7 @@ func (s storageProvider) DefaultPools() []*storage.Config {
 	return []*storage.Config{latencyPool}
 }
 
-// ValidateConfig validates the provided storage provider config,
-// returning an error if it is invalid.
+// ValidateConfig  is defined on the storage.Provider interface.
 func (s storageProvider) ValidateConfig(cfg *storage.Config) error {
 	attrs := cfg.Attrs()
 	if volType, ok := attrs[oracleVolumeType]; ok {
