@@ -23,38 +23,33 @@ import (
 
 var logger = loggo.GetLogger("juju.provider.oracle.network")
 
+// NetworkingAPI defines methods needed to interact with the networking features
+// of the Oracle API
 type NetworkingAPI interface {
 	commonProvider.Instancer
 	commonProvider.Composer
 
+	// AllIpNetworks fetches all IP networks matching a filter. A nil valued filter
+	// will return all IP networks
 	AllIpNetworks([]api.Filter) (response.AllIpNetworks, error)
 }
 
-// Environ type that implement the Networking interface
-// from the environ package.
-// This defines methods that the oracle environment
-// will use to support networking capabilities
+// Environ implements the environs.Networking interface
 type Environ struct {
 	client NetworkingAPI
 }
 
 var _ environs.Networking = (*Environ)(nil)
 
-// NewEnviron returns a new network Environment that has
-// network capabilities inside the oracle cloud environment
+// NewEnviron returns a new instance of Environ
 func NewEnviron(api NetworkingAPI) *Environ {
 	return &Environ{
 		client: api,
 	}
 }
 
-// Subnets returns basic information about subnets known by the provider
-// for the oracle cloud environment
-func (e Environ) Subnets(
-	id instance.Id,
-	subnets []network.Id,
-) ([]network.SubnetInfo, error) {
-
+// Subnets is defined on the environs.Networking interface.
+func (e Environ) Subnets(id instance.Id, subnets []network.Id) ([]network.SubnetInfo, error) {
 	ret := []network.SubnetInfo{}
 	found := make(map[string]bool)
 	if id != instance.UnknownId {
@@ -125,10 +120,8 @@ func (e Environ) getSubnetInfoAsMap() (map[string]network.SubnetInfo, error) {
 	return ret, nil
 }
 
-// getSubnetInfo will return the subnet information of the current oracle cloud
-// environ. This will query all oracle ip networks currenty under the indentity
-// domain name. The result of the query will be parsed as a slice of
-// network.SubnetInfo
+// getSubnetInfo returns subnet information for all subnets known to
+// the oracle provider
 func (e Environ) getSubnetInfo() ([]network.SubnetInfo, error) {
 	networks, err := e.client.AllIpNetworks(nil)
 	if err != nil {
@@ -154,12 +147,8 @@ func (e Environ) getSubnetInfo() ([]network.SubnetInfo, error) {
 	return subnets, nil
 }
 
-// NetworkInterfaces requests information about the
-// network interfaces on the given instance
-func (e Environ) NetworkInterfaces(
-	instId instance.Id,
-) ([]network.InterfaceInfo, error) {
-
+// NetworkInterfaces is defined on the environs.Networking interface.
+func (e Environ) NetworkInterfaces(instId instance.Id) ([]network.InterfaceInfo, error) {
 	id := string(instId)
 	instance, err := e.client.InstanceDetails(id)
 	if err != nil {
@@ -217,7 +206,9 @@ func (e Environ) NetworkInterfaces(
 		// I have not found a way to interrogate details about the shared
 		// networks available inside the oracle cloud. There is some
 		// documentation on the matter here:
+		//
 		// https://docs.oracle.com/cloud-machine/latest/stcomputecs/ELUAP/GUID-8CBE0F4E-E376-4C93-BB56-884836273168.htm
+		//
 		// but I have not been able to get any information about the
 		// shared networks using the resources described there.
 		// We only populate Space information for NICs attached to
@@ -235,48 +226,35 @@ func (e Environ) NetworkInterfaces(
 }
 
 // getNicAttributes returns all network cards attributes from a oracle instance
-func (e Environ) getNicAttributes(
-	instance response.Instance,
-) map[string]response.Network {
-
+func (e Environ) getNicAttributes(instance response.Instance) map[string]response.Network {
 	if instance.Attributes.Network == nil {
 		return map[string]response.Network{}
 	}
-
 	n := len(instance.Attributes.Network)
 	ret := make(map[string]response.Network, n)
 	for name, obj := range instance.Attributes.Network {
 		tmp := strings.TrimPrefix(name, `nimbula_vcable-`)
 		ret[tmp] = obj
 	}
-
 	return ret
 }
 
-// SupportsSpaces returns whether the current oracle environment supports
-// spaces. The returned error satisfies errors.IsNotSupported(),
-// unless a general API failure occurs.
+// SupportsSpaces is defined on the environs.Networking interface.
 func (e Environ) SupportsSpaces() (bool, error) {
 	return true, nil
 }
 
-// SupportsSpaceDiscovery returns whether the current environment
-// supports discovering spaces from the oracle provider. The returned error
-// satisfies errors.IsNotSupported(), unless a general API failure occurs.
+// SupportsSpaceDiscovery is defined on the environs.Networking interface.
 func (e Environ) SupportsSpaceDiscovery() (bool, error) {
 	return true, nil
 }
 
-// SupportsContainerAddresses returns true if the current environment is
-// able to allocate addresses for containers. If returning false, we also
-// return an IsNotSupported error.
+// SupportsContainerAddresses is defined on the environs.Networking interface.
 func (e Environ) SupportsContainerAddresses() (bool, error) {
 	return false, errors.NotSupportedf("container address allocation")
 }
 
-// AllocateContainerAddresses allocates a static address for each of the
-// container NICs in preparedInfo, hosted by the hostInstanceID. Returns the
-// network config including all allocated addresses on success.
+// AllocateContainerAddresses is defined on the environs.Networking interface.
 func (e Environ) AllocateContainerAddresses(
 	hostInstanceID instance.Id,
 	containerTag names.MachineTag,
@@ -285,17 +263,12 @@ func (e Environ) AllocateContainerAddresses(
 	return nil, errors.NotSupportedf("containers")
 }
 
-// ReleaseContainerAddresses releases the previously allocated
-// addresses matching the interface details passed in.
-func (e Environ) ReleaseContainerAddresses(
-	interfaces []network.ProviderInterfaceInfo,
-) error {
+// ReleaseContainerAddresses is defined on the environs.Networking interface.
+func (e Environ) ReleaseContainerAddresses(interfaces []network.ProviderInterfaceInfo) error {
 	return errors.NotSupportedf("container")
 }
 
-// Spaces returns a slice of network.SpaceInfo with info, including
-// details of all associated subnets, about all spaces known to the
-// oracle provider that have subnets available.
+// Spaces is defined on the environs.Networking interface.
 func (e Environ) Spaces() ([]network.SpaceInfo, error) {
 	networks, err := e.getSubnetInfo()
 	if err != nil {

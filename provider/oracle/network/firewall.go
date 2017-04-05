@@ -25,46 +25,44 @@ import (
 )
 
 // Firewaller exposes methods for managing network ports.
-// Exacly like the environ.Firewaller but with additional functionality
 type Firewaller interface {
-	// embedd the envrions.Firewaller interface
-	// to make network Firewaller implementation also
-	// implement the environ one and provide aditional
-	// functionality for the oracle cloud provider
 	environs.Firewaller
 
 	// Return all machine ingress rules for a given machine id
 	MachineIngressRules(id string) ([]network.IngressRule, error)
 
-	// OpenPortsOnInstance will open ports on the given machine id instance and
-	// adds the firewall rules provided as ingress networking rules
+	// OpenPortsOnInstance will open ports corresponding to the supplied rules
+	// on the given instance
 	OpenPortsOnInstance(machineId string, rules []network.IngressRule) error
 
-	// ClosePortsOnInstnace will close ports on the given machine id instance with
-	// the given firewall rules provided as ingress networking rules
+	// ClosePortsOnInstnace will close ports corresponding to the supplied rules
+	// for a given instance.
 	ClosePortsOnInstance(machineId string, rules []network.IngressRule) error
 
-	// CreateMachineSecLists creates a security list inside the cloud
-	// attaching the given machine id and the port
+	// CreateMachineSecLists creates a security list for the given instance.
+	// It's worth noting that this function also ensures that the default environment
+	// sec list is also present, and has the appropriate default rules.
+	// The port parameter is the API port for the state machine, for which we need
+	// to create rules.
 	CreateMachineSecLists(id string, port int) ([]string, error)
 
 	// DeleteMachineSecList will delete the security list on the given machine
 	// id
 	DeleteMachineSecList(id string) error
 
-	// CreateDefaultACLAndRules will create a acl rules on the defaul cloud
-	// settings on the given machine id
+	// CreateDefaultACLAndRules will create a default ACL and associated rules, for
+	// a given machine. This ACL applies to user defined IP networks, which are attached
+	// to the instance.
 	CreateDefaultACLAndRules(id string) (response.Acl, error)
 
-	// RemoveACLAndRules will remove all acl rules on a given machine id
+	// RemoveACLAndRules will remove the ACL and any associated rules.
 	RemoveACLAndRules(id string) error
 }
 
 var _ Firewaller = (*Firewall)(nil)
 
-// FirewallerAPI abstration to proivde all sets of
-// api operations, joining them to a group behaviour api
-// that acts like a firewall
+// FirewallerAPI defines methods necessary for interacting with the firewall
+// feature of Oracle compute cloud
 type FirewallerAPI interface {
 	commonProvider.Composer
 	commonProvider.RulesAPI
@@ -77,8 +75,7 @@ type FirewallerAPI interface {
 	commonProvider.AssociationAPI
 }
 
-// Firewall exposes methods for mapping network ports.
-// This type implement the environ.Firewaller
+// Firewall implements environ.Firewaller
 type Firewall struct {
 	// environ is the current oracle cloud environment
 	// this will use to acces the underlying config
@@ -87,8 +84,7 @@ type Firewall struct {
 	client FirewallerAPI
 }
 
-// NewFirewall returns a new firewall that can do network operation
-// such as closing and opening ports inside the oracle cloud environmnet
+// NewFirewall returns a new Firewall
 func NewFirewall(cfg environs.ConfigGetter, client FirewallerAPI) *Firewall {
 	return &Firewall{
 		environ: cfg,
@@ -96,7 +92,7 @@ func NewFirewall(cfg environs.ConfigGetter, client FirewallerAPI) *Firewall {
 	}
 }
 
-// OpenPorts can open ports given all ingress rules unde the global group name
+// OpenPorts is specified on the environ.Firewaller interface.
 func (f Firewall) OpenPorts(rules []network.IngressRule) error {
 	mode := f.environ.Config().FirewallMode()
 	if mode != config.FwGlobal {
@@ -118,33 +114,25 @@ func (f Firewall) OpenPorts(rules []network.IngressRule) error {
 	return nil
 }
 
-// ClosePorts can close the ports on the give ingress rules
+// ClosePorts is specified on the environ.Firewaller interface.
 func (f Firewall) ClosePorts(rules []network.IngressRule) error {
 	groupName := f.globalGroupName()
 	return f.closePortsOnList(f.client.ComposeName(groupName), rules)
 }
 
-// IngressRules returns the ingress rules applied to the whole environment.
-// Must only be used if the environment was setup with the
-// FwGlobal firewall mode.
-// It is expected that there be only one ingress rule result for a given
-// port range - the rule's SourceCIDRs will contain all applicable source
-// address rules for that port range.
+// IngressRules is specified on the environ.Firewaller interface.
 func (f Firewall) IngressRules() ([]network.IngressRule, error) {
 	return f.GlobalIngressRules()
 }
 
-// MachineIngressRules returns all ingress rules that are in the machine group
-// name from the oracle cloud account.
-// If there are not any ingress rules under that name scope this will
-// return nil, nil
+// MachineIngressRules returns all ingress rules from the machine specific sec list
 func (f Firewall) MachineIngressRules(machineId string) ([]network.IngressRule, error) {
 	seclist := f.machineGroupName(machineId)
 	return f.getIngressRules(f.client.ComposeName(seclist))
 }
 
-// OpenPortsOnInstance will open ports on a given instance with the id
-// and the ingress rules attached
+// OpenPortsOnInstance will open ports corresponding to the supplied rules
+// on the given instance
 func (f Firewall) OpenPortsOnInstance(machineId string, rules []network.IngressRule) error {
 	machineGroup := f.machineGroupName(machineId)
 	seclist, err := f.ensureSecList(f.client.ComposeName(machineGroup))
@@ -158,16 +146,19 @@ func (f Firewall) OpenPortsOnInstance(machineId string, rules []network.IngressR
 	return nil
 }
 
-// ClosePortsOnInstance close all ports on the the instance
-// given the machineId and the ingress rules that are defined
+// ClosePortsOnInstnace will close ports corresponding to the supplied rules
+// for a given instance.
 func (f Firewall) ClosePortsOnInstance(machineId string, rules []network.IngressRule) error {
 	// fetch the group name based on the machine id provided
 	groupName := f.machineGroupName(machineId)
 	return f.closePortsOnList(f.client.ComposeName(groupName), rules)
 }
 
-// CreateMachineSecLists will create all security lists and attach them
-// to the instance with the id
+// CreateMachineSecLists creates a security list for the given instance.
+// It's worth noting that this function also ensures that the default environment
+// sec list is also present, and has the appropriate default rules.
+// The port parameter is the API port for the state machine, for which we need
+// to create rules.
 func (f Firewall) CreateMachineSecLists(machineId string, apiPort int) ([]string, error) {
 	defaultSecList, err := f.createDefaultGroupAndRules(apiPort)
 	if err != nil {
@@ -185,9 +176,7 @@ func (f Firewall) CreateMachineSecLists(machineId string, apiPort int) ([]string
 	}, nil
 }
 
-// DeleteMachineSecList will delete all security lists on the give
-// machine id. If there's some associations to the give instance still
-// this will not delete them.
+// DeleteMachineSecList will delete the security list on the given machine
 func (f Firewall) DeleteMachineSecList(machineId string) error {
 	listName := f.machineGroupName(machineId)
 	globalListName := f.globalGroupName()
@@ -282,7 +271,7 @@ func (f Firewall) CreateDefaultACLAndRules(machineId string) (response.Acl, erro
 	return details, nil
 }
 
-// RemoveACLAndRules removes all acl rules from the instance machine with the id given
+// RemoveACLAndRules will remove the ACL and any associated rules.
 func (f Firewall) RemoveACLAndRules(machineId string) error {
 	groupName := f.machineGroupName(machineId)
 	resourceName := f.client.ComposeName(groupName)
@@ -307,10 +296,7 @@ func (f Firewall) RemoveACLAndRules(machineId string) error {
 	return nil
 }
 
-// GlobalIngressRules returns all ingress rules that are in the global group
-// name from the oracle cloud account
-// If there are not any ingress rules under the global group name this will
-// return nil, nil
+// GlobalIngressRules returns the ingress rules applied to the whole environment.
 func (f Firewall) GlobalIngressRules() ([]network.IngressRule, error) {
 	seclist := f.globalGroupName()
 	return f.getIngressRules(f.client.ComposeName(seclist))
@@ -362,7 +348,7 @@ func (f Firewall) getDefaultIngressRules(apiPort int) []network.IngressRule {
 	}
 }
 
-// retrive all ip address sets from the oracle cloud environment
+// retrieve all IP address sets from the provider
 func (f Firewall) getAllIPAddressSets() ([]response.IpAddressPrefixSet, error) {
 	sets, err := f.client.AllIpAddressPrefixSets(nil)
 	if err != nil {
@@ -371,9 +357,7 @@ func (f Firewall) getAllIPAddressSets() ([]response.IpAddressPrefixSet, error) {
 	return sets.Result, nil
 }
 
-func (f Firewall) ensureIPAddressSet(
-	ipSet []string,
-) (response.IpAddressPrefixSet, error) {
+func (f Firewall) ensureIPAddressSet(ipSet []string) (response.IpAddressPrefixSet, error) {
 	sets, err := f.getAllIPAddressSets()
 	if err != nil {
 		return response.IpAddressPrefixSet{}, err
@@ -434,8 +418,8 @@ func (f Firewall) createDefaultGroupAndRules(apiPort int) (response.SecList, err
 	return details, nil
 }
 
-// closePortsOnList on list will close all ports on a given list using the
-// ingress ruled passed into the func
+// closePortsOnList on list will close all ports corresponding to the supplied ingress rules
+// on a particular list
 func (f Firewall) closePortsOnList(list string, rules []network.IngressRule) error {
 	// get all security rules based on the dst_list=list
 	secrules, err := f.getSecRules(list)
@@ -467,13 +451,12 @@ func (f Firewall) closePortsOnList(list string, rules []network.IngressRule) err
 // deleteAllSecRulesOnList will delete all security rules from a give
 // security list
 func (f Firewall) deleteAllSecRulesOnList(list string) error {
-	// get all security rules from the oracle cloud account
-	// that has the destination list match up with list provided as param
+	// get all security rules associated with this list
 	secrules, err := f.getSecRules(list)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	// delete all rules that are found from the previous step
+	// delete everything
 	for _, rule := range secrules {
 		err := f.client.DeleteSecRule(rule.Name)
 		if err != nil {
@@ -486,8 +469,12 @@ func (f Firewall) deleteAllSecRulesOnList(list string) error {
 	return nil
 }
 
-// maybeDeleteList delets all security rules
-// under the security list name provided
+// maybeDeleteList tries to delete a security list. Lists that are still in use
+// may not be deleted. When deleting an environment, we want to also cleanup the
+// environment level sec list. This function attempts to delete a sec list. If the
+// sec list still has some associations to any instance, we simply return and assume
+// the last VM to get killed as part of the tear-down, will also remove the global
+// list as well
 func (f Firewall) maybeDeleteList(list string) error {
 	filter := []api.Filter{
 		api.Filter{
@@ -536,10 +523,10 @@ func (f Firewall) maybeDeleteList(list string) error {
 	return nil
 }
 
-// getIngressRules returns all ingress rules from the oracle cloud account
-// given that security list name that maches
+// getIngressRules returns all rules associated with the given sec list
+// values are converted and returned as []network.IngressRule
 func (f Firewall) getIngressRules(seclist string) ([]network.IngressRule, error) {
-	// get all security rules given the seclist name
+	// get all security rules associated with the seclist
 	secrules, err := f.getSecRules(seclist)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -549,26 +536,21 @@ func (f Firewall) getIngressRules(seclist string) ([]network.IngressRule, error)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	// check if the seclist provided is found in the newly
-	// ingress rules created from the previously security rules
-	// if it's found return it
 	if rules, ok := ingressRules[seclist]; ok {
 		return rules, nil
 	}
-	// if we don't find anything just return empty slice and nil
 	return []network.IngressRule{}, nil
 }
 
-// getAllApplications returns all security applications that are mapped
-// so the firewall can use security rules. In the oracle cloud
-// envirnoment applications are alis term for protocols
+// getAllApplications returns all security applications known to the
+// oracle compute cloud. These are used as part of security rules
 func (f Firewall) getAllApplications() ([]response.SecApplication, error) {
-	// get all defined protocols from the current identity endpoint
+	// get all user defined sec applications
 	applications, err := f.client.AllSecApplications(nil)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	// get also default ones defined in the oracle cloud environment
+	// get also default ones defined in the provider
 	defaultApps, err := f.client.DefaultSecApplications(nil)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -584,8 +566,6 @@ func (f Firewall) getAllApplications() ([]response.SecApplication, error) {
 	}
 	for _, val := range defaultApps.Result {
 		if val.PortProtocolPair() == "" {
-			// (gsamfira)this should not really happen, but
-			// I get paranoid when I run out of coffee
 			continue
 		}
 		allApps = append(allApps, val)
@@ -593,13 +573,8 @@ func (f Firewall) getAllApplications() ([]response.SecApplication, error) {
 	return allApps, nil
 }
 
-// getAllApplicationsAsMap returns all security applications that
-// are mapped so the firewaller cause security rules.
-// Bassically just like applications method but it's composing the return
-// as a map rathar than a slice
-func (f Firewall) getAllApplicationsAsMap() (
-	map[string]response.SecApplication, error) {
-
+// getAllApplicationsAsMap returns all sec applications as a map
+func (f Firewall) getAllApplicationsAsMap() (map[string]response.SecApplication, error) {
 	// get all defined protocols
 	// from the current identity and default ones
 	apps, err := f.getAllApplications()
@@ -619,11 +594,8 @@ func (f Firewall) getAllApplicationsAsMap() (
 	return allApps, nil
 }
 
-func (f Firewall) ensureApplication(
-	portRange network.PortRange,
-	cache *[]response.SecApplication,
-) (string, error) {
-	// we should check if the security application is already created
+func (f Firewall) ensureApplication(portRange network.PortRange, cache *[]response.SecApplication) (string, error) {
+	// check if the security application is already created
 	for _, val := range *cache {
 		if val.PortProtocolPair() == portRange.String() {
 			return val.Name, nil
@@ -641,17 +613,17 @@ func (f Firewall) ensureApplication(
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	// make a the resource secure application name
+	// create new name for sec application
 	secAppName := f.newResourceName(uuid.String())
 	var dport string
+
 	if portRange.FromPort == portRange.ToPort {
 		dport = strconv.Itoa(portRange.FromPort)
 	} else {
 		dport = fmt.Sprintf("%s-%s",
 			strconv.Itoa(portRange.FromPort), strconv.Itoa(portRange.ToPort))
 	}
-	// create a new security application specifying
-	// what port range the app should be allowd to use
+	// compose the provider resource name for the new application
 	name := f.client.ComposeName(secAppName)
 	secAppParams := api.SecApplicationParams{
 		Description: "Juju created security application",
@@ -667,20 +639,12 @@ func (f Firewall) ensureApplication(
 	return application.Name, nil
 }
 
-// convertToSecRules this will take a security
-// list and a slice of network.IngressRule and it will create
-// parameeters in order to call the security rule creation resource
-func (f Firewall) convertToSecRules(
-	seclist response.SecList,
-	rules []network.IngressRule,
-) ([]api.SecRuleParams, error) {
-
-	// get all applications and default ones
+// convertToSecRules converts network.IngressRules to api.SecRuleParams
+func (f Firewall) convertToSecRules(seclist response.SecList, rules []network.IngressRule) ([]api.SecRuleParams, error) {
 	applications, err := f.getAllApplications()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	// get all ip lists
 	iplists, err := f.getAllIPLists()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -688,8 +652,8 @@ func (f Firewall) convertToSecRules(
 
 	ret := make([]api.SecRuleParams, 0, len(rules))
 	// for every rule we need to ensure that the there is a relationship
-	// between security applications and security ip lists
-	// and from every one of them create a slice of security rule params
+	// between security applications and security IP lists
+	// and from every one of them create a slice of security rule parameters
 	for _, val := range rules {
 		app, err := f.ensureApplication(val.PortRange, &applications)
 		if err != nil {
@@ -707,7 +671,7 @@ func (f Firewall) convertToSecRules(
 		resourceName := f.client.ComposeName(name)
 		dstList := fmt.Sprintf("seclist:%s", seclist.Name)
 		srcList := fmt.Sprintf("seciplist:%s", ipList)
-		// create the new security rule param
+		// create the new security rule parameters
 		rule := api.SecRuleParams{
 			Action:      common.SecRulePermit,
 			Application: app,
@@ -717,7 +681,7 @@ func (f Firewall) convertToSecRules(
 			Name:        resourceName,
 			Src_list:    srcList,
 		}
-		// append the new param rule
+		// append the new parameters rule
 		ret = append(ret, rule)
 	}
 	return ret, nil
@@ -725,10 +689,7 @@ func (f Firewall) convertToSecRules(
 
 // convertApplicationToPortRange takes a SecApplication and
 // converts it to a network.PortRange type
-func (f Firewall) convertApplicationToPortRange(
-	app response.SecApplication,
-) network.PortRange {
-
+func (f Firewall) convertApplicationToPortRange(app response.SecApplication) network.PortRange {
 	appCopy := app
 	if appCopy.Value2 == -1 {
 		appCopy.Value2 = appCopy.Value1
@@ -741,14 +702,12 @@ func (f Firewall) convertApplicationToPortRange(
 }
 
 // convertFromSecRules takes a slice of security rules and creates a map of them
-func (f Firewall) convertFromSecRules(
-	rules ...response.SecRule,
-) (map[string][]network.IngressRule, error) {
-
+func (f Firewall) convertFromSecRules(rules ...response.SecRule) (map[string][]network.IngressRule, error) {
 	applications, err := f.getAllApplicationsAsMap()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
 	iplists, err := f.getAllIPListsAsMap()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -779,9 +738,7 @@ func (f Firewall) convertFromSecRules(
 }
 
 // secRuleToIngressRule convert all security rules into a map of ingress rules
-func (f Firewall) secRuleToIngresRule(
-	rules ...response.SecRule,
-) (map[string]network.IngressRule, error) {
+func (f Firewall) secRuleToIngresRule(rules ...response.SecRule) (map[string]network.IngressRule, error) {
 
 	applications, err := f.getAllApplicationsAsMap()
 	if err != nil {
@@ -834,27 +791,25 @@ func (f Firewall) convertSecurityRuleParamsToStub(params api.SecurityRuleParams)
 }
 
 // globalGroupName returns the global group name
-// based from the juju environ config uuid
+// derived from the model UUID
 func (f Firewall) globalGroupName() string {
 	return fmt.Sprintf("juju-%s-global", f.environ.Config().UUID())
 }
 
 // machineGroupName returns the machine group name
-// based from the juju environ config uuid
+// derived from the model UUID and the machine ID
 func (f Firewall) machineGroupName(machineId string) string {
 	return fmt.Sprintf("juju-%s-%s", f.environ.Config().UUID(), machineId)
 }
 
 // resourceName returns the resource name
-// based from the juju environ config uuid
+// derived from the model UUID and the name of the resource
 func (f Firewall) newResourceName(appName string) string {
 	return fmt.Sprintf("juju-%s-%s", f.environ.Config().UUID(), appName)
 }
 
-// get all security rules given the access control list name
-func (f Firewall) getAllSecurityRules(
-	aclName string,
-) ([]response.SecurityRule, error) {
+// get all security rules associated with an ACL
+func (f Firewall) getAllSecurityRules(aclName string) ([]response.SecurityRule, error) {
 	rules, err := f.client.AllSecurityRules(nil)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -871,12 +826,10 @@ func (f Firewall) getAllSecurityRules(
 	return ret, nil
 }
 
-// getSecRules retrieves the security rules for a particular security list
+// getSecRules retrieves the security rules associated with a particular security list
 func (f Firewall) getSecRules(seclist string) ([]response.SecRule, error) {
 	// we only care about ingress rules
 	name := fmt.Sprintf("seclist:%s", seclist)
-	// get all secure rules from the current oracle cloud identity
-	// and filter through them based on dst_list=name
 	rulesFilter := []api.Filter{
 		api.Filter{
 			Arg:   "dst_list",
@@ -917,18 +870,14 @@ func (f Firewall) getSecRules(seclist string) ([]response.SecRule, error) {
 // that it needs, if one is missing it will create it inside the oracle
 // cloud environment and it will return nil
 // if none rule is missing then it will return nil
-func (f Firewall) ensureSecRules(
-	seclist response.SecList,
-	rules []network.IngressRule,
-) error {
-
-	// get all secuity rules that contains the seclist.Name
+func (f Firewall) ensureSecRules(seclist response.SecList, rules []network.IngressRule) error {
+	// get all security rules associated with the seclist
 	secRules, err := f.getSecRules(seclist.Name)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	logger.Tracef("list %v has sec rules: %v", seclist.Name, secRules)
-	// convert the secRules into map[string][]network.INgressRule
+
 	converted, err := f.convertFromSecRules(secRules...)
 	if err != nil {
 		return errors.Trace(err)
@@ -936,6 +885,7 @@ func (f Firewall) ensureSecRules(
 	logger.Tracef("converted rules are: %v", converted)
 	asIngressRules := converted[seclist.Name]
 	missing := []network.IngressRule{}
+
 	// search through all rules and find the missing ones
 	for _, toAdd := range rules {
 		found := false
@@ -951,20 +901,18 @@ func (f Firewall) ensureSecRules(
 		if found {
 			continue
 		}
-		missing = append(missing, toAdd) // append the missing rule
+		missing = append(missing, toAdd)
 	}
 	if len(missing) == 0 {
 		return nil
 	}
 	logger.Tracef("Found missing rules: %v", missing)
-	// convert the missing rules to sec rules back
+	// convert the missing rules back to sec rules
 	asSecRule, err := f.convertToSecRules(seclist, missing)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	// for all sec rules that are missing
-	// create one by one
 	for _, val := range asSecRule {
 		_, err = f.client.CreateSecRule(val)
 		if err != nil {
@@ -974,8 +922,8 @@ func (f Firewall) ensureSecRules(
 	return nil
 }
 
-// ensureSecList takes a name and creates a new security list with that name
-// if the name is already there then it will return it or the newly created one
+// ensureSecList creates a new seclist if one does not already exist.
+// this function is idempotent
 func (f Firewall) ensureSecList(name string) (response.SecList, error) {
 	logger.Infof("Fetching details for list: %s", name)
 	// check if the security list is already there
@@ -999,8 +947,8 @@ func (f Firewall) ensureSecList(name string) (response.SecList, error) {
 	return details, nil
 }
 
-// getAllIPLists returns all sets of ip addresses or subnets external to the
-// instnaces that are created in the oracle cloud environment
+// getAllIPLists returns all IP lists known to the provider (both the user defined ones,
+// and the default ones)
 func (f Firewall) getAllIPLists() ([]response.SecIpList, error) {
 	// get all security ip lists from the current identity endpoint
 	secIpLists, err := f.client.AllSecIpLists(nil)
@@ -1014,19 +962,13 @@ func (f Firewall) getAllIPLists() ([]response.SecIpList, error) {
 	}
 
 	allIpLists := []response.SecIpList{}
-	for _, val := range secIpLists.Result {
-		allIpLists = append(allIpLists, val) //[val.Name] = val
-	}
-	for _, val := range defaultSecIpLists.Result {
-		allIpLists = append(allIpLists, val) //[val.Name] = val
-	}
+	allIpLists = append(allIpLists, secIpLists.Result...)
+	allIpLists = append(allIpLists, defaultSecIpLists.Result...)
 	return allIpLists, nil
 }
 
-// getAllIPListsAsMap returns all sets of ip addresses or subnets external to the
-// instances that are created inside in the oracle cloud.
-// This is exactly like ipLists func but rathar than returning a slice,
-// we return a map of these.
+// getAllIPListsAsMap returns all IP lists as a map, with the key being
+// the resource name
 func (f Firewall) getAllIPListsAsMap() (map[string]response.SecIpList, error) {
 	allIps, err := f.getAllIPLists()
 	if err != nil {
@@ -1039,16 +981,9 @@ func (f Firewall) getAllIPListsAsMap() (map[string]response.SecIpList, error) {
 	return allIpLists, nil
 }
 
-// ensureSecIpList takes cidrs and a ptr to a slice of
-// response.SecIpList. After the creation of the security
-// list with cidr the result will be appended into the SecIpList slice
-// If the call is successful it will return the newly created security
-// list name and nil
-func (f Firewall) ensureSecIpList(
-	cidr []string,
-	cache *[]response.SecIpList,
-) (string, error) {
-
+// ensureSecIpList ensures that a sec ip list with the provided cidr list
+// exists. If one does not, it gets created. This function is idempotent.
+func (f Firewall) ensureSecIpList(cidr []string, cache *[]response.SecIpList) (string, error) {
 	sort.Strings(cidr)
 	for _, val := range *cache {
 		sort.Strings(val.Secipentries)

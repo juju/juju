@@ -13,9 +13,9 @@ import (
 	"github.com/juju/juju/environs/instances"
 )
 
-// instanceTypes returns all oracle cloud shapes and wraps them into
-// instance.InstanceType for juju to understand and use them
-// more information about oracle cloud shapes here
+// instanceTypes returns all oracle cloud shapes and wraps them into instance.InstanceType
+// For more information about oracle cloud shapes, please see:
+// https://docs.oracle.com/cloud/latest/stcomputecs/STCSA/api-Shapes.html
 // https://docs.oracle.com/cloud/latest/stcomputecs/STCSG/GUID-1DD0FA71-AC7B-461C-B8C1-14892725AA69.htm#OCSUG210
 func instanceTypes(c *oci.Client) ([]instances.InstanceType, error) {
 

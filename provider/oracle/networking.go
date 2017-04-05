@@ -29,7 +29,7 @@ const (
 	interfacesConfigDir = `/etc/network/interfaces.d`
 )
 
-// getIPExchangeAndNetworks return all ip networks that are tied with
+// getIPExchangeAndNetworks return all IP networks that are tied with
 // the ip exchange networks
 func (e *oracleEnviron) getIPExchangesAndNetworks() (map[string][]ociResponse.IpNetwork, error) {
 	logger.Infof("Getting ip exchanges and networks")

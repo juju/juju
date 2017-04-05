@@ -476,7 +476,6 @@ func (o *oracleEnviron) StartInstance(
 
 // StopInstances is part of the InstanceBroker interface.
 func (o *oracleEnviron) StopInstances(ids ...instance.Id) error {
-	//TODO: delete storage volumes
 	oracleInstances, err := o.getOracleInstances(ids...)
 	if err == environs.ErrNoInstances {
 		return nil
