@@ -13,9 +13,16 @@ import (
 const (
 	oracleStorageProvideType = storage.ProviderType("oracle")
 
+	// maxVolumeSizeInGB is the maximum size that a volume in the
+	// orcle cloud environ can be
 	maxVolumeSizeInGB = 2000
+	// minVolumeSizeInGB is the minimum size that a volume in the
+	// oracle cloud environ ca be
 	minVolumeSizeInGB = 1
-	maxDevices        = 10
+	// maxDevices is the maximum number of volumes that a instnace can have
+	maxDevices = 10
+	// blockDevicePrefix is the default block storage prefix for a oracle
+	// cloud storage volume
 	blockDevicePrefix = "xvd"
 )
 
@@ -59,6 +66,9 @@ type storageProvider struct {
 
 var _ storage.Provider = (*storageProvider)(nil)
 
+// StorageAPI defines the storage API in the oracle cloud provider
+// this enables the provider to talk with the storage api and make
+// storage specific operations
 type StorageAPI interface {
 	common.StorageVolumeAPI
 	common.StorageAttachmentAPI
