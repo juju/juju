@@ -3,27 +3,25 @@
 
 package network
 
-// AvailabilityZone type used to hold
-// the zone that is available for the oracle provider
+// AvailabilityZone implements common.AvailabilityZone
 type AvailabilityZone struct {
 	// name is the nam of the zone
 	name string
 }
 
-// NewAvailabilityZone returns a new availability zone with the given
-// name zone provided
+// NewAvailabilityZone returns a new availability zone
 func NewAvailabilityZone(name string) AvailabilityZone {
 	return AvailabilityZone{
 		name: name,
 	}
 }
 
-// Name returns the name zone
+// Name is specified on the common.AvailabilityZone interface
 func (a AvailabilityZone) Name() string {
 	return a.name
 }
 
-// Available returns true if the availability zone is available
+// Available is specified on the common.AvailabilityZone interface
 func (a AvailabilityZone) Available() bool {
 	// we don't really have availability zones in oracle cloud. We only
 	// have regions

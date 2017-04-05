@@ -9,8 +9,9 @@ import (
 	"github.com/pkg/errors"
 )
 
-// getMacAndIp picks and returns the correct mac and ip from the given slice
-// if the slice does not contain a valid mac and ip it will return an error
+// getMacAndIp is a helper function that returns a mac and an IP,
+// given a list of strings containing both. This type of array
+// is returned by the oracle API as part of instance details.
 func getMacAndIP(address []string) (mac string, ip string, err error) {
 	if address == nil {
 		err = errors.New("Empty address slice given")
