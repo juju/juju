@@ -9,104 +9,107 @@ import (
 	"github.com/juju/go-oracle-cloud/response"
 )
 
-// Instancer used to retrive details from a given instance
-// in the oracle cloud infrastracture
+// Instancer used to retrieve details from a given instance
+// in the oracle cloud infrastructure
 type Instancer interface {
-	// InstanceDetails takes and instance name and retrives
-	// the instnace raw response from the oracle api
+	// InstanceDetails retrieves information from the provider
+	// about one instance
 	InstanceDetails(string) (response.Instance, error)
 }
 
-// Composer user to compose the name with the indeitity domain name
-// inside the oracle cloud environmnet
+// Composer has the simple task of composing an oracle compatible
+// resource name
 type Composer interface {
-	// ComposeName composes the name for the oracle cloud api
-	// for a specific resource. Oracle cloud attaches some extra
-	// metadata information such as identity domain name and the
-	// username of the oracle cloud account.
+	// ComposeName composes the name for a provider resource. The name
+	// for an oracle API resource topically has the following form:
+	//
+	// /Compute-<Identity Domain>/<username>/<resource name>
+	//
+	// The Identity Domain in this case equates to what some other providers
+	// like OpenStack refer to as tenants or projects.
+	// This information is supplied by the user in the cloud configuration
+	// information.
+	// This function is generally needed
 	ComposeName(string) string
 }
 
-// RulesAPI defines methods for retriving, creating and deleting
+// RulesAPI defines methods for retrieving, creating and deleting
 // Sec rules under the oracle cloud endpoint
+// For more information on sec rules, please see:
+// https://docs.oracle.com/cloud/latest/stcomputecs/STCSA/api-SecRules.html
 type RulesAPI interface {
-	// AllSecRules takes a filter and based on that filter
-	// it can return all sec rules from the oracle cloud api
-	// If the filter is nil then it will return all sec rules
+	// AllSecRules returns all sec rules matching a filter. A nil valued
+	// filter will return all entries in the API.
 	AllSecRules([]api.Filter) (response.AllSecRules, error)
 	// DeleteSecRule deletes the security rule with the given name
 	DeleteSecRule(string) error
 	// CreateSecRule creates the security rule inside oracle cloud
-	// given the sec rule params
+	// given the sec rule parameters
 	CreateSecRule(api.SecRuleParams) (response.SecRule, error)
 }
 
-// AclAPI defines methods for retriving, creating and deleting
-// access controll lists under the oracle cloud endpoint
+// AclAPI defines methods for retrieving, creating and deleting
+// access control lists under the oracle cloud endpoint
 type AclAPI interface {
-	// AclDetails retrives the access controll list details of the
-	// given name provided
+	// AclDetails retrieves the access control list details for one list
 	AclDetails(string) (response.Acl, error)
-	// CreateAcl creates the access controll list
+	// CreateAcl creates the access control list
 	CreateAcl(string, string, bool, []string) (response.Acl, error)
-	// DeleteAcl deletes the access controll list of the given name
-	// in the oracle cloud
+	// DeleteAcl deletes one access control list
 	DeleteAcl(string) error
 }
 
-// SecIpAPI defines methods for retriving creating sec ip lists
+// SecIpAPI defines methods for retrieving creating sec IP lists
 // in the oracle cloud
 type SecIpAPI interface {
-	// AllSecIpLists takes a filter and based on that filter
-	// it can return all sec ip lists from the oracle cloud api.
-	// If the filter is nil then it will return all sec ip lists.
+	// AllSecIpLists returns all sec IP lists that match a filter. A nil valued
+	// filter will return all entries in the API.
 	AllSecIpLists([]api.Filter) (response.AllSecIpLists, error)
-	// CreateSecIpList creates the sec ip list under the oracle cloud endpoint
+	// CreateSecIpList creates the sec IP list under the oracle cloud endpoint
 	CreateSecIpList(string, string, []string) (response.SecIpList, error)
-	// ALlDefaultSecIpLists retrives all default sec ip lists from the
-	// oracle cloud account. This also can have filter rules attach.
+	// AllDefaultSecIpLists retrieves all default sec IP lists from the
+	// oracle cloud account. Default lists are defined by the cloud and cannot
+	// be changed in any way.
 	AllDefaultSecIpLists([]api.Filter) (response.AllSecIpLists, error)
 }
 
 // IpAddressPrefixSetAPI defines methods for creating and listing
-// ip addresss prefix sets under the oracle cloud endpoint
+// IP address prefix sets under the oracle cloud endpoint
+// For information about IP address prefix sets, please see:
+// https://docs.oracle.com/cloud/latest/stcomputecs/STCSA/api-IPAddressPrefixSets.html
 type IpAddressPrefixSetAPI interface {
-	// CreateIpAddressPrefixSet creates the address prefix set based on the
-	// ip address prefix set params under the oracle cloud endpoint.
+	// CreateIpAddressPrefixSet creates a new IP address prefix set inside the oracle
+	// cloud, for the current user
 	CreateIpAddressPrefixSet(
 		api.IpAddressPrefixSetParams) (response.IpAddressPrefixSet, error)
 
-	// AllIpAddressPrefixSets takes a filter and based on that filter
-	// it can return all ip prefix sets of ip addresses from the oracle cloud api
-	// If the filter is nil then it will return all ip prefix sets addresses
+	// AllIpAddressPrefixSets returns all IP address prefix sets that match the given filter.
+	// A nil valued filter will return all entries in the API.
 	AllIpAddressPrefixSets([]api.Filter) (response.AllIpAddressPrefixSets, error)
 }
 
-// SecListAPI defines methods for retriving, createing and deleting
+// SecListAPI defines methods for retrieving, creating and deleting
 // sec lists under the oracle cloud endpoint
 type SecListAPI interface {
-	// SecListDetails retrives sec list details of the given sec list name
+	// SecListDetails retrieves sec list details for the given list
 	SecListDetails(string) (response.SecList, error)
-	// DeleteSecList deletes sec list with the given sec list name
+	// DeleteSecList deletes one sec list
 	DeleteSecList(string) error
-	// CreateSecList creates a sec list based on the given params
-	// under the oracle cloud endpoint
+	// CreateSecList creates a sec list
 	CreateSecList(string, string,
 		common.SecRuleAction, common.SecRuleAction) (response.SecList, error)
 }
 
-// SecRulesAPI defines methods for retriving, deleting and creating
-/// security rules under the oracle cloud endpoint
+// SecRulesAPI defines methods for retrieving, deleting and creating
+// security rules under the oracle cloud endpoint
 type SecRulesAPI interface {
-	// AllSecurityRules retrives all security rules under
-	// the oracle cloud endpoint. The results can be filtered.
-	// If the filter is nil it returns all security rules.
+	// AllSecurityRules returns all security rules matching a filter. A nil valued
+	// filter will return all entries in the API.
 	AllSecurityRules([]api.Filter) (response.AllSecurityRules, error)
-	// DeleteSecurityRule deletes the sercurity rule with the given name
-	// under the oracle cloud endpoint
+	// DeleteSecurityRule deletes the security rule with the given name
 	DeleteSecurityRule(string) error
 	// CreateSecurityRule creates a security rule based on the security rule
-	// params under the oracle cloud enpodint
+	// parameters under the oracle cloud endpoint
 	CreateSecurityRule(api.SecurityRuleParams) (response.SecurityRule, error)
 }
 
@@ -114,58 +117,50 @@ type SecRulesAPI interface {
 // for retriving and creating applications rules/protocol rules
 // under the oracle cloud endpoint
 type ApplicationsAPI interface {
-	// AllSecApplications retrives all security application under the oracle
-	// cloud endpoint. The results can be filtered
+	// AllSecApplications returns all sec applications matching a filter. A nil valued
+	// filter will return all entries in the API.
 	AllSecApplications([]api.Filter) (response.AllSecApplications, error)
-	// DefaultSecApplications returns all security applications that are default
-	// under the oracle cloud endpoint. The results can be filtered
+	// DefaultSecApplications returns all default security applications matching a filter.
+	// A nil valued filter will return all entries in the API.
 	DefaultSecApplications([]api.Filter) (response.AllSecApplications, error)
-	// CreateSecApplications creates a security application based on the
-	// security application params under the oracle cloud endpoint
+	// CreateSecApplications creates a security applications
 	CreateSecApplication(api.SecApplicationParams) (response.SecApplication, error)
 }
 
-// AssociationAPI defines a rule for listing, retriving all security
-// asoociations under the oracle cloud api
+// AssociationAPI defines a rule for listing, retrieving all security
+// associations under the oracle cloud API
 type AssociationAPI interface {
-	// AllSecAssociations returns all security associations under the oracle
-	// cloud account. The results can be filtered.
+	// AllSecAssociations returns all security associations matching a filter. A nil valued
+	// filter will return all entries in the API.
 	AllSecAssociations([]api.Filter) (response.AllSecAssociations, error)
 }
 
-// StorageVolumeAPI defines methods for retriving, creating, deleting and
+// StorageVolumeAPI defines methods for retrieving, creating, deleting and
 // updating storage volumes under the oracle cloud endpoint
 type StorageVolumeAPI interface {
-	// CreateStorageVolume creates a storge volume based on the given storage
-	// volume params under the oracle cloud endpoint
+	// CreateStorageVolume creates a storage volume
 	CreateStorageVolume(p api.StorageVolumeParams) (resp response.StorageVolume, err error)
-	// DeleteStorageVolume deletes the storage volume with the given
-	// storage volume name
+	// DeleteStorageVolume deletes the storage volume
 	DeleteStorageVolume(name string) (err error)
-	// StorageVolumeDetails retrives storage volume details based on the given
-	// storage volume name under the oracle cloud endpoint
+	// StorageVolumeDetails retrieves storage volume details
 	StorageVolumeDetails(name string) (resp response.StorageVolume, err error)
-	// AllStoragevolumes retrives all storage volumes under the oracle cloud
-	// endpoint. The reults can be filtered.
+	// AllStoragevolumes retrieves all storage volumes matching a filter. A nil valued
+	// filter will return all entries in the API.
 	AllStorageVolumes(filter []api.Filter) (resp response.AllStorageVolumes, err error)
-	// UpdateStorageVolume updates the state of the storage volume based
-	// on the given storage volume params.
+	// UpdateStorageVolume updates the state of the storage volume
 	UpdateStorageVolume(p api.StorageVolumeParams, currentName string) (resp response.StorageVolume, err error)
 }
 
 // StorageAttachmentAPI defines methods for attaching, detaching storages to
 // instances under the oracle cloud endpoint
 type StorageAttachmentAPI interface {
-	// CreateStorageAttachment creates a storage attachment based on the given
-	// storage attachment params
+	// CreateStorageAttachment creates a storage attachment
 	CreateStorageAttachment(p api.StorageAttachmentParams) (response.StorageAttachment, error)
-	// DeleteStorageAttachment delets the storage attachment based on the given
-	// storage attachment name
+	// DeleteStorageAttachment deletes the storage attachment
 	DeleteStorageAttachment(name string) error
-	// StorageAttachmentDetails retrives details of the storage attachment
-	// based on the given storage attachment name
+	// StorageAttachmentDetails retrieves details of the storage attachment
 	StorageAttachmentDetails(name string) (response.StorageAttachment, error)
-	// AllStorageAttachments retrives all storage attachments under the oracle
-	// cloud endpoint. This results can be filtered
+	// AllStorageAttachments retrieves all storage attachments matching a filter. A nil valued
+	// filter will return all entries in the API.
 	AllStorageAttachments(filter []api.Filter) (response.AllStorageAttachments, error)
 }
