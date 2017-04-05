@@ -27,7 +27,7 @@ jujuci.py -v setup-workspace $WORKSPACE
 if [ -n "${replay_build_number-}" ]; then
   export ARTIFACT_URL=http://juju-ci.vapour.ws/job/$JOB_NAME/\
 $replay_build_number/artifact/artifacts/plan.yaml
-  curl --netrc-file $JUJU_HOME/juju-qa-ci.netrc $ARTIFACT_URL -o $PLAN
+  curl -f --netrc-file $JUJU_HOME/juju-qa-ci.netrc $ARTIFACT_URL -o $PLAN
 fi
 export JUJU_BIN=$(s3ci.py get-juju-bin $revision_build $WORKSPACE)
 set +e
