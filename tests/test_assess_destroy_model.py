@@ -2,7 +2,6 @@
 
 import logging
 import StringIO
-import yaml
 from textwrap import dedent
 
 from mock import (
@@ -12,24 +11,41 @@ from mock import (
     )
 
 from assess_destroy_model import (
-    assess_destroy_model,
+    add_model,
+    destroy_model,
+    switch_model,
     parse_args,
     main,
     )
 from jujupy import (
     fake_juju_client,
-    Status
     )
 from tests import (
     parse_error,
     TestCase,
     )
+from utility import (
+    LoggedException
+    )
 
-status_value = dedent("""\
-    model:
-        controller: foo
+list_model_initial = dedent("""
+    'Controller: foo-temp-env
+    foo-temp-env*  localhost/localhost
+    controller  localhost/localhost
 """)
-status = Status(yaml.safe_load(status_value), status_value)
+
+list_model_add = dedent("""
+    'Controller: foo-temp-env
+    foo-temp-env  localhost/localhost
+    test-tmp-env*  localhost/localhost
+    controller  localhost/localhost
+""")
+
+list_model_destroy = dedent("""
+    'Controller: foo-temp-env\n\n
+    foo-temp-env  localhost/localhost
+    controller  localhost/localhost
+""")
 
 
 class TestParseArgs(TestCase):
@@ -74,15 +90,46 @@ class TestMain(TestCase):
 
 class TestAssess(TestCase):
 
-    def test_assess_destroy_model(self):
+    def test_add_model(self):
         fake_client = Mock(wraps=fake_juju_client())
         fake_client.bootstrap()
-        fake_client.get_status.return_value = status
-        assess_destroy_model(fake_client)
+        fake_client.get_juju_output.return_value = list_model_add
+        fake_client.add_model.return_value = fake_client
+        add_model(fake_client)
         self.assertEqual(
             [call.bootstrap(),
-             call.get_status(),
-             call.add_model('test'),
-             call.destroy_model(model='test'),
-             call.get_status()],
+             call.add_model('test-tmp-env'),
+             call.get_juju_output('list-models', include_e=False)],
+            fake_client.mock_calls)
+
+    def test_destroy_model(self):
+        fake_client = Mock(wraps=fake_juju_client())
+        fake_client.bootstrap()
+        fake_client.get_juju_output.return_value = list_model_destroy
+        destroy_model(fake_client)
+        self.assertEqual(
+            [call.bootstrap(),
+             call.destroy_model(),
+             call.get_juju_output('list-models', include_e=False)],
+            fake_client.mock_calls)
+
+    def test_destroy_model_fails(self):
+        fake_client = Mock(wraps=fake_juju_client())
+        fake_client.bootstrap()
+        fake_client.get_juju_output.return_value = list_model_initial
+        with self.assertRaises(LoggedException) as context:
+            destroy_model(fake_client)
+        self.assertTrue(
+            'Juju failed to unset model after it was destroyed'
+            in context.exception.exception)
+
+    def test_switch_model(self):
+        fake_client = Mock(wraps=fake_juju_client())
+        fake_client.bootstrap()
+        fake_client.get_juju_output.return_value = list_model_initial
+        switch_model(fake_client, 'foo-temp-env', 'foo-temp-env')
+        self.assertEqual(
+            [call.bootstrap(),
+             call.switch(controller='foo-temp-env', model='foo-temp-env'),
+             call.get_juju_output('list-models', include_e=False)],
             fake_client.mock_calls)

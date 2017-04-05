@@ -6,6 +6,8 @@ from __future__ import print_function
 import argparse
 import logging
 import sys
+import subprocess
+import re
 
 from deploy_stack import (
     BootstrapManager,
@@ -13,6 +15,8 @@ from deploy_stack import (
 from utility import (
     add_basic_testing_arguments,
     configure_logging,
+    JujuAssertionError,
+    LoggedException
     )
 
 
@@ -21,23 +25,127 @@ __metaclass__ = type
 
 log = logging.getLogger("assess_destroy_model")
 
+TEST_MODEL = 'test-tmp-env'
+
 
 def assess_destroy_model(client):
-    """Tests if Juju keeps the same controller ID through model deletion.
+    """Tests if Juju tracks the model properly through deletion.
 
-    :param client: Jujupy client object to test with
+    In normal behavior Juju should drop the current model selection if that
+    model is destroyed. This will fail if Juju does not drop it's current
+    selection.
+
+    :param client: Jujupy ModelClient object
     """
-    current_controller_id = client.get_status().status['model']['controller']
-    log.info('Current controller ID: {}'.format(current_controller_id))
 
-    log.info('Adding model "test" to current controller.')
-    new_model = client.add_model('test')
+    current_model = get_current_model(client)
+    current_controller = get_current_controller(client)
+    log.info('Current model: {}'.format(current_model))
 
-    new_client.destroy_model()
-    new_controller_id = client.get_status().status['model']['controller']
-    log.info('Controller ID after destroy: {}'.format(new_controller_id))
-    assert (current_controller_id == new_controller_id)
+    new_client = add_model(client)
+    destroy_model(new_client)
+    log.info('Juju successfully dropped its current model. '
+             'Switching to old model to complete test')
+
+    switch_model(client, current_model, current_controller)
+
     log.info('SUCCESS')
+
+
+def add_model(client):
+    """Adds a model to the current juju environment then destroys it.
+
+    Will raise an exception if the Juju does not deselect the current model.
+
+    :param client: Jujupy ModelClient object
+    """
+    log.info(
+        'Adding model "tested" to current controller')
+    new_client = client.add_model(TEST_MODEL)
+    new_model = get_current_model(new_client)
+    try:
+        assert new_model == TEST_MODEL
+        log.info('Current model and newly added model match')
+    except AssertionError:
+        log.error('Juju failed to switch to new model after creation. '
+                  'Expected {} got {}'.format(TEST_MODEL, new_model))
+        raise JujuAssertionError('Model mismatch')
+    return new_client
+
+
+def destroy_model(new_client):
+    log.info('Destroying model "{}"'.format(TEST_MODEL))
+    new_client.destroy_model()
+    new_model = get_current_model(new_client)
+    if new_model:
+        error = 'Juju failed to unset model after it was destroyed'
+        log.error(error)
+        raise LoggedException(error)
+
+
+def switch_model(client, current_model, current_controller):
+    """Switches back to the old model.
+
+    :param client: Jujupy ModelClient object
+    :param current_model: String name of initial testing model
+    :param current_controller: String name of testing controller
+    """
+    client.switch(model=current_model, controller=current_controller)
+    new_model = get_current_model(client)
+    try:
+        assert new_model == current_model
+        log.info('Current model and switch target match')
+    except AssertionError:
+        log.error('Juju failed to switch back to existing model. '
+                  'Expected {} got {}'.format(TEST_MODEL, new_model))
+        raise JujuAssertionError('Model mismatch')
+
+
+def get_current_controller(client):
+    """Gets the current controller from Juju's list-models command.
+
+    :param client: Jujupy ModelClient object
+    :return: String name of current controller
+    """
+    raw = list_models(client)
+    pattern = r".*Controller:\s*([a-z0-9'-]+)"
+    match = re.search(pattern, raw)
+    if match:
+        return match.group(1)
+    else:
+        log.error('Failed to get current controller')
+        raise LoggedException
+
+
+def get_current_model(client):
+    """Gets the current model from Juju's list-models command.
+
+    :param client: Jujupy ModelClient object
+    :return: String name of current model
+    """
+    raw = list_models(client)
+    pattern = r"([a-z0-9'-]+)\*"
+    match = re.search(pattern, raw)
+    if match:
+        return match.group(1)
+    else:
+        log.warning('Could not get current model.')
+        return None
+
+
+def list_models(client):
+    """Helper function to get the output of juju's list-models command.
+
+    :param client: Jujupy ModelClient object
+    :return: Utf-8 formatted string of list-models command
+    """
+    try:
+        raw = client.get_juju_output('list-models',
+                                     include_e=False).decode("utf-8")
+    except subprocess.CalledProcessError as e:
+        log.error('Failed to list current models due to error: {}'.format(e))
+        raise e
+    return raw
 
 
 def parse_args(argv):
