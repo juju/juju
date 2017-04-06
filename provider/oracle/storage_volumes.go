@@ -248,7 +248,7 @@ func (s *oracleVolumeSource) ListVolumes() ([]string, error) {
 		return nil, errors.Annotate(err, "listing volumes")
 	}
 
-	ids := make([]string, 0, len(volumes.Result))
+	ids := make([]string, len(volumes.Result))
 	for i, volume := range volumes.Result {
 		ids[i] = volume.Name
 	}

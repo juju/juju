@@ -614,25 +614,27 @@ func (o *oracleEnviron) Instances(ids []instance.Id) ([]instance.Instance, error
 	if len(ids) == 0 {
 		return nil, nil
 	}
-	instances := make([]instance.Instance, 0, len(ids))
+	instances := make([]instance.Instance, len(ids))
 	all, err := o.AllInstances()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
+	found := 0
 	for i, id := range ids {
 		for _, inst := range all {
 			if inst.Id() == id {
 				instances[i] = inst
+				found++
 			}
 		}
 	}
 
-	if len(instances) == 0 {
+	if found == 0 {
 		return nil, environs.ErrNoInstances
 	}
 
-	if len(instances) != len(ids) {
+	if found != len(ids) {
 		return instances, environs.ErrPartialInstances
 	}
 
