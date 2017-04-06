@@ -33,51 +33,27 @@ import (
 )
 
 // oracleEnviron implements the environs.Environ interface
-// and has behaviour specific that the interface provides for every
-// environ provider
-// this provider also implement the environs.Netowrking and environs.Firewaller
-// to provide network oprations inside the oracle cloud environmnet
 type oracleEnviron struct {
-	// embed the networking behaviour in the oracleEnviron
-	// making the environ have capabilities to execute
-	// network operation inside the oracle cloud environment
 	environs.Networking
-	// embed the firewaller behaviour in the oracleEnviron
-	// making the environ have capabilities to execute
-	// firewall operations inside the oracle cloud environmnet
 	oraclenet.Firewaller
 
-	// mutex for synchronising stuff envrion methods
-	// accross multiple go routines
-	mutex *sync.Mutex
-	// p ptr to the internal environ provider
-	p *environProvider
-	// spec is the cloud spec of the provider
-	spec environs.CloudSpec
-	// cfg holds the bootstrap config of the provider
-	cfg *config.Config
-	// client is the internal api client that can make
-	// operations to the cloud api infrstracture
-	client *oci.Client
-	// namespace is the namespace generated
-	// for the current envirnonment
+	mutex     *sync.Mutex
+	p         *environProvider
+	spec      environs.CloudSpec
+	cfg       *config.Config
+	client    *oci.Client
 	namespace instance.Namespace
 }
 
-// AvailabilityZones returns a slice of availability zones
-// for the configured region.
+// AvailabilityZones is defined in the common.ZonedEnviron interface
 func (o *oracleEnviron) AvailabilityZones() ([]common.AvailabilityZone, error) {
 	return []common.AvailabilityZone{
 		oraclenet.NewAvailabilityZone("default"),
 	}, nil
 }
 
-// InstanceAvailabilityzoneNames returns all availability zones for all
-// instances that are passed
-func (o *oracleEnviron) InstanceAvailabilityZoneNames(
-	ids []instance.Id,
-) ([]string, error) {
-
+// InstanceAvailabilityzoneNames is defined in the common.ZonedEnviron interface
+func (o *oracleEnviron) InstanceAvailabilityZoneNames(ids []instance.Id) ([]string, error) {
 	instances, err := o.Instances(ids)
 	if err != nil && err != environs.ErrPartialInstances {
 		return nil, err
@@ -90,22 +66,13 @@ func (o *oracleEnviron) InstanceAvailabilityZoneNames(
 }
 
 // newOracleEnviron returns a new oracleEnviron
-// composed from a environProvider and args from environs.OpenParams,
-// usually this method is used in Open method calls of the environProvider
-func newOracleEnviron(
-	p *environProvider,
-	args environs.OpenParams,
-	client *oci.Client,
-) (env *oracleEnviron, err error) {
-
+func newOracleEnviron(p *environProvider, args environs.OpenParams, client *oci.Client) (env *oracleEnviron, err error) {
 	if client == nil {
 		return nil, errors.NotFoundf("oracle client")
 	}
-
 	if p == nil {
 		return nil, errors.NotFoundf("environ proivder")
 	}
-
 	env = &oracleEnviron{
 		p:      p,
 		spec:   args.Cloud,
@@ -113,23 +80,17 @@ func newOracleEnviron(
 		mutex:  &sync.Mutex{},
 		client: client,
 	}
-
 	env.namespace, err = instance.NewNamespace(env.cfg.UUID())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-
 	env.Firewaller = oraclenet.NewFirewall(env, client)
 	env.Networking = oraclenet.NewEnviron(client)
 
 	return env, nil
 }
 
-// PrepareForBootstrap prepares an environment for bootstrapping.
-//
-// This will be called very early in the bootstrap procedure, to
-// give an Environ a chance to perform interactive operations that
-// are required for bootstrapping.
+// PrepareForBootstrap is part of the Environ interface.
 func (o *oracleEnviron) PrepareForBootstrap(ctx environs.BootstrapContext) error {
 	if ctx.ShouldVerifyCredentials() {
 		logger.Infof("Logging into the oracle cloud infrastructure")
@@ -141,30 +102,12 @@ func (o *oracleEnviron) PrepareForBootstrap(ctx environs.BootstrapContext) error
 	return nil
 }
 
-// Bootstrap creates a new environment, and an instance inside the
-// oracle cloud infrastracture to host the controller for that
-// environment. The instnace will have have the series and architecture
-// of the Environ's choice, constrained to those of the available tools.
-// Bootstrap will return the instance's
-// architecture, series, and a function that must be called to finalize
-// the bootstrap process by transferring the tools and installing the
-// initial Juju controller.
-func (o *oracleEnviron) Bootstrap(
-	ctx environs.BootstrapContext,
-	args environs.BootstrapParams,
-) (*environs.BootstrapResult, error) {
-
+// Bootstrap is part of the Environ interface.
+func (o *oracleEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) (*environs.BootstrapResult, error) {
 	return common.Bootstrap(ctx, o, args)
 }
 
-// Create creates the environment for a new hosted model.
-//
-// This will be called before any workers begin operating on the
-// Environ, to give an Environ a chance to perform operations that
-// are required for further use.
-//
-// Create is not called for the initial controller model; it is
-// the Bootstrap method's job to create the controller model.
+// Create is part of the Environ interface.
 func (o *oracleEnviron) Create(params environs.CreateParams) error {
 	if err := o.client.Authenticate(); err != nil {
 		return errors.Trace(err)
@@ -173,21 +116,15 @@ func (o *oracleEnviron) Create(params environs.CreateParams) error {
 	return nil
 }
 
-// AdoptResources  is part of the Environ interface.
-func (e *oracleEnviron) AdoptResources(
-	controllerUUID string,
-	fromVersion version.Number) error {
+// AdoptResources is part of the Environ interface.
+func (e *oracleEnviron) AdoptResources(controllerUUID string, fromVersion version.Number) error {
 	return nil
 }
 
-// getCloudInitConfig retrives the cloud init config based on the
-// series and the oracle cloud network definitions
-func (e *oracleEnviron) getCloudInitConfig(
-	series string,
-	networks map[string]oci.Networker) (cloudinit.CloudConfig, error) {
-	// NOTE (gsamfira): this function only exists because of a
-	// limitation that currently exists in cloud-init
-	// see bug report: https://bugs.launchpad.net/cloud-init/+bug/1675370
+// getCloudInitConfig returns a CloudConfig instance. this function only exists because of a
+// limitation that currently exists in cloud-init see bug report:
+// https://bugs.launchpad.net/cloud-init/+bug/1675370
+func (e *oracleEnviron) getCloudInitConfig(series string, networks map[string]oci.Networker) (cloudinit.CloudConfig, error) {
 	// TODO (gsamfira): remove this function when the above mention bug is fixed
 	cloudcfg, err := cloudinit.New(series)
 	if err != nil {
@@ -197,7 +134,6 @@ func (e *oracleEnviron) getCloudInitConfig(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-
 	renderer := cloudcfg.ShellRenderer()
 	// by default windows has all NICs set on DHCP, so no need to configure
 	// anything.
@@ -244,22 +180,18 @@ func (e *oracleEnviron) getInstanceNetworks(
 	networking := map[string]oci.Networker{
 		defaultNicName: oci.SharedNetwork{
 			Seclists: secLists,
-			Name_servers: []string{
-				"8.8.8.8",
-				"8.8.4.4",
-			},
 		},
 	}
 	spaces := map[string]bool{}
 	if len(args.EndpointBindings) != 0 {
 		for _, spaceProviderID := range args.EndpointBindings {
-			logger.Infof("Adding space %s", string(spaceProviderID))
+			logger.Debugf("Adding space %s", string(spaceProviderID))
 			spaces[string(spaceProviderID)] = true
 		}
 	}
 	if s := args.Constraints.IncludeSpaces(); len(s) != 0 {
 		for _, val := range s {
-			logger.Infof("Adding space %s", val)
+			logger.Debugf("Adding space %s", val)
 			spaces[val] = true
 		}
 	}
@@ -274,7 +206,7 @@ func (e *oracleEnviron) getInstanceNetworks(
 	}
 	//start from 1. eth0 is the default nic that gets attached by default.
 	idx := 1
-	logger.Infof("have spaces %v", spaces)
+	logger.Debugf("have spaces %v", spaces)
 	for space, _ := range spaces {
 		providerID := e.client.ComposeName(space)
 		providerSpace, ok := providerSpaces[providerID]
@@ -299,15 +231,12 @@ func (e *oracleEnviron) getInstanceNetworks(
 		networking[nicName] = vnic
 		idx++
 	}
-	logger.Infof("returning networking interfaces: %v", networking)
+	logger.Debugf("returning networking interfaces: %v", networking)
 	return networking, nil
 }
 
-// StartInstance  is part of the InstanceBroker interface.
-func (o *oracleEnviron) StartInstance(
-	args environs.StartInstanceParams,
-) (*environs.StartInstanceResult, error) {
-
+// StartInstance is part of the InstanceBroker interface.
+func (o *oracleEnviron) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
 	if args.ControllerUUID == "" {
 		return nil, errors.NotFoundf("Controller UUID")
 	}
@@ -332,7 +261,7 @@ func (o *oracleEnviron) StartInstance(
 
 	// find the best suitable instance based on
 	// the oracle cloud instance types,
-	// the images that already mached the juju constrains
+	// the images that already matched the juju constrains
 	spec, imagelist, err := findInstanceSpec(
 		o.client,
 		args.ImageMetadata,
@@ -396,27 +325,26 @@ func (o *oracleEnviron) StartInstance(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	logger.Infof("Creating vnic sets")
+	logger.Debugf("Creating vnic sets")
 	vnicSets, err := o.ensureVnicSet(args.InstanceConfig.MachineId, tags)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	// create a  new networking card used for making the instance
-	// have a public address ip
-	logger.Infof("Getting instance networks")
+	// fetch instance network card configuration
+	logger.Debugf("Getting instance networks")
 	networking, err := o.getInstanceNetworks(args, secLists, []string{vnicSets.Name})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	logger.Infof("Getting cloud config")
+	logger.Debugf("Getting cloud config")
 	cloudcfg, err := o.getCloudInitConfig(args.InstanceConfig.Series, networking)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot create cloudinit template")
 	}
 
 	// compose userdata with the cloud config template
-	logger.Infof("Composing userdata")
+	logger.Debugf("Composing userdata")
 	userData, err := providerinit.ComposeUserData(
 		args.InstanceConfig,
 		cloudcfg,
@@ -460,9 +388,9 @@ func (o *oracleEnviron) StartInstance(
 	if err := instance.waitForMachineStatus(ociCommon.StateRunning, timeout); err != nil {
 		return nil, errors.Trace(err)
 	}
-	logger.Infof("started instance %q", machineId)
+	logger.Debugf("started instance %q", machineId)
 	//TODO: add config option for public IP allocation
-	logger.Infof("Associating public IP to instance %q", machineId)
+	logger.Debugf("Associating public IP to instance %q", machineId)
 	if err := instance.associatePublicIP(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -531,11 +459,8 @@ func (o *oracleEnviron) allControllerManagedInstances(controllerUUID string) ([]
 	})
 }
 
-// getOracleInstances returns a slice of oracle instances given some instances ids
-// if the given value of ids does not match the result of call this will return
-// environ.ErrPartialInstances
-// if we didn't found any instance that match any ids this will return
-// environ.ErrNoInstances
+// getOracleInstances attempts to fetch information from the oracle API for the
+// specified IDs.
 func (o *oracleEnviron) getOracleInstances(ids ...instance.Id) ([]*oracleInstance, error) {
 	ret := make([]*oracleInstance, 0, len(ids))
 
@@ -595,7 +520,7 @@ func (o *oracleEnviron) getOracleInstancesAsMap(ids ...instance.Id) (map[string]
 	return ret, nil
 }
 
-// AllInstances returns all instances currently known to the broker
+// AllInstances is part of the InstanceBroker interface.
 func (o *oracleEnviron) AllInstances() ([]instance.Instance, error) {
 	tagFilter := tagValue{tags.JujuModel, o.Config().UUID()}
 	instances, err := o.allInstances(tagFilter)
@@ -636,9 +561,7 @@ func (o *oracleEnviron) allInstances(tagFilter tagValue) ([]*oracleInstance, err
 	return instances, nil
 }
 
-// MaintainInstance is used to run actions on jujud startup for existing
-// instances. It is currently only used to ensure that LXC hosts have the
-// correct network configuration.
+// MaintainInstance is part of the InstanceBroker interface.
 func (o *oracleEnviron) MaintainInstance(args environs.StartInstanceParams) error {
 	return nil
 }
@@ -650,14 +573,7 @@ func (o *oracleEnviron) Config() *config.Config {
 	return o.cfg
 }
 
-// ConstraintsValidator returns a constraints.Validator instance which
-// is used to validate and merge constraints.
-//
-// Validator defines operations on constraints attributes which are
-// used to ensure a constraints value is valid, as well as being able
-// to handle overridden attributes.
-//
-// This will use the default validator implementation from the constraints package.
+// ConstraintsValidator is part of the environs.Environ interface.
 func (o *oracleEnviron) ConstraintsValidator() (constraints.Validator, error) {
 	// list of unsupported oracle provider constraints
 	unsupportedConstraints := []string{
@@ -677,7 +593,7 @@ func (o *oracleEnviron) ConstraintsValidator() (constraints.Validator, error) {
 	return validator, nil
 }
 
-// SetConfig is part of the Environ interface.
+// SetConfig is part of the environs.Environ interface.
 func (o *oracleEnviron) SetConfig(cfg *config.Config) error {
 	o.mutex.Lock()
 	defer o.mutex.Unlock()
@@ -693,50 +609,37 @@ func (o *oracleEnviron) SetConfig(cfg *config.Config) error {
 	return nil
 }
 
-// Instances returns a slice of instances corresponding to the
-// given instance ids.  If no instances were found, but there
-// was no other error, it will return ErrNoInstances.
-// If some but not all the instances were found,
-// the returned slice will have some nil slots,
-// and an ErrPartialInstances error will be returned.
+// Instances is part of the environs.Environ interface.
 func (o *oracleEnviron) Instances(ids []instance.Id) ([]instance.Instance, error) {
-
 	if len(ids) == 0 {
 		return nil, nil
 	}
-
-	instances := make([]instance.Instance, len(ids))
+	instances := make([]instance.Instance, 0, len(ids))
 	all, err := o.AllInstances()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	found := 0
 	for i, id := range ids {
 		for _, inst := range all {
 			if inst.Id() == id {
 				instances[i] = inst
-				found++
 			}
 		}
 	}
 
-	if found == 0 {
+	if len(instances) == 0 {
 		return nil, environs.ErrNoInstances
 	}
 
-	if found != len(ids) {
+	if len(instances) != len(ids) {
 		return instances, environs.ErrPartialInstances
 	}
 
 	return instances, nil
 }
 
-// ControllerInstances returns the IDs of instances corresponding
-// to Juju controller, having the specified controller UUID.
-// If there are no controller instances, ErrNoInstances is returned.
-// If it can be determined that the environment has not been bootstrapped,
-// then ErrNotBootstrapped should be returned instead.
+// ControllerInstances is part of the environs.Environ interface.
 func (o *oracleEnviron) ControllerInstances(controllerUUID string) ([]instance.Id, error) {
 	instances, err := o.allControllerManagedInstances(controllerUUID)
 	if err != nil {
@@ -766,24 +669,12 @@ func (o *oracleEnviron) ControllerInstances(controllerUUID string) ([]instance.I
 	return ids, nil
 }
 
-// Destroy shuts down all known machines and destroys the
-// rest of the environment. Note that on some providers,
-// very recently started instances may not be destroyed
-// because they are not yet visible.
-//
-// When Destroy has been called, any Environ referring to the
-// same remote environment may become invalid.
+// Destroy is part of the environs.Environ interface.
 func (o *oracleEnviron) Destroy() error {
 	return common.Destroy(o)
 }
 
-// DestroyController is similar to Destroy() in that it destroys
-// the model, which in this case will be the controller model.
-//
-// In addition, this method also destroys any resources relating
-// to hosted models on the controller on which it is invoked.
-// This ensures that "kill-controller" can clean up hosted models
-// when the Juju controller process is unavailable.
+// DestroyController is part of the environs.Environ interface.
 func (o *oracleEnviron) DestroyController(controllerUUID string) error {
 	err := o.Destroy()
 	if err != nil {
@@ -819,31 +710,18 @@ func (o *oracleEnviron) DestroyController(controllerUUID string) error {
 	return nil
 }
 
-// Provider returns the EnvironProvider that created this Environ.
+// Provider is part of the environs.Environ interface.
 func (o *oracleEnviron) Provider() environs.EnvironProvider {
 	return o.p
 }
 
-// PrecheckInstance performs a preflight check on the specified
-// series and constraints, ensuring that they are possibly valid for
-// creating an instance in this model.
-//
-// PrecheckInstance is best effort, and not guaranteed to eliminate
-// all invalid parameters. If PrecheckInstance returns nil, it is not
-// guaranteed that the constraints are valid; if a non-nil error is
-// returned, then the constraints are definitely invalid.
-func (o *oracleEnviron) PrecheckInstance(
-	series string,
-	cons constraints.Value,
-	placement string,
-) error {
+// PrecheckInstance is part of the environs.Environ interface.
+func (o *oracleEnviron) PrecheckInstance(series string, cons constraints.Value, placement string) error {
 	return nil
 }
 
-// InstanceTypes allows for instance information from a provider to be obtained.
-func (o *oracleEnviron) InstanceTypes(
-	constraints.Value,
-) (envinstance.InstanceTypesWithCostMetadata, error) {
+// InstanceTypes is part of the environs.InstanceTypesFetcher interface.
+func (o *oracleEnviron) InstanceTypes(constraints.Value) (envinstance.InstanceTypesWithCostMetadata, error) {
 	var i envinstance.InstanceTypesWithCostMetadata
 	return i, nil
 }

@@ -9,17 +9,13 @@ import (
 	"github.com/juju/errors"
 )
 
-// createInstance creates a new vm inside the oracle infrastructure
-// and parses  the response into a oracleInstance
+// createInstance creates a new instance inside the oracle infrastructure
 func (e *oracleEnviron) createInstance(params oci.InstanceParams) (*oracleInstance, error) {
-
 	if len(params.Instances) > 1 {
 		return nil, errors.NotSupportedf("launching multiple instances")
 	}
 
 	logger.Debugf("running createInstance")
-
-	// make the actual api request to create the instance
 	resp, err := e.client.CreateInstance(params)
 	if err != nil {
 		return nil, errors.Trace(err)
