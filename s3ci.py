@@ -120,7 +120,11 @@ def find_file_keys(bucket, revision_build, job, file_regex):
     keys = bucket.list(prefix)
     by_build = {}
     for key in keys:
+        logging.debug('looking at {}'.format(key.name))
         match = re.search('^/build-(\d+)', key.name[len(prefix):])
+        if match is None:
+            logging.debug('job name is not /{}/'.format(job))
+            continue
         build = int(match.group(1))
         by_build.setdefault(build, []).append(key)
     # We can't use last successful build, because we don't know what builds
