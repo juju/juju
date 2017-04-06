@@ -13,7 +13,7 @@ import (
 
 var _ environs.NetworkingEnviron = (*oracleEnviron)(nil)
 
-// Only ubuntu for now. There is no CentOS image in the oracle
+// Only Ubuntu for now. There is no CentOS image in the oracle
 // compute marketplace
 var ubuntuInterfaceTemplate = `
 auto %s
@@ -21,18 +21,20 @@ iface %s inet dhcp
 `
 
 const (
-	// defaultNicName is the default network internet card name inside a vm
+	// defaultNicName is the default network card name attached by default
+	// to every instance. This NIC is used for outbound internet access
 	defaultNicName = "eth0"
-	// nicPrefix si the default network internet card prefix name inside a vm
+	// nicPrefix si the default NIC prefix name for any extra NICs attached
+	// to instances spawned by juju
 	nicPrefix = "eth"
-	// interfacesConfigDir default path of interfaces.d directory
+	// interfacesConfigDir default path of interfaces.d directory on Ubuntu machines
+	// currently CentOS is not available in the oracle market, and windows needs
+	// no extra configuration to bring up additional NICs
 	interfacesConfigDir = `/etc/network/interfaces.d`
 )
 
-// getIPExchangeAndNetworks return all IP networks that are tied with
-// the ip exchange networks
+// getIPExchangeAndNetworks returns all IP exchanges and IP networks attached to each of them
 func (e *oracleEnviron) getIPExchangesAndNetworks() (map[string][]ociResponse.IpNetwork, error) {
-	logger.Infof("Getting ip exchanges and networks")
 	ret := map[string][]ociResponse.IpNetwork{}
 	exchanges, err := e.client.AllIpNetworkExchanges(nil)
 	if err != nil {
@@ -56,8 +58,7 @@ func (e *oracleEnviron) getIPExchangesAndNetworks() (map[string][]ociResponse.Ip
 	return ret, nil
 }
 
-// DeleteMachineVnicSet will delete the machine virtual nic and all acl
-// rules that are bound with it
+// DeleteMachineVnicSet will delete the machine vNIC set and any ACLs bound to it.
 func (o *oracleEnviron) DeleteMachineVnicSet(machineId string) error {
 	if err := o.RemoveACLAndRules(machineId); err != nil {
 		return errors.Trace(err)
