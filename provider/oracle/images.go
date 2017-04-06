@@ -59,8 +59,8 @@ func findInstanceSpec(
 	instanceType []instances.InstanceType,
 	ic *instances.InstanceConstraint,
 ) (*instances.InstanceSpec, string, error) {
-	logger.Debugf("received %d image(s): %v", len(allImageMetadata), allImageMetadata)
 
+	logger.Debugf("received %d image(s): %v", len(allImageMetadata), allImageMetadata)
 	version, err := series.SeriesVersion(ic.Series)
 	if err != nil {
 		return nil, "", errors.Trace(err)
@@ -72,12 +72,9 @@ func findInstanceSpec(
 		}
 		filtered = append(filtered, val)
 	}
+
 	images := instances.ImageMetadataToImages(filtered)
-
-	logger.Debugf("image metadata is: %v", images)
 	spec, err := instances.FindInstanceSpec(images, ic, instanceType)
-
-	logger.Debugf("FindInstanceSpec returned: %q --> %v", err, spec)
 	if err != nil {
 		return nil, "", errors.Trace(err)
 	}
