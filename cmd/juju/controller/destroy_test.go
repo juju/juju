@@ -23,7 +23,6 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/testing"
 )
@@ -48,7 +47,7 @@ type baseDestroySuite struct {
 	testing.FakeJujuXDGDataHomeSuite
 	api       *fakeDestroyAPI
 	clientapi *fakeDestroyAPIClient
-	store     *jujuclienttesting.MemStore
+	store     *jujuclient.MemStore
 	apierror  error
 }
 
@@ -161,7 +160,7 @@ func (s *baseDestroySuite) SetUpTest(c *gc.C) {
 	}
 	s.apierror = nil
 
-	s.store = jujuclienttesting.NewMemStore()
+	s.store = jujuclient.NewMemStore()
 	s.store.Controllers["test1"] = jujuclient.ControllerDetails{
 		APIEndpoints:   []string{"localhost"},
 		CACert:         testing.CACert,

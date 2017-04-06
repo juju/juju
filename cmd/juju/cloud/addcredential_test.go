@@ -19,7 +19,7 @@ import (
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/cloud"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/jujuclient/jujuclienttesting"
+	"github.com/juju/juju/jujuclient"
 	_ "github.com/juju/juju/provider/all"
 	"github.com/juju/juju/testing"
 )
@@ -27,14 +27,14 @@ import (
 type addCredentialSuite struct {
 	testing.BaseSuite
 
-	store           *jujuclienttesting.MemStore
+	store           *jujuclient.MemStore
 	schema          map[jujucloud.AuthType]jujucloud.CredentialSchema
 	authTypes       []jujucloud.AuthType
 	cloudByNameFunc func(string) (*jujucloud.Cloud, error)
 }
 
 var _ = gc.Suite(&addCredentialSuite{
-	store: jujuclienttesting.NewMemStore(),
+	store: jujuclient.NewMemStore(),
 })
 
 func (s *addCredentialSuite) SetUpSuite(c *gc.C) {

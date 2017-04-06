@@ -1,40 +1,38 @@
 // Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package jujuclienttesting
+package jujuclient
 
 import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/set"
 
 	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/jujuclient"
 )
 
-// MemStore is an in-memory implementation of jujuclient.ClientStore,
-// intended for testing.
+// MemStore is an in-memory implementation of ClientStore.
 type MemStore struct {
-	Controllers           map[string]jujuclient.ControllerDetails
+	Controllers           map[string]ControllerDetails
 	CurrentControllerName string
-	Models                map[string]*jujuclient.ControllerModels
-	Accounts              map[string]jujuclient.AccountDetails
+	Models                map[string]*ControllerModels
+	Accounts              map[string]AccountDetails
 	Credentials           map[string]cloud.CloudCredential
-	BootstrapConfig       map[string]jujuclient.BootstrapConfig
+	BootstrapConfig       map[string]BootstrapConfig
 }
 
 func NewMemStore() *MemStore {
 	return &MemStore{
-		Controllers:     make(map[string]jujuclient.ControllerDetails),
-		Models:          make(map[string]*jujuclient.ControllerModels),
-		Accounts:        make(map[string]jujuclient.AccountDetails),
+		Controllers:     make(map[string]ControllerDetails),
+		Models:          make(map[string]*ControllerModels),
+		Accounts:        make(map[string]AccountDetails),
 		Credentials:     make(map[string]cloud.CloudCredential),
-		BootstrapConfig: make(map[string]jujuclient.BootstrapConfig),
+		BootstrapConfig: make(map[string]BootstrapConfig),
 	}
 }
 
 // AllController implements ControllerGetter.AllController
-func (c *MemStore) AllControllers() (map[string]jujuclient.ControllerDetails, error) {
-	result := make(map[string]jujuclient.ControllerDetails)
+func (c *MemStore) AllControllers() (map[string]ControllerDetails, error) {
+	result := make(map[string]ControllerDetails)
 	for name, details := range c.Controllers {
 		result[name] = details
 	}
@@ -42,8 +40,8 @@ func (c *MemStore) AllControllers() (map[string]jujuclient.ControllerDetails, er
 }
 
 // ControllerByName implements ControllerGetter.ControllerByName
-func (c *MemStore) ControllerByName(name string) (*jujuclient.ControllerDetails, error) {
-	if err := jujuclient.ValidateControllerName(name); err != nil {
+func (c *MemStore) ControllerByName(name string) (*ControllerDetails, error) {
+	if err := ValidateControllerName(name); err != nil {
 		return nil, err
 	}
 	if result, ok := c.Controllers[name]; ok {
@@ -62,7 +60,7 @@ func (c *MemStore) CurrentController() (string, error) {
 
 // SetCurrentController implements ControllerUpdater.SetCurrentController
 func (c *MemStore) SetCurrentController(name string) error {
-	if err := jujuclient.ValidateControllerName(name); err != nil {
+	if err := ValidateControllerName(name); err != nil {
 		return err
 	}
 	if _, ok := c.Controllers[name]; !ok {
@@ -73,11 +71,11 @@ func (c *MemStore) SetCurrentController(name string) error {
 }
 
 // AddController implements ControllerUpdater.AddController
-func (c *MemStore) AddController(name string, one jujuclient.ControllerDetails) error {
-	if err := jujuclient.ValidateControllerName(name); err != nil {
+func (c *MemStore) AddController(name string, one ControllerDetails) error {
+	if err := ValidateControllerName(name); err != nil {
 		return err
 	}
-	if err := jujuclient.ValidateControllerDetails(one); err != nil {
+	if err := ValidateControllerDetails(one); err != nil {
 		return err
 	}
 
@@ -96,11 +94,11 @@ func (c *MemStore) AddController(name string, one jujuclient.ControllerDetails) 
 }
 
 // UpdateController implements ControllerUpdater.UpdateController
-func (c *MemStore) UpdateController(name string, one jujuclient.ControllerDetails) error {
-	if err := jujuclient.ValidateControllerName(name); err != nil {
+func (c *MemStore) UpdateController(name string, one ControllerDetails) error {
+	if err := ValidateControllerName(name); err != nil {
 		return err
 	}
-	if err := jujuclient.ValidateControllerDetails(one); err != nil {
+	if err := ValidateControllerDetails(one); err != nil {
 		return err
 	}
 
@@ -125,7 +123,7 @@ func (c *MemStore) UpdateController(name string, one jujuclient.ControllerDetail
 
 // RemoveController implements ControllerRemover.RemoveController
 func (c *MemStore) RemoveController(name string) error {
-	if err := jujuclient.ValidateControllerName(name); err != nil {
+	if err := ValidateControllerName(name); err != nil {
 		return err
 	}
 	names := set.NewStrings(name)
@@ -149,20 +147,20 @@ func (c *MemStore) RemoveController(name string) error {
 }
 
 // UpdateModel implements ModelUpdater.
-func (c *MemStore) UpdateModel(controller, model string, details jujuclient.ModelDetails) error {
-	if err := jujuclient.ValidateControllerName(controller); err != nil {
+func (c *MemStore) UpdateModel(controller, model string, details ModelDetails) error {
+	if err := ValidateControllerName(controller); err != nil {
 		return err
 	}
-	if err := jujuclient.ValidateModelName(model); err != nil {
+	if err := ValidateModelName(model); err != nil {
 		return err
 	}
-	if err := jujuclient.ValidateModelDetails(details); err != nil {
+	if err := ValidateModelDetails(details); err != nil {
 		return err
 	}
 	controllerModels, ok := c.Models[controller]
 	if !ok {
-		controllerModels = &jujuclient.ControllerModels{
-			Models: make(map[string]jujuclient.ModelDetails),
+		controllerModels = &ControllerModels{
+			Models: make(map[string]ModelDetails),
 		}
 		c.Models[controller] = controllerModels
 	}
@@ -172,10 +170,10 @@ func (c *MemStore) UpdateModel(controller, model string, details jujuclient.Mode
 
 // SetCurrentModel implements ModelUpdater.
 func (c *MemStore) SetCurrentModel(controllerName, modelName string) error {
-	if err := jujuclient.ValidateControllerName(controllerName); err != nil {
+	if err := ValidateControllerName(controllerName); err != nil {
 		return errors.Trace(err)
 	}
-	if err := jujuclient.ValidateModelName(modelName); err != nil {
+	if err := ValidateModelName(modelName); err != nil {
 		return errors.Trace(err)
 	}
 	controllerModels, ok := c.Models[controllerName]
@@ -191,10 +189,10 @@ func (c *MemStore) SetCurrentModel(controllerName, modelName string) error {
 
 // RemoveModel implements ModelRemover.
 func (c *MemStore) RemoveModel(controller, model string) error {
-	if err := jujuclient.ValidateControllerName(controller); err != nil {
+	if err := ValidateControllerName(controller); err != nil {
 		return err
 	}
-	if err := jujuclient.ValidateModelName(model); err != nil {
+	if err := ValidateModelName(model); err != nil {
 		return err
 	}
 	controllerModels, ok := c.Models[controller]
@@ -212,8 +210,8 @@ func (c *MemStore) RemoveModel(controller, model string) error {
 }
 
 // AllModels implements ModelGetter.
-func (c *MemStore) AllModels(controller string) (map[string]jujuclient.ModelDetails, error) {
-	if err := jujuclient.ValidateControllerName(controller); err != nil {
+func (c *MemStore) AllModels(controller string) (map[string]ModelDetails, error) {
+	if err := ValidateControllerName(controller); err != nil {
 		return nil, err
 	}
 	controllerModels, ok := c.Models[controller]
@@ -225,7 +223,7 @@ func (c *MemStore) AllModels(controller string) (map[string]jujuclient.ModelDeta
 
 // CurrentModel implements ModelGetter.
 func (c *MemStore) CurrentModel(controller string) (string, error) {
-	if err := jujuclient.ValidateControllerName(controller); err != nil {
+	if err := ValidateControllerName(controller); err != nil {
 		return "", err
 	}
 	controllerModels, ok := c.Models[controller]
@@ -239,11 +237,11 @@ func (c *MemStore) CurrentModel(controller string) (string, error) {
 }
 
 // ModelByName implements ModelGetter.
-func (c *MemStore) ModelByName(controller, model string) (*jujuclient.ModelDetails, error) {
-	if err := jujuclient.ValidateControllerName(controller); err != nil {
+func (c *MemStore) ModelByName(controller, model string) (*ModelDetails, error) {
+	if err := ValidateControllerName(controller); err != nil {
 		return nil, err
 	}
-	if err := jujuclient.ValidateModelName(model); err != nil {
+	if err := ValidateModelName(model); err != nil {
 		return nil, err
 	}
 	controllerModels, ok := c.Models[controller]
@@ -258,11 +256,11 @@ func (c *MemStore) ModelByName(controller, model string) (*jujuclient.ModelDetai
 }
 
 // UpdateAccount implements AccountUpdater.
-func (c *MemStore) UpdateAccount(controllerName string, details jujuclient.AccountDetails) error {
-	if err := jujuclient.ValidateControllerName(controllerName); err != nil {
+func (c *MemStore) UpdateAccount(controllerName string, details AccountDetails) error {
+	if err := ValidateControllerName(controllerName); err != nil {
 		return err
 	}
-	if err := jujuclient.ValidateAccountDetails(details); err != nil {
+	if err := ValidateAccountDetails(details); err != nil {
 		return err
 	}
 	oldDetails := c.Accounts[controllerName]
@@ -275,8 +273,8 @@ func (c *MemStore) UpdateAccount(controllerName string, details jujuclient.Accou
 }
 
 // AccountDetails implements AccountGetter.
-func (c *MemStore) AccountDetails(controllerName string) (*jujuclient.AccountDetails, error) {
-	if err := jujuclient.ValidateControllerName(controllerName); err != nil {
+func (c *MemStore) AccountDetails(controllerName string) (*AccountDetails, error) {
+	if err := ValidateControllerName(controllerName); err != nil {
 		return nil, err
 	}
 	details, ok := c.Accounts[controllerName]
@@ -288,7 +286,7 @@ func (c *MemStore) AccountDetails(controllerName string) (*jujuclient.AccountDet
 
 // RemoveAccount implements AccountRemover.
 func (c *MemStore) RemoveAccount(controllerName string) error {
-	if err := jujuclient.ValidateControllerName(controllerName); err != nil {
+	if err := ValidateControllerName(controllerName); err != nil {
 		return err
 	}
 	if _, ok := c.Accounts[controllerName]; !ok {
@@ -326,11 +324,11 @@ func (c *MemStore) AllCredentials() (map[string]cloud.CloudCredential, error) {
 }
 
 // UpdateBootstrapConfig implements BootstrapConfigUpdater.
-func (c *MemStore) UpdateBootstrapConfig(controllerName string, cfg jujuclient.BootstrapConfig) error {
-	if err := jujuclient.ValidateControllerName(controllerName); err != nil {
+func (c *MemStore) UpdateBootstrapConfig(controllerName string, cfg BootstrapConfig) error {
+	if err := ValidateControllerName(controllerName); err != nil {
 		return err
 	}
-	if err := jujuclient.ValidateBootstrapConfig(cfg); err != nil {
+	if err := ValidateBootstrapConfig(cfg); err != nil {
 		return err
 	}
 	c.BootstrapConfig[controllerName] = cfg
@@ -339,7 +337,7 @@ func (c *MemStore) UpdateBootstrapConfig(controllerName string, cfg jujuclient.B
 }
 
 // BootstrapConfigForController implements BootstrapConfigGetter.
-func (c *MemStore) BootstrapConfigForController(controllerName string) (*jujuclient.BootstrapConfig, error) {
+func (c *MemStore) BootstrapConfigForController(controllerName string) (*BootstrapConfig, error) {
 	if cfg, ok := c.BootstrapConfig[controllerName]; ok {
 		return &cfg, nil
 	}

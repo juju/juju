@@ -12,14 +12,13 @@ import (
 
 	"github.com/juju/juju/cmd/juju/application"
 	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	coretesting "github.com/juju/juju/testing"
 )
 
 type ConsumeSuite struct {
 	testing.IsolationSuite
 	mockAPI *mockConsumeAPI
-	store   *jujuclienttesting.MemStore
+	store   *jujuclient.MemStore
 }
 
 var _ = gc.Suite(&ConsumeSuite{})
@@ -31,7 +30,7 @@ func (s *ConsumeSuite) SetUpTest(c *gc.C) {
 	// Set up the current controller, and write just enough info
 	// so we don't try to refresh
 	controllerName := "test-master"
-	s.store = jujuclienttesting.NewMemStore()
+	s.store = jujuclient.NewMemStore()
 	s.store.CurrentControllerName = controllerName
 	s.store.Controllers[controllerName] = jujuclient.ControllerDetails{}
 	s.store.Models[controllerName] = &jujuclient.ControllerModels{

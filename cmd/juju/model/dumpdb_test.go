@@ -11,14 +11,13 @@ import (
 
 	"github.com/juju/juju/cmd/juju/model"
 	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/testing"
 )
 
 type DumpDBCommandSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
 	fake  fakeDumpDBClient
-	store *jujuclienttesting.MemStore
+	store *jujuclient.MemStore
 }
 
 var _ = gc.Suite(&DumpDBCommandSuite{})
@@ -26,7 +25,7 @@ var _ = gc.Suite(&DumpDBCommandSuite{})
 func (s *DumpDBCommandSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.fake.ResetCalls()
-	s.store = jujuclienttesting.NewMemStore()
+	s.store = jujuclient.NewMemStore()
 	s.store.CurrentControllerName = "testing"
 	s.store.Controllers["testing"] = jujuclient.ControllerDetails{}
 	s.store.Accounts["testing"] = jujuclient.AccountDetails{

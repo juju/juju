@@ -15,7 +15,6 @@ import (
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/testing"
 )
 
@@ -24,7 +23,7 @@ type grantRevokeSuite struct {
 	fakeModelAPI  *fakeModelGrantRevokeAPI
 	fakeOffersAPI *fakeOffersGrantRevokeAPI
 	cmdFactory    func(*fakeModelGrantRevokeAPI, *fakeOffersGrantRevokeAPI) cmd.Command
-	store         *jujuclienttesting.MemStore
+	store         *jujuclient.MemStore
 }
 
 const (
@@ -45,7 +44,7 @@ func (s *grantRevokeSuite) SetUpTest(c *gc.C) {
 	// so we don't try to refresh
 	controllerName := "test-master"
 
-	s.store = jujuclienttesting.NewMemStore()
+	s.store = jujuclient.NewMemStore()
 	s.store.CurrentControllerName = controllerName
 	s.store.Controllers[controllerName] = jujuclient.ControllerDetails{}
 	s.store.Accounts[controllerName] = jujuclient.AccountDetails{

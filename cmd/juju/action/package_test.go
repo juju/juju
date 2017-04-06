@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/action"
 	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -41,7 +40,7 @@ type BaseActionSuite struct {
 	command cmd.Command
 
 	modelFlags []string
-	store      *jujuclienttesting.MemStore
+	store      *jujuclient.MemStore
 }
 
 func (s *BaseActionSuite) SetUpTest(c *gc.C) {
@@ -49,7 +48,7 @@ func (s *BaseActionSuite) SetUpTest(c *gc.C) {
 
 	s.modelFlags = []string{"-m", "--model"}
 
-	s.store = jujuclienttesting.NewMemStore()
+	s.store = jujuclient.NewMemStore()
 	s.store.CurrentControllerName = "ctrl"
 	s.store.Accounts["ctrl"] = jujuclient.AccountDetails{
 		User: "admin",

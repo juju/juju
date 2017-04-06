@@ -13,7 +13,6 @@ import (
 
 	"github.com/juju/juju/cmd/juju/romulus/allocate"
 	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -28,7 +27,7 @@ type updateAllocationSuite struct {
 
 func (s *updateAllocationSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
-	s.store = &jujuclienttesting.MemStore{
+	s.store = &jujuclient.MemStore{
 		Controllers: map[string]jujuclient.ControllerDetails{
 			"controller": {},
 		},

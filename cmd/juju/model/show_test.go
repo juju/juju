@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/model"
 	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/testing"
 )
@@ -24,7 +23,7 @@ import (
 type ShowCommandSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
 	fake           fakeModelShowClient
-	store          *jujuclienttesting.MemStore
+	store          *jujuclient.MemStore
 	expectedOutput attrs
 }
 
@@ -126,7 +125,7 @@ func (s *ShowCommandSuite) SetUpTest(c *gc.C) {
 		},
 	}
 
-	s.store = jujuclienttesting.NewMemStore()
+	s.store = jujuclient.NewMemStore()
 	s.store.CurrentControllerName = "testing"
 	s.store.Controllers["testing"] = jujuclient.ControllerDetails{}
 	s.store.Accounts["testing"] = jujuclient.AccountDetails{

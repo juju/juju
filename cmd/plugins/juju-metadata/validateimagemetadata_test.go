@@ -19,14 +19,13 @@ import (
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	coretesting "github.com/juju/juju/testing"
 )
 
 type ValidateImageMetadataSuite struct {
 	coretesting.FakeJujuXDGDataHomeSuite
 	metadataDir string
-	store       *jujuclienttesting.MemStore
+	store       *jujuclient.MemStore
 }
 
 var _ = gc.Suite(&ValidateImageMetadataSuite{})
@@ -92,7 +91,7 @@ func (s *ValidateImageMetadataSuite) makeLocalMetadata(c *gc.C, id, region, seri
 	return nil
 }
 
-func cacheTestEnvConfig(c *gc.C, store *jujuclienttesting.MemStore) {
+func cacheTestEnvConfig(c *gc.C, store *jujuclient.MemStore) {
 	ec2UUID := utils.MustNewUUID().String()
 	ec2Config, err := config.New(config.UseDefaults, map[string]interface{}{
 		"name":            "ec2",
@@ -164,7 +163,7 @@ func (s *ValidateImageMetadataSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.metadataDir = c.MkDir()
 
-	s.store = jujuclienttesting.NewMemStore()
+	s.store = jujuclient.NewMemStore()
 	cacheTestEnvConfig(c, s.store)
 
 	s.PatchEnvironment("AWS_ACCESS_KEY_ID", "access")

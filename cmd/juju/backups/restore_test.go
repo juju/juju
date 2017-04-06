@@ -20,7 +20,6 @@ import (
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/network"
 	_ "github.com/juju/juju/provider/dummy"
 	_ "github.com/juju/juju/provider/lxd"
@@ -30,7 +29,7 @@ import (
 
 type restoreSuite struct {
 	BaseBackupsSuite
-	store *jujuclienttesting.MemStore
+	store *jujuclient.MemStore
 }
 
 var _ = gc.Suite(&restoreSuite{})
@@ -50,7 +49,7 @@ func (s *restoreSuite) SetUpTest(c *gc.C) {
 	err := cloud.WritePersonalCloudMetadata(clouds)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.store = jujuclienttesting.NewMemStore()
+	s.store = jujuclient.NewMemStore()
 	s.store.Controllers["testing"] = jujuclient.ControllerDetails{
 		ControllerUUID:         "deadbeef-0bad-400d-8000-5b1d0d06f00d",
 		CACert:                 testing.CACert,

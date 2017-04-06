@@ -10,7 +10,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -33,7 +32,7 @@ func (s *baseControllerSuite) SetUpTest(c *gc.C) {
 	s.store = nil
 }
 
-func (s *baseControllerSuite) createTestClientStore(c *gc.C) *jujuclienttesting.MemStore {
+func (s *baseControllerSuite) createTestClientStore(c *gc.C) *jujuclient.MemStore {
 	controllers, err := jujuclient.ParseControllers([]byte(s.controllersYaml))
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -43,7 +42,7 @@ func (s *baseControllerSuite) createTestClientStore(c *gc.C) *jujuclienttesting.
 	accounts, err := jujuclient.ParseAccounts([]byte(s.accountsYaml))
 	c.Assert(err, jc.ErrorIsNil)
 
-	store := jujuclienttesting.NewMemStore()
+	store := jujuclient.NewMemStore()
 	store.Controllers = controllers.Controllers
 	store.CurrentControllerName = controllers.CurrentController
 	store.Models = models

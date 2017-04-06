@@ -10,6 +10,7 @@ import (
 	"sort"
 
 	"github.com/juju/errors"
+
 	"github.com/juju/juju/state"
 )
 

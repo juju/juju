@@ -20,7 +20,6 @@ import (
 	"github.com/juju/juju/api/controller"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/testing"
 )
 
@@ -28,7 +27,7 @@ type MigrateSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
 	api                 *fakeMigrateAPI
 	targetControllerAPI *fakeTargetControllerAPI
-	store               *jujuclienttesting.MemStore
+	store               *jujuclient.MemStore
 	password            string
 }
 
@@ -40,7 +39,7 @@ const targetControllerUUID = "beefdead-0bad-400d-8000-4b1d0d06f00d"
 func (s *MigrateSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 
-	s.store = jujuclienttesting.NewMemStore()
+	s.store = jujuclient.NewMemStore()
 
 	// Define the source controller in the config and set it as the default.
 	err := s.store.AddController("source", jujuclient.ControllerDetails{

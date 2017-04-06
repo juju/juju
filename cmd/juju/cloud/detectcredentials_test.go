@@ -17,12 +17,12 @@ import (
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/cloud"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/jujuclient/jujuclienttesting"
+	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/testing"
 )
 
 type detectCredentialsSuite struct {
-	store       *jujuclienttesting.MemStore
+	store       *jujuclient.MemStore
 	aCredential jujucloud.CloudCredential
 }
 
@@ -97,7 +97,7 @@ func (s *detectCredentialsSuite) SetUpSuite(c *gc.C) {
 }
 
 func (s *detectCredentialsSuite) SetUpTest(c *gc.C) {
-	s.store = jujuclienttesting.NewMemStore()
+	s.store = jujuclient.NewMemStore()
 	s.aCredential = jujucloud.CloudCredential{}
 }
 

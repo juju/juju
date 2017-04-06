@@ -13,20 +13,19 @@ import (
 	"github.com/juju/juju/cmd/juju/model"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/testing"
 )
 
 type DefaultsCommandSuite struct {
 	fakeModelDefaultEnvSuite
-	store *jujuclienttesting.MemStore
+	store *jujuclient.MemStore
 }
 
 var _ = gc.Suite(&DefaultsCommandSuite{})
 
 func (s *DefaultsCommandSuite) SetUpTest(c *gc.C) {
 	s.fakeModelDefaultEnvSuite.SetUpTest(c)
-	s.store = jujuclienttesting.NewMemStore()
+	s.store = jujuclient.NewMemStore()
 	s.store.CurrentControllerName = "controller"
 	s.store.Controllers["controller"] = jujuclient.ControllerDetails{}
 }

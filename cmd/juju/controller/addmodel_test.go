@@ -24,7 +24,6 @@ import (
 	"github.com/juju/juju/cmd/juju/controller"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	_ "github.com/juju/juju/provider/ec2"
 	"github.com/juju/juju/testing"
 )
@@ -35,7 +34,7 @@ type AddModelSuite struct {
 	fakeCloudAPI         *fakeCloudAPI
 	fakeProvider         *fakeProvider
 	fakeProviderRegistry *fakeProviderRegistry
-	store                *jujuclienttesting.MemStore
+	store                *jujuclient.MemStore
 }
 
 var _ = gc.Suite(&AddModelSuite{})
@@ -69,7 +68,7 @@ func (s *AddModelSuite) SetUpTest(c *gc.C) {
 	// Set up the current controller, and write just enough info
 	// so we don't try to refresh
 	controllerName := "test-master"
-	s.store = jujuclienttesting.NewMemStore()
+	s.store = jujuclient.NewMemStore()
 	s.store.CurrentControllerName = controllerName
 	s.store.Controllers[controllerName] = jujuclient.ControllerDetails{}
 	s.store.Accounts[controllerName] = jujuclient.AccountDetails{

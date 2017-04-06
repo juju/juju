@@ -6,15 +6,15 @@ package state
 import (
 	"fmt"
 
-	"github.com/juju/utils/featureflag"
-
 	"github.com/juju/errors"
-	"github.com/juju/juju/feature"
+	"github.com/juju/utils/featureflag"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
+
+	"github.com/juju/juju/feature"
 )
 
 type cleanupKind string

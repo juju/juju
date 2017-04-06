@@ -30,7 +30,7 @@ There is no current controller.
 Run juju list-controllers to see available controllers.
 `[1:]
 
-	s.store = jujuclienttesting.NewMemStore()
+	s.store = jujuclient.NewMemStore()
 	s.assertWhoAmI(c)
 }
 
@@ -40,7 +40,7 @@ There is no current controller.
 Run juju list-controllers to see available controllers.
 `[1:]
 
-	s.store = &jujuclienttesting.MemStore{
+	s.store = &jujuclient.MemStore{
 		Controllers: map[string]jujuclient.ControllerDetails{
 			"controller": {},
 		},
@@ -55,7 +55,7 @@ Model:       <no-current-model>
 User:        admin
 `[1:]
 
-	s.store = &jujuclienttesting.MemStore{
+	s.store = &jujuclient.MemStore{
 		CurrentControllerName: "controller",
 		Controllers: map[string]jujuclient.ControllerDetails{
 			"controller": {},
@@ -82,7 +82,7 @@ You are not logged in to controller "controller" and model "admin/model".
 Run juju login if you want to login.
 `[1:]
 
-	s.store = &jujuclienttesting.MemStore{
+	s.store = &jujuclient.MemStore{
 		CurrentControllerName: "controller",
 		Controllers: map[string]jujuclient.ControllerDetails{
 			"controller": {},
@@ -100,7 +100,7 @@ Run juju login if you want to login.
 }
 
 func (s *WhoAmITestSuite) assertWhoAmIForUser(c *gc.C, user, format string) {
-	s.store = &jujuclienttesting.MemStore{
+	s.store = &jujuclient.MemStore{
 		CurrentControllerName: "controller",
 		Controllers: map[string]jujuclient.ControllerDetails{
 			"controller": {},

@@ -54,7 +54,7 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/keys"
 	"github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/jujuclient/jujuclienttesting"
+	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/openstack"
@@ -1468,7 +1468,7 @@ func (s *localHTTPSServerSuite) SetUpTest(c *gc.C) {
 	var err error
 	s.env, err = bootstrap.Prepare(
 		envtesting.BootstrapContext(c),
-		jujuclienttesting.NewMemStore(),
+		jujuclient.NewMemStore(),
 		prepareParams(attrs, s.cred),
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -2269,7 +2269,7 @@ func (s *noSwiftSuite) SetUpTest(c *gc.C) {
 
 	env, err := bootstrap.Prepare(
 		envtesting.BootstrapContext(c),
-		jujuclienttesting.NewMemStore(),
+		jujuclient.NewMemStore(),
 		prepareParams(attrs, s.cred),
 	)
 	c.Assert(err, jc.ErrorIsNil)

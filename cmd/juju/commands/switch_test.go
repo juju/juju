@@ -22,7 +22,7 @@ import (
 type SwitchSimpleSuite struct {
 	coretesting.FakeJujuXDGDataHomeSuite
 	testing.Stub
-	store     *jujuclienttesting.MemStore
+	store     *jujuclient.MemStore
 	stubStore *jujuclienttesting.StubStore
 	onRefresh func()
 }
@@ -32,7 +32,7 @@ var _ = gc.Suite(&SwitchSimpleSuite{})
 func (s *SwitchSimpleSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.Stub.ResetCalls()
-	s.store = jujuclienttesting.NewMemStore()
+	s.store = jujuclient.NewMemStore()
 	s.stubStore = jujuclienttesting.WrapClientStore(s.store)
 	s.onRefresh = nil
 }

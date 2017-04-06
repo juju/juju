@@ -10,7 +10,7 @@ import (
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
 	envtesting "github.com/juju/juju/environs/testing"
-	"github.com/juju/juju/jujuclient/jujuclienttesting"
+	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/testing"
 )
@@ -69,7 +69,7 @@ func (s *ConfigSuite) TestFirewallMode(c *gc.C) {
 		}
 		ctx := envtesting.BootstrapContext(c)
 		env, err := bootstrap.Prepare(
-			ctx, jujuclienttesting.NewMemStore(),
+			ctx, jujuclient.NewMemStore(),
 			bootstrap.PrepareParams{
 				ControllerConfig: testing.FakeControllerConfig(),
 				ControllerName:   cfg.Name(),

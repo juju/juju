@@ -12,20 +12,19 @@ import (
 
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	coretesting "github.com/juju/juju/testing"
 )
 
 type CmdSuite struct {
 	coretesting.FakeJujuXDGDataHomeSuite
-	ControllerStore *jujuclienttesting.MemStore
+	ControllerStore *jujuclient.MemStore
 }
 
 var _ = gc.Suite(&CmdSuite{})
 
 func (s *CmdSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
-	s.ControllerStore = jujuclienttesting.NewMemStore()
+	s.ControllerStore = jujuclient.NewMemStore()
 }
 
 var deployTests = []struct {

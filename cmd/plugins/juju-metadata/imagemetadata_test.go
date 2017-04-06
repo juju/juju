@@ -19,7 +19,6 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/testing"
 )
@@ -28,7 +27,7 @@ type ImageMetadataSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
 	environ []string
 	dir     string
-	store   *jujuclienttesting.MemStore
+	store   *jujuclient.MemStore
 }
 
 var _ = gc.Suite(&ImageMetadataSuite{})
@@ -42,7 +41,7 @@ func (s *ImageMetadataSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.dir = c.MkDir()
 
-	s.store = jujuclienttesting.NewMemStore()
+	s.store = jujuclient.NewMemStore()
 	cacheTestEnvConfig(c, s.store)
 
 	s.PatchEnvironment("AWS_ACCESS_KEY_ID", "access")
