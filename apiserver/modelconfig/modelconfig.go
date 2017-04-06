@@ -132,7 +132,7 @@ func (c *ModelConfigAPI) SetSLALevel(args params.ModelSLA) error {
 	if err := c.checkCanWrite(); err != nil {
 		return err
 	}
-	return c.backend.SetSLA(args.Level, args.Credentials)
+	return c.backend.SetSLA(args.Level, args.Owner, args.Credentials)
 
 }
 

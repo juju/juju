@@ -186,6 +186,10 @@ func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
 		}, {
 			Id: "2",
 		}},
+		SLA: &params.ModelSLAInfo{
+			Level: "essential",
+			Owner: "user",
+		},
 	})
 	s.st.CheckCalls(c, []gitjujutesting.StubCall{
 		{"ControllerTag", nil},
@@ -214,6 +218,8 @@ func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
 		{"Cloud", nil},
 		{"CloudRegion", nil},
 		{"CloudCredential", nil},
+		{"SLALevel", nil},
+		{"SLAOwner", nil},
 	})
 }
 
@@ -772,6 +778,16 @@ func (m *mockModel) Destroy() error {
 func (m *mockModel) DestroyIncludingHosted() error {
 	m.MethodCall(m, "DestroyIncludingHosted")
 	return m.NextErr()
+}
+
+func (m *mockModel) SLALevel() string {
+	m.MethodCall(m, "SLALevel")
+	return "essential"
+}
+
+func (m *mockModel) SLAOwner() string {
+	m.MethodCall(m, "SLAOwner")
+	return "user"
 }
 
 type mockModelUser struct {

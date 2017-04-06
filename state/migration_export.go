@@ -149,7 +149,7 @@ func (st *State) Export() (description.Model, error) {
 		return nil, errors.Trace(err)
 	}
 
-	export.model.SetSLA(dbModel.SLALevel(), string(dbModel.SLACredential()))
+	export.model.SetSLA(dbModel.SLALevel(), dbModel.SLAOwner(), string(dbModel.SLACredential()))
 	export.model.SetMeterStatus(dbModel.MeterStatus().Code.String(), dbModel.MeterStatus().Info)
 
 	if featureflag.Enabled(feature.StrictMigration) {

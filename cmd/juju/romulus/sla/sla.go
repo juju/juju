@@ -13,6 +13,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/romulus/api/sla"
+	slawire "github.com/juju/romulus/wireformat/sla"
 	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/api"
@@ -25,11 +26,11 @@ import (
 // the command uses to create an sla authorization macaroon.
 type authorizationClient interface {
 	// Authorize returns the sla authorization macaroon for the specified model,
-	Authorize(modelUUID, supportLevel, budget string) (*macaroon.Macaroon, error)
+	Authorize(modelUUID, supportLevel, budget string) (*slawire.SLAResponse, error)
 }
 
 type slaClient interface {
-	SetSLALevel(level string, creds []byte) error
+	SetSLALevel(level, owner string, creds []byte) error
 	SLALevel() (string, error)
 }
 
@@ -105,25 +106,29 @@ func (c *supportCommand) Init(args []string) error {
 	return cmd.CheckEmpty(args[1:])
 }
 
-func (c *supportCommand) requestSupportCredentials(modelUUID string) ([]byte, error) {
+func (c *supportCommand) requestSupportCredentials(modelUUID string) (string, []byte, error) {
 	hc, err := c.BakeryClient()
 	if err != nil {
-		return nil, errors.Trace(err)
+		return "", nil, errors.Trace(err)
 	}
 	authClient, err := c.newAuthorizationClient(sla.HTTPClient(hc))
 	if err != nil {
-		return nil, errors.Trace(err)
+		return "", nil, errors.Trace(err)
 	}
-	m, err := authClient.Authorize(modelUUID, c.Level, c.Budget)
+	slaResp, err := authClient.Authorize(modelUUID, c.Level, c.Budget)
 	if err != nil {
 		err = common.MaybeTermsAgreementError(err)
 		if termErr, ok := errors.Cause(err).(*common.TermsRequiredError); ok {
-			return nil, errors.Trace(termErr.UserErr())
+			return "", nil, errors.Trace(termErr.UserErr())
 		}
-		return nil, errors.Trace(err)
+		return "", nil, errors.Trace(err)
 	}
-	ms := macaroon.Slice{m}
-	return json.Marshal(ms)
+	ms := macaroon.Slice{slaResp.Credentials}
+	mbuf, err := json.Marshal(ms)
+	if err != nil {
+		return "", nil, errors.Trace(err)
+	}
+	return slaResp.Owner, mbuf, nil
 }
 
 func displayCurrentLevel(client slaClient, ctx *cmd.Context) error {
@@ -147,11 +152,11 @@ func (c *supportCommand) Run(ctx *cmd.Context) error {
 	if c.Level == "" {
 		return displayCurrentLevel(client, ctx)
 	}
-	credentials, err := c.requestSupportCredentials(modelId)
+	owner, credentials, err := c.requestSupportCredentials(modelId)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	err = client.SetSLALevel(c.Level, credentials)
+	err = client.SetSLALevel(c.Level, owner, credentials)
 	if err != nil {
 		return errors.Trace(err)
 	}

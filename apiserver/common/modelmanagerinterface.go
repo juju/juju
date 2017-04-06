@@ -84,6 +84,8 @@ type Model interface {
 	Users() ([]permission.UserAccess, error)
 	Destroy() error
 	DestroyIncludingHosted() error
+	SLALevel() string
+	SLAOwner() string
 }
 
 var _ ModelManagerBackend = (*modelManagerStateShim)(nil)

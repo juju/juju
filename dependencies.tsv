@@ -21,7 +21,7 @@ github.com/juju/ansiterm	git	b99631de12cf04a906c1d4e4ec54fb86eae5863d	2016-09-07
 github.com/juju/blobstore	git	06056004b3d7b54bbb7984d830c537bad00fec21	2015-07-29T11:18:58Z
 github.com/juju/bundlechanges	git	7725027b95e0d54635e0fb11efc2debdcdf19f75	2016-12-15T16:06:52Z
 github.com/juju/cmd	git	9425a576247f348b9b40afe3b60085de63470de5	2017-03-20T01:37:09Z
-github.com/juju/description	git	0b0134bd1b5a0676537883958c55ccd1c6fafbc7	2017-03-30T02:44:27Z
+github.com/juju/description	git	50b9bb7345dcc1d0443cc137337fdb15a4296ac2	2017-04-06T03:03:04Z
 github.com/juju/errors	git	1b5e39b83d1835fa480e0c2ddefb040ee82d58b3	2015-09-16T12:56:42Z
 github.com/juju/gnuflag	git	4e76c56581859c14d9d87e1ddbe29e1c0f10195f	2016-08-09T16:52:14Z
 github.com/juju/go4	git	40d72ab9641a2a8c36a9c46a51e28367115c8e59	2016-02-22T16:32:58Z
@@ -41,7 +41,7 @@ github.com/juju/pubsub	git	f4dfa62f30adc6955341b3dd73dde7c8d9b23b9e	2017-03-31T0
 github.com/juju/replicaset	git	6b5becf2232ce76656ea765d8d915d41755a1513	2016-11-25T16:08:49Z
 github.com/juju/retry	git	62c62032529169c7ec02fa48f93349604c345e1f	2015-10-29T02:48:21Z
 github.com/juju/rfc	git	ebdbbdb950cd039a531d15cdc2ac2cbd94f068ee	2016-07-11T02:42:13Z
-github.com/juju/romulus	git	a2065b15ccbf1e93369d9e0a4bcf33f8911d8725	2017-04-05T10:19:25Z
+github.com/juju/romulus	git	cb2eb9afe5690e9639e1c8a0898ab3987b39920a	2017-04-05T14:17:21Z
 github.com/juju/schema	git	075de04f9b7d7580d60a1e12a0b3f50bb18e6998	2016-04-20T04:42:03Z
 github.com/juju/terms-client	git	9b925afd677234e4146dde3cb1a11e187cbed64e	2016-08-09T13:19:00Z
 github.com/juju/testing	git	fce9bc4ebf7a77310c262ac4884e03b778eae06a	2017-02-22T09:01:19Z
