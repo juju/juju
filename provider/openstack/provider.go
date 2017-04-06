@@ -1009,7 +1009,7 @@ func (e *Environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 	}
 	usingNetwork := e.ecfg().network()
 	if usingNetwork != "" {
-		networkId, err := e.networking.ResolveNetwork(usingNetwork)
+		networkId, err := e.networking.ResolveNetwork(usingNetwork, false)
 		if err != nil {
 			return nil, err
 		}
