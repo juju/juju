@@ -31,12 +31,7 @@ const (
 	blockDevicePrefix = "xvd"
 )
 
-// storageProvider is the storage provider for the oracle cloud storage environment
-//
-// storageProvider implements storage.Provider
-// storageProvider implements storage.VolumeSource
-// For information on the capabilities provided by the oracle cloud in terms of storage,
-// please see: https://docs.oracle.com/cloud/latest/stcomputecs/STCSA/api-StorageVolumes.html
+// storageProvider implements the storage.Provider interface
 type storageProvider struct {
 	env *oracleEnviron
 	api StorageAPI

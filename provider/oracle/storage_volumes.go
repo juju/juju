@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/storage"
 )
 
+// oracleVolumeSource implements the storage.VolumeSource interface
 type oracleVolumeSource struct {
 	env       *oracleEnviron
 	envName   string // non-unique, informational only
