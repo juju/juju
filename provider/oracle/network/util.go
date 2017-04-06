@@ -6,7 +6,7 @@ package network
 import (
 	"net"
 
-	"github.com/pkg/errors"
+	"github.com/juju/errors"
 )
 
 // getMacAndIp is a helper function that returns a mac and an IP,
