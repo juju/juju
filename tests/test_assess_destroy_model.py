@@ -28,42 +28,46 @@ from utility import (
     JujuAssertionError
     )
 
-list_model_initial = dedent("""
-    models:
-    - name: controller
-      controller-name: foo-tmp-env
-    - name: foo-tmp-env
-      controller-name: foo-tmp-env
-    current-model: foo-tmp-env
-""")
+list_model_initial = dedent(
+    """{
+    "models": [
+        {"name": "controller",
+         "controller-name": "foo-tmp-env"},
+        {"name": "foo-tmp-env",
+         "controller-name": "foo-tmp-env"}],
+    "current-model": "foo-tmp-env"
+    }""")
 
-list_model_add = dedent("""
-    models:
-    - name: controller
-      controller-name: foo-tmp-env
-    - name: foo-tmp-env
-      controller-name: foo-tmp-env
-    - name: test-tmp-env
-      controller-name: foo-tmp-env
-    current-model: test-tmp-env
-""")
+list_model_destroy = dedent(
+    """{
+    "models": [
+        {"name": "controller",
+         "controller-name": "foo-tmp-env"},
+        {"name": "foo-tmp-env",
+         "controller-name": "foo-tmp-env"}]
+    }""")
 
-list_model_destroy = dedent("""
-    models:
-    - name: controller
-      controller-name: foo-tmp-env
-    - name: foo-tmp-env
-      controller-name: foo-tmp-env
-""")
+list_model_add = dedent(
+    """{
+    "models": [
+        {"name": "controller",
+         "controller-name": "foo-tmp-env"},
+        {"name": "test-tmp-env",
+         "controller-name": "foo-tmp-env"},
+        {"name": "foo-tmp-env",
+         "controller-name": "foo-tmp-env"}],
+    "current-model": "test-tmp-env"
+    }""")
 
-list_model_switch = dedent("""
-    models:
-    - name: controller
-      controller-name: foo-tmp-env
-    - name: foo-tmp-env
-      controller-name: foo-tmp-env
-    current-model: bar-tmp-env
-""")
+list_model_switch = dedent(
+    """{
+    "models": [
+        {"name": "controller",
+         "controller-name": "foo-tmp-env"},
+        {"name": "foo-tmp-env",
+         "controller-name": "foo-tmp-env"}],
+    "current-model": "bar-tmp-env"
+    }""")
 
 
 class TestParseArgs(TestCase):
@@ -117,7 +121,7 @@ class TestAssess(TestCase):
         self.assertEqual(
             [call.bootstrap(),
              call.add_model('test-tmp-env'),
-             call.get_juju_output('list-models', '--format', 'yaml',
+             call.get_juju_output('list-models', '--format', 'json',
                                   include_e=False)],
             fake_client.mock_calls)
 
@@ -137,11 +141,11 @@ class TestAssess(TestCase):
         fake_client = Mock(wraps=fake_juju_client())
         fake_client.bootstrap()
         fake_client.get_juju_output.return_value = list_model_destroy
-        destroy_model(fake_client)
+        destroy_model(fake_client, fake_client)
         self.assertEqual(
             [call.bootstrap(),
              call.destroy_model(),
-             call.get_juju_output('list-models', '--format', 'yaml',
+             call.get_juju_output('list-models', '--format', 'json',
                                   include_e=False)],
             fake_client.mock_calls)
 
@@ -150,7 +154,7 @@ class TestAssess(TestCase):
         fake_client.bootstrap()
         fake_client.get_juju_output.return_value = list_model_initial
         with self.assertRaises(JujuAssertionError) as context:
-            destroy_model(fake_client)
+            destroy_model(fake_client, fake_client)
         self.assertTrue(
             'Juju failed to unset model after it was destroyed'
             in context.exception.message)
@@ -163,7 +167,7 @@ class TestAssess(TestCase):
         self.assertEqual(
             [call.bootstrap(),
              call.switch(controller='foo-tmp-env', model='foo-tmp-env'),
-             call.get_juju_output('list-models', '--format', 'yaml',
+             call.get_juju_output('list-models', '--format', 'json',
                                   include_e=False)],
             fake_client.mock_calls)
 

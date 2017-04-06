@@ -99,14 +99,12 @@ def switch_model(client, current_model, current_controller):
 def get_current_controller(client):
     """Gets the current controller from Juju's list-models command.
 
-    We only have one controller in this test, so any model on that
-    controller will have the same controller information.
-
     :param client: Jujupy ModelClient object
     :return: String name of current controller
     """
-    raw = list_models(client)
-    return raw['models'][0]['controller-name']
+    raw = client.get_juju_output('switch', include_e=False).decode('utf-8')
+    raw = raw.split(':')[0]
+    return raw
 
 
 def get_current_model(client):
