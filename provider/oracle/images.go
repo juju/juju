@@ -23,15 +23,13 @@ func instanceTypes(c *oci.Client) ([]instances.InstanceType, error) {
 		return nil, errors.Errorf("cannot use nil client")
 	}
 
-	// make api request to oracle cloud to give us a list of
-	// all supported shapes
+	// fetch all shapes from the provider
 	shapes, err := c.AllShapes(nil)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	// so let's transform these into juju complaint
-	// instance types
+	// convert shapes to InstanceType
 	onlyArch := []string{"amd64"}
 	types := make([]instances.InstanceType, len(shapes.Result), len(shapes.Result))
 	for key, val := range shapes.Result {
@@ -71,11 +69,7 @@ func findInstanceSpec(
 }
 
 // checkImageList creates image metadata from the oracle image list
-func checkImageList(
-	c *oci.Client,
-	cons constraints.Value,
-) ([]*imagemetadata.ImageMetadata, error) {
-
+func checkImageList(c *oci.Client, cons constraints.Value) ([]*imagemetadata.ImageMetadata, error) {
 	if c == nil {
 		return nil, errors.NotFoundf("oracle client")
 	}
@@ -123,8 +117,7 @@ func checkImageList(
 	return images, nil
 }
 
-// getImageName based on the id from the imagemetadata extract
-// only the name of the image
+// getImageName gets the name of the image represented by the supplied ID
 func getImageName(c *oci.Client, id string) (string, error) {
 	if id == "" {
 		return "", errors.NotFoundf("empty id")
@@ -140,7 +133,7 @@ func getImageName(c *oci.Client, id string) (string, error) {
 	// we should let the user know this
 	if resp.Result == nil {
 		return "", errors.NotFoundf(
-			"images under the current client username are",
+			"there are currently no images available in your account. Please add images from the oracle market",
 		)
 	}
 
@@ -151,5 +144,5 @@ func getImageName(c *oci.Client, id string) (string, error) {
 		}
 	}
 
-	return "", errors.NotFoundf("images found with the id provided are ")
+	return "", errors.NotFoundf("could not find image with ID: %q", id)
 }
