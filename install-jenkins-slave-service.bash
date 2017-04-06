@@ -52,14 +52,21 @@ function install-jenkins() {
     export SLAVE_NAME=$SLAVE_NAME
     export MASTER_URL=$MASTER_URL
 
-    # sudo apt-get install unzip
-    # wget -O $HOME/jenkins-slave.zip \
-    #     https://api.jujucharms.com/charmstore/v5/~juju-qa/jenkins-slave/archive
-    # unzip jenkins-slave.zip -d $JUJU_CHARM_DIR
-    # make-charm-cmds 
+    sudo apt-get install unzip
+    if [[ ! -f ~/jenkins-slave.zip ]]; then
+        wget -O $HOME/jenkins-slave.zip \
+            https://api.jujucharms.com/charmstore/v5/~juju-qa/jenkins-slave/archive
+    fi
+    unzip jenkins-slave.zip -d $JUJU_CHARM_DIR
+    make-charm-cmds 
 
-    # # Force the bash functions into root user's env
-    # sudo -E $JUJU_CHARM_DIR/hooks/install
+    # Force the bash functions into root user's env
+    sudo -E $JUJU_CHARM_DIR/hooks/install
+    if [[ -f ~/slave.jar ]]; then
+        sudo mkdir -p /var/lib/jenkins/bin || true
+        sudo cp ~/slave.jar /var/lib/jenkins/bin/ || true
+        sudo chown -R jenkins:jenkins /var/lib/jenkins/bin || true
+    fi
     # Force the bash functions into root user's env
     sudo -E PATH=$CHARM_CMDS:$PATH $JUJU_CHARM_DIR/hooks/config-changed
 }
