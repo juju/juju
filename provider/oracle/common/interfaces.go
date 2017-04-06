@@ -21,7 +21,7 @@ type Instancer interface {
 // resource name
 type Composer interface {
 	// ComposeName composes the name for a provider resource. The name
-	// for an oracle API resource topically has the following form:
+	// for an oracle API resource typically has the following form:
 	//
 	// /Compute-<Identity Domain>/<username>/<resource name>
 	//

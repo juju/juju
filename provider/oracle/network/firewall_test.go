@@ -4,7 +4,7 @@
 package network_test
 
 import (
-	"errors"
+	"github.com/juju/errors"
 
 	gc "gopkg.in/check.v1"
 
