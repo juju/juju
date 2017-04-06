@@ -155,8 +155,7 @@ func (e Environ) NetworkInterfaces(instId instance.Id) ([]network.InterfaceInfo,
 		return nil, err
 	}
 
-	n := len(instance.Networking)
-	if n == 0 {
+	if len(instance.Networking) == 0 {
 		return []network.InterfaceInfo{}, nil
 	}
 	subnetInfo, err := e.getSubnetInfoAsMap()
@@ -165,7 +164,7 @@ func (e Environ) NetworkInterfaces(instId instance.Id) ([]network.InterfaceInfo,
 	}
 	nicAttributes := e.getNicAttributes(instance)
 
-	interfaces := make([]network.InterfaceInfo, 0, n)
+	interfaces := make([]network.InterfaceInfo, 0, len(instance.Networking))
 	idx := 0
 	for nicName, nicObj := range instance.Networking {
 		// gsamfira: While the API may hold any alphanumeric NIC name
@@ -193,7 +192,7 @@ func (e Environ) NetworkInterfaces(instId instance.Id) ([]network.InterfaceInfo,
 			return nil, err
 		}
 		addr := network.NewScopedAddress(ip, network.ScopeCloudLocal)
-		ni := network.InterfaceInfo{
+		nic := network.InterfaceInfo{
 			InterfaceName: name,
 			DeviceIndex:   deviceIndex,
 			ProviderId:    network.Id(deviceAttributes.Id),
@@ -215,11 +214,11 @@ func (e Environ) NetworkInterfaces(instId instance.Id) ([]network.InterfaceInfo,
 		// IPNetworks (user defined)
 		if nicObj.GetType() == common.VNic {
 			nicSubnetDetails := subnetInfo[deviceAttributes.Ipnetwork]
-			ni.ProviderSpaceId = nicSubnetDetails.SpaceProviderId
-			ni.ProviderSubnetId = nicSubnetDetails.ProviderId
-			ni.CIDR = nicSubnetDetails.CIDR
+			nic.ProviderSpaceId = nicSubnetDetails.SpaceProviderId
+			nic.ProviderSubnetId = nicSubnetDetails.ProviderId
+			nic.CIDR = nicSubnetDetails.CIDR
 		}
-		interfaces = append(interfaces, ni)
+		interfaces = append(interfaces, nic)
 	}
 
 	return interfaces, nil
