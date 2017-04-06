@@ -27,35 +27,37 @@ const (
 // config.Validator interface and environs.ProviderCredentials also
 type environProvider struct{}
 
+var cloudSchema = &jsonschema.Schema{
+	Type:     []jsonschema.Type{jsonschema.ObjectType},
+	Required: []string{cloud.EndpointKey, cloud.AuthTypesKey, cloud.RegionsKey},
+	Order:    []string{cloud.EndpointKey, cloud.AuthTypesKey, cloud.RegionsKey},
+	Properties: map[string]*jsonschema.Schema{
+		cloud.EndpointKey: {
+			Singular: "the API endpoint url for the cloud",
+			Type:     []jsonschema.Type{jsonschema.StringType},
+			Format:   jsonschema.FormatURI,
+		},
+		cloud.AuthTypesKey: &jsonschema.Schema{
+			// don't need a prompt, since there's only one choice.
+			Type: []jsonschema.Type{jsonschema.ArrayType},
+			Enum: []interface{}{[]string{string(cloud.UserPassAuthType)}},
+		},
+		cloud.RegionsKey: {
+			Type:     []jsonschema.Type{jsonschema.ObjectType},
+			Singular: "region",
+			Plural:   "regions",
+			AdditionalProperties: &jsonschema.Schema{
+				Type:          []jsonschema.Type{jsonschema.ObjectType},
+				MaxProperties: jsonschema.Int(0),
+			},
+		},
+	},
+}
+
 // CloudSchema returns the schema used to validate input for add-cloud.  Since
 // this provider does support custom clouds, this always returns non-nil
 func (e environProvider) CloudSchema() *jsonschema.Schema {
-	return &jsonschema.Schema{
-		Type:     []jsonschema.Type{jsonschema.ObjectType},
-		Required: []string{cloud.EndpointKey, cloud.AuthTypesKey, cloud.RegionsKey},
-		Order:    []string{cloud.EndpointKey, cloud.AuthTypesKey, cloud.RegionsKey},
-		Properties: map[string]*jsonschema.Schema{
-			cloud.EndpointKey: {
-				Singular: "the API endpoint url for the cloud",
-				Type:     []jsonschema.Type{jsonschema.StringType},
-				Format:   jsonschema.FormatURI,
-			},
-			cloud.AuthTypesKey: &jsonschema.Schema{
-				// don't need a prompt, since there's only one choice.
-				Type: []jsonschema.Type{jsonschema.ArrayType},
-				Enum: []interface{}{[]string{string(cloud.UserPassAuthType)}},
-			},
-			cloud.RegionsKey: {
-				Type:     []jsonschema.Type{jsonschema.ObjectType},
-				Singular: "region",
-				Plural:   "regions",
-				AdditionalProperties: &jsonschema.Schema{
-					Type:          []jsonschema.Type{jsonschema.ObjectType},
-					MaxProperties: jsonschema.Int(0),
-				},
-			},
-		},
-	}
+	return cloudSchema
 }
 
 // Ping tests the connection to the oracle cloud to verify the endoint is valid.
@@ -158,25 +160,27 @@ func (e environProvider) Validate(
 	return cfg.Apply(newAttrs)
 }
 
+var credentials = map[cloud.AuthType]cloud.CredentialSchema{
+	cloud.UserPassAuthType: {{
+		"username", cloud.CredentialAttr{
+			Description: "account username",
+		},
+	}, {
+		"password", cloud.CredentialAttr{
+			Description: "account password",
+			Hidden:      true,
+		},
+	}, {
+		"identity-domain", cloud.CredentialAttr{
+			Description: "indetity domain of the oracle account",
+		},
+	}},
+}
+
 // CredentialSchemas returns credential schemas, keyed on authentication type.
 // This is used to validate existing oracle credentials, or to generate new ones.
 func (e environProvider) CredentialSchemas() map[cloud.AuthType]cloud.CredentialSchema {
-	return map[cloud.AuthType]cloud.CredentialSchema{
-		cloud.UserPassAuthType: {{
-			"username", cloud.CredentialAttr{
-				Description: "account username",
-			},
-		}, {
-			"password", cloud.CredentialAttr{
-				Description: "account password",
-				Hidden:      true,
-			},
-		}, {
-			"identity-domain", cloud.CredentialAttr{
-				Description: "indetity domain of the oracle account",
-			},
-		}},
-	}
+	return credentials
 }
 
 // DetectCredentials automatically detects one or more
