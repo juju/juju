@@ -620,31 +620,16 @@ func (o *oracleEnviron) Instances(ids []instance.Id) ([]instance.Instance, error
 	if len(ids) == 0 {
 		return nil, nil
 	}
-	instances := make([]instance.Instance, len(ids))
-	all, err := o.AllInstances()
+	instances, err := o.getOracleInstances(ids...)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, err
 	}
 
-	found := 0
-	for i, id := range ids {
-		for _, inst := range all {
-			if inst.Id() == id {
-				instances[i] = inst
-				found++
-			}
-		}
+	ret := make([]instance.Instance, len(instances))
+	for i, val := range instances {
+		ret[i] = val
 	}
-
-	if found == 0 {
-		return nil, environs.ErrNoInstances
-	}
-
-	if found != len(ids) {
-		return instances, environs.ErrPartialInstances
-	}
-
-	return instances, nil
+	return ret, nil
 }
 
 // ControllerInstances is part of the environs.Environ interface.
@@ -688,7 +673,6 @@ func (o *oracleEnviron) DestroyController(controllerUUID string) error {
 	if err != nil {
 		logger.Errorf("Failed to destroy environment through controller")
 	}
-
 	instances, err := o.allControllerManagedInstances(controllerUUID)
 	if err != nil {
 		if err == environs.ErrNoInstances {
@@ -696,26 +680,11 @@ func (o *oracleEnviron) DestroyController(controllerUUID string) error {
 		}
 		return errors.Trace(err)
 	}
-	errc := make(chan error, len(instances))
-	wg := sync.WaitGroup{}
-	wg.Add(len(instances))
-	for _, val := range instances {
-		go func() {
-			defer wg.Done()
-			err := val.delete(true)
-			if !oci.IsNotFound(err) {
-				errc <- err
-			}
-		}()
+	ids := make([]instance.Id, len(instances))
+	for i, val := range instances {
+		ids[i] = val.Id()
 	}
-	wg.Wait()
-	select {
-	case err := <-errc:
-		return errors.Annotate(err, "cannot stop all instances")
-	default:
-	}
-
-	return nil
+	return o.StopInstances(ids...)
 }
 
 // Provider is part of the environs.Environ interface.
