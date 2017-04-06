@@ -115,6 +115,10 @@ func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
 		header = append(header, "Notes")
 		values = append(values, message)
 	}
+	if fs.Model.SLA != "" {
+		header = append(header, "SLA")
+		values = append(values, fs.Model.SLA)
+	}
 
 	// The first set of headers don't use outputHeaders because it adds the blank line.
 	p(header...)
