@@ -19,38 +19,29 @@ import (
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
+	oraclenetwork "github.com/juju/juju/provider/oracle/network"
 	"github.com/juju/juju/status"
 )
 
-// oracleInstance type holds the actual running machine
-// instance inside the oracle cloud infrastrcture
-// this will imlement the instance.Instance interface
-// this also implements the environs.Firewaller interface
+// oracleInstance implements the instance.Instance interface
 type oracleInstance struct {
 	// name of the instance, generated after the vm creation
 	name string
 	// status holds the status of the instance
 	status instance.InstanceStatus
-	// machine will hold the raw response returned
-	// from launching a machine inside
-	// the oracle infrastructure
+	// machine will hold the raw instance details obtained from
+	// the provider
 	machine response.Instance
 	// arch will hold the architecture information of the instance
-	arch *string
-	// instType will hold the shape of the instance
-	// in a complaint form that juju will understand
-	instType *instances.InstanceType
-	// mutex used for synchronization between goroutines
-	// some methods will require this
-	mutex *sync.Mutex
-	// env will hold the env that the instance was created from
-	env *oracleEnviron
-	// machineId is the uuid of the machine
+	arch      *string
+	instType  *instances.InstanceType
+	mutex     *sync.Mutex
+	env       *oracleEnviron
 	machineId string
 }
 
-// hardwareCharacteristics will return hardware specifications
-// based on the instance that is running
+// hardwareCharacteristics returns the hardware characteristics of the current
+// instance
 func (o *oracleInstance) hardwareCharacteristics() *instance.HardwareCharacteristics {
 	if o.arch == nil {
 		return nil
@@ -66,8 +57,7 @@ func (o *oracleInstance) hardwareCharacteristics() *instance.HardwareCharacteris
 	return hc
 }
 
-// newInstance returns a new oracleInstance based on the
-// instance response of the api and the current juju environment
+// newInstance returns a new oracleInstance
 func newInstance(params response.Instance, env *oracleEnviron) (*oracleInstance, error) {
 	if params.Name == "" {
 		return nil, errors.New(
@@ -93,7 +83,7 @@ func newInstance(params response.Instance, env *oracleEnviron) (*oracleInstance,
 	return instance, nil
 }
 
-// Id returns a provider generated indentifier for the Instance
+// Id is defined on the instance.Instance interface.
 func (o *oracleInstance) Id() instance.Id {
 	if o.machine.Name != "" {
 		return instance.Id(o.machine.Name)
@@ -102,7 +92,7 @@ func (o *oracleInstance) Id() instance.Id {
 	return instance.Id(o.name)
 }
 
-// Status represents the provider specific status for the instance
+// Status is defined on the instance.Instance interface.
 func (o *oracleInstance) Status() instance.InstanceStatus {
 	return o.status
 }
@@ -135,13 +125,11 @@ func (o *oracleInstance) refresh() error {
 	return nil
 }
 
-// waitForMachineStatus will ping the machine until the timeout duration is reached or an error appeared
+// waitForMachineStatus will ping the machine status until the timeout
+// duration is reached or an error appeared
 func (o *oracleInstance) waitForMachineStatus(state ociCommon.InstanceState, timeout time.Duration) error {
-	// chan user for errors
 	errChan := make(chan error)
-	// chan used for timeout
 	done := make(chan bool)
-
 	go func() {
 		for {
 			select {
@@ -183,11 +171,8 @@ func (o *oracleInstance) waitForMachineStatus(state ociCommon.InstanceState, tim
 	return nil
 }
 
-// delete will delete the instance and all other things
-// that the instances created to function correctly
-// if cleanup is true it will disassociate the public ips from
-// the instance, delete the machine sec list and delete the
-// virtual nic set also
+// delete will delete the instance and attempt to cleanup any instance related
+// resources
 func (o *oracleInstance) delete(cleanup bool) error {
 	if cleanup {
 		err := o.disassociatePublicIps(true)
@@ -223,7 +208,7 @@ func (o *oracleInstance) delete(cleanup bool) error {
 		}
 
 		// the VM association is now gone, now we can delete the
-		// machine sec list also
+		// machine sec list
 		if err := o.env.DeleteMachineSecList(o.machineId); err != nil {
 			return jujuerrors.Trace(err)
 		}
@@ -235,27 +220,7 @@ func (o *oracleInstance) delete(cleanup bool) error {
 	return nil
 }
 
-// deletePublicIps deletes public ips, this means that this will
-// delete all ip reservations that has any ip association
-func (o *oracleInstance) deletePublicIps() error {
-	ipAssoc, err := o.publicAddresses()
-	if err != nil {
-		return err
-	}
-
-	for _, ip := range ipAssoc {
-		if err := o.env.client.DeleteIpReservation(ip.Reservation); err != nil {
-			logger.Errorf("Failed to delete IP: %s", err)
-			if oci.IsNotFound(err) {
-				continue
-			}
-			return err
-		}
-	}
-	return nil
-}
-
-// unusedPublicIps retruns a slice of IpReservation that are currently not used
+// unusedPublicIps returns a slice of IpReservation that are currently not used
 func (o *oracleInstance) unusedPublicIps() ([]ociResponse.IpReservation, error) {
 	filter := []oci.Filter{
 		oci.Filter{
@@ -276,17 +241,15 @@ func (o *oracleInstance) unusedPublicIps() ([]ociResponse.IpReservation, error) 
 	return res.Result, nil
 }
 
-// associatePublicIP returns and allocs a new public ip in the oracle cloud
+// associatePublicIP associates a public IP with the current instance
 func (o *oracleInstance) associatePublicIP() error {
-	// return all unused public ips
+	// return all unused public IPs
 	unusedIps, err := o.unusedPublicIps()
 	if err != nil {
 		return err
 	}
 
-	// for every unused public ip
 	for _, val := range unusedIps {
-		// alloc a new ip pool for it
 		assocPoolName := ociCommon.NewIPPool(
 			ociCommon.IPPool(val.Name),
 			ociCommon.IPReservationType,
@@ -304,7 +267,11 @@ func (o *oracleInstance) associatePublicIP() error {
 
 			return err
 		} else {
-			//TODO(gsamfira): update IP tags
+			if _, err = o.env.client.UpdateIpReservation(val.Name, "", val.Parentpool, val.Permanent, o.machine.Tags); err != nil {
+				// we don't really want to terminate execution if we fail to update
+				// tags
+				logger.Errorf("failed to update IP reservation tags: %q", err)
+			}
 			return nil
 		}
 	}
@@ -316,7 +283,7 @@ func (o *oracleInstance) associatePublicIP() error {
 		return err
 	}
 
-	// alloc a new ip pool for it
+	// compose IP pool name
 	assocPoolName := ociCommon.NewIPPool(
 		ociCommon.IPPool(reservation.Name),
 		ociCommon.IPReservationType,
@@ -331,19 +298,15 @@ func (o *oracleInstance) associatePublicIP() error {
 	return nil
 }
 
-// dissasociatePublicIps returns an error if the public ip cannot be removed
-// if remove is true then it will delete all ip reservation
-// along side with the public one
+// dissasociatePublicIps disassociates the public IP address from the current instance.
+// Optionally, the remove flag will also remove the IP reservation after the IP was disassociated
 func (o *oracleInstance) disassociatePublicIps(remove bool) error {
-	// get all public ips in from the cloud
-	publicIps, err := o.publicAddresses()
+	associations, err := o.publicAddressesAssociations()
 	if err != nil {
 		return err
 	}
 
-	// range every ip
-	for _, ipAssoc := range publicIps {
-		// take the reservation info and name from the ip association
+	for _, ipAssoc := range associations {
 		reservation := ipAssoc.Reservation
 		name := ipAssoc.Name
 		if err := o.env.client.DeleteIpAssociation(name); err != nil {
@@ -367,10 +330,8 @@ func (o *oracleInstance) disassociatePublicIps(remove bool) error {
 	return nil
 }
 
-// publicAddresses returns a slice of all ip associations that are found in the
-// oracle cloud account
-// this method is mutex protected
-func (o *oracleInstance) publicAddresses() ([]response.IpAssociation, error) {
+// publicAddressesAssociations returns a slice of all IP associations for the current instance
+func (o *oracleInstance) publicAddressesAssociations() ([]response.IpAssociation, error) {
 	o.mutex.Lock()
 	defer o.mutex.Unlock()
 
@@ -389,20 +350,24 @@ func (o *oracleInstance) publicAddresses() ([]response.IpAssociation, error) {
 	return assoc.Result, nil
 }
 
-// Addresses returns a list of hostnames or ip addresses
-// associated with the instance.
+// Addresses is defined on the instance.Instance interface.
 func (o *oracleInstance) Addresses() ([]network.Address, error) {
-	//TODO (gsamfira): also include addresses on vNics
 	addresses := []network.Address{}
 
-	ips, err := o.publicAddresses()
+	ips, err := o.publicAddressesAssociations()
 	if err != nil {
 		return nil, jujuerrors.Trace(err)
 	}
 
-	if o.machine.Ip != "" {
-		address := network.NewScopedAddress(o.machine.Ip, network.ScopeCloudLocal)
-		addresses = append(addresses, address)
+	if len(o.machine.Attributes.Network) > 0 {
+		for name, val := range o.machine.Attributes.Network {
+			if _, ip, err := oraclenetwork.GetMacAndIP(val.Address); err == nil {
+				address := network.NewScopedAddress(ip, network.ScopeCloudLocal)
+				addresses = append(addresses, address)
+			} else {
+				logger.Errorf("failed to get IP address for NIC %q: %q", name, err)
+			}
+		}
 	}
 
 	for _, val := range ips {
@@ -413,10 +378,8 @@ func (o *oracleInstance) Addresses() ([]network.Address, error) {
 	return addresses, nil
 }
 
-// OpenPorts opens the given port ranges on the instance, which
-// should have been started with the given machine id.
+// OpenPorts is defined on the instance.Instance interface.
 func (o *oracleInstance) OpenPorts(machineId string, rules []network.IngressRule) error {
-
 	if o.env.Config().FirewallMode() != config.FwInstance {
 		return errors.Errorf(
 			"invalid firewall mode %q for opening ports on instance",
@@ -427,10 +390,8 @@ func (o *oracleInstance) OpenPorts(machineId string, rules []network.IngressRule
 	return o.env.OpenPortsOnInstance(machineId, rules)
 }
 
-// ClosePorts closes the given port ranges on the instance, which
-// should have been started with the given machine id.
+// ClosePorts is defined on the instance.Instance interface.
 func (o *oracleInstance) ClosePorts(machineId string, rules []network.IngressRule) error {
-
 	if o.env.Config().FirewallMode() != config.FwInstance {
 		return errors.Errorf(
 			"invalid firewall mode %q for closing ports on instance",
@@ -441,12 +402,7 @@ func (o *oracleInstance) ClosePorts(machineId string, rules []network.IngressRul
 	return o.env.ClosePortsOnInstance(machineId, rules)
 }
 
-// IngressRules returns the set of ingress rules for the instance,
-// which should have been applied to the given machine id. The
-// rules are returned as sorted by network.SortIngressRules().
-// It is expected that there be only one ingress rule result for a given
-// port range - the rule's SourceCIDRs will contain all applicable source
-// address rules for that port range.
+// IngressRules is defined on the instance.Instance interface.
 func (o *oracleInstance) IngressRules(machineId string) ([]network.IngressRule, error) {
 	return o.env.MachineIngressRules(machineId)
 }

@@ -188,7 +188,7 @@ func (e Environ) NetworkInterfaces(instId instance.Id) ([]network.InterfaceInfo,
 			return nil, errors.Errorf(
 				"failed to get NIC attributes for %q", nicName)
 		}
-		mac, ip, err := getMacAndIP(deviceAttributes.Address)
+		mac, ip, err := GetMacAndIP(deviceAttributes.Address)
 		if err != nil {
 			return nil, err
 		}

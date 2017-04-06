@@ -9,10 +9,10 @@ import (
 	"github.com/juju/errors"
 )
 
-// getMacAndIp is a helper function that returns a mac and an IP,
+// GetMacAndIp is a helper function that returns a mac and an IP,
 // given a list of strings containing both. This type of array
 // is returned by the oracle API as part of instance details.
-func getMacAndIP(address []string) (mac string, ip string, err error) {
+func GetMacAndIP(address []string) (mac string, ip string, err error) {
 	if address == nil {
 		err = errors.New("Empty address slice given")
 		return
