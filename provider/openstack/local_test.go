@@ -5,7 +5,6 @@ package openstack_test
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/url"
@@ -15,7 +14,7 @@ import (
 	"strings"
 	"time"
 
-	jujuerrors "github.com/juju/errors"
+	"github.com/juju/errors"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -1251,7 +1250,7 @@ func (t *localServerSuite) TestPrecheckInstanceAvailZonesUnsupported(c *gc.C) {
 	t.srv.Nova.SetAvailabilityZones() // no availability zone support
 	placement := "zone=test-unknown"
 	err := t.env.PrecheckInstance(series.LatestLts(), constraints.Value{}, placement)
-	c.Assert(err, jc.Satisfies, jujuerrors.IsNotImplemented)
+	c.Assert(err, jc.Satisfies, errors.IsNotImplemented)
 }
 
 func (s *localServerSuite) TestValidateImageMetadata(c *gc.C) {
@@ -1839,7 +1838,7 @@ func (t *localServerSuite) TestStartInstanceDistributionErrors(c *gc.C) {
 	}
 	t.PatchValue(openstack.AvailabilityZoneAllocations, mock.AvailabilityZoneAllocations)
 	_, _, _, err = testing.StartInstance(t.env, t.ControllerUUID, "1")
-	c.Assert(jujuerrors.Cause(err), gc.Equals, mock.err)
+	c.Assert(errors.Cause(err), gc.Equals, mock.err)
 
 	mock.err = nil
 	dgErr := fmt.Errorf("DistributionGroup failed")
@@ -1850,7 +1849,7 @@ func (t *localServerSuite) TestStartInstanceDistributionErrors(c *gc.C) {
 		},
 	}
 	_, err = testing.StartInstanceWithParams(t.env, "1", params)
-	c.Assert(jujuerrors.Cause(err), gc.Equals, dgErr)
+	c.Assert(errors.Cause(err), gc.Equals, dgErr)
 }
 
 func (t *localServerSuite) TestStartInstanceDistribution(c *gc.C) {
@@ -1951,7 +1950,7 @@ func (t *localServerSuite) TestStartInstanceDistributionAZNotImplemented(c *gc.C
 	c.Assert(err, jc.ErrorIsNil)
 
 	mock := mockAvailabilityZoneAllocations{
-		err: jujuerrors.NotImplementedf("availability zones"),
+		err: errors.NotImplementedf("availability zones"),
 	}
 	t.PatchValue(openstack.AvailabilityZoneAllocations, mock.AvailabilityZoneAllocations)
 
@@ -2059,6 +2058,45 @@ func (s *localServerSuite) TestAdoptResources(c *gc.C) {
 	s.checkInstanceTags(c, env, newController)
 	s.checkVolumeTags(c, s.env, originalController)
 	s.checkVolumeTags(c, env, newController)
+	s.checkGroupController(c, s.env, originalController)
+	s.checkGroupController(c, env, newController)
+}
+
+func (s *localServerSuite) TestAdoptResourcesNoStorage(c *gc.C) {
+	// Nova-lxd doesn't support storage. lp:1677225
+	s.PatchValue(openstack.NewOpenstackStorage, func(*openstack.Environ) (openstack.OpenstackStorage, error) {
+		return nil, errors.NotSupportedf("volumes")
+	})
+	err := bootstrapEnv(c, s.env)
+	c.Assert(err, jc.ErrorIsNil)
+
+	hostedModelUUID := "7e386e08-cba7-44a4-a76e-7c1633584210"
+	cfg, err := s.env.Config().Apply(map[string]interface{}{
+		"uuid": hostedModelUUID,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	env, err := environs.New(environs.OpenParams{
+		Cloud:  makeCloudSpec(s.cred),
+		Config: cfg,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	originalController := coretesting.ControllerTag.Id()
+	_, _, _, err = testing.StartInstance(env, originalController, "0")
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.checkInstanceTags(c, s.env, originalController)
+	s.checkInstanceTags(c, env, originalController)
+	s.checkGroupController(c, s.env, originalController)
+	s.checkGroupController(c, env, originalController)
+
+	// Needs to be a correctly formatted uuid so we can get it out of
+	// group names.
+	newController := "aaaaaaaa-bbbb-cccc-dddd-0123456789ab"
+	err = env.AdoptResources(newController, version.MustParse("1.2.3"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.checkInstanceTags(c, s.env, originalController)
+	s.checkInstanceTags(c, env, newController)
 	s.checkGroupController(c, s.env, originalController)
 	s.checkGroupController(c, env, newController)
 }
