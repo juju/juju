@@ -10,4 +10,6 @@ var (
 	DefaultProvider            = &environProvider{}
 	NewOracleEnviron           = newOracleEnviron
 	DefaultStorageProviderType = oracleStorageProvideType
+	OracleVolumeType           = oracleVolumeType
+	OracleLatencyPool          = latencyPool
 )
