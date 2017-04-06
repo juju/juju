@@ -217,7 +217,7 @@ func (s *metricsManagerSuite) TestLastSuccessfulNotChangedIfNothingToSend(c *gc.
 }
 
 func (s *metricsManagerSuite) TestAddJujuMachineMetrics(c *gc.C) {
-	err := s.State.SetSLA("essential", []byte("sla"))
+	err := s.State.SetSLA("essential", "bob", []byte("sla"))
 	c.Assert(err, jc.ErrorIsNil)
 	s.Factory.MakeMachine(c, nil)
 	err = s.metricsmanager.AddJujuMachineMetrics()
@@ -240,7 +240,7 @@ func (s *metricsManagerSuite) TestAddJujuMachineMetricsAddsNoMetricsWhenNoSLASet
 }
 
 func (s *metricsManagerSuite) TestAddJujuMachineMetricsDontCountContainers(c *gc.C) {
-	err := s.State.SetSLA("essential", []byte("sla"))
+	err := s.State.SetSLA("essential", "bob", []byte("sla"))
 	c.Assert(err, jc.ErrorIsNil)
 	machine := s.Factory.MakeMachine(c, nil)
 	s.Factory.MakeMachineNested(c, machine.Id(), nil)
@@ -257,7 +257,7 @@ func (s *metricsManagerSuite) TestAddJujuMachineMetricsDontCountContainers(c *gc
 }
 
 func (s *metricsManagerSuite) TestSendMetricsMachineMetrics(c *gc.C) {
-	err := s.State.SetSLA("essential", []byte("sla"))
+	err := s.State.SetSLA("essential", "bob", []byte("sla"))
 	c.Assert(err, jc.ErrorIsNil)
 	s.Factory.MakeMachine(c, nil)
 	var sender testing.MockSender

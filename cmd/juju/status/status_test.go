@@ -168,6 +168,7 @@ var (
 			"current": "available",
 			"since":   "01 Apr 15 01:23+10:00",
 		},
+		"sla": "unsupported",
 	}
 
 	machine0 = M{
@@ -2577,6 +2578,7 @@ var statusTests = []testCase{
 						"current": "available",
 						"since":   "01 Apr 15 01:23+10:00",
 					},
+					"sla": "unsupported",
 				},
 				"machines":     M{},
 				"applications": M{},
@@ -2876,6 +2878,30 @@ var statusTests = []testCase{
 						"color":   "RED",
 						"message": "status message",
 					},
+					"sla": "unsupported",
+				},
+				"machines":     M{},
+				"applications": M{},
+			},
+		},
+	),
+	test( // 25
+		"set sla on the model",
+		setSLA{"advanced"},
+		expect{
+			"set sla on the model",
+			M{
+				"model": M{
+					"name":       "controller",
+					"controller": "kontroll",
+					"cloud":      "dummy",
+					"region":     "dummy-region",
+					"version":    "1.2.3",
+					"model-status": M{
+						"current": "available",
+						"since":   "01 Apr 15 01:23+10:00",
+					},
+					"sla": "advanced",
 				},
 				"machines":     M{},
 				"applications": M{},
@@ -2949,6 +2975,15 @@ func wordpressCharm(extras M) M {
 }
 
 // TODO(dfc) test failing components by destructively mutating the state under the hood
+
+type setSLA struct {
+	level string
+}
+
+func (s setSLA) step(c *gc.C, ctx *context) {
+	err := ctx.st.SetSLA(s.level, "test-user", []byte(""))
+	c.Assert(err, jc.ErrorIsNil)
+}
 
 type addMachine struct {
 	machineId string
@@ -3659,6 +3694,7 @@ func (s *StatusSuite) TestMigrationInProgress(c *gc.C) {
 				"since":   "01 Apr 15 01:23+10:00",
 				"message": "migrating: foo bar",
 			},
+			"sla": "unsupported",
 		},
 		"machines":     M{},
 		"applications": M{},
@@ -3686,8 +3722,8 @@ func (s *StatusSuite) TestMigrationInProgress(c *gc.C) {
 
 func (s *StatusSuite) TestMigrationInProgressTabular(c *gc.C) {
 	expected := `
-Model   Controller  Cloud/Region        Version  Notes
-hosted  kontroll    dummy/dummy-region  1.2.3    migrating: foo bar
+Model   Controller  Cloud/Region        Version  Notes               SLA
+hosted  kontroll    dummy/dummy-region  1.2.3    migrating: foo bar  unsupported
 
 App  Version  Status  Scale  Charm  Store  Rev  OS  Notes
 
@@ -3707,8 +3743,8 @@ Machine  State  DNS  Inst id  Series  AZ  Message
 
 func (s *StatusSuite) TestMigrationInProgressAndUpgradeAvailable(c *gc.C) {
 	expected := `
-Model   Controller  Cloud/Region        Version  Notes
-hosted  kontroll    dummy/dummy-region  1.2.3    migrating: foo bar
+Model   Controller  Cloud/Region        Version  Notes               SLA
+hosted  kontroll    dummy/dummy-region  1.2.3    migrating: foo bar  unsupported
 
 App  Version  Status  Scale  Charm  Store  Rev  OS  Notes
 
@@ -3997,8 +4033,8 @@ func (s *StatusSuite) testStatusWithFormatTabular(c *gc.C, useFeatureFlag bool) 
 	c.Check(code, gc.Equals, 0)
 	c.Check(string(stderr), gc.Equals, "")
 	expected := `
-Model       Controller  Cloud/Region        Version  Notes
-controller  kontroll    dummy/dummy-region  1.2.3    upgrade available: 1.2.4
+Model       Controller  Cloud/Region        Version  Notes                     SLA
+controller  kontroll    dummy/dummy-region  1.2.3    upgrade available: 1.2.4  unsupported
 
 SAAS name    Status   Store  URL
 hosted-riak  unknown  local  me/model.riak
@@ -4330,6 +4366,7 @@ func (s *StatusSuite) TestFilterToContainer(c *gc.C) {
 		"  model-status:\n" +
 		"    current: available\n" +
 		"    since: 01 Apr 15 01:23+10:00\n" +
+		"  sla: unsupported\n" +
 		"machines:\n" +
 		"  \"0\":\n" +
 		"    juju-status:\n" +
@@ -4635,6 +4672,7 @@ var statusTimeTest = test(
 					"current": "available",
 					"since":   "01 Apr 15 01:23+10:00",
 				},
+				"sla": "unsupported",
 			},
 			"machines": M{
 				"0": machine0,

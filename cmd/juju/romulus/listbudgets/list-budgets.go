@@ -97,7 +97,11 @@ func formatTabular(writer io.Writer, value interface{}) error {
 
 	table.AddRow("Budget", "Monthly", "Allocated", "Available", "Spent")
 	for _, budgetEntry := range b.Budgets {
-		table.AddRow(budgetEntry.Budget, budgetEntry.Limit, budgetEntry.Allocated, budgetEntry.Available, budgetEntry.Consumed)
+		suffix := ""
+		if budgetEntry.Default {
+			suffix = "*"
+		}
+		table.AddRow(budgetEntry.Budget+suffix, budgetEntry.Limit, budgetEntry.Allocated, budgetEntry.Available, budgetEntry.Consumed)
 	}
 	table.AddRow("Total", b.Total.Limit, b.Total.Allocated, b.Total.Available, b.Total.Consumed)
 	table.AddRow("", "", "", "", "")

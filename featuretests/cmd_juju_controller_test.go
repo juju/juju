@@ -134,6 +134,7 @@ models:
       cores: 0
     "1":
       cores: 2
+  sla: unsupported
 current-model: controller
 `[1:])
 }

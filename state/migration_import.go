@@ -200,6 +200,7 @@ func (st *State) Import(model description.Model) (_ *Model, _ *State, err error)
 
 	if err := dbModel.SetSLA(
 		model.SLA().Level(),
+		model.SLA().Owner(),
 		[]byte(model.SLA().Credentials()),
 	); err != nil {
 		return nil, nil, errors.Trace(err)

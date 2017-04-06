@@ -2133,12 +2133,12 @@ func (st *State) PutAuditEntryFn() func(audit.AuditEntry) error {
 }
 
 // SetSLA sets the SLA on the current connected model.
-func (st *State) SetSLA(level string, credentials []byte) error {
+func (st *State) SetSLA(level, owner string, credentials []byte) error {
 	model, err := st.Model()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	return model.SetSLA(level, credentials)
+	return model.SetSLA(level, owner, credentials)
 }
 
 // SetModelMeterStatus sets the meter status for the current connected model.

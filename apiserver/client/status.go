@@ -340,6 +340,8 @@ func (c *Client) modelStatus() (params.ModelStatusInfo, error) {
 		return params.ModelStatusInfo{}, errors.Annotate(err, "cannot obtain model status info")
 	}
 
+	info.SLA = m.SLALevel()
+
 	info.ModelStatus = params.DetailedStatus{
 		Status: status.Status.String(),
 		Info:   status.Message,

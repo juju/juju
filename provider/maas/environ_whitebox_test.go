@@ -17,6 +17,7 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/series"
+	"github.com/juju/utils/set"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
@@ -1116,4 +1117,46 @@ func (s *environSuite) TestAdoptResources(c *gc.C) {
 	// Shouldn't do anything in MAAS1.
 	err := env.AdoptResources("other-controller", version.MustParse("3.2.1"))
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *environSuite) TestUsingNonVersionURLForAPI(c *gc.C) {
+	var gotURL *url.URL
+	configuredURL := s.testMAASObject.TestServer.URL
+	_, err := s.makeEnvironWithURL(
+		configuredURL,
+		func(client *gomaasapi.MAASObject, serverURL string) (set.Strings, error) {
+			gotURL = client.URL()
+			return set.NewStrings("network-deployment-ubuntu"), nil
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(gotURL.String(), gc.Equals, configuredURL+"/api/1.0/")
+}
+
+func (s *environSuite) TestUsingVersionURLForAPI(c *gc.C) {
+	var gotURL *url.URL
+	configuredURL := s.testMAASObject.TestServer.URL + "/api/1.0/"
+	_, err := s.makeEnvironWithURL(
+		configuredURL,
+		func(client *gomaasapi.MAASObject, serverURL string) (set.Strings, error) {
+			gotURL = client.URL()
+			return set.NewStrings("network-deployment-ubuntu"), nil
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(gotURL.String(), gc.Equals, configuredURL)
+}
+
+func (s *environSuite) TestUsingUnknownVersionURLForAPI(c *gc.C) {
+	var gotURL *url.URL
+	configuredURL := s.testMAASObject.TestServer.URL + "/api/3.0/"
+	_, err := s.makeEnvironWithURL(
+		configuredURL,
+		func(client *gomaasapi.MAASObject, serverURL string) (set.Strings, error) {
+			gotURL = client.URL()
+			return set.NewStrings("network-deployment-ubuntu"), nil
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(gotURL.String(), gc.Equals, configuredURL)
 }
