@@ -141,7 +141,7 @@ func (commandWrapperSuite) TestCreateMachineSuccess(c *gc.C) {
 
 	b, err = ioutil.ReadFile(networkConfigPath)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(b), jc.Equal, "this-is-network-config")
+	c.Assert(string(b), gc.Equals, "this-is-network-config")
 
 	c.Check(len(stub.Calls()), gc.Equals, 4)
 	want := []string{
