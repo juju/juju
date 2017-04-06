@@ -4,21 +4,29 @@
 package oracle
 
 import (
+	"fmt"
+	"net/url"
 	"strings"
 
 	"github.com/juju/errors"
 	oci "github.com/juju/go-oracle-cloud/api"
+	"github.com/juju/utils/series"
+
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
 )
+
+var windowsServerMap = map[string]string{
+	"Microsoft_Windows_Server_2012_R2": "win2012r2",
+	"Microsoft_Windows_Server_2008_R2": "win2018r2",
+}
 
 // instanceTypes returns all oracle cloud shapes and wraps them into instance.InstanceType
 // For more information about oracle cloud shapes, please see:
 // https://docs.oracle.com/cloud/latest/stcomputecs/STCSA/api-Shapes.html
 // https://docs.oracle.com/cloud/latest/stcomputecs/STCSG/GUID-1DD0FA71-AC7B-461C-B8C1-14892725AA69.htm#OCSUG210
 func instanceTypes(c *oci.Client) ([]instances.InstanceType, error) {
-
 	if c == nil {
 		return nil, errors.Errorf("cannot use nil client")
 	}
@@ -51,11 +59,25 @@ func findInstanceSpec(
 	instanceType []instances.InstanceType,
 	ic *instances.InstanceConstraint,
 ) (*instances.InstanceSpec, string, error) {
+	logger.Debugf("received %d image(s): %v", len(allImageMetadata), allImageMetadata)
 
-	logger.Debugf("recived %d image(s)", len(allImageMetadata))
+	version, err := series.SeriesVersion(ic.Series)
+	if err != nil {
+		return nil, "", errors.Trace(err)
+	}
+	filtered := []*imagemetadata.ImageMetadata{}
+	for _, val := range allImageMetadata {
+		if val.Version != version {
+			continue
+		}
+		filtered = append(filtered, val)
+	}
+	images := instances.ImageMetadataToImages(filtered)
 
-	images := instances.ImageMetadataToImages(allImageMetadata)
+	logger.Debugf("image metadata is: %v", images)
 	spec, err := instances.FindInstanceSpec(images, ic, instanceType)
+
+	logger.Debugf("FindInstanceSpec returned: %q --> %v", err, spec)
 	if err != nil {
 		return nil, "", errors.Trace(err)
 	}
@@ -66,6 +88,42 @@ func findInstanceSpec(
 	}
 
 	return spec, imagelist, nil
+}
+
+func parseImageName(name string, uri *url.URL) (*imagemetadata.ImageMetadata, error) {
+	var id, arch, version string
+	if strings.HasPrefix(name, "Ubuntu") {
+		meta := strings.Split(name, ".")
+		if len(meta) < 4 {
+			return nil, errors.Errorf("invalid ubuntu image name: %s", name)
+		}
+		id = meta[len(meta)-1]
+		arch = meta[3]
+		version = meta[1] + "." + strings.TrimSuffix(meta[2], "-LTS")
+	} else if strings.HasPrefix(name, "Microsoft") {
+		if ver, ok := windowsServerMap[name]; ok {
+			version = ver
+			id = ver
+			arch = "amd64"
+		} else {
+			return nil, errors.Errorf("unknown windows version: %q", name)
+		}
+	} else {
+		return nil, errors.Errorf("could not determine OS from image name: %q", name)
+	}
+
+	tmp := strings.Split(uri.Host, ".")
+	region := tmp[0]
+	if len(tmp) > 1 {
+		region = tmp[1]
+	}
+	return &imagemetadata.ImageMetadata{
+		Id:         id,
+		Arch:       arch,
+		Endpoint:   fmt.Sprintf("%s://%s", uri.Scheme, uri.Host),
+		RegionName: region,
+		Version:    version,
+	}, nil
 }
 
 // checkImageList creates image metadata from the oracle image list
@@ -92,28 +150,23 @@ func checkImageList(c *oci.Client, cons constraints.Value) ([]*imagemetadata.Ima
 
 	images := make([]*imagemetadata.ImageMetadata, 0, n)
 	for _, val := range resp.Result {
-		list := strings.Split(val.Uri, "/")
-		//TODO(sgiulitti): parse windows images as well
-		//TODO: we expect images to be named in the following format:
-		// OS.version.ARCH.timestamp
-		// This may fail miserably, and may be an assumption that will not hold
-		// in the future. Use simplestreams instead?
-		// TODO(sgiulitti): (better use regexp)
-		meta := strings.Split(list[len(list)-1], ".")
-		if len(meta) < 4 {
+		uri, err := url.Parse(val.Uri)
+		if err != nil {
+			logger.Warningf("image with ID %q had invalid resource URI %q", val.Name, val.Uri)
 			continue
 		}
-
-		endpoint := strings.Split(list[2], ".")
-		images = append(images, &imagemetadata.ImageMetadata{
-			Id:         meta[len(meta)-1],
-			Arch:       meta[3],
-			Endpoint:   "https://" + list[2],
-			RegionName: endpoint[2],
-			Version:    meta[1] + "." + meta[2],
-		})
+		requestUri := strings.Split(uri.RequestURI(), "/")
+		if len(requestUri) == 0 {
+			continue
+		}
+		name := requestUri[len(requestUri)-1]
+		metadata, err := parseImageName(name, uri)
+		if err != nil {
+			logger.Warningf("failed to parse image name %s. Error was: %q", name, err)
+			continue
+		}
+		images = append(images, metadata)
 	}
-
 	return images, nil
 }
 

@@ -14,6 +14,7 @@ import (
 	ociResponse "github.com/juju/go-oracle-cloud/response"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils/clock"
 
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/instance"
@@ -26,6 +27,7 @@ type oracleVolumeSource struct {
 	envName   string // non-unique, informational only
 	modelUUID string
 	api       StorageAPI
+	clock     clock.Clock
 }
 
 var _ storage.VolumeSource = (*oracleVolumeSource)(nil)
@@ -224,7 +226,7 @@ func (o *oracleVolumeSource) waitForResourceStatus(
 	select {
 	case err := <-errChan:
 		return err
-	case <-time.After(timeout):
+	case <-o.clock.After(timeout):
 		done <- true
 		return errors.Errorf(
 			"timed out waiting for resource %q to transition to %v",

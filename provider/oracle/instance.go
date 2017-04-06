@@ -160,7 +160,7 @@ func (o *oracleInstance) waitForMachineStatus(state ociCommon.InstanceState, tim
 	select {
 	case err := <-errChan:
 		return err
-	case <-time.After(timeout):
+	case <-o.env.clock.After(timeout):
 		done <- true
 		return errors.Errorf(
 			"Timed out waiting for instance to transition from %v to %v",
@@ -198,6 +198,9 @@ func (o *oracleInstance) delete(cleanup bool) error {
 				if iteration >= 30 && instance.State == ociCommon.StateRunning {
 					logger.Warningf("Instance still in running state after %q checks. breaking loop", iteration)
 					break
+				}
+				if oci.IsInternalApi(err) {
+					logger.Errorf("got internal server error from API: %q", err)
 				}
 				time.Sleep(1 * time.Second)
 				iteration++

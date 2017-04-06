@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/juju/storage"
+	"github.com/juju/utils/clock"
 )
 
 type poolType string
@@ -33,6 +34,7 @@ func (s *storageProvider) VolumeSource(cfg *storage.Config) (storage.VolumeSourc
 		envName:   environConfig.Name(),
 		modelUUID: environConfig.UUID(),
 		api:       s.env.client,
+		clock:     clock.WallClock,
 	}, nil
 }
 

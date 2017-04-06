@@ -14,6 +14,7 @@ import (
 	"github.com/juju/errors"
 	oci "github.com/juju/go-oracle-cloud/api"
 	ociCommon "github.com/juju/go-oracle-cloud/common"
+	"github.com/juju/utils/clock"
 	"github.com/juju/utils/os"
 	jujuseries "github.com/juju/utils/series"
 	"github.com/juju/version"
@@ -43,6 +44,7 @@ type oracleEnviron struct {
 	cfg       *config.Config
 	client    *oci.Client
 	namespace instance.Namespace
+	clock     clock.Clock
 }
 
 // AvailabilityZones is defined in the common.ZonedEnviron interface
@@ -79,6 +81,7 @@ func newOracleEnviron(p *environProvider, args environs.OpenParams, client *oci.
 		cfg:    args.Config,
 		mutex:  &sync.Mutex{},
 		client: client,
+		clock:  clock.WallClock,
 	}
 	env.namespace, err = instance.NewNamespace(env.cfg.UUID())
 	if err != nil {
@@ -221,7 +224,7 @@ func (e *oracleEnviron) getInstanceNetworks(
 
 		// gsamfira: about as random as rainfall during monsoon season.
 		// I am open to suggestions here
-		rand.Seed(time.Now().UTC().UnixNano())
+		rand.Seed(e.clock.Now().UTC().UnixNano())
 		ipNet := providerSpace[rand.Intn(len(providerSpace))]
 		vnic := oci.IPNetwork{
 			Ipnetwork: ipNet.Name,
@@ -312,11 +315,14 @@ func (o *oracleEnviron) StartInstance(args environs.StartInstanceParams) (*envir
 	tags = append(tags, machineName)
 
 	var apiPort int
+	var desiredStatus ociCommon.InstanceState
 	if args.InstanceConfig.Controller != nil {
 		apiPort = args.InstanceConfig.Controller.Config.APIPort()
+		desiredStatus = ociCommon.StateRunning
 	} else {
 		// All ports are the same so pick the first.
 		apiPort = args.InstanceConfig.APIInfo.Ports()[0]
+		desiredStatus = ociCommon.StateStarting
 	}
 
 	// create a new seclists
@@ -385,7 +391,7 @@ func (o *oracleEnviron) StartInstance(args environs.StartInstanceParams) (*envir
 
 	machineId := instance.machine.Name
 	timeout := 10 * time.Minute
-	if err := instance.waitForMachineStatus(ociCommon.StateRunning, timeout); err != nil {
+	if err := instance.waitForMachineStatus(desiredStatus, timeout); err != nil {
 		return nil, errors.Trace(err)
 	}
 	logger.Debugf("started instance %q", machineId)
