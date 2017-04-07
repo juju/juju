@@ -33,18 +33,16 @@ func (s *showBudgetSuite) SetUpTest(c *gc.C) {
 	s.mockBudgetAPI = &mockBudgetAPI{s.stub}
 	s.mockAPI = &mockAPI{s.stub}
 	s.PatchValue(showbudget.NewBudgetAPIClient, showbudget.BudgetAPIClientFnc(s.mockBudgetAPI))
-	s.PatchValue(showbudget.NewAPIClient, showbudget.NewAPIClientFnc(s.mockAPI))
 }
 
 func (s *showBudgetSuite) TestShowBudgetCommand(c *gc.C) {
 	tests := []struct {
-		about      string
-		args       []string
-		err        string
-		budget     string
-		apierr     string
-		resolveerr string
-		output     string
+		about  string
+		args   []string
+		err    string
+		budget string
+		apierr string
+		output string
 	}{{
 		about: "missing argument",
 		err:   `missing arguments`,
@@ -61,20 +59,6 @@ func (s *showBudgetSuite) TestShowBudgetCommand(c *gc.C) {
 		about:  "all ok",
 		args:   []string{"personal"},
 		budget: "personal",
-		output: "" +
-			"Model      \tSpent\tAllocated\t       By\tUsage\n" +
-			"model.joe  \t500  \t     1200\t user.joe\t42%  \n" +
-			"model.jess \t600  \t     1000\tuser.jess\t60%  \n" +
-			"uuid3      \t10   \t      100\t user.bob\t10%  \n" +
-			"           \t     \t         \t         \n" +
-			"Total      \t1110 \t     2300\t         \t48%  \n" +
-			"Budget     \t     \t     4000\t         \n" +
-			"Unallocated\t     \t     1700\t         \n",
-	}, {
-		about:      "resolve error",
-		args:       []string{"personal"},
-		budget:     "personal",
-		resolveerr: "test error",
 		output: "" +
 			"Model      \tSpent\tAllocated\t       By\tUsage\n" +
 			"uuid1      \t500  \t     1200\t user.joe\t42%  \n" +
@@ -97,11 +81,6 @@ func (s *showBudgetSuite) TestShowBudgetCommand(c *gc.C) {
 		} else {
 			errs = append(errs, nil)
 		}
-		if test.resolveerr != "" {
-			errs = append(errs, errors.New(test.resolveerr))
-		} else {
-			errs = append(errs, nil)
-		}
 		s.mockAPI.SetErrors(errs...)
 
 		showBudget := showbudget.NewShowBudgetCommand()
@@ -111,7 +90,6 @@ func (s *showBudgetSuite) TestShowBudgetCommand(c *gc.C) {
 			c.Assert(err, jc.ErrorIsNil)
 			s.stub.CheckCalls(c, []testing.StubCall{
 				{"GetBudget", []interface{}{test.budget}},
-				{"ModelInfo", []interface{}{[]names.ModelTag{names.NewModelTag("uuid1"), names.NewModelTag("uuid2"), names.NewModelTag("uuid3")}}},
 			})
 			output := cmdtesting.Stdout(ctx)
 			c.Assert(output, gc.Equals, test.output)
@@ -126,23 +104,7 @@ type mockAPI struct {
 }
 
 func (api *mockAPI) ModelInfo(tags []names.ModelTag) ([]params.ModelInfoResult, error) {
-	api.AddCall("ModelInfo", tags)
-	return []params.ModelInfoResult{{
-		Result: &params.ModelInfo{
-			Name: "model.jess",
-			UUID: "uuid2",
-		},
-	}, {
-		Result: &params.ModelInfo{
-			Name: "model.joe",
-			UUID: "uuid1",
-		},
-	}, {
-		Error: &params.Error{
-			Message: "not found",
-		},
-	},
-	}, api.NextErr()
+	return nil, api.NextErr()
 }
 
 type mockBudgetAPI struct {
