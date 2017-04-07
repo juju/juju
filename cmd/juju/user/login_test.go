@@ -63,10 +63,10 @@ func (s *LoginCommandSuite) TestInitError(c *gc.C) {
 		stderr string
 	}{{
 		args:   []string{"--foobar"},
-		stderr: `error: flag provided but not defined: --foobar\n`,
+		stderr: `ERROR flag provided but not defined: --foobar\n`,
 	}, {
 		args:   []string{"foobar", "extra"},
-		stderr: `error: unrecognized args: \["extra"\]\n`,
+		stderr: `ERROR unrecognized args: \["extra"\]\n`,
 	}} {
 		c.Logf("test %d", i)
 		stdout, stderr, code := runLogin(c, "", test.args...)
@@ -163,7 +163,7 @@ func (s *LoginCommandSuite) TestLoginWithNonExistentController(c *gc.C) {
 	stdout, stderr, code := runLogin(c, "", "-c", "something")
 	c.Assert(code, gc.Equals, 1)
 	c.Check(stdout, gc.Equals, "")
-	c.Check(stderr, gc.Matches, `error: controller "something" does not exist\n`)
+	c.Check(stderr, gc.Matches, `ERROR controller "something" does not exist\n`)
 }
 
 func (s *LoginCommandSuite) TestLoginWithNoCurrentController(c *gc.C) {
@@ -171,14 +171,14 @@ func (s *LoginCommandSuite) TestLoginWithNoCurrentController(c *gc.C) {
 	stdout, stderr, code := runLogin(c, "")
 	c.Assert(code, gc.Equals, 1)
 	c.Check(stdout, gc.Equals, "")
-	c.Check(stderr, gc.Matches, `error: no current controller\n`)
+	c.Check(stderr, gc.Matches, `ERROR no current controller\n`)
 }
 
 func (s *LoginCommandSuite) TestLoginAlreadyLoggedInDifferentUser(c *gc.C) {
 	stdout, stderr, code := runLogin(c, "", "-u", "other-user")
 	c.Check(stdout, gc.Equals, "")
 	c.Check(stderr, gc.Equals, `
-error: cannot log into controller "testing": already logged in as current-user.
+ERROR cannot log into controller "testing": already logged in as current-user.
 
 Run "juju logout" first before attempting to log in as a different user.
 `[1:])

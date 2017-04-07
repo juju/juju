@@ -114,7 +114,7 @@ func (s *ContextFactorySuite) testLeadershipContextWiring(c *gc.C, createContext
 }
 
 func (s *ContextFactorySuite) TestNewHookContextRetrievesSLALevel(c *gc.C) {
-	err := s.State.SetSLA("essential", []byte("creds"))
+	err := s.State.SetSLA("essential", "bob", []byte("creds"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	ctx, err := s.factory.HookContext(hook.Info{Kind: hooks.ConfigChanged})

@@ -70,9 +70,12 @@ func (c *Client) ModelUnset(keys ...string) error {
 }
 
 // SetSLALevel sets the support level for the given model.
-func (c *Client) SetSLALevel(level string, creds []byte) error {
+func (c *Client) SetSLALevel(level, owner string, creds []byte) error {
 	args := params.ModelSLA{
-		Level:       level,
+		ModelSLAInfo: params.ModelSLAInfo{
+			Level: level,
+			Owner: owner,
+		},
 		Credentials: creds,
 	}
 	return c.facade.FacadeCall("SetSLALevel", args, nil)

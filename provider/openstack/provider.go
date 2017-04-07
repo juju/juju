@@ -1009,7 +1009,7 @@ func (e *Environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 	}
 	usingNetwork := e.ecfg().network()
 	if usingNetwork != "" {
-		networkId, err := e.networking.ResolveNetwork(usingNetwork)
+		networkId, err := e.networking.ResolveNetwork(usingNetwork, false)
 		if err != nil {
 			return nil, err
 		}
@@ -1290,20 +1290,6 @@ func (e *Environ) AdoptResources(controllerUUID string, fromVersion version.Numb
 	if err != nil {
 		return errors.Trace(err)
 	}
-	cinder, err := e.cinderProvider()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	// TODO(axw): fix the storage API.
-	volumeSource, err := cinder.VolumeSource(nil)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	volumeIds, err := volumeSource.ListVolumes()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
 	for _, instance := range instances {
 		err := e.TagInstance(instance.Id(), controllerTag)
 		if err != nil {
@@ -1312,13 +1298,11 @@ func (e *Environ) AdoptResources(controllerUUID string, fromVersion version.Numb
 		}
 	}
 
-	for _, volumeId := range volumeIds {
-		_, err := cinder.storageAdapter.SetVolumeMetadata(volumeId, controllerTag)
-		if err != nil {
-			logger.Errorf("error updating controller tag for volume %s: %v", volumeId, err)
-			failed = append(failed, volumeId)
-		}
+	failedVolumes, err := e.adoptVolumes(controllerTag)
+	if err != nil {
+		return errors.Trace(err)
 	}
+	failed = append(failed, failedVolumes...)
 
 	err = e.firewaller.UpdateGroupController(controllerUUID)
 	if err != nil {
@@ -1328,6 +1312,36 @@ func (e *Environ) AdoptResources(controllerUUID string, fromVersion version.Numb
 		return errors.Errorf("error updating controller tag for some resources: %v", failed)
 	}
 	return nil
+}
+
+func (e *Environ) adoptVolumes(controllerTag map[string]string) ([]string, error) {
+	cinder, err := e.cinderProvider()
+	if errors.IsNotSupported(err) {
+		logger.Debugf("volumes not supported: not transferring ownership for volumes")
+		return nil, nil
+	}
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	// TODO(axw): fix the storage API.
+	volumeSource, err := cinder.VolumeSource(nil)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	volumeIds, err := volumeSource.ListVolumes()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var failed []string
+	for _, volumeId := range volumeIds {
+		_, err := cinder.storageAdapter.SetVolumeMetadata(volumeId, controllerTag)
+		if err != nil {
+			logger.Errorf("error updating controller tag for volume %s: %v", volumeId, err)
+			failed = append(failed, volumeId)
+		}
+	}
+	return failed, nil
 }
 
 // AllInstances returns all instances in this environment.

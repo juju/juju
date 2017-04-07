@@ -158,7 +158,7 @@ func (s *RelationGetSuite) TestRelationGet(c *gc.C) {
 			c.Check(bufferString(ctx.Stdout), gc.Equals, expect)
 		} else {
 			c.Check(bufferString(ctx.Stdout), gc.Equals, "")
-			expect := fmt.Sprintf(`(.|\n)*error: %s\n`, t.out)
+			expect := fmt.Sprintf(`(.|\n)*ERROR %s\n`, t.out)
 			c.Check(bufferString(ctx.Stderr), gc.Matches, expect)
 		}
 	}

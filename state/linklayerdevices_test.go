@@ -146,30 +146,12 @@ func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesWhenMachineNotAliveO
 		Name: "eth0",
 		Type: state.EthernetDevice,
 	}
-	s.assertSetLinkLayerDevicesFailsForArgs(c, args, "machine not found or not alive")
+	s.assertSetLinkLayerDevicesFailsForArgs(c, args, `machine "0" not alive`)
 
 	err = s.machine.Remove()
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.assertSetLinkLayerDevicesFailsForArgs(c, args, "machine not found or not alive")
-}
-
-func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesWhenModelNotAlive(c *gc.C) {
-	otherModel, err := s.otherState.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	err = otherModel.Destroy()
-	c.Assert(err, jc.ErrorIsNil)
-
-	args := state.LinkLayerDeviceArgs{
-		Name: "eth0",
-		Type: state.EthernetDevice,
-	}
-	err = s.otherStateMachine.SetLinkLayerDevices(args)
-	expectedError := fmt.Sprintf(
-		"cannot set link-layer devices to machine %q: model %q is no longer alive",
-		s.otherStateMachine.Id(), otherModel.Name(),
-	)
-	c.Assert(err, gc.ErrorMatches, expectedError)
+	s.assertSetLinkLayerDevicesFailsForArgs(c, args, `machine "0" not alive`)
 }
 
 func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesWithMissingParentSameMachine(c *gc.C) {
@@ -604,6 +586,17 @@ func (s *linkLayerDevicesStateSuite) TestLinkLayerDeviceRemoveRemovesProviderID(
 
 	s.removeDeviceAndAssertSuccess(c, device)
 	// Re-adding the same device should now succeed.
+	err = s.machine.SetLinkLayerDevices(args)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesNoop(c *gc.C) {
+	args := state.LinkLayerDeviceArgs{
+		Name: "foo",
+		Type: state.EthernetDevice,
+	}
+	err := s.machine.SetLinkLayerDevices(args)
+	c.Assert(err, jc.ErrorIsNil)
 	err = s.machine.SetLinkLayerDevices(args)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -1322,7 +1315,7 @@ func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesToContainerWhenConta
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
-	s.assertSetLinkLayerDevicesToContainerFailsWithBeforeHook(c, beforeHook, `.*machine not found or not alive`)
+	s.assertSetLinkLayerDevicesToContainerFailsWithBeforeHook(c, beforeHook, `.*machine "0/lxd/0" not alive`)
 }
 
 func (s *linkLayerDevicesStateSuite) assertSetLinkLayerDevicesToContainerFailsWithBeforeHook(c *gc.C, beforeHook func(), expectedError string) {

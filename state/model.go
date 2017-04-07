@@ -129,6 +129,9 @@ type slaDoc struct {
 	// Level is the current support level set on the model.
 	Level slaLevel `bson:"level"`
 
+	// Owner is the SLA owner of the model.
+	Owner string `bson:"owner,omitempty"`
+
 	// Credentials authenticates the support level setting.
 	Credentials []byte `bson:"credentials"`
 }
@@ -166,16 +169,7 @@ func (st *State) ControllerModel() (*Model, error) {
 	if err != nil {
 		return nil, errors.Annotate(err, "could not get controller info")
 	}
-
-	models, closer := st.getCollection(modelsC)
-	defer closer()
-
-	env := &Model{st: st}
-	uuid := ssinfo.ModelTag.Id()
-	if err := env.refresh(models.FindId(uuid)); err != nil {
-		return nil, errors.Trace(err)
-	}
-	return env, nil
+	return st.GetModel(ssinfo.ModelTag)
 }
 
 // Model returns the model entity.
@@ -683,13 +677,19 @@ func (m *Model) SLALevel() string {
 	return m.doc.SLA.Level.String()
 }
 
+// SLAOwner returns the SLA owner as a string. Note that this may differ from
+// the model owner.
+func (m *Model) SLAOwner() string {
+	return m.doc.SLA.Owner
+}
+
 // SLACredential returns the SLA credential.
 func (m *Model) SLACredential() []byte {
 	return m.doc.SLA.Credentials
 }
 
 // SetSLA sets the SLA on the model.
-func (m *Model) SetSLA(level string, credentials []byte) error {
+func (m *Model) SetSLA(level, owner string, credentials []byte) error {
 	l, err := newSLALevel(level)
 	if err != nil {
 		return errors.Trace(err)
@@ -699,6 +699,7 @@ func (m *Model) SetSLA(level string, credentials []byte) error {
 		Id: m.doc.UUID,
 		Update: bson.D{{"$set", bson.D{{"sla", slaDoc{
 			Level:       l,
+			Owner:       owner,
 			Credentials: credentials,
 		}}}}},
 	}}

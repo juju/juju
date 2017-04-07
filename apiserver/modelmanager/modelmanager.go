@@ -500,7 +500,7 @@ func (m *ModelManagerAPI) DestroyModels(args params.Entities) (params.ErrorResul
 		if err := m.authCheck(model.Owner()); err != nil {
 			return errors.Trace(err)
 		}
-		return errors.Trace(common.DestroyModel(m.state, model.ModelTag()))
+		return errors.Trace(common.DestroyModel(m.state, tag))
 	}
 
 	for i, arg := range args.Entities {
@@ -613,6 +613,12 @@ func (m *ModelManagerAPI) getModelInfo(tag names.ModelTag) (params.ModelInfo, er
 		// No users, which means the authenticated user doesn't
 		// have access to the model.
 		return params.ModelInfo{}, errors.Trace(common.ErrPerm)
+	}
+
+	// All users with access to the model can see the SLA information.
+	info.SLA = &params.ModelSLAInfo{
+		Level: model.SLALevel(),
+		Owner: model.SLAOwner(),
 	}
 
 	canSeeMachines := authorizedOwner

@@ -59,7 +59,8 @@ func (*LegacyNovaNetworking) DefaultNetworks() ([]nova.ServerNetworks, error) {
 }
 
 // ResolveNetwork is part of the Networking interface.
-func (n *LegacyNovaNetworking) ResolveNetwork(name string) (string, error) {
+func (n *LegacyNovaNetworking) ResolveNetwork(name string, external bool) (string, error) {
+	// Ignore external, it's a Neutron concept.
 	if utils.IsValidUUIDString(name) {
 		return name, nil
 	}

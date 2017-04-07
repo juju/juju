@@ -78,7 +78,7 @@ func (s *leaderSetSuite) TestWriteError(c *gc.C) {
 	c.Check(code, gc.Equals, 1)
 	c.Check(jujucContext.gotSettings, jc.DeepEquals, map[string]string{"foo": "bar"})
 	c.Check(bufferString(runContext.Stdout), gc.Equals, "")
-	c.Check(bufferString(runContext.Stderr), gc.Equals, "error: cannot write leadership settings: splat\n")
+	c.Check(bufferString(runContext.Stderr), gc.Equals, "ERROR cannot write leadership settings: splat\n")
 }
 
 type leaderSetContext struct {

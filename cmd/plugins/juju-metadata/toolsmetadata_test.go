@@ -297,7 +297,7 @@ func (s *ToolsMetadataSuite) TestNoTools(c *gc.C) {
 	stdout := ctx.Stdout.(*bytes.Buffer).String()
 	c.Assert(stdout, gc.Matches, ".*Finding tools in .*\n")
 	stderr := ctx.Stderr.(*bytes.Buffer).String()
-	c.Assert(stderr, gc.Matches, "error: no tools available\n")
+	c.Assert(stderr, gc.Matches, "ERROR no tools available\n")
 }
 
 func (s *ToolsMetadataSuite) TestPatchLevels(c *gc.C) {

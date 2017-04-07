@@ -180,6 +180,24 @@ func (s *ShowCommandSuite) TestUnrecognizedArg(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["whoops"\]`)
 }
 
+type showSLACommandSuite struct {
+	ShowCommandSuite
+}
+
+var _ = gc.Suite(&showSLACommandSuite{})
+
+func (s *showSLACommandSuite) SetUpTest(c *gc.C) {
+	s.ShowCommandSuite.SetUpTest(c)
+
+	s.fake.info.SLA = &params.ModelSLAInfo{
+		Level: "next",
+		Owner: "user",
+	}
+	slaOutput := s.expectedOutput["mymodel"].(attrs)
+	slaOutput["sla"] = "next"
+	slaOutput["sla-owner"] = "user"
+}
+
 func noOpRefresh(jujuclient.ClientStore, string) error {
 	return nil
 }

@@ -43,7 +43,7 @@ var relationIdsTests = []struct {
 		summary: "no default, no name",
 		relid:   -1,
 		code:    2,
-		out:     "(.|\n)*error: no relation name specified\n",
+		out:     "(.|\n)*ERROR no relation name specified\n",
 	}, {
 		summary: "default name",
 		relid:   1,
