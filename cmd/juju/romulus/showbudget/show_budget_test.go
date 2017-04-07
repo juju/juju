@@ -4,7 +4,6 @@
 package showbudget_test
 
 import (
-	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	"github.com/juju/romulus/wireformat/budget"
 	"github.com/juju/testing"
@@ -13,6 +12,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/juju/romulus/showbudget"
 	coretesting "github.com/juju/juju/testing"
 )

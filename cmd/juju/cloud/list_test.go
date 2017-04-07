@@ -11,6 +11,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	jujucloud "github.com/juju/juju/cloud"
+	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/juju/cloud"
 	"github.com/juju/juju/juju/osenv"
 	_ "github.com/juju/juju/provider/all"
@@ -24,9 +25,9 @@ type listSuite struct {
 var _ = gc.Suite(&listSuite{})
 
 func (s *listSuite) TestListPublic(c *gc.C) {
-	ctx, err := testing.RunCommand(c, cloud.NewListCloudsCommand())
+	ctx, err := cmdtesting.RunCommand(c, cloud.NewListCloudsCommand())
 	c.Assert(err, jc.ErrorIsNil)
-	out := testing.Stdout(ctx)
+	out := cmdtesting.Stdout(ctx)
 	out = strings.Replace(out, "\n", "", -1)
 	// Just check couple of snippets of the output to make sure it looks ok.
 	c.Assert(out, gc.Matches, `.*aws-china[ ]*1[ ]*cn-north-1[ ]*ec2.*`)
@@ -49,9 +50,9 @@ clouds:
 	err := ioutil.WriteFile(osenv.JujuXDGDataHomePath("clouds.yaml"), []byte(data), 0600)
 	c.Assert(err, jc.ErrorIsNil)
 
-	ctx, err := testing.RunCommand(c, cloud.NewListCloudsCommand())
+	ctx, err := cmdtesting.RunCommand(c, cloud.NewListCloudsCommand())
 	c.Assert(err, jc.ErrorIsNil)
-	out := testing.Stdout(ctx)
+	out := cmdtesting.Stdout(ctx)
 	out = strings.Replace(out, "\n", "", -1)
 	// Just check a snippet of the output to make sure it looks ok.
 	// local clouds are last.
@@ -70,9 +71,9 @@ clouds:
 	err := ioutil.WriteFile(osenv.JujuXDGDataHomePath("clouds.yaml"), []byte(data), 0600)
 	c.Assert(err, jc.ErrorIsNil)
 
-	ctx, err := testing.RunCommand(c, cloud.NewListCloudsCommand(), "--format", "yaml")
+	ctx, err := cmdtesting.RunCommand(c, cloud.NewListCloudsCommand(), "--format", "yaml")
 	c.Assert(err, jc.ErrorIsNil)
-	out := testing.Stdout(ctx)
+	out := cmdtesting.Stdout(ctx)
 	out = strings.Replace(out, "\n", "", -1)
 	// Just check a snippet of the output to make sure it looks ok.
 	// local clouds are last.
@@ -81,27 +82,27 @@ clouds:
 }
 
 func (s *listSuite) TestListYAML(c *gc.C) {
-	ctx, err := testing.RunCommand(c, cloud.NewListCloudsCommand(), "--format", "yaml")
+	ctx, err := cmdtesting.RunCommand(c, cloud.NewListCloudsCommand(), "--format", "yaml")
 	c.Assert(err, jc.ErrorIsNil)
-	out := testing.Stdout(ctx)
+	out := cmdtesting.Stdout(ctx)
 	out = strings.Replace(out, "\n", "", -1)
 	// Just check a snippet of the output to make sure it looks ok.
 	c.Assert(out, gc.Matches, `.*aws:[ ]*defined: public[ ]*type: ec2[ ]*description: Amazon Web Services[ ]*auth-types: \[access-key\].*`)
 }
 
 func (s *listSuite) TestListJSON(c *gc.C) {
-	ctx, err := testing.RunCommand(c, cloud.NewListCloudsCommand(), "--format", "json")
+	ctx, err := cmdtesting.RunCommand(c, cloud.NewListCloudsCommand(), "--format", "json")
 	c.Assert(err, jc.ErrorIsNil)
-	out := testing.Stdout(ctx)
+	out := cmdtesting.Stdout(ctx)
 	out = strings.Replace(out, "\n", "", -1)
 	// Just check a snippet of the output to make sure it looks ok.
 	c.Assert(out, gc.Matches, `.*{"aws":{"defined":"public","type":"ec2","description":"Amazon Web Services","auth-types":\["access-key"\].*`)
 }
 
 func (s *listSuite) TestListPreservesRegionOrder(c *gc.C) {
-	ctx, err := testing.RunCommand(c, cloud.NewListCloudsCommand(), "--format", "yaml")
+	ctx, err := cmdtesting.RunCommand(c, cloud.NewListCloudsCommand(), "--format", "yaml")
 	c.Assert(err, jc.ErrorIsNil)
-	lines := strings.Split(testing.Stdout(ctx), "\n")
+	lines := strings.Split(cmdtesting.Stdout(ctx), "\n")
 	withClouds := "clouds:\n  " + strings.Join(lines, "\n  ")
 
 	parsedClouds, err := jujucloud.ParseCloudMetadata([]byte(withClouds))

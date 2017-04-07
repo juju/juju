@@ -13,6 +13,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/testing"
 )
@@ -57,7 +58,7 @@ func (s *ListSuite) SetUpTest(c *gc.C) {
 }
 
 func runList(c *gc.C, args []string) (*cmd.Context, error) {
-	return testing.RunCommand(c, newListImagesCommand(), args...)
+	return cmdtesting.RunCommand(c, newListImagesCommand(), args...)
 }
 
 func (s *ListSuite) TestListDefault(c *gc.C) {
@@ -244,10 +245,10 @@ func (s *ListSuite) assertValidList(c *gc.C, expectedValid, expectedErr string, 
 	context, err := runList(c, args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	obtainedErr := testing.Stderr(context)
+	obtainedErr := cmdtesting.Stderr(context)
 	c.Assert(obtainedErr, gc.Matches, expectedErr)
 
-	obtainedValid := testing.Stdout(context)
+	obtainedValid := cmdtesting.Stdout(context)
 	c.Assert(obtainedValid, gc.Matches, expectedValid)
 }
 

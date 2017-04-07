@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/juju/model"
 	"github.com/juju/juju/testing"
 )
@@ -123,13 +124,13 @@ func (s *retryProvisioningSuite) TestRetryProvisioning(c *gc.C) {
 	for i, t := range resolvedMachineTests {
 		c.Logf("test %d: %v", i, t.args)
 		command := model.NewRetryProvisioningCommandForTest(s.fake)
-		context, err := testing.RunCommand(c, command, t.args...)
+		context, err := cmdtesting.RunCommand(c, command, t.args...)
 		if t.err != "" {
 			c.Check(err, gc.ErrorMatches, t.err)
 			continue
 		}
 		c.Check(err, jc.ErrorIsNil)
-		output := testing.Stderr(context)
+		output := cmdtesting.Stderr(context)
 		stripped := strings.Replace(output, "\n", "", -1)
 		c.Check(stripped, gc.Equals, t.stdErr)
 		if t.args[0] == "0" {
@@ -146,7 +147,7 @@ func (s *retryProvisioningSuite) TestBlockRetryProvisioning(c *gc.C) {
 
 	for i, t := range resolvedMachineTests {
 		c.Logf("test %d: %v", i, t.args)
-		_, err := testing.RunCommand(c, command, t.args...)
+		_, err := cmdtesting.RunCommand(c, command, t.args...)
 		if t.err != "" {
 			c.Check(err, gc.ErrorMatches, t.err)
 			continue

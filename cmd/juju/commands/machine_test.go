@@ -8,9 +8,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/cmd/cmdtesting"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/testing"
 )
 
 // MachineSuite tests the connectivity of all the machine subcommands. These
@@ -24,9 +24,9 @@ type MachineSuite struct {
 var _ = gc.Suite(&MachineSuite{})
 
 func (s *MachineSuite) RunCommand(c *gc.C, args ...string) (*cmd.Context, error) {
-	context := testing.Context(c)
+	context := cmdtesting.Context(c)
 	juju := NewJujuCommand(context)
-	if err := testing.InitCommand(juju, args); err != nil {
+	if err := cmdtesting.InitCommand(juju, args); err != nil {
 		return context, err
 	}
 	return context, juju.Run(context)
@@ -38,7 +38,7 @@ func (s *MachineSuite) TestMachineAdd(c *gc.C) {
 	count := len(machines)
 
 	ctx, err := s.RunCommand(c, "add-machine")
-	c.Assert(testing.Stderr(ctx), jc.Contains, `created machine`)
+	c.Assert(cmdtesting.Stderr(ctx), jc.Contains, `created machine`)
 
 	machines, err = s.State.AllMachines()
 	c.Assert(err, jc.ErrorIsNil)
@@ -49,7 +49,7 @@ func (s *MachineSuite) TestMachineRemove(c *gc.C) {
 	machine := s.Factory.MakeMachine(c, nil)
 
 	ctx, err := s.RunCommand(c, "remove-machine", machine.Id())
-	c.Assert(testing.Stdout(ctx), gc.Equals, "")
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
 
 	err = machine.Refresh()
 	c.Assert(err, jc.ErrorIsNil)

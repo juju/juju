@@ -13,11 +13,11 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/jujuclient"
 	_ "github.com/juju/juju/provider/dummy"
-	jujutesting "github.com/juju/juju/testing"
 )
 
 func init() {
@@ -109,7 +109,7 @@ func (s *credentialsSuite) SetUpTest(c *gc.C) {
 
 func (s *credentialsSuite) assertGetCredentials(c *gc.C, cred, region string) {
 	credential, credentialName, regionName, err := modelcmd.GetCredentials(
-		jujutesting.Context(c), s.store, modelcmd.GetCredentialsParams{
+		cmdtesting.Context(c), s.store, modelcmd.GetCredentialsParams{
 			Cloud:          s.cloud,
 			CloudRegion:    region,
 			CredentialName: cred,

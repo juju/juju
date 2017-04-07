@@ -13,9 +13,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/payload"
 	"github.com/juju/juju/payload/status"
-	coretesting "github.com/juju/juju/testing"
 )
 
 var _ = gc.Suite(&listSuite{})
@@ -210,7 +210,7 @@ another-application/1  2        eggs           running  docker  ideggs
 }
 
 func runList(c *gc.C, command *status.ListCommand, args ...string) (int, string, string) {
-	ctx := coretesting.Context(c)
+	ctx := cmdtesting.Context(c)
 	code := cmd.Main(command, ctx, args)
 	stdout := ctx.Stdout.(*bytes.Buffer).Bytes()
 	stderr := ctx.Stderr.(*bytes.Buffer).Bytes()

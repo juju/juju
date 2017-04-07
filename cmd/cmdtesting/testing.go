@@ -1,41 +1,20 @@
 // Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package testing
+package cmdtesting
 
 import (
 	"bytes"
-	"flag"
 	"fmt"
 	"io"
-	"os"
-	"os/exec"
 
 	"github.com/juju/cmd"
 	"github.com/juju/gnuflag"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/provider/dummy"
-	coretesting "github.com/juju/juju/testing"
 )
-
-// FlagRunMain is used to indicate that the -run-main flag was used.
-var FlagRunMain = flag.Bool("run-main", false, "Run the application's main function for recursive testing")
-
-// BadRun is used to run a command, check the exit code, and return the output.
-func BadRun(c *gc.C, exit int, args ...string) string {
-	localArgs := append([]string{"-test.run", "TestRunMain", "-run-main", "--"}, args...)
-	ps := exec.Command(os.Args[0], localArgs...)
-	ps.Env = append(os.Environ(), osenv.JujuXDGDataHomeEnvKey+"="+osenv.JujuXDGDataHome())
-	output, err := ps.CombinedOutput()
-	c.Logf("command output: %q", output)
-	if exit != 0 {
-		c.Assert(err, gc.ErrorMatches, fmt.Sprintf("exit status %d", exit))
-	}
-	return string(output)
-}
 
 // HelpText returns a command's formatted help text.
 func HelpText(command cmd.Command, name string) string {
@@ -73,9 +52,9 @@ func NullContext(c *gc.C) *cmd.Context {
 	return ctx
 }
 
-// RunCommand runs the command and returns channels holding the
+// RunCommandWithDummyProvider runs the command and returns channels holding the
 // command's operations and errors.
-func RunCommand(ctx *cmd.Context, com cmd.Command, args ...string) (opc chan dummy.Operation, errc chan error) {
+func RunCommandWithDummyProvider(ctx *cmd.Context, com cmd.Command, args ...string) (opc chan dummy.Operation, errc chan error) {
 	if ctx == nil {
 		panic("ctx == nil")
 	}
@@ -92,7 +71,7 @@ func RunCommand(ctx *cmd.Context, com cmd.Command, args ...string) (opc chan dum
 			close(opc)
 		}()
 
-		if err := coretesting.InitCommand(com, args); err != nil {
+		if err := InitCommand(com, args); err != nil {
 			errc <- err
 			return
 		}

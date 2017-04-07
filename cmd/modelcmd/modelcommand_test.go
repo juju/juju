@@ -8,13 +8,13 @@ import (
 	"os"
 
 	"github.com/juju/cmd"
-	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
 	apitesting "github.com/juju/juju/api/testing"
+	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/jujuclient"

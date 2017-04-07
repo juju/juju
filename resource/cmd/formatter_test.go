@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package cmd
+package cmd_test
 
 import (
 	"strings"
@@ -14,6 +14,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/resource"
+	resourcecmd "github.com/juju/juju/resource/cmd"
 )
 
 var _ = gc.Suite(&CharmFormatterSuite{})
@@ -26,9 +27,9 @@ func (s *CharmFormatterSuite) TestFormatCharmResource(c *gc.C) {
 	res := charmRes(c, "spam", ".tgz", "X", "spamspamspam")
 	res.Revision = 5
 
-	formatted := FormatCharmResource(res)
+	formatted := resourcecmd.FormatCharmResource(res)
 
-	c.Check(formatted, jc.DeepEquals, FormattedCharmResource{
+	c.Check(formatted, jc.DeepEquals, resourcecmd.FormattedCharmResource{
 		Name:        "spam",
 		Type:        "file",
 		Path:        "spam.tgz",
@@ -68,8 +69,8 @@ func (s *SvcFormatterSuite) TestFormatSvcResource(c *gc.C) {
 		ApplicationID: "a-application",
 	}
 
-	f := FormatSvcResource(r)
-	c.Assert(f, gc.Equals, FormattedSvcResource{
+	f := resourcecmd.FormatSvcResource(r)
+	c.Assert(f, gc.Equals, resourcecmd.FormattedSvcResource{
 		ID:               "a-application/website",
 		ApplicationID:    "a-application",
 		Name:             r.Name,
@@ -83,9 +84,9 @@ func (s *SvcFormatterSuite) TestFormatSvcResource(c *gc.C) {
 		Description:      r.Description,
 		Timestamp:        r.Timestamp,
 		Username:         r.Username,
-		combinedRevision: "5",
-		usedYesNo:        "yes",
-		combinedOrigin:   "charmstore",
+		CombinedRevision: "5",
+		UsedYesNo:        "yes",
+		CombinedOrigin:   "charmstore",
 	})
 
 }
@@ -94,7 +95,7 @@ func (s *SvcFormatterSuite) TestNotUsed(c *gc.C) {
 	r := resource.Resource{
 		Timestamp: time.Time{},
 	}
-	f := FormatSvcResource(r)
+	f := resourcecmd.FormatSvcResource(r)
 	c.Assert(f.Used, jc.IsFalse)
 }
 
@@ -102,7 +103,7 @@ func (s *SvcFormatterSuite) TestUsed(c *gc.C) {
 	r := resource.Resource{
 		Timestamp: time.Now(),
 	}
-	f := FormatSvcResource(r)
+	f := resourcecmd.FormatSvcResource(r)
 	c.Assert(f.Used, jc.IsTrue)
 }
 
@@ -115,8 +116,8 @@ func (s *SvcFormatterSuite) TestOriginUploadDeployed(c *gc.C) {
 		Username:  "bill",
 		Timestamp: time.Now(),
 	}
-	f := FormatSvcResource(r)
-	c.Assert(f.combinedOrigin, gc.Equals, "bill")
+	f := resourcecmd.FormatSvcResource(r)
+	c.Assert(f.CombinedOrigin, gc.Equals, "bill")
 }
 
 func (s *SvcFormatterSuite) TestInitialOriginUpload(c *gc.C) {
@@ -125,8 +126,8 @@ func (s *SvcFormatterSuite) TestInitialOriginUpload(c *gc.C) {
 			Origin: charmresource.OriginUpload,
 		},
 	}
-	f := FormatSvcResource(r)
-	c.Assert(f.combinedOrigin, gc.Equals, "upload")
+	f := resourcecmd.FormatSvcResource(r)
+	c.Assert(f.CombinedOrigin, gc.Equals, "upload")
 }
 
 var _ = gc.Suite(&DetailFormatterSuite{})
@@ -181,17 +182,16 @@ func (s *DetailFormatterSuite) TestFormatDetail(c *gc.C) {
 	}
 	tag := names.NewUnitTag("a-application/55")
 
-	d, err := FormatDetailResource(tag, svc, unit, 8)
+	d, err := resourcecmd.FormatDetailResource(tag, svc, unit, 8)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(d, gc.Equals,
-		FormattedDetailResource{
-			unitNumber:  55,
+		resourcecmd.FormattedDetailResource{
+			UnitNumber:  55,
 			UnitID:      "a-application/55",
-			Expected:    FormatSvcResource(svc),
+			Expected:    resourcecmd.FormatSvcResource(svc),
 			Progress:    8,
-			progress:    "80%",
-			revProgress: "5 (fetching: 80%)",
-			Unit:        FormatSvcResource(unit),
+			RevProgress: "5 (fetching: 80%)",
+			Unit:        resourcecmd.FormatSvcResource(unit),
 		},
 	)
 }
@@ -222,17 +222,16 @@ func (s *DetailFormatterSuite) TestFormatDetailEmpty(c *gc.C) {
 	unit := resource.Resource{}
 	tag := names.NewUnitTag("a-application/55")
 
-	d, err := FormatDetailResource(tag, svc, unit, 0)
+	d, err := resourcecmd.FormatDetailResource(tag, svc, unit, 0)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(d, gc.Equals,
-		FormattedDetailResource{
-			unitNumber:  55,
+		resourcecmd.FormattedDetailResource{
+			UnitNumber:  55,
 			UnitID:      "a-application/55",
-			Expected:    FormatSvcResource(svc),
+			Expected:    resourcecmd.FormatSvcResource(svc),
 			Progress:    0,
-			progress:    "0%",
-			revProgress: "5 (fetching: 0%)",
-			Unit:        FormatSvcResource(unit),
+			RevProgress: "5 (fetching: 0%)",
+			Unit:        resourcecmd.FormatSvcResource(unit),
 		},
 	)
 }

@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
@@ -101,7 +102,7 @@ func (*environWatcherSuite) TestModelConfigFetchError(c *gc.C) {
 
 func testingEnvConfig(c *gc.C) *config.Config {
 	env, err := bootstrap.Prepare(
-		modelcmd.BootstrapContext(testing.Context(c)),
+		modelcmd.BootstrapContext(cmdtesting.Context(c)),
 		jujuclient.NewMemStore(),
 		bootstrap.PrepareParams{
 			ControllerConfig: testing.FakeControllerConfig(),

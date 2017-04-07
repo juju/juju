@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package cmd
+package cmd_test
 
 import (
 	"strings"
@@ -14,6 +14,7 @@ import (
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 
 	"github.com/juju/juju/charmstore"
+	resourcecmd "github.com/juju/juju/resource/cmd"
 )
 
 var _ = gc.Suite(&ListCharmSuite{})
@@ -33,7 +34,7 @@ func (s *ListCharmSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *ListCharmSuite) TestInfo(c *gc.C) {
-	var command ListCharmResourcesCommand
+	var command resourcecmd.ListCharmResourcesCommand
 	info := command.Info()
 
 	c.Check(info, jc.DeepEquals, &jujucmd.Info{
@@ -68,7 +69,7 @@ func (s *ListCharmSuite) TestOkay(c *gc.C) {
 	resources[0].Revision = 2
 	s.client.ReturnListResources = [][]charmresource.Resource{resources}
 
-	command := NewListCharmResourcesCommand()
+	command := resourcecmd.NewListCharmResourcesCommand()
 	command.ResourceLister = s.client
 	code, stdout, stderr := runCmd(c, command, "cs:a-charm")
 	c.Check(code, gc.Equals, 0)
@@ -94,7 +95,7 @@ music     1
 func (s *ListCharmSuite) TestNoResources(c *gc.C) {
 	s.client.ReturnListResources = [][]charmresource.Resource{{}}
 
-	command := NewListCharmResourcesCommand()
+	command := resourcecmd.NewListCharmResourcesCommand()
 	command.ResourceLister = s.client
 	code, stdout, stderr := runCmd(c, command, "cs:a-charm")
 	c.Check(code, gc.Equals, 0)
@@ -166,7 +167,7 @@ music     1
 	}
 	for format, expected := range formats {
 		c.Logf("checking format %q", format)
-		command := NewListCharmResourcesCommand()
+		command := resourcecmd.NewListCharmResourcesCommand()
 		command.ResourceLister = s.client
 		args := []string{
 			"--format", format,
@@ -190,7 +191,7 @@ func (s *ListCharmSuite) TestChannelFlag(c *gc.C) {
 		charmRes(c, "music", ".mp3", "mp3 of your backing vocals", string(fp2.Bytes())),
 	}
 	s.client.ReturnListResources = [][]charmresource.Resource{resources}
-	command := NewListCharmResourcesCommand()
+	command := resourcecmd.NewListCharmResourcesCommand()
 	command.ResourceLister = s.client
 
 	code, _, stderr := runCmd(c, command,
@@ -200,5 +201,5 @@ func (s *ListCharmSuite) TestChannelFlag(c *gc.C) {
 
 	c.Check(code, gc.Equals, 0)
 	c.Check(stderr, gc.Equals, "")
-	c.Check(command.channel, gc.Equals, "development")
+	c.Check(resourcecmd.ListCharmResourcesCommandChannel(command), gc.Equals, "development")
 }

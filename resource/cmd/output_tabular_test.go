@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package cmd
+package cmd_test
 
 import (
 	"bytes"
@@ -13,6 +13,7 @@ import (
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 
 	"github.com/juju/juju/resource"
+	resourcecmd "github.com/juju/juju/resource/cmd"
 )
 
 var _ = gc.Suite(&CharmTabularSuite{})
@@ -23,14 +24,14 @@ type CharmTabularSuite struct {
 
 func (s *CharmTabularSuite) formatTabular(c *gc.C, value interface{}) string {
 	out := &bytes.Buffer{}
-	err := FormatCharmTabular(out, value)
+	err := resourcecmd.FormatCharmTabular(out, value)
 	c.Assert(err, jc.ErrorIsNil)
 	return out.String()
 }
 
 func (s *CharmTabularSuite) TestFormatCharmTabularOkay(c *gc.C) {
 	res := charmRes(c, "spam", ".tgz", "...", "")
-	formatted := []FormattedCharmResource{FormatCharmResource(res)}
+	formatted := []resourcecmd.FormattedCharmResource{resourcecmd.FormatCharmResource(res)}
 
 	data := s.formatTabular(c, formatted)
 	c.Check(data, gc.Equals, `
@@ -41,7 +42,7 @@ spam      1
 
 func (s *CharmTabularSuite) TestFormatCharmTabularMinimal(c *gc.C) {
 	res := charmRes(c, "spam", "", "", "")
-	formatted := []FormattedCharmResource{FormatCharmResource(res)}
+	formatted := []resourcecmd.FormattedCharmResource{resourcecmd.FormatCharmResource(res)}
 
 	data := s.formatTabular(c, formatted)
 	c.Check(data, gc.Equals, `
@@ -53,7 +54,7 @@ spam      1
 func (s *CharmTabularSuite) TestFormatCharmTabularUpload(c *gc.C) {
 	res := charmRes(c, "spam", "", "", "")
 	res.Origin = charmresource.OriginUpload
-	formatted := []FormattedCharmResource{FormatCharmResource(res)}
+	formatted := []resourcecmd.FormattedCharmResource{resourcecmd.FormatCharmResource(res)}
 
 	data := s.formatTabular(c, formatted)
 	c.Check(data, gc.Equals, `
@@ -63,12 +64,12 @@ spam      1
 }
 
 func (s *CharmTabularSuite) TestFormatCharmTabularMulti(c *gc.C) {
-	formatted := []FormattedCharmResource{
-		FormatCharmResource(charmRes(c, "spam", ".tgz", "spamspamspamspam", "")),
-		FormatCharmResource(charmRes(c, "eggs", "", "...", "")),
-		FormatCharmResource(charmRes(c, "somethingbig", ".zip", "", "")),
-		FormatCharmResource(charmRes(c, "song", ".mp3", "your favorite", "")),
-		FormatCharmResource(charmRes(c, "avatar", ".png", "your picture", "")),
+	formatted := []resourcecmd.FormattedCharmResource{
+		resourcecmd.FormatCharmResource(charmRes(c, "spam", ".tgz", "spamspamspamspam", "")),
+		resourcecmd.FormatCharmResource(charmRes(c, "eggs", "", "...", "")),
+		resourcecmd.FormatCharmResource(charmRes(c, "somethingbig", ".zip", "", "")),
+		resourcecmd.FormatCharmResource(charmRes(c, "song", ".mp3", "your favorite", "")),
+		resourcecmd.FormatCharmResource(charmRes(c, "avatar", ".png", "your picture", "")),
 	}
 	formatted[1].Revision = 2
 
@@ -85,7 +86,7 @@ avatar        1
 
 func (s *CharmTabularSuite) TestFormatCharmTabularBadValue(c *gc.C) {
 	bogus := "should have been something else"
-	err := FormatCharmTabular(nil, bogus)
+	err := resourcecmd.FormatCharmTabular(nil, bogus)
 	c.Check(err, gc.ErrorMatches, `expected value of type .*`)
 }
 
@@ -97,7 +98,7 @@ type SvcTabularSuite struct {
 
 func (s *SvcTabularSuite) formatTabular(c *gc.C, value interface{}) string {
 	out := &bytes.Buffer{}
-	err := FormatSvcTabular(out, value)
+	err := resourcecmd.FormatSvcTabular(out, value)
 	c.Assert(err, jc.ErrorIsNil)
 	return out.String()
 }
@@ -116,8 +117,8 @@ func (s *SvcTabularSuite) TestFormatServiceOkay(c *gc.C) {
 		Timestamp: time.Now(),
 	}
 
-	formatted := FormattedServiceInfo{
-		Resources: []FormattedSvcResource{FormatSvcResource(res)},
+	formatted := resourcecmd.FormattedServiceInfo{
+		Resources: []resourcecmd.FormattedSvcResource{resourcecmd.FormatSvcResource(res)},
 	}
 
 	data := s.formatTabular(c, formatted)
@@ -142,8 +143,8 @@ func (s *SvcTabularSuite) TestFormatUnitOkay(c *gc.C) {
 		Timestamp: time.Now(),
 	}
 
-	formatted := []FormattedUnitResource{
-		FormattedUnitResource(FormatSvcResource(res)),
+	formatted := []resourcecmd.FormattedUnitResource{
+		resourcecmd.FormattedUnitResource(resourcecmd.FormatSvcResource(res)),
 	}
 
 	data := s.formatTabular(c, formatted)
@@ -242,7 +243,7 @@ func (s *SvcTabularSuite) TestFormatSvcTabularMulti(c *gc.C) {
 		},
 	}
 
-	formatted, err := formatServiceResources(resource.ServiceResources{
+	formatted, err := resourcecmd.FormatServiceResources(resource.ServiceResources{
 		Resources:           res,
 		CharmStoreResources: charmResources,
 	})
@@ -266,31 +267,30 @@ openjdk   10
 
 func (s *SvcTabularSuite) TestFormatSvcTabularBadValue(c *gc.C) {
 	bogus := "should have been something else"
-	err := FormatSvcTabular(nil, bogus)
+	err := resourcecmd.FormatSvcTabular(nil, bogus)
 	c.Check(err, gc.ErrorMatches, `unexpected type for data: string`)
 }
 
 func (s *SvcTabularSuite) TestFormatServiceDetailsOkay(c *gc.C) {
 	res := charmRes(c, "spam", ".tgz", "...", "")
-	updates := []FormattedCharmResource{FormatCharmResource(res)}
+	updates := []resourcecmd.FormattedCharmResource{resourcecmd.FormatCharmResource(res)}
 
-	data := FormattedServiceDetails{
-		Resources: []FormattedDetailResource{
+	data := resourcecmd.FormattedServiceDetails{
+		Resources: []resourcecmd.FormattedDetailResource{
 			{
 				UnitID:      "svc/10",
-				unitNumber:  10,
+				UnitNumber:  10,
 				Unit:        fakeFmtSvcRes("data", "1"),
 				Expected:    fakeFmtSvcRes("data", "1"),
 				Progress:    17,
-				progress:    "17%",
-				revProgress: "combRev1 (fetching: 17%)",
+				RevProgress: "combRev1 (fetching: 17%)",
 			},
 			{
 				UnitID:      "svc/5",
-				unitNumber:  5,
+				UnitNumber:  5,
 				Unit:        fakeFmtSvcRes("config", "2"),
 				Expected:    fakeFmtSvcRes("config", "3"),
-				revProgress: "combRev3",
+				RevProgress: "combRev3",
 			},
 		},
 		Updates: updates,
@@ -310,22 +310,21 @@ spam      1
 }
 
 func (s *SvcTabularSuite) TestFormatUnitDetailsOkay(c *gc.C) {
-	data := FormattedUnitDetails{
+	data := resourcecmd.FormattedUnitDetails{
 		{
 			UnitID:      "svc/10",
-			unitNumber:  10,
+			UnitNumber:  10,
 			Unit:        fakeFmtSvcRes("data", "1"),
 			Expected:    fakeFmtSvcRes("data", "1"),
-			revProgress: "combRev1",
+			RevProgress: "combRev1",
 		},
 		{
 			UnitID:      "svc/10",
-			unitNumber:  10,
+			UnitNumber:  10,
 			Unit:        fakeFmtSvcRes("config", "2"),
 			Expected:    fakeFmtSvcRes("config", "3"),
 			Progress:    91,
-			progress:    "91%",
-			revProgress: "combRev3 (fetching: 91%)",
+			RevProgress: "combRev3 (fetching: 91%)",
 		},
 	}
 
@@ -338,8 +337,8 @@ data      combRev1  combRev1
 `[1:])
 }
 
-func fakeFmtSvcRes(name, suffix string) FormattedSvcResource {
-	return FormattedSvcResource{
+func fakeFmtSvcRes(name, suffix string) resourcecmd.FormattedSvcResource {
+	return resourcecmd.FormattedSvcResource{
 		ID:               "ID" + suffix,
 		ApplicationID:    "svc",
 		Name:             name,
@@ -353,8 +352,8 @@ func fakeFmtSvcRes(name, suffix string) FormattedSvcResource {
 		Used:             true,
 		Timestamp:        time.Date(2012, 12, 12, 12, 12, 12, 0, time.UTC),
 		Username:         "Username" + suffix,
-		combinedRevision: "combRev" + suffix,
-		usedYesNo:        "usedYesNo" + suffix,
-		combinedOrigin:   "combOrig" + suffix,
+		CombinedRevision: "combRev" + suffix,
+		UsedYesNo:        "usedYesNo" + suffix,
+		CombinedOrigin:   "combOrig" + suffix,
 	}
 }

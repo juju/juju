@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/juju/application"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
@@ -90,13 +91,13 @@ var initAddUnitErrorTests = []struct {
 func (s *AddUnitSuite) TestInitErrors(c *gc.C) {
 	for i, t := range initAddUnitErrorTests {
 		c.Logf("test %d", i)
-		err := testing.InitCommand(application.NewAddUnitCommandForTest(s.fake), t.args)
+		err := cmdtesting.InitCommand(application.NewAddUnitCommandForTest(s.fake), t.args)
 		c.Check(err, gc.ErrorMatches, t.err)
 	}
 }
 
 func (s *AddUnitSuite) runAddUnit(c *gc.C, args ...string) error {
-	_, err := testing.RunCommand(c, application.NewAddUnitCommandForTest(s.fake), args...)
+	_, err := cmdtesting.RunCommand(c, application.NewAddUnitCommandForTest(s.fake), args...)
 	return err
 }
 
@@ -141,8 +142,8 @@ func (s *AddUnitSuite) TestUnauthorizedMentionsJujuGrant(c *gc.C) {
 		Message: "permission denied",
 		Code:    params.CodeUnauthorized,
 	}
-	ctx, _ := testing.RunCommand(c, application.NewAddUnitCommandForTest(s.fake), "some-application-name")
-	errString := strings.Replace(testing.Stderr(ctx), "\n", " ", -1)
+	ctx, _ := cmdtesting.RunCommand(c, application.NewAddUnitCommandForTest(s.fake), "some-application-name")
+	errString := strings.Replace(cmdtesting.Stderr(ctx), "\n", " ", -1)
 	c.Assert(errString, gc.Matches, `.*juju grant.*`)
 }
 

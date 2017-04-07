@@ -14,9 +14,9 @@ import (
 	goyaml "gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/juju/storage"
 	_ "github.com/juju/juju/provider/dummy"
-	"github.com/juju/juju/testing"
 )
 
 type poolListSuite struct {
@@ -36,7 +36,7 @@ func (s *poolListSuite) SetUpTest(c *gc.C) {
 
 func (s *poolListSuite) runPoolList(c *gc.C, args []string) (*cmd.Context, error) {
 	args = append(args, []string{"-m", "admin"}...)
-	return testing.RunCommand(c, storage.NewPoolListCommandForTest(s.mockAPI, s.store), args...)
+	return cmdtesting.RunCommand(c, storage.NewPoolListCommandForTest(s.mockAPI, s.store), args...)
 }
 
 func (s *poolListSuite) TestPoolListEmpty(c *gc.C) {
@@ -164,7 +164,7 @@ func (s *poolListSuite) assertValidList(c *gc.C, args []string, expected string)
 	context, err := s.runPoolList(c, args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	obtained := testing.Stdout(context)
+	obtained := cmdtesting.Stdout(context)
 	c.Assert(obtained, gc.Equals, expected)
 }
 

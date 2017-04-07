@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/juju/cmd"
-	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -38,6 +37,7 @@ import (
 	"github.com/juju/juju/api/imagemetadata"
 	apimachiner "github.com/juju/juju/api/machiner"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/jujud/agent/model"
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/environs"

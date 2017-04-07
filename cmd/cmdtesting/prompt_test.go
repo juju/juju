@@ -1,7 +1,7 @@
 // Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package testing_test
+package cmdtesting_test
 
 import (
 	"fmt"
@@ -14,7 +14,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	cmdtesting "github.com/juju/juju/cmd/testing"
+	"github.com/juju/juju/cmd/cmdtesting"
 )
 
 type prompterSuite struct {

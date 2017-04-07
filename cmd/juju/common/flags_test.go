@@ -12,6 +12,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/testing"
 )
 
@@ -79,7 +80,7 @@ func (*FlagsSuite) TestConfigFlagReadAttrsErrors(c *gc.C) {
 
 	var f ConfigFlag
 	f.files = append(f.files, configFile)
-	ctx := testing.Context(c)
+	ctx := cmdtesting.Context(c)
 	attrs, err := f.ReadAttrs(ctx)
 	c.Assert(errors.Cause(err), jc.Satisfies, os.IsNotExist)
 	c.Assert(attrs, gc.IsNil)
@@ -91,7 +92,7 @@ func assertConfigFlag(c *gc.C, f ConfigFlag, files []string, attrs map[string]in
 }
 
 func assertConfigFlagReadAttrs(c *gc.C, f ConfigFlag, expect map[string]interface{}) {
-	ctx := testing.Context(c)
+	ctx := cmdtesting.Context(c)
 	attrs, err := f.ReadAttrs(ctx)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(attrs, jc.DeepEquals, expect)

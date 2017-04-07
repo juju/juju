@@ -9,6 +9,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/juju/application"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
@@ -32,12 +33,12 @@ func (s *ResolvedSuite) SetUpTest(c *gc.C) {
 var _ = gc.Suite(&ResolvedSuite{})
 
 func runResolved(c *gc.C, args []string) error {
-	_, err := testing.RunCommand(c, newResolvedCommand(), args...)
+	_, err := cmdtesting.RunCommand(c, newResolvedCommand(), args...)
 	return err
 }
 
 func runDeploy(c *gc.C, args ...string) error {
-	_, err := testing.RunCommand(c, application.NewDefaultDeployCommand(), args...)
+	_, err := cmdtesting.RunCommand(c, application.NewDefaultDeployCommand(), args...)
 	return err
 }
 

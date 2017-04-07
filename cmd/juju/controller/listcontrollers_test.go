@@ -13,11 +13,11 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/juju/controller"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
-	"github.com/juju/juju/testing"
 )
 
 type ListControllersSuite struct {
@@ -261,7 +261,7 @@ another controller that you have been given access to using "juju register".
 }
 
 func (s *ListControllersSuite) runListControllers(c *gc.C, args ...string) (*cmd.Context, error) {
-	return testing.RunCommand(c, controller.NewListControllersCommandForTest(s.store, s.api), args...)
+	return cmdtesting.RunCommand(c, controller.NewListControllersCommandForTest(s.store, s.api), args...)
 }
 
 func (s *ListControllersSuite) assertListControllersFailed(c *gc.C, args ...string) {
@@ -272,7 +272,7 @@ func (s *ListControllersSuite) assertListControllersFailed(c *gc.C, args ...stri
 func (s *ListControllersSuite) assertListControllers(c *gc.C, args ...string) string {
 	context, err := s.runListControllers(c, args...)
 	c.Assert(err, jc.ErrorIsNil)
-	output := testing.Stdout(context)
+	output := cmdtesting.Stdout(context)
 	if s.expectedOutput != "" {
 		c.Assert(output, gc.Equals, s.expectedOutput)
 	}

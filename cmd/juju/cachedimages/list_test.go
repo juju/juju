@@ -11,6 +11,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/juju/cachedimages"
 	"github.com/juju/juju/testing"
 )
@@ -53,19 +54,19 @@ func (s *listImagesCommandSuite) SetUpTest(c *gc.C) {
 }
 
 func runListCommand(c *gc.C, args ...string) (*cmd.Context, error) {
-	return testing.RunCommand(c, cachedimages.NewListCommandForTest(), args...)
+	return cmdtesting.RunCommand(c, cachedimages.NewListCommandForTest(), args...)
 }
 
 func (*listImagesCommandSuite) TestListImagesNone(c *gc.C) {
 	context, err := runListCommand(c, "--kind", "kvm")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(testing.Stderr(context), gc.Equals, "No images to display.\n")
+	c.Assert(cmdtesting.Stderr(context), gc.Equals, "No images to display.\n")
 }
 
 func (*listImagesCommandSuite) TestListImagesFormatJson(c *gc.C) {
 	context, err := runListCommand(c, "--format", "json", "--kind", "lxd", "--series", "trusty", "--arch", "amd64")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(testing.Stdout(context), gc.Equals, "Cached images:\n["+
+	c.Assert(cmdtesting.Stdout(context), gc.Equals, "Cached images:\n["+
 		`{"kind":"lxd","series":"trusty","arch":"amd64","source-url":"http://image","created":"Thu, 01 Jan 2015 00:00:00 UTC"}`+
 		"]\n")
 }
@@ -73,7 +74,7 @@ func (*listImagesCommandSuite) TestListImagesFormatJson(c *gc.C) {
 func (*listImagesCommandSuite) TestListImagesFormatYaml(c *gc.C) {
 	context, err := runListCommand(c, "--format", "yaml", "--kind", "lxd", "--series", "trusty", "--arch", "amd64")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(testing.Stdout(context), gc.Equals, "Cached images:\n"+
+	c.Assert(cmdtesting.Stdout(context), gc.Equals, "Cached images:\n"+
 		"- kind: lxd\n"+
 		"  series: trusty\n"+
 		"  arch: amd64\n"+

@@ -12,6 +12,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	jujucloud "github.com/juju/juju/cloud"
+	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/juju/cloud"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/testing"
@@ -25,21 +26,21 @@ var _ = gc.Suite(&defaultRegionSuite{})
 
 func (s *defaultRegionSuite) TestBadArgs(c *gc.C) {
 	cmd := cloud.NewSetDefaultRegionCommand()
-	_, err := testing.RunCommand(c, cmd)
+	_, err := cmdtesting.RunCommand(c, cmd)
 	c.Assert(err, gc.ErrorMatches, "Usage: juju set-default-region <cloud-name> <region>")
-	_, err = testing.RunCommand(c, cmd, "cloud", "region", "extra")
+	_, err = cmdtesting.RunCommand(c, cmd, "cloud", "region", "extra")
 	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["extra"\]`)
 }
 
 func (s *defaultRegionSuite) TestBadRegion(c *gc.C) {
 	cmd := cloud.NewSetDefaultRegionCommand()
-	_, err := testing.RunCommand(c, cmd, "aws", "foo")
+	_, err := cmdtesting.RunCommand(c, cmd, "aws", "foo")
 	c.Assert(err, gc.ErrorMatches, `region "foo" for cloud aws not valid, valid regions are .*`)
 }
 
 func (s *defaultRegionSuite) TestBadCloudName(c *gc.C) {
 	cmd := cloud.NewSetDefaultRegionCommand()
-	_, err := testing.RunCommand(c, cmd, "somecloud", "us-west-1")
+	_, err := cmdtesting.RunCommand(c, cmd, "somecloud", "us-west-1")
 	c.Assert(err, gc.ErrorMatches, `cloud somecloud not valid`)
 }
 
@@ -48,8 +49,8 @@ func (s *defaultRegionSuite) assertSetDefaultRegion(c *gc.C, cmd cmd.Command, st
 }
 
 func (s *defaultRegionSuite) assertSetCustomDefaultRegion(c *gc.C, cmd cmd.Command, store *jujuclient.MemStore, cloud, desiredDefault, errStr string) {
-	ctx, err := testing.RunCommand(c, cmd, cloud, desiredDefault)
-	output := testing.Stderr(ctx)
+	ctx, err := cmdtesting.RunCommand(c, cmd, cloud, desiredDefault)
+	output := cmdtesting.Stderr(ctx)
 	output = strings.Replace(output, "\n", "", -1)
 	if errStr != "" {
 		c.Assert(err, gc.ErrorMatches, errStr)
@@ -103,7 +104,7 @@ func (s *defaultRegionSuite) TestCaseInsensitiveRegionSpecification(c *gc.C) {
 		DefaultRegion: "us-east-1"}
 
 	cmd := cloud.NewSetDefaultRegionCommandForTest(store)
-	_, err := testing.RunCommand(c, cmd, "aws", "us-WEST-1")
+	_, err := cmdtesting.RunCommand(c, cmd, "aws", "us-WEST-1")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(store.Credentials["aws"].DefaultRegion, gc.Equals, "us-west-1")
 }

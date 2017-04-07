@@ -12,9 +12,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/payload"
 	"github.com/juju/juju/payload/context"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type statusSetSuite struct {
@@ -34,7 +34,7 @@ func (s *statusSetSuite) SetUpTest(c *gc.C) {
 
 	s.stub = &testing.Stub{}
 	s.compCtx = &stubSetStatusContext{stub: s.stub}
-	s.ctx = coretesting.Context(c)
+	s.ctx = cmdtesting.Context(c)
 
 	cmd, err := context.NewStatusSetCmd(s)
 	c.Assert(err, jc.ErrorIsNil)

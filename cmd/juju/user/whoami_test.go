@@ -9,6 +9,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/juju/user"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
@@ -167,7 +168,7 @@ func (s *WhoAmITestSuite) TestFromStoreErr(c *gc.C) {
 }
 
 func (s *WhoAmITestSuite) runWhoAmI(c *gc.C, args ...string) (*cmd.Context, error) {
-	return testing.RunCommand(c, user.NewWhoAmICommandForTest(s.store), args...)
+	return cmdtesting.RunCommand(c, user.NewWhoAmICommandForTest(s.store), args...)
 }
 
 func (s *WhoAmITestSuite) assertWhoAmIFailed(c *gc.C, args ...string) {
@@ -178,9 +179,9 @@ func (s *WhoAmITestSuite) assertWhoAmIFailed(c *gc.C, args ...string) {
 func (s *WhoAmITestSuite) assertWhoAmI(c *gc.C, args ...string) string {
 	context, err := s.runWhoAmI(c, args...)
 	c.Assert(err, jc.ErrorIsNil)
-	output := testing.Stdout(context)
+	output := cmdtesting.Stdout(context)
 	if output == "" {
-		output = testing.Stderr(context)
+		output = cmdtesting.Stderr(context)
 	}
 	if s.expectedOutput != "" {
 		c.Assert(output, gc.Equals, s.expectedOutput)

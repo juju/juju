@@ -12,8 +12,8 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/modelcmd"
-	cmdtesting "github.com/juju/juju/cmd/testing"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/testing"

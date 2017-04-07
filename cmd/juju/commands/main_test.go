@@ -22,10 +22,10 @@ import (
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/juju/application"
 	"github.com/juju/juju/cmd/juju/cloud"
 	"github.com/juju/juju/cmd/modelcmd"
-	cmdtesting "github.com/juju/juju/cmd/testing"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju/osenv"
 	_ "github.com/juju/juju/provider/dummy"
@@ -656,7 +656,7 @@ func (s *MainSuite) TestRegisterCommands(c *gc.C) {
 
 	registry := &stubRegistry{stub: stub}
 	registry.names = append(registry.names, "help", "version") // implicit
-	registerCommands(registry, testing.Context(c))
+	registerCommands(registry, cmdtesting.Context(c))
 	sort.Strings(registry.names)
 
 	expected := make([]string, len(commandNames))
@@ -684,7 +684,7 @@ func (r *commands) RegisterSuperAlias(name, super, forName string, check cmd.Dep
 
 func (s *MainSuite) TestModelCommands(c *gc.C) {
 	var commands commands
-	registerCommands(&commands, testing.Context(c))
+	registerCommands(&commands, cmdtesting.Context(c))
 	// There should not be any ModelCommands registered.
 	// ModelCommands must be wrapped using modelcmd.Wrap.
 	for _, cmd := range commands {
@@ -707,7 +707,7 @@ func (s *MainSuite) TestAllCommandsPurpose(c *gc.C) {
 	// - Makes the Doc content either start like a sentence, or start
 	//   godoc-like by using the command's name in lowercase.
 	var commands commands
-	registerCommands(&commands, testing.Context(c))
+	registerCommands(&commands, cmdtesting.Context(c))
 	for _, cmd := range commands {
 		info := cmd.Info()
 		purpose := strings.TrimSpace(info.Purpose)

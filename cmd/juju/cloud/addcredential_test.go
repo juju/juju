@@ -17,6 +17,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	jujucloud "github.com/juju/juju/cloud"
+	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/juju/cloud"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/jujuclient"
@@ -60,11 +61,11 @@ func (s *addCredentialSuite) SetUpTest(c *gc.C) {
 
 func (s *addCredentialSuite) run(c *gc.C, stdin io.Reader, args ...string) (*cmd.Context, error) {
 	addCmd := cloud.NewAddCredentialCommandForTest(s.store, s.cloudByNameFunc)
-	err := testing.InitCommand(addCmd, args)
+	err := cmdtesting.InitCommand(addCmd, args)
 	if err != nil {
 		return nil, err
 	}
-	ctx := testing.Context(c)
+	ctx := cmdtesting.Context(c)
 	ctx.Stdin = stdin
 	return ctx, addCmd.Run(ctx)
 }
@@ -245,7 +246,7 @@ func (s *addCredentialSuite) TestAddCredentialInteractive(c *gc.C) {
 	// there's an extra line return after Using auth-type because the rest get a
 	// second line return from the user hitting return when they enter a value
 	// (which is not shown here), but that one does not.
-	c.Assert(testing.Stdout(ctx), gc.Equals, `
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `
 Enter credential name: 
 Using auth-type "interactive".
 
@@ -300,9 +301,9 @@ func (s *addCredentialSuite) assertAddFileCredential(c *gc.C, input, fileKey str
 
 	stdin := strings.NewReader(fmt.Sprintf(input, filename))
 	addCmd := cloud.NewAddCredentialCommandForTest(s.store, s.cloudByNameFunc)
-	err = testing.InitCommand(addCmd, []string{"somecloud"})
+	err = cmdtesting.InitCommand(addCmd, []string{"somecloud"})
 	c.Assert(err, jc.ErrorIsNil)
-	ctx := testing.ContextForDir(c, dir)
+	ctx := cmdtesting.ContextForDir(c, dir)
 	ctx.Stdin = stdin
 	err = addCmd.Run(ctx)
 	c.Assert(err, jc.ErrorIsNil)

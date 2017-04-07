@@ -10,13 +10,13 @@ import (
 	gc "gopkg.in/check.v1"
 	worker "gopkg.in/juju/worker.v1"
 
+	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/jujud/agent/agenttest"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	imagetesting "github.com/juju/juju/environs/imagemetadata/testing"
 	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
-	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/proxyupdater"
 )
 
@@ -27,18 +27,18 @@ type acCreator func() (cmd.Command, AgentConf)
 // command pre-parsed, with any mandatory flags added.
 func CheckAgentCommand(c *gc.C, create acCreator, args []string) cmd.Command {
 	com, conf := create()
-	err := coretesting.InitCommand(com, args)
+	err := cmdtesting.InitCommand(com, args)
 	dataDir, err := paths.DataDir(series.MustHostSeries())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(conf.DataDir(), gc.Equals, dataDir)
 	badArgs := append(args, "--data-dir", "")
 	com, _ = create()
-	err = coretesting.InitCommand(com, badArgs)
+	err = cmdtesting.InitCommand(com, badArgs)
 	c.Assert(err, gc.ErrorMatches, "--data-dir option must be set")
 
 	args = append(args, "--data-dir", "jd")
 	com, conf = create()
-	c.Assert(coretesting.InitCommand(com, args), gc.IsNil)
+	c.Assert(cmdtesting.InitCommand(com, args), gc.IsNil)
 	c.Assert(conf.DataDir(), gc.Equals, "jd")
 	return com
 }
@@ -49,7 +49,7 @@ func ParseAgentCommand(ac cmd.Command, args []string) error {
 	common := []string{
 		"--data-dir", "jd",
 	}
-	return coretesting.InitCommand(ac, append(common, args...))
+	return cmdtesting.InitCommand(ac, append(common, args...))
 }
 
 // AgentSuite is a fixture to be used by agent test suites.

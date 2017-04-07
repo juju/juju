@@ -9,7 +9,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
@@ -28,28 +28,28 @@ func (s *JujuLogSuite) newJujuLogCommand(c *gc.C) cmd.Command {
 
 func (s *JujuLogSuite) TestRequiresMessage(c *gc.C) {
 	com := s.newJujuLogCommand(c)
-	testing.TestInit(c, com, nil, "no message specified")
+	cmdtesting.TestInit(c, com, nil, "no message specified")
 }
 
 func (s *JujuLogSuite) TestLogInitMissingLevel(c *gc.C) {
 	com := s.newJujuLogCommand(c)
-	testing.TestInit(c, com, []string{"-l"}, "flag needs an argument.*")
+	cmdtesting.TestInit(c, com, []string{"-l"}, "flag needs an argument.*")
 
 	com = s.newJujuLogCommand(c)
-	testing.TestInit(c, com, []string{"--log-level"}, "flag needs an argument.*")
+	cmdtesting.TestInit(c, com, []string{"--log-level"}, "flag needs an argument.*")
 }
 
 func (s *JujuLogSuite) TestLogInitMissingMessage(c *gc.C) {
 	com := s.newJujuLogCommand(c)
-	testing.TestInit(c, com, []string{"-l", "FATAL"}, "no message specified")
+	cmdtesting.TestInit(c, com, []string{"-l", "FATAL"}, "no message specified")
 
 	com = s.newJujuLogCommand(c)
-	testing.TestInit(c, com, []string{"--log-level", "FATAL"}, "no message specified")
+	cmdtesting.TestInit(c, com, []string{"--log-level", "FATAL"}, "no message specified")
 }
 
 func (s *JujuLogSuite) TestLogDeprecation(c *gc.C) {
 	com := s.newJujuLogCommand(c)
-	ctx, err := testing.RunCommand(c, com, "--format", "foo", "msg")
+	ctx, err := cmdtesting.RunCommand(c, com, "--format", "foo", "msg")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(testing.Stderr(ctx), gc.Equals, "--format flag deprecated for command \"juju-log\"")
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "--format flag deprecated for command \"juju-log\"")
 }

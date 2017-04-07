@@ -9,7 +9,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/cmd/cmdtesting"
 )
 
 var _ = gc.Suite(&GetCmdSuite{})
@@ -68,15 +68,15 @@ func (s *GetCmdSuite) TestRunOkay(c *gc.C) {
 	}
 	const expected = "/var/lib/juju/agents/unit-foo-1/resources/spam/a-file.tgz"
 	s.hctx.ReturnDownload = expected
-	ctx := coretesting.Context(c)
+	ctx := cmdtesting.Context(c)
 
 	err := getCmd.Run(ctx)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c, "Download")
 	s.stub.CheckCall(c, 0, "Download", "spam")
-	c.Check(coretesting.Stdout(ctx), gc.Equals, expected)
-	c.Check(coretesting.Stderr(ctx), gc.Equals, "")
+	c.Check(cmdtesting.Stdout(ctx), gc.Equals, expected)
+	c.Check(cmdtesting.Stderr(ctx), gc.Equals, "")
 }
 
 func (s *GetCmdSuite) TestRunDownloadFailure(c *gc.C) {
@@ -86,12 +86,12 @@ func (s *GetCmdSuite) TestRunDownloadFailure(c *gc.C) {
 	}
 	failure := errors.New("<failure>")
 	s.stub.SetErrors(failure)
-	ctx := coretesting.Context(c)
+	ctx := cmdtesting.Context(c)
 
 	err := getCmd.Run(ctx)
 
 	s.stub.CheckCallNames(c, "Download")
 	c.Check(errors.Cause(err), gc.Equals, failure)
-	c.Check(coretesting.Stdout(ctx), gc.Equals, "")
-	c.Check(coretesting.Stderr(ctx), gc.Equals, "")
+	c.Check(cmdtesting.Stdout(ctx), gc.Equals, "")
+	c.Check(cmdtesting.Stderr(ctx), gc.Equals, "")
 }

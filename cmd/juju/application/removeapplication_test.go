@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/api/application"
 	"github.com/juju/juju/api/charms"
 	"github.com/juju/juju/api/modelconfig"
+	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/modelcmd"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
@@ -37,7 +38,7 @@ func (s *RemoveApplicationSuite) SetUpTest(c *gc.C) {
 }
 
 func runRemoveApplication(c *gc.C, args ...string) (*cmd.Context, error) {
-	return testing.RunCommand(c, NewRemoveApplicationCommand(), args...)
+	return cmdtesting.RunCommand(c, NewRemoveApplicationCommand(), args...)
 }
 
 func (s *RemoveApplicationSuite) setupTestApplication(c *gc.C) {
@@ -51,7 +52,7 @@ func (s *RemoveApplicationSuite) TestLocalApplication(c *gc.C) {
 	s.setupTestApplication(c)
 	ctx, err := runRemoveApplication(c, "riak")
 	c.Assert(err, jc.ErrorIsNil)
-	stderr := testing.Stderr(ctx)
+	stderr := cmdtesting.Stderr(ctx)
 	c.Assert(stderr, gc.Equals, "removing application riak\n")
 	riak, err := s.State.Application("riak")
 	c.Assert(err, jc.ErrorIsNil)
@@ -65,7 +66,7 @@ func (s *RemoveApplicationSuite) TestInformStorageRemoved(c *gc.C) {
 
 	ctx, err := runRemoveApplication(c, "storage-filesystem")
 	c.Assert(err, jc.ErrorIsNil)
-	stderr := testing.Stderr(ctx)
+	stderr := cmdtesting.Stderr(ctx)
 	c.Assert(stderr, gc.Equals, `
 removing application storage-filesystem
 - will remove storage data/0
@@ -87,7 +88,7 @@ func (s *RemoveApplicationSuite) TestRemoteApplication(c *gc.C) {
 
 	ctx, err := runRemoveApplication(c, "remote-app")
 	c.Assert(err, jc.ErrorIsNil)
-	stderr := testing.Stderr(ctx)
+	stderr := cmdtesting.Stderr(ctx)
 	c.Assert(stderr, gc.Equals, "removing application remote-app\n")
 
 	// Removed immediately since there are no units.
@@ -98,7 +99,7 @@ func (s *RemoveApplicationSuite) TestRemoteApplication(c *gc.C) {
 func (s *RemoveApplicationSuite) TestRemoveLocalMetered(c *gc.C) {
 	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "metered")
 	deploy := NewDefaultDeployCommand()
-	_, err := testing.RunCommand(c, deploy, ch, "--series", "quantal")
+	_, err := cmdtesting.RunCommand(c, deploy, ch, "--series", "quantal")
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = runRemoveApplication(c, "metered")
 	c.Assert(err, jc.ErrorIsNil)
@@ -124,7 +125,7 @@ func (s *RemoveApplicationSuite) TestFailure(c *gc.C) {
 	ctx, err := runRemoveApplication(c, "gargleblaster")
 	c.Assert(err, gc.Equals, cmd.ErrSilent)
 
-	stderr := testing.Stderr(ctx)
+	stderr := cmdtesting.Stderr(ctx)
 	c.Assert(stderr, gc.Equals, `
 removing application gargleblaster failed: application "gargleblaster" not found
 `[1:])
@@ -147,7 +148,7 @@ var _ = gc.Suite(&RemoveCharmStoreCharmsSuite{})
 func (s *RemoveCharmStoreCharmsSuite) SetUpTest(c *gc.C) {
 	s.charmStoreSuite.SetUpTest(c)
 
-	s.ctx = testing.Context(c)
+	s.ctx = cmdtesting.Context(c)
 
 	testcharms.UploadCharm(c, s.client, "cs:quantal/metered-1", "metered")
 	deployCmd := &DeployCommand{}
@@ -174,7 +175,7 @@ func (s *RemoveCharmStoreCharmsSuite) SetUpTest(c *gc.C) {
 		}, nil
 	}
 
-	_, err := testing.RunCommand(c, cmd, "cs:quantal/metered-1")
+	_, err := cmdtesting.RunCommand(c, cmd, "cs:quantal/metered-1")
 	c.Assert(err, jc.ErrorIsNil)
 
 }

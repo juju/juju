@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/juju/controller"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/jujuclient"
@@ -100,7 +101,7 @@ func (s *AddModelSuite) run(c *gc.C, args ...string) (*cmd.Context, error) {
 		s.store,
 		s.fakeProviderRegistry,
 	)
-	return testing.RunCommand(c, command, args...)
+	return cmdtesting.RunCommand(c, command, args...)
 }
 
 func (s *AddModelSuite) TestInit(c *gc.C) {
@@ -155,7 +156,7 @@ func (s *AddModelSuite) TestInit(c *gc.C) {
 	} {
 		c.Logf("test %d", i)
 		wrappedCommand, command := controller.NewAddModelCommandForTest(nil, nil, nil, s.store, nil)
-		err := testing.InitCommand(wrappedCommand, test.args)
+		err := cmdtesting.InitCommand(wrappedCommand, test.args)
 		if test.err != "" {
 			c.Assert(err, gc.ErrorMatches, test.err)
 			continue
@@ -199,7 +200,7 @@ func (s *AddModelSuite) TestAddModelUnauthorizedMentionsJujuGrant(c *gc.C) {
 		Code:    params.CodeUnauthorized,
 	}
 	ctx, _ := s.run(c, "test")
-	errString := strings.Replace(testing.Stderr(ctx), "\n", " ", -1)
+	errString := strings.Replace(cmdtesting.Stderr(ctx), "\n", " ", -1)
 	c.Assert(errString, gc.Matches, `.*juju grant.*`)
 }
 

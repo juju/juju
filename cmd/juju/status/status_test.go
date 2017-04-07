@@ -23,6 +23,7 @@ import (
 	goyaml "gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/core/migration"
@@ -47,7 +48,7 @@ var (
 )
 
 func runStatus(c *gc.C, args ...string) (code int, stdout, stderr []byte) {
-	ctx := coretesting.Context(c)
+	ctx := cmdtesting.Context(c)
 	code = cmd.Main(NewStatusCommand(), ctx, args)
 	stdout = ctx.Stdout.(*bytes.Buffer).Bytes()
 	stderr = ctx.Stderr.(*bytes.Buffer).Bytes()
@@ -4605,7 +4606,7 @@ func (s *StatusSuite) TestSummaryStatusWithUnresolvableDns(c *gc.C) {
 
 func initStatusCommand(args ...string) (*statusCommand, error) {
 	com := &statusCommand{}
-	return com, coretesting.InitCommand(modelcmd.Wrap(com), args)
+	return com, cmdtesting.InitCommand(modelcmd.Wrap(com), args)
 }
 
 var statusInitTests = []struct {

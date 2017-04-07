@@ -15,10 +15,10 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/environs"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/provider/azure"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type credentialsSuite struct {
@@ -69,7 +69,7 @@ func (s *credentialsSuite) TestDetectCredentials(c *gc.C) {
 
 func (s *credentialsSuite) TestFinalizeCredentialInteractive(c *gc.C) {
 	in := cloud.NewCredential("interactive", map[string]string{"subscription-id": "subscription"})
-	ctx := coretesting.Context(c)
+	ctx := cmdtesting.Context(c)
 	out, err := s.provider.FinalizeCredential(ctx, environs.FinalizeCredentialParams{
 		Credential:            in,
 		CloudEndpoint:         "https://arm.invalid",
@@ -94,7 +94,7 @@ func (s *credentialsSuite) TestFinalizeCredentialInteractive(c *gc.C) {
 func (s *credentialsSuite) TestFinalizeCredentialInteractiveError(c *gc.C) {
 	in := cloud.NewCredential("interactive", map[string]string{"subscription-id": "subscription"})
 	s.interactiveCreateServicePrincipalCreator.SetErrors(errors.New("blargh"))
-	ctx := coretesting.Context(c)
+	ctx := cmdtesting.Context(c)
 	_, err := s.provider.FinalizeCredential(ctx, environs.FinalizeCredentialParams{
 		Credential:            in,
 		CloudEndpoint:         "https://arm.invalid",

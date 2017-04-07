@@ -13,11 +13,11 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/juju/commands"
 	"github.com/juju/juju/juju/osenv"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/testing"
 )
 
 type cmdLoginSuite struct {
@@ -30,12 +30,12 @@ func (s *cmdLoginSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *cmdLoginSuite) run(c *gc.C, stdin io.Reader, args ...string) *cmd.Context {
-	context := testing.Context(c)
+	context := cmdtesting.Context(c)
 	if stdin != nil {
 		context.Stdin = stdin
 	}
 	command := commands.NewJujuCommand(context)
-	c.Assert(testing.InitCommand(command, args), jc.ErrorIsNil)
+	c.Assert(cmdtesting.InitCommand(command, args), jc.ErrorIsNil)
 	err := command.Run(context)
 	c.Assert(err, jc.ErrorIsNil, gc.Commentf("stdout: %q; stderr: %q", context.Stdout, context.Stderr))
 	loggo.RemoveWriter("warning") // remove logger added by main command
@@ -61,8 +61,8 @@ func (s *cmdLoginSuite) TestLoginCommand(c *gc.C) {
 	s.run(c, nil, "logout")
 
 	context := s.run(c, strings.NewReader("hunter2\nhunter2\n"), "login", "-u", "test")
-	c.Assert(testing.Stdout(context), gc.Equals, "")
-	c.Assert(testing.Stderr(context), gc.Equals, `
+	c.Assert(cmdtesting.Stdout(context), gc.Equals, "")
+	c.Assert(cmdtesting.Stderr(context), gc.Equals, `
 please enter password for test on kontroll: 
 Welcome, test. You are now logged into "kontroll".
 
