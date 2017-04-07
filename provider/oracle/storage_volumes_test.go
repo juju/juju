@@ -8,6 +8,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/provider/oracle"
 	"github.com/juju/juju/storage"
+	"github.com/juju/juju/testing"
 	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 )
@@ -19,7 +20,9 @@ var _ = gc.Suite(&oracleVolumeSource{})
 func (o *oracleVolumeSource) NewVolumeSource(c *gc.C) storage.VolumeSource {
 	environ, err := oracle.NewOracleEnviron(
 		oracle.DefaultProvider,
-		environs.OpenParams{},
+		environs.OpenParams{
+			Config: testing.ModelConfig(c),
+		},
 		&api.Client{},
 	)
 	c.Assert(err, gc.IsNil)
