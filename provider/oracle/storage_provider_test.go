@@ -18,7 +18,7 @@ type storageProviderSuite struct{}
 
 var _ = gc.Suite(&storageProviderSuite{})
 
-func (s *storageProviderSuite) NewStorageProvider(c *gc.C) storage.Provider {
+func NewStorageProvideTest(c *gc.C) storage.Provider {
 	env, err := oracle.NewOracleEnviron(
 		oracle.DefaultProvider,
 		environs.OpenParams{
@@ -38,6 +38,27 @@ func (s *storageProviderSuite) NewStorageProvider(c *gc.C) storage.Provider {
 	c.Assert(provider, gc.NotNil)
 
 	return provider
+}
+
+func (s *storageProviderSuite) NewStorageProvider(c *gc.C) storage.Provider {
+	return NewStorageProvideTest(c)
+}
+
+func (s *storageProviderSuite) TestVolumeSource(c *gc.C) {
+	provider := s.NewStorageProvider(c)
+	source, err := provider.VolumeSource(nil)
+	c.Assert(err, gc.IsNil)
+	c.Assert(source, gc.NotNil)
+	cfg, err := storage.NewConfig("oracle-latency", oracle.DefaultTypes[0],
+		map[string]interface{}{
+			oracle.OracleVolumeType: oracle.OracleLatencyPool,
+		})
+	c.Assert(err, gc.IsNil)
+	c.Assert(cfg, gc.NotNil)
+
+	source, err = provider.VolumeSource(cfg)
+	c.Assert(err, gc.IsNil)
+	c.Assert(source, gc.NotNil)
 }
 
 func (s *storageProviderSuite) TestFileSystemSource(c *gc.C) {

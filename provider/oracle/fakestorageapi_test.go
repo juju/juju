@@ -5,6 +5,7 @@ package oracle_test
 
 import (
 	"github.com/juju/go-oracle-cloud/api"
+	"github.com/juju/go-oracle-cloud/common"
 	"github.com/juju/go-oracle-cloud/response"
 )
 
@@ -57,7 +58,7 @@ type FakeStorageAttachment struct {
 	StorageAttachmentErr error
 }
 
-func (f FakeStorageAttachment) CreateStorageAttachment(api.StorageAttachment) (response.StorageAttachment, error) {
+func (f FakeStorageAttachment) CreateStorageAttachment(api.StorageAttachmentParams) (response.StorageAttachment, error) {
 	return f.Create, f.CreateErr
 }
 func (f FakeStorageAttachment) DeleteStorageAttachment(string) error {
@@ -83,7 +84,177 @@ var (
 		FakeComposer: FakeComposer{
 			compose: "/Compute-acme/jack.jones@example.com/allowed_video_servers",
 		},
-		FakeStorageVolume:     FakeStorageVolume{},
-		FakeStorageAttachment: FakeStorageAttachment{},
+		FakeStorageVolume: FakeStorageVolume{
+			All: response.AllStorageVolumes{
+				Result: []response.StorageVolume{
+					response.StorageVolume{
+						Account:           "/Compute-a432100/default",
+						Bootable:          true,
+						Description:       nil,
+						Hypervisor:        nil,
+						Imagelist:         "/Compute-a432100/sgiulitti@cloudbase.com/Ubuntu.16.04-LTS.amd64.20170307",
+						Imagelist_entry:   1,
+						Machineimage_name: "/Compute-a432100/sgiulitti@cloudbase.com/Ubuntu.16.04-LTS.amd64.20170307",
+						Managed:           true,
+						Name:              "/Compute-a432100/sgiulitti@cloudbase.com/JujuTools_storage",
+						Platform:          "linux",
+						Properties: []common.StoragePool{
+							"/oracle/public/storage/default",
+						},
+						Quota:            nil,
+						Readonly:         false,
+						Shared:           false,
+						Size:             53687091200,
+						Snapshot:         nil,
+						Snapshot_account: "",
+						Snapshot_id:      "",
+						Status:           "Online",
+						Status_detail:    "",
+						Status_timestamp: "2017-04-06T14:23:54Z",
+						Storage_pool:     "/uscom-central-1/chi1-opc-c10r310-zfs-1-v1/storagepool/iscsi",
+						Tags:             []string{},
+						Uri:              "https://compute.uscom-central-1.oraclecloud.com/storage/volume/Compute-a432100/sgiulitti%40cloudbase.com/JujuTools_storage",
+						Writecache:       false,
+					},
+				},
+			},
+			AllErr: nil,
+
+			StorageVolume: response.StorageVolume{
+				Account:           "/Compute-a432100/default",
+				Bootable:          true,
+				Description:       nil,
+				Hypervisor:        nil,
+				Imagelist:         "/Compute-a432100/sgiulitti@cloudbase.com/Ubuntu.16.04-LTS.amd64.20170307",
+				Imagelist_entry:   1,
+				Machineimage_name: "/Compute-a432100/sgiulitti@cloudbase.com/Ubuntu.16.04-LTS.amd64.20170307",
+				Managed:           true,
+				Name:              "/Compute-a432100/sgiulitti@cloudbase.com/JujuTools_storage",
+				Platform:          "linux",
+				Properties: []common.StoragePool{
+					"/oracle/public/storage/default",
+				},
+				Quota:            nil,
+				Readonly:         false,
+				Shared:           false,
+				Size:             53687091200,
+				Snapshot:         nil,
+				Snapshot_account: "",
+				Snapshot_id:      "",
+				Status:           "Online",
+				Status_detail:    "",
+				Status_timestamp: "2017-04-06T14:23:54Z",
+				Storage_pool:     "/uscom-central-1/chi1-opc-c10r310-zfs-1-v1/storagepool/iscsi",
+				Tags:             []string{},
+				Uri:              "https://compute.uscom-central-1.oraclecloud.com/storage/volume/Compute-a432100/sgiulitti%40cloudbase.com/JujuTools_storage",
+				Writecache:       false,
+			},
+			StorageVolumeErr: nil,
+			DeleteErr:        nil,
+			Create: response.StorageVolume{
+				Account:           "/Compute-a432100/default",
+				Bootable:          true,
+				Description:       nil,
+				Hypervisor:        nil,
+				Imagelist:         "/Compute-a432100/sgiulitti@cloudbase.com/Ubuntu.16.04-LTS.amd64.20170307",
+				Imagelist_entry:   1,
+				Machineimage_name: "/Compute-a432100/sgiulitti@cloudbase.com/Ubuntu.16.04-LTS.amd64.20170307",
+				Managed:           true,
+				Name:              "/Compute-a432100/sgiulitti@cloudbase.com/JujuTools_storage",
+				Platform:          "linux",
+				Properties: []common.StoragePool{
+					"/oracle/public/storage/default",
+				},
+				Quota:            nil,
+				Readonly:         false,
+				Shared:           false,
+				Size:             53687091200,
+				Snapshot:         nil,
+				Snapshot_account: "",
+				Snapshot_id:      "",
+				Status:           "Online",
+				Status_detail:    "",
+				Status_timestamp: "2017-04-06T14:23:54Z",
+				Storage_pool:     "/uscom-central-1/chi1-opc-c10r310-zfs-1-v1/storagepool/iscsi",
+				Tags:             []string{},
+				Uri:              "https://compute.uscom-central-1.oraclecloud.com/storage/volume/Compute-a432100/sgiulitti%40cloudbase.com/JujuTools_storage",
+				Writecache:       false,
+			},
+			CreateErr: nil,
+			Update: response.StorageVolume{
+				Account:           "/Compute-a432100/default",
+				Bootable:          true,
+				Description:       nil,
+				Hypervisor:        nil,
+				Imagelist:         "/Compute-a432100/sgiulitti@cloudbase.com/Ubuntu.16.04-LTS.amd64.20170307",
+				Imagelist_entry:   1,
+				Machineimage_name: "/Compute-a432100/sgiulitti@cloudbase.com/Ubuntu.16.04-LTS.amd64.20170307",
+				Managed:           true,
+				Name:              "/Compute-a432100/sgiulitti@cloudbase.com/JujuTools_storage",
+				Platform:          "linux",
+				Properties: []common.StoragePool{
+					"/oracle/public/storage/default",
+				},
+				Quota:            nil,
+				Readonly:         false,
+				Shared:           false,
+				Size:             53687091200,
+				Snapshot:         nil,
+				Snapshot_account: "",
+				Snapshot_id:      "",
+				Status:           "Online",
+				Status_detail:    "",
+				Status_timestamp: "2017-04-06T14:23:54Z",
+				Storage_pool:     "/uscom-central-1/chi1-opc-c10r310-zfs-1-v1/storagepool/iscsi",
+				Tags:             []string{},
+				Uri:              "https://compute.uscom-central-1.oraclecloud.com/storage/volume/Compute-a432100/sgiulitti%40cloudbase.com/JujuTools_storage",
+				Writecache:       false,
+			},
+
+			UpdateErr: nil,
+		},
+		FakeStorageAttachment: FakeStorageAttachment{
+			All: response.AllStorageAttachments{
+				Result: []response.StorageAttachment{
+					response.StorageAttachment{
+						Account:             nil,
+						Hypervisor:          nil,
+						Index:               1,
+						Instance_name:       "/Compute-a432100/sgiulitti@cloudbase.com/JujuTools/ebc4ce91-56bb-4120-ba78-13762597f837",
+						Storage_volume_name: "/Compute-a432100/sgiulitti@cloudbase.com/JujuTools_storage",
+						Name:                "/Compute-a432100/sgiulitti@cloudbase.com/JujuTools/ebc4ce91-56bb-4120-ba78-13762597f837/1f90e657-f852-45ad-afbf-9a94f640a7ae",
+						Readonly:            false,
+						State:               "attached",
+						Uri:                 "https://compute.uscom-central-1.oraclecloud.com/storage/attachment/Compute-a432100/sgiulitti%40cloudbase.com/JujuTools/ebc4ce91-56bb-4120-ba78-13762597f837/1f90e657-f852-45ad-afbf-9a94f640a7ae",
+					},
+				},
+			},
+			AllErr: nil,
+			StorageAttachment: response.StorageAttachment{
+				Account:             nil,
+				Hypervisor:          nil,
+				Index:               1,
+				Instance_name:       "/Compute-a432100/sgiulitti@cloudbase.com/JujuTools/ebc4ce91-56bb-4120-ba78-13762597f837",
+				Storage_volume_name: "/Compute-a432100/sgiulitti@cloudbase.com/JujuTools_storage",
+				Name:                "/Compute-a432100/sgiulitti@cloudbase.com/JujuTools/ebc4ce91-56bb-4120-ba78-13762597f837/1f90e657-f852-45ad-afbf-9a94f640a7ae",
+				Readonly:            false,
+				State:               "attached",
+				Uri:                 "https://compute.uscom-central-1.oraclecloud.com/storage/attachment/Compute-a432100/sgiulitti%40cloudbase.com/JujuTools/ebc4ce91-56bb-4120-ba78-13762597f837/1f90e657-f852-45ad-afbf-9a94f640a7ae",
+			},
+			StorageAttachmentErr: nil,
+			Create: response.StorageAttachment{
+				Account:             nil,
+				Hypervisor:          nil,
+				Index:               1,
+				Instance_name:       "/Compute-a432100/sgiulitti@cloudbase.com/JujuTools/ebc4ce91-56bb-4120-ba78-13762597f837",
+				Storage_volume_name: "/Compute-a432100/sgiulitti@cloudbase.com/JujuTools_storage",
+				Name:                "/Compute-a432100/sgiulitti@cloudbase.com/JujuTools/ebc4ce91-56bb-4120-ba78-13762597f837/1f90e657-f852-45ad-afbf-9a94f640a7ae",
+				Readonly:            false,
+				State:               "attached",
+				Uri:                 "https://compute.uscom-central-1.oraclecloud.com/storage/attachment/Compute-a432100/sgiulitti%40cloudbase.com/JujuTools/ebc4ce91-56bb-4120-ba78-13762597f837/1f90e657-f852-45ad-afbf-9a94f640a7ae",
+			},
+			CreateErr: nil,
+			DeleteErr: nil,
+		},
 	}
 )

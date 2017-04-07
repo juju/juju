@@ -30,6 +30,27 @@ type oracleVolumeSource struct {
 	clock     clock.Clock
 }
 
+// newOracleVolumeSource returns a new volume source to provide an interface
+// for creating, destroying, describing attaching and detaching volumes in the
+// oracle cloud environment
+func newOracleVolumeSource(env *oracleEnviron, name, uuid string, api StorageAPI, clock clock.Clock) (*oracleVolumeSource, error) {
+	if env == nil {
+		return nil, errors.NotFoundf("environ")
+	}
+
+	if api == nil {
+		return nil, errors.NotFoundf("storage client")
+	}
+
+	return &oracleVolumeSource{
+		env:       env,
+		envName:   name,
+		modelUUID: uuid,
+		api:       api,
+		clock:     clock,
+	}, nil
+}
+
 var _ storage.VolumeSource = (*oracleVolumeSource)(nil)
 
 // resourceName returns an oracle compatible resource name.

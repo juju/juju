@@ -14,4 +14,5 @@ var (
 	OracleLatencyPool          = latencyPool
 	OracleCloudSchema          = cloudSchema
 	OracleCredentials          = credentials
+	NewOracleVolumeSource      = newOracleVolumeSource
 )

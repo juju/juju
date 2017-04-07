@@ -29,13 +29,9 @@ var poolTypeMap map[poolType]ociCommon.StoragePool = map[poolType]ociCommon.Stor
 // VolumeSource is defined on the storage.Provider interface.
 func (s *storageProvider) VolumeSource(cfg *storage.Config) (storage.VolumeSource, error) {
 	environConfig := s.env.Config()
-	return &oracleVolumeSource{
-		env:       s.env,
-		envName:   environConfig.Name(),
-		modelUUID: environConfig.UUID(),
-		api:       s.env.client,
-		clock:     clock.WallClock,
-	}, nil
+	name := environConfig.Name()
+	uuid := environConfig.UUID()
+	return newOracleVolumeSource(s.env, name, uuid, s.env.client, clock.WallClock)
 }
 
 // FilesystemSource is defined on the storage.Provider interface.
