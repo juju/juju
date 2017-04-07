@@ -47,7 +47,8 @@ class TestParseArgs(TestCase):
 
 class TestMain(TestCase):
     def test_main(self):
-        argv = ["an-env", "/bin/juju", "/tmp/logs", "an-env-mod", "--verbose"]
+        argv = ["an-env", "/bin/juju", "/tmp/logs", "an-env-mod",
+                "--verbose", '--devel-series', 'angsty']
         client = Mock(spec=["is_jes_enabled"])
         with patch("assess_multi_series_charms.configure_logging",
                    autospec=True) as mock_cl:
@@ -64,7 +65,7 @@ class TestMain(TestCase):
         mock_c.assert_called_once_with('an-env', "/bin/juju", debug=False,
                                        soft_deadline=None)
         self.assertEqual(mock_bc.call_count, 1)
-        mock_assess.assert_called_once_with(client)
+        mock_assess.assert_called_once_with(client, 'angsty')
 
 
 class TestAssess(TestCase):
@@ -89,12 +90,12 @@ class TestAssess(TestCase):
                 td_mock.return_value.__enter__.return_value = charm_dir
                 with patch('assess_multi_series_charms.check_series',
                            autospec=True) as cs_mock:
-                    assess_multi_series_charms(mock_client)
+                    assess_multi_series_charms(mock_client, 'angsty')
         self.assertEqual(mock_client.wait_for_started.call_count, 4)
         charm = os.path.join(charm_dir, 'trusty', 'dummy')
         calls = [
             call(charm=charm, force=False, repository=charm_dir,
-                 series='precise', service='test0'),
+                 series='xenial', service='test0'),
             call(charm=charm, force=False, repository=charm_dir,
                  series=None, service='test1'),
             call(charm=charm, force=False, repository=charm_dir,
@@ -102,7 +103,7 @@ class TestAssess(TestCase):
             call(charm=charm, force=False, repository=charm_dir,
                  series='xenial', service='test3'),
             call(charm=charm, force=True, repository=charm_dir,
-                 series='precise', service='test4')
+                 series='angsty', service='test4')
         ]
         self.assertEqual(mock_client.deploy.mock_calls, calls)
         td_mock.assert_called_once_with()
@@ -110,7 +111,7 @@ class TestAssess(TestCase):
             call(mock_client, machine='0', series=None),
             call(mock_client, machine='1', series='trusty'),
             call(mock_client, machine='2', series='xenial'),
-            call(mock_client, machine='3', series='precise')]
+            call(mock_client, machine='3', series='angsty')]
         self.assertEqual(cs_mock.mock_calls, cs_calls)
 
     def test_assess_multi_series_charms_juju1x(self):
@@ -127,7 +128,7 @@ class TestAssess(TestCase):
                 td_mock.return_value.__enter__.return_value = charm_dir
                 with patch('assess_multi_series_charms.check_series',
                            autospec=True) as cs_mock:
-                    assess_multi_series_charms(mock_client)
+                    assess_multi_series_charms(mock_client, 'angsty')
         self.assertEqual(mock_client.wait_for_started.call_count, 2)
         charm = os.path.join('local:trusty', 'dummy')
         calls = [
@@ -155,7 +156,7 @@ class TestAssess(TestCase):
 
     def test_assert_deploy_success_false(self):
         test = Test(series='trusty', service='test1', force=False,
-                    success=False, machine='0',  juju1x_supported=False)
+                    success=False, machine='0', juju1x_supported=False)
         mock_client = Mock(
             spec=["deploy", "get_juju_output", "wait_for_started"])
         mock_client.deploy.side_effect = subprocess.CalledProcessError(
@@ -167,7 +168,7 @@ class TestAssess(TestCase):
 
     def test_assert_deploy_success_false_raises_exception(self):
         test = Test(series='trusty', service='test1', force=False,
-                    success=False, machine='0',  juju1x_supported=False)
+                    success=False, machine='0', juju1x_supported=False)
         mock_client = Mock(
             spec=["deploy", "get_juju_output", "wait_for_started"])
         with self.assertRaisesRegexp(
