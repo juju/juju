@@ -12,7 +12,7 @@ import (
 
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/cloud"
-	"github.com/juju/juju/jujuclient/jujuclienttesting"
+	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/testing"
 )
 
@@ -43,7 +43,7 @@ func (s *defaultCredentialSuite) TestBadCloudName(c *gc.C) {
 }
 
 func (s *defaultCredentialSuite) assertSetDefaultCredential(c *gc.C, cloudName string) {
-	store := jujuclienttesting.NewMemStore()
+	store := jujuclient.NewMemStore()
 	store.Credentials[cloudName] = jujucloud.CloudCredential{
 		AuthCredentials: map[string]jujucloud.Credential{
 			"my-sekrets": {},

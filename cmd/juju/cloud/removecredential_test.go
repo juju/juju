@@ -11,7 +11,7 @@ import (
 
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/cloud"
-	"github.com/juju/juju/jujuclient/jujuclienttesting"
+	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/testing"
 )
 
@@ -30,7 +30,7 @@ func (s *removeCredentialSuite) TestBadArgs(c *gc.C) {
 }
 
 func (s *removeCredentialSuite) TestMissingCredential(c *gc.C) {
-	store := &jujuclienttesting.MemStore{
+	store := &jujuclient.MemStore{
 		Credentials: map[string]jujucloud.CloudCredential{
 			"aws": {
 				AuthCredentials: map[string]jujucloud.Credential{
@@ -48,7 +48,7 @@ func (s *removeCredentialSuite) TestMissingCredential(c *gc.C) {
 }
 
 func (s *removeCredentialSuite) TestBadCloudName(c *gc.C) {
-	cmd := cloud.NewRemoveCredentialCommandForTest(jujuclienttesting.NewMemStore())
+	cmd := cloud.NewRemoveCredentialCommandForTest(jujuclient.NewMemStore())
 	ctx, err := testing.RunCommand(c, cmd, "somecloud", "foo")
 	c.Assert(err, jc.ErrorIsNil)
 	output := testing.Stderr(ctx)
@@ -57,7 +57,7 @@ func (s *removeCredentialSuite) TestBadCloudName(c *gc.C) {
 }
 
 func (s *removeCredentialSuite) TestRemove(c *gc.C) {
-	store := &jujuclienttesting.MemStore{
+	store := &jujuclient.MemStore{
 		Credentials: map[string]jujucloud.CloudCredential{
 			"aws": {
 				AuthCredentials: map[string]jujucloud.Credential{

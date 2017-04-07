@@ -27,7 +27,7 @@ import (
 	toolstesting "github.com/juju/juju/environs/tools/testing"
 	"github.com/juju/juju/juju/keys"
 	"github.com/juju/juju/juju/osenv"
-	"github.com/juju/juju/jujuclient/jujuclienttesting"
+	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/provider/dummy"
 	coretesting "github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
@@ -54,7 +54,7 @@ func (s *ToolsMetadataSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	env, err := bootstrap.Prepare(
 		modelcmd.BootstrapContextNoVerify(coretesting.Context(c)),
-		jujuclienttesting.NewMemStore(),
+		jujuclient.NewMemStore(),
 		bootstrap.PrepareParams{
 			ControllerConfig: coretesting.FakeControllerConfig(),
 			ControllerName:   cfg.Name(),

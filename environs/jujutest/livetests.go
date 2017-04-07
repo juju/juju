@@ -37,7 +37,6 @@ import (
 	"github.com/juju/juju/juju/keys"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
@@ -109,7 +108,7 @@ type LiveTests struct {
 func (t *LiveTests) SetUpSuite(c *gc.C) {
 	t.CleanupSuite.SetUpSuite(c)
 	t.TestDataSuite.SetUpSuite(c)
-	t.ControllerStore = jujuclienttesting.NewMemStore()
+	t.ControllerStore = jujuclient.NewMemStore()
 	t.PatchValue(&keys.JujuPublicKey, sstesting.SignedMetadataPublicKey)
 }
 
@@ -937,7 +936,7 @@ func (t *LiveTests) TestBootstrapWithDefaultSeries(c *gc.C) {
 	args := t.prepareForBootstrapParams(c)
 	args.ModelConfig = dummyCfg
 	dummyenv, err := bootstrap.Prepare(envtesting.BootstrapContext(c),
-		jujuclienttesting.NewMemStore(),
+		jujuclient.NewMemStore(),
 		args,
 	)
 	c.Assert(err, jc.ErrorIsNil)

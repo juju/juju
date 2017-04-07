@@ -14,13 +14,12 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/testing"
 )
 
 type BaseCloudImageMetadataSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
-	store *jujuclienttesting.MemStore
+	store *jujuclient.MemStore
 }
 
 func (s *BaseCloudImageMetadataSuite) SetUpTest(c *gc.C) {
@@ -30,7 +29,7 @@ func (s *BaseCloudImageMetadataSuite) SetUpTest(c *gc.C) {
 func (s *BaseCloudImageMetadataSuite) setupBaseSuite(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 
-	s.store = jujuclienttesting.NewMemStore()
+	s.store = jujuclient.NewMemStore()
 	s.store.CurrentControllerName = "testing"
 	s.store.Controllers["testing"] = jujuclient.ControllerDetails{}
 	s.store.Accounts["testing"] = jujuclient.AccountDetails{

@@ -36,7 +36,6 @@ import (
 	"github.com/juju/juju/environs/config"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/resource/resourceadapters"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/state"
@@ -117,7 +116,7 @@ func (s *UpgradeCharmSuite) SetUpTest(c *gc.C) {
 	s.modelConfigGetter = mockModelConfigGetter{}
 	s.resourceLister = mockResourceLister{}
 
-	store := jujuclienttesting.NewMemStore()
+	store := jujuclient.NewMemStore()
 	store.CurrentControllerName = "foo"
 	store.Controllers["foo"] = jujuclient.ControllerDetails{}
 	store.Models["foo"] = &jujuclient.ControllerModels{

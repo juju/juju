@@ -41,7 +41,7 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/keys"
 	"github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/jujuclient/jujuclienttesting"
+	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/ec2"
@@ -1726,7 +1726,7 @@ func (t *localNonUSEastSuite) SetUpTest(c *gc.C) {
 
 	env, err := bootstrap.Prepare(
 		envtesting.BootstrapContext(c),
-		jujuclienttesting.NewMemStore(),
+		jujuclient.NewMemStore(),
 		bootstrap.PrepareParams{
 			ControllerConfig: coretesting.FakeControllerConfig(),
 			ModelConfig:      localConfigAttrs,

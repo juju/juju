@@ -13,7 +13,6 @@ import (
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/cloud"
 	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/testing"
 )
 
@@ -24,7 +23,7 @@ type updateCredentialSuite struct {
 var _ = gc.Suite(&updateCredentialSuite{})
 
 func (s *updateCredentialSuite) TestBadArgs(c *gc.C) {
-	store := &jujuclienttesting.MemStore{
+	store := &jujuclient.MemStore{
 		Controllers: map[string]jujuclient.ControllerDetails{
 			"controller": {},
 		},
@@ -38,7 +37,7 @@ func (s *updateCredentialSuite) TestBadArgs(c *gc.C) {
 }
 
 func (s *updateCredentialSuite) TestMissingCredential(c *gc.C) {
-	store := &jujuclienttesting.MemStore{
+	store := &jujuclient.MemStore{
 		Controllers: map[string]jujuclient.ControllerDetails{
 			"controller": {},
 		},
@@ -60,7 +59,7 @@ func (s *updateCredentialSuite) TestMissingCredential(c *gc.C) {
 }
 
 func (s *updateCredentialSuite) TestBadCloudName(c *gc.C) {
-	store := &jujuclienttesting.MemStore{
+	store := &jujuclient.MemStore{
 		Controllers: map[string]jujuclient.ControllerDetails{
 			"controller": {},
 		},
@@ -75,7 +74,7 @@ func (s *updateCredentialSuite) TestBadCloudName(c *gc.C) {
 }
 
 func (s *updateCredentialSuite) TestUpdate(c *gc.C) {
-	store := &jujuclienttesting.MemStore{
+	store := &jujuclient.MemStore{
 		Controllers: map[string]jujuclient.ControllerDetails{
 			"controller": {},
 		},

@@ -22,7 +22,6 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	cmdtesting "github.com/juju/juju/cmd/testing"
 	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	_ "github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/testing"
 )
@@ -33,7 +32,7 @@ type DestroySuite struct {
 	configAPI       *fakeConfigAPI
 	stub            *jutesting.Stub
 	budgetAPIClient *mockBudgetAPIClient
-	store           *jujuclienttesting.MemStore
+	store           *jujuclient.MemStore
 	sleep           func(time.Duration)
 }
 
@@ -81,7 +80,7 @@ func (s *DestroySuite) SetUpTest(c *gc.C) {
 	s.configAPI = &fakeConfigAPI{}
 	s.configAPI.err = nil
 
-	s.store = jujuclienttesting.NewMemStore()
+	s.store = jujuclient.NewMemStore()
 	s.store.CurrentControllerName = "test1"
 	s.store.Controllers["test1"] = jujuclient.ControllerDetails{ControllerUUID: "test1-uuid"}
 	s.store.Models["test1"] = &jujuclient.ControllerModels{

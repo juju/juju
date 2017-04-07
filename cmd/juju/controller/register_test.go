@@ -27,14 +27,13 @@ import (
 	"github.com/juju/juju/cmd/juju/controller"
 	cmdtesting "github.com/juju/juju/cmd/testing"
 	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/testing"
 )
 
 type RegisterSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
 	apiConnection            *mockAPIConnection
-	store                    *jujuclienttesting.MemStore
+	store                    *jujuclient.MemStore
 	apiOpenError             error
 	listModels               func(jujuclient.ClientStore, string, string) ([]base.UserModel, error)
 	listModelsControllerName string
@@ -74,7 +73,7 @@ func (s *RegisterSuite) SetUpTest(c *gc.C) {
 		return nil, nil
 	}
 
-	s.store = jujuclienttesting.NewMemStore()
+	s.store = jujuclient.NewMemStore()
 }
 
 func (s *RegisterSuite) TearDownTest(c *gc.C) {

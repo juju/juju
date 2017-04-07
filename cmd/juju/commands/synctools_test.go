@@ -23,7 +23,6 @@ import (
 	"github.com/juju/juju/environs/sync"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
@@ -32,7 +31,7 @@ import (
 type syncToolsSuite struct {
 	coretesting.FakeJujuXDGDataHomeSuite
 	fakeSyncToolsAPI *fakeSyncToolsAPI
-	store            *jujuclienttesting.MemStore
+	store            *jujuclient.MemStore
 }
 
 var _ = gc.Suite(&syncToolsSuite{})
@@ -43,7 +42,7 @@ func (s *syncToolsSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(&getSyncToolsAPI, func(c *syncToolsCommand) (syncToolsAPI, error) {
 		return s.fakeSyncToolsAPI, nil
 	})
-	s.store = jujuclienttesting.NewMemStore()
+	s.store = jujuclient.NewMemStore()
 	s.store.CurrentControllerName = "ctrl"
 	s.store.Accounts["ctrl"] = jujuclient.AccountDetails{
 		User: "admin",

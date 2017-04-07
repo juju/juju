@@ -9,7 +9,6 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
-
 	slawire "github.com/juju/romulus/wireformat/sla"
 	"github.com/juju/testing"
 	jujutesting "github.com/juju/testing"

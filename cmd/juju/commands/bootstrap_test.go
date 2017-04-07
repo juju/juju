@@ -61,7 +61,7 @@ type BootstrapSuite struct {
 	coretesting.FakeJujuXDGDataHomeSuite
 	testing.MgoSuite
 	envtesting.ToolsFixture
-	store *jujuclienttesting.MemStore
+	store *jujuclient.MemStore
 	tw    loggo.TestWriter
 }
 
@@ -114,7 +114,7 @@ func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 	})
 
 	// TODO(wallyworld) - add test data when tests are improved
-	s.store = jujuclienttesting.NewMemStore()
+	s.store = jujuclient.NewMemStore()
 
 	// Write bootstrap command logs to an in-memory buffer,
 	// so we can inspect the output in tests.
@@ -216,7 +216,7 @@ func (s *BootstrapSuite) run(c *gc.C, test bootstrapTest) testing.Restorer {
 	s.tw.Clear()
 
 	var restore testing.Restorer = func() {
-		s.store = jujuclienttesting.NewMemStore()
+		s.store = jujuclient.NewMemStore()
 	}
 	bootstrapVersion := v100p64
 	if test.version != "" {
@@ -1636,7 +1636,7 @@ func (s *BootstrapSuite) TestBootstrapPrintClouds(c *gc.C) {
 		},
 	}
 	defer func() {
-		s.store = jujuclienttesting.NewMemStore()
+		s.store = jujuclient.NewMemStore()
 	}()
 
 	ctx, err := coretesting.RunCommand(c, s.newBootstrapCommand(), "--clouds")

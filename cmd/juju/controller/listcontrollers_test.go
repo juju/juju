@@ -28,7 +28,7 @@ type ListControllersSuite struct {
 var _ = gc.Suite(&ListControllersSuite{})
 
 func (s *ListControllersSuite) TestListControllersEmptyStore(c *gc.C) {
-	s.store = jujuclienttesting.NewMemStore()
+	s.store = jujuclient.NewMemStore()
 	_, err := s.runListControllers(c)
 	c.Check(errors.Cause(err), gc.Equals, modelcmd.ErrNoControllersDefined)
 }
