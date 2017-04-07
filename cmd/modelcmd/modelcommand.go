@@ -254,11 +254,11 @@ func wrapSkipDefaultModel(w *modelCommandWrapper) {
 	w.useDefaultModel = false
 }
 
-// Wrap wraps the specified ModelCommand, returning a Command
+// Wrap wraps the specified ModelCommand, returning a ModelCommand
 // that proxies to each of the ModelCommand methods.
 // Any provided options are applied to the wrapped command
 // before it is returned.
-func Wrap(c ModelCommand, options ...WrapOption) cmd.Command {
+func Wrap(c ModelCommand, options ...WrapOption) ModelCommand {
 	wrapper := &modelCommandWrapper{
 		ModelCommand:    c,
 		skipModelFlags:  false,
@@ -267,7 +267,21 @@ func Wrap(c ModelCommand, options ...WrapOption) cmd.Command {
 	for _, option := range options {
 		option(wrapper)
 	}
-	return WrapBase(wrapper)
+	// Define a new type so that we can embed the ModelCommand
+	// interface one level deeper than cmd.Command, so that
+	// we'll get the Command methods from WrapBase
+	// and all the ModelCommand methods not in cmd.Command
+	// from modelCommandWrapper.
+	type embed struct {
+		ModelCommand
+	}
+	return struct {
+		embed
+		cmd.Command
+	}{
+		Command: WrapBase(wrapper),
+		embed:   embed{wrapper},
+	}
 }
 
 type modelCommandWrapper struct {
