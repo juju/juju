@@ -27,7 +27,7 @@ const defaultSpaceName = "default"
 // error satisfying errors.IsNotFound() is returned when no such device exists
 // on the machine.
 func (m *Machine) LinkLayerDevice(name string) (*LinkLayerDevice, error) {
-	linkLayerDevices, closer := m.st.getCollection(linkLayerDevicesC)
+	linkLayerDevices, closer := m.st.db().GetCollection(linkLayerDevicesC)
 	defer closer()
 
 	linkLayerDeviceDocID := m.linkLayerDeviceDocIDFromName(name)
@@ -69,7 +69,7 @@ func (m *Machine) AllLinkLayerDevices() ([]*LinkLayerDevice, error) {
 }
 
 func (m *Machine) forEachLinkLayerDeviceDoc(docFieldsToSelect bson.D, callbackFunc func(resultDoc *linkLayerDeviceDoc)) error {
-	linkLayerDevices, closer := m.st.getCollection(linkLayerDevicesC)
+	linkLayerDevices, closer := m.st.db().GetCollection(linkLayerDevicesC)
 	defer closer()
 
 	query := linkLayerDevices.Find(bson.D{{"machine-id", m.doc.Id}})
@@ -244,7 +244,7 @@ func (st *State) allProviderIDsForAddresses() (set.Strings, error) {
 }
 
 func (st *State) allProviderIDsForEntity(entityName string) (set.Strings, error) {
-	idCollection, closer := st.getCollection(providerIDsC)
+	idCollection, closer := st.db().GetCollection(providerIDsC)
 	defer closer()
 
 	allProviderIDs := set.NewStrings()
@@ -449,7 +449,7 @@ func (m *Machine) assertAliveOp() txn.Op {
 }
 
 func (m *Machine) setDevicesFromDocsOps(newDocs []linkLayerDeviceDoc) ([]txn.Op, error) {
-	devices, closer := m.st.getCollection(linkLayerDevicesC)
+	devices, closer := m.st.db().GetCollection(linkLayerDevicesC)
 	defer closer()
 
 	var ops []txn.Op
@@ -772,7 +772,7 @@ func (m *Machine) verifySubnetAlive(subnet *Subnet) error {
 }
 
 func (m *Machine) setDevicesAddressesFromDocsOps(newDocs []ipAddressDoc) ([]txn.Op, error) {
-	addresses, closer := m.st.getCollection(ipAddressesC)
+	addresses, closer := m.st.db().GetCollection(ipAddressesC)
 	defer closer()
 
 	var ops []txn.Op

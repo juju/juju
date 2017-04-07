@@ -87,7 +87,7 @@ func applicationOfferUUID(st *State, offerName string) (string, error) {
 }
 
 func (s *applicationOffers) offerForName(offerName string) (*applicationOfferDoc, error) {
-	applicationOffersCollection, closer := s.st.getCollection(applicationOffersC)
+	applicationOffersCollection, closer := s.st.db().GetCollection(applicationOffersC)
 	defer closer()
 
 	var doc applicationOfferDoc
@@ -308,7 +308,7 @@ func (s *applicationOffers) makeFilterTerm(filterTerm crossmodel.ApplicationOffe
 
 // ListOffers returns the application offers matching any one of the filter terms.
 func (s *applicationOffers) ListOffers(filter ...crossmodel.ApplicationOfferFilter) ([]crossmodel.ApplicationOffer, error) {
-	applicationOffersCollection, closer := s.st.getCollection(applicationOffersC)
+	applicationOffersCollection, closer := s.st.db().GetCollection(applicationOffersC)
 	defer closer()
 
 	// TODO(wallyworld) - add support for filtering on endpoints

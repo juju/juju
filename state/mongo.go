@@ -21,7 +21,7 @@ type environMongo struct {
 
 // GetCollection is part of the lease.Mongo interface.
 func (m *environMongo) GetCollection(name string) (mongo.Collection, func()) {
-	return m.state.getCollection(name)
+	return m.state.db().GetCollection(name)
 }
 
 // RunTransaction is part of the lease.Mongo interface.

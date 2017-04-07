@@ -21,7 +21,7 @@ type sequenceDoc struct {
 // sequence safely increments a database backed sequence, returning
 // the next value.
 func (st *State) sequence(name string) (int, error) {
-	sequences, closer := st.getCollection(sequenceC)
+	sequences, closer := st.db().GetCollection(sequenceC)
 	defer closer()
 	query := sequences.FindId(name)
 	inc := mgo.Change{

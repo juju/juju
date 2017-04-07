@@ -51,7 +51,7 @@ func unixNanoToTime(i int64) *time.Time {
 // is not found, a NotFoundError referencing badge will be returned.
 func getStatus(st *State, globalKey, badge string) (_ status.StatusInfo, err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot get status")
-	statuses, closer := st.getCollection(statusesC)
+	statuses, closer := st.db().GetCollection(statusesC)
 	defer closer()
 
 	var doc statusDoc
@@ -183,7 +183,7 @@ func probablyUpdateStatusHistory(st *State, globalKey string, doc statusDoc) {
 		Updated:    doc.Updated,
 		GlobalKey:  globalKey,
 	}
-	history, closer := st.getCollection(statusesHistoryC)
+	history, closer := st.db().GetCollection(statusesHistoryC)
 	defer closer()
 	historyW := history.Writeable()
 	if err := historyW.Insert(historyDoc); err != nil {
@@ -241,7 +241,7 @@ func statusHistory(args *statusHistoryArgs) ([]status.StatusInfo, error) {
 	if err := args.filter.Validate(); err != nil {
 		return nil, errors.Annotate(err, "validating arguments")
 	}
-	statusHistory, closer := args.st.getCollection(statusesHistoryC)
+	statusHistory, closer := args.st.db().GetCollection(statusesHistoryC)
 	defer closer()
 
 	var results []status.StatusInfo

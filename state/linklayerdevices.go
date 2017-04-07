@@ -102,7 +102,7 @@ func newLinkLayerDevice(st *State, doc linkLayerDeviceDoc) *LinkLayerDevice {
 
 // AllLinkLayerDevices returns all link layer devices in the model.
 func (st *State) AllLinkLayerDevices() (devices []*LinkLayerDevice, err error) {
-	devicesCollection, closer := st.getCollection(linkLayerDevicesC)
+	devicesCollection, closer := st.db().GetCollection(linkLayerDevicesC)
 	defer closer()
 
 	sdocs := []linkLayerDeviceDoc{}

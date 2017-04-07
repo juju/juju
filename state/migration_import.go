@@ -281,7 +281,7 @@ func (i *importer) sequences() error {
 		return nil
 	}
 
-	sequences, closer := i.st.getCollection(sequenceC)
+	sequences, closer := i.st.db().GetCollection(sequenceC)
 	defer closer()
 
 	if err := sequences.Writeable().Insert(docs...); err != nil {
@@ -680,7 +680,7 @@ func (i *importer) applications() error {
 }
 
 func (i *importer) loadUnits() error {
-	unitsCollection, closer := i.st.getCollection(unitsC)
+	unitsCollection, closer := i.st.db().GetCollection(unitsC)
 	defer closer()
 
 	docs := []unitDoc{}
@@ -1382,7 +1382,7 @@ func (i *importer) importStatusHistory(globalKey string, history []description.S
 		return nil
 	}
 
-	statusHistory, closer := i.st.getCollection(statusesHistoryC)
+	statusHistory, closer := i.st.db().GetCollection(statusesHistoryC)
 	defer closer()
 
 	if err := statusHistory.Writeable().Insert(docs...); err != nil {
@@ -1492,7 +1492,7 @@ func (i *importer) addStorageInstance(storage description.Storage) error {
 		Insert: doc,
 	})
 
-	refcounts, closer := i.st.getCollection(refcountsC)
+	refcounts, closer := i.st.db().GetCollection(refcountsC)
 	defer closer()
 	storageRefcountKey := entityStorageRefcountKey(owner, storage.Name())
 	incRefOp, err := nsRefcounts.CreateOrIncRefOp(refcounts, storageRefcountKey, 1)

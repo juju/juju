@@ -541,7 +541,7 @@ func (st *State) AbortCurrentUpgrade() error {
 
 func currentUpgradeInfoDoc(st *State) (*upgradeInfoDoc, error) {
 	var doc upgradeInfoDoc
-	upgradeInfo, closer := st.getCollection(upgradeInfoC)
+	upgradeInfo, closer := st.db().GetCollection(upgradeInfoC)
 	defer closer()
 	if err := upgradeInfo.FindId(currentUpgradeId).One(&doc); err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("current upgrade info")

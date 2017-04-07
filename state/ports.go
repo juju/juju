@@ -335,7 +335,7 @@ func (p *Ports) PortsForUnit(unitName string) []PortRange {
 
 // Refresh refreshes the port document from state.
 func (p *Ports) Refresh() error {
-	openedPorts, closer := p.st.getCollection(openedPortsC)
+	openedPorts, closer := p.st.db().GetCollection(openedPortsC)
 	defer closer()
 
 	err := openedPorts.FindId(p.doc.DocID).One(&p.doc)
@@ -391,7 +391,7 @@ func (m *Machine) OpenedPorts(subnetID string) (*Ports, error) {
 // AllPorts returns all opened ports for this machine (on all
 // networks).
 func (m *Machine) AllPorts() ([]*Ports, error) {
-	openedPorts, closer := m.st.getCollection(openedPortsC)
+	openedPorts, closer := m.st.db().GetCollection(openedPortsC)
 	defer closer()
 
 	docs := []portsDoc{}
@@ -531,7 +531,7 @@ func removePortsForUnitOps(st *State, unit *Unit) ([]txn.Op, error) {
 
 // getPorts returns the ports document for the specified machine and subnet.
 func getPorts(st *State, machineID, subnetID string) (*Ports, error) {
-	openedPorts, closer := st.getCollection(openedPortsC)
+	openedPorts, closer := st.db().GetCollection(openedPortsC)
 	defer closer()
 
 	var doc portsDoc

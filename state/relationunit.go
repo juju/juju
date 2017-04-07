@@ -206,7 +206,7 @@ func (ru *RelationUnit) EnterScope(settings map[string]interface{}) error {
 // exists and is Alive, its name will be returned as well; if one exists
 // but is not Alive, ErrCannotEnterScopeYet is returned.
 func (ru *RelationUnit) subordinateOps() ([]txn.Op, string, error) {
-	units, closer := ru.st.getCollection(unitsC)
+	units, closer := ru.st.db().GetCollection(unitsC)
 	defer closer()
 
 	if !ru.isPrincipal || ru.endpoint.Scope != charm.ScopeContainer {
@@ -245,7 +245,7 @@ func (ru *RelationUnit) subordinateOps() ([]txn.Op, string, error) {
 // but does not *actually* leave the scope, to avoid triggering relation
 // cleanup.
 func (ru *RelationUnit) PrepareLeaveScope() error {
-	relationScopes, closer := ru.st.getCollection(relationScopesC)
+	relationScopes, closer := ru.st.db().GetCollection(relationScopesC)
 	defer closer()
 
 	key := ru.key()
@@ -268,7 +268,7 @@ func (ru *RelationUnit) PrepareLeaveScope() error {
 // leaves, it is removed immediately. It is not an error to leave a scope
 // that the unit is not, or never was, a member of.
 func (ru *RelationUnit) LeaveScope() error {
-	relationScopes, closer := ru.st.getCollection(relationScopesC)
+	relationScopes, closer := ru.st.db().GetCollection(relationScopesC)
 	defer closer()
 
 	key := ru.key()
@@ -358,7 +358,7 @@ func (ru *RelationUnit) Joined() (bool, error) {
 // inScope returns whether a scope document exists satisfying the supplied
 // selector.
 func (ru *RelationUnit) inScope(sel bson.D) (bool, error) {
-	relationScopes, closer := ru.st.getCollection(relationScopesC)
+	relationScopes, closer := ru.st.db().GetCollection(relationScopesC)
 	defer closer()
 
 	sel = append(sel, bson.D{{"_id", ru.key()}}...)

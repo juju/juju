@@ -54,7 +54,7 @@ func (st *State) SetAnnotations(entity GlobalEntity, annotations map[string]stri
 	// annotations in the meantime, we consider that worthy of an error
 	// (will be fixed when new entities can never share names with old ones).
 	buildTxn := func(attempt int) ([]txn.Op, error) {
-		annotations, closer := st.getCollection(annotationsC)
+		annotations, closer := st.db().GetCollection(annotationsC)
 		defer closer()
 		if count, err := annotations.FindId(entity.globalKey()).Count(); err != nil {
 			return nil, err
@@ -73,7 +73,7 @@ func (st *State) SetAnnotations(entity GlobalEntity, annotations map[string]stri
 // Annotations returns all the annotations corresponding to an entity.
 func (st *State) Annotations(entity GlobalEntity) (map[string]string, error) {
 	doc := new(annotatorDoc)
-	annotations, closer := st.getCollection(annotationsC)
+	annotations, closer := st.db().GetCollection(annotationsC)
 	defer closer()
 	err := annotations.FindId(entity.globalKey()).One(doc)
 	if err == mgo.ErrNotFound {

@@ -214,7 +214,7 @@ func removeEndpointBindingsOp(key string) txn.Op {
 // readEndpointBindings returns the stored bindings and TxnRevno for the given
 // service global key, or an error satisfying errors.IsNotFound() otherwise.
 func readEndpointBindings(st *State, key string) (map[string]string, int64, error) {
-	endpointBindings, closer := st.getCollection(endpointBindingsC)
+	endpointBindings, closer := st.db().GetCollection(endpointBindingsC)
 	defer closer()
 
 	var doc endpointBindingsDoc

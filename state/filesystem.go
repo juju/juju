@@ -306,7 +306,7 @@ func (st *State) VolumeFilesystem(tag names.VolumeTag) (Filesystem, error) {
 }
 
 func (st *State) filesystems(query interface{}) ([]*filesystem, error) {
-	coll, cleanup := st.getCollection(filesystemsC)
+	coll, cleanup := st.db().GetCollection(filesystemsC)
 	defer cleanup()
 
 	var fDocs []filesystemDoc
@@ -326,7 +326,7 @@ func (st *State) filesystems(query interface{}) ([]*filesystem, error) {
 }
 
 func (st *State) filesystem(query bson.D, description string) (*filesystem, error) {
-	coll, cleanup := st.getCollection(filesystemsC)
+	coll, cleanup := st.db().GetCollection(filesystemsC)
 	defer cleanup()
 
 	f := filesystem{st: st}
@@ -345,7 +345,7 @@ func (st *State) filesystem(query bson.D, description string) (*filesystem, erro
 // FilesystemAttachment returns the FilesystemAttachment corresponding to
 // the specified filesystem and machine.
 func (st *State) FilesystemAttachment(machine names.MachineTag, filesystem names.FilesystemTag) (FilesystemAttachment, error) {
-	coll, cleanup := st.getCollection(filesystemAttachmentsC)
+	coll, cleanup := st.db().GetCollection(filesystemAttachmentsC)
 	defer cleanup()
 
 	var att filesystemAttachment
@@ -379,7 +379,7 @@ func (st *State) MachineFilesystemAttachments(machine names.MachineTag) ([]Files
 }
 
 func (st *State) filesystemAttachments(query bson.D) ([]FilesystemAttachment, error) {
-	coll, cleanup := st.getCollection(filesystemAttachmentsC)
+	coll, cleanup := st.db().GetCollection(filesystemAttachmentsC)
 	defer cleanup()
 
 	var docs []filesystemAttachmentDoc
