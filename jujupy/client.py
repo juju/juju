@@ -1294,7 +1294,7 @@ class Juju2Backend:
             current = self.get_juju_output(
                 'switch', (), set(), juju_data_dir, model=None).decode('ascii')
         except subprocess.CalledProcessError as e:
-            if 'no currently specified model' not in e.stderr:
+            if b'no currently specified model' not in e.stderr:
                 raise
             raise NoActiveModel(
                 'No active model for {}'.format(juju_data_dir))
