@@ -63,10 +63,11 @@ Test = namedtuple("Test", ["series", "service", "force", "success", "machine",
                            "juju1x_supported"])
 
 
-def assess_multi_series_charms(client):
+def assess_multi_series_charms(client, devel_series):
     """Assess multi series charms.
 
     :param client: Juju client.
+    :param devel_series: The series to use for new and unsupported scenarios.
     :type client: jujupy.ModelClient
     :return: None
     """
@@ -79,7 +80,7 @@ def assess_multi_series_charms(client):
              machine='1', juju1x_supported=True),
         Test(series="xenial", service='test3', force=False, success=True,
              machine='2', juju1x_supported=False),
-        Test(series="trusty", service='test4', force=True, success=True,
+        Test(series=devel_series, service='test4', force=True, success=True,
              machine='3', juju1x_supported=False),
     ]
     with temp_dir() as repository:
@@ -133,6 +134,9 @@ def parse_args(argv):
     parser = argparse.ArgumentParser(
         description="Test multi series charm feature")
     add_basic_testing_arguments(parser)
+    parser.add_argument(
+        '--devel-series', default="xenial",
+        help="The series to use when testing new and unsupported scenarios.")
     return parser.parse_args(argv)
 
 
@@ -141,7 +145,7 @@ def main(argv=None):
     configure_logging(args.verbose)
     bs_manager = BootstrapManager.from_args(args)
     with bs_manager.booted_context(args.upload_tools):
-        assess_multi_series_charms(bs_manager.client)
+        assess_multi_series_charms(bs_manager.client, args.devel_series)
     return 0
 
 
