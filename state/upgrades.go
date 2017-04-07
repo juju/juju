@@ -25,7 +25,7 @@ var upgradesLogger = loggo.GetLogger("juju.state.upgrade")
 // runForAllModelStates will run runner function for every model passing a state
 // for that model.
 func runForAllModelStates(st *State, runner func(st *State) error) error {
-	models, closer := st.getCollection(modelsC)
+	models, closer := st.db().GetCollection(modelsC)
 	defer closer()
 
 	var modelDocs []bson.M

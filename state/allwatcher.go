@@ -1140,7 +1140,7 @@ func (b *allWatcherStateBacking) Changed(all *multiwatcherStore, change watcher.
 	if !ok {
 		return errors.Errorf("unknown collection %q in fetch request", change.C)
 	}
-	col, closer := b.st.getCollection(c.name)
+	col, closer := b.st.db().GetCollection(c.name)
 	defer closer()
 	doc := reflect.New(c.docType).Interface().(backingEntityDoc)
 
@@ -1264,7 +1264,7 @@ func (b *allModelWatcherStateBacking) Changed(all *multiwatcherStore, change wat
 	}
 	defer releaser()
 
-	col, closer := st.getCollection(c.name)
+	col, closer := st.db().GetCollection(c.name)
 	defer closer()
 
 	// TODO - see TODOs in allWatcherStateBacking.Changed()

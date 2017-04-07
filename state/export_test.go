@@ -138,7 +138,7 @@ func (doc *MachineDoc) String() string {
 }
 
 func ServiceSettingsRefCount(st *State, appName string, curl *charm.URL) (int, error) {
-	refcounts, closer := st.getCollection(refcountsC)
+	refcounts, closer := st.db().GetCollection(refcountsC)
 	defer closer()
 
 	key := applicationSettingsKey(appName, curl)
@@ -271,7 +271,7 @@ func TxnRevno(st *State, collName string, id interface{}) (int64, error) {
 	var doc struct {
 		TxnRevno int64 `bson:"txn-revno"`
 	}
-	coll, closer := st.getCollection(collName)
+	coll, closer := st.db().GetCollection(collName)
 	defer closer()
 	err := coll.FindId(id).One(&doc)
 	if err != nil {
@@ -283,7 +283,7 @@ func TxnRevno(st *State, collName string, id interface{}) (int64, error) {
 // MinUnitsRevno returns the Revno of the minUnits document
 // associated with the given application name.
 func MinUnitsRevno(st *State, applicationname string) (int, error) {
-	minUnitsCollection, closer := st.getCollection(minUnitsC)
+	minUnitsCollection, closer := st.db().GetCollection(minUnitsC)
 	defer closer()
 	var doc minUnitsDoc
 	if err := minUnitsCollection.FindId(applicationname).One(&doc); err != nil {
@@ -326,7 +326,7 @@ func NewActionStatusWatcher(st *State, receivers []ActionReceiver, statuses ...A
 }
 
 func GetAllUpgradeInfos(st *State) ([]*UpgradeInfo, error) {
-	upgradeInfos, closer := st.getCollection(upgradeInfoC)
+	upgradeInfos, closer := st.db().GetCollection(upgradeInfoC)
 	defer closer()
 
 	var out []*UpgradeInfo
@@ -363,7 +363,7 @@ func GetUnitModelUUID(unit *Unit) string {
 }
 
 func GetCollection(st *State, name string) (mongo.Collection, func()) {
-	return st.getCollection(name)
+	return st.db().GetCollection(name)
 }
 
 func GetRawCollection(st *State, name string) (*mgo.Collection, func()) {
@@ -571,7 +571,7 @@ func PrimeUnitStatusHistory(
 ) {
 	globalKey := unit.globalKey()
 
-	history, closer := unit.st.getCollection(statusesHistoryC)
+	history, closer := unit.st.db().GetCollection(statusesHistoryC)
 	defer closer()
 	historyW := history.Writeable()
 
@@ -645,7 +645,7 @@ func IsBlobStored(c *gc.C, st *State, storagePath string) bool {
 // of a given kind scheduled.
 func AssertNoCleanupsWithKind(c *gc.C, st *State, kind cleanupKind) {
 	var docs []cleanupDoc
-	cleanups, closer := st.getCollection(cleanupsC)
+	cleanups, closer := st.db().GetCollection(cleanupsC)
 	defer closer()
 	err := cleanups.Find(nil).All(&docs)
 	c.Assert(err, jc.ErrorIsNil)
@@ -659,7 +659,7 @@ func AssertNoCleanupsWithKind(c *gc.C, st *State, kind cleanupKind) {
 // AssertNoCleanups checks that there are no cleanups scheduled.
 func AssertNoCleanups(c *gc.C, st *State) {
 	var docs []cleanupDoc
-	cleanups, closer := st.getCollection(cleanupsC)
+	cleanups, closer := st.db().GetCollection(cleanupsC)
 	defer closer()
 	err := cleanups.Find(nil).All(&docs)
 	c.Assert(err, jc.ErrorIsNil)

@@ -389,7 +389,7 @@ func (s *RemoteApplication) String() string {
 // state. It returns an error that satisfies errors.IsNotFound if the
 // application has been removed.
 func (s *RemoteApplication) Refresh() error {
-	applications, closer := s.st.getCollection(remoteApplicationsC)
+	applications, closer := s.st.db().GetCollection(remoteApplicationsC)
 	defer closer()
 
 	err := applications.FindId(s.doc.DocID).One(&s.doc)
@@ -556,7 +556,7 @@ func (st *State) RemoteApplication(name string) (_ *RemoteApplication, err error
 		return nil, errors.NotValidf("remote application name %q", name)
 	}
 
-	applications, closer := st.getCollection(remoteApplicationsC)
+	applications, closer := st.db().GetCollection(remoteApplicationsC)
 	defer closer()
 
 	appDoc := &remoteApplicationDoc{}
@@ -572,7 +572,7 @@ func (st *State) RemoteApplication(name string) (_ *RemoteApplication, err error
 
 // RemoteApplicationByToken returns a remote application state by token.
 func (st *State) RemoteApplicationByToken(token string) (_ *RemoteApplication, err error) {
-	apps, closer := st.getCollection(remoteApplicationsC)
+	apps, closer := st.db().GetCollection(remoteApplicationsC)
 	defer closer()
 
 	appDoc := &remoteApplicationDoc{}
@@ -588,7 +588,7 @@ func (st *State) RemoteApplicationByToken(token string) (_ *RemoteApplication, e
 
 // AllRemoteApplications returns all the remote applications used by the model.
 func (st *State) AllRemoteApplications() (applications []*RemoteApplication, err error) {
-	applicationsCollection, closer := st.getCollection(remoteApplicationsC)
+	applicationsCollection, closer := st.db().GetCollection(remoteApplicationsC)
 	defer closer()
 
 	appDocs := []remoteApplicationDoc{}
@@ -604,7 +604,7 @@ func (st *State) AllRemoteApplications() (applications []*RemoteApplication, err
 
 // RemoteConnectionStatus returns summary information about connections to the specified offer.
 func (st *State) RemoteConnectionStatus(offerName string) (*RemoteConnectionStatus, error) {
-	applicationsCollection, closer := st.getCollection(remoteApplicationsC)
+	applicationsCollection, closer := st.db().GetCollection(remoteApplicationsC)
 	defer closer()
 
 	count, err := applicationsCollection.Find(bson.D{{"offer-name", offerName}}).Count()

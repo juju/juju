@@ -63,7 +63,7 @@ type RestoreInfo struct {
 
 // Status returns the current Restore doc status
 func (info *RestoreInfo) Status() (RestoreStatus, error) {
-	restoreInfo, closer := info.st.getCollection(restoreInfoC)
+	restoreInfo, closer := info.st.db().GetCollection(restoreInfoC)
 	defer closer()
 
 	var doc struct {

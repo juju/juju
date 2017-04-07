@@ -31,7 +31,7 @@ func (st *State) DumpAll() (map[string]interface{}, error) {
 }
 
 func getModelDoc(st *State) (map[string]interface{}, error) {
-	coll, closer := st.getCollection(modelsC)
+	coll, closer := st.db().GetCollection(modelsC)
 	defer closer()
 
 	var doc map[string]interface{}
@@ -43,7 +43,7 @@ func getModelDoc(st *State) (map[string]interface{}, error) {
 }
 
 func getAllModelDocs(st *State, collectionName string) ([]map[string]interface{}, error) {
-	coll, closer := st.getCollection(collectionName)
+	coll, closer := st.db().GetCollection(collectionName)
 	defer closer()
 
 	var (

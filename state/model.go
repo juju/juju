@@ -179,7 +179,7 @@ func (st *State) Model() (*Model, error) {
 
 // GetModel looks for the model identified by the uuid passed in.
 func (st *State) GetModel(tag names.ModelTag) (*Model, error) {
-	models, closer := st.getCollection(modelsC)
+	models, closer := st.db().GetCollection(modelsC)
 	defer closer()
 
 	model := &Model{st: st}
@@ -191,7 +191,7 @@ func (st *State) GetModel(tag names.ModelTag) (*Model, error) {
 
 // AllModels returns all the models in the system.
 func (st *State) AllModels() ([]*Model, error) {
-	models, closer := st.getCollection(modelsC)
+	models, closer := st.db().GetCollection(modelsC)
 	defer closer()
 
 	var modelDocs []modelDoc
@@ -355,7 +355,7 @@ func (st *State) NewModel(args ModelArgs) (_ *Model, _ *State, err error) {
 		// the same "owner" and "name" in the collection. If the txn is
 		// aborted, check if it is due to the unique key restriction.
 		name := args.Config.Name()
-		models, closer := st.getCollection(modelsC)
+		models, closer := st.db().GetCollection(modelsC)
 		defer closer()
 		envCount, countErr := models.Find(bson.D{
 			{"owner", owner.Id()},
@@ -745,7 +745,7 @@ func (m *Model) globalKey() string {
 }
 
 func (m *Model) Refresh() error {
-	models, closer := m.st.getCollection(modelsC)
+	models, closer := m.st.db().GetCollection(modelsC)
 	defer closer()
 	return m.refresh(models.FindId(m.UUID()))
 }
@@ -763,7 +763,7 @@ func (m *Model) Users() ([]permission.UserAccess, error) {
 	if m.st.ModelUUID() != m.UUID() {
 		return nil, errors.New("cannot lookup model users outside the current model")
 	}
-	coll, closer := m.st.getCollection(modelUsersC)
+	coll, closer := m.st.db().GetCollection(modelUsersC)
 	defer closer()
 
 	var userDocs []userAccessDoc
@@ -1030,7 +1030,7 @@ func (m *Model) checkEmpty() error {
 	}
 	defer closeState()
 
-	modelEntityRefs, closer := st.getCollection(modelEntityRefsC)
+	modelEntityRefs, closer := st.db().GetCollection(modelEntityRefsC)
 	defer closer()
 
 	var doc modelEntityRefsDoc
@@ -1177,7 +1177,7 @@ func HostedModelCountOp(amount int) txn.Op {
 
 func hostedModelCount(st *State) (int, error) {
 	var doc hostedModelCountDoc
-	controllers, closer := st.getCollection(controllersC)
+	controllers, closer := st.db().GetCollection(controllersC)
 	defer closer()
 
 	if err := controllers.Find(bson.D{{"_id", hostedModelCountKey}}).One(&doc); err != nil {
