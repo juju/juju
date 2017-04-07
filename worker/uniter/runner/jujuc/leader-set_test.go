@@ -10,7 +10,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
@@ -46,7 +46,7 @@ func (s *leaderSetSuite) TestWriteEmpty(c *gc.C) {
 	jujucContext := &leaderSetContext{}
 	command, err := jujuc.NewLeaderSetCommand(jujucContext)
 	c.Assert(err, jc.ErrorIsNil)
-	runContext := testing.Context(c)
+	runContext := cmdtesting.Context(c)
 	code := cmd.Main(command, runContext, nil)
 	c.Check(code, gc.Equals, 0)
 	c.Check(jujucContext.gotSettings, jc.DeepEquals, map[string]string{})
@@ -58,7 +58,7 @@ func (s *leaderSetSuite) TestWriteValues(c *gc.C) {
 	jujucContext := &leaderSetContext{}
 	command, err := jujuc.NewLeaderSetCommand(jujucContext)
 	c.Assert(err, jc.ErrorIsNil)
-	runContext := testing.Context(c)
+	runContext := cmdtesting.Context(c)
 	code := cmd.Main(command, runContext, []string{"foo=bar", "baz=qux"})
 	c.Check(code, gc.Equals, 0)
 	c.Check(jujucContext.gotSettings, jc.DeepEquals, map[string]string{
@@ -73,7 +73,7 @@ func (s *leaderSetSuite) TestWriteError(c *gc.C) {
 	jujucContext := &leaderSetContext{err: errors.New("splat")}
 	command, err := jujuc.NewLeaderSetCommand(jujucContext)
 	c.Assert(err, jc.ErrorIsNil)
-	runContext := testing.Context(c)
+	runContext := cmdtesting.Context(c)
 	code := cmd.Main(command, runContext, []string{"foo=bar"})
 	c.Check(code, gc.Equals, 1)
 	c.Check(jujucContext.gotSettings, jc.DeepEquals, map[string]string{"foo": "bar"})

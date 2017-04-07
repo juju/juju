@@ -13,8 +13,8 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/juju/subnet"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type ListSuite struct {
@@ -87,7 +87,7 @@ func (s *ListSuite) TestInit(c *gc.C) {
 		// since we're not running the command no need to use
 		// modelcmd.Wrap().
 		wrappedCommand, command := subnet.NewListCommandForTest(s.api)
-		err := coretesting.InitCommand(wrappedCommand, test.args)
+		err := cmdtesting.InitCommand(wrappedCommand, test.args)
 		if test.expectErr != "" {
 			c.Check(err, gc.ErrorMatches, test.expectErr)
 		} else {

@@ -12,10 +12,10 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/feature"
 	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/testing"
 )
 
 const endpointSeparator = ":"
@@ -69,7 +69,7 @@ func (s *AddRemoteRelationSuiteNewAPI) TestAddRelationClientRetrievalFailure(c *
 		return nil, errors.New(msg)
 	}
 
-	_, err := testing.RunCommand(c, modelcmd.Wrap(addRelationCmd), "othermodel.applicationname2", "applicationname")
+	_, err := cmdtesting.RunCommand(c, modelcmd.Wrap(addRelationCmd), "othermodel.applicationname2", "applicationname")
 	c.Assert(err, gc.ErrorMatches, msg)
 }
 
@@ -166,7 +166,7 @@ func (s *baseAddRemoteRelationSuite) runAddRelation(c *gc.C, args ...string) err
 	addRelationCmd.newAPIFunc = func() (ApplicationAddRelationAPI, error) {
 		return s.mockAPI, nil
 	}
-	_, err := testing.RunCommand(c, modelcmd.Wrap(addRelationCmd), args...)
+	_, err := cmdtesting.RunCommand(c, modelcmd.Wrap(addRelationCmd), args...)
 	return err
 }
 

@@ -19,6 +19,7 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/gnuflag"
+	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -26,7 +27,6 @@ import (
 	"github.com/juju/juju/juju/names"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
-	"github.com/juju/loggo"
 )
 
 var caCertFile string

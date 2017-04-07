@@ -13,7 +13,8 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
-	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/cmd/cmdtesting"
+	jtesting "github.com/juju/juju/testing"
 )
 
 type AddRelationSuite struct {
@@ -34,7 +35,7 @@ func (s *AddRelationSuite) SetUpTest(c *gc.C) {
 var _ = gc.Suite(&AddRelationSuite{})
 
 func (s *AddRelationSuite) runAddRelation(c *gc.C, args ...string) error {
-	_, err := coretesting.RunCommand(c, NewAddRelationCommandForTest(s.mockAPI), args...)
+	_, err := cmdtesting.RunCommand(c, NewAddRelationCommandForTest(s.mockAPI), args...)
 	return err
 }
 
@@ -71,7 +72,7 @@ func (s *AddRelationSuite) TestAddRelationFail(c *gc.C) {
 func (s *AddRelationSuite) TestAddRelationBlocked(c *gc.C) {
 	s.mockAPI.SetErrors(common.OperationBlockedError("TestBlockAddRelation"))
 	err := s.runAddRelation(c, "application1", "application2")
-	coretesting.AssertOperationWasBlocked(c, err, ".*TestBlockAddRelation.*")
+	jtesting.AssertOperationWasBlocked(c, err, ".*TestBlockAddRelation.*")
 	s.mockAPI.CheckCall(c, 0, "AddRelation", []string{"application1", "application2"})
 	s.mockAPI.CheckCall(c, 1, "Close")
 }
@@ -81,8 +82,8 @@ func (s *AddRelationSuite) TestAddRelationUnauthorizedMentionsJujuGrant(c *gc.C)
 		Message: "permission denied",
 		Code:    params.CodeUnauthorized,
 	})
-	ctx, _ := coretesting.RunCommand(c, NewAddRelationCommandForTest(s.mockAPI), "application1", "application2")
-	errString := strings.Replace(coretesting.Stderr(ctx), "\n", " ", -1)
+	ctx, _ := cmdtesting.RunCommand(c, NewAddRelationCommandForTest(s.mockAPI), "application1", "application2")
+	errString := strings.Replace(cmdtesting.Stderr(ctx), "\n", " ", -1)
 	c.Assert(errString, gc.Matches, `.*juju grant.*`)
 }
 

@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/juju/controller"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/status"
@@ -152,10 +153,10 @@ func (s *ModelsSuite) newCommand() cmd.Command {
 }
 
 func (s *ModelsSuite) TestModelsOwner(c *gc.C) {
-	context, err := testing.RunCommand(c, s.newCommand())
+	context, err := cmdtesting.RunCommand(c, s.newCommand())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.api.user, gc.Equals, "admin")
-	c.Assert(testing.Stdout(context), gc.Equals, ""+
+	c.Assert(cmdtesting.Stdout(context), gc.Equals, ""+
 		"Controller: fake\n"+
 		"\n"+
 		"Model                        Cloud/Region  Status      Access  Last connection\n"+
@@ -166,10 +167,10 @@ func (s *ModelsSuite) TestModelsOwner(c *gc.C) {
 }
 
 func (s *ModelsSuite) TestModelsNonOwner(c *gc.C) {
-	context, err := testing.RunCommand(c, s.newCommand(), "--user", "bob")
+	context, err := cmdtesting.RunCommand(c, s.newCommand(), "--user", "bob")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.api.user, gc.Equals, "bob")
-	c.Assert(testing.Stdout(context), gc.Equals, ""+
+	c.Assert(cmdtesting.Stdout(context), gc.Equals, ""+
 		"Controller: fake\n"+
 		"\n"+
 		"Model                        Cloud/Region  Status      Access  Last connection\n"+
@@ -180,10 +181,10 @@ func (s *ModelsSuite) TestModelsNonOwner(c *gc.C) {
 }
 
 func (s *ModelsSuite) TestAllModels(c *gc.C) {
-	context, err := testing.RunCommand(c, s.newCommand(), "--all")
+	context, err := cmdtesting.RunCommand(c, s.newCommand(), "--all")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.api.all, jc.IsTrue)
-	c.Assert(testing.Stdout(context), gc.Equals, ""+
+	c.Assert(cmdtesting.Stdout(context), gc.Equals, ""+
 		"Controller: fake\n"+
 		"\n"+
 		"Model                        Cloud/Region  Status      Access  Last connection\n"+
@@ -195,9 +196,9 @@ func (s *ModelsSuite) TestAllModels(c *gc.C) {
 
 func (s *ModelsSuite) TestAllModelsNoneCurrent(c *gc.C) {
 	delete(s.store.Models, "fake")
-	context, err := testing.RunCommand(c, s.newCommand())
+	context, err := cmdtesting.RunCommand(c, s.newCommand())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(testing.Stdout(context), gc.Equals, ""+
+	c.Assert(cmdtesting.Stdout(context), gc.Equals, ""+
 		"Controller: fake\n"+
 		"\n"+
 		"Model                        Cloud/Region  Status      Access  Last connection\n"+
@@ -209,10 +210,10 @@ func (s *ModelsSuite) TestAllModelsNoneCurrent(c *gc.C) {
 
 func (s *ModelsSuite) TestModelsUUID(c *gc.C) {
 	s.api.inclMachines = true
-	context, err := testing.RunCommand(c, s.newCommand(), "--uuid")
+	context, err := cmdtesting.RunCommand(c, s.newCommand(), "--uuid")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.api.user, gc.Equals, "admin")
-	c.Assert(testing.Stdout(context), gc.Equals, ""+
+	c.Assert(cmdtesting.Stdout(context), gc.Equals, ""+
 		"Controller: fake\n"+
 		"\n"+
 		"Model                        UUID              Cloud/Region  Status      Machines  Cores  Access  Last connection\n"+
@@ -224,10 +225,10 @@ func (s *ModelsSuite) TestModelsUUID(c *gc.C) {
 
 func (s *ModelsSuite) TestModelsMachineInfo(c *gc.C) {
 	s.api.inclMachines = true
-	context, err := testing.RunCommand(c, s.newCommand())
+	context, err := cmdtesting.RunCommand(c, s.newCommand())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.api.user, gc.Equals, "admin")
-	c.Assert(testing.Stdout(context), gc.Equals, ""+
+	c.Assert(cmdtesting.Stdout(context), gc.Equals, ""+
 		"Controller: fake\n"+
 		"\n"+
 		"Model                        Cloud/Region  Status      Machines  Cores  Access  Last connection\n"+
@@ -239,9 +240,9 @@ func (s *ModelsSuite) TestModelsMachineInfo(c *gc.C) {
 
 func (s *ModelsSuite) TestAllModelsWithOneUnauthorised(c *gc.C) {
 	s.api.denyAccess = true
-	context, err := testing.RunCommand(c, s.newCommand())
+	context, err := cmdtesting.RunCommand(c, s.newCommand())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(testing.Stdout(context), gc.Equals, ""+
+	c.Assert(cmdtesting.Stdout(context), gc.Equals, ""+
 		"Controller: fake\n"+
 		"\n"+
 		"Model                 Cloud/Region  Status  Access  Last connection\n"+
@@ -251,12 +252,12 @@ func (s *ModelsSuite) TestAllModelsWithOneUnauthorised(c *gc.C) {
 }
 
 func (s *ModelsSuite) TestUnrecognizedArg(c *gc.C) {
-	_, err := testing.RunCommand(c, s.newCommand(), "whoops")
+	_, err := cmdtesting.RunCommand(c, s.newCommand(), "whoops")
 	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["whoops"\]`)
 }
 
 func (s *ModelsSuite) TestModelsError(c *gc.C) {
 	s.api.err = common.ErrPerm
-	_, err := testing.RunCommand(c, s.newCommand())
+	_, err := cmdtesting.RunCommand(c, s.newCommand())
 	c.Assert(err, gc.ErrorMatches, "cannot list models: permission denied")
 }

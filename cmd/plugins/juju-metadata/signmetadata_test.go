@@ -15,6 +15,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/environs/simplestreams"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	coretesting "github.com/juju/juju/testing"
@@ -81,7 +82,7 @@ func (s *SignMetadataSuite) TestSignMetadata(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	setupJsonFiles(c, topLevel)
 
-	ctx := coretesting.Context(c)
+	ctx := cmdtesting.Context(c)
 	code := cmd.Main(
 		newSignMetadataCommand(), ctx, []string{"-d", topLevel, "-k", keyfile, "-p", sstesting.PrivateKeyPassphrase})
 	c.Assert(code, gc.Equals, 0)
@@ -91,7 +92,7 @@ func (s *SignMetadataSuite) TestSignMetadata(c *gc.C) {
 }
 
 func runSignMetadata(c *gc.C, args ...string) error {
-	_, err := coretesting.RunCommand(c, newSignMetadataCommand(), args...)
+	_, err := cmdtesting.RunCommand(c, newSignMetadataCommand(), args...)
 	return err
 }
 

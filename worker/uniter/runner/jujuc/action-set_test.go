@@ -10,7 +10,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
@@ -46,7 +46,7 @@ func (s *ActionSetSuite) TestActionSetOnNonActionContextFails(c *gc.C) {
 	hctx := &nonActionSettingContext{}
 	com, err := jujuc.NewCommand(hctx, cmdString("action-set"))
 	c.Assert(err, jc.ErrorIsNil)
-	ctx := testing.Context(c)
+	ctx := cmdtesting.Context(c)
 	code := cmd.Main(com, ctx, []string{"oops=nope"})
 	c.Check(code, gc.Equals, 1)
 	c.Check(bufferString(ctx.Stdout), gc.Equals, "")
@@ -127,7 +127,7 @@ func (s *ActionSetSuite) TestActionSet(c *gc.C) {
 		hctx := &actionSettingContext{}
 		com, err := jujuc.NewCommand(hctx, cmdString("action-set"))
 		c.Assert(err, jc.ErrorIsNil)
-		ctx := testing.Context(c)
+		ctx := cmdtesting.Context(c)
 		c.Logf("  command list: %#v", t.command)
 		code := cmd.Main(com, ctx, t.command)
 		c.Check(code, gc.Equals, t.code)
@@ -140,7 +140,7 @@ func (s *ActionSetSuite) TestHelp(c *gc.C) {
 	hctx := &actionSettingContext{}
 	com, err := jujuc.NewCommand(hctx, cmdString("action-set"))
 	c.Assert(err, jc.ErrorIsNil)
-	ctx := testing.Context(c)
+	ctx := cmdtesting.Context(c)
 	code := cmd.Main(com, ctx, []string{"--help"})
 	c.Assert(code, gc.Equals, 0)
 	c.Assert(bufferString(ctx.Stdout), gc.Equals, `Usage: action-set <key>=<value> [<key>=<value> ...]

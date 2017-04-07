@@ -9,9 +9,9 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/juju/controller"
 	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/testing"
 )
 
 type enableDestroyControllerSuite struct {
@@ -36,20 +36,20 @@ func (s *enableDestroyControllerSuite) newCommand() cmd.Command {
 }
 
 func (s *enableDestroyControllerSuite) TestRemove(c *gc.C) {
-	_, err := testing.RunCommand(c, s.newCommand())
+	_, err := cmdtesting.RunCommand(c, s.newCommand())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.api.called, jc.IsTrue)
 }
 
 func (s *enableDestroyControllerSuite) TestUnrecognizedArg(c *gc.C) {
-	_, err := testing.RunCommand(c, s.newCommand(), "whoops")
+	_, err := cmdtesting.RunCommand(c, s.newCommand(), "whoops")
 	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["whoops"\]`)
 	c.Assert(s.api.called, jc.IsFalse)
 }
 
 func (s *enableDestroyControllerSuite) TestEnvironmentsError(c *gc.C) {
 	s.api.err = common.ErrPerm
-	_, err := testing.RunCommand(c, s.newCommand())
+	_, err := cmdtesting.RunCommand(c, s.newCommand())
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 

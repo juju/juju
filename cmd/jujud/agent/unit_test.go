@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/juju/cmd"
-	"github.com/juju/cmd/cmdtesting"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/series"
@@ -23,6 +22,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	agenttools "github.com/juju/juju/agent/tools"
+	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/jujud/agent/agenttest"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/network"
@@ -95,7 +95,7 @@ func (s *UnitSuite) newBufferedLogWriter() *logsender.BufferedLogWriter {
 func (s *UnitSuite) TestParseSuccess(c *gc.C) {
 	a, err := NewUnitAgent(nil, s.newBufferedLogWriter())
 	c.Assert(err, jc.ErrorIsNil)
-	err = coretesting.InitCommand(a, []string{
+	err = cmdtesting.InitCommand(a, []string{
 		"--data-dir", "jd",
 		"--unit-name", "w0rd-pre55/1",
 		"--log-to-stderr",
@@ -108,7 +108,7 @@ func (s *UnitSuite) TestParseSuccess(c *gc.C) {
 func (s *UnitSuite) TestParseMissing(c *gc.C) {
 	uc, err := NewUnitAgent(nil, s.newBufferedLogWriter())
 	c.Assert(err, jc.ErrorIsNil)
-	err = coretesting.InitCommand(uc, []string{
+	err = cmdtesting.InitCommand(uc, []string{
 		"--data-dir", "jc",
 	})
 
@@ -126,7 +126,7 @@ func (s *UnitSuite) TestParseNonsense(c *gc.C) {
 		a, err := NewUnitAgent(nil, s.newBufferedLogWriter())
 		c.Assert(err, jc.ErrorIsNil)
 
-		err = coretesting.InitCommand(a, append(args, "--data-dir", "jc"))
+		err = cmdtesting.InitCommand(a, append(args, "--data-dir", "jc"))
 		c.Check(err, gc.ErrorMatches, `--unit-name option expects "<application>/<n>" argument`)
 	}
 }
@@ -135,7 +135,7 @@ func (s *UnitSuite) TestParseUnknown(c *gc.C) {
 	a, err := NewUnitAgent(nil, s.newBufferedLogWriter())
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = coretesting.InitCommand(a, []string{
+	err = cmdtesting.InitCommand(a, []string{
 		"--unit-name", "wordpress/1",
 		"thundering typhoons",
 	})

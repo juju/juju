@@ -10,9 +10,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/juju/application"
 	"github.com/juju/juju/jujuclient"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type ConsumeSuite struct {
@@ -46,7 +46,7 @@ func (s *ConsumeSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *ConsumeSuite) runConsume(c *gc.C, args ...string) (*cmd.Context, error) {
-	return coretesting.RunCommand(c, application.NewConsumeCommandForTest(s.store, s.mockAPI), args...)
+	return cmdtesting.RunCommand(c, application.NewConsumeCommandForTest(s.store, s.mockAPI), args...)
 }
 
 func (s *ConsumeSuite) TestNoArguments(c *gc.C) {
@@ -87,7 +87,7 @@ func (s *ConsumeSuite) TestSuccessModelDotApplication(c *gc.C) {
 		{"Consume", []interface{}{"bob/booster.uke", ""}},
 		{"Close", nil},
 	})
-	c.Assert(coretesting.Stderr(ctx), gc.Equals, "Added bob/booster.uke as mary-weep\n")
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "Added bob/booster.uke as mary-weep\n")
 }
 
 func (s *ConsumeSuite) TestSuccessModelDotApplicationWithAlias(c *gc.C) {
@@ -98,7 +98,7 @@ func (s *ConsumeSuite) TestSuccessModelDotApplicationWithAlias(c *gc.C) {
 		{"Consume", []interface{}{"bob/booster.uke", "alias"}},
 		{"Close", nil},
 	})
-	c.Assert(coretesting.Stderr(ctx), gc.Equals, "Added bob/booster.uke as mary-weep\n")
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "Added bob/booster.uke as mary-weep\n")
 }
 
 type mockConsumeAPI struct {

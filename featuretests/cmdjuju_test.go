@@ -8,13 +8,13 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 
+	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/juju/application"
 	"github.com/juju/juju/cmd/juju/model"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/testing"
 )
 
 // cmdJujuSuite tests the connectivity of juju commands.  These tests
@@ -30,7 +30,7 @@ func uint64p(val uint64) *uint64 {
 }
 
 func (s *cmdJujuSuite) TestSetConstraints(c *gc.C) {
-	_, err := testing.RunCommand(c, model.NewModelSetConstraintsCommand(), "mem=4G", "cpu-power=250")
+	_, err := cmdtesting.RunCommand(c, model.NewModelSetConstraintsCommand(), "mem=4G", "cpu-power=250")
 	c.Assert(err, jc.ErrorIsNil)
 
 	cons, err := s.State.ModelConstraints()
@@ -46,16 +46,16 @@ func (s *cmdJujuSuite) TestGetConstraints(c *gc.C) {
 	err := svc.SetConstraints(constraints.Value{CpuCores: uint64p(64)})
 	c.Assert(err, jc.ErrorIsNil)
 
-	context, err := testing.RunCommand(c, application.NewServiceGetConstraintsCommand(), "svc")
-	c.Assert(testing.Stdout(context), gc.Equals, "cores=64\n")
-	c.Assert(testing.Stderr(context), gc.Equals, "")
+	context, err := cmdtesting.RunCommand(c, application.NewServiceGetConstraintsCommand(), "svc")
+	c.Assert(cmdtesting.Stdout(context), gc.Equals, "cores=64\n")
+	c.Assert(cmdtesting.Stderr(context), gc.Equals, "")
 }
 
 func (s *cmdJujuSuite) TestServiceSet(c *gc.C) {
 	ch := s.AddTestingCharm(c, "dummy")
 	svc := s.AddTestingService(c, "dummy-service", ch)
 
-	_, err := testing.RunCommand(c, application.NewConfigCommand(), "dummy-service",
+	_, err := cmdtesting.RunCommand(c, application.NewConfigCommand(), "dummy-service",
 		"username=hello", "outlook=hello@world.tld")
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -81,7 +81,7 @@ func (s *cmdJujuSuite) TestServiceUnset(c *gc.C) {
 	err := svc.UpdateConfigSettings(settings)
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = testing.RunCommand(c, application.NewConfigCommand(), "dummy-service", "--reset", "username")
+	_, err = cmdtesting.RunCommand(c, application.NewConfigCommand(), "dummy-service", "--reset", "username")
 	c.Assert(err, jc.ErrorIsNil)
 
 	expect := charm.Settings{
@@ -118,9 +118,9 @@ settings:
 	ch := s.AddTestingCharm(c, "dummy")
 	s.AddTestingService(c, "dummy-service", ch)
 
-	context, err := testing.RunCommand(c, application.NewConfigCommand(), "dummy-service")
+	context, err := cmdtesting.RunCommand(c, application.NewConfigCommand(), "dummy-service")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(testing.Stdout(context), jc.DeepEquals, expected)
+	c.Assert(cmdtesting.Stdout(context), jc.DeepEquals, expected)
 }
 
 func (s *cmdJujuSuite) TestServiceGetWeirdYAML(c *gc.C) {
@@ -152,9 +152,9 @@ settings:
 	ch := s.AddTestingCharm(c, "yaml-config")
 	s.AddTestingService(c, "yaml-config", ch)
 
-	context, err := testing.RunCommand(c, application.NewConfigCommand(), "yaml-config")
+	context, err := cmdtesting.RunCommand(c, application.NewConfigCommand(), "yaml-config")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(testing.Stdout(context), jc.DeepEquals, expected)
+	c.Assert(cmdtesting.Stdout(context), jc.DeepEquals, expected)
 }
 
 func (s *cmdJujuSuite) TestServiceAddUnitExistingContainer(c *gc.C) {
@@ -170,7 +170,7 @@ func (s *cmdJujuSuite) TestServiceAddUnitExistingContainer(c *gc.C) {
 	container, err := s.State.AddMachineInsideMachine(template, machine.Id(), instance.LXD)
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = testing.RunCommand(c, application.NewAddUnitCommand(), "some-application-name",
+	_, err = cmdtesting.RunCommand(c, application.NewAddUnitCommand(), "some-application-name",
 		"--to", container.Id())
 	c.Assert(err, jc.ErrorIsNil)
 

@@ -11,7 +11,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
@@ -25,7 +25,7 @@ func (s *AddMetricSuite) TestHelp(c *gc.C) {
 	hctx := s.GetHookContext(c, -1, "")
 	com, err := jujuc.NewCommand(hctx, cmdString("add-metric"))
 	c.Assert(err, jc.ErrorIsNil)
-	ctx := testing.Context(c)
+	ctx := cmdtesting.Context(c)
 	code := cmd.Main(com, ctx, []string{"--help"})
 	c.Assert(code, gc.Equals, 0)
 	c.Assert(bufferString(ctx.Stdout), gc.Equals, `
@@ -150,7 +150,7 @@ func (s *AddMetricSuite) TestAddMetric(c *gc.C) {
 		hctx.canAddMetrics = t.canAddMetrics
 		com, err := jujuc.NewCommand(hctx, cmdString(t.cmd[0]))
 		c.Assert(err, jc.ErrorIsNil)
-		ctx := testing.Context(c)
+		ctx := cmdtesting.Context(c)
 		ret := cmd.Main(com, ctx, t.cmd[1:])
 		c.Check(ret, gc.Equals, t.result)
 		c.Check(bufferString(ctx.Stdout), gc.Equals, t.stdout)

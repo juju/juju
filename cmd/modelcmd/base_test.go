@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/jujuclient"
@@ -92,7 +93,7 @@ func (NewGetBootstrapConfigParamsFuncSuite) TestDetectCredentials(c *gc.C) {
 	var registry mockProviderRegistry
 
 	f := modelcmd.NewGetBootstrapConfigParamsFunc(
-		coretesting.Context(c),
+		cmdtesting.Context(c),
 		clientStore,
 		&registry,
 	)

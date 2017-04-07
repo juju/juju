@@ -32,6 +32,7 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/charms"
 	jujucharmstore "github.com/juju/juju/charmstore"
+	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs/config"
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -160,7 +161,7 @@ func (s *UpgradeCharmSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *UpgradeCharmSuite) runUpgradeCharm(c *gc.C, args ...string) (*cmd.Context, error) {
-	return coretesting.RunCommand(c, s.cmd, args...)
+	return cmdtesting.RunCommand(c, s.cmd, args...)
 }
 
 func (s *UpgradeCharmSuite) TestStorageConstraints(c *gc.C) {
@@ -258,7 +259,7 @@ func (s *UpgradeCharmErrorsStateSuite) SetUpTest(c *gc.C) {
 var _ = gc.Suite(&UpgradeCharmErrorsStateSuite{})
 
 func runUpgradeCharm(c *gc.C, args ...string) error {
-	_, err := coretesting.RunCommand(c, NewUpgradeCharmCommand(), args...)
+	_, err := cmdtesting.RunCommand(c, NewUpgradeCharmCommand(), args...)
 	return err
 }
 
@@ -463,7 +464,7 @@ func (s *UpgradeCharmSuccessStateSuite) TestInitWithResources(c *gc.C) {
 	d := upgradeCharmCommand{}
 	args := []string{"dummy", "--resource", res1, "--resource", res2}
 
-	err = coretesting.InitCommand(modelcmd.Wrap(&d), args)
+	err = cmdtesting.InitCommand(modelcmd.Wrap(&d), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(d.Resources, gc.DeepEquals, map[string]string{
 		"foo": foopath,

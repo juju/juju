@@ -14,9 +14,9 @@ import (
 	goyaml "gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/juju/storage"
 	"github.com/juju/juju/status"
-	"github.com/juju/juju/testing"
 )
 
 func (s *ListSuite) TestVolumeListEmpty(c *gc.C) {
@@ -125,13 +125,13 @@ func (s *ListSuite) assertUnmarshalledVolumeOutput(c *gc.C, unmarshal unmarshall
 	var result struct {
 		Volumes map[string]storage.VolumeInfo
 	}
-	err = unmarshal([]byte(testing.Stdout(context)), &result)
+	err = unmarshal([]byte(cmdtesting.Stdout(context)), &result)
 	c.Assert(err, jc.ErrorIsNil)
 
 	expected := s.expectVolume(c, nil)
 	c.Assert(result.Volumes, jc.DeepEquals, expected)
 
-	obtainedErr := testing.Stderr(context)
+	obtainedErr := cmdtesting.Stderr(context)
 	c.Assert(obtainedErr, gc.Equals, expectedErr)
 }
 
@@ -159,15 +159,15 @@ func (s *ListSuite) assertValidVolumeList(c *gc.C, args []string, expectedOut st
 }
 
 func (s *ListSuite) runVolumeList(c *gc.C, args ...string) (*cmd.Context, error) {
-	return testing.RunCommand(c,
+	return cmdtesting.RunCommand(c,
 		storage.NewListCommandForTest(s.mockAPI, s.store), append(args, "--volume")...)
 }
 
 func (s *ListSuite) assertUserFacingVolumeOutput(c *gc.C, context *cmd.Context, expectedOut, expectedErr string) {
-	obtainedOut := testing.Stdout(context)
+	obtainedOut := cmdtesting.Stdout(context)
 	c.Assert(obtainedOut, gc.Equals, expectedOut)
 
-	obtainedErr := testing.Stderr(context)
+	obtainedErr := cmdtesting.Stderr(context)
 	c.Assert(obtainedErr, gc.Equals, expectedErr)
 }
 

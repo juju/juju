@@ -11,9 +11,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/juju/controller"
 	jujucontroller "github.com/juju/juju/controller"
-	"github.com/juju/juju/testing"
 )
 
 type GetConfigSuite struct {
@@ -29,17 +29,17 @@ func (s *GetConfigSuite) SetUpTest(c *gc.C) {
 
 func (s *GetConfigSuite) run(c *gc.C, args ...string) (*cmd.Context, error) {
 	command := controller.NewGetConfigCommandForTest(&fakeControllerAPI{}, s.store)
-	return testing.RunCommand(c, command, args...)
+	return cmdtesting.RunCommand(c, command, args...)
 }
 
 func (s *GetConfigSuite) TestInit(c *gc.C) {
 	// zero or one args is fine.
-	err := testing.InitCommand(controller.NewGetConfigCommandForTest(&fakeControllerAPI{}, s.store), nil)
+	err := cmdtesting.InitCommand(controller.NewGetConfigCommandForTest(&fakeControllerAPI{}, s.store), nil)
 	c.Check(err, jc.ErrorIsNil)
-	err = testing.InitCommand(controller.NewGetConfigCommandForTest(&fakeControllerAPI{}, s.store), []string{"one"})
+	err = cmdtesting.InitCommand(controller.NewGetConfigCommandForTest(&fakeControllerAPI{}, s.store), []string{"one"})
 	c.Check(err, jc.ErrorIsNil)
 	// More than one is not allowed.
-	err = testing.InitCommand(controller.NewGetConfigCommandForTest(&fakeControllerAPI{}, s.store), []string{"one", "two"})
+	err = cmdtesting.InitCommand(controller.NewGetConfigCommandForTest(&fakeControllerAPI{}, s.store), []string{"one", "two"})
 	c.Check(err, gc.ErrorMatches, `unrecognized args: \["two"\]`)
 }
 
@@ -47,7 +47,7 @@ func (s *GetConfigSuite) TestSingleValue(c *gc.C) {
 	context, err := s.run(c, "ca-cert")
 	c.Assert(err, jc.ErrorIsNil)
 
-	output := strings.TrimSpace(testing.Stdout(context))
+	output := strings.TrimSpace(cmdtesting.Stdout(context))
 	c.Assert(output, gc.Equals, "multi\nline")
 }
 
@@ -55,7 +55,7 @@ func (s *GetConfigSuite) TestSingleValueJSON(c *gc.C) {
 	context, err := s.run(c, "--format=json", "controller-uuid")
 	c.Assert(err, jc.ErrorIsNil)
 
-	output := strings.TrimSpace(testing.Stdout(context))
+	output := strings.TrimSpace(cmdtesting.Stdout(context))
 	c.Assert(output, gc.Equals, `"uuid"`)
 }
 
@@ -63,7 +63,7 @@ func (s *GetConfigSuite) TestAllValues(c *gc.C) {
 	context, err := s.run(c)
 	c.Assert(err, jc.ErrorIsNil)
 
-	output := strings.TrimSpace(testing.Stdout(context))
+	output := strings.TrimSpace(cmdtesting.Stdout(context))
 	expected := `
 Attribute  Value
 api-port   1234
@@ -78,14 +78,14 @@ func (s *GetConfigSuite) TestAllValuesJSON(c *gc.C) {
 	context, err := s.run(c, "--format=json")
 	c.Assert(err, jc.ErrorIsNil)
 
-	output := strings.TrimSpace(testing.Stdout(context))
+	output := strings.TrimSpace(cmdtesting.Stdout(context))
 	expected := `{"api-port":1234,"ca-cert":"multi\nline","controller-uuid":"uuid"}`
 	c.Assert(output, gc.Equals, expected)
 }
 
 func (s *GetConfigSuite) TestError(c *gc.C) {
 	command := controller.NewGetConfigCommandForTest(&fakeControllerAPI{err: errors.New("error")}, s.store)
-	_, err := testing.RunCommand(c, command)
+	_, err := cmdtesting.RunCommand(c, command)
 	c.Assert(err, gc.ErrorMatches, "error")
 }
 

@@ -7,7 +7,6 @@ import (
 	stdtesting "testing"
 
 	"github.com/juju/cmd"
-	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	slawire "github.com/juju/romulus/wireformat/sla"
 	"github.com/juju/testing"
@@ -21,6 +20,7 @@ import (
 	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/juju/romulus/sla"
 )
 

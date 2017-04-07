@@ -17,7 +17,7 @@ import (
 
 	apicharms "github.com/juju/juju/api/charms"
 	"github.com/juju/juju/charmstore"
-	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/cmd/cmdtesting"
 )
 
 var _ = gc.Suite(&registrationSuite{})
@@ -47,7 +47,7 @@ func (s *registrationSuite) SetUpTest(c *gc.C) {
 		RegisterURL:    s.server.URL,
 		IncreaseBudget: 100,
 	}
-	s.ctx = coretesting.Context(c)
+	s.ctx = cmdtesting.Context(c)
 }
 
 func (s *registrationSuite) TearDownTest(c *gc.C) {
@@ -751,7 +751,7 @@ func (s *noPlanRegistrationSuite) SetUpTest(c *gc.C) {
 		RegisterURL:    s.server.URL,
 		IncreaseBudget: 100,
 	}
-	s.ctx = coretesting.Context(c)
+	s.ctx = cmdtesting.Context(c)
 }
 
 func (s *noPlanRegistrationSuite) TearDownTest(c *gc.C) {

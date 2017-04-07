@@ -9,8 +9,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/testing"
 )
 
 const deleteTestId = "tst12345"
@@ -66,7 +66,7 @@ func (s *deleteImageSuite) runDeleteImageMetadata(c *gc.C, args ...string) error
 	}
 	deleteCmd := modelcmd.Wrap(tstDelete)
 
-	_, err := testing.RunCommand(c, deleteCmd, args...)
+	_, err := cmdtesting.RunCommand(c, deleteCmd, args...)
 	return err
 }
 

@@ -11,7 +11,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
@@ -91,7 +91,7 @@ func (s *NetworkGetSuite) TestNetworkGet(c *gc.C) {
 	}} {
 		c.Logf("test %d: %s", i, t.summary)
 		com := s.createCommand(c)
-		ctx := testing.Context(c)
+		ctx := cmdtesting.Context(c)
 		code := cmd.Main(com, ctx, t.args)
 		c.Check(code, gc.Equals, t.code)
 		if code == 0 {
@@ -132,7 +132,7 @@ the IP address the local unit should advertise as its endpoint to its peers.
 `[1:]
 
 	com := s.createCommand(c)
-	ctx := testing.Context(c)
+	ctx := cmdtesting.Context(c)
 	code := cmd.Main(com, ctx, []string{"--help"})
 	c.Check(code, gc.Equals, 0)
 

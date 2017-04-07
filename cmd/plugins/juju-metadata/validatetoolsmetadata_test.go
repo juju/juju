@@ -12,6 +12,7 @@ import (
 	"gopkg.in/amz.v3/aws"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/tools"
@@ -31,7 +32,7 @@ var _ = gc.Suite(&ValidateToolsMetadataSuite{})
 func runValidateToolsMetadata(c *gc.C, store jujuclient.ClientStore, args ...string) (*cmd.Context, error) {
 	cmd := &validateToolsMetadataCommand{}
 	cmd.SetClientStore(store)
-	return coretesting.RunCommand(c, modelcmd.Wrap(cmd), args...)
+	return cmdtesting.RunCommand(c, modelcmd.Wrap(cmd), args...)
 }
 
 var validateInitToolsErrorTests = []struct {
@@ -61,7 +62,7 @@ func (s *ValidateToolsMetadataSuite) TestInitErrors(c *gc.C) {
 		c.Logf("test %d", i)
 		cmd := &validateToolsMetadataCommand{}
 		cmd.SetClientStore(s.store)
-		err := coretesting.InitCommand(modelcmd.Wrap(cmd), t.args)
+		err := cmdtesting.InitCommand(modelcmd.Wrap(cmd), t.args)
 		c.Check(err, gc.ErrorMatches, t.err)
 	}
 }
@@ -123,7 +124,7 @@ func (s *ValidateToolsMetadataSuite) TestEc2LocalMetadataUsingEnvironment(c *gc.
 	s.setupEc2LocalMetadata(c, "us-east-1")
 	ctx, err := runValidateToolsMetadata(c, s.store, "-m", "ec2-controller:ec2", "-j", "1.11.4", "-d", s.metadataDir)
 	c.Assert(err, jc.ErrorIsNil)
-	errOut := coretesting.Stdout(ctx)
+	errOut := cmdtesting.Stdout(ctx)
 	strippedOut := strings.Replace(errOut, "\n", "", -1)
 	c.Assert(strippedOut, gc.Matches, `Matching Tools Versions:.*Resolve Metadata.*`)
 }
@@ -144,7 +145,7 @@ func (s *ValidateToolsMetadataSuite) TestEc2LocalMetadataWithManualParams(c *gc.
 		"-u", "https://ec2.us-west-1.amazonaws.com", "-d", s.metadataDir,
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	errOut := coretesting.Stdout(ctx)
+	errOut := cmdtesting.Stdout(ctx)
 	strippedOut := strings.Replace(errOut, "\n", "", -1)
 	c.Check(strippedOut, gc.Matches, `Matching Tools Versions:.*Resolve Metadata.*`)
 }
@@ -170,7 +171,7 @@ func (s *ValidateToolsMetadataSuite) TestOpenstackLocalMetadataWithManualParams(
 		"-u", "some-auth-url", "-d", s.metadataDir,
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	errOut := coretesting.Stdout(ctx)
+	errOut := cmdtesting.Stdout(ctx)
 	strippedOut := strings.Replace(errOut, "\n", "", -1)
 	c.Check(strippedOut, gc.Matches, `Matching Tools Versions:.*Resolve Metadata.*`)
 }
@@ -196,7 +197,7 @@ func (s *ValidateToolsMetadataSuite) TestDefaultVersion(c *gc.C) {
 		"-u", "some-auth-url", "-d", s.metadataDir,
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	errOut := coretesting.Stdout(ctx)
+	errOut := cmdtesting.Stdout(ctx)
 	strippedOut := strings.Replace(errOut, "\n", "", -1)
 	c.Check(strippedOut, gc.Matches, `Matching Tools Versions:.*Resolve Metadata.*`)
 }
@@ -208,7 +209,7 @@ func (s *ValidateToolsMetadataSuite) TestStream(c *gc.C) {
 		"-u", "some-auth-url", "-d", s.metadataDir, "--stream", "proposed",
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	errOut := coretesting.Stdout(ctx)
+	errOut := cmdtesting.Stdout(ctx)
 	strippedOut := strings.Replace(errOut, "\n", "", -1)
 	c.Check(strippedOut, gc.Matches, `Matching Tools Versions:.*Resolve Metadata.*`)
 }
@@ -220,7 +221,7 @@ func (s *ValidateToolsMetadataSuite) TestMajorVersionMatch(c *gc.C) {
 		"-u", "some-auth-url", "-d", s.metadataDir, "--majorminor-version", "1",
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	errOut := coretesting.Stdout(ctx)
+	errOut := cmdtesting.Stdout(ctx)
 	strippedOut := strings.Replace(errOut, "\n", "", -1)
 	c.Check(strippedOut, gc.Matches, `Matching Tools Versions:.*Resolve Metadata.*`)
 }
@@ -232,7 +233,7 @@ func (s *ValidateToolsMetadataSuite) TestMajorMinorVersionMatch(c *gc.C) {
 		"-u", "some-auth-url", "-d", s.metadataDir, "--majorminor-version", "1.12",
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	errOut := coretesting.Stdout(ctx)
+	errOut := cmdtesting.Stdout(ctx)
 	strippedOut := strings.Replace(errOut, "\n", "", -1)
 	c.Check(strippedOut, gc.Matches, `Matching Tools Versions:.*Resolve Metadata.*`)
 }
@@ -243,7 +244,7 @@ func (s *ValidateToolsMetadataSuite) TestJustDirectory(c *gc.C) {
 		"-s", "raring", "-d", s.metadataDir,
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	errOut := coretesting.Stdout(ctx)
+	errOut := cmdtesting.Stdout(ctx)
 	strippedOut := strings.Replace(errOut, "\n", "", -1)
 	c.Check(strippedOut, gc.Matches, `Matching Tools Versions:.*Resolve Metadata.*`)
 }

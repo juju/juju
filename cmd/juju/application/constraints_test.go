@@ -7,6 +7,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/juju/application"
 	"github.com/juju/juju/testing"
 )
@@ -41,7 +42,7 @@ func (s *ServiceConstraintsCommandsSuite) TestSetInit(c *gc.C) {
 			args: []string{"mysql", "cpu-power=250"},
 		},
 	} {
-		err := testing.InitCommand(application.NewServiceSetConstraintsCommand(), test.args)
+		err := cmdtesting.InitCommand(application.NewServiceSetConstraintsCommand(), test.args)
 		if test.err == "" {
 			c.Check(err, jc.ErrorIsNil)
 		} else {
@@ -71,7 +72,7 @@ func (s *ServiceConstraintsCommandsSuite) TestGetInit(c *gc.C) {
 			args: []string{"mysql"},
 		},
 	} {
-		err := testing.InitCommand(application.NewServiceGetConstraintsCommand(), test.args)
+		err := cmdtesting.InitCommand(application.NewServiceGetConstraintsCommand(), test.args)
 		if test.err == "" {
 			c.Check(err, jc.ErrorIsNil)
 		} else {

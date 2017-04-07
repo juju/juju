@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/agent"
 	agenttools "github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/cmdtesting"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/filestorage"
@@ -241,7 +242,7 @@ func (s *AgentSuite) primeAPIHostPorts(c *gc.C) {
 // arguments as provided.
 func (s *AgentSuite) InitAgent(c *gc.C, a cmd.Command, args ...string) {
 	args = append([]string{"--data-dir", s.DataDir()}, args...)
-	err := coretesting.InitCommand(a, args)
+	err := cmdtesting.InitCommand(a, args)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

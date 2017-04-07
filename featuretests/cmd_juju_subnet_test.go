@@ -8,10 +8,10 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/cmd/cmdtesting"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/testing"
 )
 
 type cmdSubnetSuite struct {
@@ -50,8 +50,8 @@ func (s *cmdSubnetSuite) RunAdd(c *gc.C, expectedError string, args ...string) (
 	ctx, err := runJujuCommand(c, cmdArgs...)
 	stdout, stderr := "", ""
 	if ctx != nil {
-		stdout = testing.Stdout(ctx)
-		stderr = testing.Stderr(ctx)
+		stdout = cmdtesting.Stdout(ctx)
+		stderr = cmdtesting.Stderr(ctx)
 	}
 	if expectedError != "" {
 		c.Assert(err, gc.NotNil)
@@ -61,8 +61,8 @@ func (s *cmdSubnetSuite) RunAdd(c *gc.C, expectedError string, args ...string) (
 }
 
 func (s *cmdSubnetSuite) AssertOutput(c *gc.C, context *cmd.Context, expectedOut, expectedErr string) {
-	c.Assert(testing.Stdout(context), gc.Equals, expectedOut)
-	c.Assert(testing.Stderr(context), gc.Equals, expectedErr)
+	c.Assert(cmdtesting.Stdout(context), gc.Equals, expectedOut)
+	c.Assert(cmdtesting.Stderr(context), gc.Equals, expectedErr)
 }
 
 func (s *cmdSubnetSuite) TestSubnetAddNoArguments(c *gc.C) {
@@ -169,8 +169,8 @@ func (s *cmdSubnetSuite) TestSubnetListResultsWithFilters(c *gc.C) {
 		expectedSuccess,
 		"subnets", "--zone", "zone1", "--space", "myspace",
 	)
-	c.Assert(testing.Stderr(context), gc.Equals, "") // no stderr expected
-	stdout := testing.Stdout(context)
+	c.Assert(cmdtesting.Stderr(context), gc.Equals, "") // no stderr expected
+	stdout := cmdtesting.Stdout(context)
 	c.Assert(stdout, jc.Contains, "subnets:")
 	c.Assert(stdout, jc.Contains, "10.10.0.0/16:")
 	c.Assert(stdout, jc.Contains, "space: myspace")

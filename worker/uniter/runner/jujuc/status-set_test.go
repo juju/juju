@@ -8,7 +8,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
@@ -40,7 +40,7 @@ func (s *statusSetSuite) TestStatusSetInit(c *gc.C) {
 		hctx := s.GetStatusHookContext(c)
 		com, err := jujuc.NewCommand(hctx, cmdString("status-set"))
 		c.Assert(err, jc.ErrorIsNil)
-		testing.TestInit(c, com, t.args, t.err)
+		cmdtesting.TestInit(c, com, t.args, t.err)
 	}
 }
 
@@ -48,7 +48,7 @@ func (s *statusSetSuite) TestHelp(c *gc.C) {
 	hctx := s.GetStatusHookContext(c)
 	com, err := jujuc.NewCommand(hctx, cmdString("status-set"))
 	c.Assert(err, jc.ErrorIsNil)
-	ctx := testing.Context(c)
+	ctx := cmdtesting.Context(c)
 	code := cmd.Main(com, ctx, []string{"--help"})
 	c.Assert(code, gc.Equals, 0)
 	expectedHelp := "" +
@@ -79,7 +79,7 @@ func (s *statusSetSuite) TestStatus(c *gc.C) {
 		hctx := s.GetStatusHookContext(c)
 		com, err := jujuc.NewCommand(hctx, cmdString("status-set"))
 		c.Assert(err, jc.ErrorIsNil)
-		ctx := testing.Context(c)
+		ctx := cmdtesting.Context(c)
 		code := cmd.Main(com, ctx, args)
 		c.Assert(code, gc.Equals, 0)
 		c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
@@ -101,7 +101,7 @@ func (s *statusSetSuite) TestServiceStatus(c *gc.C) {
 		hctx := s.GetStatusHookContext(c)
 		com, err := jujuc.NewCommand(hctx, cmdString("status-set"))
 		c.Assert(err, jc.ErrorIsNil)
-		ctx := testing.Context(c)
+		ctx := cmdtesting.Context(c)
 		code := cmd.Main(com, ctx, args)
 		c.Assert(code, gc.Equals, 0)
 		c.Assert(bufferString(ctx.Stderr), gc.Equals, "")

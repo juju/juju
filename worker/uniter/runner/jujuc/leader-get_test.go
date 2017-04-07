@@ -9,6 +9,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
@@ -48,7 +49,7 @@ func (s *leaderGetSuite) TestInitEmpty(c *gc.C) {
 }
 
 func (s *leaderGetSuite) TestFormatError(c *gc.C) {
-	runContext := testing.Context(c)
+	runContext := cmdtesting.Context(c)
 	code := cmd.Main(s.command, runContext, []string{"--format", "bad"})
 	c.Check(code, gc.Equals, 2)
 	c.Check(bufferString(runContext.Stdout), gc.Equals, "")
@@ -59,7 +60,7 @@ func (s *leaderGetSuite) TestSettingsError(c *gc.C) {
 	jujucContext := newLeaderGetContext(errors.New("zap"))
 	command, err := jujuc.NewLeaderGetCommand(jujucContext)
 	c.Assert(err, jc.ErrorIsNil)
-	runContext := testing.Context(c)
+	runContext := cmdtesting.Context(c)
 	code := cmd.Main(command, runContext, nil)
 	c.Check(code, gc.Equals, 1)
 	c.Check(jujucContext.called, jc.IsTrue)
@@ -139,7 +140,7 @@ func (s *leaderGetSuite) testParseOutput(c *gc.C, args []string, checker gc.Chec
 	jujucContext := newLeaderGetContext(nil)
 	command, err := jujuc.NewLeaderGetCommand(jujucContext)
 	c.Assert(err, jc.ErrorIsNil)
-	runContext := testing.Context(c)
+	runContext := cmdtesting.Context(c)
 	code := cmd.Main(command, runContext, args)
 	c.Check(code, gc.Equals, 0)
 	c.Check(jujucContext.called, jc.IsTrue)

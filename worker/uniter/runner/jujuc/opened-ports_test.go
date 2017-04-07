@@ -10,8 +10,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
@@ -62,7 +62,7 @@ func (s *OpenedPortsSuite) TestBadArgs(c *gc.C) {
 	hctx := s.GetHookContext(c, -1, "")
 	com, err := jujuc.NewCommand(hctx, cmdString("opened-ports"))
 	c.Assert(err, jc.ErrorIsNil)
-	err = testing.InitCommand(com, []string{"foo"})
+	err = cmdtesting.InitCommand(com, []string{"foo"})
 	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["foo"\]`)
 }
 
@@ -70,7 +70,7 @@ func (s *OpenedPortsSuite) TestHelp(c *gc.C) {
 	hctx := s.GetHookContext(c, -1, "")
 	openedPorts, err := jujuc.NewCommand(hctx, cmdString("opened-ports"))
 	c.Assert(err, jc.ErrorIsNil)
-	flags := testing.NewFlagSet()
+	flags := cmdtesting.NewFlagSet()
 	c.Assert(string(openedPorts.Info().Help(flags)), gc.Equals, `
 Usage: opened-ports
 
@@ -95,7 +95,7 @@ func (s *OpenedPortsSuite) getContextAndOpenPorts(c *gc.C) *Context {
 func (s *OpenedPortsSuite) runCommand(c *gc.C, hctx *Context, args ...string) (stdout, stderr string) {
 	com, err := jujuc.NewCommand(hctx, cmdString("opened-ports"))
 	c.Assert(err, jc.ErrorIsNil)
-	ctx := testing.Context(c)
+	ctx := cmdtesting.Context(c)
 	code := cmd.Main(com, ctx, args)
 	c.Assert(code, gc.Equals, 0)
 	return bufferString(ctx.Stdout), bufferString(ctx.Stderr)

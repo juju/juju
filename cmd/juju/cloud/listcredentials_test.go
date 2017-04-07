@@ -11,6 +11,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	jujucloud "github.com/juju/juju/cloud"
+	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/juju/cloud"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/jujuclient"
@@ -297,28 +298,28 @@ func (s *listCredentialsSuite) TestListCredentialsEmpty(c *gc.C) {
 
 func (s *listCredentialsSuite) TestListCredentialsNone(c *gc.C) {
 	listCmd := cloud.NewListCredentialsCommandForTest(jujuclient.NewMemStore(), s.personalCloudsFunc, s.cloudByNameFunc)
-	ctx, err := testing.RunCommand(c, listCmd)
+	ctx, err := cmdtesting.RunCommand(c, listCmd)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(testing.Stderr(ctx), gc.Equals, "")
-	out := strings.Replace(testing.Stdout(ctx), "\n", "", -1)
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "")
+	out := strings.Replace(cmdtesting.Stdout(ctx), "\n", "", -1)
 	c.Assert(out, gc.Equals, "No credentials to display.")
 
-	ctx, err = testing.RunCommand(c, listCmd, "--format", "yaml")
+	ctx, err = cmdtesting.RunCommand(c, listCmd, "--format", "yaml")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(testing.Stderr(ctx), gc.Equals, "")
-	out = strings.Replace(testing.Stdout(ctx), "\n", "", -1)
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "")
+	out = strings.Replace(cmdtesting.Stdout(ctx), "\n", "", -1)
 	c.Assert(out, gc.Equals, "credentials: {}")
 
-	ctx, err = testing.RunCommand(c, listCmd, "--format", "json")
+	ctx, err = cmdtesting.RunCommand(c, listCmd, "--format", "json")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(testing.Stderr(ctx), gc.Equals, "")
-	out = strings.Replace(testing.Stdout(ctx), "\n", "", -1)
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "")
+	out = strings.Replace(cmdtesting.Stdout(ctx), "\n", "", -1)
 	c.Assert(out, gc.Equals, `{"credentials":{}}`)
 }
 
 func (s *listCredentialsSuite) listCredentials(c *gc.C, args ...string) string {
-	ctx, err := testing.RunCommand(c, cloud.NewListCredentialsCommandForTest(s.store, s.personalCloudsFunc, s.cloudByNameFunc), args...)
+	ctx, err := cmdtesting.RunCommand(c, cloud.NewListCredentialsCommandForTest(s.store, s.personalCloudsFunc, s.cloudByNameFunc), args...)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(testing.Stderr(ctx), gc.Equals, "")
-	return testing.Stdout(ctx)
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "")
+	return cmdtesting.Stdout(ctx)
 }

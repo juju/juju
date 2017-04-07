@@ -13,7 +13,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 	jujuctesting "github.com/juju/juju/worker/uniter/runner/jujuc/testing"
 )
@@ -146,7 +146,7 @@ func (s *RelationGetSuite) TestRelationGet(c *gc.C) {
 		hctx, _ := s.newHookContext(t.relid, t.unit)
 		com, err := jujuc.NewCommand(hctx, cmdString("relation-get"))
 		c.Assert(err, jc.ErrorIsNil)
-		ctx := testing.Context(c)
+		ctx := cmdtesting.Context(c)
 		code := cmd.Main(com, ctx, t.args)
 		c.Check(code, gc.Equals, t.code)
 		if code == 0 {
@@ -202,7 +202,7 @@ func (s *RelationGetSuite) TestRelationGetFormat(c *gc.C) {
 			hctx, _ := s.newHookContext(t.relid, t.unit)
 			com, err := jujuc.NewCommand(hctx, cmdString("relation-get"))
 			c.Assert(err, jc.ErrorIsNil)
-			ctx := testing.Context(c)
+			ctx := cmdtesting.Context(c)
 			args := append(t.args, "--format", format)
 			code := cmd.Main(com, ctx, args)
 			c.Check(code, gc.Equals, 0)
@@ -265,7 +265,7 @@ func (s *RelationGetSuite) TestHelp(c *gc.C) {
 		hctx, _ := s.newHookContext(t.relid, t.unit)
 		com, err := jujuc.NewCommand(hctx, cmdString("relation-get"))
 		c.Assert(err, jc.ErrorIsNil)
-		ctx := testing.Context(c)
+		ctx := cmdtesting.Context(c)
 		code := cmd.Main(com, ctx, []string{"--help"})
 		c.Assert(code, gc.Equals, 0)
 		unitHelp := ""
@@ -282,7 +282,7 @@ func (s *RelationGetSuite) TestOutputPath(c *gc.C) {
 	hctx, _ := s.newHookContext(1, "m/0")
 	com, err := jujuc.NewCommand(hctx, cmdString("relation-get"))
 	c.Assert(err, jc.ErrorIsNil)
-	ctx := testing.Context(c)
+	ctx := cmdtesting.Context(c)
 	code := cmd.Main(com, ctx, []string{"--output", "some-file", "pew"})
 	c.Assert(code, gc.Equals, 0)
 	c.Assert(bufferString(ctx.Stderr), gc.Equals, "")

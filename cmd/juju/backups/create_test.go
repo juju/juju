@@ -12,8 +12,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/juju/backups"
-	"github.com/juju/juju/testing"
 )
 
 type createSuite struct {
@@ -67,7 +67,7 @@ func (s *createSuite) checkDownload(c *gc.C, ctx *cmd.Context) {
 
 func (s *createSuite) TestNoArgs(c *gc.C) {
 	client := s.BaseBackupsSuite.setDownload()
-	_, err := testing.RunCommand(c, s.wrappedCommand, "--quiet")
+	_, err := cmdtesting.RunCommand(c, s.wrappedCommand, "--quiet")
 	c.Assert(err, jc.ErrorIsNil)
 
 	client.Check(c, s.metaresult.ID, "", "Create", "Download")
@@ -75,7 +75,7 @@ func (s *createSuite) TestNoArgs(c *gc.C) {
 
 func (s *createSuite) TestDefaultDownload(c *gc.C) {
 	s.setDownload()
-	ctx, err := testing.RunCommand(c, s.wrappedCommand, "--quiet", "--filename", s.defaultFilename)
+	ctx, err := cmdtesting.RunCommand(c, s.wrappedCommand, "--quiet", "--filename", s.defaultFilename)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.checkDownload(c, ctx)
@@ -85,7 +85,7 @@ func (s *createSuite) TestDefaultDownload(c *gc.C) {
 
 func (s *createSuite) TestQuiet(c *gc.C) {
 	client := s.BaseBackupsSuite.setDownload()
-	ctx, err := testing.RunCommand(c, s.wrappedCommand, "--quiet")
+	ctx, err := cmdtesting.RunCommand(c, s.wrappedCommand, "--quiet")
 	c.Assert(err, jc.ErrorIsNil)
 
 	client.Check(c, s.metaresult.ID, "", "Create", "Download")
@@ -99,7 +99,7 @@ func (s *createSuite) TestQuiet(c *gc.C) {
 
 func (s *createSuite) TestNotes(c *gc.C) {
 	client := s.BaseBackupsSuite.setDownload()
-	_, err := testing.RunCommand(c, s.wrappedCommand, "spam", "--quiet")
+	_, err := cmdtesting.RunCommand(c, s.wrappedCommand, "spam", "--quiet")
 	c.Assert(err, jc.ErrorIsNil)
 
 	client.Check(c, s.metaresult.ID, "spam", "Create", "Download")
@@ -107,7 +107,7 @@ func (s *createSuite) TestNotes(c *gc.C) {
 
 func (s *createSuite) TestFilename(c *gc.C) {
 	client := s.setDownload()
-	ctx, err := testing.RunCommand(c, s.wrappedCommand, "--filename", "backup.tgz", "--quiet")
+	ctx, err := cmdtesting.RunCommand(c, s.wrappedCommand, "--filename", "backup.tgz", "--quiet")
 	c.Assert(err, jc.ErrorIsNil)
 
 	client.Check(c, s.metaresult.ID, "", "Create", "Download")
@@ -117,7 +117,7 @@ func (s *createSuite) TestFilename(c *gc.C) {
 
 func (s *createSuite) TestNoDownload(c *gc.C) {
 	client := s.setSuccess()
-	ctx, err := testing.RunCommand(c, s.wrappedCommand, "--no-download")
+	ctx, err := cmdtesting.RunCommand(c, s.wrappedCommand, "--no-download")
 	c.Assert(err, jc.ErrorIsNil)
 
 	client.Check(c, "", "", "Create")
@@ -128,14 +128,14 @@ func (s *createSuite) TestNoDownload(c *gc.C) {
 
 func (s *createSuite) TestFilenameAndNoDownload(c *gc.C) {
 	s.setSuccess()
-	_, err := testing.RunCommand(c, s.wrappedCommand, "--no-download", "--filename", "backup.tgz")
+	_, err := cmdtesting.RunCommand(c, s.wrappedCommand, "--no-download", "--filename", "backup.tgz")
 
 	c.Check(err, gc.ErrorMatches, "cannot mix --no-download and --filename")
 }
 
 func (s *createSuite) TestError(c *gc.C) {
 	s.setFailure("failed!")
-	_, err := testing.RunCommand(c, s.wrappedCommand)
+	_, err := cmdtesting.RunCommand(c, s.wrappedCommand)
 
 	c.Check(errors.Cause(err), gc.ErrorMatches, "failed!")
 }

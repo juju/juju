@@ -9,6 +9,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
@@ -36,7 +37,7 @@ func (s *isLeaderSuite) TestInitSuccess(c *gc.C) {
 func (s *isLeaderSuite) TestFormatError(c *gc.C) {
 	command, err := jujuc.NewIsLeaderCommand(nil)
 	c.Assert(err, jc.ErrorIsNil)
-	runContext := testing.Context(c)
+	runContext := cmdtesting.Context(c)
 	code := cmd.Main(command, runContext, []string{"--format", "bad"})
 	c.Check(code, gc.Equals, 2)
 	c.Check(bufferString(runContext.Stdout), gc.Equals, "")
@@ -47,7 +48,7 @@ func (s *isLeaderSuite) TestIsLeaderError(c *gc.C) {
 	jujucContext := &isLeaderContext{err: errors.New("pow")}
 	command, err := jujuc.NewIsLeaderCommand(jujucContext)
 	c.Assert(err, jc.ErrorIsNil)
-	runContext := testing.Context(c)
+	runContext := cmdtesting.Context(c)
 	code := cmd.Main(command, runContext, nil)
 	c.Check(code, gc.Equals, 1)
 	c.Check(jujucContext.called, jc.IsTrue)
@@ -91,7 +92,7 @@ func (s *isLeaderSuite) testOutput(c *gc.C, leader bool, args []string, expect s
 	jujucContext := &isLeaderContext{leader: leader}
 	command, err := jujuc.NewIsLeaderCommand(jujucContext)
 	c.Assert(err, jc.ErrorIsNil)
-	runContext := testing.Context(c)
+	runContext := cmdtesting.Context(c)
 	code := cmd.Main(command, runContext, args)
 	c.Check(code, gc.Equals, 0)
 	c.Check(jujucContext.called, jc.IsTrue)
@@ -103,7 +104,7 @@ func (s *isLeaderSuite) testParseOutput(c *gc.C, leader bool, args []string, che
 	jujucContext := &isLeaderContext{leader: leader}
 	command, err := jujuc.NewIsLeaderCommand(jujucContext)
 	c.Assert(err, jc.ErrorIsNil)
-	runContext := testing.Context(c)
+	runContext := cmdtesting.Context(c)
 	code := cmd.Main(command, runContext, args)
 	c.Check(code, gc.Equals, 0)
 	c.Check(jujucContext.called, jc.IsTrue)

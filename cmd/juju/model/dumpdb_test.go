@@ -9,6 +9,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/juju/model"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/testing"
@@ -39,14 +40,14 @@ func (s *DumpDBCommandSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *DumpDBCommandSuite) TestDumpDB(c *gc.C) {
-	ctx, err := testing.RunCommand(c, model.NewDumpDBCommandForTest(&s.fake, s.store))
+	ctx, err := cmdtesting.RunCommand(c, model.NewDumpDBCommandForTest(&s.fake, s.store))
 	c.Assert(err, jc.ErrorIsNil)
 	s.fake.CheckCalls(c, []gitjujutesting.StubCall{
 		{"DumpModelDB", []interface{}{testing.ModelTag}},
 		{"Close", nil},
 	})
 
-	out := testing.Stdout(ctx)
+	out := cmdtesting.Stdout(ctx)
 	c.Assert(out, gc.Equals, `all-others: heaps of data
 models:
   name: testing

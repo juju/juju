@@ -11,8 +11,8 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/juju/crossmodel"
-	"github.com/juju/juju/testing"
 )
 
 type showSuite struct {
@@ -31,7 +31,7 @@ func (s *showSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *showSuite) runShow(c *gc.C, args ...string) (*cmd.Context, error) {
-	return testing.RunCommand(c, crossmodel.NewShowEndpointsCommandForTest(s.store, s.mockAPI), args...)
+	return cmdtesting.RunCommand(c, crossmodel.NewShowEndpointsCommandForTest(s.store, s.mockAPI), args...)
 }
 
 func (s *showSuite) TestShowNoUrl(c *gc.C) {
@@ -121,7 +121,7 @@ func (s *showSuite) assertShow(c *gc.C, args []string, expected string) {
 	context, err := s.runShow(c, args...)
 	c.Assert(err, jc.ErrorIsNil)
 
-	obtained := testing.Stdout(context)
+	obtained := cmdtesting.Stdout(context)
 	c.Assert(obtained, gc.Matches, expected)
 }
 
