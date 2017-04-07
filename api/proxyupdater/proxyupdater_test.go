@@ -23,19 +23,18 @@ type ProxyUpdaterSuite struct {
 
 var _ = gc.Suite(&ProxyUpdaterSuite{})
 
-func newAPI(c *gc.C, args []apitesting.CheckArgs) (*int, *proxyupdater.API) {
-	var called int
-	apiCaller := apitesting.CheckingAPICallerMultiArgs(c, args, &called, nil)
+func newAPI(c *gc.C, args ...apitesting.APICall) (*int, *proxyupdater.API) {
+	apiCaller := apitesting.APICallChecker(c, args...)
 	api, err := proxyupdater.NewAPI(apiCaller, names.NewUnitTag("u/0"))
 	c.Assert(err, gc.IsNil)
 	c.Assert(api, gc.NotNil)
-	c.Assert(called, gc.Equals, 0)
+	c.Assert(apiCaller.CallCount, gc.Equals, 0)
 
-	return &called, api
+	return &apiCaller.CallCount, api
 }
 
 func (s *ProxyUpdaterSuite) TestNewAPISuccess(c *gc.C) {
-	newAPI(c, nil)
+	newAPI(c)
 }
 
 func (s *ProxyUpdaterSuite) TestNilAPICallerFails(c *gc.C) {
@@ -45,9 +44,7 @@ func (s *ProxyUpdaterSuite) TestNilAPICallerFails(c *gc.C) {
 }
 
 func (s *ProxyUpdaterSuite) TestNilTagFails(c *gc.C) {
-	var args []apitesting.CheckArgs
-	var calls int
-	apiCaller := apitesting.CheckingAPICallerMultiArgs(c, args, &calls, nil)
+	apiCaller := apitesting.APICallChecker(c)
 	api, err := proxyupdater.NewAPI(apiCaller, nil)
 	c.Check(api, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, "tag is nil")
@@ -68,12 +65,11 @@ func (s *ProxyUpdaterSuite) TestWatchForProxyConfigAndAPIHostPortChanges(c *gc.C
 		return fake
 	})
 
-	args := []apitesting.CheckArgs{{
+	called, api := newAPI(c, apitesting.APICall{
 		Facade:  "ProxyUpdater",
 		Method:  "WatchForProxyConfigAndAPIHostPortChanges",
 		Results: res,
-	}}
-	called, api := newAPI(c, args)
+	})
 
 	watcher, err := api.WatchForProxyConfigAndAPIHostPortChanges()
 	c.Check(*called, jc.GreaterThan, 0)
@@ -96,16 +92,14 @@ func (s *ProxyUpdaterSuite) TestProxyConfig(c *gc.C) {
 			NoProxy: "NoProxy-apt",
 		},
 	}
-	expected := params.ProxyConfigResults{
-		Results: []params.ProxyConfigResult{conf},
-	}
 
-	args := []apitesting.CheckArgs{{
-		Facade:  "ProxyUpdater",
-		Method:  "ProxyConfig",
-		Results: expected,
-	}}
-	called, api := newAPI(c, args)
+	called, api := newAPI(c, apitesting.APICall{
+		Facade: "ProxyUpdater",
+		Method: "ProxyConfig",
+		Results: params.ProxyConfigResults{
+			Results: []params.ProxyConfigResult{conf},
+		},
+	})
 
 	proxySettings, APTProxySettings, err := api.ProxyConfig()
 	c.Assert(*called, gc.Equals, 1)
