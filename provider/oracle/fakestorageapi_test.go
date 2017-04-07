@@ -80,46 +80,47 @@ type FakeStorageAPI struct {
 }
 
 var (
+	DefaultAllStorageVolumes = response.AllStorageVolumes{
+		Result: []response.StorageVolume{
+			response.StorageVolume{
+				Account:           "/Compute-a432100/default",
+				Bootable:          true,
+				Description:       nil,
+				Hypervisor:        nil,
+				Imagelist:         "/Compute-a432100/sgiulitti@cloudbase.com/Ubuntu.16.04-LTS.amd64.20170307",
+				Imagelist_entry:   1,
+				Machineimage_name: "/Compute-a432100/sgiulitti@cloudbase.com/Ubuntu.16.04-LTS.amd64.20170307",
+				Managed:           true,
+				Name:              "/Compute-a432100/sgiulitti@cloudbase.com/JujuTools_storage",
+				Platform:          "linux",
+				Properties: []common.StoragePool{
+					"/oracle/public/storage/default",
+				},
+				Quota:            nil,
+				Readonly:         false,
+				Shared:           false,
+				Size:             10,
+				Snapshot:         nil,
+				Snapshot_account: "",
+				Snapshot_id:      "",
+				Status:           "Online",
+				Status_detail:    "",
+				Status_timestamp: "2017-04-06T14:23:54Z",
+				Storage_pool:     "/uscom-central-1/chi1-opc-c10r310-zfs-1-v1/storagepool/iscsi",
+				Tags:             []string{},
+				Uri:              "https://compute.uscom-central-1.oraclecloud.com/storage/volume/Compute-a432100/sgiulitti%40cloudbase.com/JujuTools_storage",
+				Writecache:       false,
+			},
+		},
+	}
+
 	DefaultFakeStorageAPI = &FakeStorageAPI{
 		FakeComposer: FakeComposer{
 			compose: "/Compute-acme/jack.jones@example.com/allowed_video_servers",
 		},
 		FakeStorageVolume: FakeStorageVolume{
-			All: response.AllStorageVolumes{
-				Result: []response.StorageVolume{
-					response.StorageVolume{
-						Account:           "/Compute-a432100/default",
-						Bootable:          true,
-						Description:       nil,
-						Hypervisor:        nil,
-						Imagelist:         "/Compute-a432100/sgiulitti@cloudbase.com/Ubuntu.16.04-LTS.amd64.20170307",
-						Imagelist_entry:   1,
-						Machineimage_name: "/Compute-a432100/sgiulitti@cloudbase.com/Ubuntu.16.04-LTS.amd64.20170307",
-						Managed:           true,
-						Name:              "/Compute-a432100/sgiulitti@cloudbase.com/JujuTools_storage",
-						Platform:          "linux",
-						Properties: []common.StoragePool{
-							"/oracle/public/storage/default",
-						},
-						Quota:            nil,
-						Readonly:         false,
-						Shared:           false,
-						Size:             53687091200,
-						Snapshot:         nil,
-						Snapshot_account: "",
-						Snapshot_id:      "",
-						Status:           "Online",
-						Status_detail:    "",
-						Status_timestamp: "2017-04-06T14:23:54Z",
-						Storage_pool:     "/uscom-central-1/chi1-opc-c10r310-zfs-1-v1/storagepool/iscsi",
-						Tags:             []string{},
-						Uri:              "https://compute.uscom-central-1.oraclecloud.com/storage/volume/Compute-a432100/sgiulitti%40cloudbase.com/JujuTools_storage",
-						Writecache:       false,
-					},
-				},
-			},
+			All:    DefaultAllStorageVolumes,
 			AllErr: nil,
-
 			StorageVolume: response.StorageVolume{
 				Account:           "/Compute-a432100/default",
 				Bootable:          true,
@@ -137,7 +138,7 @@ var (
 				Quota:            nil,
 				Readonly:         false,
 				Shared:           false,
-				Size:             53687091200,
+				Size:             10,
 				Snapshot:         nil,
 				Snapshot_account: "",
 				Snapshot_id:      "",
@@ -168,7 +169,7 @@ var (
 				Quota:            nil,
 				Readonly:         false,
 				Shared:           false,
-				Size:             53687091200,
+				Size:             10,
 				Snapshot:         nil,
 				Snapshot_account: "",
 				Snapshot_id:      "",
@@ -198,7 +199,7 @@ var (
 				Quota:            nil,
 				Readonly:         false,
 				Shared:           false,
-				Size:             53687091200,
+				Size:             10,
 				Snapshot:         nil,
 				Snapshot_account: "",
 				Snapshot_id:      "",
