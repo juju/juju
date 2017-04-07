@@ -29,8 +29,6 @@ type commandRegister interface {
 func RegisterAll(r commandRegister) {
 	register := func(c cmd.Command) {
 		switch c := c.(type) {
-		case modelcmd.ModelCommand:
-			r.Register(modelcmd.Wrap(c))
 		case modelcmd.CommandBase:
 			r.Register(modelcmd.WrapBase(c))
 		default:
