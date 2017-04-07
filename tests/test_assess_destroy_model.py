@@ -130,12 +130,9 @@ class TestAssess(TestCase):
         fake_client.bootstrap()
         fake_client.get_juju_output.return_value = list_model_initial
         fake_client.add_model.return_value = fake_client
-        with self.assertRaises(JujuAssertionError) as context:
+        pattern = 'Expected test-tmp-env got foo-tmp-env'
+        with self.assertRaisesRegexp(JujuAssertionError, pattern):
             add_model(fake_client)
-        self.assertTrue(
-            'Juju failed to switch to new model after creation. '
-            'Expected test-tmp-env got foo-tmp-env'
-            in context.exception.message)
 
     def test_destroy_model(self):
         fake_client = Mock(wraps=fake_juju_client())
@@ -153,11 +150,9 @@ class TestAssess(TestCase):
         fake_client = Mock(wraps=fake_juju_client())
         fake_client.bootstrap()
         fake_client.get_juju_output.return_value = list_model_initial
-        with self.assertRaises(JujuAssertionError) as context:
+        pattern = 'Juju failed to unset model after it was destroyed'
+        with self.assertRaisesRegexp(JujuAssertionError, pattern):
             destroy_model(fake_client, fake_client)
-        self.assertTrue(
-            'Juju failed to unset model after it was destroyed'
-            in context.exception.message)
 
     def test_switch_model(self):
         fake_client = Mock(wraps=fake_juju_client())
@@ -175,9 +170,6 @@ class TestAssess(TestCase):
         fake_client = Mock(wraps=fake_juju_client())
         fake_client.bootstrap()
         fake_client.get_juju_output.return_value = list_model_switch
-        with self.assertRaises(JujuAssertionError) as context:
+        pattern = 'Expected test-tmp-env got bar-tmp-env'
+        with self.assertRaisesRegexp(JujuAssertionError, pattern):
             switch_model(fake_client, 'foo-tmp-env', 'test-tmp-env')
-        self.assertTrue(
-            'Juju failed to switch back to existing model. '
-            'Expected test-tmp-env got bar-tmp-env'
-            in context.exception.message)
