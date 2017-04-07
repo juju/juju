@@ -31,6 +31,7 @@ import (
 	"github.com/juju/juju/api/application"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/charms"
+	"github.com/juju/juju/apiserver/params"
 	jujucharmstore "github.com/juju/juju/charmstore"
 	"github.com/juju/juju/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -167,8 +168,8 @@ func (s *UpgradeCharmSuite) runUpgradeCharm(c *gc.C, args ...string) (*cmd.Conte
 func (s *UpgradeCharmSuite) TestStorageConstraints(c *gc.C) {
 	_, err := s.runUpgradeCharm(c, "foo", "--storage", "bar=baz")
 	c.Assert(err, jc.ErrorIsNil)
-	s.charmUpgradeClient.CheckCallNames(c, "GetCharmURL", "SetCharm")
-	s.charmUpgradeClient.CheckCall(c, 1, "SetCharm", application.SetCharmConfig{
+	s.charmUpgradeClient.CheckCallNames(c, "GetCharmURL", "Get", "SetCharm")
+	s.charmUpgradeClient.CheckCall(c, 2, "SetCharm", application.SetCharmConfig{
 		ApplicationName: "foo",
 		CharmID: jujucharmstore.CharmID{
 			URL:     s.resolvedCharmURL,
@@ -203,8 +204,8 @@ func (s *UpgradeCharmSuite) TestConfigSettings(c *gc.C) {
 
 	_, err = s.runUpgradeCharm(c, "foo", "--config", configFile)
 	c.Assert(err, jc.ErrorIsNil)
-	s.charmUpgradeClient.CheckCallNames(c, "GetCharmURL", "SetCharm")
-	s.charmUpgradeClient.CheckCall(c, 1, "SetCharm", application.SetCharmConfig{
+	s.charmUpgradeClient.CheckCallNames(c, "GetCharmURL", "Get", "SetCharm")
+	s.charmUpgradeClient.CheckCall(c, 2, "SetCharm", application.SetCharmConfig{
 		ApplicationName: "foo",
 		CharmID: jujucharmstore.CharmID{
 			URL:     s.resolvedCharmURL,
@@ -728,6 +729,11 @@ func (m *mockCharmUpgradeClient) GetCharmURL(applicationName string) (*charm.URL
 func (m *mockCharmUpgradeClient) SetCharm(cfg application.SetCharmConfig) error {
 	m.MethodCall(m, "SetCharm", cfg)
 	return m.NextErr()
+}
+
+func (m *mockCharmUpgradeClient) Get(applicationName string) (*params.ApplicationGetResults, error) {
+	m.MethodCall(m, "Get", applicationName)
+	return &params.ApplicationGetResults{}, m.NextErr()
 }
 
 type mockModelConfigGetter struct {
