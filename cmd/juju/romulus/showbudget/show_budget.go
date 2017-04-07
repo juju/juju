@@ -17,7 +17,6 @@ import (
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 
-	"github.com/juju/juju/api/modelmanager"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/modelcmd"
 )
@@ -86,39 +85,8 @@ func (c *showBudgetCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Annotate(err, "failed to retrieve the budget")
 	}
-	c.resolveModelNames(budget)
 	err = c.out.Write(ctx, budget)
 	return errors.Trace(err)
-}
-
-// resolveModelNames is a best-effort method to resolve model names - if we
-// encounter any error, we do not issue an error.
-func (c *showBudgetCommand) resolveModelNames(budget *wireformat.BudgetWithAllocations) {
-	models := make([]names.ModelTag, len(budget.Allocations))
-	for i, allocation := range budget.Allocations {
-		models[i] = names.NewModelTag(allocation.Model)
-	}
-	client, err := newAPIClient(c)
-	if err != nil {
-		logger.Warningf("failed to open the API client: %v", err)
-		return
-	}
-	modelInfoSlice, err := client.ModelInfo(models)
-	if err != nil {
-		logger.Debugf("failed to retrieve model info: %v", err)
-		return
-	}
-	for j, info := range modelInfoSlice {
-		if info.Error != nil {
-			logger.Debugf("failed to get info for model %q: %v", models[j], info.Error)
-			continue
-		}
-		for i, allocation := range budget.Allocations {
-			if info.Result.UUID == allocation.Model {
-				budget.Allocations[i].Model = info.Result.Name
-			}
-		}
-	}
 }
 
 // formatTabular returns a tabular view of available budgets.
@@ -145,16 +113,6 @@ func formatTabular(writer io.Writer, value interface{}) error {
 	table.AddRow("Unallocated", "", b.Total.Unallocated, "")
 	fmt.Fprint(writer, table)
 	return nil
-}
-
-var newAPIClient = newAPIClientImpl
-
-func newAPIClientImpl(c *showBudgetCommand) (APIClient, error) {
-	root, err := c.NewControllerAPIRoot()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return modelmanager.NewClient(root), nil
 }
 
 type APIClient interface {

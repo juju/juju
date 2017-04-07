@@ -9,16 +9,7 @@ import (
 
 var (
 	NewBudgetAPIClient = &newBudgetAPIClient
-	NewAPIClient       = &newAPIClient
 )
-
-// APIClientFnc returns a function that returns the provided APIClient
-// and can be used to patch the NewAPIClient variable in tests
-func NewAPIClientFnc(api APIClient) func(*showBudgetCommand) (APIClient, error) {
-	return func(*showBudgetCommand) (APIClient, error) {
-		return api, nil
-	}
-}
 
 // BudgetAPIClientFnc returns a function that returns the provided budgetAPIClient
 // and can be used to patch the NewBudgetAPIClient variable for tests.
