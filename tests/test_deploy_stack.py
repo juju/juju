@@ -71,7 +71,6 @@ from jujupy import (
     )
 
 from jujupy.client import (
-    NoopCondition,
     CommandTime,
 )
 from jujupy.configuration import (

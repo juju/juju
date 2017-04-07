@@ -70,6 +70,7 @@ from jujupy.client import (
     make_safe_config,
     ModelClient,
     NameNotAccepted,
+    NoActiveModel,
     NoopCondition,
     NoProvider,
     parse_new_state_server_from_error,
@@ -320,6 +321,14 @@ class TestJuju2Backend(TestCase):
             mock_popen.return_value.returncode = 0
             result = backend.get_active_model('/foo/bar')
         self.assertEqual(('ctrl1', 'user1', 'model1'), result)
+
+    def test_get_active_model_none(self):
+        backend = Juju2Backend('/bin/path', '2.0', set(), debug=False,
+                               soft_deadline=None)
+        with patch('subprocess.Popen', autospec=True, return_value=FakePopen(
+                   '', 'ERROR no currently specified model', 1)):
+            with self.assertRaises(NoActiveModel):
+                backend.get_active_model('/foo/bar')
 
 
 def backend_call(client, cmd, args, model=None, check=True, timeout=None,
