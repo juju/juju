@@ -283,8 +283,9 @@ class TestFindFileKeys(StrictTestCase):
         match_key = FakeKey(275, 'job-foo', 27, 'file-pattern')
         wrong_name = FakeKey(275, 'job-foo', 27, 'file-pat+ern')
         wrong_job = FakeKey(275, 'job.foo', 27, 'file-pattern')
+        wrong_job2 = FakeKey(275, 'job-foo-1-8', 27, 'file-pattern')
         wrong_rb = FakeKey(276, 'job-foo', 27, 'file-pattern')
-        keys = [match_key, wrong_name, wrong_job, wrong_rb]
+        keys = [match_key, wrong_name, wrong_job, wrong_rb, wrong_job2]
         bucket = FakeBucket(keys)
         filtered = find_file_keys(
             bucket, 275, 'job-foo', 'file-pat+ern')
