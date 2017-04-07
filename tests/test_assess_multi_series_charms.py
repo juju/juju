@@ -94,7 +94,7 @@ class TestAssess(TestCase):
         charm = os.path.join(charm_dir, 'trusty', 'dummy')
         calls = [
             call(charm=charm, force=False, repository=charm_dir,
-                 series='precise', service='test0'),
+                 series='xenial', service='test0'),
             call(charm=charm, force=False, repository=charm_dir,
                  series=None, service='test1'),
             call(charm=charm, force=False, repository=charm_dir,
@@ -102,7 +102,7 @@ class TestAssess(TestCase):
             call(charm=charm, force=False, repository=charm_dir,
                  series='xenial', service='test3'),
             call(charm=charm, force=True, repository=charm_dir,
-                 series='precise', service='test4')
+                 series='trusty', service='test4')
         ]
         self.assertEqual(mock_client.deploy.mock_calls, calls)
         td_mock.assert_called_once_with()
@@ -110,7 +110,7 @@ class TestAssess(TestCase):
             call(mock_client, machine='0', series=None),
             call(mock_client, machine='1', series='trusty'),
             call(mock_client, machine='2', series='xenial'),
-            call(mock_client, machine='3', series='precise')]
+            call(mock_client, machine='3', series='trusty')]
         self.assertEqual(cs_mock.mock_calls, cs_calls)
 
     def test_assess_multi_series_charms_juju1x(self):

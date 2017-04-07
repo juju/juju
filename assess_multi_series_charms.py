@@ -11,9 +11,9 @@ Supported series are added to charm metadata as follows:
     summary: "Great software"
     description: It works
     series:
+       - xenial
        - trusty
-       - precise
-       - wily
+       - yakkety
 
 The default series is the first in the list:
 
@@ -23,12 +23,12 @@ should deploy a mycharm service running on trusty.
 
 A different, non-default series may be specified:
 
-    juju deploy mycharm --series precise
+    juju deploy mycharm --series xenial
 
 It is possible to force the charm to deploy using an unsupported series
 (so long as the underlying OS is compatible):
 
-    juju deploy mycharm --series xenial --force
+    juju deploy mycharm --series zesty --force
 
 """
 from __future__ import print_function
@@ -71,7 +71,7 @@ def assess_multi_series_charms(client):
     :return: None
     """
     tests = [
-        Test(series="precise", service='test0', force=False, success=False,
+        Test(series="xenial", service='test0', force=False, success=False,
              machine=None, juju1x_supported=False),
         Test(series=None, service='test1', force=False, success=True,
              machine='0', juju1x_supported=True),
@@ -79,7 +79,7 @@ def assess_multi_series_charms(client):
              machine='1', juju1x_supported=True),
         Test(series="xenial", service='test3', force=False, success=True,
              machine='2', juju1x_supported=False),
-        Test(series="precise", service='test4', force=True, success=True,
+        Test(series="trusty", service='test4', force=True, success=True,
              machine='3', juju1x_supported=False),
     ]
     with temp_dir() as repository:
