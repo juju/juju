@@ -206,7 +206,7 @@ func Main(args []string) int {
 
 	ctx, err := cmd.DefaultContext()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		logger.Errorf("error: %v\n", err)
 		os.Exit(exit_err)
 	}
 
@@ -230,7 +230,7 @@ func Main(args []string) int {
 		code, err = jujuCMain(commandName, ctx, args)
 	}
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		logger.Errorf("%v\n", err)
 	}
 	return code
 }

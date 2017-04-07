@@ -34,7 +34,7 @@ func (s *ApplicationVersionSetSuite) TestApplicationVersionSetNoArguments(c *gc.
 	code := cmd.Main(com, ctx, nil)
 	c.Check(code, gc.Equals, 2)
 	c.Check(bufferString(ctx.Stdout), gc.Equals, "")
-	c.Check(bufferString(ctx.Stderr), gc.Equals, "error: no version specified\n")
+	c.Check(bufferString(ctx.Stderr), gc.Equals, "ERROR no version specified\n")
 	c.Check(hctx.info.Version.WorkloadVersion, gc.Equals, "")
 }
 
@@ -54,7 +54,7 @@ func (s *ApplicationVersionSetSuite) TestApplicationVersionSetError(c *gc.C) {
 	code := cmd.Main(com, ctx, []string{"cannae"})
 	c.Check(code, gc.Equals, 1)
 	c.Check(bufferString(ctx.Stdout), gc.Equals, "")
-	c.Check(bufferString(ctx.Stderr), gc.Equals, "error: uh oh spaghettio\n")
+	c.Check(bufferString(ctx.Stderr), gc.Equals, "ERROR uh oh spaghettio\n")
 	c.Check(hctx.info.Version.WorkloadVersion, gc.Equals, "")
 }
 

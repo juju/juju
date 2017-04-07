@@ -107,5 +107,5 @@ func (s *JujuRebootSuite) TestRebootInActions(c *gc.C) {
 	cmdCtx := testing.Context(c)
 	code := cmd.Main(com, cmdCtx, nil)
 	c.Check(code, gc.Equals, 1)
-	c.Assert(testing.Stderr(cmdCtx), gc.Equals, "error: juju-reboot is not supported when running an action.\n")
+	c.Assert(testing.Stderr(cmdCtx), gc.Equals, "ERROR juju-reboot is not supported when running an action.\n")
 }

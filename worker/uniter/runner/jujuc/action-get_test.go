@@ -46,7 +46,7 @@ func (s *ActionGetSuite) TestNonActionRunFail(c *gc.C) {
 	code := cmd.Main(com, ctx, []string{})
 	c.Check(code, gc.Equals, 1)
 	c.Check(bufferString(ctx.Stdout), gc.Equals, "")
-	expect := fmt.Sprintf(`(\n)*error: %s\n`, "ActionParams queried from non-Action hook context")
+	expect := fmt.Sprintf(`(\n)*ERROR %s\n`, "ActionParams queried from non-Action hook context")
 	c.Check(bufferString(ctx.Stderr), gc.Matches, expect)
 }
 
@@ -262,7 +262,7 @@ func (s *ActionGetSuite) TestActionGet(c *gc.C) {
 			c.Check(bufferString(ctx.Stderr), gc.Equals, "")
 		} else {
 			c.Check(bufferString(ctx.Stdout), gc.Equals, "")
-			expect := fmt.Sprintf(`(\n)*error: %s\n`, t.errMsg)
+			expect := fmt.Sprintf(`(\n)*ERROR %s\n`, t.errMsg)
 			c.Check(bufferString(ctx.Stderr), gc.Matches, expect)
 		}
 	}

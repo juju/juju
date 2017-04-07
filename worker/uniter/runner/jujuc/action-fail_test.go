@@ -69,7 +69,7 @@ func (s *ActionFailSuite) TestActionFail(c *gc.C) {
 	}, {
 		summary: "extra arguments are an error, leaving the action not failed",
 		command: []string{"a failure message", "something else"},
-		errMsg:  "error: unrecognized args: [\"something else\"]\n",
+		errMsg:  "ERROR unrecognized args: [\"something else\"]\n",
 		code:    2,
 	}}
 
@@ -94,7 +94,7 @@ func (s *ActionFailSuite) TestNonActionSetActionFailedFails(c *gc.C) {
 	ctx := testing.Context(c)
 	code := cmd.Main(com, ctx, []string{"oops"})
 	c.Check(code, gc.Equals, 1)
-	c.Check(bufferString(ctx.Stderr), gc.Equals, "error: not running an action\n")
+	c.Check(bufferString(ctx.Stderr), gc.Equals, "ERROR not running an action\n")
 	c.Check(bufferString(ctx.Stdout), gc.Equals, "")
 }
 

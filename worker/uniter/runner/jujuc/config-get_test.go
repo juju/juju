@@ -179,5 +179,5 @@ func (s *ConfigGetSuite) TestAllPlusKey(c *gc.C) {
 	ctx := testing.Context(c)
 	code := cmd.Main(com, ctx, []string{"--all", "--format", "json", "monsters"})
 	c.Assert(code, gc.Equals, 2)
-	c.Assert(bufferString(ctx.Stderr), gc.Equals, "error: cannot use argument --all together with key \"monsters\"\n")
+	c.Assert(bufferString(ctx.Stderr), gc.Equals, "ERROR cannot use argument --all together with key \"monsters\"\n")
 }

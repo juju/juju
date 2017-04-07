@@ -141,7 +141,7 @@ func (s *configCommandSuite) TestGetConfigKeyNotFound(c *gc.C) {
 	ctx := coretesting.Context(c)
 	code := cmd.Main(application.NewConfigCommandForTest(s.fake), ctx, []string{"dummy-application", "invalid"})
 	c.Check(code, gc.Equals, 1)
-	c.Assert(ctx.Stderr.(*bytes.Buffer).String(), gc.Equals, "error: key \"invalid\" not found in \"dummy-application\" application settings.\n")
+	c.Assert(ctx.Stderr.(*bytes.Buffer).String(), gc.Equals, "ERROR key \"invalid\" not found in \"dummy-application\" application settings.\n")
 	c.Assert(ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, "")
 }
 
@@ -231,24 +231,24 @@ func (s *configCommandSuite) TestSetSameValue(c *gc.C) {
 
 func (s *configCommandSuite) TestSetOptionFail(c *gc.C) {
 	s.assertSetFail(c, s.dir, []string{"foo", "bar"},
-		"error: can only retrieve a single value, or all values\n")
-	s.assertSetFail(c, s.dir, []string{"=bar"}, "error: expected \"key=value\", got \"=bar\"\n")
+		"ERROR can only retrieve a single value, or all values\n")
+	s.assertSetFail(c, s.dir, []string{"=bar"}, "ERROR expected \"key=value\", got \"=bar\"\n")
 	s.assertSetFail(c, s.dir, []string{
 		"username=@missing.txt",
-	}, "error: cannot read option from file \"missing.txt\": .* "+utils.NoSuchFileErrRegexp+"\n")
+	}, "ERROR cannot read option from file \"missing.txt\": .* "+utils.NoSuchFileErrRegexp+"\n")
 	s.assertSetFail(c, s.dir, []string{
 		"username=@big.txt",
-	}, "error: size of option file is larger than 5M\n")
+	}, "ERROR size of option file is larger than 5M\n")
 	s.assertSetFail(c, s.dir, []string{
 		"username=@invalid.txt",
-	}, "error: value for option \"username\" contains non-UTF-8 sequences\n")
+	}, "ERROR value for option \"username\" contains non-UTF-8 sequences\n")
 }
 
 func (s *configCommandSuite) TestSetConfig(c *gc.C) {
 	s.assertSetFail(c, s.dir, []string{
 		"--file",
 		"missing.yaml",
-	}, "error.* "+utils.NoSuchFileErrRegexp+"\n")
+	}, "ERROR.* "+utils.NoSuchFileErrRegexp+"\n")
 
 	ctx := coretesting.ContextForDir(c, s.dir)
 	code := cmd.Main(application.NewConfigCommandForTest(s.fake), ctx, []string{
