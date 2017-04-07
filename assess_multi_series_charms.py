@@ -13,7 +13,7 @@ Supported series are added to charm metadata as follows:
     series:
        - xenial
        - trusty
-       - yakkety
+       - angsty
 
 The default series is the first in the list:
 
@@ -28,7 +28,7 @@ A different, non-default series may be specified:
 It is possible to force the charm to deploy using an unsupported series
 (so long as the underlying OS is compatible):
 
-    juju deploy mycharm --series zesty --force
+    juju deploy mycharm --series angsty --force
 
 """
 from __future__ import print_function
