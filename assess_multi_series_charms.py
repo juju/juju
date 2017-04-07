@@ -72,7 +72,7 @@ def assess_multi_series_charms(client, devel_series):
     :return: None
     """
     tests = [
-        Test(series="xenial", service='test0', force=False, success=False,
+        Test(series=devel_series, service='test0', force=False, success=False,
              machine=None, juju1x_supported=False),
         Test(series=None, service='test1', force=False, success=True,
              machine='0', juju1x_supported=True),
@@ -135,7 +135,7 @@ def parse_args(argv):
         description="Test multi series charm feature")
     add_basic_testing_arguments(parser)
     parser.add_argument(
-        '--devel-series', default="xenial",
+        '--devel-series', default="yakkety",
         help="The series to use when testing new and unsupported scenarios.")
     return parser.parse_args(argv)
 
