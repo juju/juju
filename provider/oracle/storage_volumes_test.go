@@ -138,5 +138,189 @@ func (o *oracleVolumeSource) TestCreatevolumesWithErrors(c *gc.C) {
 			c.Assert(val.Error, gc.NotNil)
 		}
 	}
+}
 
+func (o *oracleVolumeSource) TestListVolumes(c *gc.C) {
+	source := o.NewVolumeSource(c, DefaultFakeStorageAPI)
+	volumes, err := source.ListVolumes()
+	c.Assert(err, gc.IsNil)
+	c.Assert(volumes, gc.NotNil)
+}
+
+func (o *oracleVolumeSource) TestListVolumesWithErrors(c *gc.C) {
+	for _, fake := range []*FakeStorageAPI{
+		&FakeStorageAPI{
+			FakeComposer: FakeComposer{
+				compose: "/Compute-acme/jack.jones@example.com/allowed_video_servers",
+			},
+			FakeStorageVolume: FakeStorageVolume{
+				AllErr: errors.New("FakeStorageVolumeErr"),
+			},
+		},
+	} {
+		source := o.NewVolumeSource(c, fake)
+		_, err := source.ListVolumes()
+		c.Assert(err, gc.NotNil)
+	}
+}
+
+func (o *oracleVolumeSource) TestDescribeVolumes(c *gc.C) {
+	source := o.NewVolumeSource(c, DefaultFakeStorageAPI)
+	volumes, err := source.DescribeVolumes([]string{})
+	c.Assert(err, gc.IsNil)
+	c.Assert(volumes, gc.NotNil)
+
+	volumes, err = source.DescribeVolumes([]string{"JujuTools_storage"})
+	c.Assert(err, gc.IsNil)
+	c.Assert(volumes, gc.NotNil)
+}
+
+func (o *oracleVolumeSource) TestDescribeVolumesWithErrors(c *gc.C) {
+	for _, fake := range []*FakeStorageAPI{
+		&FakeStorageAPI{
+			FakeComposer: FakeComposer{
+				compose: "/Compute-acme/jack.jones@example.com/allowed_video_servers",
+			},
+			FakeStorageVolume: FakeStorageVolume{
+				AllErr: errors.New("FakeStorageVolumeErr"),
+			},
+		},
+	} {
+		source := o.NewVolumeSource(c, fake)
+		_, err := source.DescribeVolumes([]string{"JujuTools_storage"})
+		c.Assert(err, gc.NotNil)
+	}
+}
+
+func (o *oracleVolumeSource) TestDestroyVolumes(c *gc.C) {
+	source := o.NewVolumeSource(c, DefaultFakeStorageAPI)
+	errs, err := source.DestroyVolumes([]string{})
+	c.Assert(err, gc.IsNil)
+	c.Assert(errs, gc.NotNil)
+}
+
+func (o *oracleVolumeSource) TestDestroyVolumesWithErrors(c *gc.C) {
+	for _, fake := range []*FakeStorageAPI{
+		&FakeStorageAPI{
+			FakeComposer: FakeComposer{
+				compose: "/Compute-acme/jack.jones@example.com/allowed_video_servers",
+			},
+			FakeStorageVolume: FakeStorageVolume{
+				DeleteErr: errors.New("FakeStorageVolumeErr"),
+			},
+		},
+	} {
+		source := o.NewVolumeSource(c, fake)
+		errs, err := source.DestroyVolumes([]string{"JujuTools_storage"})
+		c.Assert(err, gc.IsNil)
+		for _, val := range errs {
+			c.Assert(val, gc.NotNil)
+		}
+
+	}
+}
+
+func (o *oracleVolumeSource) TestValidateVolumeParamsWithError(c *gc.C) {
+	source := o.NewVolumeSource(c, nil)
+	err := source.ValidateVolumeParams(
+		storage.VolumeParams{
+			Size: uint64(3921739812739812739),
+		},
+	)
+	c.Assert(err, gc.NotNil)
+}
+
+func (o *oracleVolumeSource) TestValidateVolumeParams(c *gc.C) {
+	source := o.NewVolumeSource(c, nil)
+	err := source.ValidateVolumeParams(
+		storage.VolumeParams{
+			Size: uint64(9999),
+		},
+	)
+	c.Assert(err, gc.IsNil)
+}
+
+func (o *oracleVolumeSource) TestAttachVolumes(c *gc.C) {
+	// TODO(sgiulitti) in order to make this to work we need to mock up the
+	// internal api of environment
+	source := o.NewVolumeSource(c, DefaultFakeStorageAPI)
+	_, err := source.AttachVolumes([]storage.VolumeAttachmentParams{
+		storage.VolumeAttachmentParams{
+			AttachmentParams: storage.AttachmentParams{
+				Provider:   oracle.DefaultTypes[0],
+				InstanceId: "JujuTools_storage",
+				ReadOnly:   false,
+			},
+			VolumeId: "1",
+		},
+	})
+	c.Assert(err, gc.NotNil)
+	//c.Assert(results, gc.NotNil)
+}
+
+func (o *oracleVolumeSource) TestDetachVolumes(c *gc.C) {
+	source := o.NewVolumeSource(c, DefaultFakeStorageAPI)
+	errs, err := source.DetachVolumes([]storage.VolumeAttachmentParams{
+		storage.VolumeAttachmentParams{
+			AttachmentParams: storage.AttachmentParams{
+				Provider:   oracle.DefaultTypes[0],
+				InstanceId: "JujuTools_storage",
+				ReadOnly:   false,
+			},
+			VolumeId: "1",
+		},
+	})
+	c.Assert(err, gc.IsNil)
+	c.Assert(errs, gc.NotNil)
+}
+
+func (o *oracleVolumeSource) TestDetachVolumesWithErrors(c *gc.C) {
+	for _, fake := range []*FakeStorageAPI{
+		&FakeStorageAPI{
+			FakeComposer: FakeComposer{
+				compose: "/Compute-acme/jack.jones@example.com/allowed_video_servers",
+			},
+			FakeStorageAttachment: FakeStorageAttachment{
+				AllErr: errors.New("FakeStorageAttachmentErr"),
+			},
+		},
+		// &FakeStorageAPI{
+		// 	FakeComposer: FakeComposer{
+		// 		compose: "/Compute-acme/jack.jones@example.com/allowed_video_servers",
+		// 	},
+		// 	FakeStorageAttachment: FakeStorageAttachment{
+		// 		All: response.AllStorageAttachments{
+		// 			Result: []response.StorageAttachment{
+		// 				response.StorageAttachment{
+		// 					Account:             nil,
+		// 					Hypervisor:          nil,
+		// 					Index:               1,
+		// 					Instance_name:       "/Compute-a432100/sgiulitti@cloudbase.com/JujuTools/ebc4ce91-56bb-4120-ba78-13762597f837",
+		// 					Storage_volume_name: "/Compute-a432100/sgiulitti@cloudbase.com/JujuTools_storage",
+		// 					Name:                "/Compute-a432100/sgiulitti@cloudbase.com/JujuTools/ebc4ce91-56bb-4120-ba78-13762597f837/1f90e657-f852-45ad-afbf-9a94f640a7ae",
+		// 					Readonly:            false,
+		// 					State:               "attached",
+		// 					Uri:                 "https://compute.uscom-central-1.oraclecloud.com/storage/attachment/Compute-a432100/sgiulitti%40cloudbase.com/JujuTools/ebc4ce91-56bb-4120-ba78-13762597f837/1f90e657-f852-45ad-afbf-9a94f640a7ae",
+		// 				},
+		// 			},
+		// 		},
+		//
+		// 		DeleteErr: errors.New("FakeStorageAttachmentErr"),
+		// 	},
+		// },
+	} {
+		source := o.NewVolumeSource(c, fake)
+		_, err := source.DetachVolumes([]storage.VolumeAttachmentParams{
+			storage.VolumeAttachmentParams{
+				AttachmentParams: storage.AttachmentParams{
+					Provider:   oracle.DefaultTypes[0],
+					InstanceId: "JujuTools_storage",
+					ReadOnly:   false,
+				},
+				VolumeId: "1",
+			},
+		})
+		//TODOOOO
+		c.Assert(err, gc.NotNil)
+	}
 }

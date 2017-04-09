@@ -293,10 +293,10 @@ func (s *oracleVolumeSource) DescribeVolumes(volIds []string) ([]storage.Describ
 		},
 	}
 
-	result := make([]storage.DescribeVolumesResult, 0, len(volIds))
+	result := make([]storage.DescribeVolumesResult, len(volIds), len(volIds))
 	volumes, err := s.api.AllStorageVolumes(filter)
 	if err != nil {
-		return nil, errors.Annotatef(err, "descrie volumes")
+		return nil, errors.Annotatef(err, "describe volumes")
 	}
 	asMap := map[string]ociResponse.StorageVolume{}
 	for _, val := range volumes.Result {
