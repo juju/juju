@@ -138,6 +138,10 @@ class AuthNotAccepted(Exception):
     """Raised when the provided auth was not accepted."""
 
 
+class NoActiveModel(Exception):
+    """Raised when no active model could be found."""
+
+
 def get_timeout_prefix(duration, timeout_path=None):
     """Return extra arguments to run a command with a timeout."""
     if timeout_path is None:
@@ -1286,8 +1290,14 @@ class Juju2Backend:
 
     def get_active_model(self, juju_data_dir):
         """Determine the active model in a juju data dir."""
-        current = self.get_juju_output(
-            'switch', (), set(), juju_data_dir, model=None).decode('ascii')
+        try:
+            current = self.get_juju_output(
+                'switch', (), set(), juju_data_dir, model=None).decode('ascii')
+        except subprocess.CalledProcessError as e:
+            if b'no currently specified model' not in e.stderr:
+                raise
+            raise NoActiveModel(
+                'No active model for {}'.format(juju_data_dir))
         controller_name, user_model = current.split(':', 1)
         user_name, model_name = user_model.split('/', 1)
         return controller_name, user_name, model_name.rstrip('\n')
@@ -1452,6 +1462,7 @@ class WaitVersion(BaseCondition):
 
 
 class WaitAgentsStarted(BaseCondition):
+    """Wait until all agents are idle or started."""
 
     def __init__(self, timeout=1200):
         super(WaitAgentsStarted, self).__init__(timeout)
