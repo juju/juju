@@ -1343,7 +1343,7 @@ func (u *Unit) Watch() NotifyWatcher {
 	return newEntityWatcher(u.st, unitsC, u.doc.DocID)
 }
 
-// Watch returns a watcher for observing changes to an model.
+// Watch returns a watcher for observing changes to a model.
 func (e *Model) Watch() NotifyWatcher {
 	return newEntityWatcher(e.st, modelsC, e.doc.UUID)
 }
@@ -1364,6 +1364,12 @@ func (st *State) WatchRestoreInfoChanges() NotifyWatcher {
 // Config to change.
 func (st *State) WatchForModelConfigChanges() NotifyWatcher {
 	return newEntityWatcher(st, settingsC, st.docID(modelGlobalKey))
+}
+
+// WatchModelEntityReferences returns a NotifyWatcher waiting for the Model
+// Entity references to change for specified model.
+func (st *State) WatchModelEntityReferences(mUUID string) NotifyWatcher {
+	return newEntityWatcher(st, modelEntityRefsC, mUUID)
 }
 
 // WatchForUnitAssignment watches for new services that request units to be

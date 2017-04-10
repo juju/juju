@@ -21,24 +21,13 @@ type mockState struct {
 	env      *mockModel
 	removed  bool
 	isSystem bool
-	machines []undertaker.Machine
-	services []undertaker.Service
+
+	watcher state.NotifyWatcher
 }
 
 var _ undertaker.State = (*mockState)(nil)
 
 func newMockState(envOwner names.UserTag, envName string, isSystem bool) *mockState {
-	machine := &mockMachine{
-		watcher: &mockWatcher{
-			changes: make(chan struct{}, 1),
-		},
-	}
-	service := &mockService{
-		watcher: &mockWatcher{
-			changes: make(chan struct{}, 1),
-		},
-	}
-
 	env := mockModel{
 		owner: envOwner,
 		name:  envName,
@@ -49,8 +38,9 @@ func newMockState(envOwner names.UserTag, envName string, isSystem bool) *mockSt
 	m := &mockState{
 		env:      &env,
 		isSystem: isSystem,
-		machines: []undertaker.Machine{machine},
-		services: []undertaker.Service{service},
+		watcher: &mockWatcher{
+			changes: make(chan struct{}, 1),
+		},
 	}
 	return m
 }
@@ -78,14 +68,6 @@ func (m *mockState) ProcessDyingModel() error {
 	return nil
 }
 
-func (m *mockState) AllMachines() ([]undertaker.Machine, error) {
-	return m.machines, nil
-}
-
-func (m *mockState) AllApplications() ([]undertaker.Service, error) {
-	return m.services, nil
-}
-
 func (m *mockState) IsController() bool {
 	return m.isSystem
 }
@@ -103,6 +85,14 @@ func (m *mockState) FindEntity(tag names.Tag) (state.Entity, error) {
 		return m.env, nil
 	}
 	return nil, errors.NotFoundf("entity with tag %q", tag.String())
+}
+
+func (m *mockState) WatchModelEntityReferences(mUUID string) state.NotifyWatcher {
+	return m.watcher
+}
+
+func (m *mockState) ModelUUID() string {
+	return m.env.UUID()
 }
 
 // mockModel implements Model interface and allows inspection of called
@@ -151,24 +141,6 @@ func (m *mockModel) SetStatus(sInfo status.StatusInfo) error {
 	m.statusInfo = sInfo.Message
 	m.statusData = sInfo.Data
 	return nil
-}
-
-type mockMachine struct {
-	watcher state.NotifyWatcher
-	err     error
-}
-
-func (m *mockMachine) Watch() state.NotifyWatcher {
-	return m.watcher
-}
-
-type mockService struct {
-	watcher state.NotifyWatcher
-	err     error
-}
-
-func (s *mockService) Watch() state.NotifyWatcher {
-	return s.watcher
 }
 
 type mockWatcher struct {

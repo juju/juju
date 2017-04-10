@@ -143,6 +143,10 @@ type modelMeterStatusdoc struct {
 
 // modelEntityRefsDoc records references to the top-level entities
 // in the model.
+// (anastasiamac 2017-04-10) This is also used to determine if a model can be destroyed.
+// Consequently, any changes, especially additions of entities, here,
+// would need to be reflected, at least, in Model.checkEmpty(...) as well as
+// Model.destroyOps(...)
 type modelEntityRefsDoc struct {
 	UUID string `bson:"_id"`
 
@@ -910,6 +914,8 @@ func (m *Model) destroyOps(ensureNoHostedModels, ensureEmpty bool) ([]txn.Op, er
 			Assert: bson.D{
 				{"machines", bson.D{{"$size", 0}}},
 				{"applications", bson.D{{"$size", 0}}},
+				{"volumes", bson.D{{"$size", 0}}},
+				{"filesystems", bson.D{{"$size", 0}}},
 			},
 		}}
 		if !m.isControllerModel() {
@@ -1040,16 +1046,22 @@ func (m *Model) checkEmpty() error {
 		}
 		return errors.Annotatef(err, "getting entity references for model %s", m.UUID())
 	}
+	// These errors could be potentially swallowed as we re-try to destroy model.
+	// Let's, at least, log them for observation.
 	if n := len(doc.Machines); n > 0 {
+		logger.Infof("model is still not empty, has machines: %v", doc.Machines)
 		return errors.Errorf("model not empty, found %d machine(s)", n)
 	}
 	if n := len(doc.Applications); n > 0 {
+		logger.Infof("model is still not empty, has applications: %v", doc.Applications)
 		return errors.Errorf("model not empty, found %d application(s)", n)
 	}
 	if n := len(doc.Volumes); n > 0 {
+		logger.Infof("model is still not empty, has volumes: %v", doc.Volumes)
 		return errors.Errorf("model not empty, found %d volume(s)", n)
 	}
 	if n := len(doc.Filesystems); n > 0 {
+		logger.Infof("model is still not empty, has file systems: %v", doc.Filesystems)
 		return errors.Errorf("model not empty, found %d filesystem(s)", n)
 	}
 	return nil
