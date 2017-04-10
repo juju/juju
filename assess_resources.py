@@ -8,6 +8,7 @@ import os
 import sys
 from tempfile import NamedTemporaryFile
 
+from assess_storage import assert_dict_is_subset
 from deploy_stack import (
     BootstrapManager,
 )
@@ -51,14 +52,8 @@ def verify_status(status, resource_id, name, fingerprint, size):
                 service_app_id = 'applicationId'
             expected_values = _resource_info(name, fingerprint,
                                              size, service_app_id)
-            if resource['expected'] != expected_values:
-                raise JujuAssertionError(
-                    'Unexpected resource list values: {} Expected: {}'.format(
-                        resource['expected'], expected_values))
-            if resource['unit'] != expected_values:
-                raise JujuAssertionError(
-                    'Unexpected unit resource list values: {} Expected: '
-                    '{}'.format(resource['unit'], expected_values))
+            assert_dict_is_subset(expected_values, resource['expected'])
+            assert_dict_is_subset(expected_values, resource['unit'])
             break
     else:
         raise JujuAssertionError('Resource id not found.')
