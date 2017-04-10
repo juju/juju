@@ -48,6 +48,7 @@ func activationCmd(oldContent, newContent string, params *ActivationParams) stri
 		i++
 	}
 	sort.Strings(deviceNames)
+	// The 'magic' value 25694 here causes the script to sleep for 30 seconds, simulating timeout
 	return fmt.Sprintf(`
 #!/bin/bash
 
@@ -55,7 +56,7 @@ set -eu
 
 : ${DRYRUN:=}
 
-if [ $DRYRUN ] && [ %[2]d == 10 ]; then sleep %[2]d; fi
+if [ $DRYRUN ] && [ %[2]d == 25694 ]; then sleep 30; fi
 
 write_backup() {
     cat << 'EOF' > "$1"

@@ -160,3 +160,22 @@ func (*BridgeSuite) TestActivateWithParsingError(c *gc.C) {
 		Message:  "missing device name",
 	})
 }
+
+func (*BridgeSuite) TestActivateWithTimeout(c *gc.C) {
+	filename := "testdata/TestInputSourceStanza/interfaces"
+
+	params := debinterfaces.ActivationParams{
+		BackupFilename:   filename + ".backup",
+		Clock:            clock.WallClock,
+		Devices:          map[string]string{"eth0": "br-eth0", "eth1": "br-eth1"},
+		DryRun:           true,
+		Filename:         filename,
+		// magic value causing the bash script to sleep
+		ReconfigureDelay: 25694,
+		Timeout:          10,
+	}
+
+	_, err := debinterfaces.BridgeAndActivate(params)
+        c.Assert(err, gc.NotNil)
+        c.Assert(err, gc.ErrorMatches, "bridge activation error: command cancelled")
+}
