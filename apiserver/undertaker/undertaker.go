@@ -94,10 +94,7 @@ func (u *UndertakerAPI) modelEntitiesWatcher() params.NotifyWatchResult {
 		return nothing
 	}
 
-	// (anastasiamac 2017-04-10) I do not know what watcher is best suited here.
-	// Keeping multi-notify watcher for historical reasons for now.
-	watch := common.NewMultiNotifyWatcher(u.st.WatchModelEntitiesReferences(m.UUID()))
-
+	watch := u.st.WatchModelEntityReferences(m.UUID())
 	if _, ok := <-watch.Changes(); ok {
 		return params.NotifyWatchResult{
 			NotifyWatcherId: u.resources.Register(watch),
