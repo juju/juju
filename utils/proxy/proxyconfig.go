@@ -163,6 +163,9 @@ var portMap = map[string]string{
 func canonicalAddr(url *url.URL) string {
 	addr := url.Host
 	if !hasPort(addr) {
+		if strings.HasPrefix(addr, "[") && strings.HasSuffix(addr, "]") {
+			addr = addr[1 : len(addr)-1]
+		}
 		return net.JoinHostPort(addr, portMap[url.Scheme])
 	}
 	return addr
