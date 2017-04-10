@@ -195,6 +195,15 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 	}
 	defer configApi.Close()
 
+	// Check if the model has an SLA set.
+	slaIsSet := false
+	slaLevel, err := configApi.SLALevel()
+	if err == nil {
+		slaIsSet = slaLevel != "" && slaLevel != slaUnsupported
+	} else {
+		ctx.Warningf("could not determine model SLA level: %v", err)
+	}
+
 	// Attempt to destroy the model.
 	ctx.Infof("Destroying model")
 	err = api.DestroyModel(names.NewModelTag(modelDetails.ModelUUID))
@@ -214,6 +223,26 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 	err = store.RemoveModel(controllerName, modelName)
 	if err != nil && !errors.IsNotFound(err) {
 		return errors.Trace(err)
+	}
+
+	// Check if the model has an sla auth.
+	if !slaIsSet {
+		return nil
+	}
+
+	bakeryClient, err := c.BakeryClient()
+	if err != nil {
+		ctx.Warningf("could not remove model allocation: %v", err)
+	}
+
+	budgetClient := getBudgetAPIClient(bakeryClient)
+
+	resp, err := budgetClient.DeleteAllocation(modelDetails.ModelUUID)
+	if err != nil {
+		ctx.Warningf("allocation not removed: %v", err)
+	}
+	if resp != "" {
+		logger.Infof(resp)
 	}
 
 	return nil
