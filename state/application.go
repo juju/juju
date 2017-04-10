@@ -272,6 +272,10 @@ func (a *Application) removeOps(asserts bson.D) ([]txn.Op, error) {
 			Id:     a.doc.DocID,
 			Assert: asserts,
 			Remove: true,
+		}, {
+			C:      settingsC,
+			Id:     a.settingsKey(),
+			Remove: true,
 		},
 	}
 	// Note that appCharmDecRefOps might not catch the final decref
@@ -286,6 +290,7 @@ func (a *Application) removeOps(asserts bson.D) ([]txn.Op, error) {
 		return nil, errors.Trace(err)
 	}
 	ops = append(ops, charmOps...)
+	ops = append(ops, finalAppCharmRemoveOps(name, curl)...)
 
 	globalKey := a.globalKey()
 	ops = append(ops,
