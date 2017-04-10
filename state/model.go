@@ -1047,7 +1047,7 @@ func (m *Model) checkEmpty() error {
 		return errors.Annotatef(err, "getting entity references for model %s", m.UUID())
 	}
 	// These errors could be potentially swallowed as we re-try to destroy model.
-	// Let's, at least, log them for observations.
+	// Let's, at least, log them for observation.
 	if n := len(doc.Machines); n > 0 {
 		logger.Infof("model is still not empty, has machines: %v", doc.Machines)
 		return errors.Errorf("model not empty, found %d machine(s)", n)

@@ -33,9 +33,9 @@ type State interface {
 	// ModelConfig retrieves the model configuration.
 	ModelConfig() (*config.Config, error)
 
-	// WatchModelEntitiesReferences gets a watcher capable of monitoring
+	// WatchModelEntityReferences gets a watcher capable of monitoring
 	// model entities references changes.
-	WatchModelEntitiesReferences(mUUID string) state.NotifyWatcher
+	WatchModelEntityReferences(mUUID string) state.NotifyWatcher
 }
 
 type stateShim struct {

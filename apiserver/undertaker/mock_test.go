@@ -87,7 +87,7 @@ func (m *mockState) FindEntity(tag names.Tag) (state.Entity, error) {
 	return nil, errors.NotFoundf("entity with tag %q", tag.String())
 }
 
-func (m *mockState) WatchModelEntitiesReferences(mUUID string) state.NotifyWatcher {
+func (m *mockState) WatchModelEntityReferences(mUUID string) state.NotifyWatcher {
 	return m.watcher
 }
 

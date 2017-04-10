@@ -1366,9 +1366,9 @@ func (st *State) WatchForModelConfigChanges() NotifyWatcher {
 	return newEntityWatcher(st, settingsC, st.docID(modelGlobalKey))
 }
 
-// WatchModelEntitiesReferences returns a NotifyWatcher waiting for the Model
-// Entities references to change for specified model.
-func (st *State) WatchModelEntitiesReferences(mUUID string) NotifyWatcher {
+// WatchModelEntityReferences returns a NotifyWatcher waiting for the Model
+// Entity references to change for specified model.
+func (st *State) WatchModelEntityReferences(mUUID string) NotifyWatcher {
 	return newEntityWatcher(st, modelEntityRefsC, mUUID)
 }
 
