@@ -29,7 +29,7 @@ func (s *ActivationSuite) SetUpSuite(c *gc.C) {
 	s.IsolationSuite.SetUpSuite(c)
 }
 
-func (*BridgeSuite) TestActivateNonExistentDeviceOrDeviceThatIsAlreadyBridged(c *gc.C) {
+func (*BridgeSuite) TestActivateNonExistentDevice(c *gc.C) {
 	params := debinterfaces.ActivationParams{
 		DryRun:           true,
 		Clock:            clock.WallClock,
@@ -44,11 +44,10 @@ func (*BridgeSuite) TestActivateNonExistentDeviceOrDeviceThatIsAlreadyBridged(c 
 	c.Assert(result, gc.IsNil)
 }
 
-func (*BridgeSuite) TestActivateEth0WithBackup(c *gc.C) {
+func (*BridgeSuite) TestActivateEth0(c *gc.C) {
 	filename := "testdata/TestInputSourceStanza/interfaces"
 
 	params := debinterfaces.ActivationParams{
-		BackupFilename:   filename + ".backup",
 		Clock:            clock.WallClock,
 		Devices:          map[string]string{"eth0": "br-eth0", "eth1": "br-eth1"},
 		DryRun:           true,
@@ -64,10 +63,11 @@ func (*BridgeSuite) TestActivateEth0WithBackup(c *gc.C) {
 
 	expected := `
 write_backup testdata/TestInputSourceStanza/interfaces.backup
+write_content testdata/TestInputSourceStanza/interfaces.new
 ifdown --interfaces=testdata/TestInputSourceStanza/interfaces eth0 eth1
 sleep 10
-write_content testdata/TestInputSourceStanza/interfaces
-ifup --interfaces=testdata/TestInputSourceStanza/interfaces -a
+ifup --interfaces=testdata/TestInputSourceStanza/interfaces.new -a
+mv testdata/TestInputSourceStanza/interfaces.new testdata/TestInputSourceStanza/interfaces
 `
 	c.Assert(string(result.Stdout), gc.Equals, expected[1:])
 }
@@ -90,10 +90,12 @@ func (*BridgeSuite) TestActivateEth0WithoutBackup(c *gc.C) {
 	c.Assert(result.Code, gc.Equals, 0)
 
 	expected := `
+write_backup testdata/TestInputSourceStanza/interfaces.backup
+write_content testdata/TestInputSourceStanza/interfaces.new
 ifdown --interfaces=testdata/TestInputSourceStanza/interfaces eth0 eth1
 sleep 100
-write_content testdata/TestInputSourceStanza/interfaces
-ifup --interfaces=testdata/TestInputSourceStanza/interfaces -a
+ifup --interfaces=testdata/TestInputSourceStanza/interfaces.new -a
+mv testdata/TestInputSourceStanza/interfaces.new testdata/TestInputSourceStanza/interfaces
 `
 	c.Assert(string(result.Stdout), gc.Equals, expected[1:])
 }
@@ -116,10 +118,12 @@ func (*BridgeSuite) TestActivateWithNegativeReconfigureDelay(c *gc.C) {
 	c.Assert(result.Code, gc.Equals, 0)
 
 	expected := `
+write_backup testdata/TestInputSourceStanza/interfaces.backup
+write_content testdata/TestInputSourceStanza/interfaces.new
 ifdown --interfaces=testdata/TestInputSourceStanza/interfaces eth0 eth1
 sleep 0
-write_content testdata/TestInputSourceStanza/interfaces
-ifup --interfaces=testdata/TestInputSourceStanza/interfaces -a
+ifup --interfaces=testdata/TestInputSourceStanza/interfaces.new -a
+mv testdata/TestInputSourceStanza/interfaces.new testdata/TestInputSourceStanza/interfaces
 `
 	c.Assert(string(result.Stdout), gc.Equals, expected[1:])
 }
@@ -165,7 +169,6 @@ func (*BridgeSuite) TestActivateWithTimeout(c *gc.C) {
 	filename := "testdata/TestInputSourceStanza/interfaces"
 
 	params := debinterfaces.ActivationParams{
-		BackupFilename:   filename + ".backup",
 		Clock:            clock.WallClock,
 		Devices:          map[string]string{"eth0": "br-eth0", "eth1": "br-eth1"},
 		DryRun:           true,

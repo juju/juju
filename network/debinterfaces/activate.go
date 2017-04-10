@@ -19,7 +19,6 @@ var logger = loggo.GetLogger("juju.network.debinterfaces")
 
 // ActivationParams contains options to use when bridging interfaces
 type ActivationParams struct {
-	BackupFilename string
 	Clock          clock.Clock
 	// map deviceName -> bridgeName
 	Devices          map[string]string
@@ -56,35 +55,36 @@ set -eu
 
 : ${DRYRUN:=}
 
-if [ $DRYRUN ] && [ %[2]d == 25694 ]; then sleep 30; fi
+if [ $DRYRUN ] && [ %[4]d == 25694 ]; then sleep 30; fi
 
 write_backup() {
     cat << 'EOF' > "$1"
-%[3]s
+%[5]s
 EOF
 }
 
 write_content() {
     cat << 'EOF' > "$1"
-%[4]s
+%[6]s
 EOF
 }
 
-if [ -n %[6]q ]; then
-    ${DRYRUN} write_backup %[6]q
+if [ -n %[2]q ]; then
+    ${DRYRUN} write_backup %[2]q
 fi
-
-${DRYRUN} ifdown --interfaces=%[1]q %[5]s
-${DRYRUN} sleep %[2]d
-${DRYRUN} write_content %[1]q
-${DRYRUN} ifup --interfaces=%[1]q -a
+${DRYRUN} write_content %[3]q
+${DRYRUN} ifdown --interfaces=%[1]q %[7]s
+${DRYRUN} sleep %[4]d
+${DRYRUN} ifup --interfaces=%[3]q -a
+${DRYRUN} mv %[3]q %[1]q
 `,
 		params.Filename,
+		params.Filename + ".backup",
+		params.Filename + ".new",
 		params.ReconfigureDelay,
 		oldContent,
 		newContent,
-		strings.Join(deviceNames, " "),
-		params.BackupFilename)[1:]
+		strings.Join(deviceNames, " "))[1:]
 }
 
 // BridgeAndActivate will parse a debian-styled interfaces(5) file,
