@@ -172,17 +172,6 @@ func (manager *containerManager) CreateContainer(
 		Metadata: metadata,
 		Devices:  nics,
 		Profiles: profiles,
-		// We overwrite the (default) eth0.cfg file so that the trusty container
-		// won't try to start network before we want it to, with our own config
-		Files: lxdclient.Files{
-			lxdclient.File{
-				Content: []byte(""),
-				Path:    "/etc/network/interfaces.d/eth0.cfg",
-				GID:     0,
-				UID:     0,
-				Mode:    0644,
-			},
-		},
 	}
 
 	logger.Infof("starting instance %q (image %q)...", spec.Name, spec.Image)

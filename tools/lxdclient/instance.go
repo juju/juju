@@ -106,10 +106,6 @@ type InstanceSpec struct {
 	// Devices to be added at container initialisation time.
 	Devices
 
-	// Files to be pushed after initialisation has completed but
-	// before the container is started.
-	Files
-
 	// TODO(ericsnow) Other possible fields:
 	// Disks
 	// Networks
