@@ -18,7 +18,7 @@ import (
 	"github.com/vmware/govmomi/vim25/soap"
 	"github.com/vmware/govmomi/vim25/types"
 	"golang.org/x/net/context"
-	tomb "gopkg.in/tomb.v1"
+	"gopkg.in/tomb.v1"
 
 	"github.com/juju/juju/constraints"
 )

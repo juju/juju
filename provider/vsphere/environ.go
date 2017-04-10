@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/version"
+	"golang.org/x/net/context"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -18,9 +19,9 @@ import (
 // Note: This provider/environment does *not* implement storage.
 
 type environ struct {
-	name   string
-	cloud  environs.CloudSpec
-	client *client
+	name     string
+	cloud    environs.CloudSpec
+	provider *environProvider
 
 	// namespace is used to create the machine and device hostnames.
 	namespace instance.Namespace
@@ -32,15 +33,14 @@ type environ struct {
 	supportedArchitectures []string
 }
 
-func newEnviron(cloud environs.CloudSpec, cfg *config.Config) (*environ, error) {
+func newEnviron(
+	provider *environProvider,
+	cloud environs.CloudSpec,
+	cfg *config.Config,
+) (*environ, error) {
 	ecfg, err := newValidConfig(cfg, configDefaults)
 	if err != nil {
 		return nil, errors.Annotate(err, "invalid config")
-	}
-
-	client, err := newClient(cloud)
-	if err != nil {
-		return nil, errors.Annotatef(err, "failed to create new client")
 	}
 
 	namespace, err := instance.NewNamespace(cfg.UUID())
@@ -51,24 +51,37 @@ func newEnviron(cloud environs.CloudSpec, cfg *config.Config) (*environ, error) 
 	env := &environ{
 		name:      ecfg.Name(),
 		cloud:     cloud,
+		provider:  provider,
 		ecfg:      ecfg,
-		client:    client,
 		namespace: namespace,
 	}
 	return env, nil
 }
 
-// Name returns the name of the environment.
+func (env *environ) withClient(ctx context.Context, f func(Client) error) error {
+	client, err := env.dialClient(ctx)
+	if err != nil {
+		return errors.Annotate(err, "dialing client")
+	}
+	defer client.Close(ctx)
+	return f(client)
+}
+
+func (env *environ) dialClient(ctx context.Context) (Client, error) {
+	return dialClient(ctx, env.cloud, env.provider.dial)
+}
+
+// Name is part of the environs.Environ interface.
 func (env *environ) Name() string {
 	return env.name
 }
 
-// Provider returns the environment provider that created this env.
-func (*environ) Provider() environs.EnvironProvider {
-	return providerInstance
+// Provider is part of the environs.Environ interface.
+func (env *environ) Provider() environs.EnvironProvider {
+	return env.provider
 }
 
-// SetConfig updates the env's configuration.
+// SetConfig is part of the environs.Environ interface.
 func (env *environ) SetConfig(cfg *config.Config) error {
 	env.lock.Lock()
 	defer env.lock.Unlock()
@@ -83,7 +96,7 @@ func (env *environ) SetConfig(cfg *config.Config) error {
 	return nil
 }
 
-// Config returns the configuration data with which the env was created.
+// Config is part of the environs.Environ interface.
 func (env *environ) Config() *config.Config {
 	env.lock.Lock()
 	cfg := env.ecfg.Config
@@ -97,19 +110,37 @@ func (env *environ) PrepareForBootstrap(ctx environs.BootstrapContext) error {
 }
 
 // Create implements environs.Environ.
-func (env *environ) Create(environs.CreateParams) error {
+func (env *environ) Create(args environs.CreateParams) error {
+	return env.withSession(func(env *sessionEnviron) error {
+		return env.Create(args)
+	})
+}
+
+// Create implements environs.Environ.
+func (env *sessionEnviron) Create(args environs.CreateParams) error {
 	return nil
 }
 
 //this variable is exported, because it has to be rewritten in external unit tests
 var Bootstrap = common.Bootstrap
 
-// Bootstrap creates a new instance, chosing the series and arch out of
-// available tools. The series and arch are returned along with a func
-// that must be called to finalize the bootstrap process by transferring
-// the tools and installing the initial juju controller.
-func (env *environ) Bootstrap(ctx environs.BootstrapContext, params environs.BootstrapParams) (*environs.BootstrapResult, error) {
-	return Bootstrap(ctx, env, params)
+// Bootstrap is part of the environs.Environ interface.
+func (env *environ) Bootstrap(
+	ctx environs.BootstrapContext,
+	args environs.BootstrapParams,
+) (result *environs.BootstrapResult, err error) {
+	// NOTE(axw) we must not pass a sessionEnviron to common.Bootstrap,
+	// as the Environ will be used during instance finalization after
+	// the Bootstrap method returns, and the session will be invalid.
+	return Bootstrap(ctx, env, args)
+}
+
+// Bootstrap is part of the environs.Environ interface.
+func (env *sessionEnviron) Bootstrap(
+	ctx environs.BootstrapContext,
+	args environs.BootstrapParams,
+) (result *environs.BootstrapResult, err error) {
+	return nil, errors.Errorf("sessionEnviron.Bootstrap should never be called")
 }
 
 //this variable is exported, because it has to be rewritten in external unit tests
@@ -121,13 +152,31 @@ func (env *environ) AdoptResources(controllerUUID string, fromVersion version.Nu
 	return nil
 }
 
-// Destroy shuts down all known machines and destroys the rest of the
-// known environment.
+// AdoptResources is part of the Environ interface.
+func (env *sessionEnviron) AdoptResources(controllerUUID string, fromVersion version.Number) error {
+	return nil
+}
+
+// Destroy is part of the environs.Environ interface.
 func (env *environ) Destroy() error {
+	return env.withSession(func(env *sessionEnviron) error {
+		return env.Destroy()
+	})
+}
+
+// Destroy is part of the environs.Environ interface.
+func (env *sessionEnviron) Destroy() error {
 	return DestroyEnv(env)
 }
 
 // DestroyController implements the Environ interface.
 func (env *environ) DestroyController(controllerUUID string) error {
+	return env.withSession(func(env *sessionEnviron) error {
+		return env.DestroyController(controllerUUID)
+	})
+}
+
+// DestroyController implements the Environ interface.
+func (env *sessionEnviron) DestroyController(controllerUUID string) error {
 	return env.Destroy()
 }
