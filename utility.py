@@ -426,3 +426,15 @@ def logged_exception(logger):
         yield
     except (Exception, KeyboardInterrupt) as e:
         raise log_and_wrap_exception(logger, e)
+
+
+def assert_dict_is_subset(sub_dict, super_dict):
+    """Assert that every item in the sub_dict is in the super_dict.
+
+    :raises JujuAssertionError: when sub_dict items are missing.
+    :return: True when when sub_dict is a subset of super_dict
+    """
+    if not all(item in super_dict.items() for item in sub_dict.items()):
+        raise JujuAssertionError(
+            'Found: {} \nExpected: {}'.format(super_dict, sub_dict))
+    return True

@@ -86,14 +86,14 @@ class TestAssessResources(TestCase):
         status = make_resource_list()
         status['resources'][0]['expected']['origin'] = 'charmstore'
         with self.assertRaisesRegexp(
-                JujuAssertionError, 'Unexpected resource list values'):
+                JujuAssertionError, 'Found:.*\nExpected:'):
             verify_status(status, 'dummy-resource/foo', 'foo', '1234', 27)
 
     def test_verify_status_unit_exception(self):
         status = make_resource_list()
         status['resources'][0]['unit']['origin'] = 'charmstore'
         with self.assertRaisesRegexp(
-                JujuAssertionError, 'Unexpected unit resource list values'):
+                JujuAssertionError, 'Found:.*\nExpected:'):
             verify_status(status, 'dummy-resource/foo', 'foo', '1234', 27)
 
     def test_verify_status_no_resoruce_id_exception(self):
