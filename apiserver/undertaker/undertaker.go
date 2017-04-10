@@ -87,14 +87,7 @@ func (u *UndertakerAPI) RemoveModel() error {
 
 func (u *UndertakerAPI) modelEntitiesWatcher() params.NotifyWatchResult {
 	var nothing params.NotifyWatchResult
-
-	m, err := u.st.Model()
-	if err != nil {
-		nothing.Error = common.ServerError(err)
-		return nothing
-	}
-
-	watch := u.st.WatchModelEntityReferences(m.UUID())
+	watch := u.st.WatchModelEntityReferences(u.st.ModelUUID())
 	if _, ok := <-watch.Changes(); ok {
 		return params.NotifyWatchResult{
 			NotifyWatcherId: u.resources.Register(watch),

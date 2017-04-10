@@ -91,6 +91,10 @@ func (m *mockState) WatchModelEntityReferences(mUUID string) state.NotifyWatcher
 	return m.watcher
 }
 
+func (m *mockState) ModelUUID() string {
+	return m.env.UUID()
+}
+
 // mockModel implements Model interface and allows inspection of called
 // methods.
 type mockModel struct {

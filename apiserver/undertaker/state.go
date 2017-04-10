@@ -36,6 +36,10 @@ type State interface {
 	// WatchModelEntityReferences gets a watcher capable of monitoring
 	// model entity references changes.
 	WatchModelEntityReferences(mUUID string) state.NotifyWatcher
+
+	// ModelUUID returns the model UUID for the model controlled
+	// by this state instance.
+	ModelUUID() string
 }
 
 type stateShim struct {
