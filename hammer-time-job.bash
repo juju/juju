@@ -24,7 +24,7 @@ export HAMMER_DIR=$(dirname $(dirname $HAMMER_TIME))
 : ${TIMEOUT=30m}
 set -x
 s3ci.py get-summary $revision_build $base_config
-source $(s3ci.py get --config $S3_CONFIG $REVISION_BUILD build-revision buildvars.bash)
+source $(s3ci.py get --config $S3_CONFIG $revision_build build-revision buildvars.bash)
 if [[ $VERSION =~ ^1\..*$ ]]; then
     echo "$VERSION is not supported for hammer-time."
     exit 0
