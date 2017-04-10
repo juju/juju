@@ -226,25 +226,32 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 	}
 
 	// Check if the model has an sla auth.
-	if !slaIsSet {
+	if slaIsSet {
+		err = c.removeModelAllocation(modelDetails.ModelUUID)
+		if err != nil {
+			ctx.Warningf("model allocation not removed: %v", err)
+		}
 		return nil
 	}
 
+	return nil
+}
+
+func (c *destroyCommand) removeModelAllocation(uuid string) error {
 	bakeryClient, err := c.BakeryClient()
 	if err != nil {
-		ctx.Warningf("could not remove model allocation: %v", err)
+		return errors.Trace(err)
 	}
 
 	budgetClient := getBudgetAPIClient(bakeryClient)
 
-	resp, err := budgetClient.DeleteAllocation(modelDetails.ModelUUID)
+	resp, err := budgetClient.DeleteAllocation(uuid)
 	if err != nil {
-		ctx.Warningf("allocation not removed: %v", err)
+		return errors.Trace(err)
 	}
 	if resp != "" {
 		logger.Infof(resp)
 	}
-
 	return nil
 }
 
