@@ -34,7 +34,7 @@ type State interface {
 	ModelConfig() (*config.Config, error)
 
 	// WatchModelEntityReferences gets a watcher capable of monitoring
-	// model entities references changes.
+	// model entity references changes.
 	WatchModelEntityReferences(mUUID string) state.NotifyWatcher
 }
 
