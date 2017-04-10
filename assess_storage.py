@@ -19,8 +19,8 @@ from jujucharm import (
 )
 from utility import (
     add_basic_testing_arguments,
+    assert_dict_is_subset,
     configure_logging,
-    JujuAssertionError,
     temp_dir,
 )
 from jujupy.version_client import ModelClient2_1
@@ -245,18 +245,6 @@ def assess_multiple_provider(client, charm_series, amount, charm_name,
         client.deploy(charm, series=charm_series, repository=charm_dir,
                       storage=command)
         client.wait_for_started()
-
-
-def assert_dict_is_subset(sub_dict, super_dict):
-    """Assert that every item in the sub_dict is in the super_dict.
-
-    :raises JujuAssertionError: when sub_dict items are missing.
-    :return: True when when sub_dict is a subset of super_dict
-    """
-    if not all(item in super_dict.items() for item in sub_dict.items()):
-        raise JujuAssertionError(
-            'Found: {} \nExpected: {}'.format(super_dict, sub_dict))
-    return True
 
 
 def check_storage_list(client, expected):

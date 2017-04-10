@@ -28,6 +28,7 @@ from tests import (
     )
 from utility import (
     add_basic_testing_arguments,
+    assert_dict_is_subset,
     as_literal_address,
     extract_deb,
     _find_candidates,
@@ -36,6 +37,7 @@ from utility import (
     get_candidates_path,
     get_deb_arch,
     get_winrm_certs,
+    JujuAssertionError,
     log_and_wrap_exception,
     logged_exception,
     LoggedException,
@@ -582,3 +584,28 @@ class TestLoggedException(TestCase):
         mock_logger.info.assert_called_once_with(
             'Output from exception:\nstdout:\n%s\nstderr:\n%s', 'some output',
             None)
+
+
+class TestAssertDictIsSubset(TestCase):
+
+    def test_assert_dict_is_subset(self):
+        # Identical dicts.
+        self.assertIsTrue(
+            assert_dict_is_subset(
+                {'a': 1, 'b': 2},
+                {'a': 1, 'b': 2}))
+        # super dict has an extra item.
+        self.assertIsTrue(
+            assert_dict_is_subset(
+                {'a': 1, 'b': 2},
+                {'a': 1, 'b': 2, 'c': 3}))
+        # A key is missing.
+        with self.assertRaises(JujuAssertionError):
+            assert_dict_is_subset(
+                {'a': 1, 'b': 2},
+                {'a': 1, 'c': 2})
+        # A value is different.
+        with self.assertRaises(JujuAssertionError):
+            assert_dict_is_subset(
+                {'a': 1, 'b': 2},
+                {'a': 1, 'b': 4})

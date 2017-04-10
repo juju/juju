@@ -8,7 +8,6 @@ import os
 import sys
 from tempfile import NamedTemporaryFile
 
-from assess_storage import assert_dict_is_subset
 from deploy_stack import (
     BootstrapManager,
 )
@@ -17,6 +16,7 @@ from jujucharm import (
 )
 from utility import (
     add_basic_testing_arguments,
+    assert_dict_is_subset,
     configure_logging,
     JujuAssertionError,
 )
