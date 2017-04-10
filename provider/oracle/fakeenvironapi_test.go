@@ -8,6 +8,7 @@ import (
 	"github.com/juju/go-oracle-cloud/common"
 	"github.com/juju/go-oracle-cloud/response"
 	"github.com/juju/juju/provider/oracle"
+	providertest "github.com/juju/juju/provider/oracle/network/testing"
 )
 
 type FakeInstancer struct {
@@ -163,6 +164,15 @@ type FakeEnvironAPI struct {
 	FakeShaper
 
 	FakeStorageAPI
+
+	providertest.FakeRules
+	providertest.FakeAcl
+	providertest.FakeSecIp
+	providertest.FakeIpAddressprefixSet
+	providertest.FakeSecList
+	providertest.FakeSecRules
+	providertest.FakeApplication
+	providertest.FakeAssociation
 }
 
 var _ oracle.EnvironAPI = (*FakeEnvironAPI)(nil)
@@ -779,6 +789,13 @@ var (
 			CreateErr:  nil,
 			DeleteErr:  nil,
 		},
-		FakeStorageAPI: *DefaultFakeStorageAPI,
+		FakeStorageAPI:  *DefaultFakeStorageAPI,
+		FakeRules:       providertest.DefaultFakeRules,
+		FakeApplication: providertest.DefaultSecApplications,
+		FakeSecIp:       providertest.DefaultSecIp,
+		FakeSecList:     providertest.DefaultFakeSecList,
+		FakeAssociation: providertest.DefaultFakeAssociation,
+		FakeAcl:         providertest.DefaultFakeAcl,
+		FakeSecRules:    providertest.DefaultFakeSecrules,
 	}
 )

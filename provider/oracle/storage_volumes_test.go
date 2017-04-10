@@ -253,9 +253,7 @@ func (o *oracleVolumeSource) TestValidateVolumeParams(c *gc.C) {
 }
 
 func (o *oracleVolumeSource) TestAttachVolumes(c *gc.C) {
-	// TODO(sgiulitti) in order to make this to work we need to mock up the
-	// internal api of environment
-	source := o.NewVolumeSource(c, DefaultFakeStorageAPI, nil)
+	source := o.NewVolumeSource(c, DefaultFakeStorageAPI, DefaultEnvironAPI)
 	_, err := source.AttachVolumes([]storage.VolumeAttachmentParams{
 		storage.VolumeAttachmentParams{
 			AttachmentParams: storage.AttachmentParams{
@@ -266,8 +264,7 @@ func (o *oracleVolumeSource) TestAttachVolumes(c *gc.C) {
 			VolumeId: "1",
 		},
 	})
-	c.Assert(err, gc.NotNil)
-	//c.Assert(results, gc.NotNil)
+	c.Assert(err, gc.IsNil)
 }
 
 func (o *oracleVolumeSource) TestDetachVolumes(c *gc.C) {
@@ -287,52 +284,59 @@ func (o *oracleVolumeSource) TestDetachVolumes(c *gc.C) {
 }
 
 func (o *oracleVolumeSource) TestDetachVolumesWithErrors(c *gc.C) {
-	for _, fake := range []*FakeStorageAPI{
-		&FakeStorageAPI{
-			FakeComposer: FakeComposer{
-				compose: "/Compute-acme/jack.jones@example.com/allowed_video_servers",
-			},
-			FakeStorageAttachment: FakeStorageAttachment{
-				AllErr: errors.New("FakeStorageAttachmentErr"),
-			},
+	source := o.NewVolumeSource(c, &FakeStorageAPI{
+		FakeComposer: FakeComposer{
+			compose: "/Compute-acme/jack.jones@example.com/allowed_video_servers",
 		},
-		// &FakeStorageAPI{
-		// 	FakeComposer: FakeComposer{
-		// 		compose: "/Compute-acme/jack.jones@example.com/allowed_video_servers",
-		// 	},
-		// 	FakeStorageAttachment: FakeStorageAttachment{
-		// 		All: response.AllStorageAttachments{
-		// 			Result: []response.StorageAttachment{
-		// 				response.StorageAttachment{
-		// 					Account:             nil,
-		// 					Hypervisor:          nil,
-		// 					Index:               1,
-		// 					Instance_name:       "/Compute-a432100/sgiulitti@cloudbase.com/JujuTools/ebc4ce91-56bb-4120-ba78-13762597f837",
-		// 					Storage_volume_name: "/Compute-a432100/sgiulitti@cloudbase.com/JujuTools_storage",
-		// 					Name:                "/Compute-a432100/sgiulitti@cloudbase.com/JujuTools/ebc4ce91-56bb-4120-ba78-13762597f837/1f90e657-f852-45ad-afbf-9a94f640a7ae",
-		// 					Readonly:            false,
-		// 					State:               "attached",
-		// 					Uri:                 "https://compute.uscom-central-1.oraclecloud.com/storage/attachment/Compute-a432100/sgiulitti%40cloudbase.com/JujuTools/ebc4ce91-56bb-4120-ba78-13762597f837/1f90e657-f852-45ad-afbf-9a94f640a7ae",
-		// 				},
-		// 			},
-		// 		},
-		//
-		// 		DeleteErr: errors.New("FakeStorageAttachmentErr"),
-		// 	},
-		// },
-	} {
-		source := o.NewVolumeSource(c, fake, nil)
-		_, err := source.DetachVolumes([]storage.VolumeAttachmentParams{
-			storage.VolumeAttachmentParams{
-				AttachmentParams: storage.AttachmentParams{
-					Provider:   oracle.DefaultTypes[0],
-					InstanceId: "JujuTools_storage",
-					ReadOnly:   false,
-				},
-				VolumeId: "1",
+		FakeStorageAttachment: FakeStorageAttachment{
+			AllErr: errors.New("FakeStorageAttachmentErr"),
+		}}, DefaultEnvironAPI)
+	_, err := source.DetachVolumes([]storage.VolumeAttachmentParams{
+		storage.VolumeAttachmentParams{
+			AttachmentParams: storage.AttachmentParams{
+				Provider:   oracle.DefaultTypes[0],
+				InstanceId: "JujuTools_storage",
+				ReadOnly:   false,
 			},
-		})
-		//TODOOOO
-		c.Assert(err, gc.NotNil)
+			VolumeId: "1",
+		},
+	})
+	c.Assert(err, gc.NotNil)
+
+	source = o.NewVolumeSource(c, &FakeStorageAPI{
+		FakeComposer: FakeComposer{
+			compose: "/Compute-acme/jack.jones@example.com/allowed_video_servers",
+		},
+		FakeStorageAttachment: FakeStorageAttachment{
+			All: response.AllStorageAttachments{
+				Result: []response.StorageAttachment{
+					response.StorageAttachment{
+						Account:             nil,
+						Hypervisor:          nil,
+						Index:               1,
+						Instance_name:       "/Compute-a432100/sgiulitti@cloudbase.com/JujuTools/ebc4ce91-56bb-4120-ba78-13762597f837",
+						Storage_volume_name: "/Compute-a432100/sgiulitti@cloudbase.com/JujuTools_storage",
+						Name:                "/Compute-a432100/sgiulitti@cloudbase.com/JujuTools/ebc4ce91-56bb-4120-ba78-13762597f837/1f90e657-f852-45ad-afbf-9a94f640a7ae",
+						Readonly:            false,
+						State:               "attached",
+						Uri:                 "https://compute.uscom-central-1.oraclecloud.com/storage/attachment/Compute-a432100/sgiulitti%40cloudbase.com/JujuTools/ebc4ce91-56bb-4120-ba78-13762597f837/1f90e657-f852-45ad-afbf-9a94f640a7ae",
+					},
+				},
+			},
+			DeleteErr: errors.New("FakeStorageAttachmentErr")}}, DefaultEnvironAPI)
+	results, err := source.DetachVolumes([]storage.VolumeAttachmentParams{
+		storage.VolumeAttachmentParams{
+			AttachmentParams: storage.AttachmentParams{
+				Provider:   oracle.DefaultTypes[0],
+				InstanceId: "JujuTools_storage",
+				ReadOnly:   false,
+			},
+			VolumeId: "1",
+		},
+	})
+
+	c.Assert(err, gc.IsNil)
+	for _, val := range results {
+		c.Assert(val, gc.NotNil)
 	}
 }
