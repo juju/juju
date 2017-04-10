@@ -95,7 +95,7 @@ class TestAssess(TestCase):
         charm = os.path.join(charm_dir, 'trusty', 'dummy')
         calls = [
             call(charm=charm, force=False, repository=charm_dir,
-                 series='xenial', service='test0'),
+                 series='angsty', service='test0'),
             call(charm=charm, force=False, repository=charm_dir,
                  series=None, service='test1'),
             call(charm=charm, force=False, repository=charm_dir,
