@@ -1097,6 +1097,7 @@ var bridgeNames = map[string]string{
 	"fourteenchars1":  "b-5590a4-chars1",
 	"fifteenchars.12": "b-7e0acf-ars.12",
 	"zeros0526193032": "b-000000-193032",
+	"enx00e07cc81e1d": "b-x00e07cc81e1d",
 }
 
 func (s *bridgePolicyStateSuite) TestBridgeNameForDevice(c *gc.C) {

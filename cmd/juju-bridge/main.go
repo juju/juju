@@ -17,7 +17,7 @@ import (
 const usage = `
 Bridge existing devices
 
-usage: [ -p ] [ -b <bridge-prefix ] <filename> <device-name>~<bridge-name>...
+usage: [ -p ] [ -b <bridge-prefix ] <filename> <device-name>=<bridge-name>...
 
 Options:
 
@@ -25,7 +25,7 @@ Options:
 
 Example:
 
-  $ juju-bridge /etc/network/interfaces ens3~br-ens3 bond0.150~br-bond0.150
+  $ juju-bridge /etc/network/interfaces ens3=br-ens3 bond0.150=br-bond0.150
 `
 
 func printParseError(err error) {
@@ -61,7 +61,7 @@ func main() {
 
 	devices := make(map[string]string)
 	for _, v := range args[1:] {
-		arg := strings.Split(v, "~")
+		arg := strings.Split(v, "=")
 		if len(arg) != 2 {
 			fmt.Fprintln(os.Stderr, usage)
 			os.Exit(1)
