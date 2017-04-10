@@ -29,6 +29,7 @@ import (
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider/common"
+	commonProvider "github.com/juju/juju/provider/oracle/common"
 	oraclenet "github.com/juju/juju/provider/oracle/network"
 	"github.com/juju/juju/tools"
 )
@@ -42,9 +43,35 @@ type oracleEnviron struct {
 	p         *environProvider
 	spec      environs.CloudSpec
 	cfg       *config.Config
-	client    *oci.Client
+	client    EnvironAPI
 	namespace instance.Namespace
 	clock     clock.Clock
+}
+
+// EnvironAPI provides interface to access and make operation
+// inside a oracle environ
+type EnvironAPI interface {
+	commonProvider.Instancer
+	commonProvider.InstanceAPI
+	commonProvider.Authenticater
+	commonProvider.Shaper
+	commonProvider.Imager
+	commonProvider.IpReservationAPI
+	commonProvider.IpAssociationAPI
+	commonProvider.IpNetworkExchanger
+	commonProvider.IpNetworker
+	commonProvider.VnicSetAPI
+
+	commonProvider.RulesAPI
+	commonProvider.AclAPI
+	commonProvider.SecIpAPI
+	commonProvider.IpAddressPrefixSetAPI
+	commonProvider.SecListAPI
+	commonProvider.ApplicationsAPI
+	commonProvider.SecRulesAPI
+	commonProvider.AssociationAPI
+
+	StorageAPI
 }
 
 // AvailabilityZones is defined in the common.ZonedEnviron interface
@@ -68,7 +95,7 @@ func (o *oracleEnviron) InstanceAvailabilityZoneNames(ids []instance.Id) ([]stri
 }
 
 // newOracleEnviron returns a new oracleEnviron
-func newOracleEnviron(p *environProvider, args environs.OpenParams, client *oci.Client) (env *oracleEnviron, err error) {
+func newOracleEnviron(p *environProvider, args environs.OpenParams, client EnvironAPI) (env *oracleEnviron, err error) {
 	if client == nil {
 		return nil, errors.NotFoundf("oracle client")
 	}

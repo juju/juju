@@ -7,6 +7,7 @@ import (
 	"github.com/juju/go-oracle-cloud/api"
 	"github.com/juju/go-oracle-cloud/common"
 	"github.com/juju/go-oracle-cloud/response"
+	"github.com/juju/juju/provider/oracle"
 )
 
 // FakeComposer implements common.Composer interface
@@ -30,6 +31,8 @@ type FakeStorageVolume struct {
 	Update           response.StorageVolume
 	UpdateErr        error
 }
+
+var _ oracle.StorageAPI = (*FakeStorageAPI)(nil)
 
 func (f FakeStorageVolume) AllStorageVolumes([]api.Filter) (response.AllStorageVolumes, error) {
 	return f.All, f.AllErr

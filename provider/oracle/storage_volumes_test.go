@@ -20,20 +20,32 @@ type oracleVolumeSource struct{}
 
 var _ = gc.Suite(&oracleVolumeSource{})
 
-func (o *oracleVolumeSource) NewVolumeSource(c *gc.C, fake *FakeStorageAPI) storage.VolumeSource {
+func (o *oracleVolumeSource) NewVolumeSource(
+	c *gc.C,
+	fakestorage *FakeStorageAPI,
+	fakeenv *FakeEnvironAPI,
+) storage.VolumeSource {
+
+	var client oracle.EnvironAPI
+	if fakeenv == nil {
+		client = &api.Client{}
+	} else {
+		client = fakeenv
+	}
+
 	environ, err := oracle.NewOracleEnviron(
 		oracle.DefaultProvider,
 		environs.OpenParams{
 			Config: testing.ModelConfig(c),
 		},
-		&api.Client{},
+		client,
 	)
 	c.Assert(err, gc.IsNil)
 	c.Assert(environ, gc.NotNil)
 	source, err := oracle.NewOracleVolumeSource(environ,
 		"controller-uuid",
 		"some-uuid-things-with-magic",
-		fake,
+		fakestorage,
 		clock.WallClock,
 	)
 	c.Assert(err, gc.IsNil)
@@ -42,14 +54,14 @@ func (o *oracleVolumeSource) NewVolumeSource(c *gc.C, fake *FakeStorageAPI) stor
 }
 
 func (o *oracleVolumeSource) TestCreateVolumesWithEmptyParams(c *gc.C) {
-	source := o.NewVolumeSource(c, DefaultFakeStorageAPI)
+	source := o.NewVolumeSource(c, DefaultFakeStorageAPI, nil)
 	result, err := source.CreateVolumes(nil)
 	c.Assert(err, gc.IsNil)
 	c.Assert(result, gc.NotNil)
 }
 
 func (o *oracleVolumeSource) TestCreateVolumes(c *gc.C) {
-	source := o.NewVolumeSource(c, DefaultFakeStorageAPI)
+	source := o.NewVolumeSource(c, DefaultFakeStorageAPI, nil)
 	result, err := source.CreateVolumes([]storage.VolumeParams{
 		storage.VolumeParams{
 			Size:     uint64(10000),
@@ -76,7 +88,7 @@ func (o *oracleVolumeSource) TestCreateVolumesWithoutExist(c *gc.C) {
 			CreateErr:        nil,
 			DeleteErr:        nil,
 		},
-	})
+	}, nil)
 	result, err := source.CreateVolumes([]storage.VolumeParams{
 		storage.VolumeParams{
 			Size:     uint64(10000),
@@ -126,7 +138,7 @@ func (o *oracleVolumeSource) TestCreatevolumesWithErrors(c *gc.C) {
 			},
 		},
 	} {
-		source := o.NewVolumeSource(c, fake)
+		source := o.NewVolumeSource(c, fake, nil)
 		results, err := source.CreateVolumes([]storage.VolumeParams{
 			storage.VolumeParams{
 				Size:     uint64(10000),
@@ -141,7 +153,7 @@ func (o *oracleVolumeSource) TestCreatevolumesWithErrors(c *gc.C) {
 }
 
 func (o *oracleVolumeSource) TestListVolumes(c *gc.C) {
-	source := o.NewVolumeSource(c, DefaultFakeStorageAPI)
+	source := o.NewVolumeSource(c, DefaultFakeStorageAPI, nil)
 	volumes, err := source.ListVolumes()
 	c.Assert(err, gc.IsNil)
 	c.Assert(volumes, gc.NotNil)
@@ -158,14 +170,14 @@ func (o *oracleVolumeSource) TestListVolumesWithErrors(c *gc.C) {
 			},
 		},
 	} {
-		source := o.NewVolumeSource(c, fake)
+		source := o.NewVolumeSource(c, fake, nil)
 		_, err := source.ListVolumes()
 		c.Assert(err, gc.NotNil)
 	}
 }
 
 func (o *oracleVolumeSource) TestDescribeVolumes(c *gc.C) {
-	source := o.NewVolumeSource(c, DefaultFakeStorageAPI)
+	source := o.NewVolumeSource(c, DefaultFakeStorageAPI, nil)
 	volumes, err := source.DescribeVolumes([]string{})
 	c.Assert(err, gc.IsNil)
 	c.Assert(volumes, gc.NotNil)
@@ -186,14 +198,14 @@ func (o *oracleVolumeSource) TestDescribeVolumesWithErrors(c *gc.C) {
 			},
 		},
 	} {
-		source := o.NewVolumeSource(c, fake)
+		source := o.NewVolumeSource(c, fake, nil)
 		_, err := source.DescribeVolumes([]string{"JujuTools_storage"})
 		c.Assert(err, gc.NotNil)
 	}
 }
 
 func (o *oracleVolumeSource) TestDestroyVolumes(c *gc.C) {
-	source := o.NewVolumeSource(c, DefaultFakeStorageAPI)
+	source := o.NewVolumeSource(c, DefaultFakeStorageAPI, nil)
 	errs, err := source.DestroyVolumes([]string{})
 	c.Assert(err, gc.IsNil)
 	c.Assert(errs, gc.NotNil)
@@ -210,7 +222,7 @@ func (o *oracleVolumeSource) TestDestroyVolumesWithErrors(c *gc.C) {
 			},
 		},
 	} {
-		source := o.NewVolumeSource(c, fake)
+		source := o.NewVolumeSource(c, fake, nil)
 		errs, err := source.DestroyVolumes([]string{"JujuTools_storage"})
 		c.Assert(err, gc.IsNil)
 		for _, val := range errs {
@@ -221,7 +233,7 @@ func (o *oracleVolumeSource) TestDestroyVolumesWithErrors(c *gc.C) {
 }
 
 func (o *oracleVolumeSource) TestValidateVolumeParamsWithError(c *gc.C) {
-	source := o.NewVolumeSource(c, nil)
+	source := o.NewVolumeSource(c, nil, nil)
 	err := source.ValidateVolumeParams(
 		storage.VolumeParams{
 			Size: uint64(3921739812739812739),
@@ -231,7 +243,7 @@ func (o *oracleVolumeSource) TestValidateVolumeParamsWithError(c *gc.C) {
 }
 
 func (o *oracleVolumeSource) TestValidateVolumeParams(c *gc.C) {
-	source := o.NewVolumeSource(c, nil)
+	source := o.NewVolumeSource(c, nil, nil)
 	err := source.ValidateVolumeParams(
 		storage.VolumeParams{
 			Size: uint64(9999),
@@ -243,7 +255,7 @@ func (o *oracleVolumeSource) TestValidateVolumeParams(c *gc.C) {
 func (o *oracleVolumeSource) TestAttachVolumes(c *gc.C) {
 	// TODO(sgiulitti) in order to make this to work we need to mock up the
 	// internal api of environment
-	source := o.NewVolumeSource(c, DefaultFakeStorageAPI)
+	source := o.NewVolumeSource(c, DefaultFakeStorageAPI, nil)
 	_, err := source.AttachVolumes([]storage.VolumeAttachmentParams{
 		storage.VolumeAttachmentParams{
 			AttachmentParams: storage.AttachmentParams{
@@ -259,7 +271,7 @@ func (o *oracleVolumeSource) TestAttachVolumes(c *gc.C) {
 }
 
 func (o *oracleVolumeSource) TestDetachVolumes(c *gc.C) {
-	source := o.NewVolumeSource(c, DefaultFakeStorageAPI)
+	source := o.NewVolumeSource(c, DefaultFakeStorageAPI, nil)
 	errs, err := source.DetachVolumes([]storage.VolumeAttachmentParams{
 		storage.VolumeAttachmentParams{
 			AttachmentParams: storage.AttachmentParams{
@@ -309,7 +321,7 @@ func (o *oracleVolumeSource) TestDetachVolumesWithErrors(c *gc.C) {
 		// 	},
 		// },
 	} {
-		source := o.NewVolumeSource(c, fake)
+		source := o.NewVolumeSource(c, fake, nil)
 		_, err := source.DetachVolumes([]storage.VolumeAttachmentParams{
 			storage.VolumeAttachmentParams{
 				AttachmentParams: storage.AttachmentParams{

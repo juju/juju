@@ -7,6 +7,7 @@ import (
 	"github.com/juju/go-oracle-cloud/api"
 	"github.com/juju/go-oracle-cloud/common"
 	"github.com/juju/go-oracle-cloud/response"
+	"github.com/juju/juju/provider/oracle/network"
 )
 
 // FakeComposer implements common.Composer interface
@@ -26,6 +27,8 @@ type FakeRules struct {
 	CreateErr error
 	DeleteErr error
 }
+
+var _ network.FirewallerAPI = (*FakeFirewallAPI)(nil)
 
 func (f FakeRules) AllSecRules([]api.Filter) (response.AllSecRules, error) {
 	return f.All, f.AllErr

@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	oci "github.com/juju/go-oracle-cloud/api"
 	"github.com/juju/utils/series"
 
 	"github.com/juju/juju/constraints"
@@ -26,7 +25,7 @@ var windowsServerMap = map[string]string{
 // For more information about oracle cloud shapes, please see:
 // https://docs.oracle.com/cloud/latest/stcomputecs/STCSA/api-Shapes.html
 // https://docs.oracle.com/cloud/latest/stcomputecs/STCSG/GUID-1DD0FA71-AC7B-461C-B8C1-14892725AA69.htm#OCSUG210
-func instanceTypes(c *oci.Client) ([]instances.InstanceType, error) {
+func instanceTypes(c EnvironAPI) ([]instances.InstanceType, error) {
 	if c == nil {
 		return nil, errors.Errorf("cannot use nil client")
 	}
@@ -54,7 +53,7 @@ func instanceTypes(c *oci.Client) ([]instances.InstanceType, error) {
 // findInstanceSpec returns an *InstanceSpec, imagelist name
 // satisfying the supplied instanceConstraint
 func findInstanceSpec(
-	c *oci.Client,
+	c EnvironAPI,
 	allImageMetadata []*imagemetadata.ImageMetadata,
 	instanceType []instances.InstanceType,
 	ic *instances.InstanceConstraint,
@@ -124,7 +123,7 @@ func parseImageName(name string, uri *url.URL) (*imagemetadata.ImageMetadata, er
 }
 
 // checkImageList creates image metadata from the oracle image list
-func checkImageList(c *oci.Client, cons constraints.Value) ([]*imagemetadata.ImageMetadata, error) {
+func checkImageList(c EnvironAPI, cons constraints.Value) ([]*imagemetadata.ImageMetadata, error) {
 	if c == nil {
 		return nil, errors.NotFoundf("oracle client")
 	}
@@ -168,7 +167,7 @@ func checkImageList(c *oci.Client, cons constraints.Value) ([]*imagemetadata.Ima
 }
 
 // getImageName gets the name of the image represented by the supplied ID
-func getImageName(c *oci.Client, id string) (string, error) {
+func getImageName(c EnvironAPI, id string) (string, error) {
 	if id == "" {
 		return "", errors.NotFoundf("empty id")
 	}

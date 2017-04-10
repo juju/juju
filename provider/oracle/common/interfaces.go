@@ -33,6 +33,72 @@ type Composer interface {
 	ComposeName(string) string
 }
 
+// InstanceAPI uses to retrieve all instances, delete and create
+// in the oracle cloud infrastructure
+type InstanceAPI interface {
+	CreateInstance(api.InstanceParams) (response.LaunchPlan, error)
+	AllInstances([]api.Filter) (response.AllInstances, error)
+	DeleteInstance(string) error
+}
+
+// Authenticater authenticates the oracle client in the
+// oracle IAAS api
+type Authenticater interface {
+	Authenticate() error
+}
+
+// Shaper used to retrieve all shapes from the oracle cloud
+// environ
+type Shaper interface {
+	AllShapes([]api.Filter) (response.AllShapes, error)
+}
+
+// Imager used to retrieve all images iso meta data format from the
+// oracle cloud environment
+type Imager interface {
+	AllImageLists([]api.Filter) (response.AllImageLists, error)
+}
+
+// IpReservationAPI provider methods for retrieving, updating, creating
+// and deleting ip reservations inside the oracle cloud infrastructure
+type IpReservationAPI interface {
+	AllIpReservations([]api.Filter) (response.AllIpReservations, error)
+	UpdateIpReservation(string, string,
+		common.IPPool, bool, []string) (response.IpReservation, error)
+	CreateIpReservation(string, common.IPPool,
+		bool, []string) (response.IpReservation, error)
+	DeleteIpReservation(string) error
+}
+
+// IpAssociationAPI provides methods for creating deleting and listing all
+// ip associations inside the oracle cloud environment
+type IpAssociationAPI interface {
+	CreateIpAssociation(common.IPPool, common.VcableID) (response.IpAssociation, error)
+	DeleteIpAssociation(string) error
+	AllIpAssociations([]api.Filter) (response.AllIpAssociations, error)
+}
+
+// IpNetworkExchanger provides a simple interface for retrieving all
+// ip network exchanges inside the oracle cloud environment
+type IpNetworkExchanger interface {
+	AllIpNetworkExchanges([]api.Filter) (response.AllIpNetworkExchanges, error)
+}
+
+// IpNetowrker provides a simple interface for retrieving all
+// ip networks inside the oracle cloud environment
+type IpNetworker interface {
+	AllIpNetworks([]api.Filter) (response.AllIpNetworks, error)
+}
+
+// VnicSetAPI provides methods for deleting, retrieving details and creating
+// virtual nics for providing access for instances to different subnets inside
+// the oracle cloud environment
+type VnicSetAPI interface {
+	DeleteVnicSet(string) error
+	VnicSetDetails(string) (response.VnicSet, error)
+	CreateVnicSet(api.VnicSetParams) (response.VnicSet, error)
+}
+
 // RulesAPI defines methods for retrieving, creating and deleting
 // Sec rules under the oracle cloud endpoint
 // For more information on sec rules, please see:
