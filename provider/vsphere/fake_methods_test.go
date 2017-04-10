@@ -91,24 +91,13 @@ func (s *BaseSuite) createFakeOva() []byte {
 
 }
 
-func (s *BaseSuite) FakeInstances(c *fakeClient, instName ...string) {
-	c.SetPropertyProxyHandler("FakeVmFolder", func(reqBody, resBody *methods.RetrievePropertiesBody) {
-		resBody.Res = &types.RetrievePropertiesResponse{
-			Returnval: []types.ObjectContent{},
-		}
-	})
-	c.SetPropertyProxyHandler("FakeVmFolder", func(reqBody, resBody *methods.RetrievePropertiesBody) {
-		resBody.Res = &types.RetrievePropertiesResponse{
-			Returnval: []types.ObjectContent{},
-		}
-	})
+type Inst struct {
+	Inst       string
+	Rp         string
+	PowerState string
 }
 
-type InstRp struct {
-	Inst, Rp string
-}
-
-func (s *BaseSuite) FakeInstancesWithResourcePool(c *fakeClient, instances ...InstRp) {
+func (s *BaseSuite) FakeInstances(c *fakeClient, instances ...Inst) {
 	retVal := []types.ObjectContent{}
 	for _, vm := range instances {
 		retVal = append(retVal, types.ObjectContent{
@@ -149,6 +138,7 @@ func (s *BaseSuite) FakeInstancesWithResourcePool(c *fakeClient, instances ...In
 						Value: vm.Rp,
 					}},
 					{Name: "name", Val: vm.Inst},
+					{Name: "runtime.powerState", Val: vm.PowerState},
 				},
 			}},
 		})

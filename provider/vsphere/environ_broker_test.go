@@ -39,7 +39,7 @@ func (s *environBrokerSuite) PrepareStartInstanceFakes(c *gc.C) {
 	defer closer()
 	s.FakeClient = client
 	client.SetPropertyProxyHandler("FakeDatacenter", vsphere.RetrieveDatacenterProperties)
-	s.FakeInstances(client)
+	s.FakeInstances(client /* none */)
 	s.FakeAvailabilityZones(client, "z1")
 	s.FakeAvailabilityZones(client, "z1")
 	s.FakeAvailabilityZones(client, "z1")
