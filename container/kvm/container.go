@@ -85,14 +85,15 @@ func (c *kvmContainer) Start(params StartParams) error {
 		params.StatusCallback(status.Provisioning, "Creating instance", nil)
 	}
 	if err := CreateMachine(CreateMachineParams{
-		Hostname:      c.name,
-		Series:        params.Series,
-		UserDataFile:  params.UserDataFile,
-		NetworkBridge: bridge,
-		Memory:        params.Memory,
-		CpuCores:      params.CpuCores,
-		RootDisk:      params.RootDisk,
-		Interfaces:    interfaces,
+		Hostname:          c.name,
+		Series:            params.Series,
+		UserDataFile:      params.UserDataFile,
+		NetworkConfigData: params.NetworkConfigData,
+		NetworkBridge:     bridge,
+		Memory:            params.Memory,
+		CpuCores:          params.CpuCores,
+		RootDisk:          params.RootDisk,
+		Interfaces:        interfaces,
 	}); err != nil {
 		return err
 	}
