@@ -197,7 +197,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 
 		// The leadership tracker attempts to secure and retain leadership of
 		// the unit's service, and is consulted on such matters by the
-		// uniter. As it stannds today, we'll need one per unit in a
+		// uniter. As it stands today, we'll need one per unit in a
 		// consolidated agent.
 		leadershipTrackerName: ifNotMigrating(leadership.Manifold(leadership.ManifoldConfig{
 			AgentName:           agentName,

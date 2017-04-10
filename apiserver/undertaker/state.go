@@ -4,7 +4,6 @@
 package undertaker
 
 import (
-	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/environs/config"
@@ -31,60 +30,16 @@ type State interface {
 	// collections.
 	RemoveAllModelDocs() error
 
-	// AllMachines returns all machines in the model ordered by id.
-	AllMachines() ([]Machine, error)
-
-	// AllApplications returns all deployed services in the model.
-	AllApplications() ([]Service, error)
-
 	// ModelConfig retrieves the model configuration.
 	ModelConfig() (*config.Config, error)
+
+	// WatchModelEntitiesReferences gets a watcher capable of monitoring
+	// model entities references changes.
+	WatchModelEntitiesReferences(mUUID string) state.NotifyWatcher
 }
 
 type stateShim struct {
 	*state.State
-}
-
-func (s *stateShim) AllMachines() ([]Machine, error) {
-	stateMachines, err := s.State.AllMachines()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	machines := make([]Machine, len(stateMachines))
-	for i := range stateMachines {
-		machines[i] = stateMachines[i]
-	}
-
-	return machines, nil
-}
-
-// Machine defines the needed methods of state.Machine for
-// the work of the undertaker API.
-type Machine interface {
-	// Watch returns a watcher for observing changes to a machine.
-	Watch() state.NotifyWatcher
-}
-
-func (s *stateShim) AllApplications() ([]Service, error) {
-	stateServices, err := s.State.AllApplications()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	services := make([]Service, len(stateServices))
-	for i := range stateServices {
-		services[i] = stateServices[i]
-	}
-
-	return services, nil
-}
-
-// Service defines the needed methods of state.Service for
-// the work of the undertaker API.
-type Service interface {
-	// Watch returns a watcher for observing changes to a service.
-	Watch() state.NotifyWatcher
 }
 
 func (s *stateShim) Model() (Model, error) {

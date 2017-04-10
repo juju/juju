@@ -85,27 +85,18 @@ func (u *UndertakerAPI) RemoveModel() error {
 	return u.st.RemoveAllModelDocs()
 }
 
-func (u *UndertakerAPI) environResourceWatcher() params.NotifyWatchResult {
+func (u *UndertakerAPI) modelEntitiesWatcher() params.NotifyWatchResult {
 	var nothing params.NotifyWatchResult
-	machines, err := u.st.AllMachines()
+
+	m, err := u.st.Model()
 	if err != nil {
 		nothing.Error = common.ServerError(err)
 		return nothing
-	}
-	services, err := u.st.AllApplications()
-	if err != nil {
-		nothing.Error = common.ServerError(err)
-		return nothing
-	}
-	var watchers []state.NotifyWatcher
-	for _, machine := range machines {
-		watchers = append(watchers, machine.Watch())
-	}
-	for _, service := range services {
-		watchers = append(watchers, service.Watch())
 	}
 
-	watch := common.NewMultiNotifyWatcher(watchers...)
+	// (anastasiamac 2017-04-10) I do not know what watcher is best suited here.
+	// Keeping multi-notify watcher for historical reasons for now.
+	watch := common.NewMultiNotifyWatcher(u.st.WatchModelEntitiesReferences(m.UUID()))
 
 	if _, ok := <-watch.Changes(); ok {
 		return params.NotifyWatchResult{
@@ -121,7 +112,7 @@ func (u *UndertakerAPI) environResourceWatcher() params.NotifyWatchResult {
 func (u *UndertakerAPI) WatchModelResources() params.NotifyWatchResults {
 	return params.NotifyWatchResults{
 		Results: []params.NotifyWatchResult{
-			u.environResourceWatcher(),
+			u.modelEntitiesWatcher(),
 		},
 	}
 }
