@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-from charms.reactive import when, when_not, set_state
+from charms.reactive import when_not, set_state
 from charmhelpers.core.hookenv import (
     status_set,
     open_port,
@@ -13,6 +13,8 @@ import os
 
 @when_not('network-health.installed')
 def install_network_health():
+    status_set('maintenance', 'Removing sshguard')
+    subprocess.call(['sudo', 'apt-get', 'remove', 'sshguard'])
     status_set('active', 'Started')
     set_state('network-health.installed')
 

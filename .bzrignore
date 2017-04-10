@@ -2,3 +2,5 @@
 ../*.snap
 ../charms/network-health/deps/*
 ../charms/network-health/builds/*
+builds
+deps

@@ -2,6 +2,9 @@
 
 set -x
 
+status-set maintenance "Removing sshguard" || true
+sudo apt-get remove sshguard || true
+
 RES_NAME="foo"
 
 START_TIME=$(date +%s)

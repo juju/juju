@@ -2,6 +2,9 @@
 
 set -x
 
+status-set maintenance "Removing sshguard" || true
+sudo apt-get remove sshguard || true
+
 juju-log -l INFO "Install"
 juju-log -l INFO "Data on drive: $(cat /srv/single-fs/test.txt)"
 
