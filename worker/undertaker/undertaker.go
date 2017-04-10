@@ -177,7 +177,7 @@ func (u *Undertaker) processDyingModel() error {
 			}
 			// Yes, we ignore the error. See comment above. But let's at least
 			// surface it in status.
-			u.setStatus(status.Destroying, fmt.Sprintf("%d attempt to destroy model:  %v", attempt, err))
+			u.setStatus(status.Destroying, fmt.Sprintf("attempt %d to destroy model failed (will retry):  %v", attempt, err))
 		}
 		attempt++
 	}
