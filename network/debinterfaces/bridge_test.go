@@ -39,11 +39,18 @@ func (s *BridgeSuite) assertBridge(input, expected string, c *gc.C, devices map[
 	s.assertParse(c, format(bridged))
 }
 
+func (s *BridgeSuite) assertBridgeUnchanged(input string, c *gc.C, devices map[string]string) {
+	stanzas := s.assertParse(c, input)
+	bridged := debinterfaces.Bridge(stanzas, devices)
+	c.Assert(format(bridged), gc.Equals, input[1:])
+	s.assertParse(c, format(bridged))
+}
+
 func (s *BridgeSuite) TestBridgeDeviceNameNotMatched(c *gc.C) {
 	input := `
 auto eth0
 iface eth0 inet manual`
-	s.assertBridge(input, input[1:], c, map[string]string{"non-existent-interface": "br-non-existent"})
+	s.assertBridgeUnchanged(input, c, map[string]string{"non-existent-interface": "br-non-existent"})
 }
 
 func (s *BridgeSuite) TestBridgeDeviceNameAlreadyBridged(c *gc.C) {
@@ -51,7 +58,7 @@ func (s *BridgeSuite) TestBridgeDeviceNameAlreadyBridged(c *gc.C) {
 auto br-eth0
 iface br-eth0 inet dhcp
     bridge_ports eth0`
-	s.assertBridge(input, input[1:], c, map[string]string{"br-eth0": "br-eth0-2"})
+	s.assertBridgeUnchanged(input, c, map[string]string{"br-eth0": "br-eth0-2"})
 }
 
 func (s *BridgeSuite) TestBridgeDeviceIsBridgeable(c *gc.C) {
@@ -84,7 +91,7 @@ iface br-eth0 inet dhcp
 func (s *BridgeSuite) TestBridgeDeviceIsNotBridgeable(c *gc.C) {
 	input := `
 iface work-wireless bootp`
-	s.assertBridge(input, input[1:], c, map[string]string{"work-wireless": "br-work-wireless"})
+	s.assertBridgeUnchanged(input, c, map[string]string{"work-wireless": "br-work-wireless"})
 }
 
 func (s *BridgeSuite) TestBridgeSpecialOptionsGetMoved(c *gc.C) {
@@ -194,7 +201,7 @@ mapping eth0
     map home,*,*,*                  home
     map work,*,*,00:11:22:33:44:55  work-wireless
     map work,*,*,01:12:23:34:45:50  work-static`
-	s.assertBridge(input, input[1:], c, map[string]string{"eth0": "br-eth0"})
+	s.assertBridgeUnchanged(input, c, map[string]string{"eth0": "br-eth0"})
 }
 
 func (s *BridgeSuite) TestBridgeBondMaster(c *gc.C) {
@@ -207,7 +214,7 @@ iface ens5 inet manual
     bond-xmit_hash_policy layer2
     bond-mode active-backup
     bond-miimon 100`
-	s.assertBridge(input, input[1:], c, map[string]string{"eth0": "br-eth0"})
+	s.assertBridgeUnchanged(input, c, map[string]string{"ens5": "br-ens5"})
 }
 
 func (s *BridgeSuite) TestBridgeNoIfacesDefinedFromFile(c *gc.C) {
