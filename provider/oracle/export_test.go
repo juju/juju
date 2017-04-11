@@ -16,4 +16,9 @@ var (
 	OracleCredentials          = credentials
 	NewOracleVolumeSource      = newOracleVolumeSource
 	NewOracleInstance          = newInstance
+	GetImageName               = getImageName
+	InstanceTypes              = instanceTypes
+	FindInstanceSpec           = findInstanceSpec
+	ParseImageName             = parseImageName
+	CheckImageList             = checkImageList
 )
