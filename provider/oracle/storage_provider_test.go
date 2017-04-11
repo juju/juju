@@ -18,7 +18,7 @@ type storageProviderSuite struct{}
 
 var _ = gc.Suite(&storageProviderSuite{})
 
-func NewStorageProvideTest(c *gc.C) storage.Provider {
+func NewStorageProviderTest(c *gc.C) storage.Provider {
 	env, err := oracle.NewOracleEnviron(
 		oracle.DefaultProvider,
 		environs.OpenParams{
@@ -41,7 +41,7 @@ func NewStorageProvideTest(c *gc.C) storage.Provider {
 }
 
 func (s *storageProviderSuite) NewStorageProvider(c *gc.C) storage.Provider {
-	return NewStorageProvideTest(c)
+	return NewStorageProviderTest(c)
 }
 
 func (s *storageProviderSuite) TestVolumeSource(c *gc.C) {
