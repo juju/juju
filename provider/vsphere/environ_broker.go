@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"path"
 	"sync"
 
 	"github.com/juju/errors"
@@ -30,12 +31,13 @@ const (
 	DefaultMemMb    = uint64(2000)
 )
 
-const (
-	metadataKeyIsController     = "juju_is_controller_key"
-	metadataValueIsController   = "juju_is_controller_value"
-	metadataKeyControllerUUID   = "juju_controller_uuid_key"
-	metadataValueControllerUUID = "juju_controller_uuid_value"
-)
+func controllerFolderName(controllerUUID string) string {
+	return fmt.Sprintf("Juju Controller (%s)", controllerUUID)
+}
+
+func modelFolderName(modelUUID, modelName string) string {
+	return fmt.Sprintf("Model %q (%s)", modelName, modelUUID)
+}
 
 // MaintainInstance is specified in the InstanceBroker interface.
 func (*environ) MaintainInstance(args environs.StartInstanceParams) error {
@@ -177,19 +179,16 @@ func (env *sessionEnviron) newRawInstance(
 		return nil, nil, errors.Trace(err)
 	}
 
-	metadata := map[string]string{
-		metadataKeyControllerUUID: args.ControllerUUID,
-	}
-	if args.InstanceConfig.Controller != nil {
-		metadata[metadataKeyIsController] = metadataValueIsController
-	}
-
 	createVMArgs := vsphereclient.CreateVirtualMachineParams{
-		Name:            vmName,
+		Name: vmName,
+		Folder: path.Join(
+			controllerFolderName(args.ControllerUUID),
+			env.modelFolderName(),
+		),
 		OVADir:          ovaDir,
 		OVF:             ovf,
 		UserData:        string(userData),
-		Metadata:        metadata,
+		Metadata:        args.InstanceConfig.Tags,
 		Constraints:     cons,
 		ExternalNetwork: externalNetwork,
 		UpdateProgress: func(message string) {
@@ -243,8 +242,11 @@ func (env *environ) AllInstances() (instances []instance.Instance, err error) {
 
 // AllInstances implements environs.InstanceBroker.
 func (env *sessionEnviron) AllInstances() ([]instance.Instance, error) {
-	prefix := env.namespace.Prefix()
-	vms, err := env.client.VirtualMachines(env.ctx, prefix+"*")
+	modelFolderPath := path.Join(
+		controllerFolderName("*"),
+		env.modelFolderName(),
+	)
+	vms, err := env.client.VirtualMachines(env.ctx, modelFolderPath+"/*")
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -267,13 +269,20 @@ func (env *environ) StopInstances(ids ...instance.Id) error {
 
 // StopInstances implements environs.InstanceBroker.
 func (env *sessionEnviron) StopInstances(ids ...instance.Id) error {
+	modelFolderPath := path.Join(
+		controllerFolderName("*"),
+		env.modelFolderName(),
+	)
 	results := make([]error, len(ids))
 	var wg sync.WaitGroup
 	for i, id := range ids {
 		wg.Add(1)
 		go func(i int, id instance.Id) {
 			defer wg.Done()
-			results[i] = env.client.RemoveVirtualMachines(env.ctx, string(id))
+			results[i] = env.client.RemoveVirtualMachines(
+				env.ctx,
+				path.Join(modelFolderPath, string(id)),
+			)
 		}(i, id)
 	}
 	wg.Wait()

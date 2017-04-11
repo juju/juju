@@ -16,7 +16,7 @@ import (
 )
 
 // UpgradeOperations is part of the upgrades.OperationSource interface.
-func (env *azureEnviron) UpgradeOperations() []environs.UpgradeOperation {
+func (env *azureEnviron) UpgradeOperations(environs.UpgradeOperationsParams) []environs.UpgradeOperation {
 	return []environs.UpgradeOperation{{
 		version.MustParse("2.2-alpha1"),
 		[]environs.UpgradeStep{

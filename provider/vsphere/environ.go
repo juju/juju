@@ -4,6 +4,7 @@
 package vsphere
 
 import (
+	"path"
 	"sync"
 
 	"github.com/juju/errors"
@@ -118,7 +119,7 @@ func (env *environ) Create(args environs.CreateParams) error {
 
 // Create implements environs.Environ.
 func (env *sessionEnviron) Create(args environs.CreateParams) error {
-	return nil
+	return env.ensureVMFolder(args.ControllerUUID)
 }
 
 //this variable is exported, because it has to be rewritten in external unit tests
@@ -132,10 +133,14 @@ func (env *environ) Bootstrap(
 	// NOTE(axw) we must not pass a sessionEnviron to common.Bootstrap,
 	// as the Environ will be used during instance finalization after
 	// the Bootstrap method returns, and the session will be invalid.
+	if err := env.withSession(func(env *sessionEnviron) error {
+		return env.ensureVMFolder(args.ControllerConfig.ControllerUUID())
+	}); err != nil {
+		return nil, errors.Trace(err)
+	}
 	return Bootstrap(ctx, env, args)
 }
 
-// Bootstrap is part of the environs.Environ interface.
 func (env *sessionEnviron) Bootstrap(
 	ctx environs.BootstrapContext,
 	args environs.BootstrapParams,
@@ -143,18 +148,33 @@ func (env *sessionEnviron) Bootstrap(
 	return nil, errors.Errorf("sessionEnviron.Bootstrap should never be called")
 }
 
+func (env *sessionEnviron) ensureVMFolder(controllerUUID string) error {
+	return env.client.EnsureVMFolder(env.ctx, path.Join(
+		controllerFolderName(controllerUUID),
+		env.modelFolderName(),
+	))
+}
+
 //this variable is exported, because it has to be rewritten in external unit tests
 var DestroyEnv = common.Destroy
 
 // AdoptResources is part of the Environ interface.
 func (env *environ) AdoptResources(controllerUUID string, fromVersion version.Number) error {
-	// This provider doesn't track instance -> controller.
-	return nil
+	// Move model folder into the controller's folder.
+	return env.withSession(func(env *sessionEnviron) error {
+		return env.AdoptResources(controllerUUID, fromVersion)
+	})
 }
 
 // AdoptResources is part of the Environ interface.
 func (env *sessionEnviron) AdoptResources(controllerUUID string, fromVersion version.Number) error {
-	return nil
+	return env.client.MoveVMFolderInto(env.ctx,
+		controllerFolderName(controllerUUID),
+		path.Join(
+			controllerFolderName("*"),
+			env.modelFolderName(),
+		),
+	)
 }
 
 // Destroy is part of the environs.Environ interface.
@@ -166,7 +186,13 @@ func (env *environ) Destroy() error {
 
 // Destroy is part of the environs.Environ interface.
 func (env *sessionEnviron) Destroy() error {
-	return DestroyEnv(env)
+	if err := DestroyEnv(env); err != nil {
+		return errors.Trace(err)
+	}
+	return env.client.DestroyVMFolder(env.ctx, path.Join(
+		controllerFolderName("*"),
+		env.modelFolderName(),
+	))
 }
 
 // DestroyController implements the Environ interface.
@@ -178,5 +204,16 @@ func (env *environ) DestroyController(controllerUUID string) error {
 
 // DestroyController implements the Environ interface.
 func (env *sessionEnviron) DestroyController(controllerUUID string) error {
-	return env.Destroy()
+	if err := env.Destroy(); err != nil {
+		return errors.Trace(err)
+	}
+	controllerFolderName := controllerFolderName(controllerUUID)
+	if err := env.client.RemoveVirtualMachines(env.ctx, path.Join(
+		controllerFolderName,
+		modelFolderName("*", "*"),
+		"*",
+	)); err != nil {
+		return errors.Annotate(err, "removing VMs")
+	}
+	return env.client.DestroyVMFolder(env.ctx, controllerFolderName)
 }

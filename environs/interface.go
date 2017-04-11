@@ -400,7 +400,15 @@ type InstanceTypesFetcher interface {
 type Upgrader interface {
 	// UpgradeOperations returns a list of UpgradeOperations for upgrading
 	// an Environ.
-	UpgradeOperations() []UpgradeOperation
+	UpgradeOperations(UpgradeOperationsParams) []UpgradeOperation
+}
+
+// UpgradeOperationsParams contains the parameters for
+// Upgrader.UpgradeOperations.
+type UpgradeOperationsParams struct {
+	// ControllerUUID is the UUID of the controller to be that contains
+	// the Environ that is to be upgraded.
+	ControllerUUID string
 }
 
 // UpgradeOperation contains a target agent version and sequence of upgrade

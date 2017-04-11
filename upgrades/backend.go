@@ -16,6 +16,7 @@ import (
 // StateBackend provides an interface for upgrading the global state database.
 type StateBackend interface {
 	AllModels() ([]Model, error)
+	ControllerUUID() string
 
 	StripLocalUserDomain() error
 	RenameAddModelPermission() error
@@ -54,6 +55,10 @@ func (s stateBackend) AllModels() ([]Model, error) {
 		out[i] = &modelShim{s.st, m}
 	}
 	return out, nil
+}
+
+func (s stateBackend) ControllerUUID() string {
+	return s.st.ControllerUUID()
 }
 
 func (s stateBackend) StripLocalUserDomain() error {

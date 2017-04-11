@@ -9,6 +9,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/instance"
 )
 
@@ -79,15 +80,16 @@ func (env *sessionEnviron) ControllerInstances(controllerUUID string) ([]instanc
 	for _, inst := range instances {
 		vm := inst.(*environInstance).base
 		metadata := vm.Config.ExtraConfig
+		var isController bool
 		for _, item := range metadata {
 			value := item.GetOptionValue()
-			if value.Key == metadataKeyControllerUUID && value.Value != controllerUUID {
-				continue
-			}
-			if value.Key == metadataKeyIsController && value.Value == metadataValueIsController {
-				results = append(results, inst.Id())
+			if value.Key == tags.JujuIsController && value.Value == "true" {
+				isController = true
 				break
 			}
+		}
+		if isController {
+			results = append(results, inst.Id())
 		}
 	}
 	if len(results) == 0 {
@@ -118,4 +120,9 @@ func (env *sessionEnviron) parsePlacement(placement string) (*vmwareAvailZone, e
 		return zone.(*vmwareAvailZone), nil
 	}
 	return nil, errors.Errorf("unknown placement directive: %v", placement)
+}
+
+func (env *sessionEnviron) modelFolderName() string {
+	cfg := env.Config()
+	return modelFolderName(cfg.UUID(), cfg.Name())
 }
