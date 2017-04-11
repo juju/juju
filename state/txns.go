@@ -54,7 +54,7 @@ func (st *State) MaybePruneTransactions() error {
 	defer closer()
 	// Prune txns when txn count has increased by 10% since last prune.
 	return runner.MaybePruneTransactions(jujutxn.PruneOptions{
-		PruneFactor: 1.1,
+		PruneFactor:        1.1,
 		MinNewTransactions: 1000,
 		MaxNewTransactions: 100000,
 	})
