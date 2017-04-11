@@ -331,3 +331,23 @@ iface br-eth3 inet static
 
 	c.Assert(debinterfaces.FormatStanzas(debinterfaces.FlattenStanzas(bridged), 4), gc.Equals, expected[1:])
 }
+
+func (s *BridgeSuite) TestBridgeInet6Only(c *gc.C) {
+	input := `
+auto enxe0db55e41d5b
+iface enxe0db55e41d5b inet6 static
+    address 3ffe:1234:5678::1/64
+    gateway 3ffe:1234:5678::2
+`
+	expected := `
+auto enxe0db55e41d5b
+iface enxe0db55e41d5b inet6 manual
+
+auto br-xe0db55e41d5b
+iface br-xe0db55e41d5b inet6 static
+    address 3ffe:1234:5678::1/64
+    gateway 3ffe:1234:5678::2
+    bridge_ports enxe0db55e41d5b`
+
+	s.assertBridge(input, expected[1:], c, map[string]string{"enxe0db55e41d5b": "br-xe0db55e41d5b"})
+}
