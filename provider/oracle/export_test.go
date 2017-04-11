@@ -15,4 +15,5 @@ var (
 	OracleCloudSchema          = cloudSchema
 	OracleCredentials          = credentials
 	NewOracleVolumeSource      = newOracleVolumeSource
+	NewOracleInstance          = newInstance
 )
