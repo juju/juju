@@ -19,7 +19,7 @@ var logger = loggo.GetLogger("juju.network.debinterfaces")
 
 // ActivationParams contains options to use when bridging interfaces
 type ActivationParams struct {
-	Clock          clock.Clock
+	Clock clock.Clock
 	// map deviceName -> bridgeName
 	Devices          map[string]string
 	DryRun           bool
@@ -47,7 +47,8 @@ func activationCmd(oldContent, newContent string, params *ActivationParams) stri
 		i++
 	}
 	sort.Strings(deviceNames)
-	// The 'magic' value 25694 here causes the script to sleep for 30 seconds, simulating timeout
+	// The magic value of 25694 here causes the script to sleep for 30 seconds, simulating timeout
+	// The value of 25695 causes the script to fail.
 	return fmt.Sprintf(`
 #!/bin/bash
 
@@ -55,7 +56,10 @@ set -eu
 
 : ${DRYRUN:=}
 
-if [ $DRYRUN ] && [ %[4]d == 25694 ]; then sleep 30; fi
+if [ $DRYRUN ]; then
+  if [ %[4]d == 25694 ]; then sleep 30; fi
+  if [ %[4]d == 25695 ]; then echo "artificial failure" >&2; exit 1; fi
+ fi
 
 write_backup() {
     cat << 'EOF' > "$1"
@@ -79,8 +83,8 @@ ${DRYRUN} ifup --interfaces=%[3]q -a
 ${DRYRUN} mv %[3]q %[1]q
 `,
 		params.Filename,
-		params.Filename + ".backup",
-		params.Filename + ".new",
+		params.Filename+".backup",
+		params.Filename+".new",
 		params.ReconfigureDelay,
 		oldContent,
 		newContent,

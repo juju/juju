@@ -169,16 +169,35 @@ func (*BridgeSuite) TestActivateWithTimeout(c *gc.C) {
 	filename := "testdata/TestInputSourceStanza/interfaces"
 
 	params := debinterfaces.ActivationParams{
-		Clock:            clock.WallClock,
-		Devices:          map[string]string{"eth0": "br-eth0", "eth1": "br-eth1"},
-		DryRun:           true,
-		Filename:         filename,
+		Clock:    clock.WallClock,
+		Devices:  map[string]string{"eth0": "br-eth0", "eth1": "br-eth1"},
+		DryRun:   true,
+		Filename: filename,
 		// magic value causing the bash script to sleep
 		ReconfigureDelay: 25694,
 		Timeout:          10,
 	}
 
 	_, err := debinterfaces.BridgeAndActivate(params)
-        c.Assert(err, gc.NotNil)
-        c.Assert(err, gc.ErrorMatches, "bridge activation error: command cancelled")
+	c.Assert(err, gc.NotNil)
+	c.Assert(err, gc.ErrorMatches, "bridge activation error: command cancelled")
+}
+
+func (*BridgeSuite) TestActivateFailure(c *gc.C) {
+	filename := "testdata/TestInputSourceStanza/interfaces"
+
+	params := debinterfaces.ActivationParams{
+		Clock:    clock.WallClock,
+		Devices:  map[string]string{"eth0": "br-eth0", "eth1": "br-eth1"},
+		DryRun:   true,
+		Filename: filename,
+		// magic value causing the bash script to fail
+		ReconfigureDelay: 25695,
+		Timeout:          5 * time.Minute,
+	}
+
+	result, err := debinterfaces.BridgeAndActivate(params)
+	c.Assert(err, gc.NotNil)
+	c.Assert(err, gc.ErrorMatches, "bridge activation failed: artificial failure\n")
+	c.Assert(result.Code, gc.Equals, 1)
 }
