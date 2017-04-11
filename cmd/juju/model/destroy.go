@@ -231,7 +231,6 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 		if err != nil {
 			ctx.Warningf("model allocation not removed: %v", err)
 		}
-		return nil
 	}
 
 	return nil
