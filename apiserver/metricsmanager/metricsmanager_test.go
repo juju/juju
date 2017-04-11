@@ -219,15 +219,42 @@ func (s *metricsManagerSuite) TestLastSuccessfulNotChangedIfNothingToSend(c *gc.
 func (s *metricsManagerSuite) TestAddJujuMachineMetrics(c *gc.C) {
 	err := s.State.SetSLA("essential", "bob", []byte("sla"))
 	c.Assert(err, jc.ErrorIsNil)
-	s.Factory.MakeMachine(c, nil)
+	// Create two additional ubuntu machines, in addition to the one created in setup.
+	s.Factory.MakeMachine(c, &factory.MachineParams{Series: "trusty"})
+	s.Factory.MakeMachine(c, &factory.MachineParams{Series: "xenial"})
+	s.Factory.MakeMachine(c, &factory.MachineParams{Series: "win7"})
+	s.Factory.MakeMachine(c, &factory.MachineParams{Series: "win8"})
+	s.Factory.MakeMachine(c, &factory.MachineParams{Series: "centos7"})
+	s.Factory.MakeMachine(c, &factory.MachineParams{Series: "redox"})
 	err = s.metricsmanager.AddJujuMachineMetrics()
 	c.Assert(err, jc.ErrorIsNil)
 	metrics, err := s.State.MetricsToSend(10)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(metrics, gc.HasLen, 1)
-	c.Assert(metrics[0].Metrics()[0].Key, gc.Equals, "juju-machines")
-	c.Assert(metrics[0].Metrics()[0].Value, gc.Equals, "2")
+	c.Assert(metrics[0].Metrics(), gc.HasLen, 5)
 	c.Assert(metrics[0].SLACredentials(), gc.DeepEquals, []byte("sla"))
+	t := metrics[0].Metrics()[0].Time
+	c.Assert(metrics[0].Metrics(), jc.SameContents, []state.Metric{{
+		Key:   "juju-machines",
+		Value: "7",
+		Time:  t,
+	}, {
+		Key:   "juju-ubuntu-machines",
+		Value: "3",
+		Time:  t,
+	}, {
+		Key:   "juju-windows-machines",
+		Value: "2",
+		Time:  t,
+	}, {
+		Key:   "juju-centos-machines",
+		Value: "1",
+		Time:  t,
+	}, {
+		Key:   "juju-unknown-machines",
+		Value: "1",
+		Time:  t,
+	}})
 }
 
 func (s *metricsManagerSuite) TestAddJujuMachineMetricsAddsNoMetricsWhenNoSLASet(c *gc.C) {
