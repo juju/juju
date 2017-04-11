@@ -3,7 +3,7 @@
 # PATH must include juju-ci-tools (for s3ci, jujuci, deploy_job)
 # JUJU_HOME must be the path to cloud-city
 # JUJU_REPOSITORY must be a path providing dummy-source and dummy-sink
-# HAMMER_TIME must be a path to the hammer-time binary.
+# HAMMERTIME must be a path to the hammertime binary.
 # base_config is the environment to use as the base config.
 # revision_build is the revision build to test.
 # action_count is the number of actions the plan should perform
@@ -20,13 +20,13 @@ export MODEL_NAME=$JOB_NAME
 export DATA_DIR=$JUJU_HOME/jes-homes/$MODEL_NAME
 export S3_CONFIG=$JUJU_HOME/juju-qa.s3cfg
 export PLAN=$ARTIFACTS/plan.yaml
-export HAMMER_DIR=$(dirname $(dirname $HAMMER_TIME))
+export HAMMER_DIR=$(dirname $(dirname $HAMMERTIME))
 : ${TIMEOUT=30m}
 set -x
 s3ci.py get-summary $revision_build $base_config
 source $(s3ci.py get --config $S3_CONFIG $revision_build build-revision buildvars.bash)
 if [[ $VERSION =~ ^1\..*$ ]]; then
-    echo "$VERSION is not supported for hammer-time."
+    echo "$VERSION is not supported for hammertime."
     exit 0
 fi
 jujuci.py -v setup-workspace $WORKSPACE
@@ -44,10 +44,10 @@ deploy_job.py $base_config $JUJU_BIN $ARTIFACTS $MODEL_NAME \
   --timeout 600 --keep-env
 cd $HAMMER_DIR
 if [ -z "${replay_build_number-}" ]; then
-  $HAMMER_TIME run-random $PLAN --juju-data $DATA_DIR --juju-bin $JUJU_BIN \
+  $HAMMERTIME run-random $PLAN --juju-data $DATA_DIR --juju-bin $JUJU_BIN \
     --action-count $action_count
 else
-  $HAMMER_TIME replay $PLAN --juju-data $DATA_DIR --juju-bin $JUJU_BIN
+  $HAMMERTIME replay $PLAN --juju-data $DATA_DIR --juju-bin $JUJU_BIN
 fi
 EOT
 EXIT_STATUS=$?
