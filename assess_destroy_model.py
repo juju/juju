@@ -116,7 +116,7 @@ def get_current_model(client):
     raw = list_models(client)
     try:
         return raw['current-model']
-    except KeyError as e:
+    except KeyError:
         log.warning('No model is currently selected.')
         return None
 
