@@ -22,6 +22,7 @@ type mockState struct {
 	remoteEntities map[names.Tag]string
 	applications   map[string]*mockApplication
 	units          map[string]*mockUnit
+	machines       map[string]*mockMachine
 	relations      map[string]*mockRelation
 	subnetsWatcher *mockStringsWatcher
 }
@@ -32,6 +33,7 @@ func newMockState(modelUUID string) *mockState {
 		relations:      make(map[string]*mockRelation),
 		applications:   make(map[string]*mockApplication),
 		units:          make(map[string]*mockUnit),
+		machines:       make(map[string]*mockMachine),
 		remoteEntities: make(map[names.Tag]string),
 		subnetsWatcher: newMockStringsWatcher(),
 	}
@@ -63,6 +65,18 @@ func (st *mockState) Unit(name string) (remotefirewaller.Unit, error) {
 		return nil, errors.NotFoundf("unit %q", name)
 	}
 	return u, nil
+}
+
+func (st *mockState) Machine(id string) (remotefirewaller.Machine, error) {
+	st.MethodCall(st, "Machine", id)
+	if err := st.NextErr(); err != nil {
+		return nil, err
+	}
+	m, ok := st.machines[id]
+	if !ok {
+		return nil, errors.NotFoundf("machine %q", id)
+	}
+	return m, nil
 }
 
 func (st *mockState) WatchSubnets(func(id interface{}) bool) state.StringsWatcher {
@@ -224,6 +238,7 @@ type mockUnit struct {
 	name          string
 	assigned      bool
 	publicAddress network.Address
+	machineId     string
 }
 
 func newMockUnit(name string) *mockUnit {
@@ -250,4 +265,54 @@ func (u *mockUnit) PublicAddress() (network.Address, error) {
 		return network.Address{}, network.NoAddressError("public")
 	}
 	return u.publicAddress, nil
+}
+
+func (u *mockUnit) AssignedMachineId() (string, error) {
+	u.MethodCall(u, "AssignedMachineId")
+	if err := u.NextErr(); err != nil {
+		return "", err
+	}
+	if !u.assigned {
+		return "", errors.NotAssignedf(u.name)
+	}
+	return u.machineId, nil
+}
+
+type mockMachine struct {
+	testing.Stub
+	id      string
+	watcher *mockAddressesWatcher
+}
+
+func newMockMachine(id string) *mockMachine {
+	return &mockMachine{id: id}
+}
+
+func (m *mockMachine) Id() string {
+	m.MethodCall(m, "Id")
+	return m.id
+}
+
+func (m *mockMachine) WatchAddresses() state.NotifyWatcher {
+	m.MethodCall(m, "WatchAddresses")
+	if m.watcher == nil {
+		m.watcher = newMockAddressesWatcher()
+	}
+	return m.watcher
+}
+
+type mockAddressesWatcher struct {
+	mockWatcher
+	changes chan struct{}
+}
+
+func newMockAddressesWatcher() *mockAddressesWatcher {
+	w := &mockAddressesWatcher{changes: make(chan struct{}, 1)}
+	go w.doneWhenDying()
+	return w
+}
+
+func (w *mockAddressesWatcher) Changes() <-chan struct{} {
+	w.MethodCall(w, "Changes")
+	return w.changes
 }
