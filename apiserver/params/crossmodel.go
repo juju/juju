@@ -39,6 +39,7 @@ type OfferFilter struct {
 
 // ApplicationOffer represents an application offering from an external model.
 type ApplicationOffer struct {
+	SourceModelTag         string           `json:"source-model-tag"`
 	OfferURL               string           `json:"offer-url"`
 	OfferName              string           `json:"offer-name"`
 	ApplicationDescription string           `json:"application-description"`
