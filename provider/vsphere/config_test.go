@@ -7,26 +7,61 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/provider/vsphere"
 	"github.com/juju/juju/testing"
 )
 
-type ConfigSuite struct {
-	vsphere.BaseSuite
+func fakeConfig(c *gc.C, attrs ...testing.Attrs) *config.Config {
+	cfg, err := testing.ModelConfig(c).Apply(fakeConfigAttrs(attrs...))
+	c.Assert(err, jc.ErrorIsNil)
+	return cfg
+}
 
-	config *config.Config
+func fakeConfigAttrs(attrs ...testing.Attrs) testing.Attrs {
+	merged := testing.FakeConfig().Merge(testing.Attrs{
+		"type":             "vsphere",
+		"uuid":             "2d02eeac-9dbb-11e4-89d3-123b93f75cba",
+		"external-network": "",
+	})
+	for _, attrs := range attrs {
+		merged = merged.Merge(attrs)
+	}
+	return merged
+}
+
+func fakeCloudSpec() environs.CloudSpec {
+	cred := fakeCredential()
+	return environs.CloudSpec{
+		Type:       "vsphere",
+		Name:       "vsphere",
+		Region:     "/datacenter1",
+		Endpoint:   "host1",
+		Credential: &cred,
+	}
+}
+
+func fakeCredential() cloud.Credential {
+	return cloud.NewCredential(cloud.UserPassAuthType, map[string]string{
+		"user":     "user1",
+		"password": "password1",
+	})
+}
+
+type ConfigSuite struct {
+	testing.BaseSuite
+	config   *config.Config
+	provider environs.EnvironProvider
 }
 
 var _ = gc.Suite(&ConfigSuite{})
 
 func (s *ConfigSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-
-	cfg, err := testing.ModelConfig(c).Apply(vsphere.ConfigAttrs())
-	c.Assert(err, jc.ErrorIsNil)
-	s.config = cfg
+	s.config = fakeConfig(c)
+	s.provider = vsphere.NewEnvironProvider(nil)
 }
 
 // configTestSpec defines a subtest to run in a table driven test.
@@ -73,7 +108,7 @@ func (ts configTestSpec) checkAttrs(c *gc.C, attrs map[string]interface{}, cfg *
 }
 
 func (ts configTestSpec) attrs() testing.Attrs {
-	return vsphere.ConfigAttrs().Merge(ts.insert).Delete(ts.remove...)
+	return fakeConfigAttrs().Merge(ts.insert).Delete(ts.remove...)
 }
 
 func (ts configTestSpec) newConfig(c *gc.C) *config.Config {
@@ -93,10 +128,10 @@ func (*ConfigSuite) TestNewModelConfig(c *gc.C) {
 	for i, test := range newConfigTests {
 		c.Logf("test %d: %s", i, test.info)
 
-		testConfig := test.newConfig(c)
+		fakeConfig := test.newConfig(c)
 		environ, err := environs.New(environs.OpenParams{
-			Cloud:  vsphere.FakeCloudSpec(),
-			Config: testConfig,
+			Cloud:  fakeCloudSpec(),
+			Config: fakeConfig,
 		})
 
 		// Check the result
@@ -108,12 +143,12 @@ func (*ConfigSuite) TestNewModelConfig(c *gc.C) {
 	}
 }
 
-func (*ConfigSuite) TestValidateNewConfig(c *gc.C) {
+func (s *ConfigSuite) TestValidateNewConfig(c *gc.C) {
 	for i, test := range newConfigTests {
 		c.Logf("test %d: %s", i, test.info)
 
-		testConfig := test.newConfig(c)
-		validatedConfig, err := vsphere.Provider.Validate(testConfig, nil)
+		fakeConfig := test.newConfig(c)
+		validatedConfig, err := s.provider.Validate(fakeConfig, nil)
 
 		// Check the result
 		if test.err != "" {
@@ -131,11 +166,11 @@ func (s *ConfigSuite) TestValidateOldConfig(c *gc.C) {
 
 		oldcfg := test.newConfig(c)
 		newcfg := s.config
-		expected := vsphere.ConfigAttrs()
+		expected := fakeConfigAttrs()
 
 		// Validate the new config (relative to the old one) using the
 		// provider.
-		validatedConfig, err := vsphere.Provider.Validate(newcfg, oldcfg)
+		validatedConfig, err := s.provider.Validate(newcfg, oldcfg)
 
 		// Check the result.
 		if test.err != "" {
@@ -158,7 +193,7 @@ func (s *ConfigSuite) TestValidateOldConfig(c *gc.C) {
 
 var changeConfigTests = []configTestSpec{{
 	info:   "no change, no error",
-	expect: vsphere.ConfigAttrs(),
+	expect: fakeConfigAttrs(),
 }, {
 	info:   "can insert unknown field",
 	insert: testing.Attrs{"unknown": "ignoti"},
@@ -169,8 +204,8 @@ func (s *ConfigSuite) TestValidateChange(c *gc.C) {
 	for i, test := range changeConfigTests {
 		c.Logf("test %d: %s", i, test.info)
 
-		testConfig := test.newConfig(c)
-		validatedConfig, err := vsphere.Provider.Validate(testConfig, s.config)
+		fakeConfig := test.newConfig(c)
+		validatedConfig, err := s.provider.Validate(fakeConfig, s.config)
 
 		// Check the result.
 		if test.err != "" {
@@ -186,13 +221,13 @@ func (s *ConfigSuite) TestSetConfig(c *gc.C) {
 		c.Logf("test %d: %s", i, test.info)
 
 		environ, err := environs.New(environs.OpenParams{
-			Cloud:  vsphere.FakeCloudSpec(),
+			Cloud:  fakeCloudSpec(),
 			Config: s.config,
 		})
 		c.Assert(err, jc.ErrorIsNil)
 
-		testConfig := test.newConfig(c)
-		err = environ.SetConfig(testConfig)
+		fakeConfig := test.newConfig(c)
+		err = environ.SetConfig(fakeConfig)
 
 		// Check the result.
 		if test.err != "" {

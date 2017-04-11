@@ -3,12 +3,22 @@
 
 package vsphere
 
-import "github.com/juju/juju/environs"
+import (
+	"net/url"
+
+	"golang.org/x/net/context"
+
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/provider/vsphere/internal/vsphereclient"
+)
 
 const (
 	providerType = "vsphere"
 )
 
 func init() {
-	environs.RegisterProvider(providerType, providerInstance)
+	dial := func(ctx context.Context, u *url.URL, dc string) (Client, error) {
+		return vsphereclient.Dial(ctx, u, dc, logger)
+	}
+	environs.RegisterProvider(providerType, NewEnvironProvider(dial))
 }

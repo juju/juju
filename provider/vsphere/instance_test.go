@@ -5,53 +5,59 @@ package vsphere_test
 
 import (
 	jc "github.com/juju/testing/checkers"
+	"github.com/vmware/govmomi/vim25/mo"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/provider/vsphere"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/status"
 )
 
-type InstanceSuiteSuite struct {
-	vsphere.BaseSuite
-	namespace instance.Namespace
+type InstanceSuite struct {
+	EnvironFixture
 }
 
-var _ = gc.Suite(&InstanceSuiteSuite{})
+var _ = gc.Suite(&InstanceSuite{})
 
-func (s *InstanceSuiteSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
-	namespace, err := instance.NewNamespace(s.Env.Config().UUID())
+func (s *InstanceSuite) TestInstances(c *gc.C) {
+	s.client.virtualMachines = []*mo.VirtualMachine{
+		buildVM("inst-0").vm(),
+		buildVM("inst-1").vm(),
+		buildVM("inst-2").vm(),
+	}
+	instances, err := s.env.Instances([]instance.Id{"inst-0", "inst-1"})
 	c.Assert(err, jc.ErrorIsNil)
-	s.namespace = namespace
+	c.Assert(instances, gc.HasLen, 2)
+	c.Assert(instances[0], gc.NotNil)
+	c.Assert(instances[1], gc.NotNil)
+	c.Assert(instances[0].Id(), gc.Equals, instance.Id("inst-0"))
+	c.Assert(instances[1].Id(), gc.Equals, instance.Id("inst-1"))
 }
 
-func (s *InstanceSuiteSuite) machineName(c *gc.C, id string) string {
-	name, err := s.namespace.Hostname(id)
-	c.Assert(err, jc.ErrorIsNil)
-	return name
+func (s *InstanceSuite) TestInstancesNoInstances(c *gc.C) {
+	_, err := s.env.Instances([]instance.Id{"inst-0"})
+	c.Assert(err, gc.Equals, environs.ErrNoInstances)
 }
 
-func (s *InstanceSuiteSuite) TestInstances(c *gc.C) {
-	client, closer, err := vsphere.ExposeEnvFakeClient(s.Env)
-	c.Assert(err, jc.ErrorIsNil)
-	defer closer()
-	s.FakeClient = client
-	client.SetPropertyProxyHandler("FakeDatacenter", vsphere.RetrieveDatacenterProperties)
-	vmName1 := s.machineName(c, "1")
-	vmName2 := s.machineName(c, "2")
-	s.FakeInstances(client, vsphere.Inst{
-		Inst:       vmName1,
-		PowerState: "poweredOn",
-	}, vsphere.Inst{
-		Inst:       vmName2,
-		PowerState: "poweredOff",
-	})
+func (s *InstanceSuite) TestInstancesPartialInstances(c *gc.C) {
+	s.client.virtualMachines = []*mo.VirtualMachine{
+		buildVM("inst-0").vm(),
+		buildVM("inst-1").vm(),
+	}
+	instances, err := s.env.Instances([]instance.Id{"inst-1", "inst-2"})
+	c.Assert(err, gc.Equals, environs.ErrPartialInstances)
+	c.Assert(instances[0], gc.NotNil)
+	c.Assert(instances[1], gc.IsNil)
+	c.Assert(instances[0].Id(), gc.Equals, instance.Id("inst-1"))
+}
 
-	instances, err := s.Env.Instances([]instance.Id{
-		instance.Id(vmName1),
-		instance.Id(vmName2),
-	})
+func (s *InstanceSuite) TestInstanceStatus(c *gc.C) {
+	s.client.virtualMachines = []*mo.VirtualMachine{
+		buildVM("inst-0").vm(),
+		buildVM("inst-1").powerOff().vm(),
+	}
+	instances, err := s.env.Instances([]instance.Id{"inst-0", "inst-1"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(instances[0].Status(), jc.DeepEquals, instance.InstanceStatus{
 		Status:  status.Running,
@@ -61,4 +67,48 @@ func (s *InstanceSuiteSuite) TestInstances(c *gc.C) {
 		Status:  status.Empty,
 		Message: "poweredOff",
 	})
+}
+
+func (s *InstanceSuite) TestInstanceAddresses(c *gc.C) {
+	vm0 := buildVM("inst-0").nic(
+		newNic("10.1.1.1", "10.1.1.2"),
+		newNic("10.1.1.3"),
+	).vm()
+	vm1 := buildVM("inst-1").vm()
+	vm2 := buildVM("inst-2").vm()
+	vm2.Guest = nil
+
+	s.client.virtualMachines = []*mo.VirtualMachine{vm0, vm1, vm2}
+	instances, err := s.env.Instances([]instance.Id{"inst-0", "inst-1", "inst-2"})
+	c.Assert(err, jc.ErrorIsNil)
+
+	addrs, err := instances[0].Addresses()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(addrs, jc.DeepEquals, []network.Address{
+		network.NewAddress("10.1.1.1"),
+		network.NewAddress("10.1.1.2"),
+		network.NewAddress("10.1.1.3"),
+	})
+
+	addrs, err = instances[1].Addresses()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(addrs, gc.HasLen, 0)
+
+	addrs, err = instances[2].Addresses()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(addrs, gc.HasLen, 0)
+}
+
+func (s *InstanceSuite) TestControllerInstances(c *gc.C) {
+	s.client.virtualMachines = []*mo.VirtualMachine{
+		buildVM("inst-0").vm(),
+		buildVM("inst-1").extraConfig(
+			"juju_is_controller_key", "juju_is_controller_value",
+		).extraConfig(
+			"juju_controller_uuid_key", "foo",
+		).vm(),
+	}
+	ids, err := s.env.ControllerInstances("foo")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ids, jc.DeepEquals, []instance.Id{"inst-1"})
 }

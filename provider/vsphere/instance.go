@@ -48,25 +48,16 @@ func (inst *environInstance) Status() instance.InstanceStatus {
 
 // Addresses implements instance.Instance.
 func (inst *environInstance) Addresses() ([]network.Address, error) {
-	if inst.base.Guest == nil || inst.base.Guest.IpAddress == "" {
+	if inst.base.Guest == nil {
 		return nil, nil
 	}
-	res := make([]network.Address, 0)
+	res := make([]network.Address, 0, len(inst.base.Guest.Net))
 	for _, net := range inst.base.Guest.Net {
 		for _, ip := range net.IpAddress {
 			res = append(res, network.NewAddress(ip))
 		}
 	}
 	return res, nil
-}
-
-func findInst(id instance.Id, instances []instance.Instance) instance.Instance {
-	for _, inst := range instances {
-		if id == inst.Id() {
-			return inst
-		}
-	}
-	return nil
 }
 
 // firewall stuff
