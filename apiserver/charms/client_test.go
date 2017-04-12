@@ -9,29 +9,44 @@ import (
 
 	"github.com/juju/juju/apiserver/charms"
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing/factory"
 )
 
 type charmsSuite struct {
 	// TODO(anastasiamac) mock to remove JujuConnSuite
 	jujutesting.JujuConnSuite
-	api *charms.API
+	api  *charms.API
+	auth facade.Authorizer
 }
 
 var _ = gc.Suite(&charmsSuite{})
 
+// charmsSuiteContext implements the facade.Context interface.
+type charmsSuiteContext struct{ cs *charmsSuite }
+
+func (ctx *charmsSuiteContext) Abort() <-chan struct{}      { return nil }
+func (ctx *charmsSuiteContext) Auth() facade.Authorizer     { return ctx.cs.auth }
+func (ctx *charmsSuiteContext) Dispose()                    {}
+func (ctx *charmsSuiteContext) Resources() facade.Resources { return common.NewResources() }
+func (ctx *charmsSuiteContext) State() *state.State         { return ctx.cs.State }
+func (ctx *charmsSuiteContext) StatePool() *state.StatePool { return nil }
+func (ctx *charmsSuiteContext) ID() string                  { return "" }
+
 func (s *charmsSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 
-	var err error
-	auth := testing.FakeAuthorizer{
+	s.auth = testing.FakeAuthorizer{
 		Tag:        s.AdminUserTag(c),
 		Controller: true,
 	}
-	s.api, err = charms.NewAPI(s.State, common.NewResources(), auth)
+
+	var err error
+	s.api, err = charms.NewFacade(&charmsSuiteContext{cs: s})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
