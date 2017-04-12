@@ -2687,7 +2687,7 @@ func (s *applicationSuite) TestRemoteRelationNotFound(c *gc.C) {
 	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	endpoints := []string{"wordpress", "unknownmodel.unknown"}
 	_, err := s.applicationAPI.AddRelation(params.AddRelation{endpoints})
-	c.Assert(err, gc.ErrorMatches, `model "admin/unknownmodel" not found`)
+	c.Assert(err, gc.ErrorMatches, `application offer at admin/unknownmodel.unknown not found`)
 }
 
 func (s *applicationSuite) TestConsumeRejectsEndpoints(c *gc.C) {
