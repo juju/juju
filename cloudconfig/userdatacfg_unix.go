@@ -204,6 +204,13 @@ func (w *unixConfigure) ConfigureJuju() error {
 			fmt.Sprintf(
 				`(printf '%%s\n' %s > /etc/juju-proxy.conf && chmod 0644 /etc/juju-proxy.conf)`,
 				shquote(w.icfg.ProxySettings.AsScriptEnvironment())))
+
+		// Write out systemd proxy settings
+		w.conf.AddScripts(fmt.Sprintf(`[ -e /etc/systemd ] && `+
+			`(install -d /etc/systemd/system.conf.d && install -d /etc/systemd/user.conf.d && `+
+			`printf '%%s\n' %[1]s > /etc/systemd/system.conf.d/juju-proxy.conf && `+
+			`printf '%%s\n' %[1]s > /etc/systemd/user.conf.d/juju-proxy.conf)`,
+			shquote(w.icfg.ProxySettings.AsSystemdDefaultEnv())))
 	}
 
 	if w.icfg.Controller != nil && w.icfg.Controller.PublicImageSigningKey != "" {

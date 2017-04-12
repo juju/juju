@@ -1173,11 +1173,16 @@ func (s *cloudinitSuite) TestProxyWritten(c *gc.C) {
 		`(printf '%s\n' 'export http_proxy=http://user@10.0.0.1
 export HTTP_PROXY=http://user@10.0.0.1
 export no_proxy=localhost,10.0.3.1
-export NO_PROXY=localhost,10.0.3.1' > /etc/juju-proxy.conf && chmod 0644 /etc/juju-proxy.conf)`}
+export NO_PROXY=localhost,10.0.3.1' > /etc/juju-proxy.conf && chmod 0644 /etc/juju-proxy.conf)`,
+		`[ -e /etc/systemd ] && (install -d /etc/systemd/system.conf.d && install -d /etc/systemd/user.conf.d && printf '%s\n' '[Manager]
+DefaultEnvironment="http_proxy=http://user@10.0.0.1" "HTTP_PROXY=http://user@10.0.0.1" "no_proxy=localhost,10.0.3.1" "NO_PROXY=localhost,10.0.3.1" ' > /etc/systemd/system.conf.d/juju-proxy.conf && ` +
+			`printf '%s\n' '[Manager]
+DefaultEnvironment="http_proxy=http://user@10.0.0.1" "HTTP_PROXY=http://user@10.0.0.1" "no_proxy=localhost,10.0.3.1" "NO_PROXY=localhost,10.0.3.1" ' > /etc/systemd/user.conf.d/juju-proxy.conf)`,
+	}
 	found := false
 	for i, cmd := range cmds {
 		if cmd == first {
-			c.Assert(cmds[i+1:i+6], jc.DeepEquals, expected)
+			c.Assert(cmds[i+1:i+7], jc.DeepEquals, expected)
 			found = true
 			break
 		}

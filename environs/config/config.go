@@ -343,7 +343,7 @@ var defaultConfigValues = map[string]interface{}{
 	AptHTTPProxyKey:  "",
 	AptHTTPSProxyKey: "",
 	AptFTPProxyKey:   "",
-	AptNoProxyKey:    "127.0.0.1,localhost,::1",
+	AptNoProxyKey:    "",
 	"apt-mirror":     "",
 }
 
@@ -651,27 +651,27 @@ func (c *Config) AptProxySettings() proxy.Settings {
 	}
 }
 
-// There is no implicit fallback to the default *-proxy values as apt will
-// take them from the global environment.
-
 // AptHTTPProxy returns the apt http proxy for the environment.
+// Falls back to the default http-proxy if not specified.
 func (c *Config) AptHTTPProxy() string {
-	return addSchemeIfMissing("http", c.asString(AptHTTPProxyKey))
+	return addSchemeIfMissing("http", c.getWithFallback(AptHTTPProxyKey, HTTPProxyKey))
 }
 
 // AptHTTPSProxy returns the apt https proxy for the environment.
+// Falls back to the default https-proxy if not specified.
 func (c *Config) AptHTTPSProxy() string {
-	return addSchemeIfMissing("https", c.asString(AptHTTPSProxyKey))
+	return addSchemeIfMissing("https", c.getWithFallback(AptHTTPSProxyKey, HTTPSProxyKey))
 }
 
 // AptFTPProxy returns the apt ftp proxy for the environment.
+// Falls back to the default ftp-proxy if not specified.
 func (c *Config) AptFTPProxy() string {
-	return addSchemeIfMissing("ftp", c.asString(AptFTPProxyKey))
+	return addSchemeIfMissing("ftp", c.getWithFallback(AptFTPProxyKey, FTPProxyKey))
 }
 
 // AptNoProxy returns the 'apt-no-proxy' for the environment.
 func (c *Config) AptNoProxy() string {
-	return c.asString(AptNoProxyKey)
+	return c.getWithFallback(AptNoProxyKey, NoProxyKey)
 }
 
 // AptMirror sets the apt mirror for the environment.
