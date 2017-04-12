@@ -29,9 +29,6 @@ type environ struct {
 
 	lock sync.Mutex // lock protects access the following fields.
 	ecfg *environConfig
-
-	archLock               sync.Mutex
-	supportedArchitectures []string
 }
 
 func newEnviron(

@@ -6,11 +6,17 @@ package vsphere_test
 import (
 	"archive/tar"
 	"bytes"
+	"crypto/sha256"
+	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"time"
 
+	"github.com/juju/mutex"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs"
@@ -21,28 +27,40 @@ import (
 
 type ProviderFixture struct {
 	testing.IsolationSuite
-	dialStub testing.Stub
-	client   *mockClient
-	provider environs.EnvironProvider
+	dialStub    testing.Stub
+	client      *mockClient
+	ovaCacheDir string
+	provider    environs.EnvironProvider
 }
 
 func (s *ProviderFixture) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.dialStub.ResetCalls()
 	s.client = &mockClient{}
-	s.provider = vsphere.NewEnvironProvider(newMockDialFunc(&s.dialStub, s.client))
+	s.ovaCacheDir = c.MkDir()
+	s.provider = vsphere.NewEnvironProvider(vsphere.EnvironProviderConfig{
+		Dial:        newMockDialFunc(&s.dialStub, s.client),
+		OVACacheDir: s.ovaCacheDir,
+		OVACacheLocker: vsphere.NewMutexCacheLocker(mutex.Spec{
+			Name:  "juju-vsphere-testing",
+			Clock: clock.WallClock,
+			Delay: time.Second,
+		}),
+	})
 }
 
 type EnvironFixture struct {
 	ProviderFixture
-	imageServer *httptest.Server
-	env         environs.Environ
+	imageServer         *httptest.Server
+	imageServerRequests []*http.Request
+	env                 environs.Environ
 }
 
 func (s *EnvironFixture) SetUpTest(c *gc.C) {
 	s.ProviderFixture.SetUpTest(c)
 
-	s.imageServer = serveImageMetadata()
+	s.imageServerRequests = nil
+	s.imageServer = serveImageMetadata(&s.imageServerRequests)
 	s.AddCleanup(func(*gc.C) {
 		s.imageServer.Close()
 	})
@@ -61,7 +79,7 @@ func (s *EnvironFixture) SetUpTest(c *gc.C) {
 	s.PatchValue(&imagemetadata.DefaultJujuBaseURL, "")
 }
 
-func serveImageMetadata() *httptest.Server {
+func serveImageMetadata(requests *[]*http.Request) *httptest.Server {
 	index := `{
   "index": {
      "com.ubuntu.cloud:released:download": {
@@ -76,7 +94,7 @@ func serveImageMetadata() *httptest.Server {
   "format": "index:1.0"
 }`
 
-	download := `{
+	download := fmt.Sprintf(`{
   "updated": "Thu, 05 Mar 2015 12:14:40 +0000", 
   "license": "http://www.canonical.com/intellectual-property-policy", 
   "format": "products:1.0", 
@@ -93,7 +111,7 @@ func serveImageMetadata() *httptest.Server {
               "size": 7196, 
               "path": "server/releases/trusty/release-20150305/ubuntu-14.04-server-cloudimg-amd64.ova",
               "ftype": "ova", 
-              "sha256": "d6cade98b50e2e27f4508b01fea99d5b26a2f2a184c83e5fb597ca7b142ec01c", 
+              "sha256": "%s", 
               "md5": "00662c59ca52558e7a3bb9a67d194730"
             }
           }      
@@ -101,7 +119,7 @@ func serveImageMetadata() *httptest.Server {
       }
     }
   }
-}`
+}`, fakeOvaSha256)
 
 	files := map[string][]byte{
 		"/streams/v1/index.json":                                                          []byte(index),
@@ -111,17 +129,22 @@ func serveImageMetadata() *httptest.Server {
 	mux := http.NewServeMux()
 	for path := range files {
 		mux.HandleFunc(path, func(w http.ResponseWriter, req *http.Request) {
+			*requests = append(*requests, req)
 			w.Write(files[req.URL.Path])
 		})
 	}
 	return httptest.NewServer(mux)
 }
 
-var fakeOva []byte
+var (
+	fakeOva       []byte
+	fakeOvaSha256 string
+)
 
 func init() {
 	buf := new(bytes.Buffer)
-	tw := tar.NewWriter(buf)
+	hash := sha256.New()
+	tw := tar.NewWriter(io.MultiWriter(buf, hash))
 	var files = []struct{ Name, Body string }{
 		{"ubuntu-14.04-server-cloudimg-amd64.ovf", "FakeOvfContent"},
 		{"ubuntu-14.04-server-cloudimg-amd64.vmdk", "FakeVmdkContent"},
@@ -136,4 +159,5 @@ func init() {
 	}
 	tw.Close()
 	fakeOva = buf.Bytes()
+	fakeOvaSha256 = fmt.Sprintf("%x", hash.Sum(nil))
 }
